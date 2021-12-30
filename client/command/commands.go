@@ -243,7 +243,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			a.String("name", "name of the extension or alias to install")
 		},
 		Completer: func(prefix string, args []string) []string {
-			return armory.AliasOrExtensionCompleter(prefix, args, con)
+			return armory.AliasExtensionOrBundleCompleter(prefix, args, con)
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})

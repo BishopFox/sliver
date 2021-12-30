@@ -33,30 +33,59 @@ import (
 	"github.com/desertbit/grumble"
 )
 
+var (
+	ErrPackageNotFound = errors.New("package not found")
+)
+
 // ArmoryInstallCmd - The armory install command
 func ArmoryInstallCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	name := ctx.Args.String("name")
 	if name == "" {
-		con.PrintErrorf("Package name is required")
+		con.PrintErrorf("A package or bundle name is required")
 		return
 	}
 	clientConfig := parseArmoryHTTPConfig(ctx)
-
 	refresh(clientConfig)
+	err := installPackageByName(name, clientConfig, con)
+	if err == nil {
+		return
+	}
+	if err == ErrPackageNotFound {
+		bundles := bundlesInCache()
+		for _, bundle := range bundles {
+			if bundle.Name == name {
+				installBundle(bundle, clientConfig, con)
+				return
+			}
+		}
+	}
+	con.PrintErrorf("No package or bundle named '%s' was found", name)
+}
+
+func installBundle(bundle *ArmoryBundle, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) {
+	for _, pkgName := range bundle.Packages {
+		err := installExtensionPackageByName(pkgName, clientConfig, con)
+		if err != nil {
+			con.PrintErrorf("Failed to install '%s': %s", pkgName, err)
+		}
+	}
+}
+
+func installPackageByName(name string, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) error {
 	aliases, extensions := packagesInCache()
 	for _, alias := range aliases {
 		if alias.CommandName == name {
 			installAlias(alias, clientConfig, con)
-			return
+			return nil
 		}
 	}
 	for _, ext := range extensions {
 		if ext.CommandName == name {
 			installExtension(ext, clientConfig, con)
-			return
+			return nil
 		}
 	}
-	con.PrintErrorf("Package '%s' not found", name)
+	return ErrPackageNotFound
 }
 
 func installAlias(alias *alias.AliasManifest, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) {

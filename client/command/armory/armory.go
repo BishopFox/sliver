@@ -40,6 +40,7 @@ import (
 type ArmoryIndex struct {
 	Aliases    []*ArmoryPackage `json:"aliases"`
 	Extensions []*ArmoryPackage `json:"extensions"`
+	Bundles    []*ArmoryBundle  `json:"bundles"`
 }
 
 type ArmoryPackage struct {
@@ -49,6 +50,11 @@ type ArmoryPackage struct {
 	PublicKey   string `json:"public_key"`
 
 	IsAlias bool `json:"-"`
+}
+
+type ArmoryBundle struct {
+	Name     string   `json:"name"`
+	Packages []string `json:"packages"`
 }
 
 type ArmoryHTTPConfig struct {
@@ -136,6 +142,14 @@ func ArmoryCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		} else {
 			con.PrintInfof("No packages found\n")
 		}
+
+		con.Println()
+		bundles := bundlesInCache()
+		if 0 < len(bundles) {
+			PrintArmoryBundles(bundles, con)
+		} else {
+			con.PrintInfof("No bundles found\n")
+		}
 	} else {
 		con.PrintInfof("No indexes found\n")
 	}
@@ -164,10 +178,21 @@ func packagesInCache() ([]*alias.AliasManifest, []*extensions.ExtensionManifest)
 	return aliases, exts
 }
 
-// AliasOrExtensionCompleter - Completer for alias and extension command names
-func AliasOrExtensionCompleter(prefix string, args []string, con *console.SliverConsoleClient) []string {
+func bundlesInCache() []*ArmoryBundle {
+	bundles := []*ArmoryBundle{}
+	indexCache.Range(func(key, value interface{}) bool {
+		indexBundles := value.(indexCacheEntry).Index.Bundles
+		bundles = append(bundles, indexBundles...)
+		return true
+	})
+	return bundles
+}
+
+// AliasExtensionOrBundleCompleter - Completer for alias, extension, and bundle names
+func AliasExtensionOrBundleCompleter(prefix string, args []string, con *console.SliverConsoleClient) []string {
 	results := []string{}
 	aliases, exts := packagesInCache()
+	bundles := bundlesInCache()
 	for _, alias := range aliases {
 		if strings.HasPrefix(alias.CommandName, prefix) {
 			results = append(results, alias.CommandName)
@@ -178,12 +203,16 @@ func AliasOrExtensionCompleter(prefix string, args []string, con *console.Sliver
 			results = append(results, extension.CommandName)
 		}
 	}
+	for _, bundle := range bundles {
+		if strings.HasPrefix(bundle.Name, prefix) {
+			results = append(results, bundle.Name)
+		}
+	}
 	return results
 }
 
 // PrintArmoryPackages - Prints the armory packages
 func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.ExtensionManifest, con *console.SliverConsoleClient) {
-
 	type pkgInfo struct {
 		CommandName string
 		Version     string
@@ -191,9 +220,9 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 		Help        string
 		URL         string
 	}
-	packages := []pkgInfo{}
+	entries := []pkgInfo{}
 	for _, alias := range aliases {
-		packages = append(packages, pkgInfo{
+		entries = append(entries, pkgInfo{
 			CommandName: alias.CommandName,
 			Version:     alias.Version,
 			Type:        "Alias",
@@ -202,7 +231,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 		})
 	}
 	for _, extension := range exts {
-		packages = append(packages, pkgInfo{
+		entries = append(entries, pkgInfo{
 			CommandName: extension.CommandName,
 			Version:     extension.Version,
 			Type:        "Extension",
@@ -213,6 +242,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	tw.SetTitle(console.Bold + "Packages" + console.Normal)
 	tw.AppendHeader(table.Row{
 		"Command Name",
 		"Version",
@@ -224,7 +254,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 		{Name: "Command Name", Mode: table.Asc},
 	})
 
-	for _, pkg := range packages {
+	for _, pkg := range entries {
 		color := console.Normal
 		if extensions.CmdExists(pkg.CommandName, con.App) {
 			color = console.Green
@@ -238,6 +268,27 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 		})
 	}
 
+	con.Printf("%s\n", tw.Render())
+}
+
+// PrintArmoryBundles - Prints the armory bundles
+func PrintArmoryBundles(bundles []*ArmoryBundle, con *console.SliverConsoleClient) {
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.SetTitle(console.Bold + "Bundles" + console.Normal)
+	tw.AppendHeader(table.Row{
+		"Name",
+		"Contains",
+	})
+	tw.SortBy([]table.SortBy{
+		{Name: "Name", Mode: table.Asc},
+	})
+	for _, bundle := range bundles {
+		tw.AppendRow(table.Row{
+			bundle.Name,
+			strings.Join(bundle.Packages, ", "),
+		})
+	}
 	con.Printf("%s\n", tw.Render())
 }
 
