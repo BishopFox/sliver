@@ -40,7 +40,7 @@ func ExtensionsInstallCmd(ctx *grumble.Context, con *console.SliverConsoleClient
 		return
 	}
 	if !fi.IsDir() {
-		InstallFromFilePath(extLocalPath, con)
+		InstallFromFilePath(extLocalPath, false, con)
 	} else {
 		installFromDir(extLocalPath, con)
 	}
@@ -67,7 +67,7 @@ func installFromDir(extLocalPath string, con *console.SliverConsoleClient) {
 		if !confirm {
 			return
 		}
-		os.RemoveAll(installPath)
+		forceRemoveAll(installPath)
 	}
 
 	con.PrintInfof("Installing extension '%s' (%s) ... ", manifest.CommandName, manifest.Version)
@@ -79,7 +79,7 @@ func installFromDir(extLocalPath string, con *console.SliverConsoleClient) {
 	err = ioutil.WriteFile(filepath.Join(installPath, ManifestFileName), manifestData, 0o600)
 	if err != nil {
 		con.PrintErrorf("\nFailed to write %s: %s\n", ManifestFileName, err)
-		os.RemoveAll(installPath)
+		forceRemoveAll(installPath)
 		return
 	}
 
@@ -90,7 +90,7 @@ func installFromDir(extLocalPath string, con *console.SliverConsoleClient) {
 			err := util.CopyFile(src, dst)
 			if err != nil {
 				con.PrintErrorf("\nError copying file '%s' -> '%s': %s\n", src, dst, err)
-				os.RemoveAll(installPath)
+				forceRemoveAll(installPath)
 				return
 			}
 		}
@@ -99,7 +99,7 @@ func installFromDir(extLocalPath string, con *console.SliverConsoleClient) {
 }
 
 // Install an extension from a .tar.gz file
-func InstallFromFilePath(extLocalPath string, con *console.SliverConsoleClient) *string {
+func InstallFromFilePath(extLocalPath string, autoOverwrite bool, con *console.SliverConsoleClient) *string {
 	manifestData, err := util.ReadFileFromTarGz(extLocalPath, fmt.Sprintf("./%s", ManifestFileName))
 	if err != nil {
 		con.PrintErrorf("Failed to read %s from '%s': %s\n", ManifestFileName, extLocalPath, err)
@@ -112,14 +112,16 @@ func InstallFromFilePath(extLocalPath string, con *console.SliverConsoleClient) 
 	}
 	installPath := filepath.Join(assets.GetExtensionsDir(), filepath.Base(manifest.CommandName))
 	if _, err := os.Stat(installPath); !os.IsNotExist(err) {
-		con.PrintInfof("Extension '%s' already exists\n", manifest.CommandName)
-		confirm := false
-		prompt := &survey.Confirm{Message: "Overwrite current install?"}
-		survey.AskOne(prompt, &confirm)
-		if !confirm {
-			return nil
+		if !autoOverwrite {
+			con.PrintInfof("Extension '%s' already exists\n", manifest.CommandName)
+			confirm := false
+			prompt := &survey.Confirm{Message: "Overwrite current install?"}
+			survey.AskOne(prompt, &confirm)
+			if !confirm {
+				return nil
+			}
 		}
-		os.RemoveAll(installPath)
+		forceRemoveAll(installPath)
 	}
 
 	con.PrintInfof("Installing extension '%s' (%s) ... ", manifest.CommandName, manifest.Version)
@@ -131,7 +133,7 @@ func InstallFromFilePath(extLocalPath string, con *console.SliverConsoleClient) 
 	err = ioutil.WriteFile(filepath.Join(installPath, ManifestFileName), manifestData, 0o600)
 	if err != nil {
 		con.PrintErrorf("\nFailed to write %s: %s\n", ManifestFileName, err)
-		os.RemoveAll(installPath)
+		forceRemoveAll(installPath)
 		return nil
 	}
 	for _, manifestFile := range manifest.Files {
@@ -139,7 +141,7 @@ func InstallFromFilePath(extLocalPath string, con *console.SliverConsoleClient) 
 			err = installArtifact(extLocalPath, installPath, manifestFile.Path, con)
 			if err != nil {
 				con.PrintErrorf("\nFailed to install file: %s\n", err)
-				os.RemoveAll(installPath)
+				forceRemoveAll(installPath)
 				return nil
 			}
 		}

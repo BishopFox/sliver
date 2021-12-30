@@ -40,7 +40,7 @@ func AliasesInstallCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	if !fi.IsDir() {
-		InstallFromFile(aliasLocalPath, con)
+		InstallFromFile(aliasLocalPath, false, con)
 	} else {
 		installFromDir(aliasLocalPath, con)
 	}
@@ -67,7 +67,7 @@ func installFromDir(aliasLocalPath string, con *console.SliverConsoleClient) {
 		if !confirm {
 			return
 		}
-		os.RemoveAll(installPath)
+		forceRemoveAll(installPath)
 	}
 
 	con.PrintInfof("Installing alias '%s' (%s) ... ", manifest.Name, manifest.Version)
@@ -79,7 +79,7 @@ func installFromDir(aliasLocalPath string, con *console.SliverConsoleClient) {
 	err = ioutil.WriteFile(filepath.Join(installPath, ManifestFileName), manifestData, 0o600)
 	if err != nil {
 		con.PrintErrorf("\nFailed to write %s: %s\n", ManifestFileName, err)
-		os.RemoveAll(installPath)
+		forceRemoveAll(installPath)
 		return
 	}
 
@@ -90,7 +90,7 @@ func installFromDir(aliasLocalPath string, con *console.SliverConsoleClient) {
 			err := util.CopyFile(src, dst)
 			if err != nil {
 				con.PrintErrorf("\nError copying file '%s' -> '%s': %s\n", src, dst, err)
-				os.RemoveAll(installPath)
+				forceRemoveAll(installPath)
 				return
 			}
 		}
@@ -100,7 +100,7 @@ func installFromDir(aliasLocalPath string, con *console.SliverConsoleClient) {
 }
 
 // Install an extension from a .tar.gz file
-func InstallFromFile(aliasGzFilePath string, con *console.SliverConsoleClient) *string {
+func InstallFromFile(aliasGzFilePath string, autoOverwrite bool, con *console.SliverConsoleClient) *string {
 	manifestData, err := util.ReadFileFromTarGz(aliasGzFilePath, fmt.Sprintf("./%s", ManifestFileName))
 	if err != nil {
 		con.PrintErrorf("Failed to read %s from '%s': %s\n", ManifestFileName, aliasGzFilePath, err)
@@ -113,14 +113,16 @@ func InstallFromFile(aliasGzFilePath string, con *console.SliverConsoleClient) *
 	}
 	installPath := filepath.Join(assets.GetAliasesDir(), filepath.Base(manifest.Name))
 	if _, err := os.Stat(installPath); !os.IsNotExist(err) {
-		con.PrintInfof("Alias '%s' already exists\n", manifest.CommandName)
-		confirm := false
-		prompt := &survey.Confirm{Message: "Overwrite current install?"}
-		survey.AskOne(prompt, &confirm)
-		if !confirm {
-			return nil
+		if !autoOverwrite {
+			con.PrintInfof("Alias '%s' already exists\n", manifest.CommandName)
+			confirm := false
+			prompt := &survey.Confirm{Message: "Overwrite current install?"}
+			survey.AskOne(prompt, &confirm)
+			if !confirm {
+				return nil
+			}
 		}
-		os.RemoveAll(installPath)
+		forceRemoveAll(installPath)
 	}
 
 	con.PrintInfof("Installing alias '%s' (%s) ... ", manifest.Name, manifest.Version)
@@ -132,7 +134,7 @@ func InstallFromFile(aliasGzFilePath string, con *console.SliverConsoleClient) *
 	err = ioutil.WriteFile(filepath.Join(installPath, ManifestFileName), manifestData, 0o600)
 	if err != nil {
 		con.PrintErrorf("\nFailed to write %s: %s\n", ManifestFileName, err)
-		os.RemoveAll(installPath)
+		forceRemoveAll(installPath)
 		return nil
 	}
 	for _, aliasFile := range manifest.Files {
@@ -140,7 +142,7 @@ func InstallFromFile(aliasGzFilePath string, con *console.SliverConsoleClient) *
 			err := installArtifact(aliasGzFilePath, installPath, aliasFile.Path, con)
 			if err != nil {
 				con.PrintErrorf("\nFailed to install file: %s\n", err)
-				os.RemoveAll(installPath)
+				forceRemoveAll(installPath)
 				return nil
 			}
 		}
@@ -164,4 +166,9 @@ func installArtifact(aliasGzFilePath string, installPath, artifactPath string, c
 		return err
 	}
 	return nil
+}
+
+func forceRemoveAll(rootPath string) {
+	util.ChmodR(rootPath, 0o600, 0o700)
+	os.RemoveAll(rootPath)
 }

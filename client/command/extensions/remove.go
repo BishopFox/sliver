@@ -27,6 +27,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/util"
 	"github.com/desertbit/grumble"
 )
 
@@ -66,10 +67,11 @@ func RemoveExtensionByCommandName(commandName string, con *console.SliverConsole
 	if _, err := os.Stat(extPath); os.IsNotExist(err) {
 		return nil
 	}
-	err := os.RemoveAll(extPath)
-	if err != nil {
-		return err
-	}
-
+	forceRemoveAll(extPath)
 	return nil
+}
+
+func forceRemoveAll(rootPath string) {
+	util.ChmodR(rootPath, 0o600, 0o700)
+	os.RemoveAll(rootPath)
 }

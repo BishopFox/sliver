@@ -115,7 +115,7 @@ func installAliasPackageByName(name string, clientConfig ArmoryHTTPConfig, con *
 	}
 	tmpFile.Close()
 
-	installPath := alias.InstallFromFile(tmpFile.Name(), con)
+	installPath := alias.InstallFromFile(tmpFile.Name(), true, con)
 	if installPath == nil {
 		return errors.New("failed to install alias")
 	}
@@ -229,7 +229,7 @@ func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, c
 	}
 	tmpFile.Close()
 
-	installPath := extensions.InstallFromFilePath(tmpFile.Name(), con)
+	installPath := extensions.InstallFromFilePath(tmpFile.Name(), true, con)
 	if installPath == nil {
 		return errors.New("failed to install extension")
 	}
