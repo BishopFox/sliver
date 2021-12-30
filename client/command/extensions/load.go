@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
@@ -81,7 +82,7 @@ func (e *ExtensionManifest) getFileForTarget(cmdName string, targetOS string, ta
 	filePath := ""
 	for _, extFile := range e.Files {
 		if targetOS == extFile.OS && targetArch == extFile.Arch {
-			filePath = extFile.Path
+			filePath = path.Join(assets.GetExtensionsDir(), cmdName, extFile.Path)
 			break
 		}
 	}
