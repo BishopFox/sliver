@@ -32,7 +32,7 @@ func AliasesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if 0 < len(loadedAliases) {
 		PrintAliases(con)
 	} else {
-		con.PrintInfof("No aliases loaded\n")
+		con.PrintInfof("No aliases installed, use the 'armory' command to automatically install some\n")
 	}
 }
 

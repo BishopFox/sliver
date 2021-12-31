@@ -34,7 +34,11 @@ import (
 
 // ExtensionsCmd - List information about installed extensions
 func ExtensionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	PrintExtensions(con)
+	if 0 < len(getInstalledManifests()) {
+		PrintExtensions(con)
+	} else {
+		con.PrintInfof("No extensions installed, use the 'armory' command to automatically install some\n")
+	}
 }
 
 // PrintExtensions - Print a list of loaded extensions
