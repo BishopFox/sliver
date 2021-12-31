@@ -151,14 +151,20 @@ func InstallFromFilePath(extLocalPath string, autoOverwrite bool, con *console.S
 }
 
 func installArtifact(extGzFilePath string, installPath string, artifactPath string, con *console.SliverConsoleClient) error {
-	data, err := util.ReadFileFromTarGz(extGzFilePath, artifactPath)
+	data, err := util.ReadFileFromTarGz(extGzFilePath, "."+artifactPath)
 	if err != nil {
 		return err
+	}
+	if len(data) == 0 {
+		return fmt.Errorf("archive path '%s' is empty", "."+artifactPath)
 	}
 	localArtifactPath := filepath.Join(installPath, util.ResolvePath(artifactPath))
 	artifactDir := filepath.Dir(localArtifactPath)
 	if _, err := os.Stat(artifactDir); os.IsNotExist(err) {
-		os.MkdirAll(artifactDir, 0o700)
+		err := os.MkdirAll(artifactDir, 0o700)
+		if err != nil {
+			return err
+		}
 	}
 	err = ioutil.WriteFile(localArtifactPath, data, 0o600)
 	if err != nil {

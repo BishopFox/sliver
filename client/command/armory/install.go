@@ -255,7 +255,10 @@ func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, c
 	if err != nil {
 		return err
 	}
-	tmpFile.Close()
+	err = tmpFile.Sync()
+	if err != nil {
+		return err
+	}
 
 	installPath := extensions.InstallFromFilePath(tmpFile.Name(), true, con)
 	if installPath == nil {
