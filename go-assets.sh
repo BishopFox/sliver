@@ -21,7 +21,6 @@
 
 GO_VER="1.17.5"
 GARBLE_VER="1.17.5"
-COFF_LOADER_VER="1.0.7"
 
 GO_ARCH_1="amd64"
 GO_ARCH_2="arm64"
@@ -144,12 +143,6 @@ curl -L --output $OUTPUT_DIR/linux/$GO_ARCH_1/garble https://github.com/moloch--
 curl -L --output $OUTPUT_DIR/windows/$GO_ARCH_1/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows.exe
 curl -L --output $OUTPUT_DIR/darwin/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_1
 curl -L --output $OUTPUT_DIR/darwin/$GO_ARCH_2/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_2
-
-echo "-----------------------------------------------------------------"
-echo " COFF Loader"
-echo "-----------------------------------------------------------------"
-curl -L --output $CLIENT_OUTPUT_DIR/extensions/coff-loader/windows/COFFLoader.x64.dll https://github.com/lesnuages/COFFLoader/releases/download/v$COFF_LOADER_VER/COFFLoader.x64.dll
-curl -L --output $CLIENT_OUTPUT_DIR/extensions/coff-loader/windows/COFFLoader.x86.dll https://github.com/lesnuages/COFFLoader/releases/download/v$COFF_LOADER_VER/COFFLoader.x86.dll
 
 # end
 echo -e "clean up: $WORK_DIR"

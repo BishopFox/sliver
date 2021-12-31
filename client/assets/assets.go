@@ -19,9 +19,7 @@ package assets
 */
 
 import (
-	"embed"
 	"fmt"
-	"io/fs"
 	"io/ioutil"
 	"log"
 	"os"
@@ -30,11 +28,6 @@ import (
 	"strings"
 
 	ver "github.com/bishopfox/sliver/client/version"
-)
-
-var (
-	//go:embed fs/*
-	clientAssetsFs embed.FS
 )
 
 const (
@@ -86,41 +79,9 @@ This is free software, and you are welcome to redistribute it
 under certain conditions; type 'licenses' for details.`)
 			fmt.Printf("\n\nUnpacking assets ...\n")
 		}
-		err := setupDefaultExtensions(appDir)
-		if err != nil {
-			fmt.Println(err)
-			log.Fatal(err)
-		}
 		saveAssetVersion(appDir)
 	}
 	if _, err := os.Stat(filepath.Join(appDir, settingsFileName)); os.IsNotExist(err) {
 		SaveSettings(nil)
 	}
-}
-
-func setupDefaultExtensions(appDir string) error {
-	localExtDir := GetExtensionsDir()
-	rootEmbedPath := "fs/extensions"
-	return fs.WalkDir(clientAssetsFs, rootEmbedPath, func(embedPath string, embedDir fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		localPath := strings.TrimPrefix(embedPath, rootEmbedPath)
-		if embedDir.IsDir() {
-			err := os.MkdirAll(filepath.Join(localExtDir, localPath), 0o700)
-			if err != nil {
-				return err
-			}
-		} else {
-			data, err := fs.ReadFile(clientAssetsFs, embedPath)
-			if err != nil {
-				return err
-			}
-			err = ioutil.WriteFile(filepath.Join(localExtDir, localPath), data, 0o600)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
 }
