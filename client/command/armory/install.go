@@ -113,6 +113,8 @@ func installAliasPackageByName(name string, clientConfig ArmoryHTTPConfig, con *
 		return err
 	}
 
+	con.PrintInfof("Downloading alias ...")
+
 	var sig *minisign.Signature
 	var tarGz []byte
 	if pkgParser, ok := pkgParsers[repoURL.Hostname()]; ok {
@@ -142,6 +144,8 @@ func installAliasPackageByName(name string, clientConfig ArmoryHTTPConfig, con *
 		return err
 	}
 	tmpFile.Close()
+
+	con.Printf(console.Clearln + "\r") // Clear the line
 
 	installPath := alias.InstallFromFile(tmpFile.Name(), true, con)
 	if installPath == nil {
@@ -227,6 +231,8 @@ func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, c
 		return err
 	}
 
+	con.PrintInfof("Downloading extension ...")
+
 	var sig *minisign.Signature
 	var tarGz []byte
 	if pkgParser, ok := pkgParsers[repoURL.Hostname()]; ok {
@@ -259,6 +265,8 @@ func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, c
 	if err != nil {
 		return err
 	}
+
+	con.Printf(console.Clearln + "\r") // Clear download message
 
 	installPath := extensions.InstallFromFilePath(tmpFile.Name(), true, con)
 	if installPath == nil {
