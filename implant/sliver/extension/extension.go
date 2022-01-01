@@ -18,7 +18,13 @@ package extension
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import "errors"
+import (
+	"errors"
+
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+)
 
 var extensions map[string]Extension
 
@@ -45,6 +51,11 @@ func Run(extID string, funcName string, arguments []byte, callback func([]byte))
 	if ext, found := extensions[extID]; found {
 		return ext.Call(funcName, arguments, callback)
 	}
+	// {{if .Config.Debug}}
+	for id, ext := range extensions {
+		log.Printf("Extension '%s' (%s)", id, ext.GetArch())
+	}
+	//{{end}}
 	return errors.New("{{if .Config.Debug}} extension not found{{end}}")
 }
 

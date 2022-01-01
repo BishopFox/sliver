@@ -280,7 +280,7 @@ func loadExtension(ctx *grumble.Context, session *clientpb.Session, con *console
 
 func registerExtension(con *console.SliverConsoleClient, ext *ExtensionManifest, binData []byte, session *clientpb.Session, ctx *grumble.Context) error {
 	registerResp, err := con.Rpc.RegisterExtension(context.Background(), &sliverpb.RegisterExtensionReq{
-		Name:    ext.Name,
+		Name:    ext.CommandName,
 		Data:    binData,
 		OS:      session.OS,
 		Init:    ext.Init,
@@ -370,7 +370,7 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		// Regular DLL
 		extArgs := strings.Join(ctx.Args.StringList("arguments"), " ")
 		extensionArgs = []byte(extArgs)
-		extName = ext.Name
+		extName = ext.CommandName
 		entryPoint = ext.Entrypoint
 	}
 	ctrl := make(chan bool)
@@ -399,6 +399,7 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			outFilePath.Write(callExtension.Output)
 			con.PrintInfof("Output saved to %s\n", outFilePath.Name())
 		}
+		con.Println()
 	}
 }
 
