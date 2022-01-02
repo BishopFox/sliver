@@ -30,9 +30,9 @@ import (
 
 // ProfilesGenerateCmd - Generate an implant binary based on a profile
 func ProfilesGenerateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	name := ctx.Flags.String("name")
+	name := ctx.Args.String("name")
 	if name == "" {
-		con.PrintErrorf("no profile selected")
+		con.PrintErrorf("No profile name specified\n")
 		return
 	}
 	save := ctx.Flags.String("save")

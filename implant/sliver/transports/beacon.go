@@ -79,6 +79,25 @@ type Beacon struct {
 	Recv    BeaconRecv
 	Close   BeaconClose
 	Cleanup BeaconCleanup
+
+	url      *url.URL
+	proxyURL *url.URL
+}
+
+// URL - Returns the c2 URL of the beacon
+func (b *Beacon) URL() string {
+	if b.url == nil {
+		return ""
+	}
+	return b.url.String()
+}
+
+// ProxyURL - Returns the c2 URL of the beacon
+func (b *Beacon) ProxyURL() string {
+	if b.proxyURL == nil {
+		return ""
+	}
+	return b.url.String()
 }
 
 // Interval - Interval between beacons

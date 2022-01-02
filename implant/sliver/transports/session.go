@@ -79,23 +79,36 @@ type Stop func() error
 
 // Connection - Abstract connection to the server
 type Connection struct {
-	Send     chan *pb.Envelope
-	Recv     chan *pb.Envelope
-	IsOpen   bool
+	Send    chan *pb.Envelope
+	Recv    chan *pb.Envelope
+	IsOpen  bool
+	ctrl    chan struct{}
+	cleanup func()
+	once    *sync.Once
+	tunnels *map[uint64]*Tunnel
+	mutex   *sync.RWMutex
+
 	uri      *url.URL
-	ctrl     chan struct{}
-	cleanup  func()
-	once     *sync.Once
-	tunnels  *map[uint64]*Tunnel
-	mutex    *sync.RWMutex
-	ProxyURL string
+	proxyURL *url.URL
 
 	Start Start
 	Stop  Stop
 }
 
-func (c *Connection) String() string {
+// URL - Get the c2 URL of the connection
+func (c *Connection) URL() string {
+	if c.uri == nil {
+		return ""
+	}
 	return c.uri.String()
+}
+
+// ProxyURL - Get the c2 URL of the connection
+func (c *Connection) ProxyURL() string {
+	if c.proxyURL == nil {
+		return ""
+	}
+	return c.proxyURL.String()
 }
 
 // Cleanup - Execute cleanup once
@@ -274,8 +287,8 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 		tunnels: &map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
-		uri:     uri,
 		IsOpen:  false,
+		uri:     uri,
 
 		// Do not call directly, use exported Cleanup() instead
 		cleanup: func() {
@@ -513,7 +526,7 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 			return err
 		}
 		connection.IsOpen = true
-		connection.ProxyURL = client.ProxyURL
+		connection.proxyURL, _ = url.Parse(client.ProxyURL)
 
 		go func() {
 			defer connection.Cleanup()

@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/bishopfox/sliver/server/log"
@@ -64,19 +64,19 @@ type GoConfig struct {
 
 // GetGoRootDir - Get the path to GOROOT
 func GetGoRootDir(appDir string) string {
-	return path.Join(appDir, goDirName)
+	return filepath.Join(appDir, goDirName)
 }
 
 // GetGoCache - Get the OS temp dir (used for GOCACHE)
 func GetGoCache(appDir string) string {
-	cachePath := path.Join(GetGoRootDir(appDir), "cache")
+	cachePath := filepath.Join(GetGoRootDir(appDir), "cache")
 	os.MkdirAll(cachePath, 0700)
 	return cachePath
 }
 
 // GetGoModCache - Get the GoMod cache dir
 func GetGoModCache(appDir string) string {
-	cachePath := path.Join(GetGoRootDir(appDir), "modcache")
+	cachePath := filepath.Join(GetGoRootDir(appDir), "modcache")
 	os.MkdirAll(cachePath, 0700)
 	return cachePath
 }
@@ -108,7 +108,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	if _, ok := ValidCompilerTargets(config)[target]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
 	}
-	garbleBinPath := path.Join(config.GOROOT, "bin", "garble")
+	garbleBinPath := filepath.Join(config.GOROOT, "bin", "garble")
 	garbleFlags := []string{fmt.Sprintf("-seed=%s", seed()), "-literals"}
 	garbleFlags = append(garbleFlags, garbleMaxLiteralSize()...)
 	command = append(garbleFlags, command...)
@@ -124,7 +124,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
 		fmt.Sprintf("GOPRIVATE=%s", config.GOPRIVATE),
 		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
-		fmt.Sprintf("PATH=%s:%s", path.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
+		fmt.Sprintf("PATH=%s:%s", filepath.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
 	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -148,7 +148,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 
 // GoCmd - Execute a go command
 func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
-	goBinPath := path.Join(config.GOROOT, "bin", "go")
+	goBinPath := filepath.Join(config.GOROOT, "bin", "go")
 	cmd := exec.Command(goBinPath, command...)
 	cmd.Dir = cwd
 	cmd.Env = []string{
@@ -160,7 +160,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
 		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
 		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
-		fmt.Sprintf("PATH=%s:%s", path.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
+		fmt.Sprintf("PATH=%s:%s", filepath.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
 	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

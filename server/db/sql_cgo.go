@@ -1,4 +1,4 @@
-//go:build csqlite
+//go:build cgosqlite
 
 package db
 

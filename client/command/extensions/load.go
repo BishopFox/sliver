@@ -1,5 +1,23 @@
 package extensions
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2021  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
 	"bytes"
 	"context"
@@ -12,38 +30,45 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/util"
 	"github.com/desertbit/grumble"
 )
 
 const (
 	defaultTimeout = 60
+
+	ManifestFileName = "extension.json"
 )
 
-var commandMap map[string]extensionCommand
+var loadedExtensions = map[string]*ExtensionManifest{}
 
-type extensionCommand struct {
-	Name       string              `json:"name"`
-	Help       string              `json:"help"`
-	Files      []extensionFiles    `json:"extFiles"`
-	Arguments  []extensionArgument `json:"arguments"`
-	Entrypoint string              `json:"entrypoint"`
-	DependsOn  string              `json:"dependsOn"`
-	Init       string              `json:"init"`
-	Path       string
-}
-type binFiles struct {
-	Ext64Path string `json:"x64"`
-	Ext32Path string `json:"x86"`
+type ExtensionManifest struct {
+	Name            string               `json:"name"`
+	CommandName     string               `json:"command_name"`
+	Version         string               `json:"version"`
+	ExtensionAuthor string               `json:"extension_author"`
+	OriginalAuthor  string               `json:"original_author"`
+	RepoURL         string               `json:"repo_url"`
+	Help            string               `json:"help"`
+	Files           []*extensionFile     `json:"files"`
+	Arguments       []*extensionArgument `json:"arguments"`
+	Entrypoint      string               `json:"entrypoint"`
+	DependsOn       string               `json:"depends_on"`
+	Init            string               `json:"init"`
+
+	RootPath string `json:"-"`
 }
 
-type extensionFiles struct {
-	OS    string   `json:"os"`
-	Files binFiles `json:"files"`
+type extensionFile struct {
+	OS   string `json:"os"`
+	Arch string `json:"arch"`
+	Path string `json:"path"`
 }
 
 type extensionArgument struct {
@@ -53,66 +78,98 @@ type extensionArgument struct {
 	Optional bool   `json:"optional"`
 }
 
-func (e *extensionCommand) getFileForTarget(cmdName string, targetOS string, targetArch string) (filePath string, err error) {
-	for _, ef := range e.Files {
-		if targetOS == ef.OS {
-			switch targetArch {
-			case "386":
-				filePath = filepath.Join(e.Path, targetOS, targetArch, ef.Files.Ext32Path)
-			case "amd64":
-				filePath = filepath.Join(e.Path, targetOS, targetArch, ef.Files.Ext64Path)
-			default:
-				filePath = filepath.Join(e.Path, targetOS, targetArch, ef.Files.Ext64Path)
-			}
+func (e *ExtensionManifest) getFileForTarget(cmdName string, targetOS string, targetArch string) (string, error) {
+	filePath := ""
+	for _, extFile := range e.Files {
+		if targetOS == extFile.OS && targetArch == extFile.Arch {
+			filePath = path.Join(assets.GetExtensionsDir(), e.CommandName, extFile.Path)
+			break
 		}
 	}
 	if filePath == "" {
-		err = fmt.Errorf("no extension file found for %s/%s", targetOS, targetArch)
+		err := fmt.Errorf("no extension file found for %s/%s", targetOS, targetArch)
+		return "", err
 	}
-	return
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		err = fmt.Errorf("extension file not found: %s", filePath)
+		return "", err
+	}
+	return filePath, nil
 }
 
-func LoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+// ExtensionLoadCmd - Load extension command
+func ExtensionLoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	dirPath := ctx.Args.String("dir-path")
-	extCmds, err := ParseExtensions(dirPath)
+	extCmd, err := LoadExtensionManifest(filepath.Join(dirPath, ManifestFileName))
 	if err != nil {
 		return
 	}
+	// do not add if the command already exists
+	if CmdExists(extCmd.CommandName, con.App) {
+		con.PrintErrorf("%s command already exists\n", extCmd.CommandName)
+		return
+	}
+	ExtensionRegisterCommand(extCmd, con)
+	con.PrintInfof("Added %s command: %s\n", extCmd.CommandName, extCmd.Help)
+}
 
-	for _, extCmd := range extCmds {
-		// do not add if the command already exists
-		if cmdExists(extCmd.Name, con.App) {
-			con.PrintErrorf("%s command already exists\n", extCmd.Name)
-			continue
+// ParseExtensions - Parse extension files
+func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
+	data, err := ioutil.ReadFile(manifestPath)
+	if err != nil {
+		return nil, err
+	}
+	extManifest, err := ParseExtensionManifest(data)
+	if err != nil {
+		return nil, err
+	}
+	extManifest.RootPath = filepath.Dir(manifestPath)
+	loadedExtensions[extManifest.CommandName] = extManifest
+	return extManifest, nil
+}
+
+// ParseExtensionManifest - Parse extension manifest from buffer
+func ParseExtensionManifest(data []byte) (*ExtensionManifest, error) {
+	extManifest := &ExtensionManifest{}
+	err := json.Unmarshal(data, &extManifest)
+	if err != nil {
+		return nil, err
+	}
+	if extManifest.Name == "" {
+		return nil, errors.New("missing `name` field in extension manifest")
+	}
+	if extManifest.CommandName == "" {
+		return nil, errors.New("missing `command_name` field in extension manifest")
+	}
+	if len(extManifest.Files) == 0 {
+		return nil, errors.New("missing `files` field in extension manifest")
+	}
+	for _, extFiles := range extManifest.Files {
+		if extFiles.OS == "" {
+			return nil, errors.New("missing `files.os` field in extension manifest")
 		}
-		RegisterExtensionCommand(extCmd, con)
-		con.PrintInfof("Added %s command: %s\n", extCmd.Name, extCmd.Help)
+		if extFiles.Arch == "" {
+			return nil, errors.New("missing `files.arch` field in extension manifest")
+		}
+		extFiles.Path = util.ResolvePath(extFiles.Path)
+		if extFiles.Path == "" || extFiles.Path == "/" {
+			return nil, errors.New("missing `files.path` field in extension manifest")
+		}
+		extFiles.OS = strings.ToLower(extFiles.OS)
+		extFiles.Arch = strings.ToLower(extFiles.Arch)
 	}
+	if extManifest.Help == "" {
+		return nil, errors.New("missing `help` field in extension manifest")
+	}
+	return extManifest, nil
 }
 
-func ParseExtensions(extPath string) ([]*extensionCommand, error) {
-	manifestPath := filepath.Join(extPath, "manifest.json")
-	jsonBytes, err := ioutil.ReadFile(manifestPath)
-	if err != nil {
-		return nil, err
-	}
-	extensionsCmds := make([]*extensionCommand, 0)
-	err = json.Unmarshal(jsonBytes, &extensionsCmds)
-	if err != nil {
-		return nil, err
-	}
-	for _, extCmd := range extensionsCmds {
-		extCmd.Path = extPath
-		commandMap[extCmd.Name] = *extCmd
-	}
-	return extensionsCmds, nil
-}
-
-func RegisterExtensionCommand(extCmd *extensionCommand, con *console.SliverConsoleClient) {
-	commandMap[extCmd.Name] = *extCmd
+// ExtensionRegisterCommand - Register a new extension command
+func ExtensionRegisterCommand(extCmd *ExtensionManifest, con *console.SliverConsoleClient) {
+	loadedExtensions[extCmd.CommandName] = extCmd
 	helpMsg := extCmd.Help
 	extensionCmd := &grumble.Command{
-		Name: extCmd.Name,
+		Name: extCmd.CommandName,
 		Help: helpMsg,
 		Run: func(extCtx *grumble.Context) error {
 			con.Println()
@@ -155,33 +212,7 @@ func RegisterExtensionCommand(extCmd *extensionCommand, con *console.SliverConso
 	con.App.AddCommand(extensionCmd)
 }
 
-func ListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveTarget.GetSessionInteractive()
-	if session == nil {
-		return
-	}
-
-	extList, err := con.Rpc.ListExtensions(context.Background(), &sliverpb.ListExtensionsReq{
-		Request: con.ActiveTarget.Request(ctx),
-	})
-	if err != nil {
-		con.PrintErrorf("Error: %s", err)
-		return
-	}
-
-	if extList.Response != nil && extList.Response.Err != "" {
-		con.PrintErrorf("Error: %s", extList.Response.Err)
-		return
-	}
-	if len(extList.Names) > 0 {
-		con.PrintInfof("Loaded extensions:\n")
-		for _, ext := range extList.Names {
-			con.Printf("- %s\n", ext)
-		}
-	}
-}
-
-func loadExtension(ctx *grumble.Context, session *clientpb.Session, con *console.SliverConsoleClient, ext *extensionCommand) error {
+func loadExtension(ctx *grumble.Context, session *clientpb.Session, con *console.SliverConsoleClient, ext *ExtensionManifest) error {
 	var extensionList []string
 	binPath, err := ext.getFileForTarget(ctx.Command.Name, session.OS, session.Arch)
 	if err != nil {
@@ -193,7 +224,7 @@ func loadExtension(ctx *grumble.Context, session *clientpb.Session, con *console
 			Request: con.ActiveTarget.Request(ctx),
 		})
 		if err != nil {
-			con.PrintErrorf("Error: %s\n", err.Error())
+			con.PrintErrorf("%s\n", err.Error())
 			return err
 		}
 		if extList.Response != nil && extList.Response.Err != "" {
@@ -240,16 +271,16 @@ func loadExtension(ctx *grumble.Context, session *clientpb.Session, con *console
 			SessionID:  session.ID,
 		})
 		if err != nil {
-			con.PrintErrorf("Error: %s\n", err.Error())
+			con.PrintErrorf("%s\n", err.Error())
 			return err
 		}
 	}
 	return nil
 }
 
-func registerExtension(con *console.SliverConsoleClient, ext *extensionCommand, binData []byte, session *clientpb.Session, ctx *grumble.Context) error {
+func registerExtension(con *console.SliverConsoleClient, ext *ExtensionManifest, binData []byte, session *clientpb.Session, ctx *grumble.Context) error {
 	registerResp, err := con.Rpc.RegisterExtension(context.Background(), &sliverpb.RegisterExtensionReq{
-		Name:    ext.Name,
+		Name:    ext.CommandName,
 		Data:    binData,
 		OS:      session.OS,
 		Init:    ext.Init,
@@ -265,9 +296,9 @@ func registerExtension(con *console.SliverConsoleClient, ext *extensionCommand, 
 }
 
 func loadDep(session *clientpb.Session, con *console.SliverConsoleClient, ctx *grumble.Context, depName string) error {
-	depExt, f := commandMap[depName]
+	depExt, f := loadedExtensions[depName]
 	if f {
-		depBinPath, err := depExt.getFileForTarget(depExt.Name, session.OS, session.Arch)
+		depBinPath, err := depExt.getFileForTarget(depExt.CommandName, session.OS, session.Arch)
 		if err != nil {
 			return err
 		}
@@ -275,7 +306,7 @@ func loadDep(session *clientpb.Session, con *console.SliverConsoleClient, ctx *g
 		if err != nil {
 			return err
 		}
-		return registerExtension(con, &depExt, depBinData, session, ctx)
+		return registerExtension(con, depExt, depBinData, session, ctx)
 	}
 	return fmt.Errorf("missing dependency %s", depName)
 }
@@ -293,13 +324,13 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	ext, ok := commandMap[ctx.Command.Name]
+	ext, ok := loadedExtensions[ctx.Command.Name]
 	if !ok {
 		con.PrintErrorf("No extension command found for `%s` command\n", ctx.Command.Name)
 		return
 	}
 
-	if err = loadExtension(ctx, session, con, &ext); err != nil {
+	if err = loadExtension(ctx, session, con, ext); err != nil {
 		con.PrintErrorf("Could not load extension: %s\n", err)
 		return
 	}
@@ -334,12 +365,12 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			return
 		}
 		extName = ext.DependsOn
-		entryPoint = commandMap[extName].Entrypoint // should exist at this point
+		entryPoint = loadedExtensions[extName].Entrypoint // should exist at this point
 	} else {
 		// Regular DLL
 		extArgs := strings.Join(ctx.Args.StringList("arguments"), " ")
 		extensionArgs = []byte(extArgs)
-		extName = ext.Name
+		extName = ext.CommandName
 		entryPoint = ext.Entrypoint
 	}
 	ctrl := make(chan bool)
@@ -354,11 +385,11 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("Error: %s\n", err.Error())
+		con.PrintErrorf("%s\n", err.Error())
 		return
 	}
 	if callExtension.Response != nil && callExtension.Response.Err != "" {
-		con.PrintErrorf("Error: %s\n", callExtension.Response.Err)
+		con.PrintErrorf("%s\n", callExtension.Response.Err)
 		return
 	}
 	con.PrintInfof("Successfully executed %s\n", extName)
@@ -368,10 +399,11 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			outFilePath.Write(callExtension.Output)
 			con.PrintInfof("Output saved to %s\n", outFilePath.Name())
 		}
+		con.Println()
 	}
 }
 
-func getBOFArgs(ctx *grumble.Context, binPath string, ext extensionCommand) ([]byte, error) {
+func getBOFArgs(ctx *grumble.Context, binPath string, ext *ExtensionManifest) ([]byte, error) {
 	var extensionArgs []byte
 	binData, err := ioutil.ReadFile(binPath)
 	if err != nil {
@@ -449,15 +481,12 @@ func getBOFArgs(ctx *grumble.Context, binPath string, ext extensionCommand) ([]b
 
 }
 
-func cmdExists(name string, app *grumble.App) bool {
+// CmdExists - checks if a command exists
+func CmdExists(name string, app *grumble.App) bool {
 	for _, c := range app.Commands().All() {
 		if name == c.Name {
 			return true
 		}
 	}
 	return false
-}
-
-func init() {
-	commandMap = make(map[string]extensionCommand)
 }

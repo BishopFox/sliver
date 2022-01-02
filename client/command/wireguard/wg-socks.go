@@ -19,15 +19,13 @@ package wireguard
 */
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"strings"
-	"text/tabwriter"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // WGSocksListCmd - List WireGuard SOCKS proxies
@@ -44,30 +42,30 @@ func WGSocksListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	socksList, err := con.Rpc.WGListSocksServers(context.Background(), &sliverpb.WGSocksServersReq{
 		Request: con.ActiveTarget.Request(ctx),
 	})
-
 	if err != nil {
 		con.PrintErrorf("Error: %v", err)
 		return
 	}
-
 	if socksList.Response != nil && socksList.Response.Err != "" {
 		con.PrintErrorf("Error: %s\n", socksList.Response.Err)
 		return
 	}
 
 	if socksList.Servers != nil {
-		if len(socksList.Servers) > 0 {
-			outBuf := bytes.NewBufferString("")
-			table := tabwriter.NewWriter(outBuf, 0, 3, 3, ' ', 0)
-			fmt.Fprintf(table, "ID\tLocal Address\n")
-			fmt.Fprintf(table, "%s\t%s\t\n",
-				strings.Repeat("=", len("ID")),
-				strings.Repeat("=", len("Local Address")))
+		if 0 < len(socksList.Servers) {
+			tw := table.NewWriter()
+			tw.SetStyle(settings.GetTableStyle(con))
+			tw.AppendHeader(table.Row{
+				"ID",
+				"Local Address",
+			})
 			for _, server := range socksList.Servers {
-				fmt.Fprintf(table, "%d\t%s\t\n", server.ID, server.LocalAddr)
+				tw.AppendRow(table.Row{
+					server.ID,
+					server.LocalAddr,
+				})
 			}
-			table.Flush()
-			con.Println(outBuf.String())
+			con.Println(tw.Render())
 		}
 	}
 

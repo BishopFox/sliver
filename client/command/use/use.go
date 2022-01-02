@@ -174,7 +174,9 @@ func SelectSessionOrBeacon(con *console.SliverConsoleClient) (*clientpb.Session,
 	}
 	return nil, nil, nil
 }
-func Completer(con *console.SliverConsoleClient, prefix string, args []string) (results []string) {
+
+// BeaconAndSessionIDCompleter - BeaconAndSessionIDCompleter for beacon / session ids
+func BeaconAndSessionIDCompleter(prefix string, args []string, con *console.SliverConsoleClient) (results []string) {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		return

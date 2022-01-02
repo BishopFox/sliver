@@ -46,7 +46,7 @@ func printHelp(con *console.SliverConsoleClient) {
 	for _, c := range con.App.Commands().All() {
 		key := c.HelpGroup
 		targetOS := ""
-		session, beacon := con.ActiveTarget.GetInteractive()
+		session, beacon := con.ActiveTarget.Get()
 		if session != nil {
 			targetOS = session.OS
 		} else if beacon != nil {
@@ -57,7 +57,7 @@ func printHelp(con *console.SliverConsoleClient) {
 				continue
 			}
 		} else {
-			if key == consts.SliverHelpGroup || key == consts.SliverWinHelpGroup || key == consts.MacroHelpGroup || key == consts.ExtensionHelpGroup {
+			if key == consts.SliverHelpGroup || key == consts.SliverWinHelpGroup || key == consts.AliasHelpGroup || key == consts.ExtensionHelpGroup {
 				continue
 			}
 		}
@@ -97,6 +97,7 @@ func printHelp(con *console.SliverConsoleClient) {
 			con.Println()
 			printHeadline(con.App.Config(), headline, con)
 			con.Printf("%s\n", columnize.Format(output, config))
+			con.Println()
 		}
 	}
 }

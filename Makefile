@@ -4,7 +4,7 @@
 
 GO ?= go
 ENV =
-TAGS = -tags osusergo,netgo,gosqlite
+TAGS = -tags osusergo,netgo,cgosqlite,sqlite_omit_load_extension
 
 #
 # Version Information
@@ -13,16 +13,21 @@ GO_VERSION = $(shell $(GO) version)
 VERSION ?= $(shell git describe --abbrev=0)
 COMPILED_AT = $(shell date +%s)
 RELEASES_URL = https://api.github.com/repos/BishopFox/sliver/releases
-PKG = github.com/bishopfox/sliver/client/version
+CLIENT_ASSETS_PKG = github.com/bishopfox/sliver/client/assets
+ARMORY_PUB_KEY = RWSBpxpRWDrD7Fe+VvRE3c2VEDC2NK80rlNCj+BX0gz44Xw07r6KQD9L
+ARMORY_REPO_URL = https://api.github.com/repos/sliverarmory/armory/releases
+VERSION_PKG = github.com/bishopfox/sliver/client/version
 GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
 GIT_COMMIT = $(shell git rev-parse HEAD)
 LDFLAGS = -ldflags "-s -w \
-	-X $(PKG).Version=$(VERSION) \
-	-X \"$(PKG).GoVersion=$(GO_VERSION)\" \
-	-X $(PKG).CompiledAt=$(COMPILED_AT) \
-	-X $(PKG).GithubReleasesURL=$(RELEASES_URL) \
-	-X $(PKG).GitCommit=$(GIT_COMMIT) \
-	-X $(PKG).GitDirty=$(GIT_DIRTY)"
+	-X $(VERSION_PKG).Version=$(VERSION) \
+	-X \"$(VERSION_PKG).GoVersion=$(GO_VERSION)\" \
+	-X $(VERSION_PKG).CompiledAt=$(COMPILED_AT) \
+	-X $(VERSION_PKG).GithubReleasesURL=$(RELEASES_URL) \
+	-X $(VERSION_PKG).GitCommit=$(GIT_COMMIT) \
+	-X $(VERSION_PKG).GitDirty=$(GIT_DIRTY) \
+	-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUB_KEY) \
+	-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 
 
 #
@@ -39,6 +44,17 @@ STATIC_TARGET := linux
 UNAME_S := $(shell uname -s)
 UNAME_P := $(shell uname -p)
 
+# If the target is Windows from Linux/Darwin, check for mingw
+CROSS_COMPILERS = x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++
+ifneq (,$(findstring cgosqlite,$(TAGS)))
+	ENV +=CGO_ENABLED=1
+	ifeq ($(MAKECMDGOALS), windows)
+		K := $(foreach exec,$(CROSS_COMPILERS),\
+				$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
+		ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
+	endif
+endif
+
 # Programs required for generating protobuf/grpc files
 PB_COMPILERS = protoc protoc-gen-go protoc-gen-go-grpc
 ifeq ($(MAKECMDGOALS), pb)
@@ -53,6 +69,18 @@ ifeq ($(UNAME_S),Darwin)
 endif
 ifeq ($(UNAME_P),arm)
 	ENV += GOARCH=arm64
+endif
+
+ifeq ($(MAKECMDGOALS), linux)
+	# Redefine LDFLAGS to add the static part
+	LDFLAGS = -ldflags "-s -w \
+		-extldflags '-static' \
+		-X $(VERSION_PKG).Version=$(VERSION) \
+		-X \"$(VERSION_PKG).GoVersion=$(GO_VERSION)\" \
+		-X $(VERSION_PKG).CompiledAt=$(COMPILED_AT) \
+		-X $(VERSION_PKG).GithubReleasesURL=$(RELEASES_URL) \
+		-X $(VERSION_PKG).GitCommit=$(GIT_COMMIT) \
+		-X $(VERSION_PKG).GitDirty=$(GIT_DIRTY)"
 endif
 
 #

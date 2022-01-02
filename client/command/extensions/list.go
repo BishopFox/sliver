@@ -1,4 +1,4 @@
-package socks
+package extensions
 
 /*
 	Sliver Implant Framework
@@ -22,25 +22,33 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
 )
 
-// SocksRmCmd - Remove an existing tunneled port forward
-func SocksRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	socksID := ctx.Flags.Int("id")
-	if socksID < 1 {
-		con.PrintErrorf("Must specify a valid socks5 id\n")
+// ExtensionsListCmd - List all extension loaded on the active session/beacon
+func ExtensionsListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	session := con.ActiveTarget.GetSessionInteractive()
+	if session == nil {
 		return
 	}
-	found := core.SocksProxies.Remove(socksID)
-	if !found {
-		con.PrintErrorf("No socks5 with id %d\n", socksID)
-	} else {
-		con.PrintInfof("Removed socks5\n")
+
+	extList, err := con.Rpc.ListExtensions(context.Background(), &sliverpb.ListExtensionsReq{
+		Request: con.ActiveTarget.Request(ctx),
+	})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
 	}
 
-	// close
-	con.Rpc.CloseSocks(context.Background(), &sliverpb.Socks{})
+	if extList.Response != nil && extList.Response.Err != "" {
+		con.PrintErrorf("%s\n", extList.Response.Err)
+		return
+	}
+	if len(extList.Names) > 0 {
+		con.PrintInfof("Loaded extensions:\n")
+		for _, ext := range extList.Names {
+			con.Printf("- %s\n", ext)
+		}
+	}
 }

@@ -21,15 +21,15 @@ package generate
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
-	"text/tabwriter"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // ProfilesCmd - Display implant profiles
@@ -39,72 +39,75 @@ func ProfilesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	if len(profiles) == 0 {
-		con.PrintInfof("No profiles, create one with `%s`\n", consts.NewStr)
+		con.PrintInfof("No profiles, see `%s %s help`\n", consts.ProfilesStr, consts.NewStr)
 		return
+	} else {
+		PrintProfiles(profiles, con)
 	}
-	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-	fmt.Fprintf(table, "Name\tPlatform\tCommand & Control\tDebug\tFormat\tObfuscation\tLimitations\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-		strings.Repeat("=", len("Name")),
-		strings.Repeat("=", len("Platform")),
-		strings.Repeat("=", len("Command & Control")),
-		strings.Repeat("=", len("Debug")),
-		strings.Repeat("=", len("Format")),
-		strings.Repeat("=", len("Obfuscation")),
-		strings.Repeat("=", len("Limitations")),
-	)
+}
+
+// PrintProfiles - Print the profiles
+func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverConsoleClient) {
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.AppendHeader(table.Row{
+		"Profile Name",
+		"Implant Type",
+		"Platform",
+		"Command & Control",
+		"Debug",
+		"Format",
+		"Obfuscation",
+		"Limitations",
+	})
+	tw.SortBy([]table.SortBy{
+		{Name: "Profile Name", Mode: table.Asc},
+	})
 
 	for _, profile := range profiles {
 		config := profile.Config
-		if 0 < len(config.C2) {
-			obfuscation := "strings only"
-			if config.ObfuscateSymbols {
-				obfuscation = "symbols obfuscation"
-			}
-			if config.Debug {
-				obfuscation = "none"
-			}
-			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-				profile.Name,
-				fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
-				fmt.Sprintf("[1] %s", config.C2[0].URL),
-				fmt.Sprintf("%v", config.Debug),
-				fmt.Sprintf("%v", config.Format),
-				obfuscation,
-				getLimitsString(config),
-			)
+
+		obfuscation := "disabled"
+		if config.ObfuscateSymbols {
+			obfuscation = "enabled"
 		}
-		if 1 < len(config.C2) {
-			for index, c2 := range config.C2[1:] {
-				fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-					"",
-					"",
-					fmt.Sprintf("[%d] %s", index+2, c2.URL),
-					"",
-					"",
-					"",
-					"",
-				)
-			}
+		implantType := "session"
+		if config.IsBeacon {
+			implantType = "beacon"
 		}
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "", "", "", "", "", "", "")
+		c2URLs := []string{}
+		for index, c2 := range config.C2 {
+			c2URLs = append(c2URLs, fmt.Sprintf("[%d] %s", index+1, c2.URL))
+		}
+		tw.AppendRow(table.Row{
+			profile.Name,
+			implantType,
+			fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
+			strings.Join(c2URLs, "\n"),
+			fmt.Sprintf("%v", config.Debug),
+			fmt.Sprintf("%v", config.Format),
+			obfuscation,
+			getLimitsString(config),
+		})
 	}
-	table.Flush()
+
+	con.Printf("%s\n", tw.Render())
 }
 
 func getImplantProfiles(con *console.SliverConsoleClient) []*clientpb.ImplantProfile {
 	pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("Error %s", err)
+		con.PrintErrorf("%s\n", err)
 		return nil
 	}
 	return pbProfiles.Profiles
 }
 
+// GetImplantProfileByName - Get an implant profile by a specific name
 func GetImplantProfileByName(name string, con *console.SliverConsoleClient) *clientpb.ImplantProfile {
 	pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("Error %s", err)
+		con.PrintErrorf("%s\n", err)
 		return nil
 	}
 	for _, profile := range pbProfiles.Profiles {
@@ -113,4 +116,19 @@ func GetImplantProfileByName(name string, con *console.SliverConsoleClient) *cli
 		}
 	}
 	return nil
+}
+
+// ProfileNameCompleter - Completer for implant build names
+func ProfileNameCompleter(prefix string, args []string, con *console.SliverConsoleClient) []string {
+	pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return []string{}
+	}
+	results := []string{}
+	for _, profile := range pbProfiles.Profiles {
+		if strings.HasPrefix(profile.Name, prefix) {
+			results = append(results, profile.Name)
+		}
+	}
+	return results
 }

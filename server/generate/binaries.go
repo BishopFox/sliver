@@ -257,25 +257,9 @@ func GetSliversDir() string {
 
 // SliverShellcode - Generates a sliver shellcode using sRDI
 func SliverShellcode(name string, config *models.ImplantConfig) (string, error) {
-	// Compile go code
-	// Compile go code
-	var cc string
-	var cxx string
-
 	appDir := assets.GetRootAppDir()
-	// Don't use a cross-compiler if the target bin is built on the same platform
-	// as the sliver-server.
-	if runtime.GOOS != config.GOOS {
-		buildLog.Debugf("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
-		cc, cxx = findCrossCompilers(config.GOOS, config.GOARCH)
-		if cc == "" {
-			return "", fmt.Errorf("CC '%s/%s' not found", config.GOOS, config.GOARCH)
-		}
-	}
 	goConfig := &gogo.GoConfig{
 		CGO: "0",
-		CC:  cc,
-		CXX: cxx,
 
 		GOOS:       config.GOOS,
 		GOARCH:     config.GOARCH,

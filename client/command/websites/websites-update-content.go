@@ -39,5 +39,5 @@ func WebsitesUpdateContentCmd(ctx *grumble.Context, con *console.SliverConsoleCl
 		con.PrintErrorf("%s", err)
 		return
 	}
-	displayWebsite(web, con)
+	PrintWebsite(web, con)
 }

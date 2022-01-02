@@ -21,16 +21,15 @@ package jobs
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
-	"strings"
-	"text/tabwriter"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // JobsCmd - Manage server jobs (listeners, etc)
@@ -51,33 +50,41 @@ func JobsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			activeJobs[job.ID] = job
 		}
 		if 0 < len(activeJobs) {
-			printJobs(activeJobs)
+			PrintJobs(activeJobs, con)
 		} else {
 			con.PrintInfof("No active jobs\n")
 		}
 	}
 }
 
-func printJobs(jobs map[uint32]*clientpb.Job) {
-	table := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-	fmt.Fprintf(table, "ID\tName\tProtocol\tPort\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
-		strings.Repeat("=", len("ID")),
-		strings.Repeat("=", len("Name")),
-		strings.Repeat("=", len("Protocol")),
-		strings.Repeat("=", len("Port")))
+// PrintJobs - Prints a list of active jobs
+func PrintJobs(jobs map[uint32]*clientpb.Job, con *console.SliverConsoleClient) {
+
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.AppendHeader(table.Row{
+		"ID",
+		"Name",
+		"Protocol",
+		"Port",
+	})
 
 	var keys []int
 	for _, job := range jobs {
 		keys = append(keys, int(job.ID))
 	}
-	sort.Ints(keys) // Fucking Go can't sort int32's, so we convert to/from int's
+	sort.Ints(keys)
 
 	for _, k := range keys {
 		job := jobs[uint32(k)]
-		fmt.Fprintf(table, "%d\t%s\t%s\t%d\t\n", job.ID, job.Name, job.Protocol, job.Port)
+		tw.AppendRow(table.Row{
+			fmt.Sprintf("%d", job.ID),
+			job.Name,
+			job.Protocol,
+			fmt.Sprintf("%d", job.Port),
+		})
 	}
-	table.Flush()
+	con.Printf("%s\n", tw.Render())
 }
 
 func jobKill(jobID uint32, con *console.SliverConsoleClient) {

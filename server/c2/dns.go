@@ -35,6 +35,7 @@ package c2
 */
 
 import (
+	"bytes"
 	secureRand "crypto/rand"
 	"errors"
 	"hash/crc32"
@@ -267,10 +268,17 @@ func (p *PendingEnvelope) Reassemble() ([]byte, error) {
 	for k := range p.messages {
 		keys = append(keys, k)
 	}
+	if 1 < len(keys) {
+		sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	}
 	dnsLog.Debugf("[dns] reassemble from: %v", keys)
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
-	for _, k := range keys {
+	for index, k := range keys {
+		dnsLog.Debugf("[dns] reassemble %d (%d->%d): %d bytes",
+			index, len(buffer), len(buffer)+len(p.messages[k]), len(p.messages[k]))
 		buffer = append(buffer, p.messages[k]...)
+	}
+	if len(buffer) != int(p.Size) {
+		return nil, fmt.Errorf("invalid data size %d expected %d", len(buffer), p.Size)
 	}
 	return buffer, nil
 }
@@ -282,10 +290,19 @@ func (p *PendingEnvelope) Insert(dnsMsg *dnspb.DNSMessage) bool {
 	if p.complete {
 		return false // Already complete
 	}
-	p.messages[dnsMsg.Start] = dnsMsg.Data
-	p.received += uint32(len(dnsMsg.Data))
-	dnsLog.Debugf("[dns] msg id: %d, start: %d, recv: %d of %d", dnsMsg.ID, dnsMsg.Start, p.received, p.Size)
+	p.messages[dnsMsg.Start] = bytes.NewBuffer(dnsMsg.Data).Bytes()
+	dnsLog.Debugf("[dns] msg id: %d, %d->%d, recv: %d of %d",
+		dnsMsg.ID, dnsMsg.Start, int(dnsMsg.Start)+len(dnsMsg.Data), p.received, p.Size)
+
+	total := uint32(0)
+	for k := range p.messages {
+		total += uint32(len(p.messages[k]))
+	}
+	p.received = total
 	p.complete = p.received >= p.Size
+	if p.complete {
+		dnsLog.Debugf("[dns] message complete %d of %d", p.received, p.Size)
+	}
 	return p.complete
 }
 
