@@ -83,6 +83,7 @@ func TestSliverExecutableWindows(t *testing.T) {
 	multiExe(t, "windows", "amd64", false, false)
 	multiExe(t, "windows", "386", false, false)
 	multiExe(t, "windows", "386", false, false)
+
 	// Multiple Beacons
 	multiExe(t, "windows", "amd64", true, true)
 	multiExe(t, "windows", "amd64", true, false)
