@@ -534,16 +534,19 @@ func ParseTCPPivotc2(args string) ([]*clientpb.ImplantC2, error) {
 		arg = strings.ToLower(arg)
 		var uri *url.URL
 		var err error
-		if strings.HasPrefix(arg, "tcp-pivot://") {
+		if strings.HasPrefix(arg, "tcppivot://") {
 			uri, err = url.Parse(arg)
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			uri, err = url.Parse(fmt.Sprintf("tcp-pivot://%s", arg))
+			uri, err = url.Parse(fmt.Sprintf("tcppivot://%s", arg))
 			if err != nil {
 				return nil, err
 			}
+		}
+		if uri.Port() == "" {
+			uri.Host = fmt.Sprintf("%s:%d", uri.Hostname(), DefaultTCPPivotPort)
 		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
