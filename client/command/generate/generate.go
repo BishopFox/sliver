@@ -505,13 +505,13 @@ func ParseNamedPipec2(args string) ([]*clientpb.ImplantC2, error) {
 		arg = strings.ToLower(arg)
 		var uri *url.URL
 		var err error
-		if strings.HasPrefix(arg, "named-pipe://") {
+		if strings.HasPrefix(arg, "namedpipe://") {
 			uri, err = url.Parse(arg)
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			uri, err = url.Parse(fmt.Sprintf("named-pipe://%s", arg))
+			uri, err = url.Parse(fmt.Sprintf("namedpipe://%s", arg))
 			if err != nil {
 				return nil, err
 			}
