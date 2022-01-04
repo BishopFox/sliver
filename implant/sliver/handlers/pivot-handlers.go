@@ -69,8 +69,8 @@ func pivotStartListenerHandler(envelope *pb.Envelope, connection *transports.Con
 		return
 	}
 
-	if startListener, ok := pivots.SupportedPivotListeners[req.Type]; ok {
-		listener, err := startListener(req.BindAddress, connection.Send)
+	if createListener, ok := pivots.SupportedPivotListeners[req.Type]; ok {
+		listener, err := createListener(req.BindAddress, connection.Send)
 		if err != nil {
 			resp.Response.Err = err.Error()
 			data, _ := proto.Marshal(resp)
@@ -117,12 +117,12 @@ func pivotStopListenerHandler(envelope *pb.Envelope, connection *transports.Conn
 }
 
 func pivotPeerEnvelopeHandler(envelope *pb.Envelope, connection *transports.Connection) {
-	sent := pivots.SendToPeer(envelope)
+	sent, peerID := pivots.SendToPeer(envelope)
 	if !sent {
 		// {{if .Config.Debug}}
 		log.Printf("Send to peer failed, report peer failure upstream ...")
 		// {{end}}
-		data, _ := proto.Marshal(&pb.PivotPeerFailure{ID: envelope.ID})
+		data, _ := proto.Marshal(&pb.PivotPeerFailure{PeerID: peerID})
 		connection.Send <- &pb.Envelope{
 			Type: pb.MsgPivotPeerFailure,
 			Data: data,

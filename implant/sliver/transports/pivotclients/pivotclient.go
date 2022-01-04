@@ -20,7 +20,6 @@ package pivotclients
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
@@ -33,21 +32,11 @@ import (
 	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
+	"github.com/bishopfox/sliver/implant/sliver/pivots"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 )
-
-var (
-	OriginID = originID() // The origin's PeerID
-)
-
-// originID - Random origin identifier
-func originID() int64 {
-	buf := make([]byte, 8)
-	rand.Read(buf)
-	return int64(binary.LittleEndian.Uint64(buf))
-}
 
 // NetConnPivotClient - A TCP pivot client
 type NetConnPivotClient struct {
@@ -92,6 +81,7 @@ func (p *NetConnPivotClient) peerKeyExchange() error {
 	}
 	pivotHello, _ := proto.Marshal(&pb.PivotHello{
 		PublicKey:          publicKey,
+		PeerID:             pivots.PeerID,
 		PublicKeySignature: cryptography.ECCPublicKeySignature,
 	})
 
@@ -131,7 +121,7 @@ func (p *NetConnPivotClient) peerKeyExchange() error {
 }
 
 func (p *NetConnPivotClient) serverKeyExchange() error {
-	p.originID = OriginID
+	p.originID = pivots.PeerID
 	serverSessionKey := cryptography.RandomKey()
 	p.serverCipherCtx = cryptography.NewCipherContext(serverSessionKey)
 	ciphertext, err := cryptography.ECCEncryptToServer(serverSessionKey[:])
