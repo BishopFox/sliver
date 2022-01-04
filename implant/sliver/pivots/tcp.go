@@ -35,8 +35,8 @@ var (
 	tcpPivotWriteDeadline = 10 * time.Second
 )
 
-// StartTCPPivotListener - Start a TCP listener
-func StartTCPPivotListener(address string, upstream chan<- *pb.Envelope) (*PivotListener, error) {
+// CreateTCPPivotListener - Start a TCP listener
+func CreateTCPPivotListener(address string, upstream chan<- *pb.Envelope) (*PivotListener, error) {
 	// {{if .Config.Debug}}
 	log.Printf("Starting TCP pivot listener on %s", address)
 	// {{end}}

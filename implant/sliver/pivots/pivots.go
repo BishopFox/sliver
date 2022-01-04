@@ -218,21 +218,21 @@ func (p *PivotListener) Start() error {
 
 // Stop - Stop the pivot listener
 func (l *PivotListener) Stop() {
-	// Close all peer connections before closing listener
+	l.Listener.Close() // Stop accepting new connections
+
+	// Close all existing connections
+	connectionIDs := []uint32{}
 	l.PivotConnections.Range(func(key interface{}, value interface{}) bool {
-		value.(*NetConnPivot).Close()
+		connectionIDs = append(connectionIDs, value.(uint32))
 		return true
 	})
-	l.PivotConnections = nil
-	l.Listener.Close()
-}
-
-// PivotClose - Close a pivot connection
-func (l *PivotListener) PivotClose(id int64) {
-	if p, ok := l.PivotConnections.Load(id); ok {
-		l.PivotConnections.Delete(id)
-		p.(*NetConnPivot).Close()
+	for _, id := range connectionIDs {
+		pivotConn, ok := l.PivotConnections.LoadAndDelete(id)
+		if ok {
+			pivotConn.(*NetConnPivot).Close()
+		}
 	}
+	l.PivotConnections = &sync.Map{} // Make sure we drop any refs
 }
 
 // ListenerID - Generate a new pivot id

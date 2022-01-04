@@ -23,6 +23,6 @@ import (
 )
 
 var SupportedPivotListeners = map[pb.PivotType]CreateListener{
-	pb.PivotType_TCP:       StartTCPPivotListener,
-	pb.PivotType_NamedPipe: StartNamedPipePivotListener,
+	pb.PivotType_TCP:       CreateTCPPivotListener,
+	pb.PivotType_NamedPipe: CreateNamedPipePivotListener,
 }
