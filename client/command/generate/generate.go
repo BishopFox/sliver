@@ -534,6 +534,9 @@ func ParseTCPPivotc2(args string) ([]*clientpb.ImplantC2, error) {
 		arg = strings.ToLower(arg)
 		var uri *url.URL
 		var err error
+		if strings.HasPrefix(arg, "tcp-pivot://") {
+			arg = strings.Replace(arg, "tcp-pivot://", "tcppivot://", 1)
+		}
 		if strings.HasPrefix(arg, "tcppivot://") {
 			uri, err = url.Parse(arg)
 			if err != nil {

@@ -42,12 +42,12 @@ func StartNamedPipePivotListener(address string, upstream chan<- *pb.Envelope) (
 		return nil, err
 	}
 	pivotLn := &PivotListener{
-		ID:          ListenerID(),
-		Type:        pb.PivotType_NamedPipe,
-		Listener:    ln,
-		Pivots:      &sync.Map{},
-		BindAddress: fullName,
-		Upstream:    upstream,
+		ID:               ListenerID(),
+		Type:             pb.PivotType_NamedPipe,
+		Listener:         ln,
+		PivotConnections: &sync.Map{},
+		BindAddress:      fullName,
+		Upstream:         upstream,
 	}
 	go namedPipeAcceptConnections(pivotLn)
 	return pivotLn, nil
@@ -69,7 +69,6 @@ func namedPipeAcceptConnections(pivotListener *PivotListener) {
 		}
 		// handle connection like any other net.Conn
 		pivotConn := &NetConnPivot{
-			id:            PivotID(),
 			conn:          conn,
 			readMutex:     &sync.Mutex{},
 			writeMutex:    &sync.Mutex{},
@@ -78,6 +77,6 @@ func namedPipeAcceptConnections(pivotListener *PivotListener) {
 			upstream:      pivotListener.Upstream,
 			Downstream:    make(chan *pb.Envelope),
 		}
-		go pivotConn.Start(pivotListener.Pivots)
+		go pivotConn.Start(pivotListener.PivotConnections)
 	}
 }

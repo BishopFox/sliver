@@ -281,9 +281,8 @@ func wrapPivotPeerEnvelope(chain []*sliverpb.PivotPeerEnvelope, envelope *sliver
 	// Get the last peer in the chain and wrap the actual message
 	peer := chain[len(chain)-1]
 	peerEnvelopes := &sliverpb.PivotPeerEnvelope{
-		PeerID:  peer.PeerID,
-		PivotID: peer.PivotID, // This only goes in the inner most envelope
-		Data:    data,
+		PeerID: peer.PeerID,
+		Data:   data,
 	}
 	if 1 < len(chain) {
 		// Iterate in reverse order wrapping the envelopes
@@ -294,9 +293,8 @@ func wrapPivotPeerEnvelope(chain []*sliverpb.PivotPeerEnvelope, envelope *sliver
 				return nil, err
 			}
 			peerEnvelopes = &sliverpb.PivotPeerEnvelope{
-				PeerID:  chain[index].PeerID,
-				PivotID: chain[index].PivotID,
-				Data:    peerData,
+				PeerID: chain[index].PeerID,
+				Data:   peerData,
 			}
 		}
 	}
