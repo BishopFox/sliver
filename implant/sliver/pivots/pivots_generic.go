@@ -24,6 +24,6 @@ import (
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-var SupportedPivotListeners = map[pb.PivotType]StartListener{
-	pb.PivotType_TCP: StartTCPPivotListener,
+var SupportedPivotListeners = map[pb.PivotType]CreateListener{
+	pb.PivotType_TCP: CreateTCPPivotListener,
 }
