@@ -37,10 +37,12 @@ import (
 var (
 	// Stylizes known processes in the `ps` command
 	knownProcs = map[string]string{
-		"ccSvcHst.exe":    console.Red, // SEP
-		"cb.exe":          console.Red, // Carbon Black
-		"MsMpEng.exe":     console.Red, // Windows Defender
-		"smartscreen.exe": console.Red, // Windows Defender Smart Screen
+		"ccSvcHst.exe":          console.Red, // Symantec Endpoint Protection (SEP)
+		"cb.exe":                console.Red, // Carbon Black
+		"MsMpEng.exe":           console.Red, // Windows Defender
+		"smartscreen.exe":       console.Red, // Windows Defender Smart Screen
+		"CSFalconService.exe":   console.Red, // Crowdstrike Falcon Service
+		"CSFalconContainer.exe": console.Red, // CrowdStrike Falcon Container Security
 	}
 )
 
