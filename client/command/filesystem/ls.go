@@ -81,6 +81,10 @@ func LsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				// Then we have a filter on the end of the path
 				remotePath = baseDir
 				filter = potentialFilter
+			} else {
+				if !strings.HasSuffix(remotePath, "/") {
+					remotePath = remotePath + "/"
+				}
 			}
 		}
 	}
