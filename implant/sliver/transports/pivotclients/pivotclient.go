@@ -312,8 +312,8 @@ func (p *NetConnPivotClient) ReadEnvelope() (*pb.Envelope, error) {
 		// {{end}}
 		return nil, err
 	}
-	peerEnvelope := &pb.Envelope{}
-	err = proto.Unmarshal(data, peerEnvelope)
+	incomingEnvelope := &pb.Envelope{}
+	err = proto.Unmarshal(data, incomingEnvelope)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[pivot] Error unmarshal origin envelope: %v", err)
@@ -321,16 +321,16 @@ func (p *NetConnPivotClient) ReadEnvelope() (*pb.Envelope, error) {
 		return nil, err
 	}
 	// The only msg type that isn't encrypted by the server should be pivot pings
-	if peerEnvelope.Type == pb.MsgPivotPeerPing {
-		return peerEnvelope, nil
+	if incomingEnvelope.Type == pb.MsgPivotPeerPing {
+		return incomingEnvelope, nil
 	}
-	if peerEnvelope.Type != pb.MsgPivotOriginEnvelope {
+	if incomingEnvelope.Type != pb.MsgPivotOriginEnvelope {
 		// {{if .Config.Debug}}
 		log.Printf("[pivot] Error unexpected envelope type (non-origin)")
 		// {{end}}
 		return nil, err
 	}
-	plaintext, err := p.serverCipherCtx.Decrypt(peerEnvelope.Data)
+	plaintext, err := p.serverCipherCtx.Decrypt(incomingEnvelope.Data)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[pivot] Server decryption error: %s", err)

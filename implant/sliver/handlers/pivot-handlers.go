@@ -80,6 +80,7 @@ func pivotStartListenerHandler(envelope *pb.Envelope, connection *transports.Con
 			}
 			return
 		}
+		go listener.Start()
 		pivots.AddListener(listener)
 		data, _ := proto.Marshal(listener.ToProtobuf())
 		connection.Send <- &pb.Envelope{
