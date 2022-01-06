@@ -20,8 +20,8 @@ package handlers
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
@@ -39,6 +39,7 @@ var (
 // Pivot - Wraps an ImplantConnection
 type Pivot struct {
 	ID                   string
+	OriginID             int64
 	ImplantConn          *core.ImplantConnection
 	ImmediateImplantConn *core.ImplantConnection
 	CipherCtx            *cryptography.CipherContext
@@ -63,10 +64,7 @@ func (p *Pivot) Start() {
 				pivotLog.Errorf("failed to encrypt envelope: %v", err)
 				continue
 			}
-			peerEnvelope, err := wrapPivotPeerEnvelope(p.Chain, &sliverpb.Envelope{
-				Type: sliverpb.MsgPivotOriginEnvelope,
-				Data: ciphertext,
-			})
+			peerEnvelope, err := p.WrapPivotPeerEnvelope(ciphertext)
 			if err != nil {
 				pivotLog.Errorf("failed to wrap pivot peer envelope: %v", err)
 				continue
@@ -74,6 +72,56 @@ func (p *Pivot) Start() {
 			p.ImmediateImplantConn.Send <- peerEnvelope
 		}
 	}()
+}
+
+// WrapPivotPeerEnvelope - To wrap a response envelope we iterate backwards through the chain and wrap the response
+func (p *Pivot) WrapPivotPeerEnvelope(ciphertext []byte) (*sliverpb.Envelope, error) {
+
+	// Get the last peer in the chain and wrap the actual message
+	originEnvelope := &sliverpb.PivotPeerEnvelope{
+		PeerID:      p.OriginID,
+		NextMsgType: sliverpb.MsgPivotOriginEnvelope,
+		Data:        ciphertext,
+	}
+	pivotLog.Debugf("origin: %d", originEnvelope.PeerID)
+	originData, err := proto.Marshal(originEnvelope)
+	if err != nil {
+		pivotLog.Errorf("Failed to marshal pivot peer envelope: %v", err)
+		return nil, err
+	}
+	lastPeer := p.Chain[len(p.Chain)-1]
+	peerEnvelopes := &sliverpb.PivotPeerEnvelope{
+		PeerID:      lastPeer.PeerID,
+		NextMsgType: sliverpb.MsgPivotPeerEnvelope,
+		Data:        originData,
+	}
+	pivotLog.Debugf("via: %d", lastPeer.PeerID)
+	if 1 < len(p.Chain) {
+		// Iterate in reverse order wrapping the envelopes
+		for index := len(p.Chain) - 2; index >= 0; index-- {
+			peerData, err := proto.Marshal(peerEnvelopes)
+			if err != nil {
+				pivotLog.Errorf("Failed to marshal pivot peer envelope: %v", err)
+				return nil, err
+			}
+			pivotLog.Debugf("via: %d", p.Chain[index].PeerID)
+			peerEnvelopes = &sliverpb.PivotPeerEnvelope{
+				PeerID:      p.Chain[index].PeerID,
+				NextMsgType: sliverpb.MsgPivotPeerEnvelope,
+				Data:        peerData,
+			}
+		}
+	}
+
+	peerEnvelopesData, err := proto.Marshal(peerEnvelopes)
+	if err != nil {
+		pivotLog.Errorf("Failed to marshal pivot peer envelope: %v", err)
+		return nil, err
+	}
+	return &sliverpb.Envelope{
+		Type: sliverpb.MsgPivotPeerEnvelope,
+		Data: peerEnvelopesData,
+	}, nil
 }
 
 // NewPivotSession - Creates a new pivot session
@@ -210,6 +258,12 @@ func serverKeyExchange(implantConn *core.ImplantConnection, chain []*sliverpb.Pi
 		return nil
 	}
 
+	peerIDs := []string{}
+	for _, peer := range chain {
+		peerIDs = append(peerIDs, fmt.Sprintf("%d", peer.PeerID))
+	}
+	pivotLog.Debugf("Peers: %s, Origin: %d", strings.Join(peerIDs, "->"), keyExchange.OriginID)
+
 	var publicKeyDigest [32]byte
 	copy(publicKeyDigest[:], keyExchange.SessionKey[:32])
 	implantConfig, err := db.ImplantConfigByECCPublicKeyDigest(publicKeyDigest)
@@ -236,6 +290,7 @@ func serverKeyExchange(implantConn *core.ImplantConnection, chain []*sliverpb.Pi
 		return nil
 	}
 	pivotSession := NewPivotSession(chain)
+	pivotSession.OriginID = keyExchange.OriginID
 	pivotSession.CipherCtx = cryptography.NewCipherContext(sessionKey)
 	pivotRemoteAddr := fmt.Sprintf("%s->", chain[0].Name)
 	for _, peer := range chain[1:] {
@@ -254,10 +309,7 @@ func serverKeyExchange(implantConn *core.ImplantConnection, chain []*sliverpb.Pi
 		return nil
 	}
 
-	responseEnvelope, err := wrapPivotPeerEnvelope(pivotSession.Chain, &sliverpb.Envelope{
-		Type: sliverpb.MsgPivotOriginEnvelope,
-		Data: ciphertext,
-	})
+	responseEnvelope, err := pivotSession.WrapPivotPeerEnvelope(ciphertext)
 	if err != nil {
 		pivotLog.Warnf("Failed to wrap pivot peer envelope: %v", err)
 		return nil
@@ -266,85 +318,31 @@ func serverKeyExchange(implantConn *core.ImplantConnection, chain []*sliverpb.Pi
 	return responseEnvelope
 }
 
-// wrapPivotPeerEnvelope - To wrap a response envelope we iterate backwards through the chain and wrap the response
-func wrapPivotPeerEnvelope(chain []*sliverpb.PivotPeerEnvelope, envelope *sliverpb.Envelope) (*sliverpb.Envelope, error) {
-	pivotLog.Debugf("Wrapping pivot peer envelope ...")
-	data, err := proto.Marshal(envelope)
-	if err != nil {
-		pivotLog.Errorf("Failed to marshal pivot peer envelope: %v", err)
-		return nil, err
-	}
-	if len(chain) < 1 {
-		return nil, errors.New("peer chain is empty")
-	}
-
-	// Get the last peer in the chain and wrap the actual message
-	peer := chain[len(chain)-1]
-	peerEnvelopes := &sliverpb.PivotPeerEnvelope{
-		PeerID: peer.PeerID,
-		Data:   data,
-	}
-	if 1 < len(chain) {
-		// Iterate in reverse order wrapping the envelopes
-		for index := len(chain) - 2; index >= 0; index-- {
-			peerData, err := proto.Marshal(peerEnvelopes)
-			if err != nil {
-				pivotLog.Errorf("Failed to marshal pivot peer envelope: %v", err)
-				return nil, err
-			}
-			peerEnvelopes = &sliverpb.PivotPeerEnvelope{
-				PeerID: chain[index].PeerID,
-				Data:   peerData,
-			}
-		}
-	}
-
-	peerEnvelopesData, err := proto.Marshal(peerEnvelopes)
-	if err != nil {
-		pivotLog.Errorf("Failed to marshal pivot peer envelope: %v", err)
-		return nil, err
-	}
-	return &sliverpb.Envelope{
-		Type: sliverpb.MsgPivotPeerEnvelope,
-		Data: peerEnvelopesData,
-	}, nil
-}
-
 // unwrapPivotPeerEnvelope - Unwraps the nested pivot peer envelopes
 func unwrapPivotPeerEnvelopes(data []byte) ([]*sliverpb.PivotPeerEnvelope, *sliverpb.Envelope, error) {
-	peerEnvelope := &sliverpb.PivotPeerEnvelope{}
-	err := proto.Unmarshal(data, peerEnvelope)
+	nextEnvelope := &sliverpb.PivotPeerEnvelope{}
+	err := proto.Unmarshal(data, nextEnvelope)
 	if err != nil {
 		pivotLog.Errorf("failed to parse outermost peer envelope")
 		return nil, nil, err
 	}
-	pivotLog.Debugf("Outer peer: %s", peerEnvelope.Name)
+	pivotLog.Debugf("Entry peer: %s", nextEnvelope.Name)
 
-	chain := []*sliverpb.PivotPeerEnvelope{peerEnvelope}
-	innerEnvelope := &sliverpb.Envelope{}
-	err = proto.Unmarshal(peerEnvelope.Data, innerEnvelope)
-	if err != nil {
-		pivotLog.Errorf("failed to parse inner peer envelope")
-		return nil, nil, err
-	}
-	pivotLog.Debugf("Inner envelope type: %d", innerEnvelope.Type)
-
-	// Unwrap all inner pivot peer envelopes
+	chain := []*sliverpb.PivotPeerEnvelope{nextEnvelope}
 	depth := 0
-	for innerEnvelope.Type == sliverpb.MsgPivotPeerEnvelope {
-		peerEnvelope := &sliverpb.PivotPeerEnvelope{}
-		err := proto.Unmarshal(innerEnvelope.Data, peerEnvelope)
+	for nextEnvelope.NextMsgType == sliverpb.MsgPivotPeerEnvelope {
+		chain = append(chain, nextEnvelope)
+		nextEnvelope = &sliverpb.PivotPeerEnvelope{}
+		err := proto.Unmarshal(nextEnvelope.Data, nextEnvelope)
 		if err != nil {
 			pivotLog.Errorf("failed to parse inner peer envelope at depth %d", depth)
 			return nil, nil, err
 		}
-		chain = append(chain, peerEnvelope)
-		innerEnvelope = &sliverpb.Envelope{}
-		err = proto.Unmarshal(peerEnvelope.Data, innerEnvelope)
-		if err != nil {
-			return nil, nil, err
-		}
 		depth++
 	}
-	return chain, innerEnvelope, nil
+
+	return chain, &sliverpb.Envelope{
+		Type: nextEnvelope.NextMsgType,
+		Data: nextEnvelope.Data,
+	}, nil
 }
