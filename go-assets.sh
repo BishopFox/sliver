@@ -16,10 +16,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+set -e
 
 # Creates the static go asset archives
 
-GO_VER="1.17.5"
+GO_VER="1.17.6"
 GARBLE_VER="1.17.5"
 
 GO_ARCH_1="amd64"
@@ -49,7 +50,7 @@ fi
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 OUTPUT_DIR=$REPO_DIR/server/assets/fs
-CLIENT_OUTPUT_DIR=$REPO_DIR/client/assets/fs
+mkdir -p $OUTPUT_DIR
 WORK_DIR=`mktemp -d`
 
 echo "-----------------------------------------------------------------"
@@ -133,16 +134,20 @@ cp -vv windows-go.zip $OUTPUT_DIR/windows/$GO_ARCH_1/go.zip
 rm -rf ./go
 rm -f windows-go.zip go$GO_VER.windows-$GO_ARCH_1.zip
 
-# --- Client ---
-mkdir -p $CLIENT_OUTPUT_DIR/extensions/coff-loader/windows
-
 echo "-----------------------------------------------------------------"
 echo " Garble"
 echo "-----------------------------------------------------------------"
-curl -L --output $OUTPUT_DIR/linux/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux
-curl -L --output $OUTPUT_DIR/windows/$GO_ARCH_1/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows.exe
-curl -L --output $OUTPUT_DIR/darwin/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_1
-curl -L --output $OUTPUT_DIR/darwin/$GO_ARCH_2/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_2
+
+echo "curl -L --fail --output $OUTPUT_DIR/linux/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux"
+curl -L --fail --output $OUTPUT_DIR/linux/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux
+file $OUTPUT_DIR/linux/$GO_ARCH_1/garble
+
+echo "curl -L --fail --output $OUTPUT_DIR/windows/$GO_ARCH_1/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows.exe"
+curl -L --fail --output $OUTPUT_DIR/windows/$GO_ARCH_1/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows.exe
+echo "curl -L --fail --output $OUTPUT_DIR/darwin/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_1"
+curl -L --fail --output $OUTPUT_DIR/darwin/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_1
+echo "curl -L --fail --output $OUTPUT_DIR/darwin/$GO_ARCH_2/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_2"
+curl -L --fail --output $OUTPUT_DIR/darwin/$GO_ARCH_2/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_2
 
 # end
 echo -e "clean up: $WORK_DIR"

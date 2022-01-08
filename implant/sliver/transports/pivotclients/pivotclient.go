@@ -264,7 +264,9 @@ func (p *NetConnPivotClient) WriteEnvelope(envelope *pb.Envelope) error {
 		return err
 	}
 	var peerPlaintext []byte
-	if envelope.Type != pb.MsgPivotPeerPing {
+
+	// Do not wrap pivot messages since we're not the origin
+	if envelope.Type != pb.MsgPivotPeerPing && envelope.Type != pb.MsgPivotPeerEnvelope {
 		// Prepend the message with the pivot session ID
 		// note this can only be done after the server key change
 		ciphertext, err := p.serverCipherCtx.Encrypt(plaintext)
@@ -320,8 +322,16 @@ func (p *NetConnPivotClient) ReadEnvelope() (*pb.Envelope, error) {
 		// {{end}}
 		return nil, err
 	}
+
+	// {{if .Config.Debug}}
+	log.Printf("[pivot] Received incoming envelope: %+v", incomingEnvelope)
+	// {{end}}
+
 	// The only msg type that isn't encrypted by the server should be pivot pings
 	if incomingEnvelope.Type == pb.MsgPivotPeerPing {
+		return incomingEnvelope, nil
+	}
+	if incomingEnvelope.Type == pb.MsgPivotPeerEnvelope {
 		return incomingEnvelope, nil
 	}
 	if incomingEnvelope.Type != pb.MsgPivotOriginEnvelope {
