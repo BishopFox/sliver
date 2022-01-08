@@ -78,6 +78,10 @@ func GetListeners() []*pb.PivotListener {
 
 // AddListener - Add a listener
 func AddListener(listener *PivotListener) {
+	// {{if .Config.Debug}}
+	log.Printf("[pivot] my peer id: %d", PeerID)
+	log.Printf("[pivot] adding listener: %s", listener.BindAddress)
+	// {{end}}
 	pivotListeners.Store(listener.ID, listener)
 }
 
@@ -128,6 +132,10 @@ func SendToPeer(envelope *pb.Envelope) (bool, int64) {
 		// {{end}}
 		return false, 0
 	}
+
+	// {{if .Config.Debug}}
+	log.Printf("my peer envelope: %+v", myPeerEnvelope)
+	// {{end}}
 
 	nextPeerEnvelope := &pb.PivotPeerEnvelope{}
 	err = proto.Unmarshal(myPeerEnvelope.Data, nextPeerEnvelope)
