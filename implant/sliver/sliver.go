@@ -169,12 +169,12 @@ func DllInstall() { main() }
 
 // DllRegisterServer - is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s sliver.dll)
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms682162(v=vs.85).aspx
-// export DllRegisterServer
+//export DllRegisterServer
 func DllRegisterServer() { main() }
 
 // DllUnregisterServer - is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s /u sliver.dll)
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms691457(v=vs.85).aspx
-// export DllUnregisterServer
+//export DllUnregisterServer
 func DllUnregisterServer() { main() }
 
 // {{end}}
