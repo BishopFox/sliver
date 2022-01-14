@@ -20,7 +20,10 @@ package extension
 
 import (
 	"bytes"
+	"io/ioutil"
+	"os"
 	"runtime"
+	"syscall"
 	"unsafe"
 
 	// {{if .Config.Debug}}
@@ -39,10 +42,12 @@ type DarwinExtension struct {
 }
 
 type extensionArguments struct {
-	inDataSize  uintptr
-	inDataBuff  uintptr
-	outDataSize uintptr
-	outDataBuff uintptr
+	inDataSize uintptr
+	inDataBuff uintptr
+	pipeIn     int
+	pipeOut    int
+	// outDataSize uintptr
+	// outDataBuff uintptr
 }
 
 func NewDarwinExtension(data []byte, id string, arch string, init string) *DarwinExtension {
@@ -98,7 +103,16 @@ func (d *DarwinExtension) Call(export string, arguments []byte, onFinish func([]
 	// {{if .Config.Debug}}
 	log.Printf("Calling %s, arg size: %d\n", export, extArgs.inDataSize)
 	// {{end}}
-	_, err := d.module.Call(export, uintptr(unsafe.Pointer(&extArgs)))
+	pipe := make([]int, 2)
+	err := syscall.Pipe(pipe)
+	if err != nil {
+		return err
+	}
+	defer syscall.Close(pipe[0])
+	defer syscall.Close(pipe[1])
+	extArgs.pipeIn = pipe[0]  // read
+	extArgs.pipeOut = pipe[1] // write
+	_, err = d.module.Call(export, uintptr(unsafe.Pointer(&extArgs)))
 	if err != nil {
 		return err
 	}
@@ -106,14 +120,23 @@ func (d *DarwinExtension) Call(export string, arguments []byte, onFinish func([]
 	log.Printf("%s done!\n", export)
 	// {{end}}
 	outData := new(bytes.Buffer)
-	outDataSize := int(extArgs.outDataSize)
-	// {{if .Config.Debug}}
-	log.Printf("Out data size: %d\n", outDataSize)
-	// {{end}}
-	for i := 0; i < outDataSize; i++ {
-		b := (*byte)(unsafe.Pointer(uintptr(i) + extArgs.outDataBuff))
-		outData.WriteByte(*b)
+	outFile := os.NewFile(uintptr(extArgs.pipeOut), "pipe")
+	if outFile == nil {
+		return syscall.EINVAL
 	}
+	data, err := ioutil.ReadAll(outFile)
+	if err != nil {
+		return err
+	}
+	outData.Write(data)
+	// outDataSize := int(extArgs.outDataSize)
+	// // {{if .Config.Debug}}
+	// log.Printf("Out data size: %d\n", outDataSize)
+	// // {{end}}
+	// for i := 0; i < outDataSize; i++ {
+	// 	b := (*byte)(unsafe.Pointer(uintptr(i) + extArgs.outDataBuff))
+	// 	outData.WriteByte(*b)
+	// }
 	// We currently don't have a way to trigger a callback
 	// in the loaded code for Darwin.
 	if outData.Len() > 0 {
