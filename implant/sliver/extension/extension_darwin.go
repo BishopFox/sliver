@@ -120,7 +120,7 @@ func (d *DarwinExtension) Call(export string, arguments []byte, onFinish func([]
 	log.Printf("%s done!\n", export)
 	// {{end}}
 	outData := new(bytes.Buffer)
-	outFile := os.NewFile(uintptr(extArgs.pipeOut), "pipe")
+	outFile := os.NewFile(uintptr(extArgs.pipeIn), "pipe")
 	if outFile == nil {
 		return syscall.EINVAL
 	}
