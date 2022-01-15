@@ -125,24 +125,27 @@ func pivotPeerEnvelopeHandler(implantConn *core.ImplantConnection, data []byte) 
 	switch peerEnvelope.Type {
 	case sliverpb.MsgPivotServerKeyExchange:
 		resp = serverKeyExchange(implantConn, peerEnvelope)
-	case sliverpb.MsgPivotOriginEnvelope:
-		resp = originEnvelopeHandler(implantConn, peerEnvelope)
+	case sliverpb.MsgPivotSessionEnvelope:
+		resp = sessionEnvelopeHandler(implantConn, peerEnvelope)
 	case sliverpb.MsgPivotPeerFailure:
-		resp = pivotPeerFailureHandler(implantConn, peerEnvelope)
+		resp = peerFailureHandler(implantConn, peerEnvelope)
 	case sliverpb.MsgPivotServerPing:
-		resp = pivotServerPingHandler(implantConn, peerEnvelope)
+		resp = serverPingHandler(implantConn, peerEnvelope)
 	}
 
 	return resp
 }
 
-func originEnvelopeHandler(implantConn *core.ImplantConnection, peerEnvelope *sliverpb.PivotPeerEnvelope) *sliverpb.Envelope {
-	// There should be a uuid prepended to the data buffer, so check to make sure its long enough to parse
-
-	pivotLog.Debugf("origin envelope pivot session ID = %s", peerEnvelope.PivotSessionID)
-	pivotEntry, ok := core.PivotSessions.Load(peerEnvelope.PivotSessionID)
+func sessionEnvelopeHandler(implantConn *core.ImplantConnection, peerEnvelope *sliverpb.PivotPeerEnvelope) *sliverpb.Envelope {
+	pivotSessionID := uuid.FromBytesOrNil(peerEnvelope.PivotSessionID).String()
+	if pivotSessionID == "" {
+		pivotLog.Errorf("failed to parse pivot session id from peer envelope")
+		return nil
+	}
+	pivotLog.Debugf("session envelope pivot session ID = %s", pivotSessionID)
+	pivotEntry, ok := core.PivotSessions.Load(pivotSessionID)
 	if !ok {
-		pivotLog.Errorf("pivot session id '%s' not found", peerEnvelope.PivotSessionID)
+		pivotLog.Errorf("pivot session id '%s' not found", pivotSessionID)
 		return nil
 	}
 	pivot := pivotEntry.(*Pivot)
@@ -185,19 +188,23 @@ func handlePivotEnvelope(pivot *Pivot, envelope *sliverpb.Envelope) {
 	}
 }
 
-func pivotPeerFailureHandler(implantConn *core.ImplantConnection, peerEnvelope *sliverpb.PivotPeerEnvelope) *sliverpb.Envelope {
+func peerFailureHandler(implantConn *core.ImplantConnection, peerEnvelope *sliverpb.PivotPeerEnvelope) *sliverpb.Envelope {
 	pivotLog.Errorf("pivot peer failure received")
 	return nil
 }
 
-func pivotServerPingHandler(implantConn *core.ImplantConnection, peerEnvelope *sliverpb.PivotPeerEnvelope) *sliverpb.Envelope {
-	pivotLog.Debugf("pivot server ping received")
+func serverPingHandler(implantConn *core.ImplantConnection, peerEnvelope *sliverpb.PivotPeerEnvelope) *sliverpb.Envelope {
+	pivotSessionID := uuid.FromBytesOrNil(peerEnvelope.PivotSessionID).String()
+	if pivotSessionID == "" {
+		pivotLog.Errorf("failed to parse pivot session id from peer envelope")
+		return nil
+	}
 
 	// Find the pivot session for the server ping
-	pivotLog.Debugf("origin envelope pivot session ID = %s", peerEnvelope.PivotSessionID)
-	pivotEntry, ok := core.PivotSessions.Load(peerEnvelope.PivotSessionID)
+	pivotLog.Debugf("origin envelope pivot session ID = %s", pivotSessionID)
+	pivotEntry, ok := core.PivotSessions.Load(pivotSessionID)
 	if !ok {
-		pivotLog.Errorf("pivot session id '%s' not found", peerEnvelope.PivotSessionID)
+		pivotLog.Errorf("pivot session id '%s' not found", pivotSessionID)
 		return nil
 	}
 	pivot := pivotEntry.(*Pivot)
@@ -258,14 +265,12 @@ func serverKeyExchange(implantConn *core.ImplantConnection, peerEnvelope *sliver
 		return nil
 	}
 	pivotSession := NewPivotSession(peerEnvelope.Peers)
-	pivotLog.Infof("Pivot session %s created with origin %d", pivotSession.ID, peerEnvelope.Peers[0].Name)
+	pivotLog.Infof("Pivot session %s created with origin %s", pivotSession.ID, peerEnvelope.Peers[0].Name)
 	pivotSession.OriginID = peerEnvelope.Peers[0].PeerID
 	pivotSession.CipherCtx = cryptography.NewCipherContext(sessionKey)
 
-	pivotRemoteAddr := fmt.Sprintf("%s->", peerEnvelope.Peers[0].Name)
-	for _, peer := range peerEnvelope.Peers[1:] {
-		pivotRemoteAddr += fmt.Sprintf("%s->", peer.Name)
-	}
+	pivotRemoteAddr := peersToString(peerEnvelope) + implantConn.RemoteAddress
+
 	pivotSession.ImplantConn = core.NewImplantConnection("pivot", pivotRemoteAddr)
 	pivotSession.ImmediateImplantConn = implantConn
 	core.PivotSessions.Store(pivotSession.ID, pivotSession)
@@ -296,7 +301,7 @@ func serverKeyExchange(implantConn *core.ImplantConnection, peerEnvelope *sliver
 	}
 }
 
-// MustMarshal - Marshals or panics
+// MustMarshal - Marshals or returns an empty byte array
 func MustMarshal(msg proto.Message) []byte {
 	data, err := proto.Marshal(msg)
 	if err != nil {
@@ -304,4 +309,15 @@ func MustMarshal(msg proto.Message) []byte {
 		return nil
 	}
 	return data
+}
+
+func peersToString(peerEnvelope *sliverpb.PivotPeerEnvelope) string {
+	if len(peerEnvelope.Peers) < 1 {
+		return ""
+	}
+	pivotRemoteAddr := ""
+	for _, peer := range peerEnvelope.Peers[1:] {
+		pivotRemoteAddr += fmt.Sprintf("%s->", peer.Name)
+	}
+	return pivotRemoteAddr
 }

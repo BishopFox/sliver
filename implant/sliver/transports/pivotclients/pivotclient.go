@@ -34,6 +34,7 @@ import (
 	consts "github.com/bishopfox/sliver/implant/sliver/constants"
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/implant/sliver/pivots"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
@@ -291,7 +292,8 @@ func (p *NetConnPivotClient) WriteEnvelope(envelope *pb.Envelope) error {
 			// {{end}}
 			return err
 		}
-		data, err := proto.Marshal(&pb.PivotPeerEnvelope{
+		peerData, err := proto.Marshal(&pb.PivotPeerEnvelope{
+			Type: sliverpb.MsgPivotSessionEnvelope,
 			Peers: []*pb.PivotPeer{
 				{PeerID: pivots.MyPeerID, Name: consts.SliverName},
 			},
@@ -306,11 +308,11 @@ func (p *NetConnPivotClient) WriteEnvelope(envelope *pb.Envelope) error {
 		}
 		peerPlaintext, _ = proto.Marshal(&pb.Envelope{
 			Type: pb.MsgPivotPeerEnvelope,
-			Data: data,
+			Data: peerData,
 		})
 
 	} else {
-		// Pivot pings are not encrypted with the sever key
+		// Pivot pings and existing peer envelopes are not encrypted with the sever key
 		peerPlaintext = plaintext
 	}
 
