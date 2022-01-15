@@ -34,13 +34,12 @@ import (
 	consts "github.com/bishopfox/sliver/implant/sliver/constants"
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/implant/sliver/pivots"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 )
 
-// NetConnPivotClient - A TCP pivot client
+// NetConnPivotClient - A generic net.Conn pivot client
 type NetConnPivotClient struct {
 	pivotSessionID  []byte
 	conn            net.Conn
@@ -293,7 +292,7 @@ func (p *NetConnPivotClient) WriteEnvelope(envelope *pb.Envelope) error {
 			return err
 		}
 		peerData, err := proto.Marshal(&pb.PivotPeerEnvelope{
-			Type: sliverpb.MsgPivotSessionEnvelope,
+			Type: pb.MsgPivotSessionEnvelope,
 			Peers: []*pb.PivotPeer{
 				{PeerID: pivots.MyPeerID, Name: consts.SliverName},
 			},

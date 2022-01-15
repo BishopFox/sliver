@@ -16,10 +16,13 @@ package handlers
 
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
-	---------------------------------------------------------------------
+	------------------------------------------------------------------------
+
+	WARNING: These functions can be invoked by remote implants without user interaction
+
+	------------------------------------------------------------------------
 
 	General structure of a pivot messages:
-
 
 	[Envelope].Data -> [Peer Envelope].Data -> Envelope -> C2
 
@@ -269,7 +272,7 @@ func serverKeyExchange(implantConn *core.ImplantConnection, peerEnvelope *sliver
 	pivotSession.OriginID = peerEnvelope.Peers[0].PeerID
 	pivotSession.CipherCtx = cryptography.NewCipherContext(sessionKey)
 
-	pivotRemoteAddr := peersToString(peerEnvelope) + implantConn.RemoteAddress
+	pivotRemoteAddr := peersToString(implantConn.RemoteAddress, peerEnvelope)
 
 	pivotSession.ImplantConn = core.NewImplantConnection("pivot", pivotRemoteAddr)
 	pivotSession.ImmediateImplantConn = implantConn
@@ -311,13 +314,12 @@ func MustMarshal(msg proto.Message) []byte {
 	return data
 }
 
-func peersToString(peerEnvelope *sliverpb.PivotPeerEnvelope) string {
-	if len(peerEnvelope.Peers) < 1 {
-		return ""
+func peersToString(remoteAddr string, peerEnvelope *sliverpb.PivotPeerEnvelope) string {
+	pivotRemoteAddr := remoteAddr
+	if 1 < len(peerEnvelope.Peers) {
+		for index := len(peerEnvelope.Peers) - 1; 0 < index; index-- {
+			pivotRemoteAddr += fmt.Sprintf("->%s", peerEnvelope.Peers[index].Name)
+		}
 	}
-	pivotRemoteAddr := ""
-	for _, peer := range peerEnvelope.Peers[1:] {
-		pivotRemoteAddr += fmt.Sprintf("%s->", peer.Name)
-	}
-	return pivotRemoteAddr
+	return pivotRemoteAddr + "->"
 }
