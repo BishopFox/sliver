@@ -164,23 +164,33 @@ func (p *NetConnPivotClient) serverKeyExchange() error {
 	// a different read deadline here as this has to go round trip to the server if the
 	// upstream implant uses a slow protocol it may take a while to go there and back again
 	p.conn.SetReadDeadline(time.Now().Add(5 * time.Minute))
-	serverKeyExchangeResp, err := p.ReadEnvelope()
+	serverKeyExRespEnvelope, err := p.ReadEnvelope()
 	p.conn.SetReadDeadline(time.Time{})
 	if err != nil {
 		return err
 	}
-	if serverKeyExchangeResp.Type != pb.MsgPivotServerKeyExchange {
+	if serverKeyExRespEnvelope.Type != pb.MsgPivotServerKeyExchange {
 		// {{if .Config.Debug}}
-		log.Printf("[pivot] Unexpected message type: %v", serverKeyExchangeResp.Type)
+		log.Printf("[pivot] Unexpected message type: %v", serverKeyExRespEnvelope.Type)
 		// {{end}}
 		return errors.New("server key exchange failure")
 	}
+
+	serverKeyExResp := &pb.PivotServerKeyExchange{}
+	err = proto.Unmarshal(serverKeyExRespEnvelope.Data, serverKeyExResp)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[pivot] Error un-marshaling server key exchange response: %v", err)
+		// {{end}}
+		return err
+	}
+
 	// Just make sure we can parse the bytes
-	p.pivotSessionID = uuid.FromBytesOrNil(serverKeyExchangeResp.Data).Bytes()
+	p.pivotSessionID = uuid.FromBytesOrNil(serverKeyExResp.SessionKey).Bytes()
 
 	// {{if .Config.Debug}}
 	log.Printf("[pivot] Pivot session ID: %s",
-		uuid.FromBytesOrNil(serverKeyExchangeResp.Data).String(),
+		uuid.FromBytesOrNil(p.pivotSessionID).String(),
 	)
 	// {{end}}
 
