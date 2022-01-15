@@ -16,12 +16,27 @@ package handlers
 
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	---------------------------------------------------------------------
+
+	General structure of a pivot messages:
+
+
+	[Envelope].Data -> [Peer Envelope].Data -> Envelope -> C2
+
+	The outer envelope is always a type of "Peer Envelope" and like all
+	other message types is used to send a message. The Peer Envelope contains
+	the routing information (a list of pivot peers) and the data to be sent.
+	The Peer Envelope's data is an encrypted Envelope (the actual message).
+
+	The Peer Envelope's data is encrypted with the server session key, peers
+	can see the Peer Envelope metadata, but this is encrypted on the wire
+	between peers using the peer to peer keys.
+
 */
 
 import (
 	"encoding/base64"
 	"fmt"
-	"strings"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
@@ -43,7 +58,7 @@ type Pivot struct {
 	ImplantConn          *core.ImplantConnection
 	ImmediateImplantConn *core.ImplantConnection
 	CipherCtx            *cryptography.CipherContext
-	Chain                []*sliverpb.PivotPeerEnvelope
+	Peers                []*sliverpb.PivotPeer
 }
 
 // Start - Starts the pivot send loop which forwards envelopes from the pivot ImplantConnection
@@ -51,87 +66,42 @@ type Pivot struct {
 func (p *Pivot) Start() {
 	go func() {
 		defer func() {
-			pivotLog.Debugf("pivot session %s send loop closing", p.ID)
+			pivotLog.Debugf("pivot session %s send loop closing (origin id: %d)", p.ID, p.OriginID)
 		}()
 		for envelope := range p.ImplantConn.Send {
-			envelope, err := proto.Marshal(envelope)
+			envelopeData, err := proto.Marshal(envelope)
 			if err != nil {
 				pivotLog.Errorf("failed to marshal envelope: %v", err)
 				continue
 			}
-			ciphertext, err := p.CipherCtx.Encrypt(envelope)
+			ciphertext, err := p.CipherCtx.Encrypt(envelopeData)
 			if err != nil {
 				pivotLog.Errorf("failed to encrypt envelope: %v", err)
 				continue
 			}
-			peerEnvelope, err := p.WrapPivotPeerEnvelope(ciphertext)
+			peerEnvelopeData, _ := proto.Marshal(&sliverpb.PivotPeerEnvelope{
+				Type:  envelope.Type,
+				Peers: p.Peers,
+				Data:  ciphertext,
+			})
 			if err != nil {
 				pivotLog.Errorf("failed to wrap pivot peer envelope: %v", err)
 				continue
 			}
-			p.ImmediateImplantConn.Send <- peerEnvelope
+			p.ImmediateImplantConn.Send <- &sliverpb.Envelope{
+				Type: sliverpb.MsgPivotPeerEnvelope,
+				Data: peerEnvelopeData,
+			}
 		}
 	}()
 }
 
-// WrapPivotPeerEnvelope - To wrap a response envelope we iterate backwards through the chain and wrap the response
-func (p *Pivot) WrapPivotPeerEnvelope(ciphertext []byte) (*sliverpb.Envelope, error) {
-
-	pivotLog.Debugf("[wrap] response pivot peer envelope ...")
-
-	// Get the last peer in the chain and wrap the actual message
-	originEnvelope := &sliverpb.PivotPeerEnvelope{
-		PeerID:      p.OriginID,
-		NextMsgType: sliverpb.MsgPivotOriginEnvelope,
-		Data:        ciphertext,
-	}
-	pivotLog.Debugf("[wrap] origin: %d", originEnvelope.PeerID)
-	originData, err := proto.Marshal(originEnvelope)
-	if err != nil {
-		pivotLog.Errorf("Failed to marshal pivot peer envelope: %v", err)
-		return nil, err
-	}
-	lastPeer := p.Chain[len(p.Chain)-1]
-	peerEnvelopes := &sliverpb.PivotPeerEnvelope{
-		PeerID:      lastPeer.PeerID,
-		NextMsgType: sliverpb.MsgPivotOriginEnvelope,
-		Data:        originData,
-	}
-	pivotLog.Debugf("[wrap] via: %d", lastPeer.PeerID)
-	if 1 < len(p.Chain) {
-		// Iterate in reverse order wrapping the envelopes
-		for index := len(p.Chain) - 2; index >= 0; index-- {
-			peerData, err := proto.Marshal(peerEnvelopes)
-			if err != nil {
-				pivotLog.Errorf("Failed to marshal pivot peer envelope: %v", err)
-				return nil, err
-			}
-			pivotLog.Debugf("[wrap] via: %d", p.Chain[index].PeerID)
-			peerEnvelopes = &sliverpb.PivotPeerEnvelope{
-				PeerID:      p.Chain[index].PeerID,
-				NextMsgType: sliverpb.MsgPivotPeerEnvelope,
-				Data:        peerData,
-			}
-		}
-	}
-
-	peerEnvelopesData, err := proto.Marshal(peerEnvelopes)
-	if err != nil {
-		pivotLog.Errorf("Failed to marshal pivot peer envelope: %v", err)
-		return nil, err
-	}
-	return &sliverpb.Envelope{
-		Type: sliverpb.MsgPivotPeerEnvelope,
-		Data: peerEnvelopesData,
-	}, nil
-}
-
 // NewPivotSession - Creates a new pivot session
-func NewPivotSession(chain []*sliverpb.PivotPeerEnvelope) *Pivot {
+func NewPivotSession(chain []*sliverpb.PivotPeer) *Pivot {
 	id, _ := uuid.NewV4()
 	return &Pivot{
 		ID:    id.String(),
-		Chain: chain,
+		Peers: chain,
 	}
 }
 
@@ -144,49 +114,39 @@ func NewPivotSession(chain []*sliverpb.PivotPeerEnvelope) *Pivot {
 // envelope so we can just start parsing PivotPeerEnvelope's
 func pivotPeerEnvelopeHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	pivotLog.Debugf("received pivot peer envelope ...")
-
-	// Unwrap the nested envelopes
-	chain, originEnvelope, err := unwrapPivotPeerEnvelopes(data)
+	peerEnvelope := &sliverpb.PivotPeerEnvelope{}
+	err := proto.Unmarshal(data, peerEnvelope)
 	if err != nil {
+		pivotLog.Errorf("failed to parse outermost peer envelope")
 		return nil
 	}
-	// Determine if the message is associated with an existing session
-
-	for index, peer := range chain {
-		pivotLog.Debugf("Chain[%d] = %v", index, peer.Name)
-	}
-	pivotLog.Debugf("Origin MsgType = %v", originEnvelope.Type)
 
 	var resp *sliverpb.Envelope
-	switch originEnvelope.Type {
+	switch peerEnvelope.Type {
 	case sliverpb.MsgPivotServerKeyExchange:
-		resp = serverKeyExchange(implantConn, chain, originEnvelope)
+		resp = serverKeyExchange(implantConn, peerEnvelope)
 	case sliverpb.MsgPivotOriginEnvelope:
-		resp = originEnvelopeHandler(implantConn, chain, originEnvelope)
+		resp = originEnvelopeHandler(implantConn, peerEnvelope)
 	case sliverpb.MsgPivotPeerFailure:
-		resp = pivotPeerFailureHandler(implantConn, chain, originEnvelope)
+		resp = pivotPeerFailureHandler(implantConn, peerEnvelope)
 	case sliverpb.MsgPivotServerPing:
-		resp = pivotServerPingHandler(implantConn, chain, originEnvelope)
+		resp = pivotServerPingHandler(implantConn, peerEnvelope)
 	}
 
 	return resp
 }
 
-func originEnvelopeHandler(implantConn *core.ImplantConnection, chain []*sliverpb.PivotPeerEnvelope, origin *sliverpb.Envelope) *sliverpb.Envelope {
+func originEnvelopeHandler(implantConn *core.ImplantConnection, peerEnvelope *sliverpb.PivotPeerEnvelope) *sliverpb.Envelope {
 	// There should be a uuid prepended to the data buffer, so check to make sure its long enough to parse
-	if len(origin.Data) < 16 {
-		pivotLog.Errorf("origin envelope data too small")
-		return nil
-	}
-	pivotSessionID := uuid.FromBytesOrNil(origin.Data[:16]).String()
-	pivotLog.Debugf("origin envelope pivot session ID = %s", pivotSessionID)
-	pivotEntry, ok := core.PivotSessions.Load(pivotSessionID)
+
+	pivotLog.Debugf("origin envelope pivot session ID = %s", peerEnvelope.PivotSessionID)
+	pivotEntry, ok := core.PivotSessions.Load(peerEnvelope.PivotSessionID)
 	if !ok {
-		pivotLog.Errorf("pivot session id '%s' not found", pivotSessionID)
+		pivotLog.Errorf("pivot session id '%s' not found", peerEnvelope.PivotSessionID)
 		return nil
 	}
 	pivot := pivotEntry.(*Pivot)
-	plaintext, err := pivot.CipherCtx.Decrypt(origin.Data[16:])
+	plaintext, err := pivot.CipherCtx.Decrypt(peerEnvelope.Data)
 	if err != nil {
 		pivotLog.Errorf("failed to decrypt pivot session data: %v", err)
 		return nil
@@ -225,20 +185,19 @@ func handlePivotEnvelope(pivot *Pivot, envelope *sliverpb.Envelope) {
 	}
 }
 
-func pivotPeerFailureHandler(implantConn *core.ImplantConnection, chain []*sliverpb.PivotPeerEnvelope, origin *sliverpb.Envelope) *sliverpb.Envelope {
+func pivotPeerFailureHandler(implantConn *core.ImplantConnection, peerEnvelope *sliverpb.PivotPeerEnvelope) *sliverpb.Envelope {
 	pivotLog.Errorf("pivot peer failure received")
 	return nil
 }
 
-func pivotServerPingHandler(implantConn *core.ImplantConnection, chain []*sliverpb.PivotPeerEnvelope, origin *sliverpb.Envelope) *sliverpb.Envelope {
+func pivotServerPingHandler(implantConn *core.ImplantConnection, peerEnvelope *sliverpb.PivotPeerEnvelope) *sliverpb.Envelope {
 	pivotLog.Debugf("pivot server ping received")
 
 	// Find the pivot session for the server ping
-	pivotSessionID := uuid.FromBytesOrNil(origin.Data[:16]).String()
-	pivotLog.Debugf("origin envelope pivot session ID = %s", pivotSessionID)
-	pivotEntry, ok := core.PivotSessions.Load(pivotSessionID)
+	pivotLog.Debugf("origin envelope pivot session ID = %s", peerEnvelope.PivotSessionID)
+	pivotEntry, ok := core.PivotSessions.Load(peerEnvelope.PivotSessionID)
 	if !ok {
-		pivotLog.Errorf("pivot session id '%s' not found", pivotSessionID)
+		pivotLog.Errorf("pivot session id '%s' not found", peerEnvelope.PivotSessionID)
 		return nil
 	}
 	pivot := pivotEntry.(*Pivot)
@@ -252,22 +211,29 @@ func pivotServerPingHandler(implantConn *core.ImplantConnection, chain []*sliver
 // ------------------------
 // Non-handler functions
 // ------------------------
-func serverKeyExchange(implantConn *core.ImplantConnection, chain []*sliverpb.PivotPeerEnvelope, originEnvelope *sliverpb.Envelope) *sliverpb.Envelope {
-	keyExchange := &sliverpb.PivotServerKeyExchange{}
-	err := proto.Unmarshal(originEnvelope.Data, keyExchange)
-	if err != nil {
-		pivotLog.Errorf("Un-marshaling pivot server key exchange error: %v", err)
+func serverKeyExchange(implantConn *core.ImplantConnection, peerEnvelope *sliverpb.PivotPeerEnvelope) *sliverpb.Envelope {
+	// Normally the peer envelope data would be encrypted, but the server key exchange messages are special
+	// only the session key field is encrypted (with the server's public key)
+	if len(peerEnvelope.Peers) < 2 {
+		pivotLog.Errorf("pivot peer list too small (%d)", len(peerEnvelope.Peers))
 		return nil
 	}
 
-	peerIDs := []string{}
-	for _, peer := range chain {
-		peerIDs = append(peerIDs, fmt.Sprintf("%d", peer.PeerID))
+	serverKeyEx := &sliverpb.PivotServerKeyExchange{}
+	err := proto.Unmarshal(peerEnvelope.Data, serverKeyEx)
+	if err != nil {
+		pivotLog.Errorf("failed to parse pivot server key exchange: %v", err)
+		return nil
 	}
-	pivotLog.Debugf("[pivot server key exchange] Peers: %s, Origin: %d", strings.Join(peerIDs, " => "), keyExchange.OriginID)
+	if len(serverKeyEx.SessionKey) < 32 {
+		pivotLog.Errorf("pivot server key exchange field too small (%d)", len(serverKeyEx.SessionKey))
+		return nil
+	}
 
+	// The first 32 bytes are the sha256 hash of the implant's public key
+	// everything after that is the encrypted session key
 	var publicKeyDigest [32]byte
-	copy(publicKeyDigest[:], keyExchange.SessionKey[:32])
+	copy(publicKeyDigest[:], serverKeyEx.SessionKey[:32])
 	implantConfig, err := db.ImplantConfigByECCPublicKeyDigest(publicKeyDigest)
 	if err != nil || implantConfig == nil {
 		pivotLog.Warn("Unknown public key digest")
@@ -281,7 +247,7 @@ func serverKeyExchange(implantConn *core.ImplantConnection, chain []*sliverpb.Pi
 	var senderPublicKey [32]byte
 	copy(senderPublicKey[:], publicKey)
 	serverKeyPair := cryptography.ECCServerKeyPair()
-	rawSessionKey, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, keyExchange.SessionKey[32:])
+	rawSessionKey, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, serverKeyEx.SessionKey[32:])
 	if err != nil {
 		pivotLog.Warn("Failed to decrypt session key from origin")
 		return nil
@@ -291,64 +257,50 @@ func serverKeyExchange(implantConn *core.ImplantConnection, chain []*sliverpb.Pi
 		pivotLog.Warn("Failed to create session key from bytes")
 		return nil
 	}
-	pivotSession := NewPivotSession(chain)
-	pivotSession.OriginID = keyExchange.OriginID
+	pivotSession := NewPivotSession(peerEnvelope.Peers)
+	pivotSession.OriginID = peerEnvelope.Peers[0].PeerID
 	pivotSession.CipherCtx = cryptography.NewCipherContext(sessionKey)
-	pivotRemoteAddr := fmt.Sprintf("%s->", chain[0].Name)
-	for _, peer := range chain[1:] {
+
+	pivotRemoteAddr := fmt.Sprintf("%s->", peerEnvelope.Peers[0].Name)
+	for _, peer := range peerEnvelope.Peers[1:] {
 		pivotRemoteAddr += fmt.Sprintf("%s->", peer.Name)
 	}
 	pivotSession.ImplantConn = core.NewImplantConnection("pivot", pivotRemoteAddr)
 	pivotSession.ImmediateImplantConn = implantConn
 	core.PivotSessions.Store(pivotSession.ID, pivotSession)
-	innerEnvelope, _ := proto.Marshal(&sliverpb.Envelope{
+	keyExRespEnvelope := MustMarshal(&sliverpb.Envelope{
 		Type: sliverpb.MsgPivotServerKeyExchange,
-		Data: uuid.FromStringOrNil(pivotSession.ID).Bytes(),
+		Data: MustMarshal(&sliverpb.PivotServerKeyExchange{
+			SessionKey: uuid.FromStringOrNil(pivotSession.ID).Bytes(), // Re-use the bytes field
+		}),
 	})
-	ciphertext, err := pivotSession.CipherCtx.Encrypt(innerEnvelope)
+	ciphertext, err := pivotSession.CipherCtx.Encrypt(keyExRespEnvelope)
+	if err != nil {
+		pivotLog.Warn("Failed to encrypt pivot server key exchange response")
+		return nil
+	}
+	peerEnvelopeData, _ := proto.Marshal(&sliverpb.PivotPeerEnvelope{
+		Peers: pivotSession.Peers,
+		Data:  ciphertext,
+	})
 	if err != nil {
 		pivotLog.Warn("Failed to encrypt pivot server key exchange response")
 		return nil
 	}
 
-	responseEnvelope, err := pivotSession.WrapPivotPeerEnvelope(ciphertext)
-	if err != nil {
-		pivotLog.Warnf("Failed to wrap pivot peer envelope: %v", err)
-		return nil
-	}
 	pivotSession.Start()
-	return responseEnvelope
+	return &sliverpb.Envelope{
+		Type: sliverpb.MsgPivotPeerEnvelope,
+		Data: peerEnvelopeData,
+	}
 }
 
-// unwrapPivotPeerEnvelope - Unwraps the nested pivot peer envelopes
-func unwrapPivotPeerEnvelopes(data []byte) ([]*sliverpb.PivotPeerEnvelope, *sliverpb.Envelope, error) {
-	peerEnvelope := &sliverpb.PivotPeerEnvelope{}
-	err := proto.Unmarshal(data, peerEnvelope)
+// MustMarshal - Marshals or panics
+func MustMarshal(msg proto.Message) []byte {
+	data, err := proto.Marshal(msg)
 	if err != nil {
-		pivotLog.Errorf("failed to parse outermost peer envelope")
-		return nil, nil, err
+		pivotLog.Errorf("failed to marshal message: %v", err)
+		return nil
 	}
-	pivotLog.Debugf("Entry peer: %s", peerEnvelope.Name)
-	pivotLog.Debugf("Next envelope type: %d", peerEnvelope.NextMsgType)
-
-	chain := []*sliverpb.PivotPeerEnvelope{peerEnvelope}
-	depth := 0
-	for peerEnvelope.NextMsgType == sliverpb.MsgPivotPeerEnvelope {
-		nextEnvelope := &sliverpb.PivotPeerEnvelope{}
-		err := proto.Unmarshal(peerEnvelope.Data, nextEnvelope)
-		if err != nil {
-			pivotLog.Errorf("failed to parse inner peer envelope at depth %d", depth)
-			return nil, nil, err
-		}
-		pivotLog.Debugf("Next peer: %s", nextEnvelope.Name)
-		pivotLog.Debugf("Next envelope type: %d", nextEnvelope.NextMsgType)
-		chain = append(chain, nextEnvelope)
-		depth++
-		peerEnvelope = nextEnvelope
-	}
-
-	return chain, &sliverpb.Envelope{
-		Type: peerEnvelope.NextMsgType,
-		Data: peerEnvelope.Data,
-	}, nil
+	return data
 }

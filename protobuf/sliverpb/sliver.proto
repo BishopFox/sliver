@@ -740,15 +740,21 @@ message PivotHello {
 }
 
 message PivotServerKeyExchange {
-  int64 OriginID = 2;
-  bytes SessionKey = 3;
+  int64 OriginID = 1;
+  bytes SessionKey = 2;
+}
+
+message PivotPeer {
+  int64 PeerID = 1;
+  string Name = 2;
 }
 
 message PivotPeerEnvelope {
-  int64 PeerID = 1;
-  uint32 NextMsgType = 2; // Message type
-  string Name = 3;
+  repeated PivotPeer Peers = 1;
+  uint32 Type = 2;
+  bytes PivotSessionID = 3;
   bytes Data = 4;
+  int64 PeerFailureAt = 5;
 }
 
 message PivotPing {
