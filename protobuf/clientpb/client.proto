@@ -44,6 +44,7 @@ message Session {
   bool Burned = 22;
   repeated string Extensions = 23;
   // string ConfigID = 24;
+  int64 PeerID = 25;
 }
 
 message Beacon {
@@ -451,6 +452,18 @@ message CloseTunnelReq {
   uint64 TunnelID = 8 [jstype = JS_STRING];
 
   commonpb.Request Request = 9;
+}
+
+// [ Pivots ] ----------------------------------------
+message PivotGraphEntry {
+  int64 PeerID = 1;
+  uint32 SessionID = 2;
+  string Name = 3;
+  repeated PivotGraphEntry Children = 4;
+}
+
+message PivotGraph {
+  repeated PivotGraphEntry Children = 1;
 }
 
 // [ Events ] ----------------------------------------

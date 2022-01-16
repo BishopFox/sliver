@@ -35,7 +35,7 @@ func PivotDetailsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if session == nil {
 		return
 	}
-	pivotListeners, err := con.Rpc.PivotListeners(context.Background(), &sliverpb.PivotListenersReq{
+	pivotListeners, err := con.Rpc.PivotSessionListeners(context.Background(), &sliverpb.PivotListenersReq{
 		Request: con.ActiveTarget.Request(ctx),
 	})
 	if err != nil {

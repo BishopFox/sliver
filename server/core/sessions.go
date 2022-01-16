@@ -71,6 +71,7 @@ type Session struct {
 	Burned            bool
 	Extensions        []string
 	ConfigID          string
+	PeerID            int64
 }
 
 func (s *Session) LastCheckin() time.Time {
@@ -120,6 +121,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		ProxyURL:          s.ProxyURL,
 		Burned:            s.Burned,
 		// ConfigID:          s.ConfigID,
+		PeerID: s.PeerID,
 	}
 }
 
@@ -198,11 +200,14 @@ func (s *sessions) Remove(sessionID uint32) {
 	if session != nil {
 
 		// Remove any pivots associated with this session
+		// affectedPivotIDs := []int64{}
 		PivotSessions.Range(func(key, value interface{}) bool {
+			// pivot := value.(*Pivot)
 
 			return true
 		})
 
+		// Remove the session itself
 		delete(s.sessions, sessionID)
 		EventBroker.Publish(Event{
 			EventType: consts.SessionClosedEvent,

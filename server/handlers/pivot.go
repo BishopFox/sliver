@@ -54,60 +54,6 @@ var (
 	pivotLog = log.NamedLogger("handlers", "pivot")
 )
 
-// Pivot - Wraps an ImplantConnection
-type Pivot struct {
-	ID                   string
-	OriginID             int64
-	ImplantConn          *core.ImplantConnection
-	ImmediateImplantConn *core.ImplantConnection
-	CipherCtx            *cryptography.CipherContext
-	Peers                []*sliverpb.PivotPeer
-}
-
-// Start - Starts the pivot send loop which forwards envelopes from the pivot ImplantConnection
-// to the ImmediateImplantConnection (the closest peer in the chain)
-func (p *Pivot) Start() {
-	go func() {
-		defer func() {
-			pivotLog.Debugf("pivot session %s send loop closing (origin id: %d)", p.ID, p.OriginID)
-		}()
-		for envelope := range p.ImplantConn.Send {
-			envelopeData, err := proto.Marshal(envelope)
-			if err != nil {
-				pivotLog.Errorf("failed to marshal envelope: %v", err)
-				continue
-			}
-			ciphertext, err := p.CipherCtx.Encrypt(envelopeData)
-			if err != nil {
-				pivotLog.Errorf("failed to encrypt envelope: %v", err)
-				continue
-			}
-			peerEnvelopeData, _ := proto.Marshal(&sliverpb.PivotPeerEnvelope{
-				Type:  envelope.Type,
-				Peers: p.Peers,
-				Data:  ciphertext,
-			})
-			if err != nil {
-				pivotLog.Errorf("failed to wrap pivot peer envelope: %v", err)
-				continue
-			}
-			p.ImmediateImplantConn.Send <- &sliverpb.Envelope{
-				Type: sliverpb.MsgPivotPeerEnvelope,
-				Data: peerEnvelopeData,
-			}
-		}
-	}()
-}
-
-// NewPivotSession - Creates a new pivot session
-func NewPivotSession(chain []*sliverpb.PivotPeer) *Pivot {
-	id, _ := uuid.NewV4()
-	return &Pivot{
-		ID:    id.String(),
-		Peers: chain,
-	}
-}
-
 // ------------------------
 // Handler functions
 // ------------------------
@@ -151,7 +97,7 @@ func sessionEnvelopeHandler(implantConn *core.ImplantConnection, peerEnvelope *s
 		pivotLog.Errorf("pivot session id '%s' not found", pivotSessionID)
 		return nil
 	}
-	pivot := pivotEntry.(*Pivot)
+	pivot := pivotEntry.(*core.Pivot)
 	plaintext, err := pivot.CipherCtx.Decrypt(peerEnvelope.Data)
 	if err != nil {
 		pivotLog.Errorf("failed to decrypt pivot session data: %v", err)
@@ -169,7 +115,7 @@ func sessionEnvelopeHandler(implantConn *core.ImplantConnection, peerEnvelope *s
 	return nil
 }
 
-func handlePivotEnvelope(pivot *Pivot, envelope *sliverpb.Envelope) {
+func handlePivotEnvelope(pivot *core.Pivot, envelope *sliverpb.Envelope) {
 	pivotLog.Debugf("pivot session %s received envelope: %v", pivot.ID, envelope.Type)
 	handlers := GetNonPivotHandlers()
 	pivot.ImplantConn.UpdateLastMessage()
@@ -210,7 +156,7 @@ func serverPingHandler(implantConn *core.ImplantConnection, peerEnvelope *sliver
 		pivotLog.Errorf("pivot session id '%s' not found", pivotSessionID)
 		return nil
 	}
-	pivot := pivotEntry.(*Pivot)
+	pivot := pivotEntry.(*core.Pivot)
 
 	// Update last message time
 	pivot.ImplantConn.UpdateLastMessage()
@@ -267,14 +213,14 @@ func serverKeyExchange(implantConn *core.ImplantConnection, peerEnvelope *sliver
 		pivotLog.Warn("Failed to create session key from bytes")
 		return nil
 	}
-	pivotSession := NewPivotSession(peerEnvelope.Peers)
+	pivotSession := core.NewPivotSession(peerEnvelope.Peers)
 	pivotLog.Infof("Pivot session %s created with origin %s", pivotSession.ID, peerEnvelope.Peers[0].Name)
 	pivotSession.OriginID = peerEnvelope.Peers[0].PeerID
 	pivotSession.CipherCtx = cryptography.NewCipherContext(sessionKey)
 
 	pivotRemoteAddr := peersToString(implantConn.RemoteAddress, peerEnvelope)
 
-	pivotSession.ImplantConn = core.NewImplantConnection("pivot", pivotRemoteAddr)
+	pivotSession.ImplantConn = core.NewImplantConnection(core.PivotTransportName, pivotRemoteAddr)
 	pivotSession.ImmediateImplantConn = implantConn
 	core.PivotSessions.Store(pivotSession.ID, pivotSession)
 	keyExRespEnvelope := MustMarshal(&sliverpb.Envelope{
