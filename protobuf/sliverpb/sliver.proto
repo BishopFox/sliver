@@ -54,6 +54,7 @@ message Register {
   int64 ReconnectInterval = 13;
   string ProxyURL = 14;
   string ConfigID = 16;
+  int64 PeerID = 17;
 }
 
 message BeaconRegister {

