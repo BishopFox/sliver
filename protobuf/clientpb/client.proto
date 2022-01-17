@@ -457,7 +457,7 @@ message CloseTunnelReq {
 // [ Pivots ] ----------------------------------------
 message PivotGraphEntry {
   int64 PeerID = 1;
-  uint32 SessionID = 2;
+  Session Session = 2;
   string Name = 3;
   repeated PivotGraphEntry Children = 4;
 }

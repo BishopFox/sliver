@@ -215,6 +215,7 @@ func serverKeyExchange(implantConn *core.ImplantConnection, peerEnvelope *sliver
 	}
 	pivotSession := core.NewPivotSession(peerEnvelope.Peers)
 	pivotLog.Infof("Pivot session %s created with origin %s", pivotSession.ID, peerEnvelope.Peers[0].Name)
+	pivotLog.Debugf("Peers: %v", peerEnvelope.Peers)
 	pivotSession.OriginID = peerEnvelope.Peers[0].PeerID
 	pivotSession.CipherCtx = cryptography.NewCipherContext(sessionKey)
 

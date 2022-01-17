@@ -2405,6 +2405,24 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
+	pivotsCmd.AddCommand(&grumble.Command{
+		Name:     "graph",
+		Help:     "Get details of a pivot listener",
+		LongHelp: help.GetHelpFor([]string{consts.PivotsStr, "graph"}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("i", "id", 0, "id of the pivot listener to stop")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			pivots.PivotsGraphCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
 	// [ WireGuard ] --------------------------------------------------------------
 
 	con.App.AddCommand(&grumble.Command{

@@ -72,6 +72,7 @@ func registerSessionHandler(implantConn *core.ImplantConnection, data []byte) *s
 	session.ReconnectInterval = register.ReconnectInterval
 	session.ProxyURL = register.ProxyURL
 	session.ConfigID = register.ConfigID
+	session.PeerID = register.PeerID
 	core.Sessions.Add(session)
 	implantConn.Cleanup = func() {
 		core.Sessions.Remove(session.ID)

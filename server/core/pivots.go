@@ -107,10 +107,10 @@ func (e *PivotGraphEntry) ToProtobuf() *clientpb.PivotGraphEntry {
 		children = append(children, child.ToProtobuf())
 	}
 	return &clientpb.PivotGraphEntry{
-		PeerID:    e.PeerID,
-		SessionID: e.SessionID,
-		Name:      e.Name,
-		Children:  children,
+		PeerID:   e.PeerID,
+		Session:  Sessions.Get(e.SessionID).ToProtobuf(),
+		Name:     e.Name,
+		Children: children,
 	}
 }
 
@@ -146,23 +146,35 @@ func PivotGraph() []*PivotGraphEntry {
 		})
 	}
 	for _, topLevel := range graph {
-		insertImmediateChildred(topLevel)
+		coreLog.Debugf("[graph] top level: %v", topLevel)
+		insertImmediateChildren(topLevel, 1)
 	}
 	return graph
 }
 
-func insertImmediateChildred(entry *PivotGraphEntry) {
+// 1
+
+// 2,1
+// 3,2,1
+// 4,2,1
+
+func insertImmediateChildren(entry *PivotGraphEntry, depth int) {
 	// Iterate over pivots and insert them into the graph
 	PivotSessions.Range(func(key, value interface{}) bool {
 		pivot := value.(*Pivot)
+		if len(pivot.Peers) != depth+1 {
+			return true
+		}
 		session := SessionFromImplantConnection(pivot.ImplantConn)
-		if pivot.Peers[len(pivot.Peers)-1].PeerID == entry.PeerID {
+		coreLog.Debugf("[graph] entry: %v, pivot: %v", entry.Name, pivot)
+		if pivot.Peers[1].PeerID == entry.PeerID {
 			child := &PivotGraphEntry{
 				PeerID:    pivot.OriginID,
 				SessionID: session.ID,
 				Name:      session.Name,
 				Children:  make(map[int64]*PivotGraphEntry),
 			}
+			coreLog.Debugf("[graph] entry: %v, found child: %v", entry.Name, child.Name)
 			entry.Insert(child)
 		}
 		return true
@@ -170,6 +182,6 @@ func insertImmediateChildred(entry *PivotGraphEntry) {
 
 	// Recurse over children
 	for _, child := range entry.Children {
-		insertImmediateChildred(child)
+		insertImmediateChildren(child, depth+1)
 	}
 }
