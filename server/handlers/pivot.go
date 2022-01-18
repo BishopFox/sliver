@@ -76,8 +76,6 @@ func pivotPeerEnvelopeHandler(implantConn *core.ImplantConnection, data []byte) 
 		resp = serverKeyExchange(implantConn, peerEnvelope)
 	case sliverpb.MsgPivotSessionEnvelope:
 		resp = sessionEnvelopeHandler(implantConn, peerEnvelope)
-	case sliverpb.MsgPivotPeerFailure:
-		resp = peerFailureHandler(implantConn, peerEnvelope)
 	case sliverpb.MsgPivotServerPing:
 		resp = serverPingHandler(implantConn, peerEnvelope)
 	}
@@ -137,8 +135,27 @@ func handlePivotEnvelope(pivot *core.Pivot, envelope *sliverpb.Envelope) {
 	}
 }
 
-func peerFailureHandler(implantConn *core.ImplantConnection, peerEnvelope *sliverpb.PivotPeerEnvelope) *sliverpb.Envelope {
-	pivotLog.Errorf("pivot peer failure received")
+func pivotPeerFailureHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
+	peerFailure := &sliverpb.PivotPeerFailure{}
+	err := proto.Unmarshal(data, peerFailure)
+	if err != nil {
+		pivotLog.Errorf("failed to parse peer failure message: %v", err)
+		return nil
+	}
+	pivotLog.Errorf("pivot peer failure received: %v", peerFailure)
+
+	core.PivotSessions.Range(func(key, value interface{}) bool {
+		pivot := value.(*core.Pivot)
+		if pivot.OriginID == peerFailure.PeerID {
+			session := core.Sessions.FromImplantConnection(pivot.ImplantConn)
+			if session != nil {
+				core.Sessions.Remove(session.ID)
+			}
+			defer core.PivotSessions.Delete(pivot.ID)
+			return false
+		}
+		return true
+	})
 	return nil
 }
 

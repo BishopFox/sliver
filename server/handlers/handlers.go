@@ -51,6 +51,7 @@ func GetHandlers() map[uint32]ServerHandler {
 
 		// Pivots
 		sliverpb.MsgPivotPeerEnvelope: pivotPeerEnvelopeHandler,
+		sliverpb.MsgPivotPeerFailure:  pivotPeerFailureHandler,
 	}
 }
 

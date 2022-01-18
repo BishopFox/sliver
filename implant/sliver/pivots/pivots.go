@@ -130,14 +130,14 @@ func StopListener(id uint32) {
 }
 
 // SendToPeer - Forward an envelope to a peer
-func SendToPeer(envelope *pb.Envelope) bool {
+func SendToPeer(envelope *pb.Envelope) (bool, error) {
 	pivotPeerEnvelope := &pb.PivotPeerEnvelope{}
 	err := proto.Unmarshal(envelope.Data, pivotPeerEnvelope)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to unmarshal peer envelope: %s", err)
 		// {{end}}
-		return false
+		return false, err
 	}
 
 	// {{if .Config.Debug}}
@@ -149,7 +149,7 @@ func SendToPeer(envelope *pb.Envelope) bool {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to find next peer id: %s", err)
 		// {{end}}
-		return false
+		return false, err
 	}
 
 	sent := false // Controls iteration of outer loop
@@ -164,13 +164,13 @@ func SendToPeer(envelope *pb.Envelope) bool {
 		}
 		return !sent // keep iterating while not sent
 	})
-	// {{if .Config.Debug}}
 	if !sent {
+		// {{if .Config.Debug}}
 		log.Printf("Failed to find peer with id %d", nextPeerID)
-		return false
+		// {{end}}
+		return false, errors.New("peer not found")
 	}
-	// {{end}}
-	return sent
+	return sent, nil
 }
 
 func findNextPeerID(pivotPeerEnvelope *pb.PivotPeerEnvelope) (int64, error) {
@@ -288,7 +288,18 @@ func (p *NetConnPivot) ToProtobuf() *pb.NetConnPivot {
 
 // Start - Starts the TCP pivot connection handler
 func (p *NetConnPivot) Start(pivots *sync.Map) {
-	defer p.conn.Close()
+	defer func() {
+		p.conn.Close()
+		if p.downstreamPeerID != 0 {
+			p.upstream <- &pb.Envelope{
+				Type: pb.MsgPivotPeerFailure,
+				Data: mustMarshal(&pb.PivotPeerFailure{
+					Type:   pb.PeerFailureType_DISCONNECT,
+					PeerID: p.downstreamPeerID,
+				}),
+			}
+		}
+	}()
 	err := p.peerKeyExchange()
 	if err != nil {
 		return
@@ -540,4 +551,9 @@ func (p *NetConnPivot) RemoteAddress() string {
 // Close - Close connection to peer
 func (p *NetConnPivot) Close() error {
 	return p.conn.Close()
+}
+
+func mustMarshal(msg proto.Message) []byte {
+	data, _ := proto.Marshal(msg)
+	return data
 }

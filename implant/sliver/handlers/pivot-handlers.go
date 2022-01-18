@@ -118,12 +118,20 @@ func pivotStopListenerHandler(envelope *pb.Envelope, connection *transports.Conn
 }
 
 func pivotPeerEnvelopeHandler(envelope *pb.Envelope, connection *transports.Connection) {
-	sent := pivots.SendToPeer(envelope)
+	sent, err := pivots.SendToPeer(envelope)
 	if !sent {
 		// {{if .Config.Debug}}
 		log.Printf("Send to peer failed, report peer failure upstream ...")
 		// {{end}}
-		data, _ := proto.Marshal(&pb.PivotPeerFailure{PeerID: pivots.MyPeerID})
+		errStr := ""
+		if err != nil {
+			errStr = err.Error()
+		}
+		data, _ := proto.Marshal(&pb.PivotPeerFailure{
+			PeerID: pivots.MyPeerID,
+			Type:   pb.PeerFailureType_SEND_FAILURE,
+			Err:    errStr,
+		})
 		connection.Send <- &pb.Envelope{
 			Type: pb.MsgPivotPeerFailure,
 			Data: data,

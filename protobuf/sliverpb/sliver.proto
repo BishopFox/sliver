@@ -767,8 +767,15 @@ message NetConnPivot {
   string RemoteAddress = 2;
 }
 
+enum PeerFailureType {
+  SEND_FAILURE = 0;
+  DISCONNECT = 1;
+}
+
 message PivotPeerFailure {
   int64 PeerID = 1;
+  PeerFailureType Type = 2;
+  string Err = 3;
 }
 
 message PivotListenersReq {
