@@ -123,10 +123,10 @@ func (e *PivotGraphEntry) Insert(input *PivotGraphEntry) {
 
 // FindEntryByPeerID - Finds a pivot graph entry by peer ID, recursively
 func (e *PivotGraphEntry) FindEntryByPeerID(peerID int64) *PivotGraphEntry {
+	if e.PeerID == peerID {
+		return e
+	}
 	for _, entry := range e.Children {
-		if entry.PeerID == peerID {
-			return entry
-		}
 		childEntry := entry.FindEntryByPeerID(peerID)
 		if childEntry != nil {
 			return childEntry
@@ -136,11 +136,15 @@ func (e *PivotGraphEntry) FindEntryByPeerID(peerID int64) *PivotGraphEntry {
 }
 
 // AllChildren - Flat list of all children (including children of children)
-func (e *PivotGraphEntry) AllChildren(children []*PivotGraphEntry) {
+func (e *PivotGraphEntry) AllChildren() []*PivotGraphEntry {
+	children := []*PivotGraphEntry{}
+	coreLog.Debugf("parent: %v", e)
 	for _, child := range e.Children {
 		children = append(children, child)
-		child.AllChildren(children)
+		children = append(children, child.AllChildren()...)
 	}
+	coreLog.Debugf("parent: %v, all children: %v", e, children)
+	return children
 }
 
 func findAllChildrenByPeerID(peerID int64) []*PivotGraphEntry {
@@ -149,7 +153,7 @@ func findAllChildrenByPeerID(peerID int64) []*PivotGraphEntry {
 		entry := topLevelEntry.FindEntryByPeerID(peerID)
 		coreLog.Debugf("top level entry: %v, found: %v", topLevelEntry, entry)
 		if entry != nil {
-			entry.AllChildren(children)
+			children = entry.AllChildren()
 			break
 		}
 	}
