@@ -190,14 +190,13 @@ func (s *sessions) Add(session *Session) *Session {
 
 // Remove - Remove a sliver from the hive (atomically)
 func (s *sessions) Remove(sessionID uint32) {
-	val, ok := s.sessions.LoadAndDelete(sessionID)
+	val, ok := s.sessions.Load(sessionID)
 	if !ok {
 		return
 	}
 	parentSession := val.(*Session)
-
-	// Remove any children of this session
 	children := findAllChildrenByPeerID(parentSession.PeerID)
+	s.sessions.Delete(parentSession.ID)
 	coreLog.Debugf("Removing %d children of session %d (%v)", len(children), parentSession.ID, children)
 	for _, child := range children {
 		childSession, ok := s.sessions.LoadAndDelete(child.SessionID)
@@ -208,6 +207,7 @@ func (s *sessions) Remove(sessionID uint32) {
 			})
 		}
 	}
+
 	// Remove the parent session
 	EventBroker.Publish(Event{
 		EventType: consts.SessionClosedEvent,
