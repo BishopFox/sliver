@@ -73,10 +73,12 @@ type Session struct {
 	PeerID            int64
 }
 
+// LastCheckin - Get the last time a session message was received
 func (s *Session) LastCheckin() time.Time {
 	return s.Connection.LastMessage
 }
 
+// IsDead - See if last check-in is within expected variance
 func (s *Session) IsDead() bool {
 	sessionsLog.Debugf("Last checkin was %v", s.Connection.LastMessage)
 	padding := time.Duration(10 * time.Second) // Arbitrary margin of error
