@@ -63,7 +63,7 @@ func ArmoryInstallCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 func installBundle(bundle *ArmoryBundle, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) {
 	for _, pkgName := range bundle.Packages {
-		err := installExtensionPackageByName(pkgName, clientConfig, con)
+		err := installPackageByName(pkgName, clientConfig, con)
 		if err != nil {
 			con.PrintErrorf("Failed to install '%s': %s", pkgName, err)
 		}
