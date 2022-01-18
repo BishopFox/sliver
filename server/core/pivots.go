@@ -121,12 +121,39 @@ func (e *PivotGraphEntry) Insert(input *PivotGraphEntry) {
 	}
 }
 
+// FindEntryByPeerID - Finds a pivot graph entry by peer ID, recursively
+func (e *PivotGraphEntry) FindEntryByPeerID(peerID int64) *PivotGraphEntry {
+	for _, entry := range e.Children {
+		if entry.PeerID == peerID {
+			return entry
+		}
+		childEntry := entry.FindEntryByPeerID(peerID)
+		if childEntry != nil {
+			return childEntry
+		}
+	}
+	return nil
+}
+
 // AllChildren - Flat list of all children (including children of children)
 func (e *PivotGraphEntry) AllChildren(children []*PivotGraphEntry) {
 	for _, child := range e.Children {
 		children = append(children, child)
 		child.AllChildren(children)
 	}
+}
+
+func findAllChildrenByPeerID(peerID int64) []*PivotGraphEntry {
+	children := []*PivotGraphEntry{}
+	for _, topLevelEntry := range PivotGraph() {
+		entry := topLevelEntry.FindEntryByPeerID(peerID)
+		coreLog.Debugf("top level entry: %v, found: %v", topLevelEntry, entry)
+		if entry != nil {
+			entry.AllChildren(children)
+			break
+		}
+	}
+	return children
 }
 
 // PivotGraph - Creates a graph structure of sessions/pivots
@@ -152,12 +179,12 @@ func PivotGraph() []*PivotGraphEntry {
 	return graph
 }
 
+// Remember that the origin index zero, and we only want this "entry"s immediate children
+// the peers list will look something like this, where 2 is the parent of both 3, and 4
 // 1
-
 // 2,1
 // 3,2,1
 // 4,2,1
-
 func insertImmediateChildren(entry *PivotGraphEntry, depth int) {
 	// Iterate over pivots and insert them into the graph
 	PivotSessions.Range(func(key, value interface{}) bool {
@@ -165,7 +192,7 @@ func insertImmediateChildren(entry *PivotGraphEntry, depth int) {
 		if len(pivot.Peers) != depth+1 {
 			return true
 		}
-		session := SessionFromImplantConnection(pivot.ImplantConn)
+		session := Sessions.FromImplantConnection(pivot.ImplantConn)
 		coreLog.Debugf("[graph] entry: %v, pivot: %v", entry.Name, pivot)
 		if pivot.Peers[1].PeerID == entry.PeerID {
 			child := &PivotGraphEntry{
