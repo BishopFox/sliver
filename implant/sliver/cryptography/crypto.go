@@ -73,6 +73,9 @@ func ECCEncrypt(recipientPublicKey *[32]byte, senderPrivateKey *[32]byte, plaint
 
 // ECCDecrypt - Decrypt using Curve 25519 + ChaCha20Poly1305
 func ECCDecrypt(senderPublicKey *[32]byte, recipientPrivateKey *[32]byte, ciphertext []byte) ([]byte, error) {
+	if len(ciphertext) < 24 {
+		return nil, errors.New("ciphertext too short")
+	}
 	var decryptNonce [24]byte
 	copy(decryptNonce[:], ciphertext[:24])
 	plaintext, ok := box.Open(nil, ciphertext[24:], &decryptNonce, senderPublicKey, recipientPrivateKey)
@@ -104,11 +107,12 @@ func Encrypt(key [chacha20poly1305.KeySize]byte, plaintext []byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
+	plaintext = bytes.NewBuffer(GzipBuf(plaintext)).Bytes()
 	nonce := make([]byte, aead.NonceSize(), aead.NonceSize()+len(plaintext)+aead.Overhead())
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
-	return aead.Seal(nonce, nonce, GzipBuf(plaintext), nil), nil
+	return aead.Seal(nonce, nonce, plaintext, nil), nil
 }
 
 // Decrypt - Decrypt using chacha20poly1305

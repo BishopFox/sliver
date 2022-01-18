@@ -1,8 +1,8 @@
-package socks
+package pivots
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2022  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -20,27 +20,30 @@ package socks
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/core"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+
 	"github.com/desertbit/grumble"
 )
 
-// SocksRmCmd - Remove an existing tunneled port forward
-func SocksRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	socksID := ctx.Flags.Int("id")
-	if socksID < 1 {
-		con.PrintErrorf("Must specify a valid socks5 id\n")
+// PivotsGraphCmd - Display pivots for all sessions
+func PivotsGraphCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+
+	graph, err := con.Rpc.PivotGraph(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
 		return
 	}
-	found := core.SocksProxies.Remove(socksID)
-	if !found {
-		con.PrintErrorf("No socks5 with id %d\n", socksID)
-	} else {
-		con.PrintInfof("Removed socks5\n")
+
+	data, err := json.MarshalIndent(graph.Children, "", "  ")
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
 	}
 
-	// close
-	con.Rpc.CloseSocks(context.Background(), &sliverpb.Socks{})
+	fmt.Printf("%s\n", string(data))
+
 }

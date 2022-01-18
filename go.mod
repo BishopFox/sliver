@@ -5,6 +5,8 @@ go 1.17
 // fix wgctrl requiring old wireguard
 replace golang.zx2c4.com/wireguard => golang.zx2c4.com/wireguard v0.0.0-20210311162910-5f0c8b942d93
 
+replace github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.4
+
 require (
 	github.com/AlecAivazis/survey/v2 v2.2.2
 	github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
@@ -59,7 +61,6 @@ require (
 )
 
 require (
-	github.com/emirpasic/gods v1.12.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/shirou/gopsutil/v3 v3.21.10
 	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43

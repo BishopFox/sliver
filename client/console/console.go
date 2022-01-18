@@ -208,8 +208,9 @@ func (con *SliverConsoleClient) EventLoop() {
 
 		case consts.SessionClosedEvent:
 			session := event.Session
-			con.PrintEventErrorf("Lost session #%d %s - %s (%s) - %s/%s",
-				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch)
+			currentTime := time.Now().Format(time.RFC1123)
+			con.PrintEventErrorf("Lost session #%d %s - %s (%s) - %s/%s - %v",
+				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 			activeSession := con.ActiveTarget.GetSession()
 			if activeSession != nil && activeSession.ID == session.ID {
 				con.ActiveTarget.Set(nil, nil)

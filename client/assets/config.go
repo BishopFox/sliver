@@ -49,7 +49,7 @@ type ClientConfig struct {
 // GetConfigDir - Returns the path to the config dir
 func GetConfigDir() string {
 	rootDir, _ := filepath.Abs(GetRootAppDir())
-	dir := path.Join(rootDir, ConfigDirName)
+	dir := filepath.Join(rootDir, ConfigDirName)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0700)
 		if err != nil {
@@ -86,11 +86,11 @@ func GetConfigs() map[string]*ClientConfig {
 // ReadConfig - Load config into struct
 func ReadConfig(confFilePath string) (*ClientConfig, error) {
 	confFile, err := os.Open(confFilePath)
-	defer confFile.Close()
 	if err != nil {
 		log.Printf("Open failed %v", err)
 		return nil, err
 	}
+	defer confFile.Close()
 	data, err := ioutil.ReadAll(confFile)
 	if err != nil {
 		log.Printf("Read failed %v", err)
@@ -108,11 +108,11 @@ func ReadConfig(confFilePath string) (*ClientConfig, error) {
 // SaveConfig - Save a config to disk
 func SaveConfig(config *ClientConfig) error {
 	if config.LHost == "" || config.Operator == "" {
-		return errors.New("Empty config")
+		return errors.New("empty config")
 	}
 	configDir := GetConfigDir()
 	filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(config.Operator), filepath.Base(config.LHost))
-	saveTo, _ := filepath.Abs(path.Join(configDir, filename))
+	saveTo, _ := filepath.Abs(filepath.Join(configDir, filename))
 	configJSON, _ := json.Marshal(config)
 	err := ioutil.WriteFile(saveTo, configJSON, 0600)
 	if err != nil {

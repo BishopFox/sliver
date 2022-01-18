@@ -1,16 +1,15 @@
 package generate
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"strings"
-	"text/tabwriter"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // CanariesCmd - Display canaries from the database and their status
@@ -21,56 +20,45 @@ func CanariesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	if 0 < len(canaries.Canaries) {
-		displayCanaries(con, canaries.Canaries, ctx.Flags.Bool("burned"))
+		PrintCanaries(con, canaries.Canaries, ctx.Flags.Bool("burned"))
 	} else {
 		con.PrintInfof("No canaries in database\n")
 	}
 }
 
-func displayCanaries(con *console.SliverConsoleClient, canaries []*clientpb.DNSCanary, burnedOnly bool) {
-
-	outputBuf := bytes.NewBufferString("")
-	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
-
-	fmt.Fprintf(table, "Sliver Name\tDomain\tTriggered\tFirst Trigger\tLatest Trigger\t\n")
-	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
-		strings.Repeat("=", len("Sliver Name")),
-		strings.Repeat("=", len("Domain")),
-		strings.Repeat("=", len("Triggered")),
-		strings.Repeat("=", len("First Trigger")),
-		strings.Repeat("=", len("Latest Trigger")),
-	)
-
-	lineColors := []string{}
+// PrintCanaries - Print the canaries tracked by the server
+func PrintCanaries(con *console.SliverConsoleClient, canaries []*clientpb.DNSCanary, burnedOnly bool) {
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.AppendHeader(table.Row{
+		"Sliver Name",
+		"Domain",
+		"Triggered",
+		"First Trigger",
+		"Latest Trigger",
+	})
 	for _, canary := range canaries {
 		if burnedOnly && !canary.Triggered {
 			continue
 		}
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
-			canary.ImplantName,
-			canary.Domain,
-			fmt.Sprintf("%v", canary.Triggered),
-			canary.FirstTriggered,
-			canary.LatestTrigger,
-		)
+		lineColor := console.Normal
 		if canary.Triggered {
-			lineColors = append(lineColors, console.Bold+console.Red)
-		} else {
-			lineColors = append(lineColors, console.Normal)
+			lineColor = console.Bold + console.Red
 		}
+		firstTrigger := "Never"
+		latestTrigger := "Never"
+		if canary.Triggered {
+			firstTrigger = fmt.Sprintf(lineColor+"%s"+console.Normal, canary.FirstTriggered)
+			latestTrigger = fmt.Sprintf(lineColor+"%s"+console.Normal, canary.LatestTrigger)
+		}
+		row := table.Row{
+			fmt.Sprintf(lineColor+"%s"+console.Normal, canary.ImplantName),
+			fmt.Sprintf(lineColor+"%s"+console.Normal, canary.Domain),
+			fmt.Sprintf(lineColor+"%v"+console.Normal, canary.Triggered),
+			firstTrigger,
+			latestTrigger,
+		}
+		tw.AppendRow(row)
 	}
-	table.Flush()
-
-	for index, line := range strings.Split(outputBuf.String(), "\n") {
-		if len(line) == 0 {
-			continue
-		}
-		// We need to account for the two rows of column headers
-		if 0 < len(line) && 2 <= index {
-			lineColor := lineColors[index-2]
-			con.Printf("%s%s%s\n", lineColor, line, console.Normal)
-		} else {
-			con.Printf("%s\n", line)
-		}
-	}
+	con.Printf("%s\n", tw.Render())
 }

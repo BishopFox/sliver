@@ -24,6 +24,7 @@ package cryptography
 */
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
@@ -145,11 +146,12 @@ func Encrypt(key [chacha20poly1305.KeySize]byte, plaintext []byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
+	plaintext = bytes.NewBuffer(util.GzipBuf(plaintext)).Bytes()
 	nonce := make([]byte, aead.NonceSize(), aead.NonceSize()+len(plaintext)+aead.Overhead())
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
-	return aead.Seal(nonce, nonce, util.GzipBuf(plaintext), nil), nil
+	return aead.Seal(nonce, nonce, plaintext, nil), nil
 }
 
 // Decrypt - Decrypt using chacha20poly1305

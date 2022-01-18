@@ -39,6 +39,22 @@ func (c *Commands) Add(cmd *Command) {
 	c.list = append(c.list, cmd)
 }
 
+// Remove a command from the slice.
+func (c *Commands) Remove(name string) {
+	var index int
+	var cmd *Command
+	found := false
+	for index, cmd = range c.list {
+		if cmd.Name == name {
+			found = true
+			break
+		}
+	}
+	if found {
+		c.list = append(c.list[:index], c.list[index+1:]...)
+	}
+}
+
 // All returns a slice of all commands.
 func (c *Commands) All() []*Command {
 	return c.list

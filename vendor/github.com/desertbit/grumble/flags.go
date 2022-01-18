@@ -26,6 +26,7 @@ package grumble
 
 import (
 	"fmt"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -128,6 +129,13 @@ Loop:
 			break Loop
 		}
 		args = args[1:]
+
+		// A double dash (--) is used in most Bash commands to signify the end of command options,
+		// after which only positional arguments are accepted.
+		if a == "--" && runtime.GOOS == "linux" {
+			break Loop
+		}
+
 		pos := strings.Index(a, "=")
 		equalVal := ""
 		if pos > 0 {

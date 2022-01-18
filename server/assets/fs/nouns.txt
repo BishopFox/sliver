@@ -3557,7 +3557,6 @@ set
 setting
 settler
 sewer
-sex
 shack
 shade
 shadow
@@ -4014,7 +4013,6 @@ talk
 tam
 tambour
 tambourine
-tam-o'-shanter
 tandem
 tangerine
 tank

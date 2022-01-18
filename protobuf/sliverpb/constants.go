@@ -182,8 +182,8 @@ const (
 	MsgPivotPeerEnvelope
 	// MsgPivotPeerFailure - Failure to send an envelope to a pivot peer
 	MsgPivotPeerFailure
-	// MsgPivotOriginEnvelope
-	MsgPivotOriginEnvelope
+	// MsgPivotSessionEnvelope
+	MsgPivotSessionEnvelope
 
 	// MsgStartServiceReq - Request to start a service
 	MsgStartServiceReq

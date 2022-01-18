@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"path/filepath"
 	"runtime"
 
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -52,14 +53,13 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	}
 
 	if config == nil {
-		return nil, errors.New("Invalid implant config")
+		return nil, errors.New("invalid implant config")
 	}
 	switch req.Config.Format {
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
 		fPath, err = generate.SliverExecutable(name, config)
-		break
 	case clientpb.OutputFormat_SHARED_LIB:
 		fPath, err = generate.SliverSharedLibrary(name, config)
 	case clientpb.OutputFormat_SHELLCODE:
@@ -70,7 +70,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		return nil, err
 	}
 
-	filename := path.Base(fPath)
+	filename := filepath.Base(fPath)
 	filedata, err := ioutil.ReadFile(fPath)
 	if err != nil {
 		return nil, err

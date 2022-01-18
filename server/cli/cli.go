@@ -32,6 +32,7 @@ import (
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/console"
+	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/daemon"
 
 	"github.com/spf13/cobra"
@@ -125,6 +126,9 @@ var rootCmd = &cobra.Command{
 		assets.Setup(false, true)
 		certs.SetupCAs()
 		certs.SetupWGKeys()
+		cryptography.ECCServerKeyPair()
+		cryptography.TOTPServerSecret()
+		cryptography.MinisignServerPrivateKey()
 
 		serverConfig := configs.GetServerConfig()
 		c2.StartPersistentJobs(serverConfig)

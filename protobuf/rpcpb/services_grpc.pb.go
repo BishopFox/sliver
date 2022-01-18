@@ -115,7 +115,8 @@ type SliverRPCClient interface {
 	// *** Pivots ***
 	PivotStartListener(ctx context.Context, in *sliverpb.PivotStartListenerReq, opts ...grpc.CallOption) (*sliverpb.PivotListener, error)
 	PivotStopListener(ctx context.Context, in *sliverpb.PivotStopListenerReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
-	PivotListeners(ctx context.Context, in *sliverpb.PivotListenersReq, opts ...grpc.CallOption) (*sliverpb.PivotListeners, error)
+	PivotSessionListeners(ctx context.Context, in *sliverpb.PivotListenersReq, opts ...grpc.CallOption) (*sliverpb.PivotListeners, error)
+	PivotGraph(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.PivotGraph, error)
 	StartService(ctx context.Context, in *sliverpb.StartServiceReq, opts ...grpc.CallOption) (*sliverpb.ServiceInfo, error)
 	StopService(ctx context.Context, in *sliverpb.StopServiceReq, opts ...grpc.CallOption) (*sliverpb.ServiceInfo, error)
 	RemoveService(ctx context.Context, in *sliverpb.RemoveServiceReq, opts ...grpc.CallOption) (*sliverpb.ServiceInfo, error)
@@ -879,9 +880,18 @@ func (c *sliverRPCClient) PivotStopListener(ctx context.Context, in *sliverpb.Pi
 	return out, nil
 }
 
-func (c *sliverRPCClient) PivotListeners(ctx context.Context, in *sliverpb.PivotListenersReq, opts ...grpc.CallOption) (*sliverpb.PivotListeners, error) {
+func (c *sliverRPCClient) PivotSessionListeners(ctx context.Context, in *sliverpb.PivotListenersReq, opts ...grpc.CallOption) (*sliverpb.PivotListeners, error) {
 	out := new(sliverpb.PivotListeners)
-	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/PivotListeners", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/PivotSessionListeners", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) PivotGraph(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.PivotGraph, error) {
+	out := new(clientpb.PivotGraph)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/PivotGraph", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1368,7 +1378,8 @@ type SliverRPCServer interface {
 	// *** Pivots ***
 	PivotStartListener(context.Context, *sliverpb.PivotStartListenerReq) (*sliverpb.PivotListener, error)
 	PivotStopListener(context.Context, *sliverpb.PivotStopListenerReq) (*commonpb.Empty, error)
-	PivotListeners(context.Context, *sliverpb.PivotListenersReq) (*sliverpb.PivotListeners, error)
+	PivotSessionListeners(context.Context, *sliverpb.PivotListenersReq) (*sliverpb.PivotListeners, error)
+	PivotGraph(context.Context, *commonpb.Empty) (*clientpb.PivotGraph, error)
 	StartService(context.Context, *sliverpb.StartServiceReq) (*sliverpb.ServiceInfo, error)
 	StopService(context.Context, *sliverpb.StopServiceReq) (*sliverpb.ServiceInfo, error)
 	RemoveService(context.Context, *sliverpb.RemoveServiceReq) (*sliverpb.ServiceInfo, error)
@@ -1655,8 +1666,11 @@ func (UnimplementedSliverRPCServer) PivotStartListener(context.Context, *sliverp
 func (UnimplementedSliverRPCServer) PivotStopListener(context.Context, *sliverpb.PivotStopListenerReq) (*commonpb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PivotStopListener not implemented")
 }
-func (UnimplementedSliverRPCServer) PivotListeners(context.Context, *sliverpb.PivotListenersReq) (*sliverpb.PivotListeners, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PivotListeners not implemented")
+func (UnimplementedSliverRPCServer) PivotSessionListeners(context.Context, *sliverpb.PivotListenersReq) (*sliverpb.PivotListeners, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PivotSessionListeners not implemented")
+}
+func (UnimplementedSliverRPCServer) PivotGraph(context.Context, *commonpb.Empty) (*clientpb.PivotGraph, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PivotGraph not implemented")
 }
 func (UnimplementedSliverRPCServer) StartService(context.Context, *sliverpb.StartServiceReq) (*sliverpb.ServiceInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartService not implemented")
@@ -3198,20 +3212,38 @@ func _SliverRPC_PivotStopListener_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SliverRPC_PivotListeners_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _SliverRPC_PivotSessionListeners_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.PivotListenersReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SliverRPCServer).PivotListeners(ctx, in)
+		return srv.(SliverRPCServer).PivotSessionListeners(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/rpcpb.SliverRPC/PivotListeners",
+		FullMethod: "/rpcpb.SliverRPC/PivotSessionListeners",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).PivotListeners(ctx, req.(*sliverpb.PivotListenersReq))
+		return srv.(SliverRPCServer).PivotSessionListeners(ctx, req.(*sliverpb.PivotListenersReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_PivotGraph_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).PivotGraph(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/PivotGraph",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).PivotGraph(ctx, req.(*commonpb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -4189,8 +4221,12 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_PivotStopListener_Handler,
 		},
 		{
-			MethodName: "PivotListeners",
-			Handler:    _SliverRPC_PivotListeners_Handler,
+			MethodName: "PivotSessionListeners",
+			Handler:    _SliverRPC_PivotSessionListeners_Handler,
+		},
+		{
+			MethodName: "PivotGraph",
+			Handler:    _SliverRPC_PivotGraph_Handler,
 		},
 		{
 			MethodName: "StartService",

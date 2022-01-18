@@ -31,8 +31,8 @@ import (
 	"gopkg.in/AlecAivazis/survey.v1"
 )
 
-// SocksAddCmd - Add a new tunneled port forward
-func SocksAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+// SocksStartCmd - Add a new tunneled port forward
+func SocksStartCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

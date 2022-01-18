@@ -122,6 +122,9 @@ func PrintSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 		"Last Check-in",
 		"Health",
 	})
+	tw.SortBy([]table.SortBy{
+		{Name: "ID", Mode: table.Asc},
+	})
 
 	for _, session := range sessions {
 		color := console.Normal
@@ -150,9 +153,6 @@ func PrintSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 			burned + SessionHealth,
 		})
 	}
-	tw.SortBy([]table.SortBy{
-		{Name: "ID", Mode: table.Asc},
-	})
 
 	con.Printf("%s\n", tw.Render())
 }
