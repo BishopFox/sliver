@@ -29,11 +29,11 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
-	"time"
 
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"

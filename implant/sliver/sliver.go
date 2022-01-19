@@ -528,7 +528,10 @@ func sessionMainLoop(connection *transports.Connection) error {
 		// {{end}}
 		return nil
 	}
+	pivots.RestartAllListeners(connection.Send)
+	defer pivots.StopAllListeners()
 	defer connection.Stop()
+
 	connectionErrors = 0
 	// Reconnect active pivots
 	// pivots.ReconnectActivePivots(connection)
