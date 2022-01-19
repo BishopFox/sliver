@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -41,13 +42,10 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"google.golang.org/protobuf/proto"
-
-	"time"
-
 	"github.com/desertbit/go-shlex"
 	"github.com/desertbit/grumble"
 	"github.com/fatih/color"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
