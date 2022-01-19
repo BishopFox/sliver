@@ -81,9 +81,8 @@ var (
 func init() {
 	buf := make([]byte, 8)
 	n, err := rand.Read(buf)
-	seed := uint64(time.Now().Unix())
 	if err != nil || n != len(buf) {
-		binary.LittleEndian.PutUint64(buf, uint64(seed))
+		binary.LittleEndian.PutUint64(buf, uint64(time.Now().Unix()))
 	}
 	insecureRand.Seed(binary.LittleEndian.Uint64(buf))
 
