@@ -220,6 +220,7 @@ const (
 	SSHStr                = "ssh"
 	DLLHijackStr          = "dllhijack"
 	InteractiveStr        = "interactive"
+	CloseStr              = "close"
 
 	PortfwdStr = "portfwd"
 	Socks5Str  = "socks5"

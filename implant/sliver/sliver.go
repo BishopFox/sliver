@@ -623,7 +623,7 @@ func wrapEnvelope(msgType uint32, message protoreflect.ProtoMessage) *sliverpb.E
 	}
 }
 
-// registerSliver - Creates a registartion protobuf message
+// registerSliver - Creates a registration protobuf message
 func registerSliver() *sliverpb.Register {
 	hostname, err := os.Hostname()
 	if err != nil {

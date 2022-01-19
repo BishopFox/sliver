@@ -619,6 +619,24 @@ func BindCommands(con *console.SliverConsoleClient) {
 	}
 	con.App.AddCommand(openSessionCmd)
 
+	// [ Close ] --------------------------------------------------------------
+	closeSessionCmd := &grumble.Command{
+		Name:     consts.CloseStr,
+		Help:     "Close an interactive session without killing the remote process",
+		LongHelp: help.GetHelpFor([]string{consts.CloseStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			sessions.CloseSessionCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	}
+	con.App.AddCommand(closeSessionCmd)
+
 	// [ Tasks ] --------------------------------------------------------------
 
 	tasksCmd := &grumble.Command{

@@ -140,6 +140,7 @@ service SliverRPC {
 
     // Beacon only commands
     rpc OpenSession(sliverpb.OpenSession) returns (sliverpb.OpenSession);
+    rpc CloseSession(sliverpb.CloseSession) returns (commonpb.Empty);
     
     // Extensions
     rpc RegisterExtension(sliverpb.RegisterExtensionReq) returns (sliverpb.RegisterExtension);

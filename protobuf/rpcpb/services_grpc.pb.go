@@ -136,6 +136,7 @@ type SliverRPCClient interface {
 	GetPrivs(ctx context.Context, in *sliverpb.GetPrivsReq, opts ...grpc.CallOption) (*sliverpb.GetPrivs, error)
 	// Beacon only commands
 	OpenSession(ctx context.Context, in *sliverpb.OpenSession, opts ...grpc.CallOption) (*sliverpb.OpenSession, error)
+	CloseSession(ctx context.Context, in *sliverpb.CloseSession, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	// Extensions
 	RegisterExtension(ctx context.Context, in *sliverpb.RegisterExtensionReq, opts ...grpc.CallOption) (*sliverpb.RegisterExtension, error)
 	CallExtension(ctx context.Context, in *sliverpb.CallExtensionReq, opts ...grpc.CallOption) (*sliverpb.CallExtension, error)
@@ -1061,6 +1062,15 @@ func (c *sliverRPCClient) OpenSession(ctx context.Context, in *sliverpb.OpenSess
 	return out, nil
 }
 
+func (c *sliverRPCClient) CloseSession(ctx context.Context, in *sliverpb.CloseSession, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CloseSession", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) RegisterExtension(ctx context.Context, in *sliverpb.RegisterExtensionReq, opts ...grpc.CallOption) (*sliverpb.RegisterExtension, error) {
 	out := new(sliverpb.RegisterExtension)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/RegisterExtension", in, out, opts...)
@@ -1409,6 +1419,7 @@ type SliverRPCServer interface {
 	GetPrivs(context.Context, *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error)
 	// Beacon only commands
 	OpenSession(context.Context, *sliverpb.OpenSession) (*sliverpb.OpenSession, error)
+	CloseSession(context.Context, *sliverpb.CloseSession) (*commonpb.Empty, error)
 	// Extensions
 	RegisterExtension(context.Context, *sliverpb.RegisterExtensionReq) (*sliverpb.RegisterExtension, error)
 	CallExtension(context.Context, *sliverpb.CallExtensionReq) (*sliverpb.CallExtension, error)
@@ -1736,6 +1747,9 @@ func (UnimplementedSliverRPCServer) GetPrivs(context.Context, *sliverpb.GetPrivs
 }
 func (UnimplementedSliverRPCServer) OpenSession(context.Context, *sliverpb.OpenSession) (*sliverpb.OpenSession, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OpenSession not implemented")
+}
+func (UnimplementedSliverRPCServer) CloseSession(context.Context, *sliverpb.CloseSession) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CloseSession not implemented")
 }
 func (UnimplementedSliverRPCServer) RegisterExtension(context.Context, *sliverpb.RegisterExtensionReq) (*sliverpb.RegisterExtension, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterExtension not implemented")
@@ -3586,6 +3600,24 @@ func _SliverRPC_OpenSession_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_CloseSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.CloseSession)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CloseSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/CloseSession",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CloseSession(ctx, req.(*sliverpb.CloseSession))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_RegisterExtension_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.RegisterExtensionReq)
 	if err := dec(in); err != nil {
@@ -4331,6 +4363,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "OpenSession",
 			Handler:    _SliverRPC_OpenSession_Handler,
+		},
+		{
+			MethodName: "CloseSession",
+			Handler:    _SliverRPC_CloseSession_Handler,
 		},
 		{
 			MethodName: "RegisterExtension",
