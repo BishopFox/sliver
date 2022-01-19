@@ -20,6 +20,7 @@ package sessions
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"github.com/bishopfox/sliver/client/command/generate"
@@ -42,6 +43,7 @@ func InteractiveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
+	// Parse C2 Flags
 	c2s := []*clientpb.ImplantC2{}
 
 	mtlsC2, err := generate.ParseMTLSc2(ctx.Flags.String("mtls"))
@@ -86,9 +88,61 @@ func InteractiveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	c2s = append(c2s, tcpPivotC2...)
 
+	// No flags, parse the current beacon's ActiveC2 instead
 	if len(mtlsC2) == 0 && len(wgC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 && len(namedPipeC2) == 0 && len(tcpPivotC2) == 0 {
-		con.PrintErrorf("Must specify at least one of --mtls, --wg, --http, --dns, --named-pipe, or --tcp-pivot\n")
-		return
+		con.PrintInfof("Using beacon's active C2 endpoint: %s\n", beacon.ActiveC2)
+		c2url, err := url.Parse(beacon.ActiveC2)
+		if err != nil {
+			con.PrintErrorf("%s\n", err.Error())
+			return
+		}
+		switch c2url.Scheme {
+		case "mtls":
+			mtlsC2, err = generate.ParseMTLSc2(beacon.ActiveC2)
+			if err != nil {
+				con.PrintErrorf("%s\n", err.Error())
+				return
+			}
+			c2s = append(c2s, mtlsC2...)
+		case "wg":
+			wgC2, err = generate.ParseWGc2(beacon.ActiveC2)
+			if err != nil {
+				con.PrintErrorf("%s\n", err.Error())
+				return
+			}
+			c2s = append(c2s, wgC2...)
+		case "http":
+			httpC2, err = generate.ParseHTTPc2(beacon.ActiveC2)
+			if err != nil {
+				con.PrintErrorf("%s\n", err.Error())
+				return
+			}
+			c2s = append(c2s, httpC2...)
+		case "dns":
+			dnsC2, err = generate.ParseDNSc2(beacon.ActiveC2)
+			if err != nil {
+				con.PrintErrorf("%s\n", err.Error())
+				return
+			}
+			c2s = append(c2s, dnsC2...)
+		case "namedpipe":
+			namedPipeC2, err = generate.ParseNamedPipec2(beacon.ActiveC2)
+			if err != nil {
+				con.PrintErrorf("%s\n", err.Error())
+				return
+			}
+			c2s = append(c2s, namedPipeC2...)
+		case "tcppivot":
+			tcpPivotC2, err = generate.ParseTCPPivotc2(beacon.ActiveC2)
+			if err != nil {
+				con.PrintErrorf("%s\n", err.Error())
+				return
+			}
+			c2s = append(c2s, tcpPivotC2...)
+		default:
+			con.PrintErrorf("Unsupported C2 scheme: %s\n", c2url.Scheme)
+			return
+		}
 	}
 
 	openSession := &sliverpb.OpenSession{

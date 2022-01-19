@@ -19,6 +19,8 @@ package info
 */
 
 import (
+	"time"
+
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 
@@ -44,9 +46,10 @@ func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.Printf(console.Bold+"                OS: %s%s\n", console.Normal, session.OS)
 		con.Printf(console.Bold+"           Version: %s%s\n", console.Normal, session.Version)
 		con.Printf(console.Bold+"              Arch: %s%s\n", console.Normal, session.Arch)
+		con.Printf(console.Bold+"         Active C2: %s%s\n", console.Normal, session.ActiveC2)
 		con.Printf(console.Bold+"    Remote Address: %s%s\n", console.Normal, session.RemoteAddress)
 		con.Printf(console.Bold+"         Proxy URL: %s%s\n", console.Normal, session.ProxyURL)
-		con.Printf(console.Bold+"Reconnect Interval: %s%d\n", console.Normal, session.ReconnectInterval)
+		con.Printf(console.Bold+"Reconnect Interval: %s%s\n", console.Normal, time.Duration(session.ReconnectInterval).String())
 
 	} else if beacon != nil {
 
@@ -61,10 +64,11 @@ func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.Printf(console.Bold+"                OS: %s%s\n", console.Normal, beacon.OS)
 		con.Printf(console.Bold+"           Version: %s%s\n", console.Normal, beacon.Version)
 		con.Printf(console.Bold+"              Arch: %s%s\n", console.Normal, beacon.Arch)
+		con.Printf(console.Bold+"         Active C2: %s%s\n", console.Normal, beacon.ActiveC2)
 		con.Printf(console.Bold+"    Remote Address: %s%s\n", console.Normal, beacon.RemoteAddress)
 		con.Printf(console.Bold+"         Proxy URL: %s%s\n", console.Normal, beacon.ProxyURL)
-		con.Printf(console.Bold+"          Interval: %s%d\n", console.Normal, beacon.Interval)
-		con.Printf(console.Bold+"            Jitter: %s%d\n", console.Normal, beacon.Jitter)
+		con.Printf(console.Bold+"          Interval: %s%s\n", console.Normal, time.Duration(beacon.Interval).String())
+		con.Printf(console.Bold+"            Jitter: %s%s\n", console.Normal, time.Duration(beacon.Jitter).String())
 
 	} else {
 		con.PrintErrorf("No target session, see `help %s`\n", consts.InfoStr)

