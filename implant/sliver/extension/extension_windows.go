@@ -65,6 +65,9 @@ func (w *WindowsExtension) GetArch() string {
 
 func (w *WindowsExtension) Load() error {
 	var err error
+	if len(w.data) == 0 {
+		return errors.New("{{if .Config.Debug}} extension data is empty {{end}}")
+	}
 	w.module, err = memmod.LoadLibrary(w.data)
 	if err != nil {
 		return err

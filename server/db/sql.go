@@ -26,11 +26,7 @@ import (
 	"github.com/bishopfox/sliver/server/log"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-
-	// Always include SQLite
-	_ "modernc.org/sqlite"
 )
 
 var (
@@ -91,23 +87,6 @@ func newDBClient() *gorm.DB {
 	// SetConnMaxLifetime sets the maximum amount of time a connection may be reused.
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	return dbClient
-}
-
-func sqliteClient(dbConfig *configs.DatabaseConfig) *gorm.DB {
-	dsn, err := dbConfig.DSN()
-	if err != nil {
-		panic(err)
-	}
-	clientLog.Infof("sqlite -> %s", dsn)
-
-	dbClient, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
-		PrepareStmt: true,
-		Logger:      getGormLogger(dbConfig),
-	})
-	if err != nil {
-		panic(err)
-	}
 	return dbClient
 }
 

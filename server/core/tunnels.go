@@ -37,7 +37,7 @@ var (
 	}
 
 	// ErrInvalidTunnelID - Invalid tunnel ID value
-	ErrInvalidTunnelID = errors.New("Invalid tunnel ID")
+	ErrInvalidTunnelID = errors.New("invalid tunnel ID")
 )
 
 // Tunnel  - Essentially just a mapping between a specific client and sliver

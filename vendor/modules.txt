@@ -107,7 +107,7 @@ github.com/desertbit/columnize
 # github.com/desertbit/go-shlex v0.1.1
 ## explicit; go 1.14
 github.com/desertbit/go-shlex
-# github.com/desertbit/grumble v1.1.1
+# github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.4
 ## explicit; go 1.12
 github.com/desertbit/grumble
 # github.com/desertbit/readline v1.5.1
@@ -117,12 +117,6 @@ github.com/desertbit/readline
 ## explicit
 github.com/dlclark/regexp2
 github.com/dlclark/regexp2/syntax
-# github.com/emirpasic/gods v1.12.0
-## explicit
-github.com/emirpasic/gods/containers
-github.com/emirpasic/gods/lists
-github.com/emirpasic/gods/lists/singlylinkedlist
-github.com/emirpasic/gods/utils
 # github.com/fatih/color v1.12.0
 ## explicit; go 1.13
 github.com/fatih/color
@@ -560,13 +554,13 @@ inet.af/netstack/waiter
 # lukechampine.com/uint128 v1.1.1
 ## explicit; go 1.12
 lukechampine.com/uint128
-# modernc.org/cc/v3 v3.35.17
+# modernc.org/cc/v3 v3.35.18
 ## explicit; go 1.15
 modernc.org/cc/v3
-# modernc.org/ccgo/v3 v3.12.65
-## explicit; go 1.15
+# modernc.org/ccgo/v3 v3.12.95
+## explicit; go 1.16
 modernc.org/ccgo/v3/lib
-# modernc.org/libc v1.11.71
+# modernc.org/libc v1.11.104
 ## explicit; go 1.16
 modernc.org/libc
 modernc.org/libc/errno
@@ -591,6 +585,7 @@ modernc.org/libc/termios
 modernc.org/libc/time
 modernc.org/libc/unistd
 modernc.org/libc/utime
+modernc.org/libc/uuid
 modernc.org/libc/uuid/uuid
 modernc.org/libc/wctype
 # modernc.org/mathutil v1.4.1
@@ -602,8 +597,8 @@ modernc.org/memory
 # modernc.org/opt v0.1.1
 ## explicit; go 1.13
 modernc.org/opt
-# modernc.org/sqlite v1.14.1
-## explicit; go 1.15
+# modernc.org/sqlite v1.14.3
+## explicit; go 1.16
 modernc.org/sqlite
 modernc.org/sqlite/lib
 # modernc.org/strutil v1.1.1

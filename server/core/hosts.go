@@ -33,6 +33,7 @@ var (
 	coreLog = log.NamedLogger("core", "hosts")
 )
 
+// StartEventAutomation - Starts an event automation goroutine
 func StartEventAutomation() {
 	go func() {
 		for event := range EventBroker.Subscribe() {

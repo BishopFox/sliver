@@ -62,7 +62,7 @@ func WebsitesAddContentCmd(ctx *grumble.Context, con *console.SliverConsoleClien
 		con.PrintErrorf("%s", err)
 		return
 	}
-	displayWebsite(web, con)
+	PrintWebsite(web, con)
 }
 
 func webAddDirectory(web *clientpb.WebsiteAddContent, webpath string, contentPath string) {

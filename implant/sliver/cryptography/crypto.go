@@ -19,6 +19,8 @@ package cryptography
 */
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
@@ -27,11 +29,11 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
-	"time"
 
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
@@ -71,6 +73,9 @@ func ECCEncrypt(recipientPublicKey *[32]byte, senderPrivateKey *[32]byte, plaint
 
 // ECCDecrypt - Decrypt using Curve 25519 + ChaCha20Poly1305
 func ECCDecrypt(senderPublicKey *[32]byte, recipientPrivateKey *[32]byte, ciphertext []byte) ([]byte, error) {
+	if len(ciphertext) < 24 {
+		return nil, errors.New("ciphertext too short")
+	}
 	var decryptNonce [24]byte
 	copy(decryptNonce[:], ciphertext[:24])
 	plaintext, ok := box.Open(nil, ciphertext[24:], &decryptNonce, senderPublicKey, recipientPrivateKey)
@@ -102,6 +107,7 @@ func Encrypt(key [chacha20poly1305.KeySize]byte, plaintext []byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
+	plaintext = bytes.NewBuffer(GzipBuf(plaintext)).Bytes()
 	nonce := make([]byte, aead.NonceSize(), aead.NonceSize()+len(plaintext)+aead.Overhead())
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
@@ -124,7 +130,11 @@ func Decrypt(key [chacha20poly1305.KeySize]byte, ciphertext []byte) ([]byte, err
 	nonce, ciphertext := ciphertext[:aead.NonceSize()], ciphertext[aead.NonceSize():]
 
 	// Decrypt the message and check it wasn't tampered with.
-	return aead.Open(nil, nonce, ciphertext, nil)
+	plaintext, err := aead.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, err
+	}
+	return GunzipBuf(plaintext), nil
 }
 
 // NewCipherContext - Wrapper around creating a cipher context from a key
@@ -143,15 +153,17 @@ type CipherContext struct {
 }
 
 // Decrypt - Decrypt a message with the contextual key and check for replay attacks
-func (c *CipherContext) Decrypt(data []byte) ([]byte, error) {
-	plaintext, err := Decrypt(c.Key, data)
+func (c *CipherContext) Decrypt(ciphertext []byte) ([]byte, error) {
+	plaintext, err := Decrypt(c.Key, ciphertext)
 	if err != nil {
 		return nil, err
 	}
-	digest := sha256.Sum256(data)
-	b64Digest := base64.RawStdEncoding.EncodeToString(digest[:])
-	if _, ok := c.replay.LoadOrStore(b64Digest, true); ok {
-		return nil, ErrReplayAttack
+	if 0 < len(ciphertext) {
+		digest := sha256.Sum256(ciphertext)
+		b64Digest := base64.RawStdEncoding.EncodeToString(digest[:])
+		if _, ok := c.replay.LoadOrStore(b64Digest, true); ok {
+			return nil, ErrReplayAttack
+		}
 	}
 	return plaintext, nil
 }
@@ -162,9 +174,11 @@ func (c *CipherContext) Encrypt(plaintext []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	digest := sha256.Sum256(ciphertext)
-	b64Digest := base64.RawStdEncoding.EncodeToString(digest[:])
-	c.replay.Store(b64Digest, true)
+	if 0 < len(ciphertext) {
+		digest := sha256.Sum256(ciphertext)
+		b64Digest := base64.RawStdEncoding.EncodeToString(digest[:])
+		c.replay.Store(b64Digest, true)
+	}
 	return ciphertext, nil
 }
 
@@ -223,4 +237,21 @@ func RootOnlyVerifyCertificate(caCertPEM string, rawCerts [][]byte, _ [][]*x509.
 	}
 
 	return nil
+}
+
+// GzipBuf - Gzip a buffer
+func GzipBuf(data []byte) []byte {
+	var buf bytes.Buffer
+	zip := gzip.NewWriter(&buf)
+	zip.Write(data)
+	zip.Close()
+	return buf.Bytes()
+}
+
+// GunzipBuf - Gunzip a buffer
+func GunzipBuf(data []byte) []byte {
+	zip, _ := gzip.NewReader(bytes.NewBuffer(data))
+	var buf bytes.Buffer
+	buf.ReadFrom(zip)
+	return buf.Bytes()
 }

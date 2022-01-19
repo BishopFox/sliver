@@ -36,15 +36,23 @@ import (
 var (
 	serverECCKeyPair  *cryptography.ECCKeyPair
 	implantECCKeyPair *cryptography.ECCKeyPair
-	totpSecret        string
 )
 
 func TestMain(m *testing.M) {
-	insecureRand.Seed(time.Now().UnixNano())
+
+	// Run one with deterministic randomness if a
+	// crash occurs, we can more easily reproduce it
+	insecureRand.Seed(1)
 	implantConfig := setup()
-	code := m.Run()
+	code1 := m.Run()
 	cleanup(implantConfig)
-	os.Exit(code)
+
+	insecureRand.Seed(time.Now().UnixMicro())
+	implantConfig = setup()
+	code2 := m.Run()
+	cleanup(implantConfig)
+
+	os.Exit(code1 | code2)
 }
 
 func setup() *models.ImplantConfig {

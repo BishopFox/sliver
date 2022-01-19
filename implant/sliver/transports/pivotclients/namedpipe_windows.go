@@ -35,7 +35,7 @@ import (
 // NamedPipePivotStartSession - Start a TCP pivot session with a peer
 func NamedPipePivotStartSession(uri *url.URL, opts *NamedPipePivotOptions) (*NetConnPivotClient, error) {
 	address := uri.String()
-	address = strings.ReplaceAll(address, "namedpipe://", "")
+	address = strings.TrimSuffix(address, "namedpipe://")
 	address = "\\\\" + strings.ReplaceAll(address, "/", "\\")
 	// {{if .Config.Debug}}
 	log.Print("Pivot named pipe address: ", address)

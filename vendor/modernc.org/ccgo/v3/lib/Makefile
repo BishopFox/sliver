@@ -112,7 +112,8 @@ edit:
 
 editor:
 	gofmt -l -s -w *.go
-	GO111MODULE=off go build -v -o $(GOPATH)/bin/ccgo modernc.org/ccgo/v3
+	go build -v -o $(GOPATH)/bin/ccgo modernc.org/ccgo/v3
+	go test -c -o /dev/null
 
 later:
 	@grep -n $(grep) LATER * || true

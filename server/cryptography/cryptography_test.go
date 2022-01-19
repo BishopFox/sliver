@@ -36,7 +36,6 @@ var (
 
 	serverECCKeyPair  *ECCKeyPair
 	implantECCKeyPair *ECCKeyPair
-	totpSecret        string
 )
 
 func randomData() []byte {

@@ -101,6 +101,7 @@ const (
 	LOCK_SH                                = 0x01
 	LOCK_UN                                = 0x08
 	MAC_OS_VERSION_11_0                    = 110000
+	MAC_OS_VERSION_12_0                    = 120000
 	MAC_OS_X_VERSION_10_0                  = 1000
 	MAC_OS_X_VERSION_10_1                  = 1010
 	MAC_OS_X_VERSION_10_10                 = 101000
@@ -194,6 +195,7 @@ const (
 	S_IXOTH                                = 0000001
 	S_IXUSR                                = 0000100
 	USER_FSIGNATURES_CDHASH_LEN            = 20
+	X_ARM_MACHTYPES_H_                     = 0
 	X_BSD_ARM__TYPES_H_                    = 0
 	X_BSD_MACHINE_TYPES_H_                 = 0
 	X_BSD_MACHINE__TYPES_H_                = 0
@@ -229,7 +231,7 @@ const (
 	X_U_INT8_T                             = 0
 )
 
-const ( /* fcntl.h:536:1: */
+const ( /* fcntl.h:545:1: */
 	FILESEC_OWNER   = 1
 	FILESEC_GROUP   = 2
 	FILESEC_UUID    = 3
@@ -447,6 +449,12 @@ type X__float128 = float64        /* <builtin>:47:21 */
 // The __CONCAT macro is a bit tricky -- make sure you don't put spaces
 // in between its arguments.  __CONCAT can also concatenate double-quoted
 // strings produced by the __STRING macro, but this only works with ANSI C.
+
+// __pure2 can be used for functions that are only a function of their scalar
+// arguments (meaning they can't dereference pointers).
+//
+// __stateful_pure can be used for functions that have no side effects,
+// but depend on the state of the memory.
 
 // __unused denotes variables and functions that may not be used, preventing
 // the compiler from warning about it if not used.
@@ -762,17 +770,17 @@ type X__float128 = float64        /* <builtin>:47:21 */
 // This header file contains integer types.  It's intended to also contain
 // flotaing point and other arithmetic types, as needed, later.
 
-type X__int8_t = int8     /* _types.h:13:33 */
-type X__uint8_t = uint8   /* _types.h:17:33 */
-type X__int16_t = int16   /* _types.h:18:33 */
-type X__uint16_t = uint16 /* _types.h:19:33 */
-type X__int32_t = int32   /* _types.h:20:33 */
-type X__uint32_t = uint32 /* _types.h:21:33 */
-type X__int64_t = int64   /* _types.h:22:33 */
-type X__uint64_t = uint64 /* _types.h:23:33 */
+type X__int8_t = int8     /* _types.h:15:33 */
+type X__uint8_t = uint8   /* _types.h:19:33 */
+type X__int16_t = int16   /* _types.h:20:33 */
+type X__uint16_t = uint16 /* _types.h:21:33 */
+type X__int32_t = int32   /* _types.h:22:33 */
+type X__uint32_t = uint32 /* _types.h:23:33 */
+type X__int64_t = int64   /* _types.h:24:33 */
+type X__uint64_t = uint64 /* _types.h:25:33 */
 
-type X__darwin_intptr_t = int64   /* _types.h:25:33 */
-type X__darwin_natural_t = uint32 /* _types.h:26:33 */
+type X__darwin_intptr_t = int64   /* _types.h:27:33 */
+type X__darwin_natural_t = uint32 /* _types.h:28:33 */
 
 // The rune type below is declared to be an ``int'' instead of the more natural
 // ``unsigned long'' or ``long''.  Two things are happening here.  It is not
@@ -790,33 +798,33 @@ type X__darwin_natural_t = uint32 /* _types.h:26:33 */
 // wchar_t, and should also be able to hold all members of the largest
 // character set plus one extra value (WEOF). wint_t must be at least 16 bits.
 
-type X__darwin_ct_rune_t = int32 /* _types.h:46:33 */ // ct_rune_t
+type X__darwin_ct_rune_t = int32 /* _types.h:48:33 */ // ct_rune_t
 
 // mbstate_t is an opaque object to keep conversion state, during multibyte
 // stream conversions.  The content must not be referenced by user programs.
 type X__mbstate_t = struct {
-	_           [0]uint64
-	F__mbstate8 [128]int8
-} /* _types.h:55:3 */
+	F__ccgo_pad1 [0]uint64
+	F__mbstate8  [128]int8
+} /* _types.h:57:3 */
 
-type X__darwin_mbstate_t = X__mbstate_t /* _types.h:57:33 */ // mbstate_t
+type X__darwin_mbstate_t = X__mbstate_t /* _types.h:59:33 */ // mbstate_t
 
-type X__darwin_ptrdiff_t = int64 /* _types.h:60:33 */ // ptr1 - ptr2
+type X__darwin_ptrdiff_t = int64 /* _types.h:62:33 */ // ptr1 - ptr2
 
-type X__darwin_size_t = uint64 /* _types.h:68:33 */ // sizeof()
+type X__darwin_size_t = uint64 /* _types.h:70:33 */ // sizeof()
 
-type X__darwin_va_list = X__builtin_va_list /* _types.h:74:33 */ // va_list
+type X__darwin_va_list = X__builtin_va_list /* _types.h:76:33 */ // va_list
 
-type X__darwin_wchar_t = int32 /* _types.h:80:33 */ // wchar_t
+type X__darwin_wchar_t = int32 /* _types.h:82:33 */ // wchar_t
 
-type X__darwin_rune_t = X__darwin_wchar_t /* _types.h:85:33 */ // rune_t
+type X__darwin_rune_t = X__darwin_wchar_t /* _types.h:87:33 */ // rune_t
 
-type X__darwin_wint_t = int32 /* _types.h:88:33 */ // wint_t
+type X__darwin_wint_t = int32 /* _types.h:90:33 */ // wint_t
 
-type X__darwin_clock_t = uint64        /* _types.h:93:33 */ // clock()
-type X__darwin_socklen_t = X__uint32_t /* _types.h:94:33 */ // socklen_t (duh)
-type X__darwin_ssize_t = int64         /* _types.h:95:33 */ // byte count or error
-type X__darwin_time_t = int64          /* _types.h:96:33 */ // time()
+type X__darwin_clock_t = uint64        /* _types.h:95:33 */ // clock()
+type X__darwin_socklen_t = X__uint32_t /* _types.h:96:33 */ // socklen_t (duh)
+type X__darwin_ssize_t = int64         /* _types.h:97:33 */ // byte count or error
+type X__darwin_time_t = int64          /* _types.h:98:33 */ // time()
 
 // Type definitions; takes common type definitions that must be used
 // in multiple header files due to [XSI], removes them from the system
@@ -1391,7 +1399,7 @@ type Flock = struct {
 	Fl_pid    Pid_t
 	Fl_type   int16
 	Fl_whence int16
-} /* fcntl.h:350:1 */
+} /* fcntl.h:359:1 */
 
 // Copyright (c) 2003-2012 Apple Inc. All rights reserved.
 //
@@ -1756,7 +1764,7 @@ type U_int32_t = uint32 /* _u_int32_t.h:30:33 */
 // @APPLE_OSREFERENCE_LICENSE_HEADER_END@
 type U_int64_t = uint64 /* _u_int64_t.h:30:33 */
 
-type Register_t = Int64_t /* types.h:63:33 */
+type Register_t = Int64_t /* types.h:66:33 */
 
 // Copyright (c) 2003-2012 Apple Inc. All rights reserved.
 //
@@ -1836,19 +1844,20 @@ type Intptr_t = X__darwin_intptr_t /* _intptr_t.h:32:33 */
 // limitations under the License.
 //
 // @APPLE_OSREFERENCE_LICENSE_HEADER_END@
-type Uintptr_t = uint64 /* _uintptr_t.h:30:33 */
+
+type Uintptr_t = uint64 /* _uintptr_t.h:34:33 */
 
 // These types are used for reserving the largest possible size.
-type User_addr_t = U_int64_t  /* types.h:74:33 */
-type User_size_t = U_int64_t  /* types.h:75:33 */
-type User_ssize_t = Int64_t   /* types.h:76:33 */
-type User_long_t = Int64_t    /* types.h:77:33 */
-type User_ulong_t = U_int64_t /* types.h:78:33 */
-type User_time_t = Int64_t    /* types.h:79:33 */
-type User_off_t = Int64_t     /* types.h:80:33 */
+type User_addr_t = U_int64_t  /* types.h:77:33 */
+type User_size_t = U_int64_t  /* types.h:78:33 */
+type User_ssize_t = Int64_t   /* types.h:79:33 */
+type User_long_t = Int64_t    /* types.h:80:33 */
+type User_ulong_t = U_int64_t /* types.h:81:33 */
+type User_time_t = Int64_t    /* types.h:82:33 */
+type User_off_t = Int64_t     /* types.h:83:33 */
 
 // This defines the size of syscall arguments after copying into the kernel:
-type Syscall_arg_t = U_int64_t /* types.h:101:33 */
+type Syscall_arg_t = U_int64_t /* types.h:104:33 */
 
 type Timespec = struct {
 	Ftv_sec  X__darwin_time_t
@@ -1869,7 +1878,7 @@ type Flocktimeout = struct {
 		Ftv_sec  X__darwin_time_t
 		Ftv_nsec int64
 	}
-} /* fcntl.h:365:1 */
+} /* fcntl.h:374:1 */
 
 // advisory file read data type -
 // information passed by user to system
@@ -1878,7 +1887,7 @@ type Radvisory = struct {
 	Fra_offset   Off_t
 	Fra_count    int32
 	F__ccgo_pad1 [4]byte
-} /* fcntl.h:378:1 */
+} /* fcntl.h:387:1 */
 
 // detached code signatures data type -
 // information passed by user to system used by F_ADDSIGS and F_ADDFILESIGS.
@@ -1891,13 +1900,13 @@ type Fsignatures = struct {
 	Ffs_fsignatures_size Size_t
 	Ffs_cdhash           [20]int8
 	Ffs_hash_type        int32
-} /* fcntl.h:391:9 */
+} /* fcntl.h:400:9 */
 
 // detached code signatures data type -
 // information passed by user to system used by F_ADDSIGS and F_ADDFILESIGS.
 // F_ADDFILESIGS is a shortcut for files that contain their own signature and
 // doesn't require mapping of the file in order to load the signature.
-type Fsignatures_t = Fsignatures /* fcntl.h:401:3 */
+type Fsignatures_t = Fsignatures /* fcntl.h:410:3 */
 
 type Fsupplement = struct {
 	Ffs_file_start Off_t
@@ -1905,9 +1914,9 @@ type Fsupplement = struct {
 	Ffs_blob_size  Size_t
 	Ffs_orig_fd    int32
 	F__ccgo_pad1   [4]byte
-} /* fcntl.h:403:9 */
+} /* fcntl.h:412:9 */
 
-type Fsupplement_t = Fsupplement /* fcntl.h:408:3 */
+type Fsupplement_t = Fsupplement /* fcntl.h:417:3 */
 
 // DYLD needs to check if the object is allowed to be combined
 // into the main binary. This is done between the code signature
@@ -1921,7 +1930,7 @@ type Fchecklv = struct {
 	Flv_file_start         Off_t
 	Flv_error_message_size Size_t
 	Flv_error_message      uintptr
-} /* fcntl.h:422:9 */
+} /* fcntl.h:431:9 */
 
 // DYLD needs to check if the object is allowed to be combined
 // into the main binary. This is done between the code signature
@@ -1931,7 +1940,7 @@ type Fchecklv = struct {
 // the MAC module doesn't say no when LV isn't enabled and then that
 // is cached on the vnode, and the MAC module never gets change once
 // a process that library validation enabled.
-type Fchecklv_t = Fchecklv /* fcntl.h:426:3 */
+type Fchecklv_t = Fchecklv /* fcntl.h:435:3 */
 
 // At this time F_GETSIGSINFO can only indicate platformness.
 //  As additional requestable information is defined, new keys will be added and the
@@ -1942,14 +1951,14 @@ type Fgetsigsinfo = struct {
 	Ffg_file_start      Off_t
 	Ffg_info_request    int32
 	Ffg_sig_is_platform int32
-} /* fcntl.h:436:9 */
+} /* fcntl.h:445:9 */
 
 // At this time F_GETSIGSINFO can only indicate platformness.
 //  As additional requestable information is defined, new keys will be added and the
 //  fgetsigsinfo_t structure will be lengthened to add space for the additional information
 
 // fgetsigsinfo_t used by F_GETSIGSINFO command
-type Fgetsigsinfo_t = Fgetsigsinfo /* fcntl.h:440:3 */
+type Fgetsigsinfo_t = Fgetsigsinfo /* fcntl.h:449:3 */
 
 // lock operations for flock(2)
 
@@ -1961,13 +1970,13 @@ type Fstore = struct {
 	Ffst_offset     Off_t
 	Ffst_length     Off_t
 	Ffst_bytesalloc Off_t
-} /* fcntl.h:451:9 */
+} /* fcntl.h:460:9 */
 
 // lock operations for flock(2)
 
 // fstore_t type used by F_PREALLOCATE command
 
-type Fstore_t = Fstore /* fcntl.h:457:3 */
+type Fstore_t = Fstore /* fcntl.h:466:3 */
 
 // fpunchhole_t used by F_PUNCHHOLE
 type Fpunchhole = struct {
@@ -1975,19 +1984,19 @@ type Fpunchhole = struct {
 	Freserved  uint32
 	Ffp_offset Off_t
 	Ffp_length Off_t
-} /* fcntl.h:460:9 */
+} /* fcntl.h:469:9 */
 
 // fpunchhole_t used by F_PUNCHHOLE
-type Fpunchhole_t = Fpunchhole /* fcntl.h:465:3 */
+type Fpunchhole_t = Fpunchhole /* fcntl.h:474:3 */
 
 // factive_file_trim_t used by F_TRIM_ACTIVE_FILE
 type Ftrimactivefile = struct {
 	Ffta_offset Off_t
 	Ffta_length Off_t
-} /* fcntl.h:468:9 */
+} /* fcntl.h:477:9 */
 
 // factive_file_trim_t used by F_TRIM_ACTIVE_FILE
-type Ftrimactivefile_t = Ftrimactivefile /* fcntl.h:471:3 */
+type Ftrimactivefile_t = Ftrimactivefile /* fcntl.h:480:3 */
 
 // fspecread_t used by F_SPECULATIVE_READ
 type Fspecread = struct {
@@ -1995,10 +2004,10 @@ type Fspecread = struct {
 	Freserved   uint32
 	Ffsr_offset Off_t
 	Ffsr_length Off_t
-} /* fcntl.h:474:9 */
+} /* fcntl.h:483:9 */
 
 // fspecread_t used by F_SPECULATIVE_READ
-type Fspecread_t = Fspecread /* fcntl.h:479:3 */
+type Fspecread_t = Fspecread /* fcntl.h:488:3 */
 
 // fbootstraptransfer_t used by F_READBOOTSTRAP and F_WRITEBOOTSTRAP commands
 
@@ -2006,11 +2015,11 @@ type Fbootstraptransfer = struct {
 	Ffbt_offset Off_t
 	Ffbt_length Size_t
 	Ffbt_buffer uintptr
-} /* fcntl.h:483:9 */
+} /* fcntl.h:492:9 */
 
 // fbootstraptransfer_t used by F_READBOOTSTRAP and F_WRITEBOOTSTRAP commands
 
-type Fbootstraptransfer_t = Fbootstraptransfer /* fcntl.h:487:3 */
+type Fbootstraptransfer_t = Fbootstraptransfer /* fcntl.h:496:3 */
 
 // For F_LOG2PHYS this information is passed back to user
 // Currently only devoffset is returned - that is the VOP_BMAP
@@ -2037,10 +2046,10 @@ type Log2phys = struct {
 	F__ccgo_pad1     [4]byte
 	Fl2p_contigbytes Off_t
 	Fl2p_devoffset   Off_t
-} /* fcntl.h:513:1 */
+} /* fcntl.h:522:1 */
 
 type Filesec_t = uintptr /* _filesec_t.h:31:25 */
 
-type Filesec_property_t = uint32 /* fcntl.h:547:3 */
+type Filesec_property_t = uint32 /* fcntl.h:556:3 */
 
 var _ int8 /* gen.c:2:13: */

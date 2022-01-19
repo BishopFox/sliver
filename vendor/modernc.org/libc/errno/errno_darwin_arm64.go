@@ -314,6 +314,12 @@ type X__float128 = float64        /* <builtin>:47:21 */
 // in between its arguments.  __CONCAT can also concatenate double-quoted
 // strings produced by the __STRING macro, but this only works with ANSI C.
 
+// __pure2 can be used for functions that are only a function of their scalar
+// arguments (meaning they can't dereference pointers).
+//
+// __stateful_pure can be used for functions that have no side effects,
+// but depend on the state of the memory.
+
 // __unused denotes variables and functions that may not be used, preventing
 // the compiler from warning about it if not used.
 

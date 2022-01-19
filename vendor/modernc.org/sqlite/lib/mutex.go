@@ -6,7 +6,6 @@ package sqlite3
 
 import (
 	"fmt"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -21,25 +20,19 @@ func init() {
 		panic(fmt.Errorf("sqlite: thread safety configuration error"))
 	}
 
-	switch fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH) {
-	case "linux/amd64":
-		// experimental pthreads support currently only on linux/amd64
-	default:
-		varArgs := libc.Xmalloc(tls, types.Size_t(unsafe.Sizeof(uintptr(0))))
-		if varArgs == 0 {
-			panic(fmt.Errorf("cannot allocate memory"))
-		}
-
-		// int sqlite3_config(int, ...);
-		if rc := Xsqlite3_config(tls, SQLITE_CONFIG_MUTEX, libc.VaList(varArgs, uintptr(unsafe.Pointer(&mutexMethods)))); rc != SQLITE_OK {
-			p := Xsqlite3_errstr(tls, rc)
-			str := libc.GoString(p)
-			panic(fmt.Errorf("sqlite: failed to configure mutex methods: %v", str))
-		}
-
-		libc.Xfree(tls, varArgs)
+	varArgs := libc.Xmalloc(tls, types.Size_t(unsafe.Sizeof(uintptr(0))))
+	if varArgs == 0 {
+		panic(fmt.Errorf("cannot allocate memory"))
 	}
 
+	// int sqlite3_config(int, ...);
+	if rc := Xsqlite3_config(tls, SQLITE_CONFIG_MUTEX, libc.VaList(varArgs, uintptr(unsafe.Pointer(&mutexMethods)))); rc != SQLITE_OK {
+		p := Xsqlite3_errstr(tls, rc)
+		str := libc.GoString(p)
+		panic(fmt.Errorf("sqlite: failed to configure mutex methods: %v", str))
+	}
+
+	libc.Xfree(tls, varArgs)
 	tls.Close()
 }
 

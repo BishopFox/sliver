@@ -32,11 +32,11 @@ import (
 func init() {
 	buf := make([]byte, 8)
 	_, err := rand.Read(buf)
-	seed := uint64(time.Now().Unix())
-	if err == nil {
-		binary.LittleEndian.PutUint64(buf, uint64(seed))
+	if err != nil {
+		insecureRand.Seed(int64(time.Now().Unix()))
+	} else {
+		insecureRand.Seed(int64(binary.LittleEndian.Uint64(buf)))
 	}
-	insecureRand.Seed(int64(seed))
 }
 
 func main() {

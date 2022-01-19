@@ -299,6 +299,7 @@ const (
 	IPV6CTL_STATS                          = 6
 	IPV6CTL_TEMPPLTIME                     = 33
 	IPV6CTL_TEMPVLTIME                     = 34
+	IPV6CTL_ULA_USETEMPADDR                = 51
 	IPV6CTL_USETEMPADDR                    = 32
 	IPV6CTL_USE_DEFAULTZONE                = 39
 	IPV6CTL_USE_DEPRECATED                 = 21
@@ -431,9 +432,9 @@ const (
 	KEV_DL_LINK_ON                         = 13
 	KEV_DL_LINK_QUALITY_METRIC_CHANGED     = 20
 	KEV_DL_LOW_POWER_MODE_CHANGED          = 30
-	KEV_DL_MASTER_ELECTED                  = 23
 	KEV_DL_NODE_ABSENCE                    = 22
 	KEV_DL_NODE_PRESENCE                   = 21
+	KEV_DL_PRIMARY_ELECTED                 = 23
 	KEV_DL_PROTO_ATTACHED                  = 14
 	KEV_DL_PROTO_DETACHED                  = 15
 	KEV_DL_QOS_MODE_CHANGED                = 29
@@ -467,6 +468,7 @@ const (
 	KEV_INET_SUBCLASS                      = 1
 	LITTLE_ENDIAN                          = 1234
 	MAC_OS_VERSION_11_0                    = 110000
+	MAC_OS_VERSION_12_0                    = 120000
 	MAC_OS_X_VERSION_10_0                  = 1000
 	MAC_OS_X_VERSION_10_1                  = 1010
 	MAC_OS_X_VERSION_10_10                 = 101000
@@ -689,6 +691,7 @@ const (
 	WINT_MAX                               = 2147483647
 	WINT_MIN                               = -2147483648
 	X_ARM_ARCH_H                           = 0
+	X_ARM_MACHTYPES_H_                     = 0
 	X_ARM__ENDIAN_H_                       = 0
 	X_ARM__PARAM_H_                        = 0
 	X_BLKCNT_T                             = 0
@@ -696,6 +699,7 @@ const (
 	X_BSD_ARM__TYPES_H_                    = 0
 	X_BSD_MACHINE_ENDIAN_H_                = 0
 	X_BSD_MACHINE_TYPES_H_                 = 0
+	X_BSD_MACHINE__PARAM_H_                = 0
 	X_BSD_MACHINE__TYPES_H_                = 0
 	X_CADDR_T                              = 0
 	X_CDEFS_H_                             = 0
@@ -1011,6 +1015,12 @@ type X__float128 = float64        /* <builtin>:47:21 */
 // in between its arguments.  __CONCAT can also concatenate double-quoted
 // strings produced by the __STRING macro, but this only works with ANSI C.
 
+// __pure2 can be used for functions that are only a function of their scalar
+// arguments (meaning they can't dereference pointers).
+//
+// __stateful_pure can be used for functions that have no side effects,
+// but depend on the state of the memory.
+
 // __unused denotes variables and functions that may not be used, preventing
 // the compiler from warning about it if not used.
 
@@ -1325,17 +1335,17 @@ type X__float128 = float64        /* <builtin>:47:21 */
 // This header file contains integer types.  It's intended to also contain
 // flotaing point and other arithmetic types, as needed, later.
 
-type X__int8_t = int8     /* _types.h:13:33 */
-type X__uint8_t = uint8   /* _types.h:17:33 */
-type X__int16_t = int16   /* _types.h:18:33 */
-type X__uint16_t = uint16 /* _types.h:19:33 */
-type X__int32_t = int32   /* _types.h:20:33 */
-type X__uint32_t = uint32 /* _types.h:21:33 */
-type X__int64_t = int64   /* _types.h:22:33 */
-type X__uint64_t = uint64 /* _types.h:23:33 */
+type X__int8_t = int8     /* _types.h:15:33 */
+type X__uint8_t = uint8   /* _types.h:19:33 */
+type X__int16_t = int16   /* _types.h:20:33 */
+type X__uint16_t = uint16 /* _types.h:21:33 */
+type X__int32_t = int32   /* _types.h:22:33 */
+type X__uint32_t = uint32 /* _types.h:23:33 */
+type X__int64_t = int64   /* _types.h:24:33 */
+type X__uint64_t = uint64 /* _types.h:25:33 */
 
-type X__darwin_intptr_t = int64   /* _types.h:25:33 */
-type X__darwin_natural_t = uint32 /* _types.h:26:33 */
+type X__darwin_intptr_t = int64   /* _types.h:27:33 */
+type X__darwin_natural_t = uint32 /* _types.h:28:33 */
 
 // The rune type below is declared to be an ``int'' instead of the more natural
 // ``unsigned long'' or ``long''.  Two things are happening here.  It is not
@@ -1353,33 +1363,33 @@ type X__darwin_natural_t = uint32 /* _types.h:26:33 */
 // wchar_t, and should also be able to hold all members of the largest
 // character set plus one extra value (WEOF). wint_t must be at least 16 bits.
 
-type X__darwin_ct_rune_t = int32 /* _types.h:46:33 */ // ct_rune_t
+type X__darwin_ct_rune_t = int32 /* _types.h:48:33 */ // ct_rune_t
 
 // mbstate_t is an opaque object to keep conversion state, during multibyte
 // stream conversions.  The content must not be referenced by user programs.
 type X__mbstate_t = struct {
-	_           [0]uint64
-	F__mbstate8 [128]int8
-} /* _types.h:55:3 */
+	F__ccgo_pad1 [0]uint64
+	F__mbstate8  [128]int8
+} /* _types.h:57:3 */
 
-type X__darwin_mbstate_t = X__mbstate_t /* _types.h:57:33 */ // mbstate_t
+type X__darwin_mbstate_t = X__mbstate_t /* _types.h:59:33 */ // mbstate_t
 
-type X__darwin_ptrdiff_t = int64 /* _types.h:60:33 */ // ptr1 - ptr2
+type X__darwin_ptrdiff_t = int64 /* _types.h:62:33 */ // ptr1 - ptr2
 
-type X__darwin_size_t = uint64 /* _types.h:68:33 */ // sizeof()
+type X__darwin_size_t = uint64 /* _types.h:70:33 */ // sizeof()
 
-type X__darwin_va_list = X__builtin_va_list /* _types.h:74:33 */ // va_list
+type X__darwin_va_list = X__builtin_va_list /* _types.h:76:33 */ // va_list
 
-type X__darwin_wchar_t = int32 /* _types.h:80:33 */ // wchar_t
+type X__darwin_wchar_t = int32 /* _types.h:82:33 */ // wchar_t
 
-type X__darwin_rune_t = X__darwin_wchar_t /* _types.h:85:33 */ // rune_t
+type X__darwin_rune_t = X__darwin_wchar_t /* _types.h:87:33 */ // rune_t
 
-type X__darwin_wint_t = int32 /* _types.h:88:33 */ // wint_t
+type X__darwin_wint_t = int32 /* _types.h:90:33 */ // wint_t
 
-type X__darwin_clock_t = uint64        /* _types.h:93:33 */ // clock()
-type X__darwin_socklen_t = X__uint32_t /* _types.h:94:33 */ // socklen_t (duh)
-type X__darwin_ssize_t = int64         /* _types.h:95:33 */ // byte count or error
-type X__darwin_time_t = int64          /* _types.h:96:33 */ // time()
+type X__darwin_clock_t = uint64        /* _types.h:95:33 */ // clock()
+type X__darwin_socklen_t = X__uint32_t /* _types.h:96:33 */ // socklen_t (duh)
+type X__darwin_ssize_t = int64         /* _types.h:97:33 */ // byte count or error
+type X__darwin_time_t = int64          /* _types.h:98:33 */ // time()
 
 // Type definitions; takes common type definitions that must be used
 // in multiple header files due to [XSI], removes them from the system
@@ -1950,7 +1960,7 @@ type U_int32_t = uint32 /* _u_int32_t.h:30:33 */
 // @APPLE_OSREFERENCE_LICENSE_HEADER_END@
 type U_int64_t = uint64 /* _u_int64_t.h:30:33 */
 
-type Register_t = Int64_t /* types.h:63:33 */
+type Register_t = Int64_t /* types.h:66:33 */
 
 // Copyright (c) 2003-2012 Apple Inc. All rights reserved.
 //
@@ -2030,19 +2040,20 @@ type Intptr_t = X__darwin_intptr_t /* _intptr_t.h:32:33 */
 // limitations under the License.
 //
 // @APPLE_OSREFERENCE_LICENSE_HEADER_END@
-type Uintptr_t = uint64 /* _uintptr_t.h:30:33 */
+
+type Uintptr_t = uint64 /* _uintptr_t.h:34:33 */
 
 // These types are used for reserving the largest possible size.
-type User_addr_t = U_int64_t  /* types.h:74:33 */
-type User_size_t = U_int64_t  /* types.h:75:33 */
-type User_ssize_t = Int64_t   /* types.h:76:33 */
-type User_long_t = Int64_t    /* types.h:77:33 */
-type User_ulong_t = U_int64_t /* types.h:78:33 */
-type User_time_t = Int64_t    /* types.h:79:33 */
-type User_off_t = Int64_t     /* types.h:80:33 */
+type User_addr_t = U_int64_t  /* types.h:77:33 */
+type User_size_t = U_int64_t  /* types.h:78:33 */
+type User_ssize_t = Int64_t   /* types.h:79:33 */
+type User_long_t = Int64_t    /* types.h:80:33 */
+type User_ulong_t = U_int64_t /* types.h:81:33 */
+type User_time_t = Int64_t    /* types.h:82:33 */
+type User_off_t = Int64_t     /* types.h:83:33 */
 
 // This defines the size of syscall arguments after copying into the kernel:
-type Syscall_arg_t = U_int64_t /* types.h:101:33 */
+type Syscall_arg_t = U_int64_t /* types.h:104:33 */
 
 type Socklen_t = X__darwin_socklen_t /* _socklen_t.h:31:33 */
 
@@ -2050,7 +2061,7 @@ type Socklen_t = X__darwin_socklen_t /* _socklen_t.h:31:33 */
 //
 //     It has been auto-edited by fixincludes from:
 //
-// 	"/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/stdint.h"
+// 	"/Library/Developer/CommandLineTools/SDKs/MacOSX12.sdk/usr/include/stdint.h"
 //
 //     This had to be done to correct non-standard usages in the
 //     original, manufacturer supplied header file.
@@ -2699,7 +2710,7 @@ type Uintmax_t = uint64 /* _uintmax_t.h:32:26 */
 //
 //     It has been auto-edited by fixincludes from:
 //
-// 	"/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityInternal.h"
+// 	"/Library/Developer/CommandLineTools/SDKs/MacOSX12.sdk/usr/include/AvailabilityInternal.h"
 //
 //     This had to be done to correct non-standard usages in the
 //     original, manufacturer supplied header file.
@@ -5160,6 +5171,7 @@ type Fsfilcnt_t = X__darwin_fsfilcnt_t /* _fsfilcnt_t.h:31:41 */
 // limitations under the License.
 //
 // @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+
 // Copyright (c) 2006-2007 Apple Inc. All rights reserved.
 
 // Copyright (c) 2000-2007 Apple Inc. All rights reserved.
@@ -5497,6 +5509,8 @@ type Iovec = struct {
 
 // Additional options, not kept in so_options.
 
+// When adding new socket-options, you need to make sure MPTCP supports these as well!
+
 // Network Service Type for option SO_NET_SERVICE_TYPE
 //
 // The vast majority of sockets should use Best Effort that is the default
@@ -5580,9 +5594,9 @@ type Iovec = struct {
 
 // These are supported values for SO_NETSVC_MARKING_LEVEL
 
-type Sae_associd_t = X__uint32_t /* socket.h:289:20 */
+type Sae_associd_t = X__uint32_t /* socket.h:293:20 */
 
-type Sae_connid_t = X__uint32_t /* socket.h:293:20 */
+type Sae_connid_t = X__uint32_t /* socket.h:297:20 */
 
 // connectx() flag parameters
 
@@ -5596,7 +5610,7 @@ type Sa_endpoints = struct {
 	Fsae_dstaddr    uintptr
 	Fsae_dstaddrlen Socklen_t
 	F__ccgo_pad3    [4]byte
-} /* socket.h:303:9 */
+} /* socket.h:307:9 */
 
 // connectx() flag parameters
 
@@ -5605,31 +5619,31 @@ type Sockaddr = struct {
 	Fsa_len    X__uint8_t
 	Fsa_family Sa_family_t
 	Fsa_data   [14]int8
-} /* socket.h:303:9 */
+} /* socket.h:307:9 */
 
 // connectx() flag parameters
 
 // sockaddr endpoints
-type Sa_endpoints_t = Sa_endpoints /* socket.h:309:3 */
+type Sa_endpoints_t = Sa_endpoints /* socket.h:313:3 */
 
 // Structure used for manipulating linger option.
 type Linger = struct {
 	Fl_onoff  int32
 	Fl_linger int32
-} /* socket.h:315:1 */
+} /* socket.h:319:1 */
 
 // Structure to control non-portable Sockets extension to POSIX
 type So_np_extensions = struct {
 	Fnpx_flags U_int32_t
 	Fnpx_mask  U_int32_t
-} /* socket.h:333:1 */
+} /* socket.h:337:1 */
 
 // Structure used by kernel to pass protocol
 // information in raw sockets.
 type Sockproto = struct {
 	Fsp_family   X__uint16_t
 	Fsp_protocol X__uint16_t
-} /* socket.h:421:1 */
+} /* socket.h:425:1 */
 
 // RFC 2553: protocol-independent placeholder for socket addresses
 
@@ -5640,7 +5654,7 @@ type Sockaddr_storage = struct {
 	F__ss_pad1  [6]int8
 	F__ss_align X__int64_t
 	F__ss_pad2  [112]int8
-} /* socket.h:441:1 */
+} /* socket.h:445:1 */
 
 // Protocol families, same as address families for now.
 
@@ -5676,7 +5690,7 @@ type Msghdr = struct {
 	Fmsg_control    uintptr
 	Fmsg_controllen Socklen_t
 	Fmsg_flags      int32
-} /* socket.h:548:1 */
+} /* socket.h:552:1 */
 
 // Header for ancillary data objects in msg_control buffer.
 // Used for additional information with/about a datagram
@@ -5686,7 +5700,7 @@ type Cmsghdr = struct {
 	Fcmsg_len   Socklen_t
 	Fcmsg_level int32
 	Fcmsg_type  int32
-} /* socket.h:596:1 */
+} /* socket.h:600:1 */
 
 // given pointer to struct cmsghdr, return pointer to data
 
@@ -5710,7 +5724,7 @@ type Sf_hdtr = struct {
 	Ftrailers    uintptr
 	Ftrl_cnt     int32
 	F__ccgo_pad2 [4]byte
-} /* socket.h:687:1 */
+} /* socket.h:691:1 */
 
 // The following two #includes insure htonl and family are defined
 // Copyright (c) 2000-2007 Apple Inc. All rights reserved.
@@ -6241,8 +6255,8 @@ type In_pktinfo = struct {
 // IPv6 address
 type In6_addr = struct {
 	F__u6_addr struct {
-		_           [0]uint32
-		F__u6_addr8 [16]X__uint8_t
+		F__ccgo_pad1 [0]uint32
+		F__u6_addr8  [16]X__uint8_t
 	}
 } /* in6.h:152:9 */
 
@@ -6459,8 +6473,8 @@ type Sockaddr_in6 = struct {
 	Fsin6_flowinfo X__uint32_t
 	Fsin6_addr     struct {
 		F__u6_addr struct {
-			_           [0]uint32
-			F__u6_addr8 [16]X__uint8_t
+			F__ccgo_pad1 [0]uint32
+			F__u6_addr8  [16]X__uint8_t
 		}
 	}
 	Fsin6_scope_id X__uint32_t
@@ -6536,8 +6550,8 @@ type Sockaddr_in6 = struct {
 type Ipv6_mreq = struct {
 	Fipv6mr_multiaddr struct {
 		F__u6_addr struct {
-			_           [0]uint32
-			F__u6_addr8 [16]X__uint8_t
+			F__ccgo_pad1 [0]uint32
+			F__u6_addr8  [16]X__uint8_t
 		}
 	}
 	Fipv6mr_interface uint32
@@ -6547,8 +6561,8 @@ type Ipv6_mreq = struct {
 type In6_pktinfo = struct {
 	Fipi6_addr struct {
 		F__u6_addr struct {
-			_           [0]uint32
-			F__u6_addr8 [16]X__uint8_t
+			F__ccgo_pad1 [0]uint32
+			F__u6_addr8  [16]X__uint8_t
 		}
 	}
 	Fipi6_ifindex uint32
@@ -6563,8 +6577,8 @@ type Ip6_mtuinfo = struct {
 		Fsin6_flowinfo X__uint32_t
 		Fsin6_addr     struct {
 			F__u6_addr struct {
-				_           [0]uint32
-				F__u6_addr8 [16]X__uint8_t
+				F__ccgo_pad1 [0]uint32
+				F__u6_addr8  [16]X__uint8_t
 			}
 		}
 		Fsin6_scope_id X__uint32_t

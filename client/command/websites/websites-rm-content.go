@@ -50,5 +50,5 @@ func WebsitesRmContent(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("Failed to remove content %s", err)
 		return
 	}
-	displayWebsite(web, con)
+	PrintWebsite(web, con)
 }

@@ -1,46 +1,51 @@
 Extensions
-====
+===========
 
 Allows to load and execute 3rd party extensions.
 
-Extensions must be loaded from a directory with the following architecture:
+Extensions directory structures can be arbitrary, however in the root of the directory or .tar.gz there
+must be a `extension.json` or a `alias.json` file. All paths are relative to the manifest/root directory,
+parent directories are not allowed. Only files listed in the manifest are copied, any other files will
+be ignored.
 
 ```shell
 /path/to/extension/folder/
-├── manifest.json
+├── extension.json
 └── windows
-    ├── 386
-    │   └── extension.x86.dll
-    └── amd64
-        └── extension.x64.dll
+│    └── extension.x86.dll
+│    └── extension.x64.dll
+└── linux
+│    └── extension.x86.so
+│    └── extension.x64.so
+└── darwin
+     └── extension.x86.dylib
+     └── extension.x64.dylib
 ```
 
-The extension folder structure must follow the `GOOS/GOARCH/` scheme.
-
-Here's an example manifest:
+Here's an example manifest (i.e., the `extension.json` or a `alias.json`):
 
 ```json
-[
 {
     "name": "foo",
+    "version": "1.0.0",
+    "extension_author": "ac1d-burn",
+    "original_author": "zer0-cool",
+    "repo_url": "https://github.com/foo/bar",
     "help": "Help for foo command",
     "entrypoint": "RunFoo",
     "init" :"NimMain",
-    "dependsOn": "bar",
+    "depends_on": "bar",
     "files": [
         {
             "os": "windows",
-            "files":{
-                "x86": "extension.x86.o",
-                "x64": "extension.x64.o",
-            }
+            "arch": "amd64",
+            "path": "extension.x64.o",
         }
     ],
     "arguments": [
         {"name": "pid", "type": "int", "desc": "pid", "optional": false},
     ]
 }
-]
 ```
 
 The structure is the following one:
@@ -51,7 +56,7 @@ The structure is the following one:
 - `files`: a list of object pointing to the extensions files to load for each architectures and operating systems
 - `init`: the initialization function name (if relevant, can be omitted)
 - `arguments`: an optional list of objects (for DLLs), but mandatory for BOFs
-- `dependsOn`: the name of an extension required by the current extension (won't load if the dependency is not loaded)
+- `depends_on`: the name of an extension required by the current extension (won't load if the dependency is not loaded)
 
 The `type` of an argument can be one of the following:
 

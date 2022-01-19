@@ -5,6 +5,8 @@ go 1.17
 // fix wgctrl requiring old wireguard
 replace golang.zx2c4.com/wireguard => golang.zx2c4.com/wireguard v0.0.0-20210311162910-5f0c8b942d93
 
+replace github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.4
+
 require (
 	github.com/AlecAivazis/survey/v2 v2.2.2
 	github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
@@ -59,11 +61,10 @@ require (
 )
 
 require (
-	github.com/emirpasic/gods v1.12.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/shirou/gopsutil/v3 v3.21.10
 	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
-	modernc.org/sqlite v1.14.1
+	modernc.org/sqlite v1.14.3
 )
 
 require (
@@ -113,9 +114,9 @@ require (
 	google.golang.org/grpc/examples v0.0.0-20210910232509-03268c8ed29e // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 	lukechampine.com/uint128 v1.1.1 // indirect
-	modernc.org/cc/v3 v3.35.17 // indirect
-	modernc.org/ccgo/v3 v3.12.65 // indirect
-	modernc.org/libc v1.11.71 // indirect
+	modernc.org/cc/v3 v3.35.18 // indirect
+	modernc.org/ccgo/v3 v3.12.95 // indirect
+	modernc.org/libc v1.11.104 // indirect
 	modernc.org/mathutil v1.4.1 // indirect
 	modernc.org/memory v1.0.5 // indirect
 	modernc.org/opt v0.1.1 // indirect

@@ -49,13 +49,7 @@ var (
 )
 
 func randomDataRandomSize(maxSize int) []byte {
-	buf := make([]byte, insecureRand.Intn(maxSize))
-	rand.Read(buf)
-	return buf
-}
-
-func randomData(size int) []byte {
-	buf := make([]byte, size)
+	buf := make([]byte, insecureRand.Intn(maxSize-1)+1)
 	rand.Read(buf)
 	return buf
 }
@@ -98,14 +92,14 @@ func randomDNSMsgs(t *testing.T, parent string, maxSize int, encoder encoders.En
 
 func TestPendingEnvelopes(t *testing.T) {
 	// *** Small ***
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 100; i++ {
 		reassemble(t, example1, 256, encoders.Base58{})
 		reassemble(t, example1, 256, encoders.Base32{})
 	}
 	// *** Large ***
-	for i := 0; i < 10; i++ {
-		reassemble(t, example1, 10*1024, encoders.Base58{})
-		reassemble(t, example1, 10*1024, encoders.Base32{})
+	for i := 0; i < 100; i++ {
+		reassemble(t, example1, 30*1024, encoders.Base58{})
+		reassemble(t, example1, 30*1024, encoders.Base32{})
 	}
 }
 
@@ -119,23 +113,24 @@ func reassemble(t *testing.T, parent string, size int, encoder encoders.Encoder)
 	}
 
 	// Re-assemble original message
-	var pending *PendingEnvelope
-	for _, dnsMsg := range dnsMsgs {
-		pending = dnsSession.IncomingPendingEnvelope(dnsMsg.ID, dnsMsg.Size)
-		if pending == nil {
-			t.Fatal("GetPendingEnvelope returned nil")
-		}
-		complete := pending.Insert(dnsMsg)
-		if complete {
-			break
+	t.Logf("Re-assembling %d messages", len(dnsMsgs))
+	pending := dnsSession.IncomingPendingEnvelope(dnsMsgs[0].ID, dnsMsgs[0].Size)
+	complete := pending.Insert(dnsMsgs[0])
+	t.Logf("Inserted: %v", dnsMsgs[0])
+	if !complete {
+		for _, dnsMsg := range dnsMsgs[1:] {
+			complete = pending.Insert(dnsMsg)
+			t.Logf("Inserted: %v", dnsMsg)
+			if complete {
+				break
+			}
 		}
 	}
 	data, err := pending.Reassemble()
 	if err != nil {
 		t.Logf("Original (%d): %v", len(original), original)
-		for index, msg := range pending.messages.Values() {
-			msgAssert := msg.(*dnspb.DNSMessage)
-			t.Logf("%d | %v", index, msgAssert)
+		for k, v := range pending.messages {
+			t.Logf("%d | %v", k, v)
 		}
 		t.Fatalf("Failed to reassemble pending envelope: %s", err)
 	}

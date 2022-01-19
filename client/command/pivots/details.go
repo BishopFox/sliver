@@ -35,7 +35,7 @@ func PivotDetailsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if session == nil {
 		return
 	}
-	pivotListeners, err := con.Rpc.PivotListeners(context.Background(), &sliverpb.PivotListenersReq{
+	pivotListeners, err := con.Rpc.PivotSessionListeners(context.Background(), &sliverpb.PivotListenersReq{
 		Request: con.ActiveTarget.Request(ctx),
 	})
 	if err != nil {
@@ -86,10 +86,10 @@ func PrintPivotListenerDetails(listener *sliverpb.PivotListener, con *console.Sl
 		"ID",
 		"Remote Address",
 	})
-	for _, pivot := range listener.Pivots {
+	for _, pivotListener := range listener.Pivots {
 		tw.AppendRow(table.Row{
-			pivot.ID,
-			pivot.RemoteAddress,
+			pivotListener.PeerID,
+			pivotListener.RemoteAddress,
 		})
 	}
 	con.Printf("%s\n", tw.Render())

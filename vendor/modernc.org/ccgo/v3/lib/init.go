@@ -59,7 +59,7 @@ func (p *project) initializerInner(tag string, off uintptr, f *function, s []*cc
 			tld.patches = append(tld.patches, initPatch{t, s[0], patchField})
 			p.w(" 0 ")
 		default:
-			p.assignmentExpression(f, s[0].AssignmentExpression, t, exprValue, fOutermost)
+			p.assignmentExpression(f, s[0].AssignmentExpression, t, exprValue, 0)
 		}
 		return
 	}
@@ -79,7 +79,7 @@ func (p *project) initializerInner(tag string, off uintptr, f *function, s []*cc
 		case cc.Struct, cc.Union:
 			if compatibleStructOrUnion(t, s[0].AssignmentExpression.Operand.Type()) {
 				p.w("%s%s", tidyComment("", s[0]), tag)
-				p.assignmentExpression(f, s[0].AssignmentExpression, t, exprValue, fOutermost)
+				p.assignmentExpression(f, s[0].AssignmentExpression, t, exprValue, 0)
 				return
 			}
 		}
@@ -258,7 +258,7 @@ func (p *project) initializerStruct(tag string, off uintptr, f *function, s []*c
 				bitFld := v.Field
 				p.w("%s%s", tidyComment("", v.AssignmentExpression), tag)
 				tag = ""
-				p.assignmentExpression(f, v.AssignmentExpression, bft, exprValue, fOutermost)
+				p.assignmentExpression(f, v.AssignmentExpression, bft, exprValue, 0)
 				p.w("&%#x", uint64(1)<<uint64(bitFld.BitFieldWidth())-1)
 				if o := bitFld.BitFieldOffset() + 8*int((bitFld.Offset()-off0)); o != 0 {
 					p.w("<<%d", o)
@@ -387,14 +387,14 @@ func (p *project) initializerUnion(tag string, off uintptr, f *function, s []*cc
 		case fld != nil && fld.IsBitField():
 			bft := p.bitFileType(part, fld.BitFieldBlockWidth())
 			p.w("*(*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(&r))+%d)) |= ", p.typ(part, bft), part.Offset-off)
-			p.assignmentExpression(f, part.AssignmentExpression, bft, exprValue, fOutermost)
+			p.assignmentExpression(f, part.AssignmentExpression, bft, exprValue, 0)
 			p.w("&%#x", uint64(1)<<uint64(fld.BitFieldWidth())-1)
 			if o := fld.BitFieldOffset(); o != 0 {
 				p.w("<<%d", o)
 			}
 		default:
 			p.w("*(*%s)(unsafe.Pointer(uintptr(unsafe.Pointer(&r))+%d)) = ", p.typ(part, ft), part.Offset-off)
-			p.assignmentExpression(f, part.AssignmentExpression, ft, exprValue, fOutermost)
+			p.assignmentExpression(f, part.AssignmentExpression, ft, exprValue, 0)
 		}
 		p.w("\n")
 	}

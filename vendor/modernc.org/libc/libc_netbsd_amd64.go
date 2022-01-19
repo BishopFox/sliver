@@ -337,13 +337,12 @@ func Xutime(t *TLS, filename, times uintptr) int32 {
 
 // int chown(const char *pathname, uid_t owner, gid_t group);
 func Xchown(t *TLS, pathname uintptr, owner types.Uid_t, group types.Gid_t) int32 {
-	panic(todo(""))
-	// if _, _, err := unix.Syscall(unix.SYS_CHOWN, pathname, uintptr(owner), uintptr(group)); err != 0 {
-	// 	t.setErrno(err)
-	// 	return -1
-	// }
+	if _, _, err := unix.Syscall(unix.SYS_CHOWN, pathname, uintptr(owner), uintptr(group)); err != 0 {
+		t.setErrno(err)
+		return -1
+	}
 
-	// return 0
+	return 0
 }
 
 // int link(const char *oldpath, const char *newpath);

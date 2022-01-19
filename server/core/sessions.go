@@ -36,17 +36,16 @@ var (
 
 	// Sessions - Manages implant connections
 	Sessions = &sessions{
-		sessions: map[uint32]*Session{},
-		mutex:    &sync.RWMutex{},
+		sessions: &sync.Map{},
 	}
 	rollingSessionID = uint32(0)
 
 	// ErrUnknownMessageType - Returned if the implant did not understand the message for
 	//                         example when the command is not supported on the platform
-	ErrUnknownMessageType = errors.New("Unknown message type")
+	ErrUnknownMessageType = errors.New("unknown message type")
 
 	// ErrImplantTimeout - The implant did not respond prior to timeout deadline
-	ErrImplantTimeout = errors.New("Implant timeout")
+	ErrImplantTimeout = errors.New("implant timeout")
 )
 
 // Session - Represents a connection to an implant
@@ -71,16 +70,19 @@ type Session struct {
 	Burned            bool
 	Extensions        []string
 	ConfigID          string
+	PeerID            int64
 }
 
+// LastCheckin - Get the last time a session message was received
 func (s *Session) LastCheckin() time.Time {
 	return s.Connection.LastMessage
 }
 
+// IsDead - See if last check-in is within expected variance
 func (s *Session) IsDead() bool {
 	sessionsLog.Debugf("Last checkin was %v", s.Connection.LastMessage)
 	padding := time.Duration(10 * time.Second) // Arbitrary margin of error
-	timePassed := time.Now().Sub(s.LastCheckin())
+	timePassed := time.Since(s.LastCheckin())
 	reconnect := time.Duration(s.ReconnectInterval)
 	pollTimeout := time.Duration(s.PollTimeout)
 	if timePassed < reconnect+padding && timePassed < pollTimeout+padding {
@@ -88,7 +90,7 @@ func (s *Session) IsDead() bool {
 		return false
 	}
 	if s.Connection.Transport == consts.MtlsStr {
-		if time.Now().Sub(s.Connection.LastMessage) < mtls.PingInterval+padding {
+		if time.Since(s.Connection.LastMessage) < mtls.PingInterval+padding {
 			sessionsLog.Debugf("Last message within ping interval with padding")
 			return false
 		}
@@ -120,6 +122,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		ProxyURL:          s.ProxyURL,
 		Burned:            s.Burned,
 		// ConfigID:          s.ConfigID,
+		PeerID: s.PeerID,
 	}
 }
 
@@ -156,33 +159,30 @@ func (s *Session) Request(msgType uint32, timeout time.Duration, data []byte) ([
 
 // sessions - Manages the slivers, provides atomic access
 type sessions struct {
-	mutex    *sync.RWMutex
-	sessions map[uint32]*Session
+	sessions *sync.Map // map[uint32]*Session
 }
 
 // All - Return a list of all sessions
 func (s *sessions) All() []*Session {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
 	all := []*Session{}
-	for _, session := range s.sessions {
-		all = append(all, session)
-	}
+	s.sessions.Range(func(key, value interface{}) bool {
+		all = append(all, value.(*Session))
+		return true
+	})
 	return all
 }
 
 // Get - Get a session by ID
 func (s *sessions) Get(sessionID uint32) *Session {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.sessions[sessionID]
+	if val, ok := s.sessions.Load(sessionID); ok {
+		return val.(*Session)
+	}
+	return nil
 }
 
 // Add - Add a sliver to the hive (atomically)
 func (s *sessions) Add(session *Session) *Session {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.sessions[session.ID] = session
+	s.sessions.Store(session.ID, session)
 	EventBroker.Publish(Event{
 		EventType: consts.SessionOpenedEvent,
 		Session:   session,
@@ -192,18 +192,32 @@ func (s *sessions) Add(session *Session) *Session {
 
 // Remove - Remove a sliver from the hive (atomically)
 func (s *sessions) Remove(sessionID uint32) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	session := s.sessions[sessionID]
-	if session != nil {
-		delete(s.sessions, sessionID)
-		EventBroker.Publish(Event{
-			EventType: consts.SessionClosedEvent,
-			Session:   session,
-		})
+	val, ok := s.sessions.Load(sessionID)
+	if !ok {
+		return
 	}
+	parentSession := val.(*Session)
+	children := findAllChildrenByPeerID(parentSession.PeerID)
+	s.sessions.Delete(parentSession.ID)
+	coreLog.Debugf("Removing %d children of session %d (%v)", len(children), parentSession.ID, children)
+	for _, child := range children {
+		childSession, ok := s.sessions.LoadAndDelete(child.SessionID)
+		if ok {
+			EventBroker.Publish(Event{
+				EventType: consts.SessionClosedEvent,
+				Session:   childSession.(*Session),
+			})
+		}
+	}
+
+	// Remove the parent session
+	EventBroker.Publish(Event{
+		EventType: consts.SessionClosedEvent,
+		Session:   parentSession,
+	})
 }
 
+// NewSession - Create a new session
 func NewSession(implantConn *ImplantConnection) *Session {
 	implantConn.UpdateLastMessage()
 	return &Session{
@@ -212,15 +226,17 @@ func NewSession(implantConn *ImplantConnection) *Session {
 	}
 }
 
-func SessionFromImplantConnection(conn *ImplantConnection) *Session {
-	Sessions.mutex.RLock()
-	defer Sessions.mutex.RUnlock()
-	for _, session := range Sessions.sessions {
-		if session.Connection.ID == conn.ID {
-			return session
+// FromImplantConnection - Find the session associated with an implant connection
+func (s *sessions) FromImplantConnection(conn *ImplantConnection) *Session {
+	var found *Session
+	s.sessions.Range(func(key, value interface{}) bool {
+		if value.(*Session).Connection.ID == conn.ID {
+			found = value.(*Session)
+			return false
 		}
-	}
-	return nil
+		return true
+	})
+	return found
 }
 
 // nextSessionID - Returns an incremental nonce as an id
@@ -230,10 +246,9 @@ func nextSessionID() uint32 {
 	return newID
 }
 
+// UpdateSession - In place update of a session pointer
 func (s *sessions) UpdateSession(session *Session) *Session {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.sessions[session.ID] = session
+	s.sessions.Store(session.ID, session)
 	EventBroker.Publish(Event{
 		EventType: consts.SessionUpdateEvent,
 		Session:   session,

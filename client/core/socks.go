@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -30,7 +31,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util/leaky"
 )
 
@@ -43,7 +43,6 @@ var (
 	SocksConnPool = sync.Map{}
 	SocksProxyID  = 0
 )
-var coreLog = log.NamedLogger("ClientCore", "sessions")
 
 // PortfwdMeta - Metadata about a portfwd listener
 type SocksProxyMeta struct {
@@ -121,7 +120,7 @@ func (f *socksProxy) Start(tcpProxy *TcpProxy) error {
 					SocksConnPool.Delete(p.TunnelID)
 					continue
 				}
-				coreLog.Debugf("[socks] agent to Server To (Client to User) Data Sequence %d , Data Size %d \n", FromImplantSequence, len(p.Data))
+				log.Printf("[socks] agent to Server To (Client to User) Data Sequence %d , Data Size %d \n", FromImplantSequence, len(p.Data))
 				//fmt.Printf("recv data len %d \n", len(p.Data))
 				_, err := n.Write(p.Data)
 				if err != nil {
@@ -151,7 +150,7 @@ func (f *socksProxy) Start(tcpProxy *TcpProxy) error {
 			Request:  &commonpb.Request{SessionID: rpcSocks.SessionID},
 		})
 	}
-	coreLog.Infof("Socks Stop -> %s\n", tcpProxy.BindAddr)
+	log.Printf("Socks Stop -> %s\n", tcpProxy.BindAddr)
 	tcpProxy.Listener.Close()
 	proxy.CloseSend()
 	return nil
@@ -193,7 +192,7 @@ func connect(conn net.Conn, stream rpcpb.SliverRPC_SocksProxyClient, frame *sliv
 
 	SocksConnPool.Store(frame.TunnelID, conn)
 
-	coreLog.Infof("tcp conn %q<--><-->%q \n", conn.LocalAddr(), conn.RemoteAddr())
+	log.Printf("tcp conn %q<--><-->%q \n", conn.LocalAddr(), conn.RemoteAddr())
 
 	buff := leakyBuf.Get()
 	defer leakyBuf.Put(buff)
@@ -209,7 +208,7 @@ func connect(conn net.Conn, stream rpcpb.SliverRPC_SocksProxyClient, frame *sliv
 		if n > 0 {
 			frame.Data = buff[:n]
 			frame.Sequence = ToImplantSequence
-			coreLog.Debugf("[socks] (User to Client) to Server to agent  Data Sequence %d , Data Size %d \n", ToImplantSequence, len(frame.Data))
+			log.Printf("[socks] (User to Client) to Server to agent  Data Sequence %d , Data Size %d \n", ToImplantSequence, len(frame.Data))
 			err := stream.Send(frame)
 			if err != nil {
 				return

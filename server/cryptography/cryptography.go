@@ -24,6 +24,7 @@ package cryptography
 */
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
@@ -36,6 +37,7 @@ import (
 
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/util"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/chacha20poly1305"
@@ -144,6 +146,7 @@ func Encrypt(key [chacha20poly1305.KeySize]byte, plaintext []byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
+	plaintext = bytes.NewBuffer(util.GzipBuf(plaintext)).Bytes()
 	nonce := make([]byte, aead.NonceSize(), aead.NonceSize()+len(plaintext)+aead.Overhead())
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
@@ -166,7 +169,11 @@ func Decrypt(key [chacha20poly1305.KeySize]byte, ciphertext []byte) ([]byte, err
 	nonce, ciphertext := ciphertext[:aead.NonceSize()], ciphertext[aead.NonceSize():]
 
 	// Decrypt the message and check it wasn't tampered with.
-	return aead.Open(nil, nonce, ciphertext, nil)
+	plaintext, err := aead.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, err
+	}
+	return util.GunzipBuf(plaintext), nil
 }
 
 // NewCipherContext - Wrapper around creating a cipher context from a key
@@ -185,15 +192,17 @@ type CipherContext struct {
 }
 
 // Decrypt - Decrypt a message with the contextual key and check for replay attacks
-func (c *CipherContext) Decrypt(data []byte) ([]byte, error) {
-	plaintext, err := Decrypt(c.Key, data)
+func (c *CipherContext) Decrypt(ciphertext []byte) ([]byte, error) {
+	plaintext, err := Decrypt(c.Key, ciphertext)
 	if err != nil {
 		return nil, err
 	}
-	digest := sha256.Sum256(data)
-	b64Digest := base64.RawStdEncoding.EncodeToString(digest[:])
-	if _, ok := c.replay.LoadOrStore(b64Digest, true); ok {
-		return nil, ErrReplayAttack
+	if 0 < len(ciphertext) {
+		digest := sha256.Sum256(ciphertext)
+		b64Digest := base64.RawStdEncoding.EncodeToString(digest[:])
+		if _, ok := c.replay.LoadOrStore(b64Digest, true); ok {
+			return nil, ErrReplayAttack
+		}
 	}
 	return plaintext, nil
 }
@@ -204,9 +213,11 @@ func (c *CipherContext) Encrypt(plaintext []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	digest := sha256.Sum256(ciphertext)
-	b64Digest := base64.RawStdEncoding.EncodeToString(digest[:])
-	c.replay.Store(b64Digest, true)
+	if 0 < len(ciphertext) {
+		digest := sha256.Sum256(ciphertext)
+		b64Digest := base64.RawStdEncoding.EncodeToString(digest[:])
+		c.replay.Store(b64Digest, true)
+	}
 	return ciphertext, nil
 }
 
@@ -343,7 +354,7 @@ func generateServerMinisignPrivateKey() (*minisign.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err := json.Marshal(&minisignPrivateKey{
+	data, _ := json.Marshal(&minisignPrivateKey{
 		ID:         privateKey.ID(),
 		PrivateKey: privateKey.Bytes(),
 	})
