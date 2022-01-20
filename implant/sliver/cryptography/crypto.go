@@ -29,11 +29,11 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
-	"time"
 
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
@@ -73,6 +73,9 @@ func ECCEncrypt(recipientPublicKey *[32]byte, senderPrivateKey *[32]byte, plaint
 
 // ECCDecrypt - Decrypt using Curve 25519 + ChaCha20Poly1305
 func ECCDecrypt(senderPublicKey *[32]byte, recipientPrivateKey *[32]byte, ciphertext []byte) ([]byte, error) {
+	if len(ciphertext) < 24 {
+		return nil, errors.New("ciphertext too short")
+	}
 	var decryptNonce [24]byte
 	copy(decryptNonce[:], ciphertext[:24])
 	plaintext, ok := box.Open(nil, ciphertext[24:], &decryptNonce, senderPublicKey, recipientPrivateKey)

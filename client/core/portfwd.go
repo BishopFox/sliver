@@ -29,7 +29,7 @@ var (
 // PortfwdMeta - Metadata about a portfwd listener
 type PortfwdMeta struct {
 	ID         int
-	SessionID  uint32
+	SessionID  string
 	BindAddr   string
 	RemoteAddr string
 }
@@ -184,7 +184,7 @@ func (p *ChannelProxy) dialImplant(ctx context.Context) (*Tunnel, error) {
 		log.Printf("[tcpproxy] Failed to dial implant %s", err)
 		return nil, err
 	}
-	log.Printf("[tcpproxy] Created new tunnel with id %d (session %d)", rpcTunnel.TunnelID, p.Session.ID)
+	log.Printf("[tcpproxy] Created new tunnel with id %d (session %s)", rpcTunnel.TunnelID, p.Session.ID)
 	tunnel := Tunnels.Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
 
 	log.Printf("[tcpproxy] Binding tunnel to portfwd %d", p.Port())

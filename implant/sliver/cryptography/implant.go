@@ -43,6 +43,7 @@ var (
 	// TOTP secret value
 	totpSecret = "{{.OTPSecret}}"
 
+	// ErrInvalidPeerKey - Peer to peer key exchange failed
 	ErrInvalidPeerKey = errors.New("invalid peer key")
 )
 

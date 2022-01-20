@@ -35,8 +35,8 @@ var (
 	tcpPivotWriteDeadline = 10 * time.Second
 )
 
-// StartTCPPivotListener - Start a TCP listener
-func StartTCPPivotListener(address string, upstream chan<- *pb.Envelope) (*PivotListener, error) {
+// CreateTCPPivotListener - Start a TCP listener
+func CreateTCPPivotListener(address string, upstream chan<- *pb.Envelope) (*PivotListener, error) {
 	// {{if .Config.Debug}}
 	log.Printf("Starting TCP pivot listener on %s", address)
 	// {{end}}
@@ -48,37 +48,12 @@ func StartTCPPivotListener(address string, upstream chan<- *pb.Envelope) (*Pivot
 		return nil, err
 	}
 	pivotListener := &PivotListener{
-		ID:          ListenerID(),
-		Type:        pb.PivotType_TCP,
-		Listener:    ln,
-		Pivots:      &sync.Map{},
-		BindAddress: address,
-		Upstream:    upstream,
+		ID:               ListenerID(),
+		Type:             pb.PivotType_TCP,
+		Listener:         ln,
+		PivotConnections: &sync.Map{},
+		BindAddress:      address,
+		Upstream:         upstream,
 	}
-	go tcpPivotAcceptNewConnections(pivotListener)
 	return pivotListener, nil
-}
-
-func tcpPivotAcceptNewConnections(pivotListener *PivotListener) {
-	for {
-		conn, err := pivotListener.Listener.Accept()
-		if err != nil {
-			// {{if .Config.Debug}}
-			log.Printf("[tcp-pivot] listener stopping: %s", err)
-			// {{end}}
-			return
-		}
-		// handle connection like any other net.Conn
-		pivotConn := &NetConnPivot{
-			id:            PivotID(),
-			conn:          conn,
-			readMutex:     &sync.Mutex{},
-			writeMutex:    &sync.Mutex{},
-			readDeadline:  tcpPivotReadDeadline,
-			writeDeadline: tcpPivotWriteDeadline,
-			upstream:      pivotListener.Upstream,
-			Downstream:    make(chan *pb.Envelope),
-		}
-		go pivotConn.Start(pivotListener.Pivots)
-	}
 }

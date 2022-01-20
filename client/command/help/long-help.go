@@ -84,6 +84,7 @@ var (
 		consts.RegistryWriteStr:             regWriteHelp,
 		consts.RegistryReadStr:              regReadHelp,
 		consts.RegistryCreateKeyStr:         regCreateKeyHelp,
+		consts.RegistryDeleteKeyStr:         regDeleteKeyHelp,
 		consts.PivotsStr:                    pivotsHelp,
 		consts.WgPortFwdStr:                 wgPortFwdHelp,
 		consts.WgSocksStr:                   wgSocksHelp,
@@ -480,6 +481,11 @@ When using the binary type, you must either:
 	regCreateKeyHelp = `[[.Bold]]Command:[[.Normal]] registry create PATH [name]
 [[.Bold]]About:[[.Normal]] Read a value from the windows registry
 [[.Bold]]Example:[[.Normal]] registry create --hive HKLM "software\\google\\chrome\\BLBeacon\\version"
+	`
+
+	regDeleteKeyHelp = `[[.Bold]]Command:[[.Normal]] registry delete PATH [name]
+[[.Bold]]About:[[.Normal]] Remove a value from the windows registry
+[[.Bold]]Example:[[.Normal]] registry delete --hive HKLM "software\\google\\chrome\\BLBeacon\\version"
 	`
 
 	pivotsHelp = `[[.Bold]]Command:[[.Normal]] pivots

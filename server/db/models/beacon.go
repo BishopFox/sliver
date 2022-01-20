@@ -50,6 +50,7 @@ type Beacon struct {
 	LastCheckin       time.Time
 	Version           string
 	ReconnectInterval int64
+	ActiveC2          string
 	ProxyURL          string
 
 	ImplantBuildID uuid.UUID `gorm:"type:uuid;"`
@@ -69,28 +70,27 @@ func (b *Beacon) BeforeCreate(tx *gorm.DB) (err error) {
 
 func (b *Beacon) ToProtobuf() *clientpb.Beacon {
 	return &clientpb.Beacon{
-		ID:            b.ID.String(),
-		Name:          b.Name,
-		Hostname:      b.Hostname,
-		UUID:          b.UUID.String(),
-		Username:      b.Username,
-		UID:           b.UID,
-		GID:           b.GID,
-		OS:            b.OS,
-		Arch:          b.Arch,
-		Transport:     b.Transport,
-		RemoteAddress: b.RemoteAddress,
-		PID:           b.PID,
-		Filename:      b.Filename,
-		LastCheckin:   b.LastCheckin.Unix(),
-		Version:       b.Version,
-		// ReconnectInterval: b.ReconnectInterval,
-		ProxyURL: b.ProxyURL,
-		// PollTimeout: b.PollTimeout,
-		// ImplantBuildID: b.ImplantBuildID.String(),
-		Interval:    b.Interval,
-		Jitter:      b.Jitter,
-		NextCheckin: b.NextCheckin,
+		ID:                b.ID.String(),
+		Name:              b.Name,
+		Hostname:          b.Hostname,
+		UUID:              b.UUID.String(),
+		Username:          b.Username,
+		UID:               b.UID,
+		GID:               b.GID,
+		OS:                b.OS,
+		Arch:              b.Arch,
+		Transport:         b.Transport,
+		RemoteAddress:     b.RemoteAddress,
+		PID:               b.PID,
+		Filename:          b.Filename,
+		LastCheckin:       b.LastCheckin.Unix(),
+		Version:           b.Version,
+		ActiveC2:          b.ActiveC2,
+		ProxyURL:          b.ProxyURL,
+		ReconnectInterval: b.ReconnectInterval,
+		Interval:          b.Interval,
+		Jitter:            b.Jitter,
+		NextCheckin:       b.NextCheckin,
 	}
 }
 

@@ -73,7 +73,7 @@ func Setup(force bool, echo bool) {
 	if force || localVer == "" || localVer != ver.GitCommit {
 		if echo {
 			fmt.Printf(`
-Sliver  Copyright (C) 2021  Bishop Fox
+Sliver  Copyright (C) 2022  Bishop Fox
 This program comes with ABSOLUTELY NO WARRANTY; for details type 'licenses'.
 This is free software, and you are welcome to redistribute it
 under certain conditions; type 'licenses' for details.`)

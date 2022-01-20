@@ -559,6 +559,21 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		}
 		registry.PrintCreateKey(createKey, createKeyReq.Path, createKeyReq.Key, con)
 
+	case sliverpb.MsgRegistryDeleteKeyReq:
+		deleteKeyReq := &sliverpb.RegistryDeleteKeyReq{}
+		err := proto.Unmarshal(task.Request, deleteKeyReq)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		deleteKey := &sliverpb.RegistryDeleteKey{}
+		err = proto.Unmarshal(task.Response, deleteKey)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		registry.PrintDeleteKey(deleteKey, deleteKeyReq.Path, deleteKeyReq.Key, con)
+
 	case sliverpb.MsgRegistryListValuesReq:
 		listValuesReq := &sliverpb.RegistryListValuesReq{}
 		err := proto.Unmarshal(task.Request, listValuesReq)

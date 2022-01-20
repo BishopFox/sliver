@@ -21,7 +21,7 @@ message Version {
 
 // [ Core ] ----------------------------------------
 message Session {
-  uint32 ID = 1;
+  string ID = 1;
   string Name = 2;
   string Hostname = 3;
   string UUID = 4;
@@ -44,7 +44,8 @@ message Session {
   bool Burned = 22;
   repeated string Extensions = 23;
   // string ConfigID = 24;
-  bool IsDaemon = 25;
+  int64 PeerID = 25;
+  bool IsDaemon = 26;
 }
 
 message Beacon {
@@ -68,13 +69,14 @@ message Beacon {
   bool IsDead = 18;
 
   string ProxyURL = 20;
-  int64 Interval = 21;
-  int64 Jitter = 22;
-  bool Burned = 23;
-  int64 NextCheckin = 24;
+  int64 ReconnectInterval = 21;
+  int64 Interval = 22;
+  int64 Jitter = 23;
+  bool Burned = 24;
+  int64 NextCheckin = 25;
 
-  int64 TasksCount = 25;
-  int64 TasksCountCompleted = 26;
+  int64 TasksCount = 26;
+  int64 TasksCountCompleted = 27;
 }
 
 message Beacons {
@@ -339,7 +341,7 @@ message Sessions {
 }
 
 message UpdateSession {
-  uint32 SessionID = 1;
+  string SessionID = 1;
   string Name = 2;
   int64 ReconnectInterval = 3;
   int64 PollInterval = 4;
@@ -453,6 +455,18 @@ message CloseTunnelReq {
   uint64 TunnelID = 8 [jstype = JS_STRING];
 
   commonpb.Request Request = 9;
+}
+
+// [ Pivots ] ----------------------------------------
+message PivotGraphEntry {
+  int64 PeerID = 1;
+  Session Session = 2;
+  string Name = 3;
+  repeated PivotGraphEntry Children = 4;
+}
+
+message PivotGraph {
+  repeated PivotGraphEntry Children = 1;
 }
 
 // [ Events ] ----------------------------------------

@@ -44,6 +44,7 @@ type eventBroker struct {
 	send        chan Event
 }
 
+// Start - Start a broker channel
 func (broker *eventBroker) Start() {
 	subscribers := map[chan Event]struct{}{}
 	for {
@@ -65,6 +66,7 @@ func (broker *eventBroker) Start() {
 	}
 }
 
+// Stop - Close the broker channel
 func (broker *eventBroker) Stop() {
 	close(broker.stop)
 }

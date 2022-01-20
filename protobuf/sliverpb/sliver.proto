@@ -54,7 +54,8 @@ message Register {
   int64 ReconnectInterval = 13;
   string ProxyURL = 14;
   string ConfigID = 16;
-  bool IsDaemon = 17;
+  int64 PeerID = 17;
+  bool IsDaemon = 18;
 }
 
 message BeaconRegister {
@@ -64,6 +65,12 @@ message BeaconRegister {
   Register Register = 4;
   int64 NextCheckin = 5;
 }
+
+message SessionRegister {
+  string ID = 1;
+  Register Register = 2;
+}
+
 
 message OpenSession {
   repeated string C2s = 1;
@@ -602,6 +609,18 @@ message RegistryCreateKey {
   commonpb.Response Response = 9;
 }
 
+message RegistryDeleteKeyReq {
+  string Hive = 1;
+  string Path = 2;
+  string Key = 3;
+  string Hostname = 4;
+  commonpb.Request Request = 9;
+}
+
+message RegistryDeleteKey {
+  commonpb.Response Response = 9;
+}
+
 message RegistrySubKeyListReq {
   string Hive = 1;
   string Path = 2;
@@ -632,7 +651,7 @@ message RegistryValuesList {
 // Tunnel - Tunnel related messages
 message Tunnel {
   uint64 TunnelID = 8 [jstype = JS_STRING];
-  uint32 SessionID = 9;
+  string SessionID = 9;
 }
 
 message TunnelData {
@@ -643,7 +662,7 @@ message TunnelData {
   bool Resend = 5;
 
   uint64 TunnelID = 8 [jstype = JS_STRING];
-  uint32 SessionID = 9;
+  string SessionID = 9;
 }
 
 // ShellReq - Request the implant open a realtime shell tunnel
@@ -689,7 +708,7 @@ message Portfwd {
 message Socks {
 
   uint64 TunnelID = 8 [jstype = JS_STRING];
-  uint32 SessionID = 9;
+  string SessionID = 9;
 }
 
 message SocksData {
@@ -728,40 +747,54 @@ message PivotListener {
   uint32 ID = 1;
   PivotType Type = 2;
   string BindAddress = 3;
-  repeated PivotPeer Pivots = 4;
+  repeated NetConnPivot Pivots = 4;
 
   commonpb.Response Response = 9;
 }
  
 message PivotHello {
   bytes PublicKey = 1;
-  string PublicKeySignature = 2;
-  bytes SessionKey = 3;
+  int64 PeerID = 2;
+  string PublicKeySignature = 3;
+  bytes SessionKey = 4;
 }
 
 message PivotServerKeyExchange {
-  int64 OriginID = 2;
-  bytes SessionKey = 3;
+  int64 OriginID = 1;
+  bytes SessionKey = 2;
+}
+
+message PivotPeer {
+  int64 PeerID = 1;
+  string Name = 2;
 }
 
 message PivotPeerEnvelope {
-  int64 PeerID = 1;
-  int64 PivotID = 2;
-  string Name = 3;
+  repeated PivotPeer Peers = 1;
+  uint32 Type = 2;
+  bytes PivotSessionID = 3;
   bytes Data = 4;
+  int64 PeerFailureAt = 5;
 }
 
 message PivotPing {
   uint32 Nonce = 1;
 }
 
-message PivotPeer {
-  int64 ID = 1;
+message NetConnPivot {
+  int64 PeerID = 1;
   string RemoteAddress = 2;
 }
 
+enum PeerFailureType {
+  SEND_FAILURE = 0;
+  DISCONNECT = 1;
+}
+
 message PivotPeerFailure {
-  int64 ID = 1;
+  int64 PeerID = 1;
+  PeerFailureType Type = 2;
+  string Err = 3;
 }
 
 message PivotListenersReq {

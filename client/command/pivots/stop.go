@@ -34,7 +34,7 @@ func StopPivotListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient
 	}
 	id := uint32(ctx.Flags.Int("id"))
 	if id == uint32(0) {
-		pivotListeners, err := con.Rpc.PivotListeners(context.Background(), &sliverpb.PivotListenersReq{
+		pivotListeners, err := con.Rpc.PivotSessionListeners(context.Background(), &sliverpb.PivotListenersReq{
 			Request: con.ActiveTarget.Request(ctx),
 		})
 		if err != nil {

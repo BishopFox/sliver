@@ -50,29 +50,29 @@ func SelectSession(onlyAlive bool, con *console.SliverConsoleClient) (*clientpb.
 		return nil, ErrNoSessions
 	}
 
-	sessionsMap := map[uint32]*clientpb.Session{}
+	sessionsMap := map[string]*clientpb.Session{}
 	for _, session := range sessions.GetSessions() {
 		sessionsMap[session.ID] = session
 	}
 
 	// Sort the keys because maps have a randomized order, these keys must be ordered for the selection
 	// to work properly since we rely on the index of the user's selection to find the session in the map
-	var keys []int
+	var keys []string
 	for _, session := range sessions.Sessions {
-		keys = append(keys, int(session.ID))
+		keys = append(keys, session.ID)
 	}
-	sort.Ints(keys) // Fucking Go can't sort int32's, so we convert to/from int's
+	sort.Strings(keys) // Fucking Go can't sort int32's, so we convert to/from int's
 
 	outputBuf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
 	// Column Headers
 	for _, key := range keys {
-		session := sessionsMap[uint32(key)]
+		session := sessionsMap[key]
 		if onlyAlive && session.IsDead {
 			continue
 		}
-		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			session.ID,
 			session.Name,
 			session.RemoteAddress,
@@ -98,7 +98,7 @@ func SelectSession(onlyAlive bool, con *console.SliverConsoleClient) (*clientpb.
 	// Go from the selected option -> index -> session
 	for index, option := range options {
 		if option == selected {
-			return sessionsMap[uint32(keys[index])], nil
+			return sessionsMap[keys[index]], nil
 		}
 	}
 	return nil, ErrNoSelection

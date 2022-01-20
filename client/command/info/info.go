@@ -19,6 +19,8 @@ package info
 */
 
 import (
+	"time"
+
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 
@@ -33,7 +35,7 @@ func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	if session != nil {
 
-		con.Printf(console.Bold+"                ID: %s%d\n", console.Normal, session.ID)
+		con.Printf(console.Bold+"        Session ID: %s%s\n", console.Normal, session.ID)
 		con.Printf(console.Bold+"              Name: %s%s\n", console.Normal, session.Name)
 		con.Printf(console.Bold+"          Hostname: %s%s\n", console.Normal, session.Hostname)
 		con.Printf(console.Bold+"              UUID: %s%s\n", console.Normal, session.UUID)
@@ -44,14 +46,15 @@ func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.Printf(console.Bold+"                OS: %s%s\n", console.Normal, session.OS)
 		con.Printf(console.Bold+"           Version: %s%s\n", console.Normal, session.Version)
 		con.Printf(console.Bold+"              Arch: %s%s\n", console.Normal, session.Arch)
+		con.Printf(console.Bold+"         Active C2: %s%s\n", console.Normal, session.ActiveC2)
 		con.Printf(console.Bold+"    Remote Address: %s%s\n", console.Normal, session.RemoteAddress)
 		con.Printf(console.Bold+"         Proxy URL: %s%s\n", console.Normal, session.ProxyURL)
-		con.Printf(console.Bold+"Reconnect Interval: %s%d\n", console.Normal, session.ReconnectInterval)
+		con.Printf(console.Bold+"Reconnect Interval: %s%s\n", console.Normal, time.Duration(session.ReconnectInterval).String())
 		con.Printf(console.Bold+"          IsDaemon: %s%v\n", console.Normal, session.IsDaemon)
 
 	} else if beacon != nil {
 
-		con.Printf(console.Bold+"                ID: %s%s\n", console.Normal, beacon.ID)
+		con.Printf(console.Bold+"         Beacon ID: %s%s\n", console.Normal, beacon.ID)
 		con.Printf(console.Bold+"              Name: %s%s\n", console.Normal, beacon.Name)
 		con.Printf(console.Bold+"          Hostname: %s%s\n", console.Normal, beacon.Hostname)
 		con.Printf(console.Bold+"              UUID: %s%s\n", console.Normal, beacon.UUID)
@@ -62,10 +65,11 @@ func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.Printf(console.Bold+"                OS: %s%s\n", console.Normal, beacon.OS)
 		con.Printf(console.Bold+"           Version: %s%s\n", console.Normal, beacon.Version)
 		con.Printf(console.Bold+"              Arch: %s%s\n", console.Normal, beacon.Arch)
+		con.Printf(console.Bold+"         Active C2: %s%s\n", console.Normal, beacon.ActiveC2)
 		con.Printf(console.Bold+"    Remote Address: %s%s\n", console.Normal, beacon.RemoteAddress)
 		con.Printf(console.Bold+"         Proxy URL: %s%s\n", console.Normal, beacon.ProxyURL)
-		con.Printf(console.Bold+"          Interval: %s%d\n", console.Normal, beacon.Interval)
-		con.Printf(console.Bold+"            Jitter: %s%d\n", console.Normal, beacon.Jitter)
+		con.Printf(console.Bold+"          Interval: %s%s\n", console.Normal, time.Duration(beacon.Interval).String())
+		con.Printf(console.Bold+"            Jitter: %s%s\n", console.Normal, time.Duration(beacon.Jitter).String())
 
 	} else {
 		con.PrintErrorf("No target session, see `help %s`\n", consts.InfoStr)

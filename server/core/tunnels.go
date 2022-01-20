@@ -37,7 +37,7 @@ var (
 	}
 
 	// ErrInvalidTunnelID - Invalid tunnel ID value
-	ErrInvalidTunnelID = errors.New("Invalid tunnel ID")
+	ErrInvalidTunnelID = errors.New("invalid tunnel ID")
 )
 
 // Tunnel  - Essentially just a mapping between a specific client and sliver
@@ -45,7 +45,7 @@ var (
 // care what data gets passed back and forth it just facilitates the connection
 type Tunnel struct {
 	ID        uint64
-	SessionID uint32
+	SessionID string
 
 	ToImplant         chan []byte
 	ToImplantSequence uint64
@@ -61,7 +61,7 @@ type tunnels struct {
 	mutex   *sync.Mutex
 }
 
-func (t *tunnels) Create(sessionID uint32) *Tunnel {
+func (t *tunnels) Create(sessionID string) *Tunnel {
 	tunnelID := NewTunnelID()
 	session := Sessions.Get(sessionID)
 	tunnel := &Tunnel{

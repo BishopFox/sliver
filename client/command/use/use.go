@@ -24,7 +24,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -56,7 +55,7 @@ func UseCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	if session != nil {
 		con.ActiveTarget.Set(session, nil)
-		con.PrintInfof("Active session %s (%d)\n", session.Name, session.ID)
+		con.PrintInfof("Active session %s (%s)\n", session.Name, session.ID)
 	} else if beacon != nil {
 		con.ActiveTarget.Set(nil, beacon)
 		con.PrintInfof("Active beacon %s (%s)\n", beacon.Name, beacon.ID)
@@ -69,10 +68,9 @@ func SessionOrBeaconByID(id string, con *console.SliverConsoleClient) (*clientpb
 	if err != nil {
 		return nil, nil, err
 	}
-	idNumber, err := strconv.Atoi(id)
 	if err == nil {
 		for _, session := range sessions.Sessions {
-			if session.ID == uint32(idNumber) {
+			if session.ID == id {
 				return session, nil, nil
 			}
 		}
@@ -96,15 +94,15 @@ func SelectSessionOrBeacon(con *console.SliverConsoleClient) (*clientpb.Session,
 	if err != nil {
 		return nil, nil, err
 	}
-	sessionsMap := map[uint32]*clientpb.Session{}
+	sessionsMap := map[string]*clientpb.Session{}
 	for _, session := range sessions.GetSessions() {
 		sessionsMap[session.ID] = session
 	}
-	var sessionKeys []int
+	var sessionKeys []string
 	for _, session := range sessions.Sessions {
-		sessionKeys = append(sessionKeys, int(session.ID))
+		sessionKeys = append(sessionKeys, session.ID)
 	}
-	sort.Ints(sessionKeys)
+	sort.Strings(sessionKeys)
 
 	// Get and sort beacons
 	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
@@ -122,7 +120,7 @@ func SelectSessionOrBeacon(con *console.SliverConsoleClient) (*clientpb.Session,
 	sort.Strings(beaconKeys)
 
 	if len(beaconKeys) == 0 && len(sessionKeys) == 0 {
-		return nil, nil, fmt.Errorf("No sessions or beacons 🙁")
+		return nil, nil, fmt.Errorf("no sessions or beacons 🙁")
 	}
 
 	// Render selection table
@@ -130,9 +128,10 @@ func SelectSessionOrBeacon(con *console.SliverConsoleClient) (*clientpb.Session,
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
 	for _, key := range sessionKeys {
-		session := sessionsMap[uint32(key)]
-		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t%s\n",
-			session.ID,
+		session := sessionsMap[key]
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			"SESSION",
+			strings.Split(session.ID, "-")[0],
 			session.Name,
 			session.RemoteAddress,
 			session.Hostname,
@@ -142,7 +141,8 @@ func SelectSessionOrBeacon(con *console.SliverConsoleClient) (*clientpb.Session,
 	}
 	for _, key := range beaconKeys {
 		beacon := beaconsMap[key]
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			"BEACON",
 			strings.Split(beacon.ID, "-")[0],
 			beacon.Name,
 			beacon.RemoteAddress,
@@ -167,7 +167,7 @@ func SelectSessionOrBeacon(con *console.SliverConsoleClient) (*clientpb.Session,
 	for index, option := range options {
 		if option == selected {
 			if index < len(sessionKeys) {
-				return sessionsMap[uint32(sessionKeys[index])], nil, nil
+				return sessionsMap[sessionKeys[index]], nil, nil
 			}
 			return nil, beaconsMap[beaconKeys[index-len(sessionKeys)]], nil
 		}
@@ -182,9 +182,9 @@ func BeaconAndSessionIDCompleter(prefix string, args []string, con *console.Sliv
 		return
 	}
 	for _, s := range sessions.Sessions {
-		sid := fmt.Sprintf("%d", s.ID)
+		sid := s.ID
 		if strings.HasPrefix(sid, prefix) {
-			results = append(results, fmt.Sprintf("%d", s.ID))
+			results = append(results, s.ID)
 		}
 	}
 	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})

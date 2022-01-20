@@ -380,8 +380,8 @@ func StartPersistentJobs(cfg *configs.ServerConfig) error {
 			Key:             j.Key,
 			ACME:            j.ACME,
 			EnforceOTP:      j.EnforceOTP,
-			LongPollTimeout: j.LongPollTimeout,
-			LongPollJitter:  j.LongPollJitter,
+			LongPollTimeout: time.Duration(j.LongPollTimeout),
+			LongPollJitter:  time.Duration(j.LongPollJitter),
 		}
 		job, err := StartHTTPListenerJob(cfg)
 		if err != nil {

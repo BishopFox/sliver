@@ -73,6 +73,7 @@ func registerSessionHandler(implantConn *core.ImplantConnection, data []byte) *s
 	session.ProxyURL = register.ProxyURL
 	session.ConfigID = register.ConfigID
 	session.IsDaemon = register.IsDaemon
+	session.PeerID = register.PeerID
 	core.Sessions.Add(session)
 	implantConn.Cleanup = func() {
 		core.Sessions.Remove(session.ID)
@@ -101,7 +102,7 @@ func auditLogSession(session *core.Session, register *sliverpb.Register) {
 // The handler mutex prevents a send on a closed channel, without it
 // two handlers calls may race when a tunnel is quickly created and closed.
 func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
-	session := core.SessionFromImplantConnection(implantConn)
+	session := core.Sessions.FromImplantConnection(implantConn)
 	tunnelHandlerMutex.Lock()
 	defer tunnelHandlerMutex.Unlock()
 	tunnelData := &sliverpb.TunnelData{}
@@ -120,7 +121,7 @@ func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliver
 }
 
 func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
-	session := core.SessionFromImplantConnection(implantConn)
+	session := core.Sessions.FromImplantConnection(implantConn)
 	tunnelHandlerMutex.Lock()
 	defer tunnelHandlerMutex.Unlock()
 
@@ -144,13 +145,13 @@ func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *slive
 }
 
 func pingHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
-	session := core.SessionFromImplantConnection(implantConn)
+	session := core.Sessions.FromImplantConnection(implantConn)
 	sessionHandlerLog.Debugf("ping from session %d", session.ID)
 	return nil
 }
 
 func socksDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
-	session := core.SessionFromImplantConnection(implantConn)
+	session := core.Sessions.FromImplantConnection(implantConn)
 	tunnelHandlerMutex.Lock()
 	defer tunnelHandlerMutex.Unlock()
 	socksData := &sliverpb.SocksData{}

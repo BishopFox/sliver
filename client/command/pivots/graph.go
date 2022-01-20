@@ -1,10 +1,8 @@
-//go:build !windows
-
 package pivots
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2022  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -21,9 +19,31 @@ package pivots
 */
 
 import (
-	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+
+	"github.com/desertbit/grumble"
 )
 
-var SupportedPivotListeners = map[pb.PivotType]CreateListener{
-	pb.PivotType_TCP: CreateTCPPivotListener,
+// PivotsGraphCmd - Display pivots for all sessions
+func PivotsGraphCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+
+	graph, err := con.Rpc.PivotGraph(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	data, err := json.MarshalIndent(graph.Children, "", "  ")
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	fmt.Printf("%s\n", string(data))
+
 }

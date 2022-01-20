@@ -413,8 +413,8 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
 	}
-	gcflags := fmt.Sprintf("")
-	asmflags := fmt.Sprintf("")
+	gcflags := ""
+	asmflags := ""
 	if config.Debug {
 		gcflags = "all=-N -l"
 		ldflags = []string{}
@@ -425,10 +425,11 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 		trimpath = "-trimpath"
 	}
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags, gcflags, asmflags, trimpath)
-	config.FileName = path.Base(dest)
-
+	if err != nil {
+		return "", err
+	}
+	config.FileName = filepath.Base(dest)
 	err = ImplantBuildSave(name, config, dest)
-
 	if err != nil {
 		buildLog.Errorf("Failed to save build: %s", err)
 	}
@@ -440,7 +441,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	var err error
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := gogo.ValidCompilerTargets(*goConfig)[target]; !ok {
-		return "", fmt.Errorf("Invalid compiler target: %s", target)
+		return "", fmt.Errorf("invalid compiler target: %s", target)
 	}
 
 	buildLog.Debugf("Generating new sliver binary '%s'", name)
