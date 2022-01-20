@@ -55,7 +55,7 @@ func UseCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	if session != nil {
 		con.ActiveTarget.Set(session, nil)
-		con.PrintInfof("Active session %s (%d)\n", session.Name, session.ID)
+		con.PrintInfof("Active session %s (%s)\n", session.Name, session.ID)
 	} else if beacon != nil {
 		con.ActiveTarget.Set(nil, beacon)
 		con.PrintInfof("Active beacon %s (%s)\n", beacon.Name, beacon.ID)

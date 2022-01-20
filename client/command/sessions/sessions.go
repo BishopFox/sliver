@@ -21,6 +21,7 @@ package sessions
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/client/command/kill"
@@ -142,7 +143,7 @@ func PrintSessions(sessions map[string]*clientpb.Session, con *console.SliverCon
 			burned = "🔥"
 		}
 		tw.AppendRow(table.Row{
-			fmt.Sprintf(color+"%d"+console.Normal, session.ID),
+			fmt.Sprintf(color+"%s"+console.Normal, ShortSessionID(session.ID)),
 			fmt.Sprintf(color+"%s"+console.Normal, session.Name),
 			fmt.Sprintf(color+"%s"+console.Normal, session.Transport),
 			fmt.Sprintf(color+"%s"+console.Normal, session.RemoteAddress),
@@ -155,4 +156,9 @@ func PrintSessions(sessions map[string]*clientpb.Session, con *console.SliverCon
 	}
 
 	con.Printf("%s\n", tw.Render())
+}
+
+// ShortSessionID - Shorten the session ID
+func ShortSessionID(id string) string {
+	return strings.Split(id, "-")[0]
 }

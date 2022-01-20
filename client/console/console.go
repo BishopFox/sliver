@@ -165,7 +165,8 @@ func (con *SliverConsoleClient) EventLoop() {
 			eventMsg := fmt.Sprintf(Bold+"WARNING: %s%s has been burned (DNS Canary)\n", Normal, event.Session.Name)
 			sessions := con.GetSessionsByName(event.Session.Name)
 			for _, session := range sessions {
-				con.PrintEventErrorf(eventMsg+"\n"+Clearln+"\t🔥 Session #%d is affected\n", session.ID)
+				shortID := strings.Split(session.ID, "-")[0]
+				con.PrintEventErrorf(eventMsg+"\n"+Clearln+"\t🔥 Session #%s is affected\n", shortID)
 			}
 
 		case consts.WatchtowerEvent:
@@ -173,7 +174,8 @@ func (con *SliverConsoleClient) EventLoop() {
 			eventMsg := fmt.Sprintf(Bold+"WARNING: %s%s has been burned (seen on %s)\n", Normal, event.Session.Name, msg)
 			sessions := con.GetSessionsByName(event.Session.Name)
 			for _, session := range sessions {
-				con.PrintEventErrorf(eventMsg+"\n"+Clearln+"\t🔥 Session #%d is affected", session.ID)
+				shortID := strings.Split(session.ID, "-")[0]
+				con.PrintEventErrorf(eventMsg+"\n"+Clearln+"\t🔥 Session #%s is affected", shortID)
 			}
 
 		case consts.JoinedEvent:
@@ -188,8 +190,9 @@ func (con *SliverConsoleClient) EventLoop() {
 		case consts.SessionOpenedEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
+			shortID := strings.Split(session.ID, "-")[0]
 			con.PrintEventInfof("Session #%s %s - %s (%s) - %s/%s - %v",
-				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
+				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 
 			// Prelude Operator
 			if prelude.SessionMapper != nil {
@@ -202,13 +205,15 @@ func (con *SliverConsoleClient) EventLoop() {
 		case consts.SessionUpdateEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
-			con.PrintEventInfof("Session #%d has been updated - %v", session.ID, currentTime)
+			shortID := strings.Split(session.ID, "-")[0]
+			con.PrintEventInfof("Session #%s has been updated - %v", shortID, currentTime)
 
 		case consts.SessionClosedEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
+			shortID := strings.Split(session.ID, "-")[0]
 			con.PrintEventErrorf("Lost session #%s %s - %s (%s) - %s/%s - %v",
-				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
+				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 			activeSession := con.ActiveTarget.GetSession()
 			if activeSession != nil && activeSession.ID == session.ID {
 				con.ActiveTarget.Set(nil, nil)
