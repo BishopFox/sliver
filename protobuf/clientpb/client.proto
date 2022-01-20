@@ -45,6 +45,7 @@ message Session {
   repeated string Extensions = 23;
   // string ConfigID = 24;
   int64 PeerID = 25;
+  bool IsDaemon = 26;
 }
 
 message Beacon {
@@ -161,6 +162,7 @@ message ImplantConfig {
   string FileName = 102;
   bool IsService = 103;
   bool IsShellcode = 104;
+  bool IsDaemon = 105;
 }
 
 // Configs of previously built implants

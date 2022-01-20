@@ -57,6 +57,21 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 	return nil
 }
 
+// SideloadFile - Create a file for use with Sideload
+func SideloadFile(data []byte) (string, error) {
+	fd, err := ioutil.TempFile("", "."+randomString(10))
+	if err != nil {
+		return "", err
+	}
+	err = fd.Chmod(0775)
+	if err != nil {
+		return "", err
+	}
+	fdPath := fd.Name()
+	_, err = fd.Write(data)
+	return fdPath, err
+}
+
 // Sideload - Side load a library and return its output
 func Sideload(procName string, data []byte, args string, kill bool) (string, error) {
 	var (
@@ -64,8 +79,7 @@ func Sideload(procName string, data []byte, args string, kill bool) (string, err
 		stdErr bytes.Buffer
 		wg     sync.WaitGroup
 	)
-	fdPath := fmt.Sprintf("/tmp/.%s", randomString(10))
-	err := ioutil.WriteFile(fdPath, data, 0755)
+	fdPath, err := SideloadFile(data)
 	if err != nil {
 		return "", err
 	}

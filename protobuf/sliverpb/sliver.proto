@@ -55,6 +55,7 @@ message Register {
   string ProxyURL = 14;
   string ConfigID = 16;
   int64 PeerID = 17;
+  bool IsDaemon = 18;
 }
 
 message BeaconRegister {

@@ -70,6 +70,7 @@ type Session struct {
 	Burned            bool
 	Extensions        []string
 	ConfigID          string
+	IsDaemon          bool
 	PeerID            int64
 }
 
@@ -121,7 +122,9 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		ReconnectInterval: s.ReconnectInterval,
 		ProxyURL:          s.ProxyURL,
 		Burned:            s.Burned,
-		PeerID:            s.PeerID,
+		// ConfigID:          s.ConfigID,
+		IsDaemon: s.IsDaemon,
+		PeerID:   s.PeerID,
 	}
 }
 

@@ -56,6 +56,9 @@ func ShellCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if con.ActiveTarget.GetSession().OS != linux && con.ActiveTarget.GetSession().OS != darwin {
 		noPty = true // Sliver's PTYs are only supported on linux/darwin
 	}
+	if con.ActiveTarget.GetSession().IsDaemon {
+		noPty = true // Daemon's are unable to spawn PTYs
+	}
 	runInteractive(ctx, shellPath, noPty, con)
 	con.Println("Shell exited")
 }

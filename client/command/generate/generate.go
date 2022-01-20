@@ -276,6 +276,8 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		configFormat = clientpb.OutputFormat_EXECUTABLE
 	}
 
+	isDaemon := bool(ctx.Flags.Bool("daemonize"))
+
 	targetOS := strings.ToLower(ctx.Flags.String("os"))
 	targetArch := strings.ToLower(ctx.Flags.String("arch"))
 	targetOS, targetArch = getTargets(targetOS, targetArch, con)
@@ -284,6 +286,10 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	}
 	if len(namedPipeC2) > 0 && targetOS != "windows" {
 		con.PrintErrorf("Named pipe pivoting can only be used in Windows.")
+		return nil
+	}
+	if isDaemon && targetOS == "windows" {
+		con.PrintErrorf("Daemon cannot be used in Windows.")
 		return nil
 	}
 
@@ -331,6 +337,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		IsSharedLib: isSharedLib,
 		IsService:   isService,
 		IsShellcode: isShellcode,
+		IsDaemon:    isDaemon,
 	}
 
 	return config

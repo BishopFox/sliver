@@ -55,14 +55,9 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 	return nil
 }
 
-// Sideload - Side load a library and return its output
-func Sideload(procName string, data []byte, args string, kill bool) (string, error) {
-	var (
-		nrMemfdCreate int
-		stdOut        bytes.Buffer
-		stdErr        bytes.Buffer
-		wg            sync.WaitGroup
-	)
+// SideloadFile - Create a file for use with Sideload
+func SideloadFile(data []byte) (string, error) {
+	var nrMemfdCreate int
 	memfdName := randomString(8)
 	memfd, err := syscall.BytePtrFromString(memfdName)
 	if err != nil {
@@ -89,6 +84,20 @@ func Sideload(procName string, data []byte, args string, kill bool) (string, err
 	//{{if .Config.Debug}}
 	log.Printf("Data written in %s\n", fdPath)
 	//{{end}}
+	return fdPath, nil
+}
+
+// Sideload - Side load a library and return its output
+func Sideload(procName string, data []byte, args string, kill bool) (string, error) {
+	var (
+		stdOut bytes.Buffer
+		stdErr bytes.Buffer
+		wg     sync.WaitGroup
+	)
+	fdPath, err := SideloadFile(data)
+	if err != nil {
+		return "", err
+	}
 	env := os.Environ()
 	newEnv := []string{
 		fmt.Sprintf("LD_PARAMS=%s", args),
