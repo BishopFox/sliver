@@ -166,7 +166,7 @@ func (con *SliverConsoleClient) EventLoop() {
 			sessions := con.GetSessionsByName(event.Session.Name)
 			for _, session := range sessions {
 				shortID := strings.Split(session.ID, "-")[0]
-				con.PrintEventErrorf(eventMsg+"\n"+Clearln+"\t🔥 Session #%s is affected\n", shortID)
+				con.PrintEventErrorf(eventMsg+"\n"+Clearln+"\t🔥 Session %s is affected\n", shortID)
 			}
 
 		case consts.WatchtowerEvent:
@@ -175,7 +175,7 @@ func (con *SliverConsoleClient) EventLoop() {
 			sessions := con.GetSessionsByName(event.Session.Name)
 			for _, session := range sessions {
 				shortID := strings.Split(session.ID, "-")[0]
-				con.PrintEventErrorf(eventMsg+"\n"+Clearln+"\t🔥 Session #%s is affected", shortID)
+				con.PrintEventErrorf(eventMsg+"\n"+Clearln+"\t🔥 Session %s is affected", shortID)
 			}
 
 		case consts.JoinedEvent:
@@ -191,7 +191,7 @@ func (con *SliverConsoleClient) EventLoop() {
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
 			shortID := strings.Split(session.ID, "-")[0]
-			con.PrintEventInfof("Session #%s %s - %s (%s) - %s/%s - %v",
+			con.PrintEventInfof("Session %s %s - %s (%s) - %s/%s - %v",
 				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 
 			// Prelude Operator
@@ -206,13 +206,13 @@ func (con *SliverConsoleClient) EventLoop() {
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
 			shortID := strings.Split(session.ID, "-")[0]
-			con.PrintEventInfof("Session #%s has been updated - %v", shortID, currentTime)
+			con.PrintEventInfof("Session %s has been updated - %v", shortID, currentTime)
 
 		case consts.SessionClosedEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
 			shortID := strings.Split(session.ID, "-")[0]
-			con.PrintEventErrorf("Lost session #%s %s - %s (%s) - %s/%s - %v",
+			con.PrintEventErrorf("Lost session %s %s - %s (%s) - %s/%s - %v",
 				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 			activeSession := con.ActiveTarget.GetSession()
 			if activeSession != nil && activeSession.ID == session.ID {
@@ -233,7 +233,7 @@ func (con *SliverConsoleClient) EventLoop() {
 			proto.Unmarshal(event.Data, beacon)
 			currentTime := time.Now().Format(time.RFC1123)
 			shortID := strings.Split(beacon.ID, "-")[0]
-			con.PrintEventInfof("Beacon #%s %s - %s (%s) - %s/%s - %v",
+			con.PrintEventInfof("Beacon %s %s - %s (%s) - %s/%s - %v",
 				shortID, beacon.Name, beacon.RemoteAddress, beacon.Hostname, beacon.OS, beacon.Arch, currentTime)
 
 		case consts.BeaconTaskResultEvent:
