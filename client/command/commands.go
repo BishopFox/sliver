@@ -466,7 +466,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Start a stager listener",
 		LongHelp: help.GetHelpFor([]string{consts.StageListenerStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("p", "profile", "", "Implant profile name to link with the listener")
+			f.String("p", "profile", "", "implant profile name to link with the listener")
 			f.String("u", "url", "", "URL to which the stager will call back to")
 			f.String("c", "cert", "", "path to PEM encoded certificate file (HTTPS only)")
 			f.String("k", "key", "", "path to PEM encoded private key file (HTTPS only)")
@@ -506,10 +506,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Session management",
 		LongHelp: help.GetHelpFor([]string{consts.SessionsStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("i", "interact", "", "interact with a sliver")
-			f.String("k", "kill", "", "Kill the designated session")
-			f.Bool("K", "kill-all", false, "Kill all the sessions")
-			f.Bool("C", "clean", false, "Clean out any sessions marked as [DEAD]")
+			f.String("i", "interact", "", "interact with a session")
+			f.String("k", "kill", "", "kill the designated session")
+			f.Bool("K", "kill-all", false, "kill all the sessions")
+			f.Bool("C", "clean", false, "clean out any sessions marked as [DEAD]")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -523,7 +523,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	}
 	sessionsCmd.AddCommand(&grumble.Command{
 		Name:     consts.PruneStr,
-		Help:     "Kill all stale sessions",
+		Help:     "Kill all stale/dead sessions",
 		LongHelp: help.GetHelpFor([]string{consts.SessionsStr, consts.PruneStr}),
 		Flags: func(f *grumble.Flags) {
 
@@ -602,8 +602,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("g", "wg", "", "wg connection strings")
 			f.String("b", "http", "", "http(s) connection strings")
 			f.String("n", "dns", "", "dns connection strings")
-			f.String("p", "named-pipe", "", "named-pipe connection strings")
-			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
+			f.String("p", "named-pipe", "", "namedpipe connection strings")
+			f.String("i", "tcp-pivot", "", "tcppivot connection strings")
 
 			f.String("d", "delay", "0s", "delay opening the session (after checkin) for a given period of time")
 

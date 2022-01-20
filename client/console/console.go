@@ -299,7 +299,7 @@ func (con *SliverConsoleClient) triggerBeaconTaskCallback(data []byte) {
 
 	// If the callback is not in our map then we don't do anything, the beacon task
 	// was either issued by another operator in multiplayer mode or the client process
-	// was restarted between the time the task was created and the server go the result
+	// was restarted between the time the task was created and when the server got the result
 	con.BeaconTaskCallbacksMutex.Lock()
 	defer con.BeaconTaskCallbacksMutex.Unlock()
 	if callback, ok := con.BeaconTaskCallbacks[task.ID]; ok {
@@ -410,7 +410,7 @@ func (con *SliverConsoleClient) GetSession(arg string) *clientpb.Session {
 		return nil
 	}
 	for _, session := range sessions.GetSessions() {
-		if session.Name == arg || session.ID == arg {
+		if session.Name == arg || strings.HasPrefix(session.ID, arg) {
 			return session
 		}
 	}

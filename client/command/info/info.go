@@ -35,7 +35,7 @@ func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	if session != nil {
 
-		con.Printf(console.Bold+"                ID: %s%d\n", console.Normal, session.ID)
+		con.Printf(console.Bold+"        Session ID: %s%s\n", console.Normal, session.ID)
 		con.Printf(console.Bold+"              Name: %s%s\n", console.Normal, session.Name)
 		con.Printf(console.Bold+"          Hostname: %s%s\n", console.Normal, session.Hostname)
 		con.Printf(console.Bold+"              UUID: %s%s\n", console.Normal, session.UUID)
@@ -53,7 +53,7 @@ func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	} else if beacon != nil {
 
-		con.Printf(console.Bold+"                ID: %s%s\n", console.Normal, beacon.ID)
+		con.Printf(console.Bold+"         Beacon ID: %s%s\n", console.Normal, beacon.ID)
 		con.Printf(console.Bold+"              Name: %s%s\n", console.Normal, beacon.Name)
 		con.Printf(console.Bold+"          Hostname: %s%s\n", console.Normal, beacon.Hostname)
 		con.Printf(console.Bold+"              UUID: %s%s\n", console.Normal, beacon.UUID)

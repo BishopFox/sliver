@@ -81,7 +81,7 @@ func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string
 			shortID,
 			host.Hostname,
 			host.OSVersion,
-			hostSessionNumbers(host.HostUUID, con),
+			hostSessions(host.HostUUID, con),
 			hostBeacons(host.HostUUID, con),
 			len(host.IOCs),
 			len(host.ExtensionData),
@@ -90,16 +90,16 @@ func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string
 	return tw.Render()
 }
 
-func hostSessionNumbers(hostUUID string, con *console.SliverConsoleClient) string {
+func hostSessions(hostUUID string, con *console.SliverConsoleClient) string {
 	hostSessions := SessionsForHost(hostUUID, con)
-	if 0 == len(hostSessions) {
+	if len(hostSessions) == 0 {
 		return "None"
 	}
-	sessionNumbers := []string{}
+	sessionIDs := []string{}
 	for _, hostSession := range hostSessions {
-		sessionNumbers = append(sessionNumbers, fmt.Sprintf("%d", hostSession.ID))
+		sessionIDs = append(sessionIDs, strings.Split(hostSession.ID, "-")[0])
 	}
-	return strings.Join(sessionNumbers, ", ")
+	return fmt.Sprintf("%d", len(sessionIDs))
 }
 
 func hostBeacons(hostUUID string, con *console.SliverConsoleClient) string {

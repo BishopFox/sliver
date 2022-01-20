@@ -40,7 +40,7 @@ func SessionsPruneCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	for _, session := range sessions.GetSessions() {
 		if session.IsDead {
-			con.Printf("Pruning session #%d ...", session.ID)
+			con.Printf("Pruning session #%s ...", session.ID)
 			err = kill.KillSession(session, true, con)
 			if err != nil {
 				con.Printf("failed!\n")

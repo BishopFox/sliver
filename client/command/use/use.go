@@ -129,8 +129,9 @@ func SelectSessionOrBeacon(con *console.SliverConsoleClient) (*clientpb.Session,
 
 	for _, key := range sessionKeys {
 		session := sessionsMap[key]
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\n",
-			session.ID,
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			"SESSION",
+			strings.Split(session.ID, "-")[0],
 			session.Name,
 			session.RemoteAddress,
 			session.Hostname,
@@ -140,7 +141,8 @@ func SelectSessionOrBeacon(con *console.SliverConsoleClient) (*clientpb.Session,
 	}
 	for _, key := range beaconKeys {
 		beacon := beaconsMap[key]
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			"BEACON",
 			strings.Split(beacon.ID, "-")[0],
 			beacon.Name,
 			beacon.RemoteAddress,
