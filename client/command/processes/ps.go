@@ -35,17 +35,17 @@ import (
 
 var (
 	// Stylizes known processes in the `ps` command
-	knownProcs = map[string]string{
+	knownSecurityTools = map[string]string{
 		"ccSvcHst.exe":          console.Red, // Symantec Endpoint Protection (SEP)
 		"cb.exe":                console.Red, // Carbon Black
 		"MsMpEng.exe":           console.Red, // Windows Defender
 		"smartscreen.exe":       console.Red, // Windows Defender Smart Screen
 		"CSFalconService.exe":   console.Red, // Crowdstrike Falcon Service
 		"CSFalconContainer.exe": console.Red, // CrowdStrike Falcon Container Security
-		"bdservicehost.exe": console.Red, // Bitdefender (Total Security)
-		"bdagent.exe":       console.Red, // Bitdefender (Total Security)
-		"bdredline.exe":     console.Red, // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
-	
+		"bdservicehost.exe":     console.Red, // Bitdefender (Total Security)
+		"bdagent.exe":           console.Red, // Bitdefender (Total Security)
+		"bdredline.exe":         console.Red, // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
+
 	}
 )
 
