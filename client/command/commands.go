@@ -417,8 +417,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("L", "lhost", "", "interface to bind server to")
 			f.Int("l", "lport", generate.DefaultHTTPLPort, "tcp listen port")
 			f.Bool("D", "disable-otp", false, "disable otp authentication")
-			f.String("T", "long-poll-timeout", "1m30s", "server-side long poll timeout")
-			f.String("J", "long-poll-jitter", "30s", "server-side long poll jitter")
+			f.String("T", "long-poll-timeout", "1s", "server-side long poll timeout")
+			f.String("J", "long-poll-jitter", "2s", "server-side long poll jitter")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("p", "persistent", false, "make persistent across restarts")
@@ -442,8 +442,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("L", "lhost", "", "interface to bind server to")
 			f.Int("l", "lport", generate.DefaultHTTPSLPort, "tcp listen port")
 			f.Bool("D", "disable-otp", false, "disable otp authentication")
-			f.String("T", "long-poll-timeout", "1m30s", "server-side long poll timeout")
-			f.String("J", "long-poll-jitter", "30s", "server-side long poll jitter")
+			f.String("T", "long-poll-timeout", "1s", "server-side long poll timeout")
+			f.String("J", "long-poll-jitter", "2s", "server-side long poll jitter")
 
 			f.String("c", "cert", "", "PEM encoded certificate file")
 			f.String("k", "key", "", "PEM encoded private key file")
