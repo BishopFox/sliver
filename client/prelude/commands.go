@@ -50,7 +50,7 @@ func RunCommand(message string, executor string, payload []byte, agentSession *A
 			if err != nil {
 				return err.Error(), ErrorExitStatus, ErrorExitStatus
 			}
-			return out, 0, int(agentSession.Session.GetID())
+			return out, 0, 0
 		case "exit":
 			return shutdown(agentSession)
 		default:

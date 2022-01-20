@@ -21,7 +21,7 @@ message Version {
 
 // [ Core ] ----------------------------------------
 message Session {
-  uint32 ID = 1;
+  string ID = 1;
   string Name = 2;
   string Hostname = 3;
   string UUID = 4;
@@ -339,7 +339,7 @@ message Sessions {
 }
 
 message UpdateSession {
-  uint32 SessionID = 1;
+  string SessionID = 1;
   string Name = 2;
   int64 ReconnectInterval = 3;
   int64 PollInterval = 4;

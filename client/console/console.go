@@ -188,7 +188,7 @@ func (con *SliverConsoleClient) EventLoop() {
 		case consts.SessionOpenedEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
-			con.PrintEventInfof("Session #%d %s - %s (%s) - %s/%s - %v",
+			con.PrintEventInfof("Session #%s %s - %s (%s) - %s/%s - %v",
 				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 
 			// Prelude Operator
@@ -207,7 +207,7 @@ func (con *SliverConsoleClient) EventLoop() {
 		case consts.SessionClosedEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
-			con.PrintEventErrorf("Lost session #%d %s - %s (%s) - %s/%s - %v",
+			con.PrintEventErrorf("Lost session #%s %s - %s (%s) - %s/%s - %v",
 				session.ID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 			activeSession := con.ActiveTarget.GetSession()
 			if activeSession != nil && activeSession.ID == session.ID {
@@ -405,7 +405,7 @@ func (con *SliverConsoleClient) GetSession(arg string) *clientpb.Session {
 		return nil
 	}
 	for _, session := range sessions.GetSessions() {
-		if session.Name == arg || fmt.Sprintf("%d", session.ID) == arg {
+		if session.Name == arg || session.ID == arg {
 			return session
 		}
 	}

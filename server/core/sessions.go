@@ -27,6 +27,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/gofrs/uuid"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 )
@@ -38,7 +39,6 @@ var (
 	Sessions = &sessions{
 		sessions: &sync.Map{},
 	}
-	rollingSessionID = uint32(0)
 
 	// ErrUnknownMessageType - Returned if the implant did not understand the message for
 	//                         example when the command is not supported on the platform
@@ -50,7 +50,7 @@ var (
 
 // Session - Represents a connection to an implant
 type Session struct {
-	ID                uint32
+	ID                string
 	Name              string
 	Hostname          string
 	Username          string
@@ -101,7 +101,7 @@ func (s *Session) IsDead() bool {
 // ToProtobuf - Get the protobuf version of the object
 func (s *Session) ToProtobuf() *clientpb.Session {
 	return &clientpb.Session{
-		ID:                uint32(s.ID),
+		ID:                s.ID,
 		Name:              s.Name,
 		Hostname:          s.Hostname,
 		Username:          s.Username,
@@ -121,8 +121,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		ReconnectInterval: s.ReconnectInterval,
 		ProxyURL:          s.ProxyURL,
 		Burned:            s.Burned,
-		// ConfigID:          s.ConfigID,
-		PeerID: s.PeerID,
+		PeerID:            s.PeerID,
 	}
 }
 
@@ -173,7 +172,7 @@ func (s *sessions) All() []*Session {
 }
 
 // Get - Get a session by ID
-func (s *sessions) Get(sessionID uint32) *Session {
+func (s *sessions) Get(sessionID string) *Session {
 	if val, ok := s.sessions.Load(sessionID); ok {
 		return val.(*Session)
 	}
@@ -191,7 +190,7 @@ func (s *sessions) Add(session *Session) *Session {
 }
 
 // Remove - Remove a sliver from the hive (atomically)
-func (s *sessions) Remove(sessionID uint32) {
+func (s *sessions) Remove(sessionID string) {
 	val, ok := s.sessions.Load(sessionID)
 	if !ok {
 		return
@@ -240,10 +239,9 @@ func (s *sessions) FromImplantConnection(conn *ImplantConnection) *Session {
 }
 
 // nextSessionID - Returns an incremental nonce as an id
-func nextSessionID() uint32 {
-	newID := rollingSessionID + 1
-	rollingSessionID++
-	return newID
+func nextSessionID() string {
+	id, _ := uuid.NewV4()
+	return id.String()
 }
 
 // UpdateSession - In place update of a session pointer

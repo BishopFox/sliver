@@ -95,7 +95,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			con.PrintErrorf("Invalid session name or session number: %s\n", interact)
 		}
 	} else {
-		sessionsMap := map[uint32]*clientpb.Session{}
+		sessionsMap := map[string]*clientpb.Session{}
 		for _, session := range sessions.GetSessions() {
 			sessionsMap[session.ID] = session
 		}
@@ -108,7 +108,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 // PrintSessions - Print the current sessions
-func PrintSessions(sessions map[uint32]*clientpb.Session, con *console.SliverConsoleClient) {
+func PrintSessions(sessions map[string]*clientpb.Session, con *console.SliverConsoleClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
