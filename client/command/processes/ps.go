@@ -35,17 +35,17 @@ import (
 
 var (
 	// Stylizes known processes in the `ps` command
-	knownSecurityTools = map[string]string{
-		"ccSvcHst.exe":          console.Red, // Symantec Endpoint Protection (SEP)
-		"cb.exe":                console.Red, // Carbon Black
-		"MsMpEng.exe":           console.Red, // Windows Defender
-		"smartscreen.exe":       console.Red, // Windows Defender Smart Screen
-		"CSFalconService.exe":   console.Red, // Crowdstrike Falcon Service
-		"CSFalconContainer.exe": console.Red, // CrowdStrike Falcon Container Security
-		"bdservicehost.exe":     console.Red, // Bitdefender (Total Security)
-		"bdagent.exe":           console.Red, // Bitdefender (Total Security)
-		"bdredline.exe":         console.Red, // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
-
+	knownSecurityTools = map[string][]string{
+		// Process Name -> [Color, Stylized Name]
+		"ccSvcHst.exe":          {console.Red, "Symantec Endpoint Protection"}, // Symantec Endpoint Protection (SEP)
+		"cb.exe":                {console.Red, "Carbon Black"},                 // Carbon Black
+		"MsMpEng.exe":           {console.Red, "Windows Defender"},             // Windows Defender
+		"smartscreen.exe":       {console.Red, "Windows Smart Screen"},         // Windows Defender Smart Screen
+		"CSFalconService.exe":   {console.Red, "CrowdStrike"},                  // Crowdstrike Falcon Service
+		"CSFalconContainer.exe": {console.Red, "CrowdStrike"},                  // CrowdStrike Falcon Container Security
+		"bdservicehost.exe":     {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
+		"bdagent.exe":           {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
+		"bdredline.exe":         {console.Red, "Bitdefender"},                  // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
 	}
 )
 
@@ -71,10 +71,20 @@ func PsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				return
 			}
 			PrintPS(os, ps, false, ctx, con)
+			products := findKnownSecurityProducts(ps)
+			if 0 < len(products) {
+				con.Println()
+				con.PrintWarnf("Security Product(s): %s\n", strings.Join(products, ", "))
+			}
 		})
 		con.PrintAsyncResponse(ps.Response)
 	} else {
 		PrintPS(os, ps, true, ctx, con)
+		products := findKnownSecurityProducts(ps)
+		if 0 < len(products) {
+			con.Println()
+			con.PrintWarnf("Security Product(s): %s\n", strings.Join(products, ", "))
+		}
 	}
 }
 
@@ -89,7 +99,6 @@ func getOS(session *clientpb.Session, beacon *clientpb.Beacon) string {
 
 // PrintPS - Prints the process list
 func PrintPS(os string, ps *sliverpb.Ps, interactive bool, ctx *grumble.Context, con *console.SliverConsoleClient) {
-
 	pidFilter := ctx.Flags.Int("pid")
 	exeFilter := ctx.Flags.String("exe")
 	ownerFilter := ctx.Flags.String("owner")
@@ -121,23 +130,36 @@ func PrintPS(os string, ps *sliverpb.Ps, interactive bool, ctx *grumble.Context,
 		if ownerFilter != "" && !strings.Contains(strings.ToLower(proc.Owner), strings.ToLower(ownerFilter)) {
 			continue
 		}
-		procRow(tw, proc, cmdLine, con)
+		row := procRow(tw, proc, cmdLine, con)
+		tw.AppendRow(row)
 	}
 	tw.SortBy([]table.SortBy{
 		{Name: "pid", Mode: table.Asc},
 		{Name: "ppid", Mode: table.Asc},
 	})
-
+	if !interactive {
+		overflow = true
+	}
 	settings.PaginateTable(tw, skipPages, overflow, interactive, con)
 }
 
+func findKnownSecurityProducts(ps *sliverpb.Ps) []string {
+	products := []string{}
+	for _, proc := range ps.Processes {
+		if secTool, ok := knownSecurityTools[proc.Executable]; ok {
+			products = append(products, secTool[1])
+		}
+	}
+	return products
+}
+
 // procRow - Stylizes the process information
-func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console.SliverConsoleClient) {
+func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console.SliverConsoleClient) table.Row {
 	session, beacon := con.ActiveTarget.GetInteractive()
 
 	color := console.Normal
-	if modifyColor, ok := knownSecurityTools[proc.Executable]; ok {
-		color = modifyColor
+	if secTool, ok := knownSecurityTools[proc.Executable]; ok {
+		color = secTool[0]
 	}
 	if session != nil && proc.Pid == session.PID {
 		color = console.Green
@@ -199,7 +221,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 			}
 		}
 	}
-	tw.AppendRow(row)
+	return row
 }
 
 // GetPIDByName - Get a PID by name from the active session
