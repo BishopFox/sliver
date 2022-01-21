@@ -123,16 +123,15 @@ func AliasesLoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 // LoadAlias - Load an alias into the Sliver shell from a given directory
-func LoadAlias(dirPath string, con *console.SliverConsoleClient) (*AliasManifest, error) {
+func LoadAlias(manifestPath string, con *console.SliverConsoleClient) (*AliasManifest, error) {
 	// retrieve alias manifest
 	var err error
-	dirPath, err = filepath.Abs(dirPath)
+	manifestPath, err = filepath.Abs(manifestPath)
 	if err != nil {
 		return nil, err
 	}
 
 	// parse it
-	manifestPath := filepath.Join(dirPath, ManifestFileName)
 	data, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
 		return nil, err

@@ -193,14 +193,14 @@ func AliasExtensionOrBundleCompleter(prefix string, args []string, con *console.
 	results := []string{}
 	aliases, exts := packagesInCache()
 	bundles := bundlesInCache()
-	for _, alias := range aliases {
-		if strings.HasPrefix(alias.CommandName, prefix) {
-			results = append(results, alias.CommandName)
+	for _, aliasPkg := range aliases {
+		if strings.HasPrefix(aliasPkg.CommandName, prefix) {
+			results = append(results, aliasPkg.CommandName)
 		}
 	}
-	for _, extension := range exts {
-		if strings.HasPrefix(extension.CommandName, prefix) {
-			results = append(results, extension.CommandName)
+	for _, extensionPkg := range exts {
+		if strings.HasPrefix(extensionPkg.CommandName, prefix) {
+			results = append(results, extensionPkg.CommandName)
 		}
 	}
 	for _, bundle := range bundles {
@@ -221,13 +221,13 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 		URL         string
 	}
 	entries := []pkgInfo{}
-	for _, alias := range aliases {
+	for _, aliasPkg := range aliases {
 		entries = append(entries, pkgInfo{
-			CommandName: alias.CommandName,
-			Version:     alias.Version,
+			CommandName: aliasPkg.CommandName,
+			Version:     aliasPkg.Version,
 			Type:        "Alias",
-			Help:        alias.Help,
-			URL:         alias.RepoURL,
+			Help:        aliasPkg.Help,
+			URL:         aliasPkg.RepoURL,
 		})
 	}
 	for _, extension := range exts {

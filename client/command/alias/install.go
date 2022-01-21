@@ -111,7 +111,7 @@ func InstallFromFile(aliasGzFilePath string, autoOverwrite bool, con *console.Sl
 		con.PrintErrorf("Failed to parse %s: %s\n", ManifestFileName, err)
 		return nil
 	}
-	installPath := filepath.Join(assets.GetAliasesDir(), filepath.Base(manifest.Name))
+	installPath := filepath.Join(assets.GetAliasesDir(), filepath.Base(manifest.CommandName))
 	if _, err := os.Stat(installPath); !os.IsNotExist(err) {
 		if !autoOverwrite {
 			con.PrintInfof("Alias '%s' already exists\n", manifest.CommandName)
