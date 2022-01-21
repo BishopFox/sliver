@@ -157,8 +157,8 @@ func ImplantBuildByName(name string, con *console.SliverConsoleClient) *clientpb
 	if err != nil {
 		return nil
 	}
-	for _, build := range builds.Configs {
-		if build.Name == name {
+	for sliverName, build := range builds.Configs {
+		if sliverName == name {
 			return build
 		}
 	}
