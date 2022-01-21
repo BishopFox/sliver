@@ -206,6 +206,9 @@ func GithubArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Arm
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusForbidden {
+			return nil, errors.New("you hit the github api rate limit (60 req/hr), try later")
+		}
 		return nil, errors.New("api returned non-200 status code")
 	}
 
@@ -279,6 +282,9 @@ func GithubArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, clientCon
 		return nil, nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusForbidden {
+			return nil, nil, errors.New("you hit the github api rate limit (60 req/hr), try later")
+		}
 		return nil, nil, errors.New("api returned non-200 status code")
 	}
 
