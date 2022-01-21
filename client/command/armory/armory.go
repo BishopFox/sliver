@@ -446,7 +446,6 @@ func fetchPackageSignature(wg *sync.WaitGroup, armoryPkg *ArmoryPackage, clientC
 			return
 		}
 		if armoryPkg.IsAlias {
-			fmt.Printf("Alias: %s\n", string(manifestData))
 			pkgCacheEntry.Alias, err = alias.ParseAliasManifest(manifestData)
 		} else {
 			pkgCacheEntry.Extension, err = extensions.ParseExtensionManifest(manifestData)
