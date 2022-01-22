@@ -28,6 +28,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
@@ -45,6 +47,7 @@ var (
 	}
 	pkgParsers = map[string]ArmoryPackageParser{
 		"api.github.com": GithubAPIArmoryPackageParser,
+		"github.com":     GithubArmoryPackageParser,
 	}
 )
 
@@ -337,6 +340,100 @@ func GithubAPIArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, client
 		}
 	}
 	return sig, tarGz, err
+}
+
+//
+// GitHub Parsers
+//
+
+// GithubArmoryPackageParser - Uses github.com instead of api.github.com to download packages
+func GithubArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
+	latestTag, err := githubLatestTagParser(armoryPkg, clientConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+	client := httpClient(clientConfig)
+
+	sigURL, err := url.Parse(armoryPkg.RepoURL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse armory pkg url '%s': %s", armoryPkg.RepoURL, err)
+	}
+	sigURL.Path = path.Join(sigURL.Path, "releases", "download", latestTag, fmt.Sprintf("%s.minisig", armoryPkg.CommandName))
+	sigResp, err := client.Get(sigURL.String())
+	if err != nil {
+		return nil, nil, err
+	}
+	defer sigResp.Body.Close()
+	if sigResp.StatusCode != http.StatusOK {
+		return nil, nil, fmt.Errorf("failed to get signature for armory pkg '%s': %s", armoryPkg.RepoURL, sigResp.Status)
+	}
+	var body []byte
+	body, err = ioutil.ReadAll(sigResp.Body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read resp body '%s': %s", armoryPkg.RepoURL, err)
+	}
+	sig, err := parsePkgMinsig(body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse pkg sig '%s': %s", armoryPkg.RepoURL, err)
+	}
+
+	var tarGz []byte
+	if !sigOnly {
+		tarGzURL, err := url.Parse(armoryPkg.RepoURL)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to parse armory pkg url '%s': %s", armoryPkg.RepoURL, err)
+		}
+		tarGzURL.Path = path.Join(tarGzURL.Path, "releases", "download", latestTag, fmt.Sprintf("%s.tar.gz", armoryPkg.CommandName))
+		tarGzResp, err := client.Get(tarGzURL.String())
+		if err != nil {
+			return nil, nil, err
+		}
+		defer tarGzResp.Body.Close()
+		if tarGzResp.StatusCode != http.StatusOK {
+			return nil, nil, fmt.Errorf("failed to get tar.gz for armory pkg '%s': %s", armoryPkg.RepoURL, tarGzResp.Status)
+		}
+		tarGz, err = ioutil.ReadAll(tarGzResp.Body)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to read tar.gz body '%s': %s", armoryPkg.RepoURL, err)
+		}
+	}
+
+	return sig, tarGz, nil
+}
+
+// We need to intercept the 302 redirect to determine the latest version tag
+func githubLatestTagParser(armoryPkg *ArmoryPackage, clientConfig ArmoryHTTPConfig) (string, error) {
+	client := httpClient(clientConfig)
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	latestURL, err := url.Parse(armoryPkg.RepoURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse armory pkg url '%s': %s", armoryPkg.RepoURL, err)
+	}
+	latestURL.Path = path.Join(latestURL.Path, "releases", "latest")
+	latestRedirect, err := client.Get(latestURL.String())
+	if err != nil {
+		return "", fmt.Errorf("http get failed armory pkg url '%s': %s", armoryPkg.RepoURL, err)
+	}
+	if latestRedirect.StatusCode != http.StatusFound {
+		return "", fmt.Errorf("unexpected response status (wanted 302) '%s': %s", armoryPkg.RepoURL, latestRedirect.Status)
+	}
+	if latestRedirect.Header.Get("Location") == "" {
+		return "", fmt.Errorf("no location header in response '%s'", armoryPkg.RepoURL)
+	}
+	latestLocationURL, err := url.Parse(latestRedirect.Header.Get("Location"))
+	if err != nil {
+		return "", fmt.Errorf("failed to parse location header '%s'->'%s': %s",
+			armoryPkg.RepoURL, latestRedirect.Header.Get("Location"), err)
+	}
+	pathSegments := strings.Split(latestLocationURL.Path, "/")
+	for index, segment := range pathSegments {
+		if segment == "tag" && index+1 < len(pathSegments) {
+			return pathSegments[index+1], nil
+		}
+	}
+	return "", errors.New("tag not found in location header")
 }
 
 func parsePkgMinsig(data []byte) (*minisign.Signature, error) {
