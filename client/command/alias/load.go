@@ -150,7 +150,7 @@ func LoadAlias(manifestPath string, con *console.SliverConsoleClient) (*AliasMan
 
 	helpMsg := fmt.Sprintf("[%s] %s", alias.Name, alias.Help)
 	addAliasCmd := &grumble.Command{
-		Name:     alias.Name,
+		Name:     alias.CommandName,
 		Help:     helpMsg,
 		LongHelp: help.FormatHelpTmpl(alias.LongHelp),
 		Run: func(extCtx *grumble.Context) error {
