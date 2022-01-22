@@ -107,7 +107,11 @@ func BindCommands(con *console.SliverConsoleClient) {
 		n++
 	}
 	if 0 < n {
-		con.PrintInfof("Loaded %d alias(es) from disk\n", n)
+		if n == 1 {
+			con.PrintInfof("Loaded %d alias from disk\n", n)
+		} else {
+			con.PrintInfof("Loaded %d aliases from disk\n", n)
+		}
 	}
 
 	// Load Extensions

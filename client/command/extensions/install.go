@@ -98,7 +98,7 @@ func installFromDir(extLocalPath string, con *console.SliverConsoleClient) {
 
 }
 
-// Install an extension from a .tar.gz file
+// InstallFromFilePath - Install an extension from a .tar.gz file
 func InstallFromFilePath(extLocalPath string, autoOverwrite bool, con *console.SliverConsoleClient) *string {
 	manifestData, err := util.ReadFileFromTarGz(extLocalPath, fmt.Sprintf("./%s", ManifestFileName))
 	if err != nil {

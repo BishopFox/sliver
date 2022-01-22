@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -97,18 +98,22 @@ func (ec *AliasManifest) getDefaultProcess(targetOS string) (proc string, err er
 }
 
 func (a *AliasManifest) getFileForTarget(cmdName string, targetOS string, targetArch string) (string, error) {
-	var filePath string
-	var err error
-	for _, ef := range a.Files {
-		if targetOS == ef.OS && targetArch == ef.Arch {
-			filePath = ef.Path
+	filePath := ""
+	for _, extFile := range a.Files {
+		if targetOS == extFile.OS && targetArch == extFile.Arch {
+			filePath = path.Join(assets.GetAliasesDir(), a.CommandName, extFile.Path)
 			break
 		}
 	}
 	if filePath == "" {
-		err = fmt.Errorf("no alias file found for %s/%s", targetOS, targetArch)
+		err := fmt.Errorf("no alias file found for %s/%s", targetOS, targetArch)
+		return "", err
 	}
-	return filePath, err
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		err = fmt.Errorf("alias file not found: %s", filePath)
+		return "", err
+	}
+	return filePath, nil
 }
 
 // AliasesLoadCmd - Locally load a alias into the Sliver shell.
@@ -136,23 +141,23 @@ func LoadAlias(manifestPath string, con *console.SliverConsoleClient) (*AliasMan
 	if err != nil {
 		return nil, err
 	}
-	alias, err := ParseAliasManifest(data)
+	aliasManifest, err := ParseAliasManifest(data)
 	if err != nil {
 		return nil, err
 	}
-	alias.RootPath = filepath.Dir(manifestPath)
+	aliasManifest.RootPath = filepath.Dir(manifestPath)
 	// for each alias command, add a new app command
 
 	// do not add if the command already exists
-	if cmdExists(alias.CommandName, con.App) {
-		return nil, fmt.Errorf("'%s' command already exists", alias.CommandName)
+	if cmdExists(aliasManifest.CommandName, con.App) {
+		return nil, fmt.Errorf("'%s' command already exists", aliasManifest.CommandName)
 	}
 
-	helpMsg := fmt.Sprintf("[%s] %s", alias.Name, alias.Help)
+	helpMsg := fmt.Sprintf("[%s] %s", aliasManifest.Name, aliasManifest.Help)
 	addAliasCmd := &grumble.Command{
-		Name:     alias.Name,
+		Name:     aliasManifest.CommandName,
 		Help:     helpMsg,
-		LongHelp: help.FormatHelpTmpl(alias.LongHelp),
+		LongHelp: help.FormatHelpTmpl(aliasManifest.LongHelp),
 		Run: func(extCtx *grumble.Context) error {
 			con.Println()
 			runAliasCommand(extCtx, con)
@@ -160,7 +165,7 @@ func LoadAlias(manifestPath string, con *console.SliverConsoleClient) (*AliasMan
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			if alias.IsAssembly {
+			if aliasManifest.IsAssembly {
 				f.String("m", "method", "", "Optional method (a method is required for a .NET DLL)")
 				f.String("c", "class", "", "Optional class name (required for .NET DLL)")
 				f.String("d", "app-domain", "", "AppDomain name to create for .NET assembly. Generated randomly if not set.")
@@ -180,14 +185,15 @@ func LoadAlias(manifestPath string, con *console.SliverConsoleClient) (*AliasMan
 
 	// Have to use a global map here, as passing the aliasCmd
 	// either by value or by ref fucks things up
-	loadedAliases[alias.Name] = &loadedAlias{
-		Manifest: alias,
+	loadedAliases[aliasManifest.CommandName] = &loadedAlias{
+		Manifest: aliasManifest,
 		Command:  addAliasCmd,
 	}
 
-	return alias, nil
+	return aliasManifest, nil
 }
 
+// ParseAliasManifest - Parse an alias manifest
 func ParseAliasManifest(data []byte) (*AliasManifest, error) {
 	// parse it
 	alias := &AliasManifest{}
@@ -233,23 +239,23 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("No alias found for `%s` command\n", ctx.Command.Name)
 		return
 	}
-	alias := loadedAlias.Manifest
-	binPath, err := alias.getFileForTarget(ctx.Command.Name, session.GetOS(), session.GetArch())
+	aliasManifest := loadedAlias.Manifest
+	binPath, err := aliasManifest.getFileForTarget(ctx.Command.Name, session.GetOS(), session.GetArch())
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("Fail to find alias file: %s\n", err)
 		return
 	}
 	args := ctx.Args.StringList("arguments")
 	var extArgs string
-	if len(alias.DefaultArgs) != 0 && len(args) == 0 {
-		extArgs = alias.DefaultArgs
+	if len(aliasManifest.DefaultArgs) != 0 && len(args) == 0 {
+		extArgs = aliasManifest.DefaultArgs
 	} else {
 		extArgs = strings.Join(args, " ")
 	}
-	entryPoint := alias.Entrypoint
+	entryPoint := aliasManifest.Entrypoint
 	processName := ctx.Flags.String("process")
 	if processName == "" {
-		processName, err = alias.getDefaultProcess(session.GetOS())
+		processName, err = aliasManifest.getDefaultProcess(session.GetOS())
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
@@ -273,7 +279,7 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			return
 		}
 	}
-	if alias.IsAssembly {
+	if aliasManifest.IsAssembly {
 		ctrl := make(chan bool)
 		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
 		con.SpinUntil(msg, ctrl)
@@ -299,7 +305,7 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			outFilePath.Write(executeAssemblyResp.GetOutput())
 			con.PrintInfof("Output saved to %s\n", outFilePath.Name())
 		}
-	} else if alias.IsReflective {
+	} else if aliasManifest.IsReflective {
 		ctrl := make(chan bool)
 		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
 		con.SpinUntil(msg, ctrl)
@@ -308,7 +314,7 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			Args:        strings.Trim(extArgs, " "),
 			Data:        binData,
 			ProcessName: processName,
-			EntryPoint:  alias.Entrypoint,
+			EntryPoint:  aliasManifest.Entrypoint,
 			Kill:        true,
 		})
 		ctrl <- true
