@@ -55,6 +55,9 @@ var (
 
 	// MyPeerID - This implant's Peer ID, a per-execution instance ID
 	MyPeerID = generatePeerID()
+
+	pivotReadDeadline  = 10 * time.Second
+	pivotWriteDeadline = 10 * time.Second
 )
 
 // generatePeerID - Generate a new pivot id
@@ -240,8 +243,8 @@ func (p *PivotListener) Start() {
 			conn:          conn,
 			readMutex:     &sync.Mutex{},
 			writeMutex:    &sync.Mutex{},
-			readDeadline:  tcpPivotReadDeadline,
-			writeDeadline: tcpPivotWriteDeadline,
+			readDeadline:  pivotReadDeadline,
+			writeDeadline: pivotWriteDeadline,
 			upstream:      p.Upstream,
 			Downstream:    make(chan *pb.Envelope),
 		}
