@@ -35,7 +35,7 @@ import (
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
 	"github.com/desertbit/grumble"
 	"github.com/jedib0t/go-pretty/v6/table"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 type ArmoryIndex struct {
@@ -214,7 +214,7 @@ func AliasExtensionOrBundleCompleter(prefix string, args []string, con *console.
 
 // PrintArmoryPackages - Prints the armory packages
 func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.ExtensionManifest, con *console.SliverConsoleClient) {
-	width, _, err := terminal.GetSize(0)
+	width, _, err := term.GetSize(0)
 	if err != nil {
 		width = 999
 	}
