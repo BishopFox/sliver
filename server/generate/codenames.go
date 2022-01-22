@@ -71,7 +71,7 @@ func getRandomWord(fpath string) (string, error) {
 	}
 	wordsLen := len(words)
 	if wordsLen == 0 {
-		return "", fmt.Errorf("No words found in %s", fpath)
+		return "", fmt.Errorf("no words found in %s", fpath)
 	}
 	word := words[insecureRand.Intn(wordsLen-1)]
 	return strings.TrimSpace(word), nil

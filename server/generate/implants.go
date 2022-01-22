@@ -43,7 +43,7 @@ var (
 	storageLog = log.NamedLogger("generate", "storage")
 
 	// ErrImplantBuildFileNotFound - More descriptive 'key not found' error
-	ErrImplantBuildFileNotFound = errors.New("Implant build file not found")
+	ErrImplantBuildFileNotFound = errors.New("implant build file not found")
 )
 
 func getBuildsDir() (string, error) {
@@ -75,7 +75,7 @@ func ImplantBuildSave(name string, config *models.ImplantConfig, fPath string) e
 	rootAppDir, _ := filepath.Abs(assets.GetRootAppDir())
 	fPath, _ = filepath.Abs(fPath)
 	if !strings.HasPrefix(fPath, rootAppDir) {
-		return fmt.Errorf("Invalid path '%s' is not a subdirectory of '%s'", fPath, rootAppDir)
+		return fmt.Errorf("invalid path '%s' is not a subdirectory of '%s'", fPath, rootAppDir)
 	}
 
 	data, err := ioutil.ReadFile(fPath)
