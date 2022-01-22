@@ -41,10 +41,10 @@ type ArmoryPackageParser func(*ArmoryPackage, bool, ArmoryHTTPConfig) (*minisign
 
 var (
 	indexParsers = map[string]ArmoryIndexParser{
-		"api.github.com": GithubArmoryIndexParser,
+		"api.github.com": GithubAPIArmoryIndexParser,
 	}
 	pkgParsers = map[string]ArmoryPackageParser{
-		"api.github.com": GithubArmoryPackageParser,
+		"api.github.com": GithubAPIArmoryPackageParser,
 	}
 )
 
@@ -62,6 +62,10 @@ type armoryPkgResponse struct {
 	Minisig  string `json:"minisig"` // Minisig
 	TarGzURL string `json:"tar_gz_url"`
 }
+
+//
+// Default Parsers for Self-Hosted Armories
+//
 
 // DefaultArmoryParser - Parse the armory index directly from the url
 func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig) (*ArmoryIndex, error) {
@@ -163,6 +167,10 @@ func DefaultArmoryPkgParser(armoryPkg *ArmoryPackage, sigOnly bool, clientConfig
 	return sig, tarGz, nil
 }
 
+//
+// GitHub API Parsers
+//
+
 type GithubAsset struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
@@ -187,8 +195,8 @@ type GithubRelease struct {
 	Assets      []GithubAsset `json:"assets"`
 }
 
-// GithubArmoryIndexParser - Parse the armory index from a GitHub release
-func GithubArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig) (*ArmoryIndex, error) {
+// GithubAPIArmoryIndexParser - Parse the armory index from a GitHub release
+func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig) (*ArmoryIndex, error) {
 	var publicKey minisign.PublicKey
 	err := publicKey.UnmarshalText([]byte(armoryConfig.PublicKey))
 	if err != nil {
@@ -263,8 +271,8 @@ func GithubArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Arm
 	return armoryIndex, nil
 }
 
-// GithubArmoryPackageParser - Retrieve the minisig and tar.gz for an armory package from a GitHub release
-func GithubArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
+// GithubAPIArmoryPackageParser - Retrieve the minisig and tar.gz for an armory package from a GitHub release
+func GithubAPIArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
 	var publicKey minisign.PublicKey
 	err := publicKey.UnmarshalText([]byte(armoryPkg.PublicKey))
 	if err != nil {
@@ -350,6 +358,7 @@ func httpClient(config ArmoryHTTPConfig) *http.Client {
 			Dial: (&net.Dialer{
 				Timeout: config.Timeout,
 			}).Dial,
+
 			Proxy: http.ProxyURL(config.ProxyURL),
 
 			TLSHandshakeTimeout: config.Timeout,

