@@ -35,6 +35,7 @@ import (
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
 	"github.com/desertbit/grumble"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 type ArmoryIndex struct {
@@ -213,6 +214,38 @@ func AliasExtensionOrBundleCompleter(prefix string, args []string, con *console.
 
 // PrintArmoryPackages - Prints the armory packages
 func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.ExtensionManifest, con *console.SliverConsoleClient) {
+	width, _, err := terminal.GetSize(0)
+	if err != nil {
+		width = 999
+	}
+
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.SetTitle(console.Bold + "Packages" + console.Normal)
+
+	minWidth := 150
+	if minWidth < width {
+		tw.AppendHeader(table.Row{
+			"Command Name",
+			"Version",
+			"Type",
+			"Help",
+			"URL",
+		})
+	} else {
+		tw.AppendHeader(table.Row{
+			"Command Name",
+			"Version",
+			"Type",
+			"Help",
+		})
+	}
+
+	// Columns start at 1 for some dumb reason
+	tw.SortBy([]table.SortBy{
+		{Number: 1, Mode: table.Asc},
+	})
+
 	type pkgInfo struct {
 		CommandName string
 		Version     string
@@ -240,34 +273,30 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 		})
 	}
 
-	tw := table.NewWriter()
-	tw.SetStyle(settings.GetTableStyle(con))
-	tw.SetTitle(console.Bold + "Packages" + console.Normal)
-	tw.AppendHeader(table.Row{
-		"Command Name",
-		"Version",
-		"Type",
-		"Help",
-		"URL",
-	})
-	tw.SortBy([]table.SortBy{
-		{Name: "Command Name", Mode: table.Asc},
-	})
-
+	rows := []table.Row{}
 	for _, pkg := range entries {
 		color := console.Normal
 		if extensions.CmdExists(pkg.CommandName, con.App) {
 			color = console.Green
 		}
-		tw.AppendRow(table.Row{
-			fmt.Sprintf(color+"%s"+console.Normal, pkg.CommandName),
-			fmt.Sprintf(color+"%s"+console.Normal, pkg.Version),
-			fmt.Sprintf(color+"%s"+console.Normal, pkg.Type),
-			fmt.Sprintf(color+"%s"+console.Normal, pkg.Help),
-			fmt.Sprintf(color+"%s"+console.Normal, pkg.URL),
-		})
+		if minWidth < width {
+			rows = append(rows, table.Row{
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.CommandName),
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.Version),
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.Type),
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.Help),
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.URL),
+			})
+		} else {
+			rows = append(rows, table.Row{
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.CommandName),
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.Version),
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.Type),
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.Help),
+			})
+		}
 	}
-
+	tw.AppendRows(rows)
 	con.Printf("%s\n", tw.Render())
 }
 
