@@ -32,9 +32,11 @@ import (
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -64,12 +66,14 @@ type loadedAlias struct {
 	Command  *grumble.Command
 }
 
+// AliasFile - An OS/Arch specific file
 type AliasFile struct {
 	OS   string `json:"os"`
 	Arch string `json:"arch"`
 	Path string `json:"path"`
 }
 
+// AliasManifest - The manifest for an alias, contains metadata
 type AliasManifest struct {
 	Name           string `json:"name"`
 	Version        string `json:"version"`
@@ -230,17 +234,27 @@ func ParseAliasManifest(data []byte) (*AliasManifest, error) {
 }
 
 func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveTarget.GetSessionInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
+	var goos string
+	var goarch string
+	if session != nil {
+		goos = session.OS
+		goarch = session.Arch
+	} else {
+		goos = beacon.OS
+		goarch = beacon.Arch
+	}
+
 	loadedAlias, ok := loadedAliases[ctx.Command.Name]
 	if !ok {
 		con.PrintErrorf("No alias found for `%s` command\n", ctx.Command.Name)
 		return
 	}
 	aliasManifest := loadedAlias.Manifest
-	binPath, err := aliasManifest.getFileForTarget(ctx.Command.Name, session.GetOS(), session.GetArch())
+	binPath, err := aliasManifest.getFileForTarget(ctx.Command.Name, goos, goarch)
 	if err != nil {
 		con.PrintErrorf("Fail to find alias file: %s\n", err)
 		return
@@ -255,14 +269,14 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	entryPoint := aliasManifest.Entrypoint
 	processName := ctx.Flags.String("process")
 	if processName == "" {
-		processName, err = aliasManifest.getDefaultProcess(session.GetOS())
+		processName, err = aliasManifest.getDefaultProcess(goos)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
 	}
 	isDLL := false
-	if filepath.Ext(binPath) == ".dll" {
+	if strings.ToLower(filepath.Ext(binPath)) == ".dll" {
 		isDLL = true
 	}
 	binData, err := ioutil.ReadFile(binPath)
@@ -272,14 +286,17 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	var outFilePath *os.File
 	if ctx.Flags.Bool("save") {
-		outFile := path.Base(fmt.Sprintf("%s_%s*.log", ctx.Command.Name, session.GetHostname()))
+		outFile := filepath.Base(fmt.Sprintf("%s_%s*.log", filepath.Base(ctx.Command.Name), filepath.Base(session.GetHostname())))
 		outFilePath, err = ioutil.TempFile("", outFile)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
 	}
+
 	if aliasManifest.IsAssembly {
+
+		// Execute Assembly
 		ctrl := make(chan bool)
 		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
 		con.SpinUntil(msg, ctrl)
@@ -300,12 +317,24 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
-		con.PrintInfof("Output:\n%s", string(executeAssemblyResp.GetOutput()))
-		if outFilePath != nil {
-			outFilePath.Write(executeAssemblyResp.GetOutput())
-			con.PrintInfof("Output saved to %s\n", outFilePath.Name())
+
+		if executeAssemblyResp.Response != nil && executeAssemblyResp.Response.Async {
+			con.AddBeaconCallback(executeAssemblyResp.Response.TaskID, func(task *clientpb.BeaconTask) {
+				err = proto.Unmarshal(task.Response, executeAssemblyResp)
+				if err != nil {
+					con.PrintErrorf("Failed to decode call ext response %s\n", err)
+					return
+				}
+				PrintAssemblyOutput(ctx.Command.Name, executeAssemblyResp, outFilePath, con)
+			})
+			con.PrintAsyncResponse(executeAssemblyResp.Response)
+		} else {
+			PrintAssemblyOutput(ctx.Command.Name, executeAssemblyResp, outFilePath, con)
 		}
+
 	} else if aliasManifest.IsReflective {
+
+		// Spawn DLL
 		ctrl := make(chan bool)
 		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
 		con.SpinUntil(msg, ctrl)
@@ -319,18 +348,28 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		})
 		ctrl <- true
 		<-ctrl
-
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
 
-		con.PrintInfof("Output:\n%s", spawnDllResp.GetResult())
-		if outFilePath != nil {
-			outFilePath.Write([]byte(spawnDllResp.GetResult()))
-			con.PrintInfof("Output saved to %s\n", outFilePath.Name())
+		if spawnDllResp.Response != nil && spawnDllResp.Response.Async {
+			con.AddBeaconCallback(spawnDllResp.Response.TaskID, func(task *clientpb.BeaconTask) {
+				err = proto.Unmarshal(task.Response, spawnDllResp)
+				if err != nil {
+					con.PrintErrorf("Failed to decode call ext response %s\n", err)
+					return
+				}
+				PrintSpawnDLLOutput(ctx.Command.Name, spawnDllResp, outFilePath, con)
+			})
+			con.PrintAsyncResponse(spawnDllResp.Response)
+		} else {
+			PrintSpawnDLLOutput(ctx.Command.Name, spawnDllResp, outFilePath, con)
 		}
+
 	} else {
+
+		// Sideload
 		ctrl := make(chan bool)
 		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
 		con.SpinUntil(msg, ctrl)
@@ -345,17 +384,51 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		})
 		ctrl <- true
 		<-ctrl
-
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
 
-		con.PrintInfof("Output:\n%s", sideloadResp.GetResult())
-		if outFilePath != nil {
-			outFilePath.Write([]byte(sideloadResp.GetResult()))
-			con.PrintInfof("Output saved to %s\n", outFilePath.Name())
+		if sideloadResp.Response != nil && sideloadResp.Response.Async {
+			con.AddBeaconCallback(sideloadResp.Response.TaskID, func(task *clientpb.BeaconTask) {
+				err = proto.Unmarshal(task.Response, sideloadResp)
+				if err != nil {
+					con.PrintErrorf("Failed to decode call ext response %s\n", err)
+					return
+				}
+				PrintSideloadOutput(ctx.Command.Name, sideloadResp, outFilePath, con)
+			})
+			con.PrintAsyncResponse(sideloadResp.Response)
+		} else {
+			PrintSideloadOutput(ctx.Command.Name, sideloadResp, outFilePath, con)
 		}
+	}
+}
+
+// PrintSpawnDLLOutput - Prints the output of a spawn dll command
+func PrintSpawnDLLOutput(cmdName string, spawnDllResp *sliverpb.SpawnDll, outFilePath *os.File, con *console.SliverConsoleClient) {
+	con.PrintInfof("%s output:\n%s", cmdName, spawnDllResp.GetResult())
+	if outFilePath != nil {
+		outFilePath.Write([]byte(spawnDllResp.GetResult()))
+		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
+	}
+}
+
+// PrintSideloadOutput - Prints the output of a sideload command
+func PrintSideloadOutput(cmdName string, sideloadResp *sliverpb.Sideload, outFilePath *os.File, con *console.SliverConsoleClient) {
+	con.PrintInfof("%s output:\n%s", cmdName, sideloadResp.GetResult())
+	if outFilePath != nil {
+		outFilePath.Write([]byte(sideloadResp.GetResult()))
+		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
+	}
+}
+
+// PrintAssemblyOutput - Prints the output of an execute-assembly command
+func PrintAssemblyOutput(cmdName string, execAsmResp *sliverpb.ExecuteAssembly, outFilePath *os.File, con *console.SliverConsoleClient) {
+	con.PrintInfof("%s output:\n%s", cmdName, string(execAsmResp.GetOutput()))
+	if outFilePath != nil {
+		outFilePath.Write(execAsmResp.GetOutput())
+		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
 	}
 }
 
