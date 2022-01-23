@@ -99,7 +99,7 @@ func PrintProcessDump(dump *sliverpb.ProcessDump, saveTo string, hostname string
 			return
 		}
 	} else {
-		saveToFile, err = os.OpenFile(saveTo, os.O_WRONLY, 600)
+		saveToFile, err = os.OpenFile(saveTo, os.O_WRONLY, 0o600)
 		if err != nil {
 			con.PrintErrorf("Error creating file: %s\n", err)
 			return

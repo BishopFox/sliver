@@ -21,7 +21,7 @@ message Version {
 
 // [ Core ] ----------------------------------------
 message Session {
-  uint32 ID = 1;
+  string ID = 1;
   string Name = 2;
   string Hostname = 3;
   string UUID = 4;
@@ -68,13 +68,14 @@ message Beacon {
   bool IsDead = 18;
 
   string ProxyURL = 20;
-  int64 Interval = 21;
-  int64 Jitter = 22;
-  bool Burned = 23;
-  int64 NextCheckin = 24;
+  int64 ReconnectInterval = 21;
+  int64 Interval = 22;
+  int64 Jitter = 23;
+  bool Burned = 24;
+  int64 NextCheckin = 25;
 
-  int64 TasksCount = 25;
-  int64 TasksCountCompleted = 26;
+  int64 TasksCount = 26;
+  int64 TasksCountCompleted = 27;
 }
 
 message Beacons {
@@ -338,7 +339,7 @@ message Sessions {
 }
 
 message UpdateSession {
-  uint32 SessionID = 1;
+  string SessionID = 1;
   string Name = 2;
   int64 ReconnectInterval = 3;
   int64 PollInterval = 4;

@@ -67,10 +67,10 @@ var (
 
 const (
 	DefaultMaxBodyLength   = 2 * 1024 * 1024 * 1024 // 2Gb
-	DefaultHTTPTimeout     = time.Minute * 5
-	DefaultLongPollTimeout = 20 * time.Second
-	DefaultLongPollJitter  = 20 * time.Second
-	minPollTimeout         = time.Second * 5
+	DefaultHTTPTimeout     = time.Minute
+	DefaultLongPollTimeout = time.Second
+	DefaultLongPollJitter  = time.Second
+	minPollTimeout         = time.Second
 )
 
 var (
@@ -129,8 +129,8 @@ type HTTPServerConfig struct {
 	MaxRequestLength int
 
 	EnforceOTP      bool
-	LongPollTimeout int64
-	LongPollJitter  int64
+	LongPollTimeout time.Duration
+	LongPollJitter  time.Duration
 }
 
 // SliverHTTPC2 - Holds refs to all the C2 objects
@@ -188,7 +188,7 @@ func StartHTTPListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 		WriteTimeout: DefaultHTTPTimeout,
 		ReadTimeout:  DefaultHTTPTimeout,
 		IdleTimeout:  DefaultHTTPTimeout,
-		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
+		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 	if conf.ACME {
 		conf.Domain = filepath.Base(conf.Domain) // I don't think we need this, but we do it anyways
@@ -257,8 +257,8 @@ func (s *SliverHTTPC2) router() *mux.Router {
 		s.ServerConf.MaxRequestLength = DefaultMaxBodyLength
 	}
 	if s.ServerConf.LongPollTimeout == 0 {
-		s.ServerConf.LongPollTimeout = int64(DefaultLongPollTimeout)
-		s.ServerConf.LongPollJitter = int64(DefaultLongPollJitter)
+		s.ServerConf.LongPollTimeout = DefaultLongPollTimeout
+		s.ServerConf.LongPollJitter = DefaultLongPollJitter
 	}
 
 	httpLog.Debugf("HTTP C2 Implant Config = %v", c2Config.ImplantConfig)
@@ -630,18 +630,15 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 }
 
 func (s *SliverHTTPC2) getServerPollTimeout() time.Duration {
-	if s.ServerConf.LongPollJitter < 0 {
-		s.ServerConf.LongPollJitter = 0
-	}
 	min := s.ServerConf.LongPollTimeout
 	max := s.ServerConf.LongPollTimeout + s.ServerConf.LongPollJitter
 	timeout := float64(min) + insecureRand.Float64()*(float64(max)-float64(min))
 	pollTimeout := time.Duration(int64(timeout))
-	httpLog.Debugf("Poll timeout: %s", pollTimeout)
 	if pollTimeout < minPollTimeout {
 		httpLog.Warnf("Poll timeout is too short, using default minimum %v", minPollTimeout)
 		pollTimeout = minPollTimeout
 	}
+	httpLog.Debugf("Poll timeout: %s", pollTimeout)
 	return pollTimeout
 }
 

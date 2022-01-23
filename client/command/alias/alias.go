@@ -19,12 +19,17 @@ package alias
 */
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/desertbit/grumble"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
 )
 
 // AliasesCmd - The alias command
@@ -43,21 +48,37 @@ func PrintAliases(con *console.SliverConsoleClient) {
 	tw.AppendHeader(table.Row{
 		"Name",
 		"Command Name",
+		"Platforms",
+		"Version",
+		"Installed",
 		".NET Assembly",
 		"Reflective",
-		"Help",
+		"Tool Author",
+		"Repository",
 	})
 	tw.SortBy([]table.SortBy{
 		{Name: "Name", Mode: table.Asc},
 	})
+	tw.SetColumnConfigs([]table.ColumnConfig{
+		{Number: 5, Align: text.AlignCenter},
+	})
 
-	for _, alias := range loadedAliases {
+	installedManifests := getInstalledManifests()
+	for _, aliasPkg := range loadedAliases {
+		installed := ""
+		if _, ok := installedManifests[aliasPkg.Manifest.CommandName]; ok {
+			installed = "✅"
+		}
 		tw.AppendRow(table.Row{
-			alias.Manifest.Name,
-			alias.Manifest.CommandName,
-			alias.Manifest.IsAssembly,
-			alias.Manifest.IsReflective,
-			alias.Manifest.Help,
+			aliasPkg.Manifest.Name,
+			aliasPkg.Manifest.CommandName,
+			strings.Join(aliasPlatforms(aliasPkg.Manifest), ",\n"),
+			aliasPkg.Manifest.Version,
+			installed,
+			aliasPkg.Manifest.IsAssembly,
+			aliasPkg.Manifest.IsReflective,
+			aliasPkg.Manifest.OriginalAuthor,
+			aliasPkg.Manifest.RepoURL,
 		})
 	}
 	con.Println(tw.Render())
@@ -72,4 +93,34 @@ func AliasCommandNameCompleter(prefix string, args []string, con *console.Sliver
 		}
 	}
 	return results
+}
+
+func aliasPlatforms(aliasPkg *AliasManifest) []string {
+	platforms := map[string]string{}
+	for _, entry := range aliasPkg.Files {
+		platforms[fmt.Sprintf("%s/%s", entry.OS, entry.Arch)] = ""
+	}
+	keys := []string{}
+	for key := range platforms {
+		keys = append(keys, key)
+	}
+	return keys
+}
+
+func getInstalledManifests() map[string]*AliasManifest {
+	manifestPaths := assets.GetInstalledAliasManifests()
+	installedManifests := map[string]*AliasManifest{}
+	for _, manifestPath := range manifestPaths {
+		data, err := ioutil.ReadFile(manifestPath)
+		if err != nil {
+			continue
+		}
+		manifest := &AliasManifest{}
+		err = json.Unmarshal(data, manifest)
+		if err != nil {
+			continue
+		}
+		installedManifests[manifest.CommandName] = manifest
+	}
+	return installedManifests
 }

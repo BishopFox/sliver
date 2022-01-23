@@ -35,7 +35,7 @@ var (
 
 type TcpTunnel struct {
 	ID                uint64
-	SessionID         uint32
+	SessionID         string
 	ToImplantSequence uint64
 	ToImplantMux      sync.Mutex
 
@@ -49,7 +49,7 @@ type tcpTunnel struct {
 	mutex   *sync.Mutex
 }
 
-func (t *tcpTunnel) Create(sessionID uint32) *TcpTunnel {
+func (t *tcpTunnel) Create(sessionID string) *TcpTunnel {
 	tunnelID := NewTunnelID()
 	session := Sessions.Get(sessionID)
 	tunnel := &TcpTunnel{

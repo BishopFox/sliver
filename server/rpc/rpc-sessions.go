@@ -147,3 +147,28 @@ func (rpc *Server) OpenSession(ctx context.Context, openSession *sliverpb.OpenSe
 	}
 	return resp, nil
 }
+
+// CloseSession - Close an interactive session, but do not kill the remote process
+func (rpc *Server) CloseSession(ctx context.Context, closeSession *sliverpb.CloseSession) (*commonpb.Empty, error) {
+	session := core.Sessions.Get(closeSession.Request.SessionID)
+	if session == nil {
+		return nil, ErrInvalidSessionID
+	}
+
+	// Make a best effort to tell the implant we're close the connection
+	// but its important we don't block on this as the user may be trying to
+	// close an unhealthy connection to the implant
+	closeWait := make(chan struct{})
+	go func() {
+		select {
+		case session.Connection.Send <- &sliverpb.Envelope{Type: sliverpb.MsgCloseSession}:
+		case <-time.After(time.Second * 3):
+		}
+		closeWait <- struct{}{}
+	}()
+
+	<-closeWait
+	core.Sessions.Remove(session.ID)
+
+	return &commonpb.Empty{}, nil
+}

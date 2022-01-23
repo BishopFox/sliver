@@ -77,6 +77,7 @@ var (
 		sliverpb.MsgRegistryReadReq:        regReadHandler,
 		sliverpb.MsgRegistryWriteReq:       regWriteHandler,
 		sliverpb.MsgRegistryCreateKeyReq:   regCreateKeyHandler,
+		sliverpb.MsgRegistryDeleteKeyReq:   regDeleteKeyHandler,
 		sliverpb.MsgRegistrySubKeysListReq: regSubKeysListHandler,
 		sliverpb.MsgRegistryListValuesReq:  regValuesListHandler,
 
@@ -493,6 +494,23 @@ func regCreateKeyHandler(data []byte, resp RPCResponse) {
 		createResp.Response.Err = err.Error()
 	}
 	data, err = proto.Marshal(createResp)
+	resp(data, err)
+}
+
+func regDeleteKeyHandler(data []byte, resp RPCResponse) {
+	deleteReq := &sliverpb.RegistryDeleteKeyReq{}
+	err := proto.Unmarshal(data, deleteReq)
+	if err != nil {
+		return
+	}
+	err = registry.DeleteKey(deleteReq.Hostname, deleteReq.Hive, deleteReq.Path, deleteReq.Key)
+	deleteResp := &sliverpb.RegistryDeleteKey{
+		Response: &commonpb.Response{},
+	}
+	if err != nil {
+		deleteResp.Response.Err = err.Error()
+	}
+	data, err = proto.Marshal(deleteResp)
 	resp(data, err)
 }
 

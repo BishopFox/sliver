@@ -1,7 +1,7 @@
 Sliver
 ======
 
-Sliver is an open source cross-platform adversary emulation/red team framework, it can be used by organizations of all sizes to perform security testing. Sliver's implants support C2 over Mutual TLS (mTLS), WireGuard, HTTP(S), and DNS. Implants are dynamically compiled with unique X.509 certificates signed by a per-instance certificate authority generated when you first run the binary.
+Sliver is an open source cross-platform adversary emulation/red team framework, it can be used by organizations of all sizes to perform security testing. Sliver's implants support C2 over Mutual TLS (mTLS), WireGuard, HTTP(S), and DNS and are dynamically compiled with per-binary encryption keys.
 
 The server and client support MacOS, Windows, and Linux. Implants are supported on MacOS, Windows, and Linux (and possibly every Golang compiler target but we've not tested them all).
 
@@ -17,13 +17,11 @@ The server and client support MacOS, Windows, and Linux. Implants are supported 
 * [DNS canary](https://github.com/BishopFox/sliver/wiki/DNS-C2#dns-canaries) blue team detection
 * [Secure C2](https://github.com/BishopFox/sliver/wiki/Transport-Encryption) over mTLS, WireGuard, HTTP(S), and DNS
 * Fully scriptable using [JavaScript/TypeScript](https://github.com/moloch--/sliver-script) or [Python](https://github.com/moloch--/sliver-py)
-* Local and remote process injection
-* Windows process migration
-* Windows user token manipulation
-* Anti-fingerprinting features
+* Windows process migration, process injection, user token manipulation, etc.
 * Let's Encrypt integration
 * In-memory .NET assembly execution
 * COFF/BOF in-memory loader
+* TCP and named pipe pivots
 * Much more!
 
 ### Getting Started

@@ -14,7 +14,7 @@ message Request {
   int64 Timeout = 2;
 
   string BeaconID = 8;
-  uint32 SessionID = 9;
+  string SessionID = 9;
 }
   
 // Response - Common fields used in all gRPC responses. Note that the Err field

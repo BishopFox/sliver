@@ -35,10 +35,9 @@ func KillCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	// Confirm with the user, just in case they confused kill with terminate
 	confirm := false
-	promptSession := &survey.Confirm{Message: "Kill the active session?"}
-	promptBeacon := &survey.Confirm{Message: "Kill the active beacon?"}
+	con.PrintWarnf("WARNING: This will kill the remote implant process\n\n")
 	if session != nil {
-		survey.AskOne(promptSession, &confirm, nil)
+		survey.AskOne(&survey.Confirm{Message: "Kill the active session?"}, &confirm, nil)
 		if !confirm {
 			return
 		}
@@ -50,9 +49,8 @@ func KillCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintInfof("Killed %s (%d)\n", session.Name, session.ID)
 		con.ActiveTarget.Background()
 		return
-	}
-	if beacon != nil {
-		survey.AskOne(promptBeacon, &confirm, nil)
+	} else if beacon != nil {
+		survey.AskOne(&survey.Confirm{Message: "Kill the active beacon?"}, &confirm, nil)
 		if !confirm {
 			return
 		}

@@ -107,7 +107,11 @@ func BindCommands(con *console.SliverConsoleClient) {
 		n++
 	}
 	if 0 < n {
-		con.PrintInfof("Loaded %d alias(es) from disk\n", n)
+		if n == 1 {
+			con.PrintInfof("Loaded %d alias from disk\n", n)
+		} else {
+			con.PrintInfof("Loaded %d aliases from disk\n", n)
+		}
 	}
 
 	// Load Extensions
@@ -417,7 +421,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("L", "lhost", "", "interface to bind server to")
 			f.Int("l", "lport", generate.DefaultHTTPLPort, "tcp listen port")
 			f.Bool("D", "disable-otp", false, "disable otp authentication")
-			f.String("T", "long-poll-timeout", "10s", "server-side long poll timeout")
+			f.String("T", "long-poll-timeout", "1s", "server-side long poll timeout")
 			f.String("J", "long-poll-jitter", "2s", "server-side long poll jitter")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -442,7 +446,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("L", "lhost", "", "interface to bind server to")
 			f.Int("l", "lport", generate.DefaultHTTPSLPort, "tcp listen port")
 			f.Bool("D", "disable-otp", false, "disable otp authentication")
-			f.String("T", "long-poll-timeout", "10s", "server-side long poll timeout")
+			f.String("T", "long-poll-timeout", "1s", "server-side long poll timeout")
 			f.String("J", "long-poll-jitter", "2s", "server-side long poll jitter")
 
 			f.String("c", "cert", "", "PEM encoded certificate file")
@@ -466,7 +470,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Start a stager listener",
 		LongHelp: help.GetHelpFor([]string{consts.StageListenerStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("p", "profile", "", "Implant profile name to link with the listener")
+			f.String("p", "profile", "", "implant profile name to link with the listener")
 			f.String("u", "url", "", "URL to which the stager will call back to")
 			f.String("c", "cert", "", "path to PEM encoded certificate file (HTTPS only)")
 			f.String("k", "key", "", "path to PEM encoded private key file (HTTPS only)")
@@ -506,10 +510,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Session management",
 		LongHelp: help.GetHelpFor([]string{consts.SessionsStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("i", "interact", "", "interact with a sliver")
-			f.String("k", "kill", "", "Kill the designated session")
-			f.Bool("K", "kill-all", false, "Kill all the sessions")
-			f.Bool("C", "clean", false, "Clean out any sessions marked as [DEAD]")
+			f.String("i", "interact", "", "interact with a session")
+			f.String("k", "kill", "", "kill the designated session")
+			f.Bool("K", "kill-all", false, "kill all the sessions")
+			f.Bool("C", "clean", false, "clean out any sessions marked as [DEAD]")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -523,7 +527,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	}
 	sessionsCmd.AddCommand(&grumble.Command{
 		Name:     consts.PruneStr,
-		Help:     "Kill all stale sessions",
+		Help:     "Kill all stale/dead sessions",
 		LongHelp: help.GetHelpFor([]string{consts.SessionsStr, consts.PruneStr}),
 		Flags: func(f *grumble.Flags) {
 
@@ -602,8 +606,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("g", "wg", "", "wg connection strings")
 			f.String("b", "http", "", "http(s) connection strings")
 			f.String("n", "dns", "", "dns connection strings")
-			f.String("p", "named-pipe", "", "named-pipe connection strings")
-			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
+			f.String("p", "named-pipe", "", "namedpipe connection strings")
+			f.String("i", "tcp-pivot", "", "tcppivot connection strings")
 
 			f.String("d", "delay", "0s", "delay opening the session (after checkin) for a given period of time")
 
@@ -618,6 +622,24 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	}
 	con.App.AddCommand(openSessionCmd)
+
+	// [ Close ] --------------------------------------------------------------
+	closeSessionCmd := &grumble.Command{
+		Name:     consts.CloseStr,
+		Help:     "Close an interactive session without killing the remote process",
+		LongHelp: help.GetHelpFor([]string{consts.CloseStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			sessions.CloseSessionCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	}
+	con.App.AddCommand(closeSessionCmd)
 
 	// [ Tasks ] --------------------------------------------------------------
 
@@ -2270,6 +2292,25 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.String("H", "hive", "HKCU", "registry hive")
 			f.String("o", "hostname", "", "remote host to write values to")
+		},
+	})
+	registryCmd.AddCommand(&grumble.Command{
+		Name:     consts.RegistryDeleteKeyStr,
+		Help:     "Remove a registry key",
+		LongHelp: help.GetHelpFor([]string{consts.RegistryDeleteKeyStr}),
+		Args: func(a *grumble.Args) {
+			a.String("registry-path", "registry path")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			registry.RegDeleteKeyCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("H", "hive", "HKCU", "registry hive")
+			f.String("o", "hostname", "", "remote host to remove value from")
 		},
 	})
 	registryCmd.AddCommand(&grumble.Command{

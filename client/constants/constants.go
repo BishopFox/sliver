@@ -211,6 +211,7 @@ const (
 	RegistryListSubStr    = "list-subkeys"
 	RegistryListValuesStr = "list-values"
 	RegistryCreateKeyStr  = "create"
+	RegistryDeleteKeyStr  = "delete"
 	PivotsStr             = "pivots"
 	WgConfigStr           = "wg-config"
 	WgSocksStr            = "wg-socks"
@@ -219,6 +220,7 @@ const (
 	SSHStr                = "ssh"
 	DLLHijackStr          = "dllhijack"
 	InteractiveStr        = "interactive"
+	CloseStr              = "close"
 
 	PortfwdStr = "portfwd"
 	Socks5Str  = "socks5"

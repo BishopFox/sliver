@@ -93,7 +93,7 @@ func NewPivotSession(chain []*sliverpb.PivotPeer) *Pivot {
 // PivotGraphEntry - A single entry in the pivot graph
 type PivotGraphEntry struct {
 	PeerID    int64
-	SessionID uint32
+	SessionID string
 	Name      string
 
 	// PeerID -> Child

@@ -2,7 +2,7 @@ package sessions
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2022  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -21,33 +21,30 @@ package sessions
 import (
 	"context"
 
-	"github.com/bishopfox/sliver/client/command/kill"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
 )
 
-// SessionsPruneCmd - Forcefully kill stale sessions
-func SessionsPruneCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
+// CloseSessionCmd - Close an interactive session but do not kill the remote process
+func CloseSessionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+
+	// Get the active session
+	session := con.ActiveTarget.GetSessionInteractive()
+	if session == nil {
+		con.PrintErrorf("No active session\n")
+		return
+	}
+
+	// Close the session
+	_, err := con.Rpc.CloseSession(context.Background(), &sliverpb.CloseSession{
+		Request: con.ActiveTarget.Request(ctx),
+	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", err.Error())
 		return
 	}
-	if len(sessions.GetSessions()) == 0 {
-		con.PrintInfof("No sessions to prune\n")
-		return
-	}
-	for _, session := range sessions.GetSessions() {
-		if session.IsDead {
-			con.Printf("Pruning session %s ... ", session.ID)
-			err = kill.KillSession(session, true, con)
-			if err != nil {
-				con.Printf("failed!\n")
-				con.PrintErrorf("%s\n", err)
-			} else {
-				con.Printf("done!\n")
-			}
-		}
-	}
+
+	con.ActiveTarget.Set(nil, nil)
+
 }

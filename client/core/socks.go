@@ -47,7 +47,7 @@ var (
 // PortfwdMeta - Metadata about a portfwd listener
 type SocksProxyMeta struct {
 	ID        int
-	SessionID uint32
+	SessionID string
 	BindAddr  string
 	Username  string
 	Password  string

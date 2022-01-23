@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -198,8 +199,8 @@ func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPLis
 		Key:             req.Key,
 		ACME:            req.ACME,
 		EnforceOTP:      req.EnforceOTP,
-		LongPollTimeout: req.LongPollTimeout,
-		LongPollJitter:  req.LongPollJitter,
+		LongPollTimeout: time.Duration(req.LongPollTimeout),
+		LongPollJitter:  time.Duration(req.LongPollJitter),
 	}
 	job, err := c2.StartHTTPListenerJob(conf)
 	if err != nil {
@@ -245,8 +246,8 @@ func (rpc *Server) StartHTTPListener(ctx context.Context, req *clientpb.HTTPList
 		Secure:          false,
 		ACME:            false,
 		EnforceOTP:      req.EnforceOTP,
-		LongPollTimeout: req.LongPollTimeout,
-		LongPollJitter:  req.LongPollJitter,
+		LongPollTimeout: time.Duration(req.LongPollTimeout),
+		LongPollJitter:  time.Duration(req.LongPollJitter),
 	}
 	job, err := c2.StartHTTPListenerJob(conf)
 	if err != nil {

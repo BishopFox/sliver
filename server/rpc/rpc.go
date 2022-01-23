@@ -116,7 +116,7 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp GenericResponse) erro
 	}
 
 	// Overwrite unused implant fields before re-serializing
-	request.SessionID = 0
+	request.SessionID = ""
 	request.BeaconID = ""
 
 	reqData, err := proto.Marshal(req)
@@ -150,7 +150,7 @@ func (rpc *Server) asyncGenericHandler(req GenericRequest, resp GenericResponse)
 	}
 
 	// Overwrite unused implant fields before re-serializing
-	request.SessionID = 0
+	request.SessionID = ""
 	request.BeaconID = ""
 	reqData, err := proto.Marshal(req)
 	if err != nil {

@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
@@ -111,7 +112,7 @@ func InstallFromFile(aliasGzFilePath string, autoOverwrite bool, con *console.Sl
 		con.PrintErrorf("Failed to parse %s: %s\n", ManifestFileName, err)
 		return nil
 	}
-	installPath := filepath.Join(assets.GetAliasesDir(), filepath.Base(manifest.Name))
+	installPath := filepath.Join(assets.GetAliasesDir(), filepath.Base(manifest.CommandName))
 	if _, err := os.Stat(installPath); !os.IsNotExist(err) {
 		if !autoOverwrite {
 			con.PrintInfof("Alias '%s' already exists\n", manifest.CommandName)
@@ -152,9 +153,12 @@ func InstallFromFile(aliasGzFilePath string, autoOverwrite bool, con *console.Sl
 }
 
 func installArtifact(aliasGzFilePath string, installPath, artifactPath string, con *console.SliverConsoleClient) error {
-	data, err := util.ReadFileFromTarGz(aliasGzFilePath, artifactPath)
+	data, err := util.ReadFileFromTarGz(aliasGzFilePath, fmt.Sprintf("./%s", strings.TrimPrefix(artifactPath, "/")))
 	if err != nil {
 		return err
+	}
+	if len(data) == 0 {
+		return fmt.Errorf("empty file %s", artifactPath)
 	}
 	localArtifactPath := filepath.Join(installPath, util.ResolvePath(artifactPath))
 	artifactDir := filepath.Dir(localArtifactPath)

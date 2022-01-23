@@ -274,6 +274,9 @@ const (
 	MsgOpenSession
 	// MsgCloseSession - Close the active session
 	MsgCloseSession
+
+	// MsgRegistryDeleteKeyReq
+	MsgRegistryDeleteKeyReq
 )
 
 // Constants to replace enums
@@ -425,6 +428,8 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgRegistryWriteReq
 	case *RegistryCreateKeyReq:
 		return MsgRegistryCreateKeyReq
+	case *RegistryDeleteKeyReq:
+		return MsgRegistryDeleteKeyReq
 
 	case *WGPortForwardStartReq:
 		return MsgWGStartPortFwdReq

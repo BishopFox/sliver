@@ -78,7 +78,7 @@ func (p *PreludeSessionMapper) AddSession(s *clientpb.Session) error {
 	// GUI, we need to have a unique name for them.
 	// Plus, having the ID in the name will help the user to make the
 	// correlation.
-	sessName := fmt.Sprintf("%s-%d", s.Name, s.ID)
+	sessName := fmt.Sprintf("%s-%s", s.Name, s.ID)
 	beacon := Beacon{
 		Name:      sessName,
 		Target:    p.conf.OperatorURL,

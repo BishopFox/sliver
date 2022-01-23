@@ -28,6 +28,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
@@ -41,10 +43,11 @@ type ArmoryPackageParser func(*ArmoryPackage, bool, ArmoryHTTPConfig) (*minisign
 
 var (
 	indexParsers = map[string]ArmoryIndexParser{
-		"api.github.com": GithubArmoryIndexParser,
+		"api.github.com": GithubAPIArmoryIndexParser,
 	}
 	pkgParsers = map[string]ArmoryPackageParser{
-		"api.github.com": GithubArmoryPackageParser,
+		"api.github.com": GithubAPIArmoryPackageParser,
+		"github.com":     GithubArmoryPackageParser,
 	}
 )
 
@@ -62,6 +65,10 @@ type armoryPkgResponse struct {
 	Minisig  string `json:"minisig"` // Minisig
 	TarGzURL string `json:"tar_gz_url"`
 }
+
+//
+// Default Parsers for Self-Hosted Armories
+//
 
 // DefaultArmoryParser - Parse the armory index directly from the url
 func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig) (*ArmoryIndex, error) {
@@ -163,6 +170,10 @@ func DefaultArmoryPkgParser(armoryPkg *ArmoryPackage, sigOnly bool, clientConfig
 	return sig, tarGz, nil
 }
 
+//
+// GitHub API Parsers
+//
+
 type GithubAsset struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
@@ -187,8 +198,8 @@ type GithubRelease struct {
 	Assets      []GithubAsset `json:"assets"`
 }
 
-// GithubArmoryIndexParser - Parse the armory index from a GitHub release
-func GithubArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig) (*ArmoryIndex, error) {
+// GithubAPIArmoryIndexParser - Parse the armory index from a GitHub release
+func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig) (*ArmoryIndex, error) {
 	var publicKey minisign.PublicKey
 	err := publicKey.UnmarshalText([]byte(armoryConfig.PublicKey))
 	if err != nil {
@@ -206,6 +217,9 @@ func GithubArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Arm
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusForbidden {
+			return nil, errors.New("you hit the github api rate limit (60 req/hr), try later")
+		}
 		return nil, errors.New("api returned non-200 status code")
 	}
 
@@ -260,8 +274,8 @@ func GithubArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Arm
 	return armoryIndex, nil
 }
 
-// GithubArmoryPackageParser - Retrieve the minisig and tar.gz for an armory package from a GitHub release
-func GithubArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
+// GithubAPIArmoryPackageParser - Retrieve the minisig and tar.gz for an armory package from a GitHub release
+func GithubAPIArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
 	var publicKey minisign.PublicKey
 	err := publicKey.UnmarshalText([]byte(armoryPkg.PublicKey))
 	if err != nil {
@@ -279,6 +293,9 @@ func GithubArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, clientCon
 		return nil, nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusForbidden {
+			return nil, nil, errors.New("you hit the github api rate limit (60 req/hr), try later")
+		}
 		return nil, nil, errors.New("api returned non-200 status code")
 	}
 
@@ -325,6 +342,100 @@ func GithubArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, clientCon
 	return sig, tarGz, err
 }
 
+//
+// GitHub Parsers
+//
+
+// GithubArmoryPackageParser - Uses github.com instead of api.github.com to download packages
+func GithubArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
+	latestTag, err := githubLatestTagParser(armoryPkg, clientConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+	client := httpClient(clientConfig)
+
+	sigURL, err := url.Parse(armoryPkg.RepoURL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse armory pkg url '%s': %s", armoryPkg.RepoURL, err)
+	}
+	sigURL.Path = path.Join(sigURL.Path, "releases", "download", latestTag, fmt.Sprintf("%s.minisig", armoryPkg.CommandName))
+	sigResp, err := client.Get(sigURL.String())
+	if err != nil {
+		return nil, nil, err
+	}
+	defer sigResp.Body.Close()
+	if sigResp.StatusCode != http.StatusOK {
+		return nil, nil, fmt.Errorf("failed to get signature for armory pkg '%s': %s", armoryPkg.RepoURL, sigResp.Status)
+	}
+	var body []byte
+	body, err = ioutil.ReadAll(sigResp.Body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read resp body '%s': %s", armoryPkg.RepoURL, err)
+	}
+	sig, err := parsePkgMinsig(body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse pkg sig '%s': %s", armoryPkg.RepoURL, err)
+	}
+
+	var tarGz []byte
+	if !sigOnly {
+		tarGzURL, err := url.Parse(armoryPkg.RepoURL)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to parse armory pkg url '%s': %s", armoryPkg.RepoURL, err)
+		}
+		tarGzURL.Path = path.Join(tarGzURL.Path, "releases", "download", latestTag, fmt.Sprintf("%s.tar.gz", armoryPkg.CommandName))
+		tarGzResp, err := client.Get(tarGzURL.String())
+		if err != nil {
+			return nil, nil, err
+		}
+		defer tarGzResp.Body.Close()
+		if tarGzResp.StatusCode != http.StatusOK {
+			return nil, nil, fmt.Errorf("failed to get tar.gz for armory pkg '%s': %s", armoryPkg.RepoURL, tarGzResp.Status)
+		}
+		tarGz, err = ioutil.ReadAll(tarGzResp.Body)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to read tar.gz body '%s': %s", armoryPkg.RepoURL, err)
+		}
+	}
+
+	return sig, tarGz, nil
+}
+
+// We need to intercept the 302 redirect to determine the latest version tag
+func githubLatestTagParser(armoryPkg *ArmoryPackage, clientConfig ArmoryHTTPConfig) (string, error) {
+	client := httpClient(clientConfig)
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	latestURL, err := url.Parse(armoryPkg.RepoURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse armory pkg url '%s': %s", armoryPkg.RepoURL, err)
+	}
+	latestURL.Path = path.Join(latestURL.Path, "releases", "latest")
+	latestRedirect, err := client.Get(latestURL.String())
+	if err != nil {
+		return "", fmt.Errorf("http get failed armory pkg url '%s': %s", armoryPkg.RepoURL, err)
+	}
+	if latestRedirect.StatusCode != http.StatusFound {
+		return "", fmt.Errorf("unexpected response status (wanted 302) '%s': %s", armoryPkg.RepoURL, latestRedirect.Status)
+	}
+	if latestRedirect.Header.Get("Location") == "" {
+		return "", fmt.Errorf("no location header in response '%s'", armoryPkg.RepoURL)
+	}
+	latestLocationURL, err := url.Parse(latestRedirect.Header.Get("Location"))
+	if err != nil {
+		return "", fmt.Errorf("failed to parse location header '%s'->'%s': %s",
+			armoryPkg.RepoURL, latestRedirect.Header.Get("Location"), err)
+	}
+	pathSegments := strings.Split(latestLocationURL.Path, "/")
+	for index, segment := range pathSegments {
+		if segment == "tag" && index+1 < len(pathSegments) {
+			return pathSegments[index+1], nil
+		}
+	}
+	return "", errors.New("tag not found in location header")
+}
+
 func parsePkgMinsig(data []byte) (*minisign.Signature, error) {
 	var sig minisign.Signature
 	err := sig.UnmarshalText(data)
@@ -344,6 +455,7 @@ func httpClient(config ArmoryHTTPConfig) *http.Client {
 			Dial: (&net.Dialer{
 				Timeout: config.Timeout,
 			}).Dial,
+
 			Proxy: http.ProxyURL(config.ProxyURL),
 
 			TLSHandshakeTimeout: config.Timeout,

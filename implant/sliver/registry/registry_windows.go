@@ -127,6 +127,26 @@ func WriteKey(hostname string, hive string, path string, key string, value inter
 	return err
 }
 
+// DeleteKey removes an existing key or value.
+// Removing a value takes precident over removing a key.
+// If neither exists, an error is returned.
+func DeleteKey(hostname string, hive string, path string, key string) error {
+	k, err := openKey(hostname, hive, path, registry.SET_VALUE)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("could not open key %s: %s\n", path, err.Error())
+		// {{end}}
+		return err
+	}
+
+	err = k.DeleteValue(key)
+	if err != nil {
+		err = registry.DeleteKey(*k, key)
+	}
+
+	return err
+}
+
 // ListSubKeys returns all the subkeys for the provided path
 func ListSubKeys(hostname string, hive string, path string) (results []string, err error) {
 	k, err := openKey(hostname, hive, path, registry.READ|registry.RESOURCE_LIST|registry.FULL_RESOURCE_DESCRIPTOR)

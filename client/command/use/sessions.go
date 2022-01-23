@@ -29,7 +29,7 @@ func UseSessionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session, err := sessions.SelectSession(false, con)
 	if session != nil {
 		con.ActiveTarget.Set(session, nil)
-		con.PrintInfof("Active session %s (%d)\n", session.Name, session.ID)
+		con.PrintInfof("Active session %s (%s)\n", session.Name, session.ID)
 	} else if err != nil {
 		switch err {
 		case sessions.ErrNoSessions:

@@ -98,8 +98,6 @@ const (
 	clientsDirName = "clients"
 	sliversDirName = "slivers"
 
-	encryptKeySize = 16
-
 	// DefaultReconnectInterval - In seconds
 	DefaultReconnectInterval = 60
 	// DefaultMTLSLPort - Default listen port
@@ -254,7 +252,7 @@ func GetSliversDir() string {
 // Sliver Generation Code
 // -----------------------
 
-// SliverShellcode - Generates a sliver shellcode using sRDI
+// SliverShellcode - Generates a sliver shellcode using Donut
 func SliverShellcode(name string, config *models.ImplantConfig) (string, error) {
 	appDir := assets.GetRootAppDir()
 	goConfig := &gogo.GoConfig{
@@ -284,14 +282,16 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 		ldflags[0] += " -H=windowsgui"
 	}
 	// Keep those for potential later use
-	gcflags := fmt.Sprintf("")
-	asmflags := fmt.Sprintf("")
+	gcflags := ""
+	asmflags := ""
 	// trimpath is now a separate flag since Go 1.13
 	trimpath := "-trimpath"
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "pie", tags, ldflags, gcflags, asmflags, trimpath)
+	if err != nil {
+		return "", err
+	}
 	config.FileName = path.Base(dest)
 	shellcode, err := DonutShellcodeFromFile(dest, config.GOARCH, false, "", "", "")
-
 	if err != nil {
 		return "", err
 	}
@@ -362,11 +362,14 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 		ldflags[0] += " -H=windowsgui"
 	}
 	// Keep those for potential later use
-	gcflags := fmt.Sprintf("")
-	asmflags := fmt.Sprintf("")
+	gcflags := ""
+	asmflags := ""
 	// trimpath is now a separate flag since Go 1.13
 	trimpath := "-trimpath"
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags, gcflags, asmflags, trimpath)
+	if err != nil {
+		return "", err
+	}
 	config.FileName = path.Base(dest)
 
 	err = ImplantBuildSave(name, config, dest)
@@ -496,10 +499,12 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	// Generate wg Keys as needed
 	if config.WGc2Enabled {
 		implantPrivKey, _, err := certs.ImplantGenerateWGKeys(config.WGPeerTunIP)
-		_, serverPubKey, err := certs.GetWGServerKeys()
-
 		if err != nil {
-			return "", fmt.Errorf("Failed to embed implant wg keys: %s", err)
+			return "", err
+		}
+		_, serverPubKey, err := certs.GetWGServerKeys()
+		if err != nil {
+			return "", fmt.Errorf("failed to embed implant wg keys: %s", err)
 		}
 		config.WGImplantPrivKey = implantPrivKey
 		config.WGServerPubKey = serverPubKey

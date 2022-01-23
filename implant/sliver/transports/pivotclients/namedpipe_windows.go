@@ -34,14 +34,16 @@ import (
 
 // NamedPipePivotStartSession - Start a TCP pivot session with a peer
 func NamedPipePivotStartSession(uri *url.URL, opts *NamedPipePivotOptions) (*NetConnPivotClient, error) {
-	address := uri.String()
-	address = strings.TrimSuffix(address, "namedpipe://")
-	address = "\\\\" + strings.ReplaceAll(address, "/", "\\")
+	address := "\\\\" + uri.Hostname() + strings.Replace(uri.Path, "/", "\\", -1)
 	// {{if .Config.Debug}}
-	log.Print("Pivot named pipe address: ", address)
+	log.Printf("Pivot named pipe address: %s", address)
+	log.Printf("Options: %+v", opts)
 	// {{end}}
 	conn, err := winio.DialPipe(address, nil)
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to connect to named pipe: %s", err)
+		// {{end}}
 		return nil, err
 	}
 
@@ -53,17 +55,11 @@ func NamedPipePivotStartSession(uri *url.URL, opts *NamedPipePivotOptions) (*Net
 		readDeadline:  opts.ReadDeadline,
 		writeDeadline: opts.WriteDeadline,
 	}
-	err = pivot.peerKeyExchange()
+	err = pivot.KeyExchange()
 	if err != nil {
 		conn.Close()
 		return nil, err
 	}
-	err = pivot.serverKeyExchange()
-	if err != nil {
-		conn.Close()
-		return nil, err
-	}
-
 	return pivot, nil
 }
 

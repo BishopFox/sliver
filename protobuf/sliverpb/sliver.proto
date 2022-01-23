@@ -65,6 +65,12 @@ message BeaconRegister {
   int64 NextCheckin = 5;
 }
 
+message SessionRegister {
+  string ID = 1;
+  Register Register = 2;
+}
+
+
 message OpenSession {
   repeated string C2s = 1;
   int64 Delay = 2;
@@ -602,6 +608,18 @@ message RegistryCreateKey {
   commonpb.Response Response = 9;
 }
 
+message RegistryDeleteKeyReq {
+  string Hive = 1;
+  string Path = 2;
+  string Key = 3;
+  string Hostname = 4;
+  commonpb.Request Request = 9;
+}
+
+message RegistryDeleteKey {
+  commonpb.Response Response = 9;
+}
+
 message RegistrySubKeyListReq {
   string Hive = 1;
   string Path = 2;
@@ -632,7 +650,7 @@ message RegistryValuesList {
 // Tunnel - Tunnel related messages
 message Tunnel {
   uint64 TunnelID = 8 [jstype = JS_STRING];
-  uint32 SessionID = 9;
+  string SessionID = 9;
 }
 
 message TunnelData {
@@ -643,7 +661,7 @@ message TunnelData {
   bool Resend = 5;
 
   uint64 TunnelID = 8 [jstype = JS_STRING];
-  uint32 SessionID = 9;
+  string SessionID = 9;
 }
 
 // ShellReq - Request the implant open a realtime shell tunnel
@@ -689,7 +707,7 @@ message Portfwd {
 message Socks {
 
   uint64 TunnelID = 8 [jstype = JS_STRING];
-  uint32 SessionID = 9;
+  string SessionID = 9;
 }
 
 message SocksData {

@@ -35,6 +35,7 @@ import (
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
 	"github.com/desertbit/grumble"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"golang.org/x/term"
 )
 
 type ArmoryIndex struct {
@@ -102,7 +103,7 @@ func ArmoryCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		indexCache.Range(func(key, value interface{}) bool {
 			cacheEntry := value.(indexCacheEntry)
 			if cacheEntry.LastErr != nil {
-				con.PrintErrorf("%s: %s\n", cacheEntry.RepoURL, cacheEntry.LastErr)
+				con.PrintErrorf("%s - %s\n", cacheEntry.RepoURL, cacheEntry.LastErr)
 			}
 			return true
 		})
@@ -123,7 +124,7 @@ func ArmoryCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				if errorCount == 0 {
 					con.Printf("errors!\n")
 				}
-				con.PrintErrorf("%s: %s\n", cacheEntry.RepoURL, cacheEntry.LastErr)
+				con.PrintErrorf("%s - %s\n", cacheEntry.RepoURL, cacheEntry.LastErr)
 			} else {
 				if cacheEntry.Pkg.IsAlias {
 					aliases = append(aliases, cacheEntry.Alias)
@@ -193,14 +194,14 @@ func AliasExtensionOrBundleCompleter(prefix string, args []string, con *console.
 	results := []string{}
 	aliases, exts := packagesInCache()
 	bundles := bundlesInCache()
-	for _, alias := range aliases {
-		if strings.HasPrefix(alias.CommandName, prefix) {
-			results = append(results, alias.CommandName)
+	for _, aliasPkg := range aliases {
+		if strings.HasPrefix(aliasPkg.CommandName, prefix) {
+			results = append(results, aliasPkg.CommandName)
 		}
 	}
-	for _, extension := range exts {
-		if strings.HasPrefix(extension.CommandName, prefix) {
-			results = append(results, extension.CommandName)
+	for _, extensionPkg := range exts {
+		if strings.HasPrefix(extensionPkg.CommandName, prefix) {
+			results = append(results, extensionPkg.CommandName)
 		}
 	}
 	for _, bundle := range bundles {
@@ -213,6 +214,38 @@ func AliasExtensionOrBundleCompleter(prefix string, args []string, con *console.
 
 // PrintArmoryPackages - Prints the armory packages
 func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.ExtensionManifest, con *console.SliverConsoleClient) {
+	width, _, err := term.GetSize(0)
+	if err != nil {
+		width = 999
+	}
+
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.SetTitle(console.Bold + "Packages" + console.Normal)
+
+	minWidth := 150
+	if minWidth < width {
+		tw.AppendHeader(table.Row{
+			"Command Name",
+			"Version",
+			"Type",
+			"Help",
+			"URL",
+		})
+	} else {
+		tw.AppendHeader(table.Row{
+			"Command Name",
+			"Version",
+			"Type",
+			"Help",
+		})
+	}
+
+	// Columns start at 1 for some dumb reason
+	tw.SortBy([]table.SortBy{
+		{Number: 1, Mode: table.Asc},
+	})
+
 	type pkgInfo struct {
 		CommandName string
 		Version     string
@@ -221,13 +254,13 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 		URL         string
 	}
 	entries := []pkgInfo{}
-	for _, alias := range aliases {
+	for _, aliasPkg := range aliases {
 		entries = append(entries, pkgInfo{
-			CommandName: alias.CommandName,
-			Version:     alias.Version,
+			CommandName: aliasPkg.CommandName,
+			Version:     aliasPkg.Version,
 			Type:        "Alias",
-			Help:        alias.Help,
-			URL:         alias.RepoURL,
+			Help:        aliasPkg.Help,
+			URL:         aliasPkg.RepoURL,
 		})
 	}
 	for _, extension := range exts {
@@ -240,34 +273,30 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 		})
 	}
 
-	tw := table.NewWriter()
-	tw.SetStyle(settings.GetTableStyle(con))
-	tw.SetTitle(console.Bold + "Packages" + console.Normal)
-	tw.AppendHeader(table.Row{
-		"Command Name",
-		"Version",
-		"Type",
-		"Help",
-		"URL",
-	})
-	tw.SortBy([]table.SortBy{
-		{Name: "Command Name", Mode: table.Asc},
-	})
-
+	rows := []table.Row{}
 	for _, pkg := range entries {
 		color := console.Normal
 		if extensions.CmdExists(pkg.CommandName, con.App) {
 			color = console.Green
 		}
-		tw.AppendRow(table.Row{
-			fmt.Sprintf(color+"%s"+console.Normal, pkg.CommandName),
-			fmt.Sprintf(color+"%s"+console.Normal, pkg.Version),
-			fmt.Sprintf(color+"%s"+console.Normal, pkg.Type),
-			fmt.Sprintf(color+"%s"+console.Normal, pkg.Help),
-			fmt.Sprintf(color+"%s"+console.Normal, pkg.URL),
-		})
+		if minWidth < width {
+			rows = append(rows, table.Row{
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.CommandName),
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.Version),
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.Type),
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.Help),
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.URL),
+			})
+		} else {
+			rows = append(rows, table.Row{
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.CommandName),
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.Version),
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.Type),
+				fmt.Sprintf(color+"%s"+console.Normal, pkg.Help),
+			})
+		}
 	}
-
+	tw.AppendRows(rows)
 	con.Printf("%s\n", tw.Render())
 }
 
@@ -359,7 +388,7 @@ func fetchIndex(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig
 		return
 	}
 	if repoURL.Scheme != "https" && repoURL.Scheme != "http" {
-		armoryResult.LastErr = errors.New("invalid URL scheme")
+		armoryResult.LastErr = errors.New("invalid repo url scheme in index")
 		return
 	}
 
@@ -372,7 +401,9 @@ func fetchIndex(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig
 	if index != nil {
 		armoryResult.Index = *index
 	}
-	armoryResult.LastErr = err
+	if err != nil {
+		armoryResult.LastErr = fmt.Errorf("failed to parse armory index: %s", err)
+	}
 }
 
 func fetchPackageSignatures(indexes []ArmoryIndex, clientConfig ArmoryHTTPConfig) {
@@ -410,11 +441,11 @@ func fetchPackageSignature(wg *sync.WaitGroup, armoryPkg *ArmoryPackage, clientC
 
 	repoURL, err := url.Parse(armoryPkg.RepoURL)
 	if err != nil {
-		pkgCacheEntry.LastErr = err
+		pkgCacheEntry.LastErr = fmt.Errorf("failed to parse repo url: %s", err)
 		return
 	}
 	if repoURL.Scheme != "https" && repoURL.Scheme != "http" {
-		pkgCacheEntry.LastErr = errors.New("invalid URL scheme")
+		pkgCacheEntry.LastErr = errors.New("invalid repo url scheme in pkg")
 		return
 	}
 
@@ -425,7 +456,7 @@ func fetchPackageSignature(wg *sync.WaitGroup, armoryPkg *ArmoryPackage, clientC
 		sig, _, err = DefaultArmoryPkgParser(armoryPkg, true, clientConfig)
 	}
 	if err != nil {
-		pkgCacheEntry.LastErr = err
+		pkgCacheEntry.LastErr = fmt.Errorf("failed to parse pkg manifest: %s", err)
 		return
 	}
 	if sig != nil {
@@ -440,7 +471,7 @@ func fetchPackageSignature(wg *sync.WaitGroup, armoryPkg *ArmoryPackage, clientC
 	if err == nil {
 		manifestData, err := base64.StdEncoding.DecodeString(sig.TrustedComment)
 		if err != nil {
-			pkgCacheEntry.LastErr = err
+			pkgCacheEntry.LastErr = fmt.Errorf("failed to b64 decode trusted comment: %s", err)
 			return
 		}
 		if armoryPkg.IsAlias {
@@ -448,6 +479,8 @@ func fetchPackageSignature(wg *sync.WaitGroup, armoryPkg *ArmoryPackage, clientC
 		} else {
 			pkgCacheEntry.Extension, err = extensions.ParseExtensionManifest(manifestData)
 		}
-		pkgCacheEntry.LastErr = err
+		if err != nil {
+			pkgCacheEntry.LastErr = fmt.Errorf("failed to parse trusted manifest in pkg signature: %s", err)
+		}
 	}
 }
