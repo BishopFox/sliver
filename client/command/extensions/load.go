@@ -225,7 +225,7 @@ func loadExtension(goos string, goarch string, ext *ExtensionManifest, ctx *grum
 		Request: con.ActiveTarget.Request(ctx),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err.Error())
+		con.PrintErrorf("List extensions error: %s\n", err.Error())
 		return err
 	}
 	if extList.Response != nil && extList.Response.Err != "" {
@@ -297,7 +297,6 @@ func loadDep(goos string, goarch string, depName string, ctx *grumble.Context, c
 
 func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	var (
-		callExtension *sliverpb.CallExtension
 		err           error
 		extensionArgs []byte
 		extName       string
@@ -328,7 +327,7 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	binPath, err := ext.getFileForTarget(ctx.Command.Name, session.OS, session.Arch)
+	binPath, err := ext.getFileForTarget(ctx.Command.Name, goos, goarch)
 	if err != nil {
 		con.PrintErrorf("Failed to read extension file: %s\n", err)
 		return
@@ -381,17 +380,21 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				con.PrintErrorf("Failed to decode call ext response %s\n", err)
 				return
 			}
-			PrintExtOutput(extName, callExtension, con)
+			PrintExtOutput(extName, ext.CommandName, callExtResp, con)
 		})
 		con.PrintAsyncResponse(callExtResp.Response)
 	} else {
-		PrintExtOutput(extName, callExtension, con)
+		PrintExtOutput(extName, ext.CommandName, callExtResp, con)
 	}
 }
 
 // PrintExtOutput - Print the ext execution output
-func PrintExtOutput(extName string, callExtension *sliverpb.CallExtension, con *console.SliverConsoleClient) {
-	con.PrintInfof("Successfully executed %s\n", extName)
+func PrintExtOutput(extName string, commandName string, callExtension *sliverpb.CallExtension, con *console.SliverConsoleClient) {
+	if extName == commandName {
+		con.PrintInfof("Successfully executed %s\n", extName)
+	} else {
+		con.PrintInfof("Successfully executed %s (%s)\n", commandName, extName)
+	}
 	if 0 < len(callExtension.Output) {
 		con.PrintInfof("Got output:\n%s", string(callExtension.Output))
 		con.Println()
