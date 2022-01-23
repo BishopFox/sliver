@@ -44,6 +44,7 @@ import (
 const (
 	defaultTimeout = 60
 
+	// ManifestFileName - Extension manifest file name
 	ManifestFileName = "extension.json"
 )
 
@@ -114,7 +115,7 @@ func ExtensionLoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.PrintInfof("Added %s command: %s\n", extCmd.CommandName, extCmd.Help)
 }
 
-// ParseExtensions - Parse extension files
+// LoadExtensionManifest - Parse extension files
 func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 	data, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
@@ -213,7 +214,7 @@ func ExtensionRegisterCommand(extCmd *ExtensionManifest, con *console.SliverCons
 	con.App.AddCommand(extensionCmd)
 }
 
-func loadExtension(goos string, goarch string, ext *ExtensionManifest, ctx *grumble.Context, con *console.SliverConsoleClient) error {
+func loadExtension(goos string, goarch string, checkCache bool, ext *ExtensionManifest, ctx *grumble.Context, con *console.SliverConsoleClient) error {
 	var extensionList []string
 	binPath, err := ext.getFileForTarget(ctx.Command.Name, goos, goarch)
 	if err != nil {
@@ -221,17 +222,19 @@ func loadExtension(goos string, goarch string, ext *ExtensionManifest, ctx *grum
 	}
 
 	// Try to find the extension in the loaded extensions
-	extList, err := con.Rpc.ListExtensions(context.Background(), &sliverpb.ListExtensionsReq{
-		Request: con.ActiveTarget.Request(ctx),
-	})
-	if err != nil {
-		con.PrintErrorf("List extensions error: %s\n", err.Error())
-		return err
+	if checkCache {
+		extList, err := con.Rpc.ListExtensions(context.Background(), &sliverpb.ListExtensionsReq{
+			Request: con.ActiveTarget.Request(ctx),
+		})
+		if err != nil {
+			con.PrintErrorf("List extensions error: %s\n", err.Error())
+			return err
+		}
+		if extList.Response != nil && extList.Response.Err != "" {
+			return errors.New(extList.Response.Err)
+		}
+		extensionList = extList.Names
 	}
-	if extList.Response != nil && extList.Response.Err != "" {
-		return errors.New(extList.Response.Err)
-	}
-	extensionList = extList.Names
 	depLoaded := false
 	for _, extName := range extensionList {
 		if !depLoaded && extName == ext.DependsOn {
@@ -280,8 +283,8 @@ func registerExtension(goos string, ext *ExtensionManifest, binData []byte, ctx 
 }
 
 func loadDep(goos string, goarch string, depName string, ctx *grumble.Context, con *console.SliverConsoleClient) error {
-	depExt, f := loadedExtensions[depName]
-	if f {
+	depExt, ok := loadedExtensions[depName]
+	if ok {
 		depBinPath, err := depExt.getFileForTarget(depExt.CommandName, goos, goarch)
 		if err != nil {
 			return err
@@ -322,7 +325,8 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	if err = loadExtension(goos, goarch, ext, ctx, con); err != nil {
+	checkCache := session != nil
+	if err = loadExtension(goos, goarch, checkCache, ext, ctx, con); err != nil {
 		con.PrintErrorf("Could not load extension: %s\n", err)
 		return
 	}

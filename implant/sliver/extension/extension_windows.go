@@ -37,15 +37,15 @@ const (
 )
 
 type WindowsExtension struct {
-	id          string
-	data        []byte
-	module      *memmod.Module
-	arch        string
-	init        string
-	onFinish    func([]byte)
-	serverStore bool
+	id       string
+	data     []byte
+	module   *memmod.Module
+	arch     string
+	init     string
+	onFinish func([]byte)
 }
 
+// NewWindowsExtension - Load a new windows extension
 func NewWindowsExtension(data []byte, id string, arch string, init string) *WindowsExtension {
 	return &WindowsExtension{
 		id:   id,
@@ -55,14 +55,17 @@ func NewWindowsExtension(data []byte, id string, arch string, init string) *Wind
 	}
 }
 
+// GetID - Get the extension ID
 func (w *WindowsExtension) GetID() string {
 	return w.id
 }
 
+// GetArch - Get the extension architecture
 func (w *WindowsExtension) GetArch() string {
 	return w.arch
 }
 
+// Load - Load the extension into memory
 func (w *WindowsExtension) Load() error {
 	var err error
 	if len(w.data) == 0 {
@@ -86,6 +89,7 @@ func (w *WindowsExtension) Load() error {
 	return nil
 }
 
+// Call - Call an extension export
 func (w *WindowsExtension) Call(export string, arguments []byte, onFinish func([]byte)) error {
 	var (
 		argumentsPtr  uintptr
