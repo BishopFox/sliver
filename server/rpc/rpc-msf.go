@@ -20,6 +20,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"path"
@@ -170,7 +171,7 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 		payload = "meterpreter/reverse_https"
 		uri = generateCallbackURI()
 	default:
-		return MSFStage, fmt.Errorf("Protocol not supported")
+		return MSFStage, errors.New("protocol not supported")
 	}
 
 	// We only support windows at the moment

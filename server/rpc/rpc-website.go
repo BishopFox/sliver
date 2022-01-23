@@ -20,7 +20,6 @@ package rpc
 
 import (
 	"context"
-	"fmt"
 	"mime"
 	"path/filepath"
 
@@ -83,7 +82,7 @@ func (rpc *Server) WebsiteRemove(ctx context.Context, req *clientpb.Website) (*c
 
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.WebsiteEvent,
-		Data:      []byte(fmt.Sprintf("%s", req.Name)),
+		Data:      []byte(req.Name),
 	})
 
 	return &commonpb.Empty{}, nil
@@ -122,7 +121,7 @@ func (rpc *Server) WebsiteAddContent(ctx context.Context, req *clientpb.WebsiteA
 
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.WebsiteEvent,
-		Data:      []byte(fmt.Sprintf("%s", req.Name)),
+		Data:      []byte(req.Name),
 	})
 
 	return website.MapContent(req.Name, false)
@@ -149,7 +148,7 @@ func (rpc *Server) WebsiteUpdateContent(ctx context.Context, req *clientpb.Websi
 
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.WebsiteEvent,
-		Data:      []byte(fmt.Sprintf("%s", req.Name)),
+		Data:      []byte(req.Name),
 	})
 
 	return website.MapContent(req.Name, false)
@@ -167,7 +166,7 @@ func (rpc *Server) WebsiteRemoveContent(ctx context.Context, req *clientpb.Websi
 
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.WebsiteEvent,
-		Data:      []byte(fmt.Sprintf("%s", req.Name)),
+		Data:      []byte(req.Name),
 	})
 
 	return website.MapContent(req.Name, false)

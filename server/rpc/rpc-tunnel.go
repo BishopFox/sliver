@@ -63,15 +63,8 @@ func (s *Server) CreateTunnel(ctx context.Context, req *sliverpb.Tunnel) (*slive
 // CloseTunnel - Client requests we close a tunnel
 func (s *Server) CloseTunnel(ctx context.Context, req *sliverpb.Tunnel) (*commonpb.Empty, error) {
 	err := core.Tunnels.Close(req.TunnelID)
-
-	if _, ok := toImplantCache[req.TunnelID]; ok {
-		delete(toImplantCache, req.TunnelID)
-	}
-
-	if _, ok := fromImplantCache[req.TunnelID]; ok {
-		delete(fromImplantCache, req.TunnelID)
-	}
-
+	delete(toImplantCache, req.TunnelID)
+	delete(fromImplantCache, req.TunnelID)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +100,7 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 
 			go func() {
 
-				sendCache, _ := toImplantCache[tunnel.ID]
+				sendCache := toImplantCache[tunnel.ID]
 				for tunnelData := range tunnel.FromImplant {
 
 					tunnelLog.Debugf("Tunnel %d: From implant %d byte(s), seq: %d ack: %d",
@@ -170,7 +163,7 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 
 			go func() {
 				session := core.Sessions.Get(tunnel.SessionID)
-				sendCache, _ := toImplantCache[tunnel.ID]
+				sendCache := toImplantCache[tunnel.ID]
 				for data := range tunnel.ToImplant {
 					tunnelLog.Debugf("Tunnel %d: To implant %d byte(s), seq: %d", tunnel.ID, len(data), tunnel.ToImplantSequence)
 					tunnelData := sliverpb.TunnelData{

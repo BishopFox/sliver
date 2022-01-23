@@ -187,11 +187,11 @@ func (rpc *Server) SaveImplantProfile(ctx context.Context, profile *clientpb.Imp
 		}
 		core.EventBroker.Publish(core.Event{
 			EventType: consts.ProfileEvent,
-			Data:      []byte(fmt.Sprintf("%s", profile.Name)),
+			Data:      []byte(profile.Name),
 		})
 		return profile, nil
 	}
-	return nil, errors.New("Invalid profile name")
+	return nil, errors.New("invalid profile name")
 }
 
 // DeleteImplantProfile - Delete an implant profile
@@ -204,7 +204,7 @@ func (rpc *Server) DeleteImplantProfile(ctx context.Context, req *clientpb.Delet
 	if err == nil {
 		core.EventBroker.Publish(core.Event{
 			EventType: consts.ProfileEvent,
-			Data:      []byte(fmt.Sprintf("%s", profile.Name)),
+			Data:      []byte(profile.Name),
 		})
 	}
 	return &commonpb.Empty{}, err
@@ -224,7 +224,7 @@ func (rpc *Server) DeleteImplantBuild(ctx context.Context, req *clientpb.DeleteR
 	if err == nil {
 		core.EventBroker.Publish(core.Event{
 			EventType: consts.BuildEvent,
-			Data:      []byte(fmt.Sprintf("%s", build.Name)),
+			Data:      []byte(build.Name),
 		})
 	}
 	return &commonpb.Empty{}, err

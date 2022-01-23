@@ -134,15 +134,8 @@ func (s *Server) CreateSocks(ctx context.Context, req *sliverpb.Socks) (*sliverp
 // CloseSocks - Client requests we close a Socks
 func (s *Server) CloseSocks(ctx context.Context, req *sliverpb.Socks) (*commonpb.Empty, error) {
 	err := core.SocksTunnels.Close(req.TunnelID)
-
-	if _, ok := toImplantCacheSocks[req.TunnelID]; ok {
-		delete(toImplantCacheSocks, req.TunnelID)
-	}
-
-	if _, ok := fromImplantCacheSocks[req.TunnelID]; ok {
-		delete(fromImplantCacheSocks, req.TunnelID)
-	}
-
+	delete(toImplantCacheSocks, req.TunnelID)
+	delete(fromImplantCacheSocks, req.TunnelID)
 	if err != nil {
 		return nil, err
 	}

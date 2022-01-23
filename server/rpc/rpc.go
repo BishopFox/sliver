@@ -44,7 +44,7 @@ var (
 )
 
 const (
-	defaultTimeout = time.Duration(30 * time.Second)
+	minTimeout = time.Duration(30 * time.Second)
 )
 
 // Server - gRPC server
@@ -132,12 +132,13 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp GenericResponse) erro
 	if err != nil {
 		return err
 	}
-	return rpc.getError(resp.(GenericResponse))
+	return rpc.getError(resp)
 }
 
 // asyncGenericHandler - Generic handler for async request/response's for beacon tasks
 func (rpc *Server) asyncGenericHandler(req GenericRequest, resp GenericResponse) error {
-	rpcLog.Debugf("Async Generic Handler: %#v", req)
+	// VERY VERBOSE
+	// rpcLog.Debugf("Async Generic Handler: %#v", req)
 	request := req.GetRequest()
 	if request == nil {
 		return ErrMissingRequestField
@@ -202,7 +203,7 @@ func (rpc *Server) getClientCommonName(ctx context.Context) string {
 func (rpc *Server) getTimeout(req GenericRequest) time.Duration {
 	timeout := req.GetRequest().Timeout
 	if time.Duration(timeout) < time.Second {
-		return defaultTimeout
+		return minTimeout
 	}
 	return time.Duration(timeout)
 }
