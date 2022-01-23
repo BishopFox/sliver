@@ -38,11 +38,13 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/desertbit/grumble"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
 	defaultTimeout = 60
 
+	// ManifestFileName - Extension manifest file name
 	ManifestFileName = "extension.json"
 )
 
@@ -113,7 +115,7 @@ func ExtensionLoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.PrintInfof("Added %s command: %s\n", extCmd.CommandName, extCmd.Help)
 }
 
-// ParseExtensions - Parse extension files
+// LoadExtensionManifest - Parse extension files
 func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 	data, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
@@ -178,11 +180,11 @@ func ExtensionRegisterCommand(extCmd *ExtensionManifest, con *console.SliverCons
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Bool("s", "save", false, "Save output to disk")
+			// f.Bool("s", "save", false, "Save output to disk")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
-			if len(extCmd.Arguments) > 0 {
+			if 0 < len(extCmd.Arguments) {
 				// BOF specific
 				for _, arg := range extCmd.Arguments {
 					var (
@@ -212,27 +214,26 @@ func ExtensionRegisterCommand(extCmd *ExtensionManifest, con *console.SliverCons
 	con.App.AddCommand(extensionCmd)
 }
 
-func loadExtension(ctx *grumble.Context, session *clientpb.Session, con *console.SliverConsoleClient, ext *ExtensionManifest) error {
+func loadExtension(goos string, goarch string, checkCache bool, ext *ExtensionManifest, ctx *grumble.Context, con *console.SliverConsoleClient) error {
 	var extensionList []string
-	binPath, err := ext.getFileForTarget(ctx.Command.Name, session.OS, session.Arch)
+	binPath, err := ext.getFileForTarget(ctx.Command.Name, goos, goarch)
 	if err != nil {
 		return err
 	}
+
 	// Try to find the extension in the loaded extensions
-	if len(session.Extensions) == 0 {
+	if checkCache {
 		extList, err := con.Rpc.ListExtensions(context.Background(), &sliverpb.ListExtensionsReq{
 			Request: con.ActiveTarget.Request(ctx),
 		})
 		if err != nil {
-			con.PrintErrorf("%s\n", err.Error())
+			con.PrintErrorf("List extensions error: %s\n", err.Error())
 			return err
 		}
 		if extList.Response != nil && extList.Response.Err != "" {
 			return errors.New(extList.Response.Err)
 		}
 		extensionList = extList.Names
-	} else {
-		extensionList = session.Extensions
 	}
 	depLoaded := false
 	for _, extName := range extensionList {
@@ -248,7 +249,7 @@ func loadExtension(ctx *grumble.Context, session *clientpb.Session, con *console
 		// BOFs are not loaded by the DLL loader, but we make sure the loader itself is loaded
 		// Auto load the coff loader if we have it
 		if !depLoaded {
-			if errLoad := loadDep(session, con, ctx, ext.DependsOn); errLoad != nil {
+			if errLoad := loadDep(goos, goarch, ext.DependsOn, ctx, con); errLoad != nil {
 				return errLoad
 			}
 		}
@@ -258,31 +259,17 @@ func loadExtension(ctx *grumble.Context, session *clientpb.Session, con *console
 	if err != nil {
 		return err
 	}
-	if errRegister := registerExtension(con, ext, binData, session, ctx); errRegister != nil {
+	if errRegister := registerExtension(goos, ext, binData, ctx, con); errRegister != nil {
 		return errRegister
-	}
-	// Update session info
-	if filepath.Ext(binPath) != ".o" {
-		// Don't update session for BOFs, we don't cache them
-		// on the implant side (yet)
-		// update the Session info
-		_, err = con.Rpc.UpdateSession(context.Background(), &clientpb.UpdateSession{
-			Extensions: extensionList,
-			SessionID:  session.ID,
-		})
-		if err != nil {
-			con.PrintErrorf("%s\n", err.Error())
-			return err
-		}
 	}
 	return nil
 }
 
-func registerExtension(con *console.SliverConsoleClient, ext *ExtensionManifest, binData []byte, session *clientpb.Session, ctx *grumble.Context) error {
+func registerExtension(goos string, ext *ExtensionManifest, binData []byte, ctx *grumble.Context, con *console.SliverConsoleClient) error {
 	registerResp, err := con.Rpc.RegisterExtension(context.Background(), &sliverpb.RegisterExtensionReq{
 		Name:    ext.CommandName,
 		Data:    binData,
-		OS:      session.OS,
+		OS:      goos,
 		Init:    ext.Init,
 		Request: con.ActiveTarget.Request(ctx),
 	})
@@ -295,10 +282,10 @@ func registerExtension(con *console.SliverConsoleClient, ext *ExtensionManifest,
 	return nil
 }
 
-func loadDep(session *clientpb.Session, con *console.SliverConsoleClient, ctx *grumble.Context, depName string) error {
-	depExt, f := loadedExtensions[depName]
-	if f {
-		depBinPath, err := depExt.getFileForTarget(depExt.CommandName, session.OS, session.Arch)
+func loadDep(goos string, goarch string, depName string, ctx *grumble.Context, con *console.SliverConsoleClient) error {
+	depExt, ok := loadedExtensions[depName]
+	if ok {
+		depBinPath, err := depExt.getFileForTarget(depExt.CommandName, goos, goarch)
 		if err != nil {
 			return err
 		}
@@ -306,22 +293,30 @@ func loadDep(session *clientpb.Session, con *console.SliverConsoleClient, ctx *g
 		if err != nil {
 			return err
 		}
-		return registerExtension(con, depExt, depBinData, session, ctx)
+		return registerExtension(goos, depExt, depBinData, ctx, con)
 	}
 	return fmt.Errorf("missing dependency %s", depName)
 }
 
 func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	var (
-		callExtension *sliverpb.CallExtension
 		err           error
 		extensionArgs []byte
 		extName       string
 		entryPoint    string
 	)
-	session := con.ActiveTarget.GetSessionInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
+	}
+	var goos string
+	var goarch string
+	if session != nil {
+		goos = session.OS
+		goarch = session.Arch
+	} else {
+		goos = beacon.OS
+		goarch = beacon.Arch
 	}
 
 	ext, ok := loadedExtensions[ctx.Command.Name]
@@ -330,23 +325,15 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	if err = loadExtension(ctx, session, con, ext); err != nil {
+	checkCache := session != nil
+	if err = loadExtension(goos, goarch, checkCache, ext, ctx, con); err != nil {
 		con.PrintErrorf("Could not load extension: %s\n", err)
 		return
 	}
 
-	var outFilePath *os.File
-	if ctx.Flags.Bool("save") {
-		outFile := path.Base(fmt.Sprintf("%s_%s*.log", ctx.Command.Name, session.GetHostname()))
-		outFilePath, err = ioutil.TempFile("", outFile)
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return
-		}
-	}
-	binPath, err := ext.getFileForTarget(ctx.Command.Name, session.OS, session.Arch)
+	binPath, err := ext.getFileForTarget(ctx.Command.Name, goos, goarch)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("Failed to read extension file: %s\n", err)
 		return
 	}
 
@@ -361,7 +348,7 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		// Beacon Object File -- requires a COFF loader
 		extensionArgs, err = getBOFArgs(ctx, binPath, ext)
 		if err != nil {
-			con.PrintErrorf("Error: %s\n", err)
+			con.PrintErrorf("BOF args error: %s\n", err)
 			return
 		}
 		extName = ext.DependsOn
@@ -373,10 +360,11 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		extName = ext.CommandName
 		entryPoint = ext.Entrypoint
 	}
+
 	ctrl := make(chan bool)
 	msg := fmt.Sprintf("Executing %s ...", ctx.Command.Name)
 	con.SpinUntil(msg, ctrl)
-	callExtension, err = con.Rpc.CallExtension(context.Background(), &sliverpb.CallExtensionReq{
+	callExtResp, err := con.Rpc.CallExtension(context.Background(), &sliverpb.CallExtensionReq{
 		Name:    extName,
 		Export:  entryPoint,
 		Args:    extensionArgs,
@@ -385,21 +373,38 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s\n", err.Error())
+		con.PrintErrorf("Call extension error: %s\n", err.Error())
 		return
+	}
+
+	if callExtResp.Response != nil && callExtResp.Response.Async {
+		con.AddBeaconCallback(callExtResp.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, callExtResp)
+			if err != nil {
+				con.PrintErrorf("Failed to decode call ext response %s\n", err)
+				return
+			}
+			PrintExtOutput(extName, ext.CommandName, callExtResp, con)
+		})
+		con.PrintAsyncResponse(callExtResp.Response)
+	} else {
+		PrintExtOutput(extName, ext.CommandName, callExtResp, con)
+	}
+}
+
+// PrintExtOutput - Print the ext execution output
+func PrintExtOutput(extName string, commandName string, callExtension *sliverpb.CallExtension, con *console.SliverConsoleClient) {
+	if extName == commandName {
+		con.PrintInfof("Successfully executed %s\n", extName)
+	} else {
+		con.PrintInfof("Successfully executed %s (%s)\n", commandName, extName)
+	}
+	if 0 < len(string(callExtension.Output)) {
+		con.PrintInfof("Got output:\n%s\n", callExtension.Output)
 	}
 	if callExtension.Response != nil && callExtension.Response.Err != "" {
 		con.PrintErrorf("%s\n", callExtension.Response.Err)
 		return
-	}
-	con.PrintInfof("Successfully executed %s\n", extName)
-	if len(callExtension.Output) > 0 {
-		con.PrintInfof("Got output:\n%s", string(callExtension.Output))
-		if outFilePath != nil {
-			outFilePath.Write(callExtension.Output)
-			con.PrintInfof("Output saved to %s\n", outFilePath.Name())
-		}
-		con.Println()
 	}
 }
 

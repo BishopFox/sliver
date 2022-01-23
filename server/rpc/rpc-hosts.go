@@ -24,12 +24,11 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/log"
 )
 
-var (
-	hostsRPCLog = log.NamedLogger("rpc", "hosts")
-)
+// var (
+// 	hostsRPCLog = log.NamedLogger("rpc", "hosts")
+// )
 
 // Hosts - List all hosts
 func (rpc *Server) Hosts(ctx context.Context, _ *commonpb.Empty) (*clientpb.AllHosts, error) {

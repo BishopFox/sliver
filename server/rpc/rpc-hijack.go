@@ -100,9 +100,9 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 		}
 
 		if p.Config.Format != clientpb.OutputFormat_SHARED_LIB {
-			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf(
+			return nil, status.Error(codes.InvalidArgument,
 				"please select a profile targeting a shared library format",
-			))
+			)
 		}
 
 		name, config := generate.ImplantConfigFromProtobuf(p.Config)
@@ -145,7 +145,7 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 		Path:    req.TargetLocation,
 		Request: &commonpb.Request{
 			SessionID: session.ID,
-			Timeout:   int64(defaultTimeout),
+			Timeout:   int64(minTimeout),
 		},
 	})
 

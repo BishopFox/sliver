@@ -602,20 +602,17 @@ func getPrivsHandler(data []byte, resp RPCResponse) {
 
 func registerExtensionHandler(data []byte, resp RPCResponse) {
 	registerReq := &sliverpb.RegisterExtensionReq{}
-
 	err := proto.Unmarshal(data, registerReq)
 	if err != nil {
 		return
 	}
-
 	ext := extension.NewWindowsExtension(registerReq.Data, registerReq.Name, registerReq.OS, registerReq.Init)
-	extension.Add(ext)
 	err = ext.Load()
-	registerResp := &sliverpb.RegisterExtension{
-		Response: &commonpb.Response{},
-	}
+	registerResp := &sliverpb.RegisterExtension{Response: &commonpb.Response{}}
 	if err != nil {
 		registerResp.Response.Err = err.Error()
+	} else {
+		extension.Add(ext)
 	}
 	data, err = proto.Marshal(registerResp)
 	resp(data, err)
@@ -623,15 +620,12 @@ func registerExtensionHandler(data []byte, resp RPCResponse) {
 
 func callExtensionHandler(data []byte, resp RPCResponse) {
 	callReq := &sliverpb.CallExtensionReq{}
-
 	err := proto.Unmarshal(data, callReq)
 	if err != nil {
 		return
 	}
 
-	callResp := &sliverpb.CallExtension{
-		Response: &commonpb.Response{},
-	}
+	callResp := &sliverpb.CallExtension{Response: &commonpb.Response{}}
 	gotOutput := false
 	err = extension.Run(callReq.Name, callReq.Export, callReq.Args, func(out []byte) {
 		gotOutput = true

@@ -293,7 +293,7 @@ func ListBeacons() ([]*models.Beacon, error) {
 	return beacons, err
 }
 
-// PendingBeaconTasksByBeaconID - Select a Beacon by ID
+// PendingBeaconTasksByBeaconID - Select a Beacon by ID, ordered by creation time
 func PendingBeaconTasksByBeaconID(beaconID string) ([]*models.BeaconTask, error) {
 	tasks := []*models.BeaconTask{}
 	err := Session().Where(
@@ -301,7 +301,7 @@ func PendingBeaconTasksByBeaconID(beaconID string) ([]*models.BeaconTask, error)
 			BeaconID: uuid.FromStringOrNil(beaconID),
 			State:    models.PENDING,
 		},
-	).Find(&tasks).Error
+	).Order("created_at").Find(&tasks).Error
 	return tasks, err
 }
 

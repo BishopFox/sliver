@@ -215,6 +215,8 @@ message Mkdir {
 
 message DownloadReq {
   string Path = 1;
+  int64 Start = 2;
+  int64 Stop = 3;
 
   commonpb.Request Request = 9;
 }
@@ -223,7 +225,9 @@ message Download {
   string Path = 1;
   string Encoder = 2;
   bool Exists = 3;
-  bytes Data = 4;
+  int64 Start = 4;
+  int64 Stop = 5;
+  bytes Data = 6;
 
   commonpb.Response Response = 9;
 }

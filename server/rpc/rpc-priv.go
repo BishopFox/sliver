@@ -86,7 +86,7 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		if err != nil {
 			return nil, err
 		}
-		shellcode, err = ioutil.ReadFile(shellcodePath)
+		shellcode, _ = ioutil.ReadFile(shellcodePath)
 	}
 	data, err := proto.Marshal(&sliverpb.InvokeGetSystemReq{
 		Data:           shellcode,

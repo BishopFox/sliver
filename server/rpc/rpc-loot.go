@@ -25,13 +25,12 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/loot"
 )
 
-var (
-	lootRPCLog = log.NamedLogger("rpc", "loot")
-)
+// var (
+// 	lootRPCLog = log.NamedLogger("rpc", "loot")
+// )
 
 // LootAdd - Add loot
 func (rpc *Server) LootAdd(ctx context.Context, lootReq *clientpb.Loot) (*clientpb.Loot, error) {

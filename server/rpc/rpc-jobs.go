@@ -43,7 +43,7 @@ const (
 
 var (
 	// ErrInvalidPort - Invalid TCP port number
-	ErrInvalidPort = errors.New("Invalid listener port")
+	ErrInvalidPort = errors.New("invalid listener port")
 )
 
 // GetJobs - List jobs
@@ -78,7 +78,7 @@ func (rpc *Server) KillJob(ctx context.Context, kill *clientpb.KillJobReq) (*cli
 		}
 	} else {
 		killJob.Success = false
-		err = errors.New("Invalid Job ID")
+		err = errors.New("invalid Job ID")
 	}
 	return killJob, err
 }
