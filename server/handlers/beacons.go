@@ -123,6 +123,8 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) *slive
 	}
 
 	beaconHandlerLog.Infof("Beacon %s requested pending task(s)", beaconTasks.ID)
+
+	// Pending tasks are ordered by their creation time.
 	pendingTasks, err := db.PendingBeaconTasksByBeaconID(beaconTasks.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		beaconHandlerLog.Errorf("Beacon task database error: %s", err)
