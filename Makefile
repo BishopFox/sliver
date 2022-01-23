@@ -89,7 +89,9 @@ ifeq ($(MAKECMDGOALS), linux)
 		-X $(VERSION_PKG).CompiledAt=$(COMPILED_AT) \
 		-X $(VERSION_PKG).GithubReleasesURL=$(RELEASES_URL) \
 		-X $(VERSION_PKG).GitCommit=$(GIT_COMMIT) \
-		-X $(VERSION_PKG).GitDirty=$(GIT_DIRTY)"
+		-X $(VERSION_PKG).GitDirty=$(GIT_DIRTY) \
+		-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUB_KEY) \
+		-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 endif
 
 #
