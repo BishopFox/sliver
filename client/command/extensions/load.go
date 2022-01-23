@@ -395,9 +395,8 @@ func PrintExtOutput(extName string, commandName string, callExtension *sliverpb.
 	} else {
 		con.PrintInfof("Successfully executed %s (%s)\n", commandName, extName)
 	}
-	if 0 < len(callExtension.Output) {
-		con.PrintInfof("Got output:\n%s", string(callExtension.Output))
-		con.Println()
+	if 0 < len(string(callExtension.Output)) {
+		con.PrintInfof("Got output:\n%s\n", callExtension.Output)
 	}
 	if callExtension.Response != nil && callExtension.Response.Err != "" {
 		con.PrintErrorf("%s\n", callExtension.Response.Err)
