@@ -61,7 +61,7 @@ func SelectSession(onlyAlive bool, con *console.SliverConsoleClient) (*clientpb.
 	for _, session := range sessions.Sessions {
 		keys = append(keys, session.ID)
 	}
-	sort.Strings(keys) // Fucking Go can't sort int32's, so we convert to/from int's
+	sort.Strings(keys)
 
 	outputBuf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)

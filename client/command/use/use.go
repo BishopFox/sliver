@@ -70,7 +70,7 @@ func SessionOrBeaconByID(id string, con *console.SliverConsoleClient) (*clientpb
 	}
 	if err == nil {
 		for _, session := range sessions.Sessions {
-			if session.ID == id {
+			if strings.HasPrefix(session.ID, id) {
 				return session, nil, nil
 			}
 		}

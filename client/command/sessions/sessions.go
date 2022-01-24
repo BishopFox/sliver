@@ -55,7 +55,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				con.PrintErrorf("%s\n", err)
 			}
 			con.Println()
-			con.PrintInfof("Killed %s (%d)\n", session.Name, session.ID)
+			con.PrintInfof("Killed %s (%s)\n", session.Name, session.ID)
 		}
 		return
 	}
