@@ -99,7 +99,7 @@ func (j *jobs) Get(jobID int) *Job {
 		return nil
 	}
 	val, ok := j.active.Load(jobID)
-	if !ok {
+	if ok {
 		return val.(*Job)
 	}
 	return nil
