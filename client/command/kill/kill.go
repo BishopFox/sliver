@@ -46,7 +46,7 @@ func KillCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
-		con.PrintInfof("Killed %s (%d)\n", session.Name, session.ID)
+		con.PrintInfof("Killed %s (%s)\n", session.Name, session.ID)
 		con.ActiveTarget.Background()
 		return
 	} else if beacon != nil {
