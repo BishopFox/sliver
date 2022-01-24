@@ -17,7 +17,6 @@ account
 accountant
 achiever
 acid
-acknowledgment
 acoustic
 acoustics
 acrylic
@@ -33,9 +32,7 @@ addiction
 addition
 address
 adjustment
-administration
-adrenalin
-adult
+adrenalinz
 adulthood
 advance
 advancement
@@ -406,9 +403,6 @@ bloom
 bloomers
 blossom
 blouse
-blow
-blowgun
-blowhole
 blue
 blueberry
 boar
@@ -437,10 +431,7 @@ bookend
 booklet
 booster
 boot
-bootee
-bootie
 boots
-booty
 border
 bore
 bosom
@@ -464,8 +455,6 @@ box
 boxer
 boxspring
 boy
-boyfriend
-bra
 brace
 bracelet
 bracket
@@ -483,7 +472,6 @@ breadcrumb
 break
 breakfast
 breakpoint
-breast
 breastplate
 breath
 breeze
@@ -492,9 +480,7 @@ brick
 bricklaying
 bridge
 brief
-briefs
 brilliant
-british
 broad
 broccoli
 brochure
@@ -509,7 +495,6 @@ brood
 brook
 broom
 brother
-brother-in-law
 brow
 brown
 brush
@@ -535,9 +520,6 @@ bull-fighter
 bumper
 bun
 bunch
-bungalow
-bunghole
-bunkhouse
 burglar
 burlesque
 burn
@@ -586,7 +568,6 @@ campanile
 can
 canal
 cancel
-cancer
 candelabra
 candidate
 candle
@@ -658,7 +639,6 @@ cauliflower
 cause
 caution
 cave
-c-clamp
 cd
 ceiling
 celebration
@@ -703,7 +683,6 @@ change
 channel
 chaos
 chap
-chapel
 chapter
 character
 chard
@@ -713,14 +692,11 @@ charlatan
 charles
 charm
 chart
-chastity
 chasuble
 chateau
 chauffeur
-chauvinist
 check
 checkroom
-cheek
 cheetah
 chef
 chemical
@@ -729,8 +705,6 @@ cheque
 cherries
 cherry
 chess
-chest
-chick
 chicken
 chicory
 chief
@@ -745,23 +719,18 @@ chin
 chino
 chip
 chipmunk
-chit-chat
-chivalry
 chive
 chocolate
 choice
-choker
 chop
 chopstick
 chord
 chowder
 chrome
-chromolithograph
 chronograph
 chronometer
 chub
 chug
-church
 churn
 cicada
 cigarette
@@ -846,8 +815,6 @@ collection
 college
 collision
 colloquia
-colon
-colonisation
 colony
 color
 colt
@@ -857,8 +824,6 @@ comb
 combat
 combination
 combine
-comfort
-comfortable
 comic
 comma
 command
@@ -1017,7 +982,6 @@ credenza
 credit
 creditor
 creek
-creme brulee
 crest
 crew
 crib
@@ -1036,8 +1000,6 @@ croissant
 crook
 crop
 cross
-cross-contamination
-cross-stitch
 crotch
 croup
 crow
@@ -1046,16 +1008,13 @@ crown
 crude
 crush
 cry
-crystallography
 cub
 cuckoo
 cucumber
-cuff-links
 cultivar
 cultivator
 culture
 culvert
-cummerbund
 cup
 cupboard
 cupcake
@@ -1085,7 +1044,6 @@ cymbals
 cynic
 cyst
 cytoplasm
-dad
 daffodil
 dagger
 dahlia
@@ -1105,8 +1063,6 @@ dashboard
 data
 database
 date
-daughter
-david
 day
 daybed
 dead
@@ -1182,7 +1138,6 @@ diamond
 diaphragm
 diarist
 dibble
-dickey
 dictaphone
 diction
 dictionary
@@ -1221,7 +1176,6 @@ discovery
 discrepancy
 discussion
 disease
-disembodiment
 disengagement
 disguise
 disgust
@@ -1427,7 +1381,6 @@ essay
 establishment
 estate
 estimate
-estrogen
 estuary
 ethernet
 ethics
@@ -1453,7 +1406,6 @@ excuse
 executor
 exercise
 exhaust
-ex-husband
 exile
 existence
 exit
@@ -1507,11 +1459,6 @@ fanny
 fanny-pack
 farm
 farmer
-fascia
-fat
-father
-father-in-law
-fatigues
 faucet
 fault
 fawn
@@ -1520,7 +1467,6 @@ fear
 feast
 feather
 feature
-fedelini
 fedora
 fee
 feed
@@ -1528,8 +1474,6 @@ feedback
 feel
 feeling
 feet
-felony
-female
 fen
 fence
 fencing
@@ -1565,7 +1509,6 @@ finish
 finisher
 fir
 fire
-fireman
 fireplace
 firewall
 fish
@@ -1589,7 +1532,6 @@ flavor
 flax
 fleck
 fleece
-flesh
 flight
 flintlock
 flip-flops
@@ -1726,7 +1668,6 @@ geese
 gelding
 gem
 gemsbok
-gender
 gene
 general
 genetics
@@ -1796,12 +1737,6 @@ grain
 gram
 grammar
 grand
-granddaughter
-grandfather
-grandmom
-grandmother
-grandson
-granny
 grape
 grapefruit
 graph
@@ -1813,9 +1748,6 @@ gratitude
 gray
 grease
 great
-great-grandfather
-great-grandmother
-greek
 green
 greenhouse
 grenade
@@ -1845,11 +1777,7 @@ gum
 gumshoes
 gun
 gutter
-guy
 gym
-gymnast
-gymnastics
-gynaecology
 gyro
 habit
 hacienda
@@ -1859,20 +1787,15 @@ hail
 hair
 haircut
 half
-half-brother
-half-sister
 halibut
 hall
 hallway
-hamaki
 hamburger
 hammer
 hammock
 hamster
 hand
 handball
-hand-holding
-handicap
 handle
 handlebar
 handmaiden
@@ -1924,11 +1847,8 @@ hedgehog
 heel
 height
 heirloom
-helen
 helicopter
 helium
-hell
-hellcat
 hello
 helmet
 helo
@@ -2016,7 +1936,6 @@ husband
 hut
 hutch
 hyacinth
-hybridisation
 hydrant
 hydraulics
 hydrofoil
@@ -2094,8 +2013,6 @@ inspector
 instance
 instruction
 instrument
-instrumentalist
-instrumentation
 insulation
 insurance
 insurgence
@@ -2135,17 +2052,13 @@ item
 jackal
 jacket
 jaguar
-jail
-jailhouse
 jam
-james
 jar
 jasmine
 jaw
 jealousy
 jeans
 jeep
-jeff
 jelly
 jellyfish
 jet
@@ -2155,7 +2068,6 @@ jiffy
 job
 jockey
 jodhpurs
-joey
 jogging
 join
 joint
@@ -2180,7 +2092,6 @@ jury
 justice
 jute
 kale
-kamikaze
 kangaroo
 karate
 karen
@@ -2216,9 +2127,7 @@ kiss
 kitchen
 kite
 kitten
-kitty
 kleenex
-klomps
 knee
 kneejerk
 knickers
@@ -2236,7 +2145,6 @@ laborer
 labour
 lace
 lack
-lacquerware
 ladder
 lady
 ladybug
@@ -2508,7 +2416,6 @@ metro
 metronome
 mezzanine
 mice
-microlending
 microwave
 mid-course
 middle
@@ -2562,19 +2469,14 @@ mobile
 moccasins
 mocha
 mode
-model
 modem
 mole
-mom
 moment
-monastery
-monasticism
 money
 monger
 monitor
 monkey
 monocle
-monotheism
 monsoon
 monster
 month
@@ -2592,8 +2494,6 @@ mosquito
 most
 motel
 moth
-mother
-mother-in-law
 motion
 motor
 motorboat
@@ -2625,7 +2525,6 @@ music-making
 mustache
 mustard
 mutt
-mycoplasma
 n
 nail
 name
@@ -2659,9 +2558,6 @@ netball
 netbook
 netsuke
 network
-neurobiologist
-neuropathologist
-neuropsychiatry
 news
 newspaper
 newsprint
@@ -2835,9 +2731,7 @@ panda
 panic
 pannier
 panpipe
-pansy
 panther
-panties
 pantologist
 pantology
 pantry
@@ -2913,7 +2807,6 @@ pearl
 pedal
 peen
 peer
-peer-to-peer
 pegboard
 pelican
 pelt
@@ -3065,7 +2958,6 @@ poof
 pool
 pop
 popcorn
-poppy
 popsicle
 population
 populist
@@ -3084,7 +2976,6 @@ post
 postage
 postbox
 poster
-pot
 potato
 potential
 potty
@@ -3112,7 +3003,6 @@ president
 press
 pressroom
 pressure
-pressurisation
 price
 pride
 priest
@@ -3250,7 +3140,6 @@ rambler
 ramie
 ranch
 random
-randomisation
 range
 rank
 raspberry
@@ -3303,10 +3192,8 @@ regret
 regular
 regulation
 reindeer
-reinscription
 reject
 relation
-relationship
 relative
 relaxation
 release
@@ -3345,7 +3232,6 @@ respect
 respite
 respond
 response
-responsibility
 rest
 restaurant
 result
@@ -3377,7 +3263,6 @@ rifle
 right
 rim
 ring
-ringworm
 rip
 ripple
 rise
@@ -3481,13 +3366,11 @@ scallion
 scanner
 scarecrow
 scarf
-scarification
 scene
 scenery
 scent
 schedule
 scheme
-schizophrenic
 schnitzel
 school
 schoolhouse
@@ -3546,7 +3429,6 @@ sense
 sensitive
 sentence
 sepal
-septicaemia
 series
 servant
 serve
@@ -3648,9 +3530,6 @@ sing
 singer
 single
 sink
-sir
-sister
-sister-in-law
 sitar
 site
 situation
@@ -3747,8 +3626,6 @@ source
 sourwood
 sousaphone
 south
-south america
-south korea
 sow
 soy
 soybean
@@ -3846,15 +3723,6 @@ steeple
 stem
 stencil
 step
-step-aunt
-step-brother
-stepdaughter
-step-daughter
-step-father
-step-grandfather
-step-grandmother
-stepmother
-step-mother
 stepping-stone
 steps
 step-sister
@@ -4165,7 +4033,6 @@ total
 tote
 touch
 tough
-tough-guy
 tour
 tourist
 towel
@@ -4266,7 +4133,6 @@ two
 type
 typewriter
 typhoon
-tyvek
 ukulele
 umbrella
 unblinking
@@ -4314,16 +4180,12 @@ vase
 vast
 vault
 vaulting
-veal
 vegetable
-vegetarianism
 vegetation
 vehicle
 veil
 vein
 veldt
-vellum
-velodrome
 velvet
 vengeance
 venom
@@ -4347,8 +4209,6 @@ village
 vineyard
 vinyl
 viola
-violence
-violet
 violin
 virginal
 virtue

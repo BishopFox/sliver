@@ -64,7 +64,6 @@ late
 long 
 modern 
 old 
-old-fashioned 
 quick 
 rapid 
 short 
@@ -83,7 +82,6 @@ cooing
 deafening 
 faint 
 harsh 
-high-pitched 
 hissing 
 hushed 
 husky 
@@ -237,7 +235,7 @@ friendly
 funny 
 gentle 
 glorious 
- good 
+good 
 happy 
 healthy 
 helpful 
@@ -463,7 +461,6 @@ broad
 joint
 formal
 limited
-conservative
 lovely
 usual
 ltd
@@ -471,7 +468,6 @@ unable
 rural
 initial
 substantial
-christian
 bright
 average
 leading
@@ -484,7 +480,6 @@ working
 overall
 female
 afraid
-democratic
 growing
 sufficient
 scientific
@@ -508,7 +503,6 @@ dry
 historical
 thin
 daily
-southern
 increasing
 wild
 alone
@@ -522,14 +516,10 @@ upper
 apparent
 tall
 busy
-bloody
 prepared
-russian
 moral
 careful
 clean
-attractive
-japanese
 vital
 thick
 alternative
@@ -565,13 +555,11 @@ fundamental
 odd
 crucial
 inner
-used
 criminal
 contemporary
 sharp
 sick
 near
-roman
 massive
 unique
 secondary
@@ -621,7 +609,6 @@ keen
 flat
 silent
 indian
-video-taped
 worried
 pale
 statutory
@@ -645,7 +632,6 @@ rapid
 adequate
 fixed
 sweet
-administrative
 wooden
 remarkable
 comprehensive
@@ -675,8 +661,6 @@ advanced
 extreme
 classical
 fit
-favourite
-socialist
 widespread
 confident
 straight
@@ -699,7 +683,6 @@ satisfied
 conscious
 developing
 strategic
-holy
 smooth
 dominant
 remote
@@ -731,8 +714,6 @@ fat
 tight
 monetary
 round
-psychological
-violent
 unemployed
 inevitable
 junior
@@ -762,7 +743,6 @@ steady
 classic
 equivalent
 intellectual
-victorian
 level
 ultimate
 creative
@@ -816,11 +796,8 @@ liable
 multiple
 ruling
 curious
-arab
 sole
-jewish
 managing
-pregnant
 latin
 nearby
 exact
@@ -833,7 +810,6 @@ electoral
 urgent
 presidential
 controversial
-oral
 everyday
 encouraging
 organic
@@ -853,9 +829,7 @@ disappointed
 frightened
 full-time
 gastric
-capitalist
 romantic
-naked
 reluctant
 magnificent
 convenient
@@ -886,7 +860,6 @@ aggressive
 spare
 painful
 abstract
-asian
 associated
 legislative
 monthly
@@ -901,13 +874,11 @@ ridiculous
 amazing
 comparable
 successive
-working-class
 realistic
 back
 decent
 unnecessary
 flying
-fucking
 random
 influential
 dull
@@ -941,8 +912,6 @@ delicate
 mild
 occupational
 excessive
-progressive
-iraqi
 exceptional
 integrated
 striking
@@ -952,7 +921,6 @@ harsh
 combined
 fierce
 handsome
-characteristic
 chronic
 compulsory
 interim
@@ -979,7 +947,6 @@ kind
 advisory
 hostile
 precious
-gay
 accessible
 determined
 excited
@@ -988,8 +955,6 @@ provincial
 smart
 endless
 isolated
-post-war
-drunk
 geographical
 like
 dynamic
@@ -1036,7 +1001,6 @@ polish
 israeli
 developed
 profound
-representative
 enthusiastic
 dreadful
 rigid
@@ -1070,7 +1034,6 @@ bored
 charming
 minimal
 mobile
-turkish
 orange
 rear
 passive
@@ -1113,7 +1076,6 @@ useless
 semantic
 embarrassed
 inherent
-philosophical
 deliberate
 awake
 variable
@@ -1210,14 +1172,12 @@ cheerful
 subjective
 forward
 surviving
-exotic
 purple
 cautious
 visiting
 aggregate
 ethical
 protestant
-teenage
 large-scale
 dying
 disastrous
@@ -1275,19 +1235,16 @@ imaginative
 governing
 accepted
 vocational
-palestinian
 mighty
 puzzled
 worldwide
 handicapped
-organisational
 sunny
 eldest
 eventual
 spontaneous
 vivid
 rude
-nineteenth-century
 faithful
 ministerial
 innovative
@@ -1316,8 +1273,7 @@ famous
 fragile 
 helpful 
 helpless 
-important 
- impossible 
+important
 innocent 
 inquisitive 
 modern 
@@ -1337,7 +1293,7 @@ uninterested
 wandering 
 wild 
 wrong 
- adorable 
+adorable 
 alert 
 average 
 beautiful 
@@ -1417,8 +1373,6 @@ nasty
 new
 nice
 nosy
-nutty
-nutritious 
 odd
 orange
 ordinary
