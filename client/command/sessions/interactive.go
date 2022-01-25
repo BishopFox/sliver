@@ -111,6 +111,8 @@ func InteractiveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				return
 			}
 			c2s = append(c2s, wgC2...)
+		case "https":
+			fallthrough
 		case "http":
 			httpC2, err = generate.ParseHTTPc2(beacon.ActiveC2)
 			if err != nil {

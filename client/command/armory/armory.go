@@ -88,7 +88,10 @@ var (
 	// public key -> armoryPkgCacheEntry
 	pkgCache = sync.Map{}
 
-	cacheTime      = time.Hour // This will kill a download if exceeded so needs to be large
+	// cacheTime - How long to cache the index/pkg manifests
+	cacheTime = time.Hour
+
+	// This will kill a download if exceeded so needs to be large
 	defaultTimeout = 15 * time.Minute
 )
 
