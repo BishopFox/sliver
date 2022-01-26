@@ -150,21 +150,15 @@ func pingHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Env
 }
 
 func socksDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
-	session := core.Sessions.FromImplantConnection(implantConn)
 	tunnelHandlerMutex.Lock()
 	defer tunnelHandlerMutex.Unlock()
+	session := core.Sessions.FromImplantConnection(implantConn)
 	socksData := &sliverpb.SocksData{}
-
 	proto.Unmarshal(data, socksData)
-	//if socksData.CloseConn{
-	//	core.SocksTunnels.Close(socksData.TunnelID)
-	//	return nil
-	//}
-	sessionHandlerLog.Debugf("socksDataHandler:", len(socksData.Data), socksData.Data)
-	SocksTunne := core.SocksTunnels.Get(socksData.TunnelID)
-	if SocksTunne != nil {
-		if session.ID == SocksTunne.SessionID {
-			SocksTunne.FromImplant <- socksData
+	TcpTunnel := core.SocksTunnels.Get(socksData.TunnelID)
+	if TcpTunnel != nil {
+		if session.ID == TcpTunnel.SessionID {
+			TcpTunnel.FromImplant <- socksData
 		} else {
 			sessionHandlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
 		}

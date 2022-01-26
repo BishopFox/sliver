@@ -1290,7 +1290,7 @@ func appendOrigin(name, origin string) string {
 
 // LOC record helper function
 func locCheckNorth(token string, latitude uint32) (uint32, bool) {
-	if latitude > 90 * 1000 * 60 * 60 {
+	if latitude > 90*1000*60*60 {
 		return latitude, false
 	}
 	switch token {
@@ -1304,7 +1304,7 @@ func locCheckNorth(token string, latitude uint32) (uint32, bool) {
 
 // LOC record helper function
 func locCheckEast(token string, longitude uint32) (uint32, bool) {
-	if longitude > 180 * 1000 * 60 * 60 {
+	if longitude > 180*1000*60*60 {
 		return longitude, false
 	}
 	switch token {

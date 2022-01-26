@@ -2649,33 +2649,35 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	}
 	socksCmd.AddCommand(&grumble.Command{
-		Name:     consts.StartStr,
-		Help:     "Start an in-band SOCKS5 proxy",
-		LongHelp: help.GetHelpFor([]string{consts.Socks5Str}),
+		Name:     "add",
+		Help:     "Create a new SOCKS5 Proxy",
+		LongHelp: help.GetHelpFor([]string{consts.PortfwdStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("H", "host", "127.0.0.1", "Bind a Socks5 Host")
-			f.String("P", "port", "1081", "Bind a Socks5 Port")
-			f.String("u", "user", "", "socks5 auth username (will generate random password)")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("H", "host", "0.0.0.0", "bind port forward to interface")
+			f.String("P", "port", "1081", "bind port forward to interface")
+			f.String("u", "user", "test", "socks auth user")
+			f.String("p", "pass", "qwe123", "socks auth pass")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			socks.SocksStartCmd(ctx, con)
+			socks.SocksAddCmd(ctx, con)
 			con.Println()
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
 	socksCmd.AddCommand(&grumble.Command{
-		Name:     consts.StopStr,
-		Help:     "Stop a SOCKS5 proxy",
-		LongHelp: help.GetHelpFor([]string{consts.Socks5Str}),
+		Name:     "rm",
+		Help:     "Remove a SOCKS5 Proxy",
+		LongHelp: help.GetHelpFor([]string{consts.PortfwdStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "router timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Int("i", "id", 0, "id of portfwd to remove")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			socks.SocksStopCmd(ctx, con)
+			socks.SocksRmCmd(ctx, con)
 			con.Println()
 			return nil
 		},

@@ -17,16 +17,13 @@ package core
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-
 import (
-	"sync"
-
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"sync"
 )
 
 var (
-	// TunSocksTunnels - Interating with duplex SocksTunnels
+	// TunSocksTunnelsnels - Interating with duplex SocksTunnels
 	SocksTunnels = tcpTunnel{
 		tunnels: map[uint64]*TcpTunnel{},
 		mutex:   &sync.Mutex{},
@@ -41,9 +38,7 @@ type TcpTunnel struct {
 
 	FromImplant         chan *sliverpb.SocksData
 	FromImplantSequence uint64
-	Client              rpcpb.SliverRPC_SocksProxyServer
 }
-
 type tcpTunnel struct {
 	tunnels map[uint64]*TcpTunnel
 	mutex   *sync.Mutex
@@ -53,10 +48,10 @@ func (t *tcpTunnel) Create(sessionID string) *TcpTunnel {
 	tunnelID := NewTunnelID()
 	session := Sessions.Get(sessionID)
 	tunnel := &TcpTunnel{
-		ID:        tunnelID,
-		SessionID: session.ID,
-		//ToImplant:   make(chan []byte),
-		FromImplant: make(chan *sliverpb.SocksData),
+		ID:                  tunnelID,
+		SessionID:           session.ID,
+		FromImplantSequence: 1,
+		FromImplant:         make(chan *sliverpb.SocksData),
 	}
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -74,7 +69,6 @@ func (t *tcpTunnel) Close(tunnelID uint64) error {
 		return ErrInvalidTunnelID
 	}
 	delete(t.tunnels, tunnelID)
-	//close(tunnel.ToImplant)
 	close(tunnel.FromImplant)
 	return nil
 }

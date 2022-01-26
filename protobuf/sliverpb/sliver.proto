@@ -707,21 +707,32 @@ message Portfwd {
   commonpb.Response Response = 9;
 }
 
-// *** Socks ***
-message Socks {
-
-  uint64 TunnelID = 8 [jstype = JS_STRING];
-  string SessionID = 9;
-}
-
-message SocksData {
-  bytes Data  = 1;
-  bool CloseConn = 2;
+// Socks
+message SocksInfo {
+  string Host = 1;
+  string Port = 2;
   string Username = 3;
   string Password = 4;
   uint64 Sequence = 5;
+  bool CloseConn = 6;
+  uint32 ID = 7;
+  uint64 TunnelID = 9;
+  string BindAddr = 10;
+  commonpb.Request Request = 11;
+}
 
-  uint64 TunnelID = 8 [jstype = JS_STRING];
+message SocksData {
+  uint64 Sequence = 5;
+  bool CloseConn = 6;
+  uint32 ID = 7;
+  bytes Data = 8;
+  uint64 DataLen = 9;
+  uint64 TunnelID = 10;
+  commonpb.Request Request = 11;
+}
+// Socks
+message ListSocks {
+  repeated SocksInfo List = 8;
   commonpb.Request Request = 9;
 }
 

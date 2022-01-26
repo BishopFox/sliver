@@ -177,9 +177,10 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		gogoLog.Infof("--- stdout ---\n%s\n", stdout.String())
 		gogoLog.Infof("--- stderr ---\n%s\n", stderr.String())
 		gogoLog.Info(err)
+		return stdout.Bytes(), fmt.Errorf("stderr : %s \n %s \n", stderr.String(), err.Error())
 	}
 
-	return stdout.Bytes(), err
+	return stdout.Bytes(), nil
 }
 
 // GoBuild - Execute a go build command, returns stdout/error
