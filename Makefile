@@ -3,6 +3,7 @@
 #
 
 GO ?= go
+ARTIFACT_SUFFIX ?= 
 ENV =
 TAGS = -tags osusergo,netgo,cgosqlite,sqlite_omit_load_extension
 
@@ -99,28 +100,28 @@ endif
 #
 .PHONY: default
 default: clean validate-go-version
-	$(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
-	$(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
+	$(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
+	$(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 .PHONY: macos
 macos: clean validate-go-version
-	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
-	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
+	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
+	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 .PHONY: macos-arm64
 macos-arm64: clean validate-go-version
-	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_arm64 ./server
-	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_arm64 ./client
+	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
+	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 .PHONY: linux
 linux: clean validate-go-version
-	GOOS=linux $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server ./server
-	GOOS=linux $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
+	GOOS=linux $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
+	GOOS=linux $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 .PHONY: windows
 windows: clean validate-go-version
-	GOOS=windows $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server.exe ./server
-	GOOS=windows $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client.exe ./client
+	GOOS=windows $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX).exe ./server
+	GOOS=windows $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX).exe ./client
 
 .PHONY: pb
 pb:
@@ -151,5 +152,4 @@ clean-all: clean
 
 .PHONY: clean
 clean:
-	rm -f sliver-client_arm64 sliver-server_arm64
 	rm -f sliver-client sliver-server sliver-*.exe

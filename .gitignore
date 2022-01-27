@@ -40,3 +40,5 @@ sliver-server-windows.zip
 .glide/
 
 .DS_Store
+
+dist/

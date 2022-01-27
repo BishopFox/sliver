@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags: ["v[1-9]+.[0-9]+.[0-9]+"]
-    branches: [master]
+    branches: [master, goreleaser]
 
 jobs:
 
@@ -35,6 +35,8 @@ jobs:
       run: ./go-assets.sh
 
     - name: Make
+      env:
+        ARTIFACT_SUFFIX: _linux
       run: export PATH=/home/runner/go/bin/:$PATH && make linux
   
     - name: Linux Artifacts
@@ -44,6 +46,8 @@ jobs:
         path: ./sliver-*
 
     - name: Make Windows
+      env: 
+        ARTIFACT_SUFFIX: _windows
       run: export PATH=/home/runner/go/bin/:$PATH && make windows
 
     - name: Windows Artifacts
@@ -77,10 +81,14 @@ jobs:
       run: ./go-assets.sh
 
     - name: Make AMD64
+      env: 
+        ARTIFACT_SUFFIX: _macos
       run: make macos
-    
-    # - name: Make ARM64
-    #   run: make macos-arm64
+
+    - name: Make ARM64
+      env: 
+        ARTIFACT_SUFFIX: _macos-arm64
+      run: make macos-arm64
 
     - name: MacOS Artifacts
       uses: actions/upload-artifact@v2
@@ -109,43 +117,34 @@ jobs:
         cat <(echo -e "${{ secrets.SLIVER_GPG }}") | gpg --batch --import
         gpg --list-secret-keys --keyid-format LONG
 
-    - name: Release
-      run: mkdir -p ./release
-
     # Linux
     - name: Linux AMD64
       run: |
-        zip -j ./release/sliver-server_linux.zip ./artifacts/linux/sliver-server
-        zip -j ./release/sliver-client_linux.zip ./artifacts/linux/sliver-client
-        gpg --default-key 4449039C --output ./release/sliver-server_linux.zip.sig --detach-sig ./release/sliver-server_linux.zip
-        gpg --default-key 4449039C --output ./release/sliver-client_linux.zip.sig --detach-sig ./release/sliver-client_linux.zip
-
+        gpg --default-key 4449039C --output ./artifacts/sliver-server_linux.sig --detach-sig ./artifacts/sliver-server_linux
+        gpg --default-key 4449039C --output ./artifacts/sliver-client_linux.sig --detach-sig ./artifacts/sliver-client_linux
+    
     # Windows
     - name: Windows AMD64
       run: |
-        zip -j ./release/sliver-server_windows.zip ./artifacts/windows/sliver-server.exe
-        zip -j ./release/sliver-client_windows.zip ./artifacts/windows/sliver-client.exe
-        gpg --default-key 4449039C --output ./release/sliver-server_windows.zip.sig --detach-sig ./release/sliver-server_windows.zip
-        gpg --default-key 4449039C --output ./release/sliver-client_windows.zip.sig --detach-sig ./release/sliver-client_windows.zip
+        gpg --default-key 4449039C --output ./artifacts/sliver-server_windows.sig --detach-sig ./artifacts/sliver-server_windows
+        gpg --default-key 4449039C --output ./artifacts/sliver-client_windows.sig --detach-sig ./artifacts/sliver-client_windows
 
     # MacOS AMD64
     - name: MacOS AMD64
       run: |
-        zip -j ./release/sliver-server_macos.zip ./artifacts/macos/sliver-server
-        zip -j ./release/sliver-client_macos.zip ./artifacts/macos/sliver-client
-        gpg --default-key 4449039C --output ./release/sliver-server_macos.zip.sig --detach-sig ./release/sliver-server_macos.zip
-        gpg --default-key 4449039C --output ./release/sliver-client_macos.zip.sig --detach-sig ./release/sliver-client_macos.zip
-
+        gpg --default-key 4449039C --output ./artifacts/sliver-server_macos.sig --detach-sig ./artifacts/sliver-server_macos
+        gpg --default-key 4449039C --output ./artifacts/sliver-client_macos.sig --detach-sig ./artifacts/sliver-client_macos
+  
     # MacOS ARM64
-    # - name: Package MacOS ARM64
-    #   run: |
-    #     zip -j ./release/sliver-server_macos-arm64.zip ./artifacts/macos/sliver-server_arm64
-    #     zip -j ./release/sliver-client_macos-arm64.zip ./artifacts/macos/sliver-client_arm64
-
+    - name: Package MacOS ARM64
+      run: |
+        gpg --default-key 4449039C --output ./artifacts/sliver-server_macos-arm64.sig --detach-sig ./artifacts/sliver-server_macos-arm64
+        gpg --default-key 4449039C --output ./artifacts/sliver-client_macos-arm64.sig --detach-sig ./artifacts/sliver-client_macos-arm64
+  
     - name: "Publish Release"
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        prerelease: false
+        prerelease: true
         files: |
           ./release/*
