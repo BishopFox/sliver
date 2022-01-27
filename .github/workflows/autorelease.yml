@@ -42,14 +42,8 @@ jobs:
     - name: Linux Artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: linux
+        name: linux.zip
         path: ./sliver-*
-
-    - name: Linux Artifacts
-      uses: actions/upload-artifact@v2
-      with:
-        name: linux
-        path:  ./sliver-*
 
     - name: Make Windows
       env: 
@@ -61,7 +55,7 @@ jobs:
     - name: Windows Artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: windows
+        name: windows.zip
         path:  ./sliver-*
 
   macos-build:
@@ -101,7 +95,7 @@ jobs:
     - name: MacOS Artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: macos
+        name: macos.zip
         path: ./sliver-*
 
   tagged-release:
