@@ -42,7 +42,7 @@ jobs:
     - name: Linux Artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: linux.zip
+        name: linux
         path: ./sliver-*
 
     - name: Make Windows
@@ -55,7 +55,7 @@ jobs:
     - name: Windows Artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: windows.zip
+        name: windows
         path:  ./sliver-*
 
   macos-build:
@@ -95,7 +95,7 @@ jobs:
     - name: MacOS Artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: macos.zip
+        name: macos
         path: ./sliver-*
 
   tagged-release:
@@ -117,12 +117,9 @@ jobs:
     - name: Extract Artifacts
       run: |
         mkdir -p ./artifacts
-        cd builds
-        ls -lah
-        unzip -o -d ../artifacts linux.zip
-        unzip -o -d ../artifacts macos.zip
-        unzip -o -d ../artifacts windows.zip
-        ls -lah ../artifacts
+        cp ./builds/linux/* ./artifacts
+        cp ./builds/windows/* ./artifacts
+        cp ./builds/macos/* ./artifacts
 
     - id: install-secret-key
       name: GPG Key(s)
