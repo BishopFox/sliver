@@ -136,8 +136,8 @@ jobs:
     # Windows
     - name: Windows AMD64
       run: |
-        gpg --default-key 4449039C --output ./artifacts/sliver-server_windows.sig --detach-sig ./artifacts/sliver-server_windows
-        gpg --default-key 4449039C --output ./artifacts/sliver-client_windows.sig --detach-sig ./artifacts/sliver-client_windows
+        gpg --default-key 4449039C --output ./artifacts/sliver-server_windows.sig --detach-sig ./artifacts/sliver-server_windows.exe
+        gpg --default-key 4449039C --output ./artifacts/sliver-client_windows.sig --detach-sig ./artifacts/sliver-client_windows.exe
 
     # MacOS AMD64
     - name: MacOS AMD64
@@ -157,4 +157,4 @@ jobs:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         prerelease: true
         files: |
-          ./release/*
+          ./artifacts/*
