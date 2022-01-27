@@ -45,10 +45,18 @@ jobs:
         name: linux
         path: ./sliver-*
 
+    - name: Linux Artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: linux
+        path:  ./sliver-*
+
     - name: Make Windows
       env: 
         ARTIFACT_SUFFIX: _windows
-      run: export PATH=/home/runner/go/bin/:$PATH && make windows
+      run: |
+        make clean
+        export PATH=/home/runner/go/bin/:$PATH && make windows
 
     - name: Windows Artifacts
       uses: actions/upload-artifact@v2
@@ -106,10 +114,18 @@ jobs:
     timeout-minutes: 45
 
     steps:
-    - run: mkdir -p ./release && mkdir -p ./artifacts
+  
+    - run: mkdir -p ./artifacts
     - uses: actions/download-artifact@v2
       with:
         path: ./artifacts
+
+    - name: Extract Artifacts
+      run: | 
+        for f in ./artifacts/*.zip; do
+          unzip -o $f -d ./artifacts
+        done
+        rm -f ./artifacts/*.zip
 
     - id: install-secret-key
       name: GPG Key(s)
