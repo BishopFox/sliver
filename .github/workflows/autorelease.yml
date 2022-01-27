@@ -115,17 +115,18 @@ jobs:
 
     steps:
   
-    - run: mkdir -p ./artifacts
+    - run: mkdir -p ./builds
     - uses: actions/download-artifact@v2
       with:
-        path: ./artifacts
+        path: ./builds
 
     - name: Extract Artifacts
-      run: | 
-        for f in ./artifacts/*.zip; do
+      run: |
+        ls -alh ./builds
+        mkdir -p ./artifacts
+        for f in ./builds/*; do
           unzip -o $f -d ./artifacts
         done
-        rm -f ./artifacts/*.zip
 
     - id: install-secret-key
       name: GPG Key(s)
