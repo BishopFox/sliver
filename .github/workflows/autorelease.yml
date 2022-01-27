@@ -119,7 +119,7 @@ jobs:
         ls -alh ./builds
         mkdir -p ./artifacts
         for f in ./builds/*; do
-          unzip -o $f -d ./artifacts
+          unzip -o -d ./artifacts $f
         done
 
     - id: install-secret-key
