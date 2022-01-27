@@ -116,11 +116,13 @@ jobs:
 
     - name: Extract Artifacts
       run: |
-        ls -alh ./builds
         mkdir -p ./artifacts
-        for f in ./builds/*; do
-          unzip -o -d ./artifacts $f
-        done
+        cd builds
+        ls -lah
+        unzip -o -d ../artifacts linux.zip
+        unzip -o -d ../artifacts macos.zip
+        unzip -o -d ../artifacts windows.zip
+        ls -lah ../artifacts
 
     - id: install-secret-key
       name: GPG Key(s)
