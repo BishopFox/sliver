@@ -109,7 +109,7 @@ func PrintExecuteAssembly(execAssembly *sliverpb.ExecuteAssembly, hostname strin
 	var err error
 	if ctx.Flags.Bool("save") {
 		outFile := filepath.Base(fmt.Sprintf("%s_%s*.log", ctx.Command.Name, hostname))
-		outFilePath, err = ioutil.TempFile("", outFile)
+		outFilePath, _ = ioutil.TempFile("", outFile)
 	}
 	con.PrintInfof("Assembly output:\n%s", string(execAssembly.GetOutput()))
 	if outFilePath != nil {

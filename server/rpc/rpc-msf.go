@@ -64,7 +64,7 @@ func (rpc *Server) Msf(ctx context.Context, req *clientpb.MSFReq) (*sliverpb.Tas
 		arch = beacon.Arch
 	}
 
-	config := msf.VenomConfig{
+	rawPayload, err := msf.VenomPayload(msf.VenomConfig{
 		Os:         os,
 		Arch:       msf.Arch(arch),
 		Payload:    req.Payload,
@@ -73,8 +73,7 @@ func (rpc *Server) Msf(ctx context.Context, req *clientpb.MSFReq) (*sliverpb.Tas
 		Encoder:    req.Encoder,
 		Iterations: int(req.Iterations),
 		Format:     "raw",
-	}
-	rawPayload, err := msf.VenomPayload(config)
+	})
 	if err != nil {
 		rpcLog.Warnf("Error while generating msf payload: %v\n", err)
 		return nil, err
@@ -83,6 +82,7 @@ func (rpc *Server) Msf(ctx context.Context, req *clientpb.MSFReq) (*sliverpb.Tas
 		Encoder:  "raw",
 		Data:     rawPayload,
 		RWXPages: true,
+		Request:  req.Request,
 	}
 	resp := &sliverpb.Task{Response: &commonpb.Response{}}
 	err = rpc.GenericHandler(taskReq, resp)
@@ -115,7 +115,8 @@ func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*
 		os = beacon.OS
 		arch = beacon.Arch
 	}
-	config := msf.VenomConfig{
+
+	rawPayload, err := msf.VenomPayload(msf.VenomConfig{
 		Os:         os,
 		Arch:       msf.Arch(arch),
 		Payload:    req.Payload,
@@ -124,8 +125,7 @@ func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*
 		Encoder:    req.Encoder,
 		Iterations: int(req.Iterations),
 		Format:     "raw",
-	}
-	rawPayload, err := msf.VenomPayload(config)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -134,6 +134,7 @@ func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*
 		Encoder:  "raw",
 		Data:     rawPayload,
 		RWXPages: true,
+		Request:  req.Request,
 	}
 	resp := &sliverpb.Task{Response: &commonpb.Response{}}
 	err = rpc.GenericHandler(taskReq, resp)

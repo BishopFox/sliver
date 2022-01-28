@@ -86,7 +86,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("No profile found for name %s\n", profile)
 		return
 	}
-	sliverBinary, err := generate.GetSliverBinary(implantProfile, con)
+	sliverBinary, _ := generate.GetSliverBinary(implantProfile, con)
 	filename := randomString(10)
 	filePath := fmt.Sprintf("%s\\%s.exe", uploadPath, filename)
 	uploadGzip := new(encoders.Gzip).Encode(sliverBinary)
