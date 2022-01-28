@@ -100,8 +100,8 @@ EOF
 # Download and Unpack Sliver Server
 #
 ARTIFACTS=$(curl -s "https://api.github.com/repos/BishopFox/sliver/releases/latest" | awk -F '"' '/browser_download_url/{print $4}')
-SLIVER_SERVER='sliver-server'
-SLIVER_CLIENT='sliver-client'
+SLIVER_SERVER='sliver-server_linux'
+SLIVER_CLIENT='sliver-client_linux'
 
 
 for URL in $ARTIFACTS
@@ -121,8 +121,9 @@ gpg --default-key $SLIVER_GPG_KEY_ID --verify /root/$SLIVER_SERVER.sig /root/$SL
 gpg --default-key $SLIVER_GPG_KEY_ID --verify /root/$SLIVER_CLIENT.sig /root/$SLIVER_CLIENT
 
 if test -f "/root/$SLIVER_SERVER"; then
-    chmod 755 /root/$SLIVER_SERVER
-    /root/$SLIVER_SERVER unpack --force
+    mv /root/$SLIVER_SERVER /root/sliver-server
+    chmod 755 /root/sliver-server
+    /root/sliver-server unpack --force
 else
     exit 3
 fi
