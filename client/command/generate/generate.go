@@ -394,6 +394,9 @@ func ParseMTLSc2(args string) ([]*clientpb.ImplantC2, error) {
 				return nil, err
 			}
 		}
+		if uri.Scheme != "mtls" {
+			return nil, fmt.Errorf("invalid mtls schema: %s", uri.Scheme)
+		}
 		if uri.Port() == "" {
 			uri.Host = fmt.Sprintf("%s:%d", uri.Hostname(), DefaultMTLSLPort)
 		}
@@ -415,16 +418,19 @@ func ParseWGc2(args string) ([]*clientpb.ImplantC2, error) {
 		arg = strings.ToLower(arg)
 		var uri *url.URL
 		var err error
-		if strings.HasPrefix(arg, "mtls://") {
+		if strings.HasPrefix(arg, "wg://") {
 			uri, err = url.Parse(arg)
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			uri, err = url.Parse(fmt.Sprintf("mtls://%s", arg))
+			uri, err = url.Parse(fmt.Sprintf("wg://%s", arg))
 			if err != nil {
 				return nil, err
 			}
+		}
+		if uri.Scheme != "wg" {
+			return nil, fmt.Errorf("invalid wg schema: %s", uri.Scheme)
 		}
 		if uri.Port() == "" {
 			uri.Host = fmt.Sprintf("%s:%d", uri.Hostname(), DefaultWGLPort)
@@ -458,6 +464,9 @@ func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 				return nil, err
 			}
 		}
+		if uri.Scheme != "http" && uri.Scheme != "https" {
+			return nil, fmt.Errorf("invalid http(s) scheme: %s", uri.Scheme)
+		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
 			URL:      uri.String(),
@@ -487,6 +496,9 @@ func ParseDNSc2(args string) ([]*clientpb.ImplantC2, error) {
 				return nil, err
 			}
 		}
+		if uri.Scheme != "dns" {
+			return nil, fmt.Errorf("invalid dns scheme: %s", uri.Scheme)
+		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
 			URL:      uri.String(),
@@ -515,6 +527,9 @@ func ParseNamedPipec2(args string) ([]*clientpb.ImplantC2, error) {
 			if err != nil {
 				return nil, err
 			}
+		}
+		if uri.Scheme != "namedpipe" {
+			return nil, fmt.Errorf("invalid namedpipe scheme: %s", uri.Scheme)
 		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
@@ -547,6 +562,9 @@ func ParseTCPPivotc2(args string) ([]*clientpb.ImplantC2, error) {
 			if err != nil {
 				return nil, err
 			}
+		}
+		if uri.Scheme != "tcppivot" {
+			return nil, fmt.Errorf("invalid tcppivot scheme: %s", uri.Scheme)
 		}
 		if uri.Port() == "" {
 			uri.Host = fmt.Sprintf("%s:%d", uri.Hostname(), DefaultTCPPivotPort)
