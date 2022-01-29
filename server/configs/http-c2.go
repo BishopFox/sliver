@@ -35,7 +35,7 @@ import (
 
 const (
 	httpC2ConfigFileName = "http-c2.json"
-	chromeBaseVer        = 89
+	chromeBaseVer        = 92
 )
 
 // HTTPC2Config - Parent config file struct for implant/server
@@ -103,16 +103,17 @@ func (h *HTTPC2Config) RandomImplantConfig() *HTTPC2ImplantConfig {
 	return config
 }
 
-type HTTPHeader struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-}
-
 // HTTPC2ServerConfig - Server configuration options
 type HTTPC2ServerConfig struct {
-	RandomVersionHeaders bool         `json:"random_version_headers"`
-	ExtraHeaders         []HTTPHeader `json:"headers"`
-	Cookies              []string     `json:"cookies"`
+	RandomVersionHeaders bool                   `json:"random_version_headers"`
+	Headers              []NameValueProbability `json:"headers"`
+	Cookies              []string               `json:"cookies"`
+}
+
+type NameValueProbability struct {
+	Name        string `json:"name"`
+	Value       string `json:"value"`
+	Probability int    `json:"probability"`
 }
 
 // HTTPC2ImplantConfig - Implant configuration options
@@ -125,9 +126,10 @@ type HTTPC2ServerConfig struct {
 // .png = stop
 // .woff = sliver shellcode
 type HTTPC2ImplantConfig struct {
-	UserAgent     string   `json:"user_agent"`
-	URLParameters []string `json:"url_parameters"`
-	Headers       []string `json:"headers"`
+	UserAgent string `json:"user_agent"`
+
+	URLParameters []NameValueProbability `json:"url_parameters"`
+	Headers       []NameValueProbability `json:"headers"`
 
 	MaxFiles int `json:"max_files"`
 	MinFiles int `json:"min_files"`
@@ -215,8 +217,8 @@ var (
 			Cookies: []string{
 				"PHPSESSID", "SID", "SSID", "APISID", "csrf-state", "AWSALBCORS",
 			},
-			ExtraHeaders: []HTTPHeader{
-				{"Cache-Control", "no-store, no-cache, must-revalidate"},
+			Headers: []NameValueProbability{
+				{Name: "Cache-Control", Value: "no-store, no-cache, must-revalidate", Probability: 100},
 			},
 		},
 		ImplantConfig: &HTTPC2ImplantConfig{
@@ -288,12 +290,41 @@ func GetHTTPC2Config() *HTTPC2Config {
 		httpC2ConfigLog.Errorf("Failed to parse http c2 config %s", err)
 		return &defaultHTTPC2Config
 	}
-	err = CheckHTTPC2Config(config)
+	err = checkHTTPC2Config(config)
 	if err != nil {
 		httpC2ConfigLog.Errorf("Invalid http c2 config: %s", err)
 		return &defaultHTTPC2Config
 	}
 	return config
+}
+
+// CheckHTTPC2ConfigErrors - Get the current HTTP C2 config
+func CheckHTTPC2ConfigErrors() error {
+	configPath := GetHTTPC2ConfigPath()
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		err = generateDefaultConfig(configPath)
+		if err != nil {
+			httpC2ConfigLog.Errorf("Failed to generate http c2 config %s", err)
+			return err
+		}
+	}
+	data, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		httpC2ConfigLog.Errorf("Failed to read http c2 config %s", err)
+		return err
+	}
+	config := &HTTPC2Config{}
+	err = json.Unmarshal(data, config)
+	if err != nil {
+		httpC2ConfigLog.Errorf("Failed to parse http c2 config %s", err)
+		return err
+	}
+	err = checkHTTPC2Config(config)
+	if err != nil {
+		httpC2ConfigLog.Errorf("Invalid http c2 config: %s", err)
+		return err
+	}
+	return nil
 }
 
 func generateDefaultConfig(saveTo string) error {
@@ -317,12 +348,13 @@ var (
 	ErrMissingSessionFileExt      = errors.New("implant config must specify a session_file_ext")
 	ErrTooFewSessionFiles         = errors.New("implant config must specify at least one session_files value")
 	ErrNonuniqueFileExt           = errors.New("implant config must specify unique file extensions")
+	ErrQueryParamNameLen          = errors.New("implant config url query parameter names must be 3 or more characters")
 
-	fileNameExp = regexp.MustCompile("[^a-zA-Z0-9\\._-]+")
+	fileNameExp = regexp.MustCompile(`[^a-zA-Z0-9\\._-]+`)
 )
 
-// CheckHTTPC2Config - Validate the HTTP C2 config, coerces common mistakes
-func CheckHTTPC2Config(config *HTTPC2Config) error {
+// checkHTTPC2Config - Validate the HTTP C2 config, coerces common mistakes
+func checkHTTPC2Config(config *HTTPC2Config) error {
 	err := checkServerConfig(config.ServerConfig)
 	if err != nil {
 		return err
@@ -446,6 +478,13 @@ func checkImplantConfig(config *HTTPC2ImplantConfig) error {
 			return ErrNonuniqueFileExt
 		}
 		allExtensions[ext] = true
+	}
+
+	// Query Parameter Names
+	for _, queryParam := range config.URLParameters {
+		if len(queryParam.Name) < 3 {
+			return ErrQueryParamNameLen
+		}
 	}
 
 	return nil

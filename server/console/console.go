@@ -31,6 +31,7 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 	clienttransport "github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/transport"
 	"google.golang.org/grpc"
 )
@@ -49,11 +50,14 @@ func Start() {
 	}
 	conn, err := grpc.DialContext(context.Background(), "bufnet", options...)
 	if err != nil {
-		fmt.Printf(Warn+"Failed to dial bufnet: %s", err)
+		fmt.Printf(Warn+"Failed to dial bufnet: %s\n", err)
 		return
 	}
 	defer conn.Close()
 	localRPC := rpcpb.NewSliverRPCClient(conn)
+	if err := configs.CheckHTTPC2ConfigErrors(); err != nil {
+		fmt.Printf(Warn+"Error in HTTP C2 config: %s\n", err)
+	}
 	clientconsole.Start(localRPC, command.BindCommands, serverOnlyCmds, true)
 }
 

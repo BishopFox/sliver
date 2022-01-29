@@ -51,7 +51,7 @@ func TestDefaultConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = CheckHTTPC2Config(config)
+	err = checkHTTPC2Config(config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestPollConfig(t *testing.T) {
 	origPollFileExt := config.ImplantConfig.PollFileExt
 	for _, ext := range []string{"", ".", "..."} {
 		config.ImplantConfig.PollFileExt = ext
-		err := CheckHTTPC2Config(&config)
+		err := checkHTTPC2Config(&config)
 		if err != ErrMissingPollFileExt {
 			t.Fatalf("Parsed '%s' as not missing (%s)", ext, config.ImplantConfig.PollFileExt)
 		}
@@ -82,7 +82,7 @@ func TestPollConfig(t *testing.T) {
 	origPollFiles := config.ImplantConfig.PollFiles
 	for _, empty := range emptyPollFiles {
 		config.ImplantConfig.PollFiles = empty
-		err := CheckHTTPC2Config(&config)
+		err := checkHTTPC2Config(&config)
 		if err != ErrTooFewPollFiles {
 			t.Fatalf("Expected too few poll files from %v got %v", empty, err)
 		}

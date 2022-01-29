@@ -404,7 +404,13 @@ func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 		if s.c2Config.ServerConfig.RandomVersionHeaders {
 			resp.Header().Set("Server", s.getServerHeader())
 		}
-		for _, header := range s.c2Config.ServerConfig.ExtraHeaders {
+		for _, header := range s.c2Config.ServerConfig.Headers {
+			if 0 < header.Probability && header.Probability < 100 {
+				roll := insecureRand.Intn(99) + 1
+				if header.Probability < roll {
+					continue
+				}
+			}
 			resp.Header().Set(header.Name, header.Value)
 		}
 		next.ServeHTTP(resp, req)
