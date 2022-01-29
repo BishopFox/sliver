@@ -137,7 +137,7 @@ func ECCEncryptToServer(plaintext []byte) ([]byte, error) {
 	return msg, nil
 }
 
-// ECCEncryptToPeer - Encrypt using the server's public key
+// ECCEncryptToPeer - Encrypt using the peer's public key
 func ECCEncryptToPeer(recipientPublicKey []byte, recipientPublicKeySig string, plaintext []byte) ([]byte, error) {
 	valid := MinisignVerify(recipientPublicKey, recipientPublicKeySig)
 	if !valid {
@@ -153,7 +153,7 @@ func ECCEncryptToPeer(recipientPublicKey []byte, recipientPublicKeySig string, p
 	return ciphertext, nil
 }
 
-// ECCEncryptToPeer - Encrypt using the server's public key
+// ECCDecryptFromPeer - Decrypt a message from a peer
 func ECCDecryptFromPeer(senderPublicKey []byte, senderPublicKeySig string, ciphertext []byte) ([]byte, error) {
 	valid := MinisignVerify(senderPublicKey, senderPublicKeySig)
 	if !valid {

@@ -304,7 +304,7 @@ func (p *NetConnPivot) ToProtobuf() *pb.NetConnPivot {
 	}
 }
 
-// Start - Starts the TCP pivot connection handler
+// Start - Starts the pivot connection handler
 func (p *NetConnPivot) Start(pivots *sync.Map) {
 	defer func() {
 		p.conn.Close()
