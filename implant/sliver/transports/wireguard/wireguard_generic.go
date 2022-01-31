@@ -20,6 +20,7 @@ package wireguard
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+// WireguardConnect - Placeholder for unsupported platforms
 func WireguardConnect(_ string, _ uint16) (net.Conn, *device.Device, error) {
 	return nil, nil, errors.New("{{if .Config.Debug}}WireguardConnect not implemented on this platform{{end}}")
 }

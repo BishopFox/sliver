@@ -24,7 +24,7 @@ import (
 	"errors"
 )
 
-// NamedPipeConnect - Non windows implementation of the named pipe client
+// NamedPipePivotStartSession - Non windows implementation of the named pipe client
 func NamedPipePivotStartSession(_ string, _ *NamedPipePivotOptions) (*NetConnPivotClient, error) {
 	return nil, errors.New("unsupported platform")
 }
