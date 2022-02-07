@@ -31,7 +31,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/desertbit/grumble"
 	"github.com/jedib0t/go-pretty/v6/table"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 // BeaconsCmd - Display/interact with beacons
@@ -92,14 +92,14 @@ func PrintBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) 
 }
 
 func renderBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) table.Writer {
-	width, _, err := terminal.GetSize(0)
+	width, _, err := term.GetSize(0)
 	if err != nil {
 		width = 999
 	}
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	if 182 < width {
+	if con.Settings.SmallTermWidth < width {
 		tw.AppendHeader(table.Row{
 			"ID",
 			"Name",
@@ -134,13 +134,13 @@ func renderBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient)
 		nextCheckin := time.Unix(beacon.NextCheckin, 0)
 		var next string
 		if time.Unix(beacon.NextCheckin, 0).Before(time.Now()) {
-			past := time.Now().Sub(nextCheckin)
+			past := time.Since(nextCheckin)
 			next = fmt.Sprintf("%s-%s%s", console.Bold+console.Red, past, console.Normal)
 		} else {
-			eta := nextCheckin.Sub(time.Now())
+			eta := time.Until(nextCheckin)
 			next = fmt.Sprintf("%s%s%s", console.Bold+console.Green, eta, console.Normal)
 		}
-		if 182 < width {
+		if con.Settings.SmallTermWidth < width {
 			tw.AppendRow(table.Row{
 				fmt.Sprintf(color+"%s"+console.Normal, strings.Split(beacon.ID, "-")[0]),
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Name),
@@ -150,7 +150,7 @@ func renderBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient)
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Hostname),
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Username),
 				fmt.Sprintf(color+"%s/%s"+console.Normal, beacon.OS, beacon.Arch),
-				fmt.Sprintf(color+"%s ago"+console.Normal, time.Now().Sub(time.Unix(beacon.LastCheckin, 0))),
+				fmt.Sprintf(color+"%s ago"+console.Normal, time.Since(time.Unix(beacon.LastCheckin, 0))),
 				next,
 			})
 		} else {
@@ -160,7 +160,7 @@ func renderBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient)
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Transport),
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Username),
 				fmt.Sprintf(color+"%s/%s"+console.Normal, beacon.OS, beacon.Arch),
-				fmt.Sprintf(color+"%s ago"+console.Normal, time.Now().Sub(time.Unix(beacon.LastCheckin, 0))),
+				fmt.Sprintf(color+"%s ago"+console.Normal, time.Since(time.Unix(beacon.LastCheckin, 0))),
 				next,
 			})
 		}

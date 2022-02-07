@@ -19,6 +19,8 @@ package settings
 */
 
 import (
+	"strconv"
+
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
@@ -43,7 +45,53 @@ func SettingsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	tw.AppendRow(table.Row{"Tables", con.Settings.TableStyle, "Set the stylization of tables"})
 	tw.AppendRow(table.Row{"Auto Adult", con.Settings.AutoAdult, "Automatically accept OPSEC warnings"})
 	tw.AppendRow(table.Row{"Beacon Auto Results", con.Settings.BeaconAutoResults, "Automatically display beacon results when tasks complete"})
+	tw.AppendRow(table.Row{"Small Term Width", con.Settings.SmallTermWidth, "Omit some table columns when terminal width is less than this value"})
+	tw.AppendRow(table.Row{"Always Overflow", con.Settings.AlwaysOverflow, "Disable table pagination"})
 	con.Printf("%s\n", tw.Render())
+}
+
+// SettingsAlwaysOverflow - Toggle always overflow
+func SettingsAlwaysOverflow(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	var err error
+	if con.Settings == nil {
+		con.Settings, err = assets.LoadSettings()
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+	}
+	con.Settings.AlwaysOverflow = !con.Settings.AlwaysOverflow
+	con.PrintInfof("Always overflow = %v\n", con.Settings.AlwaysOverflow)
+}
+
+// SettingsSmallTerm - Modify small terminal width value
+func SettingsSmallTerm(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	var err error
+	if con.Settings == nil {
+		con.Settings, err = assets.LoadSettings()
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+	}
+	result := ""
+	prompt := &survey.Input{Message: "Set small width:"}
+	err = survey.AskOne(prompt, &result)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	newWidth, err := strconv.Atoi(result)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	if newWidth < 1 {
+		con.PrintErrorf("Invalid width (too small)\n")
+		return
+	}
+	con.Settings.SmallTermWidth = newWidth
+	con.PrintInfof("Small terminal width set to %d\n", con.Settings.SmallTermWidth)
 }
 
 // SettingsTablesCmd - The client settings command

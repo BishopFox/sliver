@@ -31,6 +31,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/desertbit/grumble"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"golang.org/x/term"
 )
 
 // SessionsCmd - Display/interact with sessions
@@ -110,19 +111,38 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 // PrintSessions - Print the current sessions
 func PrintSessions(sessions map[string]*clientpb.Session, con *console.SliverConsoleClient) {
+	width, _, err := term.GetSize(0)
+	if err != nil {
+		width = 999
+	}
+
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	tw.AppendHeader(table.Row{
-		"ID",
-		"Name",
-		"Transport",
-		"Remote Address",
-		"Hostname",
-		"Username",
-		"Operating System",
-		"Last Check-in",
-		"Health",
-	})
+
+	if con.Settings.SmallTermWidth < width {
+		tw.AppendHeader(table.Row{
+			"ID",
+			"Name",
+			"Transport",
+			"Remote Address",
+			"Hostname",
+			"Username",
+			"Operating System",
+			"Last Check-in",
+			"Health",
+		})
+	} else {
+		tw.AppendHeader(table.Row{
+			"ID",
+			"Transport",
+			"Remote Address",
+			"Hostname",
+			"Username",
+			"Operating System",
+			"Health",
+		})
+	}
+
 	tw.SortBy([]table.SortBy{
 		{Name: "ID", Mode: table.Asc},
 	})
@@ -142,17 +162,31 @@ func PrintSessions(sessions map[string]*clientpb.Session, con *console.SliverCon
 		if session.Burned {
 			burned = "🔥"
 		}
-		tw.AppendRow(table.Row{
-			fmt.Sprintf(color+"%s"+console.Normal, ShortSessionID(session.ID)),
-			fmt.Sprintf(color+"%s"+console.Normal, session.Name),
-			fmt.Sprintf(color+"%s"+console.Normal, session.Transport),
-			fmt.Sprintf(color+"%s"+console.Normal, session.RemoteAddress),
-			fmt.Sprintf(color+"%s"+console.Normal, session.Hostname),
-			fmt.Sprintf(color+"%s"+console.Normal, session.Username),
-			fmt.Sprintf(color+"%s/%s"+console.Normal, session.OS, session.Arch),
-			fmt.Sprintf(color+"%s"+console.Normal, time.Unix(session.LastCheckin, 0).Format(time.RFC1123)),
-			burned + SessionHealth,
-		})
+		username := strings.TrimPrefix(session.Username, session.Hostname+"\\") // For non-AD Windows users
+
+		if con.Settings.SmallTermWidth < width {
+			tw.AppendRow(table.Row{
+				fmt.Sprintf(color+"%s"+console.Normal, ShortSessionID(session.ID)),
+				fmt.Sprintf(color+"%s"+console.Normal, session.Name),
+				fmt.Sprintf(color+"%s"+console.Normal, session.Transport),
+				fmt.Sprintf(color+"%s"+console.Normal, session.RemoteAddress),
+				fmt.Sprintf(color+"%s"+console.Normal, session.Hostname),
+				fmt.Sprintf(color+"%s"+console.Normal, username),
+				fmt.Sprintf(color+"%s/%s"+console.Normal, session.OS, session.Arch),
+				fmt.Sprintf(color+"%s"+console.Normal, time.Unix(session.LastCheckin, 0).Format(time.RFC1123)),
+				burned + SessionHealth,
+			})
+		} else {
+			tw.AppendRow(table.Row{
+				fmt.Sprintf(color+"%s"+console.Normal, ShortSessionID(session.ID)),
+				fmt.Sprintf(color+"%s"+console.Normal, session.Transport),
+				fmt.Sprintf(color+"%s"+console.Normal, session.RemoteAddress),
+				fmt.Sprintf(color+"%s"+console.Normal, session.Hostname),
+				fmt.Sprintf(color+"%s"+console.Normal, username),
+				fmt.Sprintf(color+"%s/%s"+console.Normal, session.OS, session.Arch),
+				burned + SessionHealth,
+			})
+		}
 	}
 
 	con.Printf("%s\n", tw.Render())

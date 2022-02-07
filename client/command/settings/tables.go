@@ -27,7 +27,7 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 var (
@@ -181,9 +181,9 @@ func PagesOf(renderedTable string) [][]string {
 func PaginateTable(tw table.Writer, skipPages int, overflow bool, interactive bool, con *console.SliverConsoleClient) {
 	renderedTable := tw.Render()
 	lineCount := strings.Count(renderedTable, "\n")
-	if !overflow {
+	if !overflow || con.Settings.AlwaysOverflow {
 		// Only paginate if the number of lines is at least 2x the terminal height
-		width, height, err := terminal.GetSize(0)
+		width, height, err := term.GetSize(0)
 		if err == nil && 2*height < lineCount {
 			if 7 < height {
 				tw.SetPageSize(height - 6)

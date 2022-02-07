@@ -48,7 +48,7 @@ func BeaconsPruneCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		if time.Now().Before(nextCheckin) {
 			continue
 		}
-		delta := time.Now().Sub(nextCheckin)
+		delta := time.Since(nextCheckin)
 		if pruneDuration <= delta {
 			pruneBeacons = append(pruneBeacons, beacon)
 		}

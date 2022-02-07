@@ -226,8 +226,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.SetTitle(console.Bold + "Packages" + console.Normal)
 
-	minWidth := 150
-	if minWidth < width {
+	if con.Settings.SmallTermWidth < width {
 		tw.AppendHeader(table.Row{
 			"Command Name",
 			"Version",
@@ -282,7 +281,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 		if extensions.CmdExists(pkg.CommandName, con.App) {
 			color = console.Green
 		}
-		if minWidth < width {
+		if con.Settings.SmallTermWidth < width {
 			rows = append(rows, table.Row{
 				fmt.Sprintf(color+"%s"+console.Normal, pkg.CommandName),
 				fmt.Sprintf(color+"%s"+console.Normal, pkg.Version),
