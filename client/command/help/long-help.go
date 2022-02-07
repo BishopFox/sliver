@@ -71,7 +71,7 @@ var (
 		consts.MigrateStr:          migrateHelp,
 		consts.SideloadStr:         sideloadHelp,
 		consts.TerminateStr:        terminateHelp,
-		consts.AliasesStr:          loadMacrosHelp,
+		consts.AliasesStr:          loadAliasHelp,
 		consts.PsExecStr:           psExecHelp,
 		consts.BackdoorStr:         backdoorHelp,
 		consts.SpawnDllStr:         spawnDllHelp,
@@ -371,7 +371,7 @@ Parameters to the Linux and MacOS shared module are passed using the [[.Bold]]LD
 	screenshotHelp = `[[.Bold]]Command:[[.Normal]] screenshot
 [[.Bold]]About:[[.Normal]] Take a screenshot from the remote implant.
 `
-	loadMacrosHelp = `[[.Bold]]Command:[[.Normal]] load-macro <directory path> 
+	loadAliasHelp = `[[.Bold]]Command:[[.Normal]] load-macro <directory path> 
 [[.Bold]]About:[[.Normal]] Load a Sliver macro to add new commands.
 Macros are using the [[.Bold]]sideload[[.Normal]] or [[.Bold]]spawndll[[.Normal]] commands under the hood, depending on the use case.
 For Linux and Mac OS, the [[.Bold]]sideload[[.Normal]] command will be used. On Windows, it will depend the macro file is a reflective DLL or not.
