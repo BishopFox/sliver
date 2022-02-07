@@ -64,6 +64,10 @@ func UploadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	dst := remotePath
 
 	fileBuf, err := ioutil.ReadFile(src)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
 	uploadGzip := new(encoders.Gzip).Encode(fileBuf)
 
 	ctrl := make(chan bool)
