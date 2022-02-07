@@ -33,6 +33,8 @@ type ClientSettings struct {
 	TableStyle        string `json:"tables"`
 	AutoAdult         bool   `json:"autoadult"`
 	BeaconAutoResults bool   `json:"beacon_autoresults"`
+	SmallTermWidth    int    `json:"small_term_width"`
+	AlwaysOverflow    bool   `json:"always_overflow"`
 }
 
 // LoadSettings - Load the client settings from disk
@@ -55,6 +57,8 @@ func defaultSettings() *ClientSettings {
 		TableStyle:        "SliverDefault",
 		AutoAdult:         false,
 		BeaconAutoResults: true,
+		SmallTermWidth:    170,
+		AlwaysOverflow:    false,
 	}
 }
 

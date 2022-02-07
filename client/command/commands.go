@@ -807,6 +807,30 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
+	settingsCmd.AddCommand(&grumble.Command{
+		Name:     "always-overflow",
+		Help:     "Disable table pagination",
+		LongHelp: help.GetHelpFor([]string{consts.SettingsStr, "always-overflow"}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			settings.SettingsAlwaysOverflow(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	settingsCmd.AddCommand(&grumble.Command{
+		Name:     "small-terminal",
+		Help:     "Set the small terminal width",
+		LongHelp: help.GetHelpFor([]string{consts.SettingsStr, "small-terminal"}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			settings.SettingsSmallTerm(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 	con.App.AddCommand(settingsCmd)
 
 	// [ Info ] --------------------------------------------------------------
