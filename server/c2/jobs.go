@@ -305,6 +305,7 @@ func StartHTTPStagerListenerJob(conf *HTTPServerConfig, data []byte) (*core.Job,
 	cleanup := func(err error) {
 		server.Cleanup()
 		core.Jobs.Remove(job)
+		server.SliverStage = []byte{}
 		core.EventBroker.Publish(core.Event{
 			Job:       job,
 			EventType: consts.JobStoppedEvent,
@@ -391,31 +392,6 @@ func StartPersistentJobs(cfg *configs.ServerConfig) error {
 	}
 
 	return nil
-}
-
-// checkInterface verifies if an IP address
-// is attached to an existing network interface
-func checkInterface(a string) bool {
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		return false
-	}
-	for _, i := range interfaces {
-		addresses, err := i.Addrs()
-		if err != nil {
-			return false
-		}
-		for _, netAddr := range addresses {
-			addr, err := net.ResolveTCPAddr("tcp", netAddr.String())
-			if err != nil {
-				return false
-			}
-			if addr.IP.String() == a {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // Fuck'in Go - https://stackoverflow.com/questions/30815244/golang-https-server-passing-certfile-and-kyefile-in-terms-of-byte-array

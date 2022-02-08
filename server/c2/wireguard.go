@@ -184,7 +184,7 @@ func acceptWGSliverConnections(ln net.Listener) {
 func handleWGSliverConnection(conn net.Conn) {
 	wgLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
 
-	implantConn := core.NewImplantConnection("wg", fmt.Sprintf("%s", conn.RemoteAddr()))
+	implantConn := core.NewImplantConnection("wg", conn.RemoteAddr().String())
 	implantConn.UpdateLastMessage()
 	defer func() {
 		implantConn.Cleanup()
