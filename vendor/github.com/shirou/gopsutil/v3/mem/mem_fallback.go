@@ -1,3 +1,4 @@
+//go:build !darwin && !linux && !freebsd && !openbsd && !solaris && !windows && !plan9
 // +build !darwin,!linux,!freebsd,!openbsd,!solaris,!windows,!plan9
 
 package mem

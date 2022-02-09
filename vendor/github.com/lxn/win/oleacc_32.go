@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build (windows && 386) || (windows && arm)
 // +build windows,386 windows,arm
 
 package win
@@ -15,7 +16,7 @@ func (idProp *MSAAPROPID) split() (uintptr, uintptr, uintptr, uintptr) {
 	if idProp == nil {
 		return 0, 0, 0, 0
 	}
-	x := (*struct { a, b, c, d uintptr })(unsafe.Pointer(idProp))
+	x := (*struct{ a, b, c, d uintptr })(unsafe.Pointer(idProp))
 	return x.a, x.b, x.c, x.d
 }
 

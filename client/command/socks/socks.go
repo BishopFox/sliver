@@ -19,38 +19,41 @@ package socks
 */
 
 import (
+	"bytes"
+	"context"
+	"fmt"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"sort"
+	"strings"
+	"text/tabwriter"
 
-	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/core"
 	"github.com/desertbit/grumble"
-	"github.com/jedib0t/go-pretty/v6/table"
 )
 
-// SocksCmd - Display information about tunneled port forward(s)
+// SocksCmd - Displays information about the Socks5 port
 func SocksCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	socks := core.SocksProxies.List()
-	if len(socks) == 0 {
-		con.PrintInfof("No socks5 proxies\n")
+	socks, err := con.Rpc.ListSocks(context.Background(), &commonpb.Empty{})
+	if len(socks.List) == 0 || err != nil {
+		con.PrintInfof("No port socks5\n")
 		return
 	}
-	sort.Slice(socks[:], func(i, j int) bool {
-		return socks[i].ID < socks[j].ID
+	sort.Slice(socks.List[:], func(i, j int) bool {
+		return socks.List[i].ID < socks.List[j].ID
 	})
-
-	tw := table.NewWriter()
-	tw.SetStyle(settings.GetTableStyle(con))
-	tw.AppendHeader(table.Row{
-		"ID",
-		"Session ID",
-		"Bind Address",
-		"Username",
-		"Passwords",
-	})
-	for _, p := range socks {
-		tw.AppendRow(table.Row{p.ID, p.SessionID, p.BindAddr, p.Username, p.Password})
+	outputBuf := bytes.NewBufferString("")
+	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
+	fmt.Fprintf(table, "ID\tSession ID\tBind Address\tUsername\tPassword\t\n")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t\n",
+		strings.Repeat("=", len("ID")),
+		strings.Repeat("=", len("Session ID")),
+		strings.Repeat("=", len("Bind Address")),
+		strings.Repeat("=", len("Username")),
+		strings.Repeat("=", len("Password")),
+	)
+	for _, p := range socks.List {
+		fmt.Fprintf(table, "%d\t%s\t%s\t%s\t%s\t\n", p.ID, p.Request.SessionID, p.BindAddr, p.Username, p.Password)
 	}
-
-	con.Printf("%s\n", tw.Render())
+	table.Flush()
+	con.Printf("%s", outputBuf.String())
 }

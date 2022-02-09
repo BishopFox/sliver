@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 // Copyright (C) 2018, Rapid7 LLC, Boston, MA, USA.

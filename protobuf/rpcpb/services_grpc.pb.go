@@ -152,9 +152,9 @@ type SliverRPCClient interface {
 	Shell(ctx context.Context, in *sliverpb.ShellReq, opts ...grpc.CallOption) (*sliverpb.Shell, error)
 	Portfwd(ctx context.Context, in *sliverpb.PortfwdReq, opts ...grpc.CallOption) (*sliverpb.Portfwd, error)
 	// *** Socks5 ***
-	CreateSocks(ctx context.Context, in *sliverpb.Socks, opts ...grpc.CallOption) (*sliverpb.Socks, error)
-	CloseSocks(ctx context.Context, in *sliverpb.Socks, opts ...grpc.CallOption) (*commonpb.Empty, error)
-	SocksProxy(ctx context.Context, opts ...grpc.CallOption) (SliverRPC_SocksProxyClient, error)
+	CreateSocks(ctx context.Context, in *sliverpb.SocksInfo, opts ...grpc.CallOption) (*sliverpb.SocksInfo, error)
+	CloseSocks(ctx context.Context, in *sliverpb.SocksInfo, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	ListSocks(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*sliverpb.ListSocks, error)
 	// *** Tunnels ***
 	CreateTunnel(ctx context.Context, in *sliverpb.Tunnel, opts ...grpc.CallOption) (*sliverpb.Tunnel, error)
 	CloseTunnel(ctx context.Context, in *sliverpb.Tunnel, opts ...grpc.CallOption) (*commonpb.Empty, error)
@@ -1170,8 +1170,8 @@ func (c *sliverRPCClient) Portfwd(ctx context.Context, in *sliverpb.PortfwdReq, 
 	return out, nil
 }
 
-func (c *sliverRPCClient) CreateSocks(ctx context.Context, in *sliverpb.Socks, opts ...grpc.CallOption) (*sliverpb.Socks, error) {
-	out := new(sliverpb.Socks)
+func (c *sliverRPCClient) CreateSocks(ctx context.Context, in *sliverpb.SocksInfo, opts ...grpc.CallOption) (*sliverpb.SocksInfo, error) {
+	out := new(sliverpb.SocksInfo)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CreateSocks", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -1179,7 +1179,7 @@ func (c *sliverRPCClient) CreateSocks(ctx context.Context, in *sliverpb.Socks, o
 	return out, nil
 }
 
-func (c *sliverRPCClient) CloseSocks(ctx context.Context, in *sliverpb.Socks, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+func (c *sliverRPCClient) CloseSocks(ctx context.Context, in *sliverpb.SocksInfo, opts ...grpc.CallOption) (*commonpb.Empty, error) {
 	out := new(commonpb.Empty)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CloseSocks", in, out, opts...)
 	if err != nil {
@@ -1188,35 +1188,13 @@ func (c *sliverRPCClient) CloseSocks(ctx context.Context, in *sliverpb.Socks, op
 	return out, nil
 }
 
-func (c *sliverRPCClient) SocksProxy(ctx context.Context, opts ...grpc.CallOption) (SliverRPC_SocksProxyClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[0], "/rpcpb.SliverRPC/SocksProxy", opts...)
+func (c *sliverRPCClient) ListSocks(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*sliverpb.ListSocks, error) {
+	out := new(sliverpb.ListSocks)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/ListSocks", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &sliverRPCSocksProxyClient{stream}
-	return x, nil
-}
-
-type SliverRPC_SocksProxyClient interface {
-	Send(*sliverpb.SocksData) error
-	Recv() (*sliverpb.SocksData, error)
-	grpc.ClientStream
-}
-
-type sliverRPCSocksProxyClient struct {
-	grpc.ClientStream
-}
-
-func (x *sliverRPCSocksProxyClient) Send(m *sliverpb.SocksData) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *sliverRPCSocksProxyClient) Recv() (*sliverpb.SocksData, error) {
-	m := new(sliverpb.SocksData)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return out, nil
 }
 
 func (c *sliverRPCClient) CreateTunnel(ctx context.Context, in *sliverpb.Tunnel, opts ...grpc.CallOption) (*sliverpb.Tunnel, error) {
@@ -1238,7 +1216,7 @@ func (c *sliverRPCClient) CloseTunnel(ctx context.Context, in *sliverpb.Tunnel, 
 }
 
 func (c *sliverRPCClient) TunnelData(ctx context.Context, opts ...grpc.CallOption) (SliverRPC_TunnelDataClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[1], "/rpcpb.SliverRPC/TunnelData", opts...)
+	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[0], "/rpcpb.SliverRPC/TunnelData", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1269,7 +1247,7 @@ func (x *sliverRPCTunnelDataClient) Recv() (*sliverpb.TunnelData, error) {
 }
 
 func (c *sliverRPCClient) Events(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (SliverRPC_EventsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[2], "/rpcpb.SliverRPC/Events", opts...)
+	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[1], "/rpcpb.SliverRPC/Events", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1435,9 +1413,9 @@ type SliverRPCServer interface {
 	Shell(context.Context, *sliverpb.ShellReq) (*sliverpb.Shell, error)
 	Portfwd(context.Context, *sliverpb.PortfwdReq) (*sliverpb.Portfwd, error)
 	// *** Socks5 ***
-	CreateSocks(context.Context, *sliverpb.Socks) (*sliverpb.Socks, error)
-	CloseSocks(context.Context, *sliverpb.Socks) (*commonpb.Empty, error)
-	SocksProxy(SliverRPC_SocksProxyServer) error
+	CreateSocks(context.Context, *sliverpb.SocksInfo) (*sliverpb.SocksInfo, error)
+	CloseSocks(context.Context, *sliverpb.SocksInfo) (*commonpb.Empty, error)
+	ListSocks(context.Context, *commonpb.Empty) (*sliverpb.ListSocks, error)
 	// *** Tunnels ***
 	CreateTunnel(context.Context, *sliverpb.Tunnel) (*sliverpb.Tunnel, error)
 	CloseTunnel(context.Context, *sliverpb.Tunnel) (*commonpb.Empty, error)
@@ -1784,14 +1762,14 @@ func (UnimplementedSliverRPCServer) Shell(context.Context, *sliverpb.ShellReq) (
 func (UnimplementedSliverRPCServer) Portfwd(context.Context, *sliverpb.PortfwdReq) (*sliverpb.Portfwd, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Portfwd not implemented")
 }
-func (UnimplementedSliverRPCServer) CreateSocks(context.Context, *sliverpb.Socks) (*sliverpb.Socks, error) {
+func (UnimplementedSliverRPCServer) CreateSocks(context.Context, *sliverpb.SocksInfo) (*sliverpb.SocksInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateSocks not implemented")
 }
-func (UnimplementedSliverRPCServer) CloseSocks(context.Context, *sliverpb.Socks) (*commonpb.Empty, error) {
+func (UnimplementedSliverRPCServer) CloseSocks(context.Context, *sliverpb.SocksInfo) (*commonpb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CloseSocks not implemented")
 }
-func (UnimplementedSliverRPCServer) SocksProxy(SliverRPC_SocksProxyServer) error {
-	return status.Errorf(codes.Unimplemented, "method SocksProxy not implemented")
+func (UnimplementedSliverRPCServer) ListSocks(context.Context, *commonpb.Empty) (*sliverpb.ListSocks, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListSocks not implemented")
 }
 func (UnimplementedSliverRPCServer) CreateTunnel(context.Context, *sliverpb.Tunnel) (*sliverpb.Tunnel, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateTunnel not implemented")
@@ -3817,7 +3795,7 @@ func _SliverRPC_Portfwd_Handler(srv interface{}, ctx context.Context, dec func(i
 }
 
 func _SliverRPC_CreateSocks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(sliverpb.Socks)
+	in := new(sliverpb.SocksInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -3829,13 +3807,13 @@ func _SliverRPC_CreateSocks_Handler(srv interface{}, ctx context.Context, dec fu
 		FullMethod: "/rpcpb.SliverRPC/CreateSocks",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).CreateSocks(ctx, req.(*sliverpb.Socks))
+		return srv.(SliverRPCServer).CreateSocks(ctx, req.(*sliverpb.SocksInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _SliverRPC_CloseSocks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(sliverpb.Socks)
+	in := new(sliverpb.SocksInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -3847,35 +3825,27 @@ func _SliverRPC_CloseSocks_Handler(srv interface{}, ctx context.Context, dec fun
 		FullMethod: "/rpcpb.SliverRPC/CloseSocks",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).CloseSocks(ctx, req.(*sliverpb.Socks))
+		return srv.(SliverRPCServer).CloseSocks(ctx, req.(*sliverpb.SocksInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SliverRPC_SocksProxy_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SliverRPCServer).SocksProxy(&sliverRPCSocksProxyServer{stream})
-}
-
-type SliverRPC_SocksProxyServer interface {
-	Send(*sliverpb.SocksData) error
-	Recv() (*sliverpb.SocksData, error)
-	grpc.ServerStream
-}
-
-type sliverRPCSocksProxyServer struct {
-	grpc.ServerStream
-}
-
-func (x *sliverRPCSocksProxyServer) Send(m *sliverpb.SocksData) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *sliverRPCSocksProxyServer) Recv() (*sliverpb.SocksData, error) {
-	m := new(sliverpb.SocksData)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
+func _SliverRPC_ListSocks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
+	if err := dec(in); err != nil {
 		return nil, err
 	}
-	return m, nil
+	if interceptor == nil {
+		return srv.(SliverRPCServer).ListSocks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/ListSocks",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).ListSocks(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _SliverRPC_CreateTunnel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -4421,6 +4391,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_CloseSocks_Handler,
 		},
 		{
+			MethodName: "ListSocks",
+			Handler:    _SliverRPC_ListSocks_Handler,
+		},
+		{
 			MethodName: "CreateTunnel",
 			Handler:    _SliverRPC_CreateTunnel_Handler,
 		},
@@ -4430,12 +4404,6 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "SocksProxy",
-			Handler:       _SliverRPC_SocksProxy_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
-		},
 		{
 			StreamName:    "TunnelData",
 			Handler:       _SliverRPC_TunnelData_Handler,

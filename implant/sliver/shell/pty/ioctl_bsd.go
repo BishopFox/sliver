@@ -1,3 +1,4 @@
+//go:build dragonfly || freebsd || netbsd || openbsd
 // +build dragonfly freebsd netbsd openbsd
 
 package pty

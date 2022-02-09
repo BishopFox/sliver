@@ -160,9 +160,9 @@ service SliverRPC {
     rpc Portfwd(sliverpb.PortfwdReq) returns (sliverpb.Portfwd);
 
     // *** Socks5 ***
-    rpc CreateSocks(sliverpb.Socks) returns (sliverpb.Socks);
-    rpc CloseSocks(sliverpb.Socks) returns (commonpb.Empty);
-    rpc SocksProxy(stream sliverpb.SocksData) returns (stream sliverpb.SocksData);
+    rpc CreateSocks(sliverpb.SocksInfo) returns (sliverpb.SocksInfo);
+    rpc CloseSocks(sliverpb.SocksInfo) returns (commonpb.Empty);
+    rpc ListSocks(commonpb.Empty) returns (sliverpb.ListSocks);
 
     // *** Tunnels ***
     rpc CreateTunnel(sliverpb.Tunnel) returns (sliverpb.Tunnel);

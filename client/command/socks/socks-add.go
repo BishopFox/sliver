@@ -20,27 +20,35 @@ package socks
 
 import (
 	"context"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/core"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
 )
 
-// SocksStopCmd - Remove an existing tunneled port forward
-func SocksStopCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	socksID := ctx.Flags.Int("id")
-	if socksID < 1 {
-		con.PrintErrorf("Must specify a valid socks5 id\n")
+// SocksStartCmd - Add a new socks5 port
+func SocksAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	session := con.ActiveTarget.GetSessionInteractive()
+	if session == nil {
 		return
 	}
-	found := core.SocksProxies.Remove(socksID)
-	if !found {
-		con.PrintErrorf("No socks5 with id %d\n", socksID)
-	} else {
-		con.PrintInfof("Removed socks5\n")
+	// listener
+	//host := ctx.Flags.String("host")
+	port := ctx.Flags.String("port")
+	//bindAddr := fmt.Sprintf("%s:%s", host, port)
+	username := ctx.Flags.String("user")
+	passwrod := ctx.Flags.String("pass")
+	_, err := con.Rpc.CreateSocks(context.Background(), &sliverpb.SocksInfo{
+		Host:     "0.0.0.0",
+		Port:     port,
+		Username: username,
+		Password: passwrod,
+		Request:  con.ActiveTarget.Request(ctx),
+	})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
 	}
-
-	// close
-	con.Rpc.CloseSocks(context.Background(), &sliverpb.Socks{})
+	// Easy to copy to proxychains
+	con.PrintInfof("Start socks5 ServerIP %s %s %s\n", port, username, passwrod)
 }
