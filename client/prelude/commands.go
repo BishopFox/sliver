@@ -67,6 +67,10 @@ func execute(cmd string, executor string, agentSession *AgentSession) (string, i
 	args := append(getCmdArg(executor), cmd)
 	if executor == "psh" {
 		executor = "powershell.exe"
+	} else if executor == "exec" {
+		commandSections := strings.Fields(cmd)
+		executor = commandSections[0]
+		args = commandSections[1:]
 	}
 	execResp, err := agentSession.RPC.Execute(context.Background(), &sliverpb.ExecuteReq{
 		Path:    executor,
@@ -89,9 +93,11 @@ func getCmdArg(executor string) []string {
 	var args []string
 	switch executor {
 	case "cmd":
-		args = []string{"/C", "/S"}
+		args = []string{"/S", "/C"}
 	case "powershell", "psh":
-		args = []string{"-execu", "ByPasS", "-C"}
+		args = []string{"-execu", "-C"}
+	case "exec":
+		args = []string{}
 	case "sh", "bash", "zsh":
 		args = []string{"-c"}
 	}
