@@ -9,10 +9,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-const (
-	execAsmName = "execute-assembly"
-)
-
 type execasmArgs struct {
 	IsDLL        bool   `json:"isDLL"`
 	Process      string `json:"process"`
