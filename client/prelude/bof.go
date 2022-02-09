@@ -113,7 +113,7 @@ func registerLoader(session *clientpb.Session, rpc rpcpb.SliverRPCClient) error 
 	case "386":
 		coffLoaderPath = "COFFLoader.x86.dll"
 	}
-	loaderPath := path.Join(assets.GetExtensionsDir(), "windows", session.Arch, coffLoaderPath)
+	loaderPath := path.Join(assets.GetExtensionsDir(), coffLoaderName, coffLoaderPath)
 	loaderData, err := ioutil.ReadFile(loaderPath)
 	if err != nil {
 		return err
