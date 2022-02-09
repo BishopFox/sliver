@@ -65,7 +65,7 @@ func RunCommand(message string, executor string, payload []byte, agentSession *A
 
 func execute(cmd string, executor string, agentSession *AgentSession) (string, int, int) {
 	args := append(getCmdArg(executor), cmd)
-	if executor == "psh" {
+	if executor == "psh" || executor == "pwsh" {
 		executor = "powershell.exe"
 	} else if executor == "exec" {
 		commandSections := strings.Fields(cmd)
