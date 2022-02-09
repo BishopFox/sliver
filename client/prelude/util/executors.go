@@ -21,8 +21,8 @@ package util
 func DetermineExecutors(platform string, arch string) []string {
 	platformExecutors := map[string]map[string][]string{
 		"windows": {
-			"file":     {"pwsh.exe", "powershell.exe", "cmd.exe"},
-			"executor": {"pwsh", "psh", "cmd", "bof"},
+			"file":     {"pwsh.exe", "powershell.exe", "cmd.exe", "", ""},
+			"executor": {"pwsh", "psh", "cmd", "bof", "exec"},
 		},
 		"linux": {
 			"file":     {"python3", "pwsh", "sh", "bash"},
