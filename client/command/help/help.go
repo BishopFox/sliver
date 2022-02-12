@@ -100,6 +100,10 @@ func printHelp(con *console.SliverConsoleClient) {
 			con.Println()
 		}
 	}
+
+	con.Println()
+	con.Printf("For even more information, please see our wiki: https://github.com/BishopFox/sliver/wiki\n")
+	con.Println()
 }
 
 func headlinePrinter(c *grumble.Config, con *console.SliverConsoleClient) func(v ...interface{}) (int, error) {
