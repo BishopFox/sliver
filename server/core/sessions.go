@@ -209,7 +209,7 @@ func (s *sessions) Remove(sessionID string) {
 	for _, child := range children {
 		childSession, ok := s.sessions.LoadAndDelete(child.SessionID)
 		if ok {
-			PivotSessions.Delete(childSession.(*Session).Connection.ID)
+			// PivotSessions.Delete(childSession.(*Session).Connection.ID)
 			EventBroker.Publish(Event{
 				EventType: consts.SessionClosedEvent,
 				Session:   childSession.(*Session),

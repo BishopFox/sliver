@@ -1,6 +1,7 @@
 #include "sliver.h"
 
 #ifdef __WIN32
+#include <windows.h>
 
 DWORD WINAPI Start()
 {
@@ -19,10 +20,8 @@ BOOL WINAPI DllMain(
         // Initialize once for each new process.
         // Return FALSE to fail DLL load.
     {
-        // {{if .Config.IsSharedLib}}
         HANDLE hThread = CreateThread(NULL, 0, Start, NULL, 0, NULL);
         // CreateThread() because otherwise DllMain() is highly likely to deadlock.
-        // {{end}}
     }
     break;
     case DLL_PROCESS_DETACH:

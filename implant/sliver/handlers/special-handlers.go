@@ -22,6 +22,7 @@ package handlers
 
 import (
 	"os"
+	"time"
 
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -54,6 +55,9 @@ func killHandler(data []byte, _ *transports.Connection) error {
 	// {{if .Config.Debug}}
 	log.Println("Let's exit!")
 	// {{end}}
-	os.Exit(0)
+	go func() {
+		time.Sleep(time.Second)
+		os.Exit(0)
+	}()
 	return nil
 }
