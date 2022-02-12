@@ -201,8 +201,8 @@ func (s *sessions) Remove(sessionID string) {
 	coreLog.Debugf("Removing %d children of session %d (%v)", len(children), parentSession.ID, children)
 	for _, child := range children {
 		childSession, ok := s.sessions.LoadAndDelete(child.SessionID)
-		PivotSessions.Delete(childSession.(*Session).Connection.ID)
 		if ok {
+			PivotSessions.Delete(childSession.(*Session).Connection.ID)
 			EventBroker.Publish(Event{
 				EventType: consts.SessionClosedEvent,
 				Session:   childSession.(*Session),
