@@ -80,6 +80,7 @@ func (s *Session) LastCheckin() time.Time {
 
 // IsDead - See if last check-in is within expected variance
 func (s *Session) IsDead() bool {
+	sessionsLog.Debugf("Checking health of %s", s.ID)
 	sessionsLog.Debugf("Last checkin was %v", s.Connection.LastMessage)
 	padding := time.Duration(10 * time.Second) // Arbitrary margin of error
 	timePassed := time.Since(s.LastCheckin())
@@ -92,6 +93,12 @@ func (s *Session) IsDead() bool {
 	if s.Connection.Transport == consts.MtlsStr {
 		if time.Since(s.Connection.LastMessage) < mtls.PingInterval+padding {
 			sessionsLog.Debugf("Last message within ping interval with padding")
+			return false
+		}
+	}
+	if s.Connection.Transport == "pivot" {
+		if time.Since(s.Connection.LastMessage) < time.Duration(time.Minute)+padding {
+			sessionsLog.Debugf("Last message within pivot/server ping interval with padding")
 			return false
 		}
 	}

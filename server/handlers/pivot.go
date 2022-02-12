@@ -76,8 +76,6 @@ func pivotPeerEnvelopeHandler(implantConn *core.ImplantConnection, data []byte) 
 		resp = serverKeyExchange(implantConn, peerEnvelope)
 	case sliverpb.MsgPivotSessionEnvelope:
 		resp = sessionEnvelopeHandler(implantConn, peerEnvelope)
-	case sliverpb.MsgPivotServerPing:
-		resp = serverPingHandler(implantConn, peerEnvelope)
 	}
 
 	return resp
@@ -130,6 +128,8 @@ func handlePivotEnvelope(pivot *core.Pivot, envelope *sliverpb.Envelope) {
 				pivot.ImplantConn.Send <- respEnvelope
 			}()
 		}
+	} else if envelope.Type == sliverpb.MsgPivotServerPing {
+		pivotServerPingHandler(pivot)
 	} else {
 		pivotLog.Errorf("no pivot handler for envelope type %v", envelope.Type)
 	}
@@ -159,26 +159,9 @@ func pivotPeerFailureHandler(implantConn *core.ImplantConnection, data []byte) *
 	return nil
 }
 
-func serverPingHandler(implantConn *core.ImplantConnection, peerEnvelope *sliverpb.PivotPeerEnvelope) *sliverpb.Envelope {
-	pivotSessionID := uuid.FromBytesOrNil(peerEnvelope.PivotSessionID).String()
-	if pivotSessionID == "" {
-		pivotLog.Errorf("failed to parse pivot session id from peer envelope")
-		return nil
-	}
-
-	// Find the pivot session for the server ping
-	pivotLog.Debugf("origin envelope pivot session ID = %s", pivotSessionID)
-	pivotEntry, ok := core.PivotSessions.Load(pivotSessionID)
-	if !ok {
-		pivotLog.Errorf("pivot session id '%s' not found", pivotSessionID)
-		return nil
-	}
-	pivot := pivotEntry.(*core.Pivot)
-
-	// Update last message time
+func pivotServerPingHandler(pivot *core.Pivot) {
 	pivot.ImplantConn.UpdateLastMessage()
-
-	return nil
+	pivot.ImmediateImplantConn.UpdateLastMessage()
 }
 
 // ------------------------
