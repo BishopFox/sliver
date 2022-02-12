@@ -515,6 +515,9 @@ func ParseNamedPipec2(args string) ([]*clientpb.ImplantC2, error) {
 	}
 	for index, arg := range strings.Split(args, ",") {
 		arg = strings.ToLower(arg)
+		arg = strings.ReplaceAll(arg, "\\", "/")
+		arg = strings.TrimPrefix(arg, "/")
+		arg = strings.TrimPrefix(arg, "/")
 		var uri *url.URL
 		var err error
 		if strings.HasPrefix(arg, "namedpipe://") {
@@ -531,6 +534,18 @@ func ParseNamedPipec2(args string) ([]*clientpb.ImplantC2, error) {
 		if uri.Scheme != "namedpipe" {
 			return nil, fmt.Errorf("invalid namedpipe scheme: %s", uri.Scheme)
 		}
+
+		if !strings.HasPrefix(uri.Path, "/pipe/") {
+			prompt := &survey.Confirm{
+				Message: fmt.Sprintf("Named pipe '%s' is missing the 'pipe' path prefix\nContinue anyways?", uri),
+			}
+			var confirm bool
+			survey.AskOne(prompt, &confirm)
+			if !confirm {
+				return nil, fmt.Errorf("invalid namedpipe path: %s", uri.Path)
+			}
+		}
+
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
 			URL:      uri.String(),

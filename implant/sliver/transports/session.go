@@ -753,6 +753,9 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 				case <-pingCtrl:
 					return
 				case <-time.After(time.Minute):
+					// {{if .Config.Debug}}
+					log.Printf("[tcp pivot] peer ping...")
+					// {{end}}
 					data, _ := proto.Marshal(&pb.PivotPing{
 						Nonce: uint32(time.Now().UnixNano()),
 					})
@@ -760,11 +763,10 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 						Type: pb.MsgPivotPeerPing,
 						Data: data,
 					}
-				case <-time.After(time.Minute):
 					// {{if .Config.Debug}}
 					log.Printf("[tcp pivot] server ping...")
 					// {{end}}
-					data, _ := proto.Marshal(&pb.PivotPing{
+					data, _ = proto.Marshal(&pb.PivotPing{
 						Nonce: uint32(time.Now().UnixNano()),
 					})
 					connection.Send <- &pb.Envelope{

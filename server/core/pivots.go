@@ -197,6 +197,10 @@ func insertImmediateChildren(entry *PivotGraphEntry, depth int) {
 			return true
 		}
 		session := Sessions.FromImplantConnection(pivot.ImplantConn)
+		if session == nil {
+			coreLog.Warnf("[graph] session not found for pivot: %v", pivot)
+			return true
+		}
 		coreLog.Debugf("[graph] entry: %v, pivot: %v", entry.Name, pivot)
 		if pivot.Peers[1].PeerID == entry.PeerID {
 			child := &PivotGraphEntry{

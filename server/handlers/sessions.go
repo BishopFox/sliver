@@ -111,7 +111,7 @@ func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliver
 		if session.ID == tunnel.SessionID {
 			tunnel.FromImplant <- tunnelData
 		} else {
-			sessionHandlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
+			sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on tunnel it did not own", session.ID)
 		}
 	} else {
 		sessionHandlerLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
@@ -135,7 +135,7 @@ func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *slive
 			sessionHandlerLog.Infof("Closing tunnel %d", tunnel.ID)
 			core.Tunnels.Close(tunnel.ID)
 		} else {
-			sessionHandlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
+			sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on tunnel it did not own", session.ID)
 		}
 	} else {
 		sessionHandlerLog.Warnf("Close sent on nil tunnel %d", tunnelData.TunnelID)
@@ -145,7 +145,7 @@ func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *slive
 
 func pingHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	session := core.Sessions.FromImplantConnection(implantConn)
-	sessionHandlerLog.Debugf("ping from session %d", session.ID)
+	sessionHandlerLog.Debugf("ping from session %s", session.ID)
 	return nil
 }
 
@@ -166,7 +166,7 @@ func socksDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverp
 		if session.ID == SocksTunne.SessionID {
 			SocksTunne.FromImplant <- socksData
 		} else {
-			sessionHandlerLog.Warnf("Warning: Session %d attempted to send data on tunnel it did not own", session.ID)
+			sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on tunnel it did not own", session.ID)
 		}
 	} else {
 		sessionHandlerLog.Warnf("Data sent on nil tunnel %d", socksData.TunnelID)
