@@ -201,6 +201,7 @@ func (s *sessions) Remove(sessionID string) {
 	coreLog.Debugf("Removing %d children of session %d (%v)", len(children), parentSession.ID, children)
 	for _, child := range children {
 		childSession, ok := s.sessions.LoadAndDelete(child.SessionID)
+		PivotSessions.Delete(childSession.(*Session).Connection.ID)
 		if ok {
 			EventBroker.Publish(Event{
 				EventType: consts.SessionClosedEvent,
@@ -231,7 +232,6 @@ func (s *sessions) FromImplantConnection(conn *ImplantConnection) *Session {
 	s.sessions.Range(func(key, value interface{}) bool {
 		if value.(*Session).Connection.ID == conn.ID {
 			found = value.(*Session)
-			PivotSessions.Delete(conn.ID)
 			return false
 		}
 		return true
