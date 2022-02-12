@@ -293,6 +293,17 @@ func ListBeacons() ([]*models.Beacon, error) {
 	return beacons, err
 }
 
+// RenameBeacon - Rename a beacon
+func RenameBeacon(beaconID string, name string) error {
+	err := Session().Where(&models.Beacon{
+		ID: uuid.FromStringOrNil(beaconID),
+	}).Updates(models.Beacon{Name: name}).Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // PendingBeaconTasksByBeaconID - Select a Beacon by ID, ordered by creation time
 func PendingBeaconTasksByBeaconID(beaconID string) ([]*models.BeaconTask, error) {
 	tasks := []*models.BeaconTask{}

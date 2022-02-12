@@ -30,8 +30,6 @@ import (
 	"net/url"
 	"time"
 
-	"strconv"
-
 	// {{if .Config.MTLSc2Enabled}}
 	"crypto/tls"
 
@@ -50,6 +48,10 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/transports/wireguard"
 	"golang.zx2c4.com/wireguard/device"
 
+	// {{end}}
+
+	// {{if or .Config.MTLSc2Enabled .Config.WGc2Enabled}}
+	"strconv"
 	// {{end}}
 
 	// {{if .Config.DNSc2Enabled}}
@@ -86,20 +88,12 @@ type Beacon struct {
 
 // Interval - Interval between beacons
 func (b *Beacon) Interval() int64 {
-	interval, err := strconv.ParseInt(`{{.Config.BeaconInterval}}`, 10, 64)
-	if err != nil {
-		interval = int64(30 * time.Second)
-	}
-	return int64(interval)
+	return GetInterval()
 }
 
 // Jitter - Jitter between beacons
 func (b *Beacon) Jitter() int64 {
-	jitter, err := strconv.ParseInt(`{{.Config.BeaconJitter}}`, 10, 64)
-	if err != nil {
-		jitter = int64(30 * time.Second)
-	}
-	return int64(jitter)
+	return GetJitter()
 }
 
 // Duration - Interval + random value <= Jitter

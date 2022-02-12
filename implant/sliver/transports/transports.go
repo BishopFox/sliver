@@ -112,6 +112,11 @@ func randomCCDomain(ccServers []string, next string) string {
 var (
 	// reconnectInterval - DO NOT ACCESS DIRECTLY
 	reconnectInterval = time.Duration(0)
+
+	// {{if .Config.IsBeacon}}
+	jitter   = time.Duration(0)
+	interval = time.Duration(0)
+	// {{end}}
 )
 
 // GetReconnectInterval - Parse the reconnect interval inserted at compile-time
@@ -131,6 +136,44 @@ func GetReconnectInterval() time.Duration {
 func SetReconnectInterval(interval int64) {
 	reconnectInterval = time.Duration(interval)
 }
+
+// GetJitter - Get the beacon jitter {{if .Config.IsBeacon}}
+func GetJitter() int64 {
+	if jitter == time.Duration(0) {
+		configJitter, err := strconv.ParseInt(`{{.Config.BeaconJitter}}`, 10, 64)
+		jitter = time.Duration(configJitter)
+		if err != nil {
+			jitter = time.Duration(30 * time.Second)
+		}
+	}
+	return int64(jitter)
+}
+
+// SetJitter - Set the jitter value dynamically
+func SetJitter(newJitter int64) {
+	jitter = time.Duration(newJitter)
+}
+
+// {{end}} - IsBeacon
+
+// GetInterval - Get the beacon interval {{if .Config.IsBeacon}}
+func GetInterval() int64 {
+	if interval == time.Duration(0) {
+		configInterval, err := strconv.ParseInt(`{{.Config.BeaconInterval}}`, 10, 64)
+		if err != nil {
+			interval = time.Duration(30 * time.Second)
+		}
+		interval = time.Duration(configInterval)
+	}
+	return int64(interval)
+}
+
+// SetInterval - Set the interval value dynamically
+func SetInterval(newInterval int64) {
+	interval = time.Duration(newInterval)
+}
+
+// {{end}} - IsBeacon
 
 // GetMaxConnectionErrors - Parse the max connection errors inserted at compile-time
 func GetMaxConnectionErrors() int {
