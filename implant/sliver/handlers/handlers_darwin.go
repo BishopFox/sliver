@@ -48,8 +48,8 @@ var (
 
 		pb.MsgSideloadReq: sideloadHandler,
 
-		pb.MsgReconnectIntervalReq: reconnectIntervalHandler,
-		pb.MsgSSHCommandReq:        runSSHCommandHandler,
+		pb.MsgReconfigureReq: reconfigureHandler,
+		pb.MsgSSHCommandReq:  runSSHCommandHandler,
 
 		// Extensions
 		pb.MsgRegisterExtensionReq: registerExtensionHandler,

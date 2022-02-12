@@ -20,8 +20,6 @@ package rpc
 
 import (
 	"context"
-	"errors"
-	"regexp"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -30,13 +28,6 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"google.golang.org/protobuf/proto"
-)
-
-const maxNameLength = 32
-
-var (
-	// ErrInvalidName - Invalid name
-	ErrInvalidName = errors.New("invalid session name, alphanumerics only")
 )
 
 // GetSessions - Get a list of sessions
@@ -70,72 +61,6 @@ func (rpc *Server) KillSession(ctx context.Context, kill *sliverpb.KillReq) (*co
 	timeout := time.Duration(kill.Request.GetTimeout())
 	session.Request(sliverpb.MsgNumber(kill), timeout, data)
 	return &commonpb.Empty{}, nil
-}
-
-// UpdateSession - Update a session name
-func (rpc *Server) UpdateSession(ctx context.Context, update *clientpb.UpdateSession) (*clientpb.Session, error) {
-	resp := &clientpb.Session{}
-	session := core.Sessions.Get(update.SessionID)
-	if session == nil {
-		return resp, ErrInvalidSessionID
-	}
-	var maxLen int
-	if update.Name != "" {
-		if len(update.Name) < maxNameLength {
-			maxLen = len(update.Name)
-		} else {
-			maxLen = maxNameLength
-		}
-		name := update.Name[:maxLen]
-		if !regexp.MustCompile(`^[[:alnum:]]+$`).MatchString(name) {
-			return resp, ErrInvalidName
-		}
-		session.Name = name
-	}
-	// Update reconnect interval if set
-	if update.ReconnectInterval != -1 {
-		session.ReconnectInterval = update.ReconnectInterval
-
-		// Create protobuf msg
-		req := sliverpb.ReconnectIntervalReq{
-			Request: &commonpb.Request{
-				SessionID: session.ID,
-				Timeout:   int64(0),
-			},
-			ReconnectInterval: update.ReconnectInterval,
-		}
-
-		data, err := proto.Marshal(&req)
-		if err != nil {
-			return nil, err
-		}
-		session.Request(sliverpb.MsgNumber(&req), rpc.getTimeout(&req), data)
-	}
-	// Update poll interval if set
-	if update.PollInterval != -1 {
-		session.PollTimeout = update.PollInterval
-
-		// Create protobuf msg
-		req := sliverpb.PollIntervalReq{
-			Request: &commonpb.Request{
-				SessionID: session.ID,
-				Timeout:   int64(0),
-			},
-			PollInterval: update.PollInterval,
-		}
-
-		data, err := proto.Marshal(&req)
-		if err != nil {
-			return nil, err
-		}
-		session.Request(sliverpb.MsgNumber(&req), rpc.getTimeout(&req), data)
-	}
-	if len(update.Extensions) != 0 {
-		session.Extensions = update.Extensions
-	}
-	core.Sessions.UpdateSession(session)
-	resp = session.ToProtobuf()
-	return resp, nil
 }
 
 // OpenSession - Instruct beacon to open a new session on next checkin

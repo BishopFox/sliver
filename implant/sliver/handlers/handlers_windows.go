@@ -82,17 +82,17 @@ var (
 		sliverpb.MsgRegistryListValuesReq:  regValuesListHandler,
 
 		// Generic
-		sliverpb.MsgPing:                 pingHandler,
-		sliverpb.MsgLsReq:                dirListHandler,
-		sliverpb.MsgDownloadReq:          downloadHandler,
-		sliverpb.MsgUploadReq:            uploadHandler,
-		sliverpb.MsgCdReq:                cdHandler,
-		sliverpb.MsgPwdReq:               pwdHandler,
-		sliverpb.MsgRmReq:                rmHandler,
-		sliverpb.MsgMkdirReq:             mkdirHandler,
-		sliverpb.MsgExecuteReq:           executeHandler,
-		sliverpb.MsgReconnectIntervalReq: reconnectIntervalHandler,
-		sliverpb.MsgSSHCommandReq:        runSSHCommandHandler,
+		sliverpb.MsgPing:           pingHandler,
+		sliverpb.MsgLsReq:          dirListHandler,
+		sliverpb.MsgDownloadReq:    downloadHandler,
+		sliverpb.MsgUploadReq:      uploadHandler,
+		sliverpb.MsgCdReq:          cdHandler,
+		sliverpb.MsgPwdReq:         pwdHandler,
+		sliverpb.MsgRmReq:          rmHandler,
+		sliverpb.MsgMkdirReq:       mkdirHandler,
+		sliverpb.MsgExecuteReq:     executeHandler,
+		sliverpb.MsgReconfigureReq: reconfigureHandler,
+		sliverpb.MsgSSHCommandReq:  runSSHCommandHandler,
 
 		// Extensions
 		sliverpb.MsgRegisterExtensionReq: registerExtensionHandler,

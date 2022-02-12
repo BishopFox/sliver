@@ -1,8 +1,8 @@
-package sessions
+package reconfig
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2022  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -21,18 +21,16 @@ package sessions
 import (
 	"context"
 	"regexp"
-	"time"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-
 	"github.com/desertbit/grumble"
 )
 
-// SessionsReconfigCmd - Reconfigure metadata about a sessions
-func SessionsReconfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveTarget.GetSessionInteractive()
-	if session == nil {
+// RecnameCmd - Reconfigure metadata about a sessions
+func RenameCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
@@ -46,24 +44,23 @@ func SessionsReconfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 		}
 	}
 
-	// Option to change the reconnect interval
-	reconnect := ctx.Flags.Int("reconnect")
-
-	// Option to change the reconnect interval
-	poll := ctx.Flags.Int("poll")
-
-	oldSession := con.ActiveTarget.GetSession()
-	session, err := con.Rpc.UpdateSession(context.Background(), &clientpb.UpdateSession{
-		SessionID:         oldSession.ID,
-		Name:              name,
-		ReconnectInterval: int64(reconnect) * int64(time.Second),
-		PollInterval:      int64(poll) * int64(time.Second),
+	var beaconID string
+	var sessionID string
+	if beacon != nil {
+		beaconID = beacon.ID
+	} else if session != nil {
+		sessionID = session.ID
+	}
+	_, err := con.Rpc.Rename(context.Background(), &clientpb.RenameReq{
+		SessionID: sessionID,
+		BeaconID:  beaconID,
+		Name:      name,
 	})
-
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
 
-	con.ActiveTarget.Set(session, nil)
+	con.PrintInfof("Renamed implant to %s\n", name)
+	con.ActiveTarget.Set(nil, nil)
 }

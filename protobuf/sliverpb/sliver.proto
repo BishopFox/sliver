@@ -872,14 +872,17 @@ message WGTCPForwarders {
   commonpb.Response Response = 9;
 }
 
-// ReconnectIntervalReq - Request the implant to update it's reconnect interval
-message ReconnectIntervalReq {
+// ReconfigureReq - Request the implant to reconfigure itself
+message ReconfigureReq {
   int64 ReconnectInterval = 1;
+  int64 BeaconInterval = 2;
+  int64 BeaconJitter = 3;
 
   commonpb.Request Request = 9;
 }
 
-message ReconnectInterval {
+message Reconfigure {
+
   commonpb.Response Response = 9;
 }
 

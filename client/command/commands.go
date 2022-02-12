@@ -63,6 +63,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/privilege"
 	"github.com/bishopfox/sliver/client/command/processes"
 	"github.com/bishopfox/sliver/client/command/reaction"
+	"github.com/bishopfox/sliver/client/command/reconfig"
 	"github.com/bishopfox/sliver/client/command/registry"
 	"github.com/bishopfox/sliver/client/command/screenshot"
 	"github.com/bishopfox/sliver/client/command/sessions"
@@ -503,6 +504,47 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.MultiplayerHelpGroup,
 	})
 
+	// [ Reconfig ] ---------------------------------------------------------------
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.ReconfigStr,
+		Help:     "Reconfigure the active beacon/session",
+		LongHelp: help.GetHelpFor([]string{consts.ReconfigStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "change implant name to")
+			f.String("r", "reconnect-interval", "", "reconnect interval for implant")
+			f.String("i", "beacon-interval", "", "beacon callback interval")
+			f.String("j", "beacon-jitter", "", "beacon callback jitter (random up to)")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			reconfig.ReconfigCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.RenameStr,
+		Help:     "Rename the active beacon/session",
+		LongHelp: help.GetHelpFor([]string{consts.RenameStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "change implant name to")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			reconfig.RenameCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
 	// [ Sessions ] --------------------------------------------------------------
 
 	sessionsCmd := &grumble.Command{
@@ -542,26 +584,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 	con.App.AddCommand(sessionsCmd)
-
-	con.App.AddCommand(&grumble.Command{
-		Name:     consts.ReconfigStr,
-		Help:     "Reconfigure the active session",
-		LongHelp: help.GetHelpFor([]string{consts.SessionsStr, consts.ReconfigStr}),
-		Flags: func(f *grumble.Flags) {
-			f.String("n", "name", "", "agent name to change to")
-			f.Int("r", "reconnect", -1, "reconnect interval for agent")
-			f.Int("p", "poll", -1, "poll interval for agent")
-
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			con.Println()
-			sessions.SessionsReconfigCmd(ctx, con)
-			con.Println()
-			return nil
-		},
-		HelpGroup: consts.SliverHelpGroup,
-	})
 
 	con.App.AddCommand(&grumble.Command{
 		Name:     consts.BackgroundStr,

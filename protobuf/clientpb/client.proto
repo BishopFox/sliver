@@ -338,12 +338,10 @@ message Sessions {
   repeated Session Sessions = 1;
 }
 
-message UpdateSession {
+message RenameReq {
   string SessionID = 1;
-  string Name = 2;
-  int64 ReconnectInterval = 3;
-  int64 PollInterval = 4;
-  repeated string Extensions = 5;
+  string BeaconID = 2;
+  string Name = 3;
 }
 
 message GenerateReq {

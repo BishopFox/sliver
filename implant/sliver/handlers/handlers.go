@@ -153,7 +153,7 @@ func rmHandler(data []byte, resp RPCResponse) {
 	_, err = os.Stat(target)
 	if err == nil {
 		if (target == "/" || target == "C:\\") && !rmReq.Force {
-			err = errors.New("Cowardly refusing to remove volume root without force")
+			err = errors.New("cowardly refusing to remove volume root without force")
 		}
 	}
 
@@ -529,31 +529,30 @@ func unsetEnvHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func reconnectIntervalHandler(data []byte, resp RPCResponse) {
-	reconnectIntervalReq := &sliverpb.ReconnectIntervalReq{}
-	err := proto.Unmarshal(data, reconnectIntervalReq)
+func reconfigureHandler(data []byte, resp RPCResponse) {
+	reconfigReq := &sliverpb.ReconfigureReq{}
+	err := proto.Unmarshal(data, reconfigReq)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("error decoding message: %v\n", err)
 		// {{end}}
 		return
 	}
-
-	reconnectInterval := reconnectIntervalReq.GetReconnectInterval()
-	// {{if .Config.Debug}}
-	log.Printf("Update reconnect interval called: %d\n", reconnectInterval)
-	// {{end}}
-
-	// Set the reconnect interval value
-	transports.SetReconnectInterval(reconnectInterval)
-
-	recIntervalResp := &sliverpb.ReconnectInterval{}
-	recIntervalResp.Response = &commonpb.Response{}
-	if err != nil {
-		recIntervalResp.Response.Err = err.Error()
+	if reconfigReq.ReconnectInterval != 0 {
+		transports.SetReconnectInterval(reconfigReq.ReconnectInterval)
 	}
 
-	data, err = proto.Marshal(recIntervalResp)
+	// {{if .Config.IsBeacon}}
+	if reconfigReq.BeaconInterval != 0 {
+		transports.SetInterval(reconfigReq.BeaconInterval)
+	}
+	if reconfigReq.BeaconJitter != 0 {
+		transports.SetJitter(reconfigReq.BeaconJitter)
+	}
+	// {{end}}
+
+	reconfigResp := &sliverpb.Reconfigure{}
+	data, err = proto.Marshal(reconfigResp)
 	resp(data, err)
 }
 
@@ -561,6 +560,9 @@ func reconnectIntervalHandler(data []byte, resp RPCResponse) {
 
 func gzipWrite(w io.Writer, data []byte) error {
 	gw, err := gzip.NewWriterLevel(w, gzip.BestSpeed)
+	if err != nil {
+		return err
+	}
 	defer gw.Close()
 	gw.Write(data)
 	return err

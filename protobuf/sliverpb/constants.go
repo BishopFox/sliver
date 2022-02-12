@@ -235,14 +235,11 @@ const (
 	// MsgSocksData - Response of SocksData
 	MsgSocksData
 
-	// MsgReconnectIntervalReq
-	MsgReconnectIntervalReq
+	// MsgReconfigureReq
+	MsgReconfigureReq
 
-	// MsgReconnectInterval - Set reconnect interval
-	MsgReconnectInterval
-
-	// MsgPollInterval - Set poll interval
-	MsgPollInterval
+	// MsgReconfigure - Set Reconfigure
+	MsgReconfigure
 
 	// MsgUnsetEnvReq
 	MsgUnsetEnvReq
@@ -449,14 +446,11 @@ func MsgNumber(request proto.Message) uint32 {
 	case *Portfwd:
 		return MsgPortfwd
 
-	case *ReconnectIntervalReq:
-		return MsgReconnectIntervalReq
+	case *ReconfigureReq:
+		return MsgReconfigureReq
+	case *Reconfigure:
+		return MsgReconfigure
 
-	case *ReconnectInterval:
-		return MsgReconnectInterval
-
-	case *PollInterval:
-		return MsgPollInterval
 	case *SSHCommandReq:
 		return MsgSSHCommandReq
 

@@ -38,4 +38,7 @@ var (
 	ErrAsyncNotSupported = status.Error(codes.Unavailable, "Async not supported for this command")
 	// ErrDatabaseFailure - Generic database failure error (real error is logged)
 	ErrDatabaseFailure = status.Error(codes.Internal, "Database operation failed")
+
+	// ErrInvalidName - Invalid name
+	ErrInvalidName = status.Error(codes.InvalidArgument, "Invalid session name, alphanumerics only")
 )

@@ -27,9 +27,10 @@ type SliverRPCClient interface {
 	GetOperators(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Operators, error)
 	// *** Generic ***
 	Kill(ctx context.Context, in *sliverpb.KillReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	Reconfigure(ctx context.Context, in *sliverpb.ReconfigureReq, opts ...grpc.CallOption) (*sliverpb.Reconfigure, error)
+	Rename(ctx context.Context, in *clientpb.RenameReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	// *** Sessions ***
 	GetSessions(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Sessions, error)
-	UpdateSession(ctx context.Context, in *clientpb.UpdateSession, opts ...grpc.CallOption) (*clientpb.Session, error)
 	// *** Beacons ***
 	GetBeacons(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Beacons, error)
 	GetBeacon(ctx context.Context, in *clientpb.Beacon, opts ...grpc.CallOption) (*clientpb.Beacon, error)
@@ -198,18 +199,27 @@ func (c *sliverRPCClient) Kill(ctx context.Context, in *sliverpb.KillReq, opts .
 	return out, nil
 }
 
-func (c *sliverRPCClient) GetSessions(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Sessions, error) {
-	out := new(clientpb.Sessions)
-	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetSessions", in, out, opts...)
+func (c *sliverRPCClient) Reconfigure(ctx context.Context, in *sliverpb.ReconfigureReq, opts ...grpc.CallOption) (*sliverpb.Reconfigure, error) {
+	out := new(sliverpb.Reconfigure)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Reconfigure", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *sliverRPCClient) UpdateSession(ctx context.Context, in *clientpb.UpdateSession, opts ...grpc.CallOption) (*clientpb.Session, error) {
-	out := new(clientpb.Session)
-	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/UpdateSession", in, out, opts...)
+func (c *sliverRPCClient) Rename(ctx context.Context, in *clientpb.RenameReq, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Rename", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GetSessions(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Sessions, error) {
+	out := new(clientpb.Sessions)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetSessions", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1310,9 +1320,10 @@ type SliverRPCServer interface {
 	GetOperators(context.Context, *commonpb.Empty) (*clientpb.Operators, error)
 	// *** Generic ***
 	Kill(context.Context, *sliverpb.KillReq) (*commonpb.Empty, error)
+	Reconfigure(context.Context, *sliverpb.ReconfigureReq) (*sliverpb.Reconfigure, error)
+	Rename(context.Context, *clientpb.RenameReq) (*commonpb.Empty, error)
 	// *** Sessions ***
 	GetSessions(context.Context, *commonpb.Empty) (*clientpb.Sessions, error)
-	UpdateSession(context.Context, *clientpb.UpdateSession) (*clientpb.Session, error)
 	// *** Beacons ***
 	GetBeacons(context.Context, *commonpb.Empty) (*clientpb.Beacons, error)
 	GetBeacon(context.Context, *clientpb.Beacon) (*clientpb.Beacon, error)
@@ -1460,11 +1471,14 @@ func (UnimplementedSliverRPCServer) GetOperators(context.Context, *commonpb.Empt
 func (UnimplementedSliverRPCServer) Kill(context.Context, *sliverpb.KillReq) (*commonpb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Kill not implemented")
 }
+func (UnimplementedSliverRPCServer) Reconfigure(context.Context, *sliverpb.ReconfigureReq) (*sliverpb.Reconfigure, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Reconfigure not implemented")
+}
+func (UnimplementedSliverRPCServer) Rename(context.Context, *clientpb.RenameReq) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Rename not implemented")
+}
 func (UnimplementedSliverRPCServer) GetSessions(context.Context, *commonpb.Empty) (*clientpb.Sessions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSessions not implemented")
-}
-func (UnimplementedSliverRPCServer) UpdateSession(context.Context, *clientpb.UpdateSession) (*clientpb.Session, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateSession not implemented")
 }
 func (UnimplementedSliverRPCServer) GetBeacons(context.Context, *commonpb.Empty) (*clientpb.Beacons, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetBeacons not implemented")
@@ -1872,6 +1886,42 @@ func _SliverRPC_Kill_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_Reconfigure_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.ReconfigureReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).Reconfigure(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/Reconfigure",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).Reconfigure(ctx, req.(*sliverpb.ReconfigureReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_Rename_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.RenameReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).Rename(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/Rename",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).Rename(ctx, req.(*clientpb.RenameReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_GetSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(commonpb.Empty)
 	if err := dec(in); err != nil {
@@ -1886,24 +1936,6 @@ func _SliverRPC_GetSessions_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).GetSessions(ctx, req.(*commonpb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SliverRPC_UpdateSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(clientpb.UpdateSession)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SliverRPCServer).UpdateSession(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/rpcpb.SliverRPC/UpdateSession",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).UpdateSession(ctx, req.(*clientpb.UpdateSession))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3981,12 +4013,16 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_Kill_Handler,
 		},
 		{
-			MethodName: "GetSessions",
-			Handler:    _SliverRPC_GetSessions_Handler,
+			MethodName: "Reconfigure",
+			Handler:    _SliverRPC_Reconfigure_Handler,
 		},
 		{
-			MethodName: "UpdateSession",
-			Handler:    _SliverRPC_UpdateSession_Handler,
+			MethodName: "Rename",
+			Handler:    _SliverRPC_Rename_Handler,
+		},
+		{
+			MethodName: "GetSessions",
+			Handler:    _SliverRPC_GetSessions_Handler,
 		},
 		{
 			MethodName: "GetBeacons",
