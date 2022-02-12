@@ -19,6 +19,7 @@ package pivots
 */
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -37,7 +38,7 @@ var (
 
 // CreateNamedPipePivotListener - Starts a named pipe listener
 func CreateNamedPipePivotListener(address string, upstream chan<- *pb.Envelope) (*PivotListener, error) {
-	fullName := "\\\\.\\pipe\\" + address
+	fullName := "\\\\.\\pipe\\" + strings.TrimPrefix(address, "\\\\.\\pipe\\")
 	ln, err := winio.ListenPipe(fullName, &winio.PipeConfig{
 		//SecurityDescriptor: "",
 		RemoteClientMode: true,

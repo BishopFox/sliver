@@ -231,6 +231,7 @@ func (s *sessions) FromImplantConnection(conn *ImplantConnection) *Session {
 	s.sessions.Range(func(key, value interface{}) bool {
 		if value.(*Session).Connection.ID == conn.ID {
 			found = value.(*Session)
+			PivotSessions.Delete(conn.ID)
 			return false
 		}
 		return true

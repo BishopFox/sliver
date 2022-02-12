@@ -56,6 +56,7 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 			// {{end}}
 			close(send)
 			ctrl <- struct{}{}
+			pingCtrl <- struct{}{}
 			close(recv)
 		},
 	}
