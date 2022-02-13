@@ -40,6 +40,10 @@ Please checkout the [wiki](https://github.com/BishopFox/sliver/wiki), or start a
 
 See the [wiki](https://github.com/BishopFox/sliver/wiki/Compile-From-Source).
 
+### Feedback
+
+Please take a moment and fill out [our survey](https://forms.gle/SwVsHFNh24ChG58C6)
+
 ### License - GPLv3
 
 Sliver is licensed under [GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html), some sub-components may have separate licenses. See their respective subdirectories in this project for details.
