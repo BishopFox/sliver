@@ -31,6 +31,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// Kill - Kill the implant proccess
 func (rpc *Server) Kill(ctx context.Context, kill *sliverpb.KillReq) (*commonpb.Empty, error) {
 	var (
 		beacon *models.Beacon
@@ -49,7 +50,6 @@ func (rpc *Server) Kill(ctx context.Context, kill *sliverpb.KillReq) (*commonpb.
 }
 
 func (rpc *Server) killSession(kill *sliverpb.KillReq, session *core.Session) (*commonpb.Empty, error) {
-	core.Sessions.Remove(session.ID)
 	data, err := proto.Marshal(kill)
 	if err != nil {
 		return nil, err

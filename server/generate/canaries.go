@@ -75,9 +75,7 @@ func (g *CanaryGenerator) GenerateCanary() string {
 	index := insecureRand.Intn(len(g.ParentDomains))
 
 	parentDomain := g.ParentDomains[index]
-	if strings.HasPrefix(parentDomain, ".") {
-		parentDomain = parentDomain[1:]
-	}
+	parentDomain = strings.TrimPrefix(parentDomain, ".")
 	if !strings.HasSuffix(parentDomain, ".") {
 		parentDomain += "." // Ensure we have the FQDN
 	}

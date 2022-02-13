@@ -64,12 +64,12 @@ var (
 		},
 		"darwin": {
 			"windows": {
-				"386":   "/usr/local/bin/i686-w64-mingw32-gcc",
-				"amd64": "/usr/local/bin/x86_64-w64-mingw32-gcc",
+				"386":   "/opt/homebrew/bin/i686-w64-mingw32-gcc",
+				"amd64": "/opt/homebrew/bin/x86_64-w64-mingw32-gcc",
 			},
 			"linux": {
 				// brew install FiloSottile/musl-cross/musl-cross
-				"amd64": "/usr/local/bin/x86_64-linux-musl-gcc",
+				"amd64": "/opt/homebrew/bin/x86_64-linux-musl-gcc",
 			},
 		},
 	}

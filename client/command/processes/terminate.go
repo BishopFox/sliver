@@ -41,6 +41,10 @@ func TerminateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Pid:     int32(pid),
 		Force:   ctx.Flags.Bool("force"),
 	})
+	if err != nil {
+		con.PrintErrorf("Terminate failed: %s", err)
+		return
+	}
 
 	if terminated.Response != nil && terminated.Response.Async {
 		con.AddBeaconCallback(terminated.Response.TaskID, func(task *clientpb.BeaconTask) {

@@ -102,6 +102,10 @@ func auditLogSession(session *core.Session, register *sliverpb.Register) {
 // two handlers calls may race when a tunnel is quickly created and closed.
 func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	session := core.Sessions.FromImplantConnection(implantConn)
+	if session == nil {
+		sessionHandlerLog.Warnf("Received tunnel data from unknown session: %v", implantConn)
+		return nil
+	}
 	tunnelHandlerMutex.Lock()
 	defer tunnelHandlerMutex.Unlock()
 	tunnelData := &sliverpb.TunnelData{}
@@ -121,6 +125,10 @@ func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliver
 
 func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	session := core.Sessions.FromImplantConnection(implantConn)
+	if session == nil {
+		sessionHandlerLog.Warnf("Received tunnel close from unknown session: %v", implantConn)
+		return nil
+	}
 	tunnelHandlerMutex.Lock()
 	defer tunnelHandlerMutex.Unlock()
 
@@ -145,12 +153,20 @@ func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *slive
 
 func pingHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	session := core.Sessions.FromImplantConnection(implantConn)
+	if session == nil {
+		sessionHandlerLog.Warnf("Received ping from unknown session: %v", implantConn)
+		return nil
+	}
 	sessionHandlerLog.Debugf("ping from session %s", session.ID)
 	return nil
 }
 
 func socksDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
 	session := core.Sessions.FromImplantConnection(implantConn)
+	if session == nil {
+		sessionHandlerLog.Warnf("Received socks data from unknown session: %v", implantConn)
+		return nil
+	}
 	tunnelHandlerMutex.Lock()
 	defer tunnelHandlerMutex.Unlock()
 	socksData := &sliverpb.SocksData{}
