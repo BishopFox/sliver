@@ -631,6 +631,7 @@ func httpClient(address string, netTimeout time.Duration, tlsTimeout time.Durati
 
 func httpsClient(address string, netTimeout time.Duration, tlsTimeout time.Duration, proxyConfig string) *SliverHTTPClient {
 	transport := &http.Transport{
+		IdleConnTimeout: time.Millisecond,
 		Dial: (&net.Dialer{
 			Timeout: netTimeout,
 		}).Dial,
