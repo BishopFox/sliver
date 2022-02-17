@@ -768,7 +768,7 @@ message PivotServerKeyExchange {
 }
 
 message PivotPeer {
-  int64 PeerID = 1 [jstype = JS_STRING];;
+  int64 PeerID = 1 [jstype = JS_STRING];
   string Name = 2;
 }
 
@@ -785,7 +785,7 @@ message PivotPing {
 }
 
 message NetConnPivot {
-  int64 PeerID = 1 [jstype = JS_STRING];;
+  int64 PeerID = 1 [jstype = JS_STRING];
   string RemoteAddress = 2;
 }
 
@@ -795,7 +795,7 @@ enum PeerFailureType {
 }
 
 message PivotPeerFailure {
-  int64 PeerID = 1 [jstype = JS_STRING];;
+  int64 PeerID = 1 [jstype = JS_STRING];
   PeerFailureType Type = 2;
   string Err = 3;
 }
