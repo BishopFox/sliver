@@ -275,14 +275,21 @@ func SetupGoPath(goPathSrc string) error {
 
 func stripSliverpb(src []byte) []byte {
 	out := src
-	re := regexp.MustCompile(`protobuf:"[a-z]+,\d+,[a-z]+,name=(?P<FieldName1>[a-zA-Z0-9]+),proto3" json:"(?P<FiledName2>[a-zA-Z0-9]+),[a-z]+"`)
+	re := regexp.MustCompile(`protobuf:"[a-z]+,\d+,[a-z]+,name=(?P<FieldName1>[a-zA-Z0-9]+),proto3(,enum=(?P<EnumName>[a-zA-Z\.]+))?" json:"(?P<FiledName2>[a-zA-Z0-9]+),[a-z]+"`)
 	found := re.FindAllSubmatch(src, -1)
 	for _, x := range found {
-		line := x[0] // line that matched
-		item := x[1] // first named capturing group (FieldName1)
+		line := x[0]     // line that matched
+		typeName := x[1] // first named capturing group (FieldName1)
+		enumName := x[3]
+		if string(enumName) != "" {
+			newEnumName := pseudoRandStringRunes(len(enumName))
+			newEnumLine := bytes.ReplaceAll(line, enumName, []byte(newEnumName))
+			out = bytes.ReplaceAll(out, line, []byte(newEnumLine))
+			line = newEnumLine
+		}
 		// we don't care about FieldName2 because its value is the same as FieldName1
-		newItem := pseudoRandStringRunes(len(item))
-		newLine := bytes.ReplaceAll(line, item, []byte(newItem))
+		newItem := pseudoRandStringRunes(len(typeName))
+		newLine := bytes.ReplaceAll(line, typeName, []byte(newItem))
 		out = bytes.ReplaceAll(out, line, []byte(newLine))
 	}
 	return out
