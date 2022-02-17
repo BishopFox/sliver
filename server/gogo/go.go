@@ -20,8 +20,6 @@ package gogo
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
@@ -59,7 +57,7 @@ type GoConfig struct {
 	CXX        string
 
 	Obfuscation bool
-	GOPRIVATE   string
+	GOGARBLE    string
 }
 
 // GetGoRootDir - Get the path to GOROOT
@@ -96,12 +94,6 @@ func garbleMaxLiteralSize() []string {
 	return []string{"-literals-max-size", fmt.Sprintf("%d", 2*kb)}
 }
 
-func seed() string {
-	seed := make([]byte, 32)
-	rand.Read(seed)
-	return hex.EncodeToString(seed)
-}
-
 // GarbleCmd - Execute a go command
 func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
@@ -109,7 +101,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
 	}
 	garbleBinPath := filepath.Join(config.GOROOT, "bin", "garble")
-	garbleFlags := []string{fmt.Sprintf("-seed=%s", seed()), "-literals"}
+	garbleFlags := []string{"-seed=random", "-literals"}
 	garbleFlags = append(garbleFlags, garbleMaxLiteralSize()...)
 	command = append(garbleFlags, command...)
 	cmd := exec.Command(garbleBinPath, command...)
@@ -122,7 +114,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
 		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
 		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
-		fmt.Sprintf("GOPRIVATE=%s", config.GOPRIVATE),
+		fmt.Sprintf("GOGARBLE=%s", config.GOGARBLE),
 		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
 		fmt.Sprintf("PATH=%s:%s", filepath.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
 	}
