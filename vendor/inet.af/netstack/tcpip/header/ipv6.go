@@ -98,12 +98,27 @@ const (
 	// The address is ff02::1.
 	IPv6AllNodesMulticastAddress tcpip.Address = "\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01"
 
-	// IPv6AllRoutersMulticastAddress is a link-local multicast group that
-	// all IPv6 routers MUST join, as per RFC 4291, section 2.8. Packets
+	// IPv6AllRoutersInterfaceLocalMulticastAddress is an interface-local
+	// multicast group that all IPv6 routers MUST join, as per RFC 4291, section
+	// 2.8. Packets destined to this address will reach the router on an
+	// interface.
+	//
+	// The address is ff01::2.
+	IPv6AllRoutersInterfaceLocalMulticastAddress tcpip.Address = "\xff\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02"
+
+	// IPv6AllRoutersLinkLocalMulticastAddress is a link-local multicast group
+	// that all IPv6 routers MUST join, as per RFC 4291, section 2.8. Packets
 	// destined to this address will reach all routers on a link.
 	//
 	// The address is ff02::2.
-	IPv6AllRoutersMulticastAddress tcpip.Address = "\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02"
+	IPv6AllRoutersLinkLocalMulticastAddress tcpip.Address = "\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02"
+
+	// IPv6AllRoutersSiteLocalMulticastAddress is a site-local multicast group
+	// that all IPv6 routers MUST join, as per RFC 4291, section 2.8. Packets
+	// destined to this address will reach all routers in a site.
+	//
+	// The address is ff05::2.
+	IPv6AllRoutersSiteLocalMulticastAddress tcpip.Address = "\xff\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02"
 
 	// IPv6MinimumMTU is the minimum MTU required by IPv6, per RFC 8200,
 	// section 5:
@@ -142,11 +157,6 @@ const (
 	// ipv6MulticastAddressScopeMask is the mask for the scope (scop) field,
 	// within the byte holding the field, as per RFC 4291 section 2.7.
 	ipv6MulticastAddressScopeMask = 0xF
-
-	// ipv6LinkLocalMulticastScope is the value of the scope (scop) field within
-	// a multicast IPv6 address that indicates the address has link-local scope,
-	// as per RFC 4291 section 2.7.
-	ipv6LinkLocalMulticastScope = 2
 )
 
 // IPv6EmptySubnet is the empty IPv6 subnet. It may also be known as the
@@ -381,25 +391,25 @@ func LinkLocalAddr(linkAddr tcpip.LinkAddress) tcpip.Address {
 	return tcpip.Address(lladdrb[:])
 }
 
-// IsV6LinkLocalAddress determines if the provided address is an IPv6
-// link-local address (fe80::/10).
-func IsV6LinkLocalAddress(addr tcpip.Address) bool {
+// IsV6LinkLocalUnicastAddress returns true iff the provided address is an IPv6
+// link-local unicast address, as defined by RFC 4291 section 2.5.6.
+func IsV6LinkLocalUnicastAddress(addr tcpip.Address) bool {
 	if len(addr) != IPv6AddressSize {
 		return false
 	}
 	return addr[0] == 0xfe && (addr[1]&0xc0) == 0x80
 }
 
-// IsV6LoopbackAddress determines if the provided address is an IPv6 loopback
-// address.
+// IsV6LoopbackAddress returns true iff the provided address is an IPv6 loopback
+// address, as defined by RFC 4291 section 2.5.3.
 func IsV6LoopbackAddress(addr tcpip.Address) bool {
 	return addr == IPv6Loopback
 }
 
-// IsV6LinkLocalMulticastAddress determines if the provided address is an IPv6
-// link-local multicast address.
+// IsV6LinkLocalMulticastAddress returns true iff the provided address is an
+// IPv6 link-local multicast address, as defined by RFC 4291 section 2.7.
 func IsV6LinkLocalMulticastAddress(addr tcpip.Address) bool {
-	return IsV6MulticastAddress(addr) && addr[ipv6MulticastAddressScopeByteIdx]&ipv6MulticastAddressScopeMask == ipv6LinkLocalMulticastScope
+	return IsV6MulticastAddress(addr) && V6MulticastScope(addr) == IPv6LinkLocalMulticastScope
 }
 
 // AppendOpaqueInterfaceIdentifier appends a 64 bit opaque interface identifier
@@ -462,7 +472,7 @@ func ScopeForIPv6Address(addr tcpip.Address) (IPv6AddressScope, tcpip.Error) {
 	case IsV6LinkLocalMulticastAddress(addr):
 		return LinkLocalScope, nil
 
-	case IsV6LinkLocalAddress(addr):
+	case IsV6LinkLocalUnicastAddress(addr):
 		return LinkLocalScope, nil
 
 	default:
@@ -519,4 +529,47 @@ func GenerateTempIPv6SLAACAddr(tempIIDHistory []byte, stableAddr tcpip.Address) 
 		Address:   tcpip.Address(addrBytes),
 		PrefixLen: IIDOffsetInIPv6Address * 8,
 	}
+}
+
+// IPv6MulticastScope is the scope of a multicast IPv6 address, as defined by
+// RFC 7346 section 2.
+type IPv6MulticastScope uint8
+
+// The various values for IPv6 multicast scopes, as per RFC 7346 section 2:
+//
+//      +------+--------------------------+-------------------------+
+//      | scop | NAME                     | REFERENCE               |
+//      +------+--------------------------+-------------------------+
+//      |  0   | Reserved                 | [RFC4291], RFC 7346     |
+//      |  1   | Interface-Local scope    | [RFC4291], RFC 7346     |
+//      |  2   | Link-Local scope         | [RFC4291], RFC 7346     |
+//      |  3   | Realm-Local scope        | [RFC4291], RFC 7346     |
+//      |  4   | Admin-Local scope        | [RFC4291], RFC 7346     |
+//      |  5   | Site-Local scope         | [RFC4291], RFC 7346     |
+//      |  6   | Unassigned               |                         |
+//      |  7   | Unassigned               |                         |
+//      |  8   | Organization-Local scope | [RFC4291], RFC 7346     |
+//      |  9   | Unassigned               |                         |
+//      |  A   | Unassigned               |                         |
+//      |  B   | Unassigned               |                         |
+//      |  C   | Unassigned               |                         |
+//      |  D   | Unassigned               |                         |
+//      |  E   | Global scope             | [RFC4291], RFC 7346     |
+//      |  F   | Reserved                 | [RFC4291], RFC 7346     |
+//      +------+--------------------------+-------------------------+
+const (
+	IPv6Reserved0MulticastScope         = IPv6MulticastScope(0x0)
+	IPv6InterfaceLocalMulticastScope    = IPv6MulticastScope(0x1)
+	IPv6LinkLocalMulticastScope         = IPv6MulticastScope(0x2)
+	IPv6RealmLocalMulticastScope        = IPv6MulticastScope(0x3)
+	IPv6AdminLocalMulticastScope        = IPv6MulticastScope(0x4)
+	IPv6SiteLocalMulticastScope         = IPv6MulticastScope(0x5)
+	IPv6OrganizationLocalMulticastScope = IPv6MulticastScope(0x8)
+	IPv6GlobalMulticastScope            = IPv6MulticastScope(0xE)
+	IPv6ReservedFMulticastScope         = IPv6MulticastScope(0xF)
+)
+
+// V6MulticastScope returns the scope of a multicast address.
+func V6MulticastScope(addr tcpip.Address) IPv6MulticastScope {
+	return IPv6MulticastScope(addr[ipv6MulticastAddressScopeByteIdx] & ipv6MulticastAddressScopeMask)
 }

@@ -126,6 +126,17 @@ func (igmp *igmpState) SendLeave(groupAddress tcpip.Address) tcpip.Error {
 	return err
 }
 
+// ShouldPerformProtocol implements ip.MulticastGroupProtocol.
+func (igmp *igmpState) ShouldPerformProtocol(groupAddress tcpip.Address) bool {
+	// As per RFC 2236 section 6 page 10,
+	//
+	//   The all-systems group (address 224.0.0.1) is handled as a special
+	//   case. The host starts in Idle Member state for that group on every
+	//   interface, never transitions to another state, and never sends a
+	//   report for that group.
+	return groupAddress != header.IPv4AllSystems
+}
+
 // init sets up an igmpState struct, and is required to be called before using
 // a new igmpState.
 //
@@ -137,10 +148,9 @@ func (igmp *igmpState) init(ep *endpoint) {
 		Clock:                     ep.protocol.stack.Clock(),
 		Protocol:                  igmp,
 		MaxUnsolicitedReportDelay: UnsolicitedReportIntervalMax,
-		AllNodesAddress:           header.IPv4AllSystems,
 	})
 	igmp.igmpV1Present = igmpV1PresentDefault
-	igmp.igmpV1Job = ep.protocol.stack.NewJob(&ep.mu, func() {
+	igmp.igmpV1Job = tcpip.NewJob(ep.protocol.stack.Clock(), &ep.mu, func() {
 		igmp.setV1Present(false)
 	})
 }
@@ -312,6 +322,7 @@ func (igmp *igmpState) writePacket(destAddress tcpip.Address, groupAddress tcpip
 		ReserveHeaderBytes: int(igmp.ep.MaxHeaderLength()),
 		Data:               buffer.View(igmpData).ToVectorisedView(),
 	})
+	defer pkt.DecRef()
 
 	addressEndpoint := igmp.ep.acquireOutgoingPrimaryAddressRLocked(destAddress, false /* allowExpired */)
 	if addressEndpoint == nil {
@@ -331,7 +342,7 @@ func (igmp *igmpState) writePacket(destAddress tcpip.Address, groupAddress tcpip
 	}
 
 	sentStats := igmp.ep.stats.igmp.packetsSent
-	if err := igmp.ep.nic.WritePacketToRemote(header.EthernetAddressFromMulticastIPv4Address(destAddress), nil /* gso */, ProtocolNumber, pkt); err != nil {
+	if err := igmp.ep.nic.WritePacketToRemote(header.EthernetAddressFromMulticastIPv4Address(destAddress), ProtocolNumber, pkt); err != nil {
 		sentStats.dropped.Increment()
 		return false, err
 	}

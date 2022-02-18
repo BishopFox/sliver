@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"time"
@@ -250,8 +251,8 @@ func (l *TCPListener) Accept() (net.Conn, error) {
 
 	if _, ok := err.(*tcpip.ErrWouldBlock); ok {
 		// Create wait queue entry that notifies a channel.
-		waitEntry, notifyCh := waiter.NewChannelEntry(nil)
-		l.wq.EventRegister(&waitEntry, waiter.EventIn)
+		waitEntry, notifyCh := waiter.NewChannelEntry(waiter.ReadableEvents)
+		l.wq.EventRegister(&waitEntry)
 		defer l.wq.EventUnregister(&waitEntry)
 
 		for {
@@ -300,8 +301,8 @@ func commonRead(b []byte, ep tcpip.Endpoint, wq *waiter.Queue, deadline <-chan s
 
 	if _, ok := err.(*tcpip.ErrWouldBlock); ok {
 		// Create wait queue entry that notifies a channel.
-		waitEntry, notifyCh := waiter.NewChannelEntry(nil)
-		wq.EventRegister(&waitEntry, waiter.EventIn)
+		waitEntry, notifyCh := waiter.NewChannelEntry(waiter.ReadableEvents)
+		wq.EventRegister(&waitEntry)
 		defer wq.EventUnregister(&waitEntry)
 		for {
 			res, err = ep.Read(&w, opts)
@@ -380,9 +381,8 @@ func (c *TCPConn) Write(b []byte) (int, error) {
 		case nil:
 		case *tcpip.ErrWouldBlock:
 			if ch == nil {
-				entry, ch = waiter.NewChannelEntry(nil)
-
-				c.wq.EventRegister(&entry, waiter.EventOut)
+				entry, ch = waiter.NewChannelEntry(waiter.WritableEvents)
+				c.wq.EventRegister(&entry)
 				defer c.wq.EventUnregister(&entry)
 			} else {
 				// Don't wait immediately after registration in case more data
@@ -471,9 +471,9 @@ func DialTCP(s *stack.Stack, addr tcpip.FullAddress, network tcpip.NetworkProtoc
 	return DialContextTCP(context.Background(), s, addr, network)
 }
 
-// DialContextTCP creates a new TCPConn connected to the specified address
-// with the option of adding cancellation and timeouts.
-func DialContextTCP(ctx context.Context, s *stack.Stack, addr tcpip.FullAddress, network tcpip.NetworkProtocolNumber) (*TCPConn, error) {
+// DialTCPWithBind creates a new TCPConn connected to the specified
+// remoteAddress with its local address bound to localAddr.
+func DialTCPWithBind(ctx context.Context, s *stack.Stack, localAddr, remoteAddr tcpip.FullAddress, network tcpip.NetworkProtocolNumber) (*TCPConn, error) {
 	// Create TCP endpoint, then connect.
 	var wq waiter.Queue
 	ep, err := s.NewEndpoint(tcp.ProtocolNumber, network, &wq)
@@ -484,8 +484,8 @@ func DialContextTCP(ctx context.Context, s *stack.Stack, addr tcpip.FullAddress,
 	// Create wait queue entry that notifies a channel.
 	//
 	// We do this unconditionally as Connect will always return an error.
-	waitEntry, notifyCh := waiter.NewChannelEntry(nil)
-	wq.EventRegister(&waitEntry, waiter.EventOut)
+	waitEntry, notifyCh := waiter.NewChannelEntry(waiter.WritableEvents)
+	wq.EventRegister(&waitEntry)
 	defer wq.EventUnregister(&waitEntry)
 
 	select {
@@ -494,7 +494,14 @@ func DialContextTCP(ctx context.Context, s *stack.Stack, addr tcpip.FullAddress,
 	default:
 	}
 
-	err = ep.Connect(addr)
+	// Bind before connect if requested.
+	if localAddr != (tcpip.FullAddress{}) {
+		if err = ep.Bind(localAddr); err != nil {
+			return nil, fmt.Errorf("ep.Bind(%+v) = %s", localAddr, err)
+		}
+	}
+
+	err = ep.Connect(remoteAddr)
 	if _, ok := err.(*tcpip.ErrConnectStarted); ok {
 		select {
 		case <-ctx.Done():
@@ -510,12 +517,18 @@ func DialContextTCP(ctx context.Context, s *stack.Stack, addr tcpip.FullAddress,
 		return nil, &net.OpError{
 			Op:   "connect",
 			Net:  "tcp",
-			Addr: fullToTCPAddr(addr),
+			Addr: fullToTCPAddr(remoteAddr),
 			Err:  errors.New(err.String()),
 		}
 	}
 
 	return NewTCPConn(&wq, ep), nil
+}
+
+// DialContextTCP creates a new TCPConn connected to the specified address
+// with the option of adding cancellation and timeouts.
+func DialContextTCP(ctx context.Context, s *stack.Stack, addr tcpip.FullAddress, network tcpip.NetworkProtocolNumber) (*TCPConn, error) {
+	return DialTCPWithBind(ctx, s, tcpip.FullAddress{} /* localAddr */, addr /* remoteAddr */, network)
 }
 
 // A UDPConn is a wrapper around a UDP tcpip.Endpoint that implements
@@ -651,8 +664,8 @@ func (c *UDPConn) WriteTo(b []byte, addr net.Addr) (int, error) {
 	n, err := c.ep.Write(&r, writeOptions)
 	if _, ok := err.(*tcpip.ErrWouldBlock); ok {
 		// Create wait queue entry that notifies a channel.
-		waitEntry, notifyCh := waiter.NewChannelEntry(nil)
-		c.wq.EventRegister(&waitEntry, waiter.EventOut)
+		waitEntry, notifyCh := waiter.NewChannelEntry(waiter.WritableEvents)
+		c.wq.EventRegister(&waitEntry)
 		defer c.wq.EventUnregister(&waitEntry)
 		for {
 			select {

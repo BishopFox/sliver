@@ -16,6 +16,7 @@ package stack
 
 import (
 	"fmt"
+	"math"
 
 	"inet.af/netstack/log"
 	"inet.af/netstack/tcpip"
@@ -29,7 +30,7 @@ type AcceptTarget struct {
 }
 
 // Action implements Target.Action.
-func (*AcceptTarget) Action(*PacketBuffer, *ConnTrack, Hook, *GSO, *Route, tcpip.Address) (RuleVerdict, int) {
+func (*AcceptTarget) Action(*PacketBuffer, Hook, *Route, AddressableEndpoint) (RuleVerdict, int) {
 	return RuleAccept, 0
 }
 
@@ -40,7 +41,7 @@ type DropTarget struct {
 }
 
 // Action implements Target.Action.
-func (*DropTarget) Action(*PacketBuffer, *ConnTrack, Hook, *GSO, *Route, tcpip.Address) (RuleVerdict, int) {
+func (*DropTarget) Action(*PacketBuffer, Hook, *Route, AddressableEndpoint) (RuleVerdict, int) {
 	return RuleDrop, 0
 }
 
@@ -52,7 +53,7 @@ type ErrorTarget struct {
 }
 
 // Action implements Target.Action.
-func (*ErrorTarget) Action(*PacketBuffer, *ConnTrack, Hook, *GSO, *Route, tcpip.Address) (RuleVerdict, int) {
+func (*ErrorTarget) Action(*PacketBuffer, Hook, *Route, AddressableEndpoint) (RuleVerdict, int) {
 	log.Debugf("ErrorTarget triggered.")
 	return RuleDrop, 0
 }
@@ -67,7 +68,7 @@ type UserChainTarget struct {
 }
 
 // Action implements Target.Action.
-func (*UserChainTarget) Action(*PacketBuffer, *ConnTrack, Hook, *GSO, *Route, tcpip.Address) (RuleVerdict, int) {
+func (*UserChainTarget) Action(*PacketBuffer, Hook, *Route, AddressableEndpoint) (RuleVerdict, int) {
 	panic("UserChainTarget should never be called.")
 }
 
@@ -79,17 +80,53 @@ type ReturnTarget struct {
 }
 
 // Action implements Target.Action.
-func (*ReturnTarget) Action(*PacketBuffer, *ConnTrack, Hook, *GSO, *Route, tcpip.Address) (RuleVerdict, int) {
+func (*ReturnTarget) Action(*PacketBuffer, Hook, *Route, AddressableEndpoint) (RuleVerdict, int) {
 	return RuleReturn, 0
+}
+
+// DNATTarget modifies the destination port/IP of packets.
+type DNATTarget struct {
+	// The new destination address for packets.
+	//
+	// Immutable.
+	Addr tcpip.Address
+
+	// The new destination port for packets.
+	//
+	// Immutable.
+	Port uint16
+
+	// NetworkProtocol is the network protocol the target is used with.
+	//
+	// Immutable.
+	NetworkProtocol tcpip.NetworkProtocolNumber
+}
+
+// Action implements Target.Action.
+func (rt *DNATTarget) Action(pkt *PacketBuffer, hook Hook, r *Route, addressEP AddressableEndpoint) (RuleVerdict, int) {
+	// Sanity check.
+	if rt.NetworkProtocol != pkt.NetworkProtocolNumber {
+		panic(fmt.Sprintf(
+			"DNATTarget.Action with NetworkProtocol %d called on packet with NetworkProtocolNumber %d",
+			rt.NetworkProtocol, pkt.NetworkProtocolNumber))
+	}
+
+	switch hook {
+	case Prerouting, Output:
+	case Input, Forward, Postrouting:
+		panic(fmt.Sprintf("%s not supported for DNAT", hook))
+	default:
+		panic(fmt.Sprintf("%s unrecognized", hook))
+	}
+
+	return dnatAction(pkt, hook, r, rt.Port, rt.Addr)
+
 }
 
 // RedirectTarget redirects the packet to this machine by modifying the
 // destination port/IP. Outgoing packets are redirected to the loopback device,
 // and incoming packets are redirected to the incoming interface (rather than
 // forwarded).
-//
-// TODO(gvisor.dev/issue/170): Other flags need to be added after we support
-// them.
 type RedirectTarget struct {
 	// Port indicates port used to redirect. It is immutable.
 	Port uint16
@@ -100,10 +137,7 @@ type RedirectTarget struct {
 }
 
 // Action implements Target.Action.
-// TODO(gvisor.dev/issue/170): Parse headers without copying. The current
-// implementation only works for Prerouting and calls pkt.Clone(), neither
-// of which should be the case.
-func (rt *RedirectTarget) Action(pkt *PacketBuffer, ct *ConnTrack, hook Hook, gso *GSO, r *Route, address tcpip.Address) (RuleVerdict, int) {
+func (rt *RedirectTarget) Action(pkt *PacketBuffer, hook Hook, r *Route, addressEP AddressableEndpoint) (RuleVerdict, int) {
 	// Sanity check.
 	if rt.NetworkProtocol != pkt.NetworkProtocolNumber {
 		panic(fmt.Sprintf(
@@ -111,18 +145,9 @@ func (rt *RedirectTarget) Action(pkt *PacketBuffer, ct *ConnTrack, hook Hook, gs
 			rt.NetworkProtocol, pkt.NetworkProtocolNumber))
 	}
 
-	// Packet is already manipulated.
-	if pkt.NatDone {
-		return RuleAccept, 0
-	}
-
-	// Drop the packet if network and transport header are not set.
-	if pkt.NetworkHeader().View().IsEmpty() || pkt.TransportHeader().View().IsEmpty() {
-		return RuleDrop, 0
-	}
-
 	// Change the address to loopback (127.0.0.1 or ::1) in Output and to
 	// the primary address of the incoming interface in Prerouting.
+	var address tcpip.Address
 	switch hook {
 	case Output:
 		if pkt.NetworkProtocolNumber == header.IPv4ProtocolNumber {
@@ -131,54 +156,165 @@ func (rt *RedirectTarget) Action(pkt *PacketBuffer, ct *ConnTrack, hook Hook, gs
 			address = header.IPv6Loopback
 		}
 	case Prerouting:
-		// No-op, as address is already set correctly.
+		// addressEP is expected to be set for the prerouting hook.
+		address = addressEP.MainAddress().Address
 	default:
 		panic("redirect target is supported only on output and prerouting hooks")
 	}
 
-	// TODO(gvisor.dev/issue/170): Check Flags in RedirectTarget if
-	// we need to change dest address (for OUTPUT chain) or ports.
-	switch protocol := pkt.TransportProtocolNumber; protocol {
-	case header.UDPProtocolNumber:
-		udpHeader := header.UDP(pkt.TransportHeader().View())
-		udpHeader.SetDestinationPort(rt.Port)
+	return dnatAction(pkt, hook, r, rt.Port, address)
+}
 
-		// Calculate UDP checksum and set it.
-		if hook == Output {
-			udpHeader.SetChecksum(0)
-			netHeader := pkt.Network()
-			netHeader.SetDestinationAddress(address)
+// SNATTarget modifies the source port/IP in the outgoing packets.
+type SNATTarget struct {
+	Addr tcpip.Address
+	Port uint16
 
-			// Only calculate the checksum if offloading isn't supported.
-			if r.RequiresTXTransportChecksum() {
-				length := uint16(pkt.Size()) - uint16(len(pkt.NetworkHeader().View()))
-				xsum := header.PseudoHeaderChecksum(protocol, netHeader.SourceAddress(), netHeader.DestinationAddress(), length)
-				xsum = header.ChecksumCombine(xsum, pkt.Data().AsRange().Checksum())
-				udpHeader.SetChecksum(^udpHeader.CalculateChecksum(xsum))
-			}
+	// NetworkProtocol is the network protocol the target is used with. It
+	// is immutable.
+	NetworkProtocol tcpip.NetworkProtocolNumber
+}
+
+func dnatAction(pkt *PacketBuffer, hook Hook, r *Route, port uint16, address tcpip.Address) (RuleVerdict, int) {
+	return natAction(pkt, hook, r, portRange{start: port, size: 1}, address, true /* dnat */)
+}
+
+func snatAction(pkt *PacketBuffer, hook Hook, r *Route, port uint16, address tcpip.Address) (RuleVerdict, int) {
+	ports := portRange{start: port, size: 1}
+	if port == 0 {
+		// As per iptables(8),
+		//
+		//   If no port range is specified, then source ports below 512 will be
+		//   mapped to other ports below 512: those between 512 and 1023 inclusive
+		//   will be mapped to ports below 1024, and other ports will be mapped to
+		//   1024 or above.
+		switch protocol := pkt.TransportProtocolNumber; protocol {
+		case header.UDPProtocolNumber:
+			port = header.UDP(pkt.TransportHeader().View()).SourcePort()
+		case header.TCPProtocolNumber:
+			port = header.TCP(pkt.TransportHeader().View()).SourcePort()
+		default:
+			panic(fmt.Sprintf("unsupported transport protocol = %d", pkt.TransportProtocolNumber))
 		}
 
-		// After modification, IPv4 packets need a valid checksum.
-		if pkt.NetworkProtocolNumber == header.IPv4ProtocolNumber {
-			netHeader := header.IPv4(pkt.NetworkHeader().View())
-			netHeader.SetChecksum(0)
-			netHeader.SetChecksum(^netHeader.CalculateChecksum())
+		switch {
+		case port < 512:
+			ports = portRange{start: 1, size: 511}
+		case port < 1024:
+			ports = portRange{start: 1, size: 1023}
+		default:
+			ports = portRange{start: 1024, size: math.MaxUint16 - 1023}
 		}
-		pkt.NatDone = true
-	case header.TCPProtocolNumber:
-		if ct == nil {
-			return RuleAccept, 0
-		}
+	}
 
-		// Set up conection for matching NAT rule. Only the first
-		// packet of the connection comes here. Other packets will be
-		// manipulated in connection tracking.
-		if conn := ct.insertRedirectConn(pkt, hook, rt.Port, address); conn != nil {
-			ct.handlePacket(pkt, hook, gso, r)
-		}
-	default:
+	return natAction(pkt, hook, r, ports, address, false /* dnat */)
+}
+
+func natAction(pkt *PacketBuffer, hook Hook, r *Route, ports portRange, address tcpip.Address, dnat bool) (RuleVerdict, int) {
+	// Drop the packet if network and transport header are not set.
+	if pkt.NetworkHeader().View().IsEmpty() || pkt.TransportHeader().View().IsEmpty() {
 		return RuleDrop, 0
 	}
 
-	return RuleAccept, 0
+	if t := pkt.tuple; t != nil {
+		t.conn.performNAT(pkt, hook, r, ports, address, dnat)
+		return RuleAccept, 0
+	}
+
+	return RuleDrop, 0
+}
+
+// Action implements Target.Action.
+func (st *SNATTarget) Action(pkt *PacketBuffer, hook Hook, r *Route, _ AddressableEndpoint) (RuleVerdict, int) {
+	// Sanity check.
+	if st.NetworkProtocol != pkt.NetworkProtocolNumber {
+		panic(fmt.Sprintf(
+			"SNATTarget.Action with NetworkProtocol %d called on packet with NetworkProtocolNumber %d",
+			st.NetworkProtocol, pkt.NetworkProtocolNumber))
+	}
+
+	switch hook {
+	case Postrouting, Input:
+	case Prerouting, Output, Forward:
+		panic(fmt.Sprintf("%s not supported", hook))
+	default:
+		panic(fmt.Sprintf("%s unrecognized", hook))
+	}
+
+	return snatAction(pkt, hook, r, st.Port, st.Addr)
+}
+
+// MasqueradeTarget modifies the source port/IP in the outgoing packets.
+type MasqueradeTarget struct {
+	// NetworkProtocol is the network protocol the target is used with. It
+	// is immutable.
+	NetworkProtocol tcpip.NetworkProtocolNumber
+}
+
+// Action implements Target.Action.
+func (mt *MasqueradeTarget) Action(pkt *PacketBuffer, hook Hook, r *Route, addressEP AddressableEndpoint) (RuleVerdict, int) {
+	// Sanity check.
+	if mt.NetworkProtocol != pkt.NetworkProtocolNumber {
+		panic(fmt.Sprintf(
+			"MasqueradeTarget.Action with NetworkProtocol %d called on packet with NetworkProtocolNumber %d",
+			mt.NetworkProtocol, pkt.NetworkProtocolNumber))
+	}
+
+	switch hook {
+	case Postrouting:
+	case Prerouting, Input, Forward, Output:
+		panic(fmt.Sprintf("masquerade target is supported only on postrouting hook; hook = %d", hook))
+	default:
+		panic(fmt.Sprintf("%s unrecognized", hook))
+	}
+
+	// addressEP is expected to be set for the postrouting hook.
+	ep := addressEP.AcquireOutgoingPrimaryAddress(pkt.Network().DestinationAddress(), false /* allowExpired */)
+	if ep == nil {
+		// No address exists that we can use as a source address.
+		return RuleDrop, 0
+	}
+
+	address := ep.AddressWithPrefix().Address
+	ep.DecRef()
+	return snatAction(pkt, hook, r, 0 /* port */, address)
+}
+
+func rewritePacket(n header.Network, t header.ChecksummableTransport, updateSRCFields, fullChecksum, updatePseudoHeader bool, newPort uint16, newAddr tcpip.Address) {
+	if updateSRCFields {
+		if fullChecksum {
+			t.SetSourcePortWithChecksumUpdate(newPort)
+		} else {
+			t.SetSourcePort(newPort)
+		}
+	} else {
+		if fullChecksum {
+			t.SetDestinationPortWithChecksumUpdate(newPort)
+		} else {
+			t.SetDestinationPort(newPort)
+		}
+	}
+
+	if updatePseudoHeader {
+		var oldAddr tcpip.Address
+		if updateSRCFields {
+			oldAddr = n.SourceAddress()
+		} else {
+			oldAddr = n.DestinationAddress()
+		}
+
+		t.UpdateChecksumPseudoHeaderAddress(oldAddr, newAddr, fullChecksum)
+	}
+
+	if checksummableNetHeader, ok := n.(header.ChecksummableNetwork); ok {
+		if updateSRCFields {
+			checksummableNetHeader.SetSourceAddressWithChecksumUpdate(newAddr)
+		} else {
+			checksummableNetHeader.SetDestinationAddressWithChecksumUpdate(newAddr)
+		}
+	} else if updateSRCFields {
+		n.SetSourceAddress(newAddr)
+	} else {
+		n.SetDestinationAddress(newAddr)
+	}
 }

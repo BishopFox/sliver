@@ -15,10 +15,23 @@
 package raw
 
 import (
+	"fmt"
+	"time"
+
 	"inet.af/netstack/tcpip"
 	"inet.af/netstack/tcpip/buffer"
 	"inet.af/netstack/tcpip/stack"
 )
+
+// saveReceivedAt is invoked by stateify.
+func (p *rawPacket) saveReceivedAt() int64 {
+	return p.receivedAt.UnixNano()
+}
+
+// loadReceivedAt is invoked by stateify.
+func (p *rawPacket) loadReceivedAt(nsec int64) {
+	p.receivedAt = time.Unix(0, nsec)
+}
 
 // saveData saves rawPacket.data field.
 func (p *rawPacket) saveData() buffer.VectorisedView {
@@ -36,66 +49,28 @@ func (p *rawPacket) loadData(data buffer.VectorisedView) {
 	p.data = data
 }
 
-// beforeSave is invoked by stateify.
-func (e *endpoint) beforeSave() {
-	// Stop incoming packets from being handled (and mutate endpoint state).
-	// The lock will be released after saveRcvBufSizeMax(), which would have
-	// saved e.rcvBufSizeMax and set it to 0 to continue blocking incoming
-	// packets.
-	e.rcvMu.Lock()
-}
-
-// saveRcvBufSizeMax is invoked by stateify.
-func (e *endpoint) saveRcvBufSizeMax() int {
-	max := e.rcvBufSizeMax
-	// Make sure no new packets will be handled regardless of the lock.
-	e.rcvBufSizeMax = 0
-	// Release the lock acquired in beforeSave() so regular endpoint closing
-	// logic can proceed after save.
-	e.rcvMu.Unlock()
-	return max
-}
-
-// loadRcvBufSizeMax is invoked by stateify.
-func (e *endpoint) loadRcvBufSizeMax(max int) {
-	e.rcvBufSizeMax = max
-}
-
 // afterLoad is invoked by stateify.
 func (e *endpoint) afterLoad() {
 	stack.StackFromEnv.RegisterRestoredEndpoint(e)
 }
 
+// beforeSave is invoked by stateify.
+func (e *endpoint) beforeSave() {
+	e.freeze()
+}
+
 // Resume implements tcpip.ResumableEndpoint.Resume.
 func (e *endpoint) Resume(s *stack.Stack) {
+	e.net.Resume(s)
+
+	e.thaw()
 	e.stack = s
-	e.ops.InitHandler(e, e.stack, tcpip.GetStackSendBufferLimits)
-
-	// If the endpoint is connected, re-connect.
-	if e.connected {
-		var err tcpip.Error
-		// TODO(gvisor.dev/issue/4906): Properly restore the route with the right
-		// remote address. We used to pass e.remote.RemoteAddress which was
-		// effectively the empty address but since moving e.route to hold a pointer
-		// to a route instead of the route by value, we pass the empty address
-		// directly. Obviously this was always wrong since we should provide the
-		// remote address we were connected to, to properly restore the route.
-		e.route, err = e.stack.FindRoute(e.RegisterNICID, e.BindAddr, "", e.NetProto, false)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	// If the endpoint is bound, re-bind.
-	if e.bound {
-		if e.stack.CheckLocalAddress(e.RegisterNICID, e.NetProto, e.BindAddr) == 0 {
-			panic(&tcpip.ErrBadLocalAddress{})
-		}
-	}
+	e.ops.InitHandler(e, e.stack, tcpip.GetStackSendBufferLimits, tcpip.GetStackReceiveBufferLimits)
 
 	if e.associated {
-		if err := e.stack.RegisterRawTransportEndpoint(e.NetProto, e.TransProto, e); err != nil {
-			panic(err)
+		netProto := e.net.NetProto()
+		if err := e.stack.RegisterRawTransportEndpoint(netProto, e.transProto, e); err != nil {
+			panic(fmt.Sprintf("e.stack.RegisterRawTransportEndpoint(%d, %d, _): %s", netProto, e.transProto, err))
 		}
 	}
 }

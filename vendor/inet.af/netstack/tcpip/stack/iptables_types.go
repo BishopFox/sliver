@@ -81,26 +81,25 @@ const (
 //
 // +stateify savable
 type IPTables struct {
-	// mu protects v4Tables, v6Tables, and modified.
-	mu sync.RWMutex
-	// v4Tables and v6tables map tableIDs to tables. They hold builtin
-	// tables only, not user tables. mu must be locked for accessing.
-	v4Tables [NumTables]Table
-	v6Tables [NumTables]Table
-	// modified is whether tables have been modified at least once. It is
-	// used to elide the iptables performance overhead for workloads that
-	// don't utilize iptables.
-	modified bool
-
-	// priorities maps each hook to a list of table names. The order of the
-	// list is the order in which each table should be visited for that
-	// hook. It is immutable.
-	priorities [NumHooks][]TableID
-
 	connections ConnTrack
 
 	// reaperDone can be signaled to stop the reaper goroutine.
 	reaperDone chan struct{}
+
+	mu sync.RWMutex
+	// v4Tables and v6tables map tableIDs to tables. They hold builtin
+	// tables only, not user tables.
+	//
+	// +checklocks:mu
+	v4Tables [NumTables]Table
+	// +checklocks:mu
+	v6Tables [NumTables]Table
+	// modified is whether tables have been modified at least once. It is
+	// used to elide the iptables performance overhead for workloads that
+	// don't utilize iptables.
+	//
+	// +checklocks:mu
+	modified bool
 }
 
 // VisitTargets traverses all the targets of all tables and replaces each with
@@ -242,7 +241,6 @@ type IPHeaderFilter struct {
 func (fl IPHeaderFilter) match(pkt *PacketBuffer, hook Hook, inNicName, outNicName string) bool {
 	// Extract header fields.
 	var (
-		// TODO(gvisor.dev/issue/170): Support other filter fields.
 		transProto tcpip.TransportProtocolNumber
 		dstAddr    tcpip.Address
 		srcAddr    tcpip.Address
@@ -280,9 +278,17 @@ func (fl IPHeaderFilter) match(pkt *PacketBuffer, hook Hook, inNicName, outNicNa
 		return matchIfName(inNicName, fl.InputInterface, fl.InputInterfaceInvert)
 	case Output:
 		return matchIfName(outNicName, fl.OutputInterface, fl.OutputInterfaceInvert)
-	case Forward, Postrouting:
-		// TODO(gvisor.dev/issue/170): Add the check for FORWARD and POSTROUTING
-		// hooks after supported.
+	case Forward:
+		if !matchIfName(inNicName, fl.InputInterface, fl.InputInterfaceInvert) {
+			return false
+		}
+
+		if !matchIfName(outNicName, fl.OutputInterface, fl.OutputInterfaceInvert) {
+			return false
+		}
+
+		return true
+	case Postrouting:
 		return true
 	default:
 		panic(fmt.Sprintf("unknown hook: %d", hook))
@@ -345,5 +351,5 @@ type Target interface {
 	// Action takes an action on the packet and returns a verdict on how
 	// traversal should (or should not) continue. If the return value is
 	// Jump, it also returns the index of the rule to jump to.
-	Action(packet *PacketBuffer, connections *ConnTrack, hook Hook, gso *GSO, r *Route, address tcpip.Address) (RuleVerdict, int)
+	Action(*PacketBuffer, Hook, *Route, AddressableEndpoint) (RuleVerdict, int)
 }

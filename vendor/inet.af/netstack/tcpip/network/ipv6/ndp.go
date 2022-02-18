@@ -16,7 +16,6 @@ package ipv6
 
 import (
 	"fmt"
-	"math/rand"
 	"time"
 
 	"inet.af/netstack/sync"
@@ -48,12 +47,17 @@ const (
 
 	// defaultHandleRAs is the default configuration for whether or not to
 	// handle incoming Router Advertisements as a host.
-	defaultHandleRAs = true
+	defaultHandleRAs = HandlingRAsEnabledWhenForwardingDisabled
 
 	// defaultDiscoverDefaultRouters is the default configuration for
 	// whether or not to discover default routers from incoming Router
 	// Advertisements, as a host.
 	defaultDiscoverDefaultRouters = true
+
+	// defaultDiscoverMoreSpecificRoutes is the default configuration for
+	// whether or not to discover more-specific routes from incoming Router
+	// Advertisements, as a host.
+	defaultDiscoverMoreSpecificRoutes = true
 
 	// defaultDiscoverOnLinkPrefixes is the default configuration for
 	// whether or not to discover on-link prefixes from incoming Router
@@ -79,13 +83,13 @@ const (
 	// we cannot have a negative delay.
 	minimumMaxRtrSolicitationDelay = 0
 
-	// MaxDiscoveredDefaultRouters is the maximum number of discovered
-	// default routers. The stack should stop discovering new routers after
-	// discovering MaxDiscoveredDefaultRouters routers.
+	// MaxDiscoveredOffLinkRoutes is the maximum number of discovered off-link
+	// routes. The stack should stop discovering new off-link routes after
+	// this limit is reached.
 	//
 	// This value MUST be at minimum 2 as per RFC 4861 section 6.3.4, and
 	// SHOULD be more.
-	MaxDiscoveredDefaultRouters = 10
+	MaxDiscoveredOffLinkRoutes = 10
 
 	// MaxDiscoveredOnLinkPrefixes is the maximum number of discovered
 	// on-link prefixes. The stack should stop discovering new on-link
@@ -128,24 +132,16 @@ const (
 	// maxSLAACAddrLocalRegenAttempts is the maximum number of times to attempt
 	// SLAAC address regenerations in response to an IPv6 endpoint-local conflict.
 	maxSLAACAddrLocalRegenAttempts = 10
-)
 
-var (
 	// MinPrefixInformationValidLifetimeForUpdate is the minimum Valid
 	// Lifetime to update the valid lifetime of a generated address by
 	// SLAAC.
-	//
-	// This is exported as a variable (instead of a constant) so tests
-	// can update it to a smaller value.
 	//
 	// Min = 2hrs.
 	MinPrefixInformationValidLifetimeForUpdate = 2 * time.Hour
 
 	// MaxDesyncFactor is the upper bound for the preferred lifetime's desync
 	// factor for temporary SLAAC addresses.
-	//
-	// This is exported as a variable (instead of a constant) so tests
-	// can update it to a smaller value.
 	//
 	// Must be greater than 0.
 	//
@@ -155,18 +151,12 @@ var (
 	// MinMaxTempAddrPreferredLifetime is the minimum value allowed for the
 	// maximum preferred lifetime for temporary SLAAC addresses.
 	//
-	// This is exported as a variable (instead of a constant) so tests
-	// can update it to a smaller value.
-	//
 	// This value guarantees that a temporary address is preferred for at
 	// least 1hr if the SLAAC prefix is valid for at least that time.
 	MinMaxTempAddrPreferredLifetime = defaultRegenAdvanceDuration + MaxDesyncFactor + time.Hour
 
 	// MinMaxTempAddrValidLifetime is the minimum value allowed for the
 	// maximum valid lifetime for temporary SLAAC addresses.
-	//
-	// This is exported as a variable (instead of a constant) so tests
-	// can update it to a smaller value.
 	//
 	// This value guarantees that a temporary address is valid for at least
 	// 2hrs if the SLAAC prefix is valid for at least that time.
@@ -215,28 +205,23 @@ type NDPDispatcher interface {
 	// is also not permitted to call into the stack.
 	OnDuplicateAddressDetectionResult(tcpip.NICID, tcpip.Address, stack.DADResult)
 
-	// OnDefaultRouterDiscovered is called when a new default router is
-	// discovered. Implementations must return true if the newly discovered
-	// router should be remembered.
+	// OnOffLinkRouteUpdated is called when an off-link route is updated.
 	//
 	// This function is not permitted to block indefinitely. This function
 	// is also not permitted to call into the stack.
-	OnDefaultRouterDiscovered(tcpip.NICID, tcpip.Address) bool
+	OnOffLinkRouteUpdated(tcpip.NICID, tcpip.Subnet, tcpip.Address, header.NDPRoutePreference)
 
-	// OnDefaultRouterInvalidated is called when a discovered default router that
-	// was remembered is invalidated.
+	// OnOffLinkRouteInvalidated is called when an off-link route is invalidated.
 	//
 	// This function is not permitted to block indefinitely. This function
 	// is also not permitted to call into the stack.
-	OnDefaultRouterInvalidated(tcpip.NICID, tcpip.Address)
+	OnOffLinkRouteInvalidated(tcpip.NICID, tcpip.Subnet, tcpip.Address)
 
 	// OnOnLinkPrefixDiscovered is called when a new on-link prefix is discovered.
-	// Implementations must return true if the newly discovered on-link prefix
-	// should be remembered.
 	//
 	// This function is not permitted to block indefinitely. This function
 	// is also not permitted to call into the stack.
-	OnOnLinkPrefixDiscovered(tcpip.NICID, tcpip.Subnet) bool
+	OnOnLinkPrefixDiscovered(tcpip.NICID, tcpip.Subnet)
 
 	// OnOnLinkPrefixInvalidated is called when a discovered on-link prefix that
 	// was remembered is invalidated.
@@ -246,13 +231,11 @@ type NDPDispatcher interface {
 	OnOnLinkPrefixInvalidated(tcpip.NICID, tcpip.Subnet)
 
 	// OnAutoGenAddress is called when a new prefix with its autonomous address-
-	// configuration flag set is received and SLAAC was performed. Implementations
-	// may prevent the stack from assigning the address to the NIC by returning
-	// false.
+	// configuration flag set is received and SLAAC was performed.
 	//
 	// This function is not permitted to block indefinitely. It must not
 	// call functions on the stack itself.
-	OnAutoGenAddress(tcpip.NICID, tcpip.AddressWithPrefix) bool
+	OnAutoGenAddress(tcpip.NICID, tcpip.AddressWithPrefix)
 
 	// OnAutoGenAddressDeprecated is called when an auto-generated address (SLAAC)
 	// is deprecated, but is still considered valid. Note, if an address is
@@ -301,10 +284,60 @@ type NDPDispatcher interface {
 	OnDHCPv6Configuration(tcpip.NICID, DHCPv6ConfigurationFromNDPRA)
 }
 
+var _ fmt.Stringer = HandleRAsConfiguration(0)
+
+// HandleRAsConfiguration enumerates when RAs may be handled.
+type HandleRAsConfiguration int
+
+const (
+	// HandlingRAsDisabled indicates that Router Advertisements will not be
+	// handled.
+	HandlingRAsDisabled HandleRAsConfiguration = iota
+
+	// HandlingRAsEnabledWhenForwardingDisabled indicates that router
+	// advertisements will only be handled when forwarding is disabled.
+	HandlingRAsEnabledWhenForwardingDisabled
+
+	// HandlingRAsAlwaysEnabled indicates that Router Advertisements will always
+	// be handled, even when forwarding is enabled.
+	HandlingRAsAlwaysEnabled
+)
+
+// String implements fmt.Stringer.
+func (c HandleRAsConfiguration) String() string {
+	switch c {
+	case HandlingRAsDisabled:
+		return "HandlingRAsDisabled"
+	case HandlingRAsEnabledWhenForwardingDisabled:
+		return "HandlingRAsEnabledWhenForwardingDisabled"
+	case HandlingRAsAlwaysEnabled:
+		return "HandlingRAsAlwaysEnabled"
+	default:
+		return fmt.Sprintf("HandleRAsConfiguration(%d)", c)
+	}
+}
+
+// enabled returns true iff Router Advertisements may be handled given the
+// specified forwarding status.
+func (c HandleRAsConfiguration) enabled(forwarding bool) bool {
+	switch c {
+	case HandlingRAsDisabled:
+		return false
+	case HandlingRAsEnabledWhenForwardingDisabled:
+		return !forwarding
+	case HandlingRAsAlwaysEnabled:
+		return true
+	default:
+		panic(fmt.Sprintf("unhandled HandleRAsConfiguration = %d", c))
+	}
+}
+
 // NDPConfigurations is the NDP configurations for the netstack.
 type NDPConfigurations struct {
 	// The number of Router Solicitation messages to send when the IPv6 endpoint
 	// becomes enabled.
+	//
+	// Ignored unless configured to handle Router Advertisements.
 	MaxRtrSolicitations uint8
 
 	// The amount of time between transmitting Router Solicitation messages.
@@ -318,17 +351,24 @@ type NDPConfigurations struct {
 	// Must be greater than or equal to 0s.
 	MaxRtrSolicitationDelay time.Duration
 
-	// HandleRAs determines whether or not Router Advertisements are processed.
-	HandleRAs bool
+	// HandleRAs is the configuration for when Router Advertisements should be
+	// handled.
+	HandleRAs HandleRAsConfiguration
 
 	// DiscoverDefaultRouters determines whether or not default routers are
 	// discovered from Router Advertisements, as per RFC 4861 section 6. This
-	// configuration is ignored if HandleRAs is false.
+	// configuration is ignored if RAs will not be processed (see HandleRAs).
 	DiscoverDefaultRouters bool
+
+	// DiscoverMoreSpecificRoutes determines whether or not more specific routes
+	// are discovered from Router Advertisements, as per RFC 4191. This
+	// configuration is ignored if RAs will not be processed (see HandleRAs).
+	DiscoverMoreSpecificRoutes bool
 
 	// DiscoverOnLinkPrefixes determines whether or not on-link prefixes are
 	// discovered from Router Advertisements' Prefix Information option, as per
-	// RFC 4861 section 6. This configuration is ignored if HandleRAs is false.
+	// RFC 4861 section 6. This configuration is ignored if RAs will not be
+	// processed (see HandleRAs).
 	DiscoverOnLinkPrefixes bool
 
 	// AutoGenGlobalAddresses determines whether or not an IPv6 endpoint performs
@@ -379,6 +419,7 @@ func DefaultNDPConfigurations() NDPConfigurations {
 		MaxRtrSolicitationDelay:      defaultMaxRtrSolicitationDelay,
 		HandleRAs:                    defaultHandleRAs,
 		DiscoverDefaultRouters:       defaultDiscoverDefaultRouters,
+		DiscoverMoreSpecificRoutes:   defaultDiscoverMoreSpecificRoutes,
 		DiscoverOnLinkPrefixes:       defaultDiscoverOnLinkPrefixes,
 		AutoGenGlobalAddresses:       defaultAutoGenGlobalAddresses,
 		AutoGenTempGlobalAddresses:   defaultAutoGenTempGlobalAddresses,
@@ -419,6 +460,11 @@ type timer struct {
 	timer tcpip.Timer
 }
 
+type offLinkRoute struct {
+	dest   tcpip.Subnet
+	router tcpip.Address
+}
+
 // ndpState is the per-Interface NDP state.
 type ndpState struct {
 	// Do not allow overwriting this state.
@@ -433,8 +479,8 @@ type ndpState struct {
 	// The DAD timers to send the next NS message, or resolve the address.
 	dad ip.DAD
 
-	// The default routers discovered through Router Advertisements.
-	defaultRouters map[tcpip.Address]defaultRouterState
+	// The off-link routes discovered through Router Advertisements.
+	offLinkRoutes map[offLinkRoute]offLinkRouteState
 
 	// rtrSolicitTimer is the timer used to send the next router solicitation
 	// message.
@@ -462,10 +508,12 @@ type ndpState struct {
 	temporaryAddressDesyncFactor time.Duration
 }
 
-// defaultRouterState holds data associated with a default router discovered by
+// offLinkRouteState holds data associated with an off-link route discovered by
 // a Router Advertisement (RA).
-type defaultRouterState struct {
-	// Job to invalidate the default router.
+type offLinkRouteState struct {
+	prf header.NDPRoutePreference
+
+	// Job to invalidate the route.
 	//
 	// Must not be nil.
 	invalidationJob *tcpip.Job
@@ -498,7 +546,7 @@ type tempSLAACAddrState struct {
 	// Must not be nil.
 	regenJob *tcpip.Job
 
-	createdAt time.Time
+	createdAt tcpip.MonotonicTime
 
 	// The address's endpoint.
 	//
@@ -521,11 +569,11 @@ type slaacPrefixState struct {
 	// Must not be nil.
 	invalidationJob *tcpip.Job
 
-	// Nonzero only when the address is not valid forever.
-	validUntil time.Time
+	// nil iff the address is valid forever.
+	validUntil *tcpip.MonotonicTime
 
-	// Nonzero only when the address is not preferred forever.
-	preferredUntil time.Time
+	// nil iff the address is preferred forever.
+	preferredUntil *tcpip.MonotonicTime
 
 	// State associated with the stable address generated for the prefix.
 	stableAddr struct {
@@ -654,7 +702,8 @@ func (ndp *ndpState) handleRA(ip tcpip.Address, ra header.NDPRouterAdvert) {
 	// per-interface basis; it is a protocol-wide configuration, so we check the
 	// protocol's forwarding flag to determine if the IPv6 endpoint is forwarding
 	// packets.
-	if !ndp.configs.HandleRAs || ndp.ep.protocol.Forwarding() {
+	if !ndp.configs.HandleRAs.enabled(ndp.ep.Forwarding()) {
+		ndp.ep.stats.localStats.UnhandledRouterAdvertisements.Increment()
 		return
 	}
 
@@ -682,30 +731,22 @@ func (ndp *ndpState) handleRA(ip tcpip.Address, ra header.NDPRouterAdvert) {
 
 	// Is the IPv6 endpoint configured to discover default routers?
 	if ndp.configs.DiscoverDefaultRouters {
-		rtr, ok := ndp.defaultRouters[ip]
-		rl := ra.RouterLifetime()
-		switch {
-		case !ok && rl != 0:
-			// This is a new default router we are discovering.
+		prf := ra.DefaultRouterPreference()
+		if prf == header.ReservedRoutePreference {
+			// As per RFC 4191 section 2.2,
 			//
-			// Only remember it if we currently know about less than
-			// MaxDiscoveredDefaultRouters routers.
-			if len(ndp.defaultRouters) < MaxDiscoveredDefaultRouters {
-				ndp.rememberDefaultRouter(ip, rl)
-			}
-
-		case ok && rl != 0:
-			// This is an already discovered default router. Update
-			// the invalidation job.
-			rtr.invalidationJob.Cancel()
-			rtr.invalidationJob.Schedule(rl)
-			ndp.defaultRouters[ip] = rtr
-
-		case ok && rl == 0:
-			// We know about the router but it is no longer to be
-			// used as a default router so invalidate it.
-			ndp.invalidateDefaultRouter(ip)
+			//   Prf (Default Router Preference)
+			//
+			//     If the Reserved (10) value is received, the receiver MUST treat the
+			//     value as if it were (00).
+			//
+			// Note that the value 00 is the medium (default) router preference value.
+			prf = header.MediumRoutePreference
 		}
+
+		// We represent default routers with a default (off-link) route through the
+		// router.
+		ndp.handleOffLinkRouteDiscovery(offLinkRoute{dest: header.IPv6EmptySubnet, router: ip}, ra.RouterLifetime(), prf)
 	}
 
 	// TODO(b/141556115): Do (RetransTimer, ReachableTime)) Parameter
@@ -737,7 +778,7 @@ func (ndp *ndpState) handleRA(ip tcpip.Address, ra header.NDPRouterAdvert) {
 			prefix := opt.Subnet()
 
 			// Is the prefix a link-local?
-			if header.IsV6LinkLocalAddress(prefix.ID()) {
+			if header.IsV6LinkLocalUnicastAddress(prefix.ID()) {
 				// ...Yes, skip as per RFC 4861 section 6.3.4,
 				// and RFC 4862 section 5.5.3.b (for SLAAC).
 				continue
@@ -757,61 +798,107 @@ func (ndp *ndpState) handleRA(ip tcpip.Address, ra header.NDPRouterAdvert) {
 			if opt.AutonomousAddressConfigurationFlag() {
 				ndp.handleAutonomousPrefixInformation(opt)
 			}
+
+		case header.NDPRouteInformation:
+			if !ndp.configs.DiscoverMoreSpecificRoutes {
+				continue
+			}
+
+			dest, err := opt.Prefix()
+			if err != nil {
+				panic(fmt.Sprintf("%T.Prefix(): %s", opt, err))
+			}
+
+			prf := opt.RoutePreference()
+			if prf == header.ReservedRoutePreference {
+				// As per RFC 4191 section 2.3,
+				//
+				//   Prf (Route Preference)
+				//       2-bit signed integer.  The Route Preference indicates
+				//       whether to prefer the router associated with this prefix
+				//       over others, when multiple identical prefixes (for
+				//       different routers) have been received.  If the Reserved
+				//       (10) value is received, the Route Information Option MUST
+				//       be ignored.
+				continue
+			}
+
+			ndp.handleOffLinkRouteDiscovery(offLinkRoute{dest: dest, router: ip}, opt.RouteLifetime(), prf)
 		}
 
 		// TODO(b/141556115): Do (MTU) Parameter Discovery.
 	}
 }
 
-// invalidateDefaultRouter invalidates a discovered default router.
+// invalidateOffLinkRoute invalidates a discovered off-link route.
 //
 // The IPv6 endpoint that ndp belongs to MUST be locked.
-func (ndp *ndpState) invalidateDefaultRouter(ip tcpip.Address) {
-	rtr, ok := ndp.defaultRouters[ip]
-
-	// Is the router still discovered?
+func (ndp *ndpState) invalidateOffLinkRoute(route offLinkRoute) {
+	state, ok := ndp.offLinkRoutes[route]
 	if !ok {
-		// ...Nope, do nothing further.
 		return
 	}
 
-	rtr.invalidationJob.Cancel()
-	delete(ndp.defaultRouters, ip)
+	state.invalidationJob.Cancel()
+	delete(ndp.offLinkRoutes, route)
 
-	// Let the integrator know a discovered default router is invalidated.
+	// Let the integrator know a discovered off-link route is invalidated.
 	if ndpDisp := ndp.ep.protocol.options.NDPDisp; ndpDisp != nil {
-		ndpDisp.OnDefaultRouterInvalidated(ndp.ep.nic.ID(), ip)
+		ndpDisp.OnOffLinkRouteInvalidated(ndp.ep.nic.ID(), route.dest, route.router)
 	}
 }
 
-// rememberDefaultRouter remembers a newly discovered default router with IPv6
-// link-local address ip with lifetime rl.
+// handleOffLinkRouteDiscovery handles the discovery of an off-link route.
 //
-// The router identified by ip MUST NOT already be known by the IPv6 endpoint.
-//
-// The IPv6 endpoint that ndp belongs to MUST be locked.
-func (ndp *ndpState) rememberDefaultRouter(ip tcpip.Address, rl time.Duration) {
+// Precondition: ndp.ep.mu must be locked.
+func (ndp *ndpState) handleOffLinkRouteDiscovery(route offLinkRoute, lifetime time.Duration, prf header.NDPRoutePreference) {
 	ndpDisp := ndp.ep.protocol.options.NDPDisp
 	if ndpDisp == nil {
 		return
 	}
 
-	// Inform the integrator when we discovered a default router.
-	if !ndpDisp.OnDefaultRouterDiscovered(ndp.ep.nic.ID(), ip) {
-		// Informed by the integrator to not remember the router, do
-		// nothing further.
-		return
+	state, ok := ndp.offLinkRoutes[route]
+	switch {
+	case !ok && lifetime != 0:
+		// This is a new route we are discovering.
+		//
+		// Only remember it if we currently know about less than
+		// MaxDiscoveredOffLinkRoutes routers.
+		if len(ndp.offLinkRoutes) < MaxDiscoveredOffLinkRoutes {
+			// Inform the integrator when we discovered an off-link route.
+			ndpDisp.OnOffLinkRouteUpdated(ndp.ep.nic.ID(), route.dest, route.router, prf)
+
+			state := offLinkRouteState{
+				prf: prf,
+				invalidationJob: tcpip.NewJob(ndp.ep.protocol.stack.Clock(), &ndp.ep.mu, func() {
+					ndp.invalidateOffLinkRoute(route)
+				}),
+			}
+
+			state.invalidationJob.Schedule(lifetime)
+
+			ndp.offLinkRoutes[route] = state
+		}
+
+	case ok && lifetime != 0:
+		// This is an already discovered off-link route. Update the lifetime.
+		state.invalidationJob.Cancel()
+		state.invalidationJob.Schedule(lifetime)
+
+		if prf != state.prf {
+			state.prf = prf
+
+			// Inform the integrator about route preference updates.
+			ndpDisp.OnOffLinkRouteUpdated(ndp.ep.nic.ID(), route.dest, route.router, prf)
+		}
+
+		ndp.offLinkRoutes[route] = state
+
+	case ok && lifetime == 0:
+		// The already discovered off-link route is no longer considered valid so we
+		// invalidate it immediately.
+		ndp.invalidateOffLinkRoute(route)
 	}
-
-	state := defaultRouterState{
-		invalidationJob: ndp.ep.protocol.stack.NewJob(&ndp.ep.mu, func() {
-			ndp.invalidateDefaultRouter(ip)
-		}),
-	}
-
-	state.invalidationJob.Schedule(rl)
-
-	ndp.defaultRouters[ip] = state
 }
 
 // rememberOnLinkPrefix remembers a newly discovered on-link prefix with IPv6
@@ -827,14 +914,10 @@ func (ndp *ndpState) rememberOnLinkPrefix(prefix tcpip.Subnet, l time.Duration) 
 	}
 
 	// Inform the integrator when we discovered an on-link prefix.
-	if !ndpDisp.OnOnLinkPrefixDiscovered(ndp.ep.nic.ID(), prefix) {
-		// Informed by the integrator to not remember the prefix, do
-		// nothing further.
-		return
-	}
+	ndpDisp.OnOnLinkPrefixDiscovered(ndp.ep.nic.ID(), prefix)
 
 	state := onLinkPrefixState{
-		invalidationJob: ndp.ep.protocol.stack.NewJob(&ndp.ep.mu, func() {
+		invalidationJob: tcpip.NewJob(ndp.ep.protocol.stack.Clock(), &ndp.ep.mu, func() {
 			ndp.invalidateOnLinkPrefix(prefix)
 		}),
 	}
@@ -979,7 +1062,7 @@ func (ndp *ndpState) doSLAAC(prefix tcpip.Subnet, pl, vl time.Duration) {
 	}
 
 	state := slaacPrefixState{
-		deprecationJob: ndp.ep.protocol.stack.NewJob(&ndp.ep.mu, func() {
+		deprecationJob: tcpip.NewJob(ndp.ep.protocol.stack.Clock(), &ndp.ep.mu, func() {
 			state, ok := ndp.slaacPrefixes[prefix]
 			if !ok {
 				panic(fmt.Sprintf("ndp: must have a slaacPrefixes entry for the deprecated SLAAC prefix %s", prefix))
@@ -987,7 +1070,7 @@ func (ndp *ndpState) doSLAAC(prefix tcpip.Subnet, pl, vl time.Duration) {
 
 			ndp.deprecateSLAACAddress(state.stableAddr.addressEndpoint)
 		}),
-		invalidationJob: ndp.ep.protocol.stack.NewJob(&ndp.ep.mu, func() {
+		invalidationJob: tcpip.NewJob(ndp.ep.protocol.stack.Clock(), &ndp.ep.mu, func() {
 			state, ok := ndp.slaacPrefixes[prefix]
 			if !ok {
 				panic(fmt.Sprintf("ndp: must have a slaacPrefixes entry for the invalidated SLAAC prefix %s", prefix))
@@ -999,12 +1082,13 @@ func (ndp *ndpState) doSLAAC(prefix tcpip.Subnet, pl, vl time.Duration) {
 		maxGenerationAttempts: ndp.configs.AutoGenAddressConflictRetries + 1,
 	}
 
-	now := time.Now()
+	now := ndp.ep.protocol.stack.Clock().NowMonotonic()
 
 	// The time an address is preferred until is needed to properly generate the
 	// address.
 	if pl < header.NDPInfiniteLifetime {
-		state.preferredUntil = now.Add(pl)
+		t := now.Add(pl)
+		state.preferredUntil = &t
 	}
 
 	if !ndp.generateSLAACAddr(prefix, &state) {
@@ -1022,7 +1106,8 @@ func (ndp *ndpState) doSLAAC(prefix tcpip.Subnet, pl, vl time.Duration) {
 
 	if vl < header.NDPInfiniteLifetime {
 		state.invalidationJob.Schedule(vl)
-		state.validUntil = now.Add(vl)
+		t := now.Add(vl)
+		state.validUntil = &t
 	}
 
 	// If the address is assigned (DAD resolved), generate a temporary address.
@@ -1045,15 +1130,16 @@ func (ndp *ndpState) addAndAcquireSLAACAddr(addr tcpip.AddressWithPrefix, config
 		return nil
 	}
 
-	if !ndpDisp.OnAutoGenAddress(ndp.ep.nic.ID(), addr) {
-		// Informed by the integrator not to add the address.
-		return nil
-	}
-
-	addressEndpoint, err := ndp.ep.addAndAcquirePermanentAddressLocked(addr, stack.FirstPrimaryEndpoint, configType, deprecated)
+	addressEndpoint, err := ndp.ep.addAndAcquirePermanentAddressLocked(addr, stack.AddressProperties{
+		PEB:        stack.FirstPrimaryEndpoint,
+		ConfigType: configType,
+		Deprecated: deprecated,
+	})
 	if err != nil {
 		panic(fmt.Sprintf("ndp: error when adding SLAAC address %+v: %s", addr, err))
 	}
+
+	ndpDisp.OnAutoGenAddress(ndp.ep.nic.ID(), addr)
 
 	return addressEndpoint
 }
@@ -1130,7 +1216,8 @@ func (ndp *ndpState) generateSLAACAddr(prefix tcpip.Subnet, state *slaacPrefixSt
 		state.stableAddr.localGenerationFailures++
 	}
 
-	if addressEndpoint := ndp.addAndAcquireSLAACAddr(generatedAddr, stack.AddressConfigSlaac, time.Since(state.preferredUntil) >= 0 /* deprecated */); addressEndpoint != nil {
+	deprecated := state.preferredUntil != nil && !state.preferredUntil.After(ndp.ep.protocol.stack.Clock().NowMonotonic())
+	if addressEndpoint := ndp.addAndAcquireSLAACAddr(generatedAddr, stack.AddressConfigSlaac, deprecated); addressEndpoint != nil {
 		state.stableAddr.addressEndpoint = addressEndpoint
 		state.generationAttempts++
 		return true
@@ -1185,13 +1272,13 @@ func (ndp *ndpState) generateTempSLAACAddr(prefix tcpip.Subnet, prefixState *sla
 	}
 
 	stableAddr := prefixState.stableAddr.addressEndpoint.AddressWithPrefix().Address
-	now := time.Now()
+	now := ndp.ep.protocol.stack.Clock().NowMonotonic()
 
 	// As per RFC 4941 section 3.3 step 4, the valid lifetime of a temporary
 	// address is the lower of the valid lifetime of the stable address or the
 	// maximum temporary address valid lifetime.
 	vl := ndp.configs.MaxTempAddrValidLifetime
-	if prefixState.validUntil != (time.Time{}) {
+	if prefixState.validUntil != nil {
 		if prefixVL := prefixState.validUntil.Sub(now); vl > prefixVL {
 			vl = prefixVL
 		}
@@ -1207,7 +1294,7 @@ func (ndp *ndpState) generateTempSLAACAddr(prefix tcpip.Subnet, prefixState *sla
 	// maximum temporary address preferred lifetime - the temporary address desync
 	// factor.
 	pl := ndp.configs.MaxTempAddrPreferredLifetime - ndp.temporaryAddressDesyncFactor
-	if prefixState.preferredUntil != (time.Time{}) {
+	if prefixState.preferredUntil != nil {
 		if prefixPL := prefixState.preferredUntil.Sub(now); pl > prefixPL {
 			// Respect the preferred lifetime of the prefix, as per RFC 4941 section
 			// 3.3 step 4.
@@ -1248,7 +1335,7 @@ func (ndp *ndpState) generateTempSLAACAddr(prefix tcpip.Subnet, prefixState *sla
 	}
 
 	state := tempSLAACAddrState{
-		deprecationJob: ndp.ep.protocol.stack.NewJob(&ndp.ep.mu, func() {
+		deprecationJob: tcpip.NewJob(ndp.ep.protocol.stack.Clock(), &ndp.ep.mu, func() {
 			prefixState, ok := ndp.slaacPrefixes[prefix]
 			if !ok {
 				panic(fmt.Sprintf("ndp: must have a slaacPrefixes entry for %s to deprecate temporary address %s", prefix, generatedAddr))
@@ -1261,7 +1348,7 @@ func (ndp *ndpState) generateTempSLAACAddr(prefix tcpip.Subnet, prefixState *sla
 
 			ndp.deprecateSLAACAddress(tempAddrState.addressEndpoint)
 		}),
-		invalidationJob: ndp.ep.protocol.stack.NewJob(&ndp.ep.mu, func() {
+		invalidationJob: tcpip.NewJob(ndp.ep.protocol.stack.Clock(), &ndp.ep.mu, func() {
 			prefixState, ok := ndp.slaacPrefixes[prefix]
 			if !ok {
 				panic(fmt.Sprintf("ndp: must have a slaacPrefixes entry for %s to invalidate temporary address %s", prefix, generatedAddr))
@@ -1274,7 +1361,7 @@ func (ndp *ndpState) generateTempSLAACAddr(prefix tcpip.Subnet, prefixState *sla
 
 			ndp.invalidateTempSLAACAddr(prefixState.tempAddrs, generatedAddr.Address, tempAddrState)
 		}),
-		regenJob: ndp.ep.protocol.stack.NewJob(&ndp.ep.mu, func() {
+		regenJob: tcpip.NewJob(ndp.ep.protocol.stack.Clock(), &ndp.ep.mu, func() {
 			prefixState, ok := ndp.slaacPrefixes[prefix]
 			if !ok {
 				panic(fmt.Sprintf("ndp: must have a slaacPrefixes entry for %s to regenerate temporary address after %s", prefix, generatedAddr))
@@ -1342,16 +1429,17 @@ func (ndp *ndpState) refreshSLAACPrefixLifetimes(prefix tcpip.Subnet, prefixStat
 	// deprecation job so it can be reset.
 	prefixState.deprecationJob.Cancel()
 
-	now := time.Now()
+	now := ndp.ep.protocol.stack.Clock().NowMonotonic()
 
 	// Schedule the deprecation job if prefix has a finite preferred lifetime.
 	if pl < header.NDPInfiniteLifetime {
 		if !deprecated {
 			prefixState.deprecationJob.Schedule(pl)
 		}
-		prefixState.preferredUntil = now.Add(pl)
+		t := now.Add(pl)
+		prefixState.preferredUntil = &t
 	} else {
-		prefixState.preferredUntil = time.Time{}
+		prefixState.preferredUntil = nil
 	}
 
 	// As per RFC 4862 section 5.5.3.e, update the valid lifetime for prefix:
@@ -1369,17 +1457,17 @@ func (ndp *ndpState) refreshSLAACPrefixLifetimes(prefix tcpip.Subnet, prefixStat
 		// Handle the infinite valid lifetime separately as we do not schedule a
 		// job in this case.
 		prefixState.invalidationJob.Cancel()
-		prefixState.validUntil = time.Time{}
+		prefixState.validUntil = nil
 	} else {
 		var effectiveVl time.Duration
 		var rl time.Duration
 
 		// If the prefix was originally set to be valid forever, assume the
 		// remaining time to be the maximum possible value.
-		if prefixState.validUntil == (time.Time{}) {
+		if prefixState.validUntil == nil {
 			rl = header.NDPInfiniteLifetime
 		} else {
-			rl = time.Until(prefixState.validUntil)
+			rl = prefixState.validUntil.Sub(now)
 		}
 
 		if vl > MinPrefixInformationValidLifetimeForUpdate || vl > rl {
@@ -1391,7 +1479,8 @@ func (ndp *ndpState) refreshSLAACPrefixLifetimes(prefix tcpip.Subnet, prefixStat
 		if effectiveVl != 0 {
 			prefixState.invalidationJob.Cancel()
 			prefixState.invalidationJob.Schedule(effectiveVl)
-			prefixState.validUntil = now.Add(effectiveVl)
+			t := now.Add(effectiveVl)
+			prefixState.validUntil = &t
 		}
 	}
 
@@ -1411,8 +1500,8 @@ func (ndp *ndpState) refreshSLAACPrefixLifetimes(prefix tcpip.Subnet, prefixStat
 		// maximum temporary address valid lifetime. Note, the valid lifetime of a
 		// temporary address is relative to the address's creation time.
 		validUntil := tempAddrState.createdAt.Add(ndp.configs.MaxTempAddrValidLifetime)
-		if prefixState.validUntil != (time.Time{}) && validUntil.Sub(prefixState.validUntil) > 0 {
-			validUntil = prefixState.validUntil
+		if prefixState.validUntil != nil && prefixState.validUntil.Before(validUntil) {
+			validUntil = *prefixState.validUntil
 		}
 
 		// If the address is no longer valid, invalidate it immediately. Otherwise,
@@ -1431,14 +1520,15 @@ func (ndp *ndpState) refreshSLAACPrefixLifetimes(prefix tcpip.Subnet, prefixStat
 		// desync factor. Note, the preferred lifetime of a temporary address is
 		// relative to the address's creation time.
 		preferredUntil := tempAddrState.createdAt.Add(ndp.configs.MaxTempAddrPreferredLifetime - ndp.temporaryAddressDesyncFactor)
-		if prefixState.preferredUntil != (time.Time{}) && preferredUntil.Sub(prefixState.preferredUntil) > 0 {
-			preferredUntil = prefixState.preferredUntil
+		if prefixState.preferredUntil != nil && prefixState.preferredUntil.Before(preferredUntil) {
+			preferredUntil = *prefixState.preferredUntil
 		}
 
 		// If the address is no longer preferred, deprecate it immediately.
 		// Otherwise, schedule the deprecation job again.
 		newPreferredLifetime := preferredUntil.Sub(now)
 		tempAddrState.deprecationJob.Cancel()
+
 		if newPreferredLifetime <= 0 {
 			ndp.deprecateSLAACAddress(tempAddrState.addressEndpoint)
 		} else {
@@ -1609,44 +1699,16 @@ func (ndp *ndpState) cleanupTempSLAACAddrResourcesAndNotifyInner(tempAddrs map[t
 	delete(tempAddrs, tempAddr)
 }
 
-// removeSLAACAddresses removes all SLAAC addresses.
-//
-// If keepLinkLocal is false, the SLAAC generated link-local address is removed.
-//
-// The IPv6 endpoint that ndp belongs to MUST be locked.
-func (ndp *ndpState) removeSLAACAddresses(keepLinkLocal bool) {
-	linkLocalSubnet := header.IPv6LinkLocalPrefix.Subnet()
-	var linkLocalPrefixes int
-	for prefix, state := range ndp.slaacPrefixes {
-		// RFC 4862 section 5 states that routers are also expected to generate a
-		// link-local address so we do not invalidate them if we are cleaning up
-		// host-only state.
-		if keepLinkLocal && prefix == linkLocalSubnet {
-			linkLocalPrefixes++
-			continue
-		}
-
-		ndp.invalidateSLAACPrefix(prefix, state)
-	}
-
-	if got := len(ndp.slaacPrefixes); got != linkLocalPrefixes {
-		panic(fmt.Sprintf("ndp: still have non-linklocal SLAAC prefixes after cleaning up; found = %d prefixes, of which %d are link-local", got, linkLocalPrefixes))
-	}
-}
-
 // cleanupState cleans up ndp's state.
-//
-// If hostOnly is true, then only host-specific state is cleaned up.
 //
 // This function invalidates all discovered on-link prefixes, discovered
 // routers, and auto-generated addresses.
 //
-// If hostOnly is true, then the link-local auto-generated address aren't
-// invalidated as routers are also expected to generate a link-local address.
-//
 // The IPv6 endpoint that ndp belongs to MUST be locked.
-func (ndp *ndpState) cleanupState(hostOnly bool) {
-	ndp.removeSLAACAddresses(hostOnly /* keepLinkLocal */)
+func (ndp *ndpState) cleanupState() {
+	for prefix, state := range ndp.slaacPrefixes {
+		ndp.invalidateSLAACPrefix(prefix, state)
+	}
 
 	for prefix := range ndp.onLinkPrefixes {
 		ndp.invalidateOnLinkPrefix(prefix)
@@ -1656,12 +1718,12 @@ func (ndp *ndpState) cleanupState(hostOnly bool) {
 		panic(fmt.Sprintf("ndp: still have discovered on-link prefixes after cleaning up; found = %d", got))
 	}
 
-	for router := range ndp.defaultRouters {
-		ndp.invalidateDefaultRouter(router)
+	for route := range ndp.offLinkRoutes {
+		ndp.invalidateOffLinkRoute(route)
 	}
 
-	if got := len(ndp.defaultRouters); got != 0 {
-		panic(fmt.Sprintf("ndp: still have discovered default routers after cleaning up; found = %d", got))
+	if got := len(ndp.offLinkRoutes); got != 0 {
+		panic(fmt.Sprintf("ndp: still have discovered off-link routes after cleaning up; found = %d", got))
 	}
 
 	ndp.dhcpv6Configuration = 0
@@ -1669,6 +1731,10 @@ func (ndp *ndpState) cleanupState(hostOnly bool) {
 
 // startSolicitingRouters starts soliciting routers, as per RFC 4861 section
 // 6.3.7. If routers are already being solicited, this function does nothing.
+//
+// If ndp is not configured to handle Router Advertisements, routers will not
+// be solicited as there is no point soliciting routers if we don't handle their
+// advertisements.
 //
 // The IPv6 endpoint that ndp belongs to MUST be locked.
 func (ndp *ndpState) startSolicitingRouters() {
@@ -1682,11 +1748,15 @@ func (ndp *ndpState) startSolicitingRouters() {
 		return
 	}
 
+	if !ndp.configs.HandleRAs.enabled(ndp.ep.Forwarding()) {
+		return
+	}
+
 	// Calculate the random delay before sending our first RS, as per RFC
 	// 4861 section 6.3.7.
 	var delay time.Duration
 	if ndp.configs.MaxRtrSolicitationDelay > 0 {
-		delay = time.Duration(rand.Int63n(int64(ndp.configs.MaxRtrSolicitationDelay)))
+		delay = time.Duration(ndp.ep.protocol.stack.Rand().Int63n(int64(ndp.configs.MaxRtrSolicitationDelay)))
 	}
 
 	// Protected by ndp.ep.mu.
@@ -1703,7 +1773,7 @@ func (ndp *ndpState) startSolicitingRouters() {
 			//       the unspecified address if no address is assigned
 			//       to the sending interface.
 			localAddr := header.IPv6Any
-			if addressEndpoint := ndp.ep.AcquireOutgoingPrimaryAddress(header.IPv6AllRoutersMulticastAddress, false); addressEndpoint != nil {
+			if addressEndpoint := ndp.ep.AcquireOutgoingPrimaryAddress(header.IPv6AllRoutersLinkLocalMulticastAddress, false); addressEndpoint != nil {
 				localAddr = addressEndpoint.AddressWithPrefix().Address
 				addressEndpoint.DecRef()
 			}
@@ -1722,7 +1792,7 @@ func (ndp *ndpState) startSolicitingRouters() {
 					header.NDPSourceLinkLayerAddressOption(linkAddress),
 				}
 			}
-			payloadSize := header.ICMPv6HeaderSize + header.NDPRSMinimumSize + int(optsSerializer.Length())
+			payloadSize := header.ICMPv6HeaderSize + header.NDPRSMinimumSize + optsSerializer.Length()
 			icmpData := header.ICMPv6(buffer.NewView(payloadSize))
 			icmpData.SetType(header.ICMPv6RouterSolicit)
 			rs := header.NDPRouterSolicit(icmpData.MessageBody())
@@ -1730,23 +1800,24 @@ func (ndp *ndpState) startSolicitingRouters() {
 			icmpData.SetChecksum(header.ICMPv6Checksum(header.ICMPv6ChecksumParams{
 				Header: icmpData,
 				Src:    localAddr,
-				Dst:    header.IPv6AllRoutersMulticastAddress,
+				Dst:    header.IPv6AllRoutersLinkLocalMulticastAddress,
 			}))
 
 			pkt := stack.NewPacketBuffer(stack.PacketBufferOptions{
 				ReserveHeaderBytes: int(ndp.ep.MaxHeaderLength()),
 				Data:               buffer.View(icmpData).ToVectorisedView(),
 			})
+			defer pkt.DecRef()
 
 			sent := ndp.ep.stats.icmp.packetsSent
-			if err := addIPHeader(localAddr, header.IPv6AllRoutersMulticastAddress, pkt, stack.NetworkHeaderParams{
+			if err := addIPHeader(localAddr, header.IPv6AllRoutersLinkLocalMulticastAddress, pkt, stack.NetworkHeaderParams{
 				Protocol: header.ICMPv6ProtocolNumber,
 				TTL:      header.NDPHopLimit,
 			}, nil /* extensionHeaders */); err != nil {
 				panic(fmt.Sprintf("failed to add IP header: %s", err))
 			}
 
-			if err := ndp.ep.nic.WritePacketToRemote(header.EthernetAddressFromMulticastIPv6Address(header.IPv6AllRoutersMulticastAddress), nil /* gso */, ProtocolNumber, pkt); err != nil {
+			if err := ndp.ep.nic.WritePacketToRemote(header.EthernetAddressFromMulticastIPv6Address(header.IPv6AllRoutersLinkLocalMulticastAddress), ProtocolNumber, pkt); err != nil {
 				sent.dropped.Increment()
 				// Don't send any more messages if we had an error.
 				remaining = 0
@@ -1774,6 +1845,32 @@ func (ndp *ndpState) startSolicitingRouters() {
 	}
 }
 
+// forwardingChanged handles a change in forwarding configuration.
+//
+// If transitioning to a host, router solicitation will be started. Otherwise,
+// router solicitation will be stopped if NDP is not configured to handle RAs
+// as a router.
+//
+// Precondition: ndp.ep.mu must be locked.
+func (ndp *ndpState) forwardingChanged(forwarding bool) {
+	if forwarding {
+		if ndp.configs.HandleRAs.enabled(forwarding) {
+			return
+		}
+
+		ndp.stopSolicitingRouters()
+		return
+	}
+
+	// Solicit routers when transitioning to a host.
+	//
+	// If the endpoint is not currently enabled, routers will be solicited when
+	// the endpoint becomes enabled (if it is still a host).
+	if ndp.ep.Enabled() {
+		ndp.startSolicitingRouters()
+	}
+}
+
 // stopSolicitingRouters stops soliciting routers. If routers are not currently
 // being solicited, this function does nothing.
 //
@@ -1790,21 +1887,19 @@ func (ndp *ndpState) stopSolicitingRouters() {
 }
 
 func (ndp *ndpState) init(ep *endpoint, dadOptions ip.DADOptions) {
-	if ndp.defaultRouters != nil {
+	if ndp.offLinkRoutes != nil {
 		panic("attempted to initialize NDP state twice")
 	}
 
 	ndp.ep = ep
 	ndp.configs = ep.protocol.options.NDPConfigs
 	ndp.dad.Init(&ndp.ep.mu, ep.protocol.options.DADConfigs, dadOptions)
-	ndp.defaultRouters = make(map[tcpip.Address]defaultRouterState)
+	ndp.offLinkRoutes = make(map[offLinkRoute]offLinkRouteState)
 	ndp.onLinkPrefixes = make(map[tcpip.Subnet]onLinkPrefixState)
 	ndp.slaacPrefixes = make(map[tcpip.Subnet]slaacPrefixState)
 
 	header.InitialTempIID(ndp.temporaryIIDHistory[:], ndp.ep.protocol.options.TempIIDSeed, ndp.ep.nic.ID())
-	if MaxDesyncFactor != 0 {
-		ndp.temporaryAddressDesyncFactor = time.Duration(rand.Int63n(int64(MaxDesyncFactor)))
-	}
+	ndp.temporaryAddressDesyncFactor = time.Duration(ep.protocol.stack.Rand().Int63n(int64(MaxDesyncFactor)))
 }
 
 func (ndp *ndpState) SendDADMessage(addr tcpip.Address, nonce []byte) tcpip.Error {
@@ -1830,6 +1925,7 @@ func (e *endpoint) sendNDPNS(srcAddr, dstAddr, targetAddr tcpip.Address, remoteL
 		ReserveHeaderBytes: int(e.MaxHeaderLength()),
 		Data:               buffer.View(icmp).ToVectorisedView(),
 	})
+	defer pkt.DecRef()
 
 	if err := addIPHeader(srcAddr, dstAddr, pkt, stack.NetworkHeaderParams{
 		Protocol: header.ICMPv6ProtocolNumber,
@@ -1839,7 +1935,7 @@ func (e *endpoint) sendNDPNS(srcAddr, dstAddr, targetAddr tcpip.Address, remoteL
 	}
 
 	sent := e.stats.icmp.packetsSent
-	err := e.nic.WritePacketToRemote(remoteLinkAddr, nil /* gso */, ProtocolNumber, pkt)
+	err := e.nic.WritePacketToRemote(remoteLinkAddr, ProtocolNumber, pkt)
 	if err != nil {
 		sent.dropped.Increment()
 	} else {

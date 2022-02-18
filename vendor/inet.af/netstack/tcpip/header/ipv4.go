@@ -17,6 +17,7 @@ package header
 import (
 	"encoding/binary"
 	"fmt"
+	"time"
 
 	"inet.af/netstack/tcpip"
 )
@@ -178,9 +179,38 @@ const (
 	IPv4FlagDontFragment
 )
 
+// ipv4LinkLocalUnicastSubnet is the IPv4 link local unicast subnet as defined
+// by RFC 3927 section 1.
+var ipv4LinkLocalUnicastSubnet = func() tcpip.Subnet {
+	subnet, err := tcpip.NewSubnet("\xa9\xfe\x00\x00", "\xff\xff\x00\x00")
+	if err != nil {
+		panic(err)
+	}
+	return subnet
+}()
+
+// ipv4LinkLocalMulticastSubnet is the IPv4 link local multicast subnet as
+// defined by RFC 5771 section 4.
+var ipv4LinkLocalMulticastSubnet = func() tcpip.Subnet {
+	subnet, err := tcpip.NewSubnet("\xe0\x00\x00\x00", "\xff\xff\xff\x00")
+	if err != nil {
+		panic(err)
+	}
+	return subnet
+}()
+
 // IPv4EmptySubnet is the empty IPv4 subnet.
 var IPv4EmptySubnet = func() tcpip.Subnet {
 	subnet, err := tcpip.NewSubnet(IPv4Any, tcpip.AddressMask(IPv4Any))
+	if err != nil {
+		panic(err)
+	}
+	return subnet
+}()
+
+// IPv4LoopbackSubnet is the loopback subnet for IPv4.
+var IPv4LoopbackSubnet = func() tcpip.Subnet {
+	subnet, err := tcpip.NewSubnet(tcpip.Address("\x7f\x00\x00\x00"), tcpip.AddressMask("\xff\x00\x00\x00"))
 	if err != nil {
 		panic(err)
 	}
@@ -282,6 +312,18 @@ func (b IPv4) SourceAddress() tcpip.Address {
 // header.
 func (b IPv4) DestinationAddress() tcpip.Address {
 	return tcpip.Address(b[dstAddr : dstAddr+IPv4AddressSize])
+}
+
+// SetSourceAddressWithChecksumUpdate implements ChecksummableNetwork.
+func (b IPv4) SetSourceAddressWithChecksumUpdate(new tcpip.Address) {
+	b.SetChecksum(^checksumUpdate2ByteAlignedAddress(^b.Checksum(), b.SourceAddress(), new))
+	b.SetSourceAddress(new)
+}
+
+// SetDestinationAddressWithChecksumUpdate implements ChecksummableNetwork.
+func (b IPv4) SetDestinationAddressWithChecksumUpdate(new tcpip.Address) {
+	b.SetChecksum(^checksumUpdate2ByteAlignedAddress(^b.Checksum(), b.DestinationAddress(), new))
+	b.SetDestinationAddress(new)
 }
 
 // padIPv4OptionsLength returns the total length for IPv4 options of length l
@@ -423,6 +465,44 @@ func (b IPv4) IsValid(pktSize int) bool {
 	return true
 }
 
+// IsV4LinkLocalUnicastAddress determines if the provided address is an IPv4
+// link-local unicast address.
+func IsV4LinkLocalUnicastAddress(addr tcpip.Address) bool {
+	return ipv4LinkLocalUnicastSubnet.Contains(addr)
+}
+
+// IsV4LinkLocalMulticastAddress determines if the provided address is an IPv4
+// link-local multicast address.
+func IsV4LinkLocalMulticastAddress(addr tcpip.Address) bool {
+	return ipv4LinkLocalMulticastSubnet.Contains(addr)
+}
+
+// IsChecksumValid returns true iff the IPv4 header's checksum is valid.
+func (b IPv4) IsChecksumValid() bool {
+	// There has been some confusion regarding verifying checksums. We need
+	// just look for negative 0 (0xffff) as the checksum, as it's not possible to
+	// get positive 0 (0) for the checksum. Some bad implementations could get it
+	// when doing entry replacement in the early days of the Internet,
+	// however the lore that one needs to check for both persists.
+	//
+	// RFC 1624 section 1 describes the source of this confusion as:
+	//     [the partial recalculation method described in RFC 1071] computes a
+	//     result for certain cases that differs from the one obtained from
+	//     scratch (one's complement of one's complement sum of the original
+	//     fields).
+	//
+	// However RFC 1624 section 5 clarifies that if using the verification method
+	// "recommended by RFC 1071, it does not matter if an intermediate system
+	// generated a -0 instead of +0".
+	//
+	// RFC1071 page 1 specifies the verification method as:
+	//	  (3)  To check a checksum, the 1's complement sum is computed over the
+	//        same set of octets, including the checksum field.  If the result
+	//        is all 1 bits (-0 in 1's complement arithmetic), the check
+	//        succeeds.
+	return b.CalculateChecksum() == 0xffff
+}
+
 // IsV4MulticastAddress determines if the provided address is an IPv4 multicast
 // address (range 224.0.0.0 to 239.255.255.255). The four most significant bits
 // will be 1110 = 0xe0.
@@ -514,7 +594,7 @@ func (o *IPv4OptionGeneric) Type() IPv4OptionType {
 func (o *IPv4OptionGeneric) Size() uint8 { return uint8(len(*o)) }
 
 // Contents implements IPv4Option.
-func (o *IPv4OptionGeneric) Contents() []byte { return []byte(*o) }
+func (o *IPv4OptionGeneric) Contents() []byte { return *o }
 
 // IPv4OptionIterator is an iterator pointing to a specific IP option
 // at any point of time. It also holds information as to a new options buffer
@@ -552,7 +632,7 @@ func (i *IPv4OptionIterator) InitReplacement(option IPv4Option) IPv4Options {
 // RemainingBuffer returns the remaining (unused) part of the new option buffer,
 // into which a new option may be written.
 func (i *IPv4OptionIterator) RemainingBuffer() IPv4Options {
-	return IPv4Options(i.newOptions[i.writePoint:])
+	return i.newOptions[i.writePoint:]
 }
 
 // ConsumeBuffer marks a portion of the new buffer as used.
@@ -755,9 +835,12 @@ const (
 
 // ipv4TimestampTime provides the current time as specified in RFC 791.
 func ipv4TimestampTime(clock tcpip.Clock) uint32 {
-	const millisecondsPerDay = 24 * 3600 * 1000
-	const nanoPerMilli = 1000000
-	return uint32((clock.NowNanoseconds() / nanoPerMilli) % millisecondsPerDay)
+	// Per RFC 791 page 21:
+	//   The Timestamp is a right-justified, 32-bit timestamp in
+	//   milliseconds since midnight UT.
+	now := clock.Now().UTC()
+	midnight := now.Truncate(24 * time.Hour)
+	return uint32(now.Sub(midnight).Milliseconds())
 }
 
 // IP Timestamp option fields.
@@ -785,7 +868,7 @@ func (ts *IPv4OptionTimestamp) Type() IPv4OptionType { return IPv4OptionTimestam
 func (ts *IPv4OptionTimestamp) Size() uint8 { return uint8(len(*ts)) }
 
 // Contents implements IPv4Option.
-func (ts *IPv4OptionTimestamp) Contents() []byte { return []byte(*ts) }
+func (ts *IPv4OptionTimestamp) Contents() []byte { return *ts }
 
 // Pointer returns the pointer field in the IP Timestamp option.
 func (ts *IPv4OptionTimestamp) Pointer() uint8 {
@@ -889,7 +972,7 @@ func (rr *IPv4OptionRecordRoute) Type() IPv4OptionType { return IPv4OptionRecord
 func (rr *IPv4OptionRecordRoute) Size() uint8 { return uint8(len(*rr)) }
 
 // Contents implements IPv4Option.
-func (rr *IPv4OptionRecordRoute) Contents() []byte { return []byte(*rr) }
+func (rr *IPv4OptionRecordRoute) Contents() []byte { return *rr }
 
 // Router Alert option specific related constants.
 //
@@ -934,7 +1017,7 @@ func (*IPv4OptionRouterAlert) Type() IPv4OptionType { return IPv4OptionRouterAle
 func (ra *IPv4OptionRouterAlert) Size() uint8 { return uint8(len(*ra)) }
 
 // Contents implements IPv4Option.
-func (ra *IPv4OptionRouterAlert) Contents() []byte { return []byte(*ra) }
+func (ra *IPv4OptionRouterAlert) Contents() []byte { return *ra }
 
 // Value returns the value of the IPv4OptionRouterAlert.
 func (ra *IPv4OptionRouterAlert) Value() uint16 {

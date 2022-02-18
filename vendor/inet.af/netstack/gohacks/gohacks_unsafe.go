@@ -12,10 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build go1.13
-// +build !go1.18
+//go:build go1.13 && !go1.19
+// +build go1.13,!go1.19
 
-// Check type signatures when updating Go version.
+// //go:linkname directives type-checked by checklinkname. Any other
+// non-linkname assumptions outside the Go 1 compatibility guarantee should
+// have an accompanied vet check or version guard build tag.
+
+// Check type signatures and Noescape when updating Go version.
+//
+// TODO(b/165820485): add these checks to checklinkname.
 
 // Package gohacks contains utilities for subverting the Go compiler.
 package gohacks
@@ -75,3 +81,17 @@ func StringFromImmutableBytes(bs []byte) string {
 	// strings.Builder.String().
 	return *(*string)(unsafe.Pointer(&bs))
 }
+
+// Note that go:linkname silently doesn't work if the local name is exported,
+// necessitating an indirection for exported functions.
+
+// Memmove is runtime.memmove, exported for SeqAtomicLoad/SeqAtomicTryLoad<T>.
+//
+//go:nosplit
+func Memmove(to, from unsafe.Pointer, n uintptr) {
+	memmove(to, from, n)
+}
+
+//go:linkname memmove runtime.memmove
+//go:noescape
+func memmove(to, from unsafe.Pointer, n uintptr)

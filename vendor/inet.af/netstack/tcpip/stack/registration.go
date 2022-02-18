@@ -55,6 +55,9 @@ type NetworkPacketInfo struct {
 	// LocalAddressBroadcast is true if the packet's local address is a broadcast
 	// address.
 	LocalAddressBroadcast bool
+
+	// IsForwardedPacket is true if the packet is being forwarded.
+	IsForwardedPacket bool
 }
 
 // TransportErrorKind enumerates error types that are handled by the transport
@@ -99,12 +102,12 @@ type TransportEndpoint interface {
 	// HandlePacket is called by the stack when new packets arrive to this
 	// transport endpoint. It sets the packet buffer's transport header.
 	//
-	// HandlePacket takes ownership of the packet.
+	// HandlePacket may modify the packet.
 	HandlePacket(TransportEndpointID, *PacketBuffer)
 
 	// HandleError is called when the transport endpoint receives an error.
 	//
-	// HandleError takes ownership of the packet buffer.
+	// HandleError takes may modify the packet buffer.
 	HandleError(TransportError, *PacketBuffer)
 
 	// Abort initiates an expedited endpoint teardown. It puts the endpoint
@@ -132,7 +135,7 @@ type RawTransportEndpoint interface {
 	// this transport endpoint. The packet contains all data from the link
 	// layer up.
 	//
-	// HandlePacket takes ownership of the packet.
+	// HandlePacket may modify the packet.
 	HandlePacket(*PacketBuffer)
 }
 
@@ -150,7 +153,7 @@ type PacketEndpoint interface {
 	// linkHeader may have a length of 0, in which case the PacketEndpoint
 	// should construct its own ethernet header for applications.
 	//
-	// HandlePacket takes ownership of pkt.
+	// HandlePacket may modify pkt.
 	HandlePacket(nicID tcpip.NICID, addr tcpip.LinkAddress, netProto tcpip.NetworkProtocolNumber, pkt *PacketBuffer)
 }
 
@@ -199,7 +202,7 @@ type TransportProtocol interface {
 	// protocol that don't match any existing endpoint. For example,
 	// it is targeted at a port that has no listeners.
 	//
-	// HandleUnknownDestinationPacket takes ownership of the packet if it handles
+	// HandleUnknownDestinationPacket may modify the packet if it handles
 	// the issue.
 	HandleUnknownDestinationPacket(TransportEndpointID, *PacketBuffer) UnknownDestinationPacketDisposition
 
@@ -254,14 +257,19 @@ type TransportDispatcher interface {
 	//
 	// pkt.NetworkHeader must be set before calling DeliverTransportPacket.
 	//
-	// DeliverTransportPacket takes ownership of the packet.
+	// DeliverTransportPacket may modify the packet.
 	DeliverTransportPacket(tcpip.TransportProtocolNumber, *PacketBuffer) TransportPacketDisposition
 
 	// DeliverTransportError delivers an error to the appropriate transport
 	// endpoint.
 	//
-	// DeliverTransportError takes ownership of the packet buffer.
+	// DeliverTransportError may modify the packet buffer.
 	DeliverTransportError(local, remote tcpip.Address, _ tcpip.NetworkProtocolNumber, _ tcpip.TransportProtocolNumber, _ TransportError, _ *PacketBuffer)
+
+	// DeliverRawPacket delivers a packet to any subscribed raw sockets.
+	//
+	// DeliverRawPacket does NOT take ownership of the packet buffer.
+	DeliverRawPacket(tcpip.TransportProtocolNumber, *PacketBuffer)
 }
 
 // PacketLooping specifies where an outbound packet should be sent.
@@ -310,8 +318,7 @@ type PrimaryEndpointBehavior int
 
 const (
 	// CanBePrimaryEndpoint indicates the endpoint can be used as a primary
-	// endpoint for new connections with no local address. This is the
-	// default when calling NIC.AddAddress.
+	// endpoint for new connections with no local address.
 	CanBePrimaryEndpoint PrimaryEndpointBehavior = iota
 
 	// FirstPrimaryEndpoint indicates the endpoint should be the first
@@ -323,6 +330,19 @@ const (
 	// primary endpoint.
 	NeverPrimaryEndpoint
 )
+
+func (peb PrimaryEndpointBehavior) String() string {
+	switch peb {
+	case CanBePrimaryEndpoint:
+		return "CanBePrimaryEndpoint"
+	case FirstPrimaryEndpoint:
+		return "FirstPrimaryEndpoint"
+	case NeverPrimaryEndpoint:
+		return "NeverPrimaryEndpoint"
+	default:
+		panic(fmt.Sprintf("unknown primary endpoint behavior: %d", peb))
+	}
+}
 
 // AddressConfigType is the method used to add an address.
 type AddressConfigType int
@@ -342,6 +362,14 @@ const (
 	// to be valid (or preferred) forever; hence the term temporary.
 	AddressConfigSlaacTemp
 )
+
+// AddressProperties contains additional properties that can be configured when
+// adding an address.
+type AddressProperties struct {
+	PEB        PrimaryEndpointBehavior
+	ConfigType AddressConfigType
+	Deprecated bool
+}
 
 // AssignableAddressEndpoint is a reference counted address endpoint that may be
 // assigned to a NetworkEndpoint.
@@ -417,7 +445,7 @@ const (
 	PermanentExpired
 
 	// Temporary is an endpoint, created on a one-off basis to temporarily
-	// consider the NIC bound an an address that it is not explictiy bound to
+	// consider the NIC bound an an address that it is not explicitly bound to
 	// (such as a permanent address). Its reference count must not be biased by 1
 	// so that the address is removed immediately when references to it are no
 	// longer held.
@@ -449,7 +477,7 @@ type AddressableEndpoint interface {
 	// Returns *tcpip.ErrDuplicateAddress if the address exists.
 	//
 	// Acquires and returns the AddressEndpoint for the added address.
-	AddAndAcquirePermanentAddress(addr tcpip.AddressWithPrefix, peb PrimaryEndpointBehavior, configType AddressConfigType, deprecated bool) (AddressEndpoint, tcpip.Error)
+	AddAndAcquirePermanentAddress(addr tcpip.AddressWithPrefix, properties AddressProperties) (AddressEndpoint, tcpip.Error)
 
 	// RemovePermanentAddress removes the passed address if it is a permanent
 	// address.
@@ -537,24 +565,24 @@ type NetworkInterface interface {
 	CheckLocalAddress(tcpip.NetworkProtocolNumber, tcpip.Address) bool
 
 	// WritePacketToRemote writes the packet to the given remote link address.
-	WritePacketToRemote(tcpip.LinkAddress, *GSO, tcpip.NetworkProtocolNumber, *PacketBuffer) tcpip.Error
+	WritePacketToRemote(tcpip.LinkAddress, tcpip.NetworkProtocolNumber, *PacketBuffer) tcpip.Error
 
 	// WritePacket writes a packet with the given protocol through the given
 	// route.
 	//
-	// WritePacket takes ownership of the packet buffer. The packet buffer's
+	// WritePacket may modify the packet buffer. The packet buffer's
 	// network and transport header must be set.
-	WritePacket(*Route, *GSO, tcpip.NetworkProtocolNumber, *PacketBuffer) tcpip.Error
+	WritePacket(*Route, tcpip.NetworkProtocolNumber, *PacketBuffer) tcpip.Error
 
 	// WritePackets writes packets with the given protocol through the given
 	// route. Must not be called with an empty list of packet buffers.
 	//
-	// WritePackets takes ownership of the packet buffers.
+	// WritePackets may modify the packet buffers.
 	//
 	// Right now, WritePackets is used only when the software segmentation
 	// offload is enabled. If it will be used for something else, syscall filters
 	// may need to be updated.
-	WritePackets(*Route, *GSO, PacketBufferList, tcpip.NetworkProtocolNumber) (int, tcpip.Error)
+	WritePackets(*Route, PacketBufferList, tcpip.NetworkProtocolNumber) (int, tcpip.Error)
 
 	// HandleNeighborProbe processes an incoming neighbor probe (e.g. ARP
 	// request or NDP Neighbor Solicitation).
@@ -608,26 +636,26 @@ type NetworkEndpoint interface {
 	MaxHeaderLength() uint16
 
 	// WritePacket writes a packet to the given destination address and
-	// protocol. It takes ownership of pkt. pkt.TransportHeader must have
+	// protocol. It may modify pkt. pkt.TransportHeader must have
 	// already been set.
-	WritePacket(r *Route, gso *GSO, params NetworkHeaderParams, pkt *PacketBuffer) tcpip.Error
+	WritePacket(r *Route, params NetworkHeaderParams, pkt *PacketBuffer) tcpip.Error
 
 	// WritePackets writes packets to the given destination address and
-	// protocol. pkts must not be zero length. It takes ownership of pkts and
+	// protocol. pkts must not be zero length. It may modify pkts and
 	// underlying packets.
-	WritePackets(r *Route, gso *GSO, pkts PacketBufferList, params NetworkHeaderParams) (int, tcpip.Error)
+	WritePackets(r *Route, pkts PacketBufferList, params NetworkHeaderParams) (int, tcpip.Error)
 
 	// WriteHeaderIncludedPacket writes a packet that includes a network
-	// header to the given destination address. It takes ownership of pkt.
+	// header to the given destination address. It may modify pkt.
 	WriteHeaderIncludedPacket(r *Route, pkt *PacketBuffer) tcpip.Error
 
 	// HandlePacket is called by the link layer when new packets arrive to
 	// this network endpoint. It sets pkt.NetworkHeader.
 	//
-	// HandlePacket takes ownership of pkt.
+	// HandlePacket may modify pkt.
 	HandlePacket(pkt *PacketBuffer)
 
-	// Close is called when the endpoint is reomved from a stack.
+	// Close is called when the endpoint is removed from a stack.
 	Close()
 
 	// NetworkProtocolNumber returns the tcpip.NetworkProtocolNumber for
@@ -655,9 +683,9 @@ type IPNetworkEndpointStats interface {
 	IPStats() *tcpip.IPStats
 }
 
-// ForwardingNetworkProtocol is a NetworkProtocol that may forward packets.
-type ForwardingNetworkProtocol interface {
-	NetworkProtocol
+// ForwardingNetworkEndpoint is a network endpoint that may forward packets.
+type ForwardingNetworkEndpoint interface {
+	NetworkEndpoint
 
 	// Forwarding returns the forwarding configuration.
 	Forwarding() bool
@@ -676,9 +704,6 @@ type NetworkProtocol interface {
 	// network protocol. The stack automatically drops any packets smaller
 	// than this targeted at this protocol.
 	MinimumPacketSize() int
-
-	// DefaultPrefixLen returns the protocol's default prefix length.
-	DefaultPrefixLen() int
 
 	// ParseAddresses returns the source and destination addresses stored in a
 	// packet of this protocol.
@@ -723,18 +748,8 @@ type NetworkDispatcher interface {
 	// DeliverNetworkPacket. Some packets do not have link headers (e.g.
 	// packets sent via loopback), and won't have the field set.
 	//
-	// DeliverNetworkPacket takes ownership of pkt.
+	// DeliverNetworkPacket may modify pkt.
 	DeliverNetworkPacket(remote, local tcpip.LinkAddress, protocol tcpip.NetworkProtocolNumber, pkt *PacketBuffer)
-
-	// DeliverOutboundPacket is called by link layer when a packet is being
-	// sent out.
-	//
-	// pkt.LinkHeader may or may not be set before calling
-	// DeliverOutboundPacket. Some packets do not have link headers (e.g.
-	// packets sent via loopback), and won't have the field set.
-	//
-	// DeliverOutboundPacket takes ownership of pkt.
-	DeliverOutboundPacket(remote, local tcpip.LinkAddress, protocol tcpip.NetworkProtocolNumber, pkt *PacketBuffer)
 }
 
 // LinkEndpointCapabilities is the type associated with the capabilities
@@ -756,11 +771,6 @@ const (
 	CapabilitySaveRestore
 	CapabilityDisconnectOk
 	CapabilityLoopback
-	CapabilityHardwareGSO
-
-	// CapabilitySoftwareGSO indicates the link endpoint supports of sending
-	// multiple packets using a single call (LinkEndpoint.WritePackets).
-	CapabilitySoftwareGSO
 )
 
 // NetworkLinkEndpoint is a data-link layer that supports sending network
@@ -826,23 +836,31 @@ type LinkEndpoint interface {
 
 	// WritePacket writes a packet with the given protocol and route.
 	//
-	// WritePacket takes ownership of the packet buffer. The packet buffer's
+	// WritePacket may modify the packet buffer. The packet buffer's
 	// network and transport header must be set.
 	//
 	// To participate in transparent bridging, a LinkEndpoint implementation
 	// should call eth.Encode with header.EthernetFields.SrcAddr set to
 	// r.LocalLinkAddress if it is provided.
-	WritePacket(RouteInfo, *GSO, tcpip.NetworkProtocolNumber, *PacketBuffer) tcpip.Error
+	WritePacket(RouteInfo, tcpip.NetworkProtocolNumber, *PacketBuffer) tcpip.Error
 
 	// WritePackets writes packets with the given protocol and route. Must not be
 	// called with an empty list of packet buffers.
 	//
-	// WritePackets takes ownership of the packet buffers.
+	// WritePackets may modify the packet buffers.
 	//
 	// Right now, WritePackets is used only when the software segmentation
 	// offload is enabled. If it will be used for something else, syscall filters
 	// may need to be updated.
-	WritePackets(RouteInfo, *GSO, PacketBufferList, tcpip.NetworkProtocolNumber) (int, tcpip.Error)
+	WritePackets(RouteInfo, PacketBufferList, tcpip.NetworkProtocolNumber) (int, tcpip.Error)
+
+	// WriteRawPacket writes a packet directly to the link.
+	//
+	// If the link-layer has its own header, the payload must already include the
+	// header.
+	//
+	// WriteRawPacket may modify the packet.
+	WriteRawPacket(*PacketBuffer) tcpip.Error
 }
 
 // InjectableLinkEndpoint is a LinkEndpoint where inbound packets are
@@ -970,7 +988,7 @@ type DuplicateAddressDetector interface {
 	// called with the result of the original DAD request.
 	CheckDuplicateAddress(tcpip.Address, DADCompletionHandler) DADCheckAddressDisposition
 
-	// SetDADConfiguations sets the configurations for DAD.
+	// SetDADConfigurations sets the configurations for DAD.
 	SetDADConfigurations(c DADConfigurations)
 
 	// DuplicateAddressProtocol returns the network protocol the receiver can
@@ -981,7 +999,7 @@ type DuplicateAddressDetector interface {
 // LinkAddressResolver handles link address resolution for a network protocol.
 type LinkAddressResolver interface {
 	// LinkAddressRequest sends a request for the link address of the target
-	// address. The request is broadcasted on the local network if a remote link
+	// address. The request is broadcast on the local network if a remote link
 	// address is not provided.
 	LinkAddressRequest(targetAddr, localAddr tcpip.Address, remoteLinkAddr tcpip.LinkAddress) tcpip.Error
 
@@ -1047,12 +1065,31 @@ type GSO struct {
 	MaxSize uint32
 }
 
+// SupportedGSO returns the type of segmentation offloading supported.
+type SupportedGSO int
+
+const (
+	// GSONotSupported indicates that segmentation offloading is not supported.
+	GSONotSupported SupportedGSO = iota
+
+	// HWGSOSupported indicates that segmentation offloading may be performed by
+	// the hardware.
+	HWGSOSupported
+
+	// SWGSOSupported indicates that segmentation offloading may be performed in
+	// software.
+	SWGSOSupported
+)
+
 // GSOEndpoint provides access to GSO properties.
 type GSOEndpoint interface {
 	// GSOMaxSize returns the maximum GSO packet size.
 	GSOMaxSize() uint32
+
+	// SupportedGSO returns the supported segmentation offloading.
+	SupportedGSO() SupportedGSO
 }
 
 // SoftwareGSOMaxSize is a maximum allowed size of a software GSO segment.
 // This isn't a hard limit, because it is never set into packet headers.
-const SoftwareGSOMaxSize = (1 << 16)
+const SoftwareGSOMaxSize = 1 << 16

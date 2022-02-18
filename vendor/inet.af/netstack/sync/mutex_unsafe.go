@@ -3,8 +3,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build go1.13
-// +build !go1.18
+//go:build go1.13 && !go1.19
+// +build go1.13,!go1.19
 
 // When updating the build constraint (above), check that syncMutex matches the
 // standard library sync.Mutex definition.
@@ -30,6 +30,18 @@ type syncMutex struct {
 
 func (m *CrossGoroutineMutex) state() *int32 {
 	return &(*syncMutex)(unsafe.Pointer(&m.Mutex)).state
+}
+
+// Lock locks the underlying Mutex.
+// +checklocksignore
+func (m *CrossGoroutineMutex) Lock() {
+	m.Mutex.Lock()
+}
+
+// Unlock unlocks the underlying Mutex.
+// +checklocksignore
+func (m *CrossGoroutineMutex) Unlock() {
+	m.Mutex.Unlock()
 }
 
 const (
@@ -62,6 +74,7 @@ type Mutex struct {
 
 // Lock locks m. If the lock is already in use, the calling goroutine blocks
 // until the mutex is available.
+// +checklocksignore
 func (m *Mutex) Lock() {
 	noteLock(unsafe.Pointer(m))
 	m.m.Lock()
@@ -80,6 +93,7 @@ func (m *Mutex) Unlock() {
 
 // TryLock tries to acquire the mutex. It returns true if it succeeds and false
 // otherwise. TryLock does not block.
+// +checklocksignore
 func (m *Mutex) TryLock() bool {
 	// Note lock first to enforce proper locking even if unsuccessful.
 	noteLock(unsafe.Pointer(m))

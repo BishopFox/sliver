@@ -57,7 +57,7 @@ require (
 	gorm.io/driver/postgres v1.0.5
 	gorm.io/driver/sqlite v1.1.3
 	gorm.io/gorm v1.21.14
-	inet.af/netstack v0.0.0-20210317161235-a1bf4e56ef22
+	inet.af/netstack v0.0.0-20220214151720-7585b01ddccf
 )
 
 require (

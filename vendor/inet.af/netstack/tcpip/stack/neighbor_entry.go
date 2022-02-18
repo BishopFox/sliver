@@ -31,10 +31,10 @@ const (
 
 // NeighborEntry describes a neighboring device in the local network.
 type NeighborEntry struct {
-	Addr           tcpip.Address
-	LinkAddr       tcpip.LinkAddress
-	State          NeighborState
-	UpdatedAtNanos int64
+	Addr      tcpip.Address
+	LinkAddr  tcpip.LinkAddress
+	State     NeighborState
+	UpdatedAt time.Time
 }
 
 // NeighborState defines the state of a NeighborEntry within the Neighbor
@@ -138,10 +138,10 @@ func newNeighborEntry(cache *neighborCache, remoteAddr tcpip.Address, nudState *
 // calling `setStateLocked`.
 func newStaticNeighborEntry(cache *neighborCache, addr tcpip.Address, linkAddr tcpip.LinkAddress, state *NUDState) *neighborEntry {
 	entry := NeighborEntry{
-		Addr:           addr,
-		LinkAddr:       linkAddr,
-		State:          Static,
-		UpdatedAtNanos: cache.nic.stack.clock.NowNanoseconds(),
+		Addr:      addr,
+		LinkAddr:  linkAddr,
+		State:     Static,
+		UpdatedAt: cache.nic.stack.clock.Now(),
 	}
 	n := &neighborEntry{
 		cache:    cache,
@@ -166,14 +166,20 @@ func (e *neighborEntry) notifyCompletionLocked(err tcpip.Error) {
 	if ch := e.mu.done; ch != nil {
 		close(ch)
 		e.mu.done = nil
-		// Dequeue the pending packets in a new goroutine to not hold up the current
+		// Dequeue the pending packets asynchronously to not hold up the current
 		// goroutine as writing packets may be a costly operation.
 		//
 		// At the time of writing, when writing packets, a neighbor's link address
 		// is resolved (which ends up obtaining the entry's lock) while holding the
-		// link resolution queue's lock. Dequeuing packets in a new goroutine avoids
-		// a lock ordering violation.
-		go e.cache.nic.linkResQueue.dequeue(ch, e.mu.neigh.LinkAddr, err)
+		// link resolution queue's lock. Dequeuing packets asynchronously avoids a
+		// lock ordering violation.
+		//
+		// NB: this is equivalent to spawning a goroutine directly using the go
+		// keyword but allows tests that use manual clocks to deterministically
+		// wait for this work to complete.
+		e.cache.nic.stack.clock.AfterFunc(0, func() {
+			e.cache.nic.linkResQueue.dequeue(ch, e.mu.neigh.LinkAddr, err)
+		})
 	}
 }
 
@@ -224,7 +230,7 @@ func (e *neighborEntry) cancelTimerLocked() {
 //
 // Precondition: e.mu MUST be locked.
 func (e *neighborEntry) removeLocked() {
-	e.mu.neigh.UpdatedAtNanos = e.cache.nic.stack.clock.NowNanoseconds()
+	e.mu.neigh.UpdatedAt = e.cache.nic.stack.clock.Now()
 	e.dispatchRemoveEventLocked()
 	e.cancelTimerLocked()
 	// TODO(https://gvisor.dev/issues/5583): test the case where this function is
@@ -246,7 +252,7 @@ func (e *neighborEntry) setStateLocked(next NeighborState) {
 
 	prev := e.mu.neigh.State
 	e.mu.neigh.State = next
-	e.mu.neigh.UpdatedAtNanos = e.cache.nic.stack.clock.NowNanoseconds()
+	e.mu.neigh.UpdatedAt = e.cache.nic.stack.clock.Now()
 	config := e.nudState.Config()
 
 	switch next {
@@ -307,7 +313,7 @@ func (e *neighborEntry) setStateLocked(next NeighborState) {
 		// a shared lock.
 		e.mu.timer = timer{
 			done: &done,
-			timer: e.cache.nic.stack.Clock().AfterFunc(0, func() {
+			timer: e.cache.nic.stack.Clock().AfterFunc(immediateDuration, func() {
 				var err tcpip.Error = &tcpip.ErrTimeout{}
 				if remaining != 0 {
 					err = e.cache.linkRes.LinkAddressRequest(addr, "" /* localAddr */, linkAddr)
@@ -354,14 +360,14 @@ func (e *neighborEntry) handlePacketQueuedLocked(localAddr tcpip.Address) {
 	case Unknown, Unreachable:
 		prev := e.mu.neigh.State
 		e.mu.neigh.State = Incomplete
-		e.mu.neigh.UpdatedAtNanos = e.cache.nic.stack.clock.NowNanoseconds()
+		e.mu.neigh.UpdatedAt = e.cache.nic.stack.clock.Now()
 
 		switch prev {
 		case Unknown:
 			e.dispatchAddEventLocked()
 		case Unreachable:
 			e.dispatchChangeEventLocked()
-			e.cache.nic.stats.Neighbor.UnreachableEntryLookups.Increment()
+			e.cache.nic.stats.neighbor.unreachableEntryLookups.Increment()
 		}
 
 		config := e.nudState.Config()
@@ -378,7 +384,7 @@ func (e *neighborEntry) handlePacketQueuedLocked(localAddr tcpip.Address) {
 		// a shared lock.
 		e.mu.timer = timer{
 			done: &done,
-			timer: e.cache.nic.stack.Clock().AfterFunc(0, func() {
+			timer: e.cache.nic.stack.Clock().AfterFunc(immediateDuration, func() {
 				var err tcpip.Error = &tcpip.ErrTimeout{}
 				if remaining != 0 {
 					// As per RFC 4861 section 7.2.2:

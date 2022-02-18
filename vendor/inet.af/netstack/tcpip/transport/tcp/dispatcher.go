@@ -16,10 +16,11 @@ package tcp
 
 import (
 	"encoding/binary"
+	"math/rand"
 
-	"inet.af/netstack/rand"
 	"inet.af/netstack/sleep"
 	"inet.af/netstack/sync"
+	"inet.af/netstack/tcpip"
 	"inet.af/netstack/tcpip/hash/jenkins"
 	"inet.af/netstack/tcpip/header"
 	"inet.af/netstack/tcpip/stack"
@@ -93,9 +94,10 @@ func (p *processor) start(wg *sync.WaitGroup) {
 	defer p.sleeper.Done()
 
 	for {
-		if id, _ := p.sleeper.Fetch(true); id == closeWaker {
+		if w := p.sleeper.Fetch(true); w == &p.closeWaker {
 			break
 		}
+		// If not the closeWaker, it must be &p.newEndpointWaker.
 		for {
 			ep := p.epQ.dequeue()
 			if ep == nil {
@@ -116,7 +118,7 @@ func (p *processor) start(wg *sync.WaitGroup) {
 			if ep.EndpointState() == StateEstablished && ep.mu.TryLock() {
 				// If the endpoint is in a connected state then we do direct delivery
 				// to ensure low latency and avoid scheduler interactions.
-				switch err := ep.handleSegments(true /* fastPath */); {
+				switch err := ep.handleSegmentsLocked(true /* fastPath */); {
 				case err != nil:
 					// Send any active resets if required.
 					ep.resetConnectionLocked(err)
@@ -126,7 +128,7 @@ func (p *processor) start(wg *sync.WaitGroup) {
 				case !ep.segmentQueue.empty():
 					p.epQ.enqueue(ep)
 				}
-				ep.mu.Unlock()
+				ep.mu.Unlock() // +checklocksforce
 			} else {
 				ep.newSegmentWaker.Assert()
 			}
@@ -141,19 +143,20 @@ func (p *processor) start(wg *sync.WaitGroup) {
 // in-order.
 type dispatcher struct {
 	processors []processor
-	seed       uint32
-	wg         sync.WaitGroup
+	// seed is a random secret for a jenkins hash.
+	seed uint32
+	wg   sync.WaitGroup
 }
 
-func (d *dispatcher) init(nProcessors int) {
+func (d *dispatcher) init(rng *rand.Rand, nProcessors int) {
 	d.close()
 	d.wait()
 	d.processors = make([]processor, nProcessors)
-	d.seed = generateRandUint32()
+	d.seed = rng.Uint32()
 	for i := range d.processors {
 		p := &d.processors[i]
-		p.sleeper.AddWaker(&p.newEndpointWaker, newEndpointWaker)
-		p.sleeper.AddWaker(&p.closeWaker, closeWaker)
+		p.sleeper.AddWaker(&p.newEndpointWaker)
+		p.sleeper.AddWaker(&p.closeWaker)
 		d.wg.Add(1)
 		// NB: sleeper-waker registration must happen synchronously to avoid races
 		// with `close`.  It's possible to pull all this logic into `start`, but
@@ -172,12 +175,11 @@ func (d *dispatcher) wait() {
 	d.wg.Wait()
 }
 
-func (d *dispatcher) queuePacket(stackEP stack.TransportEndpoint, id stack.TransportEndpointID, pkt *stack.PacketBuffer) {
+func (d *dispatcher) queuePacket(stackEP stack.TransportEndpoint, id stack.TransportEndpointID, clock tcpip.Clock, pkt *stack.PacketBuffer) {
 	ep := stackEP.(*endpoint)
 
-	s := newIncomingSegment(id, pkt)
+	s := newIncomingSegment(id, clock, pkt)
 	if !s.parse(pkt.RXTransportChecksumValidated) {
-		ep.stack.Stats().MalformedRcvdPackets.Increment()
 		ep.stack.Stats().TCP.InvalidSegmentsReceived.Increment()
 		ep.stats.ReceiveErrors.MalformedPacketsReceived.Increment()
 		s.decRef()
@@ -185,7 +187,6 @@ func (d *dispatcher) queuePacket(stackEP stack.TransportEndpoint, id stack.Trans
 	}
 
 	if !s.csumValid {
-		ep.stack.Stats().MalformedRcvdPackets.Increment()
 		ep.stack.Stats().TCP.ChecksumErrors.Increment()
 		ep.stats.ReceiveErrors.ChecksumErrors.Increment()
 		s.decRef()
@@ -211,14 +212,6 @@ func (d *dispatcher) queuePacket(stackEP stack.TransportEndpoint, id stack.Trans
 	}
 
 	d.selectProcessor(id).queueEndpoint(ep)
-}
-
-func generateRandUint32() uint32 {
-	b := make([]byte, 4)
-	if _, err := rand.Read(b); err != nil {
-		panic(err)
-	}
-	return binary.LittleEndian.Uint32(b)
 }
 
 func (d *dispatcher) selectProcessor(id stack.TransportEndpointID) *processor {

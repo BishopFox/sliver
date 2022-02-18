@@ -54,7 +54,7 @@ func NewForwarder(s *stack.Stack, rcvWnd, maxInFlight int, handler func(*Forward
 		maxInFlight: maxInFlight,
 		handler:     handler,
 		inFlight:    make(map[stack.TransportEndpointID]struct{}),
-		listen:      newListenContext(s, nil /* listenEP */, seqnum.Size(rcvWnd), true, 0),
+		listen:      newListenContext(s, protocolFromStack(s), nil /* listenEP */, seqnum.Size(rcvWnd), true, 0),
 	}
 }
 
@@ -65,7 +65,7 @@ func NewForwarder(s *stack.Stack, rcvWnd, maxInFlight int, handler func(*Forward
 // This function is expected to be passed as an argument to the
 // stack.SetTransportProtocolHandler function.
 func (f *Forwarder) HandlePacket(id stack.TransportEndpointID, pkt *stack.PacketBuffer) bool {
-	s := newIncomingSegment(id, pkt)
+	s := newIncomingSegment(id, f.stack.Clock(), pkt)
 	defer s.decRef()
 
 	// We only care about well-formed SYN packets.
@@ -152,7 +152,7 @@ func (r *ForwarderRequest) CreateEndpoint(queue *waiter.Queue) (tcpip.Endpoint, 
 	}
 
 	f := r.forwarder
-	ep, err := f.listen.performHandshake(r.segment, &header.TCPSynOptions{
+	ep, err := f.listen.performHandshake(r.segment, header.TCPSynOptions{
 		MSS:           r.synOptions.MSS,
 		WS:            r.synOptions.WS,
 		TS:            r.synOptions.TS,
@@ -164,8 +164,9 @@ func (r *ForwarderRequest) CreateEndpoint(queue *waiter.Queue) (tcpip.Endpoint, 
 		return nil, err
 	}
 
-	// Start the protocol goroutine.
-	ep.startAcceptedLoop()
+	// Start the protocol goroutine. Note that the endpoint is returned
+	// from performHandshake locked.
+	ep.startAcceptedLoop() // +checklocksforce
 
 	return ep, nil
 }

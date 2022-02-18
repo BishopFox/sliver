@@ -3,11 +3,16 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build go1.13
-// +build !go1.18
+//go:build go1.13 && !go1.19
+// +build go1.13,!go1.19
 
-// Check go:linkname function signatures, type definitions, and constants when
-// updating Go version.
+// //go:linkname directives type-checked by checklinkname. Any other
+// non-linkname assumptions outside the Go 1 compatibility guarantee should
+// have an accompanied vet check or version guard build tag.
+
+// Check type definitions and constants when updating Go version.
+//
+// TODO(b/165820485): add these checks to checklinkname.
 
 package sync
 
@@ -16,20 +21,6 @@ import (
 	"reflect"
 	"unsafe"
 )
-
-// Note that go:linkname silently doesn't work if the local name is exported,
-// necessitating an indirection for exported functions.
-
-// Memmove is runtime.memmove, exported for SeqAtomicLoad/SeqAtomicTryLoad<T>.
-//
-//go:nosplit
-func Memmove(to, from unsafe.Pointer, n uintptr) {
-	memmove(to, from, n)
-}
-
-//go:linkname memmove runtime.memmove
-//go:noescape
-func memmove(to, from unsafe.Pointer, n uintptr)
 
 // Gopark is runtime.gopark. Gopark calls unlockf(pointer to runtime.g, lock);
 // if unlockf returns true, Gopark blocks until Goready(pointer to runtime.g)
@@ -123,10 +114,10 @@ type maptype struct {
 // These functions are only used within the sync package.
 
 //go:linkname semacquire sync.runtime_Semacquire
-func semacquire(s *uint32)
+func semacquire(addr *uint32)
 
 //go:linkname semrelease sync.runtime_Semrelease
-func semrelease(s *uint32, handoff bool, skipframes int)
+func semrelease(addr *uint32, handoff bool, skipframes int)
 
 //go:linkname canSpin sync.runtime_canSpin
 func canSpin(i int) bool

@@ -520,13 +520,18 @@ gorm.io/gorm/logger
 gorm.io/gorm/migrator
 gorm.io/gorm/schema
 gorm.io/gorm/utils
-# inet.af/netstack v0.0.0-20210317161235-a1bf4e56ef22
-## explicit; go 1.16
+# inet.af/netstack v0.0.0-20220214151720-7585b01ddccf
+## explicit
+inet.af/netstack/atomicbitops
+inet.af/netstack/buffer
+inet.af/netstack/context
 inet.af/netstack/gohacks
 inet.af/netstack/goid
 inet.af/netstack/linewriter
 inet.af/netstack/log
 inet.af/netstack/rand
+inet.af/netstack/refs
+inet.af/netstack/refsvfs2
 inet.af/netstack/sleep
 inet.af/netstack/state
 inet.af/netstack/state/wire
@@ -537,6 +542,7 @@ inet.af/netstack/tcpip/buffer
 inet.af/netstack/tcpip/hash/jenkins
 inet.af/netstack/tcpip/header
 inet.af/netstack/tcpip/header/parse
+inet.af/netstack/tcpip/internal/tcp
 inet.af/netstack/tcpip/network/hash
 inet.af/netstack/tcpip/network/internal/fragmentation
 inet.af/netstack/tcpip/network/internal/ip
@@ -545,6 +551,9 @@ inet.af/netstack/tcpip/network/ipv6
 inet.af/netstack/tcpip/ports
 inet.af/netstack/tcpip/seqnum
 inet.af/netstack/tcpip/stack
+inet.af/netstack/tcpip/transport
+inet.af/netstack/tcpip/transport/internal/network
+inet.af/netstack/tcpip/transport/internal/noop
 inet.af/netstack/tcpip/transport/packet
 inet.af/netstack/tcpip/transport/raw
 inet.af/netstack/tcpip/transport/tcp

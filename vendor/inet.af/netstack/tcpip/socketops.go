@@ -15,15 +15,11 @@
 package tcpip
 
 import (
-	"math"
 	"sync/atomic"
 
+	"inet.af/netstack/atomicbitops"
 	"inet.af/netstack/sync"
 )
-
-// PacketOverheadFactor is used to multiply the value provided by the user on a
-// SetSockOpt for setting the send/receive buffer sizes sockets.
-const PacketOverheadFactor = 2
 
 // SocketOptionsHandler holds methods that help define endpoint specific
 // behavior for socket level socket options. These must be implemented by
@@ -58,6 +54,14 @@ type SocketOptionsHandler interface {
 	// changed. The handler is invoked with the new value for the socket send
 	// buffer size. It also returns the newly set value.
 	OnSetSendBufferSize(v int64) (newSz int64)
+
+	// OnSetReceiveBufferSize is invoked by SO_RCVBUF and SO_RCVBUFFORCE.
+	OnSetReceiveBufferSize(v, oldSz int64) (newSz int64)
+
+	// WakeupWriters is invoked when the send buffer size for an endpoint is
+	// changed. The handler notifies the writers if the send buffer size is
+	// increased with setsockopt(2) for TCP endpoints.
+	WakeupWriters()
 }
 
 // DefaultSocketOptionsHandler is an embeddable type that implements no-op
@@ -96,6 +100,14 @@ func (*DefaultSocketOptionsHandler) HasNIC(int32) bool {
 
 // OnSetSendBufferSize implements SocketOptionsHandler.OnSetSendBufferSize.
 func (*DefaultSocketOptionsHandler) OnSetSendBufferSize(v int64) (newSz int64) {
+	return v
+}
+
+// WakeupWriters implements SocketOptionsHandler.WakeupWriters.
+func (*DefaultSocketOptionsHandler) WakeupWriters() {}
+
+// OnSetReceiveBufferSize implements SocketOptionsHandler.OnSetReceiveBufferSize.
+func (*DefaultSocketOptionsHandler) OnSetReceiveBufferSize(v, oldSz int64) (newSz int64) {
 	return v
 }
 
@@ -158,9 +170,13 @@ type SocketOptions struct {
 	// message is passed with incoming packets.
 	receiveTClassEnabled uint32
 
-	// receivePacketInfoEnabled is used to specify if more inforamtion is
-	// provided with incoming packets such as interface index and address.
+	// receivePacketInfoEnabled is used to specify if more information is
+	// provided with incoming IPv4 packets.
 	receivePacketInfoEnabled uint32
+
+	// receivePacketInfoEnabled is used to specify if more information is
+	// provided with incoming IPv6 packets.
+	receiveIPv6PacketInfoEnabled uint32
 
 	// hdrIncludeEnabled is used to indicate for a raw endpoint that all packets
 	// being written have an IP header and the endpoint should not attach an IP
@@ -205,7 +221,15 @@ type SocketOptions struct {
 	getSendBufferLimits GetSendBufferLimits `state:"manual"`
 
 	// sendBufferSize determines the send buffer size for this socket.
-	sendBufferSize int64
+	sendBufferSize atomicbitops.AlignedAtomicInt64
+
+	// getReceiveBufferLimits provides the handler to get the min, default and
+	// max size for receive buffer. It is initialized at the creation time and
+	// will not change.
+	getReceiveBufferLimits GetReceiveBufferLimits `state:"manual"`
+
+	// receiveBufferSize determines the receive buffer size for this socket.
+	receiveBufferSize atomicbitops.AlignedAtomicInt64
 
 	// mu protects the access to the below fields.
 	mu sync.Mutex `state:"nosave"`
@@ -217,10 +241,11 @@ type SocketOptions struct {
 
 // InitHandler initializes the handler. This must be called before using the
 // socket options utility.
-func (so *SocketOptions) InitHandler(handler SocketOptionsHandler, stack StackHandler, getSendBufferLimits GetSendBufferLimits) {
+func (so *SocketOptions) InitHandler(handler SocketOptionsHandler, stack StackHandler, getSendBufferLimits GetSendBufferLimits, getReceiveBufferLimits GetReceiveBufferLimits) {
 	so.handler = handler
 	so.stackHandler = stack
 	so.getSendBufferLimits = getSendBufferLimits
+	so.getReceiveBufferLimits = getReceiveBufferLimits
 }
 
 func storeAtomicBool(addr *uint32, v bool) {
@@ -337,6 +362,16 @@ func (so *SocketOptions) GetReceivePacketInfo() bool {
 // SetReceivePacketInfo sets value for IP_PKTINFO option.
 func (so *SocketOptions) SetReceivePacketInfo(v bool) {
 	storeAtomicBool(&so.receivePacketInfoEnabled, v)
+}
+
+// GetIPv6ReceivePacketInfo gets value for IPV6_RECVPKTINFO option.
+func (so *SocketOptions) GetIPv6ReceivePacketInfo() bool {
+	return atomic.LoadUint32(&so.receiveIPv6PacketInfoEnabled) != 0
+}
+
+// SetIPv6ReceivePacketInfo sets value for IPV6_RECVPKTINFO option.
+func (so *SocketOptions) SetIPv6ReceivePacketInfo(v bool) {
+	storeAtomicBool(&so.receiveIPv6PacketInfoEnabled, v)
 }
 
 // GetHeaderIncluded gets value for IP_HDRINCL option.
@@ -583,9 +618,10 @@ func (so *SocketOptions) GetBindToDevice() int32 {
 	return atomic.LoadInt32(&so.bindToDevice)
 }
 
-// SetBindToDevice sets value for SO_BINDTODEVICE option.
+// SetBindToDevice sets value for SO_BINDTODEVICE option. If bindToDevice is
+// zero, the socket device binding is removed.
 func (so *SocketOptions) SetBindToDevice(bindToDevice int32) Error {
-	if !so.handler.HasNIC(bindToDevice) {
+	if bindToDevice != 0 && !so.handler.HasNIC(bindToDevice) {
 		return &ErrUnknownDevice{}
 	}
 
@@ -595,40 +631,46 @@ func (so *SocketOptions) SetBindToDevice(bindToDevice int32) Error {
 
 // GetSendBufferSize gets value for SO_SNDBUF option.
 func (so *SocketOptions) GetSendBufferSize() int64 {
-	return atomic.LoadInt64(&so.sendBufferSize)
+	return so.sendBufferSize.Load()
+}
+
+// SendBufferLimits returns the [min, max) range of allowable send buffer
+// sizes.
+func (so *SocketOptions) SendBufferLimits() (min, max int64) {
+	limits := so.getSendBufferLimits(so.stackHandler)
+	return int64(limits.Min), int64(limits.Max)
 }
 
 // SetSendBufferSize sets value for SO_SNDBUF option. notify indicates if the
 // stack handler should be invoked to set the send buffer size.
 func (so *SocketOptions) SetSendBufferSize(sendBufferSize int64, notify bool) {
-	v := sendBufferSize
-
-	if !notify {
-		atomic.StoreInt64(&so.sendBufferSize, v)
-		return
+	if notify {
+		sendBufferSize = so.handler.OnSetSendBufferSize(sendBufferSize)
 	}
-
-	// Make sure the send buffer size is within the min and max
-	// allowed.
-	ss := so.getSendBufferLimits(so.stackHandler)
-	min := int64(ss.Min)
-	max := int64(ss.Max)
-	// Validate the send buffer size with min and max values.
-	// Multiply it by factor of 2.
-	if v > max {
-		v = max
+	so.sendBufferSize.Store(sendBufferSize)
+	if notify {
+		so.handler.WakeupWriters()
 	}
+}
 
-	if v < math.MaxInt32/PacketOverheadFactor {
-		v *= PacketOverheadFactor
-		if v < min {
-			v = min
-		}
-	} else {
-		v = math.MaxInt32
+// GetReceiveBufferSize gets value for SO_RCVBUF option.
+func (so *SocketOptions) GetReceiveBufferSize() int64 {
+	return so.receiveBufferSize.Load()
+}
+
+// ReceiveBufferLimits returns the [min, max) range of allowable receive buffer
+// sizes.
+func (so *SocketOptions) ReceiveBufferLimits() (min, max int64) {
+	limits := so.getReceiveBufferLimits(so.stackHandler)
+	return int64(limits.Min), int64(limits.Max)
+}
+
+// SetReceiveBufferSize sets the value of the SO_RCVBUF option, optionally
+// notifying the owning endpoint.
+func (so *SocketOptions) SetReceiveBufferSize(receiveBufferSize int64, notify bool) {
+	if notify {
+		oldSz := so.receiveBufferSize.Load()
+		receiveBufferSize = so.handler.OnSetReceiveBufferSize(receiveBufferSize, oldSz)
 	}
-
-	// Notify endpoint about change in buffer size.
-	newSz := so.handler.OnSetSendBufferSize(v)
-	atomic.StoreInt64(&so.sendBufferSize, newSz)
+	so.receiveBufferSize.Store(receiveBufferSize)
 }

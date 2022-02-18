@@ -76,8 +76,27 @@ func (mld *mldState) SendReport(groupAddress tcpip.Address) (bool, tcpip.Error) 
 //
 // Precondition: mld.ep.mu must be read locked.
 func (mld *mldState) SendLeave(groupAddress tcpip.Address) tcpip.Error {
-	_, err := mld.writePacket(header.IPv6AllRoutersMulticastAddress, groupAddress, header.ICMPv6MulticastListenerDone)
+	_, err := mld.writePacket(header.IPv6AllRoutersLinkLocalMulticastAddress, groupAddress, header.ICMPv6MulticastListenerDone)
 	return err
+}
+
+// ShouldPerformProtocol implements ip.MulticastGroupProtocol.
+func (mld *mldState) ShouldPerformProtocol(groupAddress tcpip.Address) bool {
+	// As per RFC 2710 section 5 page 10,
+	//
+	//   The link-scope all-nodes address (FF02::1) is handled as a special
+	//   case. The node starts in Idle Listener state for that address on
+	//   every interface, never transitions to another state, and never sends
+	//   a Report or Done for that address.
+	//
+	//   MLD messages are never sent for multicast addresses whose scope is 0
+	//   (reserved) or 1 (node-local).
+	if groupAddress == header.IPv6AllNodesMulticastAddress {
+		return false
+	}
+
+	scope := header.V6MulticastScope(groupAddress)
+	return scope != header.IPv6Reserved0MulticastScope && scope != header.IPv6InterfaceLocalMulticastScope
 }
 
 // init sets up an mldState struct, and is required to be called before using
@@ -91,7 +110,6 @@ func (mld *mldState) init(ep *endpoint) {
 		Clock:                     ep.protocol.stack.Clock(),
 		Protocol:                  mld,
 		MaxUnsolicitedReportDelay: UnsolicitedReportIntervalMax,
-		AllNodesAddress:           header.IPv6AllNodesMulticastAddress,
 	})
 }
 
@@ -252,6 +270,7 @@ func (mld *mldState) writePacket(destAddress, groupAddress tcpip.Address, mldTyp
 		ReserveHeaderBytes: int(mld.ep.MaxHeaderLength()) + extensionHeaders.Length(),
 		Data:               buffer.View(icmp).ToVectorisedView(),
 	})
+	defer pkt.DecRef()
 
 	if err := addIPHeader(localAddress, destAddress, pkt, stack.NetworkHeaderParams{
 		Protocol: header.ICMPv6ProtocolNumber,
@@ -259,7 +278,7 @@ func (mld *mldState) writePacket(destAddress, groupAddress tcpip.Address, mldTyp
 	}, extensionHeaders); err != nil {
 		panic(fmt.Sprintf("failed to add IP header: %s", err))
 	}
-	if err := mld.ep.nic.WritePacketToRemote(header.EthernetAddressFromMulticastIPv6Address(destAddress), nil /* gso */, ProtocolNumber, pkt); err != nil {
+	if err := mld.ep.nic.WritePacketToRemote(header.EthernetAddressFromMulticastIPv6Address(destAddress), ProtocolNumber, pkt); err != nil {
 		sentStats.dropped.Increment()
 		return false, err
 	}

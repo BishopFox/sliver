@@ -17,7 +17,6 @@ package tcp
 import (
 	"fmt"
 	"sync/atomic"
-	"time"
 
 	"inet.af/netstack/tcpip"
 	"inet.af/netstack/tcpip/buffer"
@@ -73,9 +72,9 @@ type segment struct {
 	parsedOptions  header.TCPOptions
 	options        []byte `state:".([]byte)"`
 	hasNewSACKInfo bool
-	rcvdTime       time.Time `state:".(unixTime)"`
+	rcvdTime       tcpip.MonotonicTime
 	// xmitTime is the last transmit time of this segment.
-	xmitTime  time.Time `state:".(unixTime)"`
+	xmitTime  tcpip.MonotonicTime
 	xmitCount uint32
 
 	// acked indicates if the segment has already been SACKed.
@@ -88,7 +87,7 @@ type segment struct {
 	lost bool
 }
 
-func newIncomingSegment(id stack.TransportEndpointID, pkt *stack.PacketBuffer) *segment {
+func newIncomingSegment(id stack.TransportEndpointID, clock tcpip.Clock, pkt *stack.PacketBuffer) *segment {
 	netHdr := pkt.Network()
 	s := &segment{
 		refCnt:   1,
@@ -100,17 +99,17 @@ func newIncomingSegment(id stack.TransportEndpointID, pkt *stack.PacketBuffer) *
 	}
 	s.data = pkt.Data().ExtractVV().Clone(s.views[:])
 	s.hdr = header.TCP(pkt.TransportHeader().View())
-	s.rcvdTime = time.Now()
+	s.rcvdTime = clock.NowMonotonic()
 	s.dataMemSize = s.data.Size()
 	return s
 }
 
-func newOutgoingSegment(id stack.TransportEndpointID, v buffer.View) *segment {
+func newOutgoingSegment(id stack.TransportEndpointID, clock tcpip.Clock, v buffer.View) *segment {
 	s := &segment{
 		refCnt: 1,
 		id:     id,
 	}
-	s.rcvdTime = time.Now()
+	s.rcvdTime = clock.NowMonotonic()
 	if len(v) != 0 {
 		s.views[0] = v
 		s.data = buffer.NewVectorisedView(len(v), s.views[:1])
@@ -140,14 +139,13 @@ func (s *segment) clone() *segment {
 	return t
 }
 
-// flagIsSet checks if at least one flag in flags is set in s.flags.
-func (s *segment) flagIsSet(flags header.TCPFlags) bool {
-	return s.flags&flags != 0
-}
+// merge merges data in oth and clears oth.
+func (s *segment) merge(oth *segment) {
+	s.data.Append(oth.data)
+	s.dataMemSize = s.data.Size()
 
-// flagsAreSet checks if all flags in flags are set in s.flags.
-func (s *segment) flagsAreSet(flags header.TCPFlags) bool {
-	return s.flags&flags == flags
+	oth.data = buffer.VectorisedView{}
+	oth.dataMemSize = oth.data.Size()
 }
 
 // setOwner sets the owning endpoint for this segment. Its required
@@ -189,10 +187,10 @@ func (s *segment) incRef() {
 // as the data length plus one for each of the SYN and FIN bits set.
 func (s *segment) logicalLen() seqnum.Size {
 	l := seqnum.Size(s.data.Size())
-	if s.flagIsSet(header.TCPFlagSyn) {
+	if s.flags.Contains(header.TCPFlagSyn) {
 		l++
 	}
-	if s.flagIsSet(header.TCPFlagFin) {
+	if s.flags.Contains(header.TCPFlagFin) {
 		l++
 	}
 	return l
@@ -234,22 +232,16 @@ func (s *segment) parse(skipChecksumValidation bool) bool {
 		return false
 	}
 
-	s.options = []byte(s.hdr[header.TCPMinimumSize:])
+	s.options = s.hdr[header.TCPMinimumSize:]
 	s.parsedOptions = header.ParseTCPOptions(s.options)
-
-	verifyChecksum := true
 	if skipChecksumValidation {
 		s.csumValid = true
-		verifyChecksum = false
-	}
-	if verifyChecksum {
+	} else {
 		s.csum = s.hdr.Checksum()
-		xsum := header.PseudoHeaderChecksum(ProtocolNumber, s.srcAddr, s.dstAddr, uint16(s.data.Size()+len(s.hdr)))
-		xsum = s.hdr.CalculateChecksum(xsum)
-		xsum = header.ChecksumVV(s.data, xsum)
-		s.csumValid = xsum == 0xffff
+		payloadChecksum := header.ChecksumVV(s.data, 0)
+		payloadLength := uint16(s.data.Size())
+		s.csumValid = s.hdr.IsChecksumValid(s.srcAddr, s.dstAddr, payloadChecksum, payloadLength)
 	}
-
 	s.sequenceNumber = seqnum.Value(s.hdr.SequenceNumber())
 	s.ackNumber = seqnum.Value(s.hdr.AckNumber())
 	s.flags = s.hdr.Flags()
@@ -259,5 +251,5 @@ func (s *segment) parse(skipChecksumValidation bool) bool {
 
 // sackBlock returns a header.SACKBlock that represents this segment.
 func (s *segment) sackBlock() header.SACKBlock {
-	return header.SACKBlock{s.sequenceNumber, s.sequenceNumber.Add(s.logicalLen())}
+	return header.SACKBlock{Start: s.sequenceNumber, End: s.sequenceNumber.Add(s.logicalLen())}
 }

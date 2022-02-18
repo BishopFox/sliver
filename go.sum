@@ -746,6 +746,8 @@ honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
 inet.af/netstack v0.0.0-20210317161235-a1bf4e56ef22 h1:DNtszwGa6w76qlIr+PbPEnlBJdiRV8SaxeigOy0q1gg=
 inet.af/netstack v0.0.0-20210317161235-a1bf4e56ef22/go.mod h1:GVx+5OZtbG4TVOW5ilmyRZAZXr1cNwfqUEkTOtWK0PM=
+inet.af/netstack v0.0.0-20220214151720-7585b01ddccf h1:kwr6UZ4fMnzVJfpnjIl4ej23vfByfAUVLaiIr69326s=
+inet.af/netstack v0.0.0-20220214151720-7585b01ddccf/go.mod h1:KOJdAzQzMLKzwFEdOOnrnSrLIhaFVB+NQoME/e5wllA=
 lukechampine.com/uint128 v1.1.1 h1:pnxCASz787iMf+02ssImqk6OLt+Z5QHMoZyUXR4z6JU=
 lukechampine.com/uint128 v1.1.1/go.mod h1:c4eWIwlEGaxC/+H1VguhU4PHXNWDCDMUlWdIWl2j1gk=
 modernc.org/cc/v3 v3.33.6/go.mod h1:iPJg1pkwXqAV16SNgFBVYmggfMg6xhs+2oiO0vclK3g=

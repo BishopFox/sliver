@@ -46,7 +46,6 @@ func (p *PacketBufferList) len() int {
 
 type pendingPacket struct {
 	routeInfo RouteInfo
-	gso       *GSO
 	proto     tcpip.NetworkProtocolNumber
 	pkt       pendingPacketBuffer
 }
@@ -119,7 +118,7 @@ func (f *packetsPendingLinkResolution) dequeue(ch <-chan struct{}, linkAddr tcpi
 // If the maximum number of pending resolutions is reached, the packets
 // associated with the oldest link resolution will be dequeued as if they failed
 // link resolution.
-func (f *packetsPendingLinkResolution) enqueue(r *Route, gso *GSO, proto tcpip.NetworkProtocolNumber, pkt pendingPacketBuffer) (int, tcpip.Error) {
+func (f *packetsPendingLinkResolution) enqueue(r *Route, proto tcpip.NetworkProtocolNumber, pkt pendingPacketBuffer) (int, tcpip.Error) {
 	f.mu.Lock()
 	// Make sure we attempt resolution while holding f's lock so that we avoid
 	// a race where link resolution completes before we enqueue the packets.
@@ -137,7 +136,7 @@ func (f *packetsPendingLinkResolution) enqueue(r *Route, gso *GSO, proto tcpip.N
 		// The route resolved immediately, so we don't need to wait for link
 		// resolution to send the packet.
 		f.mu.Unlock()
-		return f.nic.writePacketBuffer(routeInfo, gso, proto, pkt)
+		return f.nic.writePacketBuffer(routeInfo, proto, pkt)
 	case *tcpip.ErrWouldBlock:
 		// We need to wait for link resolution to complete.
 	default:
@@ -150,10 +149,15 @@ func (f *packetsPendingLinkResolution) enqueue(r *Route, gso *GSO, proto tcpip.N
 	packets, ok := f.mu.packets[ch]
 	packets = append(packets, pendingPacket{
 		routeInfo: routeInfo,
-		gso:       gso,
 		proto:     proto,
 		pkt:       pkt,
 	})
+	switch pkt := pkt.(type) {
+	case *PacketBuffer:
+		pkt.IncRef()
+	case *PacketBufferList:
+		pkt.IncRef()
+	}
 
 	if len(packets) > maxPendingPacketsPerResolution {
 		f.incrementOutgoingPacketErrors(packets[0].proto, packets[0].pkt)
@@ -211,7 +215,7 @@ func (f *packetsPendingLinkResolution) dequeuePackets(packets []pendingPacket, l
 	for _, p := range packets {
 		if err == nil {
 			p.routeInfo.RemoteLinkAddress = linkAddr
-			_, _ = f.nic.writePacketBuffer(p.routeInfo, p.gso, p.proto, p.pkt)
+			_, _ = f.nic.writePacketBuffer(p.routeInfo, p.proto, p.pkt)
 		} else {
 			f.incrementOutgoingPacketErrors(p.proto, p.pkt)
 
@@ -227,6 +231,12 @@ func (f *packetsPendingLinkResolution) dequeuePackets(packets []pendingPacket, l
 					panic(fmt.Sprintf("unrecognized pending packet buffer type = %T", p.pkt))
 				}
 			}
+		}
+		switch pkt := p.pkt.(type) {
+		case *PacketBuffer:
+			pkt.DecRef()
+		case *PacketBufferList:
+			pkt.DecRef()
 		}
 	}
 }

@@ -35,21 +35,21 @@ type hole struct {
 
 type reassembler struct {
 	reassemblerEntry
-	id           FragmentID
-	memSize      int
-	proto        uint8
-	mu           sync.Mutex
-	holes        []hole
-	filled       int
-	done         bool
-	creationTime int64
-	pkt          *stack.PacketBuffer
+	id        FragmentID
+	memSize   int
+	proto     uint8
+	mu        sync.Mutex
+	holes     []hole
+	filled    int
+	done      bool
+	createdAt tcpip.MonotonicTime
+	pkt       *stack.PacketBuffer
 }
 
 func newReassembler(id FragmentID, clock tcpip.Clock) *reassembler {
 	r := &reassembler{
-		id:           id,
-		creationTime: clock.NowMonotonic(),
+		id:        id,
+		createdAt: clock.NowMonotonic(),
 	}
 	r.holes = append(r.holes, hole{
 		first:  0,
@@ -149,6 +149,7 @@ func (r *reassembler) process(first, last uint16, more bool, proto uint8, pkt *s
 			r.proto = proto
 		}
 
+		pkt.IncRef()
 		break
 	}
 	if !holeFound {
@@ -166,9 +167,9 @@ func (r *reassembler) process(first, last uint16, more bool, proto uint8, pkt *s
 	})
 
 	resPkt := r.holes[0].pkt
+	resPkt.DecRef()
 	for i := 1; i < len(r.holes); i++ {
-		fragData := r.holes[i].pkt.Data()
-		resPkt.Data().ReadFromData(fragData, fragData.Size())
+		stack.MergeFragment(resPkt, r.holes[i].pkt)
 	}
 	return resPkt, r.proto, true, memConsumed, nil
 }
