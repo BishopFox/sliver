@@ -65,6 +65,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.21.10
 	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
+	golang.zx2c4.com/go118/netip v0.0.0-20211111135330-a4a02eeacf9d
 	modernc.org/sqlite v1.14.3
 )
 
