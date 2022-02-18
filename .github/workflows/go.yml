@@ -1,4 +1,4 @@
-name: Build & Test
+name: Build & Test C1
 on:
   push:
     branches: 
