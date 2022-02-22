@@ -23,10 +23,12 @@ package handlers
 */
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	sliverpb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
@@ -94,7 +96,25 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) *sl
 		Data:      eventData,
 	})
 
+	go auditLogBeacon(beacon, beaconReg.Register)
 	return nil
+}
+
+type auditLogNewBeaconMsg struct {
+	Beacon   *clientpb.Beacon
+	Register *sliverpb.Register
+}
+
+func auditLogBeacon(beacon *models.Beacon, register *sliverpb.Register) {
+	msg, err := json.Marshal(auditLogNewBeaconMsg{
+		Beacon:   beacon.ToProtobuf(),
+		Register: register,
+	})
+	if err != nil {
+		beaconHandlerLog.Errorf("Failed to log new beacon to audit log: %s", err)
+	} else {
+		log.AuditLogger.Warn(string(msg))
+	}
 }
 
 func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
