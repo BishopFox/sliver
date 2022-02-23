@@ -31,6 +31,7 @@ import (
 	"strings"
 
 	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
@@ -58,6 +59,7 @@ type ExtensionManifest struct {
 	OriginalAuthor  string               `json:"original_author"`
 	RepoURL         string               `json:"repo_url"`
 	Help            string               `json:"help"`
+	LongHelp        string               `json:"long_help"`
 	Files           []*extensionFile     `json:"files"`
 	Arguments       []*extensionArgument `json:"arguments"`
 	Entrypoint      string               `json:"entrypoint"`
@@ -171,8 +173,9 @@ func ExtensionRegisterCommand(extCmd *ExtensionManifest, con *console.SliverCons
 	loadedExtensions[extCmd.CommandName] = extCmd
 	helpMsg := extCmd.Help
 	extensionCmd := &grumble.Command{
-		Name: extCmd.CommandName,
-		Help: helpMsg,
+		Name:     extCmd.CommandName,
+		Help:     helpMsg,
+		LongHelp: help.FormatHelpTmpl(extCmd.LongHelp),
 		Run: func(extCtx *grumble.Context) error {
 			con.Println()
 			runExtensionCmd(extCtx, con)
@@ -192,12 +195,15 @@ func ExtensionRegisterCommand(extCmd *ExtensionManifest, con *console.SliverCons
 						defaultValue grumble.ArgOption
 					)
 					switch arg.Type {
-					case "int", "short":
+					case "int", "integer", "short":
 						argFunc = a.Int
 						defaultValue = grumble.Default(0)
 					case "string", "wstring", "file":
 						argFunc = a.String
 						defaultValue = grumble.Default("")
+					default:
+						con.PrintErrorf("Invalid argument type: %s\n", arg.Type)
+						return
 					}
 					if arg.Optional {
 						argFunc(arg.Name, arg.Desc, defaultValue)
@@ -420,6 +426,8 @@ func getBOFArgs(ctx *grumble.Context, binPath string, ext *ExtensionManifest) ([
 	// Parse BOF arguments from grumble
 	for _, arg := range ext.Arguments {
 		switch arg.Type {
+		case "integer":
+			fallthrough
 		case "int":
 			val := ctx.Args.Int(arg.Name)
 			err = argsBuffer.AddInt(uint32(val))
