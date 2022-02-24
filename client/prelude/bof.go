@@ -55,6 +55,8 @@ func runBOF(session *clientpb.Session, rpc rpcpb.SliverRPCClient, bof []byte, ar
 	}
 	for _, a := range args {
 		switch a.ArgType {
+		case "integer":
+			fallthrough
 		case "int":
 			if v, ok := a.Value.(float64); ok {
 				err = bofArgs.AddInt(uint32(v))
