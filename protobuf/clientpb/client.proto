@@ -161,6 +161,8 @@ message ImplantConfig {
   string FileName = 102;
   bool IsService = 103;
   bool IsShellcode = 104;
+
+  bool RunAtLoad = 105;
 }
 
 // Configs of previously built implants

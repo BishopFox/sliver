@@ -1247,6 +1247,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("X", "key-exchange", generate.DefaultWGKeyExPort, "wg key-exchange port")
 			f.Int("T", "tcp-comms", generate.DefaultWGNPort, "wg c2 comms port")
 
+			f.Bool("R", "run-at-load", false, "run the implant entrypoint from DllMain/Constructor (shared library only)")
+
 			f.Int("j", "reconnect", generate.DefaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("P", "poll-timeout", generate.DefaultPollTimeout, "long poll request timeout")
 			f.Int("k", "max-errors", generate.DefaultMaxErrors, "max number of connection errors")
@@ -1300,6 +1302,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 			f.Int("X", "key-exchange", generate.DefaultWGKeyExPort, "wg key-exchange port")
 			f.Int("T", "tcp-comms", generate.DefaultWGNPort, "wg c2 comms port")
+
+			f.Bool("R", "run-at-load", false, "run the implant entrypoint from DllMain/Constructor (shared library only)")
 
 			f.Int("j", "reconnect", generate.DefaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("P", "poll-timeout", generate.DefaultPollTimeout, "long poll request timeout")
@@ -1449,6 +1453,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("X", "key-exchange", generate.DefaultWGKeyExPort, "wg key-exchange port")
 			f.Int("T", "tcp-comms", generate.DefaultWGNPort, "wg c2 comms port")
 
+			f.Bool("R", "run-at-load", false, "run the implant entrypoint from DllMain/Constructor (shared library only)")
+
 			f.Int("j", "reconnect", generate.DefaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("P", "poll-timeout", generate.DefaultPollTimeout, "long poll request timeout")
 			f.Int("k", "max-errors", generate.DefaultMaxErrors, "max number of connection errors")
@@ -1507,6 +1513,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 			f.Int("X", "key-exchange", generate.DefaultWGKeyExPort, "wg key-exchange port")
 			f.Int("T", "tcp-comms", generate.DefaultWGNPort, "wg c2 comms port")
+
+			f.Bool("R", "run-at-load", false, "run the implant entrypoint from DllMain/Constructor (shared library only)")
 
 			f.Int("j", "reconnect", generate.DefaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("P", "poll-timeout", generate.DefaultPollTimeout, "long poll request timeout")
