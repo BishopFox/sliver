@@ -170,6 +170,8 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.IsService = pbConfig.IsService
 	cfg.IsShellcode = pbConfig.IsShellcode
 
+	cfg.RunAtLoad = pbConfig.RunAtLoad
+
 	cfg.CanaryDomains = []models.CanaryDomain{}
 	for _, pbCanary := range pbConfig.CanaryDomains {
 		cfg.CanaryDomains = append(cfg.CanaryDomains, models.CanaryDomain{

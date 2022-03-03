@@ -124,6 +124,8 @@ type ImplantConfig struct {
 	IsService   bool
 	IsShellcode bool
 
+	RunAtLoad bool
+
 	FileName string
 }
 
