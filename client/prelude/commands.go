@@ -100,7 +100,7 @@ func execute(cmd string, executor string, implantBridge *OperatorImplantBridge, 
 	})
 
 	if err != nil {
-		return fmt.Sprintf("Error: %s\n", err.Error()), int(execResp.Status), int(execResp.Pid)
+		return fmt.Sprintf("Error: %s\n", err.Error()), -1, -1
 	}
 
 	// Beacon
