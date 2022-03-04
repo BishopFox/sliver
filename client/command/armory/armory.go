@@ -315,9 +315,26 @@ func PrintArmoryBundles(bundles []*ArmoryBundle, con *console.SliverConsoleClien
 		{Name: "Name", Mode: table.Asc},
 	})
 	for _, bundle := range bundles {
+		if len(bundle.Packages) < 1 {
+			continue
+		}
+		packages := bundle.Packages[0]
+		if 1 < len(packages) {
+			packages += ", "
+		}
+		for index, pkgName := range bundle.Packages[1:] {
+			if index%5 == 4 {
+				packages += pkgName + "\n"
+			} else {
+				packages += pkgName
+				if index != len(bundle.Packages)-2 {
+					packages += ", "
+				}
+			}
+		}
 		tw.AppendRow(table.Row{
 			bundle.Name,
-			strings.Join(bundle.Packages, ", "),
+			packages,
 		})
 	}
 	con.Printf("%s\n", tw.Render())

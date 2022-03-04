@@ -54,6 +54,8 @@ func runBOF(implant ActiveImplant, rpc rpcpb.SliverRPCClient, bof []byte, args [
 	}
 	for _, a := range args {
 		switch a.ArgType {
+		case "integer":
+			fallthrough
 		case "int":
 			if v, ok := a.Value.(float64); ok {
 				err = bofArgs.AddInt(uint32(v))

@@ -30,6 +30,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
@@ -416,6 +417,7 @@ func githubLatestTagParser(armoryPkg *ArmoryPackage, clientConfig ArmoryHTTPConf
 	if err != nil {
 		return "", fmt.Errorf("http get failed armory pkg url '%s': %s", armoryPkg.RepoURL, err)
 	}
+	defer latestRedirect.Body.Close()
 	if latestRedirect.StatusCode != http.StatusFound {
 		return "", fmt.Errorf("unexpected response status (wanted 302) '%s': %s", armoryPkg.RepoURL, latestRedirect.Status)
 	}
@@ -455,9 +457,8 @@ func httpClient(config ArmoryHTTPConfig) *http.Client {
 			Dial: (&net.Dialer{
 				Timeout: config.Timeout,
 			}).Dial,
-
-			Proxy: http.ProxyURL(config.ProxyURL),
-
+			IdleConnTimeout:     time.Millisecond,
+			Proxy:               http.ProxyURL(config.ProxyURL),
 			TLSHandshakeTimeout: config.Timeout,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: config.DisableTLSValidation,

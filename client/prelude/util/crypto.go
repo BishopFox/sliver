@@ -47,6 +47,23 @@ func Encrypt(bites []byte) []byte {
 	return []byte(fmt.Sprintf("%x", cipherText))
 }
 
+func EncryptStage(bites []byte, AESKey string, AESIV string) []byte {
+	bites, err := pad(bites, aes.BlockSize)
+	if err != nil {
+		return make([]byte, 0)
+	}
+
+	aesKeyBytes := []byte(AESKey)
+	aesIVBytes := []byte(AESIV)
+
+	block, _ := aes.NewCipher(aesKeyBytes)
+	cipherText := make([]byte, aes.BlockSize+len(bites))
+	mode := cipher.NewCBCEncrypter(block, aesIVBytes)
+	mode.CryptBlocks(cipherText, bites)
+
+	return cipherText
+}
+
 //Decrypt a command
 func Decrypt(text string) string {
 	cipherText, _ := hex.DecodeString(text)

@@ -476,6 +476,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("c", "cert", "", "path to PEM encoded certificate file (HTTPS only)")
 			f.String("k", "key", "", "path to PEM encoded private key file (HTTPS only)")
 			f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate (HTTPS only)")
+			f.StringL("aes-encrypt-key", "", "encrypt stage with AES encryption key")
+			f.StringL("aes-encrypt-iv", "", "encrypt stage with AES encyption iv")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1245,6 +1247,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("X", "key-exchange", generate.DefaultWGKeyExPort, "wg key-exchange port")
 			f.Int("T", "tcp-comms", generate.DefaultWGNPort, "wg c2 comms port")
 
+			f.Bool("R", "run-at-load", false, "run the implant entrypoint from DllMain/Constructor (shared library only)")
+
 			f.Int("j", "reconnect", generate.DefaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("P", "poll-timeout", generate.DefaultPollTimeout, "long poll request timeout")
 			f.Int("k", "max-errors", generate.DefaultMaxErrors, "max number of connection errors")
@@ -1298,6 +1302,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 			f.Int("X", "key-exchange", generate.DefaultWGKeyExPort, "wg key-exchange port")
 			f.Int("T", "tcp-comms", generate.DefaultWGNPort, "wg c2 comms port")
+
+			f.Bool("R", "run-at-load", false, "run the implant entrypoint from DllMain/Constructor (shared library only)")
 
 			f.Int("j", "reconnect", generate.DefaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("P", "poll-timeout", generate.DefaultPollTimeout, "long poll request timeout")
@@ -1447,6 +1453,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("X", "key-exchange", generate.DefaultWGKeyExPort, "wg key-exchange port")
 			f.Int("T", "tcp-comms", generate.DefaultWGNPort, "wg c2 comms port")
 
+			f.Bool("R", "run-at-load", false, "run the implant entrypoint from DllMain/Constructor (shared library only)")
+
 			f.Int("j", "reconnect", generate.DefaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("P", "poll-timeout", generate.DefaultPollTimeout, "long poll request timeout")
 			f.Int("k", "max-errors", generate.DefaultMaxErrors, "max number of connection errors")
@@ -1505,6 +1513,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 			f.Int("X", "key-exchange", generate.DefaultWGKeyExPort, "wg key-exchange port")
 			f.Int("T", "tcp-comms", generate.DefaultWGNPort, "wg c2 comms port")
+
+			f.Bool("R", "run-at-load", false, "run the implant entrypoint from DllMain/Constructor (shared library only)")
 
 			f.Int("j", "reconnect", generate.DefaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("P", "poll-timeout", generate.DefaultPollTimeout, "long poll request timeout")

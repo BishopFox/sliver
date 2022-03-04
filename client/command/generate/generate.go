@@ -258,6 +258,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	isShellcode := false
 
 	format := ctx.Flags.String("format")
+	runAtLoad := false
 	var configFormat clientpb.OutputFormat
 	switch format {
 	case "exe":
@@ -265,6 +266,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	case "shared":
 		configFormat = clientpb.OutputFormat_SHARED_LIB
 		isSharedLib = true
+		runAtLoad = ctx.Flags.Bool("run-at-load")
 	case "shellcode":
 		configFormat = clientpb.OutputFormat_SHELLCODE
 		isShellcode = true
@@ -331,6 +333,8 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		IsSharedLib: isSharedLib,
 		IsService:   isService,
 		IsShellcode: isShellcode,
+
+		RunAtLoad: runAtLoad,
 	}
 
 	return config
