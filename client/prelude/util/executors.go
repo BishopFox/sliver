@@ -37,9 +37,7 @@ func DetermineExecutors(platform string, arch string) []string {
 	for platformKey, platformValue := range platformExecutors {
 		if platform == platformKey {
 			for i := range platformValue["file"] {
-				// if checkIfExecutorAvailable(platformValue["file"][i]) {
 				executors = append(executors, platformExecutors[platformKey]["executor"][i])
-				// }
 			}
 		}
 	}

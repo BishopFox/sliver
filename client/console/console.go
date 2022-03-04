@@ -195,8 +195,8 @@ func (con *SliverConsoleClient) EventLoop() {
 				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 
 			// Prelude Operator
-			if prelude.SessionMapper != nil {
-				err = prelude.SessionMapper.AddSession(session)
+			if prelude.ImplantMapper != nil {
+				err = prelude.ImplantMapper.AddImplant(session, nil)
 				if err != nil {
 					con.PrintEventErrorf("Could not add session to Operator: %s", err)
 				}
@@ -220,8 +220,8 @@ func (con *SliverConsoleClient) EventLoop() {
 				con.PrintEventErrorf("Active session disconnected")
 				con.App.SetPrompt(con.GetPrompt())
 			}
-			if prelude.SessionMapper != nil {
-				err = prelude.SessionMapper.RemoveSession(session)
+			if prelude.ImplantMapper != nil {
+				err = prelude.ImplantMapper.RemoveImplant(session)
 				if err != nil {
 					con.PrintEventErrorf("Could not remove session from Operator: %s", err)
 				}
@@ -235,6 +235,16 @@ func (con *SliverConsoleClient) EventLoop() {
 			shortID := strings.Split(beacon.ID, "-")[0]
 			con.PrintEventInfof("Beacon %s %s - %s (%s) - %s/%s - %v",
 				shortID, beacon.Name, beacon.RemoteAddress, beacon.Hostname, beacon.OS, beacon.Arch, currentTime)
+
+			// Prelude Operator
+			if prelude.ImplantMapper != nil {
+				err = prelude.ImplantMapper.AddImplant(beacon, func(taskID string, cb func(*clientpb.BeaconTask)) {
+					con.AddBeaconCallback(taskID, cb)
+				})
+				if err != nil {
+					con.PrintEventErrorf("Could not add beacon to Operator: %s", err)
+				}
+			}
 
 		case consts.BeaconTaskResultEvent:
 			con.triggerBeaconTaskCallback(event.Data)

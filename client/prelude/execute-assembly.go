@@ -22,7 +22,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
@@ -37,16 +36,9 @@ type execasmArgs struct {
 	AppDomain    string `json:"appDomain"`
 }
 
-func execAsm(session *clientpb.Session, rpc rpcpb.SliverRPCClient, asm []byte, args execasmArgs) (output string, err error) {
-	if !isLoaderLoaded(session, rpc) {
-		err = registerLoader(session, rpc)
-		if err != nil {
-			return
-		}
-	}
-
+func execAsm(implant ActiveImplant, rpc rpcpb.SliverRPCClient, asm []byte, args execasmArgs, onFinishCallback func(string, int, int)) (output string, err error) {
 	extResp, err := rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
-		Request:   MakeRequest(session),
+		Request:   MakeRequest(implant),
 		IsDLL:     args.IsDLL,
 		Process:   args.Process,
 		Arguments: args.Arguments,
@@ -58,6 +50,12 @@ func execAsm(session *clientpb.Session, rpc rpcpb.SliverRPCClient, asm []byte, a
 	})
 
 	if err != nil {
+		return
+	}
+
+	// If Async req, onFinishCallback won't be nil
+	if onFinishCallback != nil {
+		onFinishCallback(string(extResp.Output), SuccessExitStatus, int(implant.GetPID()))
 		return
 	}
 

@@ -25,8 +25,8 @@ import (
 )
 
 func OperatorCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	if prelude.SessionMapper != nil {
-		con.PrintInfof("Connected to Operator at %s\n", prelude.SessionMapper.GetConfig().OperatorURL)
+	if prelude.ImplantMapper != nil {
+		con.PrintInfof("Connected to Operator at %s\n", prelude.ImplantMapper.GetConfig().OperatorURL)
 		return
 	}
 	con.PrintInfof("Not connected to any Operator server. Use `operator connect` to connect to one.")
