@@ -2,7 +2,7 @@ package prelude
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2022  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -21,7 +21,6 @@ package prelude
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"sync"
 
@@ -31,7 +30,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-var SessionMapper *PreludeSessionMapper
+var ImplantMapper *OperatorImplantMapper
 
 const defaultImplantSleep = 5
 
@@ -42,30 +41,45 @@ type OperatorConfig struct {
 	AESKey      string
 }
 
-type PreludeSessionMapper struct {
-	sessions []*AgentSession
-	conf     *OperatorConfig
+// OperatorImplantMapper maps an OperatorConfig with
+// active Sliver implant sessions/beacons
+type OperatorImplantMapper struct {
+	implantBridges []*OperatorImplantBridge
+	conf           *OperatorConfig
 	sync.Mutex
 }
 
-func InitSessionMapper(conf *OperatorConfig) *PreludeSessionMapper {
-	if SessionMapper == nil {
-		SessionMapper = &PreludeSessionMapper{
-			sessions: make([]*AgentSession, 0),
-			conf:     conf,
-		}
-	}
-	return SessionMapper
+// ActiveImplant exposes common methods between
+// Sliver clientpb.Session and clientpb.Beacon
+// that are required by Operator implants
+type ActiveImplant interface {
+	GetID() string
+	GetHostname() string
+	GetPID() int32
+	GetOS() string
+	GetArch() string
+	GetFilename() string
+	GetReconnectInterval() int64
 }
 
-func (p *PreludeSessionMapper) AddSession(s *clientpb.Session) error {
+func InitImplantMapper(conf *OperatorConfig) *OperatorImplantMapper {
+	if ImplantMapper == nil {
+		ImplantMapper = &OperatorImplantMapper{
+			implantBridges: make([]*OperatorImplantBridge, 0),
+			conf:           conf,
+		}
+	}
+	return ImplantMapper
+}
+
+func (p *OperatorImplantMapper) AddImplant(a ActiveImplant, callback func(string, func(*clientpb.BeaconTask))) error {
 	var pwd string
 	conn, err := net.Dial("tcp", p.conf.OperatorURL)
 	if err != nil {
 		return err
 	}
 	pwdResp, err := p.conf.RPC.Pwd(context.Background(), &sliverpb.PwdReq{
-		Request: MakeRequest(s),
+		Request: MakeRequest(a),
 	})
 	if err != nil {
 		return err
@@ -73,55 +87,58 @@ func (p *PreludeSessionMapper) AddSession(s *clientpb.Session) error {
 	if pwdResp != nil {
 		pwd = pwdResp.Path
 	}
-	// Operator implants have embedded static IDs, but we don't,
-	// so to avoid having multiple sessions showing as one on the Operator
-	// GUI, we need to have a unique name for them.
-	// Plus, having the ID in the name will help the user to make the
-	// correlation.
-	sessName := fmt.Sprintf("%s-%s", s.Name, s.ID)
-	beacon := Beacon{
-		Name:      sessName,
+
+	// Use a default sleep time for sessions,
+	// but respect the one we have for beacons
+	sleepTime := defaultImplantSleep
+	if b, ok := a.(*clientpb.Beacon); ok {
+		sleepTime = int(b.ReconnectInterval)
+	}
+
+	beacon := OperatorBeacon{
+		Name:      a.GetID(),
 		Target:    p.conf.OperatorURL,
-		Hostname:  s.Hostname,
-		Location:  s.Filename,
-		Platform:  s.OS,
+		Hostname:  a.GetHostname(),
+		Location:  a.GetFilename(),
+		Platform:  a.GetOS(),
 		Range:     p.conf.Range,
-		Executors: util.DetermineExecutors(s.OS, s.Arch),
+		Executors: util.DetermineExecutors(a.GetOS(), a.GetArch()),
 		Links:     make([]Instruction, 0),
 		Executing: "",
 		Pwd:       pwd,
-		Sleep:     defaultImplantSleep,
+		Sleep:     int(sleepTime),
 	}
 
 	if p.conf.AESKey == "" {
 		return errors.New("missing AES key")
 	}
+	a.GetID()
 	encryptionKey := p.conf.AESKey
 	agentConfig := AgentConfig{
-		Name:      sessName,
+		Name:      a.GetID(),
 		AESKey:    encryptionKey,
 		Range:     p.conf.Range,
 		Contact:   "tcp",
 		Address:   p.conf.OperatorURL,
-		Pid:       int(s.PID),
+		Pid:       int(a.GetPID()),
 		Executing: make(map[string]Instruction),
-		Sleep:     defaultImplantSleep,
+		Sleep:     int(sleepTime),
 	}
 	util.EncryptionKey = &agentConfig.AESKey
-	agentSession := NewAgentSession(&conn, s, p.conf.RPC, beacon, agentConfig)
+	bridge := NewImplantBridge(&conn, a, p.conf.RPC, beacon, agentConfig, callback)
 	p.Lock()
-	p.sessions = append(p.sessions, agentSession)
+	p.implantBridges = append(p.implantBridges, bridge)
 	p.Unlock()
-	go agentSession.ReceiveLoop()
+	go bridge.ReceiveLoop()
 	return nil
 }
 
-func (p *PreludeSessionMapper) RemoveSession(s *clientpb.Session) (err error) {
+func (p *OperatorImplantMapper) RemoveImplant(imp ActiveImplant) (err error) {
 	p.Lock()
-	for _, agentSession := range p.sessions {
-		if agentSession.Session.ID == s.ID {
-			if agentSession.Conn != nil {
-				err = (*agentSession.Conn).Close()
+	for _, bridge := range p.implantBridges {
+		if bridge.Implant.GetID() == imp.GetID() {
+			if bridge.Conn != nil {
+				err = (*bridge.Conn).Close()
 			} else {
 				err = errors.New("connection is nil")
 			}
@@ -131,6 +148,6 @@ func (p *PreludeSessionMapper) RemoveSession(s *clientpb.Session) (err error) {
 	return err
 }
 
-func (p *PreludeSessionMapper) GetConfig() *OperatorConfig {
+func (p *OperatorImplantMapper) GetConfig() *OperatorConfig {
 	return p.conf
 }
