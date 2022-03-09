@@ -22,61 +22,43 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 )
 
-var EncryptionKey *string
-
 //Encrypt the results
-func Encrypt(bites []byte) []byte {
-	plainText, err := pad(bites, aes.BlockSize)
+func Encrypt(data []byte, key []byte, iv []byte) []byte {
+	plainText, err := pad(data, aes.BlockSize)
 	if err != nil {
 		return make([]byte, 0)
 	}
-	block, _ := aes.NewCipher([]byte(*EncryptionKey))
+	block, _ := aes.NewCipher(key)
 	cipherText := make([]byte, aes.BlockSize+len(plainText))
-	iv := cipherText[:aes.BlockSize]
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		return make([]byte, 0)
+	// Create a random IV if none was provided
+	// len(nil) returns 0
+	if len(iv) == 0 {
+		iv = cipherText[:aes.BlockSize]
+		if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+			return make([]byte, 0)
+		}
 	}
 	mode := cipher.NewCBCEncrypter(block, iv)
 	mode.CryptBlocks(cipherText[aes.BlockSize:], plainText)
-	return []byte(fmt.Sprintf("%x", cipherText))
-}
-
-func EncryptStage(bites []byte, AESKey string, AESIV string) []byte {
-	bites, err := pad(bites, aes.BlockSize)
-	if err != nil {
-		return make([]byte, 0)
-	}
-
-	aesKeyBytes := []byte(AESKey)
-	aesIVBytes := []byte(AESIV)
-
-	block, _ := aes.NewCipher(aesKeyBytes)
-	cipherText := make([]byte, aes.BlockSize+len(bites))
-	mode := cipher.NewCBCEncrypter(block, aesIVBytes)
-	mode.CryptBlocks(cipherText, bites)
-
 	return cipherText
 }
 
 //Decrypt a command
-func Decrypt(text string) string {
-	cipherText, _ := hex.DecodeString(text)
-	block, err := aes.NewCipher([]byte(*EncryptionKey))
+func Decrypt(data []byte, key []byte) []byte {
+	block, err := aes.NewCipher(key)
 	if err != nil {
-		return ""
+		return nil
 	}
-	iv := cipherText[:aes.BlockSize]
-	cipherText = cipherText[aes.BlockSize:]
+	iv := data[:aes.BlockSize]
+	data = data[aes.BlockSize:]
 	mode := cipher.NewCBCDecrypter(block, iv)
-	mode.CryptBlocks(cipherText, cipherText)
-	cipherText, _ = unpad(cipherText, aes.BlockSize)
-	return string(cipherText)
+	mode.CryptBlocks(data, data)
+	data, _ = unpad(data, aes.BlockSize)
+	return data
 }
 
 func pad(buf []byte, size int) ([]byte, error) {

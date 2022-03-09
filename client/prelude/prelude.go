@@ -124,7 +124,6 @@ func (p *OperatorImplantMapper) AddImplant(a ActiveImplant, callback func(string
 		Executing: make(map[string]Instruction),
 		Sleep:     int(sleepTime),
 	}
-	util.EncryptionKey = &agentConfig.AESKey
 	bridge := NewImplantBridge(&conn, a, p.conf.RPC, beacon, agentConfig, callback)
 	p.Lock()
 	p.implantBridges = append(p.implantBridges, bridge)
