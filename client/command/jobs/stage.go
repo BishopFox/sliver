@@ -25,8 +25,8 @@ import (
 
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/prelude/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/util"
 	"github.com/desertbit/grumble"
 )
 
@@ -89,7 +89,7 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	if aesEncrypt {
-		stage2 = util.EncryptStage(stage2, aesEncryptKey, aesEncryptIv)
+		stage2 = util.Encrypt(stage2, []byte(aesEncryptKey), []byte(aesEncryptIv))
 	}
 
 	switch stagingURL.Scheme {

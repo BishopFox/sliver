@@ -21,6 +21,7 @@ package prelude
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -29,11 +30,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bishopfox/sliver/client/prelude/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/util"
 )
 
 const (
@@ -73,7 +74,8 @@ func (a *OperatorImplantBridge) register() {
 	if err != nil {
 		return
 	}
-	dataBuff := append(util.Encrypt(data), "\n"...)
+	encrypted := util.Encrypt(data, []byte(a.Config.AESKey), nil)
+	dataBuff := append([]byte(fmt.Sprintf("%x", encrypted)), "\n"...)
 	(*a.Conn).Write(dataBuff)
 }
 
@@ -82,7 +84,8 @@ func (a *OperatorImplantBridge) ReceiveLoop() {
 	go func() {
 		for {
 			data := <-a.send
-			dataBuff := append(util.Encrypt(data), "\n"...)
+			encrypted := util.Encrypt(data, []byte(a.Config.AESKey), nil)
+			dataBuff := append([]byte(fmt.Sprintf("%x", encrypted)), "\n"...)
 			(*a.Conn).Write(dataBuff)
 			time.Sleep(time.Duration(a.PBeacon.Sleep))
 		}
@@ -98,7 +101,11 @@ func (a *OperatorImplantBridge) ReceiveLoop() {
 
 func (a *OperatorImplantBridge) handleMessage(message string) {
 	var tempBeacon OperatorBeacon
-	if err := json.Unmarshal([]byte(util.Decrypt(message)), &tempBeacon); err == nil {
+	decoded, err := hex.DecodeString(message)
+	if err != nil {
+		return
+	}
+	if err := json.Unmarshal(util.Decrypt(decoded, []byte(a.Config.AESKey)), &tempBeacon); err == nil {
 		a.PBeacon.Links = a.PBeacon.Links[:0]
 		a.runLinks(&tempBeacon)
 	}
