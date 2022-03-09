@@ -34,6 +34,7 @@ func Encrypt(data []byte, key []byte, iv []byte) []byte {
 	}
 	block, _ := aes.NewCipher(key)
 	cipherText := make([]byte, aes.BlockSize+len(plainText))
+	// Create a random IV if none was provided
 	// len(nil) returns 0
 	if len(iv) == 0 {
 		iv = cipherText[:aes.BlockSize]
