@@ -1,3 +1,4 @@
+//go:build (linux || aix) && !js
 // +build linux aix
 // +build !js
 

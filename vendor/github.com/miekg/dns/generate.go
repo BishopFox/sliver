@@ -188,7 +188,7 @@ func (r *generateReader) ReadByte() (byte, error) {
 			if errMsg != "" {
 				return 0, r.parseError(errMsg, si+3+sep)
 			}
-			if r.start+offset < 0 || int64(r.end) + int64(offset) > 1<<31-1 {
+			if r.start+offset < 0 || int64(r.end)+int64(offset) > 1<<31-1 {
 				return 0, r.parseError("bad offset in $GENERATE", si+3+sep)
 			}
 

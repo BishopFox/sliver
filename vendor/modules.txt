@@ -165,6 +165,9 @@ github.com/hashicorp/errwrap
 # github.com/hashicorp/go-multierror v1.1.1
 ## explicit; go 1.13
 github.com/hashicorp/go-multierror
+# github.com/icza/mjpeg v0.0.0-20210726201846-5ff75d3c479f
+## explicit
+github.com/icza/mjpeg
 # github.com/inconshreveable/mousetrap v1.0.0
 ## explicit
 github.com/inconshreveable/mousetrap
@@ -232,6 +235,9 @@ github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.13
 ## explicit; go 1.12
 github.com/mattn/go-isatty
+# github.com/mattn/go-mjpeg v0.0.3
+## explicit; go 1.16
+github.com/mattn/go-mjpeg
 # github.com/mattn/go-runewidth v0.0.9
 ## explicit; go 1.9
 github.com/mattn/go-runewidth

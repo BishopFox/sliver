@@ -63,7 +63,7 @@ func fftmul(x, y nat) nat {
 // fftSizeThreshold[i] is the maximal size (in bits) where we should use
 // fft size i.
 var fftSizeThreshold = [...]int64{0, 0, 0,
-	4 << 10, 8 << 10, 16 << 10, // 5 
+	4 << 10, 8 << 10, 16 << 10, // 5
 	32 << 10, 64 << 10, 1 << 18, 1 << 20, 3 << 20, // 10
 	8 << 20, 30 << 20, 100 << 20, 300 << 20, 600 << 20,
 }

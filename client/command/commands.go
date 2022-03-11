@@ -34,6 +34,7 @@ package command
 */
 
 import (
+	"github.com/bishopfox/sliver/client/command/screenshare"
 	"os"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -2091,6 +2092,62 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 	con.App.AddCommand(websitesCmd)
+
+	// [ Screenshare ] ---------------------------------------------
+	screenshareCmd := &grumble.Command{
+		Name:     consts.ScreenshareStr,
+		Help:     "Take a screenshare",
+		LongHelp: help.GetHelpFor([]string{consts.ScreenshareStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("k", "kill", -1, "kill a background screenshare")
+			f.Bool("K", "kill-all", false, "kill all screenshare")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			screenshare.ScreenshareCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	}
+	screenshareCmd.AddCommand(&grumble.Command{
+		Name:     consts.AddStr,
+		Help:     "Add a screen share",
+		LongHelp: help.GetHelpFor([]string{consts.ScreenshareStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("d", "display", 0, "select a display")
+			f.Int("i", "interval", 5, "5min")
+			f.String("H", "hostPort", "127.0.0.1:8023", "Real time display window")
+			f.Bool("r", "recording", false, "Recording screen")
+
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			screenshare.ScreenshareAdd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	screenshareCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Add a screen share",
+		LongHelp: help.GetHelpFor([]string{consts.ScreenshareStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("i", "id", -1, "id")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			screenshare.ScreenshareRm(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	con.App.AddCommand(screenshareCmd)
 
 	// [ Screenshot ] ---------------------------------------------
 

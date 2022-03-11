@@ -235,6 +235,8 @@ const (
 	// MsgSocksData - Response of SocksData
 	MsgSocksData
 
+	// MsgScreenShareData - Response with the screenshots
+	MsgScreenShareData
 	// MsgReconfigureReq
 	MsgReconfigureReq
 

@@ -200,6 +200,7 @@ const (
 	AddWebContentStr  = "add-content"
 	WebContentTypeStr = "content-type"
 
+	ScreenshareStr        = "screenshare"
 	ScreenshotStr         = "screenshot"
 	PsExecStr             = "psexec"
 	BackdoorStr           = "backdoor"

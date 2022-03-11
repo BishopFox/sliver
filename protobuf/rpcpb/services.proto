@@ -157,6 +157,11 @@ service SliverRPC {
     rpc WGListForwarders(sliverpb.WGTCPForwardersReq) returns (sliverpb.WGTCPForwarders);
     rpc WGListSocksServers(sliverpb.WGSocksServersReq) returns (sliverpb.WGSocksServers);
 
+    // *** ScreenShare ***
+    rpc CreateScreenShare(sliverpb.ScreenShare) returns (sliverpb.ScreenShare);
+    rpc CloseScreenShare(sliverpb.ScreenShare) returns (commonpb.Empty);
+    rpc ScreenShare(sliverpb.ScreenShareData) returns (stream sliverpb.ScreenShareData);
+
     // *** Realtime Commands ***
     rpc Shell(sliverpb.ShellReq) returns (sliverpb.Shell);
     rpc Portfwd(sliverpb.PortfwdReq) returns (sliverpb.Portfwd);

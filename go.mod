@@ -50,7 +50,7 @@ require (
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200609130330-bd2cb7843e1b
 	google.golang.org/genproto v0.0.0-20210406143921-e86de6bf7a46 // indirect
 	google.golang.org/grpc v1.37.0
-	google.golang.org/protobuf v1.26.0
+	google.golang.org/protobuf v1.27.1
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 	gorm.io/driver/mysql v1.0.3
@@ -61,6 +61,8 @@ require (
 )
 
 require (
+	github.com/icza/mjpeg v0.0.0-20210726201846-5ff75d3c479f
+	github.com/mattn/go-mjpeg v0.0.3
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/shirou/gopsutil/v3 v3.21.10
 	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
@@ -111,6 +113,7 @@ require (
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	golang.org/x/tools v0.1.0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0 // indirect
 	google.golang.org/grpc/examples v0.0.0-20210910232509-03268c8ed29e // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 	lukechampine.com/uint128 v1.1.1 // indirect

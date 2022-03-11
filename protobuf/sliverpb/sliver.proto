@@ -706,6 +706,20 @@ message Portfwd {
   uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
   commonpb.Response Response = 9;
 }
+// ScreenShare
+message ScreenShareData {
+  uint32 Type = 1;
+  bytes Data = 6;
+  int64 NumActiveDisplays = 7;
+  uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
+  commonpb.Request Request = 9;
+}
+message ScreenShare {
+  bool CloseConn = 6;
+  uint64 TunnelID = 7 [jstype = JS_STRING];
+  string SessionID = 8;
+  commonpb.Request Request = 9;
+}
 
 // *** Socks ***
 message Socks {
