@@ -27,7 +27,6 @@ import (
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/core"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
@@ -43,9 +42,9 @@ type bofArgs struct {
 	Value   interface{} `json:"value"`
 }
 
-func runBOF(session *clientpb.Session, rpc rpcpb.SliverRPCClient, bof []byte, args []bofArgs) (output string, err error) {
-	if !isLoaderLoaded(session, rpc) {
-		err = registerLoader(session, rpc)
+func runBOF(implant ActiveImplant, rpc rpcpb.SliverRPCClient, bof []byte, args []bofArgs, onFinishCallback func(string, int, int)) (output string, err error) {
+	if !isLoaderLoaded(implant, rpc) {
+		err = registerLoader(implant, rpc)
 		if err != nil {
 			return
 		}
@@ -55,6 +54,8 @@ func runBOF(session *clientpb.Session, rpc rpcpb.SliverRPCClient, bof []byte, ar
 	}
 	for _, a := range args {
 		switch a.ArgType {
+		case "integer":
+			fallthrough
 		case "int":
 			if v, ok := a.Value.(float64); ok {
 				err = bofArgs.AddInt(uint32(v))
@@ -107,10 +108,16 @@ func runBOF(session *clientpb.Session, rpc rpcpb.SliverRPCClient, bof []byte, ar
 		ServerStore: false,
 		Args:        extArgsBuffer,
 		Export:      loaderEntryPoint,
-		Request:     MakeRequest(session),
+		Request:     MakeRequest(implant),
 	})
 
 	if err != nil {
+		return
+	}
+
+	// If Async req, onFinishCallback won't be nil
+	if onFinishCallback != nil {
+		onFinishCallback(string(extResp.Output), SuccessExitStatus, int(implant.GetPID()))
 		return
 	}
 
@@ -122,10 +129,10 @@ func runBOF(session *clientpb.Session, rpc rpcpb.SliverRPCClient, bof []byte, ar
 	return
 }
 
-func registerLoader(session *clientpb.Session, rpc rpcpb.SliverRPCClient) error {
+func registerLoader(implant ActiveImplant, rpc rpcpb.SliverRPCClient) error {
 	var coffLoaderPath string
 
-	switch session.Arch {
+	switch implant.GetArch() {
 	case "amd64":
 		coffLoaderPath = "COFFLoader.x64.dll"
 	case "386":
@@ -139,9 +146,9 @@ func registerLoader(session *clientpb.Session, rpc rpcpb.SliverRPCClient) error 
 	resp, err := rpc.RegisterExtension(context.Background(), &sliverpb.RegisterExtensionReq{
 		Name:    coffLoaderName,
 		Data:    loaderData,
-		OS:      session.OS,
+		OS:      implant.GetOS(),
 		Init:    "",
-		Request: MakeRequest(session),
+		Request: MakeRequest(implant),
 	})
 	if err != nil {
 		return err
@@ -152,9 +159,9 @@ func registerLoader(session *clientpb.Session, rpc rpcpb.SliverRPCClient) error 
 	return nil
 }
 
-func isLoaderLoaded(session *clientpb.Session, rpc rpcpb.SliverRPCClient) bool {
+func isLoaderLoaded(implant ActiveImplant, rpc rpcpb.SliverRPCClient) bool {
 	extList, err := rpc.ListExtensions(context.Background(), &sliverpb.ListExtensionsReq{
-		Request: MakeRequest(session),
+		Request: MakeRequest(implant),
 	})
 	if err != nil {
 		return false

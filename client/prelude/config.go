@@ -2,7 +2,7 @@ package prelude
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2022  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ const (
 
 type Configuration interface {
 	ApplyConfig(ac map[string]interface{})
-	BuildBeacon() Beacon
+	BuildBeacon() OperatorBeacon
 }
 
 type AgentConfig struct {
@@ -52,7 +52,7 @@ type AgentConfig struct {
 	Executing      map[string]Instruction
 }
 
-type Beacon struct {
+type OperatorBeacon struct {
 	Name      string
 	Target    string
 	Hostname  string

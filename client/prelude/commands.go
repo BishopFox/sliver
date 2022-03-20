@@ -2,7 +2,7 @@ package prelude
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2022  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -24,11 +24,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
 )
 
 //RunCommand executes a given command
-func RunCommand(message string, executor string, payload []byte, agentSession *AgentSession) (string, int, int) {
+func RunCommand(message string, executor string, payload []byte, agentSession *OperatorImplantBridge, onFinish func(string, int, int)) (string, int, int) {
 	switch executor {
 	case "keyword":
 		task := splitMessage(message, '.')
@@ -46,7 +48,7 @@ func RunCommand(message string, executor string, payload []byte, agentSession *A
 			if payload == nil {
 				return "missing BOF file", ErrorExitStatus, ErrorExitStatus
 			}
-			out, err := runBOF(agentSession.Session, agentSession.RPC, payload, bargs)
+			out, err := runBOF(agentSession.Implant, agentSession.RPC, payload, bargs, onFinish)
 			if err != nil {
 				return err.Error(), ErrorExitStatus, ErrorExitStatus
 			}
@@ -64,7 +66,7 @@ func RunCommand(message string, executor string, payload []byte, agentSession *A
 			if payload == nil {
 				return "missing .NET assembly", ErrorExitStatus, ErrorExitStatus
 			}
-			out, err := execAsm(agentSession.Session, agentSession.RPC, payload, eaargs)
+			out, err := execAsm(agentSession.Implant, agentSession.RPC, payload, eaargs, onFinish)
 			if err != nil {
 				return err.Error(), ErrorExitStatus, ErrorExitStatus
 			}
@@ -75,13 +77,13 @@ func RunCommand(message string, executor string, payload []byte, agentSession *A
 			return "Keyword selected not available for agent", ErrorExitStatus, ErrorExitStatus
 		}
 	default:
-		bites, status, pid := execute(message, executor, agentSession)
+		bites, status, pid := execute(message, executor, agentSession, onFinish)
 		return string(bites), status, pid
 	}
 	return "", ErrorExitStatus, ErrorExitStatus
 }
 
-func execute(cmd string, executor string, agentSession *AgentSession) (string, int, int) {
+func execute(cmd string, executor string, implantBridge *OperatorImplantBridge, onFinishCallback func(string, int, int)) (string, int, int) {
 	args := append(getCmdArg(executor), cmd)
 	if executor == "psh" {
 		executor = "powershell.exe"
@@ -90,19 +92,32 @@ func execute(cmd string, executor string, agentSession *AgentSession) (string, i
 		executor = commandSections[0]
 		args = commandSections[1:]
 	}
-	execResp, err := agentSession.RPC.Execute(context.Background(), &sliverpb.ExecuteReq{
+	execResp, err := implantBridge.RPC.Execute(context.Background(), &sliverpb.ExecuteReq{
 		Path:    executor,
 		Args:    args,
 		Output:  true,
-		Request: MakeRequest(agentSession.Session),
+		Request: MakeRequest(implantBridge.Implant),
 	})
 
 	if err != nil {
-		return fmt.Sprintf("Error: %s\n", err.Error()), 0, 0
+		return fmt.Sprintf("Error: %s\n", err.Error()), -1, -1
 	}
 
+	// Beacon
+	if execResp.Response != nil && execResp.Response.Async {
+		implantBridge.BeaconCallback(execResp.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, execResp)
+			if err != nil {
+				return
+			}
+			onFinishCallback(string(execResp.Stdout), int(execResp.Status), int(execResp.Pid))
+		})
+		return "", 0, 0
+	}
+
+	// Session
 	if execResp.Response != nil && execResp.Response.Err != "" {
-		return execResp.Response.Err, 0, 0
+		return execResp.Response.Err, SuccessExitStatus, SuccessExitStatus
 	}
 	return string(execResp.Stdout), int(execResp.Status), int(execResp.Pid)
 }
@@ -133,13 +148,13 @@ func splitMessage(message string, splitRune rune) []string {
 	return values
 }
 
-func shutdown(agentSession *AgentSession) (string, int, int) {
+func shutdown(agentSession *OperatorImplantBridge) (string, int, int) {
 	_, err := agentSession.RPC.Kill(context.Background(), &sliverpb.KillReq{
 		Force:   false,
-		Request: MakeRequest(agentSession.Session),
+		Request: MakeRequest(agentSession.Implant),
 	})
 	if err != nil {
 		return err.Error(), ErrorExitStatus, ErrorExitStatus
 	}
-	return fmt.Sprintf("Terminated %s", agentSession.Session.Name), SuccessExitStatus, SuccessExitStatus
+	return fmt.Sprintf("Terminated %s", agentSession.Implant.GetID()), SuccessExitStatus, int(agentSession.Implant.GetPID())
 }

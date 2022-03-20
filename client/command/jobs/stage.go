@@ -26,6 +26,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/util"
 	"github.com/desertbit/grumble"
 )
 
@@ -33,6 +34,8 @@ import (
 func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	profileName := ctx.Flags.String("profile")
 	listenerURL := ctx.Flags.String("url")
+	aesEncryptKey := ctx.Flags.String("aes-encrypt-key")
+	aesEncryptIv := ctx.Flags.String("aes-encrypt-iv")
 
 	if profileName == "" || listenerURL == "" {
 		con.PrintErrorf("Missing required flags, see `help stage-listener` for more info\n")
@@ -56,10 +59,37 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("Profile not found\n")
 		return
 	}
+
+	aesEncrypt := false
+	if aesEncryptKey != "" {
+		// check if aes encryption key is correct length
+		if len(aesEncryptKey)%16 != 0 {
+			con.PrintErrorf("Incorect length of AES Key\n")
+			return
+		}
+
+		// set default aes iv
+		if aesEncryptIv == "" {
+			aesEncryptIv = "0000000000000000"
+		}
+
+		// check if aes iv is correct length
+		if len(aesEncryptIv)%16 != 0 {
+			con.PrintErrorf("Incorect length of AES IV\n")
+			return
+		}
+
+		aesEncrypt = true
+	}
+
 	stage2, err := generate.GetSliverBinary(profile, con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
+	}
+
+	if aesEncrypt {
+		stage2 = util.Encrypt(stage2, []byte(aesEncryptKey), []byte(aesEncryptIv))
 	}
 
 	switch stagingURL.Scheme {
@@ -124,5 +154,10 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	default:
 		con.PrintErrorf("Unsupported staging protocol: %s\n", stagingURL.Scheme)
 		return
+	}
+
+	if aesEncrypt {
+		con.PrintInfof("AES KEY: %v\n", aesEncryptKey)
+		con.PrintInfof("AES IV: %v\n", aesEncryptIv)
 	}
 }

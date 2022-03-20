@@ -23,6 +23,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/prelude"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/desertbit/grumble"
 )
@@ -40,7 +41,7 @@ func ConnectCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		AESKey:      aesKey,
 	}
 
-	sessionMapper := prelude.InitSessionMapper(config)
+	implantMapper := prelude.InitImplantMapper(config)
 
 	con.PrintInfof("Connected to Operator at %s\n", url)
 	if !skipExisting {
@@ -52,9 +53,26 @@ func ConnectCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		if len(sessions.Sessions) > 0 {
 			con.PrintInfof("Adding existing sessions ...\n")
 			for _, session := range sessions.Sessions {
-				err = sessionMapper.AddSession(session)
+				err = implantMapper.AddImplant(session, nil)
 				if err != nil {
-					con.PrintErrorf("Could not add session %s to session mapper: %s", session.Name, err)
+					con.PrintErrorf("Could not add session %s to implant mapper: %s", session.Name, err)
+				}
+			}
+			con.PrintInfof("Done !\n")
+		}
+		beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			con.PrintErrorf("Could not get beacon list: %s", err)
+			return
+		}
+		if len(beacons.Beacons) > 0 {
+			con.PrintInfof("Adding existing beacons ...\n")
+			for _, beacon := range beacons.Beacons {
+				err = implantMapper.AddImplant(beacon, func(taskID string, cb func(task *clientpb.BeaconTask)) {
+					con.AddBeaconCallback(taskID, cb)
+				})
+				if err != nil {
+					con.PrintErrorf("Could not add beacon %s to implant mapper: %s", beacon.Name, err)
 				}
 			}
 			con.PrintInfof("Done !\n")

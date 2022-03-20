@@ -20,7 +20,7 @@ set -e
 
 # Creates the static go asset archives
 
-GO_VER="1.18rc1"
+GO_VER="1.18"
 GARBLE_VER="1.17.6"
 
 GO_ARCH_1="amd64"

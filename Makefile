@@ -28,11 +28,11 @@ GO_VERSION_VALIDATION_ERR_MSG = Golang version is not supported, please update t
 
 VERSION ?= $(shell git describe --abbrev=0)
 COMPILED_AT = $(shell date +%s)
-RELEASES_URL = https://api.github.com/repos/BishopFox/sliver/releases
-CLIENT_ASSETS_PKG = github.com/bishopfox/sliver/client/assets
-ARMORY_PUB_KEY = RWSBpxpRWDrD7Fe+VvRE3c2VEDC2NK80rlNCj+BX0gz44Xw07r6KQD9L
-ARMORY_REPO_URL = https://api.github.com/repos/sliverarmory/armory/releases
+RELEASES_URL ?= https://api.github.com/repos/BishopFox/sliver/releases
+ARMORY_PUB_KEY ?= RWSBpxpRWDrD7Fe+VvRE3c2VEDC2NK80rlNCj+BX0gz44Xw07r6KQD9L
+ARMORY_REPO_URL ?= https://api.github.com/repos/sliverarmory/armory/releases
 VERSION_PKG = github.com/bishopfox/sliver/client/version
+CLIENT_ASSETS_PKG = github.com/bishopfox/sliver/client/assets
 
 GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
 GIT_COMMIT = $(shell git rev-parse HEAD)
