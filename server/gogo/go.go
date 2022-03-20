@@ -80,18 +80,18 @@ func GetGoModCache(appDir string) string {
 }
 
 // The Gb limit here is somewhat arbitrary but is based on my own testing
-func garbleMaxLiteralSize() []string {
+func garbleMaxLiteralSize() string {
 	vmStat, err := mem.VirtualMemory()
 	if err != nil {
 		gogoLog.Errorf("Failed to detect amount of system memory: %s", err)
-		return []string{"-literals-max-size", fmt.Sprintf("%d", 1*kb)} // Use default
+		return fmt.Sprintf("%d", 1*kb) // Use default
 	}
 	if 10*gb < vmStat.Total {
 		gogoLog.Infof("More than 10Gb of system memory, enable large literal obfuscation")
-		return []string{"-literals-max-size", fmt.Sprintf("%d", 64*kb)}
+		return fmt.Sprintf("%d", 64*kb)
 	}
 	gogoLog.Infof("Low system memory, disable large literal obfuscation")
-	return []string{"-literals-max-size", fmt.Sprintf("%d", 2*kb)}
+	return fmt.Sprintf("%d", 2*kb)
 }
 
 // GarbleCmd - Execute a go command
@@ -102,7 +102,6 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	}
 	garbleBinPath := filepath.Join(config.GOROOT, "bin", "garble")
 	garbleFlags := []string{"-seed=random", "-literals"}
-	garbleFlags = append(garbleFlags, garbleMaxLiteralSize()...)
 	command = append(garbleFlags, command...)
 	cmd := exec.Command(garbleBinPath, command...)
 	cmd.Dir = cwd
@@ -116,6 +115,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
 		fmt.Sprintf("GOGARBLE=%s", config.GOGARBLE),
 		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
+		fmt.Sprintf("GARBLE_MAX_LITERAL_SIZE=%s", garbleMaxLiteralSize()),
 		fmt.Sprintf("PATH=%s:%s", filepath.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
 	}
 	var stdout bytes.Buffer
