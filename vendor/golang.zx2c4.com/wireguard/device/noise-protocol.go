@@ -138,11 +138,11 @@ var (
 	ZeroNonce       [chacha20poly1305.NonceSize]byte
 )
 
-func mixKey(dst *[blake2s.Size]byte, c *[blake2s.Size]byte, data []byte) {
+func mixKey(dst, c *[blake2s.Size]byte, data []byte) {
 	KDF1(dst, c[:], data)
 }
 
-func mixHash(dst *[blake2s.Size]byte, h *[blake2s.Size]byte, data []byte) {
+func mixHash(dst, h *[blake2s.Size]byte, data []byte) {
 	hash, _ := blake2s.New256(nil)
 	hash.Write(h[:])
 	hash.Write(data)
@@ -175,7 +175,7 @@ func init() {
 }
 
 func (device *Device) CreateMessageInitiation(peer *Peer) (*MessageInitiation, error) {
-	var errZeroECDHResult = errors.New("ECDH returned all zeros")
+	errZeroECDHResult := errors.New("ECDH returned all zeros")
 
 	device.staticIdentity.RLock()
 	defer device.staticIdentity.RUnlock()
@@ -282,7 +282,7 @@ func (device *Device) ConsumeMessageInitiation(msg *MessageInitiation) *Peer {
 	// lookup peer
 
 	peer := device.LookupPeer(peerPK)
-	if peer == nil {
+	if peer == nil || !peer.isRunning.Get() {
 		return nil
 	}
 
@@ -436,7 +436,6 @@ func (device *Device) ConsumeMessageResponse(msg *MessageResponse) *Peer {
 	)
 
 	ok := func() bool {
-
 		// lock handshake state
 
 		handshake.mutex.RLock()

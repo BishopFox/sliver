@@ -11,9 +11,11 @@ import (
 	"time"
 )
 
-const TimestampSize = 12
-const base = uint64(0x400000000000000a)
-const whitenerMask = uint32(0x1000000 - 1)
+const (
+	TimestampSize = 12
+	base          = uint64(0x400000000000000a)
+	whitenerMask  = uint32(0x1000000 - 1)
+)
 
 type Timestamp [TimestampSize]byte
 

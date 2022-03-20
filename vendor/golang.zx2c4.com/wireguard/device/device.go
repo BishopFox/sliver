@@ -11,9 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"golang.org/x/net/ipv4"
-	"golang.org/x/net/ipv6"
-
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/ratelimiter"
 	"golang.zx2c4.com/wireguard/rwcancel"
@@ -47,6 +44,7 @@ type Device struct {
 		netlinkCancel *rwcancel.RWCancel
 		port          uint16 // listening port
 		fwmark        uint32 // mark value (0 = disabled)
+		brokenRoaming bool
 	}
 
 	staticIdentity struct {
@@ -55,14 +53,15 @@ type Device struct {
 		publicKey  NoisePublicKey
 	}
 
-	rate struct {
-		underLoadUntil int64
-		limiter        ratelimiter.Ratelimiter
-	}
-
 	peers struct {
 		sync.RWMutex // protects keyMap
 		keyMap       map[NoisePublicKey]*Peer
+	}
+
+	// Keep this 8-byte aligned
+	rate struct {
+		underLoadUntil int64
+		limiter        ratelimiter.Ratelimiter
 	}
 
 	allowedips    AllowedIPs
@@ -175,6 +174,11 @@ func (device *Device) upLocked() error {
 		return err
 	}
 
+	// The IPC set operation waits for peers to be created before calling Start() on them,
+	// so if there's a concurrent IPC set request happening, we should wait for it to complete.
+	device.ipcMutex.Lock()
+	defer device.ipcMutex.Unlock()
+
 	device.peers.RLock()
 	for _, peer := range device.peers.keyMap {
 		peer.Start()
@@ -213,7 +217,7 @@ func (device *Device) Down() error {
 func (device *Device) IsUnderLoad() bool {
 	// check if currently under load
 	now := time.Now()
-	underLoad := len(device.queue.handshake.c) >= UnderLoadQueueSize
+	underLoad := len(device.queue.handshake.c) >= QueueHandshakeSize/8
 	if underLoad {
 		atomic.StoreInt64(&device.rate.underLoadUntil, now.Add(UnderLoadAfterTime).UnixNano())
 		return true
@@ -307,9 +311,9 @@ func NewDevice(tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
 	device.state.stopping.Wait()
 	device.queue.encryption.wg.Add(cpus) // One for each RoutineHandshake
 	for i := 0; i < cpus; i++ {
-		go device.RoutineEncryption()
-		go device.RoutineDecryption()
-		go device.RoutineHandshake()
+		go device.RoutineEncryption(i + 1)
+		go device.RoutineDecryption(i + 1)
+		go device.RoutineHandshake(i + 1)
 	}
 
 	device.state.stopping.Add(1)      // RoutineReadFromTUN
@@ -400,7 +404,9 @@ func (device *Device) SendKeepalivesToPeersWithCurrentKeypair() {
 	device.peers.RUnlock()
 }
 
-func unsafeCloseBind(device *Device) error {
+// closeBindLocked closes the device's net.bind.
+// The caller must hold the net mutex.
+func closeBindLocked(device *Device) error {
 	var err error
 	netc := &device.net
 	if netc.netlinkCancel != nil {
@@ -455,7 +461,7 @@ func (device *Device) BindUpdate() error {
 	defer device.net.Unlock()
 
 	// close existing sockets
-	if err := unsafeCloseBind(device); err != nil {
+	if err := closeBindLocked(device); err != nil {
 		return err
 	}
 
@@ -466,8 +472,9 @@ func (device *Device) BindUpdate() error {
 
 	// bind to new port
 	var err error
+	var recvFns []conn.ReceiveFunc
 	netc := &device.net
-	netc.port, err = netc.bind.Open(netc.port)
+	recvFns, netc.port, err = netc.bind.Open(netc.port)
 	if err != nil {
 		netc.port = 0
 		return err
@@ -499,11 +506,12 @@ func (device *Device) BindUpdate() error {
 	device.peers.RUnlock()
 
 	// start receiving routines
-	device.net.stopping.Add(2)
-	device.queue.decryption.wg.Add(2) // each RoutineReceiveIncoming goroutine writes to device.queue.decryption
-	device.queue.handshake.wg.Add(2)  // each RoutineReceiveIncoming goroutine writes to device.queue.handshake
-	go device.RoutineReceiveIncoming(ipv4.Version, netc.bind)
-	go device.RoutineReceiveIncoming(ipv6.Version, netc.bind)
+	device.net.stopping.Add(len(recvFns))
+	device.queue.decryption.wg.Add(len(recvFns)) // each RoutineReceiveIncoming goroutine writes to device.queue.decryption
+	device.queue.handshake.wg.Add(len(recvFns))  // each RoutineReceiveIncoming goroutine writes to device.queue.handshake
+	for _, fn := range recvFns {
+		go device.RoutineReceiveIncoming(fn)
+	}
 
 	device.log.Verbosef("UDP bind has been updated")
 	return nil
@@ -511,7 +519,7 @@ func (device *Device) BindUpdate() error {
 
 func (device *Device) BindClose() error {
 	device.net.Lock()
-	err := unsafeCloseBind(device)
+	err := closeBindLocked(device)
 	device.net.Unlock()
 	return err
 }

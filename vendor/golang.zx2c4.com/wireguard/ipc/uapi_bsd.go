@@ -1,4 +1,4 @@
-// +build darwin freebsd openbsd
+//go:build darwin || freebsd || openbsd
 
 /* SPDX-License-Identifier: MIT
  *
@@ -54,7 +54,6 @@ func (l *UAPIListener) Addr() net.Addr {
 }
 
 func UAPIListen(name string, file *os.File) (net.Listener, error) {
-
 	// wrap file in listener
 
 	listener, err := net.FileListener(file)
@@ -104,7 +103,7 @@ func UAPIListen(name string, file *os.File) (net.Listener, error) {
 				l.connErr <- err
 				return
 			}
-			if kerr != nil || n != 1 {
+			if (kerr != nil || n != 1) && kerr != unix.EINTR {
 				if kerr != nil {
 					l.connErr <- kerr
 				} else {

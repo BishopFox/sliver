@@ -18,13 +18,13 @@ type WaitPool struct {
 	max   uint32
 }
 
-func NewWaitPool(max uint32, new func() interface{}) *WaitPool {
+func NewWaitPool(max uint32, new func() any) *WaitPool {
 	p := &WaitPool{pool: sync.Pool{New: new}, max: max}
 	p.cond = sync.Cond{L: &p.lock}
 	return p
 }
 
-func (p *WaitPool) Get() interface{} {
+func (p *WaitPool) Get() any {
 	if p.max != 0 {
 		p.lock.Lock()
 		for atomic.LoadUint32(&p.count) >= p.max {
@@ -36,7 +36,7 @@ func (p *WaitPool) Get() interface{} {
 	return p.pool.Get()
 }
 
-func (p *WaitPool) Put(x interface{}) {
+func (p *WaitPool) Put(x any) {
 	p.pool.Put(x)
 	if p.max == 0 {
 		return
@@ -46,13 +46,13 @@ func (p *WaitPool) Put(x interface{}) {
 }
 
 func (device *Device) PopulatePools() {
-	device.pool.messageBuffers = NewWaitPool(PreallocatedBuffersPerPool, func() interface{} {
+	device.pool.messageBuffers = NewWaitPool(PreallocatedBuffersPerPool, func() any {
 		return new([MaxMessageSize]byte)
 	})
-	device.pool.inboundElements = NewWaitPool(PreallocatedBuffersPerPool, func() interface{} {
+	device.pool.inboundElements = NewWaitPool(PreallocatedBuffersPerPool, func() any {
 		return new(QueueInboundElement)
 	})
-	device.pool.outboundElements = NewWaitPool(PreallocatedBuffersPerPool, func() interface{} {
+	device.pool.outboundElements = NewWaitPool(PreallocatedBuffersPerPool, func() any {
 		return new(QueueOutboundElement)
 	})
 }

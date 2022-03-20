@@ -8,6 +8,8 @@ package conn
 import (
 	"errors"
 	"net"
+	"net/netip"
+	"sync"
 	"syscall"
 )
 
@@ -16,6 +18,7 @@ import (
 // It uses the Go's net package to implement networking.
 // See LinuxSocketBind for a proper implementation on the Linux platform.
 type StdNetBind struct {
+	mu         sync.Mutex // protects following fields
 	ipv4       *net.UDPConn
 	ipv6       *net.UDPConn
 	blackhole4 bool
@@ -26,22 +29,29 @@ func NewStdNetBind() Bind { return &StdNetBind{} }
 
 type StdNetEndpoint net.UDPAddr
 
-var _ Bind = (*StdNetBind)(nil)
-var _ Endpoint = (*StdNetEndpoint)(nil)
+var (
+	_ Bind     = (*StdNetBind)(nil)
+	_ Endpoint = (*StdNetEndpoint)(nil)
+)
 
 func (*StdNetBind) ParseEndpoint(s string) (Endpoint, error) {
-	addr, err := parseEndpoint(s)
-	return (*StdNetEndpoint)(addr), err
+	e, err := netip.ParseAddrPort(s)
+	return (*StdNetEndpoint)(&net.UDPAddr{
+		IP:   e.Addr().AsSlice(),
+		Port: int(e.Port()),
+		Zone: e.Addr().Zone(),
+	}), err
 }
 
 func (*StdNetEndpoint) ClearSrc() {}
 
-func (e *StdNetEndpoint) DstIP() net.IP {
-	return (*net.UDPAddr)(e).IP
+func (e *StdNetEndpoint) DstIP() netip.Addr {
+	a, _ := netip.AddrFromSlice((*net.UDPAddr)(e).IP)
+	return a
 }
 
-func (e *StdNetEndpoint) SrcIP() net.IP {
-	return nil // not supported
+func (e *StdNetEndpoint) SrcIP() netip.Addr {
+	return netip.Addr{} // not supported
 }
 
 func (e *StdNetEndpoint) DstToBytes() []byte {
@@ -81,44 +91,58 @@ func listenNet(network string, port int) (*net.UDPConn, int, error) {
 	return conn, uaddr.Port, nil
 }
 
-func (bind *StdNetBind) Open(uport uint16) (uint16, error) {
+func (bind *StdNetBind) Open(uport uint16) ([]ReceiveFunc, uint16, error) {
+	bind.mu.Lock()
+	defer bind.mu.Unlock()
+
 	var err error
 	var tries int
 
 	if bind.ipv4 != nil || bind.ipv6 != nil {
-		return 0, ErrBindAlreadyOpen
+		return nil, 0, ErrBindAlreadyOpen
 	}
 
+	// Attempt to open ipv4 and ipv6 listeners on the same port.
+	// If uport is 0, we can retry on failure.
 again:
 	port := int(uport)
+	var ipv4, ipv6 *net.UDPConn
 
-	bind.ipv4, port, err = listenNet("udp4", port)
+	ipv4, port, err = listenNet("udp4", port)
 	if err != nil && !errors.Is(err, syscall.EAFNOSUPPORT) {
-		bind.ipv4 = nil
-		return 0, err
+		return nil, 0, err
 	}
 
-	bind.ipv6, port, err = listenNet("udp6", port)
-	if uport == 0 && err != nil && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
-		bind.ipv4.Close()
-		bind.ipv4 = nil
-		bind.ipv6 = nil
+	// Listen on the same port as we're using for ipv4.
+	ipv6, port, err = listenNet("udp6", port)
+	if uport == 0 && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
+		ipv4.Close()
 		tries++
 		goto again
 	}
 	if err != nil && !errors.Is(err, syscall.EAFNOSUPPORT) {
-		bind.ipv4.Close()
-		bind.ipv4 = nil
-		bind.ipv6 = nil
-		return 0, err
+		ipv4.Close()
+		return nil, 0, err
 	}
-	if bind.ipv4 == nil && bind.ipv6 == nil {
-		return 0, syscall.EAFNOSUPPORT
+	var fns []ReceiveFunc
+	if ipv4 != nil {
+		fns = append(fns, bind.makeReceiveIPv4(ipv4))
+		bind.ipv4 = ipv4
 	}
-	return uint16(port), nil
+	if ipv6 != nil {
+		fns = append(fns, bind.makeReceiveIPv6(ipv6))
+		bind.ipv6 = ipv6
+	}
+	if len(fns) == 0 {
+		return nil, 0, syscall.EAFNOSUPPORT
+	}
+	return fns, uint16(port), nil
 }
 
 func (bind *StdNetBind) Close() error {
+	bind.mu.Lock()
+	defer bind.mu.Unlock()
+
 	var err1, err2 error
 	if bind.ipv4 != nil {
 		err1 = bind.ipv4.Close()
@@ -136,23 +160,21 @@ func (bind *StdNetBind) Close() error {
 	return err2
 }
 
-func (bind *StdNetBind) ReceiveIPv4(buff []byte) (int, Endpoint, error) {
-	if bind.ipv4 == nil {
-		return 0, nil, syscall.EAFNOSUPPORT
+func (*StdNetBind) makeReceiveIPv4(conn *net.UDPConn) ReceiveFunc {
+	return func(buff []byte) (int, Endpoint, error) {
+		n, endpoint, err := conn.ReadFromUDP(buff)
+		if endpoint != nil {
+			endpoint.IP = endpoint.IP.To4()
+		}
+		return n, (*StdNetEndpoint)(endpoint), err
 	}
-	n, endpoint, err := bind.ipv4.ReadFromUDP(buff)
-	if endpoint != nil {
-		endpoint.IP = endpoint.IP.To4()
-	}
-	return n, (*StdNetEndpoint)(endpoint), err
 }
 
-func (bind *StdNetBind) ReceiveIPv6(buff []byte) (int, Endpoint, error) {
-	if bind.ipv6 == nil {
-		return 0, nil, syscall.EAFNOSUPPORT
+func (*StdNetBind) makeReceiveIPv6(conn *net.UDPConn) ReceiveFunc {
+	return func(buff []byte) (int, Endpoint, error) {
+		n, endpoint, err := conn.ReadFromUDP(buff)
+		return n, (*StdNetEndpoint)(endpoint), err
 	}
-	n, endpoint, err := bind.ipv6.ReadFromUDP(buff)
-	return n, (*StdNetEndpoint)(endpoint), err
 }
 
 func (bind *StdNetBind) Send(buff []byte, endpoint Endpoint) error {
@@ -161,22 +183,22 @@ func (bind *StdNetBind) Send(buff []byte, endpoint Endpoint) error {
 	if !ok {
 		return ErrWrongEndpointType
 	}
-	if nend.IP.To4() != nil {
-		if bind.ipv4 == nil {
-			return syscall.EAFNOSUPPORT
-		}
-		if bind.blackhole4 {
-			return nil
-		}
-		_, err = bind.ipv4.WriteToUDP(buff, (*net.UDPAddr)(nend))
-	} else {
-		if bind.ipv6 == nil {
-			return syscall.EAFNOSUPPORT
-		}
-		if bind.blackhole6 {
-			return nil
-		}
-		_, err = bind.ipv6.WriteToUDP(buff, (*net.UDPAddr)(nend))
+
+	bind.mu.Lock()
+	blackhole := bind.blackhole4
+	conn := bind.ipv4
+	if nend.IP.To4() == nil {
+		blackhole = bind.blackhole6
+		conn = bind.ipv6
 	}
+	bind.mu.Unlock()
+
+	if blackhole {
+		return nil
+	}
+	if conn == nil {
+		return syscall.EAFNOSUPPORT
+	}
+	_, err = conn.WriteToUDP(buff, (*net.UDPAddr)(nend))
 	return err
 }

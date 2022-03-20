@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
+	"net/netip"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -47,7 +48,7 @@ func (rb *ringBuffer) Push() *ringPacket {
 	}
 	ret := (*ringPacket)(unsafe.Pointer(rb.packets + (uintptr(rb.tail%packetsPerRing) * unsafe.Sizeof(ringPacket{}))))
 	rb.tail += 1
-	if rb.tail == rb.head {
+	if rb.tail%packetsPerRing == rb.head%packetsPerRing {
 		rb.isFull = true
 	}
 	return ret
@@ -90,8 +91,10 @@ type WinRingEndpoint struct {
 	data   [30]byte
 }
 
-var _ Bind = (*WinRingBind)(nil)
-var _ Endpoint = (*WinRingEndpoint)(nil)
+var (
+	_ Bind     = (*WinRingBind)(nil)
+	_ Endpoint = (*WinRingEndpoint)(nil)
+)
 
 func (*WinRingBind) ParseEndpoint(s string) (Endpoint, error) {
 	host, port, err := net.SplitHostPort(s)
@@ -121,27 +124,25 @@ func (*WinRingBind) ParseEndpoint(s string) (Endpoint, error) {
 	if (addrinfo.Family != windows.AF_INET && addrinfo.Family != windows.AF_INET6) || addrinfo.Addrlen > unsafe.Sizeof(WinRingEndpoint{}) {
 		return nil, windows.ERROR_INVALID_ADDRESS
 	}
-	var src []byte
 	var dst [unsafe.Sizeof(WinRingEndpoint{})]byte
-	unsafeSlice(unsafe.Pointer(&src), unsafe.Pointer(addrinfo.Addr), int(addrinfo.Addrlen))
-	copy(dst[:], src)
+	copy(dst[:], unsafe.Slice((*byte)(unsafe.Pointer(addrinfo.Addr)), addrinfo.Addrlen))
 	return (*WinRingEndpoint)(unsafe.Pointer(&dst[0])), nil
 }
 
 func (*WinRingEndpoint) ClearSrc() {}
 
-func (e *WinRingEndpoint) DstIP() net.IP {
+func (e *WinRingEndpoint) DstIP() netip.Addr {
 	switch e.family {
 	case windows.AF_INET:
-		return append([]byte{}, e.data[2:6]...)
+		return netip.AddrFrom4(*(*[4]byte)(e.data[2:6]))
 	case windows.AF_INET6:
-		return append([]byte{}, e.data[6:22]...)
+		return netip.AddrFrom16(*(*[16]byte)(e.data[6:22]))
 	}
-	return nil
+	return netip.Addr{}
 }
 
-func (e *WinRingEndpoint) SrcIP() net.IP {
-	return nil // not supported
+func (e *WinRingEndpoint) SrcIP() netip.Addr {
+	return netip.Addr{} // not supported
 }
 
 func (e *WinRingEndpoint) DstToBytes() []byte {
@@ -163,15 +164,13 @@ func (e *WinRingEndpoint) DstToBytes() []byte {
 func (e *WinRingEndpoint) DstToString() string {
 	switch e.family {
 	case windows.AF_INET:
-		addr := net.UDPAddr{IP: e.data[2:6], Port: int(binary.BigEndian.Uint16(e.data[0:2]))}
-		return addr.String()
+		netip.AddrPortFrom(netip.AddrFrom4(*(*[4]byte)(e.data[2:6])), binary.BigEndian.Uint16(e.data[0:2])).String()
 	case windows.AF_INET6:
 		var zone string
 		if scope := *(*uint32)(unsafe.Pointer(&e.data[22])); scope > 0 {
 			zone = strconv.FormatUint(uint64(scope), 10)
 		}
-		addr := net.UDPAddr{IP: e.data[6:22], Zone: zone, Port: int(binary.BigEndian.Uint16(e.data[0:2]))}
-		return addr.String()
+		return netip.AddrPortFrom(netip.AddrFrom16(*(*[16]byte)(e.data[6:22])).WithZone(zone), binary.BigEndian.Uint16(e.data[0:2])).String()
 	}
 	return ""
 }
@@ -197,6 +196,9 @@ func (ring *ringBuffer) CloseAndZero() {
 		windows.VirtualFree(ring.packets, 0, windows.MEM_RELEASE)
 		ring.packets = 0
 	}
+	ring.head = 0
+	ring.tail = 0
+	ring.isFull = false
 }
 
 func (bind *afWinRingBind) CloseAndZero() {
@@ -266,7 +268,7 @@ func (bind *afWinRingBind) Open(family int32, sa windows.Sockaddr) (windows.Sock
 	return sa, nil
 }
 
-func (bind *WinRingBind) Open(port uint16) (selectedPort uint16, err error) {
+func (bind *WinRingBind) Open(port uint16) (recvFns []ReceiveFunc, selectedPort uint16, err error) {
 	bind.mu.Lock()
 	defer bind.mu.Unlock()
 	defer func() {
@@ -275,30 +277,30 @@ func (bind *WinRingBind) Open(port uint16) (selectedPort uint16, err error) {
 		}
 	}()
 	if atomic.LoadUint32(&bind.isOpen) != 0 {
-		return 0, ErrBindAlreadyOpen
+		return nil, 0, ErrBindAlreadyOpen
 	}
 	var sa windows.Sockaddr
 	sa, err = bind.v4.Open(windows.AF_INET, &windows.SockaddrInet4{Port: int(port)})
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
 	sa, err = bind.v6.Open(windows.AF_INET6, &windows.SockaddrInet6{Port: sa.(*windows.SockaddrInet4).Port})
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
 	selectedPort = uint16(sa.(*windows.SockaddrInet6).Port)
 	for i := 0; i < packetsPerRing; i++ {
 		err = bind.v4.InsertReceiveRequest()
 		if err != nil {
-			return 0, err
+			return nil, 0, err
 		}
 		err = bind.v6.InsertReceiveRequest()
 		if err != nil {
-			return 0, err
+			return nil, 0, err
 		}
 	}
 	atomic.StoreUint32(&bind.isOpen, 1)
-	return
+	return []ReceiveFunc{bind.receiveIPv4, bind.receiveIPv6}, selectedPort, err
 }
 
 func (bind *WinRingBind) Close() error {
@@ -349,8 +351,12 @@ func (bind *afWinRingBind) Receive(buf []byte, isOpen *uint32) (int, Endpoint, e
 	}
 	bind.rx.mu.Lock()
 	defer bind.rx.mu.Unlock()
+
+	var err error
 	var count uint32
 	var results [1]winrio.Result
+retry:
+	count = 0
 	for tries := 0; count == 0 && tries < receiveSpins; tries++ {
 		if tries > 0 {
 			if atomic.LoadUint32(isOpen) != 1 {
@@ -361,7 +367,7 @@ func (bind *afWinRingBind) Receive(buf []byte, isOpen *uint32) (int, Endpoint, e
 		count = winrio.DequeueCompletion(bind.rx.cq, results[:])
 	}
 	if count == 0 {
-		err := winrio.Notify(bind.rx.cq)
+		err = winrio.Notify(bind.rx.cq)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -378,13 +384,21 @@ func (bind *afWinRingBind) Receive(buf []byte, isOpen *uint32) (int, Endpoint, e
 		count = winrio.DequeueCompletion(bind.rx.cq, results[:])
 		if count == 0 {
 			return 0, nil, io.ErrNoProgress
-
 		}
 	}
 	bind.rx.Return(1)
-	err := bind.InsertReceiveRequest()
+	err = bind.InsertReceiveRequest()
 	if err != nil {
 		return 0, nil, err
+	}
+	// We limit the MTU well below the 65k max for practicality, but this means a remote host can still send us
+	// huge packets. Just try again when this happens. The infinite loop this could cause is still limited to
+	// attacker bandwidth, just like the rest of the receive path.
+	if windows.Errno(results[0].Status) == windows.WSAEMSGSIZE {
+		if atomic.LoadUint32(isOpen) != 1 {
+			return 0, nil, net.ErrClosed
+		}
+		goto retry
 	}
 	if results[0].Status != 0 {
 		return 0, nil, windows.Errno(results[0].Status)
@@ -395,13 +409,13 @@ func (bind *afWinRingBind) Receive(buf []byte, isOpen *uint32) (int, Endpoint, e
 	return n, &ep, nil
 }
 
-func (bind *WinRingBind) ReceiveIPv4(buf []byte) (int, Endpoint, error) {
+func (bind *WinRingBind) receiveIPv4(buf []byte) (int, Endpoint, error) {
 	bind.mu.RLock()
 	defer bind.mu.RUnlock()
 	return bind.v4.Receive(buf, &bind.isOpen)
 }
 
-func (bind *WinRingBind) ReceiveIPv6(buf []byte) (int, Endpoint, error) {
+func (bind *WinRingBind) receiveIPv6(buf []byte) (int, Endpoint, error) {
 	bind.mu.RLock()
 	defer bind.mu.RUnlock()
 	return bind.v6.Receive(buf, &bind.isOpen)
@@ -482,6 +496,8 @@ func (bind *WinRingBind) Send(buf []byte, endpoint Endpoint) error {
 }
 
 func (bind *StdNetBind) BindSocketToInterface4(interfaceIndex uint32, blackhole bool) error {
+	bind.mu.Lock()
+	defer bind.mu.Unlock()
 	sysconn, err := bind.ipv4.SyscallConn()
 	if err != nil {
 		return err
@@ -500,6 +516,8 @@ func (bind *StdNetBind) BindSocketToInterface4(interfaceIndex uint32, blackhole 
 }
 
 func (bind *StdNetBind) BindSocketToInterface6(interfaceIndex uint32, blackhole bool) error {
+	bind.mu.Lock()
+	defer bind.mu.Unlock()
 	sysconn, err := bind.ipv6.SyscallConn()
 	if err != nil {
 		return err
@@ -516,6 +534,7 @@ func (bind *StdNetBind) BindSocketToInterface6(interfaceIndex uint32, blackhole 
 	bind.blackhole6 = blackhole
 	return nil
 }
+
 func (bind *WinRingBind) BindSocketToInterface4(interfaceIndex uint32, blackhole bool) error {
 	bind.mu.RLock()
 	defer bind.mu.RUnlock()
@@ -560,22 +579,4 @@ func bindSocketToInterface4(handle windows.Handle, interfaceIndex uint32) error 
 func bindSocketToInterface6(handle windows.Handle, interfaceIndex uint32) error {
 	const IPV6_UNICAST_IF = 31
 	return windows.SetsockoptInt(handle, windows.IPPROTO_IPV6, IPV6_UNICAST_IF, int(interfaceIndex))
-}
-
-// unsafeSlice updates the slice slicePtr to be a slice
-// referencing the provided data with its length & capacity set to
-// lenCap.
-//
-// TODO: when Go 1.16 or Go 1.17 is the minimum supported version,
-// update callers to use unsafe.Slice instead of this.
-func unsafeSlice(slicePtr, data unsafe.Pointer, lenCap int) {
-	type sliceHeader struct {
-		Data unsafe.Pointer
-		Len  int
-		Cap  int
-	}
-	h := (*sliceHeader)(slicePtr)
-	h.Data = data
-	h.Len = lenCap
-	h.Cap = lenCap
 }

@@ -84,8 +84,10 @@ type iocpNotificationCompletion struct {
 	overlapped     *windows.Overlapped
 }
 
-var initialized sync.Once
-var available bool
+var (
+	initialized sync.Once
+	available   bool
+)
 
 func Initialize() bool {
 	initialized.Do(func() {
@@ -108,7 +110,7 @@ func Initialize() bool {
 			return
 		}
 		defer windows.CloseHandle(socket)
-		var WSAID_MULTIPLE_RIO = &windows.GUID{0x8509e081, 0x96dd, 0x4005, [8]byte{0xb1, 0x65, 0x9e, 0x2e, 0xe8, 0xc7, 0x9e, 0x3f}}
+		WSAID_MULTIPLE_RIO := &windows.GUID{0x8509e081, 0x96dd, 0x4005, [8]byte{0xb1, 0x65, 0x9e, 0x2e, 0xe8, 0xc7, 0x9e, 0x3f}}
 		const SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER = 0xc8000024
 		ob := uint32(0)
 		err = windows.WSAIoctl(socket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
@@ -118,9 +120,17 @@ func Initialize() bool {
 		if err != nil {
 			return
 		}
+
 		// While we should be able to stop here, after getting the function pointers, some anti-virus actually causes
 		// failures in RIOCreateRequestQueue, so keep going to be certain this is supported.
-		cq, err = CreatePolledCompletionQueue(2)
+		var iocp windows.Handle
+		iocp, err = windows.CreateIoCompletionPort(windows.InvalidHandle, 0, 0, 0)
+		if err != nil {
+			return
+		}
+		defer windows.CloseHandle(iocp)
+		var overlapped windows.Overlapped
+		cq, err = CreateIOCPCompletionQueue(2, iocp, 0, &overlapped)
 		if err != nil {
 			return
 		}
@@ -161,6 +171,7 @@ func CreateIOCPCompletionQueue(queueSize uint32, iocp windows.Handle, key uintpt
 	notificationCompletion := &iocpNotificationCompletion{
 		completionType: iocpCompletion,
 		iocp:           iocp,
+		key:            key,
 		overlapped:     overlapped,
 	}
 	ret, _, err := syscall.Syscall(extensionFunctionTable.rioCreateCompletionQueue, 2, uintptr(queueSize), uintptr(unsafe.Pointer(notificationCompletion)), 0)
