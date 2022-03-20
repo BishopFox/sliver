@@ -305,6 +305,16 @@ message RevToSelf {
   commonpb.Response Response = 9;
 }
 
+message CurrentTokenOwnerReq {
+  commonpb.Request Request = 9;
+}
+
+message CurrentTokenOwner {
+  string Output = 1;
+
+  commonpb.Response Response = 9;
+}
+
 // InvokeGetSystemReq - Implant-side version of GetSystemReq, this message
 //                      contains the .Data based on the client's req.Config
 message InvokeGetSystemReq {

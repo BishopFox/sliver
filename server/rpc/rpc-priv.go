@@ -62,6 +62,16 @@ func (rpc *Server) RevToSelf(ctx context.Context, req *sliverpb.RevToSelfReq) (*
 	return resp, nil
 }
 
+// CurrentTokenOwner - Retrieve the thread token's owner
+func (rpc *Server) CurrentTokenOwner(ctx context.Context, req *sliverpb.CurrentTokenOwnerReq) (*sliverpb.CurrentTokenOwner, error) {
+	resp := &sliverpb.CurrentTokenOwner{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 // GetSystem - Attempt to get 'NT AUTHORITY/SYSTEM' access on a remote Windows system
 func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*sliverpb.GetSystem, error) {
 	var shellcode []byte

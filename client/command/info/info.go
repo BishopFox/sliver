@@ -19,10 +19,14 @@ package info
 */
 
 import (
+	"context"
 	"time"
 
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/desertbit/grumble"
 )
@@ -120,9 +124,42 @@ func WhoamiCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if session == nil && beacon == nil {
 		return
 	}
+
+	var isWin bool
+	con.Printf("Logon ID: ")
 	if session != nil {
 		con.Printf("%s\n", session.Username)
+		if session.GetOS() == "windows" {
+			isWin = true
+		}
 	} else if beacon != nil {
 		con.Printf("%s\n", beacon.Username)
+		if beacon.GetOS() == "windows" {
+			isWin = true
+		}
+	}
+
+	if isWin {
+		con.Printf("Current Token ID: ")
+		cto, err := con.Rpc.CurrentTokenOwner(context.Background(), &sliverpb.CurrentTokenOwnerReq{
+			Request: con.ActiveTarget.Request(ctx),
+		})
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+
+		if cto.Response != nil && cto.Response.Async {
+			con.AddBeaconCallback(cto.Response.TaskID, func(task *clientpb.BeaconTask) {
+				err = proto.Unmarshal(task.Response, cto)
+				if err != nil {
+					con.PrintErrorf("Failed to decode response %s\n", err)
+					return
+				}
+			})
+			con.PrintAsyncResponse(cto.Response)
+		} else {
+			con.Printf("%s\n", cto.Output)
+		}
 	}
 }
