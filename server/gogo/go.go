@@ -55,6 +55,7 @@ type GoConfig struct {
 	CGO        string
 	CC         string
 	CXX        string
+	HTTPPROXY  string
 
 	Obfuscation bool
 	GOGARBLE    string
@@ -113,9 +114,9 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
 		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
 		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
-		fmt.Sprintf("GOGARBLE=%s", config.GOGARBLE),
 		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
 		fmt.Sprintf("GARBLE_MAX_LITERAL_SIZE=%s", garbleMaxLiteralSize()),
+		fmt.Sprintf("HTTP_PROXY=%s", config.HTTPPROXY),
 		fmt.Sprintf("PATH=%s:%s", filepath.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
 	}
 	var stdout bytes.Buffer
@@ -152,6 +153,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
 		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
 		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
+		fmt.Sprintf("HTTP_PROXY=%s", config.HTTPPROXY),
 		fmt.Sprintf("PATH=%s:%s", filepath.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
 	}
 	var stdout bytes.Buffer
