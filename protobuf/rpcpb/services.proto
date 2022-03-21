@@ -95,6 +95,7 @@ service SliverRPC {
     rpc Ls(sliverpb.LsReq) returns (sliverpb.Ls);
     rpc Cd(sliverpb.CdReq) returns (sliverpb.Pwd);
     rpc Pwd(sliverpb.PwdReq) returns (sliverpb.Pwd);
+    rpc Mv(sliverpb.MvReq) returns (sliverpb.Mv);
     rpc Rm(sliverpb.RmReq) returns (sliverpb.Rm);
     rpc Mkdir(sliverpb.MkdirReq) returns (sliverpb.Mkdir);
     rpc Download(sliverpb.DownloadReq) returns (sliverpb.Download);

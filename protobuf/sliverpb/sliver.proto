@@ -201,6 +201,20 @@ message Rm {
   commonpb.Response Response = 9;
 }
 
+message MvReq {
+  string Src = 1;
+  string Dst = 2;
+
+  commonpb.Request Request = 9;
+}
+
+message Mv {
+  string Src = 1;
+  string Dst = 2;
+
+  commonpb.Response Response = 9;
+}
+
 message MkdirReq {
   string Path = 1;
 
