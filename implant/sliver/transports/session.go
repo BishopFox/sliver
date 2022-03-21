@@ -200,7 +200,7 @@ func StartConnectionLoop(c2s []string, abort <-chan struct{}) <-chan *Connection
 				// *** WG ***
 				// {{if .Config.WGc2Enabled}}
 				connection, err = wgConnect(uri)
-				if err == nil {
+				if err != nil {
 					// {{if .Config.Debug}}
 					log.Printf("[wg] Connection failed %s", err)
 					// {{end}}

@@ -17,7 +17,6 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
-
 	"golang.zx2c4.com/wireguard/conn"
 )
 
@@ -68,15 +67,16 @@ func (peer *Peer) keepKeyFreshReceiving() {
  * Every time the bind is updated a new routine is started for
  * IPv4 and IPv6 (separately)
  */
-func (device *Device) RoutineReceiveIncoming(IP int, bind conn.Bind) {
+func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
+	recvName := recv.PrettyName()
 	defer func() {
-		device.log.Verbosef("Routine: receive incoming IPv%d - stopped", IP)
+		device.log.Verbosef("Routine: receive incoming %s - stopped", recvName)
 		device.queue.decryption.wg.Done()
 		device.queue.handshake.wg.Done()
 		device.net.stopping.Done()
 	}()
 
-	device.log.Verbosef("Routine: receive incoming IPv%d - started", IP)
+	device.log.Verbosef("Routine: receive incoming %s - started", recvName)
 
 	// receive datagrams until conn is closed
 
@@ -90,24 +90,21 @@ func (device *Device) RoutineReceiveIncoming(IP int, bind conn.Bind) {
 	)
 
 	for {
-		switch IP {
-		case ipv4.Version:
-			size, endpoint, err = bind.ReceiveIPv4(buffer[:])
-		case ipv6.Version:
-			size, endpoint, err = bind.ReceiveIPv6(buffer[:])
-		default:
-			panic("invalid IP version")
-		}
+		size, endpoint, err = recv(buffer[:])
 
 		if err != nil {
 			device.PutMessageBuffer(buffer)
 			if errors.Is(err, net.ErrClosed) {
 				return
 			}
-			device.log.Errorf("Failed to receive packet: %v", err)
+			device.log.Verbosef("Failed to receive %s packet: %v", recvName, err)
+			if neterr, ok := err.(net.Error); ok && !neterr.Temporary() {
+				return
+			}
 			if deathSpiral < 10 {
 				deathSpiral++
 				time.Sleep(time.Second / 3)
+				buffer = device.GetMessageBuffer()
 				continue
 			}
 			return
@@ -205,11 +202,11 @@ func (device *Device) RoutineReceiveIncoming(IP int, bind conn.Bind) {
 	}
 }
 
-func (device *Device) RoutineDecryption() {
+func (device *Device) RoutineDecryption(id int) {
 	var nonce [chacha20poly1305.NonceSize]byte
 
-	defer device.log.Verbosef("Routine: decryption worker - stopped")
-	device.log.Verbosef("Routine: decryption worker - started")
+	defer device.log.Verbosef("Routine: decryption worker %d - stopped", id)
+	device.log.Verbosef("Routine: decryption worker %d - started", id)
 
 	for elem := range device.queue.decryption.c {
 		// split message into fields
@@ -236,12 +233,12 @@ func (device *Device) RoutineDecryption() {
 
 /* Handles incoming packets related to handshake
  */
-func (device *Device) RoutineHandshake() {
+func (device *Device) RoutineHandshake(id int) {
 	defer func() {
-		device.log.Verbosef("Routine: handshake worker - stopped")
+		device.log.Verbosef("Routine: handshake worker %d - stopped", id)
 		device.queue.encryption.wg.Done()
 	}()
-	device.log.Verbosef("Routine: handshake worker - started")
+	device.log.Verbosef("Routine: handshake worker %d - started", id)
 
 	for elem := range device.queue.handshake.c {
 
@@ -449,7 +446,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			}
 			elem.packet = elem.packet[:length]
 			src := elem.packet[IPv4offsetSrc : IPv4offsetSrc+net.IPv4len]
-			if device.allowedips.LookupIPv4(src) != peer {
+			if device.allowedips.Lookup(src) != peer {
 				device.log.Verbosef("IPv4 packet with disallowed source address from %v", peer)
 				goto skip
 			}
@@ -466,7 +463,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			}
 			elem.packet = elem.packet[:length]
 			src := elem.packet[IPv6offsetSrc : IPv6offsetSrc+net.IPv6len]
-			if device.allowedips.LookupIPv6(src) != peer {
+			if device.allowedips.Lookup(src) != peer {
 				device.log.Verbosef("IPv6 packet with disallowed source address from %v", peer)
 				goto skip
 			}

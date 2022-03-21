@@ -5,12 +5,15 @@
 
 package device
 
+// DisableSomeRoamingForBrokenMobileSemantics should ideally be called before peers are created,
+// though it will try to deal with it, and race maybe, if called after.
 func (device *Device) DisableSomeRoamingForBrokenMobileSemantics() {
+	device.net.brokenRoaming = true
 	device.peers.RLock()
 	for _, peer := range device.peers.keyMap {
 		peer.Lock()
-		defer peer.Unlock()
 		peer.disableRoaming = peer.endpoint != nil
+		peer.Unlock()
 	}
 	device.peers.RUnlock()
 }

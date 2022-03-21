@@ -9,8 +9,7 @@ import (
 	"net"
 
 	"golang.org/x/sys/windows"
-
-	"golang.zx2c4.com/wireguard/ipc/winpipe"
+	"golang.zx2c4.com/wireguard/ipc/namedpipe"
 )
 
 // TODO: replace these with actual standard windows error numbers from the win package
@@ -54,18 +53,16 @@ var UAPISecurityDescriptor *windows.SECURITY_DESCRIPTOR
 
 func init() {
 	var err error
-	/* SDDL_DEVOBJ_SYS_ALL from the WDK */
-	UAPISecurityDescriptor, err = windows.SecurityDescriptorFromString("O:SYD:P(A;;GA;;;SY)")
+	UAPISecurityDescriptor, err = windows.SecurityDescriptorFromString("O:SYD:P(A;;GA;;;SY)(A;;GA;;;BA)S:(ML;;NWNRNX;;;HI)")
 	if err != nil {
 		panic(err)
 	}
 }
 
 func UAPIListen(name string) (net.Listener, error) {
-	config := winpipe.ListenConfig{
+	listener, err := (&namedpipe.ListenConfig{
 		SecurityDescriptor: UAPISecurityDescriptor,
-	}
-	listener, err := winpipe.Listen(`\\.\pipe\ProtectedPrefix\Administrators\WireGuard\`+name, &config)
+	}).Listen(`\\.\pipe\ProtectedPrefix\Administrators\WireGuard\` + name)
 	if err != nil {
 		return nil, err
 	}

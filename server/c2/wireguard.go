@@ -24,6 +24,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"net/netip"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
@@ -50,8 +51,8 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 	wgLog.Infof("Starting Wireguard listener on port: %d", port)
 
 	tun, tNet, err := netstack.CreateNetTUN(
-		[]net.IP{net.ParseIP(tunIP)},
-		[]net.IP{net.ParseIP("127.0.0.1")}, // We don't use DNS in the WG listener. Yet.
+		[]netip.Addr{netip.MustParseAddr(tunIP)},
+		[]netip.Addr{netip.MustParseAddr("127.0.0.1")}, // We don't use DNS in the WG listener. Yet.
 		1420,
 	)
 	if err != nil {

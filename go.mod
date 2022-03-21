@@ -2,9 +2,6 @@ module github.com/bishopfox/sliver
 
 go 1.17
 
-// fix wgctrl requiring old wireguard
-replace golang.zx2c4.com/wireguard => golang.zx2c4.com/wireguard v0.0.0-20210311162910-5f0c8b942d93
-
 replace github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.4
 
 require (
@@ -14,7 +11,7 @@ require (
 	github.com/Binject/go-donut v0.0.0-20210701074227-67a31e2d883e
 	github.com/Binject/universal v0.0.0-20210304094126-daefaa886313
 	github.com/BurntSushi/xgb v0.0.0-20201008132610-5f9e7b3c49cd // indirect
-	github.com/Microsoft/go-winio v0.4.16 // indirect
+	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/alecthomas/chroma v0.8.1
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/desertbit/columnize v2.1.0+incompatible
@@ -39,32 +36,32 @@ require (
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/pquerna/otp v1.3.0
 	github.com/sergi/go-diff v1.1.0 // indirect
-	github.com/sirupsen/logrus v1.7.0
+	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
-	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
-	golang.org/x/sys v0.0.0-20211117180635-dee7805ff2e1
-	golang.org/x/text v0.3.6
-	golang.zx2c4.com/wireguard v0.0.20200121
-	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20200609130330-bd2cb7843e1b
-	google.golang.org/genproto v0.0.0-20210406143921-e86de6bf7a46 // indirect
-	google.golang.org/grpc v1.37.0
-	google.golang.org/protobuf v1.26.0
+	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
+	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
+	golang.org/x/sys v0.0.0-20220315194320-039c03cc5b86
+	golang.org/x/text v0.3.7
+	golang.zx2c4.com/wireguard v0.0.0-20220316235147-5aff28b14c24
+	google.golang.org/genproto v0.0.0-20210722135532-667f2b7c528f // indirect
+	google.golang.org/grpc v1.42.0-dev.0.20211020220737-f00baa6c3c84
+	google.golang.org/protobuf v1.27.1
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 	gorm.io/driver/mysql v1.0.3
 	gorm.io/driver/postgres v1.0.5
 	gorm.io/driver/sqlite v1.1.3
 	gorm.io/gorm v1.21.14
-	inet.af/netstack v0.0.0-20210317161235-a1bf4e56ef22
 )
 
 require (
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/shirou/gopsutil/v3 v3.21.10
 	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
-	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
+	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
+	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220208144051-fde48d68ee68
+	gvisor.dev/gvisor v0.0.0-20211020211948-f76a604701b6
 	modernc.org/sqlite v1.14.3
 )
 
@@ -106,11 +103,11 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/thedevsaddam/gojsonq/v2 v2.5.2 // indirect
-	golang.org/x/mod v0.3.0 // indirect
-	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
+	golang.org/x/mod v0.5.1 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
-	golang.org/x/tools v0.1.0 // indirect
+	golang.org/x/tools v0.1.9 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	golang.zx2c4.com/wintun v0.0.0-20211104114900-415007cec224 // indirect
 	google.golang.org/grpc/examples v0.0.0-20210910232509-03268c8ed29e // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 	lukechampine.com/uint128 v1.1.1 // indirect

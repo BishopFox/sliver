@@ -20,8 +20,6 @@ package gogo
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
@@ -60,7 +58,7 @@ type GoConfig struct {
 	HTTPPROXY  string
 
 	Obfuscation bool
-	GOPRIVATE   string
+	GOGARBLE    string
 }
 
 // GetGoRootDir - Get the path to GOROOT
@@ -83,24 +81,18 @@ func GetGoModCache(appDir string) string {
 }
 
 // The Gb limit here is somewhat arbitrary but is based on my own testing
-func garbleMaxLiteralSize() []string {
+func garbleMaxLiteralSize() string {
 	vmStat, err := mem.VirtualMemory()
 	if err != nil {
 		gogoLog.Errorf("Failed to detect amount of system memory: %s", err)
-		return []string{"-literals-max-size", fmt.Sprintf("%d", 1*kb)} // Use default
+		return fmt.Sprintf("%d", 1*kb) // Use default
 	}
 	if 10*gb < vmStat.Total {
 		gogoLog.Infof("More than 10Gb of system memory, enable large literal obfuscation")
-		return []string{"-literals-max-size", fmt.Sprintf("%d", 64*kb)}
+		return fmt.Sprintf("%d", 64*kb)
 	}
 	gogoLog.Infof("Low system memory, disable large literal obfuscation")
-	return []string{"-literals-max-size", fmt.Sprintf("%d", 2*kb)}
-}
-
-func seed() string {
-	seed := make([]byte, 32)
-	rand.Read(seed)
-	return hex.EncodeToString(seed)
+	return fmt.Sprintf("%d", 2*kb)
 }
 
 // GarbleCmd - Execute a go command
@@ -110,8 +102,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
 	}
 	garbleBinPath := filepath.Join(config.GOROOT, "bin", "garble")
-	garbleFlags := []string{fmt.Sprintf("-seed=%s", seed()), "-literals"}
-	garbleFlags = append(garbleFlags, garbleMaxLiteralSize()...)
+	garbleFlags := []string{"-seed=random", "-literals"}
 	command = append(garbleFlags, command...)
 	cmd := exec.Command(garbleBinPath, command...)
 	cmd.Dir = cwd
@@ -123,8 +114,8 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
 		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
 		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
-		fmt.Sprintf("GOPRIVATE=%s", config.GOPRIVATE),
 		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
+		fmt.Sprintf("GARBLE_MAX_LITERAL_SIZE=%s", garbleMaxLiteralSize()),
 		fmt.Sprintf("HTTP_PROXY=%s", config.HTTPPROXY),
 		fmt.Sprintf("PATH=%s:%s", filepath.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
 	}

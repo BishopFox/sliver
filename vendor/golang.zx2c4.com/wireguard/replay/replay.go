@@ -34,7 +34,7 @@ func (f *Filter) Reset() {
 
 // ValidateCounter checks if the counter should be accepted.
 // Overlimit counters (>= limit) are always rejected.
-func (f *Filter) ValidateCounter(counter uint64, limit uint64) bool {
+func (f *Filter) ValidateCounter(counter, limit uint64) bool {
 	if counter >= limit {
 		return false
 	}

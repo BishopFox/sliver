@@ -66,11 +66,7 @@ type dialOptions struct {
 	minConnectTimeout           func() time.Duration
 	defaultServiceConfig        *ServiceConfig // defaultServiceConfig is parsed from defaultServiceConfigRawJSON.
 	defaultServiceConfigRawJSON *string
-	// This is used by ccResolverWrapper to backoff between successive calls to
-	// resolver.ResolveNow(). The user will have no need to configure this, but
-	// we need to be able to configure this in tests.
-	resolveNowBackoff func(int) time.Duration
-	resolvers         []resolver.Builder
+	resolvers                   []resolver.Builder
 }
 
 // DialOption configures how we set up the connection.
@@ -486,8 +482,7 @@ func WithChainStreamInterceptor(interceptors ...StreamClientInterceptor) DialOpt
 }
 
 // WithAuthority returns a DialOption that specifies the value to be used as the
-// :authority pseudo-header. This value only works with WithInsecure and has no
-// effect if TransportCredentials are present.
+// :authority pseudo-header and as the server name in authentication handshake.
 func WithAuthority(a string) DialOption {
 	return newFuncDialOption(func(o *dialOptions) {
 		o.authority = a
@@ -523,14 +518,16 @@ func WithDisableServiceConfig() DialOption {
 // WithDefaultServiceConfig returns a DialOption that configures the default
 // service config, which will be used in cases where:
 //
-// 1. WithDisableServiceConfig is also used.
-// 2. Resolver does not return a service config or if the resolver returns an
-//    invalid service config.
+// 1. WithDisableServiceConfig is also used, or
 //
-// Experimental
+// 2. The name resolver does not provide a service config or provides an
+// invalid service config.
 //
-// Notice: This API is EXPERIMENTAL and may be changed or removed in a
-// later release.
+// The parameter s is the JSON representation of the default service config.
+// For more information about service configs, see:
+// https://github.com/grpc/grpc/blob/master/doc/service_config.md
+// For a simple example of usage, see:
+// examples/features/load_balancing/client/main.go
 func WithDefaultServiceConfig(s string) DialOption {
 	return newFuncDialOption(func(o *dialOptions) {
 		o.defaultServiceConfigRawJSON = &s
@@ -596,7 +593,6 @@ func defaultDialOptions() dialOptions {
 			ReadBufferSize:  defaultReadBufSize,
 			UseProxy:        true,
 		},
-		resolveNowBackoff: internalbackoff.DefaultExponential.Backoff,
 	}
 }
 
@@ -608,16 +604,6 @@ func defaultDialOptions() dialOptions {
 func withMinConnectDeadline(f func() time.Duration) DialOption {
 	return newFuncDialOption(func(o *dialOptions) {
 		o.minConnectTimeout = f
-	})
-}
-
-// withResolveNowBackoff specifies the function that clientconn uses to backoff
-// between successive calls to resolver.ResolveNow().
-//
-// For testing purpose only.
-func withResolveNowBackoff(f func(int) time.Duration) DialOption {
-	return newFuncDialOption(func(o *dialOptions) {
-		o.resolveNowBackoff = f
 	})
 }
 

@@ -108,7 +108,6 @@ func CreateTUN(name string, mtu int) (Device, error) {
 	}
 
 	fd, err := unix.Socket(unix.AF_SYSTEM, unix.SOCK_DGRAM, 2)
-
 	if err != nil {
 		return nil, err
 	}
@@ -117,6 +116,7 @@ func CreateTUN(name string, mtu int) (Device, error) {
 	copy(ctlInfo.Name[:], []byte(utunControlName))
 	err = unix.IoctlCtlInfo(fd, ctlInfo)
 	if err != nil {
+		unix.Close(fd)
 		return nil, fmt.Errorf("IoctlGetCtlInfo: %w", err)
 	}
 
@@ -127,11 +127,13 @@ func CreateTUN(name string, mtu int) (Device, error) {
 
 	err = unix.Connect(fd, sc)
 	if err != nil {
+		unix.Close(fd)
 		return nil, err
 	}
 
-	err = syscall.SetNonblock(fd, true)
+	err = unix.SetNonblock(fd, true)
 	if err != nil {
+		unix.Close(fd)
 		return nil, err
 	}
 	tun, err := CreateTUNFromFile(os.NewFile(uintptr(fd), ""), mtu)
@@ -139,7 +141,7 @@ func CreateTUN(name string, mtu int) (Device, error) {
 	if err == nil && name == "utun" {
 		fname := os.Getenv("WG_TUN_NAME_FILE")
 		if fname != "" {
-			os.WriteFile(fname, []byte(tun.(*NativeTun).name+"\n"), 0400)
+			os.WriteFile(fname, []byte(tun.(*NativeTun).name+"\n"), 0o400)
 		}
 	}
 
@@ -230,7 +232,6 @@ func (tun *NativeTun) Read(buff []byte, offset int) (int, error) {
 }
 
 func (tun *NativeTun) Write(buff []byte, offset int) (int, error) {
-
 	// reserve space for header
 
 	buff = buff[offset-4:]
@@ -280,7 +281,6 @@ func (tun *NativeTun) setMTU(n int) error {
 		unix.SOCK_DGRAM,
 		0,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -304,7 +304,6 @@ func (tun *NativeTun) MTU() (int, error) {
 		unix.SOCK_DGRAM,
 		0,
 	)
-
 	if err != nil {
 		return 0, err
 	}

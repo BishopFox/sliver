@@ -269,7 +269,7 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 		HTTPPROXY:  getGoHttpProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
-		GOPRIVATE:   goPrivate(config),
+		GOGARBLE:    goPrivate(config),
 	}
 	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
@@ -342,7 +342,7 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 		HTTPPROXY:  getGoHttpProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
-		GOPRIVATE:   goPrivate(config),
+		GOGARBLE:    goPrivate(config),
 	}
 	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
@@ -403,7 +403,7 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 		HTTPPROXY:  getGoHttpProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
-		GOPRIVATE:   goPrivate(config),
+		GOGARBLE:    goPrivate(config),
 	}
 
 	pkgPath, err := renderSliverGoCode(name, config, goConfig)
@@ -647,7 +647,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		return "", err
 	}
 	buildLog.Debugf("Created %s", goModPath)
-	output, err := gogo.GoMod((*goConfig), sliverPkgDir, []string{"tidy"})
+	output, err := gogo.GoMod((*goConfig), sliverPkgDir, []string{"tidy", "-compat=1.17"})
 	if err != nil {
 		buildLog.Errorf("Go mod tidy failed:\n%s", output)
 		return "", err
