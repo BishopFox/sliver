@@ -1631,6 +1631,24 @@ func BindCommands(con *console.SliverConsoleClient) {
 	// [ Filesystem ] ---------------------------------------------
 
 	con.App.AddCommand(&grumble.Command{
+		Name:     consts.MvStr,
+		Help:     "Move or rename a file",
+		LongHelp: help.GetHelpFor([]string{consts.MvStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("src", "path to source file")
+			a.String("dst", "path to dest file")
+		},
+		Run: func(ctx *grumble.Context) error {
+			err := filesystem.MvCmd(ctx, con)
+			return err
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	con.App.AddCommand(&grumble.Command{
 		Name:     consts.LsStr,
 		Help:     "List current directory",
 		LongHelp: help.GetHelpFor([]string{consts.LsStr}),

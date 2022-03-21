@@ -45,6 +45,16 @@ func (rpc *Server) Ls(ctx context.Context, req *sliverpb.LsReq) (*sliverpb.Ls, e
 	return resp, nil
 }
 
+// Mv - Move or rename a file
+func (rpc *Server) Mv(ctx context.Context, req *sliverpb.MvReq) (*sliverpb.Mv, error) {
+	resp := &sliverpb.Mv{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 // Rm - Remove file or directory
 func (rpc *Server) Rm(ctx context.Context, req *sliverpb.RmReq) (*sliverpb.Rm, error) {
 	resp := &sliverpb.Rm{Response: &commonpb.Response{}}
@@ -75,7 +85,7 @@ func (rpc *Server) Cd(ctx context.Context, req *sliverpb.CdReq) (*sliverpb.Pwd, 
 	return resp, nil
 }
 
-// Pwd - Change directory
+// Pwd - Print working directory
 func (rpc *Server) Pwd(ctx context.Context, req *sliverpb.PwdReq) (*sliverpb.Pwd, error) {
 	resp := &sliverpb.Pwd{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)

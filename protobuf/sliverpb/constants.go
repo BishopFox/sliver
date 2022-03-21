@@ -274,6 +274,11 @@ const (
 
 	// MsgRegistryDeleteKeyReq
 	MsgRegistryDeleteKeyReq
+
+	// MsgMvReq - Request to move or rename a file
+	MsgMvReq
+	// MsgMv - Confirms the success/failure of the mv request (resp to MsgMvReq)
+	MsgMv
 )
 
 // Constants to replace enums
@@ -478,6 +483,10 @@ func MsgNumber(request proto.Message) uint32 {
 	case *CloseSession:
 		return MsgCloseSession
 
+	case *MvReq:
+		return MsgMvReq
+	case *Mv:
+		return MsgMv
 	}
 
 	return uint32(0)

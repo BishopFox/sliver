@@ -94,6 +94,7 @@ type SliverRPCClient interface {
 	Ls(ctx context.Context, in *sliverpb.LsReq, opts ...grpc.CallOption) (*sliverpb.Ls, error)
 	Cd(ctx context.Context, in *sliverpb.CdReq, opts ...grpc.CallOption) (*sliverpb.Pwd, error)
 	Pwd(ctx context.Context, in *sliverpb.PwdReq, opts ...grpc.CallOption) (*sliverpb.Pwd, error)
+	Mv(ctx context.Context, in *sliverpb.MvReq, opts ...grpc.CallOption) (*sliverpb.Mv, error)
 	Rm(ctx context.Context, in *sliverpb.RmReq, opts ...grpc.CallOption) (*sliverpb.Rm, error)
 	Mkdir(ctx context.Context, in *sliverpb.MkdirReq, opts ...grpc.CallOption) (*sliverpb.Mkdir, error)
 	Download(ctx context.Context, in *sliverpb.DownloadReq, opts ...grpc.CallOption) (*sliverpb.Download, error)
@@ -697,6 +698,15 @@ func (c *sliverRPCClient) Cd(ctx context.Context, in *sliverpb.CdReq, opts ...gr
 func (c *sliverRPCClient) Pwd(ctx context.Context, in *sliverpb.PwdReq, opts ...grpc.CallOption) (*sliverpb.Pwd, error) {
 	out := new(sliverpb.Pwd)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Pwd", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) Mv(ctx context.Context, in *sliverpb.MvReq, opts ...grpc.CallOption) (*sliverpb.Mv, error) {
+	out := new(sliverpb.Mv)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Mv", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1387,6 +1397,7 @@ type SliverRPCServer interface {
 	Ls(context.Context, *sliverpb.LsReq) (*sliverpb.Ls, error)
 	Cd(context.Context, *sliverpb.CdReq) (*sliverpb.Pwd, error)
 	Pwd(context.Context, *sliverpb.PwdReq) (*sliverpb.Pwd, error)
+	Mv(context.Context, *sliverpb.MvReq) (*sliverpb.Mv, error)
 	Rm(context.Context, *sliverpb.RmReq) (*sliverpb.Rm, error)
 	Mkdir(context.Context, *sliverpb.MkdirReq) (*sliverpb.Mkdir, error)
 	Download(context.Context, *sliverpb.DownloadReq) (*sliverpb.Download, error)
@@ -1638,6 +1649,9 @@ func (UnimplementedSliverRPCServer) Cd(context.Context, *sliverpb.CdReq) (*slive
 }
 func (UnimplementedSliverRPCServer) Pwd(context.Context, *sliverpb.PwdReq) (*sliverpb.Pwd, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Pwd not implemented")
+}
+func (UnimplementedSliverRPCServer) Mv(context.Context, *sliverpb.MvReq) (*sliverpb.Mv, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Mv not implemented")
 }
 func (UnimplementedSliverRPCServer) Rm(context.Context, *sliverpb.RmReq) (*sliverpb.Rm, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Rm not implemented")
@@ -2890,6 +2904,24 @@ func _SliverRPC_Pwd_Handler(srv interface{}, ctx context.Context, dec func(inter
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).Pwd(ctx, req.(*sliverpb.PwdReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_Mv_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.MvReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).Mv(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/Mv",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).Mv(ctx, req.(*sliverpb.MvReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -4235,6 +4267,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Pwd",
 			Handler:    _SliverRPC_Pwd_Handler,
+		},
+		{
+			MethodName: "Mv",
+			Handler:    _SliverRPC_Mv_Handler,
 		},
 		{
 			MethodName: "Rm",

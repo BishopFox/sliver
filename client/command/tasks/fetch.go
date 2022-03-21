@@ -358,6 +358,14 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		}
 		filesystem.PrintLs(ls, flags, "", con)
 
+	case sliverpb.MsgMvReq:
+		mv := &sliverpb.Mv{}
+		err := proto.Unmarshal(task.Response, mv)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+
 	case sliverpb.MsgMkdirReq:
 		mkdir := &sliverpb.Mkdir{}
 		err := proto.Unmarshal(task.Response, mkdir)
