@@ -118,6 +118,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GARBLE_MAX_LITERAL_SIZE=%s", garbleMaxLiteralSize()),
 		fmt.Sprintf("HTTP_PROXY=%s", config.HTTPPROXY),
 		fmt.Sprintf("PATH=%s:%s", filepath.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
+		fmt.Sprintf("GOGARBLE=%s", config.GOGARBLE),
 	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
