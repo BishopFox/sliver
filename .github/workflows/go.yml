@@ -6,6 +6,11 @@ on:
   pull_request:
     branches:
       - master
+    types:
+    - opened
+    - reopened
+    - synchronize
+    - ready_for_review
 
 jobs:
 
