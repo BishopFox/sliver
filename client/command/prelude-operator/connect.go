@@ -53,9 +53,11 @@ func ConnectCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		if len(sessions.Sessions) > 0 {
 			con.PrintInfof("Adding existing sessions ...\n")
 			for _, session := range sessions.Sessions {
-				err = implantMapper.AddImplant(session, nil)
-				if err != nil {
-					con.PrintErrorf("Could not add session %s to implant mapper: %s", session.Name, err)
+				if !session.IsDead {
+					err = implantMapper.AddImplant(session, nil)
+					if err != nil {
+						con.PrintErrorf("Could not add session %s to implant mapper: %s", session.Name, err)
+					}
 				}
 			}
 			con.PrintInfof("Done !\n")
