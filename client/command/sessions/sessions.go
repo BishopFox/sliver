@@ -51,7 +51,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if killAll {
 		con.ActiveTarget.Background()
 		for _, session := range sessions.Sessions {
-			err := kill.KillSession(session, true, con)
+			err := kill.KillSession(session, ctx, con)
 			if err != nil {
 				con.PrintErrorf("%s\n", err)
 			}
@@ -65,7 +65,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.ActiveTarget.Background()
 		for _, session := range sessions.Sessions {
 			if session.IsDead {
-				err := kill.KillSession(session, true, con)
+				err := kill.KillSession(session, ctx, con)
 				if err != nil {
 					con.PrintErrorf("%s\n", err)
 				}
@@ -81,7 +81,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		if activeSession != nil && session.ID == activeSession.ID {
 			con.ActiveTarget.Background()
 		}
-		err := kill.KillSession(session, true, con)
+		err := kill.KillSession(session, ctx, con)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 		}

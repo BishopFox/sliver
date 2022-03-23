@@ -145,10 +145,17 @@ func (s *Session) Request(msgType uint32, timeout time.Duration, data []byte) ([
 		// close(resp)
 		delete(s.Connection.Resp, reqID)
 	}()
-	s.Connection.Send <- &sliverpb.Envelope{
+	if timeout == 0 {
+		timeout = 60 * time.Second
+	}
+	select {
+	case s.Connection.Send <- &sliverpb.Envelope{
 		ID:   reqID,
 		Type: msgType,
 		Data: data,
+	}:
+	case <-time.After(timeout):
+		return nil, ErrImplantTimeout
 	}
 
 	var respEnvelope *sliverpb.Envelope
