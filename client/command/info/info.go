@@ -140,7 +140,6 @@ func WhoamiCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	if isWin {
-		con.Printf("Current Token ID: ")
 		cto, err := con.Rpc.CurrentTokenOwner(context.Background(), &sliverpb.CurrentTokenOwnerReq{
 			Request: con.ActiveTarget.Request(ctx),
 		})
@@ -156,10 +155,19 @@ func WhoamiCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 					con.PrintErrorf("Failed to decode response %s\n", err)
 					return
 				}
+				PrintTokenOwner(cto, con)
 			})
 			con.PrintAsyncResponse(cto.Response)
 		} else {
-			con.Printf("%s\n", cto.Output)
+			PrintTokenOwner(cto, con)
 		}
 	}
+}
+
+func PrintTokenOwner(cto *sliverpb.CurrentTokenOwner, con *console.SliverConsoleClient) {
+	if cto.Response != nil && cto.Response.Err != "" {
+		con.PrintErrorf("%s\n", cto.Response.Err)
+		return
+	}
+	con.PrintInfof("Current Token ID: %s", cto.Output)
 }
