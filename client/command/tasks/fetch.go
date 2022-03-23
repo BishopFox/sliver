@@ -454,6 +454,14 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		}
 		privilege.PrintGetSystem(getSystem, con)
 
+	case sliverpb.MsgCurrentTokenOwnerReq:
+		cto := &sliverpb.CurrentTokenOwner{}
+		err := proto.Unmarshal(task.Response, cto)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+
 	case sliverpb.MsgImpersonateReq:
 		impersonateReq := &sliverpb.ImpersonateReq{}
 		err := proto.Unmarshal(task.Response, impersonateReq)

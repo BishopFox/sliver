@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package priv
@@ -594,4 +595,30 @@ func GetPrivs() ([]PrivilegeInfo, string, string, error) {
 	}
 
 	return privInfo, integrity, processName, nil
+}
+
+// CurrentTokenOwner returns the current thread's token owner
+func CurrentTokenOwner() (string, error) {
+	currToken := CurrentToken
+	// when the windows.Handle is zero (no impersonation), future method calls
+	// on it result in the windows error INVALID_TOKEN_HANDLE, so we get the
+	// actual handle
+	if currToken == 0 {
+		currToken = windows.GetCurrentProcessToken()
+	}
+	return TokenOwner(currToken)
+}
+
+// TokenOwner will resolve the primary token or thread owner of the given
+// handle
+func TokenOwner(hToken windows.Token) (string, error) {
+	tokenUser, err := hToken.GetTokenUser()
+	if err != nil {
+		return "", err
+	}
+	user, domain, _, err := tokenUser.User.Sid.LookupAccount("")
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(`%s\%s`, domain, user), err
 }

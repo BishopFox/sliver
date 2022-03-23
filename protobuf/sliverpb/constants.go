@@ -279,6 +279,11 @@ const (
 	MsgMvReq
 	// MsgMv - Confirms the success/failure of the mv request (resp to MsgMvReq)
 	MsgMv
+
+	// MsgCurrentTokenOwnerReq - Request to query the thread token owner
+	MsgCurrentTokenOwnerReq
+	// MsgCurrentTokenOwner - Replies with the current thread owner (resp to MsfCurrentToken)
+	MsgCurrentTokenOwner
 )
 
 // Constants to replace enums
@@ -487,6 +492,11 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgMvReq
 	case *Mv:
 		return MsgMv
+
+	case *CurrentTokenOwnerReq:
+		return MsgCurrentTokenOwnerReq
+	case *CurrentTokenOwner:
+		return MsgCurrentTokenOwner
 	}
 
 	return uint32(0)

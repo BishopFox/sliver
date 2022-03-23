@@ -115,6 +115,7 @@ service SliverRPC {
     rpc Sideload(sliverpb.SideloadReq) returns (sliverpb.Sideload);
     rpc SpawnDll(sliverpb.InvokeSpawnDllReq) returns (sliverpb.SpawnDll);
     rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);
+    rpc CurrentTokenOwner(sliverpb.CurrentTokenOwnerReq) returns (sliverpb.CurrentTokenOwner);
     
     // *** Pivots ***
     rpc PivotStartListener(sliverpb.PivotStartListenerReq) returns (sliverpb.PivotListener);

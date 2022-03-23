@@ -65,6 +65,7 @@ var (
 		sliverpb.MsgUnsetEnvReq:              unsetEnvHandler,
 		sliverpb.MsgExecuteTokenReq:          executeTokenHandler,
 		sliverpb.MsgGetPrivsReq:              getPrivsHandler,
+		sliverpb.MsgCurrentTokenOwnerReq:     currentTokenOwnerHandler,
 
 		// Platform specific
 		sliverpb.MsgIfconfigReq:            ifconfigHandler,
@@ -174,6 +175,26 @@ func revToSelfHandler(_ []byte, resp RPCResponse) {
 	log.Println("revToSelf done!")
 	//{{end}}
 	data, err := proto.Marshal(revToSelf)
+	resp(data, err)
+}
+
+func currentTokenOwnerHandler(data []byte, resp RPCResponse) {
+	tokOwnReq := &sliverpb.CurrentTokenOwnerReq{}
+	err := proto.Unmarshal(data, tokOwnReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+
+	getCT := &sliverpb.CurrentTokenOwner{}
+	owner, err := priv.CurrentTokenOwner()
+	if err != nil {
+		getCT.Response = &commonpb.Response{Err: err.Error()}
+	}
+	getCT.Output = owner
+	data, err = proto.Marshal(getCT)
 	resp(data, err)
 }
 
