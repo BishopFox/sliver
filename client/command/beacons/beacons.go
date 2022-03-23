@@ -46,7 +46,7 @@ func BeaconsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
-		err = kill.KillBeacon(beacon, false, con)
+		err = kill.KillBeacon(beacon, ctx, con)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
@@ -62,7 +62,7 @@ func BeaconsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			return
 		}
 		for _, beacon := range beacons.Beacons {
-			err = kill.KillBeacon(beacon, true, con)
+			err = kill.KillBeacon(beacon, ctx, con)
 			if err != nil {
 				con.PrintErrorf("%s\n", err)
 				return
