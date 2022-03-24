@@ -239,7 +239,7 @@ func MakeToken(domain string, username string, password string) error {
 	if err != nil {
 		return err
 	}
-	err = syscalls.LogonUser(pu, pd, pp, syscalls.LOGON32_LOGON_NEW_CREDENTIALS, syscalls.LOGON32_PROVIDER_DEFAULT, &token)
+	err = syscalls.LogonUser(pu, pd, pp, syscalls.LOGON32_LOGON_INTERACTIVE, syscalls.LOGON32_PROVIDER_DEFAULT, &token)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("LogonUser failed: %v\n", err)
