@@ -146,7 +146,8 @@ func (c *Client) Do(request *http.Request) (*http.Response, error) {
 	if resp, err = buildResponse(reqHandle, req); err != nil {
 		return nil, err
 	}
-	c.CookieJar.cookies = resp.Cookies() //looks like it works, but overwrites?ß
+
+	c.CookieJar.cookies = resp.Cookies()
 
 	return &http.Response{
 		Status:        resp.Status,
@@ -183,8 +184,6 @@ func NewJar() *Jar {
 
 // SetCookies handles the receipt of the cookies in a reply for the
 // given URL (which is ignored).
-//if cookie val already in jar, ignore
-//if new
 func (jar *Jar) SetCookies(u *url.URL, cookies []*Cookie) {
 	jar.lk.Lock()
 	jar.cookies = append(jar.cookies, cookies...)

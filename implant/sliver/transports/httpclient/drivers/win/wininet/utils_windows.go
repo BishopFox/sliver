@@ -10,17 +10,17 @@ import (
 	"strings"
 )
 
-func convertFail(str string, e error) error {
+func convertFail(str string, err error) error {
 	return fmt.Errorf(
 		"failed to convert %s to Windows type: %w",
 		str,
-		e,
+		err,
 	)
 }
 
 func buildRequest(sessionHndl uintptr, r *Request) (uintptr, error) {
 	var connHndl uintptr
-	var e error
+	var err error
 	var flags uintptr
 	var passwd string
 	var port int64
@@ -29,16 +29,16 @@ func buildRequest(sessionHndl uintptr, r *Request) (uintptr, error) {
 	var uri *url.URL
 
 	// Parse URL
-	if uri, e = url.Parse(r.URL); e != nil {
-		return 0, fmt.Errorf("failed to parse url %s: %w", r.URL, e)
+	if uri, err = url.Parse(r.URL); err != nil {
+		return 0, fmt.Errorf("failed to parse url %s: %w", r.URL, err)
 	}
 
 	passwd, _ = uri.User.Password()
 
 	if uri.Port() != "" {
-		if port, e = strconv.ParseInt(uri.Port(), 10, 64); e != nil {
-			e = fmt.Errorf("port %s invalid: %w", uri.Port(), e)
-			return 0, e
+		if port, err = strconv.ParseInt(uri.Port(), 10, 64); err != nil {
+			err = fmt.Errorf("port %s invalid: %w", uri.Port(), err)
+			return 0, err
 		}
 	}
 
@@ -48,7 +48,7 @@ func buildRequest(sessionHndl uintptr, r *Request) (uintptr, error) {
 	}
 
 	// Create connection
-	connHndl, e = InternetConnectW(
+	connHndl, err = InternetConnectW(
 		sessionHndl,
 		uri.Hostname(),
 		int(port),
@@ -58,8 +58,8 @@ func buildRequest(sessionHndl uintptr, r *Request) (uintptr, error) {
 		flags,
 		0,
 	)
-	if e != nil {
-		return 0, fmt.Errorf("failed to create connection: %w", e)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create connection: %w", err)
 	}
 
 	// Send query string too
@@ -72,7 +72,7 @@ func buildRequest(sessionHndl uintptr, r *Request) (uintptr, error) {
 	flags |= InternetFlagNoCookies //we're responsible for cookie management
 
 	// Create HTTP request
-	reqHndl, e = HTTPOpenRequestW(
+	reqHndl, err = HTTPOpenRequestW(
 		connHndl,
 		r.Method,
 		uri.Path+query,
@@ -82,8 +82,8 @@ func buildRequest(sessionHndl uintptr, r *Request) (uintptr, error) {
 		flags,
 		0,
 	)
-	if e != nil {
-		return 0, fmt.Errorf("failed to open request: %w", e)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open request: %w", err)
 	}
 
 	return reqHndl, nil
@@ -96,7 +96,7 @@ func buildResponse(reqHndl uintptr, req *Request) (*Response, error) {
 	var body io.ReadCloser
 	var code int64
 	var contentLen int64
-	var e error
+	var err error
 	var hdrs map[string][]string
 	var major int
 	var minor int
@@ -105,20 +105,20 @@ func buildResponse(reqHndl uintptr, req *Request) (*Response, error) {
 	var status string
 
 	// Get status code
-	b, e = queryResponse(reqHndl, HTTPQueryStatusCode, 0)
-	if e != nil {
-		return nil, e
+	b, err = queryResponse(reqHndl, HTTPQueryStatusCode, 0)
+	if err != nil {
+		return nil, err
 	}
 
 	status = string(b)
-	if code, e = strconv.ParseInt(status, 10, 64); e != nil {
-		return nil, fmt.Errorf("status %s invalid: %w", status, e)
+	if code, err = strconv.ParseInt(status, 10, 64); err != nil {
+		return nil, fmt.Errorf("status %s invalid: %w", status, err)
 	}
 
 	// Get status text
-	b, e = queryResponse(reqHndl, HTTPQueryStatusText, 0)
-	if e != nil {
-		return nil, e
+	b, err = queryResponse(reqHndl, HTTPQueryStatusText, 0)
+	if err != nil {
+		return nil, err
 	} else if len(b) > 0 {
 		status += " " + string(b)
 	}
@@ -127,13 +127,13 @@ func buildResponse(reqHndl uintptr, req *Request) (*Response, error) {
 	cookies = getCookies(reqHndl)
 
 	// Parse headers and proto
-	if proto, major, minor, hdrs, e = getHeaders(reqHndl); e != nil {
-		return nil, e
+	if proto, major, minor, hdrs, err = getHeaders(reqHndl); err != nil {
+		return nil, err
 	}
 
 	// Read response body
-	if body, contentLen, e = readResponse(reqHndl); e != nil {
-		return nil, e
+	if body, contentLen, err = readResponse(reqHndl); err != nil {
+		return nil, err
 	}
 
 	res = &Response{
@@ -162,17 +162,17 @@ func buildResponse(reqHndl uintptr, req *Request) (*Response, error) {
 func getCookies(reqHndl uintptr) []*Cookie {
 	var b []byte
 	var cookies []*Cookie
-	var e error
+	var err error
 	var tmp []string
 
 	// Get cookies
 	for i := 0; ; i++ {
-		b, e = queryResponse(
+		b, err = queryResponse(
 			reqHndl,
 			HTTPQuerySetCookie,
 			i,
 		)
-		if e != nil {
+		if err != nil {
 			break
 		}
 
@@ -190,7 +190,7 @@ func getHeaders(
 	reqHndl uintptr,
 ) (string, int, int, map[string][]string, error) {
 	var b []byte
-	var e error
+	var err error
 	var hdrs = map[string][]string{}
 	var major int64
 	var minor int64
@@ -198,9 +198,9 @@ func getHeaders(
 	var tmp []string
 
 	// Get headers
-	b, e = queryResponse(reqHndl, HTTPQueryRawHeadersCRLF, 0)
-	if e != nil {
-		return "", 0, 0, nil, e
+	b, err = queryResponse(reqHndl, HTTPQueryRawHeadersCRLF, 0)
+	if err != nil {
+		return "", 0, 0, nil, err
 	}
 
 	for _, hdr := range strings.Split(string(b), "\r\n") {
@@ -219,16 +219,16 @@ func getHeaders(
 			if len(tmp) >= 2 {
 				tmp[0] = strings.Replace(tmp[0], "HTTP/", "", 1)
 
-				major, e = strconv.ParseInt(tmp[0], 10, 64)
-				if e != nil {
-					e = fmt.Errorf("invalid HTTP version: %w", e)
-					return "", 0, 0, nil, e
+				major, err = strconv.ParseInt(tmp[0], 10, 64)
+				if err != nil {
+					err = fmt.Errorf("invalid HTTP version: %w", err)
+					return "", 0, 0, nil, err
 				}
 
-				minor, e = strconv.ParseInt(tmp[1], 10, 64)
-				if e != nil {
-					e = fmt.Errorf("invalid HTTP version: %w", e)
-					return "", 0, 0, nil, e
+				minor, err = strconv.ParseInt(tmp[1], 10, 64)
+				if err != nil {
+					err = fmt.Errorf("invalid HTTP version: %w", err)
+					return "", 0, 0, nil, err
 				}
 			}
 		}
@@ -239,27 +239,27 @@ func getHeaders(
 
 func queryResponse(reqHndl, info uintptr, idx int) ([]byte, error) {
 	var buffer []byte
-	var e error
+	var err error
 	var size int
 
 	if idx < 0 {
 		idx = 0
 	}
 
-	e = HTTPQueryInfoW(reqHndl, info, &buffer, &size, &idx)
-	if e != nil {
+	err = HTTPQueryInfoW(reqHndl, info, &buffer, &size, &idx)
+	if err != nil {
 		buffer = make([]byte, size)
 
-		e = HTTPQueryInfoW(
+		err = HTTPQueryInfoW(
 			reqHndl,
 			info,
 			&buffer,
 			&size,
 			&idx,
 		)
-		if e != nil {
-			e = fmt.Errorf("failed to query info: %w", e)
-			return []byte{}, e
+		if err != nil {
+			err = fmt.Errorf("failed to query info: %w", err)
+			return []byte{}, err
 		}
 	}
 
@@ -271,15 +271,15 @@ func readResponse(reqHndl uintptr) (io.ReadCloser, int64, error) {
 	var chunk []byte
 	var chunkLen int64
 	var contentLen int64
-	var e error
+	var err error
 	var n int64
 
 	// Get Content-Length and body of response
 	for {
 		// Get next chunk size
-		e = InternetQueryDataAvailable(reqHndl, &chunkLen)
-		if e != nil {
-			e = fmt.Errorf("failed to query data available: %w", e)
+		err = InternetQueryDataAvailable(reqHndl, &chunkLen)
+		if err != nil {
+			err = fmt.Errorf("failed to query data available: %w", err)
 			break
 		}
 
@@ -289,9 +289,9 @@ func readResponse(reqHndl uintptr) (io.ReadCloser, int64, error) {
 		}
 
 		// Read next chunk
-		e = InternetReadFile(reqHndl, &chunk, chunkLen, &n)
-		if e != nil {
-			e = fmt.Errorf("failed to read data: %w", e)
+		err = InternetReadFile(reqHndl, &chunk, chunkLen, &n)
+		if err != nil {
+			err = fmt.Errorf("failed to read data: %w", err)
 			break
 		}
 
@@ -300,15 +300,15 @@ func readResponse(reqHndl uintptr) (io.ReadCloser, int64, error) {
 		b = append(b, chunk...)
 	}
 
-	if e != nil {
-		return nil, 0, e
+	if err != nil {
+		return nil, 0, err
 	}
 
 	return ioutil.NopCloser(bytes.NewReader(b)), contentLen, nil
 }
 
 func sendRequest(reqHndl uintptr, r *Request) error {
-	var e error
+	var err error
 	var method uintptr
 
 	// Process cookies
@@ -324,13 +324,13 @@ func sendRequest(reqHndl uintptr, r *Request) error {
 	// End dumb hack
 
 	for _, c := range r.Cookies() {
-		e = HTTPAddRequestHeadersW(
+		err = HTTPAddRequestHeadersW(
 			reqHndl,
 			"Cookie: "+c.Name+"="+c.Value,
 			method,
 		)
-		if e != nil {
-			return fmt.Errorf("failed to add cookies: %w", e)
+		if err != nil {
+			return fmt.Errorf("failed to add cookies: %w", err)
 		}
 	}
 
@@ -339,26 +339,26 @@ func sendRequest(reqHndl uintptr, r *Request) error {
 	method |= HTTPAddreqFlagReplace
 
 	for k, v := range r.Headers {
-		e = HTTPAddRequestHeadersW(
+		err = HTTPAddRequestHeadersW(
 			reqHndl,
 			k+": "+v,
 			method,
 		)
-		if e != nil {
-			return fmt.Errorf("failed to add request headers: %w", e)
+		if err != nil {
+			return fmt.Errorf("failed to add request headers: %w", err)
 		}
 	}
 
 	// Send HTTP request
-	e = HTTPSendRequestW(
+	err = HTTPSendRequestW(
 		reqHndl,
 		"",
 		0,
 		r.Body,
 		len(r.Body),
 	)
-	if e != nil {
-		return fmt.Errorf("failed to send request: %w", e)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
 	}
 
 	return nil

@@ -29,13 +29,13 @@ func genFile(
 	cache map[string]string,
 	lines [][]string,
 ) error {
-	var e error
+	var err error
 	var file string = "generated.go"
 	var g *os.File
 	var sorted []string
 
-	if g, e = os.Create(file); e != nil {
-		return fmt.Errorf("failed to create %s: %w", file, e)
+	if g, err = os.Create(file); err != nil {
+		return fmt.Errorf("failed to create %s: %w", file, err)
 	}
 	defer g.Close()
 
@@ -112,13 +112,13 @@ func main() {
 			continue
 		}
 
-		if e := processFile(&cache, &lines, arg); e != nil {
-			panic(e)
+		if err := processFile(&cache, &lines, arg); err != nil {
+			panic(err)
 		}
 	}
 
-	if e := genFile(flag.Arg(0), cache, lines); e != nil {
-		panic(e)
+	if err := genFile(flag.Arg(0), cache, lines); err != nil {
+		panic(err)
 	}
 }
 
@@ -128,18 +128,18 @@ func processFile(
 	file string,
 ) error {
 	var b []byte
-	var e error
+	var err error
 	var f *os.File
 	var fullLine string
 	var tmp []string
 
-	if f, e = os.Open(ExpandPath(file)); e != nil {
-		return fmt.Errorf("failed to open %s: %w", file, e)
+	if f, err = os.Open(ExpandPath(file)); err != nil {
+		return fmt.Errorf("failed to open %s: %w", file, err)
 	}
 	defer f.Close()
 
-	if b, e = ioutil.ReadAll(f); e != nil {
-		return fmt.Errorf("failed to read %s: %w", file, e)
+	if b, err = ioutil.ReadAll(f); err != nil {
+		return fmt.Errorf("failed to read %s: %w", file, err)
 	}
 
 	for _, line := range strings.Split(string(b), "\n") {
@@ -196,7 +196,7 @@ func DoesExist(path string) bool {
 // ExpandPath will expand the specified path accounting for ~ or ~user
 // shortcuts as well as ENV vars.
 func ExpandPath(path string) string {
-	var e error
+	var err error
 	var sep int
 	var usr *user.User
 
@@ -214,12 +214,12 @@ func ExpandPath(path string) string {
 		case -1:
 			// If just ~
 			if path == "~" {
-				if usr, e = user.Current(); e != nil {
+				if usr, err = user.Current(); err != nil {
 					return path
 				}
 			} else {
 				// If ~user shortcut
-				if usr, e = user.Lookup(path[1:]); e != nil {
+				if usr, err = user.Lookup(path[1:]); err != nil {
 					return path
 				}
 			}
@@ -227,14 +227,14 @@ func ExpandPath(path string) string {
 			path = ""
 		case 1:
 			// If path starting with ~/
-			if usr, e = user.Current(); e != nil {
+			if usr, err = user.Current(); err != nil {
 				return path
 			}
 
 			path = path[2:]
 		default:
 			// If ~user/ shortcut
-			if usr, e = user.Lookup(path[1:sep]); e != nil {
+			if usr, err = user.Lookup(path[1:sep]); err != nil {
 				return path
 			}
 
