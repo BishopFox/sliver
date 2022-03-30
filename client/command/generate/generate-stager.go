@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -95,15 +93,11 @@ func GenerateStagerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	if save != "" || format == "raw" {
-		saveTo, _ := filepath.Abs(save)
-		fi, err := os.Stat(saveTo)
+		saveTo, err := saveLocation(save, stageFile.GetFile().GetName())
 		if err != nil {
-			con.PrintErrorf("Failed to generate sliver stager %v\n", err)
 			return
 		}
-		if fi.IsDir() {
-			saveTo = filepath.Join(saveTo, stageFile.GetFile().GetName())
-		}
+
 		err = ioutil.WriteFile(saveTo, stageFile.GetFile().GetData(), 0700)
 		if err != nil {
 			con.PrintErrorf("Failed to write to: %s\n", saveTo)
