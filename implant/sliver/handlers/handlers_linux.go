@@ -49,6 +49,7 @@ var (
 
 		sliverpb.MsgReconfigureReq: reconfigureHandler,
 		sliverpb.MsgSSHCommandReq:  runSSHCommandHandler,
+		sliverpb.MsgProcessDumpReq: dumpHandler,
 
 		// {{if .Config.WGc2Enabled}}
 		// Wireguard specific
