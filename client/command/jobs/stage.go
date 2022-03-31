@@ -60,11 +60,16 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
+	if profile.Config.Format != clientpb.OutputFormat_SHELLCODE {
+		con.PrintErrorf("A stager profile must be in the SHELLCODE format\n")
+		return
+	}
+
 	aesEncrypt := false
 	if aesEncryptKey != "" {
 		// check if aes encryption key is correct length
 		if len(aesEncryptKey)%16 != 0 {
-			con.PrintErrorf("Incorect length of AES Key\n")
+			con.PrintErrorf("Incorrect length of AES Key\n")
 			return
 		}
 
@@ -75,7 +80,7 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 		// check if aes iv is correct length
 		if len(aesEncryptIv)%16 != 0 {
-			con.PrintErrorf("Incorect length of AES IV\n")
+			con.PrintErrorf("Incorrect length of AES IV\n")
 			return
 		}
 
