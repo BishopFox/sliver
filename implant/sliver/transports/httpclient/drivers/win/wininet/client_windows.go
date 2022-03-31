@@ -10,6 +10,15 @@ import (
 	"time"
 )
 
+const (
+	FLAGS_ERROR_UI_FILTER_FOR_ERRORS    uint32 = 0x01
+	FLAGS_ERROR_UI_FLAGS_CHANGE_OPTIONS uint32 = 0x02
+	FLAGS_ERROR_UI_FLAGS_GENERATE_DATA  uint32 = 0x04
+	INTERNET_ERROR_BASE                 uint32 = 12000
+	ERROR_INTERNET_INCORRECT_PASSWORD   uint32 = INTERNET_ERROR_BASE + 14
+	ERROR_INTERNET_FORCE_RETRY          uint32 = INTERNET_ERROR_BASE + 32
+)
+
 // Client is a struct containing relevant metadata to make HTTP
 // requests.
 type Client struct {
@@ -145,6 +154,25 @@ func (c *Client) Do(request *http.Request) (*http.Response, error) {
 
 	if resp, err = buildResponse(reqHandle, req); err != nil {
 		return nil, err
+	}
+
+	// TODO should ask the operator if user should be prompted for credentials if none found in cred cache
+	if resp.StatusCode == 407 {
+		var lppvData []byte
+		dwError := ERROR_INTERNET_INCORRECT_PASSWORD
+		dwFlags := FLAGS_ERROR_UI_FILTER_FOR_ERRORS | FLAGS_ERROR_UI_FLAGS_CHANGE_OPTIONS | FLAGS_ERROR_UI_FLAGS_GENERATE_DATA
+		success, err := InternetErrorDlg(GetDesktopWindow(), reqHandle, dwError, dwFlags, &lppvData)
+		if err != nil {
+			return nil, err //TODO fix error handling
+		}
+		if uint32(success) == ERROR_INTERNET_FORCE_RETRY { //The function needs to redo the request as expected
+			if err = sendRequest(reqHandle, req); err != nil {
+				return nil, err //TODO fix error handling
+			}
+			if resp, err = buildResponse(reqHandle, req); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	c.CookieJar.cookies = resp.Cookies()

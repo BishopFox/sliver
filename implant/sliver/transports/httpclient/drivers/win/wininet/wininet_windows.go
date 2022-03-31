@@ -413,3 +413,34 @@ func InternetSetOptionW(
 
 	return nil
 }
+
+// InternetErrorDlg is from wininet.h
+func InternetErrorDlg(
+	hWnd uintptr,
+	hRequest uintptr,
+	dwError uint32,
+	dwFlags uint32,
+	lppvData *[]byte,
+) (uintptr, error) {
+	var err error
+	var buf []byte
+	var proc string = "InternetErrorDlg"
+	var success uintptr
+
+	buf = make([]byte, 1024) //arbitrary size (safe?)
+
+	success, _, err = wininet.NewProc(proc).Call(
+		uintptr(hWnd),
+		hRequest,
+		uintptr(dwError),
+		uintptr(dwFlags),
+		uintptr(unsafe.Pointer(&buf[0])),
+	)
+	if success == 0 {
+		return success, fmt.Errorf("%s: %w", proc, err)
+	}
+
+	*lppvData = buf
+
+	return success, nil
+}
