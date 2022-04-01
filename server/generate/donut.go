@@ -78,6 +78,12 @@ func getDonut(data []byte, config *donut.DonutConfig) (shellcode []byte, err err
 		return
 	}
 	shellcode = res.Bytes()
+	stackCheckPrologue := []byte{
+		// Check stack is 8 byte but not 16 byte aligned or else errors in LoadLibrary
+		0x48, 0x83, 0xE4, 0xF0, // and rsp,0xfffffffffffffff0
+		0x48, 0x83, 0xC4, 0x08, // add rsp,0x8
+	}
+	shellcode = append(stackCheckPrologue, shellcode...)
 	return
 }
 
