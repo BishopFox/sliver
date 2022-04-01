@@ -156,26 +156,21 @@ func (c *Client) Do(request *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
+	c.CookieJar.cookies = resp.Cookies()
+
 	// TODO should ask the operator if user should be prompted for credentials if none found in cred cache
 	if resp.StatusCode == 407 {
-		var lppvData []byte
-		dwError := ERROR_INTERNET_INCORRECT_PASSWORD
-		dwFlags := FLAGS_ERROR_UI_FILTER_FOR_ERRORS | FLAGS_ERROR_UI_FLAGS_CHANGE_OPTIONS | FLAGS_ERROR_UI_FLAGS_GENERATE_DATA
-		success, err := InternetErrorDlg(GetDesktopWindow(), reqHandle, dwError, dwFlags, &lppvData)
+		err := promptUserPassword(reqHandle)
 		if err != nil {
-			return nil, err //TODO fix error handling
+			return nil, err
 		}
-		if uint32(success) == ERROR_INTERNET_FORCE_RETRY { //The function needs to redo the request as expected
-			if err = sendRequest(reqHandle, req); err != nil {
-				return nil, err //TODO fix error handling
-			}
-			if resp, err = buildResponse(reqHandle, req); err != nil {
-				return nil, err
-			}
+		if err = sendRequest(reqHandle, req); err != nil {
+			return nil, err
+		}
+		if resp, err = buildResponse(reqHandle, req); err != nil {
+			return nil, err
 		}
 	}
-
-	c.CookieJar.cookies = resp.Cookies()
 
 	return &http.Response{
 		Status:        resp.Status,
@@ -188,6 +183,17 @@ func (c *Client) Do(request *http.Request) (*http.Response, error) {
 		Request:       request,
 		Header:        make(http.Header),
 	}, nil
+}
+
+func promptUserPassword(reqHandle uintptr) error {
+	var lppvData []byte
+	dwError := ERROR_INTERNET_INCORRECT_PASSWORD
+	dwFlags := FLAGS_ERROR_UI_FILTER_FOR_ERRORS | FLAGS_ERROR_UI_FLAGS_CHANGE_OPTIONS | FLAGS_ERROR_UI_FLAGS_GENERATE_DATA
+	_, err := InternetErrorDlg(GetDesktopWindow(), reqHandle, dwError, dwFlags, &lppvData)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Jar - CookieJar implementation that ignores domains/origins
