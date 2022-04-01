@@ -27,7 +27,8 @@ type Client struct {
 	TLSClientConfig struct {
 		InsecureSkipVerify bool
 	}
-	CookieJar *Jar
+	CookieJar     *Jar
+	AskProxyCreds bool
 }
 
 // NewClient will return a pointer to a new Client instance that
@@ -156,21 +157,22 @@ func (c *Client) Do(request *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
-	c.CookieJar.cookies = resp.Cookies()
-
-	// TODO should ask the operator if user should be prompted for credentials if none found in cred cache
-	if resp.StatusCode == 407 {
-		err := promptUserPassword(reqHandle)
-		if err != nil {
-			return nil, err
-		}
-		if err = sendRequest(reqHandle, req); err != nil {
-			return nil, err
-		}
-		if resp, err = buildResponse(reqHandle, req); err != nil {
-			return nil, err
+	if c.AskProxyCreds {
+		if resp.StatusCode == 407 {
+			err := promptUserPassword(reqHandle)
+			if err != nil {
+				return nil, err
+			}
+			if err = sendRequest(reqHandle, req); err != nil {
+				return nil, err
+			}
+			if resp, err = buildResponse(reqHandle, req); err != nil {
+				return nil, err
+			}
 		}
 	}
+
+	c.CookieJar.cookies = resp.Cookies()
 
 	return &http.Response{
 		Status:        resp.Status,

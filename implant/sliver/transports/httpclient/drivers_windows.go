@@ -58,5 +58,6 @@ func WininetDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, e
 		return nil, err
 	}
 	wininetClient.TLSClientConfig.InsecureSkipVerify = true
+	wininetClient.AskProxyCreds = opts.AskProxyCreds
 	return wininetClient, nil
 }
