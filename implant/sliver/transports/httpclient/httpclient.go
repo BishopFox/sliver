@@ -74,6 +74,7 @@ type HTTPOptions struct {
 	ProxyConfig   string
 	ProxyUsername string
 	ProxyPassword string
+	AskProxyCreds bool
 }
 
 // ParseHTTPOptions - Parse c2 specific configuration options
@@ -112,6 +113,7 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 		ProxyConfig:   c2URI.Query().Get("proxy"),
 		ProxyUsername: c2URI.Query().Get("proxy-username"),
 		ProxyPassword: c2URI.Query().Get("proxy-password"),
+		AskProxyCreds: c2URI.Query().Get("ask-proxy-creds") == "true",
 	}
 }
 

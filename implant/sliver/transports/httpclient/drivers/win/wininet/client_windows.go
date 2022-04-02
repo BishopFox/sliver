@@ -10,6 +10,15 @@ import (
 	"time"
 )
 
+const (
+	FLAGS_ERROR_UI_FILTER_FOR_ERRORS    uint32 = 0x01
+	FLAGS_ERROR_UI_FLAGS_CHANGE_OPTIONS uint32 = 0x02
+	FLAGS_ERROR_UI_FLAGS_GENERATE_DATA  uint32 = 0x04
+	INTERNET_ERROR_BASE                 uint32 = 12000
+	ERROR_INTERNET_INCORRECT_PASSWORD   uint32 = INTERNET_ERROR_BASE + 14
+	ERROR_INTERNET_FORCE_RETRY          uint32 = INTERNET_ERROR_BASE + 32
+)
+
 // Client is a struct containing relevant metadata to make HTTP
 // requests.
 type Client struct {
@@ -18,7 +27,8 @@ type Client struct {
 	TLSClientConfig struct {
 		InsecureSkipVerify bool
 	}
-	CookieJar *Jar
+	CookieJar     *Jar
+	AskProxyCreds bool
 }
 
 // NewClient will return a pointer to a new Client instance that
@@ -147,6 +157,21 @@ func (c *Client) Do(request *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
+	if c.AskProxyCreds {
+		if resp.StatusCode == 407 {
+			err := promptUserPassword(reqHandle)
+			if err != nil {
+				return nil, err
+			}
+			if err = sendRequest(reqHandle, req); err != nil {
+				return nil, err
+			}
+			if resp, err = buildResponse(reqHandle, req); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	c.CookieJar.cookies = resp.Cookies()
 
 	return &http.Response{
@@ -160,6 +185,17 @@ func (c *Client) Do(request *http.Request) (*http.Response, error) {
 		Request:       request,
 		Header:        make(http.Header),
 	}, nil
+}
+
+func promptUserPassword(reqHandle uintptr) error {
+	var lppvData []byte
+	dwError := ERROR_INTERNET_INCORRECT_PASSWORD
+	dwFlags := FLAGS_ERROR_UI_FILTER_FOR_ERRORS | FLAGS_ERROR_UI_FLAGS_CHANGE_OPTIONS | FLAGS_ERROR_UI_FLAGS_GENERATE_DATA
+	_, err := InternetErrorDlg(GetDesktopWindow(), reqHandle, dwError, dwFlags, &lppvData)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Jar - CookieJar implementation that ignores domains/origins
