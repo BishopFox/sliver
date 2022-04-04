@@ -74,13 +74,16 @@ test_windows_amd64:
 build_all_targets:
 	GOOS=darwin GOARCH=amd64 go test -c -o /dev/null
 	GOOS=darwin GOARCH=arm64 go test -c -o /dev/null
+	GOOS=freebsd GOARCH=386 go test -c -o /dev/null
 	GOOS=freebsd GOARCH=amd64 go test -c -o /dev/null
 	GOOS=linux GOARCH=386 go test -c -o /dev/null
 	GOOS=linux GOARCH=amd64 go test -c -o /dev/null
 	GOOS=linux GOARCH=arm go test -c -o /dev/null
 	GOOS=linux GOARCH=arm64 go test -c -o /dev/null
+	GOOS=linux GOARCH=riscv64 go test -c -o /dev/null
 	GOOS=linux GOARCH=s390x go test -c -o /dev/null
 	GOOS=netbsd GOARCH=amd64 go test -c -o /dev/null
+	GOOS=openbsd GOARCH=amd64 go test -c -o /dev/null
 	GOOS=windows GOARCH=386 go test -c -o /dev/null
 	GOOS=windows GOARCH=amd64 go test -c -o /dev/null
 

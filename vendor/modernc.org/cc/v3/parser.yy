@@ -688,6 +688,8 @@ package cc // import "modernc.org/cc/v3"
 				'*' TypeQualifiers
 			/*yy:example int **p; */
 /*yy:case Ptr        */ |	'*' TypeQualifiers Pointer
+			/*yy:example int atexit_b(void (^ _Nonnull)(void)); */
+/*yy:case Block      */ |	'^' TypeQualifiers
 
 			/*yy:field	noStorageClass */
 			/*yy:example int * const i; */

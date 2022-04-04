@@ -211,6 +211,7 @@ double __builtin_huge_val (void);
 double __builtin_inf (void);
 double __builtin_nan (const char *str);
 float __builtin_copysignf ( float x, float y );
+float __builtin_fabsf(float x);
 float __builtin_huge_valf (void);
 float __builtin_inff (void);
 float __builtin_nanf (const char *str);
@@ -221,6 +222,7 @@ int __builtin__snprintf_chk(char * str, size_t maxlen, int flag, size_t strlen, 
 int __builtin_abs(int j);
 int __builtin_add_overflow();
 int __builtin_clz (unsigned);
+int __builtin_isunordered(double x, double y);
 int __builtin_clzl (unsigned long);
 int __builtin_clzll (unsigned long long);
 int __builtin_constant_p_impl(int, ...);
@@ -236,6 +238,7 @@ int __builtin_sprintf(char *str, const char *format, ...);
 int __builtin_strcmp(const char *s1, const char *s2);
 int __builtin_sub_overflow();
 long __builtin_expect (long exp, long c);
+long double __builtin_fabsl(long double x);
 long double __builtin_nanl (const char *str);
 long long __builtin_llabs(long long j);
 size_t __builtin_object_size (void * ptr, int type);
@@ -278,6 +281,10 @@ void __ccgo_va_start(__builtin_va_list ap);
 
 unsigned __sync_add_and_fetch_uint32(unsigned*, unsigned);
 unsigned __sync_sub_and_fetch_uint32(unsigned*, unsigned);
+
+#ifdef __APPLE__
+int (*__darwin_check_fd_set_overflow)(int, void *, int);
+#endif
 
 `
 	defaultCrt = "modernc.org/libc"
@@ -897,10 +904,10 @@ func (t *Task) Main() (err error) {
 	}
 
 	abi, err := cc.NewABI(t.goos, t.goarch)
-	abi.Types[cc.LongDouble] = abi.Types[cc.Double]
 	if err != nil {
 		return err
 	}
+	abi.Types[cc.LongDouble] = abi.Types[cc.Double]
 
 	var re *regexp.Regexp
 	if t.ignoredIncludes != "" {
@@ -1483,6 +1490,22 @@ out:
 		command = append([]string{sh, "-c"}, join(" ", command[0], "SHELL='sh -x'", command[1:]))
 		cmd = exec.Command(command[0], command[1:]...)
 		parser = makeXParser
+	case "openbsd":
+		switch command[0] {
+		case "make", "gmake":
+			// ok
+		default:
+			return fmt.Errorf("usupported build command: %s", command[0])
+		}
+
+		sh, err := exec.LookPath("sh")
+		if err != nil {
+			return err
+		}
+
+		command = append([]string{sh, "-c"}, join(" ", command[0], "SHELL='sh -x'", command[1:]))
+		cmd = exec.Command(command[0], command[1:]...)
+		parser = makeXParser2
 	case "windows":
 		if command[0] != "make" {
 			return fmt.Errorf("usupported build command: %s", command[0])
@@ -1573,7 +1596,7 @@ func isCreateArchive(s string) bool {
 	b := []byte(s)
 	sort.Slice(b, func(i, j int) bool { return b[i] < b[j] })
 	switch string(b) {
-	case "cq", "cr", "crs", "cru":
+	case "cq", "cr", "crs", "cru", "r":
 		return true
 	}
 	return false
@@ -1608,7 +1631,48 @@ func makeXParser(s string) (r []string, err error) {
 	}
 
 	s = s[1:]
+	if dmesgs {
+		dmesg("%v: source line `%s`, caller %v:", origin(1), s, origin(2))
+	}
 	r, err = shellquote.Split(s)
+	if dmesgs {
+		dmesg("%v: shellquote.Split -> %v %[2]q, %v", origin(1), r, err)
+	}
+	if err != nil {
+		if strings.Contains(err.Error(), "Unterminated single-quoted string") {
+			return nil, nil // ignore
+		}
+	}
+	if len(r) != 0 && filepath.Base(r[0]) == "libtool" {
+		r[0] = "libtool"
+	}
+	return r, err
+}
+
+func makeXParser2(s string) (r []string, err error) {
+	s = strings.TrimSpace(s)
+	switch {
+	case strings.HasPrefix(s, "libtool: link: ar "):
+		s = s[len("libtool: link:"):]
+	case strings.HasPrefix(s, "libtool: compile: "):
+		s = s[len("libtool: compile:"):]
+		for strings.HasPrefix(s, "  ") {
+			s = s[1:]
+		}
+	default:
+		var n int
+		if n, s = hasPlusPrefix(s); n != 0 {
+			return nil, nil
+		}
+	}
+
+	if dmesgs {
+		dmesg("%v: source line `%s`, caller %v:", origin(1), s, origin(2))
+	}
+	r, err = shellquote.Split(s)
+	if dmesgs {
+		dmesg("%v: shellquote.Split -> %v %[2]q, %v", origin(1), r, err)
+	}
 	if err != nil {
 		if strings.Contains(err.Error(), "Unterminated single-quoted string") {
 			return nil, nil // ignore
@@ -1802,26 +1866,29 @@ func (it *cdbItem) sources(cc, ar string) (r []string) {
 }
 
 type cdbMakeWriter struct {
-	b      bytes.Buffer
-	cc     string
 	ar     string
 	arBase string
+	b      bytes.Buffer
+	cc     string
 	dir    string
 	err    error
 	it     cdbItem
 	parser func(s string) ([]string, error)
+	prefix string
 	sc     *bufio.Scanner
+	t      *Task
 	w      *cdbWriter
 }
 
 func (t *Task) newCdbMakeWriter(w *cdbWriter, dir string, parser func(s string) ([]string, error)) *cdbMakeWriter {
 	const sz = 1 << 16
 	r := &cdbMakeWriter{
-		cc:     t.ccLookPath,
 		ar:     t.arLookPath,
 		arBase: filepath.Base(t.arLookPath),
+		cc:     t.ccLookPath,
 		dir:    dir,
 		parser: parser,
+		t:      t,
 		w:      w,
 	}
 	r.sc = bufio.NewScanner(&r.b)
@@ -1842,7 +1909,15 @@ func (w *cdbMakeWriter) Write(b []byte) (int, error) {
 			panic(todo("internal error"))
 		}
 
-		s := strings.TrimSpace(w.sc.Text())
+		s := w.sc.Text()
+		if strings.HasSuffix(s, "\\") {
+			w.prefix += s[:len(s)-1]
+			continue
+		}
+
+		s = w.prefix + s
+		w.prefix = ""
+		s = strings.TrimSpace(s)
 		if edx := strings.Index(s, "Entering directory"); edx >= 0 {
 			s = s[edx+len("Entering directory"):]
 			s = strings.TrimSpace(s)
@@ -1875,7 +1950,13 @@ func (w *cdbMakeWriter) Write(b []byte) (int, error) {
 			continue
 		}
 
+		if dmesgs {
+			dmesg("%v: source line `%s`", origin(1), s)
+		}
 		args, err := w.parser(s)
+		if dmesgs {
+			dmesg("%v: parser -> %v %[2]q, %v", origin(1), args, err)
+		}
 		if err != nil {
 			w.fail(err)
 			continue
@@ -1892,16 +1973,25 @@ func (w *cdbMakeWriter) Write(b []byte) (int, error) {
 		err = nil
 		switch args[0] {
 		case w.cc:
+			if w.t.verboseCompiledb {
+				fmt.Printf("source line: %q\n", s)
+			}
 			fmt.Printf("CCGO CC: %q\n", args)
 			err = w.handleGCC(args)
 		case w.ar:
 			fallthrough
 		case w.arBase:
 			if isCreateArchive(args[1]) {
+				if w.t.verboseCompiledb {
+					fmt.Printf("source line: %q\n", s)
+				}
 				fmt.Printf("CCGO AR: %q\n", args)
 				err = w.handleAR(args)
 			}
 		case "libtool":
+			if w.t.verboseCompiledb {
+				fmt.Printf("source line: %q\n", s)
+			}
 			fmt.Printf("CCGO LIBTOOL: %q\n", args)
 			err = w.handleLibtool(args)
 		}

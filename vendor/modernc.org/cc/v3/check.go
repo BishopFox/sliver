@@ -2093,6 +2093,8 @@ func (n *Pointer) check(ctx *context, typ Type) (t Type) {
 	case PointerPtr: // '*' TypeQualifiers Pointer
 		n.TypeQualifiers.check(ctx, &n.typeQualifiers)
 		typ = n.Pointer.check(ctx, typ)
+	case PointerBlock: // '^' TypeQualifiers
+		n.TypeQualifiers.check(ctx, &n.typeQualifiers)
 	default:
 		panic(todo(""))
 	}

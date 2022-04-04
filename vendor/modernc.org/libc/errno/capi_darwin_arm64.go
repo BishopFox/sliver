@@ -2,4 +2,6 @@
 
 package errno
 
-var CAPI = map[string]struct{}{}
+var CAPI = map[string]struct{}{
+	"__darwin_check_fd_set_overflow": {},
+}

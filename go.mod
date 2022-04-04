@@ -31,7 +31,7 @@ require (
 	github.com/lesnuages/snitch v0.6.0
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/mattn/go-isatty v0.0.13 // indirect
-	github.com/mattn/go-sqlite3 v1.14.9
+	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/miekg/dns v1.1.35
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/pquerna/otp v1.3.0
@@ -62,7 +62,7 @@ require (
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220208144051-fde48d68ee68
 	gvisor.dev/gvisor v0.0.0-20211020211948-f76a604701b6
-	modernc.org/sqlite v1.14.3
+	modernc.org/sqlite v1.16.0
 )
 
 require (
@@ -111,11 +111,11 @@ require (
 	google.golang.org/grpc/examples v0.0.0-20210910232509-03268c8ed29e // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 	lukechampine.com/uint128 v1.1.1 // indirect
-	modernc.org/cc/v3 v3.35.18 // indirect
-	modernc.org/ccgo/v3 v3.12.95 // indirect
-	modernc.org/libc v1.11.104 // indirect
+	modernc.org/cc/v3 v3.35.24 // indirect
+	modernc.org/ccgo/v3 v3.15.18 // indirect
+	modernc.org/libc v1.14.12 // indirect
 	modernc.org/mathutil v1.4.1 // indirect
-	modernc.org/memory v1.0.5 // indirect
+	modernc.org/memory v1.0.7 // indirect
 	modernc.org/opt v0.1.1 // indirect
 	modernc.org/strutil v1.1.1 // indirect
 	modernc.org/token v1.0.0 // indirect
