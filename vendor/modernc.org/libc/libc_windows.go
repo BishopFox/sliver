@@ -5872,3 +5872,5 @@ func bootWinEnviron(t *TLS) {
 	wenviron = uintptr(unsafe.Pointer(&winEnviron[0]))
 	wenvValid = true
 }
+
+func Xfabsl(t *TLS, x float64) float64 { return math.Abs(x) }

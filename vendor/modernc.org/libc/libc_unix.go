@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build linux || darwin || freebsd || netbsd
-// +build linux darwin freebsd netbsd
+//go:build linux || darwin || freebsd || netbsd || openbsd
+// +build linux darwin freebsd netbsd openbsd
 
 package libc // import "modernc.org/libc"
 

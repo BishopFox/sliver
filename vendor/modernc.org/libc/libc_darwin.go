@@ -2004,3 +2004,27 @@ func Xuuid_parse(t *TLS, in uintptr, uu uintptr) int32 {
 	copy((*RawMem)(unsafe.Pointer(uu))[:unsafe.Sizeof(uuid.Uuid_t{})], r[:])
 	return 0
 }
+
+// struct __float2 { float __sinval; float __cosval; };
+
+// struct __float2 __sincosf_stret(float);
+func X__sincosf_stret(t *TLS, f float32) struct{ F__sinval, F__cosval float32 } {
+	panic(todo(""))
+}
+
+// struct __double2 { double __sinval; double __cosval; };
+
+// struct __double2 __sincos_stret(double);
+func X__sincos_stret(t *TLS, f float64) struct{ F__sinval, F__cosval float64 } {
+	panic(todo(""))
+}
+
+// struct __float2 __sincospif_stret(float);
+func X__sincospif_stret(t *TLS, f float32) struct{ F__sinval, F__cosval float32 } {
+	panic(todo(""))
+}
+
+// struct _double2 __sincospi_stret(double);
+func X__sincospi_stret(t *TLS, f float64) struct{ F__sinval, F__cosval float64 } {
+	panic(todo(""))
+}

@@ -3117,6 +3117,9 @@ func (p *project) declaratorDecay(n cc.Node, f *function, d *cc.Declarator, t cc
 				return
 			}
 
+			if !local.isPinned {
+				p.err(n, "%v: %v: missed pinning", n.Position(), d.Position(), d.Name())
+			}
 			p.w("(%s%s)/* &%s[0] */", f.bpName, nonZeroUintptr(local.off), local.name)
 			return
 		}
@@ -3663,7 +3666,7 @@ func (p *project) declaratorAddrOfNormal(n cc.Node, f *function, d *cc.Declarato
 		x.used = true
 		p.w("uintptr(unsafe.Pointer(&%sX%s))", x.qualifier, d.Name())
 	default:
-		panic(todo("%v: %v: %q %T", n.Position(), p.pos(d), d.Name(), x))
+		p.err(n, "undefined: %s", d.Name())
 	}
 }
 
@@ -8135,6 +8138,11 @@ func (p *project) castExpressionValue(f *function, n *cc.CastExpression, t cc.Ty
 	case cc.CastExpressionUnary: // UnaryExpression
 		p.unaryExpression(f, n.UnaryExpression, t, mode, flags)
 	case cc.CastExpressionCast: // '(' TypeName ')' CastExpression
+		if f != nil && p.pass1 && n.TypeName.Type().IsIntegerType() && n.CastExpression.Operand.Type().Kind() == cc.Array {
+			if d := n.CastExpression.Declarator(); d != nil {
+				f.pin(n, d)
+			}
+		}
 		switch k := p.opKind(f, n.CastExpression, n.CastExpression.Operand.Type()); k {
 		case opNormal, opBitfield:
 			p.castExpressionValueNormal(f, n, t, mode, flags)
@@ -8168,8 +8176,12 @@ func (p *project) castExpressionValueFunction(f *function, n *cc.CastExpression,
 		switch {
 		case tn.Kind() == cc.Ptr && t.Kind() == cc.Ptr:
 			p.castExpression(f, n.CastExpression, op.Type(), exprValue, flags)
+		case tn.IsIntegerType():
+			p.w("%s(", p.typ(n, tn))
+			p.castExpression(f, n.CastExpression, op.Type(), exprValue, flags)
+			p.w(")")
 		default:
-			panic(todo("", n.Position()))
+			panic(todo("%v: tn %v expr %v", n.Position(), tn, op.Type()))
 		}
 	default:
 		panic(todo("%v: %v -> %v -> %v", p.pos(n), op.Type(), tn, t))
@@ -12557,7 +12569,7 @@ func (p *project) iterationStatement(f *function, n *cc.IterationStatement) {
 			break
 		}
 
-		v := "ok"
+		v := "__ccgo"
 		if !p.pass1 {
 			v = f.scope.take(cc.String(v))
 		}

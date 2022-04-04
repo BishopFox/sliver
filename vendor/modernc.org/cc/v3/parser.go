@@ -313,6 +313,7 @@ var (
 		dict.sid("__pragma_stdc"): PRAGMASTDC,
 		dict.sid("__restrict"):    RESTRICT,
 		dict.sid("__restrict__"):  RESTRICT,
+		dict.sid("__signed"):      SIGNED,
 		dict.sid("__signed__"):    SIGNED,
 		dict.sid("__thread"):      THREADLOCAL,
 		dict.sid("__typeof"):      TYPEOF,
@@ -2263,7 +2264,7 @@ func (p *parser) functionSpecifier(inline *bool) *FunctionSpecifier {
 //  declarator:
 // 	pointer_opt direct-declarator attribute-specifier-list_opt
 func (p *parser) declarator(declare, isTypedefName bool, ptr *Pointer) *Declarator {
-	if ptr == nil && p.rune() == '*' {
+	if ptr == nil && (p.rune() == '*' || p.rune() == '^') {
 		ptr = p.pointer()
 	}
 	r := &Declarator{IsTypedefName: isTypedefName, Pointer: ptr, DirectDeclarator: p.directDeclarator(nil)}
@@ -2488,9 +2489,21 @@ func (p *parser) directDeclarator(d *DirectDeclarator) (r *DirectDeclarator) {
 //  pointer:
 // 	* type-qualifier-list_opt
 // 	* type-qualifier-list_opt pointer
+//      ^ type-qualifier-list_opt
 func (p *parser) pointer() (r *Pointer) {
+	if p.rune() == '^' {
+		t := p.shift()
+		var list *TypeQualifiers
+		switch p.rune() {
+		case ATTRIBUTE, CONST, RESTRICT, VOLATILE, ATOMIC:
+			list = p.typeQualifierList()
+		}
+
+		return &Pointer{Case: PointerBlock, Token: t, TypeQualifiers: list}
+	}
+
 	if p.rune() != '*' {
-		p.err("expected *")
+		p.err("expected * or ^")
 		return nil
 	}
 
@@ -2608,7 +2621,8 @@ func (p *parser) parameterDeclaration() *ParameterDeclaration {
 
 func (p *parser) declaratorOrAbstractDeclarator(isTypedefName bool) (r Node) {
 	var ptr *Pointer
-	if p.rune() == '*' {
+	switch p.rune() {
+	case '*', '^':
 		ptr = p.pointer()
 	}
 	switch p.rune() {
@@ -2766,7 +2780,7 @@ func (p *parser) typeName() *TypeName {
 // 	pointer
 // 	pointer_opt direct-abstract-declarator
 func (p *parser) abstractDeclarator(ptr *Pointer) *AbstractDeclarator {
-	if ptr == nil && p.rune() == '*' {
+	if ptr == nil && (p.rune() == '*' || p.rune() == '^') {
 		ptr = p.pointer()
 	}
 	switch p.rune() {
