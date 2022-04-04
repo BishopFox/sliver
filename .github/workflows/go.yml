@@ -7,17 +7,17 @@ on:
     branches:
       - master
     types:
-    - opened
-    - reopened
-    - synchronize
-    - ready_for_review
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
 
 jobs:
 
   linux-windows-build:
     name: Linux & Windows Build
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
 
     - name: Go 1.18
@@ -52,7 +52,7 @@ jobs:
   macos-build:
     name: MacOS Build
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
 
     - name: Go 1.18
