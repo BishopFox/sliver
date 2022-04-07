@@ -267,6 +267,7 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 		GOROOT:     gogo.GetGoRootDir(appDir),
 		GOPROXY:    getGoProxy(),
 		HTTPPROXY:  getGoHttpProxy(),
+		HTTPSPROXY: getGoHttpsProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goPrivate(config),
@@ -340,6 +341,7 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 		GOROOT:     gogo.GetGoRootDir(appDir),
 		GOPROXY:    getGoProxy(),
 		HTTPPROXY:  getGoHttpProxy(),
+		HTTPSPROXY: getGoHttpsProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goPrivate(config),
@@ -401,6 +403,7 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 		GOMODCACHE: gogo.GetGoModCache(appDir),
 		GOPROXY:    getGoProxy(),
 		HTTPPROXY:  getGoHttpProxy(),
+		HTTPSPROXY: getGoHttpsProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goPrivate(config),
@@ -869,6 +872,16 @@ func getGoHttpProxy() string {
 		return value
 	}
 	buildLog.Debugf("No HTTP_PROXY found")
+	return ""
+}
+
+func getGoHttpsProxy() string {
+	value, present := os.LookupEnv("HTTPS_PROXY")
+	if present {
+		buildLog.Debugf("Using HTTPS_PROXY from env: %s", value)
+		return value
+	}
+	buildLog.Debugf("No HTTPS_PROXY found")
 	return ""
 }
 
