@@ -559,7 +559,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("k", "kill", "", "kill the designated session")
 			f.Bool("K", "kill-all", false, "kill all the sessions")
 			f.Bool("C", "clean", false, "clean out any sessions marked as [DEAD]")
-			f.Bool("f", "force", false, "force session action without waiting for results")
+			f.Bool("F", "force", false, "force session action without waiting for results")
+
+			f.String("f", "filter", "", "filter sessions by substring")
+			f.String("e", "filter-re", "", "filter sessions by regular expression")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -576,7 +579,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Kill all stale/dead sessions",
 		LongHelp: help.GetHelpFor([]string{consts.SessionsStr, consts.PruneStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Bool("f", "force", false, "Force the killing of stale/dead sessions")
+			f.Bool("F", "force", false, "Force the killing of stale/dead sessions")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
@@ -616,7 +620,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Bool("f", "force", false, "Force kill,  does not clean up")
+			f.Bool("F", "force", false, "Force kill,  does not clean up")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1678,7 +1682,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.RmStr}),
 		Flags: func(f *grumble.Flags) {
 			f.Bool("r", "recursive", false, "recursively remove files")
-			f.Bool("f", "force", false, "ignore safety and forcefully remove files")
+			f.Bool("F", "force", false, "ignore safety and forcefully remove files")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1914,7 +1918,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			a.Uint("pid", "pid")
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Bool("f", "force", false, "disregard safety and kill the PID")
+			f.Bool("F", "force", false, "disregard safety and kill the PID")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -2164,8 +2168,11 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("k", "kill", "", "kill a beacon")
 			f.Bool("K", "kill-all", false, "kill all beacons")
+			f.Bool("F", "force", false, "force killing of the beacon")
+			f.String("f", "filter", "", "filter beacons by substring")
+			f.String("e", "filter-re", "", "filter beacons by regular expression")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-			f.Bool("f", "force", false, "force killing of the beacon")
 		},
 		HelpGroup: consts.GenericHelpGroup,
 		Run: func(ctx *grumble.Context) error {
