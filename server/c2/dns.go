@@ -85,13 +85,12 @@ var (
 func StartDNSListener(bindIface string, lport uint16, domains []string, canaries bool, enforceOTP bool) *SliverDNSServer {
 	// StartPivotListener()
 	server := &SliverDNSServer{
-		server:          &dns.Server{Addr: fmt.Sprintf("%s:%d", bindIface, lport), Net: "udp"},
-		sessions:        &sync.Map{}, // DNS Session ID -> DNSSession
-		messages:        &sync.Map{}, // In progress message streams
-		totpToSessionID: &sync.Map{}, // Atomic TOTP -> DNS Session ID
-		TTL:             0,
-		MaxTXTLength:    defaultMaxTXTLength,
-		EnforceOTP:      enforceOTP,
+		server:       &dns.Server{Addr: fmt.Sprintf("%s:%d", bindIface, lport), Net: "udp"},
+		sessions:     &sync.Map{}, // DNS Session ID -> DNSSession
+		messages:     &sync.Map{}, // In progress message streams
+		TTL:          0,
+		MaxTXTLength: defaultMaxTXTLength,
+		EnforceOTP:   enforceOTP,
 	}
 	dnsLog.Infof("Starting DNS listener for %v (canaries: %v) ...", domains, canaries)
 	dns.HandleFunc(".", func(writer dns.ResponseWriter, req *dns.Msg) {
@@ -311,13 +310,12 @@ func (p *PendingEnvelope) Insert(dnsMsg *dnspb.DNSMessage) bool {
 
 // SliverDNSServer - DNS server implementation
 type SliverDNSServer struct {
-	server          *dns.Server
-	sessions        *sync.Map
-	messages        *sync.Map
-	totpToSessionID *sync.Map
-	TTL             uint32
-	MaxTXTLength    int
-	EnforceOTP      bool
+	server       *dns.Server
+	sessions     *sync.Map
+	messages     *sync.Map
+	TTL          uint32
+	MaxTXTLength int
+	EnforceOTP   bool
 }
 
 // Shutdown - Shutdown the DNS server
@@ -478,26 +476,18 @@ func (s *SliverDNSServer) handleTOTP(domain string, msg *dnspb.DNSMessage, req *
 		dnsLog.Warn("[dns] totp validation is disabled")
 	}
 
-	// Queries must be deterministic, so create or load the dns session id
-	// we'll likely get multiple queries for the same domain
-	actualID, loaded := s.totpToSessionID.LoadOrStore(totpCode, dnsSessionID())
-	dnsSessionID := actualID.(uint32)
+	dnsSessionID := dnsSessionID()
 	dnsLog.Debugf("[dns] Assigned new dns session id = %d", dnsSessionID&sessionIDBitMask)
-	if !loaded {
-		s.sessions.Store(dnsSessionID&sessionIDBitMask, &DNSSession{
-			ID:                dnsSessionID & sessionIDBitMask,
-			outgoingMsgIDs:    []uint32{},
-			outgoingBuffers:   map[uint32][]byte{},
-			outgoingMutex:     &sync.RWMutex{},
-			incomingEnvelopes: map[uint32]*PendingEnvelope{},
-			incomingMutex:     &sync.Mutex{},
-			msgCount:          uint32(0),
-		})
-		go func() {
-			time.Sleep(90 * time.Second) // Best effort to remove totp code after expiration
-			s.totpToSessionID.Delete(totpCode)
-		}()
-	}
+	s.sessions.Store(dnsSessionID&sessionIDBitMask, &DNSSession{
+		ID:                dnsSessionID & sessionIDBitMask,
+		outgoingMsgIDs:    []uint32{},
+		outgoingBuffers:   map[uint32][]byte{},
+		outgoingMutex:     &sync.RWMutex{},
+		incomingEnvelopes: map[uint32]*PendingEnvelope{},
+		incomingMutex:     &sync.Mutex{},
+		msgCount:          uint32(0),
+	})
+
 	resp := new(dns.Msg)
 	resp.SetReply(req)
 	resp.Authoritative = true
