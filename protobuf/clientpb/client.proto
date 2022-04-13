@@ -282,6 +282,7 @@ message DNSListenerReq {
   string Host = 3;
   uint32 Port = 4;
   bool Persistent = 5;
+  bool EnforceOTP = 6; 
 }
 
 message DNSListener {

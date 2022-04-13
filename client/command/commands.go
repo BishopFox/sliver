@@ -399,6 +399,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("c", "no-canaries", false, "disable dns canary detection")
 			f.String("L", "lhost", "", "interface to bind server to")
 			f.Int("l", "lport", generate.DefaultDNSLPort, "udp listen port")
+			f.Bool("D", "disable-otp", false, "disable otp authentication")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("p", "persistent", false, "make persistent across restarts")

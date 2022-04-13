@@ -82,7 +82,7 @@ var (
 )
 
 // StartDNSListener - Start a DNS listener
-func StartDNSListener(bindIface string, lport uint16, domains []string, canaries bool) *SliverDNSServer {
+func StartDNSListener(bindIface string, lport uint16, domains []string, canaries bool, enforceOTP bool) *SliverDNSServer {
 	// StartPivotListener()
 	server := &SliverDNSServer{
 		server:          &dns.Server{Addr: fmt.Sprintf("%s:%d", bindIface, lport), Net: "udp"},
@@ -91,6 +91,7 @@ func StartDNSListener(bindIface string, lport uint16, domains []string, canaries
 		totpToSessionID: &sync.Map{}, // Atomic TOTP -> DNS Session ID
 		TTL:             0,
 		MaxTXTLength:    defaultMaxTXTLength,
+		EnforceOTP:      enforceOTP,
 	}
 	dnsLog.Infof("Starting DNS listener for %v (canaries: %v) ...", domains, canaries)
 	dns.HandleFunc(".", func(writer dns.ResponseWriter, req *dns.Msg) {
@@ -316,6 +317,7 @@ type SliverDNSServer struct {
 	totpToSessionID *sync.Map
 	TTL             uint32
 	MaxTXTLength    int
+	EnforceOTP      bool
 }
 
 // Shutdown - Shutdown the DNS server
@@ -465,12 +467,16 @@ func (s *SliverDNSServer) refusedErrorResp(req *dns.Msg) *dns.Msg {
 func (s *SliverDNSServer) handleTOTP(domain string, msg *dnspb.DNSMessage, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[dns] totp request: %v", msg)
 	totpCode := fmt.Sprintf("%08d", msg.ID)
-	valid, err := cryptography.ValidateTOTP(totpCode)
-	if err != nil || !valid {
-		dnsLog.Warnf("totp request invalid (%v)", err)
-		return s.nameErrorResp(req)
+	if s.EnforceOTP {
+		valid, err := cryptography.ValidateTOTP(totpCode)
+		if err != nil || !valid {
+			dnsLog.Warnf("totp request invalid (%v)", err)
+			return s.nameErrorResp(req)
+		}
+		dnsLog.Debugf("[dns] totp request valid")
+	} else {
+		dnsLog.Warn("[dns] totp validation is disabled")
 	}
-	dnsLog.Debugf("[dns] totp request valid")
 
 	// Queries must be deterministic, so create or load the dns session id
 	// we'll likely get multiple queries for the same domain

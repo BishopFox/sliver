@@ -146,8 +146,8 @@ func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListen
 }
 
 // StartDNSListenerJob - Start a DNS listener as a job
-func StartDNSListenerJob(bindIface string, lport uint16, domains []string, canaries bool) (*core.Job, error) {
-	server := StartDNSListener(bindIface, lport, domains, canaries)
+func StartDNSListenerJob(bindIface string, lport uint16, domains []string, canaries bool, enforceOTP bool) (*core.Job, error) {
+	server := StartDNSListener(bindIface, lport, domains, canaries, enforceOTP)
 	description := fmt.Sprintf("%s (canaries %v)", strings.Join(domains, " "), canaries)
 	job := &core.Job{
 		ID:          core.NextJobID(),
@@ -362,7 +362,7 @@ func StartPersistentJobs(cfg *configs.ServerConfig) error {
 	}
 
 	for _, j := range cfg.Jobs.DNS {
-		job, err := StartDNSListenerJob(j.Host, j.Port, j.Domains, j.Canaries)
+		job, err := StartDNSListenerJob(j.Host, j.Port, j.Domains, j.Canaries, j.EnforceOTP)
 		if err != nil {
 			return err
 		}
