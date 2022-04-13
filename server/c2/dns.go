@@ -37,33 +37,29 @@ package c2
 import (
 	"bytes"
 	secureRand "crypto/rand"
+	"encoding/base64"
+	"encoding/binary"
 	"errors"
+	"fmt"
 	"hash/crc32"
 	"sort"
+	"strings"
+	"sync"
+	"time"
 	"unicode"
 
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/dnspb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 	sliverHandlers "github.com/bishopfox/sliver/server/handlers"
-	"github.com/bishopfox/sliver/util/encoders"
-	"google.golang.org/protobuf/proto"
-
-	"encoding/base64"
-	"encoding/binary"
-
-	"fmt"
-	"strings"
-	"sync"
-	"time"
-
-	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
-
+	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/miekg/dns"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
