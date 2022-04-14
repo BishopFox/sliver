@@ -23,7 +23,6 @@ import (
 	"path"
 
 	"github.com/bishopfox/sliver/server/log"
-
 	"golang.org/x/crypto/acme/autocert"
 )
 

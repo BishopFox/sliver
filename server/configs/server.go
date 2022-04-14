@@ -93,11 +93,12 @@ type WGJobConfig struct {
 
 // DNSJobConfig - Persistent DNS job config
 type DNSJobConfig struct {
-	Domains  []string `json:"domains"`
-	Canaries bool     `json:"canaries"`
-	Host     string   `json:"host"`
-	Port     uint16   `json:"port"`
-	JobID    string   `json:"job_id"`
+	Domains    []string `json:"domains"`
+	Canaries   bool     `json:"canaries"`
+	Host       string   `json:"host"`
+	Port       uint16   `json:"port"`
+	JobID      string   `json:"job_id"`
+	EnforceOTP bool     `json:"enforce_otp"`
 }
 
 // HTTPJobConfig - Persistent HTTP job config

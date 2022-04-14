@@ -34,7 +34,6 @@ import (
 	"github.com/bishopfox/sliver/server/console"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/daemon"
-
 	"github.com/spf13/cobra"
 )
 

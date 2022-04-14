@@ -159,17 +159,18 @@ func (rpc *Server) StartDNSListener(ctx context.Context, req *clientpb.DNSListen
 		listenPort = uint16(req.Port)
 	}
 
-	job, err := c2.StartDNSListenerJob(req.Host, listenPort, req.Domains, req.Canaries)
+	job, err := c2.StartDNSListenerJob(req.Host, listenPort, req.Domains, req.Canaries, req.EnforceOTP)
 	if err != nil {
 		return nil, err
 	}
 
 	if req.Persistent {
 		cfg := &configs.DNSJobConfig{
-			Domains:  req.Domains,
-			Host:     req.Host,
-			Port:     listenPort,
-			Canaries: req.Canaries,
+			Domains:    req.Domains,
+			Host:       req.Host,
+			Port:       listenPort,
+			Canaries:   req.Canaries,
+			EnforceOTP: req.EnforceOTP,
 		}
 		configs.GetServerConfig().AddDNSJob(cfg)
 		job.PersistentID = cfg.JobID

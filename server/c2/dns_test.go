@@ -140,7 +140,7 @@ func reassemble(t *testing.T, parent string, size int, encoder encoders.Encoder)
 }
 
 func TestIsC2Domain(t *testing.T) {
-	listener := StartDNSListener("", uint16(9999), c2Domains, false)
+	listener := StartDNSListener("", uint16(9999), c2Domains, false, true)
 	isC2, domain := listener.isC2SubDomain(c2Domains, "asdf.1.example.com.")
 	if !isC2 {
 		t.Fatal("IsC2Domain expected true, got false")
@@ -163,7 +163,7 @@ func TestIsC2Domain(t *testing.T) {
 }
 
 func TestDetermineLikelyEncoders(t *testing.T) {
-	listener := StartDNSListener("", uint16(9999), c2Domains, false)
+	listener := StartDNSListener("", uint16(9999), c2Domains, false, true)
 	sample := randomDataRandomSize(2048)
 	b58Sample := string(encoders.Base58{}.Encode(sample))
 	likelyEncoders := listener.determineLikelyEncoders(b58Sample)
