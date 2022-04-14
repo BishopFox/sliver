@@ -21,6 +21,7 @@ package sessions
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -97,12 +98,23 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			con.PrintErrorf("Invalid session name or session number: %s\n", interact)
 		}
 	} else {
+		filter := ctx.Flags.String("filter")
+		var filterRegex *regexp.Regexp
+		if ctx.Flags.String("filter-re") != "" {
+			var err error
+			filterRegex, err = regexp.Compile(ctx.Flags.String("filter-re"))
+			if err != nil {
+				con.PrintErrorf("%s\n", err)
+				return
+			}
+		}
+
 		sessionsMap := map[string]*clientpb.Session{}
 		for _, session := range sessions.GetSessions() {
 			sessionsMap[session.ID] = session
 		}
 		if 0 < len(sessionsMap) {
-			PrintSessions(sessionsMap, con)
+			PrintSessions(sessionsMap, filter, filterRegex, con)
 		} else {
 			con.PrintInfof("No sessions 🙁\n")
 		}
@@ -110,7 +122,7 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 // PrintSessions - Print the current sessions
-func PrintSessions(sessions map[string]*clientpb.Session, con *console.SliverConsoleClient) {
+func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterRegex *regexp.Regexp, con *console.SliverConsoleClient) {
 	width, _, err := term.GetSize(0)
 	if err != nil {
 		width = 999
@@ -128,7 +140,7 @@ func PrintSessions(sessions map[string]*clientpb.Session, con *console.SliverCon
 			"Hostname",
 			"Username",
 			"Operating System",
-			"Last Check-in",
+			"Last Message",
 			"Health",
 		})
 	} else {
@@ -164,8 +176,9 @@ func PrintSessions(sessions map[string]*clientpb.Session, con *console.SliverCon
 		}
 		username := strings.TrimPrefix(session.Username, session.Hostname+"\\") // For non-AD Windows users
 
+		var rowEntries []string
 		if con.Settings.SmallTermWidth < width {
-			tw.AppendRow(table.Row{
+			rowEntries = []string{
 				fmt.Sprintf(color+"%s"+console.Normal, ShortSessionID(session.ID)),
 				fmt.Sprintf(color+"%s"+console.Normal, session.Name),
 				fmt.Sprintf(color+"%s"+console.Normal, session.Transport),
@@ -175,9 +188,9 @@ func PrintSessions(sessions map[string]*clientpb.Session, con *console.SliverCon
 				fmt.Sprintf(color+"%s/%s"+console.Normal, session.OS, session.Arch),
 				fmt.Sprintf(color+"%s"+console.Normal, time.Unix(session.LastCheckin, 0).Format(time.RFC1123)),
 				burned + SessionHealth,
-			})
+			}
 		} else {
-			tw.AppendRow(table.Row{
+			rowEntries = []string{
 				fmt.Sprintf(color+"%s"+console.Normal, ShortSessionID(session.ID)),
 				fmt.Sprintf(color+"%s"+console.Normal, session.Transport),
 				fmt.Sprintf(color+"%s"+console.Normal, session.RemoteAddress),
@@ -185,7 +198,31 @@ func PrintSessions(sessions map[string]*clientpb.Session, con *console.SliverCon
 				fmt.Sprintf(color+"%s"+console.Normal, username),
 				fmt.Sprintf(color+"%s/%s"+console.Normal, session.OS, session.Arch),
 				burned + SessionHealth,
-			})
+			}
+		}
+		// Build the row struct
+		row := table.Row{}
+		for _, entry := range rowEntries {
+			row = append(row, entry)
+		}
+		// Apply filters if any
+		if filter == "" && filterRegex == nil {
+			tw.AppendRow(row)
+		} else {
+			for _, rowEntry := range rowEntries {
+				if filter != "" {
+					if strings.Contains(rowEntry, filter) {
+						tw.AppendRow(row)
+						break
+					}
+				}
+				if filterRegex != nil {
+					if filterRegex.MatchString(rowEntry) {
+						tw.AppendRow(row)
+						break
+					}
+				}
+			}
 		}
 	}
 
