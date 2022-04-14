@@ -20,7 +20,7 @@ set -e
 
 # Creates the static go asset archives
 
-GO_VER="1.18"
+GO_VER="1.18.1"
 GARBLE_VER="1.18.0"
 
 GO_ARCH_1="amd64"
@@ -102,9 +102,9 @@ cp -vv darwin-go.zip $OUTPUT_DIR/darwin/$GO_ARCH_2/go.zip
 rm -rf ./go
 rm -f darwin-go.zip go$GO_VER.darwin-$GO_ARCH_2.tar.gz
 
-# --- Linux --- 
-curl --output go$GO_VER.linux-amd64.tar.gz https://dl.google.com/go/go$GO_VER.linux-$GO_ARCH_1.tar.gz
-tar xvf go$GO_VER.linux-amd64.tar.gz
+# --- Linux (amd64) --- 
+curl --output go$GO_VER.linux-$GO_ARCH_1.tar.gz https://dl.google.com/go/go$GO_VER.linux-$GO_ARCH_1.tar.gz
+tar xvf go$GO_VER.linux-$GO_ARCH_1.tar.gz
 cd go
 rm -rf $BLOAT_FILES
 rm -rf ./src
@@ -117,6 +117,22 @@ mkdir -p $OUTPUT_DIR/linux/$GO_ARCH_1
 cp -vv linux-go.zip $OUTPUT_DIR/linux/$GO_ARCH_1/go.zip
 rm -rf ./go
 rm -f linux-go.zip go$GO_VER.linux-$GO_ARCH_1.tar.gz
+
+# --- Linux (arm64) --- 
+curl --output go$GO_VER.linux-$GO_ARCH_2.tar.gz https://dl.google.com/go/go$GO_VER.linux-$GO_ARCH_2.tar.gz
+tar xvf go$GO_VER.linux-$GO_ARCH_2.tar.gz
+cd go
+rm -rf $BLOAT_FILES
+rm -rf ./src
+rm -f ./pkg/tool/linux_$GO_ARCH_2/doc
+rm -f ./pkg/tool/linux_$GO_ARCH_2/tour
+rm -f ./pkg/tool/linux_$GO_ARCH_2/test2json
+cd ..
+zip -r linux-go.zip ./go
+mkdir -p $OUTPUT_DIR/linux/$GO_ARCH_2
+cp -vv linux-go.zip $OUTPUT_DIR/linux/$GO_ARCH_2/go.zip
+rm -rf ./go
+rm -f linux-go.zip go$GO_VER.linux-$GO_ARCH_2.tar.gz
 
 # --- Windows --- 
 curl --output go$GO_VER.windows-amd64.zip https://dl.google.com/go/go$GO_VER.windows-$GO_ARCH_1.zip
@@ -140,8 +156,8 @@ echo "-----------------------------------------------------------------"
 
 echo "curl -L --fail --output $OUTPUT_DIR/linux/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux"
 curl -L --fail --output $OUTPUT_DIR/linux/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux
-file $OUTPUT_DIR/linux/$GO_ARCH_1/garble
-
+echo "curl -L --fail --output $OUTPUT_DIR/linux/$GO_ARCH_2/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux"
+curl -L --fail --output $OUTPUT_DIR/linux/$GO_ARCH_2/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux
 echo "curl -L --fail --output $OUTPUT_DIR/windows/$GO_ARCH_1/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows.exe"
 curl -L --fail --output $OUTPUT_DIR/windows/$GO_ARCH_1/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows.exe
 echo "curl -L --fail --output $OUTPUT_DIR/darwin/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_1"
