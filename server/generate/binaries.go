@@ -150,6 +150,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.Debug = pbConfig.Debug
 	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
+	cfg.ConnectionStrategy = pbConfig.ConnectionStrategy
 
 	cfg.WGImplantPrivKey = pbConfig.WGImplantPrivKey
 	cfg.WGServerPubKey = pbConfig.WGServerPubKey
@@ -376,7 +377,7 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 	if err != nil {
 		return "", err
 	}
-	config.FileName = path.Base(dest)
+	config.FileName = filepath.Base(dest)
 
 	err = ImplantBuildSave(name, config, dest)
 	if err != nil {
