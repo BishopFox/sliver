@@ -305,6 +305,13 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		con.PrintInfof("Generated unique ip for wg peer tun interface: %s\n", tunIP.String())
 	}
 
+	// TODO: Use generics or something to check in a slice
+	connectionStrategy := ctx.Flags.String("strategy")
+	if connectionStrategy != "" && connectionStrategy != "s" && connectionStrategy != "r" && connectionStrategy != "rd" {
+		con.PrintErrorf("Invalid connection strategy: %s\n", connectionStrategy)
+		return nil
+	}
+
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
 		GOARCH:           targetArch,
@@ -319,6 +326,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		WGKeyExchangePort: uint32(ctx.Flags.Int("key-exchange")),
 		WGTcpCommsPort:    uint32(ctx.Flags.Int("tcp-comms")),
 
+		ConnectionStrategy:  connectionStrategy,
 		ReconnectInterval:   int64(reconnectInterval) * int64(time.Second),
 		PollTimeout:         int64(pollTimeout) * int64(time.Second),
 		MaxConnectionErrors: uint32(maxConnectionErrors),
