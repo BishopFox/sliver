@@ -31,9 +31,9 @@ import (
 func DNSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	domains := strings.Split(ctx.Flags.String("domains"), ",")
-	for _, domain := range domains {
+	for index, domain := range domains {
 		if !strings.HasSuffix(domain, ".") {
-			domain += "."
+			domains[index] += "."
 		}
 	}
 
