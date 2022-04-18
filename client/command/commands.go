@@ -1462,6 +1462,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("T", "tcp-comms", generate.DefaultWGNPort, "wg c2 comms port")
 
 			f.Bool("R", "run-at-load", false, "run the implant entrypoint from DllMain/Constructor (shared library only)")
+			f.String("Z", "strategy", "", "specify a connection strategy (r = random, rd = random domain, s = sequential)")
 
 			f.Int("j", "reconnect", generate.DefaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("P", "poll-timeout", generate.DefaultPollTimeout, "long poll request timeout")
@@ -1518,6 +1519,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("n", "dns", "", "dns connection strings")
 			f.String("p", "named-pipe", "", "named-pipe connection strings")
 			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
+			f.String("Z", "strategy", "", "specify a connection strategy (r = random, rd = random domain, s = sequential)")
 
 			f.Int("X", "key-exchange", generate.DefaultWGKeyExPort, "wg key-exchange port")
 			f.Int("T", "tcp-comms", generate.DefaultWGNPort, "wg c2 comms port")
