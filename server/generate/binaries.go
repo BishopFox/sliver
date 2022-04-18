@@ -352,7 +352,7 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 		return "", err
 	}
 
-	dest := path.Join(goConfig.ProjectDir, "bin", path.Base(name))
+	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
 	if goConfig.GOOS == WINDOWS {
 		dest += ".dll"
 	}
@@ -367,6 +367,10 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 	ldflags := []string{"-s -w -buildid="}
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
+	}
+	// Statically link Linux .so files to avoid glibc hell
+	if goConfig.GOOS == LINUX && goConfig.CC != "" && goConfig.CGO == "1" {
+		ldflags[0] += " -linkmode external -extldflags \"-static\""
 	}
 	// Keep those for potential later use
 	gcflags := ""

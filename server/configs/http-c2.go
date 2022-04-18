@@ -35,7 +35,7 @@ import (
 
 const (
 	httpC2ConfigFileName = "http-c2.json"
-	chromeBaseVer        = 92
+	chromeBaseVer        = 97
 )
 
 // HTTPC2Config - Parent config file struct for implant/server
