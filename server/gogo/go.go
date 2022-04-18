@@ -126,7 +126,10 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-
+	gogoLog.Debugf("--- env ---\n")
+	for _, envVar := range cmd.Env {
+		gogoLog.Debugf("%s\n", envVar)
+	}
 	gogoLog.Infof("garble cmd: '%v'", cmd)
 	err := cmd.Run()
 	if err != nil {

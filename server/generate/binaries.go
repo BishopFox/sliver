@@ -673,13 +673,17 @@ func getCrossCompilersFromEnv(targetGoos string, targetGoarch string) (string, s
 
 	// Get Defaults
 	if targetGoarch == "amd64" {
-		cc = os.Getenv(SliverCC64EnvVar)
 		if os.Getenv(fmt.Sprintf(SliverPlatformCC64EnvVar, TARGET_GOOS)) != "" {
 			cc = os.Getenv(fmt.Sprintf(SliverPlatformCC64EnvVar, TARGET_GOOS))
 		}
-		cxx = os.Getenv(SliverCXX64EnvVar)
+		if cc == "" {
+			cc = os.Getenv(SliverCC64EnvVar)
+		}
 		if os.Getenv(fmt.Sprintf(SliverPlatformCXX64EnvVar, TARGET_GOOS)) != "" {
 			cc = os.Getenv(fmt.Sprintf(SliverPlatformCXX64EnvVar, TARGET_GOOS))
+		}
+		if cxx == "" {
+			cxx = os.Getenv(SliverCXX64EnvVar)
 		}
 	}
 	if targetGoarch == "386" {
@@ -717,11 +721,9 @@ func findCrossCompilers(targetGoos string, targetGoarch string) (string, string)
 	// Check to see if CC and CXX exist
 	if _, err := os.Stat(cc); os.IsNotExist(err) {
 		buildLog.Warnf("CC path '%s' does not exist", cc)
-		cc = "" // Path does not exist
 	}
 	if _, err := os.Stat(cxx); os.IsNotExist(err) {
 		buildLog.Warnf("CXX path '%s' does not exist", cxx)
-		cxx = "" // Path does not exist
 	}
 	buildLog.Debugf(" CC = '%s'", cc)
 	buildLog.Debugf("CXX = '%s'", cxx)
