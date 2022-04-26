@@ -77,8 +77,12 @@ ifeq ($(UNAME_S),Darwin)
 	SED_INPLACE := sed -i ''
 	STATIC_TARGET := macos
 endif
+
+# If no target is specified, determine GOARCH
 ifeq ($(UNAME_P),arm)
-	ENV += GOARCH=arm64
+	ifeq ($(MAKECMDGOALS), )
+		ENV += GOARCH=arm64
+	endif
 endif
 
 ifeq ($(MAKECMDGOALS), linux)
@@ -115,8 +119,13 @@ macos-arm64: clean validate-go-version
 
 .PHONY: linux
 linux: clean validate-go-version
-	GOOS=linux $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
-	GOOS=linux $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
+	GOOS=linux GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
+	GOOS=linux GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
+
+.PHONY: linux-arm64
+linux-arm64: clean validate-go-version
+	GOOS=linux GOARCH=arm64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
+	GOOS=linux GOARCH=arm64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 .PHONY: windows
 windows: clean validate-go-version
