@@ -104,7 +104,7 @@ func getInfo(t syscall.Token, class uint32, initSize int) (unsafe.Pointer, error
 
 // getTokenOwner retrieves access token t owner account information.
 func getTokenOwner(t syscall.Token) (*syscall.Tokenuser, error) {
-	i, e := getInfo(t, syscall.TokenOwner, 50)
+	i, e := getInfo(t, syscall.TokenUser, 50)
 	if e != nil {
 		return nil, e
 	}
