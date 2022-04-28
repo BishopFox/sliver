@@ -61,7 +61,11 @@ func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		dst = "loot"
 	} else {
 		// If this download is not being looted, make sure the local path exists
-		dst, _ := filepath.Abs(localPath)
+		dst, err := filepath.Abs(localPath)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
 		fi, err := os.Stat(dst)
 		if err != nil && !os.IsNotExist(err) {
 			con.PrintErrorf("%s\n", err)
