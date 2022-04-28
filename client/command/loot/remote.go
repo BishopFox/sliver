@@ -83,7 +83,7 @@ func LootAddRemoteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	// Determine type based on download buffer
 	lootFileType, err := lootFileTypeFromHumanStr(ctx.Flags.String("file-type"))
 	if lootFileType == -1 || err != nil {
-		if isText(download.Data) {
+		if IsText(download.Data) {
 			lootFileType = clientpb.FileType_TEXT
 		} else {
 			lootFileType = clientpb.FileType_BINARY

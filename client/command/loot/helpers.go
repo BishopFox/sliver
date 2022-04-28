@@ -60,7 +60,7 @@ func AddLootFile(rpc rpcpb.SliverRPCClient, name string, fileName string, data [
 		lootType = clientpb.LootType_LOOT_FILE
 	}
 	var lootFileType clientpb.FileType
-	if isText(data) || strings.HasSuffix(fileName, ".txt") {
+	if IsText(data) || strings.HasSuffix(fileName, ".txt") {
 		lootFileType = clientpb.FileType_TEXT
 	} else {
 		lootFileType = clientpb.FileType_BINARY

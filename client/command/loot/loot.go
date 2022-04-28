@@ -85,7 +85,7 @@ func PrintLootFile(stdout io.Writer, loot *clientpb.Loot) {
 		fmt.Fprintf(stdout, "%sFile Name:%s %s\n\n", console.Bold, console.Normal, loot.File.Name)
 	}
 	if loot.File.Data != nil && 0 < len(loot.File.Data) {
-		if loot.FileType == clientpb.FileType_TEXT || isText(loot.File.Data) {
+		if loot.FileType == clientpb.FileType_TEXT || IsText(loot.File.Data) {
 			fmt.Fprintf(stdout, "%s", string(loot.File.Data))
 		} else {
 			fmt.Fprintf(stdout, "<%d bytes of binary data>\n", len(loot.File.Data))
@@ -386,12 +386,12 @@ func isTextFile(filePath string) bool {
 		return false
 	}
 
-	return isText(buf[0:n])
+	return IsText(buf[0:n])
 }
 
 // isText reports whether a significant prefix of s looks like correct UTF-8;
 // that is, if it is likely that s is human-readable text.
-func isText(sample []byte) bool {
+func IsText(sample []byte) bool {
 	const max = 1024 // at least utf8.UTFMax
 	if len(sample) > max {
 		sample = sample[0:max]
