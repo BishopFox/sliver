@@ -271,7 +271,7 @@ func LootDownload(download *sliverpb.Download, ctx *grumble.Context, con *consol
 			*/
 			fileData, err := io.ReadAll(tarReader)
 			if err == nil {
-				lootMessage := createLootMessage(path.Base(entryHeader.Name), fileData)
+				lootMessage := createLootMessage(filepath.Base(entryHeader.Name), fileData)
 				sendLootMessage(lootMessage, con)
 			}
 		}
