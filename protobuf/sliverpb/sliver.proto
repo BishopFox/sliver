@@ -242,6 +242,7 @@ message Download {
   int64 Start = 4;
   int64 Stop = 5;
   bytes Data = 6;
+  bool IsDir = 7;
 
   commonpb.Response Response = 9;
 }

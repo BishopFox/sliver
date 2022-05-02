@@ -159,14 +159,15 @@ func PrintAllLootTable(stdout io.Writer, allLoot *clientpb.AllLoot) {
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
 	// Column Headers
-	fmt.Fprintln(table, "Type\tName\tUUID\t")
-	fmt.Fprintf(table, "%s\t%s\t%s\t\n",
+	fmt.Fprintln(table, "Type\tName\tFile Name\tUUID\t")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
 		strings.Repeat("=", len("Type")),
 		strings.Repeat("=", len("Name")),
+		strings.Repeat("=", len("File Name")),
 		strings.Repeat("=", len("UUID")),
 	)
 	for _, loot := range allLoot.Loot {
-		fmt.Fprintf(table, "%s\t%s\t%s\t\n", lootTypeToStr(loot.Type), loot.Name, loot.LootID)
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n", lootTypeToStr(loot.Type), loot.Name, loot.File.Name, loot.LootID)
 	}
 
 	table.Flush()
@@ -401,7 +402,7 @@ func isText(sample []byte) bool {
 			// last char may be incomplete - ignore
 			break
 		}
-		if c == 0xFFFD || c < ' ' && c != '\n' && c != '\t' && c != '\f' {
+		if c == 0xFFFD || c < ' ' && c != '\n' && c != '\t' && c != '\f' && c != '\r' {
 			// decoding error or control character - not a text file
 			return false
 		}
