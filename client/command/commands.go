@@ -1786,6 +1786,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 
 			f.Bool("X", "loot", false, "save output as loot")
+			f.String("T", "type", "", "force a specific loot type (file/cred) if looting")
+			f.String("F", "file-type", "", "force a specific file type (binary/text) if looting")
+			f.String("n", "name", "", "name to assign the download if looting")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("remote-path", "path to the file or directory to download")
@@ -2845,7 +2848,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Add a remote file from the current session to the server's loot store",
 		LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.LootRemoteStr}),
 		Args: func(a *grumble.Args) {
-			a.String("path", "The local file path to the loot")
+			a.String("path", "The file path on the remote host to the loot")
 		},
 		Flags: func(f *grumble.Flags) {
 			f.String("n", "name", "", "name of this piece of loot")

@@ -614,12 +614,58 @@ func gzipRead(data []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+func standarizeArchiveFileName(path string) string {
+	// Change all backslashes to forward slashes
+	var standardFilePath string = strings.ReplaceAll(path, "\\", "/")
+
+	/*
+		Remove the volume / root from the directory
+		path. This makes it so that files on the
+		system where the archive is extracted to
+		will not be clobbered.
+
+		Tried with filepath.VolumeName, but that function
+		does not work reliably with Windows paths
+	*/
+	if strings.HasPrefix(standardFilePath, "//") {
+		// If this a UNC path, filepath.Rel is not going to work
+		return standardFilePath[2:]
+	} else {
+		// Calculate a path relative to the root
+		pathParts := strings.SplitN(standardFilePath, "/", 2)
+		if len(pathParts) < 2 {
+			// Then something is wrong with this path
+			return standardFilePath
+		}
+
+		basePath := pathParts[0]
+		fileRelPath := pathParts[1]
+
+		if basePath == "" {
+			// If base path is blank, that means it started with / and / is the root
+			return fileRelPath
+		} else {
+			/*
+				Then this is almost certainly Windows, and we will set the archive up
+				so that it preserves the path but without the colon.
+				Something like:
+				c/windows/system32/file.whatever
+				Colons are not legal in Windows filenames, so let's get rid of them.
+			*/
+			basePath = strings.ReplaceAll(basePath, ":", "")
+			basePath = strings.ToLower(basePath)
+			return basePath + "/" + fileRelPath
+		}
+	}
+}
+
 func compressDir(path string, buf io.Writer) error {
 	zipWriter := gzip.NewWriter(buf)
 	tarWriter := tar.NewWriter(zipWriter)
 
 	filepath.Walk(path, func(file string, fi os.FileInfo, err error) error {
-		fileName := file
+		fileName := standarizeArchiveFileName(file)
+
 		// If the file is a SymLink replace fileInfo and path with the symlink destination.
 		if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
 			file, err = filepath.EvalSymlinks(file)

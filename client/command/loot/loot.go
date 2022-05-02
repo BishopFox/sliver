@@ -85,7 +85,7 @@ func PrintLootFile(stdout io.Writer, loot *clientpb.Loot) {
 		fmt.Fprintf(stdout, "%sFile Name:%s %s\n\n", console.Bold, console.Normal, loot.File.Name)
 	}
 	if loot.File.Data != nil && 0 < len(loot.File.Data) {
-		if loot.FileType == clientpb.FileType_TEXT || IsText(loot.File.Data) {
+		if loot.FileType == clientpb.FileType_TEXT || isText(loot.File.Data) {
 			fmt.Fprintf(stdout, "%s", string(loot.File.Data))
 		} else {
 			fmt.Fprintf(stdout, "<%d bytes of binary data>\n", len(loot.File.Data))
@@ -159,14 +159,15 @@ func PrintAllLootTable(stdout io.Writer, allLoot *clientpb.AllLoot) {
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
 	// Column Headers
-	fmt.Fprintln(table, "Type\tName\tUUID\t")
-	fmt.Fprintf(table, "%s\t%s\t%s\t\n",
+	fmt.Fprintln(table, "Type\tName\tFile Name\tUUID\t")
+	fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n",
 		strings.Repeat("=", len("Type")),
 		strings.Repeat("=", len("Name")),
+		strings.Repeat("=", len("File Name")),
 		strings.Repeat("=", len("UUID")),
 	)
 	for _, loot := range allLoot.Loot {
-		fmt.Fprintf(table, "%s\t%s\t%s\t\n", lootTypeToStr(loot.Type), loot.Name, loot.LootID)
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n", lootTypeToStr(loot.Type), loot.Name, loot.File.Name, loot.LootID)
 	}
 
 	table.Flush()
@@ -386,12 +387,12 @@ func isTextFile(filePath string) bool {
 		return false
 	}
 
-	return IsText(buf[0:n])
+	return isText(buf[0:n])
 }
 
 // isText reports whether a significant prefix of s looks like correct UTF-8;
 // that is, if it is likely that s is human-readable text.
-func IsText(sample []byte) bool {
+func isText(sample []byte) bool {
 	const max = 1024 // at least utf8.UTFMax
 	if len(sample) > max {
 		sample = sample[0:max]
@@ -401,7 +402,7 @@ func IsText(sample []byte) bool {
 			// last char may be incomplete - ignore
 			break
 		}
-		if c == 0xFFFD || c < ' ' && c != '\n' && c != '\t' && c != '\f' {
+		if c == 0xFFFD || c < ' ' && c != '\n' && c != '\t' && c != '\f' && c != '\r' {
 			// decoding error or control character - not a text file
 			return false
 		}

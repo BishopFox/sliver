@@ -60,7 +60,7 @@ func AddLootFile(rpc rpcpb.SliverRPCClient, name string, fileName string, data [
 		lootType = clientpb.LootType_LOOT_FILE
 	}
 	var lootFileType clientpb.FileType
-	if IsText(data) || strings.HasSuffix(fileName, ".txt") {
+	if isText(data) || strings.HasSuffix(fileName, ".txt") {
 		lootFileType = clientpb.FileType_TEXT
 	} else {
 		lootFileType = clientpb.FileType_BINARY
@@ -176,7 +176,11 @@ func SelectLoot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) (*clientpb.Loot
 	buf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
 	for _, loot := range allLoot.Loot {
-		fmt.Fprintf(table, "%s\t%s\t%s\t\n", loot.Name, loot.Type, loot.LootID)
+		if loot.Name == loot.File.Name {
+			fmt.Fprintf(table, "%s\t%s\t%s\t\n", loot.Name, loot.Type, loot.LootID)
+		} else {
+			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n", loot.Name, loot.File.Name, loot.Type, loot.LootID)
+		}
 	}
 	table.Flush()
 	options := strings.Split(buf.String(), "\n")
