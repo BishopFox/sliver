@@ -994,10 +994,12 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Bool("T", "token", false, "execute command with current token (windows only)")
 			f.Bool("o", "output", false, "capture command output")
+			f.Bool("s", "save", false, "save output to a file")
 			f.Bool("X", "loot", false, "save output as loot")
 			f.Bool("S", "ignore-stderr", false, "don't print STDERR output")
 			f.String("O", "stdout", "", "remote path to redirect STDOUT to")
 			f.String("E", "stderr", "", "remote path to redirect STDERR to")
+			f.String("n", "name", "", "name to assign loot (optional)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1030,6 +1032,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("a", "arch", "x84", "Assembly target architecture: x86, x64, x84 (x86+x64)")
 			f.Bool("s", "save", false, "save output to file")
 			f.Bool("X", "loot", false, "save output as loot")
+			f.String("n", "name", "", "name to assign loot (optional)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1074,6 +1077,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("e", "entry-point", "", "Entrypoint for the DLL (Windows only)")
 			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
 			f.Bool("s", "save", false, "save output to file")
+			f.Bool("X", "loot", false, "save output as loot")
+			f.String("n", "name", "", "name to assign loot (optional)")
 			f.Bool("k", "keep-alive", false, "don't terminate host process once the execution completes")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -1099,6 +1104,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
 			f.String("e", "export", "ReflectiveLoader", "Entrypoint of the Reflective DLL")
 			f.Bool("s", "save", false, "save output to file")
+			f.Bool("X", "loot", false, "save output as loot")
+			f.String("n", "name", "", "name to assign loot (optional)")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("k", "keep-alive", false, "don't terminate host process once the execution completes")
 		},
@@ -1765,6 +1772,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("c", "colorize-output", false, "colorize output")
 			f.Bool("x", "hex", false, "display as a hex dump")
 			f.Bool("X", "loot", false, "save output as loot")
+			f.String("n", "name", "", "name to assign loot (optional)")
+			f.String("T", "type", "", "force a specific loot type (file/cred) if looting (optional)")
+			f.String("F", "file-type", "", "force a specific file type (binary/text) if looting (optional)")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("path", "path to the file to print")
@@ -1899,6 +1909,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("p", "pid", -1, "target pid")
 			f.String("n", "name", "", "target process name")
 			f.String("s", "save", "", "save to file (will overwrite if exists)")
+			f.Bool("X", "loot", false, "save output as loot")
+			f.String("N", "loot-name", "", "name to assign when adding the memory dump to the loot store (optional)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -2132,6 +2144,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("s", "save", "", "save to file (will overwrite if exists)")
 			f.Bool("X", "loot", false, "save output as loot")
+			f.String("n", "name", "", "name to assign loot (optional)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},

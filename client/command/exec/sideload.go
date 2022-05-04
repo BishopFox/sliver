@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -70,7 +69,7 @@ func SideloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	hostname := getHostname(session, beacon)
+	hostName := getHostname(session, beacon)
 	if sideload.Response != nil && sideload.Response.Async {
 		con.AddBeaconCallback(sideload.Response.TaskID, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, sideload)
@@ -78,34 +77,27 @@ func SideloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			PrintSideload(sideload, hostname, ctx, con)
+
+			HandleSideloadResponse(sideload, binPath, hostName, ctx, con)
 		})
 		con.PrintAsyncResponse(sideload.Response)
 	} else {
-		PrintSideload(sideload, hostname, ctx, con)
+		HandleSideloadResponse(sideload, binPath, hostName, ctx, con)
 	}
 }
 
-// PrintSideload - Print the sideload command output
-func PrintSideload(sideload *sliverpb.Sideload, hostname string, ctx *grumble.Context, con *console.SliverConsoleClient) {
+func HandleSideloadResponse(sideload *sliverpb.Sideload, binPath string, hostName string, ctx *grumble.Context, con *console.SliverConsoleClient) {
+	saveLoot := ctx.Flags.Bool("loot")
+	lootName := ctx.Flags.String("name")
+
 	if sideload.GetResponse().GetErr() != "" {
 		con.PrintErrorf("%s\n", sideload.GetResponse().GetErr())
 		return
 	}
 
-	var outFilePath *os.File
-	var err error
-	if ctx.Flags.Bool("save") {
-		outFile := filepath.Base(fmt.Sprintf("%s_%s*.log", ctx.Command.Name, hostname))
-		outFilePath, err = ioutil.TempFile("", outFile)
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return
-		}
-	}
-	con.PrintInfof("Output:\n%s", sideload.GetResult())
-	if outFilePath != nil {
-		outFilePath.Write([]byte(sideload.GetResult()))
-		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
+	PrintExecutionOutput(sideload.GetResult(), ctx.Flags.Bool("save"), ctx.Command.Name, hostName, con)
+
+	if saveLoot {
+		LootExecute([]byte(sideload.Result), lootName, ctx.Command.Name, binPath, hostName, con)
 	}
 }

@@ -97,6 +97,10 @@ func PerformDownload(remotePath string, fileName string, ctx *grumble.Context, c
 		con.PrintAsyncResponse(download.Response)
 	}
 
+	if download.Response != nil && download.Response.Err != "" {
+		return nil, fmt.Errorf("%s\n", download.Response.Err)
+	}
+
 	// Decode the downloaded data if required
 	if download.Encoder == "gzip" {
 		download.Data, err = new(encoders.Gzip).Decode(download.Data)
@@ -108,7 +112,11 @@ func PerformDownload(remotePath string, fileName string, ctx *grumble.Context, c
 	return download, nil
 }
 
-func createLootMessage(fileName string, lootName string, lootType clientpb.LootType, lootFileType clientpb.FileType, data []byte) *clientpb.Loot {
+func CreateLootMessage(fileName string, lootName string, lootType clientpb.LootType, lootFileType clientpb.FileType, data []byte) *clientpb.Loot {
+	if lootName == "" {
+		lootName = fileName
+	}
+
 	lootMessage := &clientpb.Loot{
 		Name:     lootName,
 		Type:     lootType,
@@ -126,7 +134,7 @@ func createLootMessage(fileName string, lootName string, lootType clientpb.LootT
 	return lootMessage
 }
 
-func sendLootMessage(loot *clientpb.Loot, con *console.SliverConsoleClient) {
+func SendLootMessage(loot *clientpb.Loot, con *console.SliverConsoleClient) {
 	control := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("Sending looted file (%s) to the server...", loot.Name), control)
 
@@ -138,9 +146,9 @@ func sendLootMessage(loot *clientpb.Loot, con *console.SliverConsoleClient) {
 	}
 
 	if loot.Name != loot.File.Name {
-		con.Printf("Successfully looted %s (%s) (ID: %s)\n", loot.File.Name, loot.Name, loot.LootID)
+		con.PrintInfof("Successfully looted %s (%s) (ID: %s)\n", loot.File.Name, loot.Name, loot.LootID)
 	} else {
-		con.Printf("Successfully looted %s (ID: %s)\n", loot.Name, loot.LootID)
+		con.PrintInfof("Successfully looted %s (ID: %s)\n", loot.Name, loot.LootID)
 	}
 
 	return
@@ -161,8 +169,8 @@ func LootDownload(download *sliverpb.Download, lootName string, lootType clientp
 	if !download.IsDir {
 		// filepath.Base does not deal with backslashes correctly in Windows paths, so we have to standardize the path to forward slashes
 		downloadPath := strings.ReplaceAll(download.Path, "\\", "/")
-		lootMessage := createLootMessage(filepath.Base(downloadPath), lootName, lootType, fileType, download.Data)
-		sendLootMessage(lootMessage, con)
+		lootMessage := CreateLootMessage(filepath.Base(downloadPath), lootName, lootType, fileType, download.Data)
+		SendLootMessage(lootMessage, con)
 	} else {
 		// We have to decompress the gzip file first
 		decompressedDownload, err := gzip.NewReader(bytes.NewReader(download.Data))
@@ -211,8 +219,8 @@ func LootDownload(download *sliverpb.Download, lootName string, lootType clientp
 			*/
 			fileData, err := io.ReadAll(tarReader)
 			if err == nil {
-				lootMessage := createLootMessage(filepath.Base(entryHeader.Name), lootName, lootType, fileType, fileData)
-				sendLootMessage(lootMessage, con)
+				lootMessage := CreateLootMessage(filepath.Base(entryHeader.Name), lootName, lootType, fileType, fileData)
+				SendLootMessage(lootMessage, con)
 			}
 		}
 	}
@@ -227,9 +235,6 @@ func LootAddRemoteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	remotePath := ctx.Args.String("path")
 	fileName := filepath.Base(remotePath)
 	name := ctx.Flags.String("name")
-	if name == "" {
-		name = fileName
-	}
 
 	lootType, err := ValidateLootType(ctx.Flags.String("type"))
 	if err != nil {
