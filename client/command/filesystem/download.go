@@ -59,10 +59,13 @@ func PerformDownload(remotePath string, fileName string, destination string, ctx
 		con.PrintAsyncResponse(download.Response)
 	}
 
+	if download.Response != nil && download.Response.Err != "" {
+		return download, fmt.Errorf("%s\n", download.Response.Err)
+	}
+
 	if download.Encoder == "gzip" {
 		download.Data, err = new(encoders.Gzip).Decode(download.Data)
 		if err != nil {
-			con.PrintErrorf("Decoding failed %s", err)
 			return nil, fmt.Errorf("Decoding failed %s", err)
 		}
 	}
@@ -92,11 +95,12 @@ func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		// The destination is the loot store.
 		dst = "loot"
 		lootName = ctx.Flags.String("name")
-		if lootName == "" {
-			lootName = fileName
-		}
 
 		lootType, err = loot.ValidateLootType(ctx.Flags.String("type"))
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
 		// Determine file type after the download is complete
 	} else {
 		// If this download is not being looted, make sure the local path exists

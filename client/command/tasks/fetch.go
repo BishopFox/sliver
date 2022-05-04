@@ -233,7 +233,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 				"loot": &grumble.FlagMapItem{Value: false, IsDefault: true},
 			},
 		}
-		exec.PrintExecuteAssembly(execAssembly, hostname, assemblyPath, ctx, con)
+		exec.HandleExecuteAssemblyResponse(execAssembly, assemblyPath, hostname, ctx, con)
 
 	// execute-shellcode
 	case sliverpb.MsgTaskReq:
@@ -289,9 +289,10 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			Command: &grumble.Command{Name: "sideload"},
 			Flags: grumble.FlagMap{
 				"save": &grumble.FlagMapItem{Value: false},
+				"loot": &grumble.FlagMapItem{Value: false},
 			},
 		}
-		exec.PrintSideload(sideload, hostname, ctx, con)
+		exec.HandleSideloadResponse(sideload, "", hostname, ctx, con)
 
 	case sliverpb.MsgSpawnDllReq:
 		spawnDll := &sliverpb.SpawnDll{}
@@ -309,9 +310,10 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			Command: &grumble.Command{Name: "spawndll"},
 			Flags: grumble.FlagMap{
 				"save": &grumble.FlagMapItem{Value: false},
+				"loot": &grumble.FlagMapItem{Value: false},
 			},
 		}
-		exec.PrintSpawnDll(spawnDll, hostname, ctx, con)
+		exec.HandleSpawnDLLResponse(spawnDll, "", hostname, ctx, con)
 
 	case sliverpb.MsgSSHCommandReq:
 		sshCommand := &sliverpb.SSHCommand{}

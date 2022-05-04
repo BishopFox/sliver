@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/console"
@@ -48,7 +46,7 @@ func SpawnDllCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	ctrl <- true
 	<-ctrl
 
-	hostname := getHostname(session, beacon)
+	hostName := getHostname(session, beacon)
 	if spawndll.Response != nil && spawndll.Response.Async {
 		con.AddBeaconCallback(spawndll.Response.TaskID, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, spawndll)
@@ -56,34 +54,27 @@ func SpawnDllCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			PrintSpawnDll(spawndll, hostname, ctx, con)
+
+			HandleSpawnDLLResponse(spawndll, binPath, hostName, ctx, con)
 		})
 		con.PrintAsyncResponse(spawndll.Response)
 	} else {
-		PrintSpawnDll(spawndll, hostname, ctx, con)
+		HandleSpawnDLLResponse(spawndll, binPath, hostName, ctx, con)
 	}
 }
 
-// PrintSpawnDll - Print the SpawnDll command response
-func PrintSpawnDll(spawndll *sliverpb.SpawnDll, hostname string, ctx *grumble.Context, con *console.SliverConsoleClient) {
+func HandleSpawnDLLResponse(spawndll *sliverpb.SpawnDll, binPath string, hostName string, ctx *grumble.Context, con *console.SliverConsoleClient) {
+	saveLoot := ctx.Flags.Bool("loot")
+	lootName := ctx.Flags.String("name")
+
 	if spawndll.GetResponse().GetErr() != "" {
 		con.PrintErrorf("Failed to spawn dll: %s\n", spawndll.GetResponse().GetErr())
 		return
 	}
 
-	var outFilePath *os.File
-	var err error
-	if ctx.Flags.Bool("save") {
-		outFile := filepath.Base(fmt.Sprintf("%s_%s*.log", ctx.Command.Name, hostname))
-		outFilePath, err = ioutil.TempFile("", outFile)
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return
-		}
-	}
-	con.PrintInfof("Output:\n%s", spawndll.GetResult())
-	if outFilePath != nil {
-		outFilePath.Write([]byte(spawndll.GetResult()))
-		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
+	PrintExecutionOutput(spawndll.GetResult(), ctx.Flags.Bool("save"), ctx.Command.Name, hostName, con)
+
+	if saveLoot {
+		LootExecute([]byte(spawndll.GetResult()), lootName, ctx.Command.Name, binPath, hostName, con)
 	}
 }
