@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -37,12 +38,14 @@ func GoHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, er
 	var transport *http.Transport
 	if !secure {
 		transport = &http.Transport{
+			IdleConnTimeout:     time.Millisecond,
 			Dial:                proxy.Direct.Dial,
 			TLSHandshakeTimeout: opts.TlsTimeout,
 			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, // We don't care about the HTTP(S) layer certs
 		}
 	} else {
 		transport = &http.Transport{
+			IdleConnTimeout: time.Millisecond,
 			Dial: (&net.Dialer{
 				Timeout: opts.NetTimeout,
 			}).Dial,
