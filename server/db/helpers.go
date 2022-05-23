@@ -322,7 +322,7 @@ func UpdateBeaconCheckinByID(beaconID string, next int64) error {
 		ID: uuid.FromStringOrNil(beaconID),
 	}).Updates(models.Beacon{
 		LastCheckin: time.Now(),
-		NextCheckin: next,
+		NextCheckin: time.Now().Unix() + next,
 	}).Error
 	return err
 }
