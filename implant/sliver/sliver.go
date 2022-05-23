@@ -298,7 +298,7 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 		Interval:    beacon.Interval(),
 		Jitter:      beacon.Jitter(),
 		Register:    register,
-		NextCheckin: nextCheckin.UTC().Unix(),
+		NextCheckin: int64(beacon.Duration().Seconds()),
 	}))
 	beacon.Close()
 	time.Sleep(time.Second)
@@ -360,7 +360,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	// {{end}}
 	err = beacon.Send(wrapEnvelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
 		ID:          InstanceID,
-		NextCheckin: nextCheckin.UTC().Unix(),
+		NextCheckin: int64(beacon.Duration().Seconds()),
 	}))
 	if err != nil {
 		// {{if .Config.Debug}}

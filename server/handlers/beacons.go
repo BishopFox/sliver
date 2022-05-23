@@ -83,7 +83,7 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) *sl
 
 	beacon.Interval = beaconReg.Interval
 	beacon.Jitter = beaconReg.Jitter
-	beacon.NextCheckin = beaconReg.NextCheckin
+	beacon.NextCheckin = time.Now().Unix() + beaconReg.NextCheckin
 
 	err = db.Session().Save(beacon).Error
 	if err != nil {
