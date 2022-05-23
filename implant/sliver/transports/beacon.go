@@ -103,7 +103,7 @@ func (b *Beacon) Duration() time.Duration {
 	// {{end}}
 	jitterDuration := time.Duration(0)
 	if 0 < b.Jitter() {
-		jitterDuration = time.Duration(int64(insecureRand.Intn(int(b.Jitter()))))
+		jitterDuration = time.Duration(insecureRand.Int63n(b.Jitter()))
 	}
 	duration := time.Duration(b.Interval()) + jitterDuration
 	// {{if .Config.Debug}}
