@@ -111,6 +111,7 @@ func (t *tunnels) Close(tunnelID uint64) error {
 func (t *tunnels) Get(tunnelID uint64) *Tunnel {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+
 	return t.tunnels[tunnelID]
 }
 
