@@ -125,7 +125,7 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) *slive
 		return nil
 	}
 	go func() {
-		err = db.UpdateBeaconCheckinByID(beaconTasks.ID, beaconTasks.NextCheckin)
+		err := db.UpdateBeaconCheckinByID(beaconTasks.ID, beaconTasks.NextCheckin)
 		if err != nil {
 			beaconHandlerLog.Errorf("failed to update checkin: %s", err)
 		}
