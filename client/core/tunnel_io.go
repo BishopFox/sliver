@@ -43,12 +43,11 @@ func (tun *TunnelIO) Write(data []byte) (int, error) {
 
 	// This is necessary to avoid any race conditions on thay byte array
 	dataCopy := make([]byte, len(data))
-	copy(dataCopy, data)
+	n := copy(dataCopy, data)
 
-	log.Printf("Write %d bytes", len(dataCopy))
+	log.Printf("Write %d bytes", n)
 
 	tun.Send <- dataCopy
-	n := len(dataCopy)
 
 	return n, nil
 }

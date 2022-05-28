@@ -68,9 +68,12 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *con
 	}
 
 	// Create an RPC tunnel, then start it before binding the shell to the newly created tunnel
-	rpcTunnel, err := con.Rpc.CreateTunnel(context.Background(), &sliverpb.Tunnel{
+	ctxTunnel, cancelTunnel := context.WithCancel(context.Background())
+
+	rpcTunnel, err := con.Rpc.CreateTunnel(ctxTunnel, &sliverpb.Tunnel{
 		SessionID: session.ID,
 	})
+	defer cancelTunnel()
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -79,6 +82,7 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *con
 
 	// Start() takes an RPC tunnel and creates a local Reader/Writer tunnel object
 	tunnel := core.GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
+	defer tunnel.Close()
 
 	shell, err := con.Rpc.Shell(context.Background(), &sliverpb.ShellReq{
 		Request:   con.ActiveTarget.Request(ctx),

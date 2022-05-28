@@ -15,7 +15,10 @@ func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
 	log.Println("Starting tunnel data loop ...")
 	defer log.Printf("Warning: TunnelLoop exited")
 
-	stream, err := rpc.TunnelData(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	stream, err := rpc.TunnelData(ctx)
+	defer cancel()
+
 	if err != nil {
 		return err
 	}
@@ -26,6 +29,8 @@ func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
 		// log.Printf("Waiting for TunnelData ...")
 		incoming, err := stream.Recv()
 		// log.Printf("Recv stream msg: %v", incoming)
+		// log.Printf("Recv stream err: %s", err)
+
 		if err == io.EOF {
 			log.Printf("EOF Error: Tunnel data stream closed")
 			return nil

@@ -93,11 +93,15 @@ func (t *tunnels) Start(tunnelID uint64, sessionID string) *TunnelIO {
 		for data := range tunnel.Send {
 			log.Printf("Send %d bytes on tunnel %d", len(data), tunnel.ID)
 
-			t.send(&sliverpb.TunnelData{
+			err := t.send(&sliverpb.TunnelData{
 				TunnelID:  tunnel.ID,
 				SessionID: tunnel.SessionID,
 				Data:      data,
 			})
+
+			if err != nil {
+				log.Printf("Error sending, %s", err)
+			}
 		}
 
 		log.Printf("Tunnel Send channel looks closed now. %d", tunnelID)
@@ -120,5 +124,21 @@ func (t *tunnels) Close(tunnelID uint64) {
 		tunnel.Close()
 
 		delete((*t.tunnels), tunnelID)
+	}
+}
+
+// CloseForSession - closing all tunnels for specified session id
+func (t *tunnels) CloseForSession(sessionID string) {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	log.Printf("Closing all tunnels for session %s", sessionID)
+
+	for tunnelID, tunnel := range *t.tunnels {
+		if tunnel.SessionID == sessionID {
+			// Weird way to avoid deadlocks but let it be
+			go func(tunnelID uint64) {
+				GetTunnels().Close(tunnelID)
+			}(tunnelID)
+		}
 	}
 }
