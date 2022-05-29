@@ -108,12 +108,10 @@ func (s *Server) CreateTunnel(ctx context.Context, req *sliverpb.Tunnel) (*slive
 
 // CloseTunnel - Client requests we close a tunnel
 func (s *Server) CloseTunnel(ctx context.Context, req *sliverpb.Tunnel) (*commonpb.Empty, error) {
-	err := core.Tunnels.Close(req.TunnelID)
+	go core.Tunnels.ScheduleClose(req.TunnelID)
 	toImplantCache.DeleteTun(req.TunnelID)
 	fromImplantCache.DeleteTun(req.TunnelID)
-	if err != nil {
-		return nil, err
-	}
+
 	return &commonpb.Empty{}, nil
 }
 
