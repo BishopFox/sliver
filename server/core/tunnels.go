@@ -129,6 +129,8 @@ func (t *tunnels) Create(sessionID string) *Tunnel {
 // There is no another way around it, if we want to stick to async processing as we do now.
 // All additional changes requires changes on implants(like sequencing for close messages),
 // and as there is a goal to keep compatability we don't do that at the moment.
+// So there is trade off - more stability or more speed. Or rewriting implant logic.
+// At the moment, i see it affects only `shell` command and locking it for 10 seconds on exit. Not a big deal.
 func (t *tunnels) ScheduleClose(tunnelID uint64) {
 	tunnel := t.Get(tunnelID)
 	if tunnel == nil {
