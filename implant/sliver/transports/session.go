@@ -19,7 +19,6 @@ package transports
 */
 
 import (
-
 	// {{if or .Config.WGc2Enabled .Config.HTTPc2Enabled}}
 	"net"
 
@@ -373,6 +372,9 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 					if !ok {
 						return
 					}
+					// {{if .Config.Debug}}
+					log.Printf("TRANSPORT MESSAGE: type (%d) - %s", envelope.Type, envelope.Data)
+					// {{end}}
 					err := mtls.WriteEnvelope(conn, envelope)
 					if err != nil {
 						return
