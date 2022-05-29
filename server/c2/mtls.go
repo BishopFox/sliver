@@ -24,6 +24,7 @@ import (
 	"crypto/x509"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -111,6 +112,7 @@ func handleSliverConnection(conn net.Conn) {
 				}
 				implantConn.RespMutex.RUnlock()
 			} else if handler, ok := handlers[envelope.Type]; ok {
+				mtlsLog.Debugf("Received new mtls message type %d, data: %s", envelope.Type, envelope.Data)
 				go func() {
 					respEnvelope := handler(implantConn, envelope.Data)
 					if respEnvelope != nil {
@@ -166,27 +168,9 @@ func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 	}
 	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
 
-	// Read the length of the data, keep in mind each call to .Read() may not
-	// fill the entire buffer length that we specify, so instead we use two buffers
-	// readBuf is the result of each .Read() operation, which is then concatinated
-	// onto dataBuf which contains all of data read so far and we keep calling
-	// .Read() until the running total is equal to the length of the message that
-	// we're expecting or we get an error.
-	readBuf := make([]byte, readBufSize)
-	dataBuf := make([]byte, 0)
-	totalRead := 0
-	for {
-		n, err := connection.Read(readBuf)
-		dataBuf = append(dataBuf, readBuf[:n]...)
-		totalRead += n
-		if totalRead == dataLength {
-			break
-		}
-		if err != nil {
-			mtlsLog.Errorf("Read error: %s", err)
-			break
-		}
-	}
+	dataBuf := make([]byte, dataLength)
+
+	_, err = io.ReadFull(connection, dataBuf)
 
 	if err != nil {
 		mtlsLog.Errorf("Socket error (read data): %v", err)
