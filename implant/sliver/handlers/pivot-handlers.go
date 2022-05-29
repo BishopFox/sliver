@@ -111,6 +111,7 @@ func pivotStopListenerHandler(envelope *pb.Envelope, connection *transports.Conn
 		return
 	}
 	pivots.StopListener(req.ID)
+	pivots.RemoveListener(req.ID)
 	connection.Send <- &pb.Envelope{
 		ID:   envelope.ID,
 		Data: []byte{},
