@@ -26,10 +26,10 @@ func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
 	GetTunnels().SetStream(stream)
 
 	for {
-		// log.Printf("Waiting for TunnelData ...")
+		log.Printf("Waiting for TunnelData ...")
 		incoming, err := stream.Recv()
-		// log.Printf("Recv stream msg: %v", incoming)
-		// log.Printf("Recv stream err: %s", err)
+		log.Printf("Recv stream msg: %v", incoming)
+		log.Printf("Recv stream err: %s", err)
 
 		if err == io.EOF {
 			log.Printf("EOF Error: Tunnel data stream closed")
@@ -39,13 +39,21 @@ func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
 			log.Printf("Tunnel data read error: %s", err)
 			return err
 		}
-		// log.Printf("Received TunnelData for tunnel %d", incoming.TunnelID)
+		log.Printf("Received TunnelData for tunnel %d", incoming.TunnelID)
 		tunnel := GetTunnels().Get(incoming.TunnelID)
 
 		if tunnel != nil {
+			data := incoming.GetData()
+
+			log.Printf("This is data on tunnel %d: %s", tunnel.ID, data)
+
 			if !incoming.Closed {
 				log.Printf("Received data on tunnel %d", tunnel.ID)
-				tunnel.Recv <- incoming.GetData()
+				err = tunnel.RecvData(data)
+
+				if err != nil {
+					log.Printf("Warning! Error sending data to tunnel %d, %v", tunnel.ID, err)
+				}
 			} else {
 				log.Printf("Closing tunnel %d", tunnel.ID)
 				GetTunnels().Close(tunnel.ID)

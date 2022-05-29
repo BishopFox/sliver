@@ -46,6 +46,7 @@ func (tun *TunnelIO) Write(data []byte) (int, error) {
 	n := copy(dataCopy, data)
 
 	log.Printf("Write %d bytes", n)
+	log.Printf("This bytes is: %s", dataCopy)
 
 	tun.Send <- dataCopy
 
@@ -54,14 +55,13 @@ func (tun *TunnelIO) Write(data []byte) (int, error) {
 
 // Read - Reader method for interface
 func (tun *TunnelIO) Read(data []byte) (int, error) {
-	if !tun.IsOpen() {
+	recvData, ok := <-tun.Recv
+	if !ok {
 		log.Printf("Warning: Read on closed tunnel %d", tun.ID)
 		return 0, io.EOF
 	}
 
 	var buff bytes.Buffer
-
-	recvData := <-tun.Recv
 	log.Printf("Read %d bytes", len(recvData))
 	buff.Write(recvData)
 
@@ -109,6 +109,20 @@ func (tun *TunnelIO) Open() error {
 	log.Printf("Open tunnel %d", tun.ID)
 
 	tun.isOpen = true
+
+	return nil
+}
+
+// RecvData - safe way to send data to internal Recv channel. Blocking.
+func (tun *TunnelIO) RecvData(data []byte) error {
+	tun.mutex.Lock()
+	defer tun.mutex.Unlock()
+
+	if !tun.isOpen {
+		return errors.New("closed tunnel")
+	}
+
+	tun.Recv <- data
 
 	return nil
 }
