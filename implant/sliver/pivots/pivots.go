@@ -114,6 +114,7 @@ func RestartAllListeners(send chan<- *pb.Envelope) {
 				// {{if .Config.Debug}}
 				log.Printf("[pivot] failed to restart listener: %s", err)
 				// {{end}}
+				return false
 			}
 			go listener.Start()
 			AddListener(listener)
