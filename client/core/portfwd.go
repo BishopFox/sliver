@@ -116,7 +116,7 @@ func (p *ChannelProxy) HandleConn(conn net.Conn) {
 	}
 	tunnel, err := p.dialImplant(ctx)
 	if cancel != nil {
-		cancel()
+		defer cancel()
 	}
 	if err != nil {
 		return
@@ -124,7 +124,7 @@ func (p *ChannelProxy) HandleConn(conn net.Conn) {
 
 	// Cleanup
 	defer func() {
-		go conn.Close()
+		conn.Close()
 		GetTunnels().Close(tunnel.ID)
 	}()
 
