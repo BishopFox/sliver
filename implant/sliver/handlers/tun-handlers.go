@@ -405,7 +405,7 @@ func portfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 			conn: connection,
 		}
 		n, err := io.Copy(tWriter, tunnel.Reader)
-
+		_ = n // avoid not used compiler error if debug mode is disabled
 		// {{if .Config.Debug}}
 		log.Printf("[tunnel] Tunnel done, wrote %v bytes", n)
 		// {{end}}

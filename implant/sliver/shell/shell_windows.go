@@ -61,11 +61,11 @@ func Start(command string) error {
 }
 
 // StartInteractive - Start a shell
-func StartInteractive(tunnelID uint64, command []string, _ bool) *Shell {
+func StartInteractive(tunnelID uint64, command []string, _ bool) (*Shell, error) {
 	return pipedShell(tunnelID, command)
 }
 
-func pipedShell(tunnelID uint64, command []string) *Shell {
+func pipedShell(tunnelID uint64, command []string) (*Shell, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[shell] %s", command)
 	// {{end}}
@@ -84,5 +84,5 @@ func pipedShell(tunnelID uint64, command []string) *Shell {
 		Command: cmd,
 		Stdout:  stdout,
 		Stdin:   stdin,
-	}
+	}, nil
 }
