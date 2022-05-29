@@ -32,10 +32,12 @@ type Shell struct {
 	Stdin   io.WriteCloser
 }
 
-// StartAndWait starts a system shell then waits for it to complete
-func (s *Shell) StartAndWait() {
-	s.Command.Start()
-	s.Command.Wait()
+func (s *Shell) Start() error {
+	return s.Command.Start()
+}
+
+func (s *Shell) Wait() error {
+	return s.Command.Wait()
 }
 
 func exists(path string) bool {

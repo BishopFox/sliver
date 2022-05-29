@@ -44,14 +44,14 @@ func Start(command string) error {
 }
 
 // StartInteractive - Start a shell
-func StartInteractive(tunnelID uint64, command []string, enablePty bool) *Shell {
+func StartInteractive(tunnelID uint64, command []string, enablePty bool) (*Shell, error) {
 	if enablePty {
 		return ptyShell(tunnelID, command)
 	}
 	return pipedShell(tunnelID, command)
 }
 
-func pipedShell(tunnelID uint64, command []string) *Shell {
+func pipedShell(tunnelID uint64, command []string) (*Shell, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[shell] %s", command)
 	// {{end}}
@@ -62,25 +62,27 @@ func pipedShell(tunnelID uint64, command []string) *Shell {
 		// {{if .Config.Debug}}
 		log.Printf("[shell] stdin pipe failed\n")
 		// {{end}}
-		return nil
+		return nil, err
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[shell] stdout pipe failed\n")
 		// {{end}}
-		return nil
+		return nil, err
 	}
+
+	err = cmd.Start()
 
 	return &Shell{
 		ID:      tunnelID,
 		Command: cmd,
 		Stdout:  stdout,
 		Stdin:   stdin,
-	}
+	}, err
 }
 
-func ptyShell(tunnelID uint64, command []string) *Shell {
+func ptyShell(tunnelID uint64, command []string) (*Shell, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[ptmx] %s", command)
 	// {{end}}
@@ -93,14 +95,13 @@ func ptyShell(tunnelID uint64, command []string) *Shell {
 		// {{end}}
 		return pipedShell(tunnelID, command)
 	}
-	cmd.Start()
 
 	return &Shell{
 		ID:      tunnelID,
 		Command: cmd,
 		Stdout:  term,
 		Stdin:   term,
-	}
+	}, err
 }
 
 // GetSystemShellPath - Find bash or sh

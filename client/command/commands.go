@@ -2775,7 +2775,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.Socks5Str}),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "router timeout in seconds")
-			f.Int("i", "id", 0, "id of portfwd to remove")
+			f.Uint64("i", "id", 0, "id of portfwd to remove")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()

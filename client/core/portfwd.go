@@ -116,7 +116,7 @@ func (p *ChannelProxy) HandleConn(conn net.Conn) {
 	}
 	tunnel, err := p.dialImplant(ctx)
 	if cancel != nil {
-		cancel()
+		defer cancel()
 	}
 	if err != nil {
 		return
@@ -124,8 +124,8 @@ func (p *ChannelProxy) HandleConn(conn net.Conn) {
 
 	// Cleanup
 	defer func() {
-		go conn.Close()
-		Tunnels.Close(tunnel.ID)
+		conn.Close()
+		GetTunnels().Close(tunnel.ID)
 	}()
 
 	errs := make(chan error, 1)
@@ -172,7 +172,7 @@ func (p *ChannelProxy) Host() string {
 	return host
 }
 
-func (p *ChannelProxy) dialImplant(ctx context.Context) (*Tunnel, error) {
+func (p *ChannelProxy) dialImplant(ctx context.Context) (*TunnelIO, error) {
 
 	log.Printf("[tcpproxy] Dialing implant to create tunnel ...")
 
@@ -185,7 +185,7 @@ func (p *ChannelProxy) dialImplant(ctx context.Context) (*Tunnel, error) {
 		return nil, err
 	}
 	log.Printf("[tcpproxy] Created new tunnel with id %d (session %s)", rpcTunnel.TunnelID, p.Session.ID)
-	tunnel := Tunnels.Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
+	tunnel := GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
 
 	log.Printf("[tcpproxy] Binding tunnel to portfwd %d", p.Port())
 	portfwdResp, err := p.Rpc.Portfwd(ctx, &sliverpb.PortfwdReq{
@@ -219,7 +219,7 @@ func (p *ChannelProxy) dialTimeout() time.Duration {
 	return 30 * time.Second
 }
 
-func toImplantLoop(conn net.Conn, tunnel *Tunnel, errs chan<- error) {
+func toImplantLoop(conn net.Conn, tunnel *TunnelIO, errs chan<- error) {
 	if wc, ok := conn.(*tcpproxy.Conn); ok && len(wc.Peeked) > 0 {
 		if _, err := tunnel.Write(wc.Peeked); err != nil {
 			errs <- err
@@ -232,7 +232,7 @@ func toImplantLoop(conn net.Conn, tunnel *Tunnel, errs chan<- error) {
 	errs <- err
 }
 
-func fromImplantLoop(conn net.Conn, tunnel *Tunnel, errs chan<- error) {
+func fromImplantLoop(conn net.Conn, tunnel *TunnelIO, errs chan<- error) {
 	n, err := io.Copy(conn, tunnel)
 	log.Printf("[tcpproxy] Closing from-implant after %d byte(s)", n)
 	errs <- err

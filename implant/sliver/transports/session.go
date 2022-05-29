@@ -19,7 +19,6 @@ package transports
 */
 
 import (
-
 	// {{if or .Config.WGc2Enabled .Config.HTTPc2Enabled}}
 	"net"
 
@@ -124,10 +123,49 @@ type Tunnel struct {
 	ID uint64
 
 	Reader       io.ReadCloser
-	ReadSequence uint64
+	readSequence uint64
 
 	Writer        io.WriteCloser
-	WriteSequence uint64
+	writeSequence uint64
+
+	mutex *sync.RWMutex
+}
+
+func NewTunnel(id uint64, reader io.ReadCloser, writer io.WriteCloser) *Tunnel {
+	return &Tunnel{
+		ID:     id,
+		Reader: reader,
+		Writer: writer,
+		mutex:  &sync.RWMutex{},
+	}
+}
+
+func (c *Tunnel) ReadSequence() uint64 {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.readSequence
+}
+
+func (c *Tunnel) WriteSequence() uint64 {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.writeSequence
+}
+
+func (c *Tunnel) IncReadSequence() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.readSequence += 1
+}
+
+func (c *Tunnel) IncWriteSequence() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.writeSequence += 1
 }
 
 // Tunnel - Add tunnel to mapping
@@ -334,6 +372,9 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 					if !ok {
 						return
 					}
+					// {{if .Config.Debug}}
+					log.Printf("TRANSPORT MESSAGE: type (%d) - %s", envelope.Type, envelope.Data)
+					// {{end}}
 					err := mtls.WriteEnvelope(conn, envelope)
 					if err != nil {
 						return

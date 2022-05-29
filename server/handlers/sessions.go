@@ -110,15 +110,18 @@ func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliver
 	defer tunnelHandlerMutex.Unlock()
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
+
+	sessionHandlerLog.Debugf("[DATA] Sequence on tunel %d, %d, data: %s", tunnelData.TunnelID, tunnelData.Sequence, tunnelData.Data)
+
 	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
 	if tunnel != nil {
 		if session.ID == tunnel.SessionID {
-			tunnel.FromImplant <- tunnelData
+			tunnel.SendDataFromImplant(tunnelData)
 		} else {
 			sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on tunnel it did not own", session.ID)
 		}
 	} else {
-		sessionHandlerLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
+		sessionHandlerLog.Warnf("Data sent on nil tunnel %d, %s", tunnelData.TunnelID, tunnelData.Data)
 	}
 	return nil
 }
@@ -134,6 +137,7 @@ func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *slive
 
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
+	sessionHandlerLog.Debugf("[CLOSE] Sequence on tunel %d, %d, data: %s", tunnelData.TunnelID, tunnelData.Sequence, tunnelData.Data)
 	if !tunnelData.Closed {
 		return nil
 	}
@@ -141,7 +145,7 @@ func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *slive
 	if tunnel != nil {
 		if session.ID == tunnel.SessionID {
 			sessionHandlerLog.Infof("Closing tunnel %d", tunnel.ID)
-			core.Tunnels.Close(tunnel.ID)
+			go core.Tunnels.ScheduleClose(tunnel.ID)
 		} else {
 			sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on tunnel it did not own", session.ID)
 		}

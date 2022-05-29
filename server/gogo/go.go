@@ -190,6 +190,7 @@ func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
 	}
 	var goCommand = []string{"build"}
+
 	if 0 < len(trimpath) {
 		goCommand = append(goCommand, trimpath)
 	}
