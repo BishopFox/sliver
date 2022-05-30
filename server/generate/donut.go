@@ -15,7 +15,7 @@ func DonutShellcodeFromFile(filePath string, arch string, dotnet bool, params st
 	if err != nil {
 		return
 	}
-	isDLL := (filepath.Ext(filePath) == ".dll")
+	isDLL := filepath.Ext(filePath) == ".dll"
 	return DonutShellcodeFromPE(pe, arch, dotnet, params, className, method, isDLL)
 }
 
