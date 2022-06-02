@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -39,8 +40,6 @@ import (
 const (
 	// defaultServerCert - Default certificate name if bind is "" (all interfaces)
 	defaultServerCert = ""
-
-	readBufSize = 1024
 )
 
 var (
@@ -158,21 +157,27 @@ func socketWriteEnvelope(connection net.Conn, envelope *sliverpb.Envelope) error
 // socketReadEnvelope - Reads a message from the TLS connection using length prefix framing
 // returns messageType, message, and error
 func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
-
 	// Read the first four bytes to determine data length
 	dataLengthBuf := make([]byte, 4) // Size of uint32
-	_, err := connection.Read(dataLengthBuf)
-	if err != nil {
+	n, err := io.ReadFull(connection, dataLengthBuf)
+
+	if err != nil || n != 4 {
 		mtlsLog.Errorf("Socket error (read msg-length): %v", err)
 		return nil, err
 	}
 	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
+	if dataLength <= 0 {
+		// {{if .Config.Debug}}
+		mtlsLog.Printf("[pivot] read error: %s\n", err)
+		// {{end}}
+		return nil, errors.New("[pivot] zero data length")
+	}
 
 	dataBuf := make([]byte, dataLength)
 
-	_, err = io.ReadFull(connection, dataBuf)
+	n, err = io.ReadFull(connection, dataBuf)
 
-	if err != nil {
+	if err != nil || n != dataLength {
 		mtlsLog.Errorf("Socket error (read data): %v", err)
 		return nil, err
 	}

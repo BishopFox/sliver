@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
+	"io"
 	"net"
 	"sync"
 	"time"
@@ -236,7 +237,9 @@ func (p *NetConnPivotClient) read() ([]byte, error) {
 	p.readMutex.Lock()
 	defer p.readMutex.Unlock()
 	dataLengthBuf := make([]byte, 4)
-	n, err := p.conn.Read(dataLengthBuf)
+
+	n, err := io.ReadFull(p.conn, dataLengthBuf)
+
 	if err != nil || n != 4 {
 		// {{if .Config.Debug}}
 		log.Printf("[pivot] Error (read msg-length): %v\n", err)
@@ -245,22 +248,22 @@ func (p *NetConnPivotClient) read() ([]byte, error) {
 	}
 
 	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
-	readBuf := make([]byte, bufSize)
-	dataBuf := []byte{}
-	totalRead := 0
-	for {
-		n, err := p.conn.Read(readBuf)
-		dataBuf = append(dataBuf, readBuf[:n]...)
-		totalRead += n
-		if totalRead == dataLength {
-			break
-		}
-		if err != nil {
-			// {{if .Config.Debug}}
-			log.Printf("read error: %s\n", err)
-			// {{end}}
-			break
-		}
+	if dataLength <= 0 {
+		// {{if .Config.Debug}}
+		log.Printf("[pivot] read error: %s\n", err)
+		// {{end}}
+		return nil, errors.New("[pivot] zero data length")
+	}
+
+	dataBuf := make([]byte, dataLength)
+
+	n, err = io.ReadFull(p.conn, dataBuf)
+
+	if err != nil || n != dataLength {
+		// {{if .Config.Debug}}
+		log.Printf("read error: %s\n", err)
+		// {{end}}
+		return nil, err
 	}
 	return dataBuf, err
 }
