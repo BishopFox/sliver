@@ -281,10 +281,13 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	}
 
 	// Cleanup function with arguments
-	cleanup := func(reason string) {
+	cleanup := func(reason string, err error) {
 		// {{if .Config.Debug}}
-		log.Printf("[shell] Closing tunnel request %d (%s)", tunnel.ID, reason)
+		log.Printf("[shell] Closing tunnel request %d (%s). Err: %v", tunnel.ID, reason, err)
 		// {{end}}
+
+		systemShell.Stop()
+
 		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
 			Closed:   true,
 			TunnelID: tunnel.ID,
@@ -302,16 +305,25 @@ func shellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		}
 		_, err := io.Copy(tWriter, tunnel.Reader)
 
-		systemShell.Wait() // sync wait, since we already locked in io.Copy, and it will release once it's done
+		if err != nil {
+			cleanup("io error", err)
+			return
+		}
+
+		err = systemShell.Wait() // sync wait, since we already locked in io.Copy, and it will release once it's done
+		if err != nil {
+			cleanup("shell wait error", err)
+			return
+		}
 
 		if systemShell.Command.ProcessState != nil {
 			if systemShell.Command.ProcessState.Exited() {
-				cleanup("process terminated")
+				cleanup("process terminated", nil)
 				return
 			}
 		}
 		if err == io.EOF {
-			cleanup("EOF")
+			cleanup("EOF", err)
 			return
 		}
 	}()
