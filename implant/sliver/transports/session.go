@@ -61,12 +61,15 @@ import (
 
 	// {{end}}
 
+	// {{if not .Config.NamePipec2Enabled}}
 	"io"
 	"net/url"
 	"sync"
-	"time"
 
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	// {{end}}
+
+	"time"
 )
 
 var (
