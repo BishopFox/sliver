@@ -45,6 +45,7 @@ func (c *Connection) Cleanup() {
 	c.once.Do(func() {
 		c.cleanup()
 		c.IsOpen = false
+		c.removeAndCloseAllTunnels()
 	})
 }
 
@@ -69,6 +70,17 @@ func (c *Connection) RemoveTunnel(ID uint64) {
 	defer c.mutex.Unlock()
 
 	delete(*c.tunnels, ID)
+}
+
+func (c *Connection) removeAndCloseAllTunnels() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	for id, tunnel := range *c.tunnels {
+		tunnel.Close()
+
+		delete(*c.tunnels, id)
+	}
 }
 
 func (c *Connection) RequestResend(data []byte) {

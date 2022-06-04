@@ -54,3 +54,9 @@ func (c *Tunnel) IncWriteSequence() {
 
 	c.writeSequence += 1
 }
+
+// Close - close tunnel reader and writer
+func (c *Tunnel) Close() {
+	c.Reader.Close()
+	c.Writer.Close()
+}

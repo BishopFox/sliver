@@ -212,7 +212,6 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 			// {{if .Config.Debug}}
 			log.Printf("[mtls] lost connection, cleanup...")
 			// {{end}}
-			close(send)
 			conn.Close()
 			close(recv)
 		},
@@ -313,7 +312,6 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 			// {{if .Config.Debug}}
 			log.Printf("[wg] lost connection, cleanup...")
 			// {{end}}
-			close(send)
 			conn.Close()
 			dev.Down()
 			close(recv)
@@ -419,7 +417,6 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 			// {{if .Config.Debug}}
 			log.Printf("[http] lost connection, cleanup...")
 			// {{end}}
-			close(send)
 			ctrl <- struct{}{}
 			close(recv)
 		},
@@ -534,7 +531,6 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 			// {{if .Config.Debug}}
 			log.Printf("[dns] lost connection, cleanup...")
 			// {{end}}
-			close(send)
 			ctrl <- struct{}{} // Stop polling
 			close(recv)
 		},
@@ -640,7 +636,6 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 			log.Printf("[tcp pivot] lost connection, cleanup...")
 			// {{end}}
 			pingCtrl <- struct{}{}
-			close(send)
 			ctrl <- struct{}{}
 			close(recv)
 		},
