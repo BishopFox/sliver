@@ -519,18 +519,18 @@ func openSessionHandler(data []byte) {
 // {{end}} -IsBeacon
 
 func sessionMainLoop(connection *transports.Connection) error {
+	if connection == nil {
+		// {{if .Config.Debug}}
+		log.Printf("[session] nil connection!")
+		// {{end}}
+		return nil
+	}
 	err := connection.Start()
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[session] failed to establish connection: %s", err)
 		// {{end}}
 		return err
-	}
-	if connection == nil {
-		// {{if .Config.Debug}}
-		log.Printf("[session] nil connection!")
-		// {{end}}
-		return nil
 	}
 	pivots.RestartAllListeners(connection.Send)
 	defer pivots.StopAllListeners()

