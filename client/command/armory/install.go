@@ -35,6 +35,7 @@ import (
 )
 
 var (
+	// ErrPackageNotFound - The package was not found
 	ErrPackageNotFound = errors.New("package not found")
 )
 
