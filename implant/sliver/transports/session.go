@@ -271,7 +271,10 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 			for {
 				envelope, err := mtls.ReadEnvelope(conn)
 				if err == io.EOF {
-					break
+					// {{if .Config.Debug}}
+					log.Printf("[mtls] eof")
+					// {{end}}
+					return
 				}
 				if err != io.EOF && err != nil {
 					break
@@ -380,7 +383,10 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 			for {
 				envelope, err := wireguard.ReadEnvelope(conn)
 				if err == io.EOF {
-					break
+					// {{if .Config.Debug}}
+					log.Printf("[wireguard] eof")
+					// {{end}}
+					return
 				}
 				if err != io.EOF && err != nil {
 					break
@@ -464,6 +470,12 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 					return
 				default:
 					envelope, err := client.ReadEnvelope()
+					if err == io.EOF {
+						// {{if .Config.Debug}}
+						log.Printf("[http] eof")
+						// {{end}}
+						return
+					}
 					switch errType := err.(type) {
 					case nil:
 						errCount = 0
@@ -594,6 +606,11 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 						log.Printf("[dns] session is closed")
 						// {{end}}
 						return
+					case io.EOF:
+						// {{if .Config.Debug}}
+						log.Printf("[dns] eof")
+						// {{end}}
+						return
 					default:
 						errCount++
 						// {{if .Config.Debug}}
@@ -709,7 +726,10 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 			for {
 				envelope, err := pivot.ReadEnvelope()
 				if err == io.EOF {
-					break
+					// {{if .Config.Debug}}
+					log.Printf("[tcp pivot] eof")
+					// {{end}}
+					return
 				}
 				if err != nil {
 					// {{if .Config.Debug}}
