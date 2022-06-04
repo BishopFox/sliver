@@ -121,7 +121,7 @@ func RestartAllListeners(send chan<- *pb.Envelope) {
 		}
 		return true
 	})
-	stoppedPivotListeners = nil
+	stoppedPivotListeners = &sync.Map{}
 }
 
 // StopAllListeners - Stop all pivot listeners
