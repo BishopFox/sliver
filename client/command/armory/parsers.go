@@ -87,6 +87,7 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL:    repoURL,
+		Header: map[string][]string{},
 	}
 	if armoryConfig.Authorization != "" {
 		req.Header.Set("Authorization", armoryConfig.Authorization)
@@ -143,6 +144,7 @@ func DefaultArmoryPkgParser(armoryConfig *assets.ArmoryConfig, armoryPkg *Armory
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL:    repoURL,
+		Header: map[string][]string{},
 	}
 	if armoryConfig.Authorization != "" {
 		req.Header.Set("Authorization", armoryConfig.Authorization)
