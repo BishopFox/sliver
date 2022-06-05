@@ -145,7 +145,7 @@ func installAliasPackageByName(name string, clientConfig ArmoryHTTPConfig, con *
 	if pkgParser, ok := pkgParsers[repoURL.Hostname()]; ok {
 		sig, tarGz, err = pkgParser(&entry.Pkg, false, clientConfig)
 	} else {
-		sig, tarGz, err = DefaultArmoryPkgParser(&entry.Pkg, false, clientConfig)
+		sig, tarGz, err = DefaultArmoryPkgParser(entry.ArmoryConfig, &entry.Pkg, false, clientConfig)
 	}
 	if err != nil {
 		return err
@@ -263,7 +263,7 @@ func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, c
 	if pkgParser, ok := pkgParsers[repoURL.Hostname()]; ok {
 		sig, tarGz, err = pkgParser(&entry.Pkg, false, clientConfig)
 	} else {
-		sig, tarGz, err = DefaultArmoryPkgParser(&entry.Pkg, false, clientConfig)
+		sig, tarGz, err = DefaultArmoryPkgParser(entry.ArmoryConfig, &entry.Pkg, false, clientConfig)
 	}
 	if err != nil {
 		return err

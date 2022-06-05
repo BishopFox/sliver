@@ -80,7 +80,18 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 	}
 
 	client := httpClient(clientConfig)
-	resp, err := client.Get(armoryConfig.RepoURL)
+	repoURL, err := url.Parse(armoryConfig.RepoURL)
+	if err != nil {
+		return nil, err
+	}
+	req := &http.Request{
+		Method: http.MethodGet,
+		URL:    repoURL,
+	}
+	if armoryConfig.Authorization != "" {
+		req.Header.Set("Authorization", armoryConfig.Authorization)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +115,7 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 		return nil, errors.New("invalid signature")
 	}
 
-	armoryIndex := &ArmoryIndex{}
+	armoryIndex := &ArmoryIndex{ArmoryConfig: armoryConfig}
 	armoryIndexData, err := base64.StdEncoding.DecodeString(index.ArmoryIndex)
 	if err != nil {
 		return nil, err
@@ -117,7 +128,7 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 }
 
 // DefaultArmoryPkgParser - Parse the armory package manifest directly from the url
-func DefaultArmoryPkgParser(armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
+func DefaultArmoryPkgParser(armoryConfig *assets.ArmoryConfig, armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
 	var publicKey minisign.PublicKey
 	err := publicKey.UnmarshalText([]byte(armoryPkg.PublicKey))
 	if err != nil {
@@ -125,7 +136,18 @@ func DefaultArmoryPkgParser(armoryPkg *ArmoryPackage, sigOnly bool, clientConfig
 	}
 
 	client := httpClient(clientConfig)
-	resp, err := client.Get(armoryPkg.RepoURL)
+	repoURL, err := url.Parse(armoryConfig.RepoURL)
+	if err != nil {
+		return nil, nil, err
+	}
+	req := &http.Request{
+		Method: http.MethodGet,
+		URL:    repoURL,
+	}
+	if armoryConfig.Authorization != "" {
+		req.Header.Set("Authorization", armoryConfig.Authorization)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, nil, err
 	}
