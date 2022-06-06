@@ -58,13 +58,13 @@ const (
 )
 
 type armoryIndexResponse struct {
-	Minisig     string `json:"minisig"`      // Minisig
-	ArmoryIndex string `json:"armory_index"` // Base64 String
+	Minisig     string `json:"minisig"`      // Minisig (Base64)
+	ArmoryIndex string `json:"armory_index"` // Index JSON (Base64)
 }
 
 type armoryPkgResponse struct {
-	Minisig  string `json:"minisig"` // Minisig
-	TarGzURL string `json:"tar_gz_url"`
+	Minisig  string `json:"minisig"`    // Minisig
+	TarGzURL string `json:"tar_gz_url"` // Raw tar.gz url
 }
 
 //
@@ -104,20 +104,28 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.New("api returned non-200 status code")
 	}
-	index := &armoryIndexResponse{}
-	err = json.Unmarshal(body, index)
+
+	indexResp := &armoryIndexResponse{}
+	err = json.Unmarshal(body, indexResp)
+	if err != nil {
+		return nil, err
+	}
+	armoryIndexData, err := base64.StdEncoding.DecodeString(indexResp.ArmoryIndex)
+	if err != nil {
+		return nil, err
+	}
+	armoryIndexSigData, err := base64.StdEncoding.DecodeString(indexResp.Minisig)
 	if err != nil {
 		return nil, err
 	}
 
 	// Verify index is signed by trusted key
-	valid := minisign.Verify(publicKey, []byte(index.ArmoryIndex), []byte(index.ArmoryIndex))
+	valid := minisign.Verify(publicKey, armoryIndexData, armoryIndexSigData)
 	if !valid {
-		return nil, errors.New("invalid signature")
+		return nil, errors.New("index has invalid signature")
 	}
 
 	armoryIndex := &ArmoryIndex{ArmoryConfig: armoryConfig}
-	armoryIndexData, err := base64.StdEncoding.DecodeString(index.ArmoryIndex)
 	if err != nil {
 		return nil, err
 	}
