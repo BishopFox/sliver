@@ -63,7 +63,7 @@ type armoryIndexResponse struct {
 }
 
 type armoryPkgResponse struct {
-	Minisig  string `json:"minisig"`    // Minisig
+	Minisig  string `json:"minisig"`    // Minisig (Base64)
 	TarGzURL string `json:"tar_gz_url"` // Raw tar.gz url
 }
 
