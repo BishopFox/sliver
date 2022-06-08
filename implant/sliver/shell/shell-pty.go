@@ -26,6 +26,7 @@ import (
 	"log"
 	// {{end}}
 
+	"context"
 	"os/exec"
 
 	"github.com/bishopfox/sliver/implant/sliver/shell/pty"
@@ -56,12 +57,15 @@ func pipedShell(tunnelID uint64, command []string) (*Shell, error) {
 	log.Printf("[shell] %s", command)
 	// {{end}}
 
-	cmd := exec.Command(command[0], command[1:]...)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[shell] stdin pipe failed\n")
 		// {{end}}
+		cancel()
 		return nil, err
 	}
 	stdout, err := cmd.StdoutPipe()
@@ -69,6 +73,7 @@ func pipedShell(tunnelID uint64, command []string) (*Shell, error) {
 		// {{if .Config.Debug}}
 		log.Printf("[shell] stdout pipe failed\n")
 		// {{end}}
+		cancel()
 		return nil, err
 	}
 
@@ -79,6 +84,7 @@ func pipedShell(tunnelID uint64, command []string) (*Shell, error) {
 		Command: cmd,
 		Stdout:  stdout,
 		Stdin:   stdin,
+		Cancel:  cancel,
 	}, err
 }
 
@@ -87,12 +93,15 @@ func ptyShell(tunnelID uint64, command []string) (*Shell, error) {
 	log.Printf("[ptmx] %s", command)
 	// {{end}}
 
-	cmd := exec.Command(command[0], command[1:]...)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 	term, err := pty.Start(cmd)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[term] %v, falling back to piped shell...", err)
 		// {{end}}
+		cancel()
 		return pipedShell(tunnelID, command)
 	}
 
@@ -101,6 +110,7 @@ func ptyShell(tunnelID uint64, command []string) (*Shell, error) {
 		Command: cmd,
 		Stdout:  term,
 		Stdin:   term,
+		Cancel:  cancel,
 	}, err
 }
 

