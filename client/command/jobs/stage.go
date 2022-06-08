@@ -89,7 +89,7 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	if aesEncrypt {
-		stage2 = util.Encrypt(stage2, []byte(aesEncryptKey), []byte(aesEncryptIv))
+		stage2 = util.PreludeEncrypt(stage2, []byte(aesEncryptKey), []byte(aesEncryptIv))
 	}
 
 	switch stagingURL.Scheme {

@@ -26,7 +26,6 @@ import (
 	"io/ioutil"
 	"log"
 	insecureRand "math/rand"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -109,7 +108,7 @@ func Start(rpc rpcpb.SliverRPCClient, bindCmds BindCmds, extraCmds BindCmds, isS
 		App: grumble.New(&grumble.Config{
 			Name:                  "Sliver",
 			Description:           "Sliver Client",
-			HistoryFile:           path.Join(assets.GetRootAppDir(), "history"),
+			HistoryFile:           filepath.Join(assets.GetRootAppDir(), "history"),
 			PromptColor:           color.New(),
 			HelpHeadlineColor:     color.New(),
 			HelpHeadlineUnderline: true,

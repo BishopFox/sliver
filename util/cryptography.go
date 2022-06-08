@@ -26,8 +26,8 @@ import (
 	"io"
 )
 
-//Encrypt the results
-func Encrypt(data []byte, key []byte, iv []byte) []byte {
+// PreludeEncrypt the results
+func PreludeEncrypt(data []byte, key []byte, iv []byte) []byte {
 	plainText, err := pad(data, aes.BlockSize)
 	if err != nil {
 		return make([]byte, 0)
@@ -47,8 +47,8 @@ func Encrypt(data []byte, key []byte, iv []byte) []byte {
 	return cipherText
 }
 
-//Decrypt a command
-func Decrypt(data []byte, key []byte) []byte {
+// PreludeDecrypt a command
+func PreludeDecrypt(data []byte, key []byte) []byte {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil
