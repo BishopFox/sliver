@@ -26,20 +26,26 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
 	"google.golang.org/protobuf/proto"
+	"gopkg.in/AlecAivazis/survey.v1"
 
 	"github.com/desertbit/grumble"
 )
 
-func PerformDownload(remotePath string, fileName string, destination string, ctx *grumble.Context, con *console.SliverConsoleClient) (*sliverpb.Download, error) {
+func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
+		return
+	}
+	remotePath := ctx.Args.String("remote-path")
+
 	ctrl := make(chan bool)
-	con.SpinUntil(fmt.Sprintf("%s -> %s", fileName, destination), ctrl)
+	con.SpinUntil(fmt.Sprintf("Downloading %s ...", remotePath), ctrl)
 	download, err := con.Rpc.Download(context.Background(), &sliverpb.DownloadReq{
 		Request: con.ActiveTarget.Request(ctx),
 		Path:    remotePath,
@@ -47,68 +53,61 @@ func PerformDownload(remotePath string, fileName string, destination string, ctx
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		return nil, err
+		con.PrintErrorf("%s\n", err)
+		return
 	}
 	if download.Response != nil && download.Response.Async {
 		con.AddBeaconCallback(download.Response.TaskID, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, download)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
 			}
+			HandleDownloadResponse(download, ctx, con)
 		})
 		con.PrintAsyncResponse(download.Response)
+	} else {
+		HandleDownloadResponse(download, ctx, con)
 	}
 
+}
+
+func HandleDownloadResponse(download *sliverpb.Download, ctx *grumble.Context, con *console.SliverConsoleClient) {
+	var err error
 	if download.Response != nil && download.Response.Err != "" {
-		return download, fmt.Errorf("%s\n", download.Response.Err)
+		con.PrintErrorf("%s\n", download.Response.Err)
+		return
 	}
 
 	if download.Encoder == "gzip" {
 		download.Data, err = new(encoders.Gzip).Decode(download.Data)
 		if err != nil {
-			return nil, fmt.Errorf("Decoding failed %s", err)
+			con.PrintErrorf("Decoding failed %s", err)
 		}
-	}
-
-	return download, nil
-}
-
-// DownloadCmd - Download a file from the remote system
-func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session, beacon := con.ActiveTarget.GetInteractive()
-	if session == nil && beacon == nil {
-		return
 	}
 
 	remotePath := ctx.Args.String("remote-path")
 	localPath := ctx.Args.String("local-path")
+	saveLoot := ctx.Flags.Bool("loot")
 
-	src := remotePath
-	fileName := filepath.Base(src)
-	var dst string
-	var err error
-	var lootType clientpb.LootType
-	var fileType clientpb.FileType
-	var lootName string = ""
-
-	if ctx.Flags.Bool("loot") {
-		// The destination is the loot store.
-		dst = "loot"
-		lootName = ctx.Flags.String("name")
-
-		lootType, err = loot.ValidateLootType(ctx.Flags.String("type"))
+	if saveLoot {
+		lootName := ctx.Flags.String("name")
+		lootType, err := loot.ValidateLootType(ctx.Flags.String("type"))
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
-		// Determine file type after the download is complete
+		// Hand off to the loot package to take care of looting
+		fileType := loot.ValidateLootFileType(ctx.Flags.String("file-type"), download.Data)
+		loot.LootDownload(download, lootName, lootType, fileType, ctx, con)
 	} else {
-		// If this download is not being looted, make sure the local path exists
-		dst, err = filepath.Abs(localPath)
+		fileName := filepath.Base(remotePath)
+		dst, err := filepath.Abs(localPath)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
+
 		fi, err := os.Stat(dst)
 		if err != nil && !os.IsNotExist(err) {
 			con.PrintErrorf("%s\n", err)
@@ -117,74 +116,32 @@ func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		if err == nil && fi.IsDir() {
 			dst = path.Join(dst, fileName)
 		}
-	}
 
-	download, err := PerformDownload(src, fileName, dst, ctx, con)
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-		return
-	}
+		// Add an extension to a directory download if one is not provided.
+		if download.IsDir && (!strings.HasSuffix(dst, ".tgz") || !strings.HasSuffix(dst, ".tar.gz")) {
+			dst += ".tar.gz"
+		}
 
-	if dst == "loot" {
-		// Hand off to the loot package to take care of looting
-		fileType = loot.ValidateLootFileType(ctx.Flags.String("file-type"), download.Data)
-		loot.LootDownload(download, lootName, lootType, fileType, ctx, con)
-	} else {
-		PrintDownload(download, ctx, con)
-	}
-}
+		if _, err := os.Stat(dst); err == nil {
+			overwrite := false
+			prompt := &survey.Confirm{Message: "Overwrite local file?"}
+			survey.AskOne(prompt, &overwrite, nil)
+			if !overwrite {
+				return
+			}
+		}
 
-// PrintDownload - Print the download response, and save file to disk
-func PrintDownload(download *sliverpb.Download, ctx *grumble.Context, con *console.SliverConsoleClient) {
-	if download.Response != nil && download.Response.Err != "" {
-		con.PrintErrorf("%s\n", download.Response.Err)
-		return
-	}
-
-	remotePath := ctx.Args.String("remote-path")
-	localPath := ctx.Args.String("local-path")
-
-	src := remotePath
-	fileName := filepath.Base(src)
-	dst, err := filepath.Abs(localPath)
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-		return
-	}
-
-	fi, err := os.Stat(dst)
-	if err != nil && !os.IsNotExist(err) {
-		con.PrintErrorf("%s\n", err)
-		return
-	}
-	if err == nil && fi.IsDir() {
-		dst = path.Join(dst, fileName)
-	}
-
-	// Add an extension to a directory download if one is not provided.
-	if download.IsDir && (!strings.HasSuffix(dst, ".tgz") || !strings.HasSuffix(dst, ".tar.gz")) {
-		dst += ".tar.gz"
-	}
-
-	if _, err := os.Stat(dst); err == nil {
-		overwrite := false
-		prompt := &survey.Confirm{Message: "Overwrite local file?"}
-		survey.AskOne(prompt, &overwrite, nil)
-		if !overwrite {
+		dstFile, err := os.Create(dst)
+		if err != nil {
+			con.PrintErrorf("Failed to open local file %s: %s\n", dst, err)
 			return
 		}
-	}
-
-	dstFile, err := os.Create(dst)
-	if err != nil {
-		con.PrintErrorf("Failed to open local file %s: %s\n", dst, err)
-		return
-	}
-	defer dstFile.Close()
-	n, err := dstFile.Write(download.Data)
-	if err != nil {
-		con.PrintErrorf("Failed to write data %v\n", err)
-	} else {
-		con.PrintInfof("Wrote %d bytes to %s\n", n, dstFile.Name())
+		defer dstFile.Close()
+		n, err := dstFile.Write(download.Data)
+		if err != nil {
+			con.PrintErrorf("Failed to write data %v\n", err)
+		} else {
+			con.PrintInfof("Wrote %d bytes to %s\n", n, dstFile.Name())
+		}
 	}
 }

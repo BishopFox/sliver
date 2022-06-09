@@ -325,11 +325,12 @@ func downloadHandler(data []byte, resp RPCResponse) {
 		gzipData := bytes.NewBuffer([]byte{})
 		gzipWrite(gzipData, rawData)
 		download = &sliverpb.Download{
-			Path:    target,
-			Data:    gzipData.Bytes(),
-			Encoder: "gzip",
-			Exists:  true,
-			IsDir:   isDir,
+			Path:     target,
+			Data:     gzipData.Bytes(),
+			Encoder:  "gzip",
+			Exists:   true,
+			IsDir:    isDir,
+			Response: &commonpb.Response{},
 		}
 	} else {
 		download = &sliverpb.Download{Path: target, Exists: false}
