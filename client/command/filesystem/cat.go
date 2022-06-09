@@ -19,17 +19,20 @@ package filesystem
 */
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/util/encoders"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/desertbit/grumble"
 )
@@ -47,17 +50,53 @@ func CatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
+	ctrl := make(chan bool)
+	con.SpinUntil(fmt.Sprintf("Downloading %s ...", filePath), ctrl)
+	download, err := con.Rpc.Download(context.Background(), &sliverpb.DownloadReq{
+		Request: con.ActiveTarget.Request(ctx),
+		Path:    filePath,
+	})
+	ctrl <- true
+	<-ctrl
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	if download.Response != nil && download.Response.Async {
+		con.AddBeaconCallback(download.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, download)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			PrintCat(download, ctx, con)
+		})
+		con.PrintAsyncResponse(download.Response)
+	} else {
+		PrintCat(download, ctx, con)
+	}
+}
+
+// PrintCat - Print the download to stdout
+func PrintCat(download *sliverpb.Download, ctx *grumble.Context, con *console.SliverConsoleClient) {
+	var (
+		lootDownload bool = true
+		err          error
+	)
 	saveLoot := ctx.Flags.Bool("loot")
 	lootName := ctx.Flags.String("name")
 	userLootType := ctx.Flags.String("type")
 	userLootFileType := ctx.Flags.String("file-type")
-	var lootDownload bool = true
-
-	download, err := PerformDownload(filePath, filepath.Base(filePath), "console", ctx, con)
-
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
+	if download.Response != nil && download.Response.Err != "" {
+		con.PrintErrorf("%s\n", download.Response.Err)
 		return
+	}
+
+	if download.Encoder == "gzip" {
+		download.Data, err = new(encoders.Gzip).Decode(download.Data)
+		if err != nil {
+			con.PrintErrorf("Decoding failed %s", err)
+		}
 	}
 
 	if saveLoot {
@@ -75,14 +114,6 @@ func CatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			con.Printf("\n")
 		}
 	}
-
-	PrintCat(download, ctx, con)
-}
-
-// PrintCat - Print the download to stdout
-func PrintCat(download *sliverpb.Download, ctx *grumble.Context, con *console.SliverConsoleClient) {
-	var err error
-
 	if ctx.Flags.Bool("colorize-output") {
 		if err = colorize(download); err != nil {
 			con.Println(string(download.Data))
