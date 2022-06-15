@@ -141,9 +141,17 @@ func CreateNetTUN(localAddresses, dnsServers []netip.Addr, mtu int) (tun.Device,
 	}
 	if dev.hasV4 {
 		dev.stack.AddRoute(tcpip.Route{Destination: header.IPv4EmptySubnet, NIC: 1})
+		tcpipErr = dev.stack.SetForwardingDefaultAndAllNICs(header.IPv4ProtocolNumber, true)
+		if tcpipErr != nil {
+			return nil, nil, fmt.Errorf("SetForwarding(): %v", tcpipErr)
+		}
 	}
 	if dev.hasV6 {
 		dev.stack.AddRoute(tcpip.Route{Destination: header.IPv6EmptySubnet, NIC: 1})
+		tcpipErr = dev.stack.SetForwardingDefaultAndAllNICs(header.IPv6ProtocolNumber, true)
+		if tcpipErr != nil {
+			return nil, nil, fmt.Errorf("SetForwarding(): %v", tcpipErr)
+		}
 	}
 
 	dev.events <- tun.EventUp
