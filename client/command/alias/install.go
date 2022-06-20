@@ -59,9 +59,9 @@ func installFromDir(aliasLocalPath string, con *console.SliverConsoleClient) {
 		con.PrintErrorf("Error parsing %s: %s", ManifestFileName, err)
 		return
 	}
-	installPath := filepath.Join(assets.GetAliasesDir(), filepath.Base(manifest.Name))
+	installPath := filepath.Join(assets.GetAliasesDir(), filepath.Base(manifest.CommandName))
 	if _, err := os.Stat(installPath); !os.IsNotExist(err) {
-		con.PrintInfof("Alias '%s' already exists", manifest.Name)
+		con.PrintInfof("Alias '%s' already exists", manifest.CommandName)
 		confirm := false
 		prompt := &survey.Confirm{Message: "Overwrite current install?"}
 		survey.AskOne(prompt, &confirm)
