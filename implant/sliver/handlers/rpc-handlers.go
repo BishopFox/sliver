@@ -315,7 +315,11 @@ func runSSHCommandHandler(data []byte, resp RPCResponse) {
 		commandReq.Username,
 		commandReq.Password,
 		commandReq.PrivKey,
-		commandReq.Command)
+		commandReq.Krb5Conf,
+		commandReq.Keytab,
+		commandReq.Realm,
+		commandReq.Command,
+	)
 	commandResp := &sliverpb.SSHCommand{
 		Response: &commonpb.Response{},
 		StdOut:   stdout,

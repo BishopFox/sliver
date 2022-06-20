@@ -13,7 +13,7 @@ github.com/lesnuages/go-winio v0.4.19
 github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 github.com/pquerna/otp v1.3.0
 github.com/stretchr/testify v1.7.0
-golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
+golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
 golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
 golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
 golang.zx2c4.com/wireguard v0.0.0-20220316235147-5aff28b14c24
@@ -21,4 +21,5 @@ golang.zx2c4.com/wireguard/windows v0.5.1
 gvisor.dev/gvisor v0.0.0-20211020211948-f76a604701b6
 google.golang.org/protobuf v1.23.0
 github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
+github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e
 )

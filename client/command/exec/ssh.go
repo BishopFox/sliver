@@ -43,6 +43,19 @@ func SSHCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	hostname := ctx.Args.String("hostname")
 	command := ctx.Args.StringList("command")
+	kerberosRealm := ctx.Flags.String("kerberos-realm")
+	kerberosConfig := ctx.Flags.String("kerberos-config")
+	kerberosKeytabFile := ctx.Flags.String("kerberos-keytab")
+
+	if kerberosRealm != "" && kerberosKeytabFile == "" {
+		con.PrintErrorf("You must specify a keytab file with the --kerberos-keytab flag\n")
+		return
+	}
+	kerberosKeytab, err := ioutil.ReadFile(kerberosKeytabFile)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
 
 	if password == "" && len(privKey) == 0 && !ctx.Flags.Bool("skip-loot") {
 		oldUsername := username
@@ -59,6 +72,9 @@ func SSHCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		PrivKey:  privKey,
 		Password: password,
 		Command:  strings.Join(command, " "),
+		Realm:    kerberosRealm,
+		Krb5Conf: kerberosConfig,
+		Keytab:   kerberosKeytab,
 		Request:  con.ActiveTarget.Request(ctx),
 	})
 	if err != nil {
