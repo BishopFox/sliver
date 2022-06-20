@@ -58,13 +58,16 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 	assemblyArgs := ctx.Args.StringList("arguments")
 	process := ctx.Flags.String("process")
 
+	assemblyArgsStr := strings.Join(assemblyArgs, " ")
+	assemblyArgsStr = strings.TrimSpace(assemblyArgsStr)
+
 	ctrl := make(chan bool)
 	con.SpinUntil("Executing assembly ...", ctrl)
 	execAssembly, err := con.Rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
 		Request:   con.ActiveTarget.Request(ctx),
 		IsDLL:     isDLL,
 		Process:   process,
-		Arguments: strings.Join(assemblyArgs, " "),
+		Arguments: assemblyArgsStr,
 		Assembly:  assemblyBytes,
 		Arch:      ctx.Flags.String("arch"),
 		Method:    ctx.Flags.String("method"),

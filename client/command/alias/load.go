@@ -269,6 +269,8 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	} else {
 		extArgs = strings.Join(args, " ")
 	}
+
+	extArgs = strings.TrimSpace(extArgs)
 	entryPoint := aliasManifest.Entrypoint
 	processName := ctx.Flags.String("process")
 	if processName == "" {
