@@ -10,6 +10,7 @@ import (
 
 	"github.com/bishopfox/sliver/implant/sliver/shell"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
@@ -22,6 +23,12 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		// {{if .Config.Debug}}
 		log.Printf("[shell] Failed to unmarshal protobuf %s", err)
 		// {{end}}
+		shellResp, _ := proto.Marshal(&sliverpb.Shell{
+			Response: &commonpb.Response{
+				Err: err.Error(),
+			},
+		})
+		reportError(envelope, connection, shellResp)
 		return
 	}
 
@@ -31,6 +38,12 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		// {{if .Config.Debug}}
 		log.Printf("[shell] Failed to get system shell")
 		// {{end}}
+		shellResp, _ := proto.Marshal(&sliverpb.Shell{
+			Response: &commonpb.Response{
+				Err: err.Error(),
+			},
+		})
+		reportError(envelope, connection, shellResp)
 		return
 	}
 
@@ -39,6 +52,12 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		// {{if .Config.Debug}}
 		log.Printf("[shell] Failed to spawn! err: %v", err)
 		// {{end}}
+		shellResp, _ := proto.Marshal(&sliverpb.Shell{
+			Response: &commonpb.Response{
+				Err: err.Error(),
+			},
+		})
+		reportError(envelope, connection, shellResp)
 		return
 	} else {
 		// {{if .Config.Debug}}
