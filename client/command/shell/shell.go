@@ -82,7 +82,6 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *con
 
 	// Start() takes an RPC tunnel and creates a local Reader/Writer tunnel object
 	tunnel := core.GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
-	defer tunnel.Close()
 
 	shell, err := con.Rpc.Shell(context.Background(), &sliverpb.ShellReq{
 		Request:   con.ActiveTarget.Request(ctx),
@@ -94,6 +93,19 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *con
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	//
+	if shell.Response != nil && shell.Response.Err != "" {
+		con.PrintErrorf("Error: %s\n", shell.Response.Err)
+		_, err = con.Rpc.CloseTunnel(context.Background(), &sliverpb.Tunnel{
+			TunnelID:  tunnel.ID,
+			SessionID: session.ID,
+		})
+		if err != nil {
+			con.PrintErrorf("RPC Error: %s\n", err)
+		}
+		return
+	}
+	defer tunnel.Close()
 	log.Printf("Bound remote shell pid %d to tunnel %d", shell.Pid, shell.TunnelID)
 	con.PrintInfof("Started remote shell with pid %d\n\n", shell.Pid)
 
