@@ -358,7 +358,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			"modified": &grumble.FlagMapItem{Value: false},
 			"size":     &grumble.FlagMapItem{Value: false},
 		}
-		filesystem.PrintLs(ls, flags, "", con)
+		filesystem.PrintLs(ls, flags, con)
 
 	case sliverpb.MsgMvReq:
 		mv := &sliverpb.Mv{}

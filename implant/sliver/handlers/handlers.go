@@ -82,6 +82,58 @@ func pingHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
+func determineDirPathFilter(targetPath string) (string, string) {
+	// The filter
+	filter := ""
+
+	// The path the filter applies to
+	path := ""
+
+	/*
+		Check to see if the remote path is a filter or contains a filter.
+		If the path passes the test to be a filter, then it is a filter
+		because paths are not valid filters.
+	*/
+	if targetPath != "." {
+
+		// Check if the path contains a filter
+		// Test on a standardized version of the path (change any \ to /)
+		testPath := strings.Replace(targetPath, "\\", "/", -1)
+		/*
+			Cannot use the path or filepath libraries because the OS
+			of the client does not necessarily match the OS of the
+			implant
+		*/
+		lastSeparatorOccurrence := strings.LastIndex(testPath, "/")
+
+		if lastSeparatorOccurrence == -1 {
+			// Then this is only a filter
+			filter = targetPath
+			path = "."
+		} else {
+			// Then we need to test for a filter on the end of the string
+
+			// The indicies should be the same because we did not change the length of the string
+			path = targetPath[:lastSeparatorOccurrence+1]
+			filter = targetPath[lastSeparatorOccurrence+1:]
+		}
+	} else {
+		path = targetPath
+		// filter remains blank
+	}
+
+	return path, filter
+}
+
+func pathIsDirectory(path string) bool {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false
+	} else {
+		return fileInfo.IsDir()
+	}
+}
+
 func dirListHandler(data []byte, resp RPCResponse) {
 	dirListReq := &sliverpb.LsReq{}
 	err := proto.Unmarshal(data, dirListReq)
@@ -91,7 +143,19 @@ func dirListHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	dir, files, err := getDirList(dirListReq.Path)
+
+	// Handle the case where a directory is provided without a trailing separator
+	var targetPath string
+
+	if pathIsDirectory(dirListReq.Path) {
+		targetPath = dirListReq.Path + "/"
+	} else {
+		targetPath = dirListReq.Path
+	}
+
+	path, filter := determineDirPathFilter(targetPath)
+
+	dir, files, err := getDirList(path)
 
 	// Convert directory listing to protobuf
 	timezone, offset := time.Now().Zone()
@@ -102,19 +166,47 @@ func dirListHandler(data []byte, resp RPCResponse) {
 		dirList.Exists = false
 	}
 	dirList.Files = []*sliverpb.FileInfo{}
+
+	var match bool = false
+	var linkPath string = ""
+
 	for _, fileInfo := range files {
-		dirList.Files = append(dirList.Files, &sliverpb.FileInfo{
-			Name:  fileInfo.Name(),
-			IsDir: fileInfo.IsDir(),
-			Size:  fileInfo.Size(),
-			/* Send the time back to the client / server as the number of seconds
-			since epoch.  This will decouple formatting the time to display from the
-			time itself.  We can change the format of the time displayed in the client
-			and not have to worry about having to update implants.
-			*/
-			ModTime: fileInfo.ModTime().Unix(),
-			Mode:    fileInfo.Mode().String(),
-		})
+		if filter == "" {
+			match = true
+		} else {
+			match, err = filepath.Match(filter, fileInfo.Name())
+			if err != nil {
+				// Then this is a bad filter, and it will be a bad filter
+				// on every iteration of the loop, so we might as well break now
+				break
+			}
+		}
+
+		if match {
+			// Check if this is a symlink, and if so, add the path the link points to
+			if fileInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
+				linkPath, err = filepath.EvalSymlinks(path + fileInfo.Name())
+				if err != nil {
+					linkPath = ""
+				}
+			} else {
+				linkPath = ""
+			}
+
+			dirList.Files = append(dirList.Files, &sliverpb.FileInfo{
+				Name:  fileInfo.Name(),
+				IsDir: fileInfo.IsDir(),
+				Size:  fileInfo.Size(),
+				/* Send the time back to the client / server as the number of seconds
+				since epoch.  This will decouple formatting the time to display from the
+				time itself.  We can change the format of the time displayed in the client
+				and not have to worry about having to update implants.
+				*/
+				ModTime: fileInfo.ModTime().Unix(),
+				Mode:    fileInfo.Mode().String(),
+				Link:    linkPath,
+			})
+		}
 	}
 
 	// Send back the response
