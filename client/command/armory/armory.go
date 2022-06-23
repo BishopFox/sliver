@@ -56,7 +56,7 @@ type ArmoryPackage struct {
 	IsAlias bool `json:"-"`
 }
 
-// AmoryBundle - A list of packages
+// ArmoryBundle - A list of packages
 type ArmoryBundle struct {
 	Name     string   `json:"name"`
 	Packages []string `json:"packages"`
