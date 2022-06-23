@@ -170,6 +170,7 @@ message FileInfo {
   int64 Size = 3;
   int64 ModTime = 4;
   string Mode = 5;
+  string Link = 6;
 }
 
 message CdReq {
