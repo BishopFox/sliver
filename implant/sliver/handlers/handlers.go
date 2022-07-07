@@ -894,12 +894,15 @@ func compressDir(path string, filter string, recurse bool, buf io.Writer) (int, 
 			}
 			if err := tarWriter.WriteHeader(header); err != nil {
 				unreadableFiles += 1
+				data.Close()
 				continue
 			}
 			if _, err := io.Copy(tarWriter, data); err != nil {
 				unreadableFiles += 1
+				data.Close()
 				continue
 			}
+			data.Close()
 			readFiles += 1
 		} else {
 			if err := tarWriter.WriteHeader(header); err != nil {
