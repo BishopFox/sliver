@@ -246,9 +246,9 @@ message Download {
   bytes Data = 6;
   bool IsDir = 7;
   int32 ReadFiles = 8;
-  int32 UnreadableFiles = 9;
+  int32 UnreadableFiles = 10;
 
-  commonpb.Response Response = 10;
+  commonpb.Response Response = 9;
 }
 
 message UploadReq {
