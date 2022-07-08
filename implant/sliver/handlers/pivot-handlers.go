@@ -70,7 +70,7 @@ func pivotStartListenerHandler(envelope *pb.Envelope, connection *transports.Con
 	}
 
 	if createListener, ok := pivots.SupportedPivotListeners[req.Type]; ok {
-		listener, err := createListener(req.BindAddress, connection.Send)
+		listener, err := createListener(req.BindAddress, connection.Send, req.Options...)
 		if err != nil {
 			resp.Response.Err = err.Error()
 			data, _ := proto.Marshal(resp)

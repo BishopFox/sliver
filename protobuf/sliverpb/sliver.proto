@@ -765,6 +765,7 @@ enum PivotType {
 message PivotStartListenerReq {
   PivotType Type = 1;
   string BindAddress = 2;
+  repeated bool Options = 3;
 
   commonpb.Request Request = 9;
 }

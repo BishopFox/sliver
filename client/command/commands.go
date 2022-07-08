@@ -2484,7 +2484,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.PivotsStr, consts.NamedPipeStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("b", "bind", "", "name of the named pipe to bind pivot listener")
-
+			f.Bool("a", "allow-all", false, "allow all users to connect")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
