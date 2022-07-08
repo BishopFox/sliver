@@ -232,6 +232,7 @@ message DownloadReq {
   string Path = 1;
   int64 Start = 2;
   int64 Stop = 3;
+  bool Recurse = 4;
 
   commonpb.Request Request = 9;
 }
@@ -244,6 +245,8 @@ message Download {
   int64 Stop = 5;
   bytes Data = 6;
   bool IsDir = 7;
+  int32 ReadFiles = 8;
+  int32 UnreadableFiles = 10;
 
   commonpb.Response Response = 9;
 }
