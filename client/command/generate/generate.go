@@ -164,7 +164,7 @@ func nameOfOutputFormat(value clientpb.OutputFormat) string {
 // Shared function that extracts the compile flags from the grumble context
 func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *clientpb.ImplantConfig {
 	var name string
-	if ctx.Flags["name"] != nil {
+	if ctx.Flags.String("name") != "" {
 		name = strings.ToLower(ctx.Flags.String("name"))
 
 		if err := util.AllowedName(name); err != nil {
