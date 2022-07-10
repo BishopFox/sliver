@@ -20,13 +20,12 @@ package rpc
 
 import (
 	"context"
-	"regexp"
-
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/util"
 )
 
 const maxNameLength = 32
@@ -56,7 +55,7 @@ func (rpc *Server) Rename(ctx context.Context, req *clientpb.RenameReq) (*common
 	if len(req.Name) < 1 || maxNameLength < len(req.Name) {
 		return resp, ErrInvalidName
 	}
-	if !regexp.MustCompile(`^[[:alnum:]]+$`).MatchString(req.Name) {
+	if err := util.AllowedName(req.Name); err != nil {
 		return resp, ErrInvalidName
 	}
 
