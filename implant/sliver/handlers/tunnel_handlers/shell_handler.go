@@ -100,6 +100,32 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		}
 	}
 
+	// Handle stderr
+	// Ideally we'd want the tunnel interface to use a slice of io.Readers and iterate over them.
+	// Not sure how that would work with the sequencing stuff in data_handler.go
+	go func() {
+		tWriter := tunnelWriter{
+			conn: connection,
+			tun:  tunnel,
+		}
+		_, err := io.Copy(tWriter, systemShell.Stderr)
+
+		if err != nil {
+			cleanup("io error", err)
+			return
+		}
+		if systemShell.Command.ProcessState != nil {
+			if systemShell.Command.ProcessState.Exited() {
+				cleanup("process terminated", nil)
+				return
+			}
+		}
+		if err == io.EOF {
+			cleanup("EOF", err)
+			return
+		}
+	}()
+
 	go func() {
 		tWriter := tunnelWriter{
 			tun:  tunnel,
