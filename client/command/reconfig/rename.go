@@ -20,10 +20,9 @@ package reconfig
 
 import (
 	"context"
-	"regexp"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/util"
 	"github.com/desertbit/grumble"
 )
 
@@ -36,12 +35,9 @@ func RenameCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	// Option to change the agent name
 	name := ctx.Flags.String("name")
-	if name != "" {
-		isAlphanumeric := regexp.MustCompile(`^[[:alnum:]]+$`).MatchString
-		if !isAlphanumeric(name) {
-			con.PrintErrorf("Name must be in alphanumeric only\n")
-			return
-		}
+	if err := util.AllowedName(name); err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
 	}
 
 	var beaconID string

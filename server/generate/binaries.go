@@ -195,8 +195,15 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 
 	name := ""
 	if pbConfig.Name != "" {
-		// Only allow user-provided alpha/numeric names
-		if regexp.MustCompile(`^[[:alnum:]]+$`).MatchString(pbConfig.Name) {
+		// allow for alphanumeric, periods, dashes, and underscores in name
+		isAllowed := regexp.MustCompile(`^[[:alnum:]\.\-_]+$`).MatchString
+		// do not allow for files ".", "..", or anything starting with ".."
+		additionalDeny := regexp.MustCompile(`^\.\.|^\.$`).MatchString
+		if !isAllowed(pbConfig.Name) {
+			buildLog.Warnf("Name must be alphanumeric or .-_ only\n")
+		} else if additionalDeny(pbConfig.Name) {
+			buildLog.Warnf("Name cannot be \".\", \"..\", or start with \"..\"")
+		} else {
 			name = pbConfig.Name
 		}
 	}
