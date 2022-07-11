@@ -31,6 +31,7 @@ type Shell struct {
 	Command *exec.Cmd
 	Stdout  io.ReadCloser
 	Stdin   io.WriteCloser
+	Stderr  io.ReadCloser
 	Cancel  context.CancelFunc
 }
 

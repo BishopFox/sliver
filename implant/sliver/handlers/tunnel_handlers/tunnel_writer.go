@@ -27,7 +27,7 @@ func (tw tunnelWriter) Write(data []byte) (int, error) {
 		Data:     data,
 	})
 	// {{if .Config.Debug}}
-	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d, data: %s", n, tw.tun.WriteSequence(), tw.tun.ReadSequence(), data)
+	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d", n, tw.tun.WriteSequence(), tw.tun.ReadSequence())
 	// {{end}}
 	tw.tun.IncWriteSequence() // Increment write sequence
 	tw.conn.Send <- &sliverpb.Envelope{
