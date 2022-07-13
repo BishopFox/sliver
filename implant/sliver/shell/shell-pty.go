@@ -120,6 +120,7 @@ func ptyShell(tunnelID uint64, command []string) (*Shell, error) {
 		Command: cmd,
 		Stdout:  term,
 		Stdin:   term,
+		Stderr:  term,
 		Cancel:  cancel,
 	}, err
 }
