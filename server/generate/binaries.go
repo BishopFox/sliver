@@ -29,7 +29,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 	"text/template"
@@ -194,11 +193,10 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	}
 
 	name := ""
-	if pbConfig.Name != "" {
-		// Only allow user-provided alpha/numeric names
-		if regexp.MustCompile(`^[[:alnum:]]+$`).MatchString(pbConfig.Name) {
-			name = pbConfig.Name
-		}
+	if err := util.AllowedName(pbConfig.Name); err != nil {
+		buildLog.Warnf("%s\n", err)
+	} else {
+		name = pbConfig.Name
 	}
 	return name, cfg
 }

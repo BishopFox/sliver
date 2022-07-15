@@ -1,4 +1,4 @@
-package shell
+package util
 
 /*
 	Sliver Implant Framework
@@ -19,46 +19,22 @@ package shell
 */
 
 import (
-	"context"
-	"io"
-	"os"
-	"os/exec"
+	"testing"
 )
 
-// Shell - Struct to hold shell related data
-type Shell struct {
-	ID      uint64
-	Command *exec.Cmd
-	Stdout  io.ReadCloser
-	Stdin   io.WriteCloser
-	Stderr  io.ReadCloser
-	Cancel  context.CancelFunc
-}
+func TestAllowedName(t *testing.T) {
+	notAllowed := [3]string{".", "..", "..test"}
+	isAllowed := [6]string{"test", "testing_string", "testing.string", "testing-string", "testing..string", "test.."}
 
-// Start - starts a command
-func (s *Shell) Start() error {
-	return s.Command.Start()
-}
-
-// Wait - waits till the command finish
-func (s *Shell) Wait() error {
-	return s.Command.Wait()
-}
-
-// Stop - stopping the command (syskill) using context cancel
-func (s *Shell) Stop() {
-	if s.Cancel != nil {
-		s.Cancel()
+	for i := 0; i < len(notAllowed); i++ {
+		if err := AllowedName(notAllowed[i]); err == nil {
+			t.Fatalf("failed to deny non allowed implant name")
+		}
 	}
-}
+	for i := 0; i < len(isAllowed); i++ {
+		if err := AllowedName(isAllowed[i]); err != nil {
+			t.Fatalf("failed to allow allowed implant name")
+		}
+	}
 
-func exists(path string) bool {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true
-	}
-	if os.IsNotExist(err) {
-		return false
-	}
-	return true
 }

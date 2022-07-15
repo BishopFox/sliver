@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/implant/sliver/transports"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
@@ -24,6 +25,12 @@ func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 		// {{if .Config.Debug}}
 		log.Printf("[portfwd] Failed to unmarshal protobuf %s", err)
 		// {{end}}
+		portfwdResp, _ := proto.Marshal(&sliverpb.Portfwd{
+			Response: &commonpb.Response{
+				Err: err.Error(),
+			},
+		})
+		reportError(envelope, connection, portfwdResp)
 		return
 	}
 
@@ -43,6 +50,12 @@ func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 		log.Printf("[portfwd] Failed to dial remote address %s", err)
 		// {{end}}
 		cancelContext()
+		portfwdResp, _ := proto.Marshal(&sliverpb.Portfwd{
+			Response: &commonpb.Response{
+				Err: err.Error(),
+			},
+		})
+		reportError(envelope, connection, portfwdResp)
 		return
 	}
 	if conn, ok := dst.(*net.TCPConn); ok {
@@ -101,7 +114,8 @@ func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 			tun:  tunnel,
 			conn: connection,
 		}
-		n, err := io.Copy(tWriter, tunnel.Reader)
+		// portfwd only uses one reader, hence the tunnel.Readers[0]
+		n, err := io.Copy(tWriter, tunnel.Readers[0])
 		_ = n // avoid not used compiler error if debug mode is disabled
 		// {{if .Config.Debug}}
 		log.Printf("[tunnel] Tunnel done, wrote %v bytes", n)

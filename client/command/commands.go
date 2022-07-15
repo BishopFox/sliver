@@ -1802,6 +1802,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("T", "type", "", "force a specific loot type (file/cred) if looting")
 			f.String("F", "file-type", "", "force a specific file type (binary/text) if looting")
 			f.String("n", "name", "", "name to assign the download if looting")
+			f.Bool("r", "recurse", false, "recursively download all files in a directory")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("remote-path", "path to the file or directory to download")
@@ -2486,7 +2487,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.PivotsStr, consts.NamedPipeStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("b", "bind", "", "name of the named pipe to bind pivot listener")
-
+			f.Bool("a", "allow-all", false, "allow all users to connect")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {

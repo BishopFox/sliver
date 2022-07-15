@@ -22,8 +22,7 @@ func TunnelCloseHandler(envelope *sliverpb.Envelope, connection *transports.Conn
 		log.Printf("[tunnel] Closing tunnel with id %d", tunnel.ID)
 		// {{end}}
 		connection.RemoveTunnel(tunnel.ID)
-		tunnel.Reader.Close()
-		tunnel.Writer.Close()
+		tunnel.Close() // Call tunnel.Close instead of individually closing each Reader/Writer here
 		tunnelDataCache.DeleteTun(tunnel.ID)
 	} else {
 		// {{if .Config.Debug}}

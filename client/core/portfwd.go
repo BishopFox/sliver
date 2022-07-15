@@ -20,6 +20,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"net"
@@ -202,6 +203,7 @@ func (p *ChannelProxy) dialImplant(ctx context.Context) (*TunnelIO, error) {
 		log.Printf("[tcpproxy] Failed to dial implant %s", err)
 		return nil, err
 	}
+
 	log.Printf("[tcpproxy] Created new tunnel with id %d (session %s)", rpcTunnel.TunnelID, p.Session.ID)
 	tunnel := GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
 
@@ -217,6 +219,14 @@ func (p *ChannelProxy) dialImplant(ctx context.Context) (*TunnelIO, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	// Close tunnel in case of error on the implant side
+	if portfwdResp.Response != nil && portfwdResp.Response.Err != "" {
+		p.Rpc.CloseTunnel(ctx, &sliverpb.Tunnel{
+			TunnelID:  tunnel.ID,
+			SessionID: p.Session.ID,
+		})
+		return nil, errors.New(portfwdResp.Response.Err)
 	}
 	log.Printf("Portfwd response: %v", portfwdResp)
 

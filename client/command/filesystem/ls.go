@@ -22,7 +22,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"path/filepath"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -45,49 +44,6 @@ func LsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	remotePath := ctx.Args.String("path")
-	filter := ""
-
-	/*
-		Check to see if the remote path is a filter or contains a filter.
-		If the path passes the test to be a filter, then it is a filter
-		because paths are not valid filters.
-	*/
-	if remotePath != "." {
-
-		// Check if the path contains a filter
-		// Test on a standardized version of the path (change any \ to /)
-		testPath := strings.Replace(remotePath, "\\", "/", -1)
-		/*
-			Cannot use the path or filepath libraries because the OS
-			of the client does not necessarily match the OS of the
-			implant
-		*/
-		lastSeparatorOccurrence := strings.LastIndex(testPath, "/")
-
-		if lastSeparatorOccurrence == -1 {
-			// Then this is only a filter
-			filter = remotePath
-			remotePath = "."
-		} else {
-			// Then we need to test for a filter on the end of the string
-
-			// The indicies should be the same because we did not change the length of the string
-			baseDir := remotePath[:lastSeparatorOccurrence+1]
-			potentialFilter := remotePath[lastSeparatorOccurrence+1:]
-
-			_, err := filepath.Match(potentialFilter, "")
-
-			if err == nil {
-				// Then we have a filter on the end of the path
-				remotePath = baseDir
-				filter = potentialFilter
-			} else {
-				if !strings.HasSuffix(remotePath, "/") {
-					remotePath = remotePath + "/"
-				}
-			}
-		}
-	}
 
 	ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
 		Request: con.ActiveTarget.Request(ctx),
@@ -104,23 +60,38 @@ func LsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			PrintLs(ls, ctx.Flags, filter, con)
+			PrintLs(ls, ctx.Flags, con)
 		})
 		con.PrintAsyncResponse(ls.Response)
 	} else {
-		PrintLs(ls, ctx.Flags, filter, con)
+		PrintLs(ls, ctx.Flags, con)
 	}
 }
 
 // PrintLs - Display an sliverpb.Ls object
-func PrintLs(ls *sliverpb.Ls, flags grumble.FlagMap, filter string, con *console.SliverConsoleClient) {
+func PrintLs(ls *sliverpb.Ls, flags grumble.FlagMap, con *console.SliverConsoleClient) {
 	if ls.Response != nil && ls.Response.Err != "" {
 		con.PrintErrorf("%s\n", ls.Response.Err)
 		return
 	}
 
-	con.Printf("%s\n", ls.Path)
-	con.Printf("%s\n", strings.Repeat("=", len(ls.Path)))
+	// Generate metadata to print with the path
+	numberOfFiles := len(ls.Files)
+	var totalSize int64 = 0
+	var pathInfo string
+
+	for _, fileInfo := range ls.Files {
+		totalSize += fileInfo.Size
+	}
+
+	if numberOfFiles == 1 {
+		pathInfo = fmt.Sprintf("%s (%d item, %s)", ls.Path, numberOfFiles, util.ByteCountBinary(totalSize))
+	} else {
+		pathInfo = fmt.Sprintf("%s (%d items, %s)", ls.Path, numberOfFiles, util.ByteCountBinary(totalSize))
+	}
+
+	con.Printf("%s\n", pathInfo)
+	con.Printf("%s\n", strings.Repeat("=", len(pathInfo)))
 
 	outputBuf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
@@ -174,29 +145,14 @@ func PrintLs(ls *sliverpb.Ls, flags grumble.FlagMap, filter string, con *console
 	}
 
 	for _, fileInfo := range ls.Files {
-		if filter != "" {
-			fileMatch, err := filepath.Match(filter, fileInfo.Name)
-
-			if err != nil {
-				/*
-					This should not happen because we checked the filter
-					before reaching out to the implant.
-				*/
-				con.PrintErrorf("%s is not a valid filter: %s\n", filter, err)
-				break
-			}
-
-			if !fileMatch {
-				continue
-			}
-		}
-
 		modTime := time.Unix(fileInfo.ModTime, 0)
 		implantLocation := time.FixedZone(ls.Timezone, int(ls.TimezoneOffset))
 		modTime = modTime.In(implantLocation)
 
 		if fileInfo.IsDir {
 			fmt.Fprintf(table, "%s\t%s\t<dir>\t%s\n", fileInfo.Mode, fileInfo.Name, modTime.Format(time.RubyDate))
+		} else if fileInfo.Link != "" {
+			fmt.Fprintf(table, "%s\t%s -> %s\t%s\t%s\n", fileInfo.Mode, fileInfo.Name, fileInfo.Link, util.ByteCountBinary(fileInfo.Size), modTime.Format(time.RubyDate))
 		} else {
 			fmt.Fprintf(table, "%s\t%s\t%s\t%s\n", fileInfo.Mode, fileInfo.Name, util.ByteCountBinary(fileInfo.Size), modTime.Format(time.RubyDate))
 		}
