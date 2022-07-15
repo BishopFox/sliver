@@ -2,7 +2,7 @@ module github.com/bishopfox/sliver
 
 go 1.17
 
-replace github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.4
+replace github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.6
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.2.2
