@@ -54,6 +54,9 @@ type Config struct {
 	// NoColor defines if color output should be disabled.
 	NoColor bool
 
+	// VimMode defines if Readline is to use VimMode for line navigation.
+	VimMode bool
+
 	// Prompt defines the shell prompt.
 	Prompt      string
 	PromptColor *color.Color
@@ -70,6 +73,9 @@ type Config struct {
 	HelpHeadlineUnderline bool
 	HelpSubCommands       bool
 	HelpHeadlineColor     *color.Color
+
+	// Override default iterrupt handler
+	InterruptHandler func(a *App, count int)
 }
 
 // SetDefaults sets the default values if not set.

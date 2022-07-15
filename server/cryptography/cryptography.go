@@ -109,7 +109,7 @@ func (e *ECCKeyPair) PrivateBase64() string {
 	return base64.RawStdEncoding.EncodeToString(e.Private[:])
 }
 
-// RandomeECCKeyPair - Generate a random Curve 25519 key pair
+// RandomECCKeyPair - Generate a random Curve 25519 key pair
 func RandomECCKeyPair() (*ECCKeyPair, error) {
 	public, private, err := box.GenerateKey(rand.Reader)
 	if err != nil {
