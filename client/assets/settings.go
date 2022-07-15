@@ -35,6 +35,7 @@ type ClientSettings struct {
 	BeaconAutoResults bool   `json:"beacon_autoresults"`
 	SmallTermWidth    int    `json:"small_term_width"`
 	AlwaysOverflow    bool   `json:"always_overflow"`
+	VimMode           bool   `json:"vim_mode"`
 }
 
 // LoadSettings - Load the client settings from disk
@@ -59,6 +60,7 @@ func defaultSettings() *ClientSettings {
 		BeaconAutoResults: true,
 		SmallTermWidth:    170,
 		AlwaysOverflow:    false,
+		VimMode:           false,
 	}
 }
 

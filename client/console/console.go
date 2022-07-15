@@ -113,6 +113,7 @@ func Start(rpc rpcpb.SliverRPCClient, bindCmds BindCmds, extraCmds BindCmds, isS
 			HelpHeadlineColor:     color.New(),
 			HelpHeadlineUnderline: true,
 			HelpSubCommands:       true,
+			VimMode:               settings.VimMode,
 		}),
 		Rpc: rpc,
 		ActiveTarget: &ActiveTarget{
