@@ -110,13 +110,13 @@ func PrintPS(os string, ps *sliverpb.Ps, interactive bool, ctx *grumble.Context,
 
 	switch os {
 	case "windows":
-		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "executable", "session"})
+		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "arch", "executable", "session"})
 	case "darwin":
 		fallthrough
 	case "linux":
-		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "executable"})
+		fallthrough
 	default:
-		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "executable"})
+		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "arch", "executable"})
 	}
 
 	cmdLine := ctx.Flags.Bool("print-cmdline")
@@ -134,8 +134,8 @@ func PrintPS(os string, ps *sliverpb.Ps, interactive bool, ctx *grumble.Context,
 		tw.AppendRow(row)
 	}
 	tw.SortBy([]table.SortBy{
-		{Name: "pid", Mode: table.Asc},
-		{Name: "ppid", Mode: table.Asc},
+		{Name: "pid", Mode: table.AscNumeric},
+		{Name: "ppid", Mode: table.AscNumeric},
 	})
 	if !interactive {
 		overflow = true
@@ -182,6 +182,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
+				fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
 				fmt.Sprintf(color+"%s"+console.Normal, args),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.SessionID),
 			}
@@ -190,6 +191,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
+				fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.SessionID),
 			}
@@ -210,6 +212,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
+				fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
 				fmt.Sprintf(color+"%s"+console.Normal, args),
 			}
 		} else {
@@ -217,6 +220,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
+				fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
 			}
 		}

@@ -25,6 +25,9 @@ type Process interface {
 
 	// Owner is the account name of the process owner.
 	Owner() string
+
+	// Architecture is the architecture of the process.
+	Architecture() string
 }
 
 // Processes returns all processes.
