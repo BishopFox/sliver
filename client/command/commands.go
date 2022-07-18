@@ -1458,6 +1458,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 			f.String("c", "canary", "", "canary domain(s)")
 
+			f.String("N", "name", "", "implant name")
 			f.String("m", "mtls", "", "mtls connection strings")
 			f.String("g", "wg", "", "wg connection strings")
 			f.String("b", "http", "", "http(s) connection strings")
