@@ -149,6 +149,7 @@ else
 fi
 
 # server / generate
+export GOPROXY=off
 if go test -tags=server,$TAGS ./server/generate -timeout 6h ; then
     :
 else
