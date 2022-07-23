@@ -652,17 +652,29 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	if err != nil {
 		return "", err
 	}
-	buildLog.Debugf("Created %s", goModPath)
-	output, err := gogo.GoMod((*goConfig), sliverPkgDir, []string{"tidy", "-compat=1.17"})
-	if err != nil {
-		buildLog.Errorf("Go mod tidy failed:\n%s", output)
-		return "", err
-	}
+	// Render vendor dir
+	err = fs.WalkDir(implant.Vendor, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 
+		if d.IsDir() {
+			return os.MkdirAll(filepath.Join(sliverPkgDir, path), 0700)
+		}
+
+		contents, err := implant.Vendor.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		return os.WriteFile(filepath.Join(sliverPkgDir, path), contents, 0600)
+	})
 	if err != nil {
-		buildLog.Errorf("Failed to save sliver config %s", err)
+		buildLog.Errorf("Failed to copy vendor directory %v", err)
 		return "", err
 	}
+	buildLog.Debugf("Created %s", goModPath)
+
 	return sliverPkgDir, nil
 }
 
