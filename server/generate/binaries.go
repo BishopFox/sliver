@@ -878,8 +878,9 @@ func getGoProxy() string {
 		buildLog.Debugf("Using GOPROXY from env: %s", value)
 		return value
 	}
-	buildLog.Debugf("No GOPROXY found")
-	return ""
+	const defaultGoProxy = "off"
+	buildLog.Debugf("No GOPROXY setting found, default to %s", defaultGoProxy)
+	return defaultGoProxy
 }
 
 func getGoHttpProxy() string {
