@@ -55,10 +55,20 @@ func LootAddCredentialCmd(ctx *grumble.Context, con *console.SliverConsoleClient
 	switch credType {
 	case clientpb.CredentialType_USER_PASSWORD.String():
 		loot.CredentialType = clientpb.CredentialType_USER_PASSWORD
-		usernamePrompt := &survey.Input{Message: "Username: "}
-		survey.AskOne(usernamePrompt, &loot.Credential.User)
-		passwordPrompt := &survey.Input{Message: "Password: "}
-		survey.AskOne(passwordPrompt, &loot.Credential.Password)
+		for loot.Credential.User == "" {
+			usernamePrompt := &survey.Input{Message: "Username: "}
+			survey.AskOne(usernamePrompt, &loot.Credential.User)
+			if loot.Credential.User == "" {
+				con.Println("Username is required")
+			}
+		}
+		for loot.Credential.Password == "" {
+			passwordPrompt := &survey.Input{Message: "Password: "}
+			survey.AskOne(passwordPrompt, &loot.Credential.Password)
+			if loot.Credential.Password == "" {
+				con.Println("Password is required")
+			}
+		}
 	case clientpb.CredentialType_API_KEY.String():
 		loot.CredentialType = clientpb.CredentialType_API_KEY
 		usernamePrompt := &survey.Input{Message: "API Key: "}

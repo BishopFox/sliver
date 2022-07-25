@@ -32,4 +32,8 @@ var (
 	// GoSum - Templated go.sum module file for implant builds
 	//go:embed go-sum
 	GoSum string
+
+	// Vendor - Embedded FS access to vendored sliver implant dependencies
+	//go:embed vendor/**
+	Vendor embed.FS
 )
