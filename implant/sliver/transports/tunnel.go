@@ -59,7 +59,9 @@ func (c *Tunnel) IncWriteSequence() {
 // Close - close tunnel reader and writer
 func (c *Tunnel) Close() {
 	for _, rc := range c.Readers {
-		rc.Close()
+		if rc != nil {
+			rc.Close()
+		}
 	}
 	c.Writer.Close()
 }
