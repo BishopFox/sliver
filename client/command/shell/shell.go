@@ -61,6 +61,8 @@ func ShellCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *console.SliverConsoleClient) {
+	con.Println()
+	con.PrintInfof("Wait approximately 10 seconds after exit, and press <enter> to continue\n")
 	con.PrintInfof("Opening shell tunnel (EOF to exit) ...\n\n")
 	session := con.ActiveTarget.GetSession()
 	if session == nil {
