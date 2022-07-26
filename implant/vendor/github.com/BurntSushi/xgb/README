@@ -1,0 +1,59 @@
+Note that this project is largely unmaintained as I don't have the time to do
+or support more development. Please consider using this fork instead:
+https://github.com/jezek/xgb
+
+
+XGB is the X Go Binding, which is a low-level API to communicate with the
+core X protocol and many of the X extensions. It is closely modeled after
+XCB and xpyb.
+
+It is thread safe and gets immediate improvement from parallelism when
+GOMAXPROCS > 1. (See the benchmarks in xproto/xproto_test.go for evidence.)
+
+Please see doc.go for more info.
+
+Note that unless you know you need XGB, you can probably make your life
+easier by using a slightly higher level library: xgbutil.
+
+Quick Usage
+===========
+go get github.com/BurntSushi/xgb
+go run go/path/src/github.com/BurntSushi/xgb/examples/create-window/main.go
+
+BurntSushi's Fork
+=================
+I've forked the XGB repository from Google Code due to inactivty upstream.
+
+Godoc documentation can be found here:
+https://godoc.org/github.com/BurntSushi/xgb
+
+Much of the code has been rewritten in an effort to support thread safety
+and multiple extensions. Namely, go_client.py has been thrown away in favor
+of an xgbgen package.
+
+The biggest parts that *haven't* been rewritten by me are the connection and
+authentication handshakes. They're inherently messy, and there's really no
+reason to re-work them. The rest of XGB has been completely rewritten.
+
+I like to release my code under the WTFPL, but since I'm starting with someone
+else's work, I'm leaving the original license/contributor/author information
+in tact.
+
+I suppose I can legitimately release xgbgen under the WTFPL. To be fair, it is
+at least as complex as XGB itself. *sigh*
+
+What follows is the original README:
+
+XGB README
+==========
+XGB is the X protocol Go language Binding.
+
+It is the Go equivalent of XCB, the X protocol C-language Binding
+(http://xcb.freedesktop.org/).
+
+Unless otherwise noted, the XGB source files are distributed
+under the BSD-style license found in the LICENSE file.
+
+Contributions should follow the same procedure as for the Go project:
+http://golang.org/doc/contribute.html
+
