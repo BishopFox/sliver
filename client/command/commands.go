@@ -3244,7 +3244,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Args: func(a *grumble.Args) {
-			a.String("connection-string", "connection string to the Operator Host")
+			a.String("connection-string", "connection string to the Operator Host (e.g. 127.0.0.1:1234)")
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Bool("s", "skip-existing", false, "Do not add existing sessions as Operator Agents")
