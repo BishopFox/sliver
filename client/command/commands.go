@@ -1196,6 +1196,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("d", "service-description", "Sliver implant", "description of the service")
 			f.String("p", "profile", "", "profile to use for service binary")
 			f.String("b", "binpath", "c:\\windows\\temp", "directory to which the executable will be uploaded")
+			f.String("c", "custom-exe", "", "custom service executable to use instead of generating a new Sliver")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
