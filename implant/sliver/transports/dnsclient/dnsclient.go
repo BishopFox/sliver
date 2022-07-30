@@ -96,13 +96,13 @@ var (
 
 // DNSOptions - c2 specific options
 type DNSOptions struct {
-	QueryTimeout      time.Duration
-	RetryWait         time.Duration
-	RetryCount        int
-	MaxErrors         int
-	WokersPerResolver int
-	ForceBase32       bool
-	ForceResolvConf   string
+	QueryTimeout       time.Duration
+	RetryWait          time.Duration
+	RetryCount         int
+	MaxErrors          int
+	WorkersPerResolver int
+	ForceBase32        bool
+	ForceResolvConf    string
 }
 
 // ParseDNSOptions - Parse c2 specific options
@@ -134,13 +134,13 @@ func ParseDNSOptions(c2URI *url.URL) *DNSOptions {
 	}
 
 	return &DNSOptions{
-		QueryTimeout:      queryTimeout,
-		RetryWait:         retryWait,
-		RetryCount:        retryCount,
-		MaxErrors:         maxErrors,
-		WokersPerResolver: workersPerResolver,
-		ForceBase32:       strings.ToLower(c2URI.Query().Get("force-base32")) == "true",
-		ForceResolvConf:   c2URI.Query().Get("force-resolv-conf"),
+		QueryTimeout:       queryTimeout,
+		RetryWait:          retryWait,
+		RetryCount:         retryCount,
+		MaxErrors:          maxErrors,
+		WorkersPerResolver: workersPerResolver,
+		ForceBase32:        strings.ToLower(c2URI.Query().Get("force-base32")) == "true",
+		ForceResolvConf:    c2URI.Query().Get("force-resolv-conf"),
 	}
 }
 
@@ -171,7 +171,7 @@ func NewDNSClient(parent string, opts *DNSOptions) *SliverDNSClient {
 		retryCount:      opts.RetryCount,
 		closed:          true,
 
-		WorkersPerResolver: opts.WokersPerResolver,
+		WorkersPerResolver: opts.WorkersPerResolver,
 		subdataSpace:       254 - len(parent) - (1 + (254-len(parent))/64),
 		base32:             encoders.Base32{},
 		base58:             encoders.Base58{},
