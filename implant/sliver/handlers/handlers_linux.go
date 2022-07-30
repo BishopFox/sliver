@@ -41,6 +41,7 @@ var (
 		sliverpb.MsgEnvReq:       getEnvHandler,
 		sliverpb.MsgSetEnvReq:    setEnvHandler,
 		sliverpb.MsgUnsetEnvReq:  unsetEnvHandler,
+		sliverpb.MsgPortscanReq:  portscanHandler,
 
 		sliverpb.MsgScreenshotReq: screenshotHandler,
 

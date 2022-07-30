@@ -28,7 +28,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// PortscanCmd - Display network interfaces on the remote system
+// PortscanCmd - Scan for open ports
 func PortscanCmd(ctx *grumble.Context, con *console.SliverConsoleClient) (err error) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -52,18 +52,22 @@ func PortscanCmd(ctx *grumble.Context, con *console.SliverConsoleClient) (err er
 		threads = 32
 	}
 
+	ctrl := make(chan bool)
+	con.SpinUntil("Scanning ...", ctrl)
+
 	portscan, err := con.Rpc.Portscan(context.Background(), &sliverpb.PortscanReq{
 		Request: con.ActiveTarget.Request(ctx),
 		Host:	host,
 		Port:	port,
 		Threads: int32(threads),
 	})
+	ctrl <- true
+	<-ctrl
+
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-
-	// PortscanReq.Host, PortscanReq.Port = host, port
 
 	if portscan.Response != nil && portscan.Response.Async {
 		con.AddBeaconCallback(portscan.Response.TaskID, func(task *clientpb.BeaconTask) {

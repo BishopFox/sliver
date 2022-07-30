@@ -1,4 +1,4 @@
 Network
 ========
 
-Network related command implementations such as `netstat` and `ifconfig`
+Network related command implementations such as `netstat`, `ifconfig`, and `portscan`

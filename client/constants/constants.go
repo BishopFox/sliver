@@ -177,6 +177,7 @@ const (
 	UploadStr   = "upload"
 	IfconfigStr = "ifconfig"
 	NetstatStr  = "netstat"
+	PortscanStr = "portscan"
 
 	ProcdumpStr         = "procdump"
 	ImpersonateStr      = "impersonate"

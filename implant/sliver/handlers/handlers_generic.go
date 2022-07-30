@@ -46,6 +46,7 @@ var (
 		sliverpb.MsgEnvReq:         getEnvHandler,
 		sliverpb.MsgUnsetEnvReq:    unsetEnvHandler,
 		sliverpb.MsgReconfigureReq: reconfigureHandler,
+		sliverpb.MsgPortscanReq:    portscanHandler,
 	}
 )
 

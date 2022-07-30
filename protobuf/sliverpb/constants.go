@@ -284,6 +284,11 @@ const (
 	MsgCurrentTokenOwnerReq
 	// MsgCurrentTokenOwner - Replies with the current thread owner (resp to MsfCurrentToken)
 	MsgCurrentTokenOwner
+
+	// MsgPortscanReq - Scan network hosts for open ports
+	MsgPortscanReq
+	// MsgPortscan - Portscan response
+	MsgPortscan
 )
 
 // Constants to replace enums
@@ -497,6 +502,11 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgCurrentTokenOwnerReq
 	case *CurrentTokenOwner:
 		return MsgCurrentTokenOwner
+
+	case *PortscanReq:
+		return MsgPortscanReq
+	case *Portscan:
+		return MsgPortscan
 	}
 
 	return uint32(0)

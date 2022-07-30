@@ -55,7 +55,7 @@ func Scan(hostSpec string, portSpec string, numThreads int32) (string, error) {
 		go func() {
 			defer wgConsumers.Done()
 			for result := range results {
-				if result.open == true {
+				if result.open {
 					output += result.Report() + "\n"
 				}
 			}

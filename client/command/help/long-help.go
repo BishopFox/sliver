@@ -91,6 +91,7 @@ var (
 		consts.SSHStr:                       sshHelp,
 		consts.DLLHijackStr:                 dllHijackHelp,
 		consts.GetPrivsStr:                  getPrivsHelp,
+		consts.PortscanStr:                  portScanHelp,
 
 		// Loot
 		consts.LootStr: lootHelp,
@@ -686,6 +687,20 @@ dllhijack --reference-path c:\\windows\\system32\\msasn1.dll --reference-file /t
 
 	getPrivsHelp = `[[.Bold]]Command:[[.Normal]] getprivs
 [[.Bold]]About:[[.Normal]] Get privilege information for the current process (Windows only).
+`
+
+	portScanHelp = `[[.Bold]]Command:[[.Normal]] portscan
+[[.Bold]]About:[[.Normal]] Scan hosts for open ports.
+
+The command will scan a single host, or multiple hosts on a network for a range of ports or a single port.
+
+[[.Bold]]Examples:[[.Normal]]
+# Scan CIDR range for ports
+portscan 10.0.0.0/24 21-23,389,3389
+
+[[.Bold]]Examples:[[.Normal]]
+# Scan single host for a single port
+portscan target.domain.local 443
 `
 )
 

@@ -43,6 +43,7 @@ var (
 		pb.MsgEnvReq:       getEnvHandler,
 		pb.MsgSetEnvReq:    setEnvHandler,
 		pb.MsgUnsetEnvReq:  unsetEnvHandler,
+		pb.MsgPortscanReq:  portscanHandler,
 
 		pb.MsgScreenshotReq: screenshotHandler,
 		pb.MsgNetstatReq:    netstatHandler,

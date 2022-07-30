@@ -42,11 +42,6 @@ func atoi(s string) int {
 	return val
 }
 
-func isNumeric(s string) bool {
-	_, err := strconv.ParseInt(s, 10, 64)
-	return err == nil
-}
-
 func parsePortSpec(portSpec string) ([]int, error) {
 	var ports []int
 

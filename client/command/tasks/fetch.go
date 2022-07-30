@@ -416,6 +416,15 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		}
 		network.PrintIfconfig(ifconfig, true, con)
 
+	case sliverpb.MsgPortscanReq:
+		portscan := &sliverpb.Portscan{}
+		err := proto.Unmarshal(task.Response, portscan)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		network.PrintPortscan(portscan, con)
+
 	case sliverpb.MsgNetstatReq:
 		netstat := &sliverpb.Netstat{}
 		err := proto.Unmarshal(task.Response, netstat)

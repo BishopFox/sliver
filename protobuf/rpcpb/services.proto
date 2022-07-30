@@ -91,6 +91,7 @@ service SliverRPC {
     rpc Ps(sliverpb.PsReq) returns (sliverpb.Ps);
     rpc Terminate(sliverpb.TerminateReq) returns (sliverpb.Terminate);
     rpc Ifconfig(sliverpb.IfconfigReq) returns (sliverpb.Ifconfig);
+    rpc Portscan(sliverpb.PortscanReq) returns (sliverpb.Portscan);
     rpc Netstat(sliverpb.NetstatReq) returns (sliverpb.Netstat);
     rpc Ls(sliverpb.LsReq) returns (sliverpb.Ls);
     rpc Cd(sliverpb.CdReq) returns (sliverpb.Pwd);

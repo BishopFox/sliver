@@ -141,6 +141,21 @@ message Ifconfig {
   commonpb.Response Response = 9;
 }
 
+// PortscanReq - Request the implant scan hosts for open ports
+message PortscanReq {
+  string Host = 1;
+  string Port = 2;
+  int32 Threads = 3;
+
+  commonpb.Request Request = 9;
+}
+
+message Portscan {
+  string Output = 1;
+
+  commonpb.Response Response = 9;
+}
+
 message NetInterface {
   int32 Index = 1;
   string Name = 2;

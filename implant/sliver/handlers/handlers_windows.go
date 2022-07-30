@@ -81,6 +81,7 @@ var (
 		sliverpb.MsgRegistryDeleteKeyReq:   regDeleteKeyHandler,
 		sliverpb.MsgRegistrySubKeysListReq: regSubKeysListHandler,
 		sliverpb.MsgRegistryListValuesReq:  regValuesListHandler,
+		sliverpb.MsgPortscanReq:            portscanHandler,
 
 		// Generic
 		sliverpb.MsgPing:           pingHandler,
