@@ -11,12 +11,12 @@ func Scan(hostSpec string, portSpec string, numThreads int32) (string, error) {
 
 	hosts, err := parseHostSpec(hostSpec)
 	if err != nil {
-		return "", fmt.Errorf("No hosts could be loaded")
+		return "", err
 	}
 
 	ports, err := parsePortSpec(portSpec)
 	if err != nil {
-		return "", fmt.Errorf("No ports could be loaded")
+		return "", err
 	}
 
 	for _, host := range hosts {

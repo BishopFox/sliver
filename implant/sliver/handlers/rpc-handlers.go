@@ -282,7 +282,9 @@ func portscanHandler(data []byte, resp RPCResponse) {
 
 	output, err := portscan.Scan(portscanReq.Host, portscanReq.Port, portscanReq.Threads)
 	if err != nil {
-		log.Printf(err.Error())
+		// {{if .Config.Debug}}
+		log.Printf("portscan.Scan() returned error: %v", err)
+		// {{end}}
 		return
 	}
 
