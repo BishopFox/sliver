@@ -1,7 +1,6 @@
 package portscan
 
 import (
-	"fmt"
 	"sync"
 )
 
