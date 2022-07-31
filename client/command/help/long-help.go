@@ -365,8 +365,8 @@ Sideload a MacOS shared library into a new process using DYLD_INSERT_LIBRARIES:
 	sideload -p /Applications/Safari.app/Contents/MacOS/SafariForWebKitDevelopment -a 'Hello World' /tmp/mylib.dylib
 Sideload a Linux shared library into a new bash process using LD_PRELOAD:
 	sideload -p /bin/bash /tmp/mylib.so
-Sideload a Windows DLL as shellcode in a new process using sRDI, specifying the entrypoint and its arguments:
-	sideload -a "hello world" -e MyEntryPoint /tmp/mylib.dll
+Sideload a Windows DLL as shellcode in a new process using Donut, specifying the entrypoint and its arguments:
+	sideload -e MyEntryPoint /tmp/mylib.dll "argument to the function MyEntryPoint"
 
 [[.Bold]]Remarks:[[.Normal]]
 Linux and MacOS shared library must call exit() once done with their jobs, as the Sliver implant will wait until the hosting process
