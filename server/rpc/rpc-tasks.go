@@ -175,7 +175,7 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 	}
 
 	if getOS(session, beacon) == "windows" {
-		shellcode, err := generate.DonutShellcodeFromPE(req.Data, arch, false, req.Args, "", "", req.IsDLL)
+		shellcode, err := generate.DonutShellcodeFromPE(req.Data, arch, false, req.Args, "", req.EntryPoint, req.IsDLL)
 		if err != nil {
 			tasksLog.Errorf("Sideload failed: %s", err)
 			return nil, err
