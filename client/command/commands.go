@@ -1076,6 +1076,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("e", "entry-point", "", "Entrypoint for the DLL (Windows only)")
 			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
+			f.Bool("w", "unicode", false, "Command line is passed to unmanaged DLL function in UNICODE format. (default is ANSI)")
 			f.Bool("s", "save", false, "save output to file")
 			f.Bool("X", "loot", false, "save output as loot")
 			f.String("n", "name", "", "name to assign loot (optional)")

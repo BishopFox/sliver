@@ -3789,6 +3789,7 @@ type SideloadReq struct {
 	EntryPoint  string            `protobuf:"bytes,4,opt,name=EntryPoint,proto3" json:"EntryPoint,omitempty"`
 	Kill        bool              `protobuf:"varint,5,opt,name=Kill,proto3" json:"Kill,omitempty"`
 	IsDLL       bool              `protobuf:"varint,6,opt,name=isDLL,proto3" json:"isDLL,omitempty"`
+	IsUnicode   bool              `protobuf:"varint,7,opt,name=isUnicode,proto3" json:"isUnicode,omitempty"`
 	Request     *commonpb.Request `protobuf:"bytes,9,opt,name=Request,proto3" json:"Request,omitempty"`
 }
 
@@ -3862,6 +3863,13 @@ func (x *SideloadReq) GetKill() bool {
 func (x *SideloadReq) GetIsDLL() bool {
 	if x != nil {
 		return x.IsDLL
+	}
+	return false
+}
+
+func (x *SideloadReq) GetIsUnicode() bool {
+	if x != nil {
+		return x.IsUnicode
 	}
 	return false
 }

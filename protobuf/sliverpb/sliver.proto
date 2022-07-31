@@ -434,6 +434,7 @@ message SideloadReq {
   string EntryPoint = 4;
   bool Kill = 5;
   bool isDLL = 6;
+  bool isUnicode = 7;
 
   commonpb.Request Request = 9;
 }

@@ -61,6 +61,7 @@ func SideloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		ProcessName: processName,
 		Kill:        !ctx.Flags.Bool("keep-alive"),
 		IsDLL:       isDLL,
+		IsUnicode:   ctx.Flags.Bool("unicode"),
 	})
 	ctrl <- true
 	<-ctrl
