@@ -37,15 +37,21 @@ var (
 	// Stylizes known processes in the `ps` command
 	knownSecurityTools = map[string][]string{
 		// Process Name -> [Color, Stylized Name]
-		"ccSvcHst.exe":          {console.Red, "Symantec Endpoint Protection"}, // Symantec Endpoint Protection (SEP)
-		"cb.exe":                {console.Red, "Carbon Black"},                 // Carbon Black
-		"MsMpEng.exe":           {console.Red, "Windows Defender"},             // Windows Defender
-		"smartscreen.exe":       {console.Red, "Windows Smart Screen"},         // Windows Defender Smart Screen
-		"CSFalconService.exe":   {console.Red, "CrowdStrike"},                  // Crowdstrike Falcon Service
-		"CSFalconContainer.exe": {console.Red, "CrowdStrike"},                  // CrowdStrike Falcon Container Security
-		"bdservicehost.exe":     {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
-		"bdagent.exe":           {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
-		"bdredline.exe":         {console.Red, "Bitdefender"},                  // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
+		"ccSvcHst.exe":                    {console.Red, "Symantec Endpoint Protection"}, // Symantec Endpoint Protection (SEP)
+		"cb.exe":                          {console.Red, "Carbon Black"},                 // Carbon Black
+		"MsMpEng.exe":                     {console.Red, "Windows Defender"},             // Windows Defender
+		"smartscreen.exe":                 {console.Red, "Windows Smart Screen"},         // Windows Defender Smart Screen
+		"CSFalconService.exe":             {console.Red, "CrowdStrike"},                  // Crowdstrike Falcon Service
+		"CSFalconContainer.exe":           {console.Red, "CrowdStrike"},                  // CrowdStrike Falcon Container Security
+		"bdservicehost.exe":               {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
+		"bdagent.exe":                     {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
+		"bdredline.exe":                   {console.Red, "Bitdefender"},                  // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
+		"SentinelServiceHost.exe":         {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelStaticEngine.exe":        {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelStaticEngineScanner.exe": {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelAgent.exe":               {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelAgentWorker.exe":         {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelHelperService.exe":       {console.Red, "SentinelOne"},                  // Sentinel One
 	}
 )
 
