@@ -1,0 +1,18 @@
+Andrew Gallant is the maintainer of this fork. What follows is the original
+list of authors for the x-go-binding.
+
+# This is the official list of XGB authors for copyright purposes.
+# This file is distinct from the CONTRIBUTORS files.
+# See the latter for an explanation.
+
+# Names should be added to this file as
+#	Name or Organization <email address>
+# The email address is not required for organizations.
+
+# Please keep the list sorted.
+
+Anthony Martin <ality@pbrane.org>
+Firmansyah Adiputra <frm.adiputra@gmail.com>
+Google Inc.
+Scott Lawrence <bytbox@gmail.com>
+Tor Andersson <tor.andersson@gmail.com>

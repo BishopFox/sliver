@@ -37,15 +37,21 @@ var (
 	// Stylizes known processes in the `ps` command
 	knownSecurityTools = map[string][]string{
 		// Process Name -> [Color, Stylized Name]
-		"ccSvcHst.exe":          {console.Red, "Symantec Endpoint Protection"}, // Symantec Endpoint Protection (SEP)
-		"cb.exe":                {console.Red, "Carbon Black"},                 // Carbon Black
-		"MsMpEng.exe":           {console.Red, "Windows Defender"},             // Windows Defender
-		"smartscreen.exe":       {console.Red, "Windows Smart Screen"},         // Windows Defender Smart Screen
-		"CSFalconService.exe":   {console.Red, "CrowdStrike"},                  // Crowdstrike Falcon Service
-		"CSFalconContainer.exe": {console.Red, "CrowdStrike"},                  // CrowdStrike Falcon Container Security
-		"bdservicehost.exe":     {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
-		"bdagent.exe":           {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
-		"bdredline.exe":         {console.Red, "Bitdefender"},                  // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
+		"ccSvcHst.exe":                    {console.Red, "Symantec Endpoint Protection"}, // Symantec Endpoint Protection (SEP)
+		"cb.exe":                          {console.Red, "Carbon Black"},                 // Carbon Black
+		"MsMpEng.exe":                     {console.Red, "Windows Defender"},             // Windows Defender
+		"smartscreen.exe":                 {console.Red, "Windows Smart Screen"},         // Windows Defender Smart Screen
+		"CSFalconService.exe":             {console.Red, "CrowdStrike"},                  // Crowdstrike Falcon Service
+		"CSFalconContainer.exe":           {console.Red, "CrowdStrike"},                  // CrowdStrike Falcon Container Security
+		"bdservicehost.exe":               {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
+		"bdagent.exe":                     {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
+		"bdredline.exe":                   {console.Red, "Bitdefender"},                  // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
+		"SentinelServiceHost.exe":         {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelStaticEngine.exe":        {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelStaticEngineScanner.exe": {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelAgent.exe":               {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelAgentWorker.exe":         {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelHelperService.exe":       {console.Red, "SentinelOne"},                  // Sentinel One
 	}
 )
 
@@ -110,13 +116,13 @@ func PrintPS(os string, ps *sliverpb.Ps, interactive bool, ctx *grumble.Context,
 
 	switch os {
 	case "windows":
-		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "executable", "session"})
+		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "arch", "executable", "session"})
 	case "darwin":
 		fallthrough
 	case "linux":
-		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "executable"})
+		fallthrough
 	default:
-		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "executable"})
+		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "arch", "executable"})
 	}
 
 	cmdLine := ctx.Flags.Bool("print-cmdline")
@@ -134,8 +140,8 @@ func PrintPS(os string, ps *sliverpb.Ps, interactive bool, ctx *grumble.Context,
 		tw.AppendRow(row)
 	}
 	tw.SortBy([]table.SortBy{
-		{Name: "pid", Mode: table.Asc},
-		{Name: "ppid", Mode: table.Asc},
+		{Name: "pid", Mode: table.AscNumeric},
+		{Name: "ppid", Mode: table.AscNumeric},
 	})
 	if !interactive {
 		overflow = true
@@ -182,6 +188,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
+				fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
 				fmt.Sprintf(color+"%s"+console.Normal, args),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.SessionID),
 			}
@@ -190,6 +197,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
+				fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.SessionID),
 			}
@@ -210,6 +218,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
+				fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
 				fmt.Sprintf(color+"%s"+console.Normal, args),
 			}
 		} else {
@@ -217,6 +226,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
+				fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
 			}
 		}

@@ -166,8 +166,13 @@ func PrintAllLootTable(stdout io.Writer, allLoot *clientpb.AllLoot) {
 		strings.Repeat("=", len("File Name")),
 		strings.Repeat("=", len("UUID")),
 	)
+
 	for _, loot := range allLoot.Loot {
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n", lootTypeToStr(loot.Type), loot.Name, loot.File.Name, loot.LootID)
+		filename := ""
+		if loot.File != nil {
+			filename = loot.File.Name
+		}
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n", lootTypeToStr(loot.Type), loot.Name, filename, loot.LootID)
 	}
 
 	table.Flush()

@@ -1076,6 +1076,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("e", "entry-point", "", "Entrypoint for the DLL (Windows only)")
 			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
+			f.Bool("w", "unicode", false, "Command line is passed to unmanaged DLL function in UNICODE format. (default is ANSI)")
 			f.Bool("s", "save", false, "save output to file")
 			f.Bool("X", "loot", false, "save output as loot")
 			f.String("n", "name", "", "name to assign loot (optional)")
@@ -1196,6 +1197,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("d", "service-description", "Sliver implant", "description of the service")
 			f.String("p", "profile", "", "profile to use for service binary")
 			f.String("b", "binpath", "c:\\windows\\temp", "directory to which the executable will be uploaded")
+			f.String("c", "custom-exe", "", "custom service executable to use instead of generating a new Sliver")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1461,6 +1463,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 			f.String("c", "canary", "", "canary domain(s)")
 
+			f.String("N", "name", "", "implant name")
 			f.String("m", "mtls", "", "mtls connection strings")
 			f.String("g", "wg", "", "wg connection strings")
 			f.String("b", "http", "", "http(s) connection strings")
@@ -3246,7 +3249,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Args: func(a *grumble.Args) {
-			a.String("connection-string", "connection string to the Operator Host")
+			a.String("connection-string", "connection string to the Operator Host (e.g. 127.0.0.1:1234)")
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Bool("s", "skip-existing", false, "Do not add existing sessions as Operator Agents")

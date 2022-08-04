@@ -41,10 +41,10 @@ var (
 	c2Domains = []string{example1, example2, example3}
 
 	opts = &dnsclient.DNSOptions{
-		QueryTimeout:      time.Duration(time.Second * 3),
-		RetryWait:         time.Duration(time.Second * 3),
-		RetryCount:        1,
-		WokersPerResolver: 1,
+		QueryTimeout:       time.Duration(time.Second * 3),
+		RetryWait:          time.Duration(time.Second * 3),
+		RetryCount:         1,
+		WorkersPerResolver: 1,
 	}
 )
 
