@@ -155,7 +155,15 @@ func HandleDownloadResponse(download *sliverpb.Download, ctx *grumble.Context, c
 		if err == nil && fi.IsDir() {
 			if download.IsDir {
 				// Come up with a good file name - filters might make the filename ugly
-				fileName = fmt.Sprintf("%s_download_%s_%d.tar.gz", filepath.Base(con.GetActiveSessionConfig().Name), filepath.Base(prettifyDownloadName(remotePath)), time.Now().Unix())
+				session, beacon := con.ActiveTarget.Get()
+				implantName := ""
+				if session != nil {
+					implantName = session.Name
+				} else if beacon != nil {
+					implantName = beacon.Name
+				}
+
+				fileName = fmt.Sprintf("%s_download_%s_%d.tar.gz", filepath.Base(implantName), filepath.Base(prettifyDownloadName(remotePath)), time.Now().Unix())
 			}
 			if runtime.GOOS == "windows" {
 				// Windows has a file path length of 260 characters
