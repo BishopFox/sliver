@@ -97,9 +97,6 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 		maxErrors = 10
 	}
 	driverName := strings.TrimSpace(strings.ToLower(c2URI.Query().Get("driver")))
-	if driverName == "" {
-		driverName = goHTTPDriver
-	}
 
 	return &HTTPOptions{
 		Driver:               driverName,
@@ -158,10 +155,13 @@ func newSliverHTTPClientGenerator(address string, pathPrefix string, opts *HTTPO
 	}
 
 	g.strategies = make([]SliverHTTPClientGenerationStrategy, 0)
-	for _, secure := range getHTTPClientSecureOptions(opts) {
-		g.strategies = append(g.strategies, SliverHTTPClientGenerationStrategy{
-			Secure: secure,
-		})
+	for _, driver := range getHTTPClientDriverOptions(opts) {
+		for _, secure := range getHTTPClientSecureOptions(opts) {
+			g.strategies = append(g.strategies, SliverHTTPClientGenerationStrategy{
+				Secure: secure,
+				Driver: driver,
+			})
+		}
 	}
 
 	return g
@@ -181,7 +181,7 @@ func (g *SliverHTTPClientGenerator) Next() bool {
 		currentStrategy, g.strategies = g.strategies[n-1], g.strategies[:n-1]
 
 		origin := g.getOrigin(currentStrategy.Secure)
-		driver, err := GetHTTPDriver(origin, currentStrategy.Secure, g.Opts)
+		driver, err := currentStrategy.Driver(origin, currentStrategy.Secure, g.Opts)
 		if err != nil {
 			// {{if .Config.Debug}}
 			log.Printf("XXX [SliverHTTPClientGenerator] (Strategy: %+v) failed to initialize driver: %v", currentStrategy, err)
@@ -225,6 +225,7 @@ func (g *SliverHTTPClientGenerator) getOrigin(secure bool) string {
 
 type SliverHTTPClientGenerationStrategy struct {
 	Secure bool
+	Driver func(string, bool, *HTTPOptions) (HTTPDriver, error)
 }
 
 // HTTPDriver - The interface to send/recv HTTP data

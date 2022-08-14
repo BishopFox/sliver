@@ -40,3 +40,7 @@ func GetHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, e
 		return GoHTTPDriver(origin, secure, opts)
 	}
 }
+
+func getHTTPClientDriverOptions(opts *HTTPOptions) []func(string, bool, *HTTPOptions) (HTTPDriver, error) {
+	return []func(string, bool, *HTTPOptions) (HTTPDriver, error){GoHTTPDriver}
+}

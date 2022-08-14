@@ -61,3 +61,22 @@ func WininetDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, e
 	wininetClient.AskProxyCreds = opts.AskProxyCreds
 	return wininetClient, nil
 }
+
+func getHTTPClientDriverOptions(opts *HTTPOptions) []func(string, bool, *HTTPOptions) (HTTPDriver, error) {
+	var drivers []func(string, bool, *HTTPOptions) (HTTPDriver, error)
+
+	switch opts.Driver {
+
+	case goHTTPDriver:
+		drivers = append(drivers, GoHTTPDriver)
+
+	case wininetDriver:
+		drivers = append(drivers, WininetDriver)
+
+	default:
+		drivers = append(drivers, WininetDriver)
+		drivers = append(drivers, GoHTTPDriver)
+	}
+
+	return drivers
+}
