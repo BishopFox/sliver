@@ -20,6 +20,7 @@ package httpclient
 
 import (
 	"crypto/tls"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -27,14 +28,14 @@ import (
 	"time"
 
 	// {{if .Config.Debug}}
-	"log"
+
 	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/proxy"
 )
 
 // GoHTTPDriver - Pure Go HTTP driver
-func GoHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, error) {
+func GoHTTPDriver(origin string, secure bool, proxyURL *url.URL, opts *HTTPOptions) (HTTPDriver, error) {
 	var transport *http.Transport
 	if !secure {
 		transport = &http.Transport{
@@ -58,47 +59,14 @@ func GoHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, er
 		Timeout:   opts.NetTimeout,
 		Transport: transport,
 	}
-	parseProxyConfig(origin, transport, opts.ProxyConfig)
-	return client, nil
-}
+	if proxyURL != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[GoHTTPDriver] using proxy: %s", proxyURL)
+		// {{end}}
 
-func parseProxyConfig(origin string, transport *http.Transport, proxyConfig string) {
-	switch proxyConfig {
-	case "never":
-		break
-	case "":
-		fallthrough
-	case "auto":
-		p := proxy.NewProvider("").GetHTTPSProxy(origin)
-		if p != nil {
-			// {{if .Config.Debug}}
-			log.Printf("Found proxy %#v\n", p)
-			// {{end}}
-			proxyURL := p.URL()
-			if proxyURL.Scheme == "" {
-				proxyURL.Scheme = "https"
-			}
-			// {{if .Config.Debug}}
-			log.Printf("Proxy URL = '%s'\n", proxyURL)
-			// {{end}}
-			transport.Proxy = http.ProxyURL(proxyURL)
-		}
-	default:
-		// {{if .Config.Debug}}
-		log.Printf("Force proxy %#v\n", proxyConfig)
-		// {{end}}
-		proxyURL, err := url.Parse(proxyConfig)
-		if err != nil {
-			break
-		}
-		if proxyURL.Scheme == "" {
-			proxyURL.Scheme = "https"
-		}
-		// {{if .Config.Debug}}
-		log.Printf("Proxy URL = '%s'\n", proxyURL)
-		// {{end}}
 		transport.Proxy = http.ProxyURL(proxyURL)
 	}
+	return client, nil
 }
 
 // Jar - CookieJar implementation that ignores domains/origins

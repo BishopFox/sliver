@@ -19,40 +19,19 @@ package httpclient
 */
 
 import (
-
-	// {{if .Config.Debug}}
-	"log"
-	// {{end}}
+	"fmt"
+	"net/url"
 
 	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient/drivers/win/wininet"
 )
 
-// GetHTTPDriver - Get an instance of the specified HTTP driver
-func GetHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, error) {
-	switch opts.Driver {
-
-	case goHTTPDriver:
-		// {{if .Config.Debug}}
-		log.Printf("Using go http driver")
-		// {{end}}
-		return GoHTTPDriver(origin, secure, opts)
-
-	case wininetDriver:
-		// {{if .Config.Debug}}
-		log.Printf("Using wininet driver")
-		// {{end}}
-		return WininetDriver(origin, secure, opts)
-
-	default:
-		// {{if .Config.Debug}}
-		log.Printf("WARNING: unknown HTTP driver: %s", opts.Driver)
-		// {{end}}
-		return GoHTTPDriver(origin, secure, opts)
-	}
-}
-
 // WininetDriver - Initialize a Wininet driver (Windows only)
-func WininetDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, error) {
+func WininetDriver(origin string, secure bool, proxyURL *url.URL, opts *HTTPOptions) (HTTPDriver, error) {
+	if proxyURL != nil {
+		// support could be added in the future
+		return nil, fmt.Errorf("wininet driver does not support manual proxy settings but got proxy URL %s", proxyURL)
+	}
+
 	wininetClient, err := wininet.NewClient(userAgent)
 	if err != nil {
 		return nil, err
@@ -62,21 +41,32 @@ func WininetDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, e
 	return wininetClient, nil
 }
 
-func getHTTPClientDriverOptions(opts *HTTPOptions) []func(string, bool, *HTTPOptions) (HTTPDriver, error) {
-	var drivers []func(string, bool, *HTTPOptions) (HTTPDriver, error)
+func getHTTPClientDriverOptions(opts *HTTPOptions) []HTTPDriverType {
+	var drivers []HTTPDriverType
 
 	switch opts.Driver {
 
 	case goHTTPDriver:
-		drivers = append(drivers, GoHTTPDriver)
+		drivers = append(drivers, GoHTTPDriverType)
 
 	case wininetDriver:
-		drivers = append(drivers, WininetDriver)
+		drivers = append(drivers, WininetHTTPDriverType)
 
 	default:
-		drivers = append(drivers, WininetDriver)
-		drivers = append(drivers, GoHTTPDriver)
+		drivers = append(drivers, WininetHTTPDriverType)
+		drivers = append(drivers, GoHTTPDriverType)
 	}
 
 	return drivers
+}
+
+func (d HTTPDriverType) GetImpl() func(string, bool, *url.URL, *HTTPOptions) (HTTPDriver, error) {
+	switch d {
+	case WininetHTTPDriverType:
+		return WininetDriver
+	case GoHTTPDriverType:
+		return GoHTTPDriver
+	default:
+		return GoHTTPDriver
+	}
 }

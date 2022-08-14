@@ -2,6 +2,8 @@
 
 package httpclient
 
+import "net/url"
+
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -20,27 +22,14 @@ package httpclient
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import (
-	// {{if .Config.Debug}}
-	"log"
-	// {{end}}
-)
+// {{if .Config.Debug}}
 
-// GetHTTPDriver - Get an instance of the specified HTTP driver
-func GetHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, error) {
-	switch opts.Driver {
+// {{end}}
 
-	case goHTTPDriver:
-		return GoHTTPDriver(origin, secure, opts)
-
-	default:
-		// {{if .Config.Debug}}
-		log.Printf("WARNING: unknown HTTP driver: %s", opts.Driver)
-		// {{end}}
-		return GoHTTPDriver(origin, secure, opts)
-	}
+func getHTTPClientDriverOptions(opts *HTTPOptions) []HTTPDriverType {
+	return []HTTPDriverType{GoHTTPDriverType}
 }
 
-func getHTTPClientDriverOptions(opts *HTTPOptions) []func(string, bool, *HTTPOptions) (HTTPDriver, error) {
-	return []func(string, bool, *HTTPOptions) (HTTPDriver, error){GoHTTPDriver}
+func (d HTTPDriverType) GetImpl() func(string, bool, *url.URL, *HTTPOptions) (HTTPDriver, error) {
+	return GoHTTPDriver
 }

