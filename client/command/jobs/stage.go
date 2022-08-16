@@ -19,6 +19,8 @@ package jobs
 */
 
 import (
+	"bytes"
+	"compress/zlib"
 	"context"
 	"net/url"
 	"strconv"
@@ -36,6 +38,7 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	listenerURL := ctx.Flags.String("url")
 	aesEncryptKey := ctx.Flags.String("aes-encrypt-key")
 	aesEncryptIv := ctx.Flags.String("aes-encrypt-iv")
+	compress := ctx.Flags.Bool("compress")
 
 	if profileName == "" || listenerURL == "" {
 		con.PrintErrorf("Missing required flags, see `help stage-listener` for more info\n")
@@ -92,6 +95,14 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		stage2 = util.PreludeEncrypt(stage2, []byte(aesEncryptKey), []byte(aesEncryptIv))
 	}
 
+	if compress {
+		// use zlib to compress the stage2
+		var compBuff bytes.Buffer
+		zlibWriter := zlib.NewWriter(&compBuff)
+		zlibWriter.Write(stage2)
+		zlibWriter.Close()
+		stage2 = compBuff.Bytes()
+	}
 	switch stagingURL.Scheme {
 	case "http":
 		ctrl := make(chan bool)
