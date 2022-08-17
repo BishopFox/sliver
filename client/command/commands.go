@@ -478,7 +478,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("k", "key", "", "path to PEM encoded private key file (HTTPS only)")
 			f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate (HTTPS only)")
 			f.StringL("aes-encrypt-key", "", "encrypt stage with AES encryption key")
-			f.StringL("aes-encrypt-iv", "", "encrypt stage with AES encyption iv")
+			f.StringL("aes-encrypt-iv", "", "encrypt stage with AES encryption iv")
+			f.String("C", "compress", "none", "compress the stage before encrypting (zlib, gzip, deflate9, none)")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()

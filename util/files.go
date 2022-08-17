@@ -21,6 +21,7 @@ package util
 import (
 	"archive/tar"
 	"bytes"
+	"compress/flate"
 	"compress/gzip"
 	"fmt"
 	"io"
@@ -43,6 +44,15 @@ func GunzipBuf(data []byte) []byte {
 	zip, _ := gzip.NewReader(bytes.NewBuffer(data))
 	var buf bytes.Buffer
 	buf.ReadFrom(zip)
+	return buf.Bytes()
+}
+
+// DeflateBuf - Deflate a buffer using BestCompression (9)
+func DeflateBuf(data []byte) []byte {
+	var buf bytes.Buffer
+	flateWriter, _ := flate.NewWriter(&buf, flate.BestCompression)
+	flateWriter.Write(data)
+	flateWriter.Close()
 	return buf.Bytes()
 }
 
