@@ -109,6 +109,9 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	if aesEncrypt {
+		// PreludeEncrypt is vanilla AES, we typically only use it for interoperability with Prelude
+		// but it's also useful here as more advanced cipher modes are often difficult to implement in
+		// a stager.
 		stage2 = util.PreludeEncrypt(stage2, []byte(aesEncryptKey), []byte(aesEncryptIv))
 	}
 
