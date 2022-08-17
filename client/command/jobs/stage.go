@@ -91,10 +91,6 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	if aesEncrypt {
-		stage2 = util.PreludeEncrypt(stage2, []byte(aesEncryptKey), []byte(aesEncryptIv))
-	}
-
 	switch compress {
 	case "zlib":
 		// use zlib to compress the stage2
@@ -105,6 +101,10 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		stage2 = compBuff.Bytes()
 	case "gzip":
 		stage2 = util.GzipBuf(stage2)
+	}
+
+	if aesEncrypt {
+		stage2 = util.PreludeEncrypt(stage2, []byte(aesEncryptKey), []byte(aesEncryptIv))
 	}
 
 	switch stagingURL.Scheme {
