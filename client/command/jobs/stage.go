@@ -24,6 +24,7 @@ import (
 	"context"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/console"
@@ -38,7 +39,7 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	listenerURL := ctx.Flags.String("url")
 	aesEncryptKey := ctx.Flags.String("aes-encrypt-key")
 	aesEncryptIv := ctx.Flags.String("aes-encrypt-iv")
-	compress := ctx.Flags.String("compress")
+	compress := strings.ToLower(ctx.Flags.String("compress"))
 
 	if profileName == "" || listenerURL == "" {
 		con.PrintErrorf("Missing required flags, see `help stage-listener` for more info\n")
@@ -78,7 +79,7 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 		// check if aes iv is correct length
 		if len(aesEncryptIv)%16 != 0 {
-			con.PrintErrorf("Incorect length of AES IV\n")
+			con.PrintErrorf("Incorrect length of AES IV\n")
 			return
 		}
 
@@ -101,6 +102,10 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		stage2 = compBuff.Bytes()
 	case "gzip":
 		stage2 = util.GzipBuf(stage2)
+	case "deflate9":
+		fallthrough
+	case "deflate":
+		stage2 = util.DeflateBuf(stage2)
 	}
 
 	if aesEncrypt {
