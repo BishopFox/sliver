@@ -125,7 +125,7 @@ func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*Sl
 
 		if err := client.SessionInit(); err != nil {
 			// {{if .Config.Debug}}
-			log.Printf("XXX [HTTPStartSession] failed to initiate session: %v", err)
+			log.Printf("[HTTPStartSession] failed to initiate session: %v", err)
 			// {{end}}
 			continue
 		}
@@ -193,13 +193,13 @@ func (g *SliverHTTPClientGenerator) Next() bool {
 		driver, err := currentStrategy.Driver.GetImpl()(origin, currentStrategy.Secure, currentStrategy.ProxyURL, g.Opts)
 		if err != nil {
 			// {{if .Config.Debug}}
-			log.Printf("XXX [SliverHTTPClientGenerator] (Strategy: %+v) failed to initialize driver: %v", currentStrategy, err)
+			log.Printf("[SliverHTTPClientGenerator] (Strategy: %+v) failed to initialize driver: %v", currentStrategy, err)
 			// {{end}}
 			continue
 		}
 
 		// {{if .Config.Debug}}
-		log.Printf("XXX [SliverHTTPClientGenerator] next strategy: %v", currentStrategy.String())
+		log.Printf("[SliverHTTPClientGenerator] next strategy: %v", currentStrategy.String())
 		// {{end}}
 
 		g.value = &SliverHTTPClient{
