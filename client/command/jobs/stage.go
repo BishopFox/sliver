@@ -38,7 +38,7 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	listenerURL := ctx.Flags.String("url")
 	aesEncryptKey := ctx.Flags.String("aes-encrypt-key")
 	aesEncryptIv := ctx.Flags.String("aes-encrypt-iv")
-	compress := ctx.Flags.Bool("compress")
+	compress := ctx.Flags.String("compress")
 
 	if profileName == "" || listenerURL == "" {
 		con.PrintErrorf("Missing required flags, see `help stage-listener` for more info\n")
@@ -95,14 +95,18 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		stage2 = util.PreludeEncrypt(stage2, []byte(aesEncryptKey), []byte(aesEncryptIv))
 	}
 
-	if compress {
+	switch compress {
+	case "zlib":
 		// use zlib to compress the stage2
 		var compBuff bytes.Buffer
 		zlibWriter := zlib.NewWriter(&compBuff)
 		zlibWriter.Write(stage2)
 		zlibWriter.Close()
 		stage2 = compBuff.Bytes()
+	case "gzip":
+		stage2 = util.GunzipBuf(stage2)
 	}
+
 	switch stagingURL.Scheme {
 	case "http":
 		ctrl := make(chan bool)
