@@ -104,7 +104,7 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		zlibWriter.Close()
 		stage2 = compBuff.Bytes()
 	case "gzip":
-		stage2 = util.GunzipBuf(stage2)
+		stage2 = util.GzipBuf(stage2)
 	}
 
 	switch stagingURL.Scheme {
