@@ -27,10 +27,6 @@ import (
 	"sync"
 	"time"
 
-	// {{if .Config.Debug}}
-
-	// {{end}}
-
 	"github.com/bishopfox/sliver/implant/sliver/proxy"
 )
 
@@ -61,7 +57,7 @@ func GoHTTPDriver(origin string, secure bool, proxyURL *url.URL, opts *HTTPOptio
 	}
 	if proxyURL != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[GoHTTPDriver] using proxy: %s", proxyURL)
+		log.Printf("[http] GoHTTPDriver using proxy: %s", proxyURL)
 		// {{end}}
 
 		transport.Proxy = http.ProxyURL(proxyURL)

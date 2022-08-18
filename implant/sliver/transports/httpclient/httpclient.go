@@ -125,7 +125,7 @@ func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*Sl
 
 		if err := client.SessionInit(); err != nil {
 			// {{if .Config.Debug}}
-			log.Printf("[HTTPStartSession] failed to initiate session: %v", err)
+			log.Printf("[http] failed to initiate session: %v", err)
 			// {{end}}
 			continue
 		}
@@ -137,6 +137,7 @@ func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*Sl
 	return nil, fmt.Errorf("failed to initiate session")
 }
 
+// SliverHTTPClientGenerator is a generator for HTTP clients
 type SliverHTTPClientGenerator struct {
 	Address    string
 	PathPrefix string
@@ -147,6 +148,7 @@ type SliverHTTPClientGenerator struct {
 	strategies []SliverHTTPClientGenerationStrategy
 }
 
+// newSliverHTTPClientGenerator creates a new HTTP client generator and initiates its stack of stratgies
 func newSliverHTTPClientGenerator(address string, pathPrefix string, opts *HTTPOptions) *SliverHTTPClientGenerator {
 	g := &SliverHTTPClientGenerator{
 		Address:    address,
@@ -176,14 +178,7 @@ func newSliverHTTPClientGenerator(address string, pathPrefix string, opts *HTTPO
 	return g
 }
 
-func getHTTPClientSecureOptions(opts *HTTPOptions) []bool {
-	if opts.ForceHTTP {
-		return []bool{false}
-	}
-
-	return []bool{false, true}
-}
-
+// Next returns true iff at least one SliverHTTPClientGenerationStrategy is left to try
 func (g *SliverHTTPClientGenerator) Next() bool {
 	for n := len(g.strategies); n > 0; n = len(g.strategies) {
 		var currentStrategy SliverHTTPClientGenerationStrategy
@@ -193,13 +188,13 @@ func (g *SliverHTTPClientGenerator) Next() bool {
 		driver, err := currentStrategy.Driver.GetImpl()(origin, currentStrategy.Secure, currentStrategy.ProxyURL, g.Opts)
 		if err != nil {
 			// {{if .Config.Debug}}
-			log.Printf("[SliverHTTPClientGenerator] (Strategy: %+v) failed to initialize driver: %v", currentStrategy, err)
+			log.Printf("[http] SliverHTTPClientGenerator strategy: %+v, failed to initialize driver: %v", currentStrategy, err)
 			// {{end}}
 			continue
 		}
 
 		// {{if .Config.Debug}}
-		log.Printf("[SliverHTTPClientGenerator] next strategy: %v", currentStrategy.String())
+		log.Printf("[http] SliverHTTPClientGenerator, next strategy: %v", currentStrategy.String())
 		// {{end}}
 
 		g.value = &SliverHTTPClient{
@@ -216,11 +211,13 @@ func (g *SliverHTTPClientGenerator) Next() bool {
 	return false
 }
 
+// Value returns the current SliverHTTPClientGenerationStrategy
 func (g *SliverHTTPClientGenerator) Value() *SliverHTTPClient {
 	return g.value
 
 }
 
+// getOrigin returns the origin URL for the C2 server
 func (g *SliverHTTPClientGenerator) getOrigin(secure bool) string {
 	address := g.Address
 
@@ -231,17 +228,27 @@ func (g *SliverHTTPClientGenerator) getOrigin(secure bool) string {
 
 	if secure {
 		return fmt.Sprintf("https://%s", address)
-	} else {
-		return fmt.Sprintf("http://%s", address)
 	}
+	return fmt.Sprintf("http://%s", address)
 }
 
+// getHTTPClientSecureOptions returns values for the secure option of a SliverHTTPClientGenerationStrategy
+func getHTTPClientSecureOptions(opts *HTTPOptions) []bool {
+	if opts.ForceHTTP {
+		return []bool{false}
+	}
+
+	return []bool{false, true}
+}
+
+// SliverHTTPClientGenerationStrategy represents a strategy for SliverHTTPClient generation
 type SliverHTTPClientGenerationStrategy struct {
 	Secure   bool
 	Driver   HTTPDriverType
 	ProxyURL *url.URL
 }
 
+// HTTPDriverType represents the type of HTTP driver to use for a SliverHTTPClient
 type HTTPDriverType int
 
 const (
@@ -249,6 +256,7 @@ const (
 	WininetHTTPDriverType
 )
 
+// String returns a string representation of an HTTPDriverType
 func (d HTTPDriverType) String() string {
 	switch d {
 	case GoHTTPDriverType:

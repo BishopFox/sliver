@@ -22,14 +22,12 @@ import "net/url"
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// {{if .Config.Debug}}
-
-// {{end}}
-
+// getHTTPClientDriverOptions returns a list of HTTP driver types to try for SliverHTTPClient generation on non-windows machines
 func getHTTPClientDriverOptions(opts *HTTPOptions) []HTTPDriverType {
 	return []HTTPDriverType{GoHTTPDriverType}
 }
 
+// GetImpl returns a function that builds the HTTPDriver of type d
 func (d HTTPDriverType) GetImpl() func(string, bool, *url.URL, *HTTPOptions) (HTTPDriver, error) {
 	return GoHTTPDriver
 }

@@ -41,6 +41,7 @@ func WininetDriver(origin string, secure bool, proxyURL *url.URL, opts *HTTPOpti
 	return wininetClient, nil
 }
 
+// getHTTPClientDriverOptions returns a list of HTTP driver types to try for SliverHTTPClient generation on Windows
 func getHTTPClientDriverOptions(opts *HTTPOptions) []HTTPDriverType {
 	var drivers []HTTPDriverType
 
@@ -60,6 +61,7 @@ func getHTTPClientDriverOptions(opts *HTTPOptions) []HTTPDriverType {
 	return drivers
 }
 
+// GetImpl returns a function that builds the HTTPDriver of type d
 func (d HTTPDriverType) GetImpl() func(string, bool, *url.URL, *HTTPOptions) (HTTPDriver, error) {
 	switch d {
 	case WininetHTTPDriverType:

@@ -1,5 +1,23 @@
 package httpclient
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2019  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
 	"log"
 	"net/url"
@@ -7,6 +25,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/proxy"
 )
 
+// getHTTPClientProxyOptions returns a list of candidate proxy URLs for SliverHTTPClient generation
 func getHTTPClientProxyOptions(origin string, driver HTTPDriverType, opts *HTTPOptions) []*url.URL {
 	var proxies []*url.URL
 
@@ -21,7 +40,7 @@ func getHTTPClientProxyOptions(origin string, driver HTTPDriverType, opts *HTTPO
 		p := proxy.NewProvider("").GetHTTPSProxy(origin)
 		if p != nil {
 			// {{if .Config.Debug}}
-			log.Printf("Found proxy %#v\n", p)
+			log.Printf("[http] Found proxy %#v\n", p)
 			// {{end}}
 
 			proxyURL := p.URL()
@@ -29,7 +48,7 @@ func getHTTPClientProxyOptions(origin string, driver HTTPDriverType, opts *HTTPO
 		}
 	default:
 		// {{if .Config.Debug}}
-		log.Printf("Force proxy %#v\n", opts.ProxyConfig)
+		log.Printf("[http] Force proxy %#v\n", opts.ProxyConfig)
 		// {{end}}
 
 		proxyURL, err := url.Parse(opts.ProxyConfig)
@@ -41,12 +60,13 @@ func getHTTPClientProxyOptions(origin string, driver HTTPDriverType, opts *HTTPO
 	}
 
 	// {{if .Config.Debug}}
-	log.Printf("Proxy list: %+v\n", proxies)
+	log.Printf("[http] Proxy list: %+v\n", proxies)
 	// {{end}}
 
 	return proxies
 }
 
+// addProxyURLs appends a proxy URL to a list of proxy URLs, or adds an HTTP- as well as HTTPS-based URL if the proxy URL scheme is not specified
 func addProxyURLs(proxies []*url.URL, proxyURL *url.URL) []*url.URL {
 	if proxyURL.Scheme != "" {
 		proxies = append(proxies, proxyURL)
