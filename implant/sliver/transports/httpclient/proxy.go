@@ -19,8 +19,11 @@ package httpclient
 */
 
 import (
-	"log"
 	"net/url"
+
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/proxy"
 )

