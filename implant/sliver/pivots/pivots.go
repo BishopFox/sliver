@@ -458,13 +458,18 @@ func (p *NetConnPivot) write(message []byte) error {
 	}
 
 	total := 0
+	chunk := 1024
 	for total < len(message) {
-		n, err = p.conn.Write(message[total:])
+		if total+chunk <= len(message) {
+			n, err = p.conn.Write(message[total : total+chunk])
+		} else {
+			n, err = p.conn.Write(message[total:])
+		}
 		total += n
 		if err != nil {
-			// {{if .Config.Debug}}
+			//
 			log.Printf("[pivot] Error writing message: %v", err)
-			// {{end}}
+			//
 			return err
 		}
 	}
