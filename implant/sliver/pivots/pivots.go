@@ -473,6 +473,7 @@ func (p *NetConnPivot) write(message []byte) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
