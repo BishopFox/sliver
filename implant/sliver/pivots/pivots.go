@@ -468,10 +468,8 @@ func (p *NetConnPivot) write(message []byte) error {
 		total += n
 		if err != nil {
 			// {{if .Config.Debug}}
-			//
 			log.Printf("[pivot] Error writing message: %v", err)
 			// {{end}}
-			//
 			return err
 		}
 	}
