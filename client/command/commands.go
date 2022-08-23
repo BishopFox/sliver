@@ -1001,6 +1001,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("O", "stdout", "", "remote path to redirect STDOUT to")
 			f.String("E", "stderr", "", "remote path to redirect STDERR to")
 			f.String("n", "name", "", "name to assign loot (optional)")
+			f.Uint("P", "ppid", 0, "parent process id (optional, Windows only)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1034,6 +1035,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("s", "save", false, "save output to file")
 			f.Bool("X", "loot", false, "save output as loot")
 			f.String("n", "name", "", "name to assign loot (optional)")
+			f.Uint("P", "ppid", 0, "parent process id (optional)")
+			f.String("A", "process-arguments", "", "arguments to pass to the hosting process")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1082,6 +1085,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("X", "loot", false, "save output as loot")
 			f.String("n", "name", "", "name to assign loot (optional)")
 			f.Bool("k", "keep-alive", false, "don't terminate host process once the execution completes")
+			f.Uint("P", "ppid", 0, "parent process id (optional)")
+			f.String("A", "process-arguments", "", "arguments to pass to the hosting process")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1110,6 +1115,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("n", "name", "", "name to assign loot (optional)")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("k", "keep-alive", false, "don't terminate host process once the execution completes")
+			f.Uint("P", "ppid", 0, "parent process id (optional)")
+			f.String("A", "process-arguments", "", "arguments to pass to the hosting process")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("filepath", "path the DLL file")

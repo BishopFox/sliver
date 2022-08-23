@@ -136,9 +136,11 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 	}
 
 	invokeExecAssembly := &sliverpb.InvokeExecuteAssemblyReq{
-		Data:    shellcode,
-		Process: req.Process,
-		Request: req.Request,
+		Data:        shellcode,
+		Process:     req.Process,
+		Request:     req.Request,
+		PPid:        req.PPid,
+		ProcessArgs: req.ProcessArgs,
 	}
 	resp := &sliverpb.ExecuteAssembly{Response: &commonpb.Response{}}
 	err = rpc.GenericHandler(invokeExecAssembly, resp)
@@ -185,6 +187,8 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 			Data:        shellcode,
 			ProcessName: req.ProcessName,
 			Kill:        req.Kill,
+			PPid:        req.PPid,
+			ProcessArgs: req.ProcessArgs,
 		}
 	}
 	resp := &sliverpb.Sideload{Response: &commonpb.Response{}}
@@ -228,6 +232,8 @@ func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq
 		Args:        req.Args,
 		Request:     req.Request,
 		Kill:        req.Kill,
+		PPid:        req.PPid,
+		ProcessArgs: req.ProcessArgs,
 	}
 	err = rpc.GenericHandler(spawnDLLReq, resp)
 	if err != nil {
