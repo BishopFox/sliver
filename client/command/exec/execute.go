@@ -47,6 +47,7 @@ func ExecuteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	stderr := ctx.Flags.String("stderr")
 	saveLoot := ctx.Flags.Bool("loot")
 	saveOutput := ctx.Flags.Bool("save")
+	ppid := ctx.Flags.Uint("ppid")
 	hostName := getHostname(session, beacon)
 
 	// If the user wants to loot or save the output, we have to capture it regardless of if they specified -o
@@ -61,14 +62,16 @@ func ExecuteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("Executing %s %s ...", cmdPath, strings.Join(args, " ")), ctrl)
-	if token {
-		exec, err = con.Rpc.ExecuteToken(context.Background(), &sliverpb.ExecuteTokenReq{
-			Request: con.ActiveTarget.Request(ctx),
-			Path:    cmdPath,
-			Args:    args,
-			Output:  captureOutput,
-			Stderr:  stderr,
-			Stdout:  stdout,
+	if token || ppid != 0 {
+		exec, err = con.Rpc.ExecuteWindows(context.Background(), &sliverpb.ExecuteWindowsReq{
+			Request:  con.ActiveTarget.Request(ctx),
+			Path:     cmdPath,
+			Args:     args,
+			Output:   captureOutput,
+			Stderr:   stderr,
+			Stdout:   stdout,
+			UseToken: token,
+			PPid:     uint32(ppid),
 		})
 	} else {
 		exec, err = con.Rpc.Execute(context.Background(), &sliverpb.ExecuteReq{

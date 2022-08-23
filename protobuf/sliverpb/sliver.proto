@@ -369,12 +369,16 @@ message ExecuteAssemblyReq {
   string ClassName = 6;
   string Method = 7;
   string AppDomain = 8;
+  uint32 PPid = 10;
+  repeated string ProcessArgs = 11;
   commonpb.Request Request = 9;
 }
 
 message InvokeExecuteAssemblyReq {
   bytes Data = 1;
   string process = 2;
+  uint32 PPid = 10;
+  repeated string ProcessArgs = 11;
 
   commonpb.Request Request = 9;
 }
@@ -404,16 +408,19 @@ message ExecuteReq {
   bool Output = 3;
   string Stdout = 4;
   string Stderr = 5;
+  uint32 PPid = 10;
 
   commonpb.Request Request = 9;
 }
 
-message ExecuteTokenReq {
+message ExecuteWindowsReq {
   string Path = 1;
   repeated string Args = 2;
   bool Output = 3;
   string Stdout = 4;
   string Stderr = 5;
+  bool UseToken = 6;
+  uint32 PPid = 10;
 
   commonpb.Request Request = 9;
 }
@@ -435,6 +442,8 @@ message SideloadReq {
   bool Kill = 5;
   bool isDLL = 6;
   bool isUnicode = 7;
+  uint32 PPid = 10;
+  repeated string ProcessArgs = 11;
 
   commonpb.Request Request = 9;
 }
@@ -451,6 +460,8 @@ message InvokeSpawnDllReq {
   string Args = 3;
   string EntryPoint = 4;
   bool Kill = 5;
+  uint32 PPid = 10;
+  repeated string ProcessArgs = 11;
 
   commonpb.Request Request = 9;
 }
@@ -461,6 +472,8 @@ message SpawnDllReq {
   uint32 Offset = 3;
   string Args = 4;
   bool Kill = 5;
+  uint32 PPid = 10;
+  repeated string ProcessArgs = 11;
 
   commonpb.Request Request = 9;
 }
