@@ -246,7 +246,7 @@ func executeWindowsHandler(data []byte, resp RPCResponse) {
 		errWriter *bufio.Writer
 		outWriter *bufio.Writer
 	)
-	execReq := &sliverpb.ExecuteReq{}
+	execReq := &sliverpb.ExecuteWindowsReq{}
 	err = proto.Unmarshal(data, execReq)
 	if err != nil {
 		// {{if .Config.Debug}}
