@@ -64,13 +64,14 @@ func ExecuteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.SpinUntil(fmt.Sprintf("Executing %s %s ...", cmdPath, strings.Join(args, " ")), ctrl)
 	if token || ppid != 0 {
 		exec, err = con.Rpc.ExecuteWindows(context.Background(), &sliverpb.ExecuteWindowsReq{
-			Request: con.ActiveTarget.Request(ctx),
-			Path:    cmdPath,
-			Args:    args,
-			Output:  captureOutput,
-			Stderr:  stderr,
-			Stdout:  stdout,
-			PPid:    uint32(ppid),
+			Request:  con.ActiveTarget.Request(ctx),
+			Path:     cmdPath,
+			Args:     args,
+			Output:   captureOutput,
+			Stderr:   stderr,
+			Stdout:   stdout,
+			UseToken: token,
+			PPid:     uint32(ppid),
 		})
 	} else {
 		exec, err = con.Rpc.Execute(context.Background(), &sliverpb.ExecuteReq{

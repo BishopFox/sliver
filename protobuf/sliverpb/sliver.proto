@@ -419,6 +419,7 @@ message ExecuteWindowsReq {
   bool Output = 3;
   string Stdout = 4;
   string Stderr = 5;
+  bool UseToken = 6;
   uint32 PPid = 10;
 
   commonpb.Request Request = 9;

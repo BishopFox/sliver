@@ -259,8 +259,9 @@ func executeWindowsHandler(data []byte, resp RPCResponse) {
 	cmd := exec.Command(execReq.Path, execReq.Args...)
 
 	// Execute with current token
-	cmd.SysProcAttr = &windows.SysProcAttr{
-		Token: syscall.Token(priv.CurrentToken),
+	cmd.SysProcAttr = &syscall.SysProcAttr{}
+	if execReq.UseToken {
+		cmd.SysProcAttr.Token = syscall.Token(priv.CurrentToken)
 	}
 	if execReq.PPid != 0 {
 		err := spoof.SpoofParent(execReq.PPid, cmd)
