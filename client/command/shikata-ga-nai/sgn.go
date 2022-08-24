@@ -47,6 +47,8 @@ func ShikataGaNaiCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
+	con.PrintInfof("Encoding shellcode with %d iterations and %d bad chars\n", iterations, len(badChars))
+
 	shellcodeResp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
 		Encoder:      clientpb.ShellcodeEncoder_SHIKATA_GA_NAI,
 		Architecture: arch,
@@ -59,12 +61,12 @@ func ShikataGaNaiCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	if shellcodeResp.Response.Err != "" {
+	if shellcodeResp.Response != nil && shellcodeResp.Response.Err != "" {
 		con.PrintErrorf("%s\n", shellcodeResp.Response.Err)
 		return
 	}
 
-	outputFile := ctx.Flags.String("output")
+	outputFile := ctx.Flags.String("save")
 	if outputFile == "" {
 		outputFile = filepath.Base(shellcodeFile)
 		outputFile += ".sgn"

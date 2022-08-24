@@ -66,13 +66,18 @@ func sgnCmd(appDir string, cwd string, command []string) ([]byte, error) {
 		sgnLog.Infof("--- stderr ---\n%s\n", stderr.String())
 		sgnLog.Info(err)
 	}
-
 	return stdout.Bytes(), err
 }
 
 // EncodeShellcode - Encode a shellcode
 func EncodeShellcode(shellcode []byte, arch string, iterations int, badChars []byte) ([]byte, error) {
+	sgnLog.Infof("[sgn] EncodeShellcode: %d bytes", len(shellcode))
 	inputFile, err := ioutil.TempFile("", "sgn")
+	if err != nil {
+		sgnLog.Error(err)
+		return nil, errors.New("Failed to encode shellcode")
+	}
+	_, err = inputFile.Write(shellcode)
 	if err != nil {
 		sgnLog.Error(err)
 		return nil, errors.New("Failed to encode shellcode")
@@ -83,6 +88,7 @@ func EncodeShellcode(shellcode []byte, arch string, iterations int, badChars []b
 		sgnLog.Error(err)
 		return nil, errors.New("Failed to encode shellcode")
 	}
+	outputFile.Close()
 	defer os.Remove(outputFile.Name())
 
 	config := SGNConfig{
@@ -110,6 +116,7 @@ func EncodeShellcode(shellcode []byte, arch string, iterations int, badChars []b
 		sgnLog.Error(err)
 		return nil, errors.New("Failed to encode shellcode")
 	}
+	sgnLog.Infof("[sgn] successfully encoded to %d bytes", len(data))
 	return data, nil
 }
 
@@ -170,6 +177,7 @@ func configToArgs(config SGNConfig) []string {
 	args = append(args, "-o", config.Output)
 
 	// Input
+	sgnLog.Infof("[sgn] input file: %s", config.Input)
 	args = append(args, config.Input)
 
 	return args

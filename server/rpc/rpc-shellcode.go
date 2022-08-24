@@ -27,13 +27,14 @@ import (
 )
 
 // ShellcodeEncode - Encode a piece shellcode
-func (rpc *Server) ShellcodeEncode(ctx context.Context, req *clientpb.ShellcodeEncodeReq) (*clientpb.ShellcodeEncode, error) {
+func (rpc *Server) ShellcodeEncoder(ctx context.Context, req *clientpb.ShellcodeEncodeReq) (*clientpb.ShellcodeEncode, error) {
 
 	resp := &clientpb.ShellcodeEncode{Response: &commonpb.Response{}}
 	var err error
 
 	switch req.Encoder {
 	case clientpb.ShellcodeEncoder_SHIKATA_GA_NAI:
+		rpcLog.Infof("[rpc] Shellcode encoder request for: SHIKATA_GA_NAI")
 		resp.Data, err = sgn.EncodeShellcode(req.Data, req.Architecture, int(req.Iterations), req.BadChars)
 		if err != nil {
 			resp.Response.Err = err.Error()
@@ -41,6 +42,8 @@ func (rpc *Server) ShellcodeEncode(ctx context.Context, req *clientpb.ShellcodeE
 	default:
 		resp.Response.Err = "Unknown encoder"
 	}
+
+	rpcLog.Infof("[rpc] Successfully encoded shellcode (%d bytes)", len(resp.Data))
 
 	return resp, nil
 }
