@@ -78,6 +78,7 @@ service SliverRPC {
     rpc ShellcodeRDI(clientpb.ShellcodeRDIReq) returns (clientpb.ShellcodeRDI);
     rpc GetCompiler(commonpb.Empty) returns (clientpb.Compiler);
     rpc ShellcodeEncoder(clientpb.ShellcodeEncodeReq) returns (clientpb.ShellcodeEncode);
+    rpc ShellcodeEncoderMap(commonpb.Empty) returns (clientpb.ShellcodeEncoderMap);
 
     // *** Websites ***
     rpc Websites(commonpb.Empty) returns (clientpb.Websites);

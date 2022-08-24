@@ -640,3 +640,7 @@ message ShellcodeEncode {
   bytes Data = 8;
   commonpb.Response Response = 9;
 }
+
+message ShellcodeEncoderMap {
+  map<string, ShellcodeEncoder> Encoders = 1;
+}

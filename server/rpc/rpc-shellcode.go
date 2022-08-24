@@ -47,3 +47,14 @@ func (rpc *Server) ShellcodeEncoder(ctx context.Context, req *clientpb.Shellcode
 
 	return resp, nil
 }
+
+// ShellcodeEncoderMap - Get a map of support shellcode encoders <human readable/enum>
+func (rpc *Server) ShellcodeEncoderMap(ctx context.Context, _ *commonpb.Empty) (*clientpb.ShellcodeEncoderMap, error) {
+	resp := &clientpb.ShellcodeEncoderMap{
+		Encoders: map[string]clientpb.ShellcodeEncoder{
+			// Human Readable: enum value
+			"shikata-ga-nai": clientpb.ShellcodeEncoder_SHIKATA_GA_NAI,
+		},
+	}
+	return resp, nil
+}

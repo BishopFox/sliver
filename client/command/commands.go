@@ -1095,6 +1095,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Uint("p", "pid", 0, "Pid of process to inject into (0 means injection into ourselves)")
 			f.String("n", "process", `c:\windows\system32\notepad.exe`, "Process to inject into when running in interactive mode")
 			f.Bool("i", "interactive", false, "Inject into a new process and interact with it")
+			f.Bool("S", "shikata-ga-nai", false, "encode shellcode using shikata ga nai prior to execution")
+			f.String("A", "architecture", "amd64", "architecture of the shellcode: 386, amd64 (used with --shikata-ga-nai flag)")
+			f.Int("I", "iterations", 1, "number of encoding iterations (used with --shikata-ga-nai flag)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
