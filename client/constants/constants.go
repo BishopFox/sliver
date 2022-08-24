@@ -236,6 +236,8 @@ const (
 	GetPrivsStr        = "getprivs"
 	PreludeOperatorStr = "prelude-operator"
 	ConnectStr         = "connect"
+
+	ShikataGaNai = "shikata-ga-nai"
 )
 
 // Groups

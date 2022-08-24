@@ -69,6 +69,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/command/shell"
+	sgn "github.com/bishopfox/sliver/client/command/shikata-ga-nai"
 	"github.com/bishopfox/sliver/client/command/socks"
 	"github.com/bishopfox/sliver/client/command/tasks"
 	"github.com/bishopfox/sliver/client/command/update"
@@ -986,6 +987,33 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
+	// [ Shellcode Encoders ] --------------------------------------------------------------
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.ShikataGaNai,
+		Help:     "Polymorphic binary shellcode encoder (ノ ゜Д゜)ノ ︵ 仕方がない",
+		LongHelp: help.GetHelpFor([]string{consts.ShikataGaNai}),
+		Args: func(a *grumble.Args) {
+			a.String("shellcode", "binary shellcode file path")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "save", "", "save output to local file")
+
+			f.String("a", "arch", "amd64", "architecture of shellcode")
+			f.Int("i", "iterations", 1, "number of iterations")
+			f.String("b", "bad-chars", "", "hex encoded bad characters to avoid (e.g. 0001)")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			sgn.ShikataGaNaiCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
 	// [ Exec ] --------------------------------------------------------------
 
 	con.App.AddCommand(&grumble.Command{
@@ -1067,6 +1095,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Uint("p", "pid", 0, "Pid of process to inject into (0 means injection into ourselves)")
 			f.String("n", "process", `c:\windows\system32\notepad.exe`, "Process to inject into when running in interactive mode")
 			f.Bool("i", "interactive", false, "Inject into a new process and interact with it")
+			f.Bool("S", "shikata-ga-nai", false, "encode shellcode using shikata ga nai prior to execution")
+			f.String("A", "architecture", "amd64", "architecture of the shellcode: 386, amd64 (used with --shikata-ga-nai flag)")
+			f.Int("I", "iterations", 1, "number of encoding iterations (used with --shikata-ga-nai flag)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},

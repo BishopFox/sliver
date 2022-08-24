@@ -636,12 +636,34 @@ func compile(config *clientpb.ImplantConfig, save string, con *console.SliverCon
 		return nil, errors.New("no file data")
 	}
 
+	fileData := generated.File.Data
+	if config.IsShellcode {
+		confirm := false
+		survey.AskOne(&survey.Confirm{Message: "Encode shellcode with shikata ga nai?"}, &confirm)
+		if confirm {
+			con.PrintInfof("Encoding shellcode with shikata ga nai ... ")
+			resp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
+				Encoder:      clientpb.ShellcodeEncoder_SHIKATA_GA_NAI,
+				Architecture: config.GOARCH,
+				Iterations:   1,
+				BadChars:     []byte{},
+				Data:         fileData,
+			})
+			if err != nil {
+				con.PrintErrorf("%s\n", err)
+			} else {
+				con.Printf("success!\n")
+				fileData = resp.GetData()
+			}
+		}
+	}
+
 	saveTo, err := saveLocation(save, generated.File.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	err = ioutil.WriteFile(saveTo, generated.File.Data, 0700)
+	err = ioutil.WriteFile(saveTo, fileData, 0700)
 	if err != nil {
 		con.PrintErrorf("Failed to write to: %s\n", saveTo)
 		return nil, err
