@@ -19,6 +19,7 @@ type DarwinProcess struct {
 	ppid    int
 	binary  string
 	owner   string
+	arch    string
 	cmdLine []string
 }
 
@@ -40,6 +41,10 @@ func (p *DarwinProcess) Owner() string {
 
 func (p *DarwinProcess) CmdLine() []string {
 	return p.cmdLine
+}
+
+func (p *DarwinProcess) Architecture() string {
+	return p.arch
 }
 
 func findProcess(pid int) (Process, error) {
@@ -98,6 +103,7 @@ func processes() ([]Process, error) {
 		if owner == "" {
 			owner = uid
 		}
+		arch := ""
 
 		darwinProcs[i] = &DarwinProcess{
 			pid:     int(p.Proc.P_pid),
@@ -105,6 +111,7 @@ func processes() ([]Process, error) {
 			binary:  binPath,
 			owner:   owner,
 			cmdLine: cmdLine,
+			arch:    arch,
 		}
 	}
 

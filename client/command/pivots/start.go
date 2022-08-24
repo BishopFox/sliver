@@ -57,10 +57,13 @@ func StartNamedPipeListenerCmd(ctx *grumble.Context, con *console.SliverConsoleC
 	if session == nil {
 		return
 	}
+	var options []bool
+	options = append(options, ctx.Flags.Bool("allow-all"))
 	listener, err := con.Rpc.PivotStartListener(context.Background(), &sliverpb.PivotStartListenerReq{
 		Type:        sliverpb.PivotType_NamedPipe,
 		BindAddress: ctx.Flags.String("bind"),
 		Request:     con.ActiveTarget.Request(ctx),
+		Options:     options,
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

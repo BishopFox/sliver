@@ -478,7 +478,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("k", "key", "", "path to PEM encoded private key file (HTTPS only)")
 			f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate (HTTPS only)")
 			f.StringL("aes-encrypt-key", "", "encrypt stage with AES encryption key")
-			f.StringL("aes-encrypt-iv", "", "encrypt stage with AES encyption iv")
+			f.StringL("aes-encrypt-iv", "", "encrypt stage with AES encryption iv")
+			f.String("C", "compress", "none", "compress the stage before encrypting (zlib, gzip, deflate9, none)")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1000,6 +1001,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("O", "stdout", "", "remote path to redirect STDOUT to")
 			f.String("E", "stderr", "", "remote path to redirect STDERR to")
 			f.String("n", "name", "", "name to assign loot (optional)")
+			f.Uint("P", "ppid", 0, "parent process id (optional, Windows only)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1033,6 +1035,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("s", "save", false, "save output to file")
 			f.Bool("X", "loot", false, "save output as loot")
 			f.String("n", "name", "", "name to assign loot (optional)")
+			f.Uint("P", "ppid", 0, "parent process id (optional)")
+			f.String("A", "process-arguments", "", "arguments to pass to the hosting process")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1076,10 +1080,13 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("e", "entry-point", "", "Entrypoint for the DLL (Windows only)")
 			f.String("p", "process", `c:\windows\system32\notepad.exe`, "Path to process to host the shellcode")
+			f.Bool("w", "unicode", false, "Command line is passed to unmanaged DLL function in UNICODE format. (default is ANSI)")
 			f.Bool("s", "save", false, "save output to file")
 			f.Bool("X", "loot", false, "save output as loot")
 			f.String("n", "name", "", "name to assign loot (optional)")
 			f.Bool("k", "keep-alive", false, "don't terminate host process once the execution completes")
+			f.Uint("P", "ppid", 0, "parent process id (optional)")
+			f.String("A", "process-arguments", "", "arguments to pass to the hosting process")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1108,6 +1115,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("n", "name", "", "name to assign loot (optional)")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("k", "keep-alive", false, "don't terminate host process once the execution completes")
+			f.Uint("P", "ppid", 0, "parent process id (optional)")
+			f.String("A", "process-arguments", "", "arguments to pass to the hosting process")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("filepath", "path the DLL file")
@@ -1196,6 +1205,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("d", "service-description", "Sliver implant", "description of the service")
 			f.String("p", "profile", "", "profile to use for service binary")
 			f.String("b", "binpath", "c:\\windows\\temp", "directory to which the executable will be uploaded")
+			f.String("c", "custom-exe", "", "custom service executable to use instead of generating a new Sliver")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1458,6 +1468,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 			f.String("c", "canary", "", "canary domain(s)")
 
+			f.String("N", "name", "", "implant name")
 			f.String("m", "mtls", "", "mtls connection strings")
 			f.String("g", "wg", "", "wg connection strings")
 			f.String("b", "http", "", "http(s) connection strings")
@@ -1520,6 +1531,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 			f.String("c", "canary", "", "canary domain(s)")
 
+			f.String("N", "name", "", "implant name")
 			f.String("m", "mtls", "", "mtls connection strings")
 			f.String("g", "wg", "", "wg connection strings")
 			f.String("b", "http", "", "http(s) connection strings")
@@ -1799,6 +1811,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("T", "type", "", "force a specific loot type (file/cred) if looting")
 			f.String("F", "file-type", "", "force a specific file type (binary/text) if looting")
 			f.String("n", "name", "", "name to assign the download if looting")
+			f.Bool("r", "recurse", false, "recursively download all files in a directory")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("remote-path", "path to the file or directory to download")
@@ -2483,7 +2496,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.PivotsStr, consts.NamedPipeStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("b", "bind", "", "name of the named pipe to bind pivot listener")
-
+			f.Bool("a", "allow-all", false, "allow all users to connect")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
@@ -3242,7 +3255,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Args: func(a *grumble.Args) {
-			a.String("connection-string", "connection string to the Operator Host")
+			a.String("connection-string", "connection string to the Operator Host (e.g. 127.0.0.1:1234)")
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Bool("s", "skip-existing", false, "Do not add existing sessions as Operator Agents")

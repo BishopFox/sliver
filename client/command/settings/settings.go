@@ -47,6 +47,7 @@ func SettingsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	tw.AppendRow(table.Row{"Beacon Auto Results", con.Settings.BeaconAutoResults, "Automatically display beacon results when tasks complete"})
 	tw.AppendRow(table.Row{"Small Term Width", con.Settings.SmallTermWidth, "Omit some table columns when terminal width is less than this value"})
 	tw.AppendRow(table.Row{"Always Overflow", con.Settings.AlwaysOverflow, "Disable table pagination"})
+	tw.AppendRow(table.Row{"Vim mode", con.Settings.VimMode, "Navigation mode, vim style"})
 	con.Printf("%s\n", tw.Render())
 }
 

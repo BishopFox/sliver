@@ -9,7 +9,8 @@ import (
 type Tunnel struct {
 	ID uint64
 
-	Reader       io.ReadCloser
+	// Reader       io.ReadCloser
+	Readers      []io.ReadCloser
 	readSequence uint64
 
 	Writer        io.WriteCloser
@@ -18,12 +19,12 @@ type Tunnel struct {
 	mutex *sync.RWMutex
 }
 
-func NewTunnel(id uint64, reader io.ReadCloser, writer io.WriteCloser) *Tunnel {
+func NewTunnel(id uint64, writer io.WriteCloser, readers ...io.ReadCloser) *Tunnel {
 	return &Tunnel{
-		ID:     id,
-		Reader: reader,
-		Writer: writer,
-		mutex:  &sync.RWMutex{},
+		ID:      id,
+		Readers: readers,
+		Writer:  writer,
+		mutex:   &sync.RWMutex{},
 	}
 }
 
@@ -57,6 +58,10 @@ func (c *Tunnel) IncWriteSequence() {
 
 // Close - close tunnel reader and writer
 func (c *Tunnel) Close() {
-	c.Reader.Close()
+	for _, rc := range c.Readers {
+		if rc != nil {
+			rc.Close()
+		}
+	}
 	c.Writer.Close()
 }

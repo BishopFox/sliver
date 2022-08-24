@@ -29,7 +29,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 
@@ -39,6 +38,7 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/util"
 	"github.com/desertbit/grumble"
 )
 
@@ -164,15 +164,12 @@ func nameOfOutputFormat(value clientpb.OutputFormat) string {
 // Shared function that extracts the compile flags from the grumble context
 func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *clientpb.ImplantConfig {
 	var name string
-	if ctx.Flags["name"] != nil {
+	if ctx.Flags.String("name") != "" {
 		name = strings.ToLower(ctx.Flags.String("name"))
 
-		if name != "" {
-			isAlphanumeric := regexp.MustCompile(`^[[:alnum:]]+$`).MatchString
-			if !isAlphanumeric(name) {
-				con.PrintErrorf("Implant's name must be in alphanumeric only\n")
-				return nil
-			}
+		if err := util.AllowedName(name); err != nil {
+			con.PrintErrorf("%s\n", err)
+			return nil
 		}
 	}
 

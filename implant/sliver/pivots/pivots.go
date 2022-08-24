@@ -72,7 +72,7 @@ func generatePeerID() int64 {
 }
 
 // CreateListener - Generic interface to a start listener function
-type CreateListener func(string, chan<- *pb.Envelope) (*PivotListener, error)
+type CreateListener func(string, chan<- *pb.Envelope, ...bool) (*PivotListener, error)
 
 // GetListeners - Get a list of active listeners
 func GetListeners() []*pb.PivotListener {
@@ -106,7 +106,7 @@ func RestartAllListeners(send chan<- *pb.Envelope) {
 	stoppedPivotListeners.Range(func(key, value interface{}) bool {
 		stoppedListener := value.(*PivotListener)
 		if createListener, ok := SupportedPivotListeners[stoppedListener.Type]; ok {
-			listener, err := createListener(stoppedListener.BindAddress, send)
+			listener, err := createListener(stoppedListener.BindAddress, send, stoppedListener.Options...)
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("[pivot] failed to restart listener: %s", err)
@@ -208,6 +208,7 @@ type PivotListener struct {
 	PivotConnections *sync.Map // PeerID (int64) -> NetConnPivot
 	BindAddress      string
 	Upstream         chan<- *pb.Envelope
+	Options          []bool
 }
 
 // ToProtobuf - Get the protobuf version of the pivot listener
@@ -457,8 +458,13 @@ func (p *NetConnPivot) write(message []byte) error {
 	}
 
 	total := 0
+	chunk := 1024
 	for total < len(message) {
-		n, err = p.conn.Write(message[total:])
+		if total+chunk <= len(message) {
+			n, err = p.conn.Write(message[total : total+chunk])
+		} else {
+			n, err = p.conn.Write(message[total:])
+		}
 		total += n
 		if err != nil {
 			// {{if .Config.Debug}}
@@ -467,6 +473,7 @@ func (p *NetConnPivot) write(message []byte) error {
 			return err
 		}
 	}
+
 	return nil
 }
 

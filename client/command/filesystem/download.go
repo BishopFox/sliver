@@ -24,7 +24,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
@@ -43,12 +46,14 @@ func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	remotePath := ctx.Args.String("remote-path")
+	recurse := ctx.Flags.Bool("recurse")
 
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("Downloading %s ...", remotePath), ctrl)
 	download, err := con.Rpc.Download(context.Background(), &sliverpb.DownloadReq{
 		Request: con.ActiveTarget.Request(ctx),
 		Path:    remotePath,
+		Recurse: recurse,
 	})
 	ctrl <- true
 	<-ctrl
@@ -72,6 +77,34 @@ func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 }
 
+func prettifyDownloadName(path string) string {
+	nonAlphaNumericRegex, err := regexp.Compile("[^a-zA-Z0-9]+")
+	if err != nil {
+		// Well, we tried.
+		return path
+	}
+
+	pathNoSeparators := strings.ReplaceAll(path, "\\", "_")
+	pathNoSeparators = strings.ReplaceAll(pathNoSeparators, "/", "_")
+
+	filteredString := nonAlphaNumericRegex.ReplaceAllString(pathNoSeparators, "_")
+
+	// Collapse multiple underscores into one
+	multipleUnderscoreRegex, err := regexp.Compile("_{2,}")
+	if err != nil {
+		return filteredString
+	}
+
+	filteredString = multipleUnderscoreRegex.ReplaceAllString(filteredString, "_")
+
+	// If there is an underscore at the front of the filename, strip that off
+	if strings.HasPrefix(filteredString, "_") {
+		filteredString = filteredString[1:]
+	}
+
+	return filteredString
+}
+
 func HandleDownloadResponse(download *sliverpb.Download, ctx *grumble.Context, con *console.SliverConsoleClient) {
 	var err error
 	if download.Response != nil && download.Response.Err != "" {
@@ -89,6 +122,12 @@ func HandleDownloadResponse(download *sliverpb.Download, ctx *grumble.Context, c
 	remotePath := ctx.Args.String("remote-path")
 	localPath := ctx.Args.String("local-path")
 	saveLoot := ctx.Flags.Bool("loot")
+
+	if download.ReadFiles == 0 {
+		// No files downloaded successfully.
+		con.PrintErrorf("No files downloaded from the implant - check permissions, path, and / or filters.\n")
+		return
+	}
 
 	if saveLoot {
 		lootName := ctx.Flags.String("name")
@@ -114,11 +153,31 @@ func HandleDownloadResponse(download *sliverpb.Download, ctx *grumble.Context, c
 			return
 		}
 		if err == nil && fi.IsDir() {
+			if download.IsDir {
+				// Come up with a good file name - filters might make the filename ugly
+				session, beacon := con.ActiveTarget.Get()
+				implantName := ""
+				if session != nil {
+					implantName = session.Name
+				} else if beacon != nil {
+					implantName = beacon.Name
+				}
+
+				fileName = fmt.Sprintf("%s_download_%s_%d.tar.gz", filepath.Base(implantName), filepath.Base(prettifyDownloadName(remotePath)), time.Now().Unix())
+			}
+			if runtime.GOOS == "windows" {
+				// Windows has a file path length of 260 characters
+				// +1 for the path separator before the file name
+				if len(dst)+len(fileName)+1 > 260 {
+					// Make an effort to shorten the file name. If this does not work, the operator will have to find somewhere else to put the file
+					fileName = fmt.Sprintf("down_%d.tar.gz", time.Now().Unix())
+				}
+			}
 			dst = path.Join(dst, fileName)
 		}
 
 		// Add an extension to a directory download if one is not provided.
-		if download.IsDir && (!strings.HasSuffix(dst, ".tgz") || !strings.HasSuffix(dst, ".tar.gz")) {
+		if download.IsDir && (!strings.HasSuffix(dst, ".tgz") && !strings.HasSuffix(dst, ".tar.gz")) {
 			dst += ".tar.gz"
 		}
 
@@ -141,7 +200,28 @@ func HandleDownloadResponse(download *sliverpb.Download, ctx *grumble.Context, c
 		if err != nil {
 			con.PrintErrorf("Failed to write data %v\n", err)
 		} else {
-			con.PrintInfof("Wrote %d bytes to %s\n", n, dstFile.Name())
+			var readFilesText string
+			var unreadFilesText string
+
+			if download.ReadFiles == 1 {
+				readFilesText = "file"
+			} else {
+				readFilesText = "files"
+			}
+
+			if download.UnreadableFiles == 1 {
+				unreadFilesText = "file"
+			} else {
+				unreadFilesText = "files"
+			}
+
+			con.PrintInfof("Wrote %d bytes (%d %s successfully, %d %s unsuccessfully) to %s\n",
+				n,
+				download.ReadFiles,
+				readFilesText,
+				download.UnreadableFiles,
+				unreadFilesText,
+				dstFile.Name())
 		}
 	}
 }

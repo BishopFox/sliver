@@ -41,6 +41,9 @@ func PreludeEncrypt(data []byte, key []byte, iv []byte) []byte {
 		if _, err := io.ReadFull(rand.Reader, iv); err != nil {
 			return make([]byte, 0)
 		}
+	} else {
+		// make sure we copy the IV
+		copy(cipherText[:aes.BlockSize], iv)
 	}
 	mode := cipher.NewCBCEncrypter(block, iv)
 	mode.CryptBlocks(cipherText[aes.BlockSize:], plainText)

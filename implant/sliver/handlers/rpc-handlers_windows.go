@@ -55,6 +55,7 @@ func psHandler(data []byte, resp RPCResponse) {
 			Ppid:       int32(proc.PPid()),
 			Executable: proc.Executable(),
 			Owner:      proc.Owner(),
+			Architecture: proc.Architecture(),
 		}
 		p.CmdLine = proc.(*ps.WindowsProcess).CmdLine()
 		p.SessionID = int32(proc.(*ps.WindowsProcess).SessionID())

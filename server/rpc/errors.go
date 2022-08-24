@@ -40,5 +40,5 @@ var (
 	ErrDatabaseFailure = status.Error(codes.Internal, "Database operation failed")
 
 	// ErrInvalidName - Invalid name
-	ErrInvalidName = status.Error(codes.InvalidArgument, "Invalid session name, alphanumerics only")
+	ErrInvalidName = status.Error(codes.InvalidArgument, "Invalid session name, alphanumerics and _-. only")
 )

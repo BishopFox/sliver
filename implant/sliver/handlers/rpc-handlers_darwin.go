@@ -55,6 +55,7 @@ func psHandler(data []byte, resp RPCResponse) {
 			Ppid:       int32(proc.PPid()),
 			Executable: proc.Executable(),
 			Owner:      proc.Owner(),
+			Architecture: proc.Architecture(),
 		}
 		p.CmdLine = proc.(*ps.DarwinProcess).CmdLine()
 		psList.Processes = append(psList.Processes, p)

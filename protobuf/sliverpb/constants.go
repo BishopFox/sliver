@@ -205,8 +205,8 @@ const (
 	MsgSetEnvReq
 	// MsgSetEnv
 	MsgSetEnv
-	// MsgExecuteTokenReq - Execute request executed with the current (Windows) token
-	MsgExecuteTokenReq
+	// MsgExecuteWindowsReq - Execute request executed with the current (Windows) token
+	MsgExecuteWindowsReq
 	// MsgRegistryReadReq
 	MsgRegistryReadReq
 	// MsgRegistryWriteReq
@@ -369,8 +369,8 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgInvokeExecuteAssemblyReq
 	case *ExecuteAssembly:
 		return MsgExecuteAssembly
-	case *ExecuteTokenReq:
-		return MsgExecuteTokenReq
+	case *ExecuteWindowsReq:
+		return MsgExecuteWindowsReq
 	case *InvokeMigrateReq:
 		return MsgInvokeMigrateReq
 	case *SideloadReq:

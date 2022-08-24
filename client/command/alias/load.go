@@ -179,6 +179,8 @@ func LoadAlias(manifestPath string, con *console.SliverConsoleClient) (*AliasMan
 				f.String("a", "arch", "x84", "Assembly target architecture: x86, x64, x84 (x86+x64)")
 			}
 			f.String("p", "process", "", "Path to process to host the shared object")
+			f.String("A", "process-arguments", "", "arguments to pass to the hosting process")
+			f.Uint("P", "ppid", 0, "parent process ID to use when creating the hosting process (Windows only)")
 			f.Bool("s", "save", false, "Save output to disk")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -269,7 +271,10 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	} else {
 		extArgs = strings.Join(args, " ")
 	}
+
+	extArgs = strings.TrimSpace(extArgs)
 	entryPoint := aliasManifest.Entrypoint
+	processArgs := strings.Split(ctx.Flags.String("process-arguments"), " ")
 	processName := ctx.Flags.String("process")
 	if processName == "" {
 		processName, err = aliasManifest.getDefaultProcess(goos)
@@ -304,15 +309,17 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
 		con.SpinUntil(msg, ctrl)
 		executeAssemblyResp, err := con.Rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
-			Request:   con.ActiveTarget.Request(ctx),
-			IsDLL:     isDLL,
-			Process:   processName,
-			Arguments: extArgs,
-			Assembly:  binData,
-			Arch:      ctx.Flags.String("arch"),
-			Method:    ctx.Flags.String("method"),
-			ClassName: ctx.Flags.String("class"),
-			AppDomain: ctx.Flags.String("app-domain"),
+			Request:     con.ActiveTarget.Request(ctx),
+			IsDLL:       isDLL,
+			Process:     processName,
+			Arguments:   extArgs,
+			Assembly:    binData,
+			Arch:        ctx.Flags.String("arch"),
+			Method:      ctx.Flags.String("method"),
+			ClassName:   ctx.Flags.String("class"),
+			AppDomain:   ctx.Flags.String("app-domain"),
+			ProcessArgs: processArgs,
+			PPid:        uint32(ctx.Flags.Uint("ppid")),
 		})
 		ctrl <- true
 		<-ctrl
@@ -348,6 +355,8 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			ProcessName: processName,
 			EntryPoint:  aliasManifest.Entrypoint,
 			Kill:        true,
+			ProcessArgs: processArgs,
+			PPid:        uint32(ctx.Flags.Uint("ppid")),
 		})
 		ctrl <- true
 		<-ctrl
@@ -384,6 +393,8 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			ProcessName: processName,
 			Kill:        true,
 			IsDLL:       isDLL,
+			ProcessArgs: processArgs,
+			PPid:        uint32(ctx.Flags.Uint("ppid")),
 		})
 		ctrl <- true
 		<-ctrl

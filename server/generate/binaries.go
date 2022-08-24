@@ -29,7 +29,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 	"text/template"
@@ -194,11 +193,10 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	}
 
 	name := ""
-	if pbConfig.Name != "" {
-		// Only allow user-provided alpha/numeric names
-		if regexp.MustCompile(`^[[:alnum:]]+$`).MatchString(pbConfig.Name) {
-			name = pbConfig.Name
-		}
+	if err := util.AllowedName(pbConfig.Name); err != nil {
+		buildLog.Warnf("%s\n", err)
+	} else {
+		name = pbConfig.Name
 	}
 	return name, cfg
 }
@@ -654,17 +652,29 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	if err != nil {
 		return "", err
 	}
-	buildLog.Debugf("Created %s", goModPath)
-	output, err := gogo.GoMod((*goConfig), sliverPkgDir, []string{"tidy", "-compat=1.17"})
-	if err != nil {
-		buildLog.Errorf("Go mod tidy failed:\n%s", output)
-		return "", err
-	}
+	// Render vendor dir
+	err = fs.WalkDir(implant.Vendor, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 
+		if d.IsDir() {
+			return os.MkdirAll(filepath.Join(sliverPkgDir, path), 0700)
+		}
+
+		contents, err := implant.Vendor.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		return os.WriteFile(filepath.Join(sliverPkgDir, path), contents, 0600)
+	})
 	if err != nil {
-		buildLog.Errorf("Failed to save sliver config %s", err)
+		buildLog.Errorf("Failed to copy vendor directory %v", err)
 		return "", err
 	}
+	buildLog.Debugf("Created %s", goModPath)
+
 	return sliverPkgDir, nil
 }
 
@@ -868,8 +878,9 @@ func getGoProxy() string {
 		buildLog.Debugf("Using GOPROXY from env: %s", value)
 		return value
 	}
-	buildLog.Debugf("No GOPROXY found")
-	return ""
+	const defaultGoProxy = "off"
+	buildLog.Debugf("No GOPROXY setting found, default to %s", defaultGoProxy)
+	return defaultGoProxy
 }
 
 func getGoHttpProxy() string {
@@ -896,7 +907,6 @@ const (
 	// GoPrivate - The default Go private arg to garble when obfuscation is enabled.
 	// Wireguard dependencies prevent the use of wildcard github.com/* and golang.org/*.
 	// The current packages below aren't definitive and need to be tidied up.
-	// GoPrivate = "github.com/bishopfox/*,github.com/Microsoft/*,github.com/burntsushi/*,github.com/kbinani/*,github.com/lxn/*,github.com/golang/*,github.com/shm/*,github.com/lesnuages/*"
 	wgGoPrivate  = "github.com/*,golang.org/*,golang.zx2c4.com/*,google.golang.org/*"
 	allGoPrivate = "*"
 )

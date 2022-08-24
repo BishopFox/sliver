@@ -30,29 +30,43 @@ import (
 
 // Commands collection.
 type Commands struct {
-	list []*Command
+	list    []*Command
+	changed bool // Used to resort if something changes.
 }
 
 // Add the command to the slice.
 // Duplicates are ignored.
 func (c *Commands) Add(cmd *Command) {
 	c.list = append(c.list, cmd)
+	c.changed = true
 }
 
 // Remove a command from the slice.
-func (c *Commands) Remove(name string) {
-	var index int
-	var cmd *Command
-	found := false
-	for index, cmd = range c.list {
+func (c *Commands) Remove(name string) (found bool) {
+	for index, cmd := range c.list {
 		if cmd.Name == name {
 			found = true
-			break
+			c.changed = true
+			c.list = append(c.list[:index], c.list[index+1:]...)
+			return
 		}
 	}
-	if found {
-		c.list = append(c.list[:index], c.list[index+1:]...)
+	return
+}
+
+func (c *Commands) RemoveAll() {
+	var builtins []*Command
+
+	// Hint: There are no built-in sub commands. Ignore them.
+	for _, cmd := range c.list {
+		if cmd.isBuiltin {
+			builtins = append(builtins, cmd)
+		}
 	}
+
+	// Only keep the builtins.
+	c.list = builtins
+	c.changed = true
 }
 
 // All returns a slice of all commands.
@@ -105,6 +119,25 @@ func (c *Commands) SortRecursive() {
 	c.Sort()
 	for _, cmd := range c.list {
 		cmd.commands.SortRecursive()
+	}
+}
+
+func (c *Commands) hasChanged() bool {
+	if c.changed {
+		return true
+	}
+	for _, sc := range c.list {
+		if sc.commands.hasChanged() {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Commands) unsetChanged() {
+	c.changed = false
+	for _, sc := range c.list {
+		sc.commands.unsetChanged()
 	}
 }
 
