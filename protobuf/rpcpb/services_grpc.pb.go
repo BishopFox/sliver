@@ -78,6 +78,7 @@ type SliverRPCClient interface {
 	MsfStage(ctx context.Context, in *clientpb.MsfStagerReq, opts ...grpc.CallOption) (*clientpb.MsfStager, error)
 	ShellcodeRDI(ctx context.Context, in *clientpb.ShellcodeRDIReq, opts ...grpc.CallOption) (*clientpb.ShellcodeRDI, error)
 	GetCompiler(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Compiler, error)
+	ShellcodeEncoder(ctx context.Context, in *clientpb.ShellcodeEncodeReq, opts ...grpc.CallOption) (*clientpb.ShellcodeEncode, error)
 	// *** Websites ***
 	Websites(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Websites, error)
 	Website(ctx context.Context, in *clientpb.Website, opts ...grpc.CallOption) (*clientpb.Website, error)
@@ -573,6 +574,15 @@ func (c *sliverRPCClient) ShellcodeRDI(ctx context.Context, in *clientpb.Shellco
 func (c *sliverRPCClient) GetCompiler(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Compiler, error) {
 	out := new(clientpb.Compiler)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetCompiler", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) ShellcodeEncoder(ctx context.Context, in *clientpb.ShellcodeEncodeReq, opts ...grpc.CallOption) (*clientpb.ShellcodeEncode, error) {
+	out := new(clientpb.ShellcodeEncode)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/ShellcodeEncoder", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1391,6 +1401,7 @@ type SliverRPCServer interface {
 	MsfStage(context.Context, *clientpb.MsfStagerReq) (*clientpb.MsfStager, error)
 	ShellcodeRDI(context.Context, *clientpb.ShellcodeRDIReq) (*clientpb.ShellcodeRDI, error)
 	GetCompiler(context.Context, *commonpb.Empty) (*clientpb.Compiler, error)
+	ShellcodeEncoder(context.Context, *clientpb.ShellcodeEncodeReq) (*clientpb.ShellcodeEncode, error)
 	// *** Websites ***
 	Websites(context.Context, *commonpb.Empty) (*clientpb.Websites, error)
 	Website(context.Context, *clientpb.Website) (*clientpb.Website, error)
@@ -1618,6 +1629,9 @@ func (UnimplementedSliverRPCServer) ShellcodeRDI(context.Context, *clientpb.Shel
 }
 func (UnimplementedSliverRPCServer) GetCompiler(context.Context, *commonpb.Empty) (*clientpb.Compiler, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCompiler not implemented")
+}
+func (UnimplementedSliverRPCServer) ShellcodeEncoder(context.Context, *clientpb.ShellcodeEncodeReq) (*clientpb.ShellcodeEncode, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ShellcodeEncoder not implemented")
 }
 func (UnimplementedSliverRPCServer) Websites(context.Context, *commonpb.Empty) (*clientpb.Websites, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Websites not implemented")
@@ -2666,6 +2680,24 @@ func _SliverRPC_GetCompiler_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).GetCompiler(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_ShellcodeEncoder_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.ShellcodeEncodeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).ShellcodeEncoder(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/ShellcodeEncoder",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).ShellcodeEncoder(ctx, req.(*clientpb.ShellcodeEncodeReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -4243,6 +4275,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCompiler",
 			Handler:    _SliverRPC_GetCompiler_Handler,
+		},
+		{
+			MethodName: "ShellcodeEncoder",
+			Handler:    _SliverRPC_ShellcodeEncoder_Handler,
 		},
 		{
 			MethodName: "Websites",

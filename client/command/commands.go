@@ -69,6 +69,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/command/shell"
+	sgn "github.com/bishopfox/sliver/client/command/shikata-ga-nai"
 	"github.com/bishopfox/sliver/client/command/socks"
 	"github.com/bishopfox/sliver/client/command/tasks"
 	"github.com/bishopfox/sliver/client/command/update"
@@ -980,6 +981,33 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			shell.ShellCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
+	// [ Shellcode Encoders ] --------------------------------------------------------------
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.ShikataGaNai,
+		Help:     "Polymorphic binary shellcode encoder",
+		LongHelp: help.GetHelpFor([]string{consts.ShikataGaNai}),
+		Args: func(a *grumble.Args) {
+			a.String("shellcode", "binary shellcode file path")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "save", "", "save output to local file")
+
+			f.String("a", "arch", "amd64", "architecture of shellcode")
+			f.Int("i", "iterations", 1, "number of iterations")
+			f.String("b", "bad-chars", "", "hex encoded bad characters to avoid (e.g. 0001)")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			sgn.ShikataGaNaiCmd(ctx, con)
 			con.Println()
 			return nil
 		},
