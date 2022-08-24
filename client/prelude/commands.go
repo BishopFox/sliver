@@ -34,53 +34,58 @@ func RunCommand(message string, executor string, payload []byte, agentSession *O
 	switch executor {
 	case "keyword":
 		task := splitMessage(message, '.')
-		switch task[0] {
-		case "bof":
-			if len(task) != 2 {
-				break
-			}
-			var bargs []extArgs
-			argStr := strings.ReplaceAll(task[1], `\`, `\\`)
-			err := json.Unmarshal([]byte(argStr), &bargs)
-			if err != nil {
-				return err.Error(), ErrorExitStatus, ErrorExitStatus
-			}
-			if payload == nil {
-				return "missing BOF file", ErrorExitStatus, ErrorExitStatus
-			}
-			out, err := runBOF(agentSession.Implant, agentSession.RPC, payload, bargs, onFinish)
-			if err != nil {
-				return err.Error(), ErrorExitStatus, ErrorExitStatus
-			}
-			return out, 0, 0
-		case "execute-assembly":
-			if len(task) < 2 {
-				break
-			}
-			var eaargs execasmArgs
-			argStr := strings.ReplaceAll(task[1], `\`, `\\`)
-			err := json.Unmarshal([]byte(argStr), &eaargs)
-			if err != nil {
-				return err.Error(), ErrorExitStatus, ErrorExitStatus
-			}
-			if payload == nil {
-				return "missing .NET assembly", ErrorExitStatus, ErrorExitStatus
-			}
-			out, err := execAsm(agentSession.Implant, agentSession.RPC, payload, eaargs, onFinish)
-			if err != nil {
-				return err.Error(), ErrorExitStatus, ErrorExitStatus
-			}
-			return out, 0, 0
-		case "exit":
-			return shutdown(agentSession)
-		default:
-			return "Keyword selected not available for agent", ErrorExitStatus, ErrorExitStatus
-		}
-	case "bof":
-		// Actually can run any extension with some hackery
+		return processKeywordExecutor(task, payload, agentSession, onFinish)
 	default:
 		bites, status, pid := execute(message, executor, agentSession, onFinish)
 		return string(bites), status, pid
+	}
+}
+
+func processKeywordExecutor(task []string, payload []byte, agentSession *OperatorImplantBridge, onFinish func(string, int, int)) (string, int, int) {
+	if len(task) == 0 {
+		return "", ErrorExitStatus, ErrorExitStatus
+	}
+	switch task[0] {
+	case "bof":
+		if len(task) != 2 {
+			break
+		}
+		var bargs []bofArgs
+		argStr := strings.ReplaceAll(task[1], `\`, `\\`)
+		err := json.Unmarshal([]byte(argStr), &bargs)
+		if err != nil {
+			return err.Error(), ErrorExitStatus, ErrorExitStatus
+		}
+		if payload == nil {
+			return "missing BOF file", ErrorExitStatus, ErrorExitStatus
+		}
+		out, err := runBOF(agentSession.Implant, agentSession.RPC, payload, bargs, onFinish)
+		if err != nil {
+			return err.Error(), ErrorExitStatus, ErrorExitStatus
+		}
+		return out, 0, 0
+	case "execute-assembly":
+		if len(task) < 2 {
+			break
+		}
+		var eaargs execasmArgs
+		argStr := strings.ReplaceAll(task[1], `\`, `\\`)
+		err := json.Unmarshal([]byte(argStr), &eaargs)
+		if err != nil {
+			return err.Error(), ErrorExitStatus, ErrorExitStatus
+		}
+		if payload == nil {
+			return "missing .NET assembly", ErrorExitStatus, ErrorExitStatus
+		}
+		out, err := execAsm(agentSession.Implant, agentSession.RPC, payload, eaargs, onFinish)
+		if err != nil {
+			return err.Error(), ErrorExitStatus, ErrorExitStatus
+		}
+		return out, 0, 0
+	case "exit":
+		return shutdown(agentSession)
+	default:
+		return "Keyword selected not available for agent", ErrorExitStatus, ErrorExitStatus
 	}
 	return "", ErrorExitStatus, ErrorExitStatus
 }
