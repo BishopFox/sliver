@@ -94,7 +94,7 @@ func EncodeShellcode(shellcode []byte, arch string, iterations int, badChars []b
 	config := SGNConfig{
 		AppDir: assets.GetRootAppDir(),
 
-		Architecture:   arch,
+		Architecture:   strings.ToLower(arch),
 		Iterations:     iterations,
 		MaxObfuscation: 20,
 		Safe:           false,
