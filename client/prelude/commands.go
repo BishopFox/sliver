@@ -39,7 +39,7 @@ func RunCommand(message string, executor string, payload []byte, agentSession *O
 			if len(task) != 2 {
 				break
 			}
-			var bargs []bofArgs
+			var bargs []extArgs
 			argStr := strings.ReplaceAll(task[1], `\`, `\\`)
 			err := json.Unmarshal([]byte(argStr), &bargs)
 			if err != nil {
@@ -76,6 +76,8 @@ func RunCommand(message string, executor string, payload []byte, agentSession *O
 		default:
 			return "Keyword selected not available for agent", ErrorExitStatus, ErrorExitStatus
 		}
+	case "bof":
+		// Actually can run any extension with some hackery
 	default:
 		bites, status, pid := execute(message, executor, agentSession, onFinish)
 		return string(bites), status, pid
