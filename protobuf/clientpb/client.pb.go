@@ -270,6 +270,50 @@ func (FileType) EnumDescriptor() ([]byte, []int) {
 	return file_clientpb_client_proto_rawDescGZIP(), []int{4}
 }
 
+// [ Shellcode ] ----------------------------------------
+type ShellcodeEncoder int32
+
+const (
+	ShellcodeEncoder_SHIKATA_GA_NAI ShellcodeEncoder = 0
+)
+
+// Enum value maps for ShellcodeEncoder.
+var (
+	ShellcodeEncoder_name = map[int32]string{
+		0: "SHIKATA_GA_NAI",
+	}
+	ShellcodeEncoder_value = map[string]int32{
+		"SHIKATA_GA_NAI": 0,
+	}
+)
+
+func (x ShellcodeEncoder) Enum() *ShellcodeEncoder {
+	p := new(ShellcodeEncoder)
+	*p = x
+	return p
+}
+
+func (x ShellcodeEncoder) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ShellcodeEncoder) Descriptor() protoreflect.EnumDescriptor {
+	return file_clientpb_client_proto_enumTypes[5].Descriptor()
+}
+
+func (ShellcodeEncoder) Type() protoreflect.EnumType {
+	return &file_clientpb_client_proto_enumTypes[5]
+}
+
+func (x ShellcodeEncoder) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ShellcodeEncoder.Descriptor instead.
+func (ShellcodeEncoder) EnumDescriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{5}
+}
+
 // [ Version ] ----------------------------------------
 type Version struct {
 	state         protoimpl.MessageState
@@ -5525,6 +5569,195 @@ func (x *DllHijack) GetResponse() *commonpb.Response {
 	return nil
 }
 
+type ShellcodeEncodeReq struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Encoder      ShellcodeEncoder  `protobuf:"varint,1,opt,name=Encoder,proto3,enum=clientpb.ShellcodeEncoder" json:"Encoder,omitempty"`
+	Architecture string            `protobuf:"bytes,2,opt,name=Architecture,proto3" json:"Architecture,omitempty"`
+	Iterations   uint32            `protobuf:"varint,3,opt,name=Iterations,proto3" json:"Iterations,omitempty"`
+	BadChars     []byte            `protobuf:"bytes,4,opt,name=BadChars,proto3" json:"BadChars,omitempty"`
+	Data         []byte            `protobuf:"bytes,8,opt,name=Data,proto3" json:"Data,omitempty"`
+	Request      *commonpb.Request `protobuf:"bytes,9,opt,name=Request,proto3" json:"Request,omitempty"`
+}
+
+func (x *ShellcodeEncodeReq) Reset() {
+	*x = ShellcodeEncodeReq{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_clientpb_client_proto_msgTypes[73]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ShellcodeEncodeReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShellcodeEncodeReq) ProtoMessage() {}
+
+func (x *ShellcodeEncodeReq) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[73]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShellcodeEncodeReq.ProtoReflect.Descriptor instead.
+func (*ShellcodeEncodeReq) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *ShellcodeEncodeReq) GetEncoder() ShellcodeEncoder {
+	if x != nil {
+		return x.Encoder
+	}
+	return ShellcodeEncoder_SHIKATA_GA_NAI
+}
+
+func (x *ShellcodeEncodeReq) GetArchitecture() string {
+	if x != nil {
+		return x.Architecture
+	}
+	return ""
+}
+
+func (x *ShellcodeEncodeReq) GetIterations() uint32 {
+	if x != nil {
+		return x.Iterations
+	}
+	return 0
+}
+
+func (x *ShellcodeEncodeReq) GetBadChars() []byte {
+	if x != nil {
+		return x.BadChars
+	}
+	return nil
+}
+
+func (x *ShellcodeEncodeReq) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *ShellcodeEncodeReq) GetRequest() *commonpb.Request {
+	if x != nil {
+		return x.Request
+	}
+	return nil
+}
+
+type ShellcodeEncode struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Data     []byte             `protobuf:"bytes,8,opt,name=Data,proto3" json:"Data,omitempty"`
+	Response *commonpb.Response `protobuf:"bytes,9,opt,name=Response,proto3" json:"Response,omitempty"`
+}
+
+func (x *ShellcodeEncode) Reset() {
+	*x = ShellcodeEncode{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_clientpb_client_proto_msgTypes[74]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ShellcodeEncode) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShellcodeEncode) ProtoMessage() {}
+
+func (x *ShellcodeEncode) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[74]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShellcodeEncode.ProtoReflect.Descriptor instead.
+func (*ShellcodeEncode) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *ShellcodeEncode) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *ShellcodeEncode) GetResponse() *commonpb.Response {
+	if x != nil {
+		return x.Response
+	}
+	return nil
+}
+
+type ShellcodeEncoderMap struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Encoders map[string]ShellcodeEncoder `protobuf:"bytes,1,rep,name=Encoders,proto3" json:"Encoders,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3,enum=clientpb.ShellcodeEncoder"`
+}
+
+func (x *ShellcodeEncoderMap) Reset() {
+	*x = ShellcodeEncoderMap{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_clientpb_client_proto_msgTypes[75]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ShellcodeEncoderMap) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShellcodeEncoderMap) ProtoMessage() {}
+
+func (x *ShellcodeEncoderMap) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[75]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShellcodeEncoderMap.ProtoReflect.Descriptor instead.
+func (*ShellcodeEncoderMap) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{75}
+}
+
+func (x *ShellcodeEncoderMap) GetEncoders() map[string]ShellcodeEncoder {
+	if x != nil {
+		return x.Encoders
+	}
+	return nil
+}
+
 var File_clientpb_client_proto protoreflect.FileDescriptor
 
 var file_clientpb_client_proto_rawDesc = []byte{
@@ -6194,29 +6427,63 @@ var file_clientpb_client_proto_rawDesc = []byte{
 	0x69, 0x6a, 0x61, 0x63, 0x6b, 0x12, 0x2e, 0x0a, 0x08, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
 	0x65, 0x18, 0x09, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e,
 	0x70, 0x62, 0x2e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x52, 0x08, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2a, 0x4a, 0x0a, 0x0c, 0x4f, 0x75, 0x74, 0x70, 0x75, 0x74, 0x46,
-	0x6f, 0x72, 0x6d, 0x61, 0x74, 0x12, 0x0e, 0x0a, 0x0a, 0x53, 0x48, 0x41, 0x52, 0x45, 0x44, 0x5f,
-	0x4c, 0x49, 0x42, 0x10, 0x00, 0x12, 0x0d, 0x0a, 0x09, 0x53, 0x48, 0x45, 0x4c, 0x4c, 0x43, 0x4f,
-	0x44, 0x45, 0x10, 0x01, 0x12, 0x0e, 0x0a, 0x0a, 0x45, 0x58, 0x45, 0x43, 0x55, 0x54, 0x41, 0x42,
-	0x4c, 0x45, 0x10, 0x02, 0x12, 0x0b, 0x0a, 0x07, 0x53, 0x45, 0x52, 0x56, 0x49, 0x43, 0x45, 0x10,
-	0x03, 0x2a, 0x2d, 0x0a, 0x0d, 0x53, 0x74, 0x61, 0x67, 0x65, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x63,
-	0x6f, 0x6c, 0x12, 0x07, 0x0a, 0x03, 0x54, 0x43, 0x50, 0x10, 0x00, 0x12, 0x08, 0x0a, 0x04, 0x48,
-	0x54, 0x54, 0x50, 0x10, 0x01, 0x12, 0x09, 0x0a, 0x05, 0x48, 0x54, 0x54, 0x50, 0x53, 0x10, 0x02,
-	0x2a, 0x2e, 0x0a, 0x08, 0x4c, 0x6f, 0x6f, 0x74, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0d, 0x0a, 0x09,
-	0x4c, 0x4f, 0x4f, 0x54, 0x5f, 0x46, 0x49, 0x4c, 0x45, 0x10, 0x00, 0x12, 0x13, 0x0a, 0x0f, 0x4c,
-	0x4f, 0x4f, 0x54, 0x5f, 0x43, 0x52, 0x45, 0x44, 0x45, 0x4e, 0x54, 0x49, 0x41, 0x4c, 0x10, 0x01,
-	0x2a, 0x4d, 0x0a, 0x0e, 0x43, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x54, 0x79,
-	0x70, 0x65, 0x12, 0x11, 0x0a, 0x0d, 0x4e, 0x4f, 0x5f, 0x43, 0x52, 0x45, 0x44, 0x45, 0x4e, 0x54,
-	0x49, 0x41, 0x4c, 0x10, 0x00, 0x12, 0x11, 0x0a, 0x0d, 0x55, 0x53, 0x45, 0x52, 0x5f, 0x50, 0x41,
-	0x53, 0x53, 0x57, 0x4f, 0x52, 0x44, 0x10, 0x01, 0x12, 0x0b, 0x0a, 0x07, 0x41, 0x50, 0x49, 0x5f,
-	0x4b, 0x45, 0x59, 0x10, 0x02, 0x12, 0x08, 0x0a, 0x04, 0x46, 0x49, 0x4c, 0x45, 0x10, 0x03, 0x2a,
-	0x2d, 0x0a, 0x08, 0x46, 0x69, 0x6c, 0x65, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0b, 0x0a, 0x07, 0x4e,
-	0x4f, 0x5f, 0x46, 0x49, 0x4c, 0x45, 0x10, 0x00, 0x12, 0x0a, 0x0a, 0x06, 0x42, 0x49, 0x4e, 0x41,
-	0x52, 0x59, 0x10, 0x01, 0x12, 0x08, 0x0a, 0x04, 0x54, 0x45, 0x58, 0x54, 0x10, 0x02, 0x42, 0x2f,
-	0x5a, 0x2d, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x62, 0x69, 0x73,
-	0x68, 0x6f, 0x70, 0x66, 0x6f, 0x78, 0x2f, 0x73, 0x6c, 0x69, 0x76, 0x65, 0x72, 0x2f, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2f, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xeb, 0x01, 0x0a, 0x12, 0x53, 0x68, 0x65, 0x6c, 0x6c, 0x63,
+	0x6f, 0x64, 0x65, 0x45, 0x6e, 0x63, 0x6f, 0x64, 0x65, 0x52, 0x65, 0x71, 0x12, 0x34, 0x0a, 0x07,
+	0x45, 0x6e, 0x63, 0x6f, 0x64, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x1a, 0x2e,
+	0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62, 0x2e, 0x53, 0x68, 0x65, 0x6c, 0x6c, 0x63, 0x6f,
+	0x64, 0x65, 0x45, 0x6e, 0x63, 0x6f, 0x64, 0x65, 0x72, 0x52, 0x07, 0x45, 0x6e, 0x63, 0x6f, 0x64,
+	0x65, 0x72, 0x12, 0x22, 0x0a, 0x0c, 0x41, 0x72, 0x63, 0x68, 0x69, 0x74, 0x65, 0x63, 0x74, 0x75,
+	0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x41, 0x72, 0x63, 0x68, 0x69, 0x74,
+	0x65, 0x63, 0x74, 0x75, 0x72, 0x65, 0x12, 0x1e, 0x0a, 0x0a, 0x49, 0x74, 0x65, 0x72, 0x61, 0x74,
+	0x69, 0x6f, 0x6e, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x0a, 0x49, 0x74, 0x65, 0x72,
+	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x1a, 0x0a, 0x08, 0x42, 0x61, 0x64, 0x43, 0x68, 0x61,
+	0x72, 0x73, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x08, 0x42, 0x61, 0x64, 0x43, 0x68, 0x61,
+	0x72, 0x73, 0x12, 0x12, 0x0a, 0x04, 0x44, 0x61, 0x74, 0x61, 0x18, 0x08, 0x20, 0x01, 0x28, 0x0c,
+	0x52, 0x04, 0x44, 0x61, 0x74, 0x61, 0x12, 0x2b, 0x0a, 0x07, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x18, 0x09, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e,
+	0x70, 0x62, 0x2e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x07, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x22, 0x55, 0x0a, 0x0f, 0x53, 0x68, 0x65, 0x6c, 0x6c, 0x63, 0x6f, 0x64, 0x65,
+	0x45, 0x6e, 0x63, 0x6f, 0x64, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x44, 0x61, 0x74, 0x61, 0x18, 0x08,
+	0x20, 0x01, 0x28, 0x0c, 0x52, 0x04, 0x44, 0x61, 0x74, 0x61, 0x12, 0x2e, 0x0a, 0x08, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x18, 0x09, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x63,
+	0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x70, 0x62, 0x2e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x52, 0x08, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0xb7, 0x01, 0x0a, 0x13, 0x53,
+	0x68, 0x65, 0x6c, 0x6c, 0x63, 0x6f, 0x64, 0x65, 0x45, 0x6e, 0x63, 0x6f, 0x64, 0x65, 0x72, 0x4d,
+	0x61, 0x70, 0x12, 0x47, 0x0a, 0x08, 0x45, 0x6e, 0x63, 0x6f, 0x64, 0x65, 0x72, 0x73, 0x18, 0x01,
+	0x20, 0x03, 0x28, 0x0b, 0x32, 0x2b, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62, 0x2e,
+	0x53, 0x68, 0x65, 0x6c, 0x6c, 0x63, 0x6f, 0x64, 0x65, 0x45, 0x6e, 0x63, 0x6f, 0x64, 0x65, 0x72,
+	0x4d, 0x61, 0x70, 0x2e, 0x45, 0x6e, 0x63, 0x6f, 0x64, 0x65, 0x72, 0x73, 0x45, 0x6e, 0x74, 0x72,
+	0x79, 0x52, 0x08, 0x45, 0x6e, 0x63, 0x6f, 0x64, 0x65, 0x72, 0x73, 0x1a, 0x57, 0x0a, 0x0d, 0x45,
+	0x6e, 0x63, 0x6f, 0x64, 0x65, 0x72, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03,
+	0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x30,
+	0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x1a, 0x2e,
+	0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62, 0x2e, 0x53, 0x68, 0x65, 0x6c, 0x6c, 0x63, 0x6f,
+	0x64, 0x65, 0x45, 0x6e, 0x63, 0x6f, 0x64, 0x65, 0x72, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65,
+	0x3a, 0x02, 0x38, 0x01, 0x2a, 0x4a, 0x0a, 0x0c, 0x4f, 0x75, 0x74, 0x70, 0x75, 0x74, 0x46, 0x6f,
+	0x72, 0x6d, 0x61, 0x74, 0x12, 0x0e, 0x0a, 0x0a, 0x53, 0x48, 0x41, 0x52, 0x45, 0x44, 0x5f, 0x4c,
+	0x49, 0x42, 0x10, 0x00, 0x12, 0x0d, 0x0a, 0x09, 0x53, 0x48, 0x45, 0x4c, 0x4c, 0x43, 0x4f, 0x44,
+	0x45, 0x10, 0x01, 0x12, 0x0e, 0x0a, 0x0a, 0x45, 0x58, 0x45, 0x43, 0x55, 0x54, 0x41, 0x42, 0x4c,
+	0x45, 0x10, 0x02, 0x12, 0x0b, 0x0a, 0x07, 0x53, 0x45, 0x52, 0x56, 0x49, 0x43, 0x45, 0x10, 0x03,
+	0x2a, 0x2d, 0x0a, 0x0d, 0x53, 0x74, 0x61, 0x67, 0x65, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x63, 0x6f,
+	0x6c, 0x12, 0x07, 0x0a, 0x03, 0x54, 0x43, 0x50, 0x10, 0x00, 0x12, 0x08, 0x0a, 0x04, 0x48, 0x54,
+	0x54, 0x50, 0x10, 0x01, 0x12, 0x09, 0x0a, 0x05, 0x48, 0x54, 0x54, 0x50, 0x53, 0x10, 0x02, 0x2a,
+	0x2e, 0x0a, 0x08, 0x4c, 0x6f, 0x6f, 0x74, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0d, 0x0a, 0x09, 0x4c,
+	0x4f, 0x4f, 0x54, 0x5f, 0x46, 0x49, 0x4c, 0x45, 0x10, 0x00, 0x12, 0x13, 0x0a, 0x0f, 0x4c, 0x4f,
+	0x4f, 0x54, 0x5f, 0x43, 0x52, 0x45, 0x44, 0x45, 0x4e, 0x54, 0x49, 0x41, 0x4c, 0x10, 0x01, 0x2a,
+	0x4d, 0x0a, 0x0e, 0x43, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x54, 0x79, 0x70,
+	0x65, 0x12, 0x11, 0x0a, 0x0d, 0x4e, 0x4f, 0x5f, 0x43, 0x52, 0x45, 0x44, 0x45, 0x4e, 0x54, 0x49,
+	0x41, 0x4c, 0x10, 0x00, 0x12, 0x11, 0x0a, 0x0d, 0x55, 0x53, 0x45, 0x52, 0x5f, 0x50, 0x41, 0x53,
+	0x53, 0x57, 0x4f, 0x52, 0x44, 0x10, 0x01, 0x12, 0x0b, 0x0a, 0x07, 0x41, 0x50, 0x49, 0x5f, 0x4b,
+	0x45, 0x59, 0x10, 0x02, 0x12, 0x08, 0x0a, 0x04, 0x46, 0x49, 0x4c, 0x45, 0x10, 0x03, 0x2a, 0x2d,
+	0x0a, 0x08, 0x46, 0x69, 0x6c, 0x65, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0b, 0x0a, 0x07, 0x4e, 0x4f,
+	0x5f, 0x46, 0x49, 0x4c, 0x45, 0x10, 0x00, 0x12, 0x0a, 0x0a, 0x06, 0x42, 0x49, 0x4e, 0x41, 0x52,
+	0x59, 0x10, 0x01, 0x12, 0x08, 0x0a, 0x04, 0x54, 0x45, 0x58, 0x54, 0x10, 0x02, 0x2a, 0x26, 0x0a,
+	0x10, 0x53, 0x68, 0x65, 0x6c, 0x6c, 0x63, 0x6f, 0x64, 0x65, 0x45, 0x6e, 0x63, 0x6f, 0x64, 0x65,
+	0x72, 0x12, 0x12, 0x0a, 0x0e, 0x53, 0x48, 0x49, 0x4b, 0x41, 0x54, 0x41, 0x5f, 0x47, 0x41, 0x5f,
+	0x4e, 0x41, 0x49, 0x10, 0x00, 0x42, 0x2f, 0x5a, 0x2d, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e,
+	0x63, 0x6f, 0x6d, 0x2f, 0x62, 0x69, 0x73, 0x68, 0x6f, 0x70, 0x66, 0x6f, 0x78, 0x2f, 0x73, 0x6c,
+	0x69, 0x76, 0x65, 0x72, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2f, 0x63, 0x6c,
+	0x69, 0x65, 0x6e, 0x74, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -6231,158 +6498,168 @@ func file_clientpb_client_proto_rawDescGZIP() []byte {
 	return file_clientpb_client_proto_rawDescData
 }
 
-var file_clientpb_client_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_clientpb_client_proto_msgTypes = make([]protoimpl.MessageInfo, 77)
+var file_clientpb_client_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
+var file_clientpb_client_proto_msgTypes = make([]protoimpl.MessageInfo, 81)
 var file_clientpb_client_proto_goTypes = []interface{}{
 	(OutputFormat)(0),            // 0: clientpb.OutputFormat
 	(StageProtocol)(0),           // 1: clientpb.StageProtocol
 	(LootType)(0),                // 2: clientpb.LootType
 	(CredentialType)(0),          // 3: clientpb.CredentialType
 	(FileType)(0),                // 4: clientpb.FileType
-	(*Version)(nil),              // 5: clientpb.Version
-	(*Session)(nil),              // 6: clientpb.Session
-	(*Beacon)(nil),               // 7: clientpb.Beacon
-	(*Beacons)(nil),              // 8: clientpb.Beacons
-	(*BeaconTask)(nil),           // 9: clientpb.BeaconTask
-	(*BeaconTasks)(nil),          // 10: clientpb.BeaconTasks
-	(*ImplantC2)(nil),            // 11: clientpb.ImplantC2
-	(*ImplantConfig)(nil),        // 12: clientpb.ImplantConfig
-	(*ImplantBuilds)(nil),        // 13: clientpb.ImplantBuilds
-	(*CompilerTarget)(nil),       // 14: clientpb.CompilerTarget
-	(*CrossCompiler)(nil),        // 15: clientpb.CrossCompiler
-	(*Compiler)(nil),             // 16: clientpb.Compiler
-	(*DeleteReq)(nil),            // 17: clientpb.DeleteReq
-	(*DNSCanary)(nil),            // 18: clientpb.DNSCanary
-	(*Canaries)(nil),             // 19: clientpb.Canaries
-	(*UniqueWGIP)(nil),           // 20: clientpb.UniqueWGIP
-	(*ImplantProfile)(nil),       // 21: clientpb.ImplantProfile
-	(*ImplantProfiles)(nil),      // 22: clientpb.ImplantProfiles
-	(*RegenerateReq)(nil),        // 23: clientpb.RegenerateReq
-	(*Job)(nil),                  // 24: clientpb.Job
-	(*Jobs)(nil),                 // 25: clientpb.Jobs
-	(*KillJobReq)(nil),           // 26: clientpb.KillJobReq
-	(*KillJob)(nil),              // 27: clientpb.KillJob
-	(*MTLSListenerReq)(nil),      // 28: clientpb.MTLSListenerReq
-	(*MTLSListener)(nil),         // 29: clientpb.MTLSListener
-	(*WGListenerReq)(nil),        // 30: clientpb.WGListenerReq
-	(*WGListener)(nil),           // 31: clientpb.WGListener
-	(*DNSListenerReq)(nil),       // 32: clientpb.DNSListenerReq
-	(*DNSListener)(nil),          // 33: clientpb.DNSListener
-	(*HTTPListenerReq)(nil),      // 34: clientpb.HTTPListenerReq
-	(*NamedPipesReq)(nil),        // 35: clientpb.NamedPipesReq
-	(*NamedPipes)(nil),           // 36: clientpb.NamedPipes
-	(*TCPPivotReq)(nil),          // 37: clientpb.TCPPivotReq
-	(*TCPPivot)(nil),             // 38: clientpb.TCPPivot
-	(*HTTPListener)(nil),         // 39: clientpb.HTTPListener
-	(*Sessions)(nil),             // 40: clientpb.Sessions
-	(*RenameReq)(nil),            // 41: clientpb.RenameReq
-	(*GenerateReq)(nil),          // 42: clientpb.GenerateReq
-	(*Generate)(nil),             // 43: clientpb.Generate
-	(*MSFReq)(nil),               // 44: clientpb.MSFReq
-	(*MSFRemoteReq)(nil),         // 45: clientpb.MSFRemoteReq
-	(*StagerListenerReq)(nil),    // 46: clientpb.StagerListenerReq
-	(*StagerListener)(nil),       // 47: clientpb.StagerListener
-	(*ShellcodeRDIReq)(nil),      // 48: clientpb.ShellcodeRDIReq
-	(*ShellcodeRDI)(nil),         // 49: clientpb.ShellcodeRDI
-	(*MsfStagerReq)(nil),         // 50: clientpb.MsfStagerReq
-	(*MsfStager)(nil),            // 51: clientpb.MsfStager
-	(*GetSystemReq)(nil),         // 52: clientpb.GetSystemReq
-	(*MigrateReq)(nil),           // 53: clientpb.MigrateReq
-	(*CreateTunnelReq)(nil),      // 54: clientpb.CreateTunnelReq
-	(*CreateTunnel)(nil),         // 55: clientpb.CreateTunnel
-	(*CloseTunnelReq)(nil),       // 56: clientpb.CloseTunnelReq
-	(*PivotGraphEntry)(nil),      // 57: clientpb.PivotGraphEntry
-	(*PivotGraph)(nil),           // 58: clientpb.PivotGraph
-	(*Client)(nil),               // 59: clientpb.Client
-	(*Event)(nil),                // 60: clientpb.Event
-	(*Operators)(nil),            // 61: clientpb.Operators
-	(*Operator)(nil),             // 62: clientpb.Operator
-	(*WebContent)(nil),           // 63: clientpb.WebContent
-	(*WebsiteAddContent)(nil),    // 64: clientpb.WebsiteAddContent
-	(*WebsiteRemoveContent)(nil), // 65: clientpb.WebsiteRemoveContent
-	(*Website)(nil),              // 66: clientpb.Website
-	(*Websites)(nil),             // 67: clientpb.Websites
-	(*WGClientConfig)(nil),       // 68: clientpb.WGClientConfig
-	(*Credential)(nil),           // 69: clientpb.Credential
-	(*Loot)(nil),                 // 70: clientpb.Loot
-	(*AllLoot)(nil),              // 71: clientpb.AllLoot
-	(*IOC)(nil),                  // 72: clientpb.IOC
-	(*ExtensionData)(nil),        // 73: clientpb.ExtensionData
-	(*Host)(nil),                 // 74: clientpb.Host
-	(*AllHosts)(nil),             // 75: clientpb.AllHosts
-	(*DllHijackReq)(nil),         // 76: clientpb.DllHijackReq
-	(*DllHijack)(nil),            // 77: clientpb.DllHijack
-	nil,                          // 78: clientpb.ImplantBuilds.ConfigsEntry
-	nil,                          // 79: clientpb.WebsiteAddContent.ContentsEntry
-	nil,                          // 80: clientpb.Website.ContentsEntry
-	nil,                          // 81: clientpb.Host.ExtensionDataEntry
-	(*commonpb.Request)(nil),     // 82: commonpb.Request
-	(*commonpb.Response)(nil),    // 83: commonpb.Response
-	(*commonpb.File)(nil),        // 84: commonpb.File
+	(ShellcodeEncoder)(0),        // 5: clientpb.ShellcodeEncoder
+	(*Version)(nil),              // 6: clientpb.Version
+	(*Session)(nil),              // 7: clientpb.Session
+	(*Beacon)(nil),               // 8: clientpb.Beacon
+	(*Beacons)(nil),              // 9: clientpb.Beacons
+	(*BeaconTask)(nil),           // 10: clientpb.BeaconTask
+	(*BeaconTasks)(nil),          // 11: clientpb.BeaconTasks
+	(*ImplantC2)(nil),            // 12: clientpb.ImplantC2
+	(*ImplantConfig)(nil),        // 13: clientpb.ImplantConfig
+	(*ImplantBuilds)(nil),        // 14: clientpb.ImplantBuilds
+	(*CompilerTarget)(nil),       // 15: clientpb.CompilerTarget
+	(*CrossCompiler)(nil),        // 16: clientpb.CrossCompiler
+	(*Compiler)(nil),             // 17: clientpb.Compiler
+	(*DeleteReq)(nil),            // 18: clientpb.DeleteReq
+	(*DNSCanary)(nil),            // 19: clientpb.DNSCanary
+	(*Canaries)(nil),             // 20: clientpb.Canaries
+	(*UniqueWGIP)(nil),           // 21: clientpb.UniqueWGIP
+	(*ImplantProfile)(nil),       // 22: clientpb.ImplantProfile
+	(*ImplantProfiles)(nil),      // 23: clientpb.ImplantProfiles
+	(*RegenerateReq)(nil),        // 24: clientpb.RegenerateReq
+	(*Job)(nil),                  // 25: clientpb.Job
+	(*Jobs)(nil),                 // 26: clientpb.Jobs
+	(*KillJobReq)(nil),           // 27: clientpb.KillJobReq
+	(*KillJob)(nil),              // 28: clientpb.KillJob
+	(*MTLSListenerReq)(nil),      // 29: clientpb.MTLSListenerReq
+	(*MTLSListener)(nil),         // 30: clientpb.MTLSListener
+	(*WGListenerReq)(nil),        // 31: clientpb.WGListenerReq
+	(*WGListener)(nil),           // 32: clientpb.WGListener
+	(*DNSListenerReq)(nil),       // 33: clientpb.DNSListenerReq
+	(*DNSListener)(nil),          // 34: clientpb.DNSListener
+	(*HTTPListenerReq)(nil),      // 35: clientpb.HTTPListenerReq
+	(*NamedPipesReq)(nil),        // 36: clientpb.NamedPipesReq
+	(*NamedPipes)(nil),           // 37: clientpb.NamedPipes
+	(*TCPPivotReq)(nil),          // 38: clientpb.TCPPivotReq
+	(*TCPPivot)(nil),             // 39: clientpb.TCPPivot
+	(*HTTPListener)(nil),         // 40: clientpb.HTTPListener
+	(*Sessions)(nil),             // 41: clientpb.Sessions
+	(*RenameReq)(nil),            // 42: clientpb.RenameReq
+	(*GenerateReq)(nil),          // 43: clientpb.GenerateReq
+	(*Generate)(nil),             // 44: clientpb.Generate
+	(*MSFReq)(nil),               // 45: clientpb.MSFReq
+	(*MSFRemoteReq)(nil),         // 46: clientpb.MSFRemoteReq
+	(*StagerListenerReq)(nil),    // 47: clientpb.StagerListenerReq
+	(*StagerListener)(nil),       // 48: clientpb.StagerListener
+	(*ShellcodeRDIReq)(nil),      // 49: clientpb.ShellcodeRDIReq
+	(*ShellcodeRDI)(nil),         // 50: clientpb.ShellcodeRDI
+	(*MsfStagerReq)(nil),         // 51: clientpb.MsfStagerReq
+	(*MsfStager)(nil),            // 52: clientpb.MsfStager
+	(*GetSystemReq)(nil),         // 53: clientpb.GetSystemReq
+	(*MigrateReq)(nil),           // 54: clientpb.MigrateReq
+	(*CreateTunnelReq)(nil),      // 55: clientpb.CreateTunnelReq
+	(*CreateTunnel)(nil),         // 56: clientpb.CreateTunnel
+	(*CloseTunnelReq)(nil),       // 57: clientpb.CloseTunnelReq
+	(*PivotGraphEntry)(nil),      // 58: clientpb.PivotGraphEntry
+	(*PivotGraph)(nil),           // 59: clientpb.PivotGraph
+	(*Client)(nil),               // 60: clientpb.Client
+	(*Event)(nil),                // 61: clientpb.Event
+	(*Operators)(nil),            // 62: clientpb.Operators
+	(*Operator)(nil),             // 63: clientpb.Operator
+	(*WebContent)(nil),           // 64: clientpb.WebContent
+	(*WebsiteAddContent)(nil),    // 65: clientpb.WebsiteAddContent
+	(*WebsiteRemoveContent)(nil), // 66: clientpb.WebsiteRemoveContent
+	(*Website)(nil),              // 67: clientpb.Website
+	(*Websites)(nil),             // 68: clientpb.Websites
+	(*WGClientConfig)(nil),       // 69: clientpb.WGClientConfig
+	(*Credential)(nil),           // 70: clientpb.Credential
+	(*Loot)(nil),                 // 71: clientpb.Loot
+	(*AllLoot)(nil),              // 72: clientpb.AllLoot
+	(*IOC)(nil),                  // 73: clientpb.IOC
+	(*ExtensionData)(nil),        // 74: clientpb.ExtensionData
+	(*Host)(nil),                 // 75: clientpb.Host
+	(*AllHosts)(nil),             // 76: clientpb.AllHosts
+	(*DllHijackReq)(nil),         // 77: clientpb.DllHijackReq
+	(*DllHijack)(nil),            // 78: clientpb.DllHijack
+	(*ShellcodeEncodeReq)(nil),   // 79: clientpb.ShellcodeEncodeReq
+	(*ShellcodeEncode)(nil),      // 80: clientpb.ShellcodeEncode
+	(*ShellcodeEncoderMap)(nil),  // 81: clientpb.ShellcodeEncoderMap
+	nil,                          // 82: clientpb.ImplantBuilds.ConfigsEntry
+	nil,                          // 83: clientpb.WebsiteAddContent.ContentsEntry
+	nil,                          // 84: clientpb.Website.ContentsEntry
+	nil,                          // 85: clientpb.Host.ExtensionDataEntry
+	nil,                          // 86: clientpb.ShellcodeEncoderMap.EncodersEntry
+	(*commonpb.Request)(nil),     // 87: commonpb.Request
+	(*commonpb.Response)(nil),    // 88: commonpb.Response
+	(*commonpb.File)(nil),        // 89: commonpb.File
 }
 var file_clientpb_client_proto_depIdxs = []int32{
-	7,  // 0: clientpb.Beacons.Beacons:type_name -> clientpb.Beacon
-	9,  // 1: clientpb.BeaconTasks.Tasks:type_name -> clientpb.BeaconTask
-	11, // 2: clientpb.ImplantConfig.C2:type_name -> clientpb.ImplantC2
+	8,  // 0: clientpb.Beacons.Beacons:type_name -> clientpb.Beacon
+	10, // 1: clientpb.BeaconTasks.Tasks:type_name -> clientpb.BeaconTask
+	12, // 2: clientpb.ImplantConfig.C2:type_name -> clientpb.ImplantC2
 	0,  // 3: clientpb.ImplantConfig.Format:type_name -> clientpb.OutputFormat
-	78, // 4: clientpb.ImplantBuilds.Configs:type_name -> clientpb.ImplantBuilds.ConfigsEntry
+	82, // 4: clientpb.ImplantBuilds.Configs:type_name -> clientpb.ImplantBuilds.ConfigsEntry
 	0,  // 5: clientpb.CompilerTarget.Format:type_name -> clientpb.OutputFormat
-	14, // 6: clientpb.Compiler.Targets:type_name -> clientpb.CompilerTarget
-	15, // 7: clientpb.Compiler.CrossCompilers:type_name -> clientpb.CrossCompiler
-	14, // 8: clientpb.Compiler.UnsupportedTargets:type_name -> clientpb.CompilerTarget
-	18, // 9: clientpb.Canaries.Canaries:type_name -> clientpb.DNSCanary
-	12, // 10: clientpb.ImplantProfile.Config:type_name -> clientpb.ImplantConfig
-	21, // 11: clientpb.ImplantProfiles.Profiles:type_name -> clientpb.ImplantProfile
-	24, // 12: clientpb.Jobs.Active:type_name -> clientpb.Job
-	82, // 13: clientpb.NamedPipesReq.Request:type_name -> commonpb.Request
-	83, // 14: clientpb.NamedPipes.Response:type_name -> commonpb.Response
-	82, // 15: clientpb.TCPPivotReq.Request:type_name -> commonpb.Request
-	83, // 16: clientpb.TCPPivot.Response:type_name -> commonpb.Response
-	6,  // 17: clientpb.Sessions.Sessions:type_name -> clientpb.Session
-	12, // 18: clientpb.GenerateReq.Config:type_name -> clientpb.ImplantConfig
-	84, // 19: clientpb.Generate.File:type_name -> commonpb.File
-	82, // 20: clientpb.MSFReq.Request:type_name -> commonpb.Request
-	82, // 21: clientpb.MSFRemoteReq.Request:type_name -> commonpb.Request
+	15, // 6: clientpb.Compiler.Targets:type_name -> clientpb.CompilerTarget
+	16, // 7: clientpb.Compiler.CrossCompilers:type_name -> clientpb.CrossCompiler
+	15, // 8: clientpb.Compiler.UnsupportedTargets:type_name -> clientpb.CompilerTarget
+	19, // 9: clientpb.Canaries.Canaries:type_name -> clientpb.DNSCanary
+	13, // 10: clientpb.ImplantProfile.Config:type_name -> clientpb.ImplantConfig
+	22, // 11: clientpb.ImplantProfiles.Profiles:type_name -> clientpb.ImplantProfile
+	25, // 12: clientpb.Jobs.Active:type_name -> clientpb.Job
+	87, // 13: clientpb.NamedPipesReq.Request:type_name -> commonpb.Request
+	88, // 14: clientpb.NamedPipes.Response:type_name -> commonpb.Response
+	87, // 15: clientpb.TCPPivotReq.Request:type_name -> commonpb.Request
+	88, // 16: clientpb.TCPPivot.Response:type_name -> commonpb.Response
+	7,  // 17: clientpb.Sessions.Sessions:type_name -> clientpb.Session
+	13, // 18: clientpb.GenerateReq.Config:type_name -> clientpb.ImplantConfig
+	89, // 19: clientpb.Generate.File:type_name -> commonpb.File
+	87, // 20: clientpb.MSFReq.Request:type_name -> commonpb.Request
+	87, // 21: clientpb.MSFRemoteReq.Request:type_name -> commonpb.Request
 	1,  // 22: clientpb.StagerListenerReq.Protocol:type_name -> clientpb.StageProtocol
 	1,  // 23: clientpb.MsfStagerReq.Protocol:type_name -> clientpb.StageProtocol
-	84, // 24: clientpb.MsfStager.File:type_name -> commonpb.File
-	12, // 25: clientpb.GetSystemReq.Config:type_name -> clientpb.ImplantConfig
-	82, // 26: clientpb.GetSystemReq.Request:type_name -> commonpb.Request
-	12, // 27: clientpb.MigrateReq.Config:type_name -> clientpb.ImplantConfig
-	82, // 28: clientpb.MigrateReq.Request:type_name -> commonpb.Request
-	82, // 29: clientpb.CreateTunnelReq.Request:type_name -> commonpb.Request
-	82, // 30: clientpb.CloseTunnelReq.Request:type_name -> commonpb.Request
-	6,  // 31: clientpb.PivotGraphEntry.Session:type_name -> clientpb.Session
-	57, // 32: clientpb.PivotGraphEntry.Children:type_name -> clientpb.PivotGraphEntry
-	57, // 33: clientpb.PivotGraph.Children:type_name -> clientpb.PivotGraphEntry
-	62, // 34: clientpb.Client.Operator:type_name -> clientpb.Operator
-	6,  // 35: clientpb.Event.Session:type_name -> clientpb.Session
-	24, // 36: clientpb.Event.Job:type_name -> clientpb.Job
-	59, // 37: clientpb.Event.Client:type_name -> clientpb.Client
-	62, // 38: clientpb.Operators.Operators:type_name -> clientpb.Operator
-	79, // 39: clientpb.WebsiteAddContent.Contents:type_name -> clientpb.WebsiteAddContent.ContentsEntry
-	80, // 40: clientpb.Website.Contents:type_name -> clientpb.Website.ContentsEntry
-	66, // 41: clientpb.Websites.Websites:type_name -> clientpb.Website
+	89, // 24: clientpb.MsfStager.File:type_name -> commonpb.File
+	13, // 25: clientpb.GetSystemReq.Config:type_name -> clientpb.ImplantConfig
+	87, // 26: clientpb.GetSystemReq.Request:type_name -> commonpb.Request
+	13, // 27: clientpb.MigrateReq.Config:type_name -> clientpb.ImplantConfig
+	87, // 28: clientpb.MigrateReq.Request:type_name -> commonpb.Request
+	87, // 29: clientpb.CreateTunnelReq.Request:type_name -> commonpb.Request
+	87, // 30: clientpb.CloseTunnelReq.Request:type_name -> commonpb.Request
+	7,  // 31: clientpb.PivotGraphEntry.Session:type_name -> clientpb.Session
+	58, // 32: clientpb.PivotGraphEntry.Children:type_name -> clientpb.PivotGraphEntry
+	58, // 33: clientpb.PivotGraph.Children:type_name -> clientpb.PivotGraphEntry
+	63, // 34: clientpb.Client.Operator:type_name -> clientpb.Operator
+	7,  // 35: clientpb.Event.Session:type_name -> clientpb.Session
+	25, // 36: clientpb.Event.Job:type_name -> clientpb.Job
+	60, // 37: clientpb.Event.Client:type_name -> clientpb.Client
+	63, // 38: clientpb.Operators.Operators:type_name -> clientpb.Operator
+	83, // 39: clientpb.WebsiteAddContent.Contents:type_name -> clientpb.WebsiteAddContent.ContentsEntry
+	84, // 40: clientpb.Website.Contents:type_name -> clientpb.Website.ContentsEntry
+	67, // 41: clientpb.Websites.Websites:type_name -> clientpb.Website
 	2,  // 42: clientpb.Loot.Type:type_name -> clientpb.LootType
 	3,  // 43: clientpb.Loot.CredentialType:type_name -> clientpb.CredentialType
-	69, // 44: clientpb.Loot.Credential:type_name -> clientpb.Credential
+	70, // 44: clientpb.Loot.Credential:type_name -> clientpb.Credential
 	4,  // 45: clientpb.Loot.FileType:type_name -> clientpb.FileType
-	84, // 46: clientpb.Loot.File:type_name -> commonpb.File
-	70, // 47: clientpb.AllLoot.Loot:type_name -> clientpb.Loot
-	72, // 48: clientpb.Host.IOCs:type_name -> clientpb.IOC
-	81, // 49: clientpb.Host.ExtensionData:type_name -> clientpb.Host.ExtensionDataEntry
-	74, // 50: clientpb.AllHosts.Hosts:type_name -> clientpb.Host
-	82, // 51: clientpb.DllHijackReq.Request:type_name -> commonpb.Request
-	83, // 52: clientpb.DllHijack.Response:type_name -> commonpb.Response
-	12, // 53: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
-	63, // 54: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
-	63, // 55: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
-	73, // 56: clientpb.Host.ExtensionDataEntry.value:type_name -> clientpb.ExtensionData
-	57, // [57:57] is the sub-list for method output_type
-	57, // [57:57] is the sub-list for method input_type
-	57, // [57:57] is the sub-list for extension type_name
-	57, // [57:57] is the sub-list for extension extendee
-	0,  // [0:57] is the sub-list for field type_name
+	89, // 46: clientpb.Loot.File:type_name -> commonpb.File
+	71, // 47: clientpb.AllLoot.Loot:type_name -> clientpb.Loot
+	73, // 48: clientpb.Host.IOCs:type_name -> clientpb.IOC
+	85, // 49: clientpb.Host.ExtensionData:type_name -> clientpb.Host.ExtensionDataEntry
+	75, // 50: clientpb.AllHosts.Hosts:type_name -> clientpb.Host
+	87, // 51: clientpb.DllHijackReq.Request:type_name -> commonpb.Request
+	88, // 52: clientpb.DllHijack.Response:type_name -> commonpb.Response
+	5,  // 53: clientpb.ShellcodeEncodeReq.Encoder:type_name -> clientpb.ShellcodeEncoder
+	87, // 54: clientpb.ShellcodeEncodeReq.Request:type_name -> commonpb.Request
+	88, // 55: clientpb.ShellcodeEncode.Response:type_name -> commonpb.Response
+	86, // 56: clientpb.ShellcodeEncoderMap.Encoders:type_name -> clientpb.ShellcodeEncoderMap.EncodersEntry
+	13, // 57: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
+	64, // 58: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
+	64, // 59: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
+	74, // 60: clientpb.Host.ExtensionDataEntry.value:type_name -> clientpb.ExtensionData
+	5,  // 61: clientpb.ShellcodeEncoderMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoder
+	62, // [62:62] is the sub-list for method output_type
+	62, // [62:62] is the sub-list for method input_type
+	62, // [62:62] is the sub-list for extension type_name
+	62, // [62:62] is the sub-list for extension extendee
+	0,  // [0:62] is the sub-list for field type_name
 }
 
 func init() { file_clientpb_client_proto_init() }
@@ -7267,14 +7544,50 @@ func file_clientpb_client_proto_init() {
 				return nil
 			}
 		}
+		file_clientpb_client_proto_msgTypes[73].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ShellcodeEncodeReq); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_clientpb_client_proto_msgTypes[74].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ShellcodeEncode); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_clientpb_client_proto_msgTypes[75].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ShellcodeEncoderMap); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_clientpb_client_proto_rawDesc,
-			NumEnums:      5,
-			NumMessages:   77,
+			NumEnums:      6,
+			NumMessages:   81,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

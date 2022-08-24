@@ -158,7 +158,7 @@ func GetGPGPublicKey() (*packet.PublicKey, error) {
 func setupGo(appDir string) error {
 
 	setupLog.Infof("Unpacking to '%s'", appDir)
-	goRootPath := path.Join(appDir, GoDirName)
+	goRootPath := filepath.Join(appDir, GoDirName)
 	setupLog.Infof("GOPATH = %s", goRootPath)
 	if _, err := os.Stat(goRootPath); !os.IsNotExist(err) {
 		setupLog.Info("Removing old go root directory")
@@ -175,14 +175,14 @@ func setupGo(appDir string) error {
 	os.MkdirAll(goRootPath, 0700)
 
 	// Go compiler and stdlib
-	goZipFSPath := path.Join("fs", runtime.GOOS, runtime.GOARCH, "go.zip")
+	goZipFSPath := filepath.Join("fs", runtime.GOOS, runtime.GOARCH, "go.zip")
 	goZip, err := assetsFs.ReadFile(goZipFSPath)
 	if err != nil {
 		setupLog.Errorf("static asset not found: %s", goZipFSPath)
 		return err
 	}
 
-	goZipPath := path.Join(appDir, "go.zip")
+	goZipPath := filepath.Join(appDir, "go.zip")
 	defer os.Remove(goZipPath)
 	ioutil.WriteFile(goZipPath, goZip, 0600)
 	_, err = unzip(goZipPath, appDir)
@@ -196,7 +196,7 @@ func setupGo(appDir string) error {
 		setupLog.Info("static asset not found: src.zip")
 		return err
 	}
-	goSrcZipPath := path.Join(appDir, "src.zip")
+	goSrcZipPath := filepath.Join(appDir, "src.zip")
 	defer os.Remove(goSrcZipPath)
 	ioutil.WriteFile(goSrcZipPath, goSrcZip, 0600)
 	_, err = unzip(goSrcZipPath, goRootPath)
@@ -209,20 +209,32 @@ func setupGo(appDir string) error {
 	if runtime.GOOS == "windows" {
 		garbleFileName = "garble.exe"
 	}
-	garbleAssetPath := path.Join("fs", runtime.GOOS, runtime.GOARCH, garbleFileName)
+	garbleAssetPath := filepath.Join("fs", runtime.GOOS, runtime.GOARCH, garbleFileName)
 	garbleFile, err := assetsFs.ReadFile(garbleAssetPath)
 	if err != nil {
 		setupLog.Errorf("Static asset not found: %s", garbleFile)
 		return err
 	}
-	garbleLocalPath := path.Join(appDir, "go", "bin", garbleFileName)
+	garbleLocalPath := filepath.Join(appDir, "go", "bin", garbleFileName)
 	err = ioutil.WriteFile(garbleLocalPath, garbleFile, 0700)
 	if err != nil {
 		setupLog.Errorf("Failed to write garble %s", err)
 		return err
 	}
 
-	return nil
+	return setupSGN(appDir)
+}
+
+func setupSGN(appDir string) error {
+	goBinPath := filepath.Join(appDir, "go", "bin")
+	sgnZipFSPath := filepath.Join("fs", runtime.GOOS, runtime.GOARCH, "sgn.zip")
+	sgnZip, err := assetsFs.ReadFile(sgnZipFSPath)
+	if err != nil {
+		setupLog.Errorf("static asset not found: %s", sgnZipFSPath)
+		return err
+	}
+	_, err = unzipBuf(sgnZip, goBinPath)
+	return err
 }
 
 // SetupGoPath - Extracts dependencies to goPathSrc
@@ -246,10 +258,10 @@ func SetupGoPath(goPathSrc string) error {
 		return err
 	}
 	sliverpbGoSrc = stripSliverpb(sliverpbGoSrc)
-	sliverpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliverpb")
+	sliverpbDir := filepath.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliverpb")
 	os.MkdirAll(sliverpbDir, 0700)
-	ioutil.WriteFile(path.Join(sliverpbDir, "sliver.pb.go"), sliverpbGoSrc, 0600)
-	ioutil.WriteFile(path.Join(sliverpbDir, "constants.go"), sliverpbConstSrc, 0600)
+	ioutil.WriteFile(filepath.Join(sliverpbDir, "sliver.pb.go"), sliverpbGoSrc, 0600)
+	ioutil.WriteFile(filepath.Join(sliverpbDir, "constants.go"), sliverpbConstSrc, 0600)
 
 	// Common PB
 	commonpbSrc, err := protobufs.FS.ReadFile("commonpb/common.pb.go")
@@ -257,9 +269,9 @@ func SetupGoPath(goPathSrc string) error {
 		setupLog.Info("Static asset not found: common.pb.go")
 		return err
 	}
-	commonpbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "commonpb")
+	commonpbDir := filepath.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "commonpb")
 	os.MkdirAll(commonpbDir, 0700)
-	ioutil.WriteFile(path.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0600)
+	ioutil.WriteFile(filepath.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0600)
 
 	// DNS PB
 	dnspbSrc, err := protobufs.FS.ReadFile("dnspb/dns.pb.go")
@@ -267,9 +279,9 @@ func SetupGoPath(goPathSrc string) error {
 		setupLog.Info("Static asset not found: dns.pb.go")
 		return err
 	}
-	dnspbDir := path.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "dnspb")
+	dnspbDir := filepath.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "dnspb")
 	os.MkdirAll(dnspbDir, 0700)
-	ioutil.WriteFile(path.Join(dnspbDir, "dns.pb.go"), dnspbSrc, 0600)
+	ioutil.WriteFile(filepath.Join(dnspbDir, "dns.pb.go"), dnspbSrc, 0600)
 	return nil
 }
 
@@ -305,7 +317,7 @@ func unzipGoDependency(fsPath string, targetPath string) error {
 		return err
 	}
 
-	goDepZipPath := path.Join(appDir, path.Base(fsPath))
+	goDepZipPath := filepath.Join(appDir, filepath.Base(fsPath))
 	defer os.Remove(goDepZipPath)
 	ioutil.WriteFile(goDepZipPath, goDep, 0600)
 	_, err = unzip(goDepZipPath, targetPath)
@@ -353,6 +365,46 @@ func unzip(src string, dest string) ([]string, error) {
 		return filenames, err
 	}
 	defer reader.Close()
+
+	for _, file := range reader.File {
+
+		rc, err := file.Open()
+		if err != nil {
+			return filenames, err
+		}
+		defer rc.Close()
+
+		fPath := filepath.Join(dest, file.Name)
+		filenames = append(filenames, fPath)
+
+		if file.FileInfo().IsDir() {
+			os.MkdirAll(fPath, 0700)
+		} else {
+			if err = os.MkdirAll(filepath.Dir(fPath), 0700); err != nil {
+				return filenames, err
+			}
+			outFile, err := os.OpenFile(fPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+			if err != nil {
+				return filenames, err
+			}
+			_, err = io.Copy(outFile, rc)
+			outFile.Close()
+			if err != nil {
+				return filenames, err
+			}
+		}
+	}
+	return filenames, nil
+}
+
+func unzipBuf(src []byte, dest string) ([]string, error) {
+
+	var filenames []string
+
+	reader, err := zip.NewReader(bytes.NewReader(src), int64(len(src)))
+	if err != nil {
+		return filenames, err
+	}
 
 	for _, file := range reader.File {
 

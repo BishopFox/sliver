@@ -618,3 +618,29 @@ message DllHijackReq {
 message DllHijack {
   commonpb.Response Response = 9;
 }
+
+
+// [ Shellcode ] ----------------------------------------
+enum ShellcodeEncoder {
+  SHIKATA_GA_NAI = 0;
+}
+
+message ShellcodeEncodeReq {
+  ShellcodeEncoder Encoder = 1;
+  string Architecture = 2;
+  uint32 Iterations = 3;
+  bytes BadChars = 4;
+
+  bytes Data = 8;
+  commonpb.Request Request = 9;
+}
+
+message ShellcodeEncode {
+
+  bytes Data = 8;
+  commonpb.Response Response = 9;
+}
+
+message ShellcodeEncoderMap {
+  map<string, ShellcodeEncoder> Encoders = 1;
+}
