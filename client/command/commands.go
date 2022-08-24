@@ -991,7 +991,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	con.App.AddCommand(&grumble.Command{
 		Name:     consts.ShikataGaNai,
-		Help:     "Polymorphic binary shellcode encoder",
+		Help:     "Polymorphic binary shellcode encoder (ノ ゜Д゜)ノ ︵ 仕方がない",
 		LongHelp: help.GetHelpFor([]string{consts.ShikataGaNai}),
 		Args: func(a *grumble.Args) {
 			a.String("shellcode", "binary shellcode file path")
