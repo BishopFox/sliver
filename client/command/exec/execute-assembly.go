@@ -83,6 +83,7 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 		Runtime:     runtime,
 		EtwBypass:   etwBypass,
 		AmsiBypass:  amsiBypass,
+		InProcess:   ctx.Flags.Bool("in-process"),
 	})
 	ctrl <- true
 	<-ctrl
