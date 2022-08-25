@@ -35,6 +35,9 @@ func RunCommand(message string, executor string, payload []byte, agentSession *O
 	case "keyword":
 		task := splitMessage(message, '.')
 		return processKeywordExecutor(task, payload, agentSession, onFinish)
+	case "bof", "extension":
+		// can be either BOF or regular extension
+		return runExtension(message, payload, agentSession.Implant, agentSession.RPC, onFinish)
 	default:
 		bites, status, pid := execute(message, executor, agentSession, onFinish)
 		return string(bites), status, pid
