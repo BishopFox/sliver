@@ -7,7 +7,7 @@ cd scripts
 
 # copy Go module related files
 pwd="$(pwd)"
-tempDir="$(mktemp -d -p $pwd)"
+tempDir="$(mktemp -d)"
 cp ../go-mod "${tempDir}/go.mod"
 cp ../go-sum "${tempDir}/go.sum"
 mv ../vendor "${tempDir}/vendor"
