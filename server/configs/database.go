@@ -83,14 +83,20 @@ func (c *DatabaseConfig) DSN() (string, error) {
 		params := encodeParams(c.Params)
 		return fmt.Sprintf("file:%s?%s", filePath, params), nil
 	case MySQL:
-		fallthrough
-	case Postgres:
 		user := url.QueryEscape(c.Username)
 		password := url.QueryEscape(c.Password)
 		db := url.QueryEscape(c.Database)
 		host := fmt.Sprintf("%s:%d", url.QueryEscape(c.Host), c.Port)
 		params := encodeParams(c.Params)
 		return fmt.Sprintf("%s:%s@tcp(%s)/%s?%s", user, password, host, db, params), nil
+	case Postgres:
+		user := url.QueryEscape(c.Username)
+		password := url.QueryEscape(c.Password)
+		db := url.QueryEscape(c.Database)
+		host := url.QueryEscape(c.Host)
+		port := c.Port
+		params := encodeParams(c.Params)
+		return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s %s", host, port, user, password, db, params), nil
 	default:
 		return "", ErrInvalidDialect
 	}
