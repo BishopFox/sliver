@@ -59,6 +59,10 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 	process := ctx.Flags.String("process")
 	processArgs := strings.Split(ctx.Flags.String("process-arguments"), " ")
 
+	runtime := ctx.Flags.String("runtime")
+	etwBypass := ctx.Flags.Bool("etw-bypass")
+	amsiBypass := ctx.Flags.Bool("amsi-bypass")
+
 	assemblyArgsStr := strings.Join(assemblyArgs, " ")
 	assemblyArgsStr = strings.TrimSpace(assemblyArgsStr)
 
@@ -76,6 +80,9 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 		AppDomain:   ctx.Flags.String("app-domain"),
 		ProcessArgs: processArgs,
 		PPid:        uint32(ctx.Flags.Int("ppid")),
+		Runtime:     runtime,
+		EtwBypass:   etwBypass,
+		AmsiBypass:  amsiBypass,
 	})
 	ctrl <- true
 	<-ctrl
