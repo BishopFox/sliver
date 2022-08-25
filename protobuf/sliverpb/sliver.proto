@@ -371,6 +371,11 @@ message ExecuteAssemblyReq {
   string AppDomain = 8;
   uint32 PPid = 10;
   repeated string ProcessArgs = 11;
+  // In process specific fields
+  bool InProcess = 12;
+  string Runtime = 13;
+  bool AmsiBypass = 14;
+  bool EtwBypass = 15;
   commonpb.Request Request = 9;
 }
 
@@ -380,6 +385,15 @@ message InvokeExecuteAssemblyReq {
   uint32 PPid = 10;
   repeated string ProcessArgs = 11;
 
+  commonpb.Request Request = 9;
+}
+
+message InvokeInProcExecuteAssemblyReq {
+  bytes Data = 1;
+  repeated string Arguments = 2;
+  string Runtime = 3;
+  bool AmsiBypass = 4;
+  bool EtwBypass = 5;
   commonpb.Request Request = 9;
 }
 
