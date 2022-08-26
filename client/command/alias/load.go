@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -177,6 +178,11 @@ func LoadAlias(manifestPath string, con *console.SliverConsoleClient) (*AliasMan
 				f.String("c", "class", "", "Optional class name (required for .NET DLL)")
 				f.String("d", "app-domain", "", "AppDomain name to create for .NET assembly. Generated randomly if not set.")
 				f.String("a", "arch", "x84", "Assembly target architecture: x86, x64, x84 (x86+x64)")
+				f.Bool("i", "in-process", false, "Run in the current sliver process")
+				f.String("r", "runtime", "", "Runtime to use for running the assembly (only supported when used with --in-process)")
+				f.Bool("M", "amsi-bypass", false, "Bypass AMSI on Windows (only supported when used with --in-process)")
+				f.Bool("E", "etw-bypass", false, "Bypass ETW on Windows (only supported when used with --in-process)")
+
 			}
 			f.String("p", "process", "", "Path to process to host the shared object")
 			f.String("A", "process-arguments", "", "arguments to pass to the hosting process")
@@ -274,7 +280,17 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	extArgs = strings.TrimSpace(extArgs)
 	entryPoint := aliasManifest.Entrypoint
-	processArgs := strings.Split(ctx.Flags.String("process-arguments"), " ")
+	processArgsStr := ctx.Flags.String("process-arguments")
+	if len(extArgs) > 256 && (aliasManifest.IsAssembly || !aliasManifest.IsReflective) {
+		con.PrintWarnf(" Arguments are limited to 256 characters when using the default fork/exec model for .NET assemblies and non-reflective PE files.\nConsider using the --in-process flag to execute .NET assemblies in-process and work around this limitation.\n")
+		confirm := false
+		prompt := &survey.Confirm{Message: "Do you want to continue?"}
+		survey.AskOne(prompt, &confirm, nil)
+		if !confirm {
+			return
+		}
+	}
+	processArgs := strings.Split(processArgsStr, " ")
 	processName := ctx.Flags.String("process")
 	if processName == "" {
 		processName, err = aliasManifest.getDefaultProcess(goos)
@@ -320,6 +336,10 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			AppDomain:   ctx.Flags.String("app-domain"),
 			ProcessArgs: processArgs,
 			PPid:        uint32(ctx.Flags.Uint("ppid")),
+			InProcess:   ctx.Flags.Bool("in-process"),
+			Runtime:     ctx.Flags.String("runtime"),
+			AmsiBypass:  ctx.Flags.Bool("amsi-bypass"),
+			EtwBypass:   ctx.Flags.Bool("etw-bypass"),
 		})
 		ctrl <- true
 		<-ctrl

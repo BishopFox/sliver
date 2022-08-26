@@ -135,15 +135,29 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 		return nil, err
 	}
 
-	invokeExecAssembly := &sliverpb.InvokeExecuteAssemblyReq{
-		Data:        shellcode,
-		Process:     req.Process,
-		Request:     req.Request,
-		PPid:        req.PPid,
-		ProcessArgs: req.ProcessArgs,
-	}
 	resp := &sliverpb.ExecuteAssembly{Response: &commonpb.Response{}}
-	err = rpc.GenericHandler(invokeExecAssembly, resp)
+	if req.InProcess {
+		tasksLog.Infof("Executing assembly in-process")
+		invokeInProcExecAssembly := &sliverpb.InvokeInProcExecuteAssemblyReq{
+			Data:       req.Assembly,
+			Runtime:    req.Runtime,
+			Arguments:  strings.Split(req.Arguments, " "),
+			AmsiBypass: req.AmsiBypass,
+			EtwBypass:  req.EtwBypass,
+			Request:    req.Request,
+		}
+		err = rpc.GenericHandler(invokeInProcExecAssembly, resp)
+	} else {
+		invokeExecAssembly := &sliverpb.InvokeExecuteAssemblyReq{
+			Data:        shellcode,
+			Process:     req.Process,
+			Request:     req.Request,
+			PPid:        req.PPid,
+			ProcessArgs: req.ProcessArgs,
+		}
+		err = rpc.GenericHandler(invokeExecAssembly, resp)
+
+	}
 	if err != nil {
 		return nil, err
 	}

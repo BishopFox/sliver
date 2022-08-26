@@ -1060,11 +1060,15 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("c", "class", "", "Optional class name (required for .NET DLL)")
 			f.String("d", "app-domain", "", "AppDomain name to create for .NET assembly. Generated randomly if not set.")
 			f.String("a", "arch", "x84", "Assembly target architecture: x86, x64, x84 (x86+x64)")
+			f.Bool("i", "in-process", false, "Run in the current sliver process")
+			f.String("r", "runtime", "", "Runtime to use for running the assembly (only supported when used with --in-process)")
 			f.Bool("s", "save", false, "save output to file")
 			f.Bool("X", "loot", false, "save output as loot")
 			f.String("n", "name", "", "name to assign loot (optional)")
 			f.Uint("P", "ppid", 0, "parent process id (optional)")
 			f.String("A", "process-arguments", "", "arguments to pass to the hosting process")
+			f.Bool("M", "amsi-bypass", false, "Bypass AMSI on Windows (only supported when used with --in-process)")
+			f.Bool("E", "etw-bypass", false, "Bypass ETW on Windows (only supported when used with --in-process)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
