@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -57,7 +58,8 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 
 	assemblyArgs := ctx.Args.StringList("arguments")
 	process := ctx.Flags.String("process")
-	processArgs := strings.Split(ctx.Flags.String("process-arguments"), " ")
+	processArgsStr := ctx.Flags.String("process-arguments")
+	processArgs := strings.Split(processArgsStr, " ")
 
 	runtime := ctx.Flags.String("runtime")
 	etwBypass := ctx.Flags.Bool("etw-bypass")
@@ -65,6 +67,15 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 
 	assemblyArgsStr := strings.Join(assemblyArgs, " ")
 	assemblyArgsStr = strings.TrimSpace(assemblyArgsStr)
+	if len(assemblyArgsStr) > 256 {
+		con.PrintWarnf(" Injected .NET assembly arguments are limited to 256 characters when using the default fork/exec model.\nConsider using the --in-process flag to execute the .NET assembly in-process and work around this limitation.\n")
+		confirm := false
+		prompt := &survey.Confirm{Message: "Do you want to continue?"}
+		survey.AskOne(prompt, &confirm, nil)
+		if !confirm {
+			return
+		}
+	}
 
 	ctrl := make(chan bool)
 	con.SpinUntil("Executing assembly ...", ctrl)

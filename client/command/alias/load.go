@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -279,7 +280,17 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	extArgs = strings.TrimSpace(extArgs)
 	entryPoint := aliasManifest.Entrypoint
-	processArgs := strings.Split(ctx.Flags.String("process-arguments"), " ")
+	processArgsStr := ctx.Flags.String("process-arguments")
+	if len(extArgs) > 256 && (aliasManifest.IsAssembly || !aliasManifest.IsReflective) {
+		con.PrintWarnf(" Arguments are limited to 256 characters when using the default fork/exec model for .NET assemblies and non-reflective PE files.\nConsider using the --in-process flag to execute .NET assemblies in-process and work around this limitation.\n")
+		confirm := false
+		prompt := &survey.Confirm{Message: "Do you want to continue?"}
+		survey.AskOne(prompt, &confirm, nil)
+		if !confirm {
+			return
+		}
+	}
+	processArgs := strings.Split(processArgsStr, " ")
 	processName := ctx.Flags.String("process")
 	if processName == "" {
 		processName, err = aliasManifest.getDefaultProcess(goos)
