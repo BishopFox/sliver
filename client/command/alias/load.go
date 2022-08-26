@@ -177,6 +177,11 @@ func LoadAlias(manifestPath string, con *console.SliverConsoleClient) (*AliasMan
 				f.String("c", "class", "", "Optional class name (required for .NET DLL)")
 				f.String("d", "app-domain", "", "AppDomain name to create for .NET assembly. Generated randomly if not set.")
 				f.String("a", "arch", "x84", "Assembly target architecture: x86, x64, x84 (x86+x64)")
+				f.Bool("i", "in-process", false, "Run in the current sliver process")
+				f.String("r", "runtime", "", "Runtime to use for running the assembly (only supported when used with --in-process)")
+				f.Bool("M", "amsi-bypass", false, "Bypass AMSI on Windows (only supported when used with --in-process)")
+				f.Bool("E", "etw-bypass", false, "Bypass ETW on Windows (only supported when used with --in-process)")
+
 			}
 			f.String("p", "process", "", "Path to process to host the shared object")
 			f.String("A", "process-arguments", "", "arguments to pass to the hosting process")
@@ -320,6 +325,10 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			AppDomain:   ctx.Flags.String("app-domain"),
 			ProcessArgs: processArgs,
 			PPid:        uint32(ctx.Flags.Uint("ppid")),
+			InProcess:   ctx.Flags.Bool("in-process"),
+			Runtime:     ctx.Flags.String("runtime"),
+			AmsiBypass:  ctx.Flags.Bool("amsi-bypass"),
+			EtwBypass:   ctx.Flags.Bool("etw-bypass"),
 		})
 		ctrl <- true
 		<-ctrl

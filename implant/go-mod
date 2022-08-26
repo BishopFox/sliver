@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/Binject/universal v0.0.0-20210304094126-daefaa886313
+	github.com/Ne0nd0g/go-clr v1.0.2
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/lesnuages/go-winio v0.4.19
@@ -14,7 +15,7 @@ require (
 	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
 	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
-	golang.org/x/sys v0.0.0-20220315194320-039c03cc5b86
+	golang.org/x/sys v0.0.0-20220330033206-e17cdc41300f
 	golang.zx2c4.com/wireguard v0.0.0-20220316235147-5aff28b14c24
 	google.golang.org/protobuf v1.26.0
 	gvisor.dev/gvisor v0.0.0-20211020211948-f76a604701b6
@@ -33,6 +34,7 @@ require (
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/mod v0.4.2 // indirect
+	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	golang.org/x/tools v0.1.7 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect

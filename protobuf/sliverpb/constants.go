@@ -284,6 +284,8 @@ const (
 	MsgCurrentTokenOwnerReq
 	// MsgCurrentTokenOwner - Replies with the current thread owner (resp to MsfCurrentToken)
 	MsgCurrentTokenOwner
+	// MsgInvokeInProcExecuteAssemblyReq - Request to load and execute a .NET assembly in-process
+	MsgInvokeInProcExecuteAssemblyReq
 )
 
 // Constants to replace enums
@@ -497,6 +499,8 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgCurrentTokenOwnerReq
 	case *CurrentTokenOwner:
 		return MsgCurrentTokenOwner
+	case *InvokeInProcExecuteAssemblyReq:
+		return MsgInvokeInProcExecuteAssemblyReq
 	}
 
 	return uint32(0)
