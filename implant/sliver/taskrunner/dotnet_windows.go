@@ -81,6 +81,9 @@ func LoadAssembly(data []byte, assemblyArgs []string, runtime string) (string, e
 	log.Printf("Calling assembly with args: %+v\n", assemblyArgs)
 	// {{end}}
 	stdout, stderr := clr.InvokeAssembly(methodInfo, assemblyArgs)
+	// {{if .Config.Debug}}
+	log.Printf("Got output: %s\n%s\n", stdout, stderr)
+	// {{end}}
 	return fmt.Sprintf("%s\n%s", stdout, stderr), nil
 }
 
