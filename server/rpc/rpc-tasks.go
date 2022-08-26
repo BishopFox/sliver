@@ -137,12 +137,14 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 
 	resp := &sliverpb.ExecuteAssembly{Response: &commonpb.Response{}}
 	if req.InProcess {
+		tasksLog.Infof("Executing assembly in-process")
 		invokeInProcExecAssembly := &sliverpb.InvokeInProcExecuteAssemblyReq{
 			Data:       req.Assembly,
 			Runtime:    req.Runtime,
 			Arguments:  strings.Split(req.Arguments, " "),
 			AmsiBypass: req.AmsiBypass,
 			EtwBypass:  req.EtwBypass,
+			Request:    req.Request,
 		}
 		err = rpc.GenericHandler(invokeInProcExecAssembly, resp)
 	} else {

@@ -325,6 +325,10 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			AppDomain:   ctx.Flags.String("app-domain"),
 			ProcessArgs: processArgs,
 			PPid:        uint32(ctx.Flags.Uint("ppid")),
+			InProcess:   ctx.Flags.Bool("in-process"),
+			Runtime:     ctx.Flags.String("runtime"),
+			AmsiBypass:  ctx.Flags.Bool("amsi-bypass"),
+			EtwBypass:   ctx.Flags.Bool("etw-bypass"),
 		})
 		ctrl <- true
 		<-ctrl
