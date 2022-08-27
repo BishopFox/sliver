@@ -35,11 +35,32 @@ import (
 
 const (
 	logFileName = "sliver-client.log"
+
+	configFlagStr        = "config"
+	preludeServerFlagStr = "server"
+	rangeFlagStr         = "range"
+	aesKeyFlagStr        = "aes-key"
 )
 
 var (
 	sliverServerVersion = fmt.Sprintf("v%s", version.FullVersion())
 )
+
+func init() {
+
+	// Import
+	rootCmd.AddCommand(cmdImport)
+
+	// Prelude
+	cmdPrelude.Flags().StringP(configFlagStr, "c", "", "sliver client config file path")
+	cmdPrelude.Flags().StringP(preludeServerFlagStr, "s", "", "prelude server connection string")
+	cmdPrelude.Flags().StringP(rangeFlagStr, "r", "", "prelude range")
+	cmdPrelude.Flags().StringP(aesKeyFlagStr, "a", "", "prelude range")
+	rootCmd.AddCommand(cmdPrelude)
+
+	// Version
+	rootCmd.AddCommand(cmdVersion)
+}
 
 // Initialize logging
 func initLogging(appDir string) *os.File {
@@ -50,15 +71,6 @@ func initLogging(appDir string) *os.File {
 	}
 	log.SetOutput(logFile)
 	return logFile
-}
-
-func init() {
-
-	// Import
-	rootCmd.AddCommand(cmdImport)
-
-	// Version
-	rootCmd.AddCommand(cmdVersion)
 }
 
 var rootCmd = &cobra.Command{

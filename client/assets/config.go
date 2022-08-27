@@ -26,7 +26,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path"
 	"path/filepath"
 )
 
@@ -70,7 +69,7 @@ func GetConfigs() map[string]*ClientConfig {
 
 	confs := map[string]*ClientConfig{}
 	for _, confFile := range configFiles {
-		confFilePath := path.Join(configDir, confFile.Name())
+		confFilePath := filepath.Join(configDir, confFile.Name())
 		log.Printf("Parsing config %s", confFilePath)
 
 		conf, err := ReadConfig(confFilePath)
