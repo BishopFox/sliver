@@ -32,7 +32,10 @@ import (
 
 var ImplantMapper *OperatorImplantMapper
 
-const defaultImplantSleep = 5
+const (
+	defaultImplantSleep = 5
+	defaultRange        = "sliver"
+)
 
 type OperatorConfig struct {
 	Range       string
@@ -93,6 +96,9 @@ func (p *OperatorImplantMapper) AddImplant(a ActiveImplant, callback func(string
 	sleepTime := defaultImplantSleep
 	if b, ok := a.(*clientpb.Beacon); ok {
 		sleepTime = int(b.ReconnectInterval)
+	}
+	if p.conf.Range == "" {
+		p.conf.Range = defaultRange
 	}
 
 	beacon := OperatorBeacon{

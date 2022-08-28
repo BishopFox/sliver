@@ -54,8 +54,7 @@ func init() {
 	// Prelude
 	cmdPrelude.Flags().StringP(configFlagStr, "c", "", "sliver client config file path")
 	cmdPrelude.Flags().StringP(preludeServerFlagStr, "s", "", "prelude server connection string")
-	cmdPrelude.Flags().StringP(rangeFlagStr, "r", "", "prelude range")
-	cmdPrelude.Flags().StringP(aesKeyFlagStr, "a", "", "prelude range")
+	cmdPrelude.Flags().StringP(aesKeyFlagStr, "a", "", "AES key")
 	rootCmd.AddCommand(cmdPrelude)
 
 	// Version
