@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/prelude"
@@ -109,15 +110,22 @@ var cmdPrelude = &cobra.Command{
 		}
 		if len(beacons.Beacons) > 0 {
 			log.Printf("Adding existing beacons ...")
+
+			// I'm not sure this callback map is actually needed
+			type BeaconTaskCallback func(*clientpb.BeaconTask)
+			beaconTaskCallbacks := map[string]BeaconTaskCallback{}
+			beaconTaskCallbacksMutex := &sync.Mutex{}
+
 			for _, beacon := range beacons.Beacons {
 				err = implantMapper.AddImplant(beacon, func(taskID string, cb func(task *clientpb.BeaconTask)) {
-					// con.AddBeaconCallback(taskID, cb)
+					beaconTaskCallbacksMutex.Lock()
+					defer beaconTaskCallbacksMutex.Unlock()
+					beaconTaskCallbacks[taskID] = cb
 				})
 				if err != nil {
 					log.Printf("[!] Could not add beacon %s to implant mapper: %s", beacon.Name, err)
 				}
 			}
-			log.Printf("Done !\n")
 		}
 	},
 }
