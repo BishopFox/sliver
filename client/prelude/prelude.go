@@ -112,7 +112,6 @@ func (p *OperatorImplantMapper) AddImplant(a ActiveImplant, callback func(string
 	if p.conf.AESKey == "" {
 		return errors.New("missing AES key")
 	}
-	a.GetID()
 	encryptionKey := p.conf.AESKey
 	agentConfig := AgentConfig{
 		Name:      a.GetID(),

