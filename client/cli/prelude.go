@@ -55,12 +55,6 @@ var cmdPrelude = &cobra.Command{
 			fmt.Printf("%s\n", err)
 			os.Exit(1)
 		}
-		agentRange, err := cmd.Flags().GetString(rangeFlagStr)
-		if err != nil {
-			log.Printf("[!] %s", err)
-			fmt.Printf("%s\n", err)
-			os.Exit(1)
-		}
 		aesKey, err := cmd.Flags().GetString(aesKeyFlagStr)
 		if err != nil {
 			log.Printf("[!] %s", err)
@@ -79,7 +73,6 @@ var cmdPrelude = &cobra.Command{
 		fmt.Println("success!")
 		log.Printf("Connection successful")
 		preludeConfig := &prelude.OperatorConfig{
-			Range:       agentRange,
 			OperatorURL: preludeServer,
 			RPC:         rpc,
 			AESKey:      aesKey,
