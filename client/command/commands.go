@@ -41,6 +41,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/armory"
 	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/beacons"
+	"github.com/bishopfox/sliver/client/command/cdp"
 	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/dllhijack"
 	"github.com/bishopfox/sliver/client/command/environment"
@@ -3298,6 +3299,26 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("r", "range", "sliver", "Agents range")
 		},
 	})
-
 	con.App.AddCommand(operatorCmd)
+
+	// [ CDP Commands ] ------------------------------------------------------------
+
+	con.App.AddCommand(&grumble.Command{
+		Name:      consts.CursedChrome,
+		Help:      "Automatically inject a Cursed Chrome payload into a remote browser instance",
+		LongHelp:  help.GetHelpFor([]string{consts.CursedChrome}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("r", "remote-debugging-port", 2199, "remote debugging tcp port")
+			f.String("e", "extension-id", "", "extension id to inject into (blank string = auto)")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cdp.CursedChromeCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
 }
