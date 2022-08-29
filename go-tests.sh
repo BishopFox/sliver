@@ -33,7 +33,7 @@ else
 fi
 
 # client / command / extensions
-if go test -tags=client,$TAGS ./client/command/extensions ; then
+if go test -tags=client,$TAGS ./client/extensions ; then
     :
 else
     exit 1

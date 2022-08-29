@@ -27,6 +27,7 @@ import (
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/extensions"
 	"github.com/desertbit/grumble"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
@@ -63,7 +64,7 @@ func PrintExtensions(con *console.SliverConsoleClient) {
 	})
 
 	installedManifests := getInstalledManifests()
-	for _, extension := range loadedExtensions {
+	for _, extension := range extensions.GetExtensions() {
 		installed := ""
 		if _, ok := installedManifests[extension.CommandName]; ok {
 			installed = "✅"
@@ -82,7 +83,7 @@ func PrintExtensions(con *console.SliverConsoleClient) {
 	con.Println(tw.Render())
 }
 
-func extensionPlatforms(extension *ExtensionManifest) []string {
+func extensionPlatforms(extension *extensions.ExtensionManifest) []string {
 	platforms := map[string]string{}
 	for _, entry := range extension.Files {
 		platforms[fmt.Sprintf("%s/%s", entry.OS, entry.Arch)] = ""
@@ -94,15 +95,15 @@ func extensionPlatforms(extension *ExtensionManifest) []string {
 	return keys
 }
 
-func getInstalledManifests() map[string]*ExtensionManifest {
+func getInstalledManifests() map[string]*extensions.ExtensionManifest {
 	manifestPaths := assets.GetInstalledExtensionManifests()
-	installedManifests := map[string]*ExtensionManifest{}
+	installedManifests := map[string]*extensions.ExtensionManifest{}
 	for _, manifestPath := range manifestPaths {
 		data, err := ioutil.ReadFile(manifestPath)
 		if err != nil {
 			continue
 		}
-		manifest := &ExtensionManifest{}
+		manifest := &extensions.ExtensionManifest{}
 		err = json.Unmarshal(data, manifest)
 		if err != nil {
 			continue
