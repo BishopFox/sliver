@@ -50,7 +50,7 @@ func AddExtension(ext *ExtensionManifest) {
 	loadedExtensions[ext.CommandName] = ext
 }
 
-func GetLoadedExtensions(name string) (*ExtensionManifest, error) {
+func GetLoadedExtension(name string) (*ExtensionManifest, error) {
 	if ext, ok := loadedExtensions[name]; ok {
 		return ext, nil
 	}

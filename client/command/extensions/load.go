@@ -130,7 +130,7 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		goarch = beacon.Arch
 	}
 
-	ext, err := extensions.GetLoadedExtensions(ctx.Command.Name)
+	ext, err := extensions.GetLoadedExtension(ctx.Command.Name)
 	if err != nil {
 		con.PrintErrorf("%v\n", err)
 		return
@@ -163,7 +163,7 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			return
 		}
 		extName = ext.DependsOn
-		depExt, err := extensions.GetLoadedExtensions(extName)
+		depExt, err := extensions.GetLoadedExtension(extName)
 		if err != nil {
 			con.PrintErrorf("Could not find dependency %s for extension %s\n", extName, ext.CommandName)
 			return
