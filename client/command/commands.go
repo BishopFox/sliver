@@ -45,7 +45,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/dllhijack"
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
-	"github.com/bishopfox/sliver/client/command/extensions"
+	cmdExtensions "github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/command/filesystem"
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
@@ -78,6 +78,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/wireguard"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/extensions"
 	"github.com/bishopfox/sliver/client/licenses"
 	"github.com/desertbit/grumble"
 )
@@ -126,7 +127,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			con.PrintErrorf("Failed to load extension: %s\n", err)
 			continue
 		}
-		extensions.ExtensionRegisterCommand(ext, con)
+		cmdExtensions.ExtensionRegisterCommand(ext, con)
 		n++
 	}
 	if 0 < n {
@@ -3181,7 +3182,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			extensions.ExtensionsCmd(ctx, con)
+			cmdExtensions.ExtensionsCmd(ctx, con)
 			con.Println()
 			return nil
 		},
@@ -3200,7 +3201,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			extensions.ExtensionsListCmd(ctx, con)
+			cmdExtensions.ExtensionsListCmd(ctx, con)
 			con.Println()
 			return nil
 		},
@@ -3213,7 +3214,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			extensions.ExtensionLoadCmd(ctx, con)
+			cmdExtensions.ExtensionLoadCmd(ctx, con)
 			con.Println()
 			return nil
 		},
@@ -3232,7 +3233,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			extensions.ExtensionsInstallCmd(ctx, con)
+			cmdExtensions.ExtensionsInstallCmd(ctx, con)
 			con.Println()
 			return nil
 		},
@@ -3251,7 +3252,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			extensions.ExtensionsRemoveCmd(ctx, con)
+			cmdExtensions.ExtensionsRemoveCmd(ctx, con)
 			con.Println()
 			return nil
 		},
@@ -3259,7 +3260,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			a.String("name", "the command name of the extension to remove")
 		},
 		Completer: func(prefix string, args []string) []string {
-			return extensions.ExtensionsCommandNameCompleter(prefix, args, con)
+			return cmdExtensions.ExtensionsCommandNameCompleter(prefix, args, con)
 		},
 	})
 

@@ -28,8 +28,9 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/alias"
-	"github.com/bishopfox/sliver/client/command/extensions"
+	cmdExtensions "github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/extensions"
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
 	"github.com/desertbit/grumble"
 )
@@ -187,7 +188,7 @@ func installExtension(ext *extensions.ExtensionManifest, clientConfig ArmoryHTTP
 	deps := make(map[string]struct{})
 	resolveExtensionPackageDependencies(ext.CommandName, deps, clientConfig, con)
 	for dep := range deps {
-		if extensions.CmdExists(dep, con.App) {
+		if cmdExtensions.CmdExists(dep, con.App) {
 			continue // Dependency is already installed
 		}
 		err := installExtensionPackageByName(dep, clientConfig, con)
@@ -301,9 +302,9 @@ func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, c
 	if err != nil {
 		return err
 	}
-	if extensions.CmdExists(extCmd.Name, con.App) {
+	if cmdExtensions.CmdExists(extCmd.Name, con.App) {
 		con.App.Commands().Remove(extCmd.Name)
 	}
-	extensions.ExtensionRegisterCommand(extCmd, con)
+	cmdExtensions.ExtensionRegisterCommand(extCmd, con)
 	return nil
 }

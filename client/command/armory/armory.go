@@ -29,9 +29,10 @@ import (
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/alias"
-	"github.com/bishopfox/sliver/client/command/extensions"
+	cmdExtensions "github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/extensions"
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
 	"github.com/desertbit/grumble"
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -286,7 +287,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 	rows := []table.Row{}
 	for _, pkg := range entries {
 		color := console.Normal
-		if extensions.CmdExists(pkg.CommandName, con.App) {
+		if cmdExtensions.CmdExists(pkg.CommandName, con.App) {
 			color = console.Green
 		}
 		if con.Settings.SmallTermWidth < width {

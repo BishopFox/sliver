@@ -24,8 +24,8 @@ import (
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/alias"
-	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/extensions"
 	"github.com/desertbit/grumble"
 )
 

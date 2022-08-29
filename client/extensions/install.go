@@ -122,7 +122,7 @@ func InstallFromFilePath(extLocalPath string, autoOverwrite bool, con *console.S
 	}
 	for _, manifestFile := range manifest.Files {
 		if manifestFile.Path != "" {
-			err = installArtifact(extLocalPath, installPath, manifestFile.Path, con)
+			err = installArtifact(extLocalPath, installPath, manifestFile.Path)
 			if err != nil {
 				con.PrintErrorf("\nFailed to install file: %s\n", err)
 				forceRemoveAll(installPath)
