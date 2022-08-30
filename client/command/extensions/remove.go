@@ -40,7 +40,8 @@ func ExtensionsRemoveCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 	if !confirm {
 		return
 	}
-	err := extensions.RemoveExtensionByCommandName(name, con)
+	con.App.Commands().Remove(name)
+	err := extensions.RemoveExtensionByCommandName(name)
 	if err != nil {
 		con.PrintErrorf("Error removing extension: %s\n", err)
 		return

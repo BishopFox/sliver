@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
-	"github.com/desertbit/grumble"
 )
 
 // ParseExtensionManifest - Parse extension manifest from buffer
@@ -66,20 +66,19 @@ func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 	return extManifest, nil
 }
 
-func LoadExtension(goos string, goarch string, checkCache bool, ext *ExtensionManifest, ctx *grumble.Context, con *console.SliverConsoleClient) error {
+func LoadExtension(goos string, goarch string, checkCache bool, ext *ExtensionManifest, request *commonpb.Request, rpc rpcpb.SliverRPCClient) error {
 	var extensionList []string
-	binPath, err := ext.GetFileForTarget(ctx.Command.Name, goos, goarch)
+	binPath, err := ext.GetFileForTarget(ext.CommandName, goos, goarch)
 	if err != nil {
 		return err
 	}
 
 	// Try to find the extension in the loaded extensions
 	if checkCache {
-		extList, err := con.Rpc.ListExtensions(context.Background(), &sliverpb.ListExtensionsReq{
-			Request: con.ActiveTarget.Request(ctx),
+		extList, err := rpc.ListExtensions(context.Background(), &sliverpb.ListExtensionsReq{
+			Request: request,
 		})
 		if err != nil {
-			con.PrintErrorf("List extensions error: %s\n", err.Error())
 			return err
 		}
 		if extList.Response != nil && extList.Response.Err != "" {
@@ -101,7 +100,7 @@ func LoadExtension(goos string, goarch string, checkCache bool, ext *ExtensionMa
 		// BOFs are not loaded by the DLL loader, but we make sure the loader itself is loaded
 		// Auto load the coff loader if we have it
 		if !depLoaded {
-			if errLoad := loadDep(goos, goarch, ext.DependsOn, ctx, con); errLoad != nil {
+			if errLoad := loadDep(goos, goarch, ext.DependsOn, request, rpc); errLoad != nil {
 				return errLoad
 			}
 		}
@@ -111,19 +110,19 @@ func LoadExtension(goos string, goarch string, checkCache bool, ext *ExtensionMa
 	if err != nil {
 		return err
 	}
-	if errRegister := registerExtension(goos, ext, binData, ctx, con); errRegister != nil {
+	if errRegister := registerExtension(goos, ext, binData, request, rpc); errRegister != nil {
 		return errRegister
 	}
 	return nil
 }
 
-func registerExtension(goos string, ext *ExtensionManifest, binData []byte, ctx *grumble.Context, con *console.SliverConsoleClient) error {
-	registerResp, err := con.Rpc.RegisterExtension(context.Background(), &sliverpb.RegisterExtensionReq{
+func registerExtension(goos string, ext *ExtensionManifest, binData []byte, request *commonpb.Request, rpc rpcpb.SliverRPCClient) error {
+	registerResp, err := rpc.RegisterExtension(context.Background(), &sliverpb.RegisterExtensionReq{
 		Name:    ext.CommandName,
 		Data:    binData,
 		OS:      goos,
 		Init:    ext.Init,
-		Request: con.ActiveTarget.Request(ctx),
+		Request: request,
 	})
 	if err != nil {
 		return err
@@ -134,7 +133,7 @@ func registerExtension(goos string, ext *ExtensionManifest, binData []byte, ctx 
 	return nil
 }
 
-func loadDep(goos string, goarch string, depName string, ctx *grumble.Context, con *console.SliverConsoleClient) error {
+func loadDep(goos string, goarch string, depName string, request *commonpb.Request, rpc rpcpb.SliverRPCClient) error {
 	depExt, ok := loadedExtensions[depName]
 	if ok {
 		depBinPath, err := depExt.GetFileForTarget(depExt.CommandName, goos, goarch)
@@ -145,7 +144,7 @@ func loadDep(goos string, goarch string, depName string, ctx *grumble.Context, c
 		if err != nil {
 			return err
 		}
-		return registerExtension(goos, depExt, depBinData, ctx, con)
+		return registerExtension(goos, depExt, depBinData, request, rpc)
 	}
 	return fmt.Errorf("missing dependency %s", depName)
 }

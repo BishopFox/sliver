@@ -6,12 +6,11 @@ import (
 	"path/filepath"
 
 	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/util"
 )
 
 // RemoveExtensionByCommandName - Remove an extension by command name
-func RemoveExtensionByCommandName(commandName string, con *console.SliverConsoleClient) error {
+func RemoveExtensionByCommandName(commandName string) error {
 	if commandName == "" {
 		return errors.New("command name is required")
 	}
@@ -19,7 +18,6 @@ func RemoveExtensionByCommandName(commandName string, con *console.SliverConsole
 		return errors.New("extension not loaded")
 	}
 	delete(loadedExtensions, commandName)
-	con.App.Commands().Remove(commandName)
 	extPath := filepath.Join(assets.GetExtensionsDir(), filepath.Base(commandName))
 	if _, err := os.Stat(extPath); os.IsNotExist(err) {
 		return nil

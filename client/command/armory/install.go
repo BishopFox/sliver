@@ -294,9 +294,9 @@ func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, c
 
 	con.Printf(console.Clearln + "\r") // Clear download message
 
-	installPath := extensions.InstallFromFilePath(tmpFile.Name(), true, con)
-	if installPath == nil {
-		return errors.New("failed to install extension")
+	installPath, err := extensions.InstallFromFilePath(tmpFile.Name(), true)
+	if err != nil {
+		return err
 	}
 	extCmd, err := extensions.LoadExtensionManifest(filepath.Join(*installPath, extensions.ManifestFileName))
 	if err != nil {

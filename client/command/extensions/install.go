@@ -28,6 +28,7 @@ import (
 
 // ExtensionsInstallCmd - Install an extension
 func ExtensionsInstallCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	var installError error
 	extLocalPath := ctx.Args.String("path")
 	fi, err := os.Stat(extLocalPath)
 	if os.IsNotExist(err) {
@@ -35,8 +36,14 @@ func ExtensionsInstallCmd(ctx *grumble.Context, con *console.SliverConsoleClient
 		return
 	}
 	if !fi.IsDir() {
-		extensions.InstallFromFilePath(extLocalPath, false, con)
+		_, installError = extensions.InstallFromFilePath(extLocalPath, false)
 	} else {
-		extensions.InstallFromDir(extLocalPath, con)
+		installError = extensions.InstallFromDir(extLocalPath)
+	}
+	if installError != nil {
+		con.PrintErrorf("Error installing extension: %s\n", installError)
+		return
+	} else {
+		con.PrintInfof("Extension installed\n")
 	}
 }

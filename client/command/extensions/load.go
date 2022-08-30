@@ -137,7 +137,7 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	checkCache := session != nil
-	if err = extensions.LoadExtension(goos, goarch, checkCache, ext, ctx, con); err != nil {
+	if err = extensions.LoadExtension(goos, goarch, checkCache, ext, con.ActiveTarget.Request(ctx), con.Rpc); err != nil {
 		con.PrintErrorf("Could not load extension: %s\n", err)
 		return
 	}
