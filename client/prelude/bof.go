@@ -37,12 +37,12 @@ const (
 	bofEntryPoint    = "go"
 )
 
-type bofArgs struct {
+type bofArg struct {
 	ArgType string      `json:"type"`
 	Value   interface{} `json:"value"`
 }
 
-func runBOF(implant ActiveImplant, rpc rpcpb.SliverRPCClient, bof []byte, args []bofArgs, onFinishCallback func(string, int, int)) (output string, err error) {
+func runBOF(implant ActiveImplant, rpc rpcpb.SliverRPCClient, bof []byte, args []bofArg, onFinishCallback func(string, int, int)) (output string, err error) {
 	if !isLoaderLoaded(implant, rpc) {
 		err = registerLoader(implant, rpc)
 		if err != nil {

@@ -53,7 +53,7 @@ func processKeywordExecutor(task []string, payload []byte, agentSession *Operato
 		if len(task) != 2 {
 			break
 		}
-		var bargs []bofArgs
+		var bargs []bofArg
 		argStr := strings.ReplaceAll(task[1], `\`, `\\`)
 		err := json.Unmarshal([]byte(argStr), &bargs)
 		if err != nil {
