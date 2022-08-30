@@ -86,7 +86,7 @@ func runExtension(message string, activeImplant ActiveImplant, rpc rpcpb.SliverR
 	if err != nil {
 		return err.Error(), ErrorExitStatus, ErrorExitStatus
 	}
-	if strings.HasSuffix(".o", extFilePath) {
+	if strings.HasSuffix(extFilePath, ".o") {
 		// We have a BOF
 		extData, err := os.ReadFile(extFilePath)
 		if err != nil {
@@ -100,7 +100,11 @@ func runExtension(message string, activeImplant ActiveImplant, rpc rpcpb.SliverR
 		// We have a regular extension
 		var extArgStr []string
 		for _, arg := range msg.Args {
-			extArgStr = append(extArgStr, arg.(string))
+			converted, ok := arg.(string)
+			if !ok {
+				return "arguments must be strings", ErrorExitStatus, ErrorExitStatus
+			}
+			extArgStr = append(extArgStr, converted)
 		}
 		extArgsLst := []byte(strings.Join(extArgStr, " "))
 		extArgs = []byte(extArgsLst)
