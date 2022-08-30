@@ -1,6 +1,6 @@
 module github.com/bishopfox/sliver
 
-go 1.17
+go 1.18
 
 replace github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.6
 
