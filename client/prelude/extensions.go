@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 
@@ -16,6 +17,11 @@ import (
 type extensionMessage struct {
 	Name string        `json:"Name"`
 	Args []interface{} `json:"Args"`
+}
+
+type bofArg struct {
+	ArgType string      `json:"type"`
+	Value   interface{} `json:"value"`
 }
 
 func runExtension(message string, activeImplant ActiveImplant, rpc rpcpb.SliverRPCClient, onFinish func(string, int, int)) (string, int, int) {
@@ -68,13 +74,13 @@ func runExtension(message string, activeImplant ActiveImplant, rpc rpcpb.SliverR
 		if err != nil {
 			return err.Error(), ErrorExitStatus, ErrorExitStatus
 		}
-		extArgs, err = parseBOFArgs(extData, msg.Args)
+		extArgs, err = parseBOFArgs(extData, ext, msg.Args)
 		if err != nil {
 			return err.Error(), ErrorExitStatus, ErrorExitStatus
 		}
 	} else {
 		// We have a regular extension
-		extArgStr := make([]string, len(msg.Args))
+		var extArgStr []string
 		for _, arg := range msg.Args {
 			extArgStr = append(extArgStr, arg.(string))
 		}
@@ -101,18 +107,20 @@ func runExtension(message string, activeImplant ActiveImplant, rpc rpcpb.SliverR
 	return string(callResp.Output), SuccessExitStatus, int(activeImplant.GetPID())
 }
 
-func parseBOFArgs(extData []byte, args []interface{}) ([]byte, error) {
+func parseBOFArgs(extData []byte, extManifest *extensions.ExtensionManifest, args []interface{}) ([]byte, error) {
 	var (
-		err error
+		err   error
+		bArgs []bofArg
 	)
-	bArgs := make([]bofArg, len(args))
 	for _, arg := range args {
-		var bArg bofArg
-		err := json.Unmarshal([]byte(arg.(string)), &bArg)
-		if err != nil {
-			return nil, err
+		kv, ok := arg.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("invalid argument: %v", arg)
 		}
-		bArgs = append(bArgs, bArg)
+		bArgs = append(bArgs, bofArg{
+			ArgType: kv["type"].(string),
+			Value:   kv["value"],
+		})
 	}
 	bofArgs := core.BOFArgsBuffer{
 		Buffer: new(bytes.Buffer),
@@ -152,7 +160,7 @@ func parseBOFArgs(extData []byte, args []interface{}) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = extArgs.AddString(bofEntryPoint)
+	err = extArgs.AddString(extManifest.Entrypoint)
 	if err != nil {
 		return nil, err
 	}
