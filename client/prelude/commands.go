@@ -20,7 +20,6 @@ package prelude
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -32,9 +31,6 @@ import (
 //RunCommand executes a given command
 func RunCommand(message string, executor string, payload []byte, agentSession *OperatorImplantBridge, onFinish func(string, int, int)) (string, int, int) {
 	switch executor {
-	case "keyword":
-		task := splitMessage(message, '.')
-		return processKeywordExecutor(task, payload, agentSession, onFinish)
 	case "bof", "extension":
 		// can be either BOF or regular extension
 		return runExtension(message, agentSession.Implant, agentSession.RPC, onFinish)
@@ -42,55 +38,6 @@ func RunCommand(message string, executor string, payload []byte, agentSession *O
 		bites, status, pid := execute(message, executor, agentSession, onFinish)
 		return string(bites), status, pid
 	}
-}
-
-func processKeywordExecutor(task []string, payload []byte, agentSession *OperatorImplantBridge, onFinish func(string, int, int)) (string, int, int) {
-	if len(task) == 0 {
-		return "", ErrorExitStatus, ErrorExitStatus
-	}
-	switch task[0] {
-	case "bof":
-		if len(task) != 2 {
-			break
-		}
-		var bargs []bofArg
-		argStr := strings.ReplaceAll(task[1], `\`, `\\`)
-		err := json.Unmarshal([]byte(argStr), &bargs)
-		if err != nil {
-			return err.Error(), ErrorExitStatus, ErrorExitStatus
-		}
-		if payload == nil {
-			return "missing BOF file", ErrorExitStatus, ErrorExitStatus
-		}
-		out, err := runBOF(agentSession.Implant, agentSession.RPC, payload, bargs, onFinish)
-		if err != nil {
-			return err.Error(), ErrorExitStatus, ErrorExitStatus
-		}
-		return out, 0, 0
-	case "execute-assembly":
-		if len(task) < 2 {
-			break
-		}
-		var eaargs execasmArgs
-		argStr := strings.ReplaceAll(task[1], `\`, `\\`)
-		err := json.Unmarshal([]byte(argStr), &eaargs)
-		if err != nil {
-			return err.Error(), ErrorExitStatus, ErrorExitStatus
-		}
-		if payload == nil {
-			return "missing .NET assembly", ErrorExitStatus, ErrorExitStatus
-		}
-		out, err := execAsm(agentSession.Implant, agentSession.RPC, payload, eaargs, onFinish)
-		if err != nil {
-			return err.Error(), ErrorExitStatus, ErrorExitStatus
-		}
-		return out, 0, 0
-	case "exit":
-		return shutdown(agentSession)
-	default:
-		return "Keyword selected not available for agent", ErrorExitStatus, ErrorExitStatus
-	}
-	return "", ErrorExitStatus, ErrorExitStatus
 }
 
 func execute(cmd string, executor string, implantBridge *OperatorImplantBridge, onFinishCallback func(string, int, int)) (string, int, int) {
