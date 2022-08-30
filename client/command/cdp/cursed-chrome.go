@@ -52,18 +52,17 @@ func CursedChromeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	// overlord.ExecuteJS("", "", "", "")
 }
 
-// Check process: 'Google Chrome' (67807)
-// 'Google Chrome' does not have suffix 'Google Chrome'
-
 func isChromeProcess(executable string) bool {
 	var chromeProcessNames = []string{
-		// "chrome",
-		// "chrome.exe",
+		"chrome",
+		"chrome.exe",
 		"Google Chrome",
 	}
 	for _, suffix := range chromeProcessNames {
 		if strings.HasSuffix(executable, suffix) {
 			return true
+		} else {
+			fmt.Printf("%q does not have suffix %q\n", executable, suffix)
 		}
 	}
 	return false
