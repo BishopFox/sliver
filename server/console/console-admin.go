@@ -177,6 +177,16 @@ func kickOperatorCmd(ctx *grumble.Context) {
 	fmt.Printf(Info+"Operator %s has been kicked out.\n", operator)
 }
 
+func StartPersistentJobs(cfg *configs.ServerConfig) error {
+	if cfg.Jobs == nil {
+		return nil
+	}
+	for _, j := range cfg.Jobs.Multiplayer {
+		jobStartClientListener(j.Host, j.Port)
+	}
+	return nil
+}
+
 func startMultiplayerModeCmd(ctx *grumble.Context) {
 	lhost := ctx.Flags.String("lhost")
 	lport := uint16(ctx.Flags.Int("lport"))
