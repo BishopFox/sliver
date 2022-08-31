@@ -1,4 +1,4 @@
-package prelude
+package bridge
 
 /*
 	Sliver Implant Framework
@@ -30,33 +30,36 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bishopfox/sliver/client/prelude/config"
+	"github.com/bishopfox/sliver/client/prelude/implant"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
 )
 
 const (
-	defaultTimeout = 60
-	delim          = "\r\n"
+	delim = "\r\n"
 )
+
+type CommandRunner func(string, string, []byte, *OperatorImplantBridge, func(string, int, int)) (string, int, int)
 
 // OperatorImplantBridge maps the Sliver implants (whether it be a beacon or a session)
 // to a Prelude Operator implant with a TCP transport.
 type OperatorImplantBridge struct {
 	Conn           *net.Conn
-	Implant        ActiveImplant
+	Implant        implant.ActiveImplant
 	RPC            rpcpb.SliverRPCClient
-	PBeacon        OperatorBeacon
+	PBeacon        config.OperatorBeacon
 	BeaconCallback func(string, func(*clientpb.BeaconTask))
-	Config         AgentConfig
+	Config         config.AgentConfig
+	RunCommand     CommandRunner
 
 	recv chan []byte
 	send chan []byte
 }
 
-func NewImplantBridge(c *net.Conn, a ActiveImplant, rpc rpcpb.SliverRPCClient, pbeacon OperatorBeacon, conf AgentConfig, callback func(string, func(*clientpb.BeaconTask))) *OperatorImplantBridge {
+func NewImplantBridge(c *net.Conn, a implant.ActiveImplant, rpc rpcpb.SliverRPCClient, pbeacon config.OperatorBeacon, conf config.AgentConfig, callback func(string, func(*clientpb.BeaconTask)), runner CommandRunner) *OperatorImplantBridge {
 	return &OperatorImplantBridge{
 		Conn:           c,
 		Implant:        a,
@@ -64,6 +67,7 @@ func NewImplantBridge(c *net.Conn, a ActiveImplant, rpc rpcpb.SliverRPCClient, p
 		Config:         conf,
 		BeaconCallback: callback,
 		PBeacon:        pbeacon,
+		RunCommand:     runner,
 		recv:           make(chan []byte),
 		send:           make(chan []byte),
 	}
@@ -100,7 +104,7 @@ func (a *OperatorImplantBridge) ReceiveLoop() {
 }
 
 func (a *OperatorImplantBridge) handleMessage(message string) {
-	var tempBeacon OperatorBeacon
+	var tempBeacon config.OperatorBeacon
 	decoded, err := hex.DecodeString(message)
 	if err != nil {
 		return
@@ -111,7 +115,7 @@ func (a *OperatorImplantBridge) handleMessage(message string) {
 	}
 }
 
-func (implantBridge *OperatorImplantBridge) runLinks(tempBeacon *OperatorBeacon) {
+func (implantBridge *OperatorImplantBridge) runLinks(tempBeacon *config.OperatorBeacon) {
 	for _, link := range implantBridge.Config.StartInstructions(tempBeacon.Links) {
 		time.Sleep(time.Second * 1)
 		var payload []byte
@@ -121,7 +125,7 @@ func (implantBridge *OperatorImplantBridge) runLinks(tempBeacon *OperatorBeacon)
 
 		// If we're running on a Beacon
 		if implantBridge.BeaconCallback != nil {
-			RunCommand(link.Request, link.Executor, payload, implantBridge, func(response string, status int, pid int) {
+			implantBridge.RunCommand(link.Request, link.Executor, payload, implantBridge, func(response string, status int, pid int) {
 				link.Response = response
 				link.Status = status
 				link.Pid = pid
@@ -137,7 +141,7 @@ func (implantBridge *OperatorImplantBridge) runLinks(tempBeacon *OperatorBeacon)
 			return
 		}
 		// Running on a Session
-		response, status, pid := RunCommand(link.Request, link.Executor, payload, implantBridge, nil)
+		response, status, pid := implantBridge.RunCommand(link.Request, link.Executor, payload, implantBridge, nil)
 		link.Response = response
 		link.Status = status
 		link.Pid = pid
@@ -167,7 +171,7 @@ func requestPayload(target string) ([]byte, error) {
 func (a *OperatorImplantBridge) refreshBeacon() {
 	var pwd string
 	pwdResp, _ := a.RPC.Pwd(context.Background(), &sliverpb.PwdReq{
-		Request: MakeRequest(a.Implant),
+		Request: implant.MakeRequest(a.Implant),
 	})
 	if pwdResp != nil {
 		pwd = pwdResp.Path
@@ -178,29 +182,4 @@ func (a *OperatorImplantBridge) refreshBeacon() {
 	a.PBeacon.Target = a.Config.Address
 	a.PBeacon.Executing = a.Config.BuildExecutingHash()
 
-}
-
-func MakeRequest(a ActiveImplant) *commonpb.Request {
-	timeout := int64(defaultTimeout)
-	req := &commonpb.Request{
-		Timeout: timeout,
-	}
-	if a == nil {
-		return nil
-	}
-
-	beacon, ok := a.(*clientpb.Beacon)
-	if ok {
-		req.BeaconID = beacon.ID
-		req.Async = true
-		return req
-	}
-	session, ok := a.(*clientpb.Session)
-	if ok {
-		req.SessionID = session.ID
-		req.Async = false
-		return req
-	}
-
-	return nil
 }

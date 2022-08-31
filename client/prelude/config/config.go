@@ -1,4 +1,4 @@
-package prelude
+package config
 
 /*
 	Sliver Implant Framework

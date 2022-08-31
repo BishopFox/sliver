@@ -1,4 +1,4 @@
-package prelude
+package executor
 
 /*
 	Sliver Implant Framework
@@ -21,20 +21,24 @@ package prelude
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/extensions"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/client/prelude/bridge"
+	"github.com/bishopfox/sliver/client/prelude/config"
+	"github.com/bishopfox/sliver/client/prelude/implant"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
 )
 
 type extensionMessage struct {
-	Name string        `json:"Name"`
-	Args []interface{} `json:"Args"`
+	Name      string        `json:"Name"`
+	Arguments []interface{} `json:"Arguments"`
 }
 
 type bofArg struct {
@@ -42,30 +46,38 @@ type bofArg struct {
 	Value   interface{} `json:"value"`
 }
 
-func runExtension(message string, activeImplant ActiveImplant, rpc rpcpb.SliverRPCClient, onFinish func(string, int, int)) (string, int, int) {
+func runExtension(message interface{}, _ []byte, impBridge *bridge.OperatorImplantBridge, cb func(string, int, int), outputFormat string) (string, int, int) {
 	var (
 		msg     extensionMessage
 		extName string
 		export  string
 		extArgs []byte
 	)
-	err := json.Unmarshal([]byte(message), &msg)
-	if err != nil {
-		println(message)
-		return err.Error(), ErrorExitStatus, ErrorExitStatus
+	extArgsInt, ok := message.(map[string](interface{}))["Arguments"].([]interface{})
+	if !ok {
+		return sendError(errors.New("missing extension arguments"))
 	}
+	extensionName, ok := message.(map[string](interface{}))["Name"].(string)
+	if !ok {
+		return sendError(errors.New("missing extension name"))
+	}
+	msg = extensionMessage{
+		Name:      extensionName,
+		Arguments: extArgsInt,
+	}
+
 	ext, err := extensions.GetLoadedExtension(msg.Name)
 	if err != nil {
-		return err.Error(), ErrorExitStatus, ErrorExitStatus
+		return sendError(err)
 	}
 	// Load extension into implant
-	loadExtRequest := MakeRequest(activeImplant)
+	loadExtRequest := implant.MakeRequest(impBridge.Implant)
 	if loadExtRequest == nil {
-		return "could not create RPC request", ErrorExitStatus, ErrorExitStatus
+		return sendError(errors.New("could not create RPC request"))
 	}
-	err = extensions.LoadExtension(activeImplant.GetOS(), activeImplant.GetArch(), true, ext, loadExtRequest, rpc)
+	err = extensions.LoadExtension(impBridge.Implant.GetOS(), impBridge.Implant.GetArch(), true, ext, loadExtRequest, impBridge.RPC)
 	if err != nil {
-		return err.Error(), ErrorExitStatus, ErrorExitStatus
+		return sendError(err)
 	}
 	// Determine whether the extensions has dependencies (BOF),
 	// if so, get dependency name and extension file
@@ -73,7 +85,7 @@ func runExtension(message string, activeImplant ActiveImplant, rpc rpcpb.SliverR
 	if ext.DependsOn != "" {
 		depExt, err := extensions.GetLoadedExtension(ext.DependsOn)
 		if err != nil {
-			return err.Error(), ErrorExitStatus, ErrorExitStatus
+			return sendError(err)
 		}
 		extName = depExt.CommandName
 		export = depExt.Entrypoint
@@ -82,27 +94,27 @@ func runExtension(message string, activeImplant ActiveImplant, rpc rpcpb.SliverR
 		export = ext.Entrypoint
 	}
 	// Build the arguments param (depending if BOF or not)
-	extFilePath, err := ext.GetFileForTarget(ext.CommandName, activeImplant.GetOS(), activeImplant.GetArch())
+	extFilePath, err := ext.GetFileForTarget(ext.CommandName, impBridge.Implant.GetOS(), impBridge.Implant.GetArch())
 	if err != nil {
-		return err.Error(), ErrorExitStatus, ErrorExitStatus
+		return sendError(err)
 	}
 	if strings.HasSuffix(extFilePath, ".o") {
 		// We have a BOF
 		extData, err := os.ReadFile(extFilePath)
 		if err != nil {
-			return err.Error(), ErrorExitStatus, ErrorExitStatus
+			return sendError(err)
 		}
-		extArgs, err = parseBOFArgs(extData, ext, msg.Args)
+		extArgs, err = parseBOFArgs(extData, ext, msg.Arguments)
 		if err != nil {
-			return err.Error(), ErrorExitStatus, ErrorExitStatus
+			return sendError(err)
 		}
 	} else {
 		// We have a regular extension
 		var extArgStr []string
-		for _, arg := range msg.Args {
+		for _, arg := range msg.Arguments {
 			converted, ok := arg.(string)
 			if !ok {
-				return "arguments must be strings", ErrorExitStatus, ErrorExitStatus
+				return sendError(errors.New("arguments must be strings"))
 			}
 			extArgStr = append(extArgStr, converted)
 		}
@@ -111,22 +123,33 @@ func runExtension(message string, activeImplant ActiveImplant, rpc rpcpb.SliverR
 	}
 
 	// Call extension
-	callResp, err := rpc.CallExtension(context.Background(), &sliverpb.CallExtensionReq{
+	callResp, err := impBridge.RPC.CallExtension(context.Background(), &sliverpb.CallExtensionReq{
 		Name:        extName,
 		ServerStore: true,
 		Export:      export,
-		Request:     MakeRequest(activeImplant),
+		Request:     implant.MakeRequest(impBridge.Implant),
 		Args:        extArgs,
 	})
 
 	if err != nil {
-		return err.Error(), ErrorExitStatus, ErrorExitStatus
+		return sendError(err)
 	}
 	if callResp.Response != nil && callResp.Response.Async {
-		onFinish(string(callResp.Output), SuccessExitStatus, int(activeImplant.GetPID()))
-		return "", SuccessExitStatus, int(activeImplant.GetPID())
+		impBridge.BeaconCallback(callResp.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err := proto.Unmarshal(task.Response, callResp)
+			if err != nil {
+				cb(sendError(err))
+				return
+			}
+			cb(handleExtensionOutput(callResp, int(impBridge.Implant.GetPID()), outputFormat))
+		})
+		return "", config.SuccessExitStatus, int(impBridge.Implant.GetPID())
 	}
-	return string(callResp.Output), SuccessExitStatus, int(activeImplant.GetPID())
+	if callResp.Response != nil && callResp.Response.Err != "" {
+		return sendError(errors.New(callResp.Response.Err))
+	}
+
+	return handleExtensionOutput(callResp, int(impBridge.Implant.GetPID()), outputFormat)
 }
 
 func parseBOFArgs(extData []byte, extManifest *extensions.ExtensionManifest, args []interface{}) ([]byte, error) {
@@ -195,4 +218,11 @@ func parseBOFArgs(extData []byte, extManifest *extensions.ExtensionManifest, arg
 		return nil, err
 	}
 	return extArgs.GetBuffer()
+}
+
+func handleExtensionOutput(callExt *sliverpb.CallExtension, pid int, format string) (string, int, int) {
+	if format == "json" {
+		return JSONFormatter(callExt, pid)
+	}
+	return string(callExt.Output), config.SuccessExitStatus, pid
 }

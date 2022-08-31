@@ -20,27 +20,75 @@ package prelude
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/prelude/bridge"
+	"github.com/bishopfox/sliver/client/prelude/config"
+	"github.com/bishopfox/sliver/client/prelude/executor"
+	"github.com/bishopfox/sliver/client/prelude/implant"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
 
+// Exxpected message looks like:
+// Ls:
+// {
+//	"Command": "ls",
+//	"Arguments": {
+//		"Path": "/"
+//	  }
+//	"Output": "json"
+// }
+// Extension (BOF):
+// {
+//	"Command": "run-extension",
+//	"Arguments": {
+//		"Name": "sa-cacls",
+//   	"Arguments": [{"type":"wstring","value":"/"}]
+//	  }
+// }
+// Extension (shared lib):
+// {
+//	"Command": "run-extension",
+//	"Arguments": {
+//		"Name": "proc-dump",
+//   	"Arguments": ["4343"]
+//	  }
+// }
+type sliverExecutorMessage struct {
+	Command   string
+	Output    string // "text" or "json", default is "text"
+	Arguments interface{}
+}
+
 //RunCommand executes a given command
-func RunCommand(message string, executor string, payload []byte, agentSession *OperatorImplantBridge, onFinish func(string, int, int)) (string, int, int) {
+func RunCommand(message string, executor string, payload []byte, agentSession *bridge.OperatorImplantBridge, onFinish func(string, int, int)) (string, int, int) {
 	switch executor {
-	case "bof", "extension":
-		// can be either BOF or regular extension
-		return runExtension(message, agentSession.Implant, agentSession.RPC, onFinish)
+	case "sliver":
+		sliverMsg := &sliverExecutorMessage{}
+		err := json.Unmarshal([]byte(message), sliverMsg)
+		if err != nil {
+			return fmt.Sprintf("Error: %s\n", err.Error()), config.ErrorExitStatus, config.ErrorExitStatus
+		}
+		return runSliverExecutor(sliverMsg, payload, agentSession, onFinish)
 	default:
 		bites, status, pid := execute(message, executor, agentSession, onFinish)
 		return string(bites), status, pid
 	}
 }
 
-func execute(cmd string, executor string, implantBridge *OperatorImplantBridge, onFinishCallback func(string, int, int)) (string, int, int) {
+func runSliverExecutor(msg *sliverExecutorMessage, payload []byte, impBridge *bridge.OperatorImplantBridge, onFinish func(string, int, int)) (string, int, int) {
+	handler := executor.GetHandler(msg.Command)
+	if handler != nil {
+		return handler(msg.Arguments, payload, impBridge, onFinish, msg.Output)
+	}
+	return "Unknown command", config.ErrorExitStatus, config.ErrorExitStatus
+}
+
+func execute(cmd string, executor string, implantBridge *bridge.OperatorImplantBridge, onFinishCallback func(string, int, int)) (string, int, int) {
 	args := append(getCmdArg(executor), cmd)
 	if executor == "psh" {
 		executor = "powershell.exe"
@@ -53,7 +101,7 @@ func execute(cmd string, executor string, implantBridge *OperatorImplantBridge, 
 		Path:    executor,
 		Args:    args,
 		Output:  true,
-		Request: MakeRequest(implantBridge.Implant),
+		Request: implant.MakeRequest(implantBridge.Implant),
 	})
 
 	if err != nil {
@@ -74,7 +122,7 @@ func execute(cmd string, executor string, implantBridge *OperatorImplantBridge, 
 
 	// Session
 	if execResp.Response != nil && execResp.Response.Err != "" {
-		return execResp.Response.Err, SuccessExitStatus, SuccessExitStatus
+		return execResp.Response.Err, config.SuccessExitStatus, config.SuccessExitStatus
 	}
 	return string(execResp.Stdout), int(execResp.Status), int(execResp.Pid)
 }
@@ -92,26 +140,4 @@ func getCmdArg(executor string) []string {
 		args = []string{"-c"}
 	}
 	return args
-}
-
-func splitMessage(message string, splitRune rune) []string {
-	quoted := false
-	values := strings.FieldsFunc(message, func(r rune) bool {
-		if r == '"' {
-			quoted = !quoted
-		}
-		return !quoted && r == splitRune
-	})
-	return values
-}
-
-func shutdown(agentSession *OperatorImplantBridge) (string, int, int) {
-	_, err := agentSession.RPC.Kill(context.Background(), &sliverpb.KillReq{
-		Force:   false,
-		Request: MakeRequest(agentSession.Implant),
-	})
-	if err != nil {
-		return err.Error(), ErrorExitStatus, ErrorExitStatus
-	}
-	return fmt.Sprintf("Terminated %s", agentSession.Implant.GetID()), SuccessExitStatus, int(agentSession.Implant.GetPID())
 }

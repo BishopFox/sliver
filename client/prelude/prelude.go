@@ -24,6 +24,9 @@ import (
 	"net"
 	"sync"
 
+	"github.com/bishopfox/sliver/client/prelude/bridge"
+	"github.com/bishopfox/sliver/client/prelude/config"
+	"github.com/bishopfox/sliver/client/prelude/implant"
 	"github.com/bishopfox/sliver/client/prelude/util"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -47,42 +50,29 @@ type OperatorConfig struct {
 // OperatorImplantMapper maps an OperatorConfig with
 // active Sliver implant sessions/beacons
 type OperatorImplantMapper struct {
-	implantBridges []*OperatorImplantBridge
+	implantBridges []*bridge.OperatorImplantBridge
 	conf           *OperatorConfig
 	sync.Mutex
-}
-
-// ActiveImplant exposes common methods between
-// Sliver clientpb.Session and clientpb.Beacon
-// that are required by Operator implants
-type ActiveImplant interface {
-	GetID() string
-	GetHostname() string
-	GetPID() int32
-	GetOS() string
-	GetArch() string
-	GetFilename() string
-	GetReconnectInterval() int64
 }
 
 func InitImplantMapper(conf *OperatorConfig) *OperatorImplantMapper {
 	if ImplantMapper == nil {
 		ImplantMapper = &OperatorImplantMapper{
-			implantBridges: make([]*OperatorImplantBridge, 0),
+			implantBridges: make([]*bridge.OperatorImplantBridge, 0),
 			conf:           conf,
 		}
 	}
 	return ImplantMapper
 }
 
-func (p *OperatorImplantMapper) AddImplant(a ActiveImplant, callback func(string, func(*clientpb.BeaconTask))) error {
+func (p *OperatorImplantMapper) AddImplant(a implant.ActiveImplant, callback func(string, func(*clientpb.BeaconTask))) error {
 	var pwd string
 	conn, err := net.Dial("tcp", p.conf.OperatorURL)
 	if err != nil {
 		return err
 	}
 	pwdResp, err := p.conf.RPC.Pwd(context.Background(), &sliverpb.PwdReq{
-		Request: MakeRequest(a),
+		Request: implant.MakeRequest(a),
 	})
 	if err != nil {
 		return err
@@ -101,7 +91,7 @@ func (p *OperatorImplantMapper) AddImplant(a ActiveImplant, callback func(string
 		p.conf.Range = defaultRange
 	}
 
-	beacon := OperatorBeacon{
+	beacon := config.OperatorBeacon{
 		Name:      a.GetID(),
 		Target:    p.conf.OperatorURL,
 		Hostname:  a.GetHostname(),
@@ -109,7 +99,7 @@ func (p *OperatorImplantMapper) AddImplant(a ActiveImplant, callback func(string
 		Platform:  a.GetOS(),
 		Range:     p.conf.Range,
 		Executors: util.DetermineExecutors(a.GetOS(), a.GetArch()),
-		Links:     make([]Instruction, 0),
+		Links:     make([]config.Instruction, 0),
 		Executing: "",
 		Pwd:       pwd,
 		Sleep:     int(sleepTime),
@@ -119,17 +109,18 @@ func (p *OperatorImplantMapper) AddImplant(a ActiveImplant, callback func(string
 		return errors.New("missing AES key")
 	}
 	encryptionKey := p.conf.AESKey
-	agentConfig := AgentConfig{
+	agentConfig := config.AgentConfig{
 		Name:      a.GetID(),
 		AESKey:    encryptionKey,
 		Range:     p.conf.Range,
 		Contact:   "tcp",
 		Address:   p.conf.OperatorURL,
 		Pid:       int(a.GetPID()),
-		Executing: make(map[string]Instruction),
+		Executing: make(map[string]config.Instruction),
 		Sleep:     int(sleepTime),
 	}
-	bridge := NewImplantBridge(&conn, a, p.conf.RPC, beacon, agentConfig, callback)
+
+	bridge := bridge.NewImplantBridge(&conn, a, p.conf.RPC, beacon, agentConfig, callback, RunCommand)
 	p.Lock()
 	p.implantBridges = append(p.implantBridges, bridge)
 	p.Unlock()
@@ -137,7 +128,7 @@ func (p *OperatorImplantMapper) AddImplant(a ActiveImplant, callback func(string
 	return nil
 }
 
-func (p *OperatorImplantMapper) RemoveImplant(imp ActiveImplant) (err error) {
+func (p *OperatorImplantMapper) RemoveImplant(imp implant.ActiveImplant) (err error) {
 	p.Lock()
 	for _, bridge := range p.implantBridges {
 		if bridge.Implant.GetID() == imp.GetID() {
