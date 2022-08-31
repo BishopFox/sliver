@@ -42,7 +42,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/command/completers"
-	"github.com/bishopfox/sliver/client/command/curse"
+	"github.com/bishopfox/sliver/client/command/cursed"
 	"github.com/bishopfox/sliver/client/command/dllhijack"
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
@@ -3303,10 +3303,25 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// [ Curse Commands ] ------------------------------------------------------------
 
-	con.App.AddCommand(&grumble.Command{
-		Name:      consts.CursedChrome,
-		Help:      "Automatically inject a Cursed Chrome payload into a remote browser instance",
-		LongHelp:  help.GetHelpFor([]string{consts.CursedChrome}),
+	cursedCmd := &grumble.Command{
+		Name:      consts.Cursed,
+		Help:      "Chrome/electron post-exploitation tool kit",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			con.Println("You must specify a subcommand, see --help for options")
+			con.Println()
+			return nil
+		},
+	}
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.CursedConsole,
+		Help:      "Start a JavaScript console connected to a debug target",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedConsole}),
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {
 			f.Int("r", "remote-debugging-port", 21099, "remote debugging tcp port")
@@ -3316,9 +3331,29 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			curse.CursedChromeCmd(ctx, con)
+			// cursed.CursedChromeCmd(ctx, con)
 			con.Println()
 			return nil
 		},
 	})
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.CursedChrome,
+		Help:      "Automatically inject a Cursed Chrome payload into a remote browser instance",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedChrome}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("r", "remote-debugging-port", 21099, "remote debugging tcp port")
+			f.String("e", "extension-id", "", "extension id to inject into (blank string = auto)")
+			f.String("p", "payload", "", "cursed chrome payload file path (.js)")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedChromeCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	con.App.AddCommand(cursedCmd)
 }

@@ -187,13 +187,14 @@ func FindExtensionWithPermissions(curse *core.CursedProcess, permissions []strin
 }
 
 // FindExtensionsWithPermissions - Find an extension with a permission
-func FindExtensionsWithPermissions(ctx context.Context, debugURL string, permissions []string) ([]*ChromeDebugTarget, error) {
-	targets, err := QueryExtensionDebugTargets(debugURL)
+func FindExtensionsWithPermissions(curse *core.CursedProcess, permissions []string) ([]*ChromeDebugTarget, error) {
+	targets, err := QueryExtensionDebugTargets(curse.DebugURL().String())
 	if err != nil {
 		return nil, err
 	}
 	extensions := []*ChromeDebugTarget{}
 	for _, target := range targets {
+		ctx, _, _ := GetChromeContext(target.WebSocketDebuggerURL, curse)
 		result, err := ExecuteJS(ctx, target.WebSocketDebuggerURL, target.ID, FetchManifestJS)
 		if err != nil {
 			continue

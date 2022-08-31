@@ -239,7 +239,10 @@ const (
 
 	ShikataGaNai = "shikata-ga-nai"
 
-	CursedChrome = "cursed-chrome"
+	Cursed        = "cursed"
+	CursedChrome  = "chrome"
+	CursedConsole = "console"
+	CursedEval    = "eval"
 )
 
 // Groups

