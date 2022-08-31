@@ -131,6 +131,7 @@ var rootCmd = &cobra.Command{
 
 		serverConfig := configs.GetServerConfig()
 		c2.StartPersistentJobs(serverConfig)
+		console.StartPersistentJobs(serverConfig)
 		if serverConfig.DaemonMode {
 			daemon.Start(daemon.BlankHost, daemon.BlankPort)
 		} else {

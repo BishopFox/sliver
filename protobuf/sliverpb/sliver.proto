@@ -626,6 +626,15 @@ message Backdoor {
   commonpb.Response Response = 9;
 }
 
+// Registry - Registry related messages
+enum RegistryType {
+  Unknown = 0;
+  Binary = 1;
+  String = 2;
+  DWORD = 3;
+  QWORD = 4;
+}
+
 message RegistryReadReq {
   string Hive = 1;
   string Path = 2;
