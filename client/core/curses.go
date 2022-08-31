@@ -19,9 +19,9 @@ package core
 */
 
 import (
+	"fmt"
+	"net/url"
 	"sync"
-
-	"github.com/bishopfox/sliver/client/overlord"
 )
 
 var (
@@ -30,6 +30,16 @@ var (
 )
 
 type CursedProcess struct {
-	LocalTCPPort uint16
-	DebugTarget  *overlord.ChromeDebugTarget
+	BindTCPPort       int
+	Platform          string
+	ChromeExePath     string
+	ChromeUserDataDir string
+}
+
+func (c *CursedProcess) DebugURL() *url.URL {
+	return &url.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("localhost:%d", c.BindTCPPort),
+		Path:   "/json",
+	}
 }

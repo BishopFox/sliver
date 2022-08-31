@@ -25,15 +25,30 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/bishopfox/sliver/client/core"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 )
 
 const (
-	darwinUserDataDir  = "Library/Application Support/Google/Chrome"
-	linuxUserDataDir   = ".config/google-chrome"
-	windowsUserDataDir = `Google\Chrome\User Data`
+	// AllURLs - All URLs permission
+	AllURLs = "<all_urls>"
+
+	// AllHTTP - All HTTP permission
+	AllHTTP = "http://*/*"
+
+	// AllHTTPS - All HTTP permission
+	AllHTTPS = "https://*/*"
+
+	// WebRequest - WebRequest permission
+	WebRequest = "webRequest"
+
+	// WebRequestBlocking - WebRequestBlocking permission
+	WebRequestBlocking = "webRequestBlocking"
+
+	// FetchManifestJS - Get extension manifest
+	FetchManifestJS = "(() => { return chrome.runtime.getManifest(); })()"
 )
 
 var (
@@ -68,26 +83,6 @@ type ChromeDebugTarget struct {
 	WebSocketDebuggerURL string `json:"webSocketDebuggerUrl"`
 }
 
-const (
-	// AllURLs - All URLs permission
-	AllURLs = "<all_urls>"
-
-	// AllHTTP - All HTTP permission
-	AllHTTP = "http://*/*"
-
-	// AllHTTPS - All HTTP permission
-	AllHTTPS = "https://*/*"
-
-	// WebRequest - WebRequest permission
-	WebRequest = "webRequest"
-
-	// WebRequestBlocking - WebRequestBlocking permission
-	WebRequestBlocking = "webRequestBlocking"
-
-	// FetchManifestJS - Get extension manifest
-	FetchManifestJS = "(() => { return chrome.runtime.getManifest(); })()"
-)
-
 var allocCtx context.Context
 
 func getContextOptions(userHomeDir string, platform string) []func(*chromedp.ExecAllocator) {
@@ -108,14 +103,14 @@ func getContextOptions(userHomeDir string, platform string) []func(*chromedp.Exe
 	return opts
 }
 
-func GetChromeContext(userHomeDir string, webSocketURL string, platform string) (context.Context, context.CancelFunc, context.CancelFunc) {
+func GetChromeContext(webSocketURL string, curse *core.CursedProcess) (context.Context, context.CancelFunc, context.CancelFunc) {
 	var (
 		cancel context.CancelFunc
 	)
 	if webSocketURL != "" {
 		allocCtx, cancel = chromedp.NewRemoteAllocator(context.Background(), webSocketURL)
 	} else {
-		opts := getContextOptions(userHomeDir, platform)
+		opts := getContextOptions(curse.ChromeUserDataDir, curse.Platform)
 		allocCtx, cancel = chromedp.NewExecAllocator(context.Background(), opts...)
 	}
 	taskCtx, taskCancel := chromedp.NewContext(allocCtx, chromedp.WithLogf(log.Printf))
@@ -168,12 +163,13 @@ func ExecuteJS(ctx context.Context, string, targetID string, jsCode string) ([]b
 }
 
 // FindExtensionWithPermissions - Find an extension with a permission
-func FindExtensionWithPermissions(ctx context.Context, debugURL string, permissions []string) (*ChromeDebugTarget, error) {
-	targets, err := QueryExtensionDebugTargets(debugURL)
+func FindExtensionWithPermissions(curse *core.CursedProcess, permissions []string) (*ChromeDebugTarget, error) {
+	targets, err := QueryExtensionDebugTargets(curse.DebugURL().String())
 	if err != nil {
 		return nil, err
 	}
 	for _, target := range targets {
+		ctx, _, _ := GetChromeContext(target.WebSocketDebuggerURL, curse)
 		result, err := ExecuteJS(ctx, target.WebSocketDebuggerURL, target.ID, FetchManifestJS)
 		if err != nil {
 			continue
@@ -264,7 +260,7 @@ func QueryExtensionDebugTargets(debugURL string) ([]ChromeDebugTarget, error) {
 }
 
 // Screenshot - Take a screenshot of a Chrome context
-func Screenshot(userHomeDir string, platform string, webSocketURL string, targetID string, quality int64) ([]byte, error) {
+func Screenshot(curse *core.CursedProcess, webSocketURL string, targetID string, quality int64) ([]byte, error) {
 	var result []byte
 	screenshotTask := chromedp.Tasks{
 		chromedp.ActionFunc(func(ctx context.Context) error {
@@ -288,7 +284,7 @@ func Screenshot(userHomeDir string, platform string, webSocketURL string, target
 		}),
 	}
 
-	taskCtx, taskCancel, cancel := GetChromeContext(userHomeDir, webSocketURL, platform)
+	taskCtx, taskCancel, cancel := GetChromeContext(webSocketURL, curse)
 	defer taskCancel()
 	defer cancel()
 	targetInfo := findTargetInfoByID(taskCtx, targetID)
