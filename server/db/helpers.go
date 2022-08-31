@@ -39,6 +39,9 @@ var (
 
 // ImplantConfigByID - Fetch implant build by name
 func ImplantConfigByID(id string) (*models.ImplantConfig, error) {
+	if len(id) < 1 {
+		return nil, ErrRecordNotFound
+	}
 	config := models.ImplantConfig{}
 	err := Session().Where(&models.ImplantConfig{
 		ID: uuid.FromStringOrNil(id),
@@ -79,6 +82,9 @@ func ImplantBuilds() ([]*models.ImplantBuild, error) {
 
 // ImplantBuildByName - Fetch implant build by name
 func ImplantBuildByName(name string) (*models.ImplantBuild, error) {
+	if len(name) < 1 {
+		return nil, ErrRecordNotFound
+	}
 	build := models.ImplantBuild{}
 	err := Session().Where(&models.ImplantBuild{
 		Name: name,
@@ -126,6 +132,9 @@ func ImplantProfiles() ([]*models.ImplantProfile, error) {
 
 // ImplantProfileByName - Fetch implant build by name
 func ImplantProfileByName(name string) (*models.ImplantProfile, error) {
+	if len(name) < 1 {
+		return nil, ErrRecordNotFound
+	}
 	profile := models.ImplantProfile{}
 	err := Session().Where(&models.ImplantProfile{
 		Name: name,
@@ -170,6 +179,9 @@ func ImplantProfileNames() ([]string, error) {
 
 // ProfileByName - Fetch a single profile from the database
 func ProfileByName(name string) (*models.ImplantProfile, error) {
+	if len(name) < 1 {
+		return nil, ErrRecordNotFound
+	}
 	dbProfile := &models.ImplantProfile{}
 	err := Session().Where(&models.ImplantProfile{Name: name}).Find(&dbProfile).Error
 	return dbProfile, err
@@ -184,6 +196,9 @@ func ListCanaries() ([]*models.DNSCanary, error) {
 
 // CanaryByDomain - Check if a canary exists
 func CanaryByDomain(domain string) (*models.DNSCanary, error) {
+	if len(domain) < 1 {
+		return nil, ErrRecordNotFound
+	}
 	dbSession := Session()
 	canary := models.DNSCanary{}
 	err := dbSession.Where(&models.DNSCanary{Domain: domain}).First(&canary).Error
@@ -192,6 +207,9 @@ func CanaryByDomain(domain string) (*models.DNSCanary, error) {
 
 // WebsiteByName - Get website by name
 func WebsiteByName(name string) (*models.Website, error) {
+	if len(name) < 1 {
+		return nil, ErrRecordNotFound
+	}
 	website := models.Website{}
 	err := Session().Where(&models.Website{Name: name}).First(&website).Error
 	if err != nil {
@@ -235,6 +253,9 @@ func HostByHostID(id uuid.UUID) (*models.Host, error) {
 
 // HostByHostUUID - Get host by the session's reported HostUUID
 func HostByHostUUID(id string) (*models.Host, error) {
+	if len(id) < 1 {
+		return nil, ErrRecordNotFound
+	}
 	host := models.Host{}
 	err := Session().Where(
 		&models.Host{HostUUID: uuid.FromStringOrNil(id)},
@@ -247,6 +268,9 @@ func HostByHostUUID(id string) (*models.Host, error) {
 
 // IOCByID - Select an IOC by ID
 func IOCByID(id string) (*models.IOC, error) {
+	if len(id) < 1 {
+		return nil, ErrRecordNotFound
+	}
 	ioc := &models.IOC{}
 	err := Session().Where(
 		&models.IOC{ID: uuid.FromStringOrNil(id)},
@@ -256,6 +280,9 @@ func IOCByID(id string) (*models.IOC, error) {
 
 // BeaconByID - Select a Beacon by ID
 func BeaconByID(id string) (*models.Beacon, error) {
+	if len(id) < 1 {
+		return nil, ErrRecordNotFound
+	}
 	beacon := &models.Beacon{}
 	err := Session().Where(
 		&models.Beacon{ID: uuid.FromStringOrNil(id)},
@@ -267,6 +294,9 @@ func BeaconByID(id string) (*models.Beacon, error) {
 // by default will not fetch the request/response columns since
 // these could be arbitrarily large.
 func BeaconTasksByBeaconID(beaconID string) ([]*models.BeaconTask, error) {
+	if len(beaconID) < 1 {
+		return nil, ErrRecordNotFound
+	}
 	beaconTasks := []*models.BeaconTask{}
 	id := uuid.FromStringOrNil(beaconID)
 	err := Session().Select([]string{
@@ -279,6 +309,9 @@ func BeaconTasksByBeaconID(beaconID string) ([]*models.BeaconTask, error) {
 // BeaconTaskByID - Select a specific BeaconTask by ID, this
 // will fetch the full request/response
 func BeaconTaskByID(taskID string) (*models.BeaconTask, error) {
+	if len(taskID) < 1 {
+		return nil, ErrRecordNotFound
+	}
 	task := &models.BeaconTask{}
 	err := Session().Where(
 		&models.BeaconTask{ID: uuid.FromStringOrNil(taskID)},
@@ -295,6 +328,9 @@ func ListBeacons() ([]*models.Beacon, error) {
 
 // RenameBeacon - Rename a beacon
 func RenameBeacon(beaconID string, name string) error {
+	if len(beaconID) < 1 {
+		return ErrRecordNotFound
+	}
 	err := Session().Where(&models.Beacon{
 		ID: uuid.FromStringOrNil(beaconID),
 	}).Updates(models.Beacon{Name: name}).Error
@@ -306,6 +342,9 @@ func RenameBeacon(beaconID string, name string) error {
 
 // PendingBeaconTasksByBeaconID - Select a Beacon by ID, ordered by creation time
 func PendingBeaconTasksByBeaconID(beaconID string) ([]*models.BeaconTask, error) {
+	if len(beaconID) < 1 {
+		return nil, ErrRecordNotFound
+	}
 	tasks := []*models.BeaconTask{}
 	err := Session().Where(
 		&models.BeaconTask{
@@ -318,6 +357,9 @@ func PendingBeaconTasksByBeaconID(beaconID string) ([]*models.BeaconTask, error)
 
 // UpdateBeaconCheckinByID - Update the beacon's last / next checkin
 func UpdateBeaconCheckinByID(beaconID string, next int64) error {
+	if len(beaconID) < 1 {
+		return ErrRecordNotFound
+	}
 	err := Session().Where(&models.Beacon{
 		ID: uuid.FromStringOrNil(beaconID),
 	}).Updates(models.Beacon{
@@ -329,6 +371,9 @@ func UpdateBeaconCheckinByID(beaconID string, next int64) error {
 
 // BeaconTasksByEnvelopeID - Select a (sent) BeaconTask by its envelope ID
 func BeaconTaskByEnvelopeID(beaconID string, envelopeID int64) (*models.BeaconTask, error) {
+	if len(beaconID) < 1 {
+		return nil, ErrRecordNotFound
+	}
 	task := &models.BeaconTask{}
 	err := Session().Where(
 		&models.BeaconTask{
@@ -363,6 +408,9 @@ func CountTasksByBeaconID(beaconID uuid.UUID) (int64, int64, error) {
 
 // OperatorByToken - Select an operator by token value
 func OperatorByToken(value string) (*models.Operator, error) {
+	if len(value) < 1 {
+		return nil, ErrRecordNotFound
+	}
 	operator := &models.Operator{}
 	err := Session().Where(&models.Operator{
 		Token: value,
