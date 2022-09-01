@@ -3305,7 +3305,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	cursedCmd := &grumble.Command{
 		Name:      consts.Cursed,
-		Help:      "Chrome/electron post-exploitation tool kit",
+		Help:      "Chrome/electron post-exploitation tool kit (∩｀-´)⊃━☆ﾟ.*･｡ﾟ",
 		LongHelp:  help.GetHelpFor([]string{consts.Cursed}),
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {

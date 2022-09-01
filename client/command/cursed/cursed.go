@@ -19,9 +19,13 @@ package cursed
 */
 
 import (
+	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
+	"text/tabwriter"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
@@ -63,15 +67,43 @@ func CursedCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 }
 
-func selectCursedProcess() *core.CursedProcess {
+func selectCursedProcess(con *console.SliverConsoleClient) *core.CursedProcess {
 	cursedProcesses := []*core.CursedProcess{}
 	core.CursedProcesses.Range(func(key, value interface{}) bool {
 		cursedProcesses = append(cursedProcesses, value.(*core.CursedProcess))
 		return true
 	})
 	if len(cursedProcesses) < 1 {
+		con.PrintErrorf("No cursed processes\n")
 		return nil
 	}
 
-	return nil
+	port2process := map[int]*core.CursedProcess{}
+	outputBuf := bytes.NewBufferString("")
+	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
+	for _, cursedProcess := range cursedProcesses {
+		fmt.Fprintf(table, "%d\t%s\t%s\n",
+			cursedProcess.BindTCPPort,
+			fmt.Sprintf("[Session %s]", strings.Split(cursedProcess.SessionID, "-")[0]),
+			cursedProcess.ExePath)
+		port2process[cursedProcess.BindTCPPort] = cursedProcess
+	}
+	table.Flush()
+	options := strings.Split(outputBuf.String(), "\n")
+	options = options[:len(options)-1] // Remove the last empty option
+	prompt := &survey.Select{
+		Message: "Select a curse:",
+		Options: options,
+	}
+	selected := ""
+	err := survey.AskOne(prompt, &selected)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return nil
+	}
+	if selected == "" {
+		return nil
+	}
+	selectedPortNumber, _ := strconv.Atoi(strings.Split(selected, " ")[0])
+	return port2process[selectedPortNumber]
 }
