@@ -44,7 +44,7 @@ var (
 	ErrChromeExecutableNotFound = errors.New("could not find Chrome executable")
 	ErrUnsupportedOS            = errors.New("unsupported OS")
 
-	windowsDriveLetters = "CDEFGHIJKLMNOPQRSTUVWXYZ"
+	windowsDriveLetters = []string{"C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
 
 	cursedChromePermissions    = []string{overlord.AllURLs, overlord.WebRequest, overlord.WebRequestBlocking}
 	cursedChromePermissionsAlt = []string{overlord.AllHTTP, overlord.AllHTTPS, overlord.WebRequest, overlord.WebRequestBlocking}
@@ -260,8 +260,12 @@ func findChromeUserDataDir(session *clientpb.Session, ctx *grumble.Context, con 
 	switch session.GetOS() {
 
 	case "windows":
+		username := session.GetUsername()
+		if strings.Contains(username, "\\") {
+			username = strings.Split(username, "\\")[1]
+		}
 		for _, driveLetter := range windowsDriveLetters {
-			userDataDir := fmt.Sprintf("%c:\\Users\\%s\\AppData\\Local\\Google\\Chrome\\User Data", driveLetter, session.GetUsername())
+			userDataDir := fmt.Sprintf("%s:\\Users\\%s\\AppData\\Local\\Google\\Chrome\\User Data", driveLetter, username)
 			ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
 				Request: con.ActiveTarget.Request(ctx),
 				Path:    userDataDir,
@@ -299,15 +303,19 @@ func findChromeExecutablePath(session *clientpb.Session, ctx *grumble.Context, c
 
 	case "windows":
 		chromePaths := []string{
-			"[DRIVE]:\\Program Files (x86)\\Google\\Chrome\\Application",
-			"[DRIVE]:\\Program Files\\Google\\Chrome\\Application",
-			"[DRIVE]:\\Users\\[USERNAME]\\AppData\\Local\\Google\\Chrome\\Application",
-			"[DRIVE]:\\Program Files (x86)\\Google\\Application",
+			"[DRIVE]:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+			"[DRIVE]:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+			"[DRIVE]:\\Users\\[USERNAME]\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+			"[DRIVE]:\\Program Files (x86)\\Google\\Application\\chrome.exe",
+		}
+		username := session.GetUsername()
+		if strings.Contains(username, "\\") {
+			username = strings.Split(username, "\\")[1]
 		}
 		for _, driveLetter := range windowsDriveLetters {
 			for _, chromePath := range chromePaths {
-				chromeExecutablePath := strings.ReplaceAll(chromePath, "[DRIVE]", string(driveLetter))
-				chromeExecutablePath = strings.ReplaceAll(chromePath, "[USERNAME]", session.GetUsername())
+				chromeExecutablePath := strings.ReplaceAll(chromePath, "[DRIVE]", driveLetter)
+				chromeExecutablePath = strings.ReplaceAll(chromeExecutablePath, "[USERNAME]", username)
 				ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
 					Request: con.ActiveTarget.Request(ctx),
 					Path:    chromeExecutablePath,
