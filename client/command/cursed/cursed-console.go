@@ -19,10 +19,10 @@ package cursed
 */
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
-	"os"
+	"io"
+	"io/ioutil"
 	"strings"
 	"text/tabwriter"
 
@@ -31,6 +31,7 @@ import (
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/overlord"
 	"github.com/desertbit/grumble"
+	"github.com/desertbit/readline"
 )
 
 func CursedConsoleCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
@@ -50,7 +51,7 @@ func CursedConsoleCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if target == nil {
 		return
 	}
-	con.PrintInfof("Connecting to '%s', use 'exit' to return ... \n", target.Title)
+	con.PrintInfof("Connecting to '%s', use 'exit' to return ... \n\n", target.Title)
 	startCursedConsole(curse, target, con)
 }
 
@@ -89,29 +90,46 @@ func selectDebugTarget(targets []overlord.ChromeDebugTarget, con *console.Sliver
 }
 
 func startCursedConsole(curse *core.CursedProcess, target *overlord.ChromeDebugTarget, con *console.SliverConsoleClient) {
-	reader := bufio.NewReader(os.Stdin)
-	text := getLine(reader, con)
-	for ; shouldContinue(text); text = getLine(reader, con) {
-		ctx, _, _ := overlord.GetChromeContext(target.WebSocketDebuggerURL, curse)
-		result, err := overlord.ExecuteJS(ctx, target.WebSocketDebuggerURL, target.ID, text)
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
+	tmpFile, _ := ioutil.TempFile("", "cursed")
+	reader, err := readline.NewEx(&readline.Config{
+		Prompt:      "\033[31mcursed »\033[0m ",
+		HistoryFile: tmpFile.Name(),
+		// AutoComplete:    nil,
+		InterruptPrompt:   "^C",
+		EOFPrompt:         "exit",
+		HistorySearchFold: true,
+		// FuncFilterInputRune: filterInput,
+	})
+	if err != nil {
+		con.PrintErrorf("Failed to create read line: %s\n", err)
+		return
+	}
+	for {
+		line, err := reader.Readline()
+		if err == readline.ErrInterrupt {
+			if len(line) == 0 {
+				break
+			} else {
+				continue
+			}
+		} else if err == io.EOF {
+			break
 		}
-		con.Println()
-		con.Printf("%s", result)
-		con.Println()
+		switch strings.TrimSpace(line) {
+		case "exit":
+			return
+		default:
+			ctx, _, _ := overlord.GetChromeContext(target.WebSocketDebuggerURL, curse)
+			result, err := overlord.ExecuteJS(ctx, target.WebSocketDebuggerURL, target.ID, line)
+			if err != nil {
+				con.PrintErrorf("%s\n", err)
+			}
+			con.Println()
+			if 0 < len(result) {
+				con.Printf("%s\n", result)
+				con.Println()
+			}
+		}
 	}
-}
 
-func getLine(r *bufio.Reader, con *console.SliverConsoleClient) string {
-	con.Printf(console.Clearln + "\rcursed-console > ")
-	t, _ := r.ReadString('\n')
-	return strings.TrimSpace(t)
-}
-
-func shouldContinue(text string) bool {
-	if strings.EqualFold("exit", text) {
-		return false
-	}
-	return true
 }
