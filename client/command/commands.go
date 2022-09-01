@@ -42,6 +42,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/command/completers"
+	"github.com/bishopfox/sliver/client/command/cursed"
 	"github.com/bishopfox/sliver/client/command/dllhijack"
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
@@ -3298,6 +3299,97 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("r", "range", "sliver", "Agents range")
 		},
 	})
-
 	con.App.AddCommand(operatorCmd)
+
+	// [ Curse Commands ] ------------------------------------------------------------
+
+	cursedCmd := &grumble.Command{
+		Name:      consts.Cursed,
+		Help:      "Chrome/electron post-exploitation tool kit (∩｀-´)⊃━☆ﾟ.*･｡ﾟ",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	}
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.RmStr,
+		Help:      "Remove a Curse from a process",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedConsole}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.Int("bind-port", "bind port of the Cursed process to stop")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedRmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.CursedConsole,
+		Help:      "Start a JavaScript console connected to a debug target",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedConsole}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("r", "remote-debugging-port", 21099, "remote debugging tcp port")
+			f.String("e", "extension-id", "", "extension id to inject into (blank string = auto)")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedConsoleCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.CursedChrome,
+		Help:      "Automatically inject a Cursed Chrome payload into a remote Chrome extension",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedChrome}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("r", "remote-debugging-port", 21099, "remote debugging tcp port")
+			f.String("i", "extension-id", "", "extension id to inject into (blank string = auto)")
+			f.String("p", "payload", "", "cursed chrome payload file path (.js)")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedChromeCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.CursedElectron,
+		Help:      "Curse a remote Electron application",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedElectron}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.String("e", "exe", "", "remote electron executable absolute path")
+			f.Int("r", "remote-debugging-port", 21099, "remote debugging tcp port")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedElectronCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	con.App.AddCommand(cursedCmd)
 }

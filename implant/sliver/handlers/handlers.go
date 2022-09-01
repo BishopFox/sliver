@@ -593,6 +593,9 @@ func executeHandler(data []byte, resp RPCResponse) {
 				Err: fmt.Sprintf("%s", err),
 			}
 		}
+		if cmd.Process != nil {
+			execResp.Pid = uint32(cmd.Process.Pid)
+		}
 	}
 	data, err = proto.Marshal(execResp)
 	resp(data, err)

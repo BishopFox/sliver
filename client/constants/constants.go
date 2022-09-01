@@ -238,6 +238,11 @@ const (
 	ConnectStr         = "connect"
 
 	ShikataGaNai = "shikata-ga-nai"
+
+	Cursed         = "cursed"
+	CursedChrome   = "chrome"
+	CursedConsole  = "console"
+	CursedElectron = "electron"
 )
 
 // Groups

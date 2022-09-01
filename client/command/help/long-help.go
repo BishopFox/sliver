@@ -103,6 +103,8 @@ var (
 		consts.ReactionStr:                         reactionHelp,
 		consts.ReactionStr + sep + consts.SetStr:   reactionSetHelp,
 		consts.ReactionStr + sep + consts.UnsetStr: reactionUnsetHelp,
+
+		consts.Cursed + sep + consts.CursedChrome: cursedChromeHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -686,6 +688,19 @@ dllhijack --reference-path c:\\windows\\system32\\msasn1.dll --reference-file /t
 
 	getPrivsHelp = `[[.Bold]]Command:[[.Normal]] getprivs
 [[.Bold]]About:[[.Normal]] Get privilege information for the current process (Windows only).
+`
+
+	cursedChromeHelp = `[[.Bold]]Command:[[.Normal]] cursed chrome
+[[.Bold]]About:[[.Normal]] Injects a Cursed Chrome payload into an existing Chrome extension.
+
+If no extension is specified, Sliver will enumerate all installed extensions, extract their
+permissions and determine a valid target for injection. For Cursed Chrome to work properly
+the target extension must have either of these two sets of permissions:
+
+1. "webRequest" "webRequestBlocking" "<all_urls>" 
+2. "webRequest" "webRequestBlocking" "http://*/*" "https://*/*" 
+
+More information: https://github.com/mandatoryprogrammer/CursedChrome
 `
 )
 
