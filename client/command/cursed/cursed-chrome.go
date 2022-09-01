@@ -58,18 +58,22 @@ func CursedChromeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	payloadPath := ctx.Flags.String("payload")
-	if payloadPath == "" {
-		con.PrintErrorf("Please specify a payload path with --payload\n")
-		return
-	}
-	payload, err := ioutil.ReadFile(payloadPath)
-	if err != nil {
-		con.PrintErrorf("Could not read payload file: %s\n", err)
-		return
+	var payload []byte
+	var err error
+	if payloadPath != "" {
+		payload, err = ioutil.ReadFile(payloadPath)
+		if err != nil {
+			con.PrintErrorf("Could not read payload file: %s\n", err)
+			return
+		}
 	}
 
 	curse := avadaKedavraChrome(session, ctx, con)
 	if curse == nil {
+		return
+	}
+	if payloadPath == "" {
+		con.PrintWarnf("No Cursed Chrome payload was specified, skipping payload injection.\n")
 		return
 	}
 
@@ -92,7 +96,6 @@ func CursedChromeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.Printf("success!\n")
 		con.PrintInfof("Found viable Chrome extension %s%s%s (%s)\n", console.Bold, chromeExt.Title, console.Normal, chromeExt.ID)
 		con.PrintInfof("Injecting payload ... ")
-
 		ctx, _, _ := overlord.GetChromeContext(chromeExt.WebSocketDebuggerURL, curse)
 		// extCtxTimeout, cancel := context.WithTimeout(ctx, 10*time.Second)
 		// defer cancel()
