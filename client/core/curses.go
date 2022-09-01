@@ -35,7 +35,7 @@ type CursedProcess struct {
 	BindTCPPort       int
 	PortFwd           *Portfwd
 	Platform          string
-	ChromeExePath     string
+	ExePath           string
 	ChromeUserDataDir string
 }
 

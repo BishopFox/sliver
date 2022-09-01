@@ -144,7 +144,7 @@ func startCursedElectronProcess(electronExe string, session *clientpb.Session, c
 
 	// Execute the Chrome process with the extra flags
 	// TODO: PPID spoofing, etc.
-	chromeExec, err := con.Rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
+	electronExec, err := con.Rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
 		Request: con.ActiveTarget.Request(ctx),
 		Path:    electronExe,
 		Args:    args,
@@ -154,9 +154,9 @@ func startCursedElectronProcess(electronExe string, session *clientpb.Session, c
 		con.Printf("failure!\n")
 		return nil, err
 	}
-	con.Printf("(pid: %d) success!\n", chromeExec.GetPid())
+	con.Printf("(pid: %d) success!\n", electronExec.GetPid())
 
-	con.PrintInfof("Waiting for Chrome process to initialize ... ")
+	con.PrintInfof("Waiting for process to initialize ... ")
 	time.Sleep(2 * time.Second)
 
 	bindPort := insecureRand.Intn(10000) + 40000
@@ -177,12 +177,12 @@ func startCursedElectronProcess(electronExe string, session *clientpb.Session, c
 	portFwd := core.Portfwds.Add(tcpProxy, channelProxy)
 
 	curse := &core.CursedProcess{
-		SessionID:     session.ID,
-		PID:           chromeExec.GetPid(),
-		PortFwd:       portFwd,
-		BindTCPPort:   bindPort,
-		Platform:      session.GetOS(),
-		ChromeExePath: electronExe,
+		SessionID:   session.ID,
+		PID:         electronExec.GetPid(),
+		PortFwd:     portFwd,
+		BindTCPPort: bindPort,
+		Platform:    session.GetOS(),
+		ExePath:     electronExe,
 	}
 	core.CursedProcesses.Store(bindPort, curse)
 	go func() {

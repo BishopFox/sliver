@@ -39,7 +39,7 @@ func CursedCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			strings.Split(curse.SessionID, "-")[0],
 			fmt.Sprintf("%d", curse.PID),
 			curse.Platform,
-			curse.ChromeExePath,
+			curse.ExePath,
 			curse.DebugURL().String(),
 		})
 		return true

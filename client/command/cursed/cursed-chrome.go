@@ -204,7 +204,7 @@ func startCursedChromeProcess(restore bool, session *clientpb.Session, ctx *grum
 		PortFwd:           portFwd,
 		BindTCPPort:       bindPort,
 		Platform:          session.GetOS(),
-		ChromeExePath:     chromeExePath,
+		ExePath:           chromeExePath,
 		ChromeUserDataDir: chromeUserDataDir,
 	}
 	core.CursedProcesses.Store(bindPort, curse)
