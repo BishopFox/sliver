@@ -3326,6 +3326,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("k", "kill", false, "kill the process after removing the curse")
 		},
 		Args: func(a *grumble.Args) {
 			a.Int("bind-port", "bind port of the Cursed process to stop")

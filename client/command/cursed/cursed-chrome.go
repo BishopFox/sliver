@@ -132,6 +132,18 @@ func avadaKedavraChrome(session *clientpb.Session, ctx *grumble.Context, con *co
 			con.PrintErrorf("User cancel\n")
 			return nil
 		}
+		terminateResp, err := con.Rpc.Terminate(context.Background(), &sliverpb.TerminateReq{
+			Request: con.ActiveTarget.Request(ctx),
+			Pid:     chromeProcess.GetPid(),
+		})
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return nil
+		}
+		if terminateResp.Response != nil && terminateResp.Response.Err != "" {
+			con.PrintErrorf("could not terminate the existing process: %s\n", terminateResp.Response.Err)
+			return nil
+		}
 	}
 	curse, err := startCursedChromeProcess(true, session, ctx, con)
 	if err != nil {
