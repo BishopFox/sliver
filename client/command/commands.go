@@ -3319,6 +3319,24 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	}
 	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.RmStr,
+		Help:      "Remove a Curse from a process",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedConsole}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.Int("bind-port", "bind port of the Cursed process to stop")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedRmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	cursedCmd.AddCommand(&grumble.Command{
 		Name:      consts.CursedConsole,
 		Help:      "Start a JavaScript console connected to a debug target",
 		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedConsole}),
@@ -3331,14 +3349,14 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			// cursed.CursedChromeCmd(ctx, con)
+			cursed.CursedConsoleCmd(ctx, con)
 			con.Println()
 			return nil
 		},
 	})
 	cursedCmd.AddCommand(&grumble.Command{
 		Name:      consts.CursedChrome,
-		Help:      "Automatically inject a Cursed Chrome payload into a remote browser instance",
+		Help:      "Automatically inject a Cursed Chrome payload into a remote browser extension",
 		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedChrome}),
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {

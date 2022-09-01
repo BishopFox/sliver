@@ -32,6 +32,7 @@ var (
 type CursedProcess struct {
 	SessionID         string
 	BindTCPPort       int
+	PortFwd           *Portfwd
 	Platform          string
 	ChromeExePath     string
 	ChromeUserDataDir string
@@ -45,11 +46,45 @@ func (c *CursedProcess) DebugURL() *url.URL {
 	}
 }
 
+func CursedProcessBySessionID(sessionID string) []*CursedProcess {
+	var cursedProcesses []*CursedProcess
+	CursedProcesses.Range(func(key, value interface{}) bool {
+		cursedProcess := value.(*CursedProcess)
+		if cursedProcess.SessionID == sessionID {
+			cursedProcesses = append(cursedProcesses, cursedProcess)
+		}
+		return true
+	})
+	return cursedProcesses
+}
+
 func CloseCursedProcesses(sessionID string) {
 	CursedProcesses.Range(func(key, value interface{}) bool {
 		cursedProcess := value.(*CursedProcess)
 		if cursedProcess.SessionID == sessionID {
-			defer CursedProcesses.Delete(key)
+			defer func() {
+				value, loaded := CursedProcesses.LoadAndDelete(key)
+				if loaded {
+					curse := value.(*CursedProcess)
+					Portfwds.Remove(curse.PortFwd.ID)
+				}
+			}()
+		}
+		return true
+	})
+}
+
+func CloseCursedProcessesByBindPort(sessionID string, bindPort int) {
+	CursedProcesses.Range(func(key, value interface{}) bool {
+		cursedProcess := value.(*CursedProcess)
+		if cursedProcess.SessionID == sessionID && cursedProcess.BindTCPPort == bindPort {
+			defer func() {
+				value, loaded := CursedProcesses.LoadAndDelete(key)
+				if loaded {
+					curse := value.(*CursedProcess)
+					Portfwds.Remove(curse.PortFwd.ID)
+				}
+			}()
 		}
 		return true
 	})

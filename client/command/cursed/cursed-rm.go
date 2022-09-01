@@ -24,11 +24,11 @@ import (
 	"github.com/desertbit/grumble"
 )
 
-func CursedStopCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func CursedRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
 	bindPort := ctx.Args.Int("bind-port")
-	core.CursedProcesses.Delete(bindPort)
+	core.CloseCursedProcessesByBindPort(session.ID, bindPort)
 }
