@@ -31,6 +31,7 @@ var (
 
 type CursedProcess struct {
 	SessionID         string
+	PID               uint32
 	BindTCPPort       int
 	PortFwd           *Portfwd
 	Platform          string

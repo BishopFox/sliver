@@ -154,11 +154,11 @@ func containsAll(haystack []string, needles []string) bool {
 func ExecuteJS(ctx context.Context, string, targetID string, jsCode string) ([]byte, error) {
 	targetInfo := findTargetInfoByID(ctx, targetID)
 	if targetInfo == nil {
-		return []byte{}, ErrTargetNotFound
+		return nil, ErrTargetNotFound
 	}
-	extensionContext, _ := chromedp.NewContext(ctx, chromedp.WithTargetID(targetInfo.TargetID))
+	extCtx, _ := chromedp.NewContext(ctx, chromedp.WithTargetID(targetInfo.TargetID))
 	var result []byte
-	err := chromedp.Run(extensionContext, chromedp.Evaluate(jsCode, &result))
+	err := chromedp.Run(extCtx, chromedp.Evaluate(jsCode, &result))
 	return result, err
 }
 

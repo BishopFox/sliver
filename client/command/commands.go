@@ -3361,7 +3361,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {
 			f.Int("r", "remote-debugging-port", 21099, "remote debugging tcp port")
-			f.String("e", "extension-id", "", "extension id to inject into (blank string = auto)")
+			f.String("i", "extension-id", "", "extension id to inject into (blank string = auto)")
 			f.String("p", "payload", "", "cursed chrome payload file path (.js)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -3369,6 +3369,24 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			cursed.CursedChromeCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.CursedElectron,
+		Help:      "Curse a remote Electron application",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedElectron}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.String("e", "exe", "", "remote electron executable path")
+			f.Int("r", "remote-debugging-port", 21099, "remote debugging tcp port")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedElectronCmd(ctx, con)
 			con.Println()
 			return nil
 		},

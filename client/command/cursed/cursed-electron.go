@@ -23,6 +23,10 @@ import (
 	"github.com/desertbit/grumble"
 )
 
-func CursedConsoleCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func CursedElectronCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	session := con.ActiveTarget.GetSessionInteractive()
+	if session == nil {
+		return
+	}
 
 }
