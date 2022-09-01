@@ -3356,7 +3356,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	})
 	cursedCmd.AddCommand(&grumble.Command{
 		Name:      consts.CursedChrome,
-		Help:      "Automatically inject a Cursed Chrome payload into a remote browser extension",
+		Help:      "Automatically inject a Cursed Chrome payload into a remote Chrome extension",
 		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedChrome}),
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {
@@ -3379,7 +3379,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedElectron}),
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {
-			f.String("e", "exe", "", "remote electron executable path")
+			f.String("e", "exe", "", "remote electron executable absolute path")
 			f.Int("r", "remote-debugging-port", 21099, "remote debugging tcp port")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
