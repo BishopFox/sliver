@@ -1,4 +1,4 @@
-package core
+package cursed
 
 /*
 	Sliver Implant Framework
@@ -19,38 +19,16 @@ package core
 */
 
 import (
-	"fmt"
-	"net/url"
-	"sync"
+	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/core"
+	"github.com/desertbit/grumble"
 )
 
-var (
-	// SessionID -> CursedProcess
-	CursedProcesses = &sync.Map{}
-)
-
-type CursedProcess struct {
-	SessionID         string
-	BindTCPPort       int
-	Platform          string
-	ChromeExePath     string
-	ChromeUserDataDir string
-}
-
-func (c *CursedProcess) DebugURL() *url.URL {
-	return &url.URL{
-		Scheme: "http",
-		Host:   fmt.Sprintf("localhost:%d", c.BindTCPPort),
-		Path:   "/json",
+func CursedStopCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	session := con.ActiveTarget.GetSessionInteractive()
+	if session == nil {
+		return
 	}
-}
-
-func CloseCursedProcesses(sessionID string) {
-	CursedProcesses.Range(func(key, value interface{}) bool {
-		cursedProcess := value.(*CursedProcess)
-		if cursedProcess.SessionID == sessionID {
-			defer CursedProcesses.Delete(key)
-		}
-		return true
-	})
+	bindPort := ctx.Args.Int("bind-port")
+	core.CursedProcesses.Delete(bindPort)
 }

@@ -108,7 +108,7 @@ func CursedChromeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	if chromeExt != nil {
 		con.Printf("success!\n")
-		con.PrintInfof("Found viable Chrome extension: %s%s%s (%s)\n", console.Bold, chromeExt.Title, console.Normal, chromeExt.ID)
+		con.PrintInfof("Found viable Chrome extension %s%s%s (%s)\n", console.Bold, chromeExt.Title, console.Normal, chromeExt.ID)
 		con.PrintInfof("Injecting payload ... ")
 
 		ctx, _, _ := overlord.GetChromeContext(chromeExt.WebSocketDebuggerURL, curse)
@@ -185,18 +185,19 @@ func startCursedChromeProcess(restore bool, session *clientpb.Session, ctx *grum
 	core.Portfwds.Add(tcpProxy, channelProxy)
 
 	curse := &core.CursedProcess{
+		SessionID:         session.ID,
 		BindTCPPort:       bindPort,
 		Platform:          session.GetOS(),
 		ChromeExePath:     chromeExePath,
 		ChromeUserDataDir: chromeUserDataDir,
 	}
-	core.CursedProcesses.Store(session.ID, curse)
+	core.CursedProcesses.Store(bindPort, curse)
 	go func() {
 		err := tcpProxy.Run()
 		if err != nil {
 			log.Printf("Proxy error %s", err)
 		}
-		core.CursedProcesses.Delete(session.ID)
+		core.CursedProcesses.Delete(bindPort)
 	}()
 
 	con.PrintInfof("Port forwarding %s -> %s\n", bindAddr, remoteAddr)

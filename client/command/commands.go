@@ -3313,7 +3313,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			con.Println("You must specify a subcommand, see --help for options")
+			cursed.CursedCmd(ctx, con)
 			con.Println()
 			return nil
 		},
