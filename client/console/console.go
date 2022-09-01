@@ -216,6 +216,7 @@ func (con *SliverConsoleClient) EventLoop() {
 				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 			activeSession := con.ActiveTarget.GetSession()
 			core.GetTunnels().CloseForSession(session.ID)
+			core.CloseCursedProcesses(session.ID)
 			if activeSession != nil && activeSession.ID == session.ID {
 				con.ActiveTarget.Set(nil, nil)
 				con.PrintEventErrorf("Active session disconnected")

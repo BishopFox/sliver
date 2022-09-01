@@ -19,6 +19,7 @@ package reaction
 */
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -29,9 +30,10 @@ import (
 
 // ReactionSaveCmd - Manage reactions to events
 func ReactionSaveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	if _, err := os.Stat(GetReactionFilePath()); !os.IsNotExist(err) {
+	reactionPath := GetReactionFilePath()
+	if _, err := os.Stat(reactionPath); !os.IsNotExist(err) {
 		confirm := false
-		prompt := &survey.Confirm{Message: "Overwrite reactions on disk?"}
+		prompt := &survey.Confirm{Message: fmt.Sprintf("Overwrite reactions (%s) on disk?", reactionPath)}
 		survey.AskOne(prompt, &confirm)
 		if !confirm {
 			return
@@ -41,6 +43,6 @@ func ReactionSaveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 	} else {
-		con.PrintInfof("Saved reactions to disk\n")
+		con.PrintInfof("Saved reactions to disk (%s)\n", reactionPath)
 	}
 }

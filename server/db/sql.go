@@ -19,6 +19,7 @@ package db
 */
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/bishopfox/sliver/server/configs"
@@ -45,6 +46,8 @@ func newDBClient() *gorm.DB {
 		dbClient = postgresClient(dbConfig)
 	case configs.MySQL:
 		dbClient = mySQLClient(dbConfig)
+	default:
+		panic(fmt.Sprintf("Unknown DB Dialect: '%s'", dbConfig.Dialect))
 	}
 
 	err := dbClient.AutoMigrate(
