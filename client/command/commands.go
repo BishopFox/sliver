@@ -3344,7 +3344,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {
 			f.Int("r", "remote-debugging-port", 21099, "remote debugging tcp port")
-			f.String("e", "extension-id", "", "extension id to inject into (blank string = auto)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
