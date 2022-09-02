@@ -243,6 +243,7 @@ const (
 	CursedChrome   = "chrome"
 	CursedConsole  = "console"
 	CursedElectron = "electron"
+	CursedEdge     = "edge"
 )
 
 // Groups
