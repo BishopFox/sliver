@@ -281,6 +281,10 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	if targetOS == "" || targetArch == "" {
 		return nil
 	}
+	if configFormat == clientpb.OutputFormat_SHELLCODE && targetOS != "windows" {
+		con.PrintErrorf("Shellcode format is currently only supported on Windows\n")
+		return nil
+	}
 	if len(namedPipeC2) > 0 && targetOS != "windows" {
 		con.PrintErrorf("Named pipe pivoting can only be used in Windows.")
 		return nil
