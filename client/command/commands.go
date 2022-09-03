@@ -3344,7 +3344,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {
 			f.Int("r", "remote-debugging-port", 21099, "remote debugging tcp port")
-			f.String("e", "extension-id", "", "extension id to inject into (blank string = auto)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -3362,7 +3361,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {
 			f.Int("r", "remote-debugging-port", 21099, "remote debugging tcp port")
-			f.String("i", "extension-id", "", "extension id to inject into (blank string = auto)")
+			f.Bool("R", "restore", true, "restore the user's session after process termination")
+			f.String("e", "exe", "", "chrome/chromium browser executable path (blank string = auto)")
+			f.String("u", "user-data", "", "user data directory (blank string = auto)")
 			f.String("p", "payload", "", "cursed chrome payload file path (.js)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -3370,6 +3371,27 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			cursed.CursedChromeCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.CursedEdge,
+		Help:      "Automatically inject a Cursed Chrome payload into a remote Edge extension",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedEdge}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("r", "remote-debugging-port", 21099, "remote debugging tcp port")
+			f.Bool("R", "restore", true, "restore the user's session after process termination")
+			f.String("e", "exe", "", "edge browser executable path (blank string = auto)")
+			f.String("u", "user-data", "", "user data directory (blank string = auto)")
+			f.String("p", "payload", "", "cursed chrome payload file path (.js)")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedEdgeCmd(ctx, con)
 			con.Println()
 			return nil
 		},
