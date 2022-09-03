@@ -109,24 +109,29 @@ func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 		Data: portfwdResp,
 	}
 
-	once := &sync.Once{}
+	once := sync.Once{}
 	cleanup := func(reason error) {
 		once.Do(func() {
 			// {{if .Config.Debug}}
 			log.Printf("[portfwd] Closing tunnel %d (%s)", tunnel.ID, reason)
 			// {{end}}
-			tunnel := connection.Tunnel(tunnel.ID)
+			cleanupTunnel := connection.Tunnel(tunnel.ID)
+			if cleanupTunnel == nil {
+				return
+			}
 
 			tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
 				Closed:   true,
-				TunnelID: tunnel.ID,
+				TunnelID: cleanupTunnel.ID,
 			})
 			connection.Send <- &sliverpb.Envelope{
 				Type: sliverpb.MsgTunnelClose,
 				Data: tunnelClose,
 			}
-			connection.RemoveTunnel(tunnel.ID)
-			dst.Close()
+			connection.RemoveTunnel(cleanupTunnel.ID)
+			if dst != nil {
+				dst.Close()
+			}
 			cancelContext()
 		})
 	}
