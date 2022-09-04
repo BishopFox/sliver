@@ -477,6 +477,7 @@ func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 				return nil, err
 			}
 		}
+		uri.Path = strings.TrimSuffix(uri.Path, "/")
 		if uri.Scheme != "http" && uri.Scheme != "https" {
 			return nil, fmt.Errorf("invalid http(s) scheme: %s", uri.Scheme)
 		}
