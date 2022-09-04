@@ -14,37 +14,27 @@ func TasksCancelCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if beacon == nil {
 		return
 	}
-	beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-		return
-	}
-	tasks := beaconTasks.Tasks
-	if len(tasks) == 0 {
-		con.PrintErrorf("No tasks for beacon\n")
-		return
-	}
 
 	idArg := ctx.Args.String("id")
-	if idArg != "" {
-		tasks = filterTasksByID(idArg, tasks)
-		if len(tasks) == 0 {
-			con.PrintErrorf("No beacon task found with id %s\n", idArg)
-			return
-		}
-	}
-
-	filter := ctx.Flags.String("filter")
-	if filter != "" {
-		tasks = filterTasksByTaskType(filter, tasks)
-		if len(tasks) == 0 {
-			con.PrintErrorf("No beacon tasks with filter type '%s'\n", filter)
-			return
-		}
-	}
-
 	var task *clientpb.BeaconTask
-	if 1 < len(tasks) {
+	var err error
+	if idArg == "" {
+		beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		tasks := []*clientpb.BeaconTask{}
+		for _, task := range beaconTasks.Tasks {
+			if task.State == "pending" {
+				tasks = append(tasks, task)
+			}
+		}
+		if len(tasks) == 0 {
+			con.PrintErrorf("No pending tasks for beacon\n")
+			return
+		}
+
 		task, err = SelectBeaconTask(tasks)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
@@ -52,7 +42,11 @@ func TasksCancelCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		}
 		con.Printf(console.UpN+console.Clearln, 1)
 	} else {
-		task = tasks[0]
+		task, err = con.Rpc.GetBeaconTaskContent(context.Background(), &clientpb.BeaconTask{ID: idArg})
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
 	}
 
 	if task != nil {
@@ -61,6 +55,6 @@ func TasksCancelCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
-		con.PrintInfof("Task %d canceled\n", task.ID)
+		con.PrintInfof("Task %s canceled\n", task.ID)
 	}
 }
