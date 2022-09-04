@@ -3397,6 +3397,24 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	})
 	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.ScreenshotStr,
+		Help:      "Take a screenshot of a cursed process debug target",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.ScreenshotStr}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int64("q", "quality", 100, "screenshot quality (1 - 100)")
+			f.String("s", "save", "", "save to file")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedScreenshotCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	cursedCmd.AddCommand(&grumble.Command{
 		Name:      consts.CursedElectron,
 		Help:      "Curse a remote Electron application",
 		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedElectron}),
