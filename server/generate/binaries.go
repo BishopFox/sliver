@@ -255,6 +255,9 @@ func GetSliversDir() string {
 
 // SliverShellcode - Generates a sliver shellcode using Donut
 func SliverShellcode(name string, config *models.ImplantConfig) (string, error) {
+	if config.GOOS != "windows" {
+		return "", fmt.Errorf("Shellcode format is currently only supported on Windows")
+	}
 	appDir := assets.GetRootAppDir()
 	goConfig := &gogo.GoConfig{
 		CGO: "0",
