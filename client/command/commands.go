@@ -717,6 +717,28 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
+	tasksCmd.AddCommand(&grumble.Command{
+		Name:     consts.CancelStr,
+		Help:     "Cancel a pending beacon task",
+		LongHelp: help.GetHelpFor([]string{consts.TasksStr, consts.CancelStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("O", "overflow", false, "overflow terminal width (display truncated rows)")
+			f.Int("S", "skip-pages", 0, "skip the first n page(s)")
+			f.String("f", "filter", "", "filter based on task type (case-insensitive prefix matching)")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("id", "beacon task ID", grumble.Default(""))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			tasks.TasksCancelCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 	con.App.AddCommand(tasksCmd)
 
 	// [ Use ] --------------------------------------------------------------

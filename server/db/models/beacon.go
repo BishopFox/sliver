@@ -112,6 +112,7 @@ const (
 	PENDING   = "pending"
 	SENT      = "sent"
 	COMPLETED = "completed"
+	CANCELED  = "canceled"
 )
 
 type BeaconTask struct {
