@@ -29,6 +29,7 @@ service SliverRPC {
     rpc RmBeacon(clientpb.Beacon) returns (commonpb.Empty);
     rpc GetBeaconTasks(clientpb.Beacon) returns (clientpb.BeaconTasks);
     rpc GetBeaconTaskContent(clientpb.BeaconTask) returns (clientpb.BeaconTask);
+    rpc CancelBeaconTask(clientpb.BeaconTask) returns (clientpb.BeaconTask);
 
     // ***Threat monitoring ***
     rpc MonitorStart(commonpb.Empty) returns (commonpb.Response);

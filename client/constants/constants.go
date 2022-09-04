@@ -104,6 +104,7 @@ const (
 	ReconfigStr     = "reconfig"
 	PruneStr        = "prune"
 	TasksStr        = "tasks"
+	CancelStr       = "cancel"
 	GenerateStr     = "generate"
 	RegenerateStr   = "regenerate"
 	CompilerInfoStr = "info"
