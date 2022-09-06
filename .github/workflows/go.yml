@@ -1,7 +1,7 @@
 name: Build & Test
 on:
   push:
-    branches: 
+    branches:
       - test/*
   pull_request:
     branches:
@@ -13,70 +13,67 @@ on:
       - ready_for_review
 
 jobs:
-
   linux-windows-build:
     name: Linux & Windows Build
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
+      - name: Go 1.19
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.19.1"
 
-    - name: Go 1.18
-      uses: actions/setup-go@v3
-      with:
-        go-version: '1.18.6'
-    
-    - name: OS Packages 
-      run: |
-        sudo apt-get update --fix-missing && sudo apt-get -y install \
-        git build-essential zlib1g zlib1g-dev wget zip unzip \
-        mingw-w64 binutils-mingw-w64 g++-mingw-w64 gcc-multilib
+      - name: OS Packages
+        run: |
+          sudo apt-get update --fix-missing && sudo apt-get -y install \
+          git build-essential zlib1g zlib1g-dev wget zip unzip \
+          mingw-w64 binutils-mingw-w64 g++-mingw-w64 gcc-multilib
 
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v3
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
 
-    - name: Git Fetch Tags
-      run: git fetch --prune --unshallow --tags -f
+      - name: Git Fetch Tags
+        run: git fetch --prune --unshallow --tags -f
 
-    - name: Go Assets
-      run: ./go-assets.sh
+      - name: Go Assets
+        run: ./go-assets.sh
 
-    - name: Make
-      run: make linux
+      - name: Make
+        run: make linux
 
-    - name: Test
-      run: ./sliver-server unpack --force && ./go-tests.sh
+      - name: Test
+        run: ./sliver-server unpack --force && ./go-tests.sh
 
-    - name: Make Windows
-      run: make windows
-  
+      - name: Make Windows
+        run: make windows
+
   macos-build:
     name: MacOS Build
     runs-on: macos-latest
     timeout-minutes: 90
     steps:
+      - name: Go 1.19
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.19.1"
 
-    - name: Go 1.18
-      uses: actions/setup-go@v3
-      with:
-        go-version: '1.18.6'
+      - name: Mingw
+        run: brew install mingw-w64
 
-    - name: Mingw
-      run: brew install mingw-w64
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
 
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v3
+      - name: Git Fetch Tags
+        run: git fetch --prune --unshallow --tags -f
 
-    - name: Git Fetch Tags
-      run: git fetch --prune --unshallow --tags -f
+      - name: Go Assets
+        run: ./go-assets.sh
 
-    - name: Go Assets
-      run: ./go-assets.sh
+      - name: Make
+        run: make macos
 
-    - name: Make
-      run: make macos
-
-    - name: Test
-      env:
-        SLIVER_CC_32: /usr/local/bin/i686-w64-mingw32-gcc
-        SLIVER_CC_64: /usr/local/bin/x86_64-w64-mingw32-gcc
-      run: ./sliver-server unpack --force && ./go-tests.sh
+      - name: Test
+        env:
+          SLIVER_CC_32: /usr/local/bin/i686-w64-mingw32-gcc
+          SLIVER_CC_64: /usr/local/bin/x86_64-w64-mingw32-gcc
+        run: ./sliver-server unpack --force && ./go-tests.sh

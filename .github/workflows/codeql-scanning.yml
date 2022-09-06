@@ -17,10 +17,10 @@ jobs:
 
     steps:
       # Setup go environment
-      - name: Go 1.18
+      - name: Go 1.19
         uses: actions/setup-go@v3
         with:
-          go-version: "1.18.6"
+          go-version: "1.19.1"
 
       - name: Checkout repository
         uses: actions/checkout@v3
