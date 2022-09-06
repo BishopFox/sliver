@@ -33,6 +33,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/bits"
 	"reflect"
 	"strconv"
@@ -44,8 +45,13 @@ import (
 	"gvisor.dev/gvisor/pkg/waiter"
 )
 
-// Using header.IPv4AddressSize would cause an import cycle.
-const ipv4AddressSize = 4
+// Using the header package here would cause an import cycle.
+const (
+	ipv4AddressSize    = 4
+	ipv4ProtocolNumber = 0x0800
+	ipv6AddressSize    = 16
+	ipv6ProtocolNumber = 0x86dd
+)
 
 // Errors related to Subnet
 var (
@@ -69,6 +75,17 @@ func (e *ErrSaveRejection) Error() string {
 // +stateify savable
 type MonotonicTime struct {
 	nanoseconds int64
+}
+
+// String implements Stringer.
+func (mt MonotonicTime) String() string {
+	return strconv.FormatInt(mt.nanoseconds, 10)
+}
+
+// MonotonicTimeInfinite returns the monotonic timestamp as far away in the
+// future as possible.
+func MonotonicTimeInfinite() MonotonicTime {
+	return MonotonicTime{nanoseconds: math.MaxInt64}
 }
 
 // Before reports whether the monotonic clock reading mt is before u.
@@ -416,13 +433,34 @@ func (l *LimitedWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-// A ControlMessages contains socket control messages for IP sockets.
+// SendableControlMessages contains socket control messages that can be written.
 //
 // +stateify savable
-type ControlMessages struct {
-	// HasTimestamp indicates whether Timestamp is valid/set.
-	HasTimestamp bool
+type SendableControlMessages struct {
+	// HasTTL indicates whether TTL is valid/set.
+	HasTTL bool
 
+	// TTL is the IPv4 Time To Live of the associated packet.
+	TTL uint8
+
+	// HasHopLimit indicates whether HopLimit is valid/set.
+	HasHopLimit bool
+
+	// HopLimit is the IPv6 Hop Limit of the associated packet.
+	HopLimit uint8
+
+	// HasIPv6PacketInfo indicates whether IPv6PacketInfo is set.
+	HasIPv6PacketInfo bool
+
+	// IPv6PacketInfo holds interface and address data on an incoming packet.
+	IPv6PacketInfo IPv6PacketInfo
+}
+
+// ReceivableControlMessages contains socket control messages that can be
+// received.
+//
+// +stateify savable
+type ReceivableControlMessages struct {
 	// Timestamp is the time that the last packet used to create the read data
 	// was received.
 	Timestamp time.Time `state:".(int64)"`
@@ -433,11 +471,26 @@ type ControlMessages struct {
 	// Inq is the number of bytes ready to be received.
 	Inq int32
 
-	// HasTOS indicates whether Tos is valid/set.
+	// HasTOS indicates whether TOS is valid/set.
 	HasTOS bool
 
 	// TOS is the IPv4 type of service of the associated packet.
 	TOS uint8
+
+	// HasTTL indicates whether TTL is valid/set.
+	HasTTL bool
+
+	// TTL is the IPv4 Time To Live of the associated packet.
+	TTL uint8
+
+	// HasHopLimit indicates whether HopLimit is valid/set.
+	HasHopLimit bool
+
+	// HopLimit is the IPv6 Hop Limit of the associated packet.
+	HopLimit uint8
+
+	// HasTimestamp indicates whether Timestamp is valid/set.
+	HasTimestamp bool
 
 	// HasTClass indicates whether TClass is valid/set.
 	HasTClass bool
@@ -502,7 +555,7 @@ type ReadResult struct {
 	Total int
 
 	// ControlMessages is the control messages received.
-	ControlMessages ControlMessages
+	ControlMessages ReceivableControlMessages
 
 	// RemoteAddr is the remote address if ReadOptions.NeedAddr is true.
 	RemoteAddr FullAddress
@@ -646,6 +699,16 @@ type Endpoint interface {
 	SocketOptions() *SocketOptions
 }
 
+// EndpointWithPreflight is the interface implemented by endpoints that need
+// to expose the `Preflight` method for preparing the endpoint prior to
+// calling `Write`.
+type EndpointWithPreflight interface {
+	// Prepares the endpoint for writes using the provided WriteOptions,
+	// returning an error if the options were incompatible with the endpoint's
+	// current state.
+	Preflight(WriteOptions) Error
+}
+
 // LinkPacketInfo holds Link layer information for a received packet.
 //
 // +stateify savable
@@ -687,6 +750,9 @@ type WriteOptions struct {
 	// endpoint. If Atomic is false, then data fetched from the Payloader may be
 	// discarded if available endpoint buffer space is unsufficient.
 	Atomic bool
+
+	// ControlMessages contains optional overrides used when writing a packet.
+	ControlMessages SendableControlMessages
 }
 
 // SockOptInt represents socket options which values have the int type.
@@ -731,12 +797,19 @@ const (
 	// number of unread bytes in the output buffer should be returned.
 	SendQueueSizeOption
 
-	// TTLOption is used by SetSockOptInt/GetSockOptInt to control the
-	// default TTL/hop limit value for unicast messages. The default is
-	// protocol specific.
+	// IPv4TTLOption is used by SetSockOptInt/GetSockOptInt to control the default
+	// TTL value for unicast messages.
 	//
-	// A zero value indicates the default.
-	TTLOption
+	// The default is configured by DefaultTTLOption. A UseDefaultIPv4TTL value
+	// configures the endpoint to use the default.
+	IPv4TTLOption
+
+	// IPv6HopLimitOption is used by SetSockOptInt/GetSockOptInt to control the
+	// default hop limit value for unicast messages.
+	//
+	// The default is configured by DefaultTTLOption. A UseDefaultIPv6HopLimit
+	// value configures the endpoint to use the default.
+	IPv6HopLimitOption
 
 	// TCPSynCountOption is used by SetSockOptInt/GetSockOptInt to specify
 	// the number of SYN retransmits that TCP should send before aborting
@@ -750,6 +823,22 @@ const (
 	//
 	// NOTE: This option is currently only stubed out and is a no-op
 	TCPWindowClampOption
+
+	// IPv6Checksum is used to request the stack to populate and validate the IPv6
+	// checksum for transport level headers.
+	IPv6Checksum
+)
+
+const (
+	// UseDefaultIPv4TTL is the IPv4TTLOption value that configures an endpoint to
+	// use the default ttl currently configured by the IPv4 protocol (see
+	// DefaultTTLOption).
+	UseDefaultIPv4TTL = 0
+
+	// UseDefaultIPv6HopLimit is the IPv6HopLimitOption value that configures an
+	// endpoint to use the default hop limit currently configured by the IPv6
+	// protocol (see DefaultTTLOption).
+	UseDefaultIPv6HopLimit = -1
 )
 
 const (
@@ -896,6 +985,29 @@ type GettableSocketOption interface {
 type SettableSocketOption interface {
 	isSettableSocketOption()
 }
+
+// ICMPv6Filter specifes a filter for ICMPv6 types.
+//
+// +stateify savable
+type ICMPv6Filter struct {
+	// DenyType indicates if an ICMP type should be blocked.
+	//
+	// The ICMPv6 type field is 8 bits so there are up to 256 different ICMPv6
+	// types.
+	DenyType [8]uint32
+}
+
+// ShouldDeny returns true iff the ICMPv6 Type should be denied.
+func (f *ICMPv6Filter) ShouldDeny(icmpType uint8) bool {
+	const bitsInUint32 = 32
+	i := icmpType / bitsInUint32
+	b := icmpType % bitsInUint32
+	return f.DenyType[i]&(1<<b) != 0
+}
+
+func (*ICMPv6Filter) isGettableSocketOption() {}
+
+func (*ICMPv6Filter) isSettableSocketOption() {}
 
 // EndpointState represents the state of an endpoint.
 type EndpointState uint8
@@ -1272,7 +1384,7 @@ type NetworkProtocolNumber uint32
 //
 // +stateify savable
 type StatCounter struct {
-	count atomicbitops.AlignedAtomicUint64
+	count atomicbitops.Uint64
 }
 
 // Increment adds one to the counter.
@@ -1301,7 +1413,8 @@ func (s *StatCounter) String() string {
 
 // A MultiCounterStat keeps track of two counters at once.
 type MultiCounterStat struct {
-	a, b *StatCounter
+	a *StatCounter
+	b *StatCounter
 }
 
 // Init sets both internal counters to point to a and b.
@@ -1613,11 +1726,24 @@ type IPForwardingStats struct {
 	// header.
 	ExtensionHeaderProblem *StatCounter
 
+	// UnexpectedMulticastInputInterface is the number of multicast packets that
+	// were received on an interface that did not match the corresponding route's
+	// expected input interface.
+	UnexpectedMulticastInputInterface *StatCounter
+
+	// UnknownOutputEndpoint is the number of packets that could not be forwarded
+	// because the output endpoint could not be found.
+	UnknownOutputEndpoint *StatCounter
+
+	// NoMulticastPendingQueueBufferSpace is the number of multicast packets that
+	// were dropped due to insufficent buffer space in the pending packet queue.
+	NoMulticastPendingQueueBufferSpace *StatCounter
+
 	// Errors is the number of IP packets received which could not be
 	// successfully forwarded.
 	Errors *StatCounter
 
-	// LINT.ThenChange(network/internal/ip/stats.go:multiCounterIPForwardingStats)
+	// LINT.ThenChange(network/internal/ip/stats.go:MultiCounterIPForwardingStats)
 }
 
 // IPStats collects IP-specific stats (both v4 and v6).
@@ -1869,6 +1995,9 @@ type TCPStats struct {
 	// SpuriousRecovery is the number of times the connection entered loss
 	// recovery spuriously.
 	SpuriousRecovery *StatCounter
+
+	// SpuriousRTORecovery is the number of spurious RTOs.
+	SpuriousRTORecovery *StatCounter
 }
 
 // UDPStats collects UDP-specific stats.
@@ -1923,17 +2052,89 @@ type NICPacketStats struct {
 	// LINT.ThenChange(stack/nic_stats.go:multiCounterNICPacketStats)
 }
 
+// IntegralStatCounterMap holds a map associating integral keys with
+// StatCounters.
+type IntegralStatCounterMap struct {
+	mu sync.RWMutex
+	// +checklocks:mu
+	counterMap map[uint64]*StatCounter
+}
+
+// Keys returns all keys present in the map.
+func (m *IntegralStatCounterMap) Keys() []uint64 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var keys []uint64
+	for k := range m.counterMap {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+// Get returns the counter mapped by the provided key.
+func (m *IntegralStatCounterMap) Get(key uint64) (*StatCounter, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	counter, ok := m.counterMap[key]
+	return counter, ok
+}
+
+// Init initializes the map.
+func (m *IntegralStatCounterMap) Init() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.counterMap = make(map[uint64]*StatCounter)
+}
+
+// Increment increments the counter associated with the provided key.
+func (m *IntegralStatCounterMap) Increment(key uint64) {
+	m.mu.RLock()
+	counter, ok := m.counterMap[key]
+	m.mu.RUnlock()
+
+	if !ok {
+		m.mu.Lock()
+		counter, ok = m.counterMap[key]
+		if !ok {
+			counter = new(StatCounter)
+			m.counterMap[key] = counter
+		}
+		m.mu.Unlock()
+	}
+	counter.Increment()
+}
+
+// A MultiIntegralStatCounterMap keeps track of two integral counter maps at
+// once.
+type MultiIntegralStatCounterMap struct {
+	a *IntegralStatCounterMap
+	b *IntegralStatCounterMap
+}
+
+// Init sets the internal integral counter maps to point to a and b.
+func (m *MultiIntegralStatCounterMap) Init(a, b *IntegralStatCounterMap) {
+	m.a = a
+	m.b = b
+}
+
+// Increment increments the counter in each map corresponding to the
+// provided key.
+func (m *MultiIntegralStatCounterMap) Increment(key uint64) {
+	m.a.Increment(key)
+	m.b.Increment(key)
+}
+
 // NICStats holds NIC statistics.
 type NICStats struct {
 	// LINT.IfChange(NICStats)
 
-	// UnknownL3ProtocolRcvdPackets is the number of packets received that were
-	// for an unknown or unsupported network protocol.
-	UnknownL3ProtocolRcvdPackets *StatCounter
+	// UnknownL3ProtocolRcvdPacketCounts records the number of packets recieved
+	// for each unknown or unsupported netowrk protocol number.
+	UnknownL3ProtocolRcvdPacketCounts *IntegralStatCounterMap
 
-	// UnknownL4ProtocolRcvdPackets is the number of packets received that were
-	// for an unknown or unsupported transport protocol.
-	UnknownL4ProtocolRcvdPackets *StatCounter
+	// UnknownL4ProtocolRcvdPacketCounts records the number of packets recieved
+	// for each unknown or unsupported transport protocol number.
+	UnknownL4ProtocolRcvdPacketCounts *IntegralStatCounterMap
 
 	// MalformedL4RcvdPackets is the number of packets received by a NIC that
 	// could not be delivered to a transport endpoint because the L4 header could
@@ -1942,6 +2143,13 @@ type NICStats struct {
 
 	// Tx contains statistics about transmitted packets.
 	Tx NICPacketStats
+
+	// TxPacketsDroppedNoBufferSpace is the number of packets dropepd due to the
+	// NIC not having enough buffer space to send the packet.
+	//
+	// Packets may be dropped with a no buffer space error when the device TX
+	// queue is full.
+	TxPacketsDroppedNoBufferSpace *StatCounter
 
 	// Rx contains statistics about received packets.
 	Rx NICPacketStats
@@ -2103,6 +2311,11 @@ func InitStatCounters(v reflect.Value) {
 			if *s == nil {
 				*s = new(StatCounter)
 			}
+		} else if s, ok := v.Addr().Interface().(**IntegralStatCounterMap); ok {
+			if *s == nil {
+				*s = new(IntegralStatCounterMap)
+				(*s).Init()
+			}
 		} else {
 			InitStatCounters(v)
 		}
@@ -2115,12 +2328,10 @@ func (s Stats) FillIn() Stats {
 	return s
 }
 
-// Clone returns a copy of the TransportEndpointStats by atomically reading
-// each field.
-func (src *TransportEndpointStats) Clone() TransportEndpointStats {
-	var dst TransportEndpointStats
-	clone(reflect.ValueOf(&dst).Elem(), reflect.ValueOf(src).Elem())
-	return dst
+// Clone clones a copy of the TransportEndpointStats into dst by atomically
+// reading each field.
+func (src *TransportEndpointStats) Clone(dst *TransportEndpointStats) {
+	clone(reflect.ValueOf(dst).Elem(), reflect.ValueOf(src).Elem())
 }
 
 func clone(dst reflect.Value, src reflect.Value) {
@@ -2328,6 +2539,18 @@ func GetDanglingEndpoints() []Endpoint {
 	}
 	danglingEndpointsMu.Unlock()
 	return es
+}
+
+// ReleaseDanglingEndpoints clears out all all reference counted objects held by
+// dangling endpoints.
+func ReleaseDanglingEndpoints() {
+	// Get the dangling endpoints first to avoid locking around Release(), which
+	// can cause a lock inversion with endpoint.mu and danglingEndpointsMu.
+	// Calling Release on a dangling endpoint that has been deleted is a noop.
+	eps := GetDanglingEndpoints()
+	for _, ep := range eps {
+		ep.Abort()
+	}
 }
 
 // AddDanglingEndpoint adds a dangling endpoint.

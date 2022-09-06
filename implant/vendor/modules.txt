@@ -12,7 +12,7 @@ github.com/BurntSushi/xgb
 github.com/BurntSushi/xgb/shm
 github.com/BurntSushi/xgb/xinerama
 github.com/BurntSushi/xgb/xproto
-# github.com/Microsoft/go-winio v0.5.0
+# github.com/Microsoft/go-winio v0.5.1
 ## explicit; go 1.12
 github.com/Microsoft/go-winio/pkg/guid
 # github.com/Ne0nd0g/go-clr v1.0.2
@@ -93,8 +93,8 @@ golang.org/x/crypto/salsa20/salsa
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
-# golang.org/x/mod v0.4.2
-## explicit; go 1.12
+# golang.org/x/mod v0.5.1
+## explicit; go 1.17
 golang.org/x/mod/semver
 # golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 ## explicit; go 1.17
@@ -126,7 +126,7 @@ golang.org/x/text/transform
 # golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.1.7
+# golang.org/x/tools v0.1.9
 ## explicit; go 1.17
 golang.org/x/tools/go/gcexportdata
 golang.org/x/tools/go/internal/gcimporter
@@ -159,7 +159,7 @@ golang.zx2c4.com/wireguard/replay
 golang.zx2c4.com/wireguard/rwcancel
 golang.zx2c4.com/wireguard/tai64n
 golang.zx2c4.com/wireguard/tun
-# google.golang.org/protobuf v1.26.0
+# google.golang.org/protobuf v1.27.1
 ## explicit; go 1.9
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
@@ -189,29 +189,35 @@ google.golang.org/protobuf/runtime/protoimpl
 # gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 ## explicit
 gopkg.in/yaml.v3
-# gvisor.dev/gvisor v0.0.0-20211020211948-f76a604701b6
-## explicit; go 1.16
+# gvisor.dev/gvisor v0.0.0-20220817001344-846276b3dbc5
+## explicit; go 1.17
 gvisor.dev/gvisor/pkg/atomicbitops
-gvisor.dev/gvisor/pkg/buffer
+gvisor.dev/gvisor/pkg/bits
+gvisor.dev/gvisor/pkg/bufferv2
+gvisor.dev/gvisor/pkg/context
+gvisor.dev/gvisor/pkg/cpuid
 gvisor.dev/gvisor/pkg/gohacks
 gvisor.dev/gvisor/pkg/goid
 gvisor.dev/gvisor/pkg/linewriter
 gvisor.dev/gvisor/pkg/log
 gvisor.dev/gvisor/pkg/rand
+gvisor.dev/gvisor/pkg/refs
+gvisor.dev/gvisor/pkg/refsvfs2
 gvisor.dev/gvisor/pkg/sleep
 gvisor.dev/gvisor/pkg/state
 gvisor.dev/gvisor/pkg/state/wire
 gvisor.dev/gvisor/pkg/sync
 gvisor.dev/gvisor/pkg/tcpip
 gvisor.dev/gvisor/pkg/tcpip/adapters/gonet
-gvisor.dev/gvisor/pkg/tcpip/buffer
 gvisor.dev/gvisor/pkg/tcpip/hash/jenkins
 gvisor.dev/gvisor/pkg/tcpip/header
 gvisor.dev/gvisor/pkg/tcpip/header/parse
 gvisor.dev/gvisor/pkg/tcpip/internal/tcp
+gvisor.dev/gvisor/pkg/tcpip/link/channel
 gvisor.dev/gvisor/pkg/tcpip/network/hash
 gvisor.dev/gvisor/pkg/tcpip/network/internal/fragmentation
 gvisor.dev/gvisor/pkg/tcpip/network/internal/ip
+gvisor.dev/gvisor/pkg/tcpip/network/internal/multicast
 gvisor.dev/gvisor/pkg/tcpip/network/ipv4
 gvisor.dev/gvisor/pkg/tcpip/network/ipv6
 gvisor.dev/gvisor/pkg/tcpip/ports

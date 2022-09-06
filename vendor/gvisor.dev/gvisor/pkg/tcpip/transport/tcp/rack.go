@@ -113,7 +113,7 @@ func (rc *rackControl) update(seg *segment, ackSeg *segment) {
 	// Update rc.xmitTime and rc.endSequence to the transmit time and
 	// ending sequence number of the packet which has been acknowledged
 	// most recently.
-	endSeq := seg.sequenceNumber.Add(seqnum.Size(seg.data.Size()))
+	endSeq := seg.sequenceNumber.Add(seqnum.Size(seg.payloadSize()))
 	if rc.XmitTime.Before(seg.xmitTime) || (seg.xmitTime == rc.XmitTime && rc.EndSequence.LessThan(endSeq)) {
 		rc.XmitTime = seg.xmitTime
 		rc.EndSequence = endSeq
@@ -122,17 +122,17 @@ func (rc *rackControl) update(seg *segment, ackSeg *segment) {
 
 // detectReorder detects if packet reordering has been observed.
 // See: https://tools.ietf.org/html/draft-ietf-tcpm-rack-08#section-7.2
-// * Step 3: Detect data segment reordering.
-//   To detect reordering, the sender looks for original data segments being
-//   delivered out of order. To detect such cases, the sender tracks the
-//   highest sequence selectively or cumulatively acknowledged in the RACK.fack
-//   variable. The name "fack" stands for the most "Forward ACK" (this term is
-//   adopted from [FACK]). If a never retransmitted segment that's below
-//   RACK.fack is (selectively or cumulatively) acknowledged, it has been
-//   delivered out of order. The sender sets RACK.reord to TRUE if such segment
-//   is identified.
+//   - Step 3: Detect data segment reordering.
+//     To detect reordering, the sender looks for original data segments being
+//     delivered out of order. To detect such cases, the sender tracks the
+//     highest sequence selectively or cumulatively acknowledged in the RACK.fack
+//     variable. The name "fack" stands for the most "Forward ACK" (this term is
+//     adopted from [FACK]). If a never retransmitted segment that's below
+//     RACK.fack is (selectively or cumulatively) acknowledged, it has been
+//     delivered out of order. The sender sets RACK.reord to TRUE if such segment
+//     is identified.
 func (rc *rackControl) detectReorder(seg *segment) {
-	endSeq := seg.sequenceNumber.Add(seqnum.Size(seg.data.Size()))
+	endSeq := seg.sequenceNumber.Add(seqnum.Size(seg.payloadSize()))
 	if rc.FACK.LessThan(endSeq) {
 		rc.FACK = endSeq
 		return
@@ -186,9 +186,11 @@ func (s *sender) schedulePTO() {
 
 // probeTimerExpired is the same as TLP_send_probe() as defined in
 // https://tools.ietf.org/html/draft-ietf-tcpm-rack-08#section-7.5.2.
-func (s *sender) probeTimerExpired() tcpip.Error {
-	if !s.probeTimer.checkExpiration() {
-		return nil
+//
+// +checklocks:s.ep.mu
+func (s *sender) probeTimerExpired() {
+	if s.probeTimer.isZero() || !s.probeTimer.checkExpiration() {
+		return
 	}
 
 	var dataSent bool
@@ -196,7 +198,7 @@ func (s *sender) probeTimerExpired() tcpip.Error {
 		dataSent = s.maybeSendSegment(s.writeNext, int(s.ep.scoreboard.SMSS()), s.SndUna.Add(s.SndWnd))
 		if dataSent {
 			s.Outstanding += s.pCount(s.writeNext, s.MaxPayloadSize)
-			s.writeNext = s.writeNext.Next()
+			s.updateWriteNext(s.writeNext.Next())
 		}
 	}
 
@@ -229,7 +231,7 @@ func (s *sender) probeTimerExpired() tcpip.Error {
 	// not the probe timer. This ensures that the sender does not send repeated,
 	// back-to-back tail loss probes.
 	s.postXmit(dataSent, false /* shouldScheduleProbe */)
-	return nil
+	return
 }
 
 // detectTLPRecovery detects if recovery was accomplished by the loss probes
@@ -271,13 +273,13 @@ func (s *sender) detectTLPRecovery(ack seqnum.Value, rcvdSeg *segment) {
 
 // updateRACKReorderWindow updates the reorder window.
 // See: https://tools.ietf.org/html/draft-ietf-tcpm-rack-08#section-7.2
-// * Step 4: Update RACK reordering window
-//   To handle the prevalent small degree of reordering, RACK.reo_wnd serves as
-//   an allowance for settling time before marking a packet lost. RACK starts
-//   initially with a conservative window of min_RTT/4. If no reordering has
-//   been observed RACK uses reo_wnd of zero during loss recovery, in order to
-//   retransmit quickly, or when the number of DUPACKs exceeds the classic
-//   DUPACKthreshold.
+//   - Step 4: Update RACK reordering window
+//     To handle the prevalent small degree of reordering, RACK.reo_wnd serves as
+//     an allowance for settling time before marking a packet lost. RACK starts
+//     initially with a conservative window of min_RTT/4. If no reordering has
+//     been observed RACK uses reo_wnd of zero during loss recovery, in order to
+//     retransmit quickly, or when the number of DUPACKs exceeds the classic
+//     DUPACKthreshold.
 func (rc *rackControl) updateRACKReorderWindow() {
 	dsackSeen := rc.DSACKSeen
 	snd := rc.snd
@@ -364,7 +366,7 @@ func (rc *rackControl) detectLoss(rcvTime tcpip.MonotonicTime) int {
 			continue
 		}
 
-		endSeq := seg.sequenceNumber.Add(seqnum.Size(seg.data.Size()))
+		endSeq := seg.sequenceNumber.Add(seqnum.Size(seg.payloadSize()))
 		if seg.xmitTime.Before(rc.XmitTime) || (seg.xmitTime == rc.XmitTime && rc.EndSequence.LessThan(endSeq)) {
 			timeRemaining := seg.xmitTime.Sub(rcvTime) + rc.RTT + rc.ReoWnd
 			if timeRemaining <= 0 {
@@ -384,16 +386,16 @@ func (rc *rackControl) detectLoss(rcvTime tcpip.MonotonicTime) int {
 
 // reorderTimerExpired will retransmit the segments which have not been acked
 // before the reorder timer expired.
-func (rc *rackControl) reorderTimerExpired() tcpip.Error {
-	// Check if the timer actually expired or if it's a spurious wake due
-	// to a previously orphaned runtime timer.
-	if !rc.snd.reorderTimer.checkExpiration() {
-		return nil
+//
+// +checklocks:rc.snd.ep.mu
+func (rc *rackControl) reorderTimerExpired() {
+	if rc.snd.reorderTimer.isZero() || !rc.snd.reorderTimer.checkExpiration() {
+		return
 	}
 
 	numLost := rc.detectLoss(rc.snd.ep.stack.Clock().NowMonotonic())
 	if numLost == 0 {
-		return nil
+		return
 	}
 
 	fastRetransmit := false
@@ -404,10 +406,12 @@ func (rc *rackControl) reorderTimerExpired() tcpip.Error {
 	}
 
 	rc.DoRecovery(nil, fastRetransmit)
-	return nil
+	return
 }
 
 // DoRecovery implements lossRecovery.DoRecovery.
+//
+// +checklocks:rc.snd.ep.mu
 func (rc *rackControl) DoRecovery(_ *segment, fastRetransmit bool) {
 	snd := rc.snd
 	if fastRetransmit {

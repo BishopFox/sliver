@@ -20,9 +20,19 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"gvisor.dev/gvisor/pkg/bufferv2"
 	"gvisor.dev/gvisor/pkg/tcpip"
-	"gvisor.dev/gvisor/pkg/tcpip/buffer"
 )
+
+// ChecksumSize is the size of a checksum.
+//
+// The checksum is held in a uint16 which is 2 bytes.
+const ChecksumSize = 2
+
+// PutChecksum puts the checksum in the provided byte slice.
+func PutChecksum(b []byte, xsum uint16) {
+	binary.BigEndian.PutUint16(b, xsum)
+}
 
 func calculateChecksum(buf []byte, odd bool, initial uint32) (uint16, bool) {
 	v := initial
@@ -182,15 +192,15 @@ func Checksum(buf []byte, initial uint16) uint16 {
 	return s
 }
 
-// ChecksumVV calculates the checksum (as defined in RFC 1071) of the bytes in
-// the given VectorizedView.
+// ChecksumBuffer calculates the checksum (as defined in RFC 1071) of the
+// bytes in the given Buffer.
 //
 // The initial checksum must have been computed on an even number of bytes.
-func ChecksumVV(vv buffer.VectorisedView, initial uint16) uint16 {
+func ChecksumBuffer(buf bufferv2.Buffer, initial uint16) uint16 {
 	var c Checksumer
-	for _, v := range vv.Views() {
-		c.Add([]byte(v))
-	}
+	buf.Apply(func(v *bufferv2.View) {
+		c.Add(v.AsSlice())
+	})
 	return ChecksumCombine(initial, c.Checksum())
 }
 
