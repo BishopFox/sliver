@@ -1,5 +1,7 @@
 # GORM Sqlite Driver
 
+![CI](https://github.com/go-gorm/sqlite/workflows/CI/badge.svg)
+
 ## USAGE
 
 ```go

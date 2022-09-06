@@ -67,6 +67,12 @@ func (expr Expr) Build(builder Builder) {
 			builder.WriteByte(v)
 		}
 	}
+
+	if idx < len(expr.Vars) {
+		for _, v := range expr.Vars[idx:] {
+			builder.AddVar(builder, sql.NamedArg{Value: v})
+		}
+	}
 }
 
 // NamedExpr raw expression for named expr
@@ -121,7 +127,7 @@ func (expr NamedExpr) Build(builder Builder) {
 		if v == '@' && !inName {
 			inName = true
 			name = []byte{}
-		} else if v == ' ' || v == ',' || v == ')' || v == '"' || v == '\'' || v == '`' || v == '\n' {
+		} else if v == ' ' || v == ',' || v == ')' || v == '"' || v == '\'' || v == '`' || v == '\n' || v == ';' {
 			if inName {
 				if nv, ok := namedMap[string(name)]; ok {
 					builder.AddVar(builder, nv)
@@ -362,7 +368,7 @@ func (like Like) NegationBuild(builder Builder) {
 }
 
 func eqNil(value interface{}) bool {
-	if valuer, ok := value.(driver.Valuer); ok {
+	if valuer, ok := value.(driver.Valuer); ok && !eqNilReflect(valuer) {
 		value, _ = valuer.Value()
 	}
 
