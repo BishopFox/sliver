@@ -322,8 +322,8 @@ github.com/mattn/go-sqlite3
 # github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
 ## explicit
 github.com/mgutz/ansi
-# github.com/miekg/dns v1.1.35
-## explicit; go 1.12
+# github.com/miekg/dns v1.1.50
+## explicit; go 1.14
 github.com/miekg/dns
 # github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 ## explicit; go 1.17
