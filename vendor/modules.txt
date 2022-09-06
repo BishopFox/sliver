@@ -42,7 +42,7 @@ github.com/VirusTotal/vt-go
 # github.com/VividCortex/ewma v1.1.1
 ## explicit
 github.com/VividCortex/ewma
-# github.com/alecthomas/chroma v0.8.1
+# github.com/alecthomas/chroma v0.10.0
 ## explicit; go 1.13
 github.com/alecthomas/chroma
 github.com/alecthomas/chroma/formatters
@@ -148,9 +148,6 @@ github.com/chromedp/chromedp/kb
 # github.com/chromedp/sysutil v1.0.0
 ## explicit; go 1.15
 github.com/chromedp/sysutil
-# github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964
-## explicit
-github.com/danwakefield/fnmatch
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
@@ -172,7 +169,7 @@ github.com/desertbit/grumble
 # github.com/desertbit/readline v1.5.1
 ## explicit; go 1.12
 github.com/desertbit/readline
-# github.com/dlclark/regexp2 v1.2.0
+# github.com/dlclark/regexp2 v1.4.0
 ## explicit
 github.com/dlclark/regexp2
 github.com/dlclark/regexp2/syntax
@@ -341,8 +338,6 @@ github.com/pquerna/otp/totp
 # github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0
 ## explicit; go 1.12
 github.com/remyoudompheng/bigfft
-# github.com/sergi/go-diff v1.1.0
-## explicit; go 1.12
 # github.com/shirou/gopsutil/v3 v3.21.10
 ## explicit; go 1.15
 github.com/shirou/gopsutil/v3/internal/common
