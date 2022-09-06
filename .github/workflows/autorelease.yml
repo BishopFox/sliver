@@ -40,7 +40,7 @@ jobs:
       run: export PATH=/home/runner/go/bin/:$PATH && make linux
   
     - name: Linux Artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: linux
         path: ./sliver-*
@@ -53,7 +53,7 @@ jobs:
         export PATH=/home/runner/go/bin/:$PATH && make windows
 
     - name: Windows Artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: windows
         path:  ./sliver-*
@@ -93,7 +93,7 @@ jobs:
       run: make macos-arm64
 
     - name: MacOS Artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: macos
         path: ./sliver-*
