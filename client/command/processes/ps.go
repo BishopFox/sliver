@@ -39,6 +39,11 @@ var (
 		// Process Name -> [Color, Stylized Name]
 		"ccSvcHst.exe":                    {console.Red, "Symantec Endpoint Protection"}, // Symantec Endpoint Protection (SEP)
 		"cb.exe":                          {console.Red, "Carbon Black"},                 // Carbon Black
+		"RepMgr.exe":                      {console.Red, "Carbon Black Cloud Sensor"},                 // Carbon Black Cloud Sensor
+		"RepUtils.exe":                    {console.Red, "Carbon Black Cloud Sensor"},                 // Carbon Black Cloud Sensor
+		"RepUx.exe":                       {console.Red, "Carbon Black Cloud Sensor"},                 // Carbon Black Cloud Sensor
+		"RepWSC.exe":                      {console.Red, "Carbon Black Cloud Sensor"},                 // Carbon Black Cloud Sensor
+		"scanhost.exe":                    {console.Red, "Carbon Black Cloud Sensor"},                 // Carbon Black Cloud Sensor
 		"MsMpEng.exe":                     {console.Red, "Windows Defender"},             // Windows Defender
 		"smartscreen.exe":                 {console.Red, "Windows Smart Screen"},         // Windows Defender Smart Screen
 		"CSFalconService.exe":             {console.Red, "CrowdStrike"},                  // Crowdstrike Falcon Service
