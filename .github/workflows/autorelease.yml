@@ -17,7 +17,7 @@ jobs:
     - name: Go 1.18
       uses: actions/setup-go@v2
       with:
-        go-version: '1.18.5'
+        go-version: '1.18.6'
     
     - name: OS Packages 
       run: |
@@ -68,7 +68,7 @@ jobs:
     - name: Go 1.18
       uses: actions/setup-go@v2
       with:
-        go-version: '1.18.5'
+        go-version: '1.18.6'
 
     - name: Mingw
       run: brew install mingw-w64
