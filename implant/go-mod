@@ -17,14 +17,14 @@ require (
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 	golang.org/x/sys v0.0.0-20220330033206-e17cdc41300f
 	golang.zx2c4.com/wireguard v0.0.0-20220316235147-5aff28b14c24
-	google.golang.org/protobuf v1.26.0
-	gvisor.dev/gvisor v0.0.0-20211020211948-f76a604701b6
+	google.golang.org/protobuf v1.27.1
+	gvisor.dev/gvisor v0.0.0-20220817001344-846276b3dbc5
 )
 
 require (
 	github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2 // indirect
 	github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc // indirect
-	github.com/Microsoft/go-winio v0.5.0 // indirect
+	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0 // indirect
 	github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
@@ -33,10 +33,10 @@ require (
 	github.com/google/btree v1.0.1 // indirect
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/mod v0.4.2 // indirect
+	golang.org/x/mod v0.5.1 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
-	golang.org/x/tools v0.1.7 // indirect
+	golang.org/x/tools v0.1.9 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20211104114900-415007cec224 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
