@@ -20,6 +20,12 @@ type Cache interface {
 	// Clear removes all entries in the cache. Any prepared statements will be deallocated from the PostgreSQL session.
 	Clear(ctx context.Context) error
 
+	// StatementErrored informs the cache that the given statement resulted in an error when it
+	// was last used against the database. In some cases, this will cause the cache to maer that
+	// statement as bad. The bad statement will instead be flushed during the next call to Get
+	// that occurs outside of a failed transaction.
+	StatementErrored(sql string, err error)
+
 	// Len returns the number of cached prepared statement descriptions.
 	Len() int
 

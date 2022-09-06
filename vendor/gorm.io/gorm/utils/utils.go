@@ -36,17 +36,14 @@ func IsValidDBNameChar(c rune) bool {
 	return !unicode.IsLetter(c) && !unicode.IsNumber(c) && c != '.' && c != '*' && c != '_' && c != '$' && c != '@'
 }
 
-func CheckTruth(val interface{}) bool {
-	if v, ok := val.(bool); ok {
-		return v
+// CheckTruth check string true or not
+func CheckTruth(vals ...string) bool {
+	for _, val := range vals {
+		if val != "" && !strings.EqualFold(val, "false") {
+			return true
+		}
 	}
-
-	if v, ok := val.(string); ok {
-		v = strings.ToLower(v)
-		return v != "false"
-	}
-
-	return !reflect.ValueOf(val).IsZero()
+	return false
 }
 
 func ToStringKey(values ...interface{}) string {
@@ -70,6 +67,15 @@ func ToStringKey(values ...interface{}) string {
 	}
 
 	return strings.Join(results, "_")
+}
+
+func Contains(elems []string, elem string) bool {
+	for _, e := range elems {
+		if elem == e {
+			return true
+		}
+	}
+	return false
 }
 
 func AssertEqual(src, dst interface{}) bool {
@@ -113,16 +119,4 @@ func ToString(value interface{}) string {
 		return strconv.FormatUint(v, 10)
 	}
 	return ""
-}
-
-func ExistsIn(a string, list *[]string) bool {
-	if list == nil {
-		return false
-	}
-	for _, b := range *list {
-		if b == a {
-			return true
-		}
-	}
-	return false
 }

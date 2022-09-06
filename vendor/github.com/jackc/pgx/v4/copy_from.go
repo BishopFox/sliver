@@ -5,10 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgio"
-	errors "golang.org/x/xerrors"
 )
 
 // CopyFromRows returns a CopyFromSource interface over the provided rows slice
@@ -33,6 +33,36 @@ func (ctr *copyFromRows) Values() ([]interface{}, error) {
 
 func (ctr *copyFromRows) Err() error {
 	return nil
+}
+
+// CopyFromSlice returns a CopyFromSource interface over a dynamic func
+// making it usable by *Conn.CopyFrom.
+func CopyFromSlice(length int, next func(int) ([]interface{}, error)) CopyFromSource {
+	return &copyFromSlice{next: next, idx: -1, len: length}
+}
+
+type copyFromSlice struct {
+	next func(int) ([]interface{}, error)
+	idx  int
+	len  int
+	err  error
+}
+
+func (cts *copyFromSlice) Next() bool {
+	cts.idx++
+	return cts.idx < cts.len
+}
+
+func (cts *copyFromSlice) Values() ([]interface{}, error) {
+	values, err := cts.next(cts.idx)
+	if err != nil {
+		cts.err = err
+	}
+	return values, err
+}
+
+func (cts *copyFromSlice) Err() error {
+	return cts.err
 }
 
 // CopyFromSource is the interface used by *Conn.CopyFrom as the source for copy data.
@@ -115,12 +145,24 @@ func (ct *copyFrom) run(ctx context.Context) (int64, error) {
 		w.Close()
 	}()
 
+	startTime := time.Now()
+
 	commandTag, err := ct.conn.pgConn.CopyFrom(ctx, r, fmt.Sprintf("copy %s ( %s ) from stdin binary;", quotedTableName, quotedColumnNames))
 
 	r.Close()
 	<-doneChan
 
-	return commandTag.RowsAffected(), err
+	rowsAffected := commandTag.RowsAffected()
+	endTime := time.Now()
+	if err == nil {
+		if ct.conn.shouldLog(LogLevelInfo) {
+			ct.conn.log(ctx, LogLevelInfo, "CopyFrom", map[string]interface{}{"tableName": ct.tableName, "columnNames": ct.columnNames, "time": endTime.Sub(startTime), "rowCount": rowsAffected})
+		}
+	} else if ct.conn.shouldLog(LogLevelError) {
+		ct.conn.log(ctx, LogLevelError, "CopyFrom", map[string]interface{}{"err": err, "tableName": ct.tableName, "columnNames": ct.columnNames, "time": endTime.Sub(startTime)})
+	}
+
+	return rowsAffected, err
 }
 
 func (ct *copyFrom) buildCopyBuf(buf []byte, sd *pgconn.StatementDescription) (bool, []byte, error) {
@@ -131,7 +173,7 @@ func (ct *copyFrom) buildCopyBuf(buf []byte, sd *pgconn.StatementDescription) (b
 			return false, nil, err
 		}
 		if len(values) != len(ct.columnNames) {
-			return false, nil, errors.Errorf("expected %d values, got %d values", len(ct.columnNames), len(values))
+			return false, nil, fmt.Errorf("expected %d values, got %d values", len(ct.columnNames), len(values))
 		}
 
 		buf = pgio.AppendInt16(buf, int16(len(ct.columnNames)))

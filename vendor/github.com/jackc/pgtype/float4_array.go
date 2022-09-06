@@ -5,10 +5,10 @@ package pgtype
 import (
 	"database/sql/driver"
 	"encoding/binary"
+	"fmt"
 	"reflect"
 
 	"github.com/jackc/pgio"
-	errors "golang.org/x/xerrors"
 )
 
 type Float4Array struct {
@@ -96,7 +96,7 @@ func (dst *Float4Array) Set(src interface{}) error {
 
 		dimensions, elementsLength, ok := findDimensionsFromValue(reflectedValue, nil, 0)
 		if !ok {
-			return errors.Errorf("cannot find dimensions of %v for Float4Array", src)
+			return fmt.Errorf("cannot find dimensions of %v for Float4Array", src)
 		}
 		if elementsLength == 0 {
 			*dst = Float4Array{Status: Present}
@@ -106,7 +106,7 @@ func (dst *Float4Array) Set(src interface{}) error {
 			if originalSrc, ok := underlyingSliceType(src); ok {
 				return dst.Set(originalSrc)
 			}
-			return errors.Errorf("cannot convert %v to Float4Array", src)
+			return fmt.Errorf("cannot convert %v to Float4Array", src)
 		}
 
 		*dst = Float4Array{
@@ -137,7 +137,7 @@ func (dst *Float4Array) Set(src interface{}) error {
 			}
 		}
 		if elementCount != len(dst.Elements) {
-			return errors.Errorf("cannot convert %v to Float4Array, expected %d dst.Elements, but got %d instead", src, len(dst.Elements), elementCount)
+			return fmt.Errorf("cannot convert %v to Float4Array, expected %d dst.Elements, but got %d instead", src, len(dst.Elements), elementCount)
 		}
 	}
 
@@ -155,7 +155,7 @@ func (dst *Float4Array) setRecursive(value reflect.Value, index, dimension int) 
 
 		valueLen := value.Len()
 		if int32(valueLen) != dst.Dimensions[dimension].Length {
-			return 0, errors.Errorf("multidimensional arrays must have array expressions with matching dimensions")
+			return 0, fmt.Errorf("multidimensional arrays must have array expressions with matching dimensions")
 		}
 		for i := 0; i < valueLen; i++ {
 			var err error
@@ -168,10 +168,10 @@ func (dst *Float4Array) setRecursive(value reflect.Value, index, dimension int) 
 		return index, nil
 	}
 	if !value.CanInterface() {
-		return 0, errors.Errorf("cannot convert all values to Float4Array")
+		return 0, fmt.Errorf("cannot convert all values to Float4Array")
 	}
 	if err := dst.Elements[index].Set(value.Interface()); err != nil {
-		return 0, errors.Errorf("%v in Float4Array", err)
+		return 0, fmt.Errorf("%v in Float4Array", err)
 	}
 	index++
 
@@ -217,6 +217,11 @@ func (src *Float4Array) AssignTo(dst interface{}) error {
 			}
 		}
 
+		// Try to convert to something AssignTo can use directly.
+		if nextDst, retry := GetAssignToDstType(dst); retry {
+			return src.AssignTo(nextDst)
+		}
+
 		// Fallback to reflection if an optimised match was not found.
 		// The reflection is necessary for arrays and multidimensional slices,
 		// but it comes with a 20-50% performance penalty for large arrays/slices
@@ -224,11 +229,18 @@ func (src *Float4Array) AssignTo(dst interface{}) error {
 		if value.Kind() == reflect.Ptr {
 			value = value.Elem()
 		}
-		if !value.CanSet() {
-			if nextDst, retry := GetAssignToDstType(dst); retry {
-				return src.AssignTo(nextDst)
+
+		switch value.Kind() {
+		case reflect.Array, reflect.Slice:
+		default:
+			return fmt.Errorf("cannot assign %T to %T", src, dst)
+		}
+
+		if len(src.Elements) == 0 {
+			if value.Kind() == reflect.Slice {
+				value.Set(reflect.MakeSlice(value.Type(), 0, 0))
+				return nil
 			}
-			return errors.Errorf("unable to assign to %T", dst)
 		}
 
 		elementCount, err := src.assignToRecursive(value, 0, 0)
@@ -236,7 +248,7 @@ func (src *Float4Array) AssignTo(dst interface{}) error {
 			return err
 		}
 		if elementCount != len(src.Elements) {
-			return errors.Errorf("cannot assign %v, needed to assign %d elements, but only assigned %d", dst, len(src.Elements), elementCount)
+			return fmt.Errorf("cannot assign %v, needed to assign %d elements, but only assigned %d", dst, len(src.Elements), elementCount)
 		}
 
 		return nil
@@ -244,7 +256,7 @@ func (src *Float4Array) AssignTo(dst interface{}) error {
 		return NullAssignTo(dst)
 	}
 
-	return errors.Errorf("cannot decode %#v into %T", src, dst)
+	return fmt.Errorf("cannot decode %#v into %T", src, dst)
 }
 
 func (src *Float4Array) assignToRecursive(value reflect.Value, index, dimension int) (int, error) {
@@ -260,7 +272,7 @@ func (src *Float4Array) assignToRecursive(value reflect.Value, index, dimension 
 		if reflect.Array == kind {
 			typ := value.Type()
 			if typ.Len() != length {
-				return 0, errors.Errorf("expected size %d array, but %s has size %d array", length, typ, typ.Len())
+				return 0, fmt.Errorf("expected size %d array, but %s has size %d array", length, typ, typ.Len())
 			}
 			value.Set(reflect.New(typ).Elem())
 		} else {
@@ -278,14 +290,14 @@ func (src *Float4Array) assignToRecursive(value reflect.Value, index, dimension 
 		return index, nil
 	}
 	if len(src.Dimensions) != dimension {
-		return 0, errors.Errorf("incorrect dimensions, expected %d, found %d", len(src.Dimensions), dimension)
+		return 0, fmt.Errorf("incorrect dimensions, expected %d, found %d", len(src.Dimensions), dimension)
 	}
 	if !value.CanAddr() {
-		return 0, errors.Errorf("cannot assign all values from Float4Array")
+		return 0, fmt.Errorf("cannot assign all values from Float4Array")
 	}
 	addr := value.Addr()
 	if !addr.CanInterface() {
-		return 0, errors.Errorf("cannot assign all values from Float4Array")
+		return 0, fmt.Errorf("cannot assign all values from Float4Array")
 	}
 	if err := src.Elements[index].AssignTo(addr.Interface()); err != nil {
 		return 0, err
@@ -313,7 +325,7 @@ func (dst *Float4Array) DecodeText(ci *ConnInfo, src []byte) error {
 		for i, s := range uta.Elements {
 			var elem Float4
 			var elemSrc []byte
-			if s != "NULL" {
+			if s != "NULL" || uta.Quoted[i] {
 				elemSrc = []byte(s)
 			}
 			err = elem.DecodeText(ci, elemSrc)
@@ -444,7 +456,7 @@ func (src Float4Array) EncodeBinary(ci *ConnInfo, buf []byte) ([]byte, error) {
 	if dt, ok := ci.DataTypeForName("float4"); ok {
 		arrayHeader.ElementOID = int32(dt.OID)
 	} else {
-		return nil, errors.Errorf("unable to find oid for type name %v", "float4")
+		return nil, fmt.Errorf("unable to find oid for type name %v", "float4")
 	}
 
 	for i := range src.Elements {
@@ -488,7 +500,7 @@ func (dst *Float4Array) Scan(src interface{}) error {
 		return dst.DecodeText(nil, srcCopy)
 	}
 
-	return errors.Errorf("cannot scan %T", src)
+	return fmt.Errorf("cannot scan %T", src)
 }
 
 // Value implements the database/sql/driver Valuer interface.
