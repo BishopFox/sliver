@@ -21,7 +21,7 @@ jobs:
     steps:
 
     - name: Go 1.18
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v3
       with:
         go-version: '1.18.5'
     
@@ -56,7 +56,7 @@ jobs:
     steps:
 
     - name: Go 1.18
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v3
       with:
         go-version: '1.18.5'
 
