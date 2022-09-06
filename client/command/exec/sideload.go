@@ -50,6 +50,8 @@ func SideloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s", err.Error())
 		return
 	}
+	processArgsStr := ctx.Flags.String("process-arguments")
+	processArgs := strings.Split(processArgsStr, " ")
 	isDLL := (filepath.Ext(binPath) == ".dll")
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("Sideloading %s ...", binPath), ctrl)
@@ -62,6 +64,8 @@ func SideloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Kill:        !ctx.Flags.Bool("keep-alive"),
 		IsDLL:       isDLL,
 		IsUnicode:   ctx.Flags.Bool("unicode"),
+		PPid:        uint32(ctx.Flags.Uint("ppid")),
+		ProcessArgs: processArgs,
 	})
 	ctrl <- true
 	<-ctrl

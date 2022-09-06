@@ -90,7 +90,7 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 		ClassName:   ctx.Flags.String("class"),
 		AppDomain:   ctx.Flags.String("app-domain"),
 		ProcessArgs: processArgs,
-		PPid:        uint32(ctx.Flags.Int("ppid")),
+		PPid:        uint32(ctx.Flags.Uint("ppid")),
 		Runtime:     runtime,
 		EtwBypass:   etwBypass,
 		AmsiBypass:  amsiBypass,
