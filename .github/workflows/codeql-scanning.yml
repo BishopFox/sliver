@@ -23,7 +23,7 @@ jobs:
           go-version: "1.18.5"
 
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           # Must fetch at least the immediate parents so that if this is
           # a pull request then we can checkout the head of the pull request.
@@ -55,7 +55,7 @@ jobs:
           && make install
 
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Go Assets
         run: ./go-assets.sh
