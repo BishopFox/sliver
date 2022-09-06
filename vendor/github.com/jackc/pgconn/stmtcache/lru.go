@@ -20,6 +20,7 @@ type LRU struct {
 	m            map[string]*list.Element
 	l            *list.List
 	psNamePrefix string
+	stmtsToClear []string
 }
 
 // NewLRU creates a new LRU. mode is either ModePrepare or ModeDescribe. cap is the maximum size of the cache.
@@ -41,6 +42,25 @@ func NewLRU(conn *pgconn.PgConn, mode int, cap int) *LRU {
 
 // Get returns the prepared statement description for sql preparing or describing the sql on the server as needed.
 func (c *LRU) Get(ctx context.Context, sql string) (*pgconn.StatementDescription, error) {
+	if ctx != context.Background() {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+	}
+
+	// flush an outstanding bad statements
+	txStatus := c.conn.TxStatus()
+	if (txStatus == 'I' || txStatus == 'T') && len(c.stmtsToClear) > 0 {
+		for _, stmt := range c.stmtsToClear {
+			err := c.clearStmt(ctx, stmt)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	if el, ok := c.m[sql]; ok {
 		c.l.MoveToFront(el)
 		return el.Value.(*pgconn.StatementDescription), nil
@@ -73,6 +93,42 @@ func (c *LRU) Clear(ctx context.Context) error {
 		}
 	}
 
+	return nil
+}
+
+func (c *LRU) StatementErrored(sql string, err error) {
+	pgErr, ok := err.(*pgconn.PgError)
+	if !ok {
+		return
+	}
+
+	// https://github.com/jackc/pgx/issues/1162
+	//
+	// We used to look for the message "cached plan must not change result type". However, that message can be localized.
+	// Unfortunately, error code "0A000" - "FEATURE NOT SUPPORTED" is used for many different errors and the only way to
+	// tell the difference is by the message. But all that happens is we clear a statement that we otherwise wouldn't
+	// have so it should be safe.
+	possibleInvalidCachedPlanError := pgErr.Code == "0A000"
+	if possibleInvalidCachedPlanError {
+		c.stmtsToClear = append(c.stmtsToClear, sql)
+	}
+}
+
+func (c *LRU) clearStmt(ctx context.Context, sql string) error {
+	elem, inMap := c.m[sql]
+	if !inMap {
+		// The statement probably fell off the back of the list. In that case, we've
+		// ensured that it isn't in the cache, so we can declare victory.
+		return nil
+	}
+
+	c.l.Remove(elem)
+
+	psd := elem.Value.(*pgconn.StatementDescription)
+	delete(c.m, psd.SQL)
+	if c.mode == ModePrepare {
+		return c.conn.Exec(ctx, fmt.Sprintf("deallocate %s", psd.Name)).Close()
+	}
 	return nil
 }
 

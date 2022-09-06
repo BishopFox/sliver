@@ -2,9 +2,8 @@ package pgx
 
 import (
 	"context"
+	"errors"
 	"io"
-
-	errors "golang.org/x/xerrors"
 )
 
 // LargeObjects is a structure used to access the large objects API. It is only valid within the transaction where it
@@ -109,13 +108,13 @@ func (o *LargeObject) Tell() (n int64, err error) {
 	return n, err
 }
 
-// Trunctes the large object to size.
+// Truncate the large object to size.
 func (o *LargeObject) Truncate(size int64) (err error) {
 	_, err = o.tx.Exec(o.ctx, "select lo_truncate64($1, $2)", o.fd, size)
 	return err
 }
 
-// Close closees the large object descriptor.
+// Close the large object descriptor.
 func (o *LargeObject) Close() error {
 	_, err := o.tx.Exec(o.ctx, "select lo_close($1)", o.fd)
 	return err

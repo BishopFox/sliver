@@ -1,3 +1,99 @@
+# 4.16.1 (May 7, 2022)
+
+* Upgrade pgconn to v1.12.1
+* Fix explicitly prepared statements with describe statement cache mode
+
+# 4.16.0 (April 21, 2022)
+
+* Upgrade pgconn to v1.12.0
+* Upgrade pgproto3 to v2.3.0
+* Upgrade pgtype to v1.11.0
+* Fix: Do not panic when context cancelled while getting statement from cache.
+* Fix: Less memory pinning from old Rows.
+* Fix: Support '\r' line ending when sanitizing SQL comment.
+* Add pluggable GSSAPI support (Oliver Tan)
+
+# 4.15.0 (February 7, 2022)
+
+* Upgrade to pgconn v1.11.0
+* Upgrade to pgtype v1.10.0
+* Upgrade puddle to v1.2.1
+* Make BatchResults.Close safe to be called multiple times
+
+# 4.14.1 (November 28, 2021)
+
+* Upgrade pgtype to v1.9.1 (fixes unintentional change to timestamp binary decoding)
+* Start pgxpool background health check after initial connections
+
+# 4.14.0 (November 20, 2021)
+
+* Upgrade pgconn to v1.10.1
+* Upgrade pgproto3 to v2.2.0
+* Upgrade pgtype to v1.9.0
+* Upgrade puddle to v1.2.0
+* Add QueryFunc to BatchResults
+* Add context options to zerologadapter (Thomas Frössman)
+* Add zerologadapter.NewContextLogger (urso)
+* Eager initialize minpoolsize on connect (Daniel)
+* Unpin memory used by large queries immediately after use
+
+# 4.13.0 (July 24, 2021)
+
+* Trimmed pseudo-dependencies in Go modules from other packages tests
+* Upgrade pgconn -- context cancellation no longer will return a net.Error
+* Support time durations for simple protocol (Michael Darr)
+
+# 4.12.0 (July 10, 2021)
+
+* ResetSession hook is called before a connection is reused from pool for another query (Dmytro Haranzha)
+* stdlib: Add RandomizeHostOrderFunc (dkinder)
+* stdlib: add OptionBeforeConnect (dkinder)
+* stdlib: Do not reuse ConnConfig strings (Andrew Kimball)
+* stdlib: implement Conn.ResetSession (Jonathan Amsterdam)
+* Upgrade pgconn to v1.9.0
+* Upgrade pgtype to v1.8.0
+
+# 4.11.0 (March 25, 2021)
+
+* Add BeforeConnect callback to pgxpool.Config (Robert Froehlich)
+* Add Ping method to pgxpool.Conn (davidsbond)
+* Added a kitlog level log adapter (Fabrice Aneche)
+* Make ScanArgError public to allow identification of offending column (Pau Sanchez)
+* Add *pgxpool.AcquireFunc
+* Add BeginFunc and BeginTxFunc
+* Add prefer_simple_protocol to connection string
+* Add logging on CopyFrom (Patrick Hemmer)
+* Add comment support when sanitizing SQL queries (Rusakow Andrew)
+* Do not panic on double close of pgxpool.Pool (Matt Schultz)
+* Avoid panic on SendBatch on closed Tx (Matt Schultz)
+* Update pgconn to v1.8.1
+* Update pgtype to v1.7.0
+
+# 4.10.1 (December 19, 2020)
+
+* Fix panic on Query error with nil stmtcache.
+
+# 4.10.0 (December 3, 2020)
+
+* Add CopyFromSlice to simplify CopyFrom usage (Egon Elbre)
+* Remove broken prepared statements from stmtcache (Ethan Pailes)
+* stdlib: consider any Ping error as fatal
+* Update puddle to v1.1.3 - this fixes an issue where concurrent Acquires can hang when a connection cannot be established
+* Update pgtype to v1.6.2
+
+# 4.9.2 (November 3, 2020)
+
+The underlying library updates fix an issue where appending to a scanned slice could corrupt other data.
+
+* Update pgconn to v1.7.2
+* Update pgproto3 to v2.0.6
+
+# 4.9.1 (October 31, 2020)
+
+* Update pgconn to v1.7.1
+* Update pgtype to v1.6.1
+* Fix SendBatch of all prepared statements with statement cache disabled
+
 # 4.9.0 (September 26, 2020)
 
 * pgxpool now waits for connection cleanup to finish before making room in pool for another connection. This prevents temporarily exceeding max pool size.

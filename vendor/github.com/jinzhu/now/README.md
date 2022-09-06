@@ -2,7 +2,9 @@
 
 Now is a time toolkit for golang
 
-[![wercker status](https://app.wercker.com/status/a350da4eae6cb28a35687ba41afb565a/s/master "wercker status")](https://app.wercker.com/project/byKey/a350da4eae6cb28a35687ba41afb565a)
+[![go report card](https://goreportcard.com/badge/github.com/jinzhu/now "go report card")](https://goreportcard.com/report/github.com/jinzhu/now)
+[![test status](https://github.com/jinzhu/now/workflows/tests/badge.svg?branch=master "test status")](https://github.com/jinzhu/now/actions)
+[![MIT license](https://img.shields.io/badge/license-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 
 ## Install
 
@@ -90,7 +92,7 @@ t, err := now.Parse("2017-10")             // 2017-10-01 00:00:00, nil
 t, err := now.Parse("2017-10-13")          // 2017-10-13 00:00:00, nil
 t, err := now.Parse("1999-12-12 12")       // 1999-12-12 12:00:00, nil
 t, err := now.Parse("1999-12-12 12:20")    // 1999-12-12 12:20:00, nil
-t, err := now.Parse("1999-12-12 12:20:21") // 1999-12-12 12:20:00, nil
+t, err := now.Parse("1999-12-12 12:20:21") // 1999-12-12 12:20:21, nil
 t, err := now.Parse("10-13")               // 2013-10-13 00:00:00, nil
 t, err := now.Parse("12:20")               // 2013-11-18 12:20:00, nil
 t, err := now.Parse("12:20:13")            // 2013-11-18 12:20:13, nil

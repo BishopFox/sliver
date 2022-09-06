@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"strings"
 	"unicode"
 	"unicode/utf8"
-
-	errors "golang.org/x/xerrors"
 
 	"github.com/jackc/pgio"
 )
@@ -40,8 +40,20 @@ func (dst *Hstore) Set(src interface{}) error {
 			m[k] = Text{String: v, Status: Present}
 		}
 		*dst = Hstore{Map: m, Status: Present}
+	case map[string]*string:
+		m := make(map[string]Text, len(value))
+		for k, v := range value {
+			if v == nil {
+				m[k] = Text{Status: Null}
+			} else {
+				m[k] = Text{String: *v, Status: Present}
+			}
+		}
+		*dst = Hstore{Map: m, Status: Present}
+	case map[string]Text:
+		*dst = Hstore{Map: value, Status: Present}
 	default:
-		return errors.Errorf("cannot convert %v to Hstore", src)
+		return fmt.Errorf("cannot convert %v to Hstore", src)
 	}
 
 	return nil
@@ -66,22 +78,35 @@ func (src *Hstore) AssignTo(dst interface{}) error {
 			*v = make(map[string]string, len(src.Map))
 			for k, val := range src.Map {
 				if val.Status != Present {
-					return errors.Errorf("cannot decode %#v into %T", src, dst)
+					return fmt.Errorf("cannot decode %#v into %T", src, dst)
 				}
 				(*v)[k] = val.String
+			}
+			return nil
+		case *map[string]*string:
+			*v = make(map[string]*string, len(src.Map))
+			for k, val := range src.Map {
+				switch val.Status {
+				case Null:
+					(*v)[k] = nil
+				case Present:
+					(*v)[k] = &val.String
+				default:
+					return fmt.Errorf("cannot decode %#v into %T", src, dst)
+				}
 			}
 			return nil
 		default:
 			if nextDst, retry := GetAssignToDstType(dst); retry {
 				return src.AssignTo(nextDst)
 			}
-			return errors.Errorf("unable to assign to %T", dst)
+			return fmt.Errorf("unable to assign to %T", dst)
 		}
 	case Null:
 		return NullAssignTo(dst)
 	}
 
-	return errors.Errorf("cannot decode %#v into %T", src, dst)
+	return fmt.Errorf("cannot decode %#v into %T", src, dst)
 }
 
 func (dst *Hstore) DecodeText(ci *ConnInfo, src []byte) error {
@@ -113,7 +138,7 @@ func (dst *Hstore) DecodeBinary(ci *ConnInfo, src []byte) error {
 	rp := 0
 
 	if len(src[rp:]) < 4 {
-		return errors.Errorf("hstore incomplete %v", src)
+		return fmt.Errorf("hstore incomplete %v", src)
 	}
 	pairCount := int(int32(binary.BigEndian.Uint32(src[rp:])))
 	rp += 4
@@ -122,19 +147,19 @@ func (dst *Hstore) DecodeBinary(ci *ConnInfo, src []byte) error {
 
 	for i := 0; i < pairCount; i++ {
 		if len(src[rp:]) < 4 {
-			return errors.Errorf("hstore incomplete %v", src)
+			return fmt.Errorf("hstore incomplete %v", src)
 		}
 		keyLen := int(int32(binary.BigEndian.Uint32(src[rp:])))
 		rp += 4
 
 		if len(src[rp:]) < keyLen {
-			return errors.Errorf("hstore incomplete %v", src)
+			return fmt.Errorf("hstore incomplete %v", src)
 		}
 		key := string(src[rp : rp+keyLen])
 		rp += keyLen
 
 		if len(src[rp:]) < 4 {
-			return errors.Errorf("hstore incomplete %v", src)
+			return fmt.Errorf("hstore incomplete %v", src)
 		}
 		valueLen := int(int32(binary.BigEndian.Uint32(src[rp:])))
 		rp += 4
@@ -142,8 +167,8 @@ func (dst *Hstore) DecodeBinary(ci *ConnInfo, src []byte) error {
 		var valueBuf []byte
 		if valueLen >= 0 {
 			valueBuf = src[rp : rp+valueLen]
+			rp += valueLen
 		}
-		rp += valueLen
 
 		var value Text
 		err := value.DecodeBinary(ci, valueBuf)
@@ -338,13 +363,13 @@ func parseHstore(s string) (k []string, v []Text, err error) {
 					case r == 'N':
 						state = hsNul
 					default:
-						err = errors.Errorf("Invalid character '%c' after '=>', expecting '\"' or 'NULL'", r)
+						err = fmt.Errorf("Invalid character '%c' after '=>', expecting '\"' or 'NULL'", r)
 					}
 				default:
-					err = errors.Errorf("Invalid character after '=', expecting '>'")
+					err = fmt.Errorf("Invalid character after '=', expecting '>'")
 				}
 			} else {
-				err = errors.Errorf("Invalid character '%c' after value, expecting '='", r)
+				err = fmt.Errorf("Invalid character '%c' after value, expecting '='", r)
 			}
 		case hsVal:
 			switch r {
@@ -381,7 +406,7 @@ func parseHstore(s string) (k []string, v []Text, err error) {
 				values = append(values, Text{Status: Null})
 				state = hsNext
 			} else {
-				err = errors.Errorf("Invalid NULL value: 'N%s'", string(nulBuf))
+				err = fmt.Errorf("Invalid NULL value: 'N%s'", string(nulBuf))
 			}
 		case hsNext:
 			if r == ',' {
@@ -393,10 +418,10 @@ func parseHstore(s string) (k []string, v []Text, err error) {
 					r, end = p.Consume()
 					state = hsKey
 				default:
-					err = errors.Errorf("Invalid character '%c' after ', ', expecting \"", r)
+					err = fmt.Errorf("Invalid character '%c' after ', ', expecting \"", r)
 				}
 			} else {
-				err = errors.Errorf("Invalid character '%c' after value, expecting ','", r)
+				err = fmt.Errorf("Invalid character '%c' after value, expecting ','", r)
 			}
 		}
 
@@ -430,7 +455,7 @@ func (dst *Hstore) Scan(src interface{}) error {
 		return dst.DecodeText(nil, srcCopy)
 	}
 
-	return errors.Errorf("cannot scan %T", src)
+	return fmt.Errorf("cannot scan %T", src)
 }
 
 // Value implements the database/sql/driver Valuer interface.
