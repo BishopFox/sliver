@@ -21,6 +21,7 @@ package website
 import (
 	"errors"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -72,9 +73,11 @@ func GetContent(websiteName string, path string) (string, []byte, error) {
 
 	dbSession := db.Session()
 	content := models.WebContent{}
+	// Use path without any query parameters
+	u, _ := url.Parse(path)
 	result := dbSession.Where(&models.WebContent{
 		WebsiteID: website.ID,
-		Path:      path,
+		Path:      u.Path,
 	}).First(&content)
 	if result.Error != nil {
 		return "", []byte{}, result.Error
