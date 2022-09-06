@@ -110,7 +110,7 @@ jobs:
     steps:
   
     - run: mkdir -p ./builds
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         path: ./builds
 
