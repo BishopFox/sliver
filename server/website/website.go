@@ -74,7 +74,10 @@ func GetContent(websiteName string, path string) (string, []byte, error) {
 	dbSession := db.Session()
 	content := models.WebContent{}
 	// Use path without any query parameters
-	u, _ := url.Parse(path)
+	u, err := url.Parse(path)
+	if err != nil {
+		return "", []byte{}, err
+	}
 	result := dbSession.Where(&models.WebContent{
 		WebsiteID: website.ID,
 		Path:      u.Path,
