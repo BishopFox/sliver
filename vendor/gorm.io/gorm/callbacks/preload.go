@@ -10,10 +10,9 @@ import (
 	"gorm.io/gorm/utils"
 )
 
-func preload(db *gorm.DB, rel *schema.Relationship, conds []interface{}, preloads map[string][]interface{}) {
+func preload(tx *gorm.DB, rel *schema.Relationship, conds []interface{}, preloads map[string][]interface{}) error {
 	var (
-		reflectValue     = db.Statement.ReflectValue
-		tx               = db.Session(&gorm.Session{NewDB: true}).Model(nil).Session(&gorm.Session{SkipHooks: db.Statement.SkipHooks})
+		reflectValue     = tx.Statement.ReflectValue
 		relForeignKeys   []string
 		relForeignFields []*schema.Field
 		foreignFields    []*schema.Field
@@ -21,11 +20,6 @@ func preload(db *gorm.DB, rel *schema.Relationship, conds []interface{}, preload
 		identityMap      = map[string][]reflect.Value{}
 		inlineConds      []interface{}
 	)
-
-	db.Statement.Settings.Range(func(k, v interface{}) bool {
-		tx.Statement.Settings.Store(k, v)
-		return true
-	})
 
 	if rel.JoinTable != nil {
 		var (
@@ -48,25 +42,28 @@ func preload(db *gorm.DB, rel *schema.Relationship, conds []interface{}, preload
 			}
 		}
 
-		joinIdentityMap, joinForeignValues := schema.GetIdentityFieldValuesMap(reflectValue, foreignFields)
+		joinIdentityMap, joinForeignValues := schema.GetIdentityFieldValuesMap(tx.Statement.Context, reflectValue, foreignFields)
 		if len(joinForeignValues) == 0 {
-			return
+			return nil
 		}
 
 		joinResults := rel.JoinTable.MakeSlice().Elem()
 		column, values := schema.ToQueryValues(clause.CurrentTable, joinForeignKeys, joinForeignValues)
-		db.AddError(tx.Where(clause.IN{Column: column, Values: values}).Find(joinResults.Addr().Interface()).Error)
+		if err := tx.Where(clause.IN{Column: column, Values: values}).Find(joinResults.Addr().Interface()).Error; err != nil {
+			return err
+		}
 
 		// convert join identity map to relation identity map
 		fieldValues := make([]interface{}, len(joinForeignFields))
 		joinFieldValues := make([]interface{}, len(joinRelForeignFields))
 		for i := 0; i < joinResults.Len(); i++ {
+			joinIndexValue := joinResults.Index(i)
 			for idx, field := range joinForeignFields {
-				fieldValues[idx], _ = field.ValueOf(joinResults.Index(i))
+				fieldValues[idx], _ = field.ValueOf(tx.Statement.Context, joinIndexValue)
 			}
 
 			for idx, field := range joinRelForeignFields {
-				joinFieldValues[idx], _ = field.ValueOf(joinResults.Index(i))
+				joinFieldValues[idx], _ = field.ValueOf(tx.Statement.Context, joinIndexValue)
 			}
 
 			if results, ok := joinIdentityMap[utils.ToStringKey(fieldValues...)]; ok {
@@ -75,7 +72,7 @@ func preload(db *gorm.DB, rel *schema.Relationship, conds []interface{}, preload
 			}
 		}
 
-		_, foreignValues = schema.GetIdentityFieldValuesMap(joinResults, joinRelForeignFields)
+		_, foreignValues = schema.GetIdentityFieldValuesMap(tx.Statement.Context, joinResults, joinRelForeignFields)
 	} else {
 		for _, ref := range rel.References {
 			if ref.OwnPrimaryKey {
@@ -91,9 +88,9 @@ func preload(db *gorm.DB, rel *schema.Relationship, conds []interface{}, preload
 			}
 		}
 
-		identityMap, foreignValues = schema.GetIdentityFieldValuesMap(reflectValue, foreignFields)
+		identityMap, foreignValues = schema.GetIdentityFieldValuesMap(tx.Statement.Context, reflectValue, foreignFields)
 		if len(foreignValues) == 0 {
-			return
+			return nil
 		}
 	}
 
@@ -114,7 +111,9 @@ func preload(db *gorm.DB, rel *schema.Relationship, conds []interface{}, preload
 			}
 		}
 
-		db.AddError(tx.Where(clause.IN{Column: column, Values: values}).Find(reflectResults.Addr().Interface(), inlineConds...).Error)
+		if err := tx.Where(clause.IN{Column: column, Values: values}).Find(reflectResults.Addr().Interface(), inlineConds...).Error; err != nil {
+			return err
+		}
 	}
 
 	fieldValues := make([]interface{}, len(relForeignFields))
@@ -124,17 +123,17 @@ func preload(db *gorm.DB, rel *schema.Relationship, conds []interface{}, preload
 	case reflect.Struct:
 		switch rel.Type {
 		case schema.HasMany, schema.Many2Many:
-			rel.Field.Set(reflectValue, reflect.MakeSlice(rel.Field.IndirectFieldType, 0, 10).Interface())
+			tx.AddError(rel.Field.Set(tx.Statement.Context, reflectValue, reflect.MakeSlice(rel.Field.IndirectFieldType, 0, 10).Interface()))
 		default:
-			rel.Field.Set(reflectValue, reflect.New(rel.Field.FieldType).Interface())
+			tx.AddError(rel.Field.Set(tx.Statement.Context, reflectValue, reflect.New(rel.Field.FieldType).Interface()))
 		}
 	case reflect.Slice, reflect.Array:
 		for i := 0; i < reflectValue.Len(); i++ {
 			switch rel.Type {
 			case schema.HasMany, schema.Many2Many:
-				rel.Field.Set(reflectValue.Index(i), reflect.MakeSlice(rel.Field.IndirectFieldType, 0, 10).Interface())
+				tx.AddError(rel.Field.Set(tx.Statement.Context, reflectValue.Index(i), reflect.MakeSlice(rel.Field.IndirectFieldType, 0, 10).Interface()))
 			default:
-				rel.Field.Set(reflectValue.Index(i), reflect.New(rel.Field.FieldType).Interface())
+				tx.AddError(rel.Field.Set(tx.Statement.Context, reflectValue.Index(i), reflect.New(rel.Field.FieldType).Interface()))
 			}
 		}
 	}
@@ -142,30 +141,33 @@ func preload(db *gorm.DB, rel *schema.Relationship, conds []interface{}, preload
 	for i := 0; i < reflectResults.Len(); i++ {
 		elem := reflectResults.Index(i)
 		for idx, field := range relForeignFields {
-			fieldValues[idx], _ = field.ValueOf(elem)
+			fieldValues[idx], _ = field.ValueOf(tx.Statement.Context, elem)
 		}
 
-		if datas, ok := identityMap[utils.ToStringKey(fieldValues...)]; ok {
-			for _, data := range datas {
-				reflectFieldValue := rel.Field.ReflectValueOf(data)
-				if reflectFieldValue.Kind() == reflect.Ptr && reflectFieldValue.IsNil() {
-					reflectFieldValue.Set(reflect.New(rel.Field.FieldType.Elem()))
-				}
+		datas, ok := identityMap[utils.ToStringKey(fieldValues...)]
+		if !ok {
+			return fmt.Errorf("failed to assign association %#v, make sure foreign fields exists", elem.Interface())
+		}
 
-				reflectFieldValue = reflect.Indirect(reflectFieldValue)
-				switch reflectFieldValue.Kind() {
-				case reflect.Struct:
-					rel.Field.Set(data, reflectResults.Index(i).Interface())
-				case reflect.Slice, reflect.Array:
-					if reflectFieldValue.Type().Elem().Kind() == reflect.Ptr {
-						rel.Field.Set(data, reflect.Append(reflectFieldValue, elem).Interface())
-					} else {
-						rel.Field.Set(data, reflect.Append(reflectFieldValue, elem.Elem()).Interface())
-					}
+		for _, data := range datas {
+			reflectFieldValue := rel.Field.ReflectValueOf(tx.Statement.Context, data)
+			if reflectFieldValue.Kind() == reflect.Ptr && reflectFieldValue.IsNil() {
+				reflectFieldValue.Set(reflect.New(rel.Field.FieldType.Elem()))
+			}
+
+			reflectFieldValue = reflect.Indirect(reflectFieldValue)
+			switch reflectFieldValue.Kind() {
+			case reflect.Struct:
+				tx.AddError(rel.Field.Set(tx.Statement.Context, data, elem.Interface()))
+			case reflect.Slice, reflect.Array:
+				if reflectFieldValue.Type().Elem().Kind() == reflect.Ptr {
+					tx.AddError(rel.Field.Set(tx.Statement.Context, data, reflect.Append(reflectFieldValue, elem).Interface()))
+				} else {
+					tx.AddError(rel.Field.Set(tx.Statement.Context, data, reflect.Append(reflectFieldValue, elem.Elem()).Interface()))
 				}
 			}
-		} else {
-			db.AddError(fmt.Errorf("failed to assign association %#v, make sure foreign fields exists", elem.Interface()))
 		}
 	}
+
+	return tx.Error
 }

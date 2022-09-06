@@ -5,8 +5,6 @@ import (
 	"database/sql/driver"
 	"encoding/hex"
 	"fmt"
-
-	errors "golang.org/x/xerrors"
 )
 
 type UUID struct {
@@ -20,20 +18,21 @@ func (dst *UUID) Set(src interface{}) error {
 		return nil
 	}
 
-	if value, ok := src.(interface{ Get() interface{} }); ok {
+	switch value := src.(type) {
+	case interface{ Get() interface{} }:
 		value2 := value.Get()
 		if value2 != value {
 			return dst.Set(value2)
 		}
-	}
-
-	switch value := src.(type) {
+	case fmt.Stringer:
+		value2 := value.String()
+		return dst.Set(value2)
 	case [16]byte:
 		*dst = UUID{Bytes: value, Status: Present}
 	case []byte:
 		if value != nil {
 			if len(value) != 16 {
-				return errors.Errorf("[]byte must be 16 bytes to convert to UUID: %d", len(value))
+				return fmt.Errorf("[]byte must be 16 bytes to convert to UUID: %d", len(value))
 			}
 			*dst = UUID{Status: Present}
 			copy(dst.Bytes[:], value)
@@ -56,7 +55,7 @@ func (dst *UUID) Set(src interface{}) error {
 		if originalSrc, ok := underlyingUUIDType(src); ok {
 			return dst.Set(originalSrc)
 		}
-		return errors.Errorf("cannot convert %v to UUID", value)
+		return fmt.Errorf("cannot convert %v to UUID", value)
 	}
 
 	return nil
@@ -96,7 +95,7 @@ func (src *UUID) AssignTo(dst interface{}) error {
 		return NullAssignTo(dst)
 	}
 
-	return errors.Errorf("cannot assign %v into %T", src, dst)
+	return fmt.Errorf("cannot assign %v into %T", src, dst)
 }
 
 // parseUUID converts a string UUID in standard form to a byte array.
@@ -108,7 +107,7 @@ func parseUUID(src string) (dst [16]byte, err error) {
 		// dashes already stripped, assume valid
 	default:
 		// assume invalid.
-		return dst, errors.Errorf("cannot parse UUID %v", src)
+		return dst, fmt.Errorf("cannot parse UUID %v", src)
 	}
 
 	buf, err := hex.DecodeString(src)
@@ -132,7 +131,7 @@ func (dst *UUID) DecodeText(ci *ConnInfo, src []byte) error {
 	}
 
 	if len(src) != 36 {
-		return errors.Errorf("invalid length for UUID: %v", len(src))
+		return fmt.Errorf("invalid length for UUID: %v", len(src))
 	}
 
 	buf, err := parseUUID(string(src))
@@ -151,7 +150,7 @@ func (dst *UUID) DecodeBinary(ci *ConnInfo, src []byte) error {
 	}
 
 	if len(src) != 16 {
-		return errors.Errorf("invalid length for UUID: %v", len(src))
+		return fmt.Errorf("invalid length for UUID: %v", len(src))
 	}
 
 	*dst = UUID{Status: Present}
@@ -197,7 +196,7 @@ func (dst *UUID) Scan(src interface{}) error {
 		return dst.DecodeText(nil, srcCopy)
 	}
 
-	return errors.Errorf("cannot scan %T", src)
+	return fmt.Errorf("cannot scan %T", src)
 }
 
 // Value implements the database/sql/driver Valuer interface.
@@ -226,7 +225,7 @@ func (dst *UUID) UnmarshalJSON(src []byte) error {
 		return dst.Set(nil)
 	}
 	if len(src) != 38 {
-		return errors.Errorf("invalid length for UUID: %v", len(src))
+		return fmt.Errorf("invalid length for UUID: %v", len(src))
 	}
 	return dst.Set(string(src[1 : len(src)-1]))
 }

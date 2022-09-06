@@ -82,6 +82,23 @@ Use Exec to execute a query that does not return a result set.
         return errors.New("No row found to delete")
     }
 
+QueryFunc can be used to execute a callback function for every row. This is often easier to use than Query.
+
+    var sum, n int32
+	_, err = conn.QueryFunc(
+		context.Background(),
+		"select generate_series(1,$1)",
+		[]interface{}{10},
+		[]interface{}{&n},
+		func(pgx.QueryFuncRow) error {
+            sum += n
+			return nil
+		},
+	)
+	if err != nil {
+		return err
+	}
+
 Base Type Mapping
 
 pgx maps between all common base types directly between Go and PostgreSQL. In particular:
@@ -235,6 +252,17 @@ These are internally implemented with savepoints.
 
 Use BeginTx to control the transaction mode.
 
+BeginFunc and BeginTxFunc are variants that begin a transaction, execute a function, and commit or rollback the
+transaction depending on the return value of the function. These can be simpler and less error prone to use.
+
+    err = conn.BeginFunc(context.Background(), func(tx pgx.Tx) error {
+        _, err := tx.Exec(context.Background(), "insert into foo(id) values (1)")
+        return err
+    })
+    if err != nil {
+        return err
+    }
+
 Prepared Statements
 
 Prepared statements can be manually created with the Prepare method. However, this is rarely necessary because pgx
@@ -260,12 +288,28 @@ interface. Or implement CopyFromSource to avoid buffering the entire data set in
         pgx.CopyFromRows(rows),
     )
 
+When you already have a typed array using CopyFromSlice can be more convenient.
+
+    rows := []User{
+        {"John", "Smith", 36},
+        {"Jane", "Doe", 29},
+    }
+
+    copyCount, err := conn.CopyFrom(
+        context.Background(),
+        pgx.Identifier{"people"},
+        []string{"first_name", "last_name", "age"},
+        pgx.CopyFromSlice(len(rows), func(i int) ([]interface{}, error) {
+            return []interface{}{rows[i].FirstName, rows[i].LastName, rows[i].Age}, nil
+        }),
+    )
+
 CopyFrom can be faster than an insert with as few as 5 rows.
 
 Listen and Notify
 
 pgx can listen to the PostgreSQL notification system with the `Conn.WaitForNotification` method. It blocks until a
-context is received or the context is canceled.
+notification is received or the context is canceled.
 
     _, err := conn.Exec(context.Background(), "listen channelname")
     if err != nil {
