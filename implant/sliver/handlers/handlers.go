@@ -372,6 +372,9 @@ func prepareDownload(path string, filter string, recurse bool) ([]byte, bool, in
 		to download a single file
 	*/
 	fileInfo, err := os.Stat(path + filter)
+	if err != nil {
+		return nil, false, 0, 1, err
+	}
 	if err == nil && !fileInfo.IsDir() {
 		// Then this is a single file
 		rawData, err := os.ReadFile(path + filter)
