@@ -23,10 +23,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"sync"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -41,6 +42,8 @@ import (
 
 var (
 	serverConfig = configs.GetServerConfig()
+
+	middlewareLog = log.NamedLogger("transport", "middleware")
 )
 
 // initMiddleware - Initialize middleware logger
@@ -126,9 +129,6 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	mtlsLog.Debugf("Valid user token for %s", operator.Name)
 	tokenCache.Store(token, operator.Name)
 
-	// grpc_ctxtags.Extract(ctx).Set("auth.sub", userClaimFromToken(tokenInfo))
-	// WARNING: in production define your own type to avoid context collisions
-
 	newCtx = context.WithValue(newCtx, "operator", operator.Name)
 	return newCtx, nil
 }
@@ -186,26 +186,84 @@ func codeToLevel(code codes.Code) logrus.Level {
 type auditUnaryLogMsg struct {
 	Request string `json:"request"`
 	Method  string `json:"method"`
+	Session string `json:"session,omitempty"`
+	Beacon  string `json:"beacon,omitempty"`
 }
 
 func auditLogUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ interface{}, err error) {
-		var request string
 		rawRequest, err := json.Marshal(req)
 		if err != nil {
-			log.AuditLogger.Errorf("Failed to serialize %s", err)
-			request = fmt.Sprintf("%v", req)
-		} else {
-			request = string(rawRequest)
+			middlewareLog.Errorf("Failed to serialize %s", err)
+			return
+		}
+		middlewareLog.Debugf("Raw request: %s", string(rawRequest))
+		session, beacon, err := getActiveTarget(rawRequest)
+		if err != nil {
+			middlewareLog.Errorf("Middleware failed to insert details: %s", err)
 		}
 
-		msg, _ := json.Marshal(&auditUnaryLogMsg{
-			Request: request,
+		// Construct Log Message
+		msg := &auditUnaryLogMsg{
+			Request: string(rawRequest),
 			Method:  info.FullMethod,
-		})
-		log.AuditLogger.Info(string(msg))
+		}
+		if session != nil {
+			sessionJSON, _ := json.Marshal(session)
+			msg.Session = string(sessionJSON)
+		}
+		if beacon != nil {
+			beaconJSON, _ := json.Marshal(beacon)
+			msg.Beacon = string(beaconJSON)
+		}
+
+		msgData, _ := json.Marshal(msg)
+		log.AuditLogger.Info(string(msgData))
 
 		resp, err := handler(ctx, req)
 		return resp, err
 	}
+}
+
+func getActiveTarget(rawRequest []byte) (*clientpb.Session, *clientpb.Beacon, error) {
+
+	var activeBeacon *clientpb.Beacon
+	var activeSession *clientpb.Session
+
+	var request map[string]interface{}
+	err := json.Unmarshal(rawRequest, &request)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// RPC is not a session/beacon request
+	if _, ok := request["Request"]; !ok {
+		return nil, nil, nil
+	}
+
+	rpcRequest := request["Request"].(map[string]interface{})
+
+	middlewareLog.Debugf("RPC Request: %v", rpcRequest)
+
+	if rawBeaconID, ok := rpcRequest["BeaconID"]; ok {
+		beaconID := rawBeaconID.(string)
+		middlewareLog.Debugf("Found Beacon ID: %s", beaconID)
+		beacon, err := db.BeaconByID(beaconID)
+		if err != nil {
+			middlewareLog.Errorf("Failed to get beacon %s: %s", beaconID, err)
+		} else if beacon != nil {
+			activeBeacon = beacon.ToProtobuf()
+		}
+	}
+
+	if rawSessionID, ok := rpcRequest["SessionID"]; ok {
+		sessionID := rawSessionID.(string)
+		middlewareLog.Debugf("Found Session ID: %s", sessionID)
+		session := core.Sessions.Get(sessionID)
+		if session != nil {
+			activeSession = session.ToProtobuf()
+		}
+	}
+
+	return activeSession, activeBeacon, nil
 }
