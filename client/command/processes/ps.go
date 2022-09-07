@@ -57,6 +57,13 @@ var (
 		"SentinelAgent.exe":               {console.Red, "SentinelOne"},                  // Sentinel One
 		"SentinelAgentWorker.exe":         {console.Red, "SentinelOne"},                  // Sentinel One
 		"SentinelHelperService.exe":       {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelBrowserNativeHost.exe":   {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelUI.exe":                  {console.Red, "SentinelOne"},                  // Sentinel One
+		"CylanceSvc.exe":                  {console.Red, "Cylance"},                      // Cylance
+		"CylanceUI.exe":                   {console.Red, "Cylance"},                      // Cylance
+		"TaniumClient.exe":                {console.Red, "Tanium"},                       // Tanium
+		"TaniumCX.exe":                    {console.Red, "Tanium"},                       // Tanium
+		"TaniumDetectEngine.exe":          {console.Red, "Tanium"},                       // Tanium
 	}
 )
 
