@@ -51,13 +51,13 @@ var (
 		"bdservicehost.exe":               {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
 		"bdagent.exe":                     {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
 		"bdredline.exe":                   {console.Red, "Bitdefender"},                  // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
-		"Deep Security Manager.exe"	   {console.Red, "Trend Micro"},		  // TM Deep Security Manager 
-		"coreServiceShell.exe"	   	   {console.Red, "Trend Micro"},		  // TM Anti-malware scan process
-		"ds_monitor.exe"	   	   {console.Red, "Trend Micro"},		  // TM Deep Security Monitor
-		"Notifier.exe"	   		   {console.Red, "Trend Micro"},	    	  // TM Deep Security Notifier's process
-		"dsa.exe"	   		   {console.Red, "Trend Micro"},		  // TM Agent's main process
-		"ds_nuagent.exe"	   	   {console.Red, "Trend Micro"},	 	  // TM Advanced TLS traffic inspection
-		"coreFrameworkHost.exe"	   	   {console.Red, "Trend Micro"},		  // TM Anti-malware scan process
+		"Deep Security Manager.exe":	   {console.Red, "Trend Micro"},		  // TM Deep Security Manager 
+		"coreServiceShell.exe":	   	   {console.Red, "Trend Micro"},		  // TM Anti-malware scan process
+		"ds_monitor.exe":	   	   {console.Red, "Trend Micro"},		  // TM Deep Security Monitor
+		"Notifier.exe":	   		   {console.Red, "Trend Micro"},	    	  // TM Deep Security Notifier's process
+		"dsa.exe":	   		   {console.Red, "Trend Micro"},		  // TM Agent's main process
+		"ds_nuagent.exe":	   	   {console.Red, "Trend Micro"},	 	  // TM Advanced TLS traffic inspection
+		"coreFrameworkHost.exe":	   {console.Red, "Trend Micro"},		  // TM Anti-malware scan process
 		"SentinelServiceHost.exe":         {console.Red, "SentinelOne"},                  // Sentinel One
 		"SentinelStaticEngine.exe":        {console.Red, "SentinelOne"},                  // Sentinel One
 		"SentinelStaticEngineScanner.exe": {console.Red, "SentinelOne"},                  // Sentinel One
