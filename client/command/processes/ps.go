@@ -66,6 +66,8 @@ var (
 		"SentinelHelperService.exe":       {console.Red, "SentinelOne"},                  // Sentinel One
 		"SentinelBrowserNativeHost.exe":   {console.Red, "SentinelOne"},                  // Sentinel One
 		"SentinelUI.exe":                  {console.Red, "SentinelOne"},                  // Sentinel One
+		"Sysmon.exe":                  	   {console.Red, "Sysmon"},                  	  // Sysmon
+		"Sysmon64.exe":                    {console.Red, "Sysmon64"},                     // Sysmon64		
 		"CylanceSvc.exe":                  {console.Red, "Cylance"},                      // Cylance
 		"CylanceUI.exe":                   {console.Red, "Cylance"},                      // Cylance
 		"TaniumClient.exe":                {console.Red, "Tanium"},                       // Tanium
