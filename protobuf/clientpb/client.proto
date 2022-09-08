@@ -45,6 +45,7 @@ message Session {
   repeated string Extensions = 23;
   // string ConfigID = 24;
   int64 PeerID = 25;
+  string Locale = 26;
 }
 
 message Beacon {
@@ -76,6 +77,8 @@ message Beacon {
 
   int64 TasksCount = 26;
   int64 TasksCountCompleted = 27;
+
+  string Locale = 28;
 }
 
 message Beacons {
@@ -598,6 +601,8 @@ message Host {
 
   repeated IOC IOCs = 4;
   map<string, ExtensionData> ExtensionData = 5;
+
+  string Locale = 6;
 }
 
 message AllHosts {
