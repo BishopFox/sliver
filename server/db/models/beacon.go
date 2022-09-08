@@ -52,6 +52,7 @@ type Beacon struct {
 	ReconnectInterval int64
 	ActiveC2          string
 	ProxyURL          string
+	Locale            string
 
 	ImplantBuildID uuid.UUID `gorm:"type:uuid;"`
 
@@ -91,6 +92,7 @@ func (b *Beacon) ToProtobuf() *clientpb.Beacon {
 		Interval:          b.Interval,
 		Jitter:            b.Jitter,
 		NextCheckin:       b.NextCheckin,
+		Locale:            b.Locale,
 	}
 }
 

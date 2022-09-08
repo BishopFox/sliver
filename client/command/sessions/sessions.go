@@ -140,6 +140,7 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 			"Hostname",
 			"Username",
 			"Operating System",
+			"Locale",
 			"Last Message",
 			"Health",
 		})
@@ -186,6 +187,7 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 				fmt.Sprintf(color+"%s"+console.Normal, session.Hostname),
 				fmt.Sprintf(color+"%s"+console.Normal, username),
 				fmt.Sprintf(color+"%s/%s"+console.Normal, session.OS, session.Arch),
+				fmt.Sprintf(color+"%s"+console.Normal, session.Locale),
 				fmt.Sprintf(color+"%s"+console.Normal, time.Unix(session.LastCheckin, 0).Format(time.RFC1123)),
 				burned + SessionHealth,
 			}

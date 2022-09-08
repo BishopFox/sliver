@@ -72,6 +72,7 @@ type Session struct {
 	Extensions        []string
 	ConfigID          string
 	PeerID            int64
+	Locale            string
 }
 
 // LastCheckin - Get the last time a session message was received
@@ -136,6 +137,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		ProxyURL:          s.ProxyURL,
 		Burned:            s.Burned,
 		PeerID:            s.PeerID,
+		Locale:            s.Locale,
 	}
 }
 
