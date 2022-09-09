@@ -1,4 +1,4 @@
-package generate
+package codenames
 
 /*
 	Sliver Implant Framework
@@ -78,22 +78,22 @@ func getRandomWord(fpath string) (string, error) {
 }
 
 // getRandomAdjective - Get a random noun, not cryptographically secure
-func getRandomAdjective() (string, error) {
+func RandomAdjective() (string, error) {
 	return getRandomWord("adjectives.txt")
 }
 
 // getRandomNoun - Get a random noun, not cryptographically secure
-func getRandomNoun() (string, error) {
+func RandomNoun() (string, error) {
 	return getRandomWord("nouns.txt")
 }
 
 // GetCodename - Returns a randomly generated 'codename'
 func GetCodename() (string, error) {
-	adjective, err := getRandomAdjective()
+	adjective, err := RandomAdjective()
 	if err != nil {
 		return "", err
 	}
-	noun, err := getRandomNoun()
+	noun, err := RandomNoun()
 	if err != nil {
 		return "", err
 	}

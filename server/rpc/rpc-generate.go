@@ -30,6 +30,7 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
@@ -46,7 +47,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	var err error
 	name, config := generate.ImplantConfigFromProtobuf(req.Config)
 	if name == "" {
-		name, err = generate.GetCodename()
+		name, err = codenames.GetCodename()
 		if err != nil {
 			return nil, err
 		}

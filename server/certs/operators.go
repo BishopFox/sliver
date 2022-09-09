@@ -66,7 +66,6 @@ func OperatorServerGenerateCertificate(hostname string) ([]byte, []byte, error) 
 
 // OperatorClientListCertificates - Get all client certificates
 func OperatorClientListCertificates() []*x509.Certificate {
-
 	operatorCerts := []*models.Certificate{}
 	dbSession := db.Session()
 	result := dbSession.Where(&models.Certificate{CAType: OperatorCA}).Find(&operatorCerts)
