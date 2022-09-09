@@ -37,7 +37,7 @@ func HTTPSGenerateRSACertificate(host string) ([]byte, []byte, error) {
 	var err error
 
 	// Generate private key
-	privateKey, err = rsa.GenerateKey(rand.Reader, RSAKeySize)
+	privateKey, err = rsa.GenerateKey(rand.Reader, rsaKeySize())
 	if err != nil {
 		certsLog.Fatalf("Failed to generate private key %s", err)
 		return nil, nil, err

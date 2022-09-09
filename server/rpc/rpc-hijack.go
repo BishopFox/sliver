@@ -34,6 +34,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/util/encoders"
@@ -107,7 +108,7 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 
 		name, config := generate.ImplantConfigFromProtobuf(p.Config)
 		if name == "" {
-			name, err = generate.GetCodename()
+			name, err = codenames.GetCodename()
 			if err != nil {
 				return nil, err
 			}

@@ -31,6 +31,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	insecureRand "math/rand"
 	"net"
 	"time"
 
@@ -40,12 +41,6 @@ import (
 )
 
 const (
-	// RSAKeySize - Default size of RSA keys in bits
-	RSAKeySize = 2048 // This is plenty 4096 is overkill
-
-	// Certs are valid for ~3 Years, minus up to 1 year from Now()
-	validFor = 3 * (365 * 24 * time.Hour)
-
 	// ECCKey - Namespace for ECC keys
 	ECCKey = "ecc"
 
@@ -148,7 +143,9 @@ func GenerateECCCertificate(caType string, commonName string, isCA bool, isClien
 	var err error
 
 	// Generate private key
-	privateKey, err = ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	curves := []elliptic.Curve{elliptic.P521(), elliptic.P384(), elliptic.P256()}
+	curve := curves[randomInt(len(curves))]
+	privateKey, err = ecdsa.GenerateKey(curve, rand.Reader)
 	if err != nil {
 		certsLog.Fatalf("Failed to generate private key: %s", err)
 	}
@@ -158,7 +155,7 @@ func GenerateECCCertificate(caType string, commonName string, isCA bool, isClien
 	return generateCertificate(caType, subject, isCA, isClient, privateKey)
 }
 
-// GenerateRSACertificate - Generates a 2048 bit RSA Certificate
+// GenerateRSACertificate - Generates an RSA Certificate
 func GenerateRSACertificate(caType string, commonName string, isCA bool, isClient bool) ([]byte, []byte) {
 
 	certsLog.Debugf("Generating TLS certificate (RSA) for '%s' ...", commonName)
@@ -167,7 +164,7 @@ func GenerateRSACertificate(caType string, commonName string, isCA bool, isClien
 	var err error
 
 	// Generate private key
-	privateKey, err = rsa.GenerateKey(rand.Reader, RSAKeySize)
+	privateKey, err = rsa.GenerateKey(rand.Reader, rsaKeySize())
 	if err != nil {
 		certsLog.Fatalf("Failed to generate private key %s", err)
 	}
@@ -183,7 +180,7 @@ func generateCertificate(caType string, subject pkix.Name, isCA bool, isClient b
 	notBefore := time.Now()
 	days := randomInt(365) * -1 // Within -1 year
 	notBefore = notBefore.AddDate(0, 0, days)
-	notAfter := notBefore.Add(validFor)
+	notAfter := notBefore.Add(randomValidFor())
 	certsLog.Debugf("Valid from %v to %v", notBefore, notAfter)
 
 	// Serial number
@@ -296,4 +293,20 @@ func randomInt(max int) int {
 	rand.Read(buf)
 	i := binary.LittleEndian.Uint32(buf)
 	return int(i) % max
+}
+
+func randomValidFor() time.Duration {
+	validFor := 3 * (365 * 24 * time.Hour)
+	switch insecureRand.Intn(2) {
+	case 0:
+		validFor = 2 * (365 * 24 * time.Hour)
+	case 1:
+		validFor = 3 * (365 * 24 * time.Hour)
+	}
+	return validFor
+}
+
+func rsaKeySize() int {
+	rsaKeySizes := []int{4096, 2048}
+	return rsaKeySizes[randomInt(len(rsaKeySizes))]
 }
