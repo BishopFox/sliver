@@ -35,7 +35,8 @@ import (
 
 const (
 	httpC2ConfigFileName = "http-c2.json"
-	chromeBaseVer        = 97
+	DefaultChromeBaseVer = 100
+	DefaultMacOSVer      = "10_15_7"
 )
 
 // HTTPC2Config - Parent config file struct for implant/server
@@ -69,7 +70,7 @@ func (h *HTTPC2Config) generateChromeUserAgent(goos string, goarch string) strin
 			case "arm64":
 				fallthrough // https://source.chromium.org/chromium/chromium/src/+/master:third_party/blink/renderer/core/frame/navigator_id.cc;l=76
 			case "amd64":
-				return fmt.Sprintf("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", h.ChromeVer())
+				return fmt.Sprintf("Mozilla/5.0 (Macintosh; Intel Mac OS X %s) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", h.MacOSVer(), h.ChromeVer())
 			}
 
 		}
@@ -83,7 +84,19 @@ func (h *HTTPC2Config) generateChromeUserAgent(goos string, goarch string) strin
 
 // ChromeVer - Generate a random Chrome user-agent
 func (h *HTTPC2Config) ChromeVer() string {
-	return fmt.Sprintf("%d.0.%d.%d", chromeBaseVer+insecureRand.Intn(3), 1000+insecureRand.Intn(8999), insecureRand.Intn(999))
+	chromeVer := h.ImplantConfig.ChromeBaseVersion
+	if chromeVer == 0 {
+		chromeVer = DefaultChromeBaseVer
+	}
+	return fmt.Sprintf("%d.0.%d.%d", chromeVer+insecureRand.Intn(3), 1000+insecureRand.Intn(8999), insecureRand.Intn(999))
+}
+
+func (h *HTTPC2Config) MacOSVer() string {
+	macosVer := h.ImplantConfig.MacOSVersion
+	if macosVer == "" {
+		macosVer = DefaultMacOSVer
+	}
+	return macosVer
 }
 
 // RandomImplantConfig - Randomly generate a config
@@ -126,7 +139,9 @@ type NameValueProbability struct {
 // .png = stop
 // .woff = sliver shellcode
 type HTTPC2ImplantConfig struct {
-	UserAgent string `json:"user_agent"`
+	UserAgent         string `json:"user_agent"`
+	ChromeBaseVersion int    `json:"chrome_base_version"`
+	MacOSVersion      string `json:"macos_version"`
 
 	URLParameters []NameValueProbability `json:"url_parameters"`
 	Headers       []NameValueProbability `json:"headers"`
@@ -222,11 +237,13 @@ var (
 			},
 		},
 		ImplantConfig: &HTTPC2ImplantConfig{
-			UserAgent: "", // Blank string is rendered as randomized platform user-agent
-			MaxFiles:  8,
-			MinFiles:  2,
-			MaxPaths:  8,
-			MinPaths:  2,
+			UserAgent:         "", // Blank string is rendered as randomized platform user-agent
+			ChromeBaseVersion: DefaultChromeBaseVer,
+			MacOSVersion:      DefaultMacOSVer,
+			MaxFiles:          8,
+			MinFiles:          2,
+			MaxPaths:          8,
+			MinPaths:          2,
 
 			StagerFileExt: ".woff",
 
