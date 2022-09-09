@@ -111,7 +111,7 @@ func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliver
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
 
-	sessionHandlerLog.Debugf("[DATA] Sequence on tunel %d, %d, data: %s", tunnelData.TunnelID, tunnelData.Sequence, tunnelData.Data)
+	sessionHandlerLog.Debugf("[DATA] Sequence on tunnel %d, %d, data: %s", tunnelData.TunnelID, tunnelData.Sequence, tunnelData.Data)
 
 	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
 	if tunnel != nil {
@@ -137,7 +137,7 @@ func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *slive
 
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
-	sessionHandlerLog.Debugf("[CLOSE] Sequence on tunel %d, %d, data: %s", tunnelData.TunnelID, tunnelData.Sequence, tunnelData.Data)
+	sessionHandlerLog.Debugf("[CLOSE] Sequence on tunnel %d, %d, data: %s", tunnelData.TunnelID, tunnelData.Sequence, tunnelData.Data)
 	if !tunnelData.Closed {
 		return nil
 	}
@@ -181,10 +181,10 @@ func socksDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverp
 	//	return nil
 	//}
 	sessionHandlerLog.Debugf("socksDataHandler:", len(socksData.Data), socksData.Data)
-	SocksTunne := core.SocksTunnels.Get(socksData.TunnelID)
-	if SocksTunne != nil {
-		if session.ID == SocksTunne.SessionID {
-			SocksTunne.FromImplant <- socksData
+	socksTunnel := core.SocksTunnels.Get(socksData.TunnelID)
+	if socksTunnel != nil {
+		if session.ID == socksTunnel.SessionID {
+			socksTunnel.FromImplant <- socksData
 		} else {
 			sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on tunnel it did not own", session.ID)
 		}

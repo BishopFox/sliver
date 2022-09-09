@@ -23,7 +23,7 @@ import (
 	"fmt"
 	insecureRand "math/rand"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/bishopfox/sliver/server/assets"
@@ -39,11 +39,11 @@ var (
 	})
 )
 
-// readlines - Read lines of a text file into a slice
-func readlines(fpath string) ([]string, error) {
-	file, err := os.Open(fpath)
+// readLines - Read lines of a text file into a slice
+func readLines(txtFilePath string) ([]string, error) {
+	file, err := os.Open(txtFilePath)
 	if err != nil {
-		codenameLog.Errorf("Error opening %s: %v", fpath, err)
+		codenameLog.Errorf("Error opening %s: %v", txtFilePath, err)
 		return nil, err
 	}
 	defer file.Close()
@@ -63,26 +63,26 @@ func readlines(fpath string) ([]string, error) {
 }
 
 // getRandomWord - Get a random word from a file, not cryptographically secure
-func getRandomWord(fpath string) (string, error) {
+func getRandomWord(txtFilePath string) (string, error) {
 	appDir := assets.GetRootAppDir()
-	words, err := readlines(path.Join(appDir, fpath))
+	words, err := readLines(filepath.Join(appDir, txtFilePath))
 	if err != nil {
 		return "", err
 	}
 	wordsLen := len(words)
 	if wordsLen == 0 {
-		return "", fmt.Errorf("no words found in %s", fpath)
+		return "", fmt.Errorf("no words found in %s", txtFilePath)
 	}
 	word := words[insecureRand.Intn(wordsLen-1)]
 	return strings.TrimSpace(word), nil
 }
 
-// getRandomAdjective - Get a random noun, not cryptographically secure
+// RandomAdjective - Get a random noun, not cryptographically secure
 func RandomAdjective() (string, error) {
 	return getRandomWord("adjectives.txt")
 }
 
-// getRandomNoun - Get a random noun, not cryptographically secure
+// RandomNoun - Get a random noun, not cryptographically secure
 func RandomNoun() (string, error) {
 	return getRandomWord("nouns.txt")
 }
