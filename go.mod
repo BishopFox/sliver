@@ -5,7 +5,7 @@ go 1.18
 replace github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.6
 
 require (
-	github.com/AlecAivazis/survey/v2 v2.2.2
+	github.com/AlecAivazis/survey/v2 v2.3.6
 	github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
 	github.com/Binject/debug v0.0.0-20210312092933-6277045c2fdf
 	github.com/Binject/go-donut v0.0.0-20210701074227-67a31e2d883e
@@ -34,7 +34,7 @@ require (
 	github.com/pquerna/otp v1.3.0
 	github.com/shirou/gopsutil/v3 v3.21.10
 	github.com/sirupsen/logrus v1.9.0
-	github.com/spf13/cobra v1.1.1
+	github.com/spf13/cobra v1.5.0
 	github.com/stretchr/testify v1.8.0
 	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
 	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
