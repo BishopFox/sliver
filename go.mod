@@ -33,7 +33,7 @@ require (
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/pquerna/otp v1.3.0
 	github.com/shirou/gopsutil/v3 v3.21.10
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.8.0
 	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
