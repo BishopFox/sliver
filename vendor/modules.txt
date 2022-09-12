@@ -345,8 +345,8 @@ github.com/shirou/gopsutil/v3/mem
 # github.com/sirupsen/logrus v1.8.1
 ## explicit; go 1.13
 github.com/sirupsen/logrus
-# github.com/spf13/cobra v1.1.1
-## explicit; go 1.12
+# github.com/spf13/cobra v1.5.0
+## explicit; go 1.15
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
