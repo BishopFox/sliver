@@ -24,6 +24,11 @@ type OptionAnswer struct {
 	Index int
 }
 
+type reflectField struct {
+	value     reflect.Value
+	fieldType reflect.StructField
+}
+
 func OptionAnswerList(incoming []string) []OptionAnswer {
 	list := []OptionAnswer{}
 	for i, opt := range incoming {
@@ -63,13 +68,12 @@ func WriteAnswer(t interface{}, name string, v interface{}) (err error) {
 		}
 
 		// get the name of the field that matches the string we  were given
-		fieldIndex, err := findFieldIndex(elem, name)
+		field, _, err := findField(elem, name)
 		// if something went wrong
 		if err != nil {
 			// bubble up
 			return err
 		}
-		field := elem.Field(fieldIndex)
 		// handle references to the Settable interface aswell
 		if s, ok := field.Interface().(Settable); ok {
 			// use the interface method
@@ -156,37 +160,49 @@ func IsFieldNotMatch(err error) (string, bool) {
 
 // BUG(AlecAivazis): the current implementation might cause weird conflicts if there are
 // two fields with same name that only differ by casing.
-func findFieldIndex(s reflect.Value, name string) (int, error) {
-	// the type of the value
-	sType := s.Type()
+func findField(s reflect.Value, name string) (reflect.Value, reflect.StructField, error) {
+
+	fields := flattenFields(s)
 
 	// first look for matching tags so we can overwrite matching field names
-	for i := 0; i < sType.NumField(); i++ {
-		// the field we are current scanning
-		field := sType.Field(i)
-
+	for _, f := range fields {
 		// the value of the survey tag
-		tag := field.Tag.Get(tagName)
+		tag := f.fieldType.Tag.Get(tagName)
 		// if the tag matches the name we are looking for
 		if tag != "" && tag == name {
 			// then we found our index
-			return i, nil
+			return f.value, f.fieldType, nil
 		}
 	}
 
 	// then look for matching names
-	for i := 0; i < sType.NumField(); i++ {
-		// the field we are current scanning
-		field := sType.Field(i)
-
+	for _, f := range fields {
 		// if the name of the field matches what we're looking for
-		if strings.ToLower(field.Name) == strings.ToLower(name) {
-			return i, nil
+		if strings.EqualFold(f.fieldType.Name, name) {
+			return f.value, f.fieldType, nil
 		}
 	}
 
 	// we didn't find the field
-	return -1, errFieldNotMatch{name}
+	return reflect.Value{}, reflect.StructField{}, errFieldNotMatch{name}
+}
+
+func flattenFields(s reflect.Value) []reflectField {
+	sType := s.Type()
+	numField := sType.NumField()
+	fields := make([]reflectField, 0, numField)
+	for i := 0; i < numField; i++ {
+		fieldType := sType.Field(i)
+		field := s.Field(i)
+
+		if field.Kind() == reflect.Struct && fieldType.Anonymous {
+			// field is a promoted structure
+			fields = append(fields, flattenFields(field)...)
+			continue
+		}
+		fields = append(fields, reflectField{field, fieldType})
+	}
+	return fields
 }
 
 // isList returns true if the element is something we can Len()
@@ -343,7 +359,9 @@ func copy(t reflect.Value, v reflect.Value) (err error) {
 			// otherwise it could be an array
 			case reflect.Array:
 				// set the index to the appropriate value
-				copy(t.Slice(i, i+1).Index(0), v.Index(i))
+				if err := copy(t.Slice(i, i+1).Index(0), v.Index(i)); err != nil {
+					return err
+				}
 			}
 		}
 	} else {

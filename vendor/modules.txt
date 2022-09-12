@@ -1,4 +1,4 @@
-# github.com/AlecAivazis/survey/v2 v2.2.2
+# github.com/AlecAivazis/survey/v2 v2.3.6
 ## explicit; go 1.13
 github.com/AlecAivazis/survey/v2
 github.com/AlecAivazis/survey/v2/core
