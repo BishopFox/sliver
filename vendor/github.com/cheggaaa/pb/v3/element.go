@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"time"
 )
@@ -128,10 +129,13 @@ type bar struct {
 
 func (p *bar) write(state *State, eln, width int) int {
 	repeat := width / p.cc[eln]
+	remainder := width % p.cc[eln]
 	for i := 0; i < repeat; i++ {
 		p.buf.Write(p.eb[eln])
 	}
-	StripStringToBuffer(string(p.eb[eln]), width%p.cc[eln], p.buf)
+	if remainder > 0 {
+		StripStringToBuffer(string(p.eb[eln]), remainder, p.buf)
+	}
 	return width
 }
 
@@ -228,6 +232,48 @@ var ElementBar ElementFunc = func(state *State, args ...string) string {
 	return p.buf.String()
 }
 
+func elapsedTime(state *State) string {
+	elapsed := state.Time().Sub(state.StartTime())
+	var precision time.Duration
+	var ok bool
+	if precision, ok = state.Get(TimeRound).(time.Duration); !ok {
+		// default behavior: round to nearest .1s when elapsed < 10s
+		//
+		// we compare with 9.95s as opposed to 10s to avoid an annoying
+		// interaction with the fixed precision display code below,
+		// where 9.9s would be rounded to 10s but printed as 10.0s, and
+		// then 10.0s would be rounded to 10s and printed as 10s
+		if elapsed < 9950*time.Millisecond {
+			precision = 100 * time.Millisecond
+		} else {
+			precision = time.Second
+		}
+	}
+	rounded := elapsed.Round(precision)
+	if precision < time.Second && rounded >= time.Second {
+		// special handling to ensure string is shown with the given
+		// precision, with trailing zeros after the decimal point if
+		// necessary
+		reference := (2*time.Second - time.Nanosecond).Truncate(precision).String()
+		// reference looks like "1.9[...]9s", telling us how many
+		// decimal digits we need
+		neededDecimals := len(reference) - 3
+		s := rounded.String()
+		dotIndex := strings.LastIndex(s, ".")
+		if dotIndex != -1 {
+			// s has the form "[stuff].[decimals]s"
+			decimals := len(s) - dotIndex - 2
+			extraZeros := neededDecimals - decimals
+			return fmt.Sprintf("%s%ss", s[:len(s)-1], strings.Repeat("0", extraZeros))
+		} else {
+			// s has the form "[stuff]s"
+			return fmt.Sprintf("%s.%ss", s[:len(s)-1], strings.Repeat("0", neededDecimals))
+		}
+	} else {
+		return rounded.String()
+	}
+}
+
 // ElementRemainingTime calculates remaining time based on speed (EWMA)
 // Optionally can take one or two string arguments.
 // First string will be used as value for format time duration string, default is "%s".
@@ -235,29 +281,23 @@ var ElementBar ElementFunc = func(state *State, args ...string) string {
 // Third string will be used when value not available, default is "?"
 // In template use as follows: {{rtime .}} or {{rtime . "%s remain"}} or {{rtime . "%s remain" "%s total" "???"}}
 var ElementRemainingTime ElementFunc = func(state *State, args ...string) string {
-	var rts string
-	sp := getSpeedObj(state).value(state)
-	if !state.IsFinished() {
-		if sp > 0 {
-			remain := float64(state.Total() - state.Value())
-			remainDur := time.Duration(remain/sp) * time.Second
-			rts = remainDur.String()
-		} else {
-			return argsHelper(args).getOr(2, "?")
-		}
-	} else {
-		rts = state.Time().Truncate(time.Second).Sub(state.StartTime().Truncate(time.Second)).String()
-		return fmt.Sprintf(argsHelper(args).getOr(1, "%s"), rts)
+	if state.IsFinished() {
+		return fmt.Sprintf(argsHelper(args).getOr(1, "%s"), elapsedTime(state))
 	}
-	return fmt.Sprintf(argsHelper(args).getOr(0, "%s"), rts)
+	sp := getSpeedObj(state).value(state)
+	if sp > 0 {
+		remain := float64(state.Total() - state.Value())
+		remainDur := time.Duration(remain/sp) * time.Second
+		return fmt.Sprintf(argsHelper(args).getOr(0, "%s"), remainDur)
+	}
+	return argsHelper(args).getOr(2, "?")
 }
 
 // ElementElapsedTime shows elapsed time
-// Optionally cat take one argument - it's format for time string.
+// Optionally can take one argument - it's format for time string.
 // In template use as follows: {{etime .}} or {{etime . "%s elapsed"}}
 var ElementElapsedTime ElementFunc = func(state *State, args ...string) string {
-	etm := state.Time().Truncate(time.Second).Sub(state.StartTime().Truncate(time.Second))
-	return fmt.Sprintf(argsHelper(args).getOr(0, "%s"), etm.String())
+	return fmt.Sprintf(argsHelper(args).getOr(0, "%s"), elapsedTime(state))
 }
 
 // ElementString get value from bar by given key and print them
