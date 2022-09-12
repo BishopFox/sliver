@@ -88,7 +88,7 @@ github.com/awgh/rawreader
 github.com/boombuler/barcode
 github.com/boombuler/barcode/qr
 github.com/boombuler/barcode/utils
-# github.com/cheggaaa/pb/v3 v3.0.5
+# github.com/cheggaaa/pb/v3 v3.1.0
 ## explicit; go 1.12
 github.com/cheggaaa/pb/v3
 github.com/cheggaaa/pb/v3/termutil
@@ -310,7 +310,7 @@ github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.14
 ## explicit; go 1.12
 github.com/mattn/go-isatty
-# github.com/mattn/go-runewidth v0.0.9
+# github.com/mattn/go-runewidth v0.0.12
 ## explicit; go 1.9
 github.com/mattn/go-runewidth
 # github.com/mattn/go-sqlite3 v1.14.15
@@ -338,6 +338,9 @@ github.com/pquerna/otp/totp
 # github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0
 ## explicit; go 1.12
 github.com/remyoudompheng/bigfft
+# github.com/rivo/uniseg v0.2.0
+## explicit; go 1.12
+github.com/rivo/uniseg
 # github.com/shirou/gopsutil/v3 v3.21.10
 ## explicit; go 1.15
 github.com/shirou/gopsutil/v3/internal/common
