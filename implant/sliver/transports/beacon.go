@@ -113,7 +113,7 @@ func (b *Beacon) Duration() time.Duration {
 }
 
 // StartBeaconLoop - Starts the beacon loop generator
-func StartBeaconLoop(c2s []string, abort <-chan struct{}) <-chan *Beacon {
+func StartBeaconLoop(abort <-chan struct{}) <-chan *Beacon {
 	// {{if .Config.Debug}}
 	log.Printf("Starting beacon loop ...")
 	// {{end}}
@@ -122,7 +122,7 @@ func StartBeaconLoop(c2s []string, abort <-chan struct{}) <-chan *Beacon {
 	nextBeacon := make(chan *Beacon)
 
 	innerAbort := make(chan struct{})
-	c2Generator := C2Generator(c2s, innerAbort)
+	c2Generator := C2Generator(innerAbort)
 
 	go func() {
 		defer close(nextBeacon)
