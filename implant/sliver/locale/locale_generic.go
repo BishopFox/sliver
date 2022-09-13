@@ -1,3 +1,5 @@
+//go:build !darwin && !(windows && (amd64 || 386)) && !(linux && (amd64 || 386))
+
 package locale
 
 /*
@@ -18,20 +20,11 @@ package locale
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 	-----------------------------------------------------------------------
-
-	Hopefully the generic works for everything.
+	Place holder so we don't get undefined functions in generic builds.
 
 */
 
-import (
-	"github.com/cubiest/jibberjabber"
-)
-
 // GetLocale returns the default language set
 func GetLocale() string {
-	userLocale, err := jibberjabber.DetectIETF()
-	if err != nil {
-		return ""
-	}
-	return userLocale
+	return ""
 }
