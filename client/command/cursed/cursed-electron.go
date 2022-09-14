@@ -149,9 +149,13 @@ func checkElectronProcess(electronExe string, session *clientpb.Session, ctx *gr
 
 func startCursedElectronProcess(electronExe string, session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (*core.CursedProcess, error) {
 	con.PrintInfof("Starting '%s' ... ", path.Base(electronExe))
-	debugPort := uint16(ctx.Flags.Int("remote-debugging-port"))
+	debugPort := getRemoteDebuggerPort(ctx)
 	args := []string{
 		fmt.Sprintf("--remote-debugging-port=%d", debugPort),
+	}
+	additionalArgs := ctx.Args.StringList("args")
+	if len(additionalArgs) > 0 {
+		args = append(args, additionalArgs...)
 	}
 
 	// Execute the Chrome process with the extra flags

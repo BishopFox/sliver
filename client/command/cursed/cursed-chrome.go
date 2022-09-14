@@ -175,7 +175,7 @@ func startCursedChromeProcess(isEdge bool, session *clientpb.Session, ctx *grumb
 	con.Printf("success!\n")
 
 	con.PrintInfof("Starting %s process ... ", name)
-	debugPort := uint16(ctx.Flags.Int("remote-debugging-port"))
+	debugPort := getRemoteDebuggerPort(ctx)
 	args := []string{
 		fmt.Sprintf("--remote-debugging-port=%d", debugPort),
 	}
@@ -184,6 +184,16 @@ func startCursedChromeProcess(isEdge bool, session *clientpb.Session, ctx *grumb
 	}
 	if ctx.Flags.Bool("restore") {
 		args = append(args, "--restore-last-session")
+	}
+	if ctx.Flags.Bool("keep-alive") {
+		args = append(args, "--keep-alive-for-test")
+	}
+	if ctx.Flags.Bool("headless") {
+		args = append(args, "--headless")
+	}
+	additionalArgs := ctx.Args.StringList("args")
+	if len(additionalArgs) > 0 {
+		args = append(args, additionalArgs...)
 	}
 
 	// Execute the Chrome process with the extra flags

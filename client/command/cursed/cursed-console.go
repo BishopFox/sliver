@@ -131,5 +131,4 @@ func startCursedConsole(curse *core.CursedProcess, target *overlord.ChromeDebugT
 			}
 		}
 	}
-
 }

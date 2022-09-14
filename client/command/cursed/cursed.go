@@ -21,6 +21,7 @@ package cursed
 import (
 	"bytes"
 	"fmt"
+	insecureRand "math/rand"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -35,6 +36,7 @@ import (
 
 // CursedChromeCmd - Execute a .NET assembly in-memory
 func CursedCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	// Collect existing curses from core
 	cursedProcesses := [][]string{}
 	core.CursedProcesses.Range(func(key, value interface{}) bool {
 		curse := value.(*core.CursedProcess)
@@ -48,6 +50,7 @@ func CursedCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		})
 		return true
 	})
+	// Display table if we have 1 or more curses
 	if 0 < len(cursedProcesses) {
 		tw := table.NewWriter()
 		tw.SetStyle(settings.GetTableStyle(con))
@@ -67,6 +70,7 @@ func CursedCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 }
 
+// selectCursedProcess - Interactively select a cursed process from a list
 func selectCursedProcess(con *console.SliverConsoleClient) *core.CursedProcess {
 	cursedProcesses := []*core.CursedProcess{}
 	core.CursedProcesses.Range(func(key, value interface{}) bool {
@@ -106,4 +110,12 @@ func selectCursedProcess(con *console.SliverConsoleClient) *core.CursedProcess {
 	}
 	selectedPortNumber, _ := strconv.Atoi(strings.Split(selected, " ")[0])
 	return port2process[selectedPortNumber]
+}
+
+func getRemoteDebuggerPort(ctx *grumble.Context) int {
+	port := int(uint16(ctx.Flags.Int("remote-debugging-port")))
+	if port == 0 {
+		port = insecureRand.Intn(30000) + 10000
+	}
+	return port
 }
