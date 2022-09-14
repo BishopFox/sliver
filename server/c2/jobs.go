@@ -103,23 +103,23 @@ func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListen
 				}
 
 				if len(currentPeers) > oldNumPeers {
-					jobLog.Infof("New WG peers. Updating Wireguard config")
+					jobLog.Debugf("New WG peers. Updating Wireguard config")
 
 					oldNumPeers = len(currentPeers)
 
-					jobLog.Infof("Old WG config for peers: %s", currentWGConf.String())
+					jobLog.Debugf("Old WG config for peers: %s", currentWGConf.String())
 					for k, v := range currentPeers {
 						fmt.Fprintf(currentWGConf, "public_key=%s\n", k)
 						fmt.Fprintf(currentWGConf, "allowed_ip=%s/32\n", v)
 					}
 
-					jobLog.Infof("New WG config for peers: %s", currentWGConf.String())
+					jobLog.Debugf("New WG config for peers: %s", currentWGConf.String())
 
 					if err := dev.IpcSetOperation(bufio.NewReader(currentWGConf)); err != nil {
 						jobLog.Errorf("Failed to update Wireguard Config %s", err)
 						continue
 					}
-					jobLog.Infof("Successfully updated Wireguard config")
+					jobLog.Debugf("Successfully updated Wireguard config")
 				}
 			}
 		}
