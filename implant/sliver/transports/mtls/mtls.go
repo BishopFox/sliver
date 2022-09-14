@@ -167,6 +167,11 @@ func getTLSConfig() *tls.Config {
 			return cryptography.RootOnlyVerifyCertificate(caCertPEM, rawCerts, verifiedChains)
 		},
 	}
+	// {{if .Config.Debug}}
+	if cryptography.TLSKeyLogger != nil {
+		tlsConfig.KeyLogWriter = cryptography.TLSKeyLogger
+	}
+	// {{end}}
 
 	return tlsConfig
 }
