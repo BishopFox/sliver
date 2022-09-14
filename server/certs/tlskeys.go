@@ -21,13 +21,6 @@ package certs
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"github.com/bishopfox/sliver/server/configs"
-	"github.com/bishopfox/sliver/server/log"
-)
-
-const (
-	keyFileName = "tls.keys"
 )
 
 var (
@@ -36,9 +29,8 @@ var (
 )
 
 func newKeyLogger() *os.File {
-	serverConfig := configs.GetServerConfig()
-	if serverConfig.Logs.TLSKeyLogger {
-		keyFilePath := filepath.Join(log.GetLogDir(), keyFileName)
+	keyFilePath, present := os.LookupEnv("SSLKEYLOGFILE")
+	if present {
 		keyFile, err := os.OpenFile(keyFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
 			certsLog.Errorf(fmt.Sprintf("Failed to open TLS key file %v", err))
