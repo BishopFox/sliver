@@ -245,9 +245,13 @@ func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
 		httpLog.Errorf("Failed to parse tls cert/key pair %s", err)
 		return nil
 	}
-	return &tls.Config{
+	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 	}
+	if certs.TLSKeyLogger != nil {
+		tlsConfig.KeyLogWriter = certs.TLSKeyLogger
+	}
+	return tlsConfig
 }
 
 func (s *SliverHTTPC2) router() *mux.Router {
