@@ -353,6 +353,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 		// {{if .Config.Debug}}
 		log.Printf("[beacon] closing ...")
 		// {{end}}
+		time.Sleep(time.Second)
 		beacon.Close()
 	}()
 	// {{if .Config.Debug}}
