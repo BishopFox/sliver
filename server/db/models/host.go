@@ -34,6 +34,7 @@ type Host struct {
 
 	Hostname  string
 	OSVersion string // Verbore OS version
+	Locale    string // Detected language code
 
 	IOCs          []IOC
 	ExtensionData []ExtensionData
@@ -54,6 +55,7 @@ func (h *Host) ToProtobuf() *clientpb.Host {
 		HostUUID:      h.HostUUID.String(),
 		Hostname:      h.Hostname,
 		OSVersion:     h.OSVersion,
+		Locale:        h.Locale,
 		IOCs:          h.iocsToProtobuf(),
 		ExtensionData: h.extensionDataToProtobuf(),
 	}
