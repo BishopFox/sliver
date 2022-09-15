@@ -39,6 +39,9 @@ func StartRportFwdListenerCmd(ctx *grumble.Context, con *console.SliverConsoleCl
 	if session == nil {
 		return
 	}
+	if session.GetActiveC2() == "dns" {
+		con.PrintWarnf("The current C2 is DNS, this is going to be a very slow tunnel!\n")
+	}
 
 	bindAddress := ctx.Flags.String("bind")
 	// Check if the bind address is just a port number, if no host is specified
