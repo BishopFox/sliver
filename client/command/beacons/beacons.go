@@ -119,6 +119,7 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 			"Hostname",
 			"Username",
 			"Operating System",
+			"Locale",
 			"Last Check-in",
 			"Next Check-in",
 		})
@@ -186,6 +187,7 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Hostname),
 				fmt.Sprintf(color+"%s"+console.Normal, strings.TrimPrefix(beacon.Username, beacon.Hostname+"\\")),
 				fmt.Sprintf(color+"%s/%s"+console.Normal, beacon.OS, beacon.Arch),
+				fmt.Sprintf(color+"%s"+console.Normal, beacon.Locale),
 				fmt.Sprintf(color+"%s (%s ago)"+console.Normal, lastCheckinDateTime, timeSinceLastCheckin),
 				next,
 			}
