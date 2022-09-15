@@ -22,43 +22,28 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/desertbit/grumble"
 )
 
 // StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant
 func StartRportFwdListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session, beacon := con.ActiveTarget.GetInteractive()
-	if session == nil && beacon == nil {
+	session := con.ActiveTarget.GetSessionInteractive()
+	if session == nil {
 		return
 	}
 
 	bindAddress := ctx.Flags.String("bind")
 	forwardAddress := ctx.Flags.String("remote")
-	rportfwdlistener, err := con.Rpc.StartRportfwdListener(context.Background(), &sliverpb.RportFwdStartListenerReq{
+	rportfwdListener, err := con.Rpc.StartRportfwdListener(context.Background(), &sliverpb.RportFwdStartListenerReq{
 		Request:        con.ActiveTarget.Request(ctx),
 		BindAddress:    bindAddress,
 		ForwardAddress: forwardAddress,
 	})
 	if err != nil {
-
 		con.PrintWarnf("%s\n", err)
 		return
 	}
-	if rportfwdlistener.Response != nil && rportfwdlistener.Response.Async {
-		con.AddBeaconCallback(rportfwdlistener.Response.TaskID, func(task *clientpb.BeaconTask) {
-			err = proto.Unmarshal(task.Response, rportfwdlistener)
-			if err != nil {
-				con.PrintErrorf("Failed to decode response %s\n", err)
-				return
-			}
-			con.PrintInfof("Port forwarding %s -> %s\n", rportfwdlistener.BindAddress, rportfwdlistener.ForwardAddress)
-		})
-		con.PrintAsyncResponse(rportfwdlistener.Response)
-	} else {
-		con.PrintInfof("Port forwarding %s -> %s\n", rportfwdlistener.BindAddress, rportfwdlistener.ForwardAddress)
-	}
+	con.PrintInfof("Reverse port forwarding %s <- %s\n", rportfwdListener.BindAddress, rportfwdListener.ForwardAddress)
 }
