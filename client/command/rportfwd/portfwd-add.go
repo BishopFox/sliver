@@ -20,11 +20,17 @@ package rportfwd
 
 import (
 	"context"
+	"fmt"
+	"regexp"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/desertbit/grumble"
+)
+
+var (
+	portNumberOnlyRegexp = regexp.MustCompile("^[0-9]+$")
 )
 
 // StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant
@@ -35,7 +41,18 @@ func StartRportFwdListenerCmd(ctx *grumble.Context, con *console.SliverConsoleCl
 	}
 
 	bindAddress := ctx.Flags.String("bind")
+	// Check if the bind address is just a port number, if no host is specified
+	// we just bind to all interfaces implant-side
+	if portNumberOnlyRegexp.MatchString(bindAddress) {
+		bindAddress = fmt.Sprintf(":%s", bindAddress)
+	}
+
 	forwardAddress := ctx.Flags.String("remote")
+	// Check if the forward address is just a port number, if no host is specified
+	// we just forward to localhost client-side
+	if portNumberOnlyRegexp.MatchString(forwardAddress) {
+		forwardAddress = fmt.Sprintf("127.0.0.1:%s", forwardAddress)
+	}
 	rportfwdListener, err := con.Rpc.StartRportfwdListener(context.Background(), &sliverpb.RportFwdStartListenerReq{
 		Request:        con.ActiveTarget.Request(ctx),
 		BindAddress:    bindAddress,
@@ -45,5 +62,5 @@ func StartRportFwdListenerCmd(ctx *grumble.Context, con *console.SliverConsoleCl
 		con.PrintWarnf("%s\n", err)
 		return
 	}
-	con.PrintInfof("Reverse port forwarding %s <- %s\n", rportfwdListener.BindAddress, rportfwdListener.ForwardAddress)
+	con.PrintInfof("Reverse port forwarding %s <- %s\n", rportfwdListener.ForwardAddress, rportfwdListener.BindAddress)
 }
