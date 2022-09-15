@@ -19,10 +19,13 @@ package rportfwd
 */
 
 import (
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
 	"context"
 	"encoding/binary"
 	"io"
-	"log"
 	"math/rand"
 	"net"
 	"strconv"
@@ -125,7 +128,9 @@ type ChannelProxy struct {
 
 // HandleConn - Handle a TCP connection
 func (p *ChannelProxy) HandleConn(src net.Conn) {
+	// {{if .Config.Debug}}
 	log.Printf("[tcpproxy] Handling new connection")
+	// {{end}}
 	ctx := context.Background()
 	var cancelContext context.CancelFunc
 	if p.DialTimeout >= 0 {
@@ -145,7 +150,9 @@ func (p *ChannelProxy) HandleConn(src net.Conn) {
 	// {{end}}
 
 	tId := NewTunnelID()
+	// {{if .Config.Debug}}
 	log.Printf("[tcpproxy] Created new tunnel with id %d", tId)
+	// {{end}}
 
 	tunnel := transports.NewTunnel(
 		tId,
@@ -153,31 +160,11 @@ func (p *ChannelProxy) HandleConn(src net.Conn) {
 		src,
 	)
 	p.Conn.AddTunnel(tunnel)
-	// Create a reverse tunnel, then start it before binding the shell to the newly created tunnel
-	// log.Printf("[tcpproxy] Binding tunnel to portfwd %d", p.Port())
-
-	// req := &sliverpb.RPortfwdReq{
-	// 	Host:     p.Host(),
-	// 	Port:     p.Port(),
-	// 	Protocol: sliverpb.PortFwdProtoTCP,
-	// 	TunnelID: tId}
-	// data, _ := proto.Marshal(req)
-	// p.Conn.Send <- &sliverpb.Envelope{ID: EnvelopeID(), Type: sliverpb.MsgPortfwdReq, Data: data}
-
 	cleanup := func(reason error) {
 		// {{if .Config.Debug}}
 		log.Printf("[portfwd] Closing tunnel %d (%s)", tunnel.ID, reason)
 		// {{end}}
 		tunnel := p.Conn.Tunnel(tunnel.ID)
-
-		//tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
-		//Closed:   true,
-		//	TunnelID: tunnel.ID,
-		//})
-		//p.Conn.Send <- &sliverpb.Envelope{
-		// 	Type: sliverpb.MsgTunnelClose,
-		// 	Data: tunnelClose,
-		// }
 		p.Conn.RemoveTunnel(tunnel.ID)
 		src.Close()
 		cancelContext()
@@ -208,17 +195,23 @@ func (p *ChannelProxy) HostPort() (string, uint32) {
 	defaultPort := uint32(8080)
 	host, rawPort, err := net.SplitHostPort(p.RemoteAddr)
 	if err != nil {
+		// {{if .Config.Debug}}
 		log.Printf("Failed to parse addr %s", p.RemoteAddr)
+		// {{end}}
 		return "", defaultPort
 	}
 	portNumber, err := strconv.Atoi(rawPort)
 	if err != nil {
+		// {{if .Config.Debug}}
 		log.Printf("Failed to parse number from %s", rawPort)
+		// {{end}}
 		return "", defaultPort
 	}
 	port := uint32(portNumber)
 	if port < 1 || 65535 < port {
+		// {{if .Config.Debug}}
 		log.Printf("Invalid port number %d", port)
+		// {{end}}
 		return "", defaultPort
 	}
 	return host, port
@@ -236,132 +229,12 @@ func (p *ChannelProxy) Host() string {
 	return host
 }
 
-// func (p *ChannelProxy) dialC2(ctx context.Context, src net.Conn) (*transports.Tunnel, error) {
-
-// 	log.Printf("[tcpproxy] Dialing implant to create tunnel ...")
-
-// 	if conn, ok := src.(*net.TCPConn); ok {
-// 		// {{if .Config.Debug}}
-// 		log.Printf("[portfwd] Configuring keep alive")
-// 		// {{end}}
-// 		conn.SetKeepAlive(true)
-// 		// TODO: Make KeepAlive configurable
-// 		conn.SetKeepAlivePeriod(30 * time.Second)
-// 	}
-// 	// Add tunnel
-// 	// {{if .Config.Debug}}
-// 	log.Printf("[rportfwd] Creating tcp tunnel")
-// 	// {{end}}
-
-// 	tId := NewTunnelID()
-// 	log.Printf("[tcpproxy] Created new tunnel with id %d", tId)
-
-// 	tunnel := transports.NewTunnel(
-// 		tId,
-// 		src,
-// 		src,
-// 	)
-// 	p.Conn.AddTunnel(tunnel)
-// 	// Create a reverse tunnel, then start it before binding the shell to the newly created tunnel
-// 	log.Printf("[tcpproxy] Binding tunnel to portfwd %d", p.Port())
-
-// 	req := &sliverpb.RPortfwdReq{
-// 		Host:     p.Host(),
-// 		Port:     p.Port(),
-// 		Protocol: sliverpb.PortFwdProtoTCP,
-// 		TunnelID: tId}
-// 	data, _ := proto.Marshal(req)
-// 	p.Conn.Send <- &sliverpb.Envelope{Data: data}
-// 	/*
-// 		portfwdResp, err := p.Rpc.Portfwd(ctx, &sliverpb.PortfwdReq{
-// 			Request: &commonpb.Request{
-// 				SessionID: p.Session.ID,
-// 			},
-// 			Host:     p.Host(),
-// 			Port:     p.Port(),
-// 			Protocol: sliverpb.PortFwdProtoTCP,
-// 			TunnelID: tunnel.ID,
-// 		})
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		// Close tunnel in case of error on the implant side
-// 		if portfwdResp.Response != nil && portfwdResp.Response.Err != "" {
-// 			p.Rpc.CloseTunnel(ctx, &sliverpb.Tunnel{
-// 				TunnelID:  tunnel.ID,
-// 				SessionID: p.Session.ID,
-// 			})
-// 			return nil, errors.New(portfwdResp.Response.Err)
-// 		}
-// 		log.Printf("Portfwd response: %v", portfwdResp)
-// 	*/
-
-// 	cleanup := func(reason error) {
-// 		// {{if .Config.Debug}}
-// 		log.Printf("[portfwd] Closing tunnel %d (%s)", tunnel.ID, reason)
-// 		// {{end}}
-// 		tunnel := p.Conn.Tunnel(tunnel.ID)
-
-// 		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
-// 			Closed:   true,
-// 			TunnelID: tunnel.ID,
-// 		})
-// 		p.Conn.Send <- &sliverpb.Envelope{
-// 			Type: sliverpb.MsgTunnelClose,
-// 			Data: tunnelClose,
-// 		}
-// 		p.Conn.RemoveTunnel(tunnel.ID)
-// 		src.Close()
-// 	}
-
-// 	go func() {
-// 		tWriter := tunnelWriter{
-// 			tun:  tunnel,
-// 			conn: p.Conn,
-// 		}
-// 		// portfwd only uses one reader, hence the tunnel.Readers[0]
-// 		n, err := io.Copy(tWriter, tunnel.Readers[0])
-// 		_ = n // avoid not used compiler error if debug mode is disabled
-// 		// {{if .Config.Debug}}
-// 		log.Printf("[tunnel] Tunnel done, wrote %v bytes", n)
-// 		// {{end}}
-
-// 		cleanup(err)
-// 	}()
-// }
-
-// func (p *ChannelProxy) keepAlivePeriod() time.Duration {
-// 	if p.KeepAlivePeriod != 0 {
-// 		return p.KeepAlivePeriod
-// 	}
-// 	return time.Minute
-// }
-
 func (p *ChannelProxy) dialTimeout() time.Duration {
 	if p.DialTimeout > 0 {
 		return p.DialTimeout
 	}
 	return 30 * time.Second
 }
-
-// func toImplantLoop(conn net.Conn, tunnel *TunnelIO, errs chan<- error) {
-// 	if wc, ok := conn.(*tcpproxy.Conn); ok && len(wc.Peeked) > 0 {
-// 		if _, err := tunnel.Write(wc.Peeked); err != nil {
-// 			errs <- err
-// 			return
-// 		}
-// 		wc.Peeked = nil
-// 	}
-// 	n, err := io.Copy(tunnel, conn)
-// 	log.Printf("[tcpproxy] Closing to-implant after %d byte(s)", n)
-// 	errs <- err
-// }
-
-// func fromImplantLoop(conn net.Conn, tunnel *TunnelIO, errs chan<- error) {
-// 	n, err := io.Copy(conn, tunnel)
-// 	log.Printf("[tcpproxy] Closing from-implant after %d byte(s)", n)
-// 	errs <- err
-// }
 
 func nextPortfwdID() int {
 	portfwdID++
