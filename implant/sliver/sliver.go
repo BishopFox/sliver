@@ -300,8 +300,8 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 		Register:    register,
 		NextCheckin: int64(beacon.Duration().Seconds()),
 	}))
-	beacon.Close()
 	time.Sleep(time.Second)
+	beacon.Close()
 
 	// BeaconMain - Is executed in it's own goroutine as the function will block
 	// until all tasks complete (in success or failure), if a task handler blocks
