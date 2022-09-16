@@ -141,6 +141,7 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 		cfg := &configs.WGJobConfig{
 			Port:  listenPort,
 			NPort: nListenPort,
+			KeyPort: keyExchangeListenPort,
 		}
 		configs.GetServerConfig().AddWGJob(cfg)
 		job.PersistentID = cfg.JobID
