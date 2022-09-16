@@ -155,7 +155,7 @@ func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *slive
 
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
-	sessionHandlerLog.Debugf("[CLOSE] Sequence on tunel %d, %d, data: %s", tunnelData.TunnelID, tunnelData.Sequence, tunnelData.Data)
+	sessionHandlerLog.Debugf("[CLOSE] Sequence on tunnel %d, %d, data: %s", tunnelData.TunnelID, tunnelData.Sequence, tunnelData.Data)
 	if !tunnelData.Closed {
 		return nil
 	}
