@@ -58,6 +58,7 @@ const (
 var (
 	ErrClosed               = errors.New("http session closed")
 	ErrStatusCodeUnexpected = errors.New("unexpected http response code")
+	TimeDelta time.Duration = 0
 )
 
 // HTTPOptions - c2 specific configuration options
@@ -334,7 +335,8 @@ func (s *SliverHTTPClient) establishSessionID(sessionInit []byte) error {
 
 	uri := s.startSessionURL()
 	s.NonceQueryArgument(uri, nonce)
-	otpCode := cryptography.GetOTPCode()
+	timestamp := time.Now().UTC().Add(TimeDelta)
+	otpCode := cryptography.GetExactOTPCode(timestamp)
 	s.OTPQueryArgument(uri, otpCode)
 	req := s.newHTTPRequest(http.MethodPost, uri, reqBody)
 	// {{if .Config.Debug}}
@@ -349,6 +351,15 @@ func (s *SliverHTTPClient) establishSessionID(sessionInit []byte) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
+		serverDateHeader := resp.Header.Get("Date")
+		if serverDateHeader != "" {
+				// If the request failed and there is a Date header, find the time difference and save it for the next request
+				curTime := time.Now().UTC()
+				serverTime, err := time.Parse(time.RFC1123, serverDateHeader)
+				if err == nil {
+					TimeDelta = serverTime.UTC().Sub(curTime)
+				}
+		}
 		// {{if .Config.Debug}}
 		log.Printf("[http] non-200 response (%d): %v", resp.StatusCode, resp)
 		// {{end}}
