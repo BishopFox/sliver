@@ -118,7 +118,7 @@ func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliver
 	tunnelData := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, tunnelData)
 
-	sessionHandlerLog.Debugf("[DATA] Sequence on tunel %d, %d, data: %s", tunnelData.TunnelID, tunnelData.Sequence, tunnelData.Data)
+	sessionHandlerLog.Debugf("[DATA] Sequence on tunnel %d, %d, data: %s", tunnelData.TunnelID, tunnelData.Sequence, tunnelData.Data)
 
 	rtunnel := rtunnels.GetRTunnel(tunnelData.TunnelID)
 	if rtunnel != nil && session.ID == rtunnel.SessionID {
