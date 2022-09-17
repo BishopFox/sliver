@@ -52,7 +52,7 @@ func PrintRportFwdListeners(rportfwdListeners *sliverpb.RportFwdListeners, flags
 	}
 
 	if len(rportfwdListeners.Listeners) == 0 {
-		con.PrintInfof("No port forwards\n")
+		con.PrintInfof("No reverse port forwards\n")
 		return
 	}
 
