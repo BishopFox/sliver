@@ -114,8 +114,6 @@ func rportFwdStartListenerHandler(envelope *pb.Envelope, connection *transports.
 		ID:   envelope.ID,
 		Data: data,
 	}
-	return
-	//con.PrintInfof("Port forwarding %s -> %s:%s\n", bindAddr, remoteHost, remotePort)
 }
 
 func rportFwdStopListenerHandler(envelope *pb.Envelope, connection *transports.Connection) {
@@ -132,9 +130,11 @@ func rportFwdStopListenerHandler(envelope *pb.Envelope, connection *transports.C
 		return
 	}
 
-	res := rportfwd.Portfwds.Remove(int(req.ID))
-	if res == true {
-		resp.ID = req.ID
+	rportfwd := rportfwd.Portfwds.Remove(int(req.ID))
+	if rportfwd != nil {
+		resp.ID = uint32(rportfwd.ID)
+		resp.BindAddress = rportfwd.ChannelProxy.BindAddr
+		resp.ForwardAddress = rportfwd.ChannelProxy.RemoteAddr
 	} else {
 		resp.Response.Err = err.Error()
 	}
@@ -144,5 +144,4 @@ func rportFwdStopListenerHandler(envelope *pb.Envelope, connection *transports.C
 		ID:   envelope.ID,
 		Data: data,
 	}
-	return
 }

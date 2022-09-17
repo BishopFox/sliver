@@ -2548,8 +2548,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	}
 	rportfwdCmd.AddCommand(&grumble.Command{
-		Name:     consts.AddStr,
-		Help:     "Add reverse port forwarding",
+		Name:     consts.StartStr,
+		Help:     "Start reverse port forwarding",
 		LongHelp: help.GetHelpFor([]string{consts.RportfwdStr}),
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2565,7 +2565,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
 	rportfwdCmd.AddCommand(&grumble.Command{
-		Name:     consts.RmStr,
+		Name:     consts.StopStr,
 		Help:     "Stop and remove reverse port forwarding",
 		LongHelp: help.GetHelpFor([]string{consts.RportfwdStr}),
 		Run: func(ctx *grumble.Context) error {

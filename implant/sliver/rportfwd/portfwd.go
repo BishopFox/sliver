@@ -90,15 +90,15 @@ func (f *portfwds) Add(tcpProxy *tcpproxy.Proxy, channelProxy *ChannelProxy) *Po
 }
 
 // Remove - Remove a TCP proxy instance
-func (f *portfwds) Remove(portfwdID int) bool {
+func (f *portfwds) Remove(portfwdID int) *Portfwd {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	if portfwd, ok := f.forwards[portfwdID]; ok {
 		portfwd.TCPProxy.Close()
 		delete(f.forwards, portfwdID)
-		return true
+		return portfwd
 	}
-	return false
+	return nil
 }
 
 // List - List all TCP proxy instances
