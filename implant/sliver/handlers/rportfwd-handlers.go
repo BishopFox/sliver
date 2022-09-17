@@ -35,7 +35,7 @@ import (
 
 var (
 	genericRportFwdHandlers = map[uint32]RportFwdHandler{
-		pb.MsgRportFwdListeners:        rportFwdListenersHandler,
+		pb.MsgRportFwdListenersReq:     rportFwdListenersHandler,
 		pb.MsgRportFwdStartListenerReq: rportFwdStartListenerHandler,
 		pb.MsgRportFwdStopListenerReq:  rportFwdStopListenerHandler,
 		//pb.MsgPivotPeerEnvelope:     pivotPeerEnvelopeHandler,
