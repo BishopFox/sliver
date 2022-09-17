@@ -66,6 +66,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/reaction"
 	"github.com/bishopfox/sliver/client/command/reconfig"
 	"github.com/bishopfox/sliver/client/command/registry"
+	"github.com/bishopfox/sliver/client/command/rportfwd"
 	"github.com/bishopfox/sliver/client/command/screenshot"
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -2528,6 +2529,59 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	})
 	con.App.AddCommand(registryCmd)
+
+	// [ Reverse Port Forwarding ] --------------------------------------------------------------
+
+	rportfwdCmd := &grumble.Command{
+		Name:     consts.RportfwdStr,
+		Help:     "reverse port forwardings",
+		LongHelp: help.GetHelpFor([]string{consts.RportfwdStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			rportfwd.RportFwdListenersCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	}
+	rportfwdCmd.AddCommand(&grumble.Command{
+		Name:     consts.AddStr,
+		Help:     "Add reverse port forwarding",
+		LongHelp: help.GetHelpFor([]string{consts.RportfwdStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			rportfwd.StartRportFwdListenerCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("r", "remote", "", "remote address <ip>:<port> connection is forwarded to")
+			f.String("b", "bind", "", "bind address <ip>:<port> implants listen on")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+	rportfwdCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Stop and remove reverse port forwarding",
+		LongHelp: help.GetHelpFor([]string{consts.RportfwdStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			rportfwd.StopRportFwdListenerCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("i", "id", 0, "id of portfwd to remove")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+
+	con.App.AddCommand(rportfwdCmd)
 
 	// [ Pivots ] --------------------------------------------------------------
 

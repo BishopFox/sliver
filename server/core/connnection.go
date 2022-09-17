@@ -73,3 +73,10 @@ func generateImplantConnectionID() string {
 	id, _ := uuid.NewV4()
 	return id.String()
 }
+
+func (c *ImplantConnection) RequestResend(data []byte) {
+	c.Send <- &sliverpb.Envelope{
+		Type: sliverpb.MsgTunnelData,
+		Data: data,
+	}
+}
