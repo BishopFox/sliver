@@ -241,13 +241,6 @@ func nextPortfwdID() int {
 	return portfwdID
 }
 
-// EnvelopeID - Generate random ID of 8 bytes
-func EnvelopeID() int64 {
-	randBuf := make([]byte, 8) // 64 bits of randomness
-	rand.Read(randBuf)
-	return int64(binary.LittleEndian.Uint64(randBuf))
-}
-
 // NewTunnelID - New 64-bit identifier
 func NewTunnelID() uint64 {
 	randBuf := make([]byte, 8)

@@ -20,6 +20,7 @@ package handlers
 
 import (
 	// {{if .Config.Debug}}
+
 	"log"
 
 	// {{end}}
@@ -38,11 +39,10 @@ var (
 		pb.MsgRportFwdListenersReq:     rportFwdListenersHandler,
 		pb.MsgRportFwdStartListenerReq: rportFwdStartListenerHandler,
 		pb.MsgRportFwdStopListenerReq:  rportFwdStopListenerHandler,
-		//pb.MsgPivotPeerEnvelope:     pivotPeerEnvelopeHandler,
 	}
 )
 
-// GetPivotHandlers - Returns a map of pivot handlers
+// GetRportFwdHandlers - Returns a map of reverse port forwarding handlers
 func GetRportFwdHandlers() map[uint32]RportFwdHandler {
 	return genericRportFwdHandlers
 }
@@ -83,7 +83,19 @@ func rportFwdStartListenerHandler(envelope *pb.Envelope, connection *transports.
 		}
 		return
 	}
+	rportfwds := rportfwd.Portfwds.List()
 
+	for _, r := range rportfwds {
+		if r.BindAddr == req.BindAddress {
+			resp.Response.Err = "Already listening on " + r.BindAddr + "\n"
+			data, _ := proto.Marshal(resp)
+			connection.Send <- &pb.Envelope{
+				ID:   envelope.ID,
+				Data: data,
+			}
+			return
+		}
+	}
 	tcpProxy := &tcpproxy.Proxy{}
 	channelProxy := &rportfwd.ChannelProxy{
 		Conn:            connection,
@@ -136,7 +148,7 @@ func rportFwdStopListenerHandler(envelope *pb.Envelope, connection *transports.C
 		resp.BindAddress = rportfwd.ChannelProxy.BindAddr
 		resp.ForwardAddress = rportfwd.ChannelProxy.RemoteAddr
 	} else {
-		resp.Response.Err = err.Error()
+		resp.Response.Err = "Invalid ID\n"
 	}
 
 	data, _ := proto.Marshal(resp)

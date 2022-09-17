@@ -65,5 +65,13 @@ func StartRportFwdListenerCmd(ctx *grumble.Context, con *console.SliverConsoleCl
 		con.PrintWarnf("%s\n", err)
 		return
 	}
+	printStartedRportFwdListener(rportfwdListener, con)
+}
+
+func printStartedRportFwdListener(rportfwdListener *sliverpb.RportFwdListener, con *console.SliverConsoleClient) {
+	if rportfwdListener.Response != nil && rportfwdListener.Response.Err != "" {
+		con.PrintErrorf("%s", rportfwdListener.Response.Err)
+		return
+	}
 	con.PrintInfof("Reverse port forwarding %s <- %s\n", rportfwdListener.ForwardAddress, rportfwdListener.BindAddress)
 }
