@@ -130,7 +130,7 @@ func rportFwdStartListenerHandler(envelope *pb.Envelope, connection *transports.
 
 func rportFwdStopListenerHandler(envelope *pb.Envelope, connection *transports.Connection) {
 	req := &pb.RportFwdStopListenerReq{}
-	resp := &pb.RportFwdListener{}
+	resp := &pb.RportFwdListener{Response: &commonpb.Response{}}
 	err := proto.Unmarshal(envelope.Data, req)
 	if err != nil {
 		resp.Response.Err = err.Error()
