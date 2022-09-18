@@ -90,15 +90,15 @@ func (f *portfwds) Add(tcpProxy *tcpproxy.Proxy, channelProxy *ChannelProxy) *Po
 }
 
 // Remove - Remove a TCP proxy instance
-func (f *portfwds) Remove(portfwdID int) bool {
+func (f *portfwds) Remove(portfwdID int) *Portfwd {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	if portfwd, ok := f.forwards[portfwdID]; ok {
 		portfwd.TCPProxy.Close()
 		delete(f.forwards, portfwdID)
-		return true
+		return portfwd
 	}
-	return false
+	return nil
 }
 
 // List - List all TCP proxy instances
@@ -239,13 +239,6 @@ func (p *ChannelProxy) dialTimeout() time.Duration {
 func nextPortfwdID() int {
 	portfwdID++
 	return portfwdID
-}
-
-// EnvelopeID - Generate random ID of 8 bytes
-func EnvelopeID() int64 {
-	randBuf := make([]byte, 8) // 64 bits of randomness
-	rand.Read(randBuf)
-	return int64(binary.LittleEndian.Uint64(randBuf))
 }
 
 // NewTunnelID - New 64-bit identifier

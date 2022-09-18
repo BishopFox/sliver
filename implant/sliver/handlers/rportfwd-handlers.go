@@ -20,6 +20,7 @@ package handlers
 
 import (
 	// {{if .Config.Debug}}
+
 	"log"
 
 	// {{end}}
@@ -35,14 +36,13 @@ import (
 
 var (
 	genericRportFwdHandlers = map[uint32]RportFwdHandler{
-		pb.MsgRportFwdListeners:        rportFwdListenersHandler,
+		pb.MsgRportFwdListenersReq:     rportFwdListenersHandler,
 		pb.MsgRportFwdStartListenerReq: rportFwdStartListenerHandler,
 		pb.MsgRportFwdStopListenerReq:  rportFwdStopListenerHandler,
-		//pb.MsgPivotPeerEnvelope:     pivotPeerEnvelopeHandler,
 	}
 )
 
-// GetPivotHandlers - Returns a map of pivot handlers
+// GetRportFwdHandlers - Returns a map of reverse port forwarding handlers
 func GetRportFwdHandlers() map[uint32]RportFwdHandler {
 	return genericRportFwdHandlers
 }
@@ -83,7 +83,19 @@ func rportFwdStartListenerHandler(envelope *pb.Envelope, connection *transports.
 		}
 		return
 	}
+	rportfwds := rportfwd.Portfwds.List()
 
+	for _, r := range rportfwds {
+		if r.BindAddr == req.BindAddress {
+			resp.Response.Err = "Already listening on " + r.BindAddr + "\n"
+			data, _ := proto.Marshal(resp)
+			connection.Send <- &pb.Envelope{
+				ID:   envelope.ID,
+				Data: data,
+			}
+			return
+		}
+	}
 	tcpProxy := &tcpproxy.Proxy{}
 	channelProxy := &rportfwd.ChannelProxy{
 		Conn:            connection,
@@ -114,13 +126,11 @@ func rportFwdStartListenerHandler(envelope *pb.Envelope, connection *transports.
 		ID:   envelope.ID,
 		Data: data,
 	}
-	return
-	//con.PrintInfof("Port forwarding %s -> %s:%s\n", bindAddr, remoteHost, remotePort)
 }
 
 func rportFwdStopListenerHandler(envelope *pb.Envelope, connection *transports.Connection) {
 	req := &pb.RportFwdStopListenerReq{}
-	resp := &pb.RportFwdListener{}
+	resp := &pb.RportFwdListener{Response: &commonpb.Response{}}
 	err := proto.Unmarshal(envelope.Data, req)
 	if err != nil {
 		resp.Response.Err = err.Error()
@@ -132,11 +142,13 @@ func rportFwdStopListenerHandler(envelope *pb.Envelope, connection *transports.C
 		return
 	}
 
-	res := rportfwd.Portfwds.Remove(int(req.ID))
-	if res == true {
-		resp.ID = req.ID
+	rportfwd := rportfwd.Portfwds.Remove(int(req.ID))
+	if rportfwd != nil {
+		resp.ID = uint32(rportfwd.ID)
+		resp.BindAddress = rportfwd.ChannelProxy.BindAddr
+		resp.ForwardAddress = rportfwd.ChannelProxy.RemoteAddr
 	} else {
-		resp.Response.Err = err.Error()
+		resp.Response.Err = "Invalid ID\n"
 	}
 
 	data, _ := proto.Marshal(resp)
@@ -144,5 +156,4 @@ func rportFwdStopListenerHandler(envelope *pb.Envelope, connection *transports.C
 		ID:   envelope.ID,
 		Data: data,
 	}
-	return
 }

@@ -19,15 +19,13 @@ package rportfwd
 */
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"text/tabwriter"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-
 	"github.com/desertbit/grumble"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant
@@ -52,11 +50,25 @@ func PrintRportFwdListeners(rportfwdListeners *sliverpb.RportFwdListeners, flags
 		con.PrintErrorf("%s\n", rportfwdListeners.Response.Err)
 		return
 	}
-	outputBuf := bytes.NewBufferString("")
-	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
-	for _, listener := range rportfwdListeners.Listeners {
-		fmt.Fprintf(table, "%d\t%s -> %s\n", listener.ID, listener.BindAddress, listener.ForwardAddress)
+
+	if len(rportfwdListeners.Listeners) == 0 {
+		con.PrintInfof("No reverse port forwards\n")
+		return
 	}
-	table.Flush()
-	con.Printf("%s\n", outputBuf.String())
+
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.AppendHeader(table.Row{
+		"ID",
+		"Remote Address",
+		"Bind Address",
+	})
+	for _, p := range rportfwdListeners.Listeners {
+		tw.AppendRow(table.Row{
+			p.ID,
+			p.ForwardAddress,
+			p.BindAddress,
+		})
+	}
+	con.Printf("%s\n", tw.Render())
 }

@@ -43,6 +43,13 @@ func StopRportFwdListenerCmd(ctx *grumble.Context, con *console.SliverConsoleCli
 		con.PrintWarnf("%s\n", err)
 		return
 	}
-	con.PrintInfof("Stopped reverse port forwarding %s <- %s\n", rportfwdListener.BindAddress, rportfwdListener.ForwardAddress)
+	printStoppedRportFwdListener(rportfwdListener, con)
+}
 
+func printStoppedRportFwdListener(rportfwdListener *sliverpb.RportFwdListener, con *console.SliverConsoleClient) {
+	if rportfwdListener.Response != nil && rportfwdListener.Response.Err != "" {
+		con.PrintErrorf("%s", rportfwdListener.Response.Err)
+		return
+	}
+	con.PrintInfof("Stopped reverse port forwarding %s <- %s\n", rportfwdListener.ForwardAddress, rportfwdListener.BindAddress)
 }
