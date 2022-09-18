@@ -65,6 +65,8 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		fPath, err = generate.SliverSharedLibrary(name, config)
 	case clientpb.OutputFormat_SHELLCODE:
 		fPath, err = generate.SliverShellcode(name, config)
+	default:
+		return nil, fmt.Errorf("invalid output format: %s", req.Config.Format)
 	}
 
 	if err != nil {
@@ -72,7 +74,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	}
 
 	filename := filepath.Base(fPath)
-	filedata, err := ioutil.ReadFile(fPath)
+	fileData, err := ioutil.ReadFile(fPath)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +87,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	return &clientpb.Generate{
 		File: &commonpb.File{
 			Name: filename,
-			Data: filedata,
+			Data: fileData,
 		},
 	}, err
 }
@@ -248,4 +250,34 @@ func (rpc *Server) GetCompiler(ctx context.Context, _ *commonpb.Empty) (*clientp
 	}
 	rcpLog.Debugf("GetCompiler = %v", compiler)
 	return compiler, nil
+}
+
+// External builder RPCs
+
+// Generate - Generate a new implant
+func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.ExternalImplantConfig, error) {
+	var err error
+	name, config := generate.ImplantConfigFromProtobuf(req.Config)
+	if name == "" {
+		name, err = codenames.GetCodename()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if config == nil {
+		return nil, errors.New("invalid implant config")
+	}
+	req.Config.Format = clientpb.OutputFormat_EXTERNAL
+
+	externalConfig, err := generate.SliverExternal(name, config)
+	if err != nil {
+		return nil, err
+	}
+	return externalConfig, err
+}
+
+func (rpc *Server) GenerateExternalSaveFile(ctx context.Context, req *commonpb.File) (*commonpb.Empty, error) {
+	// generate.ImplantBuildSave()
+
+	return &commonpb.Empty{}, nil
 }

@@ -67,6 +67,8 @@ type SliverRPCClient interface {
 	HostIOCRm(ctx context.Context, in *clientpb.IOC, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	// *** Implants ***
 	Generate(ctx context.Context, in *clientpb.GenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
+	GenerateExternal(ctx context.Context, in *clientpb.GenerateReq, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error)
+	GenerateExternalSaveFile(ctx context.Context, in *commonpb.File, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	Regenerate(ctx context.Context, in *clientpb.RegenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
 	ImplantBuilds(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.ImplantBuilds, error)
 	DeleteImplantBuild(ctx context.Context, in *clientpb.DeleteReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
@@ -140,9 +142,9 @@ type SliverRPCClient interface {
 	RunSSHCommand(ctx context.Context, in *sliverpb.SSHCommandReq, opts ...grpc.CallOption) (*sliverpb.SSHCommand, error)
 	HijackDLL(ctx context.Context, in *clientpb.DllHijackReq, opts ...grpc.CallOption) (*clientpb.DllHijack, error)
 	GetPrivs(ctx context.Context, in *sliverpb.GetPrivsReq, opts ...grpc.CallOption) (*sliverpb.GetPrivs, error)
-	StartRportfwdListener(ctx context.Context, in *sliverpb.RportFwdStartListenerReq, opts ...grpc.CallOption) (*sliverpb.RportFwdListener, error)
+	StartRportFwdListener(ctx context.Context, in *sliverpb.RportFwdStartListenerReq, opts ...grpc.CallOption) (*sliverpb.RportFwdListener, error)
 	GetRportFwdListeners(ctx context.Context, in *sliverpb.RportFwdListenersReq, opts ...grpc.CallOption) (*sliverpb.RportFwdListeners, error)
-	StopRportfwdListener(ctx context.Context, in *sliverpb.RportFwdStopListenerReq, opts ...grpc.CallOption) (*sliverpb.RportFwdListener, error)
+	StopRportFwdListener(ctx context.Context, in *sliverpb.RportFwdStopListenerReq, opts ...grpc.CallOption) (*sliverpb.RportFwdListener, error)
 	// Beacon only commands
 	OpenSession(ctx context.Context, in *sliverpb.OpenSession, opts ...grpc.CallOption) (*sliverpb.OpenSession, error)
 	CloseSession(ctx context.Context, in *sliverpb.CloseSession, opts ...grpc.CallOption) (*commonpb.Empty, error)
@@ -480,6 +482,24 @@ func (c *sliverRPCClient) HostIOCRm(ctx context.Context, in *clientpb.IOC, opts 
 func (c *sliverRPCClient) Generate(ctx context.Context, in *clientpb.GenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error) {
 	out := new(clientpb.Generate)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Generate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GenerateExternal(ctx context.Context, in *clientpb.GenerateReq, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error) {
+	out := new(clientpb.ExternalImplantConfig)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GenerateExternal", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GenerateExternalSaveFile(ctx context.Context, in *commonpb.File, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GenerateExternalSaveFile", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1116,9 +1136,9 @@ func (c *sliverRPCClient) GetPrivs(ctx context.Context, in *sliverpb.GetPrivsReq
 	return out, nil
 }
 
-func (c *sliverRPCClient) StartRportfwdListener(ctx context.Context, in *sliverpb.RportFwdStartListenerReq, opts ...grpc.CallOption) (*sliverpb.RportFwdListener, error) {
+func (c *sliverRPCClient) StartRportFwdListener(ctx context.Context, in *sliverpb.RportFwdStartListenerReq, opts ...grpc.CallOption) (*sliverpb.RportFwdListener, error) {
 	out := new(sliverpb.RportFwdListener)
-	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/StartRportfwdListener", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/StartRportFwdListener", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1134,9 +1154,9 @@ func (c *sliverRPCClient) GetRportFwdListeners(ctx context.Context, in *sliverpb
 	return out, nil
 }
 
-func (c *sliverRPCClient) StopRportfwdListener(ctx context.Context, in *sliverpb.RportFwdStopListenerReq, opts ...grpc.CallOption) (*sliverpb.RportFwdListener, error) {
+func (c *sliverRPCClient) StopRportFwdListener(ctx context.Context, in *sliverpb.RportFwdStopListenerReq, opts ...grpc.CallOption) (*sliverpb.RportFwdListener, error) {
 	out := new(sliverpb.RportFwdListener)
-	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/StopRportfwdListener", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/StopRportFwdListener", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1440,6 +1460,8 @@ type SliverRPCServer interface {
 	HostIOCRm(context.Context, *clientpb.IOC) (*commonpb.Empty, error)
 	// *** Implants ***
 	Generate(context.Context, *clientpb.GenerateReq) (*clientpb.Generate, error)
+	GenerateExternal(context.Context, *clientpb.GenerateReq) (*clientpb.ExternalImplantConfig, error)
+	GenerateExternalSaveFile(context.Context, *commonpb.File) (*commonpb.Empty, error)
 	Regenerate(context.Context, *clientpb.RegenerateReq) (*clientpb.Generate, error)
 	ImplantBuilds(context.Context, *commonpb.Empty) (*clientpb.ImplantBuilds, error)
 	DeleteImplantBuild(context.Context, *clientpb.DeleteReq) (*commonpb.Empty, error)
@@ -1513,9 +1535,9 @@ type SliverRPCServer interface {
 	RunSSHCommand(context.Context, *sliverpb.SSHCommandReq) (*sliverpb.SSHCommand, error)
 	HijackDLL(context.Context, *clientpb.DllHijackReq) (*clientpb.DllHijack, error)
 	GetPrivs(context.Context, *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error)
-	StartRportfwdListener(context.Context, *sliverpb.RportFwdStartListenerReq) (*sliverpb.RportFwdListener, error)
+	StartRportFwdListener(context.Context, *sliverpb.RportFwdStartListenerReq) (*sliverpb.RportFwdListener, error)
 	GetRportFwdListeners(context.Context, *sliverpb.RportFwdListenersReq) (*sliverpb.RportFwdListeners, error)
-	StopRportfwdListener(context.Context, *sliverpb.RportFwdStopListenerReq) (*sliverpb.RportFwdListener, error)
+	StopRportFwdListener(context.Context, *sliverpb.RportFwdStopListenerReq) (*sliverpb.RportFwdListener, error)
 	// Beacon only commands
 	OpenSession(context.Context, *sliverpb.OpenSession) (*sliverpb.OpenSession, error)
 	CloseSession(context.Context, *sliverpb.CloseSession) (*commonpb.Empty, error)
@@ -1651,6 +1673,12 @@ func (UnimplementedSliverRPCServer) HostIOCRm(context.Context, *clientpb.IOC) (*
 }
 func (UnimplementedSliverRPCServer) Generate(context.Context, *clientpb.GenerateReq) (*clientpb.Generate, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Generate not implemented")
+}
+func (UnimplementedSliverRPCServer) GenerateExternal(context.Context, *clientpb.GenerateReq) (*clientpb.ExternalImplantConfig, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateExternal not implemented")
+}
+func (UnimplementedSliverRPCServer) GenerateExternalSaveFile(context.Context, *commonpb.File) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateExternalSaveFile not implemented")
 }
 func (UnimplementedSliverRPCServer) Regenerate(context.Context, *clientpb.RegenerateReq) (*clientpb.Generate, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Regenerate not implemented")
@@ -1862,14 +1890,14 @@ func (UnimplementedSliverRPCServer) HijackDLL(context.Context, *clientpb.DllHija
 func (UnimplementedSliverRPCServer) GetPrivs(context.Context, *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPrivs not implemented")
 }
-func (UnimplementedSliverRPCServer) StartRportfwdListener(context.Context, *sliverpb.RportFwdStartListenerReq) (*sliverpb.RportFwdListener, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method StartRportfwdListener not implemented")
+func (UnimplementedSliverRPCServer) StartRportFwdListener(context.Context, *sliverpb.RportFwdStartListenerReq) (*sliverpb.RportFwdListener, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartRportFwdListener not implemented")
 }
 func (UnimplementedSliverRPCServer) GetRportFwdListeners(context.Context, *sliverpb.RportFwdListenersReq) (*sliverpb.RportFwdListeners, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRportFwdListeners not implemented")
 }
-func (UnimplementedSliverRPCServer) StopRportfwdListener(context.Context, *sliverpb.RportFwdStopListenerReq) (*sliverpb.RportFwdListener, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method StopRportfwdListener not implemented")
+func (UnimplementedSliverRPCServer) StopRportFwdListener(context.Context, *sliverpb.RportFwdStopListenerReq) (*sliverpb.RportFwdListener, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StopRportFwdListener not implemented")
 }
 func (UnimplementedSliverRPCServer) OpenSession(context.Context, *sliverpb.OpenSession) (*sliverpb.OpenSession, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OpenSession not implemented")
@@ -2552,6 +2580,42 @@ func _SliverRPC_Generate_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).Generate(ctx, req.(*clientpb.GenerateReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GenerateExternal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.GenerateReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GenerateExternal(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/GenerateExternal",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GenerateExternal(ctx, req.(*clientpb.GenerateReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GenerateExternalSaveFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.File)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GenerateExternalSaveFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/GenerateExternalSaveFile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GenerateExternalSaveFile(ctx, req.(*commonpb.File))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3816,20 +3880,20 @@ func _SliverRPC_GetPrivs_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SliverRPC_StartRportfwdListener_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _SliverRPC_StartRportFwdListener_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.RportFwdStartListenerReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SliverRPCServer).StartRportfwdListener(ctx, in)
+		return srv.(SliverRPCServer).StartRportFwdListener(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/rpcpb.SliverRPC/StartRportfwdListener",
+		FullMethod: "/rpcpb.SliverRPC/StartRportFwdListener",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).StartRportfwdListener(ctx, req.(*sliverpb.RportFwdStartListenerReq))
+		return srv.(SliverRPCServer).StartRportFwdListener(ctx, req.(*sliverpb.RportFwdStartListenerReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3852,20 +3916,20 @@ func _SliverRPC_GetRportFwdListeners_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SliverRPC_StopRportfwdListener_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _SliverRPC_StopRportFwdListener_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.RportFwdStopListenerReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SliverRPCServer).StopRportfwdListener(ctx, in)
+		return srv.(SliverRPCServer).StopRportFwdListener(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/rpcpb.SliverRPC/StopRportfwdListener",
+		FullMethod: "/rpcpb.SliverRPC/StopRportFwdListener",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).StopRportfwdListener(ctx, req.(*sliverpb.RportFwdStopListenerReq))
+		return srv.(SliverRPCServer).StopRportFwdListener(ctx, req.(*sliverpb.RportFwdStopListenerReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -4393,6 +4457,14 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_Generate_Handler,
 		},
 		{
+			MethodName: "GenerateExternal",
+			Handler:    _SliverRPC_GenerateExternal_Handler,
+		},
+		{
+			MethodName: "GenerateExternalSaveFile",
+			Handler:    _SliverRPC_GenerateExternalSaveFile_Handler,
+		},
+		{
 			MethodName: "Regenerate",
 			Handler:    _SliverRPC_Regenerate_Handler,
 		},
@@ -4673,16 +4745,16 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_GetPrivs_Handler,
 		},
 		{
-			MethodName: "StartRportfwdListener",
-			Handler:    _SliverRPC_StartRportfwdListener_Handler,
+			MethodName: "StartRportFwdListener",
+			Handler:    _SliverRPC_StartRportFwdListener_Handler,
 		},
 		{
 			MethodName: "GetRportFwdListeners",
 			Handler:    _SliverRPC_GetRportFwdListeners_Handler,
 		},
 		{
-			MethodName: "StopRportfwdListener",
-			Handler:    _SliverRPC_StopRportfwdListener_Handler,
+			MethodName: "StopRportFwdListener",
+			Handler:    _SliverRPC_StopRportFwdListener_Handler,
 		},
 		{
 			MethodName: "OpenSession",
