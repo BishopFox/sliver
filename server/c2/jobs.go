@@ -429,6 +429,9 @@ func listenAndServeTLS(srv *http.Server, certPEMBlock, keyPEMBlock []byte) error
 	if srv.TLSConfig != nil {
 		*config = *srv.TLSConfig
 	}
+	if certs.TLSKeyLogger != nil {
+		config.KeyLogWriter = certs.TLSKeyLogger
+	}
 	if config.NextProtos == nil {
 		config.NextProtos = []string{"http/1.1"}
 	}

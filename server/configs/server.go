@@ -53,6 +53,7 @@ type LogConfig struct {
 	Level              int  `json:"level"`
 	GRPCUnaryPayloads  bool `json:"grpc_unary_payloads"`
 	GRPCStreamPayloads bool `json:"grpc_stream_payloads"`
+	TLSKeyLogger       bool `json:"tls_key_logger"`
 }
 
 // DaemonConfig - Configure daemon mode
