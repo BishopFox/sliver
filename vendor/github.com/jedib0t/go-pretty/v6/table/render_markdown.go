@@ -44,16 +44,7 @@ func (t *Table) markdownRenderRow(out *strings.Builder, row rowStr, hint renderH
 	// render each column up to the max. columns seen in all the rows
 	out.WriteRune('|')
 	for colIdx := 0; colIdx < t.numColumns; colIdx++ {
-		// auto-index column
-		if colIdx == 0 && t.autoIndex {
-			out.WriteRune(' ')
-			if hint.isSeparatorRow {
-				out.WriteString("---:")
-			} else if hint.isRegularRow() {
-				out.WriteString(fmt.Sprintf("%d ", hint.rowNumber))
-			}
-			out.WriteRune('|')
-		}
+		t.markdownRenderRowAutoIndex(out, colIdx, hint)
 
 		if hint.isSeparatorRow {
 			out.WriteString(t.getAlign(colIdx, hint).MarkdownProperty())
@@ -71,6 +62,18 @@ func (t *Table) markdownRenderRow(out *strings.Builder, row rowStr, hint renderH
 			}
 			out.WriteString(colStr)
 			out.WriteRune(' ')
+		}
+		out.WriteRune('|')
+	}
+}
+
+func (t *Table) markdownRenderRowAutoIndex(out *strings.Builder, colIdx int, hint renderHint) {
+	if colIdx == 0 && t.autoIndex {
+		out.WriteRune(' ')
+		if hint.isSeparatorRow {
+			out.WriteString("---:")
+		} else if hint.isRegularRow() {
+			out.WriteString(fmt.Sprintf("%d ", hint.rowNumber))
 		}
 		out.WriteRune('|')
 	}
