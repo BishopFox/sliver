@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"context"
+	"encoding/binary"
 	"net/url"
 	"strconv"
 	"strings"
@@ -39,6 +40,7 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	listenerURL := ctx.Flags.String("url")
 	aesEncryptKey := ctx.Flags.String("aes-encrypt-key")
 	aesEncryptIv := ctx.Flags.String("aes-encrypt-iv")
+	prependSize := ctx.Flags.Bool("prepend-size")
 	compress := strings.ToLower(ctx.Flags.String("compress"))
 
 	if profileName == "" || listenerURL == "" {
@@ -115,8 +117,18 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		stage2 = util.PreludeEncrypt(stage2, []byte(aesEncryptKey), []byte(aesEncryptIv))
 	}
 
+	// if prependSize {
+	// 	payloadSize := uint32(len(stage2))
+	// 	lenBuf := make([]byte, 4)
+	// 	binary.LittleEndian.PutUint32(lenBuf, payloadSize)
+	// 	stage2 = append(lenBuf, stage2...)
+	// }
+
 	switch stagingURL.Scheme {
 	case "http":
+		if prependSize {
+			stage2 = prependPayloadSize(stage2)
+		}
 		ctrl := make(chan bool)
 		con.SpinUntil("Starting HTTP staging listener...", ctrl)
 		stageListener, err := con.Rpc.StartHTTPStagerListener(context.Background(), &clientpb.StagerListenerReq{
@@ -133,6 +145,9 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		}
 		con.PrintInfof("Job %d (http) started\n", stageListener.GetJobID())
 	case "https":
+		if prependSize {
+			stage2 = prependPayloadSize(stage2)
+		}
 		cert, key, err := getLocalCertificatePair(ctx)
 		if err != nil {
 			con.Println()
@@ -158,6 +173,8 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		}
 		con.PrintInfof("Job %d (https) started\n", stageListener.GetJobID())
 	case "tcp":
+		// Always prepend payload size for TCP stagers
+		stage2 = prependPayloadSize(stage2)
 		ctrl := make(chan bool)
 		con.SpinUntil("Starting TCP staging listener...", ctrl)
 		stageListener, err := con.Rpc.StartTCPStagerListener(context.Background(), &clientpb.StagerListenerReq{
@@ -183,4 +200,11 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintInfof("AES KEY: %v\n", aesEncryptKey)
 		con.PrintInfof("AES IV: %v\n", aesEncryptIv)
 	}
+}
+
+func prependPayloadSize(payload []byte) []byte {
+	payloadSize := uint32(len(payload))
+	lenBuf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(lenBuf, payloadSize)
+	return append(lenBuf, payload...)
 }
