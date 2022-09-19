@@ -29,7 +29,7 @@ import (
 	"github.com/bishopfox/sliver/server/db/models"
 )
 
-// SliverExternal - Generates a sliver executable binary
+// SliverExternal - Generates the cryptographic keys for the implant but compiles no code
 func SliverExternal(name string, config *models.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
 	if config.Format != clientpb.OutputFormat_EXTERNAL {
 		return nil, fmt.Errorf("invalid format: %s", config.Format)

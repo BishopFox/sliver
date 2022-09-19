@@ -256,7 +256,7 @@ func (rpc *Server) GetCompiler(ctx context.Context, _ *commonpb.Empty) (*clientp
 	return compiler, nil
 }
 
-// External builder RPCs
+// *** External builder RPCs ***
 
 // Generate - Generate a new implant
 func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.ExternalImplantConfig, error) {
