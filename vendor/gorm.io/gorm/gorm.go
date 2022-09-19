@@ -300,7 +300,8 @@ func (db *DB) WithContext(ctx context.Context) *DB {
 
 // Debug start debug mode
 func (db *DB) Debug() (tx *DB) {
-	return db.Session(&Session{
+	tx = db.getInstance()
+	return tx.Session(&Session{
 		Logger: db.Logger.LogMode(logger.Info),
 	})
 }
@@ -412,7 +413,7 @@ func (db *DB) SetupJoinTable(model interface{}, field string, joinTable interfac
 	relation, ok := modelSchema.Relationships.Relations[field]
 	isRelation := ok && relation.JoinTable != nil
 	if !isRelation {
-		return fmt.Errorf("failed to found relation: %s", field)
+		return fmt.Errorf("failed to find relation: %s", field)
 	}
 
 	for _, ref := range relation.References {
