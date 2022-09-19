@@ -279,7 +279,7 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 		return "", err
 	}
 
-	dest := path.Join(goConfig.ProjectDir, "bin", path.Base(name))
+	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
 	dest += ".bin"
 
 	tags := []string{} // []string{"netgo"}
@@ -420,7 +420,7 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 		return "", err
 	}
 
-	dest := path.Join(goConfig.ProjectDir, "bin", path.Base(name))
+	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
 	if goConfig.GOOS == WINDOWS {
 		dest += ".exe"
 	}
@@ -470,7 +470,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	config.TCPPivotc2Enabled = isC2Enabled([]string{"tcppivot"}, config.C2)
 
 	sliversDir := GetSliversDir() // ~/.sliver/slivers
-	projectGoPathDir := path.Join(sliversDir, config.GOOS, config.GOARCH, path.Base(name))
+	projectGoPathDir := filepath.Join(sliversDir, config.GOOS, config.GOARCH, filepath.Base(name))
 	if _, err := os.Stat(projectGoPathDir); os.IsNotExist(err) {
 		os.MkdirAll(projectGoPathDir, 0700)
 	}

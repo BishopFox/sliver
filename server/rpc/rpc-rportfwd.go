@@ -36,7 +36,7 @@ func (rpc *Server) GetRportFwdListeners(ctx context.Context, req *sliverpb.Rport
 }
 
 // StartRportfwdListener - Instruct the implant to start a reverse port forward
-func (rpc *Server) StartRportfwdListener(ctx context.Context, req *sliverpb.RportFwdStartListenerReq) (*sliverpb.RportFwdListener, error) {
+func (rpc *Server) StartRportFwdListener(ctx context.Context, req *sliverpb.RportFwdStartListenerReq) (*sliverpb.RportFwdListener, error) {
 	resp := &sliverpb.RportFwdListener{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
@@ -46,7 +46,7 @@ func (rpc *Server) StartRportfwdListener(ctx context.Context, req *sliverpb.Rpor
 }
 
 // StopRportfwdListener - Instruct the implant to stop a reverse port forward
-func (rpc *Server) StopRportfwdListener(ctx context.Context, req *sliverpb.RportFwdStopListenerReq) (*sliverpb.RportFwdListener, error) {
+func (rpc *Server) StopRportFwdListener(ctx context.Context, req *sliverpb.RportFwdStopListenerReq) (*sliverpb.RportFwdListener, error) {
 	resp := &sliverpb.RportFwdListener{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {

@@ -56,7 +56,7 @@ func StartRportFwdListenerCmd(ctx *grumble.Context, con *console.SliverConsoleCl
 	if portNumberOnlyRegexp.MatchString(forwardAddress) {
 		forwardAddress = fmt.Sprintf("127.0.0.1:%s", forwardAddress)
 	}
-	rportfwdListener, err := con.Rpc.StartRportfwdListener(context.Background(), &sliverpb.RportFwdStartListenerReq{
+	rportfwdListener, err := con.Rpc.StartRportFwdListener(context.Background(), &sliverpb.RportFwdStartListenerReq{
 		Request:        con.ActiveTarget.Request(ctx),
 		BindAddress:    bindAddress,
 		ForwardAddress: forwardAddress,

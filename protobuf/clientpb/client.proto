@@ -113,6 +113,7 @@ enum OutputFormat {
   SHELLCODE = 1;
   EXECUTABLE = 2;
   SERVICE = 3;
+  EXTERNAL = 4;
 }
 
 message ImplantConfig {
@@ -166,6 +167,18 @@ message ImplantConfig {
   bool IsShellcode = 104;
 
   bool RunAtLoad = 105;
+}
+
+message ExternalImplantConfig {
+  string Name = 1;
+  ImplantConfig Config = 2;
+  string OTPSecret = 3;
+}
+
+message ExternalImplantBinary {
+  string Name = 1;
+  string ImplantConfigID = 2;
+  commonpb.File File = 3;
 }
 
 // Configs of previously built implants

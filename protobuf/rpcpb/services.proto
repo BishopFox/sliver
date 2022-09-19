@@ -66,6 +66,9 @@ service SliverRPC {
 
     // *** Implants ***
     rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate);
+    rpc GenerateExternal(clientpb.GenerateReq) returns (clientpb.ExternalImplantConfig);
+    rpc GenerateExternalSaveBuild(clientpb.ExternalImplantBinary) returns (commonpb.Empty);
+    rpc GenerateExternalGetImplantConfig(clientpb.ImplantConfig) returns (clientpb.ExternalImplantConfig);
     rpc Regenerate(clientpb.RegenerateReq) returns (clientpb.Generate);
     rpc ImplantBuilds(commonpb.Empty) returns (clientpb.ImplantBuilds);
     rpc DeleteImplantBuild(clientpb.DeleteReq) returns (commonpb.Empty);
@@ -144,9 +147,9 @@ service SliverRPC {
     rpc RunSSHCommand(sliverpb.SSHCommandReq) returns (sliverpb.SSHCommand);
     rpc HijackDLL(clientpb.DllHijackReq) returns (clientpb.DllHijack);
     rpc GetPrivs(sliverpb.GetPrivsReq) returns (sliverpb.GetPrivs);
-    rpc StartRportfwdListener(sliverpb.RportFwdStartListenerReq) returns (sliverpb.RportFwdListener);
+    rpc StartRportFwdListener(sliverpb.RportFwdStartListenerReq) returns (sliverpb.RportFwdListener);
     rpc GetRportFwdListeners(sliverpb.RportFwdListenersReq) returns (sliverpb.RportFwdListeners);
-    rpc StopRportfwdListener(sliverpb.RportFwdStopListenerReq) returns (sliverpb.RportFwdListener);
+    rpc StopRportFwdListener(sliverpb.RportFwdStopListenerReq) returns (sliverpb.RportFwdListener);
 
     // Beacon only commands
     rpc OpenSession(sliverpb.OpenSession) returns (sliverpb.OpenSession);

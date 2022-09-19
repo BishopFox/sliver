@@ -35,7 +35,7 @@ func StopRportFwdListenerCmd(ctx *grumble.Context, con *console.SliverConsoleCli
 	}
 
 	listenerID := ctx.Flags.Int("id")
-	rportfwdListener, err := con.Rpc.StopRportfwdListener(context.Background(), &sliverpb.RportFwdStopListenerReq{
+	rportfwdListener, err := con.Rpc.StopRportFwdListener(context.Background(), &sliverpb.RportFwdStopListenerReq{
 		Request: con.ActiveTarget.Request(ctx),
 		ID:      uint32(listenerID),
 	})
