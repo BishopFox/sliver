@@ -88,6 +88,9 @@ const (
 
 	// BeaconTaskResult - Beacon task completed with a result
 	BeaconTaskResultEvent = "beacon-taskresult"
+
+	// ExternalBuildEvent
+	ExternalBuildEvent = "external-build"
 )
 
 // Commands

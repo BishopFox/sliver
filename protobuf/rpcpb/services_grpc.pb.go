@@ -68,7 +68,8 @@ type SliverRPCClient interface {
 	// *** Implants ***
 	Generate(ctx context.Context, in *clientpb.GenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
 	GenerateExternal(ctx context.Context, in *clientpb.GenerateReq, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error)
-	GenerateExternalBuildSave(ctx context.Context, in *clientpb.ExternalImplantBinary, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	GenerateExternalSaveBuild(ctx context.Context, in *clientpb.ExternalImplantBinary, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	GenerateExternalGetImplantConfig(ctx context.Context, in *clientpb.ImplantConfig, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error)
 	Regenerate(ctx context.Context, in *clientpb.RegenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
 	ImplantBuilds(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.ImplantBuilds, error)
 	DeleteImplantBuild(ctx context.Context, in *clientpb.DeleteReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
@@ -497,9 +498,18 @@ func (c *sliverRPCClient) GenerateExternal(ctx context.Context, in *clientpb.Gen
 	return out, nil
 }
 
-func (c *sliverRPCClient) GenerateExternalBuildSave(ctx context.Context, in *clientpb.ExternalImplantBinary, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+func (c *sliverRPCClient) GenerateExternalSaveBuild(ctx context.Context, in *clientpb.ExternalImplantBinary, opts ...grpc.CallOption) (*commonpb.Empty, error) {
 	out := new(commonpb.Empty)
-	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GenerateExternalBuildSave", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GenerateExternalSaveBuild", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GenerateExternalGetImplantConfig(ctx context.Context, in *clientpb.ImplantConfig, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error) {
+	out := new(clientpb.ExternalImplantConfig)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GenerateExternalGetImplantConfig", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1461,7 +1471,8 @@ type SliverRPCServer interface {
 	// *** Implants ***
 	Generate(context.Context, *clientpb.GenerateReq) (*clientpb.Generate, error)
 	GenerateExternal(context.Context, *clientpb.GenerateReq) (*clientpb.ExternalImplantConfig, error)
-	GenerateExternalBuildSave(context.Context, *clientpb.ExternalImplantBinary) (*commonpb.Empty, error)
+	GenerateExternalSaveBuild(context.Context, *clientpb.ExternalImplantBinary) (*commonpb.Empty, error)
+	GenerateExternalGetImplantConfig(context.Context, *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error)
 	Regenerate(context.Context, *clientpb.RegenerateReq) (*clientpb.Generate, error)
 	ImplantBuilds(context.Context, *commonpb.Empty) (*clientpb.ImplantBuilds, error)
 	DeleteImplantBuild(context.Context, *clientpb.DeleteReq) (*commonpb.Empty, error)
@@ -1677,8 +1688,11 @@ func (UnimplementedSliverRPCServer) Generate(context.Context, *clientpb.Generate
 func (UnimplementedSliverRPCServer) GenerateExternal(context.Context, *clientpb.GenerateReq) (*clientpb.ExternalImplantConfig, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GenerateExternal not implemented")
 }
-func (UnimplementedSliverRPCServer) GenerateExternalBuildSave(context.Context, *clientpb.ExternalImplantBinary) (*commonpb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GenerateExternalBuildSave not implemented")
+func (UnimplementedSliverRPCServer) GenerateExternalSaveBuild(context.Context, *clientpb.ExternalImplantBinary) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateExternalSaveBuild not implemented")
+}
+func (UnimplementedSliverRPCServer) GenerateExternalGetImplantConfig(context.Context, *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateExternalGetImplantConfig not implemented")
 }
 func (UnimplementedSliverRPCServer) Regenerate(context.Context, *clientpb.RegenerateReq) (*clientpb.Generate, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Regenerate not implemented")
@@ -2602,20 +2616,38 @@ func _SliverRPC_GenerateExternal_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SliverRPC_GenerateExternalBuildSave_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _SliverRPC_GenerateExternalSaveBuild_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(clientpb.ExternalImplantBinary)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SliverRPCServer).GenerateExternalBuildSave(ctx, in)
+		return srv.(SliverRPCServer).GenerateExternalSaveBuild(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/rpcpb.SliverRPC/GenerateExternalBuildSave",
+		FullMethod: "/rpcpb.SliverRPC/GenerateExternalSaveBuild",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).GenerateExternalBuildSave(ctx, req.(*clientpb.ExternalImplantBinary))
+		return srv.(SliverRPCServer).GenerateExternalSaveBuild(ctx, req.(*clientpb.ExternalImplantBinary))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GenerateExternalGetImplantConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.ImplantConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GenerateExternalGetImplantConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/GenerateExternalGetImplantConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GenerateExternalGetImplantConfig(ctx, req.(*clientpb.ImplantConfig))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -4461,8 +4493,12 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_GenerateExternal_Handler,
 		},
 		{
-			MethodName: "GenerateExternalBuildSave",
-			Handler:    _SliverRPC_GenerateExternalBuildSave_Handler,
+			MethodName: "GenerateExternalSaveBuild",
+			Handler:    _SliverRPC_GenerateExternalSaveBuild_Handler,
+		},
+		{
+			MethodName: "GenerateExternalGetImplantConfig",
+			Handler:    _SliverRPC_GenerateExternalGetImplantConfig_Handler,
 		},
 		{
 			MethodName: "Regenerate",
