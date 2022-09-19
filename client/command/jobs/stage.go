@@ -117,13 +117,6 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		stage2 = util.PreludeEncrypt(stage2, []byte(aesEncryptKey), []byte(aesEncryptIv))
 	}
 
-	// if prependSize {
-	// 	payloadSize := uint32(len(stage2))
-	// 	lenBuf := make([]byte, 4)
-	// 	binary.LittleEndian.PutUint32(lenBuf, payloadSize)
-	// 	stage2 = append(lenBuf, stage2...)
-	// }
-
 	switch stagingURL.Scheme {
 	case "http":
 		if prependSize {
