@@ -35,6 +35,7 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/util"
 )
 
 var (
@@ -276,8 +277,18 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.GenerateR
 	return externalConfig, err
 }
 
-func (rpc *Server) GenerateExternalSaveFile(ctx context.Context, req *commonpb.File) (*commonpb.Empty, error) {
-	// generate.ImplantBuildSave()
-
+func (rpc *Server) GenerateExternalBuildSave(ctx context.Context, req *clientpb.ExternalImplantBinary) (*commonpb.Empty, error) {
+	implantConfig, err := db.ImplantConfigByID(req.ImplantConfigID)
+	if err != nil {
+		return nil, err
+	}
+	err = util.AllowedName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	err = generate.ImplantBuildSave(req.Name, implantConfig, "")
+	if err != nil {
+		return nil, err
+	}
 	return &commonpb.Empty{}, nil
 }

@@ -175,6 +175,12 @@ message ExternalImplantConfig {
   string OTPSecret = 3;
 }
 
+message ExternalImplantBinary {
+  string Name = 1;
+  string ImplantConfigID = 2;
+  commonpb.File File = 3;
+}
+
 // Configs of previously built implants
 message ImplantBuilds {
   map<string, ImplantConfig> Configs = 1;

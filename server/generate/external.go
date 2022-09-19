@@ -34,9 +34,6 @@ func SliverExternal(name string, config *models.ImplantConfig) (*clientpb.Extern
 	if config.Format != clientpb.OutputFormat_EXTERNAL {
 		return nil, fmt.Errorf("invalid format: %s", config.Format)
 	}
-
-	externalConfig := &clientpb.ExternalImplantConfig{Name: name}
-
 	config.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, config.C2)
 	config.WGc2Enabled = isC2Enabled([]string{"wg"}, config.C2)
 	config.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, config.C2)
@@ -72,7 +69,7 @@ func SliverExternal(name string, config *models.ImplantConfig) (*clientpb.Extern
 		config.MtlsKey = string(sliverKey)
 	}
 
-	externalConfig.OTPSecret, err = cryptography.TOTPServerSecret()
+	otpSecret, err := cryptography.TOTPServerSecret()
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +91,9 @@ func SliverExternal(name string, config *models.ImplantConfig) (*clientpb.Extern
 	if err != nil {
 		return nil, err
 	}
-
-	externalConfig.Config = config.ToProtobuf()
-	return externalConfig, nil
+	return &clientpb.ExternalImplantConfig{
+		Name:      name,
+		Config:    config.ToProtobuf(),
+		OTPSecret: otpSecret,
+	}, nil
 }
