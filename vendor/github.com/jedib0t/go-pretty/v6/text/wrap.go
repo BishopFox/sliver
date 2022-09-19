@@ -201,7 +201,7 @@ func wrapHard(paragraph string, wrapLen int, out *strings.Builder) {
 			lineLen++
 		}
 
-		wordLen := RuneCount(word)
+		wordLen := RuneWidthWithoutEscSequences(word)
 		if lineLen+wordLen <= wrapLen { // word fits within the line
 			out.WriteString(word)
 			lineLen += wordLen
@@ -225,26 +225,15 @@ func wrapSoft(paragraph string, wrapLen int, out *strings.Builder) {
 		if escSeq != "" {
 			lastSeenEscSeq = escSeq
 		}
-		spacing, spacingLen := "", 0
-		if lineLen > 0 {
-			spacing, spacingLen = " ", 1
-		}
 
-		wordLen := RuneCount(word)
+		spacing, spacingLen := wrapSoftSpacing(lineLen)
+		wordLen := RuneWidthWithoutEscSequences(word)
 		if lineLen+spacingLen+wordLen <= wrapLen { // word fits within the line
 			out.WriteString(spacing)
 			out.WriteString(word)
 			lineLen += spacingLen + wordLen
 		} else { // word doesn't fit within the line
-			if lineLen > 0 { // something is already on the line; terminate it
-				terminateLine(wrapLen, &lineLen, lastSeenEscSeq, out)
-			}
-			if wordLen <= wrapLen { // word fits within a single line
-				out.WriteString(word)
-				lineLen = wordLen
-			} else { // word doesn't fit within a single line; hard-wrap
-				appendWord(word, &lineLen, lastSeenEscSeq, wrapLen, out)
-			}
+			lineLen = wrapSoftLastWordInLine(wrapLen, lineLen, lastSeenEscSeq, wordLen, word, out)
 		}
 
 		// end of line; but more words incoming
@@ -253,4 +242,25 @@ func wrapSoft(paragraph string, wrapLen int, out *strings.Builder) {
 		}
 	}
 	terminateOutput(lastSeenEscSeq, out)
+}
+
+func wrapSoftLastWordInLine(wrapLen int, lineLen int, lastSeenEscSeq string, wordLen int, word string, out *strings.Builder) int {
+	if lineLen > 0 { // something is already on the line; terminate it
+		terminateLine(wrapLen, &lineLen, lastSeenEscSeq, out)
+	}
+	if wordLen <= wrapLen { // word fits within a single line
+		out.WriteString(word)
+		lineLen = wordLen
+	} else { // word doesn't fit within a single line; hard-wrap
+		appendWord(word, &lineLen, lastSeenEscSeq, wrapLen, out)
+	}
+	return lineLen
+}
+
+func wrapSoftSpacing(lineLen int) (string, int) {
+	spacing, spacingLen := "", 0
+	if lineLen > 0 {
+		spacing, spacingLen = " ", 1
+	}
+	return spacing, spacingLen
 }
