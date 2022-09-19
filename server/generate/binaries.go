@@ -420,7 +420,7 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 		return "", err
 	}
 
-	dest := path.Join(goConfig.ProjectDir, "bin", path.Base(name))
+	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
 	if goConfig.GOOS == WINDOWS {
 		dest += ".exe"
 	}

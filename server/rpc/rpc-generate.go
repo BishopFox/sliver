@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -36,6 +37,8 @@ import (
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -269,7 +272,6 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.GenerateR
 		return nil, errors.New("invalid implant config")
 	}
 	req.Config.Format = clientpb.OutputFormat_EXTERNAL
-
 	externalConfig, err := generate.SliverExternal(name, config)
 	if err != nil {
 		return nil, err
@@ -280,11 +282,26 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.GenerateR
 func (rpc *Server) GenerateExternalBuildSave(ctx context.Context, req *clientpb.ExternalImplantBinary) (*commonpb.Empty, error) {
 	implantConfig, err := db.ImplantConfigByID(req.ImplantConfigID)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, "invalid implant config id")
+	}
+	if implantConfig.Format != clientpb.OutputFormat_EXTERNAL {
+		return nil, status.Error(codes.InvalidArgument, "invalid implant config format")
 	}
 	err = util.AllowedName(req.Name)
 	if err != nil {
-		return nil, err
+		rpcLog.Errorf("Invalid build name: %s", err)
+		return nil, ErrInvalidName
+	}
+	tmpFile, err := ioutil.TempFile("", "sliver")
+	if err != nil {
+		rpcLog.Errorf("Failed to create temporary file: %s", err)
+		return nil, status.Error(codes.Internal, "Failed to write implant binary to temp file")
+	}
+	defer os.Remove(tmpFile.Name())
+	_, err = tmpFile.Write(req.File.Data)
+	if err != nil {
+		rcpLog.Errorf("Failed to write implant binary to temp file: %s", err)
+		return nil, status.Error(codes.Internal, "Failed to write implant binary to temp file")
 	}
 	err = generate.ImplantBuildSave(req.Name, implantConfig, "")
 	if err != nil {
