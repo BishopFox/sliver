@@ -83,7 +83,7 @@ func (m NiceMD) ToIncoming(ctx context.Context) context.Context {
 //
 // The function is binary-key safe.
 func (m NiceMD) Get(key string) string {
-	k, _ := encodeKeyValue(key, "")
+	k := strings.ToLower(key)
 	vv, ok := m[k]
 	if !ok {
 		return ""
@@ -98,7 +98,7 @@ func (m NiceMD) Get(key string) string {
 // The function is binary-key safe.
 
 func (m NiceMD) Del(key string) NiceMD {
-	k, _ := encodeKeyValue(key, "")
+	k := strings.ToLower(key)
 	delete(m, k)
 	return m
 }
@@ -109,8 +109,8 @@ func (m NiceMD) Del(key string) NiceMD {
 //
 // The function is binary-key safe.
 func (m NiceMD) Set(key string, value string) NiceMD {
-	k, v := encodeKeyValue(key, value)
-	m[k] = []string{v}
+	k := strings.ToLower(key)
+	m[k] = []string{value}
 	return m
 }
 
@@ -120,7 +120,7 @@ func (m NiceMD) Set(key string, value string) NiceMD {
 //
 // The function is binary-key safe.
 func (m NiceMD) Add(key string, value string) NiceMD {
-	k, v := encodeKeyValue(key, value)
-	m[k] = append(m[k], v)
+	k := strings.ToLower(key)
+	m[k] = append(m[k], value)
 	return m
 }
