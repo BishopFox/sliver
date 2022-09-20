@@ -68,6 +68,7 @@ func HTTPSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		EnforceOTP:      !disableOTP,
 		LongPollTimeout: int64(longPollTimeout),
 		LongPollJitter:  int64(longPollJitter),
+		RandomizeJARM:   !ctx.Flags.Bool("disable-randomized-jarm"),
 	})
 	con.Println()
 	if err != nil {

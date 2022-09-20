@@ -318,6 +318,7 @@ message HTTPListenerReq {
   bool EnforceOTP = 10;
   int64 LongPollTimeout = 11;
   int64 LongPollJitter = 12;
+  bool RandomizeJARM = 13; // Only valid with Secure = true
 }
 
 // Named Pipes Messages for pivoting

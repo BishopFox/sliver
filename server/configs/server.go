@@ -116,6 +116,7 @@ type HTTPJobConfig struct {
 	EnforceOTP      bool   `json:"enforce_otp"`
 	LongPollTimeout int64  `json:"long_poll_timeout"`
 	LongPollJitter  int64  `json:"long_poll_jitter"`
+	RandomizeJARM   bool   `json:"randomize_jarm"`
 }
 
 // WatchTowerConfig - Watch Tower job config

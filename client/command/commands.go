@@ -457,6 +457,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("c", "cert", "", "PEM encoded certificate file")
 			f.String("k", "key", "", "PEM encoded private key file")
 			f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate")
+			f.Bool("E", "disable-randomized-jarm", false, "disable randomized jarm fingerprints")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("p", "persistent", false, "make persistent across restarts")

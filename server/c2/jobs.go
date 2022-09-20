@@ -382,6 +382,7 @@ func StartPersistentJobs(cfg *configs.ServerConfig) error {
 			EnforceOTP:      j.EnforceOTP,
 			LongPollTimeout: time.Duration(j.LongPollTimeout),
 			LongPollJitter:  time.Duration(j.LongPollJitter),
+			RandomizeJARM:   j.RandomizeJARM,
 		}
 		job, err := StartHTTPListenerJob(cfg)
 		if err != nil {
