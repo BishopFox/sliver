@@ -255,7 +255,8 @@ func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 	// Randomize the JARM fingerprint
 	switch insecureRand.Intn(3) {
 	case 0:
-		tlsConfig.MinVersion = tls.VersionTLS13
+		// tlsConfig.MinVersion = tls.VersionTLS13
+		fallthrough // For compatibility with winhttp
 	case 1:
 		tlsConfig.MinVersion = tls.VersionTLS12
 	case 2:
@@ -294,7 +295,7 @@ func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 	})
 	nCiphers := insecureRand.Intn(len(allCipherSuites))
 	tlsConfig.CipherSuites = allCipherSuites[:nCiphers]
-  
+
 	if certs.TLSKeyLogger != nil {
 		tlsConfig.KeyLogWriter = certs.TLSKeyLogger
 	}
