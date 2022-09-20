@@ -293,7 +293,7 @@ func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 	insecureRand.Shuffle(len(allCipherSuites), func(i, j int) {
 		allCipherSuites[i], allCipherSuites[j] = allCipherSuites[j], allCipherSuites[i]
 	})
-	nCiphers := insecureRand.Intn(len(allCipherSuites))
+	nCiphers := insecureRand.Intn(len(allCipherSuites)) + 4
 	tlsConfig.CipherSuites = allCipherSuites[:nCiphers]
 
 	if certs.TLSKeyLogger != nil {
