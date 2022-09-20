@@ -267,17 +267,17 @@ func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 
 	// Randomize the cipher suites
 	allCipherSuites := []uint16{
-		tls.TLS_RSA_WITH_RC4_128_SHA,                      //uint16 = 0x0005
-		tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,                 //uint16 = 0x000a
-		tls.TLS_RSA_WITH_AES_128_CBC_SHA,                  //uint16 = 0x002f
-		tls.TLS_RSA_WITH_AES_256_CBC_SHA,                  //uint16 = 0x0035
-		tls.TLS_RSA_WITH_AES_128_CBC_SHA256,               //uint16 = 0x003c
-		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,               //uint16 = 0x009c
-		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,               //uint16 = 0x009d
-		tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,              //uint16 = 0xc007
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,          //uint16 = 0xc009
-		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,          //uint16 = 0xc00a
-		tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,                //uint16 = 0xc011
+		// tls.TLS_RSA_WITH_RC4_128_SHA,                      //uint16 = 0x0005
+		tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,        //uint16 = 0x000a
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA,         //uint16 = 0x002f
+		tls.TLS_RSA_WITH_AES_256_CBC_SHA,         //uint16 = 0x0035
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA256,      //uint16 = 0x003c
+		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,      //uint16 = 0x009c
+		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,      //uint16 = 0x009d
+		tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,     //uint16 = 0xc007
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, //uint16 = 0xc009
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, //uint16 = 0xc00a
+		// tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,                //uint16 = 0xc011
 		tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,           //uint16 = 0xc012
 		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,            //uint16 = 0xc013
 		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,            //uint16 = 0xc014
@@ -293,7 +293,7 @@ func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 	insecureRand.Shuffle(len(allCipherSuites), func(i, j int) {
 		allCipherSuites[i], allCipherSuites[j] = allCipherSuites[j], allCipherSuites[i]
 	})
-	nCiphers := insecureRand.Intn(len(allCipherSuites)-4) + 4
+	nCiphers := insecureRand.Intn(len(allCipherSuites)-8) + 8
 	tlsConfig.CipherSuites = allCipherSuites[:nCiphers]
 
 	if certs.TLSKeyLogger != nil {
