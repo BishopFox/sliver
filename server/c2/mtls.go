@@ -213,6 +213,9 @@ func getServerTLSConfig(host string) *tls.Config {
 		mtlsLog.Fatalf("Error loading server certificate: %v", err)
 	}
 
+	// We're not going to randomize the JARM on this one, the traffic
+	// going over mTLS needs to be secure, and the JARM is fairly
+	// common Golang TLS server so it's not going to be too suspicious
 	tlsConfig := &tls.Config{
 		RootCAs:      mtlsCACertPool,
 		ClientAuth:   tls.RequireAndVerifyClientCert,
