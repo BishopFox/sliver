@@ -166,10 +166,9 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 	case clientpb.StageProtocol_TCP:
 		payload = "meterpreter/reverse_tcp"
 	case clientpb.StageProtocol_HTTP:
-		payload = "meterpreter/reverse_http"
-		uri = generateCallbackURI()
+		fallthrough
 	case clientpb.StageProtocol_HTTPS:
-		payload = "meterpreter/reverse_https"
+		payload = "custom/reverse_winhttp"
 		uri = generateCallbackURI()
 	default:
 		return MSFStage, errors.New("protocol not supported")

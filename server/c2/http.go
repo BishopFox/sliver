@@ -246,6 +246,7 @@ func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 		httpLog.Errorf("Failed to parse tls cert/key pair %s", err)
 		return nil
 	}
+
 	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
 	if !conf.RandomizeJARM {
 		return tlsConfig
@@ -293,6 +294,10 @@ func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 	})
 	nCiphers := insecureRand.Intn(len(allCipherSuites))
 	tlsConfig.CipherSuites = allCipherSuites[:nCiphers]
+  
+	if certs.TLSKeyLogger != nil {
+		tlsConfig.KeyLogWriter = certs.TLSKeyLogger
+	}
 	return tlsConfig
 }
 
