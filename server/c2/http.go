@@ -131,6 +131,7 @@ type HTTPServerConfig struct {
 	EnforceOTP      bool
 	LongPollTimeout time.Duration
 	LongPollJitter  time.Duration
+	RandomizeJARM   bool
 }
 
 // SliverHTTPC2 - Holds refs to all the C2 objects
@@ -213,7 +214,7 @@ func StartHTTPListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 			}
 		}
 	} else {
-		server.HTTPServer.TLSConfig = getHTTPTLSConfig(conf)
+		server.HTTPServer.TLSConfig = getHTTPSConfig(conf)
 		server.Cleanup = func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
@@ -227,7 +228,7 @@ func StartHTTPListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 	return server, nil
 }
 
-func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
+func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 	if conf.Cert == nil || conf.Key == nil {
 		var err error
 		if conf.Domain != "" {
@@ -245,9 +246,54 @@ func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
 		httpLog.Errorf("Failed to parse tls cert/key pair %s", err)
 		return nil
 	}
-	return &tls.Config{
-		Certificates: []tls.Certificate{cert},
+	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
+	if !conf.RandomizeJARM {
+		return tlsConfig
 	}
+
+	// Randomize the JARM fingerprint
+	switch insecureRand.Intn(3) {
+	case 0:
+		tlsConfig.MinVersion = tls.VersionTLS13
+	case 1:
+		tlsConfig.MinVersion = tls.VersionTLS12
+	case 2:
+		tlsConfig.MinVersion = tls.VersionTLS11
+	default:
+		tlsConfig.MinVersion = tls.VersionTLS10
+	}
+
+	// Randomize the cipher suites
+	allCipherSuites := []uint16{
+		tls.TLS_RSA_WITH_RC4_128_SHA,                      //uint16 = 0x0005
+		tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,                 //uint16 = 0x000a
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA,                  //uint16 = 0x002f
+		tls.TLS_RSA_WITH_AES_256_CBC_SHA,                  //uint16 = 0x0035
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA256,               //uint16 = 0x003c
+		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,               //uint16 = 0x009c
+		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,               //uint16 = 0x009d
+		tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,              //uint16 = 0xc007
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,          //uint16 = 0xc009
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,          //uint16 = 0xc00a
+		tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,                //uint16 = 0xc011
+		tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,           //uint16 = 0xc012
+		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,            //uint16 = 0xc013
+		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,            //uint16 = 0xc014
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,       //uint16 = 0xc023
+		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,         //uint16 = 0xc027
+		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,         //uint16 = 0xc02f
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,       //uint16 = 0xc02b
+		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,         //uint16 = 0xc030
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,       //uint16 = 0xc02c
+		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,   //uint16 = 0xcca8
+		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, //uint16 = 0xcca9
+	}
+	insecureRand.Shuffle(len(allCipherSuites), func(i, j int) {
+		allCipherSuites[i], allCipherSuites[j] = allCipherSuites[j], allCipherSuites[i]
+	})
+	nCiphers := insecureRand.Intn(len(allCipherSuites))
+	tlsConfig.CipherSuites = allCipherSuites[:nCiphers]
+	return tlsConfig
 }
 
 func (s *SliverHTTPC2) router() *mux.Router {
