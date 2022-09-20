@@ -253,7 +253,7 @@ func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 	}
 
 	// Randomize the JARM fingerprint
-	switch insecureRand.Intn(3) {
+	switch insecureRand.Intn(4) {
 	case 0:
 		// tlsConfig.MinVersion = tls.VersionTLS13
 		fallthrough // For compatibility with winhttp
