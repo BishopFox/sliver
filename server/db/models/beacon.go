@@ -93,6 +93,7 @@ func (b *Beacon) ToProtobuf() *clientpb.Beacon {
 		Jitter:            b.Jitter,
 		NextCheckin:       b.NextCheckin,
 		Locale:            b.Locale,
+		FirstContact:      b.CreatedAt.Unix(),
 	}
 }
 
