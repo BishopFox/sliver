@@ -34,20 +34,23 @@ import (
 
 // InfoCmd - Display information about the active session
 func InfoCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	var session *clientpb.Session
-	var beacon *clientpb.Beacon
 	var err error
 
-	idArg := ctx.Args.String("session")
+	// Check if we have an active target via 'use'
+	session, beacon := con.ActiveTarget.Get()
 
+	idArg := ctx.Args.String("session")
 	if idArg != "" {
+		// ID passed via argument takes priority
 		session, beacon, err = use.SessionOrBeaconByID(idArg, con)
 	} else {
-		session, beacon, err = use.SelectSessionOrBeacon(con)
-	}
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-		return
+		if session == nil && beacon == nil {
+			session, beacon, err = use.SelectSessionOrBeacon(con)
+			if err != nil {
+				con.PrintErrorf("%s\n", err)
+				return
+			}
+		}
 	}
 
 	if session != nil {
