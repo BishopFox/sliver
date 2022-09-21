@@ -130,8 +130,9 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	wideTermWidth := con.Settings.SmallTermWidth < width
 
-	if con.Settings.SmallTermWidth < width {
+	if wideTermWidth {
 		tw.AppendHeader(table.Row{
 			"ID",
 			"Name",
@@ -178,7 +179,7 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 		username := strings.TrimPrefix(session.Username, session.Hostname+"\\") // For non-AD Windows users
 
 		var rowEntries []string
-		if con.Settings.SmallTermWidth < width {
+		if wideTermWidth {
 			rowEntries = []string{
 				fmt.Sprintf(color+"%s"+console.Normal, ShortSessionID(session.ID)),
 				fmt.Sprintf(color+"%s"+console.Normal, session.Name),
@@ -188,7 +189,7 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 				fmt.Sprintf(color+"%s"+console.Normal, username),
 				fmt.Sprintf(color+"%s/%s"+console.Normal, session.OS, session.Arch),
 				fmt.Sprintf(color+"%s"+console.Normal, session.Locale),
-				fmt.Sprintf(color+"%s"+console.Normal, time.Unix(session.LastCheckin, 0).Format(time.RFC1123)),
+				con.FormatDateDelta(time.Unix(session.LastCheckin, 0), wideTermWidth, false),
 				burned + SessionHealth,
 			}
 		} else {

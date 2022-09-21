@@ -903,6 +903,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Args: func(a *grumble.Args) {
 			a.String("session", "session ID", grumble.Default(""))
 		},
+		Completer: func(prefix string, args []string) []string {
+			return use.BeaconAndSessionIDCompleter(prefix, args, con)
+		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			info.InfoCmd(ctx, con)

@@ -525,6 +525,34 @@ func (con *SliverConsoleClient) SpinUntil(message string, ctrl chan bool) {
 	go spin.Until(con.App.Stdout(), message, ctrl)
 }
 
+// FormatDateDelta - Generate formatted date string of the time delta between then and now
+func (con *SliverConsoleClient) FormatDateDelta(t time.Time, includeDate bool, color bool) string {
+	nextTime := t.Format(time.UnixDate)
+
+	var interval string
+
+	if t.Before(time.Now()) {
+		if includeDate {
+			interval = fmt.Sprintf("%s (%s ago)", nextTime, time.Since(t).Round(time.Second))
+		} else {
+			interval = time.Since(t).Round(time.Second).String()
+		}
+		if color {
+			interval = fmt.Sprintf("%s%s%s", Bold+Red, interval, Normal)
+		}
+	} else {
+		if includeDate {
+			interval = fmt.Sprintf("%s (in %s)", nextTime, time.Until(t).Round(time.Second))
+		} else {
+			interval = time.Until(t).Round(time.Second).String()
+		}
+		if color {
+			interval = fmt.Sprintf("%s%s%s", Bold+Green, interval, Normal)
+		}
+	}
+	return interval
+}
+
 //
 // -------------------------- [ Active Target ] --------------------------
 //

@@ -26,6 +26,7 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -70,6 +71,7 @@ func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string
 		"Beacons",
 		"IOCs",
 		"Extensions",
+		"First Contact",
 	})
 	for _, host := range hosts {
 		var shortID string
@@ -87,6 +89,7 @@ func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string
 			hostBeacons(host.HostUUID, con),
 			len(host.IOCs),
 			len(host.ExtensionData),
+			con.FormatDateDelta(time.Unix(host.FirstContact, 0), true, false),
 		})
 	}
 	return tw.Render()

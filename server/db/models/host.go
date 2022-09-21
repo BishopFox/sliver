@@ -58,6 +58,7 @@ func (h *Host) ToProtobuf() *clientpb.Host {
 		Locale:        h.Locale,
 		IOCs:          h.iocsToProtobuf(),
 		ExtensionData: h.extensionDataToProtobuf(),
+		FirstContact:  h.CreatedAt.Unix(),
 	}
 }
 

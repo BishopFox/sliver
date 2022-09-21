@@ -46,6 +46,7 @@ message Session {
   // string ConfigID = 24;
   int64 PeerID = 25;
   string Locale = 26;
+  int64 FirstContact = 27;
 }
 
 message Beacon {
@@ -79,6 +80,7 @@ message Beacon {
   int64 TasksCountCompleted = 27;
 
   string Locale = 28;
+  int64 FirstContact = 29;
 }
 
 message Beacons {
@@ -617,6 +619,7 @@ message Host {
   map<string, ExtensionData> ExtensionData = 5;
 
   string Locale = 6;
+  int64 FirstContact = 7;
 }
 
 message AllHosts {
