@@ -520,7 +520,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Reconfigure the active beacon/session",
 		LongHelp: help.GetHelpFor([]string{consts.ReconfigStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("n", "name", "", "change implant name to")
 			f.String("r", "reconnect-interval", "", "reconnect interval for implant")
 			f.String("i", "beacon-interval", "", "beacon callback interval")
 			f.String("j", "beacon-jitter", "", "beacon callback jitter (random up to)")
