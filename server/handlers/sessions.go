@@ -244,6 +244,7 @@ func createReverseTunnelHandler(implantConn *core.ImplantConnection, data []byte
 			Data: tunnelClose,
 		}
 		cancelContext()
+		return nil
 	}
 
 	if conn, ok := dst.(*net.TCPConn); ok {
