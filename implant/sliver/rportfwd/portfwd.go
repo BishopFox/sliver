@@ -165,7 +165,9 @@ func (p *ChannelProxy) HandleConn(src net.Conn) {
 		log.Printf("[portfwd] Closing tunnel %d (%s)", tunnel.ID, reason)
 		// {{end}}
 		tunnel := p.Conn.Tunnel(tunnel.ID)
-		p.Conn.RemoveTunnel(tunnel.ID)
+		if tunnel != nil {
+			p.Conn.RemoveTunnel(tunnel.ID)
+		}
 		src.Close()
 		cancelContext()
 	}
