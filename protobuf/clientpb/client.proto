@@ -161,6 +161,7 @@ message ImplantConfig {
   string LimitHostname = 62;
   string LimitUsername = 63;
   string LimitFileExists = 64;
+  string LimitLocale = 65;
 
   OutputFormat Format = 100;
   bool IsSharedLib = 101;
