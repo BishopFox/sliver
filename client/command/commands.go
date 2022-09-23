@@ -1346,6 +1346,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
+			f.String("L", "limit-locale", "", "limit execution to hosts that match this locale")
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 			f.String("s", "save", "", "directory/file to the binary to")
@@ -1403,6 +1404,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
+			f.String("L", "limit-locale", "", "limit execution to hosts that match this locale")
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 			f.String("s", "save", "", "directory/file to the binary to")
@@ -1555,6 +1557,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
+			f.String("L", "limit-locale", "", "limit execution to hosts that match this locale")
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 
@@ -1618,6 +1621,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
+			f.String("L", "limit-locale", "", "limit execution to hosts that match this locale")
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 

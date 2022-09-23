@@ -249,6 +249,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	limitUsername := ctx.Flags.String("limit-username")
 	limitDatetime := ctx.Flags.String("limit-datetime")
 	limitFileExists := ctx.Flags.String("limit-fileexists")
+	limitLocale := ctx.Flags.String("limit-locale")
 
 	isSharedLib := false
 	isService := false
@@ -337,6 +338,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		LimitUsername:     limitUsername,
 		LimitDatetime:     limitDatetime,
 		LimitFileExists:   limitFileExists,
+		LimitLocale:       limitLocale,
 
 		Format:      configFormat,
 		IsSharedLib: isSharedLib,
@@ -693,6 +695,9 @@ func getLimitsString(config *clientpb.ImplantConfig) string {
 	}
 	if config.LimitFileExists != "" {
 		limits = append(limits, fmt.Sprintf("fileexists=%s", config.LimitFileExists))
+	}
+	if config.LimitLocale != "" {
+		limits = append(limits, fmt.Sprintf("locale=%s", config.LimitLocale))
 	}
 	return strings.Join(limits, "; ")
 }
