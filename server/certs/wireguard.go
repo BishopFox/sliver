@@ -152,7 +152,7 @@ func saveWGKeys(isPeer bool, wgPeerTunIP string, privKey string, pubKey string) 
 	}
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.WireGuardNewPeer,
-		Data: []byte(fmt.Sprintf("public_key=%s\nallowed_ip=%s/32", pubKey, wgPeerTunIP)),
+		Data: []byte(fmt.Sprintf("public_key=%s\nallowed_ip=%s/32\n", pubKey, wgPeerTunIP)),
 	})
 
 
