@@ -66,6 +66,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/reaction"
 	"github.com/bishopfox/sliver/client/command/reconfig"
 	"github.com/bishopfox/sliver/client/command/registry"
+	"github.com/bishopfox/sliver/client/command/rportfwd"
 	"github.com/bishopfox/sliver/client/command/screenshot"
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -456,6 +457,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("c", "cert", "", "PEM encoded certificate file")
 			f.String("k", "key", "", "PEM encoded private key file")
 			f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate")
+			f.Bool("E", "disable-randomized-jarm", false, "disable randomized jarm fingerprints")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("p", "persistent", false, "make persistent across restarts")
@@ -482,6 +484,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.StringL("aes-encrypt-key", "", "encrypt stage with AES encryption key")
 			f.StringL("aes-encrypt-iv", "", "encrypt stage with AES encryption iv")
 			f.String("C", "compress", "none", "compress the stage before encrypting (zlib, gzip, deflate9, none)")
+			f.Bool("P", "prepend-size", false, "prepend the size of the stage to the payload (to use with MSF stagers)")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -517,7 +520,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Reconfigure the active beacon/session",
 		LongHelp: help.GetHelpFor([]string{consts.ReconfigStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("n", "name", "", "change implant name to")
 			f.String("r", "reconnect-interval", "", "reconnect interval for implant")
 			f.String("i", "beacon-interval", "", "beacon callback interval")
 			f.String("j", "beacon-jitter", "", "beacon callback jitter (random up to)")
@@ -899,6 +901,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Args: func(a *grumble.Args) {
 			a.String("session", "session ID", grumble.Default(""))
+		},
+		Completer: func(prefix string, args []string) []string {
+			return use.BeaconAndSessionIDCompleter(prefix, args, con)
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1340,6 +1345,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
+			f.String("L", "limit-locale", "", "limit execution to hosts that match this locale")
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 			f.String("s", "save", "", "directory/file to the binary to")
@@ -1397,6 +1403,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
+			f.String("L", "limit-locale", "", "limit execution to hosts that match this locale")
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 			f.String("s", "save", "", "directory/file to the binary to")
@@ -1549,6 +1556,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
+			f.String("L", "limit-locale", "", "limit execution to hosts that match this locale")
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 
@@ -1612,6 +1620,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
+			f.String("L", "limit-locale", "", "limit execution to hosts that match this locale")
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 
@@ -2528,6 +2537,59 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	})
 	con.App.AddCommand(registryCmd)
+
+	// [ Reverse Port Forwarding ] --------------------------------------------------------------
+
+	rportfwdCmd := &grumble.Command{
+		Name:     consts.RportfwdStr,
+		Help:     "reverse port forwardings",
+		LongHelp: help.GetHelpFor([]string{consts.RportfwdStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			rportfwd.RportFwdListenersCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	}
+	rportfwdCmd.AddCommand(&grumble.Command{
+		Name:     consts.AddStr,
+		Help:     "Add and start reverse port forwarding",
+		LongHelp: help.GetHelpFor([]string{consts.RportfwdStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			rportfwd.StartRportFwdListenerCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("r", "remote", "", "remote address <ip>:<port> connection is forwarded to")
+			f.String("b", "bind", "", "bind address <ip>:<port> implants listen on")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+	rportfwdCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Stop and remove reverse port forwarding",
+		LongHelp: help.GetHelpFor([]string{consts.RportfwdStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			rportfwd.StopRportFwdListenerCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("i", "id", 0, "id of portfwd to remove")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+
+	con.App.AddCommand(rportfwdCmd)
 
 	// [ Pivots ] --------------------------------------------------------------
 

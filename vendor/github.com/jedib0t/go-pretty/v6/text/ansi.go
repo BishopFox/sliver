@@ -37,7 +37,7 @@ func Escape(str string, escapeSeq string) string {
 //	StripEscape("\x1b[91mNymeria \x1b[94mGhost\x1b[0m\x1b[91m Lady\x1b[0m") == "Nymeria Ghost Lady"
 func StripEscape(str string) string {
 	var out strings.Builder
-	out.Grow(RuneCount(str))
+	out.Grow(RuneWidthWithoutEscSequences(str))
 
 	isEscSeq := false
 	for _, sChr := range str {

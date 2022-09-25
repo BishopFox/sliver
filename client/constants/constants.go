@@ -88,6 +88,9 @@ const (
 
 	// BeaconTaskResult - Beacon task completed with a result
 	BeaconTaskResultEvent = "beacon-taskresult"
+
+	// ExternalBuildEvent
+	ExternalBuildEvent = "external-build"
 )
 
 // Commands
@@ -224,8 +227,9 @@ const (
 	InteractiveStr        = "interactive"
 	CloseStr              = "close"
 
-	PortfwdStr = "portfwd"
-	Socks5Str  = "socks5"
+	PortfwdStr  = "portfwd"
+	Socks5Str   = "socks5"
+	RportfwdStr = "rportfwd"
 
 	ReactionStr = "reaction"
 

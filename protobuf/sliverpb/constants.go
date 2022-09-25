@@ -286,6 +286,18 @@ const (
 	MsgCurrentTokenOwner
 	// MsgInvokeInProcExecuteAssemblyReq - Request to load and execute a .NET assembly in-process
 	MsgInvokeInProcExecuteAssemblyReq
+
+	MsgRportFwdStopListenerReq
+
+	MsgRportFwdStartListenerReq
+
+	MsgRportFwdListener
+
+	MsgRportFwdListeners
+
+	MsgRportFwdListenersReq
+
+	MsgRPortfwdReq
 )
 
 // Constants to replace enums
@@ -501,7 +513,17 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgCurrentTokenOwner
 	case *InvokeInProcExecuteAssemblyReq:
 		return MsgInvokeInProcExecuteAssemblyReq
-	}
 
+	case *RportFwdStartListenerReq:
+		return MsgRportFwdStartListenerReq
+	case *RportFwdStopListenerReq:
+		return MsgRportFwdStopListenerReq
+	case *RportFwdListenersReq:
+		return MsgRportFwdListenersReq
+	case *RportFwdListeners:
+		return MsgRportFwdListeners
+	case *RPortfwdReq:
+		return MsgRPortfwdReq
+	}
 	return uint32(0)
 }

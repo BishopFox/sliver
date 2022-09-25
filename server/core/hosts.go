@@ -66,6 +66,7 @@ func hostsSessionCallback(session *Session) {
 			HostUUID:      uuid.FromStringOrNil(session.UUID),
 			Hostname:      session.Hostname,
 			OSVersion:     session.OS,
+			Locale:        session.Locale,
 			IOCs:          []models.IOC{},
 			ExtensionData: []models.ExtensionData{},
 		}).Error

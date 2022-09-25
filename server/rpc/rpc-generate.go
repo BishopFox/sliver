@@ -23,7 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"path"
+	"os"
 	"path/filepath"
 	"runtime"
 
@@ -32,9 +32,13 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/util"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -65,6 +69,8 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		fPath, err = generate.SliverSharedLibrary(name, config)
 	case clientpb.OutputFormat_SHELLCODE:
 		fPath, err = generate.SliverShellcode(name, config)
+	default:
+		return nil, fmt.Errorf("invalid output format: %s", req.Config.Format)
 	}
 
 	if err != nil {
@@ -72,7 +78,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	}
 
 	filename := filepath.Base(fPath)
-	filedata, err := ioutil.ReadFile(fPath)
+	fileData, err := ioutil.ReadFile(fPath)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +91,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	return &clientpb.Generate{
 		File: &commonpb.File{
 			Name: filename,
-			Data: filedata,
+			Data: fileData,
 		},
 	}, err
 }
@@ -179,7 +185,7 @@ func (rpc *Server) ImplantProfiles(ctx context.Context, _ *commonpb.Empty) (*cli
 // SaveImplantProfile - Save a new profile
 func (rpc *Server) SaveImplantProfile(ctx context.Context, profile *clientpb.ImplantProfile) (*clientpb.ImplantProfile, error) {
 	_, config := generate.ImplantConfigFromProtobuf(profile.Config)
-	profile.Name = path.Base(profile.Name)
+	profile.Name = filepath.Base(profile.Name)
 	if 0 < len(profile.Name) && profile.Name != "." {
 		rpcLog.Infof("Saving new profile with name %#v", profile.Name)
 		err := generate.SaveImplantProfile(profile.Name, config)
@@ -248,4 +254,101 @@ func (rpc *Server) GetCompiler(ctx context.Context, _ *commonpb.Empty) (*clientp
 	}
 	rcpLog.Debugf("GetCompiler = %v", compiler)
 	return compiler, nil
+}
+
+// *** External builder RPCs ***
+
+// Generate - Generate a new implant
+func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.ExternalImplantConfig, error) {
+	var err error
+	name, config := generate.ImplantConfigFromProtobuf(req.Config)
+	if name == "" {
+		name, err = codenames.GetCodename()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if config == nil {
+		return nil, errors.New("invalid implant config")
+	}
+	req.Config.Format = clientpb.OutputFormat_EXTERNAL
+	externalConfig, err := generate.SliverExternal(name, config)
+	if err != nil {
+		return nil, err
+	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.ExternalBuildEvent,
+		Data:      []byte(config.ID.String()),
+	})
+
+	return externalConfig, err
+}
+
+func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.ExternalImplantBinary) (*commonpb.Empty, error) {
+	implantConfig, err := db.ImplantConfigByID(req.ImplantConfigID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid implant config id")
+	}
+	if implantConfig.Format != clientpb.OutputFormat_EXTERNAL {
+		return nil, status.Error(codes.InvalidArgument, "invalid implant config format")
+	}
+	err = util.AllowedName(req.Name)
+	if err != nil {
+		rpcLog.Errorf("Invalid build name: %s", err)
+		return nil, ErrInvalidName
+	}
+	_, err = db.ImplantBuildByName(req.Name)
+	if err == nil {
+		return nil, ErrBuildExists
+	}
+
+	tmpFile, err := ioutil.TempFile("", "sliver-external-build")
+	if err != nil {
+		rpcLog.Errorf("Failed to create temporary file: %s", err)
+		return nil, status.Error(codes.Internal, "Failed to write implant binary to temp file")
+	}
+	defer os.Remove(tmpFile.Name())
+	_, err = tmpFile.Write(req.File.Data)
+	if err != nil {
+		rcpLog.Errorf("Failed to write implant binary to temp file: %s", err)
+		return nil, status.Error(codes.Internal, "Failed to write implant binary to temp file")
+	}
+	err = generate.ImplantBuildSave(req.Name, implantConfig, "")
+	if err != nil {
+		return nil, err
+	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.BuildCompletedEvent,
+		Data:      []byte(fmt.Sprintf("%s build completed", req.Name)),
+	})
+
+	return &commonpb.Empty{}, nil
+}
+
+func (rpc *Server) GenerateExternalGetImplantConfig(ctx context.Context, req *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
+	implantConfig, err := db.ImplantConfigByID(req.ID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid implant config id")
+	}
+	if implantConfig.Format != clientpb.OutputFormat_EXTERNAL {
+		return nil, status.Error(codes.InvalidArgument, "invalid implant config format")
+	}
+
+	name, err := codenames.GetCodename()
+	if err != nil {
+		return nil, err
+	}
+
+	otpSecret, err := cryptography.TOTPServerSecret()
+	if err != nil {
+		return nil, err
+	}
+
+	return &clientpb.ExternalImplantConfig{
+		Name:      name,
+		Config:    implantConfig.ToProtobuf(),
+		OTPSecret: otpSecret,
+	}, nil
 }
