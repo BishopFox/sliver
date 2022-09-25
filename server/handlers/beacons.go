@@ -95,6 +95,7 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) *sl
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.BeaconRegisteredEvent,
 		Data:      eventData,
+		Beacon:    beacon,
 	})
 
 	go auditLogBeacon(beacon, beaconReg.Register)
