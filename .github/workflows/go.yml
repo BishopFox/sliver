@@ -12,6 +12,7 @@ on:
       - synchronize
       - ready_for_review
     paths:
+      - 'Makefile'
       - 'go-assets.sh'
       - 'go-tests.sh'
       - '**.go'
