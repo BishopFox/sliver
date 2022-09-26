@@ -5,7 +5,7 @@
 GO ?= go
 ARTIFACT_SUFFIX ?= 
 ENV =
-TAGS = -tags osusergo,netgo,cgosqlite,sqlite_omit_load_extension
+TAGS ?= -tags osusergo,netgo,cgosqlite,sqlite_omit_load_extension
 
 
 #

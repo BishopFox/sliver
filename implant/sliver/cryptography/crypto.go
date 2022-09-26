@@ -182,6 +182,15 @@ func (c *CipherContext) Encrypt(plaintext []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
+// GetExactOTPCode - Get the OTP code for a specific timestamp
+func GetExactOTPCode(timestamp time.Time) string {
+	code, _ := totp.GenerateCodeCustom(totpSecret, timestamp, totpOptions)
+	// {{if .Config.Debug}}
+	log.Printf("TOTP Code (%s): %s", timestamp, code)
+	// {{end}}
+	return code
+}
+
 // GetOTPCode - Get the current OTP code
 func GetOTPCode() string {
 	now := time.Now().UTC()

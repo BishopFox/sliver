@@ -80,6 +80,7 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) *sl
 	beacon.ActiveC2 = beaconReg.Register.ActiveC2
 	beacon.ProxyURL = beaconReg.Register.ProxyURL
 	// beacon.ConfigID = uuid.FromStringOrNil(beaconReg.Register.ConfigID)
+	beacon.Locale = beaconReg.Register.Locale
 
 	beacon.Interval = beaconReg.Interval
 	beacon.Jitter = beaconReg.Jitter
@@ -94,6 +95,7 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) *sl
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.BeaconRegisteredEvent,
 		Data:      eventData,
+		Beacon:    beacon,
 	})
 
 	go auditLogBeacon(beacon, beaconReg.Register)

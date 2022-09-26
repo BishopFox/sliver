@@ -52,16 +52,16 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"io"
 	"math"
+	"math/rand"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	errors "golang.org/x/xerrors"
 
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgtype"
@@ -111,31 +111,84 @@ var (
 // OptionOpenDB options for configuring the driver when opening a new db pool.
 type OptionOpenDB func(*connector)
 
-// OptionAfterConnect provide a callback for after connect.
+// OptionBeforeConnect provides a callback for before connect. It is passed a shallow copy of the ConnConfig that will
+// be used to connect, so only its immediate members should be modified.
+func OptionBeforeConnect(bc func(context.Context, *pgx.ConnConfig) error) OptionOpenDB {
+	return func(dc *connector) {
+		dc.BeforeConnect = bc
+	}
+}
+
+// OptionAfterConnect provides a callback for after connect.
 func OptionAfterConnect(ac func(context.Context, *pgx.Conn) error) OptionOpenDB {
 	return func(dc *connector) {
 		dc.AfterConnect = ac
 	}
 }
 
-func OpenDB(config pgx.ConnConfig, opts ...OptionOpenDB) *sql.DB {
+// OptionResetSession provides a callback that can be used to add custom logic prior to executing a query on the
+// connection if the connection has been used before.
+// If ResetSessionFunc returns ErrBadConn error the connection will be discarded.
+func OptionResetSession(rs func(context.Context, *pgx.Conn) error) OptionOpenDB {
+	return func(dc *connector) {
+		dc.ResetSession = rs
+	}
+}
+
+// RandomizeHostOrderFunc is a BeforeConnect hook that randomizes the host order in the provided connConfig, so that a
+// new host becomes primary each time. This is useful to distribute connections for multi-master databases like
+// CockroachDB. If you use this you likely should set https://golang.org/pkg/database/sql/#DB.SetConnMaxLifetime as well
+// to ensure that connections are periodically rebalanced across your nodes.
+func RandomizeHostOrderFunc(ctx context.Context, connConfig *pgx.ConnConfig) error {
+	if len(connConfig.Fallbacks) == 0 {
+		return nil
+	}
+
+	newFallbacks := append([]*pgconn.FallbackConfig{&pgconn.FallbackConfig{
+		Host:      connConfig.Host,
+		Port:      connConfig.Port,
+		TLSConfig: connConfig.TLSConfig,
+	}}, connConfig.Fallbacks...)
+
+	rand.Shuffle(len(newFallbacks), func(i, j int) {
+		newFallbacks[i], newFallbacks[j] = newFallbacks[j], newFallbacks[i]
+	})
+
+	// Use the one that sorted last as the primary and keep the rest as the fallbacks
+	newPrimary := newFallbacks[len(newFallbacks)-1]
+	connConfig.Host = newPrimary.Host
+	connConfig.Port = newPrimary.Port
+	connConfig.TLSConfig = newPrimary.TLSConfig
+	connConfig.Fallbacks = newFallbacks[:len(newFallbacks)-1]
+	return nil
+}
+
+func GetConnector(config pgx.ConnConfig, opts ...OptionOpenDB) driver.Connector {
 	c := connector{
-		ConnConfig:   config,
-		AfterConnect: func(context.Context, *pgx.Conn) error { return nil }, // noop after connect by default
-		driver:       pgxDriver,
+		ConnConfig:    config,
+		BeforeConnect: func(context.Context, *pgx.ConnConfig) error { return nil }, // noop before connect by default
+		AfterConnect:  func(context.Context, *pgx.Conn) error { return nil },       // noop after connect by default
+		ResetSession:  func(context.Context, *pgx.Conn) error { return nil },       // noop reset session by default
+		driver:        pgxDriver,
 	}
 
 	for _, opt := range opts {
 		opt(&c)
 	}
+	return c
+}
 
+func OpenDB(config pgx.ConnConfig, opts ...OptionOpenDB) *sql.DB {
+	c := GetConnector(config, opts...)
 	return sql.OpenDB(c)
 }
 
 type connector struct {
 	pgx.ConnConfig
-	AfterConnect func(context.Context, *pgx.Conn) error // function to call on every new connection
-	driver       *Driver
+	BeforeConnect func(context.Context, *pgx.ConnConfig) error // function to call before creation of every new connection
+	AfterConnect  func(context.Context, *pgx.Conn) error       // function to call after creation of every new connection
+	ResetSession  func(context.Context, *pgx.Conn) error       // function is called before a connection is reused
+	driver        *Driver
 }
 
 // Connect implement driver.Connector interface
@@ -145,7 +198,13 @@ func (c connector) Connect(ctx context.Context) (driver.Conn, error) {
 		conn *pgx.Conn
 	)
 
-	if conn, err = pgx.ConnectConfig(ctx, &c.ConnConfig); err != nil {
+	// Create a shallow copy of the config, so that BeforeConnect can safely modify it
+	connConfig := c.ConnConfig
+	if err = c.BeforeConnect(ctx, &connConfig); err != nil {
+		return nil, err
+	}
+
+	if conn, err = pgx.ConnectConfig(ctx, &connConfig); err != nil {
 		return nil, err
 	}
 
@@ -153,7 +212,7 @@ func (c connector) Connect(ctx context.Context) (driver.Conn, error) {
 		return nil, err
 	}
 
-	return &Conn{conn: conn, driver: c.driver, connConfig: c.ConnConfig}, nil
+	return &Conn{conn: conn, driver: c.driver, connConfig: connConfig, resetSessionFunc: c.ResetSession}, nil
 }
 
 // Driver implement driver.Connector interface
@@ -170,6 +229,7 @@ func GetDefaultDriver() driver.Driver {
 type Driver struct {
 	configMutex sync.Mutex
 	configs     map[string]*pgx.ConnConfig
+	sequence    int
 }
 
 func (d *Driver) Open(name string) (driver.Conn, error) {
@@ -189,7 +249,8 @@ func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
 
 func (d *Driver) registerConnConfig(c *pgx.ConnConfig) string {
 	d.configMutex.Lock()
-	connStr := fmt.Sprintf("registeredConnConfig%d", len(d.configs))
+	connStr := fmt.Sprintf("registeredConnConfig%d", d.sequence)
+	d.sequence++
 	d.configs[connStr] = c
 	d.configMutex.Unlock()
 	return connStr
@@ -226,7 +287,13 @@ func (dc *driverConnector) Connect(ctx context.Context) (driver.Conn, error) {
 		return nil, err
 	}
 
-	c := &Conn{conn: conn, driver: dc.driver, connConfig: *connConfig}
+	c := &Conn{
+		conn:             conn,
+		driver:           dc.driver,
+		connConfig:       *connConfig,
+		resetSessionFunc: func(context.Context, *pgx.Conn) error { return nil },
+	}
+
 	return c, nil
 }
 
@@ -245,10 +312,11 @@ func UnregisterConnConfig(connStr string) {
 }
 
 type Conn struct {
-	conn       *pgx.Conn
-	psCount    int64 // Counter used for creating unique prepared statement names
-	driver     *Driver
-	connConfig pgx.ConnConfig
+	conn             *pgx.Conn
+	psCount          int64 // Counter used for creating unique prepared statement names
+	driver           *Driver
+	connConfig       pgx.ConnConfig
+	resetSessionFunc func(context.Context, *pgx.Conn) error // Function is called before a connection is reused
 }
 
 // Conn returns the underlying *pgx.Conn
@@ -308,7 +376,7 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 	case sql.LevelSerializable:
 		pgxOpts.IsoLevel = pgx.Serializable
 	default:
-		return nil, errors.Errorf("unsupported isolation: %v", opts.Isolation)
+		return nil, fmt.Errorf("unsupported isolation: %v", opts.Isolation)
 	}
 
 	if opts.ReadOnly {
@@ -370,12 +438,28 @@ func (c *Conn) Ping(ctx context.Context) error {
 		return driver.ErrBadConn
 	}
 
-	return c.conn.Ping(ctx)
+	err := c.conn.Ping(ctx)
+	if err != nil {
+		// A Ping failure implies some sort of fatal state. The connection is almost certainly already closed by the
+		// failure, but manually close it just to be sure.
+		c.Close()
+		return driver.ErrBadConn
+	}
+
+	return nil
 }
 
 func (c *Conn) CheckNamedValue(*driver.NamedValue) error {
 	// Underlying pgx supports sql.Scanner and driver.Valuer interfaces natively. So everything can be passed through directly.
 	return nil
+}
+
+func (c *Conn) ResetSession(ctx context.Context) error {
+	if c.conn.IsClosed() {
+		return driver.ErrBadConn
+	}
+
+	return c.resetSessionFunc(ctx, c.conn)
 }
 
 type Stmt struct {
@@ -506,7 +590,7 @@ func (r *Rows) ColumnTypeScanType(index int) reflect.Type {
 
 func (r *Rows) Close() error {
 	r.rows.Close()
-	return nil
+	return r.rows.Err()
 }
 
 func (r *Rows) Next(dest []driver.Value) error {
@@ -771,7 +855,7 @@ func ReleaseConn(db *sql.DB, conn *pgx.Conn) error {
 		fakeTxMutex.Unlock()
 	} else {
 		fakeTxMutex.Unlock()
-		return errors.Errorf("can't release conn that is not acquired")
+		return fmt.Errorf("can't release conn that is not acquired")
 	}
 
 	return tx.Rollback()

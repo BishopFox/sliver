@@ -4,10 +4,10 @@ import (
 	"database/sql/driver"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgio"
-	errors "golang.org/x/xerrors"
 )
 
 const pgTimestamptzHourFormat = "2006-01-02 15:04:05.999999999Z07"
@@ -48,11 +48,21 @@ func (dst *Timestamptz) Set(src interface{}) error {
 		} else {
 			return dst.Set(*value)
 		}
+	case string:
+		return dst.DecodeText(nil, []byte(value))
+	case *string:
+		if value == nil {
+			*dst = Timestamptz{Status: Null}
+		} else {
+			return dst.Set(*value)
+		}
+	case InfinityModifier:
+		*dst = Timestamptz{InfinityModifier: value, Status: Present}
 	default:
 		if originalSrc, ok := underlyingTimeType(src); ok {
 			return dst.Set(originalSrc)
 		}
-		return errors.Errorf("cannot convert %v to Timestamptz", value)
+		return fmt.Errorf("cannot convert %v to Timestamptz", value)
 	}
 
 	return nil
@@ -78,7 +88,7 @@ func (src *Timestamptz) AssignTo(dst interface{}) error {
 		switch v := dst.(type) {
 		case *time.Time:
 			if src.InfinityModifier != None {
-				return errors.Errorf("cannot assign %v to %T", src, dst)
+				return fmt.Errorf("cannot assign %v to %T", src, dst)
 			}
 			*v = src.Time
 			return nil
@@ -86,13 +96,13 @@ func (src *Timestamptz) AssignTo(dst interface{}) error {
 			if nextDst, retry := GetAssignToDstType(dst); retry {
 				return src.AssignTo(nextDst)
 			}
-			return errors.Errorf("unable to assign to %T", dst)
+			return fmt.Errorf("unable to assign to %T", dst)
 		}
 	case Null:
 		return NullAssignTo(dst)
 	}
 
-	return errors.Errorf("cannot decode %#v into %T", src, dst)
+	return fmt.Errorf("cannot decode %#v into %T", src, dst)
 }
 
 func (dst *Timestamptz) DecodeText(ci *ConnInfo, src []byte) error {
@@ -109,9 +119,9 @@ func (dst *Timestamptz) DecodeText(ci *ConnInfo, src []byte) error {
 		*dst = Timestamptz{Status: Present, InfinityModifier: -Infinity}
 	default:
 		var format string
-		if sbuf[len(sbuf)-9] == '-' || sbuf[len(sbuf)-9] == '+' {
+		if len(sbuf) >= 9 && (sbuf[len(sbuf)-9] == '-' || sbuf[len(sbuf)-9] == '+') {
 			format = pgTimestamptzSecondFormat
-		} else if sbuf[len(sbuf)-6] == '-' || sbuf[len(sbuf)-6] == '+' {
+		} else if len(sbuf) >= 6 && (sbuf[len(sbuf)-6] == '-' || sbuf[len(sbuf)-6] == '+') {
 			format = pgTimestamptzMinuteFormat
 		} else {
 			format = pgTimestamptzHourFormat
@@ -122,7 +132,7 @@ func (dst *Timestamptz) DecodeText(ci *ConnInfo, src []byte) error {
 			return err
 		}
 
-		*dst = Timestamptz{Time: tim, Status: Present}
+		*dst = Timestamptz{Time: normalizePotentialUTC(tim), Status: Present}
 	}
 
 	return nil
@@ -135,7 +145,7 @@ func (dst *Timestamptz) DecodeBinary(ci *ConnInfo, src []byte) error {
 	}
 
 	if len(src) != 8 {
-		return errors.Errorf("invalid length for timestamptz: %v", len(src))
+		return fmt.Errorf("invalid length for timestamptz: %v", len(src))
 	}
 
 	microsecSinceY2K := int64(binary.BigEndian.Uint64(src))
@@ -146,8 +156,10 @@ func (dst *Timestamptz) DecodeBinary(ci *ConnInfo, src []byte) error {
 	case negativeInfinityMicrosecondOffset:
 		*dst = Timestamptz{Status: Present, InfinityModifier: -Infinity}
 	default:
-		microsecSinceUnixEpoch := microsecFromUnixEpochToY2K + microsecSinceY2K
-		tim := time.Unix(microsecSinceUnixEpoch/1000000, (microsecSinceUnixEpoch%1000000)*1000)
+		tim := time.Unix(
+			microsecFromUnixEpochToY2K/1000000+microsecSinceY2K/1000000,
+			(microsecFromUnixEpochToY2K%1000000*1000)+(microsecSinceY2K%1000000*1000),
+		)
 		*dst = Timestamptz{Time: tim, Status: Present}
 	}
 
@@ -217,7 +229,7 @@ func (dst *Timestamptz) Scan(src interface{}) error {
 		return nil
 	}
 
-	return errors.Errorf("cannot scan %T", src)
+	return fmt.Errorf("cannot scan %T", src)
 }
 
 // Value implements the database/sql/driver Valuer interface.
@@ -226,6 +238,9 @@ func (src Timestamptz) Value() (driver.Value, error) {
 	case Present:
 		if src.InfinityModifier != None {
 			return src.InfinityModifier.String(), nil
+		}
+		if src.Time.Location().String() == time.UTC.String() {
+			return src.Time.UTC(), nil
 		}
 		return src.Time, nil
 	case Null:
@@ -285,8 +300,23 @@ func (dst *Timestamptz) UnmarshalJSON(b []byte) error {
 			return err
 		}
 
-		*dst = Timestamptz{Time: tim, Status: Present}
+		*dst = Timestamptz{Time: normalizePotentialUTC(tim), Status: Present}
 	}
 
 	return nil
+}
+
+// Normalize timestamps in UTC location to behave similarly to how the Golang
+// standard library does it: UTC timestamps lack a .loc value.
+//
+// Reason for this: when comparing two timestamps with reflect.DeepEqual (generally
+// speaking not a good idea, but several testing libraries (for example testify)
+// does this), their location data needs to be equal for them to be considered
+// equal.
+func normalizePotentialUTC(timestamp time.Time) time.Time {
+	if timestamp.Location().String() != time.UTC.String() {
+		return timestamp
+	}
+
+	return timestamp.UTC()
 }

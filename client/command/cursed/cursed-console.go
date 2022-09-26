@@ -52,7 +52,7 @@ func CursedConsoleCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	con.PrintInfof("Connecting to '%s', use 'exit' to return ... \n\n", target.Title)
-	startCursedConsole(curse, target, con)
+	startCursedConsole(curse, true, target, con)
 }
 
 func selectDebugTarget(targets []overlord.ChromeDebugTarget, con *console.SliverConsoleClient) *overlord.ChromeDebugTarget {
@@ -89,7 +89,13 @@ func selectDebugTarget(targets []overlord.ChromeDebugTarget, con *console.Sliver
 	return &selectedTarget
 }
 
-func startCursedConsole(curse *core.CursedProcess, target *overlord.ChromeDebugTarget, con *console.SliverConsoleClient) {
+var (
+	helperHooks = []string{
+		"console.log = (...a) => {return a;}", // console.log
+	}
+)
+
+func startCursedConsole(curse *core.CursedProcess, helpers bool, target *overlord.ChromeDebugTarget, con *console.SliverConsoleClient) {
 	tmpFile, _ := ioutil.TempFile("", "cursed")
 	reader, err := readline.NewEx(&readline.Config{
 		Prompt:      "\033[31mcursed »\033[0m ",
@@ -104,6 +110,19 @@ func startCursedConsole(curse *core.CursedProcess, target *overlord.ChromeDebugT
 		con.PrintErrorf("Failed to create read line: %s\n", err)
 		return
 	}
+
+	if helpers {
+		// Execute helper hooks
+		ctx, _, _ := overlord.GetChromeContext(target.WebSocketDebuggerURL, curse)
+		for _, hook := range helperHooks {
+			_, err := overlord.ExecuteJS(ctx, target.WebSocketDebuggerURL, target.ID, hook)
+			if err != nil {
+				con.PrintErrorf("%s\n", err)
+			}
+		}
+	}
+
+	con.Printf(console.Bold+">>> Cursed Console, use ':help' for options%s\n\n", console.Normal)
 	for {
 		line, err := reader.Readline()
 		if err == readline.ErrInterrupt {
@@ -116,8 +135,38 @@ func startCursedConsole(curse *core.CursedProcess, target *overlord.ChromeDebugT
 			break
 		}
 		switch strings.TrimSpace(line) {
+
+		case ":help":
+			con.Println()
+			con.Println("Available commands:")
+			con.Println("  :file - Execute local .js file")
+			con.Println("  :help - Show this help")
+			con.Println("  :exit - Exit the console")
+			con.Println()
+
+		case ":file":
+			jsCode, err := ioutil.ReadFile(line)
+			if err != nil {
+				con.PrintErrorf("%s\n", err)
+				continue
+			}
+			ctx, _, _ := overlord.GetChromeContext(target.WebSocketDebuggerURL, curse)
+			result, err := overlord.ExecuteJS(ctx, target.WebSocketDebuggerURL, target.ID, string(jsCode))
+			if err != nil {
+				con.PrintErrorf("%s\n", err)
+				continue
+			}
+			con.Println()
+			if 0 < len(result) {
+				con.Printf("%s\n", result)
+				con.Println()
+			}
+
+		case ":exit":
+			fallthrough
 		case "exit":
 			return
+
 		default:
 			ctx, _, _ := overlord.GetChromeContext(target.WebSocketDebuggerURL, curse)
 			result, err := overlord.ExecuteJS(ctx, target.WebSocketDebuggerURL, target.ID, line)
@@ -131,5 +180,4 @@ func startCursedConsole(curse *core.CursedProcess, target *overlord.ChromeDebugT
 			}
 		}
 	}
-
 }

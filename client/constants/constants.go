@@ -88,6 +88,12 @@ const (
 
 	// BeaconTaskResult - Beacon task completed with a result
 	BeaconTaskResultEvent = "beacon-taskresult"
+
+	// ExternalBuildEvent
+	ExternalBuildEvent = "external-build"
+
+	// WireGuardNewPeer - New Wireguard peer added
+	WireGuardNewPeer = "wireguard-newpeer"
 )
 
 // Commands
@@ -224,8 +230,9 @@ const (
 	InteractiveStr        = "interactive"
 	CloseStr              = "close"
 
-	PortfwdStr = "portfwd"
-	Socks5Str  = "socks5"
+	PortfwdStr  = "portfwd"
+	Socks5Str   = "socks5"
+	RportfwdStr = "rportfwd"
 
 	ReactionStr = "reaction"
 
@@ -245,6 +252,7 @@ const (
 	CursedConsole  = "console"
 	CursedElectron = "electron"
 	CursedEdge     = "edge"
+	CursedCookies  = "cookies"
 )
 
 // Groups

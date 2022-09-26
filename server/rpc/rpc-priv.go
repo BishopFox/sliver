@@ -26,6 +26,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/generate"
 
@@ -85,7 +86,7 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	if err != nil {
 		name, config := generate.ImplantConfigFromProtobuf(req.Config)
 		if name == "" {
-			name, err = generate.GetCodename()
+			name, err = codenames.GetCodename()
 			if err != nil {
 				return nil, err
 			}

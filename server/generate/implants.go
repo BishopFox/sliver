@@ -101,7 +101,7 @@ func ImplantBuildSave(name string, config *models.ImplantConfig, fPath string) e
 		return result.Error
 	}
 	storageLog.Infof("%s -> %s", implantBuild.ID, implantBuild.Name)
-	return ioutil.WriteFile(path.Join(buildsDir, implantBuild.ID.String()), data, 0600)
+	return ioutil.WriteFile(filepath.Join(buildsDir, implantBuild.ID.String()), data, 0600)
 }
 
 func computeHashes(data []byte) (string, string, string) {
@@ -133,7 +133,7 @@ func ImplantFileDelete(build *models.ImplantBuild) error {
 	if err != nil {
 		return err
 	}
-	buildFilePath := path.Join(buildsDir, build.ID.String())
+	buildFilePath := filepath.Join(buildsDir, build.ID.String())
 	if _, err := os.Stat(buildFilePath); os.IsNotExist(err) {
 		return ErrImplantBuildFileNotFound
 	}

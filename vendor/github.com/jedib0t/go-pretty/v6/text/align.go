@@ -28,7 +28,7 @@ const (
 func (a Align) Apply(text string, maxLength int) string {
 	text = a.trimString(text)
 	sLen := utf8.RuneCountInString(text)
-	sLenWoE := RuneCount(text)
+	sLenWoE := RuneWidthWithoutEscSequences(text)
 	numEscChars := sLen - sLenWoE
 
 	// now, align the text

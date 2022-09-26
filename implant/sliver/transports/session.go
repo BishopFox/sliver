@@ -80,7 +80,7 @@ type Start func() error
 type Stop func() error
 
 // StartConnectionLoop - Starts the main connection loop
-func StartConnectionLoop(c2s []string, abort <-chan struct{}) <-chan *Connection {
+func StartConnectionLoop(abort <-chan struct{}) <-chan *Connection {
 
 	// {{if .Config.Debug}}
 	log.Printf("Starting interactive session connection loop ...")
@@ -88,7 +88,7 @@ func StartConnectionLoop(c2s []string, abort <-chan struct{}) <-chan *Connection
 
 	nextConnection := make(chan *Connection)
 	innerAbort := make(chan struct{})
-	c2Generator := C2Generator(c2s, innerAbort)
+	c2Generator := C2Generator(innerAbort)
 
 	go func() {
 		var connection *Connection
@@ -204,7 +204,7 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 		Send:    send,
 		Recv:    recv,
 		ctrl:    ctrl,
-		tunnels: &map[uint64]*Tunnel{},
+		tunnels: map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
 		IsOpen:  false,
@@ -306,7 +306,7 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 		Send:    send,
 		Recv:    recv,
 		ctrl:    ctrl,
-		tunnels: &map[uint64]*Tunnel{},
+		tunnels: map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
 		uri:     uri,
@@ -414,7 +414,7 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 		Send:    send,
 		Recv:    recv,
 		ctrl:    ctrl,
-		tunnels: &map[uint64]*Tunnel{},
+		tunnels: map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
 		uri:     uri,
@@ -535,7 +535,7 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 		Send:    send,
 		Recv:    recv,
 		ctrl:    ctrl,
-		tunnels: &map[uint64]*Tunnel{},
+		tunnels: map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
 		IsOpen:  true,
@@ -644,7 +644,7 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 		Send:    send,
 		Recv:    recv,
 		ctrl:    ctrl,
-		tunnels: &map[uint64]*Tunnel{},
+		tunnels: map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
 		IsOpen:  true,

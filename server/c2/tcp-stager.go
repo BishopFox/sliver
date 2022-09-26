@@ -19,7 +19,6 @@ package c2
 */
 
 import (
-	"encoding/binary"
 	"fmt"
 	"net"
 
@@ -58,15 +57,9 @@ func acceptConnections(ln net.Listener, data []byte) {
 
 func handleConnection(conn net.Conn, data []byte) {
 	mtlsLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
-	// Send shellcode size
-	dataSize := uint32(len(data))
-	lenBuf := make([]byte, 4)
-	binary.LittleEndian.PutUint32(lenBuf, dataSize)
-	tcpLog.Infof("Shellcode size: %d\n", dataSize)
-	final := append(lenBuf, data...)
-	tcpLog.Infof("Sending shellcode (%d)\n", len(final))
+	tcpLog.Infof("Sending shellcode (%d)\n", len(data))
 	// Send shellcode
-	conn.Write(final)
+	conn.Write(data)
 	// Closing connection
 	conn.Close()
 }

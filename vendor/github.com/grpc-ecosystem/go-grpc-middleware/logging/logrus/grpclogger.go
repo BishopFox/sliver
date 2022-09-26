@@ -21,5 +21,5 @@ type logrusGrpcLoggerV2 struct {
 }
 
 func (l *logrusGrpcLoggerV2) V(level int) bool {
-	return int(l.Level) >= level
+	return l.Logger.IsLevelEnabled(logrus.Level(level))
 }

@@ -3,11 +3,12 @@ package pgtype
 import (
 	"database/sql/driver"
 	"encoding/binary"
+	"encoding/json"
+	"fmt"
 	"math"
 	"strconv"
 
 	"github.com/jackc/pgio"
-	errors "golang.org/x/xerrors"
 )
 
 type Int2 struct {
@@ -37,46 +38,46 @@ func (dst *Int2) Set(src interface{}) error {
 		*dst = Int2{Int: int16(value), Status: Present}
 	case uint16:
 		if value > math.MaxInt16 {
-			return errors.Errorf("%d is greater than maximum value for Int2", value)
+			return fmt.Errorf("%d is greater than maximum value for Int2", value)
 		}
 		*dst = Int2{Int: int16(value), Status: Present}
 	case int32:
 		if value < math.MinInt16 {
-			return errors.Errorf("%d is greater than maximum value for Int2", value)
+			return fmt.Errorf("%d is greater than maximum value for Int2", value)
 		}
 		if value > math.MaxInt16 {
-			return errors.Errorf("%d is greater than maximum value for Int2", value)
+			return fmt.Errorf("%d is greater than maximum value for Int2", value)
 		}
 		*dst = Int2{Int: int16(value), Status: Present}
 	case uint32:
 		if value > math.MaxInt16 {
-			return errors.Errorf("%d is greater than maximum value for Int2", value)
+			return fmt.Errorf("%d is greater than maximum value for Int2", value)
 		}
 		*dst = Int2{Int: int16(value), Status: Present}
 	case int64:
 		if value < math.MinInt16 {
-			return errors.Errorf("%d is greater than maximum value for Int2", value)
+			return fmt.Errorf("%d is greater than maximum value for Int2", value)
 		}
 		if value > math.MaxInt16 {
-			return errors.Errorf("%d is greater than maximum value for Int2", value)
+			return fmt.Errorf("%d is greater than maximum value for Int2", value)
 		}
 		*dst = Int2{Int: int16(value), Status: Present}
 	case uint64:
 		if value > math.MaxInt16 {
-			return errors.Errorf("%d is greater than maximum value for Int2", value)
+			return fmt.Errorf("%d is greater than maximum value for Int2", value)
 		}
 		*dst = Int2{Int: int16(value), Status: Present}
 	case int:
 		if value < math.MinInt16 {
-			return errors.Errorf("%d is greater than maximum value for Int2", value)
+			return fmt.Errorf("%d is greater than maximum value for Int2", value)
 		}
 		if value > math.MaxInt16 {
-			return errors.Errorf("%d is greater than maximum value for Int2", value)
+			return fmt.Errorf("%d is greater than maximum value for Int2", value)
 		}
 		*dst = Int2{Int: int16(value), Status: Present}
 	case uint:
 		if value > math.MaxInt16 {
-			return errors.Errorf("%d is greater than maximum value for Int2", value)
+			return fmt.Errorf("%d is greater than maximum value for Int2", value)
 		}
 		*dst = Int2{Int: int16(value), Status: Present}
 	case string:
@@ -85,6 +86,16 @@ func (dst *Int2) Set(src interface{}) error {
 			return err
 		}
 		*dst = Int2{Int: int16(num), Status: Present}
+	case float32:
+		if value > math.MaxInt16 {
+			return fmt.Errorf("%f is greater than maximum value for Int2", value)
+		}
+		*dst = Int2{Int: int16(value), Status: Present}
+	case float64:
+		if value > math.MaxInt16 {
+			return fmt.Errorf("%f is greater than maximum value for Int2", value)
+		}
+		*dst = Int2{Int: int16(value), Status: Present}
 	case *int8:
 		if value == nil {
 			*dst = Int2{Status: Null}
@@ -151,11 +162,23 @@ func (dst *Int2) Set(src interface{}) error {
 		} else {
 			return dst.Set(*value)
 		}
+	case *float32:
+		if value == nil {
+			*dst = Int2{Status: Null}
+		} else {
+			return dst.Set(*value)
+		}
+	case *float64:
+		if value == nil {
+			*dst = Int2{Status: Null}
+		} else {
+			return dst.Set(*value)
+		}
 	default:
 		if originalSrc, ok := underlyingNumberType(src); ok {
 			return dst.Set(originalSrc)
 		}
-		return errors.Errorf("cannot convert %v to Int2", value)
+		return fmt.Errorf("cannot convert %v to Int2", value)
 	}
 
 	return nil
@@ -198,7 +221,7 @@ func (dst *Int2) DecodeBinary(ci *ConnInfo, src []byte) error {
 	}
 
 	if len(src) != 2 {
-		return errors.Errorf("invalid length for int2: %v", len(src))
+		return fmt.Errorf("invalid length for int2: %v", len(src))
 	}
 
 	n := int16(binary.BigEndian.Uint16(src))
@@ -238,10 +261,10 @@ func (dst *Int2) Scan(src interface{}) error {
 	switch src := src.(type) {
 	case int64:
 		if src < math.MinInt16 {
-			return errors.Errorf("%d is greater than maximum value for Int2", src)
+			return fmt.Errorf("%d is greater than maximum value for Int2", src)
 		}
 		if src > math.MaxInt16 {
-			return errors.Errorf("%d is greater than maximum value for Int2", src)
+			return fmt.Errorf("%d is greater than maximum value for Int2", src)
 		}
 		*dst = Int2{Int: int16(src), Status: Present}
 		return nil
@@ -253,7 +276,7 @@ func (dst *Int2) Scan(src interface{}) error {
 		return dst.DecodeText(nil, srcCopy)
 	}
 
-	return errors.Errorf("cannot scan %T", src)
+	return fmt.Errorf("cannot scan %T", src)
 }
 
 // Value implements the database/sql/driver Valuer interface.
@@ -279,4 +302,20 @@ func (src Int2) MarshalJSON() ([]byte, error) {
 	}
 
 	return nil, errBadStatus
+}
+
+func (dst *Int2) UnmarshalJSON(b []byte) error {
+	var n *int16
+	err := json.Unmarshal(b, &n)
+	if err != nil {
+		return err
+	}
+
+	if n == nil {
+		*dst = Int2{Status: Null}
+	} else {
+		*dst = Int2{Int: *n, Status: Present}
+	}
+
+	return nil
 }

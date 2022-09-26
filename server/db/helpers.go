@@ -100,7 +100,6 @@ func ImplantBuildByName(name string) (*models.ImplantBuild, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return &build, err
 }
 

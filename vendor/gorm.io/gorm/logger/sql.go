@@ -19,9 +19,9 @@ const (
 	nullStr     = "NULL"
 )
 
-func isPrintable(s []byte) bool {
+func isPrintable(s string) bool {
 	for _, r := range s {
-		if !unicode.IsPrint(rune(r)) {
+		if !unicode.IsPrint(r) {
 			return false
 		}
 	}
@@ -30,9 +30,14 @@ func isPrintable(s []byte) bool {
 
 var convertibleTypes = []reflect.Type{reflect.TypeOf(time.Time{}), reflect.TypeOf(false), reflect.TypeOf([]byte{})}
 
+var numericPlaceholderRe = regexp.MustCompile(`\$\d+\$`)
+
+// ExplainSQL generate SQL string with given parameters, the generated SQL is expected to be used in logger, execute it might introduce a SQL injection vulnerability
 func ExplainSQL(sql string, numericPlaceholder *regexp.Regexp, escaper string, avars ...interface{}) string {
-	var convertParams func(interface{}, int)
-	var vars = make([]string, len(avars))
+	var (
+		convertParams func(interface{}, int)
+		vars          = make([]string, len(avars))
+	)
 
 	convertParams = func(v interface{}, idx int) {
 		switch v := v.(type) {
@@ -64,14 +69,25 @@ func ExplainSQL(sql string, numericPlaceholder *regexp.Regexp, escaper string, a
 			}
 		case fmt.Stringer:
 			reflectValue := reflect.ValueOf(v)
-			if v != nil && reflectValue.IsValid() && ((reflectValue.Kind() == reflect.Ptr && !reflectValue.IsNil()) || reflectValue.Kind() != reflect.Ptr) {
-				vars[idx] = escaper + strings.Replace(fmt.Sprintf("%v", v), escaper, "\\"+escaper, -1) + escaper
-			} else {
-				vars[idx] = nullStr
+			switch reflectValue.Kind() {
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+				vars[idx] = fmt.Sprintf("%d", reflectValue.Interface())
+			case reflect.Float32, reflect.Float64:
+				vars[idx] = fmt.Sprintf("%.6f", reflectValue.Interface())
+			case reflect.Bool:
+				vars[idx] = fmt.Sprintf("%t", reflectValue.Interface())
+			case reflect.String:
+				vars[idx] = escaper + strings.ReplaceAll(fmt.Sprintf("%v", v), escaper, "\\"+escaper) + escaper
+			default:
+				if v != nil && reflectValue.IsValid() && ((reflectValue.Kind() == reflect.Ptr && !reflectValue.IsNil()) || reflectValue.Kind() != reflect.Ptr) {
+					vars[idx] = escaper + strings.ReplaceAll(fmt.Sprintf("%v", v), escaper, "\\"+escaper) + escaper
+				} else {
+					vars[idx] = nullStr
+				}
 			}
 		case []byte:
-			if isPrintable(v) {
-				vars[idx] = escaper + strings.Replace(string(v), escaper, "\\"+escaper, -1) + escaper
+			if s := string(v); isPrintable(s) {
+				vars[idx] = escaper + strings.ReplaceAll(s, escaper, "\\"+escaper) + escaper
 			} else {
 				vars[idx] = escaper + "<binary>" + escaper
 			}
@@ -80,7 +96,7 @@ func ExplainSQL(sql string, numericPlaceholder *regexp.Regexp, escaper string, a
 		case float64, float32:
 			vars[idx] = fmt.Sprintf("%.6f", v)
 		case string:
-			vars[idx] = escaper + strings.Replace(v, escaper, "\\"+escaper, -1) + escaper
+			vars[idx] = escaper + strings.ReplaceAll(v, escaper, "\\"+escaper) + escaper
 		default:
 			rv := reflect.ValueOf(v)
 			if v == nil || !rv.IsValid() || rv.Kind() == reflect.Ptr && rv.IsNil() {
@@ -97,7 +113,7 @@ func ExplainSQL(sql string, numericPlaceholder *regexp.Regexp, escaper string, a
 						return
 					}
 				}
-				vars[idx] = escaper + strings.Replace(fmt.Sprint(v), escaper, "\\"+escaper, -1) + escaper
+				vars[idx] = escaper + strings.ReplaceAll(fmt.Sprint(v), escaper, "\\"+escaper) + escaper
 			}
 		}
 	}
@@ -124,9 +140,18 @@ func ExplainSQL(sql string, numericPlaceholder *regexp.Regexp, escaper string, a
 		sql = newSQL.String()
 	} else {
 		sql = numericPlaceholder.ReplaceAllString(sql, "$$$1$$")
-		for idx, v := range vars {
-			sql = strings.Replace(sql, "$"+strconv.Itoa(idx+1)+"$", v, 1)
-		}
+
+		sql = numericPlaceholderRe.ReplaceAllStringFunc(sql, func(v string) string {
+			num := v[1 : len(v)-1]
+			n, _ := strconv.Atoi(num)
+
+			// position var start from 1 ($1, $2)
+			n -= 1
+			if n >= 0 && n <= len(vars)-1 {
+				return vars[n]
+			}
+			return v
+		})
 	}
 
 	return sql

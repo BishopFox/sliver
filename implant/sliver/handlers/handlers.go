@@ -58,6 +58,9 @@ type TunnelHandler func(*sliverpb.Envelope, *transports.Connection)
 // PivotHandler - Handler related to pivoting
 type PivotHandler func(*sliverpb.Envelope, *transports.Connection)
 
+// RportFwdHandler - Handler related to reverse port forwarding
+type RportFwdHandler func(*sliverpb.Envelope, *transports.Connection)
+
 // -----------------------------------------------------
 // -----------------------------------------------------
 // -----------------------------------------------------
@@ -372,6 +375,9 @@ func prepareDownload(path string, filter string, recurse bool) ([]byte, bool, in
 		to download a single file
 	*/
 	fileInfo, err := os.Stat(path + filter)
+	if err != nil {
+		return nil, false, 0, 1, err
+	}
 	if err == nil && !fileInfo.IsDir() {
 		// Then this is a single file
 		rawData, err := os.ReadFile(path + filter)
