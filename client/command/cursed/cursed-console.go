@@ -91,7 +91,7 @@ func selectDebugTarget(targets []overlord.ChromeDebugTarget, con *console.Sliver
 
 var (
 	helperHooks = []string{
-		"", // console.log
+		"console.log = (...a) => {return a;}", // console.log
 	}
 )
 
