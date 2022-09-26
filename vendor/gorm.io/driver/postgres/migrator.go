@@ -436,14 +436,25 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 
 		// check primary, unique field
 		{
-			columnTypeRows, err := m.DB.Raw("SELECT c.column_name, constraint_type FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = ? AND c.table_schema = ? AND c.table_name = ?", currentDatabase, currentSchema, table).Rows()
+			columnTypeRows, err := m.DB.Raw("SELECT constraint_name FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = ? AND c.table_schema = ? AND c.table_name = ? AND constraint_type = ?", currentDatabase, currentSchema, table, "UNIQUE").Rows()
 			if err != nil {
 				return err
 			}
-
+			uniqueContraints := map[string]int{}
 			for columnTypeRows.Next() {
-				var name, columnType string
-				columnTypeRows.Scan(&name, &columnType)
+				var constraintName string
+				columnTypeRows.Scan(&constraintName)
+				uniqueContraints[constraintName]++
+			}
+			columnTypeRows.Close()
+
+			columnTypeRows, err = m.DB.Raw("SELECT c.column_name, constraint_name, constraint_type FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = ? AND c.table_schema = ? AND c.table_name = ?", currentDatabase, currentSchema, table).Rows()
+			if err != nil {
+				return err
+			}
+			for columnTypeRows.Next() {
+				var name, constraintName, columnType string
+				columnTypeRows.Scan(&name, &constraintName, &columnType)
 				for _, c := range columnTypes {
 					mc := c.(*migrator.ColumnType)
 					if mc.NameValue.String == name {
@@ -451,7 +462,9 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 						case "PRIMARY KEY":
 							mc.PrimaryKeyValue = sql.NullBool{Bool: true, Valid: true}
 						case "UNIQUE":
-							mc.UniqueValue = sql.NullBool{Bool: true, Valid: true}
+							if uniqueContraints[constraintName] == 1 {
+								mc.UniqueValue = sql.NullBool{Bool: true, Valid: true}
+							}
 						}
 						break
 					}
@@ -463,7 +476,7 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 		// check column type
 		{
 			dataTypeRows, err := m.DB.Raw(`SELECT a.attname as column_name, format_type(a.atttypid, a.atttypmod) AS data_type
-		FROM pg_attribute a JOIN pg_class b ON a.attrelid = b.relfilenode AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = ?)
+		FROM pg_attribute a JOIN pg_class b ON a.attrelid = b.oid AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = ?)
 		WHERE a.attnum > 0 -- hide internal columns
 		AND NOT a.attisdropped -- hide deleted columns
 		AND b.relname = ?`, currentSchema, table).Rows()
