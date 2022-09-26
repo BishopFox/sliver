@@ -23,7 +23,7 @@ package command
 
 	Guidelines when adding a command:
 
-		* Try to reuse the same short/long flags for the same paramenter,
+		* Try to reuse the same short/long flags for the same parameter,
 		  e.g. "timeout" flags should always be -t and --timeout when possible.
 		  Try to avoid creating flags that conflict with others even if you're
 		  not using the flag, e.g. avoid using -t even if your command doesn't
@@ -3427,7 +3427,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedConsole}),
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {
-			f.Int("r", "remote-debugging-port", 21099, "remote debugging tcp port")
+			f.Int("r", "remote-debugging-port", 0, "remote debugging tcp port (0 = random)`")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -3444,13 +3444,18 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedChrome}),
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {
-			f.Int("r", "remote-debugging-port", 21099, "remote debugging tcp port")
+			f.Int("r", "remote-debugging-port", 0, "remote debugging tcp port (0 = random)")
 			f.Bool("R", "restore", true, "restore the user's session after process termination")
 			f.String("e", "exe", "", "chrome/chromium browser executable path (blank string = auto)")
 			f.String("u", "user-data", "", "user data directory (blank string = auto)")
 			f.String("p", "payload", "", "cursed chrome payload file path (.js)")
+			f.Bool("k", "keep-alive", false, "keeps browser alive after last browser window closes")
+			f.Bool("H", "headless", false, "start browser process in headless mode")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.StringList("args", "additional chrome cli arguments", grumble.Default([]string{}))
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3465,17 +3470,60 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedEdge}),
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {
-			f.Int("r", "remote-debugging-port", 21099, "remote debugging tcp port")
+			f.Int("r", "remote-debugging-port", 0, "remote debugging tcp port (0 = random)")
 			f.Bool("R", "restore", true, "restore the user's session after process termination")
 			f.String("e", "exe", "", "edge browser executable path (blank string = auto)")
 			f.String("u", "user-data", "", "user data directory (blank string = auto)")
 			f.String("p", "payload", "", "cursed chrome payload file path (.js)")
+			f.Bool("k", "keep-alive", false, "keeps browser alive after last browser window closes")
+			f.Bool("H", "headless", false, "start browser process in headless mode")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.StringList("args", "additional edge cli arguments", grumble.Default([]string{}))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedEdgeCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.CursedElectron,
+		Help:      "Curse a remote Electron application",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedElectron}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.String("e", "exe", "", "remote electron executable absolute path")
+			f.Int("r", "remote-debugging-port", 0, "remote debugging tcp port (0 = random)")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.StringList("args", "additional electron cli arguments", grumble.Default([]string{}))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedElectronCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.CursedCookies,
+		Help:      "Dump all cookies from cursed process",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedCookies}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "save", "", "save to file")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			cursed.CursedEdgeCmd(ctx, con)
+			cursed.CursedCookiesCmd(ctx, con)
 			con.Println()
 			return nil
 		},
@@ -3494,24 +3542,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			cursed.CursedScreenshotCmd(ctx, con)
-			con.Println()
-			return nil
-		},
-	})
-	cursedCmd.AddCommand(&grumble.Command{
-		Name:      consts.CursedElectron,
-		Help:      "Curse a remote Electron application",
-		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedElectron}),
-		HelpGroup: consts.GenericHelpGroup,
-		Flags: func(f *grumble.Flags) {
-			f.String("e", "exe", "", "remote electron executable absolute path")
-			f.Int("r", "remote-debugging-port", 21099, "remote debugging tcp port")
-
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			con.Println()
-			cursed.CursedElectronCmd(ctx, con)
 			con.Println()
 			return nil
 		},

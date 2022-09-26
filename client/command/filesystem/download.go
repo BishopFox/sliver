@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -173,7 +172,7 @@ func HandleDownloadResponse(download *sliverpb.Download, ctx *grumble.Context, c
 					fileName = fmt.Sprintf("down_%d.tar.gz", time.Now().Unix())
 				}
 			}
-			dst = path.Join(dst, fileName)
+			dst = filepath.Join(dst, fileName)
 		}
 
 		// Add an extension to a directory download if one is not provided.
