@@ -91,6 +91,9 @@ const (
 
 	// ExternalBuildEvent
 	ExternalBuildEvent = "external-build"
+
+	// WireGuardNewPeer - New Wireguard peer added
+	WireGuardNewPeer = "wireguard-newpeer"
 )
 
 // Commands
