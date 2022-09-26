@@ -11,6 +11,12 @@ on:
       - reopened
       - synchronize
       - ready_for_review
+    paths:
+      - 'go-assets.sh'
+      - 'go-tests.sh'
+      - '**.go'
+      - '**.mod'
+      - '**.sum'
 
 jobs:
 
