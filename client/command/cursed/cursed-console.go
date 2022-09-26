@@ -52,7 +52,7 @@ func CursedConsoleCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	con.PrintInfof("Connecting to '%s', use 'exit' to return ... \n\n", target.Title)
-	startCursedConsole(curse, target, con)
+	startCursedConsole(curse, true, target, con)
 }
 
 func selectDebugTarget(targets []overlord.ChromeDebugTarget, con *console.SliverConsoleClient) *overlord.ChromeDebugTarget {
@@ -89,7 +89,13 @@ func selectDebugTarget(targets []overlord.ChromeDebugTarget, con *console.Sliver
 	return &selectedTarget
 }
 
-func startCursedConsole(curse *core.CursedProcess, target *overlord.ChromeDebugTarget, con *console.SliverConsoleClient) {
+var (
+	helperHooks = []string{
+		"", // console.log
+	}
+)
+
+func startCursedConsole(curse *core.CursedProcess, helpers bool, target *overlord.ChromeDebugTarget, con *console.SliverConsoleClient) {
 	tmpFile, _ := ioutil.TempFile("", "cursed")
 	reader, err := readline.NewEx(&readline.Config{
 		Prompt:      "\033[31mcursed »\033[0m ",
@@ -104,6 +110,18 @@ func startCursedConsole(curse *core.CursedProcess, target *overlord.ChromeDebugT
 		con.PrintErrorf("Failed to create read line: %s\n", err)
 		return
 	}
+
+	if helpers {
+		// Execute helper hooks
+		ctx, _, _ := overlord.GetChromeContext(target.WebSocketDebuggerURL, curse)
+		for _, hook := range helperHooks {
+			_, err := overlord.ExecuteJS(ctx, target.WebSocketDebuggerURL, target.ID, hook)
+			if err != nil {
+				con.PrintErrorf("%s\n", err)
+			}
+		}
+	}
+
 	for {
 		line, err := reader.Readline()
 		if err == readline.ErrInterrupt {
