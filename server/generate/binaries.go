@@ -24,7 +24,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/fs"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
@@ -308,7 +307,7 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	err = ioutil.WriteFile(dest, shellcode, 0600)
+	err = os.WriteFile(dest, shellcode, 0600)
 	if err != nil {
 		return "", err
 	}
@@ -655,12 +654,12 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	// Render GoMod
 	buildLog.Info("Rendering go.mod file ...")
 	goModPath := path.Join(sliverPkgDir, "go.mod")
-	err = ioutil.WriteFile(goModPath, []byte(implant.GoMod), 0600)
+	err = os.WriteFile(goModPath, []byte(implant.GoMod), 0600)
 	if err != nil {
 		return "", err
 	}
 	goSumPath := path.Join(sliverPkgDir, "go.sum")
-	err = ioutil.WriteFile(goSumPath, []byte(implant.GoSum), 0600)
+	err = os.WriteFile(goSumPath, []byte(implant.GoSum), 0600)
 	if err != nil {
 		return "", err
 	}

@@ -2,7 +2,7 @@ package generate
 
 import (
 	"bytes"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -11,7 +11,7 @@ import (
 
 // DonutShellcodeFromFile returns a Donut shellcode for the given PE file
 func DonutShellcodeFromFile(filePath string, arch string, dotnet bool, params string, className string, method string) (data []byte, err error) {
-	pe, err := ioutil.ReadFile(filePath)
+	pe, err := os.ReadFile(filePath)
 	if err != nil {
 		return
 	}
@@ -27,7 +27,7 @@ func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, cl
 	}
 	var isUnicodeVar uint32
 	if isUnicode {
-	   isUnicodeVar = 1
+		isUnicodeVar = 1
 	}
 	donutArch := getDonutArch(arch)
 	// We don't use DonutConfig.Thread = 1 because we create our own remote thread
