@@ -1,4 +1,4 @@
-FROM golang:1.18.6
+FROM golang:1.19.1
 
 #
 # IMPORTANT: This Dockerfile is used for testing, I do not recommend deploying
@@ -53,8 +53,9 @@ RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VER}
 # Go assets
 WORKDIR /go/src/github.com/bishopfox/sliver
 ADD . /go/src/github.com/bishopfox/sliver/
-RUN make clean-all
-RUN ./go-assets.sh
+RUN make clean-all \
+    && ./go-assets.sh
+
 RUN make \
     && cp -vv sliver-server /opt/sliver-server \
     && /opt/sliver-server unpack --force 

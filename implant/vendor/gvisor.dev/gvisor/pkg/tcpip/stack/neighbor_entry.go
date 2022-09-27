@@ -236,9 +236,9 @@ func (e *neighborEntry) removeLocked() {
 	// TODO(https://gvisor.dev/issues/5583): test the case where this function is
 	// called during resolution; that can happen in at least these scenarios:
 	//
-	// - manual address removal during resolution
+	//	- manual address removal during resolution
 	//
-	// - neighbor cache eviction during resolution
+	//	- neighbor cache eviction during resolution
 	e.notifyCompletionLocked(&tcpip.ErrAborted{})
 }
 
@@ -592,13 +592,13 @@ func (e *neighborEntry) handleConfirmationLocked(linkAddr tcpip.LinkAddress, fla
 // Precondition: e.mu MUST be locked.
 func (e *neighborEntry) handleUpperLevelConfirmationLocked() {
 	switch e.mu.neigh.State {
-	case Reachable, Stale, Delay, Probe:
-		wasReachable := e.mu.neigh.State == Reachable
-		// Set state to Reachable again to refresh timers.
+	case Stale, Delay, Probe:
 		e.setStateLocked(Reachable)
-		if !wasReachable {
-			e.dispatchChangeEventLocked()
-		}
+		e.dispatchChangeEventLocked()
+
+	case Reachable:
+		// Avoid setStateLocked; Timer.Reset is cheaper.
+		e.mu.timer.timer.Reset(e.nudState.ReachableTime())
 
 	case Unknown, Incomplete, Unreachable, Static:
 		// Do nothing

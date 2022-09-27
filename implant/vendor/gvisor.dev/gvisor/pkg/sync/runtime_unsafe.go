@@ -3,8 +3,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build go1.13 && !go1.19
-// +build go1.13,!go1.19
+//go:build go1.13 && !go1.21
+// +build go1.13,!go1.21
 
 // //go:linkname directives type-checked by checklinkname. Any other
 // non-linkname assumptions outside the Go 1 compatibility guarantee should
@@ -22,6 +22,15 @@ import (
 	"unsafe"
 )
 
+// Goyield is runtime.goyield, which is similar to runtime.Gosched but only
+// yields the processor to other goroutines already on the processor's
+// runqueue.
+//
+//go:nosplit
+func Goyield() {
+	goyield()
+}
+
 // Gopark is runtime.gopark. Gopark calls unlockf(pointer to runtime.g, lock);
 // if unlockf returns true, Gopark blocks until Goready(pointer to runtime.g)
 // is called. unlockf and its callees must be nosplit and norace, since stack
@@ -35,15 +44,39 @@ func Gopark(unlockf func(uintptr, unsafe.Pointer) bool, lock unsafe.Pointer, rea
 //go:linkname gopark runtime.gopark
 func gopark(unlockf func(uintptr, unsafe.Pointer) bool, lock unsafe.Pointer, reason uint8, traceEv byte, traceskip int)
 
-// Goready is runtime.goready.
+//go:linkname wakep runtime.wakep
+func wakep()
+
+// Wakep is runtime.wakep.
 //
 //go:nosplit
-func Goready(gp uintptr, traceskip int) {
-	goready(gp, traceskip)
+func Wakep() {
+	// This is only supported if we can suppress the wakep called
+	// from  Goready below, which is in certain architectures only.
+	if supportsWakeSuppression {
+		wakep()
+	}
 }
 
 //go:linkname goready runtime.goready
 func goready(gp uintptr, traceskip int)
+
+// Goready is runtime.goready.
+//
+// The additional wakep argument controls whether a new thread will be kicked to
+// execute the P. This should be true in most circumstances. However, if the
+// current thread is about to sleep, then this can be false for efficiency.
+//
+//go:nosplit
+func Goready(gp uintptr, traceskip int, wakep bool) {
+	if supportsWakeSuppression && !wakep {
+		preGoReadyWakeSuppression()
+	}
+	goready(gp, traceskip)
+	if supportsWakeSuppression && !wakep {
+		preGoReadyWakeSuppression()
+	}
+}
 
 // Values for the reason argument to gopark, from Go's src/runtime/runtime2.go.
 const (

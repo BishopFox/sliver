@@ -17,24 +17,24 @@ package stack
 import (
 	"fmt"
 	"strings"
-	"sync"
 
+	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 )
 
 // A Hook specifies one of the hooks built into the network stack.
 //
-//                      Userspace app          Userspace app
-//                            ^                      |
-//                            |                      v
-//                         [Input]               [Output]
-//                            ^                      |
-//                            |                      v
-//                            |                   routing
-//                            |                      |
-//                            |                      v
-// ----->[Prerouting]----->routing----->[Forward]---------[Postrouting]----->
+//	                     Userspace app          Userspace app
+//	                           ^                      |
+//	                           |                      v
+//	                        [Input]               [Output]
+//	                           ^                      |
+//	                           |                      v
+//	                           |                   routing
+//	                           |                      |
+//	                           |                      v
+//		----->[Prerouting]----->routing----->[Forward]---------[Postrouting]----->
 type Hook uint
 
 const (
@@ -81,22 +81,19 @@ const (
 //
 // +stateify savable
 type IPTables struct {
-	// priorities maps each hook to a list of table names. The order of the
-	// list is the order in which each table should be visited for that
-	// hook. It is immutable.
-	priorities [NumHooks][]TableID
-
 	connections ConnTrack
 
-	// reaperDone can be signaled to stop the reaper goroutine.
-	reaperDone chan struct{}
+	reaper tcpip.Timer
 
 	mu sync.RWMutex
 	// v4Tables and v6tables map tableIDs to tables. They hold builtin
 	// tables only, not user tables.
 	//
+	// mu protects the array of tables, but not the tables themselves.
 	// +checklocks:mu
 	v4Tables [NumTables]Table
+	//
+	// mu protects the array of tables, but not the tables themselves.
 	// +checklocks:mu
 	v6Tables [NumTables]Table
 	// modified is whether tables have been modified at least once. It is
@@ -252,13 +249,13 @@ func (fl IPHeaderFilter) match(pkt *PacketBuffer, hook Hook, inNicName, outNicNa
 	)
 	switch proto := pkt.NetworkProtocolNumber; proto {
 	case header.IPv4ProtocolNumber:
-		hdr := header.IPv4(pkt.NetworkHeader().View())
+		hdr := header.IPv4(pkt.NetworkHeader().Slice())
 		transProto = hdr.TransportProtocol()
 		dstAddr = hdr.DestinationAddress()
 		srcAddr = hdr.SourceAddress()
 
 	case header.IPv6ProtocolNumber:
-		hdr := header.IPv6(pkt.NetworkHeader().View())
+		hdr := header.IPv6(pkt.NetworkHeader().Slice())
 		transProto = hdr.TransportProtocol()
 		dstAddr = hdr.DestinationAddress()
 		srcAddr = hdr.SourceAddress()

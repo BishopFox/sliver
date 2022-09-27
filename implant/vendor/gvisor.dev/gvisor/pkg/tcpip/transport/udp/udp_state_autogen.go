@@ -4,7 +4,6 @@ package udp
 
 import (
 	"gvisor.dev/gvisor/pkg/state"
-	"gvisor.dev/gvisor/pkg/tcpip/buffer"
 )
 
 func (p *udpPacket) StateTypeName() string {
@@ -18,9 +17,10 @@ func (p *udpPacket) StateFields() []string {
 		"senderAddress",
 		"destinationAddress",
 		"packetInfo",
-		"data",
+		"pkt",
 		"receivedAt",
-		"tos",
+		"tosOrTClass",
+		"ttlOrHopLimit",
 	}
 }
 
@@ -29,9 +29,6 @@ func (p *udpPacket) beforeSave() {}
 // +checklocksignore
 func (p *udpPacket) StateSave(stateSinkObject state.Sink) {
 	p.beforeSave()
-	var dataValue buffer.VectorisedView
-	dataValue = p.saveData()
-	stateSinkObject.SaveValue(5, dataValue)
 	var receivedAtValue int64
 	receivedAtValue = p.saveReceivedAt()
 	stateSinkObject.SaveValue(6, receivedAtValue)
@@ -40,7 +37,9 @@ func (p *udpPacket) StateSave(stateSinkObject state.Sink) {
 	stateSinkObject.Save(2, &p.senderAddress)
 	stateSinkObject.Save(3, &p.destinationAddress)
 	stateSinkObject.Save(4, &p.packetInfo)
-	stateSinkObject.Save(7, &p.tos)
+	stateSinkObject.Save(5, &p.pkt)
+	stateSinkObject.Save(7, &p.tosOrTClass)
+	stateSinkObject.Save(8, &p.ttlOrHopLimit)
 }
 
 func (p *udpPacket) afterLoad() {}
@@ -52,8 +51,9 @@ func (p *udpPacket) StateLoad(stateSourceObject state.Source) {
 	stateSourceObject.Load(2, &p.senderAddress)
 	stateSourceObject.Load(3, &p.destinationAddress)
 	stateSourceObject.Load(4, &p.packetInfo)
-	stateSourceObject.Load(7, &p.tos)
-	stateSourceObject.LoadValue(5, new(buffer.VectorisedView), func(y interface{}) { p.loadData(y.(buffer.VectorisedView)) })
+	stateSourceObject.Load(5, &p.pkt)
+	stateSourceObject.Load(7, &p.tosOrTClass)
+	stateSourceObject.Load(8, &p.ttlOrHopLimit)
 	stateSourceObject.LoadValue(6, new(int64), func(y interface{}) { p.loadReceivedAt(y.(int64)) })
 }
 

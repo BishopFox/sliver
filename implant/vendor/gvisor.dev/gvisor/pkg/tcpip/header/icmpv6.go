@@ -67,9 +67,9 @@ const (
 	// packet-too-big packet.
 	ICMPv6PacketTooBigMinimumSize = ICMPv6MinimumSize
 
-	// icmpv6ChecksumOffset is the offset of the checksum field
+	// ICMPv6ChecksumOffset is the offset of the checksum field
 	// in an ICMPv6 message.
-	icmpv6ChecksumOffset = 2
+	ICMPv6ChecksumOffset = 2
 
 	// icmpv6PointerOffset is the offset of the pointer
 	// in an ICMPv6 Parameter problem message.
@@ -194,12 +194,12 @@ func (b ICMPv6) SetTypeSpecific(val uint32) {
 
 // Checksum is the ICMP checksum field.
 func (b ICMPv6) Checksum() uint16 {
-	return binary.BigEndian.Uint16(b[icmpv6ChecksumOffset:])
+	return binary.BigEndian.Uint16(b[ICMPv6ChecksumOffset:])
 }
 
 // SetChecksum sets the ICMP checksum field.
 func (b ICMPv6) SetChecksum(checksum uint16) {
-	binary.BigEndian.PutUint16(b[icmpv6ChecksumOffset:], checksum)
+	PutChecksum(b[ICMPv6ChecksumOffset:], checksum)
 }
 
 // SourcePort implements Transport.SourcePort.
@@ -238,6 +238,13 @@ func (b ICMPv6) Ident() uint16 {
 // SetIdent sets the Ident field from an ICMPv6 message.
 func (b ICMPv6) SetIdent(ident uint16) {
 	binary.BigEndian.PutUint16(b[icmpv6IdentOffset:], ident)
+}
+
+// SetIdentWithChecksumUpdate sets the Ident field and updates the checksum.
+func (b ICMPv6) SetIdentWithChecksumUpdate(new uint16) {
+	old := b.Ident()
+	b.SetIdent(new)
+	b.SetChecksum(^checksumUpdate2ByteAlignedUint16(^b.Checksum(), old, new))
 }
 
 // Sequence retrieves the Sequence field from an ICMPv6 message.
@@ -283,4 +290,10 @@ func ICMPv6Checksum(params ICMPv6ChecksumParams) uint16 {
 	xsum = Checksum(h[4:], xsum)
 
 	return ^xsum
+}
+
+// UpdateChecksumPseudoHeaderAddress updates the checksum to reflect an
+// updated address in the pseudo header.
+func (b ICMPv6) UpdateChecksumPseudoHeaderAddress(old, new tcpip.Address) {
+	b.SetChecksum(^checksumUpdate2ByteAlignedAddress(^b.Checksum(), old, new))
 }

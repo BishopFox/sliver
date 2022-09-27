@@ -53,7 +53,7 @@ require (
 	gorm.io/driver/postgres v1.3.10
 	gorm.io/driver/sqlite v1.3.6
 	gorm.io/gorm v1.23.9
-	gvisor.dev/gvisor v0.0.0-20211020211948-f76a604701b6
+	gvisor.dev/gvisor v0.0.0-20220817001344-846276b3dbc5
 	modernc.org/sqlite v1.16.0
 )
 

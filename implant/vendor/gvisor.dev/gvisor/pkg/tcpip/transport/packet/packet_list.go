@@ -21,9 +21,10 @@ func (packetElementMapper) linkerFor(elem *packet) *packet { return elem }
 // The zero value for List is an empty list ready to use.
 //
 // To iterate over a list (where l is a List):
-//      for e := l.Front(); e != nil; e = e.Next() {
-// 		// do something with e.
-//      }
+//
+//	for e := l.Front(); e != nil; e = e.Next() {
+//		// do something with e.
+//	}
 //
 // +stateify savable
 type packetList struct {
@@ -84,6 +85,23 @@ func (l *packetList) PushFront(e *packet) {
 	}
 
 	l.head = e
+}
+
+// PushFrontList inserts list m at the start of list l, emptying m.
+//
+//go:nosplit
+func (l *packetList) PushFrontList(m *packetList) {
+	if l.head == nil {
+		l.head = m.head
+		l.tail = m.tail
+	} else if m.head != nil {
+		packetElementMapper{}.linkerFor(l.head).SetPrev(m.tail)
+		packetElementMapper{}.linkerFor(m.tail).SetNext(l.head)
+
+		l.head = m.head
+	}
+	m.head = nil
+	m.tail = nil
 }
 
 // PushBack inserts the element e at the back of list l.

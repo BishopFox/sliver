@@ -21,9 +21,10 @@ func (icmpPacketElementMapper) linkerFor(elem *icmpPacket) *icmpPacket { return 
 // The zero value for List is an empty list ready to use.
 //
 // To iterate over a list (where l is a List):
-//      for e := l.Front(); e != nil; e = e.Next() {
-// 		// do something with e.
-//      }
+//
+//	for e := l.Front(); e != nil; e = e.Next() {
+//		// do something with e.
+//	}
 //
 // +stateify savable
 type icmpPacketList struct {
@@ -84,6 +85,23 @@ func (l *icmpPacketList) PushFront(e *icmpPacket) {
 	}
 
 	l.head = e
+}
+
+// PushFrontList inserts list m at the start of list l, emptying m.
+//
+//go:nosplit
+func (l *icmpPacketList) PushFrontList(m *icmpPacketList) {
+	if l.head == nil {
+		l.head = m.head
+		l.tail = m.tail
+	} else if m.head != nil {
+		icmpPacketElementMapper{}.linkerFor(l.head).SetPrev(m.tail)
+		icmpPacketElementMapper{}.linkerFor(m.tail).SetNext(l.head)
+
+		l.head = m.head
+	}
+	m.head = nil
+	m.tail = nil
 }
 
 // PushBack inserts the element e at the back of list l.
