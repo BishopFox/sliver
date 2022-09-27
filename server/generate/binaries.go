@@ -85,7 +85,7 @@ var (
 )
 
 const (
-	SliverPayloadName = "sliver"
+	SliverTemplateName = "sliver"
 
 	// WINDOWS OS
 	WINDOWS = "windows"
@@ -151,6 +151,10 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.Debug = pbConfig.Debug
 	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
+	cfg.TemplateName = pbConfig.TemplateName
+	if cfg.TemplateName == "" {
+		cfg.TemplateName = SliverTemplateName
+	}
 	cfg.ConnectionStrategy = pbConfig.ConnectionStrategy
 
 	cfg.WGImplantPrivKey = pbConfig.WGImplantPrivKey

@@ -26,6 +26,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -35,6 +36,8 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
+	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/util"
@@ -93,7 +96,11 @@ func GenerateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if save == "" {
 		save, _ = os.Getwd()
 	}
-	compile(config, save, con)
+	if !ctx.Flags.Bool("external-builder") {
+		compile(config, save, con)
+	} else {
+		externalBuild(config, save, con)
+	}
 }
 
 func expandPath(path string) string {
@@ -156,8 +163,9 @@ func nameOfOutputFormat(value clientpb.OutputFormat) string {
 		return "Shared Library"
 	case clientpb.OutputFormat_SHELLCODE:
 		return "Shellcode"
+	default:
+		return "Unknown"
 	}
-	panic(fmt.Sprintf("Unknown format %v", value))
 }
 
 // Shared function that extracts the compile flags from the grumble context
@@ -322,6 +330,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		ObfuscateSymbols: symbolObfuscation,
 		C2:               c2s,
 		CanaryDomains:    canaryDomains,
+		TemplateName:     ctx.Flags.String("template"),
 
 		WGPeerTunIP:       tunIP.String(),
 		WGKeyExchangePort: uint32(ctx.Flags.Int("key-exchange")),
@@ -607,6 +616,76 @@ func ParseTCPPivotc2(args string) ([]*clientpb.ImplantC2, error) {
 	return c2s, nil
 }
 
+func externalBuild(config *clientpb.ImplantConfig, save string, con *console.SliverConsoleClient) (*commonpb.File, error) {
+
+	if config.IsBeacon {
+		interval := time.Duration(config.BeaconInterval)
+		con.PrintInfof("Externally generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
+	} else {
+		con.PrintInfof("Externally generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
+	}
+	if config.ObfuscateSymbols {
+		con.PrintInfof("%sSymbol obfuscation is enabled%s\n", console.Bold, console.Normal)
+	} else if !config.Debug {
+		con.PrintErrorf("Symbol obfuscation is %sdisabled%s\n", console.Bold, console.Normal)
+	}
+	start := time.Now()
+
+	con.PrintInfof("Creating external build ... ")
+	externalImplantConfig, err := con.Rpc.GenerateExternal(context.Background(), &clientpb.GenerateReq{
+		Config: config,
+	})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return nil, err
+	}
+	con.Printf("done\n")
+
+	listenerID, listener := con.CreateEventListener()
+
+	waiting := true
+	spinner := spin.New()
+
+	sigint := make(chan os.Signal, 1)
+	signal.Notify(sigint, os.Interrupt)
+
+	for waiting {
+		select {
+
+		case <-time.After(100 * time.Millisecond):
+			elapsed := time.Since(start)
+			msg := fmt.Sprintf("Waiting for external build %s (template: %s) ... %s",
+				externalImplantConfig.Name,
+				externalImplantConfig.Config.TemplateName,
+				elapsed.Round(time.Second),
+			)
+			fmt.Fprintf(con.App.Stdout(), console.Clearln+" %s  %s", spinner.Next(), msg)
+
+		case event := <-listener:
+			if event.EventType != consts.BuildCompletedEvent {
+				continue
+			}
+			if string(event.Data) == externalImplantConfig.Name {
+				con.RemoveEventListener(listenerID)
+				waiting = false
+			}
+
+		case <-sigint:
+			waiting = false
+			con.Printf("\n")
+			return nil, fmt.Errorf("user interrupt")
+		}
+	}
+
+	elapsed := time.Since(start)
+	con.PrintInfof("Build completed in %s\n", elapsed.Round(time.Second))
+	// if len(generated.File.Data) == 0 {
+	// 	con.PrintErrorf("Build failed, no file data\n")
+	// 	return nil, errors.New("no file data")
+	// }
+	return nil, nil
+}
+
 func compile(config *clientpb.ImplantConfig, save string, con *console.SliverConsoleClient) (*commonpb.File, error) {
 	if config.IsBeacon {
 		interval := time.Duration(config.BeaconInterval)
@@ -634,9 +713,8 @@ func compile(config *clientpb.ImplantConfig, save string, con *console.SliverCon
 		return nil, err
 	}
 
-	end := time.Now()
-	elapsed := time.Time{}.Add(end.Sub(start))
-	con.PrintInfof("Build completed in %s\n", elapsed.Format("15:04:05"))
+	elapsed := time.Since(start)
+	con.PrintInfof("Build completed in %s\n", elapsed.Round(time.Second))
 	if len(generated.File.Data) == 0 {
 		con.PrintErrorf("Build failed, no file data\n")
 		return nil, errors.New("no file data")

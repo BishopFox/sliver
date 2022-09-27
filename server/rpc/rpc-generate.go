@@ -57,7 +57,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		}
 	}
 	if config.TemplateName == "" {
-		config.TemplateName = generate.SliverPayloadName
+		config.TemplateName = generate.SliverTemplateName
 	}
 
 	if config == nil {

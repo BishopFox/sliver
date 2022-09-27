@@ -1318,8 +1318,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.String("N", "name", "", "agent name")
 			f.Bool("d", "debug", false, "enable debug features")
-			f.Bool("e", "evasion", false, "enable evasion features")
+			f.Bool("e", "evasion", false, "enable evasion features (e.g. overwrite user space hooks)")
 			f.Bool("l", "skip-symbols", false, "skip symbol obfuscation")
+			f.String("I", "template", "sliver", "implant code template")
+			f.Bool("E", "external-builder", false, "use an external builder")
 
 			f.String("c", "canary", "", "canary domain(s)")
 
@@ -1376,8 +1378,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.String("N", "name", "", "agent name")
 			f.Bool("d", "debug", false, "enable debug features")
-			f.Bool("e", "evasion", false, "enable evasion features")
+			f.Bool("e", "evasion", false, "enable evasion features  (e.g. overwrite user space hooks)")
 			f.Bool("l", "skip-symbols", false, "skip symbol obfuscation")
+			f.String("I", "template", "sliver", "implant code template")
+			f.Bool("E", "external-builder", false, "use an external builder")
 
 			f.String("c", "canary", "", "canary domain(s)")
 
