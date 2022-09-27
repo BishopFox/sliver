@@ -24,7 +24,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/Binject/debug/pe"
@@ -118,7 +118,7 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 			return nil, err
 		}
 
-		targetDLLData, err = ioutil.ReadFile(fPath)
+		targetDLLData, err = os.ReadFile(fPath)
 		if err != nil {
 			return nil, err
 		}

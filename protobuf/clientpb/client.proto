@@ -115,7 +115,7 @@ enum OutputFormat {
   SHELLCODE = 1;
   EXECUTABLE = 2;
   SERVICE = 3;
-  EXTERNAL = 4;
+  THIRD_PARTY = 4;
 }
 
 message ImplantConfig {

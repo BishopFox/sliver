@@ -31,9 +31,6 @@ import (
 
 // SliverExternal - Generates the cryptographic keys for the implant but compiles no code
 func SliverExternal(name string, config *models.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
-	if config.Format != clientpb.OutputFormat_EXTERNAL {
-		return nil, fmt.Errorf("invalid format: %s", config.Format)
-	}
 	config.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, config.C2)
 	config.WGc2Enabled = isC2Enabled([]string{"wg"}, config.C2)
 	config.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, config.C2)

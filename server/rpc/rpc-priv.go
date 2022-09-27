@@ -20,7 +20,7 @@ package rpc
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"path"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -97,7 +97,7 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		if err != nil {
 			return nil, err
 		}
-		shellcode, _ = ioutil.ReadFile(shellcodePath)
+		shellcode, _ = os.ReadFile(shellcodePath)
 	}
 	data, err := proto.Marshal(&sliverpb.InvokeGetSystemReq{
 		Data:           shellcode,
