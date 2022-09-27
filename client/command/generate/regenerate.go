@@ -20,7 +20,6 @@ package generate
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 
 	"github.com/bishopfox/sliver/client/console"
@@ -51,7 +50,7 @@ func RegenerateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	err = ioutil.WriteFile(saveTo, regenerate.File.Data, 0700)
+	err = os.WriteFile(saveTo, regenerate.File.Data, 0700)
 	if err != nil {
 		con.PrintErrorf("Failed to write to %s\n", err)
 		return

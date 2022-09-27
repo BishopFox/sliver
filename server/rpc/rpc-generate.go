@@ -56,6 +56,9 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 			return nil, err
 		}
 	}
+	if config.TemplateName == "" {
+		config.TemplateName = generate.SliverPayloadName
+	}
 
 	if config == nil {
 		return nil, errors.New("invalid implant config")
@@ -289,6 +292,9 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 	implantConfig, err := db.ImplantConfigByID(req.ImplantConfigID)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid implant config id")
+	}
+	if implantConfig.TemplateName == "" {
+		return nil, status.Error(codes.InvalidArgument, "invalid payload name")
 	}
 	err = util.AllowedName(req.Name)
 	if err != nil {

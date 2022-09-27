@@ -22,7 +22,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/url"
@@ -670,7 +669,7 @@ func compile(config *clientpb.ImplantConfig, save string, con *console.SliverCon
 		return nil, err
 	}
 
-	err = ioutil.WriteFile(saveTo, fileData, 0700)
+	err = os.WriteFile(saveTo, fileData, 0700)
 	if err != nil {
 		con.PrintErrorf("Failed to write to: %s\n", saveTo)
 		return nil, err
