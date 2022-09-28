@@ -211,11 +211,13 @@ func mtlsBeacon(uri *url.URL) *Beacon {
 			return mtls.WriteEnvelope(conn, envelope)
 		},
 		Close: func() error {
-			err = conn.Close()
-			if err != nil {
-				return err
+			if conn != nil {
+				err = conn.Close()
+				if err != nil {
+					return err
+				}
+				conn = nil
 			}
-			conn = nil
 			return nil
 		},
 		Cleanup: func() error {
