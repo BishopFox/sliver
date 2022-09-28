@@ -8774,6 +8774,9 @@ type SSHCommandReq struct {
 	Command  string            `protobuf:"bytes,4,opt,name=Command,proto3" json:"Command,omitempty"`
 	Password string            `protobuf:"bytes,5,opt,name=Password,proto3" json:"Password,omitempty"`
 	PrivKey  []byte            `protobuf:"bytes,6,opt,name=PrivKey,proto3" json:"PrivKey,omitempty"`
+	Krb5Conf string            `protobuf:"bytes,7,opt,name=Krb5Conf,proto3" json:"Krb5Conf,omitempty"`
+	Keytab   []byte            `protobuf:"bytes,8,opt,name=Keytab,proto3" json:"Keytab,omitempty"`
+	Realm    string            `protobuf:"bytes,10,opt,name=Realm,proto3" json:"Realm,omitempty"`
 	Request  *commonpb.Request `protobuf:"bytes,9,opt,name=Request,proto3" json:"Request,omitempty"`
 }
 
@@ -8849,6 +8852,27 @@ func (x *SSHCommandReq) GetPrivKey() []byte {
 		return x.PrivKey
 	}
 	return nil
+}
+
+func (x *SSHCommandReq) GetKrb5Conf() string {
+	if x != nil {
+		return x.Krb5Conf
+	}
+	return ""
+}
+
+func (x *SSHCommandReq) GetKeytab() []byte {
+	if x != nil {
+		return x.Keytab
+	}
+	return nil
+}
+
+func (x *SSHCommandReq) GetRealm() string {
+	if x != nil {
+		return x.Realm
+	}
+	return ""
 }
 
 func (x *SSHCommandReq) GetRequest() *commonpb.Request {
