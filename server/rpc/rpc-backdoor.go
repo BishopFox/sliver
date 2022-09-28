@@ -77,7 +77,7 @@ func (rpc *Server) Backdoor(ctx context.Context, req *sliverpb.BackdoorReq) (*sl
 	}
 
 	name, config := generate.ImplantConfigFromProtobuf(p.Config)
-	fPath, err := generate.SliverShellcode(name, config)
+	fPath, err := generate.SliverShellcode(name, config, true)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

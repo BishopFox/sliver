@@ -25,6 +25,7 @@ import (
 
 	clientAssets "github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/transport"
+	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/builder"
 	"github.com/bishopfox/sliver/server/log"
@@ -40,6 +41,16 @@ var builderCmd = &cobra.Command{
 	Short: "Start the process as an external builder",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
+
+		quiet, err := cmd.Flags().GetBool(quietFlagStr)
+		if err != nil {
+			builderLog.Fatalf("Failed to parse --%s flag %s\n", quietFlagStr, err)
+		}
+		if !quiet {
+			log.RootLogger.AddHook(log.NewStdoutHook(log.RootLoggerName))
+		}
+		builderLog.Infof("Starting Sliver external builder - %s", version.FullVersion())
+
 		defer func() {
 			if r := recover(); r != nil {
 				builderLog.Printf("panic:\n%s", debug.Stack())
@@ -79,10 +90,12 @@ func parseBuilderConfigFlags(cmd *cobra.Command) builder.Config {
 	if err != nil {
 		builderLog.Fatalf("Failed to parse --%s flag %s\n", goosFlagStr, err)
 	}
+	builderLog.Debugf("GOOS enabled: %v", conf.GOOSs)
 	conf.GOARCHs, err = cmd.Flags().GetStringSlice(goarchFlagStr)
 	if err != nil {
 		builderLog.Fatalf("Failed to parse --%s flag %s\n", goarchFlagStr, err)
 	}
+	builderLog.Debugf("GOARCH enabled: %v", conf.GOARCHs)
 	rawFormats, err := cmd.Flags().GetStringSlice(formatFlagStr)
 	if err != nil {
 		builderLog.Fatalf("Failed to parse --%s flag %s\n", formatFlagStr, err)
@@ -91,12 +104,16 @@ func parseBuilderConfigFlags(cmd *cobra.Command) builder.Config {
 	for _, rawFormat := range rawFormats {
 		switch strings.ToLower(rawFormat) {
 		case "exe", "executable", "pe":
+			builderLog.Debugf("Executable format enabled (%d)", clientpb.OutputFormat_EXECUTABLE)
 			conf.Formats = append(conf.Formats, clientpb.OutputFormat_EXECUTABLE)
 		case "dll", "so", "shared", "dylib", "lib", "library":
+			builderLog.Debugf("Library format enabled (%d)", clientpb.OutputFormat_SHARED_LIB)
 			conf.Formats = append(conf.Formats, clientpb.OutputFormat_SHARED_LIB)
 		case "service":
+			builderLog.Debugf("Service format enabled (%d)", clientpb.OutputFormat_SERVICE)
 			conf.Formats = append(conf.Formats, clientpb.OutputFormat_SERVICE)
 		case "bin", "shellcode":
+			builderLog.Debugf("Shellcode format enabled (%d)", clientpb.OutputFormat_SHELLCODE)
 			conf.Formats = append(conf.Formats, clientpb.OutputFormat_SHELLCODE)
 		}
 	}

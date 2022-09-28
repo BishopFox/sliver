@@ -260,7 +260,7 @@ func GetSliversDir() string {
 // -----------------------
 
 // SliverShellcode - Generates a sliver shellcode using Donut
-func SliverShellcode(name string, config *models.ImplantConfig) (string, error) {
+func SliverShellcode(name string, config *models.ImplantConfig, save bool) (string, error) {
 	if config.GOOS != "windows" {
 		return "", fmt.Errorf("shellcode format is currently only supported on Windows")
 	}
@@ -313,16 +313,18 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 	}
 	config.Format = clientpb.OutputFormat_SHELLCODE
 	// Save to database
-	saveBuildErr := ImplantBuildSave(name, config, dest)
-	if saveBuildErr != nil {
-		buildLog.Errorf("Failed to save build: %s", saveBuildErr)
+	if save {
+		saveBuildErr := ImplantBuildSave(name, config, dest)
+		if saveBuildErr != nil {
+			buildLog.Errorf("Failed to save build: %s", saveBuildErr)
+		}
 	}
 	return dest, err
 
 }
 
 // SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
-func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, error) {
+func SliverSharedLibrary(name string, config *models.ImplantConfig, save bool) (string, error) {
 	// Compile go code
 	var cc string
 	var cxx string
@@ -390,15 +392,17 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig) (string, err
 	}
 	config.FileName = filepath.Base(dest)
 
-	err = ImplantBuildSave(name, config, dest)
-	if err != nil {
-		buildLog.Errorf("Failed to save build: %s", err)
+	if save {
+		err = ImplantBuildSave(name, config, dest)
+		if err != nil {
+			buildLog.Errorf("Failed to save build: %s", err)
+		}
 	}
 	return dest, err
 }
 
 // SliverExecutable - Generates a sliver executable binary
-func SliverExecutable(name string, config *models.ImplantConfig) (string, error) {
+func SliverExecutable(name string, config *models.ImplantConfig, save bool) (string, error) {
 	// Compile go code
 	appDir := assets.GetRootAppDir()
 	cgo := "0"
@@ -451,9 +455,11 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 		return "", err
 	}
 	config.FileName = filepath.Base(dest)
-	err = ImplantBuildSave(name, config, dest)
-	if err != nil {
-		buildLog.Errorf("Failed to save build: %s", err)
+	if save {
+		err = ImplantBuildSave(name, config, dest)
+		if err != nil {
+			buildLog.Errorf("Failed to save build: %s", err)
+		}
 	}
 	return dest, err
 }

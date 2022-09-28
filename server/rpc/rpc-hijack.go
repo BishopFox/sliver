@@ -113,7 +113,7 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 				return nil, err
 			}
 		}
-		fPath, err := generate.SliverSharedLibrary(name, config)
+		fPath, err := generate.SliverSharedLibrary(name, config, true)
 		if err != nil {
 			return nil, err
 		}

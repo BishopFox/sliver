@@ -57,6 +57,7 @@ const (
 	goarchFlagStr         = "arch"
 	operatorConfigFlagStr = "config"
 	formatFlagStr         = "format"
+	quietFlagStr          = "quiet"
 
 	// console log file name
 	logFileName = "console.log"
@@ -106,6 +107,7 @@ func init() {
 	builderCmd.Flags().StringSliceP(goarchFlagStr, "a", []string{runtime.GOARCH}, "builder supported arch targets")
 	builderCmd.Flags().StringSliceP(formatFlagStr, "f", []string{"executable"}, "builder supported formats")
 	builderCmd.Flags().StringP(operatorConfigFlagStr, "c", "", "operator config file path")
+	builderCmd.Flags().BoolP(quietFlagStr, "q", false, "do not write any content to stdout")
 	rootCmd.AddCommand(builderCmd)
 
 	// Version

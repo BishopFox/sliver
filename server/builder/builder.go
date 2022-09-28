@@ -28,6 +28,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
 )
 
@@ -49,7 +51,7 @@ func StartBuilder(rpc rpcpb.SliverRPCClient, conf Config) {
 
 	events := buildEvents(rpc)
 
-	builderLog.Infof("Started process as external builder")
+	builderLog.Infof("Successfully started process as external builder")
 	builder := sliverBuilder{
 		rpc:    rpc,
 		config: conf,
@@ -87,6 +89,8 @@ func buildEvents(rpc rpcpb.SliverRPCClient) <-chan *clientpb.Event {
 			switch event.EventType {
 			case consts.BuildEvent:
 				events <- event
+			default:
+				builderLog.Debugf("Ignore event (%s)", event.EventType)
 			}
 		}
 	}()
@@ -97,7 +101,7 @@ func buildEvents(rpc rpcpb.SliverRPCClient) <-chan *clientpb.Event {
 func (b *sliverBuilder) HandleBuildEvent(event *clientpb.Event) {
 	implantConfigID := string(event.Data)
 	builderLog.Infof("Build event for implant config id: %s", implantConfigID)
-	implantConf, err := b.rpc.GenerateExternalGetImplantConfig(context.Background(), &clientpb.ImplantConfig{
+	extConfig, err := b.rpc.GenerateExternalGetImplantConfig(context.Background(), &clientpb.ImplantConfig{
 		ID: implantConfigID,
 	})
 	if err != nil {
@@ -106,21 +110,70 @@ func (b *sliverBuilder) HandleBuildEvent(event *clientpb.Event) {
 	}
 
 	// check to see if the event matches a target we're configured to build for
-	if !contains(b.config.GOOSs, implantConf.Config.GOOS) {
-		builderLog.Warnf("This builder is not configured to build for goos %s, ignore event", implantConf.Config.GOOS)
+	if !contains(b.config.GOOSs, extConfig.Config.GOOS) {
+		builderLog.Warnf("This builder is not configured to build for goos %s, ignore event", extConfig.Config.GOOS)
 		return
 	}
-	if !contains(b.config.GOARCHs, implantConf.Config.GOARCH) {
-		builderLog.Warnf("This builder is not configured to build for goarch %s, ignore event", implantConf.Config.GOARCH)
+	if !contains(b.config.GOARCHs, extConfig.Config.GOARCH) {
+		builderLog.Warnf("This builder is not configured to build for goarch %s, ignore event", extConfig.Config.GOARCH)
 		return
 	}
-	if !contains(b.config.Formats, implantConf.Config.Format) {
-		builderLog.Warnf("This builder is not configured to build for format %s, ignore event", implantConf.Config.Format)
+	if !contains(b.config.Formats, extConfig.Config.Format) {
+		builderLog.Warnf("This builder is not configured to build for format %s, ignore event", extConfig.Config.Format)
 		return
 	}
 
-	builderLog.Infof("Building for %s/%s (format: %s)", implantConf.Config.GOOS, implantConf.Config.GOARCH, implantConf.Config.Format)
+	builderLog.Infof("Building for %s/%s (format: %s)", extConfig.Config.GOOS, extConfig.Config.GOARCH, extConfig.Config.Format)
+	if extConfig.Config.TemplateName == "" {
+		extConfig.Config.TemplateName = generate.SliverTemplateName
+	}
+	if extConfig == nil {
+		return
+	}
 
+	extModel := models.ImplantConfig{}.FromProtobuf(extConfig.Config)
+
+	var fPath string
+	switch extConfig.Config.Format {
+	case clientpb.OutputFormat_SERVICE:
+		fallthrough
+	case clientpb.OutputFormat_EXECUTABLE:
+		fPath, err = generate.SliverExecutable(extConfig.Config.Name, extModel, false)
+	case clientpb.OutputFormat_SHARED_LIB:
+		fPath, err = generate.SliverSharedLibrary(extConfig.Config.Name, extModel, false)
+	case clientpb.OutputFormat_SHELLCODE:
+		fPath, err = generate.SliverShellcode(extConfig.Config.Name, extModel, false)
+	default:
+		builderLog.Errorf("invalid output format: %s", extConfig.Config.Format)
+		return
+	}
+	if err != nil {
+		builderLog.Errorf("Failed to generate sliver: %s", err)
+		return
+	}
+	data, err := os.ReadFile(fPath)
+	if err != nil {
+		builderLog.Errorf("Failed to read generated sliver: %s", err)
+		return
+	}
+
+	fileName := extConfig.Config.Name
+	if extConfig.Config.GOOS == "windows" {
+		fileName += ".exe"
+	}
+
+	_, err = b.rpc.GenerateExternalSaveBuild(context.Background(), &clientpb.ExternalImplantBinary{
+		Name:            extConfig.Config.Name,
+		ImplantConfigID: extConfig.Config.ID,
+		File: &commonpb.File{
+			Name: extConfig.Config.Name,
+			Data: data,
+		},
+	})
+	if err != nil {
+		builderLog.Errorf("Failed to save build: %s", err)
+		return
+	}
 }
 
 func contains[T comparable](elems []T, v T) bool {

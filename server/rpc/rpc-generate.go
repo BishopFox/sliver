@@ -67,11 +67,11 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
-		fPath, err = generate.SliverExecutable(name, config)
+		fPath, err = generate.SliverExecutable(name, config, true)
 	case clientpb.OutputFormat_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(name, config)
+		fPath, err = generate.SliverSharedLibrary(name, config, true)
 	case clientpb.OutputFormat_SHELLCODE:
-		fPath, err = generate.SliverShellcode(name, config)
+		fPath, err = generate.SliverShellcode(name, config, true)
 	default:
 		return nil, fmt.Errorf("invalid output format: %s", req.Config.Format)
 	}

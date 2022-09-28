@@ -74,7 +74,7 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		}
 		config.Format = clientpb.OutputFormat_SHELLCODE
 		config.ObfuscateSymbols = true
-		shellcodePath, err := generate.SliverShellcode(name, config)
+		shellcodePath, err := generate.SliverShellcode(name, config, true)
 		if err != nil {
 			return nil, err
 		}

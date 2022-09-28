@@ -93,7 +93,7 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		}
 		config.Format = clientpb.OutputFormat_SHELLCODE
 		config.ObfuscateSymbols = false
-		shellcodePath, err := generate.SliverShellcode(name, config)
+		shellcodePath, err := generate.SliverShellcode(name, config, true)
 		if err != nil {
 			return nil, err
 		}
