@@ -164,6 +164,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.LimitUsername = pbConfig.LimitUsername
 	cfg.LimitHostname = pbConfig.LimitHostname
 	cfg.LimitFileExists = pbConfig.LimitFileExists
+	cfg.LimitLocale = pbConfig.LimitLocale
 
 	cfg.Format = pbConfig.Format
 	cfg.IsSharedLib = pbConfig.IsSharedLib
@@ -255,6 +256,9 @@ func GetSliversDir() string {
 
 // SliverShellcode - Generates a sliver shellcode using Donut
 func SliverShellcode(name string, config *models.ImplantConfig) (string, error) {
+	if config.GOOS != "windows" {
+		return "", fmt.Errorf("Shellcode format is currently only supported on Windows")
+	}
 	appDir := assets.GetRootAppDir()
 	goConfig := &gogo.GoConfig{
 		CGO: "0",
@@ -276,7 +280,7 @@ func SliverShellcode(name string, config *models.ImplantConfig) (string, error) 
 		return "", err
 	}
 
-	dest := path.Join(goConfig.ProjectDir, "bin", path.Base(name))
+	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
 	dest += ".bin"
 
 	tags := []string{} // []string{"netgo"}
@@ -417,7 +421,7 @@ func SliverExecutable(name string, config *models.ImplantConfig) (string, error)
 		return "", err
 	}
 
-	dest := path.Join(goConfig.ProjectDir, "bin", path.Base(name))
+	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
 	if goConfig.GOOS == WINDOWS {
 		dest += ".exe"
 	}
@@ -467,7 +471,7 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	config.TCPPivotc2Enabled = isC2Enabled([]string{"tcppivot"}, config.C2)
 
 	sliversDir := GetSliversDir() // ~/.sliver/slivers
-	projectGoPathDir := path.Join(sliversDir, config.GOOS, config.GOARCH, path.Base(name))
+	projectGoPathDir := filepath.Join(sliversDir, config.GOOS, config.GOARCH, filepath.Base(name))
 	if _, err := os.Stat(projectGoPathDir); os.IsNotExist(err) {
 		os.MkdirAll(projectGoPathDir, 0700)
 	}
@@ -616,7 +620,9 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 		}
 
 		// Render canaries
-		buildLog.Debugf("Canary domain(s): %v", config.CanaryDomains)
+		if len(config.CanaryDomains) > 0 {
+			buildLog.Debugf("Canary domain(s): %v", config.CanaryDomains)
+		}
 		canaryTmpl := template.New("canary").Delims("[[", "]]")
 		canaryGenerator := &CanaryGenerator{
 			ImplantName:   name,
@@ -904,10 +910,9 @@ func getGoHttpsProxy() string {
 }
 
 const (
-	// GoPrivate - The default Go private arg to garble when obfuscation is enabled.
-	// Wireguard dependencies prevent the use of wildcard github.com/* and golang.org/*.
-	// The current packages below aren't definitive and need to be tidied up.
-	wgGoPrivate  = "github.com/*,golang.org/*,golang.zx2c4.com/*,google.golang.org/*"
+	// The wireguard garble bug appears to have been fixed.
+	// Updated the wgGoPrivate to "*"
+	wgGoPrivate  = "*"
 	allGoPrivate = "*"
 )
 

@@ -85,8 +85,19 @@ func (c ColumnConfig) getWidthMaxEnforcer() WidthEnforcer {
 type RowConfig struct {
 	// AutoMerge merges cells with similar values and prevents separators from
 	// being drawn. Caveats:
-	// * Align is overridden to text.AlignCenter on the merged cell
+	// * Align is overridden to text.AlignCenter on the merged cell (unless set
+	//   by AutoMergeAlign value below)
 	// * Does not work in CSV/HTML/Markdown render modes
 	// * Does not work well with vertical auto-merge (ColumnConfig.AutoMerge)
 	AutoMerge bool
+
+	// Alignment to use on a merge (defaults to text.AlignCenter)
+	AutoMergeAlign text.Align
+}
+
+func (rc RowConfig) getAutoMergeAlign() text.Align {
+	if rc.AutoMergeAlign == text.AlignDefault {
+		return text.AlignCenter
+	}
+	return rc.AutoMergeAlign
 }

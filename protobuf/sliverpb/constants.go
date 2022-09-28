@@ -205,8 +205,8 @@ const (
 	MsgSetEnvReq
 	// MsgSetEnv
 	MsgSetEnv
-	// MsgExecuteTokenReq - Execute request executed with the current (Windows) token
-	MsgExecuteTokenReq
+	// MsgExecuteWindowsReq - Execute request executed with the current (Windows) token
+	MsgExecuteWindowsReq
 	// MsgRegistryReadReq
 	MsgRegistryReadReq
 	// MsgRegistryWriteReq
@@ -284,6 +284,20 @@ const (
 	MsgCurrentTokenOwnerReq
 	// MsgCurrentTokenOwner - Replies with the current thread owner (resp to MsfCurrentToken)
 	MsgCurrentTokenOwner
+	// MsgInvokeInProcExecuteAssemblyReq - Request to load and execute a .NET assembly in-process
+	MsgInvokeInProcExecuteAssemblyReq
+
+	MsgRportFwdStopListenerReq
+
+	MsgRportFwdStartListenerReq
+
+	MsgRportFwdListener
+
+	MsgRportFwdListeners
+
+	MsgRportFwdListenersReq
+
+	MsgRPortfwdReq
 )
 
 // Constants to replace enums
@@ -369,8 +383,8 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgInvokeExecuteAssemblyReq
 	case *ExecuteAssembly:
 		return MsgExecuteAssembly
-	case *ExecuteTokenReq:
-		return MsgExecuteTokenReq
+	case *ExecuteWindowsReq:
+		return MsgExecuteWindowsReq
 	case *InvokeMigrateReq:
 		return MsgInvokeMigrateReq
 	case *SideloadReq:
@@ -497,7 +511,19 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgCurrentTokenOwnerReq
 	case *CurrentTokenOwner:
 		return MsgCurrentTokenOwner
-	}
+	case *InvokeInProcExecuteAssemblyReq:
+		return MsgInvokeInProcExecuteAssemblyReq
 
+	case *RportFwdStartListenerReq:
+		return MsgRportFwdStartListenerReq
+	case *RportFwdStopListenerReq:
+		return MsgRportFwdStopListenerReq
+	case *RportFwdListenersReq:
+		return MsgRportFwdListenersReq
+	case *RportFwdListeners:
+		return MsgRportFwdListeners
+	case *RPortfwdReq:
+		return MsgRPortfwdReq
+	}
 	return uint32(0)
 }

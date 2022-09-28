@@ -1,9 +1,11 @@
+//go:build darwin && cgo
 // +build darwin,cgo
 
 package mem
 
 /*
 #include <mach/mach_host.h>
+#include <mach/vm_page_size.h>
 */
 import "C"
 
@@ -11,8 +13,6 @@ import (
 	"context"
 	"fmt"
 	"unsafe"
-
-	"golang.org/x/sys/unix"
 )
 
 // VirtualMemory returns VirtualmemoryStat.
@@ -33,7 +33,7 @@ func VirtualMemoryWithContext(ctx context.Context) (*VirtualMemoryStat, error) {
 		return nil, fmt.Errorf("host_statistics error=%d", status)
 	}
 
-	pageSize := uint64(unix.Getpagesize())
+	pageSize := uint64(C.vm_kernel_page_size)
 	total, err := getHwMemsize()
 	if err != nil {
 		return nil, err

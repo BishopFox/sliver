@@ -31,6 +31,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
@@ -66,7 +67,7 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 	if err != nil {
 		name, config := generate.ImplantConfigFromProtobuf(req.Config)
 		if name == "" {
-			name, err = generate.GetCodename()
+			name, err = codenames.GetCodename()
 			if err != nil {
 				return nil, err
 			}
@@ -135,13 +136,29 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 		return nil, err
 	}
 
-	invokeExecAssembly := &sliverpb.InvokeExecuteAssemblyReq{
-		Data:    shellcode,
-		Process: req.Process,
-		Request: req.Request,
-	}
 	resp := &sliverpb.ExecuteAssembly{Response: &commonpb.Response{}}
-	err = rpc.GenericHandler(invokeExecAssembly, resp)
+	if req.InProcess {
+		tasksLog.Infof("Executing assembly in-process")
+		invokeInProcExecAssembly := &sliverpb.InvokeInProcExecuteAssemblyReq{
+			Data:       req.Assembly,
+			Runtime:    req.Runtime,
+			Arguments:  strings.Split(req.Arguments, " "),
+			AmsiBypass: req.AmsiBypass,
+			EtwBypass:  req.EtwBypass,
+			Request:    req.Request,
+		}
+		err = rpc.GenericHandler(invokeInProcExecAssembly, resp)
+	} else {
+		invokeExecAssembly := &sliverpb.InvokeExecuteAssemblyReq{
+			Data:        shellcode,
+			Process:     req.Process,
+			Request:     req.Request,
+			PPid:        req.PPid,
+			ProcessArgs: req.ProcessArgs,
+		}
+		err = rpc.GenericHandler(invokeExecAssembly, resp)
+
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -185,6 +202,8 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 			Data:        shellcode,
 			ProcessName: req.ProcessName,
 			Kill:        req.Kill,
+			PPid:        req.PPid,
+			ProcessArgs: req.ProcessArgs,
 		}
 	}
 	resp := &sliverpb.Sideload{Response: &commonpb.Response{}}
@@ -228,6 +247,8 @@ func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq
 		Args:        req.Args,
 		Request:     req.Request,
 		Kill:        req.Kill,
+		PPid:        req.PPid,
+		ProcessArgs: req.ProcessArgs,
 	}
 	err = rpc.GenericHandler(spawnDLLReq, resp)
 	if err != nil {

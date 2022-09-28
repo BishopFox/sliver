@@ -109,7 +109,8 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	if con.Settings.SmallTermWidth < width {
+	wideTermWidth := con.Settings.SmallTermWidth < width
+	if wideTermWidth {
 		tw.AppendHeader(table.Row{
 			"ID",
 			"Name",
@@ -119,6 +120,7 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 			"Hostname",
 			"Username",
 			"Operating System",
+			"Locale",
 			"Last Check-in",
 			"Next Check-in",
 		})
@@ -141,42 +143,10 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 			color = console.Green
 		}
 
-		nextCheckin := time.Unix(beacon.NextCheckin, 0)
-		nextCheckinDateTime := nextCheckin.Format(time.UnixDate)
-
-		var next string
-		var interval string
-
-		if time.Unix(beacon.NextCheckin, 0).Before(time.Now()) {
-			if con.Settings.SmallTermWidth < width {
-				interval = fmt.Sprintf("%s (%s ago)", nextCheckinDateTime, time.Since(nextCheckin).Round(time.Second))
-
-			} else {
-				interval = time.Since(nextCheckin).Round(time.Second).String()
-			}
-			next = fmt.Sprintf("%s%s%s", console.Bold+console.Red, interval, console.Normal)
-		} else {
-			if con.Settings.SmallTermWidth < width {
-				interval = fmt.Sprintf("%s (in %s)", nextCheckinDateTime, time.Until(nextCheckin).Round(time.Second))
-			} else {
-				interval = time.Until(nextCheckin).Round(time.Second).String()
-			}
-
-			next = fmt.Sprintf("%s%s%s", console.Bold+console.Green, interval, console.Normal)
-		}
-
 		// We need a slice of strings so we can apply filters
 		var rowEntries []string
 
-		/*
-			Round the duration to the nearest second to be more output friendly.
-			We deal in seconds for everything, so it makes sense to show outputs
-			in seconds to remain consistent.
-		*/
-		timeSinceLastCheckin := time.Since(time.Unix(beacon.LastCheckin, 0)).Round(time.Second)
-		lastCheckinDateTime := time.Unix(beacon.LastCheckin, 0).Format(time.UnixDate)
-
-		if con.Settings.SmallTermWidth < width {
+		if wideTermWidth {
 			rowEntries = []string{
 				fmt.Sprintf(color+"%s"+console.Normal, strings.Split(beacon.ID, "-")[0]),
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Name),
@@ -186,8 +156,9 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Hostname),
 				fmt.Sprintf(color+"%s"+console.Normal, strings.TrimPrefix(beacon.Username, beacon.Hostname+"\\")),
 				fmt.Sprintf(color+"%s/%s"+console.Normal, beacon.OS, beacon.Arch),
-				fmt.Sprintf(color+"%s (%s ago)"+console.Normal, lastCheckinDateTime, timeSinceLastCheckin),
-				next,
+				fmt.Sprintf(color+"%s"+console.Normal, beacon.Locale),
+				con.FormatDateDelta(time.Unix(beacon.LastCheckin, 0), wideTermWidth, false),
+				con.FormatDateDelta(time.Unix(beacon.NextCheckin, 0), wideTermWidth, true),
 			}
 		} else {
 			rowEntries = []string{
@@ -196,8 +167,8 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Transport),
 				fmt.Sprintf(color+"%s"+console.Normal, strings.TrimPrefix(beacon.Username, beacon.Hostname+"\\")),
 				fmt.Sprintf(color+"%s/%s"+console.Normal, beacon.OS, beacon.Arch),
-				fmt.Sprintf(color+"%s ago"+console.Normal, timeSinceLastCheckin),
-				next,
+				con.FormatDateDelta(time.Unix(beacon.LastCheckin, 0), wideTermWidth, false),
+				con.FormatDateDelta(time.Unix(beacon.NextCheckin, 0), wideTermWidth, true),
 			}
 		}
 		// Build the row struct

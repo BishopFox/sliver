@@ -107,3 +107,27 @@ func (rpc *Server) GetBeaconTaskContent(ctx context.Context, req *clientpb.Beaco
 	}
 	return task.ToProtobuf(true), nil
 }
+
+// CancelBeaconTask - Cancel a beacon task
+func (rpc *Server) CancelBeaconTask(ctx context.Context, req *clientpb.BeaconTask) (*clientpb.BeaconTask, error) {
+	task, err := db.BeaconTaskByID(req.ID)
+	if err != nil {
+		return nil, ErrInvalidBeaconTaskID
+	}
+	if task.State == models.PENDING {
+		task.State = models.CANCELED
+		err = db.Session().Save(task).Error
+		if err != nil {
+			beaconRpcLog.Errorf("Database error: %s", err)
+			return nil, ErrDatabaseFailure
+		}
+	} else {
+		// No real point to cancel the task if it's already been sent
+		return task.ToProtobuf(false), ErrInvalidBeaconTaskCancelState
+	}
+	task, err = db.BeaconTaskByID(req.ID)
+	if err != nil {
+		return nil, ErrInvalidBeaconTaskID
+	}
+	return task.ToProtobuf(false), nil
+}

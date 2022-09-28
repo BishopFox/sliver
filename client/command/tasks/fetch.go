@@ -157,6 +157,8 @@ func emojiState(state string) string {
 		return "⏳"
 	case "failed":
 		return "❌"
+	case "canceled":
+		return "🚫"
 	default:
 		return "❓"
 	}

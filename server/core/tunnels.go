@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	// Tunnels - Interating with duplex tunnels
+	// Tunnels - Interacting with duplex tunnels
 	Tunnels = tunnels{
 		tunnels: map[uint64]*Tunnel{},
 		mutex:   &sync.Mutex{},
@@ -125,10 +125,10 @@ func (t *tunnels) Create(sessionID string) *Tunnel {
 // will close it once there is no data for at least delayBeforeClose delay since last message
 // This is _necessary_ since we processing messages asynchronously
 // and if tunnelCloseHandler routine will fire before tunnelDataHandler routine we will lose some data
-// (this is what happends for socks and portfwd)
+// (this is what happens for socks and portfwd)
 // There is no another way around it, if we want to stick to async processing as we do now.
 // All additional changes requires changes on implants(like sequencing for close messages),
-// and as there is a goal to keep compatability we don't do that at the moment.
+// and as there is a goal to keep compatibility we don't do that at the moment.
 // So there is trade off - more stability or more speed. Or rewriting implant logic.
 // At the moment, i see it affects only `shell` command and locking it for 10 seconds on exit. Not a big deal.
 func (t *tunnels) ScheduleClose(tunnelID uint64) {
@@ -153,7 +153,7 @@ func (t *tunnels) ScheduleClose(tunnelID uint64) {
 }
 
 // Close - closing tunnel
-// It's prefered to use ScheduleClose function if you don't 100% sure there is no more data to receive
+// It's preferred to use ScheduleClose function if you don't 100% sure there is no more data to receive
 func (t *tunnels) Close(tunnelID uint64) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()

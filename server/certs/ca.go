@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/bishopfox/sliver/server/assets"
 )
@@ -44,7 +44,7 @@ func SetupCAs() {
 
 func getCertDir() string {
 	rootDir := assets.GetRootAppDir()
-	certDir := path.Join(rootDir, "certs")
+	certDir := filepath.Join(rootDir, "certs")
 	if _, err := os.Stat(certDir); os.IsNotExist(err) {
 		err := os.MkdirAll(certDir, 0700)
 		if err != nil {
@@ -57,7 +57,7 @@ func getCertDir() string {
 // GenerateCertificateAuthority - Creates a new CA cert for a given type
 func GenerateCertificateAuthority(caType string, commonName string) (*x509.Certificate, *ecdsa.PrivateKey) {
 	storageDir := getCertDir()
-	certFilePath := path.Join(storageDir, fmt.Sprintf("%s-ca-cert.pem", caType))
+	certFilePath := filepath.Join(storageDir, fmt.Sprintf("%s-ca-cert.pem", caType))
 	if _, err := os.Stat(certFilePath); os.IsNotExist(err) {
 		certsLog.Infof("Generating certificate authority for '%s'", caType)
 		cert, key := GenerateECCCertificate(caType, commonName, true, false)
@@ -104,9 +104,9 @@ func GetCertificateAuthority(caType string) (*x509.Certificate, *ecdsa.PrivateKe
 
 // GetCertificateAuthorityPEM - Get PEM encoded CA cert/key
 func GetCertificateAuthorityPEM(caType string) ([]byte, []byte, error) {
-	caType = path.Base(caType)
-	caCertPath := path.Join(getCertDir(), fmt.Sprintf("%s-ca-cert.pem", caType))
-	caKeyPath := path.Join(getCertDir(), fmt.Sprintf("%s-ca-key.pem", caType))
+	caType = filepath.Base(caType)
+	caCertPath := filepath.Join(getCertDir(), fmt.Sprintf("%s-ca-cert.pem", caType))
+	caKeyPath := filepath.Join(getCertDir(), fmt.Sprintf("%s-ca-key.pem", caType))
 
 	certPEM, err := ioutil.ReadFile(caCertPath)
 	if err != nil {
@@ -134,8 +134,8 @@ func SaveCertificateAuthority(caType string, cert []byte, key []byte) {
 
 	// CAs get written to the filesystem since we control the names and makes them
 	// easier to move around/backup
-	certFilePath := path.Join(storageDir, fmt.Sprintf("%s-ca-cert.pem", caType))
-	keyFilePath := path.Join(storageDir, fmt.Sprintf("%s-ca-key.pem", caType))
+	certFilePath := filepath.Join(storageDir, fmt.Sprintf("%s-ca-cert.pem", caType))
+	keyFilePath := filepath.Join(storageDir, fmt.Sprintf("%s-ca-key.pem", caType))
 
 	err := ioutil.WriteFile(certFilePath, cert, 0600)
 	if err != nil {

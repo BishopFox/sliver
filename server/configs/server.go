@@ -53,6 +53,7 @@ type LogConfig struct {
 	Level              int  `json:"level"`
 	GRPCUnaryPayloads  bool `json:"grpc_unary_payloads"`
 	GRPCStreamPayloads bool `json:"grpc_stream_payloads"`
+	TLSKeyLogger       bool `json:"tls_key_logger"`
 }
 
 // DaemonConfig - Configure daemon mode
@@ -115,6 +116,7 @@ type HTTPJobConfig struct {
 	EnforceOTP      bool   `json:"enforce_otp"`
 	LongPollTimeout int64  `json:"long_poll_timeout"`
 	LongPollJitter  int64  `json:"long_poll_jitter"`
+	RandomizeJARM   bool   `json:"randomize_jarm"`
 }
 
 // WatchTowerConfig - Watch Tower job config

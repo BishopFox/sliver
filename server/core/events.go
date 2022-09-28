@@ -18,6 +18,10 @@ package core
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import (
+	"github.com/bishopfox/sliver/server/db/models"
+)
+
 const (
 	// Size is arbitrary, just want to avoid weird cases where we'd block on channel sends
 	eventBufSize = 5
@@ -29,6 +33,7 @@ type Event struct {
 	Session *Session
 	Job     *Job
 	Client  *Client
+	Beacon  *models.Beacon
 
 	EventType string
 

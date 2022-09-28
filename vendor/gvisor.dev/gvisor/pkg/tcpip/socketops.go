@@ -15,9 +15,8 @@
 package tcpip
 
 import (
-	"sync/atomic"
-
 	"gvisor.dev/gvisor/pkg/atomicbitops"
+	"gvisor.dev/gvisor/pkg/bufferv2"
 	"gvisor.dev/gvisor/pkg/sync"
 )
 
@@ -55,8 +54,10 @@ type SocketOptionsHandler interface {
 	// buffer size. It also returns the newly set value.
 	OnSetSendBufferSize(v int64) (newSz int64)
 
-	// OnSetReceiveBufferSize is invoked by SO_RCVBUF and SO_RCVBUFFORCE.
-	OnSetReceiveBufferSize(v, oldSz int64) (newSz int64)
+	// OnSetReceiveBufferSize is invoked by SO_RCVBUF and SO_RCVBUFFORCE. The
+	// handler can optionally return a callback which will be called after
+	// the buffer size is updated to newSz.
+	OnSetReceiveBufferSize(v, oldSz int64) (newSz int64, postSet func())
 
 	// WakeupWriters is invoked when the send buffer size for an endpoint is
 	// changed. The handler notifies the writers if the send buffer size is
@@ -107,8 +108,8 @@ func (*DefaultSocketOptionsHandler) OnSetSendBufferSize(v int64) (newSz int64) {
 func (*DefaultSocketOptionsHandler) WakeupWriters() {}
 
 // OnSetReceiveBufferSize implements SocketOptionsHandler.OnSetReceiveBufferSize.
-func (*DefaultSocketOptionsHandler) OnSetReceiveBufferSize(v, oldSz int64) (newSz int64) {
-	return v
+func (*DefaultSocketOptionsHandler) OnSetReceiveBufferSize(v, oldSz int64) (newSz int64, postSet func()) {
+	return v, nil
 }
 
 // StackHandler holds methods to access the stack options. These must be
@@ -136,92 +137,104 @@ type SocketOptions struct {
 
 	// broadcastEnabled determines whether datagram sockets are allowed to
 	// send packets to a broadcast address.
-	broadcastEnabled uint32
+	broadcastEnabled atomicbitops.Uint32
 
 	// passCredEnabled determines whether SCM_CREDENTIALS socket control
 	// messages are enabled.
-	passCredEnabled uint32
+	passCredEnabled atomicbitops.Uint32
 
 	// noChecksumEnabled determines whether UDP checksum is disabled while
 	// transmitting for this socket.
-	noChecksumEnabled uint32
+	noChecksumEnabled atomicbitops.Uint32
 
 	// reuseAddressEnabled determines whether Bind() should allow reuse of
 	// local address.
-	reuseAddressEnabled uint32
+	reuseAddressEnabled atomicbitops.Uint32
 
 	// reusePortEnabled determines whether to permit multiple sockets to be
 	// bound to an identical socket address.
-	reusePortEnabled uint32
+	reusePortEnabled atomicbitops.Uint32
 
 	// keepAliveEnabled determines whether TCP keepalive is enabled for this
 	// socket.
-	keepAliveEnabled uint32
+	keepAliveEnabled atomicbitops.Uint32
 
 	// multicastLoopEnabled determines whether multicast packets sent over a
 	// non-loopback interface will be looped back.
-	multicastLoopEnabled uint32
+	multicastLoopEnabled atomicbitops.Uint32
 
 	// receiveTOSEnabled is used to specify if the TOS ancillary message is
 	// passed with incoming packets.
-	receiveTOSEnabled uint32
+	receiveTOSEnabled atomicbitops.Uint32
+
+	// receiveTTLEnabled is used to specify if the TTL ancillary message is passed
+	// with incoming packets.
+	receiveTTLEnabled atomicbitops.Uint32
+
+	// receiveHopLimitEnabled is used to specify if the HopLimit ancillary message
+	// is passed with incoming packets.
+	receiveHopLimitEnabled atomicbitops.Uint32
 
 	// receiveTClassEnabled is used to specify if the IPV6_TCLASS ancillary
 	// message is passed with incoming packets.
-	receiveTClassEnabled uint32
+	receiveTClassEnabled atomicbitops.Uint32
 
 	// receivePacketInfoEnabled is used to specify if more information is
 	// provided with incoming IPv4 packets.
-	receivePacketInfoEnabled uint32
+	receivePacketInfoEnabled atomicbitops.Uint32
 
 	// receivePacketInfoEnabled is used to specify if more information is
 	// provided with incoming IPv6 packets.
-	receiveIPv6PacketInfoEnabled uint32
+	receiveIPv6PacketInfoEnabled atomicbitops.Uint32
 
 	// hdrIncludeEnabled is used to indicate for a raw endpoint that all packets
 	// being written have an IP header and the endpoint should not attach an IP
 	// header.
-	hdrIncludedEnabled uint32
+	hdrIncludedEnabled atomicbitops.Uint32
 
 	// v6OnlyEnabled is used to determine whether an IPv6 socket is to be
 	// restricted to sending and receiving IPv6 packets only.
-	v6OnlyEnabled uint32
+	v6OnlyEnabled atomicbitops.Uint32
 
 	// quickAckEnabled is used to represent the value of TCP_QUICKACK option.
 	// It currently does not have any effect on the TCP endpoint.
-	quickAckEnabled uint32
+	quickAckEnabled atomicbitops.Uint32
 
 	// delayOptionEnabled is used to specify if data should be sent out immediately
 	// by the transport protocol. For TCP, it determines if the Nagle algorithm
 	// is on or off.
-	delayOptionEnabled uint32
+	delayOptionEnabled atomicbitops.Uint32
 
 	// corkOptionEnabled is used to specify if data should be held until segments
 	// are full by the TCP transport protocol.
-	corkOptionEnabled uint32
+	corkOptionEnabled atomicbitops.Uint32
 
 	// receiveOriginalDstAddress is used to specify if the original destination of
 	// the incoming packet should be returned as an ancillary message.
-	receiveOriginalDstAddress uint32
+	receiveOriginalDstAddress atomicbitops.Uint32
 
-	// recvErrEnabled determines whether extended reliable error message passing
-	// is enabled.
-	recvErrEnabled uint32
+	// ipv4RecvErrEnabled determines whether extended reliable error message
+	// passing is enabled for IPv4.
+	ipv4RecvErrEnabled atomicbitops.Uint32
+
+	// ipv6RecvErrEnabled determines whether extended reliable error message
+	// passing is enabled for IPv6.
+	ipv6RecvErrEnabled atomicbitops.Uint32
 
 	// errQueue is the per-socket error queue. It is protected by errQueueMu.
 	errQueueMu sync.Mutex `state:"nosave"`
 	errQueue   sockErrorList
 
 	// bindToDevice determines the device to which the socket is bound.
-	bindToDevice int32
+	bindToDevice atomicbitops.Int32
 
-	// getSendBufferLimits provides the handler to get the min, default and
-	// max size for send buffer. It  is initialized at the creation time and
-	// will not change.
+	// getSendBufferLimits provides the handler to get the min, default and max
+	// size for send buffer. It is initialized at the creation time and will not
+	// change.
 	getSendBufferLimits GetSendBufferLimits `state:"manual"`
 
 	// sendBufferSize determines the send buffer size for this socket.
-	sendBufferSize atomicbitops.AlignedAtomicInt64
+	sendBufferSize atomicbitops.Int64
 
 	// getReceiveBufferLimits provides the handler to get the min, default and
 	// max size for receive buffer. It is initialized at the creation time and
@@ -229,7 +242,7 @@ type SocketOptions struct {
 	getReceiveBufferLimits GetReceiveBufferLimits `state:"manual"`
 
 	// receiveBufferSize determines the receive buffer size for this socket.
-	receiveBufferSize atomicbitops.AlignedAtomicInt64
+	receiveBufferSize atomicbitops.Int64
 
 	// mu protects the access to the below fields.
 	mu sync.Mutex `state:"nosave"`
@@ -237,6 +250,10 @@ type SocketOptions struct {
 	// linger determines the amount of time the socket should linger before
 	// close. We currently implement this option for TCP socket only.
 	linger LingerOption
+
+	// rcvlowat specifies the minimum number of bytes which should be
+	// received to indicate the socket as readable.
+	rcvlowat atomicbitops.Int32
 }
 
 // InitHandler initializes the handler. This must be called before using the
@@ -248,12 +265,12 @@ func (so *SocketOptions) InitHandler(handler SocketOptionsHandler, stack StackHa
 	so.getReceiveBufferLimits = getReceiveBufferLimits
 }
 
-func storeAtomicBool(addr *uint32, v bool) {
+func storeAtomicBool(addr *atomicbitops.Uint32, v bool) {
 	var val uint32
 	if v {
 		val = 1
 	}
-	atomic.StoreUint32(addr, val)
+	addr.Store(val)
 }
 
 // SetLastError sets the last error for a socket.
@@ -263,7 +280,7 @@ func (so *SocketOptions) SetLastError(err Error) {
 
 // GetBroadcast gets value for SO_BROADCAST option.
 func (so *SocketOptions) GetBroadcast() bool {
-	return atomic.LoadUint32(&so.broadcastEnabled) != 0
+	return so.broadcastEnabled.Load() != 0
 }
 
 // SetBroadcast sets value for SO_BROADCAST option.
@@ -273,7 +290,7 @@ func (so *SocketOptions) SetBroadcast(v bool) {
 
 // GetPassCred gets value for SO_PASSCRED option.
 func (so *SocketOptions) GetPassCred() bool {
-	return atomic.LoadUint32(&so.passCredEnabled) != 0
+	return so.passCredEnabled.Load() != 0
 }
 
 // SetPassCred sets value for SO_PASSCRED option.
@@ -283,7 +300,7 @@ func (so *SocketOptions) SetPassCred(v bool) {
 
 // GetNoChecksum gets value for SO_NO_CHECK option.
 func (so *SocketOptions) GetNoChecksum() bool {
-	return atomic.LoadUint32(&so.noChecksumEnabled) != 0
+	return so.noChecksumEnabled.Load() != 0
 }
 
 // SetNoChecksum sets value for SO_NO_CHECK option.
@@ -293,7 +310,7 @@ func (so *SocketOptions) SetNoChecksum(v bool) {
 
 // GetReuseAddress gets value for SO_REUSEADDR option.
 func (so *SocketOptions) GetReuseAddress() bool {
-	return atomic.LoadUint32(&so.reuseAddressEnabled) != 0
+	return so.reuseAddressEnabled.Load() != 0
 }
 
 // SetReuseAddress sets value for SO_REUSEADDR option.
@@ -304,7 +321,7 @@ func (so *SocketOptions) SetReuseAddress(v bool) {
 
 // GetReusePort gets value for SO_REUSEPORT option.
 func (so *SocketOptions) GetReusePort() bool {
-	return atomic.LoadUint32(&so.reusePortEnabled) != 0
+	return so.reusePortEnabled.Load() != 0
 }
 
 // SetReusePort sets value for SO_REUSEPORT option.
@@ -315,7 +332,7 @@ func (so *SocketOptions) SetReusePort(v bool) {
 
 // GetKeepAlive gets value for SO_KEEPALIVE option.
 func (so *SocketOptions) GetKeepAlive() bool {
-	return atomic.LoadUint32(&so.keepAliveEnabled) != 0
+	return so.keepAliveEnabled.Load() != 0
 }
 
 // SetKeepAlive sets value for SO_KEEPALIVE option.
@@ -326,7 +343,7 @@ func (so *SocketOptions) SetKeepAlive(v bool) {
 
 // GetMulticastLoop gets value for IP_MULTICAST_LOOP option.
 func (so *SocketOptions) GetMulticastLoop() bool {
-	return atomic.LoadUint32(&so.multicastLoopEnabled) != 0
+	return so.multicastLoopEnabled.Load() != 0
 }
 
 // SetMulticastLoop sets value for IP_MULTICAST_LOOP option.
@@ -336,7 +353,7 @@ func (so *SocketOptions) SetMulticastLoop(v bool) {
 
 // GetReceiveTOS gets value for IP_RECVTOS option.
 func (so *SocketOptions) GetReceiveTOS() bool {
-	return atomic.LoadUint32(&so.receiveTOSEnabled) != 0
+	return so.receiveTOSEnabled.Load() != 0
 }
 
 // SetReceiveTOS sets value for IP_RECVTOS option.
@@ -344,9 +361,29 @@ func (so *SocketOptions) SetReceiveTOS(v bool) {
 	storeAtomicBool(&so.receiveTOSEnabled, v)
 }
 
+// GetReceiveTTL gets value for IP_RECVTTL option.
+func (so *SocketOptions) GetReceiveTTL() bool {
+	return so.receiveTTLEnabled.Load() != 0
+}
+
+// SetReceiveTTL sets value for IP_RECVTTL option.
+func (so *SocketOptions) SetReceiveTTL(v bool) {
+	storeAtomicBool(&so.receiveTTLEnabled, v)
+}
+
+// GetReceiveHopLimit gets value for IP_RECVHOPLIMIT option.
+func (so *SocketOptions) GetReceiveHopLimit() bool {
+	return so.receiveHopLimitEnabled.Load() != 0
+}
+
+// SetReceiveHopLimit sets value for IP_RECVHOPLIMIT option.
+func (so *SocketOptions) SetReceiveHopLimit(v bool) {
+	storeAtomicBool(&so.receiveHopLimitEnabled, v)
+}
+
 // GetReceiveTClass gets value for IPV6_RECVTCLASS option.
 func (so *SocketOptions) GetReceiveTClass() bool {
-	return atomic.LoadUint32(&so.receiveTClassEnabled) != 0
+	return so.receiveTClassEnabled.Load() != 0
 }
 
 // SetReceiveTClass sets value for IPV6_RECVTCLASS option.
@@ -356,7 +393,7 @@ func (so *SocketOptions) SetReceiveTClass(v bool) {
 
 // GetReceivePacketInfo gets value for IP_PKTINFO option.
 func (so *SocketOptions) GetReceivePacketInfo() bool {
-	return atomic.LoadUint32(&so.receivePacketInfoEnabled) != 0
+	return so.receivePacketInfoEnabled.Load() != 0
 }
 
 // SetReceivePacketInfo sets value for IP_PKTINFO option.
@@ -366,7 +403,7 @@ func (so *SocketOptions) SetReceivePacketInfo(v bool) {
 
 // GetIPv6ReceivePacketInfo gets value for IPV6_RECVPKTINFO option.
 func (so *SocketOptions) GetIPv6ReceivePacketInfo() bool {
-	return atomic.LoadUint32(&so.receiveIPv6PacketInfoEnabled) != 0
+	return so.receiveIPv6PacketInfoEnabled.Load() != 0
 }
 
 // SetIPv6ReceivePacketInfo sets value for IPV6_RECVPKTINFO option.
@@ -376,7 +413,7 @@ func (so *SocketOptions) SetIPv6ReceivePacketInfo(v bool) {
 
 // GetHeaderIncluded gets value for IP_HDRINCL option.
 func (so *SocketOptions) GetHeaderIncluded() bool {
-	return atomic.LoadUint32(&so.hdrIncludedEnabled) != 0
+	return so.hdrIncludedEnabled.Load() != 0
 }
 
 // SetHeaderIncluded sets value for IP_HDRINCL option.
@@ -386,7 +423,7 @@ func (so *SocketOptions) SetHeaderIncluded(v bool) {
 
 // GetV6Only gets value for IPV6_V6ONLY option.
 func (so *SocketOptions) GetV6Only() bool {
-	return atomic.LoadUint32(&so.v6OnlyEnabled) != 0
+	return so.v6OnlyEnabled.Load() != 0
 }
 
 // SetV6Only sets value for IPV6_V6ONLY option.
@@ -398,7 +435,7 @@ func (so *SocketOptions) SetV6Only(v bool) {
 
 // GetQuickAck gets value for TCP_QUICKACK option.
 func (so *SocketOptions) GetQuickAck() bool {
-	return atomic.LoadUint32(&so.quickAckEnabled) != 0
+	return so.quickAckEnabled.Load() != 0
 }
 
 // SetQuickAck sets value for TCP_QUICKACK option.
@@ -408,7 +445,7 @@ func (so *SocketOptions) SetQuickAck(v bool) {
 
 // GetDelayOption gets inverted value for TCP_NODELAY option.
 func (so *SocketOptions) GetDelayOption() bool {
-	return atomic.LoadUint32(&so.delayOptionEnabled) != 0
+	return so.delayOptionEnabled.Load() != 0
 }
 
 // SetDelayOption sets inverted value for TCP_NODELAY option.
@@ -419,7 +456,7 @@ func (so *SocketOptions) SetDelayOption(v bool) {
 
 // GetCorkOption gets value for TCP_CORK option.
 func (so *SocketOptions) GetCorkOption() bool {
-	return atomic.LoadUint32(&so.corkOptionEnabled) != 0
+	return so.corkOptionEnabled.Load() != 0
 }
 
 // SetCorkOption sets value for TCP_CORK option.
@@ -430,7 +467,7 @@ func (so *SocketOptions) SetCorkOption(v bool) {
 
 // GetReceiveOriginalDstAddress gets value for IP(V6)_RECVORIGDSTADDR option.
 func (so *SocketOptions) GetReceiveOriginalDstAddress() bool {
-	return atomic.LoadUint32(&so.receiveOriginalDstAddress) != 0
+	return so.receiveOriginalDstAddress.Load() != 0
 }
 
 // SetReceiveOriginalDstAddress sets value for IP(V6)_RECVORIGDSTADDR option.
@@ -438,14 +475,27 @@ func (so *SocketOptions) SetReceiveOriginalDstAddress(v bool) {
 	storeAtomicBool(&so.receiveOriginalDstAddress, v)
 }
 
-// GetRecvError gets value for IP*_RECVERR option.
-func (so *SocketOptions) GetRecvError() bool {
-	return atomic.LoadUint32(&so.recvErrEnabled) != 0
+// GetIPv4RecvError gets value for IP_RECVERR option.
+func (so *SocketOptions) GetIPv4RecvError() bool {
+	return so.ipv4RecvErrEnabled.Load() != 0
 }
 
-// SetRecvError sets value for IP*_RECVERR option.
-func (so *SocketOptions) SetRecvError(v bool) {
-	storeAtomicBool(&so.recvErrEnabled, v)
+// SetIPv4RecvError sets value for IP_RECVERR option.
+func (so *SocketOptions) SetIPv4RecvError(v bool) {
+	storeAtomicBool(&so.ipv4RecvErrEnabled, v)
+	if !v {
+		so.pruneErrQueue()
+	}
+}
+
+// GetIPv6RecvError gets value for IPV6_RECVERR option.
+func (so *SocketOptions) GetIPv6RecvError() bool {
+	return so.ipv6RecvErrEnabled.Load() != 0
+}
+
+// SetIPv6RecvError sets value for IPV6_RECVERR option.
+func (so *SocketOptions) SetIPv6RecvError(v bool) {
+	storeAtomicBool(&so.ipv6RecvErrEnabled, v)
 	if !v {
 		so.pruneErrQueue()
 	}
@@ -556,7 +606,7 @@ type SockError struct {
 	Cause SockErrorCause
 
 	// Payload is the errant packet's payload.
-	Payload []byte
+	Payload *bufferv2.View
 	// Dst is the original destination address of the errant packet.
 	Dst FullAddress
 	// Offender is the original sender address of the errant packet.
@@ -595,7 +645,7 @@ func (so *SocketOptions) PeekErr() *SockError {
 
 // QueueErr inserts the error at the back of the error queue.
 //
-// Preconditions: so.GetRecvError() == true.
+// Preconditions: so.GetIPv4RecvError() or so.GetIPv6RecvError() is true.
 func (so *SocketOptions) QueueErr(err *SockError) {
 	so.errQueueMu.Lock()
 	defer so.errQueueMu.Unlock()
@@ -603,7 +653,7 @@ func (so *SocketOptions) QueueErr(err *SockError) {
 }
 
 // QueueLocalErr queues a local error onto the local queue.
-func (so *SocketOptions) QueueLocalErr(err Error, net NetworkProtocolNumber, info uint32, dst FullAddress, payload []byte) {
+func (so *SocketOptions) QueueLocalErr(err Error, net NetworkProtocolNumber, info uint32, dst FullAddress, payload *bufferv2.View) {
 	so.QueueErr(&SockError{
 		Err:      err,
 		Cause:    &LocalSockError{info: info},
@@ -615,7 +665,7 @@ func (so *SocketOptions) QueueLocalErr(err Error, net NetworkProtocolNumber, inf
 
 // GetBindToDevice gets value for SO_BINDTODEVICE option.
 func (so *SocketOptions) GetBindToDevice() int32 {
-	return atomic.LoadInt32(&so.bindToDevice)
+	return so.bindToDevice.Load()
 }
 
 // SetBindToDevice sets value for SO_BINDTODEVICE option. If bindToDevice is
@@ -625,7 +675,7 @@ func (so *SocketOptions) SetBindToDevice(bindToDevice int32) Error {
 		return &ErrUnknownDevice{}
 	}
 
-	atomic.StoreInt32(&so.bindToDevice, bindToDevice)
+	so.bindToDevice.Store(bindToDevice)
 	return nil
 }
 
@@ -668,9 +718,27 @@ func (so *SocketOptions) ReceiveBufferLimits() (min, max int64) {
 // SetReceiveBufferSize sets the value of the SO_RCVBUF option, optionally
 // notifying the owning endpoint.
 func (so *SocketOptions) SetReceiveBufferSize(receiveBufferSize int64, notify bool) {
+	var postSet func()
 	if notify {
 		oldSz := so.receiveBufferSize.Load()
-		receiveBufferSize = so.handler.OnSetReceiveBufferSize(receiveBufferSize, oldSz)
+		receiveBufferSize, postSet = so.handler.OnSetReceiveBufferSize(receiveBufferSize, oldSz)
 	}
 	so.receiveBufferSize.Store(receiveBufferSize)
+	if postSet != nil {
+		postSet()
+	}
+}
+
+// GetRcvlowat gets value for SO_RCVLOWAT option.
+func (so *SocketOptions) GetRcvlowat() int32 {
+	// TODO(b/226603727): Return so.rcvlowat after adding complete support
+	// for SO_RCVLOWAT option. For now, return the default value of 1.
+	defaultRcvlowat := int32(1)
+	return defaultRcvlowat
+}
+
+// SetRcvlowat sets value for SO_RCVLOWAT option.
+func (so *SocketOptions) SetRcvlowat(rcvlowat int32) Error {
+	so.rcvlowat.Store(rcvlowat)
+	return nil
 }

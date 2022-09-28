@@ -19,14 +19,20 @@ package portfwd
 */
 
 import (
+	"fmt"
 	"log"
 	"net"
+	"regexp"
 	"time"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/tcpproxy"
 	"github.com/desertbit/grumble"
+)
+
+var (
+	portNumberOnlyRegexp = regexp.MustCompile("^[0-9]+$")
 )
 
 // PortfwdAddCmd - Add a new tunneled port forward
@@ -36,10 +42,10 @@ func PortfwdAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	if session.GetActiveC2() == "dns" {
-		con.PrintWarnf("Current C2 is DNS, this is going to be a very slow tunnel!\n")
+		con.PrintWarnf("The current C2 is DNS, this is going to be a very slow tunnel!\n")
 	}
 	if session.Transport == "wg" {
-		con.PrintWarnf("Current C2 is WireGuard, we recommend using the `wg-portfwd` command!\n")
+		con.PrintWarnf("The current C2 is WireGuard, we recommend using the `wg-portfwd` command!\n")
 	}
 	remoteAddr := ctx.Flags.String("remote")
 	if remoteAddr == "" {
@@ -55,9 +61,13 @@ func PortfwdAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintWarnf("RDP is generally broken over tunneled portfwds, we recommend using WireGuard portfwds\n")
 	}
 	bindAddr := ctx.Flags.String("bind")
-	if remoteAddr == "" {
-		con.PrintErrorf("Must specify a bind target host:port")
+	if bindAddr == "" {
+		con.PrintErrorf("Must specify a bind target host:port (e.g. 127.0.0.1:8000)")
 		return
+	}
+	// If only a port is specified bind to localhost
+	if portNumberOnlyRegexp.MatchString(bindAddr) {
+		bindAddr = fmt.Sprintf("127.0.0.1:%s", bindAddr)
 	}
 
 	tcpProxy := &tcpproxy.Proxy{}

@@ -45,6 +45,8 @@ message Session {
   repeated string Extensions = 23;
   // string ConfigID = 24;
   int64 PeerID = 25;
+  string Locale = 26;
+  int64 FirstContact = 27;
 }
 
 message Beacon {
@@ -76,6 +78,9 @@ message Beacon {
 
   int64 TasksCount = 26;
   int64 TasksCountCompleted = 27;
+
+  string Locale = 28;
+  int64 FirstContact = 29;
 }
 
 message Beacons {
@@ -110,6 +115,7 @@ enum OutputFormat {
   SHELLCODE = 1;
   EXECUTABLE = 2;
   SERVICE = 3;
+  EXTERNAL = 4;
 }
 
 message ImplantConfig {
@@ -155,6 +161,7 @@ message ImplantConfig {
   string LimitHostname = 62;
   string LimitUsername = 63;
   string LimitFileExists = 64;
+  string LimitLocale = 65;
 
   OutputFormat Format = 100;
   bool IsSharedLib = 101;
@@ -163,6 +170,18 @@ message ImplantConfig {
   bool IsShellcode = 104;
 
   bool RunAtLoad = 105;
+}
+
+message ExternalImplantConfig {
+  string Name = 1;
+  ImplantConfig Config = 2;
+  string OTPSecret = 3;
+}
+
+message ExternalImplantBinary {
+  string Name = 1;
+  string ImplantConfigID = 2;
+  commonpb.File File = 3;
 }
 
 // Configs of previously built implants
@@ -302,6 +321,7 @@ message HTTPListenerReq {
   bool EnforceOTP = 10;
   int64 LongPollTimeout = 11;
   int64 LongPollJitter = 12;
+  bool RandomizeJARM = 13; // Only valid with Secure = true
 }
 
 // Named Pipes Messages for pivoting
@@ -598,6 +618,9 @@ message Host {
 
   repeated IOC IOCs = 4;
   map<string, ExtensionData> ExtensionData = 5;
+
+  string Locale = 6;
+  int64 FirstContact = 7;
 }
 
 message AllHosts {
@@ -617,4 +640,30 @@ message DllHijackReq {
 
 message DllHijack {
   commonpb.Response Response = 9;
+}
+
+
+// [ Shellcode ] ----------------------------------------
+enum ShellcodeEncoder {
+  SHIKATA_GA_NAI = 0;
+}
+
+message ShellcodeEncodeReq {
+  ShellcodeEncoder Encoder = 1;
+  string Architecture = 2;
+  uint32 Iterations = 3;
+  bytes BadChars = 4;
+
+  bytes Data = 8;
+  commonpb.Request Request = 9;
+}
+
+message ShellcodeEncode {
+
+  bytes Data = 8;
+  commonpb.Response Response = 9;
+}
+
+message ShellcodeEncoderMap {
+  map<string, ShellcodeEncoder> Encoders = 1;
 }

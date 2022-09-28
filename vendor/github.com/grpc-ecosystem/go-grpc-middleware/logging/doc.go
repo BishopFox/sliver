@@ -1,6 +1,3 @@
-// Copyright 2017 Michal Witkowski. All Rights Reserved.
-// See LICENSE for licensing terms.
-
 //
 /*
 grpc_logging is a "parent" package for gRPC logging middlewares.

@@ -15,13 +15,15 @@
 package udp
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"time"
 
+	"gvisor.dev/gvisor/pkg/bufferv2"
 	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
-	"gvisor.dev/gvisor/pkg/tcpip/buffer"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/ports"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
@@ -37,10 +39,13 @@ type udpPacket struct {
 	senderAddress      tcpip.FullAddress
 	destinationAddress tcpip.FullAddress
 	packetInfo         tcpip.IPPacketInfo
-	data               buffer.VectorisedView `state:".(buffer.VectorisedView)"`
-	receivedAt         time.Time             `state:".(int64)"`
-	// tos stores either the receiveTOS or receiveTClass value.
-	tos uint8
+	pkt                *stack.PacketBuffer
+	receivedAt         time.Time `state:".(int64)"`
+	// tosOrTClass stores either the Type of Service for IPv4 or the Traffic Class
+	// for IPv6.
+	tosOrTClass uint8
+	// ttlOrHopLimit stores either the TTL for IPv4 or the HopLimit for IPv6
+	ttlOrHopLimit uint8
 }
 
 // endpoint represents a UDP endpoint. This struct serves as the interface
@@ -111,7 +116,7 @@ func newEndpoint(s *stack.Stack, netProto tcpip.NetworkProtocolNumber, waiterQue
 	e.ops.SetMulticastLoop(true)
 	e.ops.SetSendBufferSize(32*1024, false /* notify */)
 	e.ops.SetReceiveBufferSize(32*1024, false /* notify */)
-	e.net.Init(s, netProto, header.UDPProtocolNumber, &e.ops)
+	e.net.Init(s, netProto, header.UDPProtocolNumber, &e.ops, waiterQueue)
 
 	// Override with stack defaults.
 	var ss tcpip.SendBufferSizeOption
@@ -125,6 +130,11 @@ func newEndpoint(s *stack.Stack, netProto tcpip.NetworkProtocolNumber, waiterQue
 	}
 
 	return e
+}
+
+// WakeupWriters implements tcpip.SocketOptionsHandler.
+func (e *endpoint) WakeupWriters() {
+	e.net.MaybeSignalWritable()
 }
 
 // UniqueID implements stack.TransportEndpoint.
@@ -191,6 +201,7 @@ func (e *endpoint) Close() {
 	for !e.rcvList.Empty() {
 		p := e.rcvList.Front()
 		e.rcvList.Remove(p)
+		p.pkt.DecRef()
 	}
 	e.rcvMu.Unlock()
 
@@ -226,23 +237,28 @@ func (e *endpoint) Read(dst io.Writer, opts tcpip.ReadOptions) (tcpip.ReadResult
 	p := e.rcvList.Front()
 	if !opts.Peek {
 		e.rcvList.Remove(p)
-		e.rcvBufSize -= p.data.Size()
+		defer p.pkt.DecRef()
+		e.rcvBufSize -= p.pkt.Data().Size()
 	}
 	e.rcvMu.Unlock()
 
 	// Control Messages
-	cm := tcpip.ControlMessages{
+	// TODO(https://gvisor.dev/issue/7012): Share control message code with other
+	// network endpoints.
+	cm := tcpip.ReceivableControlMessages{
 		HasTimestamp: true,
 		Timestamp:    p.receivedAt,
 	}
-
 	switch p.netProto {
 	case header.IPv4ProtocolNumber:
 		if e.ops.GetReceiveTOS() {
 			cm.HasTOS = true
-			cm.TOS = p.tos
+			cm.TOS = p.tosOrTClass
 		}
-
+		if e.ops.GetReceiveTTL() {
+			cm.HasTTL = true
+			cm.TTL = p.ttlOrHopLimit
+		}
 		if e.ops.GetReceivePacketInfo() {
 			cm.HasIPPacketInfo = true
 			cm.PacketInfo = p.packetInfo
@@ -251,9 +267,12 @@ func (e *endpoint) Read(dst io.Writer, opts tcpip.ReadOptions) (tcpip.ReadResult
 		if e.ops.GetReceiveTClass() {
 			cm.HasTClass = true
 			// Although TClass is an 8-bit value it's read in the CMsg as a uint32.
-			cm.TClass = uint32(p.tos)
+			cm.TClass = uint32(p.tosOrTClass)
 		}
-
+		if e.ops.GetReceiveHopLimit() {
+			cm.HasHopLimit = true
+			cm.HopLimit = p.ttlOrHopLimit
+		}
 		if e.ops.GetIPv6ReceivePacketInfo() {
 			cm.HasIPv6PacketInfo = true
 			cm.IPv6PacketInfo = tcpip.IPv6PacketInfo{
@@ -272,14 +291,14 @@ func (e *endpoint) Read(dst io.Writer, opts tcpip.ReadOptions) (tcpip.ReadResult
 
 	// Read Result
 	res := tcpip.ReadResult{
-		Total:           p.data.Size(),
+		Total:           p.pkt.Data().Size(),
 		ControlMessages: cm,
 	}
 	if opts.NeedRemoteAddr {
 		res.RemoteAddr = p.senderAddress
 	}
 
-	n, err := p.data.ReadTo(dst, opts.Peek)
+	n, err := p.pkt.Data().ReadTo(dst, opts.Peek)
 	if n == 0 && err != nil {
 		return res, &tcpip.ErrBadBuffer{}
 	}
@@ -324,6 +343,17 @@ func (e *endpoint) prepareForWriteInner(to *tcpip.FullAddress) (retry bool, err 
 	}
 
 	return true, nil
+}
+
+var _ tcpip.EndpointWithPreflight = (*endpoint)(nil)
+
+// Validates the passed WriteOptions and prepares the endpoint for writes
+// using those options. If the endpoint is unbound and the `To` address
+// is specified, binds the endpoint to that address.
+func (e *endpoint) Preflight(opts tcpip.WriteOptions) tcpip.Error {
+	var r bytes.Reader
+	_, err := e.prepareForWrite(&r, opts)
+	return err
 }
 
 // Write writes data to the endpoint's peer. This method does not block
@@ -383,31 +413,35 @@ func (e *endpoint) prepareForWrite(p tcpip.Payloader, opts tcpip.WriteOptions) (
 		return udpPacketInfo{}, err
 	}
 
-	// TODO(https://gvisor.dev/issue/6538): Avoid this allocation.
-	v := make([]byte, p.Len())
-	if _, err := io.ReadFull(p, v); err != nil {
-		ctx.Release()
-		return udpPacketInfo{}, &tcpip.ErrBadBuffer{}
-	}
-	if len(v) > header.UDPMaximumPacketSize {
-		// Payload can't possibly fit in a packet.
-		so := e.SocketOptions()
-		if so.GetRecvError() {
-			so.QueueLocalErr(
-				&tcpip.ErrMessageTooLong{},
-				e.net.NetProto(),
-				header.UDPMaximumPacketSize,
-				dst,
-				v,
-			)
+	if p.Len() > header.UDPMaximumPacketSize {
+		// Native linux behaviour differs for IPv4 and IPv6 packets; IPv4 packet
+		// errors aren't report to the error queue at all.
+		if ctx.PacketInfo().NetProto == header.IPv6ProtocolNumber {
+			so := e.SocketOptions()
+			if so.GetIPv6RecvError() {
+				so.QueueLocalErr(
+					&tcpip.ErrMessageTooLong{},
+					e.net.NetProto(),
+					uint32(p.Len()),
+					dst,
+					nil,
+				)
+			}
 		}
 		ctx.Release()
 		return udpPacketInfo{}, &tcpip.ErrMessageTooLong{}
 	}
 
+	var buf bufferv2.Buffer
+	if _, err := buf.WriteFromReader(p, int64(p.Len())); err != nil {
+		buf.Release()
+		ctx.Release()
+		return udpPacketInfo{}, &tcpip.ErrBadBuffer{}
+	}
+
 	return udpPacketInfo{
 		ctx:        ctx,
-		data:       v,
+		data:       buf,
 		localPort:  e.localPort,
 		remotePort: dst.Port,
 	}, nil
@@ -435,11 +469,13 @@ func (e *endpoint) write(p tcpip.Payloader, opts tcpip.WriteOptions) (int64, tcp
 	}
 	defer udpInfo.ctx.Release()
 
+	dataSz := udpInfo.data.Size()
 	pktInfo := udpInfo.ctx.PacketInfo()
-	pkt := stack.NewPacketBuffer(stack.PacketBufferOptions{
-		ReserveHeaderBytes: header.UDPMinimumSize + int(pktInfo.MaxHeaderLength),
-		Data:               udpInfo.data.ToVectorisedView(),
-	})
+	pkt := udpInfo.ctx.TryNewPacketBuffer(header.UDPMinimumSize+int(pktInfo.MaxHeaderLength), udpInfo.data)
+	if pkt == nil {
+		return 0, &tcpip.ErrWouldBlock{}
+	}
+	defer pkt.DecRef()
 
 	// Initialize the UDP header.
 	udp := header.UDP(pkt.TransportHeader().Push(header.UDPMinimumSize))
@@ -458,10 +494,33 @@ func (e *endpoint) write(p tcpip.Payloader, opts tcpip.WriteOptions) (int64, tcp
 	// On IPv6, UDP checksum is not optional (RFC2460 Section 8.1).
 	if pktInfo.RequiresTXTransportChecksum &&
 		(!e.ops.GetNoChecksum() || pktInfo.NetProto == header.IPv6ProtocolNumber) {
-		udp.SetChecksum(^udp.CalculateChecksum(header.ChecksumCombine(
+		xsum := udp.CalculateChecksum(header.ChecksumCombine(
 			header.PseudoHeaderChecksum(ProtocolNumber, pktInfo.LocalAddress, pktInfo.RemoteAddress, length),
 			pkt.Data().AsRange().Checksum(),
-		)))
+		))
+		// As per RFC 768 page 2,
+		//
+		//   Checksum is the 16-bit one's complement of the one's complement sum of
+		//   a pseudo header of information from the IP header, the UDP header, and
+		//   the data, padded with zero octets at the end (if necessary) to make a
+		//   multiple of two octets.
+		//
+		//	 The pseudo header conceptually prefixed to the UDP header contains the
+		//   source address, the destination address, the protocol, and the UDP
+		//   length. This information gives protection against misrouted datagrams.
+		//   This checksum procedure is the same as is used in TCP.
+		//
+		//   If the computed checksum is zero, it is transmitted as all ones (the
+		//   equivalent in one's complement arithmetic). An all zero transmitted
+		//   checksum value means that the transmitter generated no checksum (for
+		//   debugging or for higher level protocols that don't care).
+		//
+		// To avoid the zero value, we only calculate the one's complement of the
+		// one's complement sum if the sum is not all ones.
+		if xsum != math.MaxUint16 {
+			xsum = ^xsum
+		}
+		udp.SetChecksum(xsum)
 	}
 	if err := udpInfo.ctx.WritePacket(pkt, false /* headerIncluded */); err != nil {
 		e.stack.Stats().UDP.PacketSendErrors.Increment()
@@ -470,7 +529,7 @@ func (e *endpoint) write(p tcpip.Payloader, opts tcpip.WriteOptions) (int64, tcp
 
 	// Track count of packets sent.
 	e.stack.Stats().UDP.PacketsSent.Increment()
-	return int64(len(udpInfo.data)), nil
+	return int64(dataSz), nil
 }
 
 // OnReuseAddressSet implements tcpip.SocketOptionsHandler.
@@ -512,7 +571,7 @@ func (e *endpoint) GetSockOptInt(opt tcpip.SockOptInt) (int, tcpip.Error) {
 		e.rcvMu.Lock()
 		if !e.rcvList.Empty() {
 			p := e.rcvList.Front()
-			v = p.data.Size()
+			v = p.pkt.Data().Size()
 		}
 		e.rcvMu.Unlock()
 		return v, nil
@@ -530,7 +589,7 @@ func (e *endpoint) GetSockOpt(opt tcpip.GettableSocketOption) tcpip.Error {
 // udpPacketInfo holds information needed to send a UDP packet.
 type udpPacketInfo struct {
 	ctx        network.WriteContext
-	data       buffer.View
+	data       bufferv2.Buffer
 	localPort  uint16
 	remotePort uint16
 }
@@ -607,7 +666,7 @@ func (e *endpoint) Connect(addr tcpip.FullAddress) tcpip.Error {
 		// packets on a different network protocol, so we register both even if
 		// v6only is set to false and this is an ipv6 endpoint.
 		netProtos := []tcpip.NetworkProtocolNumber{netProto}
-		if netProto == header.IPv6ProtocolNumber && !e.ops.GetV6Only() {
+		if netProto == header.IPv6ProtocolNumber && !e.ops.GetV6Only() && e.stack.CheckNetworkProtocol(header.IPv4ProtocolNumber) {
 			netProtos = []tcpip.NetworkProtocolNumber{
 				header.IPv4ProtocolNumber,
 				header.IPv6ProtocolNumber,
@@ -744,7 +803,7 @@ func (e *endpoint) bindLocked(addr tcpip.FullAddress) tcpip.Error {
 		// wildcard (empty) address, and this is an IPv6 endpoint with v6only
 		// set to false.
 		netProtos := []tcpip.NetworkProtocolNumber{boundNetProto}
-		if boundNetProto == header.IPv6ProtocolNumber && !e.ops.GetV6Only() && boundAddr == "" {
+		if boundNetProto == header.IPv6ProtocolNumber && !e.ops.GetV6Only() && boundAddr == "" && e.stack.CheckNetworkProtocol(header.IPv4ProtocolNumber) {
 			netProtos = []tcpip.NetworkProtocolNumber{
 				header.IPv6ProtocolNumber,
 				header.IPv4ProtocolNumber,
@@ -816,8 +875,11 @@ func (e *endpoint) GetRemoteAddress() (tcpip.FullAddress, tcpip.Error) {
 // Readiness returns the current readiness of the endpoint. For example, if
 // waiter.EventIn is set, the endpoint is immediately readable.
 func (e *endpoint) Readiness(mask waiter.EventMask) waiter.EventMask {
-	// The endpoint is always writable.
-	result := waiter.WritableEvents & mask
+	var result waiter.EventMask
+
+	if e.net.HasSendSpace() {
+		result |= waiter.WritableEvents & mask
+	}
 
 	// Determine if the endpoint is readable if requested.
 	if mask&waiter.ReadableEvents != 0 {
@@ -837,45 +899,28 @@ func (e *endpoint) Readiness(mask waiter.EventMask) waiter.EventMask {
 	return result
 }
 
-// verifyChecksum verifies the checksum unless RX checksum offload is enabled.
-func verifyChecksum(hdr header.UDP, pkt *stack.PacketBuffer) bool {
-	if pkt.RXTransportChecksumValidated {
-		return true
-	}
-
-	// On IPv4, UDP checksum is optional, and a zero value means the transmitter
-	// omitted the checksum generation, as per RFC 768:
-	//
-	//   An all zero transmitted checksum value means that the transmitter
-	//   generated  no checksum  (for debugging or for higher level protocols that
-	//   don't care).
-	//
-	// On IPv6, UDP checksum is not optional, as per RFC 2460 Section 8.1:
-	//
-	//   Unlike IPv4, when UDP packets are originated by an IPv6 node, the UDP
-	//   checksum is not optional.
-	if pkt.NetworkProtocolNumber == header.IPv4ProtocolNumber && hdr.Checksum() == 0 {
-		return true
-	}
-
-	netHdr := pkt.Network()
-	payloadChecksum := pkt.Data().AsRange().Checksum()
-	return hdr.IsChecksumValid(netHdr.SourceAddress(), netHdr.DestinationAddress(), payloadChecksum)
-}
-
 // HandlePacket is called by the stack when new packets arrive to this transport
 // endpoint.
 func (e *endpoint) HandlePacket(id stack.TransportEndpointID, pkt *stack.PacketBuffer) {
 	// Get the header then trim it from the view.
-	hdr := header.UDP(pkt.TransportHeader().View())
-	if int(hdr.Length()) > pkt.Data().Size()+header.UDPMinimumSize {
+	hdr := header.UDP(pkt.TransportHeader().Slice())
+	netHdr := pkt.Network()
+	lengthValid, csumValid := header.UDPValid(
+		hdr,
+		func() uint16 { return pkt.Data().AsRange().Checksum() },
+		uint16(pkt.Data().Size()),
+		pkt.NetworkProtocolNumber,
+		netHdr.SourceAddress(),
+		netHdr.DestinationAddress(),
+		pkt.RXTransportChecksumValidated)
+	if !lengthValid {
 		// Malformed packet.
 		e.stack.Stats().UDP.MalformedPacketsReceived.Increment()
 		e.stats.ReceiveErrors.MalformedPacketsReceived.Increment()
 		return
 	}
 
-	if !verifyChecksum(hdr, pkt) {
+	if !csumValid {
 		e.stack.Stats().UDP.ChecksumErrors.Increment()
 		e.stats.ReceiveErrors.ChecksumErrors.Increment()
 		return
@@ -885,7 +930,7 @@ func (e *endpoint) HandlePacket(id stack.TransportEndpointID, pkt *stack.PacketB
 	e.stats.PacketsReceived.Increment()
 
 	e.rcvMu.Lock()
-	// Drop the packet if our buffer is currently full.
+	// Drop the packet if our buffer is not ready to receive packets.
 	if !e.rcvReady || e.rcvClosed {
 		e.rcvMu.Unlock()
 		e.stack.Stats().UDP.ReceiveBufferErrors.Increment()
@@ -894,6 +939,7 @@ func (e *endpoint) HandlePacket(id stack.TransportEndpointID, pkt *stack.PacketB
 	}
 
 	rcvBufSize := e.ops.GetReceiveBufferSize()
+	// Drop the packet if our buffer is currently full.
 	if e.frozen || e.rcvBufSize >= int(rcvBufSize) {
 		e.rcvMu.Unlock()
 		e.stack.Stats().UDP.ReceiveBufferErrors.Increment()
@@ -916,17 +962,18 @@ func (e *endpoint) HandlePacket(id stack.TransportEndpointID, pkt *stack.PacketB
 			Addr: id.LocalAddress,
 			Port: hdr.DestinationPort(),
 		},
-		data: pkt.Data().ExtractVV(),
+		pkt: pkt.IncRef(),
 	}
 	e.rcvList.PushBack(packet)
-	e.rcvBufSize += packet.data.Size()
+	e.rcvBufSize += pkt.Data().Size()
 
 	// Save any useful information from the network header to the packet.
+	packet.tosOrTClass, _ = pkt.Network().TOS()
 	switch pkt.NetworkProtocolNumber {
 	case header.IPv4ProtocolNumber:
-		packet.tos, _ = header.IPv4(pkt.NetworkHeader().View()).TOS()
+		packet.ttlOrHopLimit = header.IPv4(pkt.NetworkHeader().Slice()).TTL()
 	case header.IPv6ProtocolNumber:
-		packet.tos, _ = header.IPv6(pkt.NetworkHeader().View()).TOS()
+		packet.ttlOrHopLimit = header.IPv6(pkt.NetworkHeader().Slice()).HopLimit()
 	}
 
 	// TODO(gvisor.dev/issue/3556): r.LocalAddress may be a multicast or broadcast
@@ -952,13 +999,22 @@ func (e *endpoint) onICMPError(err tcpip.Error, transErr stack.TransportError, p
 	e.lastError = err
 	e.lastErrorMu.Unlock()
 
-	// Update the error queue if IP_RECVERR is enabled.
-	if e.SocketOptions().GetRecvError() {
+	var recvErr bool
+	switch pkt.NetworkProtocolNumber {
+	case header.IPv4ProtocolNumber:
+		recvErr = e.SocketOptions().GetIPv4RecvError()
+	case header.IPv6ProtocolNumber:
+		recvErr = e.SocketOptions().GetIPv6RecvError()
+	default:
+		panic(fmt.Sprintf("unhandled network protocol number = %d", pkt.NetworkProtocolNumber))
+	}
+
+	if recvErr {
 		// Linux passes the payload without the UDP header.
-		var payload []byte
-		udp := header.UDP(pkt.Data().AsRange().ToOwnedView())
+		payload := pkt.Data().AsRange().ToView()
+		udp := header.UDP(payload.AsSlice())
 		if len(udp) >= header.UDPMinimumSize {
-			payload = udp.Payload()
+			payload.TrimFront(header.UDPMinimumSize)
 		}
 
 		id := e.net.Info().ID

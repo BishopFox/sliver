@@ -8,14 +8,18 @@ import (
 // nolint
 
 // Scheme lexer.
-var SchemeLang = internal.Register(MustNewLexer(
+var SchemeLang = internal.Register(MustNewLazyLexer(
 	&Config{
 		Name:      "Scheme",
 		Aliases:   []string{"scheme", "scm"},
 		Filenames: []string{"*.scm", "*.ss"},
 		MimeTypes: []string{"text/x-scheme", "application/x-scheme"},
 	},
-	Rules{
+	schemeLangRules,
+))
+
+func schemeLangRules() Rules {
+	return Rules{
 		"root": {
 			{`;.*$`, CommentSingle, nil},
 			{`#\|`, CommentMultiline, Push("multiline-comment")},
@@ -26,7 +30,7 @@ var SchemeLang = internal.Register(MustNewLexer(
 			{`-?\d+`, LiteralNumberInteger, nil},
 			{`"(\\\\|\\"|[^"])*"`, LiteralString, nil},
 			{`'[\w!$%&*+,/:<=>?@^~|-]+`, LiteralStringSymbol, nil},
-			{`#\\([()/'\"._!§$%& ?=+-]|[a-zA-Z0-9]+)`, LiteralStringChar, nil},
+			{`#\\(alarm|backspace|delete|esc|linefeed|newline|page|return|space|tab|vtab|x[0-9a-zA-Z]{1,5}|.)`, LiteralStringChar, nil},
 			{`(#t|#f)`, NameConstant, nil},
 			{"('|#|`|,@|,|\\.)", Operator, nil},
 			{`(lambda |define |if |else |cond |and |or |case |let |let\* |letrec |begin |do |delay |set\! |\=\> |quote |quasiquote |unquote |unquote\-splicing |define\-syntax |let\-syntax |letrec\-syntax |syntax\-rules )`, Keyword, nil},
@@ -49,5 +53,5 @@ var SchemeLang = internal.Register(MustNewLexer(
 			{`\)`, Comment, Pop(1)},
 			{`[^()]+`, Comment, nil},
 		},
-	},
-))
+	}
+}

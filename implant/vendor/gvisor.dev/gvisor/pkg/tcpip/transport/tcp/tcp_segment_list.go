@@ -21,9 +21,10 @@ func (segmentElementMapper) linkerFor(elem *segment) *segment { return elem }
 // The zero value for List is an empty list ready to use.
 //
 // To iterate over a list (where l is a List):
-//      for e := l.Front(); e != nil; e = e.Next() {
-// 		// do something with e.
-//      }
+//
+//	for e := l.Front(); e != nil; e = e.Next() {
+//		// do something with e.
+//	}
 //
 // +stateify savable
 type segmentList struct {
@@ -84,6 +85,23 @@ func (l *segmentList) PushFront(e *segment) {
 	}
 
 	l.head = e
+}
+
+// PushFrontList inserts list m at the start of list l, emptying m.
+//
+//go:nosplit
+func (l *segmentList) PushFrontList(m *segmentList) {
+	if l.head == nil {
+		l.head = m.head
+		l.tail = m.tail
+	} else if m.head != nil {
+		segmentElementMapper{}.linkerFor(l.head).SetPrev(m.tail)
+		segmentElementMapper{}.linkerFor(m.tail).SetNext(l.head)
+
+		l.head = m.head
+	}
+	m.head = nil
+	m.tail = nil
 }
 
 // PushBack inserts the element e at the back of list l.

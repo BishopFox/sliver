@@ -181,22 +181,22 @@ func (epsByNIC *endpointsByNIC) handlePacket(id TransportEndpointID, pkt *Packet
 		epsByNIC.mu.RUnlock()
 		return true
 	}
+	epsByNIC.mu.RUnlock()
 
 	transEP.HandlePacket(id, pkt)
-	epsByNIC.mu.RUnlock() // Don't use defer for performance reasons.
 	return true
 }
 
 // handleError delivers an error to the transport endpoint identified by id.
 func (epsByNIC *endpointsByNIC) handleError(n *nic, id TransportEndpointID, transErr TransportError, pkt *PacketBuffer) {
 	epsByNIC.mu.RLock()
-	defer epsByNIC.mu.RUnlock()
 
 	mpep, ok := epsByNIC.endpoints[n.ID()]
 	if !ok {
 		mpep, ok = epsByNIC.endpoints[0]
 	}
 	if !ok {
+		epsByNIC.mu.RUnlock()
 		return
 	}
 
@@ -204,7 +204,10 @@ func (epsByNIC *endpointsByNIC) handleError(n *nic, id TransportEndpointID, tran
 	// broadcast like we are doing with handlePacket above?
 
 	// multiPortEndpoints are guaranteed to have at least one element.
-	mpep.selectEndpoint(id, epsByNIC.seed).HandleError(transErr, pkt)
+	transEP := mpep.selectEndpoint(id, epsByNIC.seed)
+	epsByNIC.mu.RUnlock()
+
+	transEP.HandleError(transErr, pkt)
 }
 
 // registerEndpoint returns true if it succeeds. It fails and returns
@@ -401,14 +404,16 @@ func (ep *multiPortEndpoint) selectEndpoint(id TransportEndpointID, seed uint32)
 func (ep *multiPortEndpoint) handlePacketAll(id TransportEndpointID, pkt *PacketBuffer) {
 	ep.mu.RLock()
 	queuedProtocol, mustQueue := ep.demux.queuedProtocols[protocolIDs{ep.netProto, ep.transProto}]
-	// HandlePacket takes ownership of pkt, so each endpoint needs
+	// HandlePacket may modify pkt, so each endpoint needs
 	// its own copy except for the final one.
 	for _, endpoint := range ep.endpoints[:len(ep.endpoints)-1] {
+		clone := pkt.Clone()
 		if mustQueue {
-			queuedProtocol.QueuePacket(endpoint, id, pkt.Clone())
+			queuedProtocol.QueuePacket(endpoint, id, clone)
 		} else {
-			endpoint.HandlePacket(id, pkt.Clone())
+			endpoint.HandlePacket(id, clone)
 		}
+		clone.DecRef()
 	}
 	if endpoint := ep.endpoints[len(ep.endpoints)-1]; mustQueue {
 		queuedProtocol.QueuePacket(endpoint, id, pkt)
@@ -559,10 +564,12 @@ func (d *transportDemuxer) deliverPacket(protocol tcpip.TransportProtocolNumber,
 			d.stack.stats.UDP.UnknownPortErrors.Increment()
 			return false
 		}
-		// handlePacket takes ownership of pkt, so each endpoint needs its own
+		// handlePacket takes may modify pkt, so each endpoint needs its own
 		// copy except for the final one.
 		for _, ep := range destEPs[:len(destEPs)-1] {
-			ep.handlePacket(id, pkt.Clone())
+			clone := pkt.Clone()
+			ep.handlePacket(id, clone)
+			clone.DecRef()
 		}
 		destEPs[len(destEPs)-1].handlePacket(id, pkt)
 		return true
@@ -615,7 +622,9 @@ func (d *transportDemuxer) deliverRawPacket(protocol tcpip.TransportProtocolNumb
 	for _, rawEP := range rawEPs {
 		// Each endpoint gets its own copy of the packet for the sake
 		// of save/restore.
-		rawEP.HandlePacket(pkt.Clone())
+		clone := pkt.Clone()
+		rawEP.HandlePacket(clone)
+		clone.DecRef()
 	}
 
 	return len(rawEPs) != 0

@@ -71,7 +71,7 @@ func StartMTLSListenerJob(host string, listenPort uint16) (*core.Job, error) {
 
 // StartWGListenerJob - Start a WireGuard listener as a job
 func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListenPort uint16) (*core.Job, error) {
-	ln, dev, currentWGConf, err := StartWGListener(listenPort, nListenPort, keyExchangeListenPort)
+	ln, dev, _, err := StartWGListener(listenPort, nListenPort, keyExchangeListenPort)
 	if err != nil {
 		return nil, err // If we fail to bind don't setup the Job
 	}
@@ -88,42 +88,21 @@ func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListen
 	ticker := time.NewTicker(5 * time.Second)
 	done := make(chan bool)
 
-	// Every 5 seconds update the wireguard config to include new peers
-	go func(dev *device.Device, currentWGConf *bytes.Buffer) {
-		oldNumPeers := 0
-		for {
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-				currentPeers, err := certs.GetWGPeers()
-				if err != nil {
-					jobLog.Errorf("Failed to get current Wireguard Peers %s", err)
+	// Listener for new keys
+	go func(dev *device.Device) {
+		for event := range core.EventBroker.Subscribe() {
+			switch event.EventType {
+
+			case consts.WireGuardNewPeer:
+				buf := bytes.NewBuffer(nil)
+				fmt.Fprintf(buf, "%s", event.Data)
+				if err := dev.IpcSetOperation(bufio.NewReader(buf)); err != nil {
+					jobLog.Errorf("Failed to update Wireguard Config %s", err)
 					continue
-				}
-
-				if len(currentPeers) > oldNumPeers {
-					jobLog.Infof("New WG peers. Updating Wireguard config")
-
-					oldNumPeers = len(currentPeers)
-
-					jobLog.Infof("Old WG config for peers: %s", currentWGConf.String())
-					for k, v := range currentPeers {
-						fmt.Fprintf(currentWGConf, "public_key=%s\n", k)
-						fmt.Fprintf(currentWGConf, "allowed_ip=%s/32\n", v)
-					}
-
-					jobLog.Infof("New WG config for peers: %s", currentWGConf.String())
-
-					if err := dev.IpcSetOperation(bufio.NewReader(currentWGConf)); err != nil {
-						jobLog.Errorf("Failed to update Wireguard Config %s", err)
-						continue
-					}
-					jobLog.Infof("Successfully updated Wireguard config")
 				}
 			}
 		}
-	}(dev, currentWGConf)
+	}(dev)
 
 	go func() {
 		<-job.JobCtrl
@@ -382,6 +361,7 @@ func StartPersistentJobs(cfg *configs.ServerConfig) error {
 			EnforceOTP:      j.EnforceOTP,
 			LongPollTimeout: time.Duration(j.LongPollTimeout),
 			LongPollJitter:  time.Duration(j.LongPollJitter),
+			RandomizeJARM:   j.RandomizeJARM,
 		}
 		job, err := StartHTTPListenerJob(cfg)
 		if err != nil {
@@ -428,6 +408,9 @@ func listenAndServeTLS(srv *http.Server, certPEMBlock, keyPEMBlock []byte) error
 	config := &tls.Config{}
 	if srv.TLSConfig != nil {
 		*config = *srv.TLSConfig
+	}
+	if certs.TLSKeyLogger != nil {
+		config.KeyLogWriter = certs.TLSKeyLogger
 	}
 	if config.NextProtos == nil {
 		config.NextProtos = []string{"http/1.1"}

@@ -249,6 +249,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	limitUsername := ctx.Flags.String("limit-username")
 	limitDatetime := ctx.Flags.String("limit-datetime")
 	limitFileExists := ctx.Flags.String("limit-fileexists")
+	limitLocale := ctx.Flags.String("limit-locale")
 
 	isSharedLib := false
 	isService := false
@@ -279,6 +280,10 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	targetArch := strings.ToLower(ctx.Flags.String("arch"))
 	targetOS, targetArch = getTargets(targetOS, targetArch, con)
 	if targetOS == "" || targetArch == "" {
+		return nil
+	}
+	if configFormat == clientpb.OutputFormat_SHELLCODE && targetOS != "windows" {
+		con.PrintErrorf("Shellcode format is currently only supported on Windows\n")
 		return nil
 	}
 	if len(namedPipeC2) > 0 && targetOS != "windows" {
@@ -333,6 +338,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		LimitUsername:     limitUsername,
 		LimitDatetime:     limitDatetime,
 		LimitFileExists:   limitFileExists,
+		LimitLocale:       limitLocale,
 
 		Format:      configFormat,
 		IsSharedLib: isSharedLib,
@@ -473,6 +479,7 @@ func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 				return nil, err
 			}
 		}
+		uri.Path = strings.TrimSuffix(uri.Path, "/")
 		if uri.Scheme != "http" && uri.Scheme != "https" {
 			return nil, fmt.Errorf("invalid http(s) scheme: %s", uri.Scheme)
 		}
@@ -636,12 +643,34 @@ func compile(config *clientpb.ImplantConfig, save string, con *console.SliverCon
 		return nil, errors.New("no file data")
 	}
 
+	fileData := generated.File.Data
+	if config.IsShellcode {
+		confirm := false
+		survey.AskOne(&survey.Confirm{Message: "Encode shellcode with shikata ga nai?"}, &confirm)
+		if confirm {
+			con.PrintInfof("Encoding shellcode with shikata ga nai ... ")
+			resp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
+				Encoder:      clientpb.ShellcodeEncoder_SHIKATA_GA_NAI,
+				Architecture: config.GOARCH,
+				Iterations:   1,
+				BadChars:     []byte{},
+				Data:         fileData,
+			})
+			if err != nil {
+				con.PrintErrorf("%s\n", err)
+			} else {
+				con.Printf("success!\n")
+				fileData = resp.GetData()
+			}
+		}
+	}
+
 	saveTo, err := saveLocation(save, generated.File.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	err = ioutil.WriteFile(saveTo, generated.File.Data, 0700)
+	err = ioutil.WriteFile(saveTo, fileData, 0700)
 	if err != nil {
 		con.PrintErrorf("Failed to write to: %s\n", saveTo)
 		return nil, err
@@ -666,6 +695,9 @@ func getLimitsString(config *clientpb.ImplantConfig) string {
 	}
 	if config.LimitFileExists != "" {
 		limits = append(limits, fmt.Sprintf("fileexists=%s", config.LimitFileExists))
+	}
+	if config.LimitLocale != "" {
+		limits = append(limits, fmt.Sprintf("locale=%s", config.LimitLocale))
 	}
 	return strings.Join(limits, "; ")
 }

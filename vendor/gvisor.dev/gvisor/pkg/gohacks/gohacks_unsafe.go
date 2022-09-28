@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build go1.13 && !go1.19
-// +build go1.13,!go1.19
+//go:build go1.13 && !go1.21
+// +build go1.13,!go1.21
 
 // //go:linkname directives type-checked by checklinkname. Any other
 // non-linkname assumptions outside the Go 1 compatibility guarantee should
@@ -95,3 +95,14 @@ func Memmove(to, from unsafe.Pointer, n uintptr) {
 //go:linkname memmove runtime.memmove
 //go:noescape
 func memmove(to, from unsafe.Pointer, n uintptr)
+
+// Nanotime is runtime.nanotime.
+//
+//go:nosplit
+func Nanotime() int64 {
+	return nanotime()
+}
+
+//go:linkname nanotime runtime.nanotime
+//go:noescape
+func nanotime() int64

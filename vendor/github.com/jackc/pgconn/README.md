@@ -1,5 +1,5 @@
 [![](https://godoc.org/github.com/jackc/pgconn?status.svg)](https://godoc.org/github.com/jackc/pgconn)
-[![Build Status](https://travis-ci.org/jackc/pgconn.svg)](https://travis-ci.org/jackc/pgconn)
+![CI](https://github.com/jackc/pgconn/workflows/CI/badge.svg)
 
 # pgconn
 
@@ -15,16 +15,16 @@ pgConn, err := pgconn.Connect(context.Background(), os.Getenv("DATABASE_URL"))
 if err != nil {
 	log.Fatalln("pgconn failed to connect:", err)
 }
-defer pgConn.Close()
+defer pgConn.Close(context.Background())
 
 result := pgConn.ExecParams(context.Background(), "SELECT email FROM users WHERE id=$1", [][]byte{[]byte("123")}, nil, nil, nil)
 for result.NextRow() {
 	fmt.Println("User 123 has email:", string(result.Values()[0]))
 }
-_, err := result.Close()
+_, err = result.Close()
 if err != nil {
 	log.Fatalln("failed reading result:", err)
-})
+}
 ```
 
 ## Testing
@@ -52,5 +52,5 @@ PGX_TEST_CONN_STRING="host=/var/run/postgresql dbname=pgx_test" go test ./...
 
 Pgconn supports multiple connection types and means of authentication. These tests are optional. They
 will only run if the appropriate environment variable is set. Run `go test -v | grep SKIP` to see if any tests are being
-skipped. Most developers will not need to enable these tests. See `travis.yml` for an example set up if you need change
+skipped. Most developers will not need to enable these tests. See `ci/setup_test.bash` for an example set up if you need change
 authentication code.

@@ -23,7 +23,7 @@ package command
 
 	Guidelines when adding a command:
 
-		* Try to reuse the same short/long flags for the same paramenter,
+		* Try to reuse the same short/long flags for the same parameter,
 		  e.g. "timeout" flags should always be -t and --timeout when possible.
 		  Try to avoid creating flags that conflict with others even if you're
 		  not using the flag, e.g. avoid using -t even if your command doesn't
@@ -42,6 +42,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/command/completers"
+	"github.com/bishopfox/sliver/client/command/cursed"
 	"github.com/bishopfox/sliver/client/command/dllhijack"
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
@@ -65,10 +66,12 @@ import (
 	"github.com/bishopfox/sliver/client/command/reaction"
 	"github.com/bishopfox/sliver/client/command/reconfig"
 	"github.com/bishopfox/sliver/client/command/registry"
+	"github.com/bishopfox/sliver/client/command/rportfwd"
 	"github.com/bishopfox/sliver/client/command/screenshot"
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/command/shell"
+	sgn "github.com/bishopfox/sliver/client/command/shikata-ga-nai"
 	"github.com/bishopfox/sliver/client/command/socks"
 	"github.com/bishopfox/sliver/client/command/tasks"
 	"github.com/bishopfox/sliver/client/command/update"
@@ -454,6 +457,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("c", "cert", "", "PEM encoded certificate file")
 			f.String("k", "key", "", "PEM encoded private key file")
 			f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate")
+			f.Bool("E", "disable-randomized-jarm", false, "disable randomized jarm fingerprints")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("p", "persistent", false, "make persistent across restarts")
@@ -478,7 +482,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("k", "key", "", "path to PEM encoded private key file (HTTPS only)")
 			f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate (HTTPS only)")
 			f.StringL("aes-encrypt-key", "", "encrypt stage with AES encryption key")
-			f.StringL("aes-encrypt-iv", "", "encrypt stage with AES encyption iv")
+			f.StringL("aes-encrypt-iv", "", "encrypt stage with AES encryption iv")
+			f.String("C", "compress", "none", "compress the stage before encrypting (zlib, gzip, deflate9, none)")
+			f.Bool("P", "prepend-size", false, "prepend the size of the stage to the payload (to use with MSF stagers)")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -514,7 +520,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Reconfigure the active beacon/session",
 		LongHelp: help.GetHelpFor([]string{consts.ReconfigStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("n", "name", "", "change implant name to")
 			f.String("r", "reconnect-interval", "", "reconnect interval for implant")
 			f.String("i", "beacon-interval", "", "beacon callback interval")
 			f.String("j", "beacon-jitter", "", "beacon callback jitter (random up to)")
@@ -714,6 +719,28 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
+	tasksCmd.AddCommand(&grumble.Command{
+		Name:     consts.CancelStr,
+		Help:     "Cancel a pending beacon task",
+		LongHelp: help.GetHelpFor([]string{consts.TasksStr, consts.CancelStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Bool("O", "overflow", false, "overflow terminal width (display truncated rows)")
+			f.Int("S", "skip-pages", 0, "skip the first n page(s)")
+			f.String("f", "filter", "", "filter based on task type (case-insensitive prefix matching)")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("id", "beacon task ID", grumble.Default(""))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			tasks.TasksCancelCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
 	con.App.AddCommand(tasksCmd)
 
 	// [ Use ] --------------------------------------------------------------
@@ -875,6 +902,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Args: func(a *grumble.Args) {
 			a.String("session", "session ID", grumble.Default(""))
 		},
+		Completer: func(prefix string, args []string) []string {
+			return use.BeaconAndSessionIDCompleter(prefix, args, con)
+		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			info.InfoCmd(ctx, con)
@@ -985,6 +1015,33 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
+	// [ Shellcode Encoders ] --------------------------------------------------------------
+
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.ShikataGaNai,
+		Help:     "Polymorphic binary shellcode encoder (ノ ゜Д゜)ノ ︵ 仕方がない",
+		LongHelp: help.GetHelpFor([]string{consts.ShikataGaNai}),
+		Args: func(a *grumble.Args) {
+			a.String("shellcode", "binary shellcode file path")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "save", "", "save output to local file")
+
+			f.String("a", "arch", "amd64", "architecture of shellcode")
+			f.Int("i", "iterations", 1, "number of iterations")
+			f.String("b", "bad-chars", "", "hex encoded bad characters to avoid (e.g. 0001)")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			sgn.ShikataGaNaiCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+
 	// [ Exec ] --------------------------------------------------------------
 
 	con.App.AddCommand(&grumble.Command{
@@ -1000,6 +1057,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("O", "stdout", "", "remote path to redirect STDOUT to")
 			f.String("E", "stderr", "", "remote path to redirect STDERR to")
 			f.String("n", "name", "", "name to assign loot (optional)")
+			f.Uint("P", "ppid", 0, "parent process id (optional, Windows only)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1030,9 +1088,15 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("c", "class", "", "Optional class name (required for .NET DLL)")
 			f.String("d", "app-domain", "", "AppDomain name to create for .NET assembly. Generated randomly if not set.")
 			f.String("a", "arch", "x84", "Assembly target architecture: x86, x64, x84 (x86+x64)")
+			f.Bool("i", "in-process", false, "Run in the current sliver process")
+			f.String("r", "runtime", "", "Runtime to use for running the assembly (only supported when used with --in-process)")
 			f.Bool("s", "save", false, "save output to file")
 			f.Bool("X", "loot", false, "save output as loot")
 			f.String("n", "name", "", "name to assign loot (optional)")
+			f.Uint("P", "ppid", 0, "parent process id (optional)")
+			f.String("A", "process-arguments", "", "arguments to pass to the hosting process")
+			f.Bool("M", "amsi-bypass", false, "Bypass AMSI on Windows (only supported when used with --in-process)")
+			f.Bool("E", "etw-bypass", false, "Bypass ETW on Windows (only supported when used with --in-process)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1063,6 +1127,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Uint("p", "pid", 0, "Pid of process to inject into (0 means injection into ourselves)")
 			f.String("n", "process", `c:\windows\system32\notepad.exe`, "Process to inject into when running in interactive mode")
 			f.Bool("i", "interactive", false, "Inject into a new process and interact with it")
+			f.Bool("S", "shikata-ga-nai", false, "encode shellcode using shikata ga nai prior to execution")
+			f.String("A", "architecture", "amd64", "architecture of the shellcode: 386, amd64 (used with --shikata-ga-nai flag)")
+			f.Int("I", "iterations", 1, "number of encoding iterations (used with --shikata-ga-nai flag)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1081,6 +1148,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("X", "loot", false, "save output as loot")
 			f.String("n", "name", "", "name to assign loot (optional)")
 			f.Bool("k", "keep-alive", false, "don't terminate host process once the execution completes")
+			f.Uint("P", "ppid", 0, "parent process id (optional)")
+			f.String("A", "process-arguments", "", "arguments to pass to the hosting process")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1109,6 +1178,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("n", "name", "", "name to assign loot (optional)")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Bool("k", "keep-alive", false, "don't terminate host process once the execution completes")
+			f.Uint("P", "ppid", 0, "parent process id (optional)")
+			f.String("A", "process-arguments", "", "arguments to pass to the hosting process")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("filepath", "path the DLL file")
@@ -1277,6 +1348,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
+			f.String("L", "limit-locale", "", "limit execution to hosts that match this locale")
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 			f.String("s", "save", "", "directory/file to the binary to")
@@ -1334,6 +1406,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
+			f.String("L", "limit-locale", "", "limit execution to hosts that match this locale")
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 			f.String("s", "save", "", "directory/file to the binary to")
@@ -1486,6 +1559,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
+			f.String("L", "limit-locale", "", "limit execution to hosts that match this locale")
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 
@@ -1526,6 +1600,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 			f.String("c", "canary", "", "canary domain(s)")
 
+			f.String("N", "name", "", "implant name")
 			f.String("m", "mtls", "", "mtls connection strings")
 			f.String("g", "wg", "", "wg connection strings")
 			f.String("b", "http", "", "http(s) connection strings")
@@ -1548,6 +1623,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("y", "limit-username", "", "limit execution to specified username")
 			f.String("z", "limit-hostname", "", "limit execution to specified hostname")
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
+			f.String("L", "limit-locale", "", "limit execution to hosts that match this locale")
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
 
@@ -2465,6 +2541,59 @@ func BindCommands(con *console.SliverConsoleClient) {
 	})
 	con.App.AddCommand(registryCmd)
 
+	// [ Reverse Port Forwarding ] --------------------------------------------------------------
+
+	rportfwdCmd := &grumble.Command{
+		Name:     consts.RportfwdStr,
+		Help:     "reverse port forwardings",
+		LongHelp: help.GetHelpFor([]string{consts.RportfwdStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			rportfwd.RportFwdListenersCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	}
+	rportfwdCmd.AddCommand(&grumble.Command{
+		Name:     consts.AddStr,
+		Help:     "Add and start reverse port forwarding",
+		LongHelp: help.GetHelpFor([]string{consts.RportfwdStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			rportfwd.StartRportFwdListenerCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.String("r", "remote", "", "remote address <ip>:<port> connection is forwarded to")
+			f.String("b", "bind", "", "bind address <ip>:<port> implants listen on")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+	rportfwdCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Stop and remove reverse port forwarding",
+		LongHelp: help.GetHelpFor([]string{consts.RportfwdStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			rportfwd.StopRportFwdListenerCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("i", "id", 0, "id of portfwd to remove")
+		},
+		HelpGroup: consts.SliverWinHelpGroup,
+	})
+
+	con.App.AddCommand(rportfwdCmd)
+
 	// [ Pivots ] --------------------------------------------------------------
 
 	pivotsCmd := &grumble.Command{
@@ -3257,6 +3386,168 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("r", "range", "sliver", "Agents range")
 		},
 	})
-
 	con.App.AddCommand(operatorCmd)
+
+	// [ Curse Commands ] ------------------------------------------------------------
+
+	cursedCmd := &grumble.Command{
+		Name:      consts.Cursed,
+		Help:      "Chrome/electron post-exploitation tool kit (∩｀-´)⊃━☆ﾟ.*･｡ﾟ",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	}
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.RmStr,
+		Help:      "Remove a Curse from a process",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedConsole}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Bool("k", "kill", false, "kill the process after removing the curse")
+		},
+		Args: func(a *grumble.Args) {
+			a.Int("bind-port", "bind port of the Cursed process to stop")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedRmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.CursedConsole,
+		Help:      "Start a JavaScript console connected to a debug target",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedConsole}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("r", "remote-debugging-port", 0, "remote debugging tcp port (0 = random)`")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedConsoleCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.CursedChrome,
+		Help:      "Automatically inject a Cursed Chrome payload into a remote Chrome extension",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedChrome}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("r", "remote-debugging-port", 0, "remote debugging tcp port (0 = random)")
+			f.Bool("R", "restore", true, "restore the user's session after process termination")
+			f.String("e", "exe", "", "chrome/chromium browser executable path (blank string = auto)")
+			f.String("u", "user-data", "", "user data directory (blank string = auto)")
+			f.String("p", "payload", "", "cursed chrome payload file path (.js)")
+			f.Bool("k", "keep-alive", false, "keeps browser alive after last browser window closes")
+			f.Bool("H", "headless", false, "start browser process in headless mode")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.StringList("args", "additional chrome cli arguments", grumble.Default([]string{}))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedChromeCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.CursedEdge,
+		Help:      "Automatically inject a Cursed Chrome payload into a remote Edge extension",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedEdge}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("r", "remote-debugging-port", 0, "remote debugging tcp port (0 = random)")
+			f.Bool("R", "restore", true, "restore the user's session after process termination")
+			f.String("e", "exe", "", "edge browser executable path (blank string = auto)")
+			f.String("u", "user-data", "", "user data directory (blank string = auto)")
+			f.String("p", "payload", "", "cursed chrome payload file path (.js)")
+			f.Bool("k", "keep-alive", false, "keeps browser alive after last browser window closes")
+			f.Bool("H", "headless", false, "start browser process in headless mode")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.StringList("args", "additional edge cli arguments", grumble.Default([]string{}))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedEdgeCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.CursedElectron,
+		Help:      "Curse a remote Electron application",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedElectron}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.String("e", "exe", "", "remote electron executable absolute path")
+			f.Int("r", "remote-debugging-port", 0, "remote debugging tcp port (0 = random)")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.StringList("args", "additional electron cli arguments", grumble.Default([]string{}))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedElectronCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.CursedCookies,
+		Help:      "Dump all cookies from cursed process",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedCookies}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.String("s", "save", "", "save to file")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedCookiesCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	cursedCmd.AddCommand(&grumble.Command{
+		Name:      consts.ScreenshotStr,
+		Help:      "Take a screenshot of a cursed process debug target",
+		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.ScreenshotStr}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int64("q", "quality", 100, "screenshot quality (1 - 100)")
+			f.String("s", "save", "", "save to file")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			cursed.CursedScreenshotCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	con.App.AddCommand(cursedCmd)
 }

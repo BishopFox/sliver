@@ -19,6 +19,9 @@ package rpc
 */
 
 import (
+	"fmt"
+
+	"github.com/bishopfox/sliver/server/db/models"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -41,4 +44,8 @@ var (
 
 	// ErrInvalidName - Invalid name
 	ErrInvalidName = status.Error(codes.InvalidArgument, "Invalid session name, alphanumerics and _-. only")
+	// ErrBuildExists
+	ErrBuildExists = status.Error(codes.AlreadyExists, "Build already exists")
+
+	ErrInvalidBeaconTaskCancelState = status.Error(codes.InvalidArgument, fmt.Sprintf("Invalid task state, must be '%s' to cancel", models.PENDING))
 )

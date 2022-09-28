@@ -139,8 +139,9 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 
 	if req.Persistent {
 		cfg := &configs.WGJobConfig{
-			Port:  listenPort,
-			NPort: nListenPort,
+			Port:    listenPort,
+			NPort:   nListenPort,
+			KeyPort: keyExchangeListenPort,
 		}
 		configs.GetServerConfig().AddWGJob(cfg)
 		job.PersistentID = cfg.JobID
@@ -202,6 +203,7 @@ func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPLis
 		EnforceOTP:      req.EnforceOTP,
 		LongPollTimeout: time.Duration(req.LongPollTimeout),
 		LongPollJitter:  time.Duration(req.LongPollJitter),
+		RandomizeJARM:   req.RandomizeJARM,
 	}
 	job, err := c2.StartHTTPListenerJob(conf)
 	if err != nil {
@@ -221,6 +223,7 @@ func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPLis
 			EnforceOTP:      req.EnforceOTP,
 			LongPollTimeout: req.LongPollTimeout,
 			LongPollJitter:  req.LongPollJitter,
+			RandomizeJARM:   req.RandomizeJARM,
 		}
 		configs.GetServerConfig().AddHTTPJob(cfg)
 		job.PersistentID = cfg.JobID

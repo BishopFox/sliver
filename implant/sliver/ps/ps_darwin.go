@@ -1,3 +1,4 @@
+//go:build darwin
 // +build darwin
 
 package ps
@@ -90,6 +91,7 @@ func processes() ([]Process, error) {
 			pCommReader := bytes.NewBuffer(pComm)
 			binPath, _ = pCommReader.ReadString(0x00)
 		}
+		binPath = strings.TrimSuffix(binPath, "\x00") // Trim the null byte
 		// Discard the error: if the call errors out, we'll just have an empty argv slice
 		cmdLine, _ := getArgvFromPid(int(p.Proc.P_pid))
 

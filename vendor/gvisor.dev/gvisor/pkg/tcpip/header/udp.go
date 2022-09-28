@@ -101,7 +101,7 @@ func (b UDP) SetDestinationPort(port uint16) {
 
 // SetChecksum sets the "checksum" field of the UDP header.
 func (b UDP) SetChecksum(checksum uint16) {
-	binary.BigEndian.PutUint16(b[udpChecksum:], checksum)
+	PutChecksum(b[udpChecksum:], checksum)
 }
 
 // SetLength sets the "length" field of the UDP header.
@@ -125,10 +125,10 @@ func (b UDP) IsChecksumValid(src, dst tcpip.Address, payloadChecksum uint16) boo
 
 // Encode encodes all the fields of the UDP header.
 func (b UDP) Encode(u *UDPFields) {
-	binary.BigEndian.PutUint16(b[udpSrcPort:], u.SrcPort)
-	binary.BigEndian.PutUint16(b[udpDstPort:], u.DstPort)
-	binary.BigEndian.PutUint16(b[udpLength:], u.Length)
-	binary.BigEndian.PutUint16(b[udpChecksum:], u.Checksum)
+	b.SetSourcePort(u.SrcPort)
+	b.SetDestinationPort(u.DstPort)
+	b.SetLength(u.Length)
+	b.SetChecksum(u.Checksum)
 }
 
 // SetSourcePortWithChecksumUpdate implements ChecksummableTransport.
@@ -158,4 +158,37 @@ func (b UDP) UpdateChecksumPseudoHeaderAddress(old, new tcpip.Address, fullCheck
 	}
 
 	b.SetChecksum(xsum)
+}
+
+// UDPValid returns true if the pkt has a valid UDP header. It checks whether:
+//   - The length field is too small.
+//   - The length field is too large.
+//   - The checksum is invalid.
+//
+// UDPValid corresponds to net/netfilter/nf_conntrack_proto_udp.c:udp_error.
+func UDPValid(hdr UDP, payloadChecksum func() uint16, payloadSize uint16, netProto tcpip.NetworkProtocolNumber, srcAddr, dstAddr tcpip.Address, skipChecksumValidation bool) (lengthValid, csumValid bool) {
+	if length := hdr.Length(); length > payloadSize+UDPMinimumSize || length < UDPMinimumSize {
+		return false, false
+	}
+
+	if skipChecksumValidation {
+		return true, true
+	}
+
+	// On IPv4, UDP checksum is optional, and a zero value means the transmitter
+	// omitted the checksum generation, as per RFC 768:
+	//
+	//   An all zero transmitted checksum value means that the transmitter
+	//   generated  no checksum  (for debugging or for higher level protocols that
+	//   don't care).
+	//
+	// On IPv6, UDP checksum is not optional, as per RFC 2460 Section 8.1:
+	//
+	//   Unlike IPv4, when UDP packets are originated by an IPv6 node, the UDP
+	//   checksum is not optional.
+	if netProto == IPv4ProtocolNumber && hdr.Checksum() == 0 {
+		return true, true
+	}
+
+	return true, hdr.IsChecksumValid(srcAddr, dstAddr, payloadChecksum())
 }

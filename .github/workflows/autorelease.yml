@@ -6,57 +6,55 @@ on:
     branches: [master, goreleaser]
 
 jobs:
-
   linux-windows-build:
     name: Linux & Windows Build
     if: startsWith( github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - name: Go 1.19
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.19.1"
 
-    - name: Go 1.18
-      uses: actions/setup-go@v2
-      with:
-        go-version: '^1.18'
-    
-    - name: OS Packages 
-      run: |
-        sudo apt-get update --fix-missing && sudo apt-get -y install \
-        git build-essential zlib1g zlib1g-dev wget zip unzip \
-        mingw-w64 binutils-mingw-w64 g++-mingw-w64 gcc-multilib
+      - name: OS Packages
+        run: |
+          sudo apt-get update --fix-missing && sudo apt-get -y install \
+          git build-essential zlib1g zlib1g-dev wget zip unzip \
+          mingw-w64 binutils-mingw-w64 g++-mingw-w64 gcc-multilib
 
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
 
-    - name: Git Fetch Tags
-      run: git fetch --prune --unshallow --tags -f
+      - name: Git Fetch Tags
+        run: git fetch --prune --unshallow --tags -f
 
-    - name: Go Assets
-      run: ./go-assets.sh
+      - name: Go Assets
+        run: ./go-assets.sh
 
-    - name: Make
-      env:
-        ARTIFACT_SUFFIX: _linux
-      run: export PATH=/home/runner/go/bin/:$PATH && make linux
-  
-    - name: Linux Artifacts
-      uses: actions/upload-artifact@v2
-      with:
-        name: linux
-        path: ./sliver-*
+      - name: Make
+        env:
+          ARTIFACT_SUFFIX: _linux
+        run: export PATH=/home/runner/go/bin/:$PATH && make linux
 
-    - name: Make Windows
-      env: 
-        ARTIFACT_SUFFIX: _windows
-      run: |
-        make clean
-        export PATH=/home/runner/go/bin/:$PATH && make windows
+      - name: Linux Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: linux
+          path: ./sliver-*
 
-    - name: Windows Artifacts
-      uses: actions/upload-artifact@v2
-      with:
-        name: windows
-        path:  ./sliver-*
+      - name: Make Windows
+        env:
+          ARTIFACT_SUFFIX: _windows
+        run: |
+          make clean
+          export PATH=/home/runner/go/bin/:$PATH && make windows
+
+      - name: Windows Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows
+          path: ./sliver-*
 
   macos-build:
     name: MacOS Build
@@ -64,42 +62,40 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
+      - name: Go 1.19
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.19.1"
 
-    - name: Go 1.18
-      uses: actions/setup-go@v2
-      with:
-        go-version: '^1.18'
+      - name: Mingw
+        run: brew install mingw-w64
 
-    - name: Mingw
-      run: brew install mingw-w64
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
 
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
+      - name: Git Fetch Tags
+        run: git fetch --prune --unshallow --tags -f
 
-    - name: Git Fetch Tags
-      run: git fetch --prune --unshallow --tags -f
+      - name: Go Assets
+        run: ./go-assets.sh
 
-    - name: Go Assets
-      run: ./go-assets.sh
+      - name: Make AMD64
+        env:
+          ARTIFACT_SUFFIX: _macos
+        run: make macos
 
-    - name: Make AMD64
-      env: 
-        ARTIFACT_SUFFIX: _macos
-      run: make macos
+      - name: Make ARM64
+        env:
+          ARTIFACT_SUFFIX: _macos-arm64
+        run: make macos-arm64
 
-    - name: Make ARM64
-      env: 
-        ARTIFACT_SUFFIX: _macos-arm64
-      run: make macos-arm64
-
-    - name: MacOS Artifacts
-      uses: actions/upload-artifact@v2
-      with:
-        name: macos
-        path: ./sliver-*
+      - name: MacOS Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos
+          path: ./sliver-*
 
   tagged-release:
-
     needs: [linux-windows-build, macos-build]
 
     name: "Tagged Release"
@@ -108,53 +104,52 @@ jobs:
     timeout-minutes: 45
 
     steps:
-  
-    - run: mkdir -p ./builds
-    - uses: actions/download-artifact@v2
-      with:
-        path: ./builds
+      - run: mkdir -p ./builds
+      - uses: actions/download-artifact@v3
+        with:
+          path: ./builds
 
-    - name: Extract Artifacts
-      run: |
-        mkdir -p ./artifacts
-        cp ./builds/linux/* ./artifacts
-        cp ./builds/windows/* ./artifacts
-        cp ./builds/macos/* ./artifacts
+      - name: Extract Artifacts
+        run: |
+          mkdir -p ./artifacts
+          cp ./builds/linux/* ./artifacts
+          cp ./builds/windows/* ./artifacts
+          cp ./builds/macos/* ./artifacts
 
-    - id: install-secret-key
-      name: GPG Key(s)
-      run: |
-        cat <(echo -e "${{ secrets.SLIVER_GPG }}") | gpg --batch --import
-        gpg --list-secret-keys --keyid-format LONG
+      - id: install-secret-key
+        name: GPG Key(s)
+        run: |
+          cat <(echo -e "${{ secrets.SLIVER_GPG }}") | gpg --batch --import
+          gpg --list-secret-keys --keyid-format LONG
 
-    # Linux
-    - name: Linux AMD64
-      run: |
-        gpg --default-key 4449039C --output ./artifacts/sliver-server_linux.sig --detach-sig ./artifacts/sliver-server_linux
-        gpg --default-key 4449039C --output ./artifacts/sliver-client_linux.sig --detach-sig ./artifacts/sliver-client_linux
-    
-    # Windows
-    - name: Windows AMD64
-      run: |
-        gpg --default-key 4449039C --output ./artifacts/sliver-server_windows.sig --detach-sig ./artifacts/sliver-server_windows.exe
-        gpg --default-key 4449039C --output ./artifacts/sliver-client_windows.sig --detach-sig ./artifacts/sliver-client_windows.exe
+      # Linux
+      - name: Linux AMD64
+        run: |
+          gpg --default-key 4449039C --output ./artifacts/sliver-server_linux.sig --detach-sig ./artifacts/sliver-server_linux
+          gpg --default-key 4449039C --output ./artifacts/sliver-client_linux.sig --detach-sig ./artifacts/sliver-client_linux
 
-    # MacOS AMD64
-    - name: MacOS AMD64
-      run: |
-        gpg --default-key 4449039C --output ./artifacts/sliver-server_macos.sig --detach-sig ./artifacts/sliver-server_macos
-        gpg --default-key 4449039C --output ./artifacts/sliver-client_macos.sig --detach-sig ./artifacts/sliver-client_macos
-  
-    # MacOS ARM64
-    - name: Package MacOS ARM64
-      run: |
-        gpg --default-key 4449039C --output ./artifacts/sliver-server_macos-arm64.sig --detach-sig ./artifacts/sliver-server_macos-arm64
-        gpg --default-key 4449039C --output ./artifacts/sliver-client_macos-arm64.sig --detach-sig ./artifacts/sliver-client_macos-arm64
-  
-    - name: "Publish Release"
-      uses: "marvinpinto/action-automatic-releases@latest"
-      with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        prerelease: true
-        files: |
-          ./artifacts/*
+      # Windows
+      - name: Windows AMD64
+        run: |
+          gpg --default-key 4449039C --output ./artifacts/sliver-server_windows.sig --detach-sig ./artifacts/sliver-server_windows.exe
+          gpg --default-key 4449039C --output ./artifacts/sliver-client_windows.sig --detach-sig ./artifacts/sliver-client_windows.exe
+
+      # MacOS AMD64
+      - name: MacOS AMD64
+        run: |
+          gpg --default-key 4449039C --output ./artifacts/sliver-server_macos.sig --detach-sig ./artifacts/sliver-server_macos
+          gpg --default-key 4449039C --output ./artifacts/sliver-client_macos.sig --detach-sig ./artifacts/sliver-client_macos
+
+      # MacOS ARM64
+      - name: Package MacOS ARM64
+        run: |
+          gpg --default-key 4449039C --output ./artifacts/sliver-server_macos-arm64.sig --detach-sig ./artifacts/sliver-server_macos-arm64
+          gpg --default-key 4449039C --output ./artifacts/sliver-client_macos-arm64.sig --detach-sig ./artifacts/sliver-client_macos-arm64
+
+      - name: "Publish Release"
+        uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: true
+          files: |
+            ./artifacts/*

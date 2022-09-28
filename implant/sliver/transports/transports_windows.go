@@ -46,7 +46,7 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 		Send:    send,
 		Recv:    recv,
 		ctrl:    ctrl,
-		tunnels: &map[uint64]*Tunnel{},
+		tunnels: map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
 		once:    &sync.Once{},
 		IsOpen:  true,

