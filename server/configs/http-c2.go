@@ -135,7 +135,9 @@ type NameValueProbability struct {
 // .txt = rsakey
 // .css = start
 // .php = session
-//  .js = poll
+//
+//	.js = poll
+//
 // .png = stop
 // .woff = sliver shellcode
 type HTTPC2ImplantConfig struct {
@@ -233,7 +235,7 @@ var (
 				"PHPSESSID", "SID", "SSID", "APISID", "csrf-state", "AWSALBCORS",
 			},
 			Headers: []NameValueProbability{
-				{Name: "Cache-Control", Value: "no-store, no-cache, must-revalidate", Probability: 100},
+				// {Name: "Cache-Control", Value: "no-store, no-cache, must-revalidate", Probability: 100},
 			},
 		},
 		ImplantConfig: &HTTPC2ImplantConfig{
