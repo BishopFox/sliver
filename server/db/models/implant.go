@@ -142,50 +142,6 @@ func (ic *ImplantConfig) BeforeCreate(tx *gorm.DB) (err error) {
 	return nil
 }
 
-func (ic ImplantConfig) FromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig {
-	return &ImplantConfig{
-		ID:             uuid.FromStringOrNil(pbConfig.ID),
-		IsBeacon:       pbConfig.IsBeacon,
-		BeaconInterval: pbConfig.BeaconInterval,
-		BeaconJitter:   pbConfig.BeaconJitter,
-
-		GOOS:   pbConfig.GOOS,
-		GOARCH: pbConfig.GOARCH,
-
-		MtlsCACert: pbConfig.MtlsCACert,
-		MtlsCert:   pbConfig.MtlsCert,
-		MtlsKey:    pbConfig.MtlsKey,
-
-		Debug:            pbConfig.Debug,
-		Evasion:          pbConfig.Evasion,
-		ObfuscateSymbols: pbConfig.ObfuscateSymbols,
-		TemplateName:     pbConfig.TemplateName,
-
-		ReconnectInterval:   pbConfig.ReconnectInterval,
-		MaxConnectionErrors: pbConfig.MaxConnectionErrors,
-		ConnectionStrategy:  pbConfig.ConnectionStrategy,
-
-		LimitDatetime:     pbConfig.LimitDatetime,
-		LimitDomainJoined: pbConfig.LimitDomainJoined,
-		LimitHostname:     pbConfig.LimitHostname,
-		LimitUsername:     pbConfig.LimitUsername,
-		LimitFileExists:   pbConfig.LimitFileExists,
-		LimitLocale:       pbConfig.LimitLocale,
-
-		IsSharedLib:       pbConfig.IsSharedLib,
-		IsService:         pbConfig.IsService,
-		IsShellcode:       pbConfig.IsShellcode,
-		Format:            pbConfig.Format,
-		WGImplantPrivKey:  pbConfig.WGImplantPrivKey,
-		WGServerPubKey:    pbConfig.WGServerPubKey,
-		WGPeerTunIP:       pbConfig.WGPeerTunIP,
-		WGKeyExchangePort: pbConfig.WGKeyExchangePort,
-		WGTcpCommsPort:    pbConfig.WGTcpCommsPort,
-
-		FileName: ic.FileName,
-	}
-}
-
 // ToProtobuf - Convert ImplantConfig to protobuf equiv
 func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 	config := &clientpb.ImplantConfig{

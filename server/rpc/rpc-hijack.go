@@ -36,6 +36,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/util/encoders"
 )
@@ -105,7 +106,6 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 				"please select a profile targeting a shared library format",
 			)
 		}
-
 		name, config := generate.ImplantConfigFromProtobuf(p.Config)
 		if name == "" {
 			name, err = codenames.GetCodename()
@@ -113,7 +113,12 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 				return nil, err
 			}
 		}
-		fPath, err := generate.SliverSharedLibrary(name, config, true)
+		otpSecret, _ := cryptography.TOTPServerSecret()
+		err = generate.GenerateConfig(name, config, true)
+		if err != nil {
+			return nil, err
+		}
+		fPath, err := generate.SliverSharedLibrary(name, otpSecret, config, true)
 		if err != nil {
 			return nil, err
 		}

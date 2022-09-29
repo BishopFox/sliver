@@ -60,6 +60,11 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		config.TemplateName = generate.SliverTemplateName
 	}
 
+	otpSecret, _ := cryptography.TOTPServerSecret()
+	err = generate.GenerateConfig(name, config, true)
+	if err != nil {
+		return nil, err
+	}
 	if config == nil {
 		return nil, errors.New("invalid implant config")
 	}
@@ -67,11 +72,11 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
-		fPath, err = generate.SliverExecutable(name, config, true)
+		fPath, err = generate.SliverExecutable(name, otpSecret, config, true)
 	case clientpb.OutputFormat_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(name, config, true)
+		fPath, err = generate.SliverSharedLibrary(name, otpSecret, config, true)
 	case clientpb.OutputFormat_SHELLCODE:
-		fPath, err = generate.SliverShellcode(name, config, true)
+		fPath, err = generate.SliverShellcode(name, otpSecret, config, true)
 	default:
 		return nil, fmt.Errorf("invalid output format: %s", req.Config.Format)
 	}
@@ -339,18 +344,12 @@ func (rpc *Server) GenerateExternalGetImplantConfig(ctx context.Context, req *cl
 		return nil, status.Error(codes.InvalidArgument, "implant config already has a build")
 	}
 
-	name, err := codenames.GetCodename()
-	if err != nil {
-		return nil, err
-	}
-
 	otpSecret, err := cryptography.TOTPServerSecret()
 	if err != nil {
 		return nil, err
 	}
 
 	return &clientpb.ExternalImplantConfig{
-		Name:      name,
 		Config:    implantConfig.ToProtobuf(),
 		OTPSecret: otpSecret,
 	}, nil

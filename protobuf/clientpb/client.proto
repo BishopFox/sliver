@@ -174,9 +174,8 @@ message ImplantConfig {
 }
 
 message ExternalImplantConfig {
-  string Name = 1;
-  ImplantConfig Config = 2;
-  string OTPSecret = 3;
+  ImplantConfig Config = 1;
+  string OTPSecret = 2;
 }
 
 message ExternalImplantBinary {

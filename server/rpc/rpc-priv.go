@@ -28,6 +28,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/generate"
 
 	"google.golang.org/protobuf/proto"
@@ -93,7 +94,12 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		}
 		config.Format = clientpb.OutputFormat_SHELLCODE
 		config.ObfuscateSymbols = false
-		shellcodePath, err := generate.SliverShellcode(name, config, true)
+		otpSecret, _ := cryptography.TOTPServerSecret()
+		err = generate.GenerateConfig(name, config, true)
+		if err != nil {
+			return nil, err
+		}
+		shellcodePath, err := generate.SliverShellcode(name, otpSecret, config, true)
 		if err != nil {
 			return nil, err
 		}

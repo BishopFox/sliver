@@ -23,14 +23,15 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/util"
 )
 
 var (
@@ -87,7 +88,7 @@ func buildEvents(rpc rpcpb.SliverRPCClient) <-chan *clientpb.Event {
 
 			// Trigger event based on type
 			switch event.EventType {
-			case consts.BuildEvent:
+			case consts.ExternalBuildEvent:
 				events <- event
 			default:
 				builderLog.Debugf("Ignore event (%s)", event.EventType)
@@ -108,6 +109,10 @@ func (b *sliverBuilder) HandleBuildEvent(event *clientpb.Event) {
 		builderLog.Errorf("Failed to get implant config: %s", err)
 		return
 	}
+	if extConfig == nil {
+		builderLog.Errorf("nil extConfig")
+		return
+	}
 
 	// check to see if the event matches a target we're configured to build for
 	if !contains(b.config.GOOSs, extConfig.Config.GOOS) {
@@ -122,27 +127,25 @@ func (b *sliverBuilder) HandleBuildEvent(event *clientpb.Event) {
 		builderLog.Warnf("This builder is not configured to build for format %s, ignore event", extConfig.Config.Format)
 		return
 	}
-
-	builderLog.Infof("Building for %s/%s (format: %s)", extConfig.Config.GOOS, extConfig.Config.GOARCH, extConfig.Config.Format)
-	if extConfig.Config.TemplateName == "" {
-		extConfig.Config.TemplateName = generate.SliverTemplateName
-	}
-	if extConfig == nil {
+	err = util.AllowedName(extConfig.Config.Name)
+	if err != nil {
+		builderLog.Errorf("Invalid implant name: %s", err)
 		return
 	}
+	_, extModel := generate.ImplantConfigFromProtobuf(extConfig.Config)
 
-	extModel := models.ImplantConfig{}.FromProtobuf(extConfig.Config)
+	builderLog.Infof("Building %s for %s/%s (format: %s)", extConfig.Config.Name, extConfig.Config.GOOS, extConfig.Config.GOARCH, extConfig.Config.Format)
 
 	var fPath string
 	switch extConfig.Config.Format {
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
-		fPath, err = generate.SliverExecutable(extConfig.Config.Name, extModel, false)
+		fPath, err = generate.SliverExecutable(extConfig.Config.Name, extConfig.OTPSecret, extModel, false)
 	case clientpb.OutputFormat_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(extConfig.Config.Name, extModel, false)
+		fPath, err = generate.SliverSharedLibrary(extConfig.Config.Name, extConfig.OTPSecret, extModel, false)
 	case clientpb.OutputFormat_SHELLCODE:
-		fPath, err = generate.SliverShellcode(extConfig.Config.Name, extModel, false)
+		fPath, err = generate.SliverShellcode(extConfig.Config.Name, extConfig.OTPSecret, extModel, false)
 	default:
 		builderLog.Errorf("invalid output format: %s", extConfig.Config.Format)
 		return
@@ -157,7 +160,7 @@ func (b *sliverBuilder) HandleBuildEvent(event *clientpb.Event) {
 		return
 	}
 
-	fileName := extConfig.Config.Name
+	fileName := filepath.Base(extConfig.Config.Name)
 	if extConfig.Config.GOOS == "windows" {
 		fileName += ".exe"
 	}
@@ -166,7 +169,7 @@ func (b *sliverBuilder) HandleBuildEvent(event *clientpb.Event) {
 		Name:            extConfig.Config.Name,
 		ImplantConfigID: extConfig.Config.ID,
 		File: &commonpb.File{
-			Name: extConfig.Config.Name,
+			Name: fileName,
 			Data: data,
 		},
 	})
@@ -174,6 +177,7 @@ func (b *sliverBuilder) HandleBuildEvent(event *clientpb.Event) {
 		builderLog.Errorf("Failed to save build: %s", err)
 		return
 	}
+	builderLog.Infof("Successfully built %s", fileName)
 }
 
 func contains[T comparable](elems []T, v T) bool {

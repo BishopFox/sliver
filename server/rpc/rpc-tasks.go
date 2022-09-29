@@ -33,6 +33,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/generate"
@@ -74,7 +75,12 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		}
 		config.Format = clientpb.OutputFormat_SHELLCODE
 		config.ObfuscateSymbols = true
-		shellcodePath, err := generate.SliverShellcode(name, config, true)
+		otpSecret, _ := cryptography.TOTPServerSecret()
+		err = generate.GenerateConfig(name, config, true)
+		if err != nil {
+			return nil, err
+		}
+		shellcodePath, err := generate.SliverShellcode(name, otpSecret, config, true)
 		if err != nil {
 			return nil, err
 		}

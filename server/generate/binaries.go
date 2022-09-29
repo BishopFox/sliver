@@ -260,7 +260,7 @@ func GetSliversDir() string {
 // -----------------------
 
 // SliverShellcode - Generates a sliver shellcode using Donut
-func SliverShellcode(name string, config *models.ImplantConfig, save bool) (string, error) {
+func SliverShellcode(name string, otpSecret string, config *models.ImplantConfig, save bool) (string, error) {
 	if config.GOOS != "windows" {
 		return "", fmt.Errorf("shellcode format is currently only supported on Windows")
 	}
@@ -280,7 +280,7 @@ func SliverShellcode(name string, config *models.ImplantConfig, save bool) (stri
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goPrivate(config),
 	}
-	pkgPath, err := renderSliverGoCode(name, config, goConfig)
+	pkgPath, err := renderSliverGoCode(name, otpSecret, config, goConfig)
 	if err != nil {
 		return "", err
 	}
@@ -324,7 +324,7 @@ func SliverShellcode(name string, config *models.ImplantConfig, save bool) (stri
 }
 
 // SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
-func SliverSharedLibrary(name string, config *models.ImplantConfig, save bool) (string, error) {
+func SliverSharedLibrary(name string, otpSecret string, config *models.ImplantConfig, save bool) (string, error) {
 	// Compile go code
 	var cc string
 	var cxx string
@@ -356,7 +356,7 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig, save bool) (
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goPrivate(config),
 	}
-	pkgPath, err := renderSliverGoCode(name, config, goConfig)
+	pkgPath, err := renderSliverGoCode(name, otpSecret, config, goConfig)
 	if err != nil {
 		return "", err
 	}
@@ -402,7 +402,7 @@ func SliverSharedLibrary(name string, config *models.ImplantConfig, save bool) (
 }
 
 // SliverExecutable - Generates a sliver executable binary
-func SliverExecutable(name string, config *models.ImplantConfig, save bool) (string, error) {
+func SliverExecutable(name string, otpSecret string, config *models.ImplantConfig, save bool) (string, error) {
 	// Compile go code
 	appDir := assets.GetRootAppDir()
 	cgo := "0"
@@ -425,7 +425,7 @@ func SliverExecutable(name string, config *models.ImplantConfig, save bool) (str
 		GOGARBLE:    goPrivate(config),
 	}
 
-	pkgPath, err := renderSliverGoCode(name, config, goConfig)
+	pkgPath, err := renderSliverGoCode(name, otpSecret, config, goConfig)
 	if err != nil {
 		return "", err
 	}
@@ -465,81 +465,23 @@ func SliverExecutable(name string, config *models.ImplantConfig, save bool) (str
 }
 
 // This function is a little too long, we should probably refactor it as some point
-func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gogo.GoConfig) (string, error) {
-	var err error
+func renderSliverGoCode(name string, otpSecret string, config *models.ImplantConfig, goConfig *gogo.GoConfig) (string, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := gogo.ValidCompilerTargets(*goConfig)[target]; !ok {
 		return "", fmt.Errorf("invalid compiler target: %s", target)
 	}
+	if name == "" {
+		return "", fmt.Errorf("name cannot be empty")
+	}
 
 	buildLog.Debugf("Generating new sliver binary '%s'", name)
-
-	config.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, config.C2)
-	config.WGc2Enabled = isC2Enabled([]string{"wg"}, config.C2)
-	config.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, config.C2)
-	config.DNSc2Enabled = isC2Enabled([]string{"dns"}, config.C2)
-	config.NamePipec2Enabled = isC2Enabled([]string{"namedpipe"}, config.C2)
-	config.TCPPivotc2Enabled = isC2Enabled([]string{"tcppivot"}, config.C2)
 
 	sliversDir := GetSliversDir() // ~/.sliver/slivers
 	projectGoPathDir := filepath.Join(sliversDir, config.GOOS, config.GOARCH, filepath.Base(name))
 	if _, err := os.Stat(projectGoPathDir); os.IsNotExist(err) {
 		os.MkdirAll(projectGoPathDir, 0700)
 	}
-
 	goConfig.ProjectDir = projectGoPathDir
-
-	// Cert PEM encoded certificates
-	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.MtlsServerCA)
-	sliverCert, sliverKey, err := certs.MtlsC2ImplantGenerateECCCertificate(name)
-	if err != nil {
-		return "", err
-	}
-
-	// ECC keys
-	implantKeyPair, err := cryptography.RandomECCKeyPair()
-	if err != nil {
-		return "", err
-	}
-	serverKeyPair := cryptography.ECCServerKeyPair()
-	digest := sha256.Sum256((*implantKeyPair.Public)[:])
-	config.ECCPublicKey = implantKeyPair.PublicBase64()
-	config.ECCPublicKeyDigest = hex.EncodeToString(digest[:])
-	config.ECCPrivateKey = implantKeyPair.PrivateBase64()
-	config.ECCPublicKeySignature = cryptography.MinisignServerSign(implantKeyPair.Public[:])
-	config.ECCServerPublicKey = serverKeyPair.PublicBase64()
-	config.MinisignServerPublicKey = cryptography.MinisignServerPublicKey()
-
-	// MTLS keys
-	if config.MTLSc2Enabled {
-		config.MtlsCACert = string(serverCACert)
-		config.MtlsCert = string(sliverCert)
-		config.MtlsKey = string(sliverKey)
-	}
-
-	otpSecret, err := cryptography.TOTPServerSecret()
-	if err != nil {
-		return "", err
-	}
-
-	// Generate wg Keys as needed
-	if config.WGc2Enabled {
-		implantPrivKey, _, err := certs.ImplantGenerateWGKeys(config.WGPeerTunIP)
-		if err != nil {
-			return "", err
-		}
-		_, serverPubKey, err := certs.GetWGServerKeys()
-		if err != nil {
-			return "", fmt.Errorf("failed to embed implant wg keys: %s", err)
-		}
-		config.WGImplantPrivKey = implantPrivKey
-		config.WGServerPubKey = serverPubKey
-	}
-
-	err = ImplantConfigSave(config)
-	if err != nil {
-		return "", err
-	}
 
 	// binDir - ~/.sliver/slivers/<os>/<arch>/<name>/bin
 	binDir := filepath.Join(projectGoPathDir, "bin")
@@ -547,8 +489,8 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 
 	// srcDir - ~/.sliver/slivers/<os>/<arch>/<name>/src
 	srcDir := filepath.Join(projectGoPathDir, "src")
-	assets.SetupGoPath(srcDir)            // Extract GOPATH dependency files
-	err = util.ChmodR(srcDir, 0600, 0700) // Ensures src code files are writable
+	assets.SetupGoPath(srcDir)             // Extract GOPATH dependency files
+	err := util.ChmodR(srcDir, 0600, 0700) // Ensures src code files are writable
 	if err != nil {
 		buildLog.Errorf("fs perms: %v", err)
 		return "", err
@@ -659,12 +601,12 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 
 	// Render GoMod
 	buildLog.Info("Rendering go.mod file ...")
-	goModPath := path.Join(sliverPkgDir, "go.mod")
+	goModPath := filepath.Join(sliverPkgDir, "go.mod")
 	err = os.WriteFile(goModPath, []byte(implant.GoMod), 0600)
 	if err != nil {
 		return "", err
 	}
-	goSumPath := path.Join(sliverPkgDir, "go.sum")
+	goSumPath := filepath.Join(sliverPkgDir, "go.sum")
 	err = os.WriteFile(goSumPath, []byte(implant.GoSum), 0600)
 	if err != nil {
 		return "", err
@@ -693,6 +635,68 @@ func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gog
 	buildLog.Debugf("Created %s", goModPath)
 
 	return sliverPkgDir, nil
+}
+
+// GenerateConfig - Generate the keys/etc for the implant
+func GenerateConfig(name string, config *models.ImplantConfig, save bool) error {
+	var err error
+
+	config.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, config.C2)
+	config.WGc2Enabled = isC2Enabled([]string{"wg"}, config.C2)
+	config.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, config.C2)
+	config.DNSc2Enabled = isC2Enabled([]string{"dns"}, config.C2)
+	config.NamePipec2Enabled = isC2Enabled([]string{"namedpipe"}, config.C2)
+	config.TCPPivotc2Enabled = isC2Enabled([]string{"tcppivot"}, config.C2)
+
+	// Cert PEM encoded certificates
+	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.MtlsServerCA)
+	sliverCert, sliverKey, err := certs.MtlsC2ImplantGenerateECCCertificate(name)
+	if err != nil {
+		return err
+	}
+
+	// ECC keys
+	implantKeyPair, err := cryptography.RandomECCKeyPair()
+	if err != nil {
+		return err
+	}
+	serverKeyPair := cryptography.ECCServerKeyPair()
+	digest := sha256.Sum256((*implantKeyPair.Public)[:])
+	config.ECCPublicKey = implantKeyPair.PublicBase64()
+	config.ECCPublicKeyDigest = hex.EncodeToString(digest[:])
+	config.ECCPrivateKey = implantKeyPair.PrivateBase64()
+	config.ECCPublicKeySignature = cryptography.MinisignServerSign(implantKeyPair.Public[:])
+	config.ECCServerPublicKey = serverKeyPair.PublicBase64()
+	config.MinisignServerPublicKey = cryptography.MinisignServerPublicKey()
+
+	// MTLS keys
+	if config.MTLSc2Enabled {
+		config.MtlsCACert = string(serverCACert)
+		config.MtlsCert = string(sliverCert)
+		config.MtlsKey = string(sliverKey)
+	}
+
+	// Generate wg Keys as needed
+	if config.WGc2Enabled {
+		implantPrivKey, _, err := certs.ImplantGenerateWGKeys(config.WGPeerTunIP)
+		if err != nil {
+			return err
+		}
+		_, serverPubKey, err := certs.GetWGServerKeys()
+		if err != nil {
+			return fmt.Errorf("failed to embed implant wg keys: %s", err)
+		}
+		config.WGImplantPrivKey = implantPrivKey
+		config.WGServerPubKey = serverPubKey
+	}
+
+	if save {
+		err = ImplantConfigSave(config)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Platform specific ENV VARS take precedence over generic
@@ -923,19 +927,19 @@ func getGoHttpsProxy() string {
 const (
 	// The wireguard garble bug appears to have been fixed.
 	// Updated the wgGoPrivate to "*"
-	wgGoPrivate  = "*"
+	// wgGoPrivate  = "*"
 	allGoPrivate = "*"
 )
 
 func goPrivate(config *models.ImplantConfig) string {
-	for _, c2 := range config.C2 {
-		uri, err := url.Parse(c2.URL)
-		if err != nil {
-			return wgGoPrivate
-		}
-		if uri.Scheme == "wg" {
-			return wgGoPrivate
-		}
-	}
+	// for _, c2 := range config.C2 {
+	// 	uri, err := url.Parse(c2.URL)
+	// 	if err != nil {
+	// 		return wgGoPrivate
+	// 	}
+	// 	if uri.Scheme == "wg" {
+	// 		return wgGoPrivate
+	// 	}
+	// }
 	return allGoPrivate
 }

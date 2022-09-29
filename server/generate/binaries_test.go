@@ -28,6 +28,10 @@ import (
 	"github.com/bishopfox/sliver/server/db/models"
 )
 
+const (
+	otpTestSecret = "12345678901234567890"
+)
+
 var (
 	nonce = 0
 )
@@ -173,7 +177,7 @@ func mtlsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) 
 		IsBeacon:         beacon,
 	}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("mtls_test%d", nonce), config, true)
+	_, err := SliverExecutable(fmt.Sprintf("mtls_test%d", nonce), otpTestSecret, config, true)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -193,7 +197,7 @@ func dnsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
 		IsBeacon:         beacon,
 	}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("dns_test%d", nonce), config, true)
+	_, err := SliverExecutable(fmt.Sprintf("dns_test%d", nonce), otpTestSecret, config, true)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -217,7 +221,7 @@ func httpExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) 
 		IsBeacon:         beacon,
 	}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("http_test%d", nonce), config, true)
+	_, err := SliverExecutable(fmt.Sprintf("http_test%d", nonce), otpTestSecret, config, true)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -245,7 +249,7 @@ func multiExe(t *testing.T, goos string, goarch string, beacon bool, debug bool)
 		IsBeacon:         beacon,
 	}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("multi_test%d", nonce), config, true)
+	_, err := SliverExecutable(fmt.Sprintf("multi_test%d", nonce), otpTestSecret, config, true)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -272,7 +276,7 @@ func multiWindowsService(t *testing.T, goos string, goarch string, beacon bool, 
 		IsBeacon:         beacon,
 	}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("service_test%d", nonce), config, true)
+	_, err := SliverExecutable(fmt.Sprintf("service_test%d", nonce), otpTestSecret, config, true)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -296,7 +300,7 @@ func tcpPivotExe(t *testing.T, goos string, goarch string, debug bool) {
 		ObfuscateSymbols:  false,
 	}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("tcpPivot_test%d", nonce), config, true)
+	_, err := SliverExecutable(fmt.Sprintf("tcpPivot_test%d", nonce), otpTestSecret, config, true)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -319,7 +323,7 @@ func namedPipeExe(t *testing.T, goos string, goarch string, debug bool) {
 		ObfuscateSymbols:  false,
 	}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("namedpipe_test%d", nonce), config, true)
+	_, err := SliverExecutable(fmt.Sprintf("namedpipe_test%d", nonce), otpTestSecret, config, true)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -349,7 +353,7 @@ func wireguardExe(t *testing.T, goos string, goarch string, beacon bool, debug b
 	}
 	nonce++
 	certs.SetupWGKeys()
-	_, err := SliverExecutable(fmt.Sprintf("wireguard_test%d", nonce), config, true)
+	_, err := SliverExecutable(fmt.Sprintf("wireguard_test%d", nonce), otpTestSecret, config, true)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -381,7 +385,7 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 		WGTcpCommsPort:    5678,
 	}
 	nonce++
-	_, err := SliverSharedLibrary(fmt.Sprintf("multilibrary_test%d", nonce), config, true)
+	_, err := SliverSharedLibrary(fmt.Sprintf("multilibrary_test%d", nonce), otpTestSecret, config, true)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -404,7 +408,7 @@ func symbolObfuscation(t *testing.T, goos string, goarch string) {
 		ObfuscateSymbols: true,
 	}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("symbol_test%d", nonce), config, true)
+	_, err := SliverExecutable(fmt.Sprintf("symbol_test%d", nonce), otpTestSecret, config, true)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}

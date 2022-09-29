@@ -655,7 +655,7 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 		case <-time.After(100 * time.Millisecond):
 			elapsed := time.Since(start)
 			msg := fmt.Sprintf("Waiting for external build %s (template: %s) ... %s",
-				externalImplantConfig.Name,
+				externalImplantConfig.Config.Name,
 				externalImplantConfig.Config.TemplateName,
 				elapsed.Round(time.Second),
 			)
@@ -665,7 +665,7 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 			if event.EventType != consts.BuildCompletedEvent {
 				continue
 			}
-			if string(event.Data) == externalImplantConfig.Name {
+			if string(event.Data) == externalImplantConfig.Config.Name {
 				con.RemoveEventListener(listenerID)
 				waiting = false
 			}
