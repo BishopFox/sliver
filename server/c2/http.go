@@ -355,7 +355,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
 	router.HandleFunc(
 		fmt.Sprintf("/{rpath:.*\\.%s[/]{0,1}.*$}", c2Config.ImplantConfig.StagerFileExt),
-		s.stagerHander,
+		s.stagerHandler,
 	).MatcherFunc(s.filterOTP).Methods(http.MethodGet)
 
 	// Default handler returns static content or 404s
@@ -734,8 +734,8 @@ func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request)
 	resp.WriteHeader(http.StatusAccepted)
 }
 
-// stagerHander - Serves the sliver shellcode to the stager requesting it
-func (s *SliverHTTPC2) stagerHander(resp http.ResponseWriter, req *http.Request) {
+// stagerHandler - Serves the sliver shellcode to the stager requesting it
+func (s *SliverHTTPC2) stagerHandler(resp http.ResponseWriter, req *http.Request) {
 	httpLog.Debug("Stager request")
 	if len(s.SliverStage) != 0 {
 		httpLog.Infof("Received staging request from %s", getRemoteAddr(req))
