@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	insecureRand "math/rand"
 	"os"
 	"path"
@@ -233,10 +232,9 @@ var (
 			RandomVersionHeaders: false,
 			Cookies: []string{
 				"PHPSESSID", "SID", "SSID", "APISID", "csrf-state", "AWSALBCORS",
+				"AWSELB", "AWSELBCORS", "AWSALB", "JSESSIONID", "sessionid",
 			},
-			Headers: []NameValueProbability{
-				// {Name: "Cache-Control", Value: "no-store, no-cache, must-revalidate", Probability: 100},
-			},
+			Headers: []NameValueProbability{},
 		},
 		ImplantConfig: &HTTPC2ImplantConfig{
 			UserAgent:         "", // Blank string is rendered as randomized platform user-agent
@@ -247,6 +245,9 @@ var (
 			MaxPaths:          8,
 			MinPaths:          2,
 
+			URLParameters: []NameValueProbability{},
+			Headers:       []NameValueProbability{},
+
 			StagerFileExt: ".woff",
 
 			PollFileExt: ".js",
@@ -256,14 +257,14 @@ var (
 			},
 			PollPaths: []string{
 				"js", "umd", "assets", "bundle", "bundles", "scripts", "script", "javascripts",
-				"javascript", "jscript",
+				"javascript", "jscript", "jscripts", "jsfiles", "jslib", "jslibs",
 			},
 
 			StartSessionFileExt: ".html",
 			SessionFileExt:      ".php",
 			SessionFiles: []string{
 				"login", "signin", "api", "samples", "rpc", "index",
-				"admin", "register", "sign-up",
+				"admin", "register", "sign-up", "signup", "sign-in", "signin",
 			},
 			SessionPaths: []string{
 				"php", "api", "upload", "actions", "rest", "v1", "auth", "authenticate",
@@ -272,7 +273,7 @@ var (
 
 			CloseFileExt: ".png",
 			CloseFiles: []string{
-				"favicon", "sample", "example",
+				"favicon", "sample", "example", "logo", "icon", "icons", "image",
 			},
 			ClosePaths: []string{
 				"static", "www", "assets", "images", "icons", "image", "icon", "png",
@@ -298,7 +299,7 @@ func GetHTTPC2Config() *HTTPC2Config {
 			return &defaultHTTPC2Config
 		}
 	}
-	data, err := ioutil.ReadFile(configPath)
+	data, err := os.ReadFile(configPath)
 	if err != nil {
 		httpC2ConfigLog.Errorf("Failed to read http c2 config %s", err)
 		return &defaultHTTPC2Config
@@ -327,7 +328,7 @@ func CheckHTTPC2ConfigErrors() error {
 			return err
 		}
 	}
-	data, err := ioutil.ReadFile(configPath)
+	data, err := os.ReadFile(configPath)
 	if err != nil {
 		httpC2ConfigLog.Errorf("Failed to read http c2 config %s", err)
 		return err
@@ -351,7 +352,7 @@ func generateDefaultConfig(saveTo string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(saveTo, data, 0600)
+	return os.WriteFile(saveTo, data, 0600)
 }
 
 var (

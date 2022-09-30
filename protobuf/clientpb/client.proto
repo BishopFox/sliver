@@ -667,3 +667,21 @@ message ShellcodeEncode {
 message ShellcodeEncoderMap {
   map<string, ShellcodeEncoder> Encoders = 1;
 }
+
+// [ Webhhooks ] ----------------------------------------
+message Webhooks {
+  repeated string Running = 1;
+  SlackWebhook Slack = 2;
+}
+
+message WebhookEvents {
+  bool SessionOpened = 1;
+  bool BeaconRegistered = 2;
+}
+
+message SlackWebhook {
+  bool Enabled = 1;
+  string AuthToken = 2;
+  repeated string Channels = 3;
+  WebhookEvents Events = 4;
+}

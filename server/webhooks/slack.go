@@ -19,9 +19,11 @@ package webhooks
 */
 
 import (
+	"errors"
 	"fmt"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/slack-go/slack"
@@ -31,24 +33,14 @@ var (
 	slackLog = log.NamedLogger("webhooks", "slack")
 )
 
-type SlackWebhookConfig struct {
-	Enabled bool `json:"enabled"`
-
-	AuthToken string   `json:"auth_token"`
-	Channels  []string `json:"channels"`
-
-	SessionOpened    bool `json:"session_opened"`
-	BeaconRegistered bool `json:"beacon_registered"`
-}
-
 // StartSlackWebhook - Start a slack webhook
-func StartSlackWebhook(config *SlackWebhookConfig) {
+func StartSlackWebhook(config *configs.SlackWebhookConfig) error {
 	StopSlackWebhook() // Stop any existing web hook
 	events := core.EventBroker.Subscribe()
 	client := slack.New(config.AuthToken)
 	if client == nil {
 		fmt.Printf("Invalid slack token")
-		return
+		return errors.New("slack authentication failure")
 	}
 	go func() {
 		// This goroutine will exit when events is closed
@@ -57,13 +49,13 @@ func StartSlackWebhook(config *SlackWebhookConfig) {
 
 			// Sessions
 			case consts.SessionOpenedEvent:
-				if config.SessionOpened {
+				if config.Events.SessionOpened {
 					sendSlackMsg(client, config.Channels, "New session")
 				}
 
 			// Beacons
 			case consts.BeaconRegisteredEvent:
-				if config.BeaconRegistered {
+				if config.Events.BeaconRegistered {
 					sendSlackMsg(client, config.Channels, "New beacon")
 				}
 
@@ -71,6 +63,7 @@ func StartSlackWebhook(config *SlackWebhookConfig) {
 		}
 	}()
 	webhooks.Store(Slack, events)
+	return nil
 }
 
 // StopSlackWebhook - Stop a slack webhook

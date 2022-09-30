@@ -184,4 +184,10 @@ service SliverRPC {
 
     // *** Events ***
     rpc Events(commonpb.Empty) returns (stream clientpb.Event);
+
+    // *** Webhooks ***
+    rpc Webhooks(commonpb.Empty) returns (clientpb.Webhooks);
+    rpc StartSlackWebhook(clientpb.SlackWebhook) returns (commonpb.Empty);
+    rpc StopSlackWebhook(commonpb.Empty) returns (commonpb.Empty);
+
 }

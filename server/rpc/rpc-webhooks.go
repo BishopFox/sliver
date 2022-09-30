@@ -1,4 +1,4 @@
-package webhooks
+package rpc
 
 /*
 	Sliver Implant Framework
@@ -19,23 +19,25 @@ package webhooks
 */
 
 import (
-	"sync"
+	"context"
+
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
-const (
-	Slack = "slack"
-)
+func (rpc *Server) Webhooks(ctx context.Context, _ *commonpb.Empty) (*clientpb.Webhooks, error) {
 
-var (
-	webhooks = &sync.Map{}
-)
+	return &clientpb.Webhooks{}, nil
+}
 
-// ListRunningWebhooks - List all running webhooks
-func ListRunningWebhooks() []string {
-	hooks := []string{}
-	webhooks.Range(func(key, value interface{}) bool {
-		hooks = append(hooks, key.(string))
-		return true
-	})
-	return hooks
+func (rpc *Server) StartSlackWebhook(ctx context.Context, req *clientpb.SlackWebhook) (*commonpb.Empty, error) {
+
+	//config := configs.SlackWebhookConfig{}
+
+	return &commonpb.Empty{}, nil
+}
+
+func (rpc *Server) StopSlackWebhook(ctx context.Context, req *commonpb.Empty) (*commonpb.Empty, error) {
+
+	return &commonpb.Empty{}, nil
 }

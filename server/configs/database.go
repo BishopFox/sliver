@@ -22,10 +22,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/log"
@@ -52,7 +52,7 @@ var (
 // GetDatabaseConfigPath - File path to config.json
 func GetDatabaseConfigPath() string {
 	appDir := assets.GetRootAppDir()
-	databaseConfigPath := path.Join(appDir, "configs", databaseConfigFileName)
+	databaseConfigPath := filepath.Join(appDir, "configs", databaseConfigFileName)
 	databaseConfigLog.Infof("Loading config from %s", databaseConfigPath)
 	return databaseConfigPath
 }
@@ -113,7 +113,7 @@ func encodeParams(rawParams map[string]string) string {
 // Save - Save config file to disk
 func (c *DatabaseConfig) Save() error {
 	configPath := GetDatabaseConfigPath()
-	configDir := path.Dir(configPath)
+	configDir := filepath.Dir(configPath)
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
 		databaseConfigLog.Debugf("Creating config dir %s", configDir)
 		err := os.MkdirAll(configDir, 0700)
@@ -126,7 +126,7 @@ func (c *DatabaseConfig) Save() error {
 		return err
 	}
 	databaseConfigLog.Infof("Saving config to %s", configPath)
-	err = ioutil.WriteFile(configPath, data, 0600)
+	err = os.WriteFile(configPath, data, 0600)
 	if err != nil {
 		databaseConfigLog.Errorf("Failed to write config %s", err)
 	}
@@ -138,7 +138,7 @@ func GetDatabaseConfig() *DatabaseConfig {
 	configPath := GetDatabaseConfigPath()
 	config := getDefaultDatabaseConfig()
 	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
-		data, err := ioutil.ReadFile(configPath)
+		data, err := os.ReadFile(configPath)
 		if err != nil {
 			databaseConfigLog.Errorf("Failed to read config file %s", err)
 			return config
