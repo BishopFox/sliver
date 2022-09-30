@@ -255,11 +255,18 @@ func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 
 	// Randomize the JARM fingerprint
 	switch insecureRand.Intn(4) {
+
+	// So it turns out that Windows by default
+	// disables TLS v1.2 because it's horrible.
+	// So anyways for compatibility we'll specify
+	// a min of 1.1 or 1.0
+
 	case 0:
 		// tlsConfig.MinVersion = tls.VersionTLS13
 		fallthrough // For compatibility with winhttp
 	case 1:
-		tlsConfig.MinVersion = tls.VersionTLS12
+		// tlsConfig.MinVersion = tls.VersionTLS12
+		fallthrough // For compatibility with winhttp
 	case 2:
 		tlsConfig.MinVersion = tls.VersionTLS11
 	default:
@@ -268,17 +275,17 @@ func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 
 	// Randomize the cipher suites
 	allCipherSuites := []uint16{
-		// tls.TLS_RSA_WITH_RC4_128_SHA,     //uint16 = 0x0005
-		tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,   //uint16 = 0x000a
-		tls.TLS_RSA_WITH_AES_128_CBC_SHA,    //uint16 = 0x002f
-		tls.TLS_RSA_WITH_AES_256_CBC_SHA,    //uint16 = 0x0035
-		tls.TLS_RSA_WITH_AES_128_CBC_SHA256, //uint16 = 0x003c
-		tls.TLS_RSA_WITH_AES_128_GCM_SHA256, //uint16 = 0x009c
-		tls.TLS_RSA_WITH_AES_256_GCM_SHA384, //uint16 = 0x009d
-		// tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,  //uint16 = 0xc007
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, //uint16 = 0xc009
-		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, //uint16 = 0xc00a
-		// tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,    //uint16 = 0xc011
+		tls.TLS_RSA_WITH_RC4_128_SHA,                      //uint16 = 0x0005
+		tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,                 //uint16 = 0x000a
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA,                  //uint16 = 0x002f
+		tls.TLS_RSA_WITH_AES_256_CBC_SHA,                  //uint16 = 0x0035
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA256,               //uint16 = 0x003c
+		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,               //uint16 = 0x009c
+		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,               //uint16 = 0x009d
+		tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,              //uint16 = 0xc007
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,          //uint16 = 0xc009
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,          //uint16 = 0xc00a
+		tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,                //uint16 = 0xc011
 		tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,           //uint16 = 0xc012
 		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,            //uint16 = 0xc013
 		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,            //uint16 = 0xc014

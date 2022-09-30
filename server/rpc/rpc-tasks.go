@@ -23,7 +23,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 	"strings"
 
@@ -78,7 +78,7 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		if err != nil {
 			return nil, err
 		}
-		shellcode, _ = ioutil.ReadFile(shellcodePath)
+		shellcode, _ = os.ReadFile(shellcodePath)
 	}
 	reqData, err := proto.Marshal(&sliverpb.InvokeMigrateReq{
 		Request: req.Request,
