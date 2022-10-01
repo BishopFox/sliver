@@ -36,12 +36,14 @@ func MigrateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	pid := ctx.Args.Uint("pid")
 	config := con.GetActiveSessionConfig()
-	ctrl := make(chan bool)
-	con.SpinUntil(fmt.Sprintf("Migrating into %d ...", pid), ctrl)
 	encoder := clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
 	if ctx.Flags.Bool("disable-sgn") {
 		encoder = clientpb.ShellcodeEncoder_NONE
 	}
+
+	ctrl := make(chan bool)
+	con.SpinUntil(fmt.Sprintf("Migrating into %d ...", pid), ctrl)
+
 	migrate, err := con.Rpc.Migrate(context.Background(), &clientpb.MigrateReq{
 		Pid:     uint32(pid),
 		Config:  config,
