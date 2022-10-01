@@ -81,7 +81,7 @@ func ExecuteShellcodeCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 			Data:         shellcodeBin,
 		})
 		if err != nil {
-			con.PrintErrorf("%s\n", err.Error())
+			con.PrintErrorf("%s\n", err)
 			return
 		}
 		oldSize := len(shellcodeBin)
