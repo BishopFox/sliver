@@ -454,6 +454,7 @@ message GetSystemReq {
 message MigrateReq {
   uint32 Pid = 1;
   ImplantConfig Config = 2;
+  ShellcodeEncoder Encoder = 3;
 
   commonpb.Request Request = 9;
 }
@@ -645,7 +646,8 @@ message DllHijack {
 
 // [ Shellcode ] ----------------------------------------
 enum ShellcodeEncoder {
-  SHIKATA_GA_NAI = 0;
+  NONE = 0;
+  SHIKATA_GA_NAI = 1;
 }
 
 message ShellcodeEncodeReq {

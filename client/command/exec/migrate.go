@@ -39,6 +39,7 @@ func MigrateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Pid:     uint32(pid),
 		Config:  config,
 		Request: con.ActiveTarget.Request(ctx),
+		Encoder: clientpb.ShellcodeEncoder_SHIKATA_GA_NAI,
 	})
 	ctrl <- true
 	<-ctrl

@@ -23,7 +23,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -52,7 +51,7 @@ func ExecuteShellcodeCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 	}
 	pid := ctx.Flags.Uint("pid")
 	shellcodePath := ctx.Args.String("filepath")
-	shellcodeBin, err := ioutil.ReadFile(shellcodePath)
+	shellcodeBin, err := os.ReadFile(shellcodePath)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
 		return

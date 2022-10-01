@@ -21,8 +21,8 @@ package exec
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	insecureRand "math/rand"
+	"os"
 	"strings"
 	"time"
 
@@ -93,7 +93,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		serviceBinary, _ = generate.GetSliverBinary(implantProfile, con)
 	} else {
 		// use a custom exe instead of generating a new Sliver
-		fileBytes, err := ioutil.ReadFile(customExe)
+		fileBytes, err := os.ReadFile(customExe)
 		if err != nil {
 			con.PrintErrorf("Error reading custom executable '%s'\n", customExe)
 			return
