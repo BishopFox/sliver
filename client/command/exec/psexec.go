@@ -193,7 +193,7 @@ func randomFileName() string {
 		prefix += string(alphanumeric[insecureRand.Intn(len(alphanumeric))])
 	}
 	suffix := ""
-	for index := 0; index < insecureRand.Intn(6); index++ {
+	for index := 0; index < insecureRand.Intn(6)+1; index++ {
 		suffix += string(alphanumeric[insecureRand.Intn(len(alphanumeric))])
 	}
 
