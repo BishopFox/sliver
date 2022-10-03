@@ -802,6 +802,7 @@ func (t AttributionReportingIssueType) String() string {
 // AttributionReportingIssueType values.
 const (
 	AttributionReportingIssueTypePermissionPolicyDisabled     AttributionReportingIssueType = "PermissionPolicyDisabled"
+	AttributionReportingIssueTypePermissionPolicyNotDelegated AttributionReportingIssueType = "PermissionPolicyNotDelegated"
 	AttributionReportingIssueTypeUntrustworthyReportingOrigin AttributionReportingIssueType = "UntrustworthyReportingOrigin"
 	AttributionReportingIssueTypeInsecureContext              AttributionReportingIssueType = "InsecureContext"
 	AttributionReportingIssueTypeInvalidHeader                AttributionReportingIssueType = "InvalidHeader"
@@ -828,6 +829,8 @@ func (t *AttributionReportingIssueType) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	switch AttributionReportingIssueType(in.String()) {
 	case AttributionReportingIssueTypePermissionPolicyDisabled:
 		*t = AttributionReportingIssueTypePermissionPolicyDisabled
+	case AttributionReportingIssueTypePermissionPolicyNotDelegated:
+		*t = AttributionReportingIssueTypePermissionPolicyNotDelegated
 	case AttributionReportingIssueTypeUntrustworthyReportingOrigin:
 		*t = AttributionReportingIssueTypeUntrustworthyReportingOrigin
 	case AttributionReportingIssueTypeInsecureContext:
@@ -971,7 +974,6 @@ const (
 	DeprecationIssueTypeHostCandidateAttributeGetter                              DeprecationIssueType = "HostCandidateAttributeGetter"
 	DeprecationIssueTypeIdentityInCanMakePaymentEvent                             DeprecationIssueType = "IdentityInCanMakePaymentEvent"
 	DeprecationIssueTypeInsecurePrivateNetworkSubresourceRequest                  DeprecationIssueType = "InsecurePrivateNetworkSubresourceRequest"
-	DeprecationIssueTypeLegacyConstraintGoogIPV6                                  DeprecationIssueType = "LegacyConstraintGoogIPv6"
 	DeprecationIssueTypeLocalCSSFileExtensionRejected                             DeprecationIssueType = "LocalCSSFileExtensionRejected"
 	DeprecationIssueTypeMediaSourceAbortRemove                                    DeprecationIssueType = "MediaSourceAbortRemove"
 	DeprecationIssueTypeMediaSourceDurationTruncatingBuffered                     DeprecationIssueType = "MediaSourceDurationTruncatingBuffered"
@@ -1062,8 +1064,6 @@ func (t *DeprecationIssueType) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = DeprecationIssueTypeIdentityInCanMakePaymentEvent
 	case DeprecationIssueTypeInsecurePrivateNetworkSubresourceRequest:
 		*t = DeprecationIssueTypeInsecurePrivateNetworkSubresourceRequest
-	case DeprecationIssueTypeLegacyConstraintGoogIPV6:
-		*t = DeprecationIssueTypeLegacyConstraintGoogIPV6
 	case DeprecationIssueTypeLocalCSSFileExtensionRejected:
 		*t = DeprecationIssueTypeLocalCSSFileExtensionRejected
 	case DeprecationIssueTypeMediaSourceAbortRemove:
@@ -1223,7 +1223,7 @@ func (t FederatedAuthRequestIssueReason) String() string {
 
 // FederatedAuthRequestIssueReason values.
 const (
-	FederatedAuthRequestIssueReasonApprovalDeclined              FederatedAuthRequestIssueReason = "ApprovalDeclined"
+	FederatedAuthRequestIssueReasonShouldEmbargo                 FederatedAuthRequestIssueReason = "ShouldEmbargo"
 	FederatedAuthRequestIssueReasonTooManyRequests               FederatedAuthRequestIssueReason = "TooManyRequests"
 	FederatedAuthRequestIssueReasonManifestListHTTPNotFound      FederatedAuthRequestIssueReason = "ManifestListHttpNotFound"
 	FederatedAuthRequestIssueReasonManifestListNoResponse        FederatedAuthRequestIssueReason = "ManifestListNoResponse"
@@ -1248,6 +1248,7 @@ const (
 	FederatedAuthRequestIssueReasonIDTokenInvalidRequest         FederatedAuthRequestIssueReason = "IdTokenInvalidRequest"
 	FederatedAuthRequestIssueReasonErrorIDToken                  FederatedAuthRequestIssueReason = "ErrorIdToken"
 	FederatedAuthRequestIssueReasonCanceled                      FederatedAuthRequestIssueReason = "Canceled"
+	FederatedAuthRequestIssueReasonRpPageNotVisible              FederatedAuthRequestIssueReason = "RpPageNotVisible"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -1263,8 +1264,8 @@ func (t FederatedAuthRequestIssueReason) MarshalJSON() ([]byte, error) {
 // UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
 func (t *FederatedAuthRequestIssueReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	switch FederatedAuthRequestIssueReason(in.String()) {
-	case FederatedAuthRequestIssueReasonApprovalDeclined:
-		*t = FederatedAuthRequestIssueReasonApprovalDeclined
+	case FederatedAuthRequestIssueReasonShouldEmbargo:
+		*t = FederatedAuthRequestIssueReasonShouldEmbargo
 	case FederatedAuthRequestIssueReasonTooManyRequests:
 		*t = FederatedAuthRequestIssueReasonTooManyRequests
 	case FederatedAuthRequestIssueReasonManifestListHTTPNotFound:
@@ -1313,6 +1314,8 @@ func (t *FederatedAuthRequestIssueReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = FederatedAuthRequestIssueReasonErrorIDToken
 	case FederatedAuthRequestIssueReasonCanceled:
 		*t = FederatedAuthRequestIssueReasonCanceled
+	case FederatedAuthRequestIssueReasonRpPageNotVisible:
+		*t = FederatedAuthRequestIssueReasonRpPageNotVisible
 
 	default:
 		in.AddError(errors.New("unknown FederatedAuthRequestIssueReason value"))
