@@ -45,7 +45,7 @@ type EventChildNodeCountUpdated struct {
 // See: https://chromedevtools.github.io/devtools-protocol/tot/DOM#event-childNodeInserted
 type EventChildNodeInserted struct {
 	ParentNodeID   cdp.NodeID `json:"parentNodeId"`   // Id of the node that has changed.
-	PreviousNodeID cdp.NodeID `json:"previousNodeId"` // If of the previous siblint.
+	PreviousNodeID cdp.NodeID `json:"previousNodeId"` // Id of the previous sibling.
 	Node           *cdp.Node  `json:"node"`           // Inserted node data.
 }
 
