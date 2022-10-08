@@ -149,10 +149,10 @@ type EventBackForwardCacheNotUsed struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#event-prerenderAttemptCompleted
 type EventPrerenderAttemptCompleted struct {
-	InitiatingFrameID cdp.FrameID          `json:"initiatingFrameId"` // The frame id of the frame initiating prerendering.
-	PrerenderingURL   string               `json:"prerenderingUrl"`
-	FinalStatus       PrerenderFinalStatus `json:"finalStatus"`
-	ReasonDetails     string               `json:"reasonDetails,omitempty"` // This is used to give users more information about the cancellation details, and this will be formatted for display.
+	InitiatingFrameID   cdp.FrameID          `json:"initiatingFrameId"` // The frame id of the frame initiating prerendering.
+	PrerenderingURL     string               `json:"prerenderingUrl"`
+	FinalStatus         PrerenderFinalStatus `json:"finalStatus"`
+	DisallowedAPIMethod string               `json:"disallowedApiMethod,omitempty"` // This is used to give users more information about the name of the API call that is incompatible with prerender and has caused the cancellation of the attempt
 }
 
 // EventLoadEventFired [no description].
