@@ -667,9 +667,10 @@ var (
 
 // FormatOptions defines the text-formatting to perform on parts of the Table.
 type FormatOptions struct {
-	Footer text.Format // footer row(s) text format
-	Header text.Format // header row(s) text format
-	Row    text.Format // (data) row(s) text format
+	Direction text.Direction // (forced) BiDi direction for each Column
+	Footer    text.Format    // footer row(s) text format
+	Header    text.Format    // header row(s) text format
+	Row       text.Format    // (data) row(s) text format
 }
 
 var (
