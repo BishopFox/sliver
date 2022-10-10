@@ -644,8 +644,8 @@ gorm.io/driver/sqlite v1.3.6/go.mod h1:Sg1/pvnKtbQ7jLXxfZa+jSHvoX8hoZA8cn4xllOMT
 gorm.io/gorm v1.23.4/go.mod h1:l2lP/RyAtc1ynaTjFksBde/O8v9oOGIApu2/xRitmZk=
 gorm.io/gorm v1.23.7/go.mod h1:l2lP/RyAtc1ynaTjFksBde/O8v9oOGIApu2/xRitmZk=
 gorm.io/gorm v1.23.8/go.mod h1:l2lP/RyAtc1ynaTjFksBde/O8v9oOGIApu2/xRitmZk=
-gorm.io/gorm v1.23.10 h1:4Ne9ZbzID9GUxRkllxN4WjJKpsHx8YbKvekVdgyWh24=
-gorm.io/gorm v1.23.10/go.mod h1:DVrVomtaYTbqs7gB/x2uVvqnXzv0nqjB396B8cG4dBA=
+gorm.io/gorm v1.24.0 h1:j/CoiSm6xpRpmzbFJsQHYj+I8bGYWLXVHeYEyyKlF74=
+gorm.io/gorm v1.24.0/go.mod h1:DVrVomtaYTbqs7gB/x2uVvqnXzv0nqjB396B8cG4dBA=
 gvisor.dev/gvisor v0.0.0-20220817001344-846276b3dbc5 h1:cv/zaNV0nr1mJzaeo4S5mHIm5va1W0/9J3/5prlsuRM=
 gvisor.dev/gvisor v0.0.0-20220817001344-846276b3dbc5/go.mod h1:TIvkJD0sxe8pIob3p6T8IzxXunlp6yfgktvTNp+DGNM=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
