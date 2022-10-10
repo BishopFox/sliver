@@ -1208,6 +1208,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			a.Uint("pid", "pid")
 		},
 		Flags: func(f *grumble.Flags) {
+			f.Bool("S", "disable-sgn", true, "disable shikata ga nai shellcode encoder")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,

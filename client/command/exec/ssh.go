@@ -1,8 +1,26 @@
 package exec
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2019  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -31,9 +49,9 @@ func SSHCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	port := ctx.Flags.Uint("port")
-	privateKeypath := ctx.Flags.String("private-key")
-	if privateKeypath != "" {
-		privKey, err = ioutil.ReadFile(privateKeypath)
+	privateKeyPath := ctx.Flags.String("private-key")
+	if privateKeyPath != "" {
+		privKey, err = os.ReadFile(privateKeyPath)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
@@ -51,7 +69,7 @@ func SSHCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("You must specify a keytab file with the --kerberos-keytab flag\n")
 		return
 	}
-	kerberosKeytab, err := ioutil.ReadFile(kerberosKeytabFile)
+	kerberosKeytab, err := os.ReadFile(kerberosKeytabFile)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
