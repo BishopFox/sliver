@@ -26,6 +26,11 @@ ORDER BY
 	INDEX_NAME,
 	SEQ_IN_INDEX`
 
+var typeAliasMap = map[string][]string{
+	"bool":    {"tinyint"},
+	"tinyint": {"bool"},
+}
+
 type Migrator struct {
 	migrator.Migrator
 	Dialector
@@ -319,4 +324,8 @@ func (m Migrator) CurrentSchema(stmt *gorm.Statement, table string) (string, str
 	}
 
 	return m.CurrentDatabase(), table
+}
+
+func (m Migrator) GetTypeAliases(databaseTypeName string) []string {
+	return typeAliasMap[databaseTypeName]
 }
