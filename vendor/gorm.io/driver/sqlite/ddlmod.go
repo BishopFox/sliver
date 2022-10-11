@@ -13,8 +13,8 @@ import (
 
 var (
 	sqliteSeparator    = "`|\"|'|\t"
-	indexRegexp        = regexp.MustCompile(fmt.Sprintf("CREATE(?: UNIQUE)? INDEX [%v]?[\\w\\d-]+[%v]? ON (.*)$", sqliteSeparator, sqliteSeparator))
-	tableRegexp        = regexp.MustCompile(fmt.Sprintf("(?i)(CREATE TABLE [%v]?[\\w\\d-]+[%v]?)(?: \\((.*)\\))?", sqliteSeparator, sqliteSeparator))
+	indexRegexp        = regexp.MustCompile(fmt.Sprintf("(?is)CREATE(?: UNIQUE)? INDEX [%v]?[\\w\\d-]+[%v]? ON (.*)$", sqliteSeparator, sqliteSeparator))
+	tableRegexp        = regexp.MustCompile(fmt.Sprintf("(?is)(CREATE TABLE [%v]?[\\w\\d-]+[%v]?)(?: \\((.*)\\))?", sqliteSeparator, sqliteSeparator))
 	separatorRegexp    = regexp.MustCompile(fmt.Sprintf("[%v]", sqliteSeparator))
 	columnsRegexp      = regexp.MustCompile(fmt.Sprintf("\\([%v]?([\\w\\d]+)[%v]?(?:,[%v]?([\\w\\d]+)[%v]){0,}\\)", sqliteSeparator, sqliteSeparator, sqliteSeparator, sqliteSeparator))
 	columnRegexp       = regexp.MustCompile(fmt.Sprintf("^[%v]?([\\w\\d]+)[%v]?\\s+([\\w\\(\\)\\d]+)(.*)$", sqliteSeparator, sqliteSeparator))
@@ -216,7 +216,8 @@ func (d *ddl) getColumns() []string {
 		fUpper := strings.ToUpper(f)
 		if strings.HasPrefix(fUpper, "PRIMARY KEY") ||
 			strings.HasPrefix(fUpper, "CHECK") ||
-			strings.HasPrefix(fUpper, "CONSTRAINT") {
+			strings.HasPrefix(fUpper, "CONSTRAINT") ||
+			strings.Contains(fUpper, "GENERATED ALWAYS AS") {
 			continue
 		}
 
