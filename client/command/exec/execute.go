@@ -18,7 +18,6 @@ package exec
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -242,7 +241,7 @@ func SaveExecutionOutput(executionOutput string, commandName string, hostName st
 
 	outFileName := filepath.Base(fmt.Sprintf("%s_%s_%s*.log", commandName, hostName, timeNow))
 
-	outFilePath, err = ioutil.TempFile("", outFileName)
+	outFilePath, err = os.CreateTemp("", outFileName)
 
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

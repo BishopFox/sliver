@@ -21,7 +21,7 @@ package exec
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -45,7 +45,7 @@ func SideloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	processName := ctx.Flags.String("process")
 	args := strings.Join(ctx.Args.StringList("args"), " ")
 
-	binData, err := ioutil.ReadFile(binPath)
+	binData, err := os.ReadFile(binPath)
 	if err != nil {
 		con.PrintErrorf("%s", err.Error())
 		return

@@ -83,7 +83,7 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	}
 
 	name := path.Base(req.Config.GetName())
-	shellcode, err := getSliverShellcode(name)
+	shellcode, _, err := getSliverShellcode(name)
 	if err != nil {
 		name, config := generate.ImplantConfigFromProtobuf(req.Config)
 		if name == "" {

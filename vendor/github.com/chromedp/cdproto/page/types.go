@@ -1375,12 +1375,14 @@ const (
 	PrerenderFinalStatusAudioOutputDeviceRequested                PrerenderFinalStatus = "AudioOutputDeviceRequested"
 	PrerenderFinalStatusMixedContent                              PrerenderFinalStatus = "MixedContent"
 	PrerenderFinalStatusTriggerBackgrounded                       PrerenderFinalStatus = "TriggerBackgrounded"
-	PrerenderFinalStatusEmbedderTriggeredAndSameOriginRedirected  PrerenderFinalStatus = "EmbedderTriggeredAndSameOriginRedirected"
 	PrerenderFinalStatusEmbedderTriggeredAndCrossOriginRedirected PrerenderFinalStatus = "EmbedderTriggeredAndCrossOriginRedirected"
 	PrerenderFinalStatusMemoryLimitExceeded                       PrerenderFinalStatus = "MemoryLimitExceeded"
 	PrerenderFinalStatusFailToGetMemoryUsage                      PrerenderFinalStatus = "FailToGetMemoryUsage"
 	PrerenderFinalStatusDataSaverEnabled                          PrerenderFinalStatus = "DataSaverEnabled"
 	PrerenderFinalStatusHasEffectiveURL                           PrerenderFinalStatus = "HasEffectiveUrl"
+	PrerenderFinalStatusActivatedBeforeStarted                    PrerenderFinalStatus = "ActivatedBeforeStarted"
+	PrerenderFinalStatusInactivePageRestriction                   PrerenderFinalStatus = "InactivePageRestriction"
+	PrerenderFinalStatusStartFailed                               PrerenderFinalStatus = "StartFailed"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -1456,8 +1458,6 @@ func (t *PrerenderFinalStatus) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PrerenderFinalStatusMixedContent
 	case PrerenderFinalStatusTriggerBackgrounded:
 		*t = PrerenderFinalStatusTriggerBackgrounded
-	case PrerenderFinalStatusEmbedderTriggeredAndSameOriginRedirected:
-		*t = PrerenderFinalStatusEmbedderTriggeredAndSameOriginRedirected
 	case PrerenderFinalStatusEmbedderTriggeredAndCrossOriginRedirected:
 		*t = PrerenderFinalStatusEmbedderTriggeredAndCrossOriginRedirected
 	case PrerenderFinalStatusMemoryLimitExceeded:
@@ -1468,6 +1468,12 @@ func (t *PrerenderFinalStatus) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PrerenderFinalStatusDataSaverEnabled
 	case PrerenderFinalStatusHasEffectiveURL:
 		*t = PrerenderFinalStatusHasEffectiveURL
+	case PrerenderFinalStatusActivatedBeforeStarted:
+		*t = PrerenderFinalStatusActivatedBeforeStarted
+	case PrerenderFinalStatusInactivePageRestriction:
+		*t = PrerenderFinalStatusInactivePageRestriction
+	case PrerenderFinalStatusStartFailed:
+		*t = PrerenderFinalStatusStartFailed
 
 	default:
 		in.AddError(errors.New("unknown PrerenderFinalStatus value"))

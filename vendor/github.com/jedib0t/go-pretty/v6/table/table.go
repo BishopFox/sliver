@@ -338,7 +338,7 @@ func (t *Table) analyzeAndStringifyColumn(colIdx int, col interface{}, hint rend
 	if strings.Contains(colStr, "\r") {
 		colStr = strings.Replace(colStr, "\r", "", -1)
 	}
-	return colStr
+	return fmt.Sprintf("%s%s", t.style.Format.Direction.Modifier(), colStr)
 }
 
 func (t *Table) getAlign(colIdx int, hint renderHint) text.Align {
