@@ -743,24 +743,28 @@ func findCrossCompilers(targetGoos string, targetGoarch string) (string, string)
 	// If no CC is set in ENV then look for default path(s), we need a CC
 	// but don't always need a CXX so we only WARN on a missing CXX
 	if cc == "" {
-		buildLog.Info("CC not found in ENV, using default paths")
+		buildLog.Debugf("CC not found in ENV, using default paths")
 		if _, ok := defaultCCPaths[runtime.GOOS]; ok {
 			if cc, found = defaultCCPaths[runtime.GOOS][targetGoos][targetGoarch]; !found {
-				buildLog.Warnf("No default for %s/%s from %s", targetGoos, targetGoarch, runtime.GOOS)
+				buildLog.Debugf("No default for %s/%s from %s", targetGoos, targetGoarch, runtime.GOOS)
 			}
 		} else {
-			buildLog.Warnf("No default paths for %s runtime", runtime.GOOS)
+			buildLog.Debugf("No default paths for %s runtime", runtime.GOOS)
 		}
 	}
 
 	// Check to see if CC and CXX exist
-	if _, err := os.Stat(cc); os.IsNotExist(err) {
-		buildLog.Warnf("CC path '%s' does not exist", cc)
-	}
-	if _, err := os.Stat(cxx); os.IsNotExist(err) {
-		buildLog.Warnf("CXX path '%s' does not exist", cxx)
+	if cc != "" {
+		if _, err := os.Stat(cc); os.IsNotExist(err) {
+			buildLog.Warnf("CC path '%s' does not exist", cc)
+		}
 	}
 	buildLog.Debugf(" CC = '%s'", cc)
+	if cxx != "" {
+		if _, err := os.Stat(cxx); os.IsNotExist(err) {
+			buildLog.Warnf("CXX path '%s' does not exist", cxx)
+		}
+	}
 	buildLog.Debugf("CXX = '%s'", cxx)
 	return cc, cxx
 }

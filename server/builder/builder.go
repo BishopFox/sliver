@@ -65,11 +65,6 @@ func StartBuilder(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) 
 	}
 }
 
-type sliverBuilder struct {
-	rpc    rpcpb.SliverRPCClient
-	config Config
-}
-
 func buildEvents(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) <-chan *clientpb.Event {
 	eventStream, err := rpc.BuilderRegister(context.Background(), externalBuilder)
 	if err != nil {
@@ -110,20 +105,15 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 		builderLog.Errorf("nil extConfig")
 		return
 	}
+	if !isSupportedTarget(externalBuilder.Targets, extConfig.Config) {
+		builderLog.Warnf("Skipping event, unsupported target %s:%s/%s", extConfig.Config.Format, extConfig.Config.GOOS, extConfig.Config.GOARCH)
+		return
+	}
+	if extConfig.Config.TemplateName != "sliver" {
+		builderLog.Warnf("Skipping event, unsupported template '%s'", extConfig.Config.TemplateName)
+		return
+	}
 
-	// check to see if the event matches a target we're configured to build for
-	if !util.Contains(externalBuilder.GOOSs, extConfig.Config.GOOS) {
-		builderLog.Warnf("This builder is not configured to build for goos %s, ignore event", extConfig.Config.GOOS)
-		return
-	}
-	if !util.Contains(externalBuilder.GOARCHs, extConfig.Config.GOARCH) {
-		builderLog.Warnf("This builder is not configured to build for goarch %s, ignore event", extConfig.Config.GOARCH)
-		return
-	}
-	if !util.Contains(externalBuilder.Formats, extConfig.Config.Format) {
-		builderLog.Warnf("This builder is not configured to build for format %s, ignore event", extConfig.Config.Format)
-		return
-	}
 	if extConfig.Config.Name == "" {
 		extConfig.Config.Name, _ = codenames.GetCodename()
 	}
@@ -183,4 +173,13 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 		return
 	}
 	builderLog.Infof("All done, built and saved %s", fileName)
+}
+
+func isSupportedTarget(targets []*clientpb.CompilerTarget, config *clientpb.ImplantConfig) bool {
+	for _, target := range targets {
+		if target.GOOS == config.GOOS && target.GOARCH == config.GOARCH {
+			return true
+		}
+	}
+	return false
 }

@@ -23,7 +23,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime"
 	"runtime/debug"
 	"strings"
 
@@ -51,13 +50,6 @@ const (
 	// Cert flags
 	caTypeFlagStr = "type"
 	loadFlagStr   = "load"
-
-	// Builder
-	goosFlagStr           = "os"
-	goarchFlagStr         = "arch"
-	operatorConfigFlagStr = "config"
-	formatFlagStr         = "format"
-	quietFlagStr          = "quiet"
 
 	// console log file name
 	logFileName = "console.log"
@@ -103,12 +95,7 @@ func init() {
 	rootCmd.AddCommand(daemonCmd)
 
 	// Builder
-	builderCmd.Flags().StringSliceP(goosFlagStr, "o", []string{runtime.GOOS}, "builder supported os targets")
-	builderCmd.Flags().StringSliceP(goarchFlagStr, "a", []string{runtime.GOARCH}, "builder supported arch targets")
-	builderCmd.Flags().StringSliceP(formatFlagStr, "f", []string{"executable"}, "builder supported formats")
-	builderCmd.Flags().StringP(operatorConfigFlagStr, "c", "", "operator config file path")
-	builderCmd.Flags().BoolP(quietFlagStr, "q", false, "do not write any content to stdout")
-	rootCmd.AddCommand(builderCmd)
+	rootCmd.AddCommand(initBuilderCmd())
 
 	// Version
 	rootCmd.AddCommand(versionCmd)

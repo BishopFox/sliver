@@ -369,6 +369,7 @@ func (rpc *Server) BuilderRegister(req *clientpb.Builder, stream rpcpb.SliverRPC
 	builderID := core.AddBuilder(req)
 	events := core.EventBroker.Subscribe()
 
+	rpcEventsLog.Infof("Builder %s (%s) connected", builderID, req.OperatorName)
 	defer func() {
 		rpcEventsLog.Infof("Builder %s disconnected", builderID)
 		core.EventBroker.Unsubscribe(events)

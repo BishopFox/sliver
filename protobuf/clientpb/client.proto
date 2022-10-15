@@ -678,8 +678,9 @@ message Builders {
 message Builder {
   string Name = 1;
   string OperatorName = 2;
-  repeated string GOOSs  = 3;
-  repeated string GOARCHs = 4;
-  repeated OutputFormat Formats = 5;
-  repeated string Templates = 6;
+  string GOOS = 3;  // The builder's OS
+  string GOARCH = 4;  // The builder's Arch
+  repeated string Templates = 5;
+  repeated CompilerTarget Targets = 6;
+  repeated CrossCompiler CrossCompilers = 7;
 }
