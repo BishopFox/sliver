@@ -29,6 +29,7 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
@@ -294,7 +295,7 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.GenerateR
 }
 
 func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.ExternalImplantBinary) (*commonpb.Empty, error) {
-	implantConfig, err := db.ImplantConfigByID(req.ImplantConfigID)
+	implantConfig, err := db.ImplantConfigWithC2sByID(req.ImplantConfigID)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid implant config id")
 	}
@@ -308,10 +309,11 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 	}
 	_, err = db.ImplantBuildByName(req.Name)
 	if err == nil {
+		rpcLog.Errorf("Build '%s' already exists!", req.Name)
 		return nil, ErrBuildExists
 	}
 
-	tmpFile, err := os.CreateTemp("", "sliver-external-build")
+	tmpFile, err := os.CreateTemp(assets.GetRootAppDir(), "tmp-external-build-*")
 	if err != nil {
 		rpcLog.Errorf("Failed to create temporary file: %s", err)
 		return nil, status.Error(codes.Internal, "Failed to write implant binary to temp file")
@@ -322,8 +324,11 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 		rcpLog.Errorf("Failed to write implant binary to temp file: %s", err)
 		return nil, status.Error(codes.Internal, "Failed to write implant binary to temp file")
 	}
-	err = generate.ImplantBuildSave(req.Name, implantConfig, "")
+	rpcLog.Infof("Saving external build '%s' from %s", req.Name, tmpFile.Name())
+
+	err = generate.ImplantBuildSave(req.Name, implantConfig, tmpFile.Name())
 	if err != nil {
+		rpcLog.Errorf("Failed to save external build: %s", err)
 		return nil, err
 	}
 
@@ -336,7 +341,7 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 }
 
 func (rpc *Server) GenerateExternalGetImplantConfig(ctx context.Context, req *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
-	implantConfig, err := db.ImplantConfigByID(req.ID)
+	implantConfig, err := db.ImplantConfigWithC2sByID(req.ID)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid implant config id")
 	}

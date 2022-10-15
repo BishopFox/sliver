@@ -29,6 +29,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
@@ -127,6 +128,9 @@ func (b *sliverBuilder) HandleBuildEvent(event *clientpb.Event) {
 		builderLog.Warnf("This builder is not configured to build for format %s, ignore event", extConfig.Config.Format)
 		return
 	}
+	if extConfig.Config.Name == "" {
+		extConfig.Config.Name, _ = codenames.GetCodename()
+	}
 	err = util.AllowedName(extConfig.Config.Name)
 	if err != nil {
 		builderLog.Errorf("Invalid implant name: %s", err)
@@ -135,6 +139,8 @@ func (b *sliverBuilder) HandleBuildEvent(event *clientpb.Event) {
 	_, extModel := generate.ImplantConfigFromProtobuf(extConfig.Config)
 
 	builderLog.Infof("Building %s for %s/%s (format: %s)", extConfig.Config.Name, extConfig.Config.GOOS, extConfig.Config.GOARCH, extConfig.Config.Format)
+	builderLog.Infof("    [c2] mtls:%t wg:%t http/s:%t dns:%t", extModel.MTLSc2Enabled, extModel.WGc2Enabled, extModel.HTTPc2Enabled, extModel.DNSc2Enabled)
+	builderLog.Infof("[pivots] tcp:%t named-pipe:%t", extModel.TCPPivotc2Enabled, extModel.NamePipec2Enabled)
 
 	var fPath string
 	switch extConfig.Config.Format {
@@ -154,6 +160,8 @@ func (b *sliverBuilder) HandleBuildEvent(event *clientpb.Event) {
 		builderLog.Errorf("Failed to generate sliver: %s", err)
 		return
 	}
+	builderLog.Infof("Build completed successfully: %s", fPath)
+
 	data, err := os.ReadFile(fPath)
 	if err != nil {
 		builderLog.Errorf("Failed to read generated sliver: %s", err)
@@ -165,6 +173,7 @@ func (b *sliverBuilder) HandleBuildEvent(event *clientpb.Event) {
 		fileName += ".exe"
 	}
 
+	builderLog.Infof("Uploading '%s' to server ...", extConfig.Config.Name)
 	_, err = b.rpc.GenerateExternalSaveBuild(context.Background(), &clientpb.ExternalImplantBinary{
 		Name:            extConfig.Config.Name,
 		ImplantConfigID: extConfig.Config.ID,
@@ -177,7 +186,7 @@ func (b *sliverBuilder) HandleBuildEvent(event *clientpb.Event) {
 		builderLog.Errorf("Failed to save build: %s", err)
 		return
 	}
-	builderLog.Infof("Successfully built %s", fileName)
+	builderLog.Infof("All done, built and saved %s", fileName)
 }
 
 func contains[T comparable](elems []T, v T) bool {

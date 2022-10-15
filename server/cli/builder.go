@@ -71,11 +71,14 @@ var builderCmd = &cobra.Command{
 		config, err := clientAssets.ReadConfig(configPath)
 		if err != nil {
 			builderLog.Fatalf("Invalid config file: %s", err)
+			os.Exit(-1)
 		}
 		// connect to the server
+		builderLog.Infof("Connecting to %s@%s:%d ...", config.Operator, config.LHost, config.LPort)
 		rpc, ln, err := transport.MTLSConnect(config)
 		if err != nil {
-			builderLog.Fatalf("Failed to connect to server: %s", err)
+			builderLog.Errorf("Failed to connect to server: %s", err)
+			os.Exit(-2)
 		}
 		defer ln.Close()
 		builder.StartBuilder(rpc, builderConfig)
