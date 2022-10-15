@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -51,9 +52,12 @@ func StartBuilder(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) 
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt)
 
-	events := buildEvents(externalBuilder, rpc)
+	builderLog.Infof("Attempting to register builder: %s", externalBuilder.Name)
+	events, err := buildEvents(externalBuilder, rpc)
+	if err != nil {
+		os.Exit(1)
+	}
 
-	builderLog.Infof("Successfully started process as external builder")
 	// Wait for signal or builds
 	for {
 		select {
@@ -65,17 +69,19 @@ func StartBuilder(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) 
 	}
 }
 
-func buildEvents(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) <-chan *clientpb.Event {
+func buildEvents(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) (<-chan *clientpb.Event, error) {
 	eventStream, err := rpc.BuilderRegister(context.Background(), externalBuilder)
 	if err != nil {
-		builderLog.Fatal(err)
+		builderLog.Errorf("failed to register builder: %s", err)
+		return nil, err
 	}
 	events := make(chan *clientpb.Event)
 	go func() {
 		for {
 			event, err := eventStream.Recv()
 			if err == io.EOF || event == nil {
-				return
+				builderLog.Errorf("builder event stream closed")
+				os.Exit(1)
 			}
 
 			// Trigger event based on type
@@ -87,12 +93,23 @@ func buildEvents(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) <
 			}
 		}
 	}()
-	return events
+	return events, nil
 }
 
 // handleBuildEvent - Handle an individual build event
 func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, rpc rpcpb.SliverRPCClient) {
-	implantConfigID := string(event.Data)
+	parts := strings.Split(string(event.Data), ":")
+	if len(parts) < 2 {
+		builderLog.Errorf("Invalid build event data '%s'", event.Data)
+		return
+	}
+	builderName := strings.Join(parts[:len(parts)-1], "")
+	if builderName != externalBuilder.Name {
+		builderLog.Debugf("This build event is for someone else (%s), ignoring", builderName)
+		return
+	}
+
+	implantConfigID := parts[1]
 	builderLog.Infof("Build event for implant config id: %s", implantConfigID)
 	extConfig, err := rpc.GenerateExternalGetImplantConfig(context.Background(), &clientpb.ImplantConfig{
 		ID: implantConfigID,

@@ -84,6 +84,9 @@ var (
 		"windows/386":   true,
 		"windows/amd64": true,
 	}
+
+	ErrNoExternalBuilder = errors.New("no external builders are available")
+	ErrNoValidBuilders   = errors.New("no valid external builders for target")
 )
 
 // GenerateCmd - The main command used to generate implant binaries
@@ -99,7 +102,20 @@ func GenerateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if !ctx.Flags.Bool("external-builder") {
 		compile(config, save, con)
 	} else {
-		externalBuild(config, save, con)
+		_, err := externalBuild(config, save, con)
+		if err != nil {
+			if err == ErrNoExternalBuilder {
+				con.PrintErrorf("There are no external builders currently connected to the server\n")
+				con.PrintErrorf("See 'builders' command for more information\n")
+			} else if err == ErrNoValidBuilders {
+				con.PrintErrorf("There are external builders connected to the server, but none can build the target you specified\n")
+				con.PrintErrorf("Invalid target %s\n", fmt.Sprintf("%s:%s/%s", config.Format, config.GOOS, config.GOARCH))
+				con.PrintErrorf("See 'builders' command for more information\n")
+			} else {
+				con.PrintErrorf("%s", err)
+			}
+			return
+		}
 	}
 }
 
@@ -618,6 +634,22 @@ func ParseTCPPivotc2(args string) ([]*clientpb.ImplantC2, error) {
 
 func externalBuild(config *clientpb.ImplantConfig, save string, con *console.SliverConsoleClient) (*commonpb.File, error) {
 
+	potentialBuilders, err := findExternalBuilders(config, con)
+	if err != nil {
+		return nil, err
+	}
+	var externalBuilder *clientpb.Builder
+	if len(potentialBuilders) == 1 {
+		externalBuilder = potentialBuilders[0]
+	} else {
+		con.PrintInfof("Found %d external builders that can compile this configuration", len(potentialBuilders))
+		externalBuilder, err = selectExternalBuilder(potentialBuilders, con)
+		if err != nil {
+			return nil, err
+		}
+	}
+	con.PrintInfof("Using external builder: %s\n", externalBuilder.Name)
+
 	if config.IsBeacon {
 		interval := time.Duration(config.BeaconInterval)
 		con.PrintInfof("Externally generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
@@ -632,8 +664,9 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 	start := time.Now()
 
 	con.PrintInfof("Creating external build ... ")
-	externalImplantConfig, err := con.Rpc.GenerateExternal(context.Background(), &clientpb.GenerateReq{
-		Config: config,
+	externalImplantConfig, err := con.Rpc.GenerateExternal(context.Background(), &clientpb.ExternalGenerateReq{
+		Config:      config,
+		BuilderName: externalBuilder.Name,
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -836,4 +869,49 @@ func warnMissingCrossCompiler(format clientpb.OutputFormat, targetOS string, tar
 	prompt := &survey.Confirm{Message: "Try to compile anyways (will likely fail)?"}
 	survey.AskOne(prompt, &confirm, nil)
 	return confirm
+}
+
+func findExternalBuilders(config *clientpb.ImplantConfig, con *console.SliverConsoleClient) ([]*clientpb.Builder, error) {
+	builders, err := con.Rpc.Builders(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+	if len(builders.Builders) < 1 {
+		return []*clientpb.Builder{}, ErrNoExternalBuilder
+	}
+
+	validBuilders := []*clientpb.Builder{}
+	for _, builder := range builders.Builders {
+		for _, target := range builder.Targets {
+			if target.GOOS == config.GOOS && target.GOARCH == config.GOARCH && config.Format == target.Format {
+				validBuilders = append(validBuilders, builder)
+				break
+			}
+		}
+	}
+
+	if len(validBuilders) < 1 {
+		return []*clientpb.Builder{}, ErrNoValidBuilders
+	}
+
+	return validBuilders, nil
+}
+
+func selectExternalBuilder(builders []*clientpb.Builder, con *console.SliverConsoleClient) (*clientpb.Builder, error) {
+	choices := []string{}
+	for _, builder := range builders {
+		choices = append(choices, builder.Name)
+	}
+	choice := ""
+	prompt := &survey.Select{
+		Message: "Select an external builder:",
+		Options: choices,
+	}
+	survey.AskOne(prompt, &choice, nil)
+	for _, builder := range builders {
+		if builder.Name == choice {
+			return builder, nil
+		}
+	}
+	return nil, ErrNoValidBuilders
 }

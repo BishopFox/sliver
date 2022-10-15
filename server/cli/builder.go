@@ -135,7 +135,7 @@ func parseBuilderConfigFlags(cmd *cobra.Command) *clientpb.Builder {
 	externalBuilder := &clientpb.Builder{GOOS: runtime.GOOS, GOARCH: runtime.GOARCH}
 
 	externalBuilder.CrossCompilers = generate.GetCrossCompilers()
-	builderLog.Infof("Found %s cross-compilers", len(externalBuilder.CrossCompilers))
+	builderLog.Infof("Found %d cross-compilers", len(externalBuilder.CrossCompilers))
 	for _, crossCompiler := range externalBuilder.CrossCompilers {
 		builderLog.Debugf("Found cross-compiler: cc = '%s' cxx = '%s'", crossCompiler.GetCCPath(), crossCompiler.GetCXXPath())
 	}

@@ -270,7 +270,7 @@ func (rpc *Server) GetCompiler(ctx context.Context, _ *commonpb.Empty) (*clientp
 // *** External builder RPCs ***
 
 // Generate - Generate a new implant
-func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.ExternalImplantConfig, error) {
+func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalGenerateReq) (*clientpb.ExternalImplantConfig, error) {
 	var err error
 	name, config := generate.ImplantConfigFromProtobuf(req.Config)
 	if name == "" {
@@ -289,7 +289,7 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.GenerateR
 
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.ExternalBuildEvent,
-		Data:      []byte(config.ID.String()),
+		Data:      []byte(fmt.Sprintf("%s:%s", req.BuilderName, config.ID.String())),
 	})
 
 	return externalConfig, err
@@ -363,17 +363,25 @@ func (rpc *Server) GenerateExternalGetImplantConfig(ctx context.Context, req *cl
 	}, nil
 }
 
-// External Builders -
+// BuilderRegister
 func (rpc *Server) BuilderRegister(req *clientpb.Builder, stream rpcpb.SliverRPC_BuilderRegisterServer) error {
 	req.OperatorName = rpc.getClientCommonName(stream.Context())
-	builderID := core.AddBuilder(req)
-	events := core.EventBroker.Subscribe()
+	if req.Name == "" {
+		rcpLog.Warnf("Failed to register builder, missing builder name")
+		return status.Error(codes.InvalidArgument, "missing builder name")
+	}
+	err := core.AddBuilder(req)
+	if err != nil {
+		rcpLog.Warnf("Failed to register builder: %s", err)
+		return status.Error(codes.InvalidArgument, err.Error())
+	}
 
-	rpcEventsLog.Infof("Builder %s (%s) connected", builderID, req.OperatorName)
+	rpcEventsLog.Infof("Builder %s (%s) connected", req.Name, req.OperatorName)
+	events := core.EventBroker.Subscribe()
 	defer func() {
-		rpcEventsLog.Infof("Builder %s disconnected", builderID)
+		rpcEventsLog.Infof("Builder %s disconnected", req.Name)
 		core.EventBroker.Unsubscribe(events)
-		core.RemoveBuilder(builderID)
+		core.RemoveBuilder(req.Name)
 	}()
 
 	// Only forward these event types to the builder

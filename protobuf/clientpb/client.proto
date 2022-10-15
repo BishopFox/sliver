@@ -671,6 +671,12 @@ message ShellcodeEncoderMap {
 }
 
 // [ Builder ] ----------------------------------------
+message ExternalGenerateReq {
+  ImplantConfig Config = 1;
+  string BuilderName = 2;
+}
+
+
 message Builders {
   repeated Builder Builders = 1;
 }

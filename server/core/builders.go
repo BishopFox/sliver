@@ -19,25 +19,29 @@ package core
 */
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/gofrs/uuid"
 )
 
 var (
 	// ClientID -> *clientpb.Builder
 	builders = &sync.Map{}
+
+	ErrDuplicateExternalBuilderName = errors.New("builder name must be unique, this name is already in use")
 )
 
-func AddBuilder(builder *clientpb.Builder) string {
-	builderID, _ := uuid.NewV4()
-	builders.Store(builderID.String(), builder)
-	return builderID.String()
+func AddBuilder(builder *clientpb.Builder) error {
+	_, loaded := builders.LoadOrStore(builder.Name, builder)
+	if loaded {
+		return ErrDuplicateExternalBuilderName
+	}
+	return nil
 }
 
-func GetBuilder(builderID string) *clientpb.Builder {
-	builder, _ := builders.Load(builderID)
+func GetBuilder(builderName string) *clientpb.Builder {
+	builder, _ := builders.Load(builderName)
 	return builder.(*clientpb.Builder)
 }
 
@@ -50,6 +54,6 @@ func AllBuilders() []*clientpb.Builder {
 	return externalBuilders
 }
 
-func RemoveBuilder(builderID string) {
-	builders.Delete(builderID)
+func RemoveBuilder(builderName string) {
+	builders.Delete(builderName)
 }

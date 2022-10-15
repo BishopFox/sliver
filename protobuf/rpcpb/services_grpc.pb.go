@@ -67,7 +67,7 @@ type SliverRPCClient interface {
 	HostIOCRm(ctx context.Context, in *clientpb.IOC, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	// *** Implants ***
 	Generate(ctx context.Context, in *clientpb.GenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
-	GenerateExternal(ctx context.Context, in *clientpb.GenerateReq, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error)
+	GenerateExternal(ctx context.Context, in *clientpb.ExternalGenerateReq, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error)
 	GenerateExternalSaveBuild(ctx context.Context, in *clientpb.ExternalImplantBinary, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	GenerateExternalGetImplantConfig(ctx context.Context, in *clientpb.ImplantConfig, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error)
 	BuilderRegister(ctx context.Context, in *clientpb.Builder, opts ...grpc.CallOption) (SliverRPC_BuilderRegisterClient, error)
@@ -491,7 +491,7 @@ func (c *sliverRPCClient) Generate(ctx context.Context, in *clientpb.GenerateReq
 	return out, nil
 }
 
-func (c *sliverRPCClient) GenerateExternal(ctx context.Context, in *clientpb.GenerateReq, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error) {
+func (c *sliverRPCClient) GenerateExternal(ctx context.Context, in *clientpb.ExternalGenerateReq, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error) {
 	out := new(clientpb.ExternalImplantConfig)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GenerateExternal", in, out, opts...)
 	if err != nil {
@@ -1513,7 +1513,7 @@ type SliverRPCServer interface {
 	HostIOCRm(context.Context, *clientpb.IOC) (*commonpb.Empty, error)
 	// *** Implants ***
 	Generate(context.Context, *clientpb.GenerateReq) (*clientpb.Generate, error)
-	GenerateExternal(context.Context, *clientpb.GenerateReq) (*clientpb.ExternalImplantConfig, error)
+	GenerateExternal(context.Context, *clientpb.ExternalGenerateReq) (*clientpb.ExternalImplantConfig, error)
 	GenerateExternalSaveBuild(context.Context, *clientpb.ExternalImplantBinary) (*commonpb.Empty, error)
 	GenerateExternalGetImplantConfig(context.Context, *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error)
 	BuilderRegister(*clientpb.Builder, SliverRPC_BuilderRegisterServer) error
@@ -1730,7 +1730,7 @@ func (UnimplementedSliverRPCServer) HostIOCRm(context.Context, *clientpb.IOC) (*
 func (UnimplementedSliverRPCServer) Generate(context.Context, *clientpb.GenerateReq) (*clientpb.Generate, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Generate not implemented")
 }
-func (UnimplementedSliverRPCServer) GenerateExternal(context.Context, *clientpb.GenerateReq) (*clientpb.ExternalImplantConfig, error) {
+func (UnimplementedSliverRPCServer) GenerateExternal(context.Context, *clientpb.ExternalGenerateReq) (*clientpb.ExternalImplantConfig, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GenerateExternal not implemented")
 }
 func (UnimplementedSliverRPCServer) GenerateExternalSaveBuild(context.Context, *clientpb.ExternalImplantBinary) (*commonpb.Empty, error) {
@@ -2650,7 +2650,7 @@ func _SliverRPC_Generate_Handler(srv interface{}, ctx context.Context, dec func(
 }
 
 func _SliverRPC_GenerateExternal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(clientpb.GenerateReq)
+	in := new(clientpb.ExternalGenerateReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -2662,7 +2662,7 @@ func _SliverRPC_GenerateExternal_Handler(srv interface{}, ctx context.Context, d
 		FullMethod: "/rpcpb.SliverRPC/GenerateExternal",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).GenerateExternal(ctx, req.(*clientpb.GenerateReq))
+		return srv.(SliverRPCServer).GenerateExternal(ctx, req.(*clientpb.ExternalGenerateReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
