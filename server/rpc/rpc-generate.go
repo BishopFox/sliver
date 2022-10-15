@@ -326,6 +326,8 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 	}
 	rpcLog.Infof("Saving external build '%s' from %s", req.Name, tmpFile.Name())
 
+	implantConfig.FileName = req.File.Name
+	generate.ImplantConfigSave(implantConfig)
 	err = generate.ImplantBuildSave(req.Name, implantConfig, tmpFile.Name())
 	if err != nil {
 		rpcLog.Errorf("Failed to save external build: %s", err)
