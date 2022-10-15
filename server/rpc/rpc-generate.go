@@ -29,6 +29,7 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
@@ -360,4 +361,60 @@ func (rpc *Server) GenerateExternalGetImplantConfig(ctx context.Context, req *cl
 		Config:    implantConfig.ToProtobuf(),
 		OTPSecret: otpSecret,
 	}, nil
+}
+
+// External Builders -
+func (rpc *Server) BuilderRegister(req *clientpb.Builder, stream rpcpb.SliverRPC_BuilderRegisterServer) error {
+	req.OperatorName = rpc.getClientCommonName(stream.Context())
+	builderID := core.AddBuilder(req)
+	events := core.EventBroker.Subscribe()
+
+	defer func() {
+		rpcEventsLog.Infof("Builder %s disconnected", builderID)
+		core.EventBroker.Unsubscribe(events)
+		core.RemoveBuilder(builderID)
+	}()
+
+	// Only forward these event types to the builder
+	buildEvents := []string{
+		consts.ExternalBuildEvent,
+	}
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			return nil
+		case event := <-events:
+			if !util.Contains(buildEvents, event.EventType) {
+				continue // Skip events not relevant to the builder
+			}
+
+			pbEvent := &clientpb.Event{
+				EventType: event.EventType,
+				Data:      event.Data,
+			}
+			if event.Job != nil {
+				pbEvent.Job = event.Job.ToProtobuf()
+			}
+			if event.Client != nil {
+				pbEvent.Client = event.Client.ToProtobuf()
+			}
+			if event.Session != nil {
+				pbEvent.Session = event.Session.ToProtobuf()
+			}
+			if event.Err != nil {
+				pbEvent.Err = event.Err.Error()
+			}
+
+			err := stream.Send(pbEvent)
+			if err != nil {
+				rpcEventsLog.Warnf(err.Error())
+				return err
+			}
+		}
+	}
+}
+
+func (rpc *Server) Builders(ctx context.Context, _ *commonpb.Empty) (*clientpb.Builders, error) {
+	return &clientpb.Builders{Builders: core.AllBuilders()}, nil
 }

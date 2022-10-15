@@ -46,25 +46,21 @@ type Config struct {
 }
 
 // StartBuilder - main entry point for the builder
-func StartBuilder(rpc rpcpb.SliverRPCClient, conf Config) {
+func StartBuilder(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) {
 
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt)
 
-	events := buildEvents(rpc)
+	events := buildEvents(externalBuilder, rpc)
 
 	builderLog.Infof("Successfully started process as external builder")
-	builder := sliverBuilder{
-		rpc:    rpc,
-		config: conf,
-	}
 	// Wait for signal or builds
 	for {
 		select {
 		case <-sigint:
 			return
 		case event := <-events:
-			go builder.HandleBuildEvent(event)
+			go handleBuildEvent(externalBuilder, event, rpc)
 		}
 	}
 }
@@ -74,8 +70,8 @@ type sliverBuilder struct {
 	config Config
 }
 
-func buildEvents(rpc rpcpb.SliverRPCClient) <-chan *clientpb.Event {
-	eventStream, err := rpc.Events(context.Background(), &commonpb.Empty{})
+func buildEvents(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) <-chan *clientpb.Event {
+	eventStream, err := rpc.BuilderRegister(context.Background(), externalBuilder)
 	if err != nil {
 		builderLog.Fatal(err)
 	}
@@ -99,11 +95,11 @@ func buildEvents(rpc rpcpb.SliverRPCClient) <-chan *clientpb.Event {
 	return events
 }
 
-// HandleBuildEvent - Handle an individual build event
-func (b *sliverBuilder) HandleBuildEvent(event *clientpb.Event) {
+// handleBuildEvent - Handle an individual build event
+func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, rpc rpcpb.SliverRPCClient) {
 	implantConfigID := string(event.Data)
 	builderLog.Infof("Build event for implant config id: %s", implantConfigID)
-	extConfig, err := b.rpc.GenerateExternalGetImplantConfig(context.Background(), &clientpb.ImplantConfig{
+	extConfig, err := rpc.GenerateExternalGetImplantConfig(context.Background(), &clientpb.ImplantConfig{
 		ID: implantConfigID,
 	})
 	if err != nil {
@@ -116,15 +112,15 @@ func (b *sliverBuilder) HandleBuildEvent(event *clientpb.Event) {
 	}
 
 	// check to see if the event matches a target we're configured to build for
-	if !contains(b.config.GOOSs, extConfig.Config.GOOS) {
+	if !util.Contains(externalBuilder.GOOSs, extConfig.Config.GOOS) {
 		builderLog.Warnf("This builder is not configured to build for goos %s, ignore event", extConfig.Config.GOOS)
 		return
 	}
-	if !contains(b.config.GOARCHs, extConfig.Config.GOARCH) {
+	if !util.Contains(externalBuilder.GOARCHs, extConfig.Config.GOARCH) {
 		builderLog.Warnf("This builder is not configured to build for goarch %s, ignore event", extConfig.Config.GOARCH)
 		return
 	}
-	if !contains(b.config.Formats, extConfig.Config.Format) {
+	if !util.Contains(externalBuilder.Formats, extConfig.Config.Format) {
 		builderLog.Warnf("This builder is not configured to build for format %s, ignore event", extConfig.Config.Format)
 		return
 	}
@@ -174,7 +170,7 @@ func (b *sliverBuilder) HandleBuildEvent(event *clientpb.Event) {
 	}
 
 	builderLog.Infof("Uploading '%s' to server ...", extConfig.Config.Name)
-	_, err = b.rpc.GenerateExternalSaveBuild(context.Background(), &clientpb.ExternalImplantBinary{
+	_, err = rpc.GenerateExternalSaveBuild(context.Background(), &clientpb.ExternalImplantBinary{
 		Name:            extConfig.Config.Name,
 		ImplantConfigID: extConfig.Config.ID,
 		File: &commonpb.File{
@@ -187,13 +183,4 @@ func (b *sliverBuilder) HandleBuildEvent(event *clientpb.Event) {
 		return
 	}
 	builderLog.Infof("All done, built and saved %s", fileName)
-}
-
-func contains[T comparable](elems []T, v T) bool {
-	for _, s := range elems {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }

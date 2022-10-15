@@ -669,3 +669,17 @@ message ShellcodeEncode {
 message ShellcodeEncoderMap {
   map<string, ShellcodeEncoder> Encoders = 1;
 }
+
+// [ Builder ] ----------------------------------------
+message Builders {
+  repeated Builder Builders = 1;
+}
+
+message Builder {
+  string Name = 1;
+  string OperatorName = 2;
+  repeated string GOOSs  = 3;
+  repeated string GOARCHs = 4;
+  repeated OutputFormat Formats = 5;
+  repeated string Templates = 6;
+}

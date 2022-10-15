@@ -65,7 +65,7 @@ var builderCmd = &cobra.Command{
 			return
 		}
 
-		builderConfig := parseBuilderConfigFlags(cmd)
+		externalBuilder := parseBuilderConfigFlags(cmd)
 
 		// load the client configuration from the filesystem
 		config, err := clientAssets.ReadConfig(configPath)
@@ -73,6 +73,7 @@ var builderCmd = &cobra.Command{
 			builderLog.Fatalf("Invalid config file: %s", err)
 			os.Exit(-1)
 		}
+
 		// connect to the server
 		builderLog.Infof("Connecting to %s@%s:%d ...", config.Operator, config.LHost, config.LPort)
 		rpc, ln, err := transport.MTLSConnect(config)
@@ -81,24 +82,24 @@ var builderCmd = &cobra.Command{
 			os.Exit(-2)
 		}
 		defer ln.Close()
-		builder.StartBuilder(rpc, builderConfig)
+		builder.StartBuilder(externalBuilder, rpc)
 	},
 }
 
-func parseBuilderConfigFlags(cmd *cobra.Command) builder.Config {
-	conf := builder.Config{}
+func parseBuilderConfigFlags(cmd *cobra.Command) *clientpb.Builder {
+	externalBuilder := &clientpb.Builder{}
 	var err error
 
-	conf.GOOSs, err = cmd.Flags().GetStringSlice(goosFlagStr)
+	externalBuilder.GOOSs, err = cmd.Flags().GetStringSlice(goosFlagStr)
 	if err != nil {
 		builderLog.Fatalf("Failed to parse --%s flag %s\n", goosFlagStr, err)
 	}
-	builderLog.Debugf("GOOS enabled: %v", conf.GOOSs)
-	conf.GOARCHs, err = cmd.Flags().GetStringSlice(goarchFlagStr)
+	builderLog.Debugf("GOOS enabled: %v", externalBuilder.GOOSs)
+	externalBuilder.GOARCHs, err = cmd.Flags().GetStringSlice(goarchFlagStr)
 	if err != nil {
 		builderLog.Fatalf("Failed to parse --%s flag %s\n", goarchFlagStr, err)
 	}
-	builderLog.Debugf("GOARCH enabled: %v", conf.GOARCHs)
+	builderLog.Debugf("GOARCH enabled: %v", externalBuilder.GOARCHs)
 	rawFormats, err := cmd.Flags().GetStringSlice(formatFlagStr)
 	if err != nil {
 		builderLog.Fatalf("Failed to parse --%s flag %s\n", formatFlagStr, err)
@@ -108,18 +109,18 @@ func parseBuilderConfigFlags(cmd *cobra.Command) builder.Config {
 		switch strings.ToLower(rawFormat) {
 		case "exe", "executable", "pe":
 			builderLog.Debugf("Executable format enabled (%d)", clientpb.OutputFormat_EXECUTABLE)
-			conf.Formats = append(conf.Formats, clientpb.OutputFormat_EXECUTABLE)
+			externalBuilder.Formats = append(externalBuilder.Formats, clientpb.OutputFormat_EXECUTABLE)
 		case "dll", "so", "shared", "dylib", "lib", "library":
 			builderLog.Debugf("Library format enabled (%d)", clientpb.OutputFormat_SHARED_LIB)
-			conf.Formats = append(conf.Formats, clientpb.OutputFormat_SHARED_LIB)
+			externalBuilder.Formats = append(externalBuilder.Formats, clientpb.OutputFormat_SHARED_LIB)
 		case "service":
 			builderLog.Debugf("Service format enabled (%d)", clientpb.OutputFormat_SERVICE)
-			conf.Formats = append(conf.Formats, clientpb.OutputFormat_SERVICE)
+			externalBuilder.Formats = append(externalBuilder.Formats, clientpb.OutputFormat_SERVICE)
 		case "bin", "shellcode":
 			builderLog.Debugf("Shellcode format enabled (%d)", clientpb.OutputFormat_SHELLCODE)
-			conf.Formats = append(conf.Formats, clientpb.OutputFormat_SHELLCODE)
+			externalBuilder.Formats = append(externalBuilder.Formats, clientpb.OutputFormat_SHELLCODE)
 		}
 	}
 
-	return conf
+	return externalBuilder
 }

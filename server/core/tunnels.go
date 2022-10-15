@@ -137,7 +137,7 @@ func (t *tunnels) ScheduleClose(tunnelID uint64) {
 		return
 	}
 
-	timeDelta := time.Now().Sub(tunnel.GetLastMessageTime())
+	timeDelta := time.Since(tunnel.GetLastMessageTime())
 
 	coreLog.Printf("Scheduled close for channel %d (delta: %v)", tunnelID, timeDelta)
 
