@@ -27,7 +27,6 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -140,7 +139,7 @@ func saveLocation(save, DefaultName string) (string, error) {
 		if strings.HasSuffix(save, "/") {
 			log.Printf("%s is dir\n", save)
 			os.MkdirAll(save, 0700)
-			saveTo, _ = filepath.Abs(path.Join(saveTo, DefaultName))
+			saveTo, _ = filepath.Abs(filepath.Join(saveTo, DefaultName))
 		} else {
 			log.Printf("%s is not dir\n", save)
 			saveDir := filepath.Dir(save)
@@ -154,7 +153,7 @@ func saveLocation(save, DefaultName string) (string, error) {
 		log.Printf("%s does exist\n", save)
 		if fi.IsDir() {
 			log.Printf("%s is dir\n", save)
-			saveTo, _ = filepath.Abs(path.Join(save, DefaultName))
+			saveTo, _ = filepath.Abs(filepath.Join(save, DefaultName))
 		} else {
 			log.Printf("%s is not dir\n", save)
 			prompt := &survey.Confirm{Message: "Overwrite existing file?"}
@@ -684,6 +683,7 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 
 	msgF := "Waiting for external builder to acknowledge build %s (template: %s) ... %s"
 
+	var name string
 	for waiting {
 		select {
 
@@ -701,8 +701,13 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 				}
 
 			case consts.ExternalBuildCompletedEvent:
-				if string(event.Data) == externalImplantConfig.Config.ID {
+				parts := strings.SplitN(string(event.Data), ":", 2)
+				if len(parts) != 2 {
+					continue
+				}
+				if parts[0] == externalImplantConfig.Config.ID {
 					con.RemoveEventListener(listenerID)
+					name = parts[1]
 					waiting = false
 				}
 
@@ -717,10 +722,27 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 
 	elapsed := time.Since(start)
 	con.PrintInfof("Build completed in %s\n", elapsed.Round(time.Second))
-	// if len(generated.File.Data) == 0 {
-	// 	con.PrintErrorf("Build failed, no file data\n")
-	// 	return nil, errors.New("no file data")
-	// }
+
+	generated, err := con.Rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
+		ImplantName: name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	con.PrintInfof("Build name: %s (%d bytes)\n", name, len(generated.File.Data))
+
+	saveTo, err := saveLocation(save, filepath.Base(generated.File.Name))
+	if err != nil {
+		return nil, err
+	}
+
+	err = os.WriteFile(saveTo, generated.File.Data, 0700)
+	if err != nil {
+		con.PrintErrorf("Failed to write to: %s\n", saveTo)
+		return nil, err
+	}
+	con.PrintInfof("Implant saved to %s\n", saveTo)
+
 	return nil, nil
 }
 

@@ -20,6 +20,7 @@ package builder
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"os/signal"
@@ -103,7 +104,7 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 		builderLog.Errorf("Invalid build event data '%s'", event.Data)
 		return
 	}
-	builderName := strings.Join(parts[:len(parts)-1], "")
+	builderName := strings.Join(parts[:len(parts)-1], ":")
 	if builderName != externalBuilder.Name {
 		builderLog.Debugf("This build event is for someone else (%s), ignoring", builderName)
 		return
@@ -196,7 +197,7 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 	}
 	rpc.BuilderTrigger(context.Background(), &clientpb.Event{
 		EventType: consts.ExternalBuildCompletedEvent,
-		Data:      []byte(implantConfigID),
+		Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, extConfig.Config.Name)),
 	})
 	builderLog.Infof("All done, built and saved %s", fileName)
 }
