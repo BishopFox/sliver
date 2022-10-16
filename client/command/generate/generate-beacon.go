@@ -31,7 +31,11 @@ func GenerateBeaconCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if save == "" {
 		save, _ = os.Getwd()
 	}
-	compile(config, save, con)
+	if !ctx.Flags.Bool("external-builder") {
+		compile(config, save, con)
+	} else {
+		externalBuild(config, save, con)
+	}
 }
 
 func parseBeaconFlags(ctx *grumble.Context, con *console.SliverConsoleClient, config *clientpb.ImplantConfig) error {

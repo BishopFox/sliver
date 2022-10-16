@@ -115,7 +115,7 @@ enum OutputFormat {
   SHELLCODE = 1;
   EXECUTABLE = 2;
   SERVICE = 3;
-  EXTERNAL = 4;
+  THIRD_PARTY = 4;
 }
 
 message ImplantConfig {
@@ -131,6 +131,7 @@ message ImplantConfig {
   bool Debug = 8;
   bool Evasion = 9;
   bool ObfuscateSymbols = 10;
+  string TemplateName = 11;
 
   string MtlsCACert = 20;
   string MtlsCert = 21;
@@ -173,9 +174,8 @@ message ImplantConfig {
 }
 
 message ExternalImplantConfig {
-  string Name = 1;
-  ImplantConfig Config = 2;
-  string OTPSecret = 3;
+  ImplantConfig Config = 1;
+  string OTPSecret = 2;
 }
 
 message ExternalImplantBinary {
@@ -668,4 +668,25 @@ message ShellcodeEncode {
 
 message ShellcodeEncoderMap {
   map<string, ShellcodeEncoder> Encoders = 1;
+}
+
+// [ Builder ] ----------------------------------------
+message ExternalGenerateReq {
+  ImplantConfig Config = 1;
+  string BuilderName = 2;
+}
+
+
+message Builders {
+  repeated Builder Builders = 1;
+}
+
+message Builder {
+  string Name = 1;
+  string OperatorName = 2;
+  string GOOS = 3;  // The builder's OS
+  string GOARCH = 4;  // The builder's Arch
+  repeated string Templates = 5;
+  repeated CompilerTarget Targets = 6;
+  repeated CrossCompiler CrossCompilers = 7;
 }

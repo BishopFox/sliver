@@ -41,6 +41,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/armory"
 	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/beacons"
+	"github.com/bishopfox/sliver/client/command/builders"
 	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/cursed"
 	"github.com/bishopfox/sliver/client/command/dllhijack"
@@ -1323,8 +1324,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.String("N", "name", "", "agent name")
 			f.Bool("d", "debug", false, "enable debug features")
-			f.Bool("e", "evasion", false, "enable evasion features")
+			f.Bool("e", "evasion", false, "enable evasion features (e.g. overwrite user space hooks)")
 			f.Bool("l", "skip-symbols", false, "skip symbol obfuscation")
+			f.String("I", "template", "sliver", "implant code template")
+			f.Bool("E", "external-builder", false, "use an external builder")
 
 			f.String("c", "canary", "", "canary domain(s)")
 
@@ -1381,8 +1384,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.String("N", "name", "", "agent name")
 			f.Bool("d", "debug", false, "enable debug features")
-			f.Bool("e", "evasion", false, "enable evasion features")
+			f.Bool("e", "evasion", false, "enable evasion features  (e.g. overwrite user space hooks)")
 			f.Bool("l", "skip-symbols", false, "skip symbol obfuscation")
+			f.String("I", "template", "sliver", "implant code template")
+			f.Bool("E", "external-builder", false, "use an external builder")
 
 			f.String("c", "canary", "", "canary domain(s)")
 
@@ -3552,4 +3557,22 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	})
 	con.App.AddCommand(cursedCmd)
+
+	// [ Builders ] ---------------------------------------------
+	buildersCmd := &grumble.Command{
+		Name:      consts.BuildersStr,
+		Help:      "List external builders",
+		LongHelp:  help.GetHelpFor([]string{consts.BuildersStr}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			builders.BuildersCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	}
+	con.App.AddCommand(buildersCmd)
 }
