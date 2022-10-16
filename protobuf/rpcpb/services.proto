@@ -72,6 +72,7 @@ service SliverRPC {
     // rpc BuilderRegister(clientpb.Builder) returns (commonpb.Empty);
     
     rpc BuilderRegister(clientpb.Builder) returns (stream clientpb.Event);
+    rpc BuilderTrigger(clientpb.Event) returns (commonpb.Empty);
     rpc Builders(commonpb.Empty) returns (clientpb.Builders);
 
     rpc Regenerate(clientpb.RegenerateReq) returns (clientpb.Generate);

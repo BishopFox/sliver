@@ -427,3 +427,21 @@ func (rpc *Server) BuilderRegister(req *clientpb.Builder, stream rpcpb.SliverRPC
 func (rpc *Server) Builders(ctx context.Context, _ *commonpb.Empty) (*clientpb.Builders, error) {
 	return &clientpb.Builders{Builders: core.AllBuilders()}, nil
 }
+
+func (rpc *Server) BuilderTrigger(ctx context.Context, req *clientpb.Event) (*commonpb.Empty, error) {
+
+	switch req.EventType {
+
+	// Only allow certain event types to be triggered
+	case consts.AcknowledgeBuildEvent:
+		fallthrough
+	case consts.ExternalBuildCompletedEvent:
+		core.EventBroker.Publish(core.Event{
+			EventType: req.EventType,
+			Data:      req.Data,
+		})
+
+	}
+
+	return &commonpb.Empty{}, nil
+}

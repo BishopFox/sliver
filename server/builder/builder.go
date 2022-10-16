@@ -145,6 +145,11 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 	builderLog.Infof("    [c2] mtls:%t wg:%t http/s:%t dns:%t", extModel.MTLSc2Enabled, extModel.WGc2Enabled, extModel.HTTPc2Enabled, extModel.DNSc2Enabled)
 	builderLog.Infof("[pivots] tcp:%t named-pipe:%t", extModel.TCPPivotc2Enabled, extModel.NamePipec2Enabled)
 
+	rpc.BuilderTrigger(context.Background(), &clientpb.Event{
+		EventType: consts.AcknowledgeBuildEvent,
+		Data:      []byte(implantConfigID),
+	})
+
 	var fPath string
 	switch extConfig.Config.Format {
 	case clientpb.OutputFormat_SERVICE:
@@ -189,6 +194,10 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 		builderLog.Errorf("Failed to save build: %s", err)
 		return
 	}
+	rpc.BuilderTrigger(context.Background(), &clientpb.Event{
+		EventType: consts.ExternalBuildCompletedEvent,
+		Data:      []byte(implantConfigID),
+	})
 	builderLog.Infof("All done, built and saved %s", fileName)
 }
 

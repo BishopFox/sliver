@@ -90,7 +90,9 @@ const (
 	BeaconTaskResultEvent = "beacon-taskresult"
 
 	// ExternalBuildEvent
-	ExternalBuildEvent = "external-build"
+	ExternalBuildEvent          = "external-build"
+	AcknowledgeBuildEvent       = "external-acknowledge"
+	ExternalBuildCompletedEvent = "external-build-completed"
 
 	// WireGuardNewPeer - New Wireguard peer added
 	WireGuardNewPeer = "wireguard-newpeer"

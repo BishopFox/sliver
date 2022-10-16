@@ -71,6 +71,7 @@ type SliverRPCClient interface {
 	GenerateExternalSaveBuild(ctx context.Context, in *clientpb.ExternalImplantBinary, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	GenerateExternalGetImplantConfig(ctx context.Context, in *clientpb.ImplantConfig, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error)
 	BuilderRegister(ctx context.Context, in *clientpb.Builder, opts ...grpc.CallOption) (SliverRPC_BuilderRegisterClient, error)
+	BuilderTrigger(ctx context.Context, in *clientpb.Event, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	Builders(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Builders, error)
 	Regenerate(ctx context.Context, in *clientpb.RegenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
 	ImplantBuilds(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.ImplantBuilds, error)
@@ -548,6 +549,15 @@ func (x *sliverRPCBuilderRegisterClient) Recv() (*clientpb.Event, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+func (c *sliverRPCClient) BuilderTrigger(ctx context.Context, in *clientpb.Event, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/BuilderTrigger", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *sliverRPCClient) Builders(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Builders, error) {
@@ -1517,6 +1527,7 @@ type SliverRPCServer interface {
 	GenerateExternalSaveBuild(context.Context, *clientpb.ExternalImplantBinary) (*commonpb.Empty, error)
 	GenerateExternalGetImplantConfig(context.Context, *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error)
 	BuilderRegister(*clientpb.Builder, SliverRPC_BuilderRegisterServer) error
+	BuilderTrigger(context.Context, *clientpb.Event) (*commonpb.Empty, error)
 	Builders(context.Context, *commonpb.Empty) (*clientpb.Builders, error)
 	Regenerate(context.Context, *clientpb.RegenerateReq) (*clientpb.Generate, error)
 	ImplantBuilds(context.Context, *commonpb.Empty) (*clientpb.ImplantBuilds, error)
@@ -1741,6 +1752,9 @@ func (UnimplementedSliverRPCServer) GenerateExternalGetImplantConfig(context.Con
 }
 func (UnimplementedSliverRPCServer) BuilderRegister(*clientpb.Builder, SliverRPC_BuilderRegisterServer) error {
 	return status.Errorf(codes.Unimplemented, "method BuilderRegister not implemented")
+}
+func (UnimplementedSliverRPCServer) BuilderTrigger(context.Context, *clientpb.Event) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BuilderTrigger not implemented")
 }
 func (UnimplementedSliverRPCServer) Builders(context.Context, *commonpb.Empty) (*clientpb.Builders, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Builders not implemented")
@@ -2722,6 +2736,24 @@ type sliverRPCBuilderRegisterServer struct {
 
 func (x *sliverRPCBuilderRegisterServer) Send(m *clientpb.Event) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func _SliverRPC_BuilderTrigger_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Event)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).BuilderTrigger(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/BuilderTrigger",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).BuilderTrigger(ctx, req.(*clientpb.Event))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _SliverRPC_Builders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -4589,6 +4621,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GenerateExternalGetImplantConfig",
 			Handler:    _SliverRPC_GenerateExternalGetImplantConfig_Handler,
+		},
+		{
+			MethodName: "BuilderTrigger",
+			Handler:    _SliverRPC_BuilderTrigger_Handler,
 		},
 		{
 			MethodName: "Builders",

@@ -682,25 +682,30 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt)
 
+	msgF := "Waiting for external builder to acknowledge build %s (template: %s) ... %s"
+
 	for waiting {
 		select {
 
 		case <-time.After(100 * time.Millisecond):
 			elapsed := time.Since(start)
-			msg := fmt.Sprintf("Waiting for external build %s (template: %s) ... %s",
-				externalImplantConfig.Config.Name,
-				externalImplantConfig.Config.TemplateName,
-				elapsed.Round(time.Second),
-			)
+			msg := fmt.Sprintf(msgF, externalImplantConfig.Config.Name, externalImplantConfig.Config.TemplateName, elapsed.Round(time.Second))
 			fmt.Fprintf(con.App.Stdout(), console.Clearln+" %s  %s", spinner.Next(), msg)
 
 		case event := <-listener:
-			if event.EventType != consts.BuildCompletedEvent {
-				continue
-			}
-			if string(event.Data) == externalImplantConfig.Config.Name {
-				con.RemoveEventListener(listenerID)
-				waiting = false
+			switch event.EventType {
+
+			case consts.AcknowledgeBuildEvent:
+				if string(event.Data) == externalImplantConfig.Config.ID {
+					msgF = "External build %s (template: %s) acknowledged by builder ... %s"
+				}
+
+			case consts.ExternalBuildCompletedEvent:
+				if string(event.Data) == externalImplantConfig.Config.ID {
+					con.RemoveEventListener(listenerID)
+					waiting = false
+				}
+
 			}
 
 		case <-sigint:
