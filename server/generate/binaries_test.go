@@ -403,6 +403,9 @@ func symbolObfuscation(t *testing.T, goos string, goarch string) {
 			{URL: "https://3.example.com"},
 			{URL: "dns://4.example.com", Options: "asdf"},
 		},
+		MTLSc2Enabled: true,
+		HTTPc2Enabled: true,
+		DNSc2Enabled:  true,
 
 		Debug:            false,
 		ObfuscateSymbols: true,
