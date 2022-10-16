@@ -105,6 +105,9 @@ var (
 		consts.ReactionStr + sep + consts.UnsetStr: reactionUnsetHelp,
 
 		consts.Cursed + sep + consts.CursedChrome: cursedChromeHelp,
+
+		// Builders
+		consts.BuildersStr: buildersHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -701,6 +704,13 @@ the target extension must have either of these two sets of permissions:
 2. "webRequest" "webRequestBlocking" "http://*/*" "https://*/*" 
 
 More information: https://github.com/mandatoryprogrammer/CursedChrome
+`
+
+	buildersHelp = `[[.Bold]]Command:[[.Normal]] builders
+[[.Bold]]About:[[.Normal]] Lists external builders currently registered with the server.
+
+External builders allow the Sliver server offload implant builds onto external machines.
+For more information: https://github.com/BishopFox/sliver/wiki/External-Builders
 `
 )
 
