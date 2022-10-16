@@ -111,7 +111,7 @@ func GenerateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				con.PrintErrorf("Invalid target %s\n", fmt.Sprintf("%s:%s/%s", config.Format, config.GOOS, config.GOARCH))
 				con.PrintErrorf("See 'builders' command for more information\n")
 			} else {
-				con.PrintErrorf("%s", err)
+				con.PrintErrorf("%s\n", err)
 			}
 			return
 		}
@@ -662,6 +662,14 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 	}
 	start := time.Now()
 
+	listenerID, listener := con.CreateEventListener()
+
+	waiting := true
+	spinner := spin.New()
+
+	sigint := make(chan os.Signal, 1) // Catch keyboard interrupts
+	signal.Notify(sigint, os.Interrupt)
+
 	con.PrintInfof("Creating external build ... ")
 	externalImplantConfig, err := con.Rpc.GenerateExternal(context.Background(), &clientpb.ExternalGenerateReq{
 		Config:      config,
@@ -673,31 +681,32 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 	}
 	con.Printf("done\n")
 
-	listenerID, listener := con.CreateEventListener()
-
-	waiting := true
-	spinner := spin.New()
-
-	sigint := make(chan os.Signal, 1)
-	signal.Notify(sigint, os.Interrupt)
-
-	msgF := "Waiting for external builder to acknowledge build %s (template: %s) ... %s"
-
 	var name string
+	msgF := "Waiting for external builder to acknowledge build (template: %s) ... %s"
 	for waiting {
 		select {
 
 		case <-time.After(100 * time.Millisecond):
 			elapsed := time.Since(start)
-			msg := fmt.Sprintf(msgF, externalImplantConfig.Config.Name, externalImplantConfig.Config.TemplateName, elapsed.Round(time.Second))
+			msg := fmt.Sprintf(msgF, externalImplantConfig.Config.TemplateName, elapsed.Round(time.Second))
 			fmt.Fprintf(con.App.Stdout(), console.Clearln+" %s  %s", spinner.Next(), msg)
 
 		case event := <-listener:
 			switch event.EventType {
 
+			case consts.ExternalBuildFailedEvent:
+				parts := strings.SplitN(string(event.Data), ":", 2)
+				if len(parts) != 2 {
+					continue
+				}
+				if parts[0] == externalImplantConfig.Config.ID {
+					con.RemoveEventListener(listenerID)
+					return nil, fmt.Errorf("external build failed: %s", parts[1])
+				}
+
 			case consts.AcknowledgeBuildEvent:
 				if string(event.Data) == externalImplantConfig.Config.ID {
-					msgF = "External build %s (template: %s) acknowledged by builder ... %s"
+					msgF = "External build acknowledged by builder (template: %s) ... %s"
 				}
 
 			case consts.ExternalBuildCompletedEvent:

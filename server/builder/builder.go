@@ -117,18 +117,36 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 	})
 	if err != nil {
 		builderLog.Errorf("Failed to get implant config: %s", err)
+		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
+			EventType: consts.ExternalBuildFailedEvent,
+			Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, err.Error())),
+		})
 		return
 	}
 	if extConfig == nil {
 		builderLog.Errorf("nil extConfig")
+		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
+			EventType: consts.ExternalBuildFailedEvent,
+			Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, "nil external config")),
+		})
 		return
 	}
 	if !isSupportedTarget(externalBuilder.Targets, extConfig.Config) {
 		builderLog.Warnf("Skipping event, unsupported target %s:%s/%s", extConfig.Config.Format, extConfig.Config.GOOS, extConfig.Config.GOARCH)
+		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
+			EventType: consts.ExternalBuildFailedEvent,
+			Data: []byte(
+				fmt.Sprintf("%s:%s", implantConfigID, fmt.Sprintf("unsupported target %s:%s/%s", extConfig.Config.Format, extConfig.Config.GOOS, extConfig.Config.GOARCH)),
+			),
+		})
 		return
 	}
 	if extConfig.Config.TemplateName != "sliver" {
-		builderLog.Warnf("Skipping event, unsupported template '%s'", extConfig.Config.TemplateName)
+		builderLog.Warnf("Reject event, unsupported template '%s'", extConfig.Config.TemplateName)
+		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
+			EventType: consts.ExternalBuildFailedEvent,
+			Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, "Unsupported template")),
+		})
 		return
 	}
 
@@ -138,6 +156,10 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 	err = util.AllowedName(extConfig.Config.Name)
 	if err != nil {
 		builderLog.Errorf("Invalid implant name: %s", err)
+		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
+			EventType: consts.ExternalBuildFailedEvent,
+			Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, err.Error())),
+		})
 		return
 	}
 	_, extModel := generate.ImplantConfigFromProtobuf(extConfig.Config)
@@ -163,10 +185,18 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 		fPath, err = generate.SliverShellcode(extConfig.Config.Name, extConfig.OTPSecret, extModel, false)
 	default:
 		builderLog.Errorf("invalid output format: %s", extConfig.Config.Format)
+		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
+			EventType: consts.ExternalBuildFailedEvent,
+			Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, err.Error())),
+		})
 		return
 	}
 	if err != nil {
 		builderLog.Errorf("Failed to generate sliver: %s", err)
+		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
+			EventType: consts.ExternalBuildFailedEvent,
+			Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, err.Error())),
+		})
 		return
 	}
 	builderLog.Infof("Build completed successfully: %s", fPath)
@@ -174,6 +204,10 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 	data, err := os.ReadFile(fPath)
 	if err != nil {
 		builderLog.Errorf("Failed to read generated sliver: %s", err)
+		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
+			EventType: consts.ExternalBuildFailedEvent,
+			Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, err.Error())),
+		})
 		return
 	}
 
@@ -193,6 +227,10 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 	})
 	if err != nil {
 		builderLog.Errorf("Failed to save build: %s", err)
+		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
+			EventType: consts.ExternalBuildFailedEvent,
+			Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, err.Error())),
+		})
 		return
 	}
 	rpc.BuilderTrigger(context.Background(), &clientpb.Event{

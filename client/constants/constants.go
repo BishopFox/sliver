@@ -92,6 +92,7 @@ const (
 	// ExternalBuildEvent
 	ExternalBuildEvent          = "external-build"
 	AcknowledgeBuildEvent       = "external-acknowledge"
+	ExternalBuildFailedEvent    = "external-build-failed"
 	ExternalBuildCompletedEvent = "external-build-completed"
 
 	// WireGuardNewPeer - New Wireguard peer added
