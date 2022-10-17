@@ -433,6 +433,8 @@ func (rpc *Server) BuilderTrigger(ctx context.Context, req *clientpb.Event) (*co
 	switch req.EventType {
 
 	// Only allow certain event types to be triggered
+	case consts.ExternalBuildFailedEvent:
+		fallthrough
 	case consts.AcknowledgeBuildEvent:
 		fallthrough
 	case consts.ExternalBuildCompletedEvent:
