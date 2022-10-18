@@ -581,16 +581,9 @@ ssh -l ubuntu ec2-instance ps aux
 
 A piece of loot can be one of two loot types: a file or a credential. 
 
-[[.Bold]]File Loot[[.Normal]]
-A file can be binary or text, Sliver will attempt to detect the type of file automatically or you can specify 
-a file type with --file-type. You can add local files as loot using the "local" sub-command, or you can add
-files from a session using the "remote" sub-command.
-
-[[.Bold]]Credential Loot[[.Normal]]
-Credential loot can be a user/password combination, an API key, or a file. You can add user/password and API
-keys using the "creds" sub-command. To add credential files use either the "local" or "remote" sub-commands
-with a "--type cred" flag (note the distinction between loot type --type, and file type --file-type). You can
-additionally specify a --file-type (binary or text) as you would normally.
+A loot file can be binary or text, Sliver will attempt to detect the type of file automatically or you can specify 
+a file type with --file-type. You can add local files as loot using the "local" sub-command, or you can add files
+from a session using the "remote" sub-command.
 
 [[.Bold]]Examples:[[.Normal]]
 
@@ -599,12 +592,6 @@ loot local ./foo.txt
 
 # Adding a remote file from the active session:
 loot remote C:/foo.txt
-
-# Adding a remote file as a credential from the active session:
-loot remote --type cred id_rsa
-
-# Display only credentials:
-loot --filter creds
 
 # Display the contents of a piece of loot:
 loot fetch

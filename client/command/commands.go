@@ -2969,8 +2969,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Manage the server's loot store",
 		LongHelp: help.GetHelpFor([]string{consts.LootStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("f", "filter", "", "filter based on loot type")
-
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
@@ -2990,7 +2988,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.String("n", "name", "", "name of this piece of loot")
-			f.String("T", "type", "", "force a specific loot type (file/cred)")
 			f.String("F", "file-type", "", "force a specific file type (binary/text)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -3012,7 +3009,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.String("n", "name", "", "name of this piece of loot")
-			f.String("T", "type", "", "force a specific loot type (file/cred)")
 			f.String("F", "file-type", "", "force a specific file type (binary/text)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
