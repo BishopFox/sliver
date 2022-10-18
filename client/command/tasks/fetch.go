@@ -215,6 +215,8 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 	// ---------------------
 	// Exec commands
 	// ---------------------
+	case sliverpb.MsgInvokeInProcExecuteAssemblyReq:
+		fallthrough
 	case sliverpb.MsgExecuteAssemblyReq:
 		execAssembly := &sliverpb.ExecuteAssembly{}
 		err := proto.Unmarshal(task.Response, execAssembly)
