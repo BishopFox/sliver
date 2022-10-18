@@ -2,7 +2,7 @@ package models
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2022  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -26,34 +26,38 @@ import (
 	"gorm.io/gorm"
 )
 
-// Loot - Represents a piece of loot
-type Loot struct {
+// Credential - Represents a piece of loot
+type Credential struct {
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
-	FileType int
-	Name     string
-	Size     int64
+	Username  string
+	Plaintext string
+	Hash      string
+	HashType  int32
+	IsCracked bool
 
-	OriginHostID uuid.UUID `gorm:"type:uuid;"`
+	OriginHost uuid.UUID `gorm:"type:uuid;"`
 }
 
-func (l *Loot) ToProtobuf() *clientpb.Loot {
-	return &clientpb.Loot{
-		ID:           l.ID.String(),
-		FileType:     clientpb.FileType(l.FileType),
-		Name:         l.Name,
-		Size:         l.Size,
-		OriginHostID: l.OriginHostID.String(),
+func (c *Credential) ToProtobuf() *clientpb.Credential {
+	return &clientpb.Credential{
+		ID:           c.ID.String(),
+		Username:     c.Username,
+		Plaintext:    c.Plaintext,
+		Hash:         c.Hash,
+		HashType:     clientpb.HashType(c.HashType),
+		IsCracked:    c.IsCracked,
+		OriginHostID: c.OriginHost.String(),
 	}
 }
 
 // BeforeCreate - GORM hook
-func (l *Loot) BeforeCreate(tx *gorm.DB) (err error) {
-	l.ID, err = uuid.NewV4()
+func (c *Credential) BeforeCreate(tx *gorm.DB) (err error) {
+	c.ID, err = uuid.NewV4()
 	if err != nil {
 		return err
 	}
-	l.CreatedAt = time.Now()
+	c.CreatedAt = time.Now()
 	return nil
 }

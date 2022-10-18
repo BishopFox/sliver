@@ -22,7 +22,6 @@ import (
 	"context"
 
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/desertbit/grumble"
 )
 
@@ -33,21 +32,12 @@ func LootFetchCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-
 	loot, err = con.Rpc.LootContent(context.Background(), loot)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-
-	// Handle loot based on its type
-	switch loot.Type {
-	case clientpb.LootType_LOOT_FILE:
-		PrintLootFile(con.App.Stdout(), loot)
-	case clientpb.LootType_LOOT_CREDENTIAL:
-		PrintLootCredential(con.App.Stdout(), loot)
-	}
-
+	PrintLootFile(loot, con)
 	if ctx.Flags.String("save") != "" {
 		savedTo, err := saveLootToDisk(ctx, loot)
 		if err != nil {

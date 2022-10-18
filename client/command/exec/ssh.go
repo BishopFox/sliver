@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -143,18 +142,18 @@ func tryCredsFromLoot(con *console.SliverConsoleClient) (string, string, []byte)
 	prompt := &survey.Confirm{Message: "No credentials provided, use from loot?"}
 	survey.AskOne(prompt, &confirm, nil)
 	if confirm {
-		cred, err := loot.SelectCredentials(con)
-		if err != nil {
-			con.PrintErrorf("Invalid loot data, will try to use the SSH agent")
-		} else {
-			switch cred.CredentialType {
-			case clientpb.CredentialType_API_KEY:
-				privKey = []byte(cred.Credential.APIKey)
-			case clientpb.CredentialType_USER_PASSWORD:
-				username = cred.Credential.User
-				password = cred.Credential.Password
-			}
-		}
+		// cred, err := loot.SelectCredentials(con)
+		// if err != nil {
+		// 	con.PrintErrorf("Invalid loot data, will try to use the SSH agent")
+		// } else {
+		// 	switch cred.CredentialType {
+		// 	case clientpb.CredentialType_API_KEY:
+		// 		privKey = []byte(cred.Credential.APIKey)
+		// 	case clientpb.CredentialType_USER_PASSWORD:
+		// 		username = cred.Credential.User
+		// 		password = cred.Credential.Password
+		// 	}
+		// }
 	}
 	return username, password, privKey
 }

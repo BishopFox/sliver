@@ -216,7 +216,7 @@ func LootExecute(commandOutput []byte, lootName string, sliverCmdName string, cm
 		lootName = fmt.Sprintf("[%s] %s on %s (%s)", sliverCmdName, shortCommandName, hostName, timeNow)
 	}
 
-	lootMessage := loot.CreateLootMessage(fileName, lootName, clientpb.LootType_LOOT_FILE, clientpb.FileType_TEXT, commandOutput)
+	lootMessage := loot.CreateLootMessage(fileName, lootName, clientpb.FileType_TEXT, commandOutput)
 	loot.SendLootMessage(lootMessage, con)
 }
 

@@ -130,14 +130,9 @@ func HandleDownloadResponse(download *sliverpb.Download, ctx *grumble.Context, c
 
 	if saveLoot {
 		lootName := ctx.Flags.String("name")
-		lootType, err := loot.ValidateLootType(ctx.Flags.String("type"))
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return
-		}
 		// Hand off to the loot package to take care of looting
 		fileType := loot.ValidateLootFileType(ctx.Flags.String("file-type"), download.Data)
-		loot.LootDownload(download, lootName, lootType, fileType, ctx, con)
+		loot.LootDownload(download, lootName, fileType, ctx, con)
 	} else {
 		fileName := filepath.Base(remotePath)
 		dst, err := filepath.Abs(localPath)

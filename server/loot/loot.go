@@ -39,7 +39,6 @@ type LootBackend interface {
 	Update(*clientpb.Loot) (*clientpb.Loot, error)
 	GetContent(string, bool) (*clientpb.Loot, error)
 	All() *clientpb.AllLoot
-	AllOf(clientpb.LootType) *clientpb.AllLoot
 }
 
 // LootStore - The struct that represents the loot store
@@ -87,17 +86,11 @@ func (l *LootStore) All() *clientpb.AllLoot {
 	return l.backend.All()
 }
 
-// AllOf - Get loot of a particular type from the loot store
-func (l *LootStore) AllOf(lootType clientpb.LootType) *clientpb.AllLoot {
-	return l.backend.AllOf(lootType)
-}
-
 // GetLootStore - Get an instances of the core LootStore
 func GetLootStore() *LootStore {
 	return &LootStore{
 		backend: &LocalBackend{
 			LocalFileDir: GetLootFileDir(),
-			LocalCredDir: GetLootCredentialDir(),
 		},
 	}
 }

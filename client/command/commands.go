@@ -3026,23 +3026,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 	lootCmd.AddCommand(&grumble.Command{
-		Name:     consts.LootCredsStr,
-		Help:     "Add credentials to the server's loot store",
-		LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.LootCredsStr}),
-		Flags: func(f *grumble.Flags) {
-			f.String("n", "name", "", "name of this piece of loot")
-
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Run: func(ctx *grumble.Context) error {
-			con.Println()
-			loot.LootAddCredentialCmd(ctx, con)
-			con.Println()
-			return nil
-		},
-		HelpGroup: consts.GenericHelpGroup,
-	})
-	lootCmd.AddCommand(&grumble.Command{
 		Name:     consts.RenameStr,
 		Help:     "Re-name a piece of existing loot",
 		LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.RenameStr}),

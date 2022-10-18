@@ -85,7 +85,6 @@ func PrintCat(download *sliverpb.Download, ctx *grumble.Context, con *console.Sl
 	)
 	saveLoot := ctx.Flags.Bool("loot")
 	lootName := ctx.Flags.String("name")
-	userLootType := ctx.Flags.String("type")
 	userLootFileType := ctx.Flags.String("file-type")
 	if download.Response != nil && download.Response.Err != "" {
 		con.PrintErrorf("%s\n", download.Response.Err)
@@ -100,17 +99,9 @@ func PrintCat(download *sliverpb.Download, ctx *grumble.Context, con *console.Sl
 	}
 
 	if saveLoot {
-		lootType, err := loot.ValidateLootType(userLootType)
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			// Even if the loot type is bad, we can still print the result to the screen
-			// We will not loot it though
-			lootDownload = false
-		}
 		fileType := loot.ValidateLootFileType(userLootFileType, download.Data)
-
 		if lootDownload {
-			loot.LootDownload(download, lootName, lootType, fileType, ctx, con)
+			loot.LootDownload(download, lootName, fileType, ctx, con)
 			con.Printf("\n")
 		}
 	}

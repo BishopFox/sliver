@@ -40,8 +40,8 @@ func LootRenameCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	survey.AskOne(prompt, &newName)
 
 	loot, err = con.Rpc.LootUpdate(context.Background(), &clientpb.Loot{
-		LootID: loot.LootID,
-		Name:   newName,
+		ID:   loot.ID,
+		Name: newName,
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

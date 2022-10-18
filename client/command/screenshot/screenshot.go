@@ -122,7 +122,7 @@ func PrintScreenshot(screenshot *sliverpb.Screenshot, hostname string, ctx *grum
 	var n int
 	n, err = saveToFile.Write(screenshot.Data)
 	if err != nil {
-		con.PrintErrorf("Error writting file: %s\n", err)
+		con.PrintErrorf("Error writing file: %s\n", err)
 		return
 	}
 
@@ -137,7 +137,7 @@ func LootScreenshot(screenshot *sliverpb.Screenshot, lootName string, hostName s
 		lootName = screenshotFileName
 	}
 
-	lootMessage := loot.CreateLootMessage(screenshotFileName, lootName, clientpb.LootType_LOOT_FILE, clientpb.FileType_BINARY, screenshot.GetData())
+	lootMessage := loot.CreateLootMessage(screenshotFileName, lootName, clientpb.FileType_BINARY, screenshot.GetData())
 	loot.SendLootMessage(lootMessage, con)
 }
 
