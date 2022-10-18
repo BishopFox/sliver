@@ -358,6 +358,13 @@ github.com/shirou/gopsutil/v3/mem
 # github.com/sirupsen/logrus v1.9.0
 ## explicit; go 1.13
 github.com/sirupsen/logrus
+# github.com/slack-go/slack v0.11.3
+## explicit; go 1.16
+github.com/slack-go/slack
+github.com/slack-go/slack/internal/backoff
+github.com/slack-go/slack/internal/errorsx
+github.com/slack-go/slack/internal/timex
+github.com/slack-go/slack/slackutilsx
 # github.com/spf13/cobra v1.6.0
 ## explicit; go 1.15
 github.com/spf13/cobra
