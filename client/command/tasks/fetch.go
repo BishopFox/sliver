@@ -317,6 +317,27 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		}
 		exec.HandleSpawnDLLResponse(spawnDll, "", hostname, ctx, con)
 
+	case sliverpb.MsgExecuteAssembly:
+		execAsm := &sliverpb.ExecuteAssembly{}
+		err := proto.Unmarshal(task.Response, execAsm)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		beacon, _ := con.Rpc.GetBeacon(context.Background(), &clientpb.Beacon{ID: task.BeaconID})
+		hostname := "hostname"
+		if beacon != nil {
+			hostname = beacon.Hostname
+		}
+		ctx := &grumble.Context{
+			Command: &grumble.Command{Name: "execute-assembly"},
+			Flags: grumble.FlagMap{
+				"save": &grumble.FlagMapItem{Value: false},
+				"loot": &grumble.FlagMapItem{Value: false},
+			},
+		}
+		exec.HandleExecuteAssemblyResponse(execAsm, "", hostname, ctx, con)
+
 	case sliverpb.MsgSSHCommandReq:
 		sshCommand := &sliverpb.SSHCommand{}
 		err := proto.Unmarshal(task.Response, sshCommand)
