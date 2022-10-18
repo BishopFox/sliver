@@ -179,7 +179,7 @@ func Open(dialector Dialector, opts ...Option) (db *DB, err error) {
 
 	preparedStmt := &PreparedStmtDB{
 		ConnPool:    db.ConnPool,
-		Stmts:       map[string]Stmt{},
+		Stmts:       map[string](*Stmt){},
 		Mux:         &sync.RWMutex{},
 		PreparedSQL: make([]string, 0, 100),
 	}
@@ -248,10 +248,18 @@ func (db *DB) Session(config *Session) *DB {
 	if config.PrepareStmt {
 		if v, ok := db.cacheStore.Load(preparedStmtDBKey); ok {
 			preparedStmt := v.(*PreparedStmtDB)
-			tx.Statement.ConnPool = &PreparedStmtDB{
-				ConnPool: db.Config.ConnPool,
-				Mux:      preparedStmt.Mux,
-				Stmts:    preparedStmt.Stmts,
+			switch t := tx.Statement.ConnPool.(type) {
+			case Tx:
+				tx.Statement.ConnPool = &PreparedStmtTX{
+					Tx:             t,
+					PreparedStmtDB: preparedStmt,
+				}
+			default:
+				tx.Statement.ConnPool = &PreparedStmtDB{
+					ConnPool: db.Config.ConnPool,
+					Mux:      preparedStmt.Mux,
+					Stmts:    preparedStmt.Stmts,
+				}
 			}
 			txConfig.ConnPool = tx.Statement.ConnPool
 			txConfig.PrepareStmt = true

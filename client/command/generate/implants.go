@@ -49,10 +49,10 @@ func ImplantsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	implantBuildfilters := ImplantBuildFilter{}
+	implantBuildFilters := ImplantBuildFilter{}
 
 	if 0 < len(builds.Configs) {
-		PrintImplantBuilds(builds.Configs, implantBuildfilters, con)
+		PrintImplantBuilds(builds.Configs, implantBuildFilters, con)
 	} else {
 		con.PrintInfof("No implant builds\n")
 	}
@@ -65,6 +65,7 @@ func PrintImplantBuilds(configs map[string]*clientpb.ImplantConfig, filters Impl
 	tw.AppendHeader(table.Row{
 		"Name",
 		"Implant Type",
+		"Template",
 		"OS/Arch",
 		"Format",
 		"Command & Control",
@@ -103,9 +104,13 @@ func PrintImplantBuilds(configs map[string]*clientpb.ImplantConfig, filters Impl
 		for index, c2 := range config.C2 {
 			c2URLs = append(c2URLs, fmt.Sprintf("[%d] %s", index+1, c2.URL))
 		}
+		if config.TemplateName == "" {
+			config.TemplateName = "sliver"
+		}
 		tw.AppendRow(table.Row{
 			sliverName,
 			implantType,
+			config.TemplateName,
 			fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH),
 			config.Format,
 			strings.Join(c2URLs, "\n"),

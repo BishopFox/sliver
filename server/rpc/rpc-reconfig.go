@@ -51,10 +51,7 @@ func (rpc *Server) Reconfigure(ctx context.Context, req *sliverpb.ReconfigureReq
 		if req.ReconnectInterval != 0 {
 			session.ReconnectInterval = req.ReconnectInterval
 		}
-		err = db.Session().Save(session).Error
-		if err != nil {
-			return nil, err
-		}
+		core.Sessions.UpdateSession(session)
 	} else if beaconID != "" {
 		beacon, err := db.BeaconByID(beaconID)
 		if err != nil || beacon == nil {

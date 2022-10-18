@@ -56,6 +56,34 @@ func ImplantConfigByID(id string) (*models.ImplantConfig, error) {
 	return &config, err
 }
 
+// ImplantConfigWithC2sByID - Fetch implant build by name
+func ImplantConfigWithC2sByID(id string) (*models.ImplantConfig, error) {
+	if len(id) < 1 {
+		return nil, ErrRecordNotFound
+	}
+	configID := uuid.FromStringOrNil(id)
+	if configID == uuid.Nil {
+		return nil, ErrRecordNotFound
+	}
+	config := models.ImplantConfig{}
+	err := Session().Where(&models.ImplantConfig{
+		ID: configID,
+	}).First(&config).Error
+	if err != nil {
+		return nil, err
+	}
+
+	c2s := []models.ImplantC2{}
+	err = Session().Where(&models.ImplantC2{
+		ImplantConfigID: config.ID,
+	}).Find(&c2s).Error
+	if err != nil {
+		return nil, err
+	}
+	config.C2 = c2s
+	return &config, err
+}
+
 // ImplantConfigByECCPublicKey - Fetch implant build by it's ecc public key
 func ImplantConfigByECCPublicKeyDigest(publicKeyDigest [32]byte) (*models.ImplantConfig, error) {
 	config := models.ImplantConfig{}

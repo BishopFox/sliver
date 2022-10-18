@@ -72,7 +72,7 @@ func acceptSliverConnections(ln net.Listener) {
 		conn, err := ln.Accept()
 		if err != nil {
 			if errType, ok := err.(*net.OpError); ok && errType.Op == "accept" {
-				break
+				break // Listener was closed by the user
 			}
 			mtlsLog.Errorf("Accept failed: %v", err)
 			continue

@@ -236,6 +236,7 @@ func (t *Table) renderLineMergeOutputs(out *strings.Builder, outLine *strings.Bu
 }
 
 func (t *Table) renderMarginLeft(out *strings.Builder, hint renderHint) {
+	out.WriteString(t.style.Format.Direction.Modifier())
 	if t.style.Options.DrawBorder {
 		border := t.getBorderLeft(hint)
 		colors := t.getBorderColors(hint)

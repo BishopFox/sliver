@@ -70,7 +70,7 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if aesEncryptKey != "" {
 		// check if aes encryption key is correct length
 		if len(aesEncryptKey)%16 != 0 {
-			con.PrintErrorf("Incorect length of AES Key\n")
+			con.PrintErrorf("Incorrect length of AES Key\n")
 			return
 		}
 

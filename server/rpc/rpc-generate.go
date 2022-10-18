@@ -22,7 +22,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -30,6 +29,8 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
@@ -37,6 +38,7 @@ import (
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
+	"github.com/gofrs/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -56,7 +58,15 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 			return nil, err
 		}
 	}
+	if config.TemplateName == "" {
+		config.TemplateName = generate.SliverTemplateName
+	}
 
+	otpSecret, _ := cryptography.TOTPServerSecret()
+	err = generate.GenerateConfig(name, config, true)
+	if err != nil {
+		return nil, err
+	}
 	if config == nil {
 		return nil, errors.New("invalid implant config")
 	}
@@ -64,11 +74,11 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
-		fPath, err = generate.SliverExecutable(name, config)
+		fPath, err = generate.SliverExecutable(name, otpSecret, config, true)
 	case clientpb.OutputFormat_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(name, config)
+		fPath, err = generate.SliverSharedLibrary(name, otpSecret, config, true)
 	case clientpb.OutputFormat_SHELLCODE:
-		fPath, err = generate.SliverShellcode(name, config)
+		fPath, err = generate.SliverShellcode(name, otpSecret, config, true)
 	default:
 		return nil, fmt.Errorf("invalid output format: %s", req.Config.Format)
 	}
@@ -77,20 +87,20 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		return nil, err
 	}
 
-	filename := filepath.Base(fPath)
-	fileData, err := ioutil.ReadFile(fPath)
+	fileName := filepath.Base(fPath)
+	fileData, err := os.ReadFile(fPath)
 	if err != nil {
 		return nil, err
 	}
 
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.BuildCompletedEvent,
-		Data:      []byte(fmt.Sprintf("%s build completed", filename)),
+		Data:      []byte(fileName),
 	})
 
 	return &clientpb.Generate{
 		File: &commonpb.File{
-			Name: filename,
+			Name: fileName,
 			Data: fileData,
 		},
 	}, err
@@ -101,7 +111,8 @@ func (rpc *Server) Regenerate(ctx context.Context, req *clientpb.RegenerateReq) 
 
 	build, err := db.ImplantBuildByName(req.ImplantName)
 	if err != nil {
-		return nil, err
+		rpcLog.Errorf("Failed to find implant %s: %s", req.ImplantName, err)
+		return nil, status.Error(codes.InvalidArgument, "invalid implant name")
 	}
 
 	fileData, err := generate.ImplantFileFromBuild(build)
@@ -259,7 +270,7 @@ func (rpc *Server) GetCompiler(ctx context.Context, _ *commonpb.Empty) (*clientp
 // *** External builder RPCs ***
 
 // Generate - Generate a new implant
-func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.ExternalImplantConfig, error) {
+func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalGenerateReq) (*clientpb.ExternalImplantConfig, error) {
 	var err error
 	name, config := generate.ImplantConfigFromProtobuf(req.Config)
 	if name == "" {
@@ -271,7 +282,6 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.GenerateR
 	if config == nil {
 		return nil, errors.New("invalid implant config")
 	}
-	req.Config.Format = clientpb.OutputFormat_EXTERNAL
 	externalConfig, err := generate.SliverExternal(name, config)
 	if err != nil {
 		return nil, err
@@ -279,19 +289,19 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.GenerateR
 
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.ExternalBuildEvent,
-		Data:      []byte(config.ID.String()),
+		Data:      []byte(fmt.Sprintf("%s:%s", req.BuilderName, config.ID.String())),
 	})
 
 	return externalConfig, err
 }
 
 func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.ExternalImplantBinary) (*commonpb.Empty, error) {
-	implantConfig, err := db.ImplantConfigByID(req.ImplantConfigID)
+	implantConfig, err := db.ImplantConfigWithC2sByID(req.ImplantConfigID)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid implant config id")
 	}
-	if implantConfig.Format != clientpb.OutputFormat_EXTERNAL {
-		return nil, status.Error(codes.InvalidArgument, "invalid implant config format")
+	if implantConfig.TemplateName == "" {
+		return nil, status.Error(codes.InvalidArgument, "invalid payload name")
 	}
 	err = util.AllowedName(req.Name)
 	if err != nil {
@@ -300,10 +310,11 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 	}
 	_, err = db.ImplantBuildByName(req.Name)
 	if err == nil {
+		rpcLog.Errorf("Build '%s' already exists!", req.Name)
 		return nil, ErrBuildExists
 	}
 
-	tmpFile, err := ioutil.TempFile("", "sliver-external-build")
+	tmpFile, err := os.CreateTemp(assets.GetRootAppDir(), "tmp-external-build-*")
 	if err != nil {
 		rpcLog.Errorf("Failed to create temporary file: %s", err)
 		return nil, status.Error(codes.Internal, "Failed to write implant binary to temp file")
@@ -314,31 +325,31 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 		rcpLog.Errorf("Failed to write implant binary to temp file: %s", err)
 		return nil, status.Error(codes.Internal, "Failed to write implant binary to temp file")
 	}
-	err = generate.ImplantBuildSave(req.Name, implantConfig, "")
+	rpcLog.Infof("Saving external build '%s' from %s", req.Name, tmpFile.Name())
+
+	implantConfig.FileName = req.File.Name
+	generate.ImplantConfigSave(implantConfig)
+	err = generate.ImplantBuildSave(req.Name, implantConfig, tmpFile.Name())
 	if err != nil {
+		rpcLog.Errorf("Failed to save external build: %s", err)
 		return nil, err
 	}
 
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.BuildCompletedEvent,
-		Data:      []byte(fmt.Sprintf("%s build completed", req.Name)),
+		Data:      []byte(req.Name),
 	})
 
 	return &commonpb.Empty{}, nil
 }
 
 func (rpc *Server) GenerateExternalGetImplantConfig(ctx context.Context, req *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
-	implantConfig, err := db.ImplantConfigByID(req.ID)
+	implantConfig, err := db.ImplantConfigWithC2sByID(req.ID)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid implant config id")
 	}
-	if implantConfig.Format != clientpb.OutputFormat_EXTERNAL {
-		return nil, status.Error(codes.InvalidArgument, "invalid implant config format")
-	}
-
-	name, err := codenames.GetCodename()
-	if err != nil {
-		return nil, err
+	if implantConfig.ImplantBuildID != uuid.Nil {
+		return nil, status.Error(codes.InvalidArgument, "implant config already has a build")
 	}
 
 	otpSecret, err := cryptography.TOTPServerSecret()
@@ -347,8 +358,92 @@ func (rpc *Server) GenerateExternalGetImplantConfig(ctx context.Context, req *cl
 	}
 
 	return &clientpb.ExternalImplantConfig{
-		Name:      name,
 		Config:    implantConfig.ToProtobuf(),
 		OTPSecret: otpSecret,
 	}, nil
+}
+
+// BuilderRegister
+func (rpc *Server) BuilderRegister(req *clientpb.Builder, stream rpcpb.SliverRPC_BuilderRegisterServer) error {
+	req.OperatorName = rpc.getClientCommonName(stream.Context())
+	if req.Name == "" {
+		rcpLog.Warnf("Failed to register builder, missing builder name")
+		return status.Error(codes.InvalidArgument, "missing builder name")
+	}
+	err := core.AddBuilder(req)
+	if err != nil {
+		rcpLog.Warnf("Failed to register builder: %s", err)
+		return status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	rpcEventsLog.Infof("Builder %s (%s) connected", req.Name, req.OperatorName)
+	events := core.EventBroker.Subscribe()
+	defer func() {
+		rpcEventsLog.Infof("Builder %s disconnected", req.Name)
+		core.EventBroker.Unsubscribe(events)
+		core.RemoveBuilder(req.Name)
+	}()
+
+	// Only forward these event types to the builder
+	buildEvents := []string{
+		consts.ExternalBuildEvent,
+	}
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			return nil
+		case event := <-events:
+			if !util.Contains(buildEvents, event.EventType) {
+				continue // Skip events not relevant to the builder
+			}
+
+			pbEvent := &clientpb.Event{
+				EventType: event.EventType,
+				Data:      event.Data,
+			}
+			if event.Job != nil {
+				pbEvent.Job = event.Job.ToProtobuf()
+			}
+			if event.Client != nil {
+				pbEvent.Client = event.Client.ToProtobuf()
+			}
+			if event.Session != nil {
+				pbEvent.Session = event.Session.ToProtobuf()
+			}
+			if event.Err != nil {
+				pbEvent.Err = event.Err.Error()
+			}
+
+			err := stream.Send(pbEvent)
+			if err != nil {
+				rpcEventsLog.Warnf(err.Error())
+				return err
+			}
+		}
+	}
+}
+
+func (rpc *Server) Builders(ctx context.Context, _ *commonpb.Empty) (*clientpb.Builders, error) {
+	return &clientpb.Builders{Builders: core.AllBuilders()}, nil
+}
+
+func (rpc *Server) BuilderTrigger(ctx context.Context, req *clientpb.Event) (*commonpb.Empty, error) {
+
+	switch req.EventType {
+
+	// Only allow certain event types to be triggered
+	case consts.ExternalBuildFailedEvent:
+		fallthrough
+	case consts.AcknowledgeBuildEvent:
+		fallthrough
+	case consts.ExternalBuildCompletedEvent:
+		core.EventBroker.Publish(core.Event{
+			EventType: req.EventType,
+			Data:      req.Data,
+		})
+
+	}
+
+	return &commonpb.Empty{}, nil
 }

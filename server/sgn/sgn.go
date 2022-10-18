@@ -22,7 +22,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,6 +34,8 @@ import (
 
 var (
 	sgnLog = log.NamedLogger("shellcode", "sgn")
+
+	ErrFailedToEncode = errors.New("failed to encode shellcode")
 )
 
 // SGNConfig - Configuration for sgn
@@ -90,21 +91,21 @@ func sgnCmd(appDir string, cwd string, command []string) ([]byte, error) {
 // EncodeShellcode - Encode a shellcode
 func EncodeShellcode(shellcode []byte, arch string, iterations int, badChars []byte) ([]byte, error) {
 	sgnLog.Infof("[sgn] EncodeShellcode: %d bytes", len(shellcode))
-	inputFile, err := ioutil.TempFile("", "sgn")
+	inputFile, err := os.CreateTemp("", "sgn")
 	if err != nil {
 		sgnLog.Error(err)
-		return nil, errors.New("Failed to encode shellcode")
+		return nil, ErrFailedToEncode
 	}
 	_, err = inputFile.Write(shellcode)
 	if err != nil {
 		sgnLog.Error(err)
-		return nil, errors.New("Failed to encode shellcode")
+		return nil, ErrFailedToEncode
 	}
 	defer os.Remove(inputFile.Name())
-	outputFile, err := ioutil.TempFile("", "sgn")
+	outputFile, err := os.CreateTemp("", "sgn")
 	if err != nil {
 		sgnLog.Error(err)
-		return nil, errors.New("Failed to encode shellcode")
+		return nil, ErrFailedToEncode
 	}
 	outputFile.Close()
 	defer os.Remove(outputFile.Name())
@@ -127,12 +128,12 @@ func EncodeShellcode(shellcode []byte, arch string, iterations int, badChars []b
 	_, err = sgnCmd(config.AppDir, ".", configToArgs(config))
 	if err != nil {
 		sgnLog.Error(err)
-		return nil, errors.New("Failed to encode shellcode")
+		return nil, ErrFailedToEncode
 	}
-	data, err := ioutil.ReadFile(outputFile.Name())
+	data, err := os.ReadFile(outputFile.Name())
 	if err != nil {
 		sgnLog.Error(err)
-		return nil, errors.New("Failed to encode shellcode")
+		return nil, ErrFailedToEncode
 	}
 	sgnLog.Infof("[sgn] successfully encoded to %d bytes", len(data))
 	return data, nil
@@ -183,7 +184,7 @@ func configToArgs(config SGNConfig) []string {
 		for _, b := range config.BadChars {
 			badChars = append(badChars, fmt.Sprintf("\\x%02x", b))
 		}
-		args = append(args, "-b", fmt.Sprintf("%s", strings.Join(badChars, "")))
+		args = append(args, "-b", strings.Join(badChars, ""))
 	}
 
 	// Verbose

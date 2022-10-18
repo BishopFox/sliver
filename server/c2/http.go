@@ -47,6 +47,7 @@ import (
 	sliverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/website"
+	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
 
 	"github.com/gorilla/mux"
@@ -255,11 +256,18 @@ func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 
 	// Randomize the JARM fingerprint
 	switch insecureRand.Intn(4) {
+
+	// So it turns out that Windows by default
+	// disables TLS v1.2 because it's horrible.
+	// So anyways for compatibility we'll specify
+	// a min of 1.1 or 1.0
+
 	case 0:
 		// tlsConfig.MinVersion = tls.VersionTLS13
 		fallthrough // For compatibility with winhttp
 	case 1:
-		tlsConfig.MinVersion = tls.VersionTLS12
+		// tlsConfig.MinVersion = tls.VersionTLS12
+		fallthrough // For compatibility with winhttp
 	case 2:
 		tlsConfig.MinVersion = tls.VersionTLS11
 	default:
@@ -268,28 +276,28 @@ func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 
 	// Randomize the cipher suites
 	allCipherSuites := []uint16{
-		// tls.TLS_RSA_WITH_RC4_128_SHA,     //uint16 = 0x0005
-		tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,   //uint16 = 0x000a
-		tls.TLS_RSA_WITH_AES_128_CBC_SHA,    //uint16 = 0x002f
-		tls.TLS_RSA_WITH_AES_256_CBC_SHA,    //uint16 = 0x0035
-		tls.TLS_RSA_WITH_AES_128_CBC_SHA256, //uint16 = 0x003c
-		tls.TLS_RSA_WITH_AES_128_GCM_SHA256, //uint16 = 0x009c
-		tls.TLS_RSA_WITH_AES_256_GCM_SHA384, //uint16 = 0x009d
-		// tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,  //uint16 = 0xc007
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, //uint16 = 0xc009
-		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, //uint16 = 0xc00a
-		// tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,    //uint16 = 0xc011
-		tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,           //uint16 = 0xc012
-		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,            //uint16 = 0xc013
-		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,            //uint16 = 0xc014
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,       //uint16 = 0xc023
-		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,         //uint16 = 0xc027
-		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,         //uint16 = 0xc02f
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,       //uint16 = 0xc02b
-		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,         //uint16 = 0xc030
-		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,       //uint16 = 0xc02c
-		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,   //uint16 = 0xcca8
-		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, //uint16 = 0xcca9
+		tls.TLS_RSA_WITH_RC4_128_SHA,                      //uint16 = 0x0005 1
+		tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,                 //uint16 = 0x000a 2
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA,                  //uint16 = 0x002f 3
+		tls.TLS_RSA_WITH_AES_256_CBC_SHA,                  //uint16 = 0x0035 4
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA256,               //uint16 = 0x003c 5
+		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,               //uint16 = 0x009c 6
+		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,               //uint16 = 0x009d 7
+		tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,              //uint16 = 0xc007 8
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,          //uint16 = 0xc009 9
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,          //uint16 = 0xc00a 10
+		tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,                //uint16 = 0xc011 11
+		tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,           //uint16 = 0xc012 12
+		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,            //uint16 = 0xc013 13
+		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,            //uint16 = 0xc014 14
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,       //uint16 = 0xc023 15
+		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,         //uint16 = 0xc027 16
+		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,         //uint16 = 0xc02f 17
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,       //uint16 = 0xc02b 18
+		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,         //uint16 = 0xc030 19
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,       //uint16 = 0xc02c 20
+		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,   //uint16 = 0xcca8 21
+		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, //uint16 = 0xcca9 22
 	}
 	// CipherSuites ignores the order of the ciphers, this random shuffle
 	// is truncated resulting in a random selection from all ciphers
@@ -298,6 +306,28 @@ func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 	})
 	nCiphers := insecureRand.Intn(len(allCipherSuites)-8) + 8
 	tlsConfig.CipherSuites = allCipherSuites[:nCiphers]
+
+	// Some TLS 1.2 stacks disable some of the older ciphers like RC4, so to ensure
+	// compatibility we need to make sure we always choose at least one modern RSA
+	// option.
+	modernCiphers := []uint16{
+		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,       //uint16 = 0xc027 16
+		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,       //uint16 = 0xc02f 17
+		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,       //uint16 = 0xc030 19
+		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256, //uint16 = 0xcca8 21
+	}
+
+	found := false
+	for _, cipher := range tlsConfig.CipherSuites {
+		if util.Contains(modernCiphers, cipher) {
+			found = true // Our random selection contains a modern cipher, do nothing
+			break
+		}
+	}
+	if !found {
+		// We are lacking at least one modern RSA option, so randomly enable one
+		tlsConfig.CipherSuites = append(tlsConfig.CipherSuites, modernCiphers[insecureRand.Intn(len(modernCiphers))])
+	}
 
 	if certs.TLSKeyLogger != nil {
 		tlsConfig.KeyLogWriter = certs.TLSKeyLogger
@@ -348,7 +378,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
 	router.HandleFunc(
 		fmt.Sprintf("/{rpath:.*\\.%s[/]{0,1}.*$}", c2Config.ImplantConfig.StagerFileExt),
-		s.stagerHander,
+		s.stagerHandler,
 	).MatcherFunc(s.filterOTP).Methods(http.MethodGet)
 
 	// Default handler returns static content or 404s
@@ -727,8 +757,8 @@ func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request)
 	resp.WriteHeader(http.StatusAccepted)
 }
 
-// stagerHander - Serves the sliver shellcode to the stager requesting it
-func (s *SliverHTTPC2) stagerHander(resp http.ResponseWriter, req *http.Request) {
+// stagerHandler - Serves the sliver shellcode to the stager requesting it
+func (s *SliverHTTPC2) stagerHandler(resp http.ResponseWriter, req *http.Request) {
 	httpLog.Debug("Stager request")
 	if len(s.SliverStage) != 0 {
 		httpLog.Infof("Received staging request from %s", getRemoteAddr(req))
