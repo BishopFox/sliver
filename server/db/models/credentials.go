@@ -28,14 +28,12 @@ import (
 
 // Credential - Represents a piece of loot
 type Credential struct {
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	CreatedAt time.Time `gorm:"->;<-:create;"`
+	ID                 uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	CreatedAt          time.Time `gorm:"->;<-:create;"`
+	HashedCredentialID uuid.UUID `gorm:"type:uuid;"`
 
 	Username  string
 	Plaintext string
-	Hash      string
-	HashType  int32
-	IsCracked bool
 
 	OriginHost uuid.UUID `gorm:"type:uuid;"`
 }
@@ -45,6 +43,26 @@ func (c *Credential) ToProtobuf() *clientpb.Credential {
 		ID:           c.ID.String(),
 		Username:     c.Username,
 		Plaintext:    c.Plaintext,
+		OriginHostID: c.OriginHost.String(),
+	}
+}
+
+type HashedCredential struct {
+	ID         uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	CreatedAt  time.Time `gorm:"->;<-:create;"`
+	Credential Credential
+
+	Hash      string // https://hashcat.net/wiki/doku.php?id=example_hashes
+	HashType  int32
+	IsCracked bool
+
+	OriginHost uuid.UUID `gorm:"type:uuid;"`
+}
+
+func (c *HashedCredential) ToProtobuf() *clientpb.HashedCredential {
+	return &clientpb.HashedCredential{
+		ID:           c.ID.String(),
+		Credential:   c.Credential.ToProtobuf(),
 		Hash:         c.Hash,
 		HashType:     clientpb.HashType(c.HashType),
 		IsCracked:    c.IsCracked,

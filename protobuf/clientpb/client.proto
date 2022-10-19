@@ -580,9 +580,17 @@ message Credential {
   string ID = 1;
   string Username = 2;
   string Plaintext = 3;
-  string Hash = 4;
-  HashType HashType = 5;
-  bool IsCracked = 6;
+
+  string OriginHostID = 7;
+}
+
+message HashedCredential {
+  string ID = 1;
+  Credential Credential = 2;
+  string Hash = 3;
+  HashType HashType = 4;
+  bool IsCracked = 5;
+
   string OriginHostID = 7;
 }
 
