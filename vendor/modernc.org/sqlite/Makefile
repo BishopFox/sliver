@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-.PHONY:	all clean cover cpu editor internalError later mem nuke todo edit tcl extraquick full
+.PHONY:	all clean cover cpu editor internalError later mem nuke todo edit tcl extraquick full tidy uncomment unconvert
 
 grep=--include=*.go --include=*.l --include=*.y --include=*.yy
 ngrep='TODOOK\|internal\/vfs\|internal\/bin\|internal\/mptest\|.*stringer.*\.go'
@@ -17,16 +17,6 @@ all: editor
 	go test -i
 	go test -v 2>&1 -timeout 24h | tee -a log
 	go run speedtest1/main_$(shell go env GOOS)_$(shell go env GOARCH).go
-	GOOS=linux GOARCH=386 go build -v ./...
-	GOOS=linux GOARCH=386 go build -v ./...
-	GOOS=linux GOARCH=amd64 go build -v ./...
-	GOOS=linux GOARCH=amd64 go build -v ./...
-	GOOS=linux GOARCH=arm go build -v ./...
-	GOOS=linux GOARCH=arm64 go build -v ./...
-	GOOS=linux GOARCH=riscv64 go build -v ./...
-	GOOS=linux GOARCH=s390x go build -v ./...
-	#GOOS=windows GOARCH=386 go build -v ./...
-	GOOS=windows GOARCH=amd64 go build -v ./...
 	golint 2>&1 | grep -v $(ngrep) || true
 	misspell *.go
 	staticcheck || true
@@ -36,122 +26,151 @@ all: editor
 	go version
 	date 2>&1 | tee -a log
 
+# $ go install modernc.org/uncomment@latest
+uncomment:
+	uncomment -v -gofmt libtest/sqlite*.go internal/mptest/main*.go internal/testfixture/testfixture*.go speedtest1/main*.go vfs/vfs*.go
+	uncomment -v -gofmt -keep-godoc lib/sqlite*.go
+
+# $ go install github.com/mdempsky/unconvert@latest
+unconvert:
+	./unconvert.sh && echo ok || echo fail
+
+tidy: uncomment unconvert
+	gofmt -l -s -w .
+
 build_all_targets:
-	GOOS=darwin GOARCH=amd64 go build -v ./...
 	GOOS=darwin GOARCH=amd64 go test -c -o /dev/null
-	GOOS=darwin GOARCH=arm64 go build -v ./...
 	GOOS=darwin GOARCH=arm64 go test -c -o /dev/null
-	GOOS=freebsd GOARCH=amd64 go build -v ./...
 	GOOS=freebsd GOARCH=amd64 go test -c -o /dev/null
-	GOOS=freebsd GOARCH=386 go build -v ./...
 	GOOS=freebsd GOARCH=386 go test -c -o /dev/null
-	GOOS=linux GOARCH=386 go build -v ./...
+	GOOS=freebsd GOARCH=arm go test -c -o /dev/null
+	GOOS=freebsd GOARCH=arm64 go test -c -o /dev/null
 	GOOS=linux GOARCH=386 go test -c -o /dev/null
-	GOOS=linux GOARCH=amd64 go build -v ./...
 	GOOS=linux GOARCH=amd64 go test -c -o /dev/null
-	GOOS=linux GOARCH=arm go build -v ./...
 	GOOS=linux GOARCH=arm go test -c -o /dev/null
-	GOOS=linux GOARCH=arm64 go build -v ./...
 	GOOS=linux GOARCH=arm64 go test -c -o /dev/null
-	GOOS=linux GOARCH=riscv64 go build -v ./...
+	GOOS=linux GOARCH=ppc64le go test -c -o /dev/null
 	GOOS=linux GOARCH=riscv64 go test -c -o /dev/null
-	GOOS=linux GOARCH=s390x go build -v ./...
 	GOOS=linux GOARCH=s390x go test -c -o /dev/null
-	GOOS=netbsd GOARCH=amd64 go build -v ./...
 	GOOS=netbsd GOARCH=amd64 go test -c -o /dev/null
-	GOOS=openbsd GOARCH=amd64 go build -v ./...
 	GOOS=openbsd GOARCH=amd64 go test -c -o /dev/null
-	# GOOS=windows GOARCH=386 go build -v ./...
+	GOOS=openbsd GOARCH=arm64 go test -c -o /dev/null
 	# GOOS=windows GOARCH=386 go test -c -o /dev/null
-	GOOS=windows GOARCH=amd64 go build -v ./...
 	GOOS=windows GOARCH=amd64 go test -c -o /dev/null
+	GOOS=windows GOARCH=arm64 go test -c -o /dev/null
 	echo done
 
 # 3900x
 windows_amd64:
 	@echo "Should be executed only on linux/amd64."
 	CCGO_CPP=x86_64-w64-mingw32-cpp TARGET_GOOS=windows TARGET_GOARCH=amd64 go generate 2>&1 | tee log-generate
-	GOOS=windows GOARCH=amd64 go build -v ./...
+	GOOS=windows GOARCH=amd64 go test -c -o /dev/null
+
+windows_arm64:
+	go run addport.go windows_amd64 windows_arm64
+	GOOS=windows GOARCH=arm64 go test -c -o /dev/null
 
 # 3900x
 windows_386:
 	@echo "Should be executed only on linux/amd64."
 	CCGO_CPP=i686-w64-mingw32-cpp TARGET_GOOS=windows TARGET_GOARCH=386 go generate 2>&1 | tee log-generate
-	GOOS=windows GOARCH=386 go build -v ./...
+	GOOS=windows GOARCH=386 go test -c -o /dev/null
 
 # 3900x/qemu
 darwin_amd64:
 	@echo "Should be executed only on darwin/amd64."
 	go generate 2>&1 | tee log-generate
-	go build -v ./...
+	go test -c -o /dev/null
 
 # 3900x/qemu
 netbsd_amd64:
 	@echo "Should be executed only on netbsd/amd64."
 	go generate 2>&1 | tee log-generate
-	go build -v ./...
+	go test -c -o /dev/null
 
 # darwin-m1
 darwin_arm64:
 	@echo "Should be executed only on darwin/arm64."
 	go generate 2>&1 | tee log-generate
-	go build -v ./...
+	go test -c -o /dev/null
 
-# 3900x/VBox
+# 3900x/qemu
 freebsd_amd64:
 	@echo "Should be executed only on freebsd/amd64."
 	go generate 2>&1 | tee log-generate
-	go build -v ./...
+	go test -c -o /dev/null
+
+freebsd_arm64:
+	go run addport.go freebsd_amd64 freebsd_arm64
+	GOOS=freebsd GOARCH=arm64 go test -c -o /dev/null
 
 # 3900x/qemu
 freebsd_386:
 	@echo "Should be executed only on freebsd/386."
 	go generate 2>&1 | tee log-generate
-	go build -v ./...
+	go test -c -o /dev/null
+
+# 3900x/qemu
+freebsd_arm:
+	@echo "Should be executed only on freebsd/arm."
+	go generate 2>&1 | tee log-generate
+	go test -c -o /dev/null
 
 # 3900x
 linux_amd64:
 	@echo "Should be executed only on linux/amd64."
 	go generate 2>&1 | tee log-generate
-	go build -v ./...
+	go test -c -o /dev/null
 
 # 3900x
 linux_386:
 	@echo "Should be executed only on linux/amd64."
 	CCGO_CPP=i686-linux-gnu-cpp TARGET_GOARCH=386 TARGET_GOOS=linux go generate 2>&1 | tee log-generate
-	GOOS=linux GOARCH=386 go build -v ./...
+	GOOS=linux GOARCH=386 go test -c -o /dev/null
 
 # 3900x
 linux_arm:
 	@echo "Should be executed only on linux/amd64."
 	CCGO_CPP=arm-linux-gnueabi-cpp TARGET_GOARCH=arm TARGET_GOOS=linux go generate 2>&1 | tee log-generate
-	GOOS=linux GOARCH=arm go build -v ./...
+	GOOS=linux GOARCH=arm go test -c -o /dev/null
 
 # 3900x
 linux_arm64:
 	@echo "Should be executed only on linux/amd64."
 	CCGO_CPP=aarch64-linux-gnu-cpp TARGET_GOARCH=arm64 TARGET_GOOS=linux go generate 2>&1 | tee log-generate
-	GOOS=linux GOARCH=arm64 go build -v ./...
+	GOOS=linux GOARCH=arm64 go test -c -o /dev/null
+
+# 3900x
+linux_ppc64le:
+	@echo "Should be executed only on linux/amd64."
+	CCGO_CPP=powerpc64le-linux-gnu-cpp TARGET_GOARCH=ppc64le TARGET_GOOS=linux go generate 2>&1 | tee log-generate
+	GOOS=linux GOARCH=ppc64le go test -c -o /dev/null
 
 # linux/riscv64
 linux_riscv64:
-	@echo "Should be executed only on linux/riscv64."
-	go generate 2>&1 | tee log-generate
-	go build -v ./...
+	@echo "Should be executed only on linux/amd64."
+	CCGO_CPP=riscv64-linux-gnu-cpp TARGET_GOARCH=riscv64 TARGET_GOOS=linux go generate 2>&1 | tee log-generate
+	GOOS=linux GOARCH=riscv64 go test -c -o /dev/null
 
 # 3900x
 linux_s390x:
 	@echo "Should be executed only on linux/amd64."
 	CCGO_CPP=s390x-linux-gnu-cpp TARGET_GOARCH=s390x TARGET_GOOS=linux go generate 2>&1 | tee log-generate
-	GOOS=linux GOARCH=s390x go build -v ./...
+	GOOS=linux GOARCH=s390x go test -c -o /dev/null
 
-# 3900x/VBox
+# 3900x/qemu
 openbsd_amd64:
 	@echo "Should be executed only on openbsd/amd64."
 	go generate 2>&1 | tee log-generate
-	go build -v ./...
+	go test -c -o /dev/null
 
-generate_all_targets_on_linux_amd64: linux_amd64 linux_386 linux_arm linux_arm64 linux_s390x windows_amd64 #TODO windows_386
+# 3900x/qemu
+openbsd_arm64:
+	@echo "Should be executed only on openbsd/arm64."
+	go generate 2>&1 | tee log-generate
+	go test -c -o /dev/null
+
+generate_all_targets_on_linux_amd64: linux_amd64 linux_386 linux_arm linux_arm64 linux_s390x linux_ppc64le linux_riscv64 windows_amd64 windows_arm64 #TODO windows_386
 	gofmt -l -s -w .
 	echo done
 

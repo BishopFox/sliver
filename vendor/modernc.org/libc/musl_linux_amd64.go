@@ -4046,7 +4046,7 @@ func Xgethostbyaddr(tls *TLS, a uintptr, l socklen_t, af int32) uintptr { /* get
 	// var res uintptr at bp, 8
 
 	var err int32
-	for ok := true; ok; ok = err == 34 {
+	for __ccgo := true; __ccgo; __ccgo = err == 34 {
 		Xfree(tls, _sh)
 		_sh = Xmalloc(tls, AssignAddUint64(&size, size+uint64(1)))
 		if !(_sh != 0) {
@@ -4161,7 +4161,7 @@ func Xgethostbyname2(tls *TLS, name uintptr, af int32) uintptr { /* gethostbynam
 	// var res uintptr at bp, 8
 
 	var err int32
-	for ok := true; ok; ok = err == 34 {
+	for __ccgo := true; __ccgo; __ccgo = err == 34 {
 		Xfree(tls, _sh1)
 		_sh1 = Xmalloc(tls, AssignAddUint64(&size, size+uint64(1)))
 		if !(_sh1 != 0) {
@@ -4454,7 +4454,7 @@ type res_sym = struct {
 func itoa(tls *TLS, p uintptr, x uint32) uintptr { /* getnameinfo.c:18:13: */
 	p += uintptr(uint64(3) * uint64(unsafe.Sizeof(int32(0))))
 	*(*int8)(unsafe.Pointer(PreDecUintptr(&p, 1))) = int8(0)
-	for ok := true; ok; ok = x != 0 {
+	for __ccgo := true; __ccgo; __ccgo = x != 0 {
 		*(*int8)(unsafe.Pointer(PreDecUintptr(&p, 1))) = int8(uint32('0') + x%uint32(10))
 		x = x / uint32(10)
 	}

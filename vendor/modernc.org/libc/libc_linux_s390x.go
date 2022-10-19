@@ -452,7 +452,7 @@ func Xfopen64(t *TLS, pathname, mode uintptr) uintptr {
 	return 0
 }
 
-//TODO-
+// TODO-
 func __syscall1(t *TLS, trap, p1 long) long {
 	return __syscall(unix.Syscall(uintptr(trap), uintptr(p1), 0, 0))
 }

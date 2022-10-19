@@ -1,6 +1,6 @@
 # sqlite
 
-Package sqlite is a CGo-free port of SQLite.
+Package sqlite is a cgo-free port of SQLite. Although you could see mattn's driver (`github.com/mattn/go-sqlite3`) in go.mod file, we import it for tests only.
 
 SQLite is an in-process implementation of a self-contained, serverless,
 zero-configuration, transactional SQL database engine.

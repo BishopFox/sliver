@@ -111,16 +111,16 @@ func (d *ddl) removeConstraint(name string) bool {
 	return false
 }
 
-func (d *ddl) hasConstraint(name string) bool {
-	reg := regexp.MustCompile("^CONSTRAINT [\"`]?" + regexp.QuoteMeta(name) + "[\"` ]")
+// func (d *ddl) hasConstraint(name string) bool {
+// 	reg := regexp.MustCompile("^CONSTRAINT [\"`]?" + regexp.QuoteMeta(name) + "[\"` ]")
 
-	for _, f := range d.fields {
-		if reg.MatchString(f) {
-			return true
-		}
-	}
-	return false
-}
+// 	for _, f := range d.fields {
+// 		if reg.MatchString(f) {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
 
 func (d *ddl) getColumns() []string {
 	res := []string{}

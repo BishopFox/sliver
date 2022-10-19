@@ -19,15 +19,17 @@
 //
 //	OS      Arch    SQLite version
 //	------------------------------
-//	darwin	amd64   3.38.2
-//	darwin	arm64   3.38.2
-//	freebsd	amd64   3.38.2
-//	linux	386     3.38.2
-//	linux	amd64   3.38.2
-//	linux	arm     3.38.2
-//	linux	arm64   3.38.2
-//	linux	riscv64 3.38.2
-//	windows	amd64   3.38.2
+//	darwin	amd64   3.39.3
+//	darwin	arm64   3.39.3
+//	freebsd	amd64   3.39.3
+//	freebsd	arm64   3.39.3
+//	linux	386     3.39.3
+//	linux	amd64   3.39.3
+//	linux	arm     3.39.3
+//	linux	arm64   3.39.3
+//	linux	riscv64 3.39.3
+//	windows	amd64   3.39.3
+//	windows	arm64   3.39.3
 //
 // Builders
 //
@@ -36,6 +38,19 @@
 //	https://modern-c.appspot.com/-/builder/?importpath=modernc.org%2fsqlite
 //
 // Changelog
+//
+// 2022-09-16 v1.19.0:
+//
+// Support frebsd/arm64.
+//
+// 2022-07-26 v1.18.0:
+//
+// Adds support for Go fs.FS based SQLite virtual filesystems, see function New
+// in modernc.org/sqlite/vfs and/or TestVFS in all_test.go
+//
+// 2022-04-24 v1.17.0:
+//
+// Support windows/arm64.
 //
 // 2022-04-04 v1.16.0:
 //

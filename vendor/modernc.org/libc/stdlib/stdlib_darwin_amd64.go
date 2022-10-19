@@ -5537,8 +5537,9 @@ type Rlim_t = X__uint64_t /* resource.h:89:25 */
 // getrusage().
 //
 // Note: All values other than ru_utime and ru_stime are implementaiton
-//       defined and subject to change in a future release.  Their use
-//       is discouraged for standards compliant programs.
+//
+//	defined and subject to change in a future release.  Their use
+//	is discouraged for standards compliant programs.
 type Rusage = struct {
 	Fru_utime struct {
 		Ftv_sec      X__darwin_time_t

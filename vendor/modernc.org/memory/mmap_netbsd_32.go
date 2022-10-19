@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE-GO file.
 
-//go:build netbsd && 386
-// +build netbsd,386
+//go:build netbsd && 386 || netbsd && arm
+// +build netbsd,386 netbsd,arm
 
 package memory
 

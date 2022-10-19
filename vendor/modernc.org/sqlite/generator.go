@@ -10,9 +10,9 @@ package main
 import (
 	"archive/zip"
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -219,7 +219,6 @@ var (
 		"-DSQLITE_ENABLE_STAT4",
 		"-DSQLITE_ENABLE_STMTVTAB",      // testfixture
 		"-DSQLITE_ENABLE_UNLOCK_NOTIFY", // Adds sqlite3_unlock_notify().
-		"-DSQLITE_HAVE_ZLIB=1",          // testfixture
 		"-DSQLITE_LIKE_DOESNT_MATCH_BLOBS",
 		"-DSQLITE_MUTEX_APPDEF=1",
 		"-DSQLITE_MUTEX_NOOP",
@@ -254,16 +253,16 @@ var (
 		sz       int
 		dev      bool
 	}{
-		{sqliteDir, "https://www.sqlite.org/2022/sqlite-amalgamation-3380200.zip", 2457, false},
-		{sqliteSrcDir, "https://www.sqlite.org/2022/sqlite-src-3380200.zip", 12814, false},
+		{sqliteDir, "https://www.sqlite.org/2022/sqlite-amalgamation-3390400.zip", 2457, false},
+		{sqliteSrcDir, "https://www.sqlite.org/2022/sqlite-src-3390400.zip", 12814, false},
 	}
 
-	sqliteDir    = filepath.FromSlash("testdata/sqlite-amalgamation-3380200")
-	sqliteSrcDir = filepath.FromSlash("testdata/sqlite-src-3380200")
+	sqliteDir    = filepath.FromSlash("testdata/sqlite-amalgamation-3390400")
+	sqliteSrcDir = filepath.FromSlash("testdata/sqlite-src-3390400")
 )
 
 func download() {
-	tmp, err := ioutil.TempDir("", "")
+	tmp, err := os.MkdirTemp("", "")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return
@@ -373,7 +372,12 @@ func fail(s string, args ...interface{}) {
 	os.Exit(1)
 }
 
+var (
+	oFullPathComments = flag.Bool("full-path-comments", false, "")
+)
+
 func main() {
+	flag.Parse()
 	fmt.Printf("Running on %s/%s.\n", runtime.GOOS, runtime.GOARCH)
 	env := os.Getenv("GO_GENERATE")
 	goarch := runtime.GOARCH
@@ -536,7 +540,6 @@ func makeTestfixture(goos, goarch string, more []string) {
 		"ext/misc/totype.c",
 		"ext/misc/unionvtab.c",
 		"ext/misc/wholenumber.c",
-		"ext/misc/zipfile.c",
 		"ext/rbu/test_rbu.c",
 		"ext/rtree/test_rtreedoc.c",
 		"ext/session/test_session.c",
@@ -653,6 +656,7 @@ func makeTestfixture(goos, goarch string, more []string) {
 			fmt.Sprintf("-I%s", sqliteDir),
 			fmt.Sprintf("-I%s", sqliteSrcDir),
 		},
+		otherOpts(),
 		files,
 		more,
 		configTest,
@@ -661,6 +665,13 @@ func makeTestfixture(goos, goarch string, more []string) {
 	if err := task.Main(); err != nil {
 		fail("%s\n", err)
 	}
+}
+
+func otherOpts() (r []string) {
+	if *oFullPathComments {
+		r = append(r, "-full-path-comments")
+	}
+	return r
 }
 
 func makeSpeedTest(goos, goarch string, more []string) {
@@ -676,6 +687,7 @@ func makeSpeedTest(goos, goarch string, more []string) {
 				fmt.Sprintf("-I%s", sqliteDir),
 				"-l", "modernc.org/sqlite/lib",
 			},
+			otherOpts(),
 			more,
 			configProduction,
 		),
@@ -696,10 +708,12 @@ func makeMpTest(goos, goarch string, more []string) {
 				"-ignore-unsupported-alignment",
 				"-o", filepath.FromSlash(fmt.Sprintf("internal/mptest/main_%s_%s.go", goos, goarch)),
 				"-trace-translation-units",
-				filepath.Join(sqliteSrcDir, "mptest", "mptest.c"),
+				// filepath.Join(sqliteSrcDir, "mptest", "mptest.c"),
+				filepath.Join("testdata", "mptest.c"),
 				fmt.Sprintf("-I%s", sqliteDir),
 				"-l", "modernc.org/sqlite/lib",
 			},
+			otherOpts(),
 			more,
 			configProduction,
 		),
@@ -728,6 +742,7 @@ func makeSqliteProduction(goos, goarch string, more []string) {
 				"-trace-translation-units",
 				filepath.Join(sqliteDir, "sqlite3.c"),
 			},
+			otherOpts(),
 			more,
 			configProduction,
 		),
@@ -757,6 +772,7 @@ func makeSqliteTest(goos, goarch string, more []string) {
 				volatiles,
 				filepath.Join(sqliteDir, "sqlite3.c"),
 			},
+			otherOpts(),
 			more,
 			configTest,
 		),
