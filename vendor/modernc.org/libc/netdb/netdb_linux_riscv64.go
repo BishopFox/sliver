@@ -467,8 +467,9 @@ const (
 )
 
 // If __USE_KERNEL_IPV6_DEFS is 1 then the user has included the kernel
-//    network headers first and we should use those ABI-identical definitions
-//    instead of our own, otherwise 0.
+//
+//	network headers first and we should use those ABI-identical definitions
+//	instead of our own, otherwise 0.
 const ( /* in.h:103:1: */
 	IPPROTO_HOPOPTS  = 0  // IPv6 Hop-by-Hop options.
 	IPPROTO_ROUTING  = 43 // IPv6 routing header.
@@ -596,7 +597,8 @@ const ( /* socket.h:200:1: */
 )
 
 // Socket level message types.  This must match the definitions in
-//    <linux/socket.h>.
+//
+//	<linux/socket.h>.
 const ( /* socket.h:332:1: */
 	SCM_RIGHTS = 1
 )
@@ -644,7 +646,8 @@ const ( /* socket_type.h:24:1: */
 )
 
 // The following constants should be used for the second parameter of
-//    `shutdown'.
+//
+//	`shutdown'.
 const ( /* socket.h:41:1: */
 	SHUT_RD   = 0 // No more receptions.
 	SHUT_WR   = 1 // No more transmissions.
@@ -1573,7 +1576,8 @@ type X__syscall_slong_t = int64 /* types.h:197:33 */
 type X__syscall_ulong_t = uint64 /* types.h:199:33 */
 
 // These few don't really vary by system, they always correspond
-//    to one of the other defined types.
+//
+//	to one of the other defined types.
 type X__loff_t = X__off64_t /* types.h:203:19 */ // Type of file sizes and offsets (LFS).
 type X__caddr_t = uintptr   /* types.h:204:14 */
 
@@ -1584,8 +1588,9 @@ type X__intptr_t = int64 /* types.h:207:25 */
 type X__socklen_t = uint32 /* types.h:210:23 */
 
 // C99: An integer type that can be accessed as an atomic entity,
-//    even in the presence of asynchronous interrupts.
-//    It is not currently necessary for this to be machine-specific.
+//
+//	even in the presence of asynchronous interrupts.
+//	It is not currently necessary for this to be machine-specific.
 type X__sig_atomic_t = int32 /* types.h:215:13 */
 
 // Seconds since the Epoch, visible to user code when time_t is too
@@ -2188,7 +2193,8 @@ type Sigset_t = X__sigset_t /* sigset_t.h:7:20 */
 // Never include this file directly; use <sys/types.h> instead.
 
 // A time value that is accurate to the nearest
-//    microsecond but also has a range of years.
+//
+//	microsecond but also has a range of years.
 type Timeval = struct {
 	Ftv_sec  X__time_t
 	Ftv_usec X__suseconds_t
@@ -2235,7 +2241,8 @@ type Timeval = struct {
 //    <http://www.gnu.org/licenses/>.
 
 // POSIX.1b structure for a time value.  This is like a `struct timeval' but
-//    has nanoseconds instead of microseconds.
+//
+//	has nanoseconds instead of microseconds.
 type Timespec = struct {
 	Ftv_sec  X__time_t
 	Ftv_nsec X__syscall_slong_t
@@ -2553,9 +2560,10 @@ type X__pthread_mutex_s = struct {
 //    <https://www.gnu.org/licenses/>.
 
 // There is a lot of padding in this structure.  While it's not strictly
-//    necessary on RISC-V, we're going to leave it in to be on the safe side in
-//    case it's needed in the future.  Most other architectures have the padding,
-//    so this gives us the same extensibility as everyone else has.
+//
+//	necessary on RISC-V, we're going to leave it in to be on the safe side in
+//	case it's needed in the future.  Most other architectures have the padding,
+//	so this gives us the same extensibility as everyone else has.
 type X__pthread_rwlock_arch_t = struct {
 	F__readers       uint32
 	F__writers       uint32
@@ -2589,18 +2597,21 @@ type X__thrd_t = uint64 /* thread-shared-types.h:120:27 */
 type X__once_flag = struct{ F__data int32 } /* thread-shared-types.h:125:3 */
 
 // Thread identifiers.  The structure of the attribute type is not
-//    exposed on purpose.
+//
+//	exposed on purpose.
 type Pthread_t = uint64 /* pthreadtypes.h:27:27 */
 
 // Data structures for mutex handling.  The structure of the attribute
-//    type is not exposed on purpose.
+//
+//	type is not exposed on purpose.
 type Pthread_mutexattr_t = struct {
 	F__ccgo_pad1 [0]uint32
 	F__size      [4]uint8
 } /* pthreadtypes.h:36:3 */
 
 // Data structure for condition variable handling.  The structure of
-//    the attribute type is not exposed on purpose.
+//
+//	the attribute type is not exposed on purpose.
 type Pthread_condattr_t = struct {
 	F__ccgo_pad1 [0]uint32
 	F__size      [4]uint8
@@ -2624,7 +2635,8 @@ type Pthread_mutex_t = struct{ F__data X__pthread_mutex_s } /* pthreadtypes.h:72
 type Pthread_cond_t = struct{ F__data X__pthread_cond_s } /* pthreadtypes.h:80:3 */
 
 // Data structure for reader-writer lock variable handling.  The
-//    structure of the attribute type is deliberately not exposed.
+//
+//	structure of the attribute type is deliberately not exposed.
 type Pthread_rwlock_t = struct{ F__data X__pthread_rwlock_arch_t } /* pthreadtypes.h:91:3 */
 
 type Pthread_rwlockattr_t = struct {
@@ -2636,7 +2648,8 @@ type Pthread_rwlockattr_t = struct {
 type Pthread_spinlock_t = int32 /* pthreadtypes.h:103:22 */
 
 // POSIX barriers data type.  The structure of the type is
-//    deliberately not exposed.
+//
+//	deliberately not exposed.
 type Pthread_barrier_t = struct {
 	F__ccgo_pad1 [0]uint64
 	F__size      [32]uint8
@@ -2707,7 +2720,8 @@ type Sockaddr_storage = struct {
 } /* socket.h:191:1 */
 
 // Structure describing messages sent by
-//    `sendmsg' and received by `recvmsg'.
+//
+//	`sendmsg' and received by `recvmsg'.
 type Msghdr = struct {
 	Fmsg_name       uintptr
 	Fmsg_namelen    Socklen_t
@@ -2843,7 +2857,8 @@ type Linger = struct {
 } /* socket.h:361:1 */
 
 // This is the 4.3 BSD `struct sockaddr' format, which is used as wire
-//    format in the grotty old 4.3 `talk' protocol.
+//
+//	format in the grotty old 4.3 `talk' protocol.
 type Osockaddr = struct {
 	Fsa_family uint16
 	Fsa_data   [14]uint8
@@ -2920,8 +2935,9 @@ type In_addr = struct{ Fs_addr In_addr_t } /* in.h:31:1 */
 // To select the IP level.
 
 // Structure used to describe IP options for IP_OPTIONS and IP_RETOPTS.
-//    The `ip_dst' field is used for the first-hop gateway when using a
-//    source route (this gets put into the header proper).
+//
+//	The `ip_dst' field is used for the first-hop gateway when using a
+//	source route (this gets put into the header proper).
 type Ip_opts = struct {
 	Fip_dst  struct{ Fs_addr In_addr_t }
 	Fip_opts [40]uint8
@@ -3228,8 +3244,9 @@ type Rpcent = struct {
 //    <https://www.gnu.org/licenses/>.
 
 // Description of data base entry for a single network.  NOTE: here a
-//    poor assumption is made.  The network number is expected to fit
-//    into an unsigned long int variable.
+//
+//	poor assumption is made.  The network number is expected to fit
+//	into an unsigned long int variable.
 type Netent = struct {
 	Fn_name     uintptr
 	Fn_aliases  uintptr

@@ -1592,3 +1592,5 @@ func Xuuid_parse(t *TLS, in uintptr, uu uintptr) int32 {
 	copy((*RawMem)(unsafe.Pointer(uu))[:unsafe.Sizeof(uuid.Uuid_t{})], r[:])
 	return 0
 }
+
+func X__srget(t *TLS, stream uintptr) int32 { return Xgetc(t, stream) }

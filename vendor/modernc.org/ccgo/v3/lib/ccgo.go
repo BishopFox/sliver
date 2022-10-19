@@ -1507,14 +1507,16 @@ out:
 		cmd = exec.Command(command[0], command[1:]...)
 		parser = makeXParser2
 	case "windows":
-		if command[0] != "make" {
+		if command[0] != "make" && command[0] != "make.exe" {
 			return fmt.Errorf("usupported build command: %s", command[0])
 		}
 
 		switch s := runtime.GOOS; s {
 		case "windows":
 			argv := append([]string{"-d"}, command[1:]...)
-			command[0] += ".exe"
+			if !strings.HasSuffix(command[0], ".exe") {
+				command[0] += ".exe"
+			}
 			cmd = exec.Command(command[0], argv...)
 			parser = makeDParser
 			break out

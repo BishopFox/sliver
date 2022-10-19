@@ -311,8 +311,8 @@ github.com/mailru/easyjson/jwriter
 # github.com/mattn/go-colorable v0.1.9
 ## explicit; go 1.13
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.14
-## explicit; go 1.12
+# github.com/mattn/go-isatty v0.0.16
+## explicit; go 1.15
 github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.13
 ## explicit; go 1.9
@@ -700,17 +700,17 @@ gvisor.dev/gvisor/pkg/tcpip/transport/tcp
 gvisor.dev/gvisor/pkg/tcpip/transport/tcpconntrack
 gvisor.dev/gvisor/pkg/tcpip/transport/udp
 gvisor.dev/gvisor/pkg/waiter
-# lukechampine.com/uint128 v1.1.1
+# lukechampine.com/uint128 v1.2.0
 ## explicit; go 1.12
 lukechampine.com/uint128
-# modernc.org/cc/v3 v3.35.24
-## explicit; go 1.15
+# modernc.org/cc/v3 v3.40.0
+## explicit; go 1.17
 modernc.org/cc/v3
-# modernc.org/ccgo/v3 v3.15.18
-## explicit; go 1.16
+# modernc.org/ccgo/v3 v3.16.12
+## explicit; go 1.17
 modernc.org/ccgo/v3/lib
-# modernc.org/libc v1.14.12
-## explicit; go 1.16
+# modernc.org/libc v1.20.3
+## explicit; go 1.17
 modernc.org/libc
 modernc.org/libc/errno
 modernc.org/libc/fcntl
@@ -737,22 +737,22 @@ modernc.org/libc/utime
 modernc.org/libc/uuid
 modernc.org/libc/uuid/uuid
 modernc.org/libc/wctype
-# modernc.org/mathutil v1.4.1
+# modernc.org/mathutil v1.5.0
 ## explicit; go 1.13
 modernc.org/mathutil
-# modernc.org/memory v1.0.7
-## explicit; go 1.16
+# modernc.org/memory v1.4.0
+## explicit; go 1.18
 modernc.org/memory
-# modernc.org/opt v0.1.1
+# modernc.org/opt v0.1.3
 ## explicit; go 1.13
 modernc.org/opt
-# modernc.org/sqlite v1.16.0
-## explicit; go 1.16
+# modernc.org/sqlite v1.19.2
+## explicit; go 1.17
 modernc.org/sqlite
 modernc.org/sqlite/lib
-# modernc.org/strutil v1.1.1
-## explicit; go 1.15
+# modernc.org/strutil v1.1.3
+## explicit; go 1.18
 modernc.org/strutil
-# modernc.org/token v1.0.0
+# modernc.org/token v1.0.1
 ## explicit
 modernc.org/token

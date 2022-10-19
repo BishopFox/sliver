@@ -630,8 +630,6 @@ func Xopendir(t *TLS, name uintptr) uintptr {
 	return p
 }
 
-func X__srget(t *TLS, stream uintptr) int32 { return Xgetc(t, stream) }
-
 // int chflags(const char *path, u_int flags);
 func Xchflags(t *TLS, path uintptr, flags uint32) int32 {
 	if err := unix.Chflags(GoString(path), int(flags)); err != nil {
