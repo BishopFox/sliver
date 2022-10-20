@@ -5,4 +5,4 @@ queries:
     uses: security-extended
     paths:
       - server
-      - implant
+      - client
