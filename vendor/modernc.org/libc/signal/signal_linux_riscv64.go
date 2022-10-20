@@ -221,7 +221,8 @@ const ( /* siginfo-consts.h:193:1: */
 // Architecture-specific adjustments to siginfo_t.
 
 // Values for `si_code'.  Positive values are reserved for kernel-generated
-//    signals.
+//
+//	signals.
 const ( /* siginfo-consts.h:35:1: */
 	SI_ASYNCNL  = -60 // Sent by asynch name lookup completion.
 	SI_DETHREAD = -7  // Sent by execve killing subsidiary
@@ -1195,7 +1196,8 @@ type X__syscall_slong_t = int64 /* types.h:197:33 */
 type X__syscall_ulong_t = uint64 /* types.h:199:33 */
 
 // These few don't really vary by system, they always correspond
-//    to one of the other defined types.
+//
+//	to one of the other defined types.
 type X__loff_t = X__off64_t /* types.h:203:19 */ // Type of file sizes and offsets (LFS).
 type X__caddr_t = uintptr   /* types.h:204:14 */
 
@@ -1206,8 +1208,9 @@ type X__intptr_t = int64 /* types.h:207:25 */
 type X__socklen_t = uint32 /* types.h:210:23 */
 
 // C99: An integer type that can be accessed as an atomic entity,
-//    even in the presence of asynchronous interrupts.
-//    It is not currently necessary for this to be machine-specific.
+//
+//	even in the presence of asynchronous interrupts.
+//	It is not currently necessary for this to be machine-specific.
 type X__sig_atomic_t = int32 /* types.h:215:13 */
 
 // Seconds since the Epoch, visible to user code when time_t is too
@@ -1312,7 +1315,8 @@ type X__sig_atomic_t = int32 /* types.h:215:13 */
 // Never include this file directly; use <sys/types.h> instead.
 
 // An integral type that can be modified atomically, without the
-//    possibility of a signal arriving in the middle of the operation.
+//
+//	possibility of a signal arriving in the middle of the operation.
 type Sig_atomic_t = X__sig_atomic_t /* sig_atomic_t.h:8:24 */
 
 type X__sigset_t = struct{ F__val [16]uint64 } /* __sigset_t.h:8:3 */
@@ -1403,7 +1407,8 @@ type Uid_t = X__uid_t /* signal.h:46:17 */
 type Time_t = X__time_t /* time_t.h:10:18 */
 
 // POSIX.1b structure for a time value.  This is like a `struct timeval' but
-//    has nanoseconds instead of microseconds.
+//
+//	has nanoseconds instead of microseconds.
 type Timespec = struct {
 	Ftv_sec  X__time_t
 	Ftv_nsec X__syscall_slong_t
@@ -2250,9 +2255,10 @@ type X__pthread_mutex_s = struct {
 //    <https://www.gnu.org/licenses/>.
 
 // There is a lot of padding in this structure.  While it's not strictly
-//    necessary on RISC-V, we're going to leave it in to be on the safe side in
-//    case it's needed in the future.  Most other architectures have the padding,
-//    so this gives us the same extensibility as everyone else has.
+//
+//	necessary on RISC-V, we're going to leave it in to be on the safe side in
+//	case it's needed in the future.  Most other architectures have the padding,
+//	so this gives us the same extensibility as everyone else has.
 type X__pthread_rwlock_arch_t = struct {
 	F__readers       uint32
 	F__writers       uint32
@@ -2286,18 +2292,21 @@ type X__thrd_t = uint64 /* thread-shared-types.h:120:27 */
 type X__once_flag = struct{ F__data int32 } /* thread-shared-types.h:125:3 */
 
 // Thread identifiers.  The structure of the attribute type is not
-//    exposed on purpose.
+//
+//	exposed on purpose.
 type Pthread_t = uint64 /* pthreadtypes.h:27:27 */
 
 // Data structures for mutex handling.  The structure of the attribute
-//    type is not exposed on purpose.
+//
+//	type is not exposed on purpose.
 type Pthread_mutexattr_t = struct {
 	F__ccgo_pad1 [0]uint32
 	F__size      [4]uint8
 } /* pthreadtypes.h:36:3 */
 
 // Data structure for condition variable handling.  The structure of
-//    the attribute type is not exposed on purpose.
+//
+//	the attribute type is not exposed on purpose.
 type Pthread_condattr_t = struct {
 	F__ccgo_pad1 [0]uint32
 	F__size      [4]uint8
@@ -2314,7 +2323,8 @@ type Pthread_mutex_t = struct{ F__data X__pthread_mutex_s } /* pthreadtypes.h:72
 type Pthread_cond_t = struct{ F__data X__pthread_cond_s } /* pthreadtypes.h:80:3 */
 
 // Data structure for reader-writer lock variable handling.  The
-//    structure of the attribute type is deliberately not exposed.
+//
+//	structure of the attribute type is deliberately not exposed.
 type Pthread_rwlock_t = struct{ F__data X__pthread_rwlock_arch_t } /* pthreadtypes.h:91:3 */
 
 type Pthread_rwlockattr_t = struct {
@@ -2326,7 +2336,8 @@ type Pthread_rwlockattr_t = struct {
 type Pthread_spinlock_t = int32 /* pthreadtypes.h:103:22 */
 
 // POSIX barriers data type.  The structure of the type is
-//    deliberately not exposed.
+//
+//	deliberately not exposed.
 type Pthread_barrier_t = struct {
 	F__ccgo_pad1 [0]uint64
 	F__size      [32]uint8

@@ -621,8 +621,9 @@ type Threadlocinfo = Threadlocaleinfostruct /* crtdefs.h:468:3 */
 // Offset of member MEMBER in a struct of type TYPE.
 
 // Type whose alignment is supported in every context and is at least
-//    as great as that of any standard type not using alignment
-//    specifiers.
+//
+//	as great as that of any standard type not using alignment
+//	specifiers.
 type Max_align_t = struct {
 	F__max_align_ll int64
 	F__max_align_ld float64

@@ -99,6 +99,12 @@ ifeq ($(MAKECMDGOALS), linux)
 		-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 endif
 
+ifeq ($(MAKECMDGOALS), linux-arm64)
+	# Redefine TAGS/ENV to use pure go sqlite3
+	TAGS = -tags osusergo,netgo,gosqlite
+	ENV = CGO_ENABLED=0
+endif
+
 #
 # Targets
 #

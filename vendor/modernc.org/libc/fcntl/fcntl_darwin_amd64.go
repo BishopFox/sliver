@@ -1915,7 +1915,7 @@ type Radvisory = struct {
 	F__ccgo_pad1 [4]byte
 } /* fcntl.h:371:1 */
 
-//* Information the user passes in to get the codeblobs out of the kernel
+// * Information the user passes in to get the codeblobs out of the kernel
 type Fcodeblobs = struct {
 	Ff_cd_hash   uintptr
 	Ff_hash_size Size_t
@@ -1926,7 +1926,7 @@ type Fcodeblobs = struct {
 	F__padding   int32
 } /* fcntl.h:378:9 */
 
-//* Information the user passes in to get the codeblobs out of the kernel
+// * Information the user passes in to get the codeblobs out of the kernel
 type Fcodeblobs_t = Fcodeblobs /* fcntl.h:386:3 */
 
 // detached code signatures data type -

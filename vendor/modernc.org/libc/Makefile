@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-.PHONY:	all bench clean cover cpu editor internalError later mem nuke todo edit devbench \
+.PHONY:	all bench build_all_targets clean cover cpu editor internalError later mem nuke todo edit devbench \
 	darwin_amd64 \
 	darwin_arm64 \
 	linux_386 \
@@ -21,30 +21,20 @@ all:
 	go generate
 	gofmt -l -s -w *.go
 	go install -v ./...
-	go test -i
+	go test
 	go test 2>&1 -timeout 1h | tee -a $(log)
-	GOOS=darwin GOARCH=amd64 go build
-	GOOS=darwin GOARCH=arm64 go build
-	GOOS=freebsd GOARCH=386 go build
-	GOOS=freebsd GOARCH=amd64 go build
-	GOOS=linux GOARCH=386 go build
-	GOOS=linux GOARCH=amd64 go build
-	GOOS=linux GOARCH=arm go build
-	GOOS=linux GOARCH=arm64 go build
-	GOOS=linux GOARCH=s390x go build
-	GOOS=netbsd GOARCH=amd64 go build
-	GOOS=openbsd GOARCH=amd64 go build
-	GOOS=windows GOARCH=386 go build
-	GOOS=windows GOARCH=amd64 go build
-	go vet -unsafeptr=false 2>&1 | grep -v $(ngrep) || true
-	golint 2>&1 | grep -v $(ngrep) || true
-	make todo
-	misspell *.go
-	staticcheck || true
-	maligned || true
+	# go vet -unsafeptr=false 2>&1 | grep -v $(ngrep) || true
+	# golint 2>&1 | grep -v $(ngrep) || true
+	# make todo
+	# misspell *.go
+	# staticcheck || true
 	grep -n 'FAIL\|PASS' $(log)
 	go version
 	date 2>&1 | tee -a $(log)
+
+build_all_targets:
+	./build_all_targets.sh
+	echo done
 
 darwin_amd64:
 	@echo "Should be executed only on darwin/amd64."
@@ -65,6 +55,12 @@ freebsd_amd64:
 # only on freebsd/386
 freebsd_386:
 	@echo "Should be executed only on freebsd/386."
+	go generate 2>&1 | tee log-generate
+	go build -v ./...
+
+# only on freebsd/arm
+freebsd_arm:
+	@echo "Should be executed only on freebsd/arm."
 	go generate 2>&1 | tee log-generate
 	go build -v ./...
 
@@ -95,14 +91,29 @@ linux_s390x:
 	CCGO_CPP=s390x-linux-gnu-cpp TARGET_GOOS=linux TARGET_GOARCH=s390x go generate
 	GOOS=linux GOARCH=s390x go build -v ./...
 
+linux_ppc64le:
+	CCGO_CPP=powerpc64le-linux-gnu-cpp TARGET_GOOS=linux TARGET_GOARCH=ppc64le go generate
+	GOOS=linux GOARCH=ppc64le go build -v ./...
+
 # only on openbsd/amd64
 openbsd_amd64:
 	@echo "Should be executed only on openbsd/amd64."
 	go generate 2>&1 | tee log-generate
 	go build -v ./...
+	#
+# only on openbsd/arm64
+openbsd_arm64:
+	@echo "Should be executed only on openbsd/arm64."
+	go generate 2>&1 | tee log-generate
+	go build -v ./...
 
 windows_amd64:
 	@echo "Should be executed only on windows/amd64."
+	go generate 2>&1 | tee log-generate
+	go build -v ./...
+
+windows_arm64:
+	@echo "Should be executed only on windows/arm64."
 	go generate 2>&1 | tee log-generate
 	go build -v ./...
 
@@ -112,35 +123,6 @@ windows_386:
 	GOOS=windows GOARCH=386 go build -v ./...
 
 all_targets: linux_amd64 linux_386 linux_arm linux_arm64 linux_s390x # windows_amd64 windows_386
-	echo done
-
-build_all_targets:
-	GOOS=darwin GOARCH=amd64 go build -v ./...
-	GOOS=darwin GOARCH=amd64 go test -c -o /dev/null
-	GOOS=darwin GOARCH=arm64 go build -v ./...
-	GOOS=darwin GOARCH=arm64 go test -c -o /dev/null
-	GOOS=freebsd GOARCH=386 go build -v ./...
-	GOOS=freebsd GOARCH=386 go test -c -o /dev/null
-	GOOS=freebsd GOARCH=amd64 go build -v ./...
-	GOOS=freebsd GOARCH=amd64 go test -c -o /dev/null
-	GOOS=linux GOARCH=386 go build -v ./...
-	GOOS=linux GOARCH=386 go test -c -o /dev/null
-	GOOS=linux GOARCH=amd64 go build -v ./...
-	GOOS=linux GOARCH=amd64 go test -c -o /dev/null
-	GOOS=linux GOARCH=arm go build -v ./...
-	GOOS=linux GOARCH=arm go test -c -o /dev/null
-	GOOS=linux GOARCH=arm64 go build -v ./...
-	GOOS=linux GOARCH=arm64 go test -c -o /dev/null
-	GOOS=linux GOARCH=s390x go build -v ./...
-	GOOS=linux GOARCH=s390x go test -c -o /dev/null
-	GOOS=netbsd GOARCH=amd64 go build -v ./...
-	GOOS=netbsd GOARCH=amd64 go test -c -o /dev/null
-	GOOS=openbsd GOARCH=amd64 go build -v ./...
-	GOOS=openbsd GOARCH=amd64 go test -c -o /dev/null
-	GOOS=windows GOARCH=386 go build -v ./...
-	GOOS=windows GOARCH=386 go test -c -o /dev/null
-	GOOS=windows GOARCH=amd64 go build -v ./...
-	GOOS=windows GOARCH=amd64 go test -c -o /dev/null
 	echo done
 
 devbench:

@@ -307,7 +307,7 @@ func (t *TLS) Alloc(n int) (r uintptr) {
 	return r
 }
 
-//this declares how many stack frames are kept alive before being freed
+// this declares how many stack frames are kept alive before being freed
 const stackFrameKeepalive = 2
 
 // Free deallocates n bytes of thread-local storage. See TLS.Alloc for details
@@ -822,7 +822,7 @@ func parseZoneOffset(s string, offOpt bool) (string, string, int, bool) {
 	return "", s0, 0, true
 }
 
-//  [+|-]hh[:mm[:ss]]
+// [+|-]hh[:mm[:ss]]
 func parseOffset(s string) (string, int) {
 	if len(s) == 0 {
 		panic(todo(""))

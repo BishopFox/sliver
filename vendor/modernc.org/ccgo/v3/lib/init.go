@@ -326,7 +326,7 @@ func (p *project) containingStructField(part *cc.Initializer, off uintptr, t cc.
 		}
 	}
 
-	panic(todo("%v: internal error", pos(part)))
+	panic(todo("%v: internal error", p.pos(part)))
 }
 
 func (p *project) initializerUnion(tag string, off uintptr, f *function, s []*cc.Initializer, t cc.Type, sc cc.StorageClass, tld *tld, lm, tm map[*cc.Initializer][]cc.StringID) {
@@ -376,7 +376,7 @@ func (p *project) initializerUnion(tag string, off uintptr, f *function, s []*cc
 					}
 					continue
 				default:
-					panic(todo("%v: %v <- %T", pos(part), et, x))
+					panic(todo("%v: %v <- %T", p.pos(part), et, x))
 				}
 			case p.isWCharType(et):
 				panic(todo(""))

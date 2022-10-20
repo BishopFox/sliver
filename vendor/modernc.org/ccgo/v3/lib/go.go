@@ -1012,6 +1012,8 @@ func (p *project) isArray(f *function, n declarator, t cc.Type) (r bool) {
 	return p.detectArray(f, n.(cc.Node), false, true, nil)
 }
 
+var home = os.Getenv("HOME")
+
 // Return n's position with path reduced to baseName(path) unless
 // p.task.fullPathComments is true.
 func (p *project) pos(n cc.Node) (r token.Position) {
@@ -1019,9 +1021,15 @@ func (p *project) pos(n cc.Node) (r token.Position) {
 		return r
 	}
 
-	r = token.Position(n.Position())
-	if r.IsValid() && !p.task.fullPathComments {
-		r.Filename = filepath.Base(r.Filename)
+	if r = token.Position(n.Position()); r.IsValid() {
+		switch {
+		case p.task.fullPathComments:
+			if strings.HasPrefix(r.Filename, home) {
+				r.Filename = "$HOME" + r.Filename[len(home):]
+			}
+		default:
+			r.Filename = filepath.Base(r.Filename)
+		}
 	}
 	return r
 }
@@ -1237,8 +1245,9 @@ type project struct {
 	wanted             map[*cc.Declarator]struct{}
 	wcharSize          uintptr
 
-	isMain bool
-	pass1  bool
+	isMain       bool
+	pass1        bool
+	pauseCodegen bool
 }
 
 func newProject(t *Task) (*project, error) {
@@ -1358,7 +1367,7 @@ func (p *project) o(s string, args ...interface{}) {
 }
 
 func (p *project) w(s string, args ...interface{}) {
-	if p.pass1 {
+	if p.pass1 || p.pauseCodegen {
 		return
 	}
 
@@ -1491,7 +1500,7 @@ func (p *project) layoutDefines() error {
 			}
 			name = p.scope.take(cc.String(name))
 			p.defines[nm] = define{name, val}
-			p.defineLines = append(p.defineLines, fmt.Sprintf("%s = %s", name, src))
+			p.defineLines = append(p.defineLines, fmt.Sprintf("%s = %s // %v:", name, src, p.pos(m)))
 		}
 	}
 	return nil
@@ -3929,9 +3938,9 @@ func (p *project) convertToUint128(n cc.Node, op cc.Operand, to cc.Type, flags f
 func (p *project) convertNil(n cc.Node, to cc.Type, flags flags) string {
 	switch to.Kind() {
 	case cc.Int128:
-		panic(todo("", pos(n)))
+		panic(todo("", p.pos(n)))
 	case cc.UInt128:
-		panic(todo("", pos(n)))
+		panic(todo("", p.pos(n)))
 	}
 
 	p.w("%s(", p.typ(n, to))
@@ -4025,15 +4034,15 @@ func (p *project) convertInt(n cc.Node, op cc.Operand, to cc.Type, flags flags) 
 	from := op.Type()
 	switch from.Kind() {
 	case cc.Int128:
-		panic(todo("", pos(n)))
+		panic(todo("", p.pos(n)))
 	case cc.UInt128:
-		panic(todo("", pos(n)))
+		panic(todo("", p.pos(n)))
 	}
 	switch to.Kind() {
 	case cc.Int128:
-		panic(todo("", pos(n)))
+		panic(todo("", p.pos(n)))
 	case cc.UInt128:
-		panic(todo("", pos(n)))
+		panic(todo("", p.pos(n)))
 	}
 
 	force := flags&fForceConv != 0
@@ -4625,6 +4634,11 @@ var dummyJumpStatement = &cc.JumpStatement{}
 
 func (p *project) statement(f *function, n *cc.Statement, forceCompoundStmtBrace, forceNoBraces, switchBlock bool, mode exprMode) (r *cc.JumpStatement) {
 	if forceCompoundStmtBrace {
+		if f.switchCtx == inSwitchFirst && p.pauseCodegen {
+			p.pauseCodegen = false
+			p.w(" {")
+			p.pauseCodegen = true
+		}
 		p.w(" {")
 		if !switchBlock {
 			p.instrument(n)
@@ -4671,6 +4685,12 @@ func (p *project) statement(f *function, n *cc.Statement, forceCompoundStmtBrace
 		panic(todo("%v: internal error: %v", n.Position(), n.Case))
 	}
 	if forceCompoundStmtBrace {
+		// We need to do this, to guarantee that we always close the brace is we opened it
+		if f.switchCtx == inSwitchFirst && p.pauseCodegen {
+			p.pauseCodegen = false
+			p.w("}")
+			p.pauseCodegen = true
+		}
 		p.w("}")
 	}
 	return r
@@ -9515,7 +9535,7 @@ func (p *project) postfixExpressionSelectPSelectStruct(f *function, n *cc.Postfi
 
 func (p *project) postfixExpressionSelectSelect(f *function, n *cc.PostfixExpression, t cc.Type, mode exprMode, flags flags) {
 	// PostfixExpression '.' IDENTIFIER
-	switch k := p.opKind(f, n.PostfixExpression, n.PostfixExpression.Operand.Type()); k {
+	switch k := p.structOrUnion(n); k {
 	case opUnion:
 		p.postfixExpressionSelectSelectUnion(f, n, t, mode, flags)
 	case opStruct:
@@ -9523,6 +9543,40 @@ func (p *project) postfixExpressionSelectSelect(f *function, n *cc.PostfixExpres
 	default:
 		panic(todo("", n.Position(), k))
 	}
+}
+
+func (p *project) structOrUnion(n *cc.PostfixExpression) opKind {
+	t := n.PostfixExpression.Operand.Type()
+	switch n.Case {
+	case cc.PostfixExpressionSelect: // PostfixExpression '.' IDENTIFIER
+		// ok
+	case cc.PostfixExpressionPSelect: // PostfixExpression "->" IDENTIFIER
+		if t.Kind() == cc.Ptr {
+			t = t.Elem()
+			break
+		}
+
+		p.err(n, "expected pointer type: %s", t)
+		return opStruct
+	}
+	f, path, ok := t.FieldByName2(n.Token2.Src)
+	if !ok {
+		p.err(&n.Token, "unknown field: %s", n.Token2)
+		return opStruct
+	}
+
+	for len(path) > 1 {
+		f = t.FieldByIndex(path[:1])
+		path = path[1:]
+		t = f.Type()
+	}
+	if t.Kind() == cc.Union {
+		// trc("%v: %q %v", n.Token2.Position(), n.Token2.Src, opUnion)
+		return opUnion
+	}
+
+	// trc("%v: %q %v", n.Token2.Position(), n.Token2.Src, opStruct)
+	return opStruct
 }
 
 func (p *project) postfixExpressionSelectSelectStruct(f *function, n *cc.PostfixExpression, t cc.Type, mode exprMode, flags flags) {
@@ -12048,7 +12102,7 @@ func (p *project) intConst(n cc.Node, src string, op cc.Operand, to cc.Type, fla
 		defer p.w(")")
 		// ok
 	default:
-		panic(todo("%v: %v -> %v", pos(n), op.Type(), to))
+		panic(todo("%v: %v -> %v", p.pos(n), op.Type(), to))
 	}
 
 	src = strings.TrimRight(src, "luLU")
@@ -12632,6 +12686,23 @@ func (p *project) iterationStatement(f *function, n *cc.IterationStatement) {
 		}
 		p.statement(f, n.Statement, true, false, false, 0)
 	case cc.IterationStatementForDecl: // "for" '(' Declaration Expression ';' Expression ')' Statement
+		if !(f.hasJumps || n.Expression2 != nil && n.Expression2.Case == cc.ExpressionComma) {
+			p.w("{")
+			p.declaration(f, n.Declaration, false)
+			p.w("for ;")
+			if n.Expression != nil {
+				p.expression(f, n.Expression, n.Expression.Operand.Type(), exprBool, 0)
+			}
+			p.w(";")
+			if n.Expression2 != nil {
+				p.expression(f, n.Expression2, n.Expression2.Operand.Type(), exprVoid, fNoCondAssignment)
+			}
+			p.w("{")
+			p.statement(f, n.Statement, false, true, false, 0)
+			p.w("}};")
+			break
+		}
+
 		var ids []*cc.InitDeclarator
 		for list := n.Declaration.InitDeclaratorList; list != nil; list = list.InitDeclaratorList {
 			ids = append(ids, list.InitDeclarator)
@@ -12727,12 +12798,22 @@ func (p *project) selectionStatement(f *function, n *cc.SelectionStatement) {
 			p.statement(f, n.Statement2, true, false, false, 0)
 		}
 	case cc.SelectionStatementSwitch: // "switch" '(' Expression ')' Statement
+		// just dont generate in this case
+		if f.switchCtx == inSwitchFirst {
+			break
+		}
 		sv := f.switchCtx
+		sb := f.block
+		sc := p.pauseCodegen
 		svBreakCtx := f.breakCtx
 		f.breakCtx = 0
+		f.block = f.blocks[n.Statement.CompoundStatement]
+
 		defer func() {
+			f.block = sb
 			f.switchCtx = sv
 			f.breakCtx = svBreakCtx
+			p.pauseCodegen = sc
 		}()
 		if f.hasJumps {
 			f.switchCtx = inSwitchFlat
@@ -12741,9 +12822,27 @@ func (p *project) selectionStatement(f *function, n *cc.SelectionStatement) {
 		}
 
 		f.switchCtx = inSwitchFirst
+		// fmt.Println(f.block.decls)
+		if len(f.block.decls) != 0 {
+			f.block.topDecl = true
+			// fmt.Printf("%p:%tf\n", f.block, f.block.topDecl)
+			p.w("{")
+			for _, v := range f.block.decls {
+				// fmt.Printf("%p:%tf\n", f.block, f.block.topDecl)
+				p.declaration(f, v, true)
+				// fmt.Println("done!")
+			}
+		}
+
 		p.w("switch ")
 		p.expression(f, n.Expression, n.Promote(), exprValue, 0)
+		p.pauseCodegen = true
 		p.statement(f, n.Statement, true, false, true, 0)
+		p.pauseCodegen = false
+		if len(f.block.decls) != 0 {
+			p.w("}")
+		}
+
 	default:
 		panic(todo("%v: internal error: %v", n.Position(), n.Case))
 	}
@@ -12866,6 +12965,7 @@ func (p *project) labeledStatementCase(f *function, n *cc.LabeledStatement) {
 	switch f.switchCtx {
 	case inSwitchFirst:
 		f.switchCtx = inSwitchCase
+		p.pauseCodegen = false
 	case inSwitchCase:
 		p.w("\nfallthrough;")
 	case inSwitchSeenBreak:
