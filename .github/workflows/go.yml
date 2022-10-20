@@ -21,7 +21,7 @@ jobs:
       - name: Go 1.19
         uses: actions/setup-go@v3
         with:
-          go-version: "1.19.1"
+          go-version: "^1.19"
 
       - name: OS Packages
         run: |
@@ -55,7 +55,7 @@ jobs:
       - name: Go 1.19
         uses: actions/setup-go@v3
         with:
-          go-version: "1.19.1"
+          go-version: "^1.19"
 
       - name: Mingw
         run: brew install mingw-w64
