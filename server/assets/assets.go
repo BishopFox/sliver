@@ -24,7 +24,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	insecureRand "math/rand"
 	"os"
 	"os/user"
@@ -80,7 +79,7 @@ func GetRootAppDir() string {
 
 func assetVersion() string {
 	appDir := GetRootAppDir()
-	data, err := ioutil.ReadFile(path.Join(appDir, versionFileName))
+	data, err := os.ReadFile(path.Join(appDir, versionFileName))
 	if err != nil {
 		setupLog.Infof("No version detected %s", err)
 		return ""
@@ -184,7 +183,7 @@ func setupGo(appDir string) error {
 
 	goZipPath := filepath.Join(appDir, "go.zip")
 	defer os.Remove(goZipPath)
-	ioutil.WriteFile(goZipPath, goZip, 0600)
+	os.WriteFile(goZipPath, goZip, 0600)
 	_, err = unzip(goZipPath, appDir)
 	if err != nil {
 		setupLog.Infof("Failed to unzip file %s -> %s", goZipPath, appDir)
@@ -198,7 +197,7 @@ func setupGo(appDir string) error {
 	}
 	goSrcZipPath := filepath.Join(appDir, "src.zip")
 	defer os.Remove(goSrcZipPath)
-	ioutil.WriteFile(goSrcZipPath, goSrcZip, 0600)
+	os.WriteFile(goSrcZipPath, goSrcZip, 0600)
 	_, err = unzip(goSrcZipPath, goRootPath)
 	if err != nil {
 		setupLog.Infof("Failed to unzip file %s -> %s/go", goSrcZipPath, appDir)
@@ -216,7 +215,7 @@ func setupGo(appDir string) error {
 		return err
 	}
 	garbleLocalPath := filepath.Join(appDir, "go", "bin", garbleFileName)
-	err = ioutil.WriteFile(garbleLocalPath, garbleFile, 0700)
+	err = os.WriteFile(garbleLocalPath, garbleFile, 0700)
 	if err != nil {
 		setupLog.Errorf("Failed to write garble %s", err)
 		return err
@@ -260,8 +259,8 @@ func SetupGoPath(goPathSrc string) error {
 	sliverpbGoSrc = stripSliverpb(sliverpbGoSrc)
 	sliverpbDir := filepath.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliverpb")
 	os.MkdirAll(sliverpbDir, 0700)
-	ioutil.WriteFile(filepath.Join(sliverpbDir, "sliver.pb.go"), sliverpbGoSrc, 0600)
-	ioutil.WriteFile(filepath.Join(sliverpbDir, "constants.go"), sliverpbConstSrc, 0600)
+	os.WriteFile(filepath.Join(sliverpbDir, "sliver.pb.go"), sliverpbGoSrc, 0600)
+	os.WriteFile(filepath.Join(sliverpbDir, "constants.go"), sliverpbConstSrc, 0600)
 
 	// Common PB
 	commonpbSrc, err := protobufs.FS.ReadFile("commonpb/common.pb.go")
@@ -271,7 +270,7 @@ func SetupGoPath(goPathSrc string) error {
 	}
 	commonpbDir := filepath.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "commonpb")
 	os.MkdirAll(commonpbDir, 0700)
-	ioutil.WriteFile(filepath.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0600)
+	os.WriteFile(filepath.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0600)
 
 	// DNS PB
 	dnspbSrc, err := protobufs.FS.ReadFile("dnspb/dns.pb.go")
@@ -281,7 +280,7 @@ func SetupGoPath(goPathSrc string) error {
 	}
 	dnspbDir := filepath.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "dnspb")
 	os.MkdirAll(dnspbDir, 0700)
-	ioutil.WriteFile(filepath.Join(dnspbDir, "dns.pb.go"), dnspbSrc, 0600)
+	os.WriteFile(filepath.Join(dnspbDir, "dns.pb.go"), dnspbSrc, 0600)
 	return nil
 }
 
@@ -307,28 +306,6 @@ func stripSliverpb(src []byte) []byte {
 	return out
 }
 
-func unzipGoDependency(fsPath string, targetPath string) error {
-	setupLog.Infof("Unpacking go dependency %s -> %s", fsPath, targetPath)
-
-	appDir := GetRootAppDir()
-	goDep, err := assetsFs.ReadFile(fsPath)
-	if err != nil {
-		setupLog.Infof("static asset not found: %s", fsPath)
-		return err
-	}
-
-	goDepZipPath := filepath.Join(appDir, filepath.Base(fsPath))
-	defer os.Remove(goDepZipPath)
-	ioutil.WriteFile(goDepZipPath, goDep, 0600)
-	_, err = unzip(goDepZipPath, targetPath)
-	if err != nil {
-		setupLog.Infof("Failed to unzip file %s -> %s", goDepZipPath, appDir)
-		return err
-	}
-
-	return nil
-}
-
 func setupCodenames(appDir string) error {
 	nouns, err := assetsFs.ReadFile("fs/nouns.txt")
 	if err != nil {
@@ -342,13 +319,13 @@ func setupCodenames(appDir string) error {
 		return err
 	}
 
-	err = ioutil.WriteFile(path.Join(appDir, "nouns.txt"), nouns, 0600)
+	err = os.WriteFile(filepath.Join(appDir, "nouns.txt"), nouns, 0600)
 	if err != nil {
 		setupLog.Infof("Failed to write noun data to: %s", appDir)
 		return err
 	}
 
-	err = ioutil.WriteFile(path.Join(appDir, "adjectives.txt"), adjectives, 0600)
+	err = os.WriteFile(filepath.Join(appDir, "adjectives.txt"), adjectives, 0600)
 	if err != nil {
 		setupLog.Infof("Failed to write adjective data to: %s", appDir)
 		return err
@@ -374,7 +351,10 @@ func unzip(src string, dest string) ([]string, error) {
 		}
 		defer rc.Close()
 
-		fPath := filepath.Join(dest, file.Name)
+		fPath := filepath.Clean(filepath.Join(dest, file.Name))
+		if !strings.HasPrefix(fPath, filepath.Clean(dest)) {
+			panic("illegal zip file path")
+		}
 		filenames = append(filenames, fPath)
 
 		if file.FileInfo().IsDir() {
