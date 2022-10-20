@@ -4,15 +4,15 @@ on:
   push:
     branches:
       - test/*
-  # pull_request:
-  #   branches:
-  #     - master
+  pull_request:
+    branches:
+      - master
 
 jobs:
   CodeQL-Build:
     name: CodeQL Security Scan
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
 
     steps:
       # Setup go environment

@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	insecureRand "math/rand"
 	"os"
 	"path"
@@ -298,7 +297,7 @@ func GetHTTPC2Config() *HTTPC2Config {
 			return &defaultHTTPC2Config
 		}
 	}
-	data, err := ioutil.ReadFile(configPath)
+	data, err := os.ReadFile(configPath)
 	if err != nil {
 		httpC2ConfigLog.Errorf("Failed to read http c2 config %s", err)
 		return &defaultHTTPC2Config
@@ -327,7 +326,7 @@ func CheckHTTPC2ConfigErrors() error {
 			return err
 		}
 	}
-	data, err := ioutil.ReadFile(configPath)
+	data, err := os.ReadFile(configPath)
 	if err != nil {
 		httpC2ConfigLog.Errorf("Failed to read http c2 config %s", err)
 		return err
@@ -351,7 +350,7 @@ func generateDefaultConfig(saveTo string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(saveTo, data, 0600)
+	return os.WriteFile(saveTo, data, 0600)
 }
 
 var (
