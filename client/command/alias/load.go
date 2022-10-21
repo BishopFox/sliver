@@ -22,7 +22,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -142,7 +141,7 @@ func LoadAlias(manifestPath string, con *console.SliverConsoleClient) (*AliasMan
 	}
 
 	// parse it
-	data, err := ioutil.ReadFile(manifestPath)
+	data, err := os.ReadFile(manifestPath)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +302,7 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if strings.ToLower(filepath.Ext(binPath)) == ".dll" {
 		isDLL = true
 	}
-	binData, err := ioutil.ReadFile(binPath)
+	binData, err := os.ReadFile(binPath)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -311,7 +310,7 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	var outFilePath *os.File
 	if ctx.Flags.Bool("save") {
 		outFile := filepath.Base(fmt.Sprintf("%s_%s*.log", filepath.Base(ctx.Command.Name), filepath.Base(session.GetHostname())))
-		outFilePath, err = ioutil.TempFile("", outFile)
+		outFilePath, err = os.CreateTemp("", outFile)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
