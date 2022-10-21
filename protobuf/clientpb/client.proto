@@ -634,6 +634,22 @@ enum HashType {
   MD5_SALT_MD5_PW = 3710; // md5($salt.md5($pass))
 
   // ... TODO fill in the rest ...
+  
+  KERBEROS_17_TGS_REP = 19600; // Kerberos 5, etype 17, TGS-REP
+  KERBEROS_17_PREAUTH = 19800; // Kerberos 5, etype 17, Pre-Auth
+  KERBEROS_17_DB = 28800; // Kerberos 5, etype 17, DB
+  KERBEROS_18_TGS_REP = 19700; // Kerberos 5, etype 18, TGS-REP
+  KERBEROS_18_PREAUTH = 19900; // Kerberos 5, etype 18, Pre-Auth
+  KERBEROS_18_DB = 28900; // Kerberos 5, etype 18, DB
+  KERBEROS_23_SA_REQ_PREAUTH = 7500; // Kerberos 5, etype 23, AS-REQ Pre-Auth
+  KERBEROS_23_TGS_REP = 13100; // Kerberos 5, etype 23, TGS-REP
+  KERBEROS_23_AS_REP = 18200; // Kerberos 5, etype 23, AS-REP
+  NET_NTLM_V1 = 5500; // NetNTLMv1 / NetNTLMv1+ESS
+  NET_NTLM_V1_NT = 27000; // NetNTLMv1 / NetNTLMv1+ESS (NT)
+  NET_NTLM_V2 = 5600; // NetNTLMv2
+  NET_NTLM_V2_NT = 27100; // NetNTLMv2 (NT)
+
+  // ...
 
   LM = 3000; // LM
 

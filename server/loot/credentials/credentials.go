@@ -22,17 +22,31 @@ import "github.com/bishopfox/sliver/protobuf/clientpb"
 
 var (
 	CommonHashTypes = map[clientpb.HashType]string{
-		clientpb.HashType_LM:   "LM",
-		clientpb.HashType_NTLM: "NTLM",
-		clientpb.HashType_DCC:  "Domain Cached Credentials (DCC), MS Cache",
-		clientpb.HashType_DCC2: "Domain Cached Credentials 2 (DCC2), MS Cache 2",
 
-		clientpb.HashType_MD5:      "MD5",
-		clientpb.HashType_SHA1:     "SHA1",
-		clientpb.HashType_SHA2_256: "SHA2-256",
-		clientpb.HashType_SHA2_512: "SHA2-512",
-		clientpb.HashType_SHA3_256: "SHA3-256",
-		clientpb.HashType_SHA3_512: "SHA3-512",
+		// Windows
+		clientpb.HashType_LM:                         AllHashTypes[clientpb.HashType_LM],
+		clientpb.HashType_NTLM:                       AllHashTypes[clientpb.HashType_NTLM],
+		clientpb.HashType_DCC:                        AllHashTypes[clientpb.HashType_DCC],
+		clientpb.HashType_DCC2:                       AllHashTypes[clientpb.HashType_DCC2],
+		clientpb.HashType_KERBEROS_17_TGS_REP:        AllHashTypes[clientpb.HashType_KERBEROS_17_TGS_REP],
+		clientpb.HashType_KERBEROS_17_PREAUTH:        AllHashTypes[clientpb.HashType_KERBEROS_17_PREAUTH],
+		clientpb.HashType_KERBEROS_17_DB:             AllHashTypes[clientpb.HashType_KERBEROS_17_DB],
+		clientpb.HashType_KERBEROS_18_TGS_REP:        AllHashTypes[clientpb.HashType_KERBEROS_18_TGS_REP],
+		clientpb.HashType_KERBEROS_18_PREAUTH:        AllHashTypes[clientpb.HashType_KERBEROS_18_PREAUTH],
+		clientpb.HashType_KERBEROS_18_DB:             AllHashTypes[clientpb.HashType_KERBEROS_18_DB],
+		clientpb.HashType_KERBEROS_23_SA_REQ_PREAUTH: AllHashTypes[clientpb.HashType_KERBEROS_23_SA_REQ_PREAUTH],
+		clientpb.HashType_KERBEROS_23_TGS_REP:        AllHashTypes[clientpb.HashType_KERBEROS_23_TGS_REP],
+		clientpb.HashType_KERBEROS_23_AS_REP:         AllHashTypes[clientpb.HashType_KERBEROS_23_AS_REP],
+		clientpb.HashType_NET_NTLM_V1:                AllHashTypes[clientpb.HashType_NET_NTLM_V1],
+		clientpb.HashType_NET_NTLM_V1_NT:             AllHashTypes[clientpb.HashType_NET_NTLM_V1_NT],
+		clientpb.HashType_NET_NTLM_V2:                AllHashTypes[clientpb.HashType_NET_NTLM_V2],
+		clientpb.HashType_NET_NTLM_V2_NT:             AllHashTypes[clientpb.HashType_NET_NTLM_V2_NT],
+
+		// Common hashes
+		clientpb.HashType_MD5:      AllHashTypes[clientpb.HashType_MD5],
+		clientpb.HashType_SHA1:     AllHashTypes[clientpb.HashType_SHA1],
+		clientpb.HashType_SHA2_256: AllHashTypes[clientpb.HashType_SHA2_256],
+		clientpb.HashType_SHA2_512: AllHashTypes[clientpb.HashType_SHA2_512],
 	}
 
 	AllHashTypes = map[clientpb.HashType]string{
@@ -70,6 +84,22 @@ var (
 		clientpb.HashType_MD5_SALT_PW:           "md5($salt.$pass)",
 		clientpb.HashType_MD5_SALT_PW_SALT:      "md5($salt.$pass.$salt)",
 		clientpb.HashType_MD5_SALT_MD5_PW:       "md5($salt.md5($pass))",
+
+		// ...
+
+		clientpb.HashType_KERBEROS_17_TGS_REP:        "Kerberos 5, etype 17, TGS-REP",
+		clientpb.HashType_KERBEROS_17_PREAUTH:        "Kerberos 5, etype 17, Pre-Auth",
+		clientpb.HashType_KERBEROS_17_DB:             "Kerberos 5, etype 17, DB",
+		clientpb.HashType_KERBEROS_18_TGS_REP:        "Kerberos 5, etype 18, TGS-REP",
+		clientpb.HashType_KERBEROS_18_PREAUTH:        "Kerberos 5, etype 18, Pre-Auth",
+		clientpb.HashType_KERBEROS_18_DB:             "Kerberos 5, etype 18, DB",
+		clientpb.HashType_KERBEROS_23_SA_REQ_PREAUTH: "Kerberos 5, etype 23, AS-REQ Pre-Auth",
+		clientpb.HashType_KERBEROS_23_TGS_REP:        "Kerberos 5, etype 23, TGS-REP",
+		clientpb.HashType_KERBEROS_23_AS_REP:         "Kerberos 5, etype 23, AS-REP",
+		clientpb.HashType_NET_NTLM_V1:                "NetNTLMv1 / NetNTLMv1+ESS",
+		clientpb.HashType_NET_NTLM_V1_NT:             "NetNTLMv1 / NetNTLMv1+ESS (NT)",
+		clientpb.HashType_NET_NTLM_V2:                "NetNTLMv2",
+		clientpb.HashType_NET_NTLM_V2_NT:             "NetNTLMv2 (NT)",
 
 		// ...
 
@@ -137,6 +167,7 @@ func HashNameFromHashType(hashType clientpb.HashType) string {
      20 | md5($salt.$pass)                                           | Raw Hash salted and/or iterated
    3800 | md5($salt.$pass.$salt)                                     | Raw Hash salted and/or iterated
    3710 | md5($salt.md5($pass))                                      | Raw Hash salted and/or iterated
+// ...
    4110 | md5($salt.md5($pass.$salt))                                | Raw Hash salted and/or iterated
    4010 | md5($salt.md5($salt.$pass))                                | Raw Hash salted and/or iterated
   21300 | md5($salt.sha1($salt.$pass))                               | Raw Hash salted and/or iterated
