@@ -100,7 +100,6 @@ func postgresClient(dbConfig *configs.DatabaseConfig) *gorm.DB {
 	if err != nil {
 		panic(err)
 	}
-	clientLog.Infof("postgres -> %s", dsn)
 	dbClient, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		PrepareStmt: true,
 		Logger:      getGormLogger(dbConfig),
@@ -116,7 +115,6 @@ func mySQLClient(dbConfig *configs.DatabaseConfig) *gorm.DB {
 	if err != nil {
 		panic(err)
 	}
-	clientLog.Infof("mysql -> %s", dsn)
 	dbClient, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		PrepareStmt: true,
 		Logger:      getGormLogger(dbConfig),

@@ -22,10 +22,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/log"
@@ -52,8 +52,8 @@ var (
 // GetDatabaseConfigPath - File path to config.json
 func GetDatabaseConfigPath() string {
 	appDir := assets.GetRootAppDir()
-	databaseConfigPath := path.Join(appDir, "configs", databaseConfigFileName)
-	databaseConfigLog.Infof("Loading config from %s", databaseConfigPath)
+	databaseConfigPath := filepath.Join(appDir, "configs", databaseConfigFileName)
+	databaseConfigLog.Debugf("Loading config from %s", databaseConfigPath)
 	return databaseConfigPath
 }
 
@@ -79,7 +79,7 @@ type DatabaseConfig struct {
 func (c *DatabaseConfig) DSN() (string, error) {
 	switch c.Dialect {
 	case Sqlite:
-		filePath := path.Join(assets.GetRootAppDir(), "sliver.db")
+		filePath := filepath.Join(assets.GetRootAppDir(), "sliver.db")
 		params := encodeParams(c.Params)
 		return fmt.Sprintf("file:%s?%s", filePath, params), nil
 	case MySQL:
@@ -88,6 +88,7 @@ func (c *DatabaseConfig) DSN() (string, error) {
 		db := url.QueryEscape(c.Database)
 		host := fmt.Sprintf("%s:%d", url.QueryEscape(c.Host), c.Port)
 		params := encodeParams(c.Params)
+		databaseConfigLog.Infof("Connecting to MySQL database %s@%s/%s", user, host, db)
 		return fmt.Sprintf("%s:%s@tcp(%s)/%s?%s", user, password, host, db, params), nil
 	case Postgres:
 		user := url.QueryEscape(c.Username)
@@ -96,6 +97,7 @@ func (c *DatabaseConfig) DSN() (string, error) {
 		host := url.QueryEscape(c.Host)
 		port := c.Port
 		params := encodeParams(c.Params)
+		databaseConfigLog.Infof("Connecting to Postgres database %s@%s:%d/%s", user, host, port, db)
 		return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s %s", host, port, user, password, db, params), nil
 	default:
 		return "", ErrInvalidDialect
@@ -126,7 +128,7 @@ func (c *DatabaseConfig) Save() error {
 		return err
 	}
 	databaseConfigLog.Infof("Saving config to %s", configPath)
-	err = ioutil.WriteFile(configPath, data, 0600)
+	err = os.WriteFile(configPath, data, 0600)
 	if err != nil {
 		databaseConfigLog.Errorf("Failed to write config %s", err)
 	}
@@ -138,7 +140,7 @@ func GetDatabaseConfig() *DatabaseConfig {
 	configPath := GetDatabaseConfigPath()
 	config := getDefaultDatabaseConfig()
 	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
-		data, err := ioutil.ReadFile(configPath)
+		data, err := os.ReadFile(configPath)
 		if err != nil {
 			databaseConfigLog.Errorf("Failed to read config file %s", err)
 			return config
