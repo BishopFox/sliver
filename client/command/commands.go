@@ -61,6 +61,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/operators"
 	"github.com/bishopfox/sliver/client/command/pivots"
 	"github.com/bishopfox/sliver/client/command/portfwd"
+	"github.com/bishopfox/sliver/client/command/powershell"
 	operator "github.com/bishopfox/sliver/client/command/prelude-operator"
 	"github.com/bishopfox/sliver/client/command/privilege"
 	"github.com/bishopfox/sliver/client/command/processes"
@@ -1042,7 +1043,45 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
+	// [Powershell] --------------------------------------------------------------
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.PowerShellImportStr,
+		Help:     "Import powershell script on the implant (uses in process execute-assembly)",
+		LongHelp: help.GetHelpFor([]string{consts.PowerShellImportStr}),
+		Flags: func(f *grumble.Flags) {
 
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("filepath", "path the powershell script")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			powershell.PowerShellImportCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
+	con.App.AddCommand(&grumble.Command{
+		Name:     consts.PowerShellExecuteStr,
+		Help:     "Run powershell command from unmanaged namespace (uses in-proc execute assembly)",
+		LongHelp: help.GetHelpFor([]string{consts.PowerShellExecuteStr}),
+		Flags: func(f *grumble.Flags) {
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.StringList("command", "command to execute")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			powershell.PowerShellExecuteCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	})
 	// [ Exec ] --------------------------------------------------------------
 
 	con.App.AddCommand(&grumble.Command{

@@ -48,33 +48,35 @@ var (
 		consts.StagerStr:        generateStagerHelp,
 		consts.StageListenerStr: stageListenerHelp,
 
-		consts.MsfStr:              msfHelp,
-		consts.MsfInjectStr:        msfInjectHelp,
-		consts.PsStr:               psHelp,
-		consts.PingStr:             pingHelp,
-		consts.KillStr:             killHelp,
-		consts.LsStr:               lsHelp,
-		consts.CdStr:               cdHelp,
-		consts.PwdStr:              pwdHelp,
-		consts.CatStr:              catHelp,
-		consts.DownloadStr:         downloadHelp,
-		consts.UploadStr:           uploadHelp,
-		consts.MkdirStr:            mkdirHelp,
-		consts.RmStr:               rmHelp,
-		consts.ProcdumpStr:         procdumpHelp,
-		consts.ElevateStr:          elevateHelp,
-		consts.RunAsStr:            runAsHelp,
-		consts.ImpersonateStr:      impersonateHelp,
-		consts.RevToSelfStr:        revToSelfHelp,
-		consts.ExecuteAssemblyStr:  executeAssemblyHelp,
-		consts.ExecuteShellcodeStr: executeShellcodeHelp,
-		consts.MigrateStr:          migrateHelp,
-		consts.SideloadStr:         sideloadHelp,
-		consts.TerminateStr:        terminateHelp,
-		consts.AliasesStr:          loadAliasHelp,
-		consts.PsExecStr:           psExecHelp,
-		consts.BackdoorStr:         backdoorHelp,
-		consts.SpawnDllStr:         spawnDllHelp,
+		consts.MsfStr:               msfHelp,
+		consts.MsfInjectStr:         msfInjectHelp,
+		consts.PsStr:                psHelp,
+		consts.PingStr:              pingHelp,
+		consts.KillStr:              killHelp,
+		consts.LsStr:                lsHelp,
+		consts.CdStr:                cdHelp,
+		consts.PwdStr:               pwdHelp,
+		consts.CatStr:               catHelp,
+		consts.DownloadStr:          downloadHelp,
+		consts.UploadStr:            uploadHelp,
+		consts.MkdirStr:             mkdirHelp,
+		consts.RmStr:                rmHelp,
+		consts.ProcdumpStr:          procdumpHelp,
+		consts.ElevateStr:           elevateHelp,
+		consts.RunAsStr:             runAsHelp,
+		consts.ImpersonateStr:       impersonateHelp,
+		consts.RevToSelfStr:         revToSelfHelp,
+		consts.PowerShellImportStr:  powershellImportHelp,
+		consts.PowerShellExecuteStr: powerShellExecuteHelp,
+		consts.ExecuteAssemblyStr:   executeAssemblyHelp,
+		consts.ExecuteShellcodeStr:  executeShellcodeHelp,
+		consts.MigrateStr:           migrateHelp,
+		consts.SideloadStr:          sideloadHelp,
+		consts.TerminateStr:         terminateHelp,
+		consts.AliasesStr:           loadAliasHelp,
+		consts.PsExecStr:            psExecHelp,
+		consts.BackdoorStr:          backdoorHelp,
+		consts.SpawnDllStr:          spawnDllHelp,
 
 		consts.WebsitesStr:                  websitesHelp,
 		consts.ScreenshotStr:                screenshotHelp,
@@ -322,6 +324,12 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
 
 	elevateHelp = `[[.Bold]]Command:[[.Normal]] elevate
 [[.Bold]]About:[[.Normal]] (Windows Only) Spawn a new Sliver session as an elevated process (UAC bypass)`
+
+	powershellImportHelp = `[[.Bold]]Command:[[.Normal]] powershell-import [local path to powershell script]
+	[[.Bold]]About:[[.Normal]] (Windows Only) Import powershell script in implant process (uses in-proc execute-assembly).`
+
+	powerShellExecuteHelp = `[[.Bold]]Command:[[.Normal]] powershell [command] [arguments]
+	[[.Bold]]About:[[.Normal]] (Windows Only) Executes powershell command from unmanaged namespace (uses in-proc execute-assembly).`
 
 	executeAssemblyHelp = `[[.Bold]]Command:[[.Normal]] execute-assembly [local path to assembly] [arguments]
 [[.Bold]]About:[[.Normal]] (Windows Only) Executes the .NET assembly in a child process.
