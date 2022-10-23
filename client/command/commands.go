@@ -1070,8 +1070,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Run powershell command from unmanaged namespace (uses in-proc execute assembly)",
 		LongHelp: help.GetHelpFor([]string{consts.PowerShellExecuteStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Bool("M", "amsi-bypass", false, "Bypass AMSI on Windows (only supported when used with --in-process)")
-			f.Bool("E", "etw-bypass", false, "Bypass ETW on Windows (only supported when used with --in-process)")
+			f.Bool("M", "amsi-bypass", false, "Bypass AMSI on Windows")
+			f.Bool("E", "etw-bypass", false, "Bypass ETW on Windows")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
