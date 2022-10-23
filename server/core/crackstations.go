@@ -26,37 +26,37 @@ import (
 )
 
 var (
-	// ClientID -> *clientpb.Builder
-	builders = &sync.Map{}
+	// ClientID -> *clientpb.CrackStation
+	crackers = &sync.Map{}
 
-	ErrDuplicateExternalBuilderName = errors.New("builder name must be unique, this name is already in use")
+	ErrDuplicateExternalCrackerName = errors.New("cracker name must be unique, this name is already in use")
 )
 
-func AddBuilder(builder *clientpb.Builder) error {
-	_, loaded := builders.LoadOrStore(builder.Name, builder)
+func AddCrackstation(cracker *clientpb.Crackstation) error {
+	_, loaded := crackers.LoadOrStore(cracker.Name, cracker)
 	if loaded {
-		return ErrDuplicateExternalBuilderName
+		return ErrDuplicateExternalCrackerName
 	}
 	return nil
 }
 
-func GetBuilder(builderName string) *clientpb.Builder {
-	builder, ok := builders.Load(builderName)
+func GetCrackstation(crackerName string) *clientpb.Crackstation {
+	cracker, ok := crackers.Load(crackerName)
 	if !ok {
 		return nil
 	}
-	return builder.(*clientpb.Builder)
+	return cracker.(*clientpb.Crackstation)
 }
 
-func AllBuilders() []*clientpb.Builder {
-	externalBuilders := []*clientpb.Builder{}
-	builders.Range(func(key, value interface{}) bool {
-		externalBuilders = append(externalBuilders, value.(*clientpb.Builder))
+func AllCrackstations() []*clientpb.Crackstation {
+	externalCrackers := []*clientpb.Crackstation{}
+	crackers.Range(func(key, value interface{}) bool {
+		externalCrackers = append(externalCrackers, value.(*clientpb.Crackstation))
 		return true
 	})
-	return externalBuilders
+	return externalCrackers
 }
 
-func RemoveBuilder(builderName string) {
-	builders.Delete(builderName)
+func RemoveCrackstation(crackerName string) {
+	crackers.Delete(crackerName)
 }

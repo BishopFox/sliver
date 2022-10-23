@@ -70,9 +70,14 @@ type SliverRPCClient interface {
 	GenerateExternal(ctx context.Context, in *clientpb.ExternalGenerateReq, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error)
 	GenerateExternalSaveBuild(ctx context.Context, in *clientpb.ExternalImplantBinary, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	GenerateExternalGetImplantConfig(ctx context.Context, in *clientpb.ImplantConfig, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error)
+	// *** Builders ***
 	BuilderRegister(ctx context.Context, in *clientpb.Builder, opts ...grpc.CallOption) (SliverRPC_BuilderRegisterClient, error)
 	BuilderTrigger(ctx context.Context, in *clientpb.Event, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	Builders(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Builders, error)
+	// *** Crackstation ***
+	CrackstationRegister(ctx context.Context, in *clientpb.Crackstation, opts ...grpc.CallOption) (SliverRPC_CrackstationRegisterClient, error)
+	CrackstationTrigger(ctx context.Context, in *clientpb.Event, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	Crackstations(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Crackstations, error)
 	Regenerate(ctx context.Context, in *clientpb.RegenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
 	ImplantBuilds(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.ImplantBuilds, error)
 	DeleteImplantBuild(ctx context.Context, in *clientpb.DeleteReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
@@ -563,6 +568,56 @@ func (c *sliverRPCClient) BuilderTrigger(ctx context.Context, in *clientpb.Event
 func (c *sliverRPCClient) Builders(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Builders, error) {
 	out := new(clientpb.Builders)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Builders", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CrackstationRegister(ctx context.Context, in *clientpb.Crackstation, opts ...grpc.CallOption) (SliverRPC_CrackstationRegisterClient, error) {
+	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[1], "/rpcpb.SliverRPC/CrackstationRegister", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &sliverRPCCrackstationRegisterClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type SliverRPC_CrackstationRegisterClient interface {
+	Recv() (*clientpb.Event, error)
+	grpc.ClientStream
+}
+
+type sliverRPCCrackstationRegisterClient struct {
+	grpc.ClientStream
+}
+
+func (x *sliverRPCCrackstationRegisterClient) Recv() (*clientpb.Event, error) {
+	m := new(clientpb.Event)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *sliverRPCClient) CrackstationTrigger(ctx context.Context, in *clientpb.Event, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CrackstationTrigger", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) Crackstations(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Crackstations, error) {
+	out := new(clientpb.Crackstations)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Crackstations", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1362,7 +1417,7 @@ func (c *sliverRPCClient) CloseSocks(ctx context.Context, in *sliverpb.Socks, op
 }
 
 func (c *sliverRPCClient) SocksProxy(ctx context.Context, opts ...grpc.CallOption) (SliverRPC_SocksProxyClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[1], "/rpcpb.SliverRPC/SocksProxy", opts...)
+	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[2], "/rpcpb.SliverRPC/SocksProxy", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1411,7 +1466,7 @@ func (c *sliverRPCClient) CloseTunnel(ctx context.Context, in *sliverpb.Tunnel, 
 }
 
 func (c *sliverRPCClient) TunnelData(ctx context.Context, opts ...grpc.CallOption) (SliverRPC_TunnelDataClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[2], "/rpcpb.SliverRPC/TunnelData", opts...)
+	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[3], "/rpcpb.SliverRPC/TunnelData", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1442,7 +1497,7 @@ func (x *sliverRPCTunnelDataClient) Recv() (*sliverpb.TunnelData, error) {
 }
 
 func (c *sliverRPCClient) Events(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (SliverRPC_EventsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[3], "/rpcpb.SliverRPC/Events", opts...)
+	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[4], "/rpcpb.SliverRPC/Events", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1526,9 +1581,14 @@ type SliverRPCServer interface {
 	GenerateExternal(context.Context, *clientpb.ExternalGenerateReq) (*clientpb.ExternalImplantConfig, error)
 	GenerateExternalSaveBuild(context.Context, *clientpb.ExternalImplantBinary) (*commonpb.Empty, error)
 	GenerateExternalGetImplantConfig(context.Context, *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error)
+	// *** Builders ***
 	BuilderRegister(*clientpb.Builder, SliverRPC_BuilderRegisterServer) error
 	BuilderTrigger(context.Context, *clientpb.Event) (*commonpb.Empty, error)
 	Builders(context.Context, *commonpb.Empty) (*clientpb.Builders, error)
+	// *** Crackstation ***
+	CrackstationRegister(*clientpb.Crackstation, SliverRPC_CrackstationRegisterServer) error
+	CrackstationTrigger(context.Context, *clientpb.Event) (*commonpb.Empty, error)
+	Crackstations(context.Context, *commonpb.Empty) (*clientpb.Crackstations, error)
 	Regenerate(context.Context, *clientpb.RegenerateReq) (*clientpb.Generate, error)
 	ImplantBuilds(context.Context, *commonpb.Empty) (*clientpb.ImplantBuilds, error)
 	DeleteImplantBuild(context.Context, *clientpb.DeleteReq) (*commonpb.Empty, error)
@@ -1758,6 +1818,15 @@ func (UnimplementedSliverRPCServer) BuilderTrigger(context.Context, *clientpb.Ev
 }
 func (UnimplementedSliverRPCServer) Builders(context.Context, *commonpb.Empty) (*clientpb.Builders, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Builders not implemented")
+}
+func (UnimplementedSliverRPCServer) CrackstationRegister(*clientpb.Crackstation, SliverRPC_CrackstationRegisterServer) error {
+	return status.Errorf(codes.Unimplemented, "method CrackstationRegister not implemented")
+}
+func (UnimplementedSliverRPCServer) CrackstationTrigger(context.Context, *clientpb.Event) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CrackstationTrigger not implemented")
+}
+func (UnimplementedSliverRPCServer) Crackstations(context.Context, *commonpb.Empty) (*clientpb.Crackstations, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Crackstations not implemented")
 }
 func (UnimplementedSliverRPCServer) Regenerate(context.Context, *clientpb.RegenerateReq) (*clientpb.Generate, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Regenerate not implemented")
@@ -2770,6 +2839,63 @@ func _SliverRPC_Builders_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).Builders(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CrackstationRegister_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(clientpb.Crackstation)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SliverRPCServer).CrackstationRegister(m, &sliverRPCCrackstationRegisterServer{stream})
+}
+
+type SliverRPC_CrackstationRegisterServer interface {
+	Send(*clientpb.Event) error
+	grpc.ServerStream
+}
+
+type sliverRPCCrackstationRegisterServer struct {
+	grpc.ServerStream
+}
+
+func (x *sliverRPCCrackstationRegisterServer) Send(m *clientpb.Event) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _SliverRPC_CrackstationTrigger_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Event)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CrackstationTrigger(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/CrackstationTrigger",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CrackstationTrigger(ctx, req.(*clientpb.Event))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_Crackstations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).Crackstations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/Crackstations",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).Crackstations(ctx, req.(*commonpb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -4631,6 +4757,14 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_Builders_Handler,
 		},
 		{
+			MethodName: "CrackstationTrigger",
+			Handler:    _SliverRPC_CrackstationTrigger_Handler,
+		},
+		{
+			MethodName: "Crackstations",
+			Handler:    _SliverRPC_Crackstations_Handler,
+		},
+		{
 			MethodName: "Regenerate",
 			Handler:    _SliverRPC_Regenerate_Handler,
 		},
@@ -4995,6 +5129,11 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "BuilderRegister",
 			Handler:       _SliverRPC_BuilderRegister_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "CrackstationRegister",
+			Handler:       _SliverRPC_CrackstationRegister_Handler,
 			ServerStreams: true,
 		},
 		{

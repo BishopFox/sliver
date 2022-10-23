@@ -668,6 +668,79 @@ enum HashType {
 
 }
 
+// [ Crackstation ] ----------------------------------------
+message Crackstations {
+  repeated Crackstation Crackstations = 1;
+}
+
+message Crackstation {
+  string Name = 1;
+  string OperatorName = 2;
+  string GOOS = 3;  // The cracker's OS
+  string GOARCH = 4;  // The cracker's Arch
+  string HashcatVersion = 5;
+
+  repeated CUDABackendInfo CUDA = 100;
+  repeated MetalBackendInfo Metal = 101;
+  repeated OpenCLBackendInfo OpenCL = 102;
+}
+
+message CUDABackendInfo {
+  string Type = 1;
+  int32 VendorID = 2;
+  string Vendor = 3;
+  string Name = 4;
+  string Version = 5;
+  int32 Processors = 6;
+  int32 Clock = 7;
+  string MemoryTotal = 8;
+  string MemoryFree = 9;
+
+  string CUDAVersion = 10;
+}
+
+message OpenCLBackendInfo {
+  string Type = 1;
+  int32 VendorID = 2;
+  string Vendor = 3;
+  string Name = 4;
+  string Version = 5;
+  int32 Processors = 6;
+  int32 Clock = 7;
+  string MemoryTotal = 8;
+  string MemoryFree = 9;
+
+  string OpenCLVersion = 10;
+  string OpenCLDriverVersion = 11;
+}
+
+message MetalBackendInfo {
+  string Type = 1;
+  int32 VendorID = 2;
+  string Vendor = 3;
+  string Name = 4;
+  string Version = 5;
+  int32 Processors = 6;
+  int32 Clock = 7;
+  string MemoryTotal = 8;
+  string MemoryFree = 9;
+
+  string MetalVersion = 10;
+}
+
+enum CrackAttackMode {
+  STRAIGHT = 0;
+  COMBINATION = 1;
+  BRUTEFORCE = 3;
+  HYBRID_WORDLIST_MASK = 6;
+  HYBRID_MASK_WORDLIST = 7;
+  ASSOCIATION = 9;
+}
+
+message CrackJob {
+  CrackAttackMode Mode = 1;
+
+}
 
 // [ Hosts ] ----------------------------------------
 message IOC {

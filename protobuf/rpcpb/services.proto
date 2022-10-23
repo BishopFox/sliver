@@ -69,11 +69,16 @@ service SliverRPC {
     rpc GenerateExternal(clientpb.ExternalGenerateReq) returns (clientpb.ExternalImplantConfig);
     rpc GenerateExternalSaveBuild(clientpb.ExternalImplantBinary) returns (commonpb.Empty);
     rpc GenerateExternalGetImplantConfig(clientpb.ImplantConfig) returns (clientpb.ExternalImplantConfig);
-    // rpc BuilderRegister(clientpb.Builder) returns (commonpb.Empty);
-    
+
+    // *** Builders ***
     rpc BuilderRegister(clientpb.Builder) returns (stream clientpb.Event);
     rpc BuilderTrigger(clientpb.Event) returns (commonpb.Empty);
     rpc Builders(commonpb.Empty) returns (clientpb.Builders);
+
+    // *** Crackstation ***
+    rpc CrackstationRegister(clientpb.Crackstation) returns (stream clientpb.Event);
+    rpc CrackstationTrigger(clientpb.Event) returns (commonpb.Empty);
+    rpc Crackstations(commonpb.Empty) returns (clientpb.Crackstations);
 
     rpc Regenerate(clientpb.RegenerateReq) returns (clientpb.Generate);
     rpc ImplantBuilds(commonpb.Empty) returns (clientpb.ImplantBuilds);
