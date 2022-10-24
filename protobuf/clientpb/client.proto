@@ -788,7 +788,7 @@ message CrackTask {
   bool MarkovInverse = 21;
   uint32 MarkovThreshold = 22;
   uint32 Runtime = 23;
-  string Session = 24;
+  string Session = 24; // [a-zA-Z0-9_-]
   bool Restore = 25;
   bool RestoreDisable = 26;
   bytes RestoreFile = 27; // --restore-file-path FILE
@@ -797,7 +797,7 @@ message CrackTask {
   bool OutfileAutohexDisable = 30;
   uint32 OutfileCheckTimer = 31;
   bool WordlistAutohexDisable = 32;
-  string Separator = 33;
+  string Separator = 33; // single char
   bool Stdout = 34;
   bool Show = 35;
   bool Left = 36;

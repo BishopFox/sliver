@@ -6349,7 +6349,7 @@ type CrackTask struct {
 	MarkovInverse          bool   `protobuf:"varint,21,opt,name=MarkovInverse,proto3" json:"MarkovInverse,omitempty"`
 	MarkovThreshold        uint32 `protobuf:"varint,22,opt,name=MarkovThreshold,proto3" json:"MarkovThreshold,omitempty"`
 	Runtime                uint32 `protobuf:"varint,23,opt,name=Runtime,proto3" json:"Runtime,omitempty"`
-	Session                string `protobuf:"bytes,24,opt,name=Session,proto3" json:"Session,omitempty"`
+	Session                string `protobuf:"bytes,24,opt,name=Session,proto3" json:"Session,omitempty"` // [a-zA-Z0-9_-]
 	Restore                bool   `protobuf:"varint,25,opt,name=Restore,proto3" json:"Restore,omitempty"`
 	RestoreDisable         bool   `protobuf:"varint,26,opt,name=RestoreDisable,proto3" json:"RestoreDisable,omitempty"`
 	RestoreFile            []byte `protobuf:"bytes,27,opt,name=RestoreFile,proto3" json:"RestoreFile,omitempty"` // --restore-file-path FILE
@@ -6358,7 +6358,7 @@ type CrackTask struct {
 	OutfileAutohexDisable  bool                 `protobuf:"varint,30,opt,name=OutfileAutohexDisable,proto3" json:"OutfileAutohexDisable,omitempty"`
 	OutfileCheckTimer      uint32               `protobuf:"varint,31,opt,name=OutfileCheckTimer,proto3" json:"OutfileCheckTimer,omitempty"`
 	WordlistAutohexDisable bool                 `protobuf:"varint,32,opt,name=WordlistAutohexDisable,proto3" json:"WordlistAutohexDisable,omitempty"`
-	Separator              string               `protobuf:"bytes,33,opt,name=Separator,proto3" json:"Separator,omitempty"`
+	Separator              string               `protobuf:"bytes,33,opt,name=Separator,proto3" json:"Separator,omitempty"` // single char
 	Stdout                 bool                 `protobuf:"varint,34,opt,name=Stdout,proto3" json:"Stdout,omitempty"`
 	Show                   bool                 `protobuf:"varint,35,opt,name=Show,proto3" json:"Show,omitempty"`
 	Left                   bool                 `protobuf:"varint,36,opt,name=Left,proto3" json:"Left,omitempty"`
