@@ -21,7 +21,9 @@ package models
 import (
 	"time"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/gofrs/uuid"
+	"github.com/golang/protobuf/proto"
 	"gorm.io/gorm"
 )
 
@@ -43,9 +45,21 @@ type CrackTask struct {
 	ID             uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CrackstationID string
 	CreatedAt      time.Time `gorm:"->;<-:create;"`
-	SentAt         time.Time
-	CompletedAt    time.Time
+	StartedAt      time.Time
+	FinishedAt     time.Time
 	Status         string
+
+	Data []byte // protobuf
+}
+
+func (c *CrackTask) ToProtobuf() *clientpb.CrackTask {
+	task := &clientpb.CrackTask{}
+	proto.Unmarshal(c.Data, task)
+	task.CrackTaskCreatedAt = c.CreatedAt.Unix()
+	task.CrackTaskStartedAt = c.StartedAt.Unix()
+	task.CrackTaskFinishedAt = c.FinishedAt.Unix()
+	task.CrackTaskStatus = c.Status
+	return task
 }
 
 // BeforeCreate - GORM hook

@@ -878,6 +878,11 @@ message CrackTask {
   string BrainPassword = 111;
   string BrainSession = 112;
   string BrainSessionWhitelist = 113;
+
+  int64 CrackTaskCreatedAt = 200;
+  int64 CrackTaskStartedAt = 201;
+  int64 CrackTaskFinishedAt = 202;
+  string CrackTaskStatus = 203;
 }
 
 // [ Hosts ] ----------------------------------------

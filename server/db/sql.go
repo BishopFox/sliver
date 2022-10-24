@@ -55,7 +55,7 @@ func newDBClient() *gorm.DB {
 		&models.BeaconTask{},
 		&models.DNSCanary{},
 		&models.Crackstation{},
-		&models.CrackstationTask{},
+		&models.CrackTask{},
 		&models.Certificate{},
 		&models.Host{},
 		&models.IOC{},
