@@ -23,7 +23,7 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/gofrs/uuid"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 )
 
