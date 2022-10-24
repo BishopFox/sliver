@@ -25,8 +25,13 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
+	"github.com/gofrs/uuid"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -53,10 +58,28 @@ func (rpc *Server) CrackstationTrigger(ctx context.Context, req *clientpb.Event)
 }
 
 func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb.SliverRPC_CrackstationRegisterServer) error {
+	hostUUID := uuid.FromStringOrNil(req.HostUUID)
+	if hostUUID == uuid.Nil {
+		return status.Error(codes.InvalidArgument, "invalid host uuid")
+	}
 	err := core.AddCrackstation(req)
+	if err == core.ErrDuplicateExternalCrackerName {
+		status.Error(codes.AlreadyExists, "crackstation name already exists")
+	}
 	if err != nil {
 		return err
 	}
+
+	_, err = db.CrackstationByName(req.Name)
+	if err == db.ErrRecordNotFound {
+		dbSession := db.Session()
+		err = dbSession.Create(&models.Crackstation{ID: req.Name}).Error
+		if err != nil {
+			crackRpcLog.Errorf("Failed to create crackstation record: %s", err)
+			return status.Error(codes.Internal, "failed to register crackstation")
+		}
+	}
+
 	crackRpcLog.Infof("Crackstation %s (%s) connected", req.Name, req.OperatorName)
 	events := core.EventBroker.Subscribe()
 	defer func() {

@@ -95,6 +95,13 @@ const (
 	ExternalBuildFailedEvent    = "external-build-failed"
 	ExternalBuildCompletedEvent = "external-build-completed"
 
+	// Crackstation Events
+	CrackstationConnected    = "crackstation-connected"
+	CrackstationDisconnected = "crackstation-disconnected"
+
+	// Crack Events - Events consumed by crackstations
+	CrackBenchmark = "crack-benchmark"
+
 	// WireGuardNewPeer - New Wireguard peer added
 	WireGuardNewPeer = "wireguard-newpeer"
 )

@@ -530,3 +530,18 @@ func DeleteKeyValue(key string, value string) error {
 		Key: key,
 	}).Error
 }
+
+// CrackstationByHostUUID - Get crackstation by the session's reported HostUUID
+func CrackstationByName(name string) (*models.Crackstation, error) {
+	if len(name) < 1 {
+		return nil, ErrRecordNotFound
+	}
+	crackstation := models.Crackstation{}
+	err := Session().Where(
+		&models.Crackstation{ID: name},
+	).Preload("Tasks").First(&crackstation).Error
+	if err != nil {
+		return nil, err
+	}
+	return &crackstation, nil
+}

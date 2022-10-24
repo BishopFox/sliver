@@ -22,6 +22,7 @@ import (
 	"errors"
 	"sync"
 
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
@@ -37,6 +38,10 @@ func AddCrackstation(cracker *clientpb.Crackstation) error {
 	if loaded {
 		return ErrDuplicateExternalCrackerName
 	}
+	EventBroker.Publish(Event{
+		EventType: consts.CrackstationConnected,
+		Data:      []byte(cracker.Name),
+	})
 	return nil
 }
 
@@ -58,5 +63,11 @@ func AllCrackstations() []*clientpb.Crackstation {
 }
 
 func RemoveCrackstation(crackerName string) {
-	crackers.Delete(crackerName)
+	_, loaded := crackers.LoadAndDelete(crackerName)
+	if loaded {
+		EventBroker.Publish(Event{
+			EventType: consts.CrackstationDisconnected,
+			Data:      []byte(crackerName),
+		})
+	}
 }

@@ -679,6 +679,7 @@ message Crackstation {
   string GOOS = 3;  // The cracker's OS
   string GOARCH = 4;  // The cracker's Arch
   string HashcatVersion = 5;
+  string HostUUID = 6;
 
   repeated CUDABackendInfo CUDA = 100;
   repeated MetalBackendInfo Metal = 101;
@@ -737,9 +738,146 @@ enum CrackAttackMode {
   ASSOCIATION = 9;
 }
 
-message CrackJob {
-  CrackAttackMode Mode = 1;
+enum CrackEncoding {
+  INVALID_ENCODING = 0;
+  ISO_8859_15 = 1;
+  UTF_32LE = 2;
+}
 
+enum CrackOutfileFormat {
+  INVALID_FORMAT = 0;
+  HASH_SALT = 1;  // 1 | hash[:salt]
+  PLAIN = 2; // 2 | plain
+  HEX_PLAIN = 3; // 3 | hex_plain
+  CRACK_POS = 4; // 4 | crack_pos
+  TIMESTAMP_ABSOLUTE = 5; // 5 | timestamp absolute
+  TIMESTAMP_RELATIVE = 6; // 6 | timestamp relative
+}
+
+enum CrackWorkloadProfile {
+  INVALID_WORKLOAD_PROFILE = 0;
+  LOW = 1;
+  DEFAULT = 2;
+  HIGH = 3;
+  NIGHTMARE = 4;
+}
+
+message CrackTask {
+  CrackAttackMode AttackMode = 1;
+  HashType HashType = 2;
+  repeated string Hashes = 3;
+  // --version
+  // --help
+  bool Quiet = 4;
+  bool HexCharset = 5;
+  bool HexSalt = 6;
+  bool HexWordlist = 7;
+  bool Force = 8;
+  bool DeprecatedCheckDisable = 9;
+  bool Status = 10;
+  bool StatusJSON = 11;
+  uint32 StatusTimer = 12;
+  uint32 StdinTimeoutAbort = 13;
+  bool MachineReadable = 14;
+  bool KeepGuessing = 15;
+  bool SelfTestDisable = 16;
+  bool Loopback = 17;
+  bytes MarkovHcstat2 = 18; // --markov-hcstat2 FILE
+  bool MarkovDisable = 19;
+  bool MarkovClassic = 20;
+  bool MarkovInverse = 21;
+  uint32 MarkovThreshold = 22;
+  uint32 Runtime = 23;
+  string Session = 24;
+  bool Restore = 25;
+  bool RestoreDisable = 26;
+  bytes RestoreFile = 27; // --restore-file-path FILE
+  // --outfile FILE (28)
+  repeated CrackOutfileFormat OutfileFormat = 29;
+  bool OutfileAutohexDisable = 30;
+  uint32 OutfileCheckTimer = 31;
+  bool WordlistAutohexDisable = 32;
+  string Seperator = 33;
+  bool Stdout = 34;
+  bool Show = 35;
+  bool Left = 36;
+  bool Username = 37;
+  bool Remove = 38;
+  uint32 RemoveTimer = 39;
+  bool PotfileDisable = 40;
+  bytes Potfile = 41; // --potfile-path FILE
+  CrackEncoding EncodingFrom = 42;
+  CrackEncoding EncodingTo = 43;
+  uint32 DebugMode = 44;
+  // --debug-file FILE (45)
+  // --induction-dir DIR (46)
+  // --outfile-check-dir DIR (47)
+  bool LogfileDisable = 48;
+  uint32 HccapxMessagePair = 49;
+  uint32 NonceErrorCorrections = 50;
+  bytes KeyboardLayoutMapping = 51; // --keyboard-layout-mapping FILE
+  // --truecrypt-keyfiles FILE (52)
+  // --veracrypt-keyfiles FILE (53)
+  // --veracrypt-pim-start PIM (54)
+  // --veracrypt-pim-stop PIM (55)
+  bool Benchmark = 56;
+  bool BenchmarkAll = 57;
+  bool SpeedOnly = 58;
+  bool ProgressOnly = 59;
+  uint32 SegmentSize = 60;
+  uint32 BitmapMin = 61;
+  uint32 BitmapMax = 62;
+  repeated uint32 CPUAffinity = 63;
+  uint32 HookThreads = 64;
+  bool HashInfo = 65;
+  // --example-hashes (66)
+  bool BackendIgnoreCUDA = 67;
+  bool BackendIgnoreHip = 68;
+  bool BackendIgnoreMetal = 69;
+  bool BackendIgnoreOpenCL = 70;
+  bool BackendInfo = 71;
+  repeated uint32 BackendDevices = 72;
+  repeated uint32 OpenCLDeviceTypes = 73;
+  bool OptimizedKernelEnable = 74;
+  bool MultiplyAccelDisabled = 75;
+  CrackWorkloadProfile WorkloadProfile = 76;
+  uint32 KernelAccel = 77;
+  uint32 KernelLoops = 78;
+  uint32 KernelThreads = 79;
+  uint32 BackendVectorWidth = 80;
+  uint32 SpinDamp = 81;
+  bool HwmonDisable = 82;
+  uint32 HwmonTempAbort = 83;
+  uint32 ScryptTMTO = 84;
+  uint64 Skip = 85;
+  uint64 Limit = 86;
+  bool Keyspace = 87;
+  // --rule-left (88)
+  // --rule-right (89)
+  bytes RulesFile = 90; // --rules-file FILE
+  uint32 GenerateRules = 91;
+  uint32 GenerateRulesFunMin = 92;
+  uint32 GenerateRulesFunMax = 93;
+  string GenerateRulesFuncSel = 94;
+  int32 GenerateRulesSeed = 95;
+  string CustomCharset1 = 96;
+  string CustomCharset2 = 97;
+  string CustomCharset3 = 98;
+  string CustomCharset4 = 99;
+  string Identify = 100;
+  bool Increment = 101;
+  uint32 IncrementMin = 102;
+  uint32 IncrementMax = 103;
+  bool SlowCandidates = 104;
+  bool BrainServer = 105;
+  uint32 BrainServerTimer = 106;
+  bool BrainClient = 107;
+  string BrainClientFeatures = 108;
+  string BrainHost = 109;
+  uint32 BrainPort = 110;
+  string BrainPassword = 111;
+  string BrainSession = 112;
+  string BrainSessionWhitelist = 113;
 }
 
 // [ Hosts ] ----------------------------------------
