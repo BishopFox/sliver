@@ -644,7 +644,7 @@ gorm.io/driver/mysql
 # gorm.io/driver/postgres v1.4.4
 ## explicit; go 1.14
 gorm.io/driver/postgres
-# gorm.io/driver/sqlite v1.4.2
+# gorm.io/driver/sqlite v1.4.3
 ## explicit; go 1.14
 gorm.io/driver/sqlite
 # gorm.io/gorm v1.24.0
