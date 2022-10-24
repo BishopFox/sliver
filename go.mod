@@ -35,23 +35,23 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.9
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.0
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.1
 	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
 	github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e
 	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
 	golang.org/x/net v0.0.0-20220722155237-a158d28d115b
 	golang.org/x/sys v0.0.0-20220928140112-f11e5e49a4ec
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
-	golang.org/x/text v0.3.8
+	golang.org/x/text v0.4.0
 	golang.zx2c4.com/wireguard v0.0.0-20220316235147-5aff28b14c24
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220208144051-fde48d68ee68
 	google.golang.org/grpc v1.42.0-dev.0.20211020220737-f00baa6c3c84
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
-	gorm.io/driver/mysql v1.4.1
-	gorm.io/driver/postgres v1.4.4
-	gorm.io/driver/sqlite v1.4.2
-	gorm.io/gorm v1.24.0
+	gorm.io/driver/mysql v1.4.3
+	gorm.io/driver/postgres v1.4.5
+	gorm.io/driver/sqlite v1.4.3
+	gorm.io/gorm v1.24.1-0.20221019064659-5dd2bb482755
 	gvisor.dev/gvisor v0.0.0-20220817001344-846276b3dbc5
 	modernc.org/sqlite v1.19.2
 )

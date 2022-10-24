@@ -197,6 +197,8 @@ func (m Migrator) AddColumn(value interface{}, field string) error {
 	if err := m.Migrator.AddColumn(value, field); err != nil {
 		return err
 	}
+	m.resetPreparedStmts()
+
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		if field := stmt.Schema.LookUpField(field); field != nil {
 			if field.Comment != "" {
@@ -266,7 +268,7 @@ func (m Migrator) MigrateColumn(value interface{}, field *schema.Field, columnTy
 
 // AlterColumn alter value's `field` column' type based on schema definition
 func (m Migrator) AlterColumn(value interface{}, field string) error {
-	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
+	err := m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		if field := stmt.Schema.LookUpField(field); field != nil {
 			var (
 				columnTypes, _  = m.DB.Migrator().ColumnTypes(value)
@@ -347,6 +349,12 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 		}
 		return fmt.Errorf("failed to look up field with name: %s", field)
 	})
+
+	if err != nil {
+		return err
+	}
+	m.resetPreparedStmts()
+	return nil
 }
 
 func (m Migrator) HasConstraint(value interface{}, name string) bool {
@@ -693,4 +701,31 @@ func groupByIndexName(indexList []*Index) map[string][]*Index {
 
 func (m Migrator) GetTypeAliases(databaseTypeName string) []string {
 	return typeAliasMap[databaseTypeName]
+}
+
+// should reset prepared stmts when table changed
+func (m Migrator) resetPreparedStmts() {
+	if m.DB.PrepareStmt {
+		if pdb, ok := m.DB.ConnPool.(*gorm.PreparedStmtDB); ok {
+			pdb.Reset()
+		}
+	}
+}
+
+func (m Migrator) DropColumn(dst interface{}, field string) error {
+	if err := m.Migrator.DropColumn(dst, field); err != nil {
+		return err
+	}
+
+	m.resetPreparedStmts()
+	return nil
+}
+
+func (m Migrator) RenameColumn(dst interface{}, oldName, field string) error {
+	if err := m.Migrator.RenameColumn(dst, oldName, field); err != nil {
+		return err
+	}
+
+	m.resetPreparedStmts()
+	return nil
 }
