@@ -25,9 +25,18 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/bishopfox/sliver/server/log"
 	"github.com/gofrs/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+)
+
+var (
+	credsRpcLog = log.NamedLogger("rpc", "creds")
+
+	ErrInvalidCredID       = status.Errorf(codes.InvalidArgument, "Invalid credential ID")
+	ErrCredNotFound        = status.Error(codes.NotFound, "Credential not found")
+	ErrCredOperationFailed = status.Error(codes.Internal, "Credential operation failed")
 )
 
 func (rpc *Server) Creds(ctx context.Context, req *commonpb.Empty) (*clientpb.Credentials, error) {
@@ -53,7 +62,8 @@ func (rpc *Server) CredsAdd(ctx context.Context, req *clientpb.Credentials) (*co
 			IsCracked: (cred.Plaintext != "" && cred.Hash != ""),
 		}).Error
 		if err != nil {
-			return nil, err
+			credsRpcLog.Errorf("Failed to add credential: %s", err)
+			return nil, ErrCredOperationFailed
 		}
 	}
 	return &commonpb.Empty{}, nil
@@ -61,15 +71,16 @@ func (rpc *Server) CredsAdd(ctx context.Context, req *clientpb.Credentials) (*co
 
 func (rpc *Server) CredsRm(ctx context.Context, req *clientpb.Credentials) (*commonpb.Empty, error) {
 	for _, cred := range req.Credentials {
-		credID := uuid.FromStringOrNil(cred.ID)
-		if credID == uuid.Nil {
-			return nil, status.Error(codes.InvalidArgument, "Invalid credential ID")
-		}
-		err := db.Session().Create(&models.Credential{
-			ID: credID,
-		}).Error
+		dbCred, err := db.CredentialByID(cred.ID)
 		if err != nil {
-			return nil, err
+			credsRpcLog.Errorf("Failed to get credential: %s", err)
+			return nil, ErrCredNotFound
+		}
+		credsRpcLog.Infof("got cred: %#v", dbCred)
+		err = db.Session().Delete(dbCred).Error
+		if err != nil {
+			credsRpcLog.Errorf("Failed to remove credential: %s", err)
+			return nil, ErrCredOperationFailed
 		}
 	}
 	return &commonpb.Empty{}, nil
@@ -79,7 +90,7 @@ func (rpc *Server) CredsUpdate(ctx context.Context, req *clientpb.Credentials) (
 	for _, cred := range req.Credentials {
 		credID := uuid.FromStringOrNil(cred.ID)
 		if credID == uuid.Nil {
-			return nil, status.Error(codes.InvalidArgument, "Invalid credential ID")
+			return nil, ErrInvalidCredID
 		}
 		err := db.Session().Where(&models.Credential{ID: credID}).Updates(&models.Credential{
 			Username:  cred.Username,
@@ -89,21 +100,18 @@ func (rpc *Server) CredsUpdate(ctx context.Context, req *clientpb.Credentials) (
 			IsCracked: cred.IsCracked,
 		}).Error
 		if err != nil {
-			return nil, err
+			credsRpcLog.Errorf("Failed to update credential: %s", err)
+			return nil, ErrCredOperationFailed
 		}
 	}
 	return &commonpb.Empty{}, nil
 }
 
 func (rpc *Server) GetCred(ctx context.Context, req *clientpb.Credential) (*clientpb.Credential, error) {
-	credID := uuid.FromStringOrNil(req.ID)
-	if credID == uuid.Nil {
-		return nil, status.Error(codes.InvalidArgument, "Invalid credential ID")
-	}
-	dbCred := &models.Credential{}
-	err := db.Session().Where(&models.Credential{ID: credID}).First(&dbCred).Error
+	dbCred, err := db.CredentialByID(req.ID)
 	if err != nil {
-		return nil, err
+		credsRpcLog.Errorf("Failed to get credential: %s", err)
+		return nil, ErrCredNotFound
 	}
 	return dbCred.ToProtobuf(), nil
 }

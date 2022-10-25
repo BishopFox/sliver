@@ -19,11 +19,36 @@ package creds
 */
 
 import (
+	"context"
+
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/desertbit/grumble"
 )
 
 // CredsCmd - Add new credentials
 func CredsRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-
+	id := ctx.Flags.String("id")
+	_, err := con.Rpc.CredsRm(context.Background(), &clientpb.Credentials{
+		Credentials: []*clientpb.Credential{
+			{
+				ID: id,
+			},
+		},
+	})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	if len(creds.Credentials) == 0 {
+		con.PrintInfof("No credentials 🙁\n")
+		return
+	}
+	PrintCreds(creds.Credentials, con)
 }

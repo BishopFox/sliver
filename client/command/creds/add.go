@@ -24,6 +24,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/desertbit/grumble"
 )
 
@@ -34,11 +35,11 @@ func CredsAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	hash := ctx.Flags.String("hash")
 	hashType := parseHashType(ctx.Flags.String("hash-type"))
 	if plaintext == "" && hash == "" {
-		con.PrintErrorf("Either a plaintext or a hash must be provided")
+		con.PrintErrorf("Either a plaintext or a hash must be provided\n")
 		return
 	}
 	if hashType == clientpb.HashType_INVALID {
-		con.PrintErrorf("Invalid hash type '%s'", ctx.Flags.String("hash-type"))
+		con.PrintErrorf("Invalid hash type '%s'\n", ctx.Flags.String("hash-type"))
 		return
 	}
 	_, err := con.Rpc.CredsAdd(context.Background(), &clientpb.Credentials{
@@ -52,9 +53,15 @@ func CredsAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		},
 	})
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s\n", err)
 		return
 	}
+	creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	PrintCreds(creds.Credentials, con)
 }
 
 func parseHashType(raw string) clientpb.HashType {

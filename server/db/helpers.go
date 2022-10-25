@@ -25,6 +25,7 @@ package db
 
 import (
 	"encoding/hex"
+	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -561,4 +562,25 @@ func PlaintextCredentialsByType(hashType clientpb.HashType) ([]*models.Credentia
 		HashType: int32(hashType),
 	}).Not("plaintext = ?", "").Find(&credentials).Error
 	return credentials, err
+}
+
+// CredentialsByID
+func CredentialByID(id string) (*models.Credential, error) {
+	credential := &models.Credential{}
+	credID := uuid.FromStringOrNil(id)
+	if credID != uuid.Nil {
+		err := Session().Where(&models.Credential{ID: credID}).First(&credential).Error
+		return credential, err
+	}
+	credentials := []*models.Credential{}
+	err := Session().Where(&models.Credential{}).Find(&credentials).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, cred := range credentials {
+		if strings.HasPrefix(cred.ID.String(), id) {
+			return cred, nil
+		}
+	}
+	return nil, ErrRecordNotFound
 }

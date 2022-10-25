@@ -34,7 +34,7 @@ import (
 func CredsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s\n", err)
 		return
 	}
 	if len(creds.Credentials) == 0 {
