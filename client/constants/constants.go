@@ -151,7 +151,7 @@ const (
 	LootLocalStr  = "local"
 	LootRemoteStr = "remote"
 	FetchStr      = "fetch"
-	LootCredsStr  = "creds"
+	CredsStr      = "creds"
 
 	RenameStr = "rename"
 

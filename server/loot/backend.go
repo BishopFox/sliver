@@ -48,10 +48,10 @@ type LocalBackend struct {
 
 // Add - Add a piece of loot
 func (l *LocalBackend) Add(loot *clientpb.Loot) (*clientpb.Loot, error) {
-	host, err := db.HostByHostUUID(loot.OriginHostID)
+	host, err := db.HostByHostUUID(loot.OriginHostUUID)
 	var hostID uuid.UUID
 	if err != nil {
-		lootLog.Warnf("Failed to find host %s for loot %s", loot.OriginHostID, loot.ID)
+		lootLog.Warnf("Failed to find host %s for loot %s", loot.OriginHostUUID, loot.ID)
 		hostID = uuid.Nil
 	} else {
 		hostID = host.ID

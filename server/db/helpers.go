@@ -27,6 +27,7 @@ import (
 	"encoding/hex"
 	"time"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
@@ -544,4 +545,20 @@ func CrackstationByName(name string) (*models.Crackstation, error) {
 		return nil, err
 	}
 	return &crackstation, nil
+}
+
+// PlaintextCredentials
+func PlaintextCredentials() ([]*models.Credential, error) {
+	credentials := []*models.Credential{}
+	err := Session().Not("plaintext = ?", "").Find(&credentials).Error
+	return credentials, err
+}
+
+// PlaintextCredentials
+func PlaintextCredentialsByType(hashType clientpb.HashType) ([]*models.Credential, error) {
+	credentials := []*models.Credential{}
+	err := Session().Where(&models.Credential{
+		HashType: int32(hashType),
+	}).Not("plaintext = ?", "").Find(&credentials).Error
+	return credentials, err
 }

@@ -55,6 +55,7 @@ func PrintAllFileLootTable(allLoot *clientpb.AllLoot, con *console.SliverConsole
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
+		"ID",
 		"Name",
 		"File Name",
 		"Type",
@@ -63,6 +64,7 @@ func PrintAllFileLootTable(allLoot *clientpb.AllLoot, con *console.SliverConsole
 	for _, loot := range allLoot.Loot {
 		if loot.File != nil {
 			tw.AppendRow(table.Row{
+				strings.Split(loot.ID, "-")[0],
 				loot.Name,
 				loot.File.Name,
 				fileTypeToStr(loot.FileType),

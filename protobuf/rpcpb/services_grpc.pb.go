@@ -59,7 +59,12 @@ type SliverRPCClient interface {
 	LootUpdate(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.Loot, error)
 	LootContent(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.Loot, error)
 	LootAll(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.AllLoot, error)
-	LootAllOf(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.AllLoot, error)
+	// *** Creds ***
+	Creds(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Credentials, error)
+	CredsAdd(ctx context.Context, in *clientpb.Credentials, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	CredsRm(ctx context.Context, in *clientpb.Credentials, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	CredsUpdate(ctx context.Context, in *clientpb.Credentials, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	GetCred(ctx context.Context, in *clientpb.Credential, opts ...grpc.CallOption) (*clientpb.Credential, error)
 	// *** Hosts ***
 	Hosts(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.AllHosts, error)
 	Host(ctx context.Context, in *clientpb.Host, opts ...grpc.CallOption) (*clientpb.Host, error)
@@ -443,9 +448,45 @@ func (c *sliverRPCClient) LootAll(ctx context.Context, in *commonpb.Empty, opts 
 	return out, nil
 }
 
-func (c *sliverRPCClient) LootAllOf(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.AllLoot, error) {
-	out := new(clientpb.AllLoot)
-	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/LootAllOf", in, out, opts...)
+func (c *sliverRPCClient) Creds(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Credentials, error) {
+	out := new(clientpb.Credentials)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Creds", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CredsAdd(ctx context.Context, in *clientpb.Credentials, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CredsAdd", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CredsRm(ctx context.Context, in *clientpb.Credentials, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CredsRm", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CredsUpdate(ctx context.Context, in *clientpb.Credentials, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CredsUpdate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GetCred(ctx context.Context, in *clientpb.Credential, opts ...grpc.CallOption) (*clientpb.Credential, error) {
+	out := new(clientpb.Credential)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetCred", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1570,7 +1611,12 @@ type SliverRPCServer interface {
 	LootUpdate(context.Context, *clientpb.Loot) (*clientpb.Loot, error)
 	LootContent(context.Context, *clientpb.Loot) (*clientpb.Loot, error)
 	LootAll(context.Context, *commonpb.Empty) (*clientpb.AllLoot, error)
-	LootAllOf(context.Context, *clientpb.Loot) (*clientpb.AllLoot, error)
+	// *** Creds ***
+	Creds(context.Context, *commonpb.Empty) (*clientpb.Credentials, error)
+	CredsAdd(context.Context, *clientpb.Credentials) (*commonpb.Empty, error)
+	CredsRm(context.Context, *clientpb.Credentials) (*commonpb.Empty, error)
+	CredsUpdate(context.Context, *clientpb.Credentials) (*commonpb.Empty, error)
+	GetCred(context.Context, *clientpb.Credential) (*clientpb.Credential, error)
 	// *** Hosts ***
 	Hosts(context.Context, *commonpb.Empty) (*clientpb.AllHosts, error)
 	Host(context.Context, *clientpb.Host) (*clientpb.Host, error)
@@ -1783,8 +1829,20 @@ func (UnimplementedSliverRPCServer) LootContent(context.Context, *clientpb.Loot)
 func (UnimplementedSliverRPCServer) LootAll(context.Context, *commonpb.Empty) (*clientpb.AllLoot, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LootAll not implemented")
 }
-func (UnimplementedSliverRPCServer) LootAllOf(context.Context, *clientpb.Loot) (*clientpb.AllLoot, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LootAllOf not implemented")
+func (UnimplementedSliverRPCServer) Creds(context.Context, *commonpb.Empty) (*clientpb.Credentials, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Creds not implemented")
+}
+func (UnimplementedSliverRPCServer) CredsAdd(context.Context, *clientpb.Credentials) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CredsAdd not implemented")
+}
+func (UnimplementedSliverRPCServer) CredsRm(context.Context, *clientpb.Credentials) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CredsRm not implemented")
+}
+func (UnimplementedSliverRPCServer) CredsUpdate(context.Context, *clientpb.Credentials) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CredsUpdate not implemented")
+}
+func (UnimplementedSliverRPCServer) GetCred(context.Context, *clientpb.Credential) (*clientpb.Credential, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCred not implemented")
 }
 func (UnimplementedSliverRPCServer) Hosts(context.Context, *commonpb.Empty) (*clientpb.AllHosts, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Hosts not implemented")
@@ -2624,20 +2682,92 @@ func _SliverRPC_LootAll_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SliverRPC_LootAllOf_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(clientpb.Loot)
+func _SliverRPC_Creds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SliverRPCServer).LootAllOf(ctx, in)
+		return srv.(SliverRPCServer).Creds(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/rpcpb.SliverRPC/LootAllOf",
+		FullMethod: "/rpcpb.SliverRPC/Creds",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).LootAllOf(ctx, req.(*clientpb.Loot))
+		return srv.(SliverRPCServer).Creds(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CredsAdd_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Credentials)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CredsAdd(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/CredsAdd",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CredsAdd(ctx, req.(*clientpb.Credentials))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CredsRm_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Credentials)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CredsRm(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/CredsRm",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CredsRm(ctx, req.(*clientpb.Credentials))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CredsUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Credentials)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CredsUpdate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/CredsUpdate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CredsUpdate(ctx, req.(*clientpb.Credentials))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GetCred_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Credential)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetCred(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/GetCred",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetCred(ctx, req.(*clientpb.Credential))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -4713,8 +4843,24 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_LootAll_Handler,
 		},
 		{
-			MethodName: "LootAllOf",
-			Handler:    _SliverRPC_LootAllOf_Handler,
+			MethodName: "Creds",
+			Handler:    _SliverRPC_Creds_Handler,
+		},
+		{
+			MethodName: "CredsAdd",
+			Handler:    _SliverRPC_CredsAdd_Handler,
+		},
+		{
+			MethodName: "CredsRm",
+			Handler:    _SliverRPC_CredsRm_Handler,
+		},
+		{
+			MethodName: "CredsUpdate",
+			Handler:    _SliverRPC_CredsUpdate_Handler,
+		},
+		{
+			MethodName: "GetCred",
+			Handler:    _SliverRPC_GetCred_Handler,
 		},
 		{
 			MethodName: "Hosts",

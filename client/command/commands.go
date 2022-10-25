@@ -43,6 +43,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/command/builders"
 	"github.com/bishopfox/sliver/client/command/completers"
+	"github.com/bishopfox/sliver/client/command/creds"
 	"github.com/bishopfox/sliver/client/command/cursed"
 	"github.com/bishopfox/sliver/client/command/dllhijack"
 	"github.com/bishopfox/sliver/client/command/environment"
@@ -3073,6 +3074,61 @@ func BindCommands(con *console.SliverConsoleClient) {
 	})
 	con.App.AddCommand(lootCmd)
 
+	// [ Credentials ] ------------------------------------------------------------
+	credsCmd := &grumble.Command{
+		Name:     consts.CredsStr,
+		Help:     "Manage the database of credentials",
+		LongHelp: help.GetHelpFor([]string{consts.CredsStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			creds.CredsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	credsCmd.AddCommand(&grumble.Command{
+		Name:     consts.AddStr,
+		Help:     "Add a credential to the database",
+		LongHelp: help.GetHelpFor([]string{consts.CredsStr, consts.AddStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("u", "username", "", "username for the credential")
+			f.String("p", "plaintext", "", "plaintext for the credential")
+			f.String("P", "hash", "", "hash of the credential")
+			f.String("H", "hash-type", "", "hash type of the credential (see help)")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			creds.CredsAddCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	credsCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove a credential to the database",
+		LongHelp: help.GetHelpFor([]string{consts.CredsStr, consts.RmStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("i", "id", "", "id of the credential to remove")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			creds.CredsRmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	con.App.AddCommand(credsCmd)
+
 	// [ Hosts ] --------------------------------------------------------------
 	hostsCmd := &grumble.Command{
 		Name:     consts.HostsStr,
@@ -3558,4 +3614,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	}
 	con.App.AddCommand(buildersCmd)
+
+	// [ Crackstation ] ------------------------------------------------------------
+
 }

@@ -40,11 +40,11 @@ type Loot struct {
 
 func (l *Loot) ToProtobuf() *clientpb.Loot {
 	return &clientpb.Loot{
-		ID:           l.ID.String(),
-		FileType:     clientpb.FileType(l.FileType),
-		Name:         l.Name,
-		Size:         l.Size,
-		OriginHostID: l.OriginHostID.String(),
+		ID:             l.ID.String(),
+		FileType:       clientpb.FileType(l.FileType),
+		Name:           l.Name,
+		Size:           l.Size,
+		OriginHostUUID: l.OriginHostID.String(),
 	}
 }
 

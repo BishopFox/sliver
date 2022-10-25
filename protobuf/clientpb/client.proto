@@ -566,7 +566,7 @@ message Loot {
   string ID = 1;
   string Name = 2;
   FileType FileType = 3;
-  string OriginHostID = 4;
+  string OriginHostUUID = 4;
   int64 Size = 5;
 
   commonpb.File File = 9;
@@ -580,18 +580,14 @@ message Credential {
   string ID = 1;
   string Username = 2;
   string Plaintext = 3;
-
-  string OriginHostID = 7;
+  string Hash = 4;
+  HashType HashType = 5;
+  bool IsCracked = 6;
+  string OriginHostUUID = 7;
 }
 
-message HashedCredential {
-  string ID = 1;
-  Credential Credential = 2;
-  string Hash = 3;
-  HashType HashType = 4;
-  bool IsCracked = 5;
-
-  string OriginHostID = 7;
+message Credentials {
+  repeated Credential Credentials = 1;
 }
 
 enum HashType {
@@ -666,6 +662,9 @@ enum HashType {
 
   MACOS_10_8 = 7100; // macOS v10.8+ (PBKDF2-SHA512)    
 
+  // ...
+  
+  INVALID = 9999; // Invalid hash type
 }
 
 // [ Crackstation ] ----------------------------------------

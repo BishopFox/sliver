@@ -56,7 +56,13 @@ service SliverRPC {
     rpc LootUpdate(clientpb.Loot) returns(clientpb.Loot);
     rpc LootContent(clientpb.Loot) returns(clientpb.Loot);
     rpc LootAll(commonpb.Empty) returns(clientpb.AllLoot);
-    rpc LootAllOf(clientpb.Loot) returns(clientpb.AllLoot);
+
+    // *** Creds ***
+    rpc Creds(commonpb.Empty) returns(clientpb.Credentials);
+    rpc CredsAdd(clientpb.Credentials) returns(commonpb.Empty);
+    rpc CredsRm(clientpb.Credentials) returns(commonpb.Empty);
+    rpc CredsUpdate(clientpb.Credentials) returns(commonpb.Empty);
+    rpc GetCred(clientpb.Credential) returns(clientpb.Credential);
 
     // *** Hosts ***
     rpc Hosts(commonpb.Empty) returns(clientpb.AllHosts);
