@@ -27,7 +27,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
@@ -63,7 +63,7 @@ func AddLootFile(rpc rpcpb.SliverRPCClient, name string, fileName string, data [
 		Name:     name,
 		FileType: lootFileType,
 		File: &commonpb.File{
-			Name: path.Base(fileName),
+			Name: filepath.Base(fileName),
 			Data: data,
 		},
 	}

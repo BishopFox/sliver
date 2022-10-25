@@ -107,11 +107,37 @@ func (rpc *Server) CredsUpdate(ctx context.Context, req *clientpb.Credentials) (
 	return &commonpb.Empty{}, nil
 }
 
-func (rpc *Server) GetCred(ctx context.Context, req *clientpb.Credential) (*clientpb.Credential, error) {
+func (rpc *Server) GetCredByID(ctx context.Context, req *clientpb.Credential) (*clientpb.Credential, error) {
 	dbCred, err := db.CredentialByID(req.ID)
 	if err != nil {
 		credsRpcLog.Errorf("Failed to get credential: %s", err)
 		return nil, ErrCredNotFound
 	}
 	return dbCred.ToProtobuf(), nil
+}
+
+func (rpc *Server) GetCredsByHashType(ctx context.Context, req *clientpb.Credential) (*clientpb.Credentials, error) {
+	dbCreds, err := db.CredentialsByHashType(req.HashType)
+	if err != nil {
+		credsRpcLog.Errorf("Failed to get credential: %s", err)
+		return nil, ErrCredOperationFailed
+	}
+	credentials := []*clientpb.Credential{}
+	for _, dbCred := range dbCreds {
+		credentials = append(credentials, dbCred.ToProtobuf())
+	}
+	return &clientpb.Credentials{Credentials: credentials}, nil
+}
+
+func (rpc *Server) GetPlaintextCredsByHashType(ctx context.Context, req *clientpb.Credential) (*clientpb.Credentials, error) {
+	dbCreds, err := db.PlaintextCredentialsByHashType(req.HashType)
+	if err != nil {
+		credsRpcLog.Errorf("Failed to get credential: %s", err)
+		return nil, ErrCredOperationFailed
+	}
+	credentials := []*clientpb.Credential{}
+	for _, dbCred := range dbCreds {
+		credentials = append(credentials, dbCred.ToProtobuf())
+	}
+	return &clientpb.Credentials{Credentials: credentials}, nil
 }

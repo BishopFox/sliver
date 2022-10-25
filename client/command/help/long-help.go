@@ -583,10 +583,10 @@ ssh -l ubuntu ec2-instance ps aux
 	lootHelp = `[[.Bold]]Command:[[.Normal]] loot
 [[.Bold]]About:[[.Normal]] Store and share loot between operators.
 
-A piece of loot can be one of two loot types: a file or a credential. 
+A piece of loot is a file, that can be one of two loot types: text or binary. 
 
-A loot file can be binary or text, Sliver will attempt to detect the type of file automatically or you can specify 
-a file type with --file-type. You can add local files as loot using the "local" sub-command, or you can add files
+Sliver will attempt to detect the type of file automatically or you can specify a file type with 
+--file-type. You can add local files as loot using the "local" sub-command, or you can add files
 from a session using the "remote" sub-command.
 
 [[.Bold]]Examples:[[.Normal]]
@@ -709,15 +709,15 @@ For more information: https://github.com/BishopFox/sliver/wiki/External-Builders
 `
 
 	credsAddHelp = `[[.Bold]]Command:[[.Normal]] creds add
-[[.Bold]]About:[[.Normal]] Manage credentials database.
+[[.Bold]]About:[[.Normal]] Add a credential to the database
 
 [[.Bold]]Hash Types:[[.Normal]]
-Sliver uses the same hash identifiers as Hashcat:
+Sliver uses the same hash identifiers as Hashcat (use the #):
 
     # | Name                                                       | Category
 ======+============================================================+======================================
   900 | MD4                                                        | Raw Hash
-	0 | MD5                                                        | Raw Hash
+    0 | MD5                                                        | Raw Hash
   100 | SHA1                                                       | Raw Hash
  1300 | SHA2-224                                                   | Raw Hash
  1400 | SHA2-256                                                   | Raw Hash
@@ -1088,7 +1088,7 @@ Sliver uses the same hash identifiers as Hashcat:
  5200 | Password Safe v3                                           | Password Manager
  6800 | LastPass + LastPass sniffed                                | Password Manager
 13400 | KeePass 1 (AES/Twofish) and KeePass 2 (AES)                | Password Manager
-29700 | KeePass 1 (AES/Twofish) and KeePass 2 (AES) - keyfile only mode | Password Manager
+29700 | KeePass 1 (AES/Twofish) and KeePass 2 (AES) - keyfile only | Password Manager
 23400 | Bitwarden                                                  | Password Manager
 16900 | Ansible Vault                                              | Password Manager
 26000 | Mozilla key3.db                                            | Password Manager

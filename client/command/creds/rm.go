@@ -30,6 +30,14 @@ import (
 // CredsCmd - Add new credentials
 func CredsRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	id := ctx.Flags.String("id")
+	if id == "" {
+		credential, err := SelectCredential(false, clientpb.HashType_INVALID, con)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		id = credential.ID
+	}
 	_, err := con.Rpc.CredsRm(context.Background(), &clientpb.Credentials{
 		Credentials: []*clientpb.Credential{
 			{

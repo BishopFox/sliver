@@ -548,15 +548,17 @@ func CrackstationByName(name string) (*models.Crackstation, error) {
 	return &crackstation, nil
 }
 
-// PlaintextCredentials
-func PlaintextCredentials() ([]*models.Credential, error) {
+// CredentialsByHashType
+func CredentialsByHashType(hashType clientpb.HashType) ([]*models.Credential, error) {
 	credentials := []*models.Credential{}
-	err := Session().Not("plaintext = ?", "").Find(&credentials).Error
+	err := Session().Where(&models.Credential{
+		HashType: int32(hashType),
+	}).Find(&credentials).Error
 	return credentials, err
 }
 
 // PlaintextCredentials
-func PlaintextCredentialsByType(hashType clientpb.HashType) ([]*models.Credential, error) {
+func PlaintextCredentialsByHashType(hashType clientpb.HashType) ([]*models.Credential, error) {
 	credentials := []*models.Credential{}
 	err := Session().Where(&models.Credential{
 		HashType: int32(hashType),

@@ -64,7 +64,9 @@ type SliverRPCClient interface {
 	CredsAdd(ctx context.Context, in *clientpb.Credentials, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	CredsRm(ctx context.Context, in *clientpb.Credentials, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	CredsUpdate(ctx context.Context, in *clientpb.Credentials, opts ...grpc.CallOption) (*commonpb.Empty, error)
-	GetCred(ctx context.Context, in *clientpb.Credential, opts ...grpc.CallOption) (*clientpb.Credential, error)
+	GetCredByID(ctx context.Context, in *clientpb.Credential, opts ...grpc.CallOption) (*clientpb.Credential, error)
+	GetCredsByHashType(ctx context.Context, in *clientpb.Credential, opts ...grpc.CallOption) (*clientpb.Credentials, error)
+	GetPlaintextCredsByHashType(ctx context.Context, in *clientpb.Credential, opts ...grpc.CallOption) (*clientpb.Credentials, error)
 	// *** Hosts ***
 	Hosts(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.AllHosts, error)
 	Host(ctx context.Context, in *clientpb.Host, opts ...grpc.CallOption) (*clientpb.Host, error)
@@ -484,9 +486,27 @@ func (c *sliverRPCClient) CredsUpdate(ctx context.Context, in *clientpb.Credenti
 	return out, nil
 }
 
-func (c *sliverRPCClient) GetCred(ctx context.Context, in *clientpb.Credential, opts ...grpc.CallOption) (*clientpb.Credential, error) {
+func (c *sliverRPCClient) GetCredByID(ctx context.Context, in *clientpb.Credential, opts ...grpc.CallOption) (*clientpb.Credential, error) {
 	out := new(clientpb.Credential)
-	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetCred", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetCredByID", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GetCredsByHashType(ctx context.Context, in *clientpb.Credential, opts ...grpc.CallOption) (*clientpb.Credentials, error) {
+	out := new(clientpb.Credentials)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetCredsByHashType", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GetPlaintextCredsByHashType(ctx context.Context, in *clientpb.Credential, opts ...grpc.CallOption) (*clientpb.Credentials, error) {
+	out := new(clientpb.Credentials)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetPlaintextCredsByHashType", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1616,7 +1636,9 @@ type SliverRPCServer interface {
 	CredsAdd(context.Context, *clientpb.Credentials) (*commonpb.Empty, error)
 	CredsRm(context.Context, *clientpb.Credentials) (*commonpb.Empty, error)
 	CredsUpdate(context.Context, *clientpb.Credentials) (*commonpb.Empty, error)
-	GetCred(context.Context, *clientpb.Credential) (*clientpb.Credential, error)
+	GetCredByID(context.Context, *clientpb.Credential) (*clientpb.Credential, error)
+	GetCredsByHashType(context.Context, *clientpb.Credential) (*clientpb.Credentials, error)
+	GetPlaintextCredsByHashType(context.Context, *clientpb.Credential) (*clientpb.Credentials, error)
 	// *** Hosts ***
 	Hosts(context.Context, *commonpb.Empty) (*clientpb.AllHosts, error)
 	Host(context.Context, *clientpb.Host) (*clientpb.Host, error)
@@ -1841,8 +1863,14 @@ func (UnimplementedSliverRPCServer) CredsRm(context.Context, *clientpb.Credentia
 func (UnimplementedSliverRPCServer) CredsUpdate(context.Context, *clientpb.Credentials) (*commonpb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CredsUpdate not implemented")
 }
-func (UnimplementedSliverRPCServer) GetCred(context.Context, *clientpb.Credential) (*clientpb.Credential, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetCred not implemented")
+func (UnimplementedSliverRPCServer) GetCredByID(context.Context, *clientpb.Credential) (*clientpb.Credential, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCredByID not implemented")
+}
+func (UnimplementedSliverRPCServer) GetCredsByHashType(context.Context, *clientpb.Credential) (*clientpb.Credentials, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCredsByHashType not implemented")
+}
+func (UnimplementedSliverRPCServer) GetPlaintextCredsByHashType(context.Context, *clientpb.Credential) (*clientpb.Credentials, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPlaintextCredsByHashType not implemented")
 }
 func (UnimplementedSliverRPCServer) Hosts(context.Context, *commonpb.Empty) (*clientpb.AllHosts, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Hosts not implemented")
@@ -2754,20 +2782,56 @@ func _SliverRPC_CredsUpdate_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SliverRPC_GetCred_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _SliverRPC_GetCredByID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(clientpb.Credential)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SliverRPCServer).GetCred(ctx, in)
+		return srv.(SliverRPCServer).GetCredByID(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/rpcpb.SliverRPC/GetCred",
+		FullMethod: "/rpcpb.SliverRPC/GetCredByID",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).GetCred(ctx, req.(*clientpb.Credential))
+		return srv.(SliverRPCServer).GetCredByID(ctx, req.(*clientpb.Credential))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GetCredsByHashType_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Credential)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetCredsByHashType(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/GetCredsByHashType",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetCredsByHashType(ctx, req.(*clientpb.Credential))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GetPlaintextCredsByHashType_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Credential)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetPlaintextCredsByHashType(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/GetPlaintextCredsByHashType",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetPlaintextCredsByHashType(ctx, req.(*clientpb.Credential))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -4859,8 +4923,16 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_CredsUpdate_Handler,
 		},
 		{
-			MethodName: "GetCred",
-			Handler:    _SliverRPC_GetCred_Handler,
+			MethodName: "GetCredByID",
+			Handler:    _SliverRPC_GetCredByID_Handler,
+		},
+		{
+			MethodName: "GetCredsByHashType",
+			Handler:    _SliverRPC_GetCredsByHashType_Handler,
+		},
+		{
+			MethodName: "GetPlaintextCredsByHashType",
+			Handler:    _SliverRPC_GetPlaintextCredsByHashType_Handler,
 		},
 		{
 			MethodName: "Hosts",

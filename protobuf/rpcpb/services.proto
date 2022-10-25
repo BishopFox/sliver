@@ -62,7 +62,9 @@ service SliverRPC {
     rpc CredsAdd(clientpb.Credentials) returns(commonpb.Empty);
     rpc CredsRm(clientpb.Credentials) returns(commonpb.Empty);
     rpc CredsUpdate(clientpb.Credentials) returns(commonpb.Empty);
-    rpc GetCred(clientpb.Credential) returns(clientpb.Credential);
+    rpc GetCredByID(clientpb.Credential) returns(clientpb.Credential);
+    rpc GetCredsByHashType(clientpb.Credential) returns(clientpb.Credentials);
+    rpc GetPlaintextCredsByHashType(clientpb.Credential) returns(clientpb.Credentials);
 
     // *** Hosts ***
     rpc Hosts(commonpb.Empty) returns(clientpb.AllHosts);
