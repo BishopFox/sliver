@@ -19,13 +19,22 @@ package creds
 */
 
 import (
+	"bufio"
 	"context"
+	"os"
 	"strconv"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/desertbit/grumble"
+)
+
+const (
+	UserColonHashNewlineFormat = "user:hash" // username:hash\n
+	HashNewlineFormat          = "hash"      // hash\n
+	CSVFormat                  = "csv"       // username,hash\n
 )
 
 // CredsCmd - Add new credentials
@@ -64,10 +73,124 @@ func CredsAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	PrintCreds(creds.Credentials, con)
 }
 
+// CredsCmd - Add new credentials
+func CredsAddHashFileCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	filePath := ctx.Args.String("file")
+	fileFormat := ctx.Flags.String("file-format")
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		con.PrintErrorf("File '%s' does not exist\n", filePath)
+		return
+	}
+	hashType := parseHashType(ctx.Flags.String("hash-type"))
+	if hashType == clientpb.HashType_INVALID {
+		con.PrintErrorf("Invalid hash type '%s'\n", ctx.Flags.String("hash-type"))
+		return
+	}
+
+	con.PrintInfof("Parsing file '%s' as '%s' format ...\n", filePath, fileFormat)
+	var creds *clientpb.Credentials
+	var err error
+	switch fileFormat {
+	case UserColonHashNewlineFormat:
+		creds, err = parseUserColonHashNewline(filePath, hashType)
+	case HashNewlineFormat:
+		creds, err = parseHashNewline(filePath, hashType)
+	case CSVFormat:
+		creds, err = parseCSV(filePath, hashType)
+	default:
+		con.PrintErrorf("Invalid file format '%s', see 'creds add file --help'\n", fileFormat)
+		return
+	}
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	con.PrintInfof("Adding %d credential(s) ...\n", len(creds.Credentials))
+	_, err = con.Rpc.CredsAdd(context.Background(), creds)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	creds, err = con.Rpc.Creds(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	PrintCreds(creds.Credentials, con)
+}
+
 func parseHashType(raw string) clientpb.HashType {
 	hashInt, err := strconv.Atoi(raw)
 	if err == nil {
 		return clientpb.HashType(hashInt)
 	}
 	return clientpb.HashType_INVALID
+}
+
+func parseUserColonHashNewline(filePath string, hashType clientpb.HashType) (*clientpb.Credentials, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	creds := &clientpb.Credentials{}
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Split(line, ":")
+		if len(parts) != 2 {
+			continue
+		}
+		creds.Credentials = append(creds.Credentials, &clientpb.Credential{
+			Username: parts[0],
+			Hash:     parts[1],
+			HashType: hashType,
+		})
+	}
+	return creds, nil
+}
+
+func parseHashNewline(filePath string, hashType clientpb.HashType) (*clientpb.Credentials, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	creds := &clientpb.Credentials{}
+	for scanner.Scan() {
+		line := scanner.Text()
+		creds.Credentials = append(creds.Credentials, &clientpb.Credential{
+			Hash:     line,
+			HashType: hashType,
+		})
+	}
+	return creds, nil
+}
+
+func parseCSV(filePath string, hashType clientpb.HashType) (*clientpb.Credentials, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	creds := &clientpb.Credentials{}
+	scanner.Scan() // skip header
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Split(line, ",")
+		if len(parts) < 2 {
+			continue
+		}
+		creds.Credentials = append(creds.Credentials, &clientpb.Credential{
+			Username: parts[0],
+			Hash:     parts[1],
+			HashType: hashType,
+		})
+	}
+	return creds, nil
 }

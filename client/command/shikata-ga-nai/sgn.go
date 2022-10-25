@@ -21,7 +21,7 @@ package sgn
 import (
 	"context"
 	"encoding/hex"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/bishopfox/sliver/client/console"
@@ -32,7 +32,7 @@ import (
 // ShikataGaNaiCmd - Command wrapper for the Shikata Ga Nai shellcode encoder
 func ShikataGaNaiCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	shellcodeFile := ctx.Args.String("shellcode")
-	rawShellcode, err := ioutil.ReadFile(shellcodeFile)
+	rawShellcode, err := os.ReadFile(shellcodeFile)
 	if err != nil {
 		con.PrintErrorf("Failed to read shellcode file: %s", err)
 		return
@@ -72,7 +72,7 @@ func ShikataGaNaiCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		outputFile += ".sgn"
 	}
 
-	err = ioutil.WriteFile(outputFile, shellcodeResp.Data, 0644)
+	err = os.WriteFile(outputFile, shellcodeResp.Data, 0644)
 	if err != nil {
 		con.PrintErrorf("Failed to write shellcode file: %s", err)
 		return

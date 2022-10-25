@@ -28,6 +28,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/bishopfox/sliver/client/command/creds"
 	consts "github.com/bishopfox/sliver/client/constants"
 )
 
@@ -98,7 +99,7 @@ var (
 		// Creds
 		consts.CredsStr:                       credsHelp,
 		consts.CredsStr + sep + consts.AddStr: credsAddHelp,
-
+		consts.CredsStr + sep + consts.AddStr + sep + consts.FileStr: credsAddFileHelp,
 		// Profiles
 		consts.ProfilesStr + sep + consts.NewStr:      newProfileHelp,
 		consts.ProfilesStr + sep + consts.GenerateStr: generateProfileHelp,
@@ -1189,6 +1190,15 @@ Sliver uses the same hash identifiers as Hashcat (use the #):
 22700 | MultiBit HD (scrypt)                                       | Cryptocurrency Wallet
 28200 | Exodus Desktop Wallet (scrypt)                             | Cryptocurrency Wallet
 `
+
+	credsAddFileHelp = fmt.Sprintf(`[[.Bold]]Command:[[.Normal]] creds add file
+[[.Bold]]About:[[.Normal]] Add a file containing credentials to the database.
+
+[[.Bold]]File Formats:[[.Normal]]
+% 10s - One hash per line.
+% 10s - A file containing lines of 'username:hash' pairs.
+% 10s - A CSV file containing 'username,hash' pairs (additional columns ignored).
+`, creds.HashNewlineFormat, creds.UserColonHashNewlineFormat, creds.CSVFormat)
 )
 
 const (

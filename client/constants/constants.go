@@ -152,6 +152,7 @@ const (
 	LootRemoteStr = "remote"
 	FetchStr      = "fetch"
 	CredsStr      = "creds"
+	FileStr       = "file"
 
 	RenameStr = "rename"
 

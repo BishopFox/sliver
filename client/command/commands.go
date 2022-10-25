@@ -424,7 +424,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.HttpStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domain", "", "limit responses to specific domain")
-			f.String("w", "website", "", "website name (see websites cmd)")
+			f.String("w", "website", "", "website name (see: websites)")
 			f.String("L", "lhost", "", "interface to bind server to")
 			f.Int("l", "lport", generate.DefaultHTTPLPort, "tcp listen port")
 			f.Bool("D", "disable-otp", false, "disable otp authentication")
@@ -449,7 +449,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.HttpsStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "domain", "", "limit responses to specific domain")
-			f.String("w", "website", "", "website name (see websites cmd)")
+			f.String("w", "website", "", "website name (see: websites)")
 			f.String("L", "lhost", "", "interface to bind server to")
 			f.Int("l", "lport", generate.DefaultHTTPSLPort, "tcp listen port")
 			f.Bool("D", "disable-otp", false, "disable otp authentication")
@@ -1356,7 +1356,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
 			f.String("L", "limit-locale", "", "limit execution to hosts that match this locale")
 
-			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
+			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
 			f.String("s", "save", "", "directory/file to the binary to")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -1416,7 +1416,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
 			f.String("L", "limit-locale", "", "limit execution to hosts that match this locale")
 
-			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
+			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
 			f.String("s", "save", "", "directory/file to the binary to")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -1571,7 +1571,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
 			f.String("L", "limit-locale", "", "limit execution to hosts that match this locale")
 
-			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
+			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -1637,7 +1637,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("F", "limit-fileexists", "", "limit execution to hosts with this file in the filesystem")
 			f.String("L", "limit-locale", "", "limit execution to hosts that match this locale")
 
-			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see `psexec` for more info) and 'shellcode' (windows only)")
+			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -3090,7 +3090,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	}
-	credsCmd.AddCommand(&grumble.Command{
+	credsAddCmd := &grumble.Command{
 		Name:     consts.AddStr,
 		Help:     "Add a credential to the database",
 		LongHelp: help.GetHelpFor([]string{consts.CredsStr, consts.AddStr}),
@@ -3098,7 +3098,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("u", "username", "", "username for the credential")
 			f.String("p", "plaintext", "", "plaintext for the credential")
 			f.String("P", "hash", "", "hash of the credential")
-			f.String("H", "hash-type", "", "hash type of the credential (see help)")
+			f.String("H", "hash-type", "", "hash type of the credential (see: creds add --help)")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
@@ -3109,7 +3109,29 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.GenericHelpGroup,
+	}
+	credsAddCmd.AddCommand(&grumble.Command{
+		Name:     consts.FileStr,
+		Help:     "Add a credential to the database",
+		LongHelp: help.GetHelpFor([]string{consts.CredsStr, consts.AddStr, consts.FileStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("F", "file-format", creds.HashNewlineFormat, "file format of the credential file (see: creds add file --help)")
+			f.String("H", "hash-type", "", "hash type of the credential (see: creds add --help)")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("file", "The path of the credential file")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			creds.CredsAddCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
 	})
+	credsCmd.AddCommand(credsAddCmd) // </creds add>
 	credsCmd.AddCommand(&grumble.Command{
 		Name:     consts.RmStr,
 		Help:     "Remove a credential to the database",
