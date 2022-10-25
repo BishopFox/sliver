@@ -1,5 +1,7 @@
 package main
 
+// "This is the source, the line unbroken since the calamity that brought such monsters to our shores."
+
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
