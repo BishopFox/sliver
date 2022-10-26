@@ -77,6 +77,7 @@ func CredsAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 // CredsCmd - Add new credentials
 func CredsAddHashFileCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	collection := ctx.Flags.String("collection")
 	filePath := ctx.Args.String("file")
 	fileFormat := ctx.Flags.String("file-format")
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -106,6 +107,9 @@ func CredsAddHashFileCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
+	}
+	for _, cred := range creds.Credentials {
+		cred.Collection = collection
 	}
 	con.PrintInfof("Adding %d credential(s) ...\n", len(creds.Credentials))
 	_, err = con.Rpc.CredsAdd(context.Background(), creds)
