@@ -46,7 +46,7 @@ func (rpc *Server) CrackstationTrigger(ctx context.Context, req *clientpb.Event)
 
 	switch req.EventType {
 
-	case "crack": // Placeholder
+	case "crack":
 		core.EventBroker.Publish(core.Event{
 			EventType: req.EventType,
 			Data:      req.Data,
@@ -62,7 +62,8 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 	if hostUUID == uuid.Nil {
 		return status.Error(codes.InvalidArgument, "invalid host uuid")
 	}
-	err := core.AddCrackstation(req)
+	crackStation := core.NewCrackstation(req)
+	err := core.AddCrackstation(crackStation)
 	if err == core.ErrDuplicateExternalCrackerName {
 		status.Error(codes.AlreadyExists, "crackstation name already exists")
 	}
@@ -95,7 +96,13 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 		select {
 		case <-stream.Context().Done():
 			return nil
-		case event := <-events:
+		case msg := <-crackStation.Events: // This event stream is specific to this crackstation
+			err := stream.Send(msg)
+			if err != nil {
+				crackRpcLog.Warnf(err.Error())
+				return err
+			}
+		case event := <-events: // All server-side events
 			if !util.Contains(crackingEvents, event.EventType) {
 				continue
 			}

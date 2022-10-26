@@ -576,6 +576,100 @@ message AllLoot {
   repeated Loot Loot = 1;
 }
 
+// [ Hosts ] ----------------------------------------
+message IOC {
+  string Path = 1;
+  string FileHash = 2;
+  string ID = 3;
+}
+
+message ExtensionData {
+  string Output = 1;
+}
+
+message Host {
+  string Hostname = 1;
+  string HostUUID = 2;
+  string OSVersion = 3;
+
+  repeated IOC IOCs = 4;
+  map<string, ExtensionData> ExtensionData = 5;
+
+  string Locale = 6;
+  int64 FirstContact = 7;
+}
+
+message AllHosts {
+  repeated Host Hosts = 1;
+}
+
+// [ Dll Hijack ] ----------------------------------------
+message DllHijackReq {
+  string ReferenceDLLPath = 1;
+  string TargetLocation = 2;
+  bytes ReferenceDLL = 3;
+  bytes TargetDLL = 4;
+  string ProfileName = 5;
+
+  commonpb.Request Request = 9;
+}
+
+message DllHijack {
+  commonpb.Response Response = 9;
+}
+
+
+// [ Shellcode ] ----------------------------------------
+enum ShellcodeEncoder {
+  NONE = 0;
+  SHIKATA_GA_NAI = 1;
+}
+
+message ShellcodeEncodeReq {
+  ShellcodeEncoder Encoder = 1;
+  string Architecture = 2;
+  uint32 Iterations = 3;
+  bytes BadChars = 4;
+
+  bytes Data = 8;
+  commonpb.Request Request = 9;
+}
+
+message ShellcodeEncode {
+
+  bytes Data = 8;
+  commonpb.Response Response = 9;
+}
+
+message ShellcodeEncoderMap {
+  map<string, ShellcodeEncoder> Encoders = 1;
+}
+
+// [ Builder ] ----------------------------------------
+
+message ExternalGenerateReq {
+  ImplantConfig Config = 1;
+  string BuilderName = 2;
+}
+
+
+message Builders {
+  repeated Builder Builders = 1;
+}
+
+message Builder {
+  string Name = 1;
+  string OperatorName = 2;
+  string GOOS = 3;  // The builder's OS
+  string GOARCH = 4;  // The builder's Arch
+  repeated string Templates = 5;
+  repeated CompilerTarget Targets = 6;
+  repeated CrossCompiler CrossCompilers = 7;
+}
+
+
+// [ Credentials ] ----------------------------------------
+
 message Credential {
   string ID = 1;
   string Username = 2;
@@ -734,6 +828,24 @@ enum HashType {
 // [ Crackstation ] ----------------------------------------
 message Crackstations {
   repeated Crackstation Crackstations = 1;
+}
+
+enum Statuses {
+  WAITING = 0;
+  CRACKING = 1;
+  INITIALIZING = 2;
+}
+
+message CrackstationStatus {
+  string Name = 1;
+  string HostUUID = 2;
+  Statuses Status = 3;
+}
+
+message CrackstationBenchmark {
+  string Name = 1;
+  string HostUUID = 2;
+  map<int32, int64> Benchmarks = 3;
 }
 
 message Crackstation {
@@ -946,94 +1058,4 @@ message CrackTask {
   int64 CrackTaskStartedAt = 201;
   int64 CrackTaskFinishedAt = 202;
   string CrackTaskStatus = 203;
-}
-
-// [ Hosts ] ----------------------------------------
-message IOC {
-  string Path = 1;
-  string FileHash = 2;
-  string ID = 3;
-}
-
-message ExtensionData {
-  string Output = 1;
-}
-
-message Host {
-  string Hostname = 1;
-  string HostUUID = 2;
-  string OSVersion = 3;
-
-  repeated IOC IOCs = 4;
-  map<string, ExtensionData> ExtensionData = 5;
-
-  string Locale = 6;
-  int64 FirstContact = 7;
-}
-
-message AllHosts {
-  repeated Host Hosts = 1;
-}
-
-// [ Dll Hijack ] ----------------------------------------
-message DllHijackReq {
-  string ReferenceDLLPath = 1;
-  string TargetLocation = 2;
-  bytes ReferenceDLL = 3;
-  bytes TargetDLL = 4;
-  string ProfileName = 5;
-
-  commonpb.Request Request = 9;
-}
-
-message DllHijack {
-  commonpb.Response Response = 9;
-}
-
-
-// [ Shellcode ] ----------------------------------------
-enum ShellcodeEncoder {
-  NONE = 0;
-  SHIKATA_GA_NAI = 1;
-}
-
-message ShellcodeEncodeReq {
-  ShellcodeEncoder Encoder = 1;
-  string Architecture = 2;
-  uint32 Iterations = 3;
-  bytes BadChars = 4;
-
-  bytes Data = 8;
-  commonpb.Request Request = 9;
-}
-
-message ShellcodeEncode {
-
-  bytes Data = 8;
-  commonpb.Response Response = 9;
-}
-
-message ShellcodeEncoderMap {
-  map<string, ShellcodeEncoder> Encoders = 1;
-}
-
-// [ Builder ] ----------------------------------------
-message ExternalGenerateReq {
-  ImplantConfig Config = 1;
-  string BuilderName = 2;
-}
-
-
-message Builders {
-  repeated Builder Builders = 1;
-}
-
-message Builder {
-  string Name = 1;
-  string OperatorName = 2;
-  string GOOS = 3;  // The builder's OS
-  string GOARCH = 4;  // The builder's Arch
-  repeated string Templates = 5;
-  repeated CompilerTarget Targets = 6;
-  repeated CrossCompiler CrossCompilers = 7;
 }

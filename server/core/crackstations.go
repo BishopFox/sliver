@@ -27,36 +27,66 @@ import (
 )
 
 var (
-	// ClientID -> *clientpb.CrackStation
+	// ClientID -> core.CrackStation
 	crackers = &sync.Map{}
 
 	ErrDuplicateExternalCrackerName = errors.New("cracker name must be unique, this name is already in use")
 )
 
-func AddCrackstation(cracker *clientpb.Crackstation) error {
-	_, loaded := crackers.LoadOrStore(cracker.Name, cracker)
+func NewCrackstation(station *clientpb.Crackstation) *Crackstation {
+	return &Crackstation{
+		Station:    station,
+		Events:     make(chan *clientpb.Event, 8),
+		status:     clientpb.Statuses_INITIALIZING,
+		statusLock: &sync.RWMutex{},
+	}
+}
+
+type Crackstation struct {
+	Station *clientpb.Crackstation
+	Events  chan *clientpb.Event
+
+	status     clientpb.Statuses
+	statusLock *sync.RWMutex
+}
+
+func (c *Crackstation) UpdateStatus(status *clientpb.CrackstationStatus) {
+	c.statusLock.Lock()
+	defer c.statusLock.Unlock()
+	c.status = status.Status
+}
+
+func (c *Crackstation) GetStatus() clientpb.Statuses {
+	c.statusLock.RLock()
+	defer c.statusLock.RUnlock()
+	return c.status
+}
+
+func AddCrackstation(crack *Crackstation) error {
+	_, loaded := crackers.LoadOrStore(crack.Station.Name, crack)
 	if loaded {
 		return ErrDuplicateExternalCrackerName
 	}
 	EventBroker.Publish(Event{
 		EventType: consts.CrackstationConnected,
-		Data:      []byte(cracker.Name),
+		Data:      []byte(crack.Station.Name),
 	})
 	return nil
 }
 
-func GetCrackstation(crackerName string) *clientpb.Crackstation {
+func GetCrackstation(crackerName string) *Crackstation {
 	cracker, ok := crackers.Load(crackerName)
 	if !ok {
 		return nil
 	}
-	return cracker.(*clientpb.Crackstation)
+	return cracker.(*Crackstation)
 }
 
 func AllCrackstations() []*clientpb.Crackstation {
 	externalCrackers := []*clientpb.Crackstation{}
 	crackers.Range(func(key, value interface{}) bool {
-		externalCrackers = append(externalCrackers, value.(*clientpb.Crackstation))
+		crackStation := value.(*Crackstation)
+		externalCrackers = append(externalCrackers, crackStation.Station)
 		return true
 	})
 	return externalCrackers
