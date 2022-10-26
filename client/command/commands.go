@@ -3095,6 +3095,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Add a credential to the database",
 		LongHelp: help.GetHelpFor([]string{consts.CredsStr, consts.AddStr}),
 		Flags: func(f *grumble.Flags) {
+			f.String("c", "collection", "", "name of collection")
 			f.String("u", "username", "", "username for the credential")
 			f.String("p", "plaintext", "", "plaintext for the credential")
 			f.String("P", "hash", "", "hash of the credential")
@@ -3115,6 +3116,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Add a credential to the database",
 		LongHelp: help.GetHelpFor([]string{consts.CredsStr, consts.AddStr, consts.FileStr}),
 		Flags: func(f *grumble.Flags) {
+			f.String("c", "collection", "", "name of collection")
 			f.String("F", "file-format", creds.HashNewlineFormat, "file format of the credential file (see: creds add file --help)")
 			f.String("H", "hash-type", "", "hash type of the credential (see: creds add --help)")
 

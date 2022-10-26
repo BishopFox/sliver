@@ -584,6 +584,7 @@ message Credential {
   HashType HashType = 5;
   bool IsCracked = 6;
   string OriginHostUUID = 7;
+  string Collection = 8;
 }
 
 message Credentials {

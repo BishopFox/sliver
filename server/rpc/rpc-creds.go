@@ -21,6 +21,7 @@ package rpc
 import (
 	"context"
 
+	"github.com/bishopfox/sliver/client/credentials"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/db"
@@ -55,11 +56,12 @@ func (rpc *Server) Creds(ctx context.Context, req *commonpb.Empty) (*clientpb.Cr
 func (rpc *Server) CredsAdd(ctx context.Context, req *clientpb.Credentials) (*commonpb.Empty, error) {
 	for _, cred := range req.Credentials {
 		err := db.Session().Create(&models.Credential{
-			Username:  cred.Username,
-			Plaintext: cred.Plaintext,
-			Hash:      cred.Hash,
-			HashType:  int32(cred.HashType),
-			IsCracked: (cred.Plaintext != "" && cred.Hash != ""),
+			Collection: cred.Collection,
+			Username:   cred.Username,
+			Plaintext:  cred.Plaintext,
+			Hash:       cred.Hash,
+			HashType:   int32(cred.HashType),
+			IsCracked:  (cred.Plaintext != "" && cred.Hash != ""),
 		}).Error
 		if err != nil {
 			credsRpcLog.Errorf("Failed to add credential: %s", err)
@@ -93,11 +95,12 @@ func (rpc *Server) CredsUpdate(ctx context.Context, req *clientpb.Credentials) (
 			return nil, ErrInvalidCredID
 		}
 		err := db.Session().Where(&models.Credential{ID: credID}).Updates(&models.Credential{
-			Username:  cred.Username,
-			Plaintext: cred.Plaintext,
-			Hash:      cred.Hash,
-			HashType:  int32(cred.HashType),
-			IsCracked: cred.IsCracked,
+			Collection: cred.Collection,
+			Username:   cred.Username,
+			Plaintext:  cred.Plaintext,
+			Hash:       cred.Hash,
+			HashType:   int32(cred.HashType),
+			IsCracked:  cred.IsCracked,
 		}).Error
 		if err != nil {
 			credsRpcLog.Errorf("Failed to update credential: %s", err)
@@ -130,8 +133,7 @@ func (rpc *Server) GetCredsByHashType(ctx context.Context, req *clientpb.Credent
 }
 
 func (rpc *Server) CredsSniffHashType(ctx context.Context, req *clientpb.Credential) (*clientpb.Credential, error) {
-
-	return nil, nil
+	return &clientpb.Credential{HashType: credentials.SniffHashType(req.Hash)}, nil
 }
 
 func (rpc *Server) GetPlaintextCredsByHashType(ctx context.Context, req *clientpb.Credential) (*clientpb.Credentials, error) {

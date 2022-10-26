@@ -39,6 +39,7 @@ const (
 
 // CredsCmd - Add new credentials
 func CredsAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	collection := ctx.Flags.String("collection")
 	username := ctx.Flags.String("username")
 	plaintext := ctx.Flags.String("plaintext")
 	hash := ctx.Flags.String("hash")
@@ -54,10 +55,11 @@ func CredsAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	_, err := con.Rpc.CredsAdd(context.Background(), &clientpb.Credentials{
 		Credentials: []*clientpb.Credential{
 			{
-				Username:  username,
-				Plaintext: plaintext,
-				Hash:      hash,
-				HashType:  hashType,
+				Collection: collection,
+				Username:   username,
+				Plaintext:  plaintext,
+				Hash:       hash,
+				HashType:   hashType,
 			},
 		},
 	})

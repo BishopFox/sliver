@@ -32,11 +32,12 @@ type Credential struct {
 	CreatedAt      time.Time `gorm:"->;<-:create;"`
 	OriginHostUUID uuid.UUID `gorm:"type:uuid;"`
 
-	Username  string
-	Plaintext string
-	Hash      string // https://hashcat.net/wiki/doku.php?id=example_hashes
-	HashType  int32
-	IsCracked bool
+	Collection string
+	Username   string
+	Plaintext  string
+	Hash       string // https://hashcat.net/wiki/doku.php?id=example_hashes
+	HashType   int32
+	IsCracked  bool
 }
 
 func (c *Credential) ToProtobuf() *clientpb.Credential {
@@ -48,6 +49,7 @@ func (c *Credential) ToProtobuf() *clientpb.Credential {
 		HashType:       clientpb.HashType(c.HashType),
 		IsCracked:      c.IsCracked,
 		OriginHostUUID: c.OriginHostUUID.String(),
+		Collection:     c.Collection,
 	}
 }
 

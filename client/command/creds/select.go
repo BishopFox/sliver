@@ -38,13 +38,13 @@ func SelectCredential(plaintext bool, hashType clientpb.HashType, con *console.S
 	table := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
 	for _, cred := range creds.Credentials {
 		if cred.Plaintext == "" {
-			fmt.Fprintf(table, "%s\t%s\t[not cracked]\t\n", strings.Split(cred.ID, "-")[0], cred.HashType)
+			fmt.Fprintf(table, "%s\t%s\t%s\t[not cracked]\t\n", strings.Split(cred.ID, "-")[0], cred.Collection, cred.HashType)
 		} else {
 			plaintext := cred.Plaintext
 			if len(plaintext) > 12 {
 				plaintext = plaintext[:12] + "..."
 			}
-			fmt.Fprintf(table, "%s\t%s\tplaintext: %s\t\n", strings.Split(cred.ID, "-")[0], cred.HashType, plaintext)
+			fmt.Fprintf(table, "%s\t%s\t%s\tplaintext: %s\t\n", strings.Split(cred.ID, "-")[0], cred.Collection, cred.HashType, plaintext)
 		}
 	}
 	table.Flush()

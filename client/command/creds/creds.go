@@ -45,8 +45,24 @@ func CredsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 func PrintCreds(creds []*clientpb.Credential, con *console.SliverConsoleClient) {
+	collections := make(map[string][]*clientpb.Credential)
+	for _, cred := range creds {
+		collections[cred.Collection] = append(collections[cred.Collection], cred)
+	}
+	for collection, creds := range collections {
+		printCollection(collection, creds, con)
+		con.Println()
+	}
+}
+
+func printCollection(collection string, creds []*clientpb.Credential, con *console.SliverConsoleClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	if collection != "" {
+		tw.SetTitle(console.Bold + collection + console.Normal)
+	} else {
+		tw.SetTitle(console.Bold + "Default Collection" + console.Normal)
+	}
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Username",
