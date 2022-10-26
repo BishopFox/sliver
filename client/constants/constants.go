@@ -266,6 +266,9 @@ const (
 	CursedCookies  = "cookies"
 
 	BuildersStr = "builders"
+
+	CrackStr    = "crack"
+	StationsStr = "stations"
 )
 
 // Groups

@@ -43,6 +43,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/command/builders"
 	"github.com/bishopfox/sliver/client/command/completers"
+	"github.com/bishopfox/sliver/client/command/crack"
 	"github.com/bishopfox/sliver/client/command/creds"
 	"github.com/bishopfox/sliver/client/command/cursed"
 	"github.com/bishopfox/sliver/client/command/dllhijack"
@@ -3639,6 +3640,37 @@ func BindCommands(con *console.SliverConsoleClient) {
 	}
 	con.App.AddCommand(buildersCmd)
 
-	// [ Crackstation ] ------------------------------------------------------------
-
+	// [ Crack ] ------------------------------------------------------------
+	crackCmd := &grumble.Command{
+		Name:      consts.CrackStr,
+		Help:      "Crack: GPU password cracking",
+		LongHelp:  help.GetHelpFor([]string{consts.CrackStr}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			crack.CrackCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	}
+	crackStationsCmd := &grumble.Command{
+		Name:      consts.StationsStr,
+		Help:      "Manage crackstations",
+		LongHelp:  help.GetHelpFor([]string{consts.CrackStr, consts.StationsStr}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			crack.CrackStationsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	}
+	crackCmd.AddCommand(crackStationsCmd)
+	con.App.AddCommand(crackCmd)
 }
