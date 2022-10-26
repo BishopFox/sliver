@@ -630,7 +630,48 @@ enum HashType {
   MD5_SALT_MD5_PW = 3710; // md5($salt.md5($pass))
 
   // ... TODO fill in the rest ...
-  
+
+  CRC32 = 11500; // CRC32
+  CRC32C = 27900; // CRC32B
+  CRC64Jones = 28000; // CRC64-Jones
+  JAVA_OBJECT = 18700;
+  MURMUR = 25700; // MurmurHash
+  MURMUR3 = 27800; // MurmurHash3
+  THREE_DES = 14100; // 3DES (PT = $salt, key = $pass)
+  DES = 14000; // DES (PT = $salt, key = $pass)
+  AES_128_ECB = 26401; // AES-128-ECB NOKDF (PT = $salt, key = $pass)
+  AES_192_ECB = 26402; //  AES-192-ECB NOKDF (PT = $salt, key = $pass)
+  AES_256_ECB = 26403; // AES-256-ECB NOKDF (PT = $salt, key = $pass)
+  CHA_CHA_20 = 15400; // ChaCha20
+  LINUX_KERNEL_CRYPTO_API_24 = 14500; // Linux Kernel Crypto API (2.4)
+  SKIP_32 = 14900; // Skip32 (PT = $salt, key = $pass)
+  PBKDF2_HMAC_MD5 = 11900; // PBKDF2-HMAC-MD5
+  PBKDF2_HMAC_SHA1 = 12000; // PBKDF2-HMAC-SHA1
+  PBKDF2_HMAC_SHA256 = 10900; // PBKDF2-HMAC-SHA256
+  PBKDF2_HMAC_SHA512 = 12100; // PBKDF2-HMAC-SHA512
+  SCRYPT = 8900; // scrypt
+  PHPASS = 400; // phpass
+  TACACS_PLUS = 16100; // TACACS+
+  SIP_DIGEST = 11400; // SIP digest authentication (MD5)
+  IKE_MD5 = 5300; // IKE-PSK MD5
+  IKE_SHA1 = 5400; // IKE-PSK SHA1
+  SNMP_V3_HMAC_MD5_96 = 25100; // SNMPv3 HMAC-MD5-96
+  SNMP_V3_HMAC_MD5_96__SHA1_96 = 25000; // SNMPv3 HMAC-MD5-96 / HMAC-SHA1-96
+  SNMP_V3_HMAC_SHA1_96 = 25200; // SNMPv3 HMAC-SHA1-96
+  SNMP_V3_HMAC_SHA224_128 = 26700; // SNMPv3 HMAC-SHA224-128
+  SNMP_V3_HMAC_SHA256_192 = 26800; // SNMPv3 HMAC-SHA256-192
+  SNMP_V3_HMAC_SHA384_256 = 26900; // SNMPv3 HMAC-SHA384-256
+  SNMP_V3_HMAC_SHA512_384 = 27300; // SNMPv3 HMAC-SHA512-384  
+  WPA_EAPOL_PBKDF2 =  2500; //WPA-EAPOL-PBKDF2      
+  WPA_EAPOL_PMK =  2501; //WPA-EAPOL-PMK         
+  WPA_PBKDF2_PMKID_EAPOL = 22000; //WPA-PBKDF2-PMKID+EAPOL
+  WPA_PMK_PMKID_EAPOL = 22001; //WPA-PMK-PMKID+EAPOL   
+  WPA_PMKID_PBKDF2 = 16800; //WPA-PMKID-PBKDF2      
+  WPA_PMKID_PMK = 16801; //WPA-PMKID-PMK 
+  IPMI2_PAKP_HMAC_SHA1 = 7300; // IPMI2 RAKP HMAC-SHA1
+  CRAM_MD5 = 10200; // CRAM-MD5            
+  JWT = 16500; // JWT (JSON Web Token)
+  RADMIN_3 = 29200; // Radmin3  
   KERBEROS_17_TGS_REP = 19600; // Kerberos 5, etype 17, TGS-REP
   KERBEROS_17_PREAUTH = 19800; // Kerberos 5, etype 17, Pre-Auth
   KERBEROS_17_DB = 28800; // Kerberos 5, etype 17, DB
@@ -644,17 +685,35 @@ enum HashType {
   NET_NTLM_V1_NT = 27000; // NetNTLMv1 / NetNTLMv1+ESS (NT)
   NET_NTLM_V2 = 5600; // NetNTLMv2
   NET_NTLM_V2_NT = 27100; // NetNTLMv2 (NT)
-
-  // ...
-
+  FLASK = 29100; // Flask Session Cookie ($salt.$salt.$pass)
+  ISCSI_CHAP = 4800; // iSCSI CHAP authentication, MD5(CHAP)
+  RACF = 8500;
+  AIX_SMD5 = 6300;
+  AIX_SSHA1 = 6700;
+  AIX_SSHA256 = 6400;
+  AIX_SSHA512 = 6500;
   LM = 3000; // LM
-
-  // ...
-
+  QNX_MD5 = 19000; // QNX /etc/shadow (MD5)
+  QNX_SHA256 = 19100; // QNX /etc/shadow (SHA256)
+  QNX_SHA512 = 19200; // QNX /etc/shadow (SHA512)
+  DPAPI_V1_CTX_1_AND_2 = 15300; // DPAPI masterkey file v1 (context 1 and 2) 
+  DPAPI_V1_CTX_3 = 15310; // DPAPI masterkey file v1 (context 3)
+  DPAPI_V2_CTX_1_AND_2 = 15900; // DPAPI masterkey file v2 (context 1)
+  DPAPI_V2_CTX_3 = 15910; // DPAPI masterkey file v2 (context 3)
+  GRUB_2 = 7200; // GRUB 2
+  MS_AZURE_SYNC = 12800; // MS-AzureSync PBKDF2-HMAC-SHA256
+  BSDI_CRYPT = 12400; // BSDi Crypt, Extended DES
   NTLM = 1000; // NTLM
-
-  // ...
-
+  RADMIN2 = 9900; // Radmin2
+  SAMSUNG_ANDROID = 5800; // Samsung Android Password/PIN
+  WINDOWS_HELLO_PIN = 28100; // Windows Hello PIN/Password
+  WINDOWS_PHONE = 13800; // Windows Phone 8+ PIN/Password
+  CISCO_ASA_MD5 = 2410; // Cisco-ASA MD5 
+  CISCO_IOS_PBKDF2_SHA256 = 9200; // Cisco-IOS $8$ (PBKDF2-SHA256)
+  CISCO_IOS_SCRYPT = 9300; // Cisco-IOS $9$ (scrypt)
+  CISCO_PIX_MD5 = 2400; // Cisco-Pix MD5
+  CITRIX_NETSCALER_SHA1 = 8100; // Citrix NetScaler (SHA1)
+  CITRIX_NETSCALER_SHA512 = 22200; // Citrix NetScaler (SHA512)
   DCC = 1100; // Domain Cached Credentials (DCC), MS Cache
   DCC2 = 2100; // Domain Cached Credentials 2 (DCC2), MS Cache 2
 
@@ -665,6 +724,10 @@ enum HashType {
   // ...
   
   INVALID = 9999; // Invalid hash type
+
+  // Out of order
+  BCRYPT_UNIX = 3200; // bcrypt
+  SHA512_CRYPT_UNIX = 1800; // sha512crypt $6$, SHA512 (Unix)
 }
 
 // [ Crackstation ] ----------------------------------------

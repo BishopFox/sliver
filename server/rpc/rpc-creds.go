@@ -129,6 +129,11 @@ func (rpc *Server) GetCredsByHashType(ctx context.Context, req *clientpb.Credent
 	return &clientpb.Credentials{Credentials: credentials}, nil
 }
 
+func (rpc *Server) CredsSniffHashType(ctx context.Context, req *clientpb.Credential) (*clientpb.Credential, error) {
+
+	return nil, nil
+}
+
 func (rpc *Server) GetPlaintextCredsByHashType(ctx context.Context, req *clientpb.Credential) (*clientpb.Credentials, error) {
 	dbCreds, err := db.PlaintextCredentialsByHashType(req.HashType)
 	if err != nil {

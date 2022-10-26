@@ -67,6 +67,7 @@ type SliverRPCClient interface {
 	GetCredByID(ctx context.Context, in *clientpb.Credential, opts ...grpc.CallOption) (*clientpb.Credential, error)
 	GetCredsByHashType(ctx context.Context, in *clientpb.Credential, opts ...grpc.CallOption) (*clientpb.Credentials, error)
 	GetPlaintextCredsByHashType(ctx context.Context, in *clientpb.Credential, opts ...grpc.CallOption) (*clientpb.Credentials, error)
+	CredsSniffHashType(ctx context.Context, in *clientpb.Credential, opts ...grpc.CallOption) (*clientpb.Credential, error)
 	// *** Hosts ***
 	Hosts(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.AllHosts, error)
 	Host(ctx context.Context, in *clientpb.Host, opts ...grpc.CallOption) (*clientpb.Host, error)
@@ -507,6 +508,15 @@ func (c *sliverRPCClient) GetCredsByHashType(ctx context.Context, in *clientpb.C
 func (c *sliverRPCClient) GetPlaintextCredsByHashType(ctx context.Context, in *clientpb.Credential, opts ...grpc.CallOption) (*clientpb.Credentials, error) {
 	out := new(clientpb.Credentials)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetPlaintextCredsByHashType", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CredsSniffHashType(ctx context.Context, in *clientpb.Credential, opts ...grpc.CallOption) (*clientpb.Credential, error) {
+	out := new(clientpb.Credential)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CredsSniffHashType", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1639,6 +1649,7 @@ type SliverRPCServer interface {
 	GetCredByID(context.Context, *clientpb.Credential) (*clientpb.Credential, error)
 	GetCredsByHashType(context.Context, *clientpb.Credential) (*clientpb.Credentials, error)
 	GetPlaintextCredsByHashType(context.Context, *clientpb.Credential) (*clientpb.Credentials, error)
+	CredsSniffHashType(context.Context, *clientpb.Credential) (*clientpb.Credential, error)
 	// *** Hosts ***
 	Hosts(context.Context, *commonpb.Empty) (*clientpb.AllHosts, error)
 	Host(context.Context, *clientpb.Host) (*clientpb.Host, error)
@@ -1871,6 +1882,9 @@ func (UnimplementedSliverRPCServer) GetCredsByHashType(context.Context, *clientp
 }
 func (UnimplementedSliverRPCServer) GetPlaintextCredsByHashType(context.Context, *clientpb.Credential) (*clientpb.Credentials, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPlaintextCredsByHashType not implemented")
+}
+func (UnimplementedSliverRPCServer) CredsSniffHashType(context.Context, *clientpb.Credential) (*clientpb.Credential, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CredsSniffHashType not implemented")
 }
 func (UnimplementedSliverRPCServer) Hosts(context.Context, *commonpb.Empty) (*clientpb.AllHosts, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Hosts not implemented")
@@ -2832,6 +2846,24 @@ func _SliverRPC_GetPlaintextCredsByHashType_Handler(srv interface{}, ctx context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).GetPlaintextCredsByHashType(ctx, req.(*clientpb.Credential))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CredsSniffHashType_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.Credential)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CredsSniffHashType(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/CredsSniffHashType",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CredsSniffHashType(ctx, req.(*clientpb.Credential))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -4933,6 +4965,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPlaintextCredsByHashType",
 			Handler:    _SliverRPC_GetPlaintextCredsByHashType_Handler,
+		},
+		{
+			MethodName: "CredsSniffHashType",
+			Handler:    _SliverRPC_CredsSniffHashType_Handler,
 		},
 		{
 			MethodName: "Hosts",
