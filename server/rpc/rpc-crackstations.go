@@ -32,6 +32,7 @@ import (
 	"github.com/gofrs/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -43,17 +44,23 @@ func (rpc *Server) Crackstations(ctx context.Context, req *commonpb.Empty) (*cli
 }
 
 func (rpc *Server) CrackstationTrigger(ctx context.Context, req *clientpb.Event) (*commonpb.Empty, error) {
-
 	switch req.EventType {
 
-	case "crack":
-		core.EventBroker.Publish(core.Event{
-			EventType: req.EventType,
-			Data:      req.Data,
-		})
+	case "crackstation-status":
+		statusUpdate := &clientpb.CrackstationStatus{}
+		err := proto.Unmarshal(req.Data, statusUpdate)
+		if err != nil {
+			crackRpcLog.Errorf("Failed to unmarshal crackstation status update: %s", err)
+			return nil, status.Errorf(codes.InvalidArgument, "Failed to unmarshal status update")
+		}
+		crackStation := core.GetCrackstation(statusUpdate.HostUUID)
+		if crackStation == nil {
+			crackRpcLog.Errorf("Received status update for unknown crackstation: %s", statusUpdate.Name)
+			return nil, status.Errorf(codes.InvalidArgument, "Unknown crackstation")
+		}
+		crackStation.UpdateStatus(statusUpdate)
 
 	}
-
 	return &commonpb.Empty{}, nil
 }
 
@@ -64,21 +71,23 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 	}
 	crackStation := core.NewCrackstation(req)
 	err := core.AddCrackstation(crackStation)
-	if err == core.ErrDuplicateExternalCrackerName {
-		status.Error(codes.AlreadyExists, "crackstation name already exists")
+	if err == core.ErrDuplicateHosts {
+		status.Error(codes.AlreadyExists, "crackstation already running on host")
 	}
 	if err != nil {
 		return err
 	}
 
-	_, err = db.CrackstationByName(req.Name)
-	if err == db.ErrRecordNotFound {
+	dbCrackstation, err := db.CrackstationByHostUUID(req.HostUUID)
+	if err != nil {
+		crackRpcLog.Infof("Registering new crackstation: %s (%s)", req.Name, hostUUID.String())
 		dbSession := db.Session()
-		err = dbSession.Create(&models.Crackstation{ID: req.Name}).Error
-		if err != nil {
-			crackRpcLog.Errorf("Failed to create crackstation record: %s", err)
-			return status.Error(codes.Internal, "failed to register crackstation")
-		}
+		dbSession.Create(&models.Crackstation{ID: hostUUID})
+		dbCrackstation, err = db.CrackstationByHostUUID(req.HostUUID)
+	}
+	if err != nil {
+		crackRpcLog.Errorf("Failed to query crackstation record: %s", err)
+		return status.Error(codes.Internal, "failed to register crackstation")
 	}
 
 	crackRpcLog.Infof("Crackstation %s (%s) connected", req.Name, req.OperatorName)
@@ -86,12 +95,23 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 	defer func() {
 		crackRpcLog.Infof("Crackstation %s disconnected", req.Name)
 		core.EventBroker.Unsubscribe(events)
-		core.RemoveCrackstation(req.Name)
+		core.RemoveCrackstation(req.HostUUID)
 	}()
 
-	// Only forward these event types
-	crackingEvents := []string{}
+	if len(dbCrackstation.Benchmarks) == 0 {
+		crackRpcLog.Infof("No benchmark information for '%s', starting benchmark...", req.Name)
+		data, _ := proto.Marshal(&clientpb.CrackTask{Benchmark: true})
+		db.Session().Create(&models.CrackTask{
+			CrackstationID: hostUUID,
+			Status:         models.PENDING,
+			Data:           data,
+		})
+	}
 
+	// Only forward these event types
+	crackingEvents := []string{
+		"crackstation-crack",
+	}
 	for {
 		select {
 		case <-stream.Context().Done():

@@ -534,14 +534,15 @@ func DeleteKeyValue(key string, value string) error {
 }
 
 // CrackstationByHostUUID - Get crackstation by the session's reported HostUUID
-func CrackstationByName(name string) (*models.Crackstation, error) {
-	if len(name) < 1 {
+func CrackstationByHostUUID(hostUUID string) (*models.Crackstation, error) {
+	id := uuid.FromStringOrNil(hostUUID)
+	if id == uuid.Nil {
 		return nil, ErrRecordNotFound
 	}
 	crackstation := models.Crackstation{}
 	err := Session().Where(
-		&models.Crackstation{ID: name},
-	).Preload("Tasks").First(&crackstation).Error
+		&models.Crackstation{ID: id},
+	).Preload("Tasks").Preload("Benchmarks").First(&crackstation).Error
 	if err != nil {
 		return nil, err
 	}
@@ -553,6 +554,15 @@ func CredentialsByHashType(hashType clientpb.HashType) ([]*models.Credential, er
 	credentials := []*models.Credential{}
 	err := Session().Where(&models.Credential{
 		HashType: int32(hashType),
+	}).Find(&credentials).Error
+	return credentials, err
+}
+
+// CredentialsByHashType
+func CredentialsByCollection(collection string) ([]*models.Credential, error) {
+	credentials := []*models.Credential{}
+	err := Session().Where(&models.Credential{
+		Collection: collection,
 	}).Find(&credentials).Error
 	return credentials, err
 }

@@ -30,11 +30,12 @@ var (
 	// ClientID -> core.CrackStation
 	crackers = &sync.Map{}
 
-	ErrDuplicateExternalCrackerName = errors.New("cracker name must be unique, this name is already in use")
+	ErrDuplicateHosts = errors.New("only one crackstation instance per host")
 )
 
 func NewCrackstation(station *clientpb.Crackstation) *Crackstation {
 	return &Crackstation{
+		HostUUID:   station.HostUUID,
 		Station:    station,
 		Events:     make(chan *clientpb.Event, 8),
 		status:     clientpb.Statuses_INITIALIZING,
@@ -43,8 +44,9 @@ func NewCrackstation(station *clientpb.Crackstation) *Crackstation {
 }
 
 type Crackstation struct {
-	Station *clientpb.Crackstation
-	Events  chan *clientpb.Event
+	HostUUID string
+	Station  *clientpb.Crackstation
+	Events   chan *clientpb.Event
 
 	status     clientpb.Statuses
 	statusLock *sync.RWMutex
@@ -63,19 +65,19 @@ func (c *Crackstation) GetStatus() clientpb.Statuses {
 }
 
 func AddCrackstation(crack *Crackstation) error {
-	_, loaded := crackers.LoadOrStore(crack.Station.Name, crack)
+	_, loaded := crackers.LoadOrStore(crack.Station.HostUUID, crack)
 	if loaded {
-		return ErrDuplicateExternalCrackerName
+		return ErrDuplicateHosts
 	}
 	EventBroker.Publish(Event{
 		EventType: consts.CrackstationConnected,
-		Data:      []byte(crack.Station.Name),
+		Data:      []byte(crack.Station.HostUUID),
 	})
 	return nil
 }
 
-func GetCrackstation(crackerName string) *Crackstation {
-	cracker, ok := crackers.Load(crackerName)
+func GetCrackstation(hostUUID string) *Crackstation {
+	cracker, ok := crackers.Load(hostUUID)
 	if !ok {
 		return nil
 	}
@@ -92,12 +94,12 @@ func AllCrackstations() []*clientpb.Crackstation {
 	return externalCrackers
 }
 
-func RemoveCrackstation(crackerName string) {
-	_, loaded := crackers.LoadAndDelete(crackerName)
+func RemoveCrackstation(hostUUID string) {
+	_, loaded := crackers.LoadAndDelete(hostUUID)
 	if loaded {
 		EventBroker.Publish(Event{
 			EventType: consts.CrackstationDisconnected,
-			Data:      []byte(crackerName),
+			Data:      []byte(hostUUID),
 		})
 	}
 }

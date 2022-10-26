@@ -30,9 +30,10 @@ import (
 // Crackstation - History of crackstation jobs
 type Crackstation struct {
 	// ID = crackstation name
-	ID        string    `gorm:"primaryKey;->"`
-	CreatedAt time.Time `gorm:"->;<-:create;"`
-	Tasks     []CrackTask
+	ID         uuid.UUID `gorm:"primaryKey;type:uuid;"`
+	CreatedAt  time.Time `gorm:"->;<-:create;"`
+	Tasks      []CrackTask
+	Benchmarks []Benchmark
 }
 
 // BeforeCreate - GORM hook
@@ -41,9 +42,28 @@ func (c *Crackstation) BeforeCreate(tx *gorm.DB) (err error) {
 	return nil
 }
 
+// Crackstation - History of crackstation jobs
+type Benchmark struct {
+	ID             uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	CreatedAt      time.Time `gorm:"->;<-:create;"`
+	CrackstationID uuid.UUID `gorm:"type:uuid;"`
+	HashType       int32
+	PerSecondRate  int64
+}
+
+// BeforeCreate - GORM hook
+func (b *Benchmark) BeforeCreate(tx *gorm.DB) (err error) {
+	b.ID, err = uuid.NewV4()
+	if err != nil {
+		return err
+	}
+	b.CreatedAt = time.Now()
+	return nil
+}
+
 type CrackTask struct {
 	ID             uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	CrackstationID string
+	CrackstationID uuid.UUID `gorm:"type:uuid;"`
 	CreatedAt      time.Time `gorm:"->;<-:create;"`
 	StartedAt      time.Time
 	FinishedAt     time.Time
