@@ -75,6 +75,7 @@ func PrintCrackers(crackers []*clientpb.Crackstation, con *console.SliverConsole
 		printCracker(cracker, index, con)
 		if index < len(crackers)-1 {
 			con.Println()
+			con.Println()
 		}
 	}
 }
@@ -82,8 +83,9 @@ func PrintCrackers(crackers []*clientpb.Crackstation, con *console.SliverConsole
 func printCracker(cracker *clientpb.Crackstation, index int, con *console.SliverConsoleClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	tw.SetTitle(console.Bold + fmt.Sprintf("[Crackstation %02d] %s (%s)", index+1, cracker.Name, cracker.OperatorName) + console.Normal + "\n")
+	tw.SetTitle(console.Bold + fmt.Sprintf(">>> Crackstation %02d - %s (%s)", index+1, cracker.Name, cracker.OperatorName) + console.Normal + "\n")
 	tw.AppendSeparator()
+	tw.AppendRow(table.Row{console.Bold + "Operating System" + console.Normal, fmt.Sprintf("%s/%s", cracker.GOOS, cracker.GOARCH)})
 	tw.AppendRow(table.Row{console.Bold + "Hashcat Version" + console.Normal, cracker.HashcatVersion})
 	if 0 < len(cracker.CUDA) {
 		for _, cuda := range cracker.CUDA {

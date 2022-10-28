@@ -21,6 +21,7 @@ package rpc
 import (
 	"context"
 
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -46,7 +47,7 @@ func (rpc *Server) Crackstations(ctx context.Context, req *commonpb.Empty) (*cli
 func (rpc *Server) CrackstationTrigger(ctx context.Context, req *clientpb.Event) (*commonpb.Empty, error) {
 	switch req.EventType {
 
-	case "crackstation-status":
+	case consts.CrackStatusEvent:
 		statusUpdate := &clientpb.CrackstationStatus{}
 		err := proto.Unmarshal(req.Data, statusUpdate)
 		if err != nil {
@@ -101,16 +102,22 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 	if len(dbCrackstation.Benchmarks) == 0 {
 		crackRpcLog.Infof("No benchmark information for '%s', starting benchmark...", req.Name)
 		data, _ := proto.Marshal(&clientpb.CrackTask{Benchmark: true})
-		db.Session().Create(&models.CrackTask{
+		benchmarkTask := &models.CrackTask{
 			CrackstationID: hostUUID,
 			Status:         models.PENDING,
 			Data:           data,
-		})
+		}
+		db.Session().Create(benchmarkTask)
+		err = stream.Send(&clientpb.Event{EventType: consts.CrackBenchmark, Data: benchmarkTask.ID.Bytes()})
+		if err != nil {
+			crackRpcLog.Errorf("Failed to send benchmark task to crackstation: %s", err)
+			return status.Error(codes.Internal, "failed to send benchmark task")
+		}
 	}
 
 	// Only forward these event types
 	crackingEvents := []string{
-		"crackstation-crack",
+		consts.CrackBenchmark,
 	}
 	for {
 		select {

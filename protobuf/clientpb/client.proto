@@ -855,6 +855,7 @@ message Crackstation {
   string GOARCH = 4;  // The cracker's Arch
   string HashcatVersion = 5;
   string HostUUID = 6;
+  string Version = 7;
 
   repeated CUDABackendInfo CUDA = 100;
   repeated MetalBackendInfo Metal = 101;
@@ -911,6 +912,7 @@ enum CrackAttackMode {
   HYBRID_WORDLIST_MASK = 6;
   HYBRID_MASK_WORDLIST = 7;
   ASSOCIATION = 9;
+  NO_ATTACK = 10;
 }
 
 enum CrackEncoding {
