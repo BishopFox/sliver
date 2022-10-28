@@ -48,7 +48,7 @@ func (rpc *Server) CrackstationTrigger(ctx context.Context, req *clientpb.Event)
 	switch req.EventType {
 
 	case consts.CrackStatusEvent:
-		statusUpdate := &clientpb.CrackstationStatus{}
+		statusUpdate := &clientpb.CrackStatus{}
 		err := proto.Unmarshal(req.Data, statusUpdate)
 		if err != nil {
 			crackRpcLog.Errorf("Failed to unmarshal crackstation status update: %s", err)
@@ -63,6 +63,15 @@ func (rpc *Server) CrackstationTrigger(ctx context.Context, req *clientpb.Event)
 
 	}
 	return &commonpb.Empty{}, nil
+}
+
+func (rpc *Server) CrackTaskByID(ctx context.Context, req *clientpb.CrackTask) (*clientpb.CrackTask, error) {
+	task, err := db.GetCrackTaskByID(req.ID)
+	if err != nil {
+		crackRpcLog.Errorf("Failed to get crack task by ID: %s", err)
+		return nil, status.Errorf(codes.Internal, "Failed to get crack task by ID")
+	}
+	return task.ToProtobuf(), nil
 }
 
 func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb.SliverRPC_CrackstationRegisterServer) error {
@@ -101,11 +110,14 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 
 	if len(dbCrackstation.Benchmarks) == 0 {
 		crackRpcLog.Infof("No benchmark information for '%s', starting benchmark...", req.Name)
-		data, _ := proto.Marshal(&clientpb.CrackTask{Benchmark: true})
 		benchmarkTask := &models.CrackTask{
 			CrackstationID: hostUUID,
 			Status:         models.PENDING,
-			Data:           data,
+			Command: models.CrackCommand{
+				AttackMode: int32(clientpb.CrackAttackMode_NO_ATTACK),
+				HashType:   int32(clientpb.HashType_INVALID),
+				Benchmark:  true,
+			},
 		}
 		db.Session().Create(benchmarkTask)
 		err = stream.Send(&clientpb.Event{EventType: consts.CrackBenchmark, Data: benchmarkTask.ID.Bytes()})

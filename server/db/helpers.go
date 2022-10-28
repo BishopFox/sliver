@@ -596,3 +596,16 @@ func CredentialByID(id string) (*models.Credential, error) {
 	}
 	return nil, ErrRecordNotFound
 }
+
+func GetCrackTaskByID(id string) (*models.CrackTask, error) {
+	taskID := uuid.FromStringOrNil(id)
+	if taskID == uuid.Nil {
+		return nil, ErrRecordNotFound
+	}
+	task := &models.CrackTask{}
+	err := Session().Where(&models.CrackTask{}).Preload("Command").Find(&task).Error
+	if err != nil {
+		return nil, err
+	}
+	return task, nil
+}

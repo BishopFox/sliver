@@ -52,7 +52,7 @@ type Crackstation struct {
 	statusLock *sync.RWMutex
 }
 
-func (c *Crackstation) UpdateStatus(status *clientpb.CrackstationStatus) {
+func (c *Crackstation) UpdateStatus(status *clientpb.CrackStatus) {
 	c.statusLock.Lock()
 	defer c.statusLock.Unlock()
 	c.status = status.Status

@@ -836,16 +836,27 @@ enum Statuses {
   INITIALIZING = 2;
 }
 
-message CrackstationStatus {
+message CrackStatus {
   string Name = 1;
   string HostUUID = 2;
   Statuses Status = 3;
 }
 
-message CrackstationBenchmark {
+message CrackBenchmark {
   string Name = 1;
   string HostUUID = 2;
   map<int32, int64> Benchmarks = 3;
+}
+
+message CrackTask {
+  string ID = 1;
+  string HostUUID = 2; // CrackstationID
+  int64 CreatedAt = 3;
+  int64 StartedAt = 4;
+  int64 FinishedAt = 5;
+  string Status = 6;
+
+  CrackCommand Command = 9;
 }
 
 message Crackstation {
@@ -939,7 +950,7 @@ enum CrackWorkloadProfile {
   NIGHTMARE = 4;
 }
 
-message CrackTask {
+message CrackCommand {
   CrackAttackMode AttackMode = 1;
   HashType HashType = 2;
   repeated string Hashes = 3;
@@ -1055,9 +1066,4 @@ message CrackTask {
   string BrainPassword = 111;
   string BrainSession = 112;
   string BrainSessionWhitelist = 113;
-
-  int64 CrackTaskCreatedAt = 200;
-  int64 CrackTaskStartedAt = 201;
-  int64 CrackTaskFinishedAt = 202;
-  string CrackTaskStatus = 203;
 }

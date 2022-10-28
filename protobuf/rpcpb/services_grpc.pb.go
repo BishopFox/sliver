@@ -86,6 +86,7 @@ type SliverRPCClient interface {
 	CrackstationRegister(ctx context.Context, in *clientpb.Crackstation, opts ...grpc.CallOption) (SliverRPC_CrackstationRegisterClient, error)
 	CrackstationTrigger(ctx context.Context, in *clientpb.Event, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	Crackstations(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Crackstations, error)
+	CrackTaskByID(ctx context.Context, in *clientpb.CrackTask, opts ...grpc.CallOption) (*clientpb.CrackTask, error)
 	Regenerate(ctx context.Context, in *clientpb.RegenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
 	ImplantBuilds(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.ImplantBuilds, error)
 	DeleteImplantBuild(ctx context.Context, in *clientpb.DeleteReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
@@ -689,6 +690,15 @@ func (c *sliverRPCClient) CrackstationTrigger(ctx context.Context, in *clientpb.
 func (c *sliverRPCClient) Crackstations(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Crackstations, error) {
 	out := new(clientpb.Crackstations)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Crackstations", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CrackTaskByID(ctx context.Context, in *clientpb.CrackTask, opts ...grpc.CallOption) (*clientpb.CrackTask, error) {
+	out := new(clientpb.CrackTask)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CrackTaskByID", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1668,6 +1678,7 @@ type SliverRPCServer interface {
 	CrackstationRegister(*clientpb.Crackstation, SliverRPC_CrackstationRegisterServer) error
 	CrackstationTrigger(context.Context, *clientpb.Event) (*commonpb.Empty, error)
 	Crackstations(context.Context, *commonpb.Empty) (*clientpb.Crackstations, error)
+	CrackTaskByID(context.Context, *clientpb.CrackTask) (*clientpb.CrackTask, error)
 	Regenerate(context.Context, *clientpb.RegenerateReq) (*clientpb.Generate, error)
 	ImplantBuilds(context.Context, *commonpb.Empty) (*clientpb.ImplantBuilds, error)
 	DeleteImplantBuild(context.Context, *clientpb.DeleteReq) (*commonpb.Empty, error)
@@ -1927,6 +1938,9 @@ func (UnimplementedSliverRPCServer) CrackstationTrigger(context.Context, *client
 }
 func (UnimplementedSliverRPCServer) Crackstations(context.Context, *commonpb.Empty) (*clientpb.Crackstations, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Crackstations not implemented")
+}
+func (UnimplementedSliverRPCServer) CrackTaskByID(context.Context, *clientpb.CrackTask) (*clientpb.CrackTask, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CrackTaskByID not implemented")
 }
 func (UnimplementedSliverRPCServer) Regenerate(context.Context, *clientpb.RegenerateReq) (*clientpb.Generate, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Regenerate not implemented")
@@ -3122,6 +3136,24 @@ func _SliverRPC_Crackstations_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).Crackstations(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CrackTaskByID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.CrackTask)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CrackTaskByID(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/CrackTaskByID",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CrackTaskByID(ctx, req.(*clientpb.CrackTask))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -5017,6 +5049,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Crackstations",
 			Handler:    _SliverRPC_Crackstations_Handler,
+		},
+		{
+			MethodName: "CrackTaskByID",
+			Handler:    _SliverRPC_CrackTaskByID_Handler,
 		},
 		{
 			MethodName: "Regenerate",
