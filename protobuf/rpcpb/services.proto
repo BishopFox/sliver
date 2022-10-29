@@ -89,6 +89,7 @@ service SliverRPC {
     rpc CrackstationTrigger(clientpb.Event) returns (commonpb.Empty);
     rpc Crackstations(commonpb.Empty) returns (clientpb.Crackstations);
     rpc CrackTaskByID(clientpb.CrackTask) returns (clientpb.CrackTask);
+    rpc CrackTaskUpdate(clientpb.CrackTask) returns (commonpb.Empty);
 
     rpc Regenerate(clientpb.RegenerateReq) returns (clientpb.Generate);
     rpc ImplantBuilds(commonpb.Empty) returns (clientpb.ImplantBuilds);

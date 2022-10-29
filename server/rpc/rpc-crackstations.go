@@ -74,6 +74,13 @@ func (rpc *Server) CrackTaskByID(ctx context.Context, req *clientpb.CrackTask) (
 	return task.ToProtobuf(), nil
 }
 
+func (rpc *Server) CrackTaskUpdate(ctx context.Context, req *clientpb.CrackTask) (*commonpb.Empty, error) {
+	taskUpdate := models.CrackTask{}.FromProtobuf(req)
+	dbSession := db.Session()
+	err := dbSession.Save(&taskUpdate).Error
+	return &commonpb.Empty{}, err
+}
+
 func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb.SliverRPC_CrackstationRegisterServer) error {
 	hostUUID := uuid.FromStringOrNil(req.HostUUID)
 	if hostUUID == uuid.Nil {

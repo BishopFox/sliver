@@ -597,13 +597,14 @@ func CredentialByID(id string) (*models.Credential, error) {
 	return nil, ErrRecordNotFound
 }
 
+// GetCrackTaskByID - Get a crack task by its ID
 func GetCrackTaskByID(id string) (*models.CrackTask, error) {
 	taskID := uuid.FromStringOrNil(id)
 	if taskID == uuid.Nil {
 		return nil, ErrRecordNotFound
 	}
 	task := &models.CrackTask{}
-	err := Session().Where(&models.CrackTask{}).Preload("Command").Find(&task).Error
+	err := Session().Where(&models.CrackTask{ID: taskID}).Preload("Command").Find(&task).Error
 	if err != nil {
 		return nil, err
 	}

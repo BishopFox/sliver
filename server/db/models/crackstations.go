@@ -81,6 +81,16 @@ func (c *CrackTask) ToProtobuf() *clientpb.CrackTask {
 	return task
 }
 
+func (CrackTask) FromProtobuf(c *clientpb.CrackTask) *CrackTask {
+	task := &CrackTask{}
+	task.CreatedAt = time.Unix(c.CreatedAt, 0)
+	task.StartedAt = time.Unix(c.StartedAt, 0)
+	task.FinishedAt = time.Unix(c.FinishedAt, 0)
+	task.Status = c.Status
+	task.Command = (*CrackCommand{}.FromProtobuf(c.Command))
+	return task
+}
+
 // BeforeCreate - GORM hook
 func (c *CrackTask) BeforeCreate(tx *gorm.DB) (err error) {
 	c.ID, err = uuid.NewV4()
@@ -306,6 +316,129 @@ func (c *CrackCommand) ToProtobuf() *clientpb.CrackCommand {
 	cmd.OptimizedKernelEnable = c.OptimizedKernelEnable
 	cmd.MultiplyAccelDisabled = c.MultiplyAccelDisabled
 	cmd.WorkloadProfile = clientpb.CrackWorkloadProfile(c.WorkloadProfile)
+	cmd.KernelAccel = c.KernelAccel
+	cmd.KernelLoops = c.KernelLoops
+	cmd.KernelThreads = c.KernelThreads
+	cmd.BackendVectorWidth = c.BackendVectorWidth
+	cmd.SpinDamp = c.SpinDamp
+	cmd.HwmonDisable = c.HwmonDisable
+	cmd.HwmonTempAbort = c.HwmonTempAbort
+	cmd.ScryptTMTO = c.ScryptTMTO
+	cmd.Skip = c.Skip
+	cmd.Limit = c.Limit
+	cmd.Keyspace = c.Keyspace
+	// --rule-left (88)
+	// --rule-right (89)
+	// cmd.RulesFile = c.RulesFile
+	cmd.GenerateRules = c.GenerateRules
+	cmd.GenerateRulesFunMin = c.GenerateRulesFunMin
+	cmd.GenerateRulesFunMax = c.GenerateRulesFunMax
+	cmd.GenerateRulesFuncSel = c.GenerateRulesFuncSel
+	cmd.GenerateRulesSeed = c.GenerateRulesSeed
+	cmd.CustomCharset1 = c.CustomCharset1
+	cmd.CustomCharset2 = c.CustomCharset2
+	cmd.CustomCharset3 = c.CustomCharset3
+	cmd.CustomCharset4 = c.CustomCharset4
+	cmd.Identify = c.Identify
+	cmd.Increment = c.Increment
+	cmd.IncrementMin = c.IncrementMin
+	cmd.IncrementMax = c.IncrementMax
+	cmd.SlowCandidates = c.SlowCandidates
+	cmd.BrainServer = c.BrainServer
+	cmd.BrainServerTimer = c.BrainServerTimer
+	cmd.BrainClient = c.BrainClient
+	cmd.BrainClientFeatures = c.BrainClientFeatures
+	cmd.BrainHost = c.BrainHost
+	cmd.BrainPort = c.BrainPort
+	cmd.BrainPassword = c.BrainPassword
+	cmd.BrainSession = c.BrainSession
+	cmd.BrainSessionWhitelist = c.BrainSessionWhitelist
+	return cmd
+}
+
+func (CrackCommand) FromProtobuf(c *clientpb.CrackCommand) *CrackCommand {
+	cmd := &CrackCommand{}
+	cmd.AttackMode = int32(c.AttackMode)
+	cmd.HashType = int32(c.HashType)
+	cmd.Hashes = c.Hashes
+	// --version
+	// --help
+	cmd.Quiet = c.Quiet
+	cmd.HexCharset = c.HexCharset
+	cmd.HexSalt = c.HexSalt
+	cmd.HexWordlist = c.HexWordlist
+	cmd.Force = c.Force
+	cmd.DeprecatedCheckDisable = c.DeprecatedCheckDisable
+	cmd.Status = c.Status
+	cmd.StatusJSON = c.StatusJSON
+	cmd.StatusTimer = c.StatusTimer
+	cmd.StdinTimeoutAbort = c.StdinTimeoutAbort
+	cmd.MachineReadable = c.MachineReadable
+	cmd.KeepGuessing = c.KeepGuessing
+	cmd.SelfTestDisable = c.SelfTestDisable
+	cmd.Loopback = c.Loopback
+	// cmd.MarkovHcstat2 = c.MarkovHcstat2
+	cmd.MarkovDisable = c.MarkovDisable
+	cmd.MarkovClassic = c.MarkovClassic
+	cmd.MarkovInverse = c.MarkovInverse
+	cmd.MarkovThreshold = c.MarkovThreshold
+	cmd.Runtime = c.Runtime
+	cmd.Session = c.Session
+	cmd.Restore = c.Restore
+	cmd.RestoreDisable = c.RestoreDisable
+	// cmd.RestoreFile = c.RestoreFile
+	// --outfile FILE (28)
+	cmd.OutfileFormat = []int32{}
+	for _, f := range c.OutfileFormat {
+		cmd.OutfileFormat = append(cmd.OutfileFormat, int32(f))
+	}
+	cmd.OutfileAutohexDisable = c.OutfileAutohexDisable
+	cmd.OutfileCheckTimer = c.OutfileCheckTimer
+	cmd.WordlistAutohexDisable = c.WordlistAutohexDisable
+	cmd.Separator = c.Separator
+	cmd.Stdout = c.Stdout
+	cmd.Show = c.Show
+	cmd.Left = c.Left
+	cmd.Username = c.Username
+	cmd.Remove = c.Remove
+	cmd.RemoveTimer = c.RemoveTimer
+	cmd.PotfileDisable = c.PotfileDisable
+	// cmd.Potfile = c.Potfile
+	cmd.EncodingFrom = int32(c.EncodingFrom)
+	cmd.EncodingTo = int32(c.EncodingTo)
+	cmd.DebugMode = c.DebugMode
+	// --debug-file FILE (45)
+	// --induction-dir DIR (46)
+	// --outfile-check-dir DIR (47)
+	cmd.LogfileDisable = c.LogfileDisable
+	cmd.HccapxMessagePair = c.HccapxMessagePair
+	cmd.NonceErrorCorrections = c.NonceErrorCorrections
+	// cmd.KeyboardLayoutMapping = c.KeyboardLayoutMapping
+	// --truecrypt-keyfiles FILE (52)
+	// --veracrypt-keyfiles FILE (53)
+	// --veracrypt-pim-start PIM (54)
+	// --veracrypt-pim-stop PIM (55)
+	cmd.Benchmark = c.Benchmark
+	cmd.BenchmarkAll = c.BenchmarkAll
+	cmd.SpeedOnly = c.SpeedOnly
+	cmd.ProgressOnly = c.ProgressOnly
+	cmd.SegmentSize = c.SegmentSize
+	cmd.BitmapMin = c.BitmapMin
+	cmd.BitmapMax = c.BitmapMax
+	cmd.CPUAffinity = c.CPUAffinity
+	cmd.HookThreads = c.HookThreads
+	cmd.HashInfo = c.HashInfo
+	// --example-hashes (66)
+	cmd.BackendIgnoreCUDA = c.BackendIgnoreCUDA
+	cmd.BackendIgnoreHip = c.BackendIgnoreHip
+	cmd.BackendIgnoreMetal = c.BackendIgnoreMetal
+	cmd.BackendIgnoreOpenCL = c.BackendIgnoreOpenCL
+	cmd.BackendInfo = c.BackendInfo
+	cmd.BackendDevices = c.BackendDevices
+	cmd.OpenCLDeviceTypes = c.OpenCLDeviceTypes
+	cmd.OptimizedKernelEnable = c.OptimizedKernelEnable
+	cmd.MultiplyAccelDisabled = c.MultiplyAccelDisabled
+	cmd.WorkloadProfile = int32(c.WorkloadProfile)
 	cmd.KernelAccel = c.KernelAccel
 	cmd.KernelLoops = c.KernelLoops
 	cmd.KernelThreads = c.KernelThreads
