@@ -1068,3 +1068,45 @@ message CrackCommand {
   string BrainSession = 112;
   string BrainSessionWhitelist = 113;
 }
+
+message CrackConfig {
+  bool AutoFire = 1;
+  int64 MaxFileSize = 2;
+  int64 ChunkSize = 3;
+  int64 MaxDiskUsage = 4;
+}
+
+enum CrackFileType {
+  WORDLIST = 0;
+  RULES = 1;
+  MARKOV_HCSTAT2 = 2;
+}
+
+message CrackFiles {
+  repeated CrackFile Files = 1;
+  int64 CurrentDiskUsage = 2;
+  int64 MaxDiskUsage = 3;
+}
+
+message CrackFile {
+  string ID = 1;
+  int64 CreatedAt = 2;
+  int64 LastModified = 3;
+  string Name = 4;
+  int64 UncompressedSize = 5;
+  string Sha2_256 = 6;
+  CrackFileType Type = 7;
+  bool IsCompressed = 8;
+  int64 MaxFileSize = 9;
+  int64 ChunkSize = 10;
+
+  repeated CrackFileChunk Chunks = 100;
+}
+
+message CrackFileChunk {
+  string ID = 1;
+  string CrackFileID = 2;
+  uint32 N = 3;
+
+  bytes Data = 9;
+}

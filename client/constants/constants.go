@@ -268,8 +268,9 @@ const (
 
 	BuildersStr = "builders"
 
-	CrackStr    = "crack"
-	StationsStr = "stations"
+	CrackStr     = "crack"
+	StationsStr  = "stations"
+	WordlistsStr = "wordlists"
 )
 
 // Groups

@@ -610,3 +610,57 @@ func GetCrackTaskByID(id string) (*models.CrackTask, error) {
 	}
 	return task, nil
 }
+
+// GetByCrackFileByID - Get a crack task by its ID
+func GetByCrackFileByID(id string) (*models.CrackFile, error) {
+	crackFileID := uuid.FromStringOrNil(id)
+	if crackFileID == uuid.Nil {
+		return nil, ErrRecordNotFound
+	}
+	crackFile := &models.CrackFile{}
+	err := Session().Where(&models.CrackFile{ID: crackFileID}).Preload("Chunks").Find(&crackFile).Error
+	if err != nil {
+		return nil, err
+	}
+	return crackFile, nil
+}
+
+// CrackFilesByType - Get all files by crack file type
+func CrackFilesByType(fileType clientpb.CrackFileType) ([]*models.CrackFile, error) {
+	crackFiles := []*models.CrackFile{}
+	err := Session().Where(&models.CrackFile{
+		Type:       int32(fileType),
+		IsComplete: true,
+	}).Preload("Chunks").Find(&crackFiles).Error
+	if err != nil {
+		return nil, err
+	}
+	return crackFiles, nil
+}
+
+// CrackWordlistByName - Get all files by crack file type
+func CrackWordlistByName(name string) (*models.CrackFile, error) {
+	crackFile := &models.CrackFile{}
+	err := Session().Where(&models.CrackFile{
+		Name: name,
+		Type: int32(clientpb.CrackFileType_WORDLIST),
+	}).First(&crackFile).Error
+	if err != nil {
+		return nil, err
+	}
+	return crackFile, nil
+}
+
+// CrackFilesDiskUsage - Get all files by crack file type
+func CrackFilesDiskUsage() (int64, error) {
+	crackFiles := []*models.CrackFile{}
+	err := Session().Where(&models.CrackFile{}).Find(&crackFiles).Error
+	if err != nil {
+		return -1, err
+	}
+	sum := int64(0)
+	for _, crackFile := range crackFiles {
+		sum += crackFile.UncompressedSize
+	}
+	return sum, nil
+}

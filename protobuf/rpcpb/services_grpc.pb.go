@@ -89,6 +89,13 @@ type SliverRPCClient interface {
 	Crackstations(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Crackstations, error)
 	CrackTaskByID(ctx context.Context, in *clientpb.CrackTask, opts ...grpc.CallOption) (*clientpb.CrackTask, error)
 	CrackTaskUpdate(ctx context.Context, in *clientpb.CrackTask, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	CrackFilesList(ctx context.Context, in *clientpb.CrackFile, opts ...grpc.CallOption) (*clientpb.CrackFiles, error)
+	CrackFileCreate(ctx context.Context, in *clientpb.CrackFile, opts ...grpc.CallOption) (*clientpb.CrackFile, error)
+	CrackFileChunkUpload(ctx context.Context, in *clientpb.CrackFileChunk, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	CrackFileChunkDownload(ctx context.Context, in *clientpb.CrackFileChunk, opts ...grpc.CallOption) (*clientpb.CrackFileChunk, error)
+	CrackFileComplete(ctx context.Context, in *clientpb.CrackFile, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	CrackFileDelete(ctx context.Context, in *clientpb.CrackFile, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	// *** Payloads ***
 	Regenerate(ctx context.Context, in *clientpb.RegenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
 	ImplantBuilds(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.ImplantBuilds, error)
 	DeleteImplantBuild(ctx context.Context, in *clientpb.DeleteReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
@@ -719,6 +726,60 @@ func (c *sliverRPCClient) CrackTaskByID(ctx context.Context, in *clientpb.CrackT
 func (c *sliverRPCClient) CrackTaskUpdate(ctx context.Context, in *clientpb.CrackTask, opts ...grpc.CallOption) (*commonpb.Empty, error) {
 	out := new(commonpb.Empty)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CrackTaskUpdate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CrackFilesList(ctx context.Context, in *clientpb.CrackFile, opts ...grpc.CallOption) (*clientpb.CrackFiles, error) {
+	out := new(clientpb.CrackFiles)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CrackFilesList", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CrackFileCreate(ctx context.Context, in *clientpb.CrackFile, opts ...grpc.CallOption) (*clientpb.CrackFile, error) {
+	out := new(clientpb.CrackFile)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CrackFileCreate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CrackFileChunkUpload(ctx context.Context, in *clientpb.CrackFileChunk, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CrackFileChunkUpload", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CrackFileChunkDownload(ctx context.Context, in *clientpb.CrackFileChunk, opts ...grpc.CallOption) (*clientpb.CrackFileChunk, error) {
+	out := new(clientpb.CrackFileChunk)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CrackFileChunkDownload", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CrackFileComplete(ctx context.Context, in *clientpb.CrackFile, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CrackFileComplete", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CrackFileDelete(ctx context.Context, in *clientpb.CrackFile, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CrackFileDelete", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1701,6 +1762,13 @@ type SliverRPCServer interface {
 	Crackstations(context.Context, *commonpb.Empty) (*clientpb.Crackstations, error)
 	CrackTaskByID(context.Context, *clientpb.CrackTask) (*clientpb.CrackTask, error)
 	CrackTaskUpdate(context.Context, *clientpb.CrackTask) (*commonpb.Empty, error)
+	CrackFilesList(context.Context, *clientpb.CrackFile) (*clientpb.CrackFiles, error)
+	CrackFileCreate(context.Context, *clientpb.CrackFile) (*clientpb.CrackFile, error)
+	CrackFileChunkUpload(context.Context, *clientpb.CrackFileChunk) (*commonpb.Empty, error)
+	CrackFileChunkDownload(context.Context, *clientpb.CrackFileChunk) (*clientpb.CrackFileChunk, error)
+	CrackFileComplete(context.Context, *clientpb.CrackFile) (*commonpb.Empty, error)
+	CrackFileDelete(context.Context, *clientpb.CrackFile) (*commonpb.Empty, error)
+	// *** Payloads ***
 	Regenerate(context.Context, *clientpb.RegenerateReq) (*clientpb.Generate, error)
 	ImplantBuilds(context.Context, *commonpb.Empty) (*clientpb.ImplantBuilds, error)
 	DeleteImplantBuild(context.Context, *clientpb.DeleteReq) (*commonpb.Empty, error)
@@ -1969,6 +2037,24 @@ func (UnimplementedSliverRPCServer) CrackTaskByID(context.Context, *clientpb.Cra
 }
 func (UnimplementedSliverRPCServer) CrackTaskUpdate(context.Context, *clientpb.CrackTask) (*commonpb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CrackTaskUpdate not implemented")
+}
+func (UnimplementedSliverRPCServer) CrackFilesList(context.Context, *clientpb.CrackFile) (*clientpb.CrackFiles, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CrackFilesList not implemented")
+}
+func (UnimplementedSliverRPCServer) CrackFileCreate(context.Context, *clientpb.CrackFile) (*clientpb.CrackFile, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CrackFileCreate not implemented")
+}
+func (UnimplementedSliverRPCServer) CrackFileChunkUpload(context.Context, *clientpb.CrackFileChunk) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CrackFileChunkUpload not implemented")
+}
+func (UnimplementedSliverRPCServer) CrackFileChunkDownload(context.Context, *clientpb.CrackFileChunk) (*clientpb.CrackFileChunk, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CrackFileChunkDownload not implemented")
+}
+func (UnimplementedSliverRPCServer) CrackFileComplete(context.Context, *clientpb.CrackFile) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CrackFileComplete not implemented")
+}
+func (UnimplementedSliverRPCServer) CrackFileDelete(context.Context, *clientpb.CrackFile) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CrackFileDelete not implemented")
 }
 func (UnimplementedSliverRPCServer) Regenerate(context.Context, *clientpb.RegenerateReq) (*clientpb.Generate, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Regenerate not implemented")
@@ -3218,6 +3304,114 @@ func _SliverRPC_CrackTaskUpdate_Handler(srv interface{}, ctx context.Context, de
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).CrackTaskUpdate(ctx, req.(*clientpb.CrackTask))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CrackFilesList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.CrackFile)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CrackFilesList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/CrackFilesList",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CrackFilesList(ctx, req.(*clientpb.CrackFile))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CrackFileCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.CrackFile)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CrackFileCreate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/CrackFileCreate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CrackFileCreate(ctx, req.(*clientpb.CrackFile))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CrackFileChunkUpload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.CrackFileChunk)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CrackFileChunkUpload(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/CrackFileChunkUpload",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CrackFileChunkUpload(ctx, req.(*clientpb.CrackFileChunk))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CrackFileChunkDownload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.CrackFileChunk)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CrackFileChunkDownload(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/CrackFileChunkDownload",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CrackFileChunkDownload(ctx, req.(*clientpb.CrackFileChunk))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CrackFileComplete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.CrackFile)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CrackFileComplete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/CrackFileComplete",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CrackFileComplete(ctx, req.(*clientpb.CrackFile))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CrackFileDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.CrackFile)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CrackFileDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/CrackFileDelete",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CrackFileDelete(ctx, req.(*clientpb.CrackFile))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -5125,6 +5319,30 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CrackTaskUpdate",
 			Handler:    _SliverRPC_CrackTaskUpdate_Handler,
+		},
+		{
+			MethodName: "CrackFilesList",
+			Handler:    _SliverRPC_CrackFilesList_Handler,
+		},
+		{
+			MethodName: "CrackFileCreate",
+			Handler:    _SliverRPC_CrackFileCreate_Handler,
+		},
+		{
+			MethodName: "CrackFileChunkUpload",
+			Handler:    _SliverRPC_CrackFileChunkUpload_Handler,
+		},
+		{
+			MethodName: "CrackFileChunkDownload",
+			Handler:    _SliverRPC_CrackFileChunkDownload_Handler,
+		},
+		{
+			MethodName: "CrackFileComplete",
+			Handler:    _SliverRPC_CrackFileComplete_Handler,
+		},
+		{
+			MethodName: "CrackFileDelete",
+			Handler:    _SliverRPC_CrackFileDelete_Handler,
 		},
 		{
 			MethodName: "Regenerate",

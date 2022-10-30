@@ -306,7 +306,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("s", "save", "", "save downloaded files to specific directory (default user home dir)")
 			f.Bool("I", "insecure", false, "skip tls certificate validation")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -322,7 +322,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Display version information",
 		LongHelp: help.GetHelpFor([]string{consts.VersionStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -343,7 +343,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("k", "kill", -1, "kill a background job")
 			f.Bool("K", "kill-all", false, "kill all jobs")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -362,7 +362,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("L", "lhost", "", "interface to bind server to")
 			f.Int("l", "lport", generate.DefaultMTLSLPort, "tcp listen port")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.Bool("p", "persistent", false, "make persistent across restarts")
 		},
 		Run: func(ctx *grumble.Context) error {
@@ -385,7 +385,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("x", "key-port", generate.DefaultWGKeyExPort, "virtual tun interface key exchange port")
 			f.Bool("p", "persistent", false, "make persistent across restarts")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -407,7 +407,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("l", "lport", generate.DefaultDNSLPort, "udp listen port")
 			f.Bool("D", "disable-otp", false, "disable otp authentication")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.Bool("p", "persistent", false, "make persistent across restarts")
 		},
 		Run: func(ctx *grumble.Context) error {
@@ -432,7 +432,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("T", "long-poll-timeout", "1s", "server-side long poll timeout")
 			f.String("J", "long-poll-jitter", "2s", "server-side long poll jitter")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.Bool("p", "persistent", false, "make persistent across restarts")
 		},
 		Run: func(ctx *grumble.Context) error {
@@ -462,7 +462,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate")
 			f.Bool("E", "disable-randomized-jarm", false, "disable randomized jarm fingerprints")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.Bool("p", "persistent", false, "make persistent across restarts")
 		},
 		Run: func(ctx *grumble.Context) error {
@@ -505,7 +505,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Manage operators",
 		LongHelp: help.GetHelpFor([]string{consts.OperatorsStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -527,7 +527,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("i", "beacon-interval", "", "beacon callback interval")
 			f.String("j", "beacon-jitter", "", "beacon callback jitter (random up to)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -545,7 +545,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("n", "name", "", "change implant name to")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -572,7 +572,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("f", "filter", "", "filter sessions by substring")
 			f.String("e", "filter-re", "", "filter sessions by regular expression")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -589,7 +589,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Bool("F", "force", false, "Force the killing of stale/dead sessions")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -606,7 +606,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Background an active session",
 		LongHelp: help.GetHelpFor([]string{consts.BackgroundStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -630,7 +630,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Bool("F", "force", false, "Force kill,  does not clean up")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
@@ -649,7 +649,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 			f.String("d", "delay", "0s", "delay opening the session (after checkin) for a given period of time")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -667,7 +667,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Close an interactive session without killing the remote process",
 		LongHelp: help.GetHelpFor([]string{consts.CloseStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -690,7 +690,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("S", "skip-pages", 0, "skip the first n page(s)")
 			f.String("f", "filter", "", "filter based on task type (case-insensitive prefix matching)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -709,7 +709,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("S", "skip-pages", 0, "skip the first n page(s)")
 			f.String("f", "filter", "", "filter based on task type (case-insensitive prefix matching)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("id", "beacon task ID", grumble.Default(""))
@@ -731,7 +731,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("S", "skip-pages", 0, "skip the first n page(s)")
 			f.String("f", "filter", "", "filter based on task type (case-insensitive prefix matching)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("id", "beacon task ID", grumble.Default(""))
@@ -753,7 +753,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Switch the active session or beacon",
 		LongHelp: help.GetHelpFor([]string{consts.UseStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("id", "beacon or session ID", grumble.Default(""))
@@ -774,7 +774,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Switch the active session",
 		LongHelp: help.GetHelpFor([]string{consts.UseStr, consts.SessionsStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 		},
@@ -791,7 +791,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Switch the active beacon",
 		LongHelp: help.GetHelpFor([]string{consts.UseStr, consts.BeaconsStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 		},
@@ -900,7 +900,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Get info about session",
 		LongHelp: help.GetHelpFor([]string{consts.InfoStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("session", "session ID", grumble.Default(""))
@@ -922,7 +922,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Send round trip message to implant (does not use ICMP)",
 		LongHelp: help.GetHelpFor([]string{consts.PingStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -938,7 +938,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Get session pid",
 		LongHelp: help.GetHelpFor([]string{consts.GetPIDStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -954,7 +954,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Get session process UID",
 		LongHelp: help.GetHelpFor([]string{consts.GetUIDStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -970,7 +970,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Get session process GID",
 		LongHelp: help.GetHelpFor([]string{consts.GetGIDStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -986,7 +986,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Get session user execution context",
 		LongHelp: help.GetHelpFor([]string{consts.WhoamiStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1007,7 +1007,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("y", "no-pty", false, "disable use of pty on macos/linux")
 			f.String("s", "shell-path", "", "path to shell interpreter")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1034,7 +1034,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("i", "iterations", 1, "number of iterations")
 			f.String("b", "bad-chars", "", "hex encoded bad characters to avoid (e.g. 0001)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1062,7 +1062,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("n", "name", "", "name to assign loot (optional)")
 			f.Uint("P", "ppid", 0, "parent process id (optional, Windows only)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("command", "command to execute")
@@ -1101,7 +1101,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("M", "amsi-bypass", false, "Bypass AMSI on Windows (only supported when used with --in-process)")
 			f.Bool("E", "etw-bypass", false, "Bypass ETW on Windows (only supported when used with --in-process)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1134,7 +1134,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("A", "architecture", "amd64", "architecture of the shellcode: 386, amd64 (used with --shikata-ga-nai flag)")
 			f.Int("I", "iterations", 1, "number of encoding iterations (used with --shikata-ga-nai flag)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
@@ -1154,7 +1154,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Uint("P", "ppid", 0, "parent process id (optional)")
 			f.String("A", "process-arguments", "", "arguments to pass to the hosting process")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("filepath", "path the shared library file")
@@ -1179,7 +1179,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("s", "save", false, "save output to file")
 			f.Bool("X", "loot", false, "save output as loot")
 			f.String("n", "name", "", "name to assign loot (optional)")
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.Bool("k", "keep-alive", false, "don't terminate host process once the execution completes")
 			f.Uint("P", "ppid", 0, "parent process id (optional)")
 			f.String("A", "process-arguments", "", "arguments to pass to the hosting process")
@@ -1213,7 +1213,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Bool("S", "disable-sgn", true, "disable shikata ga nai shellcode encoder")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
@@ -1229,7 +1229,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("e", "encoder", "", "msf encoder")
 			f.Int("i", "iterations", 1, "iterations of the encoder")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1252,7 +1252,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("e", "encoder", "", "msf encoder")
 			f.Int("i", "iterations", 1, "iterations of the encoder")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1268,7 +1268,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Start a sliver service on a remote target",
 		LongHelp: help.GetHelpFor([]string{consts.PsExecStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.String("s", "service-name", "Sliver", "name that will be used to register the service")
 			f.String("d", "service-description", "Sliver implant", "description of the service")
 			f.String("p", "profile", "", "profile to use for service binary")
@@ -1296,7 +1296,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			a.StringList("command", "command line with arguments")
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.Uint("p", "port", 22, "SSH port")
 			f.String("i", "private-key", "", "path to private key file")
 			f.String("P", "password", "", "SSH user password")
@@ -1360,7 +1360,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
 			f.String("s", "save", "", "directory/file to the binary to")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1420,7 +1420,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
 			f.String("s", "save", "", "directory/file to the binary to")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1443,7 +1443,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("b", "badchars", "", "bytes to exclude from stage shellcode")
 			f.String("s", "save", "", "directory to save the generated stager to")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1458,7 +1458,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Get information about the server's compiler",
 		LongHelp: help.GetHelpFor([]string{consts.CompilerInfoStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1480,7 +1480,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("s", "save", "", "directory/file to the binary to")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1496,7 +1496,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "List existing profiles",
 		LongHelp: help.GetHelpFor([]string{consts.ProfilesStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1513,7 +1513,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("s", "save", "", "directory/file to the binary to")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("name", "name of the profile", grumble.Default(""))
@@ -1574,7 +1574,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("name", "name of the profile", grumble.Default(""))
@@ -1640,7 +1640,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 			f.String("f", "format", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("name", "name of the profile", grumble.Default(""))
@@ -1659,7 +1659,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Remove a profile",
 		LongHelp: help.GetHelpFor([]string{consts.ProfilesStr, consts.RmStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("name", "name of the profile", grumble.Default(""))
@@ -1689,7 +1689,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("b", "only-beacons", false, "filter beacons")
 			f.Bool("d", "no-debug", false, "filter builds by debug flag")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1704,7 +1704,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Remove implant build",
 		LongHelp: help.GetHelpFor([]string{consts.ImplantBuildsStr, consts.RmStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("name", "implant name", grumble.Default(""))
@@ -1729,7 +1729,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Bool("b", "burned", false, "show only triggered/burned canaries")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1747,7 +1747,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Move or rename a file",
 		LongHelp: help.GetHelpFor([]string{consts.MvStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("src", "path to source file")
@@ -1765,7 +1765,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "List current directory",
 		LongHelp: help.GetHelpFor([]string{consts.LsStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.Bool("r", "reverse", false, "reverse sort order")
 			f.Bool("m", "modified", false, "sort by modified time")
 			f.Bool("s", "size", false, "sort by size")
@@ -1790,7 +1790,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("r", "recursive", false, "recursively remove files")
 			f.Bool("F", "force", false, "ignore safety and forcefully remove files")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("path", "path to the file to remove")
@@ -1809,7 +1809,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Make a directory",
 		LongHelp: help.GetHelpFor([]string{consts.MkdirStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("path", "path to the directory to create")
@@ -1828,7 +1828,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Change directory",
 		LongHelp: help.GetHelpFor([]string{consts.CdStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("path", "path to the directory", grumble.Default("."))
@@ -1847,7 +1847,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Print working directory",
 		LongHelp: help.GetHelpFor([]string{consts.PwdStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1863,7 +1863,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Dump file to stdout",
 		LongHelp: help.GetHelpFor([]string{consts.CatStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.Bool("c", "colorize-output", false, "colorize output")
 			f.Bool("x", "hex", false, "display as a hex dump")
 			f.Bool("X", "loot", false, "save output as loot")
@@ -1888,7 +1888,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Download a file",
 		LongHelp: help.GetHelpFor([]string{consts.DownloadStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 
 			f.Bool("X", "loot", false, "save output as loot")
 			f.String("T", "type", "", "force a specific loot type (file/cred) if looting")
@@ -1914,7 +1914,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Upload a file",
 		LongHelp: help.GetHelpFor([]string{consts.UploadStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 
 			f.Bool("i", "ioc", false, "track uploaded file as an ioc")
 		},
@@ -1940,7 +1940,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Bool("A", "all", false, "show all network adapters (default only shows IPv4)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1967,7 +1967,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("4", "ip4", true, "display information about IPv4 sockets")
 			f.Bool("6", "ip6", false, "display information about IPv6 sockets")
 			f.Bool("l", "listen", false, "display information about listening sockets")
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
@@ -1986,7 +1986,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("O", "overflow", false, "overflow terminal width (display truncated rows)")
 			f.Int("S", "skip-pages", 0, "skip the first n page(s)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2008,7 +2008,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("X", "loot", false, "save output as loot")
 			f.String("N", "loot-name", "", "name to assign when adding the memory dump to the loot store (optional)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2035,7 +2035,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Bool("F", "force", false, "disregard safety and kill the PID")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
@@ -2050,7 +2050,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("u", "username", "NT AUTHORITY\\SYSTEM", "user to impersonate")
 			f.String("p", "process", "", "process to start")
 			f.String("a", "args", "", "arguments for the process")
-			f.Int("t", "timeout", 30, "command timeout in seconds")
+			f.Int("t", "timeout", 30, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2075,7 +2075,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", 30, "command timeout in seconds")
+			f.Int("t", "timeout", 30, "grpc timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
@@ -2091,7 +2091,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", 30, "command timeout in seconds")
+			f.Int("t", "timeout", 30, "grpc timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 	})
@@ -2102,7 +2102,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.GetSystemStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("p", "process", "spoolsv.exe", "SYSTEM process to inject into")
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2121,7 +2121,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("u", "username", "", "username of the user to impersonate")
 			f.String("p", "password", "", "password of the user to impersonate")
 			f.String("d", "domain", "", "domain of the user to impersonate")
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 		Run: func(ctx *grumble.Context) error {
@@ -2139,7 +2139,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Host static content (used with HTTP C2)",
 		LongHelp: help.GetHelpFor([]string{consts.WebsitesStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2157,7 +2157,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Remove an entire website and all of its contents",
 		LongHelp: help.GetHelpFor([]string{consts.WebsitesStr, consts.RmStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2179,7 +2179,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("w", "website", "", "website name")
 			f.String("p", "web-path", "", "http path to host file at")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2200,7 +2200,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("c", "content", "", "local file path/dir (must use --recursive for dir)")
 			f.Bool("r", "recursive", false, "recursively add/rm content")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2219,7 +2219,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("m", "content-type", "", "mime content-type (if blank use file ext.)")
 			f.String("p", "web-path", "/", "http path to host file at")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2242,7 +2242,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("X", "loot", false, "save output as loot")
 			f.String("n", "name", "", "name to assign loot (optional)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2260,7 +2260,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Infect a remote file with a sliver shellcode",
 		LongHelp: help.GetHelpFor([]string{consts.BackdoorStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.String("p", "profile", "", "profile to use for service binary")
 		},
 		Args: func(a *grumble.Args) {
@@ -2288,7 +2288,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("f", "filter", "", "filter beacons by substring")
 			f.String("e", "filter-re", "", "filter beacons by regular expression")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		HelpGroup: consts.GenericHelpGroup,
 		Run: func(ctx *grumble.Context) error {
@@ -2303,7 +2303,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Remove a beacon",
 		LongHelp: help.GetHelpFor([]string{consts.BeaconsStr, consts.RmStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 		Run: func(ctx *grumble.Context) error {
@@ -2318,7 +2318,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Watch your beacons",
 		LongHelp: help.GetHelpFor([]string{consts.BeaconsStr, consts.WatchStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 		Run: func(ctx *grumble.Context) error {
@@ -2335,7 +2335,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("d", "duration", "1h", "duration to prune beacons that have missed their last checkin")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
 		Run: func(ctx *grumble.Context) error {
@@ -2354,7 +2354,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "List environment variables",
 		LongHelp: help.GetHelpFor([]string{consts.EnvStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("name", "environment variable to fetch", grumble.Default(""))
@@ -2372,7 +2372,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Set environment variables",
 		LongHelp: help.GetHelpFor([]string{consts.EnvStr, consts.SetStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("name", "environment variable name")
@@ -2394,7 +2394,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			a.String("name", "environment variable name")
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2446,7 +2446,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			a.String("registry-path", "registry path")
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.String("H", "hive", "HKCU", "registry hive")
 			f.String("o", "hostname", "", "remote host to read values from")
 		},
@@ -2467,7 +2467,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			a.String("value", "value to write")
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.String("H", "hive", "HKCU", "registry hive")
 			f.String("o", "hostname", "", "remote host to write values to")
 			f.String("T", "type", "string", "type of the value to write (string, dword, qword, binary). If binary, you must provide a path to a file with --path")
@@ -2489,7 +2489,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.String("H", "hive", "HKCU", "registry hive")
 			f.String("o", "hostname", "", "remote host to write values to")
 		},
@@ -2508,7 +2508,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.String("H", "hive", "HKCU", "registry hive")
 			f.String("o", "hostname", "", "remote host to remove value from")
 		},
@@ -2527,7 +2527,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.String("H", "hive", "HKCU", "registry hive")
 			f.String("o", "hostname", "", "remote host to write values to")
 		},
@@ -2547,7 +2547,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.String("H", "hive", "HKCU", "registry hive")
 			f.String("o", "hostname", "", "remote host to write values to")
 		},
@@ -2561,7 +2561,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "reverse port forwardings",
 		LongHelp: help.GetHelpFor([]string{consts.RportfwdStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2582,7 +2582,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.String("r", "remote", "", "remote address <ip>:<port> connection is forwarded to")
 			f.String("b", "bind", "", "bind address <ip>:<port> implants listen on")
 		},
@@ -2599,7 +2599,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.Int("i", "id", 0, "id of portfwd to remove")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
@@ -2620,7 +2620,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	}
@@ -2633,7 +2633,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("b", "bind", "", "name of the named pipe to bind pivot listener")
 			f.Bool("a", "allow-all", false, "allow all users to connect")
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2652,7 +2652,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("b", "bind", "", "remote interface to bind pivot listener")
 			f.Int("l", "lport", generate.DefaultTCPPivotPort, "tcp pivot listener port")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2670,7 +2670,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("i", "id", 0, "id of the pivot listener to stop")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2688,7 +2688,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("i", "id", 0, "id of the pivot listener to stop")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2706,7 +2706,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("i", "id", 0, "id of the pivot listener to stop")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2724,7 +2724,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Generate a new WireGuard client config",
 		LongHelp: help.GetHelpFor([]string{consts.WgConfigStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.String("s", "save", "", "save configuration to file (.conf)")
 		},
 		Run: func(ctx *grumble.Context) error {
@@ -2746,7 +2746,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 	}
 	wgPortFwdCmd.AddCommand(&grumble.Command{
@@ -2760,7 +2760,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.Int("b", "bind", 1080, "port to listen on the WireGuard tun interface")
 			f.String("r", "remote", "", "remote target host:port (e.g., 10.0.0.1:445)")
 		},
@@ -2779,7 +2779,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 	})
 	con.App.AddCommand(wgPortFwdCmd)
@@ -2795,7 +2795,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 	}
 	wgSocksCmd.AddCommand(&grumble.Command{
@@ -2809,7 +2809,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.Int("b", "bind", 3090, "port to listen on the WireGuard tun interface")
 		},
 	})
@@ -2827,7 +2827,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 	})
 	con.App.AddCommand(wgSocksCmd)
@@ -2839,7 +2839,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "In-band TCP port forwarding",
 		LongHelp: help.GetHelpFor([]string{consts.PortfwdStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2854,7 +2854,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Create a new port forwarding tunnel",
 		LongHelp: help.GetHelpFor([]string{consts.PortfwdStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.String("r", "remote", "", "remote target host:port (e.g., 10.0.0.1:445)")
 			f.String("b", "bind", "127.0.0.1:8080", "bind port forward to interface")
 		},
@@ -2871,7 +2871,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Remove a port forwarding tunnel",
 		LongHelp: help.GetHelpFor([]string{consts.PortfwdStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.Int("i", "id", 0, "id of portfwd to remove")
 		},
 		Run: func(ctx *grumble.Context) error {
@@ -2971,7 +2971,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Manage the server's loot store",
 		LongHelp: help.GetHelpFor([]string{consts.LootStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -2992,7 +2992,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("n", "name", "", "name of this piece of loot")
 			f.String("F", "file-type", "", "force a specific file type (binary/text)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3013,7 +3013,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("n", "name", "", "name of this piece of loot")
 			f.String("F", "file-type", "", "force a specific file type (binary/text)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3028,7 +3028,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Re-name a piece of existing loot",
 		LongHelp: help.GetHelpFor([]string{consts.LootStr, consts.RenameStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3046,7 +3046,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("s", "save", "", "save loot to a local file")
 			f.String("f", "filter", "", "filter based on loot type")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3063,7 +3063,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("f", "filter", "", "filter based on loot type")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3081,7 +3081,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Manage the database of credentials",
 		LongHelp: help.GetHelpFor([]string{consts.CredsStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3102,7 +3102,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("P", "hash", "", "hash of the credential")
 			f.String("H", "hash-type", "", "hash type of the credential (see: creds add --help)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3121,7 +3121,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("F", "file-format", creds.HashNewlineFormat, "file format of the credential file (see: creds add file --help)")
 			f.String("H", "hash-type", "", "hash type of the credential (see: creds add --help)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.String("file", "The path of the credential file")
@@ -3142,7 +3142,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("i", "id", "", "id of the credential to remove")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3160,7 +3160,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Manage the database of hosts",
 		LongHelp: help.GetHelpFor([]string{consts.HostsStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3175,7 +3175,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Remove a host from the database",
 		LongHelp: help.GetHelpFor([]string{consts.HostsStr, consts.RmStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3190,7 +3190,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Manage tracked IOCs on a given host",
 		LongHelp: help.GetHelpFor([]string{consts.HostsStr, consts.IOCStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3205,7 +3205,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Delete IOCs from the database",
 		LongHelp: help.GetHelpFor([]string{consts.HostsStr, consts.IOCStr, consts.RmStr}),
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3309,7 +3309,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("R", "reference-file", "", "Path to the reference DLL on the local system")
 			f.String("f", "file", "", "Local path to the DLL to plant for the hijack")
 			f.String("p", "profile", "", "Profile name to use as a base DLL")
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 	}
 	con.App.AddCommand(dllhijackCmd)
@@ -3327,7 +3327,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 	}
 	con.App.AddCommand(getprivsCmd)
@@ -3345,7 +3345,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 	}
 
@@ -3355,7 +3355,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp:  help.GetHelpFor([]string{consts.ExtensionsStr, consts.ListStr}),
 		HelpGroup: consts.SliverHelpGroup,
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3467,7 +3467,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp:  help.GetHelpFor([]string{consts.Cursed}),
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3482,7 +3482,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp:  help.GetHelpFor([]string{consts.Cursed, consts.CursedConsole}),
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 			f.Bool("k", "kill", false, "kill the process after removing the curse")
 		},
 		Args: func(a *grumble.Args) {
@@ -3503,7 +3503,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("r", "remote-debugging-port", 0, "remote debugging tcp port (0 = random)`")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3526,7 +3526,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("k", "keep-alive", false, "keeps browser alive after last browser window closes")
 			f.Bool("H", "headless", false, "start browser process in headless mode")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.StringList("args", "additional chrome cli arguments", grumble.Default([]string{}))
@@ -3552,7 +3552,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("k", "keep-alive", false, "keeps browser alive after last browser window closes")
 			f.Bool("H", "headless", false, "start browser process in headless mode")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.StringList("args", "additional edge cli arguments", grumble.Default([]string{}))
@@ -3573,7 +3573,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("e", "exe", "", "remote electron executable absolute path")
 			f.Int("r", "remote-debugging-port", 0, "remote debugging tcp port (0 = random)")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Args: func(a *grumble.Args) {
 			a.StringList("args", "additional electron cli arguments", grumble.Default([]string{}))
@@ -3593,7 +3593,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.String("s", "save", "", "save to file")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3611,7 +3611,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int64("q", "quality", 100, "screenshot quality (1 - 100)")
 			f.String("s", "save", "", "save to file")
 
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3629,7 +3629,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp:  help.GetHelpFor([]string{consts.BuildersStr}),
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3647,7 +3647,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp:  help.GetHelpFor([]string{consts.CrackStr}),
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3662,7 +3662,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp:  help.GetHelpFor([]string{consts.CrackStr, consts.StationsStr}),
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3672,5 +3672,54 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	}
 	crackCmd.AddCommand(crackStationsCmd)
+	wordlistsCmd := &grumble.Command{
+		Name:      consts.WordlistsStr,
+		Help:      "Manage wordlists",
+		LongHelp:  help.GetHelpFor([]string{consts.CrackStr, consts.WordlistsStr}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			crack.CrackWordlistsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	}
+	wordlistsCmd.AddCommand(&grumble.Command{
+		Name: consts.AddStr,
+		Help: "Add a wordlist",
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "wordlist name (blank = filename)")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("path", "path to local wordlist file", grumble.Default(""))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			crack.CrackWordlistsAddCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	wordlistsCmd.AddCommand(&grumble.Command{
+		Name: consts.RmStr,
+		Help: "Remove a wordlist",
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("name", "name of wordlist to remove", grumble.Default(""))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			crack.CrackWordlistsRmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	crackCmd.AddCommand(wordlistsCmd)
 	con.App.AddCommand(crackCmd)
 }

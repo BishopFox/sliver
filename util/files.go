@@ -21,13 +21,15 @@ package util
 import (
 	"archive/tar"
 	"bytes"
-	"compress/flate"
-	"compress/gzip"
+
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/klauspost/compress/flate"
+	"github.com/klauspost/compress/gzip"
 )
 
 // GzipBuf - Gzip a buffer

@@ -58,6 +58,8 @@ func newDBClient() *gorm.DB {
 		&models.Benchmark{},
 		&models.CrackTask{},
 		&models.CrackCommand{},
+		&models.CrackFile{},
+		&models.CrackFileChunk{},
 		&models.Certificate{},
 		&models.Host{},
 		&models.IOC{},

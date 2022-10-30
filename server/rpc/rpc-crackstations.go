@@ -20,11 +20,17 @@ package rpc
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
@@ -215,4 +221,196 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 			}
 		}
 	}
+}
+
+// ----------------------------------------------------------------------------------
+// CrackFile APIs - Synchronize word lists, rules, etc. with all the crackstation(s)
+// ----------------------------------------------------------------------------------
+func (rpc *Server) CrackFilesList(ctx context.Context, req *clientpb.CrackFile) (*clientpb.CrackFiles, error) {
+	crackFiles, err := db.CrackFilesByType(req.Type)
+	if err != nil {
+		crackRpcLog.Errorf("Failed to query crack files: %s", err)
+		return nil, status.Error(codes.Internal, "failed to query crack files")
+	}
+	crackCfg, _ := configs.LoadCrackConfig()
+	currentUsage, err := db.CrackFilesDiskUsage()
+	if err != nil {
+		crackRpcLog.Errorf("Failed to query crack file usage: %s", err)
+		return nil, status.Error(codes.Internal, "failed to query crack file usage")
+	}
+	pbCrackFiles := &clientpb.CrackFiles{
+		Files:            []*clientpb.CrackFile{},
+		CurrentDiskUsage: currentUsage,
+		MaxDiskUsage:     crackCfg.MaxDiskUsage,
+	}
+	for _, crackFile := range crackFiles {
+		pbCrackFiles.Files = append(pbCrackFiles.Files, crackFile.ToProtobuf())
+	}
+	return pbCrackFiles, nil
+}
+
+func (rpc *Server) CrackFileCreate(ctx context.Context, req *clientpb.CrackFile) (*clientpb.CrackFile, error) {
+	if len(req.Name) < 1 || 64 < len(req.Name) {
+		return nil, status.Error(codes.InvalidArgument, "invalid name length")
+	}
+	duplicateCrackFile, err := db.CrackWordlistByName(req.Name)
+	if err != db.ErrRecordNotFound || duplicateCrackFile != nil {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("duplicate name '%s'", req.Name))
+	}
+	usage, err := db.CrackFilesDiskUsage()
+	if err != nil {
+		crackRpcLog.Errorf("Failed to query crack files disk usage: %s", err)
+		return nil, status.Error(codes.Internal, "failed to query crack files disk usage")
+	}
+
+	// Slight TOCTOU here, but disk limit is a soft limit
+	crackCfg, _ := configs.LoadCrackConfig()
+	if req.UncompressedSize < 1 || crackCfg.MaxFileSize < req.UncompressedSize {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid file size %d", req.UncompressedSize))
+	}
+	if crackCfg.MaxDiskUsage < usage+req.UncompressedSize {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("disk usage limit exceeded: %d/%d", usage+req.UncompressedSize, crackCfg.MaxDiskUsage))
+	}
+
+	newCrackFile := &models.CrackFile{
+		Name:             req.Name,
+		UncompressedSize: req.UncompressedSize,
+		IsCompressed:     req.IsCompressed,
+		IsComplete:       false,
+	}
+	err = db.Session().Create(newCrackFile).Error
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to create crack file")
+	}
+	pbCrackFile := newCrackFile.ToProtobuf()
+	pbCrackFile.MaxFileSize = crackCfg.MaxFileSize
+	pbCrackFile.ChunkSize = crackCfg.ChunkSize
+	return pbCrackFile, nil
+}
+
+func (rpc *Server) CrackFileChunkUpload(ctx context.Context, req *clientpb.CrackFileChunk) (*commonpb.Empty, error) {
+	crackCfg, _ := configs.LoadCrackConfig()
+	if len(req.Data) < 1 || crackCfg.ChunkSize < int64(len(req.Data)) {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid data size %d", len(req.Data)))
+	}
+	crackFile, err := db.GetByCrackFileByID(req.CrackFileID)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, fmt.Sprintf("crack file not found '%s'", req.ID))
+	}
+	if crackFile.MaxN(crackCfg.ChunkSize) < req.N {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid chunk number (%d of %d)", req.N, crackFile.MaxN(crackCfg.ChunkSize)))
+	}
+	fileChunk := &models.CrackFileChunk{
+		CrackFileID: uuid.FromStringOrNil(req.CrackFileID),
+		N:           req.N,
+	}
+	err = db.Session().Create(fileChunk).Error
+	if err != nil {
+		rpcLog.Errorf("Failed to create crack file chunk: %s", err)
+		return nil, status.Error(codes.Internal, "failed to create crack file chunk (db)")
+	}
+	chunkDataDir := assets.GetChunkDataDir()
+	if chunkDataDir == "" {
+		rpcLog.Errorf("Failed to get chunk data directory")
+		return nil, status.Error(codes.Internal, "failed to create crack file chunk (fs)")
+	}
+	chunkDataPath := filepath.Join(chunkDataDir, fileChunk.ID.String())
+	err = os.WriteFile(chunkDataPath, req.Data, 0600)
+	if err != nil {
+		rpcLog.Errorf("Failed to write chunk data to %s: %s", chunkDataPath, err)
+		return nil, status.Error(codes.Internal, "failed to create crack file chunk (fs)")
+	}
+	return &commonpb.Empty{}, nil
+}
+
+func (rpc *Server) CrackFileComplete(ctx context.Context, req *clientpb.CrackFile) (*commonpb.Empty, error) {
+	crackFileID := uuid.FromStringOrNil(req.ID)
+	if crackFileID == uuid.Nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid crack file id")
+	}
+	if matched, _ := regexp.MatchString(`^[a-fA-F0-9]{64}$`, req.Sha2_256); !matched {
+		return nil, status.Error(codes.InvalidArgument, "invalid sha2-256")
+	}
+	crackFile := &models.CrackFile{ID: crackFileID}
+	err := db.Session().Where(crackFile).First(crackFile).Error
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "failed to create crack file id")
+	}
+	crackFile.Sha2_256 = req.Sha2_256
+	crackFile.IsComplete = true
+	err = db.Session().Save(crackFile).Error
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to complete crack file")
+	}
+	return &commonpb.Empty{}, nil
+}
+
+func (rpc *Server) CrackFileChunkDownload(ctx context.Context, req *clientpb.CrackFileChunk) (*clientpb.CrackFileChunk, error) {
+	crackFile, err := db.GetByCrackFileByID(req.ID)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "crack file not found")
+	}
+	if !crackFile.IsComplete {
+		return nil, status.Error(codes.FailedPrecondition, "crack file upload is not complete")
+	}
+
+	fileChunk := &models.CrackFileChunk{
+		CrackFileID: uuid.FromStringOrNil(req.ID),
+		N:           req.N,
+	}
+	err = db.Session().Where(fileChunk).First(fileChunk).Error
+	if err != nil {
+		rpcLog.Errorf("Failed to get crack file chunk: %s", err)
+		return nil, status.Error(codes.Internal, "failed to get crack file chunk (db)")
+	}
+	chunkDataDir := assets.GetChunkDataDir()
+	if chunkDataDir == "" {
+		rpcLog.Errorf("Failed to get chunk data directory")
+		return nil, status.Error(codes.Internal, "failed to get crack file chunk (fs)")
+	}
+	chunkDataPath := filepath.Join(chunkDataDir, fileChunk.ID.String())
+	data, err := os.ReadFile(chunkDataPath)
+	if err != nil {
+		rpcLog.Errorf("Failed to read chunk data from %s: %s", chunkDataPath, err)
+		return nil, status.Error(codes.Internal, "failed to get crack file chunk (fs)")
+	}
+	return &clientpb.CrackFileChunk{
+		CrackFileID: fileChunk.CrackFileID.String(),
+		N:           fileChunk.N,
+		Data:        data,
+	}, nil
+}
+
+func (rpc *Server) CrackFileDelete(ctx context.Context, req *clientpb.CrackFile) (*commonpb.Empty, error) {
+	crackFileID := uuid.FromStringOrNil(req.ID)
+	if crackFileID == uuid.Nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid crack file id")
+	}
+	crackFile, err := db.GetByCrackFileByID(req.ID)
+	if err != nil {
+		rpcLog.Errorf("Failed to get crack file: %s", err)
+		return nil, status.Error(codes.Internal, "failed to get crack file (db)")
+	}
+	chunkDataDir := assets.GetChunkDataDir()
+	if chunkDataDir == "" {
+		rpcLog.Errorf("Failed to get chunk data directory")
+		return nil, status.Error(codes.Internal, "failed to delete crack file (fs)")
+	}
+	rpcLog.Infof("Deleting crack file %s with %d chunk(s)", crackFile.ID, len(crackFile.Chunks))
+	for _, chunk := range crackFile.Chunks {
+		rpcLog.Infof("Deleting chunk: %s", chunk.ID)
+		chunkDataPath := filepath.Join(chunkDataDir, chunk.ID.String())
+		err = os.Remove(chunkDataPath)
+		if err != nil {
+			rpcLog.Errorf("Failed to delete chunk data from %s: %s", chunkDataPath, err)
+			return nil, status.Error(codes.Internal, "failed to delete crack file (fs)")
+		}
+		db.Session().Delete(chunk)
+	}
+	err = db.Session().Delete(crackFile).Error
+	if err != nil {
+		rpcLog.Errorf("Failed to delete crack file: %s", err)
+		return nil, status.Error(codes.Internal, "failed to delete crack file (db)")
+	}
+	return &commonpb.Empty{}, nil
 }

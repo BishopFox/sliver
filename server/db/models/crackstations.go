@@ -19,6 +19,7 @@ package models
 */
 
 import (
+	"math"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -41,7 +42,7 @@ func (c *Crackstation) BeforeCreate(tx *gorm.DB) (err error) {
 	return nil
 }
 
-// Crackstation - History of crackstation jobs
+// Benchmark - Performance information about the crackstation
 type Benchmark struct {
 	ID             uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt      time.Time `gorm:"->;<-:create;"`
@@ -58,6 +59,79 @@ func (b *Benchmark) BeforeCreate(tx *gorm.DB) (err error) {
 	}
 	b.CreatedAt = time.Now()
 	return nil
+}
+
+// CrackFile - Performance information about the crackstation
+type CrackFile struct {
+	ID               uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	CreatedAt        time.Time `gorm:"->;<-:create;"`
+	LastModified     time.Time
+	Name             string
+	UncompressedSize int64
+	Sha2_256         string
+	Type             int32
+	IsCompressed     bool
+	IsComplete       bool
+
+	Chunks []CrackFileChunk
+}
+
+// BeforeCreate - GORM hook
+func (c *CrackFile) BeforeCreate(tx *gorm.DB) (err error) {
+	c.ID, err = uuid.NewV4()
+	if err != nil {
+		return err
+	}
+	c.CreatedAt = time.Now()
+	return nil
+}
+
+func (c *CrackFile) MaxN(chunkSize int64) uint32 {
+	if chunkSize < 1 {
+		panic("invalid chunk size")
+	}
+	return uint32(math.Ceil(float64(c.UncompressedSize) / float64(chunkSize)))
+}
+
+func (c *CrackFile) ToProtobuf() *clientpb.CrackFile {
+	chunks := []*clientpb.CrackFileChunk{}
+	for _, chunk := range c.Chunks {
+		chunks = append(chunks, chunk.ToProtobuf())
+	}
+	return &clientpb.CrackFile{
+		ID:               c.ID.String(),
+		CreatedAt:        c.CreatedAt.Unix(),
+		LastModified:     c.LastModified.Unix(),
+		Name:             c.Name,
+		UncompressedSize: c.UncompressedSize,
+		Sha2_256:         c.Sha2_256,
+		Type:             clientpb.CrackFileType(c.Type),
+		IsCompressed:     c.IsCompressed,
+		Chunks:           chunks,
+	}
+}
+
+// CrackFileChunk - Performance information about the crackstation
+type CrackFileChunk struct {
+	ID          uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	CrackFileID uuid.UUID `gorm:"type:uuid;"`
+	N           uint32
+}
+
+// BeforeCreate - GORM hook
+func (c *CrackFileChunk) BeforeCreate(tx *gorm.DB) (err error) {
+	c.ID, err = uuid.NewV4()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *CrackFileChunk) ToProtobuf() *clientpb.CrackFileChunk {
+	return &clientpb.CrackFileChunk{
+		ID: c.ID.String(),
+		N:  c.N,
+	}
 }
 
 type CrackTask struct {

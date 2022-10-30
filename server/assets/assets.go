@@ -77,6 +77,18 @@ func GetRootAppDir() string {
 	return dir
 }
 
+func GetChunkDataDir() string {
+	chunkDir := filepath.Join(GetRootAppDir(), "crack", "chunks")
+	if _, err := os.Stat(chunkDir); os.IsNotExist(err) {
+		err = os.MkdirAll(chunkDir, 0700)
+		if err != nil {
+			setupLog.Errorf("Failed to create chunk data directory: %s", err)
+			return ""
+		}
+	}
+	return chunkDir
+}
+
 func assetVersion() string {
 	appDir := GetRootAppDir()
 	data, err := os.ReadFile(path.Join(appDir, versionFileName))

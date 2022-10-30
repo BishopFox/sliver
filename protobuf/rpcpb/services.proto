@@ -91,7 +91,14 @@ service SliverRPC {
     rpc Crackstations(commonpb.Empty) returns (clientpb.Crackstations);
     rpc CrackTaskByID(clientpb.CrackTask) returns (clientpb.CrackTask);
     rpc CrackTaskUpdate(clientpb.CrackTask) returns (commonpb.Empty);
+    rpc CrackFilesList(clientpb.CrackFile) returns (clientpb.CrackFiles);
+    rpc CrackFileCreate(clientpb.CrackFile) returns (clientpb.CrackFile);
+    rpc CrackFileChunkUpload(clientpb.CrackFileChunk) returns (commonpb.Empty);
+    rpc CrackFileChunkDownload(clientpb.CrackFileChunk) returns (clientpb.CrackFileChunk);
+    rpc CrackFileComplete(clientpb.CrackFile) returns (commonpb.Empty);
+    rpc CrackFileDelete(clientpb.CrackFile) returns (commonpb.Empty);
 
+    // *** Payloads ***
     rpc Regenerate(clientpb.RegenerateReq) returns (clientpb.Generate);
     rpc ImplantBuilds(commonpb.Empty) returns (clientpb.ImplantBuilds);
     rpc DeleteImplantBuild(clientpb.DeleteReq) returns (commonpb.Empty);
