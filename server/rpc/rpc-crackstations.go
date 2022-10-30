@@ -81,9 +81,19 @@ func (rpc *Server) CrackTaskUpdate(ctx context.Context, req *clientpb.CrackTask)
 	return &commonpb.Empty{}, err
 }
 
-func (rpc *Server) CrackstationBenchmark(ctx context.Context, req *clientpb.CrackTask) (*commonpb.Empty, error) {
-
-	return &commonpb.Empty{}, nil
+func (rpc *Server) CrackstationBenchmark(ctx context.Context, req *clientpb.CrackBenchmark) (*commonpb.Empty, error) {
+	crackstation, err := db.CrackstationByHostUUID(req.HostUUID)
+	if err != nil {
+		crackRpcLog.Errorf("Failed to get crackstation by host UUID: %s", err)
+		return nil, status.Errorf(codes.Internal, "Failed to find crackstation by host UUID")
+	}
+	crackstation.Benchmarks = []models.Benchmark{}
+	for hashType, speed := range req.Benchmarks {
+		crackstation.Benchmarks = append(crackstation.Benchmarks, models.Benchmark{HashType: hashType, PerSecondRate: speed})
+	}
+	dbSession := db.Session()
+	err = dbSession.Save(&crackstation).Error
+	return &commonpb.Empty{}, err
 }
 
 func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb.SliverRPC_CrackstationRegisterServer) error {

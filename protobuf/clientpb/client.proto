@@ -845,7 +845,7 @@ message CrackStatus {
 message CrackBenchmark {
   string Name = 1;
   string HostUUID = 2;
-  map<int32, int64> Benchmarks = 3;
+  map<int32, uint64> Benchmarks = 3;
 }
 
 message CrackTask {
