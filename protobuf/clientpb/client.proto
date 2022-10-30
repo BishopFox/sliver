@@ -1077,9 +1077,10 @@ message CrackConfig {
 }
 
 enum CrackFileType {
-  WORDLIST = 0;
-  RULES = 1;
-  MARKOV_HCSTAT2 = 2;
+  INVALID_TYPE = 0;
+  WORDLIST = 1;
+  RULES = 2;
+  MARKOV_HCSTAT2 = 3;
 }
 
 message CrackFiles {

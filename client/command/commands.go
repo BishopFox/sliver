@@ -3721,5 +3721,108 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	})
 	crackCmd.AddCommand(wordlistsCmd)
+	rulesCmd := &grumble.Command{
+		Name:      consts.RulesStr,
+		Help:      "Manage rule files",
+		LongHelp:  help.GetHelpFor([]string{consts.CrackStr, consts.RulesStr}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			crack.CrackRulesCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	}
+	rulesCmd.AddCommand(&grumble.Command{
+		Name:     consts.AddStr,
+		Help:     "Add a rules file",
+		LongHelp: help.GetHelpFor([]string{consts.CrackStr, consts.RulesStr, consts.AddStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "rules name (blank = filename)")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("path", "path to local rules file", grumble.Default(""))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			crack.CrackRulesAddCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	rulesCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove rules",
+		LongHelp: help.GetHelpFor([]string{consts.CrackStr, consts.RulesStr, consts.RmStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("name", "name of rules to remove", grumble.Default(""))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			// crack.CrackRulesRmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	crackCmd.AddCommand(rulesCmd)
+	hcstat2Cmd := &grumble.Command{
+		Name:      consts.Hcstat2Str,
+		Help:      "Manage markov hcstat2 files",
+		LongHelp:  help.GetHelpFor([]string{consts.CrackStr, consts.Hcstat2Str}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			crack.CrackHcstat2Cmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	}
+	hcstat2Cmd.AddCommand(&grumble.Command{
+		Name:     consts.AddStr,
+		Help:     "Add a hcstat2 file",
+		LongHelp: help.GetHelpFor([]string{consts.CrackStr, consts.Hcstat2Str, consts.AddStr}),
+		Flags: func(f *grumble.Flags) {
+			f.String("n", "name", "", "hcstat2 name (blank = filename)")
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("path", "path to local hcstat2 file", grumble.Default(""))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			crack.CrackHcstat2AddCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	hcstat2Cmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove hcstat2 file",
+		LongHelp: help.GetHelpFor([]string{consts.CrackStr, consts.Hcstat2Str, consts.RmStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("name", "name of hcstat2 to remove", grumble.Default(""))
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			// crack.CrackHcstat2RmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+	crackCmd.AddCommand(hcstat2Cmd)
+
 	con.App.AddCommand(crackCmd)
 }

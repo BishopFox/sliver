@@ -638,6 +638,15 @@ func CrackFilesByType(fileType clientpb.CrackFileType) ([]*models.CrackFile, err
 	return crackFiles, nil
 }
 
+func AllCrackFiles() ([]*models.CrackFile, error) {
+	crackFiles := []*models.CrackFile{}
+	err := Session().Preload("Chunks").Find(&crackFiles).Error
+	if err != nil {
+		return nil, err
+	}
+	return crackFiles, nil
+}
+
 // CrackWordlistByName - Get all files by crack file type
 func CrackWordlistByName(name string) (*models.CrackFile, error) {
 	crackFile := &models.CrackFile{}

@@ -271,6 +271,8 @@ const (
 	CrackStr     = "crack"
 	StationsStr  = "stations"
 	WordlistsStr = "wordlists"
+	RulesStr     = "rules"
+	Hcstat2Str   = "hcstat2"
 )
 
 // Groups

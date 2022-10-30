@@ -227,11 +227,20 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 // CrackFile APIs - Synchronize word lists, rules, etc. with all the crackstation(s)
 // ----------------------------------------------------------------------------------
 func (rpc *Server) CrackFilesList(ctx context.Context, req *clientpb.CrackFile) (*clientpb.CrackFiles, error) {
-	crackFiles, err := db.CrackFilesByType(req.Type)
+	var crackFiles []*models.CrackFile
+	var err error
+	if req.Type != clientpb.CrackFileType_INVALID_TYPE {
+		rpcLog.Infof("Listing crack files of type %s", req.Type.String())
+		crackFiles, err = db.CrackFilesByType(req.Type)
+		rpcLog.Infof("Found %d of given type", len(crackFiles))
+	} else {
+		crackFiles, err = db.AllCrackFiles()
+	}
 	if err != nil {
 		crackRpcLog.Errorf("Failed to query crack files: %s", err)
 		return nil, status.Error(codes.Internal, "failed to query crack files")
 	}
+
 	crackCfg, _ := configs.LoadCrackConfig()
 	currentUsage, err := db.CrackFilesDiskUsage()
 	if err != nil {
@@ -274,6 +283,7 @@ func (rpc *Server) CrackFileCreate(ctx context.Context, req *clientpb.CrackFile)
 
 	newCrackFile := &models.CrackFile{
 		Name:             req.Name,
+		Type:             int32(req.Type),
 		UncompressedSize: req.UncompressedSize,
 		IsCompressed:     req.IsCompressed,
 		IsComplete:       false,

@@ -35,10 +35,18 @@ import (
 func CrackCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if !AreCrackersOnline(con) {
 		PrintNoCrackstations(con)
+	}
+	crackFiles, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
 		return
 	}
-
-	// do stuff
+	if len(crackFiles.Files) == 0 {
+		con.PrintInfof("No crack files uploaded to server\n")
+	} else {
+		con.Println()
+		PrintCrackFilesByType(crackFiles, con)
+	}
 }
 
 // CrackStationsCmd - Manage GPU cracking stations
