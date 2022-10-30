@@ -87,6 +87,7 @@ service SliverRPC {
     // *** Crackstation ***
     rpc CrackstationRegister(clientpb.Crackstation) returns (stream clientpb.Event);
     rpc CrackstationTrigger(clientpb.Event) returns (commonpb.Empty);
+    rpc CrackstationBenchmark(clientpb.CrackBenchmark) returns (commonpb.Empty);
     rpc Crackstations(commonpb.Empty) returns (clientpb.Crackstations);
     rpc CrackTaskByID(clientpb.CrackTask) returns (clientpb.CrackTask);
     rpc CrackTaskUpdate(clientpb.CrackTask) returns (commonpb.Empty);

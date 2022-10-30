@@ -85,6 +85,7 @@ type SliverRPCClient interface {
 	// *** Crackstation ***
 	CrackstationRegister(ctx context.Context, in *clientpb.Crackstation, opts ...grpc.CallOption) (SliverRPC_CrackstationRegisterClient, error)
 	CrackstationTrigger(ctx context.Context, in *clientpb.Event, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	CrackstationBenchmark(ctx context.Context, in *clientpb.CrackBenchmark, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	Crackstations(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Crackstations, error)
 	CrackTaskByID(ctx context.Context, in *clientpb.CrackTask, opts ...grpc.CallOption) (*clientpb.CrackTask, error)
 	CrackTaskUpdate(ctx context.Context, in *clientpb.CrackTask, opts ...grpc.CallOption) (*commonpb.Empty, error)
@@ -682,6 +683,15 @@ func (x *sliverRPCCrackstationRegisterClient) Recv() (*clientpb.Event, error) {
 func (c *sliverRPCClient) CrackstationTrigger(ctx context.Context, in *clientpb.Event, opts ...grpc.CallOption) (*commonpb.Empty, error) {
 	out := new(commonpb.Empty)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CrackstationTrigger", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) CrackstationBenchmark(ctx context.Context, in *clientpb.CrackBenchmark, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CrackstationBenchmark", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1687,6 +1697,7 @@ type SliverRPCServer interface {
 	// *** Crackstation ***
 	CrackstationRegister(*clientpb.Crackstation, SliverRPC_CrackstationRegisterServer) error
 	CrackstationTrigger(context.Context, *clientpb.Event) (*commonpb.Empty, error)
+	CrackstationBenchmark(context.Context, *clientpb.CrackBenchmark) (*commonpb.Empty, error)
 	Crackstations(context.Context, *commonpb.Empty) (*clientpb.Crackstations, error)
 	CrackTaskByID(context.Context, *clientpb.CrackTask) (*clientpb.CrackTask, error)
 	CrackTaskUpdate(context.Context, *clientpb.CrackTask) (*commonpb.Empty, error)
@@ -1946,6 +1957,9 @@ func (UnimplementedSliverRPCServer) CrackstationRegister(*clientpb.Crackstation,
 }
 func (UnimplementedSliverRPCServer) CrackstationTrigger(context.Context, *clientpb.Event) (*commonpb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CrackstationTrigger not implemented")
+}
+func (UnimplementedSliverRPCServer) CrackstationBenchmark(context.Context, *clientpb.CrackBenchmark) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CrackstationBenchmark not implemented")
 }
 func (UnimplementedSliverRPCServer) Crackstations(context.Context, *commonpb.Empty) (*clientpb.Crackstations, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Crackstations not implemented")
@@ -3132,6 +3146,24 @@ func _SliverRPC_CrackstationTrigger_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).CrackstationTrigger(ctx, req.(*clientpb.Event))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_CrackstationBenchmark_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.CrackBenchmark)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).CrackstationBenchmark(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/CrackstationBenchmark",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).CrackstationBenchmark(ctx, req.(*clientpb.CrackBenchmark))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -5077,6 +5109,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CrackstationTrigger",
 			Handler:    _SliverRPC_CrackstationTrigger_Handler,
+		},
+		{
+			MethodName: "CrackstationBenchmark",
+			Handler:    _SliverRPC_CrackstationBenchmark_Handler,
 		},
 		{
 			MethodName: "Crackstations",

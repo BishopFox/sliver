@@ -81,6 +81,11 @@ func (rpc *Server) CrackTaskUpdate(ctx context.Context, req *clientpb.CrackTask)
 	return &commonpb.Empty{}, err
 }
 
+func (rpc *Server) CrackstationBenchmark(ctx context.Context, req *clientpb.CrackTask) (*commonpb.Empty, error) {
+
+	return &commonpb.Empty{}, nil
+}
+
 func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb.SliverRPC_CrackstationRegisterServer) error {
 	hostUUID := uuid.FromStringOrNil(req.HostUUID)
 	if hostUUID == uuid.Nil {
