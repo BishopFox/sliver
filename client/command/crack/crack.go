@@ -83,7 +83,7 @@ func PrintCrackers(crackers []*clientpb.Crackstation, con *console.SliverConsole
 func printCracker(cracker *clientpb.Crackstation, index int, con *console.SliverConsoleClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	tw.SetTitle(console.Bold + fmt.Sprintf(">>> Crackstation %02d - %s (%s)", index+1, cracker.Name, cracker.OperatorName) + console.Normal + "\n")
+	tw.SetTitle(console.Bold + console.Orange + fmt.Sprintf(">>> Crackstation %02d - %s (%s)", index+1, cracker.Name, cracker.OperatorName) + console.Normal + "\n")
 	tw.AppendSeparator()
 	tw.AppendRow(table.Row{console.Bold + "Operating System" + console.Normal, fmt.Sprintf("%s/%s", cracker.GOOS, cracker.GOARCH)})
 	tw.AppendRow(table.Row{console.Bold + "Hashcat Version" + console.Normal, cracker.HashcatVersion})
@@ -113,6 +113,20 @@ func printCracker(cracker *clientpb.Crackstation, index int, con *console.Sliver
 			tw.AppendRow(table.Row{console.Bold + "Clock" + console.Normal, fmt.Sprintf("%d", openCL.Clock)})
 			tw.AppendRow(table.Row{console.Bold + "Processors" + console.Normal, fmt.Sprintf("%d", openCL.Processors)})
 		}
+	}
+	con.Printf("%s\n", tw.Render())
+	con.Println()
+	printBenchmarks(cracker, con)
+}
+
+func printBenchmarks(cracker *clientpb.Crackstation, con *console.SliverConsoleClient) {
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.SetTitle(console.Bold + "Benchmarks" + console.Normal)
+	tw.SortBy([]table.SortBy{{Name: "Hash Type"}})
+	tw.AppendHeader(table.Row{"Hash Type", "Per Second"})
+	for hashType, speed := range cracker.Benchmarks {
+		tw.AppendRow(table.Row{clientpb.HashType(hashType), fmt.Sprintf("%d", speed)})
 	}
 	con.Printf("%s\n", tw.Render())
 }

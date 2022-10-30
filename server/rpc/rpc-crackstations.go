@@ -41,7 +41,19 @@ var (
 )
 
 func (rpc *Server) Crackstations(ctx context.Context, req *commonpb.Empty) (*clientpb.Crackstations, error) {
-	return &clientpb.Crackstations{Crackstations: core.AllCrackstations()}, nil
+	crackstations := core.AllCrackstations()
+	for _, crackstation := range crackstations {
+		crackstation.Benchmarks = map[int32]uint64{}
+		dbCrackstation, err := db.CrackstationByHostUUID(crackstation.HostUUID)
+		if err != nil {
+			crackRpcLog.Errorf("Failed to get crackstation by host UUID: %s", err)
+			return nil, status.Errorf(codes.NotFound, "Failed to find crackstation by host UUID")
+		}
+		for _, benchmark := range dbCrackstation.Benchmarks {
+			crackstation.Benchmarks[benchmark.HashType] = benchmark.PerSecondRate
+		}
+	}
+	return &clientpb.Crackstations{Crackstations: crackstations}, nil
 }
 
 func (rpc *Server) CrackstationTrigger(ctx context.Context, req *clientpb.Event) (*commonpb.Empty, error) {
@@ -69,23 +81,30 @@ func (rpc *Server) CrackTaskByID(ctx context.Context, req *clientpb.CrackTask) (
 	task, err := db.GetCrackTaskByID(req.ID)
 	if err != nil {
 		crackRpcLog.Errorf("Failed to get crack task by ID: %s", err)
-		return nil, status.Errorf(codes.Internal, "Failed to get crack task by ID")
+		return nil, status.Errorf(codes.NotFound, "Failed to get crack task by ID")
 	}
 	return task.ToProtobuf(), nil
 }
 
 func (rpc *Server) CrackTaskUpdate(ctx context.Context, req *clientpb.CrackTask) (*commonpb.Empty, error) {
 	taskUpdate := models.CrackTask{}.FromProtobuf(req)
-	dbSession := db.Session()
-	err := dbSession.Save(&taskUpdate).Error
-	return &commonpb.Empty{}, err
+	err := db.Session().Save(&taskUpdate).Error
+	if err != nil {
+		crackRpcLog.Errorf("Failed to update crack task: %s", err)
+		return nil, status.Errorf(codes.Internal, "Failed to update crack task")
+	}
+	return &commonpb.Empty{}, nil
 }
 
 func (rpc *Server) CrackstationBenchmark(ctx context.Context, req *clientpb.CrackBenchmark) (*commonpb.Empty, error) {
+	hostUUID := uuid.FromStringOrNil(req.HostUUID)
+	if hostUUID == uuid.Nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid host uuid")
+	}
 	crackstation, err := db.CrackstationByHostUUID(req.HostUUID)
 	if err != nil {
 		crackRpcLog.Errorf("Failed to get crackstation by host UUID: %s", err)
-		return nil, status.Errorf(codes.Internal, "Failed to find crackstation by host UUID")
+		return nil, status.Errorf(codes.NotFound, "Failed to find crackstation by host UUID")
 	}
 	crackstation.Benchmarks = []models.Benchmark{}
 	for hashType, speed := range req.Benchmarks {
@@ -93,7 +112,11 @@ func (rpc *Server) CrackstationBenchmark(ctx context.Context, req *clientpb.Crac
 	}
 	dbSession := db.Session()
 	err = dbSession.Save(&crackstation).Error
-	return &commonpb.Empty{}, err
+	if err != nil {
+		crackRpcLog.Errorf("Failed to save crackstation benchmarks: %s", err)
+		return nil, status.Errorf(codes.Internal, "Failed to save crackstation benchmarks")
+	}
+	return &commonpb.Empty{}, nil
 }
 
 func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb.SliverRPC_CrackstationRegisterServer) error {

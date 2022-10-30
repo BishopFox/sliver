@@ -867,6 +867,7 @@ message Crackstation {
   string HashcatVersion = 5;
   string HostUUID = 6;
   string Version = 7;
+  map<int32, uint64> Benchmarks = 8;
 
   repeated CUDABackendInfo CUDA = 100;
   repeated MetalBackendInfo Metal = 101;
