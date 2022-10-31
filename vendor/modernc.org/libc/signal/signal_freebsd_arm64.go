@@ -139,9 +139,9 @@ const (
 	X_MC_HASBASES          = 0x2     // ucontext.h:102:1:
 	X_MC_HASFPXSTATE       = 0x4     // ucontext.h:103:1:
 	X_MC_HASSEGS           = 0x1     // ucontext.h:101:1:
-	X_Nonnull              = 0       // cdefs.h:783:1:
-	X_Null_unspecified     = 0       // cdefs.h:785:1:
-	X_Nullable             = 0       // cdefs.h:784:1:
+	X_Nonnull              = 0       // cdefs.h:790:1:
+	X_Null_unspecified     = 0       // cdefs.h:792:1:
+	X_Nullable             = 0       // cdefs.h:791:1:
 	X_PID_T_DECLARED       = 0       // signal.h:61:1:
 	X_PTHREAD_T_DECLARED   = 0       // _pthreadtypes.h:68:1:
 	X_SIGNAL_H_            = 0       // signal.h:36:1:
@@ -160,7 +160,7 @@ const (
 	X_UID_T_DECLARED       = 0       // signal.h:62:1:
 	X_X86_SIGNAL_H         = 1       // signal.h:37:1:
 	X_X86_UCONTEXT_H_      = 0       // ucontext.h:35:1:
-	Unix                   = 1       // <predefined>:337:1:
+	Unix                   = 1       // <predefined>:340:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */
@@ -430,11 +430,14 @@ type X__float128 = float64        /* <builtin>:47:21 */
 
 // Function should not be analyzed.
 
-// Function or variable should not be sanitized, i.e. by AddressSanitizer.
+// Function or variable should not be sanitized, e.g., by AddressSanitizer.
 // GCC has the nosanitize attribute, but as a function attribute only, and
 // warns on use as a variable attribute.
 
 // Guard variables and structure members by lock.
+
+// Alignment builtins for better type checking and improved code generation.
+// Provide fallback versions for other compilers (GCC/Clang < 10):
 
 // -
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD

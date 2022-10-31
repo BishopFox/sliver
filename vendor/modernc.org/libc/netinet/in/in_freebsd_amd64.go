@@ -15,40 +15,42 @@ var _ atomic.Value
 var _ unsafe.Pointer
 
 const (
-	BIG_ENDIAN                    = 4321       // endian.h:63:1:
-	BYTE_ORDER                    = 1234       // endian.h:65:1:
+	BIG_ENDIAN                    = 4321       // _endian.h:70:1:
+	BYTE_ORDER                    = 1234       // _endian.h:72:1:
 	ICMP6_FILTER                  = 18         // in6.h:420:1:
 	ICMPV6CTL_ND6_ONLINKNSRFC4861 = 47         // in6.h:638:1:
 	INET6_ADDRSTRLEN              = 46         // in6.h:112:1:
 	INET_ADDRSTRLEN               = 16         // in.h:130:1:
-	IN_CLASSA_HOST                = 0x00ffffff // in.h:352:1:
-	IN_CLASSA_MAX                 = 128        // in.h:353:1:
-	IN_CLASSA_NET                 = 0xff000000 // in.h:350:1:
-	IN_CLASSA_NSHIFT              = 24         // in.h:351:1:
-	IN_CLASSB_HOST                = 0x0000ffff // in.h:358:1:
-	IN_CLASSB_MAX                 = 65536      // in.h:359:1:
-	IN_CLASSB_NET                 = 0xffff0000 // in.h:356:1:
-	IN_CLASSB_NSHIFT              = 16         // in.h:357:1:
-	IN_CLASSC_HOST                = 0x000000ff // in.h:364:1:
-	IN_CLASSC_NET                 = 0xffffff00 // in.h:362:1:
-	IN_CLASSC_NSHIFT              = 8          // in.h:363:1:
-	IN_CLASSD_HOST                = 0x0fffffff // in.h:369:1:
-	IN_CLASSD_NET                 = 0xf0000000 // in.h:367:1:
-	IN_CLASSD_NSHIFT              = 28         // in.h:368:1:
-	IN_LOOPBACKNET                = 127        // in.h:401:1:
-	IPCTL_ACCEPTSOURCEROUTE       = 13         // in.h:634:1:
-	IPCTL_DEFTTL                  = 3          // in.h:622:1:
-	IPCTL_DIRECTEDBROADCAST       = 9          // in.h:630:1:
-	IPCTL_FASTFORWARDING          = 14         // in.h:635:1:
-	IPCTL_FORWARDING              = 1          // in.h:620:1:
-	IPCTL_GIF_TTL                 = 16         // in.h:637:1:
-	IPCTL_INTRDQDROPS             = 18         // in.h:639:1:
-	IPCTL_INTRDQMAXLEN            = 17         // in.h:638:1:
-	IPCTL_INTRQDROPS              = 11         // in.h:632:1:
-	IPCTL_INTRQMAXLEN             = 10         // in.h:631:1:
-	IPCTL_SENDREDIRECTS           = 2          // in.h:621:1:
-	IPCTL_SOURCEROUTE             = 8          // in.h:629:1:
-	IPCTL_STATS                   = 12         // in.h:633:1:
+	IN_CLASSA_HOST                = 0x00ffffff // in.h:357:1:
+	IN_CLASSA_MAX                 = 128        // in.h:358:1:
+	IN_CLASSA_NET                 = 0xff000000 // in.h:355:1:
+	IN_CLASSA_NSHIFT              = 24         // in.h:356:1:
+	IN_CLASSB_HOST                = 0x0000ffff // in.h:363:1:
+	IN_CLASSB_MAX                 = 65536      // in.h:364:1:
+	IN_CLASSB_NET                 = 0xffff0000 // in.h:361:1:
+	IN_CLASSB_NSHIFT              = 16         // in.h:362:1:
+	IN_CLASSC_HOST                = 0x000000ff // in.h:369:1:
+	IN_CLASSC_NET                 = 0xffffff00 // in.h:367:1:
+	IN_CLASSC_NSHIFT              = 8          // in.h:368:1:
+	IN_CLASSD_HOST                = 0x0fffffff // in.h:379:1:
+	IN_CLASSD_NET                 = 0xf0000000 // in.h:377:1:
+	IN_CLASSD_NSHIFT              = 28         // in.h:378:1:
+	IN_HISTORICAL_NETS            = 0          // in.h:351:1:
+	IN_LOOPBACKNET                = 127        // in.h:412:1:
+	IN_NETMASK_DEFAULT            = 0xffffff00 // in.h:372:1:
+	IPCTL_ACCEPTSOURCEROUTE       = 13         // in.h:646:1:
+	IPCTL_DEFTTL                  = 3          // in.h:634:1:
+	IPCTL_DIRECTEDBROADCAST       = 9          // in.h:642:1:
+	IPCTL_FASTFORWARDING          = 14         // in.h:647:1:
+	IPCTL_FORWARDING              = 1          // in.h:632:1:
+	IPCTL_GIF_TTL                 = 16         // in.h:649:1:
+	IPCTL_INTRDQDROPS             = 18         // in.h:651:1:
+	IPCTL_INTRDQMAXLEN            = 17         // in.h:650:1:
+	IPCTL_INTRQDROPS              = 11         // in.h:644:1:
+	IPCTL_INTRQMAXLEN             = 10         // in.h:643:1:
+	IPCTL_SENDREDIRECTS           = 2          // in.h:633:1:
+	IPCTL_SOURCEROUTE             = 8          // in.h:641:1:
+	IPCTL_STATS                   = 12         // in.h:645:1:
 	IPPORT_EPHEMERALFIRST         = 10000      // in.h:325:1:
 	IPPORT_EPHEMERALLAST          = 65535      // in.h:326:1:
 	IPPORT_HIFIRSTAUTO            = 49152      // in.h:331:1:
@@ -284,123 +286,124 @@ const (
 	IPV6_USE_MIN_MTU              = 42         // in6.h:460:1:
 	IPV6_V6ONLY                   = 27         // in6.h:433:1:
 	IPV6_VLAN_PCP                 = 75         // in6.h:515:1:
-	IP_ADD_MEMBERSHIP             = 12         // in.h:422:1:
-	IP_ADD_SOURCE_MEMBERSHIP      = 70         // in.h:478:1:
-	IP_BINDANY                    = 24         // in.h:435:1:
-	IP_BINDMULTI                  = 25         // in.h:436:1:
-	IP_BLOCK_SOURCE               = 72         // in.h:480:1:
-	IP_DEFAULT_MULTICAST_LOOP     = 1          // in.h:509:1:
-	IP_DEFAULT_MULTICAST_TTL      = 1          // in.h:508:1:
-	IP_DONTFRAG                   = 67         // in.h:474:1:
-	IP_DROP_MEMBERSHIP            = 13         // in.h:423:1:
-	IP_DROP_SOURCE_MEMBERSHIP     = 71         // in.h:479:1:
-	IP_DUMMYNET3                  = 49         // in.h:453:1:
-	IP_DUMMYNET_CONFIGURE         = 60         // in.h:467:1:
-	IP_DUMMYNET_DEL               = 61         // in.h:468:1:
-	IP_DUMMYNET_FLUSH             = 62         // in.h:469:1:
-	IP_DUMMYNET_GET               = 64         // in.h:470:1:
-	IP_FLOWID                     = 90         // in.h:499:1:
-	IP_FLOWTYPE                   = 91         // in.h:500:1:
-	IP_FW3                        = 48         // in.h:452:1:
-	IP_FW_ADD                     = 50         // in.h:455:1:
-	IP_FW_DEL                     = 51         // in.h:456:1:
-	IP_FW_FLUSH                   = 52         // in.h:457:1:
-	IP_FW_GET                     = 54         // in.h:459:1:
-	IP_FW_NAT_CFG                 = 56         // in.h:462:1:
-	IP_FW_NAT_DEL                 = 57         // in.h:463:1:
-	IP_FW_NAT_GET_CONFIG          = 58         // in.h:464:1:
-	IP_FW_NAT_GET_LOG             = 59         // in.h:465:1:
-	IP_FW_RESETLOG                = 55         // in.h:460:1:
-	IP_FW_TABLE_ADD               = 40         // in.h:446:1:
-	IP_FW_TABLE_DEL               = 41         // in.h:447:1:
-	IP_FW_TABLE_FLUSH             = 42         // in.h:448:1:
-	IP_FW_TABLE_GETSIZE           = 43         // in.h:449:1:
-	IP_FW_TABLE_LIST              = 44         // in.h:450:1:
-	IP_FW_ZERO                    = 53         // in.h:458:1:
-	IP_HDRINCL                    = 2          // in.h:410:1:
-	IP_IPSEC_POLICY               = 21         // in.h:432:1:
-	IP_MAX_GROUP_SRC_FILTER       = 512        // in.h:520:1:
-	IP_MAX_MEMBERSHIPS            = 4095       // in.h:514:1:
-	IP_MAX_SOCK_MUTE_FILTER       = 128        // in.h:522:1:
-	IP_MAX_SOCK_SRC_FILTER        = 128        // in.h:521:1:
-	IP_MINTTL                     = 66         // in.h:473:1:
-	IP_MSFILTER                   = 74         // in.h:484:1:
-	IP_MULTICAST_IF               = 9          // in.h:418:1:
-	IP_MULTICAST_LOOP             = 11         // in.h:421:1:
-	IP_MULTICAST_TTL              = 10         // in.h:420:1:
-	IP_MULTICAST_VIF              = 14         // in.h:424:1:
-	IP_ONESBCAST                  = 23         // in.h:434:1:
-	IP_OPTIONS                    = 1          // in.h:409:1:
-	IP_ORIGDSTADDR                = 27         // in.h:438:1:
-	IP_PORTRANGE                  = 19         // in.h:429:1:
-	IP_PORTRANGE_DEFAULT          = 0          // in.h:613:1:
-	IP_PORTRANGE_HIGH             = 1          // in.h:614:1:
-	IP_PORTRANGE_LOW              = 2          // in.h:615:1:
-	IP_RECVDSTADDR                = 7          // in.h:415:1:
-	IP_RECVFLOWID                 = 93         // in.h:502:1:
-	IP_RECVIF                     = 20         // in.h:430:1:
-	IP_RECVOPTS                   = 5          // in.h:413:1:
-	IP_RECVORIGDSTADDR            = 27         // in.h:439:1:
-	IP_RECVRETOPTS                = 6          // in.h:414:1:
-	IP_RECVRSSBUCKETID            = 94         // in.h:503:1:
-	IP_RECVTOS                    = 68         // in.h:475:1:
-	IP_RECVTTL                    = 65         // in.h:472:1:
-	IP_RETOPTS                    = 8          // in.h:417:1:
-	IP_RSSBUCKETID                = 92         // in.h:501:1:
-	IP_RSS_LISTEN_BUCKET          = 26         // in.h:437:1:
-	IP_RSVP_OFF                   = 16         // in.h:426:1:
-	IP_RSVP_ON                    = 15         // in.h:425:1:
-	IP_RSVP_VIF_OFF               = 18         // in.h:428:1:
-	IP_RSVP_VIF_ON                = 17         // in.h:427:1:
-	IP_SENDSRCADDR                = 7          // in.h:416:1:
-	IP_TOS                        = 3          // in.h:411:1:
-	IP_TTL                        = 4          // in.h:412:1:
-	IP_UNBLOCK_SOURCE             = 73         // in.h:481:1:
-	IP_VLAN_PCP                   = 75         // in.h:487:1:
-	LITTLE_ENDIAN                 = 1234       // endian.h:62:1:
-	MCAST_BLOCK_SOURCE            = 84         // in.h:495:1:
-	MCAST_EXCLUDE                 = 2          // in.h:607:1:
-	MCAST_INCLUDE                 = 1          // in.h:606:1:
-	MCAST_JOIN_GROUP              = 80         // in.h:491:1:
-	MCAST_JOIN_SOURCE_GROUP       = 82         // in.h:493:1:
-	MCAST_LEAVE_GROUP             = 81         // in.h:492:1:
-	MCAST_LEAVE_SOURCE_GROUP      = 83         // in.h:494:1:
-	MCAST_UNBLOCK_SOURCE          = 85         // in.h:496:1:
-	MCAST_UNDEFINED               = 0          // in.h:605:1:
-	PDP_ENDIAN                    = 3412       // endian.h:64:1:
+	IP_ADD_MEMBERSHIP             = 12         // in.h:434:1:
+	IP_ADD_SOURCE_MEMBERSHIP      = 70         // in.h:490:1:
+	IP_BINDANY                    = 24         // in.h:447:1:
+	IP_BINDMULTI                  = 25         // in.h:448:1:
+	IP_BLOCK_SOURCE               = 72         // in.h:492:1:
+	IP_DEFAULT_MULTICAST_LOOP     = 1          // in.h:521:1:
+	IP_DEFAULT_MULTICAST_TTL      = 1          // in.h:520:1:
+	IP_DONTFRAG                   = 67         // in.h:486:1:
+	IP_DROP_MEMBERSHIP            = 13         // in.h:435:1:
+	IP_DROP_SOURCE_MEMBERSHIP     = 71         // in.h:491:1:
+	IP_DUMMYNET3                  = 49         // in.h:465:1:
+	IP_DUMMYNET_CONFIGURE         = 60         // in.h:479:1:
+	IP_DUMMYNET_DEL               = 61         // in.h:480:1:
+	IP_DUMMYNET_FLUSH             = 62         // in.h:481:1:
+	IP_DUMMYNET_GET               = 64         // in.h:482:1:
+	IP_FLOWID                     = 90         // in.h:511:1:
+	IP_FLOWTYPE                   = 91         // in.h:512:1:
+	IP_FW3                        = 48         // in.h:464:1:
+	IP_FW_ADD                     = 50         // in.h:467:1:
+	IP_FW_DEL                     = 51         // in.h:468:1:
+	IP_FW_FLUSH                   = 52         // in.h:469:1:
+	IP_FW_GET                     = 54         // in.h:471:1:
+	IP_FW_NAT_CFG                 = 56         // in.h:474:1:
+	IP_FW_NAT_DEL                 = 57         // in.h:475:1:
+	IP_FW_NAT_GET_CONFIG          = 58         // in.h:476:1:
+	IP_FW_NAT_GET_LOG             = 59         // in.h:477:1:
+	IP_FW_RESETLOG                = 55         // in.h:472:1:
+	IP_FW_TABLE_ADD               = 40         // in.h:458:1:
+	IP_FW_TABLE_DEL               = 41         // in.h:459:1:
+	IP_FW_TABLE_FLUSH             = 42         // in.h:460:1:
+	IP_FW_TABLE_GETSIZE           = 43         // in.h:461:1:
+	IP_FW_TABLE_LIST              = 44         // in.h:462:1:
+	IP_FW_ZERO                    = 53         // in.h:470:1:
+	IP_HDRINCL                    = 2          // in.h:422:1:
+	IP_IPSEC_POLICY               = 21         // in.h:444:1:
+	IP_MAX_GROUP_SRC_FILTER       = 512        // in.h:532:1:
+	IP_MAX_MEMBERSHIPS            = 4095       // in.h:526:1:
+	IP_MAX_SOCK_MUTE_FILTER       = 128        // in.h:534:1:
+	IP_MAX_SOCK_SRC_FILTER        = 128        // in.h:533:1:
+	IP_MINTTL                     = 66         // in.h:485:1:
+	IP_MSFILTER                   = 74         // in.h:496:1:
+	IP_MULTICAST_IF               = 9          // in.h:430:1:
+	IP_MULTICAST_LOOP             = 11         // in.h:433:1:
+	IP_MULTICAST_TTL              = 10         // in.h:432:1:
+	IP_MULTICAST_VIF              = 14         // in.h:436:1:
+	IP_ONESBCAST                  = 23         // in.h:446:1:
+	IP_OPTIONS                    = 1          // in.h:421:1:
+	IP_ORIGDSTADDR                = 27         // in.h:450:1:
+	IP_PORTRANGE                  = 19         // in.h:441:1:
+	IP_PORTRANGE_DEFAULT          = 0          // in.h:625:1:
+	IP_PORTRANGE_HIGH             = 1          // in.h:626:1:
+	IP_PORTRANGE_LOW              = 2          // in.h:627:1:
+	IP_RECVDSTADDR                = 7          // in.h:427:1:
+	IP_RECVFLOWID                 = 93         // in.h:514:1:
+	IP_RECVIF                     = 20         // in.h:442:1:
+	IP_RECVOPTS                   = 5          // in.h:425:1:
+	IP_RECVORIGDSTADDR            = 27         // in.h:451:1:
+	IP_RECVRETOPTS                = 6          // in.h:426:1:
+	IP_RECVRSSBUCKETID            = 94         // in.h:515:1:
+	IP_RECVTOS                    = 68         // in.h:487:1:
+	IP_RECVTTL                    = 65         // in.h:484:1:
+	IP_RETOPTS                    = 8          // in.h:429:1:
+	IP_RSSBUCKETID                = 92         // in.h:513:1:
+	IP_RSS_LISTEN_BUCKET          = 26         // in.h:449:1:
+	IP_RSVP_OFF                   = 16         // in.h:438:1:
+	IP_RSVP_ON                    = 15         // in.h:437:1:
+	IP_RSVP_VIF_OFF               = 18         // in.h:440:1:
+	IP_RSVP_VIF_ON                = 17         // in.h:439:1:
+	IP_SENDSRCADDR                = 7          // in.h:428:1:
+	IP_TOS                        = 3          // in.h:423:1:
+	IP_TTL                        = 4          // in.h:424:1:
+	IP_UNBLOCK_SOURCE             = 73         // in.h:493:1:
+	IP_VLAN_PCP                   = 75         // in.h:499:1:
+	LITTLE_ENDIAN                 = 1234       // _endian.h:69:1:
+	MCAST_BLOCK_SOURCE            = 84         // in.h:507:1:
+	MCAST_EXCLUDE                 = 2          // in.h:619:1:
+	MCAST_INCLUDE                 = 1          // in.h:618:1:
+	MCAST_JOIN_GROUP              = 80         // in.h:503:1:
+	MCAST_JOIN_SOURCE_GROUP       = 82         // in.h:505:1:
+	MCAST_LEAVE_GROUP             = 81         // in.h:504:1:
+	MCAST_LEAVE_SOURCE_GROUP      = 83         // in.h:506:1:
+	MCAST_UNBLOCK_SOURCE          = 85         // in.h:508:1:
+	MCAST_UNDEFINED               = 0          // in.h:617:1:
+	PDP_ENDIAN                    = 3412       // _endian.h:71:1:
 	SIN6_LEN                      = 0          // in6.h:122:1:
-	X_BIG_ENDIAN                  = 4321       // endian.h:52:1:
+	X_BIG_ENDIAN                  = 4321       // _endian.h:47:1:
 	X_BYTEORDER_FUNC_DEFINED      = 0          // in.h:118:1:
 	X_BYTEORDER_PROTOTYPED        = 0          // in.h:108:1:
-	X_BYTE_ORDER                  = 1234       // endian.h:55:1:
+	X_BYTE_ORDER                  = 1234       // _endian.h:40:1:
 	X_FILE_OFFSET_BITS            = 64         // <builtin>:25:1:
 	X_IN_ADDR_T_DECLARED          = 0          // in.h:68:1:
 	X_IN_PORT_T_DECLARED          = 0          // in.h:73:1:
-	X_LITTLE_ENDIAN               = 1234       // endian.h:51:1:
+	X_LITTLE_ENDIAN               = 1234       // _endian.h:46:1:
 	X_LP64                        = 1          // <predefined>:1:1:
 	X_MACHINE_ENDIAN_H_           = 0          // endian.h:36:1:
 	X_MACHINE__LIMITS_H_          = 0          // _limits.h:36:1:
 	X_MACHINE__TYPES_H_           = 0          // _types.h:42:1:
 	X_NETINET6_IN6_H_             = 0          // in6.h:71:1:
 	X_NETINET_IN_H_               = 0          // in.h:36:1:
-	X_Nonnull                     = 0          // cdefs.h:783:1:
-	X_Null_unspecified            = 0          // cdefs.h:785:1:
-	X_Nullable                    = 0          // cdefs.h:784:1:
-	X_PDP_ENDIAN                  = 3412       // endian.h:53:1:
-	X_QUAD_HIGHWORD               = 1          // endian.h:44:1:
-	X_QUAD_LOWWORD                = 0          // endian.h:45:1:
+	X_Nonnull                     = 0          // cdefs.h:790:1:
+	X_Null_unspecified            = 0          // cdefs.h:792:1:
+	X_Nullable                    = 0          // cdefs.h:791:1:
+	X_PDP_ENDIAN                  = 3412       // _endian.h:48:1:
+	X_QUAD_HIGHWORD               = 1          // _endian.h:55:1:
+	X_QUAD_LOWWORD                = 0          // _endian.h:56:1:
 	X_SA_FAMILY_T_DECLARED        = 0          // in.h:78:1:
 	X_SIZE_T_DECLARED             = 0          // in6.h:701:1:
 	X_SOCKLEN_T_DECLARED          = 0          // in.h:91:1:
 	X_SS_MAXSIZE                  = 128        // _sockaddr_storage.h:41:1:
 	X_STRUCT_IN_ADDR_DECLARED     = 0          // in.h:86:1:
 	X_SYS_CDEFS_H_                = 0          // cdefs.h:39:1:
+	X_SYS__ENDIAN_H_              = 0          // _endian.h:33:1:
 	X_SYS__SOCKADDR_STORAGE_H_    = 0          // _sockaddr_storage.h:36:1:
 	X_SYS__TYPES_H_               = 0          // _types.h:32:1:
 	X_UINT16_T_DECLARED           = 0          // in.h:58:1:
 	X_UINT32_T_DECLARED           = 0          // in.h:63:1:
 	X_UINT8_T_DECLARED            = 0          // in.h:53:1:
-	Unix                          = 1          // <predefined>:337:1:
+	Unix                          = 1          // <predefined>:340:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */
@@ -670,11 +673,14 @@ type X__float128 = float64        /* <builtin>:47:21 */
 
 // Function should not be analyzed.
 
-// Function or variable should not be sanitized, i.e. by AddressSanitizer.
+// Function or variable should not be sanitized, e.g., by AddressSanitizer.
 // GCC has the nosanitize attribute, but as a function attribute only, and
 // warns on use as a variable attribute.
 
 // Guard variables and structure members by lock.
+
+// Alignment builtins for better type checking and improved code generation.
+// Provide fallback versions for other compilers (GCC/Clang < 10):
 
 // -
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD
@@ -1005,42 +1011,6 @@ type X__gnuc_va_list = X__va_list    /* _types.h:140:20 */ // compatibility w/GN
 // $FreeBSD$
 
 // -
-// SPDX-License-Identifier: BSD-3-Clause
-//
-// Copyright (c) 1991, 1993
-//	The Regents of the University of California.  All rights reserved.
-//
-// This code is derived from software contributed to Berkeley by
-// Berkeley Software Design, Inc.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions
-// are met:
-// 1. Redistributions of source code must retain the above copyright
-//    notice, this list of conditions and the following disclaimer.
-// 2. Redistributions in binary form must reproduce the above copyright
-//    notice, this list of conditions and the following disclaimer in the
-//    documentation and/or other materials provided with the distribution.
-// 3. Neither the name of the University nor the names of its contributors
-//    may be used to endorse or promote products derived from this software
-//    without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
-// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
-// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-// OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-// HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-// OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-// SUCH DAMAGE.
-//
-//	@(#)cdefs.h	8.8 (Berkeley) 1/9/95
-// $FreeBSD$
-
-// -
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD
 //
 // Copyright (c) 2002 Mike Barcroft <mike@FreeBSD.org>
@@ -1069,13 +1039,47 @@ type X__gnuc_va_list = X__va_list    /* _types.h:140:20 */ // compatibility w/GN
 //
 // $FreeBSD$
 
-// Define the order of 32-bit words in 64-bit words.
+// -
+// SPDX-License-Identifier: BSD-3-Clause
+//
+// Copyright (c) 1987, 1991 Regents of the University of California.
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
+// are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. Neither the name of the University nor the names of its contributors
+//    may be used to endorse or promote products derived from this software
+//    without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+// OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+// HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+// OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+// SUCH DAMAGE.
+
+// BSD Compatiblity
 
 // Definitions for byte order, according to byte significance from low
 // address to high.
 
+// Define the order of 32-bit words in 64-bit words.
+
 // Deprecated variants that don't have enough underscores to be useful in more
 // strict namespaces.
+
+// bswap primitives, based on compiler builtins
 
 // Protocols common to RFC 1700, POSIX, and X/Open.
 
@@ -1218,9 +1222,10 @@ type Sockaddr_in = struct {
 // 512, but that conflicts with some well-known-services that firewalls may
 // have a fit if we use.
 
-// Definitions of bits in internet address integers.
-// On subnets, the decomposition of addresses to host and net parts
-// is done according to subnet mask, not the masks here.
+// Historical definitions of bits in internet address integers
+// (pre-CIDR).  Class A/B/C are long obsolete, and now deprecated.
+// Hide these definitions from the kernel unless IN_HISTORICAL_NETS
+// is defined.  Provide the historical definitions to user level for now.
 
 // Options for use with [gs]etsockopt at the IP level.
 // First word of comment is data type; bool is stored in int.
@@ -1253,7 +1258,7 @@ type Sockaddr_in = struct {
 type Ip_mreq = struct {
 	Fimr_multiaddr struct{ Fs_addr In_addr_t }
 	Fimr_interface struct{ Fs_addr In_addr_t }
-} /* in.h:527:1 */
+} /* in.h:539:1 */
 
 // Modified argument structure for IP_MULTICAST_IF, obtained from Linux.
 // This is used to specify an interface index for multicast sends, as
@@ -1262,14 +1267,14 @@ type Ip_mreqn = struct {
 	Fimr_multiaddr struct{ Fs_addr In_addr_t }
 	Fimr_address   struct{ Fs_addr In_addr_t }
 	Fimr_ifindex   int32
-} /* in.h:537:1 */
+} /* in.h:549:1 */
 
 // Argument structure for IPv4 Multicast Source Filter APIs. [RFC3678]
 type Ip_mreq_source = struct {
 	Fimr_multiaddr  struct{ Fs_addr In_addr_t }
 	Fimr_sourceaddr struct{ Fs_addr In_addr_t }
 	Fimr_interface  struct{ Fs_addr In_addr_t }
-} /* in.h:546:1 */
+} /* in.h:558:1 */
 
 // Argument structures for Protocol-Independent Multicast Source
 // Filter APIs. [RFC3678]
@@ -1283,7 +1288,7 @@ type Group_req = struct {
 		F__ss_align X__int64_t
 		F__ss_pad2  [112]int8
 	}
-} /* in.h:556:1 */
+} /* in.h:568:1 */
 
 type Group_source_req = struct {
 	Fgsr_interface Uint32_t
@@ -1302,7 +1307,7 @@ type Group_source_req = struct {
 		F__ss_align X__int64_t
 		F__ss_pad2  [112]int8
 	}
-} /* in.h:561:1 */
+} /* in.h:573:1 */
 
 // The following structure is private; do not use it from user applications.
 // It is used to communicate IP_MSFILTER/IPV6_MSFILTER information between
@@ -1320,7 +1325,7 @@ type X__msfilterreq = struct {
 		F__ss_pad2  [112]int8
 	}
 	Fmsfr_srcs uintptr
-} /* in.h:574:1 */
+} /* in.h:586:1 */
 
 // Filter modes; also used to represent per-socket filter mode internally.
 

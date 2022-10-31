@@ -64,9 +64,19 @@ freebsd_arm:
 	go generate 2>&1 | tee log-generate
 	go build -v ./...
 
+freebsd_arm64:
+	go run addport.go freebsd_amd64 freebsd_arm64
+	go build -v ./...
+
 # only on netbsd/amd64
 netbsd_amd64:
 	@echo "Should be executed only on netbsd/amd64."
+	go generate 2>&1 | tee log-generate
+	go build -v ./...
+
+# only on netbsd/arm
+netbsd_arm:
+	@echo "Should be executed only on netbsd/arm."
 	go generate 2>&1 | tee log-generate
 	go build -v ./...
 

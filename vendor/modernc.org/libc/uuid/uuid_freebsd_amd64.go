@@ -15,16 +15,16 @@ var _ atomic.Value
 var _ unsafe.Pointer
 
 const (
-	BIG_ENDIAN                 = 4321 // endian.h:63:1:
-	BYTE_ORDER                 = 1234 // endian.h:65:1:
+	BIG_ENDIAN                 = 4321 // _endian.h:70:1:
+	BYTE_ORDER                 = 1234 // _endian.h:72:1:
 	FD_SETSIZE                 = 1024 // select.h:61:1:
-	LITTLE_ENDIAN              = 1234 // endian.h:62:1:
-	PDP_ENDIAN                 = 3412 // endian.h:64:1:
+	LITTLE_ENDIAN              = 1234 // _endian.h:69:1:
+	PDP_ENDIAN                 = 3412 // _endian.h:71:1:
 	X_ACCMODE_T_DECLARED       = 0    // types.h:166:1:
-	X_BIG_ENDIAN               = 4321 // endian.h:52:1:
+	X_BIG_ENDIAN               = 4321 // _endian.h:47:1:
 	X_BLKCNT_T_DECLARED        = 0    // types.h:90:1:
 	X_BLKSIZE_T_DECLARED       = 0    // types.h:81:1:
-	X_BYTE_ORDER               = 1234 // endian.h:55:1:
+	X_BYTE_ORDER               = 1234 // _endian.h:40:1:
 	X_CAP_IOCTL_T_DECLARED     = 0    // types.h:243:1:
 	X_CAP_RIGHTS_T_DECLARED    = 0    // types.h:248:1:
 	X_CLOCKID_T_DECLARED       = 0    // types.h:100:1:
@@ -46,7 +46,7 @@ const (
 	X_IN_ADDR_T_DECLARED       = 0    // types.h:131:1:
 	X_IN_PORT_T_DECLARED       = 0    // types.h:136:1:
 	X_KEY_T_DECLARED           = 0    // types.h:151:1:
-	X_LITTLE_ENDIAN            = 1234 // endian.h:51:1:
+	X_LITTLE_ENDIAN            = 1234 // _endian.h:46:1:
 	X_LP64                     = 1    // <predefined>:1:1:
 	X_LSEEK_DECLARED           = 0    // types.h:421:1:
 	X_LWPID_T_DECLARED         = 0    // types.h:156:1:
@@ -57,16 +57,16 @@ const (
 	X_MODE_T_DECLARED          = 0    // types.h:161:1:
 	X_MQD_T_DECLARED           = 0    // types.h:227:1:
 	X_NLINK_T_DECLARED         = 0    // types.h:171:1:
-	X_Nonnull                  = 0    // cdefs.h:783:1:
-	X_Null_unspecified         = 0    // cdefs.h:785:1:
-	X_Nullable                 = 0    // cdefs.h:784:1:
+	X_Nonnull                  = 0    // cdefs.h:790:1:
+	X_Null_unspecified         = 0    // cdefs.h:792:1:
+	X_Nullable                 = 0    // cdefs.h:791:1:
 	X_OFF64_T_DECLARED         = 0    // types.h:181:1:
 	X_OFF_T_DECLARED           = 0    // types.h:176:1:
-	X_PDP_ENDIAN               = 3412 // endian.h:53:1:
+	X_PDP_ENDIAN               = 3412 // _endian.h:48:1:
 	X_PID_T_DECLARED           = 0    // types.h:186:1:
 	X_PTHREAD_T_DECLARED       = 0    // _pthreadtypes.h:68:1:
-	X_QUAD_HIGHWORD            = 1    // endian.h:44:1:
-	X_QUAD_LOWWORD             = 0    // endian.h:45:1:
+	X_QUAD_HIGHWORD            = 1    // _endian.h:55:1:
+	X_QUAD_LOWWORD             = 0    // _endian.h:56:1:
 	X_RLIM_T_DECLARED          = 0    // types.h:193:1:
 	X_SELECT_DECLARED          = 0    // select.h:103:1:
 	X_SIGSET_T_DECLARED        = 0    // select.h:50:1:
@@ -80,6 +80,7 @@ const (
 	X_SYS_TIMESPEC_H_          = 0    // timespec.h:37:1:
 	X_SYS_TYPES_H_             = 0    // types.h:41:1:
 	X_SYS_UUID_H_              = 0    // uuid.h:32:1:
+	X_SYS__ENDIAN_H_           = 0    // _endian.h:33:1:
 	X_SYS__PTHREADTYPES_H_     = 0    // _pthreadtypes.h:39:1:
 	X_SYS__SIGSET_H_           = 0    // _sigset.h:41:1:
 	X_SYS__STDINT_H_           = 0    // _stdint.h:33:1:
@@ -99,7 +100,7 @@ const (
 	X_USECONDS_T_DECLARED      = 0    // types.h:239:1:
 	X_UUID_H_                  = 0    // uuid.h:33:1:
 	X_UUID_NODE_LEN            = 6    // uuid.h:37:1:
-	Unix                       = 1    // <predefined>:337:1:
+	Unix                       = 1    // <predefined>:340:1:
 	Uuid_s_bad_version         = 1    // uuid.h:46:1:
 	Uuid_s_invalid_string_uuid = 2    // uuid.h:47:1:
 	Uuid_s_no_memory           = 3    // uuid.h:48:1:
@@ -408,11 +409,14 @@ type X__float128 = float64        /* <builtin>:47:21 */
 
 // Function should not be analyzed.
 
-// Function or variable should not be sanitized, i.e. by AddressSanitizer.
+// Function or variable should not be sanitized, e.g., by AddressSanitizer.
 // GCC has the nosanitize attribute, but as a function attribute only, and
 // warns on use as a variable attribute.
 
 // Guard variables and structure members by lock.
+
+// Alignment builtins for better type checking and improved code generation.
+// Provide fallback versions for other compilers (GCC/Clang < 10):
 
 // Machine type dependent parameters.
 // -
@@ -450,42 +454,6 @@ type X__float128 = float64        /* <builtin>:47:21 */
 // SUCH DAMAGE.
 //
 //	@(#)endian.h	7.8 (Berkeley) 4/3/91
-// $FreeBSD$
-
-// -
-// SPDX-License-Identifier: BSD-3-Clause
-//
-// Copyright (c) 1991, 1993
-//	The Regents of the University of California.  All rights reserved.
-//
-// This code is derived from software contributed to Berkeley by
-// Berkeley Software Design, Inc.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions
-// are met:
-// 1. Redistributions of source code must retain the above copyright
-//    notice, this list of conditions and the following disclaimer.
-// 2. Redistributions in binary form must reproduce the above copyright
-//    notice, this list of conditions and the following disclaimer in the
-//    documentation and/or other materials provided with the distribution.
-// 3. Neither the name of the University nor the names of its contributors
-//    may be used to endorse or promote products derived from this software
-//    without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
-// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
-// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-// OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-// HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-// OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-// SUCH DAMAGE.
-//
-//	@(#)cdefs.h	8.8 (Berkeley) 1/9/95
 // $FreeBSD$
 
 // -
@@ -730,8 +698,8 @@ type X__cpusetid_t = int32       /* _types.h:70:14 */ // cpuset identifier.
 type X__daddr_t = X__int64_t     /* _types.h:71:19 */ // bwrite(3), FIOBMAP2, etc
 
 // Unusual type definitions.
-// rune_t is declared to be an ``int'' instead of the more natural
-// ``unsigned long'' or ``long''.  Two things are happening here.  It is not
+// rune_t is declared to be an “int” instead of the more natural
+// “unsigned long” or “long”.  Two things are happening here.  It is not
 // unsigned so that EOF (-1) can be naturally assigned to it and used.  Also,
 // it looks like 10646 will be a 31 bit standard.  This means that if your
 // ints cannot hold 32 bits, you will be in trouble.  The reason an int was
@@ -1514,11 +1482,13 @@ type Fd_set = Fd_set1 /* select.h:75:3 */
 // -
 // SPDX-License-Identifier: BSD-3-Clause
 //
-// Copyright (c) 1991, 1993
+// Copyright (c) 1982, 1986, 1991, 1993, 1994
 //	The Regents of the University of California.  All rights reserved.
-//
-// This code is derived from software contributed to Berkeley by
-// Berkeley Software Design, Inc.
+// (c) UNIX System Laboratories, Inc.
+// All or some portions of this file are derived from material licensed
+// to the University of California by American Telephone and Telegraph
+// Co. or Unix System Laboratories, Inc. and are reproduced herein with
+// the permission of UNIX System Laboratories, Inc.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
@@ -1544,14 +1514,15 @@ type Fd_set = Fd_set1 /* select.h:75:3 */
 // OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 // SUCH DAMAGE.
 //
-//	@(#)cdefs.h	8.8 (Berkeley) 1/9/95
+//	@(#)types.h	8.6 (Berkeley) 2/19/95
 // $FreeBSD$
 
 // Length of a node address (an IEEE 802 address).
 
 // See also:
-//      http://www.opengroup.org/dce/info/draft-leach-uuids-guids-01.txt
-//      http://www.opengroup.org/onlinepubs/009629399/apdxa.htm
+//
+//	http://www.opengroup.org/dce/info/draft-leach-uuids-guids-01.txt
+//	http://www.opengroup.org/onlinepubs/009629399/apdxa.htm
 //
 // A DCE 1.1 compatible source representation of UUIDs.
 type Uuid = struct {

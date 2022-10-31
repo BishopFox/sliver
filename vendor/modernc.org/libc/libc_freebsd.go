@@ -14,6 +14,7 @@ import (
 	"strings"
 	"syscall"
 	gotime "time"
+	"unicode"
 	"unsafe"
 
 	guuid "github.com/google/uuid"
@@ -1427,7 +1428,7 @@ func Xmmap(t *TLS, addr uintptr, length types.Size_t, prot, flags, fd int32, off
 const PTHREAD_MUTEX_DEFAULT = 0
 
 func X__ccgo_pthreadMutexattrGettype(tls *TLS, a uintptr) int32 { /* pthread_attr_get.c:93:5: */
-	return (int32((*pthread_mutexattr_t)(unsafe.Pointer(a)).__attr & uint32(3)))
+	return (int32((*pthread_mutexattr_t)(unsafe.Pointer(a)).F__attr & uint32(3)))
 }
 
 func X__ccgo_getMutexType(tls *TLS, m uintptr) int32 { /* pthread_mutex_lock.c:3:5: */
@@ -1493,7 +1494,7 @@ func Xpthread_mutexattr_settype(tls *TLS, a uintptr, type1 int32) int32 { /* pth
 	if uint32(type1) > uint32(2) {
 		return 22
 	}
-	(*pthread_mutexattr_t)(unsafe.Pointer(a)).__attr = (((*pthread_mutexattr_t)(unsafe.Pointer(a)).__attr & Uint32FromInt32(CplInt32(3))) | uint32(type1))
+	(*pthread_mutexattr_t)(unsafe.Pointer(a)).F__attr = (((*pthread_mutexattr_t)(unsafe.Pointer(a)).F__attr & Uint32FromInt32(CplInt32(3))) | uint32(type1))
 	return 0
 }
 
@@ -1509,3 +1510,26 @@ func Xuuid_parse(t *TLS, in uintptr, uu uintptr) int32 {
 }
 
 func X__srget(t *TLS, stream uintptr) int32 { return Xgetc(t, stream) }
+
+func X___tolower(t *TLS, r rune) rune {
+	return unicode.ToLower(r)
+}
+
+func X___toupper(t *TLS, r rune) rune {
+	return unicode.ToLower(r)
+}
+
+// uint16_t __builtin_bswap16 (uint32_t x)
+func Xbswap16(t *TLS, x uint16) uint16 {
+	return X__builtin_bswap16(t, x)
+}
+
+// uint32_t __builtin_bswap32 (uint32_t x)
+func Xbswap32(t *TLS, x uint32) uint32 {
+	return X__builtin_bswap32(t, x)
+}
+
+// uint64_t __builtin_bswap64 (uint64_t x)
+func Xbswap64(t *TLS, x uint64) uint64 {
+	return X__builtin_bswap64(t, x)
+}

@@ -747,6 +747,11 @@ func init() {
 			continue
 		}
 
+		// https://gitlab.com/cznic/libc/-/issues/25
+		if strings.Index(fields[1], "/") < 0 {
+			continue
+		}
+
 		name := fields[0]
 		portproto := strings.SplitN(fields[1], "/", 2)
 		port, err := strconv.ParseInt(portproto[0], 10, 32)

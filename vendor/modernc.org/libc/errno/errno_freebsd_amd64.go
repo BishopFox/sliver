@@ -118,12 +118,12 @@ const (
 	X_ERRNO_T_DEFINED  = 0  // errno.h:203:1:
 	X_FILE_OFFSET_BITS = 64 // <builtin>:25:1:
 	X_LP64             = 1  // <predefined>:1:1:
-	X_Nonnull          = 0  // cdefs.h:783:1:
-	X_Null_unspecified = 0  // cdefs.h:785:1:
-	X_Nullable         = 0  // cdefs.h:784:1:
+	X_Nonnull          = 0  // cdefs.h:790:1:
+	X_Null_unspecified = 0  // cdefs.h:792:1:
+	X_Nullable         = 0  // cdefs.h:791:1:
 	X_SYS_CDEFS_H_     = 0  // cdefs.h:39:1:
 	X_SYS_ERRNO_H_     = 0  // errno.h:41:1:
-	Unix               = 1  // <predefined>:337:1:
+	Unix               = 1  // <predefined>:340:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */

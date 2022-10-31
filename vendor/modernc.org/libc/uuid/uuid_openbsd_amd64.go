@@ -723,8 +723,9 @@ type Off_t = X__off_t /* types.h:194:18 */
 // Length of a printed UUID.
 
 // See also:
-//      http://www.opengroup.org/dce/info/draft-leach-uuids-guids-01.txt
-//      http://www.opengroup.org/onlinepubs/009629399/apdxa.htm
+//
+//	http://www.opengroup.org/dce/info/draft-leach-uuids-guids-01.txt
+//	http://www.opengroup.org/onlinepubs/009629399/apdxa.htm
 //
 // A DCE 1.1 compatible source representation of UUIDs.
 type Uuid = struct {
