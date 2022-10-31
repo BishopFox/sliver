@@ -419,3 +419,65 @@ func CrackWordlistsRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 		con.PrintErrorf("Wordlist not found: %s\n", wordlistName)
 	}
 }
+
+// CrackRulesRmCmd - Manage GPU cracking stations
+func CrackRulesRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	rulesName := ctx.Args.String("name")
+	if rulesName == "" {
+		con.PrintErrorf("No name specified, see --help\n")
+		return
+	}
+	rules, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_RULES})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	found := false
+	for _, rulesFile := range rules.Files {
+		if rulesFile.Name == rulesName && rulesFile.Type == clientpb.CrackFileType_RULES {
+			found = true
+			_, err := con.Rpc.CrackFileDelete(context.Background(), rulesFile)
+			if err != nil {
+				con.PrintErrorf("%s\n", err)
+				return
+			}
+			break
+		}
+	}
+	if found {
+		con.PrintInfof("Removed rules: %s\n", rulesName)
+	} else {
+		con.PrintErrorf("Rules not found: %s\n", rulesName)
+	}
+}
+
+// CrackHcstat2RmCmd - remove a hcstat2 file
+func CrackHcstat2RmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	hcstat2Name := ctx.Args.String("name")
+	if hcstat2Name == "" {
+		con.PrintErrorf("No name specified, see --help\n")
+		return
+	}
+	hcstat2s, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_MARKOV_HCSTAT2})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	found := false
+	for _, hcstat2File := range hcstat2s.Files {
+		if hcstat2File.Name == hcstat2Name && hcstat2File.Type == clientpb.CrackFileType_MARKOV_HCSTAT2 {
+			found = true
+			_, err := con.Rpc.CrackFileDelete(context.Background(), hcstat2File)
+			if err != nil {
+				con.PrintErrorf("%s\n", err)
+				return
+			}
+			break
+		}
+	}
+	if found {
+		con.PrintInfof("Removed hcstat2: %s\n", hcstat2Name)
+	} else {
+		con.PrintErrorf("Hcstat2 not found: %s\n", hcstat2Name)
+	}
+}

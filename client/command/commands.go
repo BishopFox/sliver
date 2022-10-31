@@ -3766,7 +3766,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			// crack.CrackRulesRmCmd(ctx, con)
+			crack.CrackRulesRmCmd(ctx, con)
 			con.Println()
 			return nil
 		},
@@ -3817,7 +3817,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
-			// crack.CrackHcstat2RmCmd(ctx, con)
+			crack.CrackHcstat2RmCmd(ctx, con)
 			con.Println()
 			return nil
 		},
