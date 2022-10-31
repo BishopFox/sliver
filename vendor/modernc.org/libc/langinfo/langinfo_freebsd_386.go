@@ -88,7 +88,7 @@ const (
 	X_FILE_OFFSET_BITS   = 64 // <builtin>:25:1:
 	X_ILP32              = 1  // <predefined>:1:1:
 	X_LANGINFO_H_        = 0  // langinfo.h:32:1:
-	X_LOCALE_T_DEFINED   = 0  // _langinfo.h:38:1:
+	X_LOCALE_T_DEFINED   = 0  // _langinfo.h:37:1:
 	X_MACHINE__LIMITS_H_ = 0  // _limits.h:36:1:
 	X_MACHINE__TYPES_H_  = 0  // _types.h:42:1:
 	X_NL_ITEM_DECLARED   = 0  // langinfo.h:39:1:
@@ -97,7 +97,7 @@ const (
 	X_Nullable           = 0  // cdefs.h:791:1:
 	X_SYS_CDEFS_H_       = 0  // cdefs.h:39:1:
 	X_SYS__TYPES_H_      = 0  // _types.h:32:1:
-	X_XLOCALE_LANGINFO_H = 0  // _langinfo.h:35:1:
+	X_XLOCALE_LANGINFO_H = 0  // _langinfo.h:34:1:
 	I386                 = 1  // <predefined>:335:1:
 	Unix                 = 1  // <predefined>:336:1:
 )
@@ -662,7 +662,6 @@ type Nl_item = X__nl_item /* langinfo.h:38:19 */
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD
 //
 // Copyright (c) 2011, 2012 The FreeBSD Foundation
-// All rights reserved.
 //
 // This software was developed by David Chisnall under sponsorship from
 // the FreeBSD Foundation.
@@ -690,6 +689,6 @@ type Nl_item = X__nl_item /* langinfo.h:38:19 */
 //
 // $FreeBSD$
 
-type Locale_t = uintptr /* _langinfo.h:39:25 */
+type Locale_t = uintptr /* _langinfo.h:38:25 */
 
 var _ int8 /* gen.c:2:13: */

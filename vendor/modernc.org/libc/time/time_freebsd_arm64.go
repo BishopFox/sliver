@@ -15,46 +15,50 @@ var _ atomic.Value
 var _ unsafe.Pointer
 
 const (
-	CLK_TCK                  = 128 // time.h:55:1:
-	CLOCKS_PER_SEC           = 128 // time.h:59:1:
-	CLOCK_MONOTONIC          = 4   // time.h:109:1:
-	CLOCK_MONOTONIC_FAST     = 12  // time.h:116:1:
-	CLOCK_MONOTONIC_PRECISE  = 11  // time.h:115:1:
-	CLOCK_PROCESS_CPUTIME_ID = 15  // time.h:119:1:
-	CLOCK_PROF               = 2   // time.h:106:1:
-	CLOCK_REALTIME           = 0   // time.h:102:1:
-	CLOCK_REALTIME_FAST      = 10  // time.h:114:1:
-	CLOCK_REALTIME_PRECISE   = 9   // time.h:113:1:
-	CLOCK_SECOND             = 13  // time.h:117:1:
-	CLOCK_THREAD_CPUTIME_ID  = 14  // time.h:118:1:
-	CLOCK_UPTIME             = 5   // time.h:110:1:
-	CLOCK_UPTIME_FAST        = 8   // time.h:112:1:
-	CLOCK_UPTIME_PRECISE     = 7   // time.h:111:1:
-	CLOCK_VIRTUAL            = 1   // time.h:105:1:
-	TIMER_ABSTIME            = 0x1 // time.h:126:1:
-	TIMER_RELTIME            = 0x0 // time.h:123:1:
-	TIME_UTC                 = 1   // time.h:216:1:
-	X_CLOCKID_T_DECLARED     = 0   // time.h:82:1:
-	X_CLOCK_T_DECLARED       = 0   // time.h:63:1:
+	CLK_TCK                  = 128 // time.h:56:1:
+	CLOCKS_PER_SEC           = 128 // time.h:60:1:
+	CLOCK_BOOTTIME           = 5   // _clock_id.h:92:1:
+	CLOCK_MONOTONIC          = 4   // _clock_id.h:67:1:
+	CLOCK_MONOTONIC_COARSE   = 12  // _clock_id.h:94:1:
+	CLOCK_MONOTONIC_FAST     = 12  // _clock_id.h:79:1:
+	CLOCK_MONOTONIC_PRECISE  = 11  // _clock_id.h:78:1:
+	CLOCK_PROCESS_CPUTIME_ID = 15  // _clock_id.h:85:1:
+	CLOCK_PROF               = 2   // _clock_id.h:64:1:
+	CLOCK_REALTIME           = 0   // _clock_id.h:60:1:
+	CLOCK_REALTIME_COARSE    = 10  // _clock_id.h:93:1:
+	CLOCK_REALTIME_FAST      = 10  // _clock_id.h:77:1:
+	CLOCK_REALTIME_PRECISE   = 9   // _clock_id.h:76:1:
+	CLOCK_SECOND             = 13  // _clock_id.h:80:1:
+	CLOCK_THREAD_CPUTIME_ID  = 14  // _clock_id.h:84:1:
+	CLOCK_UPTIME             = 5   // _clock_id.h:74:1:
+	CLOCK_UPTIME_FAST        = 8   // _clock_id.h:68:1:
+	CLOCK_UPTIME_PRECISE     = 7   // _clock_id.h:75:1:
+	CLOCK_VIRTUAL            = 1   // _clock_id.h:63:1:
+	TIMER_ABSTIME            = 0x1 // _clock_id.h:101:1:
+	TIMER_RELTIME            = 0x0 // _clock_id.h:98:1:
+	TIME_UTC                 = 1   // time.h:188:1:
+	X_CLOCKID_T_DECLARED     = 0   // time.h:83:1:
+	X_CLOCK_T_DECLARED       = 0   // time.h:64:1:
 	X_FILE_OFFSET_BITS       = 64  // <builtin>:25:1:
-	X_LOCALE_T_DEFINED       = 0   // _time.h:35:1:
+	X_LOCALE_T_DEFINED       = 0   // _time.h:34:1:
 	X_LP64                   = 1   // <predefined>:1:1:
 	X_MACHINE__LIMITS_H_     = 0   // _limits.h:36:1:
 	X_MACHINE__TYPES_H_      = 0   // _types.h:42:1:
-	X_Nonnull                = 0   // cdefs.h:783:1:
-	X_Null_unspecified       = 0   // cdefs.h:785:1:
-	X_Nullable               = 0   // cdefs.h:784:1:
-	X_PID_T_DECLARED         = 0   // time.h:96:1:
-	X_SIZE_T_DECLARED        = 0   // time.h:73:1:
+	X_Nonnull                = 0   // cdefs.h:790:1:
+	X_Null_unspecified       = 0   // cdefs.h:792:1:
+	X_Nullable               = 0   // cdefs.h:791:1:
+	X_PID_T_DECLARED         = 0   // time.h:97:1:
+	X_SIZE_T_DECLARED        = 0   // time.h:74:1:
 	X_SYS_CDEFS_H_           = 0   // cdefs.h:39:1:
+	X_SYS_SYS__CLOCK_ID_H    = 0   // _clock_id.h:40:1:
 	X_SYS_TIMESPEC_H_        = 0   // timespec.h:37:1:
 	X_SYS__TIMESPEC_H_       = 0   // _timespec.h:37:1:
 	X_SYS__TYPES_H_          = 0   // _types.h:32:1:
-	X_TIMER_T_DECLARED       = 0   // time.h:87:1:
+	X_TIMER_T_DECLARED       = 0   // time.h:88:1:
 	X_TIME_H_                = 0   // time.h:44:1:
-	X_TIME_T_DECLARED        = 0   // time.h:68:1:
-	X_XLOCALE_LOCALE1_H      = 0   // _time.h:45:1:
-	Unix                     = 1   // <predefined>:337:1:
+	X_TIME_T_DECLARED        = 0   // time.h:69:1:
+	X_XLOCALE_LOCALE1_H      = 0   // _time.h:44:1:
+	Unix                     = 1   // <predefined>:340:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */
@@ -330,11 +334,14 @@ type X__float128 = float64        /* <builtin>:47:21 */
 
 // Function should not be analyzed.
 
-// Function or variable should not be sanitized, i.e. by AddressSanitizer.
+// Function or variable should not be sanitized, e.g., by AddressSanitizer.
 // GCC has the nosanitize attribute, but as a function attribute only, and
 // warns on use as a variable attribute.
 
 // Guard variables and structure members by lock.
+
+// Alignment builtins for better type checking and improved code generation.
+// Provide fallback versions for other compilers (GCC/Clang < 10):
 
 // -
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD
@@ -656,19 +663,73 @@ type X__gnuc_va_list = X__va_list    /* _types.h:140:20 */ // compatibility w/GN
 // Programs can use this to avoid including <sys/param.h>, with its associated
 // namespace pollution.
 
+// -
+// SPDX-License-Identifier: BSD-3-Clause
+//
+// Copyright (c) 1989, 1993
+//	The Regents of the University of California.  All rights reserved.
+// (c) UNIX System Laboratories, Inc.
+// All or some portions of this file are derived from material licensed
+// to the University of California by American Telephone and Telegraph
+// Co. or Unix System Laboratories, Inc. and are reproduced herein with
+// the permission of UNIX System Laboratories, Inc.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
+// are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. Neither the name of the University nor the names of its contributors
+//    may be used to endorse or promote products derived from this software
+//    without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+// OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+// HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+// OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+// SUCH DAMAGE.
+//
+//	@(#)time.h	8.3 (Berkeley) 1/21/94
+
+// These macros are shared between time.h and sys/time.h.
+
+// Note: The values shown below as a comment for the __POSIX_VISIBLE values are
+// the ones FreeBSD traditionally used based on our reading of the POSIX
+// standards. However, glibc uses 199309 for all of them, even those many were
+// not defined there. To remain bug compatible with glibc means more software
+// that relied on the glibc behavior will compile easily on FreeBSD.
+//
+// Also, CLOCK_UPTIME_FAST is improperly visible temporarily for the lang/pocl
+// port until it can be updated properly. It incorrectly assumes that this was a
+// standard value. It will be moved back to the __BSD_VISIBLE section once the
+// issue is corrected.
+
+// FreeBSD-specific clocks.
+
+// Linux compatible names.
+
 // Frequency of the clock ticks reported by times().  Deprecated - use
 // sysconf(_SC_CLK_TCK) instead.  (Removed in 1003.1-2001.)
 
 // Frequency of the clock ticks reported by clock().
 
-type Clock_t = X__clock_t /* time.h:62:19 */
+type Clock_t = X__clock_t /* time.h:63:19 */
 
-type Time_t = X__time_t /* time.h:67:18 */
+type Time_t = X__time_t /* time.h:68:18 */
 
 // New in POSIX 1003.1b-1993.
-type Clockid_t = X__clockid_t /* time.h:81:21 */
+type Clockid_t = X__clockid_t /* time.h:82:21 */
 
-type Timer_t = X__timer_t /* time.h:86:19 */
+type Timer_t = X__timer_t /* time.h:87:19 */
 
 // -
 // SPDX-License-Identifier: BSD-3-Clause
@@ -821,9 +882,7 @@ type Itimerspec = struct {
 	}
 } /* timespec.h:60:1 */
 
-type Pid_t = X__pid_t /* time.h:95:18 */
-
-// These macros are also in sys/time.h.
+type Pid_t = X__pid_t /* time.h:96:18 */
 
 type Tm = struct {
 	Ftm_sec      int32
@@ -838,13 +897,12 @@ type Tm = struct {
 	F__ccgo_pad1 [4]byte
 	Ftm_gmtoff   int64
 	Ftm_zone     uintptr
-} /* time.h:129:1 */
+} /* time.h:101:1 */
 
 // -
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD
 //
 // Copyright (c) 2011, 2012 The FreeBSD Foundation
-// All rights reserved.
 //
 // This software was developed by David Chisnall under sponsorship from
 // the FreeBSD Foundation.
@@ -872,6 +930,6 @@ type Tm = struct {
 //
 // $FreeBSD$
 
-type Locale_t = uintptr /* _time.h:36:25 */
+type Locale_t = uintptr /* _time.h:35:25 */
 
 var _ int8 /* gen.c:2:13: */

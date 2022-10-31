@@ -1436,8 +1436,9 @@ type Pthread_key_t = int32                             /* pthread_types.h:88:13 
 // Length of a printed UUID.
 
 // See also:
-//      http://www.opengroup.org/dce/info/draft-leach-uuids-guids-01.txt
-//      http://www.opengroup.org/onlinepubs/009629399/apdxa.htm
+//
+//	http://www.opengroup.org/dce/info/draft-leach-uuids-guids-01.txt
+//	http://www.opengroup.org/onlinepubs/009629399/apdxa.htm
 //
 // A DCE 1.1 compatible source representation of UUIDs.
 type Uuid = struct {

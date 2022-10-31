@@ -7,6 +7,7 @@ package libc // import "modernc.org/libc"
 import (
 	"bytes"
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -136,6 +137,9 @@ more:
 		// the output is empty.
 		format++
 		var arg int64
+		if isWindows && mod == modL {
+			mod = modNone
+		}
 		switch mod {
 		case modL, modLL, mod64:
 			arg = VaInt64(args)
@@ -167,6 +171,9 @@ more:
 		// precision 0, the output is empty.
 		format++
 		var arg uint64
+		if isWindows && mod == modL {
+			mod = modNone
+		}
 		switch mod {
 		case modNone:
 			arg = uint64(VaUint32(args))
@@ -200,6 +207,9 @@ more:
 		// precision 0, the output is empty.
 		format++
 		var arg uint64
+		if isWindows && mod == modL {
+			mod = modNone
+		}
 		switch mod {
 		case modNone:
 			arg = uint64(VaUint32(args))
@@ -284,6 +294,9 @@ more:
 		// printed with an explicit precision 0, the output is empty.
 		format++
 		var arg uint64
+		if isWindows && mod == modL {
+			mod = modNone
+		}
 		switch mod {
 		case modNone:
 			arg = uint64(VaUint32(args))
@@ -406,7 +419,17 @@ more:
 		// The void * pointer argument is printed in hexadecimal (as if by %#x or
 		// %#lx).
 		format++
-		fmt.Fprintf(buf, "%#0x", VaUintptr(args))
+		switch runtime.GOOS {
+		case "windows":
+			switch runtime.GOARCH {
+			case "386", "arm":
+				fmt.Fprintf(buf, "%08X", VaUintptr(args))
+			default:
+				fmt.Fprintf(buf, "%016X", VaUintptr(args))
+			}
+		default:
+			fmt.Fprintf(buf, "%#0x", VaUintptr(args))
+		}
 	case 'c':
 		// If no l modifier is present, the int argument is converted to an unsigned
 		// char, and the resulting character is written.  If an l modifier is present,

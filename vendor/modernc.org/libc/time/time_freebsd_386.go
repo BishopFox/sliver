@@ -41,7 +41,7 @@ const (
 	X_CLOCK_T_DECLARED       = 0   // time.h:64:1:
 	X_FILE_OFFSET_BITS       = 64  // <builtin>:25:1:
 	X_ILP32                  = 1   // <predefined>:1:1:
-	X_LOCALE_T_DEFINED       = 0   // _time.h:35:1:
+	X_LOCALE_T_DEFINED       = 0   // _time.h:34:1:
 	X_MACHINE__LIMITS_H_     = 0   // _limits.h:36:1:
 	X_MACHINE__TYPES_H_      = 0   // _types.h:42:1:
 	X_Nonnull                = 0   // cdefs.h:790:1:
@@ -57,7 +57,7 @@ const (
 	X_TIMER_T_DECLARED       = 0   // time.h:88:1:
 	X_TIME_H_                = 0   // time.h:44:1:
 	X_TIME_T_DECLARED        = 0   // time.h:69:1:
-	X_XLOCALE_LOCALE1_H      = 0   // _time.h:45:1:
+	X_XLOCALE_LOCALE1_H      = 0   // _time.h:44:1:
 	I386                     = 1   // <predefined>:335:1:
 	Unix                     = 1   // <predefined>:336:1:
 )
@@ -894,7 +894,6 @@ type Tm = struct {
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD
 //
 // Copyright (c) 2011, 2012 The FreeBSD Foundation
-// All rights reserved.
 //
 // This software was developed by David Chisnall under sponsorship from
 // the FreeBSD Foundation.
@@ -922,6 +921,6 @@ type Tm = struct {
 //
 // $FreeBSD$
 
-type Locale_t = uintptr /* _time.h:36:25 */
+type Locale_t = uintptr /* _time.h:35:25 */
 
 var _ int8 /* gen.c:2:13: */

@@ -62,9 +62,9 @@ const (
 	X_MACHINE__LIMITS_H_ = 0                     // _limits.h:36:1:
 	X_MACHINE__TYPES_H_  = 0                     // _types.h:42:1:
 	X_NETDB_H_           = 0                     // netdb.h:60:1:
-	X_Nonnull            = 0                     // cdefs.h:783:1:
-	X_Null_unspecified   = 0                     // cdefs.h:785:1:
-	X_Nullable           = 0                     // cdefs.h:784:1:
+	X_Nonnull            = 0                     // cdefs.h:790:1:
+	X_Null_unspecified   = 0                     // cdefs.h:792:1:
+	X_Nullable           = 0                     // cdefs.h:791:1:
 	X_PATH_HEQUIV        = "/etc/hosts.equiv"    // netdb.h:91:1:
 	X_PATH_HOSTS         = "/etc/hosts"          // netdb.h:93:1:
 	X_PATH_NETWORKS      = "/etc/networks"       // netdb.h:94:1:
@@ -76,7 +76,7 @@ const (
 	X_SYS_CDEFS_H_       = 0                     // cdefs.h:39:1:
 	X_SYS__TYPES_H_      = 0                     // _types.h:32:1:
 	X_UINT32_T_DECLARED  = 0                     // netdb.h:87:1:
-	Unix                 = 1                     // <predefined>:337:1:
+	Unix                 = 1                     // <predefined>:340:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */
@@ -368,11 +368,14 @@ type X__float128 = float64        /* <builtin>:47:21 */
 
 // Function should not be analyzed.
 
-// Function or variable should not be sanitized, i.e. by AddressSanitizer.
+// Function or variable should not be sanitized, e.g., by AddressSanitizer.
 // GCC has the nosanitize attribute, but as a function attribute only, and
 // warns on use as a variable attribute.
 
 // Guard variables and structure members by lock.
+
+// Alignment builtins for better type checking and improved code generation.
+// Provide fallback versions for other compilers (GCC/Clang < 10):
 
 // -
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD

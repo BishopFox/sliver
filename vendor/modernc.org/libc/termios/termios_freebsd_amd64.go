@@ -17,29 +17,37 @@ var _ unsafe.Pointer
 const (
 	ALTWERASE            = 0x00000200 // _termios.h:171:1:
 	B0                   = 0          // _termios.h:186:1:
+	B1000000             = 1000000    // _termios.h:213:1:
 	B110                 = 110        // _termios.h:189:1:
 	B115200              = 115200     // _termios.h:208:1:
 	B1200                = 1200       // _termios.h:195:1:
 	B134                 = 134        // _termios.h:190:1:
 	B14400               = 14400      // _termios.h:204:1:
 	B150                 = 150        // _termios.h:191:1:
+	B1500000             = 1500000    // _termios.h:214:1:
 	B1800                = 1800       // _termios.h:196:1:
 	B19200               = 19200      // _termios.h:200:1:
 	B200                 = 200        // _termios.h:192:1:
+	B2000000             = 2000000    // _termios.h:215:1:
 	B230400              = 230400     // _termios.h:209:1:
 	B2400                = 2400       // _termios.h:197:1:
+	B2500000             = 2500000    // _termios.h:216:1:
 	B28800               = 28800      // _termios.h:205:1:
 	B300                 = 300        // _termios.h:193:1:
+	B3000000             = 3000000    // _termios.h:217:1:
+	B3500000             = 3500000    // _termios.h:218:1:
 	B38400               = 38400      // _termios.h:201:1:
+	B4000000             = 4000000    // _termios.h:219:1:
 	B460800              = 460800     // _termios.h:210:1:
 	B4800                = 4800       // _termios.h:198:1:
 	B50                  = 50         // _termios.h:187:1:
+	B500000              = 500000     // _termios.h:211:1:
 	B57600               = 57600      // _termios.h:206:1:
 	B600                 = 600        // _termios.h:194:1:
 	B7200                = 7200       // _termios.h:203:1:
 	B75                  = 75         // _termios.h:188:1:
 	B76800               = 76800      // _termios.h:207:1:
-	B921600              = 921600     // _termios.h:211:1:
+	B921600              = 921600     // _termios.h:212:1:
 	B9600                = 9600       // _termios.h:199:1:
 	BRKINT               = 0x00000002 // _termios.h:86:1:
 	CBRK                 = 255        // ttydefaults.h:89:1:
@@ -87,8 +95,8 @@ const (
 	ECHOKE               = 0x00000001 // _termios.h:158:1:
 	ECHONL               = 0x00000010 // _termios.h:163:1:
 	ECHOPRT              = 0x00000020 // _termios.h:165:1:
-	EXTA                 = 19200      // _termios.h:212:1:
-	EXTB                 = 38400      // _termios.h:213:1:
+	EXTA                 = 19200      // _termios.h:220:1:
+	EXTB                 = 38400      // _termios.h:221:1:
 	EXTPROC              = 0x00000800 // _termios.h:174:1:
 	FLUSHO               = 0x00800000 // _termios.h:177:1:
 	H4DISC               = 7          // ttycom.h:135:1:
@@ -199,9 +207,9 @@ const (
 	X_LP64               = 1          // <predefined>:1:1:
 	X_MACHINE__LIMITS_H_ = 0          // _limits.h:36:1:
 	X_MACHINE__TYPES_H_  = 0          // _types.h:42:1:
-	X_Nonnull            = 0          // cdefs.h:783:1:
-	X_Null_unspecified   = 0          // cdefs.h:785:1:
-	X_Nullable           = 0          // cdefs.h:784:1:
+	X_Nonnull            = 0          // cdefs.h:790:1:
+	X_Null_unspecified   = 0          // cdefs.h:792:1:
+	X_Nullable           = 0          // cdefs.h:791:1:
 	X_PID_T_DECLARED     = 0          // termios.h:47:1:
 	X_POSIX_VDISABLE     = 0xff       // _termios.h:80:1:
 	X_SYS_CDEFS_H_       = 0          // cdefs.h:39:1:
@@ -212,7 +220,7 @@ const (
 	X_SYS__TYPES_H_      = 0          // _types.h:32:1:
 	X_SYS__WINSIZE_H_    = 0          // _winsize.h:36:1:
 	X_TERMIOS_H_         = 0          // termios.h:36:1:
-	Unix                 = 1          // <predefined>:337:1:
+	Unix                 = 1          // <predefined>:340:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */
@@ -482,11 +490,14 @@ type X__float128 = float64        /* <builtin>:47:21 */
 
 // Function should not be analyzed.
 
-// Function or variable should not be sanitized, i.e. by AddressSanitizer.
+// Function or variable should not be sanitized, e.g., by AddressSanitizer.
 // GCC has the nosanitize attribute, but as a function attribute only, and
 // warns on use as a variable attribute.
 
 // Guard variables and structure members by lock.
+
+// Alignment builtins for better type checking and improved code generation.
+// Provide fallback versions for other compilers (GCC/Clang < 10):
 
 // -
 // SPDX-License-Identifier: BSD-3-Clause
@@ -543,9 +554,9 @@ type X__float128 = float64        /* <builtin>:47:21 */
 
 // Standard speeds
 
-type Tcflag_t = uint32 /* _termios.h:216:22 */
-type Cc_t = uint8      /* _termios.h:217:23 */
-type Speed_t = uint32  /* _termios.h:218:22 */
+type Tcflag_t = uint32 /* _termios.h:224:22 */
+type Cc_t = uint8      /* _termios.h:225:23 */
+type Speed_t = uint32  /* _termios.h:226:22 */
 
 type Termios = struct {
 	Fc_iflag  Tcflag_t
@@ -555,7 +566,7 @@ type Termios = struct {
 	Fc_cc     [20]Cc_t
 	Fc_ispeed Speed_t
 	Fc_ospeed Speed_t
-} /* _termios.h:220:1 */
+} /* _termios.h:228:1 */
 
 // -
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD
