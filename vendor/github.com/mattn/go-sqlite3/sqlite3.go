@@ -494,10 +494,12 @@ func (ai *aggInfo) Done(ctx *C.sqlite3_context) {
 // Commit transaction.
 func (tx *SQLiteTx) Commit() error {
 	_, err := tx.c.exec(context.Background(), "COMMIT", nil)
-	if err != nil && err.(Error).Code == C.SQLITE_BUSY {
-		// sqlite3 will leave the transaction open in this scenario.
+	if err != nil {
+		// sqlite3 may leave the transaction open in this scenario.
 		// However, database/sql considers the transaction complete once we
 		// return from Commit() - we must clean up to honour its semantics.
+		// We don't know if the ROLLBACK is strictly necessary, but according
+		// to sqlite's docs, there is no harm in calling ROLLBACK unnecessarily.
 		tx.c.exec(context.Background(), "ROLLBACK", nil)
 	}
 	return err

@@ -28,7 +28,7 @@ require (
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/lesnuages/go-winio v0.4.19
 	github.com/lesnuages/snitch v0.6.0
-	github.com/mattn/go-sqlite3 v1.14.15
+	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/miekg/dns v1.1.50
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/pquerna/otp v1.3.0
