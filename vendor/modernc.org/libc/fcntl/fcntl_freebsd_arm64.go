@@ -15,58 +15,60 @@ var _ atomic.Value
 var _ unsafe.Pointer
 
 const (
-	AT_EACCESS            = 0x0100     // fcntl.h:217:1:
-	AT_FDCWD              = -100       // fcntl.h:212:1:
-	AT_REMOVEDIR          = 0x0800     // fcntl.h:221:1:
-	AT_RESOLVE_BENEATH    = 0x2000     // fcntl.h:223:1:
-	AT_SYMLINK_FOLLOW     = 0x0400     // fcntl.h:220:1:
-	AT_SYMLINK_NOFOLLOW   = 0x0200     // fcntl.h:219:1:
-	FAPPEND               = 8          // fcntl.h:186:1:
-	FASYNC                = 64         // fcntl.h:187:1:
-	FDSYNC                = 16777216   // fcntl.h:189:1:
-	FD_CLOEXEC            = 1          // fcntl.h:272:1:
-	FD_NONE               = -200       // fcntl.h:343:1:
-	FFSYNC                = 128        // fcntl.h:188:1:
-	FNDELAY               = 4          // fcntl.h:191:1:
-	FNONBLOCK             = 4          // fcntl.h:190:1:
-	FRDAHEAD              = 512        // fcntl.h:203:1:
+	AT_EACCESS            = 0x0100     // fcntl.h:224:1:
+	AT_EMPTY_PATH         = 0x4000     // fcntl.h:234:1:
+	AT_FDCWD              = -100       // fcntl.h:219:1:
+	AT_REMOVEDIR          = 0x0800     // fcntl.h:228:1:
+	AT_RESOLVE_BENEATH    = 0x2000     // fcntl.h:232:1:
+	AT_SYMLINK_FOLLOW     = 0x0400     // fcntl.h:227:1:
+	AT_SYMLINK_NOFOLLOW   = 0x0200     // fcntl.h:226:1:
+	FAPPEND               = 8          // fcntl.h:193:1:
+	FASYNC                = 64         // fcntl.h:194:1:
+	FDSYNC                = 16777216   // fcntl.h:196:1:
+	FD_CLOEXEC            = 1          // fcntl.h:283:1:
+	FD_NONE               = -200       // fcntl.h:355:1:
+	FFSYNC                = 128        // fcntl.h:195:1:
+	FNDELAY               = 4          // fcntl.h:198:1:
+	FNONBLOCK             = 4          // fcntl.h:197:1:
+	FRDAHEAD              = 512        // fcntl.h:210:1:
 	FREAD                 = 0x0001     // fcntl.h:89:1:
 	FWRITE                = 0x0002     // fcntl.h:90:1:
-	F_ADD_SEALS           = 19         // fcntl.h:260:1:
-	F_CANCEL              = 5          // fcntl.h:280:1:
-	F_DUP2FD              = 10         // fcntl.h:245:1:
-	F_DUP2FD_CLOEXEC      = 18         // fcntl.h:259:1:
-	F_DUPFD               = 0          // fcntl.h:232:1:
-	F_DUPFD_CLOEXEC       = 17         // fcntl.h:256:1:
-	F_GETFD               = 1          // fcntl.h:233:1:
-	F_GETFL               = 3          // fcntl.h:235:1:
-	F_GETLK               = 11         // fcntl.h:247:1:
-	F_GETOWN              = 5          // fcntl.h:238:1:
-	F_GET_SEALS           = 20         // fcntl.h:261:1:
-	F_ISUNIONSTACK        = 21         // fcntl.h:262:1:
-	F_OGETLK              = 7          // fcntl.h:242:1:
-	F_OSETLK              = 8          // fcntl.h:243:1:
-	F_OSETLKW             = 9          // fcntl.h:244:1:
-	F_RDAHEAD             = 16         // fcntl.h:253:1:
-	F_RDLCK               = 1          // fcntl.h:275:1:
-	F_READAHEAD           = 15         // fcntl.h:252:1:
-	F_SEAL_GROW           = 0x0004     // fcntl.h:267:1:
-	F_SEAL_SEAL           = 0x0001     // fcntl.h:265:1:
-	F_SEAL_SHRINK         = 0x0002     // fcntl.h:266:1:
-	F_SEAL_WRITE          = 0x0008     // fcntl.h:268:1:
-	F_SETFD               = 2          // fcntl.h:234:1:
-	F_SETFL               = 4          // fcntl.h:236:1:
-	F_SETLK               = 12         // fcntl.h:248:1:
-	F_SETLKW              = 13         // fcntl.h:249:1:
-	F_SETLK_REMOTE        = 14         // fcntl.h:251:1:
-	F_SETOWN              = 6          // fcntl.h:239:1:
-	F_UNLCK               = 2          // fcntl.h:276:1:
-	F_UNLCKSYS            = 4          // fcntl.h:279:1:
-	F_WRLCK               = 3          // fcntl.h:277:1:
-	LOCK_EX               = 0x02       // fcntl.h:320:1:
-	LOCK_NB               = 0x04       // fcntl.h:321:1:
-	LOCK_SH               = 0x01       // fcntl.h:319:1:
-	LOCK_UN               = 0x08       // fcntl.h:322:1:
+	F_ADD_SEALS           = 19         // fcntl.h:270:1:
+	F_CANCEL              = 5          // fcntl.h:291:1:
+	F_DUP2FD              = 10         // fcntl.h:255:1:
+	F_DUP2FD_CLOEXEC      = 18         // fcntl.h:269:1:
+	F_DUPFD               = 0          // fcntl.h:242:1:
+	F_DUPFD_CLOEXEC       = 17         // fcntl.h:266:1:
+	F_GETFD               = 1          // fcntl.h:243:1:
+	F_GETFL               = 3          // fcntl.h:245:1:
+	F_GETLK               = 11         // fcntl.h:257:1:
+	F_GETOWN              = 5          // fcntl.h:248:1:
+	F_GET_SEALS           = 20         // fcntl.h:271:1:
+	F_ISUNIONSTACK        = 21         // fcntl.h:272:1:
+	F_KINFO               = 22         // fcntl.h:273:1:
+	F_OGETLK              = 7          // fcntl.h:252:1:
+	F_OSETLK              = 8          // fcntl.h:253:1:
+	F_OSETLKW             = 9          // fcntl.h:254:1:
+	F_RDAHEAD             = 16         // fcntl.h:263:1:
+	F_RDLCK               = 1          // fcntl.h:286:1:
+	F_READAHEAD           = 15         // fcntl.h:262:1:
+	F_SEAL_GROW           = 0x0004     // fcntl.h:278:1:
+	F_SEAL_SEAL           = 0x0001     // fcntl.h:276:1:
+	F_SEAL_SHRINK         = 0x0002     // fcntl.h:277:1:
+	F_SEAL_WRITE          = 0x0008     // fcntl.h:279:1:
+	F_SETFD               = 2          // fcntl.h:244:1:
+	F_SETFL               = 4          // fcntl.h:246:1:
+	F_SETLK               = 12         // fcntl.h:258:1:
+	F_SETLKW              = 13         // fcntl.h:259:1:
+	F_SETLK_REMOTE        = 14         // fcntl.h:261:1:
+	F_SETOWN              = 6          // fcntl.h:249:1:
+	F_UNLCK               = 2          // fcntl.h:287:1:
+	F_UNLCKSYS            = 4          // fcntl.h:290:1:
+	F_WRLCK               = 3          // fcntl.h:288:1:
+	LOCK_EX               = 0x02       // fcntl.h:332:1:
+	LOCK_NB               = 0x04       // fcntl.h:333:1:
+	LOCK_SH               = 0x01       // fcntl.h:331:1:
+	LOCK_UN               = 0x08       // fcntl.h:334:1:
 	O_ACCMODE             = 0x0003     // fcntl.h:78:1:
 	O_APPEND              = 0x0008     // fcntl.h:93:1:
 	O_ASYNC               = 0x0040     // fcntl.h:97:1:
@@ -75,14 +77,16 @@ const (
 	O_DIRECT              = 0x00010000 // fcntl.h:116:1:
 	O_DIRECTORY           = 0x00020000 // fcntl.h:120:1:
 	O_DSYNC               = 0x01000000 // fcntl.h:143:1:
+	O_EMPTY_PATH          = 0x02000000 // fcntl.h:145:1:
 	O_EXCL                = 0x0800     // fcntl.h:106:1:
 	O_EXEC                = 0x00040000 // fcntl.h:121:1:
 	O_EXLOCK              = 0x0020     // fcntl.h:96:1:
 	O_FSYNC               = 0x0080     // fcntl.h:98:1:
-	O_NDELAY              = 4          // fcntl.h:192:1:
+	O_NDELAY              = 4          // fcntl.h:199:1:
 	O_NOCTTY              = 0x8000     // fcntl.h:112:1:
 	O_NOFOLLOW            = 0x0100     // fcntl.h:102:1:
 	O_NONBLOCK            = 0x0004     // fcntl.h:92:1:
+	O_PATH                = 0x00400000 // fcntl.h:138:1:
 	O_RDONLY              = 0x0000     // fcntl.h:75:1:
 	O_RDWR                = 0x0002     // fcntl.h:77:1:
 	O_RESOLVE_BENEATH     = 0x00800000 // fcntl.h:139:1:
@@ -93,26 +97,26 @@ const (
 	O_TTY_INIT            = 0x00080000 // fcntl.h:131:1:
 	O_VERIFY              = 0x00200000 // fcntl.h:137:1:
 	O_WRONLY              = 0x0001     // fcntl.h:76:1:
-	POSIX_FADV_DONTNEED   = 4          // fcntl.h:333:1:
-	POSIX_FADV_NOREUSE    = 5          // fcntl.h:334:1:
-	POSIX_FADV_NORMAL     = 0          // fcntl.h:329:1:
-	POSIX_FADV_RANDOM     = 1          // fcntl.h:330:1:
-	POSIX_FADV_SEQUENTIAL = 2          // fcntl.h:331:1:
-	POSIX_FADV_WILLNEED   = 3          // fcntl.h:332:1:
+	POSIX_FADV_DONTNEED   = 4          // fcntl.h:345:1:
+	POSIX_FADV_NOREUSE    = 5          // fcntl.h:346:1:
+	POSIX_FADV_NORMAL     = 0          // fcntl.h:341:1:
+	POSIX_FADV_RANDOM     = 1          // fcntl.h:342:1:
+	POSIX_FADV_SEQUENTIAL = 2          // fcntl.h:343:1:
+	POSIX_FADV_WILLNEED   = 3          // fcntl.h:344:1:
 	X_FILE_OFFSET_BITS    = 64         // <builtin>:25:1:
 	X_LP64                = 1          // <predefined>:1:1:
 	X_MACHINE__LIMITS_H_  = 0          // _limits.h:36:1:
 	X_MACHINE__TYPES_H_   = 0          // _types.h:42:1:
 	X_MODE_T_DECLARED     = 0          // fcntl.h:54:1:
-	X_Nonnull             = 0          // cdefs.h:783:1:
-	X_Null_unspecified    = 0          // cdefs.h:785:1:
-	X_Nullable            = 0          // cdefs.h:784:1:
+	X_Nonnull             = 0          // cdefs.h:790:1:
+	X_Null_unspecified    = 0          // cdefs.h:792:1:
+	X_Nullable            = 0          // cdefs.h:791:1:
 	X_OFF_T_DECLARED      = 0          // fcntl.h:59:1:
 	X_PID_T_DECLARED      = 0          // fcntl.h:64:1:
 	X_SYS_CDEFS_H_        = 0          // cdefs.h:39:1:
 	X_SYS_FCNTL_H_        = 0          // fcntl.h:41:1:
 	X_SYS__TYPES_H_       = 0          // _types.h:32:1:
-	Unix                  = 1          // <predefined>:337:1:
+	Unix                  = 1          // <predefined>:340:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */
@@ -391,11 +395,14 @@ type X__float128 = float64        /* <builtin>:47:21 */
 
 // Function should not be analyzed.
 
-// Function or variable should not be sanitized, i.e. by AddressSanitizer.
+// Function or variable should not be sanitized, e.g., by AddressSanitizer.
 // GCC has the nosanitize attribute, but as a function attribute only, and
 // warns on use as a variable attribute.
 
 // Guard variables and structure members by lock.
+
+// Alignment builtins for better type checking and improved code generation.
+// Provide fallback versions for other compilers (GCC/Clang < 10):
 
 // -
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD
@@ -714,8 +721,6 @@ type Pid_t = X__pid_t /* fcntl.h:63:18 */
 
 // Defined by POSIX 1003.1-2008; BSD default, but reserve for future use.
 
-/* #define O_UNUSED1	0x00400000   */ // Was O_BENEATH
-
 // XXX missing O_RSYNC.
 
 // The O_* flags used to have only F* names, which were used in the kernel
@@ -755,7 +760,7 @@ type Flock = struct {
 	Fl_whence    int16
 	Fl_sysid     int32
 	F__ccgo_pad1 [4]byte
-} /* fcntl.h:294:1 */
+} /* fcntl.h:306:1 */
 
 // Old advisory file segment locking data type,
 // before adding l_sysid.
@@ -765,6 +770,6 @@ type X__oflock = struct {
 	Fl_pid    Pid_t
 	Fl_type   int16
 	Fl_whence int16
-} /* fcntl.h:308:1 */
+} /* fcntl.h:320:1 */
 
 var _ int8 /* gen.c:2:13: */

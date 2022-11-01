@@ -87,18 +87,18 @@ const (
 	YESSTR               = 54 // langinfo.h:109:1:
 	X_FILE_OFFSET_BITS   = 64 // <builtin>:25:1:
 	X_LANGINFO_H_        = 0  // langinfo.h:32:1:
-	X_LOCALE_T_DEFINED   = 0  // _langinfo.h:38:1:
+	X_LOCALE_T_DEFINED   = 0  // _langinfo.h:37:1:
 	X_LP64               = 1  // <predefined>:1:1:
 	X_MACHINE__LIMITS_H_ = 0  // _limits.h:36:1:
 	X_MACHINE__TYPES_H_  = 0  // _types.h:42:1:
 	X_NL_ITEM_DECLARED   = 0  // langinfo.h:39:1:
-	X_Nonnull            = 0  // cdefs.h:783:1:
-	X_Null_unspecified   = 0  // cdefs.h:785:1:
-	X_Nullable           = 0  // cdefs.h:784:1:
+	X_Nonnull            = 0  // cdefs.h:790:1:
+	X_Null_unspecified   = 0  // cdefs.h:792:1:
+	X_Nullable           = 0  // cdefs.h:791:1:
 	X_SYS_CDEFS_H_       = 0  // cdefs.h:39:1:
 	X_SYS__TYPES_H_      = 0  // _types.h:32:1:
-	X_XLOCALE_LANGINFO_H = 0  // _langinfo.h:35:1:
-	Unix                 = 1  // <predefined>:337:1:
+	X_XLOCALE_LANGINFO_H = 0  // _langinfo.h:34:1:
+	Unix                 = 1  // <predefined>:340:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */
@@ -364,11 +364,14 @@ type X__float128 = float64        /* <builtin>:47:21 */
 
 // Function should not be analyzed.
 
-// Function or variable should not be sanitized, i.e. by AddressSanitizer.
+// Function or variable should not be sanitized, e.g., by AddressSanitizer.
 // GCC has the nosanitize attribute, but as a function attribute only, and
 // warns on use as a variable attribute.
 
 // Guard variables and structure members by lock.
+
+// Alignment builtins for better type checking and improved code generation.
+// Provide fallback versions for other compilers (GCC/Clang < 10):
 
 // -
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD
@@ -667,7 +670,6 @@ type Nl_item = X__nl_item /* langinfo.h:38:19 */
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD
 //
 // Copyright (c) 2011, 2012 The FreeBSD Foundation
-// All rights reserved.
 //
 // This software was developed by David Chisnall under sponsorship from
 // the FreeBSD Foundation.
@@ -695,6 +697,6 @@ type Nl_item = X__nl_item /* langinfo.h:38:19 */
 //
 // $FreeBSD$
 
-type Locale_t = uintptr /* _langinfo.h:39:25 */
+type Locale_t = uintptr /* _langinfo.h:38:25 */
 
 var _ int8 /* gen.c:2:13: */

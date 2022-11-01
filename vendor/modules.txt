@@ -328,7 +328,7 @@ github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.13
 ## explicit; go 1.9
 github.com/mattn/go-runewidth
-# github.com/mattn/go-sqlite3 v1.14.15
+# github.com/mattn/go-sqlite3 v1.14.16
 ## explicit; go 1.16
 github.com/mattn/go-sqlite3
 # github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
@@ -366,7 +366,7 @@ github.com/shirou/gopsutil/v3/mem
 # github.com/sirupsen/logrus v1.9.0
 ## explicit; go 1.13
 github.com/sirupsen/logrus
-# github.com/spf13/cobra v1.6.0
+# github.com/spf13/cobra v1.6.1
 ## explicit; go 1.15
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
@@ -717,10 +717,10 @@ lukechampine.com/uint128
 # modernc.org/cc/v3 v3.40.0
 ## explicit; go 1.17
 modernc.org/cc/v3
-# modernc.org/ccgo/v3 v3.16.12
+# modernc.org/ccgo/v3 v3.16.13-0.20221017192402-261537637ce8
 ## explicit; go 1.17
 modernc.org/ccgo/v3/lib
-# modernc.org/libc v1.20.3
+# modernc.org/libc v1.21.2
 ## explicit; go 1.17
 modernc.org/libc
 modernc.org/libc/errno
@@ -757,7 +757,7 @@ modernc.org/memory
 # modernc.org/opt v0.1.3
 ## explicit; go 1.13
 modernc.org/opt
-# modernc.org/sqlite v1.19.2
+# modernc.org/sqlite v1.19.3
 ## explicit; go 1.17
 modernc.org/sqlite
 modernc.org/sqlite/lib

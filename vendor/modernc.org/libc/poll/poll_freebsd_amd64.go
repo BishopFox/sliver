@@ -32,9 +32,9 @@ const (
 	X_LP64               = 1      // <predefined>:1:1:
 	X_MACHINE__LIMITS_H_ = 0      // _limits.h:36:1:
 	X_MACHINE__TYPES_H_  = 0      // _types.h:42:1:
-	X_Nonnull            = 0      // cdefs.h:783:1:
-	X_Null_unspecified   = 0      // cdefs.h:785:1:
-	X_Nullable           = 0      // cdefs.h:784:1:
+	X_Nonnull            = 0      // cdefs.h:790:1:
+	X_Null_unspecified   = 0      // cdefs.h:792:1:
+	X_Nullable           = 0      // cdefs.h:791:1:
 	X_SIGSET_T_DECLARED  = 0      // poll.h:107:1:
 	X_SIG_MAXSIG         = 128    // _sigset.h:47:1:
 	X_SIG_WORDS          = 4      // _sigset.h:46:1:
@@ -45,7 +45,7 @@ const (
 	X_SYS__TIMESPEC_H_   = 0      // _timespec.h:37:1:
 	X_SYS__TYPES_H_      = 0      // _types.h:32:1:
 	X_TIME_T_DECLARED    = 0      // _timespec.h:43:1:
-	Unix                 = 1      // <predefined>:337:1:
+	Unix                 = 1      // <predefined>:340:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */
@@ -313,11 +313,14 @@ type X__float128 = float64        /* <builtin>:47:21 */
 
 // Function should not be analyzed.
 
-// Function or variable should not be sanitized, i.e. by AddressSanitizer.
+// Function or variable should not be sanitized, e.g., by AddressSanitizer.
 // GCC has the nosanitize attribute, but as a function attribute only, and
 // warns on use as a variable attribute.
 
 // Guard variables and structure members by lock.
+
+// Alignment builtins for better type checking and improved code generation.
+// Provide fallback versions for other compilers (GCC/Clang < 10):
 
 // This file is intended to be compatible with the traditional poll.h.
 

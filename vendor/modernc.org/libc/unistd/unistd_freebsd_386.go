@@ -17,6 +17,7 @@ var _ unsafe.Pointer
 const (
 	BIG_ENDIAN                          = 4321       // _endian.h:70:1:
 	BYTE_ORDER                          = 1234       // _endian.h:72:1:
+	CLOSE_RANGE_CLOEXEC                 = 4          // unistd.h:205:1:
 	FD_SETSIZE                          = 1024       // select.h:61:1:
 	F_LOCK                              = 1          // unistd.h:85:1:
 	F_OK                                = 0          // unistd.h:102:1:

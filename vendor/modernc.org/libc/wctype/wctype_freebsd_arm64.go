@@ -39,13 +39,13 @@ const (
 	X_CTYPE_U                       = 0x00008000 // _ctype.h:57:1:
 	X_CTYPE_X                       = 0x00010000 // _ctype.h:58:1:
 	X_FILE_OFFSET_BITS              = 64         // <builtin>:25:1:
-	X_LOCALE_T_DEFINED              = 0          // _ctype.h:45:1:
+	X_LOCALE_T_DEFINED              = 0          // _ctype.h:44:1:
 	X_LP64                          = 1          // <predefined>:1:1:
 	X_MACHINE__LIMITS_H_            = 0          // _limits.h:36:1:
 	X_MACHINE__TYPES_H_             = 0          // _types.h:42:1:
-	X_Nonnull                       = 0          // cdefs.h:783:1:
-	X_Null_unspecified              = 0          // cdefs.h:785:1:
-	X_Nullable                      = 0          // cdefs.h:784:1:
+	X_Nonnull                       = 0          // cdefs.h:790:1:
+	X_Null_unspecified              = 0          // cdefs.h:792:1:
+	X_Nullable                      = 0          // cdefs.h:791:1:
 	X_RUNETYPE_H_                   = 0          // runetype.h:39:1:
 	X_RUNE_MAGIC_1                  = "RuneMagi" // runetype.h:87:1:
 	X_SYS_CDEFS_H_                  = 0          // cdefs.h:39:1:
@@ -54,9 +54,9 @@ const (
 	X_WCTYPE_H_                     = 0          // wctype.h:34:1:
 	X_WCTYPE_T                      = 0          // wctype.h:48:1:
 	X_WINT_T_DECLARED               = 0          // wctype.h:53:1:
-	X_XLOCALE_RUN_FUNCTIONS_DEFINED = 1          // _ctype.h:50:1:
-	X_XLOCALE_WCTYPE_H              = 0          // _ctype.h:39:1:
-	Unix                            = 1          // <predefined>:337:1:
+	X_XLOCALE_RUN_FUNCTIONS_DEFINED = 1          // _ctype.h:49:1:
+	X_XLOCALE_WCTYPE_H              = 0          // _ctype.h:38:1:
+	Unix                            = 1          // <predefined>:340:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */
@@ -324,11 +324,14 @@ type X__float128 = float64        /* <builtin>:47:21 */
 
 // Function should not be analyzed.
 
-// Function or variable should not be sanitized, i.e. by AddressSanitizer.
+// Function or variable should not be sanitized, e.g., by AddressSanitizer.
 // GCC has the nosanitize attribute, but as a function attribute only, and
 // warns on use as a variable attribute.
 
 // Guard variables and structure members by lock.
+
+// Alignment builtins for better type checking and improved code generation.
+// Provide fallback versions for other compilers (GCC/Clang < 10):
 
 // -
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD
@@ -763,7 +766,6 @@ type Wint_t = X__wint_t /* wctype.h:52:18 */
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD
 //
 // Copyright (c) 2011 The FreeBSD Foundation
-// All rights reserved.
 //
 // This software was developed by David Chisnall under sponsorship from
 // the FreeBSD Foundation.
@@ -791,6 +793,6 @@ type Wint_t = X__wint_t /* wctype.h:52:18 */
 //
 // $FreeBSD$
 
-type Locale_t = uintptr /* _ctype.h:46:25 */
+type Locale_t = uintptr /* _ctype.h:45:25 */
 
 var _ int8 /* gen.c:2:13: */

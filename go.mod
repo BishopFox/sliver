@@ -29,13 +29,13 @@ require (
 	github.com/klauspost/compress v1.15.12
 	github.com/lesnuages/go-winio v0.4.19
 	github.com/lesnuages/snitch v0.6.0
-	github.com/mattn/go-sqlite3 v1.14.15
+	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/miekg/dns v1.1.50
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/pquerna/otp v1.3.0
 	github.com/shirou/gopsutil/v3 v3.22.9
 	github.com/sirupsen/logrus v1.9.0
-	github.com/spf13/cobra v1.6.0
+	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.1
 	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
 	github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e
@@ -54,7 +54,7 @@ require (
 	gorm.io/driver/sqlite v1.4.3
 	gorm.io/gorm v1.24.1-0.20221019064659-5dd2bb482755
 	gvisor.dev/gvisor v0.0.0-20220817001344-846276b3dbc5
-	modernc.org/sqlite v1.19.2
+	modernc.org/sqlite v1.19.3
 )
 
 require (
@@ -125,8 +125,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/uint128 v1.2.0 // indirect
 	modernc.org/cc/v3 v3.40.0 // indirect
-	modernc.org/ccgo/v3 v3.16.12 // indirect
-	modernc.org/libc v1.20.3 // indirect
+	modernc.org/ccgo/v3 v3.16.13-0.20221017192402-261537637ce8 // indirect
+	modernc.org/libc v1.21.2 // indirect
 	modernc.org/mathutil v1.5.0 // indirect
 	modernc.org/memory v1.4.0 // indirect
 	modernc.org/opt v0.1.3 // indirect

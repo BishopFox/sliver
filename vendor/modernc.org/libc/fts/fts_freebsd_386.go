@@ -171,7 +171,7 @@ const (
 	X_IN_PORT_T_DECLARED     = 0                  // types.h:136:1:
 	X_KEY_T_DECLARED         = 0                  // types.h:151:1:
 	X_LITTLE_ENDIAN          = 1234               // _endian.h:46:1:
-	X_LOCALE_T_DEFINED       = 0                  // _time.h:35:1:
+	X_LOCALE_T_DEFINED       = 0                  // _time.h:34:1:
 	X_LSEEK_DECLARED         = 0                  // types.h:421:1:
 	X_LWPID_T_DECLARED       = 0                  // types.h:156:1:
 	X_MACHINE_ENDIAN_H_      = 0                  // endian.h:36:1:
@@ -226,7 +226,7 @@ const (
 	X_UINTMAX_T_DECLARED     = 0                  // _stdint.h:89:1:
 	X_UINTPTR_T_DECLARED     = 0                  // _stdint.h:81:1:
 	X_USECONDS_T_DECLARED    = 0                  // types.h:239:1:
-	X_XLOCALE_LOCALE1_H      = 0                  // _time.h:45:1:
+	X_XLOCALE_LOCALE1_H      = 0                  // _time.h:44:1:
 	I386                     = 1                  // <predefined>:335:1:
 	Unix                     = 1                  // <predefined>:336:1:
 )
@@ -2124,7 +2124,6 @@ type Tm = struct {
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD
 //
 // Copyright (c) 2011, 2012 The FreeBSD Foundation
-// All rights reserved.
 //
 // This software was developed by David Chisnall under sponsorship from
 // the FreeBSD Foundation.
@@ -2152,7 +2151,7 @@ type Tm = struct {
 //
 // $FreeBSD$
 
-type Locale_t = uintptr /* _time.h:36:25 */
+type Locale_t = uintptr /* _time.h:35:25 */
 
 type Stat = struct {
 	Fst_dev      Dev_t

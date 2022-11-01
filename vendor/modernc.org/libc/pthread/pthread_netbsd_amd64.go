@@ -2036,7 +2036,6 @@ type Timezone = struct {
 
 // hide bintime for _STANDALONE because this header is used for hpcboot.exe,
 // which is built with compilers which don't recognize LL suffix.
-//
 //	http://mail-index.NetBSD.org/tech-userlevel/2008/02/27/msg000181.html
 type Bintime = struct {
 	Fsec  Time_t
@@ -2450,7 +2449,7 @@ type Locale_t = uintptr /* time.h:188:25 */
 
 type Timezone_t = uintptr /* time.h:198:24 */
 
-//	$NetBSD: sched.h,v 1.12 2009/01/11 03:04:12 christos Exp $
+//	$NetBSD: sched.h,v 1.12.52.1 2022/08/03 10:42:02 martin Exp $
 
 // -
 // Copyright (c) 2001 The NetBSD Foundation, Inc.

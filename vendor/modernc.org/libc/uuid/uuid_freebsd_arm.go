@@ -635,8 +635,8 @@ type X__cpusetid_t = int32       /* _types.h:70:14 */ // cpuset identifier.
 type X__daddr_t = X__int64_t     /* _types.h:71:19 */ // bwrite(3), FIOBMAP2, etc
 
 // Unusual type definitions.
-// rune_t is declared to be an ``int'' instead of the more natural
-// ``unsigned long'' or ``long''.  Two things are happening here.  It is not
+// rune_t is declared to be an “int” instead of the more natural
+// “unsigned long” or “long”.  Two things are happening here.  It is not
 // unsigned so that EOF (-1) can be naturally assigned to it and used.  Also,
 // it looks like 10646 will be a 31 bit standard.  This means that if your
 // ints cannot hold 32 bits, you will be in trouble.  The reason an int was
@@ -1460,8 +1460,9 @@ type Fd_set = Fd_set1 /* select.h:75:3 */
 // Length of a node address (an IEEE 802 address).
 
 // See also:
-//      http://www.opengroup.org/dce/info/draft-leach-uuids-guids-01.txt
-//      http://www.opengroup.org/onlinepubs/009629399/apdxa.htm
+//
+//	http://www.opengroup.org/dce/info/draft-leach-uuids-guids-01.txt
+//	http://www.opengroup.org/onlinepubs/009629399/apdxa.htm
 //
 // A DCE 1.1 compatible source representation of UUIDs.
 type Uuid = struct {

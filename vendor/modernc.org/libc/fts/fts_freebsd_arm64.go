@@ -17,34 +17,37 @@ var _ unsafe.Pointer
 const (
 	ACCESSPERMS              = 511                // stat.h:298:1:
 	ALLPERMS                 = 4095               // stat.h:300:1:
-	BIG_ENDIAN               = 4321               // endian.h:63:1:
-	BYTE_ORDER               = 1234               // endian.h:65:1:
-	CLK_TCK                  = 128                // time.h:55:1:
-	CLOCKS_PER_SEC           = 128                // time.h:59:1:
-	CLOCK_MONOTONIC          = 4                  // time.h:472:1:
-	CLOCK_MONOTONIC_FAST     = 12                 // time.h:479:1:
-	CLOCK_MONOTONIC_PRECISE  = 11                 // time.h:478:1:
-	CLOCK_PROCESS_CPUTIME_ID = 15                 // time.h:482:1:
-	CLOCK_PROF               = 2                  // time.h:469:1:
-	CLOCK_REALTIME           = 0                  // time.h:465:1:
-	CLOCK_REALTIME_FAST      = 10                 // time.h:477:1:
-	CLOCK_REALTIME_PRECISE   = 9                  // time.h:476:1:
-	CLOCK_SECOND             = 13                 // time.h:480:1:
-	CLOCK_THREAD_CPUTIME_ID  = 14                 // time.h:481:1:
-	CLOCK_UPTIME             = 5                  // time.h:473:1:
-	CLOCK_UPTIME_FAST        = 8                  // time.h:475:1:
-	CLOCK_UPTIME_PRECISE     = 7                  // time.h:474:1:
-	CLOCK_VIRTUAL            = 1                  // time.h:468:1:
-	CPUCLOCK_WHICH_PID       = 0                  // time.h:491:1:
-	CPUCLOCK_WHICH_TID       = 1                  // time.h:492:1:
+	BIG_ENDIAN               = 4321               // _endian.h:70:1:
+	BYTE_ORDER               = 1234               // _endian.h:72:1:
+	CLK_TCK                  = 128                // time.h:56:1:
+	CLOCKS_PER_SEC           = 128                // time.h:60:1:
+	CLOCK_BOOTTIME           = 5                  // _clock_id.h:92:1:
+	CLOCK_MONOTONIC          = 4                  // _clock_id.h:67:1:
+	CLOCK_MONOTONIC_COARSE   = 12                 // _clock_id.h:94:1:
+	CLOCK_MONOTONIC_FAST     = 12                 // _clock_id.h:79:1:
+	CLOCK_MONOTONIC_PRECISE  = 11                 // _clock_id.h:78:1:
+	CLOCK_PROCESS_CPUTIME_ID = 15                 // _clock_id.h:85:1:
+	CLOCK_PROF               = 2                  // _clock_id.h:64:1:
+	CLOCK_REALTIME           = 0                  // _clock_id.h:60:1:
+	CLOCK_REALTIME_COARSE    = 10                 // _clock_id.h:93:1:
+	CLOCK_REALTIME_FAST      = 10                 // _clock_id.h:77:1:
+	CLOCK_REALTIME_PRECISE   = 9                  // _clock_id.h:76:1:
+	CLOCK_SECOND             = 13                 // _clock_id.h:80:1:
+	CLOCK_THREAD_CPUTIME_ID  = 14                 // _clock_id.h:84:1:
+	CLOCK_UPTIME             = 5                  // _clock_id.h:74:1:
+	CLOCK_UPTIME_FAST        = 8                  // _clock_id.h:68:1:
+	CLOCK_UPTIME_PRECISE     = 7                  // _clock_id.h:75:1:
+	CLOCK_VIRTUAL            = 1                  // _clock_id.h:63:1:
+	CPUCLOCK_WHICH_PID       = 0                  // time.h:476:1:
+	CPUCLOCK_WHICH_TID       = 1                  // time.h:477:1:
 	DEFFILEMODE              = 438                // stat.h:302:1:
-	DST_AUST                 = 2                  // time.h:48:1:
-	DST_CAN                  = 6                  // time.h:52:1:
-	DST_EET                  = 5                  // time.h:51:1:
-	DST_MET                  = 4                  // time.h:50:1:
-	DST_NONE                 = 0                  // time.h:46:1:
-	DST_USA                  = 1                  // time.h:47:1:
-	DST_WET                  = 3                  // time.h:49:1:
+	DST_AUST                 = 2                  // time.h:49:1:
+	DST_CAN                  = 6                  // time.h:53:1:
+	DST_EET                  = 5                  // time.h:52:1:
+	DST_MET                  = 4                  // time.h:51:1:
+	DST_NONE                 = 0                  // time.h:47:1:
+	DST_USA                  = 1                  // time.h:48:1:
+	DST_WET                  = 3                  // time.h:50:1:
 	FD_SETSIZE               = 1024               // select.h:61:1:
 	FTS_AGAIN                = 1                  // fts.h:111:1:
 	FTS_COMFOLLOW            = 0x001              // fts.h:52:1:
@@ -80,12 +83,12 @@ const (
 	FTS_W                    = 14                 // fts.h:103:1:
 	FTS_WHITEOUT             = 0x080              // fts.h:59:1:
 	FTS_XDEV                 = 0x040              // fts.h:58:1:
-	ITIMER_PROF              = 2                  // time.h:445:1:
-	ITIMER_REAL              = 0                  // time.h:443:1:
-	ITIMER_VIRTUAL           = 1                  // time.h:444:1:
-	LITTLE_ENDIAN            = 1234               // endian.h:62:1:
-	PDP_ENDIAN               = 3412               // endian.h:64:1:
-	SBT_MAX                  = 0x7fffffffffffffff // time.h:134:1:
+	ITIMER_PROF              = 2                  // time.h:457:1:
+	ITIMER_REAL              = 0                  // time.h:455:1:
+	ITIMER_VIRTUAL           = 1                  // time.h:456:1:
+	LITTLE_ENDIAN            = 1234               // _endian.h:69:1:
+	PDP_ENDIAN               = 3412               // _endian.h:71:1:
+	SBT_MAX                  = 0x7fffffffffffffff // time.h:135:1:
 	SF_APPEND                = 0x00040000         // stat.h:341:1:
 	SF_ARCHIVED              = 0x00010000         // stat.h:339:1:
 	SF_IMMUTABLE             = 0x00020000         // stat.h:340:1:
@@ -121,9 +124,9 @@ const (
 	S_IXGRP                  = 0000010            // stat.h:262:1:
 	S_IXOTH                  = 0000001            // stat.h:267:1:
 	S_IXUSR                  = 0000100            // stat.h:251:1:
-	TIMER_ABSTIME            = 0x1                // time.h:487:1:
-	TIMER_RELTIME            = 0x0                // time.h:123:1:
-	TIME_UTC                 = 1                  // time.h:216:1:
+	TIMER_ABSTIME            = 0x1                // _clock_id.h:101:1:
+	TIMER_RELTIME            = 0x0                // _clock_id.h:98:1:
+	TIME_UTC                 = 1                  // time.h:188:1:
 	UF_APPEND                = 0x00000004         // stat.h:314:1:
 	UF_ARCHIVE               = 0x00000800         // stat.h:330:1:
 	UF_HIDDEN                = 0x00008000         // stat.h:333:1:
@@ -140,10 +143,10 @@ const (
 	UTIME_NOW                = -1                 // stat.h:358:1:
 	UTIME_OMIT               = -2                 // stat.h:359:1:
 	X_ACCMODE_T_DECLARED     = 0                  // types.h:166:1:
-	X_BIG_ENDIAN             = 4321               // endian.h:52:1:
+	X_BIG_ENDIAN             = 4321               // _endian.h:47:1:
 	X_BLKCNT_T_DECLARED      = 0                  // types.h:90:1:
 	X_BLKSIZE_T_DECLARED     = 0                  // types.h:81:1:
-	X_BYTE_ORDER             = 1234               // endian.h:55:1:
+	X_BYTE_ORDER             = 1234               // _endian.h:40:1:
 	X_CAP_IOCTL_T_DECLARED   = 0                  // types.h:243:1:
 	X_CAP_RIGHTS_T_DECLARED  = 0                  // types.h:248:1:
 	X_CLOCKID_T_DECLARED     = 0                  // types.h:100:1:
@@ -166,8 +169,8 @@ const (
 	X_IN_ADDR_T_DECLARED     = 0                  // types.h:131:1:
 	X_IN_PORT_T_DECLARED     = 0                  // types.h:136:1:
 	X_KEY_T_DECLARED         = 0                  // types.h:151:1:
-	X_LITTLE_ENDIAN          = 1234               // endian.h:51:1:
-	X_LOCALE_T_DEFINED       = 0                  // _time.h:35:1:
+	X_LITTLE_ENDIAN          = 1234               // _endian.h:46:1:
+	X_LOCALE_T_DEFINED       = 0                  // _time.h:34:1:
 	X_LP64                   = 1                  // <predefined>:1:1:
 	X_LSEEK_DECLARED         = 0                  // types.h:421:1:
 	X_LWPID_T_DECLARED       = 0                  // types.h:156:1:
@@ -179,16 +182,16 @@ const (
 	X_MODE_T_DECLARED        = 0                  // types.h:161:1:
 	X_MQD_T_DECLARED         = 0                  // types.h:227:1:
 	X_NLINK_T_DECLARED       = 0                  // types.h:171:1:
-	X_Nonnull                = 0                  // cdefs.h:783:1:
-	X_Null_unspecified       = 0                  // cdefs.h:785:1:
-	X_Nullable               = 0                  // cdefs.h:784:1:
+	X_Nonnull                = 0                  // cdefs.h:790:1:
+	X_Null_unspecified       = 0                  // cdefs.h:792:1:
+	X_Nullable               = 0                  // cdefs.h:791:1:
 	X_OFF64_T_DECLARED       = 0                  // types.h:181:1:
 	X_OFF_T_DECLARED         = 0                  // types.h:176:1:
-	X_PDP_ENDIAN             = 3412               // endian.h:53:1:
+	X_PDP_ENDIAN             = 3412               // _endian.h:48:1:
 	X_PID_T_DECLARED         = 0                  // types.h:186:1:
 	X_PTHREAD_T_DECLARED     = 0                  // _pthreadtypes.h:68:1:
-	X_QUAD_HIGHWORD          = 1                  // endian.h:44:1:
-	X_QUAD_LOWWORD           = 0                  // endian.h:45:1:
+	X_QUAD_HIGHWORD          = 1                  // _endian.h:55:1:
+	X_QUAD_LOWWORD           = 0                  // _endian.h:56:1:
 	X_RLIM_T_DECLARED        = 0                  // types.h:193:1:
 	X_SELECT_DECLARED        = 0                  // select.h:103:1:
 	X_SIGSET_T_DECLARED      = 0                  // select.h:50:1:
@@ -200,9 +203,11 @@ const (
 	X_SYS_CDEFS_H_           = 0                  // cdefs.h:39:1:
 	X_SYS_SELECT_H_          = 0                  // select.h:35:1:
 	X_SYS_STAT_H_            = 0                  // stat.h:41:1:
+	X_SYS_SYS__CLOCK_ID_H    = 0                  // _clock_id.h:40:1:
 	X_SYS_TIMESPEC_H_        = 0                  // timespec.h:37:1:
 	X_SYS_TIME_H_            = 0                  // time.h:36:1:
 	X_SYS_TYPES_H_           = 0                  // types.h:41:1:
+	X_SYS__ENDIAN_H_         = 0                  // _endian.h:33:1:
 	X_SYS__PTHREADTYPES_H_   = 0                  // _pthreadtypes.h:39:1:
 	X_SYS__SIGSET_H_         = 0                  // _sigset.h:41:1:
 	X_SYS__STDINT_H_         = 0                  // _stdint.h:33:1:
@@ -221,8 +226,8 @@ const (
 	X_UINTMAX_T_DECLARED     = 0                  // _stdint.h:89:1:
 	X_UINTPTR_T_DECLARED     = 0                  // _stdint.h:81:1:
 	X_USECONDS_T_DECLARED    = 0                  // types.h:239:1:
-	X_XLOCALE_LOCALE1_H      = 0                  // _time.h:45:1:
-	Unix                     = 1                  // <predefined>:337:1:
+	X_XLOCALE_LOCALE1_H      = 0                  // _time.h:44:1:
+	Unix                     = 1                  // <predefined>:340:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */
@@ -497,11 +502,14 @@ type X__float128 = float64        /* <builtin>:47:21 */
 
 // Function should not be analyzed.
 
-// Function or variable should not be sanitized, i.e. by AddressSanitizer.
+// Function or variable should not be sanitized, e.g., by AddressSanitizer.
 // GCC has the nosanitize attribute, but as a function attribute only, and
 // warns on use as a variable attribute.
 
 // Guard variables and structure members by lock.
+
+// Alignment builtins for better type checking and improved code generation.
+// Provide fallback versions for other compilers (GCC/Clang < 10):
 
 // Machine type dependent parameters.
 // -
@@ -539,42 +547,6 @@ type X__float128 = float64        /* <builtin>:47:21 */
 // SUCH DAMAGE.
 //
 //	@(#)endian.h	7.8 (Berkeley) 4/3/91
-// $FreeBSD$
-
-// -
-// SPDX-License-Identifier: BSD-3-Clause
-//
-// Copyright (c) 1991, 1993
-//	The Regents of the University of California.  All rights reserved.
-//
-// This code is derived from software contributed to Berkeley by
-// Berkeley Software Design, Inc.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions
-// are met:
-// 1. Redistributions of source code must retain the above copyright
-//    notice, this list of conditions and the following disclaimer.
-// 2. Redistributions in binary form must reproduce the above copyright
-//    notice, this list of conditions and the following disclaimer in the
-//    documentation and/or other materials provided with the distribution.
-// 3. Neither the name of the University nor the names of its contributors
-//    may be used to endorse or promote products derived from this software
-//    without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
-// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
-// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-// OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-// HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-// OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-// SUCH DAMAGE.
-//
-//	@(#)cdefs.h	8.8 (Berkeley) 1/9/95
 // $FreeBSD$
 
 // -
@@ -1843,15 +1815,69 @@ type Fd_set = Fd_set1 /* select.h:75:3 */
 // from: FreeBSD: src/sys/sys/time.h,v 1.43 2000/03/20 14:09:05 phk Exp
 //	$FreeBSD$
 
+// -
+// SPDX-License-Identifier: BSD-3-Clause
+//
+// Copyright (c) 1989, 1993
+//	The Regents of the University of California.  All rights reserved.
+// (c) UNIX System Laboratories, Inc.
+// All or some portions of this file are derived from material licensed
+// to the University of California by American Telephone and Telegraph
+// Co. or Unix System Laboratories, Inc. and are reproduced herein with
+// the permission of UNIX System Laboratories, Inc.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
+// are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. Neither the name of the University nor the names of its contributors
+//    may be used to endorse or promote products derived from this software
+//    without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+// OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+// HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+// OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+// SUCH DAMAGE.
+//
+//	@(#)time.h	8.3 (Berkeley) 1/21/94
+
+// These macros are shared between time.h and sys/time.h.
+
+// Note: The values shown below as a comment for the __POSIX_VISIBLE values are
+// the ones FreeBSD traditionally used based on our reading of the POSIX
+// standards. However, glibc uses 199309 for all of them, even those many were
+// not defined there. To remain bug compatible with glibc means more software
+// that relied on the glibc behavior will compile easily on FreeBSD.
+//
+// Also, CLOCK_UPTIME_FAST is improperly visible temporarily for the lang/pocl
+// port until it can be updated properly. It incorrectly assumes that this was a
+// standard value. It will be moved back to the __BSD_VISIBLE section once the
+// issue is corrected.
+
+// FreeBSD-specific clocks.
+
+// Linux compatible names.
+
 type Timezone = struct {
 	Ftz_minuteswest int32
 	Ftz_dsttime     int32
-} /* time.h:42:1 */
+} /* time.h:43:1 */
 
 type Bintime = struct {
 	Fsec  Time_t
 	Ffrac Uint64_t
-} /* time.h:55:1 */
+} /* time.h:56:1 */
 
 // Operations on timespecs
 
@@ -1867,7 +1893,7 @@ type Itimerval = struct {
 		Ftv_sec  Time_t
 		Ftv_usec Suseconds_t
 	}
-} /* time.h:447:1 */
+} /* time.h:459:1 */
 
 // Getkerninfo clock information structure
 type Clockinfo = struct {
@@ -1876,9 +1902,7 @@ type Clockinfo = struct {
 	Fspare  int32
 	Fstathz int32
 	Fprofhz int32
-} /* time.h:455:1 */
-
-// These macros are also in time.h.
+} /* time.h:467:1 */
 
 // -
 // SPDX-License-Identifier: BSD-3-Clause
@@ -2013,6 +2037,43 @@ type Clockinfo = struct {
 //
 // $FreeBSD$
 
+// -
+// SPDX-License-Identifier: BSD-3-Clause
+//
+// Copyright (c) 1989, 1993
+//	The Regents of the University of California.  All rights reserved.
+// (c) UNIX System Laboratories, Inc.
+// All or some portions of this file are derived from material licensed
+// to the University of California by American Telephone and Telegraph
+// Co. or Unix System Laboratories, Inc. and are reproduced herein with
+// the permission of UNIX System Laboratories, Inc.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions
+// are met:
+// 1. Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+// 3. Neither the name of the University nor the names of its contributors
+//    may be used to endorse or promote products derived from this software
+//    without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+// OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+// HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+// OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+// SUCH DAMAGE.
+//
+//	@(#)time.h	8.3 (Berkeley) 1/21/94
+
 // Frequency of the clock ticks reported by times().  Deprecated - use
 // sysconf(_SC_CLK_TCK) instead.  (Removed in 1003.1-2001.)
 
@@ -2054,8 +2115,6 @@ type Clockinfo = struct {
 // from: FreeBSD: src/sys/sys/time.h,v 1.43 2000/03/20 14:09:05 phk Exp
 //	$FreeBSD$
 
-// These macros are also in sys/time.h.
-
 type Tm = struct {
 	Ftm_sec      int32
 	Ftm_min      int32
@@ -2069,13 +2128,12 @@ type Tm = struct {
 	F__ccgo_pad1 [4]byte
 	Ftm_gmtoff   int64
 	Ftm_zone     uintptr
-} /* time.h:129:1 */
+} /* time.h:101:1 */
 
 // -
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD
 //
 // Copyright (c) 2011, 2012 The FreeBSD Foundation
-// All rights reserved.
 //
 // This software was developed by David Chisnall under sponsorship from
 // the FreeBSD Foundation.
@@ -2103,7 +2161,7 @@ type Tm = struct {
 //
 // $FreeBSD$
 
-type Locale_t = uintptr /* _time.h:36:25 */
+type Locale_t = uintptr /* _time.h:35:25 */
 
 type Stat = struct {
 	Fst_dev      Dev_t

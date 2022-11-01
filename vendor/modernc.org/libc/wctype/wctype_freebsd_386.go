@@ -40,7 +40,7 @@ const (
 	X_CTYPE_X                       = 0x00010000 // _ctype.h:58:1:
 	X_FILE_OFFSET_BITS              = 64         // <builtin>:25:1:
 	X_ILP32                         = 1          // <predefined>:1:1:
-	X_LOCALE_T_DEFINED              = 0          // _ctype.h:45:1:
+	X_LOCALE_T_DEFINED              = 0          // _ctype.h:44:1:
 	X_MACHINE__LIMITS_H_            = 0          // _limits.h:36:1:
 	X_MACHINE__TYPES_H_             = 0          // _types.h:42:1:
 	X_Nonnull                       = 0          // cdefs.h:790:1:
@@ -54,8 +54,8 @@ const (
 	X_WCTYPE_H_                     = 0          // wctype.h:34:1:
 	X_WCTYPE_T                      = 0          // wctype.h:48:1:
 	X_WINT_T_DECLARED               = 0          // wctype.h:53:1:
-	X_XLOCALE_RUN_FUNCTIONS_DEFINED = 1          // _ctype.h:50:1:
-	X_XLOCALE_WCTYPE_H              = 0          // _ctype.h:39:1:
+	X_XLOCALE_RUN_FUNCTIONS_DEFINED = 1          // _ctype.h:49:1:
+	X_XLOCALE_WCTYPE_H              = 0          // _ctype.h:38:1:
 	I386                            = 1          // <predefined>:335:1:
 	Unix                            = 1          // <predefined>:336:1:
 )
@@ -754,7 +754,6 @@ type Wint_t = X__wint_t /* wctype.h:52:18 */
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD
 //
 // Copyright (c) 2011 The FreeBSD Foundation
-// All rights reserved.
 //
 // This software was developed by David Chisnall under sponsorship from
 // the FreeBSD Foundation.
@@ -782,6 +781,6 @@ type Wint_t = X__wint_t /* wctype.h:52:18 */
 //
 // $FreeBSD$
 
-type Locale_t = uintptr /* _ctype.h:46:25 */
+type Locale_t = uintptr /* _ctype.h:45:25 */
 
 var _ int8 /* gen.c:2:13: */

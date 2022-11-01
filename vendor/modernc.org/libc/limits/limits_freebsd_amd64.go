@@ -76,9 +76,9 @@ const (
 	X_LIMITS_H_                          = 0                    // limits.h:36:1:
 	X_LP64                               = 1                    // <predefined>:1:1:
 	X_MACHINE__LIMITS_H_                 = 0                    // _limits.h:36:1:
-	X_Nonnull                            = 0                    // cdefs.h:783:1:
-	X_Null_unspecified                   = 0                    // cdefs.h:785:1:
-	X_Nullable                           = 0                    // cdefs.h:784:1:
+	X_Nonnull                            = 0                    // cdefs.h:790:1:
+	X_Null_unspecified                   = 0                    // cdefs.h:792:1:
+	X_Nullable                           = 0                    // cdefs.h:791:1:
 	X_POSIX2_BC_BASE_MAX                 = 99                   // limits.h:75:1:
 	X_POSIX2_BC_DIM_MAX                  = 2048                 // limits.h:76:1:
 	X_POSIX2_BC_SCALE_MAX                = 99                   // limits.h:77:1:
@@ -133,7 +133,7 @@ const (
 	X_XOPEN_IOV_MAX                      = 16                   // limits.h:132:1:
 	X_XOPEN_NAME_MAX                     = 255                  // limits.h:133:1:
 	X_XOPEN_PATH_MAX                     = 1024                 // limits.h:134:1:
-	Unix                                 = 1                    // <predefined>:337:1:
+	Unix                                 = 1                    // <predefined>:340:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */
@@ -403,11 +403,14 @@ type X__float128 = float64        /* <builtin>:47:21 */
 
 // Function should not be analyzed.
 
-// Function or variable should not be sanitized, i.e. by AddressSanitizer.
+// Function or variable should not be sanitized, e.g., by AddressSanitizer.
 // GCC has the nosanitize attribute, but as a function attribute only, and
 // warns on use as a variable attribute.
 
 // Guard variables and structure members by lock.
+
+// Alignment builtins for better type checking and improved code generation.
+// Provide fallback versions for other compilers (GCC/Clang < 10):
 
 // -
 // SPDX-License-Identifier: BSD-3-Clause

@@ -15,241 +15,242 @@ var _ atomic.Value
 var _ unsafe.Pointer
 
 const (
-	AF_APPLETALK               = 16         // socket.h:239:1:
-	AF_ARP                     = 35         // socket.h:263:1:
-	AF_ATM                     = 30         // socket.h:256:1:
-	AF_BLUETOOTH               = 36         // socket.h:264:1:
-	AF_CCITT                   = 10         // socket.h:233:1:
-	AF_CHAOS                   = 5          // socket.h:227:1:
-	AF_CNT                     = 21         // socket.h:244:1:
-	AF_COIP                    = 20         // socket.h:243:1:
-	AF_DATAKIT                 = 9          // socket.h:232:1:
-	AF_DECnet                  = 12         // socket.h:235:1:
-	AF_DLI                     = 13         // socket.h:236:1:
-	AF_E164                    = 26         // socket.h:250:1:
-	AF_ECMA                    = 8          // socket.h:231:1:
-	AF_HYLINK                  = 15         // socket.h:238:1:
-	AF_HYPERV                  = 43         // socket.h:268:1:
-	AF_IEEE80211               = 37         // socket.h:265:1:
-	AF_IMPLINK                 = 3          // socket.h:225:1:
-	AF_INET                    = 2          // socket.h:223:1:
-	AF_INET6                   = 28         // socket.h:253:1:
-	AF_INET6_SDP               = 42         // socket.h:267:1:
-	AF_INET_SDP                = 40         // socket.h:266:1:
-	AF_IPX                     = 23         // socket.h:246:1:
-	AF_ISDN                    = 26         // socket.h:249:1:
-	AF_ISO                     = 7          // socket.h:229:1:
-	AF_LAT                     = 14         // socket.h:237:1:
-	AF_LINK                    = 18         // socket.h:241:1:
-	AF_LOCAL                   = 1          // socket.h:220:1:
-	AF_MAX                     = 43         // socket.h:269:1:
-	AF_NATM                    = 29         // socket.h:255:1:
-	AF_NETBIOS                 = 6          // socket.h:228:1:
-	AF_NETGRAPH                = 32         // socket.h:260:1:
-	AF_OSI                     = 7          // socket.h:230:1:
-	AF_PUP                     = 4          // socket.h:226:1:
-	AF_ROUTE                   = 17         // socket.h:240:1:
-	AF_SCLUSTER                = 34         // socket.h:262:1:
-	AF_SIP                     = 24         // socket.h:247:1:
-	AF_SLOW                    = 33         // socket.h:261:1:
-	AF_SNA                     = 11         // socket.h:234:1:
-	AF_UNIX                    = 1          // socket.h:222:1:
-	AF_UNSPEC                  = 0          // socket.h:218:1:
-	AF_VENDOR00                = 39         // socket.h:275:1:
-	AF_VENDOR01                = 41         // socket.h:276:1:
-	AF_VENDOR03                = 45         // socket.h:277:1:
-	AF_VENDOR04                = 47         // socket.h:278:1:
-	AF_VENDOR05                = 49         // socket.h:279:1:
-	AF_VENDOR06                = 51         // socket.h:280:1:
-	AF_VENDOR07                = 53         // socket.h:281:1:
-	AF_VENDOR08                = 55         // socket.h:282:1:
-	AF_VENDOR09                = 57         // socket.h:283:1:
-	AF_VENDOR10                = 59         // socket.h:284:1:
-	AF_VENDOR11                = 61         // socket.h:285:1:
-	AF_VENDOR12                = 63         // socket.h:286:1:
-	AF_VENDOR13                = 65         // socket.h:287:1:
-	AF_VENDOR14                = 67         // socket.h:288:1:
-	AF_VENDOR15                = 69         // socket.h:289:1:
-	AF_VENDOR16                = 71         // socket.h:290:1:
-	AF_VENDOR17                = 73         // socket.h:291:1:
-	AF_VENDOR18                = 75         // socket.h:292:1:
-	AF_VENDOR19                = 77         // socket.h:293:1:
-	AF_VENDOR20                = 79         // socket.h:294:1:
-	AF_VENDOR21                = 81         // socket.h:295:1:
-	AF_VENDOR22                = 83         // socket.h:296:1:
-	AF_VENDOR23                = 85         // socket.h:297:1:
-	AF_VENDOR24                = 87         // socket.h:298:1:
-	AF_VENDOR25                = 89         // socket.h:299:1:
-	AF_VENDOR26                = 91         // socket.h:300:1:
-	AF_VENDOR27                = 93         // socket.h:301:1:
-	AF_VENDOR28                = 95         // socket.h:302:1:
-	AF_VENDOR29                = 97         // socket.h:303:1:
-	AF_VENDOR30                = 99         // socket.h:304:1:
-	AF_VENDOR31                = 101        // socket.h:305:1:
-	AF_VENDOR32                = 103        // socket.h:306:1:
-	AF_VENDOR33                = 105        // socket.h:307:1:
-	AF_VENDOR34                = 107        // socket.h:308:1:
-	AF_VENDOR35                = 109        // socket.h:309:1:
-	AF_VENDOR36                = 111        // socket.h:310:1:
-	AF_VENDOR37                = 113        // socket.h:311:1:
-	AF_VENDOR38                = 115        // socket.h:312:1:
-	AF_VENDOR39                = 117        // socket.h:313:1:
-	AF_VENDOR40                = 119        // socket.h:314:1:
-	AF_VENDOR41                = 121        // socket.h:315:1:
-	AF_VENDOR42                = 123        // socket.h:316:1:
-	AF_VENDOR43                = 125        // socket.h:317:1:
-	AF_VENDOR44                = 127        // socket.h:318:1:
-	AF_VENDOR45                = 129        // socket.h:319:1:
-	AF_VENDOR46                = 131        // socket.h:320:1:
-	AF_VENDOR47                = 133        // socket.h:321:1:
-	CMGROUP_MAX                = 16         // socket.h:494:1:
-	MSG_CMSG_CLOEXEC           = 0x00040000 // socket.h:467:1:
-	MSG_COMPAT                 = 0x00008000 // socket.h:458:1:
-	MSG_CTRUNC                 = 0x00000020 // socket.h:447:1:
-	MSG_DONTROUTE              = 0x00000004 // socket.h:444:1:
-	MSG_DONTWAIT               = 0x00000080 // socket.h:450:1:
-	MSG_EOF                    = 0x00000100 // socket.h:451:1:
-	MSG_EOR                    = 0x00000008 // socket.h:445:1:
-	MSG_NBIO                   = 0x00004000 // socket.h:457:1:
-	MSG_NOSIGNAL               = 0x00020000 // socket.h:464:1:
-	MSG_NOTIFICATION           = 0x00002000 // socket.h:456:1:
-	MSG_OOB                    = 0x00000001 // socket.h:442:1:
-	MSG_PEEK                   = 0x00000002 // socket.h:443:1:
-	MSG_TRUNC                  = 0x00000010 // socket.h:446:1:
-	MSG_WAITALL                = 0x00000040 // socket.h:448:1:
-	MSG_WAITFORONE             = 0x00080000 // socket.h:468:1:
-	NET_RT_DUMP                = 1          // socket.h:413:1:
-	NET_RT_FLAGS               = 2          // socket.h:414:1:
-	NET_RT_IFLIST              = 3          // socket.h:415:1:
-	NET_RT_IFLISTL             = 5          // socket.h:417:1:
-	NET_RT_IFMALIST            = 4          // socket.h:416:1:
-	NET_RT_NHGRP               = 7          // socket.h:420:1:
-	NET_RT_NHOP                = 6          // socket.h:419:1:
-	PF_APPLETALK               = 16         // socket.h:370:1:
-	PF_ARP                     = 35         // socket.h:388:1:
-	PF_ATM                     = 30         // socket.h:384:1:
-	PF_BLUETOOTH               = 36         // socket.h:389:1:
-	PF_CCITT                   = 10         // socket.h:364:1:
-	PF_CHAOS                   = 5          // socket.h:358:1:
-	PF_CNT                     = 21         // socket.h:375:1:
-	PF_COIP                    = 20         // socket.h:374:1:
-	PF_DATAKIT                 = 9          // socket.h:363:1:
-	PF_DECnet                  = 12         // socket.h:366:1:
-	PF_DLI                     = 13         // socket.h:367:1:
-	PF_ECMA                    = 8          // socket.h:362:1:
-	PF_HYLINK                  = 15         // socket.h:369:1:
-	PF_IEEE80211               = 37         // socket.h:390:1:
-	PF_IMPLINK                 = 3          // socket.h:356:1:
-	PF_INET                    = 2          // socket.h:355:1:
-	PF_INET6                   = 28         // socket.h:382:1:
-	PF_INET6_SDP               = 42         // socket.h:392:1:
-	PF_INET_SDP                = 40         // socket.h:391:1:
-	PF_IPX                     = 23         // socket.h:377:1:
-	PF_ISDN                    = 26         // socket.h:380:1:
-	PF_ISO                     = 7          // socket.h:360:1:
-	PF_KEY                     = 27         // socket.h:381:1:
-	PF_LAT                     = 14         // socket.h:368:1:
-	PF_LINK                    = 18         // socket.h:372:1:
-	PF_LOCAL                   = 1          // socket.h:353:1:
-	PF_MAX                     = 43         // socket.h:394:1:
-	PF_NATM                    = 29         // socket.h:383:1:
-	PF_NETBIOS                 = 6          // socket.h:359:1:
-	PF_NETGRAPH                = 32         // socket.h:385:1:
-	PF_OSI                     = 7          // socket.h:361:1:
-	PF_PIP                     = 25         // socket.h:379:1:
-	PF_PUP                     = 4          // socket.h:357:1:
-	PF_ROUTE                   = 17         // socket.h:371:1:
-	PF_RTIP                    = 22         // socket.h:378:1:
-	PF_SCLUSTER                = 34         // socket.h:387:1:
-	PF_SIP                     = 24         // socket.h:376:1:
-	PF_SLOW                    = 33         // socket.h:386:1:
-	PF_SNA                     = 11         // socket.h:365:1:
-	PF_UNIX                    = 1          // socket.h:354:1:
-	PF_UNSPEC                  = 0          // socket.h:352:1:
-	PF_XTP                     = 19         // socket.h:373:1:
-	PRU_FLUSH_RD               = 0          // socket.h:635:1:
-	PRU_FLUSH_RDWR             = 2          // socket.h:637:1:
-	PRU_FLUSH_WR               = 1          // socket.h:636:1:
-	SCM_BINTIME                = 0x04       // socket.h:586:1:
-	SCM_CREDS                  = 0x03       // socket.h:585:1:
-	SCM_CREDS2                 = 0x08       // socket.h:590:1:
-	SCM_MONOTONIC              = 0x06       // socket.h:588:1:
-	SCM_REALTIME               = 0x05       // socket.h:587:1:
-	SCM_RIGHTS                 = 0x01       // socket.h:582:1:
-	SCM_TIMESTAMP              = 0x02       // socket.h:584:1:
-	SCM_TIME_INFO              = 0x07       // socket.h:589:1:
-	SF_MNOWAIT                 = 0x00000002 // socket.h:655:1:
-	SF_NOCACHE                 = 0x00000010 // socket.h:658:1:
-	SF_NODISKIO                = 0x00000001 // socket.h:654:1:
-	SF_SYNC                    = 0x00000004 // socket.h:656:1:
-	SF_USER_READAHEAD          = 0x00000008 // socket.h:657:1:
-	SHUT_RD                    = 0          // socket.h:628:1:
-	SHUT_RDWR                  = 2          // socket.h:630:1:
-	SHUT_WR                    = 1          // socket.h:629:1:
+	AF_APPLETALK               = 16         // socket.h:240:1:
+	AF_ARP                     = 35         // socket.h:264:1:
+	AF_ATM                     = 30         // socket.h:257:1:
+	AF_BLUETOOTH               = 36         // socket.h:265:1:
+	AF_CCITT                   = 10         // socket.h:234:1:
+	AF_CHAOS                   = 5          // socket.h:228:1:
+	AF_CNT                     = 21         // socket.h:245:1:
+	AF_COIP                    = 20         // socket.h:244:1:
+	AF_DATAKIT                 = 9          // socket.h:233:1:
+	AF_DECnet                  = 12         // socket.h:236:1:
+	AF_DLI                     = 13         // socket.h:237:1:
+	AF_E164                    = 26         // socket.h:251:1:
+	AF_ECMA                    = 8          // socket.h:232:1:
+	AF_HYLINK                  = 15         // socket.h:239:1:
+	AF_HYPERV                  = 43         // socket.h:269:1:
+	AF_IEEE80211               = 37         // socket.h:266:1:
+	AF_IMPLINK                 = 3          // socket.h:226:1:
+	AF_INET                    = 2          // socket.h:224:1:
+	AF_INET6                   = 28         // socket.h:254:1:
+	AF_INET6_SDP               = 42         // socket.h:268:1:
+	AF_INET_SDP                = 40         // socket.h:267:1:
+	AF_IPX                     = 23         // socket.h:247:1:
+	AF_ISDN                    = 26         // socket.h:250:1:
+	AF_ISO                     = 7          // socket.h:230:1:
+	AF_LAT                     = 14         // socket.h:238:1:
+	AF_LINK                    = 18         // socket.h:242:1:
+	AF_LOCAL                   = 1          // socket.h:221:1:
+	AF_MAX                     = 43         // socket.h:270:1:
+	AF_NATM                    = 29         // socket.h:256:1:
+	AF_NETBIOS                 = 6          // socket.h:229:1:
+	AF_NETGRAPH                = 32         // socket.h:261:1:
+	AF_OSI                     = 7          // socket.h:231:1:
+	AF_PUP                     = 4          // socket.h:227:1:
+	AF_ROUTE                   = 17         // socket.h:241:1:
+	AF_SCLUSTER                = 34         // socket.h:263:1:
+	AF_SIP                     = 24         // socket.h:248:1:
+	AF_SLOW                    = 33         // socket.h:262:1:
+	AF_SNA                     = 11         // socket.h:235:1:
+	AF_UNIX                    = 1          // socket.h:223:1:
+	AF_UNSPEC                  = 0          // socket.h:219:1:
+	AF_VENDOR00                = 39         // socket.h:276:1:
+	AF_VENDOR01                = 41         // socket.h:277:1:
+	AF_VENDOR03                = 45         // socket.h:278:1:
+	AF_VENDOR04                = 47         // socket.h:279:1:
+	AF_VENDOR05                = 49         // socket.h:280:1:
+	AF_VENDOR06                = 51         // socket.h:281:1:
+	AF_VENDOR07                = 53         // socket.h:282:1:
+	AF_VENDOR08                = 55         // socket.h:283:1:
+	AF_VENDOR09                = 57         // socket.h:284:1:
+	AF_VENDOR10                = 59         // socket.h:285:1:
+	AF_VENDOR11                = 61         // socket.h:286:1:
+	AF_VENDOR12                = 63         // socket.h:287:1:
+	AF_VENDOR13                = 65         // socket.h:288:1:
+	AF_VENDOR14                = 67         // socket.h:289:1:
+	AF_VENDOR15                = 69         // socket.h:290:1:
+	AF_VENDOR16                = 71         // socket.h:291:1:
+	AF_VENDOR17                = 73         // socket.h:292:1:
+	AF_VENDOR18                = 75         // socket.h:293:1:
+	AF_VENDOR19                = 77         // socket.h:294:1:
+	AF_VENDOR20                = 79         // socket.h:295:1:
+	AF_VENDOR21                = 81         // socket.h:296:1:
+	AF_VENDOR22                = 83         // socket.h:297:1:
+	AF_VENDOR23                = 85         // socket.h:298:1:
+	AF_VENDOR24                = 87         // socket.h:299:1:
+	AF_VENDOR25                = 89         // socket.h:300:1:
+	AF_VENDOR26                = 91         // socket.h:301:1:
+	AF_VENDOR27                = 93         // socket.h:302:1:
+	AF_VENDOR28                = 95         // socket.h:303:1:
+	AF_VENDOR29                = 97         // socket.h:304:1:
+	AF_VENDOR30                = 99         // socket.h:305:1:
+	AF_VENDOR31                = 101        // socket.h:306:1:
+	AF_VENDOR32                = 103        // socket.h:307:1:
+	AF_VENDOR33                = 105        // socket.h:308:1:
+	AF_VENDOR34                = 107        // socket.h:309:1:
+	AF_VENDOR35                = 109        // socket.h:310:1:
+	AF_VENDOR36                = 111        // socket.h:311:1:
+	AF_VENDOR37                = 113        // socket.h:312:1:
+	AF_VENDOR38                = 115        // socket.h:313:1:
+	AF_VENDOR39                = 117        // socket.h:314:1:
+	AF_VENDOR40                = 119        // socket.h:315:1:
+	AF_VENDOR41                = 121        // socket.h:316:1:
+	AF_VENDOR42                = 123        // socket.h:317:1:
+	AF_VENDOR43                = 125        // socket.h:318:1:
+	AF_VENDOR44                = 127        // socket.h:319:1:
+	AF_VENDOR45                = 129        // socket.h:320:1:
+	AF_VENDOR46                = 131        // socket.h:321:1:
+	AF_VENDOR47                = 133        // socket.h:322:1:
+	CMGROUP_MAX                = 16         // socket.h:495:1:
+	MSG_CMSG_CLOEXEC           = 0x00040000 // socket.h:468:1:
+	MSG_COMPAT                 = 0x00008000 // socket.h:459:1:
+	MSG_CTRUNC                 = 0x00000020 // socket.h:448:1:
+	MSG_DONTROUTE              = 0x00000004 // socket.h:445:1:
+	MSG_DONTWAIT               = 0x00000080 // socket.h:451:1:
+	MSG_EOF                    = 0x00000100 // socket.h:452:1:
+	MSG_EOR                    = 0x00000008 // socket.h:446:1:
+	MSG_NBIO                   = 0x00004000 // socket.h:458:1:
+	MSG_NOSIGNAL               = 0x00020000 // socket.h:465:1:
+	MSG_NOTIFICATION           = 0x00002000 // socket.h:457:1:
+	MSG_OOB                    = 0x00000001 // socket.h:443:1:
+	MSG_PEEK                   = 0x00000002 // socket.h:444:1:
+	MSG_TRUNC                  = 0x00000010 // socket.h:447:1:
+	MSG_WAITALL                = 0x00000040 // socket.h:449:1:
+	MSG_WAITFORONE             = 0x00080000 // socket.h:469:1:
+	NET_RT_DUMP                = 1          // socket.h:414:1:
+	NET_RT_FLAGS               = 2          // socket.h:415:1:
+	NET_RT_IFLIST              = 3          // socket.h:416:1:
+	NET_RT_IFLISTL             = 5          // socket.h:418:1:
+	NET_RT_IFMALIST            = 4          // socket.h:417:1:
+	NET_RT_NHGRP               = 7          // socket.h:421:1:
+	NET_RT_NHOP                = 6          // socket.h:420:1:
+	PF_APPLETALK               = 16         // socket.h:371:1:
+	PF_ARP                     = 35         // socket.h:389:1:
+	PF_ATM                     = 30         // socket.h:385:1:
+	PF_BLUETOOTH               = 36         // socket.h:390:1:
+	PF_CCITT                   = 10         // socket.h:365:1:
+	PF_CHAOS                   = 5          // socket.h:359:1:
+	PF_CNT                     = 21         // socket.h:376:1:
+	PF_COIP                    = 20         // socket.h:375:1:
+	PF_DATAKIT                 = 9          // socket.h:364:1:
+	PF_DECnet                  = 12         // socket.h:367:1:
+	PF_DLI                     = 13         // socket.h:368:1:
+	PF_ECMA                    = 8          // socket.h:363:1:
+	PF_HYLINK                  = 15         // socket.h:370:1:
+	PF_IEEE80211               = 37         // socket.h:391:1:
+	PF_IMPLINK                 = 3          // socket.h:357:1:
+	PF_INET                    = 2          // socket.h:356:1:
+	PF_INET6                   = 28         // socket.h:383:1:
+	PF_INET6_SDP               = 42         // socket.h:393:1:
+	PF_INET_SDP                = 40         // socket.h:392:1:
+	PF_IPX                     = 23         // socket.h:378:1:
+	PF_ISDN                    = 26         // socket.h:381:1:
+	PF_ISO                     = 7          // socket.h:361:1:
+	PF_KEY                     = 27         // socket.h:382:1:
+	PF_LAT                     = 14         // socket.h:369:1:
+	PF_LINK                    = 18         // socket.h:373:1:
+	PF_LOCAL                   = 1          // socket.h:354:1:
+	PF_MAX                     = 43         // socket.h:395:1:
+	PF_NATM                    = 29         // socket.h:384:1:
+	PF_NETBIOS                 = 6          // socket.h:360:1:
+	PF_NETGRAPH                = 32         // socket.h:386:1:
+	PF_OSI                     = 7          // socket.h:362:1:
+	PF_PIP                     = 25         // socket.h:380:1:
+	PF_PUP                     = 4          // socket.h:358:1:
+	PF_ROUTE                   = 17         // socket.h:372:1:
+	PF_RTIP                    = 22         // socket.h:379:1:
+	PF_SCLUSTER                = 34         // socket.h:388:1:
+	PF_SIP                     = 24         // socket.h:377:1:
+	PF_SLOW                    = 33         // socket.h:387:1:
+	PF_SNA                     = 11         // socket.h:366:1:
+	PF_UNIX                    = 1          // socket.h:355:1:
+	PF_UNSPEC                  = 0          // socket.h:353:1:
+	PF_XTP                     = 19         // socket.h:374:1:
+	PRU_FLUSH_RD               = 0          // socket.h:636:1:
+	PRU_FLUSH_RDWR             = 2          // socket.h:638:1:
+	PRU_FLUSH_WR               = 1          // socket.h:637:1:
+	SCM_BINTIME                = 0x04       // socket.h:587:1:
+	SCM_CREDS                  = 0x03       // socket.h:586:1:
+	SCM_CREDS2                 = 0x08       // socket.h:591:1:
+	SCM_MONOTONIC              = 0x06       // socket.h:589:1:
+	SCM_REALTIME               = 0x05       // socket.h:588:1:
+	SCM_RIGHTS                 = 0x01       // socket.h:583:1:
+	SCM_TIMESTAMP              = 0x02       // socket.h:585:1:
+	SCM_TIME_INFO              = 0x07       // socket.h:590:1:
+	SF_MNOWAIT                 = 0x00000002 // socket.h:656:1:
+	SF_NOCACHE                 = 0x00000010 // socket.h:659:1:
+	SF_NODISKIO                = 0x00000001 // socket.h:655:1:
+	SF_SYNC                    = 0x00000004 // socket.h:657:1:
+	SF_USER_READAHEAD          = 0x00000008 // socket.h:658:1:
+	SHUT_RD                    = 0          // socket.h:629:1:
+	SHUT_RDWR                  = 2          // socket.h:631:1:
+	SHUT_WR                    = 1          // socket.h:630:1:
 	SOCK_CLOEXEC               = 0x10000000 // socket.h:114:1:
 	SOCK_DGRAM                 = 2          // socket.h:103:1:
-	SOCK_MAXADDRLEN            = 255        // socket.h:334:1:
+	SOCK_MAXADDRLEN            = 255        // socket.h:335:1:
 	SOCK_NONBLOCK              = 0x20000000 // socket.h:115:1:
 	SOCK_RAW                   = 3          // socket.h:104:1:
 	SOCK_RDM                   = 4          // socket.h:106:1:
 	SOCK_SEQPACKET             = 5          // socket.h:108:1:
 	SOCK_STREAM                = 1          // socket.h:102:1:
-	SOL_SOCKET                 = 0xffff     // socket.h:213:1:
-	SOMAXCONN                  = 128        // socket.h:426:1:
+	SOL_SOCKET                 = 0xffff     // socket.h:214:1:
+	SOMAXCONN                  = 128        // socket.h:427:1:
 	SO_ACCEPTCONN              = 0x00000002 // socket.h:130:1:
 	SO_ACCEPTFILTER            = 0x00001000 // socket.h:144:1:
 	SO_BINTIME                 = 0x00002000 // socket.h:145:1:
 	SO_BROADCAST               = 0x00000020 // socket.h:134:1:
 	SO_DEBUG                   = 0x00000001 // socket.h:129:1:
-	SO_DOMAIN                  = 0x1019     // socket.h:174:1:
+	SO_DOMAIN                  = 0x1019     // socket.h:175:1:
 	SO_DONTROUTE               = 0x00000010 // socket.h:133:1:
-	SO_ERROR                   = 0x1007     // socket.h:160:1:
+	SO_ERROR                   = 0x1007     // socket.h:161:1:
 	SO_KEEPALIVE               = 0x00000008 // socket.h:132:1:
-	SO_LABEL                   = 0x1009     // socket.h:163:1:
+	SO_LABEL                   = 0x1009     // socket.h:164:1:
 	SO_LINGER                  = 0x00000080 // socket.h:138:1:
-	SO_LISTENINCQLEN           = 0x1013     // socket.h:167:1:
-	SO_LISTENQLEN              = 0x1012     // socket.h:166:1:
-	SO_LISTENQLIMIT            = 0x1011     // socket.h:165:1:
-	SO_MAX_PACING_RATE         = 0x1018     // socket.h:173:1:
+	SO_LISTENINCQLEN           = 0x1013     // socket.h:168:1:
+	SO_LISTENQLEN              = 0x1012     // socket.h:167:1:
+	SO_LISTENQLIMIT            = 0x1011     // socket.h:166:1:
+	SO_MAX_PACING_RATE         = 0x1018     // socket.h:174:1:
 	SO_NOSIGPIPE               = 0x00000800 // socket.h:143:1:
 	SO_NO_DDP                  = 0x00008000 // socket.h:148:1:
 	SO_NO_OFFLOAD              = 0x00004000 // socket.h:147:1:
 	SO_OOBINLINE               = 0x00000100 // socket.h:139:1:
-	SO_PEERLABEL               = 0x1010     // socket.h:164:1:
-	SO_PROTOCOL                = 0x1016     // socket.h:170:1:
-	SO_PROTOTYPE               = 4118       // socket.h:171:1:
-	SO_RCVBUF                  = 0x1002     // socket.h:155:1:
-	SO_RCVLOWAT                = 0x1004     // socket.h:157:1:
-	SO_RCVTIMEO                = 0x1006     // socket.h:159:1:
+	SO_PEERLABEL               = 0x1010     // socket.h:165:1:
+	SO_PROTOCOL                = 0x1016     // socket.h:171:1:
+	SO_PROTOTYPE               = 4118       // socket.h:172:1:
+	SO_RCVBUF                  = 0x1002     // socket.h:156:1:
+	SO_RCVLOWAT                = 0x1004     // socket.h:158:1:
+	SO_RCVTIMEO                = 0x1006     // socket.h:160:1:
+	SO_RERROR                  = 0x00020000 // socket.h:150:1:
 	SO_REUSEADDR               = 0x00000004 // socket.h:131:1:
 	SO_REUSEPORT               = 0x00000200 // socket.h:141:1:
 	SO_REUSEPORT_LB            = 0x00010000 // socket.h:149:1:
-	SO_SETFIB                  = 0x1014     // socket.h:168:1:
-	SO_SNDBUF                  = 0x1001     // socket.h:154:1:
-	SO_SNDLOWAT                = 0x1003     // socket.h:156:1:
-	SO_SNDTIMEO                = 0x1005     // socket.h:158:1:
+	SO_SETFIB                  = 0x1014     // socket.h:169:1:
+	SO_SNDBUF                  = 0x1001     // socket.h:155:1:
+	SO_SNDLOWAT                = 0x1003     // socket.h:157:1:
+	SO_SNDTIMEO                = 0x1005     // socket.h:159:1:
 	SO_TIMESTAMP               = 0x00000400 // socket.h:142:1:
-	SO_TS_BINTIME              = 1          // socket.h:179:1:
-	SO_TS_CLOCK                = 0x1017     // socket.h:172:1:
-	SO_TS_CLOCK_MAX            = 3          // socket.h:183:1:
-	SO_TS_DEFAULT              = 0          // socket.h:182:1:
-	SO_TS_MONOTONIC            = 3          // socket.h:181:1:
-	SO_TS_REALTIME             = 2          // socket.h:180:1:
-	SO_TS_REALTIME_MICRO       = 0          // socket.h:178:1:
-	SO_TYPE                    = 0x1008     // socket.h:161:1:
+	SO_TS_BINTIME              = 1          // socket.h:180:1:
+	SO_TS_CLOCK                = 0x1017     // socket.h:173:1:
+	SO_TS_CLOCK_MAX            = 3          // socket.h:184:1:
+	SO_TS_DEFAULT              = 0          // socket.h:183:1:
+	SO_TS_MONOTONIC            = 3          // socket.h:182:1:
+	SO_TS_REALTIME             = 2          // socket.h:181:1:
+	SO_TS_REALTIME_MICRO       = 0          // socket.h:179:1:
+	SO_TYPE                    = 0x1008     // socket.h:162:1:
 	SO_USELOOPBACK             = 0x00000040 // socket.h:136:1:
-	SO_USER_COOKIE             = 0x1015     // socket.h:169:1:
-	SO_VENDOR                  = 0x80000000 // socket.h:192:1:
-	ST_INFO_HW                 = 0x0001     // socket.h:598:1:
-	ST_INFO_HW_HPREC           = 0x0002     // socket.h:599:1:
+	SO_USER_COOKIE             = 0x1015     // socket.h:170:1:
+	SO_VENDOR                  = 0x80000000 // socket.h:193:1:
+	ST_INFO_HW                 = 0x0001     // socket.h:599:1:
+	ST_INFO_HW_HPREC           = 0x0002     // socket.h:600:1:
 	X_FILE_OFFSET_BITS         = 64         // <builtin>:25:1:
 	X_GID_T_DECLARED           = 0          // socket.h:53:1:
 	X_LP64                     = 1          // <predefined>:1:1:
 	X_MACHINE__LIMITS_H_       = 0          // _limits.h:36:1:
 	X_MACHINE__TYPES_H_        = 0          // _types.h:42:1:
-	X_Nonnull                  = 0          // cdefs.h:783:1:
-	X_Null_unspecified         = 0          // cdefs.h:785:1:
-	X_Nullable                 = 0          // cdefs.h:784:1:
+	X_Nonnull                  = 0          // cdefs.h:790:1:
+	X_Null_unspecified         = 0          // cdefs.h:792:1:
+	X_Nullable                 = 0          // cdefs.h:791:1:
 	X_OFF_T_DECLARED           = 0          // socket.h:58:1:
 	X_PID_T_DECLARED           = 0          // socket.h:63:1:
 	X_SA_FAMILY_T_DECLARED     = 0          // socket.h:69:1:
@@ -266,12 +267,12 @@ const (
 	X_UINT32_T_DECLARED        = 0          // socket.h:91:1:
 	X_UINTPTR_T_DECLARED       = 0          // socket.h:96:1:
 	X_X86_INCLUDE__ALIGN_H_    = 0          // _align.h:44:1:
-	Pseudo_AF_HDRCMPLT         = 31         // socket.h:257:1:
-	Pseudo_AF_KEY              = 27         // socket.h:251:1:
-	Pseudo_AF_PIP              = 25         // socket.h:248:1:
-	Pseudo_AF_RTIP             = 22         // socket.h:245:1:
-	Pseudo_AF_XTP              = 19         // socket.h:242:1:
-	Unix                       = 1          // <predefined>:337:1:
+	Pseudo_AF_HDRCMPLT         = 31         // socket.h:258:1:
+	Pseudo_AF_KEY              = 27         // socket.h:252:1:
+	Pseudo_AF_PIP              = 25         // socket.h:249:1:
+	Pseudo_AF_RTIP             = 22         // socket.h:246:1:
+	Pseudo_AF_XTP              = 19         // socket.h:243:1:
+	Unix                       = 1          // <predefined>:340:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */
@@ -541,11 +542,14 @@ type X__float128 = float64        /* <builtin>:47:21 */
 
 // Function should not be analyzed.
 
-// Function or variable should not be sanitized, i.e. by AddressSanitizer.
+// Function or variable should not be sanitized, e.g., by AddressSanitizer.
 // GCC has the nosanitize attribute, but as a function attribute only, and
 // warns on use as a variable attribute.
 
 // Guard variables and structure members by lock.
+
+// Alignment builtins for better type checking and improved code generation.
+// Provide fallback versions for other compilers (GCC/Clang < 10):
 
 // -
 // SPDX-License-Identifier: BSD-2-Clause-FreeBSD
@@ -925,12 +929,12 @@ type Uintptr_t = X__uintptr_t /* socket.h:95:21 */
 type Linger = struct {
 	Fl_onoff  int32
 	Fl_linger int32
-} /* socket.h:198:1 */
+} /* socket.h:199:1 */
 
 type Accept_filter_arg = struct {
 	Faf_name [16]int8
 	Faf_arg  [240]int8
-} /* socket.h:204:1 */
+} /* socket.h:205:1 */
 
 // Level number for (get/set)sockopt() to apply to socket itself.
 
@@ -945,14 +949,14 @@ type Sockaddr = struct {
 	Fsa_len    uint8
 	Fsa_family Sa_family_t
 	Fsa_data   [14]int8
-} /* socket.h:328:1 */
+} /* socket.h:329:1 */
 
 // Structure used by kernel to pass protocol
 // information in raw sockets.
 type Sockproto = struct {
 	Fsp_family   uint16
 	Fsp_protocol uint16
-} /* socket.h:340:1 */
+} /* socket.h:341:1 */
 
 // -
 // SPDX-License-Identifier: BSD-3-Clause
@@ -1027,7 +1031,7 @@ type Msghdr = struct {
 	Fmsg_control    uintptr
 	Fmsg_controllen Socklen_t
 	Fmsg_flags      int32
-} /* socket.h:432:1 */
+} /* socket.h:433:1 */
 
 //			 0x00000200	   unused
 //			 0x00000400	   unused
@@ -1042,7 +1046,7 @@ type Cmsghdr = struct {
 	Fcmsg_len   Socklen_t
 	Fcmsg_level int32
 	Fcmsg_type  int32
-} /* socket.h:481:1 */
+} /* socket.h:482:1 */
 
 // While we may have more groups than this, the cmsgcred struct must
 // be able to fit in an mbuf and we have historically supported a
@@ -1061,7 +1065,7 @@ type Cmsgcred = struct {
 	Fcmcred_ngroups int16
 	F__ccgo_pad1    [2]byte
 	Fcmcred_groups  [16]Gid_t
-} /* socket.h:503:1 */
+} /* socket.h:504:1 */
 
 // Socket credentials (LOCAL_CREDS).
 type Sockcred = struct {
@@ -1071,7 +1075,7 @@ type Sockcred = struct {
 	Fsc_egid    Gid_t
 	Fsc_ngroups int32
 	Fsc_groups  [1]Gid_t
-} /* socket.h:515:1 */
+} /* socket.h:516:1 */
 
 // Compute size of a sockcred structure with groups.
 
@@ -1085,7 +1089,7 @@ type Sockcred2 = struct {
 	Fsc_egid    Gid_t
 	Fsc_ngroups int32
 	Fsc_groups  [1]Gid_t
-} /* socket.h:533:1 */
+} /* socket.h:534:1 */
 
 // given pointer to struct cmsghdr, return pointer to data
 
@@ -1102,13 +1106,13 @@ type Sock_timestamp_info = struct {
 	Fst_info_flags X__uint32_t
 	Fst_info_pad0  X__uint32_t
 	Fst_info_rsv   [7]X__uint64_t
-} /* socket.h:592:1 */
+} /* socket.h:593:1 */
 
 // 4.3 compat sockaddr, move to compat file later
 type Osockaddr = struct {
 	Fsa_family uint16
 	Fsa_data   [14]int8
-} /* socket.h:607:1 */
+} /* socket.h:608:1 */
 
 // 4.3-compat message header (move to compat file later).
 type Omsghdr = struct {
@@ -1121,7 +1125,7 @@ type Omsghdr = struct {
 	Fmsg_accrights    uintptr
 	Fmsg_accrightslen int32
 	F__ccgo_pad3      [4]byte
-} /* socket.h:615:1 */
+} /* socket.h:616:1 */
 
 // howto arguments for shutdown(2), specified by Posix.1g.
 
@@ -1136,7 +1140,7 @@ type Sf_hdtr = struct {
 	Ftrailers    uintptr
 	Ftrl_cnt     int32
 	F__ccgo_pad2 [4]byte
-} /* socket.h:644:1 */
+} /* socket.h:645:1 */
 
 // Sendfile-specific flag(s)
 
@@ -1154,6 +1158,6 @@ type Mmsghdr = struct {
 		Fmsg_flags      int32
 	}
 	Fmsg_len Ssize_t
-} /* socket.h:668:1 */
+} /* socket.h:669:1 */
 
 var _ int8 /* gen.c:2:13: */
