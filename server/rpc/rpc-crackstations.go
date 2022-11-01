@@ -356,7 +356,7 @@ func (rpc *Server) CrackFileComplete(ctx context.Context, req *clientpb.CrackFil
 }
 
 func (rpc *Server) CrackFileChunkDownload(ctx context.Context, req *clientpb.CrackFileChunk) (*clientpb.CrackFileChunk, error) {
-	crackFile, err := db.GetByCrackFileByID(req.ID)
+	crackFile, err := db.GetByCrackFileByID(req.CrackFileID)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "crack file not found")
 	}
@@ -365,7 +365,7 @@ func (rpc *Server) CrackFileChunkDownload(ctx context.Context, req *clientpb.Cra
 	}
 
 	fileChunk := &models.CrackFileChunk{
-		CrackFileID: uuid.FromStringOrNil(req.ID),
+		CrackFileID: uuid.FromStringOrNil(req.CrackFileID),
 		N:           req.N,
 	}
 	err = db.Session().Where(fileChunk).First(fileChunk).Error
