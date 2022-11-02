@@ -138,7 +138,11 @@ func (t *PsTree) addToTree(tree treeprint.Tree, procs map[int32]*node) {
 
 		procNode := tree.FindByMeta(pid)
 		if procNode == nil {
-			procNode = tree.AddMetaBranch(pid, procName)
+			if len(proc.Children) > 0 {
+				procNode = tree.AddMetaBranch(pid, procName)
+			} else {
+				procNode = tree.AddMetaNode(pid, procName)
+			}
 		}
 		t.addToTree(procNode, proc.Children)
 	}
