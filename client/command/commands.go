@@ -1983,6 +1983,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("c", "print-cmdline", false, "print command line arguments")
 			f.Bool("O", "overflow", false, "overflow terminal width (display truncated rows)")
 			f.Int("S", "skip-pages", 0, "skip the first n page(s)")
+			f.Bool("T", "tree", false, "print process tree")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},

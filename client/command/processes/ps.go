@@ -21,6 +21,7 @@ package processes
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -39,11 +40,11 @@ var (
 		// Process Name -> [Color, Stylized Name]
 		"ccSvcHst.exe":                    {console.Red, "Symantec Endpoint Protection"}, // Symantec Endpoint Protection (SEP)
 		"cb.exe":                          {console.Red, "Carbon Black"},                 // Carbon Black
-		"RepMgr.exe":                      {console.Red, "Carbon Black Cloud Sensor"},                 // Carbon Black Cloud Sensor
-		"RepUtils.exe":                    {console.Red, "Carbon Black Cloud Sensor"},                 // Carbon Black Cloud Sensor
-		"RepUx.exe":                       {console.Red, "Carbon Black Cloud Sensor"},                 // Carbon Black Cloud Sensor
-		"RepWSC.exe":                      {console.Red, "Carbon Black Cloud Sensor"},                 // Carbon Black Cloud Sensor
-		"scanhost.exe":                    {console.Red, "Carbon Black Cloud Sensor"},                 // Carbon Black Cloud Sensor
+		"RepMgr.exe":                      {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
+		"RepUtils.exe":                    {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
+		"RepUx.exe":                       {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
+		"RepWSC.exe":                      {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
+		"scanhost.exe":                    {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
 		"MsMpEng.exe":                     {console.Red, "Windows Defender"},             // Windows Defender
 		"smartscreen.exe":                 {console.Red, "Windows Smart Screen"},         // Windows Defender Smart Screen
 		"CSFalconService.exe":             {console.Red, "CrowdStrike"},                  // Crowdstrike Falcon Service
@@ -51,13 +52,13 @@ var (
 		"bdservicehost.exe":               {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
 		"bdagent.exe":                     {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
 		"bdredline.exe":                   {console.Red, "Bitdefender"},                  // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
-		"Deep Security Manager.exe":	   {console.Red, "Trend Micro"},		  // TM Deep Security Manager 
-		"coreServiceShell.exe":	   	   {console.Red, "Trend Micro"},		  // TM Anti-malware scan process
-		"ds_monitor.exe":	   	   {console.Red, "Trend Micro"},		  // TM Deep Security Monitor
-		"Notifier.exe":	   		   {console.Red, "Trend Micro"},	    	  // TM Deep Security Notifier's process
-		"dsa.exe":	   		   {console.Red, "Trend Micro"},		  // TM Agent's main process
-		"ds_nuagent.exe":	   	   {console.Red, "Trend Micro"},	 	  // TM Advanced TLS traffic inspection
-		"coreFrameworkHost.exe":	   {console.Red, "Trend Micro"},		  // TM Anti-malware scan process
+		"Deep Security Manager.exe":       {console.Red, "Trend Micro"},                  // TM Deep Security Manager
+		"coreServiceShell.exe":            {console.Red, "Trend Micro"},                  // TM Anti-malware scan process
+		"ds_monitor.exe":                  {console.Red, "Trend Micro"},                  // TM Deep Security Monitor
+		"Notifier.exe":                    {console.Red, "Trend Micro"},                  // TM Deep Security Notifier's process
+		"dsa.exe":                         {console.Red, "Trend Micro"},                  // TM Agent's main process
+		"ds_nuagent.exe":                  {console.Red, "Trend Micro"},                  // TM Advanced TLS traffic inspection
+		"coreFrameworkHost.exe":           {console.Red, "Trend Micro"},                  // TM Anti-malware scan process
 		"SentinelServiceHost.exe":         {console.Red, "SentinelOne"},                  // Sentinel One
 		"SentinelStaticEngine.exe":        {console.Red, "SentinelOne"},                  // Sentinel One
 		"SentinelStaticEngineScanner.exe": {console.Red, "SentinelOne"},                  // Sentinel One
@@ -66,8 +67,8 @@ var (
 		"SentinelHelperService.exe":       {console.Red, "SentinelOne"},                  // Sentinel One
 		"SentinelBrowserNativeHost.exe":   {console.Red, "SentinelOne"},                  // Sentinel One
 		"SentinelUI.exe":                  {console.Red, "SentinelOne"},                  // Sentinel One
-		"Sysmon.exe":                  	   {console.Red, "Sysmon"},                  	  // Sysmon
-		"Sysmon64.exe":                    {console.Red, "Sysmon64"},                     // Sysmon64		
+		"Sysmon.exe":                      {console.Red, "Sysmon"},                       // Sysmon
+		"Sysmon64.exe":                    {console.Red, "Sysmon64"},                     // Sysmon64
 		"CylanceSvc.exe":                  {console.Red, "Cylance"},                      // Cylance
 		"CylanceUI.exe":                   {console.Red, "Cylance"},                      // Cylance
 		"TaniumClient.exe":                {console.Red, "Tanium"},                       // Tanium
@@ -131,6 +132,25 @@ func PrintPS(os string, ps *sliverpb.Ps, interactive bool, ctx *grumble.Context,
 	ownerFilter := ctx.Flags.String("owner")
 	overflow := ctx.Flags.Bool("overflow")
 	skipPages := ctx.Flags.Int("skip-pages")
+	pstree := ctx.Flags.Bool("tree")
+
+	if pstree {
+		var currentPID int32
+		session, beacon := con.ActiveTarget.GetInteractive()
+		if session != nil && session.PID != 0 {
+			currentPID = session.PID
+		} else if beacon != nil && beacon.PID != 0 {
+			currentPID = beacon.PID
+		}
+		// Print the process tree
+		sorted := SortProcessesByPID(ps.Processes)
+		tree := NewPsTree(currentPID)
+		for _, p := range sorted {
+			tree.AddProcess(p)
+		}
+		con.PrintInfof("Process Tree:\n%s", tree.String())
+		return
+	}
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
@@ -269,4 +289,12 @@ func GetPIDByName(ctx *grumble.Context, name string, con *console.SliverConsoleC
 		}
 	}
 	return -1
+}
+
+// SortProcessesByPID - Sorts a list of processes by PID
+func SortProcessesByPID(ps []*commonpb.Process) []*commonpb.Process {
+	sort.Slice(ps, func(i, j int) bool {
+		return ps[i].Pid < ps[j].Pid
+	})
+	return ps
 }
