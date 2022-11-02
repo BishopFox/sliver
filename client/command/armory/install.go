@@ -21,7 +21,6 @@ package armory
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -159,7 +158,7 @@ func installAliasPackageByName(name string, clientConfig ArmoryHTTPConfig, con *
 		return errors.New("signature verification failed")
 	}
 
-	tmpFile, err := ioutil.TempFile("", "sliver-armory-")
+	tmpFile, err := os.CreateTemp("", "sliver-armory-")
 	if err != nil {
 		return err
 	}
@@ -277,7 +276,7 @@ func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, c
 		return errors.New("signature verification failed")
 	}
 
-	tmpFile, err := ioutil.TempFile("", "sliver-armory-")
+	tmpFile, err := os.CreateTemp("", "sliver-armory-")
 	if err != nil {
 		return err
 	}

@@ -24,7 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -97,7 +97,7 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func DefaultArmoryPkgParser(armoryConfig *assets.ArmoryConfig, armoryPkg *Armory
 		return nil, nil, err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -192,7 +192,7 @@ func DefaultArmoryPkgParser(armoryConfig *assets.ArmoryConfig, armoryPkg *Armory
 			return nil, nil, err
 		}
 		defer resp.Body.Close()
-		tarGz, err = ioutil.ReadAll(resp.Body)
+		tarGz, err = io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -245,7 +245,7 @@ func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig 
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +275,7 @@ func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig 
 				return nil, err
 			}
 			defer resp.Body.Close()
-			armoryIndexData, err = ioutil.ReadAll(resp.Body)
+			armoryIndexData, err = io.ReadAll(resp.Body)
 			if err != nil {
 				return nil, err
 			}
@@ -286,7 +286,7 @@ func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig 
 				return nil, err
 			}
 			defer resp.Body.Close()
-			sigData, err = ioutil.ReadAll(resp.Body)
+			sigData, err = io.ReadAll(resp.Body)
 			if err != nil {
 				return nil, err
 			}
@@ -321,7 +321,7 @@ func GithubAPIArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, client
 		return nil, nil, err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -350,7 +350,7 @@ func GithubAPIArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, client
 			}
 			defer resp.Body.Close()
 			var body []byte
-			body, err = ioutil.ReadAll(resp.Body)
+			body, err = io.ReadAll(resp.Body)
 			if err != nil {
 				break
 			}
@@ -366,7 +366,7 @@ func GithubAPIArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, client
 				break
 			}
 			defer resp.Body.Close()
-			tarGz, err = ioutil.ReadAll(resp.Body)
+			tarGz, err = io.ReadAll(resp.Body)
 			if err != nil {
 				break
 			}
@@ -401,7 +401,7 @@ func GithubArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, clientCon
 		return nil, nil, fmt.Errorf("failed to get signature for armory pkg '%s': %s", armoryPkg.RepoURL, sigResp.Status)
 	}
 	var body []byte
-	body, err = ioutil.ReadAll(sigResp.Body)
+	body, err = io.ReadAll(sigResp.Body)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read resp body '%s': %s", armoryPkg.RepoURL, err)
 	}
@@ -425,7 +425,7 @@ func GithubArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, clientCon
 		if tarGzResp.StatusCode != http.StatusOK {
 			return nil, nil, fmt.Errorf("failed to get tar.gz for armory pkg '%s': %s", armoryPkg.RepoURL, tarGzResp.Status)
 		}
-		tarGz, err = ioutil.ReadAll(tarGzResp.Body)
+		tarGz, err = io.ReadAll(tarGzResp.Body)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to read tar.gz body '%s': %s", armoryPkg.RepoURL, err)
 		}

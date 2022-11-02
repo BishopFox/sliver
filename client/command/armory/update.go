@@ -19,7 +19,7 @@ package armory
 */
 
 import (
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -69,7 +69,7 @@ func checkForAliasUpdates(clientConfig ArmoryHTTPConfig, con *console.SliverCons
 	cachedAliases, _ := packagesInCache()
 	results := []string{}
 	for _, aliasManifestPath := range assets.GetInstalledAliasManifests() {
-		data, err := ioutil.ReadFile(aliasManifestPath)
+		data, err := os.ReadFile(aliasManifestPath)
 		if err != nil {
 			continue
 		}
@@ -92,7 +92,7 @@ func checkForExtensionUpdates(clientConfig ArmoryHTTPConfig, con *console.Sliver
 	_, cachedExtensions := packagesInCache()
 	results := []string{}
 	for _, extManifestPath := range assets.GetInstalledExtensionManifests() {
-		data, err := ioutil.ReadFile(extManifestPath)
+		data, err := os.ReadFile(extManifestPath)
 		if err != nil {
 			continue
 		}
