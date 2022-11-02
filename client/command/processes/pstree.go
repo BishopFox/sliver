@@ -65,6 +65,7 @@ func (n *node) findParent(proc *commonpb.Process) *node {
 }
 
 func reorder(root *node) {
+	toDelete := make([]int32, 0)
 	for pid, child := range root.Children {
 		// skip root node
 		if child.Value.Pid == -1 {
@@ -83,10 +84,14 @@ func reorder(root *node) {
 				}
 				// copy to new parent
 				parent.Children[pid] = child
-				// remove from root node
-				delete(root.Children, pid)
+				// mark for deletion
+				toDelete = append(toDelete, pid)
 			}
 		}
+	}
+	// delete children that were moved
+	for _, pid := range toDelete {
+		delete(root.Children, pid)
 	}
 }
 
