@@ -21,6 +21,7 @@ package processes
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -131,6 +132,25 @@ func PrintPS(os string, ps *sliverpb.Ps, interactive bool, ctx *grumble.Context,
 	ownerFilter := ctx.Flags.String("owner")
 	overflow := ctx.Flags.Bool("overflow")
 	skipPages := ctx.Flags.Int("skip-pages")
+	pstree := ctx.Flags.Bool("tree")
+
+	if pstree {
+		var currentPID int32
+		session, beacon := con.ActiveTarget.GetInteractive()
+		if session != nil && session.PID != 0 {
+			currentPID = session.PID
+		} else if beacon != nil && beacon.PID != 0 {
+			currentPID = beacon.PID
+		}
+		// Print the process tree
+		sorted := SortProcessesByPID(ps.Processes)
+		tree := NewPsTree(currentPID)
+		for _, p := range sorted {
+			tree.AddProcess(p)
+		}
+		con.PrintInfof("Process Tree:\n%s", tree.String())
+		return
+	}
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
@@ -269,4 +289,12 @@ func GetPIDByName(ctx *grumble.Context, name string, con *console.SliverConsoleC
 		}
 	}
 	return -1
+}
+
+// SortProcessesByPID - Sorts a list of processes by PID
+func SortProcessesByPID(ps []*commonpb.Process) []*commonpb.Process {
+	sort.Slice(ps, func(i, j int) bool {
+		return ps[i].Pid < ps[j].Pid
+	})
+	return ps
 }

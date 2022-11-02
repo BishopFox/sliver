@@ -372,6 +372,9 @@ github.com/thedevsaddam/gojsonq/v2
 github.com/things-go/go-socks5
 github.com/things-go/go-socks5/bufferpool
 github.com/things-go/go-socks5/statute
+# github.com/xlab/treeprint v1.1.0
+## explicit; go 1.13
+github.com/xlab/treeprint
 # github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e
 ## explicit; go 1.14
 github.com/yiya1989/sshkrb5/krb5forssh
