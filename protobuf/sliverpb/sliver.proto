@@ -287,6 +287,7 @@ message RunAsReq {
   string Domain = 4;
   string Password = 5;
   bool HideWindow = 6;
+  bool NetOnly = 7;
 
   commonpb.Request Request = 9;
 }

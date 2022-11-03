@@ -279,45 +279,61 @@ func deleteRegistryKey(keyPath, keyName string) (err error) {
 	return
 }
 
-func RunAs(username string, domain string, password string, program string, args []string, show int) (err error) {
+func RunAs(username string, domain string, password string, program string, args string, show int, netonly bool) (err error) {
 	// call CreateProcessWithLogonW to create a new process with the specified credentials
 	// https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createprocesswithlogonw
 	// convert username, domain, password, program, args, env, dir to *uint16
 	u, err := windows.UTF16PtrFromString(username)
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Invalid username\n")
+		// {{end}}
 		return
 	}
 	d, err := windows.UTF16PtrFromString(domain)
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Invalid domain\n")
+		// {{end}}
 		return
 	}
 	p, err := windows.UTF16PtrFromString(password)
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Invalid password\n")
+		// {{end}}
 		return
 	}
 	prog, err := windows.UTF16PtrFromString(program)
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Invalid program\n")
+		// {{end}}
 		return
 	}
 	var cmd *uint16
 	if len(args) > 0 {
-		cmd, err = windows.UTF16PtrFromString(strings.Join(args, " "))
+		cmd, err = windows.UTF16PtrFromString(fmt.Sprintf("%s %s", program, args))
 		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("Invalid prog args\n")
+			// {{end}}
 			return
 		}
 	}
 	var e *uint16
-	if len(env) > 0 {
-		env := os.Environ()
-		e, err = windows.UTF16PtrFromString(strings.Join(env, "\x00"))
-		if err != nil {
-			return
-		}
-	}
+	// env := os.Environ()
+	// e, err = windows.UTF16PtrFromString(strings.Join(env, "\x00"))
+	// if err != nil {
+	// 	// {{if .Config.Debug}}
+	// 	log.Printf("Invalid env\n")
+	// 	// {{end}}
+	// 	return
+	// }
 	var di *uint16
 
 	// create a new startup info struct
-	si := &StartupInfoEx{
+	si := &syscalls.StartupInfoEx{
 		StartupInfo: windows.StartupInfo{
 			Flags:      windows.STARTF_USESHOWWINDOW,
 			ShowWindow: uint16(show),
@@ -326,8 +342,16 @@ func RunAs(username string, domain string, password string, program string, args
 	// create a new process info struct
 	pi := &windows.ProcessInformation{}
 	// call CreateProcessWithLogonW
-	err = CreateProcessWithLogonW(u, d, p, 0, prog, cmd, 0, e, di, si, pi)
-
+	var logonFlags uint32 = 0
+	if netonly {
+		logonFlags = 2 // LOGON_NETCREDENTIALS_ONLY
+	}
+	err = syscalls.CreateProcessWithLogonW(u, d, p, logonFlags, prog, cmd, 0, e, di, si, pi)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("CreateProcessWithLogonW failed: %v\n", err)
+		// {{end}}
+	}
 	return
 }
 

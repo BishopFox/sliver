@@ -41,6 +41,7 @@ func RunAsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	showWindow := ctx.Flags.Bool("show-window")
 	process := ctx.Flags.String("process")
 	arguments := ctx.Flags.String("args")
+	netonly := ctx.Flags.Bool("net-only")
 
 	if username == "" {
 		con.PrintErrorf("Please specify a username\n")
@@ -60,6 +61,7 @@ func RunAsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Domain:      domain,
 		Password:    password,
 		HideWindow:  !showWindow,
+		NetOnly:     netonly,
 	})
 	if err != nil {
 		con.PrintErrorf("%s", err)
