@@ -224,8 +224,12 @@ func impersonateUser(username string) (token windows.Token, err error) {
 
 // MakeToken uses LogonUser to create a new logon session with the supplied username, domain and password.
 // It then impersonates the resulting token to allow access to remote network resources as the specified user.
-func MakeToken(domain string, username string, password string) error {
+func MakeToken(domain string, username string, password string, logonType uint32) error {
 	var token windows.Token
+	// Default to LOGON32_LOGON_NEW_CREDENTIALS
+	if logonType == 0 {
+		logonType = windows.LOGON32_LOGON_NEW_CREDENTIALS
+	}
 
 	pd, err := windows.UTF16PtrFromString(domain)
 	if err != nil {
@@ -239,7 +243,7 @@ func MakeToken(domain string, username string, password string) error {
 	if err != nil {
 		return err
 	}
-	err = syscalls.LogonUser(pu, pd, pp, syscalls.LOGON32_LOGON_NEW_CREDENTIALS, syscalls.LOGON32_PROVIDER_DEFAULT, &token)
+	err = syscalls.LogonUser(pu, pd, pp, logonType, syscalls.LOGON32_PROVIDER_DEFAULT, &token)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("LogonUser failed: %v\n", err)
