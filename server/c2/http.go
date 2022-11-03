@@ -767,7 +767,7 @@ func (s *SliverHTTPC2) stagerHandler(resp http.ResponseWriter, req *http.Request
 		httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverStage), getRemoteAddr(req))
 		resp.WriteHeader(http.StatusOK)
 	} else {
-		resp.WriteHeader(http.StatusNotFound)
+		s.defaultHandler(resp, req)
 	}
 }
 
