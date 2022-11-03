@@ -834,26 +834,25 @@ enum States {
   WAITING = 0;
   CRACKING = 1;
   INITIALIZING = 2;
-  SYNCING = 3;
 }
 
 message CrackstationStatus {
   string Name = 1;
   string HostUUID = 2;
-  CrackStatus Cracking = 3;
-  CrackSyncStatus Syncing = 4;
+  States State = 3;
+  CrackStatus Cracking = 4;
+  bool IsSyncing = 5;
+  CrackSyncStatus Syncing = 6;
 }
 
 message CrackStatus {
-  States State = 1;
+  string ID = 1;
   int64 StartedAt = 4;
 }
 
-
 message CrackSyncStatus {
-  States State = 1;
-  float Speed = 2;
-  map<string, float> Progress = 3;
+  float Speed = 1;
+  map<string, float> Progress = 2;
 }
 
 message CrackBenchmark {
