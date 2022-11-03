@@ -35,6 +35,13 @@ import (
 func CrackCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if !AreCrackersOnline(con) {
 		PrintNoCrackstations(con)
+	} else {
+		crackers, err := con.Rpc.Crackstations(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		con.PrintInfof("%d crackstation(s) connected to server\n", len(crackers.Crackstations))
 	}
 	crackFiles, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{})
 	if err != nil {

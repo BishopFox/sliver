@@ -830,16 +830,30 @@ message Crackstations {
   repeated Crackstation Crackstations = 1;
 }
 
-enum Statuses {
+enum States {
   WAITING = 0;
   CRACKING = 1;
   INITIALIZING = 2;
+  SYNCING = 3;
+}
+
+message CrackstationStatus {
+  string Name = 1;
+  string HostUUID = 2;
+  CrackStatus Cracking = 3;
+  CrackSyncStatus Syncing = 4;
 }
 
 message CrackStatus {
-  string Name = 1;
-  string HostUUID = 2;
-  Statuses Status = 3;
+  States State = 1;
+  int64 StartedAt = 4;
+}
+
+
+message CrackSyncStatus {
+  States State = 1;
+  int64 Speed = 2;
+  map<string, float> Progress = 3;
 }
 
 message CrackBenchmark {

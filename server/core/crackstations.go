@@ -38,7 +38,6 @@ func NewCrackstation(station *clientpb.Crackstation) *Crackstation {
 		HostUUID:   station.HostUUID,
 		Station:    station,
 		Events:     make(chan *clientpb.Event, 8),
-		status:     clientpb.Statuses_INITIALIZING,
 		statusLock: &sync.RWMutex{},
 	}
 }
@@ -48,17 +47,17 @@ type Crackstation struct {
 	Station  *clientpb.Crackstation
 	Events   chan *clientpb.Event
 
-	status     clientpb.Statuses
+	status     *clientpb.CrackstationStatus
 	statusLock *sync.RWMutex
 }
 
-func (c *Crackstation) UpdateStatus(status *clientpb.CrackStatus) {
+func (c *Crackstation) UpdateStatus(status *clientpb.CrackstationStatus) {
 	c.statusLock.Lock()
 	defer c.statusLock.Unlock()
-	c.status = status.Status
+	c.status = status
 }
 
-func (c *Crackstation) GetStatus() clientpb.Statuses {
+func (c *Crackstation) GetStatus() *clientpb.CrackstationStatus {
 	c.statusLock.RLock()
 	defer c.statusLock.RUnlock()
 	return c.status

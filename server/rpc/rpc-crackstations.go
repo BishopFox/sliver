@@ -66,7 +66,7 @@ func (rpc *Server) CrackstationTrigger(ctx context.Context, req *clientpb.Event)
 	switch req.EventType {
 
 	case consts.CrackStatusEvent:
-		statusUpdate := &clientpb.CrackStatus{}
+		statusUpdate := &clientpb.CrackstationStatus{}
 		err := proto.Unmarshal(req.Data, statusUpdate)
 		if err != nil {
 			crackRpcLog.Errorf("Failed to unmarshal crackstation status update: %s", err)
@@ -224,7 +224,7 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 }
 
 // ----------------------------------------------------------------------------------
-// CrackFile APIs - Synchronize word lists, rules, etc. with all the crackstation(s)
+// CrackFile APIs - Synchronize wordlists, rules, etc. with all the crackstation(s)
 // ----------------------------------------------------------------------------------
 func (rpc *Server) CrackFilesList(ctx context.Context, req *clientpb.CrackFile) (*clientpb.CrackFiles, error) {
 	var crackFiles []*models.CrackFile
@@ -268,8 +268,8 @@ func (rpc *Server) CrackFileCreate(ctx context.Context, req *clientpb.CrackFile)
 	}
 	usage, err := db.CrackFilesDiskUsage()
 	if err != nil {
-		crackRpcLog.Errorf("Failed to query crack files disk usage: %s", err)
-		return nil, status.Error(codes.Internal, "failed to query crack files disk usage")
+		crackRpcLog.Errorf("Failed to query crack files' disk quota: %s", err)
+		return nil, status.Error(codes.Internal, "failed to query crack files' disk quota")
 	}
 
 	// Slight TOCTOU here, but disk limit is a soft limit
@@ -278,7 +278,7 @@ func (rpc *Server) CrackFileCreate(ctx context.Context, req *clientpb.CrackFile)
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid file size %d", req.UncompressedSize))
 	}
 	if crackCfg.MaxDiskUsage < usage+req.UncompressedSize {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("disk usage limit exceeded: %d/%d", usage+req.UncompressedSize, crackCfg.MaxDiskUsage))
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("disk quota exceeded: %d/%d", usage+req.UncompressedSize, crackCfg.MaxDiskUsage))
 	}
 
 	newCrackFile := &models.CrackFile{
@@ -324,6 +324,9 @@ func (rpc *Server) CrackFileChunkUpload(ctx context.Context, req *clientpb.Crack
 		rpcLog.Errorf("Failed to get chunk data directory")
 		return nil, status.Error(codes.Internal, "failed to create crack file chunk (fs)")
 	}
+	if fileChunk.ID == uuid.Nil {
+		return nil, status.Error(codes.Internal, "nil file chunk id")
+	}
 	chunkDataPath := filepath.Join(chunkDataDir, fileChunk.ID.String())
 	err = os.WriteFile(chunkDataPath, req.Data, 0600)
 	if err != nil {
@@ -338,7 +341,7 @@ func (rpc *Server) CrackFileComplete(ctx context.Context, req *clientpb.CrackFil
 	if crackFileID == uuid.Nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid crack file id")
 	}
-	if matched, _ := regexp.MatchString(`^[a-fA-F0-9]{64}$`, req.Sha2_256); !matched {
+	if matched, err := regexp.MatchString(`^[a-fA-F0-9]{64}$`, req.Sha2_256); !matched || err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid sha2-256")
 	}
 	crackFile := &models.CrackFile{ID: crackFileID}
@@ -363,22 +366,28 @@ func (rpc *Server) CrackFileChunkDownload(ctx context.Context, req *clientpb.Cra
 	if !crackFile.IsComplete {
 		return nil, status.Error(codes.FailedPrecondition, "crack file upload is not complete")
 	}
-
-	fileChunk := &models.CrackFileChunk{
-		CrackFileID: uuid.FromStringOrNil(req.CrackFileID),
-		N:           req.N,
+	chunkID := uuid.FromStringOrNil(req.ID)
+	if chunkID == uuid.Nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid chunk id")
 	}
+
+	fileChunk := &models.CrackFileChunk{ID: chunkID}
 	err = db.Session().Where(fileChunk).First(fileChunk).Error
 	if err != nil {
 		rpcLog.Errorf("Failed to get crack file chunk: %s", err)
 		return nil, status.Error(codes.Internal, "failed to get crack file chunk (db)")
 	}
+	if fileChunk.CrackFileID.String() != req.CrackFileID {
+		return nil, status.Error(codes.InvalidArgument, "chunk does not belong to specified crack file")
+	}
+
 	chunkDataDir := assets.GetChunkDataDir()
 	if chunkDataDir == "" {
 		rpcLog.Errorf("Failed to get chunk data directory")
 		return nil, status.Error(codes.Internal, "failed to get crack file chunk (fs)")
 	}
 	chunkDataPath := filepath.Join(chunkDataDir, fileChunk.ID.String())
+	rpcLog.Infof("Reading chunk %s data from %s", chunkID.String(), chunkDataPath)
 	data, err := os.ReadFile(chunkDataPath)
 	if err != nil {
 		rpcLog.Errorf("Failed to read chunk data from %s: %s", chunkDataPath, err)
