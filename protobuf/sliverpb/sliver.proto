@@ -284,6 +284,9 @@ message RunAsReq {
   string Username = 1;
   string ProcessName = 2;
   string Args = 3;
+  string Domain = 4;
+  string Password = 5;
+  bool HideWindow = 6;
 
   commonpb.Request Request = 9;
 }

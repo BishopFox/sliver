@@ -228,7 +228,7 @@ func MakeToken(domain string, username string, password string, logonType uint32
 	var token windows.Token
 	// Default to LOGON32_LOGON_NEW_CREDENTIALS
 	if logonType == 0 {
-		logonType = windows.LOGON32_LOGON_NEW_CREDENTIALS
+		logonType = syscalls.LOGON32_LOGON_NEW_CREDENTIALS
 	}
 
 	pd, err := windows.UTF16PtrFromString(domain)
@@ -276,6 +276,58 @@ func deleteRegistryKey(keyPath, keyName string) (err error) {
 		return
 	}
 	err = registry.DeleteKey(key, keyName)
+	return
+}
+
+func RunAs(username string, domain string, password string, program string, args []string, show int) (err error) {
+	// call CreateProcessWithLogonW to create a new process with the specified credentials
+	// https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createprocesswithlogonw
+	// convert username, domain, password, program, args, env, dir to *uint16
+	u, err := windows.UTF16PtrFromString(username)
+	if err != nil {
+		return
+	}
+	d, err := windows.UTF16PtrFromString(domain)
+	if err != nil {
+		return
+	}
+	p, err := windows.UTF16PtrFromString(password)
+	if err != nil {
+		return
+	}
+	prog, err := windows.UTF16PtrFromString(program)
+	if err != nil {
+		return
+	}
+	var cmd *uint16
+	if len(args) > 0 {
+		cmd, err = windows.UTF16PtrFromString(strings.Join(args, " "))
+		if err != nil {
+			return
+		}
+	}
+	var e *uint16
+	if len(env) > 0 {
+		env := os.Environ()
+		e, err = windows.UTF16PtrFromString(strings.Join(env, "\x00"))
+		if err != nil {
+			return
+		}
+	}
+	var di *uint16
+
+	// create a new startup info struct
+	si := &StartupInfoEx{
+		StartupInfo: windows.StartupInfo{
+			Flags:      windows.STARTF_USESHOWWINDOW,
+			ShowWindow: uint16(show),
+		},
+	}
+	// create a new process info struct
+	pi := &windows.ProcessInformation{}
+	// call CreateProcessWithLogonW
+	err = CreateProcessWithLogonW(u, d, p, 0, prog, cmd, 0, e, di, si, pi)
+
 	return
 }
 

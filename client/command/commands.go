@@ -2046,9 +2046,12 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Run a new process in the context of the designated user (Windows Only)",
 		LongHelp: help.GetHelpFor([]string{consts.RunAsStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("u", "username", "NT AUTHORITY\\SYSTEM", "user to impersonate")
+			f.String("u", "username", "", "user to impersonate")
 			f.String("p", "process", "", "process to start")
 			f.String("a", "args", "", "arguments for the process")
+			f.String("d", "domain", "", "domain of the user")
+			f.String("P", "password", "", "password of the user")
+			f.Bool("s", "show-window", false, "show the window of the process")
 			f.Int("t", "timeout", 30, "command timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {

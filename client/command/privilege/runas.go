@@ -36,6 +36,9 @@ func RunAsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	username := ctx.Flags.String("username")
+	password := ctx.Flags.String("password")
+	domain := ctx.Flags.String("domain")
+	showWindow := ctx.Flags.Bool("show-window")
 	process := ctx.Flags.String("process")
 	arguments := ctx.Flags.String("args")
 
@@ -54,6 +57,9 @@ func RunAsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Username:    username,
 		ProcessName: process,
 		Args:        arguments,
+		Domain:      domain,
+		Password:    password,
+		HideWindow:  !showWindow,
 	})
 	if err != nil {
 		con.PrintErrorf("%s", err)
