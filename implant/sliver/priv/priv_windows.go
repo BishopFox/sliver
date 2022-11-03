@@ -228,7 +228,7 @@ func MakeToken(domain string, username string, password string, logonType uint32
 	var token windows.Token
 	// Default to LOGON32_LOGON_NEW_CREDENTIALS
 	if logonType == 0 {
-		logonType = windows.LOGON32_LOGON_NEW_CREDENTIALS
+		logonType = syscalls.LOGON32_LOGON_NEW_CREDENTIALS
 	}
 
 	pd, err := windows.UTF16PtrFromString(domain)
