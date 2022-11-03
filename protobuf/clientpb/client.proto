@@ -852,7 +852,7 @@ message CrackStatus {
 
 message CrackSyncStatus {
   States State = 1;
-  int64 Speed = 2;
+  float Speed = 2;
   map<string, float> Progress = 3;
 }
 
