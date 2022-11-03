@@ -2120,6 +2120,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("u", "username", "", "username of the user to impersonate")
 			f.String("p", "password", "", "password of the user to impersonate")
 			f.String("d", "domain", "", "domain of the user to impersonate")
+			f.String("T", "logon-type", "LOGON_NEW_CREDENTIALS", "logon type to use")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,

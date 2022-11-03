@@ -340,6 +340,7 @@ message MakeTokenReq {
   string Username = 1;
   string Password = 2;
   string Domain = 3;
+  uint32 LogonType = 4;
 
   commonpb.Request Request = 9;
 }
