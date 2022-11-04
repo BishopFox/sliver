@@ -47,6 +47,15 @@ LDFLAGS = -ldflags "-s -w \
 	-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUB_KEY) \
 	-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 
+# Debug builds can't be stripped (-s -w flags)
+LDFLAGS_DEBUG = -ldflags "-X $(VERSION_PKG).Version=$(VERSION) \
+	-X \"$(VERSION_PKG).GoVersion=$(GO_VERSION)\" \
+	-X $(VERSION_PKG).CompiledAt=$(COMPILED_AT) \
+	-X $(VERSION_PKG).GithubReleasesURL=$(RELEASES_URL) \
+	-X $(VERSION_PKG).GitCommit=$(GIT_COMMIT) \
+	-X $(VERSION_PKG).GitDirty=$(GIT_DIRTY) \
+	-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUB_KEY) \
+	-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 
 SED_INPLACE := sed -i
 STATIC_TARGET := linux
@@ -145,6 +154,11 @@ pb:
 	protoc -I protobuf/ protobuf/clientpb/client.proto --go_out=paths=source_relative:protobuf/
 	protoc -I protobuf/ protobuf/dnspb/dns.proto --go_out=paths=source_relative:protobuf/
 	protoc -I protobuf/ protobuf/rpcpb/services.proto --go_out=paths=source_relative:protobuf/ --go-grpc_out=protobuf/ --go-grpc_opt=paths=source_relative 
+
+.PHONY: debug
+debug: clean
+	$(ENV) $(GO) build -mod=vendor $(TAGS),server $(LDFLAGS_DEBUG) -o sliver-server$(ARTIFACT_SUFFIX) ./server
+	$(ENV) $(GO) build -mod=vendor $(TAGS),client $(LDFLAGS_DEBUG) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 validate-go-version:
 	@if [ $(GO_MAJOR_VERSION) -gt $(MIN_SUPPORTED_GO_MAJOR_VERSION) ]; then \
