@@ -100,7 +100,7 @@ func PrintWebsite(web *clientpb.Website, con *console.SliverConsoleClient) {
 		return sortedContents[i].Path < sortedContents[j].Path
 	})
 	for _, content := range sortedContents {
-		tw.AppendHeader(table.Row{
+		tw.AppendRow(table.Row{
 			content.Path,
 			content.ContentType,
 			content.Size,
