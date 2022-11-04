@@ -1965,6 +1965,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("4", "ip4", true, "display information about IPv4 sockets")
 			f.Bool("6", "ip6", false, "display information about IPv6 sockets")
 			f.Bool("l", "listen", false, "display information about listening sockets")
+			f.Bool("n", "numeric", false, "display numeric addresses (disable hostname resolution)")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,

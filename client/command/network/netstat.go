@@ -44,6 +44,7 @@ func NetstatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	ip6 := ctx.Flags.Bool("ip6")
 	tcp := ctx.Flags.Bool("tcp")
 	udp := ctx.Flags.Bool("udp")
+	numeric := ctx.Flags.Bool("numeric")
 
 	implantPID := getPID(session, beacon)
 	activeC2 := getActiveC2(session, beacon)
@@ -67,24 +68,20 @@ func NetstatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			PrintNetstat(netstat, implantPID, activeC2, con)
+			PrintNetstat(netstat, implantPID, activeC2, numeric, con)
 		})
 		con.PrintAsyncResponse(netstat.Response)
 	} else {
-		PrintNetstat(netstat, implantPID, activeC2, con)
+		PrintNetstat(netstat, implantPID, activeC2, numeric, con)
 	}
 }
 
-func PrintNetstat(netstat *sliverpb.Netstat, implantPID int32, activeC2 string, con *console.SliverConsoleClient) {
+func PrintNetstat(netstat *sliverpb.Netstat, implantPID int32, activeC2 string, numeric bool, con *console.SliverConsoleClient) {
 	lookup := func(skaddr *sliverpb.SockTabEntry_SockAddr) string {
-		const IPv4Strlen = 17
 		addr := skaddr.Ip
 		names, err := net.LookupAddr(addr)
 		if err == nil && len(names) > 0 {
 			addr = names[0]
-		}
-		if len(addr) > IPv4Strlen {
-			addr = addr[:IPv4Strlen]
 		}
 		return fmt.Sprintf("%s:%d", addr, skaddr.Port)
 	}
@@ -98,8 +95,12 @@ func PrintNetstat(netstat *sliverpb.Netstat, implantPID int32, activeC2 string, 
 		if entry.Process != nil {
 			pid = fmt.Sprintf("%d/%s", entry.Process.Pid, entry.Process.Executable)
 		}
-		srcAddr := lookup(entry.LocalAddr)
-		dstAddr := lookup(entry.RemoteAddr)
+		srcAddr := fmt.Sprintf("%s:%d", entry.LocalAddr.Ip, entry.LocalAddr.Port)
+		dstAddr := fmt.Sprintf("%s:%d", entry.RemoteAddr.Ip, entry.RemoteAddr.Port)
+		if !numeric {
+			srcAddr = lookup(entry.LocalAddr)
+			dstAddr = lookup(entry.RemoteAddr)
+		}
 		if entry.Process != nil && entry.Process.Pid == implantPID {
 			tw.AppendRow(table.Row{
 				fmt.Sprintf(console.Green+"%s"+console.Normal, entry.Protocol),
