@@ -281,11 +281,11 @@ func buildEntries(proto string, s []netstat.SockTabEntry) []*sliverpb.SockTabEnt
 		}
 		entries = append(entries, &sliverpb.SockTabEntry{
 			LocalAddr: &sliverpb.SockTabEntry_SockAddr{
-				Ip:   e.LocalAddr.String(),
+				Ip:   e.LocalAddr.IP.String(),
 				Port: uint32(e.LocalAddr.Port),
 			},
 			RemoteAddr: &sliverpb.SockTabEntry_SockAddr{
-				Ip:   e.RemoteAddr.String(),
+				Ip:   e.RemoteAddr.IP.String(),
 				Port: uint32(e.RemoteAddr.Port),
 			},
 			SkState: e.State.String(),
