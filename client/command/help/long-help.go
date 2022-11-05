@@ -476,6 +476,16 @@ The [[.Bold]]psexec[[.Normal]] command will use the credentials of the Windows u
 `
 	makeTokenHelp = `[[.Bold]]Command:[[.Normal]] make-token -u USERNAME -d DOMAIN -p PASSWORD
 [[.Bold]]About:[[.Normal]] Creates a new Logon Session from the specified credentials and impersonate the resulting token.
+You can specify a custon Logon Type using the [[.Bold]]--logon-type[[.Normal]] flag, which defaults to [[.Bold]]LOGON32_LOGON_NEW_CREDENTIALS[[.Normal]].
+Valid types are:
+
+LOGON_INTERACTIVE
+LOGON_NETWORK
+LOGON_BATCH
+LOGON_SERVICE
+LOGON_UNLOCK
+LOGON_NETWORK_CLEARTEXT
+LOGON_NEW_CREDENTIALS
 `
 
 	getEnvHelp = `[[.Bold]]Command:[[.Normal]] getenv [name]

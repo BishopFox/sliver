@@ -28,6 +28,16 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+var logonTypes = map[string]uint32{
+	"LOGON_INTERACTIVE":       2,
+	"LOGON_NETWORK":           3,
+	"LOGON_BATCH":             4,
+	"LOGON_SERVICE":           5,
+	"LOGON_UNLOCK":            7,
+	"LOGON_NETWORK_CLEARTEXT": 8,
+	"LOGON_NEW_CREDENTIALS":   9,
+}
+
 // MakeTokenCmd - Windows only, create a token using "valid" credentails
 func MakeTokenCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	session, beacon := con.ActiveTarget.GetInteractive()
@@ -38,6 +48,12 @@ func MakeTokenCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	username := ctx.Flags.String("username")
 	password := ctx.Flags.String("password")
 	domain := ctx.Flags.String("domain")
+	logonType := ctx.Flags.String("logon-type")
+
+	if _, ok := logonTypes[logonType]; !ok {
+		con.PrintErrorf("Invalid logon type: %s\n", logonType)
+		return
+	}
 
 	if username == "" || password == "" {
 		con.PrintErrorf("Pou must provide a username and password\n")
@@ -48,10 +64,11 @@ func MakeTokenCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.SpinUntil("Creating new logon session ...", ctrl)
 
 	makeToken, err := con.Rpc.MakeToken(context.Background(), &sliverpb.MakeTokenReq{
-		Request:  con.ActiveTarget.Request(ctx),
-		Username: username,
-		Domain:   domain,
-		Password: password,
+		Request:   con.ActiveTarget.Request(ctx),
+		Username:  username,
+		Domain:    domain,
+		Password:  password,
+		LogonType: logonTypes[logonType],
 	})
 	ctrl <- true
 	<-ctrl

@@ -1967,7 +1967,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("4", "ip4", true, "display information about IPv4 sockets")
 			f.Bool("6", "ip6", false, "display information about IPv6 sockets")
 			f.Bool("l", "listen", false, "display information about listening sockets")
-			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+			f.Bool("n", "numeric", false, "display numeric addresses (disable hostname resolution)")
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,
 	})
@@ -2048,9 +2049,15 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Run a new process in the context of the designated user (Windows Only)",
 		LongHelp: help.GetHelpFor([]string{consts.RunAsStr}),
 		Flags: func(f *grumble.Flags) {
-			f.String("u", "username", "NT AUTHORITY\\SYSTEM", "user to impersonate")
+			f.String("u", "username", "", "user to impersonate")
 			f.String("p", "process", "", "process to start")
 			f.String("a", "args", "", "arguments for the process")
+			f.String("d", "domain", "", "domain of the user")
+			f.String("P", "password", "", "password of the user")
+			f.Bool("s", "show-window", false, `
+			Log on, but use the specified credentials on the network only. The new process uses the same token as the caller, but the system creates a new logon session within LSA, and the process uses the specified credentials as the default credentials.`)
+			f.Bool("n", "net-only", false, "use ")
+
 			f.Int("t", "timeout", 30, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
@@ -2122,6 +2129,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("u", "username", "", "username of the user to impersonate")
 			f.String("p", "password", "", "password of the user to impersonate")
 			f.String("d", "domain", "", "domain of the user to impersonate")
+			f.String("T", "logon-type", "LOGON_NEW_CREDENTIALS", "logon type to use")
+
 			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,

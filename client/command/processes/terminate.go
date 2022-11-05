@@ -30,8 +30,9 @@ import (
 
 // TerminateCmd - Terminate a process on the remote system
 func TerminateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	session := con.ActiveTarget.GetSessionInteractive()
-	if session == nil {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
+		con.PrintErrorf("No active session or beacon\n")
 		return
 	}
 
