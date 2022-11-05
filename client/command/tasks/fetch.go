@@ -432,7 +432,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			con.PrintErrorf("Failed to fetch beacon: %s\n", err)
 			return
 		}
-		network.PrintNetstat(netstat, beacon.PID, beacon.ActiveC2, con)
+		network.PrintNetstat(netstat, beacon.PID, beacon.ActiveC2, false, con)
 
 	// ---------------------
 	// Privilege commands
