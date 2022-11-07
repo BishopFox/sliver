@@ -348,7 +348,7 @@ github.com/remyoudompheng/bigfft
 # github.com/rivo/uniseg v0.2.0
 ## explicit; go 1.12
 github.com/rivo/uniseg
-# github.com/shirou/gopsutil/v3 v3.22.9
+# github.com/shirou/gopsutil/v3 v3.22.10
 ## explicit; go 1.15
 github.com/shirou/gopsutil/v3/internal/common
 github.com/shirou/gopsutil/v3/mem
