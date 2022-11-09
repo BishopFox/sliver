@@ -96,7 +96,23 @@ func SePrivEnable(s string) error {
 }
 
 func RevertToSelf() error {
+	err := windows.RevertToSelf()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("RevertToSelf Error: %v\n", err)
+		// {{end}}
+	}
+	err = windows.CloseHandle(windows.Handle(CurrentToken))
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("CloseHandle Error: %v\n", err)
+		// {{end}}
+	}
 	CurrentToken = windows.Token(0)
+	return err
+}
+
+func TRevertToSelf() error {
 	return windows.RevertToSelf()
 }
 
