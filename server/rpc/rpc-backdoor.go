@@ -27,6 +27,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/generate"
@@ -75,6 +76,13 @@ func (rpc *Server) Backdoor(ctx context.Context, req *sliverpb.BackdoorReq) (*sl
 
 	if p.Config.Format != clientpb.OutputFormat_SHELLCODE {
 		return nil, fmt.Errorf("please select a profile targeting a shellcode format")
+	}
+
+	if p.Config.Name == "" {
+		p.Config.Name, err = codenames.GetCodename()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	name, config := generate.ImplantConfigFromProtobuf(p.Config)
