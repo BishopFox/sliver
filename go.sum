@@ -23,8 +23,8 @@ github.com/Masterminds/semver/v3 v3.1.1 h1:hLg3sBzpNErnxhQtUy/mmLR2I9foDujNK030I
 github.com/Masterminds/semver/v3 v3.1.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0cBrbBpGY/8hQs=
 github.com/Microsoft/go-winio v0.5.1 h1:aPJp2QD7OOrhO5tQXqQoGSJc+DjDtWTGLOmNyAm6FgY=
 github.com/Microsoft/go-winio v0.5.1/go.mod h1:JPGBdM1cNvN/6ISo+n8V5iA4v8pBzdOpzfwIujj1a84=
-github.com/Ne0nd0g/go-clr v1.0.2 h1:jVD7iJyXaS3KhPiKetUnUAuLxgDlNSvYmPfMFK8E3VY=
-github.com/Ne0nd0g/go-clr v1.0.2/go.mod h1:TKYSQ/5xT25EvBUttAlUrzpR8yHuI0qTRK495I5xG/I=
+github.com/Ne0nd0g/go-clr v1.0.3 h1:xt92wwuqY23ZSC7RuHD3mKu3K22Bk5NNbxI803vojK4=
+github.com/Ne0nd0g/go-clr v1.0.3/go.mod h1:TKYSQ/5xT25EvBUttAlUrzpR8yHuI0qTRK495I5xG/I=
 github.com/Netflix/go-expect v0.0.0-20180615182759-c93bf25de8e8/go.mod h1:oX5x61PbNXchhh0oikYAH+4Pcfw5LKv21+Jnpr6r6Pc=
 github.com/Netflix/go-expect v0.0.0-20190729225929-0e00d9168667/go.mod h1:oX5x61PbNXchhh0oikYAH+4Pcfw5LKv21+Jnpr6r6Pc=
 github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2 h1:+vx7roKuyA63nhn5WAunQHLTznkw5W8b1Xc0dNjp83s=
