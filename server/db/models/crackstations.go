@@ -139,7 +139,7 @@ type CrackTask struct {
 	CrackstationID uuid.UUID `gorm:"type:uuid;"`
 	CreatedAt      time.Time `gorm:"->;<-:create;"`
 	StartedAt      time.Time `gorm:"->;<-:create;"`
-	FinishedAt     time.Time `gorm:"->;<-:create;"`
+	CompletedAt    time.Time `gorm:"->;<-:create;"`
 	Status         string
 
 	Command CrackCommand
@@ -149,7 +149,7 @@ func (c *CrackTask) ToProtobuf() *clientpb.CrackTask {
 	task := &clientpb.CrackTask{}
 	task.CreatedAt = c.CreatedAt.Unix()
 	task.StartedAt = c.StartedAt.Unix()
-	task.FinishedAt = c.FinishedAt.Unix()
+	task.CompletedAt = c.CompletedAt.Unix()
 	task.Status = c.Status
 	task.Command = c.Command.ToProtobuf()
 	return task
@@ -159,7 +159,7 @@ func (CrackTask) FromProtobuf(c *clientpb.CrackTask) *CrackTask {
 	task := &CrackTask{}
 	task.CreatedAt = time.Unix(c.CreatedAt, 0)
 	task.StartedAt = time.Unix(c.StartedAt, 0)
-	task.FinishedAt = time.Unix(c.FinishedAt, 0)
+	task.CompletedAt = time.Unix(c.CompletedAt, 0)
 	task.Status = c.Status
 	task.Command = (*CrackCommand{}.FromProtobuf(c.Command))
 	return task

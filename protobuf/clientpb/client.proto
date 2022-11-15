@@ -866,8 +866,9 @@ message CrackTask {
   string HostUUID = 2; // CrackstationID
   int64 CreatedAt = 3;
   int64 StartedAt = 4;
-  int64 FinishedAt = 5;
+  int64 CompletedAt = 5;
   string Status = 6;
+  string Err = 7;
 
   CrackCommand Command = 9;
 }
