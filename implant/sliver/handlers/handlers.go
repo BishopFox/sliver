@@ -530,7 +530,16 @@ func executeHandler(data []byte, resp RPCResponse) {
 	}
 
 	execResp := &sliverpb.Execute{}
-	cmd := exec.Command(execReq.Path, execReq.Args...)
+	exePath, err := expandPath(execReq.Path)
+	if err != nil {
+		execResp.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%s", err),
+		}
+		proto.Marshal(execResp)
+		resp(data, err)
+		return
+	}
+	cmd := exec.Command(exePath, execReq.Args...)
 
 	if execReq.Output {
 		stdOutBuff := new(bytes.Buffer)
@@ -928,4 +937,14 @@ func compressDir(path string, filter string, recurse bool, buf io.Writer) (int, 
 		return readFiles, unreadableFiles, err
 	}
 	return readFiles, unreadableFiles, nil
+}
+
+func expandPath(exePath string) (string, error) {
+	if !strings.ContainsRune(exePath, os.PathSeparator) {
+		_, err := exec.LookPath(exePath)
+		if err != nil {
+			return filepath.Abs(exePath)
+		}
+	}
+	return exePath, nil
 }

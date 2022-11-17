@@ -303,7 +303,16 @@ func executeWindowsHandler(data []byte, resp RPCResponse) {
 	}
 
 	execResp := &sliverpb.Execute{}
-	cmd := exec.Command(execReq.Path, execReq.Args...)
+	exePath, err := expandPath(execReq.Path)
+	if err != nil {
+		execResp.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%s", err),
+		}
+		proto.Marshal(execResp)
+		resp(data, err)
+		return
+	}
+	cmd := exec.Command(exePath, execReq.Args...)
 
 	// Execute with current token
 	cmd.SysProcAttr = &syscall.SysProcAttr{}
