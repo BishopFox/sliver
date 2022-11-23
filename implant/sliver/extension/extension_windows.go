@@ -19,7 +19,6 @@ package extension
 */
 
 import (
-	"bytes"
 	"errors"
 	"sync"
 	"syscall"
@@ -132,14 +131,9 @@ func (w *WindowsExtension) Call(export string, arguments []byte, onFinish func([
 // so we can pass data back to the Go process from the loaded DLL
 func (w *WindowsExtension) extensionCallback(data uintptr, dataLen uintptr) uintptr {
 	outDataSize := int(dataLen)
-	outBuff := new(bytes.Buffer)
-	for i := 0; i < outDataSize; i++ {
-		b := (*byte)(unsafe.Pointer(uintptr(i) + data))
-		outBuff.WriteByte(*b)
-	}
-	//TODO: do something with outBuff
-	if outBuff.Len() > 0 {
-		w.onFinish(outBuff.Bytes())
+	outBytes := unsafe.Slice((*byte)(unsafe.Pointer(data)), outDataSize)
+	if dataLen > 0 {
+		w.onFinish(outBytes)
 	}
 	return Success
 }
