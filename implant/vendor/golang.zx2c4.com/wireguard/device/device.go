@@ -94,10 +94,9 @@ type Device struct {
 // There are three states: down, up, closed.
 // Transitions:
 //
-//   down -----+
-//     ↑↓      ↓
-//     up -> closed
-//
+//	down -----+
+//	  ↑↓      ↓
+//	  up -> closed
 type deviceState uint32
 
 //go:generate go run golang.org/x/tools/cmd/stringer -type deviceState -trimprefix=deviceState

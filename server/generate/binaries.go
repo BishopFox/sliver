@@ -190,6 +190,10 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, cfg.C2)
 	cfg.WGc2Enabled = isC2Enabled([]string{"wg"}, cfg.C2)
 	cfg.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, cfg.C2)
+	cfg.WSc2Enabled = isC2Enabled([]string{"ws", "wss"}, cfg.C2)
+	if cfg.WSc2Enabled {
+		cfg.HTTPc2Enabled = true
+	}
 	cfg.DNSc2Enabled = isC2Enabled([]string{"dns"}, cfg.C2)
 	cfg.NamePipec2Enabled = isC2Enabled([]string{"namedpipe"}, cfg.C2)
 	cfg.TCPPivotc2Enabled = isC2Enabled([]string{"tcppivot"}, cfg.C2)
@@ -644,6 +648,10 @@ func GenerateConfig(name string, config *models.ImplantConfig, save bool) error 
 	config.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, config.C2)
 	config.WGc2Enabled = isC2Enabled([]string{"wg"}, config.C2)
 	config.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, config.C2)
+	config.WSc2Enabled = isC2Enabled([]string{"ws", "wss"}, config.C2)
+	if config.WSc2Enabled {
+		config.HTTPc2Enabled = true
+	}
 	config.DNSc2Enabled = isC2Enabled([]string{"dns"}, config.C2)
 	config.NamePipec2Enabled = isC2Enabled([]string{"namedpipe"}, config.C2)
 	config.TCPPivotc2Enabled = isC2Enabled([]string{"tcppivot"}, config.C2)

@@ -680,12 +680,12 @@ func (p *parser) hashTok() {
 
 // [0], 6.5.1 Primary expressions
 //
-//  primary-expression:
-// 	identifier
-// 	constant
-// 	string-literal
-// 	( expression )
-// 	( compound-statement )
+//	 primary-expression:
+//		identifier
+//		constant
+//		string-literal
+//		( expression )
+//		( compound-statement )
 func (p *parser) primaryExpression() *PrimaryExpression {
 	var kind PrimaryExpressionCase
 	var resolvedIn Scope
@@ -777,17 +777,17 @@ out:
 
 // [0], 6.5.2 Postfix operators
 //
-//  postfix-expression:
-// 	primary-expression
-// 	postfix-expression [ expression ]
-// 	postfix-expression ( argument-expression-list_opt )
-// 	postfix-expression . identifier
-// 	postfix-expression -> identifier
-// 	postfix-expression ++
-// 	postfix-expression --
-// 	( type-name ) { initializer-list }
-// 	( type-name ) { initializer-list , }
-// 	__builtin_types_compatible_p ( type-name , type-name )
+//	 postfix-expression:
+//		primary-expression
+//		postfix-expression [ expression ]
+//		postfix-expression ( argument-expression-list_opt )
+//		postfix-expression . identifier
+//		postfix-expression -> identifier
+//		postfix-expression ++
+//		postfix-expression --
+//		( type-name ) { initializer-list }
+//		( type-name ) { initializer-list , }
+//		__builtin_types_compatible_p ( type-name , type-name )
 func (p *parser) postfixExpression(typ *TypeName) (r *PostfixExpression) {
 	var t, t2, t3, t4, t5 Token
 out:
@@ -979,9 +979,9 @@ out:
 	}
 }
 
-//  argument-expression-list:
-// 	assignment-expression
-// 	argument-expression-list , assignment-expression
+//	 argument-expression-list:
+//		assignment-expression
+//		argument-expression-list , assignment-expression
 func (p *parser) argumentExpressionListOpt() (r *ArgumentExpressionList) {
 	if p.rune() == ')' {
 		return nil
@@ -1009,21 +1009,21 @@ func (p *parser) argumentExpressionListOpt() (r *ArgumentExpressionList) {
 
 // [0], 6.5.3 Unary operators
 //
-//  unary-expression:
-// 	postfix-expression
-// 	++ unary-expression
-// 	-- unary-expression
-// 	unary-operator cast-expression
-// 	sizeof unary-expression
-// 	sizeof ( type-name )
-// 	&& identifier
-// 	_Alignof unary-expression
-// 	_Alignof ( type-name )
-// 	__imag__ unary-expression
-// 	__real__ unary-expression
+//	 unary-expression:
+//		postfix-expression
+//		++ unary-expression
+//		-- unary-expression
+//		unary-operator cast-expression
+//		sizeof unary-expression
+//		sizeof ( type-name )
+//		&& identifier
+//		_Alignof unary-expression
+//		_Alignof ( type-name )
+//		__imag__ unary-expression
+//		__real__ unary-expression
 //
-//  unary-operator: one of
-// 	& * + - ~ !
+//	 unary-operator: one of
+//		& * + - ~ !
 func (p *parser) unaryExpression(typ *TypeName) *UnaryExpression {
 	if typ != nil {
 		return &UnaryExpression{Case: UnaryExpressionPostfix, PostfixExpression: p.postfixExpression(typ), lexicalScope: p.declScope}
@@ -1127,9 +1127,9 @@ func (p *parser) unaryExpression(typ *TypeName) *UnaryExpression {
 
 // [0], 6.5.4 Cast operators
 //
-//  cast-expression:
-// 	unary-expression
-// 	( type-name ) cast-expression
+//	 cast-expression:
+//		unary-expression
+//		( type-name ) cast-expression
 func (p *parser) castExpression() *CastExpression {
 	var t, t2 Token
 	switch p.rune() {
@@ -1162,11 +1162,11 @@ func (p *parser) castExpression() *CastExpression {
 
 // [0], 6.5.5 Multiplicative operators
 //
-//  multiplicative-expression:
-// 	cast-expression
-// 	multiplicative-expression * cast-expression
-// 	multiplicative-expression / cast-expression
-// 	multiplicative-expression % cast-expression
+//	 multiplicative-expression:
+//		cast-expression
+//		multiplicative-expression * cast-expression
+//		multiplicative-expression / cast-expression
+//		multiplicative-expression % cast-expression
 func (p *parser) multiplicativeExpression() (r *MultiplicativeExpression) {
 	r = &MultiplicativeExpression{Case: MultiplicativeExpressionCast, CastExpression: p.castExpression()}
 	for {
@@ -1189,10 +1189,10 @@ func (p *parser) multiplicativeExpression() (r *MultiplicativeExpression) {
 
 // [0], 6.5.6 Additive operators
 //
-//  additive-expression:
-// 	multiplicative-expression
-// 	additive-expression + multiplicative-expression
-// 	additive-expression - multiplicative-expression
+//	 additive-expression:
+//		multiplicative-expression
+//		additive-expression + multiplicative-expression
+//		additive-expression - multiplicative-expression
 func (p *parser) additiveExpression() (r *AdditiveExpression) {
 	r = &AdditiveExpression{Case: AdditiveExpressionMul, MultiplicativeExpression: p.multiplicativeExpression()}
 	for {
@@ -1213,10 +1213,10 @@ func (p *parser) additiveExpression() (r *AdditiveExpression) {
 
 // [0], 6.5.7 Bitwise shift operators
 //
-//  shift-expression:
-// 	additive-expression
-// 	shift-expression << additive-expression
-// 	shift-expression >> additive-expression
+//	 shift-expression:
+//		additive-expression
+//		shift-expression << additive-expression
+//		shift-expression >> additive-expression
 func (p *parser) shiftExpression() (r *ShiftExpression) {
 	r = &ShiftExpression{Case: ShiftExpressionAdd, AdditiveExpression: p.additiveExpression()}
 	for {
@@ -1237,12 +1237,12 @@ func (p *parser) shiftExpression() (r *ShiftExpression) {
 
 // [0], 6.5.8 Relational operators
 //
-//  relational-expression:
-// 	shift-expression
-// 	relational-expression <  shift-expression
-// 	relational-expression >  shift-expression
-// 	relational-expression <= shift-expression
-// 	relational-expression >= shift-expression
+//	 relational-expression:
+//		shift-expression
+//		relational-expression <  shift-expression
+//		relational-expression >  shift-expression
+//		relational-expression <= shift-expression
+//		relational-expression >= shift-expression
 func (p *parser) relationalExpression() (r *RelationalExpression) {
 	r = &RelationalExpression{Case: RelationalExpressionShift, ShiftExpression: p.shiftExpression()}
 	for {
@@ -1267,10 +1267,10 @@ func (p *parser) relationalExpression() (r *RelationalExpression) {
 
 // [0], 6.5.9 Equality operators
 //
-//  equality-expression:
-// 	relational-expression
-// 	equality-expression == relational-expression
-// 	equality-expression != relational-expression
+//	 equality-expression:
+//		relational-expression
+//		equality-expression == relational-expression
+//		equality-expression != relational-expression
 func (p *parser) equalityExpression() (r *EqualityExpression) {
 	r = &EqualityExpression{Case: EqualityExpressionRel, RelationalExpression: p.relationalExpression()}
 	for {
@@ -1291,9 +1291,9 @@ func (p *parser) equalityExpression() (r *EqualityExpression) {
 
 // [0], 6.5.10 Bitwise AND operator
 //
-//  AND-expression:
-// 	equality-expression
-// 	AND-expression & equality-expression
+//	 AND-expression:
+//		equality-expression
+//		AND-expression & equality-expression
 func (p *parser) andExpression() (r *AndExpression) {
 	r = &AndExpression{Case: AndExpressionEq, EqualityExpression: p.equalityExpression()}
 	for {
@@ -1309,9 +1309,9 @@ func (p *parser) andExpression() (r *AndExpression) {
 
 // [0], 6.5.11 Bitwise exclusive OR operator
 //
-//  exclusive-OR-expression:
-// 	AND-expression
-// 	exclusive-OR-expression ^ AND-expression
+//	 exclusive-OR-expression:
+//		AND-expression
+//		exclusive-OR-expression ^ AND-expression
 func (p *parser) exclusiveOrExpression() (r *ExclusiveOrExpression) {
 	r = &ExclusiveOrExpression{Case: ExclusiveOrExpressionAnd, AndExpression: p.andExpression()}
 	for {
@@ -1327,9 +1327,9 @@ func (p *parser) exclusiveOrExpression() (r *ExclusiveOrExpression) {
 
 // [0], 6.5.12 Bitwise inclusive OR operator
 //
-//  inclusive-OR-expression:
-// 	exclusive-OR-expression
-// 	inclusive-OR-expression | exclusive-OR-expression
+//	 inclusive-OR-expression:
+//		exclusive-OR-expression
+//		inclusive-OR-expression | exclusive-OR-expression
 func (p *parser) inclusiveOrExpression() (r *InclusiveOrExpression) {
 	r = &InclusiveOrExpression{Case: InclusiveOrExpressionXor, ExclusiveOrExpression: p.exclusiveOrExpression()}
 	for {
@@ -1345,9 +1345,9 @@ func (p *parser) inclusiveOrExpression() (r *InclusiveOrExpression) {
 
 // [0], 6.5.13 Logical AND operator
 //
-//  logical-AND-expression:
-// 	inclusive-OR-expression
-// 	logical-AND-expression && inclusive-OR-expression
+//	 logical-AND-expression:
+//		inclusive-OR-expression
+//		logical-AND-expression && inclusive-OR-expression
 func (p *parser) logicalAndExpression() (r *LogicalAndExpression) {
 	r = &LogicalAndExpression{Case: LogicalAndExpressionOr, InclusiveOrExpression: p.inclusiveOrExpression()}
 	for {
@@ -1363,9 +1363,9 @@ func (p *parser) logicalAndExpression() (r *LogicalAndExpression) {
 
 // [0], 6.5.14 Logical OR operator
 //
-//  logical-OR-expression:
-// 	logical-AND-expression
-// 	logical-OR-expression || logical-AND-expression
+//	 logical-OR-expression:
+//		logical-AND-expression
+//		logical-OR-expression || logical-AND-expression
 func (p *parser) logicalOrExpression() (r *LogicalOrExpression) {
 	r = &LogicalOrExpression{Case: LogicalOrExpressionLAnd, LogicalAndExpression: p.logicalAndExpression()}
 	for {
@@ -1381,9 +1381,9 @@ func (p *parser) logicalOrExpression() (r *LogicalOrExpression) {
 
 // [0], 6.5.15 Conditional operator
 //
-//  conditional-expression:
-// 	logical-OR-expression
-// 	logical-OR-expression ? expression : conditional-expression
+//	 conditional-expression:
+//		logical-OR-expression
+//		logical-OR-expression ? expression : conditional-expression
 func (p *parser) conditionalExpression() (r *ConditionalExpression) {
 	lo := p.logicalOrExpression()
 	var t, t2 Token
@@ -1413,12 +1413,12 @@ func (p *parser) conditionalExpression() (r *ConditionalExpression) {
 
 // [0], 6.5.16 Assignment operators
 //
-//  assignment-expression:
-// 	conditional-expression
-// 	unary-expression assignment-operator assignment-expression
+//	 assignment-expression:
+//		conditional-expression
+//		unary-expression assignment-operator assignment-expression
 //
-//  assignment-operator: one of
-// 	= *= /= %= += -= <<= >>= &= ^= |=
+//	 assignment-operator: one of
+//		= *= /= %= += -= <<= >>= &= ^= |=
 func (p *parser) assignmentExpression() (r *AssignmentExpression) {
 	ce := p.conditionalExpression()
 	if ce == nil || ce.Case != ConditionalExpressionLOr {
@@ -1514,9 +1514,9 @@ func (p *parser) assignmentExpression() (r *AssignmentExpression) {
 
 // [0], 6.5.17 Comma operator
 //
-//  expression:
-// 	assignment-expression
-// 	expression , assignment-expression
+//	 expression:
+//		assignment-expression
+//		expression , assignment-expression
 func (p *parser) expression() (r *Expression) {
 	r = &Expression{Case: ExpressionAssign, AssignmentExpression: p.assignmentExpression()}
 	for {
@@ -1532,16 +1532,16 @@ func (p *parser) expression() (r *Expression) {
 
 // [0], 6.6 Constant expressions
 //
-//  constant-expression:
-// 	conditional-expression
+//	 constant-expression:
+//		conditional-expression
 func (p *parser) constantExpression() (r *ConstantExpression) {
 	return &ConstantExpression{ConditionalExpression: p.conditionalExpression()}
 }
 
 // [0], 6.7 Declarations
 //
-//  declaration:
-// 	declaration-specifiers init-declarator-list_opt attribute-specifier-list_opt ;
+//	 declaration:
+//		declaration-specifiers init-declarator-list_opt attribute-specifier-list_opt ;
 func (p *parser) declaration(ds *DeclarationSpecifiers, d *Declarator) (r *Declaration) {
 	defer func() {
 		if cs := p.block; cs != nil && r != nil {
@@ -1575,13 +1575,13 @@ func (p *parser) declaration(ds *DeclarationSpecifiers, d *Declarator) (r *Decla
 	return &Declaration{DeclarationSpecifiers: ds, InitDeclaratorList: list, Token: t}
 }
 
-//  declaration-specifiers:
-// 	storage-class-specifier declaration-specifiers_opt
-// 	type-specifier declaration-specifiers_opt
-// 	type-qualifier declaration-specifiers_opt
-// 	function-specifier declaration-specifiers_opt
-//	alignment-specifier declaration-specifiers_opt
-//	attribute-specifier declaration-specifiers_opt
+//	 declaration-specifiers:
+//		storage-class-specifier declaration-specifiers_opt
+//		type-specifier declaration-specifiers_opt
+//		type-qualifier declaration-specifiers_opt
+//		function-specifier declaration-specifiers_opt
+//		alignment-specifier declaration-specifiers_opt
+//		attribute-specifier declaration-specifiers_opt
 func (p *parser) declarationSpecifiers(extern, inline *bool) (r *DeclarationSpecifiers) {
 	switch p.rune() {
 	case TYPEDEF, EXTERN, STATIC, AUTO, REGISTER, THREADLOCAL:
@@ -1647,9 +1647,9 @@ func (p *parser) declarationSpecifiers(extern, inline *bool) (r *DeclarationSpec
 	}
 }
 
-//  init-declarator-list:
-// 	init-declarator
-// 	init-declarator-list , attribute-specifier-list_opt init-declarator
+//	 init-declarator-list:
+//		init-declarator
+//		init-declarator-list , attribute-specifier-list_opt init-declarator
 func (p *parser) initDeclaratorList(d *Declarator, isTypedefName bool) (r *InitDeclaratorList) {
 	r = &InitDeclaratorList{InitDeclarator: p.initDeclarator(d, isTypedefName)}
 	for prev := r; ; prev = prev.InitDeclaratorList {
@@ -1674,9 +1674,9 @@ func (p *parser) attributeSpecifierListOpt() (r *AttributeSpecifierList) {
 	return r
 }
 
-//  init-declarator:
-// 	declarator attribute-specifier-list_opt
-// 	declarator attribute-specifier-list_opt = initializer
+//	 init-declarator:
+//		declarator attribute-specifier-list_opt
+//		declarator attribute-specifier-list_opt = initializer
 func (p *parser) initDeclarator(d *Declarator, isTypedefName bool) *InitDeclarator {
 	if d == nil {
 		d = p.declarator(true, isTypedefName, nil)
@@ -1696,12 +1696,12 @@ func (p *parser) initDeclarator(d *Declarator, isTypedefName bool) *InitDeclarat
 
 // [0], 6.7.1 Storage-class specifiers
 //
-//  storage-class-specifier:
-// 	typedef
-// 	extern
-// 	static
-// 	auto
-// 	register
+//	 storage-class-specifier:
+//		typedef
+//		extern
+//		static
+//		auto
+//		register
 func (p *parser) storageClassSpecifier() *StorageClassSpecifier {
 	var kind StorageClassSpecifierCase
 	switch p.rune() {
@@ -1727,31 +1727,31 @@ func (p *parser) storageClassSpecifier() *StorageClassSpecifier {
 
 // [0], 6.7.2 Type specifiers
 //
-//  type-specifier:
-// 	void
-// 	char
-// 	short
-// 	int
-// 	long
-// 	float
-// 	__fp16
-// 	__float80
-// 	double
-// 	signed
-// 	unsigned
-// 	_Bool
-// 	_Complex
-// 	_Float128
-// 	struct-or-union-specifier
-// 	enum-specifier
-// 	typedef-name
-// 	typeof ( expression )
-// 	typeof ( type-name )
-//	atomic-type-specifier
-//	_Frac
-//	_Sat
-//	_Accum
-// 	_Float32
+//	 type-specifier:
+//		void
+//		char
+//		short
+//		int
+//		long
+//		float
+//		__fp16
+//		__float80
+//		double
+//		signed
+//		unsigned
+//		_Bool
+//		_Complex
+//		_Float128
+//		struct-or-union-specifier
+//		enum-specifier
+//		typedef-name
+//		typeof ( expression )
+//		typeof ( type-name )
+//		atomic-type-specifier
+//		_Frac
+//		_Sat
+//		_Accum
+//		_Float32
 func (p *parser) typeSpecifier() *TypeSpecifier {
 	var kind TypeSpecifierCase
 	switch p.rune() {
@@ -1867,9 +1867,9 @@ func (p *parser) typeSpecifier() *TypeSpecifier {
 
 // [0], 6.7.2.1 Structure and union specifiers
 //
-//  struct-or-union-specifier:
-// 	struct-or-union attribute-specifier-list_opt identifier_opt { struct-declaration-list }
-// 	struct-or-union attribute-specifier-list_opt identifier
+//	 struct-or-union-specifier:
+//		struct-or-union attribute-specifier-list_opt identifier_opt { struct-declaration-list }
+//		struct-or-union attribute-specifier-list_opt identifier
 func (p *parser) structOrUnionSpecifier() *StructOrUnionSpecifier {
 	switch p.rune() {
 	case STRUCT, UNION:
@@ -1925,9 +1925,9 @@ func (p *parser) structOrUnionSpecifier() *StructOrUnionSpecifier {
 	}
 }
 
-//  struct-or-union:
-// 	struct
-// 	union
+//	 struct-or-union:
+//		struct
+//		union
 func (p *parser) structOrUnion() *StructOrUnion {
 	var kind StructOrUnionCase
 	switch p.rune() {
@@ -1944,9 +1944,9 @@ func (p *parser) structOrUnion() *StructOrUnion {
 	return &StructOrUnion{Case: kind, Token: p.shift()}
 }
 
-//  struct-declaration-list:
-// 	struct-declaration
-// 	struct-declaration-list struct-declaration
+//	 struct-declaration-list:
+//		struct-declaration
+//		struct-declaration-list struct-declaration
 func (p *parser) structDeclarationList() (r *StructDeclarationList) {
 	r = &StructDeclarationList{StructDeclaration: p.structDeclaration()}
 	for prev := r; ; prev = prev.StructDeclarationList {
@@ -1966,8 +1966,8 @@ func (p *parser) structDeclarationList() (r *StructDeclarationList) {
 	}
 }
 
-//  struct-declaration:
-// 	specifier-qualifier-list struct-declarator-list ;
+//	 struct-declaration:
+//		specifier-qualifier-list struct-declarator-list ;
 func (p *parser) structDeclaration() (r *StructDeclaration) {
 	if p.rune() == ';' {
 		if p.ctx.cfg.RejectEmptyStructDeclaration {
@@ -2001,10 +2001,10 @@ func (p *parser) structDeclaration() (r *StructDeclaration) {
 	return r
 }
 
-//  specifier-qualifier-list:
-// 	type-specifier specifier-qualifier-list_opt
-// 	type-qualifier specifier-qualifier-list_opt
-// 	alignment-specifier-qualifier-list_opt
+//	 specifier-qualifier-list:
+//		type-specifier specifier-qualifier-list_opt
+//		type-qualifier specifier-qualifier-list_opt
+//		alignment-specifier-qualifier-list_opt
 func (p *parser) specifierQualifierList() (r *SpecifierQualifierList) {
 	switch p.rune() {
 	case VOID, CHAR, SHORT, INT, INT8, INT16, INT32, INT64, INT128, LONG, FLOAT, FLOAT16, FLOAT80, FLOAT32, FLOAT32X, FLOAT64, FLOAT64X, FLOAT128, DECIMAL32, DECIMAL64, DECIMAL128, FRACT, SAT, ACCUM, DOUBLE, SIGNED, UNSIGNED, BOOL, COMPLEX, STRUCT, UNION, ENUM, TYPEDEFNAME, TYPEOF:
@@ -2049,9 +2049,9 @@ func (p *parser) specifierQualifierList() (r *SpecifierQualifierList) {
 	}
 }
 
-//  struct-declarator-list:
-// 	struct-declarator
-// 	struct-declarator-list , struct-declarator
+//	 struct-declarator-list:
+//		struct-declarator
+//		struct-declarator-list , struct-declarator
 func (p *parser) structDeclaratorList(decl *StructDeclaration) (r *StructDeclaratorList) {
 	r = &StructDeclaratorList{StructDeclarator: p.structDeclarator(decl)}
 	for prev := r; ; prev = prev.StructDeclaratorList {
@@ -2065,9 +2065,9 @@ func (p *parser) structDeclaratorList(decl *StructDeclaration) (r *StructDeclara
 	}
 }
 
-//  struct-declarator:
-// 	declarator
-// 	declarator_opt : constant-expression attribute-specifier-list_opt
+//	 struct-declarator:
+//		declarator
+//		declarator_opt : constant-expression attribute-specifier-list_opt
 func (p *parser) structDeclarator(decl *StructDeclaration) (r *StructDeclarator) {
 	var d *Declarator
 	if p.rune() != ':' {
@@ -2093,10 +2093,10 @@ func (p *parser) structDeclarator(decl *StructDeclaration) (r *StructDeclarator)
 
 // [0], 6.7.2.2 Enumeration specifiers
 //
-//  enum-specifier:
-// 	enum attribute-specifier-list_opt identifier_opt { enumerator-list }
-// 	enum attribute-specifier-list_opt identifier_opt { enumerator-list , }
-// 	enum attribute-specifier-list_opt identifier
+//	 enum-specifier:
+//		enum attribute-specifier-list_opt identifier_opt { enumerator-list }
+//		enum attribute-specifier-list_opt identifier_opt { enumerator-list , }
+//		enum attribute-specifier-list_opt identifier
 func (p *parser) enumSpecifier() *EnumSpecifier {
 	if p.rune() != ENUM {
 		p.err("expected enum")
@@ -2142,9 +2142,9 @@ func (p *parser) enumSpecifier() *EnumSpecifier {
 	return r
 }
 
-//  enumerator-list:
-// 	enumerator
-// 	enumerator-list , enumerator
+//	 enumerator-list:
+//		enumerator
+//		enumerator-list , enumerator
 func (p *parser) enumeratorList() *EnumeratorList {
 	r := &EnumeratorList{Enumerator: p.enumerator()}
 	for prev := r; ; prev = prev.EnumeratorList {
@@ -2162,9 +2162,9 @@ func (p *parser) enumeratorList() *EnumeratorList {
 	}
 }
 
-//  enumerator:
-// 	enumeration-constant attribute-specifier-list_opt
-// 	enumeration-constant attribute-specifier-list_opt = constant-expression
+//	 enumerator:
+//		enumeration-constant attribute-specifier-list_opt
+//		enumeration-constant attribute-specifier-list_opt = constant-expression
 func (p *parser) enumerator() (r *Enumerator) {
 	if p.rune() != IDENTIFIER {
 		p.err("expected enumeration-constant")
@@ -2190,8 +2190,8 @@ func (p *parser) enumerator() (r *Enumerator) {
 
 // [2], 6.7.2.4 Atomic type specifiers
 //
-//  atomic-type-specifier:
-// 	_Atomic ( type-name )
+//	 atomic-type-specifier:
+//		_Atomic ( type-name )
 func (p *parser) atomicTypeSpecifier() *AtomicTypeSpecifier {
 	if p.rune() != ATOMIC {
 		p.err("expected _Atomic")
@@ -2218,11 +2218,11 @@ func (p *parser) atomicTypeSpecifier() *AtomicTypeSpecifier {
 
 // [0], 6.7.3 Type qualifiers
 //
-//  type-qualifier:
-// 	const
-// 	restrict
-// 	volatile
-// 	_Atomic
+//	 type-qualifier:
+//		const
+//		restrict
+//		volatile
+//		_Atomic
 func (p *parser) typeQualifier() *TypeQualifier {
 	switch p.rune() {
 	case CONST:
@@ -2241,9 +2241,9 @@ func (p *parser) typeQualifier() *TypeQualifier {
 
 // [0], 6.7.4 Function specifiers
 //
-//  function-specifier:
-// 	inline
-// 	_Noreturn
+//	 function-specifier:
+//		inline
+//		_Noreturn
 func (p *parser) functionSpecifier(inline *bool) *FunctionSpecifier {
 	switch p.rune() {
 	case INLINE:
@@ -2261,8 +2261,8 @@ func (p *parser) functionSpecifier(inline *bool) *FunctionSpecifier {
 
 // [0], 6.7.5 Declarators
 //
-//  declarator:
-// 	pointer_opt direct-declarator attribute-specifier-list_opt
+//	 declarator:
+//		pointer_opt direct-declarator attribute-specifier-list_opt
 func (p *parser) declarator(declare, isTypedefName bool, ptr *Pointer) *Declarator {
 	if ptr == nil && (p.rune() == '*' || p.rune() == '^') {
 		ptr = p.pointer()
@@ -2281,8 +2281,9 @@ func (p *parser) declarator(declare, isTypedefName bool, ptr *Pointer) *Declarat
 // [2], 6.7.5 Alignment specifier
 //
 // alignment-specifier:
-// 	_Alignas ( type-name )
-// 	_Alignas ( constant-expression )
+//
+//	_Alignas ( type-name )
+//	_Alignas ( constant-expression )
 func (p *parser) alignmentSpecifier() *AlignmentSpecifier {
 	if p.rune() != ALIGNAS {
 		p.err("expected _Alignas")
@@ -2321,15 +2322,15 @@ func (p *parser) alignmentSpecifier() *AlignmentSpecifier {
 	}
 }
 
-//  direct-declarator:
-// 	identifier asm_opt
-// 	( attribute-specifier-list_opt declarator )
-// 	direct-declarator [ type-qualifier-list_opt assignment-expression_opt ]
-// 	direct-declarator [ static type-qualifier-list_opt assignment-expression ]
-// 	direct-declarator [ type-qualifier-list static assignment-expression ]
-// 	direct-declarator [ type-qualifier-list_opt * ]
-// 	direct-declarator ( parameter-type-list )
-// 	direct-declarator ( identifier-list_opt )
+//	 direct-declarator:
+//		identifier asm_opt
+//		( attribute-specifier-list_opt declarator )
+//		direct-declarator [ type-qualifier-list_opt assignment-expression_opt ]
+//		direct-declarator [ static type-qualifier-list_opt assignment-expression ]
+//		direct-declarator [ type-qualifier-list static assignment-expression ]
+//		direct-declarator [ type-qualifier-list_opt * ]
+//		direct-declarator ( parameter-type-list )
+//		direct-declarator ( identifier-list_opt )
 func (p *parser) directDeclarator(d *DirectDeclarator) (r *DirectDeclarator) {
 	switch {
 	case d != nil:
@@ -2486,10 +2487,10 @@ func (p *parser) directDeclarator(d *DirectDeclarator) (r *DirectDeclarator) {
 	}
 }
 
-//  pointer:
-// 	* type-qualifier-list_opt
-// 	* type-qualifier-list_opt pointer
-//      ^ type-qualifier-list_opt
+//	 pointer:
+//		* type-qualifier-list_opt
+//		* type-qualifier-list_opt pointer
+//	     ^ type-qualifier-list_opt
 func (p *parser) pointer() (r *Pointer) {
 	if p.rune() == '^' {
 		t := p.shift()
@@ -2522,11 +2523,11 @@ func (p *parser) pointer() (r *Pointer) {
 	}
 }
 
-//  type-qualifier-list:
-// 	type-qualifier
-// 	attribute-specifier
-// 	type-qualifier-list type-qualifier
-// 	type-qualifier-list attribute-specifier
+//	 type-qualifier-list:
+//		type-qualifier
+//		attribute-specifier
+//		type-qualifier-list type-qualifier
+//		type-qualifier-list attribute-specifier
 func (p *parser) typeQualifierList() (r *TypeQualifiers) {
 	switch p.rune() {
 	case ATTRIBUTE:
@@ -2546,9 +2547,9 @@ func (p *parser) typeQualifierList() (r *TypeQualifiers) {
 	}
 }
 
-//  parameter-type-list:
-// 	parameter-list
-// 	parameter-list , ...
+//	 parameter-type-list:
+//		parameter-list
+//		parameter-list , ...
 func (p *parser) parameterTypeList() *ParameterTypeList {
 	list := p.parameterList()
 	switch p.rune() {
@@ -2567,9 +2568,9 @@ func (p *parser) parameterTypeList() *ParameterTypeList {
 	}
 }
 
-//  parameter-list:
-// 	parameter-declaration
-// 	parameter-list , parameter-declaration
+//	 parameter-list:
+//		parameter-declaration
+//		parameter-list , parameter-declaration
 func (p *parser) parameterList() (r *ParameterList) {
 	r = &ParameterList{ParameterDeclaration: p.parameterDeclaration()}
 	for prev := r; ; prev = prev.ParameterList {
@@ -2593,9 +2594,9 @@ func (p *parser) parameterList() (r *ParameterList) {
 	}
 }
 
-//  parameter-declaration:
-// 	declaration-specifiers declarator attribute-specifier-list_opt
-// 	declaration-specifiers abstract-declarator_opt
+//	 parameter-declaration:
+//		declaration-specifiers declarator attribute-specifier-list_opt
+//		declaration-specifiers abstract-declarator_opt
 func (p *parser) parameterDeclaration() *ParameterDeclaration {
 	ds := p.declarationSpecifiers(nil, nil)
 	switch p.rune() {
@@ -2732,9 +2733,9 @@ func (p *parser) declaratorOrAbstractDeclarator(isTypedefName bool) (r Node) {
 	}
 }
 
-//  identifier-list:
-// 	identifier
-// 	identifier-list , identifier
+//	 identifier-list:
+//		identifier
+//		identifier-list , identifier
 func (p *parser) identifierList() (r *IdentifierList) {
 	switch p.rune() {
 	case IDENTIFIER:
@@ -2760,8 +2761,8 @@ func (p *parser) identifierList() (r *IdentifierList) {
 
 // [0], 6.7.6 Type names
 //
-//  type-name:
-// 	specifier-qualifier-list abstract-declarator_opt
+//	 type-name:
+//		specifier-qualifier-list abstract-declarator_opt
 func (p *parser) typeName() *TypeName {
 	p.typedefNameEnabled = true
 	list := p.specifierQualifierList()
@@ -2776,9 +2777,9 @@ func (p *parser) typeName() *TypeName {
 	}
 }
 
-//  abstract-declarator:
-// 	pointer
-// 	pointer_opt direct-abstract-declarator
+//	 abstract-declarator:
+//		pointer
+//		pointer_opt direct-abstract-declarator
 func (p *parser) abstractDeclarator(ptr *Pointer) *AbstractDeclarator {
 	if ptr == nil && (p.rune() == '*' || p.rune() == '^') {
 		ptr = p.pointer()
@@ -2791,13 +2792,13 @@ func (p *parser) abstractDeclarator(ptr *Pointer) *AbstractDeclarator {
 	}
 }
 
-//  direct-abstract-declarator:
-// 	( abstract-declarator )
-// 	direct-abstract-declarator_opt [ type-qualifier-list_opt assignment-expression_opt ]
-// 	direct-abstract-declarator_opt [ static type-qualifier-list_opt assignment-expression ]
-// 	direct-abstract-declarator_opt [ type-qualifier-list static assignment-expression ]
-// 	direct-abstract-declarator_opt [ * ]
-// 	direct-abstract-declarator_opt ( parameter-type-list_opt )
+//	 direct-abstract-declarator:
+//		( abstract-declarator )
+//		direct-abstract-declarator_opt [ type-qualifier-list_opt assignment-expression_opt ]
+//		direct-abstract-declarator_opt [ static type-qualifier-list_opt assignment-expression ]
+//		direct-abstract-declarator_opt [ type-qualifier-list static assignment-expression ]
+//		direct-abstract-declarator_opt [ * ]
+//		direct-abstract-declarator_opt ( parameter-type-list_opt )
 func (p *parser) directAbstractDeclarator(d *DirectAbstractDeclarator) (r *DirectAbstractDeclarator) {
 	var t, t2, t3 Token
 	switch {
@@ -3003,10 +3004,10 @@ func (p *parser) directAbstractDeclarator(d *DirectAbstractDeclarator) (r *Direc
 
 // [0], 6.7.8 Initialization
 //
-//  initializer:
-// 	assignment-expression
-// 	{ initializer-list }
-// 	{ initializer-list , }
+//	 initializer:
+//		assignment-expression
+//		{ initializer-list }
+//		{ initializer-list , }
 func (p *parser) initializer(parent *Initializer) *Initializer {
 	switch p.rune() {
 	case '{':
@@ -3035,9 +3036,9 @@ func (p *parser) initializer(parent *Initializer) *Initializer {
 	}
 }
 
-//  initializer-list:
-// 	designation_opt initializer
-// 	initializer-list , designation_opt initializer
+//	 initializer-list:
+//		designation_opt initializer
+//		initializer-list , designation_opt initializer
 func (p *parser) initializerList(parent *Initializer) (r *InitializerList) {
 	var d *Designation
 	switch p.rune() {
@@ -3075,8 +3076,8 @@ func (p *parser) initializerList(parent *Initializer) (r *InitializerList) {
 	}
 }
 
-//  designation:
-// 	designator-list =
+//	 designation:
+//		designator-list =
 func (p *parser) designation() *Designation {
 	var t Token
 	list, colon := p.designatorList()
@@ -3091,9 +3092,9 @@ func (p *parser) designation() *Designation {
 	return &Designation{DesignatorList: list, Token: t}
 }
 
-//  designator-list:
-// 	designator
-// 	designator-list designator
+//	 designator-list:
+//		designator
+//		designator-list designator
 func (p *parser) designatorList() (r *DesignatorList, colon bool) {
 	d, isCol := p.designator(true)
 	if isCol {
@@ -3112,10 +3113,10 @@ func (p *parser) designatorList() (r *DesignatorList, colon bool) {
 	}
 }
 
-//  designator:
-// 	[ constant-expression ]
-// 	. identifier
-//	identifier :
+//	 designator:
+//		[ constant-expression ]
+//		. identifier
+//		identifier :
 func (p *parser) designator(acceptCol bool) (*Designator, bool) {
 	var t, t2 Token
 	switch p.rune() {
@@ -3154,14 +3155,14 @@ func (p *parser) designator(acceptCol bool) (*Designator, bool) {
 
 // [0], 6.8 Statements and blocks
 //
-//  statement:
-// 	labeled-statement
-// 	compound-statement
-// 	expression-statement
-// 	selection-statement
-// 	iteration-statement
-// 	jump-statement
-//	asm-statement
+//	 statement:
+//		labeled-statement
+//		compound-statement
+//		expression-statement
+//		selection-statement
+//		iteration-statement
+//		jump-statement
+//		asm-statement
 func (p *parser) statement() (r *Statement) {
 	var r0 *Statement
 	var prevLS, ls *LabeledStatement
@@ -3210,11 +3211,11 @@ func (p *parser) statement() (r *Statement) {
 
 // [0], 6.8.1 Labeled statements
 //
-//  labeled-statement:
-// 	identifier : statement
-// 	case constant-expression : statement
-// 	case constant-expression ... constant-expression : statement
-// 	default : statement
+//	 labeled-statement:
+//		identifier : statement
+//		case constant-expression : statement
+//		case constant-expression ... constant-expression : statement
+//		default : statement
 func (p *parser) labeledStatement() (r *LabeledStatement) {
 	defer func() {
 		if r != nil {
@@ -3301,8 +3302,8 @@ func (p *parser) labeledStatement() (r *LabeledStatement) {
 
 // [0], 6.8.2 Compound statement
 //
-//  compound-statement:
-// 	{ block-item-list_opt }
+//	 compound-statement:
+//		{ block-item-list_opt }
 func (p *parser) compoundStatement(s Scope, inject []Token) (r *CompoundStatement) {
 	if p.rune() != '{' {
 		p.err("expected {")
@@ -3355,9 +3356,9 @@ func (p *parser) compoundStatement(s Scope, inject []Token) (r *CompoundStatemen
 	return r
 }
 
-//  block-item-list:
-// 	block-item
-// 	block-item-list block-item
+//	 block-item-list:
+//		block-item
+//		block-item-list block-item
 func (p *parser) blockItemList() (r *BlockItemList) {
 	var prev *BlockItemList
 	for p.rune() != '}' && p.rune() > 0 {
@@ -3374,11 +3375,11 @@ func (p *parser) blockItemList() (r *BlockItemList) {
 	return r
 }
 
-//  block-item:
-// 	declaration
-// 	statement
-// 	label-declaration
-// 	declaration-specifiers declarator compound-statement
+//	 block-item:
+//		declaration
+//		statement
+//		label-declaration
+//		declaration-specifiers declarator compound-statement
 func (p *parser) blockItem() *BlockItem {
 	switch p.rune() {
 	case
@@ -3418,8 +3419,8 @@ func (p *parser) blockItem() *BlockItem {
 	}
 }
 
-//  label-declaration
-// 	__label__ identifier-list ;
+//	 label-declaration
+//		__label__ identifier-list ;
 func (p *parser) labelDeclaration() *LabelDeclaration {
 	if p.rune() != LABEL {
 		p.err("expected __label__")
@@ -3441,8 +3442,8 @@ func (p *parser) labelDeclaration() *LabelDeclaration {
 
 // [0], 6.8.3 Expression and null statements
 //
-//  expression-statement:
-// 	expression_opt attribute-specifier-list_opt;
+//	 expression-statement:
+//		expression_opt attribute-specifier-list_opt;
 func (p *parser) expressionStatement() *ExpressionStatement {
 	switch p.rune() {
 	case '}':
@@ -3485,10 +3486,10 @@ func (p *parser) expressionStatement() *ExpressionStatement {
 
 // [0], 6.8.4 Selection statements
 //
-//  selection-statement:
-//  	if ( expression ) statement
-//  	if ( expression ) statement else statement
-//  	switch ( expression ) statement
+//	selection-statement:
+//		if ( expression ) statement
+//		if ( expression ) statement else statement
+//		switch ( expression ) statement
 func (p *parser) selectionStatement() *SelectionStatement {
 	var t, t2, t3, t4 Token
 	switch p.rune() {
@@ -3555,11 +3556,11 @@ func (p *parser) selectionStatement() *SelectionStatement {
 
 // [0], 6.8.5 Iteration statements
 //
-//  iteration-statement:
-// 	while ( expression ) statement
-// 	do statement while ( expression ) ;
-// 	for ( expression_opt ; expression_opt ; expression_opt ) statement
-// 	for ( declaration expression_opt ; expression_opt ) statement
+//	 iteration-statement:
+//		while ( expression ) statement
+//		do statement while ( expression ) ;
+//		for ( expression_opt ; expression_opt ; expression_opt ) statement
+//		for ( declaration expression_opt ; expression_opt ) statement
 func (p *parser) iterationStatement() (r *IterationStatement) {
 	var t, t2, t3, t4, t5 Token
 	var e, e2, e3 *Expression
@@ -3708,12 +3709,12 @@ func (p *parser) iterationStatement() (r *IterationStatement) {
 
 // [0], 6.8.6 Jump statements
 //
-//  jump-statement:
-// 	goto identifier ;
-// 	goto * expression ;
-// 	continue ;
-// 	break ;
-// 	return expression_opt ;
+//	 jump-statement:
+//		goto identifier ;
+//		goto * expression ;
+//		continue ;
+//		break ;
+//		return expression_opt ;
 func (p *parser) jumpStatement() *JumpStatement {
 	var t, t2, t3 Token
 	var kind JumpStatementCase
@@ -3782,9 +3783,9 @@ func (p *parser) jumpStatement() *JumpStatement {
 
 // [0], 6.9 External definitions
 //
-//  translation-unit:
-// 	external-declaration
-// 	translation-unit external-declaration
+//	 translation-unit:
+//		external-declaration
+//		translation-unit external-declaration
 func (p *parser) translationUnit() (r *TranslationUnit) {
 	p.typedefNameEnabled = true
 	var prev *TranslationUnit
@@ -3810,11 +3811,11 @@ func (p *parser) translationUnit() (r *TranslationUnit) {
 	return &TranslationUnit{}
 }
 
-//  external-declaration:
-// 	function-definition
-// 	declaration
-// 	asm-function-definition
-// 	;
+//	 external-declaration:
+//		function-definition
+//		declaration
+//		asm-function-definition
+//		;
 func (p *parser) externalDeclaration() *ExternalDeclaration {
 	var ds *DeclarationSpecifiers
 	var inline, extern bool
@@ -3898,8 +3899,8 @@ func (p *parser) pragmaSTDC() *PragmaSTDC {
 
 // [0], 6.9.1 Function definitions
 //
-//  function-definition:
-// 	declaration-specifiers declarator declaration-list_opt compound-statement
+//	 function-definition:
+//		declaration-specifiers declarator declaration-list_opt compound-statement
 func (p *parser) functionDefinition(ds *DeclarationSpecifiers, d *Declarator) (r *FunctionDefinition) {
 	var list *DeclarationList
 	s := d.ParamScope()
@@ -3978,9 +3979,9 @@ func (p *parser) fn(nm StringID) (r []Token) {
 	return r
 }
 
-//  declaration-list:
-// 	declaration
-// 	declaration-list declaration
+//	 declaration-list:
+//		declaration
+//		declaration-list declaration
 func (p *parser) declarationList(s Scope) (r *DeclarationList) {
 	p.declScope = s
 	p.resolveScope = s
@@ -4012,14 +4013,15 @@ func (p *parser) declarationList(s Scope) (r *DeclarationList) {
 
 // ----------------------------------------------------------------- Extensions
 
-//  asm-function-definition:
-// 	declaration-specifiers declarator asm-statement
+//	 asm-function-definition:
+//		declaration-specifiers declarator asm-statement
 func (p *parser) asmFunctionDefinition(ds *DeclarationSpecifiers, d *Declarator) *AsmFunctionDefinition {
 	return &AsmFunctionDefinition{DeclarationSpecifiers: ds, Declarator: d, AsmStatement: p.asmStatement()}
 }
 
-//  asm-statement:
-//  	asm attribute-specifier-list_opt ;
+// asm-statement:
+//
+//	asm attribute-specifier-list_opt ;
 func (p *parser) asmStatement() *AsmStatement {
 	a := p.asm()
 	attr := p.attributeSpecifierListOpt()
@@ -4038,8 +4040,8 @@ func (p *parser) asmStatement() *AsmStatement {
 	return &AsmStatement{Asm: a, AttributeSpecifierList: attr, Token: t}
 }
 
-//  asm:
-// 	asm asm-qualifier-list_opt ( string-literal asm-arg-list_opt )
+//	 asm:
+//		asm asm-qualifier-list_opt ( string-literal asm-arg-list_opt )
 func (p *parser) asm() *Asm {
 	var t, t2, t3, t4 Token
 	switch p.rune() {
@@ -4085,9 +4087,9 @@ func (p *parser) asm() *Asm {
 	return &Asm{Token: t, AsmQualifierList: qlist, Token2: t2, Token3: t3, AsmArgList: argList, Token4: t4}
 }
 
-//  asm-qualifier-list:
-// 	asm-qualifier
-// 	asm-qualifier-list asm-qualifier
+//	 asm-qualifier-list:
+//		asm-qualifier
+//		asm-qualifier-list asm-qualifier
 func (p *parser) asmQualifierList() (r *AsmQualifierList) {
 	switch p.rune() {
 	case VOLATILE, INLINE, GOTO:
@@ -4107,10 +4109,10 @@ func (p *parser) asmQualifierList() (r *AsmQualifierList) {
 	}
 }
 
-//  asm-qualifier:
-// 	volatile
-//  	inline
-// 	goto"
+//	 asm-qualifier:
+//		volatile
+//	 	inline
+//		goto"
 func (p *parser) asmQualifier() *AsmQualifier {
 	switch p.rune() {
 	case VOLATILE:
@@ -4125,9 +4127,9 @@ func (p *parser) asmQualifier() *AsmQualifier {
 	}
 }
 
-//  asm-arg-list:
-// 	: ExpressionListOpt
-// 	asm-arg-list : expression-list_opt
+//	 asm-arg-list:
+//		: ExpressionListOpt
+//		asm-arg-list : expression-list_opt
 func (p *parser) asmArgList() (r *AsmArgList) {
 	if p.rune() != ':' {
 		p.err("expected :")
@@ -4154,9 +4156,9 @@ func (p *parser) asmArgList() (r *AsmArgList) {
 	return r
 }
 
-//  asm-expression-list:
-// 	asm-index_opt assignment-expression
-// 	asm-expression-list , asm-index_opt assignment-expression
+//	 asm-expression-list:
+//		asm-index_opt assignment-expression
+//		asm-expression-list , asm-index_opt assignment-expression
 func (p *parser) asmExpressionList() (r *AsmExpressionList) {
 	var x *AsmIndex
 	if p.rune() == '[' {
@@ -4174,8 +4176,8 @@ func (p *parser) asmExpressionList() (r *AsmExpressionList) {
 	return r
 }
 
-//  asm-index:
-// 	[ expression ]
+//	 asm-index:
+//		[ expression ]
 func (p *parser) asmIndex() *AsmIndex {
 	if p.rune() != '[' {
 		p.err("expected [")
@@ -4194,9 +4196,9 @@ func (p *parser) asmIndex() *AsmIndex {
 	return &AsmIndex{Token: t, Expression: e, Token2: t2}
 }
 
-//  attribute-specifier-list:
-// 	attribute-specifier
-// 	attribute-specifier-list attribute-specifier
+//	 attribute-specifier-list:
+//		attribute-specifier
+//		attribute-specifier-list attribute-specifier
 func (p *parser) attributeSpecifierList() (r *AttributeSpecifierList) {
 	if p.rune() != ATTRIBUTE {
 		p.err("expected __attribute__")
@@ -4210,8 +4212,8 @@ func (p *parser) attributeSpecifierList() (r *AttributeSpecifierList) {
 	return r
 }
 
-//  attribute-specifier:
-// 	__attribute__ (( attribute-value-list_opt ))
+//	 attribute-specifier:
+//		__attribute__ (( attribute-value-list_opt ))
 func (p *parser) attributeSpecifier() (r *AttributeSpecifier) {
 	if p.rune() != ATTRIBUTE {
 		p.err("expected __attribute__")
@@ -4255,9 +4257,9 @@ func (p *parser) attributeSpecifier() (r *AttributeSpecifier) {
 	return &AttributeSpecifier{Token: t, Token2: t2, Token3: t3, AttributeValueList: list, Token4: t4, Token5: t5}
 }
 
-//  attribute-value-list:
-// 	attribute-value
-// 	attribute-value-list , attribute-value
+//	 attribute-value-list:
+//		attribute-value
+//		attribute-value-list , attribute-value
 func (p *parser) attributeValueList() (r *AttributeValueList) {
 	r = &AttributeValueList{AttributeValue: p.attributeValue()}
 	for prev := r; p.rune() == ','; prev = prev.AttributeValueList {
@@ -4267,9 +4269,9 @@ func (p *parser) attributeValueList() (r *AttributeValueList) {
 	return r
 }
 
-//  attribute-value:
-// 	identifier
-// 	identifier ( expression-list_opt )
+//	 attribute-value:
+//		identifier
+//		identifier ( expression-list_opt )
 func (p *parser) attributeValue() *AttributeValue {
 	if p.rune() != IDENTIFIER {
 		p.err("expected identifier")
@@ -4298,9 +4300,9 @@ func (p *parser) attributeValue() *AttributeValue {
 	return &AttributeValue{Case: AttributeValueExpr, Token: t, Token2: t2, ExpressionList: list, Token3: t3, lexicalScope: p.declScope}
 }
 
-//  expression-list:
-// 	assignment-expression
-// 	expression-list , assignment-expression
+//	 expression-list:
+//		assignment-expression
+//		expression-list , assignment-expression
 func (p *parser) expressionList() (r *ExpressionList) {
 	r = &ExpressionList{AssignmentExpression: p.assignmentExpression()}
 	for prev := r; p.rune() == ','; prev = prev.ExpressionList {

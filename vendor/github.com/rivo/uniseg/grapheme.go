@@ -29,14 +29,14 @@ const (
 //
 // This map is queried as follows:
 //
-//   1. Find specific state + specific property. Stop if found.
-//   2. Find specific state + any property.
-//   3. Find any state + specific property.
-//   4. If only (2) or (3) (but not both) was found, stop.
-//   5. If both (2) and (3) were found, use state and breaking instruction from
-//      the transition with the lower rule number, prefer (3) if rule numbers
-//      are equal. Stop.
-//   6. Assume grAny and grBoundary.
+//  1. Find specific state + specific property. Stop if found.
+//  2. Find specific state + any property.
+//  3. Find any state + specific property.
+//  4. If only (2) or (3) (but not both) was found, stop.
+//  5. If both (2) and (3) were found, use state and breaking instruction from
+//     the transition with the lower rule number, prefer (3) if rule numbers
+//     are equal. Stop.
+//  6. Assume grAny and grBoundary.
 var grTransitions = map[[2]int][3]int{
 	// GB5
 	{grAny, prCR}:      {grCR, grBoundary, 50},

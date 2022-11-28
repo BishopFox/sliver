@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package clr
@@ -13,7 +14,7 @@ import (
 // Couldnt have done any of this without this SO answer I stumbled on:
 // https://stackoverflow.com/questions/37781676/how-to-use-com-component-object-model-in-golang
 
-//ICLRMetaHost Interface from metahost.h
+// ICLRMetaHost Interface from metahost.h
 type ICLRMetaHost struct {
 	vtbl *ICLRMetaHostVtbl
 }
@@ -53,9 +54,11 @@ type ICLRMetaHostVtbl struct {
 
 // CLRCreateInstance provides one of three interfaces: ICLRMetaHost, ICLRMetaHostPolicy, or ICLRDebugging.
 // HRESULT CLRCreateInstance(
-//   [in]  REFCLSID  clsid,
-//   [in]  REFIID     riid,
-//   [out] LPVOID  * ppInterface
+//
+//	[in]  REFCLSID  clsid,
+//	[in]  REFIID     riid,
+//	[out] LPVOID  * ppInterface
+//
 // );
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/clrcreateinstance-function
 func CLRCreateInstance(clsid, riid windows.GUID) (ppInterface *ICLRMetaHost, err error) {
@@ -129,7 +132,9 @@ func (obj *ICLRMetaHost) Release() uintptr {
 // EnumerateInstalledRuntimes returns an enumeration that contains a valid ICLRRuntimeInfo interface for each
 // version of the common language runtime (CLR) that is installed on a computer.
 // HRESULT EnumerateInstalledRuntimes (
-//   [out, retval] IEnumUnknown **ppEnumerator);
+//
+//	[out, retval] IEnumUnknown **ppEnumerator);
+//
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrmetahost-enumerateinstalledruntimes-method
 func (obj *ICLRMetaHost) EnumerateInstalledRuntimes() (ppEnumerator *IEnumUnknown, err error) {
 	debugPrint("Entering into iclrmetahost.EnumerateInstalledRuntimes()...")
@@ -155,9 +160,11 @@ func (obj *ICLRMetaHost) EnumerateInstalledRuntimes() (ppEnumerator *IEnumUnknow
 // GetRuntime gets the ICLRRuntimeInfo interface that corresponds to a particular version of the common language runtime (CLR).
 // This method supersedes the CorBindToRuntimeEx function used with the STARTUP_LOADER_SAFEMODE flag.
 // HRESULT GetRuntime (
-//   [in] LPCWSTR pwzVersion,
-//   [in] REFIID riid,
-//   [out,iid_is(riid), retval] LPVOID *ppRuntime
+//
+//	[in] LPCWSTR pwzVersion,
+//	[in] REFIID riid,
+//	[out,iid_is(riid), retval] LPVOID *ppRuntime
+//
 // );
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrmetahost-getruntime-method
 func (obj *ICLRMetaHost) GetRuntime(pwzVersion *uint16, riid windows.GUID) (ppRuntime *ICLRRuntimeInfo, err error) {

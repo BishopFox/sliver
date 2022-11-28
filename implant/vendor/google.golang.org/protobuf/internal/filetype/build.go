@@ -19,8 +19,7 @@ import (
 // Builder constructs type descriptors from a raw file descriptor
 // and associated Go types for each enum and message declaration.
 //
-//
-// Flattened Ordering
+// # Flattened Ordering
 //
 // The protobuf type system represents declarations as a tree. Certain nodes in
 // the tree require us to either associate it with a concrete Go type or to

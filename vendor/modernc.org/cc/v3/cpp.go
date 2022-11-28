@@ -508,28 +508,29 @@ func (c *cpp) writes(toks []cppToken) {
 // [1]pg 1.
 //
 // expand(TS) /* recur, substitute, pushback, rescan */
-// {
-// 	if TS is {} then
-//		// ---------------------------------------------------------- A
-// 		return {};
 //
-// 	else if TS is T^HS • TS’ and T is in HS then
-//		//----------------------------------------------------------- B
-// 		return T^HS • expand(TS’);
+//	{
+//		if TS is {} then
+//			// ---------------------------------------------------------- A
+//			return {};
 //
-// 	else if TS is T^HS • TS’ and T is a "()-less macro" then
-//		// ---------------------------------------------------------- C
-// 		return expand(subst(ts(T), {}, {}, HS \cup {T}, {}) • TS’ );
+//		else if TS is T^HS • TS’ and T is in HS then
+//			//----------------------------------------------------------- B
+//			return T^HS • expand(TS’);
 //
-// 	else if TS is T^HS •(•TS’ and T is a "()’d macro" then
-//		// ---------------------------------------------------------- D
-// 		check TS’ is actuals • )^HS’ • TS’’ and actuals are "correct for T"
-// 		return expand(subst(ts(T), fp(T), actuals,(HS \cap HS’) \cup {T }, {}) • TS’’);
+//		else if TS is T^HS • TS’ and T is a "()-less macro" then
+//			// ---------------------------------------------------------- C
+//			return expand(subst(ts(T), {}, {}, HS \cup {T}, {}) • TS’ );
 //
-//	// ------------------------------------------------------------------ E
-// 	note TS must be T^HS • TS’
-// 	return T^HS • expand(TS’);
-// }
+//		else if TS is T^HS •(•TS’ and T is a "()’d macro" then
+//			// ---------------------------------------------------------- D
+//			check TS’ is actuals • )^HS’ • TS’’ and actuals are "correct for T"
+//			return expand(subst(ts(T), fp(T), actuals,(HS \cap HS’) \cup {T }, {}) • TS’’);
+//
+//		// ------------------------------------------------------------------ E
+//		note TS must be T^HS • TS’
+//		return T^HS • expand(TS’);
+//	}
 func (c *cpp) expand(ts tokenReader, w tokenWriter, expandDefined bool) {
 	// trc("==== expand enter")
 start:
@@ -852,57 +853,58 @@ func (c *cpp) actuals(m *Macro, r tokenReader) (varArgs []cppToken, ap [][]cppTo
 // [1]pg 2.
 //
 // subst(IS, FP, AP, HS, OS) /* substitute args, handle stringize and paste */
-// {
-// 	if IS is {} then
-//		// ---------------------------------------------------------- A
-// 		return hsadd(HS, OS);
 //
-// 	else if IS is # • T • IS’ and T is FP[i] then
-//		// ---------------------------------------------------------- B
-// 		return subst(IS’, FP, AP, HS, OS • stringize(select(i, AP)));
-//
-// 	else if IS is ## • T • IS’ and T is FP[i] then
 //	{
-//		// ---------------------------------------------------------- C
-// 		if select(i, AP) is {} then /* only if actuals can be empty */
-//			// -------------------------------------------------- D
-// 			return subst(IS’, FP, AP, HS, OS);
-// 		else
-//			// -------------------------------------------------- E
-// 			return subst(IS’, FP, AP, HS, glue(OS, select(i, AP)));
-// 	}
+//		if IS is {} then
+//			// ---------------------------------------------------------- A
+//			return hsadd(HS, OS);
 //
-// 	else if IS is ## • T^HS’ • IS’ then
-//		// ---------------------------------------------------------- F
-// 		return subst(IS’, FP, AP, HS, glue(OS, T^HS’));
+//		else if IS is # • T • IS’ and T is FP[i] then
+//			// ---------------------------------------------------------- B
+//			return subst(IS’, FP, AP, HS, OS • stringize(select(i, AP)));
 //
-// 	else if IS is T • ##^HS’ • IS’ and T is FP[i] then
-//	{
-//		// ---------------------------------------------------------- G
-// 		if select(i, AP) is {} then /* only if actuals can be empty */
+//		else if IS is ## • T • IS’ and T is FP[i] then
 //		{
-//			// -------------------------------------------------- H
-// 			if IS’ is T’ • IS’’ and T’ is FP[j] then
-//				// ------------------------------------------ I
-// 				return subst(IS’’, FP, AP, HS, OS • select(j, AP));
-// 			else
-//				// ------------------------------------------ J
-// 				return subst(IS’, FP, AP, HS, OS);
-// 		}
-//		else
-//			// -------------------------------------------------- K
-// 			return subst(##^HS’ • IS’, FP, AP, HS, OS • select(i, AP));
+//			// ---------------------------------------------------------- C
+//			if select(i, AP) is {} then /* only if actuals can be empty */
+//				// -------------------------------------------------- D
+//				return subst(IS’, FP, AP, HS, OS);
+//			else
+//				// -------------------------------------------------- E
+//				return subst(IS’, FP, AP, HS, glue(OS, select(i, AP)));
+//		}
 //
+//		else if IS is ## • T^HS’ • IS’ then
+//			// ---------------------------------------------------------- F
+//			return subst(IS’, FP, AP, HS, glue(OS, T^HS’));
+//
+//		else if IS is T • ##^HS’ • IS’ and T is FP[i] then
+//		{
+//			// ---------------------------------------------------------- G
+//			if select(i, AP) is {} then /* only if actuals can be empty */
+//			{
+//				// -------------------------------------------------- H
+//				if IS’ is T’ • IS’’ and T’ is FP[j] then
+//					// ------------------------------------------ I
+//					return subst(IS’’, FP, AP, HS, OS • select(j, AP));
+//				else
+//					// ------------------------------------------ J
+//					return subst(IS’, FP, AP, HS, OS);
+//			}
+//			else
+//				// -------------------------------------------------- K
+//				return subst(##^HS’ • IS’, FP, AP, HS, OS • select(i, AP));
+//
+//		}
+//
+//		else if IS is T • IS’ and T is FP[i] then
+//			// ---------------------------------------------------------- L
+//			return subst(IS’, FP, AP, HS, OS • expand(select(i, AP)));
+//
+//		// ------------------------------------------------------------------ M
+//		note IS must be T^HS’ • IS’
+//		return subst(IS’, FP, AP, HS, OS • T^HS’);
 //	}
-//
-// 	else if IS is T • IS’ and T is FP[i] then
-//		// ---------------------------------------------------------- L
-// 		return subst(IS’, FP, AP, HS, OS • expand(select(i, AP)));
-//
-//	// ------------------------------------------------------------------ M
-// 	note IS must be T^HS’ • IS’
-// 	return subst(IS’, FP, AP, HS, OS • T^HS’);
-// }
 //
 // A quick overview of subst is that it walks through the input sequence, IS,
 // building up an output sequence, OS, by handling each token from left to
@@ -1308,9 +1310,9 @@ func (c *cpp) eval(expr []token3) interface{} {
 
 // [0], 6.5.17 Comma operator
 //
-//  expression:
-// 	assignment-expression
-// 	expression , assignment-expression
+//	 expression:
+//		assignment-expression
+//		expression , assignment-expression
 func (c *cpp) expression(s *cppScanner, eval bool) interface{} {
 	for {
 		r := c.assignmentExpression(s, eval)
@@ -1324,21 +1326,21 @@ func (c *cpp) expression(s *cppScanner, eval bool) interface{} {
 
 // [0], 6.5.16 Assignment operators
 //
-//  assignment-expression:
-// 	conditional-expression
-// 	unary-expression assignment-operator assignment-expression
+//	 assignment-expression:
+//		conditional-expression
+//		unary-expression assignment-operator assignment-expression
 //
-//  assignment-operator: one of
-// 	= *= /= %= += -= <<= >>= &= ^= |=
+//	 assignment-operator: one of
+//		= *= /= %= += -= <<= >>= &= ^= |=
 func (c *cpp) assignmentExpression(s *cppScanner, eval bool) interface{} {
 	return c.conditionalExpression(s, eval)
 }
 
 // [0], 6.5.15 Conditional operator
 //
-//  conditional-expression:
-//		logical-OR-expression
-//		logical-OR-expression ? expression : conditional-expression
+//	 conditional-expression:
+//			logical-OR-expression
+//			logical-OR-expression ? expression : conditional-expression
 func (c *cpp) conditionalExpression(s *cppScanner, eval bool) interface{} {
 	expr := c.logicalOrExpression(s, eval)
 	if s.peek().char == '?' {
@@ -1400,9 +1402,9 @@ func (c *cpp) fromOperand(op Operand) interface{} {
 
 // [0], 6.5.14 Logical OR operator
 //
-//  logical-OR-expression:
-//		logical-AND-expression
-//		logical-OR-expression || logical-AND-expression
+//	 logical-OR-expression:
+//			logical-AND-expression
+//			logical-OR-expression || logical-AND-expression
 func (c *cpp) logicalOrExpression(s *cppScanner, eval bool) interface{} {
 	lhs := c.logicalAndExpression(s, eval)
 	for s.peek().char == OROR {
@@ -1420,9 +1422,9 @@ func (c *cpp) logicalOrExpression(s *cppScanner, eval bool) interface{} {
 
 // [0], 6.5.13 Logical AND operator
 //
-//  logical-AND-expression:
-//		inclusive-OR-expression
-//		logical-AND-expression && inclusive-OR-expression
+//	 logical-AND-expression:
+//			inclusive-OR-expression
+//			logical-AND-expression && inclusive-OR-expression
 func (c *cpp) logicalAndExpression(s *cppScanner, eval bool) interface{} {
 	lhs := c.inclusiveOrExpression(s, eval)
 	for s.peek().char == ANDAND {
@@ -1450,9 +1452,9 @@ func (c *cpp) isZero(val interface{}) bool {
 
 // [0], 6.5.12 Bitwise inclusive OR operator
 //
-//  inclusive-OR-expression:
-//		exclusive-OR-expression
-//		inclusive-OR-expression | exclusive-OR-expression
+//	 inclusive-OR-expression:
+//			exclusive-OR-expression
+//			inclusive-OR-expression | exclusive-OR-expression
 func (c *cpp) inclusiveOrExpression(s *cppScanner, eval bool) interface{} {
 	lhs := c.exclusiveOrExpression(s, eval)
 	for s.peek().char == '|' {
@@ -1482,9 +1484,9 @@ func (c *cpp) inclusiveOrExpression(s *cppScanner, eval bool) interface{} {
 
 // [0], 6.5.11 Bitwise exclusive OR operator
 //
-//  exclusive-OR-expression:
-//		AND-expression
-//		exclusive-OR-expression ^ AND-expression
+//	 exclusive-OR-expression:
+//			AND-expression
+//			exclusive-OR-expression ^ AND-expression
 func (c *cpp) exclusiveOrExpression(s *cppScanner, eval bool) interface{} {
 	lhs := c.andExpression(s, eval)
 	for s.peek().char == '^' {
@@ -1514,9 +1516,9 @@ func (c *cpp) exclusiveOrExpression(s *cppScanner, eval bool) interface{} {
 
 // [0], 6.5.10 Bitwise AND operator
 //
-//  AND-expression:
-// 		equality-expression
-// 		AND-expression & equality-expression
+//	 AND-expression:
+//			equality-expression
+//			AND-expression & equality-expression
 func (c *cpp) andExpression(s *cppScanner, eval bool) interface{} {
 	lhs := c.equalityExpression(s, eval)
 	for s.peek().char == '&' {
@@ -1546,10 +1548,10 @@ func (c *cpp) andExpression(s *cppScanner, eval bool) interface{} {
 
 // [0], 6.5.9 Equality operators
 //
-//  equality-expression:
-//		relational-expression
-//		equality-expression == relational-expression
-//		equality-expression != relational-expression
+//	 equality-expression:
+//			relational-expression
+//			equality-expression == relational-expression
+//			equality-expression != relational-expression
 func (c *cpp) equalityExpression(s *cppScanner, eval bool) interface{} {
 	lhs := c.relationalExpression(s, eval)
 	for {
@@ -1611,12 +1613,12 @@ func (c *cpp) equalityExpression(s *cppScanner, eval bool) interface{} {
 
 // [0], 6.5.8 Relational operators
 //
-//  relational-expression:
-//		shift-expression
-//		relational-expression <  shift-expression
-//		relational-expression >  shift-expression
-//		relational-expression <= shift-expression
-//		relational-expression >= shift-expression
+//	 relational-expression:
+//			shift-expression
+//			relational-expression <  shift-expression
+//			relational-expression >  shift-expression
+//			relational-expression <= shift-expression
+//			relational-expression >= shift-expression
 func (c *cpp) relationalExpression(s *cppScanner, eval bool) interface{} {
 	lhs := c.shiftExpression(s, eval)
 	for {
@@ -1720,10 +1722,10 @@ func (c *cpp) relationalExpression(s *cppScanner, eval bool) interface{} {
 
 // [0], 6.5.7 Bitwise shift operators
 //
-//  shift-expression:
-//		additive-expression
-//		shift-expression << additive-expression
-//		shift-expression >> additive-expression
+//	 shift-expression:
+//			additive-expression
+//			shift-expression << additive-expression
+//			shift-expression >> additive-expression
 func (c *cpp) shiftExpression(s *cppScanner, eval bool) interface{} {
 	lhs := c.additiveExpression(s, eval)
 	for {
@@ -1778,10 +1780,10 @@ func (c *cpp) shiftExpression(s *cppScanner, eval bool) interface{} {
 
 // [0], 6.5.6 Additive operators
 //
-//  additive-expression:
-//		multiplicative-expression
-//		additive-expression + multiplicative-expression
-//		additive-expression - multiplicative-expression
+//	 additive-expression:
+//			multiplicative-expression
+//			additive-expression + multiplicative-expression
+//			additive-expression - multiplicative-expression
 func (c *cpp) additiveExpression(s *cppScanner, eval bool) interface{} {
 	lhs := c.multiplicativeExpression(s, eval)
 	for {
@@ -1836,11 +1838,11 @@ func (c *cpp) additiveExpression(s *cppScanner, eval bool) interface{} {
 
 // [0], 6.5.5 Multiplicative operators
 //
-//  multiplicative-expression:
-//		unary-expression // [0], 6.10.1, 1.
-//		multiplicative-expression * unary-expression
-//		multiplicative-expression / unary-expression
-//		multiplicative-expression % unary-expression
+//	 multiplicative-expression:
+//			unary-expression // [0], 6.10.1, 1.
+//			multiplicative-expression * unary-expression
+//			multiplicative-expression / unary-expression
+//			multiplicative-expression % unary-expression
 func (c *cpp) multiplicativeExpression(s *cppScanner, eval bool) interface{} {
 	lhs := c.unaryExpression(s, eval)
 	for {
@@ -1956,12 +1958,12 @@ func (c *cpp) multiplicativeExpression(s *cppScanner, eval bool) interface{} {
 
 // [0], 6.5.3 Unary operators
 //
-//  unary-expression:
-//		primary-expression
-//		unary-operator unary-expression
+//	 unary-expression:
+//			primary-expression
+//			unary-operator unary-expression
 //
-//  unary-operator: one of
-//		+ - ~ !
+//	 unary-operator: one of
+//			+ - ~ !
 func (c *cpp) unaryExpression(s *cppScanner, eval bool) interface{} {
 	switch s.peek().char {
 	case '+':
@@ -2017,10 +2019,10 @@ func (c *cpp) unaryExpression(s *cppScanner, eval bool) interface{} {
 
 // [0], 6.5.1 Primary expressions
 //
-//  primary-expression:
-//		identifier
-//		constant
-//		( expression )
+//	 primary-expression:
+//			identifier
+//			constant
+//			( expression )
 func (c *cpp) primaryExpression(s *cppScanner, eval bool) interface{} {
 	switch tok := s.peek(); tok.char {
 	case CHARCONST, LONGCHARCONST:
@@ -2068,24 +2070,24 @@ func (c *cpp) primaryExpression(s *cppScanner, eval bool) interface{} {
 
 // [0], 6.4.4.1 Integer constants
 //
-//  integer-constant:
-//		decimal-constant integer-suffix_opt
-//		octal-constant integer-suffix_opt
-//		hexadecimal-constant integer-suffix_opt
+//	 integer-constant:
+//			decimal-constant integer-suffix_opt
+//			octal-constant integer-suffix_opt
+//			hexadecimal-constant integer-suffix_opt
 //
-//  decimal-constant:
-//		nonzero-digit
-//		decimal-constant digit
+//	 decimal-constant:
+//			nonzero-digit
+//			decimal-constant digit
 //
-//  octal-constant:
-//		0
-//		octal-constant octal-digit
+//	 octal-constant:
+//			0
+//			octal-constant octal-digit
 //
-//  hexadecimal-prefix: one of
-//		0x 0X
+//	 hexadecimal-prefix: one of
+//			0x 0X
 //
-//  integer-suffix_opt: one of
-//		u ul ull l lu ll llu
+//	 integer-suffix_opt: one of
+//			u ul ull l lu ll llu
 func (c *cpp) intConst(tok cppToken) (r interface{}) {
 	var n uint64
 	s0 := tok.String()
@@ -2988,8 +2990,8 @@ func (n *ppDefineFunctionMacroDirective) translationPhase4(c *cpp) {
 
 // [0], 6.10.1
 //
-//  elif-group:
-//  		# elif constant-expression new-line group_opt
+//	elif-group:
+//			# elif constant-expression new-line group_opt
 type ppElifGroup struct {
 	elif   *ppElifDirective
 	groups []ppGroup
@@ -3008,8 +3010,8 @@ func (n *ppElifGroup) evalInclusionCondition(c *cpp) bool {
 
 // [0], 6.10.1
 //
-//  else-group:
-//  		# else new-line group_opt
+//	else-group:
+//			# else new-line group_opt
 type ppElseGroup struct {
 	elseLine *ppElseDirective
 	groups   []ppGroup
@@ -3027,8 +3029,8 @@ func (n *ppElseGroup) translationPhase4(c *cpp) {
 
 // [0], 6.10.1
 //
-//  PreprocessingFile:
-//  		GroupOpt
+//	PreprocessingFile:
+//			GroupOpt
 type ppFile struct {
 	file   *tokenFile
 	groups []ppGroup
@@ -3046,21 +3048,21 @@ func (n *ppFile) translationPhase4(c *cpp) {
 
 // [0], 6.10.1
 //
-//  group-part:
-//  		if-section
-//  		control-line
-//  		text-line
-//  		# non-directive
+//	group-part:
+//			if-section
+//			control-line
+//			text-line
+//			# non-directive
 type ppGroup interface {
 	translationPhase4(*cpp)
 }
 
 // [0], 6.10.1
 //
-//  if-group:
-//  		# if constant-expression new-line group opt
-//  		# ifdef identifier new-line group opt
-//  		# ifndef identifier new-line group opt
+//	if-group:
+//			# if constant-expression new-line group opt
+//			# ifdef identifier new-line group opt
+//			# ifndef identifier new-line group opt
 type ppIfGroup struct {
 	directive ppIfGroupDirective
 	groups    []ppGroup
@@ -3080,7 +3082,8 @@ func (n *ppIfGroup) evalInclusionCondition(c *cpp) bool {
 // [0], 6.10.1
 //
 // if-section:
-// 		if-group elif-groups_opt else-group_opt endif-line
+//
+//	if-group elif-groups_opt else-group_opt endif-line
 type ppIfSection struct {
 	ifGroup    *ppIfGroup
 	elifGroups []*ppElifGroup

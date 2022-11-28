@@ -19,6 +19,7 @@ type providerLinux struct {
 /*
 NewProvider - Create a new Provider which is used to retrieve Proxy configurations.
 Params:
+
 	configFile: Optional. Path to a configuration file which specifies proxies.
 */
 func NewProvider(configFile string) Provider {
@@ -31,12 +32,16 @@ func NewProvider(configFile string) Provider {
 Returns the Proxy configuration for the given proxy protocol and targetUrl.
 If none is found, or an error occurs, nil is returned.
 This function searches the following locations in the following order:
-	* Configuration file: proxy.config
-	* Environment: HTTPS_PROXY, https_proxy, ...
+  - Configuration file: proxy.config
+  - Environment: HTTPS_PROXY, https_proxy, ...
+
 Params:
+
 	protocol: The protocol of traffic the proxy is to be used for. (i.e. http, https, ftp, socks)
 	targetUrl: The URL the proxy is to be used for. (i.e. https://test.endpoint.rapid7.com)
+
 Returns:
+
 	Proxy: A proxy was found
 	nil: A proxy was not found, or an error occurred
 */
@@ -48,8 +53,11 @@ func (p *providerLinux) GetProxy(protocol string, targetUrlStr string) Proxy {
 Returns the Proxy configuration for HTTP traffic and the given targetUrl.
 If none is found, or an error occurs, nil is returned.
 Params:
+
 	targetUrl: The URL the proxy is to be used for. (i.e. http://test.endpoint.rapid7.com)
+
 Returns:
+
 	Proxy: A proxy was found.
 	nil: A proxy was not found, or an error occurred.
 */
@@ -61,8 +69,11 @@ func (p *providerLinux) GetHTTPProxy(targetUrl string) Proxy {
 Returns the Proxy configuration for HTTPS traffic and the given targetUrl.
 If none is found, or an error occurs, nil is returned.
 Params:
+
 	targetUrl: The URL the proxy is to be used for. (i.e. https://test.endpoint.rapid7.com)
+
 Returns:
+
 	Proxy: A proxy was found.
 	nil: A proxy was not found, or an error occurred.
 */
@@ -74,8 +85,11 @@ func (p *providerLinux) GetHTTPSProxy(targetUrl string) Proxy {
 Returns the Proxy configuration for FTP traffic and the given targetUrl.
 If none is found, or an error occurs, nil is returned.
 Params:
+
 	targetUrl: The URL the proxy is to be used for. (i.e. ftp://test.endpoint.rapid7.com)
+
 Returns:
+
 	Proxy: A proxy was found.
 	nil: A proxy was not found, or an error occurred.
 */
@@ -87,8 +101,11 @@ func (p *providerLinux) GetFTPProxy(targetUrl string) Proxy {
 Returns the Proxy configuration for generic TCP/UDP traffic and the given targetUrl.
 If none is found, or an error occurs, nil is returned.
 Params:
+
 	targetUrl: The URL the proxy is to be used for. (i.e. ftp://test.endpoint.rapid7.com)
+
 Returns:
+
 	Proxy: A proxy was found.
 	nil: A proxy was not found, or an error occurred.
 */

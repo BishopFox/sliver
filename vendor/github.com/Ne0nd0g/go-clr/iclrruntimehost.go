@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package clr
@@ -98,10 +99,12 @@ func (obj *ICLRRuntimeHost) Start() error {
 
 // ExecuteInDefaultAppDomain Calls the specified method of the specified type in the specified managed assembly.
 // HRESULT ExecuteInDefaultAppDomain (
-//   [in] LPCWSTR pwzAssemblyPath,
-//   [in] LPCWSTR pwzTypeName,
-//   [in] LPCWSTR pwzMethodName,
-//   [in] LPCWSTR pwzArgument,
+//
+//	[in] LPCWSTR pwzAssemblyPath,
+//	[in] LPCWSTR pwzTypeName,
+//	[in] LPCWSTR pwzMethodName,
+//	[in] LPCWSTR pwzArgument,
+//
 // [out] DWORD *pReturnValue
 // );
 // An LPCWSTR is a 32-bit pointer to a constant string of 16-bit Unicode characters, which MAY be null-terminated.
@@ -134,7 +137,9 @@ func (obj *ICLRRuntimeHost) ExecuteInDefaultAppDomain(pwzAssemblyPath, pwzTypeNa
 
 // GetCurrentAppDomainID Gets the numeric identifier of the AppDomain that is currently executing.
 // HRESULT GetCurrentAppDomainId(
-//   [out] DWORD* pdwAppDomainId
+//
+//	[out] DWORD* pdwAppDomainId
+//
 // );
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimehost-getcurrentappdomainid-method
 func (obj *ICLRRuntimeHost) GetCurrentAppDomainID() (pdwAppDomainId uint32, err error) {

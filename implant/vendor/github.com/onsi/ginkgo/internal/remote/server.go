@@ -35,7 +35,7 @@ type Server struct {
 	counter         int
 }
 
-//Create a new server, automatically selecting a port
+// Create a new server, automatically selecting a port
 func NewServer(parallelTotal int) (*Server, error) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -50,7 +50,7 @@ func NewServer(parallelTotal int) (*Server, error) {
 	}, nil
 }
 
-//Start the server.  You don't need to `go s.Start()`, just `s.Start()`
+// Start the server.  You don't need to `go s.Start()`, just `s.Start()`
 func (server *Server) Start() {
 	httpServer := &http.Server{}
 	mux := http.NewServeMux()
@@ -73,12 +73,12 @@ func (server *Server) Start() {
 	go httpServer.Serve(server.listener)
 }
 
-//Stop the server
+// Stop the server
 func (server *Server) Close() {
 	server.listener.Close()
 }
 
-//The address the server can be reached it.  Pass this into the `ForwardingReporter`.
+// The address the server can be reached it.  Pass this into the `ForwardingReporter`.
 func (server *Server) Address() string {
 	return "http://" + server.listener.Addr().String()
 }
@@ -87,7 +87,7 @@ func (server *Server) Address() string {
 // Streaming Endpoints
 //
 
-//The server will forward all received messages to Ginkgo reporters registered with `RegisterReporters`
+// The server will forward all received messages to Ginkgo reporters registered with `RegisterReporters`
 func (server *Server) readAll(request *http.Request) []byte {
 	defer request.Body.Close()
 	body, _ := ioutil.ReadAll(request.Body)

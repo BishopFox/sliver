@@ -16,7 +16,7 @@ import (
 	"github.com/onsi/ginkgo/types"
 )
 
-//An interface to net/http's client to allow the injection of fakes under test
+// An interface to net/http's client to allow the injection of fakes under test
 type Poster interface {
 	Post(url string, bodyType string, body io.Reader) (resp *http.Response, err error)
 }

@@ -27,8 +27,9 @@ import (
 )
 
 // TunnelLoop - Parses incoming tunnel messages and distributes them
-//              to session/tunnel objects
-// 				Expected to be called only once during initialization
+//
+//	             to session/tunnel objects
+//					Expected to be called only once during initialization
 func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
 	log.Println("Starting tunnel data loop ...")
 	defer log.Printf("Warning: TunnelLoop exited")

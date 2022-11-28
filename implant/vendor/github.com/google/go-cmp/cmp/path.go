@@ -94,6 +94,7 @@ func (pa Path) Index(i int) PathStep {
 // The simplified path only contains struct field accesses.
 //
 // For example:
+//
 //	MyMap.MySlices.MyField
 func (pa Path) String() string {
 	var ss []string
@@ -108,6 +109,7 @@ func (pa Path) String() string {
 // GoString returns the path to a specific node using Go syntax.
 //
 // For example:
+//
 //	(*root.MyMap["key"].(*mypkg.MyStruct).MySlices)[2][3].MyField
 func (pa Path) GoString() string {
 	var ssPre, ssPost []string

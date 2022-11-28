@@ -52,7 +52,7 @@ var CharactersAroundMismatchToInclude uint = 5
 var contextType = reflect.TypeOf((*context.Context)(nil)).Elem()
 var timeType = reflect.TypeOf(time.Time{})
 
-//The default indentation string emitted by the format package
+// The default indentation string emitted by the format package
 var Indent = "    "
 
 var longFormThreshold = 20

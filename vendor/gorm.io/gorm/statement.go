@@ -544,8 +544,9 @@ func (stmt *Statement) clone() *Statement {
 }
 
 // SetColumn set column's value
-//   stmt.SetColumn("Name", "jinzhu") // Hooks Method
-//   stmt.SetColumn("Name", "jinzhu", true) // Callbacks Method
+//
+//	stmt.SetColumn("Name", "jinzhu") // Hooks Method
+//	stmt.SetColumn("Name", "jinzhu", true) // Callbacks Method
 func (stmt *Statement) SetColumn(name string, value interface{}, fromCallbacks ...bool) {
 	if v, ok := stmt.Dest.(map[string]interface{}); ok {
 		v[name] = value

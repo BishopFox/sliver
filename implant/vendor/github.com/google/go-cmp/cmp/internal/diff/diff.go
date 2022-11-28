@@ -127,9 +127,9 @@ var randBool = rand.New(rand.NewSource(time.Now().Unix())).Intn(2) == 0
 // This function returns an edit-script, which is a sequence of operations
 // needed to convert one list into the other. The following invariants for
 // the edit-script are maintained:
-//	• eq == (es.Dist()==0)
-//	• nx == es.LenX()
-//	• ny == es.LenY()
+//   - eq == (es.Dist()==0)
+//   - nx == es.LenX()
+//   - ny == es.LenY()
 //
 // This algorithm is not guaranteed to be an optimal solution (i.e., one that
 // produces an edit-script with a minimal Levenshtein distance). This algorithm
@@ -389,6 +389,7 @@ type point struct{ X, Y int }
 func (p *point) add(dx, dy int) { p.X += dx; p.Y += dy }
 
 // zigzag maps a consecutive sequence of integers to a zig-zag sequence.
+//
 //	[0 1 2 3 4 5 ...] => [0 -1 +1 -2 +2 ...]
 func zigzag(x int) int {
 	if x&1 != 0 {

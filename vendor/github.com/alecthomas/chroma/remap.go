@@ -46,10 +46,10 @@ type TypeMapping []struct {
 //
 // eg. Map "defvaralias" tokens of type NameVariable to NameFunction:
 //
-// 		mapping := TypeMapping{
-// 			{NameVariable, NameFunction, []string{"defvaralias"},
-// 		}
-// 		lexer = TypeRemappingLexer(lexer, mapping)
+//	mapping := TypeMapping{
+//		{NameVariable, NameFunction, []string{"defvaralias"},
+//	}
+//	lexer = TypeRemappingLexer(lexer, mapping)
 func TypeRemappingLexer(lexer Lexer, mapping TypeMapping) Lexer {
 	// Lookup table for fast remapping.
 	lut := map[TokenType]map[string]TokenType{}

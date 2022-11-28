@@ -51,10 +51,10 @@ func psHandler(data []byte, resp RPCResponse) {
 
 	for _, proc := range procs {
 		p := &commonpb.Process{
-			Pid:        int32(proc.Pid()),
-			Ppid:       int32(proc.PPid()),
-			Executable: proc.Executable(),
-			Owner:      proc.Owner(),
+			Pid:          int32(proc.Pid()),
+			Ppid:         int32(proc.PPid()),
+			Executable:   proc.Executable(),
+			Owner:        proc.Owner(),
 			Architecture: proc.Architecture(),
 		}
 		p.CmdLine = proc.(*ps.UnixProcess).CmdLine()

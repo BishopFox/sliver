@@ -34,7 +34,7 @@ import (
 	// {{end}}
 )
 
-//Screenshot - Not Implemented
+// Screenshot - Not Implemented
 func Screenshot() []byte {
 	buf := []byte{}
 	// {{if .Config.IsSharedLib}}

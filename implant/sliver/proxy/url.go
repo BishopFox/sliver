@@ -27,8 +27,11 @@ const maxUint16 = (1 << 16) - 1
 Parse the optionally valid URL string. Should the URL not contain a Scheme, an empty one will be provided.
 Should all hope be lost after that, expect error to be populated.
 Params:
+
 	rawUrl: An optionally valid URL
+
 Returns:
+
 	url.URL: The parsed URL if we managed to construct a valid one.
 	error: If URL was invalid, even after providing a Scheme.
 */
@@ -40,8 +43,11 @@ func ParseURL(rawUrl string, defaultScheme string) (*url.URL, error) {
 /*
 Sanitize the given target URL string to include only the Scheme, Host, and Port.
 Params:
+
 	targetUrl: An optionally valid URL
+
 Returns:
+
 	If any of the following exists in the given URL string, it will be omitted from the return value:
 		* Username
 		* Password
@@ -71,8 +77,11 @@ func ParseTargetURL(targetUrl, defaultScheme string) *url.URL {
 Split the optionally valid URL into a host and port.
 Should the URL be invalid or have no Host entry, "", 0, err will be returned.
 Params:
+
 	u: An optionally valid URL
+
 Returns:
+
 	Returns host, port, err.
 		If URL is valid: host, port, nil
 		If URL is invalid: "", 0, error
@@ -135,13 +144,18 @@ func IsLoopbackHost(host string) bool {
 Prefix the given rawURL string with a scheme.
 If a defaultScheme is provided, and no scheme exists for rawURL, it will be used.
 For example:
+
 	("test:8080", "https") -> "https://test:8080"
 	("https://8080", "gopher") -> "https://test:8080"
 	("test:8080", "") -> "//test:8080"
+
 Params:
+
 	rawURL: The raw URL as a string which may or may not have a scheme.
 	defaultScheme: Optional. The scheme to inject if no scheme is present in rawURL.
+
 Returns:
+
 	Returns the given rawURL with a scheme.
 */
 func prefixScheme(rawURL string, defaultScheme string) string {

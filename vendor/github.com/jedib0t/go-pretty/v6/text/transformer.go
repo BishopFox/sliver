@@ -37,9 +37,9 @@ var (
 type Transformer func(val interface{}) string
 
 // NewNumberTransformer returns a number Transformer that:
-//   * transforms the number as directed by 'format' (ex.: %.2f)
-//   * colors negative values Red
-//   * colors positive values Green
+//   - transforms the number as directed by 'format' (ex.: %.2f)
+//   - colors negative values Red
+//   - colors positive values Green
 func NewNumberTransformer(format string) Transformer {
 	return func(val interface{}) string {
 		if valStr := transformInt(format, val); valStr != "" {

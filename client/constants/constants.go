@@ -157,6 +157,7 @@ const (
 	DnsStr         = "dns"
 	HttpStr        = "http"
 	HttpsStr       = "https"
+	WsStr          = "websocket"
 	NamedPipeStr   = "named-pipe"
 	TCPListenerStr = "tcp"
 

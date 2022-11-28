@@ -166,6 +166,9 @@ type HTTPC2ImplantConfig struct {
 	SessionFiles        []string `json:"session_files"`
 	SessionPaths        []string `json:"session_paths"`
 
+	// WebSocket
+	WebSocketFileExt string `json:"web_socket_file_ext"`
+
 	// Close session files and paths
 	CloseFileExt string   `json:"close_file_ext"`
 	CloseFiles   []string `json:"close_files"`
@@ -268,6 +271,8 @@ var (
 				"php", "api", "upload", "actions", "rest", "v1", "auth", "authenticate",
 				"oauth", "oauth2", "oauth2callback", "database", "db", "namespaces",
 			},
+
+			WebSocketFileExt: ".json",
 
 			CloseFileExt: ".png",
 			CloseFiles: []string{

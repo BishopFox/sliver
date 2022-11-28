@@ -84,6 +84,7 @@ func NewConn() (*Conn, error) {
 // If 'display' is empty it will be taken from os.Getenv("DISPLAY").
 //
 // Examples:
+//
 //	NewConn(":1") -> net.Dial("unix", "", "/tmp/.X11-unix/X1")
 //	NewConn("/tmp/launch-12/:0") -> net.Dial("unix", "", "/tmp/launch-12/:0")
 //	NewConn("hostname:2.1") -> net.Dial("tcp", "", "hostname:6002")

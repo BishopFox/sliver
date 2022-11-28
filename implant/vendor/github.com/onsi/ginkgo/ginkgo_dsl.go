@@ -54,40 +54,40 @@ func init() {
 	GinkgoWriter = writer.New(os.Stdout)
 }
 
-//GinkgoWriter implements an io.Writer
-//When running in verbose mode any writes to GinkgoWriter will be immediately printed
-//to stdout.  Otherwise, GinkgoWriter will buffer any writes produced during the current test and flush them to screen
-//only if the current test fails.
+// GinkgoWriter implements an io.Writer
+// When running in verbose mode any writes to GinkgoWriter will be immediately printed
+// to stdout.  Otherwise, GinkgoWriter will buffer any writes produced during the current test and flush them to screen
+// only if the current test fails.
 var GinkgoWriter io.Writer
 
-//The interface by which Ginkgo receives *testing.T
+// The interface by which Ginkgo receives *testing.T
 type GinkgoTestingT interface {
 	Fail()
 }
 
-//GinkgoRandomSeed returns the seed used to randomize spec execution order.  It is
-//useful for seeding your own pseudorandom number generators (PRNGs) to ensure
-//consistent executions from run to run, where your tests contain variability (for
-//example, when selecting random test data).
+// GinkgoRandomSeed returns the seed used to randomize spec execution order.  It is
+// useful for seeding your own pseudorandom number generators (PRNGs) to ensure
+// consistent executions from run to run, where your tests contain variability (for
+// example, when selecting random test data).
 func GinkgoRandomSeed() int64 {
 	return config.GinkgoConfig.RandomSeed
 }
 
-//GinkgoParallelNode is deprecated, use GinkgoParallelProcess instead
+// GinkgoParallelNode is deprecated, use GinkgoParallelProcess instead
 func GinkgoParallelNode() int {
 	deprecationTracker.TrackDeprecation(types.Deprecations.ParallelNode(), codelocation.New(1))
 	return GinkgoParallelProcess()
 }
 
-//GinkgoParallelProcess returns the parallel process number for the current ginkgo process
-//The process number is 1-indexed
+// GinkgoParallelProcess returns the parallel process number for the current ginkgo process
+// The process number is 1-indexed
 func GinkgoParallelProcess() int {
 	return config.GinkgoConfig.ParallelNode
 }
 
-//Some matcher libraries or legacy codebases require a *testing.T
-//GinkgoT implements an interface analogous to *testing.T and can be used if
-//the library in question accepts *testing.T through an interface
+// Some matcher libraries or legacy codebases require a *testing.T
+// GinkgoT implements an interface analogous to *testing.T and can be used if
+// the library in question accepts *testing.T through an interface
 //
 // For example, with testify:
 // assert.Equal(GinkgoT(), 123, 123, "they should be equal")
@@ -111,8 +111,8 @@ func GinkgoT(optionalOffset ...int) GinkgoTInterface {
 	return testingtproxy.New(GinkgoWriter, Fail, Skip, failedFunc, nameFunc, offset)
 }
 
-//The interface returned by GinkgoT().  This covers most of the methods
-//in the testing package's T.
+// The interface returned by GinkgoT().  This covers most of the methods
+// in the testing package's T.
 type GinkgoTInterface interface {
 	Cleanup(func())
 	Setenv(key, value string)
@@ -135,17 +135,18 @@ type GinkgoTInterface interface {
 	TempDir() string
 }
 
-//Custom Ginkgo test reporters must implement the Reporter interface.
+// Custom Ginkgo test reporters must implement the Reporter interface.
 //
-//The custom reporter is passed in a SuiteSummary when the suite begins and ends,
-//and a SpecSummary just before a spec begins and just after a spec ends
+// The custom reporter is passed in a SuiteSummary when the suite begins and ends,
+// and a SpecSummary just before a spec begins and just after a spec ends
 type Reporter reporters.Reporter
 
-//Asynchronous specs are given a channel of the Done type.  You must close or write to the channel
-//to tell Ginkgo that your async test is done.
+// Asynchronous specs are given a channel of the Done type.  You must close or write to the channel
+// to tell Ginkgo that your async test is done.
 type Done chan<- interface{}
 
-//GinkgoTestDescription represents the information about the current running test returned by CurrentGinkgoTestDescription
+// GinkgoTestDescription represents the information about the current running test returned by CurrentGinkgoTestDescription
+//
 //	FullTestText: a concatenation of ComponentTexts and the TestText
 //	ComponentTexts: a list of all texts for the Describes & Contexts leading up to the current test
 //	TestText: the text in the actual It or Measure node
@@ -167,7 +168,7 @@ type GinkgoTestDescription struct {
 	Duration time.Duration
 }
 
-//CurrentGinkgoTestDescripton returns information about the current running test.
+// CurrentGinkgoTestDescripton returns information about the current running test.
 func CurrentGinkgoTestDescription() GinkgoTestDescription {
 	summary, ok := global.Suite.CurrentRunningSpecSummary()
 	if !ok {
@@ -188,26 +189,26 @@ func CurrentGinkgoTestDescription() GinkgoTestDescription {
 	}
 }
 
-//Measurement tests receive a Benchmarker.
+// Measurement tests receive a Benchmarker.
 //
-//You use the Time() function to time how long the passed in body function takes to run
-//You use the RecordValue() function to track arbitrary numerical measurements.
-//The RecordValueWithPrecision() function can be used alternatively to provide the unit
-//and resolution of the numeric measurement.
-//The optional info argument is passed to the test reporter and can be used to
+// You use the Time() function to time how long the passed in body function takes to run
+// You use the RecordValue() function to track arbitrary numerical measurements.
+// The RecordValueWithPrecision() function can be used alternatively to provide the unit
+// and resolution of the numeric measurement.
+// The optional info argument is passed to the test reporter and can be used to
 // provide the measurement data to a custom reporter with context.
 //
-//See http://onsi.github.io/ginkgo/#benchmark_tests for more details
+// See http://onsi.github.io/ginkgo/#benchmark_tests for more details
 type Benchmarker interface {
 	Time(name string, body func(), info ...interface{}) (elapsedTime time.Duration)
 	RecordValue(name string, value float64, info ...interface{})
 	RecordValueWithPrecision(name string, value float64, units string, precision int, info ...interface{})
 }
 
-//RunSpecs is the entry point for the Ginkgo test runner.
-//You must call this within a Golang testing TestX(t *testing.T) function.
+// RunSpecs is the entry point for the Ginkgo test runner.
+// You must call this within a Golang testing TestX(t *testing.T) function.
 //
-//To bootstrap a test suite you can use the Ginkgo CLI:
+// To bootstrap a test suite you can use the Ginkgo CLI:
 //
 //	ginkgo bootstrap
 func RunSpecs(t GinkgoTestingT, description string) bool {
@@ -220,16 +221,16 @@ func RunSpecs(t GinkgoTestingT, description string) bool {
 	return runSpecsWithCustomReporters(t, description, specReporters)
 }
 
-//To run your tests with Ginkgo's default reporter and your custom reporter(s), replace
-//RunSpecs() with this method.
+// To run your tests with Ginkgo's default reporter and your custom reporter(s), replace
+// RunSpecs() with this method.
 func RunSpecsWithDefaultAndCustomReporters(t GinkgoTestingT, description string, specReporters []Reporter) bool {
 	deprecationTracker.TrackDeprecation(types.Deprecations.CustomReporter())
 	specReporters = append(specReporters, buildDefaultReporter())
 	return runSpecsWithCustomReporters(t, description, specReporters)
 }
 
-//To run your tests with your custom reporter(s) (and *not* Ginkgo's default reporter), replace
-//RunSpecs() with this method.  Note that parallel tests will not work correctly without the default reporter
+// To run your tests with your custom reporter(s) (and *not* Ginkgo's default reporter), replace
+// RunSpecs() with this method.  Note that parallel tests will not work correctly without the default reporter
 func RunSpecsWithCustomReporters(t GinkgoTestingT, description string, specReporters []Reporter) bool {
 	deprecationTracker.TrackDeprecation(types.Deprecations.CustomReporter())
 	return runSpecsWithCustomReporters(t, description, specReporters)
@@ -269,7 +270,7 @@ func buildDefaultReporter() Reporter {
 	}
 }
 
-//Skip notifies Ginkgo that the current spec was skipped.
+// Skip notifies Ginkgo that the current spec was skipped.
 func Skip(message string, callerSkip ...int) {
 	skip := 0
 	if len(callerSkip) > 0 {
@@ -280,7 +281,7 @@ func Skip(message string, callerSkip ...int) {
 	panic(GINKGO_PANIC)
 }
 
-//Fail notifies Ginkgo that the current spec has failed. (Gomega will call Fail for you automatically when an assertion fails.)
+// Fail notifies Ginkgo that the current spec has failed. (Gomega will call Fail for you automatically when an assertion fails.)
 func Fail(message string, callerSkip ...int) {
 	skip := 0
 	if len(callerSkip) > 0 {
@@ -291,16 +292,16 @@ func Fail(message string, callerSkip ...int) {
 	panic(GINKGO_PANIC)
 }
 
-//GinkgoRecover should be deferred at the top of any spawned goroutine that (may) call `Fail`
-//Since Gomega assertions call fail, you should throw a `defer GinkgoRecover()` at the top of any goroutine that
-//calls out to Gomega
+// GinkgoRecover should be deferred at the top of any spawned goroutine that (may) call `Fail`
+// Since Gomega assertions call fail, you should throw a `defer GinkgoRecover()` at the top of any goroutine that
+// calls out to Gomega
 //
-//Here's why: Ginkgo's `Fail` method records the failure and then panics to prevent
-//further assertions from running.  This panic must be recovered.  Ginkgo does this for you
-//if the panic originates in a Ginkgo node (an It, BeforeEach, etc...)
+// Here's why: Ginkgo's `Fail` method records the failure and then panics to prevent
+// further assertions from running.  This panic must be recovered.  Ginkgo does this for you
+// if the panic originates in a Ginkgo node (an It, BeforeEach, etc...)
 //
-//Unfortunately, if a panic originates on a goroutine *launched* from one of these nodes there's no
-//way for Ginkgo to rescue the panic.  To do this, you must remember to `defer GinkgoRecover()` at the top of such a goroutine.
+// Unfortunately, if a panic originates on a goroutine *launched* from one of these nodes there's no
+// way for Ginkgo to rescue the panic.  To do this, you must remember to `defer GinkgoRecover()` at the top of such a goroutine.
 func GinkgoRecover() {
 	e := recover()
 	if e != nil {
@@ -308,158 +309,158 @@ func GinkgoRecover() {
 	}
 }
 
-//Describe blocks allow you to organize your specs.  A Describe block can contain any number of
-//BeforeEach, AfterEach, JustBeforeEach, It, and Measurement blocks.
+// Describe blocks allow you to organize your specs.  A Describe block can contain any number of
+// BeforeEach, AfterEach, JustBeforeEach, It, and Measurement blocks.
 //
-//In addition you can nest Describe, Context and When blocks.  Describe, Context and When blocks are functionally
-//equivalent.  The difference is purely semantic -- you typically Describe the behavior of an object
-//or method and, within that Describe, outline a number of Contexts and Whens.
+// In addition you can nest Describe, Context and When blocks.  Describe, Context and When blocks are functionally
+// equivalent.  The difference is purely semantic -- you typically Describe the behavior of an object
+// or method and, within that Describe, outline a number of Contexts and Whens.
 func Describe(text string, body func()) bool {
 	global.Suite.PushContainerNode(text, body, types.FlagTypeNone, codelocation.New(1))
 	return true
 }
 
-//You can focus the tests within a describe block using FDescribe
+// You can focus the tests within a describe block using FDescribe
 func FDescribe(text string, body func()) bool {
 	global.Suite.PushContainerNode(text, body, types.FlagTypeFocused, codelocation.New(1))
 	return true
 }
 
-//You can mark the tests within a describe block as pending using PDescribe
+// You can mark the tests within a describe block as pending using PDescribe
 func PDescribe(text string, body func()) bool {
 	global.Suite.PushContainerNode(text, body, types.FlagTypePending, codelocation.New(1))
 	return true
 }
 
-//You can mark the tests within a describe block as pending using XDescribe
+// You can mark the tests within a describe block as pending using XDescribe
 func XDescribe(text string, body func()) bool {
 	global.Suite.PushContainerNode(text, body, types.FlagTypePending, codelocation.New(1))
 	return true
 }
 
-//Context blocks allow you to organize your specs.  A Context block can contain any number of
-//BeforeEach, AfterEach, JustBeforeEach, It, and Measurement blocks.
+// Context blocks allow you to organize your specs.  A Context block can contain any number of
+// BeforeEach, AfterEach, JustBeforeEach, It, and Measurement blocks.
 //
-//In addition you can nest Describe, Context and When blocks.  Describe, Context and When blocks are functionally
-//equivalent.  The difference is purely semantic -- you typical Describe the behavior of an object
-//or method and, within that Describe, outline a number of Contexts and Whens.
+// In addition you can nest Describe, Context and When blocks.  Describe, Context and When blocks are functionally
+// equivalent.  The difference is purely semantic -- you typical Describe the behavior of an object
+// or method and, within that Describe, outline a number of Contexts and Whens.
 func Context(text string, body func()) bool {
 	global.Suite.PushContainerNode(text, body, types.FlagTypeNone, codelocation.New(1))
 	return true
 }
 
-//You can focus the tests within a describe block using FContext
+// You can focus the tests within a describe block using FContext
 func FContext(text string, body func()) bool {
 	global.Suite.PushContainerNode(text, body, types.FlagTypeFocused, codelocation.New(1))
 	return true
 }
 
-//You can mark the tests within a describe block as pending using PContext
+// You can mark the tests within a describe block as pending using PContext
 func PContext(text string, body func()) bool {
 	global.Suite.PushContainerNode(text, body, types.FlagTypePending, codelocation.New(1))
 	return true
 }
 
-//You can mark the tests within a describe block as pending using XContext
+// You can mark the tests within a describe block as pending using XContext
 func XContext(text string, body func()) bool {
 	global.Suite.PushContainerNode(text, body, types.FlagTypePending, codelocation.New(1))
 	return true
 }
 
-//When blocks allow you to organize your specs.  A When block can contain any number of
-//BeforeEach, AfterEach, JustBeforeEach, It, and Measurement blocks.
+// When blocks allow you to organize your specs.  A When block can contain any number of
+// BeforeEach, AfterEach, JustBeforeEach, It, and Measurement blocks.
 //
-//In addition you can nest Describe, Context and When blocks.  Describe, Context and When blocks are functionally
-//equivalent.  The difference is purely semantic -- you typical Describe the behavior of an object
-//or method and, within that Describe, outline a number of Contexts and Whens.
+// In addition you can nest Describe, Context and When blocks.  Describe, Context and When blocks are functionally
+// equivalent.  The difference is purely semantic -- you typical Describe the behavior of an object
+// or method and, within that Describe, outline a number of Contexts and Whens.
 func When(text string, body func()) bool {
 	global.Suite.PushContainerNode("when "+text, body, types.FlagTypeNone, codelocation.New(1))
 	return true
 }
 
-//You can focus the tests within a describe block using FWhen
+// You can focus the tests within a describe block using FWhen
 func FWhen(text string, body func()) bool {
 	global.Suite.PushContainerNode("when "+text, body, types.FlagTypeFocused, codelocation.New(1))
 	return true
 }
 
-//You can mark the tests within a describe block as pending using PWhen
+// You can mark the tests within a describe block as pending using PWhen
 func PWhen(text string, body func()) bool {
 	global.Suite.PushContainerNode("when "+text, body, types.FlagTypePending, codelocation.New(1))
 	return true
 }
 
-//You can mark the tests within a describe block as pending using XWhen
+// You can mark the tests within a describe block as pending using XWhen
 func XWhen(text string, body func()) bool {
 	global.Suite.PushContainerNode("when "+text, body, types.FlagTypePending, codelocation.New(1))
 	return true
 }
 
-//It blocks contain your test code and assertions.  You cannot nest any other Ginkgo blocks
-//within an It block.
+// It blocks contain your test code and assertions.  You cannot nest any other Ginkgo blocks
+// within an It block.
 //
-//Ginkgo will normally run It blocks synchronously.  To perform asynchronous tests, pass a
-//function that accepts a Done channel.  When you do this, you can also provide an optional timeout.
+// Ginkgo will normally run It blocks synchronously.  To perform asynchronous tests, pass a
+// function that accepts a Done channel.  When you do this, you can also provide an optional timeout.
 func It(text string, body interface{}, timeout ...float64) bool {
 	validateBodyFunc(body, codelocation.New(1))
 	global.Suite.PushItNode(text, body, types.FlagTypeNone, codelocation.New(1), parseTimeout(timeout...))
 	return true
 }
 
-//You can focus individual Its using FIt
+// You can focus individual Its using FIt
 func FIt(text string, body interface{}, timeout ...float64) bool {
 	validateBodyFunc(body, codelocation.New(1))
 	global.Suite.PushItNode(text, body, types.FlagTypeFocused, codelocation.New(1), parseTimeout(timeout...))
 	return true
 }
 
-//You can mark Its as pending using PIt
+// You can mark Its as pending using PIt
 func PIt(text string, _ ...interface{}) bool {
 	global.Suite.PushItNode(text, func() {}, types.FlagTypePending, codelocation.New(1), 0)
 	return true
 }
 
-//You can mark Its as pending using XIt
+// You can mark Its as pending using XIt
 func XIt(text string, _ ...interface{}) bool {
 	global.Suite.PushItNode(text, func() {}, types.FlagTypePending, codelocation.New(1), 0)
 	return true
 }
 
-//Specify blocks are aliases for It blocks and allow for more natural wording in situations
-//which "It" does not fit into a natural sentence flow. All the same protocols apply for Specify blocks
-//which apply to It blocks.
+// Specify blocks are aliases for It blocks and allow for more natural wording in situations
+// which "It" does not fit into a natural sentence flow. All the same protocols apply for Specify blocks
+// which apply to It blocks.
 func Specify(text string, body interface{}, timeout ...float64) bool {
 	validateBodyFunc(body, codelocation.New(1))
 	global.Suite.PushItNode(text, body, types.FlagTypeNone, codelocation.New(1), parseTimeout(timeout...))
 	return true
 }
 
-//You can focus individual Specifys using FSpecify
+// You can focus individual Specifys using FSpecify
 func FSpecify(text string, body interface{}, timeout ...float64) bool {
 	validateBodyFunc(body, codelocation.New(1))
 	global.Suite.PushItNode(text, body, types.FlagTypeFocused, codelocation.New(1), parseTimeout(timeout...))
 	return true
 }
 
-//You can mark Specifys as pending using PSpecify
+// You can mark Specifys as pending using PSpecify
 func PSpecify(text string, is ...interface{}) bool {
 	global.Suite.PushItNode(text, func() {}, types.FlagTypePending, codelocation.New(1), 0)
 	return true
 }
 
-//You can mark Specifys as pending using XSpecify
+// You can mark Specifys as pending using XSpecify
 func XSpecify(text string, is ...interface{}) bool {
 	global.Suite.PushItNode(text, func() {}, types.FlagTypePending, codelocation.New(1), 0)
 	return true
 }
 
-//By allows you to better document large Its.
+// By allows you to better document large Its.
 //
-//Generally you should try to keep your Its short and to the point.  This is not always possible, however,
-//especially in the context of integration tests that capture a particular workflow.
+// Generally you should try to keep your Its short and to the point.  This is not always possible, however,
+// especially in the context of integration tests that capture a particular workflow.
 //
-//By allows you to document such flows.  By must be called within a runnable node (It, BeforeEach, Measure, etc...)
-//By will simply log the passed in text to the GinkgoWriter.  If By is handed a function it will immediately run the function.
+// By allows you to document such flows.  By must be called within a runnable node (It, BeforeEach, Measure, etc...)
+// By will simply log the passed in text to the GinkgoWriter.  If By is handed a function it will immediately run the function.
 func By(text string, callbacks ...func()) {
 	preamble := "\x1b[1mSTEP\x1b[0m"
 	if config.DefaultReporterConfig.NoColor {
@@ -474,10 +475,11 @@ func By(text string, callbacks ...func()) {
 	}
 }
 
-//Measure blocks run the passed in body function repeatedly (determined by the samples argument)
-//and accumulate metrics provided to the Benchmarker by the body function.
+// Measure blocks run the passed in body function repeatedly (determined by the samples argument)
+// and accumulate metrics provided to the Benchmarker by the body function.
 //
-//The body function must have the signature:
+// The body function must have the signature:
+//
 //	func(b Benchmarker)
 func Measure(text string, body interface{}, samples int) bool {
 	deprecationTracker.TrackDeprecation(types.Deprecations.Measure(), codelocation.New(1))
@@ -485,79 +487,79 @@ func Measure(text string, body interface{}, samples int) bool {
 	return true
 }
 
-//You can focus individual Measures using FMeasure
+// You can focus individual Measures using FMeasure
 func FMeasure(text string, body interface{}, samples int) bool {
 	deprecationTracker.TrackDeprecation(types.Deprecations.Measure(), codelocation.New(1))
 	global.Suite.PushMeasureNode(text, body, types.FlagTypeFocused, codelocation.New(1), samples)
 	return true
 }
 
-//You can mark Measurements as pending using PMeasure
+// You can mark Measurements as pending using PMeasure
 func PMeasure(text string, _ ...interface{}) bool {
 	deprecationTracker.TrackDeprecation(types.Deprecations.Measure(), codelocation.New(1))
 	global.Suite.PushMeasureNode(text, func(b Benchmarker) {}, types.FlagTypePending, codelocation.New(1), 0)
 	return true
 }
 
-//You can mark Measurements as pending using XMeasure
+// You can mark Measurements as pending using XMeasure
 func XMeasure(text string, _ ...interface{}) bool {
 	deprecationTracker.TrackDeprecation(types.Deprecations.Measure(), codelocation.New(1))
 	global.Suite.PushMeasureNode(text, func(b Benchmarker) {}, types.FlagTypePending, codelocation.New(1), 0)
 	return true
 }
 
-//BeforeSuite blocks are run just once before any specs are run.  When running in parallel, each
-//parallel node process will call BeforeSuite.
+// BeforeSuite blocks are run just once before any specs are run.  When running in parallel, each
+// parallel node process will call BeforeSuite.
 //
-//BeforeSuite blocks can be made asynchronous by providing a body function that accepts a Done channel
+// # BeforeSuite blocks can be made asynchronous by providing a body function that accepts a Done channel
 //
-//You may only register *one* BeforeSuite handler per test suite.  You typically do so in your bootstrap file at the top level.
+// You may only register *one* BeforeSuite handler per test suite.  You typically do so in your bootstrap file at the top level.
 func BeforeSuite(body interface{}, timeout ...float64) bool {
 	validateBodyFunc(body, codelocation.New(1))
 	global.Suite.SetBeforeSuiteNode(body, codelocation.New(1), parseTimeout(timeout...))
 	return true
 }
 
-//AfterSuite blocks are *always* run after all the specs regardless of whether specs have passed or failed.
-//Moreover, if Ginkgo receives an interrupt signal (^C) it will attempt to run the AfterSuite before exiting.
+// AfterSuite blocks are *always* run after all the specs regardless of whether specs have passed or failed.
+// Moreover, if Ginkgo receives an interrupt signal (^C) it will attempt to run the AfterSuite before exiting.
 //
-//When running in parallel, each parallel node process will call AfterSuite.
+// When running in parallel, each parallel node process will call AfterSuite.
 //
-//AfterSuite blocks can be made asynchronous by providing a body function that accepts a Done channel
+// # AfterSuite blocks can be made asynchronous by providing a body function that accepts a Done channel
 //
-//You may only register *one* AfterSuite handler per test suite.  You typically do so in your bootstrap file at the top level.
+// You may only register *one* AfterSuite handler per test suite.  You typically do so in your bootstrap file at the top level.
 func AfterSuite(body interface{}, timeout ...float64) bool {
 	validateBodyFunc(body, codelocation.New(1))
 	global.Suite.SetAfterSuiteNode(body, codelocation.New(1), parseTimeout(timeout...))
 	return true
 }
 
-//SynchronizedBeforeSuite blocks are primarily meant to solve the problem of setting up singleton external resources shared across
-//nodes when running tests in parallel.  For example, say you have a shared database that you can only start one instance of that
-//must be used in your tests.  When running in parallel, only one node should set up the database and all other nodes should wait
-//until that node is done before running.
+// SynchronizedBeforeSuite blocks are primarily meant to solve the problem of setting up singleton external resources shared across
+// nodes when running tests in parallel.  For example, say you have a shared database that you can only start one instance of that
+// must be used in your tests.  When running in parallel, only one node should set up the database and all other nodes should wait
+// until that node is done before running.
 //
-//SynchronizedBeforeSuite accomplishes this by taking *two* function arguments.  The first is only run on parallel node #1.  The second is
-//run on all nodes, but *only* after the first function completes successfully.  Ginkgo also makes it possible to send data from the first function (on Node 1)
-//to the second function (on all the other nodes).
+// SynchronizedBeforeSuite accomplishes this by taking *two* function arguments.  The first is only run on parallel node #1.  The second is
+// run on all nodes, but *only* after the first function completes successfully.  Ginkgo also makes it possible to send data from the first function (on Node 1)
+// to the second function (on all the other nodes).
 //
-//The functions have the following signatures.  The first function (which only runs on node 1) has the signature:
+// The functions have the following signatures.  The first function (which only runs on node 1) has the signature:
 //
 //	func() []byte
 //
-//or, to run asynchronously:
+// or, to run asynchronously:
 //
 //	func(done Done) []byte
 //
-//The byte array returned by the first function is then passed to the second function, which has the signature:
+// The byte array returned by the first function is then passed to the second function, which has the signature:
 //
 //	func(data []byte)
 //
-//or, to run asynchronously:
+// or, to run asynchronously:
 //
 //	func(data []byte, done Done)
 //
-//Here's a simple pseudo-code example that starts a shared database on Node 1 and shares the database's address with the other nodes:
+// Here's a simple pseudo-code example that starts a shared database on Node 1 and shares the database's address with the other nodes:
 //
 //	var dbClient db.Client
 //	var dbRunner db.Runner
@@ -582,17 +584,17 @@ func SynchronizedBeforeSuite(node1Body interface{}, allNodesBody interface{}, ti
 	return true
 }
 
-//SynchronizedAfterSuite blocks complement the SynchronizedBeforeSuite blocks in solving the problem of setting up
-//external singleton resources shared across nodes when running tests in parallel.
+// SynchronizedAfterSuite blocks complement the SynchronizedBeforeSuite blocks in solving the problem of setting up
+// external singleton resources shared across nodes when running tests in parallel.
 //
-//SynchronizedAfterSuite accomplishes this by taking *two* function arguments.  The first runs on all nodes.  The second runs only on parallel node #1
-//and *only* after all other nodes have finished and exited.  This ensures that node 1, and any resources it is running, remain alive until
-//all other nodes are finished.
+// SynchronizedAfterSuite accomplishes this by taking *two* function arguments.  The first runs on all nodes.  The second runs only on parallel node #1
+// and *only* after all other nodes have finished and exited.  This ensures that node 1, and any resources it is running, remain alive until
+// all other nodes are finished.
 //
-//Both functions have the same signature: either func() or func(done Done) to run asynchronously.
+// Both functions have the same signature: either func() or func(done Done) to run asynchronously.
 //
-//Here's a pseudo-code example that complements that given in SynchronizedBeforeSuite.  Here, SynchronizedAfterSuite is used to tear down the shared database
-//only after all nodes have finished:
+// Here's a pseudo-code example that complements that given in SynchronizedBeforeSuite.  Here, SynchronizedAfterSuite is used to tear down the shared database
+// only after all nodes have finished:
 //
 //	var _ = SynchronizedAfterSuite(func() {
 //		dbClient.Cleanup()
@@ -609,44 +611,44 @@ func SynchronizedAfterSuite(allNodesBody interface{}, node1Body interface{}, tim
 	return true
 }
 
-//BeforeEach blocks are run before It blocks.  When multiple BeforeEach blocks are defined in nested
-//Describe and Context blocks the outermost BeforeEach blocks are run first.
+// BeforeEach blocks are run before It blocks.  When multiple BeforeEach blocks are defined in nested
+// Describe and Context blocks the outermost BeforeEach blocks are run first.
 //
-//Like It blocks, BeforeEach blocks can be made asynchronous by providing a body function that accepts
-//a Done channel
+// Like It blocks, BeforeEach blocks can be made asynchronous by providing a body function that accepts
+// a Done channel
 func BeforeEach(body interface{}, timeout ...float64) bool {
 	validateBodyFunc(body, codelocation.New(1))
 	global.Suite.PushBeforeEachNode(body, codelocation.New(1), parseTimeout(timeout...))
 	return true
 }
 
-//JustBeforeEach blocks are run before It blocks but *after* all BeforeEach blocks.  For more details,
-//read the [documentation](http://onsi.github.io/ginkgo/#separating_creation_and_configuration_)
+// JustBeforeEach blocks are run before It blocks but *after* all BeforeEach blocks.  For more details,
+// read the [documentation](http://onsi.github.io/ginkgo/#separating_creation_and_configuration_)
 //
-//Like It blocks, BeforeEach blocks can be made asynchronous by providing a body function that accepts
-//a Done channel
+// Like It blocks, BeforeEach blocks can be made asynchronous by providing a body function that accepts
+// a Done channel
 func JustBeforeEach(body interface{}, timeout ...float64) bool {
 	validateBodyFunc(body, codelocation.New(1))
 	global.Suite.PushJustBeforeEachNode(body, codelocation.New(1), parseTimeout(timeout...))
 	return true
 }
 
-//JustAfterEach blocks are run after It blocks but *before* all AfterEach blocks.  For more details,
-//read the [documentation](http://onsi.github.io/ginkgo/#separating_creation_and_configuration_)
+// JustAfterEach blocks are run after It blocks but *before* all AfterEach blocks.  For more details,
+// read the [documentation](http://onsi.github.io/ginkgo/#separating_creation_and_configuration_)
 //
-//Like It blocks, JustAfterEach blocks can be made asynchronous by providing a body function that accepts
-//a Done channel
+// Like It blocks, JustAfterEach blocks can be made asynchronous by providing a body function that accepts
+// a Done channel
 func JustAfterEach(body interface{}, timeout ...float64) bool {
 	validateBodyFunc(body, codelocation.New(1))
 	global.Suite.PushJustAfterEachNode(body, codelocation.New(1), parseTimeout(timeout...))
 	return true
 }
 
-//AfterEach blocks are run after It blocks.   When multiple AfterEach blocks are defined in nested
-//Describe and Context blocks the innermost AfterEach blocks are run first.
+// AfterEach blocks are run after It blocks.   When multiple AfterEach blocks are defined in nested
+// Describe and Context blocks the innermost AfterEach blocks are run first.
 //
-//Like It blocks, AfterEach blocks can be made asynchronous by providing a body function that accepts
-//a Done channel
+// Like It blocks, AfterEach blocks can be made asynchronous by providing a body function that accepts
+// a Done channel
 func AfterEach(body interface{}, timeout ...float64) bool {
 	validateBodyFunc(body, codelocation.New(1))
 	global.Suite.PushAfterEachNode(body, codelocation.New(1), parseTimeout(timeout...))

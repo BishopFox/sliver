@@ -137,9 +137,10 @@ func PackIP(ip string) string {
 }
 
 // ApplyPrefixForkIntel64 - Prepends instructions to fork and have the parent jump to a relative 32-bit address (the entryJump argument)
-//							Intel x64 Linux version
 //
-//							Returns the resulting shellcode
+//	Intel x64 Linux version
+//
+//	Returns the resulting shellcode
 func ApplyPrefixForkIntel64(shellcode []byte, entryJump uint32, byteOrder binary.ByteOrder) []byte {
 	/*
 		Disassembly:
@@ -158,9 +159,10 @@ func ApplyPrefixForkIntel64(shellcode []byte, entryJump uint32, byteOrder binary
 }
 
 // ApplySuffixJmpIntel64 - Appends instructions to jump to the original entryPoint (the parameter)
-//							Intel x64 Linux version
 //
-//							Returns the resulting shellcode
+//	Intel x64 Linux version
+//
+//	Returns the resulting shellcode
 func ApplySuffixJmpIntel64(shellcode []byte, shellcodeVaddr uint32, entryPoint uint32, byteOrder binary.ByteOrder) []byte {
 	/*
 		Disassembly:
@@ -177,9 +179,10 @@ func ApplySuffixJmpIntel64(shellcode []byte, shellcodeVaddr uint32, entryPoint u
 }
 
 // ApplySuffixJmpIntel32 - Appends instructions to jump to the original entryPoint (the parameter)
-//							Intel x32 Windows version
 //
-//							Returns the resulting shellcode
+//	Intel x32 Windows version
+//
+//	Returns the resulting shellcode
 func ApplySuffixJmpIntel32(shellcode []byte, shellcodeVaddr uint32, entryPoint uint32, byteOrder binary.ByteOrder) []byte {
 	/*
 		Disassembly:

@@ -20,11 +20,11 @@ const (
 )
 
 // Apply aligns the text as directed. For ex.:
-//  * AlignDefault.Apply("Jon Snow", 12) returns "Jon Snow    "
-//  * AlignLeft.Apply("Jon Snow",    12) returns "Jon Snow    "
-//  * AlignCenter.Apply("Jon Snow",  12) returns "  Jon Snow  "
-//  * AlignJustify.Apply("Jon Snow", 12) returns "Jon     Snow"
-//  * AlignRight.Apply("Jon Snow",   12) returns "    Jon Snow"
+//   - AlignDefault.Apply("Jon Snow", 12) returns "Jon Snow    "
+//   - AlignLeft.Apply("Jon Snow",    12) returns "Jon Snow    "
+//   - AlignCenter.Apply("Jon Snow",  12) returns "  Jon Snow  "
+//   - AlignJustify.Apply("Jon Snow", 12) returns "Jon     Snow"
+//   - AlignRight.Apply("Jon Snow",   12) returns "    Jon Snow"
 func (a Align) Apply(text string, maxLength int) string {
 	text = a.trimString(text)
 	sLen := utf8.RuneCountInString(text)

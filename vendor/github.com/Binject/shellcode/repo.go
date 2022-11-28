@@ -15,7 +15,7 @@ type Repo struct {
 	Directory string
 }
 
-//NewRepo - create a new Repo object, if dirName is provided, directory structure will be created if it doesn't exist
+// NewRepo - create a new Repo object, if dirName is provided, directory structure will be created if it doesn't exist
 func NewRepo(dirName string) *Repo {
 	repo := new(Repo)
 	if dirName != "" {

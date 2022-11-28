@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package clr
@@ -34,8 +35,10 @@ type ISupportErrorInfoVtbl struct {
 // identifying the interface by a reference to its interface identifier (IID).
 // If the COM object implements the interface, then it returns a pointer to that interface after calling IUnknown::AddRef on it.
 // HRESULT QueryInterface(
-//   REFIID riid,
-//   void   **ppvObject
+//
+//	REFIID riid,
+//	void   **ppvObject
+//
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/unknwn/nf-unknwn-iunknown-queryinterface(refiid_void)
 func (obj *ISupportErrorInfo) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer) error {
@@ -101,7 +104,9 @@ func (obj *ISupportErrorInfo) Release() (count uint32, err error) {
 
 // InterfaceSupportsErrorInfo
 // HRESULT InterfaceSupportsErrorInfo(
-//   REFIID riid
+//
+//	REFIID riid
+//
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/oaidl/nf-oaidl-isupporterrorinfo-interfacesupportserrorinfo
 func (obj *ISupportErrorInfo) InterfaceSupportsErrorInfo(riid windows.GUID) error {

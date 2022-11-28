@@ -12,7 +12,7 @@ also require XGB. Moreover, it is a near certainty that if you need to work
 with X, xgbutil will be of great use to you as well:
 https://github.com/BurntSushi/xgbutil
 
-Example
+# Example
 
 This is an extremely terse example that demonstrates how to connect to X,
 create a window, listen to StructureNotify events and Key{Press,Release}
@@ -63,7 +63,7 @@ accompanying documentation can be found in examples/create-window.
 		}
 	}
 
-Xinerama Example
+# Xinerama Example
 
 This is another small example that shows how to query Xinerama for geometry
 information of each active head. Accompanying documentation for this example
@@ -104,12 +104,12 @@ can be found in examples/xinerama.
 		}
 	}
 
-Parallelism
+# Parallelism
 
 XGB can benefit greatly from parallelism due to its concurrent design. For
 evidence of this claim, please see the benchmarks in xproto/xproto_test.go.
 
-Tests
+# Tests
 
 xproto/xproto_test.go contains a number of contrived tests that stress
 particular corners of XGB that I presume could be problem areas. Namely:
@@ -118,7 +118,7 @@ errors, sequence number wrapping, cookie buffer flushing (i.e., forcing a round
 trip every N requests made that don't have a reply), getting/setting properties
 and creating a window and listening to StructureNotify events.
 
-Code Generator
+# Code Generator
 
 Both XCB and xpyb use the same Python module (xcbgen) for a code generator. XGB
 (before this fork) used the same code generator as well, but in my attempt to
@@ -127,7 +127,7 @@ to work with. Therefore, I re-wrote the code generator in Go. It can be found
 in its own sub-package, xgbgen, of xgb. My design of xgbgen includes a rough
 consideration that it could be used for other languages.
 
-What works
+# What works
 
 I am reasonably confident that the core X protocol is in full working form. I've
 also tested the Xinerama and RandR extensions sparingly. Many of the other
@@ -135,12 +135,11 @@ existing extensions have Go source generated (and are compilable) and are
 included in this package, but I am currently unsure of their status. They
 *should* work.
 
-What does not work
+# What does not work
 
 XKB is the only extension that intentionally does not work, although I suspect
 that GLX also does not work (however, there is Go source code for GLX that
 compiles, unlike XKB). I don't currently have any intention of getting XKB
 working, due to its complexity and my current mental incapacity to test it.
-
 */
 package xgb

@@ -155,6 +155,7 @@ To this end, this timeout does not represent the complete timeout for any call t
 but rather are applied to individual implementations uniquely.
 Additionally, this timeout is not guaranteed to be respected by the implementation, and may vary.
 Params:
+
 	resolve: Time in milliseconds to use for name resolution. Provider default is 5000.
 	connect: Time in milliseconds to use for server connection requests. Provider default is 5000.
 			 TCP/IP can time out while setting up the socket during the
@@ -173,9 +174,12 @@ func (p *provider) SetTimeouts(resolve int, connect int, send int, receive int) 
 Returns the Proxy configuration for the given traffic protocol and targetUrl.
 If none is found, or an error occurs, nil is returned.
 Params:
+
 	protocol: The protocol of traffic the proxy is to be used for. (i.e. http, https, ftp, socks)
 	targetUrl: The URL the proxy is to be used for. (i.e. https://test.endpoint.rapid7.com)
+
 Returns:
+
 	Proxy: A proxy was found.
 	nil: A proxy was not found, or an error occurred.
 */
@@ -191,8 +195,11 @@ func (p *provider) get(protocol string, targetUrl *url.URL) Proxy {
 Unmarshal the proxy.config file, and return the first proxy matched for the given protocol.
 If no proxy is found, or an error occurs reading the proxy.config file, nil is returned.
 Params:
+
 	protocol: The protocol of traffic the proxy is to be used for. (i.e. http, https, ftp, socks)
+
 Returns:
+
 	Proxy: A proxy is found in proxy.config for the given protocol.
 	nil: No proxy is found or an error occurs reading the proxy.config file.
 */
@@ -225,6 +232,7 @@ func (p *provider) readConfigFileProxy(protocol string) Proxy {
 /*
 Unmarshal the proxy.config file into a simple map[string]string structure.
 Returns:
+
 	map[string]string, nil: Unmarshal of proxy.config is successful.
 	nil, error: Unmarshal of proxy.config is not successful.
 */
@@ -267,9 +275,12 @@ func (p *provider) unmarshalProxyConfigFile() (map[string]string, error) {
 Find the proxy configured by environment variables for the given traffic protocol and targetUrl.
 If no proxy is found, or an error occurs, nil is returned.
 Params:
+
 	protocol: The protocol of traffic the proxy is to be used for. (i.e. http, https, ftp, socks)
 	targetUrl: The URL the proxy is to be used for. (i.e. https://test.endpoint.rapid7.com)
+
 Returns:
+
 	proxy: A proxy is found through environment variables for the given traffic protocol.
 	nil: No proxy is found or an error occurs reading the environment variables.
 */
@@ -317,6 +328,7 @@ K:
 /*
 Return true if the given targetUrl should bypass a proxy for the given proxyBypass value and sep.
 For example:
+
 	("test.endpoint.rapid7.com", "rapid7.com", ",") -> true
 	("test.endpoint.rapid7.com", ".rapid7.com", ",") -> true
 	("test.endpoint.rapid7.com", "*.rapid7.com", ",") -> true
@@ -324,11 +336,15 @@ For example:
 	("test.endpoint.rapid7.com", "test.endpoint.rapid7.com", ",") -> true
 	("test.endpoint.rapid7.com", "someHost,anotherHost", ",") -> false
 	("test.endpoint.rapid7.com", "", ",") -> false
+
 Params:
+
 	targetUrl: The URL the proxy is to be used for. (i.e. https://test.endpoint.rapid7.com)
 	proxyBypass: The proxy bypass value.
 	sep: The separator to use with the proxy bypass value.
+
 Returns:
+
 	true: The proxy should be bypassed for the given targetUrl
 	false: Otherwise
 */
@@ -372,8 +388,11 @@ func (p *provider) isProxyBypass(targetUrl *url.URL, proxyBypass string, sep str
 Read the given environment variable by key, returning the proxy if it is valid.
 Returns nil if no proxy is configured, or an error occurs.
 Params:
+
 	key: The environment variable key
+
 Returns:
+
 	proxy: A proxy was found for the given environment variable key and is valid.
 	false: Otherwise
 */
@@ -392,8 +411,11 @@ func (p *provider) parseEnvProxy(key string) (Proxy, error) {
 /*
 Parse the optionally valid URL string from the given environment variable key's value.
 Params:
+
 	key: The name of the environment variable
+
 Returns:
+
 	url.URL: If the environment variable was populated, the parsed value. Otherwise nil.
 	error: If the environment variable was populated, but we failed to parse it.
 */
@@ -419,9 +441,12 @@ func (e timeoutError) Error() string {
 
 /*
 Returns:
+
 	true: The error represents a Proxy not being found
 	false: Otherwise
-s*/
+
+s
+*/
 func isNotFound(e error) bool {
 	switch e.(type) {
 	case *notFoundError:
@@ -435,9 +460,12 @@ func isNotFound(e error) bool {
 
 /*
 Returns:
+
 	true: The error represents a Time out
 	false: Otherwise
-s*/
+
+s
+*/
 func isTimedOut(e error) bool {
 	switch e.(type) {
 	case *timeoutError:

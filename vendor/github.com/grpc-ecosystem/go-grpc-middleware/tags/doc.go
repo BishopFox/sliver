@@ -1,7 +1,7 @@
 /*
 `grpc_ctxtags` adds a Tag object to the context that can be used by other middleware to add context about a request.
 
-Request Context Tags
+# Request Context Tags
 
 Tags describe information about the request, and can be set and used by other middleware, or handlers. Tags are used
 for logging and tracing of requests. Tags are populated both upwards, *and* downwards in the interceptor-handler stack.

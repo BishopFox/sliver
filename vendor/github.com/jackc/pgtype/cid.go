@@ -8,7 +8,7 @@ import (
 //
 // When one does
 //
-// 	select cmin, cmax, * from some_table;
+//	select cmin, cmax, * from some_table;
 //
 // it is the data type of the cmin and cmax hidden system columns.
 //

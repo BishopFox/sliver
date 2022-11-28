@@ -917,9 +917,10 @@ func init() {
 // Note that to *create* a Union, you should *never* create
 // this struct directly (unless you know what you're doing).
 // Instead use one of the following constructors for 'ClientMessageDataUnion':
-//     ClientMessageDataUnionData8New(Data8 []byte) ClientMessageDataUnion
-//     ClientMessageDataUnionData16New(Data16 []uint16) ClientMessageDataUnion
-//     ClientMessageDataUnionData32New(Data32 []uint32) ClientMessageDataUnion
+//
+//	ClientMessageDataUnionData8New(Data8 []byte) ClientMessageDataUnion
+//	ClientMessageDataUnionData16New(Data16 []uint16) ClientMessageDataUnion
+//	ClientMessageDataUnionData32New(Data32 []uint32) ClientMessageDataUnion
 type ClientMessageDataUnion struct {
 	Data8  []byte   // size: 20
 	Data16 []uint16 // size: 20

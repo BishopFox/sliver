@@ -105,6 +105,7 @@ type ImplantConfig struct {
 	MTLSc2Enabled bool
 	WGc2Enabled   bool
 	HTTPc2Enabled bool
+	WSc2Enabled   bool
 	DNSc2Enabled  bool
 
 	CanaryDomains     []CanaryDomain

@@ -123,7 +123,7 @@ func ExecLimits() {
 		}
 		// {{end}}
 		os.Exit(1)
-	} 
+	}
 	// {{end}}
 
 	// {{if .Config.Debug}}

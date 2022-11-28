@@ -439,7 +439,7 @@ func (e *FormatError) Error() string {
 	return "unknown error"
 }
 
-//RVAToFileOffset Converts a Relative offset to the actual offset in the file.
+// RVAToFileOffset Converts a Relative offset to the actual offset in the file.
 func (f *File) RVAToFileOffset(rva uint32) uint32 {
 	var offset uint32
 	for _, section := range f.Sections {
@@ -450,7 +450,7 @@ func (f *File) RVAToFileOffset(rva uint32) uint32 {
 	return offset
 }
 
-//IsManaged returns true if the loaded PE file references the CLR header (aka is a .net exe)
+// IsManaged returns true if the loaded PE file references the CLR header (aka is a .net exe)
 func (f *File) IsManaged() bool {
 	switch v := f.OptionalHeader.(type) {
 	case *OptionalHeader32:

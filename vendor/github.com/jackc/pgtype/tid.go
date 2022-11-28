@@ -14,7 +14,7 @@ import (
 //
 // When one does
 //
-// 	select ctid, * from some_table;
+//	select ctid, * from some_table;
 //
 // it is the data type of the ctid hidden system column.
 //

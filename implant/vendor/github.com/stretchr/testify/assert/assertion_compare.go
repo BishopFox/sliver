@@ -306,46 +306,46 @@ func compare(obj1, obj2 interface{}, kind reflect.Kind) (CompareType, bool) {
 
 // Greater asserts that the first element is greater than the second
 //
-//    assert.Greater(t, 2, 1)
-//    assert.Greater(t, float64(2), float64(1))
-//    assert.Greater(t, "b", "a")
+//	assert.Greater(t, 2, 1)
+//	assert.Greater(t, float64(2), float64(1))
+//	assert.Greater(t, "b", "a")
 func Greater(t TestingT, e1 interface{}, e2 interface{}, msgAndArgs ...interface{}) bool {
 	return compareTwoValues(t, e1, e2, []CompareType{compareGreater}, "\"%v\" is not greater than \"%v\"", msgAndArgs)
 }
 
 // GreaterOrEqual asserts that the first element is greater than or equal to the second
 //
-//    assert.GreaterOrEqual(t, 2, 1)
-//    assert.GreaterOrEqual(t, 2, 2)
-//    assert.GreaterOrEqual(t, "b", "a")
-//    assert.GreaterOrEqual(t, "b", "b")
+//	assert.GreaterOrEqual(t, 2, 1)
+//	assert.GreaterOrEqual(t, 2, 2)
+//	assert.GreaterOrEqual(t, "b", "a")
+//	assert.GreaterOrEqual(t, "b", "b")
 func GreaterOrEqual(t TestingT, e1 interface{}, e2 interface{}, msgAndArgs ...interface{}) bool {
 	return compareTwoValues(t, e1, e2, []CompareType{compareGreater, compareEqual}, "\"%v\" is not greater than or equal to \"%v\"", msgAndArgs)
 }
 
 // Less asserts that the first element is less than the second
 //
-//    assert.Less(t, 1, 2)
-//    assert.Less(t, float64(1), float64(2))
-//    assert.Less(t, "a", "b")
+//	assert.Less(t, 1, 2)
+//	assert.Less(t, float64(1), float64(2))
+//	assert.Less(t, "a", "b")
 func Less(t TestingT, e1 interface{}, e2 interface{}, msgAndArgs ...interface{}) bool {
 	return compareTwoValues(t, e1, e2, []CompareType{compareLess}, "\"%v\" is not less than \"%v\"", msgAndArgs)
 }
 
 // LessOrEqual asserts that the first element is less than or equal to the second
 //
-//    assert.LessOrEqual(t, 1, 2)
-//    assert.LessOrEqual(t, 2, 2)
-//    assert.LessOrEqual(t, "a", "b")
-//    assert.LessOrEqual(t, "b", "b")
+//	assert.LessOrEqual(t, 1, 2)
+//	assert.LessOrEqual(t, 2, 2)
+//	assert.LessOrEqual(t, "a", "b")
+//	assert.LessOrEqual(t, "b", "b")
 func LessOrEqual(t TestingT, e1 interface{}, e2 interface{}, msgAndArgs ...interface{}) bool {
 	return compareTwoValues(t, e1, e2, []CompareType{compareLess, compareEqual}, "\"%v\" is not less than or equal to \"%v\"", msgAndArgs)
 }
 
 // Positive asserts that the specified element is positive
 //
-//    assert.Positive(t, 1)
-//    assert.Positive(t, 1.23)
+//	assert.Positive(t, 1)
+//	assert.Positive(t, 1.23)
 func Positive(t TestingT, e interface{}, msgAndArgs ...interface{}) bool {
 	zero := reflect.Zero(reflect.TypeOf(e))
 	return compareTwoValues(t, e, zero.Interface(), []CompareType{compareGreater}, "\"%v\" is not positive", msgAndArgs)
@@ -353,8 +353,8 @@ func Positive(t TestingT, e interface{}, msgAndArgs ...interface{}) bool {
 
 // Negative asserts that the specified element is negative
 //
-//    assert.Negative(t, -1)
-//    assert.Negative(t, -1.23)
+//	assert.Negative(t, -1)
+//	assert.Negative(t, -1.23)
 func Negative(t TestingT, e interface{}, msgAndArgs ...interface{}) bool {
 	zero := reflect.Zero(reflect.TypeOf(e))
 	return compareTwoValues(t, e, zero.Interface(), []CompareType{compareLess}, "\"%v\" is not negative", msgAndArgs)

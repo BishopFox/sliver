@@ -28,7 +28,7 @@ import (
 	screen "github.com/kbinani/screenshot"
 )
 
-//Screenshot - Retrieve the screenshot of the active displays
+// Screenshot - Retrieve the screenshot of the active displays
 func Screenshot() []byte {
 	return LinuxCapture()
 }

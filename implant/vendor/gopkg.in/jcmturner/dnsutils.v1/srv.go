@@ -13,11 +13,12 @@ import (
 //
 // count, orderedSRV, err := OrderedSRV(service, proto, name)
 // i := 1
-// for  i <= count {
-//   srv := orderedSRV[i]
-//   // Do something such as dial this SRV. If fails move on the the next or break if it succeeds.
-//   i += 1
-// }
+//
+//	for  i <= count {
+//	  srv := orderedSRV[i]
+//	  // Do something such as dial this SRV. If fails move on the the next or break if it succeeds.
+//	  i += 1
+//	}
 func OrderedSRV(service, proto, name string) (int, map[int]*net.SRV, error) {
 	_, addrs, err := net.LookupSRV(service, proto, name)
 	if err != nil {

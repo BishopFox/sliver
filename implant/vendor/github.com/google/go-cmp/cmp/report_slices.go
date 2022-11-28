@@ -446,7 +446,6 @@ func (opts formatOptions) formatDiffSlice(
 //		{NumIdentical: 3},
 //		{NumInserted: 1},
 //	]
-//
 func coalesceAdjacentEdits(name string, es diff.EditScript) (groups []diffStats) {
 	var prevMode byte
 	lastStats := func(mode byte) *diffStats {
@@ -503,7 +502,6 @@ func coalesceAdjacentEdits(name string, es diff.EditScript) (groups []diffStats)
 //		{NumIdentical: 8, NumRemoved: 12, NumInserted: 3},
 //		{NumIdentical: 63},
 //	]
-//
 func coalesceInterveningIdentical(groups []diffStats, windowSize int) []diffStats {
 	groups, groupsOrig := groups[:0], groups
 	for i, ds := range groupsOrig {
@@ -548,7 +546,6 @@ func coalesceInterveningIdentical(groups []diffStats, windowSize int) []diffStat
 //		{NumRemoved: 9},
 //		{NumIdentical: 64}, // incremented by 10
 //	]
-//
 func cleanupSurroundingIdentical(groups []diffStats, eq func(i, j int) bool) []diffStats {
 	var ix, iy int // indexes into sequence x and y
 	for i, ds := range groups {
