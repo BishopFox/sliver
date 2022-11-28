@@ -10,8 +10,6 @@ require (
 	github.com/lesnuages/go-winio v0.4.19
 	github.com/miekg/dns v1.1.50
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
-	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.20.2
 	github.com/pquerna/otp v1.3.0
 	github.com/stretchr/testify v1.7.0
 	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
@@ -32,14 +30,12 @@ require (
 	github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/jcmturner/gofork v1.0.0 // indirect
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
-	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/mod v0.5.1 // indirect
 	golang.org/x/text v0.3.7 // indirect
@@ -52,6 +48,5 @@ require (
 	gopkg.in/jcmturner/goidentity.v3 v3.0.0 // indirect
 	gopkg.in/jcmturner/gokrb5.v7 v7.5.0 // indirect
 	gopkg.in/jcmturner/rpc.v1 v1.1.0 // indirect
-	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
