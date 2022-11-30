@@ -37,6 +37,7 @@ import (
 	"log"
 	// {{end}}
 
+	"github.com/bishopfox/sliver/implant/sliver/handlers/matcher"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -177,7 +178,7 @@ func dirListHandler(data []byte, resp RPCResponse) {
 		if filter == "" {
 			match = true
 		} else {
-			match, err = filepath.Match(filter, dirEntry.Name())
+			match, err = matcher.Match(filter, dirEntry.Name())
 			if err != nil {
 				// Then this is a bad filter, and it will be a bad filter
 				// on every iteration of the loop, so we might as well break now
