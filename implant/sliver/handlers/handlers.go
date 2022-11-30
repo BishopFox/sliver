@@ -847,7 +847,7 @@ func compressDir(path string, filter string, recurse bool, buf io.Writer) (int, 
 		for _, fileName := range directoryFiles {
 			standardFileName := strings.ReplaceAll(testPath+fileName, "\\", "/")
 			if filter != "" {
-				match, err := filepath.Match(testPath+filter, standardFileName)
+				match, err := matcher.Match(testPath+filter, standardFileName)
 				if err == nil && match {
 					matchingFiles = append(matchingFiles, standardFileName)
 				}
@@ -861,7 +861,7 @@ func compressDir(path string, filter string, recurse bool, buf io.Writer) (int, 
 			if filter != "" {
 				// Normalize paths
 				testPath := strings.ReplaceAll(filepath.Dir(file), "\\", "/") + "/"
-				match, matchErr := filepath.Match(testPath+filter, filePath)
+				match, matchErr := matcher.Match(testPath+filter, filePath)
 				if !match || matchErr != nil {
 					// If there is an error, it is because the filter is bad, so it is not a match
 					return nil
