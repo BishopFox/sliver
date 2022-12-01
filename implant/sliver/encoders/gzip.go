@@ -44,9 +44,17 @@ func init() {
 // GzipBuf - Gzip a buffer
 func GzipBuf(data []byte) []byte {
 	var buf bytes.Buffer
+<<<<<<< HEAD
 	zip := gzip.NewWriter(&buf)
 	zip.Write(data)
 	zip.Close()
+=======
+	gzipWriter := gzipWriterPools.Get().(*gzip.Writer)
+	gzipWriter.Reset(&buf)
+	gzipWriter.Write(data)
+	gzipWriter.Close()
+	gzipWriterPools.Put(gzipWriter)
+>>>>>>> fix/gzip
 	return buf.Bytes()
 }
 

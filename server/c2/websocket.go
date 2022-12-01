@@ -2,7 +2,6 @@ package c2
 
 import (
 	"encoding/base64"
-	"fmt"
 	"net/http"
 
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -76,7 +75,6 @@ func GetsKey(conn *websocket.Conn) (*cryptography.CipherContext, error) {
 	sessionInitData, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, message[32:])
 	if err != nil {
 		wssLog.Error("ECC decryption failed")
-		wssLog.Error(fmt.Sprintf("senderPublicKey %#v Private: %#v data: %#v", senderPublicKey, serverKeyPair.Private, message[32:]))
 		return nil, err
 	}
 	sessionInit := &sliverpb.HTTPSessionInit{}
@@ -123,12 +121,10 @@ func handleWebSocketConnection(conn *websocket.Conn, cipherCtx *cryptography.Cip
 			}
 			implantConn.UpdateLastMessage()
 			if envelope.ID != 0 {
-				wssLog.Debugf("Resp %s new websocket message type %d, ID: %d", conn.RemoteAddr(), envelope.Type, envelope.ID)
 				implantConn.RespMutex.RLock() // mutex
 				if resp, ok := implantConn.Resp[envelope.ID]; ok {
 					resp <- envelope // Could deadlock, maybe want to investigate better solutions
 				}
-				wssLog.Debugf("Resp %s new websocket message type %d, ID: %d is ok", conn.RemoteAddr(), envelope.Type, len(envelope.Data))
 				implantConn.RespMutex.RUnlock()
 			} else if handler, ok := handlers[envelope.Type]; ok {
 				wssLog.Debugf("Received %s new websocket message type %d, data: %d", conn.RemoteAddr(), envelope.Type, len(envelope.Data))

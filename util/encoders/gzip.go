@@ -21,7 +21,7 @@ package encoders
 import (
 	"bytes"
 	"compress/gzip"
-	"fmt"
+
 	"sync"
 )
 
@@ -81,7 +81,6 @@ func (g Gzip) Decode(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	_, err = buf.ReadFrom(reader)
 	if err != nil {
-		fmt.Printf("gzip decode error data length %d ,%#v,%s\n", len(data), data, err.Error())
 		return nil, err
 	}
 	return buf.Bytes(), nil
