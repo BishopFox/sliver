@@ -1,7 +1,9 @@
 package exec
 
 import (
+	"bytes"
 	"context"
+	"debug/elf"
 	"os"
 	"path/filepath"
 
@@ -48,6 +50,11 @@ func ExecuteInMemoryCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 		elfBytes, err = os.ReadFile(elfPath)
 		if err != nil {
 			con.PrintErrorf("%s", err.Error())
+			return
+		}
+		elfFile, _ := elf.NewFile(bytes.NewReader(elfBytes))
+		if goSection := elfFile.Section(".gopclntab"); goSection != nil {
+			con.PrintErrorf("Go binary detected, aborting")
 			return
 		}
 		// Don't leak client info to the Implant
