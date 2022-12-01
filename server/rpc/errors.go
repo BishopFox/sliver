@@ -48,4 +48,5 @@ var (
 	ErrBuildExists = status.Error(codes.AlreadyExists, "Build already exists")
 
 	ErrInvalidBeaconTaskCancelState = status.Error(codes.InvalidArgument, fmt.Sprintf("Invalid task state, must be '%s' to cancel", models.PENDING))
+	ErrUnsupportedOS                = status.Error(codes.Unimplemented, "This RPC is not supported for the targeted OS")
 )

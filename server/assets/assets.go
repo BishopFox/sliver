@@ -221,6 +221,11 @@ func setupGo(appDir string) error {
 		return err
 	}
 
+	if libreflectErr := setupLibreflect(appDir); libreflectErr != nil {
+		setupLog.Errorf("Failed to setup libreflect")
+		return libreflectErr
+	}
+
 	return setupSGN(appDir)
 }
 
@@ -233,6 +238,20 @@ func setupSGN(appDir string) error {
 		return err
 	}
 	_, err = unzipBuf(sgnZip, goBinPath)
+	return err
+}
+
+func setupLibreflect(appDir string) error {
+	libreflectPath := filepath.Join("fs", "libreflect.a")
+	goLibPath := filepath.Join(appDir, "go", "lib")
+	libreflect, err := assetsFs.ReadFile(libreflectPath)
+	if err != nil {
+		setupLog.Errorf("static asset not found: %s", libreflectPath)
+		return err
+	}
+	libreflectLocalPath := filepath.Join(goLibPath, "libreflect.a")
+	setupLog.Infof("*************** Writing libreflect to %s", libreflectLocalPath)
+	err = os.WriteFile(libreflectLocalPath, libreflect, 0700)
 	return err
 }
 

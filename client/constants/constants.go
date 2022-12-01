@@ -196,6 +196,7 @@ const (
 	RevToSelfStr        = "rev2self"
 	ExecuteAssemblyStr  = "execute-assembly"
 	ExecuteShellcodeStr = "execute-shellcode"
+	ExecuteInMemoryStr  = "execute-in-memory"
 	MigrateStr          = "migrate"
 	SideloadStr         = "sideload"
 	SpawnDllStr         = "spawndll"

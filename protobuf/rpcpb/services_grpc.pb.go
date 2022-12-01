@@ -163,6 +163,8 @@ type SliverRPCClient interface {
 	WGStopSocks(ctx context.Context, in *sliverpb.WGSocksStopReq, opts ...grpc.CallOption) (*sliverpb.WGSocks, error)
 	WGListForwarders(ctx context.Context, in *sliverpb.WGTCPForwardersReq, opts ...grpc.CallOption) (*sliverpb.WGTCPForwarders, error)
 	WGListSocksServers(ctx context.Context, in *sliverpb.WGSocksServersReq, opts ...grpc.CallOption) (*sliverpb.WGSocksServers, error)
+	// *** Linux CGO specific ***
+	ExecuteInMemory(ctx context.Context, in *sliverpb.ExecuteInMemoryReq, opts ...grpc.CallOption) (*sliverpb.Execute, error)
 	// *** Realtime Commands ***
 	Shell(ctx context.Context, in *sliverpb.ShellReq, opts ...grpc.CallOption) (*sliverpb.Shell, error)
 	Portfwd(ctx context.Context, in *sliverpb.PortfwdReq, opts ...grpc.CallOption) (*sliverpb.Portfwd, error)
@@ -1325,6 +1327,15 @@ func (c *sliverRPCClient) WGListSocksServers(ctx context.Context, in *sliverpb.W
 	return out, nil
 }
 
+func (c *sliverRPCClient) ExecuteInMemory(ctx context.Context, in *sliverpb.ExecuteInMemoryReq, opts ...grpc.CallOption) (*sliverpb.Execute, error) {
+	out := new(sliverpb.Execute)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/ExecuteInMemory", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) Shell(ctx context.Context, in *sliverpb.ShellReq, opts ...grpc.CallOption) (*sliverpb.Shell, error) {
 	out := new(sliverpb.Shell)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Shell", in, out, opts...)
@@ -1619,6 +1630,8 @@ type SliverRPCServer interface {
 	WGStopSocks(context.Context, *sliverpb.WGSocksStopReq) (*sliverpb.WGSocks, error)
 	WGListForwarders(context.Context, *sliverpb.WGTCPForwardersReq) (*sliverpb.WGTCPForwarders, error)
 	WGListSocksServers(context.Context, *sliverpb.WGSocksServersReq) (*sliverpb.WGSocksServers, error)
+	// *** Linux CGO specific ***
+	ExecuteInMemory(context.Context, *sliverpb.ExecuteInMemoryReq) (*sliverpb.Execute, error)
 	// *** Realtime Commands ***
 	Shell(context.Context, *sliverpb.ShellReq) (*sliverpb.Shell, error)
 	Portfwd(context.Context, *sliverpb.PortfwdReq) (*sliverpb.Portfwd, error)
@@ -2010,6 +2023,9 @@ func (UnimplementedSliverRPCServer) WGListForwarders(context.Context, *sliverpb.
 }
 func (UnimplementedSliverRPCServer) WGListSocksServers(context.Context, *sliverpb.WGSocksServersReq) (*sliverpb.WGSocksServers, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WGListSocksServers not implemented")
+}
+func (UnimplementedSliverRPCServer) ExecuteInMemory(context.Context, *sliverpb.ExecuteInMemoryReq) (*sliverpb.Execute, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExecuteInMemory not implemented")
 }
 func (UnimplementedSliverRPCServer) Shell(context.Context, *sliverpb.ShellReq) (*sliverpb.Shell, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Shell not implemented")
@@ -4286,6 +4302,24 @@ func _SliverRPC_WGListSocksServers_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_ExecuteInMemory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.ExecuteInMemoryReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).ExecuteInMemory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/ExecuteInMemory",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).ExecuteInMemory(ctx, req.(*sliverpb.ExecuteInMemoryReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_Shell_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.ShellReq)
 	if err := dec(in); err != nil {
@@ -4965,6 +4999,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "WGListSocksServers",
 			Handler:    _SliverRPC_WGListSocksServers_Handler,
+		},
+		{
+			MethodName: "ExecuteInMemory",
+			Handler:    _SliverRPC_ExecuteInMemory_Handler,
 		},
 		{
 			MethodName: "Shell",

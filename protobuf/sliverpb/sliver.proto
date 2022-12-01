@@ -445,6 +445,13 @@ message ExecuteWindowsReq {
   commonpb.Request Request = 9;
 }
 
+message ExecuteInMemoryReq {
+  bytes Data = 1;
+  repeated string Args = 2;
+  string Path = 3;
+  commonpb.Request Request = 9;
+}
+
 message Execute {
   uint32 Status = 1;
   bytes Stdout = 2;

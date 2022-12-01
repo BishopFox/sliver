@@ -1076,6 +1076,33 @@ func BindCommands(con *console.SliverConsoleClient) {
 	})
 
 	con.App.AddCommand(&grumble.Command{
+		Name: consts.ExecuteInMemoryStr,
+		Help: "Execute a program in memory on the remote system (Linux shared libraries only)",
+		Flags: func(f *grumble.Flags) {
+			f.Bool("o", "output", false, "capture command output")
+			f.Bool("s", "save", false, "save output to a file")
+			f.Bool("X", "loot", false, "save output as loot")
+			f.Bool("S", "ignore-stderr", false, "don't print STDERR output")
+			f.String("O", "stdout", "", "remote path to redirect STDOUT to")
+			f.String("E", "stderr", "", "remote path to redirect STDERR to")
+			f.String("n", "name", "", "name to assign loot (optional)")
+			f.Bool("r", "remote", false, "execute a file from the remote system")
+
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			a.String("filepath", "local path to an ELF file to execute on the remote system")
+			a.StringList("arguments", "arguments to the command")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			exec.ExecuteInMemoryCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+
+	con.App.AddCommand(&grumble.Command{
 		Name:     consts.ExecuteAssemblyStr,
 		Help:     "Loads and executes a .NET assembly in a child process (Windows Only)",
 		LongHelp: help.GetHelpFor([]string{consts.ExecuteAssemblyStr}),
