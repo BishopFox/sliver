@@ -3,6 +3,7 @@ package exec
 import (
 	"context"
 	"os"
+	"path/filepath"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -42,12 +43,16 @@ func ExecuteInMemoryCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 
 	if elfRemote {
 		remotePath = elfPath
+		elfArgs = append([]string{elfPath}, elfArgs...)
 	} else {
 		elfBytes, err = os.ReadFile(elfPath)
 		if err != nil {
 			con.PrintErrorf("%s", err.Error())
 			return
 		}
+		// Don't leak client info to the Implant
+		cmdPath := filepath.Base(elfPath)
+		elfArgs = append([]string{cmdPath}, elfArgs...)
 	}
 	ctrl := make(chan bool)
 	con.SpinUntil("Executing ELF ...", ctrl)
