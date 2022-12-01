@@ -339,16 +339,16 @@ func SliverSharedLibrary(name string, otpSecret string, config *models.ImplantCo
 			return "", fmt.Errorf("CC '%s/%s' not found", config.GOOS, config.GOARCH)
 		}
 	}
-	cgoFlags := ""
+	cgoLdflags := ""
 	if config.GOOS == "linux" {
 		libIncludePath := path.Join(gogo.GetGoRootDir(appDir), "lib")
-		cgoFlags = fmt.Sprintf("-L%s -lreflect", libIncludePath)
+		cgoLdflags = fmt.Sprintf("-L%s -lreflect", libIncludePath)
 	}
 	goConfig := &gogo.GoConfig{
-		CGO:       "1",
-		CGO_FLAGS: cgoFlags,
-		CC:        cc,
-		CXX:       cxx,
+		CGO:        "1",
+		CGOLDFLAGS: cgoLdflags,
+		CC:         cc,
+		CXX:        cxx,
 
 		GOOS:       config.GOOS,
 		GOARCH:     config.GOARCH,

@@ -77,6 +77,10 @@ func ExecuteInMemoryCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 			return
 		}
 	}
+	if execInMem.Response != nil && execInMem.Response.Err != "" {
+		con.PrintErrorf("Error: %s", execInMem.Response.Err)
+		return
+	}
 	HandleExecuteInMemoryResponse(execInMem, elfPath, hostname, ctx, con)
 }
 
