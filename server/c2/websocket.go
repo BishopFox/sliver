@@ -127,7 +127,6 @@ func handleWebSocketConnection(conn *websocket.Conn, cipherCtx *cryptography.Cip
 				}
 				implantConn.RespMutex.RUnlock()
 			} else if handler, ok := handlers[envelope.Type]; ok {
-				wssLog.Debugf("Received %s new websocket message type %d, data: %d", conn.RemoteAddr(), envelope.Type, len(envelope.Data))
 				go func() {
 					respEnvelope := handler(implantConn, envelope.Data)
 					if respEnvelope != nil {
