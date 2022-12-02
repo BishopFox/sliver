@@ -197,6 +197,8 @@ echo "-----------------------------------------------------------------"
 
 echo "curl -L --fail --output $OUTPUT_DIR/lib/libreflect.tar.gz https://github.com/sliverarmory/libreflect/releases/download/v$LIBREFLECT_VER/libreflect.tar.gz"
 curl -L --fail --output $OUTPUT_DIR/lib/libreflect.tar.gz https://github.com/sliverarmory/libreflect/releases/download/v$LIBREFLECT_VER/libreflect.tar.gz
+tar xzf $OUTPUT_DIR/lib/libreflect.tar.gz -C $OUTPUT_DIR/lib
+rm $OUTPUT_DIR/lib/libreflect.tar.gz
 
 # end
 echo -e "clean up: $WORK_DIR"
