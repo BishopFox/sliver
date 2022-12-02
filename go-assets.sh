@@ -23,6 +23,7 @@ set -e
 GO_VER="1.19.3"
 GARBLE_VER="1.19.4"
 SGN_VER="0.0.3"
+LIBREFLECT_VER = "1.0.2"
 
 GO_ARCH_1="amd64"
 GO_ARCH_2="arm64"
@@ -190,6 +191,12 @@ curl -L --fail --output $OUTPUT_DIR/darwin/$GO_ARCH_1/sgn.zip https://github.com
 echo "curl -L --fail --output $OUTPUT_DIR/darwin/$GO_ARCH_2/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_macos-$GO_ARCH_2.zip"
 curl -L --fail --output $OUTPUT_DIR/darwin/$GO_ARCH_2/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_macos-$GO_ARCH_2.zip
 
+echo "-----------------------------------------------------------------"
+echo " Libreflect"
+echo "-----------------------------------------------------------------"
+
+echo "curl -L --fail --output $OUTPUT_DIR/lib/libreflect.tar.gz https://github.com/sliverarmory/libreflect/releases/download/v$LIBREFLECT_VER/libreflect.tar.gz"
+curl -L --fail --output $OUTPUT_DIR/lib/libreflect.tar.gz https://github.com/sliverarmory/libreflect/releases/download/v$LIBREFLECT_VER/libreflect.tar.gz
 
 # end
 echo -e "clean up: $WORK_DIR"

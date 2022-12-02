@@ -242,7 +242,7 @@ func setupSGN(appDir string) error {
 }
 
 func setupLibreflect(appDir string) error {
-	libreflectPath := filepath.Join("fs", "libreflect.a")
+	libreflectPath := filepath.Join("fs", "lib", "libreflect.a")
 	goLibPath := filepath.Join(appDir, "go", "lib")
 	libreflect, err := assetsFs.ReadFile(libreflectPath)
 	if err != nil {
