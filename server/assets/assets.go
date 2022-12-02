@@ -250,7 +250,7 @@ func setupLibreflect(appDir string) error {
 		return err
 	}
 	libreflectLocalPath := filepath.Join(goLibPath, "libreflect.a")
-	setupLog.Infof("*************** Writing libreflect to %s", libreflectLocalPath)
+	setupLog.Infof("Writing libreflect to %s", libreflectLocalPath)
 	err = os.WriteFile(libreflectLocalPath, libreflect, 0700)
 	return err
 }
