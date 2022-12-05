@@ -281,6 +281,40 @@ func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq
 	return resp, nil
 }
 
+func (rpc *Server) ExecuteInMemory(ctx context.Context, req *sliverpb.ExecuteInMemoryReq) (*sliverpb.Execute, error) {
+	var (
+		session *core.Session
+		beacon  *models.Beacon
+		err     error
+	)
+
+	if !req.Request.Async {
+		session = core.Sessions.Get(req.Request.SessionID)
+		if session == nil {
+			return nil, ErrInvalidSessionID
+		}
+	} else {
+		beacon, err = db.BeaconByID(req.Request.BeaconID)
+		if err != nil {
+			msfLog.Errorf("%s", err)
+			return nil, ErrDatabaseFailure
+		}
+		if beacon == nil {
+			return nil, ErrInvalidBeaconID
+		}
+	}
+
+	if getOS(session, beacon) != "linux" {
+		return nil, ErrUnsupportedOS
+	}
+	resp := &sliverpb.Execute{Response: &commonpb.Response{}}
+	err = rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func getOS(session *core.Session, beacon *models.Beacon) string {
 	if session != nil {
 		return session.OS

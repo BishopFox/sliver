@@ -298,6 +298,8 @@ const (
 	MsgRportFwdListenersReq
 
 	MsgRPortfwdReq
+
+	MsgExecuteInMemoryReq
 )
 
 // Constants to replace enums
@@ -524,6 +526,8 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgRportFwdListeners
 	case *RPortfwdReq:
 		return MsgRPortfwdReq
+	case *ExecuteInMemoryReq:
+		return MsgExecuteInMemoryReq
 	}
 	return uint32(0)
 }

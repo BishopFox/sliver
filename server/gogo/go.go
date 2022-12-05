@@ -53,6 +53,7 @@ type GoConfig struct {
 	GOMODCACHE string
 	GOPROXY    string
 	CGO        string
+	CGOLDFLAGS string
 	CC         string
 	CXX        string
 	HTTPPROXY  string
@@ -110,6 +111,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	cmd.Env = []string{
 		fmt.Sprintf("CC=%s", config.CC),
 		fmt.Sprintf("CGO_ENABLED=%s", config.CGO),
+		fmt.Sprintf("CGO_LDFLAGS=%s", config.CGOLDFLAGS),
 		fmt.Sprintf("GOOS=%s", config.GOOS),
 		fmt.Sprintf("GOARCH=%s", config.GOARCH),
 		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
@@ -153,6 +155,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	cmd.Env = []string{
 		fmt.Sprintf("CC=%s", config.CC),
 		fmt.Sprintf("CGO_ENABLED=%s", config.CGO),
+		fmt.Sprintf("CGO_LDFLAGS=%s", config.CGOLDFLAGS),
 		fmt.Sprintf("GOOS=%s", config.GOOS),
 		fmt.Sprintf("GOARCH=%s", config.GOARCH),
 		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
