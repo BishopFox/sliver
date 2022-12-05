@@ -17,6 +17,14 @@ func AutoIndexColumnID(colIdx int) string {
 	return out
 }
 
+// WidthEnforcer is a function that helps enforce a width condition on a string.
+type WidthEnforcer func(col string, maxLen int) string
+
+// widthEnforcerNone returns the input string as is without any modifications.
+func widthEnforcerNone(col string, maxLen int) string {
+	return col
+}
+
 // isNumber returns true if the argument is a numeric type; false otherwise.
 func isNumber(x interface{}) bool {
 	if x == nil {
@@ -32,10 +40,30 @@ func isNumber(x interface{}) bool {
 	return false
 }
 
-// WidthEnforcer is a function that helps enforce a width condition on a string.
-type WidthEnforcer func(col string, maxLen int) string
+type mergedColumnIndices map[int]map[int]bool
 
-// widthEnforcerNone returns the input string as is without any modifications.
-func widthEnforcerNone(col string, maxLen int) string {
-	return col
+func (m mergedColumnIndices) mergedLength(colIdx int, maxColumnLengths []int) int {
+	mergedLength := maxColumnLengths[colIdx]
+	for otherColIdx := range m[colIdx] {
+		mergedLength += maxColumnLengths[otherColIdx]
+	}
+	return mergedLength
+}
+
+func (m mergedColumnIndices) len(colIdx int) int {
+	return len(m[colIdx]) + 1
+}
+
+func (m mergedColumnIndices) safeAppend(colIdx, otherColIdx int) {
+	// map
+	if m[colIdx] == nil {
+		m[colIdx] = make(map[int]bool)
+	}
+	m[colIdx][otherColIdx] = true
+
+	// reverse map
+	if m[otherColIdx] == nil {
+		m[otherColIdx] = make(map[int]bool)
+	}
+	m[otherColIdx][colIdx] = true
 }
