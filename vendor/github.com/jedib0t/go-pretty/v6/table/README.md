@@ -37,7 +37,6 @@ Pretty-print tables into ASCII/Unicode strings.
     - HTML Table (with custom CSS Class)
     - Markdown Table
 
-
 ```
 +---------------------------------------------------------------------+
 | Game of Thrones                                                     +
@@ -56,6 +55,11 @@ A demonstration of all the capabilities can be found here:
 [../cmd/demo-table](../cmd/demo-table)
 
 If you want very specific examples, read ahead.
+
+**Hint**: I've tried to ensure that almost all supported use-cases are covered
+by unit-tests and that they print the table rendered. Run
+`go test -v github.com/jedib0t/go-pretty/v6/table` to see the test outputs and
+help you figure out how to do something.
 
 # Examples
 

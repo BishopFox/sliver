@@ -296,51 +296,6 @@ func (t *Table) SuppressEmptyColumns() {
 	t.suppressEmptyColumns = true
 }
 
-func (t *Table) analyzeAndStringify(row Row, hint renderHint) rowStr {
-	// update t.numColumns if this row is the longest seen till now
-	if len(row) > t.numColumns {
-		// init the slice for the first time; and pad it the rest of the time
-		if t.numColumns == 0 {
-			t.columnIsNonNumeric = make([]bool, len(row))
-		} else {
-			t.columnIsNonNumeric = append(t.columnIsNonNumeric, make([]bool, len(row)-t.numColumns)...)
-		}
-		// update t.numColumns
-		t.numColumns = len(row)
-	}
-
-	// convert each column to string and figure out if it has non-numeric data
-	rowOut := make(rowStr, len(row))
-	for colIdx, col := range row {
-		// if the column is not a number, keep track of it
-		if !hint.isHeaderRow && !hint.isFooterRow && !t.columnIsNonNumeric[colIdx] && !isNumber(col) {
-			t.columnIsNonNumeric[colIdx] = true
-		}
-
-		rowOut[colIdx] = t.analyzeAndStringifyColumn(colIdx, col, hint)
-	}
-	return rowOut
-}
-
-func (t *Table) analyzeAndStringifyColumn(colIdx int, col interface{}, hint renderHint) string {
-	// convert to a string and store it in the row
-	var colStr string
-	if transformer := t.getColumnTransformer(colIdx, hint); transformer != nil {
-		colStr = transformer(col)
-	} else if colStrVal, ok := col.(string); ok {
-		colStr = colStrVal
-	} else {
-		colStr = fmt.Sprint(col)
-	}
-	if strings.Contains(colStr, "\t") {
-		colStr = strings.Replace(colStr, "\t", "    ", -1)
-	}
-	if strings.Contains(colStr, "\r") {
-		colStr = strings.Replace(colStr, "\r", "", -1)
-	}
-	return fmt.Sprintf("%s%s", t.style.Format.Direction.Modifier(), colStr)
-}
-
 func (t *Table) getAlign(colIdx int, hint renderHint) text.Align {
 	align := text.AlignDefault
 	if cfg, ok := t.columnConfigMap[colIdx]; ok {
@@ -377,6 +332,8 @@ func (t *Table) getBorderColors(hint renderHint) text.Colors {
 		return t.style.Color.Footer
 	} else if t.autoIndex {
 		return t.style.Color.IndexColumn
+	} else if hint.rowNumber%2 == 0 && t.style.Color.RowAlternate != nil {
+		return t.style.Color.RowAlternate
 	}
 	return t.style.Color.Row
 }
@@ -561,39 +518,29 @@ func (t *Table) getMaxColumnLengthForMerging(colIdx int) int {
 
 // getMergedColumnIndices returns a map of colIdx values to all the other colIdx
 // values (that are being merged) and their lengths.
-func (t *Table) getMergedColumnIndices(row rowStr, hint renderHint) map[int]map[int]bool {
+func (t *Table) getMergedColumnIndices(row rowStr, hint renderHint) mergedColumnIndices {
 	if !t.getRowConfig(hint).AutoMerge {
 		return nil
 	}
 
-	rsp := make(map[int]map[int]bool)
-	appendColumnsToResponse := func(colIdx, otherColIdx int) {
-		if rsp[colIdx] == nil {
-			rsp[colIdx] = make(map[int]bool)
-		}
-		if rsp[otherColIdx] == nil {
-			rsp[otherColIdx] = make(map[int]bool)
-		}
-		rsp[colIdx][otherColIdx] = true
-		rsp[otherColIdx][colIdx] = true
-	}
+	mci := make(mergedColumnIndices)
 	for colIdx := 0; colIdx < t.numColumns-1; colIdx++ {
 		// look backward
 		for otherColIdx := colIdx - 1; colIdx >= 0 && otherColIdx >= 0; otherColIdx-- {
 			if row[colIdx] != row[otherColIdx] {
 				break
 			}
-			appendColumnsToResponse(colIdx, otherColIdx)
+			mci.safeAppend(colIdx, otherColIdx)
 		}
 		// look forward
 		for otherColIdx := colIdx + 1; colIdx < len(row) && otherColIdx < len(row); otherColIdx++ {
 			if row[colIdx] != row[otherColIdx] {
 				break
 			}
-			appendColumnsToResponse(colIdx, otherColIdx)
+			mci.safeAppend(colIdx, otherColIdx)
 		}
 	}
-	return rsp
+	return mci
 }
 
 func (t *Table) getRow(rowIdx int, hint renderHint) rowStr {
@@ -699,234 +646,8 @@ func (t *Table) hideColumns() map[int]int {
 	return colIdxMap
 }
 
-func (t *Table) initForRender() {
-	// pick a default style if none was set until now
-	t.Style()
-
-	// initialize the column configs and normalize them
-	t.initForRenderColumnConfigs()
-
-	// initialize and stringify all the raw rows
-	t.initForRenderRows()
-
-	// find the longest continuous line in each column
-	t.initForRenderColumnLengths()
-
-	// generate a separator row and calculate maximum row length
-	t.initForRenderRowSeparator()
-
-	// reset the counter for the number of lines rendered
-	t.numLinesRendered = 0
-}
-
-func (t *Table) initForRenderColumnConfigs() {
-	t.columnConfigMap = map[int]ColumnConfig{}
-	for _, colCfg := range t.columnConfigs {
-		// find the column number if none provided; this logic can work only if
-		// a header row is present and has a column with the given name
-		if colCfg.Number == 0 {
-			for _, row := range t.rowsHeaderRaw {
-				colCfg.Number = row.findColumnNumber(colCfg.Name)
-				if colCfg.Number > 0 {
-					break
-				}
-			}
-		}
-		if colCfg.Number > 0 {
-			t.columnConfigMap[colCfg.Number-1] = colCfg
-		}
-	}
-}
-
-func (t *Table) initForRenderColumnLengths() {
-	t.maxColumnLengths = make([]int, t.numColumns)
-	t.parseRowForMaxColumnLengths(t.rowsHeader, renderHint{isHeaderRow: true})
-	t.parseRowForMaxColumnLengths(t.rows, renderHint{})
-	t.parseRowForMaxColumnLengths(t.rowsFooter, renderHint{isFooterRow: true})
-
-	// increase the column lengths if any are under the limits
-	for colIdx := range t.maxColumnLengths {
-		minWidth := t.getColumnWidthMin(colIdx)
-		if minWidth > 0 && t.maxColumnLengths[colIdx] < minWidth {
-			t.maxColumnLengths[colIdx] = minWidth
-		}
-	}
-}
-
-func (t *Table) initForRenderHideColumns() {
-	if !t.hasHiddenColumns() {
-		return
-	}
-	colIdxMap := t.hideColumns()
-
-	// re-create columnIsNonNumeric with new column indices
-	columnIsNonNumeric := make([]bool, t.numColumns)
-	for oldColIdx, nonNumeric := range t.columnIsNonNumeric {
-		if newColIdx, ok := colIdxMap[oldColIdx]; ok {
-			columnIsNonNumeric[newColIdx] = nonNumeric
-		}
-	}
-	t.columnIsNonNumeric = columnIsNonNumeric
-
-	// re-create columnConfigMap with new column indices
-	columnConfigMap := make(map[int]ColumnConfig)
-	for oldColIdx, cc := range t.columnConfigMap {
-		if newColIdx, ok := colIdxMap[oldColIdx]; ok {
-			columnConfigMap[newColIdx] = cc
-		}
-	}
-	t.columnConfigMap = columnConfigMap
-}
-
-func (t *Table) initForRenderRows() {
-	t.reset()
-
-	// auto-index: calc the index column's max length
-	t.autoIndexVIndexMaxLength = len(fmt.Sprint(len(t.rowsRaw)))
-
-	// stringify all the rows to make it easy to render
-	if t.rowPainter != nil {
-		t.rowsColors = make([]text.Colors, len(t.rowsRaw))
-	}
-	t.rows = t.initForRenderRowsStringify(t.rowsRaw, renderHint{})
-	t.rowsFooter = t.initForRenderRowsStringify(t.rowsFooterRaw, renderHint{isFooterRow: true})
-	t.rowsHeader = t.initForRenderRowsStringify(t.rowsHeaderRaw, renderHint{isHeaderRow: true})
-
-	// sort the rows as requested
-	t.initForRenderSortRows()
-
-	// suppress columns without any content
-	t.initForRenderSuppressColumns()
-
-	// strip out hidden columns
-	t.initForRenderHideColumns()
-}
-
-func (t *Table) initForRenderRowsStringify(rows []Row, hint renderHint) []rowStr {
-	rowsStr := make([]rowStr, len(rows))
-	for idx, row := range rows {
-		if t.rowPainter != nil && hint.isRegularRow() {
-			t.rowsColors[idx] = t.rowPainter(row)
-		}
-		rowsStr[idx] = t.analyzeAndStringify(row, hint)
-	}
-	return rowsStr
-}
-
-func (t *Table) initForRenderRowSeparator() {
-	t.maxRowLength = 0
-	if t.autoIndex {
-		t.maxRowLength += text.RuneWidthWithoutEscSequences(t.style.Box.PaddingLeft)
-		t.maxRowLength += len(fmt.Sprint(len(t.rows)))
-		t.maxRowLength += text.RuneWidthWithoutEscSequences(t.style.Box.PaddingRight)
-		if t.style.Options.SeparateColumns {
-			t.maxRowLength += text.RuneWidthWithoutEscSequences(t.style.Box.MiddleSeparator)
-		}
-	}
-	if t.style.Options.SeparateColumns {
-		t.maxRowLength += text.RuneWidthWithoutEscSequences(t.style.Box.MiddleSeparator) * (t.numColumns - 1)
-	}
-	t.rowSeparator = make(rowStr, t.numColumns)
-	for colIdx, maxColumnLength := range t.maxColumnLengths {
-		maxColumnLength += text.RuneWidthWithoutEscSequences(t.style.Box.PaddingLeft + t.style.Box.PaddingRight)
-		t.maxRowLength += maxColumnLength
-		t.rowSeparator[colIdx] = text.RepeatAndTrim(t.style.Box.MiddleHorizontal, maxColumnLength)
-	}
-	if t.style.Options.DrawBorder {
-		t.maxRowLength += text.RuneWidthWithoutEscSequences(t.style.Box.Left + t.style.Box.Right)
-	}
-}
-
-func (t *Table) initForRenderSortRows() {
-	if len(t.sortBy) == 0 {
-		return
-	}
-
-	// sort the rows
-	sortedRowIndices := t.getSortedRowIndices()
-	sortedRows := make([]rowStr, len(t.rows))
-	for idx := range t.rows {
-		sortedRows[idx] = t.rows[sortedRowIndices[idx]]
-	}
-	t.rows = sortedRows
-
-	// sort the rowsColors
-	if len(t.rowsColors) > 0 {
-		sortedRowsColors := make([]text.Colors, len(t.rows))
-		for idx := range t.rows {
-			sortedRowsColors[idx] = t.rowsColors[sortedRowIndices[idx]]
-		}
-		t.rowsColors = sortedRowsColors
-	}
-}
-
-func (t *Table) initForRenderSuppressColumns() {
-	shouldSuppressColumn := func(colIdx int) bool {
-		for _, row := range t.rows {
-			if colIdx < len(row) && row[colIdx] != "" {
-				return false
-			}
-		}
-		return true
-	}
-
-	if t.suppressEmptyColumns {
-		for colIdx := 0; colIdx < t.numColumns; colIdx++ {
-			if shouldSuppressColumn(colIdx) {
-				cc := t.columnConfigMap[colIdx]
-				cc.Hidden = true
-				t.columnConfigMap[colIdx] = cc
-			}
-		}
-	}
-}
-
 func (t *Table) isIndexColumn(colIdx int, hint renderHint) bool {
 	return t.indexColumn == colIdx+1 || hint.isAutoIndexColumn
-}
-
-func (t *Table) parseRowForMaxColumnLengths(rows []rowStr, hint renderHint) {
-	getMergedColumnsTotalLength := func(colIdx int, mergedColumns map[int]bool) int {
-		mergedColLength := t.maxColumnLengths[colIdx]
-		for otherColIdx := range mergedColumns {
-			mergedColLength += t.maxColumnLengths[otherColIdx]
-		}
-		return mergedColLength
-	}
-	separatorLength := text.RuneWidthWithoutEscSequences(t.style.Box.MiddleSeparator)
-
-	for rowIdx, row := range rows {
-		hint.rowNumber = rowIdx + 1
-		mergedColumnsMap := t.getMergedColumnIndices(row, hint)
-		for colIdx, colStr := range row {
-			longestLineLen := text.LongestLineLen(colStr)
-			maxColWidth := t.getColumnWidthMax(colIdx)
-			if maxColWidth > 0 && maxColWidth < longestLineLen {
-				longestLineLen = maxColWidth
-			}
-			mergedColumnsForCol := mergedColumnsMap[colIdx]
-			mergedColumnsLength := getMergedColumnsTotalLength(colIdx, mergedColumnsForCol)
-			if longestLineLen > mergedColumnsLength {
-				if mergedColumnsLength > 0 {
-					numMergedColumns := len(mergedColumnsForCol) + 1
-					longestLineLen -= (numMergedColumns - 1) * separatorLength
-					maxLengthSplitAcrossColumns := longestLineLen / numMergedColumns
-					if maxLengthSplitAcrossColumns > t.maxColumnLengths[colIdx] {
-						t.maxColumnLengths[colIdx] = maxLengthSplitAcrossColumns
-					}
-					for otherColIdx := range mergedColumnsForCol {
-						if maxLengthSplitAcrossColumns > t.maxColumnLengths[otherColIdx] {
-							t.maxColumnLengths[otherColIdx] = maxLengthSplitAcrossColumns
-						}
-					}
-				} else {
-					t.maxColumnLengths[colIdx] = longestLineLen
-				}
-			} else if maxColWidth == 0 && longestLineLen > t.maxColumnLengths[colIdx] {
-				t.maxColumnLengths[colIdx] = longestLineLen
-			}
-		}
-	}
 }
 
 func (t *Table) render(out *strings.Builder) string {
@@ -936,19 +657,6 @@ func (t *Table) render(out *strings.Builder) string {
 		_, _ = t.outputMirror.Write([]byte("\n"))
 	}
 	return outStr
-}
-
-func (t *Table) reset() {
-	t.autoIndexVIndexMaxLength = 0
-	t.columnIsNonNumeric = nil
-	t.maxColumnLengths = nil
-	t.maxRowLength = 0
-	t.numColumns = 0
-	t.rowsColors = nil
-	t.rowSeparator = nil
-	t.rows = nil
-	t.rowsFooter = nil
-	t.rowsHeader = nil
 }
 
 func (t *Table) shouldMergeCellsHorizontallyAbove(row rowStr, colIdx int, hint renderHint) bool {
