@@ -60,6 +60,7 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 	process := ctx.Flags.String("process")
 	processArgsStr := ctx.Flags.String("process-arguments")
 	processArgs := strings.Split(processArgsStr, " ")
+	inProcess := ctx.Flags.Bool("in-process")
 
 	runtime := ctx.Flags.String("runtime")
 	etwBypass := ctx.Flags.Bool("etw-bypass")
@@ -67,7 +68,7 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 
 	assemblyArgsStr := strings.Join(assemblyArgs, " ")
 	assemblyArgsStr = strings.TrimSpace(assemblyArgsStr)
-	if len(assemblyArgsStr) > 256 {
+	if len(assemblyArgsStr) > 256 && !inProcess {
 		con.PrintWarnf(" Injected .NET assembly arguments are limited to 256 characters when using the default fork/exec model.\nConsider using the --in-process flag to execute the .NET assembly in-process and work around this limitation.\n")
 		confirm := false
 		prompt := &survey.Confirm{Message: "Do you want to continue?"}
@@ -94,7 +95,7 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 		Runtime:     runtime,
 		EtwBypass:   etwBypass,
 		AmsiBypass:  amsiBypass,
-		InProcess:   ctx.Flags.Bool("in-process"),
+		InProcess:   inProcess,
 	})
 	ctrl <- true
 	<-ctrl
