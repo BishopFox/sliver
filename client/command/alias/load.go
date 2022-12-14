@@ -280,8 +280,22 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	extArgs = strings.TrimSpace(extArgs)
 	entryPoint := aliasManifest.Entrypoint
 	processArgsStr := ctx.Flags.String("process-arguments")
+	// Special case for payloads with pass to Donut (.NET assemblies and sideloaded payloads):
+	// The Donut loader has a hard limit of 256 characters for the command line arguments, so
+	// we're alerting the user that the arguments will be truncated.
 	if len(extArgs) > 256 && (aliasManifest.IsAssembly || !aliasManifest.IsReflective) {
-		con.PrintWarnf(" Arguments are limited to 256 characters when using the default fork/exec model for .NET assemblies and non-reflective PE files.\nConsider using the --in-process flag to execute .NET assemblies in-process and work around this limitation.\n")
+		msgStr := ""
+		// The --in-process flag only exists for .NET assemblies (aliasManifest.IsAssembly == true).
+		// Groupping the two conditions together could crash the client since ctx.Flags.Type panics
+		// if the flag is not registered.
+		if aliasManifest.IsAssembly {
+			if !ctx.Flags.Bool("in-process") {
+				msgStr = " Arguments are limited to 256 characters when using the default fork/exec model for .NET assemblies.\nConsider using the --in-process flag to execute .NET assemblies in-process and work around this limitation.\n"
+			}
+		} else if !aliasManifest.IsReflective {
+			msgStr = " Arguments are limited to 256 characters when using the default fork/exec model for non-reflective PE payloads.\n"
+		}
+		con.PrintWarnf(msgStr)
 		confirm := false
 		prompt := &survey.Confirm{Message: "Do you want to continue?"}
 		survey.AskOne(prompt, &confirm, nil)
