@@ -337,10 +337,11 @@ github.com/pmezard/go-difflib/difflib
 # github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c
 ## explicit; go 1.14
 github.com/power-devops/perfstat
-# github.com/pquerna/otp v1.3.0
+# github.com/pquerna/otp v1.4.0
 ## explicit; go 1.12
 github.com/pquerna/otp
 github.com/pquerna/otp/hotp
+github.com/pquerna/otp/internal
 github.com/pquerna/otp/totp
 # github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0
 ## explicit; go 1.12

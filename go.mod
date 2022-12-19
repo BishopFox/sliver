@@ -31,7 +31,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/miekg/dns v1.1.50
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
-	github.com/pquerna/otp v1.3.0
+	github.com/pquerna/otp v1.4.0
 	github.com/shirou/gopsutil/v3 v3.22.11
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.1
