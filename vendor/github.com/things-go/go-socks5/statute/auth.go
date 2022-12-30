@@ -13,11 +13,12 @@ var (
 
 // UserPassRequest is the negotiation user's password request packet
 // The SOCKS handshake user's password request is formed as follows:
-// 	+--------------+------+----------+------+----------+
-// 	| USERPASS_VER | ULEN |   USER   | PLEN |   PASS   |
-// 	+--------------+------+----------+------+----------+
-// 	|      1      |   1  | Variable |   1  | Variable |
-// 	+--------------+------+----------+------+----------+
+//
+//	+--------------+------+----------+------+----------+
+//	| USERPASS_VER | ULEN |   USER   | PLEN |   PASS   |
+//	+--------------+------+----------+------+----------+
+//	|      1      |   1  | Variable |   1  | Variable |
+//	+--------------+------+----------+------+----------+
 type UserPassRequest struct {
 	Ver  byte
 	Ulen byte
@@ -83,11 +84,12 @@ func (sf UserPassRequest) Bytes() []byte {
 
 // UserPassReply is the negotiation user's password reply packet
 // The SOCKS handshake user's password response is formed as follows:
-// 	+-----+--------+
-// 	| VER | status |
-// 	+-----+--------+
-// 	|  1  |     1  |
-// 	+-----+--------+
+//
+//	+-----+--------+
+//	| VER | status |
+//	+-----+--------+
+//	|  1  |     1  |
+//	+-----+--------+
 type UserPassReply struct {
 	Ver    byte
 	Status byte

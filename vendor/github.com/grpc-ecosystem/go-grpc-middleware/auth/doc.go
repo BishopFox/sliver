@@ -4,7 +4,7 @@
 /*
 `grpc_auth` a generic server-side auth middleware for gRPC.
 
-Server Side Auth Middleware
+# Server Side Auth Middleware
 
 It allows for easy assertion of `:authorization` headers in gRPC calls, be it HTTP Basic auth, or
 OAuth2 Bearer tokens.

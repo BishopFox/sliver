@@ -87,12 +87,10 @@ func (DNSMessageType) EnumDescriptor() ([]byte, []int) {
 	return file_dnspb_dns_proto_rawDescGZIP(), []int{0}
 }
 
+// NOTE: DNS is very space sensitive so certain fields are re-purposed
+// depending on the DNSMessageType as noted below:
 //
-//NOTE: DNS is very space sensitive so certain fields are re-purposed
-//depending on the DNSMessageType as noted below:
-//
-//[Type TOTP]: ID field is used for the TOTP code
-//
+// [Type TOTP]: ID field is used for the TOTP code
 type DNSMessage struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

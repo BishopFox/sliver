@@ -23,6 +23,7 @@ import (
 	"compress/zlib"
 	"context"
 	"encoding/binary"
+	"github.com/bishopfox/sliver/util/encoders"
 	"net/url"
 	"strconv"
 	"strings"
@@ -103,7 +104,7 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		zlibWriter.Close()
 		stage2 = compBuff.Bytes()
 	case "gzip":
-		stage2 = util.GzipBuf(stage2)
+		stage2 = encoders.GzipBuf(stage2)
 	case "deflate9":
 		fallthrough
 	case "deflate":

@@ -42,10 +42,9 @@ func (u Uint128) Equals64(v uint64) bool {
 
 // Cmp compares u and v and returns:
 //
-//   -1 if u <  v
-//    0 if u == v
-//   +1 if u >  v
-//
+//	-1 if u <  v
+//	 0 if u == v
+//	+1 if u >  v
 func (u Uint128) Cmp(v Uint128) int {
 	if u == v {
 		return 0
@@ -58,10 +57,9 @@ func (u Uint128) Cmp(v Uint128) int {
 
 // Cmp64 compares u and v and returns:
 //
-//   -1 if u <  v
-//    0 if u == v
-//   +1 if u >  v
-//
+//	-1 if u <  v
+//	 0 if u == v
+//	+1 if u >  v
 func (u Uint128) Cmp64(v uint64) int {
 	if u.Hi == 0 && u.Lo == v {
 		return 0

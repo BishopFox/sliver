@@ -8,12 +8,12 @@
 // SQLite is an in-process implementation of a self-contained, serverless,
 // zero-configuration, transactional SQL database engine.
 //
-// Thanks
+// # Thanks
 //
 // This project is sponsored by Schleibinger Geräte Teubert u. Greim GmbH by
 // allowing one of the maintainers to work on it also in office hours.
 //
-// Supported platforms and architectures
+// # Supported platforms and architectures
 //
 // These combinations of GOOS and GOARCH are currently supported
 //
@@ -31,13 +31,13 @@
 //	windows	amd64   3.39.4
 //	windows	arm64   3.39.4
 //
-// Builders
+// # Builders
 //
 // Builder results available at
 //
 //	https://modern-c.appspot.com/-/builder/?importpath=modernc.org%2fsqlite
 //
-// Changelog
+// # Changelog
 //
 // 2022-09-16 v1.19.0:
 //
@@ -56,7 +56,7 @@
 //
 // Support scalar application defined functions written in Go.
 //
-//  https://www.sqlite.org/appfunc.html
+//	https://www.sqlite.org/appfunc.html
 //
 // 2022-03-13 v1.15.0:
 //
@@ -71,7 +71,7 @@
 //
 // Support freebsd/amd64.
 //
-// Changelog
+// # Changelog
 //
 // 2021-06-23 v1.11.0:
 //
@@ -160,7 +160,7 @@
 //
 // 2017-06-05 Linux/Intel no more uses the VM (cznic/virtual).
 //
-// Connecting to a database
+// # Connecting to a database
 //
 // To access a Sqlite database do something like
 //
@@ -177,7 +177,7 @@
 //
 //	...
 //
-// Debug and development versions
+// # Debug and development versions
 //
 // A comma separated list of options can be passed to `go generate` via the
 // environment variable GO_GENERATE. Some useful options include for example:
@@ -192,7 +192,7 @@
 //
 // Note: To run `go generate` you need to have modernc.org/ccgo/v3 installed.
 //
-// Sqlite documentation
+// # Sqlite documentation
 //
 // See https://sqlite.org/docs.html
 package sqlite // import "modernc.org/sqlite"

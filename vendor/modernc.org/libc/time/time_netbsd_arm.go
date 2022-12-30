@@ -1897,6 +1897,7 @@ type Timezone = struct {
 
 // hide bintime for _STANDALONE because this header is used for hpcboot.exe,
 // which is built with compilers which don't recognize LL suffix.
+//
 //	http://mail-index.NetBSD.org/tech-userlevel/2008/02/27/msg000181.html
 type Bintime = struct {
 	Fsec  Time_t

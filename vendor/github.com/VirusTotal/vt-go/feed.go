@@ -91,17 +91,16 @@ func FeedCursor(cursor string) FeedOption {
 // are send on channel C. The feed can be stopped at any moment by calling Stop.
 // This example illustrates how a Feed is typically used:
 //
-//  feed, err := vt.Client(<api key>).NewFeed(vt.FileFeed)
-//  if err != nil {
-//     ... handle error
-//  }
-//  for fileObj := range feed.C {
-//     ... do something with file object
-//  }
-//  if feed.Error() != nil {
-//     ... feed as been stopped by some error.
-//  }
-//
+//	feed, err := vt.Client(<api key>).NewFeed(vt.FileFeed)
+//	if err != nil {
+//	   ... handle error
+//	}
+//	for fileObj := range feed.C {
+//	   ... do something with file object
+//	}
+//	if feed.Error() != nil {
+//	   ... feed as been stopped by some error.
+//	}
 func (cli *Client) NewFeed(t FeedType, options ...FeedOption) (*Feed, error) {
 	feed := &Feed{
 		client:                   cli,

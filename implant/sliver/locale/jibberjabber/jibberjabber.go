@@ -2,13 +2,12 @@ package jibberjabber
 
 import (
 	"errors"
-//	"fmt"
-//	"sort"
+	//	"fmt"
+	//	"sort"
 	"strings"
-//	"sync"
-
-//	"golang.org/x/text/language"
-//	"golang.org/x/text/language/display"
+	//	"sync"
+	//	"golang.org/x/text/language"
+	//	"golang.org/x/text/language/display"
 )
 
 var (
@@ -35,7 +34,6 @@ func splitLocale(locale string) (string, string) {
 /**
  * languageServer
  */
-
 
 // IsError checks an error you received from one of jibberjabber's funcs for a jibberjabber error like `ErrLangDetectFail`.
 // Reason you cannot use e.g. `errors.Is()`: currently, golang does not allow native chain-wrapping errors. Therefore, `errors.Unwrap()`, `errors.Is()` & Co. won't return `true` for jibberjabber errors.

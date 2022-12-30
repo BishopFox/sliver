@@ -199,9 +199,9 @@ func DecryptKey(password string, privateKey []byte) (PrivateKey, error) {
 }
 
 // encryptKey encrypts the plaintext and returns a ciphertext by:
-//   1. tag        = BLAKE2b-256(EdDSA-const || plaintext)
-//   2. keystream  = Scrypt(password, salt, convert(ops, mem))
-//   3. ciphertext = (plaintext || tag) ⊕ keystream
+//  1. tag        = BLAKE2b-256(EdDSA-const || plaintext)
+//  2. keystream  = Scrypt(password, salt, convert(ops, mem))
+//  3. ciphertext = (plaintext || tag) ⊕ keystream
 //
 // Therefore, decryptKey converts the ops and mem cost parameters
 // to the (N, r, p)-tuple expected by Scrypt.
@@ -237,9 +237,9 @@ func encryptKey(password string, salt []byte, ops, mem uint64, plaintext []byte)
 }
 
 // decryptKey decrypts the ciphertext and returns a plaintext by:
-//   1. keystream        = Scrypt(password, salt, convert(ops, mem))
-//   2. plaintext || tag = ciphertext ⊕ keystream
-//   3. Check that: tag == BLAKE2b-256(EdDSA-const || plaintext)
+//  1. keystream        = Scrypt(password, salt, convert(ops, mem))
+//  2. plaintext || tag = ciphertext ⊕ keystream
+//  3. Check that: tag == BLAKE2b-256(EdDSA-const || plaintext)
 //
 // Therefore, decryptKey converts the ops and mem cost parameters to
 // the (N, r, p)-tuple expected by Scrypt.

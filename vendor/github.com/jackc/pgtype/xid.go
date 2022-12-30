@@ -11,7 +11,7 @@ import (
 //
 // Also, when one does
 //
-//  select xmin, xmax, * from some_table;
+//	select xmin, xmax, * from some_table;
 //
 // it is the data type of the xmin and xmax hidden system columns.
 //

@@ -182,3 +182,4 @@ clean-all: clean
 .PHONY: clean
 clean:
 	rm -f sliver-client sliver-server sliver-*.exe
+	gofmt -w .

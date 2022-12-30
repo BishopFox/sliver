@@ -578,6 +578,7 @@ message DNSBlockHeader {
 // HTTP Sepecific message
 message HTTPSessionInit {
   bytes Key = 1;
+  bytes Buffer = 2;
 }
 
 // ScreenshotReq - Request the implant take a screenshot

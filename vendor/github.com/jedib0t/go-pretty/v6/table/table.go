@@ -164,14 +164,15 @@ func (t *Table) AppendRows(rows []Row, config ...RowConfig) {
 // append is a separator, it will not be rendered in addition to the usual table
 // separator.
 //
-//******************************************************************************
+// ******************************************************************************
 // Please note the following caveats:
-// 1. SetPageSize(): this may end up creating consecutive separator rows near
-//    the end of a page or at the beginning of a page
-// 2. SortBy(): since SortBy could inherently alter the ordering of rows, the
-//    separators may not appear after the row it was originally intended to
-//    follow
-//******************************************************************************
+//  1. SetPageSize(): this may end up creating consecutive separator rows near
+//     the end of a page or at the beginning of a page
+//  2. SortBy(): since SortBy could inherently alter the ordering of rows, the
+//     separators may not appear after the row it was originally intended to
+//     follow
+//
+// ******************************************************************************
 func (t *Table) AppendSeparator() {
 	if t.separators == nil {
 		t.separators = make(map[int]bool)

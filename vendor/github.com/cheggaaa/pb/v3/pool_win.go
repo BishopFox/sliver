@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package pb
@@ -24,7 +25,7 @@ func (p *Pool) print(first bool) bool {
 		}
 		coords.X = 0
 
-		err =  termutil.SetCursorPos(coords)
+		err = termutil.SetCursorPos(coords)
 		if err != nil {
 			log.Panic(err)
 		}

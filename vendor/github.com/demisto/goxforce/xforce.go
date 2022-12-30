@@ -75,10 +75,10 @@ func (c *Client) tracef(format string, args ...interface{}) {
 //
 // Example:
 //
-//   client, err := goxforce.New(
-//     goxforce.SetCredentials("some key", "some password"),
-//     goxforce.SetUrl("https://some.url.com:port/"),
-//     goxforce.SetErrorLog(log.New(os.Stderr, "X-Force: ", log.Lshortfile))
+//	client, err := goxforce.New(
+//	  goxforce.SetCredentials("some key", "some password"),
+//	  goxforce.SetUrl("https://some.url.com:port/"),
+//	  goxforce.SetErrorLog(log.New(os.Stderr, "X-Force: ", log.Lshortfile))
 //
 // If no URL is configured, Client uses DefaultURL by default.
 //

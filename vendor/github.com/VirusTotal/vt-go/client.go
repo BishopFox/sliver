@@ -242,12 +242,12 @@ func (cli *Client) PostData(url *url.URL, data interface{}, options ...RequestOp
 // the object's attributes can differ from those it had before the call.
 //
 // Example:
+//
 //	obj := vt.NewObject("hunting_ruleset")
 //	obj.SetString("name", "test")
 //	obj.SetString("rules", "rule test {condition: false}")
 //
 //	client.PostObject(vt.URL("intelligence/hunting_rulesets"), obj)
-//
 func (cli *Client) PostObject(url *url.URL, obj *Object, options ...RequestOption) error {
 	req := &Request{}
 	req.Data = modifiedObject(*obj)
@@ -309,28 +309,27 @@ func (cli *Client) DownloadFile(hash string, w io.Writer) (int64, error) {
 // iterating over a collection with a single object. Iterators are usually
 // used like this:
 //
-//  cli := vt.Client(<api key>)
-//  it, err := cli.Iterator(vt.URL(<collection path>))
-//  if err != nil {
-//	  ...handle error
-//  }
-//  defer it.Close()
-//  for it.Next() {
-//    obj := it.Get()
-//    ...do something with obj
-//  }
-//  if err := it.Error(); err != nil {
-//    ...handle error
-//  }
-//
+//	 cli := vt.Client(<api key>)
+//	 it, err := cli.Iterator(vt.URL(<collection path>))
+//	 if err != nil {
+//		  ...handle error
+//	 }
+//	 defer it.Close()
+//	 for it.Next() {
+//	   obj := it.Get()
+//	   ...do something with obj
+//	 }
+//	 if err := it.Error(); err != nil {
+//	   ...handle error
+//	 }
 func (cli *Client) Iterator(url *url.URL, options ...IteratorOption) (*Iterator, error) {
 	return newIterator(cli, url, options...)
 }
 
 // Search for files using VirusTotal Intelligence query language.
 // Example:
-//   it, err := client.Search("p:10+ size:30MB+")
 //
+//	it, err := client.Search("p:10+ size:30MB+")
 func (cli *Client) Search(query string, options ...IteratorOption) (*Iterator, error) {
 	u := URL("intelligence/search")
 	q := u.Query()

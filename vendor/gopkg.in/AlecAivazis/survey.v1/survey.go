@@ -88,7 +88,6 @@ in the documentation. For example:
 	}
 
 	survey.AskOne(prompt, &name, nil)
-
 */
 func AskOne(p Prompt, response interface{}, v Validator, opts ...AskOpt) error {
 	err := Ask([]*Question{{Prompt: p, Validate: v}}, response, opts...)

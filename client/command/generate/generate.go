@@ -491,7 +491,8 @@ func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 		arg = strings.ToLower(arg)
 		var uri *url.URL
 		var err error
-		if strings.HasPrefix(arg, "http://") || strings.HasPrefix(arg, "https://") {
+		if strings.HasPrefix(arg, "http://") || strings.HasPrefix(arg, "https://") ||
+			strings.HasPrefix(arg, "ws://") || strings.HasPrefix(arg, "wss://") {
 			uri, err = url.Parse(arg)
 			if err != nil {
 				return nil, err

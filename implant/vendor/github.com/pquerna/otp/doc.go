@@ -57,6 +57,7 @@
 //
 // Validating a TOTP passcode is very easy, just prompt the user for a passcode
 // and retrieve the associated user's previously stored secret.
+//
 //	import "github.com/pquerna/otp/totp"
 //
 //	passcode := promptForPasscode()

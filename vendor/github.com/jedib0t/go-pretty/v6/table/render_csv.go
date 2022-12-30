@@ -7,11 +7,12 @@ import (
 )
 
 // RenderCSV renders the Table in CSV format. Example:
-//  #,First Name,Last Name,Salary,
-//  1,Arya,Stark,3000,
-//  20,Jon,Snow,2000,"You know nothing\, Jon Snow!"
-//  300,Tyrion,Lannister,5000,
-//  ,,Total,10000,
+//
+//	#,First Name,Last Name,Salary,
+//	1,Arya,Stark,3000,
+//	20,Jon,Snow,2000,"You know nothing\, Jon Snow!"
+//	300,Tyrion,Lannister,5000,
+//	,,Total,10000,
 func (t *Table) RenderCSV() string {
 	t.initForRender()
 

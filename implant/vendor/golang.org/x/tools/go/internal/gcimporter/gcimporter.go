@@ -45,7 +45,6 @@ var pkgExts = [...]string{".a", ".o"}
 // the build.Default build.Context). A relative srcDir is interpreted
 // relative to the current working directory.
 // If no file was found, an empty filename is returned.
-//
 func FindPkg(path, srcDir string) (filename, id string) {
 	if path == "" {
 		return
@@ -109,7 +108,6 @@ func FindPkg(path, srcDir string) (filename, id string) {
 // If packages[id] contains the completely imported package, that package
 // can be used directly, and there is no need to call this function (but
 // there is also no harm but for extra time used).
-//
 func ImportData(packages map[string]*types.Package, filename, id string, data io.Reader) (pkg *types.Package, err error) {
 	// support for parser error handling
 	defer func() {
@@ -133,7 +131,6 @@ func ImportData(packages map[string]*types.Package, filename, id string, data io
 // Import imports a gc-generated package given its import path and srcDir, adds
 // the corresponding package object to the packages map, and returns the object.
 // The packages map must contain all packages already imported.
-//
 func Import(packages map[string]*types.Package, path, srcDir string, lookup func(path string) (io.ReadCloser, error)) (pkg *types.Package, err error) {
 	var rc io.ReadCloser
 	var filename, id string
@@ -349,7 +346,6 @@ func (p *parser) expectKeyword(keyword string) {
 // Qualified and unqualified names
 
 // PackageId = string_lit .
-//
 func (p *parser) parsePackageID() string {
 	id, err := strconv.Unquote(p.expect(scanner.String))
 	if err != nil {
@@ -364,7 +360,6 @@ func (p *parser) parsePackageID() string {
 }
 
 // PackageName = ident .
-//
 func (p *parser) parsePackageName() string {
 	return p.expect(scanner.Ident)
 }
@@ -387,7 +382,6 @@ func (p *parser) parseDotIdent() string {
 }
 
 // QualifiedName = "@" PackageId "." ( "?" | dotIdentifier ) .
-//
 func (p *parser) parseQualifiedName() (id, name string) {
 	p.expect('@')
 	id = p.parsePackageID()
@@ -410,7 +404,6 @@ func (p *parser) parseQualifiedName() (id, name string) {
 // id identifies a package, usually by a canonical package path like
 // "encoding/json" but possibly by a non-canonical import path like
 // "./json".
-//
 func (p *parser) getPkg(id, name string) *types.Package {
 	// package unsafe is not in the packages maps - handle explicitly
 	if id == "unsafe" {
@@ -446,7 +439,6 @@ func (p *parser) getPkg(id, name string) *types.Package {
 
 // parseExportedName is like parseQualifiedName, but
 // the package id is resolved to an imported *types.Package.
-//
 func (p *parser) parseExportedName() (pkg *types.Package, name string) {
 	id, name := p.parseQualifiedName()
 	pkg = p.getPkg(id, "")
@@ -457,7 +449,6 @@ func (p *parser) parseExportedName() (pkg *types.Package, name string) {
 // Types
 
 // BasicType = identifier .
-//
 func (p *parser) parseBasicType() types.Type {
 	id := p.expect(scanner.Ident)
 	obj := types.Universe.Lookup(id)
@@ -469,7 +460,6 @@ func (p *parser) parseBasicType() types.Type {
 }
 
 // ArrayType = "[" int_lit "]" Type .
-//
 func (p *parser) parseArrayType(parent *types.Package) types.Type {
 	// "[" already consumed and lookahead known not to be "]"
 	lit := p.expect(scanner.Int)
@@ -483,7 +473,6 @@ func (p *parser) parseArrayType(parent *types.Package) types.Type {
 }
 
 // MapType = "map" "[" Type "]" Type .
-//
 func (p *parser) parseMapType(parent *types.Package) types.Type {
 	p.expectKeyword("map")
 	p.expect('[')
@@ -505,7 +494,6 @@ func (p *parser) parseMapType(parent *types.Package) types.Type {
 // it doesn't exist yet) unless materializePkg is set (which creates an
 // unnamed package with valid package path). In the latter case, a
 // subsequent import clause is expected to provide a name for the package.
-//
 func (p *parser) parseName(parent *types.Package, materializePkg bool) (pkg *types.Package, name string) {
 	pkg = parent
 	if pkg == nil {
@@ -540,7 +528,6 @@ func deref(typ types.Type) types.Type {
 }
 
 // Field = Name Type [ string_lit ] .
-//
 func (p *parser) parseField(parent *types.Package) (*types.Var, string) {
 	pkg, name := p.parseName(parent, true)
 
@@ -585,7 +572,6 @@ func (p *parser) parseField(parent *types.Package) (*types.Var, string) {
 
 // StructType = "struct" "{" [ FieldList ] "}" .
 // FieldList  = Field { ";" Field } .
-//
 func (p *parser) parseStructType(parent *types.Package) types.Type {
 	var fields []*types.Var
 	var tags []string
@@ -611,7 +597,6 @@ func (p *parser) parseStructType(parent *types.Package) types.Type {
 }
 
 // Parameter = ( identifier | "?" ) [ "..." ] Type [ string_lit ] .
-//
 func (p *parser) parseParameter() (par *types.Var, isVariadic bool) {
 	_, name := p.parseName(nil, false)
 	// remove gc-specific parameter numbering
@@ -637,7 +622,6 @@ func (p *parser) parseParameter() (par *types.Var, isVariadic bool) {
 
 // Parameters    = "(" [ ParameterList ] ")" .
 // ParameterList = { Parameter "," } Parameter .
-//
 func (p *parser) parseParameters() (list []*types.Var, isVariadic bool) {
 	p.expect('(')
 	for p.tok != ')' && p.tok != scanner.EOF {
@@ -660,7 +644,6 @@ func (p *parser) parseParameters() (list []*types.Var, isVariadic bool) {
 
 // Signature = Parameters [ Result ] .
 // Result    = Type | Parameters .
-//
 func (p *parser) parseSignature(recv *types.Var) *types.Signature {
 	params, isVariadic := p.parseParameters()
 
@@ -684,7 +667,6 @@ func (p *parser) parseSignature(recv *types.Var) *types.Signature {
 // The methods of embedded interfaces are always "inlined"
 // by the compiler and thus embedded interfaces are never
 // visible in the export data.
-//
 func (p *parser) parseInterfaceType(parent *types.Package) types.Type {
 	var methods []*types.Func
 
@@ -706,7 +688,6 @@ func (p *parser) parseInterfaceType(parent *types.Package) types.Type {
 }
 
 // ChanType = ( "chan" [ "<-" ] | "<-" "chan" ) Type .
-//
 func (p *parser) parseChanType(parent *types.Package) types.Type {
 	dir := types.SendRecv
 	if p.tok == scanner.Ident {
@@ -725,16 +706,16 @@ func (p *parser) parseChanType(parent *types.Package) types.Type {
 }
 
 // Type =
-//	BasicType | TypeName | ArrayType | SliceType | StructType |
-//      PointerType | FuncType | InterfaceType | MapType | ChanType |
-//      "(" Type ")" .
+//
+//		BasicType | TypeName | ArrayType | SliceType | StructType |
+//	     PointerType | FuncType | InterfaceType | MapType | ChanType |
+//	     "(" Type ")" .
 //
 // BasicType   = ident .
 // TypeName    = ExportedName .
 // SliceType   = "[" "]" Type .
 // PointerType = "*" Type .
 // FuncType    = "func" Signature .
-//
 func (p *parser) parseType(parent *types.Package) types.Type {
 	switch p.tok {
 	case scanner.Ident:
@@ -787,7 +768,6 @@ func (p *parser) parseType(parent *types.Package) types.Type {
 // Declarations
 
 // ImportDecl = "import" PackageName PackageId .
-//
 func (p *parser) parseImportDecl() {
 	p.expectKeyword("import")
 	name := p.parsePackageName()
@@ -795,7 +775,6 @@ func (p *parser) parseImportDecl() {
 }
 
 // int_lit = [ "+" | "-" ] { "0" ... "9" } .
-//
 func (p *parser) parseInt() string {
 	s := ""
 	switch p.tok {
@@ -809,7 +788,6 @@ func (p *parser) parseInt() string {
 }
 
 // number = int_lit [ "p" int_lit ] .
-//
 func (p *parser) parseNumber() (typ *types.Basic, val constant.Value) {
 	// mantissa
 	mant := constant.MakeFromLiteral(p.parseInt(), token.INT, 0)
@@ -850,7 +828,6 @@ func (p *parser) parseNumber() (typ *types.Basic, val constant.Value) {
 // complex_lit = "(" float_lit "+" float_lit "i" ")" .
 // rune_lit    = "(" int_lit "+" int_lit ")" .
 // string_lit  = `"` { unicode_char } `"` .
-//
 func (p *parser) parseConstDecl() {
 	p.expectKeyword("const")
 	pkg, name := p.parseExportedName()
@@ -921,7 +898,6 @@ func (p *parser) parseConstDecl() {
 }
 
 // TypeDecl = "type" ExportedName Type .
-//
 func (p *parser) parseTypeDecl() {
 	p.expectKeyword("type")
 	pkg, name := p.parseExportedName()
@@ -940,7 +916,6 @@ func (p *parser) parseTypeDecl() {
 }
 
 // VarDecl = "var" ExportedName Type .
-//
 func (p *parser) parseVarDecl() {
 	p.expectKeyword("var")
 	pkg, name := p.parseExportedName()
@@ -950,7 +925,6 @@ func (p *parser) parseVarDecl() {
 
 // Func = Signature [ Body ] .
 // Body = "{" ... "}" .
-//
 func (p *parser) parseFunc(recv *types.Var) *types.Signature {
 	sig := p.parseSignature(recv)
 	if p.tok == '{' {
@@ -969,7 +943,6 @@ func (p *parser) parseFunc(recv *types.Var) *types.Signature {
 
 // MethodDecl = "func" Receiver Name Func .
 // Receiver   = "(" ( identifier | "?" ) [ "*" ] ExportedName ")" .
-//
 func (p *parser) parseMethodDecl() {
 	// "func" already consumed
 	p.expect('(')
@@ -993,7 +966,6 @@ func (p *parser) parseMethodDecl() {
 }
 
 // FuncDecl = "func" ExportedName Func .
-//
 func (p *parser) parseFuncDecl() {
 	// "func" already consumed
 	pkg, name := p.parseExportedName()
@@ -1002,7 +974,6 @@ func (p *parser) parseFuncDecl() {
 }
 
 // Decl = [ ImportDecl | ConstDecl | TypeDecl | VarDecl | FuncDecl | MethodDecl ] "\n" .
-//
 func (p *parser) parseDecl() {
 	if p.tok == scanner.Ident {
 		switch p.lit {
@@ -1031,7 +1002,6 @@ func (p *parser) parseDecl() {
 
 // Export        = "PackageClause { Decl } "$$" .
 // PackageClause = "package" PackageName [ "safe" ] "\n" .
-//
 func (p *parser) parseExport() *types.Package {
 	p.expectKeyword("package")
 	name := p.parsePackageName()

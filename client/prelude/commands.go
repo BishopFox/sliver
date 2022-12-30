@@ -29,7 +29,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-//RunCommand executes a given command
+// RunCommand executes a given command
 func RunCommand(message string, executor string, payload []byte, agentSession *OperatorImplantBridge, onFinish func(string, int, int)) (string, int, int) {
 	switch executor {
 	case "keyword":

@@ -17,8 +17,9 @@ import (
 // value.
 //
 // Example data for the following runes:
-// 									'\r'  '\n'  | ','  '<'    | 'a'   'A'  | '\u0a07'
-// 									_____________________________________________________
+//
+//	'\r'  '\n'  | ','  '<'    | 'a'   'A'  | '\u0a07'
+//	_____________________________________________________
 type Key struct {
 	// Code is the key code:
 	// 								"Enter"     | "Comma"     | "KeyA"     | "MediaStop"

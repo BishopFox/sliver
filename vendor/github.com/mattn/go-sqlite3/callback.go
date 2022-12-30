@@ -360,11 +360,11 @@ func callbackRetGeneric(ctx *C.sqlite3_context, v reflect.Value) error {
 	}
 
 	cb, err := callbackRet(v.Elem().Type())
-        if err != nil {
-                return err
-        }
+	if err != nil {
+		return err
+	}
 
-        return cb(ctx, v.Elem())
+	return cb(ctx, v.Elem())
 }
 
 func callbackRet(typ reflect.Type) (callbackRetConverter, error) {

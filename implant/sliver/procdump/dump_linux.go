@@ -46,7 +46,7 @@ type MemoryRegion struct {
 		are not backed by a file on disk.
 	*/
 	isFile bool
-	
+
 	// File name - only populated if isFile is true
 	fileName string
 }
@@ -83,7 +83,7 @@ func (d *LinuxDump) Data() []byte {
 
 func parseMap(mapLine string) *MemoryRegion {
 	regionInformation := mapLineModel.FindStringSubmatch(mapLine)
-	
+
 	if regionInformation == nil {
 		// No match
 		return nil
@@ -91,7 +91,7 @@ func parseMap(mapLine string) *MemoryRegion {
 
 	if strings.HasPrefix(regionInformation[3], "r") {
 		// This section of memory is readable, and we will return it
-		
+
 		/*
 			There is a bug in how ptrace reads the vvar region of memory,
 			see https://lkml.iu.edu/hypermail/linux/kernel/1503.1/03733.html
@@ -122,7 +122,7 @@ func parseMap(mapLine string) *MemoryRegion {
 			// Something is wrong with this region, discard this record
 			return nil
 		}
-		
+
 		memRegion.end = regionEnd
 
 		if regionInformation[4] == "00:00" {
@@ -135,13 +135,13 @@ func parseMap(mapLine string) *MemoryRegion {
 		}
 		return &memRegion
 	}
-	
+
 	return nil
 }
 
-/* 
-	Create a map of the process' memory from /proc/<PID>/maps
-	Return: a slice of MemoryRegions, number of bytes represented by the map
+/*
+Create a map of the process' memory from /proc/<PID>/maps
+Return: a slice of MemoryRegions, number of bytes represented by the map
 */
 func createMemoryMap(pid int32) ([]*MemoryRegion, uint64, error) {
 	maps, err := os.Open("/proc/" + strconv.FormatInt(int64(pid), 10) + "/maps")
@@ -208,7 +208,7 @@ func checkPermissions() (bool, error) {
 	if strings.TrimSpace(string(ptrace_scope)) == "3" {
 		return false, fmt.Errorf("{{if .Config.Debug}}ptrace_scope is too restrictive{{end}}")
 	}
-	
+
 	return true, nil
 }
 
@@ -242,7 +242,7 @@ func isOldKernelVersion() bool {
 		// Unable to determine kernel version so use the ptrace method to be safe
 		return true
 	}
-	
+
 	if majorKVer > 3 {
 		// We can read directly from /proc/pid/mem on 4.x+ kernels
 		return false
@@ -271,7 +271,7 @@ func dumpProcess(pid int32) (ProcessDump, error) {
 	usePTrace := isOldKernelVersion()
 
 	permissionsOK, err := checkPermissions()
-	
+
 	if !permissionsOK || err != nil {
 		return res, err
 	}
@@ -302,21 +302,21 @@ func dumpProcess(pid int32) (ProcessDump, error) {
 		}
 
 		_, err = proc.Wait()
-		
+
 		if err != nil {
 			return res, fmt.Errorf("{{if .Config.Debug}}Failure in waiting for the process after attaching{{end}}")
 		}
 
 		// Read the memory, region by region
-		for _, region := range(processRegions) {
+		for _, region := range processRegions {
 			numberOfBytes := int(region.end - region.start)
-			bytesRead, err := syscall.PtracePeekData(int(pid), uintptr(region.start), res.data[currentDumpOffset:currentDumpOffset + numberOfBytes])
+			bytesRead, err := syscall.PtracePeekData(int(pid), uintptr(region.start), res.data[currentDumpOffset:currentDumpOffset+numberOfBytes])
 			if err != nil {
 				return res, fmt.Errorf("{{if .Config.Debug}}Error reading process memory{{end}}")
 			}
 			currentDumpOffset += bytesRead
 		}
-		
+
 		// Do not forget to detach when we are done
 		// Send a continue signal so that the process resumes (attaching with ptrace pauses the process)
 		err = syscall.Kill(int(pid), syscall.SIGCONT)
@@ -328,7 +328,7 @@ func dumpProcess(pid int32) (ProcessDump, error) {
 		if err != nil {
 			return res, fmt.Errorf("{{if .Config.Debug}}Could not detach from the process - the process is likely hung. Recommend killing it.{{end}}")
 		}
-		
+
 	} else {
 		// Open the memory "file"
 		processMemory, err := os.Open("/proc/" + strconv.FormatInt(int64(pid), 10) + "/mem")
@@ -339,13 +339,13 @@ func dumpProcess(pid int32) (ProcessDump, error) {
 
 		defer processMemory.Close()
 
-		for _, region := range(processRegions) {
+		for _, region := range processRegions {
 			/*
 				Figure out the size of the memory region to read so we know how big of
 				a slice to cut from the buffer
 			*/
 			numberOfBytes := int(region.end - region.start)
-			bytesRead, err := processMemory.ReadAt(res.data[currentDumpOffset:currentDumpOffset + numberOfBytes], int64(region.start))
+			bytesRead, err := processMemory.ReadAt(res.data[currentDumpOffset:currentDumpOffset+numberOfBytes], int64(region.start))
 			if err != nil && err != io.EOF {
 				return res, fmt.Errorf("{{if .Config.Debug}}Error reading process memory{{end}}")
 			}

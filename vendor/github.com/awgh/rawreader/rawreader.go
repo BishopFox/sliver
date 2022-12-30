@@ -8,8 +8,9 @@ import (
 )
 
 // RawReader implements interfaces implemented by files over raw memory
-//		this is completely unsafe by design
-// 		you should either know why you want this exactly or stay away!
+//
+//	this is completely unsafe by design
+//	you should either know why you want this exactly or stay away!
 type RawReader struct {
 	sliceHeader *reflect.SliceHeader
 	rawPtr      uintptr

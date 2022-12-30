@@ -471,7 +471,6 @@ func (s *stmt) Close() (err error) {
 
 // Exec executes a query that doesn't return rows, such as an INSERT or UPDATE.
 //
-//
 // Deprecated: Drivers should implement StmtExecContext instead (or
 // additionally).
 func (s *stmt) Exec(args []driver.Value) (driver.Result, error) { //TODO StmtExecContext
@@ -1161,11 +1160,13 @@ func (c *conn) finalize(pstmt uintptr) error {
 }
 
 // int sqlite3_prepare_v2(
-//   sqlite3 *db,            /* Database handle */
-//   const char *zSql,       /* SQL statement, UTF-8 encoded */
-//   int nByte,              /* Maximum length of zSql in bytes. */
-//   sqlite3_stmt **ppStmt,  /* OUT: Statement handle */
-//   const char **pzTail     /* OUT: Pointer to unused portion of zSql */
+//
+//	sqlite3 *db,            /* Database handle */
+//	const char *zSql,       /* SQL statement, UTF-8 encoded */
+//	int nByte,              /* Maximum length of zSql in bytes. */
+//	sqlite3_stmt **ppStmt,  /* OUT: Statement handle */
+//	const char **pzTail     /* OUT: Pointer to unused portion of zSql */
+//
 // );
 func (c *conn) prepareV2(zSQL *uintptr) (pstmt uintptr, err error) {
 	var ppstmt, pptail uintptr
@@ -1220,10 +1221,12 @@ func (c *conn) extendedResultCodes(on bool) error {
 }
 
 // int sqlite3_open_v2(
-//   const char *filename,   /* Database filename (UTF-8) */
-//   sqlite3 **ppDb,         /* OUT: SQLite db handle */
-//   int flags,              /* Flags */
-//   const char *zVfs        /* Name of VFS module to use */
+//
+//	const char *filename,   /* Database filename (UTF-8) */
+//	sqlite3 **ppDb,         /* OUT: SQLite db handle */
+//	int flags,              /* Flags */
+//	const char *zVfs        /* Name of VFS module to use */
+//
 // );
 func (c *conn) openV2(name string, flags int32) (uintptr, error) {
 	var p, s uintptr

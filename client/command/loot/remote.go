@@ -72,8 +72,8 @@ func ValidateLootFileType(lootFileTypeInput string, data []byte) clientpb.FileTy
 }
 
 /*
-	Eventually this function needs to be refactored out, but we made the decision to
-	duplicate it for now
+Eventually this function needs to be refactored out, but we made the decision to
+duplicate it for now
 */
 func PerformDownload(remotePath string, fileName string, ctx *grumble.Context, con *console.SliverConsoleClient) (*sliverpb.Download, error) {
 	ctrl := make(chan bool)

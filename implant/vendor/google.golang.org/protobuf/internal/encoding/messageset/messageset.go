@@ -33,6 +33,7 @@ const (
 // ExtensionName is the field name for extensions of MessageSet.
 //
 // A valid MessageSet extension must be of the form:
+//
 //	message MyMessage {
 //		extend proto2.bridge.MessageSet {
 //			optional MyMessage message_set_extension = 1234;

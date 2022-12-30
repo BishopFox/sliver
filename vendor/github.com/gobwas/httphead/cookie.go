@@ -134,9 +134,10 @@ func (c CookieScanner) Scan(data []byte, it func(name, value []byte) bool) bool 
 // "cookie-octet" bytes.
 //
 // cookie-octet = %x21 / %x23-2B / %x2D-3A / %x3C-5B / %x5D-7E
-//                ; US-ASCII characters excluding CTLs,
-//                ; whitespace DQUOTE, comma, semicolon,
-//                ; and backslash
+//
+//	; US-ASCII characters excluding CTLs,
+//	; whitespace DQUOTE, comma, semicolon,
+//	; and backslash
 //
 // Note that the false strict parameter disables errors on space 0x20 and comma
 // 0x2c. This could be useful to bring some compatibility with non-compliant

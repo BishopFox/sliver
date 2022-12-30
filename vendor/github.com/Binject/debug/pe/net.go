@@ -20,7 +20,7 @@ type IMAGE_COR20_HEADER struct {
 	ManagedNativeHeaderRVA, ManagedNativeHeaderSize uint32
 }
 
-//Net provides a public interface for getting at some net info.
+// Net provides a public interface for getting at some net info.
 type Net struct {
 	NetDirectory IMAGE_COR20_HEADER //Net directory information
 	MetaData     NetMetaData        //MetaData Header
@@ -56,7 +56,7 @@ func newMetadataHeader(i io.Reader) (NetMetaData, error) {
 	return r, nil
 }
 
-//NetCLRVersion returns the CLR version specified by the binary. Returns an empty string if not a net binary. String has had trailing nulls stripped.
+// NetCLRVersion returns the CLR version specified by the binary. Returns an empty string if not a net binary. String has had trailing nulls stripped.
 func (f File) NetCLRVersion() string {
 	b := f.Net.MetaData.VersionString
 	for i, x := range b {

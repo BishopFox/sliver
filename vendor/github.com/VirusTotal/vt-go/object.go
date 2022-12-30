@@ -459,12 +459,12 @@ func (obj *Object) SetTime(attr string, value time.Time) error {
 // URL used with GetObject.
 //
 // Example:
-//   f, _ := client.GetObject(vt.URL("files/%s?relationships=contacted_ips"))
-//   // OK as "contacted_ip" was requested.
-//   r, _ := f.GetRelationship("contacted_ips")
-//   // Not OK, "contacted_urls" won't be present
-//   r, _ := f.GetRelationship("contacted_urls")
 //
+//	f, _ := client.GetObject(vt.URL("files/%s?relationships=contacted_ips"))
+//	// OK as "contacted_ip" was requested.
+//	r, _ := f.GetRelationship("contacted_ips")
+//	// Not OK, "contacted_urls" won't be present
+//	r, _ := f.GetRelationship("contacted_urls")
 func (obj *Object) GetRelationship(name string) (*Relationship, error) {
 	if r, exists := obj.data.Relationships[name]; exists {
 		return &Relationship{data: *r}, nil

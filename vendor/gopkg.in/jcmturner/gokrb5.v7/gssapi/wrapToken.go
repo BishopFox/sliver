@@ -16,42 +16,42 @@ import (
 /*
 From RFC 4121, section 4.2.6.2:
 
-   Use of the GSS_Wrap() call yields a token (referred as the Wrap token
-   in this document), which consists of a descriptive header, followed
-   by a body portion that contains either the input user data in
-   plaintext concatenated with the checksum, or the input user data
-   encrypted.  The GSS_Wrap() token SHALL have the following format:
+	Use of the GSS_Wrap() call yields a token (referred as the Wrap token
+	in this document), which consists of a descriptive header, followed
+	by a body portion that contains either the input user data in
+	plaintext concatenated with the checksum, or the input user data
+	encrypted.  The GSS_Wrap() token SHALL have the following format:
 
-         Octet no   Name        Description
-         --------------------------------------------------------------
-          0..1     TOK_ID    Identification field.  Tokens emitted by
-                             GSS_Wrap() contain the hex value 05 04
-                             expressed in big-endian order in this
-                             field.
-          2        Flags     Attributes field, as described in section
-                             4.2.2.
-          3        Filler    Contains the hex value FF.
-          4..5     EC        Contains the "extra count" field, in big-
-                             endian order as described in section 4.2.3.
-          6..7     RRC       Contains the "right rotation count" in big-
-                             endian order, as described in section
-                             4.2.5.
-          8..15    SndSeqNum   Sequence number field in clear text,
-                             expressed in big-endian order.
-          16..last Data      Encrypted data for Wrap tokens with
-                             confidentiality, or plaintext data followed
-                             by the checksum for Wrap tokens without
-                             confidentiality, as described in section
-                             4.2.4.
+	      Octet no   Name        Description
+	      --------------------------------------------------------------
+	       0..1     TOK_ID    Identification field.  Tokens emitted by
+	                          GSS_Wrap() contain the hex value 05 04
+	                          expressed in big-endian order in this
+	                          field.
+	       2        Flags     Attributes field, as described in section
+	                          4.2.2.
+	       3        Filler    Contains the hex value FF.
+	       4..5     EC        Contains the "extra count" field, in big-
+	                          endian order as described in section 4.2.3.
+	       6..7     RRC       Contains the "right rotation count" in big-
+	                          endian order, as described in section
+	                          4.2.5.
+	       8..15    SndSeqNum   Sequence number field in clear text,
+	                          expressed in big-endian order.
+	       16..last Data      Encrypted data for Wrap tokens with
+	                          confidentiality, or plaintext data followed
+	                          by the checksum for Wrap tokens without
+	                          confidentiality, as described in section
+	                          4.2.4.
 
 Quick notes:
-	- "EC" or "Extra Count" refers to the length of the checksum.
-	- "Flags" (complete details in section 4.2.2) is a set of bits:
-		- if bit 0 is set, it means the token was sent by the acceptor (generally the kerberized service).
-		- bit 1 indicates that the token's payload is encrypted
- 		- bit 2 indicates if the message is protected using a subkey defined by the acceptor.
-	- When computing checksums, EC and RRC MUST be set to 0.
-    - Wrap Tokens are not ASN.1 encoded.
+  - "EC" or "Extra Count" refers to the length of the checksum.
+  - "Flags" (complete details in section 4.2.2) is a set of bits:
+  - if bit 0 is set, it means the token was sent by the acceptor (generally the kerberized service).
+  - bit 1 indicates that the token's payload is encrypted
+  - bit 2 indicates if the message is protected using a subkey defined by the acceptor.
+  - When computing checksums, EC and RRC MUST be set to 0.
+  - Wrap Tokens are not ASN.1 encoded.
 */
 const (
 	HdrLen          = 16 // Length of the Wrap Token's header

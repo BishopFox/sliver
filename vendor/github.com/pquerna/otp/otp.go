@@ -30,8 +30,8 @@ import (
 	"hash"
 	"image"
 	"net/url"
-	"strings"
 	"strconv"
+	"strings"
 )
 
 // Error when attempting to convert the secret from base32 to raw bytes.
@@ -55,8 +55,8 @@ type Key struct {
 // NewKeyFromURL creates a new Key from an TOTP or HOTP url.
 //
 // The URL format is documented here:
-//   https://github.com/google/google-authenticator/wiki/Key-Uri-Format
 //
+//	https://github.com/google/google-authenticator/wiki/Key-Uri-Format
 func NewKeyFromURL(orig string) (*Key, error) {
 	s := strings.TrimSpace(orig)
 
@@ -146,7 +146,7 @@ func (k *Key) Period() uint64 {
 	if u, err := strconv.ParseUint(q.Get("period"), 10, 64); err == nil {
 		return u
 	}
-	
+
 	// If no period is defined 30 seconds is the default per (rfc6238)
 	return 30
 }

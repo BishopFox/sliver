@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package clr
@@ -51,9 +52,11 @@ func (obj *IEnumUnknown) Release() uintptr {
 
 // Next retrieves the specified number of items in the enumeration sequence.
 // HRESULT Next(
-//   ULONG    celt,
-//   IUnknown **rgelt,
-//   ULONG    *pceltFetched
+//
+//	ULONG    celt,
+//	IUnknown **rgelt,
+//	ULONG    *pceltFetched
+//
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/objidl/nf-objidl-ienumunknown-next
 func (obj *IEnumUnknown) Next(celt uint32, pEnumRuntime unsafe.Pointer, pceltFetched *uint32) (hresult int, err error) {

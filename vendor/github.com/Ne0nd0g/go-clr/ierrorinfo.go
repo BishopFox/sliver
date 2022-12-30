@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package clr
@@ -40,7 +41,9 @@ type IErrorInfoVtbl struct {
 
 // GetDescription Returns a text description of the error.
 // HRESULT GetDescription (
-//   BSTR *pbstrDescription);
+//
+//	BSTR *pbstrDescription);
+//
 // https://docs.microsoft.com/en-us/previous-versions/windows/desktop/ms714318(v=vs.85)
 func (obj *IErrorInfo) GetDescription() (pbstrDescription *string, err error) {
 	debugPrint("Entering into ierrorinfo.GetDescription()...")
@@ -67,7 +70,9 @@ func (obj *IErrorInfo) GetDescription() (pbstrDescription *string, err error) {
 
 // GetGUID Returns the globally unique identifier (GUID) of the interface that defined the error.
 // HRESULT GetGUID(
-//   GUID *pGUID
+//
+//	GUID *pGUID
+//
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/oaidl/nf-oaidl-ierrorinfo-getguid
 func (obj *IErrorInfo) GetGUID() (pGUID *windows.GUID, err error) {
@@ -95,8 +100,10 @@ func (obj *IErrorInfo) GetGUID() (pGUID *windows.GUID, err error) {
 
 // GetErrorInfo Obtains the error information pointer set by the previous call to SetErrorInfo in the current logical thread.
 // HRESULT GetErrorInfo(
-//   ULONG      dwReserved,
-//   IErrorInfo **pperrinfo
+//
+//	ULONG      dwReserved,
+//	IErrorInfo **pperrinfo
+//
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-geterrorinfo
 func GetErrorInfo() (pperrinfo *IErrorInfo, err error) {

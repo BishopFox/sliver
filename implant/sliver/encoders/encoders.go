@@ -19,6 +19,8 @@ package encoders
 */
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	insecureRand "math/rand"
 )
@@ -85,7 +87,8 @@ func RandomTxtEncoder() (int, Encoder) {
 }
 
 // NopNonce - A NOP nonce identifies a request with no encoder/payload
-//            any value where mod = 0
+//
+//	any value where mod = 0
 func NopNonce() int {
 	return insecureRand.Intn(maxN) * EncoderModulus
 }
@@ -101,4 +104,18 @@ func (n NoEncoder) Encode(data []byte) []byte {
 // Decode - Don't do anything
 func (n NoEncoder) Decode(data []byte) ([]byte, error) {
 	return data, nil
+}
+
+func IntToBytes(n int) []byte {
+	data := int32(n)
+	byteBuf := bytes.NewBuffer([]byte{})
+	binary.Write(byteBuf, binary.BigEndian, data)
+	return byteBuf.Bytes()
+}
+
+func BytesToInt(bys []byte) int {
+	byteBuff := bytes.NewBuffer(bys)
+	var data int32
+	binary.Read(byteBuff, binary.BigEndian, &data)
+	return int(data)
 }

@@ -63,7 +63,8 @@ type CanaryGenerator struct {
 }
 
 // GenerateCanary - Generate a canary domain and save it to the db
-// 				    currently this gets called by template engine
+//
+//	currently this gets called by template engine
 func (g *CanaryGenerator) GenerateCanary() string {
 
 	if len(g.ParentDomains) < 1 {

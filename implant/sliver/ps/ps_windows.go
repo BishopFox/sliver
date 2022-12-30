@@ -245,7 +245,6 @@ func getCmdLine(pid uint32) ([]string, error) {
 		return strings.Fields(syscall.UTF16ToString(module.SzExePath[:])), err
 	}
 
-
 	err = syscall.CloseHandle(proc)
 	if err != nil {
 		return strings.Fields(syscall.UTF16ToString(module.SzExePath[:])), err

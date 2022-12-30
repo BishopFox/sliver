@@ -28,7 +28,8 @@ const (
 )
 
 // Event - An event is fired when there's a state change involving a
-//         session, job, or client.
+//
+//	session, job, or client.
 type Event struct {
 	Session *Session
 	Job     *Job

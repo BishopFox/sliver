@@ -6,6 +6,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
+//go:build go1.13
 // +build go1.13
 
 package mysql
@@ -18,16 +19,16 @@ import (
 // NullTime implements the Scanner interface so
 // it can be used as a scan destination:
 //
-//  var nt NullTime
-//  err := db.QueryRow("SELECT time FROM foo WHERE id=?", id).Scan(&nt)
-//  ...
-//  if nt.Valid {
-//     // use nt.Time
-//  } else {
-//     // NULL value
-//  }
+//	var nt NullTime
+//	err := db.QueryRow("SELECT time FROM foo WHERE id=?", id).Scan(&nt)
+//	...
+//	if nt.Valid {
+//	   // use nt.Time
+//	} else {
+//	   // NULL value
+//	}
 //
-// This NullTime implementation is not driver-specific
+// # This NullTime implementation is not driver-specific
 //
 // Deprecated: NullTime doesn't honor the loc DSN parameter.
 // NullTime.Scan interprets a time as UTC, not the loc DSN parameter.

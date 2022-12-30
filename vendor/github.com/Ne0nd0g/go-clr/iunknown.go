@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package clr
@@ -33,8 +34,10 @@ type IUnknownVtbl struct {
 // identifying the interface by a reference to its interface identifier (IID).
 // If the COM object implements the interface, then it returns a pointer to that interface after calling IUnknown::AddRef on it.
 // HRESULT QueryInterface(
-//   REFIID riid,
-//   void   **ppvObject
+//
+//	REFIID riid,
+//	void   **ppvObject
+//
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/unknwn/nf-unknwn-iunknown-queryinterface(refiid_void)
 func (obj *IUnknown) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer) error {

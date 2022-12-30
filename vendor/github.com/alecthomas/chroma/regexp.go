@@ -96,26 +96,26 @@ func ByGroupNames(emitters map[string]Emitter) Emitter {
 //
 // Example:
 //
-// 	var Markdown = internal.Register(MustNewLexer(
-// 		&Config{
-// 			Name:      "markdown",
-// 			Aliases:   []string{"md", "mkd"},
-// 			Filenames: []string{"*.md", "*.mkd", "*.markdown"},
-// 			MimeTypes: []string{"text/x-markdown"},
-// 		},
-// 		Rules{
-// 			"root": {
-// 				{"^(```)(\\w+)(\\n)([\\w\\W]*?)(^```$)",
-// 					UsingByGroup(
-// 						internal.Get,
-// 						2, 4,
-// 						String, String, String, Text, String,
-// 					),
-// 					nil,
-// 				},
-// 			},
-// 		},
-// 	))
+//	var Markdown = internal.Register(MustNewLexer(
+//		&Config{
+//			Name:      "markdown",
+//			Aliases:   []string{"md", "mkd"},
+//			Filenames: []string{"*.md", "*.mkd", "*.markdown"},
+//			MimeTypes: []string{"text/x-markdown"},
+//		},
+//		Rules{
+//			"root": {
+//				{"^(```)(\\w+)(\\n)([\\w\\W]*?)(^```$)",
+//					UsingByGroup(
+//						internal.Get,
+//						2, 4,
+//						String, String, String, Text, String,
+//					),
+//					nil,
+//				},
+//			},
+//		},
+//	))
 //
 // See the lexers/m/markdown.go for the complete example.
 //

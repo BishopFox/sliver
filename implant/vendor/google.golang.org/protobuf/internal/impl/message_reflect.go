@@ -320,7 +320,6 @@ func (m *extensionMap) Mutable(xt pref.ExtensionType) pref.Value {
 // in an allocation-free way without needing to have a shadow Go type generated
 // for every message type. This technique only works using unsafe.
 //
-//
 // Example generated code:
 //
 //	type M struct {
@@ -351,12 +350,11 @@ func (m *extensionMap) Mutable(xt pref.ExtensionType) pref.Value {
 // It has access to the message info as its first field, and a pointer to the
 // MessageState is identical to a pointer to the concrete message value.
 //
-//
 // Requirements:
-//	• The type M must implement protoreflect.ProtoMessage.
-//	• The address of m must not be nil.
-//	• The address of m and the address of m.state must be equal,
-//	even though they are different Go types.
+//   - The type M must implement protoreflect.ProtoMessage.
+//   - The address of m must not be nil.
+//   - The address of m and the address of m.state must be equal,
+//     even though they are different Go types.
 type MessageState struct {
 	pragma.NoUnkeyedLiterals
 	pragma.DoNotCompare

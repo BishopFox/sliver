@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 // Copyright (C) 2018, Rapid7 LLC, Boston, MA, USA.
@@ -11,7 +12,7 @@ import (
 	"unsafe"
 )
 
-//noinspection SpellCheckingInspection,GoNameStartsWithPackageName,GoSnakeCaseUsage
+// noinspection SpellCheckingInspection,GoNameStartsWithPackageName,GoSnakeCaseUsage
 const (
 	// WINHTTP_AUTOPROXY_AUTO_DETECT - Attempt to automatically discover the URL of the PAC file using both DHCP and DNS queries to the local network.
 	WINHTTP_AUTOPROXY_AUTO_DETECT = 0x00000001
@@ -25,7 +26,7 @@ const (
 	WINHTTP_ACCESS_TYPE_NO_PROXY = 0x00000001
 )
 
-//noinspection SpellCheckingInspection
+// noinspection SpellCheckingInspection
 type (
 	Lpwstr    *uint16
 	Dword     uint32
@@ -126,11 +127,15 @@ func Open(pszAgentW Lpwstr, dwAccessType Dword, pszProxyW Lpwstr, pszProxyBypass
 MSDN:
 ```
 The WinHttpCloseHandle function closes a single HINTERNET handle.
+
 	BOOLAPI WinHttpCloseHandle(
 	  IN HINTERNET hInternet
 	);
+
 hInternet
+
 	Valid HINTERNET handle to be closed.
+
 Returns TRUE if the handle is successfully closed, or FALSE otherwise.
 ```
 */
@@ -148,6 +153,7 @@ func CloseHandle(hInternet HInternet) error {
 
 /*
 The WinHttpSetTimeouts function sets time-outs involved with HTTP transactions.
+
 	BOOLAPI WinHttpSetTimeouts(
 	  IN HINTERNET hInternet,
 	  IN int       nResolveTimeout,
@@ -155,17 +161,28 @@ The WinHttpSetTimeouts function sets time-outs involved with HTTP transactions.
 	  IN int       nSendTimeout,
 	  IN int       nReceiveTimeout
 	);
+
 hInternet
+
 	The HINTERNET handle returned by WinHttpOpen or WinHttpOpenRequest.
+
 nResolveTimeout
+
 	A value of type integer that specifies the time-out value, in milliseconds, to use for name resolution. If resolution takes longer than this time-out value, the action is canceled. The initial value is zero, meaning no time-out (infinite).
+
 nConnectTimeout
+
 	A value of type integer that specifies the time-out value, in milliseconds, to use for server connection requests. If a connection request takes longer than this time-out value, the request is canceled. The initial value is 60,000 (60 seconds).
 	TCP/IP can time out while setting up the socket during the three leg SYN/ACK exchange, regardless of the value of this parameter.
+
 nSendTimeout
+
 	A value of type integer that specifies the time-out value, in milliseconds, to use for sending requests. If sending a request takes longer than this time-out value, the send is canceled. The initial value is 30,000 (30 seconds).
+
 nReceiveTimeout
+
 	A value of type integer that specifies the time-out value, in milliseconds, to receive a response to a request. If a response takes longer than this time-out value, the request is canceled. The initial value is 30,000 (30 seconds).
+
 Returns TRUE if successful, or FALSE otherwise.
 */
 func SetTimeouts(hInternet HInternet, nResolveTimeout int, nConnectTimeout int, nSendTimeout int, nReceiveTimeout int) error {
@@ -250,11 +267,15 @@ func GetIEProxyConfigForCurrentUser() (*CurrentUserIEProxyConfig, error) {
 
 /*
 The WinHttpGetDefaultProxyConfiguration function retrieves the default WinHTTP proxy configuration from the registry.
+
 	WINHTTPAPI BOOL WinHttpGetDefaultProxyConfiguration(
 	  IN OUT WINHTTP_PROXY_INFO *pProxyInfo
 	);
+
 pProxyInfo
+
 	A pointer to a variable of type WINHTTP_PROXY_INFO that receives the default proxy configuration.
+
 Returns TRUE if successful or FALSE otherwise.
 */
 func GetDefaultProxyConfiguration() (*ProxyInfo, error) {
@@ -270,7 +291,7 @@ func GetDefaultProxyConfiguration() (*ProxyInfo, error) {
 	return nil, err
 }
 
-//noinspection SpellCheckingInspection
+// noinspection SpellCheckingInspection
 func LpwstrToString(d Lpwstr) string {
 	if d == nil {
 		return ""
@@ -289,7 +310,7 @@ func LpwstrToString(d Lpwstr) string {
 	return ""
 }
 
-//noinspection SpellCheckingInspection
+// noinspection SpellCheckingInspection
 func StringToLpwstr(s string) *uint16 {
 	if s == "" {
 		return nil
@@ -302,7 +323,7 @@ func StringToLpwstr(s string) *uint16 {
 	return r
 }
 
-//noinspection SpellCheckingInspection
+// noinspection SpellCheckingInspection
 func (p *ProxyInfo) Free() error {
 	if p == nil {
 		return nil
@@ -314,7 +335,7 @@ func (p *ProxyInfo) Free() error {
 	return rerr
 }
 
-//noinspection SpellCheckingInspection
+// noinspection SpellCheckingInspection
 func (p *CurrentUserIEProxyConfig) Free() error {
 	if p == nil {
 		return nil
@@ -335,7 +356,7 @@ func (p *CurrentUserIEProxyConfig) Free() error {
 // Maximum number of bytes for any returned lpwstr
 const lpwstrMaxBytes = 1024 * 512
 
-//noinspection SpellCheckingInspection
+// noinspection SpellCheckingInspection
 var (
 	kd  = syscall.MustLoadDLL("kernel32.dll")
 	whd = syscall.MustLoadDLL("winhttp.dll")

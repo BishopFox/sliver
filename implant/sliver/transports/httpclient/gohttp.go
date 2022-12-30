@@ -27,8 +27,8 @@ import (
 	"time"
 
 	// {{if .Config.Debug}}
-	"log"
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
+	"log"
 	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/proxy"

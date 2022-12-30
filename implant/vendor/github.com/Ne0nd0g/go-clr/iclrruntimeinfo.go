@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package clr
@@ -88,8 +89,10 @@ func (obj *ICLRRuntimeInfo) Release() uintptr {
 
 // GetVersionString gets common language runtime (CLR) version information associated with a given ICLRRuntimeInfo interface.
 // HRESULT GetVersionString(
-//   [out, size_is(*pcchBuffer)] LPWSTR pwzBuffer,
-//   [in, out]  DWORD *pcchBuffer);
+//
+//	[out, size_is(*pcchBuffer)] LPWSTR pwzBuffer,
+//	[in, out]  DWORD *pcchBuffer);
+//
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimeinfo-getversionstring-method
 func (obj *ICLRRuntimeInfo) GetVersionString() (version string, err error) {
 	debugPrint("Entering into iclrruntimeinfo.GetVersion()...")
@@ -137,9 +140,11 @@ func (obj *ICLRRuntimeInfo) GetVersionString() (version string, err error) {
 // GetInterface loads the CLR into the current process and returns runtime interface pointers,
 // such as ICLRRuntimeHost, ICLRStrongName, and IMetaDataDispenserEx.
 // HRESULT GetInterface(
-//   [in]  REFCLSID rclsid,
-//   [in]  REFIID   riid,
-//   [out, iid_is(riid), retval] LPVOID *ppUnk); unsafe pointer of a pointer to an object pointer
+//
+//	[in]  REFCLSID rclsid,
+//	[in]  REFIID   riid,
+//	[out, iid_is(riid), retval] LPVOID *ppUnk); unsafe pointer of a pointer to an object pointer
+//
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimeinfo-getinterface-method
 func (obj *ICLRRuntimeInfo) GetInterface(rclsid windows.GUID, riid windows.GUID, ppUnk unsafe.Pointer) error {
 	debugPrint("Entering into iclrruntimeinfo.GetInterface()...")
@@ -188,7 +193,9 @@ func (obj *ICLRRuntimeInfo) BindAsLegacyV2Runtime() error {
 // IsLoadable indicates whether the runtime associated with this interface can be loaded into the current process,
 // taking into account other runtimes that might already be loaded into the process.
 // HRESULT IsLoadable(
-//   [out, retval] BOOL *pbLoadable);
+//
+//	[out, retval] BOOL *pbLoadable);
+//
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimeinfo-isloadable-method
 func (obj *ICLRRuntimeInfo) IsLoadable() (pbLoadable bool, err error) {
 	debugPrint("Entering into iclrruntimeinfo.IsLoadable()...")

@@ -8,8 +8,7 @@
 // defined in proto source files and value interfaces which provide the
 // ability to examine and manipulate the contents of messages.
 //
-//
-// Protocol Buffer Descriptors
+// # Protocol Buffer Descriptors
 //
 // Protobuf descriptors (e.g., EnumDescriptor or MessageDescriptor)
 // are immutable objects that represent protobuf type information.
@@ -26,8 +25,7 @@
 // The "google.golang.org/protobuf/reflect/protodesc" package converts between
 // google.protobuf.DescriptorProto messages and protobuf descriptors.
 //
-//
-// Go Type Descriptors
+// # Go Type Descriptors
 //
 // A type descriptor (e.g., EnumType or MessageType) is a constructor for
 // a concrete Go type that represents the associated protobuf descriptor.
@@ -41,8 +39,7 @@
 // The "google.golang.org/protobuf/types/dynamicpb" package can be used to
 // create Go type descriptors from protobuf descriptors.
 //
-//
-// Value Interfaces
+// # Value Interfaces
 //
 // The Enum and Message interfaces provide a reflective view over an
 // enum or message instance. For enums, it provides the ability to retrieve
@@ -55,12 +52,10 @@
 // The "github.com/golang/protobuf/proto".MessageReflect function can be used
 // to obtain a reflective view on older messages.
 //
-//
-// Relationships
+// # Relationships
 //
 // The following diagrams demonstrate the relationships between
 // various types declared in this package.
-//
 //
 //	                       ┌───────────────────────────────────┐
 //	                       V                                   │
@@ -83,7 +78,6 @@
 //
 // • An Enum is a concrete enum instance. Generated enums implement Enum.
 //
-//
 //	  ┌──────────────── New() ─────────────────┐
 //	  │                                        │
 //	  │         ┌─── Descriptor() ─────┐       │   ┌── Interface() ───┐
@@ -103,7 +97,6 @@
 //
 // • A Message is a concrete message instance. Generated messages implement
 // ProtoMessage, which can convert to/from a Message.
-//
 //
 //	      ┌── TypeDescriptor() ──┐    ┌───── Descriptor() ─────┐
 //	      │                      V    │                        V

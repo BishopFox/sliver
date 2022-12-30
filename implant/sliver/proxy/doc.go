@@ -2,7 +2,7 @@
 //
 // The priority of retrieval is the following:
 //
-// 	Windows:
+//	Windows:
 //		Configuration File
 //		Environment Variable: HTTPS_PROXY, HTTP_PROXY, FTP_PROXY, or ALL_PROXY. `NO_PROXY` is respected.
 //		Internet Options: Automatically detect settings (WPAD)
@@ -19,7 +19,7 @@
 //		Environment Variable: HTTPS_PROXY, HTTP_PROXY, FTP_PROXY, or ALL_PROXY. `NO_PROXY` is respected.
 //		Network Settings: scutil
 //
-// Example Usage
+// # Example Usage
 //
 // The following is a complete example using assert in a standard test function:
 //
@@ -34,6 +34,5 @@
 //			if p != nil {
 //				fmt.Printf("Found proxy: %s\n", p)
 //			}
-// 	   }
-//
+//	   }
 package proxy

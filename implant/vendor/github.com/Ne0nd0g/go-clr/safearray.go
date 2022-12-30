@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package clr
@@ -10,14 +11,16 @@ import (
 
 // SafeArray represents a safe array
 // defined in OAIdl.h
-// typedef struct tagSAFEARRAY {
-//   USHORT         cDims;
-//   USHORT         fFeatures;
-//   ULONG          cbElements;
-//   ULONG          cLocks;
-//   PVOID          pvData;
-//   SAFEARRAYBOUND rgsabound[1];
-// } SAFEARRAY;
+//
+//	typedef struct tagSAFEARRAY {
+//	  USHORT         cDims;
+//	  USHORT         fFeatures;
+//	  ULONG          cbElements;
+//	  ULONG          cLocks;
+//	  PVOID          pvData;
+//	  SAFEARRAYBOUND rgsabound[1];
+//	} SAFEARRAY;
+//
 // https://docs.microsoft.com/en-us/windows/win32/api/oaidl/ns-oaidl-safearray
 // https://docs.microsoft.com/en-us/archive/msdn-magazine/2017/march/introducing-the-safearray-data-structure
 type SafeArray struct {
@@ -36,10 +39,12 @@ type SafeArray struct {
 }
 
 // SafeArrayBound represents the bounds of one dimension of the array
-// typedef struct tagSAFEARRAYBOUND {
-//   ULONG cElements;
-//   LONG  lLbound;
-// } SAFEARRAYBOUND, *LPSAFEARRAYBOUND;
+//
+//	typedef struct tagSAFEARRAYBOUND {
+//	  ULONG cElements;
+//	  LONG  lLbound;
+//	} SAFEARRAYBOUND, *LPSAFEARRAYBOUND;
+//
 // https://docs.microsoft.com/en-us/windows/win32/api/oaidl/ns-oaidl-safearraybound
 type SafeArrayBound struct {
 	// cElements is the number of elements in the dimension
@@ -89,9 +94,11 @@ func CreateSafeArray(rawBytes []byte) (*SafeArray, error) {
 
 // SafeArrayCreate creates a new array descriptor, allocates and initializes the data for the array, and returns a pointer to the new array descriptor.
 // SAFEARRAY * SafeArrayCreate(
-//   VARTYPE        vt,
-//   UINT           cDims,
-//   SAFEARRAYBOUND *rgsabound
+//
+//	VARTYPE        vt,
+//	UINT           cDims,
+//	SAFEARRAYBOUND *rgsabound
+//
 // );
 // Varient types: https://docs.microsoft.com/en-us/windows/win32/api/wtypes/ne-wtypes-varenum
 // https://docs.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-safearraycreate
@@ -125,9 +132,11 @@ func SafeArrayCreate(vt uint16, cDims uint32, rgsabound *SafeArrayBound) (safeAr
 // SysAllocString converts a Go string to a BTSR string, that is a unicode string prefixed with its length.
 // Allocates a new string and copies the passed string into it.
 // It returns a pointer to the string's content.
-//  BSTR SysAllocString(
-//    const OLECHAR *psz
-//  );
+//
+//	BSTR SysAllocString(
+//	  const OLECHAR *psz
+//	);
+//
 // https://docs.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-sysallocstring
 func SysAllocString(str string) (unsafe.Pointer, error) {
 	debugPrint("Entering into safearray.SysAllocString()...")
@@ -149,11 +158,13 @@ func SysAllocString(str string) (unsafe.Pointer, error) {
 }
 
 // SafeArrayPutElement pushes an element to the safe array at a given index
-//  HRESULT SafeArrayPutElement(
-//	  SAFEARRAY *psa,
-//	  LONG      *rgIndices,
-//	  void      *pv
-//  );
+//
+//	 HRESULT SafeArrayPutElement(
+//		  SAFEARRAY *psa,
+//		  LONG      *rgIndices,
+//		  void      *pv
+//	 );
+//
 // https://docs.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-safearrayputelement
 func SafeArrayPutElement(psa *SafeArray, rgIndices int32, pv unsafe.Pointer) error {
 	debugPrint("Entering into safearray.SafeArrayPutElement()...")
@@ -177,7 +188,9 @@ func SafeArrayPutElement(psa *SafeArray, rgIndices int32, pv unsafe.Pointer) err
 
 // SafeArrayLock increments the lock count of an array, and places a pointer to the array data in pvData of the array descriptor
 // HRESULT SafeArrayLock(
-//   SAFEARRAY *psa
+//
+//	SAFEARRAY *psa
+//
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-safearraylock
 func SafeArrayLock(psa *SafeArray) error {
@@ -201,8 +214,10 @@ func SafeArrayLock(psa *SafeArray) error {
 
 // SafeArrayGetVartype gets the VARTYPE stored in the specified safe array
 // HRESULT SafeArrayGetVartype(
-//   SAFEARRAY *psa,
-//   VARTYPE   *pvt
+//
+//	SAFEARRAY *psa,
+//	VARTYPE   *pvt
+//
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-safearraygetvartype
 func SafeArrayGetVartype(psa *SafeArray) (uint16, error) {
@@ -229,8 +244,10 @@ func SafeArrayGetVartype(psa *SafeArray) (uint16, error) {
 
 // SafeArrayAccessData increments the lock count of an array, and retrieves a pointer to the array data
 // HRESULT SafeArrayAccessData(
-//   SAFEARRAY  *psa,
-//   void HUGEP **ppvData
+//
+//	SAFEARRAY  *psa,
+//	void HUGEP **ppvData
+//
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-safearrayaccessdata
 func SafeArrayAccessData(psa *SafeArray) (*uintptr, error) {
@@ -257,9 +274,11 @@ func SafeArrayAccessData(psa *SafeArray) (*uintptr, error) {
 
 // SafeArrayGetLBound gets the lower bound for any dimension of the specified safe array
 // HRESULT SafeArrayGetLBound(
-//   SAFEARRAY *psa,
-//   UINT      nDim,
-//   LONG      *plLbound
+//
+//	SAFEARRAY *psa,
+//	UINT      nDim,
+//	LONG      *plLbound
+//
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-safearraygetlbound
 func SafeArrayGetLBound(psa *SafeArray, nDim uint32) (uint32, error) {
@@ -285,9 +304,11 @@ func SafeArrayGetLBound(psa *SafeArray, nDim uint32) (uint32, error) {
 
 // SafeArrayGetUBound gets the upper bound for any dimension of the specified safe array
 // HRESULT SafeArrayGetUBound(
-//   SAFEARRAY *psa,
-//   UINT      nDim,
-//   LONG      *plUbound
+//
+//	SAFEARRAY *psa,
+//	UINT      nDim,
+//	LONG      *plUbound
+//
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-safearraygetubound
 func SafeArrayGetUBound(psa *SafeArray, nDim uint32) (uint32, error) {
@@ -316,7 +337,9 @@ func SafeArrayGetUBound(psa *SafeArray, nDim uint32) (uint32, error) {
 // SafeArrayDestroy Destroys an existing array descriptor and all of the data in the array.
 // If objects are stored in the array, Release is called on each object in the array.
 // HRESULT SafeArrayDestroy(
-//   SAFEARRAY *psa
+//
+//	SAFEARRAY *psa
+//
 // );
 func SafeArrayDestroy(psa *SafeArray) error {
 	debugPrint("Entering into safearray.SafeArrayDestroy()...")

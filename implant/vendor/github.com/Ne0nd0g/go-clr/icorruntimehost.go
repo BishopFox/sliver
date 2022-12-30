@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package clr
@@ -146,7 +147,9 @@ func (obj *ICORRuntimeHost) Start() error {
 
 // GetDefaultDomain gets an interface pointer of type System._AppDomain that represents the default domain for the current process.
 // HRESULT GetDefaultDomain (
-//   [out] IUnknown** pAppDomain
+//
+//	[out] IUnknown** pAppDomain
+//
 // );
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/icorruntimehost-getdefaultdomain-method
 func (obj *ICORRuntimeHost) GetDefaultDomain() (IUnknown *IUnknown, err error) {
@@ -173,9 +176,11 @@ func (obj *ICORRuntimeHost) GetDefaultDomain() (IUnknown *IUnknown, err error) {
 
 // CreateDomain Creates an application domain. The caller receives an interface pointer of type _AppDomain to an instance of type System.AppDomain.
 // HRESULT CreateDomain (
-//   [in] LPWSTR    pwzFriendlyName,
-//   [in] IUnknown* pIdentityArray,
-//   [out] void   **pAppDomain
+//
+//	[in] LPWSTR    pwzFriendlyName,
+//	[in] IUnknown* pIdentityArray,
+//	[out] void   **pAppDomain
+//
 // );
 // https://docs.microsoft.com/en-us/previous-versions/dotnet/netframework-4.0/ms164322(v=vs.100)
 func (obj *ICORRuntimeHost) CreateDomain(pwzFriendlyName *uint16) (pAppDomain *AppDomain, err error) {
@@ -205,7 +210,9 @@ func (obj *ICORRuntimeHost) CreateDomain(pwzFriendlyName *uint16) (pAppDomain *A
 
 // EnumDomains Gets an enumerator for the domains in the current process.
 // HRESULT EnumDomains (
-//   [out] HCORENUM *hEnum
+//
+//	[out] HCORENUM *hEnum
+//
 // );
 func (obj *ICORRuntimeHost) EnumDomains() (hEnum *uintptr, err error) {
 	debugPrint("Enterin into icorruntimehost.EnumDomains()...")

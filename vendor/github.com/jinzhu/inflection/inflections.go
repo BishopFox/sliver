@@ -1,25 +1,25 @@
 /*
 Package inflection pluralizes and singularizes English nouns.
 
-		inflection.Plural("person") => "people"
-		inflection.Plural("Person") => "People"
-		inflection.Plural("PERSON") => "PEOPLE"
+	inflection.Plural("person") => "people"
+	inflection.Plural("Person") => "People"
+	inflection.Plural("PERSON") => "PEOPLE"
 
-		inflection.Singular("people") => "person"
-		inflection.Singular("People") => "Person"
-		inflection.Singular("PEOPLE") => "PERSON"
+	inflection.Singular("people") => "person"
+	inflection.Singular("People") => "Person"
+	inflection.Singular("PEOPLE") => "PERSON"
 
-		inflection.Plural("FancyPerson") => "FancydPeople"
-		inflection.Singular("FancyPeople") => "FancydPerson"
+	inflection.Plural("FancyPerson") => "FancydPeople"
+	inflection.Singular("FancyPeople") => "FancydPerson"
 
 Standard rules are from Rails's ActiveSupport (https://github.com/rails/rails/blob/master/activesupport/lib/active_support/inflections.rb)
 
 If you want to register more rules, follow:
 
-		inflection.AddUncountable("fish")
-		inflection.AddIrregular("person", "people")
-		inflection.AddPlural("(bu)s$", "${1}ses") # "bus" => "buses" / "BUS" => "BUSES" / "Bus" => "Buses"
-		inflection.AddSingular("(bus)(es)?$", "${1}") # "buses" => "bus" / "Buses" => "Bus" / "BUSES" => "BUS"
+	inflection.AddUncountable("fish")
+	inflection.AddIrregular("person", "people")
+	inflection.AddPlural("(bu)s$", "${1}ses") # "bus" => "buses" / "BUS" => "BUSES" / "Bus" => "Buses"
+	inflection.AddSingular("(bus)(es)?$", "${1}") # "buses" => "bus" / "Buses" => "Bus" / "BUSES" => "BUS"
 */
 package inflection
 

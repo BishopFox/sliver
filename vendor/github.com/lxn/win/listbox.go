@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build windows
 // +build windows
 
 package win
@@ -72,7 +73,7 @@ const (
 	LB_MULTIPLEADDSTRING   = 0x01B1
 )
 
-//Listbox Notification Codes
+// Listbox Notification Codes
 const (
 	LBN_ERRSPACE  = -2
 	LBN_SELCHANGE = 1

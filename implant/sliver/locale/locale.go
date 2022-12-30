@@ -20,7 +20,6 @@ package locale
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-
 import (
 	"github.com/bishopfox/sliver/implant/sliver/locale/jibberjabber"
 )

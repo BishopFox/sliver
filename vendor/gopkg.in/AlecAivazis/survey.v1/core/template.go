@@ -34,10 +34,10 @@ var (
 )
 
 /*
-  SetFancyIcons changes the err, help, marked, and focus input icons to their
-  fancier forms. These forms may not be compatible with most terminals.
-  This function will not touch the QuestionIcon as its fancy and non fancy form
-  are the same.
+SetFancyIcons changes the err, help, marked, and focus input icons to their
+fancier forms. These forms may not be compatible with most terminals.
+This function will not touch the QuestionIcon as its fancy and non fancy form
+are the same.
 */
 func SetFancyIcons() {
 	ErrorIcon = "✘"

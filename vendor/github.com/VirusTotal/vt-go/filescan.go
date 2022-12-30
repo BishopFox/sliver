@@ -72,7 +72,6 @@ func (s *FileScanner) Scan(r io.Reader, filename string, progress chan<- float32
 
 	w.Close()
 
-
 	if payloadSize > maxFileSize {
 		return nil, fmt.Errorf("file size can't be larger than %d bytes", maxFileSize)
 	} else if payloadSize > maxPayloadSize {

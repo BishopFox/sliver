@@ -381,6 +381,12 @@ func (s *SliverHTTPC2) router() *mux.Router {
 		s.stagerHandler,
 	).MatcherFunc(s.filterOTP).Methods(http.MethodGet)
 
+	// Websocket Handler
+	router.HandleFunc(
+		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.WebSocketFileExt),
+		s.acceptWebSocketConnections,
+	).Methods(http.MethodGet, http.MethodPost)
+
 	// Default handler returns static content or 404s
 	httpLog.Debugf("No pattern matches for request uri")
 	router.HandleFunc("/{rpath:.*}", s.defaultHandler).Methods(http.MethodGet, http.MethodPost)
