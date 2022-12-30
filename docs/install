@@ -170,6 +170,6 @@ for USER_DIR in "${USER_DIRS[@]}"; do
     if id -u $USER >/dev/null 2>&1; then
         mkdir -p $USER_DIR/.sliver-client/configs
         /root/sliver-server operator --name $USER --lhost localhost --save $USER_DIR/.sliver-client/configs
-        chown -R $USER:$USER $USER_DIR/.sliver-client/
+        chown -R $USER:"$(id -gn $USER)" $USER_DIR/.sliver-client/
     fi
 done
