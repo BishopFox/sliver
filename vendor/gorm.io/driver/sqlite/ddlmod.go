@@ -134,7 +134,9 @@ func parseDDL(strs ...string) (*ddl, error) {
 						columnType.PrimaryKeyValue = sql.NullBool{Bool: true, Valid: true}
 					}
 					if defaultMatches := defaultValueRegexp.FindStringSubmatch(matches[3]); len(defaultMatches) > 1 {
-						columnType.DefaultValueValue = sql.NullString{String: strings.Trim(defaultMatches[1], `"`), Valid: true}
+						if strings.ToLower(defaultMatches[1]) != "null" {
+							columnType.DefaultValueValue = sql.NullString{String: strings.Trim(defaultMatches[1], `"`), Valid: true}
+						}
 					}
 
 					// data type length
