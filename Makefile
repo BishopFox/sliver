@@ -178,6 +178,7 @@ clean-all: clean
 	rm -rf ./server/assets/fs/windows/amd64
 	rm -rf ./server/assets/fs/linux/amd64
 	rm -f ./server/assets/fs/*.zip
+	rm -f ./.downloaded_assets
 
 .PHONY: clean
 clean:
@@ -185,3 +186,4 @@ clean:
 
 .downloaded_assets:
 	./go-assets.sh
+	touch ./.downloaded_assets
