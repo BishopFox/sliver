@@ -259,6 +259,11 @@ func VirtualizationWithContext(ctx context.Context) (string, string, error) {
 		}
 	}
 
+	if PathExists(HostRoot(".dockerenv")) {
+		system = "docker"
+		role = "guest"
+	}
+
 	// before returning for the first time, cache the system and role
 	cachedVirtOnce.Do(func() {
 		cachedVirtMutex.Lock()
