@@ -55,7 +55,7 @@ func EncoderFromNonce(nonce int) (int, Encoder, error) {
 	if encoder, ok := EncoderMap[encoderID]; ok {
 		return encoderID, encoder, nil
 	}
-	return -1, nil, errors.New("Invalid encoder nonce")
+	return -1, nil, errors.New("invalid encoder nonce")
 }
 
 // RandomEncoder - Get a random nonce identifier and a matching encoder
@@ -70,7 +70,8 @@ func RandomEncoder() (int, Encoder) {
 }
 
 // NopNonce - A NOP nonce identifies a request with no encoder/payload
-//            any value where mod = 0
+//
+//	any value where mod = 0
 func NopNonce() int {
 	return insecureRand.Intn(maxN) * EncoderModulus
 }

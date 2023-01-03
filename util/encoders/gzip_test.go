@@ -1,13 +1,5 @@
 package encoders
 
-import (
-	"bytes"
-	"crypto/rand"
-	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
-	insecureRand "math/rand"
-	"testing"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -25,6 +17,15 @@ import (
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	"bytes"
+	"crypto/rand"
+	insecureRand "math/rand"
+	"testing"
+
+	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
+)
 
 func TestGzip(t *testing.T) {
 	sample := randomData()

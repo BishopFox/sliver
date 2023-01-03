@@ -28,14 +28,3 @@ func randomDataRandomSize(maxSize int) []byte {
 	rand.Read(buf)
 	return buf
 }
-
-//func TestGzipGunzip(t *testing.T) {
-//	for i := 0; i < 100; i++ {
-//		data := randomDataRandomSize(8192)
-//		gzipData := encoders.GzipBuf(data)
-//		gunzipData := encoders.GunzipBuf(gzipData)
-//		if !bytes.Equal(data, gunzipData) {
-//			t.Fatalf("Data does not match")
-//		}
-//	}
-//}
