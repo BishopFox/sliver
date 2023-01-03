@@ -88,7 +88,7 @@ type Client struct {
 	//
 	// The following algorithms are supported:
 	// RS256, ES256, ES384 and ES512.
-	// See RFC7518 for more details about the algorithms.
+	// See RFC 7518 for more details about the algorithms.
 	Key crypto.Signer
 
 	// HTTPClient optionally specifies an HTTP client to use
