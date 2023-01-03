@@ -190,9 +190,6 @@ curl -L --fail --output $OUTPUT_DIR/darwin/$GO_ARCH_1/sgn.zip https://github.com
 echo "curl -L --fail --output $OUTPUT_DIR/darwin/$GO_ARCH_2/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_macos-$GO_ARCH_2.zip"
 curl -L --fail --output $OUTPUT_DIR/darwin/$GO_ARCH_2/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_macos-$GO_ARCH_2.zip
 
-# Create this file so the Makefile will know we have been run once
-touch $REPO_DIR/.downloaded_assets
-
 # end
 echo -e "clean up: $WORK_DIR"
 rm -rf $WORK_DIR
