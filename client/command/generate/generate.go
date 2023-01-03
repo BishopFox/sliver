@@ -346,6 +346,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		C2:               c2s,
 		CanaryDomains:    canaryDomains,
 		TemplateName:     ctx.Flags.String("template"),
+		DisableSGN:       ctx.Flags.Bool("disable-sgn"),
 
 		WGPeerTunIP:       tunIP.String(),
 		WGKeyExchangePort: uint32(ctx.Flags.Int("key-exchange")),
@@ -791,9 +792,9 @@ func compile(config *clientpb.ImplantConfig, save string, con *console.SliverCon
 
 	fileData := generated.File.Data
 	if config.IsShellcode {
-		confirm := false
-		survey.AskOne(&survey.Confirm{Message: "Encode shellcode with shikata ga nai?"}, &confirm)
-		if confirm {
+		if config.DisableSGN  {
+			con.PrintErrorf("Shikata ga nai encoder is %sdisabled%s\n", console.Bold, console.Normal)
+		} else {
 			con.PrintInfof("Encoding shellcode with shikata ga nai ... ")
 			resp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
 				Encoder:      clientpb.ShellcodeEncoder_SHIKATA_GA_NAI,
