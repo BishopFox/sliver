@@ -51,7 +51,7 @@ func TestHex(t *testing.T) {
 	}
 
 	// Interoperability
-	if bytes.Equal(output, output2) {
+	if !bytes.Equal(output, output2) {
 		t.Errorf("implant encoder does not match server-side encoder %s", err)
 	}
 
