@@ -1,12 +1,5 @@
 package encoders
 
-import (
-	"bytes"
-	"testing"
-
-	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -24,6 +17,15 @@ import (
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	"bytes"
+	"crypto/rand"
+	insecureRand "math/rand"
+	"testing"
+
+	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
+)
 
 func TestGzip(t *testing.T) {
 	sample := randomData()
@@ -58,5 +60,22 @@ func TestGzip(t *testing.T) {
 		t.Logf("output1 = %#v", output)
 		t.Logf("output2 = %#v", output2)
 		t.Errorf("server/implant outputs do not match returned\n%#v != %#v", sample, data)
+	}
+}
+
+func randomDataRandomSize(maxSize int) []byte {
+	buf := make([]byte, insecureRand.Intn(maxSize))
+	rand.Read(buf)
+	return buf
+}
+
+func TestGzipGunzip(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		data := randomDataRandomSize(8192)
+		gzipData := GzipBuf(data)
+		gunzipData := GunzipBuf(gzipData)
+		if !bytes.Equal(data, gunzipData) {
+			t.Fatalf("Data does not match")
+		}
 	}
 }
