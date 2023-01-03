@@ -1388,6 +1388,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("l", "skip-symbols", false, "skip symbol obfuscation")
 			f.String("I", "template", "sliver", "implant code template")
 			f.Bool("E", "external-builder", false, "use an external builder")
+			f.Bool("G", "disable-sgn", false, "disable shikata ga nai shellcode encoder")
 
 			f.String("c", "canary", "", "canary domain(s)")
 
