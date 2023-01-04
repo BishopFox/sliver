@@ -18,9 +18,6 @@
 package otp
 
 import (
-	"github.com/boombuler/barcode"
-	"github.com/boombuler/barcode/qr"
-
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -30,8 +27,11 @@ import (
 	"hash"
 	"image"
 	"net/url"
-	"strings"
 	"strconv"
+	"strings"
+
+	"github.com/boombuler/barcode"
+	"github.com/boombuler/barcode/qr"
 )
 
 // Error when attempting to convert the secret from base32 to raw bytes.
@@ -61,7 +61,6 @@ func NewKeyFromURL(orig string) (*Key, error) {
 	s := strings.TrimSpace(orig)
 
 	u, err := url.Parse(s)
-
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +80,6 @@ func (k *Key) String() string {
 // to enroll a user's TOTP/HOTP key.
 func (k *Key) Image(width int, height int) (image.Image, error) {
 	b, err := qr.Encode(k.orig, qr.M, qr.Auto)
-
 	if err != nil {
 		return nil, err
 	}
@@ -146,9 +144,43 @@ func (k *Key) Period() uint64 {
 	if u, err := strconv.ParseUint(q.Get("period"), 10, 64); err == nil {
 		return u
 	}
-	
+
 	// If no period is defined 30 seconds is the default per (rfc6238)
 	return 30
+}
+
+// Digits returns a tiny int representing the number of OTP digits.
+func (k *Key) Digits() Digits {
+	q := k.url.Query()
+
+	if u, err := strconv.ParseUint(q.Get("digits"), 10, 64); err == nil {
+		switch u {
+		case 8:
+			return DigitsEight
+		default:
+			return DigitsSix
+		}
+	}
+
+	// Six is the most common value.
+	return DigitsSix
+}
+
+// Algorithm returns the algorithm used or the default (SHA1).
+func (k *Key) Algorithm() Algorithm {
+	q := k.url.Query()
+
+	a := strings.ToLower(q.Get("algorithm"))
+	switch a {
+	case "md5":
+		return AlgorithmMD5
+	case "sha256":
+		return AlgorithmSHA256
+	case "sha512":
+		return AlgorithmSHA512
+	default:
+		return AlgorithmSHA1
+	}
 }
 
 // URL returns the OTP URL as a string

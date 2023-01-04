@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package clr
@@ -8,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"syscall"
 	"time"
 
 	"golang.org/x/sys/windows"
@@ -58,11 +60,39 @@ func RedirectStdoutStderr() (err error) {
 		return
 	}
 
-	// Createa new reader and writer for STDERR
+	// Create a new reader and writer for STDERR
 	rSTDERR, wSTDERR, err = os.Pipe()
 	if err != nil {
 		err = fmt.Errorf("there was an error calling the os.Pipe() function to create a new STDERR:\n%s", err)
 		return
+	}
+
+	kernel32 := windows.NewLazySystemDLL("kernel32.dll")
+	getConsoleWindow := kernel32.NewProc("GetConsoleWindow")
+
+	// Ensure the process has a console because if it doesn't there will be no output to capture
+	hConsole, _, _ := getConsoleWindow.Call()
+	if hConsole == 0 {
+		// https://learn.microsoft.com/en-us/windows/console/allocconsole
+		allocConsole := kernel32.NewProc("AllocConsole")
+		// BOOL WINAPI AllocConsole(void);
+		ret, _, err := allocConsole.Call()
+		// A process can be associated with only one console, so the AllocConsole function fails if the calling process
+		// already has a console. So long as any console exists we are good to go and therefore don't care about errors
+		if ret == 0 {
+			return fmt.Errorf("there was an error calling kernel32!AllocConsole with return code %d: %s", ret, err)
+		}
+
+		// Get a handle to the newly created/allocated console
+		hConsole, _, _ = getConsoleWindow.Call()
+
+		user32 := windows.NewLazySystemDLL("user32.dll")
+		showWindow := user32.NewProc("ShowWindow")
+		// Hide the console window
+		ret, _, err = showWindow.Call(hConsole, windows.SW_HIDE)
+		if err != syscall.Errno(0) {
+			return fmt.Errorf("there was an error calling user32!ShowWindow with return %+v: %s", ret, err)
+		}
 	}
 
 	// Set STDOUT/STDERR to the new files from os.Pipe()
@@ -132,7 +162,7 @@ func ReadStdoutStderr() (stdout string, stderr string, err error) {
 	return
 }
 
-// CloseSTdoutStderr closes the Reader/Writer for the prviously redirected STDOUT/STDERR
+// CloseStdoutStderr closes the Reader/Writer for the previously redirected STDOUT/STDERR
 // that was changed to an *os.File
 func CloseStdoutStderr() (err error) {
 	err = rSTDOUT.Close()

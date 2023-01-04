@@ -367,6 +367,7 @@ func NewCallbackCDecl(fn interface{}) uintptr {
 //sys	IsWindowUnicode(hwnd HWND) (isUnicode bool) = user32.IsWindowUnicode
 //sys	IsWindowVisible(hwnd HWND) (isVisible bool) = user32.IsWindowVisible
 //sys	GetGUIThreadInfo(thread uint32, info *GUIThreadInfo) (err error) = user32.GetGUIThreadInfo
+//sys	GetLargePageMinimum() (size uintptr)
 
 // Volume Management Functions
 //sys	DefineDosDevice(flags uint32, deviceName *uint16, targetPath *uint16) (err error) = DefineDosDeviceW
@@ -755,7 +756,7 @@ func Utimes(path string, tv []Timeval) (err error) {
 	if e != nil {
 		return e
 	}
-	defer Close(h)
+	defer CloseHandle(h)
 	a := NsecToFiletime(tv[0].Nanoseconds())
 	w := NsecToFiletime(tv[1].Nanoseconds())
 	return SetFileTime(h, nil, &a, &w)
@@ -775,7 +776,7 @@ func UtimesNano(path string, ts []Timespec) (err error) {
 	if e != nil {
 		return e
 	}
-	defer Close(h)
+	defer CloseHandle(h)
 	a := NsecToFiletime(TimespecToNsec(ts[0]))
 	w := NsecToFiletime(TimespecToNsec(ts[1]))
 	return SetFileTime(h, nil, &a, &w)

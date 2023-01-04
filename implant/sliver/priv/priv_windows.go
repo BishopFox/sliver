@@ -96,7 +96,23 @@ func SePrivEnable(s string) error {
 }
 
 func RevertToSelf() error {
+	err := windows.RevertToSelf()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("RevertToSelf Error: %v\n", err)
+		// {{end}}
+	}
+	err = windows.CloseHandle(windows.Handle(CurrentToken))
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("CloseHandle Error: %v\n", err)
+		// {{end}}
+	}
 	CurrentToken = windows.Token(0)
+	return err
+}
+
+func TRevertToSelf() error {
 	return windows.RevertToSelf()
 }
 
@@ -243,7 +259,11 @@ func MakeToken(domain string, username string, password string, logonType uint32
 	if err != nil {
 		return err
 	}
-	err = syscalls.LogonUser(pu, pd, pp, logonType, syscalls.LOGON32_PROVIDER_DEFAULT, &token)
+	if logonType == 0 {
+		err = syscalls.LogonUser(pu, pd, pp, logonType, syscalls.LOGON32_PROVIDER_WINNT50, &token)
+	} else {
+		err = syscalls.LogonUser(pu, pd, pp, logonType, syscalls.LOGON32_PROVIDER_DEFAULT, &token)
+	}
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("LogonUser failed: %v\n", err)

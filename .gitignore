@@ -42,3 +42,6 @@ sliver-server-windows.zip
 .DS_Store
 
 dist/
+
+# Flag to show that go-assets.sh has been run
+.downloaded_assets

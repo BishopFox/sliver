@@ -1330,6 +1330,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("l", "skip-symbols", false, "skip symbol obfuscation")
 			f.String("I", "template", "sliver", "implant code template")
 			f.Bool("E", "external-builder", false, "use an external builder")
+			f.Bool("G", "disable-sgn", false, "disable shikata ga nai shellcode encoder")
 
 			f.String("c", "canary", "", "canary domain(s)")
 
@@ -1390,6 +1391,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("l", "skip-symbols", false, "skip symbol obfuscation")
 			f.String("I", "template", "sliver", "implant code template")
 			f.Bool("E", "external-builder", false, "use an external builder")
+			f.Bool("G", "disable-sgn", false, "disable shikata ga nai shellcode encoder")
 
 			f.String("c", "canary", "", "canary domain(s)")
 
@@ -1542,6 +1544,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("d", "debug", false, "enable debug features")
 			f.Bool("e", "evasion", false, "enable evasion features")
 			f.Bool("l", "skip-symbols", false, "skip symbol obfuscation")
+			f.Bool("G", "disable-sgn", false, "disable shikata ga nai shellcode encoder")
 
 			f.String("c", "canary", "", "canary domain(s)")
 
@@ -1600,6 +1603,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int64("M", "minutes", 0, "beacon interval minutes")
 			f.Int64("S", "seconds", 60, "beacon interval seconds")
 			f.Int64("J", "jitter", 30, "beacon interval jitter in seconds")
+			f.Bool("G", "disable-sgn", false, "disable shikata ga nai shellcode encoder")
 
 			// Generate flags
 			f.String("o", "os", "windows", "operating system")

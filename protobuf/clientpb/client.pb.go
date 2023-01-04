@@ -1863,6 +1863,7 @@ type ImplantConfig struct {
 	Evasion                 bool   `protobuf:"varint,9,opt,name=Evasion,proto3" json:"Evasion,omitempty"`
 	ObfuscateSymbols        bool   `protobuf:"varint,10,opt,name=ObfuscateSymbols,proto3" json:"ObfuscateSymbols,omitempty"`
 	TemplateName            string `protobuf:"bytes,11,opt,name=TemplateName,proto3" json:"TemplateName,omitempty"`
+	DisableSGN              bool   `protobuf:"varint,12,opt,name=DisableSGN,proto3" json:"DisableSGN,omitempty"`
 	MtlsCACert              string `protobuf:"bytes,20,opt,name=MtlsCACert,proto3" json:"MtlsCACert,omitempty"`
 	MtlsCert                string `protobuf:"bytes,21,opt,name=MtlsCert,proto3" json:"MtlsCert,omitempty"`
 	MtlsKey                 string `protobuf:"bytes,22,opt,name=MtlsKey,proto3" json:"MtlsKey,omitempty"`

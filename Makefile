@@ -118,32 +118,32 @@ endif
 # Targets
 #
 .PHONY: default
-default: clean validate-go-version
+default: clean .downloaded_assets validate-go-version
 	$(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
 	$(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 .PHONY: macos
-macos: clean validate-go-version
+macos: clean .downloaded_assets validate-go-version
 	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
 	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 .PHONY: macos-arm64
-macos-arm64: clean validate-go-version
+macos-arm64: clean .downloaded_assets validate-go-version
 	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
 	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 .PHONY: linux
-linux: clean validate-go-version
+linux: clean .downloaded_assets validate-go-version
 	GOOS=linux GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
 	GOOS=linux GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 .PHONY: linux-arm64
-linux-arm64: clean validate-go-version
+linux-arm64: clean .downloaded_assets validate-go-version
 	GOOS=linux GOARCH=arm64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
 	GOOS=linux GOARCH=arm64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 .PHONY: windows
-windows: clean validate-go-version
+windows: clean .downloaded_assets validate-go-version
 	GOOS=windows $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX).exe ./server
 	GOOS=windows $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX).exe ./client
 
@@ -178,7 +178,12 @@ clean-all: clean
 	rm -rf ./server/assets/fs/windows/amd64
 	rm -rf ./server/assets/fs/linux/amd64
 	rm -f ./server/assets/fs/*.zip
+	rm -f ./.downloaded_assets
 
 .PHONY: clean
 clean:
 	rm -f sliver-client sliver-server sliver-*.exe
+
+.downloaded_assets:
+	./go-assets.sh
+	touch ./.downloaded_assets
