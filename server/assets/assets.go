@@ -63,7 +63,7 @@ func GetRootAppDir() string {
 	var dir string
 	if len(value) == 0 {
 		user, _ := user.Current()
-		dir = path.Join(user.HomeDir, ".sliver")
+		dir = filepath.Join(user.HomeDir, ".sliver")
 	} else {
 		dir = value
 	}
@@ -100,7 +100,7 @@ func assetVersion() string {
 }
 
 func saveAssetVersion(appDir string) {
-	versionFilePath := path.Join(appDir, versionFileName)
+	versionFilePath := filepath.Join(appDir, versionFileName)
 	fVer, _ := os.Create(versionFilePath)
 	defer fVer.Close()
 	fVer.Write([]byte(ver.GitCommit))
@@ -122,6 +122,7 @@ under certain conditions; type 'licenses' for details.`)
 		}
 		setupGo(appDir)
 		setupCodenames(appDir)
+		setupTrafficEncoders(appDir)
 		saveAssetVersion(appDir)
 	}
 }
@@ -167,7 +168,6 @@ func GetGPGPublicKey() (*packet.PublicKey, error) {
 
 // SetupGo - Unzip Go compiler assets
 func setupGo(appDir string) error {
-
 	setupLog.Infof("Unpacking to '%s'", appDir)
 	goRootPath := filepath.Join(appDir, GoDirName)
 	setupLog.Infof("GOPATH = %s", goRootPath)
