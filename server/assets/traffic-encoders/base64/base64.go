@@ -9,20 +9,20 @@ import (
 // main is required for TinyGo to compile to Wasm.
 func main() {}
 
-func encode(name []byte) string {
-	return base64.RawStdEncoding.EncodeToString(name)
+func encode(data []byte) string {
+	return base64.RawStdEncoding.EncodeToString(data)
 }
 
 //export encode
 func _encode(ptr, size uint32) (ptrSize uint64) {
-	name := ptrToBuf(ptr, size)
-	g := encode(name)
-	ptr, size = stringToPtr(g)
+	data := ptrToBuf(ptr, size)
+	encodedData := encode(data)
+	ptr, size = stringToPtr(encodedData)
 	return (uint64(ptr) << uint64(32)) | uint64(size)
 }
 
-func decode(name string) []byte {
-	result, err := base64.StdEncoding.DecodeString(name)
+func decode(data string) []byte {
+	result, err := base64.StdEncoding.DecodeString(data)
 	if err != nil {
 		log(err.Error())
 		return []byte{0}
@@ -32,9 +32,9 @@ func decode(name string) []byte {
 
 //export decode
 func _decode(ptr, size uint32) (ptrSize uint64) {
-	name := ptrToString(ptr, size)
-	g := decode(name)
-	ptr, size = bufToPtr(g)
+	encodedData := ptrToString(ptr, size)
+	decodedData := decode(encodedData)
+	ptr, size = bufToPtr(decodedData)
 	return (uint64(ptr) << uint64(32)) | uint64(size)
 }
 
