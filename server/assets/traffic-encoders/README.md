@@ -11,9 +11,17 @@ decode(ptr, size uint32) (ptrSize uint64)
 encode(ptr, size uint32) (ptrSize uint64)
 ```
 
-The `encode` function takes a pointer to a buffer and the size of the buffer, and returns a pointer to a new buffer containing the encoded data and the size of the new buffer.
+The `encode` function takes a pointer to a buffer and the size of the buffer, and returns a `uint64` value where the upper 32 bits are a pointer to the address of the buffer and the lower 32 bits are the size of the buffer.
 
-The `decode` function takes a pointer to a buffer and the size of the buffer, and returns a pointer to a new buffer containing the decoded data and the size of the new buffer.
+The `decode` function takes a pointer to a buffer and the size of the buffer, and returns a `uint64` value where the upper 32 bits are a pointer to the address of the buffer and the lower 32 bits are the size of the buffer.
+
+For example, a return value in Go may look like:
+
+```go
+return (uint64(ptr) << uint64(32)) | uint64(size)
+```
+
+Where `ptr` is a pointer to the buffer and `size` is the size of the buffer.
 
 #### Debug Log
 
