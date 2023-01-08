@@ -26,7 +26,7 @@ import (
 // EnglishEncoderID - EncoderID
 const EnglishEncoderID = 31
 
-var dictionary *map[int][]string
+var dictionary map[int][]string
 
 // English Encoder - An ASCIIEncoder for binary to english text
 type English struct{}
@@ -38,7 +38,7 @@ func (e English) Encode(data []byte) []byte {
 	}
 	words := []string{}
 	for _, b := range data {
-		possibleWords := (*dictionary)[int(b)]
+		possibleWords := dictionary[int(b)]
 		index := insecureRand.Intn(len(possibleWords))
 		words = append(words, possibleWords[index])
 	}
@@ -61,11 +61,11 @@ func (e English) Decode(words []byte) ([]byte, error) {
 }
 
 func buildDictionary() {
-	dictionary = &map[int][]string{}
+	dictionary = map[int][]string{}
 	for _, word := range getEnglishDictionary() {
 		word = strings.TrimSpace(word)
 		sum := sumWord(word)
-		(*dictionary)[sum] = append((*dictionary)[sum], word)
+		dictionary[sum] = append(dictionary[sum], word)
 	}
 }
 

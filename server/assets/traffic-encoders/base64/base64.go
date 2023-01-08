@@ -28,7 +28,7 @@ import (
 func main() {}
 
 func encode(data []byte) string {
-	return base64.RawStdEncoding.EncodeToString(data)
+	return base64.StdEncoding.EncodeToString(data)
 }
 
 //export encode

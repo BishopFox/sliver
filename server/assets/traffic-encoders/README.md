@@ -1,6 +1,6 @@
 # Traffic Encoders
 
-This directory contains the default traffic encoders.
+This directory contains the default traffic encoders, which are currently built using TinyGo.
 
 ### Traffic Encoder Specification
 

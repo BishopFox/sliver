@@ -54,6 +54,11 @@ if go test -tags=server,$TAGS ./util/encoders/basex ; then
 else
     exit 1
 fi
+if go test -tags=server,$TAGS ./server/assets/traffic-encoders ; then
+    :
+else
+    exit 1
+fi
 if go test -tags=server,$TAGS ./util/encoders ; then
     :
 else
@@ -64,6 +69,7 @@ if go test -tags=client,$TAGS ./util/encoders ; then
 else
     exit 1
 fi
+
 
 ## Implant
 

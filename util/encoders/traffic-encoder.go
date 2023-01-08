@@ -127,13 +127,16 @@ func CreateTrafficEncoder(name string, wasm []byte, logString TrafficEncoderLogC
 	if err != nil {
 		return nil, err
 	}
-	wasi.MustInstantiate(ctx, wasmRuntime)
+	_, err = wasi.Instantiate(ctx, wasmRuntime)
+	if err != nil {
+		return nil, err
+	}
 	mod, err := wasmRuntime.InstantiateModuleFromBinary(ctx, wasm)
 	if err != nil {
 		return nil, err
 	}
 
-	trafficEncoder := &TrafficEncoder{
+	return &TrafficEncoder{
 		ctx:     ctx,
 		runtime: wasmRuntime,
 		mod:     mod,
@@ -144,7 +147,5 @@ func CreateTrafficEncoder(name string, wasm []byte, logString TrafficEncoderLogC
 		// These are undocumented, but exported. See tinygo-org/tinygo#2788
 		malloc: mod.ExportedFunction("malloc"),
 		free:   mod.ExportedFunction("free"),
-	}
-
-	return trafficEncoder, nil
+	}, nil
 }
