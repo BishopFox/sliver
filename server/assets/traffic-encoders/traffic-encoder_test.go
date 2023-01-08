@@ -20,7 +20,9 @@ package traffic_encoders
 
 import (
 	"bytes"
+	"crypto/rand"
 	_ "embed"
+	insecureRand "math/rand"
 	"testing"
 
 	"github.com/bishopfox/sliver/util/encoders"
@@ -29,7 +31,7 @@ import (
 //go:embed base64.wasm
 var base64WASM []byte
 
-func TestTrafficEncoder_base64(t *testing.T) {
+func TestTrafficEncoder_base64_basic(t *testing.T) {
 	encoder, err := encoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
 		t.Log(msg)
 	})
@@ -48,5 +50,31 @@ func TestTrafficEncoder_base64(t *testing.T) {
 	}
 	if !bytes.Equal(originalValue, decodedValue) {
 		t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
+	}
+}
+
+func TestTrafficEncoder_base64_random(t *testing.T) {
+	encoder, err := encoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
+		t.Log(msg)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer encoder.Close()
+	for i := 0; i < 1000; i++ {
+		originalValue := make([]byte, insecureRand.Intn(1024)+1)
+		rand.Read(originalValue)
+		encodedValue, err := encoder.Encode(originalValue)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// t.Logf("Encoded value: %s", string(encodedValue))
+		decodedValue, err := encoder.Decode(encodedValue)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(originalValue, decodedValue) {
+			t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
+		}
 	}
 }
