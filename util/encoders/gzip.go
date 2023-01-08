@@ -42,14 +42,14 @@ func init() {
 }
 
 // GzipBuf - Gzip a buffer
-func GzipBuf(data []byte) []byte {
+func GzipBuf(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	gzipWriter := gzipWriterPools.Get().(*gzip.Writer)
 	gzipWriter.Reset(&buf)
 	gzipWriter.Write(data)
 	gzipWriter.Close()
 	gzipWriterPools.Put(gzipWriter)
-	return buf.Bytes()
+	return buf.Bytes(), nil
 }
 
 // GunzipBuf - Gunzip a buffer
@@ -61,14 +61,14 @@ func GunzipBuf(data []byte) []byte {
 }
 
 // Encode - Compress data with gzip
-func (g Gzip) Encode(data []byte) []byte {
+func (g Gzip) Encode(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	gzipWriter := gzipWriterPools.Get().(*gzip.Writer)
 	gzipWriter.Reset(&buf)
 	gzipWriter.Write(data)
 	gzipWriter.Close()
 	gzipWriterPools.Put(gzipWriter)
-	return buf.Bytes()
+	return buf.Bytes(), nil
 }
 
 // Decode - Uncompressed data with gzip

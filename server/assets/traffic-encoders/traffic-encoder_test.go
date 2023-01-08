@@ -31,13 +31,14 @@ import (
 //go:embed base64.wasm
 var base64WASM []byte
 
-func TestTrafficEncoder_base64_basic(t *testing.T) {
+func TestTrafficEncoder_base64Basic(t *testing.T) {
 	encoder, err := encoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
 		t.Log(msg)
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer encoder.Close()
 	originalValue := []byte("hello world")
 	encodedValue, err := encoder.Encode(originalValue)
 	if err != nil {
@@ -53,7 +54,7 @@ func TestTrafficEncoder_base64_basic(t *testing.T) {
 	}
 }
 
-func TestTrafficEncoder_base64_random(t *testing.T) {
+func TestTrafficEncoder_base64RandomSmall(t *testing.T) {
 	encoder, err := encoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
 		t.Log(msg)
 	})
@@ -76,5 +77,28 @@ func TestTrafficEncoder_base64_random(t *testing.T) {
 		if !bytes.Equal(originalValue, decodedValue) {
 			t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
 		}
+	}
+}
+
+func TestTrafficEncoder_base64RandomLarge(t *testing.T) {
+	encoder, err := encoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
+		t.Log(msg)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer encoder.Close()
+	originalValue := make([]byte, 4*1024*1024)
+	rand.Read(originalValue)
+	encodedValue, err := encoder.Encode(originalValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decodedValue, err := encoder.Decode(encodedValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(originalValue, decodedValue) {
+		t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
 	}
 }

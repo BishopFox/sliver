@@ -1,12 +1,5 @@
 package encoders
 
-import (
-	"bytes"
-	"testing"
-
-	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -25,11 +18,18 @@ import (
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import (
+	"bytes"
+	"testing"
+
+	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
+)
+
 func TestEnglish(t *testing.T) {
 	sample := randomData()
 
 	english := new(English)
-	output := english.Encode(sample)
+	output, _ := english.Encode(sample)
 	data, err := english.Decode(output)
 	if err != nil {
 		t.Error("Failed to encode sample data into english")

@@ -25,10 +25,11 @@ const GzipEnglishEncoderID = 45
 type GzipEnglish struct{}
 
 // Encode - Compress english data with gzip
-func (g GzipEnglish) Encode(data []byte) []byte {
+func (g GzipEnglish) Encode(data []byte) ([]byte, error) {
 	gzip := EncoderMap[GzipEncoderID]
 	english := EncoderMap[EnglishEncoderID]
-	return gzip.Encode(english.Encode(data))
+	stage1, _ := english.Encode(data)
+	return gzip.Encode(stage1)
 }
 
 // Decode - Uncompressed english data with gzip
@@ -49,10 +50,11 @@ const Base64GzipEncoderID = 64
 type Base64Gzip struct{}
 
 // Encode - Base64 encode gzip data
-func (g Base64Gzip) Encode(data []byte) []byte {
+func (g Base64Gzip) Encode(data []byte) ([]byte, error) {
 	gzip := EncoderMap[GzipEncoderID]
 	b64 := EncoderMap[Base64EncoderID]
-	return b64.Encode(gzip.Encode(data))
+	stage1, _ := gzip.Encode(data)
+	return b64.Encode(stage1)
 }
 
 // Decode - Un-base64 gzip data

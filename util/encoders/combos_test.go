@@ -1,12 +1,5 @@
 package encoders
 
-import (
-	"bytes"
-	"testing"
-
-	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -25,11 +18,18 @@ import (
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import (
+	"bytes"
+	"testing"
+
+	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
+)
+
 func TestGzipEnglish(t *testing.T) {
 	sample := randomData()
 
 	gzEnglishEncoder := new(GzipEnglish)
-	output := gzEnglishEncoder.Encode(sample)
+	output, _ := gzEnglishEncoder.Encode(sample)
 	data, err := gzEnglishEncoder.Decode(output)
 	if err != nil {
 		t.Errorf("gzEnglishEncoder decode returned an error %v", err)
@@ -65,7 +65,7 @@ func TestGzipEnglish(t *testing.T) {
 		t.Errorf("gzEnglish does not match returned\n%#v != %#v", sample, data3)
 	}
 
-	output4 := gzEnglishEncoder.Encode(sample)
+	output4, _ := gzEnglishEncoder.Encode(sample)
 	data4, err := implantGzEnglishEncoder.Decode(output4)
 	if err != nil {
 		t.Errorf("gzEnglish decode returned an error %v", err)
@@ -82,7 +82,7 @@ func TestBase64Gzip(t *testing.T) {
 	sample := randomData()
 
 	b64Gz := new(Base64Gzip)
-	output := b64Gz.Encode(sample)
+	output, _ := b64Gz.Encode(sample)
 	data, err := b64Gz.Decode(output)
 	if err != nil {
 		t.Errorf("b64Gz decode returned an error %v", err)

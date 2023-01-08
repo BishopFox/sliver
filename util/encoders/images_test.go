@@ -40,7 +40,7 @@ var (
 func TestPNG(t *testing.T) {
 	pngEncoder := new(PNGEncoder)
 	for _, test := range imageTests {
-		buf := pngEncoder.Encode(test.Input)
+		buf, _ := pngEncoder.Encode(test.Input)
 		decodeOutput, err := pngEncoder.Decode(buf)
 		if err != nil {
 			t.Errorf("png decode returned error: %q", err)

@@ -45,16 +45,15 @@ const (
 type PNGEncoder struct{}
 
 // Encode outputs a valid PNG file
-func (p PNGEncoder) Encode(data []byte) []byte {
-	payload := new(Hex).Encode(data)
+func (p PNGEncoder) Encode(data []byte) ([]byte, error) {
+	payload, _ := new(Hex).Encode(data)
 	img := imageFromBytes(payload)
 	encoder := &png.Encoder{
 		CompressionLevel: png.NoCompression,
 	}
 	var buf bytes.Buffer
 	encoder.Encode(&buf, img)
-
-	return buf.Bytes()
+	return buf.Bytes(), nil
 }
 
 // Decode reads a encoded PNG to get the original binary data

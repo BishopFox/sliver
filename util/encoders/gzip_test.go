@@ -31,7 +31,7 @@ func TestGzip(t *testing.T) {
 	sample := randomData()
 
 	gzip := new(Gzip)
-	output := gzip.Encode(sample)
+	output, _ := gzip.Encode(sample)
 	data, err := gzip.Decode(output)
 	if err != nil {
 		t.Errorf("gzip decode returned an error %v", err)
@@ -72,7 +72,7 @@ func randomDataRandomSize(maxSize int) []byte {
 func TestGzipGunzip(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		data := randomDataRandomSize(8192)
-		gzipData := GzipBuf(data)
+		gzipData, _ := GzipBuf(data)
 		gunzipData := GunzipBuf(gzipData)
 		if !bytes.Equal(data, gunzipData) {
 			t.Fatalf("Data does not match")

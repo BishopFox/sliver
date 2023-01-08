@@ -32,7 +32,7 @@ var dictionary map[int][]string
 type English struct{}
 
 // Encode - Binary => English
-func (e English) Encode(data []byte) []byte {
+func (e English) Encode(data []byte) ([]byte, error) {
 	if dictionary == nil {
 		buildDictionary()
 	}
@@ -42,7 +42,7 @@ func (e English) Encode(data []byte) []byte {
 		index := insecureRand.Intn(len(possibleWords))
 		words = append(words, possibleWords[index])
 	}
-	return []byte(strings.Join(words, " "))
+	return []byte(strings.Join(words, " ")), nil
 }
 
 // Decode - English => Binary

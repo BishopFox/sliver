@@ -30,7 +30,7 @@ func TestHex(t *testing.T) {
 
 	// Server-side
 	x := new(Hex)
-	output := x.Encode(sample)
+	output, _ := x.Encode(sample)
 	data, err := x.Decode(output)
 	if err != nil {
 		t.Errorf("hex decode returned an error %v", err)

@@ -56,7 +56,7 @@ func TestRandomEncoder(t *testing.T) {
 		if err != nil {
 			t.Errorf("RandomEncoder() nonce returned error %s", err)
 		}
-		output := encoder.Encode(sample)
+		output, _ := encoder.Encode(sample)
 		data, err := encoder2.Decode(output)
 		if err != nil {
 			t.Errorf("RandomEncoder() encoder2 returned error %s", err)
@@ -70,7 +70,7 @@ func TestRandomEncoder(t *testing.T) {
 		if err != nil {
 			t.Errorf("RandomEncoder() nonce returned error %s", err)
 		}
-		output = encoder.Encode(sample)
+		output, _ = encoder.Encode(sample)
 		data, err = encoder2.Decode(output)
 		if err != nil {
 			t.Errorf("RandomEncoder() encoder2 returned error %s", err)
@@ -84,7 +84,7 @@ func TestRandomEncoder(t *testing.T) {
 		if err != nil {
 			t.Errorf("RandomEncoder() nonce returned error %s", err)
 		}
-		output = encoder.Encode(sample)
+		output, _ = encoder.Encode(sample)
 		data, err = encoder2.Decode(output)
 		if err != nil {
 			t.Errorf("RandomEncoder() encoder2 returned error %s", err)
@@ -98,7 +98,7 @@ func TestRandomEncoder(t *testing.T) {
 		if err != nil {
 			t.Errorf("RandomEncoder() nonce returned error %s", err)
 		}
-		output = encoder.Encode(sample)
+		output, _ = encoder.Encode(sample)
 		data, err = encoder2.Decode(output)
 		if err != nil {
 			t.Errorf("RandomEncoder() encoder2 returned error %s", err)
