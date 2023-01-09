@@ -106,7 +106,7 @@ func (rpc *Server) Backdoor(ctx context.Context, req *sliverpb.BackdoorReq) (*sl
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	uploadGzip := new(encoders.Gzip).Encode(newFile)
+	uploadGzip, _ := new(encoders.Gzip).Encode(newFile)
 	// upload to remote target
 	upload, err := rpc.Upload(context.Background(), &sliverpb.UploadReq{
 		Encoder: "gzip",

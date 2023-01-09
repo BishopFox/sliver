@@ -564,7 +564,8 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 	for _, q := range req.Question {
 		switch q.Qtype {
 		case dns.TypeTXT:
-			respTxt := string(implantBase64.Encode(respData))
+			rawTxt, _ := implantBase64.Encode(respData)
+			respTxt := string(rawTxt)
 			txts := []string{}
 			for start, stop := 0, 0; stop < len(respTxt); start = stop {
 				stop += s.MaxTXTLength
@@ -609,7 +610,8 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 	for _, q := range req.Question {
 		switch q.Qtype {
 		case dns.TypeTXT:
-			respTxt := string(implantBase64.Encode(respData))
+			rawTxt, _ := implantBase64.Encode(respData)
+			respTxt := string(rawTxt)
 			txts := []string{}
 			for start, stop := 0, 0; stop < len(respTxt); start = stop {
 				stop += s.MaxTXTLength
@@ -681,7 +683,8 @@ func (s *SliverDNSServer) handleDataToImplant(domain string, msg *dnspb.DNSMessa
 	for _, q := range req.Question {
 		switch q.Qtype {
 		case dns.TypeTXT:
-			respTxt := string(implantBase64.Encode(respData))
+			rawTxt, _ := implantBase64.Encode(respData)
+			respTxt := string(rawTxt)
 			txts := []string{}
 			for start, stop := 0, 0; stop < len(respTxt); start = stop {
 				stop += s.MaxTXTLength
@@ -721,7 +724,8 @@ func (s *SliverDNSServer) handleClear(domain string, msg *dnspb.DNSMessage, chec
 			}
 			resp.Answer = append(resp.Answer, a)
 		case dns.TypeTXT:
-			respTxt := string(implantBase64.Encode(respBuf))
+			rawTxt, _ := implantBase64.Encode(respBuf)
+			respTxt := string(rawTxt)
 			txts := []string{}
 			for start, stop := 0, 0; stop < len(respTxt); start = stop {
 				stop += s.MaxTXTLength

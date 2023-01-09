@@ -29,7 +29,7 @@ func TestBase32(t *testing.T) {
 	sample := randomData()
 
 	b32 := new(Base32)
-	output := b32.Encode(sample)
+	output, _ := b32.Encode(sample)
 	data, err := b32.Decode(output)
 	if err != nil {
 		t.Errorf("b32 decode returned an error %v", err)
@@ -42,7 +42,7 @@ func TestBase32(t *testing.T) {
 	}
 
 	implantBase32 := new(implantEncoders.Base32)
-	output2 := implantBase32.Encode(sample)
+	output2, _ := implantBase32.Encode(sample)
 	data2, err := implantBase32.Decode(output2)
 	if err != nil {
 		t.Errorf("implant b32 decode returned an error %v", err)
@@ -54,7 +54,7 @@ func TestBase32(t *testing.T) {
 		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 	}
 
-	output = b32.Encode(sample)
+	output, _ = b32.Encode(sample)
 	data, err = implantBase32.Decode(output)
 	if err != nil {
 		t.Errorf("b32 decode returned an error %v", err)
@@ -66,7 +66,7 @@ func TestBase32(t *testing.T) {
 		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 	}
 
-	output = implantBase32.Encode(sample)
+	output, _ = implantBase32.Encode(sample)
 	data, err = b32.Decode(output)
 	if err != nil {
 		t.Errorf("b32 decode returned an error %v", err)

@@ -80,8 +80,8 @@ const Base58EncoderID = 43
 type Base58 struct{}
 
 // Encode - Base58 Encode
-func (e Base58) Encode(data []byte) []byte {
-	return []byte(B58Encode(data))
+func (e Base58) Encode(data []byte) ([]byte, error) {
+	return []byte(B58Encode(data)), nil
 }
 
 // Decode - Base58 Decode

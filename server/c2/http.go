@@ -617,7 +617,8 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		HttpOnly: true,
 	})
 	s.noCacheHeader(resp)
-	resp.Write(encoder.Encode(responseCiphertext))
+	respData, _ := encoder.Encode(responseCiphertext)
+	resp.Write(respData)
 }
 
 func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request) {
@@ -683,7 +684,8 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 			ciphertext = []byte{}
 		}
 		s.noCacheHeader(resp)
-		resp.Write(encoder.Encode(ciphertext))
+		respData, _ := encoder.Encode(ciphertext)
+		resp.Write(respData)
 	case <-req.Context().Done():
 		httpLog.Debug("Poll client hang up")
 		return

@@ -53,7 +53,7 @@ func TestGzipEnglish(t *testing.T) {
 		t.Errorf("sample does not match returned\n%#v != %#v", sample, data2)
 	}
 
-	output2 := implantGzEnglishEncoder.Encode(sample)
+	output2, _ := implantGzEnglishEncoder.Encode(sample)
 	data3, err := gzEnglishEncoder.Decode(output2)
 	if err != nil {
 		t.Errorf("gzEnglish decode returned an error %v", err)
@@ -105,7 +105,7 @@ func TestBase64Gzip(t *testing.T) {
 		t.Logf("  data2 = %#v", data2)
 		t.Errorf("implantB64Gz sample does not match returned\n%#v != %#v", sample, data)
 	}
-	output2 := implantBase64Gz.Encode(sample)
+	output2, _ := implantBase64Gz.Encode(sample)
 	if !bytes.Equal(output, output2) {
 		t.Logf("sample  = %#v", sample)
 		t.Logf("output1 = %#v", output)

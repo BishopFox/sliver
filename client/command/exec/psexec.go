@@ -105,7 +105,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	filename := randomFileName()
 	filePath := fmt.Sprintf("%s\\%s.exe", uploadPath, filename)
-	uploadGzip := new(encoders.Gzip).Encode(serviceBinary)
+	uploadGzip, _ := new(encoders.Gzip).Encode(serviceBinary)
 	// upload to remote target
 	uploadCtrl := make(chan bool)
 	con.SpinUntil("Uploading service binary ...", uploadCtrl)

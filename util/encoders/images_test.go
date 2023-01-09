@@ -52,7 +52,7 @@ func TestPNG(t *testing.T) {
 
 	implantPNGEncoder := new(implantEncoders.PNGEncoder)
 	for _, test := range imageTests {
-		buf := implantPNGEncoder.Encode(test.Input)
+		buf, _ := implantPNGEncoder.Encode(test.Input)
 		decodeOutput, err := implantPNGEncoder.Decode(buf)
 		if err != nil {
 			t.Errorf("implant png decode returned error: %q", err)
@@ -63,7 +63,7 @@ func TestPNG(t *testing.T) {
 	}
 
 	for _, test := range imageTests {
-		buf := implantPNGEncoder.Encode(test.Input)
+		buf, _ := implantPNGEncoder.Encode(test.Input)
 		decodeOutput, err := pngEncoder.Decode(buf)
 		if err != nil {
 			t.Errorf("implant/server png decode returned error: %q", err)

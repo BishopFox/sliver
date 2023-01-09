@@ -41,7 +41,7 @@ func TestHex(t *testing.T) {
 
 	// Implant-side
 	implantHex := new(implantEncoders.Hex)
-	output2 := implantHex.Encode(sample)
+	output2, _ := implantHex.Encode(sample)
 	data2, err := implantHex.Decode(output2)
 	if err != nil {
 		t.Errorf("implant hex decode returned an error %v", err)

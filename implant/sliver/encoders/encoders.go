@@ -95,8 +95,8 @@ func NopNonce() int {
 type NoEncoder struct{}
 
 // Encode - Don't do anything
-func (n NoEncoder) Encode(data []byte) []byte {
-	return data
+func (n NoEncoder) Encode(data []byte) ([]byte, error) {
+	return data, nil
 }
 
 // Decode - Don't do anything

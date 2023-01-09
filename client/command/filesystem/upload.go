@@ -68,7 +68,7 @@ func UploadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	uploadGzip := new(encoders.Gzip).Encode(fileBuf)
+	uploadGzip, _ := new(encoders.Gzip).Encode(fileBuf)
 
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("%s -> %s", src, dst), ctrl)

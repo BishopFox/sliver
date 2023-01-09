@@ -107,7 +107,8 @@ func Encrypt(key [chacha20poly1305.KeySize]byte, plaintext []byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	plaintext = bytes.NewBuffer(encoders.GzipBuf(plaintext)).Bytes()
+	compressed, _ := encoders.GzipBuf(plaintext)
+	plaintext = bytes.NewBuffer(compressed).Bytes()
 	nonce := make([]byte, aead.NonceSize(), aead.NonceSize()+len(plaintext)+aead.Overhead())
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err

@@ -143,7 +143,7 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 		return resp, fmt.Errorf("failed to convert PE to bytes: %s", err)
 	}
 	// upload new dll
-	uploadGzip := new(encoders.Gzip).Encode(targetBytes)
+	uploadGzip, _ := new(encoders.Gzip).Encode(targetBytes)
 	// upload to remote target
 	upload, err := rpc.Upload(context.Background(), &sliverpb.UploadReq{
 		Encoder: "gzip",

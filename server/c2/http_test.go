@@ -66,7 +66,7 @@ func TestStartSessionHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to encrypt session init %s", err)
 	}
-	payload := encoder.Encode(encryptedSessionInit)
+	payload, _ := encoder.Encode(encryptedSessionInit)
 	body := bytes.NewReader(payload)
 
 	validReq := httptest.NewRequest(http.MethodPost, testURL.String(), body)

@@ -40,7 +40,7 @@ func TestEnglish(t *testing.T) {
 	}
 
 	implantEnglish := new(implantEncoders.English)
-	output2 := implantEnglish.Encode(sample)
+	output2, _ := implantEnglish.Encode(sample)
 	data2, err := implantEnglish.Decode(output2)
 	if err != nil {
 		t.Error("Failed to encode sample data into english")
