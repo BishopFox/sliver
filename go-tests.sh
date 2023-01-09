@@ -54,7 +54,7 @@ if go test -tags=server,$TAGS ./util/encoders/basex ; then
 else
     exit 1
 fi
-if go test -tags=server,$TAGS ./server/assets/traffic-encoders ; then
+if go test -timeout 10m -tags=server,$TAGS ./server/assets/traffic-encoders ; then
     :
 else
     exit 1

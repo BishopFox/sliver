@@ -21,7 +21,9 @@ package encoders
 import (
 	"context"
 	"fmt"
+	"runtime"
 
+	"github.com/bishopfox/sliver/util"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	wasi "github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
@@ -41,7 +43,6 @@ type TrafficEncoder struct {
 }
 
 func (t *TrafficEncoder) Encode(data []byte) ([]byte, error) {
-
 	// Allocate a buffer in the wasm runtime for the input data
 	size := uint64(len(data))
 	buf, err := t.malloc.Call(t.ctx, size)
@@ -72,7 +73,6 @@ func (t *TrafficEncoder) Encode(data []byte) ([]byte, error) {
 		return nil, fmt.Errorf("Memory.Read(%d, %d) out of range of memory size %d",
 			encodeResultPtr, encodeResultSize, t.mod.Memory().Size())
 	}
-
 	return encodeResult, nil
 }
 
@@ -115,7 +115,13 @@ type TrafficEncoderLogCallback func(string)
 
 func CreateTrafficEncoder(name string, wasm []byte, logString TrafficEncoderLogCallback) (*TrafficEncoder, error) {
 	ctx := context.Background()
-	wasmRuntime := wazero.NewRuntime(ctx)
+	var wasmRuntime wazero.Runtime
+	if util.Contains([]string{"amd64", "arm64"}, runtime.GOARCH) && util.Contains([]string{"darwin", "linux", "windows"}, runtime.GOOS) {
+		wasmRuntime = wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+	} else {
+		wasmRuntime = wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())
+	}
+
 	_, err := wasmRuntime.NewHostModuleBuilder(name).
 		NewFunctionBuilder().WithFunc(func(_ context.Context, m api.Module, offset, byteCount uint32) {
 		buf, ok := m.Memory().Read(offset, byteCount)

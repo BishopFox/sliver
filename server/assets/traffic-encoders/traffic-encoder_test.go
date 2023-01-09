@@ -22,8 +22,10 @@ import (
 	"bytes"
 	"crypto/rand"
 	_ "embed"
+	"encoding/base64"
 	insecureRand "math/rand"
 	"testing"
+	"time"
 
 	"github.com/bishopfox/sliver/util/encoders"
 )
@@ -100,5 +102,53 @@ func TestTrafficEncoder_base64RandomLarge(t *testing.T) {
 	}
 	if !bytes.Equal(originalValue, decodedValue) {
 		t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
+	}
+}
+
+func TestPerformance(t *testing.T) {
+
+	sizes := []int{1024, 1024 * 1024, 2 * 1024 * 1024, 4 * 1024 * 1024}
+
+	// Stock encoder
+	for i := 0; i < len(sizes); i++ {
+		originalValue := make([]byte, sizes[i])
+		rand.Read(originalValue)
+		stock := time.Now()
+		encodedValue := base64.StdEncoding.EncodeToString(originalValue)
+		decodedValue, err := base64.StdEncoding.DecodeString(encodedValue)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("Stock encoder took %v (%d bytes)", time.Since(stock), sizes[i])
+		if !bytes.Equal(originalValue, decodedValue) {
+			t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
+		}
+	}
+
+	// Traffic encoder
+	encoder, err := encoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
+		t.Log(msg)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer encoder.Close()
+
+	for i := 0; i < len(sizes); i++ {
+		originalValue := make([]byte, sizes[i])
+		rand.Read(originalValue)
+		start := time.Now()
+		encodedValue, err := encoder.Encode(originalValue)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decodedValue, err := encoder.Decode(encodedValue)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("Traffic encoder took %v (%d bytes)", time.Since(start), sizes[i])
+		if !bytes.Equal(originalValue, decodedValue) {
+			t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
+		}
 	}
 }
