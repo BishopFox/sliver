@@ -39,3 +39,11 @@ func (e EmptyEncoderFS) ReadFile(name string) ([]byte, error) {
 func loadTrafficEncoders(appDir string) encoders.EncoderFS {
 	return EmptyEncoderFS{}
 }
+
+func setupGo(appDir string) error {
+	return nil
+}
+
+func setupCodenames(appDir string) error {
+	return nil
+}
