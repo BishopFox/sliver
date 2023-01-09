@@ -21,8 +21,10 @@ package encoders
 import (
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io/fs"
 	insecureRand "math/rand"
+	"strings"
 )
 
 const (
@@ -54,8 +56,9 @@ type EncoderFS interface {
 	ReadFile(name string) ([]byte, error)
 }
 
-func InitEncoderMap(encodersFS EncoderFS) error {
+func InitEncoderMap(encodersFS EncoderFS, logger func(string)) error {
 	// Load WASM encoders
+	logger("initializing traffic encoder map...")
 	wasmEncoderFiles, err := encodersFS.ReadDir(".")
 	if err != nil {
 		return err
@@ -64,18 +67,23 @@ func InitEncoderMap(encodersFS EncoderFS) error {
 		if wasmEncoderFile.IsDir() {
 			continue
 		}
-		wasmEncoderName := wasmEncoderFile.Name()
-		wasmEncoderData, err := encodersFS.ReadFile(wasmEncoderName)
+		// WASM Module name should be equal to file name without the extension
+		wasmEncoderModuleName := strings.TrimSuffix(wasmEncoderFile.Name(), ".wasm")
+		wasmEncoderData, err := encodersFS.ReadFile(wasmEncoderFile.Name())
 		if err != nil {
+			logger(fmt.Sprintf("failed to read file %s (%s)", wasmEncoderModuleName, err.Error()))
 			return err
 		}
 		wasmEncoderID := calculateWasmEncoderID(wasmEncoderData)
-		trafficEncoder, err := CreateTrafficEncoder(wasmEncoderName, wasmEncoderData, func(s string) {})
+		trafficEncoder, err := CreateTrafficEncoder(wasmEncoderModuleName, wasmEncoderData, logger)
 		if err != nil {
+			logger(fmt.Sprintf("failed to create traffic encoder from '%s': %s", wasmEncoderModuleName, err.Error()))
 			return err
 		}
 		EncoderMap[int(wasmEncoderID)] = trafficEncoder
+		logger(fmt.Sprintf("Loading %s (id: %d, bytes: %d)", wasmEncoderModuleName, wasmEncoderID, len(wasmEncoderData)))
 	}
+	logger(fmt.Sprintf("Loaded %d traffic encoders", len(wasmEncoderFiles)))
 	return nil
 }
 

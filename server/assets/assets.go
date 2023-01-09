@@ -49,6 +49,8 @@ const (
 
 var (
 	setupLog = log.NamedLogger("assets", "setup")
+
+	trafficEncoderLog = log.NamedLogger("assets", "traffic-encoders")
 )
 
 // GetRootAppDir - Get the Sliver app dir, default is: ~/.sliver/
@@ -119,11 +121,13 @@ under certain conditions; type 'licenses' for details.`)
 		setupTrafficEncoders(appDir)
 		saveAssetVersion(appDir)
 	}
-	initEncoders(appDir)
-}
-
-func initEncoders(appDir string) {
-	encoders.InitEncoderMap(loadTrafficEncoders(appDir))
+	setupLog.Infof("Initializing encoders ...")
+	err := encoders.InitEncoderMap(loadTrafficEncoders(appDir), func(msg string) {
+		trafficEncoderLog.Infof("[traffic encoder] %s", msg)
+	})
+	if err != nil {
+		trafficEncoderLog.Errorf("Failed to initialize traffic encoders: %s", err)
+	}
 	encoders.InitEnglishDictionary(English())
 }
 
