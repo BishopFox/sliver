@@ -1,4 +1,4 @@
-//go:build !386 && !amd64
+//go:build !((linux && (386 || amd64)) || (darwin && (amd64 || arm64)) || (windows && amd64))
 
 package handlers
 
