@@ -31,7 +31,6 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/netstat"
 	"github.com/bishopfox/sliver/implant/sliver/procdump"
 	"github.com/bishopfox/sliver/implant/sliver/ps"
-	"github.com/bishopfox/sliver/implant/sliver/screen"
 	"github.com/bishopfox/sliver/implant/sliver/shell/ssh"
 	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -171,25 +170,6 @@ func ifconfig() *sliverpb.Ifconfig {
 		interfaces.NetInterfaces = append(interfaces.NetInterfaces, netIface)
 	}
 	return interfaces
-}
-
-func screenshotHandler(data []byte, resp RPCResponse) {
-	sc := &sliverpb.ScreenshotReq{}
-	err := proto.Unmarshal(data, sc)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("error decoding message: %v", err)
-		// {{end}}
-		return
-	}
-	// {{if .Config.Debug}}
-	log.Printf("Screenshot Request")
-	// {{end}}
-	scRes := &sliverpb.Screenshot{}
-	scRes.Data = screen.Screenshot()
-	data, err = proto.Marshal(scRes)
-
-	resp(data, err)
 }
 
 func netstatHandler(data []byte, resp RPCResponse) {
