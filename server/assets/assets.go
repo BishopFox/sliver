@@ -124,8 +124,11 @@ under certain conditions; type 'licenses' for details.`)
 		setupTrafficEncoders(appDir)
 		saveAssetVersion(appDir)
 	}
+	initEncoders(appDir)
+}
 
-	encoders.InitEncoderMap(defaultTrafficEncoders)
+func initEncoders(appDir string) {
+	encoders.InitEncoderMap(loadTrafficEncoders(appDir))
 	encoders.InitEnglishDictionary(English())
 }
 

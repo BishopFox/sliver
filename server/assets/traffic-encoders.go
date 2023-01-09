@@ -22,15 +22,68 @@ package assets
 
 import (
 	"embed"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
+
+	"github.com/bishopfox/sliver/util/encoders"
 )
 
 var (
 	//go:embed traffic-encoders/*.wasm
 	defaultTrafficEncoders embed.FS
 )
+
+type PassthroughEncoderFS struct {
+	rootDir string
+}
+
+func (p PassthroughEncoderFS) Open(name string) (fs.File, error) {
+	localPath := filepath.Join(p.rootDir, filepath.Base(name))
+	if !strings.HasSuffix(localPath, ".wasm") {
+		return nil, os.ErrNotExist
+	}
+	if _, err := os.Stat(localPath); os.IsNotExist(err) {
+		return nil, os.ErrNotExist
+	}
+	return os.Open(localPath)
+}
+
+func (p PassthroughEncoderFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	localPath := filepath.Join(p.rootDir, filepath.Base(name))
+	if _, err := os.Stat(localPath); os.IsNotExist(err) {
+		return nil, os.ErrNotExist
+	}
+	ls, err := os.ReadDir(localPath)
+	if err != nil {
+		return nil, err
+	}
+	var entries []fs.DirEntry
+	for _, entry := range ls {
+		if !strings.HasSuffix(entry.Name(), ".wasm") {
+			continue
+		}
+		entries = append(entries, entry)
+	}
+	return entries, nil
+}
+
+func (p PassthroughEncoderFS) ReadFile(name string) ([]byte, error) {
+	localPath := filepath.Join(p.rootDir, filepath.Base(name))
+	if !strings.HasSuffix(localPath, ".wasm") {
+		return nil, os.ErrNotExist
+	}
+	if _, err := os.Stat(localPath); os.IsNotExist(err) {
+		return nil, os.ErrNotExist
+	}
+	return os.ReadFile(localPath)
+}
+
+func loadTrafficEncoders(appDir string) encoders.EncoderFS {
+	return PassthroughEncoderFS{rootDir: filepath.Join(appDir, "traffic-encoders")}
+}
 
 func setupTrafficEncoders(appDir string) error {
 	localTrafficEncodersDir := filepath.Join(appDir, "traffic-encoders")

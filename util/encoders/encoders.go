@@ -20,8 +20,8 @@ package encoders
 
 import (
 	"crypto/sha256"
-	"embed"
 	"errors"
+	"io/fs"
 	insecureRand "math/rand"
 )
 
@@ -48,7 +48,13 @@ var EncoderMap = map[int]Encoder{
 	Base64GzipEncoderID:  Base64Gzip{},
 }
 
-func InitEncoderMap(encodersFS embed.FS) error {
+type EncoderFS interface {
+	Open(name string) (fs.File, error)
+	ReadDir(name string) ([]fs.DirEntry, error)
+	ReadFile(name string) ([]byte, error)
+}
+
+func InitEncoderMap(encodersFS EncoderFS) error {
 	// Load WASM encoders
 	wasmEncoderFiles, err := encodersFS.ReadDir(".")
 	if err != nil {
