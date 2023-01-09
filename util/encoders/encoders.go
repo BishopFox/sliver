@@ -19,6 +19,8 @@ package encoders
 */
 
 import (
+	"crypto/sha256"
+	"embed"
 	"errors"
 	insecureRand "math/rand"
 )
@@ -44,6 +46,36 @@ var EncoderMap = map[int]Encoder{
 	GzipEncoderID:        Gzip{},
 	GzipEnglishEncoderID: GzipEnglish{},
 	Base64GzipEncoderID:  Base64Gzip{},
+}
+
+func InitEncoderMap(encodersFS embed.FS) error {
+	// Load WASM encoders
+	wasmEncoderFiles, err := encodersFS.ReadDir(".")
+	if err != nil {
+		return err
+	}
+	for _, wasmEncoderFile := range wasmEncoderFiles {
+		if wasmEncoderFile.IsDir() {
+			continue
+		}
+		wasmEncoderName := wasmEncoderFile.Name()
+		wasmEncoderData, err := encodersFS.ReadFile(wasmEncoderName)
+		if err != nil {
+			return err
+		}
+		wasmEncoderID := calculateWasmEncoderID(wasmEncoderData)
+		trafficEncoder, err := CreateTrafficEncoder(wasmEncoderName, wasmEncoderData, func(s string) {})
+		if err != nil {
+			return err
+		}
+		EncoderMap[int(wasmEncoderID)] = trafficEncoder
+	}
+	return nil
+}
+
+func calculateWasmEncoderID(wasmEncoderData []byte) uint16 {
+	digest := sha256.Sum256(wasmEncoderData)
+	return uint16(digest[0])<<8 + uint16(digest[1])
 }
 
 // EncoderFromNonce - Convert a nonce into an encoder

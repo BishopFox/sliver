@@ -27,6 +27,7 @@ import (
 	wasi "github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 
+// TrafficEncoder - Implements the `Encoder` interface using a wasm backend
 type TrafficEncoder struct {
 	ctx     context.Context
 	runtime wazero.Runtime

@@ -65,6 +65,10 @@ func log(message string) {
 //export log
 func _log(ptr uint32, size uint32)
 
+//
+// *** Helper Functions ***
+//
+
 func ptrToBuf(ptr uint32, size uint32) []byte {
 	return *(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{
 		Data: uintptr(ptr),

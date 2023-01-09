@@ -38,6 +38,7 @@ import (
 	protobufs "github.com/bishopfox/sliver/protobuf"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
+	"github.com/bishopfox/sliver/util/encoders"
 	"golang.org/x/crypto/openpgp/armor"
 	"golang.org/x/crypto/openpgp/packet"
 )
@@ -57,9 +58,7 @@ var (
 
 // GetRootAppDir - Get the Sliver app dir, default is: ~/.sliver/
 func GetRootAppDir() string {
-
 	value := os.Getenv(envVarName)
-
 	var dir string
 	if len(value) == 0 {
 		user, _ := user.Current()
@@ -125,6 +124,9 @@ under certain conditions; type 'licenses' for details.`)
 		setupTrafficEncoders(appDir)
 		saveAssetVersion(appDir)
 	}
+
+	encoders.InitEncoderMap(defaultTrafficEncoders)
+	encoders.InitEnglishDictionary(English())
 }
 
 // English - Extracts the english dictionary for the english encoder

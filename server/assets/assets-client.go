@@ -7,6 +7,8 @@ import "embed"
 var (
 	//go:embed fs/english.txt fs/sliver.asc
 	assetsFs embed.FS
+
+	defaultTrafficEncoders embed.FS
 )
 
 // Blank for client, no need for traffic encoders
