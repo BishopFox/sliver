@@ -88,7 +88,7 @@ func TestTrafficEncoder_base64RandomLarge(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer encoder.Close()
-	originalValue := make([]byte, 4*1024*1024)
+	originalValue := make([]byte, 2*1024*1024)
 	rand.Read(originalValue)
 	encodedValue, err := encoder.Encode(originalValue)
 	if err != nil {

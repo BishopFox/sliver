@@ -41,6 +41,7 @@ var (
 	defaultTrafficEncoders embed.FS
 )
 
+// PassthroughEncoderFS - Creates an encoder.EncoderFS object from a single local directory
 type PassthroughEncoderFS struct {
 	rootDir string
 }
@@ -50,27 +51,28 @@ func (p PassthroughEncoderFS) Open(name string) (fs.File, error) {
 	if !strings.HasSuffix(localPath, ".wasm") {
 		return nil, os.ErrNotExist
 	}
-	if _, err := os.Stat(localPath); os.IsNotExist(err) {
+	if stat, err := os.Stat(localPath); os.IsNotExist(err) || stat.IsDir() {
 		return nil, os.ErrNotExist
 	}
 	return os.Open(localPath)
 }
 
-func (p PassthroughEncoderFS) ReadDir(name string) ([]fs.DirEntry, error) {
-	localPath := filepath.Join(p.rootDir, filepath.Base(name))
-	if _, err := os.Stat(localPath); os.IsNotExist(err) {
+func (p PassthroughEncoderFS) ReadDir(_ string) ([]fs.DirEntry, error) {
+	if _, err := os.Stat(p.rootDir); os.IsNotExist(err) {
 		return nil, os.ErrNotExist
 	}
-	ls, err := os.ReadDir(localPath)
+	ls, err := os.ReadDir(p.rootDir)
 	if err != nil {
 		return nil, err
 	}
 	var entries []fs.DirEntry
 	for _, entry := range ls {
-		if !strings.HasSuffix(entry.Name(), ".wasm") {
+		if entry.IsDir() {
 			continue
 		}
-		entries = append(entries, entry)
+		if strings.HasSuffix(entry.Name(), ".wasm") {
+			entries = append(entries, entry)
+		}
 	}
 	return entries, nil
 }
@@ -80,7 +82,7 @@ func (p PassthroughEncoderFS) ReadFile(name string) ([]byte, error) {
 	if !strings.HasSuffix(localPath, ".wasm") {
 		return nil, os.ErrNotExist
 	}
-	if _, err := os.Stat(localPath); os.IsNotExist(err) {
+	if stat, err := os.Stat(localPath); os.IsNotExist(err) || stat.IsDir() {
 		return nil, os.ErrNotExist
 	}
 	return os.ReadFile(localPath)

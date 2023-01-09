@@ -30,7 +30,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"time"
 
 	ver "github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/server/log"
@@ -168,9 +167,7 @@ func GetGPGPublicKey() (*packet.PublicKey, error) {
 }
 
 func unzip(src string, dest string) ([]string, error) {
-
 	var filenames []string
-
 	reader, err := zip.OpenReader(src)
 	if err != nil {
 		return filenames, err
@@ -212,9 +209,7 @@ func unzip(src string, dest string) ([]string, error) {
 }
 
 func unzipBuf(src []byte, dest string) ([]string, error) {
-
 	var filenames []string
-
 	reader, err := zip.NewReader(bytes.NewReader(src), int64(len(src)))
 	if err != nil {
 		return filenames, err
@@ -252,7 +247,6 @@ func unzipBuf(src []byte, dest string) ([]string, error) {
 }
 
 func pseudoRandStringRunes(n int) string {
-	insecureRand.Seed(time.Now().UnixNano())
 	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	b := make([]rune, n)
 	for i := range b {
