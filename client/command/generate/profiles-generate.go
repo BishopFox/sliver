@@ -41,7 +41,7 @@ func ProfilesGenerateCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 	}
 	profile := GetImplantProfileByName(name, con)
 	if profile != nil {
-		implantFile, err := compile(profile.Config, save, con)
+		implantFile, err := compile(profile.Config, ctx.Flags.Bool("disable-sgn"), save, con)
 		if err != nil {
 			return
 		}

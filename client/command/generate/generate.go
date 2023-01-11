@@ -99,7 +99,7 @@ func GenerateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		save, _ = os.Getwd()
 	}
 	if !ctx.Flags.Bool("external-builder") {
-		compile(config, save, con)
+		compile(config, ctx.Flags.Bool("disable-sgn"), save, con)
 	} else {
 		_, err := externalBuild(config, save, con)
 		if err != nil {
@@ -346,7 +346,6 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		C2:               c2s,
 		CanaryDomains:    canaryDomains,
 		TemplateName:     ctx.Flags.String("template"),
-		DisableSGN:       ctx.Flags.Bool("disable-sgn"),
 
 		WGPeerTunIP:       tunIP.String(),
 		WGKeyExchangePort: uint32(ctx.Flags.Int("key-exchange")),
@@ -756,7 +755,7 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 	return nil, nil
 }
 
-func compile(config *clientpb.ImplantConfig, save string, con *console.SliverConsoleClient) (*commonpb.File, error) {
+func compile(config *clientpb.ImplantConfig, disableSGN bool, save string, con *console.SliverConsoleClient) (*commonpb.File, error) {
 	if config.IsBeacon {
 		interval := time.Duration(config.BeaconInterval)
 		con.PrintInfof("Generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
@@ -792,7 +791,7 @@ func compile(config *clientpb.ImplantConfig, save string, con *console.SliverCon
 
 	fileData := generated.File.Data
 	if config.IsShellcode {
-		if config.DisableSGN  {
+		if disableSGN {
 			con.PrintErrorf("Shikata ga nai encoder is %sdisabled%s\n", console.Bold, console.Normal)
 		} else {
 			con.PrintInfof("Encoding shellcode with shikata ga nai ... ")
