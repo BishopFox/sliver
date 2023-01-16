@@ -16,6 +16,10 @@ type renderHint struct {
 	rowNumber         int  // the row number/index
 }
 
+func (h *renderHint) isBorderOrSeparator() bool {
+	return h.isBorderTop || h.isSeparatorRow || h.isBorderBottom
+}
+
 func (h *renderHint) isRegularRow() bool {
 	return !h.isHeaderRow && !h.isFooterRow
 }
