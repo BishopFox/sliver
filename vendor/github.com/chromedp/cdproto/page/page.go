@@ -100,6 +100,7 @@ type CaptureScreenshotParams struct {
 	Clip                  *Viewport               `json:"clip,omitempty"`                  // Capture the screenshot of a given region only.
 	FromSurface           bool                    `json:"fromSurface,omitempty"`           // Capture the screenshot from the surface, rather than the view. Defaults to true.
 	CaptureBeyondViewport bool                    `json:"captureBeyondViewport,omitempty"` // Capture the screenshot beyond the viewport. Defaults to false.
+	OptimizeForSpeed      bool                    `json:"optimizeForSpeed,omitempty"`      // Optimize image encoding for speed, not for resulting size (defaults to false)
 }
 
 // CaptureScreenshot capture page screenshot.
@@ -140,6 +141,13 @@ func (p CaptureScreenshotParams) WithFromSurface(fromSurface bool) *CaptureScree
 // Defaults to false.
 func (p CaptureScreenshotParams) WithCaptureBeyondViewport(captureBeyondViewport bool) *CaptureScreenshotParams {
 	p.CaptureBeyondViewport = captureBeyondViewport
+	return &p
+}
+
+// WithOptimizeForSpeed optimize image encoding for speed, not for resulting
+// size (defaults to false).
+func (p CaptureScreenshotParams) WithOptimizeForSpeed(optimizeForSpeed bool) *CaptureScreenshotParams {
+	p.OptimizeForSpeed = optimizeForSpeed
 	return &p
 }
 
@@ -437,6 +445,45 @@ func (p *GetAppIDParams) Do(ctx context.Context) (appID string, recommendedID st
 	}
 
 	return res.AppID, res.RecommendedID, nil
+}
+
+// GetAdScriptIDParams [no description].
+type GetAdScriptIDParams struct {
+	FrameID cdp.FrameID `json:"frameId"`
+}
+
+// GetAdScriptID [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#method-getAdScriptId
+//
+// parameters:
+//
+//	frameID
+func GetAdScriptID(frameID cdp.FrameID) *GetAdScriptIDParams {
+	return &GetAdScriptIDParams{
+		FrameID: frameID,
+	}
+}
+
+// GetAdScriptIDReturns return values.
+type GetAdScriptIDReturns struct {
+	AdScriptID *AdScriptID `json:"adScriptId,omitempty"` // Identifies the bottom-most script which caused the frame to be labelled as an ad. Only sent if frame is labelled as an ad and id is available.
+}
+
+// Do executes Page.getAdScriptId against the provided context.
+//
+// returns:
+//
+//	adScriptID - Identifies the bottom-most script which caused the frame to be labelled as an ad. Only sent if frame is labelled as an ad and id is available.
+func (p *GetAdScriptIDParams) Do(ctx context.Context) (adScriptID *AdScriptID, err error) {
+	// execute
+	var res GetAdScriptIDReturns
+	err = cdp.Execute(ctx, CommandGetAdScriptID, p, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.AdScriptID, nil
 }
 
 // GetFrameTreeParams returns present frame tree structure.
@@ -1285,37 +1332,6 @@ func (p *SetDocumentContentParams) Do(ctx context.Context) (err error) {
 	return cdp.Execute(ctx, CommandSetDocumentContent, p, nil)
 }
 
-// SetDownloadBehaviorParams set the behavior when downloading a file.
-type SetDownloadBehaviorParams struct {
-	Behavior     SetDownloadBehaviorBehavior `json:"behavior"`               // Whether to allow all or deny all download requests, or use default Chrome behavior if available (otherwise deny).
-	DownloadPath string                      `json:"downloadPath,omitempty"` // The default path to save downloaded files to. This is required if behavior is set to 'allow'
-}
-
-// SetDownloadBehavior set the behavior when downloading a file.
-//
-// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#method-setDownloadBehavior
-//
-// parameters:
-//
-//	behavior - Whether to allow all or deny all download requests, or use default Chrome behavior if available (otherwise deny).
-func SetDownloadBehavior(behavior SetDownloadBehaviorBehavior) *SetDownloadBehaviorParams {
-	return &SetDownloadBehaviorParams{
-		Behavior: behavior,
-	}
-}
-
-// WithDownloadPath the default path to save downloaded files to. This is
-// required if behavior is set to 'allow'.
-func (p SetDownloadBehaviorParams) WithDownloadPath(downloadPath string) *SetDownloadBehaviorParams {
-	p.DownloadPath = downloadPath
-	return &p
-}
-
-// Do executes Page.setDownloadBehavior against the provided context.
-func (p *SetDownloadBehaviorParams) Do(ctx context.Context) (err error) {
-	return cdp.Execute(ctx, CommandSetDownloadBehavior, p, nil)
-}
-
 // SetLifecycleEventsEnabledParams controls whether page will emit lifecycle
 // events.
 type SetLifecycleEventsEnabledParams struct {
@@ -1676,6 +1692,7 @@ const (
 	CommandGetInstallabilityErrors             = "Page.getInstallabilityErrors"
 	CommandGetManifestIcons                    = "Page.getManifestIcons"
 	CommandGetAppID                            = "Page.getAppId"
+	CommandGetAdScriptID                       = "Page.getAdScriptId"
 	CommandGetFrameTree                        = "Page.getFrameTree"
 	CommandGetLayoutMetrics                    = "Page.getLayoutMetrics"
 	CommandGetNavigationHistory                = "Page.getNavigationHistory"
@@ -1697,7 +1714,6 @@ const (
 	CommandSetFontFamilies                     = "Page.setFontFamilies"
 	CommandSetFontSizes                        = "Page.setFontSizes"
 	CommandSetDocumentContent                  = "Page.setDocumentContent"
-	CommandSetDownloadBehavior                 = "Page.setDownloadBehavior"
 	CommandSetLifecycleEventsEnabled           = "Page.setLifecycleEventsEnabled"
 	CommandStartScreencast                     = "Page.startScreencast"
 	CommandStopLoading                         = "Page.stopLoading"

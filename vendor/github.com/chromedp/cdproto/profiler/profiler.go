@@ -176,21 +176,6 @@ func (p *StartPreciseCoverageParams) Do(ctx context.Context) (timestamp float64,
 	return res.Timestamp, nil
 }
 
-// StartTypeProfileParams enable type profile.
-type StartTypeProfileParams struct{}
-
-// StartTypeProfile enable type profile.
-//
-// See: https://chromedevtools.github.io/devtools-protocol/tot/Profiler#method-startTypeProfile
-func StartTypeProfile() *StartTypeProfileParams {
-	return &StartTypeProfileParams{}
-}
-
-// Do executes Profiler.startTypeProfile against the provided context.
-func (p *StartTypeProfileParams) Do(ctx context.Context) (err error) {
-	return cdp.Execute(ctx, CommandStartTypeProfile, nil, nil)
-}
-
 // StopParams [no description].
 type StopParams struct{}
 
@@ -240,23 +225,6 @@ func (p *StopPreciseCoverageParams) Do(ctx context.Context) (err error) {
 	return cdp.Execute(ctx, CommandStopPreciseCoverage, nil, nil)
 }
 
-// StopTypeProfileParams disable type profile. Disabling releases type
-// profile data collected so far.
-type StopTypeProfileParams struct{}
-
-// StopTypeProfile disable type profile. Disabling releases type profile data
-// collected so far.
-//
-// See: https://chromedevtools.github.io/devtools-protocol/tot/Profiler#method-stopTypeProfile
-func StopTypeProfile() *StopTypeProfileParams {
-	return &StopTypeProfileParams{}
-}
-
-// Do executes Profiler.stopTypeProfile against the provided context.
-func (p *StopTypeProfileParams) Do(ctx context.Context) (err error) {
-	return cdp.Execute(ctx, CommandStopTypeProfile, nil, nil)
-}
-
 // TakePreciseCoverageParams collect coverage data for the current isolate,
 // and resets execution counters. Precise code coverage needs to have started.
 type TakePreciseCoverageParams struct{}
@@ -292,37 +260,6 @@ func (p *TakePreciseCoverageParams) Do(ctx context.Context) (result []*ScriptCov
 	return res.Result, res.Timestamp, nil
 }
 
-// TakeTypeProfileParams collect type profile.
-type TakeTypeProfileParams struct{}
-
-// TakeTypeProfile collect type profile.
-//
-// See: https://chromedevtools.github.io/devtools-protocol/tot/Profiler#method-takeTypeProfile
-func TakeTypeProfile() *TakeTypeProfileParams {
-	return &TakeTypeProfileParams{}
-}
-
-// TakeTypeProfileReturns return values.
-type TakeTypeProfileReturns struct {
-	Result []*ScriptTypeProfile `json:"result,omitempty"` // Type profile for all scripts since startTypeProfile() was turned on.
-}
-
-// Do executes Profiler.takeTypeProfile against the provided context.
-//
-// returns:
-//
-//	result - Type profile for all scripts since startTypeProfile() was turned on.
-func (p *TakeTypeProfileParams) Do(ctx context.Context) (result []*ScriptTypeProfile, err error) {
-	// execute
-	var res TakeTypeProfileReturns
-	err = cdp.Execute(ctx, CommandTakeTypeProfile, nil, &res)
-	if err != nil {
-		return nil, err
-	}
-
-	return res.Result, nil
-}
-
 // Command names.
 const (
 	CommandDisable               = "Profiler.disable"
@@ -331,10 +268,7 @@ const (
 	CommandSetSamplingInterval   = "Profiler.setSamplingInterval"
 	CommandStart                 = "Profiler.start"
 	CommandStartPreciseCoverage  = "Profiler.startPreciseCoverage"
-	CommandStartTypeProfile      = "Profiler.startTypeProfile"
 	CommandStop                  = "Profiler.stop"
 	CommandStopPreciseCoverage   = "Profiler.stopPreciseCoverage"
-	CommandStopTypeProfile       = "Profiler.stopTypeProfile"
 	CommandTakePreciseCoverage   = "Profiler.takePreciseCoverage"
-	CommandTakeTypeProfile       = "Profiler.takeTypeProfile"
 )

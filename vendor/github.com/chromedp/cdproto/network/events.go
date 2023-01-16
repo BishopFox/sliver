@@ -208,11 +208,12 @@ type EventWebTransportClosed struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Network#event-requestWillBeSentExtraInfo
 type EventRequestWillBeSentExtraInfo struct {
-	RequestID           RequestID                  `json:"requestId"`                     // Request identifier. Used to match this information to an existing requestWillBeSent event.
-	AssociatedCookies   []*BlockedCookieWithReason `json:"associatedCookies"`             // A list of cookies potentially associated to the requested URL. This includes both cookies sent with the request and the ones not sent; the latter are distinguished by having blockedReason field set.
-	Headers             Headers                    `json:"headers"`                       // Raw request headers as they will be sent over the wire.
-	ConnectTiming       *ConnectTiming             `json:"connectTiming"`                 // Connection timing information for the request.
-	ClientSecurityState *ClientSecurityState       `json:"clientSecurityState,omitempty"` // The client security state set for the request.
+	RequestID                     RequestID                  `json:"requestId"`                               // Request identifier. Used to match this information to an existing requestWillBeSent event.
+	AssociatedCookies             []*BlockedCookieWithReason `json:"associatedCookies"`                       // A list of cookies potentially associated to the requested URL. This includes both cookies sent with the request and the ones not sent; the latter are distinguished by having blockedReason field set.
+	Headers                       Headers                    `json:"headers"`                                 // Raw request headers as they will be sent over the wire.
+	ConnectTiming                 *ConnectTiming             `json:"connectTiming"`                           // Connection timing information for the request.
+	ClientSecurityState           *ClientSecurityState       `json:"clientSecurityState,omitempty"`           // The client security state set for the request.
+	SiteHasCookieInOtherPartition bool                       `json:"siteHasCookieInOtherPartition,omitempty"` // Whether the site has partitioned cookies stored in a partition different than the current one.
 }
 
 // EventResponseReceivedExtraInfo fired when additional information about a
