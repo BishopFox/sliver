@@ -318,14 +318,14 @@ type localTimeInterface interface {
 }
 
 func (dialector Dialector) Explain(sql string, vars ...interface{}) string {
-	if dialector.DSNConfig != nil && dialector.DSNConfig.Loc == time.Local {
+	if dialector.DSNConfig != nil && dialector.DSNConfig.Loc != nil {
 		for i, v := range vars {
 			if p, ok := v.(localTimeInterface); ok {
 				func(i int, t localTimeInterface) {
 					defer func() {
 						recover()
 					}()
-					vars[i] = t.In(time.Local)
+					vars[i] = t.In(dialector.DSNConfig.Loc)
 				}(i, p)
 			}
 		}

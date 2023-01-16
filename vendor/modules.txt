@@ -180,8 +180,8 @@ github.com/gen2brain/shm
 ## explicit; go 1.12
 github.com/go-ole/go-ole
 github.com/go-ole/go-ole/oleutil
-# github.com/go-sql-driver/mysql v1.6.0
-## explicit; go 1.10
+# github.com/go-sql-driver/mysql v1.7.0
+## explicit; go 1.13
 github.com/go-sql-driver/mysql
 # github.com/gobwas/httphead v0.1.0
 ## explicit; go 1.15
@@ -636,7 +636,7 @@ gopkg.in/jcmturner/rpc.v1/ndr
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# gorm.io/driver/mysql v1.4.4
+# gorm.io/driver/mysql v1.4.5
 ## explicit; go 1.14
 gorm.io/driver/mysql
 # gorm.io/driver/postgres v1.4.6
