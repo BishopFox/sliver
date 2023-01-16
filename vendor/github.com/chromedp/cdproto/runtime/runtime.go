@@ -89,6 +89,7 @@ type CallFunctionOnParams struct {
 	ExecutionContextID     ExecutionContextID `json:"executionContextId,omitempty"`     // Specifies execution context which global object will be used to call function on. Either executionContextId or objectId should be specified.
 	ObjectGroup            string             `json:"objectGroup,omitempty"`            // Symbolic group name that can be used to release multiple objects. If objectGroup is not specified and objectId is, objectGroup will be inherited from object.
 	ThrowOnSideEffect      bool               `json:"throwOnSideEffect,omitempty"`      // Whether to throw an exception if side effect cannot be ruled out during evaluation.
+	UniqueContextID        string             `json:"uniqueContextId,omitempty"`        // An alternative way to specify the execution context to call function on. Compared to contextId that may be reused across processes, this is guaranteed to be system-unique, so it can be used to prevent accidental function call in context different than intended (e.g. as a result of navigation across process boundaries). This is mutually exclusive with executionContextId.
 	GenerateWebDriverValue bool               `json:"generateWebDriverValue,omitempty"` // Whether the result should contain webDriverValue, serialized according to https://w3c.github.io/webdriver-bidi. This is mutually exclusive with returnByValue, but resulting objectId is still provided.
 }
 
@@ -174,6 +175,17 @@ func (p CallFunctionOnParams) WithObjectGroup(objectGroup string) *CallFunctionO
 // be ruled out during evaluation.
 func (p CallFunctionOnParams) WithThrowOnSideEffect(throwOnSideEffect bool) *CallFunctionOnParams {
 	p.ThrowOnSideEffect = throwOnSideEffect
+	return &p
+}
+
+// WithUniqueContextID an alternative way to specify the execution context to
+// call function on. Compared to contextId that may be reused across processes,
+// this is guaranteed to be system-unique, so it can be used to prevent
+// accidental function call in context different than intended (e.g. as a result
+// of navigation across process boundaries). This is mutually exclusive with
+// executionContextId.
+func (p CallFunctionOnParams) WithUniqueContextID(uniqueContextID string) *CallFunctionOnParams {
+	p.UniqueContextID = uniqueContextID
 	return &p
 }
 

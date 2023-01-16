@@ -276,13 +276,10 @@ func DumpCookies(curse *core.CursedProcess, webSocketURL string) ([]*network.Coo
 	dumpCookieTasks := chromedp.Tasks{
 		// read network values
 		chromedp.ActionFunc(func(ctx context.Context) error {
-			cookies, err = network.GetAllCookies().Do(ctx)
+			cookies, err = network.GetCookies().Do(ctx)
 			if err != nil {
 				return err
 			}
-			// for i, cookie := range cookies {
-			// 	log.Printf("chrome cookie %d: %+v", i, cookie)
-			// }
 			return nil
 		}),
 	}
