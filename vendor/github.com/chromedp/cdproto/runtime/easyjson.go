@@ -3235,6 +3235,8 @@ func easyjsonC5a4559bDecodeGithubComChromedpCdprotoRuntime34(in *jlexer.Lexer, o
 		switch key {
 		case "executionContextId":
 			out.ExecutionContextID = ExecutionContextID(in.Int64())
+		case "executionContextUniqueId":
+			out.ExecutionContextUniqueID = string(in.String())
 		default:
 			in.SkipRecursive()
 		}
@@ -3253,6 +3255,11 @@ func easyjsonC5a4559bEncodeGithubComChromedpCdprotoRuntime34(out *jwriter.Writer
 		const prefix string = ",\"executionContextId\":"
 		out.RawString(prefix[1:])
 		out.Int64(int64(in.ExecutionContextID))
+	}
+	{
+		const prefix string = ",\"executionContextUniqueId\":"
+		out.RawString(prefix)
+		out.String(string(in.ExecutionContextUniqueID))
 	}
 	out.RawByte('}')
 }
@@ -4727,6 +4734,8 @@ func easyjsonC5a4559bDecodeGithubComChromedpCdprotoRuntime50(in *jlexer.Lexer, o
 			out.ObjectGroup = string(in.String())
 		case "throwOnSideEffect":
 			out.ThrowOnSideEffect = bool(in.Bool())
+		case "uniqueContextId":
+			out.UniqueContextID = string(in.String())
 		case "generateWebDriverValue":
 			out.GenerateWebDriverValue = bool(in.Bool())
 		default:
@@ -4810,6 +4819,11 @@ func easyjsonC5a4559bEncodeGithubComChromedpCdprotoRuntime50(out *jwriter.Writer
 		const prefix string = ",\"throwOnSideEffect\":"
 		out.RawString(prefix)
 		out.Bool(bool(in.ThrowOnSideEffect))
+	}
+	if in.UniqueContextID != "" {
+		const prefix string = ",\"uniqueContextId\":"
+		out.RawString(prefix)
+		out.String(string(in.UniqueContextID))
 	}
 	if in.GenerateWebDriverValue {
 		const prefix string = ",\"generateWebDriverValue\":"

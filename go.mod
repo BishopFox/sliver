@@ -13,8 +13,8 @@ require (
 	github.com/Ne0nd0g/go-clr v1.0.3
 	github.com/alecthomas/chroma v0.10.0
 	github.com/cheggaaa/pb/v3 v3.1.0
-	github.com/chromedp/cdproto v0.0.0-20220924210414-0e3390be1777
-	github.com/chromedp/chromedp v0.8.6
+	github.com/chromedp/cdproto v0.0.0-20230109101555-6b041c6303cc
+	github.com/chromedp/chromedp v0.8.7
 	github.com/desertbit/columnize v2.1.0+incompatible
 	github.com/desertbit/go-shlex v0.1.1
 	github.com/desertbit/grumble v1.1.1
