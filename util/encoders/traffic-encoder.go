@@ -129,8 +129,7 @@ func CreateTrafficEncoder(name string, wasm []byte, logString TrafficEncoderLogC
 			logString(fmt.Sprintf("Log error: Memory.Read(%d, %d) out of range", offset, byteCount))
 		}
 		logString(string(buf))
-	}).Export("log").
-		Instantiate(ctx, wasmRuntime)
+	}).Export("log").Instantiate(ctx, wasmRuntime)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +137,12 @@ func CreateTrafficEncoder(name string, wasm []byte, logString TrafficEncoderLogC
 	if err != nil {
 		return nil, err
 	}
-	mod, err := wasmRuntime.InstantiateModuleFromBinary(ctx, wasm)
+
+	compiledMod, err := wasmRuntime.CompileModule(ctx, wasm)
+	if err != nil {
+		return nil, err
+	}
+	mod, err := wasmRuntime.InstantiateModule(ctx, compiledMod, wazero.NewModuleConfig())
 	if err != nil {
 		return nil, err
 	}

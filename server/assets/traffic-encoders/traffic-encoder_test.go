@@ -126,15 +126,14 @@ func TestPerformance(t *testing.T) {
 	}
 
 	// Traffic encoder
-	encoder, err := encoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
-		t.Log(msg)
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer encoder.Close()
-
 	for i := 0; i < len(sizes); i++ {
+		encoder, err := encoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
+			t.Log(msg)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer encoder.Close()
 		originalValue := make([]byte, sizes[i])
 		rand.Read(originalValue)
 		start := time.Now()
@@ -146,9 +145,10 @@ func TestPerformance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		t.Logf("Traffic encoder took %v (%d bytes)", time.Since(start), sizes[i])
+		t.Logf("WASM encoder took %v (%d bytes)", time.Since(start), sizes[i])
 		if !bytes.Equal(originalValue, decodedValue) {
 			t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
 		}
 	}
+	t.Error("done")
 }
