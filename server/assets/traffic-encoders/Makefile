@@ -9,7 +9,7 @@ K := $(foreach exec,$(EXECUTABLES),\
 
 
 base64.wasm:
-	cd base64 && $(GO) build -o ../base64.wasm -scheduler=none -target=wasi ./base64.go
+	cd base64 && $(GO) build -opt=2 -o ../base64.wasm -scheduler=none -target=wasi ./base64.go
 
 clean:
 	rm -f base64.wasm
