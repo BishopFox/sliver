@@ -19,4 +19,4 @@ hex.wasm:
 	cd hex && $(CARGO) build --release --target wasm32-unknown-unknown && cp target/wasm32-unknown-unknown/release/hex.wasm ../hex.wasm
 
 clean:
-	rm -f base64.wasm
+	rm -f base64.wasm hex.wasm

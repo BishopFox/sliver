@@ -13,6 +13,7 @@ path = "hex.rs"
 # wee_aloc is a WebAssembly optimized allocator, which is needed to use non-numeric types like strings.
 # See https://docs.rs/wee_alloc/latest/wee_alloc/
 wee_alloc = "0.4.5"
+hex = "0.4.3"
 
 # Below settings dramatically reduce wasm output size
 # See https://rustwasm.github.io/book/reference/code-size.html#optimizing-builds-for-code-sizewasm-opt -Oz -o
