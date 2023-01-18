@@ -7,16 +7,16 @@ use alloc::vec::Vec;
 use std::mem::MaybeUninit;
 use std::slice;
 
-fn encode(name: Vec<u8>) -> Vec<u8> {
-    let mut encoded_value = Vec::with_capacity(name.len() * 2);
-    hex::encode_to_slice(name, &mut encoded_value).unwrap();
-    return encoded_value;
+fn encode(input: &[u8]) -> Vec<u8> {
+    let mut output: Vec<u8> = vec![0; input.len() * 2];
+    hex::encode_to_slice(input, &mut output).unwrap();
+    return output;
 }
 
-fn decode(name: Vec<u8>) -> Vec<u8> {
-    let mut decoded_value = Vec::with_capacity(name.len() / 2);
-    hex::decode_to_slice(name, &mut decoded_value).unwrap();
-    return decoded_value;
+fn decode(input: &[u8]) -> Vec<u8> {
+    let mut output: Vec<u8> = vec![0; input.len() / 2];
+    hex::decode_to_slice(input, &mut output).unwrap();
+    return output;
 }
 
 #[link(wasm_import_module = "hex")]
@@ -40,13 +40,13 @@ extern "C" {
 #[cfg_attr(all(target_arch = "wasm32"), export_name = "encode")]
 #[no_mangle]
 pub unsafe extern "C" fn _encode(ptr: u32, len: u32) -> u64 {
-    let name = ptr_to_vec(ptr, len);
-    let g = encode(name);
-    let (ptr, len) = vec_to_ptr(&g);
+    let input = slice::from_raw_parts_mut(ptr as *mut u8, len as usize);
+    let output = encode(input);
+    let (ptr, len) = (output.as_ptr(), output.len());
     // Note: This changes ownership of the pointer to the external caller. If
     // we didn't call forget, the caller would read back a corrupt value. Since
     // we call forget, the caller must deallocate externally to prevent leaks.
-    std::mem::forget(g);
+    // std::mem::forget(ptr);
     return ((ptr as u64) << 32) | len as u64;
 }
 
@@ -60,27 +60,14 @@ pub unsafe extern "C" fn _encode(ptr: u32, len: u32) -> u64 {
 #[cfg_attr(all(target_arch = "wasm32"), export_name = "decode")]
 #[no_mangle]
 pub unsafe extern "C" fn _decode(ptr: u32, len: u32) -> u64 {
-    let name = ptr_to_vec(ptr, len);
-    let g = decode(name);
-    let (ptr, len) = vec_to_ptr(&g);
+    let input = slice::from_raw_parts_mut(ptr as *mut u8, len as usize);
+    let output = decode(input);
+    let (ptr, len) = (output.as_ptr(), output.len());
     // Note: This changes ownership of the pointer to the external caller. If
     // we didn't call forget, the caller would read back a corrupt value. Since
     // we call forget, the caller must deallocate externally to prevent leaks.
-    std::mem::forget(g);
+    std::mem::forget(output);
     return ((ptr as u64) << 32) | len as u64;
-}
-
-unsafe fn vec_to_ptr(s: &Vec<u8>) -> (u32, u32) {
-    return (s.as_ptr() as u32, s.len() as u32);
-}
-
-/// Returns a string from WebAssembly compatible numeric types representing
-/// its pointer and length.
-unsafe fn ptr_to_vec(ptr: u32, len: u32) -> Vec<u8> {
-    let buf = slice::from_raw_parts_mut(ptr as *mut u8, len as usize);
-    let mut vec = Vec::with_capacity(len as usize);
-    vec.extend_from_slice(buf);
-    return vec;
 }
 
 /// Logs a message to the console using [`_log`].

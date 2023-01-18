@@ -23,6 +23,7 @@ import (
 	"crypto/rand"
 	_ "embed"
 	"encoding/base64"
+	"encoding/hex"
 	insecureRand "math/rand"
 	"testing"
 	"time"
@@ -32,6 +33,9 @@ import (
 
 //go:embed base64.wasm
 var base64WASM []byte
+
+//go:embed hex.wasm
+var hexWASM []byte
 
 func TestTrafficEncoder_base64Basic(t *testing.T) {
 	encoder, err := encoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
@@ -105,7 +109,7 @@ func TestTrafficEncoder_base64RandomLarge(t *testing.T) {
 	}
 }
 
-func TestPerformance(t *testing.T) {
+func TestBase64Performance(t *testing.T) {
 
 	sizes := []int{1024, 1024 * 1024, 2 * 1024 * 1024, 4 * 1024 * 1024}
 
@@ -145,10 +149,58 @@ func TestPerformance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		t.Logf("WASM encoder took %v (%d bytes)", time.Since(start), sizes[i])
+		t.Logf("WASM Base64 encoder took %v (%d bytes)", time.Since(start), sizes[i])
 		if !bytes.Equal(originalValue, decodedValue) {
 			t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
 		}
+	}
+	t.Error("done")
+}
+
+func TestHexPerformance(t *testing.T) {
+
+	sizes := []int{1024, 1024 * 1024, 2 * 1024 * 1024, 4 * 1024 * 1024}
+
+	// Stock encoder
+	for i := 0; i < len(sizes); i++ {
+		originalValue := make([]byte, sizes[i])
+		rand.Read(originalValue)
+		stock := time.Now()
+		encodedValue := hex.EncodeToString(originalValue)
+		decodedValue, err := hex.DecodeString(encodedValue)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("Stock encoder took %v (%d bytes)", time.Since(stock), sizes[i])
+		if !bytes.Equal(originalValue, decodedValue) {
+			t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
+		}
+	}
+
+	// Traffic encoder
+	for i := 0; i < len(sizes); i++ {
+		encoder, err := encoders.CreateTrafficEncoder("hex", hexWASM, func(msg string) {
+			t.Log(msg)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer encoder.Close()
+		originalValue := make([]byte, sizes[i])
+		rand.Read(originalValue)
+		start := time.Now()
+		_, err = encoder.Encode(originalValue)
+		if err != nil {
+			t.Fatal(err)
+		}
+		//decodedValue, err := encoder.Decode(encodedValue)
+		//if err != nil {
+		//	t.Fatal(err)
+		//}
+		t.Logf("WASM Hex encoder took %v (%d bytes)", time.Since(start), sizes[i])
+		//if !bytes.Equal(originalValue, decodedValue) {
+		//	t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
+		//}
 	}
 	t.Error("done")
 }
