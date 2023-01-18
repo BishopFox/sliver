@@ -59,7 +59,6 @@ func (t *TrafficEncoder) Encode(data []byte) ([]byte, error) {
 	}
 
 	// Call the encoder function
-	fmt.Printf("Calling encode function %x (%d) ...\n", bufPtr, size)
 	ptrSize, err := t.encoder.Call(t.ctx, bufPtr, size)
 	if err != nil {
 		return nil, err
@@ -92,7 +91,6 @@ func (t *TrafficEncoder) Decode(data []byte) ([]byte, error) {
 	}
 
 	// Call the decoder function
-	fmt.Printf("Calling decode function %x (%d) ...\n", bufPtr, size)
 	ptrSize, err := t.decoder.Call(t.ctx, bufPtr, size)
 	if err != nil {
 		return nil, err

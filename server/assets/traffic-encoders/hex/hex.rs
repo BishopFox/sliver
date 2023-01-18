@@ -1,6 +1,7 @@
 extern crate core;
 extern crate hex;
 
+use std::alloc::{alloc, dealloc, handle_alloc_error, Layout};
 use std::mem::MaybeUninit;
 use std::slice;
 
@@ -58,7 +59,7 @@ pub unsafe extern "C" fn _encode(ptr: u32, len: u32) -> u64 {
 #[no_mangle]
 pub unsafe extern "C" fn _decode(ptr: u32, len: u32) -> u64 {
     let input = slice::from_raw_parts_mut(ptr as *mut u8, len as usize);
-    log(&format!("input size: {:?}", input.len()));
+    // log(&format!("input size: {:?}", input.len()));
 
     let output = decode(input);
     let (ptr, len) = (output.as_ptr(), output.len());
@@ -94,23 +95,17 @@ unsafe fn string_to_ptr(s: &String) -> (u32, u32) {
 #[cfg_attr(all(target_arch = "wasm32"), export_name = "malloc")]
 #[no_mangle]
 pub extern "C" fn _allocate(size: u32) -> *mut u8 {
-    let ptr = allocate(size as usize);
-    log(&format!("box raw allocated at: {:?}", ptr));
-    return ptr;
+    unsafe {
+        let ptr = allocate(size as usize);
+        return ptr;
+    }
 }
 
 /// Allocates size bytes and leaks the pointer where they start.
-fn allocate(size: usize) -> *mut u8 {
-    // Allocate the amount of bytes needed.
-    let buf: Vec<MaybeUninit<u8>> = Vec::with_capacity(size);
-    log(&format!("vec allocated at: {:?}", buf.as_ptr()));
-    // into_raw leaks the memory to the caller.
-    let boxed_slice = buf.into_boxed_slice();
-    log(&format!(
-        "boxed_slice allocated at: {:?}",
-        boxed_slice.as_ptr()
-    ));
-    return Box::into_raw(boxed_slice) as *mut u8;
+unsafe fn allocate(size: usize) -> *mut u8 {
+    let layout = Layout::from_size_align(size, std::mem::align_of::<u8>()).expect("Bad layout");
+    let ptr = alloc(layout);
+    return ptr;
 }
 
 /// WebAssembly export that deallocates a pointer of the given size (linear
@@ -118,10 +113,7 @@ fn allocate(size: usize) -> *mut u8 {
 #[cfg_attr(all(target_arch = "wasm32"), export_name = "free")]
 #[no_mangle]
 pub unsafe extern "C" fn _deallocate(ptr: u32, size: u32) {
-    deallocate(ptr as *mut u8, size as usize);
-}
-
-/// Retakes the pointer which allows its memory to be freed.
-unsafe fn deallocate(ptr: *mut u8, size: usize) {
-    let _ = Vec::from_raw_parts(ptr, 0, size);
+    let layout =
+        Layout::from_size_align(size as usize, std::mem::align_of::<u8>()).expect("Bad layout");
+    dealloc(ptr as *mut u8, layout);
 }

@@ -193,7 +193,7 @@ func TestHexPerformance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		t.Logf("Got encoded value (%d bytes)", len(encodedValue))
+		// t.Logf("Got encoded value (%d bytes)", len(encodedValue))
 		decodedValue, err := encoder.Decode(encodedValue)
 		if err != nil {
 			t.Fatal(err)
