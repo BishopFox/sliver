@@ -46,7 +46,7 @@ pub unsafe extern "C" fn _encode(ptr: u32, len: u32) -> u64 {
     // Note: This changes ownership of the pointer to the external caller. If
     // we didn't call forget, the caller would read back a corrupt value. Since
     // we call forget, the caller must deallocate externally to prevent leaks.
-    // std::mem::forget(ptr);
+    std::mem::forget(output);
     return ((ptr as u64) << 32) | len as u64;
 }
 
