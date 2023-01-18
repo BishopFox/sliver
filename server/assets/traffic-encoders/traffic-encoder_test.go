@@ -189,18 +189,18 @@ func TestHexPerformance(t *testing.T) {
 		originalValue := make([]byte, sizes[i])
 		rand.Read(originalValue)
 		start := time.Now()
-		_, err = encoder.Encode(originalValue)
+		encodedValue, err := encoder.Encode(originalValue)
 		if err != nil {
 			t.Fatal(err)
 		}
-		//decodedValue, err := encoder.Decode(encodedValue)
-		//if err != nil {
-		//	t.Fatal(err)
-		//}
+		decodedValue, err := encoder.Decode(encodedValue)
+		if err != nil {
+			t.Fatal(err)
+		}
 		t.Logf("WASM Hex encoder took %v (%d bytes)", time.Since(start), sizes[i])
-		//if !bytes.Equal(originalValue, decodedValue) {
-		//	t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
-		//}
+		if !bytes.Equal(originalValue, decodedValue) {
+			t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
+		}
 	}
 	t.Error("done")
 }

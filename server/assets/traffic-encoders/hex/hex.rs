@@ -1,9 +1,9 @@
 extern crate alloc;
 extern crate core;
 extern crate hex;
-extern crate wee_alloc;
 
 use alloc::vec::Vec;
+use lol_alloc::{AssumeSingleThreaded, FreeListAllocator};
 use std::mem::MaybeUninit;
 use std::slice;
 
@@ -88,8 +88,10 @@ unsafe fn string_to_ptr(s: &String) -> (u32, u32) {
 }
 
 /// Set the global allocator to the WebAssembly optimized one.
+// SAFETY: This application is single threaded, so using AssumeSingleThreaded is allowed.
 #[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+static ALLOCATOR: AssumeSingleThreaded<FreeListAllocator> =
+    unsafe { AssumeSingleThreaded::new(FreeListAllocator::new()) };
 
 /// WebAssembly export that allocates a pointer (linear memory offset) that can
 /// be used for a string.
