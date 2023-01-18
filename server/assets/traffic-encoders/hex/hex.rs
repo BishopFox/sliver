@@ -1,9 +1,6 @@
-extern crate alloc;
 extern crate core;
 extern crate hex;
 
-use alloc::vec::Vec;
-use lol_alloc::{AssumeSingleThreaded, FreeListAllocator};
 use std::mem::MaybeUninit;
 use std::slice;
 
@@ -61,6 +58,8 @@ pub unsafe extern "C" fn _encode(ptr: u32, len: u32) -> u64 {
 #[no_mangle]
 pub unsafe extern "C" fn _decode(ptr: u32, len: u32) -> u64 {
     let input = slice::from_raw_parts_mut(ptr as *mut u8, len as usize);
+    log(&format!("input size: {:?}", input.len()));
+
     let output = decode(input);
     let (ptr, len) = (output.as_ptr(), output.len());
     // Note: This changes ownership of the pointer to the external caller. If
@@ -87,12 +86,6 @@ unsafe fn string_to_ptr(s: &String) -> (u32, u32) {
     return (s.as_ptr() as u32, s.len() as u32);
 }
 
-/// Set the global allocator to the WebAssembly optimized one.
-// SAFETY: This application is single threaded, so using AssumeSingleThreaded is allowed.
-#[global_allocator]
-static ALLOCATOR: AssumeSingleThreaded<FreeListAllocator> =
-    unsafe { AssumeSingleThreaded::new(FreeListAllocator::new()) };
-
 /// WebAssembly export that allocates a pointer (linear memory offset) that can
 /// be used for a string.
 ///
@@ -101,16 +94,23 @@ static ALLOCATOR: AssumeSingleThreaded<FreeListAllocator> =
 #[cfg_attr(all(target_arch = "wasm32"), export_name = "malloc")]
 #[no_mangle]
 pub extern "C" fn _allocate(size: u32) -> *mut u8 {
-    allocate(size as usize)
+    let ptr = allocate(size as usize);
+    log(&format!("box raw allocated at: {:?}", ptr));
+    return ptr;
 }
 
 /// Allocates size bytes and leaks the pointer where they start.
 fn allocate(size: usize) -> *mut u8 {
     // Allocate the amount of bytes needed.
-    let vec: Vec<MaybeUninit<u8>> = Vec::with_capacity(size);
-
+    let buf: Vec<MaybeUninit<u8>> = Vec::with_capacity(size);
+    log(&format!("vec allocated at: {:?}", buf.as_ptr()));
     // into_raw leaks the memory to the caller.
-    Box::into_raw(vec.into_boxed_slice()) as *mut u8
+    let boxed_slice = buf.into_boxed_slice();
+    log(&format!(
+        "boxed_slice allocated at: {:?}",
+        boxed_slice.as_ptr()
+    ));
+    return Box::into_raw(boxed_slice) as *mut u8;
 }
 
 /// WebAssembly export that deallocates a pointer of the given size (linear
