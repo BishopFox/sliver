@@ -154,7 +154,6 @@ func TestBase64Performance(t *testing.T) {
 			t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
 		}
 	}
-	t.Error("done")
 }
 
 func TestHexPerformance(t *testing.T) {
@@ -203,5 +202,4 @@ func TestHexPerformance(t *testing.T) {
 			t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
 		}
 	}
-	t.Error("done")
 }

@@ -1,8 +1,7 @@
 extern crate core;
 extern crate hex;
 
-use std::alloc::{alloc, dealloc, handle_alloc_error, Layout};
-use std::mem::MaybeUninit;
+use std::alloc::{alloc, dealloc, Layout};
 use std::slice;
 
 fn encode(input: &[u8]) -> Vec<u8> {
