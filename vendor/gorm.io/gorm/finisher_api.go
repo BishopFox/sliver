@@ -294,6 +294,16 @@ func (db *DB) assignInterfacesToValue(values ...interface{}) {
 
 // FirstOrInit finds the first matching record, otherwise if not found initializes a new instance with given conds.
 // Each conds must be a struct or map.
+//
+// FirstOrInit never modifies the database. It is often used with Assign and Attrs.
+//
+//	// assign an email if the record is not found
+//	db.Where(User{Name: "non_existing"}).Attrs(User{Email: "fake@fake.org"}).FirstOrInit(&user)
+//	// user -> User{Name: "non_existing", Email: "fake@fake.org"}
+//
+//	// assign email regardless of if record is found
+//	db.Where(User{Name: "jinzhu"}).Assign(User{Email: "fake@fake.org"}).FirstOrInit(&user)
+//	// user -> User{Name: "jinzhu", Age: 20, Email: "fake@fake.org"}
 func (db *DB) FirstOrInit(dest interface{}, conds ...interface{}) (tx *DB) {
 	queryTx := db.Limit(1).Order(clause.OrderByColumn{
 		Column: clause.Column{Table: clause.CurrentTable, Name: clause.PrimaryKey},
@@ -321,50 +331,65 @@ func (db *DB) FirstOrInit(dest interface{}, conds ...interface{}) (tx *DB) {
 
 // FirstOrCreate finds the first matching record, otherwise if not found creates a new instance with given conds.
 // Each conds must be a struct or map.
+//
+// Using FirstOrCreate in conjunction with Assign will result in an update to the database even if the record exists.
+//
+//	// assign an email if the record is not found
+//	result := db.Where(User{Name: "non_existing"}).Attrs(User{Email: "fake@fake.org"}).FirstOrCreate(&user)
+//	// user -> User{Name: "non_existing", Email: "fake@fake.org"}
+//	// result.RowsAffected -> 1
+//
+//	// assign email regardless of if record is found
+//	result := db.Where(User{Name: "jinzhu"}).Assign(User{Email: "fake@fake.org"}).FirstOrCreate(&user)
+//	// user -> User{Name: "jinzhu", Age: 20, Email: "fake@fake.org"}
+//	// result.RowsAffected -> 1
 func (db *DB) FirstOrCreate(dest interface{}, conds ...interface{}) (tx *DB) {
 	tx = db.getInstance()
 	queryTx := db.Session(&Session{}).Limit(1).Order(clause.OrderByColumn{
 		Column: clause.Column{Table: clause.CurrentTable, Name: clause.PrimaryKey},
 	})
-	if result := queryTx.Find(dest, conds...); result.Error == nil {
-		if result.RowsAffected == 0 {
-			if c, ok := result.Statement.Clauses["WHERE"]; ok {
-				if where, ok := c.Expression.(clause.Where); ok {
-					result.assignInterfacesToValue(where.Exprs)
-				}
-			}
 
-			// initialize with attrs, conds
-			if len(db.Statement.attrs) > 0 {
-				result.assignInterfacesToValue(db.Statement.attrs...)
-			}
-
-			// initialize with attrs, conds
-			if len(db.Statement.assigns) > 0 {
-				result.assignInterfacesToValue(db.Statement.assigns...)
-			}
-
-			return tx.Create(dest)
-		} else if len(db.Statement.assigns) > 0 {
-			exprs := tx.Statement.BuildCondition(db.Statement.assigns[0], db.Statement.assigns[1:]...)
-			assigns := map[string]interface{}{}
-			for _, expr := range exprs {
-				if eq, ok := expr.(clause.Eq); ok {
-					switch column := eq.Column.(type) {
-					case string:
-						assigns[column] = eq.Value
-					case clause.Column:
-						assigns[column.Name] = eq.Value
-					default:
-					}
-				}
-			}
-
-			return tx.Model(dest).Updates(assigns)
-		}
-	} else {
+	result := queryTx.Find(dest, conds...)
+	if result.Error != nil {
 		tx.Error = result.Error
+		return tx
 	}
+
+	if result.RowsAffected == 0 {
+		if c, ok := result.Statement.Clauses["WHERE"]; ok {
+			if where, ok := c.Expression.(clause.Where); ok {
+				result.assignInterfacesToValue(where.Exprs)
+			}
+		}
+
+		// initialize with attrs, conds
+		if len(db.Statement.attrs) > 0 {
+			result.assignInterfacesToValue(db.Statement.attrs...)
+		}
+
+		// initialize with attrs, conds
+		if len(db.Statement.assigns) > 0 {
+			result.assignInterfacesToValue(db.Statement.assigns...)
+		}
+
+		return tx.Create(dest)
+	} else if len(db.Statement.assigns) > 0 {
+		exprs := tx.Statement.BuildCondition(db.Statement.assigns[0], db.Statement.assigns[1:]...)
+		assigns := map[string]interface{}{}
+		for _, expr := range exprs {
+			if eq, ok := expr.(clause.Eq); ok {
+				switch column := eq.Column.(type) {
+				case string:
+					assigns[column] = eq.Value
+				case clause.Column:
+					assigns[column.Name] = eq.Value
+				}
+			}
+		}
+
+		return tx.Model(dest).Updates(assigns)
+	}
+
 	return tx
 }
 
@@ -465,7 +490,7 @@ func (db *DB) Count(count *int64) (tx *DB) {
 	tx.Statement.Dest = count
 	tx = tx.callbacks.Query().Execute(tx)
 
-	if _, ok := db.Statement.Clauses["GROUP BY"]; ok || tx.RowsAffected != 1 {
+	if tx.RowsAffected != 1 {
 		*count = tx.RowsAffected
 	}
 

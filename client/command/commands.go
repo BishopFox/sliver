@@ -1514,6 +1514,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		LongHelp: help.GetHelpFor([]string{consts.ProfilesStr, consts.GenerateStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("s", "save", "", "directory/file to the binary to")
+			f.Bool("G", "disable-sgn", false, "disable shikata ga nai shellcode encoder")
 
 			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},

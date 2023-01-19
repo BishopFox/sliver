@@ -703,6 +703,10 @@ var (
 // Options defines the global options that determine how the Table is
 // rendered.
 type Options struct {
+	// DoNotColorBordersAndSeparators disables coloring all the borders and row
+	// or column separators.
+	DoNotColorBordersAndSeparators bool
+
 	// DrawBorder enables or disables drawing the border around the Table.
 	// Example of a table where it is disabled:
 	//     # │ FIRST NAME │ LAST NAME │ SALARY │

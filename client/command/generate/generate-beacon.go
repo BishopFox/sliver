@@ -32,7 +32,7 @@ func GenerateBeaconCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		save, _ = os.Getwd()
 	}
 	if !ctx.Flags.Bool("external-builder") {
-		compile(config, save, con)
+		compile(config, ctx.Flags.Bool("disable-sgn"), save, con)
 	} else {
 		externalBuild(config, save, con)
 	}

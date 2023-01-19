@@ -326,7 +326,9 @@ func (t *Table) getAutoIndexColumnIDs() rowStr {
 }
 
 func (t *Table) getBorderColors(hint renderHint) text.Colors {
-	if hint.isHeaderRow {
+	if t.style.Options.DoNotColorBordersAndSeparators {
+		return nil
+	} else if hint.isHeaderRow {
 		return t.style.Color.Header
 	} else if hint.isFooterRow {
 		return t.style.Color.Footer
@@ -381,6 +383,9 @@ func (t *Table) getBorderRight(hint renderHint) string {
 }
 
 func (t *Table) getColumnColors(colIdx int, hint renderHint) text.Colors {
+	if hint.isBorderOrSeparator() && t.style.Options.DoNotColorBordersAndSeparators {
+		return text.Colors{} // not nil to force caller to paint with no colors
+	}
 	if t.rowPainter != nil && hint.isRegularNonSeparatorRow() && !t.isIndexColumn(colIdx, hint) {
 		colors := t.rowsColors[hint.rowNumber-1]
 		if colors != nil {
@@ -578,7 +583,9 @@ func (t *Table) getRowConfig(hint renderHint) RowConfig {
 }
 
 func (t *Table) getSeparatorColors(hint renderHint) text.Colors {
-	if hint.isHeaderRow {
+	if t.style.Options.DoNotColorBordersAndSeparators {
+		return nil
+	} else if hint.isHeaderRow {
 		return t.style.Color.Header
 	} else if hint.isFooterRow {
 		return t.style.Color.Footer
