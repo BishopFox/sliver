@@ -22,8 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -59,7 +58,7 @@ const (
 
 var (
 	// ErrTargetNotFound - Returned when a target cannot be found
-	ErrTargetNotFound = errors.New("Target not found")
+	ErrTargetNotFound = errors.New("target not found")
 )
 
 // ManifestBackground - An extension manifest file
@@ -129,7 +128,7 @@ func findTargetInfoByID(ctx context.Context, targetID string) *target.Info {
 		return nil
 	}
 	for _, targetInfo := range targets {
-		if fmt.Sprintf("%s", targetInfo.TargetID) == targetID {
+		if targetInfo.TargetID.String() == targetID {
 			return targetInfo
 		}
 	}
@@ -227,9 +226,9 @@ func QueryDebugTargets(debugURL string) ([]ChromeDebugTarget, error) {
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		return nil, errors.New("Non-200 status code")
+		return nil, errors.New("non-200 status code")
 	}
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -245,9 +244,9 @@ func QueryExtensionDebugTargets(debugURL string) ([]ChromeDebugTarget, error) {
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		return nil, errors.New("Non-200 status code")
+		return nil, errors.New("non-200 status code")
 	}
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -276,13 +275,10 @@ func DumpCookies(curse *core.CursedProcess, webSocketURL string) ([]*network.Coo
 	dumpCookieTasks := chromedp.Tasks{
 		// read network values
 		chromedp.ActionFunc(func(ctx context.Context) error {
-			cookies, err = network.GetAllCookies().Do(ctx)
+			cookies, err = network.GetCookies().Do(ctx)
 			if err != nil {
 				return err
 			}
-			// for i, cookie := range cookies {
-			// 	log.Printf("chrome cookie %d: %+v", i, cookie)
-			// }
 			return nil
 		}),
 	}

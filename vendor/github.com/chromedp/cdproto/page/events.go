@@ -28,10 +28,9 @@ type EventFileChooserOpened struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#event-frameAttached
 type EventFrameAttached struct {
-	FrameID       cdp.FrameID         `json:"frameId"`              // Id of the frame that has been attached.
-	ParentFrameID cdp.FrameID         `json:"parentFrameId"`        // Parent frame identifier.
-	Stack         *runtime.StackTrace `json:"stack,omitempty"`      // JavaScript stack trace of when frame was attached, only set if frame initiated from script.
-	AdScriptID    *AdScriptID         `json:"adScriptId,omitempty"` // Identifies the bottom-most script which caused the frame to be labelled as an ad. Only sent if frame is labelled as an ad and id is available.
+	FrameID       cdp.FrameID         `json:"frameId"`         // Id of the frame that has been attached.
+	ParentFrameID cdp.FrameID         `json:"parentFrameId"`   // Parent frame identifier.
+	Stack         *runtime.StackTrace `json:"stack,omitempty"` // JavaScript stack trace of when frame was attached, only set if frame initiated from script.
 }
 
 // EventFrameDetached fired when frame has been detached from its parent.

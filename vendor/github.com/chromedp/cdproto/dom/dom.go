@@ -1746,19 +1746,21 @@ func (p *GetFrameOwnerParams) Do(ctx context.Context) (backendNodeID cdp.Backend
 	return res.BackendNodeID, res.NodeID, nil
 }
 
-// GetContainerForNodeParams returns the container of the given node based on
-// container query conditions. If containerName is given, it will find the
-// nearest container with a matching name; otherwise it will find the nearest
-// container regardless of its container name.
+// GetContainerForNodeParams returns the query container of the given node
+// based on container query conditions: containerName, physical, and logical
+// axes. If no axes are provided, the style container is returned, which is the
+// direct parent or the closest element with a matching container-name.
 type GetContainerForNodeParams struct {
-	NodeID        cdp.NodeID `json:"nodeId"`
-	ContainerName string     `json:"containerName,omitempty"`
+	NodeID        cdp.NodeID   `json:"nodeId"`
+	ContainerName string       `json:"containerName,omitempty"`
+	PhysicalAxes  PhysicalAxes `json:"physicalAxes,omitempty"`
+	LogicalAxes   LogicalAxes  `json:"logicalAxes,omitempty"`
 }
 
-// GetContainerForNode returns the container of the given node based on
-// container query conditions. If containerName is given, it will find the
-// nearest container with a matching name; otherwise it will find the nearest
-// container regardless of its container name.
+// GetContainerForNode returns the query container of the given node based on
+// container query conditions: containerName, physical, and logical axes. If no
+// axes are provided, the style container is returned, which is the direct
+// parent or the closest element with a matching container-name.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/DOM#method-getContainerForNode
 //
@@ -1774,6 +1776,18 @@ func GetContainerForNode(nodeID cdp.NodeID) *GetContainerForNodeParams {
 // WithContainerName [no description].
 func (p GetContainerForNodeParams) WithContainerName(containerName string) *GetContainerForNodeParams {
 	p.ContainerName = containerName
+	return &p
+}
+
+// WithPhysicalAxes [no description].
+func (p GetContainerForNodeParams) WithPhysicalAxes(physicalAxes PhysicalAxes) *GetContainerForNodeParams {
+	p.PhysicalAxes = physicalAxes
+	return &p
+}
+
+// WithLogicalAxes [no description].
+func (p GetContainerForNodeParams) WithLogicalAxes(logicalAxes LogicalAxes) *GetContainerForNodeParams {
+	p.LogicalAxes = logicalAxes
 	return &p
 }
 
