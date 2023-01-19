@@ -1,5 +1,7 @@
+extern crate alloc;
 extern crate core;
 extern crate hex;
+extern crate wee_alloc;
 
 use std::alloc::{alloc, dealloc, Layout};
 use std::slice;
@@ -116,3 +118,6 @@ pub unsafe extern "C" fn _deallocate(ptr: u32, size: u32) {
         Layout::from_size_align(size as usize, std::mem::align_of::<u8>()).expect("Bad layout");
     dealloc(ptr as *mut u8, layout);
 }
+
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
