@@ -129,6 +129,7 @@ under certain conditions; type 'licenses' for details.`)
 		trafficEncoderLog.Errorf("Failed to initialize traffic encoders: %s", err)
 	}
 	encoders.InitEnglishDictionary(English())
+	setupLog.Infof("Initialized english encoder with %d words", len(English()))
 }
 
 // English - Extracts the english dictionary for the english encoder

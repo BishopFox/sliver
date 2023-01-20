@@ -26,6 +26,7 @@ import (
 )
 
 func TestGzipEnglish(t *testing.T) {
+	InitEnglishDictionary(getTestEnglishDictionary())
 	sample := randomData()
 
 	gzEnglishEncoder := new(GzipEnglish)
