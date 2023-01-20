@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/bishopfox/sliver/util"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	wasi "github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
@@ -116,7 +115,7 @@ type TrafficEncoderLogCallback func(string)
 func CreateTrafficEncoder(name string, wasm []byte, logString TrafficEncoderLogCallback) (*TrafficEncoder, error) {
 	ctx := context.Background()
 	var wasmRuntime wazero.Runtime
-	if util.Contains([]string{"amd64", "arm64"}, runtime.GOARCH) && util.Contains([]string{"darwin", "linux", "windows"}, runtime.GOOS) {
+	if contains([]string{"amd64", "arm64"}, runtime.GOARCH) && contains([]string{"darwin", "linux", "windows"}, runtime.GOOS) {
 		wasmRuntime = wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 	} else {
 		wasmRuntime = wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())
@@ -159,4 +158,13 @@ func CreateTrafficEncoder(name string, wasm []byte, logString TrafficEncoderLogC
 		malloc: mod.ExportedFunction("malloc"),
 		free:   mod.ExportedFunction("free"),
 	}, nil
+}
+
+func contains[T comparable](elements []T, v T) bool {
+	for _, s := range elements {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }

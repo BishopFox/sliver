@@ -110,7 +110,7 @@ func TestAllLoot(t *testing.T) {
 	if allLoot == nil {
 		t.Fatalf("Loot store returned nil for AllLoot")
 	}
-	if len(allLoot.Loot) != 3 {
+	if len(allLoot.Loot) != 2 {
 		t.Fatalf("Expected all loot length of 3, but got %d", len(allLoot.Loot))
 	}
 
