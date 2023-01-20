@@ -20,11 +20,6 @@ fn decode(input: &[u8]) -> Vec<u8> {
 
 #[link(wasm_import_module = "hex")]
 extern "C" {
-    /// WebAssembly import which prints a string (linear memory offset,
-    /// byteCount) to the console.
-    ///
-    /// Note: This is not an ownership transfer: Rust still owns the pointer
-    /// and ensures it isn't deallocated during this call.
     #[link_name = "log"]
     fn _log(ptr: u32, size: u32);
 }
