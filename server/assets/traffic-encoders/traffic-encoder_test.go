@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 	"github.com/bishopfox/sliver/util/encoders"
 )
 
@@ -36,6 +37,112 @@ var base64WASM []byte
 
 //go:embed hex.wasm
 var hexWASM []byte
+
+func TestTrafficEncoderCompatibility_base64Basic(t *testing.T) {
+
+	// Base64
+
+	implantSideB64, err := implantEncoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
+		t.Log(msg)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverSideB64, err := encoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
+		t.Log(msg)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data := make([]byte, 1024)
+	_, err = rand.Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encodedData, err := implantSideB64.Encode(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decodedData, err := serverSideB64.Decode(encodedData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(data, decodedData) {
+		t.Fatal("Decoded data does not match original")
+	}
+
+	data = make([]byte, 1024)
+	_, err = rand.Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encodedData, err = serverSideB64.Encode(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decodedData, err = implantSideB64.Decode(encodedData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(data, decodedData) {
+		t.Fatal("Decoded data does not match original")
+	}
+}
+
+func TestTrafficEncoderCompatibility_hex(t *testing.T) {
+
+	// Hex
+
+	implantSideHex, err := implantEncoders.CreateTrafficEncoder("hex", hexWASM, func(msg string) {
+		t.Log(msg)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverSideHex, err := encoders.CreateTrafficEncoder("hex", hexWASM, func(msg string) {
+		t.Log(msg)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data := make([]byte, 1024)
+	_, err = rand.Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encodedData, err := implantSideHex.Encode(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decodedData, err := serverSideHex.Decode(encodedData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(data, decodedData) {
+		t.Fatal("Decoded data does not match original")
+	}
+
+	data = make([]byte, 1024)
+	_, err = rand.Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encodedData, err = serverSideHex.Encode(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decodedData, err = implantSideHex.Decode(encodedData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(data, decodedData) {
+		t.Fatal("Decoded data does not match original")
+	}
+}
+
+// Encoder specific tests
 
 func TestTrafficEncoder_base64Basic(t *testing.T) {
 	encoder, err := encoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {

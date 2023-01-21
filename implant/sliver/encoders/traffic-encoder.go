@@ -25,6 +25,7 @@ import (
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 
 // TrafficEncoder - Implements the `Encoder` interface using a wasm backend
@@ -128,6 +129,10 @@ func CreateTrafficEncoder(name string, wasm []byte, logString TrafficEncoderLogC
 		}
 		logString(string(buf))
 	}).Export("log").Instantiate(ctx, wasmRuntime)
+	if err != nil {
+		return nil, err
+	}
+	_, err = wasi_snapshot_preview1.Instantiate(ctx, wasmRuntime)
 	if err != nil {
 		return nil, err
 	}
