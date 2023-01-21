@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/shirou/gopsutil/v3/mem"
 )
 
 const (
@@ -81,19 +80,13 @@ func GetGoModCache(appDir string) string {
 	return cachePath
 }
 
-// The Gb limit here is somewhat arbitrary but is based on my own testing
-func garbleMaxLiteralSize() string {
-	vmStat, err := mem.VirtualMemory()
-	if err != nil {
-		gogoLog.Errorf("Failed to detect amount of system memory: %s", err)
-		return fmt.Sprintf("%d", 1*kb) // Use default
+// Garble requires $HOME to be defined, if it's not set we use the os temp dir
+func getHomeDir() string {
+	home := os.Getenv("HOME")
+	if home == "" {
+		return os.TempDir()
 	}
-	if 10*gb < vmStat.Total {
-		gogoLog.Infof("More than 10Gb of system memory, enable large literal obfuscation")
-		return fmt.Sprintf("%d", 64*kb)
-	}
-	gogoLog.Infof("Low system memory, disable large literal obfuscation")
-	return fmt.Sprintf("%d", 2*kb)
+	return home
 }
 
 // GarbleCmd - Execute a go command
@@ -103,7 +96,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
 	}
 	garbleBinPath := filepath.Join(config.GOROOT, "bin", "garble")
-	garbleFlags := []string{"-seed=random", "-literals"}
+	garbleFlags := []string{"-seed=random", "-literals", "-tiny"}
 	command = append(garbleFlags, command...)
 	cmd := exec.Command(garbleBinPath, command...)
 	cmd.Dir = cwd
@@ -116,11 +109,11 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
 		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
 		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
-		fmt.Sprintf("GARBLE_MAX_LITERAL_SIZE=%s", garbleMaxLiteralSize()),
 		fmt.Sprintf("HTTP_PROXY=%s", config.HTTPPROXY),
 		fmt.Sprintf("HTTPS_PROXY=%s", config.HTTPSPROXY),
 		fmt.Sprintf("PATH=%s:%s", filepath.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
 		fmt.Sprintf("GOGARBLE=%s", config.GOGARBLE),
+		fmt.Sprintf("HOME=%s", getHomeDir()),
 	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
