@@ -647,20 +647,20 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 		// Sometimes adding a byte will result in +2 chars so we -1 the subdata space
 		encoded = ""
 		// {{if .Config.Debug}}
-		log.Printf("[dns] encoded: %d, subdata space: %d | stop: %d, len: %d",
-			len(encoded), (s.subdataSpace - 1), stop, len(data))
+		//log.Printf("[dns] encoded: %d, subdata space: %d | stop: %d, len: %d",
+		//	len(encoded), (s.subdataSpace - 1), stop, len(data))
 		// {{end}}
 		for len(encoded) < (s.subdataSpace-1) && stop < len(data) {
 			stop++
 			// {{if .Config.Debug}}
-			log.Printf("[dns] shave data [%d:%d] of %d", start, stop, len(data))
+			// log.Printf("[dns] shave data [%d:%d] of %d", start, stop, len(data))
 			// {{end}}
 			msg.Data = data[start:stop]
 			pbMsg, _ := proto.Marshal(msg)
 			encodedValue, _ := encoder.Encode(pbMsg)
 			encoded = string(encodedValue)
 			// {{if .Config.Debug}}
-			log.Printf("[dns] encoded length is %d (max: %d)", len(encoded), s.subdataSpace)
+			// log.Printf("[dns] encoded length is %d (max: %d)", len(encoded), s.subdataSpace)
 			// {{end}}
 		}
 		lastLen = len(msg.Data) // Save the amount of data that fit for the next loop
