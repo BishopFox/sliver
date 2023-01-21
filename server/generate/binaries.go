@@ -278,7 +278,7 @@ func SliverShellcode(name string, otpSecret string, config *models.ImplantConfig
 		HTTPSPROXY: getGoHttpsProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
-		GOGARBLE:    goPrivate(config),
+		GOGARBLE:    goGarble(config),
 	}
 	pkgPath, err := renderSliverGoCode(name, otpSecret, config, goConfig)
 	if err != nil {
@@ -354,7 +354,7 @@ func SliverSharedLibrary(name string, otpSecret string, config *models.ImplantCo
 		HTTPSPROXY: getGoHttpsProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
-		GOGARBLE:    goPrivate(config),
+		GOGARBLE:    goGarble(config),
 	}
 	pkgPath, err := renderSliverGoCode(name, otpSecret, config, goConfig)
 	if err != nil {
@@ -422,7 +422,7 @@ func SliverExecutable(name string, otpSecret string, config *models.ImplantConfi
 		HTTPSPROXY: getGoHttpsProxy(),
 
 		Obfuscation: config.ObfuscateSymbols,
-		GOGARBLE:    goPrivate(config),
+		GOGARBLE:    goGarble(config),
 	}
 
 	pkgPath, err := renderSliverGoCode(name, otpSecret, config, goConfig)
@@ -935,7 +935,7 @@ const (
 	allGoPrivate = "*"
 )
 
-func goPrivate(config *models.ImplantConfig) string {
+func goGarble(config *models.ImplantConfig) string {
 	// for _, c2 := range config.C2 {
 	// 	uri, err := url.Parse(c2.URL)
 	// 	if err != nil {
