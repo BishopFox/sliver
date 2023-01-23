@@ -19,7 +19,6 @@ package encoders
 */
 
 import (
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -74,7 +73,7 @@ func InitEncoderMap(encodersFS EncoderFS, logger func(string)) error {
 			logger(fmt.Sprintf("failed to read file %s (%s)", wasmEncoderModuleName, err.Error()))
 			return err
 		}
-		wasmEncoderID := calculateWasmEncoderID(wasmEncoderData)
+		wasmEncoderID := CalculateWasmEncoderID(wasmEncoderData)
 		trafficEncoder, err := CreateTrafficEncoder(wasmEncoderModuleName, wasmEncoderData, logger)
 		if err != nil {
 			logger(fmt.Sprintf("failed to create traffic encoder from '%s': %s", wasmEncoderModuleName, err.Error()))
@@ -85,11 +84,6 @@ func InitEncoderMap(encodersFS EncoderFS, logger func(string)) error {
 	}
 	logger(fmt.Sprintf("Loaded %d traffic encoders", len(wasmEncoderFiles)))
 	return nil
-}
-
-func calculateWasmEncoderID(wasmEncoderData []byte) uint16 {
-	digest := sha256.Sum256(wasmEncoderData)
-	return uint16(digest[0])<<8 + uint16(digest[1])
 }
 
 // EncoderFromNonce - Convert a nonce into an encoder

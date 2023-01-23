@@ -23,8 +23,6 @@ import (
 	"crypto/rand"
 	insecureRand "math/rand"
 	"testing"
-
-	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 )
 
 func TestGzip(t *testing.T) {
@@ -41,25 +39,6 @@ func TestGzip(t *testing.T) {
 		t.Logf("output = %#v", output)
 		t.Logf("  data = %#v", data)
 		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-	}
-
-	implantGzip := new(implantEncoders.Gzip)
-	output2, _ := implantGzip.Encode(sample)
-	data2, err := implantGzip.Decode(output)
-	if err != nil {
-		t.Errorf("implant gzip decode returned an error %v", err)
-	}
-	if !bytes.Equal(data2, sample) {
-		t.Logf("sample = %#v", sample)
-		t.Logf("output = %#v", output2)
-		t.Logf("  data = %#v", data2)
-		t.Errorf("sample does not match implant returned\n%#v != %#v", sample, data)
-	}
-
-	if !bytes.Equal(output, output2) {
-		t.Logf("output1 = %#v", output)
-		t.Logf("output2 = %#v", output2)
-		t.Errorf("server/implant outputs do not match returned\n%#v != %#v", sample, data)
 	}
 }
 

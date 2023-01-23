@@ -21,8 +21,6 @@ package encoders
 import (
 	"bytes"
 	"testing"
-
-	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 )
 
 var (
@@ -34,6 +32,9 @@ var (
 		{randomData()},    // random binary data
 		{[]byte{0x0, 0x01, 0x02, 0x03, 0x04}},
 		{[]byte{0x01, 0x02, 0x03, 0x04, 0x0}},
+		{randomData()}, // random binary data
+		{randomData()}, // random binary data
+		{randomData()}, // random binary data
 	}
 )
 
@@ -47,29 +48,6 @@ func TestPNG(t *testing.T) {
 		}
 		if !bytes.Equal(test.Input, decodeOutput) {
 			t.Errorf("png Decode(img) => %q, expected %q", decodeOutput, test.Input)
-		}
-	}
-
-	implantPNGEncoder := new(implantEncoders.PNGEncoder)
-	for _, test := range imageTests {
-		buf, _ := implantPNGEncoder.Encode(test.Input)
-		decodeOutput, err := implantPNGEncoder.Decode(buf)
-		if err != nil {
-			t.Errorf("implant png decode returned error: %q", err)
-		}
-		if !bytes.Equal(test.Input, decodeOutput) {
-			t.Errorf("implant png Decode(img) => %q, expected %q", decodeOutput, test.Input)
-		}
-	}
-
-	for _, test := range imageTests {
-		buf, _ := implantPNGEncoder.Encode(test.Input)
-		decodeOutput, err := pngEncoder.Decode(buf)
-		if err != nil {
-			t.Errorf("implant/server png decode returned error: %q", err)
-		}
-		if !bytes.Equal(test.Input, decodeOutput) {
-			t.Errorf("implant/server png Decode(img) => %q, expected %q", decodeOutput, test.Input)
 		}
 	}
 }

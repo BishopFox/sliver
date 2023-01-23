@@ -1,4 +1,4 @@
-package encoders
+package traffic
 
 /*
 	Sliver Implant Framework
@@ -20,13 +20,23 @@ package encoders
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"runtime"
 
+	"github.com/bishopfox/sliver/util"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
-	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
+	wasi "github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
+
+// CalculateWasmEncoderID - Creates an Encoder ID based on the hash of the wasm bin
+func CalculateWasmEncoderID(wasmEncoderData []byte) uint16 {
+	digest := sha256.Sum256(wasmEncoderData)
+	return uint16(digest[0])<<8 + uint16(digest[1])
+}
 
 // TrafficEncoder - Implements the `Encoder` interface using a wasm backend
 type TrafficEncoder struct {
@@ -41,6 +51,7 @@ type TrafficEncoder struct {
 	free    api.Function
 }
 
+// Encode - Encode data using the wasm backend
 func (t *TrafficEncoder) Encode(data []byte) ([]byte, error) {
 	// Allocate a buffer in the wasm runtime for the input data
 	size := uint64(len(data))
@@ -75,6 +86,7 @@ func (t *TrafficEncoder) Encode(data []byte) ([]byte, error) {
 	return encodeResult, nil
 }
 
+// Decode - Decode bytes using the wasm backend
 func (t *TrafficEncoder) Decode(data []byte) ([]byte, error) {
 	size := uint64(len(data))
 	buf, err := t.malloc.Call(t.ctx, size)
@@ -110,29 +122,41 @@ func (t *TrafficEncoder) Close() error {
 	return t.runtime.Close(t.ctx)
 }
 
+// TrafficEncoderLogCallback - Callback function exposed to the wasm runtime to log messages
 type TrafficEncoderLogCallback func(string)
 
-func CreateTrafficEncoder(name string, wasm []byte, logString TrafficEncoderLogCallback) (*TrafficEncoder, error) {
+// CreateTrafficEncoder - Initialize an WASM runtime using the provided module name, code, and log callback
+func CreateTrafficEncoder(name string, wasm []byte, logger TrafficEncoderLogCallback) (*TrafficEncoder, error) {
 	ctx := context.Background()
 	var wasmRuntime wazero.Runtime
-	if contains([]string{"amd64", "arm64"}, runtime.GOARCH) && contains([]string{"darwin", "linux", "windows"}, runtime.GOOS) {
+	if util.Contains([]string{"amd64", "arm64"}, runtime.GOARCH) && util.Contains([]string{"darwin", "linux", "windows"}, runtime.GOOS) {
 		wasmRuntime = wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 	} else {
 		wasmRuntime = wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())
 	}
 
+	// Build the runtime and expose helper functions
 	_, err := wasmRuntime.NewHostModuleBuilder(name).
+
+		// Rand function
+		NewFunctionBuilder().WithFunc(func() uint64 {
+		buf := make([]byte, 8)
+		rand.Read(buf)
+		return binary.LittleEndian.Uint64(buf)
+	}).Export("rand").
+
+		// Log function
 		NewFunctionBuilder().WithFunc(func(_ context.Context, m api.Module, offset, byteCount uint32) {
 		buf, ok := m.Memory().Read(offset, byteCount)
 		if !ok {
-			logString(fmt.Sprintf("Log error: Memory.Read(%d, %d) out of range", offset, byteCount))
+			logger(fmt.Sprintf("Log error: Memory.Read(%d, %d) out of range", offset, byteCount))
 		}
-		logString(string(buf))
+		logger(string(buf))
 	}).Export("log").Instantiate(ctx, wasmRuntime)
 	if err != nil {
 		return nil, err
 	}
-	_, err = wasi_snapshot_preview1.Instantiate(ctx, wasmRuntime)
+	_, err = wasi.Instantiate(ctx, wasmRuntime)
 	if err != nil {
 		return nil, err
 	}
@@ -158,13 +182,4 @@ func CreateTrafficEncoder(name string, wasm []byte, logString TrafficEncoderLogC
 		malloc: mod.ExportedFunction("malloc"),
 		free:   mod.ExportedFunction("free"),
 	}, nil
-}
-
-func contains[T comparable](elements []T, v T) bool {
-	for _, s := range elements {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }

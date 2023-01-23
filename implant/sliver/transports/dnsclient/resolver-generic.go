@@ -29,7 +29,7 @@ import (
 	"log"
 	// {{end}}
 
-	"github.com/bishopfox/sliver/implant/sliver/encoders"
+	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/miekg/dns"
 )
 

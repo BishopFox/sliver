@@ -21,8 +21,6 @@ package encoders
 import (
 	"bytes"
 	"testing"
-
-	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 )
 
 func TestBase32(t *testing.T) {
@@ -31,43 +29,6 @@ func TestBase32(t *testing.T) {
 	b32 := new(Base32)
 	output, _ := b32.Encode(sample)
 	data, err := b32.Decode(output)
-	if err != nil {
-		t.Errorf("b32 decode returned an error %v", err)
-	}
-	if !bytes.Equal(sample, data) {
-		t.Logf("sample = %#v", sample)
-		t.Logf("output = %#v", output)
-		t.Logf("  data = %#v", data)
-		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-	}
-
-	implantBase32 := new(implantEncoders.Base32)
-	output2, _ := implantBase32.Encode(sample)
-	data2, err := implantBase32.Decode(output2)
-	if err != nil {
-		t.Errorf("implant b32 decode returned an error %v", err)
-	}
-	if !bytes.Equal(sample, data2) {
-		t.Logf("sample  = %#v", sample)
-		t.Logf("output2 = %#v", output2)
-		t.Logf("  data2 = %#v", data2)
-		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-	}
-
-	output, _ = b32.Encode(sample)
-	data, err = implantBase32.Decode(output)
-	if err != nil {
-		t.Errorf("b32 decode returned an error %v", err)
-	}
-	if !bytes.Equal(sample, data) {
-		t.Logf("sample = %#v", sample)
-		t.Logf("output = %#v", output)
-		t.Logf("  data = %#v", data)
-		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-	}
-
-	output, _ = implantBase32.Encode(sample)
-	data, err = b32.Decode(output)
 	if err != nil {
 		t.Errorf("b32 decode returned an error %v", err)
 	}

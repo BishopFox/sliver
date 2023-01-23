@@ -21,8 +21,6 @@ package encoders
 import (
 	"bytes"
 	"testing"
-
-	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 )
 
 func TestEnglish(t *testing.T) {
@@ -40,21 +38,6 @@ func TestEnglish(t *testing.T) {
 	}
 	if !bytes.Equal(sample, data) {
 		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-	}
-
-	implantEnglish := new(implantEncoders.English)
-	output2, _ := implantEnglish.Encode(sample)
-	data2, err := implantEnglish.Decode(output2)
-	if err != nil {
-		t.Error("Failed to encode sample data into english")
-		return
-	}
-	if !bytes.Equal(sample, data2) {
-		t.Errorf("implant sample does not match returned\n%#v != %#v", sample, data)
-	}
-
-	if !bytes.Equal(data, data2) {
-		t.Errorf("implant/server sample does not match\n%#v != %#v", data, data2)
 	}
 }
 
