@@ -24,7 +24,6 @@ import (
 
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -96,7 +95,7 @@ func ReadFileFromTarGz(tarGzFile string, tarPath string) ([]byte, error) {
 			case tar.TypeDir: // = directory
 				continue
 			case tar.TypeReg: // = regular file
-				return ioutil.ReadAll(tarReader)
+				return io.ReadAll(tarReader)
 			}
 		}
 	}

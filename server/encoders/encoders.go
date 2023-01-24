@@ -39,11 +39,12 @@ var (
 	English = util.English{}
 	Gzip    = util.Gzip{}
 	PNG     = util.PNGEncoder{}
+	Nop     = util.NoEncoder{}
 )
 
 func init() {
 	util.SetEnglishDictionary(assets.English())
-	initTrafficEncodersFromFS(assets.TrafficEncoderFS, func(msg string) {
+	LoadTrafficEncodersFromFS(assets.TrafficEncoderFS, func(msg string) {
 		trafficEncoderLog.Debugf("[traffic-encoder] %s", msg)
 	})
 }
@@ -57,7 +58,9 @@ var EncoderMap = map[int]util.Encoder{
 	util.PNGEncoderID:     PNG,
 }
 
-func initTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) error {
+// LoadTrafficEncodersFromFS - Loads the wasm traffic encoders from the filesystem, for the
+// server these will be loaded from: <app root>/traffic-encoders/*.wasm
+func LoadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) error {
 	// Load WASM encoders
 	encodersLog.Info("initializing traffic encoder map...")
 	wasmEncoderFiles, err := encodersFS.ReadDir(".")

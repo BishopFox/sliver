@@ -31,6 +31,10 @@ var (
 	English = util.English{}
 	Gzip    = util.Gzip{}
 	PNG     = util.PNGEncoder{}
+
+	// {{if .Config.Debug}}
+	Nop = util.NoEncoder{}
+	// {{end}}
 )
 
 // EncoderMap - Maps EncoderIDs to Encoders
@@ -40,6 +44,10 @@ var EncoderMap = map[int]util.Encoder{
 	util.EnglishEncoderID: English,
 	util.GzipEncoderID:    Gzip,
 	util.PNGEncoderID:     PNG,
+
+	// {{if .Config.Debug}}
+	0: util.NoEncoder{},
+	// {{end}}
 }
 
 // EncoderMap - Maps EncoderIDs to Encoders
@@ -49,6 +57,10 @@ var NativeEncoderMap = map[int]util.Encoder{
 	util.EnglishEncoderID: English,
 	util.GzipEncoderID:    Gzip,
 	util.PNGEncoderID:     PNG,
+
+	// {{if .Config.Debug}}
+	0: util.NoEncoder{},
+	// {{end}}
 }
 
 // EncoderFromNonce - Convert a nonce into an encoder
