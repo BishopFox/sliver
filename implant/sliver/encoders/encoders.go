@@ -19,55 +19,89 @@ package encoders
 */
 
 import (
+	"embed"
 	"errors"
 	insecureRand "math/rand"
-
-	util "github.com/bishopfox/sliver/util/encoders"
-)
-
-var (
-	Base64  = util.Base64{}
-	Hex     = util.Hex{}
-	English = util.English{}
-	Gzip    = util.Gzip{}
-	PNG     = util.PNGEncoder{}
+	"strings"
 
 	// {{if .Config.Debug}}
-	Nop = util.NoEncoder{}
+	"log"
+	// {{end}}
+
+	// {{if .Config.TrafficEncoders.Enabled}}
+	"github.com/bishopfox/sliver/implant/sliver/encoders/traffic"
+	// {{end}}
+)
+
+func init() {
+	err := loadWasmEncodersFromAssets()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to load WASM encoders: %v", err)
+		// {{end}}
+		return
+	}
+	err = loadEnglishDictionaryFromAssets()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to load english dictionary: %v", err)
+		// {{end}}
+		return
+	}
+}
+
+var (
+	//go:embed assets/*
+	assetsFS embed.FS // will be gzip'd
+
+	Base64  = Base64Encoder{}
+	Hex     = HexEncoder{}
+	English = EnglishEncoder{}
+	Gzip    = GzipEncoder{}
+	PNG     = PNGEncoder{}
+
+	// {{if .Config.Debug}}
+	Nop = NoEncoder{}
 	// {{end}}
 )
 
 // EncoderMap - Maps EncoderIDs to Encoders
-var EncoderMap = map[int]util.Encoder{
-	util.Base64EncoderID:  Base64,
-	util.HexEncoderID:     Hex,
-	util.EnglishEncoderID: English,
-	util.GzipEncoderID:    Gzip,
-	util.PNGEncoderID:     PNG,
+var EncoderMap = map[int]Encoder{
+	Base64EncoderID:  Base64,
+	HexEncoderID:     Hex,
+	EnglishEncoderID: English,
+	GzipEncoderID:    Gzip,
+	PNGEncoderID:     PNG,
 
 	// {{if .Config.Debug}}
-	0: util.NoEncoder{},
+	0: NoEncoder{},
 	// {{end}}
 }
 
 // EncoderMap - Maps EncoderIDs to Encoders
-var NativeEncoderMap = map[int]util.Encoder{
-	util.Base64EncoderID:  Base64,
-	util.HexEncoderID:     Hex,
-	util.EnglishEncoderID: English,
-	util.GzipEncoderID:    Gzip,
-	util.PNGEncoderID:     PNG,
+var NativeEncoderMap = map[int]Encoder{
+	Base64EncoderID:  Base64,
+	HexEncoderID:     Hex,
+	EnglishEncoderID: English,
+	GzipEncoderID:    Gzip,
+	PNGEncoderID:     PNG,
 
 	// {{if .Config.Debug}}
-	0: util.NoEncoder{},
+	0: NoEncoder{},
 	// {{end}}
+}
+
+// Encoder - Can losslessly encode arbitrary binary data
+type Encoder interface {
+	Encode([]byte) ([]byte, error)
+	Decode([]byte) ([]byte, error)
 }
 
 // EncoderFromNonce - Convert a nonce into an encoder
-func EncoderFromNonce(nonce int) (int, util.Encoder, error) {
-	encoderID := nonce % util.EncoderModulus
+func EncoderFromNonce(nonce int) (int, Encoder, error) {
+	encoderID := nonce % EncoderModulus
 	if encoderID == 0 {
-		return 0, new(util.NoEncoder), nil
+		return 0, new(NoEncoder), nil
 	}
 	if encoder, ok := EncoderMap[encoderID]; ok {
 		return encoderID, encoder, nil
@@ -76,12 +110,78 @@ func EncoderFromNonce(nonce int) (int, util.Encoder, error) {
 }
 
 // RandomEncoder - Get a random nonce identifier and a matching encoder
-func RandomEncoder() (int, util.Encoder) {
+func RandomEncoder() (int, Encoder) {
 	keys := make([]int, 0, len(EncoderMap))
 	for k := range EncoderMap {
 		keys = append(keys, k)
 	}
 	encoderID := keys[insecureRand.Intn(len(keys))]
-	nonce := (insecureRand.Intn(util.MaxN) * util.EncoderModulus) + encoderID
+	nonce := (insecureRand.Intn(MaxN) * EncoderModulus) + encoderID
 	return nonce, EncoderMap[encoderID]
+}
+
+func loadWasmEncodersFromAssets() error {
+
+	// *** {{if .Config.TrafficEncoders.Enabled}} ***
+
+	// {{if .Config.Debug}}}
+	log.Printf("initializing traffic encoder map...")
+	// {{end}}
+
+	assetFiles, err := assetsFS.ReadDir(".")
+	if err != nil {
+		return err
+	}
+	for _, assetFile := range assetFiles {
+		if assetFile.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(assetFile.Name(), ".wasm") {
+			continue
+		}
+		// WASM Module name should be equal to file name without the extension
+		wasmEncoderModuleName := strings.TrimSuffix(assetFile.Name(), ".wasm")
+		wasmEncoderData, err := assetsFS.ReadFile(assetFile.Name())
+		if err != nil {
+			return err
+		}
+		wasmEncoderData, err = Gzip.Decode(wasmEncoderData)
+		if err != nil {
+			return err
+		}
+		wasmEncoderID := traffic.CalculateWasmEncoderID(wasmEncoderData)
+		trafficEncoder, err := traffic.CreateTrafficEncoder(wasmEncoderModuleName, wasmEncoderData, func(msg string) {
+			// {{if .Config.Debug}}
+			log.Printf("[Traffic Encoder] %s", msg)
+			// {{end}}
+		})
+		if err != nil {
+			return err
+		}
+		EncoderMap[int(wasmEncoderID)] = trafficEncoder
+		// {{if .Config.Debug}}
+		log.Printf("Loading %s (id: %d, bytes: %d)", wasmEncoderModuleName, wasmEncoderID, len(wasmEncoderData))
+		// {{end}}
+	}
+	// {{if .Config.Debug}}
+	log.Printf("Loaded %d traffic encoders", len(assetFiles))
+	//	{{end}}
+
+	// *** {{end}} ***
+	return nil
+}
+
+func loadEnglishDictionaryFromAssets() error {
+	englishData, err := assetsFS.ReadFile("english.txt")
+	if err != nil {
+		return err
+	}
+	englishData, err = Gzip.Decode(englishData)
+	if err != nil {
+		return err
+	}
+	for _, word := range strings.Split(string(englishData), "\n") {
+		rawEnglishDictionary = append(rawEnglishDictionary, strings.TrimSpace(word))
+	}
+	return nil
 }
