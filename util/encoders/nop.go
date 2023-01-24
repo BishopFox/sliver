@@ -18,17 +18,29 @@ package encoders
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import "io/fs"
+import insecureRand "math/rand"
 
-// Encoder - Can losslessly encode arbitrary binary data
-type Encoder interface {
-	Encode([]byte) ([]byte, error)
-	Decode([]byte) ([]byte, error)
+var (
+	MaxN           = 999999999
+	EncoderModulus = 101
+)
+
+// NopNonce - A NOP nonce identifies a request with no encoder/payload
+//
+//	any value where mod = 0
+func NopNonce() int {
+	return insecureRand.Intn(MaxN) * EncoderModulus
 }
 
-// EncoderFS - Generic interface to read wasm encoders from a filesystem
-type EncoderFS interface {
-	Open(name string) (fs.File, error)
-	ReadDir(name string) ([]fs.DirEntry, error)
-	ReadFile(name string) ([]byte, error)
+// NoEncoder - A NOP encoder
+type NoEncoder struct{}
+
+// Encode - Don't do anything
+func (n NoEncoder) Encode(data []byte) ([]byte, error) {
+	return data, nil
+}
+
+// Decode - Don't do anything
+func (n NoEncoder) Decode(data []byte) ([]byte, error) {
+	return data, nil
 }

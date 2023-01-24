@@ -33,7 +33,6 @@ import (
 
 	ver "github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/bishopfox/sliver/util/encoders"
 	"golang.org/x/crypto/openpgp/armor"
 	"golang.org/x/crypto/openpgp/packet"
 )
@@ -49,8 +48,6 @@ const (
 
 var (
 	setupLog = log.NamedLogger("assets", "setup")
-
-	trafficEncoderLog = log.NamedLogger("assets", "traffic-encoders")
 )
 
 // GetRootAppDir - Get the Sliver app dir, default is: ~/.sliver/
@@ -118,17 +115,8 @@ under certain conditions; type 'licenses' for details.`)
 		}
 		setupGo(appDir)
 		setupCodenames(appDir)
-		setupTrafficEncoders(appDir)
 		saveAssetVersion(appDir)
 	}
-	setupLog.Infof("Initializing encoders ...")
-	err := encoders.InitEncoderMap(loadTrafficEncoders(appDir), func(msg string) {
-		trafficEncoderLog.Infof("[traffic encoder] %s", msg)
-	})
-	if err != nil {
-		trafficEncoderLog.Errorf("Failed to initialize traffic encoders: %s", err)
-	}
-	encoders.InitEnglishDictionary(English())
 	setupLog.Infof("Initialized english encoder with %d words", len(English()))
 }
 

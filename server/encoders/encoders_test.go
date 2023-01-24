@@ -20,16 +20,20 @@ package encoders
 
 import (
 	"bytes"
+	"crypto/rand"
+	insecureRand "math/rand"
 	"testing"
+
+	utilEncoders "github.com/bishopfox/sliver/util/encoders"
 )
 
 func TestEnglish(t *testing.T) {
 
-	InitEnglishDictionary(getTestEnglishDictionary())
+	utilEncoders.SetEnglishDictionary(getTestEnglishDictionary())
 
 	sample := randomData()
 
-	english := new(English)
+	english := new(utilEncoders.English)
 	output, _ := english.Encode(sample)
 	data, err := english.Decode(output)
 	if err != nil {
@@ -39,6 +43,12 @@ func TestEnglish(t *testing.T) {
 	if !bytes.Equal(sample, data) {
 		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 	}
+}
+
+func randomData() []byte {
+	buf := make([]byte, insecureRand.Intn(1024))
+	rand.Read(buf)
+	return buf
 }
 
 func getTestEnglishDictionary() []string {

@@ -28,11 +28,11 @@ import (
 	"testing"
 
 	implantCrypto "github.com/bishopfox/sliver/implant/sliver/cryptography"
+	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 	implantTransports "github.com/bishopfox/sliver/implant/sliver/transports/httpclient"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/cryptography"
-	implantEncoders "github.com/bishopfox/sliver/util/encoders"
 	"google.golang.org/protobuf/proto"
 )
 

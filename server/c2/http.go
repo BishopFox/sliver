@@ -44,11 +44,11 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/encoders"
 	sliverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/website"
 	"github.com/bishopfox/sliver/util"
-	"github.com/bishopfox/sliver/util/encoders"
 
 	"github.com/gorilla/mux"
 	"google.golang.org/protobuf/proto"
