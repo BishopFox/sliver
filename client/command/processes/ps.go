@@ -46,6 +46,12 @@ var (
 		"RepWSC.exe":                      {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
 		"scanhost.exe":                    {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
 		"MsMpEng.exe":                     {console.Red, "Windows Defender"},             // Windows Defender
+		"SenseIR.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Live Response Session)
+		"SenseCncProxy.exe":               {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint
+		"MsSense.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint
+		"MpCmdRun.exe":                    {console.Red, "Windows Defender"},             // Windows Defender
+		"MonitoringHost.exe":              {console.Red, "Windows Defender"},             // Microsoft Monitoring Agent
+		"HealthService.exe":               {console.Red, "Windows Defender"},             // Microsoft Monitoring Agent
 		"smartscreen.exe":                 {console.Red, "Windows Smart Screen"},         // Windows Defender Smart Screen
 		"CSFalconService.exe":             {console.Red, "CrowdStrike"},                  // Crowdstrike Falcon Service
 		"CSFalconContainer.exe":           {console.Red, "CrowdStrike"},                  // CrowdStrike Falcon Container Security
