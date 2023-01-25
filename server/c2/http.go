@@ -442,7 +442,7 @@ func getNonceFromURL(reqURL *url.URL) (uint64, error) {
 		httpLog.Warn("Nonce not found in request")
 		return 0, ErrMissingNonce
 	}
-	nonce, err := strconv.ParseUint(qNonce, 0, 64)
+	nonce, err := strconv.ParseUint(qNonce, 10, 64)
 	if err != nil {
 		httpLog.Warnf("Invalid nonce, failed to parse '%s'", qNonce)
 		return 0, err

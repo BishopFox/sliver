@@ -36,7 +36,7 @@ import (
 )
 
 var (
-	EncoderModulus = uint64(101)
+	EncoderModulus = uint64(65537)
 	MaxN           = uint64(9999999)
 
 	Base32EncoderID  = uint64(65)

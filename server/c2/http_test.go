@@ -110,6 +110,7 @@ func TestGetNonceFromURL(t *testing.T) {
 		}
 		nonce, encoder := implantEncoders.RandomEncoder()
 		testURL := client.NonceQueryArgument(baseURL, nonce)
+		t.Log(testURL.String())
 		urlNonce, err := getNonceFromURL(testURL)
 		if err != nil {
 			t.Errorf("Nonce '%d' triggered error from %#v", nonce, encoder)
