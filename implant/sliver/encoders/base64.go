@@ -21,7 +21,7 @@ import "encoding/base64"
 */
 
 // Base64EncoderID - EncoderID
-const Base64EncoderID = 13
+const Base64EncoderID = 131
 
 // Base64Encoder Encoder
 type Base64Encoder struct{}

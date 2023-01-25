@@ -28,8 +28,8 @@ import (
 	"testing"
 	"time"
 
-	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
-	"github.com/bishopfox/sliver/util/encoders"
+	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders/traffic"
+	serverEncoders "github.com/bishopfox/sliver/util/encoders/traffic"
 )
 
 //go:embed base64.wasm
@@ -48,7 +48,7 @@ func TestTrafficEncoderCompatibility_base64Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	serverSideB64, err := encoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
+	serverSideB64, err := serverEncoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
 		t.Log(msg)
 	})
 	if err != nil {
@@ -100,7 +100,7 @@ func TestTrafficEncoderCompatibility_hex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	serverSideHex, err := encoders.CreateTrafficEncoder("hex", hexWASM, func(msg string) {
+	serverSideHex, err := serverEncoders.CreateTrafficEncoder("hex", hexWASM, func(msg string) {
 		t.Log(msg)
 	})
 	if err != nil {
@@ -145,7 +145,7 @@ func TestTrafficEncoderCompatibility_hex(t *testing.T) {
 // Encoder specific tests
 
 func TestTrafficEncoder_base64Basic(t *testing.T) {
-	encoder, err := encoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
+	encoder, err := serverEncoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
 		t.Log(msg)
 	})
 	if err != nil {
@@ -168,7 +168,7 @@ func TestTrafficEncoder_base64Basic(t *testing.T) {
 }
 
 func TestTrafficEncoder_base64RandomSmall(t *testing.T) {
-	encoder, err := encoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
+	encoder, err := serverEncoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
 		t.Log(msg)
 	})
 	if err != nil {
@@ -194,7 +194,7 @@ func TestTrafficEncoder_base64RandomSmall(t *testing.T) {
 }
 
 func TestTrafficEncoder_base64RandomLarge(t *testing.T) {
-	encoder, err := encoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
+	encoder, err := serverEncoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
 		t.Log(msg)
 	})
 	if err != nil {
@@ -238,7 +238,7 @@ func TestBase64Performance(t *testing.T) {
 
 	// Traffic encoder
 	for i := 0; i < len(sizes); i++ {
-		encoder, err := encoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
+		encoder, err := serverEncoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
 			t.Log(msg)
 		})
 		if err != nil {
@@ -285,7 +285,7 @@ func TestHexPerformance(t *testing.T) {
 
 	// Traffic encoder
 	for i := 0; i < len(sizes); i++ {
-		encoder, err := encoders.CreateTrafficEncoder("hex", hexWASM, func(msg string) {
+		encoder, err := serverEncoders.CreateTrafficEncoder("hex", hexWASM, func(msg string) {
 			t.Log(msg)
 		})
 		if err != nil {

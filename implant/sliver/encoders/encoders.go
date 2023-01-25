@@ -52,7 +52,7 @@ func init() {
 
 var (
 	//go:embed assets/*
-	assetsFS embed.FS // will be gzip'd
+	assetsFS embed.FS // files will be gzip'd
 
 	Base64  = Base64Encoder{}
 	Hex     = HexEncoder{}
