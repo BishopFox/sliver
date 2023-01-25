@@ -20,6 +20,19 @@ package encoders
 
 import "io/fs"
 
+const (
+	EncoderModulus = uint64(101)
+	MaxN           = uint64(9999999)
+
+	Base32EncoderID  = uint64(65)
+	Base58EncoderID  = uint64(43)
+	Base64EncoderID  = uint64(131)
+	EnglishEncoderID = uint64(31)
+	GzipEncoderID    = uint64(49)
+	HexEncoderID     = uint64(92)
+	PNGEncoderID     = uint64(22)
+)
+
 // Encoder - Can losslessly encode arbitrary binary data
 type Encoder interface {
 	Encode([]byte) ([]byte, error)

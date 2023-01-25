@@ -430,7 +430,7 @@ func (s *SliverHTTPC2) filterOTP(req *http.Request, rm *mux.RouteMatch) bool {
 	}
 }
 
-func getNonceFromURL(reqURL *url.URL) (int, error) {
+func getNonceFromURL(reqURL *url.URL) (uint64, error) {
 	qNonce := ""
 	for arg, values := range reqURL.Query() {
 		if len(arg) == 1 {
@@ -442,7 +442,7 @@ func getNonceFromURL(reqURL *url.URL) (int, error) {
 		httpLog.Warn("Nonce not found in request")
 		return 0, ErrMissingNonce
 	}
-	nonce, err := strconv.Atoi(qNonce)
+	nonce, err := strconv.ParseUint(qNonce, 0, 64)
 	if err != nil {
 		httpLog.Warnf("Invalid nonce, failed to parse '%s'", qNonce)
 		return 0, err

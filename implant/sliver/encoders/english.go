@@ -23,9 +23,6 @@ import (
 	"strings"
 )
 
-// EnglishEncoderID - EncoderID
-const EnglishEncoderID = 31
-
 var dictionary map[int][]string
 
 var rawEnglishDictionary []string

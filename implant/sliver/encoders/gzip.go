@@ -24,9 +24,6 @@ import (
 	"sync"
 )
 
-// GzipEncoderID - EncoderID
-const GzipEncoderID = 49
-
 // Gzip - Gzip compression encoder
 type GzipEncoder struct{}
 

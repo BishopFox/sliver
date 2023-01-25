@@ -31,9 +31,6 @@ import (
 	"math/big"
 )
 
-// Base62EncoderID - EncoderID
-const Base58EncoderID = 43
-
 // Base58 Encoder
 type Base58 struct{}
 

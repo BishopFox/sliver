@@ -20,9 +20,6 @@ import (
 	"encoding/base32"
 )
 
-// Base32EncoderID - EncoderID
-const Base32EncoderID = 65
-
 // Base32 Encoder
 type Base32 struct{}
 

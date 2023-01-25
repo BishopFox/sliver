@@ -18,20 +18,6 @@ package encoders
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import insecureRand "math/rand"
-
-var (
-	MaxN           = 999999999
-	EncoderModulus = 101
-)
-
-// NopNonce - A NOP nonce identifies a request with no encoder/payload
-//
-//	any value where mod = 0
-func NopNonce() int {
-	return insecureRand.Intn(MaxN) * EncoderModulus
-}
-
 // NoEncoder - A NOP encoder
 type NoEncoder struct{}
 

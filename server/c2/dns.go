@@ -296,9 +296,9 @@ func (p *PendingEnvelope) Insert(dnsMsg *dnspb.DNSMessage) bool {
 	}
 	p.received = total
 	p.complete = p.received >= p.Size
-	if p.complete {
-		dnsLog.Debugf("[dns] message complete %d of %d", p.received, p.Size)
-	}
+	// if p.complete {
+	// 	dnsLog.Debugf("[dns] message complete %d of %d", p.received, p.Size)
+	// }
 	return p.complete
 }
 

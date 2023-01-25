@@ -192,7 +192,7 @@ func (s *SliverHTTPClient) SessionInit() error {
 }
 
 // NonceQueryArgument - Adds a nonce query argument to the URL
-func (s *SliverHTTPClient) NonceQueryArgument(uri *url.URL, value int) *url.URL {
+func (s *SliverHTTPClient) NonceQueryArgument(uri *url.URL, value uint64) *url.URL {
 	values := uri.Query()
 	key := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
 	argValue := fmt.Sprintf("%d", value)

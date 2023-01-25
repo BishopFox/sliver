@@ -19,7 +19,8 @@ package encoders
 */
 
 import (
-	"errors"
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	insecureRand "math/rand"
 	"strings"
@@ -50,7 +51,7 @@ func init() {
 }
 
 // EncoderMap - Maps EncoderIDs to Encoders
-var EncoderMap = map[int]util.Encoder{
+var EncoderMap = map[uint64]util.Encoder{
 	util.Base64EncoderID:  Base64,
 	util.HexEncoderID:     Hex,
 	util.EnglishEncoderID: English,
@@ -84,7 +85,7 @@ func LoadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) e
 			encodersLog.Errorf(fmt.Sprintf("failed to create traffic encoder from '%s': %s", wasmEncoderModuleName, err.Error()))
 			return err
 		}
-		EncoderMap[int(wasmEncoderID)] = trafficEncoder
+		EncoderMap[uint64(wasmEncoderID)] = trafficEncoder
 		encodersLog.Info(fmt.Sprintf("Loading %s (id: %d, bytes: %d)", wasmEncoderModuleName, wasmEncoderID, len(wasmEncoderData)))
 	}
 	encodersLog.Info(fmt.Sprintf("Loaded %d traffic encoders", len(wasmEncoderFiles)))
@@ -92,24 +93,30 @@ func LoadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) e
 }
 
 // EncoderFromNonce - Convert a nonce into an encoder
-func EncoderFromNonce(nonce int) (int, util.Encoder, error) {
-	encoderID := nonce % util.EncoderModulus
+func EncoderFromNonce(nonce uint64) (uint64, util.Encoder, error) {
+	encoderID := uint64(nonce) % util.EncoderModulus
 	if encoderID == 0 {
 		return 0, new(util.NoEncoder), nil
 	}
 	if encoder, ok := EncoderMap[encoderID]; ok {
 		return encoderID, encoder, nil
 	}
-	return -1, nil, errors.New("invalid encoder nonce")
+	return 0, nil, fmt.Errorf("invalid encoder id: %d", encoderID)
 }
 
 // RandomEncoder - Get a random nonce identifier and a matching encoder
-func RandomEncoder() (int, util.Encoder) {
-	keys := make([]int, 0, len(EncoderMap))
+func RandomEncoder() (uint64, util.Encoder) {
+	keys := make([]uint64, 0, len(EncoderMap))
 	for k := range EncoderMap {
 		keys = append(keys, k)
 	}
 	encoderID := keys[insecureRand.Intn(len(keys))]
-	nonce := (insecureRand.Intn(util.MaxN) * util.EncoderModulus) + encoderID
+	nonce := (randomUint64(util.MaxN) * util.EncoderModulus) + encoderID
 	return nonce, EncoderMap[encoderID]
+}
+
+func randomUint64(max uint64) uint64 {
+	buf := make([]byte, 8)
+	rand.Read(buf)
+	return binary.LittleEndian.Uint64(buf) % max
 }

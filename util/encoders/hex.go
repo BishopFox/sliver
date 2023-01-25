@@ -20,9 +20,6 @@ package encoders
 
 import "encoding/hex"
 
-// HexEncoderID - EncoderID
-const HexEncoderID = 92
-
 // Hex Encoder
 type Hex struct{}
 

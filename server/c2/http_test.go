@@ -108,10 +108,11 @@ func TestGetNonceFromURL(t *testing.T) {
 			Host:   "127.0.0.1:8888",
 			Path:   "/test/foo.txt",
 		}
-		nonce, _ := implantEncoders.RandomEncoder()
+		nonce, encoder := implantEncoders.RandomEncoder()
 		testURL := client.NonceQueryArgument(baseURL, nonce)
 		urlNonce, err := getNonceFromURL(testURL)
 		if err != nil {
+			t.Errorf("Nonce '%d' triggered error from %#v", nonce, encoder)
 			t.Fatal(err)
 		}
 		if urlNonce != nonce {

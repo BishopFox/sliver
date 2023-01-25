@@ -36,9 +36,6 @@ const (
 
 	// we can shove three bytes into each pixel: R, G, and B.
 	bytesPerPixel = 3
-
-	// PNGEncoderID - Encoder ID
-	PNGEncoderID = 22
 )
 
 // PNGEncoder - PNG image object

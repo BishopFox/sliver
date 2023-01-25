@@ -19,7 +19,9 @@ package encoders
 */
 
 import (
+	"crypto/rand"
 	"embed"
+	"encoding/binary"
 	"errors"
 	insecureRand "math/rand"
 	"strings"
@@ -31,6 +33,19 @@ import (
 	// {{if .Config.TrafficEncoders.Enabled}}
 	"github.com/bishopfox/sliver/implant/sliver/encoders/traffic"
 	// {{end}}
+)
+
+var (
+	EncoderModulus = uint64(101)
+	MaxN           = uint64(9999999)
+
+	Base32EncoderID  = uint64(65)
+	Base58EncoderID  = uint64(43)
+	Base64EncoderID  = uint64(131)
+	EnglishEncoderID = uint64(31)
+	GzipEncoderID    = uint64(49)
+	HexEncoderID     = uint64(92)
+	PNGEncoderID     = uint64(22)
 )
 
 func init() {
@@ -66,7 +81,7 @@ var (
 )
 
 // EncoderMap - Maps EncoderIDs to Encoders
-var EncoderMap = map[int]Encoder{
+var EncoderMap = map[uint64]Encoder{
 	Base64EncoderID:  Base64,
 	HexEncoderID:     Hex,
 	EnglishEncoderID: English,
@@ -79,7 +94,7 @@ var EncoderMap = map[int]Encoder{
 }
 
 // EncoderMap - Maps EncoderIDs to Encoders
-var NativeEncoderMap = map[int]Encoder{
+var NativeEncoderMap = map[uint64]Encoder{
 	Base64EncoderID:  Base64,
 	HexEncoderID:     Hex,
 	EnglishEncoderID: English,
@@ -98,7 +113,7 @@ type Encoder interface {
 }
 
 // EncoderFromNonce - Convert a nonce into an encoder
-func EncoderFromNonce(nonce int) (int, Encoder, error) {
+func EncoderFromNonce(nonce uint64) (uint64, Encoder, error) {
 	encoderID := nonce % EncoderModulus
 	if encoderID == 0 {
 		return 0, new(NoEncoder), nil
@@ -106,18 +121,24 @@ func EncoderFromNonce(nonce int) (int, Encoder, error) {
 	if encoder, ok := EncoderMap[encoderID]; ok {
 		return encoderID, encoder, nil
 	}
-	return -1, nil, errors.New("invalid encoder nonce")
+	return 0, nil, errors.New("invalid encoder nonce")
 }
 
 // RandomEncoder - Get a random nonce identifier and a matching encoder
-func RandomEncoder() (int, Encoder) {
-	keys := make([]int, 0, len(EncoderMap))
+func RandomEncoder() (uint64, Encoder) {
+	keys := make([]uint64, 0, len(EncoderMap))
 	for k := range EncoderMap {
 		keys = append(keys, k)
 	}
 	encoderID := keys[insecureRand.Intn(len(keys))]
-	nonce := (insecureRand.Intn(MaxN) * EncoderModulus) + encoderID
+	nonce := (randomUint64(MaxN) * EncoderModulus) + encoderID
 	return nonce, EncoderMap[encoderID]
+}
+
+func randomUint64(max uint64) uint64 {
+	buf := make([]byte, 8)
+	rand.Read(buf)
+	return binary.LittleEndian.Uint64(buf) % max
 }
 
 func loadWasmEncodersFromAssets() error {
@@ -128,7 +149,7 @@ func loadWasmEncodersFromAssets() error {
 	log.Printf("initializing traffic encoder map...")
 	// {{end}}
 
-	assetFiles, err := assetsFS.ReadDir(".")
+	assetFiles, err := assetsFS.ReadDir("assets")
 	if err != nil {
 		return err
 	}
@@ -158,13 +179,17 @@ func loadWasmEncodersFromAssets() error {
 		if err != nil {
 			return err
 		}
-		EncoderMap[int(wasmEncoderID)] = trafficEncoder
+		EncoderMap[uint64(wasmEncoderID)] = trafficEncoder
 		// {{if .Config.Debug}}
-		log.Printf("Loading %s (id: %d, bytes: %d)", wasmEncoderModuleName, wasmEncoderID, len(wasmEncoderData))
+		log.Printf("loading %s (id: %d, bytes: %d)", wasmEncoderModuleName, wasmEncoderID, len(wasmEncoderData))
 		// {{end}}
 	}
 	// {{if .Config.Debug}}
-	log.Printf("Loaded %d traffic encoders", len(assetFiles))
+	log.Printf("completed loading traffic encoders")
+	log.Printf("current encoder map:")
+	for encoderID, encoder := range EncoderMap {
+		log.Printf("encoder %d -> %#v", encoderID, encoder)
+	}
 	//	{{end}}
 
 	// *** {{end}} ***
@@ -172,7 +197,7 @@ func loadWasmEncodersFromAssets() error {
 }
 
 func loadEnglishDictionaryFromAssets() error {
-	englishData, err := assetsFS.ReadFile("english.gz")
+	englishData, err := assetsFS.ReadFile("assets/english.gz")
 	if err != nil {
 		return err
 	}

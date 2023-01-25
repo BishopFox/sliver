@@ -20,9 +20,6 @@ import "encoding/base64"
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// Base64EncoderID - EncoderID
-const Base64EncoderID = 13
-
 // Base64 Encoder
 type Base64 struct{}
 
