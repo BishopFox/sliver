@@ -267,10 +267,10 @@ func (p *PendingEnvelope) Reassemble() ([]byte, error) {
 	if 1 < len(keys) {
 		sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
 	}
-	dnsLog.Debugf("[dns] reassemble from: %v", keys)
-	for index, k := range keys {
-		dnsLog.Debugf("[dns] reassemble %d (%d->%d): %d bytes",
-			index, len(buffer), len(buffer)+len(p.messages[k]), len(p.messages[k]))
+	// dnsLog.Debugf("[dns] reassemble from: %v", keys)
+	for _, k := range keys {
+		// dnsLog.Debugf("[dns] reassemble %d (%d->%d): %d bytes",
+		// 	index, len(buffer), len(buffer)+len(p.messages[k]), len(p.messages[k]))
 		buffer = append(buffer, p.messages[k]...)
 	}
 	if len(buffer) != int(p.Size) {
@@ -287,8 +287,8 @@ func (p *PendingEnvelope) Insert(dnsMsg *dnspb.DNSMessage) bool {
 		return false // Already complete
 	}
 	p.messages[dnsMsg.Start] = bytes.NewBuffer(dnsMsg.Data).Bytes()
-	dnsLog.Debugf("[dns] msg id: %d, %d->%d, recv: %d of %d",
-		dnsMsg.ID, dnsMsg.Start, int(dnsMsg.Start)+len(dnsMsg.Data), p.received, p.Size)
+	// dnsLog.Debugf("[dns] msg id: %d, %d->%d, recv: %d of %d",
+	// 	dnsMsg.ID, dnsMsg.Start, int(dnsMsg.Start)+len(dnsMsg.Data), p.received, p.Size)
 
 	total := uint32(0)
 	for k := range p.messages {

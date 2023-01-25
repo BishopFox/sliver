@@ -172,7 +172,7 @@ func loadWasmEncodersFromAssets() error {
 }
 
 func loadEnglishDictionaryFromAssets() error {
-	englishData, err := assetsFS.ReadFile("english.txt")
+	englishData, err := assetsFS.ReadFile("english.gz")
 	if err != nil {
 		return err
 	}

