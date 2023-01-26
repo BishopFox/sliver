@@ -36,6 +36,8 @@ var (
 	trafficEncoderLog = log.NamedLogger("encoders", "traffic-encoders")
 
 	Base64  = util.Base64{}
+	Base58  = util.Base58{}
+	Base32  = util.Base32{}
 	Hex     = util.Hex{}
 	English = util.English{}
 	Gzip    = util.Gzip{}

@@ -54,22 +54,11 @@ if go test -tags=server,$TAGS ./util/encoders/basex ; then
 else
     exit 1
 fi
-if go test -timeout 10m -tags=server,$TAGS ./server/assets/traffic-encoders ; then
-    :
-else
-    exit 1
-fi
 if go test -tags=server,$TAGS ./util/encoders ; then
     :
 else
     exit 1
 fi
-if go test -tags=client,$TAGS ./util/encoders ; then
-    :
-else
-    exit 1
-fi
-
 
 ## Implant
 
@@ -81,6 +70,20 @@ else
 fi
 
 ## Server
+
+# server / assets / traffic encoders
+if go test -timeout 10m -tags=server,$TAGS ./server/assets/traffic-encoders ; then
+    :
+else
+    exit 1
+fi
+
+# server / encoders
+if go test -timeout 10m -tags=server,$TAGS ./server/encoders ; then
+    :
+else
+    exit 1
+fi
 
 # server / website
 if go test -tags=server,$TAGS ./server/website ; then

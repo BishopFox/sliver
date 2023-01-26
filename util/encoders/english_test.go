@@ -20,125 +20,25 @@ package encoders
 
 import (
 	"bytes"
-	"crypto/rand"
-	insecureRand "math/rand"
 	"testing"
-
-	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
-	util "github.com/bishopfox/sliver/util/encoders"
 )
 
-func TestCompatibilityEnglish(t *testing.T) {
+func TestEnglish(t *testing.T) {
 
-	util.SetEnglishDictionary(getTestEnglishDictionary())
+	SetEnglishDictionary(getTestEnglishDictionary())
 
-	for i := 0; i < 100; i++ {
-		sample := randomData()
-		output, _ := English.Encode(sample)
-		data, err := implantEncoders.English.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into english")
-			return
-		}
-		if !bytes.Equal(sample, data) {
-			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-		}
+	sample := randomData()
 
-		sample2 := randomData()
-		output, _ = implantEncoders.English.Encode(sample2)
-		data, err = English.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into english")
-			return
-		}
-		if !bytes.Equal(sample2, data) {
-			t.Errorf("sample2 does not match returned\n%#v != %#v", sample2, data)
-		}
+	english := new(English)
+	output, _ := english.Encode(sample)
+	data, err := english.Decode(output)
+	if err != nil {
+		t.Error("Failed to encode sample data into english")
+		return
 	}
-}
-
-func TestCompatibilityBase64(t *testing.T) {
-	for i := 0; i < 100; i++ {
-		sample := randomData()
-		output, _ := Base64.Encode(sample)
-		data, err := implantEncoders.Base64.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into base64")
-			return
-		}
-		if !bytes.Equal(sample, data) {
-			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-		}
-
-		sample2 := randomData()
-		output, _ = implantEncoders.Base64.Encode(sample2)
-		data, err = Base64.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into base64")
-			return
-		}
-		if !bytes.Equal(sample2, data) {
-			t.Errorf("sample2 does not match returned\n%#v != %#v", sample2, data)
-		}
+	if !bytes.Equal(sample, data) {
+		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 	}
-}
-
-func TestCompatibilityBase58(t *testing.T) {
-	for i := 0; i < 100; i++ {
-		sample := randomData()
-		output, _ := Base58.Encode(sample)
-		data, err := implantEncoders.Base58.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into base58")
-			return
-		}
-		if !bytes.Equal(sample, data) {
-			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-		}
-
-		sample2 := randomData()
-		output, _ = Base58.Encode(sample2)
-		data, err = implantEncoders.Base58.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into base58")
-			return
-		}
-		if !bytes.Equal(sample2, data) {
-			t.Errorf("sample2 does not match returned\n%#v != %#v", sample2, data)
-		}
-	}
-}
-
-func TestCompatibilityBase32(t *testing.T) {
-	for i := 0; i < 100; i++ {
-		sample := randomData()
-		output, _ := Base32.Encode(sample)
-		data, err := implantEncoders.Base32.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into base32")
-			return
-		}
-		if !bytes.Equal(sample, data) {
-			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-		}
-
-		sample2 := randomData()
-		output, _ = Base32.Encode(sample2)
-		data, err = implantEncoders.Base32.Decode(output)
-		if err != nil {
-			t.Error("Failed to encode/decode sample data into base32")
-			return
-		}
-		if !bytes.Equal(sample2, data) {
-			t.Errorf("sample2 does not match returned\n%#v != %#v", sample2, data)
-		}
-	}
-}
-
-func randomData() []byte {
-	buf := make([]byte, insecureRand.Intn(2048))
-	rand.Read(buf)
-	return buf
 }
 
 func getTestEnglishDictionary() []string {

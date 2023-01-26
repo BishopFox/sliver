@@ -70,6 +70,8 @@ var (
 	assetsFS embed.FS // files will be gzip'd
 
 	Base64  = Base64Encoder{}
+	Base58  = Base58Encoder{}
+	Base32  = Base32Encoder{}
 	Hex     = HexEncoder{}
 	English = EnglishEncoder{}
 	Gzip    = GzipEncoder{}

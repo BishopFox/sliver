@@ -32,15 +32,15 @@ import (
 )
 
 // Base58 Encoder
-type Base58 struct{}
+type Base58Encoder struct{}
 
 // Encode - Base58 Encode
-func (e Base58) Encode(data []byte) ([]byte, error) {
+func (e Base58Encoder) Encode(data []byte) ([]byte, error) {
 	return []byte(B58Encode(data)), nil
 }
 
 // Decode - Base58 Decode
-func (e Base58) Decode(data []byte) ([]byte, error) {
+func (e Base58Encoder) Decode(data []byte) ([]byte, error) {
 	return B58Decode(string(data)), nil
 }
 
