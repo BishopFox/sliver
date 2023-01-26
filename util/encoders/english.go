@@ -57,6 +57,16 @@ func (e English) Decode(words []byte) ([]byte, error) {
 	return data, nil
 }
 
+var rawEnglishDictionary []string
+
+func SetEnglishDictionary(dictionary []string) {
+	rawEnglishDictionary = dictionary
+}
+
+func getEnglishDictionary() []string {
+	return rawEnglishDictionary
+}
+
 func buildDictionary() {
 	dictionary = map[int][]string{}
 	for _, word := range getEnglishDictionary() {

@@ -171,6 +171,13 @@ message ImplantConfig {
   bool IsShellcode = 104;
 
   bool RunAtLoad = 105;
+  bool TrafficEncodersEnabled = 106;
+
+  EncoderAssets Assets = 200;
+}
+
+message EncoderAssets {
+  repeated commonpb.File Assets = 1;
 }
 
 message ExternalImplantConfig {

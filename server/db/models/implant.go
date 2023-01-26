@@ -130,6 +130,8 @@ type ImplantConfig struct {
 	RunAtLoad bool
 
 	FileName string
+
+	TrafficEncodersEnabled bool
 }
 
 // BeforeCreate - GORM hook
@@ -184,7 +186,8 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		WGKeyExchangePort: ic.WGKeyExchangePort,
 		WGTcpCommsPort:    ic.WGTcpCommsPort,
 
-		FileName: ic.FileName,
+		FileName:               ic.FileName,
+		TrafficEncodersEnabled: ic.TrafficEncodersEnabled,
 	}
 
 	// Copy Canary Domains

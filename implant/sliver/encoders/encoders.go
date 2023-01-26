@@ -30,7 +30,7 @@ import (
 	"log"
 	// {{end}}
 
-	// {{if .Config.TrafficEncoders.Enabled}}
+	// {{if .Config.TrafficEncodersEnabled}}
 	"github.com/bishopfox/sliver/implant/sliver/encoders/traffic"
 	// {{end}}
 )
@@ -143,7 +143,7 @@ func randomUint64(max uint64) uint64 {
 
 func loadWasmEncodersFromAssets() error {
 
-	// *** {{if .Config.TrafficEncoders.Enabled}} ***
+	// *** {{if .Config.TrafficEncodersEnabled}} ***
 
 	// {{if .Config.Debug}}}
 	log.Printf("initializing traffic encoder map...")
