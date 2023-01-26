@@ -23,6 +23,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	insecureRand "math/rand"
+	"path"
 	"strings"
 
 	"github.com/bishopfox/sliver/server/assets"
@@ -66,17 +67,21 @@ var EncoderMap = map[uint64]util.Encoder{
 func LoadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) error {
 	// Load WASM encoders
 	encodersLog.Info("initializing traffic encoder map...")
-	wasmEncoderFiles, err := encodersFS.ReadDir(".")
+	wasmEncoderFiles, err := encodersFS.ReadDir("traffic-encoders")
 	if err != nil {
 		return err
 	}
 	for _, wasmEncoderFile := range wasmEncoderFiles {
+		encodersLog.Debugf("checking file: %s", wasmEncoderFile.Name())
 		if wasmEncoderFile.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(wasmEncoderFile.Name(), ".wasm") {
 			continue
 		}
 		// WASM Module name should be equal to file name without the extension
 		wasmEncoderModuleName := strings.TrimSuffix(wasmEncoderFile.Name(), ".wasm")
-		wasmEncoderData, err := encodersFS.ReadFile(wasmEncoderFile.Name())
+		wasmEncoderData, err := encodersFS.ReadFile(path.Join("traffic-encoders", wasmEncoderFile.Name()))
 		if err != nil {
 			encodersLog.Errorf(fmt.Sprintf("failed to read file %s (%s)", wasmEncoderModuleName, err.Error()))
 			return err
@@ -88,9 +93,9 @@ func LoadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) e
 			return err
 		}
 		EncoderMap[uint64(wasmEncoderID)] = trafficEncoder
-		encodersLog.Info(fmt.Sprintf("Loading %s (id: %d, bytes: %d)", wasmEncoderModuleName, wasmEncoderID, len(wasmEncoderData)))
+		encodersLog.Info(fmt.Sprintf("loading %s (id: %d, bytes: %d)", wasmEncoderModuleName, wasmEncoderID, len(wasmEncoderData)))
 	}
-	encodersLog.Info(fmt.Sprintf("Loaded %d traffic encoders", len(wasmEncoderFiles)))
+	encodersLog.Info(fmt.Sprintf("loaded %d traffic encoders", len(wasmEncoderFiles)))
 	return nil
 }
 

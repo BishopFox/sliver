@@ -181,7 +181,7 @@ func loadWasmEncodersFromAssets() error {
 		if err != nil {
 			return err
 		}
-		EncoderMap[uint64(wasmEncoderID)] = trafficEncoder
+		EncoderMap[wasmEncoderID] = trafficEncoder
 		// {{if .Config.Debug}}
 		log.Printf("loading %s (id: %d, bytes: %d)", wasmEncoderModuleName, wasmEncoderID, len(wasmEncoderData))
 		// {{end}}

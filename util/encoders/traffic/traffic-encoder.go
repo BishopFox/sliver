@@ -33,9 +33,10 @@ import (
 )
 
 // CalculateWasmEncoderID - Creates an Encoder ID based on the hash of the wasm bin
-func CalculateWasmEncoderID(wasmEncoderData []byte) uint16 {
+func CalculateWasmEncoderID(wasmEncoderData []byte) uint64 {
 	digest := sha256.Sum256(wasmEncoderData)
-	return uint16(digest[0])<<8 + uint16(digest[1])
+	// The encoder id must be less than 65537 (the encoder modulo)
+	return uint64(uint16(digest[0])<<8 + uint16(digest[1]))
 }
 
 // TrafficEncoder - Implements the `Encoder` interface using a wasm backend
