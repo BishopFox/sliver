@@ -27,19 +27,19 @@ import (
 	"log"
 	// {{end}}
 
-	"github.com/bishopfox/sliver/util/encoders"
+	"github.com/bishopfox/sliver/implant/sliver/encoders"
 )
 
 // NewSystemResolver - Initialize a new system resolver
 func NewSystemResolver() DNSResolver {
 	return &SystemResolver{
-		base64: encoders.Base64{},
+		base64: encoders.Base64Encoder{},
 	}
 }
 
 // SystemResolver -
 type SystemResolver struct {
-	base64 encoders.Base64
+	base64 encoders.Base64Encoder
 }
 
 // Address - Returns the address of the resolver

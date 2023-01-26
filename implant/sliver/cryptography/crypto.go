@@ -20,6 +20,7 @@ package cryptography
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
@@ -34,7 +35,6 @@ import (
 	"log"
 	// {{end}}
 
-	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/chacha20poly1305"
@@ -53,12 +53,23 @@ var (
 	ErrReplayAttack = errors.New("replay attack detected")
 	// ErrDecryptFailed
 	ErrDecryptFailed = errors.New("decryption failed")
+
+	gzipWriterPools = &sync.Pool{}
 )
 
 // ECCKeyPair - Holds the public/private key pair
 type ECCKeyPair struct {
 	Public  *[32]byte
 	Private *[32]byte
+}
+
+func init() {
+	gzipWriterPools = &sync.Pool{
+		New: func() interface{} {
+			w, _ := gzip.NewWriterLevel(nil, gzip.BestSpeed)
+			return w
+		},
+	}
 }
 
 // ECCEncrypt - Encrypt using Nacl Box
@@ -107,7 +118,7 @@ func Encrypt(key [chacha20poly1305.KeySize]byte, plaintext []byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	compressed, _ := encoders.GzipBuf(plaintext)
+	compressed := gzipBuf(plaintext)
 	plaintext = bytes.NewBuffer(compressed).Bytes()
 	nonce := make([]byte, aead.NonceSize(), aead.NonceSize()+len(plaintext)+aead.Overhead())
 	if _, err := rand.Read(nonce); err != nil {
@@ -135,7 +146,7 @@ func Decrypt(key [chacha20poly1305.KeySize]byte, ciphertext []byte) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
-	return encoders.GunzipBuf(plaintext), nil
+	return gunzipBuf(plaintext), nil
 }
 
 // NewCipherContext - Wrapper around creating a cipher context from a key
@@ -249,19 +260,21 @@ func RootOnlyVerifyCertificate(caCertPEM string, rawCerts [][]byte, _ [][]*x509.
 	return nil
 }
 
-//// GzipBuf - Gzip a buffer
-//func GzipBuf(data []byte) []byte {
-//	var buf bytes.Buffer
-//	zip := gzip.NewWriter(&buf)
-//	zip.Write(data)
-//	zip.Close()
-//	return buf.Bytes()
-//}
-//
-//// GunzipBuf - Gunzip a buffer
-//func GunzipBuf(data []byte) []byte {
-//	zip, _ := gzip.NewReader(bytes.NewBuffer(data))
-//	var buf bytes.Buffer
-//	buf.ReadFrom(zip)
-//	return buf.Bytes()
-//}
+// gzipBuf - Gzip a buffer
+func gzipBuf(data []byte) []byte {
+	var buf bytes.Buffer
+	gzipWriter := gzipWriterPools.Get().(*gzip.Writer)
+	gzipWriter.Reset(&buf)
+	gzipWriter.Write(data)
+	gzipWriter.Close()
+	gzipWriterPools.Put(gzipWriter)
+	return buf.Bytes()
+}
+
+// gunzipBuf - Gunzip a buffer
+func gunzipBuf(data []byte) []byte {
+	zip, _ := gzip.NewReader(bytes.NewBuffer(data))
+	var buf bytes.Buffer
+	buf.ReadFrom(zip)
+	return buf.Bytes()
+}

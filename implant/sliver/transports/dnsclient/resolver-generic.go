@@ -29,7 +29,7 @@ import (
 	"log"
 	// {{end}}
 
-	"github.com/bishopfox/sliver/util/encoders"
+	"github.com/bishopfox/sliver/implant/sliver/encoders"
 	"github.com/miekg/dns"
 )
 
@@ -51,7 +51,7 @@ func NewGenericResolver(address string, port string, retryWait time.Duration, re
 			ReadTimeout:  timeout,
 			WriteTimeout: timeout,
 		},
-		base64: encoders.Base64{},
+		base64: encoders.Base64Encoder{},
 	}
 }
 
@@ -61,7 +61,7 @@ type GenericResolver struct {
 	retries   int
 	retryWait time.Duration
 	resolver  *dns.Client
-	base64    encoders.Base64
+	base64    encoders.Base64Encoder
 }
 
 // Address - Return the address of the resolver

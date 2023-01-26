@@ -32,7 +32,7 @@ var gzipWriterPools = &sync.Pool{}
 func init() {
 	gzipWriterPools = &sync.Pool{
 		New: func() interface{} {
-			w, _ := gzip.NewWriterLevel(nil, gzip.BestSpeed)
+			w, _ := gzip.NewWriterLevel(nil, gzip.BestCompression)
 			return w
 		},
 	}
