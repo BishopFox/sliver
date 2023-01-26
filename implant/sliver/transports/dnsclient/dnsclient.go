@@ -173,8 +173,8 @@ func NewDNSClient(parent string, opts *DNSOptions) *SliverDNSClient {
 
 		WorkersPerResolver: opts.WorkersPerResolver,
 		subdataSpace:       254 - len(parent) - (1 + (254-len(parent))/64),
-		base32:             encoders.Base32{},
-		base58:             encoders.Base58{},
+		base32:             encoders.Base32Encoder{},
+		base58:             encoders.Base58Encoder{},
 	}
 }
 
@@ -201,8 +201,8 @@ type SliverDNSClient struct {
 	workerPool         []*DNSWorker
 	WorkersPerResolver int
 
-	base32 encoders.Base32
-	base58 encoders.Base58
+	base32 encoders.Base32Encoder
+	base58 encoders.Base58Encoder
 
 	enableCaseSensitiveEncoder bool
 }
