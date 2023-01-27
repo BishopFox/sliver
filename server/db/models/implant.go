@@ -300,8 +300,8 @@ func (ip *ImplantProfile) BeforeCreate(tx *gorm.DB) (err error) {
 // EncoderAsset - Tracks which assets were embedded into the implant
 // but we currently don't keep a copy of the actual data
 type EncoderAsset struct {
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	CreatedAt time.Time `gorm:"->;<-:create;"`
+	ID              uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ImplantConfigID uuid.UUID
 
 	Name string
 }
