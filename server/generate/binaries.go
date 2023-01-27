@@ -671,7 +671,7 @@ func renderTrafficEncoderAssets(config *models.ImplantConfig, sliverPkgDir strin
 		}
 		saveAssetPath := filepath.Join(encoderAssetsPath, filepath.Base(asset.Name))
 		compressedWasm, _ := encoders.Gzip.Encode(wasm)
-		buildLog.Infof("Embed traffic encoder %s (%d, %d compressed)",
+		buildLog.Infof("Embed traffic encoder %s (%s, %s compressed)",
 			asset.Name, util.ByteCountBinary(int64(len(wasm))), util.ByteCountBinary(int64(len(compressedWasm))))
 		err = os.WriteFile(saveAssetPath, compressedWasm, 0600)
 		if err != nil {
@@ -691,7 +691,7 @@ func renderNativeEncoderAssets(config *models.ImplantConfig, sliverPkgDir string
 	dictionaryPath := filepath.Join(encoderAssetsPath, "english.gz")
 	data := []byte(strings.Join(dictionary, "\n"))
 	compressedData, _ := encoders.Gzip.Encode(data)
-	buildLog.Infof("Embed english dictionary (%d, %d compressed)",
+	buildLog.Infof("Embed english dictionary (%s, %s compressed)",
 		util.ByteCountBinary(int64(len(data))), util.ByteCountBinary(int64(len(compressedData))))
 	err := os.WriteFile(dictionaryPath, compressedData, 0600)
 	if err != nil {
