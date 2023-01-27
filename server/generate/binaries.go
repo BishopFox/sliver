@@ -24,6 +24,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/fs"
+	insecureRand "math/rand"
 	"net/url"
 	"os"
 	"path"
@@ -39,9 +40,13 @@ import (
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/gogo"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
+	utilEncoders "github.com/bishopfox/sliver/util/encoders"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var (
@@ -177,6 +182,14 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.IsShellcode = pbConfig.IsShellcode
 
 	cfg.RunAtLoad = pbConfig.RunAtLoad
+	cfg.TrafficEncodersEnabled = pbConfig.TrafficEncodersEnabled
+
+	cfg.Assets = []models.EncoderAsset{}
+	for _, pbAsset := range pbConfig.Assets {
+		cfg.Assets = append(cfg.Assets, models.EncoderAsset{
+			Name: pbAsset.Name,
+		})
+	}
 
 	cfg.CanaryDomains = []models.CanaryDomain{}
 	for _, pbCanary := range pbConfig.CanaryDomains {
@@ -599,6 +612,12 @@ func renderSliverGoCode(name string, otpSecret string, config *models.ImplantCon
 		return "", err
 	}
 
+	// Render encoder assets
+	renderNativeEncoderAssets(config, sliverPkgDir)
+	if config.TrafficEncodersEnabled {
+		renderTrafficEncoderAssets(config, sliverPkgDir)
+	}
+
 	// Render GoMod
 	buildLog.Info("Rendering go.mod file ...")
 	goModPath := filepath.Join(sliverPkgDir, "go.mod")
@@ -635,6 +654,93 @@ func renderSliverGoCode(name string, otpSecret string, config *models.ImplantCon
 	buildLog.Debugf("Created %s", goModPath)
 
 	return sliverPkgDir, nil
+}
+
+// renderTrafficEncoderAssets - Copies and compresses any enabled WASM traffic encoders
+func renderTrafficEncoderAssets(config *models.ImplantConfig, sliverPkgDir string) {
+	buildLog.Infof("Rendering traffic encoder assets ...")
+	encoderAssetsPath := filepath.Join(sliverPkgDir, "implant", "sliver", "encoders", "assets")
+	for _, asset := range config.Assets {
+		if !strings.HasSuffix(asset.Name, ".wasm") {
+			continue
+		}
+		wasm, err := assets.TrafficEncoderFS.ReadFile(asset.Name)
+		if err != nil {
+			buildLog.Errorf("Failed to read %s: %v", asset.Name, err)
+			continue
+		}
+		saveAssetPath := filepath.Join(encoderAssetsPath, filepath.Base(asset.Name))
+		compressedWasm, _ := encoders.Gzip.Encode(wasm)
+		buildLog.Infof("Embed traffic encoder %s (%d, %d compressed)",
+			asset.Name, util.ByteCountBinary(int64(len(wasm))), util.ByteCountBinary(int64(len(compressedWasm))))
+		err = os.WriteFile(saveAssetPath, compressedWasm, 0600)
+		if err != nil {
+			buildLog.Errorf("Failed to write %s: %v", saveAssetPath, err)
+			continue
+		}
+	}
+}
+
+// renderNativeEncoderAssets - Render native encoder assets such as the english dictionary file
+func renderNativeEncoderAssets(config *models.ImplantConfig, sliverPkgDir string) {
+	buildLog.Infof("Rendering native encoder assets ...")
+	encoderAssetsPath := filepath.Join(sliverPkgDir, "implant", "sliver", "encoders", "assets")
+
+	// English assets
+	dictionary := renderImplantEnglish()
+	dictionaryPath := filepath.Join(encoderAssetsPath, "english.gz")
+	data := []byte(strings.Join(dictionary, "\n"))
+	compressedData, _ := encoders.Gzip.Encode(data)
+	buildLog.Infof("Embed english dictionary (%d, %d compressed)",
+		util.ByteCountBinary(int64(len(data))), util.ByteCountBinary(int64(len(compressedData))))
+	err := os.WriteFile(dictionaryPath, compressedData, 0600)
+	if err != nil {
+		buildLog.Errorf("Failed to write %s: %v", dictionaryPath, err)
+	}
+}
+
+// renderImplantEnglish - Render the english dictionary file, ensures that the returned dictionary
+// contains at least one word that will encode to a given byte value (0-255). There is also a default
+// dictionary that we'll try to overwrite (the default one is in the git repo).
+func renderImplantEnglish() []string {
+	allWords := assets.English() // 178,543 words -> server/assets/fs/english.txt
+	meRiCaN := cases.Title(language.AmericanEnglish)
+	for i := 0; i < len(allWords); i++ {
+		switch insecureRand.Intn(3) {
+		case 0:
+			allWords[i] = strings.ToUpper(allWords[i])
+		case 1:
+			allWords[i] = strings.ToLower(allWords[i])
+		case 2:
+			allWords[i] = meRiCaN.String(allWords[i])
+		}
+	}
+
+	// Calculate the sum for each word
+	allWordsDictionary := map[int][]string{}
+	for _, word := range allWords {
+		word = strings.TrimSpace(word)
+		sum := utilEncoders.SumWord(word)
+		allWordsDictionary[sum] = append(allWordsDictionary[sum], word)
+	}
+
+	// Shuffle the words for each byte value
+	for byteValue := 0; byteValue < 256; byteValue++ {
+		insecureRand.Shuffle(len(allWordsDictionary[byteValue]), func(i, j int) {
+			allWordsDictionary[byteValue][i], allWordsDictionary[byteValue][j] = allWordsDictionary[byteValue][j], allWordsDictionary[byteValue][i]
+		})
+	}
+
+	// Build the implant's dictionary, two words per-byte value
+	implantDictionary := []string{}
+	for byteValue := 0; byteValue < 256; byteValue++ {
+		wordsForByteValue := allWordsDictionary[byteValue]
+		implantDictionary = append(implantDictionary, wordsForByteValue[0])
+		if 1 < len(wordsForByteValue) {
+			implantDictionary = append(implantDictionary, wordsForByteValue[1])
+		}
+	}
+	return implantDictionary
 }
 
 // GenerateConfig - Generate the keys/etc for the implant
@@ -929,12 +1035,13 @@ func getGoHttpsProxy() string {
 }
 
 const (
-	// The wireguard garble bug appears to have been fixed.
-	// Updated the wgGoPrivate to "*"
-	// wgGoPrivate  = "*"
 	allGoPrivate = "*"
 )
 
+// goGarble - Can be used to conditionally modify the GOGARBLE env variable
+// this is currently set to '*' (all packages) however in the past we've had
+// to carve out specific packages, so we left this here just in case we need
+// it in the future.
 func goGarble(config *models.ImplantConfig) string {
 	// for _, c2 := range config.C2 {
 	// 	uri, err := url.Parse(c2.URL)

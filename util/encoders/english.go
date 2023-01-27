@@ -51,7 +51,7 @@ func (e English) Decode(words []byte) ([]byte, error) {
 		if len(word) == 0 {
 			continue
 		}
-		byteValue := sumWord(word)
+		byteValue := SumWord(word)
 		data = append(data, byte(byteValue))
 	}
 	return data, nil
@@ -71,12 +71,13 @@ func buildDictionary() {
 	dictionary = map[int][]string{}
 	for _, word := range getEnglishDictionary() {
 		word = strings.TrimSpace(word)
-		sum := sumWord(word)
+		sum := SumWord(word)
 		dictionary[sum] = append(dictionary[sum], word)
 	}
 }
 
-func sumWord(word string) int {
+// SumWord - Sum the ASCII values of a word
+func SumWord(word string) int {
 	sum := 0
 	for _, char := range word {
 		sum += int(char)

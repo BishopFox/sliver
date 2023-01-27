@@ -66,7 +66,7 @@ UNAME_P := $(shell uname -p)
 # If the target is Windows from Linux/Darwin, check for mingw
 CROSS_COMPILERS = x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++
 ifneq (,$(findstring cgosqlite,$(TAGS)))
-	ENV +=CGO_ENABLED=1
+	ENV += CGO_ENABLED=1
 	ifeq ($(MAKECMDGOALS), windows)
 		K := $(foreach exec,$(CROSS_COMPILERS),\
 				$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))

@@ -173,11 +173,12 @@ message ImplantConfig {
   bool RunAtLoad = 105;
   bool TrafficEncodersEnabled = 106;
 
-  EncoderAssets Assets = 200;
+  repeated commonpb.File Assets = 200;
 }
 
-message EncoderAssets {
-  repeated commonpb.File Assets = 1;
+message TrafficEncoder {
+  uint64 ID = 1;
+  commonpb.File WASM = 2;
 }
 
 message ExternalImplantConfig {

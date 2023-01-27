@@ -53,8 +53,20 @@ func init() {
 	})
 }
 
-// EncoderMap - Maps EncoderIDs to Encoders
+// EncoderMap - A map of all available encoders (native and traffic/wasm)
 var EncoderMap = map[uint64]util.Encoder{
+	util.Base64EncoderID:  Base64,
+	util.HexEncoderID:     Hex,
+	util.EnglishEncoderID: English,
+	util.GzipEncoderID:    Gzip,
+	util.PNGEncoderID:     PNG,
+}
+
+// TrafficEncoderMap - Keeps track of the loaded traffic encoders (i.e., wasm-based encoder functions)
+var TrafficEncoderMap = map[uint64]*traffic.TrafficEncoder{}
+
+// NativeEncoderMap - Keeps track of the native encoders (i.e., native Go encoder functions)
+var NativeEncoderMap = map[uint64]util.Encoder{
 	util.Base64EncoderID:  Base64,
 	util.HexEncoderID:     Hex,
 	util.EnglishEncoderID: English,
@@ -93,6 +105,7 @@ func LoadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) e
 			return err
 		}
 		EncoderMap[uint64(wasmEncoderID)] = trafficEncoder
+		TrafficEncoderMap[uint64(wasmEncoderID)] = trafficEncoder
 		encodersLog.Info(fmt.Sprintf("loading %s (id: %d, bytes: %d)", wasmEncoderModuleName, wasmEncoderID, len(wasmEncoderData)))
 	}
 	encodersLog.Info(fmt.Sprintf("loaded %d traffic encoders", len(wasmEncoderFiles)))
