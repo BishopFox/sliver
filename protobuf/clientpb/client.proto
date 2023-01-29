@@ -169,9 +169,9 @@ message ImplantConfig {
   string FileName = 102;
   bool IsService = 103;
   bool IsShellcode = 104;
-
   bool RunAtLoad = 105;
   bool TrafficEncodersEnabled = 106;
+  bool NetGoEnabled = 107;
 
   repeated commonpb.File Assets = 200;
 }

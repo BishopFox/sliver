@@ -183,6 +183,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 
 	cfg.RunAtLoad = pbConfig.RunAtLoad
 	cfg.TrafficEncodersEnabled = pbConfig.TrafficEncodersEnabled
+	cfg.NetGoEnabled = pbConfig.NetGoEnabled
 
 	cfg.Assets = []models.EncoderAsset{}
 	for _, pbAsset := range pbConfig.Assets {
@@ -301,15 +302,17 @@ func SliverShellcode(name string, otpSecret string, config *models.ImplantConfig
 	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
 	dest += ".bin"
 
-	tags := []string{} // []string{"netgo"}
-	ldflags := []string{"-s -w -buildid="}
+	tags := []string{}
+	if config.NetGoEnabled {
+		tags = append(tags, "netgo")
+	}
+	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
 	}
 	// Keep those for potential later use
 	gcflags := ""
 	asmflags := ""
-	// trimpath is now a separate flag since Go 1.13
 	trimpath := "-trimpath"
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "pie", tags, ldflags, gcflags, asmflags, trimpath)
 	if err != nil {
@@ -385,8 +388,11 @@ func SliverSharedLibrary(name string, otpSecret string, config *models.ImplantCo
 		dest += ".so"
 	}
 
-	tags := []string{} // []string{"netgo"}
-	ldflags := []string{"-s -w -buildid="}
+	tags := []string{}
+	if config.NetGoEnabled {
+		tags = append(tags, "netgo")
+	}
+	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
 	}
@@ -397,7 +403,6 @@ func SliverSharedLibrary(name string, otpSecret string, config *models.ImplantCo
 	// Keep those for potential later use
 	gcflags := ""
 	asmflags := ""
-	// trimpath is now a separate flag since Go 1.13
 	trimpath := "-trimpath"
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags, gcflags, asmflags, trimpath)
 	if err != nil {
@@ -447,8 +452,11 @@ func SliverExecutable(name string, otpSecret string, config *models.ImplantConfi
 	if goConfig.GOOS == WINDOWS {
 		dest += ".exe"
 	}
-	tags := []string{} // []string{"netgo"}
-	ldflags := []string{"-s -w -buildid="}
+	tags := []string{}
+	if config.NetGoEnabled {
+		tags = append(tags, "netgo")
+	}
+	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
 	}
@@ -459,10 +467,7 @@ func SliverExecutable(name string, otpSecret string, config *models.ImplantConfi
 		ldflags = []string{}
 	}
 	// trimpath is now a separate flag since Go 1.13
-	trimpath := ""
-	if !config.Debug {
-		trimpath = "-trimpath"
-	}
+	trimpath := "-trimpath"
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags, gcflags, asmflags, trimpath)
 	if err != nil {
 		return "", err

@@ -132,6 +132,7 @@ type ImplantConfig struct {
 
 	FileName string
 
+	NetGoEnabled           bool
 	TrafficEncodersEnabled bool
 	Assets                 []EncoderAsset
 }
@@ -190,6 +191,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 
 		FileName:               ic.FileName,
 		TrafficEncodersEnabled: ic.TrafficEncodersEnabled,
+		NetGoEnabled:           ic.NetGoEnabled,
 	}
 
 	// Copy Canary Domains
