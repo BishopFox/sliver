@@ -111,6 +111,12 @@ openbsd_amd64:
 	go generate 2>&1 | tee log-generate
 	go build -v ./...
 	#
+# only on openbsd/386
+openbsd_386:
+	@echo "Should be executed only on openbsd/386."
+	go generate 2>&1 | tee log-generate
+	go build -v ./...
+	
 # only on openbsd/arm64
 openbsd_arm64:
 	@echo "Should be executed only on openbsd/arm64."

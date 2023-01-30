@@ -28,7 +28,7 @@ const (
 	X_WCTYPE_H_          = 0  // wctype.h:33:1:
 	X_WCTYPE_T_DEFINED_  = 0  // wctype.h:49:1:
 	X_WINT_T_DEFINED_    = 0  // wctype.h:39:1:
-	Unix                 = 1  // <predefined>:340:1:
+	Unix                 = 1  // <predefined>:344:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */

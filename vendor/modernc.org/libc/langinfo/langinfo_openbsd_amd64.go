@@ -77,7 +77,7 @@ const (
 	X_NL_TYPES_H_       = 0  // nl_types.h:34:1:
 	X_RET_PROTECTOR     = 1  // <predefined>:2:1:
 	X_SYS_CDEFS_H_      = 0  // cdefs.h:39:1:
-	Unix                = 1  // <predefined>:340:1:
+	Unix                = 1  // <predefined>:344:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */
