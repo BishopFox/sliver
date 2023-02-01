@@ -1,4 +1,4 @@
-FROM golang:1.19.5
+FROM golang:1.20
 
 #
 # IMPORTANT: This Dockerfile is used for testing, I do not recommend deploying
@@ -6,7 +6,7 @@ FROM golang:1.19.5
 #            a Docker deployment this is probably a good place to start.
 #
 
-ENV PROTOC_VER 3.19.4
+ENV PROTOC_VER 3.21.12
 ENV PROTOC_GEN_GO_VER v1.27.1
 ENV GRPC_GO v1.2.0
 
