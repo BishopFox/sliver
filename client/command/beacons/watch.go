@@ -57,7 +57,7 @@ func BeaconsWatchCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 func waitForInput() <-chan bool {
-	done := make(chan bool)
+	done := make(chan bool, 1)
 	go func() {
 		defer close(done)
 		fmt.Scanf("\n")
