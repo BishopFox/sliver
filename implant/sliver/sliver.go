@@ -25,8 +25,6 @@ import "C"
 // {{end}}
 
 import (
-	"crypto/rand"
-	"encoding/binary"
 	"log"
 	insecureRand "math/rand"
 	"os"
@@ -67,13 +65,6 @@ var (
 )
 
 func init() {
-	buf := make([]byte, 8)
-	n, err := rand.Read(buf)
-	if err != nil || n != len(buf) {
-		insecureRand.Seed(time.Now().Unix())
-	} else {
-		insecureRand.Seed(int64(binary.LittleEndian.Uint64(buf)))
-	}
 	id, err := uuid.NewV4()
 	if err != nil {
 		buf := make([]byte, 16) // NewV4 fails if secure rand fails
