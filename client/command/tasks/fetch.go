@@ -28,6 +28,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
+	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/command/filesystem"
 	"github.com/bishopfox/sliver/client/command/network"
 	"github.com/bishopfox/sliver/client/command/privilege"
@@ -213,8 +214,22 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		environment.PrintUnsetEnvInfo(unsetEnvReq.Name, unsetEnv, con)
 
 	// ---------------------
+	// Call extension commands
+	// ---------------------
+	case sliverpb.MsgCallExtensionReq:
+		callExtension := &sliverpb.CallExtension{}
+		err := proto.Unmarshal(task.Response, callExtension)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		extensions.PrintExtOutput("", "", callExtension, con)
+
+	// ---------------------
 	// Exec commands
 	// ---------------------
+	case sliverpb.MsgInvokeExecuteAssemblyReq:
+		fallthrough
 	case sliverpb.MsgInvokeInProcExecuteAssemblyReq:
 		fallthrough
 	case sliverpb.MsgExecuteAssemblyReq:
@@ -235,6 +250,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			Flags: grumble.FlagMap{
 				"save": &grumble.FlagMapItem{Value: false, IsDefault: true},
 				"loot": &grumble.FlagMapItem{Value: false, IsDefault: true},
+				"name": &grumble.FlagMapItem{Value: "", IsDefault: true},
 			},
 		}
 		exec.HandleExecuteAssemblyResponse(execAssembly, assemblyPath, hostname, ctx, con)
