@@ -170,8 +170,8 @@ github.com/desertbit/readline
 ## explicit
 github.com/dlclark/regexp2
 github.com/dlclark/regexp2/syntax
-# github.com/fatih/color v1.14.0
-## explicit; go 1.13
+# github.com/fatih/color v1.14.1
+## explicit; go 1.17
 github.com/fatih/color
 # github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5
 ## explicit
@@ -192,7 +192,7 @@ github.com/gobwas/pool/pbytes
 ## explicit; go 1.15
 github.com/gobwas/ws
 github.com/gobwas/ws/wsutil
-# github.com/gofrs/uuid v4.3.1+incompatible
+# github.com/gofrs/uuid v4.4.0+incompatible
 ## explicit
 github.com/gofrs/uuid
 # github.com/golang/protobuf v1.5.2
