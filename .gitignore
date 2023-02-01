@@ -18,6 +18,7 @@
 /sliver-client
 /sliver-client_arm64
 /sliver-client.exe
+/sliver-client_*
 
 sliver-server-linux.zip
 sliver-server-macos.zip
