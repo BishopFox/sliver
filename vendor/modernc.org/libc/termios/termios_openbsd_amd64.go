@@ -198,7 +198,7 @@ const (
 	X_SYS_TTYCOM_H_      = 0          // ttycom.h:41:1:
 	X_SYS_TTYDEFAULTS_H_ = 0          // ttydefaults.h:44:1:
 	X_SYS__TYPES_H_      = 0          // _types.h:35:1:
-	Unix                 = 1          // <predefined>:340:1:
+	Unix                 = 1          // <predefined>:344:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */
@@ -451,7 +451,7 @@ type Termios = struct {
 
 // Standard speeds
 
-//	$OpenBSD: _types.h,v 1.9 2014/08/22 23:05:15 krw Exp $
+//	$OpenBSD: _types.h,v 1.10 2022/08/06 13:31:13 semarie Exp $
 
 // -
 // Copyright (c) 1990, 1993
@@ -611,18 +611,17 @@ type X__sa_family_t = X__uint8_t /* _types.h:59:19 */ // sockaddr address family
 type X__segsz_t = X__int32_t     /* _types.h:60:19 */ // segment size
 type X__socklen_t = X__uint32_t  /* _types.h:61:20 */ // length type for network syscalls
 type X__suseconds_t = int64      /* _types.h:62:15 */ // microseconds (signed)
-type X__swblk_t = X__int32_t     /* _types.h:63:19 */ // swap offset
-type X__time_t = X__int64_t      /* _types.h:64:19 */ // epoch time
-type X__timer_t = X__int32_t     /* _types.h:65:19 */ // POSIX timer identifiers
-type X__uid_t = X__uint32_t      /* _types.h:66:20 */ // user id
-type X__useconds_t = X__uint32_t /* _types.h:67:20 */ // microseconds
+type X__time_t = X__int64_t      /* _types.h:63:19 */ // epoch time
+type X__timer_t = X__int32_t     /* _types.h:64:19 */ // POSIX timer identifiers
+type X__uid_t = X__uint32_t      /* _types.h:65:20 */ // user id
+type X__useconds_t = X__uint32_t /* _types.h:66:20 */ // microseconds
 
 // mbstate_t is an opaque object to keep conversion state, during multibyte
 // stream conversions. The content must not be referenced by user programs.
 type X__mbstate_t = struct {
 	F__ccgo_pad1 [0]uint64
 	F__mbstate8  [128]int8
-} /* _types.h:76:3 */
+} /* _types.h:75:3 */
 
 type Pid_t = X__pid_t /* termios.h:255:18 */
 

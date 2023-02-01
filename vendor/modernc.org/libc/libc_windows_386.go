@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"modernc.org/libc/errno"
+	"modernc.org/libc/sys/stat"
 	"modernc.org/libc/sys/types"
 )
 
@@ -545,4 +546,38 @@ func XDefWindowProcW(t *TLS, _ ...interface{}) int32 {
 
 func XSendMessageTimeoutW(t *TLS, _ ...interface{}) int32 {
 	panic(todo(""))
+}
+
+// int _fstat(
+//
+//	int fd,
+//	struct __stat *buffer
+//
+// );
+func X_fstat(t *TLS, fd int32, buffer uintptr) int32 {
+	f, ok := fdToFile(fd)
+	if !ok {
+		t.setErrno(EBADF)
+		return -1
+	}
+
+	var d syscall.ByHandleFileInformation
+	err := syscall.GetFileInformationByHandle(f.Handle, &d)
+	if err != nil {
+		t.setErrno(EBADF)
+		return -1
+	}
+
+	var bStat32 = (*stat.X_stat32)(unsafe.Pointer(buffer))
+	var accessTime = int64(d.LastAccessTime.HighDateTime)<<32 + int64(d.LastAccessTime.LowDateTime)
+	bStat32.Fst_atime = int32(WindowsTickToUnixSeconds(accessTime))
+	var modTime = int64(d.LastWriteTime.HighDateTime)<<32 + int64(d.LastWriteTime.LowDateTime)
+	bStat32.Fst_mtime = int32(WindowsTickToUnixSeconds(modTime))
+	var crTime = int64(d.CreationTime.HighDateTime)<<32 + int64(d.CreationTime.LowDateTime)
+	bStat32.Fst_ctime = int32(WindowsTickToUnixSeconds(crTime))
+	var fSz = int64(d.FileSizeHigh)<<32 + int64(d.FileSizeLow)
+	bStat32.Fst_size = int32(fSz)
+	bStat32.Fst_mode = WindowsAttrbiutesToStat(d.FileAttributes)
+
+	return 0
 }
