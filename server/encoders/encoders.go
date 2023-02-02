@@ -56,6 +56,8 @@ func init() {
 // EncoderMap - A map of all available encoders (native and traffic/wasm)
 var EncoderMap = map[uint64]util.Encoder{
 	util.Base64EncoderID:  Base64,
+	util.Base58EncoderID:  Base58,
+	util.Base32EncoderID:  Base32,
 	util.HexEncoderID:     Hex,
 	util.EnglishEncoderID: English,
 	util.GzipEncoderID:    Gzip,
@@ -65,13 +67,13 @@ var EncoderMap = map[uint64]util.Encoder{
 // TrafficEncoderMap - Keeps track of the loaded traffic encoders (i.e., wasm-based encoder functions)
 var TrafficEncoderMap = map[uint64]*traffic.TrafficEncoder{}
 
-// NativeEncoderMap - Keeps track of the native encoders (i.e., native Go encoder functions)
-var NativeEncoderMap = map[uint64]util.Encoder{
-	util.Base64EncoderID:  Base64,
-	util.HexEncoderID:     Hex,
-	util.EnglishEncoderID: English,
-	util.GzipEncoderID:    Gzip,
-	util.PNGEncoderID:     PNG,
+// FastEncoderMap - Keeps track of fast native encoders that can be used for large messages
+var FastEncoderMap = map[uint64]util.Encoder{
+	util.Base64EncoderID: Base64,
+	util.Base58EncoderID: Base58,
+	util.Base32EncoderID: Base32,
+	util.HexEncoderID:    Hex,
+	util.GzipEncoderID:   Gzip,
 }
 
 // LoadTrafficEncodersFromFS - Loads the wasm traffic encoders from the filesystem, for the

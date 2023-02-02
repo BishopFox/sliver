@@ -23,14 +23,29 @@ import (
 	"crypto/rand"
 	insecureRand "math/rand"
 	"testing"
+	"time"
 
 	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 	util "github.com/bishopfox/sliver/util/encoders"
 )
 
+const (
+	sampleSizeMax = 8192
+)
+
+func init() {
+	insecureRand.Seed(time.Now().Unix())
+}
+
+func randomDataRandomSize(maxSize int) []byte {
+	buf := make([]byte, insecureRand.Intn(maxSize))
+	rand.Read(buf)
+	return buf
+}
+
 func TestCompatibilityBase64(t *testing.T) {
 	for i := 0; i < 100; i++ {
-		sample := randomData()
+		sample := randomDataRandomSize(sampleSizeMax)
 		output, _ := Base64.Encode(sample)
 		data, err := implantEncoders.Base64.Decode(output)
 		if err != nil {
@@ -41,7 +56,7 @@ func TestCompatibilityBase64(t *testing.T) {
 			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 		}
 
-		sample2 := randomData()
+		sample2 := randomDataRandomSize(sampleSizeMax)
 		output, _ = implantEncoders.Base64.Encode(sample2)
 		data, err = Base64.Decode(output)
 		if err != nil {
@@ -56,7 +71,7 @@ func TestCompatibilityBase64(t *testing.T) {
 
 func TestCompatibilityBase58(t *testing.T) {
 	for i := 0; i < 100; i++ {
-		sample := randomData()
+		sample := randomDataRandomSize(sampleSizeMax)
 		output, _ := Base58.Encode(sample)
 		data, err := implantEncoders.Base58.Decode(output)
 		if err != nil {
@@ -67,7 +82,7 @@ func TestCompatibilityBase58(t *testing.T) {
 			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 		}
 
-		sample2 := randomData()
+		sample2 := randomDataRandomSize(sampleSizeMax)
 		output, _ = Base58.Encode(sample2)
 		data, err = implantEncoders.Base58.Decode(output)
 		if err != nil {
@@ -82,7 +97,7 @@ func TestCompatibilityBase58(t *testing.T) {
 
 func TestCompatibilityBase32(t *testing.T) {
 	for i := 0; i < 100; i++ {
-		sample := randomData()
+		sample := randomDataRandomSize(sampleSizeMax)
 		output, _ := Base32.Encode(sample)
 		data, err := implantEncoders.Base32.Decode(output)
 		if err != nil {
@@ -93,7 +108,7 @@ func TestCompatibilityBase32(t *testing.T) {
 			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 		}
 
-		sample2 := randomData()
+		sample2 := randomDataRandomSize(sampleSizeMax)
 		output, _ = Base32.Encode(sample2)
 		data, err = implantEncoders.Base32.Decode(output)
 		if err != nil {
@@ -111,7 +126,7 @@ func TestCompatibilityEnglish(t *testing.T) {
 	util.SetEnglishDictionary(getTestEnglishDictionary())
 
 	for i := 0; i < 100; i++ {
-		sample := randomData()
+		sample := randomDataRandomSize(sampleSizeMax)
 		output, _ := English.Encode(sample)
 		data, err := implantEncoders.English.Decode(output)
 		if err != nil {
@@ -122,7 +137,7 @@ func TestCompatibilityEnglish(t *testing.T) {
 			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 		}
 
-		sample2 := randomData()
+		sample2 := randomDataRandomSize(sampleSizeMax)
 		output, _ = implantEncoders.English.Encode(sample2)
 		data, err = English.Decode(output)
 		if err != nil {
@@ -137,7 +152,7 @@ func TestCompatibilityEnglish(t *testing.T) {
 
 func TestCompatibilityHex(t *testing.T) {
 	for i := 0; i < 100; i++ {
-		sample := randomData()
+		sample := randomDataRandomSize(sampleSizeMax)
 		output, _ := Hex.Encode(sample)
 		data, err := implantEncoders.Hex.Decode(output)
 		if err != nil {
@@ -148,7 +163,7 @@ func TestCompatibilityHex(t *testing.T) {
 			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 		}
 
-		sample2 := randomData()
+		sample2 := randomDataRandomSize(sampleSizeMax)
 		output, _ = Hex.Encode(sample2)
 		data, err = implantEncoders.Hex.Decode(output)
 		if err != nil {
@@ -163,7 +178,7 @@ func TestCompatibilityHex(t *testing.T) {
 
 func TestCompatibilityGzip(t *testing.T) {
 	for i := 0; i < 100; i++ {
-		sample := randomData()
+		sample := randomDataRandomSize(sampleSizeMax)
 		output, _ := Gzip.Encode(sample)
 		data, err := implantEncoders.Gzip.Decode(output)
 		if err != nil {
@@ -174,7 +189,7 @@ func TestCompatibilityGzip(t *testing.T) {
 			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 		}
 
-		sample2 := randomData()
+		sample2 := randomDataRandomSize(sampleSizeMax)
 		output, _ = Gzip.Encode(sample2)
 		data, err = implantEncoders.Gzip.Decode(output)
 		if err != nil {
@@ -189,7 +204,7 @@ func TestCompatibilityGzip(t *testing.T) {
 
 func TestCompatibilityPNG(t *testing.T) {
 	for i := 0; i < 100; i++ {
-		sample := randomData()
+		sample := randomDataRandomSize(sampleSizeMax)
 		output, _ := PNG.Encode(sample)
 		data, err := implantEncoders.PNG.Decode(output)
 		if err != nil {
@@ -200,7 +215,7 @@ func TestCompatibilityPNG(t *testing.T) {
 			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 		}
 
-		sample2 := randomData()
+		sample2 := randomDataRandomSize(sampleSizeMax)
 		output, _ = PNG.Encode(sample2)
 		data, err = implantEncoders.PNG.Decode(output)
 		if err != nil {
@@ -211,12 +226,6 @@ func TestCompatibilityPNG(t *testing.T) {
 			t.Errorf("sample2 does not match returned\n%#v != %#v", sample2, data)
 		}
 	}
-}
-
-func randomData() []byte {
-	buf := make([]byte, insecureRand.Intn(2048))
-	rand.Read(buf)
-	return buf
 }
 
 func getTestEnglishDictionary() []string {
