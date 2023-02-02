@@ -135,6 +135,32 @@ func TestCompatibilityBase32(t *testing.T) {
 	}
 }
 
+func TestCompatibilityPNG(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		sample := randomData()
+		output, _ := PNG.Encode(sample)
+		data, err := implantEncoders.PNG.Decode(output)
+		if err != nil {
+			t.Error("Failed to encode/decode sample data into png")
+			return
+		}
+		if !bytes.Equal(sample, data) {
+			t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
+		}
+
+		sample2 := randomData()
+		output, _ = PNG.Encode(sample2)
+		data, err = implantEncoders.PNG.Decode(output)
+		if err != nil {
+			t.Error("Failed to encode/decode sample data into png")
+			return
+		}
+		if !bytes.Equal(sample2, data) {
+			t.Errorf("sample2 does not match returned\n%#v != %#v", sample2, data)
+		}
+	}
+}
+
 func randomData() []byte {
 	buf := make([]byte, insecureRand.Intn(2048))
 	rand.Read(buf)
