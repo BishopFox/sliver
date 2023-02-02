@@ -105,7 +105,7 @@ func bytesFromImage(img image.Image) []byte {
 		}
 	}
 
-	buf := bytes.Trim(data.Bytes(), "\x00") // May contain escaped null bytes
+	buf := bytes.Trim(data.Bytes(), "\x00") // May still contain escaped null bytes
 
 	// Unescape null bytes
 	buf = bytes.Replace(buf, []byte{0x1, 0x1, 0x1}, []byte{0x1}, -1)
