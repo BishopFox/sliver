@@ -1,5 +1,3 @@
-//go:build server
-
 package assets
 
 /*

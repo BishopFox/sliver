@@ -27,7 +27,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/core"
 	"github.com/desertbit/grumble"
 )
 
@@ -79,7 +78,6 @@ func KillSession(session *clientpb.Session, ctx *grumble.Context, con *console.S
 		},
 		Force: ctx.Flags.Bool("force"),
 	})
-	core.Sessions.Remove(session.ID)
 	return err
 }
 

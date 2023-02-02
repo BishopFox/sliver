@@ -33,7 +33,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/desertbit/grumble"
 )
@@ -174,8 +173,17 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.PrintInfof("Successfully removed service %s on %s\n", serviceName, hostname)
 }
 
+func randomString() string {
+	alphanumeric := "abcdefghijklmnopqrstuvwxyz0123456789"
+	str := ""
+	for index := 0; index < insecureRand.Intn(8)+1; index++ {
+		str += string(alphanumeric[insecureRand.Intn(len(alphanumeric))])
+	}
+	return str
+}
+
 func randomFileName() string {
-	noun, _ := codenames.RandomNoun()
+	noun := randomString()
 	noun = strings.ToLower(noun)
 	switch insecureRand.Intn(3) {
 	case 0:
