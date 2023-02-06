@@ -65,7 +65,11 @@ func (schema *Schema) ParseIndexes() map[string]Index {
 			}
 		}
 	}
-
+	for _, index := range indexes {
+		if index.Class == "UNIQUE" && len(index.Fields) == 1 {
+			index.Fields[0].Field.Unique = true
+		}
+	}
 	return indexes
 }
 
