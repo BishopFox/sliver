@@ -157,7 +157,7 @@ echo "-----------------------------------------------------------------"
 echo "curl -L --fail --output $OUTPUT_DIR/linux/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux"
 curl -L --fail --output $OUTPUT_DIR/linux/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux
 echo "curl -L --fail --output $OUTPUT_DIR/linux/$GO_ARCH_2/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux-$GO_ARCH_2"
-curl -L --fail --output $OUTPUT_DIR/linux/$GO_ARCH_2/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux
+curl -L --fail --output $OUTPUT_DIR/linux/$GO_ARCH_2/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux-$GO_ARCH_2
 echo "curl -L --fail --output $OUTPUT_DIR/windows/$GO_ARCH_1/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows.exe"
 curl -L --fail --output $OUTPUT_DIR/windows/$GO_ARCH_1/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows.exe
 echo "curl -L --fail --output $OUTPUT_DIR/darwin/$GO_ARCH_1/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-$GO_ARCH_1"
