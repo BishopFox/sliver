@@ -100,19 +100,21 @@ func (h *HTTPC2Config) MacOSVer() string {
 
 // RandomImplantConfig - Randomly generate a config
 func (h *HTTPC2Config) RandomImplantConfig() *HTTPC2ImplantConfig {
-	config := &HTTPC2ImplantConfig{}
-	*config = *h.ImplantConfig
+	return &HTTPC2ImplantConfig{
 
-	config.PollFiles = h.ImplantConfig.RandomPollFiles()
-	config.PollPaths = h.ImplantConfig.RandomPollPaths()
+		NonceQueryArgs: h.ImplantConfig.NonceQueryArgs,
+		URLParameters:  h.ImplantConfig.URLParameters,
+		Headers:        h.ImplantConfig.Headers,
 
-	config.SessionFiles = h.ImplantConfig.RandomSessionFiles()
-	config.SessionPaths = h.ImplantConfig.RandomSessionPaths()
+		PollFiles: h.ImplantConfig.RandomPollFiles(),
+		PollPaths: h.ImplantConfig.RandomPollPaths(),
 
-	config.CloseFiles = h.ImplantConfig.RandomCloseFiles()
-	config.ClosePaths = h.ImplantConfig.RandomClosePaths()
+		SessionFiles: h.ImplantConfig.RandomSessionFiles(),
+		SessionPaths: h.ImplantConfig.RandomSessionPaths(),
 
-	return config
+		CloseFiles: h.ImplantConfig.RandomCloseFiles(),
+		ClosePaths: h.ImplantConfig.RandomClosePaths(),
+	}
 }
 
 // HTTPC2ServerConfig - Server configuration options
@@ -126,6 +128,7 @@ type NameValueProbability struct {
 	Name        string `json:"name"`
 	Value       string `json:"value"`
 	Probability int    `json:"probability"`
+	Methods     []string
 }
 
 // HTTPC2ImplantConfig - Implant configuration options
@@ -144,8 +147,9 @@ type HTTPC2ImplantConfig struct {
 	ChromeBaseVersion int    `json:"chrome_base_version"`
 	MacOSVersion      string `json:"macos_version"`
 
-	URLParameters []NameValueProbability `json:"url_parameters"`
-	Headers       []NameValueProbability `json:"headers"`
+	NonceQueryArgs string                 `json:"nonce_query_args"`
+	URLParameters  []NameValueProbability `json:"url_parameters"`
+	Headers        []NameValueProbability `json:"headers"`
 
 	MaxFiles int `json:"max_files"`
 	MinFiles int `json:"min_files"`
@@ -245,6 +249,13 @@ var (
 			MinFiles:          2,
 			MaxPaths:          8,
 			MinPaths:          2,
+
+			Headers: []NameValueProbability{
+				{Name: "Accept-Language", Value: "en-US,en;q=0.9", Methods: []string{"GET"}, Probability: 100},
+				{Name: "Accept", Value: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9", Methods: []string{"GET"}, Probability: 100},
+			},
+
+			NonceQueryArgs: "abcdefghijklmnopqrstuvwxyz",
 
 			StagerFileExt: ".woff",
 

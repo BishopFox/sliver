@@ -108,7 +108,7 @@ var NativeEncoderMap = map[uint64]Encoder{
 	// {{end}}
 }
 
-// Encoder - Can losslessly encode arbitrary binary data
+// Encoder - Can lossless-ly encode arbitrary binary data
 type Encoder interface {
 	Encode([]byte) ([]byte, error)
 	Decode([]byte) ([]byte, error)
@@ -126,15 +126,27 @@ func EncoderFromNonce(nonce uint64) (uint64, Encoder, error) {
 	return 0, nil, errors.New("invalid encoder nonce")
 }
 
+func getMaxEncoderSize() int {
+	return 2 * 1024 * 1024 // 2MB
+}
+
 // RandomEncoder - Get a random nonce identifier and a matching encoder
-func RandomEncoder() (uint64, Encoder) {
-	keys := make([]uint64, 0, len(EncoderMap))
-	for k := range EncoderMap {
+func RandomEncoder(size int) (uint64, Encoder) {
+	if size < getMaxEncoderSize() {
+		return randomEncoderFromMap(EncoderMap) // Small message, use any encoder
+	} else {
+		return randomEncoderFromMap(NativeEncoderMap) // Large message, use native encoders
+	}
+}
+
+func randomEncoderFromMap(encoderMap map[uint64]Encoder) (uint64, Encoder) {
+	keys := make([]uint64, 0, len(encoderMap))
+	for k := range encoderMap {
 		keys = append(keys, k)
 	}
 	encoderID := keys[insecureRand.Intn(len(keys))]
 	nonce := (randomUint64(MaxN) * EncoderModulus) + encoderID
-	return nonce, EncoderMap[encoderID]
+	return nonce, encoderMap[encoderID]
 }
 
 func randomUint64(max uint64) uint64 {
