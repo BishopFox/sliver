@@ -834,7 +834,6 @@ func applyQueryParams(c *conn, query string) error {
 			return fmt.Errorf("unknown _time_format %q", v)
 		}
 		c.writeTimeFormat = f
-		return nil
 	}
 
 	if v := q.Get("_txlock"); v != "" {
