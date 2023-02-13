@@ -22,8 +22,11 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"io/fs"
 	insecureRand "math/rand"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/bishopfox/sliver/server/assets"
@@ -35,6 +38,8 @@ import (
 var (
 	encodersLog       = log.NamedLogger("encoders", "")
 	trafficEncoderLog = log.NamedLogger("encoders", "traffic-encoders")
+
+	TrafficEncoderFS = PassthroughEncoderFS{}
 
 	Base64  = util.Base64{}
 	Base58  = util.Base58{}
@@ -48,7 +53,10 @@ var (
 
 func init() {
 	util.SetEnglishDictionary(assets.English())
-	LoadTrafficEncodersFromFS(assets.TrafficEncoderFS, func(msg string) {
+	TrafficEncoderFS = PassthroughEncoderFS{
+		rootDir: filepath.Join(assets.GetRootAppDir(), "traffic-encoders"),
+	}
+	LoadTrafficEncodersFromFS(TrafficEncoderFS, func(msg string) {
 		trafficEncoderLog.Debugf("[traffic-encoder] %s", msg)
 	})
 }
@@ -142,4 +150,51 @@ func randomUint64(max uint64) uint64 {
 	buf := make([]byte, 8)
 	rand.Read(buf)
 	return binary.LittleEndian.Uint64(buf) % max
+}
+
+// PassthroughEncoderFS - Creates an encoder.EncoderFS object from a single local directory
+type PassthroughEncoderFS struct {
+	rootDir string
+}
+
+func (p PassthroughEncoderFS) Open(name string) (fs.File, error) {
+	localPath := filepath.Join(p.rootDir, filepath.Base(name))
+	if !strings.HasSuffix(localPath, ".wasm") {
+		return nil, os.ErrNotExist
+	}
+	if stat, err := os.Stat(localPath); os.IsNotExist(err) || stat.IsDir() {
+		return nil, os.ErrNotExist
+	}
+	return os.Open(localPath)
+}
+
+func (p PassthroughEncoderFS) ReadDir(_ string) ([]fs.DirEntry, error) {
+	if _, err := os.Stat(p.rootDir); os.IsNotExist(err) {
+		return nil, os.ErrNotExist
+	}
+	ls, err := os.ReadDir(p.rootDir)
+	if err != nil {
+		return nil, err
+	}
+	var entries []fs.DirEntry
+	for _, entry := range ls {
+		if entry.IsDir() {
+			continue
+		}
+		if strings.HasSuffix(entry.Name(), ".wasm") {
+			entries = append(entries, entry)
+		}
+	}
+	return entries, nil
+}
+
+func (p PassthroughEncoderFS) ReadFile(name string) ([]byte, error) {
+	localPath := filepath.Join(p.rootDir, filepath.Base(name))
+	if !strings.HasSuffix(localPath, ".wasm") {
+		return nil, os.ErrNotExist
+	}
+	if stat, err := os.Stat(localPath); os.IsNotExist(err) || stat.IsDir() {
+		return nil, os.ErrNotExist
+	}
+	return os.ReadFile(localPath)
 }

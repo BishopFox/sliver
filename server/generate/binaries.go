@@ -669,7 +669,7 @@ func renderTrafficEncoderAssets(config *models.ImplantConfig, sliverPkgDir strin
 		if !strings.HasSuffix(asset.Name, ".wasm") {
 			continue
 		}
-		wasm, err := assets.TrafficEncoderFS.ReadFile(asset.Name)
+		wasm, err := encoders.TrafficEncoderFS.ReadFile(asset.Name)
 		if err != nil {
 			buildLog.Errorf("Failed to read %s: %v", asset.Name, err)
 			continue

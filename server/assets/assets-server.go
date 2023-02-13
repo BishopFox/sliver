@@ -21,12 +21,11 @@ package assets
 import (
 	"bytes"
 	"embed"
-	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"strings"
 
 	protobufs "github.com/bishopfox/sliver/protobuf"
 	"github.com/bishopfox/sliver/util"
@@ -34,54 +33,40 @@ import (
 
 var (
 	//go:embed traffic-encoders/*.wasm
-	TrafficEncoderFS embed.FS
+	trafficEncoderFS embed.FS
 )
 
-// PassthroughEncoderFS - Creates an encoder.EncoderFS object from a single local directory
-type PassthroughEncoderFS struct {
-	rootDir string
+func getTrafficEncoderDir(appDir string) string {
+	trafficDir := filepath.Join(appDir, "traffic-encoders")
+	if _, err := os.Stat(trafficDir); os.IsNotExist(err) {
+		os.MkdirAll(trafficDir, 0700)
+	}
+	return trafficDir
 }
 
-func (p PassthroughEncoderFS) Open(name string) (fs.File, error) {
-	localPath := filepath.Join(p.rootDir, filepath.Base(name))
-	if !strings.HasSuffix(localPath, ".wasm") {
-		return nil, os.ErrNotExist
-	}
-	if stat, err := os.Stat(localPath); os.IsNotExist(err) || stat.IsDir() {
-		return nil, os.ErrNotExist
-	}
-	return os.Open(localPath)
-}
-
-func (p PassthroughEncoderFS) ReadDir(_ string) ([]fs.DirEntry, error) {
-	if _, err := os.Stat(p.rootDir); os.IsNotExist(err) {
-		return nil, os.ErrNotExist
-	}
-	ls, err := os.ReadDir(p.rootDir)
+func unpackDefaultTrafficEncoders(appDir string) error {
+	encoders, err := trafficEncoderFS.ReadDir("traffic-encoders")
 	if err != nil {
-		return nil, err
+		return err
 	}
-	var entries []fs.DirEntry
-	for _, entry := range ls {
-		if entry.IsDir() {
+	for _, encoder := range encoders {
+		if encoder.IsDir() {
 			continue
 		}
-		if strings.HasSuffix(entry.Name(), ".wasm") {
-			entries = append(entries, entry)
+		encoderName := path.Base(encoder.Name())
+		encoderPath := path.Join("traffic-encoders", encoderName)
+		encoderBytes, err := trafficEncoderFS.ReadFile(encoderPath)
+		if err != nil {
+			return err
+		}
+
+		localPath := filepath.Join(getTrafficEncoderDir(appDir), encoderName)
+		err = os.WriteFile(localPath, encoderBytes, 0600)
+		if err != nil {
+			return err
 		}
 	}
-	return entries, nil
-}
-
-func (p PassthroughEncoderFS) ReadFile(name string) ([]byte, error) {
-	localPath := filepath.Join(p.rootDir, filepath.Base(name))
-	if !strings.HasSuffix(localPath, ".wasm") {
-		return nil, os.ErrNotExist
-	}
-	if stat, err := os.Stat(localPath); os.IsNotExist(err) || stat.IsDir() {
-		return nil, os.ErrNotExist
-	}
-	return os.ReadFile(localPath)
+	return nil
 }
 
 // SetupGo - Unzip Go compiler assets

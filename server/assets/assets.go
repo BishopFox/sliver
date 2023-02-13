@@ -70,6 +70,7 @@ func GetRootAppDir() string {
 	return dir
 }
 
+// GetChunkDataDir - Get the Sliver chunk data dir, default is: ~/.sliver/crack/chunks/
 func GetChunkDataDir() string {
 	chunkDir := filepath.Join(GetRootAppDir(), "crack", "chunks")
 	if _, err := os.Stat(chunkDir); os.IsNotExist(err) {
@@ -116,6 +117,7 @@ under certain conditions; type 'licenses' for details.`)
 		setupGo(appDir)
 		setupCodenames(appDir)
 		saveAssetVersion(appDir)
+		unpackDefaultTrafficEncoders(appDir)
 	}
 	setupLog.Infof("Initialized english encoder with %d words", len(English()))
 }
