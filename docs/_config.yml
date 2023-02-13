@@ -31,6 +31,15 @@ show_downloads: true
 plugins:
   - jekyll-feed
 
+plugins:
+  - jekyll-notion
+
+# https://www.notion.so/sliver-sh/Sliver-4bbf1c77cabc46e09428c871283683d3?pvs=4
+notion:
+  fetch_on_watch: true
+  databases:
+    - id: 4bbf1c77cabc46e09428c871283683d3
+
 # Exclude from processing.
 # The following items will not be processed, by default. Create a custom list
 # to override the default setting.
