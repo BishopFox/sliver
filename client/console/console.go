@@ -279,6 +279,7 @@ func (con *SliverConsoleClient) startEventLoop() {
 	}
 }
 
+// CreateEventListener - creates a new event listener and returns its ID
 func (con *SliverConsoleClient) CreateEventListener() (string, <-chan *clientpb.Event) {
 	listener := make(chan *clientpb.Event, 100)
 	listenerID, _ := uuid.NewV4()
@@ -286,6 +287,7 @@ func (con *SliverConsoleClient) CreateEventListener() (string, <-chan *clientpb.
 	return listenerID.String(), listener
 }
 
+// RemoveEventListener - removes an event listener given its id
 func (con *SliverConsoleClient) RemoveEventListener(listenerID string) {
 	value, ok := con.EventListeners.LoadAndDelete(listenerID)
 	if ok {
@@ -593,6 +595,14 @@ func (con *SliverConsoleClient) FormatDateDelta(t time.Time, includeDate bool, c
 		}
 	}
 	return interval
+}
+
+func (con *SliverConsoleClient) GrpcContext(ctx *grumble.Context) (context.Context, context.CancelFunc) {
+	timeout, err := time.ParseDuration(ctx.Flags.String("timeout"))
+	if err != nil {
+		timeout = 300 * time.Second
+	}
+	return context.WithTimeout(context.Background(), timeout)
 }
 
 //

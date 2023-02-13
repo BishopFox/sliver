@@ -1458,7 +1458,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	generateCmd.AddCommand(&grumble.Command{
 		Name:     consts.CompilerInfoStr,
 		Help:     "Get information about the server's compiler",
-		LongHelp: help.GetHelpFor([]string{consts.CompilerInfoStr}),
+		LongHelp: help.GetHelpFor([]string{consts.GenerateStr, consts.CompilerInfoStr}),
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
@@ -1470,7 +1470,61 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
+	trafficEncodersCmd := &grumble.Command{
+		Name:     consts.TrafficEncodersStr,
+		Help:     "Manage implant traffic encoders",
+		LongHelp: help.GetHelpFor([]string{consts.GenerateStr, consts.TrafficEncodersStr}),
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			generate.TrafficEncodersCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	}
+	trafficEncodersCmd.AddCommand(&grumble.Command{
+		Name:     consts.AddStr,
+		Help:     "Add a new implant traffic encoders from the local file system",
+		LongHelp: help.GetHelpFor([]string{consts.GenerateStr, consts.TrafficEncodersStr, consts.AddStr}),
+		Args: func(a *grumble.Args) {
+			a.String("file", "local file path (expects .wasm)")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			generate.TrafficEncodersAddCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	trafficEncodersCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove a traffic encoder from the server",
+		LongHelp: help.GetHelpFor([]string{consts.GenerateStr, consts.TrafficEncodersStr, consts.RmStr}),
+		Args: func(a *grumble.Args) {
+			a.String("name", "name of traffic encoder to remove")
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			generate.TrafficEncodersRemoveCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	generateCmd.AddCommand(trafficEncodersCmd)
 	con.App.AddCommand(generateCmd)
+
+	// [ Regenerate ] --------------------------------------------------------------
 
 	con.App.AddCommand(&grumble.Command{
 		Name:     consts.RegenerateStr,
@@ -1532,6 +1586,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
+
+	// [ Profiles ] --------------------------------------------------------------
+
 	profilesNewCmd := &grumble.Command{
 		Name:     consts.NewStr,
 		Help:     "Create a new implant profile (interactive session)",
@@ -1593,7 +1650,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 	}
 	profilesCmd.AddCommand(profilesNewCmd)
 
-	// New Beacon Profile Command
 	profilesNewCmd.AddCommand(&grumble.Command{
 		Name:     consts.BeaconStr,
 		Help:     "Create a new implant profile (beacon)",
@@ -1682,6 +1738,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 	})
 	con.App.AddCommand(profilesCmd)
 
+	// [ Implant Builds ] --------------------------------------------------------------
+
 	implantBuildsCmd := &grumble.Command{
 		Name:     consts.ImplantBuildsStr,
 		Help:     "List implant builds",
@@ -1726,6 +1784,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.GenericHelpGroup,
 	})
 	con.App.AddCommand(implantBuildsCmd)
+
+	// [ Canaries ] --------------------------------------------------------------
 
 	con.App.AddCommand(&grumble.Command{
 		Name:     consts.CanariesStr,

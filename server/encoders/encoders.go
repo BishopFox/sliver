@@ -106,6 +106,7 @@ func LoadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) e
 			encodersLog.Errorf(fmt.Sprintf("failed to create traffic encoder from '%s': %s", wasmEncoderModuleName, err.Error()))
 			return err
 		}
+		trafficEncoder.FileName = wasmEncoderFile.Name()
 		EncoderMap[uint64(wasmEncoderID)] = trafficEncoder
 		TrafficEncoderMap[uint64(wasmEncoderID)] = trafficEncoder
 		encodersLog.Info(fmt.Sprintf("loading %s (id: %d, bytes: %d)", wasmEncoderModuleName, wasmEncoderID, len(wasmEncoderData)))

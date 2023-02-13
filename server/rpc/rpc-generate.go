@@ -35,12 +35,15 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
+	"github.com/bishopfox/sliver/util/encoders/traffic"
 	"github.com/gofrs/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -444,6 +447,76 @@ func (rpc *Server) BuilderTrigger(ctx context.Context, req *clientpb.Event) (*co
 		})
 
 	}
+
+	return &commonpb.Empty{}, nil
+}
+
+// TrafficEncoderMap - Get a map of the server's traffic encoders
+func (rpc *Server) TrafficEncoderMap(ctx context.Context, _ *commonpb.Empty) (*clientpb.TrafficEncoderMap, error) {
+	trafficEncoderMap := make(map[string]*clientpb.TrafficEncoder)
+	for id, encoder := range encoders.TrafficEncoderMap {
+		trafficEncoderMap[encoder.FileName] = &clientpb.TrafficEncoder{
+			ID: id,
+			Wasm: &commonpb.File{
+				Name: encoder.FileName,
+				Data: encoder.Data,
+			},
+		}
+	}
+	return &clientpb.TrafficEncoderMap{Encoders: trafficEncoderMap}, nil
+}
+
+// TrafficEncoderAdd - Add a new traffic encoder
+func (rpc *Server) TrafficEncoderAdd(ctx context.Context, req *clientpb.TrafficEncoder) (*clientpb.TrafficEncoderTests, error) {
+	req.ID = traffic.CalculateWasmEncoderID(req.Wasm.Data)
+	progress := make(chan []byte, 1)
+	go testProgress(progress)
+	tests, err := testTrafficEncoder(ctx, req, progress)
+	close(progress)
+	if err != nil {
+		return nil, err
+	}
+	return tests, nil
+}
+
+func testProgress(progress chan []byte) {
+	for data := range progress {
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.TrafficEncoderTestProgressEvent,
+			Data:      data,
+		})
+	}
+}
+
+func testTrafficEncoder(ctx context.Context, req *clientpb.TrafficEncoder, progress chan []byte) (*clientpb.TrafficEncoderTests, error) {
+	encoder, err := traffic.CreateTrafficEncoder(req.Wasm.Name, req.Wasm.Data, func(s string) {
+		rpcLog.Infof("[traffic encoder test] %s", s)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Test Suite for Traffic Encoders
+	testSuite := []string{
+		traffic.SmallRandom, traffic.MediumRandom, traffic.LargeRandom,
+	}
+
+	tests := &clientpb.TrafficEncoderTests{Encoder: req, TestID: req.TestID, TotalTests: int32(len(testSuite))}
+	for _, testName := range testSuite {
+		tester := traffic.TrafficEncoderTesters[testName]
+		if tester == nil {
+			panic("invalid traffic encoder test")
+		}
+		test := tester(encoder)
+		tests.Tests = append(tests.Tests, test)
+		testData, _ := proto.Marshal(tests)
+		progress <- testData
+	}
+
+	return tests, nil
+}
+
+func (rpc *Server) TrafficEncoderRm(ctx context.Context, _ *clientpb.TrafficEncoder) (*commonpb.Empty, error) {
 
 	return &commonpb.Empty{}, nil
 }

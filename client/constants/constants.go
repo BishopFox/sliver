@@ -95,6 +95,9 @@ const (
 	ExternalBuildFailedEvent    = "external-build-failed"
 	ExternalBuildCompletedEvent = "external-build-completed"
 
+	// TrafficEncoder Events
+	TrafficEncoderTestProgressEvent = "traffic-encoder-test-progress"
+
 	// Crackstation Events
 	CrackstationConnected    = "crackstation-connected"
 	CrackstationDisconnected = "crackstation-disconnected"
@@ -114,24 +117,25 @@ const (
 	KickOperatorStr    = "kick-operator"
 	MultiplayerModeStr = "multiplayer"
 
-	SessionsStr     = "sessions"
-	BackgroundStr   = "background"
-	InfoStr         = "info"
-	UseStr          = "use"
-	ReconfigStr     = "reconfig"
-	PruneStr        = "prune"
-	TasksStr        = "tasks"
-	CancelStr       = "cancel"
-	GenerateStr     = "generate"
-	RegenerateStr   = "regenerate"
-	CompilerInfoStr = "info"
-	StagerStr       = "stager"
-	ProfilesStr     = "profiles"
-	BeaconStr       = "beacon"
-	BeaconsStr      = "beacons"
-	WatchStr        = "watch"
-	SettingsStr     = "settings"
-	SearchStr       = "search"
+	SessionsStr        = "sessions"
+	BackgroundStr      = "background"
+	InfoStr            = "info"
+	UseStr             = "use"
+	ReconfigStr        = "reconfig"
+	PruneStr           = "prune"
+	TasksStr           = "tasks"
+	CancelStr          = "cancel"
+	GenerateStr        = "generate"
+	RegenerateStr      = "regenerate"
+	CompilerInfoStr    = "info"
+	StagerStr          = "stager"
+	ProfilesStr        = "profiles"
+	BeaconStr          = "beacon"
+	BeaconsStr         = "beacons"
+	WatchStr           = "watch"
+	SettingsStr        = "settings"
+	SearchStr          = "search"
+	TrafficEncodersStr = "traffic-encoders"
 
 	// Generic
 

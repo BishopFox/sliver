@@ -178,7 +178,33 @@ message ImplantConfig {
 
 message TrafficEncoder {
   uint64 ID = 1;
-  commonpb.File WASM = 2;
+  commonpb.File Wasm = 2;
+
+  string TestID = 9;
+}
+
+message TrafficEncoderMap {
+  // File Name -> TrafficEncoder
+  map<string, TrafficEncoder> Encoders = 1;
+}
+
+message TrafficEncoderTest {
+  string Name = 1;
+  bool Completed = 2;
+  bool Success = 3;
+  int64 Duration = 4;
+
+  string Err = 9;
+  bytes Sample = 10;  // Only used on failed tests
+}
+
+message TrafficEncoderTests {
+  TrafficEncoder Encoder = 1;
+  repeated TrafficEncoderTest Tests = 2;
+  int64 TotalDuration = 3;
+  int32 TotalTests = 4;
+
+  string TestID = 9;
 }
 
 message ExternalImplantConfig {

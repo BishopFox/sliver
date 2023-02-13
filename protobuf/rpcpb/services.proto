@@ -113,6 +113,9 @@ service SliverRPC {
     rpc GetCompiler(commonpb.Empty) returns (clientpb.Compiler);
     rpc ShellcodeEncoder(clientpb.ShellcodeEncodeReq) returns (clientpb.ShellcodeEncode);
     rpc ShellcodeEncoderMap(commonpb.Empty) returns (clientpb.ShellcodeEncoderMap);
+    rpc TrafficEncoderMap(commonpb.Empty) returns (clientpb.TrafficEncoderMap);
+    rpc TrafficEncoderAdd(clientpb.TrafficEncoder) returns (clientpb.TrafficEncoderTests);
+    rpc TrafficEncoderRm(clientpb.TrafficEncoder) returns (commonpb.Empty);
 
     // *** Websites ***
     rpc Websites(commonpb.Empty) returns (clientpb.Websites);
