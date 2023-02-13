@@ -117,7 +117,7 @@ under certain conditions; type 'licenses' for details.`)
 		setupGo(appDir)
 		setupCodenames(appDir)
 		saveAssetVersion(appDir)
-		unpackDefaultTrafficEncoders(appDir)
+		unpackDefaultTrafficEncoders(appDir, force)
 	}
 	setupLog.Infof("Initialized english encoder with %d words", len(English()))
 }

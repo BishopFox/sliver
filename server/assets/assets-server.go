@@ -44,7 +44,7 @@ func getTrafficEncoderDir(appDir string) string {
 	return trafficDir
 }
 
-func unpackDefaultTrafficEncoders(appDir string) error {
+func unpackDefaultTrafficEncoders(appDir string, force bool) error {
 	encoders, err := trafficEncoderFS.ReadDir("traffic-encoders")
 	if err != nil {
 		return err
@@ -61,9 +61,13 @@ func unpackDefaultTrafficEncoders(appDir string) error {
 		}
 
 		localPath := filepath.Join(getTrafficEncoderDir(appDir), encoderName)
-		err = os.WriteFile(localPath, encoderBytes, 0600)
-		if err != nil {
-			return err
+		if _, err := os.Stat(localPath); os.IsNotExist(err) || force {
+			err = os.WriteFile(localPath, encoderBytes, 0600)
+			if err != nil {
+				return err
+			}
+		} else {
+			setupLog.Infof("Skipping unpacking %s, already exists", encoderName)
 		}
 	}
 	return nil
