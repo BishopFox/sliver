@@ -19,7 +19,6 @@ package beacons
 */
 
 import (
-	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -83,7 +82,9 @@ func BeaconsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		}
 	}
 
-	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+	grpcCtx, cancel := con.GrpcContext(ctx)
+	defer cancel()
+	beacons, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return

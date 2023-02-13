@@ -19,7 +19,6 @@ package backdoor
 */
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/bishopfox/sliver/client/console"
@@ -42,10 +41,13 @@ func BackdoorCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	profileName := ctx.Flags.String("profile")
 
+	grpcCtx, cancel := con.GrpcContext(ctx)
+	defer cancel()
+
 	ctrl := make(chan bool)
 	msg := fmt.Sprintf("Backdooring %s ...", remoteFilePath)
 	con.SpinUntil(msg, ctrl)
-	backdoor, err := con.Rpc.Backdoor(context.Background(), &sliverpb.BackdoorReq{
+	backdoor, err := con.Rpc.Backdoor(grpcCtx, &sliverpb.BackdoorReq{
 		FilePath:    remoteFilePath,
 		ProfileName: profileName,
 		Request:     con.ActiveTarget.Request(ctx),

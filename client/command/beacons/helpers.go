@@ -20,7 +20,6 @@ package beacons
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -44,7 +43,9 @@ var (
 
 // SelectBeacon - Interactive menu for the user to select an session, optionally only display live sessions
 func SelectBeacon(con *console.SliverConsoleClient) (*clientpb.Beacon, error) {
-	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+	grpcCtx, cancel := con.GrpcContext(nil)
+	defer cancel()
+	beacons, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +102,9 @@ func SelectBeacon(con *console.SliverConsoleClient) (*clientpb.Beacon, error) {
 }
 
 func GetBeacon(con *console.SliverConsoleClient, beaconID string) (*clientpb.Beacon, error) {
-	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+	grpcCtx, cancel := con.GrpcContext(nil)
+	defer cancel()
+	beacons, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +120,9 @@ func GetBeacon(con *console.SliverConsoleClient, beaconID string) (*clientpb.Bea
 }
 
 func GetBeacons(con *console.SliverConsoleClient) (*clientpb.Beacons, error) {
-	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+	grpcCtx, cancel := con.GrpcContext(nil)
+	defer cancel()
+	beacons, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
 	if err != nil {
 		return nil, err
 	}

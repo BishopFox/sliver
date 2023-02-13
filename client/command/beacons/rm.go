@@ -19,8 +19,6 @@ package beacons
 */
 
 import (
-	"context"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/desertbit/grumble"
 )
@@ -32,7 +30,9 @@ func BeaconsRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	_, err = con.Rpc.RmBeacon(context.Background(), beacon)
+	grpcCtx, cancel := con.GrpcContext(ctx)
+	defer cancel()
+	_, err = con.Rpc.RmBeacon(grpcCtx, beacon)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return

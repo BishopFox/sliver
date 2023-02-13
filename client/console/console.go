@@ -23,9 +23,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	insecureRand "math/rand"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -444,7 +444,7 @@ func (con *SliverConsoleClient) CheckLastUpdate() {
 func getLastUpdateCheck() *time.Time {
 	appDir := assets.GetRootAppDir()
 	lastUpdateCheckPath := filepath.Join(appDir, consts.LastUpdateCheckFileName)
-	data, err := ioutil.ReadFile(lastUpdateCheckPath)
+	data, err := os.ReadFile(lastUpdateCheckPath)
 	if err != nil {
 		log.Printf("Failed to read last update check %s", err)
 		return nil
@@ -597,10 +597,14 @@ func (con *SliverConsoleClient) FormatDateDelta(t time.Time, includeDate bool, c
 	return interval
 }
 
+// GrpcContext - Generate a context for a GRPC request, if no grumble context or an invalid flag is provided 60 seconds is used instead
 func (con *SliverConsoleClient) GrpcContext(ctx *grumble.Context) (context.Context, context.CancelFunc) {
-	timeout, err := time.ParseDuration(ctx.Flags.String("timeout"))
-	if err != nil {
-		timeout = 300 * time.Second
+	if ctx == nil {
+		return context.WithTimeout(context.Background(), 60*time.Second)
+	}
+	timeout := time.Duration(int64(ctx.Flags.Int("timeout")) * int64(time.Second))
+	if timeout < 1 {
+		timeout = 60 * time.Second
 	}
 	return context.WithTimeout(context.Background(), timeout)
 }
@@ -671,7 +675,13 @@ func (s *ActiveTarget) Request(ctx *grumble.Context) *commonpb.Request {
 	if s.session == nil && s.beacon == nil {
 		return nil
 	}
-	timeout := int(time.Second) * ctx.Flags.Int("timeout")
+
+	// One less than the gRPC timeout so that the server should timeout first
+	timeout := (int(time.Second) * ctx.Flags.Int("timeout")) - 1
+	if timeout < 1 {
+		timeout = (300 * int(time.Second)) - 1
+	}
+
 	req := &commonpb.Request{}
 	req.Timeout = int64(timeout)
 	if s.session != nil {

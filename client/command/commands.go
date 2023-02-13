@@ -1487,13 +1487,13 @@ func BindCommands(con *console.SliverConsoleClient) {
 	}
 	trafficEncodersCmd.AddCommand(&grumble.Command{
 		Name:     consts.AddStr,
-		Help:     "Add a new implant traffic encoders from the local file system",
+		Help:     "Add a new implant traffic encoder from the local file system",
 		LongHelp: help.GetHelpFor([]string{consts.GenerateStr, consts.TrafficEncodersStr, consts.AddStr}),
 		Args: func(a *grumble.Args) {
 			a.String("file", "local file path (expects .wasm)")
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+			f.Int("t", "timeout", 300, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
