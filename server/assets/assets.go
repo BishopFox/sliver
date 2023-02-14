@@ -19,12 +19,9 @@ package assets
 */
 
 import (
-	"archive/zip"
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
-	insecureRand "math/rand"
 	"os"
 	"os/user"
 	"path"
@@ -83,6 +80,15 @@ func GetChunkDataDir() string {
 	return chunkDir
 }
 
+// GetTrafficEncoderDir - Get the Sliver traffic encoder dir, default is: ~/.sliver/traffic-encoders/
+func GetTrafficEncoderDir() string {
+	trafficDir := filepath.Join(GetRootAppDir(), "traffic-encoders")
+	if _, err := os.Stat(trafficDir); os.IsNotExist(err) {
+		os.MkdirAll(trafficDir, 0700)
+	}
+	return trafficDir
+}
+
 func assetVersion() string {
 	appDir := GetRootAppDir()
 	data, err := os.ReadFile(path.Join(appDir, versionFileName))
@@ -117,7 +123,7 @@ under certain conditions; type 'licenses' for details.`)
 		setupGo(appDir)
 		setupCodenames(appDir)
 		saveAssetVersion(appDir)
-		unpackDefaultTrafficEncoders(appDir, force)
+		unpackDefaultTrafficEncoders(force)
 	}
 	setupLog.Infof("Initialized english encoder with %d words", len(English()))
 }
@@ -159,93 +165,4 @@ func GetGPGPublicKey() (*packet.PublicKey, error) {
 		return nil, errors.New("invalid public key")
 	}
 	return publicKey, nil
-}
-
-func unzip(src string, dest string) ([]string, error) {
-	var filenames []string
-	reader, err := zip.OpenReader(src)
-	if err != nil {
-		return filenames, err
-	}
-	defer reader.Close()
-
-	for _, file := range reader.File {
-
-		rc, err := file.Open()
-		if err != nil {
-			return filenames, err
-		}
-		defer rc.Close()
-
-		fPath := filepath.Clean(filepath.Join(dest, file.Name))
-		if !strings.HasPrefix(fPath, filepath.Clean(dest)) {
-			panic("illegal zip file path")
-		}
-		filenames = append(filenames, fPath)
-
-		if file.FileInfo().IsDir() {
-			os.MkdirAll(fPath, 0700)
-		} else {
-			if err = os.MkdirAll(filepath.Dir(fPath), 0700); err != nil {
-				return filenames, err
-			}
-			outFile, err := os.OpenFile(fPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
-			if err != nil {
-				return filenames, err
-			}
-			_, err = io.Copy(outFile, rc)
-			outFile.Close()
-			if err != nil {
-				return filenames, err
-			}
-		}
-	}
-	return filenames, nil
-}
-
-func unzipBuf(src []byte, dest string) ([]string, error) {
-	var filenames []string
-	reader, err := zip.NewReader(bytes.NewReader(src), int64(len(src)))
-	if err != nil {
-		return filenames, err
-	}
-
-	for _, file := range reader.File {
-
-		rc, err := file.Open()
-		if err != nil {
-			return filenames, err
-		}
-		defer rc.Close()
-
-		fPath := filepath.Join(dest, file.Name)
-		filenames = append(filenames, fPath)
-
-		if file.FileInfo().IsDir() {
-			os.MkdirAll(fPath, 0700)
-		} else {
-			if err = os.MkdirAll(filepath.Dir(fPath), 0700); err != nil {
-				return filenames, err
-			}
-			outFile, err := os.OpenFile(fPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
-			if err != nil {
-				return filenames, err
-			}
-			_, err = io.Copy(outFile, rc)
-			outFile.Close()
-			if err != nil {
-				return filenames, err
-			}
-		}
-	}
-	return filenames, nil
-}
-
-func pseudoRandStringRunes(n int) string {
-	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letterRunes[insecureRand.Intn(len(letterRunes))]
-	}
-	return string(b)
 }

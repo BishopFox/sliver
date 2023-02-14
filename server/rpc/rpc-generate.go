@@ -530,11 +530,33 @@ func testTrafficEncoder(ctx context.Context, req *clientpb.TrafficEncoder, progr
 		progress <- testData
 	}
 
+	if !allTestsPassed(tests) {
+		return &clientpb.TrafficEncoderTests{
+			Encoder:    req,
+			TotalTests: int32(len(testSuite)),
+			Tests:      tests,
+		}, status.Error(codes.DataLoss, "traffic encoder failed at least one test")
+	}
+
+	err = encoders.SaveTrafficEncoder(req.Wasm.Name, req.Wasm.Data)
+	if err != nil {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+
 	return &clientpb.TrafficEncoderTests{
 		Encoder:    req,
 		TotalTests: int32(len(testSuite)),
 		Tests:      tests,
 	}, nil
+}
+
+func allTestsPassed(tests []*clientpb.TrafficEncoderTest) bool {
+	for _, test := range tests {
+		if !test.Success {
+			return false
+		}
+	}
+	return true
 }
 
 func (rpc *Server) TrafficEncoderRm(ctx context.Context, _ *clientpb.TrafficEncoder) (*commonpb.Empty, error) {

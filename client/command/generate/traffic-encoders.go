@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -109,20 +110,48 @@ func TrafficEncodersAddCmd(ctx *grumble.Context, con *console.SliverConsoleClien
 	<-completed
 	close(completed)
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		if tests != nil {
+			displayTrafficEncoderTests(false, tests, con)
+			con.Println()
+			for _, test := range tests.Tests {
+				if !test.Success {
+					saveFailedSample(trafficEncoder.Wasm.Name, test)
+				}
+			}
+		}
+		con.PrintErrorf("Failed to add traffic encoder %s", err)
+		con.Println()
 		return
 	}
 	displayTrafficEncoderTests(false, tests, con)
 	con.Println()
-	if !testsWereSuccessful(tests) {
-		con.PrintErrorf("Failed to add traffic encoder: %s\n", trafficEncoder.Wasm.Name)
+	if !allTestsPassed(tests) {
+		con.PrintErrorf("%s failed tests!\n", trafficEncoder.Wasm.Name)
+		con.Println()
 		return
 	}
 	con.Println()
 	con.PrintInfof("Successfully added traffic encoder: %s\n", trafficEncoder.Wasm.Name)
 }
 
-func testsWereSuccessful(tests *clientpb.TrafficEncoderTests) bool {
+func saveFailedSample(encoderName string, test *clientpb.TrafficEncoderTest) {
+	confirm := false
+	prompt := &survey.Confirm{
+		Message: fmt.Sprintf("Failed to add traffic encoder %s, save failed sample to disk?", encoderName),
+	}
+	survey.AskOne(prompt, &confirm)
+	if !confirm {
+		return
+	}
+	sampleFileName := fmt.Sprintf("sample-failed_%s_%s.bin", time.Now().Format("2006-01-02-15-04-05"), filepath.Base(encoderName))
+	err := os.WriteFile(sampleFileName, test.Sample, 0644)
+	if err != nil {
+		fmt.Printf("Failed to save failed sample to disk: %s", err)
+		return
+	}
+}
+
+func allTestsPassed(tests *clientpb.TrafficEncoderTests) bool {
 	for _, test := range tests.Tests {
 		if !test.Success {
 			return false

@@ -56,7 +56,7 @@ func init() {
 	TrafficEncoderFS = PassthroughEncoderFS{
 		rootDir: filepath.Join(assets.GetRootAppDir(), "traffic-encoders"),
 	}
-	LoadTrafficEncodersFromFS(TrafficEncoderFS, func(msg string) {
+	loadTrafficEncodersFromFS(TrafficEncoderFS, func(msg string) {
 		trafficEncoderLog.Debugf("[traffic-encoder] %s", msg)
 	})
 }
@@ -84,9 +84,24 @@ var FastEncoderMap = map[uint64]util.Encoder{
 	util.GzipEncoderID:   Gzip,
 }
 
-// LoadTrafficEncodersFromFS - Loads the wasm traffic encoders from the filesystem, for the
+// SaveTrafficEncoder - Save a traffic encoder to the filesystem
+func SaveTrafficEncoder(name string, wasmBin []byte) error {
+	if !strings.HasSuffix(name, ".wasm") {
+		return fmt.Errorf("invalid encoder name, must end with .wasm")
+	}
+	wasmFilePath := filepath.Join(assets.GetTrafficEncoderDir(), filepath.Base(name))
+	err := os.WriteFile(wasmFilePath, wasmBin, 0600)
+	if err != nil {
+		return err
+	}
+	return loadTrafficEncodersFromFS(TrafficEncoderFS, func(msg string) {
+		trafficEncoderLog.Debugf("[traffic-encoder] %s", msg)
+	})
+}
+
+// loadTrafficEncodersFromFS - Loads the wasm traffic encoders from the filesystem, for the
 // server these will be loaded from: <app root>/traffic-encoders/*.wasm
-func LoadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) error {
+func loadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) error {
 	// Load WASM encoders
 	encodersLog.Info("initializing traffic encoder map...")
 	wasmEncoderFiles, err := encodersFS.ReadDir("traffic-encoders")
@@ -115,6 +130,10 @@ func LoadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) e
 			return err
 		}
 		trafficEncoder.FileName = wasmEncoderFile.Name()
+		if _, ok := EncoderMap[uint64(wasmEncoderID)]; ok {
+			encodersLog.Errorf(fmt.Sprintf("duplicate encoder id: %d", wasmEncoderID))
+			return fmt.Errorf("duplicate encoder id: %d", wasmEncoderID)
+		}
 		EncoderMap[uint64(wasmEncoderID)] = trafficEncoder
 		TrafficEncoderMap[uint64(wasmEncoderID)] = trafficEncoder
 		encodersLog.Info(fmt.Sprintf("loading %s (id: %d, bytes: %d)", wasmEncoderModuleName, wasmEncoderID, len(wasmEncoderData)))
