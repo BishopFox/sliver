@@ -99,6 +99,31 @@ func SaveTrafficEncoder(name string, wasmBin []byte) error {
 	})
 }
 
+// RemoveTrafficEncoder - Save a traffic encoder to the filesystem
+func RemoveTrafficEncoder(name string) error {
+	if !strings.HasSuffix(name, ".wasm") {
+		return fmt.Errorf("invalid encoder name, must end with .wasm")
+	}
+	wasmFilePath := filepath.Join(assets.GetTrafficEncoderDir(), filepath.Base(name))
+	info, err := os.Stat(wasmFilePath)
+	if os.IsNotExist(err) {
+		return nil // File doesn't exist, nothing to do
+	}
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		panic("wasmFilePath is a directory, this should never happen")
+	}
+	err = os.Remove(wasmFilePath)
+	if err != nil {
+		return err
+	}
+	return loadTrafficEncodersFromFS(TrafficEncoderFS, func(msg string) {
+		trafficEncoderLog.Debugf("[traffic-encoder] %s", msg)
+	})
+}
+
 // loadTrafficEncodersFromFS - Loads the wasm traffic encoders from the filesystem, for the
 // server these will be loaded from: <app root>/traffic-encoders/*.wasm
 func loadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) error {

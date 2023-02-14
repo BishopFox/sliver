@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -134,6 +135,7 @@ func TrafficEncodersAddCmd(ctx *grumble.Context, con *console.SliverConsoleClien
 	con.PrintInfof("Successfully added traffic encoder: %s\n", trafficEncoder.Wasm.Name)
 }
 
+// saveFailedSample - Save the sample the encoder failed to properly encode/decode
 func saveFailedSample(encoderName string, test *clientpb.TrafficEncoderTest) {
 	confirm := false
 	prompt := &survey.Confirm{
@@ -151,6 +153,7 @@ func saveFailedSample(encoderName string, test *clientpb.TrafficEncoderTest) {
 	}
 }
 
+// allTestsPassed - Check if all tests passed
 func allTestsPassed(tests *clientpb.TrafficEncoderTests) bool {
 	for _, test := range tests.Tests {
 		if !test.Success {
@@ -160,6 +163,7 @@ func allTestsPassed(tests *clientpb.TrafficEncoderTests) bool {
 	return true
 }
 
+// displayTrafficEncoderTests - Display traffic encoder tests in real time
 func displayTrafficEncoderTestProgress(testID string, completed chan interface{}, con *console.SliverConsoleClient) {
 	listenerID, events := con.CreateEventListener()
 	defer con.RemoveEventListener(listenerID)
@@ -184,6 +188,7 @@ func displayTrafficEncoderTestProgress(testID string, completed chan interface{}
 	}
 }
 
+// clearLines - Clear a number of lines from the console
 func clearLines(count int, con *console.SliverConsoleClient) {
 	for i := 0; i < count; i++ {
 		con.Printf(console.Clearln + "\r")
@@ -234,5 +239,44 @@ func displayTrafficEncoderTests(running bool, tests *clientpb.TrafficEncoderTest
 func TrafficEncodersRemoveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	_, cancel := con.GrpcContext(ctx)
 	defer cancel()
+	name := ctx.Args.String("name")
+	if name == "" {
+		name = SelectTrafficEncoder(con)
+	}
+	grpcCtx, cancel := con.GrpcContext(ctx)
+	defer cancel()
+	_, err := con.Rpc.TrafficEncoderRm(grpcCtx, &clientpb.TrafficEncoder{
+		Wasm: &commonpb.File{
+			Name: name,
+		},
+	})
+	if err != nil {
+		con.PrintErrorf("%s", err)
+		return
+	}
+	con.Println()
+	con.PrintInfof("Successfully removed traffic encoder: %s\n", name)
+}
 
+// SelectTrafficEncoder - Select a traffic encoder from a list
+func SelectTrafficEncoder(con *console.SliverConsoleClient) string {
+	grpcCtx, cancel := con.GrpcContext(nil)
+	defer cancel()
+	encoders, err := con.Rpc.TrafficEncoderMap(grpcCtx, &commonpb.Empty{})
+	if err != nil {
+		con.PrintErrorf("%s", err)
+		return ""
+	}
+	var encoderNames []string
+	for _, encoder := range encoders.Encoders {
+		encoderNames = append(encoderNames, encoder.Wasm.Name)
+	}
+	sort.Strings(encoderNames)
+	var selectedEncoder string
+	prompt := &survey.Select{
+		Message: "Select a traffic encoder:",
+		Options: encoderNames,
+	}
+	survey.AskOne(prompt, &selectedEncoder)
+	return selectedEncoder
 }

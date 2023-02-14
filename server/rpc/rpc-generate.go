@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -298,6 +299,7 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalG
 	return externalConfig, err
 }
 
+// GenerateExternalSaveBuild - Allows an external builder to save the build to the server
 func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.ExternalImplantBinary) (*commonpb.Empty, error) {
 	implantConfig, err := db.ImplantConfigWithC2sByID(req.ImplantConfigID)
 	if err != nil {
@@ -346,6 +348,7 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 	return &commonpb.Empty{}, nil
 }
 
+// GenerateExternalGetImplantConfig - Get an implant config for external builder
 func (rpc *Server) GenerateExternalGetImplantConfig(ctx context.Context, req *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
 	implantConfig, err := db.ImplantConfigWithC2sByID(req.ID)
 	if err != nil {
@@ -366,7 +369,7 @@ func (rpc *Server) GenerateExternalGetImplantConfig(ctx context.Context, req *cl
 	}, nil
 }
 
-// BuilderRegister
+// BuilderRegister - Register a new builder with the server
 func (rpc *Server) BuilderRegister(req *clientpb.Builder, stream rpcpb.SliverRPC_BuilderRegisterServer) error {
 	req.OperatorName = rpc.getClientCommonName(stream.Context())
 	if req.Name == "" {
@@ -427,10 +430,12 @@ func (rpc *Server) BuilderRegister(req *clientpb.Builder, stream rpcpb.SliverRPC
 	}
 }
 
+// Builders - Get a list of all builders
 func (rpc *Server) Builders(ctx context.Context, _ *commonpb.Empty) (*clientpb.Builders, error) {
 	return &clientpb.Builders{Builders: core.AllBuilders()}, nil
 }
 
+// BuilderTrigger - Trigger a builder event
 func (rpc *Server) BuilderTrigger(ctx context.Context, req *clientpb.Event) (*commonpb.Empty, error) {
 
 	switch req.EventType {
@@ -466,7 +471,7 @@ func (rpc *Server) TrafficEncoderMap(ctx context.Context, _ *commonpb.Empty) (*c
 	return &clientpb.TrafficEncoderMap{Encoders: trafficEncoderMap}, nil
 }
 
-// TrafficEncoderAdd - Add a new traffic encoder
+// TrafficEncoderAdd - Add a new traffic encoder, and test for correctness
 func (rpc *Server) TrafficEncoderAdd(ctx context.Context, req *clientpb.TrafficEncoder) (*clientpb.TrafficEncoderTests, error) {
 	req.ID = traffic.CalculateWasmEncoderID(req.Wasm.Data)
 	req.Wasm.Name = filepath.Base(req.Wasm.Name)
@@ -490,6 +495,7 @@ func testProgress(progress chan []byte) {
 	}
 }
 
+// testTrafficEncoder - Test a traffic encoder for correctness by encoding/decoding random samples
 func testTrafficEncoder(ctx context.Context, req *clientpb.TrafficEncoder, progress chan []byte) (*clientpb.TrafficEncoderTests, error) {
 	rpcLog.Infof("Testing traffic encoder %s (%d) - %s", req.Wasm.Name, req.ID, req.TestID)
 	encoder, err := traffic.CreateTrafficEncoder(req.Wasm.Name, req.Wasm.Data, func(s string) {
@@ -559,7 +565,20 @@ func allTestsPassed(tests []*clientpb.TrafficEncoderTest) bool {
 	return true
 }
 
-func (rpc *Server) TrafficEncoderRm(ctx context.Context, _ *clientpb.TrafficEncoder) (*commonpb.Empty, error) {
-
+// TrafficEncoderRm - Remove a traffic encoder
+func (rpc *Server) TrafficEncoderRm(ctx context.Context, req *clientpb.TrafficEncoder) (*commonpb.Empty, error) {
+	if req.Wasm == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing wasm file")
+	}
+	if req.Wasm.Name == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing wasm file name")
+	}
+	if !strings.HasSuffix(req.Wasm.Name, ".wasm") {
+		return nil, status.Error(codes.InvalidArgument, "invalid wasm file name, must have a .wasm extension")
+	}
+	err := encoders.RemoveTrafficEncoder(req.Wasm.Name)
+	if err != nil {
+		return nil, status.Error(codes.Aborted, err.Error())
+	}
 	return &commonpb.Empty{}, nil
 }
