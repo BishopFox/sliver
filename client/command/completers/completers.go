@@ -19,12 +19,12 @@ package completers
 */
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
 // LocalPathCompleter - Completes a local file system path
@@ -46,11 +46,11 @@ func LocalPathCompleter(prefix string, args []string, con *console.SliverConsole
 	}
 
 	results := []string{}
-	ls, err := ioutil.ReadDir(parent)
+	ls, err := os.ReadDir(parent)
 	if err != nil {
 		return results
 	}
-	for _, fi = range ls {
+	for _, fi := range ls {
 		if 0 < len(partial) {
 			if strings.HasPrefix(fi.Name(), partial) {
 				results = append(results, filepath.Join(parent, fi.Name()))
@@ -58,6 +58,21 @@ func LocalPathCompleter(prefix string, args []string, con *console.SliverConsole
 		} else {
 			results = append(results, filepath.Join(parent, fi.Name()))
 		}
+	}
+	return results
+}
+
+// TrafficEncoderCompleter - Completes the names of traffic encoders
+func TrafficEncoderCompleter(prefix string, args []string, con *console.SliverConsoleClient) []string {
+	grpcCtx, cancel := con.GrpcContext(nil)
+	defer cancel()
+	trafficEncoders, err := con.Rpc.TrafficEncoderMap(grpcCtx, &commonpb.Empty{})
+	if err != nil {
+		return []string{}
+	}
+	results := []string{}
+	for _, encoder := range trafficEncoders.Encoders {
+		results = append(results, encoder.Wasm.Name)
 	}
 	return results
 }
