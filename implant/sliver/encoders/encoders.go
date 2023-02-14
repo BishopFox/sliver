@@ -24,6 +24,7 @@ import (
 	"encoding/binary"
 	"errors"
 	insecureRand "math/rand"
+	"path"
 	"strings"
 
 	// {{if .Config.Debug}}
@@ -67,7 +68,7 @@ func init() {
 
 var (
 	//go:embed assets/*
-	assetsFS embed.FS // files will be gzip'd
+	implantAssetsFS embed.FS // files will be gzip'd
 
 	Base64  = Base64Encoder{}
 	Base58  = Base58Encoder{}
@@ -163,11 +164,17 @@ func loadWasmEncodersFromAssets() error {
 	log.Printf("initializing traffic encoder map...")
 	// {{end}}
 
-	assetFiles, err := assetsFS.ReadDir("assets")
+	assetFiles, err := implantAssetsFS.ReadDir("assets")
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to read assets directory: %v", err)
+		// {{end}}
 		return err
 	}
 	for _, assetFile := range assetFiles {
+		// {{if .Config.Debug}}
+		log.Printf("Unpacking asset: %s", assetFile.Name())
+		// {{end}}
 		if assetFile.IsDir() {
 			continue
 		}
@@ -176,7 +183,7 @@ func loadWasmEncodersFromAssets() error {
 		}
 		// WASM Module name should be equal to file name without the extension
 		wasmEncoderModuleName := strings.TrimSuffix(assetFile.Name(), ".wasm")
-		wasmEncoderData, err := assetsFS.ReadFile(assetFile.Name())
+		wasmEncoderData, err := implantAssetsFS.ReadFile(path.Join("assets", assetFile.Name()))
 		if err != nil {
 			return err
 		}
@@ -211,7 +218,7 @@ func loadWasmEncodersFromAssets() error {
 }
 
 func loadEnglishDictionaryFromAssets() error {
-	englishData, err := assetsFS.ReadFile("assets/english.gz")
+	englishData, err := implantAssetsFS.ReadFile("assets/english.gz")
 	if err != nil {
 		return err
 	}

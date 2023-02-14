@@ -183,7 +183,6 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 
 	cfg.RunAtLoad = pbConfig.RunAtLoad
 	cfg.TrafficEncodersEnabled = pbConfig.TrafficEncodersEnabled
-	cfg.TrafficEncoders = strings.Join(pbConfig.TrafficEncoders, ",")
 	cfg.NetGoEnabled = pbConfig.NetGoEnabled
 
 	cfg.Assets = []models.EncoderAsset{}
@@ -312,10 +311,9 @@ func SliverShellcode(name string, otpSecret string, config *models.ImplantConfig
 		ldflags[0] += " -H=windowsgui"
 	}
 	// Keep those for potential later use
-	gcflags := ""
-	asmflags := ""
-	trimpath := "-trimpath"
-	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "pie", tags, ldflags, gcflags, asmflags, trimpath)
+	gcFlags := ""
+	asmFlags := ""
+	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "pie", tags, ldflags, gcFlags, asmFlags)
 	if err != nil {
 		return "", err
 	}
@@ -402,10 +400,9 @@ func SliverSharedLibrary(name string, otpSecret string, config *models.ImplantCo
 		ldflags[0] += " -linkmode external -extldflags \"-static\""
 	}
 	// Keep those for potential later use
-	gcflags := ""
-	asmflags := ""
-	trimpath := "-trimpath"
-	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags, gcflags, asmflags, trimpath)
+	gcFlags := ""
+	asmFlags := ""
+	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-shared", tags, ldflags, gcFlags, asmFlags)
 	if err != nil {
 		return "", err
 	}
@@ -461,15 +458,13 @@ func SliverExecutable(name string, otpSecret string, config *models.ImplantConfi
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
 	}
-	gcflags := ""
-	asmflags := ""
+	gcFlags := ""
+	asmFlags := ""
 	if config.Debug {
-		gcflags = "all=-N -l"
+		gcFlags = "all=-N -l"
 		ldflags = []string{}
 	}
-	// trimpath is now a separate flag since Go 1.13
-	trimpath := "-trimpath"
-	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags, gcflags, asmflags, trimpath)
+	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags, gcFlags, asmFlags)
 	if err != nil {
 		return "", err
 	}

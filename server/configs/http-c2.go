@@ -34,7 +34,7 @@ import (
 
 const (
 	httpC2ConfigFileName = "http-c2.json"
-	DefaultChromeBaseVer = 100
+	DefaultChromeBaseVer = 106
 	DefaultMacOSVer      = "10_15_7"
 )
 
@@ -42,6 +42,30 @@ const (
 type HTTPC2Config struct {
 	ImplantConfig *HTTPC2ImplantConfig `json:"implant_config"`
 	ServerConfig  *HTTPC2ServerConfig  `json:"server_config"`
+}
+
+// RandomImplantConfig - Randomly generate a new implant config from the parent config,
+// this is the primary configuration used by the implant generation.
+func (h *HTTPC2Config) RandomImplantConfig() *HTTPC2ImplantConfig {
+	return &HTTPC2ImplantConfig{
+
+		NonceQueryArgs: h.ImplantConfig.NonceQueryArgs,
+		URLParameters:  h.ImplantConfig.URLParameters,
+		Headers:        h.ImplantConfig.Headers,
+
+		PollFileExt: h.ImplantConfig.PollFileExt,
+		PollFiles:   h.ImplantConfig.RandomPollFiles(),
+		PollPaths:   h.ImplantConfig.RandomPollPaths(),
+
+		StartSessionFileExt: h.ImplantConfig.StartSessionFileExt,
+		SessionFileExt:      h.ImplantConfig.SessionFileExt,
+		SessionFiles:        h.ImplantConfig.RandomSessionFiles(),
+		SessionPaths:        h.ImplantConfig.RandomSessionPaths(),
+
+		CloseFileExt: h.ImplantConfig.CloseFileExt,
+		CloseFiles:   h.ImplantConfig.RandomCloseFiles(),
+		ClosePaths:   h.ImplantConfig.RandomClosePaths(),
+	}
 }
 
 // GenerateUserAgent - Generate a user-agent depending on OS/Arch
@@ -96,25 +120,6 @@ func (h *HTTPC2Config) MacOSVer() string {
 		macosVer = DefaultMacOSVer
 	}
 	return macosVer
-}
-
-// RandomImplantConfig - Randomly generate a config
-func (h *HTTPC2Config) RandomImplantConfig() *HTTPC2ImplantConfig {
-	return &HTTPC2ImplantConfig{
-
-		NonceQueryArgs: h.ImplantConfig.NonceQueryArgs,
-		URLParameters:  h.ImplantConfig.URLParameters,
-		Headers:        h.ImplantConfig.Headers,
-
-		PollFiles: h.ImplantConfig.RandomPollFiles(),
-		PollPaths: h.ImplantConfig.RandomPollPaths(),
-
-		SessionFiles: h.ImplantConfig.RandomSessionFiles(),
-		SessionPaths: h.ImplantConfig.RandomSessionPaths(),
-
-		CloseFiles: h.ImplantConfig.RandomCloseFiles(),
-		ClosePaths: h.ImplantConfig.RandomClosePaths(),
-	}
 }
 
 // HTTPC2ServerConfig - Server configuration options

@@ -336,7 +336,9 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	}
 
 	// Parse Traffic Encoder Args
-	trafficEncodersEnabled, trafficEncoders := parseTrafficEncoderArgs(ctx)
+
+	httpC2Enabled := 0 < len(httpC2)
+	trafficEncodersEnabled, trafficEncoderAssets := parseTrafficEncoderArgs(ctx, httpC2Enabled, con)
 
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
@@ -373,25 +375,31 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		RunAtLoad:              runAtLoad,
 		NetGoEnabled:           ctx.Flags.Bool("netgo"),
 		TrafficEncodersEnabled: trafficEncodersEnabled,
-		TrafficEncoders:        trafficEncoders,
+		Assets:                 trafficEncoderAssets,
 	}
 
 	return config
 }
 
 // parseTrafficEncoderArgs - parses the traffic encoder args and returns a bool indicating if traffic encoders are enabled
-func parseTrafficEncoderArgs(ctx *grumble.Context) (bool, []string) {
+func parseTrafficEncoderArgs(ctx *grumble.Context, httpC2Enabled bool, con *console.SliverConsoleClient) (bool, []*commonpb.File) {
 	trafficEncoders := ctx.Flags.String("traffic-encoders")
+	encoders := []*commonpb.File{}
 	if trafficEncoders != "" {
-		encoders := strings.Split(trafficEncoders, ",")
-		for index, encoder := range encoders {
+		if !httpC2Enabled {
+			con.PrintWarnf("Traffic encoders are only supported with HTTP C2, flag will be ignored\n")
+			return false, encoders
+		}
+		enabledEncoders := strings.Split(trafficEncoders, ",")
+		for _, encoder := range enabledEncoders {
 			if !strings.HasSuffix(encoder, ".wasm") {
-				encoders[index] = encoder + ".wasm"
+				encoder += ".wasm"
 			}
+			encoders = append(encoders, &commonpb.File{Name: encoder})
 		}
 		return true, encoders
 	}
-	return false, []string{}
+	return false, encoders
 }
 
 func getTargets(targetOS string, targetArch string, con *console.SliverConsoleClient) (string, string) {
