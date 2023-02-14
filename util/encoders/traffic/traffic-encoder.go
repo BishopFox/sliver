@@ -25,6 +25,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"runtime"
+	"sync"
 
 	"github.com/bishopfox/sliver/util"
 	"github.com/tetratelabs/wazero"
@@ -45,6 +46,7 @@ type TrafficEncoder struct {
 	FileName string
 	Data     []byte
 
+	lock    sync.Mutex
 	ctx     context.Context
 	runtime wazero.Runtime
 	mod     api.Module
@@ -58,6 +60,8 @@ type TrafficEncoder struct {
 
 // Encode - Encode data using the wasm backend
 func (t *TrafficEncoder) Encode(data []byte) ([]byte, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	// Allocate a buffer in the wasm runtime for the input data
 	size := uint64(len(data))
 	buf, err := t.malloc.Call(t.ctx, size)
@@ -93,6 +97,8 @@ func (t *TrafficEncoder) Encode(data []byte) ([]byte, error) {
 
 // Decode - Decode bytes using the wasm backend
 func (t *TrafficEncoder) Decode(data []byte) ([]byte, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	size := uint64(len(data))
 	buf, err := t.malloc.Call(t.ctx, size)
 	if err != nil {
@@ -180,6 +186,7 @@ func CreateTrafficEncoder(name string, wasm []byte, logger TrafficEncoderLogCall
 		// FileName: name, -- optionally set by caller
 		Data: wasm,
 
+		lock:    sync.Mutex{},
 		ctx:     ctx,
 		runtime: wasmRuntime,
 		mod:     mod,
