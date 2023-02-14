@@ -469,6 +469,8 @@ func (rpc *Server) TrafficEncoderMap(ctx context.Context, _ *commonpb.Empty) (*c
 // TrafficEncoderAdd - Add a new traffic encoder
 func (rpc *Server) TrafficEncoderAdd(ctx context.Context, req *clientpb.TrafficEncoder) (*clientpb.TrafficEncoderTests, error) {
 	req.ID = traffic.CalculateWasmEncoderID(req.Wasm.Data)
+	req.Wasm.Name = filepath.Base(req.Wasm.Name)
+	rpcLog.Infof("Adding new traffic encoder: %s (%d)", req.Wasm.Name, req.ID)
 	progress := make(chan []byte, 1)
 	go testProgress(progress)
 	tests, err := testTrafficEncoder(ctx, req, progress)
@@ -489,6 +491,7 @@ func testProgress(progress chan []byte) {
 }
 
 func testTrafficEncoder(ctx context.Context, req *clientpb.TrafficEncoder, progress chan []byte) (*clientpb.TrafficEncoderTests, error) {
+	rpcLog.Infof("Testing traffic encoder %s (%d) - %s", req.Wasm.Name, req.ID, req.TestID)
 	encoder, err := traffic.CreateTrafficEncoder(req.Wasm.Name, req.Wasm.Data, func(s string) {
 		rpcLog.Infof("[traffic encoder test] %s", s)
 	})
@@ -498,22 +501,40 @@ func testTrafficEncoder(ctx context.Context, req *clientpb.TrafficEncoder, progr
 
 	// Test Suite for Traffic Encoders
 	testSuite := []string{
-		traffic.SmallRandom, traffic.MediumRandom, traffic.LargeRandom,
+		traffic.SmallRandom,
+		traffic.SmallRandom,
+		traffic.SmallRandom,
+		traffic.MediumRandom,
+		traffic.MediumRandom,
+		traffic.MediumRandom,
+		traffic.LargeRandom,
+		traffic.LargeRandom,
+		traffic.LargeRandom,
+		traffic.VeryLargeRandom,
 	}
 
-	tests := &clientpb.TrafficEncoderTests{Encoder: req, TestID: req.TestID, TotalTests: int32(len(testSuite))}
+	tests := []*clientpb.TrafficEncoderTest{}
 	for _, testName := range testSuite {
+		rpcLog.Infof("Running test '%s' ...", testName)
 		tester := traffic.TrafficEncoderTesters[testName]
 		if tester == nil {
 			panic("invalid traffic encoder test")
 		}
 		test := tester(encoder)
-		tests.Tests = append(tests.Tests, test)
-		testData, _ := proto.Marshal(tests)
+		tests = append(tests, test)
+		testData, _ := proto.Marshal(&clientpb.TrafficEncoderTests{
+			Encoder:    req,
+			TotalTests: int32(len(testSuite)),
+			Tests:      tests,
+		})
 		progress <- testData
 	}
 
-	return tests, nil
+	return &clientpb.TrafficEncoderTests{
+		Encoder:    req,
+		TotalTests: int32(len(testSuite)),
+		Tests:      tests,
+	}, nil
 }
 
 func (rpc *Server) TrafficEncoderRm(ctx context.Context, _ *clientpb.TrafficEncoder) (*commonpb.Empty, error) {

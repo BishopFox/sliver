@@ -88,18 +88,19 @@ func TrafficEncodersAddCmd(ctx *grumble.Context, con *console.SliverConsoleClien
 		con.PrintErrorf("%s", err)
 		return
 	}
+	testID := uuid.Must(uuid.NewV4()).String()
 	trafficEncoder := &clientpb.TrafficEncoder{
 		Wasm: &commonpb.File{
-			Name: filepath.Base(ctx.Args.String("name")),
+			Name: filepath.Base(ctx.Args.String("file")),
 			Data: data,
 		},
+		TestID: testID,
 	}
 
 	// Spin out a goroutine to display progress
-	completed := make(chan interface{}, 1)
-	testID, _ := uuid.NewV4()
+	completed := make(chan interface{})
 	go func() {
-		displayTrafficEncoderTestProgress(testID.String(), completed, con)
+		displayTrafficEncoderTestProgress(testID, completed, con)
 	}()
 
 	// Wait for tests to complete, then display final result
@@ -111,12 +112,13 @@ func TrafficEncodersAddCmd(ctx *grumble.Context, con *console.SliverConsoleClien
 		con.PrintErrorf("%s", err)
 		return
 	}
-	displayTrafficEncoderTests(tests, con)
+	displayTrafficEncoderTests(false, tests, con)
 	con.Println()
 	if !testsWereSuccessful(tests) {
 		con.PrintErrorf("Failed to add traffic encoder: %s\n", trafficEncoder.Wasm.Name)
 		return
 	}
+	con.Println()
 	con.PrintInfof("Successfully added traffic encoder: %s\n", trafficEncoder.Wasm.Name)
 }
 
@@ -138,14 +140,15 @@ func displayTrafficEncoderTestProgress(testID string, completed chan interface{}
 		case event := <-events:
 			if event.EventType == consts.TrafficEncoderTestProgressEvent {
 				tests := &clientpb.TrafficEncoderTests{}
-				if tests.TestID != testID {
+				proto.Unmarshal(event.Data, tests)
+				if tests.Encoder.TestID != testID {
 					continue
 				}
-				proto.Unmarshal(event.Data, tests)
-				clearLines(lineCount, con)
-				lineCount = displayTrafficEncoderTests(tests, con)
+				clearLines(lineCount-1, con)
+				lineCount = displayTrafficEncoderTests(true, tests, con)
 			}
 		case <-completed:
+			clearLines(lineCount-1, con)
 			completed <- nil
 			return
 		}
@@ -160,27 +163,42 @@ func clearLines(count int, con *console.SliverConsoleClient) {
 }
 
 // displayTrafficEncoderTests - Display the results of traffic encoder tests, return number of lines written
-func displayTrafficEncoderTests(tests *clientpb.TrafficEncoderTests, con *console.SliverConsoleClient) int {
+func displayTrafficEncoderTests(running bool, tests *clientpb.TrafficEncoderTests, con *console.SliverConsoleClient) int {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
 		"Test",
-		"Succeeded",
+		"Result",
 		"Duration",
 	})
 	tw.SortBy([]table.SortBy{
 		{Name: "Test", Mode: table.Asc},
 	})
 	for _, test := range tests.Tests {
+		var success string
+		if test.Success {
+			success = console.Bold + console.Green + "Passed" + console.Normal
+		} else {
+			success = console.Bold + console.Red + "Failed!" + console.Normal
+		}
 		tw.AppendRow(table.Row{
 			test.Name,
-			test.Success,
+			success,
 			time.Duration(test.Duration),
 		})
 	}
 	tableText := tw.Render()
 	con.Printf(console.Clearln+"\r%s\r", tableText)
-	return len(strings.Split(tableText, "\n"))
+	lineCount := len(strings.Split(tableText, "\n"))
+
+	if running {
+		con.Println()
+		con.Println()
+		con.Printf(console.Bold+"  >>> Running test %d of %d please wait ...\r"+console.Normal, len(tests.Tests), tests.TotalTests)
+		lineCount += 2
+	}
+
+	return lineCount
 }
 
 // TrafficEncodersRemoveCmd - Remove a traffic encoder

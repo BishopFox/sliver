@@ -29,84 +29,52 @@ import (
 type TrafficEncoderTestFunc func(*TrafficEncoder) *clientpb.TrafficEncoderTest
 
 const (
-	SmallRandom  = "SmallRandom"
-	MediumRandom = "MediumRandom"
-	LargeRandom  = "LargeRandom"
+	SmallRandom     = "Small Random (64 bytes)"
+	MediumRandom    = "Medium Random (8KB)"
+	LargeRandom     = "Large Random (8MB)"
+	VeryLargeRandom = "Very Large Random (128MB)"
 )
 
 var (
 	TrafficEncoderTesters = map[string]TrafficEncoderTestFunc{
-		SmallRandom:  SmallRandomTester,
-		MediumRandom: MediumRandomTester,
-		LargeRandom:  LargeRandomTester,
+		SmallRandom:     SmallRandomTester,
+		MediumRandom:    MediumRandomTester,
+		LargeRandom:     LargeRandomTester,
+		VeryLargeRandom: VeryLargeRandomTester,
 	}
 )
 
 // SmallRandomTester - 64 byte sample
 func SmallRandomTester(encoder *TrafficEncoder) *clientpb.TrafficEncoderTest {
-	test := &clientpb.TrafficEncoderTest{Name: SmallRandom, Success: false}
-	started := time.Now()
-	defer func() {
-		test.Duration = int64(time.Since(started))
-		test.Completed = true
-	}()
 	sample := randomDataOfSize(64)
-	encodedSample, err := encoder.Encode(sample)
-	if err != nil {
-		test.Err = err.Error()
-		return test
-	}
-	decodedSample, err := encoder.Decode(encodedSample)
-	if err != nil {
-		test.Err = err.Error()
-		return test
-	}
-	if !bytes.Equal(sample, decodedSample) {
-		test.Err = "Encoded and decoded samples do not match"
-		test.Sample = sample
-		return test
-	}
-	test.Success = true
-	return test
+	return randomTester(SmallRandom, encoder, sample)
 }
 
 // MediumRandomTester - 8KB random sample
 func MediumRandomTester(encoder *TrafficEncoder) *clientpb.TrafficEncoderTest {
-	test := &clientpb.TrafficEncoderTest{Name: MediumRandom, Success: false}
-	started := time.Now()
-	defer func() {
-		test.Duration = int64(time.Since(started))
-		test.Completed = true
-	}()
 	sample := randomDataOfSize(8 * 1024)
-	encodedSample, err := encoder.Encode(sample)
-	if err != nil {
-		test.Err = err.Error()
-		return test
-	}
-	decodedSample, err := encoder.Decode(encodedSample)
-	if err != nil {
-		test.Err = err.Error()
-		return test
-	}
-	if !bytes.Equal(sample, decodedSample) {
-		test.Err = "Encoded and decoded samples do not match"
-		test.Sample = sample
-		return test
-	}
-	test.Success = true
-	return test
+	return randomTester(MediumRandom, encoder, sample)
 }
 
-// LargeRandomTester - 2MB random sample
+// LargeRandomTester - 8MB random sample
 func LargeRandomTester(encoder *TrafficEncoder) *clientpb.TrafficEncoderTest {
-	test := &clientpb.TrafficEncoderTest{Name: LargeRandom, Success: false}
+	sample := randomDataOfSize(8 * 1024 * 1024)
+	return randomTester(LargeRandom, encoder, sample)
+}
+
+// VeryLargeRandomTester - 128MB random sample
+func VeryLargeRandomTester(encoder *TrafficEncoder) *clientpb.TrafficEncoderTest {
+	sample := randomDataOfSize(128 * 1024 * 1024)
+	return randomTester(VeryLargeRandom, encoder, sample)
+}
+
+func randomTester(name string, encoder *TrafficEncoder, sample []byte) *clientpb.TrafficEncoderTest {
+	test := &clientpb.TrafficEncoderTest{Name: name, Success: false}
 	started := time.Now()
 	defer func() {
 		test.Duration = int64(time.Since(started))
 		test.Completed = true
 	}()
-	sample := randomDataOfSize(2 * 1024 * 1024)
 	encodedSample, err := encoder.Encode(sample)
 	if err != nil {
 		test.Err = err.Error()
@@ -127,7 +95,6 @@ func LargeRandomTester(encoder *TrafficEncoder) *clientpb.TrafficEncoderTest {
 	test.Success = true
 	return test
 }
-
 func randomDataOfSize(size int) []byte {
 	buf := make([]byte, size)
 	rand.Read(buf)

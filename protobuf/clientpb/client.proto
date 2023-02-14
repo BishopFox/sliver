@@ -203,8 +203,6 @@ message TrafficEncoderTests {
   repeated TrafficEncoderTest Tests = 2;
   int64 TotalDuration = 3;
   int32 TotalTests = 4;
-
-  string TestID = 9;
 }
 
 message ExternalImplantConfig {

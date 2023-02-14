@@ -127,7 +127,7 @@ func EncoderFromNonce(nonce uint64) (uint64, Encoder, error) {
 }
 
 func getMaxEncoderSize() int {
-	return 2 * 1024 * 1024 // 2MB
+	return 8 * 1024 * 1024 // 8MB
 }
 
 // RandomEncoder - Get a random nonce identifier and a matching encoder
