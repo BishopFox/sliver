@@ -48,7 +48,7 @@ import (
 )
 
 var (
-	rcpLog = log.NamedLogger("rpc", "generate")
+	rcpGenLog = log.NamedLogger("rpc", "generate")
 )
 
 // Generate - Generate a new implant
@@ -267,7 +267,7 @@ func (rpc *Server) GetCompiler(ctx context.Context, _ *commonpb.Empty) (*clientp
 		UnsupportedTargets: generate.GetUnsupportedTargets(),
 		CrossCompilers:     generate.GetCrossCompilers(),
 	}
-	rcpLog.Debugf("GetCompiler = %v", compiler)
+	rcpGenLog.Debugf("GetCompiler = %v", compiler)
 	return compiler, nil
 }
 
@@ -327,7 +327,7 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 	defer os.Remove(tmpFile.Name())
 	_, err = tmpFile.Write(req.File.Data)
 	if err != nil {
-		rcpLog.Errorf("Failed to write implant binary to temp file: %s", err)
+		rcpGenLog.Errorf("Failed to write implant binary to temp file: %s", err)
 		return nil, status.Error(codes.Internal, "Failed to write implant binary to temp file")
 	}
 	rpcLog.Infof("Saving external build '%s' from %s", req.Name, tmpFile.Name())
@@ -373,12 +373,12 @@ func (rpc *Server) GenerateExternalGetImplantConfig(ctx context.Context, req *cl
 func (rpc *Server) BuilderRegister(req *clientpb.Builder, stream rpcpb.SliverRPC_BuilderRegisterServer) error {
 	req.OperatorName = rpc.getClientCommonName(stream.Context())
 	if req.Name == "" {
-		rcpLog.Warnf("Failed to register builder, missing builder name")
+		rcpGenLog.Warnf("Failed to register builder, missing builder name")
 		return status.Error(codes.InvalidArgument, "missing builder name")
 	}
 	err := core.AddBuilder(req)
 	if err != nil {
-		rcpLog.Warnf("Failed to register builder: %s", err)
+		rcpGenLog.Warnf("Failed to register builder: %s", err)
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
 
@@ -497,6 +497,18 @@ func testProgress(progress chan []byte) {
 
 // testTrafficEncoder - Test a traffic encoder for correctness by encoding/decoding random samples
 func testTrafficEncoder(ctx context.Context, req *clientpb.TrafficEncoder, progress chan []byte) (*clientpb.TrafficEncoderTests, error) {
+	if req.Wasm == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing wasm file")
+	}
+	if req.Wasm.Name == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing wasm name")
+	}
+	if !strings.HasSuffix(req.Wasm.Name, ".wasm") {
+		return nil, status.Error(codes.InvalidArgument, "invalid wasm file name, must have a .wasm extension")
+	}
+	if req.Wasm.Data == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing wasm data")
+	}
 	rpcLog.Infof("Testing traffic encoder %s (%d) - %s", req.Wasm.Name, req.ID, req.TestID)
 	encoder, err := traffic.CreateTrafficEncoder(req.Wasm.Name, req.Wasm.Data, func(s string) {
 		rpcLog.Infof("[traffic encoder test] %s", s)
