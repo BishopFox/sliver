@@ -329,12 +329,14 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		con.PrintInfof("Generated unique ip for wg peer tun interface: %s\n", tunIP.String())
 	}
 
-	// TODO: Use generics or something to check in a slice
 	connectionStrategy := ctx.Flags.String("strategy")
 	if connectionStrategy != "" && connectionStrategy != "s" && connectionStrategy != "r" && connectionStrategy != "rd" {
 		con.PrintErrorf("Invalid connection strategy: %s\n", connectionStrategy)
 		return nil
 	}
+
+	// Parse Traffic Encoder Args
+	trafficEncodersEnabled, trafficEncoders := parseTrafficEncoderArgs(ctx)
 
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
@@ -368,10 +370,28 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		IsService:   isService,
 		IsShellcode: isShellcode,
 
-		RunAtLoad: runAtLoad,
+		RunAtLoad:              runAtLoad,
+		NetGoEnabled:           ctx.Flags.Bool("netgo"),
+		TrafficEncodersEnabled: trafficEncodersEnabled,
+		TrafficEncoders:        trafficEncoders,
 	}
 
 	return config
+}
+
+// parseTrafficEncoderArgs - parses the traffic encoder args and returns a bool indicating if traffic encoders are enabled
+func parseTrafficEncoderArgs(ctx *grumble.Context) (bool, []string) {
+	trafficEncoders := ctx.Flags.String("traffic-encoders")
+	if trafficEncoders != "" {
+		encoders := strings.Split(trafficEncoders, ",")
+		for index, encoder := range encoders {
+			if !strings.HasSuffix(encoder, ".wasm") {
+				encoders[index] = encoder + ".wasm"
+			}
+		}
+		return true, encoders
+	}
+	return false, []string{}
 }
 
 func getTargets(targetOS string, targetArch string, con *console.SliverConsoleClient) (string, string) {

@@ -183,6 +183,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 
 	cfg.RunAtLoad = pbConfig.RunAtLoad
 	cfg.TrafficEncodersEnabled = pbConfig.TrafficEncodersEnabled
+	cfg.TrafficEncoders = strings.Join(pbConfig.TrafficEncoders, ",")
 	cfg.NetGoEnabled = pbConfig.NetGoEnabled
 
 	cfg.Assets = []models.EncoderAsset{}

@@ -27,7 +27,7 @@ import "C"
 import (
 	"crypto/rand"
 	"encoding/binary"
-	"log"
+
 	insecureRand "math/rand"
 	"os"
 	"os/user"
@@ -38,8 +38,8 @@ import (
 	"sync"
 	// {{end}}
 
-	// {{if .Config.Debug}}{{else}}
-	"io/ioutil"
+	// {{if .Config.Debug}}
+	"log"
 	// {{end}}
 
 	consts "github.com/bishopfox/sliver/implant/sliver/constants"
@@ -163,8 +163,6 @@ func main() {
 	// {{if .Config.Debug}}
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	// {{else}}
-	log.SetFlags(0)
-	log.SetOutput(ioutil.Discard)
 	// {{end}}
 
 	// {{if .Config.Debug}}

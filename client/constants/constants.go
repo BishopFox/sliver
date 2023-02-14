@@ -128,7 +128,7 @@ const (
 	GenerateStr        = "generate"
 	RegenerateStr      = "regenerate"
 	CompilerInfoStr    = "info"
-	StagerStr          = "stager"
+	MsfStagerStr       = "msf-stager"
 	ProfilesStr        = "profiles"
 	BeaconStr          = "beacon"
 	BeaconsStr         = "beacons"

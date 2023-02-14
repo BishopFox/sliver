@@ -1346,6 +1346,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 			f.Bool("R", "run-at-load", false, "run the implant entrypoint from DllMain/Constructor (shared library only)")
 
+			f.Bool("q", "netgo", false, "force the use of netgo")
+
+			f.String("A", "traffic-encoders", "", "comma separated list of traffic encoders to enable")
+
 			f.String("Z", "strategy", "", "specify a connection strategy (r = random, rd = random domain, s = sequential)")
 			f.Int("j", "reconnect", generate.DefaultReconnect, "attempt to reconnect every n second(s)")
 			f.Int("P", "poll-timeout", generate.DefaultPollTimeout, "long poll request timeout")
@@ -1376,6 +1380,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Help:     "Generate a beacon binary",
 		LongHelp: help.GetHelpFor([]string{consts.GenerateStr, consts.BeaconStr}),
 		Flags: func(f *grumble.Flags) {
+			// Beacon flags
 			f.Int64("D", "days", 0, "beacon interval days")
 			f.Int64("H", "hours", 0, "beacon interval hours")
 			f.Int64("M", "minutes", 0, "beacon interval minutes")
@@ -1401,11 +1406,14 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("n", "dns", "", "dns connection strings")
 			f.String("p", "named-pipe", "", "named-pipe connection strings")
 			f.String("i", "tcp-pivot", "", "tcp-pivot connection strings")
-
 			f.Int("X", "key-exchange", generate.DefaultWGKeyExPort, "wg key-exchange port")
 			f.Int("T", "tcp-comms", generate.DefaultWGNPort, "wg c2 comms port")
 
 			f.Bool("R", "run-at-load", false, "run the implant entrypoint from DllMain/Constructor (shared library only)")
+
+			f.Bool("q", "netgo", false, "force the use of netgo")
+
+			f.String("A", "traffic-encoders", "", "comma separated list of traffic encoders to enable")
 
 			f.String("Z", "strategy", "", "specify a connection strategy (r = random, rd = random domain, s = sequential)")
 			f.Int("j", "reconnect", generate.DefaultReconnect, "attempt to reconnect every n second(s)")
@@ -1432,9 +1440,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	})
 	generateCmd.AddCommand(&grumble.Command{
-		Name:     consts.StagerStr,
+		Name:     consts.MsfStagerStr,
 		Help:     "Generate a stager using Metasploit (requires local Metasploit installation)",
-		LongHelp: help.GetHelpFor([]string{consts.StagerStr}),
+		LongHelp: help.GetHelpFor([]string{consts.MsfStagerStr}),
 		Flags: func(f *grumble.Flags) {
 			f.String("o", "os", "windows", "operating system")
 			f.String("a", "arch", "amd64", "cpu architecture")
@@ -1470,6 +1478,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		HelpGroup: consts.GenericHelpGroup,
 	})
+	// Traffic Encoder SubCommands
 	trafficEncodersCmd := &grumble.Command{
 		Name:     consts.TrafficEncodersStr,
 		Help:     "Manage implant traffic encoders",
@@ -1624,6 +1633,11 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("T", "tcp-comms", generate.DefaultWGNPort, "wg c2 comms port")
 
 			f.Bool("R", "run-at-load", false, "run the implant entrypoint from DllMain/Constructor (shared library only)")
+
+			f.Bool("q", "netgo", false, "force the use of netgo")
+
+			f.String("A", "traffic-encoders", "", "comma separated list of traffic encoders to enable")
+
 			f.String("Z", "strategy", "", "specify a connection strategy (r = random, rd = random domain, s = sequential)")
 
 			f.String("I", "template", "sliver", "implant code template")

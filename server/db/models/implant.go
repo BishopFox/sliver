@@ -19,6 +19,7 @@ package models
 */
 
 import (
+	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -134,6 +135,7 @@ type ImplantConfig struct {
 
 	NetGoEnabled           bool
 	TrafficEncodersEnabled bool
+	TrafficEncoders        string
 	Assets                 []EncoderAsset
 }
 
@@ -191,6 +193,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 
 		FileName:               ic.FileName,
 		TrafficEncodersEnabled: ic.TrafficEncodersEnabled,
+		TrafficEncoders:        strings.Split(ic.TrafficEncoders, ","),
 		NetGoEnabled:           ic.NetGoEnabled,
 	}
 

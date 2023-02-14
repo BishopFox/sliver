@@ -46,7 +46,7 @@ var (
 		consts.InfoStr:          infoHelp,
 		consts.UseStr:           useHelp,
 		consts.GenerateStr:      generateHelp,
-		consts.StagerStr:        generateStagerHelp,
+		consts.MsfStagerStr:     generateStagerHelp,
 		consts.StageListenerStr: stageListenerHelp,
 
 		consts.MsfStr:              msfHelp,
