@@ -22,7 +22,7 @@ import (
 	"fmt"
 
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/desertbit/grumble"
 )
 
@@ -47,7 +47,7 @@ func BackdoorCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	ctrl := make(chan bool)
 	msg := fmt.Sprintf("Backdooring %s ...", remoteFilePath)
 	con.SpinUntil(msg, ctrl)
-	backdoor, err := con.Rpc.Backdoor(grpcCtx, &sliverpb.BackdoorReq{
+	backdoor, err := con.Rpc.Backdoor(grpcCtx, &clientpb.BackdoorReq{
 		FilePath:    remoteFilePath,
 		ProfileName: profileName,
 		Request:     con.ActiveTarget.Request(ctx),

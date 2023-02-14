@@ -170,7 +170,7 @@ service SliverRPC {
     rpc GetEnv(sliverpb.EnvReq) returns (sliverpb.EnvInfo);
     rpc SetEnv(sliverpb.SetEnvReq) returns (sliverpb.SetEnv);
     rpc UnsetEnv(sliverpb.UnsetEnvReq) returns (sliverpb.UnsetEnv);
-    rpc Backdoor(sliverpb.BackdoorReq) returns (sliverpb.Backdoor);
+    rpc Backdoor(clientpb.BackdoorReq) returns (clientpb.Backdoor);
     rpc RegistryRead(sliverpb.RegistryReadReq) returns (sliverpb.RegistryRead);
     rpc RegistryWrite(sliverpb.RegistryWriteReq) returns (sliverpb.RegistryWrite);
     rpc RegistryCreateKey(sliverpb.RegistryCreateKeyReq) returns (sliverpb.RegistryCreateKey);

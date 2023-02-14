@@ -651,6 +651,17 @@ message DllHijack {
   commonpb.Response Response = 9;
 }
 
+message BackdoorReq {
+  string FilePath = 1;
+  string ProfileName = 2;
+
+  commonpb.Request Request = 9;
+}
+
+message Backdoor {
+  commonpb.Response Response = 9;
+}
+
 
 // [ Shellcode ] ----------------------------------------
 enum ShellcodeEncoder {

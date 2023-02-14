@@ -84,17 +84,7 @@ var (
 )
 
 // EncoderMap - Maps EncoderIDs to Encoders
-var EncoderMap = map[uint64]Encoder{
-	Base64EncoderID:  Base64,
-	HexEncoderID:     Hex,
-	EnglishEncoderID: English,
-	GzipEncoderID:    Gzip,
-	PNGEncoderID:     PNG,
-
-	// {{if .Config.Debug}}
-	0: NoEncoder{},
-	// {{end}}
-}
+var EncoderMap = map[uint64]Encoder{}
 
 // EncoderMap - Maps EncoderIDs to Encoders
 var NativeEncoderMap = map[uint64]Encoder{
@@ -128,12 +118,12 @@ func EncoderFromNonce(nonce uint64) (uint64, Encoder, error) {
 }
 
 func getMaxEncoderSize() int {
-	return 8 * 1024 * 1024 // 8MB
+	return 16 * 1024 * 1024 // 16MB
 }
 
 // RandomEncoder - Get a random nonce identifier and a matching encoder
 func RandomEncoder(size int) (uint64, Encoder) {
-	if size < getMaxEncoderSize() {
+	if size < getMaxEncoderSize() && len(EncoderMap) > 0 {
 		return randomEncoderFromMap(EncoderMap) // Small message, use any encoder
 	} else {
 		return randomEncoderFromMap(NativeEncoderMap) // Large message, use native encoders

@@ -477,9 +477,9 @@ var file_rpcpb_services_proto_rawDesc = []byte{
 	0x2e, 0x73, 0x6c, 0x69, 0x76, 0x65, 0x72, 0x70, 0x62, 0x2e, 0x55, 0x6e, 0x73, 0x65, 0x74, 0x45,
 	0x6e, 0x76, 0x52, 0x65, 0x71, 0x1a, 0x12, 0x2e, 0x73, 0x6c, 0x69, 0x76, 0x65, 0x72, 0x70, 0x62,
 	0x2e, 0x55, 0x6e, 0x73, 0x65, 0x74, 0x45, 0x6e, 0x76, 0x12, 0x35, 0x0a, 0x08, 0x42, 0x61, 0x63,
-	0x6b, 0x64, 0x6f, 0x6f, 0x72, 0x12, 0x15, 0x2e, 0x73, 0x6c, 0x69, 0x76, 0x65, 0x72, 0x70, 0x62,
-	0x2e, 0x42, 0x61, 0x63, 0x6b, 0x64, 0x6f, 0x6f, 0x72, 0x52, 0x65, 0x71, 0x1a, 0x12, 0x2e, 0x73,
-	0x6c, 0x69, 0x76, 0x65, 0x72, 0x70, 0x62, 0x2e, 0x42, 0x61, 0x63, 0x6b, 0x64, 0x6f, 0x6f, 0x72,
+	0x6b, 0x64, 0x6f, 0x6f, 0x72, 0x12, 0x15, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62,
+	0x2e, 0x42, 0x61, 0x63, 0x6b, 0x64, 0x6f, 0x6f, 0x72, 0x52, 0x65, 0x71, 0x1a, 0x12, 0x2e, 0x63,
+	0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62, 0x2e, 0x42, 0x61, 0x63, 0x6b, 0x64, 0x6f, 0x6f, 0x72,
 	0x12, 0x41, 0x0a, 0x0c, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x79, 0x52, 0x65, 0x61, 0x64,
 	0x12, 0x19, 0x2e, 0x73, 0x6c, 0x69, 0x76, 0x65, 0x72, 0x70, 0x62, 0x2e, 0x52, 0x65, 0x67, 0x69,
 	0x73, 0x74, 0x72, 0x79, 0x52, 0x65, 0x61, 0x64, 0x52, 0x65, 0x71, 0x1a, 0x16, 0x2e, 0x73, 0x6c,
@@ -698,7 +698,7 @@ var file_rpcpb_services_proto_goTypes = []interface{}{
 	(*sliverpb.EnvReq)(nil),                   // 74: sliverpb.EnvReq
 	(*sliverpb.SetEnvReq)(nil),                // 75: sliverpb.SetEnvReq
 	(*sliverpb.UnsetEnvReq)(nil),              // 76: sliverpb.UnsetEnvReq
-	(*sliverpb.BackdoorReq)(nil),              // 77: sliverpb.BackdoorReq
+	(*clientpb.BackdoorReq)(nil),              // 77: clientpb.BackdoorReq
 	(*sliverpb.RegistryReadReq)(nil),          // 78: sliverpb.RegistryReadReq
 	(*sliverpb.RegistryWriteReq)(nil),         // 79: sliverpb.RegistryWriteReq
 	(*sliverpb.RegistryCreateKeyReq)(nil),     // 80: sliverpb.RegistryCreateKeyReq
@@ -794,7 +794,7 @@ var file_rpcpb_services_proto_goTypes = []interface{}{
 	(*sliverpb.EnvInfo)(nil),                  // 170: sliverpb.EnvInfo
 	(*sliverpb.SetEnv)(nil),                   // 171: sliverpb.SetEnv
 	(*sliverpb.UnsetEnv)(nil),                 // 172: sliverpb.UnsetEnv
-	(*sliverpb.Backdoor)(nil),                 // 173: sliverpb.Backdoor
+	(*clientpb.Backdoor)(nil),                 // 173: clientpb.Backdoor
 	(*sliverpb.RegistryRead)(nil),             // 174: sliverpb.RegistryRead
 	(*sliverpb.RegistryWrite)(nil),            // 175: sliverpb.RegistryWrite
 	(*sliverpb.RegistryCreateKey)(nil),        // 176: sliverpb.RegistryCreateKey
@@ -939,7 +939,7 @@ var file_rpcpb_services_proto_depIdxs = []int32{
 	74,  // 119: rpcpb.SliverRPC.GetEnv:input_type -> sliverpb.EnvReq
 	75,  // 120: rpcpb.SliverRPC.SetEnv:input_type -> sliverpb.SetEnvReq
 	76,  // 121: rpcpb.SliverRPC.UnsetEnv:input_type -> sliverpb.UnsetEnvReq
-	77,  // 122: rpcpb.SliverRPC.Backdoor:input_type -> sliverpb.BackdoorReq
+	77,  // 122: rpcpb.SliverRPC.Backdoor:input_type -> clientpb.BackdoorReq
 	78,  // 123: rpcpb.SliverRPC.RegistryRead:input_type -> sliverpb.RegistryReadReq
 	79,  // 124: rpcpb.SliverRPC.RegistryWrite:input_type -> sliverpb.RegistryWriteReq
 	80,  // 125: rpcpb.SliverRPC.RegistryCreateKey:input_type -> sliverpb.RegistryCreateKeyReq
@@ -1094,7 +1094,7 @@ var file_rpcpb_services_proto_depIdxs = []int32{
 	170, // 274: rpcpb.SliverRPC.GetEnv:output_type -> sliverpb.EnvInfo
 	171, // 275: rpcpb.SliverRPC.SetEnv:output_type -> sliverpb.SetEnv
 	172, // 276: rpcpb.SliverRPC.UnsetEnv:output_type -> sliverpb.UnsetEnv
-	173, // 277: rpcpb.SliverRPC.Backdoor:output_type -> sliverpb.Backdoor
+	173, // 277: rpcpb.SliverRPC.Backdoor:output_type -> clientpb.Backdoor
 	174, // 278: rpcpb.SliverRPC.RegistryRead:output_type -> sliverpb.RegistryRead
 	175, // 279: rpcpb.SliverRPC.RegistryWrite:output_type -> sliverpb.RegistryWrite
 	176, // 280: rpcpb.SliverRPC.RegistryCreateKey:output_type -> sliverpb.RegistryCreateKey
