@@ -98,7 +98,8 @@ func TrafficEncodersAddCmd(ctx *grumble.Context, con *console.SliverConsoleClien
 			Name: filepath.Base(ctx.Args.String("file")),
 			Data: data,
 		},
-		TestID: testID,
+		SkipTests: ctx.Flags.Bool("skip-tests"),
+		TestID:    testID,
 	}
 
 	// Spin out a goroutine to display progress

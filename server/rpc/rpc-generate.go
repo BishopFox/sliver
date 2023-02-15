@@ -534,35 +534,37 @@ func testTrafficEncoder(ctx context.Context, req *clientpb.TrafficEncoder, progr
 	}
 
 	tests := []*clientpb.TrafficEncoderTest{}
-	for index, testName := range testSuite {
-		rpcLog.Infof("Running test '%s' ...", testName)
-		tester := traffic.TrafficEncoderTesters[testName]
-		if tester == nil {
-			panic("invalid traffic encoder test")
-		}
-		test := tester(encoder)
-		tests = append(tests, test)
-		testData, _ := proto.Marshal(&clientpb.TrafficEncoderTests{
-			Encoder:    req,
-			TotalTests: int32(len(testSuite)),
-			Tests:      tests,
-		})
-		progress <- testData
-		if int64(time.Duration(30*time.Second)) < test.Duration {
-			rpcLog.Warnf("Test '%s' took longer than 30 seconds to complete, skip remaining tests", testName)
-			remainingTests := testSuite[index:]
-			for _, skipTest := range remainingTests {
-				tests = append(tests, &clientpb.TrafficEncoderTest{
-					Name:    skipTest,
-					Success: false,
-					Err:     "test skipped, encoder too slow",
-				})
+	if !req.SkipTests {
+		for index, testName := range testSuite {
+			rpcLog.Infof("Running test '%s' ...", testName)
+			tester := traffic.TrafficEncoderTesters[testName]
+			if tester == nil {
+				panic("invalid traffic encoder test")
 			}
-			break
+			test := tester(encoder)
+			tests = append(tests, test)
+			testData, _ := proto.Marshal(&clientpb.TrafficEncoderTests{
+				Encoder:    req,
+				TotalTests: int32(len(testSuite)),
+				Tests:      tests,
+			})
+			progress <- testData
+			if int64(time.Duration(30*time.Second)) < test.Duration {
+				rpcLog.Warnf("Test '%s' took longer than 30 seconds to complete, skip remaining tests", testName)
+				remainingTests := testSuite[index:]
+				for _, skipTest := range remainingTests {
+					tests = append(tests, &clientpb.TrafficEncoderTest{
+						Name:    skipTest,
+						Success: false,
+						Err:     "test skipped, encoder too slow",
+					})
+				}
+				break
+			}
 		}
 	}
 
-	if allTestsPassed(tests) {
+	if allTestsPassed(tests) || req.SkipTests {
 		err = encoders.SaveTrafficEncoder(req.Wasm.Name, req.Wasm.Data)
 		if err != nil {
 			return nil, status.Error(codes.FailedPrecondition, err.Error())

@@ -1507,6 +1507,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			// 15 minute timeout, tests can be slow depending on the implementation
 			f.Int("t", "timeout", 15*60, "grpc timeout in seconds")
+			f.Bool("s", "skip-tests", false, "skip testing the traffic encoder (not recommended)")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()

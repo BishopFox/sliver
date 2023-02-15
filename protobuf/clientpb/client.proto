@@ -181,6 +181,7 @@ message TrafficEncoder {
   uint64 ID = 1;
   commonpb.File Wasm = 2;
 
+  bool SkipTests = 8;
   string TestID = 9;
 }
 
