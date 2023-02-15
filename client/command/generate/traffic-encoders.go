@@ -36,6 +36,8 @@ import (
 	"github.com/desertbit/grumble"
 	"github.com/gofrs/uuid"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -111,15 +113,6 @@ func TrafficEncodersAddCmd(ctx *grumble.Context, con *console.SliverConsoleClien
 	<-completed
 	close(completed)
 	if err != nil {
-		if tests != nil {
-			displayTrafficEncoderTests(false, tests, con)
-			con.Println()
-			for _, test := range tests.Tests {
-				if !test.Success {
-					saveFailedSample(trafficEncoder.Wasm.Name, test)
-				}
-			}
-		}
 		con.PrintErrorf("Failed to add traffic encoder %s", err)
 		con.Println()
 		return
@@ -127,9 +120,15 @@ func TrafficEncodersAddCmd(ctx *grumble.Context, con *console.SliverConsoleClien
 	displayTrafficEncoderTests(false, tests, con)
 	con.Println()
 	if !allTestsPassed(tests) {
-		con.PrintErrorf("%s failed tests!\n", trafficEncoder.Wasm.Name)
 		con.Println()
+		con.PrintErrorf("%s failed tests!\n", trafficEncoder.Wasm.Name)
 		return
+	} else {
+		for _, test := range tests.Tests {
+			if !test.Success && test.Sample != nil {
+				saveFailedSample(trafficEncoder.Wasm.Name, test)
+			}
+		}
 	}
 	con.Println()
 	con.PrintInfof("Successfully added traffic encoder: %s\n", trafficEncoder.Wasm.Name)
@@ -204,10 +203,12 @@ func displayTrafficEncoderTests(running bool, tests *clientpb.TrafficEncoderTest
 		"Test",
 		"Result",
 		"Duration",
+		"Error",
 	})
 	tw.SortBy([]table.SortBy{
 		{Name: "Test", Mode: table.Asc},
 	})
+	titleCase := cases.Title(language.AmericanEnglish)
 	for _, test := range tests.Tests {
 		var success string
 		if test.Success {
@@ -215,10 +216,15 @@ func displayTrafficEncoderTests(running bool, tests *clientpb.TrafficEncoderTest
 		} else {
 			success = console.Bold + console.Red + "Failed!" + console.Normal
 		}
+		errorMsg := "N/A"
+		if test.Err != "" {
+			errorMsg = titleCase.String(test.Err)
+		}
 		tw.AppendRow(table.Row{
 			test.Name,
 			success,
 			time.Duration(test.Duration),
+			errorMsg,
 		})
 	}
 	tableText := tw.Render()

@@ -72,8 +72,12 @@ func randomTester(name string, encoder *TrafficEncoder, sample []byte) *clientpb
 	test := &clientpb.TrafficEncoderTest{Name: name, Success: false}
 	started := time.Now()
 	defer func() {
-		test.Duration = int64(time.Since(started))
 		test.Completed = true
+		test.Duration = int64(time.Since(started))
+		if int64(30*time.Second) < test.Duration {
+			test.Success = false
+			test.Err = "Test exceeded 30 second limit"
+		}
 	}()
 	encodedSample, err := encoder.Encode(sample)
 	if err != nil {

@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -509,11 +510,12 @@ func testTrafficEncoder(ctx context.Context, req *clientpb.TrafficEncoder, progr
 	if req.Wasm.Data == nil {
 		return nil, status.Error(codes.InvalidArgument, "missing wasm data")
 	}
-	rpcLog.Infof("Testing traffic encoder %s (%d) - %s", req.Wasm.Name, req.ID, req.TestID)
-	encoder, err := traffic.CreateTrafficEncoder(req.Wasm.Name, req.Wasm.Data, func(s string) {
+	rpcLog.Infof("Testing traffic encoder %s (%d) - %d bytes", req.Wasm.Name, req.ID, len(req.Wasm.Data))
+	encoder, err := traffic.CreateTrafficEncoder(strings.TrimSuffix(req.Wasm.Name, ".wasm"), req.Wasm.Data, func(s string) {
 		rpcLog.Infof("[traffic encoder test] %s", s)
 	})
 	if err != nil {
+		rpcLog.Errorf("Failed to create traffic encoder: %s", err.Error())
 		return nil, err
 	}
 
@@ -532,7 +534,7 @@ func testTrafficEncoder(ctx context.Context, req *clientpb.TrafficEncoder, progr
 	}
 
 	tests := []*clientpb.TrafficEncoderTest{}
-	for _, testName := range testSuite {
+	for index, testName := range testSuite {
 		rpcLog.Infof("Running test '%s' ...", testName)
 		tester := traffic.TrafficEncoderTesters[testName]
 		if tester == nil {
@@ -546,19 +548,25 @@ func testTrafficEncoder(ctx context.Context, req *clientpb.TrafficEncoder, progr
 			Tests:      tests,
 		})
 		progress <- testData
+		if int64(time.Duration(30*time.Second)) < test.Duration {
+			rpcLog.Warnf("Test '%s' took longer than 30 seconds to complete, skip remaining tests", testName)
+			remainingTests := testSuite[index:]
+			for _, skipTest := range remainingTests {
+				tests = append(tests, &clientpb.TrafficEncoderTest{
+					Name:    skipTest,
+					Success: false,
+					Err:     "test skipped, encoder too slow",
+				})
+			}
+			break
+		}
 	}
 
-	if !allTestsPassed(tests) {
-		return &clientpb.TrafficEncoderTests{
-			Encoder:    req,
-			TotalTests: int32(len(testSuite)),
-			Tests:      tests,
-		}, status.Error(codes.DataLoss, "traffic encoder failed at least one test")
-	}
-
-	err = encoders.SaveTrafficEncoder(req.Wasm.Name, req.Wasm.Data)
-	if err != nil {
-		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	if allTestsPassed(tests) {
+		err = encoders.SaveTrafficEncoder(req.Wasm.Name, req.Wasm.Data)
+		if err != nil {
+			return nil, status.Error(codes.FailedPrecondition, err.Error())
+		}
 	}
 
 	return &clientpb.TrafficEncoderTests{

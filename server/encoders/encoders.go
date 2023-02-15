@@ -127,6 +127,13 @@ func RemoveTrafficEncoder(name string) error {
 // loadTrafficEncodersFromFS - Loads the wasm traffic encoders from the filesystem, for the
 // server these will be loaded from: <app root>/traffic-encoders/*.wasm
 func loadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) error {
+
+	// Reset references pointing to traffic encoders
+	for _, encoder := range TrafficEncoderMap {
+		delete(EncoderMap, encoder.ID)
+	}
+	TrafficEncoderMap = map[uint64]*traffic.TrafficEncoder{}
+
 	// Load WASM encoders
 	encodersLog.Info("initializing traffic encoder map...")
 	wasmEncoderFiles, err := encodersFS.ReadDir("traffic-encoders")

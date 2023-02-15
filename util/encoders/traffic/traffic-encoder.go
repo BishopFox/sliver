@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/bishopfox/sliver/util"
 	"github.com/tetratelabs/wazero"
@@ -155,6 +156,11 @@ func CreateTrafficEncoder(name string, wasm []byte, logger TrafficEncoderLogCall
 		rand.Read(buf)
 		return binary.LittleEndian.Uint64(buf)
 	}).Export("rand").
+
+		// Time function
+		NewFunctionBuilder().WithFunc(func() uint64 {
+		return uint64(time.Now().UnixNano())
+	}).Export("time").
 
 		// Log function
 		NewFunctionBuilder().WithFunc(func(_ context.Context, m api.Module, offset, byteCount uint32) {

@@ -1505,7 +1505,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return completers.LocalPathCompleter(prefix, args, con)
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Int("t", "timeout", 300, "grpc timeout in seconds")
+			// 15 minute timeout, tests can be slow depending on the implementation
+			f.Int("t", "timeout", 15*60, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
