@@ -22,9 +22,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	_ "embed"
-	"encoding/base64"
 	"encoding/hex"
-	insecureRand "math/rand"
 	"testing"
 	"time"
 
@@ -32,63 +30,8 @@ import (
 	serverEncoders "github.com/bishopfox/sliver/util/encoders/traffic"
 )
 
-//go:embed base64.wasm
-var base64WASM []byte
-
 //go:embed hex.wasm
 var hexWASM []byte
-
-func TestTrafficEncoderCompatibility_base64Basic(t *testing.T) {
-
-	// Base64
-
-	implantSideB64, err := implantEncoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
-		t.Log(msg)
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	serverSideB64, err := serverEncoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
-		t.Log(msg)
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	data := make([]byte, 1024)
-	_, err = rand.Read(data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	encodedData, err := implantSideB64.Encode(data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	decodedData, err := serverSideB64.Decode(encodedData)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(data, decodedData) {
-		t.Fatal("Decoded data does not match original")
-	}
-
-	data = make([]byte, 1024)
-	_, err = rand.Read(data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	encodedData, err = serverSideB64.Encode(data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	decodedData, err = implantSideB64.Decode(encodedData)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(data, decodedData) {
-		t.Fatal("Decoded data does not match original")
-	}
-}
 
 func TestTrafficEncoderCompatibility_hex(t *testing.T) {
 
@@ -143,126 +86,6 @@ func TestTrafficEncoderCompatibility_hex(t *testing.T) {
 }
 
 // Encoder specific tests
-
-func TestTrafficEncoder_base64Basic(t *testing.T) {
-	encoder, err := serverEncoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
-		t.Log(msg)
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer encoder.Close()
-	originalValue := []byte("hello world")
-	encodedValue, err := encoder.Encode(originalValue)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("Encoded value: %s", string(encodedValue))
-	decodedValue, err := encoder.Decode(encodedValue)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(originalValue, decodedValue) {
-		t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
-	}
-}
-
-func TestTrafficEncoder_base64RandomSmall(t *testing.T) {
-	encoder, err := serverEncoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
-		t.Log(msg)
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer encoder.Close()
-	for i := 0; i < 1000; i++ {
-		originalValue := make([]byte, insecureRand.Intn(1024)+1)
-		rand.Read(originalValue)
-		encodedValue, err := encoder.Encode(originalValue)
-		if err != nil {
-			t.Fatal(err)
-		}
-		// t.Logf("Encoded value: %s", string(encodedValue))
-		decodedValue, err := encoder.Decode(encodedValue)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !bytes.Equal(originalValue, decodedValue) {
-			t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
-		}
-	}
-}
-
-func TestTrafficEncoder_base64RandomLarge(t *testing.T) {
-	encoder, err := serverEncoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
-		t.Log(msg)
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer encoder.Close()
-	originalValue := make([]byte, 2*1024*1024)
-	rand.Read(originalValue)
-	encodedValue, err := encoder.Encode(originalValue)
-	if err != nil {
-		t.Fatal(err)
-	}
-	decodedValue, err := encoder.Decode(encodedValue)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(originalValue, decodedValue) {
-		t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
-	}
-}
-
-func TestBase64Performance(t *testing.T) {
-
-	sizes := []int{1024, 1024 * 1024, 2 * 1024 * 1024, 4 * 1024 * 1024}
-
-	// Stock encoder
-	for i := 0; i < len(sizes); i++ {
-		originalValue := make([]byte, sizes[i])
-		rand.Read(originalValue)
-		stock := time.Now()
-		encodedValue := base64.StdEncoding.EncodeToString(originalValue)
-		decodedValue, err := base64.StdEncoding.DecodeString(encodedValue)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Logf("Stock encoder took %v (%d bytes)", time.Since(stock), sizes[i])
-		if !bytes.Equal(originalValue, decodedValue) {
-			t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
-		}
-	}
-
-	// Traffic encoder
-	for i := 0; i < len(sizes); i++ {
-		encoder, err := serverEncoders.CreateTrafficEncoder("base64", base64WASM, func(msg string) {
-			t.Log(msg)
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer encoder.Close()
-		originalValue := make([]byte, sizes[i])
-		rand.Read(originalValue)
-		start := time.Now()
-		encodedValue, err := encoder.Encode(originalValue)
-		if err != nil {
-			t.Fatal(err)
-		}
-		decodedValue, err := encoder.Decode(encodedValue)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Logf("WASM Base64 encoder took %v (%d bytes)", time.Since(start), sizes[i])
-		if !bytes.Equal(originalValue, decodedValue) {
-			t.Fatalf("Expected %v but got %v", originalValue, decodedValue)
-		}
-	}
-}
-
 func TestHexPerformance(t *testing.T) {
 
 	sizes := []int{1024, 1024 * 1024, 2 * 1024 * 1024, 4 * 1024 * 1024}
