@@ -158,8 +158,8 @@ func CreateTrafficEncoder(name string, wasm []byte, logger TrafficEncoderLogCall
 	}).Export("rand").
 
 		// Time function
-		NewFunctionBuilder().WithFunc(func() uint64 {
-		return uint64(time.Now().UnixNano())
+		NewFunctionBuilder().WithFunc(func() int64 {
+		return time.Now().UnixNano()
 	}).Export("time").
 
 		// Log function

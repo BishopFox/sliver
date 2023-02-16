@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
@@ -151,6 +152,11 @@ func CreateTrafficEncoder(name string, wasm []byte, logger TrafficEncoderLogCall
 		rand.Read(buf)
 		return binary.LittleEndian.Uint64(buf)
 	}).Export("rand").
+
+		// Time function
+		NewFunctionBuilder().WithFunc(func() int64 {
+		return time.Now().UnixNano()
+	}).Export("time").
 
 		// Log function
 		NewFunctionBuilder().WithFunc(func(_ context.Context, m api.Module, offset, byteCount uint32) {
