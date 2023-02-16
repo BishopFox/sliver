@@ -566,6 +566,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 				"overflow":      &grumble.FlagMapItem{Value: false},
 				"skip-pages":    &grumble.FlagMapItem{Value: 0},
 				"print-cmdline": &grumble.FlagMapItem{Value: true},
+				"tree":          &grumble.FlagMapItem{Value: false},
 			},
 		}
 		processes.PrintPS(beacon.OS, ps, true, ctx, con)
