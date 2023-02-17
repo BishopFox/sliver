@@ -20,16 +20,12 @@ package extension
 
 import "testing"
 
-var (
-	extFS = map[string][]byte{
-		"/test.1": {0x00},
-	}
-)
-
 func TestWasmMemFSOpenFile(t *testing.T) {
-	wasmFS := WasmMemFS{memFS: extFS}
+	wasmFS := WasmMemFS{memFS: map[string][]byte{
+		"/test.1": {0x00},
+	}}
 
-	// Test ReadDir
+	// Test Open File
 	fi, err := wasmFS.Open("/memfs/test.1")
 	if err != nil {
 		t.Fatal(err)
@@ -38,4 +34,45 @@ func TestWasmMemFSOpenFile(t *testing.T) {
 		t.Fatalf("expected test.1, got %s", stat.Name())
 	}
 	defer fi.Close()
+}
+
+func TestWasmMemFSOpenDir1(t *testing.T) {
+	wasmFS := WasmMemFS{memFS: map[string][]byte{
+		"/test/foo.1": {0x00},
+	}}
+
+	// Test Open File
+	fi, err := wasmFS.Open("/memfs/test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stat, _ := fi.Stat(); stat.Name() != "test" || !stat.IsDir() {
+		t.Fatalf("expected 'test' dir, got %s", stat.Name())
+	}
+	defer fi.Close()
+}
+
+func TestWasmMemFSOpenDir2(t *testing.T) {
+	wasmFS := WasmMemFS{memFS: map[string][]byte{
+		"/test/foo.1":       {0x00},
+		"/test/foo":         {0x00},
+		"/testing/foo":      {0x00},
+		"/a/b/c/test/a.txt": {0x00},
+	}}
+
+	// Test Open File
+	fi, err := wasmFS.Open("/memfs/test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stat, _ := fi.Stat(); stat.Name() != "test" || !stat.IsDir() {
+		t.Fatalf("expected 'test' dir, got %s", stat.Name())
+	}
+	defer fi.Close()
+
+	// Test Open File
+	_, err = wasmFS.Open("/memfs/a/b/c/test")
+	if err == nil {
+		t.Fatal(err)
+	}
 }
