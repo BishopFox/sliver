@@ -21,7 +21,7 @@ package extension
 import "testing"
 
 func TestWasmMemFSOpenFile(t *testing.T) {
-	wasmFS := WasmMemFS{memFS: map[string][]byte{
+	wasmFS := WasmMemoryFS{memFS: map[string][]byte{
 		"/test.1": {0x00},
 	}}
 
@@ -37,7 +37,7 @@ func TestWasmMemFSOpenFile(t *testing.T) {
 }
 
 func TestWasmMemFSOpenDir1(t *testing.T) {
-	wasmFS := WasmMemFS{memFS: map[string][]byte{
+	wasmFS := WasmMemoryFS{memFS: map[string][]byte{
 		"/test/foo.1": {0x00},
 	}}
 
@@ -53,7 +53,7 @@ func TestWasmMemFSOpenDir1(t *testing.T) {
 }
 
 func TestWasmMemFSOpenDir2(t *testing.T) {
-	wasmFS := WasmMemFS{memFS: map[string][]byte{
+	wasmFS := WasmMemoryFS{memFS: map[string][]byte{
 		"/test/foo.1":       {0x00},
 		"/test/foo":         {0x00},
 		"/testing/foo":      {0x00},
