@@ -159,10 +159,6 @@ func (d *DirTree) Exists(segs []string) bool {
 }
 
 func (d *DirTree) HasSubdir(name string) bool {
-	subdirNames := []string{}
-	for _, subdir := range d.Subdirs {
-		subdirNames = append(subdirNames, subdir.Name)
-	}
 	for _, subdir := range d.Subdirs {
 		if subdir.Name == name {
 			return true
