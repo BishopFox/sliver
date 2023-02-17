@@ -103,39 +103,39 @@ func makeWasmMemFS(memFS map[string][]byte) fs.FS {
 	return WasmMemFS{memFS: memFS, localFS: os.DirFS(root)}
 }
 
-// WasmMemFS - Creates an encoder.EncoderFS object from a single local directory
+// WasmMemFS - A makeshift in-memory virtual file system backed by a map of names to bytes
+// the key is the absolute path to the file and the bytes are the contents of the file
+// empty directories are not supported, so directories are defined as any path with a trailing
+// slash that is a prefix of multiple keys. "/foo/bar" "/foo/baz" where /foo/ is a directory
 type WasmMemFS struct {
 	memFS   map[string][]byte
 	tree    *DirTree
 	localFS fs.FS
 }
 
-func (f WasmMemFS) Open(name string) (fs.File, error) {
+func (w WasmMemFS) Open(name string) (fs.File, error) {
+	name = path.Clean(name)
 	if strings.HasPrefix(name, "/memfs/") {
-		if data, ok := f.memFS[name]; ok {
-			return MemoryFile{key: name, data: data}, nil
+		name = strings.TrimPrefix(name, "/memfs")
+		if data, ok := w.memFS[name]; ok {
+			return MemoryNode{key: name, isDir: false, data: data}, nil
 		}
 
 		// Check to see if the name is a directory
-		if f.tree == nil {
-			f.tree = &DirTree{Name: "/", Subdirs: []*DirTree{}}
-			for key := range f.memFS {
-				f.tree.Insert(strings.Split(path.Dir(key), "/"))
+		if w.tree == nil {
+			w.tree = &DirTree{Name: "/", Subdirs: []*DirTree{}}
+			for key := range w.memFS {
+				w.tree.Insert(strings.Split(path.Dir(key), "/"))
 			}
 		}
-		if f.tree.Exists(strings.Split(strings.TrimPrefix(name, "/memfs"), "/")) {
-			return MemoryFile{key: name, data: []byte{}}, nil
+		if w.tree.Exists(strings.Split(name, "/")) {
+			return MemoryNode{key: name, isDir: true, data: []byte{}}, nil
 		}
 		return nil, os.ErrNotExist
 	}
 	cwd, _ := os.Getwd()
 	return os.Open(filepath.Join(filepath.VolumeName(cwd), name))
 }
-
-// MemoryFS - A makeshift in-memory virtual file system backed by a map of names to bytes
-// the key is the absolute path to the file and the bytes are the contents of the file
-// empty directories are not supported, so directories are defined as any path with a trailing
-// slash that is a prefix of multiple keys. "/foo/bar" "/foo/baz" where /foo/ is a directory
 
 // DirTree - A tree structure for representing only directories in the filesystem
 type DirTree struct {
@@ -177,46 +177,46 @@ func (d *DirTree) Insert(segs []string) {
 	}
 }
 
-// MemoryFile - A makeshift in-memory fs.File object
-type MemoryFile struct {
+// MemoryNode - A makeshift in-memory fs.File object
+type MemoryNode struct {
 	key   string
 	data  []byte
 	isDir bool
 }
 
-func (m MemoryFile) Stat() (fs.FileInfo, error) {
+func (m MemoryNode) Stat() (fs.FileInfo, error) {
 	return m, nil
 }
 
-func (m MemoryFile) Read(buf []byte) (int, error) {
+func (m MemoryNode) Read(buf []byte) (int, error) {
 	n := copy(buf, m.data)
 	return n, nil
 }
 
-func (m MemoryFile) Close() error {
+func (m MemoryNode) Close() error {
 	return nil
 }
 
-func (m MemoryFile) Name() string {
+func (m MemoryNode) Name() string {
 	return path.Base(m.key)
 }
 
-func (m MemoryFile) Size() int64 {
+func (m MemoryNode) Size() int64 {
 	return int64(len(m.data))
 }
 
-func (m MemoryFile) Mode() fs.FileMode {
+func (m MemoryNode) Mode() fs.FileMode {
 	return 0
 }
 
-func (m MemoryFile) ModTime() time.Time {
+func (m MemoryNode) ModTime() time.Time {
 	return time.Now()
 }
 
-func (m MemoryFile) IsDir() bool {
+func (m MemoryNode) IsDir() bool {
 	return m.isDir
 }
 
-func (m MemoryFile) Sys() interface{} {
+func (m MemoryNode) Sys() interface{} {
 	return nil
 }

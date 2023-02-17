@@ -26,11 +26,11 @@ var (
 	}
 )
 
-func TestWasmFS1(t *testing.T) {
+func TestWasmMemFSOpenFile(t *testing.T) {
 	wasmFS := WasmMemFS{memFS: extFS}
 
 	// Test ReadDir
-	fi, err := wasmFS.Open("/test.1")
+	fi, err := wasmFS.Open("/memfs/test.1")
 	if err != nil {
 		t.Fatal(err)
 	}
