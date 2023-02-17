@@ -78,12 +78,38 @@ func (t *Table) RenderHTML() string {
 	return t.render(&out)
 }
 
+func (t *Table) htmlGetColStrAndTag(row rowStr, colIdx int, hint renderHint) (string, string) {
+	// get the column contents
+	var colStr string
+	if colIdx < len(row) {
+		colStr = row[colIdx]
+	}
+
+	// header uses "th" instead of "td"
+	colTagName := "td"
+	if hint.isHeaderRow {
+		colTagName = "th"
+	}
+
+	return colStr, colTagName
+}
+
 func (t *Table) htmlRenderCaption(out *strings.Builder) {
 	if t.caption != "" {
 		out.WriteString("  <caption class=\"caption\" style=\"caption-side: bottom;\">")
 		out.WriteString(t.caption)
 		out.WriteString("</caption>\n")
 	}
+}
+
+func (t *Table) htmlRenderColumn(out *strings.Builder, colStr string) {
+	if t.style.HTML.EscapeText {
+		colStr = html.EscapeString(colStr)
+	}
+	if t.style.HTML.Newline != "\n" {
+		colStr = strings.Replace(colStr, "\n", t.style.HTML.Newline, -1)
+	}
+	out.WriteString(colStr)
 }
 
 func (t *Table) htmlRenderColumnAttributes(out *strings.Builder, row rowStr, colIdx int, hint renderHint) {
@@ -131,18 +157,7 @@ func (t *Table) htmlRenderRow(out *strings.Builder, row rowStr, hint renderHint)
 			t.htmlRenderColumnAutoIndex(out, hint)
 		}
 
-		// get the column contents
-		var colStr string
-		if colIdx < len(row) {
-			colStr = row[colIdx]
-		}
-
-		// header uses "th" instead of "td"
-		colTagName := "td"
-		if hint.isHeaderRow {
-			colTagName = "th"
-		}
-
+		colStr, colTagName := t.htmlGetColStrAndTag(row, colIdx, hint)
 		// write the row
 		out.WriteString("    <")
 		out.WriteString(colTagName)
@@ -151,13 +166,7 @@ func (t *Table) htmlRenderRow(out *strings.Builder, row rowStr, hint renderHint)
 		if len(colStr) == 0 {
 			out.WriteString(t.style.HTML.EmptyColumn)
 		} else {
-			if t.style.HTML.EscapeText {
-				colStr = html.EscapeString(colStr)
-			}
-			if t.style.HTML.Newline != "\n" {
-				colStr = strings.Replace(colStr, "\n", t.style.HTML.Newline, -1)
-			}
-			out.WriteString(colStr)
+			t.htmlRenderColumn(out, colStr)
 		}
 		out.WriteString("</")
 		out.WriteString(colTagName)

@@ -176,7 +176,15 @@ func SelectLoot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) (*clientpb.Loot
 	buf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
 	for _, loot := range allLoot.Loot {
-		fmt.Fprintf(table, "%s\t%s\t%s\t\n", loot.Name, loot.Type, loot.LootID)
+		filename := ""
+		if loot.File != nil {
+			filename = loot.File.Name
+		}
+		if loot.Name == filename {
+			fmt.Fprintf(table, "%s\t%s\t%s\t\n", loot.Name, loot.Type, loot.LootID)
+		} else {
+			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n", loot.Name, filename, loot.Type, loot.LootID)
+		}
 	}
 	table.Flush()
 	options := strings.Split(buf.String(), "\n")

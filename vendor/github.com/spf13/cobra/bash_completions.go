@@ -1,3 +1,17 @@
+// Copyright 2013-2022 The Cobra Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package cobra
 
 import (
@@ -19,12 +33,12 @@ const (
 	BashCompSubdirsInDir    = "cobra_annotation_bash_completion_subdirs_in_dir"
 )
 
-func writePreamble(buf *bytes.Buffer, name string) {
-	buf.WriteString(fmt.Sprintf("# bash completion for %-36s -*- shell-script -*-\n", name))
-	buf.WriteString(fmt.Sprintf(`
+func writePreamble(buf io.StringWriter, name string) {
+	WriteStringAndCheck(buf, fmt.Sprintf("# bash completion for %-36s -*- shell-script -*-\n", name))
+	WriteStringAndCheck(buf, fmt.Sprintf(`
 __%[1]s_debug()
 {
-    if [[ -n ${BASH_COMP_DEBUG_FILE} ]]; then
+    if [[ -n ${BASH_COMP_DEBUG_FILE:-} ]]; then
         echo "$*" >> "${BASH_COMP_DEBUG_FILE}"
     fi
 }
@@ -73,7 +87,8 @@ __%[1]s_handle_go_custom_completion()
     # Prepare the command to request completions for the program.
     # Calling ${words[0]} instead of directly %[1]s allows to handle aliases
     args=("${words[@]:1}")
-    requestComp="${words[0]} %[2]s ${args[*]}"
+    # Disable ActiveHelp which is not supported for bash completion v1
+    requestComp="%[8]s=0 ${words[0]} %[2]s ${args[*]}"
 
     lastParam=${words[$((${#words[@]}-1))]}
     lastChar=${lastParam:$((${#lastParam}-1)):1}
@@ -99,7 +114,7 @@ __%[1]s_handle_go_custom_completion()
         directive=0
     fi
     __%[1]s_debug "${FUNCNAME[0]}: the completion directive is: ${directive}"
-    __%[1]s_debug "${FUNCNAME[0]}: the completions are: ${out[*]}"
+    __%[1]s_debug "${FUNCNAME[0]}: the completions are: ${out}"
 
     if [ $((directive & shellCompDirectiveError)) -ne 0 ]; then
         # Error code.  No completion.
@@ -125,7 +140,7 @@ __%[1]s_handle_go_custom_completion()
         local fullFilter filter filteringCmd
         # Do not use quotes around the $out variable or else newline
         # characters will be kept.
-        for filter in ${out[*]}; do
+        for filter in ${out}; do
             fullFilter+="$filter|"
         done
 
@@ -134,9 +149,9 @@ __%[1]s_handle_go_custom_completion()
         $filteringCmd
     elif [ $((directive & shellCompDirectiveFilterDirs)) -ne 0 ]; then
         # File completion for directories only
-        local subDir
+        local subdir
         # Use printf to strip any trailing newline
-        subdir=$(printf "%%s" "${out[0]}")
+        subdir=$(printf "%%s" "${out}")
         if [ -n "$subdir" ]; then
             __%[1]s_debug "Listing directories in $subdir"
             __%[1]s_handle_subdirs_in_dir_flag "$subdir"
@@ -147,7 +162,7 @@ __%[1]s_handle_go_custom_completion()
     else
         while IFS='' read -r comp; do
             COMPREPLY+=("$comp")
-        done < <(compgen -W "${out[*]}" -- "$cur")
+        done < <(compgen -W "${out}" -- "$cur")
     fi
 }
 
@@ -187,13 +202,19 @@ __%[1]s_handle_reply()
                     PREFIX=""
                     cur="${cur#*=}"
                     ${flags_completion[${index}]}
-                    if [ -n "${ZSH_VERSION}" ]; then
+                    if [ -n "${ZSH_VERSION:-}" ]; then
                         # zsh completion needs --flag= prefix
                         eval "COMPREPLY=( \"\${COMPREPLY[@]/#/${flag}=}\" )"
                     fi
                 fi
             fi
-            return 0;
+
+            if [[ -z "${flag_parsing_disabled}" ]]; then
+                # If flag parsing is enabled, we have completed the flags and can return.
+                # If flag parsing is disabled, we may not know all (or any) of the flags, so we fallthrough
+                # to possibly call handle_go_custom_completion.
+                return 0;
+            fi
             ;;
     esac
 
@@ -232,13 +253,13 @@ __%[1]s_handle_reply()
     fi
 
     if [[ ${#COMPREPLY[@]} -eq 0 ]]; then
-		if declare -F __%[1]s_custom_func >/dev/null; then
-			# try command name qualified custom func
-			__%[1]s_custom_func
-		else
-			# otherwise fall back to unqualified for compatibility
-			declare -F __custom_func >/dev/null && __custom_func
-		fi
+        if declare -F __%[1]s_custom_func >/dev/null; then
+            # try command name qualified custom func
+            __%[1]s_custom_func
+        else
+            # otherwise fall back to unqualified for compatibility
+            declare -F __custom_func >/dev/null && __custom_func
+        fi
     fi
 
     # available in bash-completion >= 2, not always present on macOS
@@ -272,7 +293,7 @@ __%[1]s_handle_flag()
 
     # if a command required a flag, and we found it, unset must_have_one_flag()
     local flagname=${words[c]}
-    local flagvalue
+    local flagvalue=""
     # if the word contained an =
     if [[ ${words[c]} == *"="* ]]; then
         flagvalue=${flagname#*=} # take in as flagvalue after the =
@@ -291,7 +312,7 @@ __%[1]s_handle_flag()
 
     # keep flag value with flagname as flaghash
     # flaghash variable is an associative array which is only supported in bash > 3.
-    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+    if [[ -z "${BASH_VERSION:-}" || "${BASH_VERSINFO[0]:-}" -gt 3 ]]; then
         if [ -n "${flagvalue}" ] ; then
             flaghash[${flagname}]=${flagvalue}
         elif [ -n "${words[ $((c+1)) ]}" ] ; then
@@ -303,7 +324,7 @@ __%[1]s_handle_flag()
 
     # skip the argument to a two word flag
     if [[ ${words[c]} != *"="* ]] && __%[1]s_contains_word "${words[c]}" "${two_word_flags[@]}"; then
-			  __%[1]s_debug "${FUNCNAME[0]}: found a flag ${words[c]}, skip the next argument"
+        __%[1]s_debug "${FUNCNAME[0]}: found a flag ${words[c]}, skip the next argument"
         c=$((c+1))
         # if we are looking for a flags value, don't show commands
         if [[ $c -eq $cword ]]; then
@@ -363,7 +384,7 @@ __%[1]s_handle_word()
         __%[1]s_handle_command
     elif __%[1]s_contains_word "${words[c]}" "${command_aliases[@]}"; then
         # aliashash variable is an associative array which is only supported in bash > 3.
-        if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        if [[ -z "${BASH_VERSION:-}" || "${BASH_VERSINFO[0]:-}" -gt 3 ]]; then
             words[c]=${aliashash[${words[c]}]}
             __%[1]s_handle_command
         else
@@ -377,14 +398,14 @@ __%[1]s_handle_word()
 
 `, name, ShellCompNoDescRequestCmd,
 		ShellCompDirectiveError, ShellCompDirectiveNoSpace, ShellCompDirectiveNoFileComp,
-		ShellCompDirectiveFilterFileExt, ShellCompDirectiveFilterDirs))
+		ShellCompDirectiveFilterFileExt, ShellCompDirectiveFilterDirs, activeHelpEnvVar(name)))
 }
 
-func writePostscript(buf *bytes.Buffer, name string) {
-	name = strings.Replace(name, ":", "__", -1)
-	buf.WriteString(fmt.Sprintf("__start_%s()\n", name))
-	buf.WriteString(fmt.Sprintf(`{
-    local cur prev words cword
+func writePostscript(buf io.StringWriter, name string) {
+	name = strings.ReplaceAll(name, ":", "__")
+	WriteStringAndCheck(buf, fmt.Sprintf("__start_%s()\n", name))
+	WriteStringAndCheck(buf, fmt.Sprintf(`{
+    local cur prev words cword split
     declare -A flaghash 2>/dev/null || :
     declare -A aliashash 2>/dev/null || :
     if declare -F _init_completion >/dev/null 2>&1; then
@@ -394,49 +415,52 @@ func writePostscript(buf *bytes.Buffer, name string) {
     fi
 
     local c=0
+    local flag_parsing_disabled=
     local flags=()
     local two_word_flags=()
     local local_nonpersistent_flags=()
     local flags_with_completion=()
     local flags_completion=()
     local commands=("%[1]s")
+    local command_aliases=()
     local must_have_one_flag=()
     local must_have_one_noun=()
-    local has_completion_function
-    local last_command
+    local has_completion_function=""
+    local last_command=""
     local nouns=()
+    local noun_aliases=()
 
     __%[1]s_handle_word
 }
 
 `, name))
-	buf.WriteString(fmt.Sprintf(`if [[ $(type -t compopt) = "builtin" ]]; then
+	WriteStringAndCheck(buf, fmt.Sprintf(`if [[ $(type -t compopt) = "builtin" ]]; then
     complete -o default -F __start_%s %s
 else
     complete -o default -o nospace -F __start_%s %s
 fi
 
 `, name, name, name, name))
-	buf.WriteString("# ex: ts=4 sw=4 et filetype=sh\n")
+	WriteStringAndCheck(buf, "# ex: ts=4 sw=4 et filetype=sh\n")
 }
 
-func writeCommands(buf *bytes.Buffer, cmd *Command) {
-	buf.WriteString("    commands=()\n")
+func writeCommands(buf io.StringWriter, cmd *Command) {
+	WriteStringAndCheck(buf, "    commands=()\n")
 	for _, c := range cmd.Commands() {
 		if !c.IsAvailableCommand() && c != cmd.helpCommand {
 			continue
 		}
-		buf.WriteString(fmt.Sprintf("    commands+=(%q)\n", c.Name()))
+		WriteStringAndCheck(buf, fmt.Sprintf("    commands+=(%q)\n", c.Name()))
 		writeCmdAliases(buf, c)
 	}
-	buf.WriteString("\n")
+	WriteStringAndCheck(buf, "\n")
 }
 
-func writeFlagHandler(buf *bytes.Buffer, name string, annotations map[string][]string, cmd *Command) {
+func writeFlagHandler(buf io.StringWriter, name string, annotations map[string][]string, cmd *Command) {
 	for key, value := range annotations {
 		switch key {
 		case BashCompFilenameExt:
-			buf.WriteString(fmt.Sprintf("    flags_with_completion+=(%q)\n", name))
+			WriteStringAndCheck(buf, fmt.Sprintf("    flags_with_completion+=(%q)\n", name))
 
 			var ext string
 			if len(value) > 0 {
@@ -444,17 +468,18 @@ func writeFlagHandler(buf *bytes.Buffer, name string, annotations map[string][]s
 			} else {
 				ext = "_filedir"
 			}
-			buf.WriteString(fmt.Sprintf("    flags_completion+=(%q)\n", ext))
+			WriteStringAndCheck(buf, fmt.Sprintf("    flags_completion+=(%q)\n", ext))
 		case BashCompCustom:
-			buf.WriteString(fmt.Sprintf("    flags_with_completion+=(%q)\n", name))
+			WriteStringAndCheck(buf, fmt.Sprintf("    flags_with_completion+=(%q)\n", name))
+
 			if len(value) > 0 {
 				handlers := strings.Join(value, "; ")
-				buf.WriteString(fmt.Sprintf("    flags_completion+=(%q)\n", handlers))
+				WriteStringAndCheck(buf, fmt.Sprintf("    flags_completion+=(%q)\n", handlers))
 			} else {
-				buf.WriteString("    flags_completion+=(:)\n")
+				WriteStringAndCheck(buf, "    flags_completion+=(:)\n")
 			}
 		case BashCompSubdirsInDir:
-			buf.WriteString(fmt.Sprintf("    flags_with_completion+=(%q)\n", name))
+			WriteStringAndCheck(buf, fmt.Sprintf("    flags_with_completion+=(%q)\n", name))
 
 			var ext string
 			if len(value) == 1 {
@@ -462,51 +487,55 @@ func writeFlagHandler(buf *bytes.Buffer, name string, annotations map[string][]s
 			} else {
 				ext = "_filedir -d"
 			}
-			buf.WriteString(fmt.Sprintf("    flags_completion+=(%q)\n", ext))
+			WriteStringAndCheck(buf, fmt.Sprintf("    flags_completion+=(%q)\n", ext))
 		}
 	}
 }
 
-func writeShortFlag(buf *bytes.Buffer, flag *pflag.Flag, cmd *Command) {
+const cbn = "\")\n"
+
+func writeShortFlag(buf io.StringWriter, flag *pflag.Flag, cmd *Command) {
 	name := flag.Shorthand
 	format := "    "
 	if len(flag.NoOptDefVal) == 0 {
 		format += "two_word_"
 	}
-	format += "flags+=(\"-%s\")\n"
-	buf.WriteString(fmt.Sprintf(format, name))
+	format += "flags+=(\"-%s" + cbn
+	WriteStringAndCheck(buf, fmt.Sprintf(format, name))
 	writeFlagHandler(buf, "-"+name, flag.Annotations, cmd)
 }
 
-func writeFlag(buf *bytes.Buffer, flag *pflag.Flag, cmd *Command) {
+func writeFlag(buf io.StringWriter, flag *pflag.Flag, cmd *Command) {
 	name := flag.Name
 	format := "    flags+=(\"--%s"
 	if len(flag.NoOptDefVal) == 0 {
 		format += "="
 	}
-	format += "\")\n"
-	buf.WriteString(fmt.Sprintf(format, name))
+	format += cbn
+	WriteStringAndCheck(buf, fmt.Sprintf(format, name))
 	if len(flag.NoOptDefVal) == 0 {
-		format = "    two_word_flags+=(\"--%s\")\n"
-		buf.WriteString(fmt.Sprintf(format, name))
+		format = "    two_word_flags+=(\"--%s" + cbn
+		WriteStringAndCheck(buf, fmt.Sprintf(format, name))
 	}
 	writeFlagHandler(buf, "--"+name, flag.Annotations, cmd)
 }
 
-func writeLocalNonPersistentFlag(buf *bytes.Buffer, flag *pflag.Flag) {
+func writeLocalNonPersistentFlag(buf io.StringWriter, flag *pflag.Flag) {
 	name := flag.Name
-	format := "    local_nonpersistent_flags+=(\"--%[1]s\")\n"
+	format := "    local_nonpersistent_flags+=(\"--%[1]s" + cbn
 	if len(flag.NoOptDefVal) == 0 {
-		format += "    local_nonpersistent_flags+=(\"--%[1]s=\")\n"
+		format += "    local_nonpersistent_flags+=(\"--%[1]s=" + cbn
 	}
-	buf.WriteString(fmt.Sprintf(format, name))
+	WriteStringAndCheck(buf, fmt.Sprintf(format, name))
 	if len(flag.Shorthand) > 0 {
-		buf.WriteString(fmt.Sprintf("    local_nonpersistent_flags+=(\"-%s\")\n", flag.Shorthand))
+		WriteStringAndCheck(buf, fmt.Sprintf("    local_nonpersistent_flags+=(\"-%s\")\n", flag.Shorthand))
 	}
 }
 
 // Setup annotations for go completions for registered flags
 func prepareCustomAnnotationsForFlags(cmd *Command) {
+	flagCompletionMutex.RLock()
+	defer flagCompletionMutex.RUnlock()
 	for flag := range flagCompletionFunctions {
 		// Make sure the completion script calls the __*_go_custom_completion function for
 		// every registered flag.  We need to do this here (and not when the flag was registered
@@ -519,15 +548,20 @@ func prepareCustomAnnotationsForFlags(cmd *Command) {
 	}
 }
 
-func writeFlags(buf *bytes.Buffer, cmd *Command) {
+func writeFlags(buf io.StringWriter, cmd *Command) {
 	prepareCustomAnnotationsForFlags(cmd)
-	buf.WriteString(`    flags=()
+	WriteStringAndCheck(buf, `    flags=()
     two_word_flags=()
     local_nonpersistent_flags=()
     flags_with_completion=()
     flags_completion=()
 
 `)
+
+	if cmd.DisableFlagParsing {
+		WriteStringAndCheck(buf, "    flag_parsing_disabled=1\n")
+	}
+
 	localNonPersistentFlags := cmd.LocalNonPersistentFlags()
 	cmd.NonInheritedFlags().VisitAll(func(flag *pflag.Flag) {
 		if nonCompletableFlag(flag) {
@@ -553,11 +587,11 @@ func writeFlags(buf *bytes.Buffer, cmd *Command) {
 		}
 	})
 
-	buf.WriteString("\n")
+	WriteStringAndCheck(buf, "\n")
 }
 
-func writeRequiredFlag(buf *bytes.Buffer, cmd *Command) {
-	buf.WriteString("    must_have_one_flag=()\n")
+func writeRequiredFlag(buf io.StringWriter, cmd *Command) {
+	WriteStringAndCheck(buf, "    must_have_one_flag=()\n")
 	flags := cmd.NonInheritedFlags()
 	flags.VisitAll(func(flag *pflag.Flag) {
 		if nonCompletableFlag(flag) {
@@ -570,55 +604,55 @@ func writeRequiredFlag(buf *bytes.Buffer, cmd *Command) {
 				if flag.Value.Type() != "bool" {
 					format += "="
 				}
-				format += "\")\n"
-				buf.WriteString(fmt.Sprintf(format, flag.Name))
+				format += cbn
+				WriteStringAndCheck(buf, fmt.Sprintf(format, flag.Name))
 
 				if len(flag.Shorthand) > 0 {
-					buf.WriteString(fmt.Sprintf("    must_have_one_flag+=(\"-%s\")\n", flag.Shorthand))
+					WriteStringAndCheck(buf, fmt.Sprintf("    must_have_one_flag+=(\"-%s"+cbn, flag.Shorthand))
 				}
 			}
 		}
 	})
 }
 
-func writeRequiredNouns(buf *bytes.Buffer, cmd *Command) {
-	buf.WriteString("    must_have_one_noun=()\n")
-	sort.Sort(sort.StringSlice(cmd.ValidArgs))
+func writeRequiredNouns(buf io.StringWriter, cmd *Command) {
+	WriteStringAndCheck(buf, "    must_have_one_noun=()\n")
+	sort.Strings(cmd.ValidArgs)
 	for _, value := range cmd.ValidArgs {
 		// Remove any description that may be included following a tab character.
 		// Descriptions are not supported by bash completion.
 		value = strings.Split(value, "\t")[0]
-		buf.WriteString(fmt.Sprintf("    must_have_one_noun+=(%q)\n", value))
+		WriteStringAndCheck(buf, fmt.Sprintf("    must_have_one_noun+=(%q)\n", value))
 	}
 	if cmd.ValidArgsFunction != nil {
-		buf.WriteString("    has_completion_function=1\n")
+		WriteStringAndCheck(buf, "    has_completion_function=1\n")
 	}
 }
 
-func writeCmdAliases(buf *bytes.Buffer, cmd *Command) {
+func writeCmdAliases(buf io.StringWriter, cmd *Command) {
 	if len(cmd.Aliases) == 0 {
 		return
 	}
 
-	sort.Sort(sort.StringSlice(cmd.Aliases))
+	sort.Strings(cmd.Aliases)
 
-	buf.WriteString(fmt.Sprint(`    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then`, "\n"))
+	WriteStringAndCheck(buf, fmt.Sprint(`    if [[ -z "${BASH_VERSION:-}" || "${BASH_VERSINFO[0]:-}" -gt 3 ]]; then`, "\n"))
 	for _, value := range cmd.Aliases {
-		buf.WriteString(fmt.Sprintf("        command_aliases+=(%q)\n", value))
-		buf.WriteString(fmt.Sprintf("        aliashash[%q]=%q\n", value, cmd.Name()))
+		WriteStringAndCheck(buf, fmt.Sprintf("        command_aliases+=(%q)\n", value))
+		WriteStringAndCheck(buf, fmt.Sprintf("        aliashash[%q]=%q\n", value, cmd.Name()))
 	}
-	buf.WriteString(`    fi`)
-	buf.WriteString("\n")
+	WriteStringAndCheck(buf, `    fi`)
+	WriteStringAndCheck(buf, "\n")
 }
-func writeArgAliases(buf *bytes.Buffer, cmd *Command) {
-	buf.WriteString("    noun_aliases=()\n")
-	sort.Sort(sort.StringSlice(cmd.ArgAliases))
+func writeArgAliases(buf io.StringWriter, cmd *Command) {
+	WriteStringAndCheck(buf, "    noun_aliases=()\n")
+	sort.Strings(cmd.ArgAliases)
 	for _, value := range cmd.ArgAliases {
-		buf.WriteString(fmt.Sprintf("    noun_aliases+=(%q)\n", value))
+		WriteStringAndCheck(buf, fmt.Sprintf("    noun_aliases+=(%q)\n", value))
 	}
 }
 
-func gen(buf *bytes.Buffer, cmd *Command) {
+func gen(buf io.StringWriter, cmd *Command) {
 	for _, c := range cmd.Commands() {
 		if !c.IsAvailableCommand() && c != cmd.helpCommand {
 			continue
@@ -626,26 +660,26 @@ func gen(buf *bytes.Buffer, cmd *Command) {
 		gen(buf, c)
 	}
 	commandName := cmd.CommandPath()
-	commandName = strings.Replace(commandName, " ", "_", -1)
-	commandName = strings.Replace(commandName, ":", "__", -1)
+	commandName = strings.ReplaceAll(commandName, " ", "_")
+	commandName = strings.ReplaceAll(commandName, ":", "__")
 
 	if cmd.Root() == cmd {
-		buf.WriteString(fmt.Sprintf("_%s_root_command()\n{\n", commandName))
+		WriteStringAndCheck(buf, fmt.Sprintf("_%s_root_command()\n{\n", commandName))
 	} else {
-		buf.WriteString(fmt.Sprintf("_%s()\n{\n", commandName))
+		WriteStringAndCheck(buf, fmt.Sprintf("_%s()\n{\n", commandName))
 	}
 
-	buf.WriteString(fmt.Sprintf("    last_command=%q\n", commandName))
-	buf.WriteString("\n")
-	buf.WriteString("    command_aliases=()\n")
-	buf.WriteString("\n")
+	WriteStringAndCheck(buf, fmt.Sprintf("    last_command=%q\n", commandName))
+	WriteStringAndCheck(buf, "\n")
+	WriteStringAndCheck(buf, "    command_aliases=()\n")
+	WriteStringAndCheck(buf, "\n")
 
 	writeCommands(buf, cmd)
 	writeFlags(buf, cmd)
 	writeRequiredFlag(buf, cmd)
 	writeRequiredNouns(buf, cmd)
 	writeArgAliases(buf, cmd)
-	buf.WriteString("}\n\n")
+	WriteStringAndCheck(buf, "}\n\n")
 }
 
 // GenBashCompletion generates bash completion file and writes to the passed writer.

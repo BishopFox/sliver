@@ -25,7 +25,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -78,7 +77,7 @@ func ImplantBuildSave(name string, config *models.ImplantConfig, fPath string) e
 		return fmt.Errorf("invalid path '%s' is not a subdirectory of '%s'", fPath, rootAppDir)
 	}
 
-	data, err := ioutil.ReadFile(fPath)
+	data, err := os.ReadFile(fPath)
 	if err != nil {
 		return err
 	}
@@ -101,7 +100,7 @@ func ImplantBuildSave(name string, config *models.ImplantConfig, fPath string) e
 		return result.Error
 	}
 	storageLog.Infof("%s -> %s", implantBuild.ID, implantBuild.Name)
-	return ioutil.WriteFile(path.Join(buildsDir, implantBuild.ID.String()), data, 0600)
+	return os.WriteFile(filepath.Join(buildsDir, implantBuild.ID.String()), data, 0600)
 }
 
 func computeHashes(data []byte) (string, string, string) {
@@ -124,7 +123,7 @@ func ImplantFileFromBuild(build *models.ImplantBuild) ([]byte, error) {
 	if _, err := os.Stat(buildFilePath); os.IsNotExist(err) {
 		return nil, ErrImplantBuildFileNotFound
 	}
-	return ioutil.ReadFile(buildFilePath)
+	return os.ReadFile(buildFilePath)
 }
 
 // ImplantFileDelete - Delete the implant from the file system
@@ -133,7 +132,7 @@ func ImplantFileDelete(build *models.ImplantBuild) error {
 	if err != nil {
 		return err
 	}
-	buildFilePath := path.Join(buildsDir, build.ID.String())
+	buildFilePath := filepath.Join(buildsDir, build.ID.String())
 	if _, err := os.Stat(buildFilePath); os.IsNotExist(err) {
 		return ErrImplantBuildFileNotFound
 	}

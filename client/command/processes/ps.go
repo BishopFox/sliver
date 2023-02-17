@@ -21,6 +21,7 @@ package processes
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -37,15 +38,48 @@ var (
 	// Stylizes known processes in the `ps` command
 	knownSecurityTools = map[string][]string{
 		// Process Name -> [Color, Stylized Name]
-		"ccSvcHst.exe":          {console.Red, "Symantec Endpoint Protection"}, // Symantec Endpoint Protection (SEP)
-		"cb.exe":                {console.Red, "Carbon Black"},                 // Carbon Black
-		"MsMpEng.exe":           {console.Red, "Windows Defender"},             // Windows Defender
-		"smartscreen.exe":       {console.Red, "Windows Smart Screen"},         // Windows Defender Smart Screen
-		"CSFalconService.exe":   {console.Red, "CrowdStrike"},                  // Crowdstrike Falcon Service
-		"CSFalconContainer.exe": {console.Red, "CrowdStrike"},                  // CrowdStrike Falcon Container Security
-		"bdservicehost.exe":     {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
-		"bdagent.exe":           {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
-		"bdredline.exe":         {console.Red, "Bitdefender"},                  // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
+		"ccSvcHst.exe":                    {console.Red, "Symantec Endpoint Protection"}, // Symantec Endpoint Protection (SEP)
+		"cb.exe":                          {console.Red, "Carbon Black"},                 // Carbon Black
+		"RepMgr.exe":                      {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
+		"RepUtils.exe":                    {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
+		"RepUx.exe":                       {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
+		"RepWSC.exe":                      {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
+		"scanhost.exe":                    {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
+		"MsMpEng.exe":                     {console.Red, "Windows Defender"},             // Windows Defender
+		"SenseIR.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Live Response Session)
+		"SenseCncProxy.exe":               {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint
+		"MsSense.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint
+		"MpCmdRun.exe":                    {console.Red, "Windows Defender"},             // Windows Defender
+		"MonitoringHost.exe":              {console.Red, "Windows Defender"},             // Microsoft Monitoring Agent
+		"HealthService.exe":               {console.Red, "Windows Defender"},             // Microsoft Monitoring Agent
+		"smartscreen.exe":                 {console.Red, "Windows Smart Screen"},         // Windows Defender Smart Screen
+		"CSFalconService.exe":             {console.Red, "CrowdStrike"},                  // Crowdstrike Falcon Service
+		"CSFalconContainer.exe":           {console.Red, "CrowdStrike"},                  // CrowdStrike Falcon Container Security
+		"bdservicehost.exe":               {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
+		"bdagent.exe":                     {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
+		"bdredline.exe":                   {console.Red, "Bitdefender"},                  // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
+		"Deep Security Manager.exe":       {console.Red, "Trend Micro"},                  // TM Deep Security Manager
+		"coreServiceShell.exe":            {console.Red, "Trend Micro"},                  // TM Anti-malware scan process
+		"ds_monitor.exe":                  {console.Red, "Trend Micro"},                  // TM Deep Security Monitor
+		"Notifier.exe":                    {console.Red, "Trend Micro"},                  // TM Deep Security Notifier's process
+		"dsa.exe":                         {console.Red, "Trend Micro"},                  // TM Agent's main process
+		"ds_nuagent.exe":                  {console.Red, "Trend Micro"},                  // TM Advanced TLS traffic inspection
+		"coreFrameworkHost.exe":           {console.Red, "Trend Micro"},                  // TM Anti-malware scan process
+		"SentinelServiceHost.exe":         {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelStaticEngine.exe":        {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelStaticEngineScanner.exe": {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelAgent.exe":               {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelAgentWorker.exe":         {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelHelperService.exe":       {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelBrowserNativeHost.exe":   {console.Red, "SentinelOne"},                  // Sentinel One
+		"SentinelUI.exe":                  {console.Red, "SentinelOne"},                  // Sentinel One
+		"Sysmon.exe":                      {console.Red, "Sysmon"},                       // Sysmon
+		"Sysmon64.exe":                    {console.Red, "Sysmon64"},                     // Sysmon64
+		"CylanceSvc.exe":                  {console.Red, "Cylance"},                      // Cylance
+		"CylanceUI.exe":                   {console.Red, "Cylance"},                      // Cylance
+		"TaniumClient.exe":                {console.Red, "Tanium"},                       // Tanium
+		"TaniumCX.exe":                    {console.Red, "Tanium"},                       // Tanium
+		"TaniumDetectEngine.exe":          {console.Red, "Tanium"},                       // Tanium
 	}
 )
 
@@ -104,19 +138,38 @@ func PrintPS(os string, ps *sliverpb.Ps, interactive bool, ctx *grumble.Context,
 	ownerFilter := ctx.Flags.String("owner")
 	overflow := ctx.Flags.Bool("overflow")
 	skipPages := ctx.Flags.Int("skip-pages")
+	pstree := ctx.Flags.Bool("tree")
+
+	if pstree {
+		var currentPID int32
+		session, beacon := con.ActiveTarget.GetInteractive()
+		if session != nil && session.PID != 0 {
+			currentPID = session.PID
+		} else if beacon != nil && beacon.PID != 0 {
+			currentPID = beacon.PID
+		}
+		// Print the process tree
+		sorted := SortProcessesByPID(ps.Processes)
+		tree := NewPsTree(currentPID)
+		for _, p := range sorted {
+			tree.AddProcess(p)
+		}
+		con.PrintInfof("Process Tree:\n%s", tree.String())
+		return
+	}
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 
 	switch os {
 	case "windows":
-		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "executable", "session"})
+		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "arch", "executable", "session"})
 	case "darwin":
 		fallthrough
 	case "linux":
-		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "executable"})
+		fallthrough
 	default:
-		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "executable"})
+		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "arch", "executable"})
 	}
 
 	cmdLine := ctx.Flags.Bool("print-cmdline")
@@ -134,8 +187,8 @@ func PrintPS(os string, ps *sliverpb.Ps, interactive bool, ctx *grumble.Context,
 		tw.AppendRow(row)
 	}
 	tw.SortBy([]table.SortBy{
-		{Name: "pid", Mode: table.Asc},
-		{Name: "ppid", Mode: table.Asc},
+		{Name: "pid", Mode: table.AscNumeric},
+		{Name: "ppid", Mode: table.AscNumeric},
 	})
 	if !interactive {
 		overflow = true
@@ -182,6 +235,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
+				fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
 				fmt.Sprintf(color+"%s"+console.Normal, args),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.SessionID),
 			}
@@ -190,6 +244,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
+				fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.SessionID),
 			}
@@ -210,6 +265,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
+				fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
 				fmt.Sprintf(color+"%s"+console.Normal, args),
 			}
 		} else {
@@ -217,6 +273,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
 				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
+				fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
 				fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
 			}
 		}
@@ -238,4 +295,12 @@ func GetPIDByName(ctx *grumble.Context, name string, con *console.SliverConsoleC
 		}
 	}
 	return -1
+}
+
+// SortProcessesByPID - Sorts a list of processes by PID
+func SortProcessesByPID(ps []*commonpb.Process) []*commonpb.Process {
+	sort.Slice(ps, func(i, j int) bool {
+		return ps[i].Pid < ps[j].Pid
+	})
+	return ps
 }

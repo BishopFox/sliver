@@ -26,8 +26,8 @@ import (
 	"io"
 )
 
-//Encrypt the results
-func Encrypt(data []byte, key []byte, iv []byte) []byte {
+// PreludeEncrypt the results
+func PreludeEncrypt(data []byte, key []byte, iv []byte) []byte {
 	plainText, err := pad(data, aes.BlockSize)
 	if err != nil {
 		return make([]byte, 0)
@@ -41,14 +41,17 @@ func Encrypt(data []byte, key []byte, iv []byte) []byte {
 		if _, err := io.ReadFull(rand.Reader, iv); err != nil {
 			return make([]byte, 0)
 		}
+	} else {
+		// make sure we copy the IV
+		copy(cipherText[:aes.BlockSize], iv)
 	}
 	mode := cipher.NewCBCEncrypter(block, iv)
 	mode.CryptBlocks(cipherText[aes.BlockSize:], plainText)
 	return cipherText
 }
 
-//Decrypt a command
-func Decrypt(data []byte, key []byte) []byte {
+// PreludeDecrypt a command
+func PreludeDecrypt(data []byte, key []byte) []byte {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil

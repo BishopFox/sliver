@@ -74,16 +74,17 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) *sl
 	beacon.RemoteAddress = implantConn.RemoteAddress
 	beacon.PID = beaconReg.Register.Pid
 	beacon.Filename = beaconReg.Register.Filename
-	beacon.LastCheckin = implantConn.LastMessage
+	beacon.LastCheckin = implantConn.GetLastMessage()
 	beacon.Version = beaconReg.Register.Version
 	beacon.ReconnectInterval = beaconReg.Register.ReconnectInterval
 	beacon.ActiveC2 = beaconReg.Register.ActiveC2
 	beacon.ProxyURL = beaconReg.Register.ProxyURL
 	// beacon.ConfigID = uuid.FromStringOrNil(beaconReg.Register.ConfigID)
+	beacon.Locale = beaconReg.Register.Locale
 
 	beacon.Interval = beaconReg.Interval
 	beacon.Jitter = beaconReg.Jitter
-	beacon.NextCheckin = beaconReg.NextCheckin
+	beacon.NextCheckin = time.Now().Unix() + beaconReg.NextCheckin
 
 	err = db.Session().Save(beacon).Error
 	if err != nil {
@@ -94,6 +95,7 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) *sl
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.BeaconRegisteredEvent,
 		Data:      eventData,
+		Beacon:    beacon,
 	})
 
 	go auditLogBeacon(beacon, beaconReg.Register)
@@ -125,7 +127,7 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) *slive
 		return nil
 	}
 	go func() {
-		err = db.UpdateBeaconCheckinByID(beaconTasks.ID, beaconTasks.NextCheckin)
+		err := db.UpdateBeaconCheckinByID(beaconTasks.ID, beaconTasks.NextCheckin)
 		if err != nil {
 			beaconHandlerLog.Errorf("failed to update checkin: %s", err)
 		}

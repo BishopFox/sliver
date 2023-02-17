@@ -39,6 +39,7 @@ message Process {
   int32 Ppid = 2;
   string Executable = 3;
   string Owner = 4;
+  string Architecture = 7;
   int32 SessionID = 5;
   repeated string CmdLine = 6;
 }

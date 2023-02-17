@@ -88,6 +88,15 @@ const (
 
 	// BeaconTaskResult - Beacon task completed with a result
 	BeaconTaskResultEvent = "beacon-taskresult"
+
+	// ExternalBuildEvent
+	ExternalBuildEvent          = "external-build"
+	AcknowledgeBuildEvent       = "external-acknowledge"
+	ExternalBuildFailedEvent    = "external-build-failed"
+	ExternalBuildCompletedEvent = "external-build-completed"
+
+	// WireGuardNewPeer - New Wireguard peer added
+	WireGuardNewPeer = "wireguard-newpeer"
 )
 
 // Commands
@@ -104,6 +113,7 @@ const (
 	ReconfigStr     = "reconfig"
 	PruneStr        = "prune"
 	TasksStr        = "tasks"
+	CancelStr       = "cancel"
 	GenerateStr     = "generate"
 	RegenerateStr   = "regenerate"
 	CompilerInfoStr = "info"
@@ -223,8 +233,9 @@ const (
 	InteractiveStr        = "interactive"
 	CloseStr              = "close"
 
-	PortfwdStr = "portfwd"
-	Socks5Str  = "socks5"
+	PortfwdStr  = "portfwd"
+	Socks5Str   = "socks5"
+	RportfwdStr = "rportfwd"
 
 	ReactionStr = "reaction"
 
@@ -236,6 +247,17 @@ const (
 	GetPrivsStr        = "getprivs"
 	PreludeOperatorStr = "prelude-operator"
 	ConnectStr         = "connect"
+
+	ShikataGaNai = "shikata-ga-nai"
+
+	Cursed         = "cursed"
+	CursedChrome   = "chrome"
+	CursedConsole  = "console"
+	CursedElectron = "electron"
+	CursedEdge     = "edge"
+	CursedCookies  = "cookies"
+
+	BuildersStr = "builders"
 )
 
 // Groups

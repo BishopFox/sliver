@@ -5,7 +5,7 @@
 GO ?= go
 ARTIFACT_SUFFIX ?= 
 ENV =
-TAGS = -tags osusergo,netgo,cgosqlite,sqlite_omit_load_extension
+TAGS ?= -tags osusergo,netgo,cgosqlite,sqlite_omit_load_extension
 
 
 #
@@ -47,6 +47,15 @@ LDFLAGS = -ldflags "-s -w \
 	-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUB_KEY) \
 	-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 
+# Debug builds can't be stripped (-s -w flags)
+LDFLAGS_DEBUG = -ldflags "-X $(VERSION_PKG).Version=$(VERSION) \
+	-X \"$(VERSION_PKG).GoVersion=$(GO_VERSION)\" \
+	-X $(VERSION_PKG).CompiledAt=$(COMPILED_AT) \
+	-X $(VERSION_PKG).GithubReleasesURL=$(RELEASES_URL) \
+	-X $(VERSION_PKG).GitCommit=$(GIT_COMMIT) \
+	-X $(VERSION_PKG).GitDirty=$(GIT_DIRTY) \
+	-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUB_KEY) \
+	-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 
 SED_INPLACE := sed -i
 STATIC_TARGET := linux
@@ -77,8 +86,12 @@ ifeq ($(UNAME_S),Darwin)
 	SED_INPLACE := sed -i ''
 	STATIC_TARGET := macos
 endif
+
+# If no target is specified, determine GOARCH
 ifeq ($(UNAME_P),arm)
-	ENV += GOARCH=arm64
+	ifeq ($(MAKECMDGOALS), )
+		ENV += GOARCH=arm64
+	endif
 endif
 
 ifeq ($(MAKECMDGOALS), linux)
@@ -95,31 +108,42 @@ ifeq ($(MAKECMDGOALS), linux)
 		-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 endif
 
+ifeq ($(MAKECMDGOALS), linux-arm64)
+	# Redefine TAGS/ENV to use pure go sqlite3
+	TAGS = -tags osusergo,netgo,gosqlite
+	ENV = CGO_ENABLED=0
+endif
+
 #
 # Targets
 #
 .PHONY: default
-default: clean validate-go-version
+default: clean .downloaded_assets validate-go-version
 	$(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
 	$(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 .PHONY: macos
-macos: clean validate-go-version
+macos: clean .downloaded_assets validate-go-version
 	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
 	GOOS=darwin GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 .PHONY: macos-arm64
-macos-arm64: clean validate-go-version
+macos-arm64: clean .downloaded_assets validate-go-version
 	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
 	GOOS=darwin GOARCH=arm64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 .PHONY: linux
-linux: clean validate-go-version
-	GOOS=linux $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
-	GOOS=linux $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
+linux: clean .downloaded_assets validate-go-version
+	GOOS=linux GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
+	GOOS=linux GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
+
+.PHONY: linux-arm64
+linux-arm64: clean .downloaded_assets validate-go-version
+	GOOS=linux GOARCH=arm64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
+	GOOS=linux GOARCH=arm64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 .PHONY: windows
-windows: clean validate-go-version
+windows: clean .downloaded_assets validate-go-version
 	GOOS=windows $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX).exe ./server
 	GOOS=windows $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX).exe ./client
 
@@ -130,6 +154,11 @@ pb:
 	protoc -I protobuf/ protobuf/clientpb/client.proto --go_out=paths=source_relative:protobuf/
 	protoc -I protobuf/ protobuf/dnspb/dns.proto --go_out=paths=source_relative:protobuf/
 	protoc -I protobuf/ protobuf/rpcpb/services.proto --go_out=paths=source_relative:protobuf/ --go-grpc_out=protobuf/ --go-grpc_opt=paths=source_relative 
+
+.PHONY: debug
+debug: clean
+	$(ENV) $(GO) build -mod=vendor $(TAGS),server $(LDFLAGS_DEBUG) -o sliver-server$(ARTIFACT_SUFFIX) ./server
+	$(ENV) $(GO) build -mod=vendor $(TAGS),client $(LDFLAGS_DEBUG) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 validate-go-version:
 	@if [ $(GO_MAJOR_VERSION) -gt $(MIN_SUPPORTED_GO_MAJOR_VERSION) ]; then \
@@ -149,7 +178,12 @@ clean-all: clean
 	rm -rf ./server/assets/fs/windows/amd64
 	rm -rf ./server/assets/fs/linux/amd64
 	rm -f ./server/assets/fs/*.zip
+	rm -f ./.downloaded_assets
 
 .PHONY: clean
 clean:
 	rm -f sliver-client sliver-server sliver-*.exe
+
+.downloaded_assets:
+	./go-assets.sh
+	touch ./.downloaded_assets

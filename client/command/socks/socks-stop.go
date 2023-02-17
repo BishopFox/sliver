@@ -29,7 +29,7 @@ import (
 
 // SocksStopCmd - Remove an existing tunneled port forward
 func SocksStopCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	socksID := ctx.Flags.Int("id")
+	socksID := ctx.Flags.Uint64("id")
 	if socksID < 1 {
 		con.PrintErrorf("Must specify a valid socks5 id\n")
 		return

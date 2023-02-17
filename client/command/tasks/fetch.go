@@ -28,6 +28,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
+	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/command/filesystem"
 	"github.com/bishopfox/sliver/client/command/network"
 	"github.com/bishopfox/sliver/client/command/privilege"
@@ -157,6 +158,8 @@ func emojiState(state string) string {
 		return "⏳"
 	case "failed":
 		return "❌"
+	case "canceled":
+		return "🚫"
 	default:
 		return "❓"
 	}
@@ -211,8 +214,24 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		environment.PrintUnsetEnvInfo(unsetEnvReq.Name, unsetEnv, con)
 
 	// ---------------------
+	// Call extension commands
+	// ---------------------
+	case sliverpb.MsgCallExtensionReq:
+		callExtension := &sliverpb.CallExtension{}
+		err := proto.Unmarshal(task.Response, callExtension)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		extensions.PrintExtOutput("", "", callExtension, con)
+
+	// ---------------------
 	// Exec commands
 	// ---------------------
+	case sliverpb.MsgInvokeExecuteAssemblyReq:
+		fallthrough
+	case sliverpb.MsgInvokeInProcExecuteAssemblyReq:
+		fallthrough
 	case sliverpb.MsgExecuteAssemblyReq:
 		execAssembly := &sliverpb.ExecuteAssembly{}
 		err := proto.Unmarshal(task.Response, execAssembly)
@@ -231,9 +250,10 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			Flags: grumble.FlagMap{
 				"save": &grumble.FlagMapItem{Value: false, IsDefault: true},
 				"loot": &grumble.FlagMapItem{Value: false, IsDefault: true},
+				"name": &grumble.FlagMapItem{Value: "", IsDefault: true},
 			},
 		}
-		exec.PrintExecuteAssembly(execAssembly, hostname, assemblyPath, ctx, con)
+		exec.HandleExecuteAssemblyResponse(execAssembly, assemblyPath, hostname, ctx, con)
 
 	// execute-shellcode
 	case sliverpb.MsgTaskReq:
@@ -289,9 +309,10 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			Command: &grumble.Command{Name: "sideload"},
 			Flags: grumble.FlagMap{
 				"save": &grumble.FlagMapItem{Value: false},
+				"loot": &grumble.FlagMapItem{Value: false},
 			},
 		}
-		exec.PrintSideload(sideload, hostname, ctx, con)
+		exec.HandleSideloadResponse(sideload, "", hostname, ctx, con)
 
 	case sliverpb.MsgSpawnDllReq:
 		spawnDll := &sliverpb.SpawnDll{}
@@ -309,9 +330,10 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			Command: &grumble.Command{Name: "spawndll"},
 			Flags: grumble.FlagMap{
 				"save": &grumble.FlagMapItem{Value: false},
+				"loot": &grumble.FlagMapItem{Value: false},
 			},
 		}
-		exec.PrintSpawnDll(spawnDll, hostname, ctx, con)
+		exec.HandleSpawnDLLResponse(spawnDll, "", hostname, ctx, con)
 
 	case sliverpb.MsgSSHCommandReq:
 		sshCommand := &sliverpb.SSHCommand{}
@@ -356,7 +378,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			"modified": &grumble.FlagMapItem{Value: false},
 			"size":     &grumble.FlagMapItem{Value: false},
 		}
-		filesystem.PrintLs(ls, flags, "", con)
+		filesystem.PrintLs(ls, flags, con)
 
 	case sliverpb.MsgMvReq:
 		mv := &sliverpb.Mv{}
@@ -426,7 +448,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			con.PrintErrorf("Failed to fetch beacon: %s\n", err)
 			return
 		}
-		network.PrintNetstat(netstat, beacon.PID, beacon.ActiveC2, con)
+		network.PrintNetstat(netstat, beacon.PID, beacon.ActiveC2, false, con)
 
 	// ---------------------
 	// Privilege commands
@@ -544,6 +566,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 				"overflow":      &grumble.FlagMapItem{Value: false},
 				"skip-pages":    &grumble.FlagMapItem{Value: 0},
 				"print-cmdline": &grumble.FlagMapItem{Value: true},
+				"tree":          &grumble.FlagMapItem{Value: false},
 			},
 		}
 		processes.PrintPS(beacon.OS, ps, true, ctx, con)

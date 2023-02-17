@@ -31,9 +31,9 @@ import (
 func DNSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	domains := strings.Split(ctx.Flags.String("domains"), ",")
-	for _, domain := range domains {
+	for index, domain := range domains {
 		if !strings.HasSuffix(domain, ".") {
-			domain += "."
+			domains[index] += "."
 		}
 	}
 
@@ -47,6 +47,7 @@ func DNSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Port:       uint32(lport),
 		Canaries:   !ctx.Flags.Bool("no-canaries"),
 		Persistent: ctx.Flags.Bool("persistent"),
+		EnforceOTP: !ctx.Flags.Bool("disable-otp"),
 	})
 	con.Println()
 	if err != nil {

@@ -246,7 +246,7 @@ func loadExtension(goos string, goarch string, checkCache bool, ext *ExtensionMa
 		if !depLoaded && extName == ext.DependsOn {
 			depLoaded = true
 		}
-		if ext.Name == extName {
+		if ext.CommandName == extName {
 			return nil
 		}
 	}

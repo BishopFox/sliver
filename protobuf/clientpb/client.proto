@@ -45,6 +45,8 @@ message Session {
   repeated string Extensions = 23;
   // string ConfigID = 24;
   int64 PeerID = 25;
+  string Locale = 26;
+  int64 FirstContact = 27;
 }
 
 message Beacon {
@@ -76,6 +78,9 @@ message Beacon {
 
   int64 TasksCount = 26;
   int64 TasksCountCompleted = 27;
+
+  string Locale = 28;
+  int64 FirstContact = 29;
 }
 
 message Beacons {
@@ -110,6 +115,7 @@ enum OutputFormat {
   SHELLCODE = 1;
   EXECUTABLE = 2;
   SERVICE = 3;
+  THIRD_PARTY = 4;
 }
 
 message ImplantConfig {
@@ -125,6 +131,7 @@ message ImplantConfig {
   bool Debug = 8;
   bool Evasion = 9;
   bool ObfuscateSymbols = 10;
+  string TemplateName = 11;
 
   string MtlsCACert = 20;
   string MtlsCert = 21;
@@ -155,6 +162,7 @@ message ImplantConfig {
   string LimitHostname = 62;
   string LimitUsername = 63;
   string LimitFileExists = 64;
+  string LimitLocale = 65;
 
   OutputFormat Format = 100;
   bool IsSharedLib = 101;
@@ -163,6 +171,17 @@ message ImplantConfig {
   bool IsShellcode = 104;
 
   bool RunAtLoad = 105;
+}
+
+message ExternalImplantConfig {
+  ImplantConfig Config = 1;
+  string OTPSecret = 2;
+}
+
+message ExternalImplantBinary {
+  string Name = 1;
+  string ImplantConfigID = 2;
+  commonpb.File File = 3;
 }
 
 // Configs of previously built implants
@@ -282,6 +301,7 @@ message DNSListenerReq {
   string Host = 3;
   uint32 Port = 4;
   bool Persistent = 5;
+  bool EnforceOTP = 6; 
 }
 
 message DNSListener {
@@ -301,6 +321,7 @@ message HTTPListenerReq {
   bool EnforceOTP = 10;
   int64 LongPollTimeout = 11;
   int64 LongPollJitter = 12;
+  bool RandomizeJARM = 13; // Only valid with Secure = true
 }
 
 // Named Pipes Messages for pivoting
@@ -433,6 +454,7 @@ message GetSystemReq {
 message MigrateReq {
   uint32 Pid = 1;
   ImplantConfig Config = 2;
+  ShellcodeEncoder Encoder = 3;
 
   commonpb.Request Request = 9;
 }
@@ -597,6 +619,9 @@ message Host {
 
   repeated IOC IOCs = 4;
   map<string, ExtensionData> ExtensionData = 5;
+
+  string Locale = 6;
+  int64 FirstContact = 7;
 }
 
 message AllHosts {
@@ -616,4 +641,52 @@ message DllHijackReq {
 
 message DllHijack {
   commonpb.Response Response = 9;
+}
+
+
+// [ Shellcode ] ----------------------------------------
+enum ShellcodeEncoder {
+  NONE = 0;
+  SHIKATA_GA_NAI = 1;
+}
+
+message ShellcodeEncodeReq {
+  ShellcodeEncoder Encoder = 1;
+  string Architecture = 2;
+  uint32 Iterations = 3;
+  bytes BadChars = 4;
+
+  bytes Data = 8;
+  commonpb.Request Request = 9;
+}
+
+message ShellcodeEncode {
+
+  bytes Data = 8;
+  commonpb.Response Response = 9;
+}
+
+message ShellcodeEncoderMap {
+  map<string, ShellcodeEncoder> Encoders = 1;
+}
+
+// [ Builder ] ----------------------------------------
+message ExternalGenerateReq {
+  ImplantConfig Config = 1;
+  string BuilderName = 2;
+}
+
+
+message Builders {
+  repeated Builder Builders = 1;
+}
+
+message Builder {
+  string Name = 1;
+  string OperatorName = 2;
+  string GOOS = 3;  // The builder's OS
+  string GOARCH = 4;  // The builder's Arch
+  repeated string Templates = 5;
+  repeated CompilerTarget Targets = 6;
+  repeated CrossCompiler CrossCompilers = 7;
 }

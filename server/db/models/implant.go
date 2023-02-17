@@ -67,6 +67,8 @@ type ImplantConfig struct {
 	GOOS   string
 	GOARCH string
 
+	TemplateName string
+
 	IsBeacon       bool
 	BeaconInterval int64
 	BeaconJitter   int64
@@ -115,6 +117,7 @@ type ImplantConfig struct {
 	LimitUsername     string
 	LimitDatetime     string
 	LimitFileExists   string
+	LimitLocale       string
 
 	// Output Format
 	Format clientpb.OutputFormat
@@ -158,6 +161,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		Debug:            ic.Debug,
 		Evasion:          ic.Evasion,
 		ObfuscateSymbols: ic.ObfuscateSymbols,
+		TemplateName:     ic.TemplateName,
 
 		ReconnectInterval:   ic.ReconnectInterval,
 		MaxConnectionErrors: ic.MaxConnectionErrors,
@@ -168,6 +172,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		LimitHostname:     ic.LimitHostname,
 		LimitUsername:     ic.LimitUsername,
 		LimitFileExists:   ic.LimitFileExists,
+		LimitLocale:       ic.LimitLocale,
 
 		IsSharedLib:       ic.IsSharedLib,
 		IsService:         ic.IsService,

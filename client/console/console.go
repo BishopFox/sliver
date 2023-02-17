@@ -26,7 +26,6 @@ import (
 	"io/ioutil"
 	"log"
 	insecureRand "math/rand"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -45,6 +44,7 @@ import (
 	"github.com/desertbit/go-shlex"
 	"github.com/desertbit/grumble"
 	"github.com/fatih/color"
+	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -92,6 +92,7 @@ type SliverConsoleClient struct {
 	App                      *grumble.App
 	Rpc                      rpcpb.SliverRPCClient
 	ActiveTarget             *ActiveTarget
+	EventListeners           *sync.Map
 	BeaconTaskCallbacks      map[string]BeaconTaskCallback
 	BeaconTaskCallbacksMutex *sync.Mutex
 	IsServer                 bool
@@ -109,17 +110,19 @@ func Start(rpc rpcpb.SliverRPCClient, bindCmds BindCmds, extraCmds BindCmds, isS
 		App: grumble.New(&grumble.Config{
 			Name:                  "Sliver",
 			Description:           "Sliver Client",
-			HistoryFile:           path.Join(assets.GetRootAppDir(), "history"),
+			HistoryFile:           filepath.Join(assets.GetRootAppDir(), "history"),
 			PromptColor:           color.New(),
 			HelpHeadlineColor:     color.New(),
 			HelpHeadlineUnderline: true,
 			HelpSubCommands:       true,
+			VimMode:               settings.VimMode,
 		}),
 		Rpc: rpc,
 		ActiveTarget: &ActiveTarget{
 			observers:  map[int]Observer{},
 			observerID: 0,
 		},
+		EventListeners:           &sync.Map{},
 		BeaconTaskCallbacks:      map[string]BeaconTaskCallback{},
 		BeaconTaskCallbacksMutex: &sync.Mutex{},
 		IsServer:                 isServer,
@@ -136,7 +139,7 @@ func Start(rpc rpcpb.SliverRPCClient, bindCmds BindCmds, extraCmds BindCmds, isS
 		con.App.SetPrompt(con.GetPrompt())
 	})
 
-	go con.EventLoop()
+	go con.startEventLoop()
 	go core.TunnelLoop(rpc)
 
 	err := con.App.Run()
@@ -146,7 +149,7 @@ func Start(rpc rpcpb.SliverRPCClient, bindCmds BindCmds, extraCmds BindCmds, isS
 	return err
 }
 
-func (con *SliverConsoleClient) EventLoop() {
+func (con *SliverConsoleClient) startEventLoop() {
 	eventStream, err := con.Rpc.Events(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
@@ -158,7 +161,10 @@ func (con *SliverConsoleClient) EventLoop() {
 			return
 		}
 
+		go con.triggerEventListeners(event)
+
 		// Trigger event based on type
+		echoed := false // Only echo the event once
 		switch event.EventType {
 
 		case consts.CanaryEvent:
@@ -168,6 +174,7 @@ func (con *SliverConsoleClient) EventLoop() {
 				shortID := strings.Split(session.ID, "-")[0]
 				con.PrintEventErrorf(eventMsg+"\n"+Clearln+"\t🔥 Session %s is affected\n", shortID)
 			}
+			echoed = true
 
 		case consts.WatchtowerEvent:
 			msg := string(event.Data)
@@ -177,15 +184,19 @@ func (con *SliverConsoleClient) EventLoop() {
 				shortID := strings.Split(session.ID, "-")[0]
 				con.PrintEventErrorf(eventMsg+"\n"+Clearln+"\t🔥 Session %s is affected", shortID)
 			}
+			echoed = true
 
 		case consts.JoinedEvent:
 			con.PrintEventInfof("%s has joined the game", event.Client.Operator.Name)
+			echoed = true
 		case consts.LeftEvent:
 			con.PrintEventInfof("%s left the game", event.Client.Operator.Name)
+			echoed = true
 
 		case consts.JobStoppedEvent:
 			job := event.Job
 			con.PrintEventErrorf("Job #%d stopped (%s/%s)", job.ID, job.Protocol, job.Name)
+			echoed = true
 
 		case consts.SessionOpenedEvent:
 			session := event.Session
@@ -201,12 +212,14 @@ func (con *SliverConsoleClient) EventLoop() {
 					con.PrintEventErrorf("Could not add session to Operator: %s", err)
 				}
 			}
+			echoed = true
 
 		case consts.SessionUpdateEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
 			shortID := strings.Split(session.ID, "-")[0]
 			con.PrintEventInfof("Session %s has been updated - %v", shortID, currentTime)
+			echoed = true
 
 		case consts.SessionClosedEvent:
 			session := event.Session
@@ -215,6 +228,8 @@ func (con *SliverConsoleClient) EventLoop() {
 			con.PrintEventErrorf("Lost session %s %s - %s (%s) - %s/%s - %v",
 				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 			activeSession := con.ActiveTarget.GetSession()
+			core.GetTunnels().CloseForSession(session.ID)
+			core.CloseCursedProcesses(session.ID)
 			if activeSession != nil && activeSession.ID == session.ID {
 				con.ActiveTarget.Set(nil, nil)
 				con.PrintEventErrorf("Active session disconnected")
@@ -227,6 +242,7 @@ func (con *SliverConsoleClient) EventLoop() {
 				}
 				con.PrintEventInfof("Removed session %s from Operator", session.Name)
 			}
+			echoed = true
 
 		case consts.BeaconRegisteredEvent:
 			beacon := &clientpb.Beacon{}
@@ -245,16 +261,44 @@ func (con *SliverConsoleClient) EventLoop() {
 					con.PrintEventErrorf("Could not add beacon to Operator: %s", err)
 				}
 			}
+			echoed = true
 
 		case consts.BeaconTaskResultEvent:
 			con.triggerBeaconTaskCallback(event.Data)
+			echoed = true
+
 		}
 
 		con.triggerReactions(event)
 
-		con.Printf(Clearln + con.GetPrompt())
-		bufio.NewWriter(con.App.Stdout()).Flush()
+		// Only render if we echoed the event
+		if echoed {
+			con.Printf(Clearln + con.GetPrompt())
+			bufio.NewWriter(con.App.Stdout()).Flush()
+		}
 	}
+}
+
+func (con *SliverConsoleClient) CreateEventListener() (string, <-chan *clientpb.Event) {
+	listener := make(chan *clientpb.Event, 100)
+	listenerID, _ := uuid.NewV4()
+	con.EventListeners.Store(listenerID.String(), listener)
+	return listenerID.String(), listener
+}
+
+func (con *SliverConsoleClient) RemoveEventListener(listenerID string) {
+	value, ok := con.EventListeners.LoadAndDelete(listenerID)
+	if ok {
+		close(value.(chan *clientpb.Event))
+	}
+}
+
+func (con *SliverConsoleClient) triggerEventListeners(event *clientpb.Event) {
+	con.EventListeners.Range(func(key, value interface{}) bool {
+		listener := value.(chan *clientpb.Event)
+		listener <- event // Do not block while sending the event to the listener
+		return true
+	})
 }
 
 func (con *SliverConsoleClient) triggerReactions(event *clientpb.Event) {
@@ -521,6 +565,34 @@ func (con *SliverConsoleClient) PrintEventSuccessf(format string, args ...interf
 
 func (con *SliverConsoleClient) SpinUntil(message string, ctrl chan bool) {
 	go spin.Until(con.App.Stdout(), message, ctrl)
+}
+
+// FormatDateDelta - Generate formatted date string of the time delta between then and now
+func (con *SliverConsoleClient) FormatDateDelta(t time.Time, includeDate bool, color bool) string {
+	nextTime := t.Format(time.UnixDate)
+
+	var interval string
+
+	if t.Before(time.Now()) {
+		if includeDate {
+			interval = fmt.Sprintf("%s (%s ago)", nextTime, time.Since(t).Round(time.Second))
+		} else {
+			interval = time.Since(t).Round(time.Second).String()
+		}
+		if color {
+			interval = fmt.Sprintf("%s%s%s", Bold+Red, interval, Normal)
+		}
+	} else {
+		if includeDate {
+			interval = fmt.Sprintf("%s (in %s)", nextTime, time.Until(t).Round(time.Second))
+		} else {
+			interval = time.Until(t).Round(time.Second).String()
+		}
+		if color {
+			interval = fmt.Sprintf("%s%s%s", Bold+Green, interval, Normal)
+		}
+	}
+	return interval
 }
 
 //

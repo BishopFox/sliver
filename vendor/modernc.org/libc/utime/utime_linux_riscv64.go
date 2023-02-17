@@ -900,7 +900,8 @@ type X__syscall_slong_t = int64 /* types.h:197:33 */
 type X__syscall_ulong_t = uint64 /* types.h:199:33 */
 
 // These few don't really vary by system, they always correspond
-//    to one of the other defined types.
+//
+//	to one of the other defined types.
 type X__loff_t = X__off64_t /* types.h:203:19 */ // Type of file sizes and offsets (LFS).
 type X__caddr_t = uintptr   /* types.h:204:14 */
 
@@ -911,8 +912,9 @@ type X__intptr_t = int64 /* types.h:207:25 */
 type X__socklen_t = uint32 /* types.h:210:23 */
 
 // C99: An integer type that can be accessed as an atomic entity,
-//    even in the presence of asynchronous interrupts.
-//    It is not currently necessary for this to be machine-specific.
+//
+//	even in the presence of asynchronous interrupts.
+//	It is not currently necessary for this to be machine-specific.
 type X__sig_atomic_t = int32 /* types.h:215:13 */
 
 // Seconds since the Epoch, visible to user code when time_t is too

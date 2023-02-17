@@ -146,8 +146,23 @@ func pivotPeerFailureHandler(implantConn *core.ImplantConnection, data []byte) *
 
 	core.PivotSessions.Range(func(key, value interface{}) bool {
 		pivot := value.(*core.Pivot)
-		if pivot.OriginID == peerFailure.PeerID {
+
+		found := pivot.OriginID == peerFailure.PeerID
+
+		if !found {
+			pivotLog.Warnf("Filed peer not found by OriginID, searching by Peers instead")
+
+			for _, peer := range pivot.Peers {
+				if peer.PeerID == peerFailure.PeerID {
+					pivotLog.Warnf("Found session with needed peer!")
+					found = true
+				}
+			}
+		}
+
+		if found {
 			session := core.Sessions.FromImplantConnection(pivot.ImplantConn)
+
 			if session != nil {
 				core.Sessions.Remove(session.ID)
 			}
@@ -214,10 +229,11 @@ func serverKeyExchange(implantConn *core.ImplantConnection, peerEnvelope *sliver
 		return nil
 	}
 	pivotSession := core.NewPivotSession(peerEnvelope.Peers)
-	pivotLog.Infof("Pivot session %s created with origin %s", pivotSession.ID, peerEnvelope.Peers[0].Name)
-	pivotLog.Debugf("Peers: %v", peerEnvelope.Peers)
 	pivotSession.OriginID = peerEnvelope.Peers[0].PeerID
 	pivotSession.CipherCtx = cryptography.NewCipherContext(sessionKey)
+
+	pivotLog.Infof("Pivot session %s created with origin %s and OriginID: %v", pivotSession.ID, peerEnvelope.Peers[0].Name, pivotSession.OriginID)
+	pivotLog.Infof("Peers: %v", peerEnvelope.Peers)
 
 	pivotRemoteAddr := peersToString(implantConn.RemoteAddress, peerEnvelope)
 

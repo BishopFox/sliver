@@ -19,6 +19,7 @@ package db
 */
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/bishopfox/sliver/server/configs"
@@ -45,6 +46,8 @@ func newDBClient() *gorm.DB {
 		dbClient = postgresClient(dbConfig)
 	case configs.MySQL:
 		dbClient = mySQLClient(dbConfig)
+	default:
+		panic(fmt.Sprintf("Unknown DB Dialect: '%s'", dbConfig.Dialect))
 	}
 
 	err := dbClient.AutoMigrate(
@@ -55,16 +58,16 @@ func newDBClient() *gorm.DB {
 		&models.Host{},
 		&models.IOC{},
 		&models.ExtensionData{},
-		&models.ImplantC2{},
-		&models.ImplantConfig{},
 		&models.ImplantBuild{},
+		&models.ImplantProfile{},
+		&models.ImplantConfig{},
+		&models.ImplantC2{},
 		&models.KeyValue{},
 		&models.CanaryDomain{},
-		&models.ImplantProfile{},
 		&models.Loot{},
 		&models.Operator{},
-		&models.WebContent{},
 		&models.Website{},
+		&models.WebContent{},
 		&models.WGKeys{},
 		&models.WGPeer{},
 	)
@@ -95,7 +98,6 @@ func postgresClient(dbConfig *configs.DatabaseConfig) *gorm.DB {
 	if err != nil {
 		panic(err)
 	}
-	clientLog.Infof("postgres -> %s", dsn)
 	dbClient, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		PrepareStmt: true,
 		Logger:      getGormLogger(dbConfig),
@@ -111,7 +113,6 @@ func mySQLClient(dbConfig *configs.DatabaseConfig) *gorm.DB {
 	if err != nil {
 		panic(err)
 	}
-	clientLog.Infof("mysql -> %s", dsn)
 	dbClient, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		PrepareStmt: true,
 		Logger:      getGormLogger(dbConfig),

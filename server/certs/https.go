@@ -1,10 +1,5 @@
 package certs
 
-import (
-	"crypto/rand"
-	"crypto/rsa"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -23,6 +18,11 @@ import (
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import (
+	"crypto/rand"
+	"crypto/rsa"
+)
+
 const (
 	// HTTPSCA - Directory containing operator certificates
 	HTTPSCA = "https"
@@ -37,7 +37,7 @@ func HTTPSGenerateRSACertificate(host string) ([]byte, []byte, error) {
 	var err error
 
 	// Generate private key
-	privateKey, err = rsa.GenerateKey(rand.Reader, RSAKeySize)
+	privateKey, err = rsa.GenerateKey(rand.Reader, rsaKeySize())
 	if err != nil {
 		certsLog.Fatalf("Failed to generate private key %s", err)
 		return nil, nil, err

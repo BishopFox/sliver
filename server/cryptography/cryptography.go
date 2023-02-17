@@ -37,7 +37,7 @@ import (
 
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
 	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/util"
+	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/chacha20poly1305"
@@ -109,7 +109,7 @@ func (e *ECCKeyPair) PrivateBase64() string {
 	return base64.RawStdEncoding.EncodeToString(e.Private[:])
 }
 
-// RandomeECCKeyPair - Generate a random Curve 25519 key pair
+// RandomECCKeyPair - Generate a random Curve 25519 key pair
 func RandomECCKeyPair() (*ECCKeyPair, error) {
 	public, private, err := box.GenerateKey(rand.Reader)
 	if err != nil {
@@ -146,7 +146,7 @@ func Encrypt(key [chacha20poly1305.KeySize]byte, plaintext []byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	plaintext = bytes.NewBuffer(util.GzipBuf(plaintext)).Bytes()
+	plaintext = bytes.NewBuffer(encoders.GzipBuf(plaintext)).Bytes()
 	nonce := make([]byte, aead.NonceSize(), aead.NonceSize()+len(plaintext)+aead.Overhead())
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
@@ -173,7 +173,7 @@ func Decrypt(key [chacha20poly1305.KeySize]byte, ciphertext []byte) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
-	return util.GunzipBuf(plaintext), nil
+	return encoders.GunzipBuf(plaintext), nil
 }
 
 // NewCipherContext - Wrapper around creating a cipher context from a key

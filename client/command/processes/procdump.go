@@ -24,7 +24,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -42,6 +44,8 @@ func ProcdumpCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	pid := ctx.Flags.Int("pid")
 	name := ctx.Flags.String("name")
 	saveTo := ctx.Flags.String("save")
+	saveLoot := ctx.Flags.Bool("loot")
+	lootName := ctx.Flags.String("loot-name")
 
 	if pid == -1 && name != "" {
 		pid = GetPIDByName(ctx, name, con)
@@ -78,11 +82,23 @@ func ProcdumpCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			PrintProcessDump(dump, saveTo, hostname, pid, con)
+			if saveLoot {
+				LootProcessDump(dump, lootName, hostname, pid, con)
+			}
+
+			if !saveLoot || saveTo != "" {
+				PrintProcessDump(dump, saveTo, hostname, pid, con)
+			}
 		})
 		con.PrintAsyncResponse(dump.Response)
 	} else {
-		PrintProcessDump(dump, saveTo, hostname, pid, con)
+		if saveLoot {
+			LootProcessDump(dump, lootName, hostname, pid, con)
+		}
+
+		if !saveLoot || saveTo != "" {
+			PrintProcessDump(dump, saveTo, hostname, pid, con)
+		}
 	}
 
 }
@@ -99,7 +115,7 @@ func PrintProcessDump(dump *sliverpb.ProcessDump, saveTo string, hostname string
 			return
 		}
 	} else {
-		saveToFile, err = os.OpenFile(saveTo, os.O_WRONLY, 0o600)
+		saveToFile, err = os.OpenFile(saveTo, os.O_WRONLY|os.O_CREATE, 0o600)
 		if err != nil {
 			con.PrintErrorf("Error creating file: %s\n", err)
 			return
@@ -118,4 +134,16 @@ func getHostname(session *clientpb.Session, beacon *clientpb.Beacon) string {
 		return beacon.Hostname
 	}
 	return ""
+}
+
+func LootProcessDump(dump *sliverpb.ProcessDump, lootName string, hostName string, pid int, con *console.SliverConsoleClient) {
+	timeNow := time.Now().UTC()
+	dumpFileName := fmt.Sprintf("procdump_%s_%d_%s.dmp", hostName, pid, timeNow.Format("20060102150405"))
+
+	if lootName == "" {
+		lootName = dumpFileName
+	}
+
+	lootMessage := loot.CreateLootMessage(dumpFileName, lootName, clientpb.LootType_LOOT_FILE, clientpb.FileType_BINARY, dump.GetData())
+	loot.SendLootMessage(lootMessage, con)
 }

@@ -139,8 +139,9 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 
 	if req.Persistent {
 		cfg := &configs.WGJobConfig{
-			Port:  listenPort,
-			NPort: nListenPort,
+			Port:    listenPort,
+			NPort:   nListenPort,
+			KeyPort: keyExchangeListenPort,
 		}
 		configs.GetServerConfig().AddWGJob(cfg)
 		job.PersistentID = cfg.JobID
@@ -159,17 +160,18 @@ func (rpc *Server) StartDNSListener(ctx context.Context, req *clientpb.DNSListen
 		listenPort = uint16(req.Port)
 	}
 
-	job, err := c2.StartDNSListenerJob(req.Host, listenPort, req.Domains, req.Canaries)
+	job, err := c2.StartDNSListenerJob(req.Host, listenPort, req.Domains, req.Canaries, req.EnforceOTP)
 	if err != nil {
 		return nil, err
 	}
 
 	if req.Persistent {
 		cfg := &configs.DNSJobConfig{
-			Domains:  req.Domains,
-			Host:     req.Host,
-			Port:     listenPort,
-			Canaries: req.Canaries,
+			Domains:    req.Domains,
+			Host:       req.Host,
+			Port:       listenPort,
+			Canaries:   req.Canaries,
+			EnforceOTP: req.EnforceOTP,
 		}
 		configs.GetServerConfig().AddDNSJob(cfg)
 		job.PersistentID = cfg.JobID
@@ -201,6 +203,7 @@ func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPLis
 		EnforceOTP:      req.EnforceOTP,
 		LongPollTimeout: time.Duration(req.LongPollTimeout),
 		LongPollJitter:  time.Duration(req.LongPollJitter),
+		RandomizeJARM:   req.RandomizeJARM,
 	}
 	job, err := c2.StartHTTPListenerJob(conf)
 	if err != nil {
@@ -220,6 +223,7 @@ func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPLis
 			EnforceOTP:      req.EnforceOTP,
 			LongPollTimeout: req.LongPollTimeout,
 			LongPollJitter:  req.LongPollJitter,
+			RandomizeJARM:   req.RandomizeJARM,
 		}
 		configs.GetServerConfig().AddHTTPJob(cfg)
 		job.PersistentID = cfg.JobID

@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE-GO file.
 
-//go:build freebsd && 386
-// +build freebsd,386
+//go:build (freebsd && 386) || (freebsd && arm)
+// +build freebsd,386 freebsd,arm
 
 package memory
 

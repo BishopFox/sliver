@@ -57,6 +57,10 @@ func ScreenshotCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
+	saveLoot := ctx.Flags.Bool("loot")
+	lootName := ctx.Flags.String("name")
+	saveTo := ctx.Flags.String("save")
+
 	hostname := getHostname(session, beacon)
 	if screenshot.Response != nil && screenshot.Response.Async {
 		con.AddBeaconCallback(screenshot.Response.TaskID, func(task *clientpb.BeaconTask) {
@@ -65,11 +69,31 @@ func ScreenshotCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			PrintScreenshot(screenshot, hostname, ctx, con)
+			if saveLoot {
+				if len(screenshot.Data) > 0 {
+					LootScreenshot(screenshot, lootName, hostname, con)
+				} else {
+					con.PrintErrorf("Cannot loot screenshot because it contained no data")
+				}
+			}
+
+			if !saveLoot || saveTo != "" {
+				PrintScreenshot(screenshot, hostname, ctx, con)
+			}
 		})
 		con.PrintAsyncResponse(screenshot.Response)
 	} else {
-		PrintScreenshot(screenshot, hostname, ctx, con)
+		if saveLoot {
+			if len(screenshot.Data) > 0 {
+				LootScreenshot(screenshot, lootName, hostname, con)
+			} else {
+				con.PrintErrorf("Cannot loot screenshot because it contained no data")
+			}
+		}
+
+		if !saveLoot || saveTo != "" {
+			PrintScreenshot(screenshot, hostname, ctx, con)
+		}
 	}
 }
 
@@ -88,7 +112,7 @@ func PrintScreenshot(screenshot *sliverpb.Screenshot, hostname string, ctx *grum
 			return
 		}
 	} else {
-		saveToFile, err = os.OpenFile(saveTo, os.O_WRONLY, 600)
+		saveToFile, err = os.OpenFile(saveTo, os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
 			con.PrintErrorf("Error creating file: %s\n", err)
 			return
@@ -103,14 +127,18 @@ func PrintScreenshot(screenshot *sliverpb.Screenshot, hostname string, ctx *grum
 	}
 
 	con.PrintInfof("Screenshot written to %s (%s)\n", saveToFile.Name(), util.ByteCountBinary(int64(n)))
-	if ctx.Flags.Bool("loot") && 0 < len(screenshot.Data) {
-		err = loot.AddLootFile(con.Rpc, fmt.Sprintf("[screenshot] %s", timestamp), saveToFile.Name(), screenshot.Data, false)
-		if err != nil {
-			con.PrintErrorf("Failed to save output as loot: %s\n", err)
-		} else {
-			con.PrintInfof("Output saved as loot\n")
-		}
+}
+
+func LootScreenshot(screenshot *sliverpb.Screenshot, lootName string, hostName string, con *console.SliverConsoleClient) {
+	timeNow := time.Now().UTC()
+	screenshotFileName := fmt.Sprintf("screenshot_%s_%s.png", hostName, timeNow.Format("20060102150405"))
+
+	if lootName == "" {
+		lootName = screenshotFileName
 	}
+
+	lootMessage := loot.CreateLootMessage(screenshotFileName, lootName, clientpb.LootType_LOOT_FILE, clientpb.FileType_BINARY, screenshot.GetData())
+	loot.SendLootMessage(lootMessage, con)
 }
 
 func getOS(session *clientpb.Session, beacon *clientpb.Beacon) string {

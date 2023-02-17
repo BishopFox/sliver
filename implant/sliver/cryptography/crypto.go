@@ -20,7 +20,6 @@ package cryptography
 
 import (
 	"bytes"
-	"compress/gzip"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
@@ -35,6 +34,7 @@ import (
 	"log"
 	// {{end}}
 
+	"github.com/bishopfox/sliver/implant/sliver/encoders"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/chacha20poly1305"
@@ -107,7 +107,7 @@ func Encrypt(key [chacha20poly1305.KeySize]byte, plaintext []byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	plaintext = bytes.NewBuffer(GzipBuf(plaintext)).Bytes()
+	plaintext = bytes.NewBuffer(encoders.GzipBuf(plaintext)).Bytes()
 	nonce := make([]byte, aead.NonceSize(), aead.NonceSize()+len(plaintext)+aead.Overhead())
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
@@ -134,7 +134,7 @@ func Decrypt(key [chacha20poly1305.KeySize]byte, ciphertext []byte) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
-	return GunzipBuf(plaintext), nil
+	return encoders.GunzipBuf(plaintext), nil
 }
 
 // NewCipherContext - Wrapper around creating a cipher context from a key
@@ -180,6 +180,15 @@ func (c *CipherContext) Encrypt(plaintext []byte) ([]byte, error) {
 		c.replay.Store(b64Digest, true)
 	}
 	return ciphertext, nil
+}
+
+// GetExactOTPCode - Get the OTP code for a specific timestamp
+func GetExactOTPCode(timestamp time.Time) string {
+	code, _ := totp.GenerateCodeCustom(totpSecret, timestamp, totpOptions)
+	// {{if .Config.Debug}}
+	log.Printf("TOTP Code (%s): %s", timestamp, code)
+	// {{end}}
+	return code
 }
 
 // GetOTPCode - Get the current OTP code
@@ -239,19 +248,19 @@ func RootOnlyVerifyCertificate(caCertPEM string, rawCerts [][]byte, _ [][]*x509.
 	return nil
 }
 
-// GzipBuf - Gzip a buffer
-func GzipBuf(data []byte) []byte {
-	var buf bytes.Buffer
-	zip := gzip.NewWriter(&buf)
-	zip.Write(data)
-	zip.Close()
-	return buf.Bytes()
-}
-
-// GunzipBuf - Gunzip a buffer
-func GunzipBuf(data []byte) []byte {
-	zip, _ := gzip.NewReader(bytes.NewBuffer(data))
-	var buf bytes.Buffer
-	buf.ReadFrom(zip)
-	return buf.Bytes()
-}
+//// GzipBuf - Gzip a buffer
+//func GzipBuf(data []byte) []byte {
+//	var buf bytes.Buffer
+//	zip := gzip.NewWriter(&buf)
+//	zip.Write(data)
+//	zip.Close()
+//	return buf.Bytes()
+//}
+//
+//// GunzipBuf - Gunzip a buffer
+//func GunzipBuf(data []byte) []byte {
+//	zip, _ := gzip.NewReader(bytes.NewBuffer(data))
+//	var buf bytes.Buffer
+//	buf.ReadFrom(zip)
+//	return buf.Bytes()
+//}

@@ -59,6 +59,9 @@ var (
 			"meterpreter/reverse_tcp":   true,
 			"meterpreter/reverse_http":  true,
 			"meterpreter/reverse_https": true,
+			"custom/reverse_winhttp":    true,
+			"custom/reverse_winhttps":   true,
+			"custom/reverse_tcp":        true,
 		},
 		"linux": {
 			"meterpreter_reverse_http":  true,

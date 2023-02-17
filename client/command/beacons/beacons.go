@@ -21,6 +21,7 @@ package beacons
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -71,27 +72,36 @@ func BeaconsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			con.PrintInfof("Killed %s (%s)\n", beacon.Name, beacon.ID)
 		}
 	}
+	filter := ctx.Flags.String("filter")
+	var filterRegex *regexp.Regexp
+	if ctx.Flags.String("filter-re") != "" {
+		var err error
+		filterRegex, err = regexp.Compile(ctx.Flags.String("filter-re"))
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+	}
 
 	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-
-	PrintBeacons(beacons.Beacons, con)
+	PrintBeacons(beacons.Beacons, filter, filterRegex, con)
 }
 
 // PrintBeacons - Display a list of beacons
-func PrintBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) {
+func PrintBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverConsoleClient) {
 	if len(beacons) == 0 {
 		con.PrintInfof("No beacons 🙁\n")
 		return
 	}
-	tw := renderBeacons(beacons, con)
+	tw := renderBeacons(beacons, filter, filterRegex, con)
 	con.Printf("%s\n", tw.Render())
 }
 
-func renderBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient) table.Writer {
+func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverConsoleClient) table.Writer {
 	width, _, err := term.GetSize(0)
 	if err != nil {
 		width = 999
@@ -99,7 +109,8 @@ func renderBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient)
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	if con.Settings.SmallTermWidth < width {
+	wideTermWidth := con.Settings.SmallTermWidth < width
+	if wideTermWidth {
 		tw.AppendHeader(table.Row{
 			"ID",
 			"Name",
@@ -109,6 +120,7 @@ func renderBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient)
 			"Hostname",
 			"Username",
 			"Operating System",
+			"Locale",
 			"Last Check-in",
 			"Next Check-in",
 		})
@@ -131,17 +143,11 @@ func renderBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient)
 			color = console.Green
 		}
 
-		nextCheckin := time.Unix(beacon.NextCheckin, 0)
-		var next string
-		if time.Unix(beacon.NextCheckin, 0).Before(time.Now()) {
-			past := time.Since(nextCheckin)
-			next = fmt.Sprintf("%s-%s%s", console.Bold+console.Red, past, console.Normal)
-		} else {
-			eta := time.Until(nextCheckin)
-			next = fmt.Sprintf("%s%s%s", console.Bold+console.Green, eta, console.Normal)
-		}
-		if con.Settings.SmallTermWidth < width {
-			tw.AppendRow(table.Row{
+		// We need a slice of strings so we can apply filters
+		var rowEntries []string
+
+		if wideTermWidth {
+			rowEntries = []string{
 				fmt.Sprintf(color+"%s"+console.Normal, strings.Split(beacon.ID, "-")[0]),
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Name),
 				fmt.Sprintf(color+"%d/%d"+console.Normal, beacon.TasksCountCompleted, beacon.TasksCount),
@@ -150,19 +156,44 @@ func renderBeacons(beacons []*clientpb.Beacon, con *console.SliverConsoleClient)
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Hostname),
 				fmt.Sprintf(color+"%s"+console.Normal, strings.TrimPrefix(beacon.Username, beacon.Hostname+"\\")),
 				fmt.Sprintf(color+"%s/%s"+console.Normal, beacon.OS, beacon.Arch),
-				fmt.Sprintf(color+"%s ago"+console.Normal, time.Since(time.Unix(beacon.LastCheckin, 0))),
-				next,
-			})
+				fmt.Sprintf(color+"%s"+console.Normal, beacon.Locale),
+				con.FormatDateDelta(time.Unix(beacon.LastCheckin, 0), wideTermWidth, false),
+				con.FormatDateDelta(time.Unix(beacon.NextCheckin, 0), wideTermWidth, true),
+			}
 		} else {
-			tw.AppendRow(table.Row{
+			rowEntries = []string{
 				fmt.Sprintf(color+"%s"+console.Normal, strings.Split(beacon.ID, "-")[0]),
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Name),
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Transport),
 				fmt.Sprintf(color+"%s"+console.Normal, strings.TrimPrefix(beacon.Username, beacon.Hostname+"\\")),
 				fmt.Sprintf(color+"%s/%s"+console.Normal, beacon.OS, beacon.Arch),
-				fmt.Sprintf(color+"%s ago"+console.Normal, time.Since(time.Unix(beacon.LastCheckin, 0))),
-				next,
-			})
+				con.FormatDateDelta(time.Unix(beacon.LastCheckin, 0), wideTermWidth, false),
+				con.FormatDateDelta(time.Unix(beacon.NextCheckin, 0), wideTermWidth, true),
+			}
+		}
+		// Build the row struct
+		row := table.Row{}
+		for _, entry := range rowEntries {
+			row = append(row, entry)
+		}
+		// Apply filters if any
+		if filter == "" && filterRegex == nil {
+			tw.AppendRow(row)
+		} else {
+			for _, rowEntry := range rowEntries {
+				if filter != "" {
+					if strings.Contains(rowEntry, filter) {
+						tw.AppendRow(row)
+						break
+					}
+				}
+				if filterRegex != nil {
+					if filterRegex.MatchString(rowEntry) {
+						tw.AppendRow(row)
+						break
+					}
+				}
+			}
 		}
 	}
 	return tw

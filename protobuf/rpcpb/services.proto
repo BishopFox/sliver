@@ -29,6 +29,7 @@ service SliverRPC {
     rpc RmBeacon(clientpb.Beacon) returns (commonpb.Empty);
     rpc GetBeaconTasks(clientpb.Beacon) returns (clientpb.BeaconTasks);
     rpc GetBeaconTaskContent(clientpb.BeaconTask) returns (clientpb.BeaconTask);
+    rpc CancelBeaconTask(clientpb.BeaconTask) returns (clientpb.BeaconTask);
 
     // ***Threat monitoring ***
     rpc MonitorStart(commonpb.Empty) returns (commonpb.Response);
@@ -65,6 +66,15 @@ service SliverRPC {
 
     // *** Implants ***
     rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate);
+    rpc GenerateExternal(clientpb.ExternalGenerateReq) returns (clientpb.ExternalImplantConfig);
+    rpc GenerateExternalSaveBuild(clientpb.ExternalImplantBinary) returns (commonpb.Empty);
+    rpc GenerateExternalGetImplantConfig(clientpb.ImplantConfig) returns (clientpb.ExternalImplantConfig);
+    // rpc BuilderRegister(clientpb.Builder) returns (commonpb.Empty);
+    
+    rpc BuilderRegister(clientpb.Builder) returns (stream clientpb.Event);
+    rpc BuilderTrigger(clientpb.Event) returns (commonpb.Empty);
+    rpc Builders(commonpb.Empty) returns (clientpb.Builders);
+
     rpc Regenerate(clientpb.RegenerateReq) returns (clientpb.Generate);
     rpc ImplantBuilds(commonpb.Empty) returns (clientpb.ImplantBuilds);
     rpc DeleteImplantBuild(clientpb.DeleteReq) returns (commonpb.Empty);
@@ -77,6 +87,8 @@ service SliverRPC {
     rpc MsfStage(clientpb.MsfStagerReq) returns (clientpb.MsfStager);
     rpc ShellcodeRDI(clientpb.ShellcodeRDIReq) returns (clientpb.ShellcodeRDI);
     rpc GetCompiler(commonpb.Empty) returns (clientpb.Compiler);
+    rpc ShellcodeEncoder(clientpb.ShellcodeEncodeReq) returns (clientpb.ShellcodeEncode);
+    rpc ShellcodeEncoderMap(commonpb.Empty) returns (clientpb.ShellcodeEncoderMap);
 
     // *** Websites ***
     rpc Websites(commonpb.Empty) returns (clientpb.Websites);
@@ -111,7 +123,7 @@ service SliverRPC {
     rpc ExecuteAssembly(sliverpb.ExecuteAssemblyReq) returns (sliverpb.ExecuteAssembly);
     rpc Migrate(clientpb.MigrateReq) returns (sliverpb.Migrate);
     rpc Execute(sliverpb.ExecuteReq) returns (sliverpb.Execute);
-    rpc ExecuteToken(sliverpb.ExecuteTokenReq) returns (sliverpb.Execute);
+    rpc ExecuteWindows(sliverpb.ExecuteWindowsReq) returns (sliverpb.Execute);
     rpc Sideload(sliverpb.SideloadReq) returns (sliverpb.Sideload);
     rpc SpawnDll(sliverpb.InvokeSpawnDllReq) returns (sliverpb.SpawnDll);
     rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);
@@ -141,6 +153,9 @@ service SliverRPC {
     rpc RunSSHCommand(sliverpb.SSHCommandReq) returns (sliverpb.SSHCommand);
     rpc HijackDLL(clientpb.DllHijackReq) returns (clientpb.DllHijack);
     rpc GetPrivs(sliverpb.GetPrivsReq) returns (sliverpb.GetPrivs);
+    rpc StartRportFwdListener(sliverpb.RportFwdStartListenerReq) returns (sliverpb.RportFwdListener);
+    rpc GetRportFwdListeners(sliverpb.RportFwdListenersReq) returns (sliverpb.RportFwdListeners);
+    rpc StopRportFwdListener(sliverpb.RportFwdStopListenerReq) returns (sliverpb.RportFwdListener);
 
     // Beacon only commands
     rpc OpenSession(sliverpb.OpenSession) returns (sliverpb.OpenSession);

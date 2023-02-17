@@ -15,4 +15,4 @@ Anything in the `master` branch, without an open ticket.
 
 ### Reporting a Vulnerability
 
-Please report high and/or critical vulnerabilities via email `jdemesy<[a]>bishopfox.com`, if no response within 14 days, file a ticket with a `security` tag. Medium to Low risk vulnerabilities can simply be filed as a normal bug/issue with the `security` tag.
+Please report high and/or critical vulnerabilities via GitHub's private [report a vulnerability feature](https://github.com/BishopFox/sliver/security/advisories).

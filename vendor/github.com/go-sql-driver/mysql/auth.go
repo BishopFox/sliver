@@ -15,6 +15,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"sync"
 )
 
@@ -32,27 +33,26 @@ var (
 // Note: The provided rsa.PublicKey instance is exclusively owned by the driver
 // after registering it and may not be modified.
 //
-//  data, err := ioutil.ReadFile("mykey.pem")
-//  if err != nil {
-//  	log.Fatal(err)
-//  }
+//	data, err := ioutil.ReadFile("mykey.pem")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
 //
-//  block, _ := pem.Decode(data)
-//  if block == nil || block.Type != "PUBLIC KEY" {
-//  	log.Fatal("failed to decode PEM block containing public key")
-//  }
+//	block, _ := pem.Decode(data)
+//	if block == nil || block.Type != "PUBLIC KEY" {
+//		log.Fatal("failed to decode PEM block containing public key")
+//	}
 //
-//  pub, err := x509.ParsePKIXPublicKey(block.Bytes)
-//  if err != nil {
-//  	log.Fatal(err)
-//  }
+//	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
 //
-//  if rsaPubKey, ok := pub.(*rsa.PublicKey); ok {
-//  	mysql.RegisterServerPubKey("mykey", rsaPubKey)
-//  } else {
-//  	log.Fatal("not a RSA public key")
-//  }
-//
+//	if rsaPubKey, ok := pub.(*rsa.PublicKey); ok {
+//		mysql.RegisterServerPubKey("mykey", rsaPubKey)
+//	} else {
+//		log.Fatal("not a RSA public key")
+//	}
 func RegisterServerPubKey(name string, pubKey *rsa.PublicKey) {
 	serverPubKeyLock.Lock()
 	if serverPubKeyRegistry == nil {
@@ -136,10 +136,6 @@ func pwHash(password []byte) (result [2]uint32) {
 
 // Hash password using insecure pre 4.1 method
 func scrambleOldPassword(scramble []byte, password string) []byte {
-	if len(password) == 0 {
-		return nil
-	}
-
 	scramble = scramble[:8]
 
 	hashPw := pwHash([]byte(password))
@@ -247,6 +243,9 @@ func (mc *mysqlConn) auth(authData []byte, plugin string) ([]byte, error) {
 		if !mc.cfg.AllowOldPasswords {
 			return nil, ErrOldPassword
 		}
+		if len(mc.cfg.Passwd) == 0 {
+			return nil, nil
+		}
 		// Note: there are edge cases where this should work but doesn't;
 		// this is currently "wontfix":
 		// https://github.com/go-sql-driver/mysql/issues/184
@@ -274,7 +273,9 @@ func (mc *mysqlConn) auth(authData []byte, plugin string) ([]byte, error) {
 		if len(mc.cfg.Passwd) == 0 {
 			return []byte{0}, nil
 		}
-		if mc.cfg.tls != nil || mc.cfg.Net == "unix" {
+		// unlike caching_sha2_password, sha256_password does not accept
+		// cleartext password on unix transport.
+		if mc.cfg.TLS != nil {
 			// write cleartext auth packet
 			return append([]byte(mc.cfg.Passwd), 0), nil
 		}
@@ -350,7 +351,7 @@ func (mc *mysqlConn) handleAuthResult(oldAuthData []byte, plugin string) error {
 				}
 
 			case cachingSha2PasswordPerformFullAuthentication:
-				if mc.cfg.tls != nil || mc.cfg.Net == "unix" {
+				if mc.cfg.TLS != nil || mc.cfg.Net == "unix" {
 					// write cleartext auth packet
 					err = mc.writeAuthSwitchPacket(append([]byte(mc.cfg.Passwd), 0))
 					if err != nil {
@@ -365,14 +366,24 @@ func (mc *mysqlConn) handleAuthResult(oldAuthData []byte, plugin string) error {
 							return err
 						}
 						data[4] = cachingSha2PasswordRequestPublicKey
-						mc.writePacket(data)
+						err = mc.writePacket(data)
+						if err != nil {
+							return err
+						}
 
-						// parse public key
 						if data, err = mc.readPacket(); err != nil {
 							return err
 						}
 
-						block, _ := pem.Decode(data[1:])
+						if data[0] != iAuthMoreData {
+							return fmt.Errorf("unexpect resp from server for caching_sha2_password perform full authentication")
+						}
+
+						// parse public key
+						block, rest := pem.Decode(data[1:])
+						if block == nil {
+							return fmt.Errorf("No Pem data found, data: %s", rest)
+						}
 						pkix, err := x509.ParsePKIXPublicKey(block.Bytes)
 						if err != nil {
 							return err
@@ -401,6 +412,10 @@ func (mc *mysqlConn) handleAuthResult(oldAuthData []byte, plugin string) error {
 			return nil // auth successful
 		default:
 			block, _ := pem.Decode(authData)
+			if block == nil {
+				return fmt.Errorf("no Pem data found, data: %s", authData)
+			}
+
 			pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 			if err != nil {
 				return err

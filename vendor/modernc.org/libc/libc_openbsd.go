@@ -40,11 +40,6 @@ var (
 	in6_addr_any in.In6_addr
 )
 
-type (
-	long  = int64
-	ulong = uint64
-)
-
 // // Keep these outside of the var block otherwise go generate will miss them.
 var X__stderrp = Xstdout
 var X__stdinp = Xstdin
@@ -753,30 +748,6 @@ func Xfileno(t *TLS, stream uintptr) int32 {
 	panic(todo(""))
 }
 
-func newFtsent(t *TLS, info int, path string, stat *unix.Stat_t, err syscall.Errno) (r *fts.FTSENT) {
-	var statp uintptr
-	if stat != nil {
-		statp = Xmalloc(t, types.Size_t(unsafe.Sizeof(unix.Stat_t{})))
-		if statp == 0 {
-			panic("OOM")
-		}
-
-		*(*unix.Stat_t)(unsafe.Pointer(statp)) = *stat
-	}
-	csp, errx := CString(path)
-	if errx != nil {
-		panic("OOM")
-	}
-
-	return &fts.FTSENT{
-		Ffts_info:    uint16(info),
-		Ffts_path:    csp,
-		Ffts_pathlen: uint64(len(path)),
-		Ffts_statp:   statp,
-		Ffts_errno:   int32(err),
-	}
-}
-
 func newCFtsent(t *TLS, info int, path string, stat *unix.Stat_t, err syscall.Errno) uintptr {
 	p := Xcalloc(t, 1, types.Size_t(unsafe.Sizeof(fts.FTSENT{})))
 	if p == 0 {
@@ -1449,32 +1420,6 @@ func Xclosedir(t *TLS, dir uintptr) int32 {
 	return r
 }
 
-// DIR *opendir(const char *name);
-func Xopendir(t *TLS, name uintptr) uintptr {
-	p := Xmalloc(t, uint64(unsafe.Sizeof(darwinDir{})))
-	if p == 0 {
-		panic("OOM")
-	}
-
-	fd := int(Xopen(t, name, fcntl.O_RDONLY|fcntl.O_DIRECTORY|fcntl.O_CLOEXEC, 0))
-	if fd < 0 {
-		if dmesgs {
-			dmesg("%v: FAIL %v", origin(1), (*darwinDir)(unsafe.Pointer(p)).fd)
-		}
-		Xfree(t, p)
-		return 0
-	}
-
-	if dmesgs {
-		dmesg("%v: ok", origin(1))
-	}
-	(*darwinDir)(unsafe.Pointer(p)).fd = fd
-	(*darwinDir)(unsafe.Pointer(p)).h = 0
-	(*darwinDir)(unsafe.Pointer(p)).l = 0
-	(*darwinDir)(unsafe.Pointer(p)).eof = false
-	return p
-}
-
 // int __xuname(int namesize, void *namebuf)
 func X__xuname(t *TLS, namesize int32, namebuf uintptr) int32 {
 	return Xuname(t, namebuf)
@@ -1630,4 +1575,19 @@ func Xpthread_mutex_init(t *TLS, pMutex, pAttr uintptr) int32 {
 
 	mutexes[pMutex] = newMutex(typ)
 	return 0
+}
+
+// uint16_t __builtin_bswap16 (uint32_t x)
+func Xbswap16(t *TLS, x uint16) uint16 {
+	return X__builtin_bswap16(t, x)
+}
+
+// uint32_t __builtin_bswap32 (uint32_t x)
+func Xbswap32(t *TLS, x uint32) uint32 {
+	return X__builtin_bswap32(t, x)
+}
+
+// uint64_t __builtin_bswap64 (uint64_t x)
+func Xbswap64(t *TLS, x uint64) uint64 {
+	return X__builtin_bswap64(t, x)
 }

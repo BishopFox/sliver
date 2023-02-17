@@ -22,11 +22,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 
-	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/certs"
@@ -34,12 +33,7 @@ import (
 	"github.com/bishopfox/sliver/server/console"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/daemon"
-
 	"github.com/spf13/cobra"
-)
-
-var (
-	sliverServerVersion = fmt.Sprintf("v%s", version.FullVersion())
 )
 
 const (
@@ -57,13 +51,14 @@ const (
 	caTypeFlagStr = "type"
 	loadFlagStr   = "load"
 
+	// console log file name
 	logFileName = "console.log"
 )
 
 // Initialize logging
-func initLogging(appDir string) *os.File {
+func initConsoleLogging(appDir string) *os.File {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	logFile, err := os.OpenFile(path.Join(appDir, "logs", logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+	logFile, err := os.OpenFile(filepath.Join(appDir, "logs", logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 	if err != nil {
 		log.Fatalf("Error opening file: %v", err)
 	}
@@ -99,6 +94,9 @@ func init() {
 	daemonCmd.Flags().BoolP(forceFlagStr, "f", false, "force unpack and overwrite static assets")
 	rootCmd.AddCommand(daemonCmd)
 
+	// Builder
+	rootCmd.AddCommand(initBuilderCmd())
+
 	// Version
 	rootCmd.AddCommand(versionCmd)
 }
@@ -112,7 +110,7 @@ var rootCmd = &cobra.Command{
 		// Root command starts the server normally
 
 		appDir := assets.GetRootAppDir()
-		logFile := initLogging(appDir)
+		logFile := initConsoleLogging(appDir)
 		defer logFile.Close()
 
 		defer func() {
@@ -132,6 +130,7 @@ var rootCmd = &cobra.Command{
 
 		serverConfig := configs.GetServerConfig()
 		c2.StartPersistentJobs(serverConfig)
+		console.StartPersistentJobs(serverConfig)
 		if serverConfig.DaemonMode {
 			daemon.Start(daemon.BlankHost, daemon.BlankPort)
 		} else {

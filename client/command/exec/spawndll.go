@@ -1,11 +1,27 @@
 package exec
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2019  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/console"
@@ -26,7 +42,7 @@ func SpawnDllCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	processName := ctx.Flags.String("process")
 	exportName := ctx.Flags.String("export")
 
-	binData, err := ioutil.ReadFile(binPath)
+	binData, err := os.ReadFile(binPath)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -48,7 +64,7 @@ func SpawnDllCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	ctrl <- true
 	<-ctrl
 
-	hostname := getHostname(session, beacon)
+	hostName := getHostname(session, beacon)
 	if spawndll.Response != nil && spawndll.Response.Async {
 		con.AddBeaconCallback(spawndll.Response.TaskID, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, spawndll)
@@ -56,34 +72,27 @@ func SpawnDllCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			PrintSpawnDll(spawndll, hostname, ctx, con)
+
+			HandleSpawnDLLResponse(spawndll, binPath, hostName, ctx, con)
 		})
 		con.PrintAsyncResponse(spawndll.Response)
 	} else {
-		PrintSpawnDll(spawndll, hostname, ctx, con)
+		HandleSpawnDLLResponse(spawndll, binPath, hostName, ctx, con)
 	}
 }
 
-// PrintSpawnDll - Print the SpawnDll command response
-func PrintSpawnDll(spawndll *sliverpb.SpawnDll, hostname string, ctx *grumble.Context, con *console.SliverConsoleClient) {
+func HandleSpawnDLLResponse(spawndll *sliverpb.SpawnDll, binPath string, hostName string, ctx *grumble.Context, con *console.SliverConsoleClient) {
+	saveLoot := ctx.Flags.Bool("loot")
+	lootName := ctx.Flags.String("name")
+
 	if spawndll.GetResponse().GetErr() != "" {
 		con.PrintErrorf("Failed to spawn dll: %s\n", spawndll.GetResponse().GetErr())
 		return
 	}
 
-	var outFilePath *os.File
-	var err error
-	if ctx.Flags.Bool("save") {
-		outFile := filepath.Base(fmt.Sprintf("%s_%s*.log", ctx.Command.Name, hostname))
-		outFilePath, err = ioutil.TempFile("", outFile)
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return
-		}
-	}
-	con.PrintInfof("Output:\n%s", spawndll.GetResult())
-	if outFilePath != nil {
-		outFilePath.Write([]byte(spawndll.GetResult()))
-		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
+	PrintExecutionOutput(spawndll.GetResult(), ctx.Flags.Bool("save"), ctx.Command.Name, hostName, con)
+
+	if saveLoot {
+		LootExecute([]byte(spawndll.GetResult()), lootName, ctx.Command.Name, binPath, hostName, con)
 	}
 }

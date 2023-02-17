@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/stdlib"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
 	"gorm.io/gorm/clause"
@@ -25,7 +25,8 @@ type Config struct {
 	DriverName           string
 	DSN                  string
 	PreferSimpleProtocol bool
-	Conn                 *sql.DB
+	WithoutReturning     bool
+	Conn                 gorm.ConnPool
 }
 
 func Open(dsn string) gorm.Dialector {
@@ -40,11 +41,17 @@ func (dialector Dialector) Name() string {
 	return "postgres"
 }
 
+var timeZoneMatcher = regexp.MustCompile("(time_zone|TimeZone)=(.*?)($|&| )")
+
 func (dialector Dialector) Initialize(db *gorm.DB) (err error) {
 	// register callbacks
-	callbacks.RegisterDefaultCallbacks(db, &callbacks.Config{
-		WithReturning: true,
-	})
+	if !dialector.WithoutReturning {
+		callbacks.RegisterDefaultCallbacks(db, &callbacks.Config{
+			CreateClauses: []string{"INSERT", "VALUES", "ON CONFLICT", "RETURNING"},
+			UpdateClauses: []string{"UPDATE", "SET", "WHERE", "RETURNING"},
+			DeleteClauses: []string{"DELETE", "FROM", "WHERE", "RETURNING"},
+		})
+	}
 
 	if dialector.Conn != nil {
 		db.ConnPool = dialector.Conn
@@ -58,9 +65,9 @@ func (dialector Dialector) Initialize(db *gorm.DB) (err error) {
 			return
 		}
 		if dialector.Config.PreferSimpleProtocol {
-			config.PreferSimpleProtocol = true
+			config.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 		}
-		result := regexp.MustCompile("(time_zone|TimeZone)=(.*)($|&| )").FindStringSubmatch(dialector.Config.DSN)
+		result := timeZoneMatcher.FindStringSubmatch(dialector.Config.DSN)
 		if len(result) > 2 {
 			config.RuntimeParams["timezone"] = result[2]
 		}
@@ -87,22 +94,54 @@ func (dialector Dialector) BindVarTo(writer clause.Writer, stmt *gorm.Statement,
 }
 
 func (dialector Dialector) QuoteTo(writer clause.Writer, str string) {
-	writer.WriteByte('"')
-	if strings.Contains(str, ".") {
-		for idx, str := range strings.Split(str, ".") {
-			if idx > 0 {
-				writer.WriteString(`."`)
+	var (
+		underQuoted, selfQuoted bool
+		continuousBacktick      int8
+		shiftDelimiter          int8
+	)
+
+	for _, v := range []byte(str) {
+		switch v {
+		case '"':
+			continuousBacktick++
+			if continuousBacktick == 2 {
+				writer.WriteString(`""`)
+				continuousBacktick = 0
 			}
-			writer.WriteString(str)
-			writer.WriteByte('"')
+		case '.':
+			if continuousBacktick > 0 || !selfQuoted {
+				shiftDelimiter = 0
+				underQuoted = false
+				continuousBacktick = 0
+				writer.WriteByte('"')
+			}
+			writer.WriteByte(v)
+			continue
+		default:
+			if shiftDelimiter-continuousBacktick <= 0 && !underQuoted {
+				writer.WriteByte('"')
+				underQuoted = true
+				if selfQuoted = continuousBacktick > 0; selfQuoted {
+					continuousBacktick -= 1
+				}
+			}
+
+			for ; continuousBacktick > 0; continuousBacktick -= 1 {
+				writer.WriteString(`""`)
+			}
+
+			writer.WriteByte(v)
 		}
-	} else {
-		writer.WriteString(str)
-		writer.WriteByte('"')
+		shiftDelimiter++
 	}
+
+	if continuousBacktick > 0 && !selfQuoted {
+		writer.WriteString(`""`)
+	}
+	writer.WriteByte('"')
 }
 
-var numericPlaceholder = regexp.MustCompile("\\$(\\d+)")
+var numericPlaceholder = regexp.MustCompile(`\$(\d+)`)
 
 func (dialector Dialector) Explain(sql string, vars ...interface{}) string {
 	return logger.ExplainSQL(sql, numericPlaceholder, `'`, vars...)
@@ -139,7 +178,7 @@ func (dialector Dialector) DataTypeOf(field *schema.Field) string {
 	case schema.Float:
 		if field.Precision > 0 {
 			if field.Scale > 0 {
-				fmt.Sprintf("numeric(%d, %d)", field.Precision, field.Scale)
+				return fmt.Sprintf("numeric(%d, %d)", field.Precision, field.Scale)
 			}
 			return fmt.Sprintf("numeric(%d)", field.Precision)
 		}
@@ -156,17 +195,51 @@ func (dialector Dialector) DataTypeOf(field *schema.Field) string {
 		return "timestamptz"
 	case schema.Bytes:
 		return "bytea"
+	default:
+		return dialector.getSchemaCustomType(field)
 	}
-
-	return string(field.DataType)
 }
 
-func (dialectopr Dialector) SavePoint(tx *gorm.DB, name string) error {
+func (dialector Dialector) getSchemaCustomType(field *schema.Field) string {
+	sqlType := string(field.DataType)
+
+	if field.AutoIncrement && !strings.Contains(strings.ToLower(sqlType), "serial") {
+		size := field.Size
+		if field.GORMDataType == schema.Uint {
+			size++
+		}
+		switch {
+		case size <= 16:
+			sqlType = "smallserial"
+		case size <= 32:
+			sqlType = "serial"
+		default:
+			sqlType = "bigserial"
+		}
+	}
+
+	return sqlType
+}
+
+func (dialector Dialector) SavePoint(tx *gorm.DB, name string) error {
 	tx.Exec("SAVEPOINT " + name)
 	return nil
 }
 
-func (dialectopr Dialector) RollbackTo(tx *gorm.DB, name string) error {
+func (dialector Dialector) RollbackTo(tx *gorm.DB, name string) error {
 	tx.Exec("ROLLBACK TO SAVEPOINT " + name)
 	return nil
+}
+
+func getSerialDatabaseType(s string) (dbType string, ok bool) {
+	switch s {
+	case "smallserial":
+		return "smallint", true
+	case "serial":
+		return "integer", true
+	case "bigserial":
+		return "bigint", true
+	default:
+		return "", false
+	}
 }

@@ -1,0 +1,29 @@
+I like to keep all my code to 80 columns or less. I have plenty of screen real 
+estate, but enjoy 80 columns so that I can have multiple code windows open side 
+to side and not be plagued by the ugly auto-wrapping of a text editor.
+
+If you don't oblige me, I will fix any patch you submit to abide 80 columns.
+
+Note that this style restriction does not preclude gofmt, but introduces a few
+peculiarities. The first is that gofmt will occasionally add spacing (typically 
+to comments) that ends up going over 80 columns. Either shorten the comment or 
+put it on its own line.
+
+The second and more common hiccup is when a function definition extends beyond 
+80 columns. If one adds line breaks to keep it below 80 columns, gofmt will 
+indent all subsequent lines in a function definition to the same indentation 
+level of the function body. This results in a less-than-ideal separation 
+between function definition and function body. To remedy this, simply add a 
+line break like so:
+
+  func RestackWindowExtra(xu *xgbutil.XUtil, win xproto.Window, stackMode int,
+    sibling xproto.Window, source int) error {
+
+    return ClientEvent(xu, win, "_NET_RESTACK_WINDOW", source, int(sibling),
+      stackMode)
+  }
+
+Something similar should also be applied to long 'if' or 'for' conditionals, 
+although it would probably be preferrable to break up the conditional to 
+smaller chunks with a few helper variables.
+

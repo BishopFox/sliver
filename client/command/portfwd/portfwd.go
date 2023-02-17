@@ -53,7 +53,7 @@ func PrintPortfwd(con *console.SliverConsoleClient) {
 		"Remote Address",
 	})
 	for _, p := range portfwds {
-		tw.AppendHeader(table.Row{
+		tw.AppendRow(table.Row{
 			p.ID,
 			p.SessionID,
 			p.BindAddr,

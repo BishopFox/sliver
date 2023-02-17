@@ -35,8 +35,8 @@ func (rpc *Server) Execute(ctx context.Context, req *sliverpb.ExecuteReq) (*sliv
 	return resp, nil
 }
 
-// ExecuteToken - Execute a remote process with token (windows only)
-func (rpc *Server) ExecuteToken(ctx context.Context, req *sliverpb.ExecuteTokenReq) (*sliverpb.Execute, error) {
+// ExecuteWindows - Execute a remote process with specific options (PPID, Token, windows only)
+func (rpc *Server) ExecuteWindows(ctx context.Context, req *sliverpb.ExecuteWindowsReq) (*sliverpb.Execute, error) {
 	resp := &sliverpb.Execute{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {

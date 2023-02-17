@@ -74,7 +74,7 @@ func (a *OperatorImplantBridge) register() {
 	if err != nil {
 		return
 	}
-	encrypted := util.Encrypt(data, []byte(a.Config.AESKey), nil)
+	encrypted := util.PreludeEncrypt(data, []byte(a.Config.AESKey), nil)
 	dataBuff := append([]byte(fmt.Sprintf("%x", encrypted)), "\n"...)
 	(*a.Conn).Write(dataBuff)
 }
@@ -84,7 +84,7 @@ func (a *OperatorImplantBridge) ReceiveLoop() {
 	go func() {
 		for {
 			data := <-a.send
-			encrypted := util.Encrypt(data, []byte(a.Config.AESKey), nil)
+			encrypted := util.PreludeEncrypt(data, []byte(a.Config.AESKey), nil)
 			dataBuff := append([]byte(fmt.Sprintf("%x", encrypted)), "\n"...)
 			(*a.Conn).Write(dataBuff)
 			time.Sleep(time.Duration(a.PBeacon.Sleep))
@@ -105,7 +105,7 @@ func (a *OperatorImplantBridge) handleMessage(message string) {
 	if err != nil {
 		return
 	}
-	if err := json.Unmarshal(util.Decrypt(decoded, []byte(a.Config.AESKey)), &tempBeacon); err == nil {
+	if err := json.Unmarshal(util.PreludeDecrypt(decoded, []byte(a.Config.AESKey)), &tempBeacon); err == nil {
 		a.PBeacon.Links = a.PBeacon.Links[:0]
 		a.runLinks(&tempBeacon)
 	}

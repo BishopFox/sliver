@@ -20,7 +20,6 @@ package cli
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -87,7 +86,7 @@ var operatorCmd = &cobra.Command{
 			filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(name), filepath.Base(lhost))
 			saveTo = filepath.Join(saveTo, filename)
 		}
-		err = ioutil.WriteFile(saveTo, configJSON, 0600)
+		err = os.WriteFile(saveTo, configJSON, 0600)
 		if err != nil {
 			fmt.Printf("Write failed: %s (%s)\n", saveTo, err)
 			os.Exit(1)

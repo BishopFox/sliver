@@ -80,6 +80,9 @@ func New(c *Config) (a *App) {
 		printCommandHelp: defaultPrintCommandHelp,
 		interruptHandler: defaultInterruptHandler,
 	}
+	if c.InterruptHandler != nil {
+		a.interruptHandler = c.InterruptHandler
+	}
 
 	// Register the builtin flags.
 	a.flags.Bool("h", "help", false, "display help")
@@ -118,6 +121,7 @@ func (a *App) Config() *Config {
 }
 
 // Commands returns the app's commands.
+// Access is not thread-safe. Only access during command execution.
 func (a *App) Commands() *Commands {
 	return &a.commands
 }
@@ -277,7 +281,20 @@ func (a *App) RunCommand(args []string) error {
 // Run the application and parse the command line arguments.
 // This method blocks.
 func (a *App) Run() (err error) {
+	// Create the readline instance.
+	config := &readline.Config{}
+	a.setReadlineDefaults(config)
+	rl, err := readline.NewEx(config)
+	if err != nil {
+		return err
+	}
+	return a.RunWithReadline(rl)
+}
+
+func (a *App) RunWithReadline(rl *readline.Instance) (err error) {
 	defer a.Close()
+
+	a.setReadlineDefaults(rl.Config)
 
 	// Sort all commands by their name.
 	a.commands.SortRecursive()
@@ -323,12 +340,37 @@ func (a *App) Run() (err error) {
 			a.printCommandHelp(a, cmd, a.isShell)
 			return nil
 		},
+		isBuiltin: true,
 	}, false)
 
 	// Check if help should be displayed.
 	if a.flagMap.Bool("help") {
 		a.printHelp(a, false)
 		return nil
+	}
+
+	// Add shell builtin commands.
+	// Ensure to add all commands before running the init hook.
+	// If the init hook does something with the app commands, then these should also be included.
+	if a.isShell {
+		a.AddCommand(&Command{
+			Name: "exit",
+			Help: "exit the shell",
+			Run: func(c *Context) error {
+				c.Stop()
+				return nil
+			},
+			isBuiltin: true,
+		})
+		a.AddCommand(&Command{
+			Name: "clear",
+			Help: "clear the screen",
+			Run: func(c *Context) error {
+				readline.ClearScreen(a.rl)
+				return nil
+			},
+			isBuiltin: true,
+		})
 	}
 
 	// Run the init hook.
@@ -344,36 +386,8 @@ func (a *App) Run() (err error) {
 		return a.RunCommand(args)
 	}
 
-	// Add shell builtin commands.
-	a.AddCommand(&Command{
-		Name: "exit",
-		Help: "exit the shell",
-		Run: func(c *Context) error {
-			c.Stop()
-			return nil
-		},
-	})
-	a.AddCommand(&Command{
-		Name: "clear",
-		Help: "clear the screen",
-		Run: func(c *Context) error {
-			readline.ClearScreen(a.rl)
-			return nil
-		},
-	})
-
-	// Create the readline instance.
-	a.rl, err = readline.NewEx(&readline.Config{
-		Prompt:                 a.currentPrompt,
-		HistorySearchFold:      true, // enable case-insensitive history searching
-		DisableAutoSaveHistory: true,
-		HistoryFile:            a.config.HistoryFile,
-		HistoryLimit:           a.config.HistoryLimit,
-		AutoComplete:           newCompleter(&a.commands),
-	})
-	if err != nil {
-		return err
-	}
+	// Assign readline instance
+	a.rl = rl
 	a.OnClose(a.rl.Close)
 
 	// Run the shell hook.
@@ -391,6 +405,16 @@ func (a *App) Run() (err error) {
 
 	// Run the shell.
 	return a.runShell()
+}
+
+func (a *App) setReadlineDefaults(config *readline.Config) {
+	config.Prompt = a.currentPrompt
+	config.HistorySearchFold = true
+	config.DisableAutoSaveHistory = true
+	config.HistoryFile = a.config.HistoryFile
+	config.HistoryLimit = a.config.HistoryLimit
+	config.AutoComplete = newCompleter(&a.commands)
+	config.VimMode = a.config.VimMode
 }
 
 func (a *App) runShell() error {
@@ -461,7 +485,13 @@ Loop:
 		err = a.RunCommand(args)
 		if err != nil {
 			a.PrintError(err)
-			continue Loop
+			// Do not continue the Loop here. We want to handle command changes below.
+		}
+
+		// Sort the commands again if they have changed (Add or remove action).
+		if a.commands.hasChanged() {
+			a.commands.SortRecursive()
+			a.commands.unsetChanged()
 		}
 	}
 

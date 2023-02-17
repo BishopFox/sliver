@@ -96,24 +96,32 @@ func (rs rowsSorter) Less(i, j int) bool {
 	for _, col := range rs.sortBy {
 		rowI, rowJ, colIdx := rs.rows[realI], rs.rows[realJ], col.Number-1
 		if colIdx < len(rowI) && colIdx < len(rowJ) {
-			if rowI[colIdx] == rowJ[colIdx] {
-				continue
-			} else if col.Mode == Asc {
-				return rowI[colIdx] < rowJ[colIdx]
-			} else if col.Mode == Dsc {
-				return rowI[colIdx] > rowJ[colIdx]
-			}
-
-			iVal, iErr := strconv.ParseFloat(rowI[colIdx], 64)
-			jVal, jErr := strconv.ParseFloat(rowJ[colIdx], 64)
-			if iErr == nil && jErr == nil {
-				if col.Mode == AscNumeric {
-					return iVal < jVal
-				} else if col.Mode == DscNumeric {
-					return jVal < iVal
-				}
+			shouldContinue, returnValue := rs.lessColumns(rowI, rowJ, colIdx, col)
+			if !shouldContinue {
+				return returnValue
 			}
 		}
 	}
 	return false
+}
+
+func (rs rowsSorter) lessColumns(rowI rowStr, rowJ rowStr, colIdx int, col SortBy) (bool, bool) {
+	if rowI[colIdx] == rowJ[colIdx] {
+		return true, false
+	} else if col.Mode == Asc {
+		return false, rowI[colIdx] < rowJ[colIdx]
+	} else if col.Mode == Dsc {
+		return false, rowI[colIdx] > rowJ[colIdx]
+	}
+
+	iVal, iErr := strconv.ParseFloat(rowI[colIdx], 64)
+	jVal, jErr := strconv.ParseFloat(rowJ[colIdx], 64)
+	if iErr == nil && jErr == nil {
+		if col.Mode == AscNumeric {
+			return false, iVal < jVal
+		} else if col.Mode == DscNumeric {
+			return false, jVal < iVal
+		}
+	}
+	return true, false
 }

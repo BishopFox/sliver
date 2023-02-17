@@ -97,6 +97,8 @@ func prettyState(state string) string {
 		return console.Bold + console.Orange + state + console.Normal
 	case "completed":
 		return console.Bold + console.Green + state + console.Normal
+	case "canceled":
+		return console.Bold + console.Gray + state + console.Normal
 	default:
 		return state
 	}

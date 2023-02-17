@@ -22,12 +22,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -141,7 +141,7 @@ func LoadAlias(manifestPath string, con *console.SliverConsoleClient) (*AliasMan
 	}
 
 	// parse it
-	data, err := ioutil.ReadFile(manifestPath)
+	data, err := os.ReadFile(manifestPath)
 	if err != nil {
 		return nil, err
 	}
@@ -177,8 +177,15 @@ func LoadAlias(manifestPath string, con *console.SliverConsoleClient) (*AliasMan
 				f.String("c", "class", "", "Optional class name (required for .NET DLL)")
 				f.String("d", "app-domain", "", "AppDomain name to create for .NET assembly. Generated randomly if not set.")
 				f.String("a", "arch", "x84", "Assembly target architecture: x86, x64, x84 (x86+x64)")
+				f.Bool("i", "in-process", false, "Run in the current sliver process")
+				f.String("r", "runtime", "", "Runtime to use for running the assembly (only supported when used with --in-process)")
+				f.Bool("M", "amsi-bypass", false, "Bypass AMSI on Windows (only supported when used with --in-process)")
+				f.Bool("E", "etw-bypass", false, "Bypass ETW on Windows (only supported when used with --in-process)")
+
 			}
 			f.String("p", "process", "", "Path to process to host the shared object")
+			f.String("A", "process-arguments", "", "arguments to pass to the hosting process")
+			f.Uint("P", "ppid", 0, "parent process ID to use when creating the hosting process (Windows only)")
 			f.Bool("s", "save", false, "Save output to disk")
 
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
@@ -269,7 +276,34 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	} else {
 		extArgs = strings.Join(args, " ")
 	}
+
+	extArgs = strings.TrimSpace(extArgs)
 	entryPoint := aliasManifest.Entrypoint
+	processArgsStr := ctx.Flags.String("process-arguments")
+	// Special case for payloads with pass to Donut (.NET assemblies and sideloaded payloads):
+	// The Donut loader has a hard limit of 256 characters for the command line arguments, so
+	// we're alerting the user that the arguments will be truncated.
+	if len(extArgs) > 256 && (aliasManifest.IsAssembly || !aliasManifest.IsReflective) {
+		msgStr := ""
+		// The --in-process flag only exists for .NET assemblies (aliasManifest.IsAssembly == true).
+		// Groupping the two conditions together could crash the client since ctx.Flags.Type panics
+		// if the flag is not registered.
+		if aliasManifest.IsAssembly {
+			if !ctx.Flags.Bool("in-process") {
+				msgStr = " Arguments are limited to 256 characters when using the default fork/exec model for .NET assemblies.\nConsider using the --in-process flag to execute .NET assemblies in-process and work around this limitation.\n"
+			}
+		} else if !aliasManifest.IsReflective {
+			msgStr = " Arguments are limited to 256 characters when using the default fork/exec model for non-reflective PE payloads.\n"
+		}
+		con.PrintWarnf(msgStr)
+		confirm := false
+		prompt := &survey.Confirm{Message: "Do you want to continue?"}
+		survey.AskOne(prompt, &confirm, nil)
+		if !confirm {
+			return
+		}
+	}
+	processArgs := strings.Split(processArgsStr, " ")
 	processName := ctx.Flags.String("process")
 	if processName == "" {
 		processName, err = aliasManifest.getDefaultProcess(goos)
@@ -282,7 +316,7 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if strings.ToLower(filepath.Ext(binPath)) == ".dll" {
 		isDLL = true
 	}
-	binData, err := ioutil.ReadFile(binPath)
+	binData, err := os.ReadFile(binPath)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -290,7 +324,7 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	var outFilePath *os.File
 	if ctx.Flags.Bool("save") {
 		outFile := filepath.Base(fmt.Sprintf("%s_%s*.log", filepath.Base(ctx.Command.Name), filepath.Base(session.GetHostname())))
-		outFilePath, err = ioutil.TempFile("", outFile)
+		outFilePath, err = os.CreateTemp("", outFile)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
@@ -304,15 +338,21 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		msg := fmt.Sprintf("Executing %s %s ...", ctx.Command.Name, extArgs)
 		con.SpinUntil(msg, ctrl)
 		executeAssemblyResp, err := con.Rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
-			Request:   con.ActiveTarget.Request(ctx),
-			IsDLL:     isDLL,
-			Process:   processName,
-			Arguments: extArgs,
-			Assembly:  binData,
-			Arch:      ctx.Flags.String("arch"),
-			Method:    ctx.Flags.String("method"),
-			ClassName: ctx.Flags.String("class"),
-			AppDomain: ctx.Flags.String("app-domain"),
+			Request:     con.ActiveTarget.Request(ctx),
+			IsDLL:       isDLL,
+			Process:     processName,
+			Arguments:   extArgs,
+			Assembly:    binData,
+			Arch:        ctx.Flags.String("arch"),
+			Method:      ctx.Flags.String("method"),
+			ClassName:   ctx.Flags.String("class"),
+			AppDomain:   ctx.Flags.String("app-domain"),
+			ProcessArgs: processArgs,
+			PPid:        uint32(ctx.Flags.Uint("ppid")),
+			InProcess:   ctx.Flags.Bool("in-process"),
+			Runtime:     ctx.Flags.String("runtime"),
+			AmsiBypass:  ctx.Flags.Bool("amsi-bypass"),
+			EtwBypass:   ctx.Flags.Bool("etw-bypass"),
 		})
 		ctrl <- true
 		<-ctrl
@@ -348,6 +388,8 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			ProcessName: processName,
 			EntryPoint:  aliasManifest.Entrypoint,
 			Kill:        true,
+			ProcessArgs: processArgs,
+			PPid:        uint32(ctx.Flags.Uint("ppid")),
 		})
 		ctrl <- true
 		<-ctrl
@@ -384,6 +426,8 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			ProcessName: processName,
 			Kill:        true,
 			IsDLL:       isDLL,
+			ProcessArgs: processArgs,
+			PPid:        uint32(ctx.Flags.Uint("ppid")),
 		})
 		ctrl <- true
 		<-ctrl

@@ -1,12 +1,5 @@
 package encoders
 
-import (
-	"bytes"
-	"testing"
-
-	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -24,6 +17,13 @@ import (
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+import (
+	"bytes"
+	"testing"
+
+	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
+)
 
 func TestHex(t *testing.T) {
 	sample := randomData()
@@ -51,8 +51,8 @@ func TestHex(t *testing.T) {
 	}
 
 	// Interoperability
-	if bytes.Compare(output, output2) != 0 {
-		t.Errorf("impant encoder does not match server-side encoder %s", err)
+	if !bytes.Equal(output, output2) {
+		t.Errorf("implant encoder does not match server-side encoder %s", err)
 	}
 
 	data3, err := implantHex.Decode(output)

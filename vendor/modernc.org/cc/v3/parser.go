@@ -3162,28 +3162,49 @@ func (p *parser) designator(acceptCol bool) (*Designator, bool) {
 // 	iteration-statement
 // 	jump-statement
 //	asm-statement
-func (p *parser) statement() *Statement {
-	switch p.rune() {
-	case IDENTIFIER:
-		if p.peek(false) == ':' {
-			return &Statement{Case: StatementLabeled, LabeledStatement: p.labeledStatement()}
+func (p *parser) statement() (r *Statement) {
+	var r0 *Statement
+	var prevLS, ls *LabeledStatement
+
+	defer func() {
+		if ls != nil {
+			ls.Statement = r
+			r = r0
+		}
+	}()
+
+	for {
+		switch p.rune() {
+		case IDENTIFIER:
+			switch {
+			case p.peek(false) == ':':
+				ls = p.labeledStatement()
+			default:
+				return &Statement{Case: StatementExpr, ExpressionStatement: p.expressionStatement()}
+			}
+		case '{':
+			return &Statement{Case: StatementCompound, CompoundStatement: p.compoundStatement(nil, nil)}
+		case IF, SWITCH:
+			return &Statement{Case: StatementSelection, SelectionStatement: p.selectionStatement()}
+		case WHILE, DO, FOR:
+			return &Statement{Case: StatementIteration, IterationStatement: p.iterationStatement()}
+		case GOTO, BREAK, CONTINUE, RETURN:
+			return &Statement{Case: StatementJump, JumpStatement: p.jumpStatement()}
+		case CASE, DEFAULT:
+			ls = p.labeledStatement()
+		case ASM:
+			return &Statement{Case: StatementAsm, AsmStatement: p.asmStatement()}
+		default:
+			return &Statement{Case: StatementExpr, ExpressionStatement: p.expressionStatement()}
 		}
 
-		return &Statement{Case: StatementExpr, ExpressionStatement: p.expressionStatement()}
-	case '{':
-		return &Statement{Case: StatementCompound, CompoundStatement: p.compoundStatement(nil, nil)}
-	case IF, SWITCH:
-		return &Statement{Case: StatementSelection, SelectionStatement: p.selectionStatement()}
-	case WHILE, DO, FOR:
-		return &Statement{Case: StatementIteration, IterationStatement: p.iterationStatement()}
-	case GOTO, BREAK, CONTINUE, RETURN:
-		return &Statement{Case: StatementJump, JumpStatement: p.jumpStatement()}
-	case CASE, DEFAULT:
-		return &Statement{Case: StatementLabeled, LabeledStatement: p.labeledStatement()}
-	case ASM:
-		return &Statement{Case: StatementAsm, AsmStatement: p.asmStatement()}
-	default:
-		return &Statement{Case: StatementExpr, ExpressionStatement: p.expressionStatement()}
+		switch {
+		case r0 == nil:
+			r0 = &Statement{Case: StatementLabeled, LabeledStatement: ls}
+		default:
+			prevLS.Statement = &Statement{Case: StatementLabeled, LabeledStatement: ls}
+		}
+		prevLS = ls
 	}
 }
 
@@ -3220,7 +3241,7 @@ func (p *parser) labeledStatement() (r *LabeledStatement) {
 		p.block.hasLabel()
 		r = &LabeledStatement{
 			Case: LabeledStatementLabel, Token: t, Token2: t2, AttributeSpecifierList: attr,
-			Statement: p.statement(), lexicalScope: p.declScope, block: p.block,
+			lexicalScope: p.declScope, block: p.block,
 		}
 		p.declScope.declare(t.Value, r)
 		return r
@@ -3246,8 +3267,7 @@ func (p *parser) labeledStatement() (r *LabeledStatement) {
 			return &LabeledStatement{
 				Case: LabeledStatementRange, Token: t, ConstantExpression: e,
 				Token2: t2, ConstantExpression2: e2, Token3: t3,
-				Statement: p.statement(), lexicalScope: p.declScope,
-				block: p.block,
+				lexicalScope: p.declScope, block: p.block,
 			}
 		case ':':
 			t2 = p.shift()
@@ -3256,8 +3276,7 @@ func (p *parser) labeledStatement() (r *LabeledStatement) {
 		}
 		return &LabeledStatement{
 			Case: LabeledStatementCaseLabel, Token: t, ConstantExpression: e,
-			Token2: t2, Statement: p.statement(), lexicalScope: p.declScope,
-			block: p.block,
+			Token2: t2, lexicalScope: p.declScope, block: p.block,
 		}
 	case DEFAULT:
 		if p.switches == 0 {
@@ -3271,12 +3290,12 @@ func (p *parser) labeledStatement() (r *LabeledStatement) {
 			p.err("expected :")
 		}
 		return &LabeledStatement{
-			Case: LabeledStatementDefault, Token: t, Token2: t2, Statement: p.statement(),
+			Case: LabeledStatementDefault, Token: t, Token2: t2,
 			lexicalScope: p.declScope, block: p.block,
 		}
 	default:
 		p.err("expected labeled-statement")
-		return nil
+		return &LabeledStatement{}
 	}
 }
 

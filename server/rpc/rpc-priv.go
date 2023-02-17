@@ -20,13 +20,15 @@ package rpc
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"path"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/generate"
 
 	"google.golang.org/protobuf/proto"
@@ -81,22 +83,27 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	}
 
 	name := path.Base(req.Config.GetName())
-	shellcode, err := getSliverShellcode(name)
+	shellcode, _, err := getSliverShellcode(name)
 	if err != nil {
 		name, config := generate.ImplantConfigFromProtobuf(req.Config)
 		if name == "" {
-			name, err = generate.GetCodename()
+			name, err = codenames.GetCodename()
 			if err != nil {
 				return nil, err
 			}
 		}
 		config.Format = clientpb.OutputFormat_SHELLCODE
 		config.ObfuscateSymbols = false
-		shellcodePath, err := generate.SliverShellcode(name, config)
+		otpSecret, _ := cryptography.TOTPServerSecret()
+		err = generate.GenerateConfig(name, config, true)
 		if err != nil {
 			return nil, err
 		}
-		shellcode, _ = ioutil.ReadFile(shellcodePath)
+		shellcodePath, err := generate.SliverShellcode(name, otpSecret, config, true)
+		if err != nil {
+			return nil, err
+		}
+		shellcode, _ = os.ReadFile(shellcodePath)
 	}
 	data, err := proto.Marshal(&sliverpb.InvokeGetSystemReq{
 		Data:           shellcode,

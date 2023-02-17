@@ -61,6 +61,8 @@ func ShellCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *console.SliverConsoleClient) {
+	con.Println()
+	con.PrintInfof("Wait approximately 10 seconds after exit, and press <enter> to continue\n")
 	con.PrintInfof("Opening shell tunnel (EOF to exit) ...\n\n")
 	session := con.ActiveTarget.GetSession()
 	if session == nil {
@@ -68,9 +70,12 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *con
 	}
 
 	// Create an RPC tunnel, then start it before binding the shell to the newly created tunnel
-	rpcTunnel, err := con.Rpc.CreateTunnel(context.Background(), &sliverpb.Tunnel{
+	ctxTunnel, cancelTunnel := context.WithCancel(context.Background())
+
+	rpcTunnel, err := con.Rpc.CreateTunnel(ctxTunnel, &sliverpb.Tunnel{
 		SessionID: session.ID,
 	})
+	defer cancelTunnel()
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -78,7 +83,7 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *con
 	log.Printf("Created new tunnel with id: %d, binding to shell ...", rpcTunnel.TunnelID)
 
 	// Start() takes an RPC tunnel and creates a local Reader/Writer tunnel object
-	tunnel := core.Tunnels.Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
+	tunnel := core.GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
 
 	shell, err := con.Rpc.Shell(context.Background(), &sliverpb.ShellReq{
 		Request:   con.ActiveTarget.Request(ctx),
@@ -90,6 +95,19 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *con
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	//
+	if shell.Response != nil && shell.Response.Err != "" {
+		con.PrintErrorf("Error: %s\n", shell.Response.Err)
+		_, err = con.Rpc.CloseTunnel(context.Background(), &sliverpb.Tunnel{
+			TunnelID:  tunnel.ID,
+			SessionID: session.ID,
+		})
+		if err != nil {
+			con.PrintErrorf("RPC Error: %s\n", err)
+		}
+		return
+	}
+	defer tunnel.Close()
 	log.Printf("Bound remote shell pid %d to tunnel %d", shell.Pid, shell.TunnelID)
 	con.PrintInfof("Started remote shell with pid %d\n\n", shell.Pid)
 

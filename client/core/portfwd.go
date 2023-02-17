@@ -1,7 +1,26 @@
 package core
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2022  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"net"
@@ -116,7 +135,7 @@ func (p *ChannelProxy) HandleConn(conn net.Conn) {
 	}
 	tunnel, err := p.dialImplant(ctx)
 	if cancel != nil {
-		cancel()
+		defer cancel()
 	}
 	if err != nil {
 		return
@@ -124,8 +143,8 @@ func (p *ChannelProxy) HandleConn(conn net.Conn) {
 
 	// Cleanup
 	defer func() {
-		go conn.Close()
-		Tunnels.Close(tunnel.ID)
+		conn.Close()
+		GetTunnels().Close(tunnel.ID)
 	}()
 
 	errs := make(chan error, 1)
@@ -172,7 +191,7 @@ func (p *ChannelProxy) Host() string {
 	return host
 }
 
-func (p *ChannelProxy) dialImplant(ctx context.Context) (*Tunnel, error) {
+func (p *ChannelProxy) dialImplant(ctx context.Context) (*TunnelIO, error) {
 
 	log.Printf("[tcpproxy] Dialing implant to create tunnel ...")
 
@@ -184,8 +203,9 @@ func (p *ChannelProxy) dialImplant(ctx context.Context) (*Tunnel, error) {
 		log.Printf("[tcpproxy] Failed to dial implant %s", err)
 		return nil, err
 	}
+
 	log.Printf("[tcpproxy] Created new tunnel with id %d (session %s)", rpcTunnel.TunnelID, p.Session.ID)
-	tunnel := Tunnels.Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
+	tunnel := GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
 
 	log.Printf("[tcpproxy] Binding tunnel to portfwd %d", p.Port())
 	portfwdResp, err := p.Rpc.Portfwd(ctx, &sliverpb.PortfwdReq{
@@ -199,6 +219,14 @@ func (p *ChannelProxy) dialImplant(ctx context.Context) (*Tunnel, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	// Close tunnel in case of error on the implant side
+	if portfwdResp.Response != nil && portfwdResp.Response.Err != "" {
+		p.Rpc.CloseTunnel(ctx, &sliverpb.Tunnel{
+			TunnelID:  tunnel.ID,
+			SessionID: p.Session.ID,
+		})
+		return nil, errors.New(portfwdResp.Response.Err)
 	}
 	log.Printf("Portfwd response: %v", portfwdResp)
 
@@ -219,7 +247,7 @@ func (p *ChannelProxy) dialTimeout() time.Duration {
 	return 30 * time.Second
 }
 
-func toImplantLoop(conn net.Conn, tunnel *Tunnel, errs chan<- error) {
+func toImplantLoop(conn net.Conn, tunnel *TunnelIO, errs chan<- error) {
 	if wc, ok := conn.(*tcpproxy.Conn); ok && len(wc.Peeked) > 0 {
 		if _, err := tunnel.Write(wc.Peeked); err != nil {
 			errs <- err
@@ -232,7 +260,7 @@ func toImplantLoop(conn net.Conn, tunnel *Tunnel, errs chan<- error) {
 	errs <- err
 }
 
-func fromImplantLoop(conn net.Conn, tunnel *Tunnel, errs chan<- error) {
+func fromImplantLoop(conn net.Conn, tunnel *TunnelIO, errs chan<- error) {
 	n, err := io.Copy(conn, tunnel)
 	log.Printf("[tcpproxy] Closing from-implant after %d byte(s)", n)
 	errs <- err

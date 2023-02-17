@@ -23,101 +23,314 @@ import (
 	"fmt"
 	insecureRand "math/rand"
 	"strings"
+
+	"github.com/bishopfox/sliver/server/codenames"
 )
 
 var (
-	// State -> Localities -> Street Addresses
-	states = map[string]map[string][]string{
-		"": {
-			"": {""},
+	// Finally found a good use for Github Co-Pilot!
+	// Country -> State -> Localities -> Street Addresses
+	subjects = map[string]map[string]map[string][]string{
+		"US": {
+			"": {
+				"": {
+					"",
+				},
+			},
+			"Arizona": {
+				"Phoenix":    {""},
+				"Mesa":       {""},
+				"Scottsdale": {""},
+				"Chandler":   {""},
+			},
+			"California": {
+				"San Francisco": {"", "", "Golden Gate"},
+				"Oakland":       {""},
+				"Berkeley":      {""},
+				"Palo Alto":     {""},
+				"Los Angeles":   {""},
+				"San Diego":     {""},
+				"San Jose":      {""},
+				"Sunnyvale":     {""},
+				"Santa Clara":   {""},
+				"Mountain View": {""},
+				"San Mateo":     {""},
+				"Redwood City":  {""},
+				"Menlo Park":    {""},
+				"San Bruno":     {""},
+				"San Carlos":    {""},
+				"San Leandro":   {""},
+				"San Rafael":    {""},
+				"San Ramon":     {""},
+				"Santa Monica":  {""},
+				"Santa Rosa":    {""},
+				"South San Francisco": {
+					"",
+				},
+			},
+			"Colorado": {
+				"Denver":       {""},
+				"Boulder":      {""},
+				"Aurora":       {""},
+				"Fort Collins": {""},
+			},
+			"Connecticut": {
+				"New Haven":  {""},
+				"Bridgeport": {""},
+				"Stamford":   {""},
+				"Norwalk":    {""},
+			},
+			"Washington": {
+				"Seattle": {""},
+				"Tacoma":  {""},
+				"Olympia": {""},
+				"Spokane": {""},
+			},
+			"Florida": {
+				"Miami":        {""},
+				"Orlando":      {""},
+				"Tampa":        {""},
+				"Jacksonville": {""},
+			},
+			"Illinois": {
+				"Chicago":    {""},
+				"Aurora":     {""},
+				"Naperville": {""},
+				"Peoria":     {""},
+			},
+			"Indiana": {
+				"Indianapolis": {""},
+				"Fort Wayne":   {""},
+				"Evansville":   {""},
+				"South Bend":   {""},
+			},
+			"Massachusetts": {
+				"Boston": {""},
+				"Worcester": {
+					"",
+					"Polytechnic Institute",
+				},
+				"Springfield": {""},
+				"Lowell":      {""},
+			},
+			"Michigan": {
+				"Detroit": {""},
+				"Grand Rapids": {
+					"",
+					"State University",
+				},
+				"Warren": {""},
+				"Sterling Heights": {
+					"",
+					"Community College",
+				},
+			},
+			"Minnesota": {
+				"Minneapolis": {""},
+				"Saint Paul":  {""},
+				"Bloomington": {""},
+				"Plymouth":    {""},
+			},
+			"New Jersey": {
+				"Newark": {""},
+				"Jersey City": {
+					"",
+					"Institute of Technology",
+				},
+				"Paterson": {""},
+				"Elizabeth": {
+					"",
+					"Princeton",
+				},
+			},
+			"New York": {
+				"New York": {""},
+				"Buffalo":  {""},
+				"Rochester": {
+					"",
+					"University",
+				},
+				"Yonkers": {""},
+			},
+			"North Carolina": {
+				"Charlotte": {""},
+				"Raleigh":   {""},
+				"Greensboro": {
+					"",
+					"University",
+				},
+				"Winston-Salem": {""},
+			},
+			"Ohio": {
+				"Columbus": {""},
+				"Cleveland": {
+					"",
+					"State University",
+				},
+				"Cincinnati": {""},
+				"Toledo":     {""},
+			},
 		},
-		"Arizona": {
-			"Phoenix":    {""},
-			"Mesa":       {""},
-			"Scottsdale": {""},
-			"Chandler":   {""},
+		"CA": {
+			"": {
+				"": {
+					"",
+				},
+			},
+			"Alberta": {
+				"Calgary": {""},
+				"Edmonton": {
+					"",
+					"University",
+				},
+				"Red Deer": {""},
+				"Fort McMurray": {
+					"",
+					"University",
+				},
+			},
+			"British Columbia": {
+				"Vancouver": {""},
+				"Victoria":  {""},
+				"Kelowna":   {""},
+				"Richmond":  {""},
+			},
+			"Manitoba": {
+				"Winnipeg": {""},
+				"Brandon":  {""},
+				"Thompson": {""},
+				"Portage la Prairie": {
+					"",
+					"University",
+				},
+			},
+			"New Brunswick": {
+				"Fredericton": {""},
+				"Moncton":     {""},
+				"Saint John":  {""},
+				"Dieppe":      {""},
+			},
+			"Newfoundland and Labrador": {
+				"St. John's": {""},
+				"Mount Pearl": {
+					"",
+					"College",
+				},
+				"Conception Bay South": {""},
+				"Paradise": {
+					"",
+					"College",
+				},
+			},
 		},
-		"California": {
-			"San Francisco": {"", "Golden Gate Bridge"},
-			"Oakland":       {""},
-			"Berkeley":      {""},
-			"Palo Alto":     {""},
-			"Los Angeles":   {""},
-			"San Diego":     {""},
-			"San Jose":      {""},
-		},
-		"Colorado": {
-			"Denver":       {""},
-			"Boulder":      {""},
-			"Aurora":       {""},
-			"Fort Collins": {""},
-		},
-		"Connecticut": {
-			"New Haven":  {""},
-			"Bridgeport": {""},
-			"Stamford":   {""},
-			"Norwalk":    {""},
-		},
-		"Washington": {
-			"Seattle": {""},
-			"Tacoma":  {""},
-			"Olympia": {""},
-			"Spokane": {""},
-		},
-		"Florida": {
-			"Miami":        {""},
-			"Orlando":      {""},
-			"Tampa":        {""},
-			"Jacksonville": {""},
-		},
-		"Illinois": {
-			"Chicago":    {""},
-			"Aurora":     {""},
-			"Naperville": {""},
-			"Peoria":     {""},
+		"JP": {
+			"": {
+				"": {
+					"",
+				},
+			},
+			"Aichi": {
+				"Nagoya": {""},
+				"Kasugai": {
+					"",
+					"University",
+				},
+				"Okazaki": {""},
+				"Handa":   {""},
+			},
+			"Chiba": {
+				"Chiba": {""},
+				"Kashiwa": {
+					"",
+					"University",
+				},
+				"Funabashi": {""},
+				"Kimitsu":   {""},
+			},
 		},
 	}
 )
 
 func randomSubject(commonName string) *pkix.Name {
-	province, locale, street := randomProvinceLocalityStreetAddress()
+	country, province, locale, street := randomProvinceLocalityStreetAddress()
 	return &pkix.Name{
 		Organization:  randomOrganization(),
-		Country:       []string{"US"},
+		Country:       country,
 		Province:      province,
 		Locality:      locale,
 		StreetAddress: street,
-		PostalCode:    randomPostalCode(),
+		PostalCode:    randomPostalCode(country),
 		CommonName:    commonName,
 	}
 }
 
-func randomPostalCode() []string {
-	switch insecureRand.Intn(1) {
-	case 0:
-		return []string{fmt.Sprintf("%d", insecureRand.Intn(8000)+1000)}
-	default:
+func randomPostalCode(country []string) []string {
+	// 1 in `n` will include a postal code
+	// From my cursory view of a few TLS certs it seems uncommon to include this
+	// in the distinguished name so right now it's set to 1/5
+	const postalProbability = 5
+
+	if len(country) == 0 {
 		return []string{}
 	}
+	switch country[0] {
+
+	case "US":
+		// American postal codes are 5 digits
+		switch insecureRand.Intn(postalProbability) {
+		case 0:
+			return []string{fmt.Sprintf("%05d", insecureRand.Intn(90000)+1000)}
+		default:
+			return []string{}
+		}
+
+	case "CA":
+		// Canadian postal codes are weird and include letter/number combo's
+		letters := "ABHLMNKGJPRSTVYX"
+		switch insecureRand.Intn(postalProbability) {
+		case 0:
+			letter1 := string(letters[insecureRand.Intn(len(letters))])
+			letter2 := string(letters[insecureRand.Intn(len(letters))])
+			if insecureRand.Intn(2) == 0 {
+				letter1 = strings.ToLower(letter1)
+				letter2 = strings.ToLower(letter2)
+			}
+			return []string{
+				fmt.Sprintf("%s%d%s", letter1, insecureRand.Intn(9), letter2),
+			}
+		default:
+			return []string{}
+		}
+	}
+	return []string{}
 }
 
-func randomProvinceLocalityStreetAddress() ([]string, []string, []string) {
-	state := randomState()
-	locality := randomLocality(state)
-	streetAddress := randomStreetAddress(state, locality)
-	return []string{state}, []string{locality}, []string{streetAddress}
+func randomProvinceLocalityStreetAddress() ([]string, []string, []string, []string) {
+	country := randomCountry()
+	state := randomState(country)
+	locality := randomLocality(country, state)
+	streetAddress := randomStreetAddress(country, state, locality)
+	return []string{country}, []string{state}, []string{locality}, []string{streetAddress}
 }
 
-func randomState() string {
-	keys := make([]string, 0, len(states))
-	for k := range states {
+func randomCountry() string {
+	keys := make([]string, 0, len(subjects))
+	for k := range subjects {
 		keys = append(keys, k)
 	}
 	return keys[insecureRand.Intn(len(keys))]
 }
 
-func randomLocality(state string) string {
-	locales := states[state]
+func randomState(country string) string {
+	keys := make([]string, 0, len(subjects[country]))
+	for k := range subjects[country] {
+		keys = append(keys, k)
+	}
+	return keys[insecureRand.Intn(len(keys))]
+}
+
+func randomLocality(country string, state string) string {
+	locales := subjects[country][state]
 	keys := make([]string, 0, len(locales))
 	for k := range locales {
 		keys = append(keys, k)
@@ -125,44 +338,65 @@ func randomLocality(state string) string {
 	return keys[insecureRand.Intn(len(keys))]
 }
 
-func randomStreetAddress(state string, locality string) string {
-	addresses := states[state][locality]
+func randomStreetAddress(country string, state string, locality string) string {
+	addresses := subjects[country][state][locality]
 	return addresses[insecureRand.Intn(len(addresses))]
 }
 
 var (
-	orgNames = []string{
-		"",
-		"ACME",
-		"Partners",
-		"Tech",
-		"Cloud",
-		"Synergy",
-		"Test",
-		"Debug",
-	}
 	orgSuffixes = []string{
+		"",
 		"",
 		"co",
 		"llc",
 		"inc",
 		"corp",
 		"ltd",
+		"plc",
+		"inc.",
+		"corp.",
+		"ltd.",
+		"plc.",
+		"co.",
+		"llc.",
+		"incorporated",
+		"limited",
+		"corporation",
+		"company",
+		"incorporated",
+		"limited",
+		"corporation",
+		"company",
 	}
 )
 
 func randomOrganization() []string {
-	name := orgNames[insecureRand.Intn(len(orgNames))]
+	adjective, _ := codenames.RandomAdjective()
+	noun, _ := codenames.RandomNoun()
 	suffix := orgSuffixes[insecureRand.Intn(len(orgSuffixes))]
-	switch insecureRand.Intn(4) {
-	case 0:
-		return []string{strings.TrimSpace(strings.ToLower(name + " " + suffix))}
-	case 1:
-		return []string{strings.TrimSpace(strings.ToUpper(name + " " + suffix))}
-	case 2:
-		return []string{strings.TrimSpace(strings.Title(fmt.Sprintf("%s %s", name, suffix)))}
 
+	var orgName string
+	switch insecureRand.Intn(8) {
+	case 0:
+		orgName = strings.TrimSpace(fmt.Sprintf("%s %s, %s", adjective, noun, suffix))
+	case 1:
+		orgName = strings.TrimSpace(strings.ToLower(fmt.Sprintf("%s %s, %s", adjective, noun, suffix)))
+	case 2:
+		orgName = strings.TrimSpace(fmt.Sprintf("%s, %s", noun, suffix))
+	case 3:
+		orgName = strings.TrimSpace(strings.Title(fmt.Sprintf("%s %s, %s", adjective, noun, suffix)))
+	case 4:
+		orgName = strings.TrimSpace(strings.Title(fmt.Sprintf("%s %s", adjective, noun)))
+	case 5:
+		orgName = strings.TrimSpace(strings.ToLower(fmt.Sprintf("%s %s", adjective, noun)))
+	case 6:
+		orgName = strings.TrimSpace(strings.Title(fmt.Sprintf("%s", noun)))
+	case 7:
+		noun2, _ := codenames.RandomNoun()
+		orgName = strings.TrimSpace(strings.ToLower(fmt.Sprintf("%s-%s", noun, noun2)))
 	default:
-		return []string{}
+		orgName = ""
 	}
+
+	return []string{orgName}
 }

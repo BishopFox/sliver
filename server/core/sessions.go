@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
+	"github.com/bishopfox/sliver/implant/sliver/transports/wireguard"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/log"
@@ -71,17 +72,19 @@ type Session struct {
 	Extensions        []string
 	ConfigID          string
 	PeerID            int64
+	Locale            string
+	FirstContact      int64
 }
 
 // LastCheckin - Get the last time a session message was received
 func (s *Session) LastCheckin() time.Time {
-	return s.Connection.LastMessage
+	return s.Connection.GetLastMessage()
 }
 
 // IsDead - See if last check-in is within expected variance
 func (s *Session) IsDead() bool {
 	sessionsLog.Debugf("Checking health of %s", s.ID)
-	sessionsLog.Debugf("Last checkin was %v", s.Connection.LastMessage)
+	sessionsLog.Debugf("Last checkin was %v", s.LastCheckin())
 	padding := time.Duration(10 * time.Second) // Arbitrary margin of error
 	timePassed := time.Since(s.LastCheckin())
 	reconnect := time.Duration(s.ReconnectInterval)
@@ -91,13 +94,19 @@ func (s *Session) IsDead() bool {
 		return false
 	}
 	if s.Connection.Transport == consts.MtlsStr {
-		if time.Since(s.Connection.LastMessage) < mtls.PingInterval+padding {
+		if timePassed < mtls.PingInterval+padding {
 			sessionsLog.Debugf("Last message within ping interval with padding")
 			return false
 		}
 	}
+	if s.Connection.Transport == consts.WGStr {
+		if timePassed < wireguard.PingInterval+padding {
+			sessionsLog.Debugf("Last message with ping interval with padding")
+			return false
+		}
+	}
 	if s.Connection.Transport == "pivot" {
-		if time.Since(s.Connection.LastMessage) < time.Duration(time.Minute)+padding {
+		if time.Since(s.Connection.GetLastMessage()) < time.Duration(time.Minute)+padding {
 			sessionsLog.Debugf("Last message within pivot/server ping interval with padding")
 			return false
 		}
@@ -129,6 +138,8 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		ProxyURL:          s.ProxyURL,
 		Burned:            s.Burned,
 		PeerID:            s.PeerID,
+		Locale:            s.Locale,
+		FirstContact:      s.FirstContact,
 	}
 }
 
@@ -235,8 +246,9 @@ func (s *sessions) Remove(sessionID string) {
 func NewSession(implantConn *ImplantConnection) *Session {
 	implantConn.UpdateLastMessage()
 	return &Session{
-		ID:         nextSessionID(),
-		Connection: implantConn,
+		ID:           nextSessionID(),
+		Connection:   implantConn,
+		FirstContact: time.Now().Unix(),
 	}
 }
 

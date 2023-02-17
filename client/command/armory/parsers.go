@@ -58,13 +58,13 @@ const (
 )
 
 type armoryIndexResponse struct {
-	Minisig     string `json:"minisig"`      // Minisig
-	ArmoryIndex string `json:"armory_index"` // Base64 String
+	Minisig     string `json:"minisig"`      // Minisig (Base64)
+	ArmoryIndex string `json:"armory_index"` // Index JSON (Base64)
 }
 
 type armoryPkgResponse struct {
-	Minisig  string `json:"minisig"` // Minisig
-	TarGzURL string `json:"tar_gz_url"`
+	Minisig  string `json:"minisig"`    // Minisig (Base64)
+	TarGzURL string `json:"tar_gz_url"` // Raw tar.gz url
 }
 
 //
@@ -80,7 +80,19 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 	}
 
 	client := httpClient(clientConfig)
-	resp, err := client.Get(armoryConfig.RepoURL)
+	repoURL, err := url.Parse(armoryConfig.RepoURL)
+	if err != nil {
+		return nil, err
+	}
+	req := &http.Request{
+		Method: http.MethodGet,
+		URL:    repoURL,
+		Header: map[string][]string{},
+	}
+	if armoryConfig.Authorization != "" {
+		req.Header.Set("Authorization", armoryConfig.Authorization)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -92,20 +104,28 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.New("api returned non-200 status code")
 	}
-	index := &armoryIndexResponse{}
-	err = json.Unmarshal(body, index)
+
+	indexResp := &armoryIndexResponse{}
+	err = json.Unmarshal(body, indexResp)
+	if err != nil {
+		return nil, err
+	}
+	armoryIndexData, err := base64.StdEncoding.DecodeString(indexResp.ArmoryIndex)
+	if err != nil {
+		return nil, err
+	}
+	armoryIndexSigData, err := base64.StdEncoding.DecodeString(indexResp.Minisig)
 	if err != nil {
 		return nil, err
 	}
 
 	// Verify index is signed by trusted key
-	valid := minisign.Verify(publicKey, []byte(index.ArmoryIndex), []byte(index.ArmoryIndex))
+	valid := minisign.Verify(publicKey, armoryIndexData, armoryIndexSigData)
 	if !valid {
-		return nil, errors.New("invalid signature")
+		return nil, errors.New("index has invalid signature")
 	}
 
-	armoryIndex := &ArmoryIndex{}
-	armoryIndexData, err := base64.StdEncoding.DecodeString(index.ArmoryIndex)
+	armoryIndex := &ArmoryIndex{ArmoryConfig: armoryConfig}
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +137,7 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 }
 
 // DefaultArmoryPkgParser - Parse the armory package manifest directly from the url
-func DefaultArmoryPkgParser(armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
+func DefaultArmoryPkgParser(armoryConfig *assets.ArmoryConfig, armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
 	var publicKey minisign.PublicKey
 	err := publicKey.UnmarshalText([]byte(armoryPkg.PublicKey))
 	if err != nil {
@@ -125,7 +145,19 @@ func DefaultArmoryPkgParser(armoryPkg *ArmoryPackage, sigOnly bool, clientConfig
 	}
 
 	client := httpClient(clientConfig)
-	resp, err := client.Get(armoryPkg.RepoURL)
+	repoURL, err := url.Parse(armoryConfig.RepoURL)
+	if err != nil {
+		return nil, nil, err
+	}
+	req := &http.Request{
+		Method: http.MethodGet,
+		URL:    repoURL,
+		Header: map[string][]string{},
+	}
+	if armoryConfig.Authorization != "" {
+		req.Header.Set("Authorization", armoryConfig.Authorization)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, nil, err
 	}

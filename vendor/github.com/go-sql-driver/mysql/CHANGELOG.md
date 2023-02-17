@@ -1,3 +1,50 @@
+## Version 1.7 (2022-11-29)
+
+Changes:
+
+  - Drop support of Go 1.12 (#1211)
+  - Refactoring `(*textRows).readRow` in a more clear way (#1230)
+  - util: Reduce boundary check in escape functions. (#1316)
+  - enhancement for mysqlConn handleAuthResult (#1250)
+
+New Features:
+
+  - support Is comparison on MySQLError (#1210)
+  - return unsigned in database type name when necessary (#1238)
+  - Add API to express like a --ssl-mode=PREFERRED MySQL client (#1370)
+  - Add SQLState to MySQLError (#1321)
+
+Bugfixes:
+
+  -  Fix parsing 0 year. (#1257)
+
+
+## Version 1.6 (2021-04-01)
+
+Changes:
+
+  - Migrate the CI service from travis-ci to GitHub Actions (#1176, #1183, #1190)
+  - `NullTime` is deprecated (#960, #1144)
+  - Reduce allocations when building SET command (#1111)
+  - Performance improvement for time formatting (#1118)
+  - Performance improvement for time parsing (#1098, #1113)
+
+New Features:
+
+  - Implement `driver.Validator` interface (#1106, #1174)
+  - Support returning `uint64` from `Valuer` in `ConvertValue` (#1143)
+  - Add `json.RawMessage` for converter and prepared statement (#1059)
+  - Interpolate `json.RawMessage` as `string` (#1058)
+  - Implements `CheckNamedValue` (#1090)
+
+Bugfixes:
+
+  - Stop rounding times (#1121, #1172)
+  - Put zero filler into the SSL handshake packet (#1066)
+  - Fix checking cancelled connections back into the connection pool (#1095)
+  - Fix remove last 0 byte for mysql_old_password when password is empty (#1133)
+
+
 ## Version 1.5 (2020-01-07)
 
 Changes:

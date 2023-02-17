@@ -6,15 +6,19 @@ import (
 )
 
 // XML lexer.
-var XML = internal.Register(MustNewLexer(
+var XML = internal.Register(MustNewLazyLexer(
 	&Config{
 		Name:      "XML",
 		Aliases:   []string{"xml"},
-		Filenames: []string{"*.xml", "*.xsl", "*.rss", "*.xslt", "*.xsd", "*.wsdl", "*.wsf", "*.svg"},
+		Filenames: []string{"*.xml", "*.xsl", "*.rss", "*.xslt", "*.xsd", "*.wsdl", "*.wsf", "*.svg", "*.csproj", "*.vcxproj", "*.fsproj"},
 		MimeTypes: []string{"text/xml", "application/xml", "image/svg+xml", "application/rss+xml", "application/atom+xml"},
 		DotAll:    true,
 	},
-	Rules{
+	xmlRules,
+))
+
+func xmlRules() Rules {
+	return Rules{
 		"root": {
 			{`[^<&]+`, Text, nil},
 			{`&\S*?;`, NameEntity, nil},
@@ -41,5 +45,5 @@ var XML = internal.Register(MustNewLexer(
 			{`'.*?'`, LiteralString, Pop(1)},
 			{`[^\s>]+`, LiteralString, Pop(1)},
 		},
-	},
-))
+	}
+}

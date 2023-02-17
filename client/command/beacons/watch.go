@@ -45,7 +45,7 @@ func BeaconsWatchCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			if err != nil {
 				panic(err) // If we return we may leak the waiting goroutine, so we panic instead
 			}
-			tw := renderBeacons(beacons.Beacons, con)
+			tw := renderBeacons(beacons.Beacons, "", nil, con)
 			lines := strings.Split(tw.Render(), "\n")
 			for _, line := range lines {
 				con.Printf(console.Clearln+"\r%s\n", line)
@@ -57,7 +57,7 @@ func BeaconsWatchCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 func waitForInput() <-chan bool {
-	done := make(chan bool)
+	done := make(chan bool, 1)
 	go func() {
 		defer close(done)
 		fmt.Scanf("\n")

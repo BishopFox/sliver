@@ -20,6 +20,7 @@ package totp
 import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/hotp"
+	"github.com/pquerna/otp/internal"
 	"io"
 
 	"crypto/rand"
@@ -199,7 +200,7 @@ func Generate(opts GenerateOpts) (*otp.Key, error) {
 		Scheme:   "otpauth",
 		Host:     "totp",
 		Path:     "/" + opts.Issuer + ":" + opts.AccountName,
-		RawQuery: v.Encode(),
+		RawQuery: internal.EncodeQuery(v),
 	}
 
 	return otp.NewKeyFromURL(u.String())

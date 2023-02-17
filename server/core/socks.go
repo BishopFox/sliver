@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	// TunSocksTunnels - Interating with duplex SocksTunnels
+	// TunSocksTunnels - Interacting with duplex SocksTunnels
 	SocksTunnels = tcpTunnel{
 		tunnels: map[uint64]*TcpTunnel{},
 		mutex:   &sync.Mutex{},

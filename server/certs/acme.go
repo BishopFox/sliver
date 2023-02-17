@@ -20,10 +20,9 @@ package certs
 
 import (
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/bishopfox/sliver/server/log"
-
 	"golang.org/x/crypto/acme/autocert"
 )
 
@@ -38,7 +37,7 @@ var (
 
 // GetACMEDir - Dir to store ACME certs
 func GetACMEDir() string {
-	acmePath := path.Join(getCertDir(), ACMEDirName)
+	acmePath := filepath.Join(getCertDir(), ACMEDirName)
 	if _, err := os.Stat(acmePath); os.IsNotExist(err) {
 		acmeLog.Infof("[mkdir] %s", acmePath)
 		os.MkdirAll(acmePath, 0700)

@@ -7,7 +7,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2/core"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	goterm "golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 type Renderer struct {
@@ -61,12 +61,22 @@ func (r *Renderer) Error(config *PromptConfig, invalid error) error {
 	}
 
 	// send the message to the user
-	fmt.Fprint(terminal.NewAnsiStdout(r.stdio.Out), userOut)
+	if _, err := fmt.Fprint(terminal.NewAnsiStdout(r.stdio.Out), userOut); err != nil {
+		return err
+	}
 
 	// add the printed text to the rendered error buffer so we can cleanup later
 	r.appendRenderedError(layoutOut)
 
 	return nil
+}
+
+func (r *Renderer) OffsetCursor(offset int) {
+	cursor := r.NewCursor()
+	for offset > 0 {
+		cursor.PreviousLine(1)
+		offset--
+	}
 }
 
 func (r *Renderer) Render(tmpl string, data interface{}) error {
@@ -82,12 +92,29 @@ func (r *Renderer) Render(tmpl string, data interface{}) error {
 	}
 
 	// print the summary
-	fmt.Fprint(terminal.NewAnsiStdout(r.stdio.Out), userOut)
+	if _, err := fmt.Fprint(terminal.NewAnsiStdout(r.stdio.Out), userOut); err != nil {
+		return err
+	}
 
 	// add the printed text to the rendered text buffer so we can cleanup later
 	r.AppendRenderedText(layoutOut)
 
 	// nothing went wrong
+	return nil
+}
+
+func (r *Renderer) RenderWithCursorOffset(tmpl string, data IterableOpts, opts []core.OptionAnswer, idx int) error {
+	cursor := r.NewCursor()
+	cursor.Restore() // clear any accessibility offsetting
+
+	if err := r.Render(tmpl, data); err != nil {
+		return err
+	}
+	cursor.Save()
+
+	offset := computeCursorOffset(MultiSelectQuestionTemplate, data, opts, idx, r.termWidthSafe())
+	r.OffsetCursor(offset)
+
 	return nil
 }
 
@@ -119,26 +146,31 @@ func (r *Renderer) resetPrompt(lines int) {
 
 func (r *Renderer) termWidth() (int, error) {
 	fd := int(r.stdio.Out.Fd())
-	termWidth, _, err := goterm.GetSize(fd)
+	termWidth, _, err := term.GetSize(fd)
 	return termWidth, err
 }
 
-// countLines will return the count of `\n` with the addition of any
-// lines that have wrapped due to narrow terminal width
-func (r *Renderer) countLines(buf bytes.Buffer) int {
+func (r *Renderer) termWidthSafe() int {
 	w, err := r.termWidth()
 	if err != nil || w == 0 {
 		// if we got an error due to terminal.GetSize not being supported
 		// on current platform then just assume a very wide terminal
 		w = 10000
 	}
+	return w
+}
+
+// countLines will return the count of `\n` with the addition of any
+// lines that have wrapped due to narrow terminal width
+func (r *Renderer) countLines(buf bytes.Buffer) int {
+	w := r.termWidthSafe()
 
 	bufBytes := buf.Bytes()
 
 	count := 0
 	curr := 0
-	delim := -1
 	for curr < len(bufBytes) {
+		var delim int
 		// read until the next newline or the end of the string
 		relDelim := bytes.IndexRune(bufBytes[curr:], '\n')
 		if relDelim != -1 {
@@ -148,8 +180,15 @@ func (r *Renderer) countLines(buf bytes.Buffer) int {
 			delim = len(bufBytes) // no new line found, read rest of text
 		}
 
-		// account for word wrapping
-		count += int(utf8.RuneCount(bufBytes[curr:delim]) / w)
+		if lineWidth := utf8.RuneCount(bufBytes[curr:delim]); lineWidth > w {
+			// account for word wrapping
+			count += lineWidth / w
+			if (lineWidth % w) == 0 {
+				// content whose width is exactly a multiplier of available width should not
+				// count as having wrapped on the last line
+				count -= 1
+			}
+		}
 		curr = delim + 1
 	}
 

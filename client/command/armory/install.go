@@ -20,11 +20,13 @@ package armory
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/console"
@@ -33,6 +35,7 @@ import (
 )
 
 var (
+	// ErrPackageNotFound - The package was not found
 	ErrPackageNotFound = errors.New("package not found")
 )
 
@@ -45,6 +48,19 @@ func ArmoryInstallCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	clientConfig := parseArmoryHTTPConfig(ctx)
 	refresh(clientConfig)
+	if name == "all" {
+		aliases, extensions := packagesInCache()
+		confirm := false
+		prompt := &survey.Confirm{
+			Message: fmt.Sprintf("Install %d aliases and %d extensions?",
+				len(aliases), len(extensions),
+			),
+		}
+		survey.AskOne(prompt, &confirm)
+		if !confirm {
+			return
+		}
+	}
 	err := installPackageByName(name, clientConfig, con)
 	if err == nil {
 		return
@@ -73,16 +89,25 @@ func installBundle(bundle *ArmoryBundle, clientConfig ArmoryHTTPConfig, con *con
 func installPackageByName(name string, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) error {
 	aliases, extensions := packagesInCache()
 	for _, alias := range aliases {
-		if alias.CommandName == name {
+		if alias.CommandName == name || name == "all" {
 			installAlias(alias, clientConfig, con)
-			return nil
+			if name != "all" {
+				return nil
+			}
 		}
 	}
 	for _, ext := range extensions {
-		if ext.CommandName == name {
+		if ext.CommandName == name || name == "all" {
 			installExtension(ext, clientConfig, con)
-			return nil
+			if name != "all" {
+				return nil
+			}
 		}
+	}
+	if name == "all" {
+		con.Printf("\n")
+		con.PrintInfof("All packages installed\n")
+		return nil
 	}
 	return ErrPackageNotFound
 }
@@ -120,7 +145,7 @@ func installAliasPackageByName(name string, clientConfig ArmoryHTTPConfig, con *
 	if pkgParser, ok := pkgParsers[repoURL.Hostname()]; ok {
 		sig, tarGz, err = pkgParser(&entry.Pkg, false, clientConfig)
 	} else {
-		sig, tarGz, err = DefaultArmoryPkgParser(&entry.Pkg, false, clientConfig)
+		sig, tarGz, err = DefaultArmoryPkgParser(entry.ArmoryConfig, &entry.Pkg, false, clientConfig)
 	}
 	if err != nil {
 		return err
@@ -238,7 +263,7 @@ func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, c
 	if pkgParser, ok := pkgParsers[repoURL.Hostname()]; ok {
 		sig, tarGz, err = pkgParser(&entry.Pkg, false, clientConfig)
 	} else {
-		sig, tarGz, err = DefaultArmoryPkgParser(&entry.Pkg, false, clientConfig)
+		sig, tarGz, err = DefaultArmoryPkgParser(entry.ArmoryConfig, &entry.Pkg, false, clientConfig)
 	}
 	if err != nil {
 		return err

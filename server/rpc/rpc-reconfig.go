@@ -20,19 +20,22 @@ package rpc
 
 import (
 	"context"
-	"regexp"
-
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/util"
 )
 
 const maxNameLength = 32
 
 // Reconfigure - Reconfigure a beacon/session
 func (rpc *Server) Reconfigure(ctx context.Context, req *sliverpb.ReconfigureReq) (*sliverpb.Reconfigure, error) {
+	// We have to preserve these because GenericHandler clears them in req.Request
+	sessionID := req.Request.SessionID
+	beaconID := req.Request.BeaconID
+
 	resp := &sliverpb.Reconfigure{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
@@ -40,11 +43,32 @@ func (rpc *Server) Reconfigure(ctx context.Context, req *sliverpb.ReconfigureReq
 	}
 
 	// Successfully execute command, update server's info on reconnect interval
-	if req.Request.SessionID != "" {
-		session := core.Sessions.Get(req.Request.SessionID)
+	if sessionID != "" {
+		session := core.Sessions.Get(sessionID)
+		if session == nil {
+			return nil, ErrInvalidSessionID
+		}
 		if req.ReconnectInterval != 0 {
 			session.ReconnectInterval = req.ReconnectInterval
 		}
+		core.Sessions.UpdateSession(session)
+	} else if beaconID != "" {
+		beacon, err := db.BeaconByID(beaconID)
+		if err != nil || beacon == nil {
+			return nil, ErrInvalidBeaconID
+		}
+		if req.BeaconInterval != 0 {
+			beacon.Interval = req.BeaconInterval
+		}
+		if req.BeaconJitter != 0 {
+			beacon.Jitter = req.BeaconJitter
+		}
+		err = db.Session().Save(beacon).Error
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, ErrMissingRequestField
 	}
 	return resp, nil
 }
@@ -56,7 +80,7 @@ func (rpc *Server) Rename(ctx context.Context, req *clientpb.RenameReq) (*common
 	if len(req.Name) < 1 || maxNameLength < len(req.Name) {
 		return resp, ErrInvalidName
 	}
-	if !regexp.MustCompile(`^[[:alnum:]]+$`).MatchString(req.Name) {
+	if err := util.AllowedName(req.Name); err != nil {
 		return resp, ErrInvalidName
 	}
 

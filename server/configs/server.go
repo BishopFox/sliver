@@ -21,7 +21,6 @@ package configs
 import (
 	"encoding/hex"
 	"encoding/json"
-	"io/ioutil"
 	insecureRand "math/rand"
 	"os"
 	"path"
@@ -53,6 +52,7 @@ type LogConfig struct {
 	Level              int  `json:"level"`
 	GRPCUnaryPayloads  bool `json:"grpc_unary_payloads"`
 	GRPCStreamPayloads bool `json:"grpc_stream_payloads"`
+	TLSKeyLogger       bool `json:"tls_key_logger"`
 }
 
 // DaemonConfig - Configure daemon mode
@@ -93,11 +93,12 @@ type WGJobConfig struct {
 
 // DNSJobConfig - Persistent DNS job config
 type DNSJobConfig struct {
-	Domains  []string `json:"domains"`
-	Canaries bool     `json:"canaries"`
-	Host     string   `json:"host"`
-	Port     uint16   `json:"port"`
-	JobID    string   `json:"job_id"`
+	Domains    []string `json:"domains"`
+	Canaries   bool     `json:"canaries"`
+	Host       string   `json:"host"`
+	Port       uint16   `json:"port"`
+	JobID      string   `json:"job_id"`
+	EnforceOTP bool     `json:"enforce_otp"`
 }
 
 // HTTPJobConfig - Persistent HTTP job config
@@ -114,6 +115,7 @@ type HTTPJobConfig struct {
 	EnforceOTP      bool   `json:"enforce_otp"`
 	LongPollTimeout int64  `json:"long_poll_timeout"`
 	LongPollJitter  int64  `json:"long_poll_jitter"`
+	RandomizeJARM   bool   `json:"randomize_jarm"`
 }
 
 // WatchTowerConfig - Watch Tower job config
@@ -149,7 +151,7 @@ func (c *ServerConfig) Save() error {
 		return err
 	}
 	serverConfigLog.Infof("Saving config to %s", configPath)
-	err = ioutil.WriteFile(configPath, data, 0600)
+	err = os.WriteFile(configPath, data, 0600)
 	if err != nil {
 		serverConfigLog.Errorf("Failed to write config %s", err)
 	}
@@ -237,7 +239,7 @@ func GetServerConfig() *ServerConfig {
 	configPath := GetServerConfigPath()
 	config := getDefaultServerConfig()
 	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
-		data, err := ioutil.ReadFile(configPath)
+		data, err := os.ReadFile(configPath)
 		if err != nil {
 			serverConfigLog.Errorf("Failed to read config file %s", err)
 			return config

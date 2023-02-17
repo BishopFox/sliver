@@ -37,7 +37,7 @@ var daemonCmd = &cobra.Command{
 		}
 
 		appDir := assets.GetRootAppDir()
-		logFile := initLogging(appDir)
+		logFile := initConsoleLogging(appDir)
 		defer logFile.Close()
 
 		defer func() {

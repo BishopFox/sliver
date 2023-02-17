@@ -511,27 +511,33 @@ func X_gmtime32(t *TLS, sourceTime uintptr) uintptr {
 }
 
 // LONG SetWindowLongW(
-//   HWND hWnd,
-//   int  nIndex,
-//   LONG dwNewLong
+//
+//	HWND hWnd,
+//	int  nIndex,
+//	LONG dwNewLong
+//
 // );
 func XSetWindowLongW(t *TLS, hwnd uintptr, nIndex int32, dwNewLong long) long {
 	panic(todo(""))
 }
 
 // LONG GetWindowLongW(
-//   HWND hWnd,
-//   int  nIndex
+//
+//	HWND hWnd,
+//	int  nIndex
+//
 // );
 func XGetWindowLongW(t *TLS, hwnd uintptr, nIndex int32) long {
 	panic(todo(""))
 }
 
 // LRESULT LRESULT DefWindowProcW(
-//   HWND   hWnd,
-//   UINT   Msg,
-//   WPARAM wParam,
-//   LPARAM lParam
+//
+//	HWND   hWnd,
+//	UINT   Msg,
+//	WPARAM wParam,
+//	LPARAM lParam
+//
 // );
 func XDefWindowProcW(t *TLS, _ ...interface{}) int32 {
 	panic(todo(""))

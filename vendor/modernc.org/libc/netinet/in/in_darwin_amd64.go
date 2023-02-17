@@ -4955,20 +4955,20 @@ type X__msfilterreq = struct {
 // IP_PKTINFO: Packet information (equivalent to  RFC2292 sec 5 for IPv4)
 // This structure is used for
 //
-// 1) Receiving ancilliary data about the datagram if IP_PKTINFO sockopt is
-//    set on the socket. In this case ipi_ifindex will contain the interface
-//    index the datagram was received on, ipi_addr is the IP address the
-//    datagram was received to.
+//  1. Receiving ancilliary data about the datagram if IP_PKTINFO sockopt is
+//     set on the socket. In this case ipi_ifindex will contain the interface
+//     index the datagram was received on, ipi_addr is the IP address the
+//     datagram was received to.
 //
-// 2) Sending a datagram using a specific interface or IP source address.
-//    if ipi_ifindex is set to non-zero when in_pktinfo is passed as
-//    ancilliary data of type IP_PKTINFO, this will be used as the source
-//    interface to send the datagram from. If ipi_ifindex is null, ip_spec_dst
-//    will be used for the source address.
+//  2. Sending a datagram using a specific interface or IP source address.
+//     if ipi_ifindex is set to non-zero when in_pktinfo is passed as
+//     ancilliary data of type IP_PKTINFO, this will be used as the source
+//     interface to send the datagram from. If ipi_ifindex is null, ip_spec_dst
+//     will be used for the source address.
 //
-//    Note: if IP_BOUND_IF is set on the socket, ipi_ifindex in the ancillary
-//    IP_PKTINFO option silently overrides the bound interface when it is
-//    specified during send time.
+//     Note: if IP_BOUND_IF is set on the socket, ipi_ifindex in the ancillary
+//     IP_PKTINFO option silently overrides the bound interface when it is
+//     specified during send time.
 type In_pktinfo = struct {
 	Fipi_ifindex  uint32
 	Fipi_spec_dst struct{ Fs_addr In_addr_t }

@@ -30,7 +30,10 @@ import (
 
 	// {{if .Config.LimitUsername}}
 	"os/user"
+	// {{end}}
 
+	// {{if .Config.LimitLocale}}
+	"regexp"
 	// {{end}}
 
 	// {{if .Config.LimitDatetime}}
@@ -40,6 +43,10 @@ import (
 	// {{if or .Config.LimitHostname .Config.LimitUsername}}
 	"strings"
 	// {{else}}{{end}}
+
+	// {{if .Config.LimitLocale}}
+	"github.com/bishopfox/sliver/implant/sliver/locale"
+	// {{end}}
 )
 
 // ExecLimits - Checks for execution limitations (domain, hostname, etc)
@@ -102,6 +109,21 @@ func ExecLimits() {
 		// {{end}}
 		os.Exit(1)
 	}
+	// {{end}}
+
+	// {{if .Config.LimitLocale}}
+	locale := locale.GetLocale()
+	match, err := regexp.MatchString(`{{.Config.LimitLocale}}`, locale)
+	if !match {
+		// {{if .Config.Debug}}
+		if err != nil {
+			log.Printf("LimitLocale regexp: %s", err)
+		} else {
+			log.Printf("LimitLocale regexp %#v does not match %#v", `{{.Config.LimitLocale}}`, locale)
+		}
+		// {{end}}
+		os.Exit(1)
+	} 
 	// {{end}}
 
 	// {{if .Config.Debug}}

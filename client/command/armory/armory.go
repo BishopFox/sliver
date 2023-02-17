@@ -38,12 +38,15 @@ import (
 	"golang.org/x/term"
 )
 
+// ArmoryIndex - Index JSON containing alias/extension/bundle information
 type ArmoryIndex struct {
-	Aliases    []*ArmoryPackage `json:"aliases"`
-	Extensions []*ArmoryPackage `json:"extensions"`
-	Bundles    []*ArmoryBundle  `json:"bundles"`
+	ArmoryConfig *assets.ArmoryConfig `json:"-"`
+	Aliases      []*ArmoryPackage     `json:"aliases"`
+	Extensions   []*ArmoryPackage     `json:"extensions"`
+	Bundles      []*ArmoryBundle      `json:"bundles"`
 }
 
+// ArmoryPackage - JSON metadata for alias or extension
 type ArmoryPackage struct {
 	Name        string `json:"name"`
 	CommandName string `json:"command_name"`
@@ -53,12 +56,15 @@ type ArmoryPackage struct {
 	IsAlias bool `json:"-"`
 }
 
+// ArmoryBundle - A list of packages
 type ArmoryBundle struct {
 	Name     string   `json:"name"`
 	Packages []string `json:"packages"`
 }
 
+// ArmoryHTTPConfig - Configuration for armory HTTP client
 type ArmoryHTTPConfig struct {
+	ArmoryConfig         *assets.ArmoryConfig
 	IgnoreCache          bool
 	ProxyURL             *url.URL
 	Timeout              time.Duration
@@ -66,20 +72,22 @@ type ArmoryHTTPConfig struct {
 }
 
 type indexCacheEntry struct {
-	RepoURL string
-	Fetched time.Time
-	Index   ArmoryIndex
-	LastErr error
+	ArmoryConfig *assets.ArmoryConfig
+	RepoURL      string
+	Fetched      time.Time
+	Index        ArmoryIndex
+	LastErr      error
 }
 
 type pkgCacheEntry struct {
-	RepoURL   string
-	Fetched   time.Time
-	Pkg       ArmoryPackage
-	Sig       minisign.Signature
-	Alias     *alias.AliasManifest
-	Extension *extensions.ExtensionManifest
-	LastErr   error
+	ArmoryConfig *assets.ArmoryConfig
+	RepoURL      string
+	Fetched      time.Time
+	Pkg          ArmoryPackage
+	Sig          minisign.Signature
+	Alias        *alias.AliasManifest
+	Extension    *extensions.ExtensionManifest
+	LastErr      error
 }
 
 var (
@@ -395,7 +403,10 @@ func fetchIndex(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig
 		}
 	}
 
-	armoryResult := &indexCacheEntry{RepoURL: armoryConfig.RepoURL}
+	armoryResult := &indexCacheEntry{
+		ArmoryConfig: armoryConfig,
+		RepoURL:      armoryConfig.RepoURL,
+	}
 	defer func() {
 		armoryResult.Fetched = time.Now()
 		indexCache.Store(armoryConfig.PublicKey, *armoryResult)
@@ -431,18 +442,18 @@ func fetchPackageSignatures(indexes []ArmoryIndex, clientConfig ArmoryHTTPConfig
 		for _, armoryPkg := range index.Extensions {
 			wg.Add(1)
 			armoryPkg.IsAlias = false
-			go fetchPackageSignature(wg, armoryPkg, clientConfig)
+			go fetchPackageSignature(wg, index.ArmoryConfig, armoryPkg, clientConfig)
 		}
 		for _, armoryPkg := range index.Aliases {
 			wg.Add(1)
 			armoryPkg.IsAlias = true
-			go fetchPackageSignature(wg, armoryPkg, clientConfig)
+			go fetchPackageSignature(wg, index.ArmoryConfig, armoryPkg, clientConfig)
 		}
 	}
 	wg.Wait()
 }
 
-func fetchPackageSignature(wg *sync.WaitGroup, armoryPkg *ArmoryPackage, clientConfig ArmoryHTTPConfig) {
+func fetchPackageSignature(wg *sync.WaitGroup, armoryConfig *assets.ArmoryConfig, armoryPkg *ArmoryPackage, clientConfig ArmoryHTTPConfig) {
 	defer wg.Done()
 	cacheEntry, ok := pkgCache.Load(armoryPkg.CommandName)
 	if ok {
@@ -452,7 +463,10 @@ func fetchPackageSignature(wg *sync.WaitGroup, armoryPkg *ArmoryPackage, clientC
 		}
 	}
 
-	pkgCacheEntry := &pkgCacheEntry{RepoURL: armoryPkg.RepoURL}
+	pkgCacheEntry := &pkgCacheEntry{
+		ArmoryConfig: armoryConfig,
+		RepoURL:      armoryPkg.RepoURL,
+	}
 	defer func() {
 		pkgCacheEntry.Fetched = time.Now()
 		pkgCache.Store(armoryPkg.CommandName, *pkgCacheEntry)
@@ -472,7 +486,7 @@ func fetchPackageSignature(wg *sync.WaitGroup, armoryPkg *ArmoryPackage, clientC
 	if pkgParser, ok := pkgParsers[repoURL.Hostname()]; ok {
 		sig, _, err = pkgParser(armoryPkg, true, clientConfig)
 	} else {
-		sig, _, err = DefaultArmoryPkgParser(armoryPkg, true, clientConfig)
+		sig, _, err = DefaultArmoryPkgParser(armoryConfig, armoryPkg, true, clientConfig)
 	}
 	if err != nil {
 		pkgCacheEntry.LastErr = fmt.Errorf("failed to parse pkg manifest: %s", err)

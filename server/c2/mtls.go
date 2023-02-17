@@ -23,7 +23,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -38,8 +40,6 @@ import (
 const (
 	// defaultServerCert - Default certificate name if bind is "" (all interfaces)
 	defaultServerCert = ""
-
-	readBufSize = 1024
 )
 
 var (
@@ -72,7 +72,7 @@ func acceptSliverConnections(ln net.Listener) {
 		conn, err := ln.Accept()
 		if err != nil {
 			if errType, ok := err.(*net.OpError); ok && errType.Op == "accept" {
-				break
+				break // Listener was closed by the user
 			}
 			mtlsLog.Errorf("Accept failed: %v", err)
 			continue
@@ -111,6 +111,7 @@ func handleSliverConnection(conn net.Conn) {
 				}
 				implantConn.RespMutex.RUnlock()
 			} else if handler, ok := handlers[envelope.Type]; ok {
+				mtlsLog.Debugf("Received new mtls message type %d, data: %s", envelope.Type, envelope.Data)
 				go func() {
 					respEnvelope := handler(implantConn, envelope.Data)
 					if respEnvelope != nil {
@@ -156,39 +157,27 @@ func socketWriteEnvelope(connection net.Conn, envelope *sliverpb.Envelope) error
 // socketReadEnvelope - Reads a message from the TLS connection using length prefix framing
 // returns messageType, message, and error
 func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
-
 	// Read the first four bytes to determine data length
 	dataLengthBuf := make([]byte, 4) // Size of uint32
-	_, err := connection.Read(dataLengthBuf)
-	if err != nil {
+	n, err := io.ReadFull(connection, dataLengthBuf)
+
+	if err != nil || n != 4 {
 		mtlsLog.Errorf("Socket error (read msg-length): %v", err)
 		return nil, err
 	}
 	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
-
-	// Read the length of the data, keep in mind each call to .Read() may not
-	// fill the entire buffer length that we specify, so instead we use two buffers
-	// readBuf is the result of each .Read() operation, which is then concatinated
-	// onto dataBuf which contains all of data read so far and we keep calling
-	// .Read() until the running total is equal to the length of the message that
-	// we're expecting or we get an error.
-	readBuf := make([]byte, readBufSize)
-	dataBuf := make([]byte, 0)
-	totalRead := 0
-	for {
-		n, err := connection.Read(readBuf)
-		dataBuf = append(dataBuf, readBuf[:n]...)
-		totalRead += n
-		if totalRead == dataLength {
-			break
-		}
-		if err != nil {
-			mtlsLog.Errorf("Read error: %s", err)
-			break
-		}
+	if dataLength <= 0 {
+		// {{if .Config.Debug}}
+		mtlsLog.Printf("[pivot] read error: %s\n", err)
+		// {{end}}
+		return nil, errors.New("[pivot] zero data length")
 	}
 
-	if err != nil {
+	dataBuf := make([]byte, dataLength)
+
+	n, err = io.ReadFull(connection, dataBuf)
+
+	if err != nil || n != dataLength {
 		mtlsLog.Errorf("Socket error (read data): %v", err)
 		return nil, err
 	}
@@ -224,12 +213,18 @@ func getServerTLSConfig(host string) *tls.Config {
 		mtlsLog.Fatalf("Error loading server certificate: %v", err)
 	}
 
+	// We're not going to randomize the JARM on this one, the traffic
+	// going over mTLS needs to be secure, and the JARM is fairly
+	// common Golang TLS server so it's not going to be too suspicious
 	tlsConfig := &tls.Config{
 		RootCAs:      mtlsCACertPool,
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		ClientCAs:    mtlsCACertPool,
 		Certificates: []tls.Certificate{cert},
 		MinVersion:   tls.VersionTLS13, // Force TLS v1.3
+	}
+	if certs.TLSKeyLogger != nil {
+		tlsConfig.KeyLogWriter = certs.TLSKeyLogger
 	}
 	return tlsConfig
 }

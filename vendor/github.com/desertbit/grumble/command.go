@@ -67,10 +67,11 @@ type Command struct {
 	// A non-nil Completer overrides the default behaviour.
 	Completer func(prefix string, args []string) []string
 
-	parent   *Command
-	flags    Flags
-	args     Args
-	commands Commands
+	parent    *Command
+	flags     Flags
+	args      Args
+	commands  Commands
+	isBuiltin bool // Whenever this is a build-in command not added by the user.
 }
 
 func (c *Command) validate() error {
