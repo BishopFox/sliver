@@ -27,7 +27,7 @@ var (
 )
 
 func TestWasmFS1(t *testing.T) {
-	wasmFS := WasmExtFS{extFS: extFS}
+	wasmFS := WasmMemFS{memFS: extFS}
 
 	// Test ReadDir
 	fi, err := wasmFS.Open("/test.1")
