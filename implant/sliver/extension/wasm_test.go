@@ -61,18 +61,33 @@ func TestWasmMemFSOpenDir2(t *testing.T) {
 	}}
 
 	// Test Open File
-	fi, err := wasmFS.Open("/memfs/test")
+	f, err := wasmFS.Open("/memfs/test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stat, _ := fi.Stat(); stat.Name() != "test" || !stat.IsDir() {
+	if stat, _ := f.Stat(); stat.Name() != "test" || !stat.IsDir() {
 		t.Fatalf("expected 'test' dir, got %s", stat.Name())
 	}
-	defer fi.Close()
+	defer f.Close()
 
-	// Test Open File
-	_, err = wasmFS.Open("/memfs/a/b/c/test")
-	if err == nil {
+	dir, err := wasmFS.Open("/memfs/a/b/c/test")
+	if err != nil {
 		t.Fatal(err)
+	}
+	if stat, _ := dir.Stat(); stat.Name() != "test" || !stat.IsDir() {
+		t.Fatalf("expected 'test' dir, got %s", stat.Name())
+	}
+
+	f, err = wasmFS.Open("/memfs/a/b/c/test/a.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := make([]byte, 1)
+	_, err = f.Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if data[0] != 0x00 {
+		t.Fatalf("expected 0x00, got %x", data[0])
 	}
 }

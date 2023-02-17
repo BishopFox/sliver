@@ -125,10 +125,11 @@ func (w WasmMemFS) Open(name string) (fs.File, error) {
 		if w.tree == nil {
 			w.tree = &DirTree{Name: "/", Subdirs: []*DirTree{}}
 			for key := range w.memFS {
-				w.tree.Insert(strings.Split(path.Dir(key), "/"))
+				segs := strings.Split(strings.TrimPrefix(path.Dir(key), "/"), "/")
+				w.tree.Insert(segs)
 			}
 		}
-		if w.tree.Exists(strings.Split(name, "/")) {
+		if w.tree.Exists(strings.Split(strings.TrimPrefix(name, "/"), "/")) {
 			return MemoryNode{key: name, isDir: true, data: []byte{}}, nil
 		}
 		return nil, os.ErrNotExist
@@ -158,6 +159,10 @@ func (d *DirTree) Exists(segs []string) bool {
 }
 
 func (d *DirTree) HasSubdir(name string) bool {
+	subdirNames := []string{}
+	for _, subdir := range d.Subdirs {
+		subdirNames = append(subdirNames, subdir.Name)
+	}
 	for _, subdir := range d.Subdirs {
 		if subdir.Name == name {
 			return true
