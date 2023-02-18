@@ -104,7 +104,7 @@ func wgStopPortfwdHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func wgListSocksServersHandler(data []byte, resp RPCResponse) {
+func wgListSocksServersHandler(_ []byte, resp RPCResponse) {
 	socksServers := forwarder.GetSocksServers()
 	listResp := &pb.WGSocksServers{}
 	serverList := make([]*pb.WGSocksServer, 0)

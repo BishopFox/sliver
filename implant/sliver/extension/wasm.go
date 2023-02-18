@@ -29,14 +29,19 @@ import (
 	"strings"
 	"time"
 
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
-	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
+	wasi "github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 	"github.com/tetratelabs/wazero/sys"
 )
 
 // WasmExtension - Wasm extension
 type WasmExtension struct {
+	Name    string
 	ctx     context.Context
 	mod     wazero.CompiledModule
 	config  wazero.ModuleConfig
@@ -48,16 +53,27 @@ type WasmExtension struct {
 	Stderr io.Writer
 }
 
-// Execute - Execute the Wasm module
+// Execute - Execute the Wasm module with arguments, blocks during execution, returns errors
 func (w *WasmExtension) Execute(args []string) error {
+
+	// {{if .Config.Debug}}
+	log.Printf("[wasm ext] '%s' execute with args: %s", w.Name, args)
+	// {{end}}
+
 	args = append([]string{"wasi"}, args...)
 	conf := w.config.WithArgs(args...)
 	if _, err := w.runtime.InstantiateModule(w.ctx, w.mod, conf); err != nil {
 		// Note: Most compilers do not exit the module after running "_start",
 		// unless there was an error. This allows you to call exported functions.
 		if exitErr, ok := err.(*sys.ExitError); ok && exitErr.ExitCode() != 0 {
-			fmt.Fprintf(os.Stderr, "exit_code: %d\n", exitErr.ExitCode())
+			fmt.Fprintf(w.Stderr, "exit_code: %d\n", exitErr.ExitCode())
+			// {{if .Config.Debug}}
+			log.Printf("[wasm ext] '%s' exited with non-zero code: %d", w.Name, exitErr.ExitCode())
+			// {{end}}
 		} else if !ok {
+			// {{if .Config.Debug}}
+			log.Printf("[wasm ext] '%s' exited with error: %s", w.Name, err.Error())
+			// {{end}}
 			return err
 		}
 	}
@@ -70,8 +86,9 @@ func (w *WasmExtension) Close() error {
 }
 
 // NewWasmExtension - Create a new Wasm extension
-func NewWasmExtension(stdin io.Reader, stdout io.Writer, stderr io.Writer, wasm []byte, args []string, memFS map[string][]byte) (*WasmExtension, error) {
+func NewWasmExtension(name string, stdin io.Reader, stdout io.Writer, stderr io.Writer, wasm []byte, memFS map[string][]byte) (*WasmExtension, error) {
 	wasmExt := &WasmExtension{
+		Name:   name,
 		ctx:    context.Background(),
 		Stdin:  stdin,
 		Stdout: stdout,
@@ -85,7 +102,7 @@ func NewWasmExtension(stdin io.Reader, stdout io.Writer, stderr io.Writer, wasm 
 		WithFS(makeWasmMemFS(memFS))
 
 	var err error
-	wasmExt.closer, err = wasi_snapshot_preview1.Instantiate(wasmExt.ctx, wasmExt.runtime)
+	wasmExt.closer, err = wasi.Instantiate(wasmExt.ctx, wasmExt.runtime)
 	if err != nil {
 		return nil, err
 	}
@@ -94,12 +111,6 @@ func NewWasmExtension(stdin io.Reader, stdout io.Writer, stderr io.Writer, wasm 
 		return nil, err
 	}
 	return wasmExt, nil
-}
-
-type MemoryFile struct {
-}
-
-func (m MemoryFile) Stat() (fs.FileInfo, error) {
 }
 
 // makeWasmMemFS - Merge the local filesystem any provided ext files
@@ -115,39 +126,87 @@ func makeWasmMemFS(memFS map[string][]byte) fs.FS {
 	return WasmMemoryFS{memFS: memFS, localFS: os.DirFS(root)}
 }
 
-// WasmMemoryFS - A makeshift in-memory virtual file system backed by a map of names to bytes
-// the key is the absolute path to the file and the bytes are the contents of the file
-// empty directories are not supported, so directories are defined as any path with a trailing
-// slash that is a prefix of multiple keys. "/foo/bar" "/foo/baz" where /foo/ is a directory
+// WasmMemoryFS - A makeshift read only in-memory virtual file system backed by a map of names
+// to bytes the key is the absolute path to the file and the bytes are the contents of the file
+// empty directories are not supported.
 type WasmMemoryFS struct {
 	memFS   map[string][]byte
 	tree    *MemoryFSDirTree
 	localFS fs.FS
 }
 
+func (w WasmMemoryFS) getTree() *MemoryFSDirTree {
+	if w.tree == nil {
+		// Build the tree
+		w.tree = &MemoryFSDirTree{Name: "", Subdirs: []*MemoryFSDirTree{}}
+		for key := range w.memFS {
+			segs := strings.Split(strings.TrimPrefix(path.Dir(key), "/"), "/")
+			w.tree.Insert(segs)
+		}
+	}
+	return w.tree
+}
+
+// Open - Open a file, the open call is either passed thru to the OS or is redirected to the WasmMemoryFS
 func (w WasmMemoryFS) Open(name string) (fs.File, error) {
 	name = path.Clean(name)
 	if strings.HasPrefix(name, "/memfs/") {
 		name = strings.TrimPrefix(name, "/memfs")
+
+		// Any exact path match is a file
 		if data, ok := w.memFS[name]; ok {
 			return MemoryFSNode{key: name, isDir: false, data: data}, nil
 		}
 
 		// Check to see if the name is a directory
-		if w.tree == nil {
-			w.tree = &MemoryFSDirTree{Name: "/", Subdirs: []*MemoryFSDirTree{}}
-			for key := range w.memFS {
-				segs := strings.Split(strings.TrimPrefix(path.Dir(key), "/"), "/")
-				w.tree.Insert(segs)
-			}
-		}
-		if w.tree.Exists(strings.Split(strings.TrimPrefix(name, "/"), "/")) {
+		if w.getTree().Exists(strings.Split(strings.TrimPrefix(name, "/"), "/")) {
 			return MemoryFSNode{key: name, isDir: true, data: []byte{}}, nil
 		}
-		return nil, os.ErrNotExist
+		return nil, fs.ErrPermission // Read-only for now
 	}
-	cwd, _ := os.Getwd()
-	return os.Open(filepath.Join(filepath.VolumeName(cwd), name))
+	// cwd, _ := os.Getwd()
+	return os.Open(name)
+}
+
+// ReadDir - Read a directory, the read call is either passed thru to the OS or is redirected to the WasmMemoryFS
+func (w WasmMemoryFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	name = path.Clean(name)
+	if strings.HasPrefix(name, "/memfs/") {
+		name = strings.TrimPrefix(name, "/memfs")
+		if !w.getTree().Exists(strings.Split(strings.TrimPrefix(name, "/"), "/")) {
+			return nil, fs.ErrNotExist
+		}
+
+		// Get any file entires
+		entries := []fs.DirEntry{}
+		for key := range w.memFS {
+			dirName := path.Dir(key)
+			if dirName == name {
+				entries = append(entries, MemoryFSNode{key: key, isDir: false, data: w.memFS[key]})
+			}
+		}
+
+		// Get any directory entries
+		dirNames := w.getTree().Entries(strings.Split(strings.TrimPrefix(name, "/"), "/"))
+		for _, dir := range dirNames {
+			entries = append(entries, MemoryFSNode{key: dir, isDir: true, data: []byte{}})
+		}
+		return entries, nil
+	}
+	return os.ReadDir(name)
+}
+
+// ReadFile - Read a file, the read call is either passed thru to the OS or is redirected to the WasmMemoryFS
+func (w WasmMemoryFS) ReadFile(name string) ([]byte, error) {
+	name = path.Clean(name)
+	if strings.HasPrefix(name, "/memfs/") {
+		name = strings.TrimPrefix(name, "/memfs")
+		if data, ok := w.memFS[name]; ok {
+			return data, nil
+		}
+		return nil, fs.ErrNotExist
+	}
+	return os.ReadFile(name)
 }
 
 // MemoryFSDirTree - A tree structure for representing only directories in the filesystem
@@ -168,6 +227,23 @@ func (d *MemoryFSDirTree) Exists(segs []string) bool {
 		}
 	}
 	return false
+}
+
+// Entires - Recursively resolves and returns a slice of entries in a directory
+func (d *MemoryFSDirTree) Entries(segs []string) []string {
+	if len(segs) == 0 {
+		entries := []string{}
+		for _, subdir := range d.Subdirs {
+			entries = append(entries, subdir.Name)
+		}
+		return entries
+	}
+	for _, subdir := range d.Subdirs {
+		if subdir.Name == segs[0] {
+			return subdir.Entries(segs[1:])
+		}
+	}
+	return []string{}
 }
 
 // HasSubdir - Returns true if the directory has a subdir with the given name
@@ -204,6 +280,10 @@ func (m MemoryFSNode) Stat() (fs.FileInfo, error) {
 	return m, nil
 }
 
+func (m MemoryFSNode) Info() (fs.FileInfo, error) {
+	return m, nil
+}
+
 // Read - Standard reader function
 func (m MemoryFSNode) Read(buf []byte) (int, error) {
 	n := copy(buf, m.data)
@@ -227,6 +307,11 @@ func (m MemoryFSNode) Size() int64 {
 
 // Mode - Returns the mode of the file
 func (m MemoryFSNode) Mode() fs.FileMode {
+	return 0777 // YOLO
+}
+
+// Type - Returns the mode of the file
+func (m MemoryFSNode) Type() fs.FileMode {
 	return 0777 // YOLO
 }
 

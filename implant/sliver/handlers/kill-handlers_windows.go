@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build windows
 
 package handlers
 
@@ -22,11 +22,15 @@ package handlers
 
 import (
 	"os"
-	"time"
 
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
+	// {{if or .Config.IsSharedLib .Config.IsShellcode}}
+
+	"syscall"
+
+	// {{end}}
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
@@ -34,13 +38,13 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var specialHandlers = map[uint32]SpecialHandler{
+var killHandlers = map[uint32]KillHandler{
 	sliverpb.MsgKillSessionReq: killHandler,
 }
 
-// GetSpecialHandlers returns the specialHandlers map
-func GetSpecialHandlers() map[uint32]SpecialHandler {
-	return specialHandlers
+// GetKillHandlers returns the KillHandlers map
+func GetKillHandlers() map[uint32]KillHandler {
+	return killHandlers
 }
 
 func killHandler(data []byte, _ *transports.Connection) error {
@@ -52,12 +56,20 @@ func killHandler(data []byte, _ *transports.Connection) error {
 	if err != nil {
 		return err
 	}
+	// {{if or .Config.IsSharedLib .Config.IsShellcode}}
+	// Windows only: ExitThread() instead of os.Exit() for DLL/shellcode slivers
+	// so that the parent process is not killed
+	var exitFunc *syscall.Proc
+	if killReq.Force {
+		exitFunc = syscall.MustLoadDLL("kernel32.dll").MustFindProc("ExitProcess")
+	} else {
+		exitFunc = syscall.MustLoadDLL("kernel32.dll").MustFindProc("ExitThread")
+	}
+	exitFunc.Call(uintptr(0))
+	// {{end}}
 	// {{if .Config.Debug}}
 	log.Println("Let's exit!")
 	// {{end}}
-	go func() {
-		time.Sleep(time.Second)
-		os.Exit(0)
-	}()
+	os.Exit(0)
 	return nil
 }
