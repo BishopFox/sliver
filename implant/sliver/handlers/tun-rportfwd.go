@@ -35,7 +35,7 @@ import (
 )
 
 var (
-	genericRportFwdHandlers = map[uint32]RportFwdHandler{
+	genericRportFwdHandlers = map[uint32]TunnelHandler{
 		pb.MsgRportFwdListenersReq:     rportFwdListenersHandler,
 		pb.MsgRportFwdStartListenerReq: rportFwdStartListenerHandler,
 		pb.MsgRportFwdStopListenerReq:  rportFwdStopListenerHandler,
@@ -43,7 +43,7 @@ var (
 )
 
 // GetRportFwdHandlers - Returns a map of reverse port forwarding handlers
-func GetRportFwdHandlers() map[uint32]RportFwdHandler {
+func GetRportFwdHandlers() map[uint32]TunnelHandler {
 	return genericRportFwdHandlers
 }
 

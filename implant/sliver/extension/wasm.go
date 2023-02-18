@@ -19,14 +19,15 @@ package extension
 */
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	// {{if .Config.Debug}}
@@ -41,20 +42,24 @@ import (
 
 // WasmExtension - Wasm extension
 type WasmExtension struct {
-	Name    string
-	ctx     context.Context
+	Name string
+	ctx  context.Context
+	lock sync.Mutex
+
 	mod     wazero.CompiledModule
 	config  wazero.ModuleConfig
 	runtime wazero.Runtime
 	closer  api.Closer
 
-	Stdin  io.Reader
-	Stdout io.Writer
-	Stderr io.Writer
+	Stdin  *bytes.Buffer
+	Stdout *bytes.Buffer
+	Stderr *bytes.Buffer
 }
 
 // Execute - Execute the Wasm module with arguments, blocks during execution, returns errors
-func (w *WasmExtension) Execute(args []string) error {
+func (w *WasmExtension) Execute(args []string) (uint32, error) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
 
 	// {{if .Config.Debug}}
 	log.Printf("[wasm ext] '%s' execute with args: %s", w.Name, args)
@@ -70,14 +75,15 @@ func (w *WasmExtension) Execute(args []string) error {
 			// {{if .Config.Debug}}
 			log.Printf("[wasm ext] '%s' exited with non-zero code: %d", w.Name, exitErr.ExitCode())
 			// {{end}}
+			return exitErr.ExitCode(), nil
 		} else if !ok {
 			// {{if .Config.Debug}}
 			log.Printf("[wasm ext] '%s' exited with error: %s", w.Name, err.Error())
 			// {{end}}
-			return err
+			return 0, err
 		}
 	}
-	return nil
+	return 0, nil
 }
 
 // Close - Close the Wasm module
@@ -86,13 +92,15 @@ func (w *WasmExtension) Close() error {
 }
 
 // NewWasmExtension - Create a new Wasm extension
-func NewWasmExtension(name string, stdin io.Reader, stdout io.Writer, stderr io.Writer, wasm []byte, memFS map[string][]byte) (*WasmExtension, error) {
+func NewWasmExtension(name string, wasm []byte, memFS map[string][]byte) (*WasmExtension, error) {
 	wasmExt := &WasmExtension{
-		Name:   name,
-		ctx:    context.Background(),
-		Stdin:  stdin,
-		Stdout: stdout,
-		Stderr: stderr,
+		Name: name,
+		ctx:  context.Background(),
+		lock: sync.Mutex{},
+
+		Stdin:  bytes.NewBuffer([]byte{}),
+		Stdout: bytes.NewBuffer([]byte{}),
+		Stderr: bytes.NewBuffer([]byte{}),
 	}
 	wasmExt.runtime = wazero.NewRuntime(wasmExt.ctx)
 	wasmExt.config = wazero.NewModuleConfig().
