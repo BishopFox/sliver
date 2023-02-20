@@ -57,35 +57,102 @@ var (
 		}{mutexNotheld})),
 	}
 
-	mutexApp1   mutex
-	mutexApp2   mutex
-	mutexApp3   mutex
-	mutexLRU    mutex
-	mutexMaster mutex
-	mutexMem    mutex
-	mutexOpen   mutex
-	mutexPMem   mutex
-	mutexPRNG   mutex
-	mutexVFS1   mutex
-	mutexVFS2   mutex
-	mutexVFS3   mutex
+	MutexCounters = libc.NewPerfCounter([]string{
+		"enter-fast",
+		"enter-recursive",
+		"enter-recursive-loop",
+		"try-fast",
+		"try-recursive",
+	})
+	MutexEnterCallers = libc.NewStackCapture(4)
+
+	mutexes mutexPool
+
+	mutexApp1   = mutexes.alloc(false)
+	mutexApp2   = mutexes.alloc(false)
+	mutexApp3   = mutexes.alloc(false)
+	mutexLRU    = mutexes.alloc(false)
+	mutexMaster = mutexes.alloc(false)
+	mutexMem    = mutexes.alloc(false)
+	mutexOpen   = mutexes.alloc(false)
+	mutexPMem   = mutexes.alloc(false)
+	mutexPRNG   = mutexes.alloc(false)
+	mutexVFS1   = mutexes.alloc(false)
+	mutexVFS2   = mutexes.alloc(false)
+	mutexVFS3   = mutexes.alloc(false)
 )
 
+type mutexPool struct {
+	sync.Mutex
+	a        []*[256]mutex
+	freeList []int
+}
+
+func mutexFromPtr(p uintptr) *mutex {
+	if p == 0 {
+		return nil
+	}
+	ix := p - 1
+	return &mutexes.a[ix>>8][ix&255]
+}
+
+func (m *mutexPool) alloc(recursive bool) uintptr {
+	m.Lock()
+
+	defer m.Unlock()
+
+	n := len(m.freeList)
+	if n == 0 {
+		outer := len(m.a) << 8
+		m.a = append(m.a, &[256]mutex{})
+		for i := 0; i < 256; i++ {
+			m.freeList = append(m.freeList, outer+i)
+		}
+		n = len(m.freeList)
+	}
+	ix := m.freeList[n-1]
+	outer := ix >> 8
+	inner := ix & 255
+	m.freeList = m.freeList[:n-1]
+	p := &m.a[outer][inner]
+	p.poolIndex = ix
+	p.recursive = recursive
+	return uintptr(ix) + 1
+}
+
+func (m *mutexPool) free(p uintptr) {
+	ptr := mutexFromPtr(p)
+	ix := ptr.poolIndex
+	*ptr = mutex{}
+	m.Lock()
+
+	defer m.Unlock()
+
+	m.freeList = append(m.freeList, ix)
+}
+
 type mutex struct {
+	sync.Mutex
+	wait sync.Mutex
+
+	poolIndex int
+
 	cnt int32
 	id  int32
-	sync.Mutex
-	wait      sync.Mutex
+
 	recursive bool
 }
 
 func (m *mutex) enter(id int32) {
+	// MutexEnterCallers.Record()
 	if !m.recursive {
+		// MutexCounters.Inc(0)
 		m.Lock()
 		m.id = id
 		return
 	}
 
+	// MutexCounters.Inc(1)
 	for {
 		m.Lock()
 		switch m.id {
@@ -101,6 +168,7 @@ func (m *mutex) enter(id int32) {
 			return
 		}
 
+		// MutexCounters.Inc(2)
 		m.Unlock()
 		m.wait.Lock()
 		//lint:ignore SA2001 TODO report staticcheck issue
@@ -110,9 +178,11 @@ func (m *mutex) enter(id int32) {
 
 func (m *mutex) try(id int32) int32 {
 	if !m.recursive {
+		// MutexCounters.Inc(3)
 		return SQLITE_BUSY
 	}
 
+	// MutexCounters.Inc(4)
 	m.Lock()
 	switch m.id {
 	case 0:
@@ -216,42 +286,40 @@ func mutexAlloc(tls *libc.TLS, typ int32) uintptr {
 	}()
 	switch typ {
 	case SQLITE_MUTEX_FAST:
-		return libc.Xcalloc(tls, 1, types.Size_t(unsafe.Sizeof(mutex{})))
+		return mutexes.alloc(false)
 	case SQLITE_MUTEX_RECURSIVE:
-		p := libc.Xcalloc(tls, 1, types.Size_t(unsafe.Sizeof(mutex{})))
-		(*mutex)(unsafe.Pointer(p)).recursive = true
-		return p
+		return mutexes.alloc(true)
 	case SQLITE_MUTEX_STATIC_MASTER:
-		return uintptr(unsafe.Pointer(&mutexMaster))
+		return mutexMaster
 	case SQLITE_MUTEX_STATIC_MEM:
-		return uintptr(unsafe.Pointer(&mutexMem))
+		return mutexMem
 	case SQLITE_MUTEX_STATIC_OPEN:
-		return uintptr(unsafe.Pointer(&mutexOpen))
+		return mutexOpen
 	case SQLITE_MUTEX_STATIC_PRNG:
-		return uintptr(unsafe.Pointer(&mutexPRNG))
+		return mutexPRNG
 	case SQLITE_MUTEX_STATIC_LRU:
-		return uintptr(unsafe.Pointer(&mutexLRU))
+		return mutexLRU
 	case SQLITE_MUTEX_STATIC_PMEM:
-		return uintptr(unsafe.Pointer(&mutexPMem))
+		return mutexPMem
 	case SQLITE_MUTEX_STATIC_APP1:
-		return uintptr(unsafe.Pointer(&mutexApp1))
+		return mutexApp1
 	case SQLITE_MUTEX_STATIC_APP2:
-		return uintptr(unsafe.Pointer(&mutexApp2))
+		return mutexApp2
 	case SQLITE_MUTEX_STATIC_APP3:
-		return uintptr(unsafe.Pointer(&mutexApp3))
+		return mutexApp3
 	case SQLITE_MUTEX_STATIC_VFS1:
-		return uintptr(unsafe.Pointer(&mutexVFS1))
+		return mutexVFS1
 	case SQLITE_MUTEX_STATIC_VFS2:
-		return uintptr(unsafe.Pointer(&mutexVFS2))
+		return mutexVFS2
 	case SQLITE_MUTEX_STATIC_VFS3:
-		return uintptr(unsafe.Pointer(&mutexVFS3))
+		return mutexVFS3
 	default:
 		return 0
 	}
 }
 
 // void (*xMutexFree)(sqlite3_mutex *);
-func mutexFree(tls *libc.TLS, m uintptr) { libc.Xfree(tls, m) }
+func mutexFree(tls *libc.TLS, m uintptr) { mutexes.free(m) }
 
 // The sqlite3_mutex_enter() and sqlite3_mutex_try() routines attempt to enter
 // a mutex. If another thread is already within the mutex,
@@ -272,8 +340,7 @@ func mutexEnter(tls *libc.TLS, m uintptr) {
 	if m == 0 {
 		return
 	}
-
-	(*mutex)(unsafe.Pointer(m)).enter(tls.ID)
+	mutexFromPtr(m).enter(tls.ID)
 }
 
 // int (*xMutexTry)(sqlite3_mutex *);
@@ -282,7 +349,7 @@ func mutexTry(tls *libc.TLS, m uintptr) int32 {
 		return SQLITE_OK
 	}
 
-	return (*mutex)(unsafe.Pointer(m)).try(tls.ID)
+	return mutexFromPtr(m).try(tls.ID)
 }
 
 // void (*xMutexLeave)(sqlite3_mutex *);
@@ -291,7 +358,7 @@ func mutexLeave(tls *libc.TLS, m uintptr) {
 		return
 	}
 
-	(*mutex)(unsafe.Pointer(m)).leave(tls.ID)
+	mutexFromPtr(m).leave(tls.ID)
 }
 
 // The sqlite3_mutex_held() and sqlite3_mutex_notheld() routines are intended
@@ -324,7 +391,7 @@ func mutexHeld(tls *libc.TLS, m uintptr) int32 {
 		return 1
 	}
 
-	return libc.Bool32(atomic.LoadInt32(&(*mutex)(unsafe.Pointer(m)).id) == tls.ID)
+	return libc.Bool32(atomic.LoadInt32(&mutexFromPtr(m).id) == tls.ID)
 }
 
 // int (*xMutexNotheld)(sqlite3_mutex *);
@@ -333,5 +400,5 @@ func mutexNotheld(tls *libc.TLS, m uintptr) int32 {
 		return 1
 	}
 
-	return libc.Bool32(atomic.LoadInt32(&(*mutex)(unsafe.Pointer(m)).id) != tls.ID)
+	return libc.Bool32(atomic.LoadInt32(&mutexFromPtr(m).id) != tls.ID)
 }
