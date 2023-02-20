@@ -79,6 +79,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/tasks"
 	"github.com/bishopfox/sliver/client/command/update"
 	"github.com/bishopfox/sliver/client/command/use"
+	"github.com/bishopfox/sliver/client/command/wasm"
 	"github.com/bishopfox/sliver/client/command/websites"
 	"github.com/bishopfox/sliver/client/command/wireguard"
 	"github.com/bishopfox/sliver/client/console"
@@ -3718,6 +3719,33 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	})
 	con.App.AddCommand(cursedCmd)
+
+	// [ Wasm ] -----------------------------------------------------------------
+
+	wasmCmd := &grumble.Command{
+		Name:      consts.WasmStr,
+		Help:      "Execute a Wasm Module Extension",
+		LongHelp:  help.GetHelpFor([]string{consts.WasmStr}),
+		HelpGroup: consts.GenericHelpGroup,
+		Args: func(a *grumble.Args) {
+			a.String("filepath", "path the wasm/wasi module file (.wasm)")
+			a.StringList("arguments", "arguments to pass to the wasm module", grumble.Default([]string{}))
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("i", "non-interactive", false, "execute module non-interactively")
+			f.String("m", "memfs", "", "include local directory in module's /memfs")
+
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			wasm.WasmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	}
+
+	con.App.AddCommand(wasmCmd)
 
 	// [ Builders ] ---------------------------------------------
 	buildersCmd := &grumble.Command{

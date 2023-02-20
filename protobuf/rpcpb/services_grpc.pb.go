@@ -179,13 +179,17 @@ type SliverRPCClient interface {
 	StartRportFwdListener(ctx context.Context, in *sliverpb.RportFwdStartListenerReq, opts ...grpc.CallOption) (*sliverpb.RportFwdListener, error)
 	GetRportFwdListeners(ctx context.Context, in *sliverpb.RportFwdListenersReq, opts ...grpc.CallOption) (*sliverpb.RportFwdListeners, error)
 	StopRportFwdListener(ctx context.Context, in *sliverpb.RportFwdStopListenerReq, opts ...grpc.CallOption) (*sliverpb.RportFwdListener, error)
-	// Beacon only commands
+	// *** Beacon *** -only commands
 	OpenSession(ctx context.Context, in *sliverpb.OpenSession, opts ...grpc.CallOption) (*sliverpb.OpenSession, error)
 	CloseSession(ctx context.Context, in *sliverpb.CloseSession, opts ...grpc.CallOption) (*commonpb.Empty, error)
-	// Extensions
+	// *** Extensions ***
 	RegisterExtension(ctx context.Context, in *sliverpb.RegisterExtensionReq, opts ...grpc.CallOption) (*sliverpb.RegisterExtension, error)
 	CallExtension(ctx context.Context, in *sliverpb.CallExtensionReq, opts ...grpc.CallOption) (*sliverpb.CallExtension, error)
 	ListExtensions(ctx context.Context, in *sliverpb.ListExtensionsReq, opts ...grpc.CallOption) (*sliverpb.ListExtensions, error)
+	// *** Wasm Extensions ***
+	RegisterWasmExtension(ctx context.Context, in *sliverpb.RegisterWasmExtensionReq, opts ...grpc.CallOption) (*sliverpb.RegisterWasmExtension, error)
+	ListWasmExtensions(ctx context.Context, in *sliverpb.ListWasmExtensionsReq, opts ...grpc.CallOption) (*sliverpb.ListWasmExtensions, error)
+	ExecWasmExtension(ctx context.Context, in *sliverpb.ExecWasmExtensionReq, opts ...grpc.CallOption) (*sliverpb.ExecWasmExtension, error)
 	// *** Wireguard Specific ***
 	WGStartPortForward(ctx context.Context, in *sliverpb.WGPortForwardStartReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error)
 	WGStopPortForward(ctx context.Context, in *sliverpb.WGPortForwardStopReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error)
@@ -1522,6 +1526,33 @@ func (c *sliverRPCClient) ListExtensions(ctx context.Context, in *sliverpb.ListE
 	return out, nil
 }
 
+func (c *sliverRPCClient) RegisterWasmExtension(ctx context.Context, in *sliverpb.RegisterWasmExtensionReq, opts ...grpc.CallOption) (*sliverpb.RegisterWasmExtension, error) {
+	out := new(sliverpb.RegisterWasmExtension)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/RegisterWasmExtension", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) ListWasmExtensions(ctx context.Context, in *sliverpb.ListWasmExtensionsReq, opts ...grpc.CallOption) (*sliverpb.ListWasmExtensions, error) {
+	out := new(sliverpb.ListWasmExtensions)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/ListWasmExtensions", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) ExecWasmExtension(ctx context.Context, in *sliverpb.ExecWasmExtensionReq, opts ...grpc.CallOption) (*sliverpb.ExecWasmExtension, error) {
+	out := new(sliverpb.ExecWasmExtension)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/ExecWasmExtension", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) WGStartPortForward(ctx context.Context, in *sliverpb.WGPortForwardStartReq, opts ...grpc.CallOption) (*sliverpb.WGPortForward, error) {
 	out := new(sliverpb.WGPortForward)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/WGStartPortForward", in, out, opts...)
@@ -1882,13 +1913,17 @@ type SliverRPCServer interface {
 	StartRportFwdListener(context.Context, *sliverpb.RportFwdStartListenerReq) (*sliverpb.RportFwdListener, error)
 	GetRportFwdListeners(context.Context, *sliverpb.RportFwdListenersReq) (*sliverpb.RportFwdListeners, error)
 	StopRportFwdListener(context.Context, *sliverpb.RportFwdStopListenerReq) (*sliverpb.RportFwdListener, error)
-	// Beacon only commands
+	// *** Beacon *** -only commands
 	OpenSession(context.Context, *sliverpb.OpenSession) (*sliverpb.OpenSession, error)
 	CloseSession(context.Context, *sliverpb.CloseSession) (*commonpb.Empty, error)
-	// Extensions
+	// *** Extensions ***
 	RegisterExtension(context.Context, *sliverpb.RegisterExtensionReq) (*sliverpb.RegisterExtension, error)
 	CallExtension(context.Context, *sliverpb.CallExtensionReq) (*sliverpb.CallExtension, error)
 	ListExtensions(context.Context, *sliverpb.ListExtensionsReq) (*sliverpb.ListExtensions, error)
+	// *** Wasm Extensions ***
+	RegisterWasmExtension(context.Context, *sliverpb.RegisterWasmExtensionReq) (*sliverpb.RegisterWasmExtension, error)
+	ListWasmExtensions(context.Context, *sliverpb.ListWasmExtensionsReq) (*sliverpb.ListWasmExtensions, error)
+	ExecWasmExtension(context.Context, *sliverpb.ExecWasmExtensionReq) (*sliverpb.ExecWasmExtension, error)
 	// *** Wireguard Specific ***
 	WGStartPortForward(context.Context, *sliverpb.WGPortForwardStartReq) (*sliverpb.WGPortForward, error)
 	WGStopPortForward(context.Context, *sliverpb.WGPortForwardStopReq) (*sliverpb.WGPortForward, error)
@@ -2335,6 +2370,15 @@ func (UnimplementedSliverRPCServer) CallExtension(context.Context, *sliverpb.Cal
 }
 func (UnimplementedSliverRPCServer) ListExtensions(context.Context, *sliverpb.ListExtensionsReq) (*sliverpb.ListExtensions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListExtensions not implemented")
+}
+func (UnimplementedSliverRPCServer) RegisterWasmExtension(context.Context, *sliverpb.RegisterWasmExtensionReq) (*sliverpb.RegisterWasmExtension, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterWasmExtension not implemented")
+}
+func (UnimplementedSliverRPCServer) ListWasmExtensions(context.Context, *sliverpb.ListWasmExtensionsReq) (*sliverpb.ListWasmExtensions, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListWasmExtensions not implemented")
+}
+func (UnimplementedSliverRPCServer) ExecWasmExtension(context.Context, *sliverpb.ExecWasmExtensionReq) (*sliverpb.ExecWasmExtension, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExecWasmExtension not implemented")
 }
 func (UnimplementedSliverRPCServer) WGStartPortForward(context.Context, *sliverpb.WGPortForwardStartReq) (*sliverpb.WGPortForward, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WGStartPortForward not implemented")
@@ -4920,6 +4964,60 @@ func _SliverRPC_ListExtensions_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_RegisterWasmExtension_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.RegisterWasmExtensionReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).RegisterWasmExtension(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/RegisterWasmExtension",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).RegisterWasmExtension(ctx, req.(*sliverpb.RegisterWasmExtensionReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_ListWasmExtensions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.ListWasmExtensionsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).ListWasmExtensions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/ListWasmExtensions",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).ListWasmExtensions(ctx, req.(*sliverpb.ListWasmExtensionsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_ExecWasmExtension_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.ExecWasmExtensionReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).ExecWasmExtension(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/ExecWasmExtension",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).ExecWasmExtension(ctx, req.(*sliverpb.ExecWasmExtensionReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_WGStartPortForward_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.WGPortForwardStartReq)
 	if err := dec(in); err != nil {
@@ -5767,6 +5865,18 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListExtensions",
 			Handler:    _SliverRPC_ListExtensions_Handler,
+		},
+		{
+			MethodName: "RegisterWasmExtension",
+			Handler:    _SliverRPC_RegisterWasmExtension_Handler,
+		},
+		{
+			MethodName: "ListWasmExtensions",
+			Handler:    _SliverRPC_ListWasmExtensions_Handler,
+		},
+		{
+			MethodName: "ExecWasmExtension",
+			Handler:    _SliverRPC_ExecWasmExtension_Handler,
 		},
 		{
 			MethodName: "WGStartPortForward",
