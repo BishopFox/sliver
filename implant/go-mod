@@ -5,8 +5,8 @@ go 1.18
 replace github.com/Binject/universal => /Users/lesnuages/code/go/src/universal
 
 require (
-	github.com/Binject/universal v0.0.0-20210304094126-daefaa886313
 	github.com/Ne0nd0g/go-clr v1.0.2
+	github.com/ebitengine/purego v0.2.0-alpha.1
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/lesnuages/go-winio v0.4.19
@@ -25,11 +25,8 @@ require (
 )
 
 require (
-	github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2 // indirect
 	github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc // indirect
 	github.com/Microsoft/go-winio v0.5.1 // indirect
-	github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0 // indirect
-	github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect

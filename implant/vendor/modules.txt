@@ -1,11 +1,3 @@
-# github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2
-## explicit; go 1.15
-github.com/Binject/debug/elf
-github.com/Binject/debug/macho
-github.com/Binject/debug/pe
-# github.com/Binject/universal v0.0.0-20210304094126-daefaa886313
-## explicit; go 1.16
-github.com/Binject/universal
 # github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc
 ## explicit
 github.com/BurntSushi/xgb
@@ -18,12 +10,6 @@ github.com/Microsoft/go-winio/pkg/guid
 # github.com/Ne0nd0g/go-clr v1.0.2
 ## explicit; go 1.13
 github.com/Ne0nd0g/go-clr
-# github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0
-## explicit; go 1.16
-github.com/awgh/cppgo/asmcall/cdecl
-# github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4
-## explicit
-github.com/awgh/rawreader
 # github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc
 ## explicit
 github.com/boombuler/barcode
@@ -32,6 +18,13 @@ github.com/boombuler/barcode/utils
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
+# github.com/ebitengine/purego v0.2.0-alpha.1
+## explicit; go 1.18
+github.com/ebitengine/purego
+github.com/ebitengine/purego/internal/abi
+github.com/ebitengine/purego/internal/cgo
+github.com/ebitengine/purego/internal/fakecgo
+github.com/ebitengine/purego/internal/strings
 # github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5
 ## explicit
 github.com/gen2brain/shm
@@ -294,3 +287,4 @@ gvisor.dev/gvisor/pkg/tcpip/transport/tcp
 gvisor.dev/gvisor/pkg/tcpip/transport/tcpconntrack
 gvisor.dev/gvisor/pkg/tcpip/transport/udp
 gvisor.dev/gvisor/pkg/waiter
+# github.com/Binject/universal => /Users/lesnuages/code/go/src/universal
