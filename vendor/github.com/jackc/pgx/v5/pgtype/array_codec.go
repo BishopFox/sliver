@@ -47,7 +47,16 @@ func (c *ArrayCodec) FormatSupported(format int16) bool {
 }
 
 func (c *ArrayCodec) PreferredFormat() int16 {
-	return c.ElementType.Codec.PreferredFormat()
+	// The binary format should always be preferred for arrays if it is supported. Usually, this will happen automatically
+	// because most types that support binary prefer it. However, text, json, and jsonb support binary but prefer the text
+	// format. This is because it is simpler for jsonb and PostgreSQL can be significantly faster using the text format
+	// for text-like data types than binary. However, arrays appear to always be faster in binary.
+	//
+	// https://www.postgresql.org/message-id/CAMovtNoHFod2jMAKQjjxv209PCTJx5Kc66anwWvX0mEiaXwgmA%40mail.gmail.com
+	if c.ElementType.Codec.FormatSupported(BinaryFormatCode) {
+		return BinaryFormatCode
+	}
+	return TextFormatCode
 }
 
 func (c *ArrayCodec) PlanEncode(m *Map, oid uint32, format int16, value any) EncodePlan {
@@ -60,7 +69,9 @@ func (c *ArrayCodec) PlanEncode(m *Map, oid uint32, format int16, value any) Enc
 
 	elementEncodePlan := m.PlanEncode(c.ElementType.OID, format, elementType)
 	if elementEncodePlan == nil {
-		return nil
+		if reflect.TypeOf(elementType) != nil {
+			return nil
+		}
 	}
 
 	switch format {
@@ -301,7 +312,7 @@ func (c *ArrayCodec) decodeText(m *Map, arrayOID uint32, src []byte, array Array
 	for i, s := range uta.Elements {
 		elem := array.ScanIndex(i)
 		var elemSrc []byte
-		if s != "NULL" {
+		if s != "NULL" || uta.Quoted[i] {
 			elemSrc = []byte(s)
 		}
 

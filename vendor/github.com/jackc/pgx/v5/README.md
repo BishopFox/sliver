@@ -88,7 +88,7 @@ See CONTRIBUTING.md for setup instructions.
 
 ## Supported Go and PostgreSQL Versions
 
-pgx supports the same versions of Go and PostgreSQL that are supported by their respective teams. For [Go](https://golang.org/doc/devel/release.html#policy) that is the two most recent major releases and for [PostgreSQL](https://www.postgresql.org/support/versioning/) the major releases in the last 5 years. This means pgx supports Go 1.18 and higher and PostgreSQL 11 and higher. pgx also is tested against the latest version of [CockroachDB](https://www.cockroachlabs.com/product/).
+pgx supports the same versions of Go and PostgreSQL that are supported by their respective teams. For [Go](https://golang.org/doc/devel/release.html#policy) that is the two most recent major releases and for [PostgreSQL](https://www.postgresql.org/support/versioning/) the major releases in the last 5 years. This means pgx supports Go 1.19 and higher and PostgreSQL 11 and higher. pgx also is tested against the latest version of [CockroachDB](https://www.cockroachlabs.com/product/).
 
 ## Version Policy
 
@@ -142,3 +142,12 @@ Library for scanning data from a database into Go structs and more.
 ### [https://github.com/otan/gopgkrb5](https://github.com/otan/gopgkrb5)
 
 Adds GSSAPI / Kerberos authentication support.
+
+### [github.com/wcamarao/pmx](https://github.com/wcamarao/pmx)
+
+Explicit data mapping and scanning library for Go structs and slices.
+
+### [github.com/stephenafamo/scan](https://github.com/stephenafamo/scan)
+
+Type safe and flexible package for scanning database data into Go types.
+Supports, structs, maps, slices and custom mapping functions.

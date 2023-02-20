@@ -1,8 +1,6 @@
-//go:build aix || android || darwin || dragonfly || freebsd || hurd || illumos || ios || linux || netbsd || openbsd || solaris
+//go:build unix
 
 package nbconn
-
-// Not using unix build tag for support on Go 1.18.
 
 import (
 	"errors"
@@ -12,14 +10,19 @@ import (
 
 // realNonblockingWrite does a non-blocking write. readFlushLock must already be held.
 func (c *NetConn) realNonblockingWrite(b []byte) (n int, err error) {
+	if c.nonblockWriteFunc == nil {
+		c.nonblockWriteFunc = func(fd uintptr) (done bool) {
+			c.nonblockWriteN, c.nonblockWriteErr = syscall.Write(int(fd), c.nonblockWriteBuf)
+			return true
+		}
+	}
 	c.nonblockWriteBuf = b
 	c.nonblockWriteN = 0
 	c.nonblockWriteErr = nil
-	err = c.rawConn.Write(func(fd uintptr) (done bool) {
-		c.nonblockWriteN, c.nonblockWriteErr = syscall.Write(int(fd), c.nonblockWriteBuf)
-		return true
-	})
+
+	err = c.rawConn.Write(c.nonblockWriteFunc)
 	n = c.nonblockWriteN
+	c.nonblockWriteBuf = nil // ensure that no reference to b is kept.
 	if err == nil && c.nonblockWriteErr != nil {
 		if errors.Is(c.nonblockWriteErr, syscall.EWOULDBLOCK) {
 			err = ErrWouldBlock
@@ -40,16 +43,24 @@ func (c *NetConn) realNonblockingWrite(b []byte) (n int, err error) {
 }
 
 func (c *NetConn) realNonblockingRead(b []byte) (n int, err error) {
-	var funcErr error
-	err = c.rawConn.Read(func(fd uintptr) (done bool) {
-		n, funcErr = syscall.Read(int(fd), b)
-		return true
-	})
-	if err == nil && funcErr != nil {
-		if errors.Is(funcErr, syscall.EWOULDBLOCK) {
+	if c.nonblockReadFunc == nil {
+		c.nonblockReadFunc = func(fd uintptr) (done bool) {
+			c.nonblockReadN, c.nonblockReadErr = syscall.Read(int(fd), c.nonblockReadBuf)
+			return true
+		}
+	}
+	c.nonblockReadBuf = b
+	c.nonblockReadN = 0
+	c.nonblockReadErr = nil
+
+	err = c.rawConn.Read(c.nonblockReadFunc)
+	n = c.nonblockReadN
+	c.nonblockReadBuf = nil // ensure that no reference to b is kept.
+	if err == nil && c.nonblockReadErr != nil {
+		if errors.Is(c.nonblockReadErr, syscall.EWOULDBLOCK) {
 			err = ErrWouldBlock
 		} else {
-			err = funcErr
+			err = c.nonblockReadErr
 		}
 	}
 	if err != nil {
