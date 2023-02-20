@@ -240,10 +240,29 @@ func (n Numeric) MarshalJSON() ([]byte, error) {
 	return n.numberTextBytes(), nil
 }
 
+func (n *Numeric) UnmarshalJSON(src []byte) error {
+	if bytes.Compare(src, []byte(`null`)) == 0 {
+		*n = Numeric{}
+		return nil
+	}
+	if bytes.Compare(src, []byte(`"NaN"`)) == 0 {
+		*n = Numeric{NaN: true, Valid: true}
+		return nil
+	}
+	return scanPlanTextAnyToNumericScanner{}.Scan(src, n)
+}
+
 // numberString returns a string of the number. undefined if NaN, infinite, or NULL
 func (n Numeric) numberTextBytes() []byte {
 	intStr := n.Int.String()
+
 	buf := &bytes.Buffer{}
+
+	if len(intStr) > 0 && intStr[:1] == "-" {
+		intStr = intStr[1:]
+		buf.WriteByte('-')
+	}
+
 	exp := int(n.Exp)
 	if exp > 0 {
 		buf.WriteString(intStr)
