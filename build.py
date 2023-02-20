@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 Sliver Implant Framework
 Copyright (C) 2019  Bishop Fox
@@ -20,12 +20,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 import sys
 import argparse
-
-try:
-    input = raw_input # Py2 / Py3 compatability
-except NameError:
-    pass
-
 
 INFO = "\033[1m\033[36m[*]\033[0m "
 WARN = "\033[1m\033[31m[!]\033[0m "
