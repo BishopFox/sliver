@@ -460,9 +460,6 @@ func (dialector Dialector) getSchemaIntAndUnitType(field *schema.Field) string {
 		if field.DataType == schema.Uint {
 			sqlType += " unsigned"
 		}
-		if field.NotNull {
-			sqlType += " NOT NULL"
-		}
 		if field.AutoIncrement {
 			sqlType += " AUTO_INCREMENT"
 		}
