@@ -203,6 +203,8 @@ func ConnectConfig(octx context.Context, config *Config) (pgConn *PgConn, err er
 func expandWithIPs(ctx context.Context, lookupFn LookupFunc, fallbacks []*FallbackConfig) ([]*FallbackConfig, error) {
 	var configs []*FallbackConfig
 
+	var lookupErrors []error
+
 	for _, fb := range fallbacks {
 		// skip resolve for unix sockets
 		if isAbsolutePath(fb.Host) {
@@ -217,7 +219,8 @@ func expandWithIPs(ctx context.Context, lookupFn LookupFunc, fallbacks []*Fallba
 
 		ips, err := lookupFn(ctx, fb.Host)
 		if err != nil {
-			return nil, err
+			lookupErrors = append(lookupErrors, err)
+			continue
 		}
 
 		for _, ip := range ips {
@@ -240,6 +243,12 @@ func expandWithIPs(ctx context.Context, lookupFn LookupFunc, fallbacks []*Fallba
 				})
 			}
 		}
+	}
+
+	// See https://github.com/jackc/pgx/issues/1464. When Go 1.20 can be used in pgx consider using errors.Join so all
+	// errors are reported.
+	if len(configs) == 0 && len(lookupErrors) > 0 {
+		return nil, lookupErrors[0]
 	}
 
 	return configs, nil
@@ -1166,20 +1175,20 @@ func (pgConn *PgConn) CopyFrom(ctx context.Context, r io.Reader, sql string) (Co
 
 	buf := iobufpool.Get(65536)
 	defer iobufpool.Put(buf)
-	buf[0] = 'd'
+	(*buf)[0] = 'd'
 
 	var readErr, pgErr error
 	for pgErr == nil {
 		// Read chunk from r.
 		var n int
-		n, readErr = r.Read(buf[5:cap(buf)])
+		n, readErr = r.Read((*buf)[5:cap(*buf)])
 
 		// Send chunk to PostgreSQL.
 		if n > 0 {
-			buf = buf[0 : n+5]
-			pgio.SetInt32(buf[1:], int32(n+4))
+			*buf = (*buf)[0 : n+5]
+			pgio.SetInt32((*buf)[1:], int32(n+4))
 
-			writeErr := pgConn.frontend.SendUnbufferedEncodedCopyData(buf)
+			writeErr := pgConn.frontend.SendUnbufferedEncodedCopyData(*buf)
 			if writeErr != nil {
 				pgConn.asyncClose()
 				return CommandTag{}, err

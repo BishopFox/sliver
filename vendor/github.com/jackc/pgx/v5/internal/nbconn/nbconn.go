@@ -26,7 +26,9 @@ import (
 var errClosed = errors.New("closed")
 var ErrWouldBlock = new(wouldBlockError)
 
-const fakeNonblockingWaitDuration = 100 * time.Millisecond
+const fakeNonblockingWriteWaitDuration = 100 * time.Millisecond
+const minNonblockingReadWaitDuration = time.Microsecond
+const maxNonblockingReadWaitDuration = 100 * time.Millisecond
 
 // NonBlockingDeadline is a magic value that when passed to Set[Read]Deadline places the connection in non-blocking read
 // mode.
@@ -54,7 +56,7 @@ type Conn interface {
 	// Flush flushes any buffered writes.
 	Flush() error
 
-	// BufferReadUntilBlock reads and buffers any sucessfully read bytes until the read would block.
+	// BufferReadUntilBlock reads and buffers any successfully read bytes until the read would block.
 	BufferReadUntilBlock() error
 }
 
@@ -73,14 +75,24 @@ type NetConn struct {
 
 	readFlushLock sync.Mutex
 	// non-blocking writes with syscall.RawConn are done with a callback function. By using these fields instead of the
-	// callback functions closure  to pass the buf argument and receive the n and err results we avoid some allocations.
-	nonblockWriteBuf []byte
-	nonblockWriteErr error
-	nonblockWriteN   int
+	// callback functions closure to pass the buf argument and receive the n and err results we avoid some allocations.
+	nonblockWriteFunc func(fd uintptr) (done bool)
+	nonblockWriteBuf  []byte
+	nonblockWriteErr  error
+	nonblockWriteN    int
 
-	readDeadlineLock sync.Mutex
-	readDeadline     time.Time
-	readNonblocking  bool
+	// non-blocking reads with syscall.RawConn are done with a callback function. By using these fields instead of the
+	// callback functions closure to pass the buf argument and receive the n and err results we avoid some allocations.
+	nonblockReadFunc func(fd uintptr) (done bool)
+	nonblockReadBuf  []byte
+	nonblockReadErr  error
+	nonblockReadN    int
+
+	readDeadlineLock                sync.Mutex
+	readDeadline                    time.Time
+	readNonblocking                 bool
+	fakeNonBlockingShortReadCount   int
+	fakeNonblockingReadWaitDuration time.Duration
 
 	writeDeadlineLock sync.Mutex
 	writeDeadline     time.Time
@@ -88,7 +100,8 @@ type NetConn struct {
 
 func NewNetConn(conn net.Conn, fakeNonBlockingIO bool) *NetConn {
 	nc := &NetConn{
-		conn: conn,
+		conn:                            conn,
+		fakeNonblockingReadWaitDuration: maxNonblockingReadWaitDuration,
 	}
 
 	if !fakeNonBlockingIO {
@@ -121,9 +134,9 @@ func (c *NetConn) Read(b []byte) (n int, err error) {
 		if buf == nil {
 			break
 		}
-		copiedN := copy(b[n:], buf)
-		if copiedN < len(buf) {
-			buf = buf[copiedN:]
+		copiedN := copy(b[n:], *buf)
+		if copiedN < len(*buf) {
+			*buf = (*buf)[copiedN:]
 			c.readQueue.pushFront(buf)
 		} else {
 			iobufpool.Put(buf)
@@ -160,7 +173,7 @@ func (c *NetConn) Write(b []byte) (n int, err error) {
 	}
 
 	buf := iobufpool.Get(len(b))
-	copy(buf, b)
+	copy(*buf, b)
 	c.writeQueue.pushBack(buf)
 	return len(b), nil
 }
@@ -278,14 +291,14 @@ func (c *NetConn) flush() error {
 	}()
 
 	for buf := c.writeQueue.popFront(); buf != nil; buf = c.writeQueue.popFront() {
-		remainingBuf := buf
+		remainingBuf := *buf
 		for len(remainingBuf) > 0 {
 			n, err := c.nonblockingWrite(remainingBuf)
 			remainingBuf = remainingBuf[n:]
 			if err != nil {
 				if !errors.Is(err, ErrWouldBlock) {
-					buf = buf[:len(remainingBuf)]
-					copy(buf, remainingBuf)
+					*buf = (*buf)[:len(remainingBuf)]
+					copy(*buf, remainingBuf)
 					c.writeQueue.pushFront(buf)
 					return err
 				}
@@ -313,10 +326,12 @@ func (c *NetConn) flush() error {
 func (c *NetConn) BufferReadUntilBlock() error {
 	for {
 		buf := iobufpool.Get(8 * 1024)
-		n, err := c.nonblockingRead(buf)
+		n, err := c.nonblockingRead(*buf)
 		if n > 0 {
-			buf = buf[:n]
+			*buf = (*buf)[:n]
 			c.readQueue.pushBack(buf)
+		} else if n == 0 {
+			iobufpool.Put(buf)
 		}
 
 		if err != nil {
@@ -369,7 +384,7 @@ func (c *NetConn) fakeNonblockingWrite(b []byte) (n int, err error) {
 	c.writeDeadlineLock.Lock()
 	defer c.writeDeadlineLock.Unlock()
 
-	deadline := time.Now().Add(fakeNonblockingWaitDuration)
+	deadline := time.Now().Add(fakeNonblockingWriteWaitDuration)
 	if c.writeDeadline.IsZero() || deadline.Before(c.writeDeadline) {
 		err = c.conn.SetWriteDeadline(deadline)
 		if err != nil {
@@ -402,13 +417,40 @@ func (c *NetConn) fakeNonblockingRead(b []byte) (n int, err error) {
 	c.readDeadlineLock.Lock()
 	defer c.readDeadlineLock.Unlock()
 
-	deadline := time.Now().Add(fakeNonblockingWaitDuration)
+	// The first 5 reads only read 1 byte at a time. This should give us 4 chances to read when we are sure the bytes are
+	// already in Go or the OS's receive buffer.
+	if c.fakeNonBlockingShortReadCount < 5 && len(b) > 0 {
+		b = b[:1]
+	}
+
+	startTime := time.Now()
+	deadline := startTime.Add(c.fakeNonblockingReadWaitDuration)
 	if c.readDeadline.IsZero() || deadline.Before(c.readDeadline) {
 		err = c.conn.SetReadDeadline(deadline)
 		if err != nil {
 			return 0, err
 		}
 		defer func() {
+			// If the read was successful and the wait duration is not already the minimum
+			if err == nil && c.fakeNonblockingReadWaitDuration > minNonblockingReadWaitDuration {
+				endTime := time.Now()
+
+				if n > 0 && c.fakeNonBlockingShortReadCount < 5 {
+					c.fakeNonBlockingShortReadCount++
+				}
+
+				// The wait duration should be 2x the fastest read that has occurred. This should give reasonable assurance that
+				// a Read deadline will not block a read before it has a chance to read data already in Go or the OS's receive
+				// buffer.
+				proposedWait := endTime.Sub(startTime) * 2
+				if proposedWait < minNonblockingReadWaitDuration {
+					proposedWait = minNonblockingReadWaitDuration
+				}
+				if proposedWait < c.fakeNonblockingReadWaitDuration {
+					c.fakeNonblockingReadWaitDuration = proposedWait
+				}
+			}
+
 			// Ignoring error resetting deadline as there is nothing that can reasonably be done if it fails.
 			c.conn.SetReadDeadline(c.readDeadline)
 

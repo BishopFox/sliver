@@ -192,7 +192,8 @@ type Map struct {
 
 	reflectTypeToType map[reflect.Type]*Type
 
-	memoizedScanPlans map[uint32]map[reflect.Type][2]ScanPlan
+	memoizedScanPlans   map[uint32]map[reflect.Type][2]ScanPlan
+	memoizedEncodePlans map[uint32]map[reflect.Type][2]EncodePlan
 
 	// TryWrapEncodePlanFuncs is a slice of functions that will wrap a value that cannot be encoded by the Codec. Every
 	// time a wrapper is found the PlanEncode method will be recursively called with the new value. This allows several layers of wrappers
@@ -214,7 +215,8 @@ func NewMap() *Map {
 		reflectTypeToName: make(map[reflect.Type]string),
 		oidToFormatCode:   make(map[uint32]int16),
 
-		memoizedScanPlans: make(map[uint32]map[reflect.Type][2]ScanPlan),
+		memoizedScanPlans:   make(map[uint32]map[reflect.Type][2]ScanPlan),
+		memoizedEncodePlans: make(map[uint32]map[reflect.Type][2]EncodePlan),
 
 		TryWrapEncodePlanFuncs: []TryWrapEncodePlanFunc{
 			TryWrapDerefPointerEncodePlan,
@@ -223,6 +225,7 @@ func NewMap() *Map {
 			TryWrapStructEncodePlan,
 			TryWrapSliceEncodePlan,
 			TryWrapMultiDimSliceEncodePlan,
+			TryWrapArrayEncodePlan,
 		},
 
 		TryWrapScanPlanFuncs: []TryWrapScanPlanFunc{
@@ -232,6 +235,7 @@ func NewMap() *Map {
 			TryWrapStructScanPlan,
 			TryWrapPtrSliceScanPlan,
 			TryWrapPtrMultiDimSliceScanPlan,
+			TryWrapPtrArrayScanPlan,
 		},
 	}
 
@@ -420,6 +424,9 @@ func (m *Map) RegisterType(t *Type) {
 	for k := range m.memoizedScanPlans {
 		delete(m.memoizedScanPlans, k)
 	}
+	for k := range m.memoizedEncodePlans {
+		delete(m.memoizedEncodePlans, k)
+	}
 }
 
 // RegisterDefaultPgType registers a mapping of a Go type to a PostgreSQL type name. Typically the data type to be
@@ -432,6 +439,9 @@ func (m *Map) RegisterDefaultPgType(value any, name string) {
 	m.reflectTypeToType = nil
 	for k := range m.memoizedScanPlans {
 		delete(m.memoizedScanPlans, k)
+	}
+	for k := range m.memoizedEncodePlans {
+		delete(m.memoizedEncodePlans, k)
 	}
 }
 
@@ -1018,7 +1028,7 @@ func TryWrapStructScanPlan(target any) (plan WrappedScanPlanNextSetter, nextValu
 
 	var targetElemValue reflect.Value
 	if targetValue.IsNil() {
-		targetElemValue = reflect.New(targetValue.Type().Elem())
+		targetElemValue = reflect.Zero(targetValue.Type().Elem())
 	} else {
 		targetElemValue = targetValue.Elem()
 	}
@@ -1139,6 +1149,31 @@ func (plan *wrapPtrMultiDimSliceScanPlan) Scan(src []byte, target any) error {
 	return plan.next.Scan(src, &anyMultiDimSliceArray{slice: reflect.ValueOf(target).Elem()})
 }
 
+// TryWrapPtrArrayScanPlan tries to wrap a pointer to a single dimension array.
+func TryWrapPtrArrayScanPlan(target any) (plan WrappedScanPlanNextSetter, nextValue any, ok bool) {
+	targetValue := reflect.ValueOf(target)
+	if targetValue.Kind() != reflect.Ptr {
+		return nil, nil, false
+	}
+
+	targetElemValue := targetValue.Elem()
+
+	if targetElemValue.Kind() == reflect.Array {
+		return &wrapPtrArrayReflectScanPlan{}, &anyArrayArrayReflect{array: targetElemValue}, true
+	}
+	return nil, nil, false
+}
+
+type wrapPtrArrayReflectScanPlan struct {
+	next ScanPlan
+}
+
+func (plan *wrapPtrArrayReflectScanPlan) SetNext(next ScanPlan) { plan.next = next }
+
+func (plan *wrapPtrArrayReflectScanPlan) Scan(src []byte, target any) error {
+	return plan.next.Scan(src, &anyArrayArrayReflect{array: reflect.ValueOf(target).Elem()})
+}
+
 // PlanScan prepares a plan to scan a value into target.
 func (m *Map) PlanScan(oid uint32, formatCode int16, target any) ScanPlan {
 	oidMemo := m.memoizedScanPlans[oid]
@@ -1200,6 +1235,16 @@ func (m *Map) planScan(oid uint32, formatCode int16, target any) ScanPlan {
 		}
 	}
 
+	// This needs to happen before trying m.TryWrapScanPlanFuncs. Otherwise, a sql.Scanner would not get called if it was
+	// defined on a type that could be unwrapped such as `type myString string`.
+	//
+	//  https://github.com/jackc/pgtype/issues/197
+	if dt == nil {
+		if _, ok := target.(sql.Scanner); ok {
+			return &scanPlanSQLScanner{formatCode: formatCode}
+		}
+	}
+
 	for _, f := range m.TryWrapScanPlanFuncs {
 		if wrapperPlan, nextDst, ok := f(target); ok {
 			if nextPlan := m.planScan(oid, formatCode, nextDst); nextPlan != nil {
@@ -1219,10 +1264,6 @@ func (m *Map) planScan(oid uint32, formatCode int16, target any) ScanPlan {
 		if _, ok := target.(sql.Scanner); ok {
 			return &scanPlanCodecSQLScanner{c: dt.Codec, m: m, oid: oid, formatCode: formatCode}
 		}
-	}
-
-	if _, ok := target.(sql.Scanner); ok {
-		return &scanPlanSQLScanner{formatCode: formatCode}
 	}
 
 	return &scanPlanFail{m: m, oid: oid, formatCode: formatCode}
@@ -1289,6 +1330,24 @@ func codecDecodeToTextFormat(codec Codec, m *Map, oid uint32, format int16, src 
 // PlanEncode returns an Encode plan for encoding value into PostgreSQL format for oid and format. If no plan can be
 // found then nil is returned.
 func (m *Map) PlanEncode(oid uint32, format int16, value any) EncodePlan {
+	oidMemo := m.memoizedEncodePlans[oid]
+	if oidMemo == nil {
+		oidMemo = make(map[reflect.Type][2]EncodePlan)
+		m.memoizedEncodePlans[oid] = oidMemo
+	}
+	targetReflectType := reflect.TypeOf(value)
+	typeMemo := oidMemo[targetReflectType]
+	plan := typeMemo[format]
+	if plan == nil {
+		plan = m.planEncode(oid, format, value)
+		typeMemo[format] = plan
+		oidMemo[targetReflectType] = typeMemo
+	}
+
+	return plan
+}
+
+func (m *Map) planEncode(oid uint32, format int16, value any) EncodePlan {
 	if format == TextFormatCode {
 		switch value.(type) {
 		case string:
@@ -1299,15 +1358,15 @@ func (m *Map) PlanEncode(oid uint32, format int16, value any) EncodePlan {
 	}
 
 	var dt *Type
-
-	if oid == 0 {
+	if dataType, ok := m.TypeForOID(oid); ok {
+		dt = dataType
+	} else {
+		// If no type for the OID was found, then either it is unknowable (e.g. the simple protocol) or it is an
+		// unregistered type. In either case try to find the type and OID that matches the value (e.g. a []byte would be
+		// registered to PostgreSQL bytea).
 		if dataType, ok := m.TypeForValue(value); ok {
 			dt = dataType
 			oid = dt.OID // Preserve assumed OID in case we are recursively called below.
-		}
-	} else {
-		if dataType, ok := m.TypeForOID(oid); ok {
-			dt = dataType
 		}
 	}
 
@@ -1939,6 +1998,35 @@ func (plan *wrapMultiDimSliceEncodePlan) Encode(value any, buf []byte) (newBuf [
 	}
 
 	return plan.next.Encode(&w, buf)
+}
+
+func TryWrapArrayEncodePlan(value any) (plan WrappedEncodePlanNextSetter, nextValue any, ok bool) {
+	if _, ok := value.(driver.Valuer); ok {
+		return nil, nil, false
+	}
+
+	if valueType := reflect.TypeOf(value); valueType != nil && valueType.Kind() == reflect.Array {
+		w := anyArrayArrayReflect{
+			array: reflect.ValueOf(value),
+		}
+		return &wrapArrayEncodeReflectPlan{}, w, true
+	}
+
+	return nil, nil, false
+}
+
+type wrapArrayEncodeReflectPlan struct {
+	next EncodePlan
+}
+
+func (plan *wrapArrayEncodeReflectPlan) SetNext(next EncodePlan) { plan.next = next }
+
+func (plan *wrapArrayEncodeReflectPlan) Encode(value any, buf []byte) (newBuf []byte, err error) {
+	w := anyArrayArrayReflect{
+		array: reflect.ValueOf(value),
+	}
+
+	return plan.next.Encode(w, buf)
 }
 
 func newEncodeError(value any, m *Map, oid uint32, formatCode int16, err error) error {
