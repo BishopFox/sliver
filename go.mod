@@ -53,7 +53,7 @@ require (
 	gorm.io/driver/sqlite v1.4.4
 	gorm.io/gorm v1.24.5
 	gvisor.dev/gvisor v0.0.0-20220817001344-846276b3dbc5
-	modernc.org/sqlite v1.19.3
+	modernc.org/sqlite v1.20.4
 )
 
 require (
@@ -70,6 +70,7 @@ require (
 	github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d // indirect
 	github.com/desertbit/closer/v3 v3.1.2 // indirect
 	github.com/dlclark/regexp2 v1.4.0 // indirect
+	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
@@ -113,8 +114,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/uint128 v1.2.0 // indirect
 	modernc.org/cc/v3 v3.40.0 // indirect
-	modernc.org/ccgo/v3 v3.16.13-0.20221017192402-261537637ce8 // indirect
-	modernc.org/libc v1.21.2 // indirect
+	modernc.org/ccgo/v3 v3.16.13 // indirect
+	modernc.org/libc v1.22.2 // indirect
 	modernc.org/mathutil v1.5.0 // indirect
 	modernc.org/memory v1.4.0 // indirect
 	modernc.org/opt v0.1.3 // indirect

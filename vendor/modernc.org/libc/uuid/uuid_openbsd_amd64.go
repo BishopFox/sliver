@@ -23,8 +23,8 @@ const (
 	UUID_STR_LEN               = 36   // uuid.h:49:1:
 	X_BIG_ENDIAN               = 4321 // _endian.h:43:1:
 	X_BYTE_ORDER               = 1234 // endian.h:58:1:
-	X_CLOCKID_T_DEFINED_       = 0    // types.h:163:1:
-	X_CLOCK_T_DEFINED_         = 0    // types.h:158:1:
+	X_CLOCKID_T_DEFINED_       = 0    // types.h:162:1:
+	X_CLOCK_T_DEFINED_         = 0    // types.h:157:1:
 	X_FILE_OFFSET_BITS         = 64   // <builtin>:25:1:
 	X_INT16_T_DEFINED_         = 0    // types.h:84:1:
 	X_INT32_T_DEFINED_         = 0    // types.h:94:1:
@@ -36,14 +36,14 @@ const (
 	X_MACHINE_ENDIAN_H_        = 0    // endian.h:28:1:
 	X_MACHINE__TYPES_H_        = 0    // _types.h:36:1:
 	X_MAX_PAGE_SHIFT           = 12   // _types.h:52:1:
-	X_OFF_T_DEFINED_           = 0    // types.h:193:1:
+	X_OFF_T_DEFINED_           = 0    // types.h:192:1:
 	X_PDP_ENDIAN               = 3412 // _endian.h:44:1:
-	X_PID_T_DEFINED_           = 0    // types.h:168:1:
+	X_PID_T_DEFINED_           = 0    // types.h:167:1:
 	X_QUAD_HIGHWORD            = 1    // _endian.h:95:1:
 	X_QUAD_LOWWORD             = 0    // _endian.h:96:1:
 	X_RET_PROTECTOR            = 1    // <predefined>:2:1:
-	X_SIZE_T_DEFINED_          = 0    // types.h:173:1:
-	X_SSIZE_T_DEFINED_         = 0    // types.h:178:1:
+	X_SIZE_T_DEFINED_          = 0    // types.h:172:1:
+	X_SSIZE_T_DEFINED_         = 0    // types.h:177:1:
 	X_STACKALIGNBYTES          = 15   // _types.h:49:1:
 	X_SYS_CDEFS_H_             = 0    // cdefs.h:39:1:
 	X_SYS_ENDIAN_H_            = 0    // endian.h:38:1:
@@ -51,8 +51,8 @@ const (
 	X_SYS_UUID_H_              = 0    // uuid.h:33:1:
 	X_SYS__ENDIAN_H_           = 0    // _endian.h:34:1:
 	X_SYS__TYPES_H_            = 0    // _types.h:35:1:
-	X_TIMER_T_DEFINED_         = 0    // types.h:188:1:
-	X_TIME_T_DEFINED_          = 0    // types.h:183:1:
+	X_TIMER_T_DEFINED_         = 0    // types.h:187:1:
+	X_TIME_T_DEFINED_          = 0    // types.h:182:1:
 	X_UINT16_T_DEFINED_        = 0    // types.h:89:1:
 	X_UINT32_T_DEFINED_        = 0    // types.h:99:1:
 	X_UINT64_T_DEFINED_        = 0    // types.h:109:1:
@@ -60,7 +60,7 @@ const (
 	X_UUID_BUF_LEN             = 38   // uuid.h:39:1:
 	X_UUID_H_                  = 0    // uuid.h:34:1:
 	X_UUID_NODE_LEN            = 6    // uuid.h:36:1:
-	Unix                       = 1    // <predefined>:340:1:
+	Unix                       = 1    // <predefined>:344:1:
 	Uuid_s_bad_version         = 1    // uuid.h:41:1:
 	Uuid_s_invalid_string_uuid = 2    // uuid.h:42:1:
 	Uuid_s_no_memory           = 3    // uuid.h:43:1:
@@ -115,7 +115,7 @@ type X__float128 = float64        /* <builtin>:47:21 */
 //
 // $FreeBSD: src/include/uuid.h,v 1.2 2002/11/05 10:55:16 jmallett Exp $
 
-//	$OpenBSD: types.h,v 1.48 2019/02/09 04:54:11 guenther Exp $
+//	$OpenBSD: types.h,v 1.49 2022/08/06 13:31:13 semarie Exp $
 //	$NetBSD: types.h,v 1.29 1996/11/15 22:48:25 jtc Exp $
 
 // -
@@ -412,7 +412,7 @@ type X__float128 = float64        /* <builtin>:47:21 */
 // get the correct setting direction for the platform and sets internal
 // ('__' prefix) macros appropriately.
 
-//	$OpenBSD: _types.h,v 1.9 2014/08/22 23:05:15 krw Exp $
+//	$OpenBSD: _types.h,v 1.10 2022/08/06 13:31:13 semarie Exp $
 
 // -
 // Copyright (c) 1990, 1993
@@ -572,18 +572,17 @@ type X__sa_family_t = X__uint8_t /* _types.h:59:19 */ // sockaddr address family
 type X__segsz_t = X__int32_t     /* _types.h:60:19 */ // segment size
 type X__socklen_t = X__uint32_t  /* _types.h:61:20 */ // length type for network syscalls
 type X__suseconds_t = int64      /* _types.h:62:15 */ // microseconds (signed)
-type X__swblk_t = X__int32_t     /* _types.h:63:19 */ // swap offset
-type X__time_t = X__int64_t      /* _types.h:64:19 */ // epoch time
-type X__timer_t = X__int32_t     /* _types.h:65:19 */ // POSIX timer identifiers
-type X__uid_t = X__uint32_t      /* _types.h:66:20 */ // user id
-type X__useconds_t = X__uint32_t /* _types.h:67:20 */ // microseconds
+type X__time_t = X__int64_t      /* _types.h:63:19 */ // epoch time
+type X__timer_t = X__int32_t     /* _types.h:64:19 */ // POSIX timer identifiers
+type X__uid_t = X__uint32_t      /* _types.h:65:20 */ // user id
+type X__useconds_t = X__uint32_t /* _types.h:66:20 */ // microseconds
 
 // mbstate_t is an opaque object to keep conversion state, during multibyte
 // stream conversions. The content must not be referenced by user programs.
 type X__mbstate_t = struct {
 	F__ccgo_pad1 [0]uint64
 	F__mbstate8  [128]int8
-} /* _types.h:76:3 */
+} /* _types.h:75:3 */
 
 // Tell sys/endian.h we have MD variants of the swap macros.
 
@@ -665,27 +664,26 @@ type Mode_t = X__mode_t           /* types.h:143:18 */ // permissions
 type Nlink_t = X__nlink_t         /* types.h:144:19 */ // link count
 type Rlim_t = X__rlim_t           /* types.h:145:18 */ // resource limit
 type Segsz_t = X__segsz_t         /* types.h:146:19 */ // segment size
-type Swblk_t = X__swblk_t         /* types.h:147:19 */ // swap offset
-type Uid_t = X__uid_t             /* types.h:148:18 */ // user id
-type Useconds_t = X__useconds_t   /* types.h:149:22 */ // microseconds
-type Suseconds_t = X__suseconds_t /* types.h:150:23 */ // microseconds (signed)
-type Fsblkcnt_t = X__fsblkcnt_t   /* types.h:151:22 */ // file system block count
-type Fsfilcnt_t = X__fsfilcnt_t   /* types.h:152:22 */ // file system file count
+type Uid_t = X__uid_t             /* types.h:147:18 */ // user id
+type Useconds_t = X__useconds_t   /* types.h:148:22 */ // microseconds
+type Suseconds_t = X__suseconds_t /* types.h:149:23 */ // microseconds (signed)
+type Fsblkcnt_t = X__fsblkcnt_t   /* types.h:150:22 */ // file system block count
+type Fsfilcnt_t = X__fsfilcnt_t   /* types.h:151:22 */ // file system file count
 
 // The following types may be defined in multiple header files.
-type Clock_t = X__clock_t /* types.h:159:19 */
+type Clock_t = X__clock_t /* types.h:158:19 */
 
-type Clockid_t = X__clockid_t /* types.h:164:21 */
+type Clockid_t = X__clockid_t /* types.h:163:21 */
 
-type Pid_t = X__pid_t /* types.h:169:18 */
+type Pid_t = X__pid_t /* types.h:168:18 */
 
-type Ssize_t = X__ssize_t /* types.h:179:19 */
+type Ssize_t = X__ssize_t /* types.h:178:19 */
 
-type Time_t = X__time_t /* types.h:184:18 */
+type Time_t = X__time_t /* types.h:183:18 */
 
-type Timer_t = X__timer_t /* types.h:189:19 */
+type Timer_t = X__timer_t /* types.h:188:19 */
 
-type Off_t = X__off_t /* types.h:194:18 */
+type Off_t = X__off_t /* types.h:193:18 */
 
 // Major, minor numbers, dev_t's.
 

@@ -167,7 +167,7 @@ openbsd_amd64:
 # 3900x/qemu
 openbsd_arm64:
 	@echo "Should be executed only on openbsd/arm64."
-	go generate 2>&1 | tee log-generate
+	GOGC=10 GOMEMLIMIT=6GiB go generate 2>&1 | tee log-generate
 	go test -c -o /dev/null
 
 generate_all_targets_on_linux_amd64: linux_amd64 linux_386 linux_arm linux_arm64 linux_s390x linux_ppc64le linux_riscv64 windows_amd64 windows_arm64 #TODO windows_386
@@ -206,6 +206,7 @@ edit:
 editor:
 	gofmt -l -s -w *.go
 	go install -v ./...
+	go test -c -o /dev/null -tags=cgo,cgotest
 
 internalError:
 	egrep -ho '"internal error.*"' *.go | sort | cat -n
