@@ -2,7 +2,7 @@ module github.com/bishopfox/sliver
 
 go 1.18
 
-replace github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.6
+replace github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.9
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
@@ -70,7 +70,7 @@ require (
 	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d // indirect
-	github.com/desertbit/closer/v3 v3.1.2 // indirect
+	github.com/desertbit/closer/v3 v3.1.3 // indirect
 	github.com/dlclark/regexp2 v1.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
@@ -97,7 +97,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
-	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
+	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect

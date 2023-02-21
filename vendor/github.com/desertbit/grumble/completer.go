@@ -84,7 +84,9 @@ func (c *completer) Do(line []rune, pos int) (newLine [][]rune, length int) {
 			for _, w := range words {
 				suggestions = append(suggestions, []rune(strings.TrimPrefix(w, prefix)))
 			}
-			return suggestions, len(prefix)
+			if len(suggestions) > 0 {
+				return suggestions, len(prefix)
+			}
 		}
 
 		// No rest must be there.

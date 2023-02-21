@@ -45,11 +45,15 @@ package closer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
 	multierror "github.com/hashicorp/go-multierror"
 )
+
+// ErrClosed is a generic error that indicates a resource has been closed.
+var ErrClosed = errors.New("closed")
 
 //#############//
 //### Types ###//

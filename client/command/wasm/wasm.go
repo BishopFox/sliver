@@ -123,7 +123,21 @@ func idOf(con *console.SliverConsoleClient) string {
 }
 
 func runNonInteractive(execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.SliverConsoleClient) {
+	grpcCtx, cancel := con.GrpcContext(nil)
+	defer cancel()
+	execWasmResp, err := con.Rpc.ExecWasmExtension(grpcCtx, execWasmReq)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	if execWasmResp.Response != nil && execWasmResp.Response.Err != "" {
+		con.PrintErrorf("%s\n", execWasmResp.Response.Err)
+		return
+	}
+	con.PrintInfof("Executed wasm extension '%s' successfully\n", execWasmReq.Name)
 
+	con.App.Stdout().Write(execWasmResp.Stdout)
+	con.App.Stderr().Write(execWasmResp.Stderr)
 }
 
 func runInteractive(ctx *grumble.Context, execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.SliverConsoleClient) {
