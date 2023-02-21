@@ -53,6 +53,7 @@ func GzipBuf(data []byte) ([]byte, error) {
 func GzipBufBestCompression(data []byte) []byte {
 	gzipWriter, _ := gzip.NewWriterLevel(nil, gzip.BestSpeed)
 	var buf bytes.Buffer
+	gzipWriter.Reset(&buf)
 	gzipWriter.Write(data)
 	gzipWriter.Close()
 	return buf.Bytes()

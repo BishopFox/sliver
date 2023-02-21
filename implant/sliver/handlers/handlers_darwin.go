@@ -57,6 +57,12 @@ var (
 		pb.MsgCallExtensionReq:     callExtensionHandler,
 		pb.MsgListExtensionsReq:    listExtensionsHandler,
 
+		// Wasm Extensions
+		pb.MsgRegisterWasmExtensionReq:   registerWasmExtensionHandler,
+		pb.MsgDeregisterWasmExtensionReq: deregisterWasmExtensionHandler,
+		pb.MsgListWasmExtensionsReq:      listWasmExtensionsHandler,
+		// pb.MsgExecWasmExtensionReq:       execWasmExtensionHandler,
+
 		// {{if .Config.WGc2Enabled}}
 		// Wireguard specific
 		pb.MsgWGStartPortFwdReq:   wgStartPortfwdHandler,

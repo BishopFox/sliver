@@ -3731,9 +3731,16 @@ func BindCommands(con *console.SliverConsoleClient) {
 			a.String("filepath", "path the wasm/wasi module file (.wasm)")
 			a.StringList("arguments", "arguments to pass to the wasm module", grumble.Default([]string{}))
 		},
+		Completer: func(prefix string, args []string) []string {
+			if len(args) == 0 {
+				return completers.LocalPathCompleter(prefix, args, con)
+			}
+			return []string{}
+		},
 		Flags: func(f *grumble.Flags) {
 			f.Bool("i", "non-interactive", false, "execute module non-interactively")
 			f.String("m", "memfs", "", "include local directory in module's /memfs")
+			f.Bool("s", "skip-registration", false, "assume the extension is already registered with session/beacon")
 
 			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
@@ -3744,6 +3751,22 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 	}
+
+	wasmCmd.AddCommand(&grumble.Command{
+		Name:      consts.LsStr,
+		Help:      "List registered wasm extensions (with current session/beacon)",
+		LongHelp:  help.GetHelpFor([]string{consts.WasmStr, consts.LsStr}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			wasm.WasmLsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
 
 	con.App.AddCommand(wasmCmd)
 

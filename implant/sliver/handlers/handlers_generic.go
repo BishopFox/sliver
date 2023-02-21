@@ -55,6 +55,6 @@ func GetSystemHandlers() map[uint32]RPCHandler {
 }
 
 // GetSystemPivotHandlers - Not supported
-func GetSystemPivotHandlers() map[uint32]PivotHandler {
-	return map[uint32]PivotHandler{}
+func GetSystemPivotHandlers() map[uint32]TunnelHandler {
+	return map[uint32]TunnelHandler{}
 }

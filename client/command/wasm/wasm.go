@@ -40,6 +40,10 @@ var wasmRegistrationCache = make(map[string][]string)
 
 // WasmCmd - Execute a WASM module extension
 func WasmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
+		return
+	}
 
 	// Wasm module file path
 	wasmFilePath := ctx.Args.String("filepath")
@@ -53,7 +57,12 @@ func WasmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	interactive := !ctx.Flags.Bool("non-interactive")
 
 	if !isRegistered(filepath.Base(wasmFilePath), ctx, con) {
-		registerWasmExtension(wasmFilePath, ctx, con)
+		con.PrintInfof("Registering wasm extension '%s' ...", wasmFilePath)
+		err := registerWasmExtension(wasmFilePath, ctx, con)
+		if err != nil {
+			con.PrintErrorf("Failed to register wasm extension '%s': %s", wasmFilePath, err)
+			return
+		}
 	}
 
 	execWasmReq := &sliverpb.ExecWasmExtensionReq{
@@ -140,4 +149,36 @@ func registerWasmExtension(wasmFilePath string, ctx *grumble.Context, con *conso
 	}
 	wasmRegistrationCache[idOf(con)] = append(wasmRegistrationCache[idOf(con)], filepath.Base(wasmFilePath))
 	return nil
+}
+
+// WasmLsCmd - Execute a WASM module extension
+func WasmLsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
+		return
+	}
+
+	grpcCtx, cancel := con.GrpcContext(ctx)
+	defer cancel()
+	loaded, err := con.Rpc.ListWasmExtensions(grpcCtx, &sliverpb.ListWasmExtensionsReq{
+		Request: con.ActiveTarget.Request(ctx),
+	})
+	if err != nil {
+		con.PrintErrorf("%s", err)
+		return
+	}
+	if len(loaded.Names) < 1 {
+		con.PrintInfof("No wasm extensions registered\n")
+	} else {
+		for _, extName := range loaded.Names {
+			cacheLine := ""
+			if util.Contains(wasmRegistrationCache[idOf(con)], extName) {
+				cacheLine = " (cached)"
+			} else {
+				wasmRegistrationCache[idOf(con)] = append(wasmRegistrationCache[idOf(con)], extName)
+				cacheLine = console.Bold + console.Green + " +++" + console.Normal
+			}
+			con.PrintInfof("  %s%s\n", extName, cacheLine)
+		}
+	}
 }
