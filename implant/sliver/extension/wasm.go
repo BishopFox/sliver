@@ -56,6 +56,11 @@ type WasmExtension struct {
 	Stderr *bytes.Buffer
 }
 
+// IsExecuting - Check if the Wasm module runtime is currently executing
+func (w *WasmExtension) IsExecuting() bool {
+	return w.lock.TryLock()
+}
+
 // Execute - Execute the Wasm module with arguments, blocks during execution, returns errors
 func (w *WasmExtension) Execute(args []string) (uint32, error) {
 	w.lock.Lock()

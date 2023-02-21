@@ -3739,7 +3739,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 		Flags: func(f *grumble.Flags) {
 			f.Bool("i", "non-interactive", false, "execute module non-interactively")
-			f.String("m", "memfs", "", "include local directory in module's /memfs")
+			f.String("m", "memfs", "", "include local directory in wasm module's /memfs")
 			f.Bool("s", "skip-registration", false, "assume the extension is already registered with session/beacon")
 
 			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")

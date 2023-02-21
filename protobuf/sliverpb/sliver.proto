@@ -1107,8 +1107,6 @@ message RPortfwdReq {
 message RegisterWasmExtensionReq {
   string Name = 1;
   bytes WasmGz = 2;
-  map<string, bytes> MemFS = 3;
-  bool IsCompressed = 4;
 
   commonpb.Request Request = 9;
 }
@@ -1139,6 +1137,7 @@ message ExecWasmExtensionReq {
   string Name = 1;
   repeated string Args = 2;
   bool Interactive = 3;
+  map<string, bytes> MemFS = 4;
 
   uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
   commonpb.Request Request = 9;

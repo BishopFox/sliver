@@ -19,15 +19,20 @@ package wasm
 */
 
 import (
+	"bufio"
+	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/desertbit/grumble"
+	"golang.org/x/term"
 )
 
 // wasmMaxModuleSize - Arbitrary 1.5Gb limit to put us well under the 2Gb max gRPC message size
@@ -56,11 +61,11 @@ func WasmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	wasmArgs := ctx.Args.StringList("arguments")
 	interactive := !ctx.Flags.Bool("non-interactive")
 
-	if !isRegistered(filepath.Base(wasmFilePath), ctx, con) {
-		con.PrintInfof("Registering wasm extension '%s' ...", wasmFilePath)
+	if !ctx.Flags.Bool("skip-registration") && !isRegistered(filepath.Base(wasmFilePath), ctx, con) {
+		con.PrintInfof("Registering wasm extension '%s' ...\n", wasmFilePath)
 		err := registerWasmExtension(wasmFilePath, ctx, con)
 		if err != nil {
-			con.PrintErrorf("Failed to register wasm extension '%s': %s", wasmFilePath, err)
+			con.PrintErrorf("Failed to register wasm extension '%s': %s\n", wasmFilePath, err)
 			return
 		}
 	}
@@ -69,10 +74,10 @@ func WasmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Name:        filepath.Base(wasmFilePath),
 		Args:        wasmArgs,
 		Interactive: interactive,
+		Request:     con.ActiveTarget.Request(ctx),
 	}
-
 	if interactive {
-		runInteractive(execWasmReq, con)
+		runInteractive(ctx, execWasmReq, con)
 	} else {
 		runNonInteractive(execWasmReq, con)
 	}
@@ -121,8 +126,68 @@ func runNonInteractive(execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.
 
 }
 
-func runInteractive(execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.SliverConsoleClient) {
+func runInteractive(ctx *grumble.Context, execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.SliverConsoleClient) {
+	session := con.ActiveTarget.GetSession()
+	if session == nil {
+		con.PrintErrorf("No active session\n")
+		return
+	}
 
+	// Create an RPC tunnel
+	ctxTunnel, cancelTunnel := context.WithCancel(context.Background())
+	rpcTunnel, err := con.Rpc.CreateTunnel(ctxTunnel, &sliverpb.Tunnel{
+		SessionID: session.ID,
+	})
+	defer cancelTunnel()
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	con.PrintInfof("Created new tunnel: %d, binding to '%s' wasm extension ...\n", rpcTunnel.TunnelID, execWasmReq.Name)
+
+	tunnel := core.GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
+	execWasmReq.TunnelID = rpcTunnel.TunnelID
+	wasmExt, err := con.Rpc.ExecWasmExtension(context.Background(), execWasmReq)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	if wasmExt.Response != nil && wasmExt.Response.Err != "" {
+		con.PrintErrorf("Error: %s\n", wasmExt.Response.Err)
+		_, err = con.Rpc.CloseTunnel(context.Background(), &sliverpb.Tunnel{
+			TunnelID:  tunnel.ID,
+			SessionID: session.ID,
+		})
+		if err != nil {
+			con.PrintErrorf("RPC Error: %s\n", err)
+		}
+		return
+	}
+	defer tunnel.Close()
+
+	con.PrintInfof("Executing remote wasm extension ...\n\n")
+	var oldState *term.State
+	oldState, err = term.MakeRaw(0)
+	// log.Printf("Saving terminal state: %v", oldState)
+	if err != nil {
+		con.PrintErrorf("Failed to save terminal state")
+		return
+	}
+
+	go func() {
+		_, err := io.Copy(os.Stdout, tunnel)
+		if err != nil {
+			con.PrintErrorf("Error writing to stdout: %s", err)
+			return
+		}
+	}()
+	_, err = io.Copy(tunnel, os.Stdin)
+	if err != nil && err != io.EOF {
+		con.PrintErrorf("Error reading from stdin: %s\n", err)
+	}
+
+	term.Restore(0, oldState)
+	bufio.NewWriter(os.Stdout).Flush()
 }
 
 func registerWasmExtension(wasmFilePath string, ctx *grumble.Context, con *console.SliverConsoleClient) error {

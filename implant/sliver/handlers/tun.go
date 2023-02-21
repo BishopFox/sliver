@@ -30,10 +30,18 @@ import (
 
 var (
 	tunnelHandlers = map[uint32]TunnelHandler{
-		sliverpb.MsgShellReq:   tunnel_handlers.ShellReqHandler,
+
+		// Interactive shell tunnels
+		sliverpb.MsgShellReq: tunnel_handlers.ShellReqHandler,
+
+		// Network tunnels
 		sliverpb.MsgPortfwdReq: tunnel_handlers.PortfwdReqHandler,
 		sliverpb.MsgSocksData:  tunnel_handlers.SocksReqHandler,
 
+		// Wasm Extensions can be  executed interactively
+		sliverpb.MsgExecWasmExtensionReq: execWasmExtensionHandler,
+
+		// Data and close messages
 		sliverpb.MsgTunnelData:  tunnel_handlers.TunnelDataHandler,
 		sliverpb.MsgTunnelClose: tunnel_handlers.TunnelCloseHandler,
 	}
