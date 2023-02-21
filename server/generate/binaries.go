@@ -554,14 +554,20 @@ func renderSliverGoCode(name string, otpSecret string, config *models.ImplantCon
 		if err != nil {
 			return err
 		}
-		buf := bytes.NewBuffer([]byte{})
-		buildLog.Debugf("[render] %s -> %s", f.Name(), sliverCodePath)
+		if !util.Contains([]string{".go", ".c", ".h"}, path.Ext(f.Name())) {
+			buildLog.Warnf("Skipping render for %s, does not appear to be source code file", f.Name())
+			_, err = fSliver.Write(sliverGoCodeRaw)
+			return err
+		}
 
 		// --------------
 		// Render Code
 		// --------------
-		sliverCodeTmpl := template.New("sliver")
-		sliverCodeTmpl, err = sliverCodeTmpl.Funcs(template.FuncMap{
+		buf := bytes.NewBuffer([]byte{})
+		buildLog.Debugf("[render] %s -> %s", f.Name(), sliverCodePath)
+
+		sliverCode := template.New("sliver")
+		sliverCode, err = sliverCode.Funcs(template.FuncMap{
 			"GenerateUserAgent": func() string {
 				return configs.GetHTTPC2Config().GenerateUserAgent(config.GOOS, config.GOARCH)
 			},
@@ -570,7 +576,7 @@ func renderSliverGoCode(name string, otpSecret string, config *models.ImplantCon
 			buildLog.Errorf("Template parsing error %s", err)
 			return err
 		}
-		err = sliverCodeTmpl.Execute(buf, struct {
+		err = sliverCode.Execute(buf, struct {
 			Name                string
 			Config              *models.ImplantConfig
 			OTPSecret           string
@@ -590,19 +596,18 @@ func renderSliverGoCode(name string, otpSecret string, config *models.ImplantCon
 		if len(config.CanaryDomains) > 0 {
 			buildLog.Debugf("Canary domain(s): %v", config.CanaryDomains)
 		}
-		canaryTmpl := template.New("canary").Delims("[[", "]]")
+		canaryTemplate := template.New("canary").Delims("[[", "]]")
 		canaryGenerator := &CanaryGenerator{
 			ImplantName:   name,
 			ParentDomains: config.CanaryDomainsList(),
 		}
-		canaryTmpl, err = canaryTmpl.Funcs(template.FuncMap{
+		canaryTemplate, err = canaryTemplate.Funcs(template.FuncMap{
 			"GenerateCanary": canaryGenerator.GenerateCanary,
 		}).Parse(buf.String())
 		if err != nil {
 			return err
 		}
-		err = canaryTmpl.Execute(fSliver, canaryGenerator)
-
+		err = canaryTemplate.Execute(fSliver, canaryGenerator)
 		if err != nil {
 			buildLog.Debugf("Failed to render go code: %s", err)
 			return err
