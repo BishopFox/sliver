@@ -191,6 +191,8 @@ func formatOperation(w io.StringWriter, b Operation) {
 		} else {
 			str = fmt.Sprintf("v128.ITruncSatFrom%sU", shapeName(o.OriginShape))
 		}
+	case OperationBuiltinFunctionCheckExitCode:
+		str = "builtin_function.check_closed"
 	default:
 		panic("unreachable: a bug in wazeroir implementation")
 	}

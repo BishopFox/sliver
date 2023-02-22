@@ -159,13 +159,50 @@ func runInteractive(ctx *grumble.Context, execWasmReq *sliverpb.ExecWasmExtensio
 	}
 	con.PrintInfof("Created new tunnel: %d, binding to '%s' wasm extension ...\n", rpcTunnel.TunnelID, execWasmReq.Name)
 
+	// Create tunnel
 	tunnel := core.GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
 	execWasmReq.TunnelID = rpcTunnel.TunnelID
+
+	// Save & restore terminal state
+	var oldState *term.State
+	oldState, err = term.MakeRaw(0)
+	if err != nil {
+		con.PrintErrorf("Failed to save terminal state")
+		return
+	}
+	defer func() {
+		term.Restore(0, oldState)
+		bufio.NewWriter(os.Stdout).Flush()
+	}()
+
+	// Setup routines to copy data back an forth
+	go func() {
+		_, err := io.Copy(os.Stdout, tunnel)
+		if err == io.EOF {
+			return
+		}
+		if err != nil {
+			con.PrintErrorf("Error writing to stdout: %s", err)
+			return
+		}
+	}()
+	go func() {
+		_, err = io.Copy(tunnel, os.Stdin)
+		if err == io.EOF {
+			return
+		}
+		if err != nil {
+			con.PrintErrorf("Error reading from stdin: %s\n", err)
+		}
+	}()
+
+	// Send the exec request
 	wasmExt, err := con.Rpc.ExecWasmExtension(context.Background(), execWasmReq)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	tunnel.Close()
 	if wasmExt.Response != nil && wasmExt.Response.Err != "" {
 		con.PrintErrorf("Error: %s\n", wasmExt.Response.Err)
 		_, err = con.Rpc.CloseTunnel(context.Background(), &sliverpb.Tunnel{
@@ -177,31 +214,7 @@ func runInteractive(ctx *grumble.Context, execWasmReq *sliverpb.ExecWasmExtensio
 		}
 		return
 	}
-	defer tunnel.Close()
 
-	con.PrintInfof("Executing remote wasm extension ...\n\n")
-	var oldState *term.State
-	oldState, err = term.MakeRaw(0)
-	// log.Printf("Saving terminal state: %v", oldState)
-	if err != nil {
-		con.PrintErrorf("Failed to save terminal state")
-		return
-	}
-
-	go func() {
-		_, err := io.Copy(os.Stdout, tunnel)
-		if err != nil {
-			con.PrintErrorf("Error writing to stdout: %s", err)
-			return
-		}
-	}()
-	_, err = io.Copy(tunnel, os.Stdin)
-	if err != nil && err != io.EOF {
-		con.PrintErrorf("Error reading from stdin: %s\n", err)
-	}
-
-	term.Restore(0, oldState)
-	bufio.NewWriter(os.Stdout).Flush()
 }
 
 func registerWasmExtension(wasmFilePath string, ctx *grumble.Context, con *console.SliverConsoleClient) error {

@@ -19,10 +19,12 @@ package handlers
 */
 
 import (
-	"io"
 
 	// {{if .Config.Debug}}
+
+	"bytes"
 	"log"
+
 	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/encoders"
@@ -163,6 +165,33 @@ func runNonInteractive(req *pb.ExecWasmExtensionReq, wasm *extension.WasmExtensi
 	// {{if .Config.Debug}}
 	log.Printf("Executing interactive wasm extension")
 	// {{end}}
+
+	stdout := &bytes.Buffer{}
+	go func() {
+		buf := make([]byte, 1024)
+		n, err := wasm.Stdout.Reader.Read(buf)
+		stdout.Write(buf[:n])
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("error reading stdout: %v", err)
+			// {{end}}
+			return
+		}
+	}()
+
+	stderr := &bytes.Buffer{}
+	go func() {
+		buf := make([]byte, 1024)
+		n, err := wasm.Stderr.Reader.Read(buf)
+		stderr.Write(buf[:n])
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("error reading stderr: %v", err)
+			// {{end}}
+			return
+		}
+	}()
+
 	exitCode, err := wasm.Execute(req.Args)
 	errMsg := ""
 	if err != nil {
@@ -171,27 +200,13 @@ func runNonInteractive(req *pb.ExecWasmExtensionReq, wasm *extension.WasmExtensi
 		// {{end}}
 		errMsg = err.Error()
 	}
+
 	return proto.Marshal(&pb.ExecWasmExtension{
-		Stdout:   wasm.Stdout.Bytes(),
-		Stderr:   wasm.Stderr.Bytes(),
+		Stdout:   stdout.Bytes(),
+		Stderr:   stderr.Bytes(),
 		ExitCode: exitCode,
 		Response: &commonpb.Response{Err: errMsg},
 	})
-}
-
-// Wraps the bytes.Buffer with a Close() method
-type WasmStdin struct {
-	wasm *extension.WasmExtension
-}
-
-// Write - Write to the stdin stream
-func (w *WasmStdin) Write(p []byte) (n int, err error) {
-	return w.wasm.Stdin.Write(p)
-}
-
-// Close - Close the stdin stream
-func (w *WasmStdin) Close() error {
-	return w.wasm.Close()
 }
 
 func runInteractive(req *pb.ExecWasmExtensionReq, conn *transports.Connection, wasm *extension.WasmExtension) ([]byte, error) {
@@ -201,9 +216,9 @@ func runInteractive(req *pb.ExecWasmExtensionReq, conn *transports.Connection, w
 
 	tunnel := transports.NewTunnel(
 		req.TunnelID,
-		&WasmStdin{wasm: wasm},
-		io.NopCloser(wasm.Stdout),
-		io.NopCloser(wasm.Stderr),
+		wasm.Stdin.Writer,
+		wasm.Stdout.Reader,
+		wasm.Stderr.Reader,
 	)
 	conn.AddTunnel(tunnel)
 

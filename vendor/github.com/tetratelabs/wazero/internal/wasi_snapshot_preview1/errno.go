@@ -1,10 +1,10 @@
 package wasi_snapshot_preview1
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
 	"syscall"
+
+	"github.com/tetratelabs/wazero/internal/sysfs"
 )
 
 // Errno is neither uint16 nor an alias for parity with wasm.ValueType.
@@ -266,23 +266,41 @@ var errnoToString = [...]string{
 // error codes. For example, wasi-filesystem and GOOS=js don't map to these
 // Errno.
 func ToErrno(err error) Errno {
-	switch {
-	case errors.Is(err, syscall.EBADF), errors.Is(err, fs.ErrClosed):
+	errno := sysfs.UnwrapOSError(err)
+
+	switch errno {
+	case syscall.EACCES:
+		return ErrnoAcces
+	case syscall.EAGAIN:
+		return ErrnoAgain
+	case syscall.EBADF:
 		return ErrnoBadf
-	case errors.Is(err, syscall.EINVAL), errors.Is(err, fs.ErrInvalid):
-		return ErrnoInval
-	case errors.Is(err, syscall.EISDIR):
-		return ErrnoIsdir
-	case errors.Is(err, syscall.ENOTEMPTY):
-		return ErrnoNotempty
-	case errors.Is(err, syscall.EEXIST), errors.Is(err, fs.ErrExist):
+	case syscall.EEXIST:
 		return ErrnoExist
-	case errors.Is(err, syscall.ENOENT), errors.Is(err, fs.ErrNotExist):
+	case syscall.EINTR:
+		return ErrnoIntr
+	case syscall.EINVAL:
+		return ErrnoInval
+	case syscall.EIO:
+		return ErrnoIo
+	case syscall.EISDIR:
+		return ErrnoIsdir
+	case syscall.ELOOP:
+		return ErrnoLoop
+	case syscall.ENAMETOOLONG:
+		return ErrnoNametoolong
+	case syscall.ENOENT:
 		return ErrnoNoent
-	case errors.Is(err, syscall.ENOSYS):
+	case syscall.ENOSYS:
 		return ErrnoNosys
-	case errors.Is(err, syscall.ENOTDIR):
+	case syscall.ENOTDIR:
 		return ErrnoNotdir
+	case syscall.ENOTEMPTY:
+		return ErrnoNotempty
+	case syscall.ENOTSUP:
+		return ErrnoNotsup
+	case syscall.EPERM:
+		return ErrnoPerm
 	default:
 		return ErrnoIo
 	}

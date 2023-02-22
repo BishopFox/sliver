@@ -19,9 +19,9 @@ package extension
 */
 
 import (
-	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -40,6 +40,11 @@ import (
 	"github.com/tetratelabs/wazero/sys"
 )
 
+type WasmPipe struct {
+	Reader *io.PipeReader
+	Writer *io.PipeWriter
+}
+
 // WasmExtension - Wasm extension
 type WasmExtension struct {
 	Name string
@@ -51,9 +56,9 @@ type WasmExtension struct {
 	runtime wazero.Runtime
 	closer  api.Closer
 
-	Stdin  *bytes.Buffer
-	Stdout *bytes.Buffer
-	Stderr *bytes.Buffer
+	Stdin  *WasmPipe
+	Stdout *WasmPipe
+	Stderr *WasmPipe
 }
 
 // IsExecuting - Check if the Wasm module runtime is currently executing
@@ -76,7 +81,7 @@ func (w *WasmExtension) Execute(args []string) (uint32, error) {
 		// Note: Most compilers do not exit the module after running "_start",
 		// unless there was an error. This allows you to call exported functions.
 		if exitErr, ok := err.(*sys.ExitError); ok && exitErr.ExitCode() != 0 {
-			fmt.Fprintf(w.Stderr, "exit_code: %d\n", exitErr.ExitCode())
+			fmt.Fprintf(w.Stderr.Writer, "exit_code: %d\n", exitErr.ExitCode())
 			// {{if .Config.Debug}}
 			log.Printf("[wasm ext] '%s' exited with non-zero code: %d", w.Name, exitErr.ExitCode())
 			// {{end}}
@@ -93,25 +98,31 @@ func (w *WasmExtension) Execute(args []string) (uint32, error) {
 
 // Close - Close the Wasm module
 func (w *WasmExtension) Close() error {
+	w.Stdin.Reader.Close()
+	w.Stdout.Reader.Close()
+	w.Stderr.Reader.Close()
 	return w.closer.Close(w.ctx)
 }
 
 // NewWasmExtension - Create a new Wasm extension
 func NewWasmExtension(name string, wasm []byte, memFS map[string][]byte) (*WasmExtension, error) {
+	stdinReader, stdinWriter := io.Pipe()
+	stdoutReader, stdoutWriter := io.Pipe()
+	stderrReader, stderrWriter := io.Pipe()
 	wasmExt := &WasmExtension{
 		Name: name,
 		ctx:  context.Background(),
 		lock: sync.Mutex{},
 
-		Stdin:  bytes.NewBuffer([]byte{}),
-		Stdout: bytes.NewBuffer([]byte{}),
-		Stderr: bytes.NewBuffer([]byte{}),
+		Stdin:  &WasmPipe{Reader: stdinReader, Writer: stdinWriter},
+		Stdout: &WasmPipe{Reader: stdoutReader, Writer: stdoutWriter},
+		Stderr: &WasmPipe{Reader: stderrReader, Writer: stderrWriter},
 	}
 	wasmExt.runtime = wazero.NewRuntime(wasmExt.ctx)
 	wasmExt.config = wazero.NewModuleConfig().
-		WithStdin(wasmExt.Stdin).
-		WithStdout(wasmExt.Stdout).
-		WithStderr(wasmExt.Stderr).
+		WithStdin(wasmExt.Stdin.Reader).
+		WithStdout(wasmExt.Stdout.Writer).
+		WithStderr(wasmExt.Stderr.Writer).
 		WithFS(makeWasmMemFS(memFS))
 
 	var err error

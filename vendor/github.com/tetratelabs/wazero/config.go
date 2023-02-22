@@ -12,8 +12,10 @@ import (
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/internal/engine/compiler"
 	"github.com/tetratelabs/wazero/internal/engine/interpreter"
+	"github.com/tetratelabs/wazero/internal/filecache"
 	"github.com/tetratelabs/wazero/internal/platform"
 	internalsys "github.com/tetratelabs/wazero/internal/sys"
+	"github.com/tetratelabs/wazero/internal/sysfs"
 	"github.com/tetratelabs/wazero/internal/wasm"
 	"github.com/tetratelabs/wazero/sys"
 )
@@ -101,6 +103,52 @@ type RuntimeConfig interface {
 	// DWARF "custom sections" that are often stripped, depending on
 	// optimization flags passed to the compiler.
 	WithDebugInfoEnabled(bool) RuntimeConfig
+
+	// WithCompilationCache configures how runtime caches the compiled modules. In the default configuration, compilation results are
+	// only in-memory until Runtime.Close is closed, and not shareable by multiple Runtime.
+	//
+	// Below defines the shared cache across multiple instances of Runtime:
+	//
+	//	// Creates the new Cache and the runtime configuration with it.
+	//	cache := wazero.NewCompilationCache()
+	//	defer cache.Close()
+	//	config := wazero.NewRuntimeConfig().WithCompilationCache(c)
+	//
+	//	// Creates two runtimes while sharing compilation caches.
+	//	foo := wazero.NewRuntimeWithConfig(context.Background(), config)
+	// 	bar := wazero.NewRuntimeWithConfig(context.Background(), config)
+	WithCompilationCache(CompilationCache) RuntimeConfig
+
+	// WithCustomSections toggles parsing of "custom sections". Defaults to false.
+	//
+	// When enabled, it is possible to retrieve custom sections from a CompiledModule:
+	//
+	//	config := wazero.NewRuntimeConfig().WithCustomSections(true)
+	//	r := wazero.NewRuntimeWithConfig(ctx, config)
+	//	c, err := r.CompileModule(ctx, wasm)
+	//	customSections := c.CustomSections()
+	WithCustomSections(bool) RuntimeConfig
+
+	// WithCloseOnContextDone ensures the executions of functions to be closed under one of the following circumstances:
+	//
+	// 	- context.Context passed to the Call method of api.Function is canceled during execution. (i.e. ctx by context.WithCancel)
+	// 	- context.Context passed to the Call method of api.Function reaches timeout during execution. (i.e. ctx by context.WithTimeout or context.WithDeadline)
+	// 	- Close or CloseWithExitCode of api.Module is explicitly called during execution.
+	//
+	// This is especially useful when one wants to run untrusted Wasm binaries since otherwise, any invocation of
+	// api.Function can potentially block the corresponding Goroutine forever. Moreover, it might block the
+	// entire underlying OS thread which runs the api.Function call. See "Why it's safe to execute runtime-generated
+	// machine codes against async Goroutine preemption" section in internal/engine/compiler/RATIONALE.md for detail.
+	//
+	// Note that this comes with a bit of extra cost when enabled. The reason is that internally this forces
+	// interpreter and compiler runtimes to insert the periodical checks on the conditions above. For that reason,
+	// this is disabled by default.
+	//
+	// See examples in context_done_example_test.go for the end-to-end demonstrations.
+	//
+	// When the invocations of api.Function are closed due to this, sys.ExitError is raised to the callers and
+	// the api.Module from which the functions are derived is made closed.
+	WithCloseOnContextDone(bool) RuntimeConfig
 }
 
 // NewRuntimeConfig returns a RuntimeConfig using the compiler if it is supported in this environment,
@@ -109,13 +157,18 @@ func NewRuntimeConfig() RuntimeConfig {
 	return newRuntimeConfig()
 }
 
+type newEngine func(context.Context, api.CoreFeatures, filecache.Cache) wasm.Engine
+
 type runtimeConfig struct {
 	enabledFeatures       api.CoreFeatures
 	memoryLimitPages      uint32
 	memoryCapacityFromMax bool
-	isInterpreter         bool
+	engineKind            engineKind
 	dwarfDisabled         bool // negative as defaults to enabled
-	newEngine             func(context.Context, api.CoreFeatures) wasm.Engine
+	newEngine             newEngine
+	cache                 CompilationCache
+	storeCustomSections   bool
+	ensureTermination     bool
 }
 
 // engineLessConfig helps avoid copy/pasting the wrong defaults.
@@ -125,6 +178,14 @@ var engineLessConfig = &runtimeConfig{
 	memoryCapacityFromMax: false,
 	dwarfDisabled:         false,
 }
+
+type engineKind int
+
+const (
+	engineKindCompiler engineKind = iota
+	engineKindInterpreter
+	engineKindCount
+)
 
 // NewRuntimeConfigCompiler compiles WebAssembly modules into
 // runtime.GOARCH-specific assembly for optimal performance.
@@ -142,6 +203,7 @@ var engineLessConfig = &runtimeConfig{
 // NewRuntimeConfigInterpreter if needed.
 func NewRuntimeConfigCompiler() RuntimeConfig {
 	ret := engineLessConfig.clone()
+	ret.engineKind = engineKindCompiler
 	ret.newEngine = compiler.NewEngine
 	return ret
 }
@@ -149,7 +211,7 @@ func NewRuntimeConfigCompiler() RuntimeConfig {
 // NewRuntimeConfigInterpreter interprets WebAssembly modules instead of compiling them into assembly.
 func NewRuntimeConfigInterpreter() RuntimeConfig {
 	ret := engineLessConfig.clone()
-	ret.isInterpreter = true
+	ret.engineKind = engineKindInterpreter
 	ret.newEngine = interpreter.NewEngine
 	return ret
 }
@@ -167,6 +229,13 @@ func (c *runtimeConfig) WithCoreFeatures(features api.CoreFeatures) RuntimeConfi
 	return ret
 }
 
+// WithCloseOnContextDone implements RuntimeConfig.WithCloseOnContextDone
+func (c *runtimeConfig) WithCloseOnContextDone(ensure bool) RuntimeConfig {
+	ret := c.clone()
+	ret.ensureTermination = ensure
+	return ret
+}
+
 // WithMemoryLimitPages implements RuntimeConfig.WithMemoryLimitPages
 func (c *runtimeConfig) WithMemoryLimitPages(memoryLimitPages uint32) RuntimeConfig {
 	ret := c.clone()
@@ -175,6 +244,13 @@ func (c *runtimeConfig) WithMemoryLimitPages(memoryLimitPages uint32) RuntimeCon
 		panic(fmt.Errorf("memoryLimitPages invalid: %d > %d", memoryLimitPages, wasm.MemoryLimitPages))
 	}
 	ret.memoryLimitPages = memoryLimitPages
+	return ret
+}
+
+// WithCompilationCache implements RuntimeConfig.WithCompilationCache
+func (c *runtimeConfig) WithCompilationCache(ca CompilationCache) RuntimeConfig {
+	ret := c.clone()
+	ret.cache = ca
 	return ret
 }
 
@@ -189,6 +265,13 @@ func (c *runtimeConfig) WithMemoryCapacityFromMax(memoryCapacityFromMax bool) Ru
 func (c *runtimeConfig) WithDebugInfoEnabled(dwarfEnabled bool) RuntimeConfig {
 	ret := c.clone()
 	ret.dwarfDisabled = !dwarfEnabled
+	return ret
+}
+
+// WithCustomSections implements RuntimeConfig.WithCustomSections
+func (c *runtimeConfig) WithCustomSections(storeCustomSections bool) RuntimeConfig {
+	ret := c.clone()
+	ret.storeCustomSections = storeCustomSections
 	return ret
 }
 
@@ -229,6 +312,10 @@ type CompiledModule interface {
 	// Note: As of WebAssembly Core Specification 2.0, there can be at most one
 	// memory.
 	ExportedMemories() map[string]api.MemoryDefinition
+
+	// CustomSections returns all the custom sections
+	// (api.CustomSection) in this module keyed on the section name.
+	CustomSections() []api.CustomSection
 
 	// Close releases all the allocated resources for this CompiledModule.
 	//
@@ -283,6 +370,31 @@ func (c *compiledModule) ExportedMemories() map[string]api.MemoryDefinition {
 	return c.module.ExportedMemories()
 }
 
+// CustomSections implements CompiledModule.CustomSections
+func (c *compiledModule) CustomSections() []api.CustomSection {
+	ret := make([]api.CustomSection, len(c.module.CustomSections))
+	for i, d := range c.module.CustomSections {
+		ret[i] = &customSection{data: d.Data, name: d.Name}
+	}
+	return ret
+}
+
+// customSection implements wasm.CustomSection
+type customSection struct {
+	name string
+	data []byte
+}
+
+// Name implements wasm.CustomSection.Name
+func (c *customSection) Name() string {
+	return c.name
+}
+
+// Data implements wasm.CustomSection.Data
+func (c *customSection) Data() []byte {
+	return c.data
+}
+
 // ModuleConfig configures resources needed by functions that have low-level interactions with the host operating
 // system. Using this, resources such as STDIN can be isolated, so that the same module can be safely instantiated
 // multiple times.
@@ -293,7 +405,7 @@ func (c *compiledModule) ExportedMemories() map[string]api.MemoryDefinition {
 //	config := wazero.NewModuleConfig().WithStdout(buf).WithSysNanotime()
 //
 //	// Assign different configuration on each instantiation
-//	module, _ := r.InstantiateModule(ctx, compiled, config.WithName("rotate").WithArgs("rotate", "angle=90", "dir=cw"))
+//	mod, _ := r.InstantiateModule(ctx, compiled, config.WithName("rotate").WithArgs("rotate", "angle=90", "dir=cw"))
 //
 // While wazero supports Windows as a platform, host functions using ModuleConfig follow a UNIX dialect.
 // See RATIONALE.md for design background and relationship to WebAssembly System Interfaces (WASI).
@@ -331,38 +443,18 @@ type ModuleConfig interface {
 	// See https://linux.die.net/man/3/environ and https://en.wikipedia.org/wiki/Null-terminated_string
 	WithEnv(key, value string) ModuleConfig
 
-	// WithFS assigns the file system to use for any paths beginning at "/".
-	// Defaults return fs.ErrNotExist.
-	//
-	// This example sets a read-only, embedded file-system:
-	//
-	//	//go:embed testdata/index.html
-	//	var testdataIndex embed.FS
-	//
-	//	rooted, err := fs.Sub(testdataIndex, "testdata")
-	//	require.NoError(t, err)
-	//
-	//	// "index.html" is accessible as "/index.html".
-	//	config := wazero.NewModuleConfig().WithFS(rooted)
-	//
-	// This example sets a mutable file-system:
-	//
-	//	// Files relative to "/work/appA" are accessible as "/".
-	//	config := wazero.NewModuleConfig().WithFS(os.DirFS("/work/appA"))
-	//
-	// Isolation
-	//
-	// os.DirFS documentation includes important notes about isolation, which
-	// also applies to fs.Sub. As of Go 1.19, the built-in file-systems are not
-	// jailed (chroot). See https://github.com/golang/go/issues/42322
-	//
-	// Working Directory "."
-	//
-	// Relative path resolution, such as "./config.yml" to "/config.yml" or
-	// otherwise, is compiler-specific. See /RATIONALE.md for notes.
+	// WithFS is a convenience that calls WithFSConfig with an FSConfig of the
+	// input for the root ("/") guest path.
 	WithFS(fs.FS) ModuleConfig
 
-	// WithName configures the module name. Defaults to what was decoded from the name section.
+	// WithFSConfig configures the filesystem available to each guest
+	// instantiated with this configuration. By default, no file access is
+	// allowed, so functions like `path_open` result in unsupported errors
+	// (e.g. syscall.ENOSYS).
+	WithFSConfig(FSConfig) ModuleConfig
+
+	// WithName configures the module name. Defaults to what was decoded from
+	// the name section.
 	WithName(string) ModuleConfig
 
 	// WithStartFunctions configures the functions to call after the module is
@@ -462,7 +554,7 @@ type ModuleConfig interface {
 	//
 	// This example uses a custom sleep function:
 	//	moduleConfig = moduleConfig.
-	//		WithNanosleep(func(ctx context.Context, ns int64) {
+	//		WithNanosleep(func(ns int64) {
 	//			rel := unix.NsecToTimespec(ns)
 	//			remain := unix.Timespec{}
 	//			for { // loop until no more time remaining
@@ -476,6 +568,14 @@ type ModuleConfig interface {
 	//   - If you set this, you should probably set WithNanotime also.
 	//   - Use WithSysNanosleep for a usable implementation.
 	WithNanosleep(sys.Nanosleep) ModuleConfig
+
+	// WithOsyield yields the processor, typically to implement spin-wait
+	// loops. Defaults to return immediately.
+	//
+	// # Notes:
+	//   - This primarily supports `sched_yield` in WASI
+	//   - This does not default to runtime.osyield as that violates sandboxing.
+	WithOsyield(sys.Osyield) ModuleConfig
 
 	// WithSysNanosleep uses time.Sleep for sys.Nanosleep.
 	//
@@ -506,13 +606,14 @@ type moduleConfig struct {
 	nanotime           *sys.Nanotime
 	nanotimeResolution sys.ClockResolution
 	nanosleep          *sys.Nanosleep
+	osyield            *sys.Osyield
 	args               [][]byte
 	// environ is pair-indexed to retain order similar to os.Environ.
 	environ [][]byte
 	// environKeys allow overwriting of existing values.
 	environKeys map[string]int
-	// fs is the file system to open files with
-	fs fs.FS
+	// fsConfig is the file system configuration for ABI like WASI.
+	fsConfig FSConfig
 }
 
 // NewModuleConfig returns a ModuleConfig that can be used for configuring module instantiation.
@@ -566,8 +667,13 @@ func (c *moduleConfig) WithEnv(key, value string) ModuleConfig {
 
 // WithFS implements ModuleConfig.WithFS
 func (c *moduleConfig) WithFS(fs fs.FS) ModuleConfig {
+	return c.WithFSConfig(NewFSConfig().WithFSMount(fs, ""))
+}
+
+// WithFSConfig implements ModuleConfig.WithFSConfig
+func (c *moduleConfig) WithFSConfig(config FSConfig) ModuleConfig {
 	ret := c.clone()
-	ret.fs = fs
+	ret.fsConfig = config
 	return ret
 }
 
@@ -643,6 +749,13 @@ func (c *moduleConfig) WithNanosleep(nanosleep sys.Nanosleep) ModuleConfig {
 	return &ret
 }
 
+// WithOsyield implements ModuleConfig.WithOsyield
+func (c *moduleConfig) WithOsyield(osyield sys.Osyield) ModuleConfig {
+	ret := *c // copy
+	ret.osyield = &osyield
+	return &ret
+}
+
 // WithSysNanosleep implements ModuleConfig.WithSysNanosleep
 func (c *moduleConfig) WithSysNanosleep() ModuleConfig {
 	return c.WithNanosleep(platform.Nanosleep)
@@ -682,6 +795,13 @@ func (c *moduleConfig) toSysContext() (sysCtx *internalsys.Context, err error) {
 		environ = append(environ, result)
 	}
 
+	var fs sysfs.FS
+	if f, ok := c.fsConfig.(*fsConfig); ok {
+		if fs, err = f.toFS(); err != nil {
+			return
+		}
+	}
+
 	return internalsys.NewContext(
 		math.MaxUint32,
 		c.args,
@@ -692,7 +812,7 @@ func (c *moduleConfig) toSysContext() (sysCtx *internalsys.Context, err error) {
 		c.randSource,
 		c.walltime, c.walltimeResolution,
 		c.nanotime, c.nanotimeResolution,
-		c.nanosleep,
-		c.fs,
+		c.nanosleep, c.osyield,
+		fs,
 	)
 }

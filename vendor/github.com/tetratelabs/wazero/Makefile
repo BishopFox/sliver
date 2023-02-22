@@ -5,10 +5,11 @@ space :=
 space +=
 
 gofumpt := mvdan.cc/gofumpt@v0.4.0
-gosimports := github.com/rinchsan/gosimports/cmd/gosimports@v0.3.4
-golangci_lint := github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.1
+gosimports := github.com/rinchsan/gosimports/cmd/gosimports@v0.3.5
+golangci_lint := github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.1
+asmfmt := github.com/klauspost/asmfmt/cmd/asmfmt@v1.3.2
 # sync this with netlify.toml!
-hugo          := github.com/gohugoio/hugo@v0.105.0
+hugo          := github.com/gohugoio/hugo@v0.110.0
 
 # Make 3.81 doesn't support '**' globbing: Set explicitly instead of recursion.
 all_sources   := $(wildcard *.go */*.go */*/*.go */*/*/*.go */*/*/*.go */*/*/*/*.go)
@@ -21,6 +22,9 @@ main_sources  := $(wildcard $(filter-out %_test.go $(all_testdata) $(all_testing
 # main_packages collect the unique main source directories (sort will dedupe).
 # Paths need to all start with ./, so we do that manually vs foreach which strips it.
 main_packages := $(sort $(foreach f,$(dir $(main_sources)),$(if $(findstring ./,$(f)),./,./$(f))))
+
+# By default, we don't run with -race as it's costly to run on every PR.
+go_test_options ?= -timeout 120s
 
 ensureCompilerFastest := -ldflags '-X github.com/tetratelabs/wazero/internal/integration_test/vs.ensureCompilerFastest=true'
 .PHONY: bench
@@ -45,7 +49,7 @@ build.bench:
 
 .PHONY: test.examples
 test.examples:
-	@go test ./examples/... ./imports/assemblyscript/example/... ./imports/emscripten/... ./imports/go/example/... ./imports/wasi_snapshot_preview1/example/...
+	@go test $(go_test_options) ./examples/... ./imports/assemblyscript/example/... ./imports/emscripten/... ./imports/go/example/... ./imports/wasi_snapshot_preview1/example/...
 
 .PHONY: build.examples.as
 build.examples.as:
@@ -65,8 +69,6 @@ build.examples.tinygo: $(tinygo_sources)
 	@for f in $^; do \
 	    tinygo build -o $$(echo $$f | sed -e 's/\.go/\.wasm/') -scheduler=none --no-debug --target=wasi $$f; \
 	done
-	# Need DWARF sections.
-	tinygo build -o internal/testing/dwarftestdata/testdata/tinygo/main.wasm -scheduler=none --target=wasi internal/testing/dwarftestdata/testdata/tinygo/main.go
 
 # We use zig to build C as it is easy to install and embeds a copy of zig-cc.
 c_sources := imports/wasi_snapshot_preview1/example/testdata/zig-cc/cat.c imports/wasi_snapshot_preview1/testdata/zig-cc/wasi.c
@@ -126,8 +128,8 @@ spectest_v1_testdata_dir := $(spectest_v1_dir)/testdata
 spec_version_v1 := wg-1.0
 spectest_v2_dir := $(spectest_base_dir)/v2
 spectest_v2_testdata_dir := $(spectest_v2_dir)/testdata
-# Latest draft state as of Nov 9, 2022.
-spec_version_v2 := f9b461a312426a60f2f81dcb19b39b66b90a5447
+# Latest draft state as of Dec 16, 2022.
+spec_version_v2 := 1782235239ddebaf2cb079b00fdaa2d2c4dedba3
 
 .PHONY: build.spectest
 build.spectest:
@@ -174,8 +176,8 @@ build.spectest.v2: # Note: SIMD cases are placed in the "simd" subdirectory.
 
 .PHONY: test
 test:
-	@go test $$(go list ./... | grep -vE '$(spectest_v1_dir)|$(spectest_v2_dir)') -timeout 120s
-	@cd internal/version/testdata && go test ./... -timeout 120s
+	@go test $(go_test_options) $$(go list ./... | grep -vE '$(spectest_v1_dir)|$(spectest_v2_dir)')
+	@cd internal/version/testdata && go test $(go_test_options) ./...
 
 .PHONY: coverage
 coverpkg = $(subst $(space),$(comma),$(main_packages))
@@ -189,10 +191,10 @@ spectest:
 	@$(MAKE) spectest.v2
 
 spectest.v1:
-	@go test $$(go list ./... | grep $(spectest_v1_dir)) -timeout 120s
+	@go test $(go_test_options) $$(go list ./... | grep $(spectest_v1_dir))
 
 spectest.v2:
-	@go test $$(go list ./... | grep $(spectest_v2_dir)) -timeout 120s
+	@go test $(go_test_options) $$(go list ./... | grep $(spectest_v2_dir))
 
 golangci_lint_path := $(shell go env GOPATH)/bin/golangci-lint
 
@@ -209,11 +211,26 @@ lint: $(golangci_lint_path)
 format:
 	@go run $(gofumpt) -l -w .
 	@go run $(gosimports) -local github.com/tetratelabs/ -w $(shell find . -name '*.go' -type f)
+	@go run $(asmfmt) -w $(shell find . -name '*.s' -type f)
 
-.PHONY: check
+.PHONY: check  # Pre-flight check for pull requests
 check:
-	@GOARCH=amd64 GOOS=dragonfly go build ./... # Check if the internal/platform can be built on compiler-unsupported platforms
-	@GOARCH=386 GOOS=linux go build ./... # Check if the internal/platform can be built on compiler-unsupported platforms
+# The following checks help ensure our platform-specific code used for system
+# calls safely falls back on a platform unsupported by the compiler engine.
+# This makes sure the intepreter can be used. Most often the package that can
+# drift here is "platform" or "sysfs":
+#
+# Ensure we build on an arbitrary operating system
+	@GOARCH=amd64 GOOS=dragonfly go build ./...
+# Ensure we build on linux arm for Dapr:
+#	gh release view -R dapr/dapr --json assets --jq 'first(.assets[] | select(.name = "daprd_linux_arm.tar.gz") | {url, downloadCount})'
+	@GOARCH=arm GOOS=linux go build ./...
+# Ensure we build on linux 386 for Trivy:
+#	gh release view -R aquasecurity/trivy --json assets --jq 'first(.assets[] | select(.name| test("Linux-32bit.*tar.gz")) | {url, downloadCount})'
+	@GOARCH=386 GOOS=linux go build ./...
+# Ensure we build on FreeBSD amd64 for Trivy:
+#	gh release view -R aquasecurity/trivy --json assets --jq 'first(.assets[] | select(.name| test("FreeBSD-64bit.*tar.gz")) | {url, downloadCount})'
+	@GOARCH=amd64 GOOS=freebsd go build ./...
 	@$(MAKE) lint golangci_lint_goarch=arm64
 	@$(MAKE) lint golangci_lint_goarch=amd64
 	@$(MAKE) format
@@ -237,4 +254,5 @@ fuzz_timeout_seconds ?= 10
 .PHONY: fuzz
 fuzz:
 	@cd internal/integration_test/fuzz && cargo fuzz run basic -- -max_total_time=$(fuzz_timeout_seconds)
+	@cd internal/integration_test/fuzz && cargo fuzz run memory_no_diff -- -max_total_time=$(fuzz_timeout_seconds)
 	@cd internal/integration_test/fuzz && cargo fuzz run validation -- -max_total_time=$(fuzz_timeout_seconds)

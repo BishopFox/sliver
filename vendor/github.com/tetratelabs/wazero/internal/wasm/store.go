@@ -26,6 +26,13 @@ type (
 	//
 	// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#store%E2%91%A0
 	Store struct {
+		// moduleList ensures modules are closed in reverse initialization order.
+		moduleList *moduleListNode // guarded by mux
+
+		// nameToNode holds the instantiated Wasm modules by module name from Instantiate.
+		// It ensures no race conditions instantiating two modules of the same name.
+		nameToNode map[string]*moduleListNode // guarded by mux
+
 		// EnabledFeatures are read-only to allow optimizations.
 		EnabledFeatures api.CoreFeatures
 
@@ -39,9 +46,6 @@ type (
 		// functionMaxTypes represents the limit on the number of function types in a store.
 		// Note: this is fixed to 2^27 but have this a field for testability.
 		functionMaxTypes uint32
-
-		// namespaces are all Namespace instances for this store including the default one.
-		namespaces []*Namespace // guarded by mux
 
 		// mux is used to guard the fields from concurrent access.
 		mux sync.RWMutex
@@ -100,19 +104,8 @@ type (
 	// FunctionInstance represents a function instance in a Store.
 	// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#function-instances%E2%91%A0
 	FunctionInstance struct {
-		// IsHostFunction is the data returned by the same field documented on
-		// wasm.Code.
-		IsHostFunction bool
-
 		// Type is the signature of this function.
 		Type *FunctionType
-
-		// GoFunc is non-nil when IsHostFunction and defined in go, either
-		// api.GoFunction or api.GoModuleFunction.
-		//
-		// Note: This has no serialization format, so is not encodable.
-		// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#host-functions%E2%91%A2
-		GoFunc interface{}
 
 		// Fields above here are settable prior to instantiation. Below are set by the Store during instantiation.
 
@@ -122,7 +115,7 @@ type (
 		// TypeID is assigned by a store for FunctionType.
 		TypeID FunctionTypeID
 
-		// Idx holds the index of this function instance in the function index namespace (beginning with imports).
+		// Idx holds the index of this function instance in the function index (beginning with imports).
 		Idx Index
 
 		// Definition is known at compile time.
@@ -169,7 +162,16 @@ func (m *ModuleInstance) buildElementInstances(elements []*ElementSegment) {
 		if elm.Type == RefTypeFuncref && elm.Mode == ElementModePassive {
 			// Only passive elements can be access as element instances.
 			// See https://www.w3.org/TR/2022/WD-wasm-core-2-20220419/syntax/modules.html#element-segments
-			m.ElementInstances[i] = *m.Engine.CreateFuncElementInstance(elm.Init)
+			inits := elm.Init
+			elemInst := &m.ElementInstances[i]
+			elemInst.References = make([]Reference, len(inits))
+			elemInst.Type = RefTypeFuncref
+			for j, idxPtr := range inits {
+				if idxPtr != nil {
+					idx := *idxPtr
+					elemInst.References[j] = m.Engine.FunctionInstanceReference(idx)
+				}
+			}
 		}
 	}
 }
@@ -257,29 +259,18 @@ func (m *ModuleInstance) getExport(name string, et ExternType) (ExportInstance, 
 	return exp, nil
 }
 
-func NewStore(enabledFeatures api.CoreFeatures, engine Engine) (*Store, *Namespace) {
-	ns := newNamespace()
-
+func NewStore(enabledFeatures api.CoreFeatures, engine Engine) *Store {
 	typeIDs := make(map[string]FunctionTypeID, len(preAllocatedTypeIDs))
 	for k, v := range preAllocatedTypeIDs {
 		typeIDs[k] = v
 	}
 	return &Store{
+		nameToNode:       map[string]*moduleListNode{},
 		EnabledFeatures:  enabledFeatures,
 		Engine:           engine,
-		namespaces:       []*Namespace{ns},
 		typeIDs:          typeIDs,
 		functionMaxTypes: maximumFunctionTypes,
-	}, ns
-}
-
-// NewNamespace implements the same method as documented on wazero.Runtime.
-func (s *Store) NewNamespace(context.Context) *Namespace {
-	ns := newNamespace()
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	s.namespaces = append(s.namespaces, ns)
-	return ns
+	}
 }
 
 // Instantiate uses name instead of the Module.NameSection ModuleName as it allows instantiating the same module under
@@ -292,36 +283,35 @@ func (s *Store) NewNamespace(context.Context) *Namespace {
 // Note: Module.Validate must be called prior to instantiation.
 func (s *Store) Instantiate(
 	ctx context.Context,
-	ns *Namespace,
 	module *Module,
 	name string,
 	sys *internalsys.Context,
 ) (*CallContext, error) {
-	// Collect any imported modules to avoid locking the namespace too long.
+	// Collect any imported modules to avoid locking the store too long.
 	importedModuleNames := map[string]struct{}{}
 	for _, i := range module.ImportSection {
 		importedModuleNames[i.Module] = struct{}{}
 	}
 
-	// Read-Lock the namespace and ensure imports needed are present.
-	importedModules, err := ns.requireModules(importedModuleNames)
+	// Read-Lock the store and ensure imports needed are present.
+	importedModules, err := s.requireModules(importedModuleNames)
 	if err != nil {
 		return nil, err
 	}
 
-	// Write-Lock the namespace and claim the name of the current module.
-	if err = ns.requireModuleName(name); err != nil {
+	// Write-Lock the store and claim the name of the current module.
+	if err = s.requireModuleName(name); err != nil {
 		return nil, err
 	}
 
-	// Instantiate the module and add it to the namespace so that other modules can import it.
-	if callCtx, err := s.instantiate(ctx, ns, module, name, sys, importedModules); err != nil {
-		_ = ns.deleteModule(name)
+	// Instantiate the module and add it to the store so that other modules can import it.
+	if callCtx, err := s.instantiate(ctx, module, name, sys, importedModules); err != nil {
+		_ = s.deleteModule(name)
 		return nil, err
 	} else {
 		// Now that the instantiation is complete without error, add it.
-		// This makes the module visible for import, and ensures it is closed when the namespace is.
-		if err := ns.setModule(callCtx.module); err != nil {
+		// This makes the module visible for import, and ensures it is closed when the store is.
+		if err := s.setModule(callCtx.module); err != nil {
 			callCtx.Close(ctx)
 			return nil, err
 		}
@@ -331,7 +321,6 @@ func (s *Store) Instantiate(
 
 func (s *Store) instantiate(
 	ctx context.Context,
-	ns *Namespace,
 	module *Module,
 	name string,
 	sysCtx *internalsys.Context,
@@ -388,7 +377,7 @@ func (s *Store) instantiate(
 	m.applyTableInits(tables, tableInit)
 
 	// Compile the default context for calls to this module.
-	callCtx := NewCallContext(ns, m, sysCtx)
+	callCtx := NewCallContext(s, m, sysCtx)
 	m.CallCtx = callCtx
 
 	// Execute the start function.
@@ -651,13 +640,17 @@ func (s *Store) CloseWithExitCode(ctx context.Context, exitCode uint32) (err err
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	// Close modules in reverse initialization order.
-	for i := len(s.namespaces) - 1; i >= 0; i-- {
-		// If closing this namespace errs, proceed anyway to close the others.
-		if e := s.namespaces[i].CloseWithExitCode(ctx, exitCode); e != nil && err == nil {
-			err = e // first error
+	for node := s.moduleList; node != nil; node = node.next {
+		// If closing this module errs, proceed anyway to close the others.
+		if m := node.module; m != nil {
+			if e := m.CallCtx.closeWithExitCode(ctx, exitCode); e != nil && err == nil {
+				// TODO: use multiple errors handling in Go 1.20.
+				err = e // first error
+			}
 		}
 	}
-	s.namespaces = nil
+	s.moduleList = nil
+	s.nameToNode = nil
 	s.typeIDs = nil
 	return
 }

@@ -365,23 +365,23 @@ There are other reasons such as test and debug being simpler without options: th
 space. It is accepted that the options pattern is common in Go, which is the main reason for documenting this decision.
 
 ### Why aren't config types deeply structured?
-wazero's configuration types cover the three main scopes of WebAssembly use:
+wazero's configuration types cover the two main scopes of WebAssembly use:
 * `RuntimeConfig`: This is the broadest scope, so applies also to compilation
   and instantiation. e.g. This controls the WebAssembly Specification Version.
 * `ModuleConfig`: This affects modules instantiated after compilation and what
-  resources are allowed. e.g. This defines how or if STDOUT is captured.
+  resources are allowed. e.g. This defines how or if STDOUT is captured. This
+  also allows sub-configuration of `FSConfig`.
 
-We could nest configuration, for example have `ModuleConfig.SysConfig` instead
-of a flat definition. However, a flat structure is easier to work with and is
-also easy to discover. Unlike the option pattern described earlier, more
+These default to a flat definition each, with lazy sub-configuration only after
+proven to be necessary. A flat structure is easier to work with and is also
+easy to discover. Unlike the option pattern described earlier, more
 configuration in the interface doesn't taint the package namespace, only
 `ModuleConfig`.
 
-That said, one might ask if we may one day need to structure `ModuleConfig`, as
-it could become cluttered. The main rationale for not doing so up front is that
-once a configuration structure is nested, it is harder to notice configuration
-sprawl. By keeping the config flat, it is easy to see the cognitive load we may
-be adding to our users.
+We default to a flat structure to encourage simplicity. If we eagerly broke out
+all possible configurations into sub-types (e.g. ClockConfig), it would be hard
+to notice configuration sprawl. By keeping the config flat, it is easy to see
+the cognitive load we may be adding to our users.
 
 In other words, discomfort adding more configuration is a feature, not a bug.
 We should only add new configuration rarely, and before doing so, ensure it
@@ -389,6 +389,10 @@ will be used. In fact, this is why we support using context fields for
 experimental configuration. By letting users practice, we can find out if a
 configuration was a good idea or not before committing to it, and potentially
 sprawling our types.
+
+In reflection, this approach worked well for the nearly 1.5 year period leading
+to version 1.0. We've only had to create a single sub-configuration, `FSConfig`,
+and it was well understood why when it occurred.
 
 ## Why does InstantiateModule call "_start" by default?
 We formerly had functions like `StartWASICommand` that would verify preconditions and start WASI's "_start" command.
@@ -477,7 +481,7 @@ not a W3C recommendation, there's no sense in breaking users over matters like t
 ### Why is I/O configuration not coupled to WASI?
 
 WebAssembly System Interfaces (WASI) is a formalization of a practice that can be done anyway: Define a host function to
-access a system interface, such as writing to STDOUT. WASI stalled at snapshot-01 and as of early 2022, is being
+access a system interface, such as writing to STDOUT. WASI stalled at snapshot-01 and as of early 2023, is being
 rewritten entirely.
 
 This instability implies a need to transition between WASI specs, which places wazero in a position that requires
@@ -488,6 +492,9 @@ places.
 In short, wazero defined system configuration in `ModuleConfig`, not a WASI type. This allows end-users to switch from
 one spec to another with minimal impact. This has other helpful benefits, as centralized resources are simpler to close
 coherently (ex via `Module.Close`).
+
+In reflection, this worked well as more ABI became usable in wazero. For example, `GOARCH=wasm GOOS=js` code uses the
+same `ModuleConfig` (and `FSConfig`) WASI uses, and in compatible ways.
 
 ### Background on `ModuleConfig` design
 
@@ -502,7 +509,7 @@ ways acts similar to a process with a `main` function.
 
 To capture "hello world" written to the console (stdout a.k.a. file descriptor 1) in `exec.Cmd`, you would set the
 `Stdout` field accordingly, perhaps to a buffer. In WebAssembly 1.0 (20191205), the only way to perform something like
-this is via a host function (ex `HostModuleBuilder.ExportFunction`) and internally copy memory corresponding to that string
+this is via a host function (ex `HostModuleFunctionBuilder`) and internally copy memory corresponding to that string
 to a buffer.
 
 WASI implements system interfaces with host functions. Concretely, to write to console, a WASI command `Module` imports
@@ -558,7 +565,7 @@ value (possibly `PWD`). Those unable to control the compiled code should only
 use absolute paths in configuration.
 
 See
-* https://github.com/golang/go/blob/go1.19rc2/src/syscall/fs_js.go#L324
+* https://github.com/golang/go/blob/go1.20/src/syscall/fs_js.go#L324
 * https://github.com/WebAssembly/wasi-libc/pull/214#issue-673090117
 * https://github.com/ziglang/zig/blob/53a9ee699a35a3d245ab6d1dac1f0687a4dcb42c/src/main.zig#L32
 
@@ -606,18 +613,52 @@ to the descriptor selection process, however this should never be used as a
 security measure to prevent applications from guessing the next file number so
 there are no strong incentives to complicate the logic.
 
+### Why does `FSConfig.WithDirMount` not match behaviour with `os.DirFS`?
+
+It may seem that we should require any feature that seems like a standard
+library in Go, to behave the same way as the standard library. Doing so would
+present least surprise to Go developers. In the case of how we handle
+filesystems, we break from that as it is incompatible with the expectations of
+WASI, the most commonly implemented filesystem ABI.
+
+The main reason is that `os.DirFS` is a virtual filesystem abstraction while
+WASI is an abstraction over syscalls. For example, the signature of `fs.Open`
+does not permit use of flags. This creates conflict on what default behaviors
+to take when Go implemented `os.DirFS`. On the other hand, `path_open` can pass
+flags, and in fact tests require them to be honored in specific ways. This
+extends beyond WASI as even `GOARCH=wasm GOOS=js` compiled code requires
+certain flags passed to `os.OpenFile` which are impossible to pass due to the
+signature of `fs.FS`.
+
+This conflict requires us to choose what to be more compatible with, and which
+type of user to surprise the least. We assume there will be more developers
+compiling code to wasm than developers of custom filesystem plugins, and those
+compiling code to wasm will be better served if we are compatible with WASI.
+Hence on conflict, we prefer WASI behavior vs the behavior of `os.DirFS`.
+
+Meanwhile, it is possible that Go will one day compile to `GOOS=wasi` in
+addition to `GOOS=js`. When there is shared stake in WASI, we expect gaps like
+these to be easier to close.
+
+See https://github.com/WebAssembly/wasi-testsuite
+See https://github.com/golang/go/issues/58141
+
 ### fd_pread: io.Seeker fallback when io.ReaderAt is not supported
 
 `ReadAt` is the Go equivalent to `pread`: it does not affect, and is not
 affected by, the underlying file offset. Unfortunately, `io.ReaderAt` is not
-implemented by all `fs.File`, notably `embed.file`.
+implemented by all `fs.File`. For example, as of Go 1.19, `embed.openFile` does
+not.
 
 The initial implementation of `fd_pread` instead used `Seek`. To avoid a
-regression we fallback to `io.Seeker` when `io.ReaderAt` is not supported.
+regression, we fall back to `io.Seeker` when `io.ReaderAt` is not supported.
 
 This requires obtaining the initial file offset, seeking to the intended read
-offset, and reseting the file offset the initial state. If this final seek
+offset, and resetting the file offset the initial state. If this final seek
 fails, the file offset is left in an undefined state. This is not thread-safe.
+
+While seeking per read seems expensive, the common case of `embed.openFile` is
+only accessing a single int64 field, which is cheap.
 
 ### Pre-opened files
 
@@ -629,8 +670,10 @@ STDERR (1) and invokes `fd_prestat_dir_name` to learn any path prefixes they
 correspond to. Zig's `preopensAlloc` does similar. These pre-open functions are
 not used again after initialization.
 
-wazero currently supports only one pre-opened file, "/" and so that is the name
-returned by `fd_prestat_dir_name` for file descriptor 3 (STDERR+1).
+wazero supports stdio pre-opens followed by any mounts e.g `.:/`. The guest
+path is a directory and its name, e.g. "/" is returned by `fd_prestat_dir_name`
+for file descriptor 3 (STDERR+1). The first longest match wins on multiple
+pre-opens, which allows a path like "/tmp" to match regardless of order vs "/".
 
 See
  * https://github.com/WebAssembly/wasi-libc/blob/a02298043ff551ce1157bc2ee7ab74c3bffe7144/libc-bottom-half/sources/preopens.c
@@ -656,6 +699,48 @@ See https://github.com/bytecodealliance/wasmtime/blob/2ca01ae9478f199337cf743a6a
 
 Their semantics match when `path_len` == the length of `path`, so in practice
 this difference won't matter match.
+
+## Why does fd_readdir not include dot (".") and dot-dot ("..") entries?
+
+When reading a directory, wazero code does not return dot (".") and dot-dot
+("..") entries. The main reason is that Go does not return them from
+`os.ReadDir`, and materializing them is complicated (at least dot-dot is).
+
+A directory entry has stat information in it. The stat information includes
+inode which is used for comparing file equivalence. In the simple case of dot,
+we could materialize a special entry to expose the same info as stat on the fd
+would return. However, doing this and not doing dot-dot would cause confusion,
+and dot-dot is far more tricky. To back-fill inode information about a parent
+directory would be costly and subtle. For example, the pre-open (mount) of the
+directory may be different than its logical parent. This is easy to understand
+when considering the common case of mounting "/" and "/tmp" as pre-opens. To
+implement ".." from "/tmp" requires information from a separate pre-open, this
+includes state to even know the difference. There are easier edge cases as
+well, such as the decision to not return ".." from a root path. In any case,
+this should start to explain that faking entries when underlying stdlib doesn't
+return them is tricky and requires quite a lot of state.
+
+Even if we did that, it would cause expense to all users of wazero, so we'd
+then look to see if that would be justified or not. However, the most common
+compilers involved in end user questions, as of early 2023 are TinyGo, Rust and
+Zig. All of these compile code which ignores dot and dot-dot entries. In other
+words, faking these entries would not only cost our codebase with complexity,
+but it would also add unnecessary overhead as the values aren't commonly used.
+
+The final reason why we might do this, is an end users or a specification
+requiring us to. As of early 2023, no end user has raised concern over Go and
+by extension wazero not returning dot and dot-dot. The snapshot-01 spec of WASI
+does not mention anything on this point. Also, POSIX has the following to say,
+which summarizes to "these are optional"
+
+> The readdir() function shall not return directory entries containing empty names. If entries for dot or dot-dot exist, one entry shall be returned for dot and one entry shall be returned for dot-dot; otherwise, they shall not be returned.
+
+In summary, wazero not only doesn't return dot and dot-dot entries because Go
+doesn't and emulating them in spite of that would result in no difference
+except hire overhead to the majority of our users.
+
+See https://pubs.opengroup.org/onlinepubs/9699919799/functions/readdir.html
+See https://github.com/golang/go/blob/go1.20/src/os/dir_unix.go#L108-L110
 
 ## sys.Walltime and Nanotime
 
@@ -708,7 +793,7 @@ See https://go.googlesource.com/proposal/+/master/design/12914-monotonic.md
 WebAssembly time imports do not have the same concern. In fact even Go's
 imports for clocks split walltime from nanotime readings.
 
-See https://github.com/golang/go/blob/252324e879e32f948d885f787decf8af06f82be9/misc/wasm/wasm_exec.js#L243-L255
+See https://github.com/golang/go/blob/go1.20/misc/wasm/wasm_exec.js#L243-L255
 
 Finally, Go's clock is not an interface. WebAssembly users who want determinism
 or security need to be able to substitute an alternative clock implementation
@@ -722,7 +807,7 @@ value. For now, we return fixed values of 1us for realtime and 1ns for monotonic
 often lower precision than monotonic clocks. In the future, this could be improved by having OS+arch specific assembly
 to make syscalls.
 
-For example, Go implements time.Now for linux-amd64 with this [assembly](https://github.com/golang/go/blob/f19e4001808863d2ebfe9d1975476513d030c381/src/runtime/time_linux_amd64.s).
+For example, Go implements time.Now for linux-amd64 with this [assembly](https://github.com/golang/go/blob/go1.20/src/runtime/time_linux_amd64.s).
 Because retrieving resolution is not generally called often, unlike getting time, it could be appropriate to only
 implement the fallback logic that does not use VDSO (executing syscalls in user mode). The syscall for clock_getres
 is 229 and should be usable. https://pkg.go.dev/syscall#pkg-constants.
@@ -757,6 +842,32 @@ We decided to expose `sys.Nanosleep` to allow overriding the implementation
 used in the common case, even if it isn't used by Go, because this gives an
 easy and efficient closure over a common program function. We also documented
 `sys.Nanotime` to warn users that some compilers don't optimize sleep.
+
+## sys.Osyield
+
+We expose `sys.Osyield`, to allow users to control the behavior of WASI's
+`sched_yield` without a new build of wazero. This is mainly for parity with
+all other related features which we allow users to implement, including
+`sys.Nanosleep`. Unlike others, we don't provide an out-of-box implementation
+primarily because it will cause performance problems when accessed.
+
+For example, the below implementation uses CGO, which might result in a 1us
+delay per invocation depending on the platform.
+
+See https://github.com/golang/go/issues/19409#issuecomment-284788196
+```go
+//go:noescape
+//go:linkname osyield runtime.osyield
+func osyield()
+```
+
+In practice, a request to customize this is unlikely to happen until other
+thread based functions are implemented. That said, as of early 2023, there are
+a few signs of implementation interest and cross-referencing:
+
+See https://github.com/WebAssembly/stack-switching/discussions/38
+See https://github.com/WebAssembly/wasi-threads#what-can-be-skipped
+See https://slinkydeveloper.com/Kubernetes-controllers-A-New-Hope/
 
 ## Signed encoding of integer global constant initializers
 
@@ -800,7 +911,7 @@ This is due to the same reason for the limitation on the number of functions abo
 
 While the the spec does not clarify a limitation of function stack values, wazero limits this to 2^27 = 134,217,728.
 The reason is that we internally represent all the values as 64-bit integers regardless of its types (including f32, f64), and 2^27 values means
-1 GiB = (2^30). 1 GiB is the reasonable for most applications [as we see a Goroutine has 250 MB as a limit on the stack for 32-bit arch](https://github.com/golang/go/blob/f296b7a6f045325a230f77e9bda1470b1270f817/src/runtime/proc.go#L120), considering that WebAssembly is (currently) 32-bit environment.
+1 GiB = (2^30). 1 GiB is the reasonable for most applications [as we see a Goroutine has 250 MB as a limit on the stack for 32-bit arch](https://github.com/golang/go/blob/go1.20/src/runtime/proc.go#L152-L159), considering that WebAssembly is (currently) 32-bit environment.
 
 All the functions are statically analyzed at module instantiation phase, and if a function can potentially reach this limit, an error is returned.
 
@@ -863,6 +974,6 @@ In lieu of formal documentation, we infer this pattern works from other sources 
  * `sync.WaitGroup` by definition must support calling `Add` from other goroutines. Internally, it uses atomics.
  * rsc in golang/go#5045 writes "atomics guarantee sequential consistency among the atomic variables".
 
-See https://github.com/golang/go/blob/011fd002457da0823da5f06b099fcf6e21444b00/src/sync/waitgroup.go#L64
+See https://github.com/golang/go/blob/go1.20/src/sync/waitgroup.go#L64
 See https://github.com/golang/go/issues/5045#issuecomment-252730563
 See https://www.youtube.com/watch?v=VmrEG-3bWyM
