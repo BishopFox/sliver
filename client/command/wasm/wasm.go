@@ -19,7 +19,6 @@ package wasm
 */
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -32,7 +31,6 @@ import (
 	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/desertbit/grumble"
-	"golang.org/x/term"
 )
 
 // wasmMaxModuleSize - Arbitrary 1.5Gb limit to put us well under the 2Gb max gRPC message size
@@ -162,39 +160,7 @@ func runInteractive(ctx *grumble.Context, execWasmReq *sliverpb.ExecWasmExtensio
 	// Create tunnel
 	tunnel := core.GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
 	execWasmReq.TunnelID = rpcTunnel.TunnelID
-
-	// Save & restore terminal state
-	var oldState *term.State
-	oldState, err = term.MakeRaw(0)
-	if err != nil {
-		con.PrintErrorf("Failed to save terminal state")
-		return
-	}
-	defer func() {
-		term.Restore(0, oldState)
-		bufio.NewWriter(os.Stdout).Flush()
-	}()
-
-	// Setup routines to copy data back an forth
-	go func() {
-		_, err := io.Copy(os.Stdout, tunnel)
-		if err == io.EOF {
-			return
-		}
-		if err != nil {
-			con.PrintErrorf("Error writing to stdout: %s", err)
-			return
-		}
-	}()
-	go func() {
-		_, err = io.Copy(tunnel, os.Stdin)
-		if err == io.EOF {
-			return
-		}
-		if err != nil {
-			con.PrintErrorf("Error reading from stdin: %s\n", err)
-		}
-	}()
+	defer tunnel.Close()
 
 	// Send the exec request
 	wasmExt, err := con.Rpc.ExecWasmExtension(context.Background(), execWasmReq)
@@ -202,7 +168,6 @@ func runInteractive(ctx *grumble.Context, execWasmReq *sliverpb.ExecWasmExtensio
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	tunnel.Close()
 	if wasmExt.Response != nil && wasmExt.Response.Err != "" {
 		con.PrintErrorf("Error: %s\n", wasmExt.Response.Err)
 		_, err = con.Rpc.CloseTunnel(context.Background(), &sliverpb.Tunnel{
@@ -215,6 +180,38 @@ func runInteractive(ctx *grumble.Context, execWasmReq *sliverpb.ExecWasmExtensio
 		return
 	}
 
+	// Save & restore terminal state
+	// var oldState *term.State
+	// oldState, err = term.MakeRaw(0)
+	// if err != nil {
+	// 	con.PrintErrorf("Failed to save terminal state")
+	// 	return
+	// }
+	// defer func() {
+	// 	term.Restore(0, oldState)
+	// 	bufio.NewWriter(os.Stdout).Flush()
+	// }()
+
+	// Setup routines to copy data back an forth
+	go func() {
+		_, err := io.Copy(os.Stdout, tunnel)
+		if err == io.EOF {
+			return
+		}
+		if err != nil {
+			con.PrintErrorf("Error writing to stdout: %s", err)
+			return
+		}
+	}()
+
+	// Copy stdin to the tunnel
+	_, err = io.Copy(tunnel, os.Stdin)
+	if err == io.EOF {
+		return
+	}
+	if err != nil {
+		con.PrintErrorf("Error reading from stdin: %s\n", err)
+	}
 }
 
 func registerWasmExtension(wasmFilePath string, ctx *grumble.Context, con *console.SliverConsoleClient) error {

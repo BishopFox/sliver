@@ -39,7 +39,7 @@ var (
 		sliverpb.MsgSocksData:  tunnel_handlers.SocksReqHandler,
 
 		// Wasm Extensions can be  executed interactively
-		sliverpb.MsgExecWasmExtensionReq: execWasmExtensionHandler,
+		sliverpb.MsgExecWasmExtensionReq: tunnel_handlers.ExecWasmExtensionHandler,
 
 		// Data and close messages
 		sliverpb.MsgTunnelData:  tunnel_handlers.TunnelDataHandler,
