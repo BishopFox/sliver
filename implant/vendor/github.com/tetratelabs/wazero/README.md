@@ -68,8 +68,8 @@ go get github.com/tetratelabs/wazero@latest
 ```
 
 wazero will tag a new pre-release at least once a month until 1.0. 1.0 is
-scheduled for Feb 2023, following the release of Go 1.20. wazero 1.0 will build
-with Go 1.18 and above per the below policy.
+scheduled for March 2023 and will require minimally Go 1.18. Except
+experimental packages, wazero will not break API on subsequent minor versions.
 
 Meanwhile, please practice the current APIs to ensure they work for you, and
 give us a [star][15] if you are enjoying it so far!
@@ -96,14 +96,14 @@ systems are ones we test, but that doesn't necessarily mean other operating
 system versions won't work.
 
 We currently test Linux (Ubuntu and scratch), MacOS and Windows as packaged by
-[GitHub Actions][11], as well FreeBSD via Vagrant/VirtualBox.
+[GitHub Actions][11], as well compilation of 32-bit Linux and 64-bit FreeBSD.
 
 * Interpreter
   * Linux is tested on amd64 (native) as well arm64 and riscv64 via emulation.
-  * FreeBSD, MacOS and Windows are only tested on amd64.
+  * MacOS and Windows are only tested on amd64.
 * Compiler
   * Linux is tested on amd64 (native) as well arm64 via emulation.
-  * FreeBSD, MacOS and Windows are only tested on amd64.
+  * MacOS and Windows are only tested on amd64.
 
 wazero has no dependencies and doesn't require CGO. This means it can also be
 embedded in an application that doesn't use an operating system. This is a main

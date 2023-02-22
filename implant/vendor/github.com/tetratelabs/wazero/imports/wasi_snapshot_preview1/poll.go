@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/tetratelabs/wazero/api"
+	internalsys "github.com/tetratelabs/wazero/internal/sys"
 	. "github.com/tetratelabs/wazero/internal/wasi_snapshot_preview1"
 	"github.com/tetratelabs/wazero/internal/wasm"
 )
@@ -29,7 +30,6 @@ import (
 // # Notes
 //
 //   - Since the `out` pointer nests Errno, the result is always ErrnoSuccess.
-//   - importPollOneoff shows this signature in the WebAssembly 1.0 Text Format.
 //   - This is similar to `poll` in POSIX.
 //
 // See https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#poll_oneoff
@@ -132,9 +132,11 @@ func processFDEvent(mod api.Module, eventType byte, inBuf []byte) Errno {
 	// Choose the best error, which falls back to unsupported, until we support
 	// files.
 	errno := ErrnoNotsup
-	if eventType == EventTypeFdRead && fsc.FdReader(fd) == nil {
-		errno = ErrnoBadf
-	} else if eventType == EventTypeFdWrite && fsc.FdWriter(fd) == nil {
+	if eventType == EventTypeFdRead {
+		if _, ok := fsc.LookupFile(fd); !ok {
+			errno = ErrnoBadf
+		}
+	} else if eventType == EventTypeFdWrite && internalsys.WriterForFile(fsc, fd) == nil {
 		errno = ErrnoBadf
 	}
 

@@ -92,6 +92,17 @@ func (t *FileTable) Lookup(fd uint32) (file *FileEntry, found bool) {
 	return
 }
 
+// InsertAt inserts the given `file` at the file descriptor `fd`.
+func (t *FileTable) InsertAt(file *FileEntry, fd uint32) {
+	if diff := int(fd) - t.Len(); diff > 0 {
+		t.Grow(diff)
+	}
+	index := uint(fd) / 64
+	shift := uint(fd) % 64
+	t.masks[index] |= 1 << shift
+	t.files[fd] = file
+}
+
 // Delete deletes the file stored at the given fd from the table.
 func (t *FileTable) Delete(fd uint32) {
 	if index, shift := fd/64, fd%64; int(index) < len(t.masks) {

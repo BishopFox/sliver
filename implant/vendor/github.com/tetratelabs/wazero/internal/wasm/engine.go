@@ -9,8 +9,11 @@ import (
 // Engine is a Store-scoped mechanism to compile functions declared or imported by a module.
 // This is a top-level type implemented by an interpreter or compiler.
 type Engine interface {
+	// Close closes this engine, and releases all the compiled cache.
+	Close() (err error)
+
 	// CompileModule implements the same method as documented on wasm.Engine.
-	CompileModule(ctx context.Context, module *Module, listeners []experimental.FunctionListener) error
+	CompileModule(ctx context.Context, module *Module, listeners []experimental.FunctionListener, ensureTermination bool) error
 
 	// CompiledModuleCount is exported for testing, to track the size of the compilation cache.
 	CompiledModuleCount() uint32
@@ -41,10 +44,6 @@ type ModuleEngine interface {
 
 	// LookupFunction returns the index of the function in the function table.
 	LookupFunction(t *TableInstance, typeId FunctionTypeID, tableOffset Index) (Index, error)
-
-	// CreateFuncElementInstance creates an ElementInstance whose references are engine-specific function pointers
-	// corresponding to the given `indexes`.
-	CreateFuncElementInstance(indexes []*Index) *ElementInstance
 
 	// FunctionInstanceReference returns Reference for the given Index for a FunctionInstance. The returned values are used by
 	// the initialization via ElementSegment.

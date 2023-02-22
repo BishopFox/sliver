@@ -106,6 +106,11 @@ var (
 		sliverpb.MsgCallExtensionReq:     callExtensionHandler,
 		sliverpb.MsgListExtensionsReq:    listExtensionsHandler,
 
+		// Wasm Extensions - Note that execution can be done via a tunnel handler
+		sliverpb.MsgRegisterWasmExtensionReq:   registerWasmExtensionHandler,
+		sliverpb.MsgDeregisterWasmExtensionReq: deregisterWasmExtensionHandler,
+		sliverpb.MsgListWasmExtensionsReq:      listWasmExtensionsHandler,
+
 		// {{if .Config.WGc2Enabled}}
 		// Wireguard specific
 		sliverpb.MsgWGStartPortFwdReq:   wgStartPortfwdHandler,

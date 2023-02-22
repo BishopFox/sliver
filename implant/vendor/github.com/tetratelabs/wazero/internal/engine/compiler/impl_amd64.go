@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"math"
-	"runtime"
 
 	"github.com/tetratelabs/wazero/internal/asm"
 	"github.com/tetratelabs/wazero/internal/asm/amd64"
@@ -83,8 +82,9 @@ func (c *amd64Compiler) compileNOP() asm.Node {
 }
 
 type amd64Compiler struct {
-	assembler amd64.Assembler
-	ir        *wazeroir.CompilationResult
+	assembler   amd64.Assembler
+	ir          *wazeroir.CompilationResult
+	cpuFeatures platform.CpuFeatureFlags
 	// locationStack holds the state of wazeroir virtual stack.
 	// and each item is either placed in register or the actual memory stack.
 	locationStack *runtimeValueLocationStack
@@ -103,6 +103,7 @@ func newAmd64Compiler() compiler {
 	c := &amd64Compiler{
 		assembler:     amd64.NewAssembler(),
 		locationStack: newRuntimeValueLocationStack(),
+		cpuFeatures:   platform.CpuFeatures,
 	}
 	return c
 }
@@ -114,6 +115,7 @@ func (c *amd64Compiler) Init(ir *wazeroir.CompilationResult, withListener bool) 
 	*c = amd64Compiler{
 		labels:       map[string]*amd64LabelInfo{},
 		ir:           ir,
+		cpuFeatures:  c.cpuFeatures,
 		withListener: withListener,
 		currentLabel: wazeroir.EntrypointLabel,
 	}
@@ -166,6 +168,18 @@ func (c *amd64Compiler) label(labelKey string) *amd64LabelInfo {
 	}
 	c.labels[labelKey] = &amd64LabelInfo{}
 	return c.labels[labelKey]
+}
+
+// compileBuiltinFunctionCheckExitCode implements compiler.compileBuiltinFunctionCheckExitCode for the amd64 architecture.
+func (c *amd64Compiler) compileBuiltinFunctionCheckExitCode() error {
+	if err := c.compileCallBuiltinFunction(builtinFunctionIndexCheckExitCode); err != nil {
+		return err
+	}
+
+	// After the function call, we have to initialize the stack base pointer and memory reserved registers.
+	c.compileReservedStackBasePointerInitialization()
+	c.compileReservedMemoryPointerInitialization()
+	return nil
 }
 
 // compileGoDefinedHostFunction constructs the entire code to enter the host function implementation,
@@ -1158,7 +1172,7 @@ func (c *amd64Compiler) compileClz(o *wazeroir.OperationClz) error {
 		return err
 	}
 
-	if runtime.GOOS != "darwin" && runtime.GOOS != "freebsd" {
+	if c.cpuFeatures.HasExtra(platform.CpuExtraFeatureABM) {
 		if o.Type == wazeroir.UnsignedInt32 {
 			c.assembler.CompileRegisterToRegister(amd64.LZCNTL, target.register, target.register)
 		} else {
@@ -1221,7 +1235,7 @@ func (c *amd64Compiler) compileCtz(o *wazeroir.OperationCtz) error {
 		return err
 	}
 
-	if runtime.GOOS != "darwin" && runtime.GOOS != "freebsd" {
+	if c.cpuFeatures.HasExtra(platform.CpuExtraFeatureABM) {
 		if o.Type == wazeroir.UnsignedInt32 {
 			c.assembler.CompileRegisterToRegister(amd64.TZCNTL, target.register, target.register)
 		} else {
@@ -3799,6 +3813,8 @@ func (c *amd64Compiler) compileFillLoopImpl(destinationOffset, value, fillSize *
 	emptyEightGroupsJump := c.assembler.CompileJump(amd64.JEQ)
 
 	if replicateByte {
+		// Truncate value.register to a single byte
+		c.assembler.CompileConstToRegister(amd64.ANDQ, 0xff, value.register)
 		// Replicate single byte onto full 8-byte register.
 		c.assembler.CompileConstToRegister(amd64.MOVQ, 0x0101010101010101, tmp)
 		c.assembler.CompileRegisterToRegister(amd64.IMULQ, tmp, value.register)
@@ -4955,7 +4971,7 @@ func (c *amd64Compiler) compileModuleContextInitialization() error {
 		// implementation of interface. This case, we extract "data" pointer as *moduleEngine.
 		// See the following references for detail:
 		// * https://research.swtch.com/interfaces
-		// * https://github.com/golang/go/blob/release-branch.go1.17/src/runtime/runtime2.go#L207-L210
+		// * https://github.com/golang/go/blob/release-branch.go1.20/src/runtime/runtime2.go#L207-L210
 		c.assembler.CompileMemoryToRegister(amd64.MOVQ, amd64CallingConventionDestinationFunctionModuleInstanceAddressRegister, moduleInstanceEngineOffset+interfaceDataOffset, tmpRegister)
 
 		// "tmpRegister = [tmpRegister + moduleEnginecodesOffset] (== &moduleEngine.codes[0])"

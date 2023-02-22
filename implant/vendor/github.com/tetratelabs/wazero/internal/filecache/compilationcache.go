@@ -1,4 +1,4 @@
-package compilationcache
+package filecache
 
 import (
 	"crypto/sha256"
@@ -13,7 +13,7 @@ import (
 // its cache once closed. This cache allows the runtime to rebuild its
 // in-memory cache quicker, significantly reducing first-hit penalty on a hit.
 //
-// See NewFileCache for the example implementation.
+// See New for the example implementation.
 type Cache interface {
 	// Get is called when the runtime is trying to get the cached compiled functions.
 	// Implementations are supposed to return compiled function in io.Reader with ok=true

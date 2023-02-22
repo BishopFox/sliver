@@ -12,6 +12,7 @@ import (
 
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/experimental"
+	"github.com/tetratelabs/wazero/internal/filecache"
 	"github.com/tetratelabs/wazero/internal/moremath"
 	"github.com/tetratelabs/wazero/internal/wasm"
 	"github.com/tetratelabs/wazero/internal/wasmdebug"
@@ -32,11 +33,16 @@ type engine struct {
 	mux             sync.RWMutex
 }
 
-func NewEngine(_ context.Context, enabledFeatures api.CoreFeatures) wasm.Engine {
+func NewEngine(_ context.Context, enabledFeatures api.CoreFeatures, _ filecache.Cache) wasm.Engine {
 	return &engine{
 		enabledFeatures: enabledFeatures,
 		codes:           map[wasm.ModuleID][]*code{},
 	}
+}
+
+// Close implements the same method as documented on wasm.Engine.
+func (e *engine) Close() (err error) {
+	return
 }
 
 // CompiledModuleCount implements the same method as documented on wasm.Engine.
@@ -75,7 +81,7 @@ type moduleEngine struct {
 
 	// codes are the compiled functions in a module instances.
 	// The index is module instance-scoped.
-	functions []*function
+	functions []function
 
 	// parentEngine holds *engine from which this module engine is created from.
 	parentEngine *engine
@@ -169,16 +175,16 @@ type callFrame struct {
 }
 
 type code struct {
-	source   *wasm.Module
-	body     []*interpreterOp
-	listener experimental.FunctionListener
-	hostFn   interface{}
+	source            *wasm.Module
+	body              []*interpreterOp
+	listener          experimental.FunctionListener
+	hostFn            interface{}
+	isHostFunction    bool
+	ensureTermination bool
 }
 
 type function struct {
 	source *wasm.FunctionInstance
-	body   []*interpreterOp
-	hostFn interface{}
 	parent *code
 }
 
@@ -192,15 +198,6 @@ func functionFromUintptr(ptr uintptr) *function {
 	// https://github.com/golang/go/blob/1ce7fcf139417d618c2730010ede2afb41664211/src/runtime/checkptr.go#L69
 	var wrapped *uintptr = &ptr
 	return *(**function)(unsafe.Pointer(wrapped))
-}
-
-func (c *code) instantiate(f *wasm.FunctionInstance) *function {
-	return &function{
-		source: f,
-		body:   c.body,
-		hostFn: c.hostFn,
-		parent: c,
-	}
 }
 
 // interpreterOp is the compilation (engine.lowerIR) result of a wazeroir.Operation.
@@ -224,13 +221,13 @@ type interpreterOp struct {
 const callFrameStackSize = 0
 
 // CompileModule implements the same method as documented on wasm.Engine.
-func (e *engine) CompileModule(ctx context.Context, module *wasm.Module, listeners []experimental.FunctionListener) error {
+func (e *engine) CompileModule(ctx context.Context, module *wasm.Module, listeners []experimental.FunctionListener, ensureTermination bool) error {
 	if _, ok := e.getCodes(module); ok { // cache hit!
 		return nil
 	}
 
 	funcs := make([]*code, len(module.FunctionSection))
-	irs, err := wazeroir.CompileFunctions(ctx, e.enabledFeatures, callFrameStackSize, module)
+	irs, err := wazeroir.CompileFunctions(e.enabledFeatures, callFrameStackSize, module, ensureTermination)
 	if err != nil {
 		return err
 	}
@@ -255,6 +252,8 @@ func (e *engine) CompileModule(ctx context.Context, module *wasm.Module, listene
 			compiled.listener = lsn
 		}
 		compiled.source = module
+		compiled.isHostFunction = ir.IsHostFunction
+		compiled.ensureTermination = ir.EnsureTermination
 		funcs[i] = compiled
 	}
 	e.addCodes(module, funcs)
@@ -266,7 +265,7 @@ func (e *engine) NewModuleEngine(name string, module *wasm.Module, functions []w
 	me := &moduleEngine{
 		name:         name,
 		parentEngine: e,
-		functions:    make([]*function, len(functions)),
+		functions:    make([]function, len(functions)),
 	}
 
 	imported := int(module.ImportFuncCount())
@@ -283,8 +282,7 @@ func (e *engine) NewModuleEngine(name string, module *wasm.Module, functions []w
 	for i, c := range codes {
 		offset := i + imported
 		f := &functions[offset]
-		inst := c.instantiate(f)
-		me.functions[offset] = inst
+		me.functions[offset] = function{source: f, parent: c}
 	}
 	return me, nil
 }
@@ -302,6 +300,7 @@ func (e *engine) lowerIR(ir *wazeroir.CompilationResult) (*code, error) {
 			op.sourcePC = ir.IROperationSourceOffsetsInWasmBinary[i]
 		}
 		switch o := original.(type) {
+		case wazeroir.OperationBuiltinFunctionCheckExitCode:
 		case *wazeroir.OperationUnreachable:
 		case *wazeroir.OperationLabel:
 			labelKey := o.Label.String()
@@ -738,36 +737,16 @@ func (e *moduleEngine) Name() string {
 	return e.name
 }
 
-// CreateFuncElementInstance implements the same method as documented on wasm.ModuleEngine.
-func (e *moduleEngine) CreateFuncElementInstance(indexes []*wasm.Index) *wasm.ElementInstance {
-	refs := make([]wasm.Reference, len(indexes))
-	for i, index := range indexes {
-		if index != nil {
-			refs[i] = uintptr(unsafe.Pointer(e.functions[*index]))
-		}
-	}
-	return &wasm.ElementInstance{
-		References: refs,
-		Type:       wasm.RefTypeFuncref,
-	}
-}
-
 // FunctionInstanceReference implements the same method as documented on wasm.ModuleEngine.
 func (e *moduleEngine) FunctionInstanceReference(funcIndex wasm.Index) wasm.Reference {
-	return uintptr(unsafe.Pointer(e.functions[funcIndex]))
+	return uintptr(unsafe.Pointer(&e.functions[funcIndex]))
 }
 
 // NewCallEngine implements the same method as documented on wasm.ModuleEngine.
-func (e *moduleEngine) NewCallEngine(callCtx *wasm.CallContext, f *wasm.FunctionInstance) (ce wasm.CallEngine, err error) {
+func (e *moduleEngine) NewCallEngine(_ *wasm.CallContext, f *wasm.FunctionInstance) (ce wasm.CallEngine, err error) {
 	// Note: The input parameters are pre-validated, so a compiled function is only absent on close. Updates to
 	// code on close aren't locked, neither is this read.
-	compiled := e.functions[f.Idx]
-	if compiled == nil { // Lazy check the cause as it could be because the module was already closed.
-		if err = callCtx.FailIfClosed(); err == nil {
-			panic(fmt.Errorf("BUG: %s.func[%d] was nil before close", e.name, f.Idx))
-		}
-		return
-	}
+	compiled := &e.functions[f.Idx]
 	return e.newCallEngine(f, compiled), nil
 }
 
@@ -798,7 +777,7 @@ func (ce *callEngine) Call(ctx context.Context, m *wasm.CallContext, params []ui
 	return ce.call(ctx, m, ce.compiled, params)
 }
 
-func (ce *callEngine) call(ctx context.Context, m *wasm.CallContext, tf *function, params []uint64) (results []uint64, err error) {
+func (ce *callEngine) call(ctx context.Context, callCtx *wasm.CallContext, tf *function, params []uint64) (results []uint64, err error) {
 	ft := tf.source.Type
 	paramSignature := ft.ParamNumInUint64
 	paramCount := len(params)
@@ -809,7 +788,7 @@ func (ce *callEngine) call(ctx context.Context, m *wasm.CallContext, tf *functio
 	defer func() {
 		// If the module closed during the call, and the call didn't err for another reason, set an ExitError.
 		if err == nil {
-			err = m.FailIfClosed()
+			err = callCtx.FailIfClosed()
 		}
 		// TODO: ^^ Will not fail if the function was imported from a closed module.
 
@@ -822,7 +801,12 @@ func (ce *callEngine) call(ctx context.Context, m *wasm.CallContext, tf *functio
 		ce.pushValue(param)
 	}
 
-	ce.callFunction(ctx, m, tf)
+	if ce.compiled.parent.ensureTermination {
+		done := callCtx.CloseModuleOnCanceledOrTimeout(ctx)
+		defer done()
+	}
+
+	ce.callFunction(ctx, callCtx, tf)
 
 	// This returns a safe copy of the results, instead of a slice view. If we
 	// returned a re-slice, the caller could accidentally or purposefully
@@ -841,8 +825,8 @@ func (ce *callEngine) recoverOnCall(v interface{}) (err error) {
 		frame := ce.popFrame()
 		def := frame.f.source.Definition
 		var sources []string
-		if frame.f.body != nil {
-			sources = frame.f.parent.source.DWARFLines.Line(frame.f.body[frame.pc].sourcePC)
+		if body := frame.f.parent.body; body != nil {
+			sources = frame.f.parent.source.DWARFLines.Line(body[frame.pc].sourcePC)
 		}
 		builder.AddFrame(def.DebugName(), def.ParamTypes(), def.ResultTypes(), sources)
 	}
@@ -854,7 +838,7 @@ func (ce *callEngine) recoverOnCall(v interface{}) (err error) {
 }
 
 func (ce *callEngine) callFunction(ctx context.Context, callCtx *wasm.CallContext, f *function) {
-	if f.hostFn != nil {
+	if f.parent.hostFn != nil {
 		ce.callGoFuncWithStack(ctx, callCtx, f)
 	} else if lsn := f.parent.listener; lsn != nil {
 		ce.callNativeFuncWithListener(ctx, callCtx, f, lsn)
@@ -873,7 +857,7 @@ func (ce *callEngine) callGoFunc(ctx context.Context, callCtx *wasm.CallContext,
 	frame := &callFrame{f: f}
 	ce.pushFrame(frame)
 
-	fn := f.source.GoFunc
+	fn := f.parent.hostFn
 	switch fn := fn.(type) {
 	case api.GoModuleFunction:
 		fn.Call(ctx, callCtx, stack)
@@ -894,7 +878,7 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 	moduleInst := f.source.Module
 	functions := moduleInst.Engine.(*moduleEngine).functions
 	var memoryInst *wasm.MemoryInstance
-	if f.source.IsHostFunction {
+	if f.parent.isHostFunction {
 		memoryInst = ce.callerMemory()
 	} else {
 		memoryInst = moduleInst.Memory
@@ -905,13 +889,19 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 	dataInstances := f.source.Module.DataInstances
 	elementInstances := f.source.Module.ElementInstances
 	ce.pushFrame(frame)
-	bodyLen := uint64(len(frame.f.body))
+	body := frame.f.parent.body
+	bodyLen := uint64(len(body))
 	for frame.pc < bodyLen {
-		op := frame.f.body[frame.pc]
+		op := body[frame.pc]
 		// TODO: add description of each operation/case
 		// on, for example, how many args are used,
 		// how the stack is modified, etc.
 		switch op.kind {
+		case wazeroir.OperationKindBuiltinFunctionCheckExitCode:
+			if err := callCtx.FailIfClosed(); err != nil {
+				panic(err)
+			}
+			frame.pc++
 		case wazeroir.OperationKindUnreachable:
 			panic(wasmruntime.ErrRuntimeUnreachable)
 		case wazeroir.OperationKindBr:
@@ -934,7 +924,7 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 				frame.pc = op.us[0]
 			}
 		case wazeroir.OperationKindCall:
-			ce.callFunction(ctx, callCtx, functions[op.us[0]])
+			ce.callFunction(ctx, callCtx, &functions[op.us[0]])
 			frame.pc++
 		case wazeroir.OperationKindCallIndirect:
 			offset := ce.popValue()
@@ -1940,7 +1930,7 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 			}
 			frame.pc++
 		case wazeroir.OperationKindRefFunc:
-			ce.pushValue(uint64(uintptr(unsafe.Pointer(functions[op.us[0]]))))
+			ce.pushValue(uint64(uintptr(unsafe.Pointer(&functions[op.us[0]]))))
 			frame.pc++
 		case wazeroir.OperationKindTableGet:
 			table := tables[op.us[0]]
@@ -4163,9 +4153,9 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 func (ce *callEngine) callerMemory() *wasm.MemoryInstance {
 	// Search through the call frame stack from the top until we find a non host function.
 	for i := len(ce.frames) - 1; i >= 0; i-- {
-		frame := ce.frames[i].f.source
-		if !frame.IsHostFunction {
-			return frame.Module.Memory
+		f := ce.frames[i].f
+		if !f.parent.isHostFunction {
+			return f.source.Module.Memory
 		}
 	}
 	return nil
@@ -4368,7 +4358,7 @@ func i32Abs(v uint32) uint32 {
 }
 
 func (ce *callEngine) callNativeFuncWithListener(ctx context.Context, callCtx *wasm.CallContext, f *function, fnl experimental.FunctionListener) context.Context {
-	if f.source.IsHostFunction {
+	if f.parent.isHostFunction {
 		callCtx = callCtx.WithMemory(ce.callerMemory())
 	}
 	ctx = fnl.Before(ctx, callCtx, f.source.Definition, ce.peekValues(len(f.source.Type.Params)))

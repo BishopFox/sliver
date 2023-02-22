@@ -1,7 +1,6 @@
-package compilationcache
+package filecache
 
 import (
-	"context"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -10,16 +9,9 @@ import (
 	"sync"
 )
 
-// FileCachePathKey is a context.Context Value key. Its value is a string
-// representing the compilation cache directory.
-type FileCachePathKey struct{}
-
-// NewFileCache returns a new Cache implemented by fileCache.
-func NewFileCache(ctx context.Context) Cache {
-	if fsValue := ctx.Value(FileCachePathKey{}); fsValue != nil {
-		return newFileCache(fsValue.(string))
-	}
-	return nil
+// New returns a new Cache implemented by fileCache.
+func New(dir string) Cache {
+	return newFileCache(dir)
 }
 
 func newFileCache(dir string) *fileCache {

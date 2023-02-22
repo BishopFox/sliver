@@ -46,6 +46,11 @@ var (
 		sliverpb.MsgEnvReq:         getEnvHandler,
 		sliverpb.MsgUnsetEnvReq:    unsetEnvHandler,
 		sliverpb.MsgReconfigureReq: reconfigureHandler,
+
+		// Wasm Extensions - Note that execution can be done via a tunnel handler
+		sliverpb.MsgRegisterWasmExtensionReq:   registerWasmExtensionHandler,
+		sliverpb.MsgDeregisterWasmExtensionReq: deregisterWasmExtensionHandler,
+		sliverpb.MsgListWasmExtensionsReq:      listWasmExtensionsHandler,
 	}
 )
 
