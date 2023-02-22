@@ -2,6 +2,7 @@ package tunnel_handlers
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"log"
 
@@ -172,6 +173,8 @@ func runInteractive(req *pb.ExecWasmExtensionReq, conn *transports.Connection, w
 		log.Printf("[wasm] exit code: %d", exitCode)
 		log.Printf("[wasm] closing tunnel ...")
 		// {{end}}
+		wasm.Stdout.Writer.Write([]byte(fmt.Sprintf("\r\n*** exit code %d ***\r\n", exitCode)))
+		wasm.Stdout.Writer.Write([]byte("Wait 10 seconds and press <enter> to continue ...\r\n"))
 		wasm.Close()
 		tunnel.Close()
 		return exitCode, err

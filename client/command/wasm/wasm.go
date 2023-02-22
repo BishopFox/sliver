@@ -57,7 +57,7 @@ func WasmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	// Wasm module args
 	wasmArgs := ctx.Args.StringList("arguments")
-	interactive := !ctx.Flags.Bool("non-interactive")
+	interactive := ctx.Flags.Bool("stream")
 
 	if !ctx.Flags.Bool("skip-registration") && !isRegistered(filepath.Base(wasmFilePath), ctx, con) {
 		con.PrintInfof("Registering wasm extension '%s' ...\n", wasmFilePath)
@@ -155,7 +155,8 @@ func runInteractive(ctx *grumble.Context, execWasmReq *sliverpb.ExecWasmExtensio
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	con.PrintInfof("Created new tunnel: %d, binding to '%s' wasm extension ...\n", rpcTunnel.TunnelID, execWasmReq.Name)
+	con.PrintInfof("Wait approximately 10 seconds after exit, and press <enter> to continue\n")
+	con.PrintInfof("Streaming output from '%s' wasm extension ...\n", execWasmReq.Name)
 
 	// Create tunnel
 	tunnel := core.GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
@@ -179,18 +180,6 @@ func runInteractive(ctx *grumble.Context, execWasmReq *sliverpb.ExecWasmExtensio
 		}
 		return
 	}
-
-	// Save & restore terminal state
-	// var oldState *term.State
-	// oldState, err = term.MakeRaw(0)
-	// if err != nil {
-	// 	con.PrintErrorf("Failed to save terminal state")
-	// 	return
-	// }
-	// defer func() {
-	// 	term.Restore(0, oldState)
-	// 	bufio.NewWriter(os.Stdout).Flush()
-	// }()
 
 	// Setup routines to copy data back an forth
 	go func() {

@@ -3738,7 +3738,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return []string{}
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Bool("i", "non-interactive", false, "execute module non-interactively")
+			f.Bool("S", "stream", false, "stream module execution output")
 			f.String("m", "memfs", "", "include local directory in wasm module's /memfs")
 			f.Bool("s", "skip-registration", false, "assume the extension is already registered with session/beacon")
 
