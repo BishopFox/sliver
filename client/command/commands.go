@@ -3738,11 +3738,13 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return []string{}
 		},
 		Flags: func(f *grumble.Flags) {
-			f.Bool("S", "stream", false, "stream module execution output")
-			f.String("m", "memfs", "", "include local directory in wasm module's /memfs")
-			f.Bool("s", "skip-registration", false, "assume the extension is already registered with session/beacon")
+			f.Bool("P", "pipe", false, "pipe module stdin/stdout/stderr to the current terminal (session only)")
+			f.String("f", "file", "", "include local file(s) in wasm module's /memfs (glob pattern) ")
+			f.String("d", "dir", "", "recursively include local directory in wasm module's /memfs (glob pattern)")
+			f.Bool("s", "skip-registration", false, "assume the extension is already registered")
+			f.Bool("X", "loot", false, "save output as loot, incompatible with --pipe")
 
-			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+			f.Int("t", "timeout", 300, "grpc timeout in seconds")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -3754,7 +3756,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	wasmCmd.AddCommand(&grumble.Command{
 		Name:      consts.LsStr,
-		Help:      "List registered wasm extensions (with current session/beacon)",
+		Help:      "List registered wasm extensions with current session/beacon",
 		LongHelp:  help.GetHelpFor([]string{consts.WasmStr, consts.LsStr}),
 		HelpGroup: consts.GenericHelpGroup,
 		Flags: func(f *grumble.Flags) {

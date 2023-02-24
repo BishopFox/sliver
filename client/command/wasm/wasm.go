@@ -55,9 +55,16 @@ func WasmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
+	// Parse memfs args and build memfs map
+	memfs, err := parseMemFS(ctx, con)
+	if err != nil {
+		con.PrintErrorf("memfs error: %s", err)
+		return
+	}
+
 	// Wasm module args
 	wasmArgs := ctx.Args.StringList("arguments")
-	interactive := ctx.Flags.Bool("stream")
+	interactive := ctx.Flags.Bool("pipe")
 
 	if !ctx.Flags.Bool("skip-registration") && !isRegistered(filepath.Base(wasmFilePath), ctx, con) {
 		con.PrintInfof("Registering wasm extension '%s' ...\n", wasmFilePath)
@@ -71,6 +78,7 @@ func WasmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	execWasmReq := &sliverpb.ExecWasmExtensionReq{
 		Name:        filepath.Base(wasmFilePath),
 		Args:        wasmArgs,
+		MemFS:       memfs,
 		Interactive: interactive,
 		Request:     con.ActiveTarget.Request(ctx),
 	}
