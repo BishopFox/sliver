@@ -19,6 +19,7 @@ package extension
 */
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -195,12 +196,13 @@ func (w WasmMemoryFS) Open(name string) (fs.File, error) {
 
 		// Any exact path match is a file
 		if data, ok := w.memFS[name]; ok {
-			return MemoryFSNode{key: name, isDir: false, data: data}, nil
+			buf := bytes.NewBuffer(data)
+			return MemoryFSNode{key: name, isDir: false, data: buf}, nil
 		}
 
 		// Check to see if the name is a directory
 		if w.getTree().Exists(strings.Split(strings.TrimPrefix(name, "/"), "/")) {
-			return MemoryFSNode{key: name, isDir: true, data: []byte{}}, nil
+			return MemoryFSNode{key: name, isDir: true, data: nil}, nil
 		}
 		return nil, fs.ErrPermission // Read-only for now
 	}
@@ -228,14 +230,15 @@ func (w WasmMemoryFS) ReadDir(name string) ([]fs.DirEntry, error) {
 		for key := range w.memFS {
 			dirName := path.Dir(key)
 			if dirName == name {
-				entries = append(entries, MemoryFSNode{key: key, isDir: false, data: w.memFS[key]})
+				buf := bytes.NewBuffer(w.memFS[key])
+				entries = append(entries, MemoryFSNode{key: key, isDir: false, data: buf})
 			}
 		}
 
 		// Get any directory entries
 		dirNames := w.getTree().Entries(strings.Split(strings.TrimPrefix(name, "/"), "/"))
 		for _, dir := range dirNames {
-			entries = append(entries, MemoryFSNode{key: dir, isDir: true, data: []byte{}})
+			entries = append(entries, MemoryFSNode{key: dir, isDir: true, data: nil})
 		}
 		return entries, nil
 	}
@@ -322,7 +325,7 @@ func (d *MemFSDirTree) Insert(segs []string) {
 // MemoryFSNode - A makeshift in-memory fs.File object
 type MemoryFSNode struct {
 	key   string
-	data  []byte
+	data  *bytes.Buffer
 	isDir bool
 }
 
@@ -337,8 +340,7 @@ func (m MemoryFSNode) Info() (fs.FileInfo, error) {
 
 // Read - Standard reader function
 func (m MemoryFSNode) Read(buf []byte) (int, error) {
-	n := copy(buf, m.data)
-	return n, nil
+	return m.data.Read(buf)
 }
 
 // Close - No-op
@@ -353,17 +355,17 @@ func (m MemoryFSNode) Name() string {
 
 // Size - Returns the size of the file
 func (m MemoryFSNode) Size() int64 {
-	return int64(len(m.data))
+	return int64(m.data.Len())
 }
 
 // Mode - Returns the mode of the file
 func (m MemoryFSNode) Mode() fs.FileMode {
-	return fs.FileMode(0777) // YOLO
+	return fs.FileMode(0444) // YOLO
 }
 
 // Type - Returns the mode of the file
 func (m MemoryFSNode) Type() fs.FileMode {
-	return fs.FileMode(0777) // YOLO
+	return fs.FileMode(0444) // YOLO
 }
 
 // ModTime - Returns the mod time of the file
