@@ -87,6 +87,14 @@ func (d *pthreadData) init(t *TLS, detached bool) {
 	threads[t.ID] = t
 }
 
+func (d *pthreadData) close(t *TLS) {
+	threadsMu.Lock()
+
+	defer threadsMu.Unlock()
+
+	delete(threads, t.ID)
+}
+
 // int pthread_attr_destroy(pthread_attr_t *attr);
 func Xpthread_attr_destroy(t *TLS, pAttr uintptr) int32 {
 	return 0

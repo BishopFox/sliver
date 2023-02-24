@@ -596,7 +596,7 @@ func newFtsent(t *TLS, info int, path string, stat *unix.Stat_t, err syscall.Err
 	}
 
 	return &fts.FTSENT{
-		Ffts_info:    int32(info),
+		Ffts_info:    uint16(info),
 		Ffts_path:    csp,
 		Ffts_pathlen: uint32(len(path)),
 		Ffts_statp:   statp,

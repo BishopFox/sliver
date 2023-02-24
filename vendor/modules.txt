@@ -170,6 +170,9 @@ github.com/desertbit/readline
 ## explicit
 github.com/dlclark/regexp2
 github.com/dlclark/regexp2/syntax
+# github.com/dustin/go-humanize v1.0.0
+## explicit
+github.com/dustin/go-humanize
 # github.com/fatih/color v1.14.1
 ## explicit; go 1.17
 github.com/fatih/color
@@ -239,8 +242,8 @@ github.com/jackc/pgpassfile
 # github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a
 ## explicit; go 1.14
 github.com/jackc/pgservicefile
-# github.com/jackc/pgx/v5 v5.2.0
-## explicit; go 1.18
+# github.com/jackc/pgx/v5 v5.3.0
+## explicit; go 1.19
 github.com/jackc/pgx/v5
 github.com/jackc/pgx/v5/internal/anynil
 github.com/jackc/pgx/v5/internal/iobufpool
@@ -355,7 +358,7 @@ github.com/xlab/treeprint
 # github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e
 ## explicit; go 1.14
 github.com/yiya1989/sshkrb5/krb5forssh
-# golang.org/x/crypto v0.5.0
+# golang.org/x/crypto v0.6.0
 ## explicit; go 1.17
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
@@ -389,7 +392,7 @@ golang.org/x/crypto/ssh/terminal
 # golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4
 ## explicit; go 1.17
 golang.org/x/mod/semver
-# golang.org/x/net v0.6.0
+# golang.org/x/net v0.7.0
 ## explicit; go 1.17
 golang.org/x/net/bpf
 golang.org/x/net/dns/dnsmessage
@@ -613,10 +616,10 @@ gopkg.in/jcmturner/rpc.v1/ndr
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# gorm.io/driver/mysql v1.4.6
+# gorm.io/driver/mysql v1.4.7
 ## explicit; go 1.14
 gorm.io/driver/mysql
-# gorm.io/driver/postgres v1.4.6
+# gorm.io/driver/postgres v1.4.8
 ## explicit; go 1.14
 gorm.io/driver/postgres
 # gorm.io/driver/sqlite v1.4.4
@@ -681,10 +684,10 @@ lukechampine.com/uint128
 # modernc.org/cc/v3 v3.40.0
 ## explicit; go 1.17
 modernc.org/cc/v3
-# modernc.org/ccgo/v3 v3.16.13-0.20221017192402-261537637ce8
+# modernc.org/ccgo/v3 v3.16.13
 ## explicit; go 1.17
 modernc.org/ccgo/v3/lib
-# modernc.org/libc v1.21.2
+# modernc.org/libc v1.22.2
 ## explicit; go 1.17
 modernc.org/libc
 modernc.org/libc/errno
@@ -721,7 +724,7 @@ modernc.org/memory
 # modernc.org/opt v0.1.3
 ## explicit; go 1.13
 modernc.org/opt
-# modernc.org/sqlite v1.19.3
+# modernc.org/sqlite v1.20.4
 ## explicit; go 1.17
 modernc.org/sqlite
 modernc.org/sqlite/lib

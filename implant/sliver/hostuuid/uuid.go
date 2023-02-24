@@ -31,8 +31,10 @@ import (
 	"github.com/gofrs/uuid"
 )
 
+var zeroGUID = uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000000"))
+
 // UUIDFromMAC - Generate a UUID based on the machine's MAC addresses, this is
-// generally used as a last resort to fingerpint the host machine. It creates
+// generally used as a last resort to fingerprint the host machine. It creates
 // a uuid by hashing the MAC addresses of all network interfaces and using the
 // first 16 bytes of the hash as the UUID. This should work so long as network
 // interfaces are not added or removed, since its physical addresses this should
@@ -43,13 +45,16 @@ func UUIDFromMAC() string {
 	// {{end}}
 	interfaces, err := net.Interfaces()
 	if err != nil {
-		return ""
+		return zeroGUID.String()
 	}
 	hardwareAddrs := []string{}
 	for _, iface := range interfaces {
 		if iface.HardwareAddr != nil {
 			hardwareAddrs = append(hardwareAddrs, iface.HardwareAddr.String())
 		}
+	}
+	if len(hardwareAddrs) == 0 {
+		return zeroGUID.String()
 	}
 	sort.Strings(hardwareAddrs) // Ensure deterministic order
 	digest := sha256.New()
@@ -58,7 +63,7 @@ func UUIDFromMAC() string {
 	}
 	value, err := uuid.FromBytes(digest.Sum(nil)[:16]) // Must be 128-bits
 	if err != nil {
-		return ""
+		return zeroGUID.String()
 	}
 	return value.String()
 }

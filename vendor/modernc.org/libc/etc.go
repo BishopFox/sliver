@@ -212,6 +212,8 @@ func (t *TLS) Close() {
 
 		atomic.AddInt32(&tlsBalance, -1)
 	}
+	t.pthreadData.close(t)
+	*t = TLS{}
 }
 
 // Alloc allocates n bytes of thread-local storage. It must be paired with a

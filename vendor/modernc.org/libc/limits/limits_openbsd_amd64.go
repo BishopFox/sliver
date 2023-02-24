@@ -79,6 +79,7 @@ const (
 	X_LP64                               = 1                    // <predefined>:1:1:
 	X_MACHINE_CDEFS_H_                   = 0                    // cdefs.h:9:1:
 	X_MACHINE_LIMITS_H_                  = 0                    // limits.h:35:1:
+	X_MAXCOMLEN                          = 24                   // syslimits.h:79:1:
 	X_POSIX2_BC_BASE_MAX                 = 99                   // limits.h:71:1:
 	X_POSIX2_BC_DIM_MAX                  = 2048                 // limits.h:72:1:
 	X_POSIX2_BC_SCALE_MAX                = 99                   // limits.h:73:1:
@@ -119,7 +120,7 @@ const (
 	X_XOPEN_IOV_MAX                      = 16                   // limits.h:106:1:
 	X_XOPEN_NAME_MAX                     = 255                  // limits.h:107:1:
 	X_XOPEN_PATH_MAX                     = 1024                 // limits.h:108:1:
-	Unix                                 = 1                    // <predefined>:340:1:
+	Unix                                 = 1                    // <predefined>:344:1:
 )
 
 type Ptrdiff_t = int64 /* <builtin>:3:26 */
@@ -470,7 +471,7 @@ type X__float128 = float64        /* <builtin>:47:21 */
 // max value for a signed long long
 // min value for a signed long long
 
-//	$OpenBSD: syslimits.h,v 1.14 2020/04/02 18:00:00 deraadt Exp $
+//	$OpenBSD: syslimits.h,v 1.15 2022/02/22 16:58:08 deraadt Exp $
 //	$NetBSD: syslimits.h,v 1.12 1995/10/05 05:26:19 thorpej Exp $
 
 // Copyright (c) 1988, 1993
