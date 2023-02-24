@@ -73,7 +73,7 @@ func ExecWasmExtensionHandler(envelope *pb.Envelope, connection *transports.Conn
 
 func runNonInteractive(req *pb.ExecWasmExtensionReq, wasm *extension.WasmExtension) ([]byte, error) {
 	// {{if .Config.Debug}}
-	log.Printf("Executing interactive wasm extension")
+	log.Printf("Executing non-interactive wasm extension")
 	// {{end}}
 
 	stdout := &bytes.Buffer{}

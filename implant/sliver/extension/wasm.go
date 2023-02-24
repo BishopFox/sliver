@@ -173,9 +173,14 @@ func (w WasmMemoryFS) getTree() *MemoryFSDirTree {
 
 // Open - Open a file, the open call is either passed thru to the OS or is redirected to the WasmMemoryFS
 func (w WasmMemoryFS) Open(name string) (fs.File, error) {
+
+	// {{if .Config.Debug}}
+	log.Printf("[memfs] open '%s'", name)
+	// {{end}}
+
 	name = path.Clean(name)
-	if strings.HasPrefix(name, "/memfs/") {
-		name = strings.TrimPrefix(name, "/memfs")
+	if strings.HasPrefix(name, "memfs/") {
+		name = strings.TrimPrefix(name, "memfs")
 
 		// Any exact path match is a file
 		if data, ok := w.memFS[name]; ok {
@@ -194,9 +199,15 @@ func (w WasmMemoryFS) Open(name string) (fs.File, error) {
 
 // ReadDir - Read a directory, the read call is either passed thru to the OS or is redirected to the WasmMemoryFS
 func (w WasmMemoryFS) ReadDir(name string) ([]fs.DirEntry, error) {
+
+	// {{if .Config.Debug}}
+	log.Printf("[memfs] read dir '%s'", name)
+	// {{end}}
+
 	name = path.Clean(name)
-	if strings.HasPrefix(name, "/memfs/") {
-		name = strings.TrimPrefix(name, "/memfs")
+	if strings.HasPrefix(name, "memfs/") || name == "memfs" {
+		name = strings.TrimPrefix(name, "/memfs") // blank string is root
+
 		if !w.getTree().Exists(strings.Split(strings.TrimPrefix(name, "/"), "/")) {
 			return nil, fs.ErrNotExist
 		}
@@ -222,8 +233,13 @@ func (w WasmMemoryFS) ReadDir(name string) ([]fs.DirEntry, error) {
 
 // ReadFile - Read a file, the read call is either passed thru to the OS or is redirected to the WasmMemoryFS
 func (w WasmMemoryFS) ReadFile(name string) ([]byte, error) {
+
+	// {{if .Config.Debug}}
+	log.Printf("[memfs] read file '%s'", name)
+	// {{end}}
+
 	name = path.Clean(name)
-	if strings.HasPrefix(name, "/memfs/") {
+	if strings.HasPrefix(name, "memfs/") {
 		name = strings.TrimPrefix(name, "/memfs")
 		if data, ok := w.memFS[name]; ok {
 			return data, nil

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/util"
 	"github.com/desertbit/grumble"
 )
 
@@ -13,6 +14,7 @@ func parseMemFS(ctx *grumble.Context, con *console.SliverConsoleClient) (map[str
 
 	memfs := make(map[string][]byte)
 
+	totalSize := 0
 	fileArg := ctx.Flags.String("file")
 	if fileArg != "" {
 		files, err := filepath.Glob(fileArg)
@@ -28,18 +30,22 @@ func parseMemFS(ctx *grumble.Context, con *console.SliverConsoleClient) (map[str
 			con.PrintInfof("Adding '%s' to memfs (%d bytes)", file, len(data))
 			memfs[filepath.Base(file)] = data
 			count++
+			totalSize += len(data)
 		}
-		con.PrintInfof("Added %d files to memfs\n", count)
+		if ctx.Flags.String("dir") == "" {
+			con.PrintInfof("Added %d file(s) to memfs\n", count)
+			return memfs, nil
+		}
 	}
 
 	dirArg := ctx.Flags.String("dir")
+	dirCount := 0
+	fileCount := 0
 	if dirArg != "" {
 		dirs, err := filepath.Glob(dirArg)
 		if err != nil {
 			return nil, err
 		}
-		dirCount := 0
-		fileCount := 0
 		for _, dir := range dirs {
 			err = filepath.WalkDir(dir, func(walkingPath string, d os.DirEntry, err error) error {
 				if err != nil {
@@ -55,6 +61,7 @@ func parseMemFS(ctx *grumble.Context, con *console.SliverConsoleClient) (map[str
 				con.PrintInfof("Adding '%s' to memfs (%d bytes)", walkingPath, len(data))
 				memfs[filepath.Base(walkingPath)] = data
 				fileCount++
+				totalSize += len(data)
 				return nil
 			})
 			if err != nil {
@@ -62,8 +69,8 @@ func parseMemFS(ctx *grumble.Context, con *console.SliverConsoleClient) (map[str
 			}
 			dirCount++
 		}
-		con.PrintInfof("Added %d files from %d directories to memfs\n", fileCount, dirCount)
 	}
-
-	return nil, nil
+	con.PrintInfof("Added %d files from %d directories to memfs (%s)\n",
+		fileCount, dirCount, util.ByteCountBinary(int64(totalSize)))
+	return memfs, nil
 }
