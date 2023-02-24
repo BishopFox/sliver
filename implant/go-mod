@@ -2,11 +2,9 @@ module github.com/bishopfox/sliver
 
 go 1.18
 
-replace github.com/Binject/universal => /Users/lesnuages/code/go/src/universal
-
 require (
 	github.com/Ne0nd0g/go-clr v1.0.2
-	github.com/ebitengine/purego v0.2.0-alpha.1
+	github.com/ebitengine/purego v0.2.0-alpha.1.0.20230221135432-0c858ac9f9ff
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/lesnuages/go-winio v0.4.19

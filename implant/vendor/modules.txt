@@ -18,7 +18,7 @@ github.com/boombuler/barcode/utils
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/ebitengine/purego v0.2.0-alpha.1
+# github.com/ebitengine/purego v0.2.0-alpha.1.0.20230221135432-0c858ac9f9ff
 ## explicit; go 1.18
 github.com/ebitengine/purego
 github.com/ebitengine/purego/internal/abi
@@ -287,4 +287,3 @@ gvisor.dev/gvisor/pkg/tcpip/transport/tcp
 gvisor.dev/gvisor/pkg/tcpip/transport/tcpconntrack
 gvisor.dev/gvisor/pkg/tcpip/transport/udp
 gvisor.dev/gvisor/pkg/waiter
-# github.com/Binject/universal => /Users/lesnuages/code/go/src/universal
