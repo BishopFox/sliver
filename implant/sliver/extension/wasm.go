@@ -147,6 +147,13 @@ func makeWasmMemFS(memFS map[string][]byte) fs.FS {
 	if vol := filepath.VolumeName(cwd); vol != "" {
 		root = vol
 	}
+	// {{if .Config.Debug}}
+	log.Printf("[wasm ext] local filesystem root: %s", root)
+	for key := range memFS {
+		log.Printf("[wasm ext] memfs file: %s", key)
+	}
+	// {{end}}
+
 	return WasmMemoryFS{memFS: memFS, localFS: os.DirFS(root)}
 }
 
@@ -155,14 +162,14 @@ func makeWasmMemFS(memFS map[string][]byte) fs.FS {
 // empty directories are not supported.
 type WasmMemoryFS struct {
 	memFS   map[string][]byte
-	tree    *MemoryFSDirTree
+	tree    *MemFSDirTree
 	localFS fs.FS
 }
 
-func (w WasmMemoryFS) getTree() *MemoryFSDirTree {
+func (w WasmMemoryFS) getTree() *MemFSDirTree {
 	if w.tree == nil {
 		// Build the tree
-		w.tree = &MemoryFSDirTree{Name: "", Subdirs: []*MemoryFSDirTree{}}
+		w.tree = &MemFSDirTree{Name: "", Subdirs: []*MemFSDirTree{}}
 		for key := range w.memFS {
 			segs := strings.Split(strings.TrimPrefix(path.Dir(key), "/"), "/")
 			w.tree.Insert(segs)
@@ -180,7 +187,11 @@ func (w WasmMemoryFS) Open(name string) (fs.File, error) {
 
 	name = path.Clean(name)
 	if strings.HasPrefix(name, "memfs/") {
-		name = strings.TrimPrefix(name, "memfs")
+		name = strings.TrimPrefix(name, "memfs/")
+
+		// {{if .Config.Debug}}
+		log.Printf("[memfs] in memory path >> '%s'", name)
+		// {{end}}
 
 		// Any exact path match is a file
 		if data, ok := w.memFS[name]; ok {
@@ -249,15 +260,15 @@ func (w WasmMemoryFS) ReadFile(name string) ([]byte, error) {
 	return os.ReadFile(name)
 }
 
-// MemoryFSDirTree - A tree structure for representing only directories in the filesystem
-type MemoryFSDirTree struct {
+// MemFSDirTree - A tree structure for representing only directories in the filesystem
+type MemFSDirTree struct {
 	Name    string
-	Subdirs []*MemoryFSDirTree
+	Subdirs []*MemFSDirTree
 }
 
 // Exists - Should never be passed an empty slice, recursively
 // calls exists on each segment until the last segment is reached
-func (d *MemoryFSDirTree) Exists(segs []string) bool {
+func (d *MemFSDirTree) Exists(segs []string) bool {
 	if len(segs) <= 1 {
 		return d.HasSubdir(segs[0])
 	}
@@ -270,7 +281,7 @@ func (d *MemoryFSDirTree) Exists(segs []string) bool {
 }
 
 // Entires - Recursively resolves and returns a slice of entries in a directory
-func (d *MemoryFSDirTree) Entries(segs []string) []string {
+func (d *MemFSDirTree) Entries(segs []string) []string {
 	if len(segs) == 0 {
 		entries := []string{}
 		for _, subdir := range d.Subdirs {
@@ -287,7 +298,7 @@ func (d *MemoryFSDirTree) Entries(segs []string) []string {
 }
 
 // HasSubdir - Returns true if the directory has a subdir with the given name
-func (d *MemoryFSDirTree) HasSubdir(name string) bool {
+func (d *MemFSDirTree) HasSubdir(name string) bool {
 	for _, subdir := range d.Subdirs {
 		if subdir.Name == name {
 			return true
@@ -297,12 +308,12 @@ func (d *MemoryFSDirTree) HasSubdir(name string) bool {
 }
 
 // Insert - Recursively inserts segments of a path into the tree
-func (d *MemoryFSDirTree) Insert(segs []string) {
+func (d *MemFSDirTree) Insert(segs []string) {
 	if len(segs) == 0 {
 		return
 	}
 	if !d.HasSubdir(segs[0]) {
-		newDir := &MemoryFSDirTree{Name: segs[0], Subdirs: []*MemoryFSDirTree{}}
+		newDir := &MemFSDirTree{Name: segs[0], Subdirs: []*MemFSDirTree{}}
 		d.Subdirs = append(d.Subdirs, newDir)
 		newDir.Insert(segs[1:])
 	}
@@ -347,12 +358,12 @@ func (m MemoryFSNode) Size() int64 {
 
 // Mode - Returns the mode of the file
 func (m MemoryFSNode) Mode() fs.FileMode {
-	return 0777 // YOLO
+	return fs.FileMode(0777) // YOLO
 }
 
 // Type - Returns the mode of the file
 func (m MemoryFSNode) Type() fs.FileMode {
-	return 0777 // YOLO
+	return fs.FileMode(0777) // YOLO
 }
 
 // ModTime - Returns the mod time of the file
