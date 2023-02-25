@@ -203,13 +203,14 @@ func (w WasmMemoryFS) getTree() *MemFSNode {
 // Open - Open a file, the open call is either passed thru to the OS or is redirected to the WasmMemoryFS
 func (w WasmMemoryFS) Open(name string) (fs.File, error) {
 
+	name = strings.TrimPrefix(name, "/")
+
 	// {{if .Config.Debug}}
 	log.Printf("[memfs] open '%s'", name)
 	// {{end}}
 
-	if memFSPath := w.memFSPath(name); memFSPath != "" {
-		name = strings.TrimPrefix(name, "/")
-		name = strings.TrimPrefix(name, "memfs")
+	if w.isMemFSPath(name) {
+		name = w.memFSPath(name)
 
 		// {{if .Config.Debug}}
 		log.Printf("[memfs] in memory path >> '%s'", name)
@@ -248,24 +249,15 @@ func (w WasmMemoryFS) Open(name string) (fs.File, error) {
 
 // memFSPath - Returns a blank string for non-memfs paths, or returns the memfs path
 func (w WasmMemoryFS) memFSPath(name string) string {
-	name = path.Clean(name)
-	if !w.isMemFSPath(name) {
-		return ""
-	}
-	if name == "/memfs" || name == "memfs" {
-		return "/"
-	}
-	return name
+	// The double trim is to handle the case where the path is 'memfs' or 'memfs/'
+	return strings.TrimPrefix(strings.TrimPrefix(name, "memfs"), "/")
 }
 
 // isMemFSPath - Returns true if the path is a memfs path
 func (w WasmMemoryFS) isMemFSPath(name string) bool {
 	// We may get passed '/memfs/foo' or 'memfs/foo' so we need to check both
 	// and event 'memfs' or 'memfs/' needs to return the root path
-	if strings.HasPrefix(name, "/memfs") || strings.HasPrefix(name, "memfs/") {
-		return true
-	}
-	if name == "memfs" {
+	if strings.HasPrefix(name, "memfs/") || name == "memfs" {
 		return true
 	}
 	return false
@@ -402,7 +394,7 @@ func (m MemFSNode) Close() error {
 
 // Name - Returns the name of the file
 func (m MemFSNode) Name() string {
-	return path.Join("/memfs", m.fullName)
+	return path.Join("memfs", m.fullName)
 }
 
 // Size - Returns the size of the file

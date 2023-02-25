@@ -25,29 +25,29 @@ import (
 
 func TestBasicMemFSOpenFile(t *testing.T) {
 	wasmFS := WasmMemoryFS{memFS: map[string][]byte{
-		"/test.1": {0x00},
+		"test.1": {0x00},
 	}}
 
 	// Test Open File
-	fi, err := wasmFS.Open("/memfs/test.1")
+	fi, err := wasmFS.Open("memfs/test.1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stat, _ := fi.Stat(); stat.Name() != "/memfs/test.1" {
-		t.Fatalf("expected /memfs/test.1, got %s", stat.Name())
+	if stat, _ := fi.Stat(); stat.Name() != "memfs/test.1" {
+		t.Fatalf("expected memfs/test.1, got %s", stat.Name())
 	}
 	defer fi.Close()
 }
 
 func TestMemFSOpenRoot(t *testing.T) {
 	wasmFS := WasmMemoryFS{memFS: map[string][]byte{
-		"/test.1":       {0x00},
-		"/test.2":       {0x00},
-		"/a/b/c/test.3": {0x00},
+		"test.1":       {0x00},
+		"test.2":       {0x00},
+		"a/b/c/test.3": {0x00},
 	}}
 
 	// Test Open File
-	fi, err := wasmFS.Open("/memfs")
+	fi, err := wasmFS.Open("memfs")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,34 +69,34 @@ func TestMemFSOpenRoot(t *testing.T) {
 
 func TestBasicMemFSOpenDir(t *testing.T) {
 	wasmFS := WasmMemoryFS{memFS: map[string][]byte{
-		"/test/foo.1":             {0x00},
-		"/test/foo":               {0x00},
-		"/testing/foo":            {0x00},
-		"/a/b/c/d/e/f/test/a.txt": {0x00},
+		"test/foo.1":             {0x00},
+		"test/foo":               {0x00},
+		"testing/foo":            {0x00},
+		"a/b/c/d/e/f/test/a.txt": {0x00},
 	}}
 
 	// Test Open File
-	f, err := wasmFS.Open("/memfs/test")
+	f, err := wasmFS.Open("memfs/test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if f == nil {
 		t.Fatal("expected file, got nil and no error")
 	}
-	if stat, _ := f.Stat(); stat.Name() != "/memfs/test" || !stat.IsDir() {
-		t.Fatalf("expected '/memfs/test' dir, got '%s'", stat.Name())
+	if stat, _ := f.Stat(); stat.Name() != "memfs/test" || !stat.IsDir() {
+		t.Fatalf("expected 'memfs/test' dir, got '%s'", stat.Name())
 	}
 	defer f.Close()
 
-	dir, err := wasmFS.Open("/memfs/a/b/c/d/e/f/test")
+	dir, err := wasmFS.Open("memfs/a/b/c/d/e/f/test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stat, _ := dir.Stat(); stat.Name() != "/memfs/a/b/c/d/e/f/test" || !stat.IsDir() {
-		t.Fatalf("expected '/memfs/a/b/c/d/e/f/test' dir, got '%s'", stat.Name())
+	if stat, _ := dir.Stat(); stat.Name() != "memfs/a/b/c/d/e/f/test" || !stat.IsDir() {
+		t.Fatalf("expected 'memfs/a/b/c/d/e/f/test' dir, got '%s'", stat.Name())
 	}
 
-	f, err = wasmFS.Open("/memfs/a/b/c/d/e/f/test/a.txt")
+	f, err = wasmFS.Open("memfs/a/b/c/d/e/f/test/a.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,16 +112,16 @@ func TestBasicMemFSOpenDir(t *testing.T) {
 
 func TestMemFSReadFileData(t *testing.T) {
 	wasmFS := WasmMemoryFS{memFS: map[string][]byte{
-		"/test/foo.1": {0x00},
+		"test/foo.1": {0x00},
 	}}
 
 	// Test Open File
-	fi, err := wasmFS.Open("/memfs/test/foo.1")
+	fi, err := wasmFS.Open("memfs/test/foo.1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stat, _ := fi.Stat(); stat.Name() != "/memfs/test/foo.1" {
-		t.Fatalf("expected /memfs/test/foo.1, got %s", stat.Name())
+	if stat, _ := fi.Stat(); stat.Name() != "memfs/test/foo.1" {
+		t.Fatalf("expected memfs/test/foo.1, got %s", stat.Name())
 	}
 	defer fi.Close()
 
