@@ -1,3 +1,5 @@
+//go:build (windows && (amd64 || 386)) || (darwin && (arm64 || amd64)) || (linux && (amd64 || 386))
+
 package extension
 
 /*
@@ -41,7 +43,7 @@ import (
 	"github.com/tetratelabs/wazero/sys"
 )
 
-type WasmPipe struct {
+type wasmPipe struct {
 	Reader *io.PipeReader
 	Writer *io.PipeWriter
 }
@@ -57,9 +59,9 @@ type WasmExtension struct {
 	runtime wazero.Runtime
 	closer  api.Closer
 
-	Stdin  *WasmPipe
-	Stdout *WasmPipe
-	Stderr *WasmPipe
+	Stdin  *wasmPipe
+	Stdout *wasmPipe
+	Stderr *wasmPipe
 }
 
 // IsExecuting - Check if the Wasm module runtime is currently executing
@@ -115,9 +117,9 @@ func NewWasmExtension(name string, wasm []byte, memFS map[string][]byte) (*WasmE
 		ctx:  context.Background(),
 		lock: sync.Mutex{},
 
-		Stdin:  &WasmPipe{Reader: stdinReader, Writer: stdinWriter},
-		Stdout: &WasmPipe{Reader: stdoutReader, Writer: stdoutWriter},
-		Stderr: &WasmPipe{Reader: stderrReader, Writer: stderrWriter},
+		Stdin:  &wasmPipe{Reader: stdinReader, Writer: stdinWriter},
+		Stdout: &wasmPipe{Reader: stdoutReader, Writer: stdoutWriter},
+		Stderr: &wasmPipe{Reader: stderrReader, Writer: stderrWriter},
 	}
 	wasmExt.runtime = wazero.NewRuntime(wasmExt.ctx)
 	wasmExt.config = wazero.NewModuleConfig().

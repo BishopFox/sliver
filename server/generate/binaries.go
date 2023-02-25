@@ -555,7 +555,7 @@ func renderSliverGoCode(name string, otpSecret string, config *models.ImplantCon
 			return err
 		}
 		if !util.Contains([]string{".go", ".c", ".h"}, path.Ext(f.Name())) {
-			buildLog.Warnf("Skipping render for %s, does not appear to be source code file", f.Name())
+			buildLog.Debugf("Skipping render for %s, does not appear to be source code file", f.Name())
 			_, err = fSliver.Write(sliverGoCodeRaw)
 			return err
 		}
