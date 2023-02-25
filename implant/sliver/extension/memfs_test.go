@@ -33,8 +33,8 @@ func TestBasicMemFSOpenFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stat, _ := fi.Stat(); stat.Name() != "test.1" {
-		t.Fatalf("expected test.1, got %s", stat.Name())
+	if stat, _ := fi.Stat(); stat.Name() != "/memfs/test.1" {
+		t.Fatalf("expected /memfs/test.1, got %s", stat.Name())
 	}
 	defer fi.Close()
 }
@@ -69,10 +69,10 @@ func TestMemFSOpenRoot(t *testing.T) {
 
 func TestBasicMemFSOpenDir(t *testing.T) {
 	wasmFS := WasmMemoryFS{memFS: map[string][]byte{
-		"/test/foo.1":       {0x00},
-		"/test/foo":         {0x00},
-		"/testing/foo":      {0x00},
-		"/a/b/c/test/a.txt": {0x00},
+		"/test/foo.1":             {0x00},
+		"/test/foo":               {0x00},
+		"/testing/foo":            {0x00},
+		"/a/b/c/d/e/f/test/a.txt": {0x00},
 	}}
 
 	// Test Open File
@@ -83,20 +83,20 @@ func TestBasicMemFSOpenDir(t *testing.T) {
 	if f == nil {
 		t.Fatal("expected file, got nil and no error")
 	}
-	if stat, _ := f.Stat(); stat.Name() != "test" || !stat.IsDir() {
-		t.Fatalf("expected 'test' dir, got '%s'", stat.Name())
+	if stat, _ := f.Stat(); stat.Name() != "/memfs/test" || !stat.IsDir() {
+		t.Fatalf("expected '/memfs/test' dir, got '%s'", stat.Name())
 	}
 	defer f.Close()
 
-	dir, err := wasmFS.Open("/memfs/a/b/c/test")
+	dir, err := wasmFS.Open("/memfs/a/b/c/d/e/f/test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stat, _ := dir.Stat(); stat.Name() != "test" || !stat.IsDir() {
-		t.Fatalf("expected 'test' dir, got '%s'", stat.Name())
+	if stat, _ := dir.Stat(); stat.Name() != "/memfs/a/b/c/d/e/f/test" || !stat.IsDir() {
+		t.Fatalf("expected '/memfs/a/b/c/d/e/f/test' dir, got '%s'", stat.Name())
 	}
 
-	f, err = wasmFS.Open("/memfs/a/b/c/test/a.txt")
+	f, err = wasmFS.Open("/memfs/a/b/c/d/e/f/test/a.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,8 +120,8 @@ func TestMemFSReadFileData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stat, _ := fi.Stat(); stat.Name() != "foo.1" {
-		t.Fatalf("expected foo.1, got %s", stat.Name())
+	if stat, _ := fi.Stat(); stat.Name() != "/memfs/test/foo.1" {
+		t.Fatalf("expected /memfs/test/foo.1, got %s", stat.Name())
 	}
 	defer fi.Close()
 

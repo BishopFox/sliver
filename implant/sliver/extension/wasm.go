@@ -177,7 +177,7 @@ func (w WasmMemoryFS) getTree() *MemFSNode {
 		// {{end}}
 
 		// Build the tree
-		w.tree = &MemFSNode{key: "", isDir: true, Subdirs: map[string]*MemFSNode{}}
+		w.tree = &MemFSNode{fullName: "", isDir: true, Subdirs: map[string]*MemFSNode{}}
 		for key := range w.memFS {
 			dirPath := path.Dir(key)
 			if dirPath == "." {
@@ -194,7 +194,7 @@ func (w WasmMemoryFS) getTree() *MemFSNode {
 			log.Printf("[memfs] adding dir tree segments: %s", segs)
 			// {{end}}
 
-			w.tree.Insert(segs, &MemFSNode{key: key, isDir: false})
+			w.tree.Insert(segs, &MemFSNode{fullName: key, BaseName: path.Base(key), isDir: false})
 		}
 	}
 	return w.tree
@@ -218,7 +218,7 @@ func (w WasmMemoryFS) Open(name string) (fs.File, error) {
 		// Shortcut - Any exact path match is a file
 		if data, ok := w.memFS[name]; ok {
 			buf := bytes.NewBuffer(data)
-			return MemFSNode{key: name, isDir: false, data: buf}, nil
+			return MemFSNode{fullName: name, isDir: false, data: buf}, nil
 		}
 
 		// Check to see if the name is a directory
@@ -227,6 +227,11 @@ func (w WasmMemoryFS) Open(name string) (fs.File, error) {
 			segs = []string{}
 		}
 		if w.getTree().Exists(segs) {
+
+			// {{if .Config.Debug}}
+			log.Printf("[memfs] get node of directory '%s'", name)
+			// {{end}}
+
 			dirNode := w.getTree().GetNode(segs)
 			if dirNode != nil {
 				return *dirNode, nil
@@ -268,9 +273,10 @@ func (w WasmMemoryFS) isMemFSPath(name string) bool {
 
 // MemFSNode - A makeshift in-memory fill system node
 type MemFSNode struct {
-	key   string // Files = Full path, Dirs = name
-	data  *bytes.Buffer
-	isDir bool
+	fullName string
+	BaseName string
+	data     *bytes.Buffer
+	isDir    bool
 
 	parent    *MemFSNode            // Parent directory
 	Subdirs   map[string]*MemFSNode // tree entires (directories only)
@@ -280,6 +286,10 @@ type MemFSNode struct {
 // Exists - Should never be passed an empty slice, recursively
 // calls exists on each segment until the last segment is reached
 func (m *MemFSNode) Exists(segs []string) bool {
+	// {{if .Config.Debug}}
+	log.Printf("[memfs] exists -> %v", segs)
+	// {{end}}
+
 	if len(segs) == 0 {
 		return true // Root node
 	}
@@ -287,16 +297,12 @@ func (m *MemFSNode) Exists(segs []string) bool {
 		if m.HasSubdir(segs[0]) {
 			return true
 		}
-		for _, fileNode := range m.FileNodes {
-			if fileNode.Name() == segs[0] {
-				return true
-			}
+		if _, ok := m.FileNodes[segs[0]]; ok {
+			return true
 		}
 	}
-	for _, subdir := range m.Subdirs {
-		if subdir.Name() == segs[0] {
-			return subdir.Exists(segs[1:])
-		}
+	if m.HasSubdir(segs[0]) {
+		return m.Subdirs[segs[0]].Exists(segs[1:])
 	}
 	return false
 }
@@ -332,15 +338,29 @@ func (m *MemFSNode) Insert(segs []string, fileNode *MemFSNode) {
 		return
 	}
 	if !m.HasSubdir(segs[0]) {
-		newDir := &MemFSNode{key: segs[0], parent: m, isDir: true, Subdirs: map[string]*MemFSNode{}}
+		parentSegs := m.ParentSegs([]string{segs[0]})
+		newDir := &MemFSNode{
+			fullName: "/" + strings.Join(parentSegs, "/"),
+			BaseName: segs[0],
+			parent:   m,
+			isDir:    true,
+			Subdirs:  map[string]*MemFSNode{},
+		}
 		m.Subdirs[segs[0]] = newDir
 
 		// {{if .Config.Debug}}
-		log.Printf("[memfs] inserted dir: %#v", m.Subdirs)
+		log.Printf("[memfs] inserted dir (%s): '%s'", segs[0], newDir.fullName)
 		// {{end}}
 
 		newDir.Insert(segs[1:], fileNode)
 	}
+}
+
+func (m *MemFSNode) ParentSegs(segs []string) []string {
+	if m.parent == nil {
+		return segs
+	}
+	return m.parent.ParentSegs(append([]string{m.BaseName}, segs...))
 }
 
 // Stat - Returns the MemoryNode itself since it implements FileInfo
@@ -382,7 +402,7 @@ func (m MemFSNode) Close() error {
 
 // Name - Returns the name of the file
 func (m MemFSNode) Name() string {
-	return path.Base(m.key)
+	return path.Join("/memfs", m.fullName)
 }
 
 // Size - Returns the size of the file
