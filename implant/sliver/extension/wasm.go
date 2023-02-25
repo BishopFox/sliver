@@ -190,8 +190,7 @@ func (w WasmMemoryFS) getTree() *MemFSNode {
 			log.Printf("[memfs] adding dir tree segments: %s", segs)
 			// {{end}}
 
-			w.tree.InsertDir(segs)
-			w.tree.InsertFile(segs, &MemFSNode{key: key, isDir: false})
+			w.tree.Insert(segs, &MemFSNode{key: key, isDir: false})
 		}
 	}
 	return w.tree
@@ -221,7 +220,10 @@ func (w WasmMemoryFS) Open(name string) (fs.File, error) {
 		// Check to see if the name is a directory
 		segs := strings.Split(strings.TrimPrefix(name, "/"), "/")
 		if w.getTree().Exists(segs) {
-			return nil, nil // TODO - Return a directory
+			dirNode := w.getTree().GetNode(segs)
+			if dirNode != nil {
+				return *dirNode, nil
+			}
 		}
 
 		// {{if .Config.Debug}}
@@ -259,7 +261,7 @@ func (w WasmMemoryFS) isMemFSPath(name string) bool {
 
 // MemFSNode - A makeshift in-memory fill system node
 type MemFSNode struct {
-	key   string // Full path
+	key   string // Files = Full path, Dirs = name
 	data  *bytes.Buffer
 	isDir bool
 
@@ -293,6 +295,21 @@ func (m *MemFSNode) Exists(segs []string) bool {
 		}
 	}
 	return false
+}
+
+func (m *MemFSNode) GetNode(segs []string) *MemFSNode {
+
+	// {{if .Config.Debug}}
+	log.Printf("[memfs] (%#v) get node -> %#v", m, segs)
+	// {{end}}
+
+	if len(segs) == 0 {
+		return m
+	}
+	if m.HasSubdir(segs[0]) {
+		return m.Subdirs[segs[0]].GetNode(segs[1:])
+	}
+	return nil
 }
 
 // Entires - Recursively resolves and returns a slice of entries in a directory
@@ -329,30 +346,23 @@ func (m *MemFSNode) HasSubdir(name string) bool {
 }
 
 // InsertDir - Recursively inserts segments of a path into the tree
-func (m *MemFSNode) InsertDir(segs []string) {
+func (m *MemFSNode) Insert(segs []string, fileNode *MemFSNode) {
 	if len(segs) == 0 {
+		if m.FileNodes == nil {
+			m.FileNodes = map[string]*MemFSNode{}
+		}
+		m.FileNodes[fileNode.Name()] = fileNode
 		return
 	}
 	if !m.HasSubdir(segs[0]) {
-		newDir := &MemFSNode{key: segs[0], parent: m, Subdirs: map[string]*MemFSNode{}}
+		newDir := &MemFSNode{key: segs[0], parent: m, isDir: true, Subdirs: map[string]*MemFSNode{}}
 		m.Subdirs[segs[0]] = newDir
 
 		// {{if .Config.Debug}}
 		log.Printf("[memfs] inserted dir: %#v", m.Subdirs)
 		// {{end}}
 
-		newDir.InsertDir(segs[1:])
-	}
-}
-
-// InsertFile - Recursively walks segments of a path and inserts file node
-func (m *MemFSNode) InsertFile(segs []string, fileNode *MemFSNode) {
-	if len(segs) == 0 {
-		m.FileNodes[fileNode.Name()] = fileNode
-	} else {
-		if m.HasSubdir(segs[0]) {
-			m.Subdirs[segs[0]].InsertFile(segs[1:], fileNode)
-		}
+		newDir.Insert(segs[1:], fileNode)
 	}
 }
 
