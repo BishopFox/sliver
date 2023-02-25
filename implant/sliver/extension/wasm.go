@@ -169,11 +169,25 @@ type WasmMemoryFS struct {
 
 func (w WasmMemoryFS) getTree() *MemFSDirTree {
 	if w.tree == nil {
+
+		// {{if .Config.Debug}}
+		log.Printf("[memfs] building dir tree ...")
+		// {{end}}
+
 		// Build the tree
 		w.tree = &MemFSDirTree{Name: "", Subdirs: []*MemFSDirTree{}}
 		for key := range w.memFS {
 			segs := strings.Split(strings.TrimPrefix(path.Dir(key), "/"), "/")
+
+			// {{if .Config.Debug}}
+			log.Printf("[memfs] adding dir tree segments: %s", segs)
+			// {{end}}
+
 			w.tree.Insert(segs)
+
+			// {{if .Config.Debug}}
+			log.Printf("[memfs] subdirs: %#v", w.tree.Subdirs)
+			// {{end}}
 		}
 	}
 	return w.tree
@@ -186,9 +200,9 @@ func (w WasmMemoryFS) Open(name string) (fs.File, error) {
 	log.Printf("[memfs] open '%s'", name)
 	// {{end}}
 
-	name = path.Clean(name)
-	if strings.HasPrefix(name, "memfs/") {
-		name = strings.TrimPrefix(name, "memfs/")
+	if memFSPath := w.memFSPath(name); memFSPath != "" {
+		name = strings.TrimPrefix(name, "/")
+		name = strings.TrimPrefix(name, "memfs")
 
 		// {{if .Config.Debug}}
 		log.Printf("[memfs] in memory path >> '%s'", name)
@@ -217,13 +231,13 @@ func (w WasmMemoryFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	log.Printf("[memfs] read dir '%s'", name)
 	// {{end}}
 
-	name = path.Clean(name)
-	if strings.HasPrefix(name, "memfs/") || name == "memfs" {
-		name = strings.TrimPrefix(name, "/memfs") // blank string is root
+	if memFSPath := w.memFSPath(name); memFSPath != "" {
 
-		if !w.getTree().Exists(strings.Split(strings.TrimPrefix(name, "/"), "/")) {
-			return nil, fs.ErrNotExist
-		}
+		memFSPath = strings.TrimPrefix(memFSPath, "/")
+
+		// {{if .Config.Debug}}
+		log.Printf("[memfs] path is in memory '%s'", memFSPath)
+		// {{end}}
 
 		// Get any file entires
 		entries := []fs.DirEntry{}
@@ -235,11 +249,24 @@ func (w WasmMemoryFS) ReadDir(name string) ([]fs.DirEntry, error) {
 			}
 		}
 
+		// {{if .Config.Debug}}
+		log.Printf("[memfs] >>> get entires")
+		// {{end}}
+
 		// Get any directory entries
-		dirNames := w.getTree().Entries(strings.Split(strings.TrimPrefix(name, "/"), "/"))
+		dirNames := w.getTree().Entries(strings.Split(memFSPath, "/"))
+
+		// {{if .Config.Debug}}
+		log.Printf("[memfs] >>> dirNames: %s", dirNames)
+		// {{end}}
+
 		for _, dir := range dirNames {
 			entries = append(entries, MemoryFSNode{key: dir, isDir: true, data: nil})
 		}
+
+		// {{if .Config.Debug}}
+		log.Printf("[memfs] >>> read dir: %#v", entries)
+		// {{end}}
 		return entries, nil
 	}
 	return os.ReadDir(name)
@@ -252,8 +279,7 @@ func (w WasmMemoryFS) ReadFile(name string) ([]byte, error) {
 	log.Printf("[memfs] read file '%s'", name)
 	// {{end}}
 
-	name = path.Clean(name)
-	if strings.HasPrefix(name, "memfs/") {
+	if memFSPath := w.memFSPath(name); memFSPath != "" {
 		name = strings.TrimPrefix(name, "/memfs")
 		if data, ok := w.memFS[name]; ok {
 			return data, nil
@@ -261,6 +287,31 @@ func (w WasmMemoryFS) ReadFile(name string) ([]byte, error) {
 		return nil, fs.ErrNotExist
 	}
 	return os.ReadFile(name)
+}
+
+// memFSPath - Returns a blank string for non-memfs paths, or returns the memfs path
+func (w WasmMemoryFS) memFSPath(name string) string {
+	name = path.Clean(name)
+	if !w.isMemFSPath(name) {
+		return ""
+	}
+	if name == "/memfs" || name == "memfs" {
+		return "/"
+	}
+	return name
+}
+
+// isMemFSPath - Returns true if the path is a memfs path
+func (w WasmMemoryFS) isMemFSPath(name string) bool {
+	// We may get passed '/memfs/foo' or 'memfs/foo' so we need to check both
+	// and event 'memfs' or 'memfs/' needs to return the root path
+	if strings.HasPrefix(name, "/memfs") || strings.HasPrefix(name, "memfs/") {
+		return true
+	}
+	if name == "memfs" {
+		return true
+	}
+	return false
 }
 
 // MemFSDirTree - A tree structure for representing only directories in the filesystem
@@ -285,11 +336,21 @@ func (d *MemFSDirTree) Exists(segs []string) bool {
 
 // Entires - Recursively resolves and returns a slice of entries in a directory
 func (d *MemFSDirTree) Entries(segs []string) []string {
-	if len(segs) == 0 {
+
+	// {{if .Config.Debug}}
+	log.Printf("[memfs] entires arg: %#v", segs)
+	// {{end}}
+
+	if len(segs) == 1 {
 		entries := []string{}
 		for _, subdir := range d.Subdirs {
 			entries = append(entries, subdir.Name)
 		}
+
+		// {{if .Config.Debug}}
+		log.Printf("[memfs] entires: %#v", entries)
+		// {{end}}
+
 		return entries
 	}
 	for _, subdir := range d.Subdirs {
@@ -318,6 +379,11 @@ func (d *MemFSDirTree) Insert(segs []string) {
 	if !d.HasSubdir(segs[0]) {
 		newDir := &MemFSDirTree{Name: segs[0], Subdirs: []*MemFSDirTree{}}
 		d.Subdirs = append(d.Subdirs, newDir)
+
+		// {{if .Config.Debug}}
+		log.Printf("[memfs] inserted dir: %#v", d.Subdirs)
+		// {{end}}
+
 		newDir.Insert(segs[1:])
 	}
 }

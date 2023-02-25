@@ -18,7 +18,9 @@ package extension
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestWasmMemFSOpenFile(t *testing.T) {
 	wasmFS := WasmMemoryFS{memFS: map[string][]byte{
@@ -41,13 +43,25 @@ func TestWasmMemFSOpenDir1(t *testing.T) {
 		"/test/foo.1": {0x00},
 	}}
 
-	// Test Open File
-	fi, err := wasmFS.Open("/memfs/test")
+	// Test Root Dir
+	ls, err := wasmFS.ReadDir("/memfs")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stat, _ := fi.Stat(); stat.Name() != "test" || !stat.IsDir() {
-		t.Fatalf("expected 'test' dir, got %s", stat.Name())
+	if len(ls) != 1 {
+		t.Fatalf("expected 1 dir, got %d", len(ls))
+	}
+	if ls[0].Name() != "test" {
+		t.Fatalf("expected 'test' dir, got %s", ls[0].Name())
+	}
+
+	// Test Open File
+	fi, err := wasmFS.Open("/memfs/test/foo.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stat, _ := fi.Stat(); stat.Name() != "foo.1" || stat.IsDir() {
+		t.Fatalf("expected 'foo.1', got %s", stat.Name())
 	}
 	defer fi.Close()
 }
@@ -90,4 +104,31 @@ func TestWasmMemFSOpenDir2(t *testing.T) {
 	if data[0] != 0x00 {
 		t.Fatalf("expected 0x00, got %x", data[0])
 	}
+}
+
+func TestMemFSFileOpen(t *testing.T) {
+	wasmFS := WasmMemoryFS{memFS: map[string][]byte{
+		"/test/foo.1": {0x00},
+	}}
+
+	// Test Open File
+	fi, err := wasmFS.Open("/memfs/test/foo.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stat, _ := fi.Stat(); stat.Name() != "foo.1" {
+		t.Fatalf("expected foo.1, got %s", stat.Name())
+	}
+	defer fi.Close()
+
+	// Read file
+	data := make([]byte, 1)
+	_, err = fi.Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if data[0] != 0x00 {
+		t.Fatalf("expected 0x00, got %x", data[0])
+	}
+
 }
