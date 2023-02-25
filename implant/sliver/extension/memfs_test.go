@@ -19,6 +19,7 @@ package extension
 */
 
 import (
+	"io/fs"
 	"testing"
 )
 
@@ -36,6 +37,34 @@ func TestBasicMemFSOpenFile(t *testing.T) {
 		t.Fatalf("expected test.1, got %s", stat.Name())
 	}
 	defer fi.Close()
+}
+
+func TestMemFSOpenRoot(t *testing.T) {
+	wasmFS := WasmMemoryFS{memFS: map[string][]byte{
+		"/test.1":       {0x00},
+		"/test.2":       {0x00},
+		"/a/b/c/test.3": {0x00},
+	}}
+
+	// Test Open File
+	fi, err := wasmFS.Open("/memfs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fi.Close()
+
+	dirNode := fi.(fs.ReadDirFile)
+	entries, err := dirNode.ReadDir(-1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 3 {
+		for entry := range entries {
+			t.Logf("entry: %s", entries[entry].Name())
+		}
+		t.Fatalf("expected 3 entries, got %d", len(entries))
+	}
+
 }
 
 func TestBasicMemFSOpenDir(t *testing.T) {
@@ -81,7 +110,7 @@ func TestBasicMemFSOpenDir(t *testing.T) {
 	}
 }
 
-func TestMemFSFileOpen(t *testing.T) {
+func TestMemFSReadFileData(t *testing.T) {
 	wasmFS := WasmMemoryFS{memFS: map[string][]byte{
 		"/test/foo.1": {0x00},
 	}}

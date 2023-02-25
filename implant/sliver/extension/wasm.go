@@ -177,14 +177,18 @@ func (w WasmMemoryFS) getTree() *MemFSNode {
 		// {{end}}
 
 		// Build the tree
-		w.tree = &MemFSNode{key: "/", Subdirs: map[string]*MemFSNode{}}
+		w.tree = &MemFSNode{key: "", isDir: true, Subdirs: map[string]*MemFSNode{}}
 		for key := range w.memFS {
 			dirPath := path.Dir(key)
 			if dirPath == "." {
 				dirPath = "/"
 			}
 
+			// The root path requires a bit of special handling
 			segs := strings.Split(strings.TrimPrefix(dirPath, "/"), "/")
+			if len(segs) == 1 && segs[0] == "" {
+				segs = []string{}
+			}
 
 			// {{if .Config.Debug}}
 			log.Printf("[memfs] adding dir tree segments: %s", segs)
@@ -219,6 +223,9 @@ func (w WasmMemoryFS) Open(name string) (fs.File, error) {
 
 		// Check to see if the name is a directory
 		segs := strings.Split(strings.TrimPrefix(name, "/"), "/")
+		if len(segs) == 1 && segs[0] == "" {
+			segs = []string{}
+		}
 		if w.getTree().Exists(segs) {
 			dirNode := w.getTree().GetNode(segs)
 			if dirNode != nil {
@@ -274,10 +281,7 @@ type MemFSNode struct {
 // calls exists on each segment until the last segment is reached
 func (m *MemFSNode) Exists(segs []string) bool {
 	if len(segs) == 0 {
-		// {{if .Config.Debug}}
-		log.Printf("[memfs] WARNING: exists called with empty segs")
-		// {{end}}
-		return false
+		return true // Root node
 	}
 	if len(segs) == 1 {
 		if m.HasSubdir(segs[0]) {
@@ -310,33 +314,6 @@ func (m *MemFSNode) GetNode(segs []string) *MemFSNode {
 		return m.Subdirs[segs[0]].GetNode(segs[1:])
 	}
 	return nil
-}
-
-// Entires - Recursively resolves and returns a slice of entries in a directory
-func (m *MemFSNode) Entries(segs []string) []fs.DirEntry {
-
-	// {{if .Config.Debug}}
-	log.Printf("[memfs] entires arg: %#v", segs)
-	// {{end}}
-
-	if len(segs) == 1 {
-		entries := []fs.DirEntry{}
-		for _, subdir := range m.Subdirs {
-			entries = append(entries, subdir)
-		}
-
-		// {{if .Config.Debug}}
-		log.Printf("[memfs] entires: %#v", entries)
-		// {{end}}
-
-		return entries
-	}
-	for _, subdir := range m.Subdirs {
-		if subdir.Name() == segs[0] {
-			return subdir.Entries(segs[1:])
-		}
-	}
-	return []fs.DirEntry{}
 }
 
 // HasSubdir - Returns true if the directory has a subdir with the given name
@@ -389,6 +366,9 @@ func (m MemFSNode) ReadDir(n int) ([]fs.DirEntry, error) {
 		}
 		for _, fileNode := range m.FileNodes {
 			entries = append(entries, fileNode)
+		}
+		if 0 <= n && len(entries) < n {
+			return entries[:n], nil
 		}
 		return entries, nil
 	}
