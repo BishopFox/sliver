@@ -65,6 +65,14 @@ func TestMemFSOpenRoot(t *testing.T) {
 		t.Fatalf("expected 3 entries, got %d", len(entries))
 	}
 
+	di, err := dirNode.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("name: %s, is dir: %v", di.Name(), di.IsDir())
+	for _, entry := range entries {
+		t.Logf("entry: %s", entry.Name())
+	}
 }
 
 func TestBasicMemFSOpenDir(t *testing.T) {

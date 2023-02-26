@@ -244,7 +244,7 @@ func (w WasmMemoryFS) Open(name string) (fs.File, error) {
 		// {{end}}
 		return nil, fs.ErrPermission // Read-only for now
 	}
-	return os.Open(name)
+	return w.localFS.Open(name)
 }
 
 // memFSPath - Returns a blank string for non-memfs paths, or returns the memfs path
@@ -302,7 +302,7 @@ func (m *MemFSNode) Exists(segs []string) bool {
 func (m *MemFSNode) GetNode(segs []string) *MemFSNode {
 
 	// {{if .Config.Debug}}
-	log.Printf("[memfs] (%#v) get node -> %#v", m, segs)
+	log.Printf("[memfs node] get node")
 	// {{end}}
 
 	if len(segs) == 0 {
@@ -357,20 +357,32 @@ func (m *MemFSNode) ParentSegs(segs []string) []string {
 
 // Stat - Returns the MemoryNode itself since it implements FileInfo
 func (m MemFSNode) Stat() (fs.FileInfo, error) {
+	// {{if .Config.Debug}}
+	log.Printf("[memfs node] stat")
+	// {{end}}
 	return m, nil
 }
 
 func (m MemFSNode) Info() (fs.FileInfo, error) {
+	// {{if .Config.Debug}}
+	log.Printf("[memfs node] info")
+	// {{end}}
 	return m, nil
 }
 
 // Read - Standard reader function
 func (m MemFSNode) Read(buf []byte) (int, error) {
+	// {{if .Config.Debug}}
+	log.Printf("[memfs node] read")
+	// {{end}}
 	return m.data.Read(buf)
 }
 
 // ReadDir - Read contents for directory
 func (m MemFSNode) ReadDir(n int) ([]fs.DirEntry, error) {
+	// {{if .Config.Debug}}
+	log.Printf("[memfs node] read dir (%d)", n)
+	// {{end}}
 	if m.isDir {
 		entries := []fs.DirEntry{}
 		for _, subdir := range m.Subdirs {
@@ -379,7 +391,7 @@ func (m MemFSNode) ReadDir(n int) ([]fs.DirEntry, error) {
 		for _, fileNode := range m.FileNodes {
 			entries = append(entries, fileNode)
 		}
-		if 0 <= n && len(entries) < n {
+		if 0 <= n && n < len(entries) {
 			return entries[:n], nil
 		}
 		return entries, nil
@@ -389,36 +401,60 @@ func (m MemFSNode) ReadDir(n int) ([]fs.DirEntry, error) {
 
 // Close - No-op
 func (m MemFSNode) Close() error {
+	// {{if .Config.Debug}}
+	log.Printf("[memfs node] close")
+	// {{end}}
 	return nil
 }
 
 // Name - Returns the name of the file
 func (m MemFSNode) Name() string {
+	// {{if .Config.Debug}}
+	log.Printf("[memfs node] name")
+	// {{end}}
 	return path.Join("memfs", m.fullName)
 }
 
 // Size - Returns the size of the file
 func (m MemFSNode) Size() int64 {
+	// {{if .Config.Debug}}
+	log.Printf("[memfs node] size")
+	// {{end}}
 	return int64(m.data.Len())
 }
 
 // Mode - Returns the mode of the file
 func (m MemFSNode) Mode() fs.FileMode {
+	// {{if .Config.Debug}}
+	log.Printf("[memfs node] mode")
+	// {{end}}
 	return fs.FileMode(0444) // YOLO
 }
 
 // Type - Returns the mode of the file
 func (m MemFSNode) Type() fs.FileMode {
+	// {{if .Config.Debug}}
+	log.Printf("[memfs node] type")
+	// {{end}}
+
 	return fs.FileMode(0444) // YOLO
 }
 
 // ModTime - Returns the mod time of the file
 func (m MemFSNode) ModTime() time.Time {
+	// {{if .Config.Debug}}
+	log.Printf("[memfs node] mod time")
+	// {{end}}
+
 	return time.Now()
 }
 
 // IsDir - Returns true if the file is a directory
 func (m MemFSNode) IsDir() bool {
+	// {{if .Config.Debug}}
+	log.Printf("[memfs node] is dir")
+	// {{end}}
+
 	return m.isDir
 }
 
