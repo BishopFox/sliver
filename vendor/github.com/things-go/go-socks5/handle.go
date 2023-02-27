@@ -184,14 +184,6 @@ func (sf *Server) handleAssociate(ctx context.Context, writer io.Writer, request
 	}
 	defer target.Close()
 
-	targetUDP, ok := target.(*net.UDPConn)
-	if !ok {
-		if err := SendReply(writer, statute.RepServerFailure, nil); err != nil {
-			return fmt.Errorf("failed to send reply, %v", err)
-		}
-		return fmt.Errorf("dial udp invalid")
-	}
-
 	bindLn, err := net.ListenUDP("udp", nil)
 	if err != nil {
 		if err := SendReply(writer, statute.RepServerFailure, nil); err != nil {
@@ -201,7 +193,7 @@ func (sf *Server) handleAssociate(ctx context.Context, writer io.Writer, request
 	}
 	defer bindLn.Close()
 
-	sf.logger.Errorf("target addr %v, listen addr: %s", targetUDP.RemoteAddr(), bindLn.LocalAddr())
+	sf.logger.Errorf("target addr %v, listen addr: %s", target.RemoteAddr(), bindLn.LocalAddr())
 	// send BND.ADDR and BND.PORT, client used
 	if err = SendReply(writer, statute.RepSuccess, bindLn.LocalAddr()); err != nil {
 		return fmt.Errorf("failed to send reply, %v", err)
@@ -212,13 +204,16 @@ func (sf *Server) handleAssociate(ctx context.Context, writer io.Writer, request
 		conns := sync.Map{}
 		bufPool := sf.bufferPool.Get()
 		defer func() {
-			targetUDP.Close()
+			target.Close()
 			bindLn.Close()
 			sf.bufferPool.Put(bufPool)
 		}()
 		for {
 			n, srcAddr, err := bindLn.ReadFrom(bufPool[:cap(bufPool)])
 			if err != nil {
+				if err == io.EOF {
+					return
+				}
 				if strings.Contains(err.Error(), "use of closed network connection") {
 					sf.logger.Errorf("read data from bind listen address %s failed, %v", bindLn.LocalAddr(), err)
 					return
@@ -236,20 +231,23 @@ func (sf *Server) handleAssociate(ctx context.Context, writer io.Writer, request
 					// read from remote server and write to client
 					bufPool := sf.bufferPool.Get()
 					defer func() {
-						targetUDP.Close()
+						target.Close()
 						bindLn.Close()
 						sf.bufferPool.Put(bufPool)
 					}()
 
 					for {
 						buf := bufPool[:cap(bufPool)]
-						n, remote, err := targetUDP.ReadFrom(buf)
+						n, err := target.Read(buf)
 						if err != nil {
-							sf.logger.Errorf("read data from remote %s failed, %v", targetUDP.RemoteAddr(), err)
+							if err == io.EOF {
+								return
+							}
+							sf.logger.Errorf("read data from remote %s failed, %v", target.RemoteAddr().String(), err)
 							return
 						}
 
-						pkb, err := statute.NewDatagram(remote.String(), buf[:n])
+						pkb, err := statute.NewDatagram(target.RemoteAddr().String(), buf[:n])
 						if err != nil {
 							continue
 						}
@@ -268,8 +266,8 @@ func (sf *Server) handleAssociate(ctx context.Context, writer io.Writer, request
 			}
 
 			// 把消息写给remote sever
-			if _, err := targetUDP.Write(pk.Data); err != nil {
-				sf.logger.Errorf("write data to remote %s failed, %v", targetUDP.RemoteAddr(), err)
+			if _, err := target.Write(pk.Data); err != nil {
+				sf.logger.Errorf("write data to remote %s failed, %v", target.RemoteAddr().String(), err)
 				return
 			}
 		}
@@ -280,7 +278,11 @@ func (sf *Server) handleAssociate(ctx context.Context, writer io.Writer, request
 
 	for {
 		_, err := request.Reader.Read(buf[:cap(buf)])
+		// sf.logger.Errorf("read data from client %s, %d bytesm, err is %+v", request.RemoteAddr.String(), num, err)
 		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
 			if strings.Contains(err.Error(), "use of closed network connection") {
 				return err
 			}
@@ -334,7 +336,7 @@ func (sf *Server) Proxy(dst io.Writer, src io.Reader) error {
 	defer sf.bufferPool.Put(buf)
 	_, err := io.CopyBuffer(dst, src, buf[:cap(buf)])
 	if tcpConn, ok := dst.(closeWriter); ok {
-		tcpConn.CloseWrite() // nolint: errcheck
+		tcpConn.CloseWrite() //nolint: errcheck
 	}
 	return err
 }
