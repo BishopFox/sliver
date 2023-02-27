@@ -1592,3 +1592,10 @@ func Xreadlinkat(t *TLS, dirfd int32, pathname, buf uintptr, bufsiz types.Size_t
 
 	return types.Ssize_t(n)
 }
+
+// int nanosleep(const struct timespec *req, struct timespec *rem);
+func Xnanosleep(t *TLS, req, rem uintptr) int32 {
+	v := *(*ctime.Timespec)(unsafe.Pointer(req))
+	time.Sleep(time.Second*time.Duration(v.Ftv_sec) + time.Duration(v.Ftv_nsec))
+	return 0
+}

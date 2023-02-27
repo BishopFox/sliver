@@ -19,18 +19,18 @@
 //
 //	OS      Arch    SQLite version
 //	------------------------------
-//	darwin	amd64   3.40.1
-//	darwin	arm64   3.40.1
-//	freebsd	amd64   3.40.1
-//	freebsd	arm64   3.40.1
-//	linux	386     3.40.1
-//	linux	amd64   3.40.1
-//	linux	arm     3.40.1
-//	linux	arm64   3.40.1
-//	linux	ppc64le 3.40.1
-//	linux	riscv64 3.40.1
-//	windows	amd64   3.40.1
-//	windows	arm64   3.40.1
+//	darwin	amd64   3.41.0
+//	darwin	arm64   3.41.0
+//	freebsd	amd64   3.41.0
+//	freebsd	arm64   3.41.0
+//	linux	386     3.41.0
+//	linux	amd64   3.41.0
+//	linux	arm     3.41.0
+//	linux	arm64   3.41.0
+//	linux	ppc64le 3.41.0
+//	linux	riscv64 3.41.0
+//	windows	amd64   3.41.0
+//	windows	arm64   3.41.0
 //
 // Builders
 //
@@ -39,6 +39,10 @@
 // https://modern-c.appspot.com/-/builder/?importpath=modernc.org%2fsqlite
 //
 // Changelog
+//
+// 2023-02-23 v1.21.0:
+//
+// Upgrade to SQLite 3.41.0, release notes at https://sqlite.org/releaselog/3_41_0.html.
 //
 // 2022-11-28 v1.20.0
 //

@@ -1,3 +1,14 @@
+This library is a toy proof-of-concept implementation of the
+well-known Schonhage-Strassen method for multiplying integers.
+It is not expected to have a real life usecase outside number
+theory computations, nor is it expected to be used in any production
+system.
+
+If you are using it in your project, you may want to carefully
+examine the actual requirement or problem you are trying to solve.
+
+# Comparison with the standard library and GMP
+
 Benchmarking math/big vs. bigfft
 
 Number size    old ns/op    new ns/op    delta

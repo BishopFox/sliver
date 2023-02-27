@@ -305,6 +305,7 @@ var CAPI = map[string]struct{}{
 	"localtime_r":                      {},
 	"log":                              {},
 	"log10":                            {},
+	"log2":                             {},
 	"longjmp":                          {},
 	"lrand48":                          {},
 	"lseek":                            {},
