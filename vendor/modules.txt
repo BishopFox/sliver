@@ -347,8 +347,8 @@ github.com/stretchr/testify/assert
 # github.com/thedevsaddam/gojsonq/v2 v2.5.2
 ## explicit; go 1.13
 github.com/thedevsaddam/gojsonq/v2
-# github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
-## explicit; go 1.15
+# github.com/things-go/go-socks5 v0.0.3
+## explicit; go 1.18
 github.com/things-go/go-socks5
 github.com/things-go/go-socks5/bufferpool
 github.com/things-go/go-socks5/statute
