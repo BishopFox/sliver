@@ -611,6 +611,7 @@ func Xisnanl(t *TLS, x float64) int32             { return Bool32(math.IsNaN(x))
 func Xldexp(t *TLS, x float64, exp int32) float64 { return math.Ldexp(x, int(exp)) }
 func Xlog(t *TLS, x float64) float64              { return math.Log(x) }
 func Xlog10(t *TLS, x float64) float64            { return math.Log10(x) }
+func Xlog2(t *TLS, x float64) float64             { return math.Log2(x) }
 func Xround(t *TLS, x float64) float64            { return math.Round(x) }
 func Xsin(t *TLS, x float64) float64              { return math.Sin(x) }
 func Xsinf(t *TLS, x float32) float32             { return float32(math.Sin(float64(x))) }

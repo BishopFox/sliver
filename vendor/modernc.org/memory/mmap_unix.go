@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE-MMAP-GO file.
 
-//go:build darwin || dragonfly || freebsd || linux || openbsd || solaris || netbsd
-// +build darwin dragonfly freebsd linux openbsd solaris netbsd
+//go:build darwin || dragonfly || freebsd || linux || openbsd || (solaris && !illumos) || netbsd
+// +build darwin dragonfly freebsd linux openbsd solaris,!illumos netbsd
 
 // Modifications (c) 2017 The Memory Authors.
 

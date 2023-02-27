@@ -40,6 +40,7 @@ editor:
 	GOOS=freebsd GOARCH=amd64 go build
 	GOOS=freebsd GOARCH=arm go build
 	GOOS=freebsd GOARCH=arm64 go build
+	GOOS=illumos GOARCH=amd64 go build
 	GOOS=linux GOARCH=386 go build
 	GOOS=linux GOARCH=amd64 go build
 	GOOS=linux GOARCH=arm go build
