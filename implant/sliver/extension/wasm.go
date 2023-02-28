@@ -299,12 +299,8 @@ func (m *MemFSNode) Exists(segs []string) bool {
 	return false
 }
 
+// GetNode - Get a node from the memfs tree
 func (m *MemFSNode) GetNode(segs []string) *MemFSNode {
-
-	// {{if .Config.Debug}}
-	log.Printf("[memfs node] get node")
-	// {{end}}
-
 	if len(segs) == 0 {
 		return m
 	}
