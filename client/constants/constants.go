@@ -245,6 +245,7 @@ const (
 	DLLHijackStr          = "dllhijack"
 	InteractiveStr        = "interactive"
 	CloseStr              = "close"
+	WasmStr               = "wasm"
 
 	PortfwdStr  = "portfwd"
 	Socks5Str   = "socks5"

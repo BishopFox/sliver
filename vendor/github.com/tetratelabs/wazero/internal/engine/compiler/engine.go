@@ -13,7 +13,7 @@ import (
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/experimental"
 	"github.com/tetratelabs/wazero/internal/asm"
-	"github.com/tetratelabs/wazero/internal/compilationcache"
+	"github.com/tetratelabs/wazero/internal/filecache"
 	"github.com/tetratelabs/wazero/internal/platform"
 	"github.com/tetratelabs/wazero/internal/version"
 	"github.com/tetratelabs/wazero/internal/wasm"
@@ -30,7 +30,7 @@ type (
 	engine struct {
 		enabledFeatures api.CoreFeatures
 		codes           map[wasm.ModuleID][]*code // guarded by mutex.
-		Cache           compilationcache.Cache
+		fileCache       filecache.Cache
 		mux             sync.RWMutex
 		// setFinalizer defaults to runtime.SetFinalizer, but overridable for tests.
 		setFinalizer  func(obj interface{}, finalizer interface{})
@@ -257,8 +257,6 @@ type (
 		// and we cache the value (uintptr(unsafe.Pointer(&.codeSegment[0]))) to this field,
 		// so we don't need to repeat the calculation on each function call.
 		codeInitialAddress uintptr
-		// stackPointerCeil is the max of the stack pointer this function can reach. Lazily applied via maybeGrowStack.
-		stackPointerCeil uint64
 		// source is the source function instance from which this is compiled.
 		source *wasm.FunctionInstance
 		// moduleInstanceAddress holds the address of source.ModuleInstance.
@@ -284,8 +282,10 @@ type (
 		sourceModule *wasm.Module
 		// listener holds a listener to notify when this function is called.
 		listener experimental.FunctionListener
+		goFunc   interface{}
 
-		sourceOffsetMap *sourceOffsetMap
+		withEnsureTermination bool
+		sourceOffsetMap       *sourceOffsetMap
 	}
 
 	// sourceOffsetMap holds the information to retrieve the original offset in the Wasm binary from the
@@ -334,9 +334,9 @@ const (
 
 	// Offsets for function.
 	functionCodeInitialAddressOffset    = 0
-	functionSourceOffset                = 16
-	functionModuleInstanceAddressOffset = 24
-	functionSize                        = 40
+	functionSourceOffset                = 8
+	functionModuleInstanceAddressOffset = 16
+	functionSize                        = 32
 
 	// Offsets for wasm.ModuleInstance.
 	moduleInstanceGlobalsOffset          = 48
@@ -352,7 +352,7 @@ const (
 	tableInstanceTableLenOffset = 8
 
 	// Offsets for wasm.FunctionInstance.
-	functionInstanceTypeIDOffset = 40
+	functionInstanceTypeIDOffset = 16
 
 	// Offsets for wasm.MemoryInstance.
 	memoryInstanceBufferOffset    = 0
@@ -363,7 +363,7 @@ const (
 
 	// Offsets for Go's interface.
 	// https://research.swtch.com/interfaces
-	// https://github.com/golang/go/blob/release-branch.go1.17/src/runtime/runtime2.go#L207-L210
+	// https://github.com/golang/go/blob/release-branch.go1.20/src/runtime/runtime2.go#L207-L210
 	interfaceDataOffset = 8
 
 	// Consts for wasm.DataInstance.
@@ -403,6 +403,7 @@ const (
 	nativeCallStatusCodeTypeMismatchOnIndirectCall
 	nativeCallStatusIntegerOverflow
 	nativeCallStatusIntegerDivisionByZero
+	nativeCallStatusModuleClosed
 )
 
 // causePanic causes a panic with the corresponding error to the nativeCallStatusCode.
@@ -449,6 +450,8 @@ func (s nativeCallStatusCode) String() (ret string) {
 		ret = "integer overflow"
 	case nativeCallStatusIntegerDivisionByZero:
 		ret = "integer division by zero"
+	case nativeCallStatusModuleClosed:
+		ret = "module closed"
 	default:
 		panic("BUG")
 	}
@@ -483,19 +486,29 @@ func (e *engine) DeleteCompiledModule(module *wasm.Module) {
 	e.deleteCodes(module)
 }
 
+// Close implements the same method as documented on wasm.Engine.
+func (e *engine) Close() (err error) {
+	e.mux.Lock()
+	defer e.mux.Unlock()
+	// Releasing the references to compiled codes including the memory-mapped machine codes.
+	e.codes = nil
+	return
+}
+
 // CompileModule implements the same method as documented on wasm.Engine.
-func (e *engine) CompileModule(ctx context.Context, module *wasm.Module, listeners []experimental.FunctionListener) error {
+func (e *engine) CompileModule(_ context.Context, module *wasm.Module, listeners []experimental.FunctionListener, ensureTermination bool) error {
 	if _, ok, err := e.getCodes(module); ok { // cache hit!
 		return nil
 	} else if err != nil {
 		return err
 	}
 
-	irs, err := wazeroir.CompileFunctions(ctx, e.enabledFeatures, callFrameDataSizeInUint64, module)
+	irs, err := wazeroir.CompileFunctions(e.enabledFeatures, callFrameDataSizeInUint64, module, ensureTermination)
 	if err != nil {
 		return err
 	}
 
+	var withGoFunc bool
 	importedFuncs := module.ImportFuncCount()
 	funcs := make([]*code, len(module.FunctionSection))
 	ln := len(listeners)
@@ -509,10 +522,12 @@ func (e *engine) CompileModule(ctx context.Context, module *wasm.Module, listene
 		funcIndex := wasm.Index(i)
 		var compiled *code
 		if ir.GoFunc != nil {
+			withGoFunc = true
 			if compiled, err = compileGoDefinedHostFunction(cmp); err != nil {
 				def := module.FunctionDefinitionSection[funcIndex+importedFuncs]
 				return fmt.Errorf("error compiling host go func[%s]: %w", def.DebugName(), err)
 			}
+			compiled.goFunc = ir.GoFunc
 		} else if compiled, err = compileWasmFunction(cmp, ir); err != nil {
 			def := module.FunctionDefinitionSection[funcIndex+importedFuncs]
 			return fmt.Errorf("error compiling wasm func[%s]: %w", def.DebugName(), err)
@@ -524,9 +539,10 @@ func (e *engine) CompileModule(ctx context.Context, module *wasm.Module, listene
 		compiled.listener = lsn
 		compiled.indexInModule = funcIndex
 		compiled.sourceModule = module
+		compiled.withEnsureTermination = ir.EnsureTermination
 		funcs[funcIndex] = compiled
 	}
-	return e.addCodes(module, funcs)
+	return e.addCodes(module, funcs, withGoFunc)
 }
 
 // NewModuleEngine implements the same method as documented on wasm.Engine.
@@ -554,7 +570,6 @@ func (e *engine) NewModuleEngine(name string, module *wasm.Module, functions []w
 		f := &functions[offset]
 		me.functions[offset] = function{
 			codeInitialAddress:    uintptr(unsafe.Pointer(&c.codeSegment[0])),
-			stackPointerCeil:      c.stackPointerCeil,
 			moduleInstanceAddress: uintptr(unsafe.Pointer(f.Module)),
 			source:                f,
 			parent:                c,
@@ -573,28 +588,14 @@ func (e *moduleEngine) FunctionInstanceReference(funcIndex wasm.Index) wasm.Refe
 	return uintptr(unsafe.Pointer(&e.functions[funcIndex]))
 }
 
-// CreateFuncElementInstance implements the same method as documented on wasm.ModuleEngine.
-func (e *moduleEngine) CreateFuncElementInstance(indexes []*wasm.Index) *wasm.ElementInstance {
-	refs := make([]wasm.Reference, len(indexes))
-	for i, index := range indexes {
-		if index != nil {
-			refs[i] = uintptr(unsafe.Pointer(&e.functions[*index]))
-		}
-	}
-	return &wasm.ElementInstance{
-		References: refs,
-		Type:       wasm.RefTypeFuncref,
-	}
-}
-
 func (e *moduleEngine) NewCallEngine(_ *wasm.CallContext, f *wasm.FunctionInstance) (ce wasm.CallEngine, err error) {
 	// Note: The input parameters are pre-validated, so a compiled function is only absent on close. Updates to
 	// code on close aren't locked, neither is this read.
 	compiled := &e.functions[f.Idx]
 
 	initStackSize := initialStackSize
-	if initialStackSize < compiled.stackPointerCeil {
-		initStackSize = compiled.stackPointerCeil * 2
+	if initialStackSize < compiled.parent.stackPointerCeil {
+		initStackSize = compiled.parent.stackPointerCeil * 2
 	}
 	return e.newCallEngine(initStackSize, compiled), nil
 }
@@ -651,11 +652,16 @@ func (ce *callEngine) Call(ctx context.Context, callCtx *wasm.CallContext, param
 		if err == nil {
 			// If the module closed during the call, and the call didn't err for another reason, set an ExitError.
 			err = callCtx.FailIfClosed()
-			// TODO: ^^ Will not fail if the function was imported from a closed module.
 		}
 	}()
 
 	ce.initializeStack(tp, params)
+
+	if ce.fn.parent.withEnsureTermination {
+		done := callCtx.CloseModuleOnCanceledOrTimeout(ctx)
+		defer done()
+	}
+
 	ce.execWasmFunction(ctx, callCtx)
 
 	// This returns a safe copy of the results, instead of a slice view. If we
@@ -794,11 +800,11 @@ func (f *function) getSourceOffsetInWasmBinary(pc uint64) uint64 {
 	}
 }
 
-func NewEngine(ctx context.Context, enabledFeatures api.CoreFeatures) wasm.Engine {
-	return newEngine(ctx, enabledFeatures)
+func NewEngine(ctx context.Context, enabledFeatures api.CoreFeatures, fileCache filecache.Cache) wasm.Engine {
+	return newEngine(ctx, enabledFeatures, fileCache)
 }
 
-func newEngine(ctx context.Context, enabledFeatures api.CoreFeatures) *engine {
+func newEngine(ctx context.Context, enabledFeatures api.CoreFeatures, fileCache filecache.Cache) *engine {
 	var wazeroVersion string
 	if v := ctx.Value(version.WazeroVersionKey{}); v != nil {
 		wazeroVersion = v.(string)
@@ -807,7 +813,7 @@ func newEngine(ctx context.Context, enabledFeatures api.CoreFeatures) *engine {
 		enabledFeatures: enabledFeatures,
 		codes:           map[wasm.ModuleID][]*code{},
 		setFinalizer:    runtime.SetFinalizer,
-		Cache:           compilationcache.NewFileCache(ctx),
+		fileCache:       fileCache,
 		wazeroVersion:   wazeroVersion,
 	}
 }
@@ -878,6 +884,7 @@ const (
 	builtinFunctionIndexTableGrow
 	builtinFunctionIndexFunctionListenerBefore
 	builtinFunctionIndexFunctionListenerAfter
+	builtinFunctionIndexCheckExitCode
 	// builtinFunctionIndexBreakPoint is internal (only for wazero developers). Disabled by default.
 	builtinFunctionIndexBreakPoint
 )
@@ -908,7 +915,7 @@ entry:
 			}
 			stack := ce.stack[base : base+stackLen]
 
-			fn := calleeHostFunction.source.GoFunc
+			fn := calleeHostFunction.parent.goFunc
 			switch fn := fn.(type) {
 			case api.GoModuleFunction:
 				fn.Call(ce.ctx, callCtx.WithMemory(ce.memoryInstance), stack)
@@ -924,13 +931,20 @@ entry:
 			case builtinFunctionIndexMemoryGrow:
 				ce.builtinFunctionMemoryGrow(caller.source.Module.Memory)
 			case builtinFunctionIndexGrowStack:
-				ce.builtinFunctionGrowStack(caller.stackPointerCeil)
+				ce.builtinFunctionGrowStack(caller.parent.stackPointerCeil)
 			case builtinFunctionIndexTableGrow:
 				ce.builtinFunctionTableGrow(caller.source.Module.Tables)
 			case builtinFunctionIndexFunctionListenerBefore:
 				ce.builtinFunctionFunctionListenerBefore(ce.ctx, callCtx.WithMemory(ce.memoryInstance), caller)
 			case builtinFunctionIndexFunctionListenerAfter:
 				ce.builtinFunctionFunctionListenerAfter(ce.ctx, callCtx.WithMemory(ce.memoryInstance), caller)
+			case builtinFunctionIndexCheckExitCode:
+				// Note: this operation must be done in Go, not native code. The reason is that
+				// native code cannot be preempted and that means it can block forever if there are not
+				// enough OS threads (which we don't have control over).
+				if err := callCtx.FailIfClosed(); err != nil {
+					panic(err)
+				}
 			}
 			if false {
 				if ce.exitContext.builtinFunctionCallIndex == builtinFunctionIndexBreakPoint {
@@ -1334,6 +1348,8 @@ func compileWasmFunction(cmp compiler, ir *wazeroir.CompilationResult) (*code, e
 			err = cmp.compileV128Narrow(o)
 		case *wazeroir.OperationV128ITruncSatFromF:
 			err = cmp.compileV128ITruncSatFromF(o)
+		case wazeroir.OperationBuiltinFunctionCheckExitCode:
+			err = cmp.compileBuiltinFunctionCheckExitCode()
 		default:
 			err = errors.New("unsupported")
 		}

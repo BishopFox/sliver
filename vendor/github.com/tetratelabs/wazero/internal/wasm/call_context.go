@@ -2,6 +2,7 @@ package wasm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync/atomic"
 
@@ -13,9 +14,9 @@ import (
 // compile time check to ensure CallContext implements api.Module
 var _ api.Module = &CallContext{}
 
-func NewCallContext(ns *Namespace, instance *ModuleInstance, sys *internalsys.Context) *CallContext {
+func NewCallContext(s *Store, instance *ModuleInstance, sys *internalsys.Context) *CallContext {
 	zero := uint64(0)
-	return &CallContext{memory: instance.Memory, module: instance, ns: ns, Sys: sys, closed: &zero}
+	return &CallContext{memory: instance.Memory, module: instance, s: s, Sys: sys, Closed: &zero}
 }
 
 // CallContext is a function call context bound to a module. This is important as one module's functions can call
@@ -33,7 +34,7 @@ type CallContext struct {
 	module *ModuleInstance
 	// memory is returned by Memory and overridden WithMemory
 	memory api.Memory
-	ns     *Namespace
+	s      *Store
 
 	// Sys is exposed for use in special imports such as WASI, assemblyscript
 	// and gojs.
@@ -48,22 +49,54 @@ type CallContext struct {
 
 	// closed is the pointer used both to guard moduleEngine.CloseWithExitCode and to store the exit code.
 	//
-	// The update value is 1 + exitCode << 32. This ensures an exit code of zero isn't mistaken for never closed.
+	// The update value is closedType + exitCode << 32. This ensures an exit code of zero isn't mistaken for never closed.
 	//
 	// Note: Exclusively reading and updating this with atomics guarantees cross-goroutine observations.
 	// See /RATIONALE.md
-	closed *uint64
+	Closed *uint64
 
 	// CodeCloser is non-nil when the code should be closed after this module.
 	CodeCloser api.Closer
 }
 
 // FailIfClosed returns a sys.ExitError if CloseWithExitCode was called.
-func (m *CallContext) FailIfClosed() error {
-	if closed := atomic.LoadUint64(m.closed); closed != 0 {
+func (m *CallContext) FailIfClosed() (err error) {
+	if closed := atomic.LoadUint64(m.Closed); closed != 0 {
 		return sys.NewExitError(m.module.Name, uint32(closed>>32)) // Unpack the high order bits as the exit code.
 	}
 	return nil
+}
+
+// CloseModuleOnCanceledOrTimeout take a context `ctx`, which might be a Cancel or Timeout context,
+// and spawns the Goroutine to check the context is canceled ot deadline exceeded. If it reaches
+// one of the conditions, it sets the appropriate exit code.
+//
+// Callers of this function must invoke the returned context.CancelFunc to release the spawned Goroutine.
+func (m *CallContext) CloseModuleOnCanceledOrTimeout(ctx context.Context) context.CancelFunc {
+	goroutineDone, cancelFn := context.WithCancel(context.Background())
+	go m.closeModuleOnCanceledOrTimeoutClosure(ctx, goroutineDone)()
+	return cancelFn
+}
+
+// closeModuleOnCanceledOrTimeoutClosure is extracted from CloseModuleOnCanceledOrTimeout for testing.
+func (m *CallContext) closeModuleOnCanceledOrTimeoutClosure(ctx, goroutineDone context.Context) func() {
+	return func() {
+		for {
+			select {
+			case <-ctx.Done():
+				if errors.Is(ctx.Err(), context.Canceled) {
+					// TODO: figure out how to report error here.
+					_ = m.CloseWithExitCode(ctx, sys.ExitCodeContextCanceled)
+				} else if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+					// TODO: figure out how to report error here.
+					_ = m.CloseWithExitCode(ctx, sys.ExitCodeDeadlineExceeded)
+				}
+				return
+			case <-goroutineDone.Done():
+				return
+			}
+		}
+	}
 }
 
 // Name implements the same method as documented on api.Module
@@ -74,7 +107,7 @@ func (m *CallContext) Name() string {
 // WithMemory allows overriding memory without re-allocation when the result would be the same.
 func (m *CallContext) WithMemory(memory *MemoryInstance) *CallContext {
 	if memory != nil && memory != m.memory { // only re-allocate if it will change the effective memory
-		return &CallContext{module: m.module, memory: memory, Sys: m.Sys, closed: m.closed}
+		return &CallContext{module: m.module, memory: memory, Sys: m.Sys, Closed: m.Closed}
 	}
 	return m
 }
@@ -90,33 +123,44 @@ func (m *CallContext) Close(ctx context.Context) (err error) {
 }
 
 // CloseWithExitCode implements the same method as documented on api.Module.
-func (m *CallContext) CloseWithExitCode(ctx context.Context, exitCode uint32) error {
-	closed, err := m.close(ctx, exitCode)
-	if !closed {
-		return nil
+func (m *CallContext) CloseWithExitCode(ctx context.Context, exitCode uint32) (err error) {
+	if !m.setExitCode(exitCode) {
+		return nil // not an error to have already closed
 	}
-	_ = m.ns.deleteModule(m.Name())
+	_ = m.s.deleteModule(m.Name())
+	return m.ensureResourcesClosed(ctx)
+}
+
+// closeWithExitCode is the same as CloseWithExitCode besides this doesn't delete it from Store.moduleList.
+func (m *CallContext) closeWithExitCode(ctx context.Context, exitCode uint32) (err error) {
+	if !m.setExitCode(exitCode) {
+		return nil // not an error to have already closed
+	}
+	return m.ensureResourcesClosed(ctx)
+}
+
+func (m *CallContext) setExitCode(exitCode uint32) bool {
+	closed := uint64(1) + uint64(exitCode)<<32 // Store exitCode as high-order bits.
+	return atomic.CompareAndSwapUint64(m.Closed, 0, closed)
+}
+
+// ensureResourcesClosed ensures that resources assigned to CallContext is released.
+// Multiple calls to this function is safe.
+func (m *CallContext) ensureResourcesClosed(ctx context.Context) (err error) {
+	if sysCtx := m.Sys; sysCtx != nil { // nil if from HostModuleBuilder
+		if err = sysCtx.FS().Close(ctx); err != nil {
+			return err
+		}
+		m.Sys = nil
+	}
+
 	if m.CodeCloser == nil {
-		return err
+		return
 	}
 	if e := m.CodeCloser.Close(ctx); e != nil && err == nil {
 		err = e
 	}
-	return err
-}
-
-// close marks this CallContext as closed and releases underlying system resources.
-//
-// Note: The caller is responsible for removing the module from the Namespace.
-func (m *CallContext) close(ctx context.Context, exitCode uint32) (c bool, err error) {
-	closed := uint64(1) + uint64(exitCode)<<32 // Store exitCode as high-order bits.
-	if !atomic.CompareAndSwapUint64(m.closed, 0, closed) {
-		return false, nil
-	}
-	c = true
-	if sysCtx := m.Sys; sysCtx != nil { // nil if from HostModuleBuilder
-		err = sysCtx.FS().Close(ctx)
-	}
+	m.CodeCloser = nil
 	return
 }
 

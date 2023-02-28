@@ -79,6 +79,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/tasks"
 	"github.com/bishopfox/sliver/client/command/update"
 	"github.com/bishopfox/sliver/client/command/use"
+	"github.com/bishopfox/sliver/client/command/wasm"
 	"github.com/bishopfox/sliver/client/command/websites"
 	"github.com/bishopfox/sliver/client/command/wireguard"
 	"github.com/bishopfox/sliver/client/console"
@@ -3718,6 +3719,58 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	})
 	con.App.AddCommand(cursedCmd)
+
+	// [ Wasm ] -----------------------------------------------------------------
+
+	wasmCmd := &grumble.Command{
+		Name:      consts.WasmStr,
+		Help:      "Execute a Wasm Module Extension",
+		LongHelp:  help.GetHelpFor([]string{consts.WasmStr}),
+		HelpGroup: consts.GenericHelpGroup,
+		Args: func(a *grumble.Args) {
+			a.String("filepath", "path the wasm/wasi module file (.wasm)")
+			a.StringList("arguments", "arguments to pass to the wasm module", grumble.Default([]string{}))
+		},
+		Completer: func(prefix string, args []string) []string {
+			if len(args) == 0 {
+				return completers.LocalPathCompleter(prefix, args, con)
+			}
+			return []string{}
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Bool("P", "pipe", false, "pipe module stdin/stdout/stderr to the current terminal (session only)")
+			f.String("f", "file", "", "include local file(s) in wasm module's /memfs (glob pattern) ")
+			f.String("d", "dir", "", "recursively include local directory in wasm module's /memfs (glob pattern)")
+			f.Bool("s", "skip-registration", false, "assume the extension is already registered")
+			f.Bool("X", "loot", false, "save output as loot, incompatible with --pipe")
+
+			f.Int("t", "timeout", 300, "grpc timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			wasm.WasmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	}
+
+	wasmCmd.AddCommand(&grumble.Command{
+		Name:      consts.LsStr,
+		Help:      "List registered wasm extensions with current session/beacon",
+		LongHelp:  help.GetHelpFor([]string{consts.WasmStr, consts.LsStr}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			wasm.WasmLsCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+
+	con.App.AddCommand(wasmCmd)
 
 	// [ Builders ] ---------------------------------------------
 	buildersCmd := &grumble.Command{

@@ -18,8 +18,8 @@ const maximumValuesOnStack = 1 << 27
 // following the specification https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#instructions%E2%91%A2.
 //
 // * idx is the index in the FunctionSection
-// * functions are the function index namespace, which is prefixed by imports. The value is the TypeSection index.
-// * globals are the global index namespace, which is prefixed by imports.
+// * functions are the function index, which is prefixed by imports. The value is the TypeSection index.
+// * globals are the global index, which is prefixed by imports.
 // * memory is the potentially imported memory and can be nil.
 // * table is the potentially imported table and can be nil.
 // * declaredFunctionIndexes is the set of function indexes declared by declarative element segments which can be acceed by OpcodeRefFunc instruction.

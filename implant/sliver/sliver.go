@@ -396,7 +396,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	resultsMutex := &sync.Mutex{}
 	wg := &sync.WaitGroup{}
 	sysHandlers := handlers.GetSystemHandlers()
-	specHandlers := handlers.GetSpecialHandlers()
+	specHandlers := handlers.GetKillHandlers()
 
 	for _, task := range tasks.Tasks {
 		// {{if .Config.Debug}}
@@ -555,7 +555,7 @@ func sessionMainLoop(connection *transports.Connection) error {
 	pivotHandlers := handlers.GetPivotHandlers()
 	tunHandlers := handlers.GetTunnelHandlers()
 	sysHandlers := handlers.GetSystemHandlers()
-	specialHandlers := handlers.GetSpecialHandlers()
+	specialHandlers := handlers.GetKillHandlers()
 	rportfwdHandlers := handlers.GetRportFwdHandlers()
 
 	for envelope := range connection.Recv {

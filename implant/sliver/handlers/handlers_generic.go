@@ -46,6 +46,11 @@ var (
 		sliverpb.MsgEnvReq:         getEnvHandler,
 		sliverpb.MsgUnsetEnvReq:    unsetEnvHandler,
 		sliverpb.MsgReconfigureReq: reconfigureHandler,
+
+		// Wasm Extensions - Note that execution can be done via a tunnel handler
+		sliverpb.MsgRegisterWasmExtensionReq:   registerWasmExtensionHandler,
+		sliverpb.MsgDeregisterWasmExtensionReq: deregisterWasmExtensionHandler,
+		sliverpb.MsgListWasmExtensionsReq:      listWasmExtensionsHandler,
 	}
 )
 
@@ -55,6 +60,6 @@ func GetSystemHandlers() map[uint32]RPCHandler {
 }
 
 // GetSystemPivotHandlers - Not supported
-func GetSystemPivotHandlers() map[uint32]PivotHandler {
-	return map[uint32]PivotHandler{}
+func GetSystemPivotHandlers() map[uint32]TunnelHandler {
+	return map[uint32]TunnelHandler{}
 }

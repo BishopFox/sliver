@@ -184,15 +184,20 @@ service SliverRPC {
     rpc GetRportFwdListeners(sliverpb.RportFwdListenersReq) returns (sliverpb.RportFwdListeners);
     rpc StopRportFwdListener(sliverpb.RportFwdStopListenerReq) returns (sliverpb.RportFwdListener);
 
-    // Beacon only commands
+    // *** Beacon *** -only commands
     rpc OpenSession(sliverpb.OpenSession) returns (sliverpb.OpenSession);
     rpc CloseSession(sliverpb.CloseSession) returns (commonpb.Empty);
     
-    // Extensions
+    // *** Extensions ***
     rpc RegisterExtension(sliverpb.RegisterExtensionReq) returns (sliverpb.RegisterExtension);
     rpc CallExtension(sliverpb.CallExtensionReq) returns (sliverpb.CallExtension);
     rpc ListExtensions(sliverpb.ListExtensionsReq) returns (sliverpb.ListExtensions);
     
+    // *** Wasm Extensions ***
+    rpc RegisterWasmExtension(sliverpb.RegisterWasmExtensionReq) returns (sliverpb.RegisterWasmExtension);
+    rpc ListWasmExtensions(sliverpb.ListWasmExtensionsReq) returns (sliverpb.ListWasmExtensions);
+    rpc ExecWasmExtension(sliverpb.ExecWasmExtensionReq) returns (sliverpb.ExecWasmExtension);
+
     // *** Wireguard Specific ***
     rpc WGStartPortForward(sliverpb.WGPortForwardStartReq) returns (sliverpb.WGPortForward);
     rpc WGStopPortForward(sliverpb.WGPortForwardStopReq) returns (sliverpb.WGPortForward);

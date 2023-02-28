@@ -770,6 +770,7 @@ message Portfwd {
 }
 
 // *** Socks ***
+
 message Socks {
 
   uint64 TunnelID = 8 [jstype = JS_STRING];
@@ -875,6 +876,7 @@ message PivotListeners {
 }
 
 // *** Wiregard ***
+
 message WGPortForwardStartReq {
   int32 LocalPort = 1;
   string RemoteAddress = 2;
@@ -1000,7 +1002,7 @@ message GetPrivs {
   commonpb.Response Response = 9;
 }
 
-// Extensions
+// *** Extensions ***
 
 message RegisterExtensionReq {
   string Name = 1;
@@ -1053,8 +1055,8 @@ message RportFwdStopListenerReq {
 message RportFwdStartListenerReq {
   string BindAddress = 1;
   uint32 BindPort = 2;
-  uint32 forwardPort = 3;
-  string forwardAddress = 4;
+  uint32 ForwardPort = 3;
+  string ForwardAddress = 4;
 
   commonpb.Request Request = 9;
 }
@@ -1062,9 +1064,9 @@ message RportFwdStartListenerReq {
 message RportFwdListener {
   uint32 ID = 1;
   string BindAddress = 2;
-  uint32 bindPort = 3;
-  string forwardAddress =4;
-  uint32 forwardPort = 5;
+  uint32 BindPort = 3;
+  string ForwardAddress =4;
+  uint32 ForwardPort = 5;
 
   commonpb.Response Response = 9;
 }
@@ -1088,8 +1090,7 @@ message RPortfwd {
   string Host = 3;
 
   uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
-    commonpb.Response Response = 9;
-
+  commonpb.Response Response = 9;
 }
 
 message RPortfwdReq {
@@ -1099,7 +1100,53 @@ message RPortfwdReq {
 
   uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
   commonpb.Request Request = 9;
-
 }
 
+// *** Wasm Extensions ***
 
+message RegisterWasmExtensionReq {
+  string Name = 1;
+  bytes WasmGz = 2;
+
+  commonpb.Request Request = 9;
+}
+
+message RegisterWasmExtension {
+
+  commonpb.Response Response = 9;
+}
+
+message DeregisterWasmExtensionReq {
+  string Name = 1;
+
+  commonpb.Request Request = 9;
+}
+
+message ListWasmExtensionsReq {
+
+  commonpb.Request Request = 9;
+}
+
+message ListWasmExtensions {
+  repeated string Names = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message ExecWasmExtensionReq {
+  string Name = 1;
+  repeated string Args = 2;
+  bool Interactive = 3;
+  map<string, bytes> MemFS = 4;
+
+  uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
+  commonpb.Request Request = 9;
+}
+
+message ExecWasmExtension {
+  bytes Stdout = 1;
+  bytes Stderr = 2;
+  uint32 ExitCode = 3;
+
+  commonpb.Response Response = 9;
+}

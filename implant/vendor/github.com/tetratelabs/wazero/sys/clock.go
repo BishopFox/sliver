@@ -20,3 +20,6 @@ type Nanotime func() int64
 
 // Nanosleep puts the current goroutine to sleep for at least ns nanoseconds.
 type Nanosleep func(ns int64)
+
+// Osyield yields the processor, typically to implement spin-wait loops.
+type Osyield func()

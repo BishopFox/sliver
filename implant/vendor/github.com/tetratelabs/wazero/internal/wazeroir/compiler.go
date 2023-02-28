@@ -2,7 +2,6 @@ package wazeroir
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -187,6 +186,8 @@ type compiler struct {
 	needSourceOffset bool
 	// bodyOffsetInCodeSection is the offset of the body of this function in the original Wasm binary's code section.
 	bodyOffsetInCodeSection uint64
+
+	ensureTermination bool
 }
 
 //lint:ignore U1000 for debugging only.
@@ -257,9 +258,10 @@ type CompilationResult struct {
 	HasDataInstances bool
 	// HasDataInstances is true if the module has element instances which might be used by table.init or elem.drop instructions.
 	HasElementInstances bool
+	EnsureTermination   bool
 }
 
-func CompileFunctions(ctx context.Context, enabledFeatures api.CoreFeatures, callFrameStackSizeInUint64 int, module *wasm.Module) ([]*CompilationResult, error) {
+func CompileFunctions(enabledFeatures api.CoreFeatures, callFrameStackSizeInUint64 int, module *wasm.Module, ensureTermination bool) ([]*CompilationResult, error) {
 	functions, globals, mem, tables, err := module.AllDeclarations()
 	if err != nil {
 		return nil, err
@@ -297,7 +299,8 @@ func CompileFunctions(ctx context.Context, enabledFeatures api.CoreFeatures, cal
 			continue
 		}
 		r, err := compile(enabledFeatures, callFrameStackSizeInUint64, sig, code.Body,
-			code.LocalTypes, module.TypeSection, functions, globals, code.BodyOffsetInCodeSection, module.DWARFLines != nil)
+			code.LocalTypes, module.TypeSection, functions, globals, code.BodyOffsetInCodeSection,
+			module.DWARFLines != nil, ensureTermination)
 		if err != nil {
 			def := module.FunctionDefinitionSection[uint32(funcIndex)+module.ImportFuncCount()]
 			return nil, fmt.Errorf("failed to lower func[%s] to wazeroir: %w", def.DebugName(), err)
@@ -312,6 +315,7 @@ func CompileFunctions(ctx context.Context, enabledFeatures api.CoreFeatures, cal
 		r.HasElementInstances = hasElementInstances
 		r.Signature = sig
 		r.TableTypes = tableTypes
+		r.EnsureTermination = ensureTermination
 		ret = append(ret, r)
 	}
 	return ret, nil
@@ -329,6 +333,7 @@ func compile(enabledFeatures api.CoreFeatures,
 	functions []uint32, globals []*wasm.GlobalType,
 	bodyOffsetInCodeSection uint64,
 	needSourceOffset bool,
+	ensureTermination bool,
 ) (*CompilationResult, error) {
 	c := compiler{
 		enabledFeatures:            enabledFeatures,
@@ -343,6 +348,7 @@ func compile(enabledFeatures api.CoreFeatures,
 		types:                      types,
 		needSourceOffset:           needSourceOffset,
 		bodyOffsetInCodeSection:    bodyOffsetInCodeSection,
+		ensureTermination:          ensureTermination,
 	}
 
 	c.initializeStack()
@@ -361,6 +367,10 @@ func compile(enabledFeatures api.CoreFeatures,
 		blockType: c.sig,
 		kind:      controlFrameKindFunction,
 	})
+
+	if c.ensureTermination {
+		c.emit(OperationBuiltinFunctionCheckExitCode{})
+	}
 
 	// Now, enter the function body.
 	for !c.controlFrames.empty() && c.pc < uint64(len(c.body)) {
@@ -472,6 +482,16 @@ operatorSwitch:
 			&OperationLabel{Label: loopLabel},
 		)
 
+		// Insert the exit code check on the loop header, which is the only necessary point in the function body
+		// to prevent infinite loop.
+		//
+		// Note that this is a little aggressive: this checks the exit code regardless the loop header is actually
+		// the loop. In other words, this checks even when no br/br_if/br_table instructions jumping to this loop
+		// exist. However, in reality, that shouldn't be an issue since such "noop" loop header will highly likely be
+		// optimized out by almost all guest language compilers which have the control flow optimization passes.
+		if c.ensureTermination {
+			c.emit(OperationBuiltinFunctionCheckExitCode{})
+		}
 	case wasm.OpcodeIf:
 		bt, num, err := wasm.DecodeBlockType(c.types, bytes.NewReader(c.body[c.pc+1:]), c.enabledFeatures)
 		if err != nil {

@@ -10,6 +10,9 @@ import (
 	"runtime"
 )
 
+// archRequirementsVerified is set by platform-specific init to true if the platform is supported
+var archRequirementsVerified bool
+
 // CompilerSupported is exported for tests and includes constraints here and also the assembler.
 func CompilerSupported() bool {
 	switch runtime.GOOS {
@@ -18,13 +21,7 @@ func CompilerSupported() bool {
 		return false
 	}
 
-	switch runtime.GOARCH {
-	case "amd64", "arm64":
-	default:
-		return false
-	}
-
-	return true
+	return archRequirementsVerified
 }
 
 // MmapCodeSegment copies the code into the executable region and returns the byte slice of the region.

@@ -62,8 +62,15 @@ fi
 
 ## Implant
 
+# implant / sliver / extension
+if go test ./implant/sliver/extension ; then
+    :
+else
+    exit 1
+fi
+
 # implant / sliver / transports / dnsclient
-if go test -tags=server,$TAGS ./implant/sliver/transports/dnsclient ; then
+if go test ./implant/sliver/transports/dnsclient ; then
     :
 else
     exit 1

@@ -126,11 +126,11 @@ type validatedActiveElementSegment struct {
 	opcode Opcode
 
 	// arg is the only argument to opcode, which when applied results in the offset to add to init indices.
-	//  * OpcodeGlobalGet: position in the global index namespace of an imported Global ValueTypeI32 holding the offset.
+	//  * OpcodeGlobalGet: position in the global index of an imported Global ValueTypeI32 holding the offset.
 	//  * OpcodeI32Const: a constant ValueTypeI32 offset.
 	arg uint32
 
-	// init are a range of table elements whose values are positions in the function index namespace. This range
+	// init are a range of table elements whose values are positions in the function index. This range
 	// replaces any values in TableInstance.Table at an offset arg which is a constant if opcode == OpcodeI32Const or
 	// derived from a globalIdx if opcode == OpcodeGlobalGet
 	init []*Index

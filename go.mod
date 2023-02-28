@@ -2,7 +2,7 @@ module github.com/bishopfox/sliver
 
 go 1.18
 
-replace github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.6
+replace github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.9
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
@@ -36,7 +36,7 @@ require (
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.1
-	github.com/tetratelabs/wazero v1.0.0-pre.7
+	github.com/tetratelabs/wazero v1.0.0-pre.9
 	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
 	github.com/xlab/treeprint v1.1.0
 	github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e
@@ -70,7 +70,7 @@ require (
 	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d // indirect
-	github.com/desertbit/closer/v3 v3.1.2 // indirect
+	github.com/desertbit/closer/v3 v3.1.3 // indirect
 	github.com/dlclark/regexp2 v1.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
@@ -97,7 +97,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
-	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
+	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect

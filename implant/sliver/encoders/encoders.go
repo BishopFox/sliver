@@ -24,11 +24,14 @@ import (
 	"encoding/binary"
 	"errors"
 	insecureRand "math/rand"
-	"path"
 	"strings"
 
 	// {{if .Config.Debug}}
 	"log"
+	// {{end}}
+
+	// {{if .Config.TrafficEncodersEnabled}}
+	"path"
 	// {{end}}
 
 	// {{if .Config.TrafficEncodersEnabled}}

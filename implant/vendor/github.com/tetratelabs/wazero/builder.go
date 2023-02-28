@@ -178,13 +178,11 @@ type HostModuleBuilder interface {
 	// NewFunctionBuilder begins the definition of a host function.
 	NewFunctionBuilder() HostFunctionBuilder
 
-	// Compile returns a CompiledModule that can instantiated in any namespace (Namespace).
-	//
-	// Note: Closing the Namespace has the same effect as closing the result.
+	// Compile returns a CompiledModule that can be instantiated by Runtime.
 	Compile(context.Context) (CompiledModule, error)
 
-	// Instantiate is a convenience that calls Compile, then Namespace.InstantiateModule.
-	// This can fail for reasons documented on Namespace.InstantiateModule.
+	// Instantiate is a convenience that calls Compile, then Runtime.InstantiateModule.
+	// This can fail for reasons documented on Runtime.InstantiateModule.
 	//
 	// Here's an example:
 	//
@@ -197,14 +195,14 @@ type HostModuleBuilder interface {
 	//	}
 	//	env, _ := r.NewHostModuleBuilder("env").
 	//		NewFunctionBuilder().WithFunc(hello).Export("hello").
-	//		Instantiate(ctx, r)
+	//		Instantiate(ctx)
 	//
 	// # Notes
 	//
-	//   - Closing the Namespace has the same effect as closing the result.
+	//   - Closing the Runtime has the same effect as closing the result.
 	//   - Fields in the builder are copied during instantiation: Later changes do not affect the instantiated result.
 	//   - To avoid using configuration defaults, use Compile instead.
-	Instantiate(context.Context, Namespace) (api.Module, error)
+	Instantiate(context.Context) (api.Module, error)
 }
 
 // hostModuleBuilder implements HostModuleBuilder
@@ -326,7 +324,7 @@ func (b *hostModuleBuilder) Compile(ctx context.Context) (CompiledModule, error)
 		return nil, err
 	}
 
-	if err = b.r.store.Engine.CompileModule(ctx, module, listeners); err != nil {
+	if err = b.r.store.Engine.CompileModule(ctx, module, listeners, false); err != nil {
 		return nil, err
 	}
 
@@ -334,11 +332,11 @@ func (b *hostModuleBuilder) Compile(ctx context.Context) (CompiledModule, error)
 }
 
 // Instantiate implements HostModuleBuilder.Instantiate
-func (b *hostModuleBuilder) Instantiate(ctx context.Context, ns Namespace) (api.Module, error) {
+func (b *hostModuleBuilder) Instantiate(ctx context.Context) (api.Module, error) {
 	if compiled, err := b.Compile(ctx); err != nil {
 		return nil, err
 	} else {
 		compiled.(*compiledModule).closeWithModule = true
-		return ns.InstantiateModule(ctx, compiled, NewModuleConfig())
+		return b.r.InstantiateModule(ctx, compiled, NewModuleConfig())
 	}
 }

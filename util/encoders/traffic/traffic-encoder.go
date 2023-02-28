@@ -169,7 +169,7 @@ func CreateTrafficEncoder(name string, wasm []byte, logger TrafficEncoderLogCall
 			logger(fmt.Sprintf("Log error: Memory.Read(%d, %d) out of range", offset, byteCount))
 		}
 		logger(string(buf))
-	}).Export("log").Instantiate(ctx, wasmRuntime)
+	}).Export("log").Instantiate(ctx)
 	if err != nil {
 		return nil, err
 	}

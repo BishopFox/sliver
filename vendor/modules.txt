@@ -151,7 +151,7 @@ github.com/davecgh/go-spew/spew
 # github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d
 ## explicit
 github.com/demisto/goxforce
-# github.com/desertbit/closer/v3 v3.1.2
+# github.com/desertbit/closer/v3 v3.1.3
 ## explicit; go 1.12
 github.com/desertbit/closer/v3
 # github.com/desertbit/columnize v2.1.0+incompatible
@@ -160,7 +160,7 @@ github.com/desertbit/columnize
 # github.com/desertbit/go-shlex v0.1.1
 ## explicit; go 1.14
 github.com/desertbit/go-shlex
-# github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.6
+# github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.9
 ## explicit; go 1.12
 github.com/desertbit/grumble
 # github.com/desertbit/readline v1.5.1
@@ -319,7 +319,7 @@ github.com/mattn/go-runewidth
 # github.com/mattn/go-sqlite3 v1.14.16
 ## explicit; go 1.16
 github.com/mattn/go-sqlite3
-# github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
+# github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 ## explicit
 github.com/mgutz/ansi
 # github.com/miekg/dns v1.1.51
@@ -355,8 +355,8 @@ github.com/spf13/pflag
 # github.com/stretchr/testify v1.8.1
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
-# github.com/tetratelabs/wazero v1.0.0-pre.7
-## explicit; go 1.17
+# github.com/tetratelabs/wazero v1.0.0-pre.9
+## explicit; go 1.18
 github.com/tetratelabs/wazero
 github.com/tetratelabs/wazero/api
 github.com/tetratelabs/wazero/experimental
@@ -364,15 +364,15 @@ github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1
 github.com/tetratelabs/wazero/internal/asm
 github.com/tetratelabs/wazero/internal/asm/amd64
 github.com/tetratelabs/wazero/internal/asm/arm64
-github.com/tetratelabs/wazero/internal/compilationcache
 github.com/tetratelabs/wazero/internal/engine/compiler
 github.com/tetratelabs/wazero/internal/engine/interpreter
+github.com/tetratelabs/wazero/internal/filecache
 github.com/tetratelabs/wazero/internal/ieee754
 github.com/tetratelabs/wazero/internal/leb128
 github.com/tetratelabs/wazero/internal/moremath
 github.com/tetratelabs/wazero/internal/platform
 github.com/tetratelabs/wazero/internal/sys
-github.com/tetratelabs/wazero/internal/syscallfs
+github.com/tetratelabs/wazero/internal/sysfs
 github.com/tetratelabs/wazero/internal/u32
 github.com/tetratelabs/wazero/internal/u64
 github.com/tetratelabs/wazero/internal/version
@@ -427,7 +427,6 @@ golang.org/x/crypto/scrypt
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
-golang.org/x/crypto/ssh/terminal
 # golang.org/x/mod v0.7.0
 ## explicit; go 1.17
 golang.org/x/mod/semver

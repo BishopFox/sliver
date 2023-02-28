@@ -2,7 +2,6 @@ package wasi_snapshot_preview1
 
 import (
 	"context"
-	"time"
 
 	"github.com/tetratelabs/wazero/api"
 	. "github.com/tetratelabs/wazero/internal/wasi_snapshot_preview1"
@@ -102,8 +101,7 @@ func clockTimeGetFn(_ context.Context, mod api.Module, params []uint64) Errno {
 	var val int64
 	switch id {
 	case ClockIDRealtime:
-		sec, nsec := sysCtx.Walltime()
-		val = (sec * time.Second.Nanoseconds()) + int64(nsec)
+		val = sysCtx.WalltimeNanos()
 	case ClockIDMonotonic:
 		val = sysCtx.Nanotime()
 	default:

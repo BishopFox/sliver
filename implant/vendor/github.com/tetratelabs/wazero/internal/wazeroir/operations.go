@@ -416,6 +416,8 @@ func (o OperationKind) String() (ret string) {
 		ret = "V128Narrow"
 	case OperationKindV128ITruncSatFromF:
 		ret = "V128ITruncSatFromF"
+	case OperationKindBuiltinFunctionCheckExitCode:
+		ret = "BuiltinFunctionCheckExitCode"
 	default:
 		panic(fmt.Errorf("unknown operation %d", o))
 	}
@@ -703,9 +705,23 @@ const (
 	// OperationKindV128ITruncSatFromF is the kind for OperationV128ITruncSatFromF.
 	OperationKindV128ITruncSatFromF
 
+	// OperationKindBuiltinFunctionCheckExitCode is the kind for OperationBuiltinFunctionCheckExitCode.
+	OperationKindBuiltinFunctionCheckExitCode
+
 	// operationKindEnd is always placed at the bottom of this iota definition to be used in the test.
 	operationKindEnd
 )
+
+// OperationBuiltinFunctionCheckExitCode implements Operation.
+//
+// OperationBuiltinFunctionCheckExitCode corresponds to the instruction to check the api.Module is already closed due to
+// context.DeadlineExceeded, context.Canceled, or the explicit call of CloseWithExitCode on api.Module.
+type OperationBuiltinFunctionCheckExitCode struct{}
+
+// Kind implements Operation.Kind
+func (OperationBuiltinFunctionCheckExitCode) Kind() OperationKind {
+	return OperationKindBuiltinFunctionCheckExitCode
+}
 
 // Label is the label of each block in wazeroir where "block" consists of multiple operations,
 // and must end with branching operations (e.g. OperationBr or OperationBrIf).

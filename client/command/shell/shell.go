@@ -29,7 +29,7 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 
 	"github.com/desertbit/grumble"
 )
@@ -111,9 +111,9 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *con
 	log.Printf("Bound remote shell pid %d to tunnel %d", shell.Pid, shell.TunnelID)
 	con.PrintInfof("Started remote shell with pid %d\n\n", shell.Pid)
 
-	var oldState *terminal.State
+	var oldState *term.State
 	if !noPty {
-		oldState, err = terminal.MakeRaw(0)
+		oldState, err = term.MakeRaw(0)
 		log.Printf("Saving terminal state: %v", oldState)
 		if err != nil {
 			con.PrintErrorf("Failed to save terminal state")
@@ -139,7 +139,7 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *con
 
 	if !noPty {
 		log.Printf("Restoring terminal state ...")
-		terminal.Restore(0, oldState)
+		term.Restore(0, oldState)
 	}
 
 	log.Printf("Exit interactive")

@@ -39,6 +39,9 @@ func NewFakeNanotime() *sys.Nanotime {
 // FakeNanosleep implements sys.Nanosleep by returning without sleeping.
 func FakeNanosleep(int64) {}
 
+// FakeOsyield implements sys.Osyield by returning without yielding.
+func FakeOsyield() {}
+
 // Walltime implements sys.Walltime with time.Now.
 //
 // Note: This is only notably less efficient than it could be is reading

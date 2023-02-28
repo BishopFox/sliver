@@ -49,6 +49,16 @@ func GzipBuf(data []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// GzipBufBestCompression - Gzip a buffer using the best compression setting
+func GzipBufBestCompression(data []byte) []byte {
+	gzipWriter, _ := gzip.NewWriterLevel(nil, gzip.BestSpeed)
+	var buf bytes.Buffer
+	gzipWriter.Reset(&buf)
+	gzipWriter.Write(data)
+	gzipWriter.Close()
+	return buf.Bytes()
+}
+
 // GunzipBuf - Gunzip a buffer
 func GunzipBuf(data []byte) []byte {
 	zip, _ := gzip.NewReader(bytes.NewBuffer(data))
