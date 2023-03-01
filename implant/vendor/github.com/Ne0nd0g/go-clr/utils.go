@@ -5,7 +5,6 @@ package clr
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"strings"
 	"unicode/utf16"
 	"unsafe"
@@ -22,13 +21,6 @@ func checkOK(hr uintptr, caller string) error {
 		return fmt.Errorf("%s returned 0x%08x", caller, hr)
 	} else {
 		return nil
-	}
-}
-
-// must forces the program to exit if there is an error using the log.Fatal command
-func must(err error) {
-	if err != nil {
-		log.Fatal(err)
 	}
 }
 

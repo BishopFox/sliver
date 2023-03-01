@@ -6,8 +6,8 @@ github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc h1:7D+Bh06CRPCJO3gr
 github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/Microsoft/go-winio v0.5.1 h1:aPJp2QD7OOrhO5tQXqQoGSJc+DjDtWTGLOmNyAm6FgY=
 github.com/Microsoft/go-winio v0.5.1/go.mod h1:JPGBdM1cNvN/6ISo+n8V5iA4v8pBzdOpzfwIujj1a84=
-github.com/Ne0nd0g/go-clr v1.0.2 h1:jVD7iJyXaS3KhPiKetUnUAuLxgDlNSvYmPfMFK8E3VY=
-github.com/Ne0nd0g/go-clr v1.0.2/go.mod h1:TKYSQ/5xT25EvBUttAlUrzpR8yHuI0qTRK495I5xG/I=
+github.com/Ne0nd0g/go-clr v1.0.3 h1:xt92wwuqY23ZSC7RuHD3mKu3K22Bk5NNbxI803vojK4=
+github.com/Ne0nd0g/go-clr v1.0.3/go.mod h1:TKYSQ/5xT25EvBUttAlUrzpR8yHuI0qTRK495I5xG/I=
 github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0 h1:JjwxKkxzcBk4k8147g0eBQRCIy0UN1Be8AAv6RaIj4Q=
 github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0/go.mod h1:IbERvuyb387Hppp8hX0SQTFt/mkej8+OhuS8L0nC2CI=
 github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4 h1:cIAK2NNf2yafdgpFRNJrgZMwvy61BEVpGoHc2n4/yWs=
