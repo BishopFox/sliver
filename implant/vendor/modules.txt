@@ -15,7 +15,7 @@ github.com/BurntSushi/xgb/xproto
 # github.com/Microsoft/go-winio v0.5.1
 ## explicit; go 1.12
 github.com/Microsoft/go-winio/pkg/guid
-# github.com/Ne0nd0g/go-clr v1.0.2
+# github.com/Ne0nd0g/go-clr v1.0.3
 ## explicit; go 1.13
 github.com/Ne0nd0g/go-clr
 # github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0
