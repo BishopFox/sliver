@@ -69,10 +69,13 @@ func SSHCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("You must specify a keytab file with the --kerberos-keytab flag\n")
 		return
 	}
-	kerberosKeytab, err := os.ReadFile(kerberosKeytabFile)
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-		return
+	kerberosKeytab := []byte{}
+	if kerberosKeytabFile != "" {
+		kerberosKeytab, err = os.ReadFile(kerberosKeytabFile)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
 	}
 
 	if password == "" && len(privKey) == 0 && !ctx.Flags.Bool("skip-loot") {
