@@ -601,6 +601,7 @@ func executeHandler(data []byte, resp RPCResponse) {
 		}
 	} else {
 		err = cmd.Start()
+		cmd.Wait()
 		if err != nil {
 			execResp.Response = &commonpb.Response{
 				Err: fmt.Sprintf("%s", err),
