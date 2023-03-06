@@ -23,6 +23,7 @@ import (
 	"github.com/chromedp/cdproto/css"
 	"github.com/chromedp/cdproto/database"
 	"github.com/chromedp/cdproto/debugger"
+	"github.com/chromedp/cdproto/deviceaccess"
 	"github.com/chromedp/cdproto/deviceorientation"
 	"github.com/chromedp/cdproto/dom"
 	"github.com/chromedp/cdproto/domdebugger"
@@ -46,6 +47,7 @@ import (
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/performance"
 	"github.com/chromedp/cdproto/performancetimeline"
+	"github.com/chromedp/cdproto/preload"
 	"github.com/chromedp/cdproto/profiler"
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/cdproto/security"
@@ -299,6 +301,11 @@ const (
 	EventDebuggerResumed                                   = "Debugger.resumed"
 	EventDebuggerScriptFailedToParse                       = "Debugger.scriptFailedToParse"
 	EventDebuggerScriptParsed                              = "Debugger.scriptParsed"
+	CommandDeviceAccessEnable                              = deviceaccess.CommandEnable
+	CommandDeviceAccessDisable                             = deviceaccess.CommandDisable
+	CommandDeviceAccessSelectPrompt                        = deviceaccess.CommandSelectPrompt
+	CommandDeviceAccessCancelPrompt                        = deviceaccess.CommandCancelPrompt
+	EventDeviceAccessDeviceRequestPrompted                 = "DeviceAccess.deviceRequestPrompted"
 	CommandDeviceOrientationClearDeviceOrientationOverride = deviceorientation.CommandClearDeviceOrientationOverride
 	CommandDeviceOrientationSetDeviceOrientationOverride   = deviceorientation.CommandSetDeviceOrientationOverride
 	CommandEmulationCanEmulate                             = emulation.CommandCanEmulate
@@ -518,7 +525,6 @@ const (
 	CommandPageEnable                                      = page.CommandEnable
 	CommandPageGetAppManifest                              = page.CommandGetAppManifest
 	CommandPageGetInstallabilityErrors                     = page.CommandGetInstallabilityErrors
-	CommandPageGetManifestIcons                            = page.CommandGetManifestIcons
 	CommandPageGetAppID                                    = page.CommandGetAppID
 	CommandPageGetAdScriptID                               = page.CommandGetAdScriptID
 	CommandPageGetFrameTree                                = page.CommandGetFrameTree
@@ -553,6 +559,7 @@ const (
 	CommandPageAddCompilationCache                         = page.CommandAddCompilationCache
 	CommandPageClearCompilationCache                       = page.CommandClearCompilationCache
 	CommandPageSetSPCTransactionMode                       = page.CommandSetSPCTransactionMode
+	CommandPageSetRPHRegistrationMode                      = page.CommandSetRPHRegistrationMode
 	CommandPageGenerateTestReport                          = page.CommandGenerateTestReport
 	CommandPageWaitForDebugger                             = page.CommandWaitForDebugger
 	CommandPageSetInterceptFileChooserDialog               = page.CommandSetInterceptFileChooserDialog
@@ -573,6 +580,8 @@ const (
 	EventPageLifecycleEvent                                = "Page.lifecycleEvent"
 	EventPageBackForwardCacheNotUsed                       = "Page.backForwardCacheNotUsed"
 	EventPagePrerenderAttemptCompleted                     = "Page.prerenderAttemptCompleted"
+	EventPagePrefetchStatusUpdated                         = "Page.prefetchStatusUpdated"
+	EventPagePrerenderStatusUpdated                        = "Page.prerenderStatusUpdated"
 	EventPageLoadEventFired                                = "Page.loadEventFired"
 	EventPageNavigatedWithinDocument                       = "Page.navigatedWithinDocument"
 	EventPageScreencastFrame                               = "Page.screencastFrame"
@@ -585,6 +594,10 @@ const (
 	EventPerformanceMetrics                                = "Performance.metrics"
 	CommandPerformanceTimelineEnable                       = performancetimeline.CommandEnable
 	EventPerformanceTimelineTimelineEventAdded             = "PerformanceTimeline.timelineEventAdded"
+	CommandPreloadEnable                                   = preload.CommandEnable
+	CommandPreloadDisable                                  = preload.CommandDisable
+	EventPreloadRuleSetUpdated                             = "Preload.ruleSetUpdated"
+	EventPreloadRuleSetRemoved                             = "Preload.ruleSetRemoved"
 	CommandProfilerDisable                                 = profiler.CommandDisable
 	CommandProfilerEnable                                  = profiler.CommandEnable
 	CommandProfilerGetBestEffortCoverage                   = profiler.CommandGetBestEffortCoverage
@@ -1448,6 +1461,21 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 	case EventDebuggerScriptParsed:
 		v = new(debugger.EventScriptParsed)
 
+	case CommandDeviceAccessEnable:
+		return emptyVal, nil
+
+	case CommandDeviceAccessDisable:
+		return emptyVal, nil
+
+	case CommandDeviceAccessSelectPrompt:
+		return emptyVal, nil
+
+	case CommandDeviceAccessCancelPrompt:
+		return emptyVal, nil
+
+	case EventDeviceAccessDeviceRequestPrompted:
+		v = new(deviceaccess.EventDeviceRequestPrompted)
+
 	case CommandDeviceOrientationClearDeviceOrientationOverride:
 		return emptyVal, nil
 
@@ -2105,9 +2133,6 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 	case CommandPageGetInstallabilityErrors:
 		v = new(page.GetInstallabilityErrorsReturns)
 
-	case CommandPageGetManifestIcons:
-		v = new(page.GetManifestIconsReturns)
-
 	case CommandPageGetAppID:
 		v = new(page.GetAppIDReturns)
 
@@ -2210,6 +2235,9 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 	case CommandPageSetSPCTransactionMode:
 		return emptyVal, nil
 
+	case CommandPageSetRPHRegistrationMode:
+		return emptyVal, nil
+
 	case CommandPageGenerateTestReport:
 		return emptyVal, nil
 
@@ -2270,6 +2298,12 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 	case EventPagePrerenderAttemptCompleted:
 		v = new(page.EventPrerenderAttemptCompleted)
 
+	case EventPagePrefetchStatusUpdated:
+		v = new(page.EventPrefetchStatusUpdated)
+
+	case EventPagePrerenderStatusUpdated:
+		v = new(page.EventPrerenderStatusUpdated)
+
 	case EventPageLoadEventFired:
 		v = new(page.EventLoadEventFired)
 
@@ -2305,6 +2339,18 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 
 	case EventPerformanceTimelineTimelineEventAdded:
 		v = new(performancetimeline.EventTimelineEventAdded)
+
+	case CommandPreloadEnable:
+		return emptyVal, nil
+
+	case CommandPreloadDisable:
+		return emptyVal, nil
+
+	case EventPreloadRuleSetUpdated:
+		v = new(preload.EventRuleSetUpdated)
+
+	case EventPreloadRuleSetRemoved:
+		v = new(preload.EventRuleSetRemoved)
 
 	case CommandProfilerDisable:
 		return emptyVal, nil

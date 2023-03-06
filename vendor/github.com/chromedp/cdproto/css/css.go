@@ -604,14 +604,14 @@ func TakeComputedStyleUpdates() *TakeComputedStyleUpdatesParams {
 
 // TakeComputedStyleUpdatesReturns return values.
 type TakeComputedStyleUpdatesReturns struct {
-	NodeIDs []cdp.NodeID `json:"nodeIds,omitempty"` // The list of node Ids that have their tracked computed styles updated
+	NodeIDs []cdp.NodeID `json:"nodeIds,omitempty"` // The list of node Ids that have their tracked computed styles updated.
 }
 
 // Do executes CSS.takeComputedStyleUpdates against the provided context.
 //
 // returns:
 //
-//	nodeIDs - The list of node Ids that have their tracked computed styles updated
+//	nodeIDs - The list of node Ids that have their tracked computed styles updated.
 func (p *TakeComputedStyleUpdatesParams) Do(ctx context.Context) (nodeIDs []cdp.NodeID, err error) {
 	// execute
 	var res TakeComputedStyleUpdatesReturns

@@ -375,43 +375,6 @@ func (p *GetInstallabilityErrorsParams) Do(ctx context.Context) (installabilityE
 	return res.InstallabilityErrors, nil
 }
 
-// GetManifestIconsParams [no description].
-type GetManifestIconsParams struct{}
-
-// GetManifestIcons [no description].
-//
-// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#method-getManifestIcons
-func GetManifestIcons() *GetManifestIconsParams {
-	return &GetManifestIconsParams{}
-}
-
-// GetManifestIconsReturns return values.
-type GetManifestIconsReturns struct {
-	PrimaryIcon string `json:"primaryIcon,omitempty"`
-}
-
-// Do executes Page.getManifestIcons against the provided context.
-//
-// returns:
-//
-//	primaryIcon
-func (p *GetManifestIconsParams) Do(ctx context.Context) (primaryIcon []byte, err error) {
-	// execute
-	var res GetManifestIconsReturns
-	err = cdp.Execute(ctx, CommandGetManifestIcons, nil, &res)
-	if err != nil {
-		return nil, err
-	}
-
-	// decode
-	var dec []byte
-	dec, err = base64.StdEncoding.DecodeString(res.PrimaryIcon)
-	if err != nil {
-		return nil, err
-	}
-	return dec, nil
-}
-
 // GetAppIDParams returns the unique (PWA) app id. Only returns values if the
 // feature flag 'WebAppEnableManifestId' is enabled.
 type GetAppIDParams struct{}
@@ -1580,7 +1543,7 @@ func (p *ClearCompilationCacheParams) Do(ctx context.Context) (err error) {
 // transaction mode.
 // https://w3c.github.io/secure-payment-confirmation/#sctn-automation-set-spc-transaction-mode.
 type SetSPCTransactionModeParams struct {
-	Mode SetSPCTransactionModeMode `json:"mode"`
+	Mode AutoResponseMode `json:"mode"`
 }
 
 // SetSPCTransactionMode sets the Secure Payment Confirmation transaction
@@ -1592,7 +1555,7 @@ type SetSPCTransactionModeParams struct {
 // parameters:
 //
 //	mode
-func SetSPCTransactionMode(mode SetSPCTransactionModeMode) *SetSPCTransactionModeParams {
+func SetSPCTransactionMode(mode AutoResponseMode) *SetSPCTransactionModeParams {
 	return &SetSPCTransactionModeParams{
 		Mode: mode,
 	}
@@ -1601,6 +1564,31 @@ func SetSPCTransactionMode(mode SetSPCTransactionModeMode) *SetSPCTransactionMod
 // Do executes Page.setSPCTransactionMode against the provided context.
 func (p *SetSPCTransactionModeParams) Do(ctx context.Context) (err error) {
 	return cdp.Execute(ctx, CommandSetSPCTransactionMode, p, nil)
+}
+
+// SetRPHRegistrationModeParams extensions for Custom Handlers API:
+// https://html.spec.whatwg.org/multipage/system-state.html#rph-automation.
+type SetRPHRegistrationModeParams struct {
+	Mode AutoResponseMode `json:"mode"`
+}
+
+// SetRPHRegistrationMode extensions for Custom Handlers API:
+// https://html.spec.whatwg.org/multipage/system-state.html#rph-automation.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#method-setRPHRegistrationMode
+//
+// parameters:
+//
+//	mode
+func SetRPHRegistrationMode(mode AutoResponseMode) *SetRPHRegistrationModeParams {
+	return &SetRPHRegistrationModeParams{
+		Mode: mode,
+	}
+}
+
+// Do executes Page.setRPHRegistrationMode against the provided context.
+func (p *SetRPHRegistrationModeParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandSetRPHRegistrationMode, p, nil)
 }
 
 // GenerateTestReportParams generates a report for testing.
@@ -1690,7 +1678,6 @@ const (
 	CommandEnable                              = "Page.enable"
 	CommandGetAppManifest                      = "Page.getAppManifest"
 	CommandGetInstallabilityErrors             = "Page.getInstallabilityErrors"
-	CommandGetManifestIcons                    = "Page.getManifestIcons"
 	CommandGetAppID                            = "Page.getAppId"
 	CommandGetAdScriptID                       = "Page.getAdScriptId"
 	CommandGetFrameTree                        = "Page.getFrameTree"
@@ -1725,6 +1712,7 @@ const (
 	CommandAddCompilationCache                 = "Page.addCompilationCache"
 	CommandClearCompilationCache               = "Page.clearCompilationCache"
 	CommandSetSPCTransactionMode               = "Page.setSPCTransactionMode"
+	CommandSetRPHRegistrationMode              = "Page.setRPHRegistrationMode"
 	CommandGenerateTestReport                  = "Page.generateTestReport"
 	CommandWaitForDebugger                     = "Page.waitForDebugger"
 	CommandSetInterceptFileChooserDialog       = "Page.setInterceptFileChooserDialog"

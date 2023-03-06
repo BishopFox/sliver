@@ -887,8 +887,8 @@ func (t *ServiceWorkerResponseSource) UnmarshalJSON(buf []byte) error {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Network#type-TrustTokenParams
 type TrustTokenParams struct {
-	Type          TrustTokenOperationType       `json:"type"`
-	RefreshPolicy TrustTokenParamsRefreshPolicy `json:"refreshPolicy"`     // Only set for "token-redemption" type and determine whether to request a fresh SRR or use a still valid cached SRR.
+	Operation     TrustTokenOperationType       `json:"operation"`
+	RefreshPolicy TrustTokenParamsRefreshPolicy `json:"refreshPolicy"`     // Only set for "token-redemption" operation and determine whether to request a fresh SRR or use a still valid cached SRR.
 	Issuers       []string                      `json:"issuers,omitempty"` // Origins of issuers from whom to request tokens or redemption records.
 }
 
@@ -1978,8 +1978,8 @@ func (t *ReferrerPolicy) UnmarshalJSON(buf []byte) error {
 	return easyjson.Unmarshal(buf, t)
 }
 
-// TrustTokenParamsRefreshPolicy only set for "token-redemption" type and
-// determine whether to request a fresh SRR or use a still valid cached SRR.
+// TrustTokenParamsRefreshPolicy only set for "token-redemption" operation
+// and determine whether to request a fresh SRR or use a still valid cached SRR.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Network#type-TrustTokenParams
 type TrustTokenParamsRefreshPolicy string

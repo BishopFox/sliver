@@ -102,8 +102,8 @@ type UserAgentBrandVersion struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Emulation#type-UserAgentMetadata
 type UserAgentMetadata struct {
-	Brands          []*UserAgentBrandVersion `json:"brands,omitempty"`
-	FullVersionList []*UserAgentBrandVersion `json:"fullVersionList,omitempty"`
+	Brands          []*UserAgentBrandVersion `json:"brands,omitempty"`          // Brands appearing in Sec-CH-UA.
+	FullVersionList []*UserAgentBrandVersion `json:"fullVersionList,omitempty"` // Brands appearing in Sec-CH-UA-Full-Version-List.
 	Platform        string                   `json:"platform"`
 	PlatformVersion string                   `json:"platformVersion"`
 	Architecture    string                   `json:"architecture"`
@@ -301,7 +301,9 @@ func (t *SetEmitTouchEventsForMouseConfiguration) UnmarshalJSON(buf []byte) erro
 	return easyjson.Unmarshal(buf, t)
 }
 
-// SetEmulatedVisionDeficiencyType vision deficiency to emulate.
+// SetEmulatedVisionDeficiencyType vision deficiency to emulate. Order:
+// best-effort emulations come first, followed by any physiologically accurate
+// emulations for medically recognized color vision deficiencies.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Emulation#method-setEmulatedVisionDeficiency
 type SetEmulatedVisionDeficiencyType string
@@ -313,12 +315,13 @@ func (t SetEmulatedVisionDeficiencyType) String() string {
 
 // SetEmulatedVisionDeficiencyType values.
 const (
-	SetEmulatedVisionDeficiencyTypeNone          SetEmulatedVisionDeficiencyType = "none"
-	SetEmulatedVisionDeficiencyTypeAchromatopsia SetEmulatedVisionDeficiencyType = "achromatopsia"
-	SetEmulatedVisionDeficiencyTypeBlurredVision SetEmulatedVisionDeficiencyType = "blurredVision"
-	SetEmulatedVisionDeficiencyTypeDeuteranopia  SetEmulatedVisionDeficiencyType = "deuteranopia"
-	SetEmulatedVisionDeficiencyTypeProtanopia    SetEmulatedVisionDeficiencyType = "protanopia"
-	SetEmulatedVisionDeficiencyTypeTritanopia    SetEmulatedVisionDeficiencyType = "tritanopia"
+	SetEmulatedVisionDeficiencyTypeNone            SetEmulatedVisionDeficiencyType = "none"
+	SetEmulatedVisionDeficiencyTypeBlurredVision   SetEmulatedVisionDeficiencyType = "blurredVision"
+	SetEmulatedVisionDeficiencyTypeReducedContrast SetEmulatedVisionDeficiencyType = "reducedContrast"
+	SetEmulatedVisionDeficiencyTypeAchromatopsia   SetEmulatedVisionDeficiencyType = "achromatopsia"
+	SetEmulatedVisionDeficiencyTypeDeuteranopia    SetEmulatedVisionDeficiencyType = "deuteranopia"
+	SetEmulatedVisionDeficiencyTypeProtanopia      SetEmulatedVisionDeficiencyType = "protanopia"
+	SetEmulatedVisionDeficiencyTypeTritanopia      SetEmulatedVisionDeficiencyType = "tritanopia"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -337,10 +340,12 @@ func (t *SetEmulatedVisionDeficiencyType) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	switch SetEmulatedVisionDeficiencyType(v) {
 	case SetEmulatedVisionDeficiencyTypeNone:
 		*t = SetEmulatedVisionDeficiencyTypeNone
-	case SetEmulatedVisionDeficiencyTypeAchromatopsia:
-		*t = SetEmulatedVisionDeficiencyTypeAchromatopsia
 	case SetEmulatedVisionDeficiencyTypeBlurredVision:
 		*t = SetEmulatedVisionDeficiencyTypeBlurredVision
+	case SetEmulatedVisionDeficiencyTypeReducedContrast:
+		*t = SetEmulatedVisionDeficiencyTypeReducedContrast
+	case SetEmulatedVisionDeficiencyTypeAchromatopsia:
+		*t = SetEmulatedVisionDeficiencyTypeAchromatopsia
 	case SetEmulatedVisionDeficiencyTypeDeuteranopia:
 		*t = SetEmulatedVisionDeficiencyTypeDeuteranopia
 	case SetEmulatedVisionDeficiencyTypeProtanopia:
