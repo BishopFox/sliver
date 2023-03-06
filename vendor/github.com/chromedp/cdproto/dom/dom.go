@@ -501,14 +501,15 @@ func (p *GetContentQuadsParams) Do(ctx context.Context) (quads []Quad, err error
 }
 
 // GetDocumentParams returns the root DOM node (and optionally the subtree)
-// to the caller.
+// to the caller. Implicitly enables the DOM domain events for the current
+// target.
 type GetDocumentParams struct {
 	Depth  int64 `json:"depth,omitempty"`  // The maximum depth at which children should be retrieved, defaults to 1. Use -1 for the entire subtree or provide an integer larger than 0.
 	Pierce bool  `json:"pierce,omitempty"` // Whether or not iframes and shadow roots should be traversed when returning the subtree (default is false).
 }
 
 // GetDocument returns the root DOM node (and optionally the subtree) to the
-// caller.
+// caller. Implicitly enables the DOM domain events for the current target.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/DOM#method-getDocument
 //

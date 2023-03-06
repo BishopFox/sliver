@@ -1824,7 +1824,7 @@ func easyjsonC5a4559bDecodeGithubComChromedpCdprotoAudits17(in *jlexer.Lexer, ou
 				(*out.SourceCodeLocation).UnmarshalEasyJSON(in)
 			}
 		case "type":
-			(out.Type).UnmarshalEasyJSON(in)
+			out.Type = string(in.String())
 		default:
 			in.SkipRecursive()
 		}
@@ -1862,7 +1862,7 @@ func easyjsonC5a4559bEncodeGithubComChromedpCdprotoAudits17(out *jwriter.Writer,
 	{
 		const prefix string = ",\"type\":"
 		out.RawString(prefix)
-		(in.Type).MarshalEasyJSON(out)
+		out.String(string(in.Type))
 	}
 	out.RawByte('}')
 }

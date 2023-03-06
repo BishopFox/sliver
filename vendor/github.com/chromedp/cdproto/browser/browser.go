@@ -319,7 +319,7 @@ func (p *GetBrowserCommandLineParams) Do(ctx context.Context) (arguments []strin
 // GetHistogramsParams get Chrome histograms.
 type GetHistogramsParams struct {
 	Query string `json:"query,omitempty"` // Requested substring in name. Only histograms which have query as a substring in their name are extracted. An empty or absent query returns all histograms.
-	Delta bool   `json:"delta,omitempty"` // If true, retrieve delta since last call.
+	Delta bool   `json:"delta,omitempty"` // If true, retrieve delta since last delta call.
 }
 
 // GetHistograms get Chrome histograms.
@@ -339,7 +339,7 @@ func (p GetHistogramsParams) WithQuery(query string) *GetHistogramsParams {
 	return &p
 }
 
-// WithDelta if true, retrieve delta since last call.
+// WithDelta if true, retrieve delta since last delta call.
 func (p GetHistogramsParams) WithDelta(delta bool) *GetHistogramsParams {
 	p.Delta = delta
 	return &p
@@ -369,7 +369,7 @@ func (p *GetHistogramsParams) Do(ctx context.Context) (histograms []*Histogram, 
 // GetHistogramParams get a Chrome histogram by name.
 type GetHistogramParams struct {
 	Name  string `json:"name"`            // Requested histogram name.
-	Delta bool   `json:"delta,omitempty"` // If true, retrieve delta since last call.
+	Delta bool   `json:"delta,omitempty"` // If true, retrieve delta since last delta call.
 }
 
 // GetHistogram get a Chrome histogram by name.
@@ -385,7 +385,7 @@ func GetHistogram(name string) *GetHistogramParams {
 	}
 }
 
-// WithDelta if true, retrieve delta since last call.
+// WithDelta if true, retrieve delta since last delta call.
 func (p GetHistogramParams) WithDelta(delta bool) *GetHistogramParams {
 	p.Delta = delta
 	return &p

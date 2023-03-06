@@ -416,8 +416,8 @@ func easyjsonC5a4559bDecodeGithubComChromedpCdprotoNetwork3(in *jlexer.Lexer, ou
 			continue
 		}
 		switch key {
-		case "type":
-			(out.Type).UnmarshalEasyJSON(in)
+		case "operation":
+			(out.Operation).UnmarshalEasyJSON(in)
 		case "refreshPolicy":
 			(out.RefreshPolicy).UnmarshalEasyJSON(in)
 		case "issuers":
@@ -458,9 +458,9 @@ func easyjsonC5a4559bEncodeGithubComChromedpCdprotoNetwork3(out *jwriter.Writer,
 	first := true
 	_ = first
 	{
-		const prefix string = ",\"type\":"
+		const prefix string = ",\"operation\":"
 		out.RawString(prefix[1:])
-		(in.Type).MarshalEasyJSON(out)
+		(in.Operation).MarshalEasyJSON(out)
 	}
 	{
 		const prefix string = ",\"refreshPolicy\":"
@@ -6859,6 +6859,10 @@ func easyjsonC5a4559bDecodeGithubComChromedpCdprotoNetwork64(in *jlexer.Lexer, o
 			out.StatusCode = int64(in.Int64())
 		case "headersText":
 			out.HeadersText = string(in.String())
+		case "cookiePartitionKey":
+			out.CookiePartitionKey = string(in.String())
+		case "cookiePartitionKeyOpaque":
+			out.CookiePartitionKeyOpaque = bool(in.Bool())
 		default:
 			in.SkipRecursive()
 		}
@@ -6939,6 +6943,16 @@ func easyjsonC5a4559bEncodeGithubComChromedpCdprotoNetwork64(out *jwriter.Writer
 		const prefix string = ",\"headersText\":"
 		out.RawString(prefix)
 		out.String(string(in.HeadersText))
+	}
+	if in.CookiePartitionKey != "" {
+		const prefix string = ",\"cookiePartitionKey\":"
+		out.RawString(prefix)
+		out.String(string(in.CookiePartitionKey))
+	}
+	if in.CookiePartitionKeyOpaque {
+		const prefix string = ",\"cookiePartitionKeyOpaque\":"
+		out.RawString(prefix)
+		out.Bool(bool(in.CookiePartitionKeyOpaque))
 	}
 	out.RawByte('}')
 }
