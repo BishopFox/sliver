@@ -602,10 +602,11 @@ func (t SetScriptSourceStatus) String() string {
 
 // SetScriptSourceStatus values.
 const (
-	SetScriptSourceStatusOk                       SetScriptSourceStatus = "Ok"
-	SetScriptSourceStatusCompileError             SetScriptSourceStatus = "CompileError"
-	SetScriptSourceStatusBlockedByActiveGenerator SetScriptSourceStatus = "BlockedByActiveGenerator"
-	SetScriptSourceStatusBlockedByActiveFunction  SetScriptSourceStatus = "BlockedByActiveFunction"
+	SetScriptSourceStatusOk                              SetScriptSourceStatus = "Ok"
+	SetScriptSourceStatusCompileError                    SetScriptSourceStatus = "CompileError"
+	SetScriptSourceStatusBlockedByActiveGenerator        SetScriptSourceStatus = "BlockedByActiveGenerator"
+	SetScriptSourceStatusBlockedByActiveFunction         SetScriptSourceStatus = "BlockedByActiveFunction"
+	SetScriptSourceStatusBlockedByTopLevelEsModuleChange SetScriptSourceStatus = "BlockedByTopLevelEsModuleChange"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -630,6 +631,8 @@ func (t *SetScriptSourceStatus) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = SetScriptSourceStatusBlockedByActiveGenerator
 	case SetScriptSourceStatusBlockedByActiveFunction:
 		*t = SetScriptSourceStatusBlockedByActiveFunction
+	case SetScriptSourceStatusBlockedByTopLevelEsModuleChange:
+		*t = SetScriptSourceStatusBlockedByTopLevelEsModuleChange
 
 	default:
 		in.AddError(fmt.Errorf("unknown SetScriptSourceStatus value: %v", v))

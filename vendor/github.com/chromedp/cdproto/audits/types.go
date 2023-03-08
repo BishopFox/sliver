@@ -919,8 +919,16 @@ func (t GenericIssueErrorType) String() string {
 
 // GenericIssueErrorType values.
 const (
-	GenericIssueErrorTypeCrossOriginPortalPostMessageError GenericIssueErrorType = "CrossOriginPortalPostMessageError"
-	GenericIssueErrorTypeFormLabelForNameError             GenericIssueErrorType = "FormLabelForNameError"
+	GenericIssueErrorTypeCrossOriginPortalPostMessageError                          GenericIssueErrorType = "CrossOriginPortalPostMessageError"
+	GenericIssueErrorTypeFormLabelForNameError                                      GenericIssueErrorType = "FormLabelForNameError"
+	GenericIssueErrorTypeFormDuplicateIDForInputError                               GenericIssueErrorType = "FormDuplicateIdForInputError"
+	GenericIssueErrorTypeFormInputWithNoLabelError                                  GenericIssueErrorType = "FormInputWithNoLabelError"
+	GenericIssueErrorTypeFormAutocompleteAttributeEmptyError                        GenericIssueErrorType = "FormAutocompleteAttributeEmptyError"
+	GenericIssueErrorTypeFormEmptyIDAndNameAttributesForInputError                  GenericIssueErrorType = "FormEmptyIdAndNameAttributesForInputError"
+	GenericIssueErrorTypeFormAriaLabelledByToNonExistingID                          GenericIssueErrorType = "FormAriaLabelledByToNonExistingId"
+	GenericIssueErrorTypeFormInputAssignedAutocompleteValueToIDOrNameAttributeError GenericIssueErrorType = "FormInputAssignedAutocompleteValueToIdOrNameAttributeError"
+	GenericIssueErrorTypeFormLabelHasNeitherForNorNestedInput                       GenericIssueErrorType = "FormLabelHasNeitherForNorNestedInput"
+	GenericIssueErrorTypeFormLabelForMatchesNonExistingIDError                      GenericIssueErrorType = "FormLabelForMatchesNonExistingIdError"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -941,6 +949,22 @@ func (t *GenericIssueErrorType) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = GenericIssueErrorTypeCrossOriginPortalPostMessageError
 	case GenericIssueErrorTypeFormLabelForNameError:
 		*t = GenericIssueErrorTypeFormLabelForNameError
+	case GenericIssueErrorTypeFormDuplicateIDForInputError:
+		*t = GenericIssueErrorTypeFormDuplicateIDForInputError
+	case GenericIssueErrorTypeFormInputWithNoLabelError:
+		*t = GenericIssueErrorTypeFormInputWithNoLabelError
+	case GenericIssueErrorTypeFormAutocompleteAttributeEmptyError:
+		*t = GenericIssueErrorTypeFormAutocompleteAttributeEmptyError
+	case GenericIssueErrorTypeFormEmptyIDAndNameAttributesForInputError:
+		*t = GenericIssueErrorTypeFormEmptyIDAndNameAttributesForInputError
+	case GenericIssueErrorTypeFormAriaLabelledByToNonExistingID:
+		*t = GenericIssueErrorTypeFormAriaLabelledByToNonExistingID
+	case GenericIssueErrorTypeFormInputAssignedAutocompleteValueToIDOrNameAttributeError:
+		*t = GenericIssueErrorTypeFormInputAssignedAutocompleteValueToIDOrNameAttributeError
+	case GenericIssueErrorTypeFormLabelHasNeitherForNorNestedInput:
+		*t = GenericIssueErrorTypeFormLabelHasNeitherForNorNestedInput
+	case GenericIssueErrorTypeFormLabelForMatchesNonExistingIDError:
+		*t = GenericIssueErrorTypeFormLabelForMatchesNonExistingIDError
 
 	default:
 		in.AddError(fmt.Errorf("unknown GenericIssueErrorType value: %v", v))
@@ -962,219 +986,15 @@ type GenericIssueDetails struct {
 	ViolatingNodeID cdp.BackendNodeID     `json:"violatingNodeId,omitempty"`
 }
 
-// DeprecationIssueType [no description].
-//
-// See: https://chromedevtools.github.io/devtools-protocol/tot/Audits#type-DeprecationIssueType
-type DeprecationIssueType string
-
-// String returns the DeprecationIssueType as string value.
-func (t DeprecationIssueType) String() string {
-	return string(t)
-}
-
-// DeprecationIssueType values.
-const (
-	DeprecationIssueTypeAuthorizationCoveredByWildcard                            DeprecationIssueType = "AuthorizationCoveredByWildcard"
-	DeprecationIssueTypeCanRequestURLHTTPContainingNewline                        DeprecationIssueType = "CanRequestURLHTTPContainingNewline"
-	DeprecationIssueTypeChromeLoadTimesConnectionInfo                             DeprecationIssueType = "ChromeLoadTimesConnectionInfo"
-	DeprecationIssueTypeChromeLoadTimesFirstPaintAfterLoadTime                    DeprecationIssueType = "ChromeLoadTimesFirstPaintAfterLoadTime"
-	DeprecationIssueTypeChromeLoadTimesWasAlternateProtocolAvailable              DeprecationIssueType = "ChromeLoadTimesWasAlternateProtocolAvailable"
-	DeprecationIssueTypeCookieWithTruncatingChar                                  DeprecationIssueType = "CookieWithTruncatingChar"
-	DeprecationIssueTypeCrossOriginAccessBasedOnDocumentDomain                    DeprecationIssueType = "CrossOriginAccessBasedOnDocumentDomain"
-	DeprecationIssueTypeCrossOriginWindowAlert                                    DeprecationIssueType = "CrossOriginWindowAlert"
-	DeprecationIssueTypeCrossOriginWindowConfirm                                  DeprecationIssueType = "CrossOriginWindowConfirm"
-	DeprecationIssueTypeCSSSelectorInternalMediaControlsOverlayCastButton         DeprecationIssueType = "CSSSelectorInternalMediaControlsOverlayCastButton"
-	DeprecationIssueTypeDeprecationExample                                        DeprecationIssueType = "DeprecationExample"
-	DeprecationIssueTypeDocumentDomainSettingWithoutOriginAgentClusterHeader      DeprecationIssueType = "DocumentDomainSettingWithoutOriginAgentClusterHeader"
-	DeprecationIssueTypeEventPath                                                 DeprecationIssueType = "EventPath"
-	DeprecationIssueTypeExpectCTHeader                                            DeprecationIssueType = "ExpectCTHeader"
-	DeprecationIssueTypeGeolocationInsecureOrigin                                 DeprecationIssueType = "GeolocationInsecureOrigin"
-	DeprecationIssueTypeGeolocationInsecureOriginDeprecatedNotRemoved             DeprecationIssueType = "GeolocationInsecureOriginDeprecatedNotRemoved"
-	DeprecationIssueTypeGetUserMediaInsecureOrigin                                DeprecationIssueType = "GetUserMediaInsecureOrigin"
-	DeprecationIssueTypeHostCandidateAttributeGetter                              DeprecationIssueType = "HostCandidateAttributeGetter"
-	DeprecationIssueTypeIdentityInCanMakePaymentEvent                             DeprecationIssueType = "IdentityInCanMakePaymentEvent"
-	DeprecationIssueTypeInsecurePrivateNetworkSubresourceRequest                  DeprecationIssueType = "InsecurePrivateNetworkSubresourceRequest"
-	DeprecationIssueTypeLocalCSSFileExtensionRejected                             DeprecationIssueType = "LocalCSSFileExtensionRejected"
-	DeprecationIssueTypeMediaSourceAbortRemove                                    DeprecationIssueType = "MediaSourceAbortRemove"
-	DeprecationIssueTypeMediaSourceDurationTruncatingBuffered                     DeprecationIssueType = "MediaSourceDurationTruncatingBuffered"
-	DeprecationIssueTypeNoSysexWebMIDIWithoutPermission                           DeprecationIssueType = "NoSysexWebMIDIWithoutPermission"
-	DeprecationIssueTypeNotificationInsecureOrigin                                DeprecationIssueType = "NotificationInsecureOrigin"
-	DeprecationIssueTypeNotificationPermissionRequestedIframe                     DeprecationIssueType = "NotificationPermissionRequestedIframe"
-	DeprecationIssueTypeObsoleteWebRtcCipherSuite                                 DeprecationIssueType = "ObsoleteWebRtcCipherSuite"
-	DeprecationIssueTypeOpenWebDatabaseInsecureContext                            DeprecationIssueType = "OpenWebDatabaseInsecureContext"
-	DeprecationIssueTypeOverflowVisibleOnReplacedElement                          DeprecationIssueType = "OverflowVisibleOnReplacedElement"
-	DeprecationIssueTypePaymentInstruments                                        DeprecationIssueType = "PaymentInstruments"
-	DeprecationIssueTypePaymentRequestCSPViolation                                DeprecationIssueType = "PaymentRequestCSPViolation"
-	DeprecationIssueTypePersistentQuotaType                                       DeprecationIssueType = "PersistentQuotaType"
-	DeprecationIssueTypePictureSourceSrc                                          DeprecationIssueType = "PictureSourceSrc"
-	DeprecationIssueTypePrefixedCancelAnimationFrame                              DeprecationIssueType = "PrefixedCancelAnimationFrame"
-	DeprecationIssueTypePrefixedRequestAnimationFrame                             DeprecationIssueType = "PrefixedRequestAnimationFrame"
-	DeprecationIssueTypePrefixedStorageInfo                                       DeprecationIssueType = "PrefixedStorageInfo"
-	DeprecationIssueTypePrefixedVideoDisplayingFullscreen                         DeprecationIssueType = "PrefixedVideoDisplayingFullscreen"
-	DeprecationIssueTypePrefixedVideoEnterFullscreen                              DeprecationIssueType = "PrefixedVideoEnterFullscreen"
-	DeprecationIssueTypePrefixedVideoEnterFullScreen                              DeprecationIssueType = "PrefixedVideoEnterFullScreen"
-	DeprecationIssueTypePrefixedVideoExitFullscreen                               DeprecationIssueType = "PrefixedVideoExitFullscreen"
-	DeprecationIssueTypePrefixedVideoExitFullScreen                               DeprecationIssueType = "PrefixedVideoExitFullScreen"
-	DeprecationIssueTypePrefixedVideoSupportsFullscreen                           DeprecationIssueType = "PrefixedVideoSupportsFullscreen"
-	DeprecationIssueTypeRangeExpand                                               DeprecationIssueType = "RangeExpand"
-	DeprecationIssueTypeRequestedSubresourceWithEmbeddedCredentials               DeprecationIssueType = "RequestedSubresourceWithEmbeddedCredentials"
-	DeprecationIssueTypeRTCConstraintEnableDtlsSrtpFalse                          DeprecationIssueType = "RTCConstraintEnableDtlsSrtpFalse"
-	DeprecationIssueTypeRTCConstraintEnableDtlsSrtpTrue                           DeprecationIssueType = "RTCConstraintEnableDtlsSrtpTrue"
-	DeprecationIssueTypeRTCPeerConnectionComplexPlanBSdpUsingDefaultSdpSemantics  DeprecationIssueType = "RTCPeerConnectionComplexPlanBSdpUsingDefaultSdpSemantics"
-	DeprecationIssueTypeRTCPeerConnectionSdpSemanticsPlanB                        DeprecationIssueType = "RTCPeerConnectionSdpSemanticsPlanB"
-	DeprecationIssueTypeRtcpMuxPolicyNegotiate                                    DeprecationIssueType = "RtcpMuxPolicyNegotiate"
-	DeprecationIssueTypeSharedArrayBufferConstructedWithoutIsolation              DeprecationIssueType = "SharedArrayBufferConstructedWithoutIsolation"
-	DeprecationIssueTypeTextToSpeechDisallowedByAutoplay                          DeprecationIssueType = "TextToSpeech_DisallowedByAutoplay"
-	DeprecationIssueTypeV8sharedArrayBufferConstructedInExtensionWithoutIsolation DeprecationIssueType = "V8SharedArrayBufferConstructedInExtensionWithoutIsolation"
-	DeprecationIssueTypeXHRJSONEncodingDetection                                  DeprecationIssueType = "XHRJSONEncodingDetection"
-	DeprecationIssueTypeXMLHTTPRequestSynchronousInNonWorkerOutsideBeforeUnload   DeprecationIssueType = "XMLHttpRequestSynchronousInNonWorkerOutsideBeforeUnload"
-	DeprecationIssueTypeXRSupportsSession                                         DeprecationIssueType = "XRSupportsSession"
-)
-
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t DeprecationIssueType) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
-
-// MarshalJSON satisfies json.Marshaler.
-func (t DeprecationIssueType) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *DeprecationIssueType) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch DeprecationIssueType(v) {
-	case DeprecationIssueTypeAuthorizationCoveredByWildcard:
-		*t = DeprecationIssueTypeAuthorizationCoveredByWildcard
-	case DeprecationIssueTypeCanRequestURLHTTPContainingNewline:
-		*t = DeprecationIssueTypeCanRequestURLHTTPContainingNewline
-	case DeprecationIssueTypeChromeLoadTimesConnectionInfo:
-		*t = DeprecationIssueTypeChromeLoadTimesConnectionInfo
-	case DeprecationIssueTypeChromeLoadTimesFirstPaintAfterLoadTime:
-		*t = DeprecationIssueTypeChromeLoadTimesFirstPaintAfterLoadTime
-	case DeprecationIssueTypeChromeLoadTimesWasAlternateProtocolAvailable:
-		*t = DeprecationIssueTypeChromeLoadTimesWasAlternateProtocolAvailable
-	case DeprecationIssueTypeCookieWithTruncatingChar:
-		*t = DeprecationIssueTypeCookieWithTruncatingChar
-	case DeprecationIssueTypeCrossOriginAccessBasedOnDocumentDomain:
-		*t = DeprecationIssueTypeCrossOriginAccessBasedOnDocumentDomain
-	case DeprecationIssueTypeCrossOriginWindowAlert:
-		*t = DeprecationIssueTypeCrossOriginWindowAlert
-	case DeprecationIssueTypeCrossOriginWindowConfirm:
-		*t = DeprecationIssueTypeCrossOriginWindowConfirm
-	case DeprecationIssueTypeCSSSelectorInternalMediaControlsOverlayCastButton:
-		*t = DeprecationIssueTypeCSSSelectorInternalMediaControlsOverlayCastButton
-	case DeprecationIssueTypeDeprecationExample:
-		*t = DeprecationIssueTypeDeprecationExample
-	case DeprecationIssueTypeDocumentDomainSettingWithoutOriginAgentClusterHeader:
-		*t = DeprecationIssueTypeDocumentDomainSettingWithoutOriginAgentClusterHeader
-	case DeprecationIssueTypeEventPath:
-		*t = DeprecationIssueTypeEventPath
-	case DeprecationIssueTypeExpectCTHeader:
-		*t = DeprecationIssueTypeExpectCTHeader
-	case DeprecationIssueTypeGeolocationInsecureOrigin:
-		*t = DeprecationIssueTypeGeolocationInsecureOrigin
-	case DeprecationIssueTypeGeolocationInsecureOriginDeprecatedNotRemoved:
-		*t = DeprecationIssueTypeGeolocationInsecureOriginDeprecatedNotRemoved
-	case DeprecationIssueTypeGetUserMediaInsecureOrigin:
-		*t = DeprecationIssueTypeGetUserMediaInsecureOrigin
-	case DeprecationIssueTypeHostCandidateAttributeGetter:
-		*t = DeprecationIssueTypeHostCandidateAttributeGetter
-	case DeprecationIssueTypeIdentityInCanMakePaymentEvent:
-		*t = DeprecationIssueTypeIdentityInCanMakePaymentEvent
-	case DeprecationIssueTypeInsecurePrivateNetworkSubresourceRequest:
-		*t = DeprecationIssueTypeInsecurePrivateNetworkSubresourceRequest
-	case DeprecationIssueTypeLocalCSSFileExtensionRejected:
-		*t = DeprecationIssueTypeLocalCSSFileExtensionRejected
-	case DeprecationIssueTypeMediaSourceAbortRemove:
-		*t = DeprecationIssueTypeMediaSourceAbortRemove
-	case DeprecationIssueTypeMediaSourceDurationTruncatingBuffered:
-		*t = DeprecationIssueTypeMediaSourceDurationTruncatingBuffered
-	case DeprecationIssueTypeNoSysexWebMIDIWithoutPermission:
-		*t = DeprecationIssueTypeNoSysexWebMIDIWithoutPermission
-	case DeprecationIssueTypeNotificationInsecureOrigin:
-		*t = DeprecationIssueTypeNotificationInsecureOrigin
-	case DeprecationIssueTypeNotificationPermissionRequestedIframe:
-		*t = DeprecationIssueTypeNotificationPermissionRequestedIframe
-	case DeprecationIssueTypeObsoleteWebRtcCipherSuite:
-		*t = DeprecationIssueTypeObsoleteWebRtcCipherSuite
-	case DeprecationIssueTypeOpenWebDatabaseInsecureContext:
-		*t = DeprecationIssueTypeOpenWebDatabaseInsecureContext
-	case DeprecationIssueTypeOverflowVisibleOnReplacedElement:
-		*t = DeprecationIssueTypeOverflowVisibleOnReplacedElement
-	case DeprecationIssueTypePaymentInstruments:
-		*t = DeprecationIssueTypePaymentInstruments
-	case DeprecationIssueTypePaymentRequestCSPViolation:
-		*t = DeprecationIssueTypePaymentRequestCSPViolation
-	case DeprecationIssueTypePersistentQuotaType:
-		*t = DeprecationIssueTypePersistentQuotaType
-	case DeprecationIssueTypePictureSourceSrc:
-		*t = DeprecationIssueTypePictureSourceSrc
-	case DeprecationIssueTypePrefixedCancelAnimationFrame:
-		*t = DeprecationIssueTypePrefixedCancelAnimationFrame
-	case DeprecationIssueTypePrefixedRequestAnimationFrame:
-		*t = DeprecationIssueTypePrefixedRequestAnimationFrame
-	case DeprecationIssueTypePrefixedStorageInfo:
-		*t = DeprecationIssueTypePrefixedStorageInfo
-	case DeprecationIssueTypePrefixedVideoDisplayingFullscreen:
-		*t = DeprecationIssueTypePrefixedVideoDisplayingFullscreen
-	case DeprecationIssueTypePrefixedVideoEnterFullscreen:
-		*t = DeprecationIssueTypePrefixedVideoEnterFullscreen
-	case DeprecationIssueTypePrefixedVideoEnterFullScreen:
-		*t = DeprecationIssueTypePrefixedVideoEnterFullScreen
-	case DeprecationIssueTypePrefixedVideoExitFullscreen:
-		*t = DeprecationIssueTypePrefixedVideoExitFullscreen
-	case DeprecationIssueTypePrefixedVideoExitFullScreen:
-		*t = DeprecationIssueTypePrefixedVideoExitFullScreen
-	case DeprecationIssueTypePrefixedVideoSupportsFullscreen:
-		*t = DeprecationIssueTypePrefixedVideoSupportsFullscreen
-	case DeprecationIssueTypeRangeExpand:
-		*t = DeprecationIssueTypeRangeExpand
-	case DeprecationIssueTypeRequestedSubresourceWithEmbeddedCredentials:
-		*t = DeprecationIssueTypeRequestedSubresourceWithEmbeddedCredentials
-	case DeprecationIssueTypeRTCConstraintEnableDtlsSrtpFalse:
-		*t = DeprecationIssueTypeRTCConstraintEnableDtlsSrtpFalse
-	case DeprecationIssueTypeRTCConstraintEnableDtlsSrtpTrue:
-		*t = DeprecationIssueTypeRTCConstraintEnableDtlsSrtpTrue
-	case DeprecationIssueTypeRTCPeerConnectionComplexPlanBSdpUsingDefaultSdpSemantics:
-		*t = DeprecationIssueTypeRTCPeerConnectionComplexPlanBSdpUsingDefaultSdpSemantics
-	case DeprecationIssueTypeRTCPeerConnectionSdpSemanticsPlanB:
-		*t = DeprecationIssueTypeRTCPeerConnectionSdpSemanticsPlanB
-	case DeprecationIssueTypeRtcpMuxPolicyNegotiate:
-		*t = DeprecationIssueTypeRtcpMuxPolicyNegotiate
-	case DeprecationIssueTypeSharedArrayBufferConstructedWithoutIsolation:
-		*t = DeprecationIssueTypeSharedArrayBufferConstructedWithoutIsolation
-	case DeprecationIssueTypeTextToSpeechDisallowedByAutoplay:
-		*t = DeprecationIssueTypeTextToSpeechDisallowedByAutoplay
-	case DeprecationIssueTypeV8sharedArrayBufferConstructedInExtensionWithoutIsolation:
-		*t = DeprecationIssueTypeV8sharedArrayBufferConstructedInExtensionWithoutIsolation
-	case DeprecationIssueTypeXHRJSONEncodingDetection:
-		*t = DeprecationIssueTypeXHRJSONEncodingDetection
-	case DeprecationIssueTypeXMLHTTPRequestSynchronousInNonWorkerOutsideBeforeUnload:
-		*t = DeprecationIssueTypeXMLHTTPRequestSynchronousInNonWorkerOutsideBeforeUnload
-	case DeprecationIssueTypeXRSupportsSession:
-		*t = DeprecationIssueTypeXRSupportsSession
-
-	default:
-		in.AddError(fmt.Errorf("unknown DeprecationIssueType value: %v", v))
-	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *DeprecationIssueType) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
-}
-
 // DeprecationIssueDetails this issue tracks information needed to print a
 // deprecation message.
 // https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/core/frame/third_party/blink/renderer/core/frame/deprecation/README.md.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Audits#type-DeprecationIssueDetails
 type DeprecationIssueDetails struct {
-	AffectedFrame      *AffectedFrame       `json:"affectedFrame,omitempty"`
-	SourceCodeLocation *SourceCodeLocation  `json:"sourceCodeLocation"`
-	Type               DeprecationIssueType `json:"type"`
+	AffectedFrame      *AffectedFrame      `json:"affectedFrame,omitempty"`
+	SourceCodeLocation *SourceCodeLocation `json:"sourceCodeLocation"`
+	Type               string              `json:"type"` // One of the deprecation names from third_party/blink/renderer/core/frame/deprecation/deprecation.json5
 }
 
 // ClientHintIssueReason [no description].
