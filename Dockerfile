@@ -1,4 +1,4 @@
-FROM golang:1.20.1
+FROM golang:1.20.2
 
 #
 # IMPORTANT: This Dockerfile is used for testing, I do not recommend deploying
