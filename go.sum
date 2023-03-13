@@ -268,8 +268,8 @@ github.com/thedevsaddam/gojsonq/v2 v2.5.2 h1:CoMVaYyKFsVj6TjU6APqAhAvC07hTI6IQen
 github.com/thedevsaddam/gojsonq/v2 v2.5.2/go.mod h1:bv6Xa7kWy82uT0LnXPE2SzGqTj33TAEeR560MdJkiXs=
 github.com/things-go/go-socks5 v0.0.3 h1:QtlIhkwDuLNCwW3wnt2uTjn1mQzpyjnwct2xdPuqroI=
 github.com/things-go/go-socks5 v0.0.3/go.mod h1:f8Zx+n8kfzyT90hXM767cP6sysAud93+t9rV90IgMcg=
-github.com/xlab/treeprint v1.1.0 h1:G/1DjNkPpfZCFt9CSh6b5/nY4VimlbHF3Rh4obvtzDk=
-github.com/xlab/treeprint v1.1.0/go.mod h1:gj5Gd3gPdKtR1ikdDK6fnFLdmIS0X30kTTuNd/WEJu0=
+github.com/xlab/treeprint v1.2.0 h1:HzHnuAF1plUN2zGlAFHbSQP2qJ0ZAD3XF5XD7OesXRQ=
+github.com/xlab/treeprint v1.2.0/go.mod h1:gj5Gd3gPdKtR1ikdDK6fnFLdmIS0X30kTTuNd/WEJu0=
 github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e h1:6SWomM8ezwUwnN3lqKxE4r7bYVwpY9514DQkwBV9IPI=
 github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e/go.mod h1:r1bHcNa22x8rrg/Kj/cDF5bX6UtZrHiQgRFvj3Mnpl8=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
