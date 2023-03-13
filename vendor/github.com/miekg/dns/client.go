@@ -106,7 +106,6 @@ func (c *Client) Dial(address string) (conn *Conn, err error) {
 }
 
 // DialContext connects to the address on the named network, with a context.Context.
-// For TLS over TCP (DoT) the context isn't used yet. This will be enabled when Go 1.18 is released.
 func (c *Client) DialContext(ctx context.Context, address string) (conn *Conn, err error) {
 	// create a new dialer with the appropriate timeout
 	var d net.Dialer
@@ -127,15 +126,11 @@ func (c *Client) DialContext(ctx context.Context, address string) (conn *Conn, e
 	if useTLS {
 		network = strings.TrimSuffix(network, "-tls")
 
-		// TODO(miekg): Enable after Go 1.18 is released, to be able to support two prev. releases.
-		/*
-			tlsDialer := tls.Dialer{
-				NetDialer: &d,
-				Config:    c.TLSConfig,
-			}
-			conn.Conn, err = tlsDialer.DialContext(ctx, network, address)
-		*/
-		conn.Conn, err = tls.DialWithDialer(&d, network, address, c.TLSConfig)
+		tlsDialer := tls.Dialer{
+			NetDialer: &d,
+			Config:    c.TLSConfig,
+		}
+		conn.Conn, err = tlsDialer.DialContext(ctx, network, address)
 	} else {
 		conn.Conn, err = d.DialContext(ctx, network, address)
 	}

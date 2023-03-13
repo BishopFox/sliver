@@ -299,8 +299,7 @@ func unpackString(msg []byte, off int) (string, int, error) {
 }
 
 func packString(s string, msg []byte, off int) (int, error) {
-	txtTmp := make([]byte, 256*4+1)
-	off, err := packTxtString(s, msg, off, txtTmp)
+	off, err := packTxtString(s, msg, off)
 	if err != nil {
 		return len(msg), err
 	}
@@ -402,8 +401,7 @@ func unpackStringTxt(msg []byte, off int) ([]string, int, error) {
 }
 
 func packStringTxt(s []string, msg []byte, off int) (int, error) {
-	txtTmp := make([]byte, 256*4+1) // If the whole string consists out of \DDD we need this many.
-	off, err := packTxt(s, msg, off, txtTmp)
+	off, err := packTxt(s, msg, off)
 	if err != nil {
 		return len(msg), err
 	}
@@ -625,7 +623,7 @@ func unpackDataSVCB(msg []byte, off int) ([]SVCBKeyValue, int, error) {
 }
 
 func packDataSVCB(pairs []SVCBKeyValue, msg []byte, off int) (int, error) {
-	pairs = append([]SVCBKeyValue(nil), pairs...)
+	pairs = cloneSlice(pairs)
 	sort.Slice(pairs, func(i, j int) bool {
 		return pairs[i].Key() < pairs[j].Key()
 	})

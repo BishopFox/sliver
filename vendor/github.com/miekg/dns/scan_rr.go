@@ -1249,7 +1249,7 @@ func (rr *IPSECKEY) parse(c *zlexer, o string) *ParseError {
 
 	rr.GatewayAddr, rr.GatewayHost, err = parseAddrHostUnion(l.token, o, rr.GatewayType)
 	if err != nil {
-		return &ParseError{"", "AMTRELAY " + err.Error(), l}
+		return &ParseError{"", "IPSECKEY " + err.Error(), l}
 	}
 
 	c.Next() // zBlank

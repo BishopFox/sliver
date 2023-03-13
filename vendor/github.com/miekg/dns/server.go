@@ -224,7 +224,7 @@ type Server struct {
 	// Maximum number of TCP queries before we close the socket. Default is maxTCPQueries (unlimited if -1).
 	MaxTCPQueries int
 	// Whether to set the SO_REUSEPORT socket option, allowing multiple listeners to be bound to a single address.
-	// It is only supported on go1.11+ and when using ListenAndServe.
+	// It is only supported on certain GOOSes and when using ListenAndServe.
 	ReusePort bool
 	// AcceptMsgFunc will check the incoming message and will reject it early in the process.
 	// By default DefaultMsgAcceptFunc will be used.
