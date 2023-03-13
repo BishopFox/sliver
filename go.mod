@@ -30,17 +30,17 @@ require (
 	github.com/lesnuages/go-winio v0.4.19
 	github.com/lesnuages/snitch v0.6.0
 	github.com/mattn/go-sqlite3 v1.14.16
-	github.com/miekg/dns v1.1.51
+	github.com/miekg/dns v1.1.52
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/pquerna/otp v1.4.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.1
 	github.com/tetratelabs/wazero v1.0.0-pre.9
-	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
-	github.com/xlab/treeprint v1.1.0
+	github.com/things-go/go-socks5 v0.0.3
+	github.com/xlab/treeprint v1.2.0
 	github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e
-	golang.org/x/crypto v0.6.0
+	golang.org/x/crypto v0.7.0
 	golang.org/x/net v0.8.0
 	golang.org/x/sys v0.6.0
 	golang.org/x/term v0.6.0
@@ -53,7 +53,7 @@ require (
 	gorm.io/driver/mysql v1.4.7
 	gorm.io/driver/postgres v1.4.8
 	gorm.io/driver/sqlite v1.4.4
-	gorm.io/gorm v1.24.5
+	gorm.io/gorm v1.24.6
 	gvisor.dev/gvisor v0.0.0-20220817001344-846276b3dbc5
 	modernc.org/sqlite v1.21.0
 )

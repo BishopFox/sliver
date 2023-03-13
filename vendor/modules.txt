@@ -324,8 +324,8 @@ github.com/mattn/go-sqlite3
 # github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 ## explicit
 github.com/mgutz/ansi
-# github.com/miekg/dns v1.1.51
-## explicit; go 1.14
+# github.com/miekg/dns v1.1.52
+## explicit; go 1.19
 github.com/miekg/dns
 # github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 ## explicit; go 1.17
@@ -388,18 +388,18 @@ github.com/tetratelabs/wazero/sys
 # github.com/thedevsaddam/gojsonq/v2 v2.5.2
 ## explicit; go 1.13
 github.com/thedevsaddam/gojsonq/v2
-# github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
-## explicit; go 1.15
+# github.com/things-go/go-socks5 v0.0.3
+## explicit; go 1.18
 github.com/things-go/go-socks5
 github.com/things-go/go-socks5/bufferpool
 github.com/things-go/go-socks5/statute
-# github.com/xlab/treeprint v1.1.0
+# github.com/xlab/treeprint v1.2.0
 ## explicit; go 1.13
 github.com/xlab/treeprint
 # github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e
 ## explicit; go 1.14
 github.com/yiya1989/sshkrb5/krb5forssh
-# golang.org/x/crypto v0.6.0
+# golang.org/x/crypto v0.7.0
 ## explicit; go 1.17
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
@@ -669,7 +669,7 @@ gorm.io/driver/postgres
 # gorm.io/driver/sqlite v1.4.4
 ## explicit; go 1.14
 gorm.io/driver/sqlite
-# gorm.io/gorm v1.24.5
+# gorm.io/gorm v1.24.6
 ## explicit; go 1.16
 gorm.io/gorm
 gorm.io/gorm/callbacks
