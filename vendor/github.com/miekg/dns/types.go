@@ -1531,7 +1531,7 @@ func (a *APLPrefix) str() string {
 // equals reports whether two APL prefixes are identical.
 func (a *APLPrefix) equals(b *APLPrefix) bool {
 	return a.Negation == b.Negation &&
-		bytes.Equal(a.Network.IP, b.Network.IP) &&
+		a.Network.IP.Equal(b.Network.IP) &&
 		bytes.Equal(a.Network.Mask, b.Network.Mask)
 }
 
@@ -1599,21 +1599,19 @@ func euiToString(eui uint64, bits int) (hex string) {
 	return
 }
 
-// copyIP returns a copy of ip.
-func copyIP(ip net.IP) net.IP {
-	p := make(net.IP, len(ip))
-	copy(p, ip)
-	return p
+// cloneSlice returns a shallow copy of s.
+func cloneSlice[E any, S ~[]E](s S) S {
+	if s == nil {
+		return nil
+	}
+	return append(S(nil), s...)
 }
 
 // copyNet returns a copy of a subnet.
 func copyNet(n net.IPNet) net.IPNet {
-	m := make(net.IPMask, len(n.Mask))
-	copy(m, n.Mask)
-
 	return net.IPNet{
-		IP:   copyIP(n.IP),
-		Mask: m,
+		IP:   cloneSlice(n.IP),
+		Mask: cloneSlice(n.Mask),
 	}
 }
 
