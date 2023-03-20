@@ -139,8 +139,8 @@ github.com/chromedp/cdproto/tethering
 github.com/chromedp/cdproto/tracing
 github.com/chromedp/cdproto/webaudio
 github.com/chromedp/cdproto/webauthn
-# github.com/chromedp/chromedp v0.8.8
-## explicit; go 1.18
+# github.com/chromedp/chromedp v0.9.1
+## explicit; go 1.16
 github.com/chromedp/chromedp
 github.com/chromedp/chromedp/device
 github.com/chromedp/chromedp/kb
