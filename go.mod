@@ -14,7 +14,7 @@ require (
 	github.com/alecthomas/chroma v0.10.0
 	github.com/cheggaaa/pb/v3 v3.1.0
 	github.com/chromedp/cdproto v0.0.0-20230220211738-2b1ec77315c9
-	github.com/chromedp/chromedp v0.8.8
+	github.com/chromedp/chromedp v0.9.1
 	github.com/desertbit/columnize v2.1.0+incompatible
 	github.com/desertbit/go-shlex v0.1.1
 	github.com/desertbit/grumble v1.1.1
