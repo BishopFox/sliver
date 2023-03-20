@@ -21,12 +21,15 @@ package extension
 import (
 	"bytes"
 	"io/fs"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
+
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
 )
 
 // makeWasmMemFS - Merge the local filesystem any provided ext files
