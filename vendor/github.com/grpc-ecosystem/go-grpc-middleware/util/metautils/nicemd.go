@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-// NiceMD is a convenience wrapper definiting extra functions on the metadata.
+// NiceMD is a convenience wrapper defining extra functions on the metadata.
 type NiceMD metadata.MD
 
 // ExtractIncoming extracts an inbound metadata from the server-side context.
@@ -39,7 +39,7 @@ func ExtractOutgoing(ctx context.Context) NiceMD {
 
 // Clone performs a *deep* copy of the metadata.MD.
 //
-// You can specify the lower-case copiedKeys to only copy certain whitelisted keys. If no keys are explicitly whitelisted
+// You can specify the lower-case copiedKeys to only copy certain allow-listed keys. If no keys are explicitly allow-listed
 // all keys get copied.
 func (m NiceMD) Clone(copiedKeys ...string) NiceMD {
 	newMd := NiceMD(metadata.Pairs())
@@ -61,7 +61,7 @@ func (m NiceMD) Clone(copiedKeys ...string) NiceMD {
 		newMd[k] = make([]string, len(vv))
 		copy(newMd[k], vv)
 	}
-	return NiceMD(newMd)
+	return newMd
 }
 
 // ToOutgoing sets the given NiceMD as a client-side context for dispatching.
