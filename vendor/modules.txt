@@ -625,13 +625,13 @@ gopkg.in/yaml.v3
 # gorm.io/driver/mysql v1.4.7
 ## explicit; go 1.14
 gorm.io/driver/mysql
-# gorm.io/driver/postgres v1.4.8
+# gorm.io/driver/postgres v1.5.0
 ## explicit; go 1.14
 gorm.io/driver/postgres
 # gorm.io/driver/sqlite v1.4.4
 ## explicit; go 1.14
 gorm.io/driver/sqlite
-# gorm.io/gorm v1.24.6
+# gorm.io/gorm v1.24.7-0.20230306060331-85eaf9eeda11
 ## explicit; go 1.16
 gorm.io/gorm
 gorm.io/gorm/callbacks
