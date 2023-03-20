@@ -174,6 +174,14 @@ func newMemorySizer(memoryLimitPages uint32, memoryCapacityFromMax bool) memoryS
 			if memoryCapacityFromMax {
 				return minPages, *maxPages, *maxPages
 			}
+			// This is an invalid value: let it propagate, we will fail later.
+			if *maxPages > wasm.MemoryLimitPages {
+				return minPages, minPages, *maxPages
+			}
+			// This is a valid value, but it goes over the run-time limit: return the limit.
+			if *maxPages > memoryLimitPages {
+				return minPages, memoryLimitPages, memoryLimitPages
+			}
 			return minPages, minPages, *maxPages
 		}
 		return minPages, minPages, memoryLimitPages

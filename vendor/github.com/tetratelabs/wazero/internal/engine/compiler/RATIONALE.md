@@ -75,11 +75,3 @@ and as of Go 1.20, these assembler functions are considered as _unsafe_ for asyn
 
 From the Go runtime point of view, the execution of runtime-generated machine codes is considered as a part of
 that trampoline function. Therefore, runtime-generated machine code is also correctly considered unsafe for async preemption.
-
-## How to achieve function calls
-
-Given that we cannot use `call` instruction at all in native code, here's how
-we achieve the function calls back and forth among Go and (compiled) Wasm
-native functions.
-
-TODO:

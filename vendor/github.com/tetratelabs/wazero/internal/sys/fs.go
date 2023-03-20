@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/tetratelabs/wazero/internal/descriptor"
 	"github.com/tetratelabs/wazero/internal/platform"
 	"github.com/tetratelabs/wazero/internal/sysfs"
 )
@@ -162,7 +163,8 @@ type FileEntry struct {
 	// FS is the filesystem associated with the pre-open.
 	FS sysfs.FS
 
-	isDirectory bool
+	// cachedStat includes fields that won't change while a file is open.
+	cachedStat *cachedStat
 
 	// File is always non-nil.
 	File fs.File
@@ -176,33 +178,58 @@ type FileEntry struct {
 	openPerm fs.FileMode
 }
 
-// IsDir returns true if the file is a directory.
-func (f *FileEntry) IsDir() bool {
-	if f.isDirectory {
-		return true
+type cachedStat struct {
+	// Ino is the file serial number, or zero if not available.
+	Ino uint64
+
+	// Type is the same as what's documented on platform.Dirent.
+	Type fs.FileMode
+}
+
+// CachedStat returns the cacheable parts of platform.Stat_t or an error if
+// they couldn't be retrieved.
+func (f *FileEntry) CachedStat() (ino uint64, fileType fs.FileMode, err error) {
+	if f.cachedStat == nil {
+		var st platform.Stat_t
+		if err = f.Stat(&st); err != nil {
+			return
+		}
+		f.cachedStat = &cachedStat{Ino: st.Ino, Type: st.Mode & fs.ModeType}
 	}
-	_, _ = f.Stat() // Maybe the file hasn't had stat yet.
-	return f.isDirectory
+	return f.cachedStat.Ino, f.cachedStat.Type, nil
 }
 
 // Stat returns the underlying stat of this file.
-func (f *FileEntry) Stat() (stat fs.FileInfo, err error) {
-	stat, err = sysfs.StatFile(f.File)
-	if err == nil && stat.IsDir() {
-		f.isDirectory = true
+func (f *FileEntry) Stat(st *platform.Stat_t) (err error) {
+	if ld, ok := f.File.(*lazyDir); ok {
+		var sf fs.File
+		if sf, err = ld.file(); err == nil {
+			err = platform.StatFile(sf, st)
+		}
+	} else {
+		err = platform.StatFile(f.File, st)
 	}
-	return stat, err
+
+	if err == nil {
+		f.cachedStat = &cachedStat{Ino: st.Ino, Type: st.Mode}
+	}
+	return
 }
 
 // ReadDir is the status of a prior fs.ReadDirFile call.
 type ReadDir struct {
-	// CountRead is the total count of files read including Entries.
+	// CountRead is the total count of files read including Dirents.
 	CountRead uint64
 
-	// Entries is the contents of the last fs.ReadDirFile call. Notably,
+	// Dirents is the contents of the last platform.Readdir call. Notably,
 	// directory listing are not rewindable, so we keep entries around in case
 	// the caller mis-estimated their buffer and needs a few still cached.
-	Entries []fs.DirEntry
+	//
+	// Note: This is wasi-specific and needs to be refactored.
+	// In wasi preview1, dot and dot-dot entries are required to exist, but the
+	// reverse is true for preview2. More importantly, preview2 holds separate
+	// stateful dir-entry-streams per file.
+	Dirents []*platform.Dirent
 }
 
 type FSContext struct {
@@ -214,6 +241,10 @@ type FSContext struct {
 	// TODO: This is unguarded, so not goroutine-safe!
 	openedFiles FileTable
 }
+
+// FileTable is an specialization of the descriptor.Table type used to map file
+// descriptors to file entries.
+type FileTable = descriptor.Table[uint32, *FileEntry]
 
 // NewFSContext creates a FSContext with stdio streams and an optional
 // pre-opened filesystem.
@@ -234,20 +265,18 @@ func NewFSContext(stdin io.Reader, stdout, stderr io.Writer, rootFS sysfs.FS) (f
 		preopens := comp.FS()
 		for i, p := range comp.GuestPaths() {
 			fsc.openedFiles.Insert(&FileEntry{
-				FS:          preopens[i],
-				Name:        p,
-				IsPreopen:   true,
-				isDirectory: true,
-				File:        &lazyDir{fs: rootFS},
+				FS:        preopens[i],
+				Name:      p,
+				IsPreopen: true,
+				File:      &lazyDir{fs: rootFS},
 			})
 		}
 	} else {
 		fsc.openedFiles.Insert(&FileEntry{
-			FS:          rootFS,
-			Name:        "/",
-			IsPreopen:   true,
-			isDirectory: true,
-			File:        &lazyDir{fs: rootFS},
+			FS:        rootFS,
+			Name:      "/",
+			IsPreopen: true,
+			File:      &lazyDir{fs: rootFS},
 		})
 	}
 
@@ -319,7 +348,9 @@ func (c *FSContext) ReOpenDir(fd uint32) (*FileEntry, error) {
 	f, ok := c.openedFiles.Lookup(fd)
 	if !ok {
 		return nil, syscall.EBADF
-	} else if !f.IsDir() {
+	} else if _, ft, err := f.CachedStat(); err != nil {
+		return nil, err
+	} else if ft.Type() != fs.ModeDir {
 		return nil, syscall.EISDIR
 	}
 
@@ -327,7 +358,7 @@ func (c *FSContext) ReOpenDir(fd uint32) (*FileEntry, error) {
 		return f, err
 	}
 
-	f.ReadDir.CountRead, f.ReadDir.Entries = 0, nil
+	f.ReadDir.CountRead, f.ReadDir.Dirents = 0, nil
 	return f, nil
 }
 
@@ -353,7 +384,9 @@ func (c *FSContext) ChangeOpenFlag(fd uint32, flag int) error {
 	f, ok := c.LookupFile(fd)
 	if !ok {
 		return syscall.EBADF
-	} else if f.IsDir() {
+	} else if _, ft, err := f.CachedStat(); err != nil {
+		return err
+	} else if ft.Type() == fs.ModeDir {
 		return syscall.EISDIR
 	}
 
@@ -443,8 +476,10 @@ func (c *FSContext) Close(context.Context) (err error) {
 // WriterForFile returns a writer for the given file descriptor or nil if not
 // opened or not writeable (e.g. a directory or a file not opened for writes).
 func WriterForFile(fsc *FSContext, fd uint32) (writer io.Writer) {
-	if f, ok := fsc.LookupFile(fd); ok {
-		writer = f.File.(io.Writer)
+	if f, ok := fsc.LookupFile(fd); !ok {
+		return
+	} else if w, ok := f.File.(io.Writer); ok {
+		writer = w
 	}
 	return
 }

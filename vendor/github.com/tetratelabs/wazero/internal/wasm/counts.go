@@ -29,8 +29,9 @@ func (m *Module) ImportGlobalCount() uint32 {
 // importCount returns the count of a specific type of import. This is important because it is easy to mistake the
 // length of the import section with the count of a specific kind of import.
 func (m *Module) importCount(et ExternType) (res uint32) {
-	for _, im := range m.ImportSection {
-		if im.Type == et {
+	for i := range m.ImportSection {
+		imp := &m.ImportSection[i]
+		if imp.Type == et {
 			res++
 		}
 	}

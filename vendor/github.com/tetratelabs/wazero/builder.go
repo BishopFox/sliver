@@ -237,7 +237,7 @@ func (h *hostFunctionBuilder) WithGoFunction(fn api.GoFunction, params, results 
 	h.fn = &wasm.HostFunc{
 		ParamTypes:  params,
 		ResultTypes: results,
-		Code:        &wasm.Code{IsHostFunction: true, GoFunc: fn},
+		Code:        wasm.Code{GoFunc: fn},
 	}
 	return h
 }
@@ -247,7 +247,7 @@ func (h *hostFunctionBuilder) WithGoModuleFunction(fn api.GoModuleFunction, para
 	h.fn = &wasm.HostFunc{
 		ParamTypes:  params,
 		ResultTypes: results,
-		Code:        &wasm.Code{IsHostFunction: true, GoFunc: fn},
+		Code:        wasm.Code{GoFunc: fn},
 	}
 	return h
 }
@@ -327,6 +327,13 @@ func (b *hostModuleBuilder) Compile(ctx context.Context) (CompiledModule, error)
 	if err = b.r.store.Engine.CompileModule(ctx, module, listeners, false); err != nil {
 		return nil, err
 	}
+
+	// typeIDs are static and compile-time known.
+	typeIDs, err := b.r.store.GetFunctionTypeIDs(module.TypeSection)
+	if err != nil {
+		return nil, err
+	}
+	c.typeIDs = typeIDs
 
 	return c, nil
 }

@@ -69,19 +69,22 @@ func pollOneoffFn(ctx context.Context, mod api.Module, params []uint64) Errno {
 	}
 
 	// Loop through all subscriptions and write their output.
+
+	// Layout is subscription_u: Union
+	// https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#subscription_u
 	for i := uint32(0); i < nsubscriptions; i++ {
 		inOffset := i * 48
 		outOffset := i * 32
 
 		eventType := inBuf[inOffset+8] // +8 past userdata
-		var errno Errno                // errno for this specific event
+		var errno Errno                // errno for this specific event (1-byte)
 		switch eventType {
 		case EventTypeClock: // handle later
-			// +8 past userdata +8 name alignment
+			// +8 past userdata +8 contents_offset
 			errno = processClockEvent(ctx, mod, inBuf[inOffset+8+8:])
 		case EventTypeFdRead, EventTypeFdWrite:
-			// +8 past userdata +4 FD alignment
-			errno = processFDEvent(mod, eventType, inBuf[inOffset+8+4:])
+			// +8 past userdata +8 contents_offset
+			errno = processFDEvent(mod, eventType, inBuf[inOffset+8+8:])
 		default:
 			return ErrnoInval
 		}

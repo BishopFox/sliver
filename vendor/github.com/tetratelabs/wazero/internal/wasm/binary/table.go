@@ -11,36 +11,29 @@ import (
 // decodeTable returns the wasm.Table decoded with the WebAssembly 1.0 (20191205) Binary Format.
 //
 // See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#binary-table
-func decodeTable(r *bytes.Reader, enabledFeatures api.CoreFeatures) (*wasm.Table, error) {
-	tableType, err := r.ReadByte()
+func decodeTable(r *bytes.Reader, enabledFeatures api.CoreFeatures, ret *wasm.Table) (err error) {
+	ret.Type, err = r.ReadByte()
 	if err != nil {
-		return nil, fmt.Errorf("read leading byte: %v", err)
+		return fmt.Errorf("read leading byte: %v", err)
 	}
 
-	if tableType != wasm.RefTypeFuncref {
-		if err := enabledFeatures.RequireEnabled(api.CoreFeatureReferenceTypes); err != nil {
-			return nil, fmt.Errorf("table type funcref is invalid: %w", err)
+	if ret.Type != wasm.RefTypeFuncref {
+		if err = enabledFeatures.RequireEnabled(api.CoreFeatureReferenceTypes); err != nil {
+			return fmt.Errorf("table type funcref is invalid: %w", err)
 		}
 	}
 
-	min, max, err := decodeLimitsType(r)
+	ret.Min, ret.Max, err = decodeLimitsType(r)
 	if err != nil {
-		return nil, fmt.Errorf("read limits: %v", err)
+		return fmt.Errorf("read limits: %v", err)
 	}
-	if min > wasm.MaximumFunctionIndex {
-		return nil, fmt.Errorf("table min must be at most %d", wasm.MaximumFunctionIndex)
+	if ret.Min > wasm.MaximumFunctionIndex {
+		return fmt.Errorf("table min must be at most %d", wasm.MaximumFunctionIndex)
 	}
-	if max != nil {
-		if *max < min {
-			return nil, fmt.Errorf("table size minimum must not be greater than maximum")
+	if ret.Max != nil {
+		if *ret.Max < ret.Min {
+			return fmt.Errorf("table size minimum must not be greater than maximum")
 		}
 	}
-	return &wasm.Table{Min: min, Max: max, Type: tableType}, nil
-}
-
-// encodeTable returns the wasm.Table encoded in WebAssembly 1.0 (20191205) Binary Format.
-//
-// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#binary-table
-func encodeTable(i *wasm.Table) []byte {
-	return append([]byte{i.Type}, encodeLimitsType(i.Min, i.Max)...)
+	return
 }

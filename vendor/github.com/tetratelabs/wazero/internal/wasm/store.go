@@ -125,7 +125,7 @@ type (
 	// GlobalInstance represents a global instance in a store.
 	// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#global-instances%E2%91%A0
 	GlobalInstance struct {
-		Type *GlobalType
+		Type GlobalType
 		// Val holds a 64-bit representation of the actual value.
 		Val uint64
 		// ValHi is only used for vector type globals, and holds the higher bits of the vector.
@@ -156,7 +156,7 @@ func (m *ModuleInstance) addSections(module *Module, importedGlobals, globals []
 	m.BuildExports(module.ExportSection)
 }
 
-func (m *ModuleInstance) buildElementInstances(elements []*ElementSegment) {
+func (m *ModuleInstance) buildElementInstances(elements []ElementSegment) {
 	m.ElementInstances = make([]ElementInstance, len(elements))
 	for i, elm := range elements {
 		if elm.Type == RefTypeFuncref && elm.Mode == ElementModePassive {
@@ -206,7 +206,7 @@ func (m *ModuleInstance) applyTableInits(tables []*TableInstance, tableInits []t
 	}
 }
 
-func (m *ModuleInstance) BuildExports(exports []*Export) {
+func (m *ModuleInstance) BuildExports(exports []Export) {
 	m.Exports = make(map[string]ExportInstance, len(exports))
 	for _, exp := range exports {
 		// We already validated the duplicates during module validation phase.
@@ -216,10 +216,11 @@ func (m *ModuleInstance) BuildExports(exports []*Export) {
 
 // validateData ensures that data segments are valid in terms of memory boundary.
 // Note: this is used only when bulk-memory/reference type feature is disabled.
-func (m *ModuleInstance) validateData(data []*DataSegment) (err error) {
-	for i, d := range data {
+func (m *ModuleInstance) validateData(data []DataSegment) (err error) {
+	for i := range data {
+		d := &data[i]
 		if !d.IsPassive() {
-			offset := int(executeConstExpression(m.Globals, d.OffsetExpression).(int32))
+			offset := int(executeConstExpression(m.Globals, &d.OffsetExpression).(int32))
 			ceil := offset + len(d.Init)
 			if offset < 0 || ceil > len(m.Memory.Buffer) {
 				return fmt.Errorf("%s[%d]: out of bounds memory access", SectionIDName(SectionIDData), i)
@@ -232,12 +233,13 @@ func (m *ModuleInstance) validateData(data []*DataSegment) (err error) {
 // applyData uses the given data segments and mutate the memory according to the initial contents on it
 // and populate the `DataInstances`. This is called after all the validation phase passes and out of
 // bounds memory access error here is not a validation error, but rather a runtime error.
-func (m *ModuleInstance) applyData(data []*DataSegment) error {
+func (m *ModuleInstance) applyData(data []DataSegment) error {
 	m.DataInstances = make([][]byte, len(data))
-	for i, d := range data {
+	for i := range data {
+		d := &data[i]
 		m.DataInstances[i] = d.Init
 		if !d.IsPassive() {
-			offset := executeConstExpression(m.Globals, d.OffsetExpression).(int32)
+			offset := executeConstExpression(m.Globals, &d.OffsetExpression).(int32)
 			if offset < 0 || int(offset)+len(d.Init) > len(m.Memory.Buffer) {
 				return fmt.Errorf("%s[%d]: out of bounds memory access", SectionIDName(SectionIDData), i)
 			}
@@ -286,11 +288,13 @@ func (s *Store) Instantiate(
 	module *Module,
 	name string,
 	sys *internalsys.Context,
+	typeIDs []FunctionTypeID,
 ) (*CallContext, error) {
 	// Collect any imported modules to avoid locking the store too long.
 	importedModuleNames := map[string]struct{}{}
-	for _, i := range module.ImportSection {
-		importedModuleNames[i.Module] = struct{}{}
+	for i := range module.ImportSection {
+		imp := &module.ImportSection[i]
+		importedModuleNames[imp.Module] = struct{}{}
 	}
 
 	// Read-Lock the store and ensure imports needed are present.
@@ -305,7 +309,7 @@ func (s *Store) Instantiate(
 	}
 
 	// Instantiate the module and add it to the store so that other modules can import it.
-	if callCtx, err := s.instantiate(ctx, module, name, sys, importedModules); err != nil {
+	if callCtx, err := s.instantiate(ctx, module, name, sys, importedModules, typeIDs); err != nil {
 		_ = s.deleteModule(name)
 		return nil, err
 	} else {
@@ -325,12 +329,8 @@ func (s *Store) instantiate(
 	name string,
 	sysCtx *internalsys.Context,
 	modules map[string]*ModuleInstance,
+	typeIDs []FunctionTypeID,
 ) (*CallContext, error) {
-	typeIDs, err := s.getFunctionTypeIDs(module.TypeSection)
-	if err != nil {
-		return nil, err
-	}
-
 	importedFunctions, importedGlobals, importedTables, importedMemory, err := resolveImports(module, modules)
 	if err != nil {
 		return nil, err
@@ -409,7 +409,8 @@ func resolveImports(module *Module, modules map[string]*ModuleInstance) (
 	importedMemory *MemoryInstance,
 	err error,
 ) {
-	for idx, i := range module.ImportSection {
+	for idx := range module.ImportSection {
+		i := &module.ImportSection[idx]
 		m, ok := modules[i.Module]
 		if !ok {
 			err = fmt.Errorf("module[%s] not instantiated", i.Module)
@@ -430,7 +431,7 @@ func resolveImports(module *Module, modules map[string]*ModuleInstance) (
 				err = errorInvalidImport(i, idx, fmt.Errorf("function type out of range"))
 				return
 			}
-			expectedType := module.TypeSection[i.DescFunc]
+			expectedType := &module.TypeSection[i.DescFunc]
 			importedFunction := &m.Functions[imported.Index]
 
 			d := importedFunction.Definition
@@ -562,9 +563,10 @@ func executeConstExpression(importedGlobals []*GlobalInstance, expr *ConstantExp
 	return
 }
 
-func (s *Store) getFunctionTypeIDs(ts []*FunctionType) ([]FunctionTypeID, error) {
+func (s *Store) GetFunctionTypeIDs(ts []FunctionType) ([]FunctionTypeID, error) {
 	ret := make([]FunctionTypeID, len(ts))
-	for i, t := range ts {
+	for i := range ts {
+		t := &ts[i]
 		inst, err := s.getFunctionTypeID(t)
 		if err != nil {
 			return nil, err

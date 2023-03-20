@@ -4,19 +4,24 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	pathutil "path"
+	"path"
 	"runtime"
 	"strings"
+
+	"github.com/tetratelabs/wazero/internal/platform"
 )
 
-// Adapt adapts the input to FS unless it is already one. NewDirFS should be
-// used instead, if the input is os.DirFS.
+// Adapt adapts the input to FS unless it is already one. Use NewDirFS instead
+// of os.DirFS as it handles interop issues such as windows support.
 //
 // Note: This performs no flag verification on FS.OpenFile. fs.FS cannot read
 // flags as there is no parameter to pass them through with. Moreover, fs.FS
 // documentation does not require the file to be present. In summary, we can't
 // enforce flag behavior.
 func Adapt(fs fs.FS) FS {
+	if fs == nil {
+		return UnimplementedFS{}
+	}
 	if sys, ok := fs.(FS); ok {
 		return sys
 	}
@@ -42,14 +47,18 @@ func (a *adapter) Open(name string) (fs.File, error) {
 func (a *adapter) OpenFile(path string, flag int, perm fs.FileMode) (fs.File, error) {
 	path = cleanPath(path)
 	f, err := a.fs.Open(path)
+	return f, platform.UnwrapOSError(err)
+}
 
+// Stat implements FS.Stat
+func (a *adapter) Stat(path string, stat *platform.Stat_t) error {
+	name := cleanPath(path)
+	f, err := a.fs.Open(name)
 	if err != nil {
-		return nil, UnwrapOSError(err)
-	} else if osF, ok := f.(*os.File); ok {
-		// If this is an OS file, it has same portability issues as dirFS.
-		return maybeWrapFile(osF, a, path, flag, perm), nil
+		return platform.UnwrapOSError(err)
 	}
-	return f, nil
+	defer f.Close()
+	return platform.StatFile(f, stat)
 }
 
 func cleanPath(name string) string {
@@ -61,7 +70,7 @@ func cleanPath(name string) string {
 	if name[0] == '/' {
 		cleaned = name[1:]
 	}
-	cleaned = pathutil.Clean(cleaned) // e.g. "sub/." -> "sub"
+	cleaned = path.Clean(cleaned) // e.g. "sub/." -> "sub"
 	return cleaned
 }
 

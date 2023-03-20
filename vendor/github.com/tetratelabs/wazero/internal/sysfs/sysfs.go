@@ -8,7 +8,6 @@ package sysfs
 import (
 	"io"
 	"io/fs"
-	"os"
 	"syscall"
 
 	"github.com/tetratelabs/wazero/internal/platform"
@@ -62,6 +61,38 @@ type FS interface {
 	// ^^ TODO: Consider syscall.Open, though this implies defining and
 	// coercing flags and perms similar to what is done in os.OpenFile.
 
+	// Lstat is similar to syscall.Lstat, except the path is relative to this
+	// file system.
+	//
+	// # Errors
+	//
+	// The following errors are expected:
+	//   - syscall.ENOENT: `path` doesn't exist.
+	//
+	// # Notes
+	//
+	//   - An fs.FileInfo backed implementation sets atim, mtim and ctim to the
+	//     same value.
+	//   - When the path is a symbolic link, the stat returned is for the link,
+	//     not the file it refers to.
+	Lstat(path string, stat *platform.Stat_t) error
+
+	// Stat is similar to syscall.Stat, except the path is relative to this
+	// file system.
+	//
+	// # Errors
+	//
+	// The following errors are expected:
+	//   - syscall.ENOENT: `path` doesn't exist.
+	//
+	// # Notes
+	//
+	//   - An fs.FileInfo backed implementation sets atim, mtim and ctim to the
+	//     same value.
+	//   - When the path is a symbolic link, the stat returned is for the file
+	//     it refers to.
+	Stat(path string, stat *platform.Stat_t) error
+
 	// Mkdir is similar to os.Mkdir, except the path is relative to this file
 	// system, and syscall.Errno are returned instead of a os.PathError.
 	//
@@ -96,6 +127,37 @@ type FS interface {
 	Chmod(path string, perm fs.FileMode) error
 	// ^^ TODO: Consider syscall.Chmod, though this implies defining and
 	// coercing flags and perms similar to what is done in os.Chmod.
+
+	// Chown is like os.Chown except the path is relative to this file
+	// system, and syscall.Errno are returned instead of an os.PathError.
+	//
+	// # Errors
+	//
+	// The following errors are expected:
+	//   - syscall.EINVAL: `path` is invalid.
+	//   - syscall.ENOENT: `path` does not exist.
+	//
+	// # Notes
+	//
+	//   - Windows will always return syscall.ENOSYS
+	//   - This is similar to https://linux.die.net/man/3/chown
+	Chown(path string, uid, gid int) error
+
+	// Lchown is like os.Lchown except the path is relative to this file
+	// system, and syscall.Errno are returned instead of a os.PathError.
+	//	See https://linux.die.net/man/3/lchown
+	//
+	// # Errors
+	//
+	// The following errors are expected:
+	//   - syscall.EINVAL: `path` is invalid.
+	//   - syscall.ENOENT: `path` does not exist.
+	//
+	// # Notes
+	//
+	//   - Windows will always return syscall.ENOSYS
+	//   - This is similar to https://linux.die.net/man/3/lchown
+	Lchown(path string, uid, gid int) error
 
 	// Rename is similar to syscall.Rename, except the path is relative to this
 	// file system.
@@ -140,6 +202,12 @@ type FS interface {
 	//   - syscall.EINVAL: `path` is invalid.
 	//   - syscall.ENOENT: `path` doesn't exist.
 	//   - syscall.EISDIR: `path` exists, but is a directory.
+	//
+	// # Notes
+	//
+	//   - On Windows, syscall.Unlink doesn't delete symlink to directory unlike other platforms. Implementations might
+	//     want to combine syscall.RemoveDirectory with syscall.Unlink in order to delete such links on Windows.
+	//     See https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-removedirectorya
 	Unlink(path string) error
 
 	// Link is similar to syscall.Link, except the path is relative to this
@@ -188,7 +256,7 @@ type FS interface {
 	//   - On Windows, the path separator is different from other platforms,
 	//     but to provide consistent results to Wasm, this normalizes to a "/"
 	//     separator.
-	Readlink(path string, buf []byte) (n int, err error)
+	Readlink(path string) (string, error)
 
 	// Truncate is similar to syscall.Truncate, except the path is relative to
 	// this file system.
@@ -201,71 +269,35 @@ type FS interface {
 	//   - syscall.EACCES: `path` doesn't have write access.
 	Truncate(path string, size int64) error
 
-	// Utimes is similar to syscall.UtimesNano, except the path is relative to
-	// this file system.
+	// Utimens set file access and modification times on a path relative to
+	// this file system, at nanosecond precision.
+	//
+	// # Parameters
+	//
+	// The `times` parameter includes the access and modification timestamps to
+	// assign. Special syscall.Timespec NSec values UTIME_NOW and UTIME_OMIT may be
+	// specified instead of real timestamps. A nil `times` parameter behaves the
+	// same as if both were set to UTIME_NOW.
+	//
+	// When the `symlinkFollow` parameter is true and the path is a symbolic link,
+	// the target of expanding that link is updated.
 	//
 	// # Errors
 	//
 	// The following errors are expected:
 	//   - syscall.EINVAL: `path` is invalid.
-	//   - syscall.ENOENT: `path` doesn't exist
+	//   - syscall.EEXIST: `path` exists and is a directory.
+	//   - syscall.ENOTDIR: `path` exists and is a file.
 	//
 	// # Notes
 	//
-	//   - To set wall clock time, retrieve it first from sys.Walltime.
-	//   - syscall.UtimesNano cannot change the ctime. Also, neither WASI nor
-	//     runtime.GOOS=js support changing it. Hence, ctime it is absent here.
-	Utimes(path string, atimeNsec, mtimeNsec int64) error
+	//   - This is similar to syscall.Utimens, except that doesn't have flags to
+	//     control expansion of symbolic links. It also doesn't support special
+	//     values UTIME_NOW or UTIME_NOW.
+	//   - This is like `utimensat` with `AT_FDCWD` in POSIX. See
+	//     https://pubs.opengroup.org/onlinepubs/9699919799/functions/futimens.html
+	Utimens(path string, times *[2]syscall.Timespec, symlinkFollow bool) error
 }
-
-// StatPath is a convenience that calls FS.OpenFile, then StatFile, until there
-// is a stat method.
-func StatPath(fs FS, path string) (s fs.FileInfo, err error) {
-	f, err := fs.OpenFile(path, os.O_RDONLY, 0)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	return StatFile(f)
-}
-
-// StatFile is like the same method on fs.File, except the returned error is
-// nil or syscall.Errno.
-func StatFile(f fs.File) (s fs.FileInfo, err error) {
-	s, err = f.Stat()
-	err = UnwrapOSError(err)
-	return
-}
-
-// readFile declares all read interfaces defined on os.File used by wazero.
-type readFile interface {
-	fs.ReadDirFile
-	io.ReaderAt // for pread
-	io.Seeker   // fallback for ReaderAt for embed:fs
-}
-
-// file declares all interfaces defined on os.File used by wazero.
-type file interface {
-	readFile
-	io.Writer
-	io.WriterAt // for pwrite
-	chmoder
-	syncer
-	truncater
-	fder // for the number of links.
-}
-
-// The following interfaces are used until we finalize our own FD-scoped file.
-type (
-	// chmoder is implemented by os.File in file_posix.go
-	chmoder interface{ Chmod(fs.FileMode) error }
-	// syncer is implemented by os.File in file_posix.go
-	syncer interface{ Sync() error }
-	// truncater is implemented by os.File in file_posix.go
-	truncater interface{ Truncate(size int64) error }
-	// fder is implemented by os.File in file_unix.go and file_windows.go
-	fder interface{ Fd() (fd uintptr) }
-)
 
 // ReaderAtOffset gets an io.Reader from a fs.File that reads from an offset,
 // yet doesn't affect the underlying position. This is used to implement
@@ -286,17 +318,7 @@ func ReaderAtOffset(f fs.File, offset int64) io.Reader {
 
 // FileDatasync is like syscall.Fdatasync except that's only defined in linux.
 func FileDatasync(f fs.File) (err error) {
-	if fd, ok := f.(fder); ok {
-		if err := platform.Fdatasync(fd.Fd()); err != syscall.ENOSYS {
-			return err
-		}
-	}
-
-	// Attempt to sync everything, even if we only need to sync the data.
-	if s, ok := f.(syncer); ok {
-		err = s.Sync()
-	}
-	return
+	return platform.Fdatasync(f)
 }
 
 type enosysReader struct{}
@@ -392,47 +414,4 @@ func (r *writerAtOffset) Write(p []byte) (int, error) {
 	n, err := r.r.WriteAt(p, r.offset)
 	r.offset += int64(n)
 	return n, err
-}
-
-// UnwrapOSError returns a syscall.Errno or nil if the input is nil.
-func UnwrapOSError(err error) error {
-	if err == nil {
-		return nil
-	}
-	err = underlyingError(err)
-	if se, ok := err.(syscall.Errno); ok {
-		return adjustErrno(se)
-	}
-	// Below are all the fs.ErrXXX in fs.go.
-	//
-	// Note: Once we have our own file type, we should never see these.
-	switch err {
-	case nil:
-	case fs.ErrInvalid:
-		return syscall.EINVAL
-	case fs.ErrPermission:
-		return syscall.EPERM
-	case fs.ErrExist:
-		return syscall.EEXIST
-	case fs.ErrNotExist:
-		return syscall.ENOENT
-	case fs.ErrClosed:
-		return syscall.EBADF
-	}
-	return syscall.EIO
-}
-
-// underlyingError returns the underlying error if a well-known OS error type.
-//
-// This impl is basically the same as os.underlyingError in os/error.go
-func underlyingError(err error) error {
-	switch err := err.(type) {
-	case *os.PathError:
-		return err.Err
-	case *os.LinkError:
-		return err.Err
-	case *os.SyscallError:
-		return err.Err
-	}
-	return err
 }

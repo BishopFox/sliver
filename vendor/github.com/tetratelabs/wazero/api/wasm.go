@@ -127,14 +127,16 @@ func ValueTypeName(t ValueType) string {
 	return "unknown"
 }
 
-// Module return functions exported in a module, post-instantiation.
+// Module is a sandboxed, ready to execute Wasm module. This can be used to get exported functions, etc.
+//
+// In WebAssembly terminology, this corresponds to a "Module Instance", but wazero calls pre-instantiation module as
+// "Compiled Module" as in wazero.CompiledModule, therefore we call this post-instantiation module simply "Module".
+// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#module-instances%E2%91%A0
 //
 // # Notes
 //
 //   - Closing the wazero.Runtime closes any Module it instantiated.
 //   - This is an interface for decoupling, not third-party implementations. All implementations are in wazero.
-//
-// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#external-types%E2%91%A0
 type Module interface {
 	fmt.Stringer
 
@@ -175,7 +177,7 @@ type Module interface {
 	// failure to ExportedFunction callers.
 	//
 	// The error returned here, if present, is about resource de-allocation (such as I/O errors). Only the last error is
-	// returned, so a non-nil return means at least one error happened. Regardless of error, this module instance will
+	// returned, so a non-nil return means at least one error happened. Regardless of error, this Module will
 	// be removed, making its name available again.
 	//
 	// Calling this inside a host function is safe, and may cause ExportedFunction callers to receive a sys.ExitError

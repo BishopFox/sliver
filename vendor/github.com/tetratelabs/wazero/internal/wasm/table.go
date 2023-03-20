@@ -58,8 +58,7 @@ const (
 type ElementSegment struct {
 	// OffsetExpr returns the table element offset to apply to Init indices.
 	// Note: This can be validated prior to instantiation unless it includes OpcodeGlobalGet (an imported global).
-	// Note: This is only set when Mode is active.
-	OffsetExpr *ConstantExpression
+	OffsetExpr ConstantExpression
 
 	// TableIndex is the table's index to which this element segment is applied.
 	// Note: This is used if and only if the Mode is active.
@@ -141,7 +140,7 @@ type validatedActiveElementSegment struct {
 
 // validateTable ensures any ElementSegment is valid. This caches results via Module.validatedActiveElementSegments.
 // Note: limitsType are validated by decoders, so not re-validated here.
-func (m *Module) validateTable(enabledFeatures api.CoreFeatures, tables []*Table, maximumTableIndex uint32) ([]*validatedActiveElementSegment, error) {
+func (m *Module) validateTable(enabledFeatures api.CoreFeatures, tables []Table, maximumTableIndex uint32) ([]validatedActiveElementSegment, error) {
 	if len(tables) > int(maximumTableIndex) {
 		return nil, fmt.Errorf("too many tables in a module: %d given with limit %d", len(tables), maximumTableIndex)
 	}
@@ -152,14 +151,15 @@ func (m *Module) validateTable(enabledFeatures api.CoreFeatures, tables []*Table
 
 	importedTableCount := m.ImportTableCount()
 
-	ret := make([]*validatedActiveElementSegment, 0, m.SectionElementCount(SectionIDElement))
+	ret := make([]validatedActiveElementSegment, 0, m.SectionElementCount(SectionIDElement))
 
 	// Create bounds checks as these can err prior to instantiation
 	funcCount := m.importCount(ExternTypeFunc) + m.SectionElementCount(SectionIDFunction)
 
 	// Now, we have to figure out which table elements can be resolved before instantiation and also fail early if there
 	// are any imported globals that are known to be invalid by their declarations.
-	for i, elem := range m.ElementSection {
+	for i := range m.ElementSection {
+		elem := &m.ElementSection[i]
 		idx := Index(i)
 		initCount := uint32(len(elem.Init))
 
@@ -204,7 +204,7 @@ func (m *Module) validateTable(enabledFeatures api.CoreFeatures, tables []*Table
 					continue // Per https://github.com/WebAssembly/spec/issues/1427 init can be no-op, but validate anyway!
 				}
 
-				ret = append(ret, &validatedActiveElementSegment{opcode: oc, arg: globalIdx, init: elem.Init, tableIndex: elem.TableIndex})
+				ret = append(ret, validatedActiveElementSegment{opcode: oc, arg: globalIdx, init: elem.Init, tableIndex: elem.TableIndex})
 			} else if oc == OpcodeI32Const {
 				// Treat constants as signed as their interpretation is not yet known per /RATIONALE.md
 				o, _, err := leb128.LoadInt32(elem.OffsetExpr.Data)
@@ -226,7 +226,7 @@ func (m *Module) validateTable(enabledFeatures api.CoreFeatures, tables []*Table
 					continue // Per https://github.com/WebAssembly/spec/issues/1427 init can be no-op, but validate anyway!
 				}
 
-				ret = append(ret, &validatedActiveElementSegment{opcode: oc, arg: offset, init: elem.Init, tableIndex: elem.TableIndex})
+				ret = append(ret, validatedActiveElementSegment{opcode: oc, arg: offset, init: elem.Init, tableIndex: elem.TableIndex})
 			} else {
 				return nil, fmt.Errorf("%s[%d] has an invalid const expression: %s", SectionIDName(SectionIDElement), idx, InstructionName(oc))
 			}
@@ -247,7 +247,8 @@ func (m *Module) validateTable(enabledFeatures api.CoreFeatures, tables []*Table
 func (m *Module) buildTables(importedTables []*TableInstance, importedGlobals []*GlobalInstance, skipBoundCheck bool) (tables []*TableInstance, inits []tableInitEntry, err error) {
 	tables = importedTables
 
-	for _, tsec := range m.TableSection {
+	for i := range m.TableSection {
+		tsec := &m.TableSection[i]
 		// The module defining the table is the one that sets its Min/Max etc.
 		tables = append(tables, &TableInstance{
 			References: make([]Reference, tsec.Min), Min: tsec.Min, Max: tsec.Max,
@@ -260,7 +261,8 @@ func (m *Module) buildTables(importedTables []*TableInstance, importedGlobals []
 		return
 	}
 
-	for elemI, elem := range elementSegments {
+	for elemI := range elementSegments { // Do not loop over the value since elementSegments is a slice of value.
+		elem := &elementSegments[elemI]
 		table := tables[elem.tableIndex]
 		var offset uint32
 		if elem.opcode == OpcodeGlobalGet {
@@ -321,11 +323,12 @@ func checkSegmentBounds(min uint32, requireMin uint64, idx Index) error { // uin
 
 func (m *Module) verifyImportGlobalI32(sectionID SectionID, sectionIdx Index, idx uint32) error {
 	ig := uint32(math.MaxUint32) // +1 == 0
-	for i, im := range m.ImportSection {
-		if im.Type == ExternTypeGlobal {
+	for i := range m.ImportSection {
+		imp := &m.ImportSection[i]
+		if imp.Type == ExternTypeGlobal {
 			ig++
 			if ig == idx {
-				if im.DescGlobal.ValType != ValueTypeI32 {
+				if imp.DescGlobal.ValType != ValueTypeI32 {
 					return fmt.Errorf("%s[%d] (global.get %d): import[%d].global.ValType != i32", SectionIDName(sectionID), sectionIdx, idx, i)
 				}
 				return nil

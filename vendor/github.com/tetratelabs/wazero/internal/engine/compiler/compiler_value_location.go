@@ -109,8 +109,8 @@ func (v *runtimeValueLocation) String() string {
 	return fmt.Sprintf("{type=%s,location=%s}", v.valueType, location)
 }
 
-func newRuntimeValueLocationStack() *runtimeValueLocationStack {
-	return &runtimeValueLocationStack{
+func newRuntimeValueLocationStack() runtimeValueLocationStack {
+	return runtimeValueLocationStack{
 		stack:                             make([]runtimeValueLocation, 10),
 		usedRegisters:                     map[asm.Register]struct{}{},
 		unreservedVectorRegisters:         unreservedVectorRegisters,
@@ -142,6 +142,10 @@ type runtimeValueLocationStack struct {
 	unreservedGeneralPurposeRegisters, unreservedVectorRegisters []asm.Register
 }
 
+func (v *runtimeValueLocationStack) initialized() bool {
+	return len(v.unreservedGeneralPurposeRegisters) > 0
+}
+
 func (v *runtimeValueLocationStack) reset() {
 	v.stackPointerCeil, v.sp = 0, 0
 	v.stack = v.stack[:0]
@@ -160,8 +164,8 @@ func (v *runtimeValueLocationStack) String() string {
 	return fmt.Sprintf("sp=%d, stack=[%s], used_registers=[%s]", v.sp, strings.Join(stackStr, ","), strings.Join(usedRegisters, ","))
 }
 
-func (v *runtimeValueLocationStack) clone() *runtimeValueLocationStack {
-	ret := &runtimeValueLocationStack{}
+func (v *runtimeValueLocationStack) clone() runtimeValueLocationStack {
+	ret := runtimeValueLocationStack{}
 	ret.sp = v.sp
 	ret.usedRegisters = make(map[asm.Register]struct{}, len(ret.usedRegisters))
 	for r := range v.usedRegisters {

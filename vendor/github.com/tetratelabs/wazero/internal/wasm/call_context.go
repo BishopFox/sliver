@@ -73,43 +73,51 @@ func (m *CallContext) FailIfClosed() (err error) {
 //
 // Callers of this function must invoke the returned context.CancelFunc to release the spawned Goroutine.
 func (m *CallContext) CloseModuleOnCanceledOrTimeout(ctx context.Context) context.CancelFunc {
-	goroutineDone, cancelFn := context.WithCancel(context.Background())
-	go m.closeModuleOnCanceledOrTimeoutClosure(ctx, goroutineDone)()
-	return cancelFn
+	// Creating an empty channel in this case is a bit more efficient than
+	// creating a context.Context and canceling it with the same effect. We
+	// really just need to be notified when to stop listening to the users
+	// context. Closing the channel will unblock the select in the goroutine
+	// causing it to return an stop listening to ctx.Done().
+	cancelChan := make(chan struct{})
+	go m.closeModuleOnCanceledOrTimeout(ctx, cancelChan)
+	return func() { close(cancelChan) }
 }
 
-// closeModuleOnCanceledOrTimeoutClosure is extracted from CloseModuleOnCanceledOrTimeout for testing.
-func (m *CallContext) closeModuleOnCanceledOrTimeoutClosure(ctx, goroutineDone context.Context) func() {
-	return func() {
-		for {
-			select {
-			case <-ctx.Done():
-				if errors.Is(ctx.Err(), context.Canceled) {
-					// TODO: figure out how to report error here.
-					_ = m.CloseWithExitCode(ctx, sys.ExitCodeContextCanceled)
-				} else if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-					// TODO: figure out how to report error here.
-					_ = m.CloseWithExitCode(ctx, sys.ExitCodeDeadlineExceeded)
-				}
-				return
-			case <-goroutineDone.Done():
-				return
-			}
+// closeModuleOnCanceledOrTimeout is extracted from CloseModuleOnCanceledOrTimeout for testing.
+func (m *CallContext) closeModuleOnCanceledOrTimeout(ctx context.Context, cancelChan <-chan struct{}) {
+	select {
+	case <-ctx.Done():
+		select {
+		case <-cancelChan:
+			// In some cases by the time this goroutine is scheduled, the caller
+			// has already closed both the context and the cancelChan. In this
+			// case go will randomize which branch of the outer select to enter
+			// and we don't want to close the module.
+		default:
+			m.CloseWithCtxErr(ctx)
 		}
+	case <-cancelChan:
+	}
+}
+
+// CloseWithExitCode closes the module with an exit code based on the type of
+// error reported by the context.
+//
+// If the context's error is unknown or nil, the module does not close.
+func (m *CallContext) CloseWithCtxErr(ctx context.Context) {
+	switch {
+	case errors.Is(ctx.Err(), context.Canceled):
+		// TODO: figure out how to report error here.
+		_ = m.CloseWithExitCode(ctx, sys.ExitCodeContextCanceled)
+	case errors.Is(ctx.Err(), context.DeadlineExceeded):
+		// TODO: figure out how to report error here.
+		_ = m.CloseWithExitCode(ctx, sys.ExitCodeDeadlineExceeded)
 	}
 }
 
 // Name implements the same method as documented on api.Module
 func (m *CallContext) Name() string {
 	return m.module.Name
-}
-
-// WithMemory allows overriding memory without re-allocation when the result would be the same.
-func (m *CallContext) WithMemory(memory *MemoryInstance) *CallContext {
-	if memory != nil && memory != m.memory { // only re-allocate if it will change the effective memory
-		return &CallContext{module: m.module, memory: memory, Sys: m.Sys, Closed: m.Closed}
-	}
-	return m
 }
 
 // String implements the same method as documented on api.Module

@@ -175,7 +175,7 @@ func newModuleVal(m api.Module) reflect.Value {
 //
 // Exposing this simplifies FunctionDefinition of host functions in built-in host
 // modules and tests.
-func MustParseGoReflectFuncCode(fn interface{}) *Code {
+func MustParseGoReflectFuncCode(fn interface{}) Code {
 	_, _, code, err := parseGoReflectFunc(fn)
 	if err != nil {
 		panic(err)
@@ -183,7 +183,7 @@ func MustParseGoReflectFuncCode(fn interface{}) *Code {
 	return code
 }
 
-func parseGoReflectFunc(fn interface{}) (params, results []ValueType, code *Code, err error) {
+func parseGoReflectFunc(fn interface{}) (params, results []ValueType, code Code, err error) {
 	fnV := reflect.ValueOf(fn)
 	p := fnV.Type()
 
@@ -254,7 +254,7 @@ func parseGoReflectFunc(fn interface{}) (params, results []ValueType, code *Code
 		return
 	}
 
-	code = &Code{IsHostFunction: true}
+	code = Code{}
 	if pk == paramsKindContextModule {
 		code.GoFunc = &reflectGoModuleFunction{fn: &fnV, params: params, results: results}
 	} else {

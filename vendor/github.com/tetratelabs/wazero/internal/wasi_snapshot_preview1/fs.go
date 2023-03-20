@@ -136,11 +136,22 @@ var filetypeToString = [...]string{
 
 // https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#fstflags
 const (
-	FileStatAdjustFlagsAtim uint16 = 1 << iota
-	FileStatAdjustFlagsAtimNow
-	FileStatAdjustFlagsMtim
-	FileStatAdjustFlagsMtimNow
+	FstflagsAtim uint16 = 1 << iota
+	FstflagsAtimNow
+	FstflagsMtim
+	FstflagsMtimNow
 )
+
+var fstflagNames = [...]string{
+	"ATIM",
+	"ATIM_NOW",
+	"MTIM",
+	"MTIM_NOW",
+}
+
+func FstflagsString(fdflags int) string {
+	return flagsString(fstflagNames[:], fdflags)
+}
 
 // https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#-advice-enumu8
 const (

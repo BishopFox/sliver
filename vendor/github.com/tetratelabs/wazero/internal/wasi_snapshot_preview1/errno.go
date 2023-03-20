@@ -2,9 +2,10 @@ package wasi_snapshot_preview1
 
 import (
 	"fmt"
+	"io"
 	"syscall"
 
-	"github.com/tetratelabs/wazero/internal/sysfs"
+	"github.com/tetratelabs/wazero/internal/platform"
 )
 
 // Errno is neither uint16 nor an alias for parity with wasm.ValueType.
@@ -266,7 +267,10 @@ var errnoToString = [...]string{
 // error codes. For example, wasi-filesystem and GOOS=js don't map to these
 // Errno.
 func ToErrno(err error) Errno {
-	errno := sysfs.UnwrapOSError(err)
+	if err == nil || err == io.EOF {
+		return ErrnoSuccess // io.EOF has no value in WASI, and isn't an error.
+	}
+	errno := platform.UnwrapOSError(err)
 
 	switch errno {
 	case syscall.EACCES:
@@ -301,6 +305,8 @@ func ToErrno(err error) Errno {
 		return ErrnoNotsup
 	case syscall.EPERM:
 		return ErrnoPerm
+	case syscall.EROFS:
+		return ErrnoRofs
 	default:
 		return ErrnoIo
 	}

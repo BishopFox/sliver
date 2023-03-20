@@ -268,7 +268,7 @@ func newHostFunc(
 		ParamNames:  paramNames,
 		ResultTypes: []api.ValueType{i32},
 		ResultNames: []string{"errno"},
-		Code:        &wasm.Code{IsHostFunction: true, GoFunc: goFunc},
+		Code:        wasm.Code{GoFunc: goFunc},
 	}
 }
 
@@ -291,9 +291,8 @@ func stubFunction(name string, paramTypes []wasm.ValueType, paramNames ...string
 		ParamNames:  paramNames,
 		ResultTypes: []api.ValueType{i32},
 		ResultNames: []string{"errno"},
-		Code: &wasm.Code{
-			IsHostFunction: true,
-			Body:           []byte{wasm.OpcodeI32Const, byte(ErrnoNosys), wasm.OpcodeEnd},
+		Code: wasm.Code{
+			GoFunc: api.GoModuleFunc(func(_ context.Context, _ api.Module, stack []uint64) { stack[0] = uint64(ErrnoNosys) }),
 		},
 	}
 }

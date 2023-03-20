@@ -333,6 +333,7 @@ type compiledModule struct {
 	compiledEngine wasm.Engine
 	// closeWithModule prevents leaking compiled code when a module is compiled implicitly.
 	closeWithModule bool
+	typeIDs         []wasm.FunctionTypeID
 }
 
 // Name implements CompiledModule.Name
@@ -667,7 +668,11 @@ func (c *moduleConfig) WithEnv(key, value string) ModuleConfig {
 
 // WithFS implements ModuleConfig.WithFS
 func (c *moduleConfig) WithFS(fs fs.FS) ModuleConfig {
-	return c.WithFSConfig(NewFSConfig().WithFSMount(fs, ""))
+	var config FSConfig
+	if fs != nil {
+		config = NewFSConfig().WithFSMount(fs, "")
+	}
+	return c.WithFSConfig(config)
 }
 
 // WithFSConfig implements ModuleConfig.WithFSConfig

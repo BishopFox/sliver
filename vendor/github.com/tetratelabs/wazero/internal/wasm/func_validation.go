@@ -27,7 +27,7 @@ const maximumValuesOnStack = 1 << 27
 // Returns an error if the instruction sequence is not valid,
 // or potentially it can exceed the maximum number of values on the stack.
 func (m *Module) validateFunction(enabledFeatures api.CoreFeatures, idx Index, functions []Index,
-	globals []*GlobalType, memory *Memory, tables []*Table, declaredFunctionIndexes map[Index]struct{},
+	globals []GlobalType, memory *Memory, tables []Table, declaredFunctionIndexes map[Index]struct{},
 ) error {
 	return m.validateFunctionWithMaxStackValues(enabledFeatures, idx, functions, globals, memory, tables, maximumValuesOnStack, declaredFunctionIndexes)
 }
@@ -57,22 +57,25 @@ func (m *Module) validateFunctionWithMaxStackValues(
 	enabledFeatures api.CoreFeatures,
 	idx Index,
 	functions []Index,
-	globals []*GlobalType,
+	globals []GlobalType,
 	memory *Memory,
-	tables []*Table,
+	tables []Table,
 	maxStackValues int,
 	declaredFunctionIndexes map[Index]struct{},
 ) error {
-	functionType := m.TypeSection[m.FunctionSection[idx]]
-	code := m.CodeSection[idx]
+	functionType := &m.TypeSection[m.FunctionSection[idx]]
+	code := &m.CodeSection[idx]
 	body := code.Body
 	localTypes := code.LocalTypes
-	types := m.TypeSection
 
 	// We start with the outermost control block which is for function return if the code branches into it.
 	controlBlockStack := []*controlBlock{{blockType: functionType}}
 	// Create the valueTypeStack to track the state of Wasm value stacks at anypoint of execution.
 	valueTypeStack := &valueTypeStack{}
+
+	// Create bytes.Reader once as it causes allocation, and
+	// we frequently need it (e.g. on every If instruction).
+	br := bytes.NewReader(nil)
 
 	// Now start walking through all the instructions in the body while tracking
 	// control blocks and value types to check the validity of all instructions.
@@ -91,7 +94,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 		}
 
 		if OpcodeI32Load <= op && op <= OpcodeI64Store32 {
-			if memory == nil && !code.IsHostFunction {
+			if memory == nil {
 				return fmt.Errorf("memory must exist for %s", InstructionName(op))
 			}
 			pc++
@@ -273,7 +276,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				}
 			}
 		} else if OpcodeMemorySize <= op && op <= OpcodeMemoryGrow {
-			if memory == nil && !code.IsHostFunction {
+			if memory == nil {
 				return fmt.Errorf("memory must exist for %s", InstructionName(op))
 			}
 			pc++
@@ -436,22 +439,22 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			}
 		} else if op == OpcodeBrTable {
 			pc++
-			r := bytes.NewReader(body[pc:])
-			nl, num, err := leb128.DecodeUint32(r)
+			br.Reset(body[pc:])
+			nl, num, err := leb128.DecodeUint32(br)
 			if err != nil {
 				return fmt.Errorf("read immediate: %w", err)
 			}
 
 			list := make([]uint32, nl)
 			for i := uint32(0); i < nl; i++ {
-				l, n, err := leb128.DecodeUint32(r)
+				l, n, err := leb128.DecodeUint32(br)
 				if err != nil {
 					return fmt.Errorf("read immediate: %w", err)
 				}
 				num += n
 				list[i] = l
 			}
-			ln, n, err := leb128.DecodeUint32(r)
+			ln, n, err := leb128.DecodeUint32(br)
 			if err != nil {
 				return fmt.Errorf("read immediate: %w", err)
 			} else if int(ln) >= len(controlBlockStack) {
@@ -535,7 +538,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			if int(index) >= len(functions) {
 				return fmt.Errorf("invalid function index")
 			}
-			funcType := types[functions[index]]
+			funcType := &m.TypeSection[functions[index]]
 			for i := 0; i < len(funcType.Params); i++ {
 				if err := valueTypeStack.popAndVerifyType(funcType.Params[len(funcType.Params)-1-i]); err != nil {
 					return fmt.Errorf("type mismatch on %s operation param type: %v", OpcodeCallName, err)
@@ -552,7 +555,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			}
 			pc += num
 
-			if int(typeIndex) >= len(types) {
+			if int(typeIndex) >= len(m.TypeSection) {
 				return fmt.Errorf("invalid type index at %s: %d", OpcodeCallIndirectName, typeIndex)
 			}
 
@@ -572,16 +575,14 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			}
 
 			table := tables[tableIndex]
-			if table == nil {
-				return fmt.Errorf("table not given while having %s", OpcodeCallIndirectName)
-			} else if table.Type != RefTypeFuncref {
+			if table.Type != RefTypeFuncref {
 				return fmt.Errorf("table is not funcref type but was %s for %s", RefTypeName(table.Type), OpcodeCallIndirectName)
 			}
 
 			if err = valueTypeStack.popAndVerifyType(ValueTypeI32); err != nil {
 				return fmt.Errorf("cannot pop the offset in table for %s", OpcodeCallIndirectName)
 			}
-			funcType := types[typeIndex]
+			funcType := &m.TypeSection[typeIndex]
 			for i := 0; i < len(funcType.Params); i++ {
 				if err = valueTypeStack.popAndVerifyType(funcType.Params[len(funcType.Params)-1-i]); err != nil {
 					return fmt.Errorf("type mismatch on %s operation input type", OpcodeCallIndirectName)
@@ -1111,7 +1112,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				OpcodeVecV128Load32x2s, OpcodeVecV128Load32x2u, OpcodeVecV128Load8Splat, OpcodeVecV128Load16Splat,
 				OpcodeVecV128Load32Splat, OpcodeVecV128Load64Splat,
 				OpcodeVecV128Load32zero, OpcodeVecV128Load64zero:
-				if memory == nil && !code.IsHostFunction {
+				if memory == nil {
 					return fmt.Errorf("memory must exist for %s", VectorInstructionName(vecOpcode))
 				}
 				pc++
@@ -1149,7 +1150,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				}
 				valueTypeStack.push(ValueTypeV128)
 			case OpcodeVecV128Store:
-				if memory == nil && !code.IsHostFunction {
+				if memory == nil {
 					return fmt.Errorf("memory must exist for %s", VectorInstructionName(vecOpcode))
 				}
 				pc++
@@ -1168,7 +1169,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 					return fmt.Errorf("cannot pop the operand for %s: %v", OpcodeVecV128StoreName, err)
 				}
 			case OpcodeVecV128Load8Lane, OpcodeVecV128Load16Lane, OpcodeVecV128Load32Lane, OpcodeVecV128Load64Lane:
-				if memory == nil && !code.IsHostFunction {
+				if memory == nil {
 					return fmt.Errorf("memory must exist for %s", VectorInstructionName(vecOpcode))
 				}
 				attr := vecLoadLanes[vecOpcode]
@@ -1196,7 +1197,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				}
 				valueTypeStack.push(ValueTypeV128)
 			case OpcodeVecV128Store8Lane, OpcodeVecV128Store16Lane, OpcodeVecV128Store32Lane, OpcodeVecV128Store64Lane:
-				if memory == nil && !code.IsHostFunction {
+				if memory == nil {
 					return fmt.Errorf("memory must exist for %s", VectorInstructionName(vecOpcode))
 				}
 				attr := vecStoreLanes[vecOpcode]
@@ -1389,7 +1390,8 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				return fmt.Errorf("TODO: SIMD instruction %s will be implemented in #506", vectorInstructionName[vecOpcode])
 			}
 		} else if op == OpcodeBlock {
-			bt, num, err := DecodeBlockType(types, bytes.NewReader(body[pc+1:]), enabledFeatures)
+			br.Reset(body[pc+1:])
+			bt, num, err := DecodeBlockType(m.TypeSection, br, enabledFeatures)
 			if err != nil {
 				return fmt.Errorf("read block: %w", err)
 			}
@@ -1408,7 +1410,8 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			valueTypeStack.pushStackLimit(len(bt.Params))
 			pc += num
 		} else if op == OpcodeLoop {
-			bt, num, err := DecodeBlockType(types, bytes.NewReader(body[pc+1:]), enabledFeatures)
+			br.Reset(body[pc+1:])
+			bt, num, err := DecodeBlockType(m.TypeSection, br, enabledFeatures)
 			if err != nil {
 				return fmt.Errorf("read block: %w", err)
 			}
@@ -1428,7 +1431,8 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			valueTypeStack.pushStackLimit(len(bt.Params))
 			pc += num
 		} else if op == OpcodeIf {
-			bt, num, err := DecodeBlockType(types, bytes.NewReader(body[pc+1:]), enabledFeatures)
+			br.Reset(body[pc+1:])
+			bt, num, err := DecodeBlockType(m.TypeSection, br, enabledFeatures)
 			if err != nil {
 				return fmt.Errorf("read block: %w", err)
 			}
@@ -1864,7 +1868,7 @@ type controlBlock struct {
 //
 // See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#binary-blocktype
 // See https://github.com/WebAssembly/spec/blob/wg-2.0.draft1/proposals/multi-value/Overview.md
-func DecodeBlockType(types []*FunctionType, r *bytes.Reader, enabledFeatures api.CoreFeatures) (*FunctionType, uint64, error) {
+func DecodeBlockType(types []FunctionType, r *bytes.Reader, enabledFeatures api.CoreFeatures) (*FunctionType, uint64, error) {
 	raw, num, err := leb128.DecodeInt33AsInt64(r)
 	if err != nil {
 		return nil, 0, fmt.Errorf("decode int33: %w", err)
@@ -1895,7 +1899,7 @@ func DecodeBlockType(types []*FunctionType, r *bytes.Reader, enabledFeatures api
 		if raw < 0 || (raw >= int64(len(types))) {
 			return nil, 0, fmt.Errorf("type index out of range: %d", raw)
 		}
-		ret = types[raw]
+		ret = &types[raw]
 	}
 	return ret, num, err
 }

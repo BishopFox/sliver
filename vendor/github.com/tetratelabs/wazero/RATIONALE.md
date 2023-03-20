@@ -25,6 +25,26 @@ At some point, we may allow extensions to supply their own platform-specific
 hooks. Until then, one end user impact/tradeoff is some glitches trying
 untested platforms (with the Compiler runtime).
 
+### Why do we use CGO to implement system calls on darwin?
+
+wazero is dependency and CGO free by design. In some cases, we have code that
+can optionally use CGO, but retain a fallback for when that's disabled. The only
+operating system (`GOOS`) we use CGO by default in is `darwin`.
+
+Unlike other operating systems, regardless of `CGO_ENABLED`, Go always uses
+"CGO" mechanisms in the runtime layer of `darwin`. This is explained in
+[Statically linked binaries on Mac OS X](https://developer.apple.com/library/archive/qa/qa1118/_index.html#//apple_ref/doc/uid/DTS10001666):
+
+> Apple does not support statically linked binaries on Mac OS X. A statically
+> linked binary assumes binary compatibility at the kernel system call
+> interface, and we do not make any guarantees on that front. Rather, we strive
+> to ensure binary compatibility in each dynamically linked system library and
+> framework.
+
+This plays to our advantage for system calls that aren't yet exposed in the Go
+standard library, notably `futimens` for nanosecond-precision timestamp
+manipulation.
+
 ### Why not x/sys
 
 Going beyond Go's SDK limitations can be accomplished with their [x/sys library](https://pkg.go.dev/golang.org/x/sys/unix).
@@ -464,6 +484,24 @@ inserted after exit: https://github.com/emscripten-core/emscripten/issues/12322
 Unfortunately, (WASI Snapshot Preview 1)[https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md] is not formally defined enough, and has APIs with ambiguous semantics.
 This section describes how Wazero interprets and implements the semantics of several WASI APIs that may be interpreted differently by different wasm runtimes.
 Those APIs may affect the portability of a WASI application.
+
+### Why don't we attempt to pass wasi-testsuite on user-defined `fs.FS`?
+
+While most cases work fine on an `os.File` based implementation, we won't
+promise wasi-testsuite compatibility on user defined wrappers of `os.DirFS`.
+The only option for real systems is to use our `sysfs.FS`.
+
+There are a lot of areas where windows behaves differently, despite the
+`os.File` abstraction. This goes well beyond file locking concerns (e.g.
+`EBUSY` errors on open files). For example, errors like `ACCESS_DENIED` aren't
+properly mapped to `EPERM`. There are trickier parts too. `FileInfo.Sys()`
+doesn't return enough information to build inodes needed for WASI. To rebuild
+them requires the full path to the underlying file, not just its directory
+name, and there's no way for us to get that information. At one point we tried,
+but in practice things became tangled and functionality such as read-only
+wrappers became untenable. Finally, there are version-specific behaviors which
+are difficult to maintain even in our own code. For example, go 1.20 opens
+files in a different way than versions before it.
 
 ### Why aren't WASI rules enforced?
 

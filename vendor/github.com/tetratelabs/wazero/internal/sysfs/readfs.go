@@ -5,6 +5,8 @@ import (
 	"io/fs"
 	"os"
 	"syscall"
+
+	"github.com/tetratelabs/wazero/internal/platform"
 )
 
 // NewReadFS is used to mask an existing FS for reads. Notably, this allows
@@ -14,8 +16,6 @@ import (
 func NewReadFS(fs FS) FS {
 	if _, ok := fs.(*readFS); ok {
 		return fs
-	} else if _, ok = fs.(*adapter); ok {
-		return fs // fs.FS is always read-only
 	} else if _, ok = fs.(UnimplementedFS); ok {
 		return fs // unimplemented is read-only
 	}
@@ -23,7 +23,6 @@ func NewReadFS(fs FS) FS {
 }
 
 type readFS struct {
-	UnimplementedFS
 	fs FS
 }
 
@@ -75,6 +74,21 @@ func (r *readFS) OpenFile(path string, flag int, perm fs.FileMode) (fs.File, err
 //
 // This technique was adapted from similar code in zipkin-go.
 func maskForReads(f fs.File) fs.File {
+	// Handle the most common types
+	rf, ok := f.(platform.ReadFile)
+	pf, pok := f.(platform.PathFile)
+	switch {
+	case ok && !pok:
+		return struct {
+			platform.ReadFile
+		}{rf}
+	case ok && pok:
+		return struct {
+			platform.ReadFile
+			platform.PathFile
+		}{rf, pf}
+	}
+
 	// The below are the types wazero casts into.
 	// Note: os.File implements this even for normal files.
 	d, i0 := f.(fs.ReadDirFile)
@@ -124,4 +138,74 @@ func maskForReads(f fs.File) fs.File {
 	default:
 		panic("BUG: unhandled pattern")
 	}
+}
+
+// Lstat implements FS.Lstat
+func (r *readFS) Lstat(path string, lstat *platform.Stat_t) error {
+	return r.fs.Lstat(path, lstat)
+}
+
+// Stat implements FS.Stat
+func (r *readFS) Stat(path string, stat *platform.Stat_t) error {
+	return r.fs.Stat(path, stat)
+}
+
+// Readlink implements FS.Readlink
+func (r *readFS) Readlink(path string) (dst string, err error) {
+	return r.fs.Readlink(path)
+}
+
+// Mkdir implements FS.Mkdir
+func (r *readFS) Mkdir(path string, perm fs.FileMode) error {
+	return syscall.EROFS
+}
+
+// Chmod implements FS.Chmod
+func (r *readFS) Chmod(path string, perm fs.FileMode) error {
+	return syscall.EROFS
+}
+
+// Chown implements FS.Chown
+func (r *readFS) Chown(path string, uid, gid int) error {
+	return syscall.EROFS
+}
+
+// Lchown implements FS.Lchown
+func (r *readFS) Lchown(path string, uid, gid int) error {
+	return syscall.EROFS
+}
+
+// Rename implements FS.Rename
+func (r *readFS) Rename(from, to string) error {
+	return syscall.EROFS
+}
+
+// Rmdir implements FS.Rmdir
+func (r *readFS) Rmdir(path string) error {
+	return syscall.EROFS
+}
+
+// Link implements FS.Link
+func (r *readFS) Link(_, _ string) error {
+	return syscall.EROFS
+}
+
+// Symlink implements FS.Symlink
+func (r *readFS) Symlink(_, _ string) error {
+	return syscall.EROFS
+}
+
+// Unlink implements FS.Unlink
+func (r *readFS) Unlink(path string) error {
+	return syscall.EROFS
+}
+
+// Utimens implements FS.Utimens
+func (r *readFS) Utimens(path string, times *[2]syscall.Timespec, symlinkFollow bool) error {
+	return syscall.EROFS
+}
+
+// Truncate implements FS.Truncate
+func (r *readFS) Truncate(string, int64) error {
+	return syscall.EROFS
 }

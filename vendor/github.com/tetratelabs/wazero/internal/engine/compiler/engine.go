@@ -229,6 +229,9 @@ type (
 		// returnAddress is the return address which the engine jumps into
 		// after executing a builtin function or host function.
 		returnAddress uintptr
+
+		// callerFunctionInstance holds the caller's wasm.FunctionInstance, and is only valid if currently executing a host function.
+		callerFunctionInstance *wasm.FunctionInstance
 	}
 
 	// callFrame holds the information to which the caller function can return.
@@ -331,6 +334,7 @@ const (
 	callEngineExitContextNativeCallStatusCodeOffset     = 120
 	callEngineExitContextBuiltinFunctionCallIndexOffset = 124
 	callEngineExitContextReturnAddressOffset            = 128
+	callEngineExitContextCallerFunctionInstanceOffset   = 136
 
 	// Offsets for function.
 	functionCodeInitialAddressOffset    = 0
@@ -636,6 +640,17 @@ func functionFromUintptr(ptr uintptr) *function {
 
 // Call implements the same method as documented on wasm.ModuleEngine.
 func (ce *callEngine) Call(ctx context.Context, callCtx *wasm.CallContext, params []uint64) (results []uint64, err error) {
+	if ce.fn.parent.withEnsureTermination {
+		select {
+		case <-ctx.Done():
+			// If the provided context is already done, close the call context
+			// and return the error.
+			callCtx.CloseWithCtxErr(ctx)
+			return nil, callCtx.FailIfClosed()
+		default:
+		}
+	}
+
 	tp := ce.initialFn.source.Type
 
 	paramCount := len(params)
@@ -800,21 +815,17 @@ func (f *function) getSourceOffsetInWasmBinary(pc uint64) uint64 {
 	}
 }
 
-func NewEngine(ctx context.Context, enabledFeatures api.CoreFeatures, fileCache filecache.Cache) wasm.Engine {
-	return newEngine(ctx, enabledFeatures, fileCache)
+func NewEngine(_ context.Context, enabledFeatures api.CoreFeatures, fileCache filecache.Cache) wasm.Engine {
+	return newEngine(enabledFeatures, fileCache)
 }
 
-func newEngine(ctx context.Context, enabledFeatures api.CoreFeatures, fileCache filecache.Cache) *engine {
-	var wazeroVersion string
-	if v := ctx.Value(version.WazeroVersionKey{}); v != nil {
-		wazeroVersion = v.(string)
-	}
+func newEngine(enabledFeatures api.CoreFeatures, fileCache filecache.Cache) *engine {
 	return &engine{
 		enabledFeatures: enabledFeatures,
 		codes:           map[wasm.ModuleID][]*code{},
 		setFinalizer:    runtime.SetFinalizer,
 		fileCache:       fileCache,
-		wazeroVersion:   wazeroVersion,
+		wazeroVersion:   version.GetWazeroVersion(),
 	}
 }
 
@@ -918,7 +929,7 @@ entry:
 			fn := calleeHostFunction.parent.goFunc
 			switch fn := fn.(type) {
 			case api.GoModuleFunction:
-				fn.Call(ce.ctx, callCtx.WithMemory(ce.memoryInstance), stack)
+				fn.Call(ce.ctx, ce.callerFunctionInstance.Module.CallCtx, stack)
 			case api.GoFunction:
 				fn.Call(ce.ctx, stack)
 			}
@@ -935,9 +946,9 @@ entry:
 			case builtinFunctionIndexTableGrow:
 				ce.builtinFunctionTableGrow(caller.source.Module.Tables)
 			case builtinFunctionIndexFunctionListenerBefore:
-				ce.builtinFunctionFunctionListenerBefore(ce.ctx, callCtx.WithMemory(ce.memoryInstance), caller)
+				ce.builtinFunctionFunctionListenerBefore(ce.ctx, callCtx, caller)
 			case builtinFunctionIndexFunctionListenerAfter:
-				ce.builtinFunctionFunctionListenerAfter(ce.ctx, callCtx.WithMemory(ce.memoryInstance), caller)
+				ce.builtinFunctionFunctionListenerAfter(ce.ctx, callCtx, caller)
 			case builtinFunctionIndexCheckExitCode:
 				// Note: this operation must be done in Go, not native code. The reason is that
 				// native code cannot be preempted and that means it can block forever if there are not
@@ -1061,7 +1072,7 @@ func compileWasmFunction(cmp compiler, ir *wazeroir.CompilationResult) (*code, e
 		// For example, if the label doesn't have any caller,
 		// we don't need to generate native code at all as we never reach the region.
 		if op.Kind() == wazeroir.OperationKindLabel {
-			skip = cmp.compileLabel(op.(*wazeroir.OperationLabel))
+			skip = cmp.compileLabel(op.(wazeroir.OperationLabel))
 		}
 		if skip {
 			continue
@@ -1072,281 +1083,281 @@ func compileWasmFunction(cmp compiler, ir *wazeroir.CompilationResult) (*code, e
 		}
 		var err error
 		switch o := op.(type) {
-		case *wazeroir.OperationLabel:
+		case wazeroir.OperationLabel:
 			// Label op is already handled ^^.
-		case *wazeroir.OperationUnreachable:
+		case wazeroir.OperationUnreachable:
 			err = cmp.compileUnreachable()
-		case *wazeroir.OperationBr:
+		case wazeroir.OperationBr:
 			err = cmp.compileBr(o)
-		case *wazeroir.OperationBrIf:
+		case wazeroir.OperationBrIf:
 			err = cmp.compileBrIf(o)
-		case *wazeroir.OperationBrTable:
+		case wazeroir.OperationBrTable:
 			err = cmp.compileBrTable(o)
-		case *wazeroir.OperationCall:
+		case wazeroir.OperationCall:
 			err = cmp.compileCall(o)
-		case *wazeroir.OperationCallIndirect:
+		case wazeroir.OperationCallIndirect:
 			err = cmp.compileCallIndirect(o)
-		case *wazeroir.OperationDrop:
+		case wazeroir.OperationDrop:
 			err = cmp.compileDrop(o)
-		case *wazeroir.OperationSelect:
+		case wazeroir.OperationSelect:
 			err = cmp.compileSelect(o)
-		case *wazeroir.OperationPick:
+		case wazeroir.OperationPick:
 			err = cmp.compilePick(o)
-		case *wazeroir.OperationSet:
+		case wazeroir.OperationSet:
 			err = cmp.compileSet(o)
-		case *wazeroir.OperationGlobalGet:
+		case wazeroir.OperationGlobalGet:
 			err = cmp.compileGlobalGet(o)
-		case *wazeroir.OperationGlobalSet:
+		case wazeroir.OperationGlobalSet:
 			err = cmp.compileGlobalSet(o)
-		case *wazeroir.OperationLoad:
+		case wazeroir.OperationLoad:
 			err = cmp.compileLoad(o)
-		case *wazeroir.OperationLoad8:
+		case wazeroir.OperationLoad8:
 			err = cmp.compileLoad8(o)
-		case *wazeroir.OperationLoad16:
+		case wazeroir.OperationLoad16:
 			err = cmp.compileLoad16(o)
-		case *wazeroir.OperationLoad32:
+		case wazeroir.OperationLoad32:
 			err = cmp.compileLoad32(o)
-		case *wazeroir.OperationStore:
+		case wazeroir.OperationStore:
 			err = cmp.compileStore(o)
-		case *wazeroir.OperationStore8:
+		case wazeroir.OperationStore8:
 			err = cmp.compileStore8(o)
-		case *wazeroir.OperationStore16:
+		case wazeroir.OperationStore16:
 			err = cmp.compileStore16(o)
-		case *wazeroir.OperationStore32:
+		case wazeroir.OperationStore32:
 			err = cmp.compileStore32(o)
-		case *wazeroir.OperationMemorySize:
+		case wazeroir.OperationMemorySize:
 			err = cmp.compileMemorySize()
-		case *wazeroir.OperationMemoryGrow:
+		case wazeroir.OperationMemoryGrow:
 			err = cmp.compileMemoryGrow()
-		case *wazeroir.OperationConstI32:
+		case wazeroir.OperationConstI32:
 			err = cmp.compileConstI32(o)
-		case *wazeroir.OperationConstI64:
+		case wazeroir.OperationConstI64:
 			err = cmp.compileConstI64(o)
-		case *wazeroir.OperationConstF32:
+		case wazeroir.OperationConstF32:
 			err = cmp.compileConstF32(o)
-		case *wazeroir.OperationConstF64:
+		case wazeroir.OperationConstF64:
 			err = cmp.compileConstF64(o)
-		case *wazeroir.OperationEq:
+		case wazeroir.OperationEq:
 			err = cmp.compileEq(o)
-		case *wazeroir.OperationNe:
+		case wazeroir.OperationNe:
 			err = cmp.compileNe(o)
-		case *wazeroir.OperationEqz:
+		case wazeroir.OperationEqz:
 			err = cmp.compileEqz(o)
-		case *wazeroir.OperationLt:
+		case wazeroir.OperationLt:
 			err = cmp.compileLt(o)
-		case *wazeroir.OperationGt:
+		case wazeroir.OperationGt:
 			err = cmp.compileGt(o)
-		case *wazeroir.OperationLe:
+		case wazeroir.OperationLe:
 			err = cmp.compileLe(o)
-		case *wazeroir.OperationGe:
+		case wazeroir.OperationGe:
 			err = cmp.compileGe(o)
-		case *wazeroir.OperationAdd:
+		case wazeroir.OperationAdd:
 			err = cmp.compileAdd(o)
-		case *wazeroir.OperationSub:
+		case wazeroir.OperationSub:
 			err = cmp.compileSub(o)
-		case *wazeroir.OperationMul:
+		case wazeroir.OperationMul:
 			err = cmp.compileMul(o)
-		case *wazeroir.OperationClz:
+		case wazeroir.OperationClz:
 			err = cmp.compileClz(o)
-		case *wazeroir.OperationCtz:
+		case wazeroir.OperationCtz:
 			err = cmp.compileCtz(o)
-		case *wazeroir.OperationPopcnt:
+		case wazeroir.OperationPopcnt:
 			err = cmp.compilePopcnt(o)
-		case *wazeroir.OperationDiv:
+		case wazeroir.OperationDiv:
 			err = cmp.compileDiv(o)
-		case *wazeroir.OperationRem:
+		case wazeroir.OperationRem:
 			err = cmp.compileRem(o)
-		case *wazeroir.OperationAnd:
+		case wazeroir.OperationAnd:
 			err = cmp.compileAnd(o)
-		case *wazeroir.OperationOr:
+		case wazeroir.OperationOr:
 			err = cmp.compileOr(o)
-		case *wazeroir.OperationXor:
+		case wazeroir.OperationXor:
 			err = cmp.compileXor(o)
-		case *wazeroir.OperationShl:
+		case wazeroir.OperationShl:
 			err = cmp.compileShl(o)
-		case *wazeroir.OperationShr:
+		case wazeroir.OperationShr:
 			err = cmp.compileShr(o)
-		case *wazeroir.OperationRotl:
+		case wazeroir.OperationRotl:
 			err = cmp.compileRotl(o)
-		case *wazeroir.OperationRotr:
+		case wazeroir.OperationRotr:
 			err = cmp.compileRotr(o)
-		case *wazeroir.OperationAbs:
+		case wazeroir.OperationAbs:
 			err = cmp.compileAbs(o)
-		case *wazeroir.OperationNeg:
+		case wazeroir.OperationNeg:
 			err = cmp.compileNeg(o)
-		case *wazeroir.OperationCeil:
+		case wazeroir.OperationCeil:
 			err = cmp.compileCeil(o)
-		case *wazeroir.OperationFloor:
+		case wazeroir.OperationFloor:
 			err = cmp.compileFloor(o)
-		case *wazeroir.OperationTrunc:
+		case wazeroir.OperationTrunc:
 			err = cmp.compileTrunc(o)
-		case *wazeroir.OperationNearest:
+		case wazeroir.OperationNearest:
 			err = cmp.compileNearest(o)
-		case *wazeroir.OperationSqrt:
+		case wazeroir.OperationSqrt:
 			err = cmp.compileSqrt(o)
-		case *wazeroir.OperationMin:
+		case wazeroir.OperationMin:
 			err = cmp.compileMin(o)
-		case *wazeroir.OperationMax:
+		case wazeroir.OperationMax:
 			err = cmp.compileMax(o)
-		case *wazeroir.OperationCopysign:
+		case wazeroir.OperationCopysign:
 			err = cmp.compileCopysign(o)
-		case *wazeroir.OperationI32WrapFromI64:
+		case wazeroir.OperationI32WrapFromI64:
 			err = cmp.compileI32WrapFromI64()
-		case *wazeroir.OperationITruncFromF:
+		case wazeroir.OperationITruncFromF:
 			err = cmp.compileITruncFromF(o)
-		case *wazeroir.OperationFConvertFromI:
+		case wazeroir.OperationFConvertFromI:
 			err = cmp.compileFConvertFromI(o)
-		case *wazeroir.OperationF32DemoteFromF64:
+		case wazeroir.OperationF32DemoteFromF64:
 			err = cmp.compileF32DemoteFromF64()
-		case *wazeroir.OperationF64PromoteFromF32:
+		case wazeroir.OperationF64PromoteFromF32:
 			err = cmp.compileF64PromoteFromF32()
-		case *wazeroir.OperationI32ReinterpretFromF32:
+		case wazeroir.OperationI32ReinterpretFromF32:
 			err = cmp.compileI32ReinterpretFromF32()
-		case *wazeroir.OperationI64ReinterpretFromF64:
+		case wazeroir.OperationI64ReinterpretFromF64:
 			err = cmp.compileI64ReinterpretFromF64()
-		case *wazeroir.OperationF32ReinterpretFromI32:
+		case wazeroir.OperationF32ReinterpretFromI32:
 			err = cmp.compileF32ReinterpretFromI32()
-		case *wazeroir.OperationF64ReinterpretFromI64:
+		case wazeroir.OperationF64ReinterpretFromI64:
 			err = cmp.compileF64ReinterpretFromI64()
-		case *wazeroir.OperationExtend:
+		case wazeroir.OperationExtend:
 			err = cmp.compileExtend(o)
-		case *wazeroir.OperationSignExtend32From8:
+		case wazeroir.OperationSignExtend32From8:
 			err = cmp.compileSignExtend32From8()
-		case *wazeroir.OperationSignExtend32From16:
+		case wazeroir.OperationSignExtend32From16:
 			err = cmp.compileSignExtend32From16()
-		case *wazeroir.OperationSignExtend64From8:
+		case wazeroir.OperationSignExtend64From8:
 			err = cmp.compileSignExtend64From8()
-		case *wazeroir.OperationSignExtend64From16:
+		case wazeroir.OperationSignExtend64From16:
 			err = cmp.compileSignExtend64From16()
-		case *wazeroir.OperationSignExtend64From32:
+		case wazeroir.OperationSignExtend64From32:
 			err = cmp.compileSignExtend64From32()
-		case *wazeroir.OperationDataDrop:
+		case wazeroir.OperationDataDrop:
 			err = cmp.compileDataDrop(o)
-		case *wazeroir.OperationMemoryInit:
+		case wazeroir.OperationMemoryInit:
 			err = cmp.compileMemoryInit(o)
-		case *wazeroir.OperationMemoryCopy:
+		case wazeroir.OperationMemoryCopy:
 			err = cmp.compileMemoryCopy()
-		case *wazeroir.OperationMemoryFill:
+		case wazeroir.OperationMemoryFill:
 			err = cmp.compileMemoryFill()
-		case *wazeroir.OperationTableInit:
+		case wazeroir.OperationTableInit:
 			err = cmp.compileTableInit(o)
-		case *wazeroir.OperationTableCopy:
+		case wazeroir.OperationTableCopy:
 			err = cmp.compileTableCopy(o)
-		case *wazeroir.OperationElemDrop:
+		case wazeroir.OperationElemDrop:
 			err = cmp.compileElemDrop(o)
-		case *wazeroir.OperationRefFunc:
+		case wazeroir.OperationRefFunc:
 			err = cmp.compileRefFunc(o)
-		case *wazeroir.OperationTableGet:
+		case wazeroir.OperationTableGet:
 			err = cmp.compileTableGet(o)
-		case *wazeroir.OperationTableSet:
+		case wazeroir.OperationTableSet:
 			err = cmp.compileTableSet(o)
-		case *wazeroir.OperationTableGrow:
+		case wazeroir.OperationTableGrow:
 			err = cmp.compileTableGrow(o)
-		case *wazeroir.OperationTableSize:
+		case wazeroir.OperationTableSize:
 			err = cmp.compileTableSize(o)
-		case *wazeroir.OperationTableFill:
+		case wazeroir.OperationTableFill:
 			err = cmp.compileTableFill(o)
-		case *wazeroir.OperationV128Const:
+		case wazeroir.OperationV128Const:
 			err = cmp.compileV128Const(o)
-		case *wazeroir.OperationV128Add:
+		case wazeroir.OperationV128Add:
 			err = cmp.compileV128Add(o)
-		case *wazeroir.OperationV128Sub:
+		case wazeroir.OperationV128Sub:
 			err = cmp.compileV128Sub(o)
-		case *wazeroir.OperationV128Load:
+		case wazeroir.OperationV128Load:
 			err = cmp.compileV128Load(o)
-		case *wazeroir.OperationV128LoadLane:
+		case wazeroir.OperationV128LoadLane:
 			err = cmp.compileV128LoadLane(o)
-		case *wazeroir.OperationV128Store:
+		case wazeroir.OperationV128Store:
 			err = cmp.compileV128Store(o)
-		case *wazeroir.OperationV128StoreLane:
+		case wazeroir.OperationV128StoreLane:
 			err = cmp.compileV128StoreLane(o)
-		case *wazeroir.OperationV128ExtractLane:
+		case wazeroir.OperationV128ExtractLane:
 			err = cmp.compileV128ExtractLane(o)
-		case *wazeroir.OperationV128ReplaceLane:
+		case wazeroir.OperationV128ReplaceLane:
 			err = cmp.compileV128ReplaceLane(o)
-		case *wazeroir.OperationV128Splat:
+		case wazeroir.OperationV128Splat:
 			err = cmp.compileV128Splat(o)
-		case *wazeroir.OperationV128Shuffle:
+		case wazeroir.OperationV128Shuffle:
 			err = cmp.compileV128Shuffle(o)
-		case *wazeroir.OperationV128Swizzle:
+		case wazeroir.OperationV128Swizzle:
 			err = cmp.compileV128Swizzle(o)
-		case *wazeroir.OperationV128AnyTrue:
+		case wazeroir.OperationV128AnyTrue:
 			err = cmp.compileV128AnyTrue(o)
-		case *wazeroir.OperationV128AllTrue:
+		case wazeroir.OperationV128AllTrue:
 			err = cmp.compileV128AllTrue(o)
-		case *wazeroir.OperationV128BitMask:
+		case wazeroir.OperationV128BitMask:
 			err = cmp.compileV128BitMask(o)
-		case *wazeroir.OperationV128And:
+		case wazeroir.OperationV128And:
 			err = cmp.compileV128And(o)
-		case *wazeroir.OperationV128Not:
+		case wazeroir.OperationV128Not:
 			err = cmp.compileV128Not(o)
-		case *wazeroir.OperationV128Or:
+		case wazeroir.OperationV128Or:
 			err = cmp.compileV128Or(o)
-		case *wazeroir.OperationV128Xor:
+		case wazeroir.OperationV128Xor:
 			err = cmp.compileV128Xor(o)
-		case *wazeroir.OperationV128Bitselect:
+		case wazeroir.OperationV128Bitselect:
 			err = cmp.compileV128Bitselect(o)
-		case *wazeroir.OperationV128AndNot:
+		case wazeroir.OperationV128AndNot:
 			err = cmp.compileV128AndNot(o)
-		case *wazeroir.OperationV128Shr:
+		case wazeroir.OperationV128Shr:
 			err = cmp.compileV128Shr(o)
-		case *wazeroir.OperationV128Shl:
+		case wazeroir.OperationV128Shl:
 			err = cmp.compileV128Shl(o)
-		case *wazeroir.OperationV128Cmp:
+		case wazeroir.OperationV128Cmp:
 			err = cmp.compileV128Cmp(o)
-		case *wazeroir.OperationV128AddSat:
+		case wazeroir.OperationV128AddSat:
 			err = cmp.compileV128AddSat(o)
-		case *wazeroir.OperationV128SubSat:
+		case wazeroir.OperationV128SubSat:
 			err = cmp.compileV128SubSat(o)
-		case *wazeroir.OperationV128Mul:
+		case wazeroir.OperationV128Mul:
 			err = cmp.compileV128Mul(o)
-		case *wazeroir.OperationV128Div:
+		case wazeroir.OperationV128Div:
 			err = cmp.compileV128Div(o)
-		case *wazeroir.OperationV128Neg:
+		case wazeroir.OperationV128Neg:
 			err = cmp.compileV128Neg(o)
-		case *wazeroir.OperationV128Sqrt:
+		case wazeroir.OperationV128Sqrt:
 			err = cmp.compileV128Sqrt(o)
-		case *wazeroir.OperationV128Abs:
+		case wazeroir.OperationV128Abs:
 			err = cmp.compileV128Abs(o)
-		case *wazeroir.OperationV128Popcnt:
+		case wazeroir.OperationV128Popcnt:
 			err = cmp.compileV128Popcnt(o)
-		case *wazeroir.OperationV128Min:
+		case wazeroir.OperationV128Min:
 			err = cmp.compileV128Min(o)
-		case *wazeroir.OperationV128Max:
+		case wazeroir.OperationV128Max:
 			err = cmp.compileV128Max(o)
-		case *wazeroir.OperationV128AvgrU:
+		case wazeroir.OperationV128AvgrU:
 			err = cmp.compileV128AvgrU(o)
-		case *wazeroir.OperationV128Pmin:
+		case wazeroir.OperationV128Pmin:
 			err = cmp.compileV128Pmin(o)
-		case *wazeroir.OperationV128Pmax:
+		case wazeroir.OperationV128Pmax:
 			err = cmp.compileV128Pmax(o)
-		case *wazeroir.OperationV128Ceil:
+		case wazeroir.OperationV128Ceil:
 			err = cmp.compileV128Ceil(o)
-		case *wazeroir.OperationV128Floor:
+		case wazeroir.OperationV128Floor:
 			err = cmp.compileV128Floor(o)
-		case *wazeroir.OperationV128Trunc:
+		case wazeroir.OperationV128Trunc:
 			err = cmp.compileV128Trunc(o)
-		case *wazeroir.OperationV128Nearest:
+		case wazeroir.OperationV128Nearest:
 			err = cmp.compileV128Nearest(o)
-		case *wazeroir.OperationV128Extend:
+		case wazeroir.OperationV128Extend:
 			err = cmp.compileV128Extend(o)
-		case *wazeroir.OperationV128ExtMul:
+		case wazeroir.OperationV128ExtMul:
 			err = cmp.compileV128ExtMul(o)
-		case *wazeroir.OperationV128Q15mulrSatS:
+		case wazeroir.OperationV128Q15mulrSatS:
 			err = cmp.compileV128Q15mulrSatS(o)
-		case *wazeroir.OperationV128ExtAddPairwise:
+		case wazeroir.OperationV128ExtAddPairwise:
 			err = cmp.compileV128ExtAddPairwise(o)
-		case *wazeroir.OperationV128FloatPromote:
+		case wazeroir.OperationV128FloatPromote:
 			err = cmp.compileV128FloatPromote(o)
-		case *wazeroir.OperationV128FloatDemote:
+		case wazeroir.OperationV128FloatDemote:
 			err = cmp.compileV128FloatDemote(o)
-		case *wazeroir.OperationV128FConvertFromI:
+		case wazeroir.OperationV128FConvertFromI:
 			err = cmp.compileV128FConvertFromI(o)
-		case *wazeroir.OperationV128Dot:
+		case wazeroir.OperationV128Dot:
 			err = cmp.compileV128Dot(o)
-		case *wazeroir.OperationV128Narrow:
+		case wazeroir.OperationV128Narrow:
 			err = cmp.compileV128Narrow(o)
-		case *wazeroir.OperationV128ITruncSatFromF:
+		case wazeroir.OperationV128ITruncSatFromF:
 			err = cmp.compileV128ITruncSatFromF(o)
 		case wazeroir.OperationBuiltinFunctionCheckExitCode:
 			err = cmp.compileBuiltinFunctionCheckExitCode()

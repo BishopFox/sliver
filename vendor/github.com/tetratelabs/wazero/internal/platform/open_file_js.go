@@ -1,5 +1,3 @@
-//go:build js
-
 package platform
 
 import (
@@ -13,7 +11,9 @@ const (
 	O_NOFOLLOW  = 1 << 30
 )
 
-func OpenFile(name string, flag int, perm fs.FileMode) (*os.File, error) {
+func OpenFile(name string, flag int, perm fs.FileMode) (f *os.File, err error) {
 	flag &= ^(O_DIRECTORY | O_NOFOLLOW) // erase placeholders
-	return os.OpenFile(name, flag, perm)
+	f, err = os.OpenFile(name, flag, perm)
+	err = UnwrapOSError(err)
+	return
 }

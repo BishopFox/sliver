@@ -65,8 +65,6 @@ func mmapCodeSegmentARM64(code io.Reader, size int) ([]byte, error) {
 	return mmapFunc, err
 }
 
-var _zero uintptr
-
 // mprotect is like syscall.Mprotect, defined locally so that freebsd compiles.
 func mprotect(b []byte, prot int) (err error) {
 	var _p0 unsafe.Pointer

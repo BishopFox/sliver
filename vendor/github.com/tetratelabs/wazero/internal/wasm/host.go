@@ -1,6 +1,7 @@
 package wasm
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 
@@ -34,7 +35,7 @@ type HostFunc struct {
 	ResultNames []string
 
 	// Code is the equivalent function in the SectionIDCode.
-	Code *Code
+	Code Code
 }
 
 // MustGoReflectFunc calls WithGoReflectFunc or panics on error.
@@ -49,14 +50,14 @@ func (f *HostFunc) MustGoReflectFunc(fn interface{}) *HostFunc {
 // WithGoFunc returns a copy of the function, replacing its Code.GoFunc.
 func (f *HostFunc) WithGoFunc(fn api.GoFunc) *HostFunc {
 	ret := *f
-	ret.Code = &Code{IsHostFunction: true, GoFunc: fn}
+	ret.Code.GoFunc = fn
 	return &ret
 }
 
 // WithGoModuleFunc returns a copy of the function, replacing its Code.GoFunc.
 func (f *HostFunc) WithGoModuleFunc(fn api.GoModuleFunc) *HostFunc {
 	ret := *f
-	ret.Code = &Code{IsHostFunction: true, GoFunc: fn}
+	ret.Code.GoFunc = fn
 	return &ret
 }
 
@@ -66,16 +67,6 @@ func (f *HostFunc) WithGoReflectFunc(fn interface{}) (*HostFunc, error) {
 	var err error
 	ret.ParamTypes, ret.ResultTypes, ret.Code, err = parseGoReflectFunc(fn)
 	return &ret, err
-}
-
-// WithWasm returns a copy of the function, replacing its Code.Body.
-func (f *HostFunc) WithWasm(body []byte) *HostFunc {
-	ret := *f
-	ret.Code = &Code{IsHostFunction: true, Body: body}
-	if f.Code != nil {
-		ret.Code.LocalTypes = f.Code.LocalTypes
-	}
-	return &ret
 }
 
 type HostFuncNames struct {
@@ -94,11 +85,11 @@ func NewHostModule(
 	if moduleName != "" {
 		m = &Module{NameSection: &NameSection{ModuleName: moduleName}}
 	} else {
-		m = &Module{}
+		return nil, errors.New("a module name must not be empty")
 	}
 
 	if exportCount := uint32(len(nameToGoFunc)); exportCount > 0 {
-		m.ExportSection = make([]*Export, 0, exportCount)
+		m.ExportSection = make([]Export, 0, exportCount)
 		if err = addFuncs(m, nameToGoFunc, funcToNames, enabledFeatures); err != nil {
 			return
 		}
@@ -179,8 +170,8 @@ func addFuncs(
 	funcCount := uint32(len(nameToFunc))
 	m.NameSection.FunctionNames = make([]*NameAssoc, 0, funcCount)
 	m.FunctionSection = make([]Index, 0, funcCount)
-	m.CodeSection = make([]*Code, 0, funcCount)
-	m.FunctionDefinitionSection = make([]*FunctionDefinition, 0, funcCount)
+	m.CodeSection = make([]Code, 0, funcCount)
+	m.FunctionDefinitionSection = make([]FunctionDefinition, 0, funcCount)
 
 	idx := Index(0)
 	for _, name := range funcNames {
@@ -193,7 +184,7 @@ func addFuncs(
 		m.FunctionSection = append(m.FunctionSection, typeIdx)
 		m.CodeSection = append(m.CodeSection, hf.Code)
 		for _, export := range hf.ExportNames {
-			m.ExportSection = append(m.ExportSection, &Export{Type: ExternTypeFunc, Name: export, Index: idx})
+			m.ExportSection = append(m.ExportSection, Export{Type: ExternTypeFunc, Name: export, Index: idx})
 		}
 		m.NameSection.FunctionNames = append(m.NameSection.FunctionNames, &NameAssoc{Index: idx, Name: hf.Name})
 
@@ -223,14 +214,14 @@ func (m *Module) maybeAddType(params, results []ValueType, enabledFeatures api.C
 			return 0, fmt.Errorf("multiple result types invalid as %v", err)
 		}
 	}
-	for i, t := range m.TypeSection {
+	for i := range m.TypeSection {
+		t := &m.TypeSection[i]
 		if t.EqualsSignature(params, results) {
 			return Index(i), nil
 		}
 	}
 
 	result := m.SectionElementCount(SectionIDType)
-	toAdd := &FunctionType{Params: params, Results: results}
-	m.TypeSection = append(m.TypeSection, toAdd)
+	m.TypeSection = append(m.TypeSection, FunctionType{Params: params, Results: results})
 	return result, nil
 }

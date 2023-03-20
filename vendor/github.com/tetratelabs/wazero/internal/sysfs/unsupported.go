@@ -3,6 +3,8 @@ package sysfs
 import (
 	"io/fs"
 	"syscall"
+
+	"github.com/tetratelabs/wazero/internal/platform"
 )
 
 // UnimplementedFS is an FS that returns syscall.ENOSYS for all functions,
@@ -24,6 +26,21 @@ func (UnimplementedFS) OpenFile(path string, flag int, perm fs.FileMode) (fs.Fil
 	return nil, syscall.ENOSYS
 }
 
+// Lstat implements FS.Lstat
+func (UnimplementedFS) Lstat(path string, stat *platform.Stat_t) error {
+	return syscall.ENOSYS
+}
+
+// Stat implements FS.Stat
+func (UnimplementedFS) Stat(path string, stat *platform.Stat_t) error {
+	return syscall.ENOSYS
+}
+
+// Readlink implements FS.Readlink
+func (UnimplementedFS) Readlink(path string) (string, error) {
+	return "", syscall.ENOSYS
+}
+
 // Mkdir implements FS.Mkdir
 func (UnimplementedFS) Mkdir(path string, perm fs.FileMode) error {
 	return syscall.ENOSYS
@@ -31,6 +48,16 @@ func (UnimplementedFS) Mkdir(path string, perm fs.FileMode) error {
 
 // Chmod implements FS.Chmod
 func (UnimplementedFS) Chmod(path string, perm fs.FileMode) error {
+	return syscall.ENOSYS
+}
+
+// Chown implements FS.Chown
+func (UnimplementedFS) Chown(path string, uid, gid int) error {
+	return syscall.ENOSYS
+}
+
+// Lchown implements FS.Lchown
+func (UnimplementedFS) Lchown(path string, uid, gid int) error {
 	return syscall.ENOSYS
 }
 
@@ -42,11 +69,6 @@ func (UnimplementedFS) Rename(from, to string) error {
 // Rmdir implements FS.Rmdir
 func (UnimplementedFS) Rmdir(path string) error {
 	return syscall.ENOSYS
-}
-
-// Readlink implements FS.Readlink
-func (UnimplementedFS) Readlink(string, []byte) (int, error) {
-	return 0, syscall.ENOSYS
 }
 
 // Link implements FS.Link
@@ -64,8 +86,8 @@ func (UnimplementedFS) Unlink(path string) error {
 	return syscall.ENOSYS
 }
 
-// Utimes implements FS.Utimes
-func (UnimplementedFS) Utimes(path string, atimeNsec, mtimeNsec int64) error {
+// Utimens implements FS.Utimens
+func (UnimplementedFS) Utimens(path string, times *[2]syscall.Timespec, symlinkFollow bool) error {
 	return syscall.ENOSYS
 }
 

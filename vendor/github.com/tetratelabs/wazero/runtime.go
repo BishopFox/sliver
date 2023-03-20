@@ -1,7 +1,6 @@
 package wazero
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"github.com/tetratelabs/wazero/api"
 	experimentalapi "github.com/tetratelabs/wazero/experimental"
 	internalsys "github.com/tetratelabs/wazero/internal/sys"
-	"github.com/tetratelabs/wazero/internal/version"
 	"github.com/tetratelabs/wazero/internal/wasm"
 	binaryformat "github.com/tetratelabs/wazero/internal/wasm/binary"
 	"github.com/tetratelabs/wazero/sys"
@@ -70,6 +68,8 @@ type Runtime interface {
 	//	_, err := r.NewHostModuleBuilder("env").
 	//		NewFunctionBuilder().WithFunc(hello).Export("hello").
 	//		Instantiate(ctx, r)
+	//
+	// Note: empty `moduleName` is not allowed.
 	NewHostModuleBuilder(moduleName string) HostModuleBuilder
 
 	// CompileModule decodes the WebAssembly binary (%.wasm) or errs if invalid.
@@ -125,9 +125,6 @@ func NewRuntime(ctx context.Context) Runtime {
 
 // NewRuntimeWithConfig returns a runtime with the given configuration.
 func NewRuntimeWithConfig(ctx context.Context, rConfig RuntimeConfig) Runtime {
-	if v := ctx.Value(version.WazeroVersionKey{}); v == nil {
-		ctx = context.WithValue(ctx, version.WazeroVersionKey{}, wazeroVersion)
-	}
 	config := rConfig.(*runtimeConfig)
 	var engine wasm.Engine
 	var cacheImpl *cache
@@ -177,6 +174,9 @@ type runtime struct {
 
 // Module implements Runtime.Module.
 func (r *runtime) Module(moduleName string) api.Module {
+	if len(moduleName) == 0 {
+		return nil
+	}
 	return r.store.Module(moduleName)
 }
 
@@ -188,10 +188,6 @@ func (r *runtime) CompileModule(ctx context.Context, binary []byte) (CompiledMod
 
 	if binary == nil {
 		return nil, errors.New("binary == nil")
-	}
-
-	if len(binary) < 4 || !bytes.Equal(binary[0:4], binaryformat.Magic) {
-		return nil, errors.New("invalid binary")
 	}
 
 	internal, err := binaryformat.DecodeModule(binary, r.enabledFeatures,
@@ -211,6 +207,13 @@ func (r *runtime) CompileModule(ctx context.Context, binary []byte) (CompiledMod
 	internal.BuildMemoryDefinitions()
 
 	c := &compiledModule{module: internal, compiledEngine: r.store.Engine}
+
+	// typeIDs are static and compile-time known.
+	typeIDs, err := r.store.GetFunctionTypeIDs(internal.TypeSection)
+	if err != nil {
+		return nil, err
+	}
+	c.typeIDs = typeIDs
 
 	listeners, err := buildListeners(ctx, internal)
 	if err != nil {
@@ -233,7 +236,7 @@ func buildListeners(ctx context.Context, internal *wasm.Module) ([]experimentala
 	importCount := internal.ImportFuncCount()
 	listeners := make([]experimentalapi.FunctionListener, len(internal.FunctionSection))
 	for i := 0; i < len(listeners); i++ {
-		listeners[i] = factory.NewListener(internal.FunctionDefinitionSection[uint32(i)+importCount])
+		listeners[i] = factory.NewListener(&internal.FunctionDefinitionSection[uint32(i)+importCount])
 	}
 	return listeners, nil
 }
@@ -285,7 +288,7 @@ func (r *runtime) InstantiateModule(
 	}
 
 	// Instantiate the module.
-	mod, err = r.store.Instantiate(ctx, code.module, name, sysCtx)
+	mod, err = r.store.Instantiate(ctx, code.module, name, sysCtx, code.typeIDs)
 	if err != nil {
 		// If there was an error, don't leak the compiled module.
 		if code.closeWithModule {
