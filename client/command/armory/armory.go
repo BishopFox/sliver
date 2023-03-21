@@ -484,7 +484,7 @@ func fetchPackageSignature(wg *sync.WaitGroup, armoryConfig *assets.ArmoryConfig
 
 	var sig *minisign.Signature
 	if pkgParser, ok := pkgParsers[repoURL.Hostname()]; ok {
-		sig, _, err = pkgParser(armoryPkg, true, clientConfig)
+		sig, _, err = pkgParser(armoryConfig, armoryPkg, true, clientConfig)
 	} else {
 		sig, _, err = DefaultArmoryPkgParser(armoryConfig, armoryPkg, true, clientConfig)
 	}

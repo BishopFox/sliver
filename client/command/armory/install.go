@@ -143,7 +143,7 @@ func installAliasPackageByName(name string, clientConfig ArmoryHTTPConfig, con *
 	var sig *minisign.Signature
 	var tarGz []byte
 	if pkgParser, ok := pkgParsers[repoURL.Hostname()]; ok {
-		sig, tarGz, err = pkgParser(&entry.Pkg, false, clientConfig)
+		sig, tarGz, err = pkgParser(entry.ArmoryConfig, &entry.Pkg, false, clientConfig)
 	} else {
 		sig, tarGz, err = DefaultArmoryPkgParser(entry.ArmoryConfig, &entry.Pkg, false, clientConfig)
 	}
@@ -261,7 +261,7 @@ func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, c
 	var sig *minisign.Signature
 	var tarGz []byte
 	if pkgParser, ok := pkgParsers[repoURL.Hostname()]; ok {
-		sig, tarGz, err = pkgParser(&entry.Pkg, false, clientConfig)
+		sig, tarGz, err = pkgParser(entry.ArmoryConfig, &entry.Pkg, false, clientConfig)
 	} else {
 		sig, tarGz, err = DefaultArmoryPkgParser(entry.ArmoryConfig, &entry.Pkg, false, clientConfig)
 	}
