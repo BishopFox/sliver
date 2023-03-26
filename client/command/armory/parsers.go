@@ -40,7 +40,7 @@ import (
 type ArmoryIndexParser func(*assets.ArmoryConfig, ArmoryHTTPConfig) (*ArmoryIndex, error)
 
 // ArmoryPackageParser - Generic interface to fetch armory package manifests
-type ArmoryPackageParser func(*ArmoryPackage, bool, ArmoryHTTPConfig) (*minisign.Signature, []byte, error)
+type ArmoryPackageParser func(*assets.ArmoryConfig, *ArmoryPackage, bool, ArmoryHTTPConfig) (*minisign.Signature, []byte, error)
 
 var (
 	indexParsers = map[string]ArmoryIndexParser{
@@ -79,28 +79,7 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 		return nil, err
 	}
 
-	client := httpClient(clientConfig)
-	repoURL, err := url.Parse(armoryConfig.RepoURL)
-	if err != nil {
-		return nil, err
-	}
-	req := &http.Request{
-		Method: http.MethodGet,
-		URL:    repoURL,
-		Header: map[string][]string{},
-	}
-	if armoryConfig.Authorization != "" {
-		req.Header.Set("Authorization", armoryConfig.Authorization)
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
+	resp, body, err := httpRequest(clientConfig, armoryConfig.RepoURL, armoryConfig, http.Header{})
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.New("api returned non-200 status code")
 	}
@@ -125,9 +104,8 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 		return nil, errors.New("index has invalid signature")
 	}
 
-	armoryIndex := &ArmoryIndex{ArmoryConfig: armoryConfig}
-	if err != nil {
-		return nil, err
+	armoryIndex := &ArmoryIndex{
+		ArmoryConfig: armoryConfig,
 	}
 	err = json.Unmarshal(armoryIndexData, armoryIndex)
 	if err != nil {
@@ -144,25 +122,7 @@ func DefaultArmoryPkgParser(armoryConfig *assets.ArmoryConfig, armoryPkg *Armory
 		return nil, nil, err
 	}
 
-	client := httpClient(clientConfig)
-	repoURL, err := url.Parse(armoryConfig.RepoURL)
-	if err != nil {
-		return nil, nil, err
-	}
-	req := &http.Request{
-		Method: http.MethodGet,
-		URL:    repoURL,
-		Header: map[string][]string{},
-	}
-	if armoryConfig.Authorization != "" {
-		req.Header.Set("Authorization", armoryConfig.Authorization)
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	resp, body, err := httpRequest(clientConfig, armoryConfig.RepoURL, armoryConfig, http.Header{})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -187,17 +147,9 @@ func DefaultArmoryPkgParser(armoryConfig *assets.ArmoryConfig, armoryPkg *Armory
 		if tarGzURL.Scheme != "https" && tarGzURL.Scheme != "http" {
 			return nil, nil, errors.New("invalid url scheme")
 		}
-		resp, err := client.Get(tarGzURL.String())
+		tarGz, err = downloadRequest(clientConfig, tarGzURL.String(), armoryConfig)
 		if err != nil {
 			return nil, nil, err
-		}
-		defer resp.Body.Close()
-		tarGz, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, nil, err
-		}
-		if resp.StatusCode != http.StatusOK {
-			return nil, nil, errors.New("api returned non-200 status code")
 		}
 	}
 	return sig, tarGz, nil
@@ -239,13 +191,7 @@ func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig 
 		return nil, err
 	}
 
-	client := httpClient(clientConfig)
-	resp, err := client.Get(armoryConfig.RepoURL)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	resp, body, err := httpRequest(clientConfig, armoryConfig.RepoURL, armoryConfig, http.Header{})
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +199,7 @@ func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig 
 		if resp.StatusCode == http.StatusForbidden {
 			return nil, errors.New("you hit the github api rate limit (60 req/hr), try later")
 		}
-		return nil, errors.New("api returned non-200 status code")
+		return nil, fmt.Errorf("api returned non-200 status code: %d", resp.StatusCode)
 	}
 
 	releases := []GithubRelease{}
@@ -270,23 +216,13 @@ func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig 
 	var sigData []byte
 	for _, asset := range release.Assets {
 		if asset.Name == armoryIndexFileName {
-			resp, err := client.Get(asset.BrowserDownloadURL)
-			if err != nil {
-				return nil, err
-			}
-			defer resp.Body.Close()
-			armoryIndexData, err = ioutil.ReadAll(resp.Body)
+			armoryIndexData, err = downloadRequest(clientConfig, asset.URL, armoryConfig)
 			if err != nil {
 				return nil, err
 			}
 		}
 		if asset.Name == armoryIndexSigFileName {
-			resp, err := client.Get(asset.BrowserDownloadURL)
-			if err != nil {
-				return nil, err
-			}
-			defer resp.Body.Close()
-			sigData, err = ioutil.ReadAll(resp.Body)
+			sigData, err = downloadRequest(clientConfig, asset.URL, armoryConfig)
 			if err != nil {
 				return nil, err
 			}
@@ -299,7 +235,9 @@ func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig 
 		return nil, errors.New("invalid signature")
 	}
 
-	armoryIndex := &ArmoryIndex{}
+	armoryIndex := &ArmoryIndex{
+		ArmoryConfig: armoryConfig,
+	}
 	err = json.Unmarshal(armoryIndexData, armoryIndex)
 	if err != nil {
 		return nil, err
@@ -308,20 +246,14 @@ func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig 
 }
 
 // GithubAPIArmoryPackageParser - Retrieve the minisig and tar.gz for an armory package from a GitHub release
-func GithubAPIArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
+func GithubAPIArmoryPackageParser(armoryConfig *assets.ArmoryConfig, armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
 	var publicKey minisign.PublicKey
 	err := publicKey.UnmarshalText([]byte(armoryPkg.PublicKey))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	client := httpClient(clientConfig)
-	resp, err := client.Get(armoryPkg.RepoURL)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	resp, body, err := httpRequest(clientConfig, armoryPkg.RepoURL, armoryConfig, http.Header{})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -329,7 +261,7 @@ func GithubAPIArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, client
 		if resp.StatusCode == http.StatusForbidden {
 			return nil, nil, errors.New("you hit the github api rate limit (60 req/hr), try later")
 		}
-		return nil, nil, errors.New("api returned non-200 status code")
+		return nil, nil, fmt.Errorf("api returned non-200 status code: %d", resp.StatusCode)
 	}
 
 	releases := []GithubRelease{}
@@ -343,14 +275,7 @@ func GithubAPIArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, client
 	var tarGz []byte
 	for _, asset := range release.Assets {
 		if asset.Name == fmt.Sprintf("%s.minisig", armoryPkg.CommandName) {
-			var resp *http.Response
-			resp, err = client.Get(asset.BrowserDownloadURL)
-			if err != nil {
-				break
-			}
-			defer resp.Body.Close()
-			var body []byte
-			body, err = ioutil.ReadAll(resp.Body)
+			body, err := downloadRequest(clientConfig, asset.URL, armoryConfig)
 			if err != nil {
 				break
 			}
@@ -360,13 +285,7 @@ func GithubAPIArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, client
 			}
 		}
 		if asset.Name == fmt.Sprintf("%s.tar.gz", armoryPkg.CommandName) && !sigOnly {
-			var resp *http.Response
-			resp, err = client.Get(asset.BrowserDownloadURL)
-			if err != nil {
-				break
-			}
-			defer resp.Body.Close()
-			tarGz, err = ioutil.ReadAll(resp.Body)
+			tarGz, err = downloadRequest(clientConfig, asset.URL, armoryConfig)
 			if err != nil {
 				break
 			}
@@ -380,31 +299,27 @@ func GithubAPIArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, client
 //
 
 // GithubArmoryPackageParser - Uses github.com instead of api.github.com to download packages
-func GithubArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
+func GithubArmoryPackageParser(_ *assets.ArmoryConfig, armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
 	latestTag, err := githubLatestTagParser(armoryPkg, clientConfig)
 	if err != nil {
 		return nil, nil, err
 	}
-	client := httpClient(clientConfig)
 
 	sigURL, err := url.Parse(armoryPkg.RepoURL)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse armory pkg url '%s': %s", armoryPkg.RepoURL, err)
 	}
 	sigURL.Path = path.Join(sigURL.Path, "releases", "download", latestTag, fmt.Sprintf("%s.minisig", armoryPkg.CommandName))
-	sigResp, err := client.Get(sigURL.String())
+
+	// Setup dummy auth here as the non-api endpoints don't support the Authorization header
+	noAuth := &assets.ArmoryConfig{
+		Authorization: "",
+	}
+	body, err := downloadRequest(clientConfig, sigURL.String(), noAuth)
 	if err != nil {
 		return nil, nil, err
 	}
-	defer sigResp.Body.Close()
-	if sigResp.StatusCode != http.StatusOK {
-		return nil, nil, fmt.Errorf("failed to get signature for armory pkg '%s': %s", armoryPkg.RepoURL, sigResp.Status)
-	}
-	var body []byte
-	body, err = ioutil.ReadAll(sigResp.Body)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read resp body '%s': %s", armoryPkg.RepoURL, err)
-	}
+
 	sig, err := parsePkgMinsig(body)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse pkg sig '%s': %s", armoryPkg.RepoURL, err)
@@ -417,17 +332,9 @@ func GithubArmoryPackageParser(armoryPkg *ArmoryPackage, sigOnly bool, clientCon
 			return nil, nil, fmt.Errorf("failed to parse armory pkg url '%s': %s", armoryPkg.RepoURL, err)
 		}
 		tarGzURL.Path = path.Join(tarGzURL.Path, "releases", "download", latestTag, fmt.Sprintf("%s.tar.gz", armoryPkg.CommandName))
-		tarGzResp, err := client.Get(tarGzURL.String())
+		tarGz, err = downloadRequest(clientConfig, tarGzURL.String(), noAuth)
 		if err != nil {
 			return nil, nil, err
-		}
-		defer tarGzResp.Body.Close()
-		if tarGzResp.StatusCode != http.StatusOK {
-			return nil, nil, fmt.Errorf("failed to get tar.gz for armory pkg '%s': %s", armoryPkg.RepoURL, tarGzResp.Status)
-		}
-		tarGz, err = ioutil.ReadAll(tarGzResp.Body)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to read tar.gz body '%s': %s", armoryPkg.RepoURL, err)
 		}
 	}
 
@@ -497,4 +404,41 @@ func httpClient(config ArmoryHTTPConfig) *http.Client {
 			},
 		},
 	}
+}
+
+func httpRequest(clientConfig ArmoryHTTPConfig, reqURL string, armoryConfig *assets.ArmoryConfig, extraHeaders http.Header) (*http.Response, []byte, error) {
+	client := httpClient(clientConfig)
+	req, err := http.NewRequest(http.MethodGet, reqURL, http.NoBody)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(extraHeaders) > 0 {
+		for key := range extraHeaders {
+			req.Header.Add(key, strings.Join(extraHeaders[key], ","))
+		}
+	}
+	if armoryConfig.Authorization != "" {
+		req.Header.Set("Authorization", armoryConfig.Authorization)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	return resp, body, err
+}
+
+func downloadRequest(clientConfig ArmoryHTTPConfig, reqURL string, armoryConfig *assets.ArmoryConfig) ([]byte, error) {
+	downloadHdr := http.Header{
+		"Accept": {"application/octet-stream"},
+	}
+	resp, body, err := httpRequest(clientConfig, reqURL, armoryConfig, downloadHdr)
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusFound {
+		return nil, fmt.Errorf("Error downloading asset: http %d", resp.StatusCode)
+	}
+
+	return body, err
 }
