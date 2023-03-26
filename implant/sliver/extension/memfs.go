@@ -155,7 +155,8 @@ func (w WasmMemoryFS) isMemFSPath(name string) bool {
 	return false
 }
 
-// MemFSNode - A makeshift in-memory fill system node
+// MemFSNode - A makeshift in-memory fill system node, this object
+// implements both the fs.File and fs.FileInfo interfaces.
 type MemFSNode struct {
 	fullName string
 	BaseName string
@@ -208,7 +209,7 @@ func (m *MemFSNode) HasSubdir(name string) bool {
 	return ok
 }
 
-// InsertDir - Recursively inserts segments of a path into the tree
+// Insert - Recursively inserts segments of a path into the tree
 func (m *MemFSNode) Insert(segs []string, fileNode *MemFSNode) {
 	if len(segs) == 0 {
 		if m.FileNodes == nil {
