@@ -289,8 +289,16 @@ func runAliasCommand(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		// Groupping the two conditions together could crash the client since ctx.Flags.Type panics
 		// if the flag is not registered.
 		if aliasManifest.IsAssembly {
-			if !ctx.Flags.Bool("in-process") {
+			inProcess := ctx.Flags.Bool("in-process")
+			runtime := ctx.Flags.String("runtime")
+			amsiBypass := ctx.Flags.Bool("amsi-bypass")
+			etwBypass := ctx.Flags.Bool("etw-bypass")
+			if !inProcess {
 				msgStr = " Arguments are limited to 256 characters when using the default fork/exec model for .NET assemblies.\nConsider using the --in-process flag to execute .NET assemblies in-process and work around this limitation.\n"
+			}
+			if !inProcess && (runtime != "" || etwBypass || amsiBypass) {
+				con.PrintErrorf("The --runtime, --etw-bypass, and --amsi-bypass flags can only be used with the --in-process flag\n")
+				return
 			}
 		} else if !aliasManifest.IsReflective {
 			msgStr = " Arguments are limited to 256 characters when using the default fork/exec model for non-reflective PE payloads.\n"
