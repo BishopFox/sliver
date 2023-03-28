@@ -27,7 +27,7 @@ package handlers
 */
 
 import (
-	"import os"
+	"os"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 

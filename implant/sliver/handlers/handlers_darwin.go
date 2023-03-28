@@ -20,7 +20,9 @@ package handlers
 
 import (
 	"os"
+	"os/user"
 	"syscall"
+	"strconv"
 	"github.com/bishopfox/sliver/implant/sliver/extension"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
