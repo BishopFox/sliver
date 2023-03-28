@@ -195,59 +195,64 @@ func chownHandler(data []byte, resp RPCResponse) {
 	_, err = os.Stat(target)
 
 	chown.Response = &commonpb.Response{}
-	if err == nil {
-		uid_str := chownReq.Uid
-		usr, err := user.Lookup(uid_str)
-		if err == nil {
-			uid, err := strconv.ParseInt(usr.Uid, 10, 32)
-			if err == nil {
-				gid_str := chownReq.Gid
-				grp, err := user.LookupGroup(gid_str)
-				if err == nil {
-					gid, err := strconv.ParseUint(grp.Gid, 10, 32)
-					if err == nil {
-
-						//Check if the recursive flag is set and the path is a directory
-						if chownReq.Recursive {
-
-							err := filepath.WalkDir(target, func(file string, d fs.DirEntry, err error) error {
-								if err == nil {
-									err = os.Chown(file, int(uid), int(gid))
-									if err != nil {
-										return err
-									}
-								} else {
-									return err
-								}
-								return nil
-							})
-							if err != nil {
-								chown.Response.Err = err.Error()
-							}
-
-						} else {
-
-							err = os.Chown(target, int(uid), int(gid))
-							if err != nil {
-								chown.Response.Err = err.Error()
-							}
-						}
-					} else {
-						chown.Response.Err = err.Error()
-					}
-				} else {
-					chown.Response.Err = err.Error()
-				}
-			} else {
-				chown.Response.Err = err.Error()
-			}
-		} else {
-			chown.Response.Err = err.Error()
-		}
-	} else {
+	if err != nil {
 		chown.Response.Err = err.Error()
+		goto finished
 	}
 
+	uid_str := chownReq.Uid
+	usr, err := user.Lookup(uid_str)
+	if err != nil {
+		chown.Response.Err = err.Error()
+		goto finished
+	}
+
+	uid, err := strconv.ParseInt(usr.Uid, 10, 32)
+	if err != nil {
+		chown.Response.Err = err.Error()
+		goto finished
+	}
+
+	gid_str := chownReq.Gid
+	grp, err := user.LookupGroup(gid_str)
+	if err != nil {
+			chown.Response.Err = err.Error()
+		goto finished
+	}
+
+	gid, err := strconv.ParseUint(grp.Gid, 10, 32)
+	if err != nil {
+		chown.Response.Err = err.Error()
+		goto finished
+	}
+
+	//Check if the recursive flag is set and the path is a directory
+	if chownReq.Recursive {
+
+		err := filepath.WalkDir(target, func(file string, d fs.DirEntry, err error) error {
+			if err == nil {
+				err = os.Chown(file, int(uid), int(gid))
+				if err != nil {
+					return err
+				}
+			} else {
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			chown.Response.Err = err.Error()
+		}
+
+	} else {
+
+		err = os.Chown(target, int(uid), int(gid))
+		if err != nil {
+			chown.Response.Err = err.Error()
+		}
+	}
+
+finished:
 	data, err = proto.Marshal(chown)
 	resp(data, err)
 }
