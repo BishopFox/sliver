@@ -66,6 +66,11 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 	etwBypass := ctx.Flags.Bool("etw-bypass")
 	amsiBypass := ctx.Flags.Bool("amsi-bypass")
 
+	if !inProcess && (runtime != "" || etwBypass || amsiBypass) {
+		con.PrintErrorf("The --runtime, --etw-bypass, and --amsi-bypass flags can only be used with the --in-process flag\n")
+		return
+	}
+
 	assemblyArgsStr := strings.Join(assemblyArgs, " ")
 	assemblyArgsStr = strings.TrimSpace(assemblyArgsStr)
 	if len(assemblyArgsStr) > 256 && !inProcess {
