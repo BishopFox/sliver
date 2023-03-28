@@ -424,6 +424,33 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		}
 		filesystem.PrintUpload(upload, con)
 
+	case sliverpb.MsgChmodReq:
+		chmod := &sliverpb.Chmod{}
+		err := proto.Unmarshal(task.Response, chmod)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		filesystem.PrintChmod(chmod, con)
+
+	case sliverpb.MsgChownReq:
+		chown := &sliverpb.Chown{}
+		err := proto.Unmarshal(task.Response, chown)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		filesystem.PrintChown(chown, con)
+
+	case sliverpb.MsgChtimesReq:
+		chtimes := &sliverpb.Chtimes{}
+		err := proto.Unmarshal(task.Response, chtimes)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		filesystem.PrintChtimes(chtimes, con)
+
 	// ---------------------
 	// Network commands
 	// ---------------------

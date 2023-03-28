@@ -112,6 +112,9 @@ service SliverRPC {
     rpc Mkdir(sliverpb.MkdirReq) returns (sliverpb.Mkdir);
     rpc Download(sliverpb.DownloadReq) returns (sliverpb.Download);
     rpc Upload(sliverpb.UploadReq) returns (sliverpb.Upload);
+    rpc Chmod(sliverpb.ChmodReq) returns (sliverpb.Chmod);
+    rpc Chown(sliverpb.ChownReq) returns (sliverpb.Chown);
+    rpc Chtimes(sliverpb.ChtimesReq) returns (sliverpb.Chtimes);
     rpc ProcessDump(sliverpb.ProcessDumpReq) returns (sliverpb.ProcessDump);
     rpc RunAs(sliverpb.RunAsReq) returns (sliverpb.RunAs);
     rpc Impersonate(sliverpb.ImpersonateReq) returns (sliverpb.Impersonate);
