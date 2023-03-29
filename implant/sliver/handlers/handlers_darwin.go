@@ -149,7 +149,7 @@ func listExtensionsHandler(data []byte, resp RPCResponse) {
 func getUid(fileInfo os.FileInfo) (string) {
 	uid := int32(fileInfo.Sys().(*syscall.Stat_t).Uid)
 	uid_str := strconv.FormatUint(uint64(uid), 10)
-	usr, err := os.user.LookupId(uid_str)
+	usr, err := user.LookupId(uid_str)
 	if err != nil {
 		return ""
 	}
@@ -159,7 +159,7 @@ func getUid(fileInfo os.FileInfo) (string) {
 func getGid(fileInfo os.FileInfo) (string) {
 	gid := int32(fileInfo.Sys().(*syscall.Stat_t).Gid)
 	gid_str := strconv.FormatUint(uint64(gid), 10)
-	grp, err := os.user.LookupGroupId(gid_str)
+	grp, err := user.LookupGroupId(gid_str)
 	if err != nil {
 		return ""
 	}
