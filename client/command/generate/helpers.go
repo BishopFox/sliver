@@ -17,7 +17,7 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverConsol
 		return data, err
 	}
 
-	implantName := buildImplantName(profile.GetConfig().GetName())
+	implantName := buildImplantName(profile.GetConfig().GetFileName())
 	_, ok := builds.GetConfigs()[implantName]
 	if implantName == "" || !ok {
 		// no built implant found for profile, generate a new one
@@ -35,7 +35,7 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverConsol
 			return data, err
 		}
 		data = generated.GetFile().GetData()
-		profile.Config.Name = buildImplantName(generated.GetFile().GetName())
+		profile.Config.FileName = generated.File.Name
 		_, err = con.Rpc.SaveImplantProfile(context.Background(), profile)
 		if err != nil {
 			con.PrintErrorf("Error updating implant profile\n")
@@ -45,7 +45,7 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverConsol
 		// Found a build, reuse that one
 		con.PrintInfof("Sliver name for profile: %s\n", implantName)
 		regenerate, err := con.Rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
-			ImplantName: profile.GetConfig().GetName(),
+			ImplantName: implantName,
 		})
 
 		if err != nil {
