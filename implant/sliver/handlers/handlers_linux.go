@@ -180,8 +180,18 @@ func chmodHandler(data []byte, resp RPCResponse) {
 }
 
 func chownHandler(data []byte, resp RPCResponse) {
+
+	// variable definitions so goto won't break
+	var uid_str string
+	var gid_str string
+	var gid uint64
+	var uid uint64
+	var err error
+	var usr *user.User
+	var grp *user.Group
+
 	chownReq := &sliverpb.ChownReq{}
-	err := proto.Unmarshal(data, chownReq)
+	err = proto.Unmarshal(data, chownReq)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("error decoding message: %v", err)
@@ -200,27 +210,27 @@ func chownHandler(data []byte, resp RPCResponse) {
 		goto finished
 	}
 
-	uid_str := chownReq.Uid
-	usr, err := user.Lookup(uid_str)
+	uid_str = chownReq.Uid
+	usr, err = user.Lookup(uid_str)
 	if err != nil {
 		chown.Response.Err = err.Error()
 		goto finished
 	}
 
-	uid, err := strconv.ParseInt(usr.Uid, 10, 32)
+	uid, err = strconv.ParseUint(usr.Uid, 10, 32)
 	if err != nil {
 		chown.Response.Err = err.Error()
 		goto finished
 	}
 
-	gid_str := chownReq.Gid
-	grp, err := user.LookupGroup(gid_str)
+	gid_str = chownReq.Gid
+	grp, err = user.LookupGroup(gid_str)
 	if err != nil {
-			chown.Response.Err = err.Error()
+		chown.Response.Err = err.Error()
 		goto finished
 	}
 
-	gid, err := strconv.ParseUint(grp.Gid, 10, 32)
+	gid, err = strconv.ParseUint(grp.Gid, 10, 32)
 	if err != nil {
 		chown.Response.Err = err.Error()
 		goto finished
