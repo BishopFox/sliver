@@ -227,14 +227,16 @@ func AliasExtensionOrBundleCompleter(prefix string, args []string, con *console.
 func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.ExtensionManifest, con *console.SliverConsoleClient) {
 	width, _, err := term.GetSize(0)
 	if err != nil {
-		width = 999
+		width = 1
 	}
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.SetTitle(console.Bold + "Packages" + console.Normal)
 
-	if con.Settings.SmallTermWidth < width {
+	urlMargin := 150 // Extra margin needed to show URL column
+
+	if con.Settings.SmallTermWidth+urlMargin < width {
 		tw.AppendHeader(table.Row{
 			"Command Name",
 			"Version",
@@ -289,7 +291,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 		if extensions.CmdExists(pkg.CommandName, con.App) {
 			color = console.Green
 		}
-		if con.Settings.SmallTermWidth < width {
+		if con.Settings.SmallTermWidth+urlMargin < width {
 			rows = append(rows, table.Row{
 				fmt.Sprintf(color+"%s"+console.Normal, pkg.CommandName),
 				fmt.Sprintf(color+"%s"+console.Normal, pkg.Version),
