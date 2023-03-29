@@ -236,7 +236,7 @@ func chownHandler(data []byte, resp RPCResponse) {
 		goto finished
 	}
 
-	//Check if the recursive flag is set and the path is a directory
+	// Check if the recursive flag is set and the path is a directory
 	if chownReq.Recursive {
 
 		err := filepath.WalkDir(target, func(file string, d fs.DirEntry, err error) error {
