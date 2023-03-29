@@ -200,6 +200,9 @@ const (
 	UploadStr   = "upload"
 	IfconfigStr = "ifconfig"
 	NetstatStr  = "netstat"
+	ChmodStr       = "chmod"
+	ChownStr       = "chown"
+	ChtimesStr       = "chtimes"
 
 	ProcdumpStr         = "procdump"
 	ImpersonateStr      = "impersonate"

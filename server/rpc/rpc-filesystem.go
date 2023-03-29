@@ -118,6 +118,36 @@ func (rpc *Server) Upload(ctx context.Context, req *sliverpb.UploadReq) (*sliver
 	return resp, nil
 }
 
+// Chmod - Change permission on a file or directory
+func (rpc *Server) Chmod(ctx context.Context, req *sliverpb.ChmodReq) (*sliverpb.Chmod, error) {
+	resp := &sliverpb.Chmod{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// Chown - Change owner on a file or directory
+func (rpc *Server) Chown(ctx context.Context, req *sliverpb.ChownReq) (*sliverpb.Chown, error) {
+	resp := &sliverpb.Chown{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// Chtimes - Change file access and modification times on a file or directory
+func (rpc *Server) Chtimes(ctx context.Context, req *sliverpb.ChtimesReq) (*sliverpb.Chtimes, error) {
+	resp := &sliverpb.Chtimes{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func trackIOC(req *sliverpb.UploadReq, resp *sliverpb.Upload) {
 	fsLog.Debugf("Adding IOC to database ...")
 	request := req.GetRequest()

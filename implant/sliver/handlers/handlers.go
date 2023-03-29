@@ -202,6 +202,10 @@ func dirListHandler(data []byte, resp RPCResponse) {
 					linkPath = ""
 				}
 			}
+
+			sliverFileInfo.Uid = getUid(fileInfo)
+            sliverFileInfo.Gid = getGid(fileInfo)
+
 			sliverFileInfo.Name = dirEntry.Name()
 			sliverFileInfo.IsDir = dirEntry.IsDir()
 			sliverFileInfo.Link = linkPath
@@ -950,4 +954,42 @@ func expandPath(exePath string) (string, error) {
 		}
 	}
 	return exePath, nil
+}
+
+func chtimesHandler(data []byte, resp RPCResponse) {
+	chtimesReq := &sliverpb.ChtimesReq{}
+	err := proto.Unmarshal(data, chtimesReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+
+	chtimes := &sliverpb.Chtimes{}
+	target, _ := filepath.Abs(chtimesReq.Path)
+	chtimes.Path = target
+	// Make sure file exists
+	_, err = os.Stat(target)
+
+	chtimes.Response = &commonpb.Response{}
+	if err == nil {
+
+		unixAtime := int64(chtimesReq.ATime)
+		atime := time.Unix(unixAtime, 0)
+
+		unixMtime := int64(chtimesReq.MTime)
+		mtime := time.Unix(unixMtime, 0)
+
+		err = os.Chtimes(target, atime, mtime)
+		if err != nil {
+			chtimes.Response.Err = err.Error()
+		}
+
+	} else {
+		chtimes.Response.Err = err.Error()
+	}
+
+	data, err = proto.Marshal(chtimes)
+	resp(data, err)
 }

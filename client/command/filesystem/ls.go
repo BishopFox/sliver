@@ -149,13 +149,22 @@ func PrintLs(ls *sliverpb.Ls, flags grumble.FlagMap, con *console.SliverConsoleC
 		implantLocation := time.FixedZone(ls.Timezone, int(ls.TimezoneOffset))
 		modTime = modTime.In(implantLocation)
 
-		if fileInfo.IsDir {
-			fmt.Fprintf(table, "%s\t%s\t<dir>\t%s\n", fileInfo.Mode, fileInfo.Name, modTime.Format(time.RubyDate))
-		} else if fileInfo.Link != "" {
-			fmt.Fprintf(table, "%s\t%s -> %s\t%s\t%s\n", fileInfo.Mode, fileInfo.Name, fileInfo.Link, util.ByteCountBinary(fileInfo.Size), modTime.Format(time.RubyDate))
-		} else {
-			fmt.Fprintf(table, "%s\t%s\t%s\t%s\n", fileInfo.Mode, fileInfo.Name, util.ByteCountBinary(fileInfo.Size), modTime.Format(time.RubyDate))
+		owner := ""
+		if fileInfo.Uid != "" {
+			owner = fileInfo.Uid
 		}
+		if fileInfo.Gid != "" {
+			owner = owner + ":" + fileInfo.Gid + "\t"
+		}
+
+		if fileInfo.IsDir {
+			fmt.Fprintf(table, "%s\t%s%s\t<dir>\t%s\n", fileInfo.Mode, owner, fileInfo.Name, modTime.Format(time.RubyDate))
+		} else if fileInfo.Link != "" {
+			fmt.Fprintf(table, "%s\t%s%s -> %s\t%s\t%s\n", fileInfo.Mode, owner, fileInfo.Name, fileInfo.Link, util.ByteCountBinary(fileInfo.Size), modTime.Format(time.RubyDate))
+		} else {
+			fmt.Fprintf(table, "%s\t%s%s\t%s\t%s\n", fileInfo.Mode, owner, fileInfo.Name, util.ByteCountBinary(fileInfo.Size), modTime.Format(time.RubyDate))
+		}
+
 	}
 	table.Flush()
 	con.Printf("%s\n", outputBuf.String())

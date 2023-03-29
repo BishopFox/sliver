@@ -299,6 +299,19 @@ const (
 
 	MsgRPortfwdReq
 
+	// MsgChmodReq - Request to chmod a file
+	MsgChmodReq
+	// MsgChmod - Replies with file path
+	MsgChmod
+	// MsgChownReq - Request to chown a file
+	MsgChownReq
+	// MsgChown - Replies with file path
+	MsgChown
+	// MsgChtimesReq - Request to chtimes a file
+	MsgChtimesReq
+	// MsgChown - Replies with file path
+	MsgChtimes
+
 	// Wasm Extension messages
 	MsgRegisterWasmExtensionReq
 	MsgDeregisterWasmExtensionReq
@@ -531,6 +544,19 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgRportFwdListeners
 	case *RPortfwdReq:
 		return MsgRPortfwdReq
+
+	case *ChmodReq:
+		return MsgChmodReq
+	case *Chmod:
+		return MsgChmod
+	case *ChownReq:
+		return MsgChownReq
+	case *Chown:
+		return MsgChown
+	case *ChtimesReq:
+		return MsgChtimesReq
+	case *Chtimes:
+		return MsgChtimes
 
 	case *RegisterWasmExtensionReq:
 		return MsgRegisterWasmExtensionReq

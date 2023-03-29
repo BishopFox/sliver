@@ -27,6 +27,7 @@ package handlers
 */
 
 import (
+	"os"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
@@ -46,6 +47,7 @@ var (
 		sliverpb.MsgEnvReq:         getEnvHandler,
 		sliverpb.MsgUnsetEnvReq:    unsetEnvHandler,
 		sliverpb.MsgReconfigureReq: reconfigureHandler,
+		sliverpb.MsgChtimesReq:     chtimesHandler,
 
 		// Wasm Extensions - Note that execution can be done via a tunnel handler
 		sliverpb.MsgRegisterWasmExtensionReq:   registerWasmExtensionHandler,
@@ -62,4 +64,14 @@ func GetSystemHandlers() map[uint32]RPCHandler {
 // GetSystemPivotHandlers - Not supported
 func GetSystemPivotHandlers() map[uint32]TunnelHandler {
 	return map[uint32]TunnelHandler{}
+}
+
+// Stub
+func getUid(fileInfo os.FileInfo) (string) {
+	return ""
+}
+
+// Stub
+func getGid(fileInfo os.FileInfo) (string) {
+	return ""
 }
