@@ -19,6 +19,10 @@ package handlers
 */
 
 import (
+	"os"
+	"os/user"
+	"syscall"
+	"strconv"
 	"github.com/bishopfox/sliver/implant/sliver/extension"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -43,6 +47,7 @@ var (
 		pb.MsgEnvReq:       getEnvHandler,
 		pb.MsgSetEnvReq:    setEnvHandler,
 		pb.MsgUnsetEnvReq:  unsetEnvHandler,
+		pb.MsgChtimesReq:   chtimesHandler,
 
 		pb.MsgScreenshotReq: screenshotHandler,
 		pb.MsgNetstatReq:    netstatHandler,
@@ -139,4 +144,24 @@ func listExtensionsHandler(data []byte, resp RPCResponse) {
 	}
 	data, err = proto.Marshal(lstResp)
 	resp(data, err)
+}
+
+func getUid(fileInfo os.FileInfo) (string) {
+	uid := int32(fileInfo.Sys().(*syscall.Stat_t).Uid)
+	uid_str := strconv.FormatUint(uint64(uid), 10)
+	usr, err := user.LookupId(uid_str)
+	if err != nil {
+		return ""
+	}
+	return usr.Name
+}
+
+func getGid(fileInfo os.FileInfo) (string) {
+	gid := int32(fileInfo.Sys().(*syscall.Stat_t).Gid)
+	gid_str := strconv.FormatUint(uint64(gid), 10)
+	grp, err := user.LookupGroupId(gid_str)
+	if err != nil {
+		return ""
+	}
+	return grp.Name
 }

