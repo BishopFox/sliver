@@ -1324,6 +1324,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.String("N", "name", "", "agent name")
 			f.Bool("d", "debug", false, "enable debug features")
+			f.String("O", "debug-file", "", "path to debug output")
 			f.Bool("e", "evasion", false, "enable evasion features (e.g. overwrite user space hooks)")
 			f.Bool("l", "skip-symbols", false, "skip symbol obfuscation")
 			f.String("I", "template", "sliver", "implant code template")
@@ -1385,6 +1386,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("a", "arch", "amd64", "cpu architecture")
 			f.String("N", "name", "", "agent name")
 			f.Bool("d", "debug", false, "enable debug features")
+			f.String("O", "debug-file", "", "path to debug output")
 			f.Bool("e", "evasion", false, "enable evasion features  (e.g. overwrite user space hooks)")
 			f.Bool("l", "skip-symbols", false, "skip symbol obfuscation")
 			f.String("I", "template", "sliver", "implant code template")
@@ -1541,6 +1543,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("a", "arch", "amd64", "cpu architecture")
 
 			f.Bool("d", "debug", false, "enable debug features")
+			f.String("O", "debug-file", "", "path to debug output")
 			f.Bool("e", "evasion", false, "enable evasion features")
 			f.Bool("l", "skip-symbols", false, "skip symbol obfuscation")
 			f.Bool("G", "disable-sgn", false, "disable shikata ga nai shellcode encoder")
@@ -1609,6 +1612,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("a", "arch", "amd64", "cpu architecture")
 
 			f.Bool("d", "debug", false, "enable debug features")
+			f.String("O", "debug-file", "", "path to debug output")
 			f.Bool("e", "evasion", false, "enable evasion features")
 			f.Bool("l", "skip-symbols", false, "skip symbol obfuscation")
 

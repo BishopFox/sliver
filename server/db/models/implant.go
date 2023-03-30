@@ -87,6 +87,7 @@ type ImplantConfig struct {
 	MtlsKey    string
 
 	Debug               bool
+	DebugFile           string
 	Evasion             bool
 	ObfuscateSymbols    bool
 	ReconnectInterval   int64
@@ -159,6 +160,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		MtlsKey:    ic.MtlsKey,
 
 		Debug:            ic.Debug,
+		DebugFile:        ic.DebugFile,
 		Evasion:          ic.Evasion,
 		ObfuscateSymbols: ic.ObfuscateSymbols,
 		TemplateName:     ic.TemplateName,

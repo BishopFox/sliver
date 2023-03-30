@@ -148,6 +148,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.MtlsCert = pbConfig.MtlsCert
 	cfg.MtlsKey = pbConfig.MtlsKey
 	cfg.Debug = pbConfig.Debug
+	cfg.DebugFile = pbConfig.DebugFile
 	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
 	cfg.TemplateName = pbConfig.TemplateName
