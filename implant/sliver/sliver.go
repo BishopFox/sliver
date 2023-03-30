@@ -162,6 +162,14 @@ func main() {
 
 	// {{if .Config.Debug}}
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	debugFilePath := "{{ .Config.DebugFile }}"
+	if debugFilePath != "" {
+		// Open the log file for writing
+		file, err := os.OpenFile(debugFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err == nil {
+			log.SetOutput(file)
+		}
+	}
 	// {{else}}
 	log.SetFlags(0)
 	log.SetOutput(ioutil.Discard)

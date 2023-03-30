@@ -272,6 +272,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	limitDatetime := ctx.Flags.String("limit-datetime")
 	limitFileExists := ctx.Flags.String("limit-fileexists")
 	limitLocale := ctx.Flags.String("limit-locale")
+	debugFile := ctx.Flags.String("debug-file")
 
 	isSharedLib := false
 	isService := false
@@ -369,6 +370,8 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		IsShellcode: isShellcode,
 
 		RunAtLoad: runAtLoad,
+
+		DebugFile: debugFile,
 	}
 
 	return config
