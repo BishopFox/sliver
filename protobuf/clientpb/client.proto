@@ -171,6 +171,7 @@ message ImplantConfig {
   bool IsShellcode = 104;
 
   bool RunAtLoad = 105;
+  string DebugFile = 106;
 }
 
 message ExternalImplantConfig {
