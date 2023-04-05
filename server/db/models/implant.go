@@ -19,7 +19,6 @@ package models
 */
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -191,8 +190,6 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 
 		FileName: ic.FileName,
 	}
-	a := ic.ECCServerPublicKey
-	fmt.Print(a)
 	// Copy Canary Domains
 	config.CanaryDomains = []string{}
 	for _, canaryDomain := range ic.CanaryDomains {
