@@ -152,12 +152,14 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		BeaconInterval: ic.BeaconInterval,
 		BeaconJitter:   ic.BeaconJitter,
 
-		GOOS:   ic.GOOS,
-		GOARCH: ic.GOARCH,
-
-		MtlsCACert: ic.MtlsCACert,
-		MtlsCert:   ic.MtlsCert,
-		MtlsKey:    ic.MtlsKey,
+		GOOS:               ic.GOOS,
+		GOARCH:             ic.GOARCH,
+		ECCServerPublicKey: ic.ECCServerPublicKey,
+		ECCPublicKey:       ic.ECCPublicKey,
+		ECCPrivateKey:      ic.ECCPrivateKey,
+		MtlsCACert:         ic.MtlsCACert,
+		MtlsCert:           ic.MtlsCert,
+		MtlsKey:            ic.MtlsKey,
 
 		Debug:            ic.Debug,
 		DebugFile:        ic.DebugFile,
@@ -188,7 +190,6 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 
 		FileName: ic.FileName,
 	}
-
 	// Copy Canary Domains
 	config.CanaryDomains = []string{}
 	for _, canaryDomain := range ic.CanaryDomains {
