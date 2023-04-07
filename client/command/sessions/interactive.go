@@ -89,7 +89,7 @@ func InteractiveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	c2s = append(c2s, tcpPivotC2...)
 
 	// No flags, parse the current beacon's ActiveC2 instead
-	if len(mtlsC2) == 0 && len(wgC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 && len(namedPipeC2) == 0 && len(tcpPivotC2) == 0 {
+	if len(c2s) == 0 {
 		con.PrintInfof("Using beacon's active C2 endpoint: %s\n", beacon.ActiveC2)
 		c2url, err := url.Parse(beacon.ActiveC2)
 		if err != nil {
