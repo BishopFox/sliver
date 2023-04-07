@@ -109,7 +109,7 @@ func GetBeacon(con *console.SliverConsoleClient, beaconID string) (*clientpb.Bea
 		return nil, ErrNoBeacons
 	}
 	for _, beacon := range beacons.Beacons {
-		if beacon.ID == beaconID {
+		if beacon.ID == beaconID || strings.HasPrefix(beacon.ID, beaconID) {
 			return beacon, nil
 		}
 	}
