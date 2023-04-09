@@ -172,8 +172,8 @@ github.com/desertbit/readline
 ## explicit
 github.com/dlclark/regexp2
 github.com/dlclark/regexp2/syntax
-# github.com/dustin/go-humanize v1.0.0
-## explicit
+# github.com/dustin/go-humanize v1.0.1
+## explicit; go 1.16
 github.com/dustin/go-humanize
 # github.com/fatih/color v1.15.0
 ## explicit; go 1.17
@@ -181,6 +181,12 @@ github.com/fatih/color
 # github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5
 ## explicit
 github.com/gen2brain/shm
+# github.com/glebarez/go-sqlite v1.20.3
+## explicit; go 1.17
+github.com/glebarez/go-sqlite
+# github.com/glebarez/sqlite v1.7.0
+## explicit; go 1.18
+github.com/glebarez/sqlite
 # github.com/go-sql-driver/mysql v1.7.0
 ## explicit; go 1.13
 github.com/go-sql-driver/mysql

@@ -1,4 +1,4 @@
-package gosqlite
+package sqlite
 
 import "errors"
 

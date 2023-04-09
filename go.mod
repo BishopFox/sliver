@@ -20,6 +20,7 @@ require (
 	github.com/desertbit/grumble v1.1.1
 	github.com/desertbit/readline v1.5.1
 	github.com/fatih/color v1.15.0
+	github.com/glebarez/sqlite v1.7.0
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
@@ -73,8 +74,9 @@ require (
 	github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d // indirect
 	github.com/desertbit/closer/v3 v3.1.3 // indirect
 	github.com/dlclark/regexp2 v1.4.0 // indirect
-	github.com/dustin/go-humanize v1.0.0 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
+	github.com/glebarez/go-sqlite v1.20.3 // indirect
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect

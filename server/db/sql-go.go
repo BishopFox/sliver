@@ -22,9 +22,8 @@ package db
 
 import (
 	"github.com/bishopfox/sliver/server/configs"
-	"github.com/bishopfox/sliver/server/db/gosqlite"
+	gosqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
-	_ "modernc.org/sqlite"
 )
 
 func sqliteClient(dbConfig *configs.DatabaseConfig) *gorm.DB {

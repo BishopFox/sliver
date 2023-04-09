@@ -5,7 +5,7 @@
 GO ?= go
 ARTIFACT_SUFFIX ?= 
 ENV =
-TAGS ?= -tags osusergo,netgo,wasm_sqlite
+TAGS ?= -tags osusergo,netgo,go_sqlite
 CGO_ENABLED = 0
 
 ifneq (,$(findstring cgo_sqlite,$(TAGS)))
