@@ -22,8 +22,10 @@ package db
 
 import (
 	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/server/db/wasmsqlite"
 	_ "github.com/ncruces/go-sqlite3"
-	"gorm.io/driver/sqlite"
+	_ "github.com/ncruces/go-sqlite3/driver"
+	_ "github.com/ncruces/go-sqlite3/embed"
 	"gorm.io/gorm"
 )
 
@@ -33,7 +35,7 @@ func sqliteClient(dbConfig *configs.DatabaseConfig) *gorm.DB {
 		panic(err)
 	}
 
-	dbClient, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
+	dbClient, err := gorm.Open(wasmsqlite.Open(dsn), &gorm.Config{
 		PrepareStmt: true,
 		Logger:      getGormLogger(dbConfig),
 	})

@@ -1,4 +1,4 @@
-package gosqlite
+package wasmsqlite
 
 import (
 	"context"
@@ -6,17 +6,21 @@ import (
 	"strconv"
 	"strings"
 
-	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
+
+	_ "github.com/ncruces/go-sqlite3"
+	_ "github.com/ncruces/go-sqlite3/driver"
+	_ "github.com/ncruces/go-sqlite3/embed"
+
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/migrator"
 	"gorm.io/gorm/schema"
-	_ "modernc.org/sqlite"
 )
 
 // DriverName is the default driver name for SQLite.
-const DriverName = "sqlite"
+const DriverName = "sqlite3"
 
 type Dialector struct {
 	DriverName string
@@ -96,14 +100,17 @@ func (dialector Dialector) ClauseBuilders() map[string]clause.ClauseBuilder {
 		},
 		"LIMIT": func(c clause.Clause, builder clause.Builder) {
 			if limit, ok := c.Expression.(clause.Limit); ok {
-				if (*limit.Limit) > 0 || limit.Offset > 0 {
-					if (*limit.Limit) <= 0 {
-						(*limit.Limit) = -1
-					}
-					builder.WriteString("LIMIT " + strconv.Itoa((*limit.Limit)))
+				var lmt = -1
+				if limit.Limit != nil && *limit.Limit >= 0 {
+					lmt = *limit.Limit
+				}
+				if lmt >= 0 || limit.Offset > 0 {
+					builder.WriteString("LIMIT ")
+					builder.WriteString(strconv.Itoa(lmt))
 				}
 				if limit.Offset > 0 {
-					builder.WriteString(" OFFSET " + strconv.Itoa(limit.Offset))
+					builder.WriteString(" OFFSET ")
+					builder.WriteString(strconv.Itoa(limit.Offset))
 				}
 			}
 		},
