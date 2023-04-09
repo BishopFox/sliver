@@ -45,7 +45,7 @@ const (
 //     values UTIME_NOW or UTIME_NOW.
 //   - This is like `utimensat` with `AT_FDCWD` in POSIX. See
 //     https://pubs.opengroup.org/onlinepubs/9699919799/functions/futimens.html
-func Utimens(path string, times *[2]syscall.Timespec, symlinkFollow bool) error {
+func Utimens(path string, times *[2]syscall.Timespec, symlinkFollow bool) syscall.Errno {
 	err := utimens(path, times, symlinkFollow)
 	return UnwrapOSError(err)
 }
@@ -58,7 +58,7 @@ func Utimens(path string, times *[2]syscall.Timespec, symlinkFollow bool) error 
 //     cannot use this to update timestamps on a directory (syscall.EPERM).
 //   - This is like the function `futimens` in POSIX. See
 //     https://pubs.opengroup.org/onlinepubs/9699919799/functions/futimens.html
-func UtimensFile(f fs.File, times *[2]syscall.Timespec) error {
+func UtimensFile(f fs.File, times *[2]syscall.Timespec) syscall.Errno {
 	if f, ok := f.(fdFile); ok {
 		err := futimens(f.Fd(), times)
 		return UnwrapOSError(err)
@@ -102,16 +102,16 @@ func utimensPortable(path string, times *[2]syscall.Timespec, symlinkFollow bool
 
 	// Now, either one of the inputs is a special value, or neither. This means
 	// we don't have a risk of re-reading the clock or re-doing stat.
-	if atim, err := normalizeTimespec(path, times, 0); err != nil {
+	if atim, err := normalizeTimespec(path, times, 0); err != 0 {
 		return err
-	} else if mtim, err := normalizeTimespec(path, times, 1); err != nil {
+	} else if mtim, err := normalizeTimespec(path, times, 1); err != 0 {
 		return err
 	} else {
 		return syscall.UtimesNano(path, []syscall.Timespec{atim, mtim})
 	}
 }
 
-func normalizeTimespec(path string, times *[2]syscall.Timespec, i int) (ts syscall.Timespec, err error) { //nolint:unused
+func normalizeTimespec(path string, times *[2]syscall.Timespec, i int) (ts syscall.Timespec, err syscall.Errno) { //nolint:unused
 	switch times[i].Nsec {
 	case UTIME_NOW: // declined in Go per golang/go#31880.
 		ts = nowTimespec()
@@ -122,7 +122,7 @@ func normalizeTimespec(path string, times *[2]syscall.Timespec, i int) (ts sysca
 		// - https://github.com/golang/go/issues/32558.
 		// - https://go-review.googlesource.com/c/go/+/219638 (unmerged)
 		var st Stat_t
-		if err = stat(path, &st); err != nil {
+		if st, err = stat(path); err != 0 {
 			return
 		}
 		switch i {

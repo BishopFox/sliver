@@ -4,6 +4,6 @@ package platform
 
 import "syscall"
 
-func fchown(fd uintptr, uid, gid int) error {
-	return syscall.Fchown(int(fd), uid, gid)
+func fchown(fd uintptr, uid, gid int) syscall.Errno {
+	return UnwrapOSError(syscall.Fchown(int(fd), uid, gid))
 }

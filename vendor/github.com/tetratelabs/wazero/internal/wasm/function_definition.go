@@ -50,7 +50,7 @@ func (m *Module) BuildFunctionDefinitions() {
 		resultNames = m.NameSection.ResultNames
 	}
 
-	importCount := m.ImportFuncCount()
+	importCount := m.ImportFunctionCount
 	m.FunctionDefinitionSection = make([]FunctionDefinition, importCount+uint32(len(m.FunctionSection)))
 
 	importFuncIdx := Index(0)

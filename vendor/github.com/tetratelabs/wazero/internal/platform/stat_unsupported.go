@@ -5,37 +5,35 @@ package platform
 import (
 	"io/fs"
 	"os"
+	"syscall"
 )
 
-func lstat(path string, st *Stat_t) (err error) {
+func lstat(path string) (Stat_t, syscall.Errno) {
 	t, err := os.Lstat(path)
-	if err = UnwrapOSError(err); err == nil {
-		fillStatFromFileInfo(st, t)
+	if errno := UnwrapOSError(err); errno == 0 {
+		return statFromFileInfo(t), 0
+	} else {
+		return Stat_t{}, errno
 	}
-	return
 }
 
-func stat(path string, st *Stat_t) (err error) {
+func stat(path string) (Stat_t, syscall.Errno) {
 	t, err := os.Stat(path)
-	if err = UnwrapOSError(err); err == nil {
-		fillStatFromFileInfo(st, t)
+	if errno := UnwrapOSError(err); errno == 0 {
+		return statFromFileInfo(t), 0
+	} else {
+		return Stat_t{}, errno
 	}
+}
+
+func statFile(f fs.File) (Stat_t, syscall.Errno) {
+	return defaultStatFile(f)
+}
+
+func inoFromFileInfo(_ readdirFile, t fs.FileInfo) (ino uint64, err syscall.Errno) {
 	return
 }
 
-func statFile(f fs.File, st *Stat_t) error {
-	return defaultStatFile(f, st)
-}
-
-func inoFromFileInfo(readdirFile, fs.FileInfo) (ino uint64, err error) {
-	return
-}
-
-func fillStatFromFileInfo(st *Stat_t, t fs.FileInfo) {
-	fillStatFromDefaultFileInfo(st, t)
-}
-
-func fillStatFromOpenFile(st *Stat_t, fd uintptr, t os.FileInfo) (err error) {
-	fillStatFromFileInfo(st, t)
-	return
+func statFromFileInfo(t fs.FileInfo) Stat_t {
+	return statFromDefaultFileInfo(t)
 }

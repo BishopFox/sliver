@@ -4,10 +4,10 @@ package platform
 
 import "syscall"
 
-func Unlink(name string) error {
+func Unlink(name string) (errno syscall.Errno) {
 	err := syscall.Unlink(name)
-	if err = UnwrapOSError(err); err == syscall.EPERM {
-		err = syscall.EISDIR
+	if errno = UnwrapOSError(err); errno == syscall.EPERM {
+		errno = syscall.EISDIR
 	}
-	return err
+	return errno
 }

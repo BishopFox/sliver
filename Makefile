@@ -5,9 +5,12 @@
 GO ?= go
 ARTIFACT_SUFFIX ?= 
 ENV =
-CGO_ENABLED ?= 1
-TAGS ?= -tags osusergo,netgo,cgosqlite,sqlite_omit_load_extension
+TAGS ?= -tags osusergo,netgo,wasm_sqlite
+CGO_ENABLED = 0
 
+ifneq (,$(findstring cgo_sqlite,$(TAGS)))
+	CGO_ENABLED = 1
+endif
 
 #
 # Prerequisites 
@@ -64,17 +67,6 @@ STATIC_TARGET := linux
 UNAME_S := $(shell uname -s)
 UNAME_P := $(shell uname -p)
 
-# If the target is Windows from Linux/Darwin, check for mingw
-CROSS_COMPILERS = x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++
-ifneq (,$(findstring cgosqlite,$(TAGS)))
-	CGO_ENABLED = 1
-	ifeq ($(MAKECMDGOALS), windows)
-		K := $(foreach exec,$(CROSS_COMPILERS),\
-				$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
-		ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
-	endif
-endif
-
 # Programs required for generating protobuf/grpc files
 PB_COMPILERS = protoc protoc-gen-go protoc-gen-go-grpc
 ifeq ($(MAKECMDGOALS), pb)
@@ -107,12 +99,6 @@ ifeq ($(MAKECMDGOALS), linux)
 		-X $(VERSION_PKG).GitDirty=$(GIT_DIRTY) \
 		-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUBLIC_KEY) \
 		-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
-endif
-
-ifeq ($(MAKECMDGOALS), linux-arm64)
-	# Redefine TAGS/ENV to use pure go sqlite3
-	TAGS = -tags osusergo,netgo,gosqlite
-	CGO_ENABLED = 0
 endif
 
 #

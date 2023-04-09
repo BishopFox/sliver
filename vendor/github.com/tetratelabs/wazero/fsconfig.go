@@ -64,6 +64,10 @@ type FSConfig interface {
 	// WithDirMount assigns a directory at `dir` to any paths beginning at
 	// `guestPath`.
 	//
+	// For example, `dirPath` as / (or c:\ in Windows), makes the entire host
+	// volume writeable to the path on the guest. The `guestPath` is always a
+	// POSIX style path, slash (/) delimited, even if run on Windows.
+	//
 	// If the same `guestPath` was assigned before, this overrides its value,
 	// retaining the original precedence. See the documentation of FSConfig for
 	// more details on `guestPath`.

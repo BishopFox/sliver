@@ -15,8 +15,7 @@ import (
 var _ api.Module = &CallContext{}
 
 func NewCallContext(s *Store, instance *ModuleInstance, sys *internalsys.Context) *CallContext {
-	zero := uint64(0)
-	return &CallContext{memory: instance.Memory, module: instance, s: s, Sys: sys, Closed: &zero}
+	return &CallContext{memory: instance.Memory, module: instance, s: s, Sys: sys, Closed: 0}
 }
 
 // CallContext is a function call context bound to a module. This is important as one module's functions can call
@@ -53,7 +52,7 @@ type CallContext struct {
 	//
 	// Note: Exclusively reading and updating this with atomics guarantees cross-goroutine observations.
 	// See /RATIONALE.md
-	Closed *uint64
+	Closed uint64
 
 	// CodeCloser is non-nil when the code should be closed after this module.
 	CodeCloser api.Closer
@@ -61,8 +60,8 @@ type CallContext struct {
 
 // FailIfClosed returns a sys.ExitError if CloseWithExitCode was called.
 func (m *CallContext) FailIfClosed() (err error) {
-	if closed := atomic.LoadUint64(m.Closed); closed != 0 {
-		return sys.NewExitError(m.module.Name, uint32(closed>>32)) // Unpack the high order bits as the exit code.
+	if closed := atomic.LoadUint64(&m.Closed); closed != 0 {
+		return sys.NewExitError(uint32(closed >> 32)) // Unpack the high order bits as the exit code.
 	}
 	return nil
 }
@@ -135,7 +134,7 @@ func (m *CallContext) CloseWithExitCode(ctx context.Context, exitCode uint32) (e
 	if !m.setExitCode(exitCode) {
 		return nil // not an error to have already closed
 	}
-	_ = m.s.deleteModule(m.Name())
+	_ = m.s.deleteModule(m.module.moduleListNode)
 	return m.ensureResourcesClosed(ctx)
 }
 
@@ -149,7 +148,7 @@ func (m *CallContext) closeWithExitCode(ctx context.Context, exitCode uint32) (e
 
 func (m *CallContext) setExitCode(exitCode uint32) bool {
 	closed := uint64(1) + uint64(exitCode)<<32 // Store exitCode as high-order bits.
-	return atomic.CompareAndSwapUint64(m.Closed, 0, closed)
+	return atomic.CompareAndSwapUint64(&m.Closed, 0, closed)
 }
 
 // ensureResourcesClosed ensures that resources assigned to CallContext is released.

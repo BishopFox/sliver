@@ -58,38 +58,37 @@ type Stat_t struct {
 // The primary difference between this and Stat is, when the path is a
 // symbolic link, the stat is about the link, not its target, such as directory
 // listings.
-func Lstat(path string, st *Stat_t) error {
-	err := lstat(path, st) // extracted to override more expensively in windows
-	return UnwrapOSError(err)
+func Lstat(path string) (Stat_t, syscall.Errno) {
+	return lstat(path) // extracted to override more expensively in windows
 }
 
 // Stat is like syscall.Stat. This returns syscall.ENOENT if the path doesn't
 // exist.
-func Stat(path string, st *Stat_t) error {
-	err := stat(path, st) // extracted to override more expensively in windows
-	return UnwrapOSError(err)
+func Stat(path string) (Stat_t, syscall.Errno) {
+	return stat(path) // extracted to override more expensively in windows
 }
 
 // StatFile is like syscall.Fstat, but for fs.File instead of a file
 // descriptor. This returns syscall.EBADF if the file or directory was closed.
 // Note: windows allows you to stat a closed directory.
-func StatFile(f fs.File, st *Stat_t) (err error) {
-	err = statFile(f, st)
-	if err = UnwrapOSError(err); err == syscall.EIO {
-		err = syscall.EBADF
+func StatFile(f fs.File) (Stat_t, syscall.Errno) {
+	st, errno := statFile(f)
+	if errno == syscall.EIO {
+		errno = syscall.EBADF
 	}
-	return
+	return st, errno
 }
 
-func defaultStatFile(f fs.File, st *Stat_t) (err error) {
-	var t fs.FileInfo
-	if t, err = f.Stat(); err == nil {
-		fillStatFromFileInfo(st, t)
+func defaultStatFile(f fs.File) (Stat_t, syscall.Errno) {
+	if t, err := f.Stat(); err != nil {
+		return Stat_t{}, UnwrapOSError(err)
+	} else {
+		return statFromFileInfo(t), 0
 	}
-	return
 }
 
-func fillStatFromDefaultFileInfo(st *Stat_t, t fs.FileInfo) {
+func statFromDefaultFileInfo(t fs.FileInfo) Stat_t {
+	st := Stat_t{}
 	st.Ino = 0
 	st.Dev = 0
 	st.Mode = t.Mode()
@@ -99,4 +98,5 @@ func fillStatFromDefaultFileInfo(st *Stat_t, t fs.FileInfo) {
 	st.Atim = mtim
 	st.Mtim = mtim
 	st.Ctim = mtim
+	return st
 }

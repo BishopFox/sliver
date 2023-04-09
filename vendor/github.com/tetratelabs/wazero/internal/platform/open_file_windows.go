@@ -3,6 +3,7 @@ package platform
 import (
 	"io/fs"
 	"os"
+	"strings"
 	"syscall"
 	"unsafe"
 )
@@ -27,35 +28,41 @@ const (
 	O_NOFOLLOW  = 1 << 30
 )
 
-func OpenFile(path string, flag int, perm fs.FileMode) (File, error) {
-	if f, err := openFile(path, flag, perm); err != nil {
-		return nil, err
+func OpenFile(path string, flag int, perm fs.FileMode) (File, syscall.Errno) {
+	if f, errno := openFile(path, flag, perm); errno != 0 {
+		return nil, errno
 	} else {
-		return &windowsWrappedFile{File: f, path: path, flag: flag, perm: perm}, nil
+		return &windowsWrappedFile{File: f, path: path, flag: flag, perm: perm}, 0
 	}
 }
 
-func openFile(path string, flag int, perm fs.FileMode) (*os.File, error) {
+func openFile(path string, flag int, perm fs.FileMode) (*os.File, syscall.Errno) {
 	isDir := flag&O_DIRECTORY > 0
 	flag &= ^(O_DIRECTORY | O_NOFOLLOW) // erase placeholders
 
 	// TODO: document why we are opening twice
 	fd, err := open(path, flag|syscall.O_CLOEXEC, uint32(perm))
 	if err == nil {
-		return os.NewFile(uintptr(fd), path), nil
+		return os.NewFile(uintptr(fd), path), 0
 	}
 
 	// TODO: Set FILE_SHARE_DELETE for directory as well.
 	f, err := os.OpenFile(path, flag, perm)
-	if err = UnwrapOSError(err); err == nil {
-		return f, nil
+	errno := UnwrapOSError(err)
+	if errno == 0 {
+		return f, 0
 	}
 
-	switch err {
+	switch errno {
+	case syscall.EINVAL:
+		// WASI expects ENOTDIR for a file path with a trailing slash.
+		if strings.HasSuffix(path, "/") {
+			errno = syscall.ENOTDIR
+		}
 	// To match expectations of WASI, e.g. TinyGo TestStatBadDir, return
 	// ENOENT, not ENOTDIR.
 	case syscall.ENOTDIR:
-		err = syscall.ENOENT
+		errno = syscall.ENOENT
 	case syscall.ENOENT:
 		if isSymlink(path) {
 			// Either symlink or hard link not found. We change the returned
@@ -63,13 +70,13 @@ func openFile(path string, flag int, perm fs.FileMode) (*os.File, error) {
 			// behavior across OSes.
 			if isDir {
 				// Dangling symlink dir must raise ENOTDIR.
-				err = syscall.ENOTDIR
+				errno = syscall.ENOTDIR
 			} else {
-				err = syscall.ELOOP
+				errno = syscall.ELOOP
 			}
 		}
 	}
-	return f, err
+	return f, errno
 }
 
 func isSymlink(path string) bool {

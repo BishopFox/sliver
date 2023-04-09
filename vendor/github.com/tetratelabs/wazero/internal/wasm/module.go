@@ -15,23 +15,6 @@ import (
 	"github.com/tetratelabs/wazero/internal/wasmdebug"
 )
 
-// DecodeModule parses the WebAssembly Binary Format (%.wasm) into a Module. This function returns when the input is
-// exhausted or an error occurs. The result can be initialized for use via Store.Instantiate.
-//
-// Here's a description of the return values:
-// * result is the module parsed or nil on error
-// * err is a FormatError invoking the parser, dangling block comments or unexpected characters.
-// See binary.DecodeModule and text.DecodeModule
-type DecodeModule func(
-	wasm []byte,
-	enabledFeatures api.CoreFeatures,
-	memorySizer func(minPages uint32, maxPages *uint32) (min, capacity, max uint32),
-) (result *Module, err error)
-
-// EncodeModule encodes the given module into a byte slice depending on the format of the implementation.
-// See binaryencoding.EncodeModule
-type EncodeModule func(m *Module) (bytes []byte)
-
 // Module is a WebAssembly binary representation.
 // See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#modules%E2%91%A8
 //
@@ -59,6 +42,12 @@ type Module struct {
 	//
 	// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#import-section%E2%91%A0
 	ImportSection []Import
+	// ImportFunctionCount ImportGlobalCount ImportMemoryCount, and ImportTableCount are
+	// the cached import count per ExternType set during decoding.
+	ImportFunctionCount,
+	ImportGlobalCount,
+	ImportMemoryCount,
+	ImportTableCount Index
 
 	// FunctionSection contains the index in TypeSection of each function defined in this module.
 	//
@@ -119,6 +108,9 @@ type Module struct {
 	//
 	// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#exports%E2%91%A0
 	ExportSection []Export
+	// Exports maps a name to Export, and is convenient for fast look up of exported instances at runtime.
+	// Each item of this map points to an element of ExportSection.
+	Exports map[string]*Export
 
 	// StartSection is the index of a function to call before returning from Store.Instantiate.
 	//
@@ -313,7 +305,7 @@ func (m *Module) validateGlobals(globals []GlobalType, numFuncts, maxGlobals uin
 
 	// Global initialization constant expression can only reference the imported globals.
 	// See the note on https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#constant-expressions%E2%91%A0
-	importedGlobals := globals[:m.ImportGlobalCount()]
+	importedGlobals := globals[:m.ImportGlobalCount]
 	for i := range m.GlobalSection {
 		g := &m.GlobalSection[i]
 		if err := validateConstExpression(importedGlobals, numFuncts, &g.Init, g.Type.ValType); err != nil {
@@ -325,7 +317,7 @@ func (m *Module) validateGlobals(globals []GlobalType, numFuncts, maxGlobals uin
 
 func (m *Module) validateFunctions(enabledFeatures api.CoreFeatures, functions []Index, globals []GlobalType, memory *Memory, tables []Table, maximumFunctionIndex uint32) error {
 	if uint32(len(functions)) > maximumFunctionIndex {
-		return fmt.Errorf("too many functions in a store")
+		return fmt.Errorf("too many functions in a module")
 	}
 
 	functionCount := m.SectionElementCount(SectionIDFunction)
@@ -404,8 +396,8 @@ func (m *Module) declaredFunctionIndexes() (ret map[Index]struct{}, err error) {
 	for i := range m.ElementSection {
 		elem := &m.ElementSection[i]
 		for _, index := range elem.Init {
-			if index != nil {
-				ret[*index] = struct{}{}
+			if index != ElementInitNullReference {
+				ret[index] = struct{}{}
 			}
 		}
 	}
@@ -415,7 +407,7 @@ func (m *Module) declaredFunctionIndexes() (ret map[Index]struct{}, err error) {
 func (m *Module) funcDesc(sectionID SectionID, sectionIndex Index) string {
 	// Try to improve the error message by collecting any exports:
 	var exportNames []string
-	funcIdx := sectionIndex + m.importCount(ExternTypeFunc)
+	funcIdx := sectionIndex + m.ImportFunctionCount
 	for i := range m.ExportSection {
 		exp := &m.ExportSection[i]
 		if exp.Index == funcIdx && exp.Type == ExternTypeFunc {
@@ -444,7 +436,7 @@ func (m *Module) validateMemory(memory *Memory, globals []GlobalType, _ api.Core
 
 	// Constant expression can only reference imported globals.
 	// https://github.com/WebAssembly/spec/blob/5900d839f38641989a9d8df2df4aee0513365d39/test/core/data.wast#L84-L91
-	importedGlobals := globals[:m.ImportGlobalCount()]
+	importedGlobals := globals[:m.ImportGlobalCount]
 	for i := range m.DataSection {
 		d := &m.DataSection[i]
 		if !d.IsPassive() {
@@ -463,6 +455,10 @@ func (m *Module) validateImports(enabledFeatures api.CoreFeatures) error {
 			return fmt.Errorf("import[%d] has an empty module name", i)
 		}
 		switch imp.Type {
+		case ExternTypeFunc:
+			if int(imp.DescFunc) >= len(m.TypeSection) {
+				return fmt.Errorf("invalid import[%q.%q] function: type index out of range", imp.Module, imp.Name)
+			}
 		case ExternTypeGlobal:
 			if !imp.DescGlobal.Mutable {
 				continue
@@ -586,34 +582,15 @@ func (m *Module) validateDataCountSection() (err error) {
 	return
 }
 
-func (m *Module) buildGlobals(importedGlobals []*GlobalInstance, funcRefResolver func(funcIndex Index) Reference) (globals []*GlobalInstance) {
-	globals = make([]*GlobalInstance, len(m.GlobalSection))
-	for i := range m.GlobalSection {
-		gs := &m.GlobalSection[i]
-		g := &GlobalInstance{Type: gs.Type}
-		switch v := executeConstExpression(importedGlobals, &gs.Init).(type) {
-		case uint32:
-			if gs.Type.ValType == ValueTypeFuncref {
-				g.Val = uint64(funcRefResolver(v))
-			} else {
-				g.Val = uint64(v)
-			}
-		case int32:
-			g.Val = uint64(uint32(v))
-		case int64:
-			g.Val = uint64(v)
-		case float32:
-			g.Val = api.EncodeF32(v)
-		case float64:
-			g.Val = api.EncodeF64(v)
-		case [2]uint64:
-			g.Val, g.ValHi = v[0], v[1]
-		default:
-			panic(fmt.Errorf("BUG: invalid conversion %d", v))
-		}
-		globals[i] = g
+func (m *ModuleInstance) buildGlobals(module *Module, funcRefResolver func(funcIndex Index) Reference) {
+	importedGlobals := m.Globals[:module.ImportGlobalCount]
+	for i := Index(0); i < Index(len(module.GlobalSection)); i++ {
+		gs := &module.GlobalSection[i]
+		g := &GlobalInstance{}
+		m.Globals[i+module.ImportGlobalCount] = g
+		g.Type = gs.Type
+		g.initialize(importedGlobals, &gs.Init, funcRefResolver)
 	}
-	return
 }
 
 // BuildFunctions generates function instances for all host or wasm-defined
@@ -623,29 +600,20 @@ func (m *Module) buildGlobals(importedGlobals []*GlobalInstance, funcRefResolver
 //   - This relies on data generated by Module.BuildFunctionDefinitions.
 //   - This is exported for tests that don't call Instantiate, notably only
 //     enginetest.go.
-func (m *ModuleInstance) BuildFunctions(mod *Module, importedFunctions []*FunctionInstance) (fns []FunctionInstance) {
-	importCount := mod.ImportFuncCount()
-	fns = make([]FunctionInstance, importCount+uint32(len(mod.FunctionSection)))
-	m.Functions = fns
-
-	for i, imp := range importedFunctions {
-		fns[i] = *imp
-	}
+func (m *ModuleInstance) BuildFunctions(mod *Module) {
 	for i, section := range mod.FunctionSection {
-		offset := uint32(i) + importCount
+		offset := uint32(i) + mod.ImportFunctionCount
 		d := &mod.FunctionDefinitionSection[offset]
 		// This object is only referenced from a slice. Instead of creating a heap object
 		// here and storing a pointer, we store the struct directly in the slice. This
 		// reduces the number of heap objects which improves GC performance.
-		fns[offset] = FunctionInstance{
+		m.Functions[offset] = FunctionInstance{
 			TypeID:     m.TypeIDs[section],
 			Module:     m,
-			Idx:        d.index,
 			Type:       d.funcType,
 			Definition: d,
 		}
 	}
-	return
 }
 
 func paramNames(localNames IndirectNameMap, funcIdx uint32, paramLen int) []string {
@@ -666,13 +634,12 @@ func paramNames(localNames IndirectNameMap, funcIdx uint32, paramLen int) []stri
 	return nil
 }
 
-func (m *Module) buildMemory() (mem *MemoryInstance) {
-	memSec := m.MemorySection
+func (m *ModuleInstance) buildMemory(module *Module) {
+	memSec := module.MemorySection
 	if memSec != nil {
-		mem = NewMemoryInstance(memSec)
-		mem.definition = &m.MemoryDefinitionSection[0]
+		m.Memory = NewMemoryInstance(memSec)
+		m.Memory.definition = &module.MemoryDefinitionSection[0]
 	}
-	return
 }
 
 // Index is the offset in an index, not necessarily an absolute position in a Module section. This is because

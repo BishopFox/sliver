@@ -19,7 +19,20 @@ import (
 // Implementations should embed UnimplementedFS for forward compatability. Any
 // unsupported method or parameter should return syscall.ENOSYS.
 //
-// See https://github.com/golang/go/issues/45757
+// # Errors
+//
+// All methods that can return an error return a syscall.Errno, which is zero
+// on success.
+//
+// Restricting to syscall.Errno matches current WebAssembly host functions,
+// which are constrained to well-known error codes. For example, `GOOS=js` maps
+// hard coded values and panics otherwise. More commonly, WASI maps syscall
+// errors to u32 numeric values.
+//
+// # Notes
+//
+// A writable filesystem abstraction is not yet implemented as of Go 1.20. See
+// https://github.com/golang/go/issues/45757
 type FS interface {
 	// String should return a human-readable format of the filesystem
 	//
@@ -31,7 +44,8 @@ type FS interface {
 	String() string
 
 	// OpenFile is similar to os.OpenFile, except the path is relative to this
-	// file system, and syscall.Errno are returned instead of a os.PathError.
+	// file system, and syscall.Errno are returned instead of an os.PathError.
+	// A zero syscall.Errno is success.
 	//
 	// # Errors
 	//
@@ -57,7 +71,7 @@ type FS interface {
 	//   - flag are the same as OpenFile, for example, os.O_CREATE.
 	//   - Implications of permissions when os.O_CREATE are described in Chmod
 	//     notes.
-	OpenFile(path string, flag int, perm fs.FileMode) (fs.File, error)
+	OpenFile(path string, flag int, perm fs.FileMode) (fs.File, syscall.Errno)
 	// ^^ TODO: Consider syscall.Open, though this implies defining and
 	// coercing flags and perms similar to what is done in os.OpenFile.
 
@@ -75,7 +89,7 @@ type FS interface {
 	//     same value.
 	//   - When the path is a symbolic link, the stat returned is for the link,
 	//     not the file it refers to.
-	Lstat(path string, stat *platform.Stat_t) error
+	Lstat(path string) (platform.Stat_t, syscall.Errno)
 
 	// Stat is similar to syscall.Stat, except the path is relative to this
 	// file system.
@@ -91,10 +105,11 @@ type FS interface {
 	//     same value.
 	//   - When the path is a symbolic link, the stat returned is for the file
 	//     it refers to.
-	Stat(path string, stat *platform.Stat_t) error
+	Stat(path string) (platform.Stat_t, syscall.Errno)
 
 	// Mkdir is similar to os.Mkdir, except the path is relative to this file
-	// system, and syscall.Errno are returned instead of a os.PathError.
+	// system, and syscall.Errno are returned instead of a os.PathError. A zero
+	// syscall.Errno is success.
 	//
 	// # Errors
 	//
@@ -106,12 +121,13 @@ type FS interface {
 	// # Notes
 	//
 	//   - Implications of permissions are described in Chmod notes.
-	Mkdir(path string, perm fs.FileMode) error
+	Mkdir(path string, perm fs.FileMode) syscall.Errno
 	// ^^ TODO: Consider syscall.Mkdir, though this implies defining and
 	// coercing flags and perms similar to what is done in os.Mkdir.
 
 	// Chmod is similar to os.Chmod, except the path is relative to this file
-	// system, and syscall.Errno are returned instead of a os.PathError.
+	// system, and syscall.Errno are returned instead of a os.PathError. A zero
+	// syscall.Errno is success.
 	//
 	// # Errors
 	//
@@ -124,12 +140,13 @@ type FS interface {
 	//   - Windows ignores the execute bit, and any permissions come back as
 	//     group and world. For example, chmod of 0400 reads back as 0444, and
 	//     0700 0666. Also, permissions on directories aren't supported at all.
-	Chmod(path string, perm fs.FileMode) error
+	Chmod(path string, perm fs.FileMode) syscall.Errno
 	// ^^ TODO: Consider syscall.Chmod, though this implies defining and
 	// coercing flags and perms similar to what is done in os.Chmod.
 
 	// Chown is like os.Chown except the path is relative to this file
 	// system, and syscall.Errno are returned instead of an os.PathError.
+	// A zero syscall.Errno is success.
 	//
 	// # Errors
 	//
@@ -141,11 +158,11 @@ type FS interface {
 	//
 	//   - Windows will always return syscall.ENOSYS
 	//   - This is similar to https://linux.die.net/man/3/chown
-	Chown(path string, uid, gid int) error
+	Chown(path string, uid, gid int) syscall.Errno
 
 	// Lchown is like os.Lchown except the path is relative to this file
-	// system, and syscall.Errno are returned instead of a os.PathError.
-	//	See https://linux.die.net/man/3/lchown
+	// system, and syscall.Errno are returned instead of an os.PathError. A
+	// zero syscall.Errno is success.
 	//
 	// # Errors
 	//
@@ -157,7 +174,7 @@ type FS interface {
 	//
 	//   - Windows will always return syscall.ENOSYS
 	//   - This is similar to https://linux.die.net/man/3/lchown
-	Lchown(path string, uid, gid int) error
+	Lchown(path string, uid, gid int) syscall.Errno
 
 	// Rename is similar to syscall.Rename, except the path is relative to this
 	// file system.
@@ -175,7 +192,7 @@ type FS interface {
 	// # Notes
 	//
 	//   -  Windows doesn't let you overwrite an existing directory.
-	Rename(from, to string) error
+	Rename(from, to string) syscall.Errno
 
 	// Rmdir is similar to syscall.Rmdir, except the path is relative to this
 	// file system.
@@ -191,7 +208,7 @@ type FS interface {
 	// # Notes
 	//
 	//   - As of Go 1.19, Windows maps syscall.ENOTDIR to syscall.ENOENT.
-	Rmdir(path string) error
+	Rmdir(path string) syscall.Errno
 
 	// Unlink is similar to syscall.Unlink, except the path is relative to this
 	// file system.
@@ -208,7 +225,7 @@ type FS interface {
 	//   - On Windows, syscall.Unlink doesn't delete symlink to directory unlike other platforms. Implementations might
 	//     want to combine syscall.RemoveDirectory with syscall.Unlink in order to delete such links on Windows.
 	//     See https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-removedirectorya
-	Unlink(path string) error
+	Unlink(path string) syscall.Errno
 
 	// Link is similar to syscall.Link, except the path is relative to this
 	// file system. This creates "hard" link from oldPath to newPath, in
@@ -220,7 +237,7 @@ type FS interface {
 	//   - syscall.EPERM: `oldPath` is invalid.
 	//   - syscall.ENOENT: `oldPath` doesn't exist.
 	//   - syscall.EISDIR: `newPath` exists, but is a directory.
-	Link(oldPath, newPath string) error
+	Link(oldPath, newPath string) syscall.Errno
 
 	// Symlink is similar to syscall.Symlink, except the `oldPath` is relative
 	// to this file system. This creates "soft" link from oldPath to newPath,
@@ -242,7 +259,7 @@ type FS interface {
 	//   - Symlinks in Windows requires `SeCreateSymbolicLinkPrivilege`.
 	//     Otherwise, syscall.EPERM results.
 	//     See https://learn.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/create-symbolic-links
-	Symlink(oldPath, linkName string) error
+	Symlink(oldPath, linkName string) syscall.Errno
 
 	// Readlink is similar to syscall.Readlink, except the path is relative to
 	// this file system.
@@ -256,7 +273,7 @@ type FS interface {
 	//   - On Windows, the path separator is different from other platforms,
 	//     but to provide consistent results to Wasm, this normalizes to a "/"
 	//     separator.
-	Readlink(path string) (string, error)
+	Readlink(path string) (string, syscall.Errno)
 
 	// Truncate is similar to syscall.Truncate, except the path is relative to
 	// this file system.
@@ -267,7 +284,7 @@ type FS interface {
 	//   - syscall.EINVAL: `path` is invalid or size is negative.
 	//   - syscall.ENOENT: `path` doesn't exist
 	//   - syscall.EACCES: `path` doesn't have write access.
-	Truncate(path string, size int64) error
+	Truncate(path string, size int64) syscall.Errno
 
 	// Utimens set file access and modification times on a path relative to
 	// this file system, at nanosecond precision.
@@ -296,7 +313,7 @@ type FS interface {
 	//     values UTIME_NOW or UTIME_NOW.
 	//   - This is like `utimensat` with `AT_FDCWD` in POSIX. See
 	//     https://pubs.opengroup.org/onlinepubs/9699919799/functions/futimens.html
-	Utimens(path string, times *[2]syscall.Timespec, symlinkFollow bool) error
+	Utimens(path string, times *[2]syscall.Timespec, symlinkFollow bool) syscall.Errno
 }
 
 // ReaderAtOffset gets an io.Reader from a fs.File that reads from an offset,
@@ -317,7 +334,7 @@ func ReaderAtOffset(f fs.File, offset int64) io.Reader {
 }
 
 // FileDatasync is like syscall.Fdatasync except that's only defined in linux.
-func FileDatasync(f fs.File) (err error) {
+func FileDatasync(f fs.File) (err syscall.Errno) {
 	return platform.Fdatasync(f)
 }
 

@@ -21,29 +21,29 @@ func ensureElementKindFuncRef(r *bytes.Reader) error {
 	return nil
 }
 
-func decodeElementInitValueVector(r *bytes.Reader) ([]*wasm.Index, error) {
+func decodeElementInitValueVector(r *bytes.Reader) ([]wasm.Index, error) {
 	vs, _, err := leb128.DecodeUint32(r)
 	if err != nil {
 		return nil, fmt.Errorf("get size of vector: %w", err)
 	}
 
-	vec := make([]*wasm.Index, vs)
+	vec := make([]wasm.Index, vs)
 	for i := range vec {
 		u32, _, err := leb128.DecodeUint32(r)
 		if err != nil {
 			return nil, fmt.Errorf("read function index: %w", err)
 		}
-		vec[i] = &u32
+		vec[i] = u32
 	}
 	return vec, nil
 }
 
-func decodeElementConstExprVector(r *bytes.Reader, elemType wasm.RefType, enabledFeatures api.CoreFeatures) ([]*wasm.Index, error) {
+func decodeElementConstExprVector(r *bytes.Reader, elemType wasm.RefType, enabledFeatures api.CoreFeatures) ([]wasm.Index, error) {
 	vs, _, err := leb128.DecodeUint32(r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the size of constexpr vector: %w", err)
 	}
-	vec := make([]*wasm.Index, vs)
+	vec := make([]wasm.Index, vs)
 	for i := range vec {
 		var expr wasm.ConstantExpression
 		err := decodeConstantExpression(r, enabledFeatures, &expr)
@@ -56,13 +56,13 @@ func decodeElementConstExprVector(r *bytes.Reader, elemType wasm.RefType, enable
 				return nil, fmt.Errorf("element type mismatch: want %s, but constexpr has funcref", wasm.RefTypeName(elemType))
 			}
 			v, _, _ := leb128.LoadUint32(expr.Data)
-			vec[i] = &v
+			vec[i] = v
 		case wasm.OpcodeRefNull:
 			if elemType != expr.Data[0] {
 				return nil, fmt.Errorf("element type mismatch: want %s, but constexpr has %s",
 					wasm.RefTypeName(elemType), wasm.RefTypeName(expr.Data[0]))
 			}
-			// vec[i] is already nil, so nothing to do.
+			vec[i] = wasm.ElementInitNullReference
 		default:
 			return nil, fmt.Errorf("const expr must be either ref.null or ref.func but was %s", wasm.InstructionName(expr.Opcode))
 		}

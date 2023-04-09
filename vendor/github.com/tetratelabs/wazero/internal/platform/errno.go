@@ -2,6 +2,8 @@
 
 package platform
 
-func adjustErrno(err error) error {
+import "syscall"
+
+func adjustErrno(err syscall.Errno) syscall.Errno {
 	return err
 }

@@ -7,6 +7,7 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"syscall"
 
 	"github.com/tetratelabs/wazero/internal/platform"
 )
@@ -44,21 +45,34 @@ func (a *adapter) Open(name string) (fs.File, error) {
 }
 
 // OpenFile implements FS.OpenFile
-func (a *adapter) OpenFile(path string, flag int, perm fs.FileMode) (fs.File, error) {
+func (a *adapter) OpenFile(path string, flag int, perm fs.FileMode) (fs.File, syscall.Errno) {
 	path = cleanPath(path)
 	f, err := a.fs.Open(path)
 	return f, platform.UnwrapOSError(err)
 }
 
 // Stat implements FS.Stat
-func (a *adapter) Stat(path string, stat *platform.Stat_t) error {
+func (a *adapter) Stat(path string) (platform.Stat_t, syscall.Errno) {
 	name := cleanPath(path)
 	f, err := a.fs.Open(name)
 	if err != nil {
-		return platform.UnwrapOSError(err)
+		return platform.Stat_t{}, platform.UnwrapOSError(err)
 	}
 	defer f.Close()
-	return platform.StatFile(f, stat)
+	return platform.StatFile(f)
+}
+
+// Lstat implements FS.Lstat
+func (a *adapter) Lstat(path string) (platform.Stat_t, syscall.Errno) {
+	// At this time, we make the assumption that fs.FS instances do not support
+	// symbolic links, therefore Lstat is the same as Stat. This is obviously
+	// not true but until fs.FS has a solid story for how to handle symlinks we
+	// are better off not making a decision that would be difficult to revert
+	// later on.
+	//
+	// For further discussions on the topic, see:
+	// https://github.com/golang/go/issues/49580
+	return a.Stat(path)
 }
 
 func cleanPath(name string) string {
@@ -90,7 +104,7 @@ func fsOpen(f FS, name string) (fs.File, error) {
 		}
 	}
 
-	if f, err := f.OpenFile(name, os.O_RDONLY, 0); err != nil {
+	if f, err := f.OpenFile(name, os.O_RDONLY, 0); err != 0 {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: err}
 	} else {
 		return f, nil

@@ -67,7 +67,7 @@ type ElementSegment struct {
 	// Followings are set/used regardless of the Mode.
 
 	// Init indices are (nullable) table elements where each index is the function index by which the module initialize the table.
-	Init []*Index
+	Init []Index
 
 	// Type holds the type of this element segment, which is the RefType in WebAssembly 2.0.
 	Type RefType
@@ -75,6 +75,13 @@ type ElementSegment struct {
 	// Mode is the mode of this element segment.
 	Mode ElementMode
 }
+
+// ElementInitNullReference represents the null reference in ElementSegment's Init.
+// In Wasm spec, an init item represents either Function's Index or null reference,
+// and in wazero, we limit the maximum number of functions available in a module to
+// MaximumFunctionIndex. Therefore, it is safe to use math.MaxUint32 to represent the null
+// reference in Element segments.
+const ElementInitNullReference Index = math.MaxUint32
 
 // IsActive returns true if the element segment is "active" mode which requires the runtime to initialize table
 // with the contents in .Init field.
@@ -132,7 +139,7 @@ type validatedActiveElementSegment struct {
 	// init are a range of table elements whose values are positions in the function index. This range
 	// replaces any values in TableInstance.Table at an offset arg which is a constant if opcode == OpcodeI32Const or
 	// derived from a globalIdx if opcode == OpcodeGlobalGet
-	init []*Index
+	init []Index
 
 	// tableIndex is the table's index to which this active element will be applied.
 	tableIndex Index
@@ -149,12 +156,12 @@ func (m *Module) validateTable(enabledFeatures api.CoreFeatures, tables []Table,
 		return m.validatedActiveElementSegments, nil
 	}
 
-	importedTableCount := m.ImportTableCount()
+	importedTableCount := m.ImportTableCount
 
 	ret := make([]validatedActiveElementSegment, 0, m.SectionElementCount(SectionIDElement))
 
 	// Create bounds checks as these can err prior to instantiation
-	funcCount := m.importCount(ExternTypeFunc) + m.SectionElementCount(SectionIDFunction)
+	funcCount := m.ImportFunctionCount + m.SectionElementCount(SectionIDFunction)
 
 	// Now, we have to figure out which table elements can be resolved before instantiation and also fail early if there
 	// are any imported globals that are known to be invalid by their declarations.
@@ -166,14 +173,14 @@ func (m *Module) validateTable(enabledFeatures api.CoreFeatures, tables []Table,
 		if elem.Type == RefTypeFuncref {
 			// Any offset applied is to the element, not the function index: validate here if the funcidx is sound.
 			for ei, funcIdx := range elem.Init {
-				if funcIdx != nil && *funcIdx >= funcCount {
-					return nil, fmt.Errorf("%s[%d].init[%d] funcidx %d out of range", SectionIDName(SectionIDElement), idx, ei, *funcIdx)
+				if funcIdx != ElementInitNullReference && funcIdx >= funcCount {
+					return nil, fmt.Errorf("%s[%d].init[%d] funcidx %d out of range", SectionIDName(SectionIDElement), idx, ei, funcIdx)
 				}
 			}
 		} else {
 			for j, elem := range elem.Init {
-				if elem != nil {
-					return nil, fmt.Errorf("%s[%d].init[%d] must be ref.null but was %v", SectionIDName(SectionIDElement), idx, j, *elem)
+				if elem != ElementInitNullReference {
+					return nil, fmt.Errorf("%s[%d].init[%d] must be ref.null but was %v", SectionIDName(SectionIDElement), idx, j, elem)
 				}
 			}
 		}
@@ -244,67 +251,43 @@ func (m *Module) validateTable(enabledFeatures api.CoreFeatures, tables []Table,
 // If the result `init` is non-nil, it is the `tableInit` parameter of Engine.NewModuleEngine.
 //
 // Note: An error is only possible when an ElementSegment.OffsetExpr is out of range of the TableInstance.Min.
-func (m *Module) buildTables(importedTables []*TableInstance, importedGlobals []*GlobalInstance, skipBoundCheck bool) (tables []*TableInstance, inits []tableInitEntry, err error) {
-	tables = importedTables
-
-	for i := range m.TableSection {
-		tsec := &m.TableSection[i]
+func (m *ModuleInstance) buildTables(module *Module, skipBoundCheck bool) (err error) {
+	idx := module.ImportTableCount
+	for i := range module.TableSection {
+		tsec := &module.TableSection[i]
 		// The module defining the table is the one that sets its Min/Max etc.
-		tables = append(tables, &TableInstance{
+		m.Tables[idx] = &TableInstance{
 			References: make([]Reference, tsec.Min), Min: tsec.Min, Max: tsec.Max,
 			Type: tsec.Type,
-		})
+		}
+		idx++
 	}
 
-	elementSegments := m.validatedActiveElementSegments
+	elementSegments := module.validatedActiveElementSegments
 	if len(elementSegments) == 0 {
 		return
 	}
 
-	for elemI := range elementSegments { // Do not loop over the value since elementSegments is a slice of value.
-		elem := &elementSegments[elemI]
-		table := tables[elem.tableIndex]
-		var offset uint32
-		if elem.opcode == OpcodeGlobalGet {
-			global := importedGlobals[elem.arg]
-			offset = uint32(global.Val)
-		} else {
-			offset = elem.arg // constant
-		}
+	if !skipBoundCheck {
+		for elemI := range elementSegments { // Do not loop over the value since elementSegments is a slice of value.
+			elem := &elementSegments[elemI]
+			table := m.Tables[elem.tableIndex]
+			var offset uint32
+			if elem.opcode == OpcodeGlobalGet {
+				global := m.Globals[elem.arg]
+				offset = uint32(global.Val)
+			} else {
+				offset = elem.arg // constant
+			}
 
-		// Check to see if we are out-of-bounds
-		initCount := uint64(len(elem.init))
-		if !skipBoundCheck {
+			// Check to see if we are out-of-bounds
+			initCount := uint64(len(elem.init))
 			if err = checkSegmentBounds(table.Min, uint64(offset)+initCount, Index(elemI)); err != nil {
 				return
 			}
 		}
-
-		if table.Type == RefTypeExternref {
-			inits = append(inits, tableInitEntry{
-				tableIndex: elem.tableIndex, offset: offset,
-				// ExternRef elements are guaranteed to be all null via the validation phase.
-				nullExternRefCount: len(elem.init),
-			})
-		} else {
-			inits = append(inits, tableInitEntry{
-				tableIndex: elem.tableIndex, offset: offset, functionIndexes: elem.init,
-			})
-		}
 	}
 	return
-}
-
-// tableInitEntry is normalized element segment used for initializing tables.
-type tableInitEntry struct {
-	tableIndex Index
-	// offset is the offset in the table from which the table is initialized by engine.
-	offset Index
-	// functionIndexes contains nullable function indexes. This is set when the target table has RefTypeFuncref.
-	functionIndexes []*Index
-	// nullExternRefCount is the number of nul reference which is the only available RefTypeExternref value in elements as of
-	// WebAssembly 2.0. This is set when the target table has RefTypeExternref.
-	nullExternRefCount int
 }
 
 // checkSegmentBounds fails if the capacity needed for an ElementSegment.Init is larger than limitsType.Min

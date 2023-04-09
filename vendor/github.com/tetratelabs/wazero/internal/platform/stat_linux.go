@@ -11,35 +11,36 @@ import (
 	"syscall"
 )
 
-func lstat(path string, st *Stat_t) (err error) {
-	var t fs.FileInfo
-	if t, err = os.Lstat(path); err == nil {
-		fillStatFromFileInfo(st, t)
+func lstat(path string) (Stat_t, syscall.Errno) {
+	if t, err := os.Lstat(path); err != nil {
+		return Stat_t{}, UnwrapOSError(err)
+	} else {
+		return statFromFileInfo(t), 0
 	}
-	return
 }
 
-func stat(path string, st *Stat_t) (err error) {
-	var t fs.FileInfo
-	if t, err = os.Stat(path); err == nil {
-		fillStatFromFileInfo(st, t)
+func stat(path string) (Stat_t, syscall.Errno) {
+	if t, err := os.Stat(path); err != nil {
+		return Stat_t{}, UnwrapOSError(err)
+	} else {
+		return statFromFileInfo(t), 0
 	}
-	return
 }
 
-func statFile(f fs.File, st *Stat_t) error {
-	return defaultStatFile(f, st)
+func statFile(f fs.File) (Stat_t, syscall.Errno) {
+	return defaultStatFile(f)
 }
 
-func inoFromFileInfo(_ readdirFile, t fs.FileInfo) (ino uint64, err error) {
+func inoFromFileInfo(_ readdirFile, t fs.FileInfo) (ino uint64, err syscall.Errno) {
 	if d, ok := t.Sys().(*syscall.Stat_t); ok {
-		ino = (d.Ino)
+		ino = d.Ino
 	}
 	return
 }
 
-func fillStatFromFileInfo(st *Stat_t, t fs.FileInfo) {
+func statFromFileInfo(t fs.FileInfo) Stat_t {
 	if d, ok := t.Sys().(*syscall.Stat_t); ok {
+		st := Stat_t{}
 		st.Dev = uint64(d.Dev)
 		st.Ino = uint64(d.Ino)
 		st.Uid = d.Uid
@@ -53,7 +54,7 @@ func fillStatFromFileInfo(st *Stat_t, t fs.FileInfo) {
 		st.Mtim = mtime.Sec*1e9 + mtime.Nsec
 		ctime := d.Ctim
 		st.Ctim = ctime.Sec*1e9 + ctime.Nsec
-	} else {
-		fillStatFromDefaultFileInfo(st, t)
+		return st
 	}
+	return statFromDefaultFileInfo(t)
 }

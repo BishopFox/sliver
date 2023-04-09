@@ -35,7 +35,7 @@ func (m *Module) BuildMemoryDefinitions() {
 		moduleName = m.NameSection.ModuleName
 	}
 
-	memoryCount := m.ImportMemoryCount()
+	memoryCount := m.ImportMemoryCount
 	if m.MemorySection != nil {
 		memoryCount++
 	}

@@ -1,4 +1,4 @@
-//go:build !windows && !js
+//go:build !windows && !js && !illumos && !solaris
 
 package platform
 
@@ -15,9 +15,9 @@ const (
 	O_NOFOLLOW  = syscall.O_NOFOLLOW
 )
 
-// OpenFile is like os.OpenFile except it returns syscall.Errno
-func OpenFile(name string, flag int, perm fs.FileMode) (f *os.File, err error) {
-	f, err = os.OpenFile(name, flag, perm)
-	err = UnwrapOSError(err)
-	return
+// OpenFile is like os.OpenFile except it returns syscall.Errno. A zero
+// syscall.Errno is success.
+func OpenFile(path string, flag int, perm fs.FileMode) (File, syscall.Errno) {
+	f, err := os.OpenFile(path, flag, perm)
+	return f, UnwrapOSError(err)
 }

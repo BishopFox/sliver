@@ -176,7 +176,7 @@ test:
 
 .PHONY: coverage
 # replace spaces with commas
-coverpkg = $(main_packages: =,)
+coverpkg = $(shell echo $(main_packages) | tr ' ' ',')
 coverage: ## Generate test coverage
 	@go test -coverprofile=coverage.txt -covermode=atomic --coverpkg=$(coverpkg) $(main_packages)
 	@go tool cover -func coverage.txt
@@ -220,6 +220,9 @@ check:
 	@GOARCH=amd64 GOOS=windows go build ./...
 # Ensure we build on an arbitrary operating system:
 	@GOARCH=amd64 GOOS=dragonfly go build ./...
+# Ensure we build on solaris/illumos:
+	@GOARCH=amd64 GOOS=illumos go build ./...
+	@GOARCH=amd64 GOOS=solaris go build ./...
 # Ensure we build on linux arm for Dapr:
 #	gh release view -R dapr/dapr --json assets --jq 'first(.assets[] | select(.name = "daprd_linux_arm.tar.gz") | {url, downloadCount})'
 	@GOARCH=arm GOOS=linux go build ./...

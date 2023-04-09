@@ -1,15 +1,16 @@
 package platform
 
 import (
+	"io"
 	"io/fs"
 	"os"
 	"syscall"
 )
 
-// UnwrapOSError returns a syscall.Errno or nil if the input is nil.
-func UnwrapOSError(err error) error {
+// UnwrapOSError returns a syscall.Errno or zero if the input is nil.
+func UnwrapOSError(err error) syscall.Errno {
 	if err == nil {
-		return nil
+		return 0
 	}
 	err = underlyingError(err)
 	if se, ok := err.(syscall.Errno); ok {
@@ -19,7 +20,8 @@ func UnwrapOSError(err error) error {
 	//
 	// Note: Once we have our own file type, we should never see these.
 	switch err {
-	case nil:
+	case nil, io.EOF:
+		return 0
 	case fs.ErrInvalid:
 		return syscall.EINVAL
 	case fs.ErrPermission:

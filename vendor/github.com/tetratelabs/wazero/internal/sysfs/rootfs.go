@@ -123,11 +123,11 @@ func (c *CompositeFS) Open(name string) (fs.File, error) {
 }
 
 // OpenFile implements FS.OpenFile
-func (c *CompositeFS) OpenFile(path string, flag int, perm fs.FileMode) (f fs.File, err error) {
+func (c *CompositeFS) OpenFile(path string, flag int, perm fs.FileMode) (f fs.File, err syscall.Errno) {
 	matchIndex, relativePath := c.chooseFS(path)
 
 	f, err = c.fs[matchIndex].OpenFile(relativePath, flag, perm)
-	if err != nil {
+	if err != 0 {
 		return
 	}
 
@@ -192,11 +192,10 @@ func (d *openRootDir) readDir() (err error) {
 }
 
 func (d *openRootDir) rootEntry(name string, fsI int) (fs.DirEntry, error) {
-	var stat platform.Stat_t
-	if err := d.c.fs[fsI].Stat(".", &stat); err != nil {
+	if st, err := d.c.fs[fsI].Stat("."); err != 0 {
 		return nil, err
 	} else {
-		return &dirInfo{name, &stat}, nil
+		return &dirInfo{name, st}, nil
 	}
 }
 
@@ -206,7 +205,7 @@ type dirInfo struct {
 	// directory is masked. For example, we don't want to leak the underlying
 	// host directory name.
 	name string
-	stat *platform.Stat_t
+	stat platform.Stat_t
 }
 
 func (i *dirInfo) Name() string               { return i.name }
@@ -247,43 +246,43 @@ func (d *openRootDir) ReadDir(count int) ([]fs.DirEntry, error) {
 }
 
 // Lstat implements FS.Lstat
-func (c *CompositeFS) Lstat(path string, stat *platform.Stat_t) error {
+func (c *CompositeFS) Lstat(path string) (platform.Stat_t, syscall.Errno) {
 	matchIndex, relativePath := c.chooseFS(path)
-	return c.fs[matchIndex].Lstat(relativePath, stat)
+	return c.fs[matchIndex].Lstat(relativePath)
 }
 
 // Stat implements FS.Stat
-func (c *CompositeFS) Stat(path string, stat *platform.Stat_t) error {
+func (c *CompositeFS) Stat(path string) (platform.Stat_t, syscall.Errno) {
 	matchIndex, relativePath := c.chooseFS(path)
-	return c.fs[matchIndex].Stat(relativePath, stat)
+	return c.fs[matchIndex].Stat(relativePath)
 }
 
 // Mkdir implements FS.Mkdir
-func (c *CompositeFS) Mkdir(path string, perm fs.FileMode) error {
+func (c *CompositeFS) Mkdir(path string, perm fs.FileMode) syscall.Errno {
 	matchIndex, relativePath := c.chooseFS(path)
 	return c.fs[matchIndex].Mkdir(relativePath, perm)
 }
 
 // Chmod implements FS.Chmod
-func (c *CompositeFS) Chmod(path string, perm fs.FileMode) error {
+func (c *CompositeFS) Chmod(path string, perm fs.FileMode) syscall.Errno {
 	matchIndex, relativePath := c.chooseFS(path)
 	return c.fs[matchIndex].Chmod(relativePath, perm)
 }
 
 // Chown implements FS.Chown
-func (c *CompositeFS) Chown(path string, uid, gid int) error {
+func (c *CompositeFS) Chown(path string, uid, gid int) syscall.Errno {
 	matchIndex, relativePath := c.chooseFS(path)
 	return c.fs[matchIndex].Chown(relativePath, uid, gid)
 }
 
 // Lchown implements FS.Lchown
-func (c *CompositeFS) Lchown(path string, uid, gid int) error {
+func (c *CompositeFS) Lchown(path string, uid, gid int) syscall.Errno {
 	matchIndex, relativePath := c.chooseFS(path)
 	return c.fs[matchIndex].Lchown(relativePath, uid, gid)
 }
 
 // Rename implements FS.Rename
-func (c *CompositeFS) Rename(from, to string) error {
+func (c *CompositeFS) Rename(from, to string) syscall.Errno {
 	fromFS, fromPath := c.chooseFS(from)
 	toFS, toPath := c.chooseFS(to)
 	if fromFS != toFS {
@@ -293,13 +292,13 @@ func (c *CompositeFS) Rename(from, to string) error {
 }
 
 // Readlink implements FS.Readlink
-func (c *CompositeFS) Readlink(path string) (string, error) {
+func (c *CompositeFS) Readlink(path string) (string, syscall.Errno) {
 	matchIndex, relativePath := c.chooseFS(path)
 	return c.fs[matchIndex].Readlink(relativePath)
 }
 
 // Link implements FS.Link.
-func (c *CompositeFS) Link(oldName, newName string) error {
+func (c *CompositeFS) Link(oldName, newName string) syscall.Errno {
 	fromFS, oldNamePath := c.chooseFS(oldName)
 	toFS, newNamePath := c.chooseFS(newName)
 	if fromFS != toFS {
@@ -309,13 +308,13 @@ func (c *CompositeFS) Link(oldName, newName string) error {
 }
 
 // Utimens implements FS.Utimens
-func (c *CompositeFS) Utimens(path string, times *[2]syscall.Timespec, symlinkFollow bool) error {
+func (c *CompositeFS) Utimens(path string, times *[2]syscall.Timespec, symlinkFollow bool) syscall.Errno {
 	matchIndex, relativePath := c.chooseFS(path)
 	return c.fs[matchIndex].Utimens(relativePath, times, symlinkFollow)
 }
 
 // Symlink implements FS.Symlink
-func (c *CompositeFS) Symlink(oldName, link string) (err error) {
+func (c *CompositeFS) Symlink(oldName, link string) (err syscall.Errno) {
 	fromFS, oldNamePath := c.chooseFS(oldName)
 	toFS, linkPath := c.chooseFS(link)
 	if fromFS != toFS {
@@ -325,19 +324,19 @@ func (c *CompositeFS) Symlink(oldName, link string) (err error) {
 }
 
 // Truncate implements FS.Truncate
-func (c *CompositeFS) Truncate(path string, size int64) error {
+func (c *CompositeFS) Truncate(path string, size int64) syscall.Errno {
 	matchIndex, relativePath := c.chooseFS(path)
 	return c.fs[matchIndex].Truncate(relativePath, size)
 }
 
 // Rmdir implements FS.Rmdir
-func (c *CompositeFS) Rmdir(path string) error {
+func (c *CompositeFS) Rmdir(path string) syscall.Errno {
 	matchIndex, relativePath := c.chooseFS(path)
 	return c.fs[matchIndex].Rmdir(relativePath)
 }
 
 // Unlink implements FS.Unlink
-func (c *CompositeFS) Unlink(path string) error {
+func (c *CompositeFS) Unlink(path string) syscall.Errno {
 	matchIndex, relativePath := c.chooseFS(path)
 	return c.fs[matchIndex].Unlink(relativePath)
 }
@@ -480,10 +479,10 @@ loop:
 type fakeRootFS struct{ UnimplementedFS }
 
 // OpenFile implements FS.OpenFile
-func (*fakeRootFS) OpenFile(path string, flag int, perm fs.FileMode) (fs.File, error) {
+func (*fakeRootFS) OpenFile(path string, flag int, perm fs.FileMode) (fs.File, syscall.Errno) {
 	switch path {
 	case ".", "/", "":
-		return fakeRootDir{}, nil
+		return fakeRootDir{}, 0
 	}
 	return nil, syscall.ENOENT
 }

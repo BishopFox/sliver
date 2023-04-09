@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/tetratelabs/wazero/api"
-	"github.com/tetratelabs/wazero/internal/ieee754"
 	"github.com/tetratelabs/wazero/internal/leb128"
 	internalsys "github.com/tetratelabs/wazero/internal/sys"
 	"github.com/tetratelabs/wazero/sys"
@@ -58,7 +57,7 @@ type (
 	// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#syntax-moduleinst
 	ModuleInstance struct {
 		Name      string
-		Exports   map[string]ExportInstance
+		Exports   map[string]*Export
 		Functions []FunctionInstance
 		Globals   []*GlobalInstance
 		// Memory is set when Module.MemorySection had a memory, regardless of whether it was exported.
@@ -84,22 +83,14 @@ type (
 		// ElementInstances holds the element instance, and each holds the references to either functions
 		// or external objects (unimplemented).
 		ElementInstances []ElementInstance
+
+		moduleListNode *moduleListNode
 	}
 
 	// DataInstance holds bytes corresponding to the data segment in a module.
 	//
 	// https://www.w3.org/TR/2022/WD-wasm-core-2-20220419/exec/runtime.html#data-instances
 	DataInstance = []byte
-
-	// ExportInstance represents an exported instance in a Store.
-	// The difference from the spec is that in wazero, a ExportInstance holds pointers
-	// to the instances, rather than "addresses" (i.e. index to Store.Functions, Globals, etc) for convenience.
-	//
-	// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#syntax-exportinst
-	ExportInstance struct {
-		Type  ExternType
-		Index Index
-	}
 
 	// FunctionInstance represents a function instance in a Store.
 	// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#function-instances%E2%91%A0
@@ -114,9 +105,6 @@ type (
 
 		// TypeID is assigned by a store for FunctionType.
 		TypeID FunctionTypeID
-
-		// Idx holds the index of this function instance in the function index (beginning with imports).
-		Idx Index
 
 		// Definition is known at compile time.
 		Definition api.FunctionDefinition
@@ -142,20 +130,6 @@ type (
 // The wazero specific limitations described at RATIONALE.md.
 const maximumFunctionTypes = 1 << 27
 
-// addSections adds section elements to the ModuleInstance
-func (m *ModuleInstance) addSections(module *Module, importedGlobals, globals []*GlobalInstance, tables []*TableInstance, memory, importedMemory *MemoryInstance) {
-	m.Globals = append(importedGlobals, globals...)
-	m.Tables = tables
-
-	if importedMemory != nil {
-		m.Memory = importedMemory
-	} else {
-		m.Memory = memory
-	}
-
-	m.BuildExports(module.ExportSection)
-}
-
 func (m *ModuleInstance) buildElementInstances(elements []ElementSegment) {
 	m.ElementInstances = make([]ElementInstance, len(elements))
 	for i, elm := range elements {
@@ -166,9 +140,8 @@ func (m *ModuleInstance) buildElementInstances(elements []ElementSegment) {
 			elemInst := &m.ElementInstances[i]
 			elemInst.References = make([]Reference, len(inits))
 			elemInst.Type = RefTypeFuncref
-			for j, idxPtr := range inits {
-				if idxPtr != nil {
-					idx := *idxPtr
+			for j, idx := range inits {
+				if idx != ElementInitNullReference {
 					elemInst.References[j] = m.Engine.FunctionInstanceReference(idx)
 				}
 			}
@@ -176,12 +149,20 @@ func (m *ModuleInstance) buildElementInstances(elements []ElementSegment) {
 	}
 }
 
-func (m *ModuleInstance) applyTableInits(tables []*TableInstance, tableInits []tableInitEntry) {
-	for _, init := range tableInits {
-		table := tables[init.tableIndex]
+func (m *ModuleInstance) applyElements(elems []validatedActiveElementSegment) {
+	for elemI := range elems {
+		elem := &elems[elemI]
+		var offset uint32
+		if elem.opcode == OpcodeGlobalGet {
+			global := m.Globals[elem.arg]
+			offset = uint32(global.Val)
+		} else {
+			offset = elem.arg // constant
+		}
+
+		table := m.Tables[elem.tableIndex]
 		references := table.References
-		if int(init.offset)+len(init.functionIndexes) > len(references) ||
-			int(init.offset)+init.nullExternRefCount > len(references) {
+		if int(offset)+len(elem.init) > len(references) {
 			// ErrElementOffsetOutOfBounds is the error raised when the active element offset exceeds the table length.
 			// Before CoreFeatureReferenceTypes, this was checked statically before instantiation, after the proposal,
 			// this must be raised as runtime error (as in assert_trap in spectest), not even an instantiation error.
@@ -193,24 +174,16 @@ func (m *ModuleInstance) applyTableInits(tables []*TableInstance, tableInits []t
 		}
 
 		if table.Type == RefTypeExternref {
-			for i := 0; i < init.nullExternRefCount; i++ {
-				references[init.offset+uint32(i)] = Reference(0)
+			for i := 0; i < len(elem.init); i++ {
+				references[offset+uint32(i)] = Reference(0)
 			}
 		} else {
-			for i, fnIndex := range init.functionIndexes {
-				if fnIndex != nil {
-					references[init.offset+uint32(i)] = m.Engine.FunctionInstanceReference(*fnIndex)
+			for i, fnIndex := range elem.init {
+				if fnIndex != ElementInitNullReference {
+					references[offset+uint32(i)] = m.Engine.FunctionInstanceReference(fnIndex)
 				}
 			}
 		}
-	}
-}
-
-func (m *ModuleInstance) BuildExports(exports []Export) {
-	m.Exports = make(map[string]ExportInstance, len(exports))
-	for _, exp := range exports {
-		// We already validated the duplicates during module validation phase.
-		m.Exports[exp.Name] = ExportInstance{Type: exp.Type, Index: exp.Index}
 	}
 }
 
@@ -220,7 +193,7 @@ func (m *ModuleInstance) validateData(data []DataSegment) (err error) {
 	for i := range data {
 		d := &data[i]
 		if !d.IsPassive() {
-			offset := int(executeConstExpression(m.Globals, &d.OffsetExpression).(int32))
+			offset := int(executeConstExpressionI32(m.Globals, &d.OffsetExpression))
 			ceil := offset + len(d.Init)
 			if offset < 0 || ceil > len(m.Memory.Buffer) {
 				return fmt.Errorf("%s[%d]: out of bounds memory access", SectionIDName(SectionIDData), i)
@@ -239,7 +212,7 @@ func (m *ModuleInstance) applyData(data []DataSegment) error {
 		d := &data[i]
 		m.DataInstances[i] = d.Init
 		if !d.IsPassive() {
-			offset := executeConstExpression(m.Globals, &d.OffsetExpression).(int32)
+			offset := executeConstExpressionI32(m.Globals, &d.OffsetExpression)
 			if offset < 0 || int(offset)+len(d.Init) > len(m.Memory.Buffer) {
 				return fmt.Errorf("%s[%d]: out of bounds memory access", SectionIDName(SectionIDData), i)
 			}
@@ -250,13 +223,13 @@ func (m *ModuleInstance) applyData(data []DataSegment) error {
 }
 
 // GetExport returns an export of the given name and type or errs if not exported or the wrong type.
-func (m *ModuleInstance) getExport(name string, et ExternType) (ExportInstance, error) {
+func (m *ModuleInstance) getExport(name string, et ExternType) (*Export, error) {
 	exp, ok := m.Exports[name]
 	if !ok {
-		return ExportInstance{}, fmt.Errorf("%q is not exported in module %q", name, m.Name)
+		return nil, fmt.Errorf("%q is not exported in module %q", name, m.Name)
 	}
 	if exp.Type != et {
-		return ExportInstance{}, fmt.Errorf("export %q in module %q is a %s, not a %s", name, m.Name, ExternTypeName(exp.Type), ExternTypeName(et))
+		return nil, fmt.Errorf("export %q in module %q is a %s, not a %s", name, m.Name, ExternTypeName(exp.Type), ExternTypeName(et))
 	}
 	return exp, nil
 }
@@ -303,24 +276,35 @@ func (s *Store) Instantiate(
 		return nil, err
 	}
 
-	// Write-Lock the store and claim the name of the current module.
-	if err = s.requireModuleName(name); err != nil {
-		return nil, err
+	var listNode *moduleListNode
+	if name == "" {
+		listNode = s.registerAnonymous()
+	} else {
+		// Write-Lock the store and claim the name of the current module.
+		listNode, err = s.requireModuleName(name)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Instantiate the module and add it to the store so that other modules can import it.
-	if callCtx, err := s.instantiate(ctx, module, name, sys, importedModules, typeIDs); err != nil {
-		_ = s.deleteModule(name)
+	callCtx, err := s.instantiate(ctx, module, name, sys, importedModules, typeIDs)
+	if err != nil {
+		_ = s.deleteModule(listNode)
 		return nil, err
-	} else {
+	}
+
+	callCtx.module.moduleListNode = listNode
+
+	if name != "" {
 		// Now that the instantiation is complete without error, add it.
 		// This makes the module visible for import, and ensures it is closed when the store is.
 		if err := s.setModule(callCtx.module); err != nil {
 			callCtx.Close(ctx)
 			return nil, err
 		}
-		return callCtx, nil
 	}
+	return callCtx, nil
 }
 
 func (s *Store) instantiate(
@@ -331,31 +315,34 @@ func (s *Store) instantiate(
 	modules map[string]*ModuleInstance,
 	typeIDs []FunctionTypeID,
 ) (*CallContext, error) {
-	importedFunctions, importedGlobals, importedTables, importedMemory, err := resolveImports(module, modules)
-	if err != nil {
+	m := &ModuleInstance{Name: name, TypeIDs: typeIDs}
+
+	m.Functions = make([]FunctionInstance, int(module.ImportFunctionCount)+len(module.FunctionSection))
+	m.Tables = make([]*TableInstance, int(module.ImportTableCount)+len(module.TableSection))
+	m.Globals = make([]*GlobalInstance, int(module.ImportGlobalCount)+len(module.GlobalSection))
+
+	if err := m.resolveImports(module, modules); err != nil {
 		return nil, err
 	}
 
-	tables, tableInit, err := module.buildTables(importedTables, importedGlobals,
+	err := m.buildTables(module,
 		// As of reference-types proposal, boundary check must be done after instantiation.
 		s.EnabledFeatures.IsEnabled(api.CoreFeatureReferenceTypes))
 	if err != nil {
 		return nil, err
 	}
 
-	m := &ModuleInstance{Name: name, TypeIDs: typeIDs}
-	functions := m.BuildFunctions(module, importedFunctions)
+	m.BuildFunctions(module)
 
 	// Plus, we are ready to compile functions.
-	m.Engine, err = s.Engine.NewModuleEngine(name, module, functions)
+	m.Engine, err = s.Engine.NewModuleEngine(name, module, m.Functions)
 	if err != nil {
 		return nil, err
 	}
 
-	globals, memory := module.buildGlobals(importedGlobals, m.Engine.FunctionInstanceReference), module.buildMemory()
-
-	// Now we have all instances from imports and local ones, so ready to create a new ModuleInstance.
-	m.addSections(module, importedGlobals, globals, tables, importedMemory, memory)
+	m.buildGlobals(module, m.Engine.FunctionInstanceReference)
+	m.buildMemory(module)
+	m.Exports = module.Exports
 
 	// As of reference types proposal, data segment validation must happen after instantiation,
 	// and the side effect must persist even if there's out of bounds error after instantiation.
@@ -374,7 +361,7 @@ func (s *Store) instantiate(
 		return nil, err
 	}
 
-	m.applyTableInits(tables, tableInit)
+	m.applyElements(module.validatedActiveElementSegments)
 
 	// Compile the default context for calls to this module.
 	callCtx := NewCallContext(s, m, sysCtx)
@@ -402,52 +389,41 @@ func (s *Store) instantiate(
 	return m.CallCtx, nil
 }
 
-func resolveImports(module *Module, modules map[string]*ModuleInstance) (
-	importedFunctions []*FunctionInstance,
-	importedGlobals []*GlobalInstance,
-	importedTables []*TableInstance,
-	importedMemory *MemoryInstance,
-	err error,
-) {
+func (m *ModuleInstance) resolveImports(module *Module, importedModules map[string]*ModuleInstance) (err error) {
+	var fs, gs, tables int
 	for idx := range module.ImportSection {
 		i := &module.ImportSection[idx]
-		m, ok := modules[i.Module]
+		importedModule, ok := importedModules[i.Module]
 		if !ok {
 			err = fmt.Errorf("module[%s] not instantiated", i.Module)
 			return
 		}
 
-		var imported ExportInstance
-		imported, err = m.getExport(i.Name, i.Type)
+		var imported *Export
+		imported, err = importedModule.getExport(i.Name, i.Type)
 		if err != nil {
 			return
 		}
 
 		switch i.Type {
 		case ExternTypeFunc:
-			typeIndex := i.DescFunc
-			// TODO: this shouldn't be possible as invalid should fail validate
-			if int(typeIndex) >= len(module.TypeSection) {
-				err = errorInvalidImport(i, idx, fmt.Errorf("function type out of range"))
+			importedFunction := &importedModule.Functions[imported.Index]
+			expectedTypeID := m.TypeIDs[i.DescFunc]
+			importedTypeID := importedFunction.TypeID
+			if importedTypeID != expectedTypeID {
+				err = errorInvalidImport(i, idx, fmt.Errorf("signature mismatch: %s != %s",
+					&module.TypeSection[i.DescFunc], importedFunction.Type))
 				return
 			}
-			expectedType := &module.TypeSection[i.DescFunc]
-			importedFunction := &m.Functions[imported.Index]
-
-			d := importedFunction.Definition
-			if !expectedType.EqualsSignature(d.ParamTypes(), d.ResultTypes()) {
-				actualType := &FunctionType{Params: d.ParamTypes(), Results: d.ResultTypes()}
-				err = errorInvalidImport(i, idx, fmt.Errorf("signature mismatch: %s != %s", expectedType, actualType))
-				return
-			}
-
-			importedFunctions = append(importedFunctions, importedFunction)
+			m.Functions[fs] = *importedFunction
+			fs++
 		case ExternTypeTable:
 			expected := i.DescTable
-			importedTable := m.Tables[imported.Index]
+			importedTable := importedModule.Tables[imported.Index]
 			if expected.Type != importedTable.Type {
 				err = errorInvalidImport(i, idx, fmt.Errorf("table type mismatch: %s != %s",
 					RefTypeName(expected.Type), RefTypeName(importedTable.Type)))
+				return
 			}
 
 			if expected.Min > importedTable.Min {
@@ -465,10 +441,11 @@ func resolveImports(module *Module, modules map[string]*ModuleInstance) (
 					return
 				}
 			}
-			importedTables = append(importedTables, importedTable)
+			m.Tables[tables] = importedTable
+			tables++
 		case ExternTypeMemory:
 			expected := i.DescMem
-			importedMemory = m.Memory
+			importedMemory := importedModule.Memory
 
 			if expected.Min > memoryBytesNumToPages(uint64(len(importedMemory.Buffer))) {
 				err = errorMinSizeMismatch(i, idx, expected.Min, importedMemory.Min)
@@ -479,9 +456,10 @@ func resolveImports(module *Module, modules map[string]*ModuleInstance) (
 				err = errorMaxSizeMismatch(i, idx, expected.Max, importedMemory.Max)
 				return
 			}
+			m.Memory = importedMemory
 		case ExternTypeGlobal:
 			expected := i.DescGlobal
-			importedGlobal := m.Globals[imported.Index]
+			importedGlobal := importedModule.Globals[imported.Index]
 
 			if expected.Mutable != importedGlobal.Type.Mutable {
 				err = errorInvalidImport(i, idx, fmt.Errorf("mutability mismatch: %t != %t",
@@ -494,7 +472,8 @@ func resolveImports(module *Module, modules map[string]*ModuleInstance) (
 					ValueTypeName(expected.ValType), ValueTypeName(importedGlobal.Type.ValType)))
 				return
 			}
-			importedGlobals = append(importedGlobals, importedGlobal)
+			m.Globals[gs] = importedGlobal
+			gs++
 		}
 	}
 	return
@@ -516,51 +495,68 @@ func errorInvalidImport(i *Import, idx int, err error) error {
 	return fmt.Errorf("import[%d] %s[%s.%s]: %w", idx, ExternTypeName(i.Type), i.Module, i.Name, err)
 }
 
-// Global initialization constant expression can only reference the imported globals.
-// See the note on https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#constant-expressions%E2%91%A0
-func executeConstExpression(importedGlobals []*GlobalInstance, expr *ConstantExpression) (v interface{}) {
+// executeConstExpressionI32 executes the ConstantExpression which returns ValueTypeI32.
+// The validity of the expression is ensured when calling this function as this is only called
+// during instantiation phrase, and the validation happens in compilation (validateConstExpression).
+func executeConstExpressionI32(importedGlobals []*GlobalInstance, expr *ConstantExpression) (ret int32) {
 	switch expr.Opcode {
 	case OpcodeI32Const:
-		// Treat constants as signed as their interpretation is not yet known per /RATIONALE.md
-		v, _, _ = leb128.LoadInt32(expr.Data)
-	case OpcodeI64Const:
-		// Treat constants as signed as their interpretation is not yet known per /RATIONALE.md
-		v, _, _ = leb128.LoadInt64(expr.Data)
-	case OpcodeF32Const:
-		v, _ = ieee754.DecodeFloat32(expr.Data)
-	case OpcodeF64Const:
-		v, _ = ieee754.DecodeFloat64(expr.Data)
+		ret, _, _ = leb128.LoadInt32(expr.Data)
 	case OpcodeGlobalGet:
 		id, _, _ := leb128.LoadUint32(expr.Data)
 		g := importedGlobals[id]
-		switch g.Type.ValType {
+		ret = int32(g.Val)
+	}
+	return
+}
+
+// initialize initializes the value of this global instance given the const expr and imported globals.
+// funcRefResolver is called to get the actual funcref (engine specific) from the OpcodeRefFunc const expr.
+//
+// Global initialization constant expression can only reference the imported globals.
+// See the note on https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#constant-expressions%E2%91%A0
+func (g *GlobalInstance) initialize(importedGlobals []*GlobalInstance, expr *ConstantExpression, funcRefResolver func(funcIndex Index) Reference) {
+	switch expr.Opcode {
+	case OpcodeI32Const:
+		// Treat constants as signed as their interpretation is not yet known per /RATIONALE.md
+		v, _, _ := leb128.LoadInt32(expr.Data)
+		g.Val = uint64(uint32(v))
+	case OpcodeI64Const:
+		// Treat constants as signed as their interpretation is not yet known per /RATIONALE.md
+		v, _, _ := leb128.LoadInt64(expr.Data)
+		g.Val = uint64(v)
+	case OpcodeF32Const:
+		g.Val = uint64(binary.LittleEndian.Uint32(expr.Data))
+	case OpcodeF64Const:
+		g.Val = binary.LittleEndian.Uint64(expr.Data)
+	case OpcodeGlobalGet:
+		id, _, _ := leb128.LoadUint32(expr.Data)
+		importedG := importedGlobals[id]
+		switch importedG.Type.ValType {
 		case ValueTypeI32:
-			v = int32(g.Val)
+			g.Val = uint64(uint32(importedG.Val))
 		case ValueTypeI64:
-			v = int64(g.Val)
+			g.Val = importedG.Val
 		case ValueTypeF32:
-			v = api.DecodeF32(g.Val)
+			g.Val = importedG.Val
 		case ValueTypeF64:
-			v = api.DecodeF64(g.Val)
+			g.Val = importedG.Val
 		case ValueTypeV128:
-			v = [2]uint64{g.Val, g.ValHi}
+			g.Val, g.ValHi = importedG.Val, importedG.ValHi
 		case ValueTypeFuncref, ValueTypeExternref:
-			v = int64(g.Val)
+			g.Val = importedG.Val
 		}
 	case OpcodeRefNull:
 		switch expr.Data[0] {
 		case ValueTypeExternref, ValueTypeFuncref:
-			v = int64(0) // Reference types are opaque 64bit pointer at runtime.
+			g.Val = 0 // Reference types are opaque 64bit pointer at runtime.
 		}
 	case OpcodeRefFunc:
-		// For ref.func const expression, we temporarily store the index as value,
-		// and if this is the const expr for global, the value will be further downed to
-		// opaque pointer of the engine-specific compiled function.
-		v, _, _ = leb128.LoadUint32(expr.Data)
+		v, _, _ := leb128.LoadUint32(expr.Data)
+		g.Val = uint64(funcRefResolver(v))
 	case OpcodeVecV128Const:
-		v = [2]uint64{binary.LittleEndian.Uint64(expr.Data[0:8]), binary.LittleEndian.Uint64(expr.Data[8:16])}
+		g.Val, g.ValHi = binary.LittleEndian.Uint64(expr.Data[0:8]), binary.LittleEndian.Uint64(expr.Data[8:16])
 	}
-	return
 }
 
 func (s *Store) GetFunctionTypeIDs(ts []FunctionType) ([]FunctionTypeID, error) {

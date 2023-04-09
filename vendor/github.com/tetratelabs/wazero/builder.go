@@ -86,7 +86,7 @@ type HostFunctionBuilder interface {
 	//
 	// Except for the context.Context and optional api.Module, all parameters
 	// or result types must map to WebAssembly numeric value types. This means
-	// uint32, int32, uint64, int32 float32 or float64.
+	// uint32, int32, uint64, int64, float32 or float64.
 	//
 	// api.Module may be specified as the second parameter, usually to access
 	// memory. This is important because there are only numeric types in Wasm.

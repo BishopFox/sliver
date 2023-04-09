@@ -34,11 +34,14 @@ type Runtime interface {
 	//
 	//	mod, _ := r.Instantiate(ctx, wasm)
 	//
-	// See InstantiateWithConfig for configuration overrides.
+	// # Notes
+	//
+	//   - See notes on InstantiateModule for error scenarios.
+	//   - See InstantiateWithConfig for configuration overrides.
 	Instantiate(ctx context.Context, source []byte) (api.Module, error)
 
 	// InstantiateWithConfig instantiates a module from the WebAssembly binary
-	// (%.wasm) or errs if invalid.
+	// (%.wasm) or errs for reasons including exit or validation.
 	//
 	// Here's an example:
 	//	ctx := context.Background()
@@ -50,11 +53,12 @@ type Runtime interface {
 	//
 	// # Notes
 	//
+	//   - See notes on InstantiateModule for error scenarios.
+	//   - If you aren't overriding defaults, use Instantiate.
 	//   - This is a convenience utility that chains CompileModule with
 	//     InstantiateModule. To instantiate the same source multiple times,
 	//     use CompileModule as InstantiateModule avoids redundant decoding
 	//     and/or compilation.
-	//   - If you aren't overriding defaults, use Instantiate.
 	InstantiateWithConfig(ctx context.Context, source []byte, config ModuleConfig) (api.Module, error)
 
 	// NewHostModuleBuilder lets you create modules out of functions defined in Go.
@@ -87,15 +91,25 @@ type Runtime interface {
 	// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#name-section%E2%91%A0
 	CompileModule(ctx context.Context, binary []byte) (CompiledModule, error)
 
-	// InstantiateModule instantiates the module or errs if the configuration was invalid.
+	// InstantiateModule instantiates the module or errs for reasons including
+	// exit or validation.
 	//
 	// Here's an example:
-	//	mod, _ := n.InstantiateModule(ctx, compiled, wazero.NewModuleConfig().WithName("prod"))
+	//	mod, _ := n.InstantiateModule(ctx, compiled, wazero.NewModuleConfig().
+	//		WithName("prod"))
 	//
-	// While CompiledModule is pre-validated, there are a few situations which can cause an error:
+	// # Errors
+	//
+	// While CompiledModule is pre-validated, there are a few situations which
+	// can cause an error:
 	//   - The module name is already in use.
-	//   - The module has a table element initializer that resolves to an index outside the Table minimum size.
+	//   - The module has a table element initializer that resolves to an index
+	//     outside the Table minimum size.
 	//   - The module has a start function, and it failed to execute.
+	//   - The module was compiled to WASI and exited with a non-zero exit
+	//     code, you'll receive a sys.ExitError.
+	//   - RuntimeConfig.WithCloseOnContextDone was enabled and a context
+	//     cancellation or deadline triggered before a start function returned.
 	InstantiateModule(ctx context.Context, compiled CompiledModule, config ModuleConfig) (api.Module, error)
 
 	// CloseWithExitCode closes all the modules that have been initialized in this Runtime with the provided exit code.
@@ -233,7 +247,7 @@ func buildListeners(ctx context.Context, internal *wasm.Module) ([]experimentala
 		return nil, nil
 	}
 	factory := fnlf.(experimentalapi.FunctionListenerFactory)
-	importCount := internal.ImportFuncCount()
+	importCount := internal.ImportFunctionCount
 	listeners := make([]experimentalapi.FunctionListener, len(internal.FunctionSection))
 	for i := 0; i < len(listeners); i++ {
 		listeners[i] = factory.NewListener(&internal.FunctionDefinitionSection[uint32(i)+importCount])
@@ -283,7 +297,7 @@ func (r *runtime) InstantiateModule(
 	}
 
 	name := config.name
-	if name == "" && code.module.NameSection != nil && code.module.NameSection.ModuleName != "" {
+	if !config.nameSet && code.module.NameSection != nil && code.module.NameSection.ModuleName != "" {
 		name = code.module.NameSection.ModuleName
 	}
 
@@ -310,7 +324,11 @@ func (r *runtime) InstantiateModule(
 		}
 		if _, err = start.Call(ctx); err != nil {
 			_ = mod.Close(ctx) // Don't leak the module on error.
-			if _, ok := err.(*sys.ExitError); ok {
+
+			if se, ok := err.(*sys.ExitError); ok {
+				if se.ExitCode() == 0 { // Don't err on success.
+					err = nil
+				}
 				return // Don't wrap an exit error
 			}
 			err = fmt.Errorf("module[%s] function[%s] failed: %w", name, fn, err)

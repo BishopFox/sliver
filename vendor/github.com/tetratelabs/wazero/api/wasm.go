@@ -189,10 +189,12 @@ type Module interface {
 }
 
 // Closer closes a resource.
-//
-// Note: This is an interface for decoupling, not third-party implementations. All implementations are in wazero.
 type Closer interface {
 	// Close closes the resource.
+	//
+	// Note: The context parameter is used for value lookup, such as for
+	// logging. A canceled or otherwise done context will not prevent Close
+	// from succeeding.
 	Close(context.Context) error
 }
 

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <sys/select.h>
 
 #define formatBool(b) ((b) ? "true" : "false")
 
@@ -36,11 +37,31 @@ void main_stat() {
   printf("/ isatty: %s\n", formatBool(isatty(3)));
 }
 
+void main_poll() {
+  int ret = 0;
+  fd_set rfds;
+  struct timeval tv;
+
+  FD_ZERO(&rfds);
+  FD_SET(0, &rfds);
+
+  tv.tv_sec = 0;
+  tv.tv_usec = 0;
+  ret = select(1, &rfds, NULL, NULL, &tv);
+  if ((ret > 0) && FD_ISSET(0, &rfds)) {
+    printf("STDIN\n");
+  } else {
+    printf("NOINPUT\n");
+  }
+}
+
 int main(int argc, char** argv) {
   if (strcmp(argv[1],"ls")==0) {
     main_ls(argv[2], strcmp(argv[3],"repeat")==0);
   } else if (strcmp(argv[1],"stat")==0) {
     main_stat();
+  } else if (strcmp(argv[1],"poll")==0) {
+    main_poll();
   } else {
     fprintf(stderr, "unknown command: %s\n", argv[1]);
     return 1;

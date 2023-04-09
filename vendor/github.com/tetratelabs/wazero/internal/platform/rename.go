@@ -4,9 +4,9 @@ package platform
 
 import "syscall"
 
-func Rename(from, to string) error {
+func Rename(from, to string) syscall.Errno {
 	if from == to {
-		return nil
+		return 0
 	}
-	return syscall.Rename(from, to)
+	return UnwrapOSError(syscall.Rename(from, to))
 }

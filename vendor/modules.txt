@@ -330,6 +330,12 @@ github.com/miekg/dns
 # github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 ## explicit; go 1.17
 github.com/moloch--/memmod
+# github.com/ncruces/go-sqlite3 v0.5.3
+## explicit; go 1.19
+github.com/ncruces/go-sqlite3
+# github.com/ncruces/julianday v0.1.5
+## explicit; go 1.17
+github.com/ncruces/julianday
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
@@ -357,7 +363,7 @@ github.com/spf13/pflag
 # github.com/stretchr/testify v1.8.1
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
-# github.com/tetratelabs/wazero v1.0.0-rc.2
+# github.com/tetratelabs/wazero v1.0.0
 ## explicit; go 1.18
 github.com/tetratelabs/wazero
 github.com/tetratelabs/wazero/api
@@ -379,7 +385,7 @@ github.com/tetratelabs/wazero/internal/sysfs
 github.com/tetratelabs/wazero/internal/u32
 github.com/tetratelabs/wazero/internal/u64
 github.com/tetratelabs/wazero/internal/version
-github.com/tetratelabs/wazero/internal/wasi_snapshot_preview1
+github.com/tetratelabs/wazero/internal/wasip1
 github.com/tetratelabs/wazero/internal/wasm
 github.com/tetratelabs/wazero/internal/wasm/binary
 github.com/tetratelabs/wazero/internal/wasmdebug

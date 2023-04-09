@@ -513,7 +513,7 @@ func (e *engine) CompileModule(_ context.Context, module *wasm.Module, listeners
 	}
 
 	var withGoFunc bool
-	importedFuncs := module.ImportFuncCount()
+	importedFuncs := module.ImportFunctionCount
 	funcs := make([]*code, len(module.FunctionSection))
 	ln := len(listeners)
 	cmp := newCompiler()
@@ -556,9 +556,9 @@ func (e *engine) NewModuleEngine(name string, module *wasm.Module, functions []w
 		functions: make([]function, len(functions)),
 	}
 
-	imported := int(module.ImportFuncCount())
+	imported := int(module.ImportFunctionCount)
 	for i, f := range functions[:imported] {
-		cf := f.Module.Engine.(*moduleEngine).functions[f.Idx]
+		cf := f.Module.Engine.(*moduleEngine).functions[f.Definition.Index()]
 		me.functions[i] = cf
 	}
 
@@ -595,7 +595,7 @@ func (e *moduleEngine) FunctionInstanceReference(funcIndex wasm.Index) wasm.Refe
 func (e *moduleEngine) NewCallEngine(_ *wasm.CallContext, f *wasm.FunctionInstance) (ce wasm.CallEngine, err error) {
 	// Note: The input parameters are pre-validated, so a compiled function is only absent on close. Updates to
 	// code on close aren't locked, neither is this read.
-	compiled := &e.functions[f.Idx]
+	compiled := &e.functions[f.Definition.Index()]
 
 	initStackSize := initialStackSize
 	if initialStackSize < compiled.parent.stackPointerCeil {
@@ -621,7 +621,7 @@ func (e *moduleEngine) LookupFunction(t *wasm.TableInstance, typeId wasm.Functio
 		err = wasmruntime.ErrRuntimeIndirectCallTypeMismatch
 		return
 	}
-	idx = tf.source.Idx
+	idx = tf.source.Definition.Index()
 
 	return
 }

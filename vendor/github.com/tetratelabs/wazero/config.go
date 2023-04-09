@@ -455,7 +455,7 @@ type ModuleConfig interface {
 	WithFSConfig(FSConfig) ModuleConfig
 
 	// WithName configures the module name. Defaults to what was decoded from
-	// the name section.
+	// the name section. Empty string ("") clears any name.
 	WithName(string) ModuleConfig
 
 	// WithStartFunctions configures the functions to call after the module is
@@ -597,6 +597,7 @@ type ModuleConfig interface {
 
 type moduleConfig struct {
 	name               string
+	nameSet            bool
 	startFunctions     []string
 	stdin              io.Reader
 	stdout             io.Writer
@@ -685,6 +686,7 @@ func (c *moduleConfig) WithFSConfig(config FSConfig) ModuleConfig {
 // WithName implements ModuleConfig.WithName
 func (c *moduleConfig) WithName(name string) ModuleConfig {
 	ret := c.clone()
+	ret.nameSet = true
 	ret.name = name
 	return ret
 }

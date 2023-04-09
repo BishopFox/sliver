@@ -38,35 +38,11 @@ type HostFunc struct {
 	Code Code
 }
 
-// MustGoReflectFunc calls WithGoReflectFunc or panics on error.
-func (f *HostFunc) MustGoReflectFunc(fn interface{}) *HostFunc {
-	if ret, err := f.WithGoReflectFunc(fn); err != nil {
-		panic(err)
-	} else {
-		return ret
-	}
-}
-
-// WithGoFunc returns a copy of the function, replacing its Code.GoFunc.
-func (f *HostFunc) WithGoFunc(fn api.GoFunc) *HostFunc {
-	ret := *f
-	ret.Code.GoFunc = fn
-	return &ret
-}
-
 // WithGoModuleFunc returns a copy of the function, replacing its Code.GoFunc.
 func (f *HostFunc) WithGoModuleFunc(fn api.GoModuleFunc) *HostFunc {
 	ret := *f
 	ret.Code.GoFunc = fn
 	return &ret
-}
-
-// WithGoReflectFunc returns a copy of the function, replacing its Code.GoFunc.
-func (f *HostFunc) WithGoReflectFunc(fn interface{}) (*HostFunc, error) {
-	ret := *f
-	var err error
-	ret.ParamTypes, ret.ResultTypes, ret.Code, err = parseGoReflectFunc(fn)
-	return &ret, err
 }
 
 type HostFuncNames struct {
@@ -90,6 +66,7 @@ func NewHostModule(
 
 	if exportCount := uint32(len(nameToGoFunc)); exportCount > 0 {
 		m.ExportSection = make([]Export, 0, exportCount)
+		m.Exports = make(map[string]*Export, exportCount)
 		if err = addFuncs(m, nameToGoFunc, funcToNames, enabledFeatures); err != nil {
 			return
 		}
@@ -185,6 +162,7 @@ func addFuncs(
 		m.CodeSection = append(m.CodeSection, hf.Code)
 		for _, export := range hf.ExportNames {
 			m.ExportSection = append(m.ExportSection, Export{Type: ExternTypeFunc, Name: export, Index: idx})
+			m.Exports[export] = &m.ExportSection[len(m.ExportSection)-1]
 		}
 		m.NameSection.FunctionNames = append(m.NameSection.FunctionNames, &NameAssoc{Index: idx, Name: hf.Name})
 
