@@ -19,15 +19,15 @@ package handlers
 */
 
 import (
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
+	"io/fs"
 	"os"
 	"os/user"
-	"syscall"
-	"strconv"
-	"io/fs"
 	"path/filepath"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"google.golang.org/protobuf/proto"
+	"strconv"
+	"syscall"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -47,12 +47,12 @@ var (
 		sliverpb.MsgRmReq:        rmHandler,
 		sliverpb.MsgMkdirReq:     mkdirHandler,
 		sliverpb.MsgMvReq:        mvHandler,
-		sliverpb.MsgTaskReq:      taskHandler,
-		sliverpb.MsgIfconfigReq:  ifconfigHandler,
-		sliverpb.MsgExecuteReq:   executeHandler,
-		sliverpb.MsgEnvReq:       getEnvHandler,
-		sliverpb.MsgSetEnvReq:    setEnvHandler,
-		sliverpb.MsgUnsetEnvReq:  unsetEnvHandler,
+		// sliverpb.MsgTaskReq:      taskHandler,
+		sliverpb.MsgIfconfigReq: ifconfigHandler,
+		sliverpb.MsgExecuteReq:  executeHandler,
+		sliverpb.MsgEnvReq:      getEnvHandler,
+		sliverpb.MsgSetEnvReq:   setEnvHandler,
+		sliverpb.MsgUnsetEnvReq: unsetEnvHandler,
 
 		sliverpb.MsgScreenshotReq: screenshotHandler,
 
@@ -61,7 +61,7 @@ var (
 
 		sliverpb.MsgReconfigureReq: reconfigureHandler,
 		sliverpb.MsgSSHCommandReq:  runSSHCommandHandler,
-		sliverpb.MsgProcessDumpReq: dumpHandler,
+		// sliverpb.MsgProcessDumpReq: dumpHandler,
 
 		// Wasm Extensions - Note that execution can be done via a tunnel handler
 		sliverpb.MsgRegisterWasmExtensionReq:   registerWasmExtensionHandler,
@@ -79,9 +79,9 @@ var (
 		// {{end}}
 
 		// Linux Only
-		sliverpb.MsgChmodReq:         chmodHandler,
-		sliverpb.MsgChownReq:         chownHandler,
-		sliverpb.MsgChtimesReq:       chtimesHandler,
+		sliverpb.MsgChmodReq:   chmodHandler,
+		sliverpb.MsgChownReq:   chownHandler,
+		sliverpb.MsgChtimesReq: chtimesHandler,
 	}
 )
 
@@ -90,7 +90,7 @@ func GetSystemHandlers() map[uint32]RPCHandler {
 	return linuxHandlers
 }
 
-func getUid(fileInfo os.FileInfo) (string) {
+func getUid(fileInfo os.FileInfo) string {
 	uid := int32(fileInfo.Sys().(*syscall.Stat_t).Uid)
 	uid_str := strconv.FormatUint(uint64(uid), 10)
 	usr, err := user.LookupId(uid_str)
@@ -100,8 +100,8 @@ func getUid(fileInfo os.FileInfo) (string) {
 	return usr.Name
 }
 
-func getGid(fileInfo os.FileInfo) (string) {
-    gid := int32(fileInfo.Sys().(*syscall.Stat_t).Gid)
+func getGid(fileInfo os.FileInfo) string {
+	gid := int32(fileInfo.Sys().(*syscall.Stat_t).Gid)
 	gid_str := strconv.FormatUint(uint64(gid), 10)
 	grp, err := user.LookupGroupId(gid_str)
 	if err != nil {
