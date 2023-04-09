@@ -5,7 +5,7 @@
 GO ?= go
 ARTIFACT_SUFFIX ?= 
 ENV =
-TAGS ?= -tags osusergo,netgo,cgosqlite,sqlite_omit_load_extension
+TAGS ?= -tags osusergo,netgo,wasm_sqlite
 
 
 #
@@ -63,17 +63,6 @@ STATIC_TARGET := linux
 UNAME_S := $(shell uname -s)
 UNAME_P := $(shell uname -p)
 
-# If the target is Windows from Linux/Darwin, check for mingw
-CROSS_COMPILERS = x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++
-ifneq (,$(findstring cgosqlite,$(TAGS)))
-	ENV +=CGO_ENABLED=1
-	ifeq ($(MAKECMDGOALS), windows)
-		K := $(foreach exec,$(CROSS_COMPILERS),\
-				$(if $(shell which $(exec)),some string,$(error "Missing cross-compiler $(exec) in PATH")))
-		ENV += CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
-	endif
-endif
-
 # Programs required for generating protobuf/grpc files
 PB_COMPILERS = protoc protoc-gen-go protoc-gen-go-grpc
 ifeq ($(MAKECMDGOALS), pb)
@@ -108,12 +97,6 @@ ifeq ($(MAKECMDGOALS), linux)
 		-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 endif
 
-ifeq ($(MAKECMDGOALS), linux-arm64)
-	# Redefine TAGS/ENV to use pure go sqlite3
-	TAGS = -tags osusergo,netgo,gosqlite
-	ENV = CGO_ENABLED=0
-endif
-
 #
 # Targets
 #
@@ -144,8 +127,8 @@ linux-arm64: clean .downloaded_assets validate-go-version
 
 .PHONY: windows
 windows: clean .downloaded_assets validate-go-version
-	GOOS=windows $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX).exe ./server
-	GOOS=windows $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX).exe ./client
+	GOOS=windows GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX).exe ./server
+	GOOS=windows GOARCH=amd64 $(ENV) $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX).exe ./client
 
 .PHONY: pb
 pb:
