@@ -540,7 +540,7 @@ func openSessionHandler(data []byte) {
 
 	go func() {
 		abort := make(chan struct{})
-		connections := transports.StartConnectionLoop(abort)
+		connections := transports.StartConnectionLoop(abort, openSession.C2S...)
 		defer func() { abort <- struct{}{} }()
 		connectionAttempts := 0
 		for connection := range connections {

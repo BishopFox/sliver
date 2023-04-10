@@ -80,7 +80,7 @@ type Start func() error
 type Stop func() error
 
 // StartConnectionLoop - Starts the main connection loop
-func StartConnectionLoop(abort <-chan struct{}) <-chan *Connection {
+func StartConnectionLoop(abort <-chan struct{}, temporaryC2 ...string) <-chan *Connection {
 
 	// {{if .Config.Debug}}
 	log.Printf("Starting interactive session connection loop ...")
@@ -88,7 +88,7 @@ func StartConnectionLoop(abort <-chan struct{}) <-chan *Connection {
 
 	nextConnection := make(chan *Connection)
 	innerAbort := make(chan struct{})
-	c2Generator := C2Generator(innerAbort)
+	c2Generator := C2Generator(innerAbort, temporaryC2...)
 
 	go func() {
 		var connection *Connection
