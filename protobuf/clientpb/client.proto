@@ -137,10 +137,11 @@ message ImplantConfig {
   string MtlsCert = 21;
   string MtlsKey = 22;
 
-  string ECCPublicKey = 23;
-  string ECCPrivateKey = 24;
-  string ECCPublicKeySignature = 25;
-  string MinisignServerPublicKey = 26;
+  string ECCServerPublicKey = 23;
+  string ECCPublicKey = 24;
+  string ECCPrivateKey = 25;
+  string ECCPublicKeySignature = 26;
+  string MinisignServerPublicKey = 27;
 
   string WGImplantPrivKey = 30;
   string WGServerPubKey = 31;
@@ -170,9 +171,11 @@ message ImplantConfig {
   bool IsService = 103;
   bool IsShellcode = 104;
   bool RunAtLoad = 105;
-  bool NetGoEnabled = 106;
-  bool TrafficEncodersEnabled = 107;
-  repeated string TrafficEncoders = 108;
+  string DebugFile = 106;
+
+  bool NetGoEnabled = 107;
+  bool TrafficEncodersEnabled = 108;
+  repeated string TrafficEncoders = 109;
 
   repeated commonpb.File Assets = 200;
 }

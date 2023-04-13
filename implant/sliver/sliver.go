@@ -162,6 +162,14 @@ func main() {
 
 	// {{if .Config.Debug}}
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	debugFilePath := "{{ .Config.DebugFile }}"
+	if debugFilePath != "" {
+		// Open the log file for writing
+		file, err := os.OpenFile(debugFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err == nil {
+			log.SetOutput(file)
+		}
+	}
 	// {{else}}
 	// {{end}}
 
@@ -530,7 +538,7 @@ func openSessionHandler(data []byte) {
 
 	go func() {
 		abort := make(chan struct{})
-		connections := transports.StartConnectionLoop(abort)
+		connections := transports.StartConnectionLoop(abort, openSession.C2S...)
 		defer func() { abort <- struct{}{} }()
 		connectionAttempts := 0
 		for connection := range connections {

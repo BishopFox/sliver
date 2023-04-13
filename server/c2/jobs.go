@@ -108,7 +108,7 @@ func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListen
 		<-job.JobCtrl
 		jobLog.Infof("Stopping wg listener (%d) ...", job.ID)
 		ticker.Stop()
-		done <- true
+		
 		err = ln.Close() // Kills listener GoRoutines in StartWGListener()
 		if err != nil {
 			jobLog.Fatal("Error closing listener", err)
@@ -118,6 +118,7 @@ func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListen
 			jobLog.Fatal("Error closing wg tunnel", err)
 		}
 		core.Jobs.Remove(job)
+		done <- true
 	}()
 	core.Jobs.Add(job)
 

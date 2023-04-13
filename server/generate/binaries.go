@@ -147,12 +147,17 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.BeaconInterval = pbConfig.BeaconInterval
 	cfg.BeaconJitter = pbConfig.BeaconJitter
 
+	cfg.ECCServerPublicKey = pbConfig.ECCServerPublicKey
+	cfg.ECCPrivateKey = pbConfig.ECCPrivateKey
+	cfg.ECCPublicKey = pbConfig.ECCPublicKey
+
 	cfg.GOOS = pbConfig.GOOS
 	cfg.GOARCH = pbConfig.GOARCH
 	cfg.MtlsCACert = pbConfig.MtlsCACert
 	cfg.MtlsCert = pbConfig.MtlsCert
 	cfg.MtlsKey = pbConfig.MtlsKey
 	cfg.Debug = pbConfig.Debug
+	cfg.DebugFile = pbConfig.DebugFile
 	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
 	cfg.TemplateName = pbConfig.TemplateName
