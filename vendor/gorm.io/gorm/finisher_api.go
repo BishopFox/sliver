@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
@@ -33,9 +35,10 @@ func (db *DB) CreateInBatches(value interface{}, batchSize int) (tx *DB) {
 		var rowsAffected int64
 		tx = db.getInstance()
 
+		// the reflection length judgment of the optimized value
+		reflectLen := reflectValue.Len()
+
 		callFc := func(tx *DB) error {
-			// the reflection length judgment of the optimized value
-			reflectLen := reflectValue.Len()
 			for i := 0; i < reflectLen; i += batchSize {
 				ends := i + batchSize
 				if ends > reflectLen {
@@ -53,7 +56,7 @@ func (db *DB) CreateInBatches(value interface{}, batchSize int) (tx *DB) {
 			return nil
 		}
 
-		if tx.SkipDefaultTransaction {
+		if tx.SkipDefaultTransaction || reflectLen <= batchSize {
 			tx.AddError(callFc(tx.Session(&Session{})))
 		} else {
 			tx.AddError(tx.Transaction(callFc))
@@ -104,7 +107,7 @@ func (db *DB) Save(value interface{}) (tx *DB) {
 		updateTx := tx.callbacks.Update().Execute(tx.Session(&Session{Initialized: true}))
 
 		if updateTx.Error == nil && updateTx.RowsAffected == 0 && !updateTx.DryRun && !selectedUpdate {
-			return tx.Create(value)
+			return tx.Clauses(clause.OnConflict{UpdateAll: true}).Create(value)
 		}
 
 		return updateTx
@@ -489,7 +492,7 @@ func (db *DB) Count(count *int64) (tx *DB) {
 	tx.Statement.Dest = count
 	tx = tx.callbacks.Query().Execute(tx)
 
-	if tx.RowsAffected != 1 {
+	if _, ok := db.Statement.Clauses["GROUP BY"]; ok || tx.RowsAffected != 1 {
 		*count = tx.RowsAffected
 	}
 
@@ -608,6 +611,15 @@ func (db *DB) Connection(fc func(tx *DB) error) (err error) {
 	return fc(tx)
 }
 
+var (
+	savepointIdx      int64
+	savepointNamePool = &sync.Pool{
+		New: func() interface{} {
+			return fmt.Sprintf("gorm_%d", atomic.AddInt64(&savepointIdx, 1))
+		},
+	}
+)
+
 // Transaction start a transaction as a block, return error will rollback, otherwise to commit. Transaction executes an
 // arbitrary number of commands in fc within a transaction. On success the changes are committed; if an error occurs
 // they are rolled back.
@@ -617,7 +629,9 @@ func (db *DB) Transaction(fc func(tx *DB) error, opts ...*sql.TxOptions) (err er
 	if committer, ok := db.Statement.ConnPool.(TxCommitter); ok && committer != nil {
 		// nested transaction
 		if !db.DisableNestedTransaction {
-			err = db.SavePoint(fmt.Sprintf("sp%p", fc)).Error
+			poolName := savepointNamePool.Get()
+			defer savepointNamePool.Put(poolName)
+			err = db.SavePoint(poolName.(string)).Error
 			if err != nil {
 				return
 			}
@@ -625,7 +639,7 @@ func (db *DB) Transaction(fc func(tx *DB) error, opts ...*sql.TxOptions) (err er
 			defer func() {
 				// Make sure to rollback when panic, Block error or Commit error
 				if panicked || err != nil {
-					db.RollbackTo(fmt.Sprintf("sp%p", fc))
+					db.RollbackTo(poolName.(string))
 				}
 			}()
 		}
