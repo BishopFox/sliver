@@ -66,6 +66,12 @@ func Open(dsn string) gorm.Dialector {
 }
 
 func New(config Config) gorm.Dialector {
+	switch {
+	case config.DSN == "" && config.DSNConfig != nil:
+		config.DSN = config.DSNConfig.FormatDSN()
+	case config.DSN != "" && config.DSNConfig == nil:
+		config.DSNConfig, _ = mysql.ParseDSN(config.DSN)
+	}
 	return &Dialector{Config: &config}
 }
 
