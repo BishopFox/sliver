@@ -172,8 +172,8 @@ github.com/desertbit/readline
 ## explicit
 github.com/dlclark/regexp2
 github.com/dlclark/regexp2/syntax
-# github.com/dustin/go-humanize v1.0.0
-## explicit
+# github.com/dustin/go-humanize v1.0.1
+## explicit; go 1.16
 github.com/dustin/go-humanize
 # github.com/fatih/color v1.15.0
 ## explicit; go 1.17
@@ -693,7 +693,7 @@ modernc.org/cc/v3
 # modernc.org/ccgo/v3 v3.16.13
 ## explicit; go 1.17
 modernc.org/ccgo/v3/lib
-# modernc.org/libc v1.22.3
+# modernc.org/libc v1.22.4
 ## explicit; go 1.18
 modernc.org/libc
 modernc.org/libc/errno
@@ -730,7 +730,7 @@ modernc.org/memory
 # modernc.org/opt v0.1.3
 ## explicit; go 1.13
 modernc.org/opt
-# modernc.org/sqlite v1.21.1
+# modernc.org/sqlite v1.22.0
 ## explicit; go 1.18
 modernc.org/sqlite
 modernc.org/sqlite/lib

@@ -1468,8 +1468,16 @@ func X__inet_ntoa(t *TLS, in1 in.In_addr) uintptr {
 }
 
 func Xmmap(t *TLS, addr uintptr, length types.Size_t, prot, flags, fd int32, offset types.Off_t) uintptr {
+	// On 2021-12-23, a new syscall for mmap was introduced:
+	//
+	// 	49	STD NOLOCK	{ void *sys_mmap(void *addr, size_t len, int prot, \
+	// 			    int flags, int fd, off_t pos); }
+	//  src: https://github.com/golang/go/issues/59661
+
+	const unix_SYS_MMAP = 49
+
 	// Cannot avoid the syscall here, addr sometimes matter.
-	data, _, err := unix.Syscall6(unix.SYS_MMAP, addr, uintptr(length), uintptr(prot), uintptr(flags), uintptr(fd), uintptr(offset))
+	data, _, err := unix.Syscall6(unix_SYS_MMAP, addr, uintptr(length), uintptr(prot), uintptr(flags), uintptr(fd), uintptr(offset))
 	if err != 0 {
 		if dmesgs {
 			dmesg("%v: %v FAIL", origin(1), err)
