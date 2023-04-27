@@ -261,7 +261,7 @@ func SetupGoPath(goPathSrc string) error {
 		setupLog.Info("Static asset not found: constants.go")
 		return err
 	}
-	sliverpbGoSrc = xorSliverPBRawBytes(sliverpbGoSrc)
+	sliverpbGoSrc = xorPBRawBytes(sliverpbGoSrc)
 	sliverpbGoSrc = stripSliverpb(sliverpbGoSrc)
 	sliverpbDir := filepath.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliverpb")
 	os.MkdirAll(sliverpbDir, 0700)
@@ -274,6 +274,7 @@ func SetupGoPath(goPathSrc string) error {
 		setupLog.Info("Static asset not found: common.pb.go")
 		return err
 	}
+	commonpbSrc = xorPBRawBytes(commonpbSrc)
 	commonpbDir := filepath.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "commonpb")
 	os.MkdirAll(commonpbDir, 0700)
 	os.WriteFile(filepath.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0600)
@@ -284,6 +285,7 @@ func SetupGoPath(goPathSrc string) error {
 		setupLog.Info("Static asset not found: dns.pb.go")
 		return err
 	}
+	dnspbSrc = xorPBRawBytes(dnspbSrc)
 	dnspbDir := filepath.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "dnspb")
 	os.MkdirAll(dnspbDir, 0700)
 	os.WriteFile(filepath.Join(dnspbDir, "dns.pb.go"), dnspbSrc, 0600)
@@ -312,7 +314,7 @@ func stripSliverpb(src []byte) []byte {
 	return out
 }
 
-func xorSliverPBRawBytes(src []byte) []byte {
+func xorPBRawBytes(src []byte) []byte {
 	var (
 		fileAst                   *ast.File
 		err                       error
