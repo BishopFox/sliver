@@ -178,7 +178,12 @@ func (dialector Dialector) DataTypeOf(field *schema.Field) string {
 	case schema.String:
 		return "text"
 	case schema.Time:
-		return "datetime"
+		// Distinguish between schema.Time and tag time
+		if val, ok := field.TagSettings["TYPE"]; ok {
+			return val
+		} else {
+			return "datetime"
+		}
 	case schema.Bytes:
 		return "blob"
 	}
