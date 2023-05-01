@@ -970,13 +970,24 @@ func Xatol(t *TLS, nptr uintptr) long {
 	}
 }
 
+func getLocalLocation() (loc *gotime.Location) {
+	loc = gotime.Local
+	if r := getenv(Environ(), "TZ"); r != 0 {
+		zname := GoString(r)
+		zone, off := parseZone(zname)
+		loc = gotime.FixedZone(zone, -off)
+		loc2, _ := gotime.LoadLocation(zname)
+		if loc2 != nil {
+			loc = loc2
+		}
+	}
+	return loc
+
+}
+
 // time_t mktime(struct tm *tm);
 func Xmktime(t *TLS, ptm uintptr) time.Time_t {
-	loc := gotime.Local
-	if r := getenv(Environ(), "TZ"); r != 0 {
-		zone, off := parseZone(GoString(r))
-		loc = gotime.FixedZone(zone, off)
-	}
+	loc := getLocalLocation()
 	tt := gotime.Date(
 		int((*time.Tm)(unsafe.Pointer(ptm)).Ftm_year+1900),
 		gotime.Month((*time.Tm)(unsafe.Pointer(ptm)).Ftm_mon+1),
