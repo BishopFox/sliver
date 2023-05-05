@@ -119,6 +119,7 @@ type ImplantConfig struct {
 	LimitDatetime     string
 	LimitFileExists   string
 	LimitLocale       string
+	LimitDomainName   string
 
 	// Output Format
 	Format clientpb.OutputFormat
@@ -177,6 +178,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		LimitUsername:     ic.LimitUsername,
 		LimitFileExists:   ic.LimitFileExists,
 		LimitLocale:       ic.LimitLocale,
+		LimitDomainName:   ic.LimitDomainName,
 
 		IsSharedLib:       ic.IsSharedLib,
 		IsService:         ic.IsService,

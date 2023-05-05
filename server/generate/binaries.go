@@ -174,6 +174,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.LimitUsername = pbConfig.LimitUsername
 	cfg.LimitHostname = pbConfig.LimitHostname
 	cfg.LimitFileExists = pbConfig.LimitFileExists
+	cfg.LimitDomainName = pbConfig.LimitDomainName
 	cfg.LimitLocale = pbConfig.LimitLocale
 
 	cfg.Format = pbConfig.Format

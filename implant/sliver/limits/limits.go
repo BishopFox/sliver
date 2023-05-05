@@ -64,6 +64,12 @@ func ExecLimits() {
 	}
 	// {{end}}
 
+	// {{if .Config.LimitDomainName}}
+	if ok, err := isDomainName(); err == nil && !ok {
+		os.Exit(1)
+	}
+	// {{end}}
+
 	// {{if .Config.LimitHostname}}
 	hostname, err := os.Hostname()
 	if err == nil && strings.ToLower(hostname) != strings.ToLower("{{.Config.LimitHostname}}") {

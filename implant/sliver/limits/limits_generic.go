@@ -24,6 +24,10 @@ func isDomainJoined() (bool, error) {
 	return false, nil
 }
 
+func isDomainName() (bool, error) {
+	return false, nil
+}
+
 // PlatformLimits - No platform limits for default
 func PlatformLimits() {
 

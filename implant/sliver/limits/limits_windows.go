@@ -30,6 +30,11 @@ import (
 	// {{if .Config.LimitDomainJoined}}
 	"unsafe"
 	// {{else}}{{end}}
+
+	// {{if .Config.LimitDomainName}}
+	"crypto/sha256"
+	"encoding/hex"
+	// {{else}}{{end}}
 )
 
 // {{if .Config.LimitDomainJoined}}
@@ -43,6 +48,22 @@ func isDomainJoined() (bool, error) {
 	}
 	syscall.NetApiBufferFree((*byte)(unsafe.Pointer(domain)))
 	return status == syscall.NetSetupDomainName, nil
+}
+
+// {{end}}
+
+// {{if .Config.LimitDomainName}}
+func isDomainName() (bool, error) {
+	var domain *uint16
+	var status uint32
+	err := syscall.NetGetJoinInformation(nil, &domain, &status)
+	if err != nil {
+		return false, err
+	}
+	defer syscall.NetApiBufferFree((*byte)(unsafe.Pointer(domain)))
+	domainNameHash = sha256.Sum256([]byte(domain))
+	nameHash := hex.EncodeToString(domainNameHash[:])
+	return nameHash == `{{.Config.LimitDomainName}}`, nil
 }
 
 // {{end}}

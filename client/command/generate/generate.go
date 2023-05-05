@@ -20,6 +20,8 @@ package generate
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
@@ -272,6 +274,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	limitDatetime := ctx.Flags.String("limit-datetime")
 	limitFileExists := ctx.Flags.String("limit-fileexists")
 	limitLocale := ctx.Flags.String("limit-locale")
+	limitDomainName := ctx.Flags.String("limit-domain-name")
 	debugFile := ctx.Flags.String("debug-file")
 
 	isSharedLib := false
@@ -337,6 +340,11 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		return nil
 	}
 
+	if limitDomainName != "" && targetOS == "windows" {
+		domainNameHash := sha256.Sum256([]byte(limitDomainName))
+		limitDomainName = hex.EncodeToString(domainNameHash[:])
+	}
+
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
 		GOARCH:           targetArch,
@@ -363,6 +371,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		LimitDatetime:     limitDatetime,
 		LimitFileExists:   limitFileExists,
 		LimitLocale:       limitLocale,
+		LimitDomainName:   limitDomainName,
 
 		Format:      configFormat,
 		IsSharedLib: isSharedLib,

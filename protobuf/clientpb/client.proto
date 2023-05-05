@@ -4,7 +4,6 @@ option go_package = "github.com/bishopfox/sliver/protobuf/clientpb";
 
 import "commonpb/common.proto";
 
-
 // [ Version ] ----------------------------------------
 message Version {
   int32 Major = 1;
@@ -83,16 +82,14 @@ message Beacon {
   int64 FirstContact = 29;
 }
 
-message Beacons {
-  repeated Beacon Beacons = 2;
-}
+message Beacons { repeated Beacon Beacons = 2; }
 
 message BeaconTask {
   string ID = 1;
   string BeaconID = 2;
   int64 CreatedAt = 3;
   string State = 4;
-  int64 SentAt  = 5;
+  int64 SentAt = 5;
   int64 CompletedAt = 6;
   bytes Request = 7;
   bytes Response = 8;
@@ -164,6 +161,7 @@ message ImplantConfig {
   string LimitUsername = 63;
   string LimitFileExists = 64;
   string LimitLocale = 65;
+  string LimitDomainName = 66;
 
   OutputFormat Format = 100;
   bool IsSharedLib = 101;
@@ -187,34 +185,30 @@ message ExternalImplantBinary {
 }
 
 // Configs of previously built implants
-message ImplantBuilds {
-  map<string, ImplantConfig> Configs = 1;
-}
+message ImplantBuilds { map<string, ImplantConfig> Configs = 1; }
 
 message CompilerTarget {
-  string GOOS = 1;  // The server's OS
-  string GOARCH = 2;  // The server's Arch
+  string GOOS = 1;   // The server's OS
+  string GOARCH = 2; // The server's Arch
   OutputFormat Format = 3;
 }
 
 message CrossCompiler {
-  string TargetGOOS = 1;  // The server's OS
-  string TargetGOARCH = 2;  // The server's Arch
+  string TargetGOOS = 1;   // The server's OS
+  string TargetGOARCH = 2; // The server's Arch
   string CCPath = 3;
   string CXXPath = 4;
 }
 
 message Compiler {
-  string GOOS = 1;  // The server's OS
-  string GOARCH = 2;  // The server's Arch
+  string GOOS = 1;   // The server's OS
+  string GOARCH = 2; // The server's Arch
   repeated CompilerTarget Targets = 3;
   repeated CrossCompiler CrossCompilers = 4;
   repeated CompilerTarget UnsupportedTargets = 5;
 }
 
-message DeleteReq {
-  string Name = 1;
-}
+message DeleteReq { string Name = 1; }
 
 // DNSCanary - Single canary and metadata
 message DNSCanary {
@@ -226,27 +220,19 @@ message DNSCanary {
   uint32 Count = 6;
 }
 
-message Canaries {
-  repeated DNSCanary Canaries = 1;
-}
+message Canaries { repeated DNSCanary Canaries = 1; }
 
 // UniqueWGIP - Unique wireguard IP
-message UniqueWGIP {
-  string IP = 1;
-}
+message UniqueWGIP { string IP = 1; }
 
 message ImplantProfile {
   string Name = 1;
   ImplantConfig Config = 2;
 }
 
-message ImplantProfiles {
-  repeated ImplantProfile Profiles = 1;
-}
+message ImplantProfiles { repeated ImplantProfile Profiles = 1; }
 
-message RegenerateReq {
-  string ImplantName = 1;
-}
+message RegenerateReq { string ImplantName = 1; }
 
 message Job {
   uint32 ID = 1;
@@ -258,15 +244,10 @@ message Job {
   repeated string Domains = 6;
 }
 
-
 // [ Jobs ]  ----------------------------------------
-message Jobs {
-  repeated Job Active = 1;
-}
+message Jobs { repeated Job Active = 1; }
 
-message KillJobReq {
-  uint32 ID = 1;
-}
+message KillJobReq { uint32 ID = 1; }
 
 message KillJob {
   uint32 ID = 1;
@@ -280,9 +261,7 @@ message MTLSListenerReq {
   bool Persistent = 3;
 }
 
-message MTLSListener {
-  uint32 JobID = 1;
-}
+message MTLSListener { uint32 JobID = 1; }
 
 message WGListenerReq {
   string Host = 6;
@@ -293,9 +272,7 @@ message WGListenerReq {
   bool Persistent = 5;
 }
 
-message WGListener {
-  uint32 JobID = 1;
-}
+message WGListener { uint32 JobID = 1; }
 
 message DNSListenerReq {
   repeated string Domains = 1;
@@ -303,12 +280,10 @@ message DNSListenerReq {
   string Host = 3;
   uint32 Port = 4;
   bool Persistent = 5;
-  bool EnforceOTP = 6; 
+  bool EnforceOTP = 6;
 }
 
-message DNSListener {
-  uint32 JobID = 1;
-}
+message DNSListener { uint32 JobID = 1; }
 
 message HTTPListenerReq {
   string Domain = 1;
@@ -354,14 +329,10 @@ message TCPPivot {
   commonpb.Response Response = 9;
 }
 
-message HTTPListener {
-  uint32 JobID = 1;
-}
+message HTTPListener { uint32 JobID = 1; }
 
 // [ commands ] ----------------------------------------
-message Sessions {
-  repeated Session Sessions = 1;
-}
+message Sessions { repeated Session Sessions = 1; }
 
 message RenameReq {
   string SessionID = 1;
@@ -369,13 +340,9 @@ message RenameReq {
   string Name = 3;
 }
 
-message GenerateReq {
-  ImplantConfig Config = 1;
-}
+message GenerateReq { ImplantConfig Config = 1; }
 
-message Generate {
-  commonpb.File File = 1;
-}
+message Generate { commonpb.File File = 1; }
 
 message MSFReq {
   string Payload = 1;
@@ -414,9 +381,7 @@ message StagerListenerReq {
   bool ACME = 7;
 }
 
-message StagerListener {
-  uint32 JobID = 1;
-}
+message StagerListener { uint32 JobID = 1; }
 
 message ShellcodeRDIReq {
   bytes Data = 1;
@@ -424,9 +389,7 @@ message ShellcodeRDIReq {
   string Arguments = 3;
 }
 
-message ShellcodeRDI {
-  bytes Data = 1;
-}
+message ShellcodeRDI { bytes Data = 1; }
 
 message MsfStagerReq {
   string Arch = 1;
@@ -438,9 +401,7 @@ message MsfStagerReq {
   repeated string BadChars = 7;
 }
 
-message MsfStager {
-  commonpb.File File = 1;
-}
+message MsfStager { commonpb.File File = 1; }
 
 // GetSystemReq - Client request to the server which is translated into
 //                InvokeSystemReq when sending to the implant.
@@ -462,19 +423,16 @@ message MigrateReq {
 }
 
 // [ Tunnels ] ----------------------------------------
-message CreateTunnelReq {
-
-  commonpb.Request Request = 9;
-}
+message CreateTunnelReq { commonpb.Request Request = 9; }
 
 message CreateTunnel {
   uint32 SessionID = 1;
 
-  uint64 TunnelID = 8 [jstype = JS_STRING];
+  uint64 TunnelID = 8 [ jstype = JS_STRING ];
 }
 
 message CloseTunnelReq {
-  uint64 TunnelID = 8 [jstype = JS_STRING];
+  uint64 TunnelID = 8 [ jstype = JS_STRING ];
 
   commonpb.Request Request = 9;
 }
@@ -487,9 +445,7 @@ message PivotGraphEntry {
   repeated PivotGraphEntry Children = 4;
 }
 
-message PivotGraph {
-  repeated PivotGraphEntry Children = 1;
-}
+message PivotGraph { repeated PivotGraphEntry Children = 1; }
 
 // [ Events ] ----------------------------------------
 message Client {
@@ -509,9 +465,7 @@ message Event {
   string Err = 6; // Can't trigger normal gRPC error
 }
 
-message Operators { 
-  repeated Operator Operators = 1;
-}
+message Operators { repeated Operator Operators = 1; }
 
 message Operator {
   bool Online = 1;
@@ -522,7 +476,7 @@ message Operator {
 message WebContent {
   string Path = 1;
   string ContentType = 2;
-  uint64 Size = 3 [jstype = JS_STRING];
+  uint64 Size = 3 [ jstype = JS_STRING ];
 
   bytes Content = 9;
 }
@@ -532,7 +486,7 @@ message WebsiteAddContent {
   map<string, WebContent> Contents = 2;
 }
 
-message WebsiteRemoveContent { 
+message WebsiteRemoveContent {
   string Name = 1;
   repeated string Paths = 2;
 }
@@ -542,10 +496,7 @@ message Website {
   map<string, WebContent> Contents = 2;
 }
 
-message Websites {
-  repeated Website Websites = 1;
-}
-
+message Websites { repeated Website Websites = 1; }
 
 // [ Wireguard ] ----------------------------------------
 
@@ -555,7 +506,6 @@ message WGClientConfig {
   string ClientPubKey = 3;
   string ClientIP = 4;
 }
-
 
 // [ Loot ] ----------------------------------------
 enum LootType {
@@ -577,7 +527,7 @@ enum FileType {
 }
 
 message Credential {
-  
+
   // USER_PASSWORD
   string User = 2;
   string Password = 3;
@@ -599,9 +549,7 @@ message Loot {
   commonpb.File File = 9;
 }
 
-message AllLoot {
-  repeated Loot Loot = 1;
-}
+message AllLoot { repeated Loot Loot = 1; }
 
 // [ Hosts ] ----------------------------------------
 message IOC {
@@ -610,9 +558,7 @@ message IOC {
   string ID = 3;
 }
 
-message ExtensionData {
-  string Output = 1;
-}
+message ExtensionData { string Output = 1; }
 
 message Host {
   string Hostname = 1;
@@ -626,9 +572,7 @@ message Host {
   int64 FirstContact = 7;
 }
 
-message AllHosts {
-  repeated Host Hosts = 1;
-}
+message AllHosts { repeated Host Hosts = 1; }
 
 // [ Dll Hijack ] ----------------------------------------
 message DllHijackReq {
@@ -641,10 +585,7 @@ message DllHijackReq {
   commonpb.Request Request = 9;
 }
 
-message DllHijack {
-  commonpb.Response Response = 9;
-}
-
+message DllHijack { commonpb.Response Response = 9; }
 
 // [ Shellcode ] ----------------------------------------
 enum ShellcodeEncoder {
@@ -668,9 +609,7 @@ message ShellcodeEncode {
   commonpb.Response Response = 9;
 }
 
-message ShellcodeEncoderMap {
-  map<string, ShellcodeEncoder> Encoders = 1;
-}
+message ShellcodeEncoderMap { map<string, ShellcodeEncoder> Encoders = 1; }
 
 // [ Builder ] ----------------------------------------
 message ExternalGenerateReq {
@@ -678,16 +617,13 @@ message ExternalGenerateReq {
   string BuilderName = 2;
 }
 
-
-message Builders {
-  repeated Builder Builders = 1;
-}
+message Builders { repeated Builder Builders = 1; }
 
 message Builder {
   string Name = 1;
   string OperatorName = 2;
-  string GOOS = 3;  // The builder's OS
-  string GOARCH = 4;  // The builder's Arch
+  string GOOS = 3;   // The builder's OS
+  string GOARCH = 4; // The builder's Arch
   repeated string Templates = 5;
   repeated CompilerTarget Targets = 6;
   repeated CrossCompiler CrossCompilers = 7;
