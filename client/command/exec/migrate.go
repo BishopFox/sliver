@@ -21,9 +21,11 @@ package exec
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/desertbit/grumble"
 )
 
@@ -34,7 +36,36 @@ func MigrateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	pid := ctx.Args.Uint("pid")
+	pid := ctx.Flags.Uint("pid")
+	procName := ctx.Flags.String("process-name")
+	if pid == 0 && procName == "" {
+		con.PrintErrorf("Error: Must specify either a PID or process name\n")
+		return
+	}
+	if procName != "" {
+		procCtrl := make(chan bool)
+		con.SpinUntil(fmt.Sprintf("Searching for %s ...", procName), procCtrl)
+		proc, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
+			Request: con.ActiveTarget.Request(ctx),
+		})
+		if err != nil {
+			con.PrintErrorf("Error: %v\n", err)
+			return
+		}
+		procCtrl <- true
+		<-procCtrl
+		for _, p := range proc.GetProcesses() {
+			if strings.ToLower(p.Executable) == strings.ToLower(procName) {
+				pid = uint(p.Pid)
+				break
+			}
+		}
+		if pid == 0 {
+			con.PrintErrorf("Error: Could not find process %s\n", procName)
+			return
+		}
+		con.PrintInfof("Process name specified, overriding PID with %d\n", pid)
+	}
 	config := con.GetActiveSessionConfig()
 	encoder := clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
 	if ctx.Flags.Bool("disable-sgn") {

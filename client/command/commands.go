@@ -1205,12 +1205,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 			con.Println()
 			return nil
 		},
-		Args: func(a *grumble.Args) {
-			a.Uint("pid", "pid")
-		},
 		Flags: func(f *grumble.Flags) {
 			f.Bool("S", "disable-sgn", true, "disable shikata ga nai shellcode encoder")
-
+			f.Uint("p", "pid", 0, "process id to migrate into")
+			f.String("n", "process-name", "", "name of the process to migrate into")
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverWinHelpGroup,
