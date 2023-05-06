@@ -83,6 +83,7 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/licenses"
 	"github.com/desertbit/grumble"
+	"github.com/bishopfox/sliver/client/command/taskmany"
 )
 
 const (
@@ -1045,7 +1046,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// [ Exec ] --------------------------------------------------------------
 
-	con.App.AddCommand(&grumble.Command{
+        executeCmd := &grumble.Command{
 		Name:     consts.ExecuteStr,
 		Help:     "Execute a program on the remote system",
 		LongHelp: help.GetHelpFor([]string{consts.ExecuteStr}),
@@ -1073,7 +1074,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+        con.App.AddCommand(executeCmd)
 
 	con.App.AddCommand(&grumble.Command{
 		Name:     consts.ExecuteAssemblyStr,
@@ -1749,7 +1751,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// [ Filesystem ] ---------------------------------------------
 
-	con.App.AddCommand(&grumble.Command{
+        mvCmd := &grumble.Command{
 		Name:     consts.MvStr,
 		Help:     "Move or rename a file",
 		LongHelp: help.GetHelpFor([]string{consts.MvStr}),
@@ -1765,9 +1767,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return err
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+        con.App.AddCommand(mvCmd)
 
-	con.App.AddCommand(&grumble.Command{
+        lsCmd := &grumble.Command{
 		Name:     consts.LsStr,
 		Help:     "List current directory",
 		LongHelp: help.GetHelpFor([]string{consts.LsStr}),
@@ -1787,9 +1790,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+        con.App.AddCommand(lsCmd)
 
-	con.App.AddCommand(&grumble.Command{
+        rmCmd := &grumble.Command{
 		Name:     consts.RmStr,
 		Help:     "Remove a file or directory",
 		LongHelp: help.GetHelpFor([]string{consts.RmStr}),
@@ -1809,9 +1813,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+        con.App.AddCommand(rmCmd)
 
-	con.App.AddCommand(&grumble.Command{
+	mkdirCmd := &grumble.Command{
 		Name:     consts.MkdirStr,
 		Help:     "Make a directory",
 		LongHelp: help.GetHelpFor([]string{consts.MkdirStr}),
@@ -1828,7 +1833,9 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+        con.App.AddCommand(mkdirCmd)
+        
 
 	con.App.AddCommand(&grumble.Command{
 		Name:     consts.CdStr,
@@ -1890,7 +1897,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
-	con.App.AddCommand(&grumble.Command{
+        downloadCmd := &grumble.Command{
 		Name:     consts.DownloadStr,
 		Help:     "Download a file",
 		LongHelp: help.GetHelpFor([]string{consts.DownloadStr}),
@@ -1914,9 +1921,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+        con.App.AddCommand(downloadCmd)
 
-	con.App.AddCommand(&grumble.Command{
+        uploadCmd := &grumble.Command{
 		Name:     consts.UploadStr,
 		Help:     "Upload a file",
 		LongHelp: help.GetHelpFor([]string{consts.UploadStr}),
@@ -1936,7 +1944,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+        con.App.AddCommand(uploadCmd)
 
 	// [ Network ] ---------------------------------------------
 
@@ -3660,4 +3669,52 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	}
 	con.App.AddCommand(buildersCmd)
+
+	// [ Task Many ] ---------------------------------------------
+	taskmanyCmd := &grumble.Command{
+		Name:      consts.TaskmanyStr,
+		Help:      "Task many beacons or sessions",
+		LongHelp:  help.GetHelpFor([]string{consts.TaskmanyStr}),
+		HelpGroup: consts.GenericHelpGroup,
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		Args: func(a *grumble.Args) {
+			//a.String("command", "command to execute")
+			//a.StringList("arguments", "arguments to the command")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			taskmany.TaskmanyCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	}
+
+        // Add the relevant beacon commands as a subcommand to taskmany
+        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(executeCmd, con))
+        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(rmCmd, con))
+        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(lsCmd, con))
+        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(mkdirCmd, con))
+        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(rmCmd, con))
+        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(uploadCmd, con))
+        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(downloadCmd, con))
+        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(openSessionCmd, con))
+
+	con.App.AddCommand(taskmanyCmd)
 }
+
+
+// Helper function to wrap commands with taskmany logic
+func wrapCommandWithTaskmany(c *grumble.Command, con *console.SliverConsoleClient) *grumble.Command {
+    wc := &grumble.Command{
+        Name:     c.Name,
+        Help:     c.Help,
+        LongHelp: c.LongHelp,
+        Flags:    c.Flags,
+        Args:     c.Args,
+        Run:      taskmany.WrapFunction(con, c.Run),
+    }
+    return wc
+}
+

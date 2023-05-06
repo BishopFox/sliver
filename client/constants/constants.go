@@ -261,6 +261,8 @@ const (
 	CursedCookies  = "cookies"
 
 	BuildersStr = "builders"
+
+	TaskmanyStr = "taskmany"
 )
 
 // Groups
