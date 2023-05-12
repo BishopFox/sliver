@@ -160,18 +160,8 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 	}()
 
 	if len(dbCrackstation.Benchmarks) == 0 {
-		crackRpcLog.Infof("No benchmark information for '%s', starting benchmark...", req.Name)
-		benchmarkTask := &models.CrackTask{
-			CrackstationID: hostUUID,
-			Status:         models.PENDING,
-			Command: models.CrackCommand{
-				AttackMode: int32(clientpb.CrackAttackMode_NO_ATTACK),
-				HashType:   int32(clientpb.HashType_INVALID),
-				Benchmark:  true,
-			},
-		}
-		db.Session().Create(benchmarkTask)
-		err = stream.Send(&clientpb.Event{EventType: consts.CrackBenchmark, Data: benchmarkTask.ID.Bytes()})
+		crackRpcLog.Infof("No benchmark information for '%s', requesting benchmark...", req.Name)
+		err = stream.Send(&clientpb.Event{EventType: consts.CrackBenchmark, Data: []byte{}})
 		if err != nil {
 			crackRpcLog.Errorf("Failed to send benchmark task to crackstation: %s", err)
 			return status.Error(codes.Internal, "failed to send benchmark task")

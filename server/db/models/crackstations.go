@@ -134,13 +134,23 @@ func (c *CrackFileChunk) ToProtobuf() *clientpb.CrackFileChunk {
 	}
 }
 
+// CrackJob - A job is a collection of one or more tasks
+type CrackJob struct {
+	ID          uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	CreatedAt   time.Time `gorm:"->;<-:create;"`
+	CompletedAt time.Time
+	Tasks       []CrackTask
+
+	Command CrackCommand
+}
+
+// CrackTask - An individual chunk of a job send to a crackstation
 type CrackTask struct {
 	ID             uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CrackstationID uuid.UUID `gorm:"type:uuid;"`
 	CreatedAt      time.Time `gorm:"->;<-:create;"`
-	StartedAt      time.Time `gorm:"->;<-:create;"`
-	CompletedAt    time.Time `gorm:"->;<-:create;"`
-	Status         string
+	StartedAt      time.Time
+	CompletedAt    time.Time
 
 	Command CrackCommand
 }
@@ -150,7 +160,6 @@ func (c *CrackTask) ToProtobuf() *clientpb.CrackTask {
 	task.CreatedAt = c.CreatedAt.Unix()
 	task.StartedAt = c.StartedAt.Unix()
 	task.CompletedAt = c.CompletedAt.Unix()
-	task.Status = c.Status
 	task.Command = c.Command.ToProtobuf()
 	return task
 }
@@ -160,7 +169,6 @@ func (CrackTask) FromProtobuf(c *clientpb.CrackTask) *CrackTask {
 	task.CreatedAt = time.Unix(c.CreatedAt, 0)
 	task.StartedAt = time.Unix(c.StartedAt, 0)
 	task.CompletedAt = time.Unix(c.CompletedAt, 0)
-	task.Status = c.Status
 	task.Command = (*CrackCommand{}.FromProtobuf(c.Command))
 	return task
 }
@@ -172,7 +180,6 @@ func (c *CrackTask) BeforeCreate(tx *gorm.DB) (err error) {
 		return err
 	}
 	c.CreatedAt = time.Now()
-	c.Status = "pending"
 	return nil
 }
 
