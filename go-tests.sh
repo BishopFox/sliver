@@ -21,7 +21,7 @@ echo "----------------------------------------------------------------"
 echo "WARNING: Running unit tests on slow systems can take a LONG time"
 echo "         Recommended to only run on 16+ CPU cores and 32Gb+ RAM"
 echo "----------------------------------------------------------------"
-TAGS=osusergo,netgo,wasm_sqlite
+TAGS=osusergo,netgo,go_sqlite
 
 ## Client
 
