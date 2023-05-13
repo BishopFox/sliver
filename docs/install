@@ -10,13 +10,13 @@ fi
 
 if [ -n "$(command -v yum)" ]
 then
-    yum -y install gnupg curl gcc gcc-c++ make mingw64-gcc
+    yum -y install gnupg curl gcc gcc-c++ make mingw64-gcc git
 fi
 
 if [ -n "$(command -v apt-get)" ]
 then
     DEBIAN_FRONTEND=noninteractive apt-get install -yqq \
-        gpg curl build-essential \
+        gpg curl build-essential git \
         mingw-w64 binutils-mingw-w64 g++-mingw-w64
 fi
 
