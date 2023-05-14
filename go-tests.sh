@@ -39,6 +39,13 @@ else
     exit 1
 fi
 
+# client / credentials
+if go test -tags=client,$TAGS ./client/credentials ; then
+    :
+else
+    exit 1
+fi
+
 ## Util
 
 # util 

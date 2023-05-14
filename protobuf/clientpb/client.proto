@@ -879,7 +879,7 @@ message Crackstations {
 }
 
 enum States {
-  WAITING = 0;
+  IDLE = 0;
   CRACKING = 1;
   INITIALIZING = 2;
 }
@@ -888,14 +888,15 @@ message CrackstationStatus {
   string Name = 1;
   string HostUUID = 2;
   States State = 3;
-  CrackStatus Cracking = 4;
+  string CurrentCrackJobID = 4;
   bool IsSyncing = 5;
   CrackSyncStatus Syncing = 6;
 }
 
-message CrackStatus {
-  string ID = 1;
-  int64 StartedAt = 4;
+enum CrackJobStatus {
+  IN_PROGRESS = 0;
+  COMPLETED = 1;
+  FAILED = 2;
 }
 
 message CrackSyncStatus {
@@ -915,7 +916,7 @@ message CrackTask {
   int64 CreatedAt = 3;
   int64 StartedAt = 4;
   int64 CompletedAt = 5;
-  string Status = 6;
+
   string Err = 7;
 
   CrackCommand Command = 9;

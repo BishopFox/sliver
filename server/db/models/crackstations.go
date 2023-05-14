@@ -134,17 +134,31 @@ func (c *CrackFileChunk) ToProtobuf() *clientpb.CrackFileChunk {
 	}
 }
 
-// CrackJob - A job is a collection of one or more tasks
+// CrackJob - A crack job is a collection of one or more crack tasks, the
+// crack job contains the parent command, whose keyspace may get broken
+// up into multiple crack tasks and distributed to multiple crackstations
 type CrackJob struct {
 	ID          uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt   time.Time `gorm:"->;<-:create;"`
 	CompletedAt time.Time
 	Tasks       []CrackTask
 
-	Command CrackCommand
+	Command CrackCommand // Parent command
 }
 
-// CrackTask - An individual chunk of a job send to a crackstation
+func (c *CrackJob) Status() clientpb.CrackJobStatus {
+	if c.CompletedAt.IsZero() {
+		return clientpb.CrackJobStatus_IN_PROGRESS
+	}
+	for _, task := range c.Tasks {
+		if task.CompletedAt.IsZero() {
+			return clientpb.CrackJobStatus_IN_PROGRESS
+		}
+	}
+	return clientpb.CrackJobStatus_COMPLETED
+}
+
+// CrackTask - An individual chunk of a job sent to a specific crackstation
 type CrackTask struct {
 	ID             uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CrackstationID uuid.UUID `gorm:"type:uuid;"`

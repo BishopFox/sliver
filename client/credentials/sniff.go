@@ -28,47 +28,47 @@ import (
 // hanging fruit. Later on we can add length checks, regex, etc.
 func SniffHashType(unknownHash string) clientpb.HashType {
 	// $DCC2$10240#tom#e4e938d12fe5974dc4...
-	if strings.HasPrefix("$DCC2$", unknownHash) {
+	if strings.HasPrefix(unknownHash, "$DCC2$") {
 		return clientpb.HashType_DCC2
 	}
 	// $krb5pa$23$*user$realm$hash
-	if strings.HasPrefix("$krb5pa$23$", unknownHash) {
+	if strings.HasPrefix(unknownHash, "$krb5pa$23$") {
 		return clientpb.HashType_KERBEROS_23_SA_REQ_PREAUTH
 	}
 	// $krb5tgs$23$
-	if strings.HasPrefix("$krb5tgs$23$", unknownHash) {
+	if strings.HasPrefix(unknownHash, "$krb5tgs$23$") {
 		return clientpb.HashType_KERBEROS_23_TGS_REP
 	}
 	// $krb5asrep$23$
-	if strings.HasPrefix("$krb5asrep$23$", unknownHash) {
+	if strings.HasPrefix(unknownHash, "$krb5asrep$23$") {
 		return clientpb.HashType_KERBEROS_23_AS_REP
 	}
 	// $krb5tgs$17$
-	if strings.HasPrefix("$krb5tgs$17$", unknownHash) {
+	if strings.HasPrefix(unknownHash, "$krb5tgs$17$") {
 		return clientpb.HashType_KERBEROS_17_TGS_REP
 	}
 	// $krb5pa$17$
-	if strings.HasPrefix("$krb5pa$17$", unknownHash) {
+	if strings.HasPrefix(unknownHash, "$krb5pa$17$") {
 		return clientpb.HashType_KERBEROS_17_PREAUTH
 	}
 	// $krb5tgs$18$
-	if strings.HasPrefix("$krb5tgs$18$", unknownHash) {
+	if strings.HasPrefix(unknownHash, "$krb5tgs$18$") {
 		return clientpb.HashType_KERBEROS_18_TGS_REP
 	}
 	// $krb5pa$18$
-	if strings.HasPrefix("$krb5pa$18$", unknownHash) {
+	if strings.HasPrefix(unknownHash, "$krb5pa$18$") {
 		return clientpb.HashType_KERBEROS_18_PREAUTH
 	}
 	// $2a$
-	if strings.HasPrefix("$2a$", unknownHash) {
+	if strings.HasPrefix(unknownHash, "$2a$") {
 		return clientpb.HashType_BCRYPT_UNIX
 	}
 	// $6$
-	if strings.HasPrefix("$6$", unknownHash) {
+	if strings.HasPrefix(unknownHash, "$6$") {
 		return clientpb.HashType_SHA512_CRYPT_UNIX
 	}
 	// SCRYPT:...
-	if strings.HasPrefix("SCRYPT:", unknownHash) {
+	if strings.HasPrefix(unknownHash, "SCRYPT:") {
 		return clientpb.HashType_SCRYPT
 	}
 	return clientpb.HashType_INVALID
