@@ -103,6 +103,7 @@ type DNSOptions struct {
 	WorkersPerResolver int
 	ForceBase32        bool
 	ForceResolvConf    string
+	ForceResolvers     string
 }
 
 // ParseDNSOptions - Parse c2 specific options
@@ -141,6 +142,7 @@ func ParseDNSOptions(c2URI *url.URL) *DNSOptions {
 		WorkersPerResolver: workersPerResolver,
 		ForceBase32:        strings.ToLower(c2URI.Query().Get("force-base32")) == "true",
 		ForceResolvConf:    c2URI.Query().Get("force-resolv-conf"),
+		ForceResolvers:     c2URI.Query().Get("resolvers"),
 	}
 }
 
@@ -166,6 +168,7 @@ func NewDNSClient(parent string, opts *DNSOptions) *SliverDNSClient {
 		parent:          parent,
 		forceBase32:     opts.ForceBase32,
 		forceResolvConf: opts.ForceResolvConf,
+		forceResolvers:  opts.ForceResolvers,
 		queryTimeout:    opts.QueryTimeout,
 		retryWait:       opts.RetryWait,
 		retryCount:      opts.RetryCount,
@@ -190,6 +193,7 @@ type SliverDNSClient struct {
 	queryTimeout    time.Duration
 	forceBase32     bool
 	forceResolvConf string
+	forceResolvers  string
 	subdataSpace    int
 	dnsSessionID    uint32
 	msgCount        uint32
@@ -738,13 +742,33 @@ func (s *SliverDNSClient) getDNSSessionID() error {
 
 func (s *SliverDNSClient) loadResolvConf() error {
 	var err error
-	if len(s.forceResolvConf) < 1 {
+	if len(s.forceResolvConf) < 1 && s.forceResolvers == "" {
 		s.resolvConf, err = dnsClientConfig()
+	} else if s.forceResolvers != "" {
+		// Convert the specified resolvers into a string that dns.ClientConfigFromReader can understand
+		// Strip out spaces and split on commas
+		resolversSlice := strings.Split(s.forceResolvers, " ")
+		s.resolvConf, err = dns.ClientConfigFromReader(strings.NewReader("nameserver " + strings.Join(resolversSlice, "\nnameserver ")))
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("[dns] Error trying to use specified resolvers (%s): %s", s.forceResolvers, err.Error())
+			// {{end}}
+		} else {
+			// {{if .Config.Debug}}
+			log.Printf("[dns] Using specified DNS resolvers: %s", s.forceResolvers)
+			// {{end}}
+		}
 	} else {
-		// {{if .Config.Debug}}
-		log.Printf("[dns] Using forced resolv.conf: %s", s.forceResolvConf)
-		// {{end}}
 		s.resolvConf, err = dns.ClientConfigFromReader(strings.NewReader(s.forceResolvConf))
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("[dns] Error trying to use forced resolv.conf (%s): %s", s.forceResolvConf, err.Error())
+			// {{end}}
+		} else {
+			// {{if .Config.Debug}}
+			log.Printf("[dns] Using forced resolv.conf: %s", s.forceResolvConf)
+			// {{end}}
+		}
 	}
 	return err
 }
