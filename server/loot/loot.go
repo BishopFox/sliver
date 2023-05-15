@@ -90,7 +90,7 @@ func (l *LootStore) All() *clientpb.AllLoot {
 func GetLootStore() *LootStore {
 	return &LootStore{
 		backend: &LocalBackend{
-			LocalFileDir: GetLootFileDir(),
+			LocalFileDir: GetLootDir(),
 		},
 	}
 }
@@ -105,28 +105,4 @@ func GetLootDir() string {
 		}
 	}
 	return lootDir
-}
-
-// GetLootFileDir - Get the subdirectory where loot files are stored
-func GetLootFileDir() string {
-	lootFileDir := filepath.Join(GetLootDir(), "files")
-	if _, err := os.Stat(lootFileDir); os.IsNotExist(err) {
-		err = os.MkdirAll(lootFileDir, 0700)
-		if err != nil {
-			panic(err.Error())
-		}
-	}
-	return lootFileDir
-}
-
-// GetLootCredentialDir - Get the subdirectory where loot credentials are stored
-func GetLootCredentialDir() string {
-	lootCredDir := filepath.Join(GetLootDir(), "credentials")
-	if _, err := os.Stat(lootCredDir); os.IsNotExist(err) {
-		err = os.MkdirAll(lootCredDir, 0700)
-		if err != nil {
-			panic(err.Error())
-		}
-	}
-	return lootCredDir
 }
