@@ -130,7 +130,8 @@ fi
 
 if test -f "/root/$SLIVER_CLIENT"; then
     chmod 755 /root/$SLIVER_CLIENT 
-    cp -vv /root/$SLIVER_CLIENT /usr/local/bin/sliver
+    cp -vv /root/$SLIVER_CLIENT /usr/local/bin/sliver-client
+    ln -s /usr/local/bin/sliver-client /usr/local/bin/sliver
     chmod 755 /usr/local/bin/sliver
 else
     exit 3
