@@ -72,8 +72,15 @@ func init() {
 	}
 }
 
+const msgSizeLimit = 8 * 1024
+
 // ECCEncrypt - Encrypt using Nacl Box
 func ECCEncrypt(recipientPublicKey *[32]byte, senderPrivateKey *[32]byte, plaintext []byte) ([]byte, error) {
+	// Arbitrary upper limit for plaintext
+	if msgSizeLimit < len(plaintext) {
+		return nil, errors.New("plaintext too long")
+	}
+
 	var nonce [24]byte
 	if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
 		return nil, err
@@ -87,6 +94,11 @@ func ECCDecrypt(senderPublicKey *[32]byte, recipientPrivateKey *[32]byte, cipher
 	if len(ciphertext) < 24 {
 		return nil, errors.New("ciphertext too short")
 	}
+	// Arbitrary upper limit for ciphertext
+	if msgSizeLimit < len(ciphertext) {
+		return nil, errors.New("ciphertext too long")
+	}
+
 	var decryptNonce [24]byte
 	copy(decryptNonce[:], ciphertext[:24])
 	plaintext, ok := box.Open(nil, ciphertext[24:], &decryptNonce, senderPublicKey, recipientPrivateKey)
