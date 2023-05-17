@@ -202,15 +202,20 @@ func dirListHandler(data []byte, resp RPCResponse) {
 				if fileInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
 					linkPath, err = filepath.EvalSymlinks(path + dirEntry.Name())
 					if err != nil {
-						linkPath = ""
+						link_str, err := os.Readlink(path + dirEntry.Name())
+						if err == nil {
+							linkPath = link_str
+						} else {
+							linkPath = ""
+						}
 					}
 				} else {
 					linkPath = ""
 				}
-			}
 
-			sliverFileInfo.Uid = getUid(fileInfo)
-            sliverFileInfo.Gid = getGid(fileInfo)
+				sliverFileInfo.Uid = getUid(fileInfo)
+				sliverFileInfo.Gid = getGid(fileInfo)
+			}
 
 			sliverFileInfo.Name = dirEntry.Name()
 			sliverFileInfo.IsDir = dirEntry.IsDir()

@@ -38,7 +38,7 @@ func stringWithCharset(length int, charset string) string {
 	return string(b)
 }
 
-func randomString(length int) string {
+func RandomString(length int) string {
 	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	return stringWithCharset(length, charset)
 }
