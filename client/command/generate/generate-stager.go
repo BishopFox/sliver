@@ -106,7 +106,7 @@ func GenerateStagerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	<-ctrl
 
 	if err != nil {
-		con.PrintErrorf("Error: %v", err)
+		con.PrintErrorf("Error: %v - Please make sure Metasploit framework >= v6.2 is installed and msfvenom/msfconsole are in your PATH", err)
 		return
 	}
 
