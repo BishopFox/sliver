@@ -313,6 +313,19 @@ const (
 	MsgChtimesReq
 	// MsgChown - Replies with file path
 	MsgChtimes
+
+	// MsgChmodReq - Request to chmod a file
+	MsgMemfilesListReq
+
+	// MsgChownReq - Request to chown a file
+	MsgMemfilesAddReq
+	// MsgChown - Replies with file path
+	MsgMemfilesAdd
+
+	// MsgChtimesReq - Request to chtimes a file
+	MsgMemfilesRmReq
+	// MsgChown - Replies with file path
+	MsgMemfilesRm
 )
 
 // Constants to replace enums
@@ -552,6 +565,17 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgChtimesReq
 	case *Chtimes:
 		return MsgChtimes
+
+	case *MemfilesListReq:
+		return MsgMemfilesListReq
+	case *MemfilesAddReq:
+		return MsgMemfilesAddReq
+	case *MemfilesAdd:
+		return MsgMemfilesAdd
+	case *MemfilesRmReq:
+		return MsgMemfilesRmReq
+	case *MemfilesRm:
+		return MsgMemfilesRm
 
 	}
 	return uint32(0)

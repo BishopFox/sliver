@@ -115,6 +115,9 @@ service SliverRPC {
     rpc Chmod(sliverpb.ChmodReq) returns (sliverpb.Chmod);
     rpc Chown(sliverpb.ChownReq) returns (sliverpb.Chown);
     rpc Chtimes(sliverpb.ChtimesReq) returns (sliverpb.Chtimes);
+    rpc MemfilesList(sliverpb.MemfilesListReq) returns (sliverpb.Ls);
+    rpc MemfilesAdd(sliverpb.MemfilesAddReq) returns (sliverpb.MemfilesAdd);
+    rpc MemfilesRm(sliverpb.MemfilesRmReq) returns (sliverpb.MemfilesRm);
     rpc ProcessDump(sliverpb.ProcessDumpReq) returns (sliverpb.ProcessDump);
     rpc RunAs(sliverpb.RunAsReq) returns (sliverpb.RunAs);
     rpc Impersonate(sliverpb.ImpersonateReq) returns (sliverpb.Impersonate);

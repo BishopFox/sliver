@@ -1158,3 +1158,35 @@ message Chtimes {
   commonpb.Response Response = 9;
 }
 
+
+message MemfilesListReq {
+
+  commonpb.Request Request = 9;
+}
+
+message MemfilesAddReq {
+
+  commonpb.Request Request = 9;
+}
+
+message MemfilesAdd {
+  int64 Fd = 1;
+
+  commonpb.Response Response = 9;
+}
+
+message MemfilesRmReq {
+
+  int64 Fd = 1;
+
+  commonpb.Request Request = 9;
+}
+
+message MemfilesRm {
+  int64 Fd = 1;
+
+  commonpb.Response Response = 9;
+}
+
+
+

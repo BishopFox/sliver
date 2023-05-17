@@ -148,6 +148,36 @@ func (rpc *Server) Chtimes(ctx context.Context, req *sliverpb.ChtimesReq) (*sliv
 	return resp, nil
 }
 
+// MemfilesList - List memfiles
+func (rpc *Server) MemfilesList(ctx context.Context, req *sliverpb.MemfilesListReq) (*sliverpb.Ls, error) {
+	resp := &sliverpb.Ls{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// MemfilesAdd - Add memfile
+func (rpc *Server) MemfilesAdd(ctx context.Context, req *sliverpb.MemfilesAddReq) (*sliverpb.MemfilesAdd, error) {
+	resp := &sliverpb.MemfilesAdd{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// MemfilesRm - Close memfile
+func (rpc *Server) MemfilesRm(ctx context.Context, req *sliverpb.MemfilesRmReq) (*sliverpb.MemfilesRm, error) {
+	resp := &sliverpb.MemfilesRm{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func trackIOC(req *sliverpb.UploadReq, resp *sliverpb.Upload) {
 	fsLog.Debugf("Adding IOC to database ...")
 	request := req.GetRequest()
