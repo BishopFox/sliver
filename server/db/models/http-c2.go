@@ -36,12 +36,12 @@ type HttpC2Config struct {
 	ImplantConfig HttpC2ImplantConfig
 }
 
-func (w *HttpC2Config) BeforeCreate(tx *gorm.DB) (err error) {
-	w.ID, err = uuid.NewV4()
+func (h *HttpC2Config) BeforeCreate(tx *gorm.DB) (err error) {
+	h.ID, err = uuid.NewV4()
 	if err != nil {
 		return err
 	}
-	w.CreatedAt = time.Now()
+	h.CreatedAt = time.Now()
 	return nil
 }
 
@@ -55,8 +55,8 @@ type HttpC2ServerConfig struct {
 	Cookies              []HttpC2Cookie
 }
 
-func (s *HttpC2ServerConfig) BeforeCreate(tx *gorm.DB) (err error) {
-	s.ID, err = uuid.NewV4()
+func (h *HttpC2ServerConfig) BeforeCreate(tx *gorm.DB) (err error) {
+	h.ID, err = uuid.NewV4()
 	return err
 }
 
@@ -83,11 +83,11 @@ type HttpC2ImplantConfig struct {
 	SessionFileExtension      string
 	CloseFileExtension        string
 
-	Segments []HttpC2FileSegment
+	PathSegments []HttpC2PathSegment
 }
 
-func (s *HttpC2ImplantConfig) BeforeCreate(tx *gorm.DB) (err error) {
-	s.ID, err = uuid.NewV4()
+func (h *HttpC2ImplantConfig) BeforeCreate(tx *gorm.DB) (err error) {
+	h.ID, err = uuid.NewV4()
 	return err
 }
 
@@ -103,6 +103,11 @@ type HttpC2Cookie struct {
 	Name string
 }
 
+func (h *HttpC2Cookie) BeforeCreate(tx *gorm.DB) (err error) {
+	h.ID, err = uuid.NewV4()
+	return err
+}
+
 // HttpC2Header - HTTP C2 Header (server and implant)
 type HttpC2Header struct {
 	ID                    uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
@@ -115,31 +120,38 @@ type HttpC2Header struct {
 	Probability int32
 }
 
+func (h *HttpC2Header) BeforeCreate(tx *gorm.DB) (err error) {
+	h.ID, err = uuid.NewV4()
+	return err
+}
+
 // HttpC2URLParameter - Extra URL parameters (implant only)
 type HttpC2URLParameter struct {
 	ID                    uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	HttpC2ImplantConfigID uuid.UUID `gorm:"type:uuid;"`
 
-	Method      string
-	Name        string
-	Value       string
-	Probability int32
+	Method      string // HTTP Method
+	Name        string // Name of URL parameter, must be 3+ characters
+	Value       string // Value of the URL parameter
+	Probability int32  // 0 - 100
 }
 
-// HttpC2FileSegment -
-type HttpC2FileSegment struct {
-	ID                    uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	HttpC2ImplantConfigID uuid.UUID `gorm:"type:uuid;"`
-
-	SegmentType string // Poll, Session, Close
-	Value       string
+func (h *HttpC2URLParameter) BeforeCreate(tx *gorm.DB) (err error) {
+	h.ID, err = uuid.NewV4()
+	return err
 }
 
-// HttpC2PathSegment -
+// HttpC2PathSegment - Represents a list of file/path URL segments (implant only)
 type HttpC2PathSegment struct {
 	ID                    uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	HttpC2ImplantConfigID uuid.UUID `gorm:"type:uuid;"`
 
-	SegmentType string
+	IsFile      bool
+	SegmentType string // Poll, Session, Close
 	Value       string
+}
+
+func (h *HttpC2PathSegment) BeforeCreate(tx *gorm.DB) (err error) {
+	h.ID, err = uuid.NewV4()
+	return err
 }
