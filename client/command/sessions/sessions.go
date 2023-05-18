@@ -78,6 +78,10 @@ func SessionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	if killFlag != "" {
 		session := con.GetSession(killFlag)
+		if session == nil {
+			con.PrintErrorf("Invalid session name or session number: %s\n", killFlag)
+			return
+		}
 		activeSession := con.ActiveTarget.GetSession()
 		if activeSession != nil && session.ID == activeSession.ID {
 			con.ActiveTarget.Background()
