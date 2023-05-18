@@ -52,7 +52,8 @@ func (h *HttpC2Config) ToProtobuf() *clientpb.HTTPC2Config {
 		Created: h.CreatedAt.Unix(),
 		Name:    h.Name,
 
-		ServerConfig: h.ServerConfig.ToProtobuf(),
+		ServerConfig:  h.ServerConfig.ToProtobuf(),
+		ImplantConfig: h.ImplantConfig.ToProtobuf(),
 	}
 }
 
