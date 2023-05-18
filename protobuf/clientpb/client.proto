@@ -718,9 +718,12 @@ message Builder {
 // [ HTTP C2 ] ----------------------------------------
 message HTTPC2Config {
   string ID = 1;
+
   int64 Created = 2;
   string Name = 3;
 
+  HTTPC2ServerConfig ServerConfig = 4;
+  HTTPC2ImplantConfig ImplantConfig = 5;
 }
 
 message HTTPC2ServerConfig {
