@@ -21,6 +21,7 @@ package models
 import (
 	"time"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
@@ -45,6 +46,16 @@ func (h *HttpC2Config) BeforeCreate(tx *gorm.DB) (err error) {
 	return nil
 }
 
+func (h *HttpC2Config) ToProtobuf() *clientpb.HTTPC2Config {
+	return &clientpb.HTTPC2Config{
+		ID:      h.ID.String(),
+		Created: h.CreatedAt.Unix(),
+		Name:    h.Name,
+
+		ServerConfig: h.ServerConfig.ToProtobuf(),
+	}
+}
+
 // HttpC2ServerConfig - HTTP C2 Server Configuration
 type HttpC2ServerConfig struct {
 	ID             uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
@@ -58,6 +69,23 @@ type HttpC2ServerConfig struct {
 func (h *HttpC2ServerConfig) BeforeCreate(tx *gorm.DB) (err error) {
 	h.ID, err = uuid.NewV4()
 	return err
+}
+
+func (h *HttpC2ServerConfig) ToProtobuf() *clientpb.HTTPC2ServerConfig {
+	headers := make([]*clientpb.HTTPC2Header, len(h.Headers))
+	for i, header := range h.Headers {
+		headers[i] = header.ToProtobuf()
+	}
+	cookies := make([]*clientpb.HTTPC2Cookie, len(h.Cookies))
+	for i, cookie := range h.Cookies {
+		cookies[i] = cookie.ToProtobuf()
+	}
+	return &clientpb.HTTPC2ServerConfig{
+		ID:                   h.ID.String(),
+		RandomVersionHeaders: h.RandomVersionHeaders,
+		Headers:              headers,
+		Cookies:              cookies,
+	}
 }
 
 // HttpC2ImplantConfig - HTTP C2 Implant Configuration
@@ -91,6 +119,40 @@ func (h *HttpC2ImplantConfig) BeforeCreate(tx *gorm.DB) (err error) {
 	return err
 }
 
+func (h *HttpC2ImplantConfig) ToProtobuf() *clientpb.HTTPC2ImplantConfig {
+	params := make([]*clientpb.HTTPC2URLParameter, len(h.ExtraURLParameters))
+	for i, param := range h.ExtraURLParameters {
+		params[i] = param.ToProtobuf()
+	}
+	headers := make([]*clientpb.HTTPC2Header, len(h.Headers))
+	for i, header := range h.Headers {
+		headers[i] = header.ToProtobuf()
+	}
+	pathSegments := make([]*clientpb.HTTPC2PathSegment, len(h.PathSegments))
+	for i, segment := range h.PathSegments {
+		pathSegments[i] = segment.ToProtobuf()
+	}
+	return &clientpb.HTTPC2ImplantConfig{
+		ID:                        h.ID.String(),
+		UserAgent:                 h.UserAgent,
+		ChromeBaseVersion:         h.ChromeBaseVersion,
+		MacOSVersion:              h.MacOSVersion,
+		NonceQueryArgChars:        h.NonceQueryArgChars,
+		ExtraURLParameters:        params,
+		Headers:                   headers,
+		MaxFiles:                  h.MaxFiles,
+		MinFiles:                  h.MinFiles,
+		MaxPaths:                  h.MaxPaths,
+		MinPaths:                  h.MinPaths,
+		StagerFileExtension:       h.StagerFileExtension,
+		PollFileExtension:         h.PollFileExtension,
+		StartSessionFileExtension: h.StartSessionFileExtension,
+		SessionFileExtension:      h.SessionFileExtension,
+		CloseFileExtension:        h.CloseFileExtension,
+		PathSegments:              pathSegments,
+	}
+}
+
 //
 // >>> Sub-Models <<<
 //
@@ -106,6 +168,13 @@ type HttpC2Cookie struct {
 func (h *HttpC2Cookie) BeforeCreate(tx *gorm.DB) (err error) {
 	h.ID, err = uuid.NewV4()
 	return err
+}
+
+func (h *HttpC2Cookie) ToProtobuf() *clientpb.HTTPC2Cookie {
+	return &clientpb.HTTPC2Cookie{
+		ID:   h.ID.String(),
+		Name: h.Name,
+	}
 }
 
 // HttpC2Header - HTTP C2 Header (server and implant)
@@ -125,6 +194,16 @@ func (h *HttpC2Header) BeforeCreate(tx *gorm.DB) (err error) {
 	return err
 }
 
+func (h *HttpC2Header) ToProtobuf() *clientpb.HTTPC2Header {
+	return &clientpb.HTTPC2Header{
+		ID:          h.ID.String(),
+		Method:      h.Method,
+		Name:        h.Name,
+		Value:       h.Value,
+		Probability: h.Probability,
+	}
+}
+
 // HttpC2URLParameter - Extra URL parameters (implant only)
 type HttpC2URLParameter struct {
 	ID                    uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
@@ -141,6 +220,16 @@ func (h *HttpC2URLParameter) BeforeCreate(tx *gorm.DB) (err error) {
 	return err
 }
 
+func (h *HttpC2URLParameter) ToProtobuf() *clientpb.HTTPC2URLParameter {
+	return &clientpb.HTTPC2URLParameter{
+		ID:          h.ID.String(),
+		Method:      h.Method,
+		Name:        h.Name,
+		Value:       h.Value,
+		Probability: h.Probability,
+	}
+}
+
 // HttpC2PathSegment - Represents a list of file/path URL segments (implant only)
 type HttpC2PathSegment struct {
 	ID                    uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
@@ -154,4 +243,13 @@ type HttpC2PathSegment struct {
 func (h *HttpC2PathSegment) BeforeCreate(tx *gorm.DB) (err error) {
 	h.ID, err = uuid.NewV4()
 	return err
+}
+
+func (h *HttpC2PathSegment) ToProtobuf() *clientpb.HTTPC2PathSegment {
+	return &clientpb.HTTPC2PathSegment{
+		ID:          h.ID.String(),
+		IsFile:      h.IsFile,
+		SegmentType: clientpb.HTTPC2SegmentType(h.SegmentType),
+		Value:       h.Value,
+	}
 }

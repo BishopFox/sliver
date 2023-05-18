@@ -718,8 +718,8 @@ message Builder {
 // [ HTTP C2 ] ----------------------------------------
 message HTTPC2Config {
   string ID = 1;
-
   int64 Created = 2;
+
   string Name = 3;
 
   HTTPC2ServerConfig ServerConfig = 4;
@@ -728,10 +728,10 @@ message HTTPC2Config {
 
 message HTTPC2ServerConfig {
   string ID = 1;
-  bool RandomVersionHeaders = 2;
 
-  HTTPC2Header Headers = 3;
-  HTTPC2Cookie Cookies = 4;
+  bool RandomVersionHeaders = 2;
+  repeated HTTPC2Header Headers = 3;
+  repeated HTTPC2Cookie Cookies = 4;
 }
 
 message HTTPC2ImplantConfig {
@@ -741,8 +741,8 @@ message HTTPC2ImplantConfig {
   int32 ChromeBaseVersion = 3;
   string MacOSVersion = 4;
   string NonceQueryArgChars = 5;
-  HTTPC2URLParameter ExtraURLParameters = 6;
-  HTTPC2Header Headers = 7;
+  repeated HTTPC2URLParameter ExtraURLParameters = 6;
+  repeated HTTPC2Header Headers = 7;
 
   int32 MaxFiles = 8;
   int32 MinFiles = 9;
@@ -755,7 +755,7 @@ message HTTPC2ImplantConfig {
   string SessionFileExtension = 15;
   string CloseFileExtension = 16;
 
-  HTTPC2PathSegment PathSegments = 17;
+  repeated HTTPC2PathSegment PathSegments = 17;
 }
 
 message HTTPC2Cookie {
