@@ -147,7 +147,7 @@ type HttpC2PathSegment struct {
 	HttpC2ImplantConfigID uuid.UUID `gorm:"type:uuid;"`
 
 	IsFile      bool
-	SegmentType string // Poll, Session, Close
+	SegmentType int32 // Poll, Session, Close
 	Value       string
 }
 
