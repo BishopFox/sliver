@@ -64,7 +64,7 @@ func Sideload(procName string, procArgs []string, _ uint32, data []byte, args st
 		wg            sync.WaitGroup
 		cmd           *exec.Cmd
 	)
-	memfdName := randomString(8)
+	memfdName := RandomString(8)
 	memfd, err := syscall.BytePtrFromString(memfdName)
 	if err != nil {
 		//{{if .Config.Debug}}

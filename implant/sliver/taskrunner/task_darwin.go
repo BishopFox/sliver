@@ -65,7 +65,7 @@ func Sideload(procName string, procArgs []string, _ uint32, data []byte, args st
 		wg     sync.WaitGroup
 		cmd    *exec.Cmd
 	)
-	fdPath := fmt.Sprintf("/tmp/.%s", randomString(10))
+	fdPath := fmt.Sprintf("/tmp/.%s", RandomString(10))
 	err := ioutil.WriteFile(fdPath, data, 0755)
 	if err != nil {
 		return "", err
