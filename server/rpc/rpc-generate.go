@@ -54,40 +54,39 @@ var (
 
 // Generate - Generate a new implant
 func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.Generate, error) {
-	var fPath string
+
 	var err error
-	name, config := generate.ImplantConfigFromProtobuf(req.Config)
-	if name == "" {
-		name, err = codenames.GetCodename()
+	if req.Config.Name == "" {
+		req.Config.Name, err = codenames.GetCodename()
 		if err != nil {
 			return nil, err
 		}
-	}
-	if config.TemplateName == "" {
-		config.TemplateName = generate.SliverTemplateName
+	} else if err := util.AllowedName(req.Config.Name); err != nil {
+		return nil, err
 	}
 
 	otpSecret, _ := cryptography.TOTPServerSecret()
-	err = generate.GenerateConfig(name, config, true)
+	config, err := generate.GenerateConfig(req.Config, true)
 	if err != nil {
 		return nil, err
 	}
 	if config == nil {
 		return nil, errors.New("invalid implant config")
 	}
+
+	var fPath string
 	switch req.Config.Format {
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
-		fPath, err = generate.SliverExecutable(name, otpSecret, config, true)
+		fPath, err = generate.SliverExecutable(otpSecret, config)
 	case clientpb.OutputFormat_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(name, otpSecret, config, true)
+		fPath, err = generate.SliverSharedLibrary(otpSecret, config)
 	case clientpb.OutputFormat_SHELLCODE:
-		fPath, err = generate.SliverShellcode(name, otpSecret, config, true)
+		fPath, err = generate.SliverShellcode(otpSecret, config)
 	default:
 		return nil, fmt.Errorf("invalid output format: %s", req.Config.Format)
 	}
-
 	if err != nil {
 		return nil, err
 	}

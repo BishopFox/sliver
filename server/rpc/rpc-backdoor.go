@@ -31,6 +31,7 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/generate"
+	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -83,15 +84,16 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 		if err != nil {
 			return nil, err
 		}
+	} else if err := util.AllowedName(p.Config.Name); err != nil {
+		return nil, err
 	}
 
-	name, config := generate.ImplantConfigFromProtobuf(p.Config)
 	otpSecret, _ := cryptography.TOTPServerSecret()
-	err = generate.GenerateConfig(name, config, true)
+	_, err = generate.GenerateConfig(p.Config, true)
 	if err != nil {
 		return nil, err
 	}
-	fPath, err := generate.SliverShellcode(name, otpSecret, config, true)
+	fPath, err := generate.SliverShellcode(otpSecret, p.Config)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

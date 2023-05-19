@@ -19,12 +19,20 @@ package models
 */
 
 import (
+	"net/url"
+	"path"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/util"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
+)
+
+var (
+	modelLog = log.NamedLogger("models", "implant")
 )
 
 // ImplantBuild - Represents an implant
@@ -133,6 +141,7 @@ type ImplantConfig struct {
 
 	FileName string
 
+	HttpC2ConfigID         uuid.UUID
 	NetGoEnabled           bool
 	TrafficEncodersEnabled bool
 	Assets                 []EncoderAsset
@@ -313,4 +322,127 @@ type EncoderAsset struct {
 
 func (t *EncoderAsset) ToProtobuf() *commonpb.File {
 	return &commonpb.File{Name: t.Name}
+}
+
+const defaultTemplateName = "sliver"
+
+// ImplantConfigFromProtobuf - Create a native config struct from Protobuf
+func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *ImplantConfig) {
+	cfg := &ImplantConfig{}
+
+	cfg.IsBeacon = pbConfig.IsBeacon
+	cfg.BeaconInterval = pbConfig.BeaconInterval
+	cfg.BeaconJitter = pbConfig.BeaconJitter
+
+	cfg.ECCServerPublicKey = pbConfig.ECCServerPublicKey
+	cfg.ECCPrivateKey = pbConfig.ECCPrivateKey
+	cfg.ECCPublicKey = pbConfig.ECCPublicKey
+
+	cfg.GOOS = pbConfig.GOOS
+	cfg.GOARCH = pbConfig.GOARCH
+	cfg.MtlsCACert = pbConfig.MtlsCACert
+	cfg.MtlsCert = pbConfig.MtlsCert
+	cfg.MtlsKey = pbConfig.MtlsKey
+	cfg.Debug = pbConfig.Debug
+	cfg.DebugFile = pbConfig.DebugFile
+	cfg.Evasion = pbConfig.Evasion
+	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
+	cfg.TemplateName = pbConfig.TemplateName
+	if cfg.TemplateName == "" {
+		cfg.TemplateName = defaultTemplateName
+	}
+	cfg.ConnectionStrategy = pbConfig.ConnectionStrategy
+
+	cfg.WGImplantPrivKey = pbConfig.WGImplantPrivKey
+	cfg.WGServerPubKey = pbConfig.WGServerPubKey
+	cfg.WGPeerTunIP = pbConfig.WGPeerTunIP
+	cfg.WGKeyExchangePort = pbConfig.WGKeyExchangePort
+	cfg.WGTcpCommsPort = pbConfig.WGTcpCommsPort
+	cfg.ReconnectInterval = pbConfig.ReconnectInterval
+	cfg.MaxConnectionErrors = pbConfig.MaxConnectionErrors
+
+	cfg.LimitDomainJoined = pbConfig.LimitDomainJoined
+	cfg.LimitDatetime = pbConfig.LimitDatetime
+	cfg.LimitUsername = pbConfig.LimitUsername
+	cfg.LimitHostname = pbConfig.LimitHostname
+	cfg.LimitFileExists = pbConfig.LimitFileExists
+	cfg.LimitLocale = pbConfig.LimitLocale
+
+	cfg.Format = pbConfig.Format
+	cfg.IsSharedLib = pbConfig.IsSharedLib
+	cfg.IsService = pbConfig.IsService
+	cfg.IsShellcode = pbConfig.IsShellcode
+
+	cfg.RunAtLoad = pbConfig.RunAtLoad
+	cfg.TrafficEncodersEnabled = pbConfig.TrafficEncodersEnabled
+	cfg.NetGoEnabled = pbConfig.NetGoEnabled
+
+	cfg.Assets = []EncoderAsset{}
+	for _, pbAsset := range pbConfig.Assets {
+		cfg.Assets = append(cfg.Assets, EncoderAsset{
+			Name: pbAsset.Name,
+		})
+	}
+
+	cfg.CanaryDomains = []CanaryDomain{}
+	for _, pbCanary := range pbConfig.CanaryDomains {
+		cfg.CanaryDomains = append(cfg.CanaryDomains, CanaryDomain{
+			Domain: pbCanary,
+		})
+	}
+
+	// Copy C2
+	cfg.C2 = copyC2List(pbConfig.C2)
+	cfg.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, cfg.C2)
+	cfg.WGc2Enabled = isC2Enabled([]string{"wg"}, cfg.C2)
+	cfg.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, cfg.C2)
+	cfg.DNSc2Enabled = isC2Enabled([]string{"dns"}, cfg.C2)
+	cfg.NamePipec2Enabled = isC2Enabled([]string{"namedpipe"}, cfg.C2)
+	cfg.TCPPivotc2Enabled = isC2Enabled([]string{"tcppivot"}, cfg.C2)
+
+	if pbConfig.FileName != "" {
+		cfg.FileName = path.Base(pbConfig.FileName)
+	}
+
+	name := ""
+	if err := util.AllowedName(pbConfig.Name); err != nil {
+
+	} else {
+		name = pbConfig.Name
+	}
+	return name, cfg
+}
+
+func copyC2List(src []*clientpb.ImplantC2) []ImplantC2 {
+	c2s := []ImplantC2{}
+	for _, srcC2 := range src {
+		c2URL, err := url.Parse(srcC2.URL)
+		if err != nil {
+			modelLog.Warnf("Failed to parse c2 url %v", err)
+			continue
+		}
+		c2s = append(c2s, ImplantC2{
+			Priority: srcC2.Priority,
+			URL:      c2URL.String(),
+			Options:  srcC2.Options,
+		})
+	}
+	return c2s
+}
+
+func isC2Enabled(schemes []string, c2s []ImplantC2) bool {
+	for _, c2 := range c2s {
+		c2URL, err := url.Parse(c2.URL)
+		if err != nil {
+			modelLog.Warnf("Failed to parse c2 url %v", err)
+			continue
+		}
+		for _, scheme := range schemes {
+			if scheme == c2URL.Scheme {
+				return true
+			}
+		}
+	}
+	modelLog.Debugf("No %v URLs found in %v", schemes, c2s)
+	return false
 }

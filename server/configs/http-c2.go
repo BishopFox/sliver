@@ -19,15 +19,14 @@ package configs
 */
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	insecureRand "math/rand"
-	"os"
 	"path"
 	"regexp"
 	"strings"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/log"
 )
@@ -236,7 +235,7 @@ func (h *HTTPC2ImplantConfig) randomSample(values []string, ext string, min int,
 var (
 	httpC2ConfigLog = log.NamedLogger("config", "http-c2")
 
-	defaultHTTPC2Config = HTTPC2Config{
+	DefaultHTTPC2Config = HTTPC2Config{
 		ServerConfig: &HTTPC2ServerConfig{
 			RandomVersionHeaders: false,
 			Cookies: []string{
@@ -996,70 +995,14 @@ func GetHTTPC2ConfigPath() string {
 	return httpC2ConfigPath
 }
 
-// GetHTTPC2Config - Get the current HTTP C2 config
-func GetHTTPC2Config() *HTTPC2Config {
-	configPath := GetHTTPC2ConfigPath()
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		err = generateDefaultConfig(configPath)
-		if err != nil {
-			httpC2ConfigLog.Errorf("Failed to generate http c2 config %s", err)
-			return &defaultHTTPC2Config
-		}
-	}
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		httpC2ConfigLog.Errorf("Failed to read http c2 config %s", err)
-		return &defaultHTTPC2Config
-	}
-	config := &HTTPC2Config{}
-	err = json.Unmarshal(data, config)
-	if err != nil {
-		httpC2ConfigLog.Errorf("Failed to parse http c2 config %s", err)
-		return &defaultHTTPC2Config
-	}
-	err = checkHTTPC2Config(config)
-	if err != nil {
-		httpC2ConfigLog.Errorf("Invalid http c2 config: %s", err)
-		return &defaultHTTPC2Config
-	}
-	return config
-}
-
 // CheckHTTPC2ConfigErrors - Get the current HTTP C2 config
-func CheckHTTPC2ConfigErrors() error {
-	configPath := GetHTTPC2ConfigPath()
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		err = generateDefaultConfig(configPath)
-		if err != nil {
-			httpC2ConfigLog.Errorf("Failed to generate http c2 config %s", err)
-			return err
-		}
-	}
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		httpC2ConfigLog.Errorf("Failed to read http c2 config %s", err)
-		return err
-	}
-	config := &HTTPC2Config{}
-	err = json.Unmarshal(data, config)
-	if err != nil {
-		httpC2ConfigLog.Errorf("Failed to parse http c2 config %s", err)
-		return err
-	}
-	err = checkHTTPC2Config(config)
+func CheckHTTPC2ConfigErrors(config *clientpb.HTTPC2Config) error {
+	err := checkHTTPC2Config(config)
 	if err != nil {
 		httpC2ConfigLog.Errorf("Invalid http c2 config: %s", err)
 		return err
 	}
 	return nil
-}
-
-func generateDefaultConfig(saveTo string) error {
-	data, err := json.MarshalIndent(defaultHTTPC2Config, "", "    ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(saveTo, data, 0600)
 }
 
 var (
@@ -1074,14 +1017,14 @@ var (
 	ErrMissingStartSessionFileExt = errors.New("implant config must specify a start_session_file_ext")
 	ErrMissingSessionFileExt      = errors.New("implant config must specify a session_file_ext")
 	ErrTooFewSessionFiles         = errors.New("implant config must specify at least one session_files value")
-	ErrNonuniqueFileExt           = errors.New("implant config must specify unique file extensions")
+	ErrNonUniqueFileExt           = errors.New("implant config must specify unique file extensions")
 	ErrQueryParamNameLen          = errors.New("implant config url query parameter names must be 3 or more characters")
 
 	fileNameExp = regexp.MustCompile(`[^a-zA-Z0-9\\._-]+`)
 )
 
 // checkHTTPC2Config - Validate the HTTP C2 config, coerces common mistakes
-func checkHTTPC2Config(config *HTTPC2Config) error {
+func checkHTTPC2Config(config *clientpb.HTTPC2Config) error {
 	err := checkServerConfig(config.ServerConfig)
 	if err != nil {
 		return err
@@ -1125,14 +1068,14 @@ func uniqueFileName(strSlice []string) []string {
 	return list
 }
 
-func checkServerConfig(config *HTTPC2ServerConfig) error {
+func checkServerConfig(config *clientpb.HTTPC2ServerConfig) error {
 	if len(config.Cookies) < 1 {
 		return ErrMissingCookies
 	}
 	return nil
 }
 
-func checkImplantConfig(config *HTTPC2ImplantConfig) error {
+func checkImplantConfig(config *clientpb.HTTPC2ImplantConfig) error {
 
 	// MinFiles and MaxFiles
 	if config.MinFiles < 1 {
@@ -1151,67 +1094,27 @@ func checkImplantConfig(config *HTTPC2ImplantConfig) error {
 	}
 
 	// Stager
-	config.StagerFileExt = coerceFileExt(config.StagerFileExt)
-	if config.StagerFileExt == "" {
+	config.StagerFileExtension = coerceFileExt(config.StagerFileExtension)
+	if config.StagerFileExtension == "" {
 		return ErrMissingStagerFileExt
 	}
 
-	// Poll Settings
-	config.PollFileExt = coerceFileExt(config.PollFileExt)
-	if config.PollFileExt == "" {
+	// File Extensions
+	config.PollFileExtension = coerceFileExt(config.PollFileExtension)
+	if config.PollFileExtension == "" {
 		return ErrMissingPollFileExt
 	}
-	config.PollFiles = coerceFiles(config.PollFiles, config.PollFileExt)
-	if len(config.PollFiles) < 1 {
-		return ErrTooFewPollFiles
-	}
-
-	// Session Settings
-	config.StartSessionFileExt = coerceFileExt(config.StartSessionFileExt)
-	if config.StartSessionFileExt == "" {
+	config.StartSessionFileExtension = coerceFileExt(config.StartSessionFileExtension)
+	if config.StartSessionFileExtension == "" {
 		return ErrMissingStartSessionFileExt
 	}
-	config.SessionFileExt = coerceFileExt(config.SessionFileExt)
-	if config.SessionFileExt == "" {
+	config.SessionFileExtension = coerceFileExt(config.SessionFileExtension)
+	if config.SessionFileExtension == "" {
 		return ErrMissingSessionFileExt
 	}
-	config.SessionFiles = coerceFiles(config.SessionFiles, config.StartSessionFileExt)
-	config.SessionFiles = coerceFiles(config.SessionFiles, config.SessionFileExt)
-	if len(config.SessionFiles) < 1 {
-		return ErrTooFewSessionFiles
-	}
-
-	// Close Settings
-	config.CloseFileExt = coerceFileExt(config.CloseFileExt)
-	if config.CloseFileExt == "" {
+	config.CloseFileExtension = coerceFileExt(config.CloseFileExtension)
+	if config.CloseFileExtension == "" {
 		return ErrMissingCloseFileExt
-	}
-	config.CloseFiles = coerceFiles(config.CloseFiles, config.CloseFileExt)
-	if len(config.CloseFiles) < 1 {
-		return ErrTooFewCloseFiles
-	}
-
-	// Unique file extensions
-	allExtensions := map[string]bool{}
-	extensions := []string{
-		config.StagerFileExt,
-		config.PollFileExt,
-		config.StartSessionFileExt,
-		config.SessionFileExt,
-		config.CloseFileExt,
-	}
-	for _, ext := range extensions {
-		if _, ok := allExtensions[ext]; ok {
-			return ErrNonuniqueFileExt
-		}
-		allExtensions[ext] = true
-	}
-
-	// Query Parameter Names
-	for _, queryParam := range config.URLParameters {
-		if len(queryParam.Name) < 3 {
-			return ErrQueryParamNameLen
-		}
 	}
 
 	return nil

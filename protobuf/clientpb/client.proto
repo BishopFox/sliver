@@ -133,6 +133,11 @@ message ImplantConfig {
   bool ObfuscateSymbols = 10;
   string TemplateName = 11;
 
+  bool IncludeMTLS = 12;
+  bool IncludeHTTP = 13;
+  bool IncludeWG = 14;
+  bool IncludeDNS = 15;
+
   string MtlsCACert = 20;
   string MtlsCert = 21;
   string MtlsKey = 22;
@@ -173,9 +178,10 @@ message ImplantConfig {
   bool RunAtLoad = 105;
   string DebugFile = 106;
 
-  bool NetGoEnabled = 107;
-  bool TrafficEncodersEnabled = 108;
-  repeated string TrafficEncoders = 109;
+  string HTTPC2ConfigID = 150;
+  bool NetGoEnabled = 151;
+  bool TrafficEncodersEnabled = 152;
+  repeated string TrafficEncoders = 153;
 
   repeated commonpb.File Assets = 200;
 }

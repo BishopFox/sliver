@@ -57,6 +57,20 @@ func (h *HttpC2Config) ToProtobuf() *clientpb.HTTPC2Config {
 	}
 }
 
+func (h *HttpC2Config) GenerateImplantHTTPC2Config() *clientpb.HTTPC2ImplantConfig {
+	params := make([]*clientpb.HTTPC2URLParameter, len(h.ImplantConfig.ExtraURLParameters))
+	for i, param := range h.ImplantConfig.ExtraURLParameters {
+		params[i] = param.ToProtobuf()
+	}
+	return &clientpb.HTTPC2ImplantConfig{
+		UserAgent:          h.ImplantConfig.UserAgent,
+		ChromeBaseVersion:  h.ImplantConfig.ChromeBaseVersion,
+		MacOSVersion:       h.ImplantConfig.MacOSVersion,
+		NonceQueryArgChars: h.ImplantConfig.NonceQueryArgChars,
+		ExtraURLParameters: params,
+	}
+}
+
 // HttpC2ServerConfig - HTTP C2 Server Configuration
 type HttpC2ServerConfig struct {
 	ID             uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`

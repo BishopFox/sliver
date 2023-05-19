@@ -26,7 +26,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/generate"
@@ -85,21 +84,14 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	name := path.Base(req.Config.GetName())
 	shellcode, _, err := getSliverShellcode(name)
 	if err != nil {
-		name, config := generate.ImplantConfigFromProtobuf(req.Config)
-		if name == "" {
-			name, err = codenames.GetCodename()
-			if err != nil {
-				return nil, err
-			}
-		}
-		config.Format = clientpb.OutputFormat_SHELLCODE
-		config.ObfuscateSymbols = false
+		req.Config.Format = clientpb.OutputFormat_SHELLCODE
+		req.Config.ObfuscateSymbols = false
 		otpSecret, _ := cryptography.TOTPServerSecret()
-		err = generate.GenerateConfig(name, config, true)
+		config, err := generate.GenerateConfig(req.Config, true)
 		if err != nil {
 			return nil, err
 		}
-		shellcodePath, err := generate.SliverShellcode(name, otpSecret, config, true)
+		shellcodePath, err := generate.SliverShellcode(otpSecret, config)
 		if err != nil {
 			return nil, err
 		}
