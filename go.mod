@@ -50,7 +50,7 @@ require (
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gorm.io/driver/mysql v1.5.0
 	gorm.io/driver/postgres v1.5.0
-	gorm.io/driver/sqlite v1.5.0
+	gorm.io/driver/sqlite v1.5.1
 	gorm.io/gorm v1.25.1
 	gvisor.dev/gvisor v0.0.0-20220817001344-846276b3dbc5
 	modernc.org/sqlite v1.22.1
