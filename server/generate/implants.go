@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
@@ -58,7 +59,7 @@ func getBuildsDir() (string, error) {
 }
 
 // ImplantConfigSave - Save only the config to the database
-func ImplantConfigSave(config *models.ImplantConfig) error {
+func ImplantConfigSave(config *clientpb.ImplantConfig) error {
 	dbSession := db.Session()
 	result := dbSession.Clauses(clause.OnConflict{
 		UpdateAll: true,

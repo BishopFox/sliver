@@ -69,9 +69,9 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 	name := filepath.Base(req.Config.GetName())
 	shellcode, arch, err := getSliverShellcode(name)
 	if err != nil {
-		name, config := generate.ImplantConfigFromProtobuf(req.Config)
-		if name == "" {
-			name, err = codenames.GetCodename()
+		config := req.Config
+		if config.Name == "" {
+			config.Name, err = codenames.GetCodename()
 			if err != nil {
 				return nil, err
 			}
@@ -79,11 +79,11 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		config.Format = clientpb.OutputFormat_SHELLCODE
 		config.ObfuscateSymbols = true
 		otpSecret, _ := cryptography.TOTPServerSecret()
-		err = generate.GenerateConfig(name, config, true)
+		_, err = generate.GenerateConfig(config, true)
 		if err != nil {
 			return nil, err
 		}
-		shellcodePath, err := generate.SliverShellcode(name, otpSecret, config, true)
+		shellcodePath, err := generate.SliverShellcode(otpSecret, config)
 		if err != nil {
 			return nil, err
 		}

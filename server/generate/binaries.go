@@ -20,8 +20,6 @@ package generate
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io/fs"
 	insecureRand "math/rand"
@@ -659,7 +657,7 @@ func renderMacOSVer(implantConfig *clientpb.HTTPC2ImplantConfig) string {
 func GenerateConfig(implantConfig *clientpb.ImplantConfig, save bool) (*clientpb.ImplantConfig, error) {
 	var err error
 
-	config := &models.ImplantConfig{}
+	config := &clientpb.ImplantConfig{}
 
 	// Cert PEM encoded certificates
 	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.MtlsServerCA)
@@ -674,23 +672,23 @@ func GenerateConfig(implantConfig *clientpb.ImplantConfig, save bool) (*clientpb
 		return nil, err
 	}
 	serverKeyPair := cryptography.ECCServerKeyPair()
-	digest := sha256.Sum256((*implantKeyPair.Public)[:])
+	// digest := sha256.Sum256((*implantKeyPair.Public)[:])
 	config.ECCPublicKey = implantKeyPair.PublicBase64()
-	config.ECCPublicKeyDigest = hex.EncodeToString(digest[:])
+	// config.ECCPublicKeyDigest = hex.EncodeToString(digest[:])
 	config.ECCPrivateKey = implantKeyPair.PrivateBase64()
 	config.ECCPublicKeySignature = cryptography.MinisignServerSign(implantKeyPair.Public[:])
 	config.ECCServerPublicKey = serverKeyPair.PublicBase64()
 	config.MinisignServerPublicKey = cryptography.MinisignServerPublicKey()
 
 	// MTLS keys
-	if config.MTLSc2Enabled {
+	if models.IsC2Enabled([]string{"mtls"}, config.C2) {
 		config.MtlsCACert = string(serverCACert)
 		config.MtlsCert = string(sliverCert)
 		config.MtlsKey = string(sliverKey)
 	}
 
 	// Generate wg Keys as needed
-	if config.WGc2Enabled {
+	if models.IsC2Enabled([]string{"wg"}, config.C2) {
 		implantPrivKey, _, err := certs.ImplantGenerateWGKeys(config.WGPeerTunIP)
 		if err != nil {
 			return nil, err
@@ -708,7 +706,7 @@ func GenerateConfig(implantConfig *clientpb.ImplantConfig, save bool) (*clientpb
 		return nil, err
 	}
 
-	return config.ToProtobuf(), nil
+	return config, nil
 }
 
 // Platform specific ENV VARS take precedence over generic

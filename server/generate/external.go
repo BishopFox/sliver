@@ -24,8 +24,8 @@ import (
 )
 
 // SliverExternal - Generates the cryptographic keys for the implant but compiles no code
-func SliverExternal(name string, config *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
-	pbConfig, err := GenerateConfig(name, config, true)
+func SliverExternal(config *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
+	config, err := GenerateConfig(config, true)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func SliverExternal(name string, config *clientpb.ImplantConfig) (*clientpb.Exte
 		return nil, err
 	}
 	return &clientpb.ExternalImplantConfig{
-		Config:    pbConfig,
+		Config:    config,
 		OTPSecret: otpSecret,
 	}, nil
 }

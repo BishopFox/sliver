@@ -106,19 +106,20 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 				"please select a profile targeting a shared library format",
 			)
 		}
-		name, config := generate.ImplantConfigFromProtobuf(p.Config)
-		if name == "" {
-			name, err = codenames.GetCodename()
+
+		config := p.Config
+		if config.Name == "" {
+			config.Name, err = codenames.GetCodename()
 			if err != nil {
 				return nil, err
 			}
 		}
 		otpSecret, _ := cryptography.TOTPServerSecret()
-		err = generate.GenerateConfig(name, config, true)
+		_, err = generate.GenerateConfig(config, true)
 		if err != nil {
 			return nil, err
 		}
-		fPath, err := generate.SliverSharedLibrary(name, otpSecret, config, true)
+		fPath, err := generate.SliverSharedLibrary(otpSecret, config)
 		if err != nil {
 			return nil, err
 		}

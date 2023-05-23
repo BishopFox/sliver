@@ -72,6 +72,8 @@ type ImplantConfig struct {
 
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
+	Name string
+
 	// Go
 	GOOS   string
 	GOARCH string
@@ -165,6 +167,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		IsBeacon:       ic.IsBeacon,
 		BeaconInterval: ic.BeaconInterval,
 		BeaconJitter:   ic.BeaconJitter,
+		Name:           ic.Name,
 
 		GOOS:               ic.GOOS,
 		GOARCH:             ic.GOARCH,
@@ -327,7 +330,7 @@ func (t *EncoderAsset) ToProtobuf() *commonpb.File {
 const defaultTemplateName = "sliver"
 
 // ImplantConfigFromProtobuf - Create a native config struct from Protobuf
-func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *ImplantConfig) {
+func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig {
 	cfg := &ImplantConfig{}
 
 	cfg.IsBeacon = pbConfig.IsBeacon
@@ -393,12 +396,12 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *Impla
 
 	// Copy C2
 	cfg.C2 = copyC2List(pbConfig.C2)
-	cfg.MTLSc2Enabled = isC2Enabled([]string{"mtls"}, cfg.C2)
-	cfg.WGc2Enabled = isC2Enabled([]string{"wg"}, cfg.C2)
-	cfg.HTTPc2Enabled = isC2Enabled([]string{"http", "https"}, cfg.C2)
-	cfg.DNSc2Enabled = isC2Enabled([]string{"dns"}, cfg.C2)
-	cfg.NamePipec2Enabled = isC2Enabled([]string{"namedpipe"}, cfg.C2)
-	cfg.TCPPivotc2Enabled = isC2Enabled([]string{"tcppivot"}, cfg.C2)
+	cfg.MTLSc2Enabled = IsC2Enabled([]string{"mtls"}, pbConfig.C2)
+	cfg.WGc2Enabled = IsC2Enabled([]string{"wg"}, pbConfig.C2)
+	cfg.HTTPc2Enabled = IsC2Enabled([]string{"http", "https"}, pbConfig.C2)
+	cfg.DNSc2Enabled = IsC2Enabled([]string{"dns"}, pbConfig.C2)
+	cfg.NamePipec2Enabled = IsC2Enabled([]string{"namedpipe"}, pbConfig.C2)
+	cfg.TCPPivotc2Enabled = IsC2Enabled([]string{"tcppivot"}, pbConfig.C2)
 
 	if pbConfig.FileName != "" {
 		cfg.FileName = path.Base(pbConfig.FileName)
@@ -410,7 +413,8 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *Impla
 	} else {
 		name = pbConfig.Name
 	}
-	return name, cfg
+	cfg.Name = name
+	return cfg
 }
 
 func copyC2List(src []*clientpb.ImplantC2) []ImplantC2 {
@@ -430,7 +434,7 @@ func copyC2List(src []*clientpb.ImplantC2) []ImplantC2 {
 	return c2s
 }
 
-func isC2Enabled(schemes []string, c2s []ImplantC2) bool {
+func IsC2Enabled(schemes []string, c2s []*clientpb.ImplantC2) bool {
 	for _, c2 := range c2s {
 		c2URL, err := url.Parse(c2.URL)
 		if err != nil {

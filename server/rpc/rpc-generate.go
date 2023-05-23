@@ -37,6 +37,7 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
@@ -66,6 +67,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	}
 
 	otpSecret, _ := cryptography.TOTPServerSecret()
+
 	config, err := generate.GenerateConfig(req.Config, true)
 	if err != nil {
 		return nil, err
@@ -199,7 +201,7 @@ func (rpc *Server) ImplantProfiles(ctx context.Context, _ *commonpb.Empty) (*cli
 
 // SaveImplantProfile - Save a new profile
 func (rpc *Server) SaveImplantProfile(ctx context.Context, profile *clientpb.ImplantProfile) (*clientpb.ImplantProfile, error) {
-	_, config := generate.ImplantConfigFromProtobuf(profile.Config)
+	config := models.ImplantConfigFromProtobuf(profile.Config)
 	profile.Name = filepath.Base(profile.Name)
 	if 0 < len(profile.Name) && profile.Name != "." {
 		rpcLog.Infof("Saving new profile with name %#v", profile.Name)
@@ -276,9 +278,9 @@ func (rpc *Server) GetCompiler(ctx context.Context, _ *commonpb.Empty) (*clientp
 // Generate - Generate a new implant
 func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalGenerateReq) (*clientpb.ExternalImplantConfig, error) {
 	var err error
-	name, config := generate.ImplantConfigFromProtobuf(req.Config)
-	if name == "" {
-		name, err = codenames.GetCodename()
+	config := req.Config
+	if config.Name == "" {
+		config.Name, err = codenames.GetCodename()
 		if err != nil {
 			return nil, err
 		}
@@ -286,14 +288,14 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalG
 	if config == nil {
 		return nil, errors.New("invalid implant config")
 	}
-	externalConfig, err := generate.SliverExternal(name, config)
+	externalConfig, err := generate.SliverExternal(config)
 	if err != nil {
 		return nil, err
 	}
 
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.ExternalBuildEvent,
-		Data:      []byte(fmt.Sprintf("%s:%s", req.BuilderName, config.ID.String())),
+		Data:      []byte(fmt.Sprintf("%s:%s", req.BuilderName, config.ID)),
 	})
 
 	return externalConfig, err
@@ -333,7 +335,7 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 	rpcLog.Infof("Saving external build '%s' from %s", req.Name, tmpFile.Name())
 
 	implantConfig.FileName = req.File.Name
-	generate.ImplantConfigSave(implantConfig)
+	generate.ImplantConfigSave(implantConfig.ToProtobuf())
 	err = generate.ImplantBuildSave(req.Name, implantConfig, tmpFile.Name())
 	if err != nil {
 		rpcLog.Errorf("Failed to save external build: %s", err)
