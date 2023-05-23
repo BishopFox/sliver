@@ -256,6 +256,7 @@ message Job {
   uint32 Port = 5;
 
   repeated string Domains = 6;
+  string ProfileName = 7;
 }
 
 
@@ -412,6 +413,7 @@ message StagerListenerReq {
   bytes Cert = 5;
   bytes Key = 6;
   bool ACME = 7;
+  string ProfileName = 8;
 }
 
 message StagerListener {

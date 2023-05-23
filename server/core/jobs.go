@@ -44,6 +44,7 @@ type Job struct {
 	Domains      []string
 	JobCtrl      chan bool
 	PersistentID string
+	ProfileName  string
 }
 
 // ToProtobuf - Get the protobuf version of the object
@@ -55,6 +56,7 @@ func (j *Job) ToProtobuf() *clientpb.Job {
 		Protocol:    j.Protocol,
 		Port:        uint32(j.Port),
 		Domains:     j.Domains,
+		ProfileName: j.ProfileName,
 	}
 }
 
