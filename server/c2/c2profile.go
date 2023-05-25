@@ -51,7 +51,6 @@ func SetupDefaultC2Profiles() {
 		os.Exit(-1)
 	}
 
-	fmt.Println(config)
 	if config.Name == "" {
 		defaultConfig := configs.GenerateDefaultHTTPC2Config()
 		httpC2ConfigModel := models.HTTPC2ConfigFromProtobuf(defaultConfig)

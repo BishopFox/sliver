@@ -657,8 +657,6 @@ func renderMacOSVer(implantConfig *clientpb.HTTPC2ImplantConfig) string {
 func GenerateConfig(implantConfig *clientpb.ImplantConfig, save bool) (*clientpb.ImplantConfig, error) {
 	var err error
 
-	config := &clientpb.ImplantConfig{}
-
 	// Cert PEM encoded certificates
 	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.MtlsServerCA)
 	sliverCert, sliverKey, err := certs.MtlsC2ImplantGenerateECCCertificate(implantConfig.Name)
@@ -673,23 +671,23 @@ func GenerateConfig(implantConfig *clientpb.ImplantConfig, save bool) (*clientpb
 	}
 	serverKeyPair := cryptography.ECCServerKeyPair()
 	// digest := sha256.Sum256((*implantKeyPair.Public)[:])
-	config.ECCPublicKey = implantKeyPair.PublicBase64()
+	implantConfig.ECCPublicKey = implantKeyPair.PublicBase64()
 	// config.ECCPublicKeyDigest = hex.EncodeToString(digest[:])
-	config.ECCPrivateKey = implantKeyPair.PrivateBase64()
-	config.ECCPublicKeySignature = cryptography.MinisignServerSign(implantKeyPair.Public[:])
-	config.ECCServerPublicKey = serverKeyPair.PublicBase64()
-	config.MinisignServerPublicKey = cryptography.MinisignServerPublicKey()
+	implantConfig.ECCPrivateKey = implantKeyPair.PrivateBase64()
+	implantConfig.ECCPublicKeySignature = cryptography.MinisignServerSign(implantKeyPair.Public[:])
+	implantConfig.ECCServerPublicKey = serverKeyPair.PublicBase64()
+	implantConfig.MinisignServerPublicKey = cryptography.MinisignServerPublicKey()
 
 	// MTLS keys
-	if models.IsC2Enabled([]string{"mtls"}, config.C2) {
-		config.MtlsCACert = string(serverCACert)
-		config.MtlsCert = string(sliverCert)
-		config.MtlsKey = string(sliverKey)
+	if models.IsC2Enabled([]string{"mtls"}, implantConfig.C2) {
+		implantConfig.MtlsCACert = string(serverCACert)
+		implantConfig.MtlsCert = string(sliverCert)
+		implantConfig.MtlsKey = string(sliverKey)
 	}
 
 	// Generate wg Keys as needed
-	if models.IsC2Enabled([]string{"wg"}, config.C2) {
-		implantPrivKey, _, err := certs.ImplantGenerateWGKeys(config.WGPeerTunIP)
+	if models.IsC2Enabled([]string{"wg"}, implantConfig.C2) {
+		implantPrivKey, _, err := certs.ImplantGenerateWGKeys(implantConfig.WGPeerTunIP)
 		if err != nil {
 			return nil, err
 		}
@@ -697,16 +695,16 @@ func GenerateConfig(implantConfig *clientpb.ImplantConfig, save bool) (*clientpb
 		if err != nil {
 			return nil, fmt.Errorf("failed to embed implant wg keys: %s", err)
 		}
-		config.WGImplantPrivKey = implantPrivKey
-		config.WGServerPubKey = serverPubKey
+		implantConfig.WGImplantPrivKey = implantPrivKey
+		implantConfig.WGServerPubKey = serverPubKey
 	}
 
-	err = ImplantConfigSave(config)
+	err = ImplantConfigSave(implantConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	return config, nil
+	return implantConfig, nil
 }
 
 // Platform specific ENV VARS take precedence over generic

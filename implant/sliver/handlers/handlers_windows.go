@@ -112,7 +112,7 @@ var (
 		sliverpb.MsgDeregisterWasmExtensionReq: deregisterWasmExtensionHandler,
 		sliverpb.MsgListWasmExtensionsReq:      listWasmExtensionsHandler,
 
-		// {{if .Config.WGc2Enabled}}
+		// {{if .Config.IncludeWG}}
 		// Wireguard specific
 		sliverpb.MsgWGStartPortFwdReq:   wgStartPortfwdHandler,
 		sliverpb.MsgWGStopPortFwdReq:    wgStopPortfwdHandler,
@@ -794,11 +794,11 @@ func listExtensionsHandler(data []byte, resp RPCResponse) {
 }
 
 // Stub since Windows doesn't support UID
-func getUid(fileInfo os.FileInfo) (string) {
+func getUid(fileInfo os.FileInfo) string {
 	return ""
 }
 
 // Stub since Windows doesn't support GID
-func getGid(fileInfo os.FileInfo) (string) {
-    return ""
+func getGid(fileInfo os.FileInfo) string {
+	return ""
 }

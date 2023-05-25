@@ -18,7 +18,7 @@ package httpclient
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// {{if .Config.HTTPc2Enabled}}
+// {{if .Config.IncludeHTTP}}
 
 import (
 	"bytes"
@@ -705,4 +705,4 @@ func httpsClient(address string, opts *HTTPOptions) *SliverHTTPClient {
 	return client
 }
 
-// {{end}} -HTTPc2Enabled
+// {{end}} -IncludeHTTP

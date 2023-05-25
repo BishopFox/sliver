@@ -114,14 +114,14 @@ type ImplantConfig struct {
 
 	C2 []ImplantC2
 
-	MTLSc2Enabled bool
-	WGc2Enabled   bool
-	HTTPc2Enabled bool
-	DNSc2Enabled  bool
+	IncludeMTLS bool
+	IncludeWG   bool
+	IncludeHTTP bool
+	IncludeDNS  bool
 
-	CanaryDomains     []CanaryDomain
-	NamePipec2Enabled bool
-	TCPPivotc2Enabled bool
+	CanaryDomains   []CanaryDomain
+	IncludeNamePipe bool
+	IncludeTCP      bool
 
 	// Limits
 	LimitDomainJoined bool
@@ -396,12 +396,12 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 
 	// Copy C2
 	cfg.C2 = copyC2List(pbConfig.C2)
-	cfg.MTLSc2Enabled = IsC2Enabled([]string{"mtls"}, pbConfig.C2)
-	cfg.WGc2Enabled = IsC2Enabled([]string{"wg"}, pbConfig.C2)
-	cfg.HTTPc2Enabled = IsC2Enabled([]string{"http", "https"}, pbConfig.C2)
-	cfg.DNSc2Enabled = IsC2Enabled([]string{"dns"}, pbConfig.C2)
-	cfg.NamePipec2Enabled = IsC2Enabled([]string{"namedpipe"}, pbConfig.C2)
-	cfg.TCPPivotc2Enabled = IsC2Enabled([]string{"tcppivot"}, pbConfig.C2)
+	cfg.IncludeMTLS = IsC2Enabled([]string{"mtls"}, pbConfig.C2)
+	cfg.IncludeWG = IsC2Enabled([]string{"wg"}, pbConfig.C2)
+	cfg.IncludeHTTP = IsC2Enabled([]string{"http", "https"}, pbConfig.C2)
+	cfg.IncludeDNS = IsC2Enabled([]string{"dns"}, pbConfig.C2)
+	cfg.IncludeNamePipe = IsC2Enabled([]string{"namedpipe"}, pbConfig.C2)
+	cfg.IncludeTCP = IsC2Enabled([]string{"tcppivot"}, pbConfig.C2)
 
 	if pbConfig.FileName != "" {
 		cfg.FileName = path.Base(pbConfig.FileName)
