@@ -137,6 +137,8 @@ message ImplantConfig {
   bool IncludeHTTP = 13;
   bool IncludeWG = 14;
   bool IncludeDNS = 15;
+  bool IncludeNamePipe = 16;
+  bool IncludeTCP = 17;
 
   string MtlsCACert = 20;
   string MtlsCert = 21;
