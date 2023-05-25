@@ -411,6 +411,7 @@ func GenerateDefaultHTTPC2Config() *clientpb.HTTPC2Config {
 	defaultConfig := clientpb.HTTPC2Config{
 		ServerConfig:  &serverConfig,
 		ImplantConfig: &implantConfig,
+		Name:          "default",
 	}
 
 	return &defaultConfig

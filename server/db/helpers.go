@@ -32,6 +32,7 @@ import (
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var (
@@ -193,6 +194,31 @@ func loadC2s(config *models.ImplantConfig) error {
 		return err
 	}
 	config.C2 = c2s
+	return nil
+}
+
+func LoadHTTPC2ConfigByName(name string) (*models.HttpC2Config, error) {
+	if len(name) < 1 {
+		return nil, ErrRecordNotFound
+	}
+	c2Config := models.HttpC2Config{}
+	err := Session().Where(&models.HttpC2Config{
+		Name: name,
+	}).Find(&c2Config).Error
+	if err != nil {
+		return nil, err
+	}
+	return &c2Config, nil
+}
+
+func HTTPC2ConfigSave(httpC2Config *models.HttpC2Config) error {
+	dbSession := Session()
+	result := dbSession.Clauses(clause.OnConflict{
+		UpdateAll: true,
+	}).Create(&httpC2Config)
+	if result.Error != nil {
+		return result.Error
+	}
 	return nil
 }
 

@@ -127,6 +127,7 @@ var rootCmd = &cobra.Command{
 		cryptography.ECCServerKeyPair()
 		cryptography.TOTPServerSecret()
 		cryptography.MinisignServerPrivateKey()
+		c2.SetupDefaultC2Profiles()
 
 		serverConfig := configs.GetServerConfig()
 		c2.StartPersistentJobs(serverConfig)

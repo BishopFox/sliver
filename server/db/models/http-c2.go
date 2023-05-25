@@ -268,3 +268,86 @@ func (h *HttpC2PathSegment) ToProtobuf() *clientpb.HTTPC2PathSegment {
 		Value:       h.Value,
 	}
 }
+
+// HTTPC2ConfigFromProtobuf - Create a native config struct from Protobuf
+func HTTPC2ConfigFromProtobuf(pbHttpC2Config *clientpb.HTTPC2Config) *HttpC2Config {
+	cfg := &HttpC2Config{}
+
+	// Server Config
+	serverHeaders := []HttpC2Header{}
+	for _, header := range pbHttpC2Config.ServerConfig.Headers {
+		serverHeaders = append(serverHeaders, HttpC2Header{
+			Method:      header.Method,
+			Name:        header.Name,
+			Value:       header.Value,
+			Probability: header.Probability,
+		})
+	}
+
+	cookies := []HttpC2Cookie{}
+	for _, cookie := range pbHttpC2Config.ServerConfig.Cookies {
+		cookies = append(cookies, HttpC2Cookie{
+			Name: cookie.Name,
+		})
+	}
+
+	cfg.ServerConfig = HttpC2ServerConfig{
+		RandomVersionHeaders: cfg.ServerConfig.RandomVersionHeaders,
+		Headers:              serverHeaders,
+		Cookies:              cookies,
+	}
+
+	// Implant Config
+	params := []HttpC2URLParameter{}
+	for _, param := range pbHttpC2Config.ImplantConfig.ExtraURLParameters {
+		params = append(params, HttpC2URLParameter{
+			Method:      param.Method,
+			Name:        param.Name,
+			Value:       param.Value,
+			Probability: param.Probability,
+		})
+	}
+
+	implantHeaders := []HttpC2Header{}
+	for _, header := range pbHttpC2Config.ImplantConfig.Headers {
+		implantHeaders = append(implantHeaders, HttpC2Header{
+			Method:      header.Method,
+			Name:        header.Name,
+			Value:       header.Value,
+			Probability: header.Probability,
+		})
+	}
+
+	pathSegments := []HttpC2PathSegment{}
+	for _, pathSegment := range pbHttpC2Config.ImplantConfig.PathSegments {
+		pathSegments = append(pathSegments, HttpC2PathSegment{
+			IsFile:      pathSegment.IsFile,
+			SegmentType: int32(pathSegment.SegmentType),
+			Value:       pathSegment.Value,
+		})
+	}
+
+	cfg.ImplantConfig = HttpC2ImplantConfig{
+		UserAgent:                 cfg.ImplantConfig.UserAgent,
+		ChromeBaseVersion:         cfg.ImplantConfig.ChromeBaseVersion,
+		MacOSVersion:              cfg.ImplantConfig.MacOSVersion,
+		NonceQueryArgChars:        cfg.ImplantConfig.NonceQueryArgChars,
+		ExtraURLParameters:        params,
+		Headers:                   implantHeaders,
+		MaxFiles:                  cfg.ImplantConfig.MaxFiles,
+		MinFiles:                  cfg.ImplantConfig.MinFiles,
+		MaxPaths:                  cfg.ImplantConfig.MaxPaths,
+		MinPaths:                  cfg.ImplantConfig.MinPaths,
+		StagerFileExtension:       cfg.ImplantConfig.StagerFileExtension,
+		PollFileExtension:         cfg.ImplantConfig.PollFileExtension,
+		StartSessionFileExtension: cfg.ImplantConfig.StartSessionFileExtension,
+		SessionFileExtension:      cfg.ImplantConfig.SessionFileExtension,
+		CloseFileExtension:        cfg.ImplantConfig.CloseFileExtension,
+		PathSegments:              pathSegments,
+	}
+
+	// C2 Config
+	cfg.Name = pbHttpC2Config.Name
+
+	return cfg
+}
