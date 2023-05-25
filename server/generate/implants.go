@@ -60,10 +60,11 @@ func getBuildsDir() (string, error) {
 
 // ImplantConfigSave - Save only the config to the database
 func ImplantConfigSave(config *clientpb.ImplantConfig) error {
+	implantConfig := models.ImplantConfigFromProtobuf(config)
 	dbSession := db.Session()
 	result := dbSession.Clauses(clause.OnConflict{
 		UpdateAll: true,
-	}).Create(&config)
+	}).Create(&implantConfig)
 	if result.Error != nil {
 		return result.Error
 	}
