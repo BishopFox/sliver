@@ -61,7 +61,7 @@ import (
 
 	// {{end}}
 
-	// {{if not .Config.IncludeNamePipe}}
+	// {{if .Config.IncludeNamePipe}}
 	"io"
 	"net/url"
 	"sync"

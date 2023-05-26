@@ -657,6 +657,14 @@ func renderMacOSVer(implantConfig *clientpb.HTTPC2ImplantConfig) string {
 func GenerateConfig(implantConfig *clientpb.ImplantConfig, save bool) (*clientpb.ImplantConfig, error) {
 	var err error
 
+	// configure c2 channels to enable
+	implantConfig.IncludeMTLS = models.IsC2Enabled([]string{"mtls"}, implantConfig.C2)
+	implantConfig.IncludeWG = models.IsC2Enabled([]string{"wg"}, implantConfig.C2)
+	implantConfig.IncludeHTTP = models.IsC2Enabled([]string{"http", "https"}, implantConfig.C2)
+	implantConfig.IncludeDNS = models.IsC2Enabled([]string{"dns"}, implantConfig.C2)
+	implantConfig.IncludeNamePipe = models.IsC2Enabled([]string{"namedpipe"}, implantConfig.C2)
+	implantConfig.IncludeTCP = models.IsC2Enabled([]string{"tcppivot"}, implantConfig.C2)
+
 	// Cert PEM encoded certificates
 	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.MtlsServerCA)
 	sliverCert, sliverKey, err := certs.MtlsC2ImplantGenerateECCCertificate(implantConfig.Name)
