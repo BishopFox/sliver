@@ -584,12 +584,23 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 				return s.refusedErrorResp(req)
 			}
 
-			for _, domain := range domains {
-				cname := &dns.CNAME{
-					Hdr:    dns.RR_Header{Name: q.Name, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: s.TTL},
-					Target: domain,
+			if len(domains) > 0 {
+				for _, domain := range domains {
+					cname := &dns.CNAME{
+						Hdr:    dns.RR_Header{Name: q.Name, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: s.TTL},
+						Target: domain,
+					}
+					resp.Answer = append(resp.Answer, cname)
 				}
-				resp.Answer = append(resp.Answer, cname)
+
+				// Add ipv6 address for one of the cnames
+				c_domain := string(domains[0])
+				ipv6 := make([]byte, 16)
+				a_record := &dns.AAAA{
+					Hdr:  dns.RR_Header{Name: c_domain, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: s.TTL},
+					AAAA: ipv6,
+				}
+				resp.Answer = append(resp.Answer, a_record)
 			}
 		case dns.TypeTXT:
 			respTxt := string(implantBase64.Encode(respData))
@@ -645,13 +656,25 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 				return s.refusedErrorResp(req)
 			}
 
-			for _, domain := range domains {
-				cname := &dns.CNAME{
-					Hdr:    dns.RR_Header{Name: q.Name, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: s.TTL},
-					Target: domain,
+			if len(domains) > 0 {
+				for _, domain := range domains {
+					cname := &dns.CNAME{
+						Hdr:    dns.RR_Header{Name: q.Name, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: s.TTL},
+						Target: domain,
+					}
+					resp.Answer = append(resp.Answer, cname)
 				}
-				resp.Answer = append(resp.Answer, cname)
+
+				// Add ipv6 address for one of the cnames
+				c_domain := string(domains[0])
+				ipv6 := make([]byte, 16)
+				a_record := &dns.AAAA{
+					Hdr:  dns.RR_Header{Name: c_domain, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: s.TTL},
+					AAAA: ipv6,
+				}
+				resp.Answer = append(resp.Answer, a_record)
 			}
+
 		case dns.TypeTXT:
 			respTxt := string(implantBase64.Encode(respData))
 			txts := []string{}
@@ -733,13 +756,25 @@ func (s *SliverDNSServer) handleDataToImplant(domain string, msg *dnspb.DNSMessa
 				return s.refusedErrorResp(req)
 			}
 
-			for _, domain := range domains {
-				cname := &dns.CNAME{
-					Hdr:    dns.RR_Header{Name: q.Name, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: s.TTL},
-					Target: domain,
+			if len(domains) > 0 {
+				for _, domain := range domains {
+					cname := &dns.CNAME{
+						Hdr:    dns.RR_Header{Name: q.Name, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: s.TTL},
+						Target: domain,
+					}
+					resp.Answer = append(resp.Answer, cname)
 				}
-				resp.Answer = append(resp.Answer, cname)
+
+				// Add ipv6 address for one of the cnames
+				c_domain := string(domains[0])
+				ipv6 := make([]byte, 16)
+				a_record := &dns.AAAA{
+					Hdr:  dns.RR_Header{Name: c_domain, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: s.TTL},
+					AAAA: ipv6,
+				}
+				resp.Answer = append(resp.Answer, a_record)
 			}
+
 		case dns.TypeTXT:
 			respTxt := string(implantBase64.Encode(respData))
 			txts := []string{}

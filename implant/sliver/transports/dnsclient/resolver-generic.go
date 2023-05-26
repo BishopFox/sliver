@@ -51,6 +51,7 @@ func NewGenericResolver(address string, port string, retryWait time.Duration, re
 		resolver: &dns.Client{
 			ReadTimeout:  timeout,
 			WriteTimeout: timeout,
+			UDPSize:      65000,
 		},
 		base64: encoders.Base64{},
 		parent: parent,
