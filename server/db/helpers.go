@@ -208,6 +208,79 @@ func LoadHTTPC2ConfigByName(name string) (*models.HttpC2Config, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// load implant configuration
+	c2ImplantConfig := models.HttpC2ImplantConfig{}
+	err = Session().Where(&models.HttpC2ImplantConfig{
+		HttpC2ConfigID: c2Config.ID,
+	}).Find(&c2ImplantConfig).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// load url parameters
+	c2UrlParameters := []models.HttpC2URLParameter{}
+	err = Session().Where(&models.HttpC2URLParameter{
+		HttpC2ImplantConfigID: c2ImplantConfig.ID,
+	}).Find(&c2UrlParameters).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// load headers
+	c2ImplantHeaders := []models.HttpC2Header{}
+	err = Session().Where(&models.HttpC2Header{
+		HttpC2ImplantConfigID: c2ImplantConfig.ID,
+	}).Find(&c2ImplantHeaders).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// load path segments
+	c2PathSegments := []models.HttpC2PathSegment{}
+	err = Session().Where(&models.HttpC2PathSegment{
+		HttpC2ImplantConfigID: c2ImplantConfig.ID,
+	}).Find(&c2PathSegments).Error
+	if err != nil {
+		return nil, err
+	}
+	c2ImplantConfig.ExtraURLParameters = c2UrlParameters
+	c2ImplantConfig.Headers = c2ImplantHeaders
+	c2ImplantConfig.PathSegments = c2PathSegments
+
+	// load server configuration
+	c2ServerConfig := models.HttpC2ServerConfig{}
+	err = Session().Where(&models.HttpC2ServerConfig{
+		HttpC2ConfigID: c2Config.ID,
+	}).Find(&c2ServerConfig).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// load headers
+	c2ServerHeaders := []models.HttpC2Header{}
+	err = Session().Where(&models.HttpC2Header{
+		HttpC2ServerConfigID: c2ServerConfig.ID,
+	}).Find(&c2ServerHeaders).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// load cookies
+	c2ServerCookies := []models.HttpC2Cookie{}
+	err = Session().Where(&models.HttpC2Cookie{
+		HttpC2ServerConfigID: c2ServerConfig.ID,
+	}).Find(&c2ServerCookies).Error
+	if err != nil {
+		return nil, err
+	}
+
+	c2ServerConfig.Headers = c2ServerHeaders
+	c2ServerConfig.Cookies = c2ServerCookies
+
+	c2Config.ServerConfig = c2ServerConfig
+	c2Config.ImplantConfig = c2ImplantConfig
+
 	return &c2Config, nil
 }
 

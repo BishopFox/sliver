@@ -292,7 +292,7 @@ func HTTPC2ConfigFromProtobuf(pbHttpC2Config *clientpb.HTTPC2Config) *HttpC2Conf
 	}
 
 	cfg.ServerConfig = HttpC2ServerConfig{
-		RandomVersionHeaders: cfg.ServerConfig.RandomVersionHeaders,
+		RandomVersionHeaders: pbHttpC2Config.ServerConfig.RandomVersionHeaders,
 		Headers:              serverHeaders,
 		Cookies:              cookies,
 	}
@@ -328,21 +328,21 @@ func HTTPC2ConfigFromProtobuf(pbHttpC2Config *clientpb.HTTPC2Config) *HttpC2Conf
 	}
 
 	cfg.ImplantConfig = HttpC2ImplantConfig{
-		UserAgent:                 cfg.ImplantConfig.UserAgent,
-		ChromeBaseVersion:         cfg.ImplantConfig.ChromeBaseVersion,
-		MacOSVersion:              cfg.ImplantConfig.MacOSVersion,
-		NonceQueryArgChars:        cfg.ImplantConfig.NonceQueryArgChars,
+		UserAgent:                 pbHttpC2Config.ImplantConfig.UserAgent,
+		ChromeBaseVersion:         pbHttpC2Config.ImplantConfig.ChromeBaseVersion,
+		MacOSVersion:              pbHttpC2Config.ImplantConfig.MacOSVersion,
+		NonceQueryArgChars:        pbHttpC2Config.ImplantConfig.NonceQueryArgChars,
 		ExtraURLParameters:        params,
 		Headers:                   implantHeaders,
-		MaxFiles:                  cfg.ImplantConfig.MaxFiles,
-		MinFiles:                  cfg.ImplantConfig.MinFiles,
-		MaxPaths:                  cfg.ImplantConfig.MaxPaths,
-		MinPaths:                  cfg.ImplantConfig.MinPaths,
-		StagerFileExtension:       cfg.ImplantConfig.StagerFileExtension,
-		PollFileExtension:         cfg.ImplantConfig.PollFileExtension,
-		StartSessionFileExtension: cfg.ImplantConfig.StartSessionFileExtension,
-		SessionFileExtension:      cfg.ImplantConfig.SessionFileExtension,
-		CloseFileExtension:        cfg.ImplantConfig.CloseFileExtension,
+		MaxFiles:                  pbHttpC2Config.ImplantConfig.MaxFiles,
+		MinFiles:                  pbHttpC2Config.ImplantConfig.MinFiles,
+		MaxPaths:                  pbHttpC2Config.ImplantConfig.MaxPaths,
+		MinPaths:                  pbHttpC2Config.ImplantConfig.MinPaths,
+		StagerFileExtension:       pbHttpC2Config.ImplantConfig.StagerFileExtension,
+		PollFileExtension:         pbHttpC2Config.ImplantConfig.PollFileExtension,
+		StartSessionFileExtension: pbHttpC2Config.ImplantConfig.StartSessionFileExtension,
+		SessionFileExtension:      pbHttpC2Config.ImplantConfig.SessionFileExtension,
+		CloseFileExtension:        pbHttpC2Config.ImplantConfig.CloseFileExtension,
 		PathSegments:              pathSegments,
 	}
 

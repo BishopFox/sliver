@@ -38,7 +38,7 @@ package c2
 
 // func TestStartSessionHandler(t *testing.T) {
 
-// 	implantTransports.SetNonceQueryArgs("abcdedfghijklmnopqrstuvwxyz")
+// 	implantTransports.SetNonceQueryArgChars("abcdedfghijklmnopqrstuvwxyz")
 
 // 	server, err := StartHTTPListener(&HTTPServerConfig{
 // 		Addr:       "127.0.0.1:8888",
@@ -83,7 +83,7 @@ package c2
 
 // func TestGetOTPFromURL(t *testing.T) {
 
-// 	implantTransports.SetNonceQueryArgs("abcdedfghijklmnopqrstuvwxyz")
+// 	implantTransports.SetNonceQueryArgChars("abcdedfghijklmnopqrstuvwxyz")
 
 // 	client := implantTransports.SliverHTTPClient{}
 // 	for i := 0; i < 100; i++ {
@@ -106,7 +106,7 @@ package c2
 
 // func TestGetNonceFromURL(t *testing.T) {
 
-// 	implantTransports.SetNonceQueryArgs("abcdedfghijklmnopqrstuvwxyz")
+// 	implantTransports.SetNonceQueryArgChars("abcdedfghijklmnopqrstuvwxyz")
 
 // 	client := implantTransports.SliverHTTPClient{}
 // 	for i := 0; i < 100; i++ {
@@ -133,7 +133,7 @@ package c2
 // 	for j := 0; j < 100; j++ {
 
 // 		queryArgs := randomArgs(1)
-// 		implantTransports.SetNonceQueryArgs(queryArgs)
+// 		implantTransports.SetNonceQueryArgChars(queryArgs)
 // 		t.Logf("Using query args: %s", queryArgs)
 
 // 		client := implantTransports.SliverHTTPClient{}

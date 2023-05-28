@@ -48,9 +48,9 @@ type HTTPC2Config struct {
 func (h *HTTPC2Config) RandomImplantConfig() *HTTPC2ImplantConfig {
 	return &HTTPC2ImplantConfig{
 
-		NonceQueryArgs: h.ImplantConfig.NonceQueryArgs,
-		URLParameters:  h.ImplantConfig.URLParameters,
-		Headers:        h.ImplantConfig.Headers,
+		NonceQueryArgChars: h.ImplantConfig.NonceQueryArgChars,
+		URLParameters:      h.ImplantConfig.URLParameters,
+		Headers:            h.ImplantConfig.Headers,
 
 		PollFileExt: h.ImplantConfig.PollFileExt,
 		PollFiles:   h.ImplantConfig.RandomPollFiles(),
@@ -151,9 +151,9 @@ type HTTPC2ImplantConfig struct {
 	ChromeBaseVersion int    `json:"chrome_base_version"`
 	MacOSVersion      string `json:"macos_version"`
 
-	NonceQueryArgs string                 `json:"nonce_query_args"`
-	URLParameters  []NameValueProbability `json:"url_parameters"`
-	Headers        []NameValueProbability `json:"headers"`
+	NonceQueryArgChars string                 `json:"nonce_query_args"`
+	URLParameters      []NameValueProbability `json:"url_parameters"`
+	Headers            []NameValueProbability `json:"headers"`
 
 	MaxFiles int `json:"max_files"`
 	MinFiles int `json:"min_files"`
