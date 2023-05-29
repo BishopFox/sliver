@@ -593,11 +593,12 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 					resp.Answer = append(resp.Answer, cname)
 				}
 
-				// Add ipv6 address for one of the cnames
-				c_domain := string(domains[0])
+				// Add ipv6 address or resolvers will not forward
+				//c_domain := string(domains[0])
 				ipv6 := make([]byte, 16)
+				secureRand.Read(ipv6)
 				a_record := &dns.AAAA{
-					Hdr:  dns.RR_Header{Name: c_domain, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: s.TTL},
+					Hdr:  dns.RR_Header{Name: q.Name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: s.TTL},
 					AAAA: ipv6,
 				}
 				resp.Answer = append(resp.Answer, a_record)
@@ -665,11 +666,12 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 					resp.Answer = append(resp.Answer, cname)
 				}
 
-				// Add ipv6 address for one of the cnames
-				c_domain := string(domains[0])
+				// Add ipv6 address or resolvers will not forward
+				//c_domain := string(domains[0])
 				ipv6 := make([]byte, 16)
+				secureRand.Read(ipv6)
 				a_record := &dns.AAAA{
-					Hdr:  dns.RR_Header{Name: c_domain, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: s.TTL},
+					Hdr:  dns.RR_Header{Name: q.Name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: s.TTL},
 					AAAA: ipv6,
 				}
 				resp.Answer = append(resp.Answer, a_record)
@@ -765,11 +767,12 @@ func (s *SliverDNSServer) handleDataToImplant(domain string, msg *dnspb.DNSMessa
 					resp.Answer = append(resp.Answer, cname)
 				}
 
-				// Add ipv6 address for one of the cnames
-				c_domain := string(domains[0])
+				// Add ipv6 address or resolvers will not forward
+				//c_domain := string(domains[0])
 				ipv6 := make([]byte, 16)
+				secureRand.Read(ipv6)
 				a_record := &dns.AAAA{
-					Hdr:  dns.RR_Header{Name: c_domain, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: s.TTL},
+					Hdr:  dns.RR_Header{Name: q.Name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: s.TTL},
 					AAAA: ipv6,
 				}
 				resp.Answer = append(resp.Answer, a_record)
