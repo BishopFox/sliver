@@ -578,7 +578,7 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 			respData, _ := proto.Marshal(initMsg)
 
 			// Use CNAMEs instead of TXT
-			domains, err := s.SplitBuffer2(respData, domain)
+			domains, err := s.SplitBuffer(respData, domain)
 			if err != nil {
 				dnsLog.Errorf("[session init] failed splitting/encoding response: %s", err)
 				return s.refusedErrorResp(req)
@@ -651,7 +651,7 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 		switch q.Qtype {
 		case dns.TypeAAAA:
 			// Use CNAMEs instead of TXT
-			domains, err := s.SplitBuffer2(respData, domain)
+			domains, err := s.SplitBuffer(respData, domain)
 			if err != nil {
 				dnsLog.Errorf("[session init] failed splitting/encoding response: %s", err)
 				return s.refusedErrorResp(req)
@@ -752,23 +752,25 @@ func (s *SliverDNSServer) handleDataToImplant(domain string, msg *dnspb.DNSMessa
 		case dns.TypeAAAA:
 
 			// Use CNAMEs instead of TXT
-			domains, err := s.SplitBuffer2(respData, domain)
+			domains, err := s.SplitBuffer(respData, domain)
 			if err != nil {
 				dnsLog.Errorf("[session init] failed splitting/encoding response: %s", err)
 				return s.refusedErrorResp(req)
 			}
 
 			if len(domains) > 0 {
+				dname := q.Name
 				for _, domain := range domains {
 					cname := &dns.CNAME{
-						Hdr:    dns.RR_Header{Name: q.Name, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: s.TTL},
+						Hdr:    dns.RR_Header{Name: dname, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: s.TTL},
 						Target: domain,
 					}
 					resp.Answer = append(resp.Answer, cname)
+					dname = domain
 				}
 
 				// Add ipv6 address or resolvers will not forward
-				c_domain := string(domains[0])
+				c_domain := string(dname)
 				ipv6 := make([]byte, 16)
 				secureRand.Read(ipv6)
 				a_record := &dns.AAAA{
@@ -972,68 +974,6 @@ func (s *SliverDNSServer) SplitBuffer(data []byte, parent string) ([]string, err
 		subdata = append(subdata, domain)
 		start = stop
 	}
-
-	return subdata, nil
-}
-
-// Ported from implant/sliver/transports/dnsclient/dnsclient.go
-func (s *SliverDNSServer) SplitBuffer2(data []byte, parent string) ([]string, error) {
-	subdata := []string{}
-	//start := 0
-	//stop := start
-	//lastLen := 0
-	var encoded string
-
-	parent_pre := "." + parent
-	subdataSpace := 254 - len(parent_pre) - (1 + (254-len(parent_pre))/64)
-	encoder := encoders.Base32{}
-
-	//encodedSubdata := []string{}
-
-	//for index := 0; stop < len(data); index++ {
-	// if len(data) < index {
-	// 	dnsLog.Errorf("boundary miscalculation") // We should always be able to encode more than one byte
-	// 	return nil, ErrMsgTooShort
-	// }
-	// if lastLen == 0 {
-	// 	stop += int(float64(subdataSpace)/2) - 1 // base32 overhead is about 160%
-	// } else {
-	// 	stop += (lastLen - 4) // max start uint32 overhead
-	// }
-	// if len(data) <= stop {
-	// 	stop = len(data) - 1 // make sure the loop is executed at least once
-	// }
-
-	// Sometimes adding a byte will result in +2 chars so we -1 the subdata space
-	encoded = ""
-
-	//dnsLog.Printf("[dns] encoded: %d, subdata space: %d | stop: %d, len: %d",
-	//	len(encoded), (subdataSpace - 1), stop, len(data))
-
-	//var msgPart []byte
-	//for len(encoded) < (subdataSpace-1) && stop < len(data) {
-	//	stop++
-
-	//dnsLog.Printf("[dns] shave data [%d:%d] of %d", start, stop, len(data))
-
-	//msgPart = data[start:stop]
-	encoded = string(encoder.Encode(data))
-
-	dnsLog.Printf("[dns] encoded length is %d (max: %d)", len(encoded), subdataSpace)
-
-	//}
-	//lastLen = len(msgPart) // Save the amount of data that fit for the next loop
-
-	//encodedSubdata = append(encodedSubdata, encoded)
-
-	domain, err := s.joinSubdataToParent(encoded, parent_pre, subdataSpace)
-	if err != nil {
-		dnsLog.Errorf("[dns] join subdata failed: %s", err)
-		return nil, err
-	}
-	subdata = append(subdata, domain)
-	//start = stop
-	//}
 
 	return subdata, nil
 }
