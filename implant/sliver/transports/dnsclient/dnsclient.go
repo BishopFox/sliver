@@ -567,7 +567,7 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 
 	var bytesPerTxt uint32
 	if s.noTXT {
-		bytesPerTxt = uint32(80 - len(s.parent) - (1 + (80-len(s.parent))/64))
+		bytesPerTxt = uint32(100 - len(s.parent) - (1 + (100-len(s.parent))/64))
 	} else {
 		bytesPerTxt = 182 // 189 with base64, -6 metadata, -1 margin
 	}
