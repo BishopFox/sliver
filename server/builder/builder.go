@@ -32,6 +32,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/codenames"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
@@ -100,6 +101,7 @@ func buildEvents(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) (
 
 // handleBuildEvent - Handle an individual build event
 func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, rpc rpcpb.SliverRPCClient) {
+
 	parts := strings.Split(string(event.Data), ":")
 	if len(parts) < 2 {
 		builderLog.Errorf("Invalid build event data '%s'", event.Data)
@@ -165,6 +167,14 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 	}
 	extModel := models.ImplantConfigFromProtobuf(extConfig.Config)
 
+	// retrieve http c2 implant config
+	httpC2Config, err := db.LoadHTTPC2ConfigByName("default")
+	if err != nil {
+		builderLog.Errorf("Unable to load HTTP C2 Configuration: %s", err)
+		return
+	}
+	pbC2Implant := httpC2Config.ImplantConfig.ToProtobuf()
+
 	builderLog.Infof("Building %s for %s/%s (format: %s)", extConfig.Config.Name, extConfig.Config.GOOS, extConfig.Config.GOARCH, extConfig.Config.Format)
 	builderLog.Infof("    [c2] mtls:%t wg:%t http/s:%t dns:%t", extModel.IncludeMTLS, extModel.IncludeWG, extModel.IncludeHTTP, extModel.IncludeDNS)
 	builderLog.Infof("[pivots] tcp:%t named-pipe:%t", extModel.IncludeTCP, extModel.IncludeNamePipe)
@@ -179,11 +189,11 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
-		fPath, err = generate.SliverExecutable(extConfig.OTPSecret, extConfig.Config)
+		fPath, err = generate.SliverExecutable(extConfig.OTPSecret, extConfig.Config, pbC2Implant)
 	case clientpb.OutputFormat_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(extConfig.OTPSecret, extConfig.Config)
+		fPath, err = generate.SliverSharedLibrary(extConfig.OTPSecret, extConfig.Config, pbC2Implant)
 	case clientpb.OutputFormat_SHELLCODE:
-		fPath, err = generate.SliverShellcode(extConfig.OTPSecret, extConfig.Config)
+		fPath, err = generate.SliverShellcode(extConfig.OTPSecret, extConfig.Config, pbC2Implant)
 	default:
 		builderLog.Errorf("invalid output format: %s", extConfig.Config.Format)
 		rpc.BuilderTrigger(context.Background(), &clientpb.Event{

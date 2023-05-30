@@ -83,7 +83,15 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		if err != nil {
 			return nil, err
 		}
-		shellcodePath, err := generate.SliverShellcode(otpSecret, config)
+
+		// retrieve http c2 implant config
+		httpC2Config, err := db.LoadHTTPC2ConfigByName("default")
+		if err != nil {
+			return nil, err
+		}
+		pbC2Implant := httpC2Config.ImplantConfig.ToProtobuf()
+
+		shellcodePath, err := generate.SliverShellcode(otpSecret, config, pbC2Implant)
 		if err != nil {
 			return nil, err
 		}

@@ -28,6 +28,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 
 	"google.golang.org/protobuf/proto"
@@ -81,8 +82,15 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		return nil, ErrInvalidSessionID
 	}
 
+	// retrieve http c2 implant config
+	httpC2Config, err := db.LoadHTTPC2ConfigByName("default")
+	if err != nil {
+		return nil, err
+	}
+	pbC2Implant := httpC2Config.ImplantConfig.ToProtobuf()
+
 	name := path.Base(req.Config.GetName())
-	shellcode, _, err := getSliverShellcode(name)
+	shellcode, _, err = getSliverShellcode(name)
 	if err != nil {
 		req.Config.Format = clientpb.OutputFormat_SHELLCODE
 		req.Config.ObfuscateSymbols = false
@@ -91,7 +99,7 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		if err != nil {
 			return nil, err
 		}
-		shellcodePath, err := generate.SliverShellcode(otpSecret, config)
+		shellcodePath, err := generate.SliverShellcode(otpSecret, config, pbC2Implant)
 		if err != nil {
 			return nil, err
 		}

@@ -76,16 +76,23 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		return nil, errors.New("invalid implant config")
 	}
 
+	// retrieve http c2 implant config
+	httpC2Config, err := db.LoadHTTPC2ConfigByName("default")
+	if err != nil {
+		return nil, err
+	}
+	pbC2Implant := httpC2Config.ImplantConfig.ToProtobuf()
+
 	var fPath string
 	switch req.Config.Format {
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
-		fPath, err = generate.SliverExecutable(otpSecret, config)
+		fPath, err = generate.SliverExecutable(otpSecret, config, pbC2Implant)
 	case clientpb.OutputFormat_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(otpSecret, config)
+		fPath, err = generate.SliverSharedLibrary(otpSecret, config, pbC2Implant)
 	case clientpb.OutputFormat_SHELLCODE:
-		fPath, err = generate.SliverShellcode(otpSecret, config)
+		fPath, err = generate.SliverShellcode(otpSecret, config, pbC2Implant)
 	default:
 		return nil, fmt.Errorf("invalid output format: %s", req.Config.Format)
 	}

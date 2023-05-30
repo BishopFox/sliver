@@ -155,7 +155,7 @@ func GetSliversDir() string {
 // -----------------------
 
 // SliverShellcode - Generates a sliver shellcode using Donut
-func SliverShellcode(otpSecret string, config *clientpb.ImplantConfig) (string, error) {
+func SliverShellcode(otpSecret string, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	if config.GOOS != "windows" {
 		return "", fmt.Errorf("shellcode format is currently only supported on Windows")
 	}
@@ -175,7 +175,7 @@ func SliverShellcode(otpSecret string, config *clientpb.ImplantConfig) (string, 
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
-	pkgPath, err := renderSliverGoCode(config.Name, otpSecret, config, goConfig)
+	pkgPath, err := renderSliverGoCode(config.Name, otpSecret, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
 	}
@@ -214,7 +214,7 @@ func SliverShellcode(otpSecret string, config *clientpb.ImplantConfig) (string, 
 }
 
 // SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
-func SliverSharedLibrary(otpSecret string, config *clientpb.ImplantConfig) (string, error) {
+func SliverSharedLibrary(otpSecret string, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	// Compile go code
 	var cc string
 	var cxx string
@@ -246,7 +246,7 @@ func SliverSharedLibrary(otpSecret string, config *clientpb.ImplantConfig) (stri
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
-	pkgPath, err := renderSliverGoCode(config.Name, otpSecret, config, goConfig)
+	pkgPath, err := renderSliverGoCode(config.Name, otpSecret, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
 	}
@@ -287,7 +287,7 @@ func SliverSharedLibrary(otpSecret string, config *clientpb.ImplantConfig) (stri
 }
 
 // SliverExecutable - Generates a sliver executable binary
-func SliverExecutable(otpSecret string, config *clientpb.ImplantConfig) (string, error) {
+func SliverExecutable(otpSecret string, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	// Compile go code
 	appDir := assets.GetRootAppDir()
 	cgo := "0"
@@ -310,7 +310,7 @@ func SliverExecutable(otpSecret string, config *clientpb.ImplantConfig) (string,
 		GOGARBLE:    goGarble(config),
 	}
 
-	pkgPath, err := renderSliverGoCode(config.Name, otpSecret, config, goConfig)
+	pkgPath, err := renderSliverGoCode(config.Name, otpSecret, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
 	}
@@ -343,7 +343,7 @@ func SliverExecutable(otpSecret string, config *clientpb.ImplantConfig) (string,
 }
 
 // This function is a little too long, we should probably refactor it as some point
-func renderSliverGoCode(name string, otpSecret string, config *clientpb.ImplantConfig, goConfig *gogo.GoConfig) (string, error) {
+func renderSliverGoCode(name string, otpSecret string, config *clientpb.ImplantConfig, goConfig *gogo.GoConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := gogo.ValidCompilerTargets(*goConfig)[target]; !ok {
 		return "", fmt.Errorf("invalid compiler target: %s", target)
@@ -449,7 +449,7 @@ func renderSliverGoCode(name string, otpSecret string, config *clientpb.ImplantC
 			name,
 			config,
 			otpSecret,
-			nil,
+			pbC2Implant,
 		})
 		if err != nil {
 			buildLog.Errorf("Template execution error %s", err)

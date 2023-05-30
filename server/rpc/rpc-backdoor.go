@@ -30,6 +30,7 @@ import (
 	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
@@ -93,7 +94,15 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 	if err != nil {
 		return nil, err
 	}
-	fPath, err := generate.SliverShellcode(otpSecret, p.Config)
+
+	// retrieve http c2 implant config
+	httpC2Config, err := db.LoadHTTPC2ConfigByName("default")
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	pbC2Implant := httpC2Config.ImplantConfig.ToProtobuf()
+
+	fPath, err := generate.SliverShellcode(otpSecret, p.Config, pbC2Implant)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

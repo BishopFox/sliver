@@ -37,6 +37,7 @@ import (
 	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/util/encoders"
 )
@@ -119,7 +120,14 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 		if err != nil {
 			return nil, err
 		}
-		fPath, err := generate.SliverSharedLibrary(otpSecret, config)
+		// retrieve http c2 implant config
+		httpC2Config, err := db.LoadHTTPC2ConfigByName("default")
+		if err != nil {
+			return nil, err
+		}
+		pbC2Implant := httpC2Config.ImplantConfig.ToProtobuf()
+
+		fPath, err := generate.SliverSharedLibrary(otpSecret, config, pbC2Implant)
 		if err != nil {
 			return nil, err
 		}
