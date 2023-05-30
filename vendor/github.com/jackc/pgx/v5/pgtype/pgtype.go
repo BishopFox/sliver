@@ -104,6 +104,8 @@ const (
 	TstzrangeArrayOID      = 3911
 	Int8rangeOID           = 3926
 	Int8rangeArrayOID      = 3927
+	JSONPathOID            = 4072
+	JSONPathArrayOID       = 4073
 	Int4multirangeOID      = 4451
 	NummultirangeOID       = 4532
 	TsmultirangeOID        = 4533
@@ -260,6 +262,7 @@ func NewMap() *Map {
 	m.RegisterType(&Type{Name: "interval", OID: IntervalOID, Codec: IntervalCodec{}})
 	m.RegisterType(&Type{Name: "json", OID: JSONOID, Codec: JSONCodec{}})
 	m.RegisterType(&Type{Name: "jsonb", OID: JSONBOID, Codec: JSONBCodec{}})
+	m.RegisterType(&Type{Name: "jsonpath", OID: JSONPathOID, Codec: &TextFormatOnlyCodec{TextCodec{}}})
 	m.RegisterType(&Type{Name: "line", OID: LineOID, Codec: LineCodec{}})
 	m.RegisterType(&Type{Name: "lseg", OID: LsegOID, Codec: LsegCodec{}})
 	m.RegisterType(&Type{Name: "macaddr", OID: MacaddrOID, Codec: MacaddrCodec{}})
@@ -321,6 +324,7 @@ func NewMap() *Map {
 	m.RegisterType(&Type{Name: "_interval", OID: IntervalArrayOID, Codec: &ArrayCodec{ElementType: m.oidToType[IntervalOID]}})
 	m.RegisterType(&Type{Name: "_json", OID: JSONArrayOID, Codec: &ArrayCodec{ElementType: m.oidToType[JSONOID]}})
 	m.RegisterType(&Type{Name: "_jsonb", OID: JSONBArrayOID, Codec: &ArrayCodec{ElementType: m.oidToType[JSONBOID]}})
+	m.RegisterType(&Type{Name: "_jsonpath", OID: JSONPathArrayOID, Codec: &ArrayCodec{ElementType: m.oidToType[JSONPathOID]}})
 	m.RegisterType(&Type{Name: "_line", OID: LineArrayOID, Codec: &ArrayCodec{ElementType: m.oidToType[LineOID]}})
 	m.RegisterType(&Type{Name: "_lseg", OID: LsegArrayOID, Codec: &ArrayCodec{ElementType: m.oidToType[LsegOID]}})
 	m.RegisterType(&Type{Name: "_macaddr", OID: MacaddrArrayOID, Codec: &ArrayCodec{ElementType: m.oidToType[MacaddrOID]}})
@@ -1239,9 +1243,11 @@ func (m *Map) planScan(oid uint32, formatCode int16, target any) ScanPlan {
 	// defined on a type that could be unwrapped such as `type myString string`.
 	//
 	//  https://github.com/jackc/pgtype/issues/197
-	if dt == nil {
-		if _, ok := target.(sql.Scanner); ok {
+	if _, ok := target.(sql.Scanner); ok {
+		if dt == nil {
 			return &scanPlanSQLScanner{formatCode: formatCode}
+		} else {
+			return &scanPlanCodecSQLScanner{c: dt.Codec, m: m, oid: oid, formatCode: formatCode}
 		}
 	}
 
@@ -1259,10 +1265,6 @@ func (m *Map) planScan(oid uint32, formatCode int16, target any) ScanPlan {
 	if dt != nil {
 		if _, ok := target.(*any); ok {
 			return &pointerEmptyInterfaceScanPlan{codec: dt.Codec, m: m, oid: oid, formatCode: formatCode}
-		}
-
-		if _, ok := target.(sql.Scanner); ok {
-			return &scanPlanCodecSQLScanner{c: dt.Codec, m: m, oid: oid, formatCode: formatCode}
 		}
 	}
 
@@ -1943,11 +1945,7 @@ type wrapSliceEncodePlan[T any] struct {
 func (plan *wrapSliceEncodePlan[T]) SetNext(next EncodePlan) { plan.next = next }
 
 func (plan *wrapSliceEncodePlan[T]) Encode(value any, buf []byte) (newBuf []byte, err error) {
-	w := anySliceArrayReflect{
-		slice: reflect.ValueOf(value),
-	}
-
-	return plan.next.Encode(w, buf)
+	return plan.next.Encode((FlatArray[T])(value.([]T)), buf)
 }
 
 type wrapSliceEncodeReflectPlan struct {

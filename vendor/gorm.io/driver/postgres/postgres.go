@@ -3,11 +3,11 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 	"regexp"
 	"strconv"
 	"strings"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
@@ -44,14 +44,18 @@ func (dialector Dialector) Name() string {
 var timeZoneMatcher = regexp.MustCompile("(time_zone|TimeZone)=(.*?)($|&| )")
 
 func (dialector Dialector) Initialize(db *gorm.DB) (err error) {
+	callbackConfig := &callbacks.Config{
+		CreateClauses: []string{"INSERT", "VALUES", "ON CONFLICT"},
+		UpdateClauses: []string{"UPDATE", "SET", "WHERE"},
+		DeleteClauses: []string{"DELETE", "FROM", "WHERE"},
+	}
 	// register callbacks
 	if !dialector.WithoutReturning {
-		callbacks.RegisterDefaultCallbacks(db, &callbacks.Config{
-			CreateClauses: []string{"INSERT", "VALUES", "ON CONFLICT", "RETURNING"},
-			UpdateClauses: []string{"UPDATE", "SET", "WHERE", "RETURNING"},
-			DeleteClauses: []string{"DELETE", "FROM", "WHERE", "RETURNING"},
-		})
+		callbackConfig.CreateClauses = append(callbackConfig.CreateClauses, "RETURNING")
+		callbackConfig.UpdateClauses = append(callbackConfig.UpdateClauses, "RETURNING")
+		callbackConfig.DeleteClauses = append(callbackConfig.DeleteClauses, "RETURNING")
 	}
+	callbacks.RegisterDefaultCallbacks(db, callbackConfig)
 
 	if dialector.Conn != nil {
 		db.ConnPool = dialector.Conn
