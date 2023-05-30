@@ -218,8 +218,8 @@ github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d/go.mod h1:01TrycV0kFyex
 github.com/miekg/dns v1.1.54 h1:5jon9mWcb0sFJGpnI99tOMhCPyJ+RPVz5b63MQG0VWI=
 github.com/miekg/dns v1.1.54/go.mod h1:uInx36IzPl7FYnDcMeVWxj9byh7DutNykX4G9Sj60FY=
 github.com/mikioh/ipaddr v0.0.0-20190404000644-d465c8ab6721/go.mod h1:Ickgr2WtCLZ2MDGd4Gr0geeCH5HybhRJbonOgQpvSxc=
-github.com/moloch--/grumble v1.1.9 h1:LpqtH3JORyS3cMSJUb7XTp6FQ7K9MIuD+wH7tvf374E=
-github.com/moloch--/grumble v1.1.9/go.mod h1:H8EC3w00qjOiV3lK/6OGxatFEZ7Jr4r2en7XCM8J5OU=
+github.com/moloch--/grumble v1.1.12 h1:gdb7F/wF/38N9vMoTfa9fHcsyoBOkTF/mgbudZLL13Y=
+github.com/moloch--/grumble v1.1.12/go.mod h1:H8EC3w00qjOiV3lK/6OGxatFEZ7Jr4r2en7XCM8J5OU=
 github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945 h1:m3yCfV8Vqp4MF1B+gPPjbjINdufl0UXqyYplE0aGhx8=
 github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945/go.mod h1:1grVt4HaTofvhFUZYtofeRbGXfczNwCie9MYoM4lP/o=
 github.com/nbutton23/zxcvbn-go v0.0.0-20180912185939-ae427f1e4c1d/go.mod h1:o96djdrsSGy3AWPyBgZMAGfxZNfgntdJG+11KU4QvbU=

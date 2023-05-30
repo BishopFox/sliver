@@ -29,6 +29,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/desertbit/closer/v3"
 	shlex "github.com/desertbit/go-shlex"
@@ -58,6 +59,8 @@ type App struct {
 	printCommandHelp func(a *App, cmd *Command, shell bool)
 	interruptHandler func(a *App, count int)
 	printASCIILogo   func(a *App)
+
+	duplicateWriters map[string]io.Writer
 }
 
 // New creates a new app.
@@ -79,6 +82,7 @@ func New(c *Config) (a *App) {
 		printHelp:        defaultPrintHelp,
 		printCommandHelp: defaultPrintCommandHelp,
 		interruptHandler: defaultInterruptHandler,
+		duplicateWriters: map[string]io.Writer{},
 	}
 	if c.InterruptHandler != nil {
 		a.interruptHandler = c.InterruptHandler
@@ -199,10 +203,31 @@ func (a *App) Write(p []byte) (int, error) {
 // Stdout returns a writer to Stdout, using readline if available.
 // Note that calling before Run() will return a different instance.
 func (a *App) Stdout() io.Writer {
+	writers := []io.Writer{}
 	if a.rl != nil {
-		return a.rl.Stdout()
+		writers = append(writers, a.rl.Stdout())
+	} else {
+		writers = append(writers, os.Stdout)
 	}
-	return os.Stdout
+	for _, w := range a.duplicateWriters {
+		writers = append(writers, w)
+	}
+	return io.MultiWriter(writers...)
+}
+
+// SetDuplicateWriter - set a writer to duplicate output to.
+func (a *App) SetDuplicateWriter(name string, dupe io.Writer) {
+	a.duplicateWriters[name] = dupe
+}
+
+// UnsetDuplicateWriter - remove a writer from the duplicate output list.
+func (a *App) UnsetDuplicateWriter(name string) {
+	delete(a.duplicateWriters, name)
+}
+
+// ResetDuplicateWriters - remove all writers from the duplicate output list.
+func (a *App) ResetDuplicateWriters() {
+	a.duplicateWriters = map[string]io.Writer{}
 }
 
 // Stderr returns a writer to Stderr, using readline if available.
@@ -469,6 +494,9 @@ Loop:
 
 		// Save command history.
 		err = a.rl.SaveHistory(line)
+		for _, dupeWriter := range a.duplicateWriters {
+			dupeWriter.Write([]byte(fmt.Sprintf("[%s] "+line, time.Now().UTC())))
+		}
 		if err != nil {
 			a.PrintError(err)
 			continue Loop

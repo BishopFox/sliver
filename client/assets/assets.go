@@ -20,7 +20,6 @@ package assets
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/user"
@@ -50,9 +49,33 @@ func GetRootAppDir() string {
 	return dir
 }
 
+// GetClientLogsDir - Get the Sliver client logs dir ~/.sliver-client/logs/
+func GetClientLogsDir() string {
+	logsDir := filepath.Join(GetRootAppDir(), "logs")
+	if _, err := os.Stat(logsDir); os.IsNotExist(err) {
+		err = os.MkdirAll(logsDir, 0700)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	return logsDir
+}
+
+// GetConsoleLogsDir - Get the Sliver client console logs dir ~/.sliver-client/logs/console/
+func GetConsoleLogsDir() string {
+	consoleLogsDir := filepath.Join(GetClientLogsDir(), "console")
+	if _, err := os.Stat(consoleLogsDir); os.IsNotExist(err) {
+		err = os.MkdirAll(consoleLogsDir, 0700)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	return consoleLogsDir
+}
+
 func assetVersion() string {
 	appDir := GetRootAppDir()
-	data, err := ioutil.ReadFile(filepath.Join(appDir, versionFileName))
+	data, err := os.ReadFile(filepath.Join(appDir, versionFileName))
 	if err != nil {
 		return ""
 	}

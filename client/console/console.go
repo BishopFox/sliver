@@ -128,13 +128,20 @@ func Start(rpc rpcpb.SliverRPCClient, bindCmds BindCmds, extraCmds BindCmds, isS
 		IsServer:                 isServer,
 		Settings:                 settings,
 	}
+
+	// console logger
+	if settings.ConsoleLogs {
+		consoleLog := setupConsoleLogger()
+		defer consoleLog.Close()
+		con.App.SetDuplicateWriter("local", consoleLog)
+	}
+
 	con.App.SetPrintASCIILogo(func(_ *grumble.App) {
 		con.PrintLogo()
 	})
 	con.App.SetPrompt(con.GetPrompt())
 	bindCmds(con)
 	extraCmds(con)
-
 	con.ActiveTarget.AddObserver(func(_ *clientpb.Session, _ *clientpb.Beacon) {
 		con.App.SetPrompt(con.GetPrompt())
 	})
@@ -147,6 +154,18 @@ func Start(rpc rpcpb.SliverRPCClient, bindCmds BindCmds, extraCmds BindCmds, isS
 		log.Printf("Run loop returned error: %v", err)
 	}
 	return err
+}
+
+func setupConsoleLogger() *os.File {
+	logsDir := assets.GetConsoleLogsDir()
+	dateTime := time.Now().Format("2006-01-02_15-04-05")
+	logPath := filepath.Join(logsDir, fmt.Sprintf("%s.log", dateTime))
+	logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+	if err != nil {
+		log.Fatalf("Could not open log file: %s", err)
+	}
+	logFile.Write([]byte(fmt.Sprintf("Sliver Console Log - %s\n\n", dateTime)))
+	return logFile
 }
 
 func (con *SliverConsoleClient) startEventLoop() {
