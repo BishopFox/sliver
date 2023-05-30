@@ -121,7 +121,7 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 			return nil, err
 		}
 		// retrieve http c2 implant config
-		httpC2Config, err := db.LoadHTTPC2ConfigByName("default")
+		httpC2Config, err := db.LoadHTTPC2ConfigByName(p.Config.HTTPC2ConfigName)
 		if err != nil {
 			return nil, err
 		}

@@ -83,7 +83,7 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	}
 
 	// retrieve http c2 implant config
-	httpC2Config, err := db.LoadHTTPC2ConfigByName("default")
+	httpC2Config, err := db.LoadHTTPC2ConfigByName(req.Config.HTTPC2ConfigName)
 	if err != nil {
 		return nil, err
 	}

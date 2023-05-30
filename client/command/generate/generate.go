@@ -377,8 +377,9 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		NetGoEnabled:           ctx.Flags.Bool("netgo"),
 		TrafficEncodersEnabled: trafficEncodersEnabled,
 		Assets:                 trafficEncoderAssets,
-		
-		DebugFile: debugFile,
+
+		DebugFile:        debugFile,
+		HTTPC2ConfigName: ctx.Flags.String("c2profile"),
 	}
 
 	return config

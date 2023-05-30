@@ -1378,6 +1378,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("s", "save", "", "directory/file to the binary to")
 
 			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+			f.String("C", "c2profile", "", "HTTP C2 profile to use")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -1444,6 +1445,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("s", "save", "", "directory/file to the binary to")
 
 			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
+			f.String("C", "c2profile", "", "HTTP C2 profile to use")
+
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()

@@ -148,7 +148,8 @@ message ImplantConfig {
   string ECCPublicKey = 24;
   string ECCPrivateKey = 25;
   string ECCPublicKeySignature = 26;
-  string MinisignServerPublicKey = 27;
+  string ECCPublicKeyDigest = 27;
+  string MinisignServerPublicKey = 28;
 
   string WGImplantPrivKey = 30;
   string WGServerPubKey = 31;
@@ -180,7 +181,7 @@ message ImplantConfig {
   bool RunAtLoad = 105;
   string DebugFile = 106;
 
-  string HTTPC2ConfigID = 150;
+  string HTTPC2ConfigName = 150;
   bool NetGoEnabled = 151;
   bool TrafficEncodersEnabled = 152;
   repeated string TrafficEncoders = 153;
