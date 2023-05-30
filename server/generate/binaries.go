@@ -355,7 +355,7 @@ func renderSliverGoCode(name string, otpSecret string, config *clientpb.ImplantC
 	}
 
 	buildLog.Debugf("Generating new sliver binary '%s'", name)
-
+	pbC2Implant = models.RandomizeImplantConfig(pbC2Implant, config.GOOS, config.GOARCH)
 	sliversDir := GetSliversDir() // ~/.sliver/slivers
 	projectGoPathDir := filepath.Join(sliversDir, config.GOOS, config.GOARCH, filepath.Base(name))
 	if _, err := os.Stat(projectGoPathDir); os.IsNotExist(err) {

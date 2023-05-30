@@ -21,7 +21,6 @@ package configs
 import (
 	"errors"
 	"fmt"
-	insecureRand "math/rand"
 	"regexp"
 	"strings"
 
@@ -38,84 +37,6 @@ const (
 type HTTPC2Config struct {
 	ImplantConfig *HTTPC2ImplantConfig `json:"implant_config"`
 	ServerConfig  *HTTPC2ServerConfig  `json:"server_config"`
-}
-
-// RandomImplantConfig - Randomly generate a new implant config from the parent config,
-// this is the primary configuration used by the implant generation.
-func (h *HTTPC2Config) RandomImplantConfig() *HTTPC2ImplantConfig {
-	return &HTTPC2ImplantConfig{
-
-		NonceQueryArgChars: h.ImplantConfig.NonceQueryArgChars,
-		URLParameters:      h.ImplantConfig.URLParameters,
-		Headers:            h.ImplantConfig.Headers,
-
-		PollFileExt: h.ImplantConfig.PollFileExt,
-		PollFiles:   h.ImplantConfig.RandomPollFiles(),
-		PollPaths:   h.ImplantConfig.RandomPollPaths(),
-
-		StartSessionFileExt: h.ImplantConfig.StartSessionFileExt,
-		SessionFileExt:      h.ImplantConfig.SessionFileExt,
-		SessionFiles:        h.ImplantConfig.RandomSessionFiles(),
-		SessionPaths:        h.ImplantConfig.RandomSessionPaths(),
-
-		CloseFileExt: h.ImplantConfig.CloseFileExt,
-		CloseFiles:   h.ImplantConfig.RandomCloseFiles(),
-		ClosePaths:   h.ImplantConfig.RandomClosePaths(),
-	}
-}
-
-// GenerateUserAgent - Generate a user-agent depending on OS/Arch
-func (h *HTTPC2Config) GenerateUserAgent(goos string, goarch string) string {
-	return h.generateChromeUserAgent(goos, goarch)
-}
-
-func (h *HTTPC2Config) generateChromeUserAgent(goos string, goarch string) string {
-	if h.ImplantConfig.UserAgent == "" {
-		switch goos {
-		case "windows":
-			switch goarch {
-			case "amd64":
-				return fmt.Sprintf("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", h.ChromeVer())
-			}
-
-		case "linux":
-			switch goarch {
-			case "amd64":
-				return fmt.Sprintf("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", h.ChromeVer())
-			}
-
-		case "darwin":
-			switch goarch {
-			case "arm64":
-				fallthrough // https://source.chromium.org/chromium/chromium/src/+/master:third_party/blink/renderer/core/frame/navigator_id.cc;l=76
-			case "amd64":
-				return fmt.Sprintf("Mozilla/5.0 (Macintosh; Intel Mac OS X %s) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", h.MacOSVer(), h.ChromeVer())
-			}
-
-		}
-	} else {
-		return h.ImplantConfig.UserAgent
-	}
-
-	// Default is a generic Windows/Chrome
-	return fmt.Sprintf("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", h.ChromeVer())
-}
-
-// ChromeVer - Generate a random Chrome user-agent
-func (h *HTTPC2Config) ChromeVer() string {
-	chromeVer := h.ImplantConfig.ChromeBaseVersion
-	if chromeVer == 0 {
-		chromeVer = DefaultChromeBaseVer
-	}
-	return fmt.Sprintf("%d.0.%d.%d", chromeVer+insecureRand.Intn(3), 1000+insecureRand.Intn(8999), insecureRand.Intn(999))
-}
-
-func (h *HTTPC2Config) MacOSVer() string {
-	macosVer := h.ImplantConfig.MacOSVersion
-	if macosVer == "" {
-		macosVer = DefaultMacOSVer
-	}
-	return macosVer
 }
 
 // HTTPC2ServerConfig - Server configuration options
@@ -175,58 +96,6 @@ type HTTPC2ImplantConfig struct {
 	CloseFileExt string   `json:"close_file_ext"`
 	CloseFiles   []string `json:"close_files"`
 	ClosePaths   []string `json:"close_paths"`
-}
-
-func (h *HTTPC2ImplantConfig) RandomPollFiles() []string {
-	min := h.MinFiles
-	if min < 1 {
-		min = 1
-	}
-	return h.randomSample(h.PollFiles, h.PollFileExt, min, h.MaxFiles)
-}
-
-func (h *HTTPC2ImplantConfig) RandomPollPaths() []string {
-	return h.randomSample(h.PollPaths, "", h.MinPaths, h.MaxPaths)
-}
-
-func (h *HTTPC2ImplantConfig) RandomCloseFiles() []string {
-	min := h.MinFiles
-	if min < 1 {
-		min = 1
-	}
-	return h.randomSample(h.CloseFiles, h.CloseFileExt, min, h.MaxFiles)
-}
-
-func (h *HTTPC2ImplantConfig) RandomClosePaths() []string {
-	return h.randomSample(h.ClosePaths, "", h.MinPaths, h.MaxPaths)
-}
-
-func (h *HTTPC2ImplantConfig) RandomSessionFiles() []string {
-	min := h.MinFiles
-	if min < 1 {
-		min = 1
-	}
-	return h.randomSample(h.SessionFiles, h.SessionFileExt, min, h.MaxFiles)
-}
-
-func (h *HTTPC2ImplantConfig) RandomSessionPaths() []string {
-	return h.randomSample(h.SessionPaths, "", h.MinPaths, h.MaxPaths)
-}
-
-func (h *HTTPC2ImplantConfig) randomSample(values []string, ext string, min int, max int) []string {
-	count := insecureRand.Intn(len(values))
-	if count < min {
-		count = min
-	}
-	if max < count {
-		count = max
-	}
-	sample := []string{}
-	for i := 0; len(sample) < count; i++ {
-		index := (count + i) % len(values)
-		sample = append(sample, values[index])
-	}
-	return sample
 }
 
 // CheckHTTPC2ConfigErrors - Get the current HTTP C2 config

@@ -19,11 +19,19 @@ package models
 */
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/gofrs/uuid"
+	insecureRand "math/rand"
+
 	"gorm.io/gorm"
+)
+
+const (
+	DefaultChromeBaseVer = 106
+	DefaultMacOSVer      = "10_15_7"
 )
 
 // HttpC2Config -
@@ -350,4 +358,156 @@ func HTTPC2ConfigFromProtobuf(pbHttpC2Config *clientpb.HTTPC2Config) *HttpC2Conf
 	cfg.Name = pbHttpC2Config.Name
 
 	return cfg
+}
+
+// RandomImplantConfig - Randomly generate a new implant config from the parent config,
+// this is the primary configuration used by the implant generation.
+func RandomizeImplantConfig(h *clientpb.HTTPC2ImplantConfig, goos string, goarch string) *clientpb.HTTPC2ImplantConfig {
+	return &clientpb.HTTPC2ImplantConfig{
+
+		NonceQueryArgChars: h.NonceQueryArgChars,
+		ExtraURLParameters: h.ExtraURLParameters,
+		Headers:            h.Headers,
+
+		PollFileExtension:         h.PollFileExtension,
+		StartSessionFileExtension: h.StartSessionFileExtension,
+		SessionFileExtension:      h.SessionFileExtension,
+		CloseFileExtension:        h.CloseFileExtension,
+		PathSegments:              RandomPathSegments(h),
+		UserAgent:                 GenerateUserAgent(goos, goarch, h.UserAgent, h.ChromeBaseVersion, h.MacOSVersion),
+	}
+}
+
+// GenerateUserAgent - Generate a user-agent depending on OS/Arch
+func GenerateUserAgent(goos string, goarch string, userAgent string, baseVer int32, macOsVer string) string {
+	return generateChromeUserAgent(goos, goarch, userAgent, baseVer, macOsVer)
+}
+
+func generateChromeUserAgent(goos string, goarch string, userAgent string, baseVer int32, macOsVer string) string {
+	if userAgent == "" {
+		switch goos {
+		case "windows":
+			switch goarch {
+			case "amd64":
+				return fmt.Sprintf("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", ChromeVer(baseVer))
+			}
+
+		case "linux":
+			switch goarch {
+			case "amd64":
+				return fmt.Sprintf("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", ChromeVer(baseVer))
+			}
+
+		case "darwin":
+			switch goarch {
+			case "arm64":
+				fallthrough // https://source.chromium.org/chromium/chromium/src/+/master:third_party/blink/renderer/core/frame/navigator_id.cc;l=76
+			case "amd64":
+				return fmt.Sprintf("Mozilla/5.0 (Macintosh; Intel Mac OS X %s) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", MacOSVer(macOsVer), ChromeVer(baseVer))
+			}
+
+		}
+	} else {
+		return userAgent
+	}
+
+	// Default is a generic Windows/Chrome
+	return fmt.Sprintf("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", ChromeVer(baseVer))
+}
+
+// ChromeVer - Generate a random Chrome user-agent
+func ChromeVer(baseVer int32) string {
+	chromeVer := baseVer
+	if chromeVer == 0 {
+		chromeVer = DefaultChromeBaseVer
+	}
+	return fmt.Sprintf("%d.0.%d.%d", baseVer+int32(insecureRand.Intn(3)), 1000+int32(insecureRand.Intn(8999)), int32(insecureRand.Intn(999)))
+}
+
+func MacOSVer(MacOSVersion string) string {
+	macosVer := MacOSVersion
+	if macosVer == "" {
+		macosVer = DefaultMacOSVer
+	}
+	return macosVer
+}
+
+func RandomPathSegments(h *clientpb.HTTPC2ImplantConfig) []*clientpb.HTTPC2PathSegment {
+
+	var (
+		sessionPaths []*clientpb.HTTPC2PathSegment
+		closePaths   []*clientpb.HTTPC2PathSegment
+		pollPaths    []*clientpb.HTTPC2PathSegment
+		sessionFiles []*clientpb.HTTPC2PathSegment
+		closeFiles   []*clientpb.HTTPC2PathSegment
+		pollFiles    []*clientpb.HTTPC2PathSegment
+	)
+	for _, pathSegment := range h.PathSegments {
+		switch pathSegment.SegmentType {
+		case 0:
+			if pathSegment.IsFile {
+				pollFiles = append(pollFiles, pathSegment)
+			} else {
+				pollPaths = append(pollPaths, pathSegment)
+			}
+		case 1:
+			if pathSegment.IsFile {
+				sessionFiles = append(sessionFiles, pathSegment)
+			} else {
+				sessionPaths = append(sessionPaths, pathSegment)
+			}
+		case 2:
+			if pathSegment.IsFile {
+				closeFiles = append(closeFiles, pathSegment)
+			} else {
+				closePaths = append(closePaths, pathSegment)
+			}
+		default:
+			continue
+		}
+	}
+
+	sessionPaths = RandomPaths(sessionPaths, h.MinPaths, h.MaxPaths)
+	pollPaths = RandomPaths(pollPaths, h.MinPaths, h.MaxPaths)
+	closePaths = RandomPaths(closePaths, h.MinPaths, h.MaxPaths)
+
+	sessionFiles = RandomFiles(sessionFiles, h.MinFiles, h.MaxFiles)
+	closeFiles = RandomFiles(closeFiles, h.MinFiles, h.MaxFiles)
+	pollFiles = RandomFiles(pollFiles, h.MinFiles, h.MaxFiles)
+
+	var res []*clientpb.HTTPC2PathSegment
+	res = append(res, sessionPaths...)
+	res = append(res, closePaths...)
+	res = append(res, pollPaths...)
+	res = append(res, sessionFiles...)
+	res = append(res, closeFiles...)
+	res = append(res, pollFiles...)
+	return res
+}
+
+func RandomFiles(httpC2PathSegments []*clientpb.HTTPC2PathSegment, minFiles int32, maxFiles int32) []*clientpb.HTTPC2PathSegment {
+	if minFiles < 1 {
+		minFiles = 1
+	}
+	return randomSample(httpC2PathSegments, minFiles, maxFiles)
+}
+
+func RandomPaths(httpC2PathSegments []*clientpb.HTTPC2PathSegment, minPaths int32, maxPaths int32) []*clientpb.HTTPC2PathSegment {
+	return randomSample(httpC2PathSegments, minPaths, maxPaths)
+}
+
+func randomSample(values []*clientpb.HTTPC2PathSegment, min int32, max int32) []*clientpb.HTTPC2PathSegment {
+	count := int32(insecureRand.Intn(len(values)))
+	if count < min {
+		count = min
+	}
+	if max < count {
+		count = max
+	}
+	var sample []*clientpb.HTTPC2PathSegment
+	for i := 0; int32(len(sample)) < count; i++ {
+		index := (count + int32(i)) % int32(len(values))
+		sample = append(sample, values[index])
+	}
+	return sample
 }
