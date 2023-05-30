@@ -602,7 +602,7 @@ func (s *SliverHTTPClient) parseSegments(segmentType int) *url.URL {
 	// {{if .IsFile}}
 	pollFiles = append(pollFiles, "{{.Value}}")
 	// {{end}}
-	// {{if eq .IsFile false}}
+	// {{if not .IsFile }}
 	pollPaths = append(pollPaths, "{{.Value}}")
 	// {{end}}
 	// {{end}}
@@ -611,7 +611,7 @@ func (s *SliverHTTPClient) parseSegments(segmentType int) *url.URL {
 	// {{if .IsFile}}
 	sessionFiles = append(sessionFiles, "{{.Value}}")
 	// {{end}}
-	// {{if eq .IsFile false}}
+	// {{if not .IsFile }}
 	sessionPaths = append(sessionPaths, "{{.Value}}")
 	// {{end}}
 
@@ -620,7 +620,7 @@ func (s *SliverHTTPClient) parseSegments(segmentType int) *url.URL {
 	// {{if .IsFile}}
 	closeFiles = append(closeFiles, "{{.Value}}")
 	// {{end}}
-	// {{if eq .IsFile false}}
+	// {{if not .IsFile }}
 	closePaths = append(closePaths, "{{.Value}}")
 	// {{end}}
 	// {{end}}

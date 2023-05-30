@@ -22,17 +22,14 @@ import (
 	"errors"
 	"fmt"
 	insecureRand "math/rand"
-	"path"
 	"regexp"
 	"strings"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/log"
 )
 
 const (
-	httpC2ConfigFileName = "http-c2.json"
 	DefaultChromeBaseVer = 106
 	DefaultMacOSVer      = "10_15_7"
 )
@@ -232,13 +229,6 @@ func (h *HTTPC2ImplantConfig) randomSample(values []string, ext string, min int,
 	return sample
 }
 
-// GetHTTPC2ConfigPath - File path to http-c2.json
-func GetHTTPC2ConfigPath() string {
-	appDir := assets.GetRootAppDir()
-	httpC2ConfigPath := path.Join(appDir, "configs", httpC2ConfigFileName)
-	return httpC2ConfigPath
-}
-
 // CheckHTTPC2ConfigErrors - Get the current HTTP C2 config
 func CheckHTTPC2ConfigErrors(config *clientpb.HTTPC2Config) error {
 	err := checkHTTPC2Config(config)
@@ -382,11 +372,11 @@ func GenerateDefaultHTTPC2Config() *clientpb.HTTPC2Config {
 		MinFiles:                  2,
 		MaxPaths:                  8,
 		MinPaths:                  2,
-		StagerFileExtension:       ".woff",
-		PollFileExtension:         ".js",
-		StartSessionFileExtension: ".html",
-		SessionFileExtension:      ".php",
-		CloseFileExtension:        ".png",
+		StagerFileExtension:       "woff",
+		PollFileExtension:         "js",
+		StartSessionFileExtension: "html",
+		SessionFileExtension:      "php",
+		CloseFileExtension:        "png",
 		PathSegments:              pathSegments,
 	}
 
@@ -464,7 +454,7 @@ func GenerateHTTPC2DefaultPathSegment() []*clientpb.HTTPC2PathSegment {
 	// paths
 	for _, poll := range PollPaths {
 		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
-			IsFile:      true,
+			IsFile:      false,
 			SegmentType: 0,
 			Value:       poll,
 		})
@@ -472,7 +462,7 @@ func GenerateHTTPC2DefaultPathSegment() []*clientpb.HTTPC2PathSegment {
 
 	for _, session := range SessionPaths {
 		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
-			IsFile:      true,
+			IsFile:      false,
 			SegmentType: 1,
 			Value:       session,
 		})
@@ -480,7 +470,7 @@ func GenerateHTTPC2DefaultPathSegment() []*clientpb.HTTPC2PathSegment {
 
 	for _, close := range ClosePaths {
 		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
-			IsFile:      true,
+			IsFile:      false,
 			SegmentType: 2,
 			Value:       close,
 		})
