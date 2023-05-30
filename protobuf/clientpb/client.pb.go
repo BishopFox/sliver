@@ -1972,9 +1972,10 @@ type ImplantConfig struct {
 	MtlsKey                 string `protobuf:"bytes,22,opt,name=MtlsKey,proto3" json:"MtlsKey,omitempty"`
 	ECCServerPublicKey      string `protobuf:"bytes,23,opt,name=ECCServerPublicKey,proto3" json:"ECCServerPublicKey,omitempty"`
 	ECCPublicKey            string `protobuf:"bytes,24,opt,name=ECCPublicKey,proto3" json:"ECCPublicKey,omitempty"`
-	ECCPrivateKey           string `protobuf:"bytes,25,opt,name=ECCPrivateKey,proto3" json:"ECCPrivateKey,omitempty"`
-	ECCPublicKeySignature   string `protobuf:"bytes,26,opt,name=ECCPublicKeySignature,proto3" json:"ECCPublicKeySignature,omitempty"`
-	MinisignServerPublicKey string `protobuf:"bytes,27,opt,name=MinisignServerPublicKey,proto3" json:"MinisignServerPublicKey,omitempty"`
+	ECCPublicKeyDigest            string `protobuf:"bytes,25,opt,name=ECCPublicKeyDigest,proto3" json:"ECCPublicKeyDigest,omitempty"`
+	ECCPrivateKey           string `protobuf:"bytes,26,opt,name=ECCPrivateKey,proto3" json:"ECCPrivateKey,omitempty"`
+	ECCPublicKeySignature   string `protobuf:"bytes,27,opt,name=ECCPublicKeySignature,proto3" json:"ECCPublicKeySignature,omitempty"`
+	MinisignServerPublicKey string `protobuf:"bytes,28,opt,name=MinisignServerPublicKey,proto3" json:"MinisignServerPublicKey,omitempty"`
 	WGImplantPrivKey        string `protobuf:"bytes,30,opt,name=WGImplantPrivKey,proto3" json:"WGImplantPrivKey,omitempty"`
 	WGServerPubKey          string `protobuf:"bytes,31,opt,name=WGServerPubKey,proto3" json:"WGServerPubKey,omitempty"`
 	WGPeerTunIP             string `protobuf:"bytes,32,opt,name=WGPeerTunIP,proto3" json:"WGPeerTunIP,omitempty"`

@@ -174,6 +174,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		ECCServerPublicKey: ic.ECCServerPublicKey,
 		ECCPublicKey:       ic.ECCPublicKey,
 		ECCPrivateKey:      ic.ECCPrivateKey,
+		ECCPublicKeyDigest: ic.ECCPublicKeyDigest,
 		MtlsCACert:         ic.MtlsCACert,
 		MtlsCert:           ic.MtlsCert,
 		MtlsKey:            ic.MtlsKey,
@@ -340,6 +341,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.ECCServerPublicKey = pbConfig.ECCServerPublicKey
 	cfg.ECCPrivateKey = pbConfig.ECCPrivateKey
 	cfg.ECCPublicKey = pbConfig.ECCPublicKey
+	cfg.ECCPublicKeyDigest = pbConfig.ECCPublicKeyDigest
 
 	cfg.GOOS = pbConfig.GOOS
 	cfg.GOARCH = pbConfig.GOARCH

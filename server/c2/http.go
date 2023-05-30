@@ -41,7 +41,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
-	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
@@ -144,7 +143,7 @@ type SliverHTTPC2 struct {
 	SliverStage  []byte // Sliver shellcode to serve during staging process
 	Cleanup      func()
 
-	c2Config *configs.HTTPC2Config // C2 config (from config file)
+	c2Config *clientpb.HTTPC2Config // C2 config (from config file)
 }
 
 func (s *SliverHTTPC2) getServerHeader() string {
@@ -160,13 +159,9 @@ func (s *SliverHTTPC2) getServerHeader() string {
 }
 
 func (s *SliverHTTPC2) getCookieName() string {
-	cookies := s.getHTTPC2Config().ServerConfig.Cookies
+	cookies := s.c2Config.ServerConfig.Cookies
 	index := insecureRand.Intn(len(cookies))
 	return cookies[index].Name
-}
-
-func (s *SliverHTTPC2) getHTTPC2Config() *clientpb.HTTPC2Config {
-	return nil
 }
 
 // StartHTTPListener - Start an HTTP(S) listener, this can be used to start both
@@ -359,6 +354,7 @@ func (s *SliverHTTPC2) loadServerHTTPC2Configs() []*models.HttpC2Config {
 func (s *SliverHTTPC2) router() *mux.Router {
 	router := mux.NewRouter()
 	c2Configs := s.loadServerHTTPC2Configs()
+	s.c2Config = c2Configs[0].ToProtobuf()
 	if s.ServerConf.MaxRequestLength < 1024 {
 		s.ServerConf.MaxRequestLength = DefaultMaxBodyLength
 	}
@@ -371,7 +367,6 @@ func (s *SliverHTTPC2) router() *mux.Router {
 
 		httpLog.Debugf("HTTP C2 Implant Config = %v", c2Config.ImplantConfig)
 		httpLog.Debugf("HTTP C2 Server Config = %v", c2Config.ServerConfig)
-		fmt.Println(c2Config.Name)
 		// Start Session Handler
 		router.HandleFunc(
 			fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.StartSessionFileExtension),
@@ -521,7 +516,7 @@ func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 		for _, header := range s.c2Config.ServerConfig.Headers {
 			if 0 < header.Probability && header.Probability < 100 {
 				roll := insecureRand.Intn(99) + 1
-				if header.Probability < roll {
+				if header.Probability < int32(roll) {
 					continue
 				}
 			}

@@ -20,6 +20,8 @@ package generate
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
 	insecureRand "math/rand"
@@ -678,9 +680,9 @@ func GenerateConfig(implantConfig *clientpb.ImplantConfig, save bool) (*clientpb
 		return nil, err
 	}
 	serverKeyPair := cryptography.ECCServerKeyPair()
-	// digest := sha256.Sum256((*implantKeyPair.Public)[:])
+	digest := sha256.Sum256((*implantKeyPair.Public)[:])
 	implantConfig.ECCPublicKey = implantKeyPair.PublicBase64()
-	// config.ECCPublicKeyDigest = hex.EncodeToString(digest[:])
+	implantConfig.ECCPublicKeyDigest = hex.EncodeToString(digest[:])
 	implantConfig.ECCPrivateKey = implantKeyPair.PrivateBase64()
 	implantConfig.ECCPublicKeySignature = cryptography.MinisignServerSign(implantKeyPair.Public[:])
 	implantConfig.ECCServerPublicKey = serverKeyPair.PublicBase64()
