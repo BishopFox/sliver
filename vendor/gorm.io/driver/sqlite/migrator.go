@@ -271,28 +271,29 @@ func (m Migrator) BuildIndexOptions(opts []schema.IndexOption, stmt *gorm.Statem
 
 func (m Migrator) CreateIndex(value interface{}, name string) error {
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		if idx := stmt.Schema.LookIndex(name); idx != nil {
-			opts := m.BuildIndexOptions(idx.Fields, stmt)
-			values := []interface{}{clause.Column{Name: idx.Name}, clause.Table{Name: stmt.Table}, opts}
+		if stmt.Schema != nil {
+			if idx := stmt.Schema.LookIndex(name); idx != nil {
+				opts := m.BuildIndexOptions(idx.Fields, stmt)
+				values := []interface{}{clause.Column{Name: idx.Name}, clause.Table{Name: stmt.Table}, opts}
 
-			createIndexSQL := "CREATE "
-			if idx.Class != "" {
-				createIndexSQL += idx.Class + " "
+				createIndexSQL := "CREATE "
+				if idx.Class != "" {
+					createIndexSQL += idx.Class + " "
+				}
+				createIndexSQL += "INDEX ?"
+
+				if idx.Type != "" {
+					createIndexSQL += " USING " + idx.Type
+				}
+				createIndexSQL += " ON ??"
+
+				if idx.Where != "" {
+					createIndexSQL += " WHERE " + idx.Where
+				}
+
+				return m.DB.Exec(createIndexSQL, values...).Error
 			}
-			createIndexSQL += "INDEX ?"
-
-			if idx.Type != "" {
-				createIndexSQL += " USING " + idx.Type
-			}
-			createIndexSQL += " ON ??"
-
-			if idx.Where != "" {
-				createIndexSQL += " WHERE " + idx.Where
-			}
-
-			return m.DB.Exec(createIndexSQL, values...).Error
 		}
-
 		return fmt.Errorf("failed to create index with name %v", name)
 	})
 }
@@ -300,8 +301,10 @@ func (m Migrator) CreateIndex(value interface{}, name string) error {
 func (m Migrator) HasIndex(value interface{}, name string) bool {
 	var count int
 	m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		if idx := stmt.Schema.LookIndex(name); idx != nil {
-			name = idx.Name
+		if stmt.Schema != nil {
+			if idx := stmt.Schema.LookIndex(name); idx != nil {
+				name = idx.Name
+			}
 		}
 
 		if name != "" {
@@ -327,8 +330,10 @@ func (m Migrator) RenameIndex(value interface{}, oldName, newName string) error 
 
 func (m Migrator) DropIndex(value interface{}, name string) error {
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		if idx := stmt.Schema.LookIndex(name); idx != nil {
-			name = idx.Name
+		if stmt.Schema != nil {
+			if idx := stmt.Schema.LookIndex(name); idx != nil {
+				name = idx.Name
+			}
 		}
 
 		return m.DB.Exec("DROP INDEX ?", clause.Column{Name: name}).Error
@@ -390,7 +395,7 @@ func (m Migrator) recreateTable(value interface{}, tablePtr *string,
 			return nil
 		}
 
-		tableReg, err := regexp.Compile(" ('|`|\"| )" + table + "('|`|\"| ) ")
+		tableReg, err := regexp.Compile("\\s*('|`|\")?\\b" + table + "\\b('|`|\")?\\s*")
 		if err != nil {
 			return err
 		}
