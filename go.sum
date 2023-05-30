@@ -36,6 +36,8 @@ github.com/akamensky/argparse v1.2.1/go.mod h1:S5kwC7IuDcEr5VeXtGPRVZ5o/FdhcMlQz
 github.com/akamensky/argparse v1.3.0/go.mod h1:S5kwC7IuDcEr5VeXtGPRVZ5o/FdhcMlQz4IZQuw64xA=
 github.com/alecthomas/chroma v0.10.0 h1:7XDcGkCQopCNKjZHfYrNLraA+M7e0fMiJ/Mfikbfjek=
 github.com/alecthomas/chroma v0.10.0/go.mod h1:jtJATyUxlIORhUOFNA9NZDWGAQ8wpxQQqNSB4rjA/1s=
+github.com/asciinema/asciinema v2.2.0+incompatible h1:e9chZnknYG1Mz6+RzsCiKkuyxd6oIIf0c0uQ/z5twzQ=
+github.com/asciinema/asciinema v2.2.0+incompatible/go.mod h1:MENSzidgC45XczbxGai9iNe46m9MXQOs0y0btRLM6tQ=
 github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0 h1:JjwxKkxzcBk4k8147g0eBQRCIy0UN1Be8AAv6RaIj4Q=
 github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0/go.mod h1:IbERvuyb387Hppp8hX0SQTFt/mkej8+OhuS8L0nC2CI=
 github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4 h1:cIAK2NNf2yafdgpFRNJrgZMwvy61BEVpGoHc2n4/yWs=
