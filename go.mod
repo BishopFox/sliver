@@ -1,8 +1,8 @@
 module github.com/bishopfox/sliver
 
-go 1.18
+go 1.20
 
-replace github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.9
+replace github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.12
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
