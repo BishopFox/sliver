@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"path"
@@ -62,7 +62,7 @@ func GetConfigDir() string {
 // GetConfigs - Returns a list of available configs
 func GetConfigs() map[string]*ClientConfig {
 	configDir := GetConfigDir()
-	configFiles, err := ioutil.ReadDir(configDir)
+	configFiles, err := os.ReadDir(configDir)
 	if err != nil {
 		log.Printf("No configs found %v", err)
 		return map[string]*ClientConfig{}
@@ -91,7 +91,7 @@ func ReadConfig(confFilePath string) (*ClientConfig, error) {
 		return nil, err
 	}
 	defer confFile.Close()
-	data, err := ioutil.ReadAll(confFile)
+	data, err := io.ReadAll(confFile)
 	if err != nil {
 		log.Printf("Read failed %v", err)
 		return nil, err
@@ -114,7 +114,7 @@ func SaveConfig(config *ClientConfig) error {
 	filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(config.Operator), filepath.Base(config.LHost))
 	saveTo, _ := filepath.Abs(filepath.Join(configDir, filename))
 	configJSON, _ := json.Marshal(config)
-	err := ioutil.WriteFile(saveTo, configJSON, 0600)
+	err := os.WriteFile(saveTo, configJSON, 0600)
 	if err != nil {
 		log.Printf("Failed to write config to: %s (%v)", saveTo, err)
 		return err

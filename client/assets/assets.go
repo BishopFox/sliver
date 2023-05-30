@@ -20,7 +20,6 @@ package assets
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/user"
@@ -76,7 +75,7 @@ func GetConsoleLogsDir() string {
 
 func assetVersion() string {
 	appDir := GetRootAppDir()
-	data, err := ioutil.ReadFile(filepath.Join(appDir, versionFileName))
+	data, err := os.ReadFile(filepath.Join(appDir, versionFileName))
 	if err != nil {
 		return ""
 	}

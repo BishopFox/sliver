@@ -20,7 +20,6 @@ package assets
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -57,7 +56,7 @@ func GetArmoriesConfig() []*ArmoryConfig {
 	if _, err := os.Stat(armoryConfigPath); os.IsNotExist(err) {
 		return []*ArmoryConfig{defaultArmoryConfig}
 	}
-	data, err := ioutil.ReadFile(armoryConfigPath)
+	data, err := os.ReadFile(armoryConfigPath)
 	if err != nil {
 		return []*ArmoryConfig{defaultArmoryConfig}
 	}
