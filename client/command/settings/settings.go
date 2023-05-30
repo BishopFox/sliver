@@ -48,6 +48,7 @@ func SettingsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	tw.AppendRow(table.Row{"Small Term Width", con.Settings.SmallTermWidth, "Omit some table columns when terminal width is less than this value"})
 	tw.AppendRow(table.Row{"Always Overflow", con.Settings.AlwaysOverflow, "Disable table pagination"})
 	tw.AppendRow(table.Row{"Vim Mode", con.Settings.VimMode, "Navigation mode, vim style"})
+	tw.AppendRow(table.Row{"Console Logs", con.Settings.ConsoleLogs, "Log console output to disk"})
 	con.Printf("%s\n", tw.Render())
 }
 
@@ -63,6 +64,20 @@ func SettingsAlwaysOverflow(ctx *grumble.Context, con *console.SliverConsoleClie
 	}
 	con.Settings.AlwaysOverflow = !con.Settings.AlwaysOverflow
 	con.PrintInfof("Always overflow = %v\n", con.Settings.AlwaysOverflow)
+}
+
+// SettingsConsoleLogs - Toggle console logs
+func SettingsConsoleLogs(ctx *grumble.Context, con *console.SliverConsoleClient) {
+	var err error
+	if con.Settings == nil {
+		con.Settings, err = assets.LoadSettings()
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+	}
+	con.Settings.ConsoleLogs = !con.Settings.ConsoleLogs
+	con.PrintInfof("Console Logs = %v\n", con.Settings.ConsoleLogs)
 }
 
 // SettingsSmallTerm - Modify small terminal width value

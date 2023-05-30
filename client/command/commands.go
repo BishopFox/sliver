@@ -846,7 +846,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	})
 	settingsCmd.AddCommand(&grumble.Command{
 		Name:     "beacon-autoresults",
-		Help:     "Automatically display beacon task results when completed",
+		Help:     "Automatically display beacon task results when completed (toggle)",
 		LongHelp: help.GetHelpFor([]string{consts.SettingsStr, "beacon-autoresults"}),
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -858,7 +858,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	})
 	settingsCmd.AddCommand(&grumble.Command{
 		Name:     "autoadult",
-		Help:     "Automatically accept OPSEC warnings",
+		Help:     "Automatically accept OPSEC warnings (toggle)",
 		LongHelp: help.GetHelpFor([]string{consts.SettingsStr, "autoadult"}),
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -870,11 +870,23 @@ func BindCommands(con *console.SliverConsoleClient) {
 	})
 	settingsCmd.AddCommand(&grumble.Command{
 		Name:     "always-overflow",
-		Help:     "Disable table pagination",
+		Help:     "Table pagination (toggle)",
 		LongHelp: help.GetHelpFor([]string{consts.SettingsStr, "always-overflow"}),
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			settings.SettingsAlwaysOverflow(ctx, con)
+			con.Println()
+			return nil
+		},
+		HelpGroup: consts.GenericHelpGroup,
+	})
+	settingsCmd.AddCommand(&grumble.Command{
+		Name:     "console-logs",
+		Help:     "Log console output (toggle)",
+		LongHelp: help.GetHelpFor([]string{consts.SettingsStr, "console-logs"}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			settings.SettingsConsoleLogs(ctx, con)
 			con.Println()
 			return nil
 		},
