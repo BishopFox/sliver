@@ -197,6 +197,15 @@ func loadC2s(config *models.ImplantConfig) error {
 	return nil
 }
 
+func LoadHTTPC2s() (*[]models.HttpC2Config, error) {
+	c2Configs := []models.HttpC2Config{}
+	err := Session().Where(&models.HttpC2Config{}).Find(&c2Configs).Error
+	if err != nil {
+		return nil, err
+	}
+	return &c2Configs, nil
+}
+
 func LoadHTTPC2ConfigByName(name string) (*models.HttpC2Config, error) {
 	if len(name) < 1 {
 		return nil, ErrRecordNotFound

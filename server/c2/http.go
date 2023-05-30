@@ -335,7 +335,25 @@ func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
 
 func (s *SliverHTTPC2) loadServerHTTPC2Configs() []*models.HttpC2Config {
 
-	return []*models.HttpC2Config{}
+	ret := []*models.HttpC2Config{}
+	// load config names
+	httpc2Configs, err := db.LoadHTTPC2s()
+	if err != nil {
+		httpLog.Errorf("Failed to load http configuration names from database %s", err)
+		return nil
+	}
+
+	for _, httpC2Config := range *httpc2Configs {
+		httpLog.Debugf("Loading %v", httpC2Config.Name)
+		httpC2Config, err := db.LoadHTTPC2ConfigByName(httpC2Config.Name)
+		if err != nil {
+			httpLog.Errorf("failed to load  %s from database %s", httpC2Config.Name, err)
+			return nil
+		}
+		ret = append(ret, httpC2Config)
+	}
+
+	return ret
 }
 
 func (s *SliverHTTPC2) router() *mux.Router {
@@ -353,7 +371,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 
 		httpLog.Debugf("HTTP C2 Implant Config = %v", c2Config.ImplantConfig)
 		httpLog.Debugf("HTTP C2 Server Config = %v", c2Config.ServerConfig)
-
+		fmt.Println(c2Config.Name)
 		// Start Session Handler
 		router.HandleFunc(
 			fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.StartSessionFileExtension),
