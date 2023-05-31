@@ -41,9 +41,10 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverConsol
 			con.PrintErrorf("Error updating implant profile\n")
 			return data, err
 		}
+		con.PrintInfof("Sliver name for profile %s: %s\n", profile.Name, buildImplantName(profile.GetConfig().GetFileName()))
 	} else {
 		// Found a build, reuse that one
-		con.PrintInfof("Sliver name for profile: %s\n", implantName)
+		con.PrintInfof("Sliver name for profile %s: %s\n", profile.Name, implantName)
 		regenerate, err := con.Rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
 			ImplantName: implantName,
 		})
