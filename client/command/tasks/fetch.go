@@ -174,9 +174,9 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 	// ---------------------
 	// Environment commands
 	// ---------------------
-	case sliverpb.MsgEnvInfo:
+	case sliverpb.MsgEnvReq:
 		envInfo := &sliverpb.EnvInfo{}
-		err := proto.Unmarshal(task.Request, envInfo)
+		err := proto.Unmarshal(task.Response, envInfo)
 		if err != nil {
 			con.PrintErrorf("Failed to decode task response: %s\n", err)
 			return
@@ -357,7 +357,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		}
 		filesystem.PrintPwd(pwd, con)
 
-	case sliverpb.MsgDownload:
+	case sliverpb.MsgDownloadReq:
 		download := &sliverpb.Download{}
 		err := proto.Unmarshal(task.Response, download)
 		if err != nil {
@@ -415,7 +415,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		}
 		filesystem.PrintRm(rm, con)
 
-	case sliverpb.MsgUpload:
+	case sliverpb.MsgUploadReq:
 		upload := &sliverpb.Upload{}
 		err := proto.Unmarshal(task.Response, upload)
 		if err != nil {
@@ -450,6 +450,33 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 			return
 		}
 		filesystem.PrintChtimes(chtimes, con)
+
+	case sliverpb.MsgMemfilesListReq:
+		memfilesList := &sliverpb.Ls{}
+		err := proto.Unmarshal(task.Response, memfilesList)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		filesystem.PrintMemfiles(memfilesList, con)
+
+	case sliverpb.MsgMemfilesAddReq:
+		memfilesAdd := &sliverpb.MemfilesAdd{}
+		err := proto.Unmarshal(task.Response, memfilesAdd)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		filesystem.PrintAddMemfile(memfilesAdd, con)
+
+	case sliverpb.MsgMemfilesRmReq:
+		memfilesRm := &sliverpb.MemfilesRm{}
+		err := proto.Unmarshal(task.Response, memfilesRm)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		filesystem.PrintRmMemfile(memfilesRm, con)
 
 	// ---------------------
 	// Network commands
@@ -691,7 +718,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 	// ---------------------
 	// Screenshot
 	// ---------------------
-	case sliverpb.MsgScreenshot:
+	case sliverpb.MsgScreenshotReq:
 		screenshot := &sliverpb.Screenshot{}
 		err := proto.Unmarshal(task.Response, screenshot)
 		if err != nil {
