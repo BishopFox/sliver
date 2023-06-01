@@ -141,10 +141,7 @@ func TestCipherContext(t *testing.T) {
 		Key:    testKey,
 		replay: &sync.Map{},
 	}
-	cipherCtx2 := &CipherContext{
-		Key:    testKey,
-		replay: &sync.Map{},
-	}
+	cipherCtx2 := implantCrypto.NewCipherContext(testKey)
 
 	sample := randomData()
 
@@ -152,13 +149,13 @@ func TestCipherContext(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to encrypt sample: %s", err)
 	}
-	_, err = cipherCtx1.Decrypt(ciphertext)
+	_, err = cipherCtx1.Decrypt(ciphertext[minisign.RawSigSize:])
 	if err != ErrReplayAttack {
-		t.Fatal("Failed to detect replay attack")
+		t.Fatal("Failed to detect replay attack (1)")
 	}
-	_, err = cipherCtx1.Decrypt(ciphertext)
+	_, err = cipherCtx1.Decrypt(ciphertext[minisign.RawSigSize:])
 	if err != ErrReplayAttack {
-		t.Fatal("Failed to detect replay attack")
+		t.Fatal("Failed to detect replay attack (2)")
 	}
 
 	plaintext, err := cipherCtx2.Decrypt(ciphertext)
@@ -169,8 +166,8 @@ func TestCipherContext(t *testing.T) {
 		t.Fatalf("Sample does not match decrypted data")
 	}
 	_, err = cipherCtx2.Decrypt(ciphertext)
-	if err != ErrReplayAttack {
-		t.Fatal("Failed to detect replay attack")
+	if err != implantCrypto.ErrReplayAttack {
+		t.Fatal("Failed to detect replay attack (3)")
 	}
 }
 
