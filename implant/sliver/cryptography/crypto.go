@@ -176,8 +176,29 @@ type CipherContext struct {
 	replay *sync.Map
 }
 
+const minisignRawSigSize = 74
+
 // Decrypt - Decrypt a message with the contextual key and check for replay attacks
-func (c *CipherContext) Decrypt(ciphertext []byte) ([]byte, error) {
+func (c *CipherContext) Decrypt(msg []byte) ([]byte, error) {
+	if len(msg) < minisignRawSigSize+1 {
+		return nil, ErrDecryptFailed
+	}
+	ciphertext := msg[minisignRawSigSize:]
+	serverPublicKey, err := DecodeMinisignPublicKey(minisignServerPublicKey)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("failed to decode minisign public key: %s", err)
+		// {{end}}
+		return nil, ErrDecryptFailed
+	}
+	validSig := verifyRaw(serverPublicKey, msg, false)
+	if !validSig {
+		// {{if .Config.Debug}}
+		log.Printf("invalid signature on ciphertext")
+		// {{end}}
+		return nil, ErrDecryptFailed
+	}
+
 	plaintext, err := Decrypt(c.Key, ciphertext)
 	if err != nil {
 		return nil, err

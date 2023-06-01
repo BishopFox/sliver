@@ -219,7 +219,8 @@ func (c *CipherContext) Encrypt(plaintext []byte) ([]byte, error) {
 		b64Digest := base64.RawStdEncoding.EncodeToString(digest[:])
 		c.replay.Store(b64Digest, true)
 	}
-	return ciphertext, nil
+	rawSig := serverSignRawBuf(ciphertext)
+	return append(rawSig, ciphertext...), nil
 }
 
 // TOTPOptions - Customized totp validation options
@@ -230,6 +231,13 @@ func TOTPOptions() totp.ValidateOpts {
 		Period:    TOTPPeriod,
 		Skew:      uint(1),
 	}
+}
+
+// serverSignRawBuf - Sign a buffer with the server's minisign private key
+func serverSignRawBuf(buf []byte) []byte {
+	privateKey := MinisignServerPrivateKey()
+	rawSig := minisign.SignRawBuf(*privateKey, buf)
+	return rawSig[:]
 }
 
 // ECCServerKeyPair - Get teh server's ECC key pair
@@ -248,7 +256,6 @@ func ECCServerKeyPair() *ECCKeyPair {
 		panic(err)
 	}
 	return keyPair
-
 }
 
 func generateServerECCKeyPair() (*ECCKeyPair, error) {
