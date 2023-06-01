@@ -152,8 +152,10 @@ type HTTPC2ImplantConfig struct {
 	MaxPaths int `json:"max_paths"`
 	MinPaths int `json:"min_paths"`
 
-	// Stager File Extension
-	StagerFileExt string `json:"stager_file_ext"`
+	// Stager files and paths
+	StagerFileExt string   `json:"stager_file_ext"`
+	StagerFiles   []string `json:"stager_files"`
+	StagerPaths   []string `json:"stager_paths"`
 
 	// Poll files and paths
 	PollFileExt string   `json:"poll_file_ext"`
@@ -247,6 +249,14 @@ var (
 			MinPaths:          2,
 
 			StagerFileExt: ".woff",
+			StagerFiles: []string{
+				"attribute_text_w01_regular", "ZillaSlab-Regular.subset.bbc33fb47cf6",
+				"ZillaSlab-Bold.subset.e96c15f68c68", "Inter-Regular",
+				"Inter-Medium",
+			},
+			StagerPaths: []string{
+				"static", "assets", "fonts", "locales",
+			},
 
 			PollFileExt: ".js",
 			PollFiles: []string{
@@ -356,6 +366,7 @@ func generateDefaultConfig(saveTo string) error {
 var (
 	ErrMissingCookies             = errors.New("server config must specify at least one cookie")
 	ErrMissingStagerFileExt       = errors.New("implant config must specify a stager_file_ext")
+	ErrTooFewStagerFiles          = errors.New("implant config must specify at least one stager_files value")
 	ErrMissingPollFileExt         = errors.New("implant config must specify a poll_file_ext")
 	ErrTooFewPollFiles            = errors.New("implant config must specify at least one poll_files value")
 	ErrMissingKeyExchangeFileExt  = errors.New("implant config must specify a key_exchange_file_ext")
@@ -445,6 +456,10 @@ func checkImplantConfig(config *HTTPC2ImplantConfig) error {
 	config.StagerFileExt = coerceFileExt(config.StagerFileExt)
 	if config.StagerFileExt == "" {
 		return ErrMissingStagerFileExt
+	}
+	config.StagerFiles = coerceFiles(config.StagerFiles, config.StagerFileExt)
+	if len(config.StagerFiles) < 1 {
+		return ErrTooFewStagerFiles
 	}
 
 	// Poll Settings

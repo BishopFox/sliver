@@ -30,6 +30,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/codenames"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
@@ -207,16 +208,14 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 
 // Utility functions
 func generateCallbackURI() string {
-	segments := []string{"static", "assets", "fonts", "locales"}
-	// Randomly picked font while browsing on the web
-	fontNames := []string{
-		"attribute_text_w01_regular.woff",
-		"ZillaSlab-Regular.subset.bbc33fb47cf6.woff",
-		"ZillaSlab-Bold.subset.e96c15f68c68.woff",
-		"Inter-Regular.woff",
-		"Inter-Medium.woff",
+	currentHTTPC2Config := configs.GetHTTPC2Config()
+	segments := currentHTTPC2Config.ImplantConfig.StagerPaths
+	fileNames := []string{}
+	for _, fileName := range currentHTTPC2Config.ImplantConfig.StagerFiles {
+		fileNames = append(fileNames, fileName+"."+currentHTTPC2Config.ImplantConfig.StagerFileExt)
 	}
-	return path.Join(randomPath(segments, fontNames)...)
+
+	return path.Join(randomPath(segments, fileNames)...)
 }
 
 func randomPath(segments []string, filenames []string) []string {
