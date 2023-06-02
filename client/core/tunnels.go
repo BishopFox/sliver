@@ -96,7 +96,7 @@ func (t *tunnels) send(tunnelData *sliverpb.TunnelData) error {
 }
 
 // Start - Add a tunnel to the core mapper
-func (t *tunnels) Start(tunnelID uint64, sessionID string) *TunnelIO {
+func (t *tunnels) Start(tunnelID uint64, sessionID string, newLineFix bool) *TunnelIO {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -109,6 +109,15 @@ func (t *tunnels) Start(tunnelID uint64, sessionID string) *TunnelIO {
 		log.Printf("Tunnel now is open, %d", tunnelID)
 
 		for data := range tunnel.Send {
+
+			// Replace Windows new line "\r\n" with "\n"
+			if newLineFix && len(data) >= 2 {
+				if data[len(data)-2] == byte('\r') {
+					data = data[0 : len(data)-2]
+					data = append(data, byte('\n'))
+				}
+			}
+
 			log.Printf("Send %d bytes on tunnel %d", len(data), tunnel.ID)
 
 			err := t.send(&sliverpb.TunnelData{

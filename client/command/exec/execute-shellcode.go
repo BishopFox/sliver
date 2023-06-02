@@ -154,7 +154,7 @@ func executeInteractive(ctx *grumble.Context, hostProc string, shellcode []byte,
 		return
 	}
 
-	tunnel := core.GetTunnels().Start(rpcTunnel.GetTunnelID(), rpcTunnel.GetSessionID())
+	tunnel := core.GetTunnels().Start(rpcTunnel.GetTunnelID(), rpcTunnel.GetSessionID(), false)
 
 	shell, err := con.Rpc.Shell(context.Background(), &sliverpb.ShellReq{
 		Request:   con.ActiveTarget.Request(ctx),

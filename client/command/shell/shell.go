@@ -24,6 +24,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime"
 
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
@@ -80,10 +81,17 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *con
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+
+	// Creating tunnel differently when the Sliver Client is Windows that will send "\r\n" and the implant uses "\n"
+	newlineFix := false
+	if runtime.GOOS == "windows" && session.OS != "windows" {
+		newlineFix = true
+	}
+
 	log.Printf("Created new tunnel with id: %d, binding to shell ...", rpcTunnel.TunnelID)
 
 	// Start() takes an RPC tunnel and creates a local Reader/Writer tunnel object
-	tunnel := core.GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
+	tunnel := core.GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID, newlineFix)
 
 	shell, err := con.Rpc.Shell(context.Background(), &sliverpb.ShellReq{
 		Request:   con.ActiveTarget.Request(ctx),

@@ -205,7 +205,7 @@ func (p *ChannelProxy) dialImplant(ctx context.Context) (*TunnelIO, error) {
 	}
 
 	log.Printf("[tcpproxy] Created new tunnel with id %d (session %s)", rpcTunnel.TunnelID, p.Session.ID)
-	tunnel := GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
+	tunnel := GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID, false)
 
 	log.Printf("[tcpproxy] Binding tunnel to portfwd %d", p.Port())
 	portfwdResp, err := p.Rpc.Portfwd(ctx, &sliverpb.PortfwdReq{
