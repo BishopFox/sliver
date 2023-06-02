@@ -182,11 +182,10 @@ func (r *GenericResolver) aaaa(domain string) ([]byte, time.Duration, error) {
 				//records = append(records, []byte(answer.AAAA)...)
 			}
 		}
-	} else {
 		// {{if .Config.Debug}}
+	} else {
 		log.Printf("[dns] answer (aaaa): no records returned")
 		// {{end}}
-		return nil, rtt, ErrInvalidResponse
 	}
 
 	data := []byte{}
@@ -230,18 +229,24 @@ func (r *GenericResolver) txt(domain string) ([]byte, time.Duration, error) {
 	}
 
 	records := ""
-	for _, answer := range resp.Answer {
-		switch answer := answer.(type) {
-		case *dns.TXT:
-			// {{if .Config.Debug}}
-			log.Printf("[dns] answer (txt): %v", answer.Txt)
-			// {{end}}
-			records += strings.Join(answer.Txt, "")
-		}
-	}
 	data := []byte{}
-	if 0 < len(records) {
-		data, err = r.base64.Decode([]byte(records))
+	if len(resp.Answer) > 0 {
+		for _, answer := range resp.Answer {
+			switch answer := answer.(type) {
+			case *dns.TXT:
+				// {{if .Config.Debug}}
+				log.Printf("[dns] answer (txt): %v", answer.Txt)
+				// {{end}}
+				records += strings.Join(answer.Txt, "")
+			}
+		}
+		if 0 < len(records) {
+			data, err = r.base64.Decode([]byte(records))
+		}
+		// {{if .Config.Debug}}
+	} else {
+		log.Printf("[dns] answer (txt): no records returned")
+		// {{end}}
 	}
 	return data, rtt, err
 }

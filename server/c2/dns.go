@@ -621,6 +621,8 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 			ID:   msgID,
 			Size: msgLen,
 		})
+	} else {
+		dnsLog.Errorf("[poll] error: %s", err)
 	}
 
 	resp := new(dns.Msg)
@@ -867,90 +869,6 @@ func dnsSessionID() uint32 {
 	dnsSessionID := binary.LittleEndian.Uint32(randBuf)
 	return dnsSessionID
 }
-
-// Ported from implant/sliver/transports/dnsclient/dnsclient.go
-// func (s *SliverDNSServer) SplitBuffer(data []byte, parent string) ([]string, error) {
-// 	subdata := []string{}
-// 	start := 0
-// 	stop := start
-// 	lastLen := 0
-// 	var encoded string
-
-// 	parent_pre := "." + parent
-// 	subdataSpace := 254 - len(parent_pre) - (1 + (254-len(parent_pre))/64)
-// 	encoder := encoders.Base32{}
-
-// 	encodedSubdata := []string{}
-
-// 	for index := 0; stop < len(data); index++ {
-// 		if len(data) < index {
-// 			dnsLog.Errorf("boundary miscalculation") // We should always be able to encode more than one byte
-// 			return nil, ErrMsgTooShort
-// 		}
-// 		if lastLen == 0 {
-// 			stop += int(float64(subdataSpace)/2) - 1 // base32 overhead is about 160%
-// 		} else {
-// 			stop += (lastLen - 4) // max start uint32 overhead
-// 		}
-// 		if len(data) <= stop {
-// 			stop = len(data) - 1 // make sure the loop is executed at least once
-// 		}
-
-// 		// Sometimes adding a byte will result in +2 chars so we -1 the subdata space
-// 		encoded = ""
-
-// 		dnsLog.Printf("[dns] encoded: %d, subdata space: %d | stop: %d, len: %d",
-// 			len(encoded), (subdataSpace - 1), stop, len(data))
-
-// 		var msgPart []byte
-// 		for len(encoded) < (subdataSpace-1) && stop < len(data) {
-// 			stop++
-
-// 			dnsLog.Printf("[dns] shave data [%d:%d] of %d", start, stop, len(data))
-
-// 			msgPart = data[start:stop]
-// 			encoded = string(encoder.Encode(msgPart))
-
-// 			dnsLog.Printf("[dns] encoded length is %d (max: %d)", len(encoded), subdataSpace)
-
-// 		}
-// 		lastLen = len(msgPart) // Save the amount of data that fit for the next loop
-
-// 		encodedSubdata = append(encodedSubdata, encoded)
-
-// 		domain, err := s.joinSubdataToParent(encoded, parent_pre, subdataSpace)
-// 		if err != nil {
-// 			dnsLog.Errorf("[dns] join subdata failed: %s", err)
-// 			return nil, err
-// 		}
-// 		subdata = append(subdata, domain)
-// 		start = stop
-// 	}
-
-// 	return subdata, nil
-// }
-
-// // Joins subdata to the parent domain, you must have already done the math to
-// // ensure the subdata can fit in the domain
-// func (s *SliverDNSServer) joinSubdataToParent(subdata, parent string, subdataSpace int) (string, error) {
-// 	if subdataSpace < len(subdata) {
-// 		return "", ErrMsgTooLong // For sure won't fit after we add '.'
-// 	}
-// 	subdomains := []string{}
-// 	for index := 0; index < len(subdata); index += 63 {
-// 		stop := index + 63
-// 		if len(subdata) < stop {
-// 			stop = len(subdata)
-// 		}
-// 		subdomains = append(subdomains, subdata[index:stop])
-// 	}
-// 	// s.parent already has a leading '.'
-// 	domain := strings.Join(subdomains, ".") + parent
-// 	if 254 < len(domain) {
-// 		return "", ErrMsgTooLong
-// 	}
-// 	return domain, nil
-// }
 
 func splitToChunks(data []byte, chunkSize int) [][]byte {
 	var chunks [][]byte
