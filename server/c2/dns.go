@@ -483,6 +483,7 @@ func (s *SliverDNSServer) handleTOTP(domain string, msg *dnspb.DNSMessage, req *
 	dnsLog.Debugf("[dns] Assigned new dns session id = %d", dnsSessionID&sessionIDBitMask)
 	s.sessions.Store(dnsSessionID&sessionIDBitMask, &DNSSession{
 		ID:                dnsSessionID & sessionIDBitMask,
+		dnsIdMsgIdMap:     map[uint32]uint32{},
 		outgoingMsgIDs:    []uint32{},
 		outgoingBuffers:   map[uint32][]byte{},
 		outgoingMutex:     &sync.RWMutex{},
