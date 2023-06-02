@@ -105,6 +105,7 @@ type DNSSession struct {
 	ImplanConn *core.ImplantConnection
 	CipherCtx  *cryptography.CipherContext
 
+	dnsIdMsgIdMap   map[uint32]uint32
 	outgoingMsgIDs  []uint32
 	outgoingBuffers map[uint32][]byte
 	outgoingMutex   *sync.RWMutex
@@ -148,7 +149,7 @@ func (s *DNSSession) StageOutgoingEnvelope(envelope *sliverpb.Envelope) error {
 
 // PopOutgoingMsgID - Pop the next outgoing message ID, FIFO
 // returns msgID, len, err
-func (s *DNSSession) PopOutgoingMsgID() (uint32, uint32, error) {
+func (s *DNSSession) PopOutgoingMsgID(msg *dnspb.DNSMessage) (uint32, uint32, error) {
 	s.outgoingMutex.Lock()
 	defer s.outgoingMutex.Unlock()
 	if len(s.outgoingMsgIDs) == 0 {
@@ -160,6 +161,8 @@ func (s *DNSSession) PopOutgoingMsgID() (uint32, uint32, error) {
 	if !ok {
 		return 0, 0, errors.New("no buffer for msg id")
 	}
+	//Necessary for any race conditions for resolvers that send out multiple identical requests
+	s.dnsIdMsgIdMap[msg.ID] = msgID
 	return msgID, uint32(len(ciphertext)), nil
 }
 
@@ -609,10 +612,27 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
 
-	msgID, msgLen, err := dnsSession.PopOutgoingMsgID()
-	if err != nil && err != ErrNoOutgoingMessages {
-		dnsLog.Errorf("[poll] error popping outgoing msg id: %s", err)
-		return s.refusedErrorResp(req)
+	msgID, msgLen, err := dnsSession.PopOutgoingMsgID(msg)
+	if err != nil {
+		if err != ErrNoOutgoingMessages {
+			dnsLog.Errorf("[poll] error popping outgoing msg id: %s", err)
+			return s.refusedErrorResp(req)
+		} else {
+			dnsLog.Debugf("[poll] error: %s", err)
+			msgID, ok := dnsSession.dnsIdMsgIdMap[msg.ID]
+			if !ok {
+				dnsLog.Debugf("[poll] no msg id for given request")
+				return s.refusedErrorResp(req)
+			} else {
+				ciphertext, ok := dnsSession.outgoingBuffers[msgID]
+				if !ok {
+					dnsLog.Debugf("[poll] no msg for given id")
+					return s.refusedErrorResp(req)
+				}
+				msgLen = uint32(len(ciphertext))
+			}
+
+		}
 	}
 
 	respData := []byte{}
@@ -623,11 +643,6 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 			ID:   msgID,
 			Size: msgLen,
 		})
-	} else {
-		dnsLog.Debugf("[poll] error: %s", err)
-		resp := s.refusedErrorResp(req)
-		resp.Authoritative = false
-		return resp
 	}
 
 	resp := new(dns.Msg)
@@ -668,6 +683,7 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 			resp.Answer = append(resp.Answer, txt)
 		}
 	}
+
 	return resp
 }
 
