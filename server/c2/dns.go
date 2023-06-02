@@ -626,6 +626,7 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 	} else {
 		dnsLog.Debugf("[poll] error: %s", err)
 		return nil
+	}
 
 	resp := new(dns.Msg)
 	resp.SetReply(req)
