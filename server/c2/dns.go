@@ -125,13 +125,15 @@ func (s *DNSSession) nextMsgID() uint32 {
 
 // StageOutgoingEnvelope - Stage an outgoing envelope
 func (s *DNSSession) StageOutgoingEnvelope(envelope *sliverpb.Envelope) error {
-	// dnsLog.Debugf("Staging outgoing envelope %v", envelope)
+	dnsLog.Debugf("Staging outgoing envelope %v", envelope)
 	plaintext, err := proto.Marshal(envelope)
 	if err != nil {
+		dnsLog.Errorf("[dns] failed to marshal outgoing message %s", err)
 		return err
 	}
 	ciphertext, err := s.CipherCtx.Encrypt(plaintext)
 	if err != nil {
+		dnsLog.Errorf("[dns] failed to encrypt outgoing message %s", err)
 		return err
 	}
 
@@ -622,7 +624,7 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 			Size: msgLen,
 		})
 	} else {
-		dnsLog.Errorf("[poll] error: %s", err)
+		dnsLog.Debugf("[poll] error: %s", err)
 	}
 
 	resp := new(dns.Msg)
