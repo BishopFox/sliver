@@ -620,16 +620,17 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 			return s.refusedErrorResp(req)
 		} else {
 			dnsLog.Debugf("[poll] error: %s", err)
-			msgID, ok := dnsSession.dnsIdMsgIdMap[msg.ID]
+			oldID, ok := dnsSession.dnsIdMsgIdMap[msg.ID]
 			if !ok {
 				dnsLog.Debugf("[poll] no msg id for given request")
 				return s.refusedErrorResp(req)
 			} else {
-				ciphertext, ok := dnsSession.outgoingBuffers[msgID]
+				ciphertext, ok := dnsSession.outgoingBuffers[oldID]
 				if !ok {
 					dnsLog.Debugf("[poll] no msg for given id")
 					return s.refusedErrorResp(req)
 				}
+				msgID = oldID
 				msgLen = uint32(len(ciphertext))
 			}
 
