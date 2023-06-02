@@ -149,23 +149,52 @@ func (r *GenericResolver) aaaa(domain string) ([]byte, time.Duration, error) {
 		// {{end}}
 		return nil, rtt, ErrInvalidRcode
 	}
-	records := []byte{}
-	dataSize := 0
-	for _, answer := range resp.Answer {
-		switch answer := answer.(type) {
-		case *dns.AAAA:
-			// {{if .Config.Debug}}
-			log.Printf("[dns] answer (aaaa): %v", answer.AAAA)
-			// {{end}}
+	records := make([]byte, 512)
+	dataSize := uint32(0)
 
-			dataSize = int(answer.Hdr.Ttl)
-			records = append(records, []byte(answer.AAAA)...)
+	if len(resp.Answer) > 0 {
+		for _, answer := range resp.Answer {
+			switch answer := answer.(type) {
+			case *dns.AAAA:
+				// {{if .Config.Debug}}
+				log.Printf("[dns] answer (aaaa): %v", answer.AAAA)
+				// {{end}}
+
+				chunkMeta := uint32(answer.Hdr.Ttl)
+				chunkIdx := (chunkMeta & 0xff00) >> 8
+				// {{if .Config.Debug}}
+				log.Printf("[dns] chunk idx: %d", chunkIdx)
+				// {{end}}
+
+				tempSize := chunkMeta & 0xff
+				if dataSize != 0 {
+					if tempSize != dataSize {
+						// {{if .Config.Debug}}
+						log.Printf("[dns] inconsistent record size. should all be the same: %d", tempSize)
+						// {{end}}
+						return nil, rtt, ErrInvalidResponse
+					}
+				} else {
+					dataSize = tempSize
+				}
+
+				copy(records[chunkIdx*16:], []byte(answer.AAAA))
+				//records = append(records, []byte(answer.AAAA)...)
+			}
 		}
+	} else {
+		// {{if .Config.Debug}}
+		log.Printf("[dns] answer (aaaa): no records returned")
+		// {{end}}
+		return nil, rtt, ErrInvalidResponse
 	}
 
-	// Trim output data
-	data := make([]byte, dataSize)
-	copy(data, records[0:dataSize])
+	data := []byte{}
+	if dataSize > 0 {
+		// Trim output data
+		data = make([]byte, dataSize)
+		copy(data, records[0:dataSize])
+	}
 
 	return data, rtt, err
 }

@@ -570,9 +570,13 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 
 			chunks := splitToChunks(respData, 16)
 			msg_len := len(respData)
-			for _, chunk := range chunks {
+			dnsLog.Infof("[dns] msg length: %d)", msg_len)
+			for i, chunk := range chunks {
+				ttl := uint32(msg_len)
+				chunkIdx := uint32(i) << 8
+				ttl = ttl ^ chunkIdx
 				a_record := &dns.AAAA{
-					Hdr:  dns.RR_Header{Name: q.Name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: uint32(msg_len)},
+					Hdr:  dns.RR_Header{Name: q.Name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: ttl},
 					AAAA: chunk,
 				}
 				resp.Answer = append(resp.Answer, a_record)
@@ -628,9 +632,13 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 
 			chunks := splitToChunks(respData, 16)
 			msg_len := len(respData)
-			for _, chunk := range chunks {
+			dnsLog.Infof("[dns] msg length: %d)", msg_len)
+			for i, chunk := range chunks {
+				ttl := uint32(msg_len)
+				chunkIdx := uint32(i) << 8
+				ttl = ttl ^ chunkIdx
 				a_record := &dns.AAAA{
-					Hdr:  dns.RR_Header{Name: q.Name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: uint32(msg_len)},
+					Hdr:  dns.RR_Header{Name: q.Name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: ttl},
 					AAAA: chunk,
 				}
 				resp.Answer = append(resp.Answer, a_record)
@@ -712,9 +720,13 @@ func (s *SliverDNSServer) handleDataToImplant(domain string, msg *dnspb.DNSMessa
 
 			chunks := splitToChunks(respData, 16)
 			msg_len := len(respData)
-			for _, chunk := range chunks {
+			dnsLog.Infof("[dns] msg length: %d)", msg_len)
+			for i, chunk := range chunks {
+				ttl := uint32(msg_len)
+				chunkIdx := uint32(i) << 8
+				ttl = ttl ^ chunkIdx
 				a_record := &dns.AAAA{
-					Hdr:  dns.RR_Header{Name: q.Name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: uint32(msg_len)},
+					Hdr:  dns.RR_Header{Name: q.Name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: ttl},
 					AAAA: chunk,
 				}
 				resp.Answer = append(resp.Answer, a_record)

