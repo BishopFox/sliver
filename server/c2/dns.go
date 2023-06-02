@@ -637,14 +637,12 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 	}
 
 	respData := []byte{}
-	if err == nil {
-		dnsLog.Debugf("[poll] manifest %d (%d bytes)", msgID, msgLen)
-		respData, _ = proto.Marshal(&dnspb.DNSMessage{
-			Type: dnspb.DNSMessageType_MANIFEST,
-			ID:   msgID,
-			Size: msgLen,
-		})
-	}
+	dnsLog.Debugf("[poll] manifest %d (%d bytes)", msgID, msgLen)
+	respData, _ = proto.Marshal(&dnspb.DNSMessage{
+		Type: dnspb.DNSMessageType_MANIFEST,
+		ID:   msgID,
+		Size: msgLen,
+	})
 
 	resp := new(dns.Msg)
 	resp.SetReply(req)
