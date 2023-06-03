@@ -4,10 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"time"
 
+	"github.com/tetratelabs/wazero/internal/fsapi"
 	"github.com/tetratelabs/wazero/internal/platform"
-	"github.com/tetratelabs/wazero/internal/sysfs"
 	"github.com/tetratelabs/wazero/sys"
 )
 
@@ -17,16 +18,14 @@ type Context struct {
 	args, environ         [][]byte
 	argsSize, environSize uint32
 
-	// Note: Using function pointers here keeps them stable for tests.
-
-	walltime           *sys.Walltime
+	walltime           sys.Walltime
 	walltimeResolution sys.ClockResolution
-	nanotime           *sys.Nanotime
+	nanotime           sys.Nanotime
 	nanotimeResolution sys.ClockResolution
-	nanosleep          *sys.Nanosleep
-	osyield            *sys.Osyield
+	nanosleep          sys.Nanosleep
+	osyield            sys.Osyield
 	randSource         io.Reader
-	fsc                *FSContext
+	fsc                FSContext
 }
 
 // Args is like os.Args and defaults to nil.
@@ -65,7 +64,7 @@ func (c *Context) EnvironSize() uint32 {
 
 // Walltime implements platform.Walltime.
 func (c *Context) Walltime() (sec int64, nsec int32) {
-	return (*(c.walltime))()
+	return c.walltime()
 }
 
 // WalltimeNanos returns platform.Walltime as epoch nanoseconds.
@@ -81,7 +80,7 @@ func (c *Context) WalltimeResolution() sys.ClockResolution {
 
 // Nanotime implements sys.Nanotime.
 func (c *Context) Nanotime() int64 {
-	return (*(c.nanotime))()
+	return c.nanotime()
 }
 
 // NanotimeResolution returns resolution of Nanotime.
@@ -91,17 +90,17 @@ func (c *Context) NanotimeResolution() sys.ClockResolution {
 
 // Nanosleep implements sys.Nanosleep.
 func (c *Context) Nanosleep(ns int64) {
-	(*(c.nanosleep))(ns)
+	c.nanosleep(ns)
 }
 
 // Osyield implements sys.Osyield.
 func (c *Context) Osyield() {
-	(*(c.osyield))()
+	c.osyield()
 }
 
-// FS returns the possibly empty (sysfs.UnimplementedFS) file system context.
+// FS returns the possibly empty (UnimplementedFS) file system context.
 func (c *Context) FS() *FSContext {
-	return c.fsc
+	return &c.fsc
 }
 
 // RandSource is a source of random bytes and defaults to a deterministic source.
@@ -110,29 +109,17 @@ func (c *Context) RandSource() io.Reader {
 	return c.randSource
 }
 
-// eofReader is safer than reading from os.DevNull as it can never overrun operating system file descriptors.
-type eofReader struct{}
-
-// Read implements io.Reader
-// Note: This doesn't use a pointer reference as it has no state and an empty struct doesn't allocate.
-func (eofReader) Read([]byte) (int, error) {
-	return 0, io.EOF
-}
-
-// DefaultContext returns Context with no values set except a possible nil fs.FS
-func DefaultContext(fs sysfs.FS) *Context {
-	if sysCtx, err := NewContext(0, nil, nil, nil, nil, nil, nil, nil, 0, nil, 0, nil, nil, fs); err != nil {
+// DefaultContext returns Context with no values set except a possible nil
+// fsapi.FS.
+//
+// Note: This is only used for testing.
+func DefaultContext(fs fsapi.FS) *Context {
+	if sysCtx, err := NewContext(0, nil, nil, nil, nil, nil, nil, nil, 0, nil, 0, nil, nil, fs, nil); err != nil {
 		panic(fmt.Errorf("BUG: DefaultContext should never error: %w", err))
 	} else {
 		return sysCtx
 	}
 }
-
-var (
-	_                = DefaultContext(nil) // Force panic on bug.
-	ns sys.Nanosleep = platform.FakeNanosleep
-	oy sys.Osyield   = platform.FakeOsyield
-)
 
 // NewContext is a factory function which helps avoid needing to know defaults or exporting all fields.
 // Note: max is exposed for testing. max is only used for env/args validation.
@@ -142,13 +129,14 @@ func NewContext(
 	stdin io.Reader,
 	stdout, stderr io.Writer,
 	randSource io.Reader,
-	walltime *sys.Walltime,
+	walltime sys.Walltime,
 	walltimeResolution sys.ClockResolution,
-	nanotime *sys.Nanotime,
+	nanotime sys.Nanotime,
 	nanotimeResolution sys.ClockResolution,
-	nanosleep *sys.Nanosleep,
-	osyield *sys.Osyield,
-	rootFS sysfs.FS,
+	nanosleep sys.Nanosleep,
+	osyield sys.Osyield,
+	rootFS fsapi.FS,
+	tcpListeners []*net.TCPListener,
 ) (sysCtx *Context, err error) {
 	sysCtx = &Context{args: args, environ: environ}
 
@@ -191,19 +179,19 @@ func NewContext(
 	if nanosleep != nil {
 		sysCtx.nanosleep = nanosleep
 	} else {
-		sysCtx.nanosleep = &ns
+		sysCtx.nanosleep = platform.FakeNanosleep
 	}
 
 	if osyield != nil {
 		sysCtx.osyield = osyield
 	} else {
-		sysCtx.osyield = &oy
+		sysCtx.osyield = platform.FakeOsyield
 	}
 
 	if rootFS != nil {
-		sysCtx.fsc, err = NewFSContext(stdin, stdout, stderr, rootFS)
+		err = sysCtx.NewFSContext(stdin, stdout, stderr, rootFS, tcpListeners)
 	} else {
-		sysCtx.fsc, err = NewFSContext(stdin, stdout, stderr, sysfs.UnimplementedFS{})
+		err = sysCtx.NewFSContext(stdin, stdout, stderr, fsapi.UnimplementedFS{}, tcpListeners)
 	}
 
 	return

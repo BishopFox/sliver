@@ -1,10 +1,14 @@
 package wasm
 
-import "github.com/tetratelabs/wazero/api"
+import (
+	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/internal/internalapi"
+)
 
 // ImportedMemories implements the same method as documented on wazero.CompiledModule.
 func (m *Module) ImportedMemories() (ret []api.MemoryDefinition) {
-	for _, d := range m.MemoryDefinitionSection {
+	for i := range m.MemoryDefinitionSection {
+		d := &m.MemoryDefinitionSection[i]
 		if d.importDesc != nil {
 			ret = append(ret, d)
 		}
@@ -15,7 +19,8 @@ func (m *Module) ImportedMemories() (ret []api.MemoryDefinition) {
 // ExportedMemories implements the same method as documented on wazero.CompiledModule.
 func (m *Module) ExportedMemories() map[string]api.MemoryDefinition {
 	ret := map[string]api.MemoryDefinition{}
-	for _, d := range m.MemoryDefinitionSection {
+	for i := range m.MemoryDefinitionSection {
+		d := &m.MemoryDefinitionSection[i]
 		for _, e := range d.exportNames {
 			ret[e] = d
 		}
@@ -33,7 +38,7 @@ func (m *Module) BuildMemoryDefinitions() {
 		moduleName = m.NameSection.ModuleName
 	}
 
-	memoryCount := m.ImportMemoryCount()
+	memoryCount := m.ImportMemoryCount
 	if m.MemorySection != nil {
 		memoryCount++
 	}
@@ -42,31 +47,34 @@ func (m *Module) BuildMemoryDefinitions() {
 		return
 	}
 
-	m.MemoryDefinitionSection = make([]*MemoryDefinition, 0, memoryCount)
+	m.MemoryDefinitionSection = make([]MemoryDefinition, 0, memoryCount)
 	importMemIdx := Index(0)
-	for _, i := range m.ImportSection {
-		if i.Type != ExternTypeMemory {
+	for i := range m.ImportSection {
+		imp := &m.ImportSection[i]
+		if imp.Type != ExternTypeMemory {
 			continue
 		}
 
-		m.MemoryDefinitionSection = append(m.MemoryDefinitionSection, &MemoryDefinition{
-			importDesc: &[2]string{i.Module, i.Name},
+		m.MemoryDefinitionSection = append(m.MemoryDefinitionSection, MemoryDefinition{
+			importDesc: &[2]string{imp.Module, imp.Name},
 			index:      importMemIdx,
-			memory:     i.DescMem,
+			memory:     imp.DescMem,
 		})
 		importMemIdx++
 	}
 
 	if m.MemorySection != nil {
-		m.MemoryDefinitionSection = append(m.MemoryDefinitionSection, &MemoryDefinition{
+		m.MemoryDefinitionSection = append(m.MemoryDefinitionSection, MemoryDefinition{
 			index:  importMemIdx,
 			memory: m.MemorySection,
 		})
 	}
 
-	for _, d := range m.MemoryDefinitionSection {
+	for i := range m.MemoryDefinitionSection {
+		d := &m.MemoryDefinitionSection[i]
 		d.moduleName = moduleName
-		for _, e := range m.ExportSection {
+		for i := range m.ExportSection {
+			e := &m.ExportSection[i]
 			if e.Type == ExternTypeMemory && e.Index == d.index {
 				d.exportNames = append(d.exportNames, e.Name)
 			}
@@ -76,6 +84,7 @@ func (m *Module) BuildMemoryDefinitions() {
 
 // MemoryDefinition implements api.MemoryDefinition
 type MemoryDefinition struct {
+	internalapi.WazeroOnlyType
 	moduleName  string
 	index       Index
 	importDesc  *[2]string

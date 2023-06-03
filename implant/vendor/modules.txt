@@ -78,7 +78,7 @@ github.com/pquerna/otp/totp
 # github.com/stretchr/testify v1.7.0
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
-# github.com/tetratelabs/wazero v1.0.0-pre.9
+# github.com/tetratelabs/wazero v1.2.0
 ## explicit; go 1.18
 github.com/tetratelabs/wazero
 github.com/tetratelabs/wazero/api
@@ -87,19 +87,24 @@ github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1
 github.com/tetratelabs/wazero/internal/asm
 github.com/tetratelabs/wazero/internal/asm/amd64
 github.com/tetratelabs/wazero/internal/asm/arm64
+github.com/tetratelabs/wazero/internal/bitpack
+github.com/tetratelabs/wazero/internal/descriptor
 github.com/tetratelabs/wazero/internal/engine/compiler
 github.com/tetratelabs/wazero/internal/engine/interpreter
 github.com/tetratelabs/wazero/internal/filecache
+github.com/tetratelabs/wazero/internal/fsapi
 github.com/tetratelabs/wazero/internal/ieee754
+github.com/tetratelabs/wazero/internal/internalapi
 github.com/tetratelabs/wazero/internal/leb128
 github.com/tetratelabs/wazero/internal/moremath
 github.com/tetratelabs/wazero/internal/platform
+github.com/tetratelabs/wazero/internal/sock
 github.com/tetratelabs/wazero/internal/sys
 github.com/tetratelabs/wazero/internal/sysfs
 github.com/tetratelabs/wazero/internal/u32
 github.com/tetratelabs/wazero/internal/u64
 github.com/tetratelabs/wazero/internal/version
-github.com/tetratelabs/wazero/internal/wasi_snapshot_preview1
+github.com/tetratelabs/wazero/internal/wasip1
 github.com/tetratelabs/wazero/internal/wasm
 github.com/tetratelabs/wazero/internal/wasm/binary
 github.com/tetratelabs/wazero/internal/wasmdebug

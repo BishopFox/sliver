@@ -58,8 +58,7 @@ const (
 type ElementSegment struct {
 	// OffsetExpr returns the table element offset to apply to Init indices.
 	// Note: This can be validated prior to instantiation unless it includes OpcodeGlobalGet (an imported global).
-	// Note: This is only set when Mode is active.
-	OffsetExpr *ConstantExpression
+	OffsetExpr ConstantExpression
 
 	// TableIndex is the table's index to which this element segment is applied.
 	// Note: This is used if and only if the Mode is active.
@@ -68,13 +67,40 @@ type ElementSegment struct {
 	// Followings are set/used regardless of the Mode.
 
 	// Init indices are (nullable) table elements where each index is the function index by which the module initialize the table.
-	Init []*Index
+	Init []Index
 
 	// Type holds the type of this element segment, which is the RefType in WebAssembly 2.0.
 	Type RefType
 
 	// Mode is the mode of this element segment.
 	Mode ElementMode
+}
+
+const (
+	// ElementInitNullReference represents the null reference in ElementSegment's Init.
+	// In Wasm spec, an init item represents either Function's Index or null reference,
+	// and in wazero, we limit the maximum number of functions available in a module to
+	// MaximumFunctionIndex. Therefore, it is safe to use 1 << 31 to represent the null
+	// reference in Element segments.
+	ElementInitNullReference Index = 1 << 31
+	// ElementInitImportedGlobalFunctionReference represents an init item which is resolved via an imported global constexpr.
+	// The actual function reference stored at Global is only known at instantiation-time, so we set this flag
+	// to items of ElementSegment.Init at binary decoding, and unwrap this flag at instantiation to resolve the value.
+	//
+	// This might collide the init element resolved via ref.func instruction which is resolved with the func index at decoding,
+	// but in practice, that is not allowed in wazero thanks to our limit MaximumFunctionIndex. Thus, it is safe to set this flag
+	// in init element to indicate as such.
+	ElementInitImportedGlobalFunctionReference Index = 1 << 30
+)
+
+// unwrapElementInitGlobalReference takes an item of the init vector of an ElementSegment,
+// and returns the Global index if it is supposed to get generated from a global.
+// ok is true if the given init item is as such.
+func unwrapElementInitGlobalReference(init Index) (_ Index, ok bool) {
+	if init&ElementInitImportedGlobalFunctionReference == ElementInitImportedGlobalFunctionReference {
+		return init &^ ElementInitImportedGlobalFunctionReference, true
+	}
+	return init, false
 }
 
 // IsActive returns true if the element segment is "active" mode which requires the runtime to initialize table
@@ -118,74 +144,59 @@ type ElementInstance struct {
 // Reference is the runtime representation of RefType which is either RefTypeFuncref or RefTypeExternref.
 type Reference = uintptr
 
-// validatedActiveElementSegment is like ElementSegment of active mode except the inputs are expanded and validated based on defining module.
-//
-// Note: The global imported at globalIdx may have an offset value that is out-of-bounds for the corresponding table.
-type validatedActiveElementSegment struct {
-	// opcode is OpcodeGlobalGet or OpcodeI32Const
-	opcode Opcode
-
-	// arg is the only argument to opcode, which when applied results in the offset to add to init indices.
-	//  * OpcodeGlobalGet: position in the global index of an imported Global ValueTypeI32 holding the offset.
-	//  * OpcodeI32Const: a constant ValueTypeI32 offset.
-	arg uint32
-
-	// init are a range of table elements whose values are positions in the function index. This range
-	// replaces any values in TableInstance.Table at an offset arg which is a constant if opcode == OpcodeI32Const or
-	// derived from a globalIdx if opcode == OpcodeGlobalGet
-	init []*Index
-
-	// tableIndex is the table's index to which this active element will be applied.
-	tableIndex Index
-}
-
 // validateTable ensures any ElementSegment is valid. This caches results via Module.validatedActiveElementSegments.
 // Note: limitsType are validated by decoders, so not re-validated here.
-func (m *Module) validateTable(enabledFeatures api.CoreFeatures, tables []*Table, maximumTableIndex uint32) ([]*validatedActiveElementSegment, error) {
+func (m *Module) validateTable(enabledFeatures api.CoreFeatures, tables []Table, maximumTableIndex uint32) error {
 	if len(tables) > int(maximumTableIndex) {
-		return nil, fmt.Errorf("too many tables in a module: %d given with limit %d", len(tables), maximumTableIndex)
+		return fmt.Errorf("too many tables in a module: %d given with limit %d", len(tables), maximumTableIndex)
 	}
 
-	if m.validatedActiveElementSegments != nil {
-		return m.validatedActiveElementSegments, nil
-	}
-
-	importedTableCount := m.ImportTableCount()
-
-	ret := make([]*validatedActiveElementSegment, 0, m.SectionElementCount(SectionIDElement))
+	importedTableCount := m.ImportTableCount
 
 	// Create bounds checks as these can err prior to instantiation
-	funcCount := m.importCount(ExternTypeFunc) + m.SectionElementCount(SectionIDFunction)
+	funcCount := m.ImportFunctionCount + m.SectionElementCount(SectionIDFunction)
+	globalsCount := m.ImportGlobalCount + m.SectionElementCount(SectionIDGlobal)
 
 	// Now, we have to figure out which table elements can be resolved before instantiation and also fail early if there
 	// are any imported globals that are known to be invalid by their declarations.
-	for i, elem := range m.ElementSection {
+	for i := range m.ElementSection {
+		elem := &m.ElementSection[i]
 		idx := Index(i)
 		initCount := uint32(len(elem.Init))
 
 		if elem.Type == RefTypeFuncref {
 			// Any offset applied is to the element, not the function index: validate here if the funcidx is sound.
-			for ei, funcIdx := range elem.Init {
-				if funcIdx != nil && *funcIdx >= funcCount {
-					return nil, fmt.Errorf("%s[%d].init[%d] funcidx %d out of range", SectionIDName(SectionIDElement), idx, ei, *funcIdx)
+			for ei, init := range elem.Init {
+				if init == ElementInitNullReference {
+					continue
+				}
+				index, ok := unwrapElementInitGlobalReference(init)
+				if ok {
+					if index >= globalsCount {
+						return fmt.Errorf("%s[%d].init[%d] globalidx %d out of range", SectionIDName(SectionIDElement), idx, ei, index)
+					}
+				} else {
+					if index >= funcCount {
+						return fmt.Errorf("%s[%d].init[%d] funcidx %d out of range", SectionIDName(SectionIDElement), idx, ei, index)
+					}
 				}
 			}
 		} else {
 			for j, elem := range elem.Init {
-				if elem != nil {
-					return nil, fmt.Errorf("%s[%d].init[%d] must be ref.null but was %v", SectionIDName(SectionIDElement), idx, j, *elem)
+				if elem != ElementInitNullReference {
+					return fmt.Errorf("%s[%d].init[%d] must be ref.null but was %v", SectionIDName(SectionIDElement), idx, j, elem)
 				}
 			}
 		}
 
 		if elem.IsActive() {
 			if len(tables) <= int(elem.TableIndex) {
-				return nil, fmt.Errorf("unknown table %d as active element target", elem.TableIndex)
+				return fmt.Errorf("unknown table %d as active element target", elem.TableIndex)
 			}
 
 			t := tables[elem.TableIndex]
 			if t.Type != elem.Type {
-				return nil, fmt.Errorf("element type mismatch: table has %s but element has %s",
+				return fmt.Errorf("element type mismatch: table has %s but element has %s",
 					RefTypeName(t.Type), RefTypeName(elem.Type),
 				)
 			}
@@ -195,46 +206,31 @@ func (m *Module) validateTable(enabledFeatures api.CoreFeatures, tables []*Table
 			if oc == OpcodeGlobalGet {
 				globalIdx, _, err := leb128.LoadUint32(elem.OffsetExpr.Data)
 				if err != nil {
-					return nil, fmt.Errorf("%s[%d] couldn't read global.get parameter: %w", SectionIDName(SectionIDElement), idx, err)
+					return fmt.Errorf("%s[%d] couldn't read global.get parameter: %w", SectionIDName(SectionIDElement), idx, err)
 				} else if err = m.verifyImportGlobalI32(SectionIDElement, idx, globalIdx); err != nil {
-					return nil, err
+					return err
 				}
-
-				if initCount == 0 {
-					continue // Per https://github.com/WebAssembly/spec/issues/1427 init can be no-op, but validate anyway!
-				}
-
-				ret = append(ret, &validatedActiveElementSegment{opcode: oc, arg: globalIdx, init: elem.Init, tableIndex: elem.TableIndex})
 			} else if oc == OpcodeI32Const {
-				// Treat constants as signed as their interpretation is not yet known per /RATIONALE.md
-				o, _, err := leb128.LoadInt32(elem.OffsetExpr.Data)
-				if err != nil {
-					return nil, fmt.Errorf("%s[%d] couldn't read i32.const parameter: %w", SectionIDName(SectionIDElement), idx, err)
-				}
-				offset := Index(o)
-
 				// Per https://github.com/WebAssembly/spec/blob/wg-1.0/test/core/elem.wast#L117 we must pass if imported
 				// table has set its min=0. Per https://github.com/WebAssembly/spec/blob/wg-1.0/test/core/elem.wast#L142, we
 				// have to do fail if module-defined min=0.
 				if !enabledFeatures.IsEnabled(api.CoreFeatureReferenceTypes) && elem.TableIndex >= importedTableCount {
+					// Treat constants as signed as their interpretation is not yet known per /RATIONALE.md
+					o, _, err := leb128.LoadInt32(elem.OffsetExpr.Data)
+					if err != nil {
+						return fmt.Errorf("%s[%d] couldn't read i32.const parameter: %w", SectionIDName(SectionIDElement), idx, err)
+					}
+					offset := Index(o)
 					if err = checkSegmentBounds(t.Min, uint64(initCount)+uint64(offset), idx); err != nil {
-						return nil, err
+						return err
 					}
 				}
-
-				if initCount == 0 {
-					continue // Per https://github.com/WebAssembly/spec/issues/1427 init can be no-op, but validate anyway!
-				}
-
-				ret = append(ret, &validatedActiveElementSegment{opcode: oc, arg: offset, init: elem.Init, tableIndex: elem.TableIndex})
 			} else {
-				return nil, fmt.Errorf("%s[%d] has an invalid const expression: %s", SectionIDName(SectionIDElement), idx, InstructionName(oc))
+				return fmt.Errorf("%s[%d] has an invalid const expression: %s", SectionIDName(SectionIDElement), idx, InstructionName(oc))
 			}
 		}
 	}
-
-	m.validatedActiveElementSegments = ret
-	return ret, nil
+	return nil
 }
 
 // buildTable returns TableInstances if the module defines or imports a table.
@@ -244,65 +240,42 @@ func (m *Module) validateTable(enabledFeatures api.CoreFeatures, tables []*Table
 // If the result `init` is non-nil, it is the `tableInit` parameter of Engine.NewModuleEngine.
 //
 // Note: An error is only possible when an ElementSegment.OffsetExpr is out of range of the TableInstance.Min.
-func (m *Module) buildTables(importedTables []*TableInstance, importedGlobals []*GlobalInstance, skipBoundCheck bool) (tables []*TableInstance, inits []tableInitEntry, err error) {
-	tables = importedTables
-
-	for _, tsec := range m.TableSection {
+func (m *ModuleInstance) buildTables(module *Module, skipBoundCheck bool) (err error) {
+	idx := module.ImportTableCount
+	for i := range module.TableSection {
+		tsec := &module.TableSection[i]
 		// The module defining the table is the one that sets its Min/Max etc.
-		tables = append(tables, &TableInstance{
+		m.Tables[idx] = &TableInstance{
 			References: make([]Reference, tsec.Min), Min: tsec.Min, Max: tsec.Max,
 			Type: tsec.Type,
-		})
-	}
-
-	elementSegments := m.validatedActiveElementSegments
-	if len(elementSegments) == 0 {
-		return
-	}
-
-	for elemI, elem := range elementSegments {
-		table := tables[elem.tableIndex]
-		var offset uint32
-		if elem.opcode == OpcodeGlobalGet {
-			global := importedGlobals[elem.arg]
-			offset = uint32(global.Val)
-		} else {
-			offset = elem.arg // constant
 		}
+		idx++
+	}
 
-		// Check to see if we are out-of-bounds
-		initCount := uint64(len(elem.init))
-		if !skipBoundCheck {
+	if !skipBoundCheck {
+		for elemI := range module.ElementSection { // Do not loop over the value since elementSegments is a slice of value.
+			elem := &module.ElementSection[elemI]
+			table := m.Tables[elem.TableIndex]
+			var offset uint32
+			if elem.OffsetExpr.Opcode == OpcodeGlobalGet {
+				// Ignore error as it's already validated.
+				globalIdx, _, _ := leb128.LoadUint32(elem.OffsetExpr.Data)
+				global := m.Globals[globalIdx]
+				offset = uint32(global.Val)
+			} else { // i32.const
+				// Ignore error as it's already validated.
+				o, _, _ := leb128.LoadInt32(elem.OffsetExpr.Data)
+				offset = uint32(o)
+			}
+
+			// Check to see if we are out-of-bounds
+			initCount := uint64(len(elem.Init))
 			if err = checkSegmentBounds(table.Min, uint64(offset)+initCount, Index(elemI)); err != nil {
 				return
 			}
 		}
-
-		if table.Type == RefTypeExternref {
-			inits = append(inits, tableInitEntry{
-				tableIndex: elem.tableIndex, offset: offset,
-				// ExternRef elements are guaranteed to be all null via the validation phase.
-				nullExternRefCount: len(elem.init),
-			})
-		} else {
-			inits = append(inits, tableInitEntry{
-				tableIndex: elem.tableIndex, offset: offset, functionIndexes: elem.init,
-			})
-		}
 	}
 	return
-}
-
-// tableInitEntry is normalized element segment used for initializing tables.
-type tableInitEntry struct {
-	tableIndex Index
-	// offset is the offset in the table from which the table is initialized by engine.
-	offset Index
-	// functionIndexes contains nullable function indexes. This is set when the target table has RefTypeFuncref.
-	functionIndexes []*Index
-	// nullExternRefCount is the number of nul reference which is the only available RefTypeExternref value in elements as of
-	// WebAssembly 2.0. This is set when the target table has RefTypeExternref.
-	nullExternRefCount int
 }
 
 // checkSegmentBounds fails if the capacity needed for an ElementSegment.Init is larger than limitsType.Min
@@ -321,11 +294,12 @@ func checkSegmentBounds(min uint32, requireMin uint64, idx Index) error { // uin
 
 func (m *Module) verifyImportGlobalI32(sectionID SectionID, sectionIdx Index, idx uint32) error {
 	ig := uint32(math.MaxUint32) // +1 == 0
-	for i, im := range m.ImportSection {
-		if im.Type == ExternTypeGlobal {
+	for i := range m.ImportSection {
+		imp := &m.ImportSection[i]
+		if imp.Type == ExternTypeGlobal {
 			ig++
 			if ig == idx {
-				if im.DescGlobal.ValType != ValueTypeI32 {
+				if imp.DescGlobal.ValType != ValueTypeI32 {
 					return fmt.Errorf("%s[%d] (global.get %d): import[%d].global.ValType != i32", SectionIDName(sectionID), sectionIdx, idx, i)
 				}
 				return nil

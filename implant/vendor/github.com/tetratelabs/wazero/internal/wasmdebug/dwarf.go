@@ -33,6 +33,19 @@ func NewDWARFLines(d *dwarf.Data) *DWARFLines {
 	return &DWARFLines{d: d, linesPerEntry: map[dwarf.Offset][]line{}}
 }
 
+// isTombstoneAddr returns true if the given address is invalid a.k.a tombstone address which was made no longer valid
+// by linker. According to the DWARF spec[1], the value is encoded as 0xffffffff for Wasm (as 32-bit target),
+// but some tools encode it either in -1, -2 [2] or 1<<32 (This might not be by tools, but by debug/dwarf package's bug).
+//
+// [1] https://dwarfstd.org/issues/200609.1.html
+// [2] https://github.com/WebAssembly/binaryen/blob/97178d08d4a20d2a5e3a6be813fc6a7079ef86e1/src/wasm/wasm-debug.cpp#L651-L660
+// [3] https://reviews.llvm.org/D81784
+func isTombstoneAddr(addr uint64) bool {
+	addr32 := int32(addr)
+	return addr32 == -1 || addr32 == -2 ||
+		addr32 == 0 // This covers 1 <<32.
+}
+
 // Line returns the line information for the given instructionOffset which is an offset in
 // the code section of the original Wasm binary. Returns empty string if the info is not found.
 func (d *DWARFLines) Line(instructionOffset uint64) (ret []string) {
@@ -76,7 +89,11 @@ entry:
 			continue
 		}
 		for _, pcs := range ranges {
-			if pcs[0] <= instructionOffset && instructionOffset < pcs[1] {
+			start, end := pcs[0], pcs[1]
+			if isTombstoneAddr(start) || isTombstoneAddr(end) {
+				continue
+			}
+			if start <= instructionOffset && instructionOffset < end {
 				switch ent.Tag {
 				case dwarf.TagCompileUnit:
 					cu = ent
@@ -122,6 +139,8 @@ entry:
 			} else if err != nil {
 				return
 			}
+			// TODO: Maybe we should ignore tombstone addresses by using isTombstoneAddr,
+			//  but not sure if that would be an issue in practice.
 			lines = append(lines, line{addr: le.Address, pos: pos})
 		}
 		sort.Slice(lines, func(i, j int) bool { return lines[i].addr < lines[j].addr })

@@ -18,7 +18,12 @@ import (
 
 // CompilationCache reduces time spent compiling (Runtime.CompileModule) the same wasm module.
 //
-// Instances of this can be reused across multiple runtimes, if configured via RuntimeConfig.
+// # Notes
+//
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
+//   - Instances of this can be reused across multiple runtimes, if configured
+//     via RuntimeConfig.
 type CompilationCache interface{ api.Closer }
 
 // NewCompilationCache returns a new CompilationCache to be passed to RuntimeConfig.

@@ -3,9 +3,10 @@ package wasi_snapshot_preview1
 import (
 	"context"
 	"io"
+	"syscall"
 
 	"github.com/tetratelabs/wazero/api"
-	. "github.com/tetratelabs/wazero/internal/wasi_snapshot_preview1"
+	"github.com/tetratelabs/wazero/internal/wasip1"
 	"github.com/tetratelabs/wazero/internal/wasm"
 )
 
@@ -20,8 +21,8 @@ import (
 // Result (Errno)
 //
 // The return value is ErrnoSuccess except the following error conditions:
-//   - ErrnoFault: `buf` or `bufLen` point to an offset out of memory
-//   - ErrnoIo: a file system error
+//   - syscall.EFAULT: `buf` or `bufLen` point to an offset out of memory
+//   - syscall.EIO: a file system error
 //
 // For example, if underlying random source was seeded like
 // `rand.NewSource(42)`, we expect api.Memory to contain:
@@ -33,22 +34,22 @@ import (
 //	    buf --^
 //
 // See https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#-random_getbuf-pointeru8-bufLen-size---errno
-var randomGet = newHostFunc(RandomGetName, randomGetFn, []api.ValueType{i32, i32}, "buf", "buf_len")
+var randomGet = newHostFunc(wasip1.RandomGetName, randomGetFn, []api.ValueType{i32, i32}, "buf", "buf_len")
 
-func randomGetFn(_ context.Context, mod api.Module, params []uint64) Errno {
-	sysCtx := mod.(*wasm.CallContext).Sys
+func randomGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
+	sysCtx := mod.(*wasm.ModuleInstance).Sys
 	randSource := sysCtx.RandSource()
 	buf, bufLen := uint32(params[0]), uint32(params[1])
 
 	randomBytes, ok := mod.Memory().Read(buf, bufLen)
 	if !ok { // out-of-range
-		return ErrnoFault
+		return syscall.EFAULT
 	}
 
 	// We can ignore the returned n as it only != byteCount on error
 	if _, err := io.ReadAtLeast(randSource, randomBytes, int(bufLen)); err != nil {
-		return ErrnoIo
+		return syscall.EIO
 	}
 
-	return ErrnoSuccess
+	return 0
 }

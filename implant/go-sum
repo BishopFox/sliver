@@ -53,8 +53,8 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5CcY=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
-github.com/tetratelabs/wazero v1.0.0-pre.9 h1:2uVdi2bvTi/JQxG2cp3LRm2aRadd3nURn5jcfbvqZcw=
-github.com/tetratelabs/wazero v1.0.0-pre.9/go.mod h1:wYx2gNRg8/WihJfSDxA1TIL8H+GkfLYm+bIfbblu9VQ=
+github.com/tetratelabs/wazero v1.2.0 h1:I/8LMf4YkCZ3r2XaL9whhA0VMyAvF6QE+O7rco0DCeQ=
+github.com/tetratelabs/wazero v1.2.0/go.mod h1:wYx2gNRg8/WihJfSDxA1TIL8H+GkfLYm+bIfbblu9VQ=
 github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43 h1:+sN63SJGqchSsVyNoeW4GyA0Y+g0LvKOHcaeqs1Rf6M=
 github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43/go.mod h1:dhnDTBbIg31cbJdROP4/Zz6Iw7JPEpiMvOl2LdHSSjE=
 github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e h1:6SWomM8ezwUwnN3lqKxE4r7bYVwpY9514DQkwBV9IPI=

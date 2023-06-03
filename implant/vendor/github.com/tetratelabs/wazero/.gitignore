@@ -8,6 +8,8 @@
 *.so
 *.dylib
 /wazero
+build
+dist
 
 # Test binary, built with `go test -c`
 *.test

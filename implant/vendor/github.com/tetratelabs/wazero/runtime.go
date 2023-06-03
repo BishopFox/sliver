@@ -1,16 +1,14 @@
 package wazero
 
 import (
-	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"sync/atomic"
 
 	"github.com/tetratelabs/wazero/api"
 	experimentalapi "github.com/tetratelabs/wazero/experimental"
+	internalsock "github.com/tetratelabs/wazero/internal/sock"
 	internalsys "github.com/tetratelabs/wazero/internal/sys"
-	"github.com/tetratelabs/wazero/internal/version"
 	"github.com/tetratelabs/wazero/internal/wasm"
 	binaryformat "github.com/tetratelabs/wazero/internal/wasm/binary"
 	"github.com/tetratelabs/wazero/sys"
@@ -25,6 +23,12 @@ import (
 //	defer r.Close(ctx) // This closes everything this Runtime created.
 //
 //	mod, _ := r.Instantiate(ctx, wasm)
+//
+// # Notes
+//
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
+//   - Closing this closes any CompiledModule or Module it instantiated.
 type Runtime interface {
 	// Instantiate instantiates a module from the WebAssembly binary (%.wasm)
 	// with default configuration.
@@ -36,11 +40,14 @@ type Runtime interface {
 	//
 	//	mod, _ := r.Instantiate(ctx, wasm)
 	//
-	// See InstantiateWithConfig for configuration overrides.
+	// # Notes
+	//
+	//   - See notes on InstantiateModule for error scenarios.
+	//   - See InstantiateWithConfig for configuration overrides.
 	Instantiate(ctx context.Context, source []byte) (api.Module, error)
 
 	// InstantiateWithConfig instantiates a module from the WebAssembly binary
-	// (%.wasm) or errs if invalid.
+	// (%.wasm) or errs for reasons including exit or validation.
 	//
 	// Here's an example:
 	//	ctx := context.Background()
@@ -52,11 +59,12 @@ type Runtime interface {
 	//
 	// # Notes
 	//
+	//   - See notes on InstantiateModule for error scenarios.
+	//   - If you aren't overriding defaults, use Instantiate.
 	//   - This is a convenience utility that chains CompileModule with
 	//     InstantiateModule. To instantiate the same source multiple times,
 	//     use CompileModule as InstantiateModule avoids redundant decoding
 	//     and/or compilation.
-	//   - If you aren't overriding defaults, use Instantiate.
 	InstantiateWithConfig(ctx context.Context, source []byte, config ModuleConfig) (api.Module, error)
 
 	// NewHostModuleBuilder lets you create modules out of functions defined in Go.
@@ -70,6 +78,8 @@ type Runtime interface {
 	//	_, err := r.NewHostModuleBuilder("env").
 	//		NewFunctionBuilder().WithFunc(hello).Export("hello").
 	//		Instantiate(ctx, r)
+	//
+	// Note: empty `moduleName` is not allowed.
 	NewHostModuleBuilder(moduleName string) HostModuleBuilder
 
 	// CompileModule decodes the WebAssembly binary (%.wasm) or errs if invalid.
@@ -87,15 +97,25 @@ type Runtime interface {
 	// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#name-section%E2%91%A0
 	CompileModule(ctx context.Context, binary []byte) (CompiledModule, error)
 
-	// InstantiateModule instantiates the module or errs if the configuration was invalid.
+	// InstantiateModule instantiates the module or errs for reasons including
+	// exit or validation.
 	//
 	// Here's an example:
-	//	mod, _ := n.InstantiateModule(ctx, compiled, wazero.NewModuleConfig().WithName("prod"))
+	//	mod, _ := n.InstantiateModule(ctx, compiled, wazero.NewModuleConfig().
+	//		WithName("prod"))
 	//
-	// While CompiledModule is pre-validated, there are a few situations which can cause an error:
+	// # Errors
+	//
+	// While CompiledModule is pre-validated, there are a few situations which
+	// can cause an error:
 	//   - The module name is already in use.
-	//   - The module has a table element initializer that resolves to an index outside the Table minimum size.
+	//   - The module has a table element initializer that resolves to an index
+	//     outside the Table minimum size.
 	//   - The module has a start function, and it failed to execute.
+	//   - The module was compiled to WASI and exited with a non-zero exit
+	//     code, you'll receive a sys.ExitError.
+	//   - RuntimeConfig.WithCloseOnContextDone was enabled and a context
+	//     cancellation or deadline triggered before a start function returned.
 	InstantiateModule(ctx context.Context, compiled CompiledModule, config ModuleConfig) (api.Module, error)
 
 	// CloseWithExitCode closes all the modules that have been initialized in this Runtime with the provided exit code.
@@ -125,9 +145,6 @@ func NewRuntime(ctx context.Context) Runtime {
 
 // NewRuntimeWithConfig returns a runtime with the given configuration.
 func NewRuntimeWithConfig(ctx context.Context, rConfig RuntimeConfig) Runtime {
-	if v := ctx.Value(version.WazeroVersionKey{}); v == nil {
-		ctx = context.WithValue(ctx, version.WazeroVersionKey{}, wazeroVersion)
-	}
 	config := rConfig.(*runtimeConfig)
 	var engine wasm.Engine
 	var cacheImpl *cache
@@ -177,6 +194,9 @@ type runtime struct {
 
 // Module implements Runtime.Module.
 func (r *runtime) Module(moduleName string) api.Module {
+	if len(moduleName) == 0 {
+		return nil
+	}
 	return r.store.Module(moduleName)
 }
 
@@ -184,14 +204,6 @@ func (r *runtime) Module(moduleName string) api.Module {
 func (r *runtime) CompileModule(ctx context.Context, binary []byte) (CompiledModule, error) {
 	if err := r.failIfClosed(); err != nil {
 		return nil, err
-	}
-
-	if binary == nil {
-		return nil, errors.New("binary == nil")
-	}
-
-	if len(binary) < 4 || !bytes.Equal(binary[0:4], binaryformat.Magic) {
-		return nil, errors.New("invalid binary")
 	}
 
 	internal, err := binaryformat.DecodeModule(binary, r.enabledFeatures,
@@ -204,36 +216,41 @@ func (r *runtime) CompileModule(ctx context.Context, binary []byte) (CompiledMod
 		return nil, err
 	}
 
-	internal.AssignModuleID(binary)
-
-	// Now that the module is validated, cache the function and memory definitions.
-	internal.BuildFunctionDefinitions()
+	// Now that the module is validated, cache the memory definitions.
+	// TODO: lazy initialization of memory definition.
 	internal.BuildMemoryDefinitions()
 
 	c := &compiledModule{module: internal, compiledEngine: r.store.Engine}
 
-	listeners, err := buildListeners(ctx, internal)
+	// typeIDs are static and compile-time known.
+	typeIDs, err := r.store.GetFunctionTypeIDs(internal.TypeSection)
 	if err != nil {
 		return nil, err
 	}
+	c.typeIDs = typeIDs
 
+	listeners, err := buildFunctionListeners(ctx, internal)
+	if err != nil {
+		return nil, err
+	}
+	internal.AssignModuleID(binary, len(listeners) > 0, r.ensureTermination)
 	if err = r.store.Engine.CompileModule(ctx, internal, listeners, r.ensureTermination); err != nil {
 		return nil, err
 	}
 	return c, nil
 }
 
-func buildListeners(ctx context.Context, internal *wasm.Module) ([]experimentalapi.FunctionListener, error) {
+func buildFunctionListeners(ctx context.Context, internal *wasm.Module) ([]experimentalapi.FunctionListener, error) {
 	// Test to see if internal code are using an experimental feature.
 	fnlf := ctx.Value(experimentalapi.FunctionListenerFactoryKey{})
 	if fnlf == nil {
 		return nil, nil
 	}
 	factory := fnlf.(experimentalapi.FunctionListenerFactory)
-	importCount := internal.ImportFuncCount()
+	importCount := internal.ImportFunctionCount
 	listeners := make([]experimentalapi.FunctionListener, len(internal.FunctionSection))
 	for i := 0; i < len(listeners); i++ {
-		listeners[i] = factory.NewListener(internal.FunctionDefinitionSection[uint32(i)+importCount])
+		listeners[i] = factory.NewFunctionListener(internal.FunctionDefinition(uint32(i) + importCount))
 	}
 	return listeners, nil
 }
@@ -274,18 +291,26 @@ func (r *runtime) InstantiateModule(
 	code := compiled.(*compiledModule)
 	config := mConfig.(*moduleConfig)
 
+	// Only build listeners on a guest module. A host module doesn't have
+	// memory, and a guest without memory can't use listeners anyway.
+	if !code.module.IsHostModule {
+		if sockConfig, ok := ctx.Value(internalsock.ConfigKey{}).(*internalsock.Config); ok {
+			config.sockConfig = sockConfig
+		}
+	}
+
 	var sysCtx *internalsys.Context
 	if sysCtx, err = config.toSysContext(); err != nil {
 		return
 	}
 
 	name := config.name
-	if name == "" && code.module.NameSection != nil && code.module.NameSection.ModuleName != "" {
+	if !config.nameSet && code.module.NameSection != nil && code.module.NameSection.ModuleName != "" {
 		name = code.module.NameSection.ModuleName
 	}
 
 	// Instantiate the module.
-	mod, err = r.store.Instantiate(ctx, code.module, name, sysCtx)
+	mod, err = r.store.Instantiate(ctx, code.module, name, sysCtx, code.typeIDs)
 	if err != nil {
 		// If there was an error, don't leak the compiled module.
 		if code.closeWithModule {
@@ -296,7 +321,7 @@ func (r *runtime) InstantiateModule(
 
 	// Attach the code closer so that anything afterwards closes the compiled code when closing the module.
 	if code.closeWithModule {
-		mod.(*wasm.CallContext).CodeCloser = code
+		mod.(*wasm.ModuleInstance).CodeCloser = code
 	}
 
 	// Now, invoke any start functions, failing at first error.
@@ -307,7 +332,11 @@ func (r *runtime) InstantiateModule(
 		}
 		if _, err = start.Call(ctx); err != nil {
 			_ = mod.Close(ctx) // Don't leak the module on error.
-			if _, ok := err.(*sys.ExitError); ok {
+
+			if se, ok := err.(*sys.ExitError); ok {
+				if se.ExitCode() == 0 { // Don't err on success.
+					err = nil
+				}
 				return // Don't wrap an exit error
 			}
 			err = fmt.Errorf("module[%s] function[%s] failed: %w", name, fn, err)
