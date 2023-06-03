@@ -857,8 +857,9 @@ func (s *ActiveTarget) Background() {
 // Expose or hide commands if the active target does support them (or not).
 // Ex; hide Windows commands on Linux implants, Wireguard tools on HTTP C2, etc.
 func (con *SliverConsoleClient) ExposeCommands() {
+	con.App.ShowCommands()
+
 	if con.ActiveTarget.session == nil && con.ActiveTarget.beacon == nil {
-		con.App.ShowCommands()
 		return
 	}
 
