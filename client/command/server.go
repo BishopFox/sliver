@@ -1,5 +1,23 @@
 package command
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2023  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
 	"os"
 
@@ -15,6 +33,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/builders"
 	"github.com/bishopfox/sliver/client/command/crack"
 	"github.com/bishopfox/sliver/client/command/creds"
+	"github.com/bishopfox/sliver/client/command/exit"
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/command/hosts"
@@ -64,6 +83,17 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			{ID: consts.SliverHelpGroup, Title: consts.SliverHelpGroup},
 		}
 		server.AddGroup(groups...)
+
+		// [ Exit ] ---------------------------------------------------------------
+		exitCmd := &cobra.Command{
+			Use:   "exit",
+			Short: "Exit the program",
+			Run: func(cmd *cobra.Command, args []string) {
+				exit.ExitCmd(cmd, con, args)
+			},
+			GroupID: consts.GenericHelpGroup,
+		}
+		server.AddCommand(exitCmd)
 
 		// [ Aliases ] ---------------------------------------------
 
