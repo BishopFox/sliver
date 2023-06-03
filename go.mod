@@ -2,7 +2,7 @@ module github.com/bishopfox/sliver
 
 go 1.20
 
-replace github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.12
+replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
@@ -15,11 +15,6 @@ require (
 	github.com/cheggaaa/pb/v3 v3.1.2
 	github.com/chromedp/cdproto v0.0.0-20230220211738-2b1ec77315c9
 	github.com/chromedp/chromedp v0.9.1
-	github.com/desertbit/columnize v2.1.0+incompatible
-	github.com/desertbit/go-shlex v0.1.1
-	github.com/desertbit/grumble v1.1.1
-	github.com/desertbit/readline v1.5.1
-	github.com/fatih/color v1.15.0
 	github.com/glebarez/sqlite v1.7.0
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/google/uuid v1.3.0
@@ -35,8 +30,12 @@ require (
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/ncruces/go-sqlite3 v0.5.3
 	github.com/pquerna/otp v1.4.0
+	github.com/reeflective/console v0.1.2
+	github.com/reeflective/readline v1.0.3
+	github.com/rsteube/carapace v0.36.3
 	github.com/sirupsen/logrus v1.9.2
 	github.com/spf13/cobra v1.7.0
+	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.1
 	github.com/tetratelabs/wazero v1.0.0
 	github.com/things-go/go-socks5 v0.0.3
@@ -72,9 +71,9 @@ require (
 	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d // indirect
-	github.com/desertbit/closer/v3 v3.1.3 // indirect
 	github.com/dlclark/regexp2 v1.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/fatih/color v1.15.0 // indirect
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
 	github.com/glebarez/go-sqlite v1.20.3 // indirect
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
@@ -83,8 +82,6 @@ require (
 	github.com/gobwas/ws v1.1.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/btree v1.0.1 // indirect
-	github.com/hashicorp/errwrap v1.1.0 // indirect
-	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -104,9 +101,8 @@ require (
 	github.com/ncruces/julianday v0.1.5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/thedevsaddam/gojsonq/v2 v2.5.2 // indirect
 	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect

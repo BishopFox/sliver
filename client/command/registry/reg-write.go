@@ -25,15 +25,17 @@ import (
 	"strconv"
 	"strings"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
-	"google.golang.org/protobuf/proto"
 )
 
 // RegWriteCmd - Write to a Windows registry key: registry write --hive HKCU --type dword "software\google\chrome\blbeacon\hello" 32
-func RegWriteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func RegWriteCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -51,22 +53,22 @@ func RegWriteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		binaryValue []byte
 	)
 
-	binPath := ctx.Flags.String("path")
-	hostname := ctx.Flags.String("hostname")
-	flagType := ctx.Flags.String("type")
+	binPath, _ := cmd.Flags().GetString("path")
+	hostname, _ := cmd.Flags().GetString("hostname")
+	flagType, _ := cmd.Flags().GetString("type")
 	valType, err := getType(flagType)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	hive := ctx.Flags.String("hive")
+	hive, _ := cmd.Flags().GetString("hive")
 	if err := checkHive(hive); err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
 
-	regPath := ctx.Args.String("registry-path")
-	value := ctx.Args.String("value")
+	regPath := args[0]
+	value := args[1]
 	if regPath == "" || value == "" {
 		con.PrintErrorf("You must provide a path and a value to write")
 		return
@@ -126,7 +128,7 @@ func RegWriteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	regWrite, err := con.Rpc.RegistryWrite(context.Background(), &sliverpb.RegistryWriteReq{
-		Request:     con.ActiveTarget.Request(ctx),
+		Request:     con.ActiveTarget.Request(cmd),
 		Hostname:    hostname,
 		Hive:        hive,
 		Path:        finalPath,

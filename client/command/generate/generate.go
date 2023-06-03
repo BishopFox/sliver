@@ -22,7 +22,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/url"
 	"os"
@@ -30,17 +29,17 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/util"
-	"github.com/desertbit/grumble"
 )
 
 const (
@@ -89,17 +88,18 @@ var (
 )
 
 // GenerateCmd - The main command used to generate implant binaries
-func GenerateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	config := parseCompileFlags(ctx, con)
+func GenerateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	config := parseCompileFlags(cmd, con)
 	if config == nil {
 		return
 	}
-	save := ctx.Flags.String("save")
+	save, _ := cmd.Flags().GetString("save")
 	if save == "" {
 		save, _ = os.Getwd()
 	}
-	if !ctx.Flags.Bool("external-builder") {
-		compile(config, ctx.Flags.Bool("disable-sgn"), save, con)
+	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
+		disableSGN, _ := cmd.Flags().GetBool("disable-sgn")
+		compile(config, disableSGN, save, con)
 	} else {
 		_, err := externalBuild(config, save, con)
 		if err != nil {
@@ -127,7 +127,7 @@ func expandPath(path string) string {
 	return filepath.Join(os.Getenv("HOME"), path[1:])
 }
 
-func saveLocation(save, DefaultName string) (string, error) {
+func saveLocation(save, DefaultName string, con *console.SliverConsoleClient) (string, error) {
 	var saveTo string
 	if save == "" {
 		save, _ = os.Getwd()
@@ -135,27 +135,27 @@ func saveLocation(save, DefaultName string) (string, error) {
 	save = expandPath(save)
 	fi, err := os.Stat(save)
 	if os.IsNotExist(err) {
-		log.Printf("%s does not exist\n", save)
+		con.Printf("%s does not exist\n", save)
 		if strings.HasSuffix(save, "/") {
-			log.Printf("%s is dir\n", save)
-			os.MkdirAll(save, 0700)
+			con.Printf("%s is dir\n", save)
+			os.MkdirAll(save, 0o700)
 			saveTo, _ = filepath.Abs(filepath.Join(saveTo, DefaultName))
 		} else {
-			log.Printf("%s is not dir\n", save)
+			con.Printf("%s is not dir\n", save)
 			saveDir := filepath.Dir(save)
 			_, err := os.Stat(saveTo)
 			if os.IsNotExist(err) {
-				os.MkdirAll(saveDir, 0700)
+				os.MkdirAll(saveDir, 0o700)
 			}
 			saveTo, _ = filepath.Abs(save)
 		}
 	} else {
-		log.Printf("%s does exist\n", save)
+		con.Printf("%s does exist\n", save)
 		if fi.IsDir() {
-			log.Printf("%s is dir\n", save)
+			con.Printf("%s is dir\n", save)
 			saveTo, _ = filepath.Abs(filepath.Join(save, DefaultName))
 		} else {
-			log.Printf("%s is not dir\n", save)
+			con.Printf("%s is not dir\n", save)
 			prompt := &survey.Confirm{Message: "Overwrite existing file?"}
 			var confirm bool
 			survey.AskOne(prompt, &confirm)
@@ -184,10 +184,10 @@ func nameOfOutputFormat(value clientpb.OutputFormat) string {
 }
 
 // Shared function that extracts the compile flags from the grumble context
-func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *clientpb.ImplantConfig {
+func parseCompileFlags(cmd *cobra.Command, con *console.SliverConsoleClient) *clientpb.ImplantConfig {
 	var name string
-	if ctx.Flags.String("name") != "" {
-		name = strings.ToLower(ctx.Flags.String("name"))
+	if nameF, _ := cmd.Flags().GetString("name"); nameF != "" {
+		name = strings.ToLower(nameF)
 
 		if err := util.AllowedName(name); err != nil {
 			con.PrintErrorf("%s\n", err)
@@ -197,42 +197,51 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 
 	c2s := []*clientpb.ImplantC2{}
 
-	mtlsC2, err := ParseMTLSc2(ctx.Flags.String("mtls"))
+	mtlsC2F, _ := cmd.Flags().GetString("mtls")
+	mtlsC2, err := ParseMTLSc2(mtlsC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
 		return nil
 	}
 	c2s = append(c2s, mtlsC2...)
 
-	wgC2, err := ParseWGc2(ctx.Flags.String("wg"))
+	wgC2F, _ := cmd.Flags().GetString("wg")
+	wgC2, err := ParseWGc2(wgC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
 		return nil
 	}
+	wgKeyExchangePort, _ := cmd.Flags().GetUint32("key-exchange")
+	wgTcpCommsPort, _ := cmd.Flags().GetUint32("tcp-comms")
+
 	c2s = append(c2s, wgC2...)
 
-	httpC2, err := ParseHTTPc2(ctx.Flags.String("http"))
+	httpC2F, _ := cmd.Flags().GetString("http")
+	httpC2, err := ParseHTTPc2(httpC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
 		return nil
 	}
 	c2s = append(c2s, httpC2...)
 
-	dnsC2, err := ParseDNSc2(ctx.Flags.String("dns"))
+	dnsC2F, _ := cmd.Flags().GetString("dns")
+	dnsC2, err := ParseDNSc2(dnsC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
 		return nil
 	}
 	c2s = append(c2s, dnsC2...)
 
-	namedPipeC2, err := ParseNamedPipec2(ctx.Flags.String("named-pipe"))
+	namedPipeC2F, _ := cmd.Flags().GetString("named-pipe")
+	namedPipeC2, err := ParseNamedPipec2(namedPipeC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
 		return nil
 	}
 	c2s = append(c2s, namedPipeC2...)
 
-	tcpPivotC2, err := ParseTCPPivotc2(ctx.Flags.String("tcp-pivot"))
+	tcpPivotC2F, _ := cmd.Flags().GetString("tcp-pivot")
+	tcpPivotC2, err := ParseTCPPivotc2(tcpPivotC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
 		return nil
@@ -240,10 +249,11 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	c2s = append(c2s, tcpPivotC2...)
 
 	var symbolObfuscation bool
-	if ctx.Flags.Bool("debug") {
+	if debug, _ := cmd.Flags().GetBool("debug"); debug {
 		symbolObfuscation = false
 	} else {
-		symbolObfuscation = !ctx.Flags.Bool("skip-symbols")
+		symbolObfuscation, _ = cmd.Flags().GetBool("skip-symbols")
+		symbolObfuscation = !symbolObfuscation
 	}
 
 	if len(mtlsC2) == 0 && len(wgC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 && len(namedPipeC2) == 0 && len(tcpPivotC2) == 0 {
@@ -251,7 +261,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		return nil
 	}
 
-	rawCanaries := ctx.Flags.String("canary")
+	rawCanaries, _ := cmd.Flags().GetString("canary")
 	canaryDomains := []string{}
 	if 0 < len(rawCanaries) {
 		for _, canaryDomain := range strings.Split(rawCanaries, ",") {
@@ -262,23 +272,27 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		}
 	}
 
-	reconnectInterval := ctx.Flags.Int("reconnect")
-	pollTimeout := ctx.Flags.Int("poll-timeout")
-	maxConnectionErrors := ctx.Flags.Int("max-errors")
+	debug, _ := cmd.Flags().GetBool("debug")
+	evasion, _ := cmd.Flags().GetBool("evasion")
+	templateName, _ := cmd.Flags().GetString("template")
 
-	limitDomainJoined := ctx.Flags.Bool("limit-domainjoined")
-	limitHostname := ctx.Flags.String("limit-hostname")
-	limitUsername := ctx.Flags.String("limit-username")
-	limitDatetime := ctx.Flags.String("limit-datetime")
-	limitFileExists := ctx.Flags.String("limit-fileexists")
-	limitLocale := ctx.Flags.String("limit-locale")
-	debugFile := ctx.Flags.String("debug-file")
+	reconnectInterval, _ := cmd.Flags().GetInt64("reconnect")
+	pollTimeout, _ := cmd.Flags().GetInt64("poll-timeout")
+	maxConnectionErrors, _ := cmd.Flags().GetUint32("max-errors")
+
+	limitDomainJoined, _ := cmd.Flags().GetBool("limit-domainjoined")
+	limitHostname, _ := cmd.Flags().GetString("limit-hostname")
+	limitUsername, _ := cmd.Flags().GetString("limit-username")
+	limitDatetime, _ := cmd.Flags().GetString("limit-datetime")
+	limitFileExists, _ := cmd.Flags().GetString("limit-fileexists")
+	limitLocale, _ := cmd.Flags().GetString("limit-locale")
+	debugFile, _ := cmd.Flags().GetString("debug-file")
 
 	isSharedLib := false
 	isService := false
 	isShellcode := false
 
-	format := ctx.Flags.String("format")
+	format, _ := cmd.Flags().GetString("format")
 	runAtLoad := false
 	var configFormat clientpb.OutputFormat
 	switch format {
@@ -287,7 +301,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	case "shared":
 		configFormat = clientpb.OutputFormat_SHARED_LIB
 		isSharedLib = true
-		runAtLoad = ctx.Flags.Bool("run-at-load")
+		runAtLoad, _ = cmd.Flags().GetBool("run-at-load")
 	case "shellcode":
 		configFormat = clientpb.OutputFormat_SHELLCODE
 		isShellcode = true
@@ -299,8 +313,10 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		configFormat = clientpb.OutputFormat_EXECUTABLE
 	}
 
-	targetOS := strings.ToLower(ctx.Flags.String("os"))
-	targetArch := strings.ToLower(ctx.Flags.String("arch"))
+	targetOSF, _ := cmd.Flags().GetString("os")
+	targetOS := strings.ToLower(targetOSF)
+	targetArchF, _ := cmd.Flags().GetString("arch")
+	targetArch := strings.ToLower(targetArchF)
 	targetOS, targetArch = getTargets(targetOS, targetArch, con)
 	if targetOS == "" || targetArch == "" {
 		return nil
@@ -320,7 +336,7 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 	}
 
 	var tunIP net.IP
-	if wg := ctx.Flags.String("wg"); wg != "" {
+	if wg, _ := cmd.Flags().GetString("wg"); wg != "" {
 		uniqueWGIP, err := con.Rpc.GenerateUniqueIP(context.Background(), &commonpb.Empty{})
 		tunIP = net.ParseIP(uniqueWGIP.IP)
 		if err != nil {
@@ -330,36 +346,38 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		con.PrintInfof("Generated unique ip for wg peer tun interface: %s\n", tunIP.String())
 	}
 
-	connectionStrategy := ctx.Flags.String("strategy")
+	netGo, _ := cmd.Flags().GetBool("netgo")
+
+	// TODO: Use generics or something to check in a slice
+	connectionStrategy, _ := cmd.Flags().GetString("strategy")
 	if connectionStrategy != "" && connectionStrategy != "s" && connectionStrategy != "r" && connectionStrategy != "rd" {
 		con.PrintErrorf("Invalid connection strategy: %s\n", connectionStrategy)
 		return nil
 	}
 
 	// Parse Traffic Encoder Args
-
 	httpC2Enabled := 0 < len(httpC2)
-	trafficEncodersEnabled, trafficEncoderAssets := parseTrafficEncoderArgs(ctx, httpC2Enabled, con)
+	trafficEncodersEnabled, trafficEncoderAssets := parseTrafficEncoderArgs(cmd, httpC2Enabled, con)
 
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
 		GOARCH:           targetArch,
 		Name:             name,
-		Debug:            ctx.Flags.Bool("debug"),
-		Evasion:          ctx.Flags.Bool("evasion"),
+		Debug:            debug,
+		Evasion:          evasion,
 		ObfuscateSymbols: symbolObfuscation,
 		C2:               c2s,
 		CanaryDomains:    canaryDomains,
-		TemplateName:     ctx.Flags.String("template"),
+		TemplateName:     templateName,
 
 		WGPeerTunIP:       tunIP.String(),
-		WGKeyExchangePort: uint32(ctx.Flags.Int("key-exchange")),
-		WGTcpCommsPort:    uint32(ctx.Flags.Int("tcp-comms")),
+		WGKeyExchangePort: wgKeyExchangePort,
+		WGTcpCommsPort:    wgTcpCommsPort,
 
 		ConnectionStrategy:  connectionStrategy,
-		ReconnectInterval:   int64(reconnectInterval) * int64(time.Second),
-		PollTimeout:         int64(pollTimeout) * int64(time.Second),
-		MaxConnectionErrors: uint32(maxConnectionErrors),
+		ReconnectInterval:   reconnectInterval * int64(time.Second),
+		PollTimeout:         pollTimeout * int64(time.Second),
+		MaxConnectionErrors: maxConnectionErrors,
 
 		LimitDomainJoined: limitDomainJoined,
 		LimitHostname:     limitHostname,
@@ -374,10 +392,10 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 		IsShellcode: isShellcode,
 
 		RunAtLoad:              runAtLoad,
-		NetGoEnabled:           ctx.Flags.Bool("netgo"),
+		NetGoEnabled:           netGo,
 		TrafficEncodersEnabled: trafficEncodersEnabled,
 		Assets:                 trafficEncoderAssets,
-		
+
 		DebugFile: debugFile,
 	}
 
@@ -385,8 +403,8 @@ func parseCompileFlags(ctx *grumble.Context, con *console.SliverConsoleClient) *
 }
 
 // parseTrafficEncoderArgs - parses the traffic encoder args and returns a bool indicating if traffic encoders are enabled
-func parseTrafficEncoderArgs(ctx *grumble.Context, httpC2Enabled bool, con *console.SliverConsoleClient) (bool, []*commonpb.File) {
-	trafficEncoders := ctx.Flags.String("traffic-encoders")
+func parseTrafficEncoderArgs(cmd *cobra.Command, httpC2Enabled bool, con *console.SliverConsoleClient) (bool, []*commonpb.File) {
+	trafficEncoders, _ := cmd.Flags().GetString("traffic-encoders")
 	encoders := []*commonpb.File{}
 	if trafficEncoders != "" {
 		if !httpC2Enabled {
@@ -406,7 +424,6 @@ func parseTrafficEncoderArgs(ctx *grumble.Context, httpC2Enabled bool, con *cons
 }
 
 func getTargets(targetOS string, targetArch string, con *console.SliverConsoleClient) (string, string) {
-
 	/* For UX we convert some synonymous terms */
 	if targetOS == "darwin" || targetOS == "mac" || targetOS == "macos" || targetOS == "osx" {
 		targetOS = "darwin"
@@ -662,7 +679,6 @@ func ParseTCPPivotc2(args string) ([]*clientpb.ImplantC2, error) {
 }
 
 func externalBuild(config *clientpb.ImplantConfig, save string, con *console.SliverConsoleClient) (*commonpb.File, error) {
-
 	potentialBuilders, err := findExternalBuilders(config, con)
 	if err != nil {
 		return nil, err
@@ -719,7 +735,7 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 		case <-time.After(100 * time.Millisecond):
 			elapsed := time.Since(start)
 			msg := fmt.Sprintf(msgF, externalImplantConfig.Config.TemplateName, elapsed.Round(time.Second))
-			fmt.Fprintf(con.App.Stdout(), console.Clearln+" %s  %s", spinner.Next(), msg)
+			fmt.Fprintf(con.App.ActiveMenu().OutOrStdout(), console.Clearln+" %s  %s", spinner.Next(), msg)
 
 		case event := <-listener:
 			switch event.EventType {
@@ -770,12 +786,12 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 	}
 	con.PrintInfof("Build name: %s (%d bytes)\n", name, len(generated.File.Data))
 
-	saveTo, err := saveLocation(save, filepath.Base(generated.File.Name))
+	saveTo, err := saveLocation(save, filepath.Base(generated.File.Name), con)
 	if err != nil {
 		return nil, err
 	}
 
-	err = os.WriteFile(saveTo, generated.File.Data, 0700)
+	err = os.WriteFile(saveTo, generated.File.Data, 0o700)
 	if err != nil {
 		con.PrintErrorf("Failed to write to: %s\n", saveTo)
 		return nil, err
@@ -841,12 +857,12 @@ func compile(config *clientpb.ImplantConfig, disableSGN bool, save string, con *
 		}
 	}
 
-	saveTo, err := saveLocation(save, generated.File.Name)
+	saveTo, err := saveLocation(save, generated.File.Name, con)
 	if err != nil {
 		return nil, err
 	}
 
-	err = os.WriteFile(saveTo, fileData, 0700)
+	err = os.WriteFile(saveTo, fileData, 0o700)
 	if err != nil {
 		con.PrintErrorf("Failed to write to: %s\n", saveTo)
 		return nil, err

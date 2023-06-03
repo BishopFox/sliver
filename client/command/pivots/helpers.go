@@ -20,19 +20,22 @@ package pivots
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/rsteube/carapace"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 // SelectPivotListener - Interactive menu to select a pivot listener
 func SelectPivotListener(listeners []*sliverpb.PivotListener, con *console.SliverConsoleClient) (*sliverpb.PivotListener, error) {
-
 	// Render selection table
 	buf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
@@ -61,4 +64,31 @@ func SelectPivotListener(listeners []*sliverpb.PivotListener, con *console.Slive
 		}
 	}
 	return nil, errors.New("task not found")
+}
+
+// PivotIDCompleter completes pivot listeners' IDs.
+func PivotIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+	callback := func(_ carapace.Context) carapace.Action {
+		results := make([]string, 0)
+
+		pivotListeners, err := con.Rpc.PivotSessionListeners(context.Background(), &sliverpb.PivotListenersReq{
+			Request: con.ActiveTarget.Request(con.App.ActiveMenu().Root()),
+		})
+		if err != nil {
+			return carapace.ActionMessage("failed to get remote pivots: %s", err.Error())
+		}
+
+		for _, listener := range pivotListeners.Listeners {
+			results = append(results, strconv.Itoa(int(listener.ID)))
+			results = append(results, fmt.Sprintf("[%s] %s (%d pivots)", listener.Type, listener.BindAddress, len(listener.Pivots)))
+		}
+
+		if len(results) == 0 {
+			return carapace.ActionMessage("no pivot listeners")
+		}
+
+		return carapace.ActionValuesDescribed(results...).Tag("pivot listeners")
+	}
+
+	return carapace.ActionCallback(callback)
 }

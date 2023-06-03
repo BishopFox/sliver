@@ -28,29 +28,30 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
+	"gopkg.in/AlecAivazis/survey.v1"
+
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
-	"google.golang.org/protobuf/proto"
-	"gopkg.in/AlecAivazis/survey.v1"
-
-	"github.com/desertbit/grumble"
 )
 
-func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func DownloadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
-	remotePath := ctx.Args.String("remote-path")
-	recurse := ctx.Flags.Bool("recurse")
+
+	remotePath := args[0]
+	recurse, _ := cmd.Flags().GetBool("recurse")
 
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("Downloading %s ...", remotePath), ctrl)
 	download, err := con.Rpc.Download(context.Background(), &sliverpb.DownloadReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 		Path:    remotePath,
 		Recurse: recurse,
 	})
@@ -67,13 +68,12 @@ func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			HandleDownloadResponse(download, ctx, con)
+			HandleDownloadResponse(download, cmd, args, con)
 		})
 		con.PrintAsyncResponse(download.Response)
 	} else {
-		HandleDownloadResponse(download, ctx, con)
+		HandleDownloadResponse(download, cmd, args, con)
 	}
-
 }
 
 func prettifyDownloadName(path string) string {
@@ -104,7 +104,7 @@ func prettifyDownloadName(path string) string {
 	return filteredString
 }
 
-func HandleDownloadResponse(download *sliverpb.Download, ctx *grumble.Context, con *console.SliverConsoleClient) {
+func HandleDownloadResponse(download *sliverpb.Download, cmd *cobra.Command, args []string, con *console.SliverConsoleClient) {
 	var err error
 	if download.Response != nil && download.Response.Err != "" {
 		con.PrintErrorf("%s\n", download.Response.Err)
@@ -118,9 +118,9 @@ func HandleDownloadResponse(download *sliverpb.Download, ctx *grumble.Context, c
 		}
 	}
 
-	remotePath := ctx.Args.String("remote-path")
-	localPath := ctx.Args.String("local-path")
-	saveLoot := ctx.Flags.Bool("loot")
+	remotePath := args[0]
+	localPath := args[1]
+	saveLoot, _ := cmd.Flags().GetBool("loot")
 
 	if download.ReadFiles == 0 {
 		// No files downloaded successfully.
@@ -129,10 +129,11 @@ func HandleDownloadResponse(download *sliverpb.Download, ctx *grumble.Context, c
 	}
 
 	if saveLoot {
-		lootName := ctx.Flags.String("name")
+		lootName, _ := cmd.Flags().GetString("name")
 		// Hand off to the loot package to take care of looting
-		fileType := loot.ValidateLootFileType(ctx.Flags.String("file-type"), download.Data)
-		loot.LootDownload(download, lootName, fileType, ctx, con)
+		fType, _ := cmd.Flags().GetString("file-type")
+		fileType := loot.ValidateLootFileType(fType, download.Data)
+		loot.LootDownload(download, lootName, fileType, cmd, con)
 	} else {
 		fileName := filepath.Base(remotePath)
 		dst, err := filepath.Abs(localPath)

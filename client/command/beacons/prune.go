@@ -22,21 +22,23 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/desertbit/grumble"
 )
 
 // BeaconsPruneCmd - Prune stale beacons automatically
-func BeaconsPruneCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	pruneDuration, err := time.ParseDuration(ctx.Flags.String("duration"))
+func BeaconsPruneCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	duration, _ := cmd.Flags().GetString("duration")
+	pruneDuration, err := time.ParseDuration(duration)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
 	con.PrintInfof("Pruning beacons that missed their last checking by %s or more...\n\n", pruneDuration)
-	grpcCtx, cancel := con.GrpcContext(ctx)
+	grpcCtx, cancel := con.GrpcContext(cmd)
 	defer cancel()
 	beacons, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
 	if err != nil {

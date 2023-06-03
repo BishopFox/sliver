@@ -23,13 +23,14 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/jedib0t/go-pretty/v6/table"
-
-	"github.com/desertbit/grumble"
 )
 
 const (
@@ -38,17 +39,17 @@ const (
 )
 
 // WebsitesCmd - Manage websites
-func WebsitesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	websiteName := ctx.Args.String("name")
-	if websiteName == "" {
-		ListWebsites(ctx, con)
-	} else {
+func WebsitesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	if len(args) > 0 {
+		websiteName := args[0]
 		ListWebsiteContent(websiteName, con)
+	} else {
+		ListWebsites(cmd, con, args)
 	}
 }
 
 // ListWebsites - Display a list of websites
-func ListWebsites(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func ListWebsites(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	websites, err := con.Rpc.Websites(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("Failed to list websites %s", err)
@@ -107,4 +108,26 @@ func PrintWebsite(web *clientpb.Website, con *console.SliverConsoleClient) {
 		})
 	}
 	con.Println(tw.Render())
+}
+
+// WebsiteNameCompleter completes the names of available websites.
+func WebsiteNameCompleter(con *console.SliverConsoleClient) carapace.Action {
+	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		results := make([]string, 0)
+
+		websites, err := con.Rpc.Websites(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			return carapace.ActionMessage("Failed to list websites %s", err)
+		}
+
+		for _, ws := range websites.Websites {
+			results = append(results, ws.Name)
+		}
+
+		if len(results) == 0 {
+			return carapace.ActionMessage("no available websites")
+		}
+
+		return carapace.ActionValues(results...).Tag("websites").Usage("website name")
+	})
 }

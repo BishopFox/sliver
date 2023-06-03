@@ -24,12 +24,15 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/desertbit/grumble"
+	"github.com/spf13/cobra"
 )
 
 // CredsCmd - Add new credentials
-func CredsRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	id := ctx.Flags.String("id")
+func CredsRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	var id string
+	if len(args) > 0 {
+		id = args[0]
+	}
 	if id == "" {
 		credential, err := SelectCredential(false, clientpb.HashType_INVALID, con)
 		if err != nil {

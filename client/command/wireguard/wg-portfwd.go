@@ -21,15 +21,16 @@ package wireguard
 import (
 	"context"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
-	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // WGPortFwdListCmd - List WireGuard port forwards
-func WGPortFwdListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func WGPortFwdListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -40,7 +41,7 @@ func WGPortFwdListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	fwdList, err := con.Rpc.WGListForwarders(context.Background(), &sliverpb.WGTCPForwardersReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
 		con.PrintErrorf("Error: %v", err)

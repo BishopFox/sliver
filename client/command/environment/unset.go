@@ -21,21 +21,23 @@ package environment
 import (
 	"context"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
-	"google.golang.org/protobuf/proto"
 )
 
 // EnvUnsetCmd - Unset a remote environment variable
-func EnvUnsetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func EnvUnsetCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
-	name := ctx.Args.String("name")
+	name := args[0]
 	if name == "" {
 		con.PrintErrorf("Usage: setenv NAME\n")
 		return
@@ -43,9 +45,8 @@ func EnvUnsetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	unsetResp, err := con.Rpc.UnsetEnv(context.Background(), &sliverpb.UnsetEnvReq{
 		Name:    name,
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 	})
-
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -63,7 +64,6 @@ func EnvUnsetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	} else {
 		PrintUnsetEnvInfo(name, unsetResp, con)
 	}
-
 }
 
 // PrintUnsetEnvInfo - Print the set environment info

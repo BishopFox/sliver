@@ -1,0 +1,10 @@
+app: usql
+term: xterm-256
+####----####
+$unknown one two
+$custom foo bar
+####----####
+$custom:
+  foo
+$unknown:
+  one

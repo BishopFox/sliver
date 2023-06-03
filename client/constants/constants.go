@@ -29,6 +29,12 @@ const (
 	LastUpdateCheckFileName = "last_update_check"
 )
 
+// Console
+const (
+	ImplantMenu = "implant"
+	ServerMenu  = ""
+)
+
 // Events
 const (
 	// UpdateStr - "update"
@@ -151,6 +157,7 @@ const (
 	LoadStr    = "load"
 	TablesStr  = "tables"
 	DetailsStr = "details"
+	GraphStr   = "graph"
 
 	LootStr       = "loot"
 	LootLocalStr  = "local"
@@ -287,10 +294,34 @@ const (
 
 // Groups
 const (
-	GenericHelpGroup     = "Generic:"
-	SliverHelpGroup      = "Sliver:"
-	SliverWinHelpGroup   = "Sliver - Windows:"
-	MultiplayerHelpGroup = "Multiplayer:"
-	AliasHelpGroup       = "Sliver - 3rd Party macros:"
-	ExtensionHelpGroup   = "Sliver - 3rd Party extensions:"
+	// Server commands =====================
+	GenericHelpGroup  = "Generic"
+	NetworkHelpGroup  = "Network"
+	PayloadsHelpGroup = "Payload"
+	DataHelpGroup     = "Data"
+	SliverHelpGroup   = "Sliver"
+
+	// Sliver commands =====================
+	SliverCoreHelpGroup = "Core"
+	InfoHelpGroup       = "Info"
+	FilesystemHelpGroup = "Filesystem"
+	ExecutionHelpGroup  = "Execution"
+	PrivilegesHelpGroup = "Privileges"
+	ProcessHelpGroup    = "Process"
+
+	AliasHelpGroup     = "Sliver - 3rd Party macros"
+	ExtensionHelpGroup = "Sliver - 3rd Party extensions"
+
+	// Useless
+	SliverWinHelpGroup   = "Sliver - Windows"
+	MultiplayerHelpGroup = "Multiplayer"
+)
+
+// Command types / filters (per OS/type/C2/etc)
+// Should not be changed: extension.json artifact file (architecture/OS) rely on some of the values below,
+const (
+	SessionCmdsFilter   = "session"
+	BeaconCmdsFilter    = "beacon"
+	WindowsCmdsFilter   = "windows"
+	WireguardCmdsFilter = "wireguard"
 )

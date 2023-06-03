@@ -24,20 +24,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+
 	"github.com/bishopfox/sliver/client/command/kill"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/desertbit/grumble"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"golang.org/x/term"
 )
 
 // BeaconsCmd - Display/interact with beacons
-func BeaconsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	killFlag := ctx.Flags.String("kill")
-	killAll := ctx.Flags.Bool("kill-all")
+func BeaconsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	killFlag, _ := cmd.Flags().GetString("kill")
+	killAll, _ := cmd.Flags().GetBool("kill-all")
 
 	// Handle kill
 	if killFlag != "" {
@@ -46,7 +47,7 @@ func BeaconsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
-		err = kill.KillBeacon(beacon, ctx, con)
+		err = kill.KillBeacon(beacon, cmd, con)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
@@ -62,7 +63,7 @@ func BeaconsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			return
 		}
 		for _, beacon := range beacons.Beacons {
-			err = kill.KillBeacon(beacon, ctx, con)
+			err = kill.KillBeacon(beacon, cmd, con)
 			if err != nil {
 				con.PrintErrorf("%s\n", err)
 				return
@@ -71,18 +72,18 @@ func BeaconsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			con.PrintInfof("Killed %s (%s)\n", beacon.Name, beacon.ID)
 		}
 	}
-	filter := ctx.Flags.String("filter")
+	filter, _ := cmd.Flags().GetString("filter")
 	var filterRegex *regexp.Regexp
-	if ctx.Flags.String("filter-re") != "" {
+	if filterRe, _ := cmd.Flags().GetString("filter-re"); filterRe != "" {
 		var err error
-		filterRegex, err = regexp.Compile(ctx.Flags.String("filter-re"))
+		filterRegex, err = regexp.Compile(filterRe)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
 	}
 
-	grpcCtx, cancel := con.GrpcContext(ctx)
+	grpcCtx, cancel := con.GrpcContext(cmd)
 	defer cancel()
 	beacons, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
 	if err != nil {

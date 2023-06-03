@@ -22,14 +22,15 @@ import (
 	"strconv"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/desertbit/grumble"
-	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // SettingsCmd - The client settings command
-func SettingsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func SettingsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	var err error
 	if con.Settings == nil {
 		con.Settings, err = assets.LoadSettings()
@@ -53,7 +54,7 @@ func SettingsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 // SettingsAlwaysOverflow - Toggle always overflow
-func SettingsAlwaysOverflow(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func SettingsAlwaysOverflow(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	var err error
 	if con.Settings == nil {
 		con.Settings, err = assets.LoadSettings()
@@ -67,7 +68,7 @@ func SettingsAlwaysOverflow(ctx *grumble.Context, con *console.SliverConsoleClie
 }
 
 // SettingsConsoleLogs - Toggle console logs
-func SettingsConsoleLogs(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func SettingsConsoleLogs(cmd *cobra.Command, con *console.SliverConsoleClient) {
 	var err error
 	if con.Settings == nil {
 		con.Settings, err = assets.LoadSettings()
@@ -81,7 +82,7 @@ func SettingsConsoleLogs(ctx *grumble.Context, con *console.SliverConsoleClient)
 }
 
 // SettingsSmallTerm - Modify small terminal width value
-func SettingsSmallTerm(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func SettingsSmallTerm(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	var err error
 	if con.Settings == nil {
 		con.Settings, err = assets.LoadSettings()
@@ -111,7 +112,7 @@ func SettingsSmallTerm(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 // SettingsTablesCmd - The client settings command
-func SettingsTablesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func SettingsTablesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	var err error
 	if con.Settings == nil {
 		con.Settings, err = assets.LoadSettings()
@@ -143,7 +144,7 @@ func SettingsTablesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 // SettingsSaveCmd - The client settings command
-func SettingsSaveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func SettingsSaveCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	var err error
 	if con.Settings == nil {
 		con.Settings, err = assets.LoadSettings()
@@ -158,4 +159,18 @@ func SettingsSaveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	} else {
 		con.PrintInfof("Settings saved to disk\n")
 	}
+}
+
+// SettingsAlwaysOverflow - Toggle always overflow
+func SettingsUserConnect(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	var err error
+	if con.Settings == nil {
+		con.Settings, err = assets.LoadSettings()
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+	}
+	con.Settings.UserConnect = !con.Settings.UserConnect
+	con.PrintInfof("User connect events = %v\n", con.Settings.UserConnect)
 }
