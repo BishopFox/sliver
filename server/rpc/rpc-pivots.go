@@ -1,11 +1,5 @@
 package rpc
 
-import (
-	"context"
-
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-)
-
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -24,8 +18,29 @@ import (
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-func (rpc *Server) NamedPipes(ctx context.Context, req *sliverpb.NamedPipesReq) (*sliverpb.NamedPipes, error) {
-	resp := &sliverpb.NamedPipes{}
+import (
+	"context"
+
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/core"
+)
+
+// PivotGraph - Return the server's pivot graph
+func (rpc *Server) PivotGraph(ctx context.Context, req *commonpb.Empty) (*clientpb.PivotGraph, error) {
+	pivotGraph := &clientpb.PivotGraph{
+		Children: []*clientpb.PivotGraphEntry{},
+	}
+	for _, topLevel := range core.PivotGraph() {
+		pivotGraph.Children = append(pivotGraph.Children, topLevel.ToProtobuf())
+	}
+	return pivotGraph, nil
+}
+
+// PivotSessionListeners - Get a list of all pivot listeners from an implant
+func (rpc *Server) PivotSessionListeners(ctx context.Context, req *sliverpb.PivotListenersReq) (*sliverpb.PivotListeners, error) {
+	resp := &sliverpb.PivotListeners{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -33,11 +48,22 @@ func (rpc *Server) NamedPipes(ctx context.Context, req *sliverpb.NamedPipesReq) 
 	return resp, nil
 }
 
-func (rpc *Server) TCPListener(ctx context.Context, req *sliverpb.TCPPivotReq) (*sliverpb.TCPPivot, error) {
-	resp := &sliverpb.TCPPivot{}
+// PivotStartListener - Instruct the implant to start a pivot listener
+func (rpc *Server) PivotStartListener(ctx context.Context, req *sliverpb.PivotStartListenerReq) (*sliverpb.PivotListener, error) {
+	resp := &sliverpb.PivotListener{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
+}
+
+// PivotStopListener - Instruct the implant to stop a pivot listener
+func (rpc *Server) PivotStopListener(ctx context.Context, req *sliverpb.PivotStopListenerReq) (*commonpb.Empty, error) {
+	resp := &sliverpb.PivotListener{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.Empty{}, nil
 }

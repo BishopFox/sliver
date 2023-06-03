@@ -21,66 +21,126 @@ package gogo
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/bishopfox/sliver/server/log"
 )
 
 const (
-	goDirName     = "go"
-	goPathDirName = "gopath"
+	goDirName = "go"
+
+	kb = 1024
+	mb = 1024 * kb
+	gb = 1024 * mb
 )
 
 var (
 	gogoLog = log.NamedLogger("gogo", "compiler")
-
-	// ValidCompilerTargets - Supported compiler targets
-	ValidCompilerTargets = map[string]bool{
-		"darwin/386":    true,
-		"darwin/amd64":  true,
-		"linux/386":     true,
-		"linux/amd64":   true,
-		"windows/386":   true,
-		"windows/amd64": true,
-	}
 )
 
 // GoConfig - Env variables for Go compiler
 type GoConfig struct {
-	GOOS   string
-	GOARCH string
-	GOROOT string
-	GOPATH string
-	CGO    string
-	CC     string
+	ProjectDir string
+
+	GOOS       string
+	GOARCH     string
+	GOROOT     string
+	GOCACHE    string
+	GOMODCACHE string
+	GOPROXY    string
+	CGO        string
+	CC         string
+	CXX        string
+	HTTPPROXY  string
+	HTTPSPROXY string
+
+	Obfuscation bool
+	GOGARBLE    string
 }
 
 // GetGoRootDir - Get the path to GOROOT
 func GetGoRootDir(appDir string) string {
-	return path.Join(appDir, goDirName)
+	return filepath.Join(appDir, goDirName)
 }
 
-// GetGoPathDir - Get the path to GOPATH
-func GetGoPathDir(appDir string) string {
-	return path.Join(appDir, goPathDirName)
+// GetGoCache - Get the OS temp dir (used for GOCACHE)
+func GetGoCache(appDir string) string {
+	cachePath := filepath.Join(GetGoRootDir(appDir), "cache")
+	os.MkdirAll(cachePath, 0700)
+	return cachePath
 }
 
-// GetTempDir - Get the OS temp dir (used for GOCACHE)
-func GetTempDir() string {
-	dir, _ := ioutil.TempDir("", ".sliver_gocache")
-	return dir
+// GetGoModCache - Get the GoMod cache dir
+func GetGoModCache(appDir string) string {
+	cachePath := filepath.Join(GetGoRootDir(appDir), "modcache")
+	os.MkdirAll(cachePath, 0700)
+	return cachePath
+}
+
+// Garble requires $HOME to be defined, if it's not set we use the os temp dir
+func getHomeDir() string {
+	home := os.Getenv("HOME")
+	if home == "" {
+		return os.TempDir()
+	}
+	return home
+}
+
+// GarbleCmd - Execute a go command
+func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
+	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
+	if _, ok := ValidCompilerTargets(config)[target]; !ok {
+		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
+	}
+	garbleBinPath := filepath.Join(config.GOROOT, "bin", "garble")
+	garbleFlags := []string{"-seed=random", "-literals", "-tiny"}
+	command = append(garbleFlags, command...)
+	cmd := exec.Command(garbleBinPath, command...)
+	cmd.Dir = cwd
+	cmd.Env = []string{
+		fmt.Sprintf("CC=%s", config.CC),
+		fmt.Sprintf("CGO_ENABLED=%s", config.CGO),
+		fmt.Sprintf("GOOS=%s", config.GOOS),
+		fmt.Sprintf("GOARCH=%s", config.GOARCH),
+		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
+		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
+		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
+		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
+		fmt.Sprintf("HTTP_PROXY=%s", config.HTTPPROXY),
+		fmt.Sprintf("HTTPS_PROXY=%s", config.HTTPSPROXY),
+		fmt.Sprintf("PATH=%s:%s", filepath.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
+		fmt.Sprintf("GOGARBLE=%s", config.GOGARBLE),
+		fmt.Sprintf("HOME=%s", getHomeDir()),
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	gogoLog.Debugf("--- env ---\n")
+	for _, envVar := range cmd.Env {
+		gogoLog.Debugf("%s\n", envVar)
+	}
+	gogoLog.Infof("garble cmd: '%v'", cmd)
+	err := cmd.Run()
+	if err != nil {
+		gogoLog.Debugf("--- env ---\n")
+		for _, envVar := range cmd.Env {
+			gogoLog.Debugf("%s\n", envVar)
+		}
+		gogoLog.Errorf("--- stdout ---\n%s\n", stdout.String())
+		gogoLog.Errorf("--- stderr ---\n%s\n", stderr.String())
+		gogoLog.Error(err)
+	}
+
+	return stdout.Bytes(), err
 }
 
 // GoCmd - Execute a go command
 func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
-	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
-	if _, ok := ValidCompilerTargets[target]; !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
-	}
-	goBinPath := path.Join(config.GOROOT, "bin", "go")
+	goBinPath := filepath.Join(config.GOROOT, "bin", "go")
 	cmd := exec.Command(goBinPath, command...)
 	cmd.Dir = cwd
 	cmd.Env = []string{
@@ -88,10 +148,13 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("CGO_ENABLED=%s", config.CGO),
 		fmt.Sprintf("GOOS=%s", config.GOOS),
 		fmt.Sprintf("GOARCH=%s", config.GOARCH),
-		fmt.Sprintf("GOROOT=%s", config.GOROOT),
-		fmt.Sprintf("GOPATH=%s", config.GOPATH),
-		fmt.Sprintf("GOCACHE=%s", GetTempDir()),
-		fmt.Sprintf("PATH=%s/bin:%s", config.GOROOT, os.Getenv("PATH")),
+		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
+		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
+		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
+		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
+		fmt.Sprintf("HTTP_PROXY=%s", config.HTTPPROXY),
+		fmt.Sprintf("HTTPS_PROXY=%s", config.HTTPSPROXY),
+		fmt.Sprintf("PATH=%s:%s", filepath.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
 	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -114,11 +177,15 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 }
 
 // GoBuild - Execute a go build command, returns stdout/error
-func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []string, ldflags []string, gcflags, asmflags string, trimpath string) ([]byte, error) {
-	var goCommand = []string{"build"}
-	if 0 < len(trimpath) {
-		goCommand = append(goCommand, trimpath)
+func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []string, ldflags []string, gcflags, asmflags string) ([]byte, error) {
+	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
+	if _, ok := ValidCompilerTargets(config)[target]; !ok {
+		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
 	}
+	var goCommand = []string{"build"}
+
+	goCommand = append(goCommand, "-trimpath") // remove absolute paths from any compiled binary
+
 	if 0 < len(tags) {
 		goCommand = append(goCommand, "-tags")
 		goCommand = append(goCommand, tags...)
@@ -137,6 +204,16 @@ func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []
 		goCommand = append(goCommand, fmt.Sprintf("-buildmode=%s", buildmode))
 	}
 	goCommand = append(goCommand, []string{"-o", dest, "."}...)
+	if config.Obfuscation {
+		return GarbleCmd(config, src, goCommand)
+	}
+	return GoCmd(config, src, goCommand)
+}
+
+// GoMod - Execute go module commands in src dir
+func GoMod(config GoConfig, src string, args []string) ([]byte, error) {
+	goCommand := []string{"mod"}
+	goCommand = append(goCommand, args...)
 	return GoCmd(config, src, goCommand)
 }
 
@@ -145,4 +222,25 @@ func GoVersion(config GoConfig) ([]byte, error) {
 	var goCommand = []string{"version"}
 	wd, _ := os.Getwd()
 	return GoCmd(config, wd, goCommand)
+}
+
+// ValidCompilerTargets - Returns a map of valid compiler targets
+func ValidCompilerTargets(config GoConfig) map[string]bool {
+	validTargets := make(map[string]bool)
+	for _, target := range GoToolDistList(config) {
+		validTargets[target] = true
+	}
+	return validTargets
+}
+
+// GoToolDistList - Get a list of supported GOOS/GOARCH pairs
+func GoToolDistList(config GoConfig) []string {
+	var goCommand = []string{"tool", "dist", "list"}
+	wd, _ := os.Getwd()
+	data, err := GoCmd(config, wd, goCommand)
+	if err != nil {
+		return nil
+	}
+	lines := strings.Split(string(data), "\n")
+	return lines
 }

@@ -59,6 +59,9 @@ var (
 			"meterpreter/reverse_tcp":   true,
 			"meterpreter/reverse_http":  true,
 			"meterpreter/reverse_https": true,
+			"custom/reverse_winhttp":    true,
+			"custom/reverse_winhttps":   true,
+			"custom/reverse_tcp":        true,
 		},
 		"linux": {
 			"meterpreter_reverse_http":  true,
@@ -120,7 +123,10 @@ func Version() (string, error) {
 
 // VenomPayload - Generates an MSFVenom payload
 func VenomPayload(config VenomConfig) ([]byte, error) {
-
+	// Check if msfvenom is in the path
+	if _, err := exec.LookPath(venomBin); err != nil {
+		return nil, fmt.Errorf("msfvenom not found in PATH")
+	}
 	// OS
 	if _, ok := validPayloads[config.Os]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid operating system: %s", config.Os))
@@ -161,7 +167,7 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 		"--payload", payload,
 		fmt.Sprintf("LHOST=%s", config.LHost),
 		fmt.Sprintf("LPORT=%d", config.LPort),
-		fmt.Sprintf("EXITFUNC=thread"),
+		"EXITFUNC=thread",
 	}
 
 	if luri != "" {

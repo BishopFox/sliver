@@ -13,14 +13,18 @@ message Request {
   bool Async = 1;
   int64 Timeout = 2;
 
-  uint32 SessionID = 9;
+  string BeaconID = 8;
+  string SessionID = 9;
 }
   
-// Response - Common fields used in all gRPC responses. Note that this field
+// Response - Common fields used in all gRPC responses. Note that the Err field
 //            only used when the implant needs to return an error to the server.
 //            Client<->Server comms should use normal gRPC error handling.
 message Response {
   string Err = 1;
+  bool Async = 2;
+  string BeaconID = 8;
+  string TaskID = 9;
 }
 
 // File - A basic file data type
@@ -35,6 +39,9 @@ message Process {
   int32 Ppid = 2;
   string Executable = 3;
   string Owner = 4;
+  string Architecture = 7;
+  int32 SessionID = 5;
+  repeated string CmdLine = 6;
 }
 
 // EnvVar - Environment variable K/V

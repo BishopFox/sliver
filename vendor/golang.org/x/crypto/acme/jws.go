@@ -7,6 +7,7 @@ package acme
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -14,16 +15,17 @@ import (
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 )
 
-// keyID is the account identity provided by a CA during registration.
-type keyID string
+// KeyID is the account key identity provided by a CA during registration.
+type KeyID string
 
 // noKeyID indicates that jwsEncodeJSON should compute and use JWK instead of a KID.
 // See jwsEncodeJSON for details.
-const noKeyID = keyID("")
+const noKeyID = KeyID("")
 
 // noPayload indicates jwsEncodeJSON will encode zero-length octet string
 // in a JWS request. This is called POST-as-GET in RFC 8555 and is used to make
@@ -31,34 +33,70 @@ const noKeyID = keyID("")
 // See https://tools.ietf.org/html/rfc8555#section-6.3 for more details.
 const noPayload = ""
 
+// noNonce indicates that the nonce should be omitted from the protected header.
+// See jwsEncodeJSON for details.
+const noNonce = ""
+
+// jsonWebSignature can be easily serialized into a JWS following
+// https://tools.ietf.org/html/rfc7515#section-3.2.
+type jsonWebSignature struct {
+	Protected string `json:"protected"`
+	Payload   string `json:"payload"`
+	Sig       string `json:"signature"`
+}
+
 // jwsEncodeJSON signs claimset using provided key and a nonce.
 // The result is serialized in JSON format containing either kid or jwk
-// fields based on the provided keyID value.
+// fields based on the provided KeyID value.
 //
-// If kid is non-empty, its quoted value is inserted in the protected head
+// The claimset is marshalled using json.Marshal unless it is a string.
+// In which case it is inserted directly into the message.
+//
+// If kid is non-empty, its quoted value is inserted in the protected header
 // as "kid" field value. Otherwise, JWK is computed using jwkEncode and inserted
 // as "jwk" field value. The "jwk" and "kid" fields are mutually exclusive.
 //
+// If nonce is non-empty, its quoted value is inserted in the protected header.
+//
 // See https://tools.ietf.org/html/rfc7515#section-7.
-func jwsEncodeJSON(claimset interface{}, key crypto.Signer, kid keyID, nonce, url string) ([]byte, error) {
+func jwsEncodeJSON(claimset interface{}, key crypto.Signer, kid KeyID, nonce, url string) ([]byte, error) {
+	if key == nil {
+		return nil, errors.New("nil key")
+	}
 	alg, sha := jwsHasher(key.Public())
 	if alg == "" || !sha.Available() {
 		return nil, ErrUnsupportedKey
 	}
-	var phead string
+	headers := struct {
+		Alg   string          `json:"alg"`
+		KID   string          `json:"kid,omitempty"`
+		JWK   json.RawMessage `json:"jwk,omitempty"`
+		Nonce string          `json:"nonce,omitempty"`
+		URL   string          `json:"url"`
+	}{
+		Alg:   alg,
+		Nonce: nonce,
+		URL:   url,
+	}
 	switch kid {
 	case noKeyID:
 		jwk, err := jwkEncode(key.Public())
 		if err != nil {
 			return nil, err
 		}
-		phead = fmt.Sprintf(`{"alg":%q,"jwk":%s,"nonce":%q,"url":%q}`, alg, jwk, nonce, url)
+		headers.JWK = json.RawMessage(jwk)
 	default:
-		phead = fmt.Sprintf(`{"alg":%q,"kid":%q,"nonce":%q,"url":%q}`, alg, kid, nonce, url)
+		headers.KID = string(kid)
 	}
-	phead = base64.RawURLEncoding.EncodeToString([]byte(phead))
+	phJSON, err := json.Marshal(headers)
+	if err != nil {
+		return nil, err
+	}
+	phead := base64.RawURLEncoding.EncodeToString([]byte(phJSON))
 	var payload string
-	if claimset != noPayload {
+	if val, ok := claimset.(string); ok {
+		payload = val
+	} else {
 		cs, err := json.Marshal(claimset)
 		if err != nil {
 			return nil, err
@@ -71,17 +109,49 @@ func jwsEncodeJSON(claimset interface{}, key crypto.Signer, kid keyID, nonce, ur
 	if err != nil {
 		return nil, err
 	}
-
-	enc := struct {
-		Protected string `json:"protected"`
-		Payload   string `json:"payload"`
-		Sig       string `json:"signature"`
-	}{
+	enc := jsonWebSignature{
 		Protected: phead,
 		Payload:   payload,
 		Sig:       base64.RawURLEncoding.EncodeToString(sig),
 	}
 	return json.Marshal(&enc)
+}
+
+// jwsWithMAC creates and signs a JWS using the given key and the HS256
+// algorithm. kid and url are included in the protected header. rawPayload
+// should not be base64-URL-encoded.
+func jwsWithMAC(key []byte, kid, url string, rawPayload []byte) (*jsonWebSignature, error) {
+	if len(key) == 0 {
+		return nil, errors.New("acme: cannot sign JWS with an empty MAC key")
+	}
+	header := struct {
+		Algorithm string `json:"alg"`
+		KID       string `json:"kid"`
+		URL       string `json:"url,omitempty"`
+	}{
+		// Only HMAC-SHA256 is supported.
+		Algorithm: "HS256",
+		KID:       kid,
+		URL:       url,
+	}
+	rawProtected, err := json.Marshal(header)
+	if err != nil {
+		return nil, err
+	}
+	protected := base64.RawURLEncoding.EncodeToString(rawProtected)
+	payload := base64.RawURLEncoding.EncodeToString(rawPayload)
+
+	h := hmac.New(sha256.New, key)
+	if _, err := h.Write([]byte(protected + "." + payload)); err != nil {
+		return nil, err
+	}
+	mac := h.Sum(nil)
+
+	return &jsonWebSignature{
+		Protected: protected,
+		Payload:   payload,
+		Sig:       base64.RawURLEncoding.EncodeToString(mac),
+	}, nil
 }
 
 // jwkEncode encodes public part of an RSA or ECDSA key into a JWK.

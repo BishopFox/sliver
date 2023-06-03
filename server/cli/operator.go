@@ -20,7 +20,6 @@ package cli
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -29,7 +28,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cmdOperator = &cobra.Command{
+var operatorCmd = &cobra.Command{
 	Use:   "operator",
 	Short: "Generate operator configuration files",
 	Long:  ``,
@@ -71,7 +70,7 @@ var cmdOperator = &cobra.Command{
 		}
 
 		certs.SetupCAs()
-		configJSON, err := console.NewPlayerConfig(name, lhost, lport)
+		configJSON, err := console.NewOperatorConfig(name, lhost, lport)
 		if err != nil {
 			fmt.Printf("Failed: %s\n", err)
 			os.Exit(1)
@@ -87,7 +86,7 @@ var cmdOperator = &cobra.Command{
 			filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(name), filepath.Base(lhost))
 			saveTo = filepath.Join(saveTo, filename)
 		}
-		err = ioutil.WriteFile(saveTo, configJSON, 0600)
+		err = os.WriteFile(saveTo, configJSON, 0600)
 		if err != nil {
 			fmt.Printf("Write failed: %s (%s)\n", saveTo, err)
 			os.Exit(1)

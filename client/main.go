@@ -19,57 +19,26 @@ package main
 */
 
 import (
-	"flag"
-	"fmt"
-	"log"
-	"os"
-	"path"
+	"crypto/rand"
+	"encoding/binary"
+	insecureRand "math/rand"
+	"time"
 
-	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/version"
+	"github.com/bishopfox/sliver/client/cli"
 )
 
-const (
-	logFileName = "sliver-client.log"
-)
-
-func main() {
-	displayVersion := flag.Bool("version", false, "print version number")
-	config := flag.String("import", "", "import config file to ~/.sliver-client/configs")
-	flag.Parse()
-
-	if *displayVersion {
-		fmt.Printf("%s\n", version.FullVersion())
-		os.Exit(0)
-	}
-
-	if *config != "" {
-		conf, err := assets.ReadConfig(*config)
-		if err != nil {
-			fmt.Printf("[!] %s\n", err)
-			os.Exit(3)
-		}
-		assets.SaveConfig(conf)
-	}
-	appDir := assets.GetRootAppDir()
-	logFile := initLogging(appDir)
-	defer logFile.Close()
-
-	os.Args = os.Args[:1] // Stops grumble from complaining
-	err := console.StartClientConsole()
+// Attempt to seed insecure rand with secure rand, but we really
+// don't care that much if it fails since it's insecure anyways
+func init() {
+	buf := make([]byte, 8)
+	_, err := rand.Read(buf)
 	if err != nil {
-		fmt.Printf("[!] %s\n", err)
+		insecureRand.Seed(int64(time.Now().Unix()))
+	} else {
+		insecureRand.Seed(int64(binary.LittleEndian.Uint64(buf)))
 	}
 }
 
-// Initialize logging
-func initLogging(appDir string) *os.File {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	logFile, err := os.OpenFile(path.Join(appDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
-	if err != nil {
-		panic(fmt.Sprintf("[!] Error opening file: %s", err))
-	}
-	log.SetOutput(logFile)
-	return logFile
+func main() {
+	cli.Execute()
 }

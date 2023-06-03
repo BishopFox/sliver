@@ -13,7 +13,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"time"
 )
@@ -24,6 +23,9 @@ import (
 //
 // It only works with CAs implementing RFC 8555.
 func (c *Client) DeactivateReg(ctx context.Context) error {
+	if _, err := c.Discover(ctx); err != nil { // required by c.accountKID
+		return err
+	}
 	url := string(c.accountKID(ctx))
 	if url == "" {
 		return ErrNoAccount
@@ -37,22 +39,32 @@ func (c *Client) DeactivateReg(ctx context.Context) error {
 	return nil
 }
 
-// registerRFC is quivalent to c.Register but for CAs implementing RFC 8555.
+// registerRFC is equivalent to c.Register but for CAs implementing RFC 8555.
 // It expects c.Discover to have already been called.
-// TODO: Implement externalAccountBinding.
 func (c *Client) registerRFC(ctx context.Context, acct *Account, prompt func(tosURL string) bool) (*Account, error) {
 	c.cacheMu.Lock() // guard c.kid access
 	defer c.cacheMu.Unlock()
 
 	req := struct {
-		TermsAgreed bool     `json:"termsOfServiceAgreed,omitempty"`
-		Contact     []string `json:"contact,omitempty"`
+		TermsAgreed            bool              `json:"termsOfServiceAgreed,omitempty"`
+		Contact                []string          `json:"contact,omitempty"`
+		ExternalAccountBinding *jsonWebSignature `json:"externalAccountBinding,omitempty"`
 	}{
 		Contact: acct.Contact,
 	}
 	if c.dir.Terms != "" {
 		req.TermsAgreed = prompt(c.dir.Terms)
 	}
+
+	// set 'externalAccountBinding' field if requested
+	if acct.ExternalAccountBinding != nil {
+		eabJWS, err := c.encodeExternalAccountBinding(acct.ExternalAccountBinding)
+		if err != nil {
+			return nil, fmt.Errorf("acme: failed to encode external account binding: %v", err)
+		}
+		req.ExternalAccountBinding = eabJWS
+	}
+
 	res, err := c.post(ctx, c.Key, c.dir.RegURL, req, wantStatus(
 		http.StatusOK,      // account with this key already registered
 		http.StatusCreated, // new account created
@@ -68,14 +80,24 @@ func (c *Client) registerRFC(ctx context.Context, acct *Account, prompt func(tos
 	}
 	// Cache Account URL even if we return an error to the caller.
 	// It is by all means a valid and usable "kid" value for future requests.
-	c.kid = keyID(a.URI)
+	c.KID = KeyID(a.URI)
 	if res.StatusCode == http.StatusOK {
 		return nil, ErrAccountAlreadyExists
 	}
 	return a, nil
 }
 
-// updateGegRFC is equivalent to c.UpdateReg but for CAs implementing RFC 8555.
+// encodeExternalAccountBinding will encode an external account binding stanza
+// as described in https://tools.ietf.org/html/rfc8555#section-7.3.4.
+func (c *Client) encodeExternalAccountBinding(eab *ExternalAccountBinding) (*jsonWebSignature, error) {
+	jwk, err := jwkEncode(c.Key.Public())
+	if err != nil {
+		return nil, err
+	}
+	return jwsWithMAC(eab.Key, eab.KID, c.dir.RegURL, []byte(jwk))
+}
+
+// updateRegRFC is equivalent to c.UpdateReg but for CAs implementing RFC 8555.
 // It expects c.Discover to have already been called.
 func (c *Client) updateRegRFC(ctx context.Context, a *Account) (*Account, error) {
 	url := string(c.accountKID(ctx))
@@ -95,7 +117,7 @@ func (c *Client) updateRegRFC(ctx context.Context, a *Account) (*Account, error)
 	return responseAccount(res)
 }
 
-// getGegRFC is equivalent to c.GetReg but for CAs implementing RFC 8555.
+// getRegRFC is equivalent to c.GetReg but for CAs implementing RFC 8555.
 // It expects c.Discover to have already been called.
 func (c *Client) getRegRFC(ctx context.Context) (*Account, error) {
 	req := json.RawMessage(`{"onlyReturnExisting": true}`)
@@ -126,6 +148,42 @@ func responseAccount(res *http.Response) (*Account, error) {
 		Contact:   v.Contact,
 		OrdersURL: v.Orders,
 	}, nil
+}
+
+// accountKeyRollover attempts to perform account key rollover.
+// On success it will change client.Key to the new key.
+func (c *Client) accountKeyRollover(ctx context.Context, newKey crypto.Signer) error {
+	dir, err := c.Discover(ctx) // Also required by c.accountKID
+	if err != nil {
+		return err
+	}
+	kid := c.accountKID(ctx)
+	if kid == noKeyID {
+		return ErrNoAccount
+	}
+	oldKey, err := jwkEncode(c.Key.Public())
+	if err != nil {
+		return err
+	}
+	payload := struct {
+		Account string          `json:"account"`
+		OldKey  json.RawMessage `json:"oldKey"`
+	}{
+		Account: string(kid),
+		OldKey:  json.RawMessage(oldKey),
+	}
+	inner, err := jwsEncodeJSON(payload, newKey, noKeyID, noNonce, dir.KeyChangeURL)
+	if err != nil {
+		return err
+	}
+
+	res, err := c.post(ctx, nil, dir.KeyChangeURL, base64.RawURLEncoding.EncodeToString(inner), wantStatus(http.StatusOK))
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	c.Key = newKey
+	return nil
 }
 
 // AuthorizeOrder initiates the order-based application for certificate issuance,
@@ -331,7 +389,7 @@ func (c *Client) fetchCertRFC(ctx context.Context, url string, bundle bool) ([][
 	// Get all the bytes up to a sane maximum.
 	// Account very roughly for base64 overhead.
 	const max = maxCertChainSize + maxCertChainSize/33
-	b, err := ioutil.ReadAll(io.LimitReader(res.Body, max+1))
+	b, err := io.ReadAll(io.LimitReader(res.Body, max+1))
 	if err != nil {
 		return nil, fmt.Errorf("acme: fetch cert response stream: %v", err)
 	}
@@ -389,4 +447,30 @@ func (c *Client) revokeCertRFC(ctx context.Context, key crypto.Signer, cert []by
 func isAlreadyRevoked(err error) bool {
 	e, ok := err.(*Error)
 	return ok && e.ProblemType == "urn:ietf:params:acme:error:alreadyRevoked"
+}
+
+// ListCertAlternates retrieves any alternate certificate chain URLs for the
+// given certificate chain URL. These alternate URLs can be passed to FetchCert
+// in order to retrieve the alternate certificate chains.
+//
+// If there are no alternate issuer certificate chains, a nil slice will be
+// returned.
+func (c *Client) ListCertAlternates(ctx context.Context, url string) ([]string, error) {
+	if _, err := c.Discover(ctx); err != nil { // required by c.accountKID
+		return nil, err
+	}
+
+	res, err := c.postAsGet(ctx, url, wantStatus(http.StatusOK))
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	// We don't need the body but we need to discard it so we don't end up
+	// preventing keep-alive
+	if _, err := io.Copy(io.Discard, res.Body); err != nil {
+		return nil, fmt.Errorf("acme: cert alternates response stream: %v", err)
+	}
+	alts := linkHeader(res.Header, "alternate")
+	return alts, nil
 }

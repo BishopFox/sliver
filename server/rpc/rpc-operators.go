@@ -20,37 +20,34 @@ package rpc
 
 import (
 	"context"
-	"crypto/x509"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
 )
 
 // GetOperators - Get a list of operators
 func (s *Server) GetOperators(ctx context.Context, _ *commonpb.Empty) (*clientpb.Operators, error) {
-	operatorCerts := certs.OperatorClientListCertificates()
-	operators := &clientpb.Operators{
-		Operators: []*clientpb.Operator{},
+	operators := &clientpb.Operators{Operators: []*clientpb.Operator{}}
+	dbOperators, err := db.OperatorAll()
+	if err != nil {
+		return nil, ErrDatabaseFailure
 	}
-	for _, cert := range operatorCerts {
+	for _, dbOperator := range dbOperators {
 		operators.Operators = append(operators.Operators, &clientpb.Operator{
-			Name:   cert.Subject.CommonName,
-			Online: isOperatorOnline(cert),
+			Name:   dbOperator.Name,
+			Online: isOperatorOnline(dbOperator.Name),
 		})
 	}
 	return operators, nil
 }
 
-// isOperatorOnline - Is a player connected using a given certificate
-func isOperatorOnline(cert *x509.Certificate) bool {
-	// for _, client := range *core.Clients.Connections {
-	// 	if client.Certificate == nil {
-	// 		continue // Server certificate is nil
-	// 	}
-	// 	if bytes.Equal(cert.Raw, client.Certificate.Raw) {
-	// 		return true
-	// 	}
-	// }
+func isOperatorOnline(commonName string) bool {
+	for _, operator := range core.Clients.ActiveOperators() {
+		if commonName == operator {
+			return true
+		}
+	}
 	return false
 }

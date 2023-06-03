@@ -19,134 +19,122 @@ package generate
 */
 
 import (
-	"encoding/json"
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
+	"path"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
-)
-
-const (
-	// implantBucketName - Name of the bucket that stores data related to slivers
-	implantBucketName = "implants"
-
-	// implantConfigNamespace - Namespace that contains sliver configs
-	implantConfigNamespace   = "config"
-	implantFileNamespace     = "file"
-	implantDatetimeNamespace = "datetime"
+	"github.com/bishopfox/sliver/server/watchtower"
+	"gorm.io/gorm/clause"
 )
 
 var (
 	storageLog = log.NamedLogger("generate", "storage")
 
-	// ErrImplantNotFound - More descriptive 'key not found' error
-	ErrImplantNotFound = errors.New("Implant not found")
+	// ErrImplantBuildFileNotFound - More descriptive 'key not found' error
+	ErrImplantBuildFileNotFound = errors.New("implant build file not found")
 )
 
-// ImplantConfigByName - Get a implant's config by it's codename
-func ImplantConfigByName(name string) (*ImplantConfig, error) {
-	bucket, err := db.GetBucket(implantBucketName)
-	if err != nil {
-		return nil, err
-	}
-	rawConfig, err := bucket.Get(fmt.Sprintf("%s.%s", implantConfigNamespace, name))
-	if err != nil {
-		return nil, err
-	}
-	config := &ImplantConfig{}
-	err = json.Unmarshal(rawConfig, config)
-	return config, err
-}
-
-// ImplantConfigMap - Get a sliver's config by it's codename
-func ImplantConfigMap() (map[string]*ImplantConfig, error) {
-	bucket, err := db.GetBucket(implantBucketName)
-	if err != nil {
-		return nil, err
-	}
-	ls, err := bucket.List(implantConfigNamespace)
-	configs := map[string]*ImplantConfig{}
-	for _, config := range ls {
-		sliverName := config[len(implantConfigNamespace)+1:]
-		config, err := ImplantConfigByName(sliverName)
+func getBuildsDir() (string, error) {
+	buildsDir := filepath.Join(assets.GetRootAppDir(), "builds")
+	storageLog.Debugf("Builds dir: %s", buildsDir)
+	if _, err := os.Stat(buildsDir); os.IsNotExist(err) {
+		err = os.MkdirAll(buildsDir, 0700)
 		if err != nil {
-			continue
+			return "", err
 		}
-		configs[sliverName] = config
 	}
-	return configs, nil
+	return buildsDir, nil
 }
 
-// ImplantConfigSave - Save a configuration to the database
-func ImplantConfigSave(config *ImplantConfig) error {
-	bucket, err := db.GetBucket(implantBucketName)
-	if err != nil {
-		return err
+// ImplantConfigSave - Save only the config to the database
+func ImplantConfigSave(config *models.ImplantConfig) error {
+	dbSession := db.Session()
+	result := dbSession.Clauses(clause.OnConflict{
+		UpdateAll: true,
+	}).Create(&config)
+	if result.Error != nil {
+		return result.Error
 	}
-	rawConfig, err := json.Marshal(config)
-	if err != nil {
-		return err
-	}
-	storageLog.Infof("Saved config for '%s'", config.Name)
-	return bucket.Set(fmt.Sprintf("%s.%s", implantConfigNamespace, config.Name), rawConfig)
+	return nil
 }
 
-// ImplantFileSave - Saves a binary file into the database
-func ImplantFileSave(name, fPath string) error {
-	bucket, err := db.GetBucket(implantBucketName)
-	if err != nil {
-		return err
-	}
-
+// ImplantBuildSave - Saves a binary file into the database
+func ImplantBuildSave(name string, config *models.ImplantConfig, fPath string) error {
 	rootAppDir, _ := filepath.Abs(assets.GetRootAppDir())
 	fPath, _ = filepath.Abs(fPath)
 	if !strings.HasPrefix(fPath, rootAppDir) {
-		return fmt.Errorf("Invalid path '%s' is not a subdirectory of '%s'", fPath, rootAppDir)
+		return fmt.Errorf("invalid path '%s' is not a subdirectory of '%s'", fPath, rootAppDir)
 	}
 
-	data, err := ioutil.ReadFile(fPath)
+	data, err := os.ReadFile(fPath)
 	if err != nil {
 		return err
 	}
-	storageLog.Infof("Saved '%s' file to database %d byte(s)", name, len(data))
-	bucket.Set(fmt.Sprintf("%s.%s", implantDatetimeNamespace, name), []byte(time.Now().Format(time.RFC1123)))
-	return bucket.Set(fmt.Sprintf("%s.%s", implantFileNamespace, name), data)
+	md5Hash, sha1Hash, sha256Hash := computeHashes(data)
+	buildsDir, err := getBuildsDir()
+	if err != nil {
+		return err
+	}
+	dbSession := db.Session()
+	implantBuild := &models.ImplantBuild{
+		Name:          name,
+		ImplantConfig: (*config),
+		MD5:           md5Hash,
+		SHA1:          sha1Hash,
+		SHA256:        sha256Hash,
+	}
+	watchtower.AddImplantToWatchlist(implantBuild)
+	result := dbSession.Create(&implantBuild)
+	if result.Error != nil {
+		return result.Error
+	}
+	storageLog.Infof("%s -> %s", implantBuild.ID, implantBuild.Name)
+	return os.WriteFile(filepath.Join(buildsDir, implantBuild.ID.String()), data, 0600)
 }
 
-// ImplantFileByName - Saves a binary file into the database
-func ImplantFileByName(name string) ([]byte, error) {
-	bucket, err := db.GetBucket(implantBucketName)
-	if err != nil {
-		return nil, err
-	}
-	sliver, err := bucket.Get(fmt.Sprintf("%s.%s", implantFileNamespace, name))
-	if err != nil {
-		return nil, ErrImplantNotFound
-	}
-	return sliver, nil
+func computeHashes(data []byte) (string, string, string) {
+	md5Sum := md5.Sum(data)
+	md5Hash := hex.EncodeToString(md5Sum[:])
+	sha1Sum := sha1.Sum(data)
+	sha1Hash := hex.EncodeToString(sha1Sum[:])
+	sha256Sum := sha256.Sum256(data)
+	sha256Hash := hex.EncodeToString(sha256Sum[:])
+	return md5Hash, sha1Hash, sha256Hash
 }
 
-// ImplantFiles - List all sliver files
-func ImplantFiles() ([]string, error) {
-	bucket, err := db.GetBucket(implantBucketName)
+// ImplantFileFromBuild - Saves a binary file into the database
+func ImplantFileFromBuild(build *models.ImplantBuild) ([]byte, error) {
+	buildsDir, err := getBuildsDir()
 	if err != nil {
 		return nil, err
 	}
-	keys, err := bucket.List(implantFileNamespace)
-	if err != nil {
-		return nil, err
+	buildFilePath := path.Join(buildsDir, build.ID.String())
+	if _, err := os.Stat(buildFilePath); os.IsNotExist(err) {
+		return nil, ErrImplantBuildFileNotFound
 	}
+	return os.ReadFile(buildFilePath)
+}
 
-	// Remove namespace prefix
-	names := []string{}
-	for _, key := range keys {
-		names = append(names, key[len(implantFileNamespace):])
+// ImplantFileDelete - Delete the implant from the file system
+func ImplantFileDelete(build *models.ImplantBuild) error {
+	buildsDir, err := getBuildsDir()
+	if err != nil {
+		return err
 	}
-	return names, nil
+	buildFilePath := filepath.Join(buildsDir, build.ID.String())
+	if _, err := os.Stat(buildFilePath); os.IsNotExist(err) {
+		return ErrImplantBuildFileNotFound
+	}
+	return os.Remove(buildFilePath)
 }

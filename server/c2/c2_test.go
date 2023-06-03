@@ -2,7 +2,7 @@ package c2
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2021  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -19,34 +19,76 @@ package c2
 */
 
 import (
-	"net/http"
-	"net/http/httptest"
+	"crypto/sha256"
+	"encoding/hex"
+	insecureRand "math/rand"
+	"os"
 	"testing"
+	"time"
 
+	implantCrypto "github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/cryptography"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 )
 
-func TestRsaKeyHandler(t *testing.T) {
+var (
+	serverECCKeyPair  *cryptography.ECCKeyPair
+	implantECCKeyPair *cryptography.ECCKeyPair
+)
 
+func TestMain(m *testing.M) {
+
+	// Run one with deterministic randomness if a
+	// crash occurs, we can more easily reproduce it
+	insecureRand.Seed(1)
+	implantConfig := setup()
+	code1 := m.Run()
+	cleanup(implantConfig)
+
+	insecureRand.Seed(time.Now().UnixMicro())
+	implantConfig = setup()
+	code2 := m.Run()
+	cleanup(implantConfig)
+
+	os.Exit(code1 | code2)
+}
+
+func setup() *models.ImplantConfig {
+	var err error
 	certs.SetupCAs()
-
-	req, err := http.NewRequest("GET", "/test/foo.txt", nil)
+	serverECCKeyPair = cryptography.ECCServerKeyPair()
+	implantECCKeyPair, err = cryptography.RandomECCKeyPair()
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
-
-	server, err := StartHTTPSListener(&HTTPServerConfig{
-		Addr: "127.0.0.1:8888",
-	})
+	totpSecret, err := cryptography.TOTPServerSecret()
 	if err != nil {
-		t.Errorf("Listener failed to start %s", err)
-		return
+		panic(err)
 	}
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(server.rsaKeyHandler)
-	handler.ServeHTTP(rr, req)
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	implantCrypto.SetSecrets(
+		implantECCKeyPair.PublicBase64(),
+		implantECCKeyPair.PrivateBase64(),
+		"",
+		serverECCKeyPair.PublicBase64(),
+		totpSecret,
+		"",
+	)
+	digest := sha256.Sum256(implantECCKeyPair.Public[:])
+	implantConfig := &models.ImplantConfig{
+		ECCPublicKey:       implantECCKeyPair.PublicBase64(),
+		ECCPrivateKey:      implantECCKeyPair.PrivateBase64(),
+		ECCPublicKeyDigest: hex.EncodeToString(digest[:]),
+		ECCServerPublicKey: serverECCKeyPair.PublicBase64(),
 	}
+	err = db.Session().Create(implantConfig).Error
+	if err != nil {
+		panic(err)
+	}
+	return implantConfig
+}
 
+func cleanup(implantConfig *models.ImplantConfig) {
+	db.Session().Delete(implantConfig)
 }

@@ -1,5 +1,7 @@
 package main
 
+// "This is the source, the line unbroken since the calamity that brought such monsters to our shores."
+
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -19,8 +21,25 @@ package main
 */
 
 import (
+	"crypto/rand"
+	"encoding/binary"
+	insecureRand "math/rand"
+	"time"
+
 	"github.com/bishopfox/sliver/server/cli"
 )
+
+// Attempt to seed insecure rand with secure rand, but we really
+// don't care that much if it fails since it's insecure anyways
+func init() {
+	buf := make([]byte, 8)
+	_, err := rand.Read(buf)
+	if err != nil {
+		insecureRand.Seed(int64(time.Now().Unix()))
+	} else {
+		insecureRand.Seed(int64(binary.LittleEndian.Uint64(buf)))
+	}
+}
 
 func main() {
 	cli.Execute()

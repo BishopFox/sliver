@@ -25,11 +25,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cmdVersion = &cobra.Command{
+var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version and exit",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("v%s\n", version.FullVersion())
+		fmt.Printf("%s\n", version.FullVersion())
 	},
 }

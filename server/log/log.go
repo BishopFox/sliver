@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -56,7 +57,7 @@ func GetRootAppDir() string {
 	var dir string
 	if len(value) == 0 {
 		user, _ := user.Current()
-		dir = path.Join(user.HomeDir, ".sliver")
+		dir = filepath.Join(user.HomeDir, ".sliver")
 	} else {
 		dir = value
 	}
@@ -93,7 +94,7 @@ func GetLogDir() string {
 func rootLogger() *logrus.Logger {
 	rootLogger := logrus.New()
 	rootLogger.Formatter = &logrus.JSONFormatter{}
-	jsonFilePath := path.Join(GetLogDir(), "sliver.json")
+	jsonFilePath := filepath.Join(GetLogDir(), "sliver.json")
 	jsonFile, err := os.OpenFile(jsonFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open log file %v", err))
@@ -109,10 +110,10 @@ func rootLogger() *logrus.Logger {
 func txtLogger() *logrus.Logger {
 	txtLogger := logrus.New()
 	txtLogger.Formatter = &logrus.TextFormatter{
-		ForceColors: true,
+		ForceColors:   true,
 		FullTimestamp: true,
 	}
-	txtFilePath := path.Join(GetLogDir(), "sliver.log")
+	txtFilePath := filepath.Join(GetLogDir(), "sliver.log")
 	txtFile, err := os.OpenFile(txtFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open log file %v", err))
@@ -140,7 +141,7 @@ func NewTxtHook(name string) *TxtHook {
 // Fire - Implements the fire method of the Logrus hook
 func (hook *TxtHook) Fire(entry *logrus.Entry) error {
 	if hook.logger == nil {
-		return errors.New("No txt logger")
+		return errors.New("no txt logger")
 	}
 
 	// Determine the caller (filename/line number)
@@ -174,4 +175,91 @@ func (hook *TxtHook) Fire(entry *logrus.Entry) error {
 // Levels - Hook all levels
 func (hook *TxtHook) Levels() []logrus.Level {
 	return logrus.AllLevels
+}
+
+// RootLogger - Returns the root logger
+func stdoutLogger() *logrus.Logger {
+	txtLogger := logrus.New()
+	txtLogger.Formatter = &logrus.TextFormatter{
+		ForceColors:   true,
+		FullTimestamp: true,
+	}
+	txtLogger.Out = os.Stdout
+	txtLogger.SetLevel(logrus.DebugLevel)
+	return txtLogger
+}
+
+// TxtHook - Hook in a textual version of the logs
+type StdoutHook struct {
+	Name   string
+	logger *logrus.Logger
+}
+
+// NewTxtHook - returns a new txt hook
+func NewStdoutHook(name string) *StdoutHook {
+	hook := &StdoutHook{
+		Name:   name,
+		logger: stdoutLogger(),
+	}
+	return hook
+}
+
+// Fire - Implements the fire method of the Logrus hook
+func (hook *StdoutHook) Fire(entry *logrus.Entry) error {
+	if hook.logger == nil {
+		return errors.New("no txt logger")
+	}
+
+	// Determine the caller (filename/line number)
+	srcFile := "<no caller>"
+	if entry.HasCaller() {
+		sliverIndex := strings.Index(entry.Caller.File, "sliver")
+		srcFile = entry.Caller.File
+		if sliverIndex != -1 {
+			srcFile = srcFile[sliverIndex:]
+		}
+	}
+
+	switch entry.Level {
+	case logrus.PanicLevel:
+		hook.logger.Panicf("[%s:%d] %s", srcFile, entry.Caller.Line, entry.Message)
+	case logrus.FatalLevel:
+		hook.logger.Fatalf("[%s:%d] %s", srcFile, entry.Caller.Line, entry.Message)
+	case logrus.ErrorLevel:
+		hook.logger.Errorf("[%s:%d] %s", srcFile, entry.Caller.Line, entry.Message)
+	case logrus.WarnLevel:
+		hook.logger.Warnf("[%s:%d] %s", srcFile, entry.Caller.Line, entry.Message)
+	case logrus.InfoLevel:
+		hook.logger.Infof("[%s:%d] %s", srcFile, entry.Caller.Line, entry.Message)
+	case logrus.DebugLevel, logrus.TraceLevel:
+		hook.logger.Debugf("[%s:%d] %s", srcFile, entry.Caller.Line, entry.Message)
+	}
+
+	return nil
+}
+
+// Levels - Hook all levels
+func (hook *StdoutHook) Levels() []logrus.Level {
+	return logrus.AllLevels
+}
+
+// LevelFrom - returns level from int
+func LevelFrom(level int) logrus.Level {
+	switch level {
+	case 0:
+		return logrus.PanicLevel
+	case 1:
+		return logrus.FatalLevel
+	case 2:
+		return logrus.ErrorLevel
+	case 3:
+		return logrus.WarnLevel
+	case 4:
+		return logrus.InfoLevel
+	case 5:
+		return logrus.DebugLevel
+	case 6:
+		return logrus.TraceLevel
+	}
+	return logrus.DebugLevel
 }

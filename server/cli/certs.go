@@ -21,7 +21,6 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,10 +32,9 @@ import (
 var (
 	// CATypes - CA types
 	CATypes = map[string]string{
-		"operator":    certs.OperatorCA,
-		"grpc-server": certs.ServerCA,
-		"implant":     certs.SliverCA,
-		"https":       certs.HTTPSCA,
+		"operator": certs.OperatorCA,
+		"mtls":     certs.MtlsImplantCA,
+		"https":    certs.HTTPSCA,
 	}
 )
 
@@ -82,7 +80,7 @@ var cmdImportCA = &cobra.Command{
 			os.Exit(1)
 		}
 
-		data, err := ioutil.ReadFile(load)
+		data, err := os.ReadFile(load)
 		if err != nil {
 			fmt.Printf("Cannot read file %s", err)
 			os.Exit(1)
@@ -148,7 +146,7 @@ var cmdExportCA = &cobra.Command{
 			saveTo = filepath.Join(saveTo, filename)
 		}
 		data, _ := json.Marshal(exportedCA)
-		err = ioutil.WriteFile(saveTo, data, 0600)
+		err = os.WriteFile(saveTo, data, 0600)
 		if err != nil {
 			fmt.Printf("Write failed: %s (%s)\n", saveTo, err)
 			os.Exit(1)

@@ -19,21 +19,27 @@ package assets
 */
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/user"
-	"path"
+	"path/filepath"
+	"strings"
+
+	ver "github.com/bishopfox/sliver/client/version"
 )
 
 const (
 	// SliverClientDirName - Directory storing all of the client configs/logs
 	SliverClientDirName = ".sliver-client"
+
+	versionFileName = "version"
 )
 
 // GetRootAppDir - Get the Sliver app dir ~/.sliver-client/
 func GetRootAppDir() string {
 	user, _ := user.Current()
-	dir := path.Join(user.HomeDir, SliverClientDirName)
+	dir := filepath.Join(user.HomeDir, SliverClientDirName)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0700)
 		if err != nil {
@@ -41,4 +47,64 @@ func GetRootAppDir() string {
 		}
 	}
 	return dir
+}
+
+// GetClientLogsDir - Get the Sliver client logs dir ~/.sliver-client/logs/
+func GetClientLogsDir() string {
+	logsDir := filepath.Join(GetRootAppDir(), "logs")
+	if _, err := os.Stat(logsDir); os.IsNotExist(err) {
+		err = os.MkdirAll(logsDir, 0700)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	return logsDir
+}
+
+// GetConsoleLogsDir - Get the Sliver client console logs dir ~/.sliver-client/logs/console/
+func GetConsoleLogsDir() string {
+	consoleLogsDir := filepath.Join(GetClientLogsDir(), "console")
+	if _, err := os.Stat(consoleLogsDir); os.IsNotExist(err) {
+		err = os.MkdirAll(consoleLogsDir, 0700)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	return consoleLogsDir
+}
+
+func assetVersion() string {
+	appDir := GetRootAppDir()
+	data, err := os.ReadFile(filepath.Join(appDir, versionFileName))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+func saveAssetVersion(appDir string) {
+	versionFilePath := filepath.Join(appDir, versionFileName)
+	fVer, _ := os.Create(versionFilePath)
+	defer fVer.Close()
+	fVer.Write([]byte(ver.GitCommit))
+}
+
+// Setup - Extract or create local assets
+func Setup(force bool, echo bool) {
+	appDir := GetRootAppDir()
+	localVer := assetVersion()
+	if force || localVer == "" || localVer != ver.GitCommit {
+		if echo {
+			fmt.Printf(`
+Sliver  Copyright (C) 2022  Bishop Fox
+This program comes with ABSOLUTELY NO WARRANTY; for details type 'licenses'.
+This is free software, and you are welcome to redistribute it
+under certain conditions; type 'licenses' for details.`)
+			fmt.Printf("\n\nUnpacking assets ...\n")
+		}
+		saveAssetVersion(appDir)
+	}
+	if _, err := os.Stat(filepath.Join(appDir, settingsFileName)); os.IsNotExist(err) {
+		SaveSettings(nil)
+	}
 }

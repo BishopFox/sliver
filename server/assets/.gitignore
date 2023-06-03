@@ -1,0 +1,8 @@
+# Large static assets
+
+fs/*.zip
+fs/darwin/amd64/
+fs/darwin/arm64/
+fs/linux/amd64/
+fs/linux/arm64/
+fs/windows/amd64/

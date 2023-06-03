@@ -208,7 +208,7 @@ func IsDomainName(s string) (labels int, ok bool) {
 			}
 
 			// check for \DDD
-			if i+3 < len(s) && isDigit(s[i+1]) && isDigit(s[i+2]) && isDigit(s[i+3]) {
+			if isDDD(s[i+1:]) {
 				i += 3
 				begin += 3
 			} else {
@@ -218,6 +218,11 @@ func IsDomainName(s string) (labels int, ok bool) {
 
 			wasDot = false
 		case '.':
+			if i == 0 && len(s) > 1 {
+				// leading dots are not legal except for the root zone
+				return labels, false
+			}
+
 			if wasDot {
 				// two dots back to back is not legal
 				return labels, false
@@ -267,18 +272,24 @@ func IsMsg(buf []byte) error {
 
 // IsFqdn checks if a domain name is fully qualified.
 func IsFqdn(s string) bool {
-	s2 := strings.TrimSuffix(s, ".")
-	if s == s2 {
+	// Check for (and remove) a trailing dot, returning if there isn't one.
+	if s == "" || s[len(s)-1] != '.' {
 		return false
 	}
+	s = s[:len(s)-1]
 
-	i := strings.LastIndexFunc(s2, func(r rune) bool {
+	// If we don't have an escape sequence before the final dot, we know it's
+	// fully qualified and can return here.
+	if s == "" || s[len(s)-1] != '\\' {
+		return true
+	}
+
+	// Otherwise we have to check if the dot is escaped or not by checking if
+	// there are an odd or even number of escape sequences before the dot.
+	i := strings.LastIndexFunc(s, func(r rune) bool {
 		return r != '\\'
 	})
-
-	// Test whether we have an even number of escape sequences before
-	// the dot or none.
-	return (len(s2)-i)%2 != 0
+	return (len(s)-i)%2 != 0
 }
 
 // IsRRset checks if a set of RRs is a valid RRset as defined by RFC 2181.
@@ -349,10 +360,7 @@ func ReverseAddr(addr string) (arpa string, err error) {
 	// Add it, in reverse, to the buffer
 	for i := len(ip) - 1; i >= 0; i-- {
 		v := ip[i]
-		buf = append(buf, hexDigit[v&0xF])
-		buf = append(buf, '.')
-		buf = append(buf, hexDigit[v>>4])
-		buf = append(buf, '.')
+		buf = append(buf, hexDigit[v&0xF], '.', hexDigit[v>>4], '.')
 	}
 	// Append "ip6.arpa." and return (buf already has the final .)
 	buf = append(buf, "ip6.arpa."...)

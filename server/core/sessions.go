@@ -20,116 +20,153 @@ package core
 
 import (
 	"errors"
-	"math"
 	"sync"
 	"time"
 
+	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
+	"github.com/bishopfox/sliver/implant/sliver/transports/wireguard"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/log"
+	"github.com/gofrs/uuid"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 )
 
 var (
+	sessionsLog = log.NamedLogger("core", "sessions")
+
 	// Sessions - Manages implant connections
 	Sessions = &sessions{
-		sessions: map[uint32]*Session{},
-		mutex:    &sync.RWMutex{},
+		sessions: &sync.Map{},
 	}
-	hiveID = uint32(0)
 
-	// ErrUnknownMessateType - Returned if the implant did not understand the message for
+	// ErrUnknownMessageType - Returned if the implant did not understand the message for
 	//                         example when the command is not supported on the platform
-	ErrUnknownMessateType = errors.New("Unknown message type")
+	ErrUnknownMessageType = errors.New("unknown message type")
 
 	// ErrImplantTimeout - The implant did not respond prior to timeout deadline
-	ErrImplantTimeout = errors.New("Implant timeout")
+	ErrImplantTimeout = errors.New("implant timeout")
 )
 
 // Session - Represents a connection to an implant
 type Session struct {
-	ID                uint32
+	ID                string
 	Name              string
 	Hostname          string
 	Username          string
+	UUID              string
 	UID               string
 	GID               string
-	Os                string
+	OS                string
 	Version           string
 	Arch              string
-	Transport         string
-	RemoteAddress     string
 	PID               int32
 	Filename          string
-	LastCheckin       *time.Time
-	Send              chan *sliverpb.Envelope
-	Resp              map[uint64]chan *sliverpb.Envelope
-	RespMutex         *sync.RWMutex
+	Connection        *ImplantConnection
 	ActiveC2          string
-	IsDead            bool
-	ReconnectInterval uint32
+	ReconnectInterval int64
+	ProxyURL          string
+	PollTimeout       int64
+	Burned            bool
+	Extensions        []string
+	ConfigID          string
+	PeerID            int64
+	Locale            string
+	FirstContact      int64
+}
+
+// LastCheckin - Get the last time a session message was received
+func (s *Session) LastCheckin() time.Time {
+	return s.Connection.GetLastMessage()
+}
+
+// IsDead - See if last check-in is within expected variance
+func (s *Session) IsDead() bool {
+	sessionsLog.Debugf("Checking health of %s", s.ID)
+	sessionsLog.Debugf("Last checkin was %v", s.LastCheckin())
+	padding := time.Duration(10 * time.Second) // Arbitrary margin of error
+	timePassed := time.Since(s.LastCheckin())
+	reconnect := time.Duration(s.ReconnectInterval)
+	pollTimeout := time.Duration(s.PollTimeout)
+	if timePassed < reconnect+padding && timePassed < pollTimeout+padding {
+		sessionsLog.Debugf("Last message within reconnect interval / poll timeout + padding")
+		return false
+	}
+	if s.Connection.Transport == consts.MtlsStr {
+		if timePassed < mtls.PingInterval+padding {
+			sessionsLog.Debugf("Last message within ping interval with padding")
+			return false
+		}
+	}
+	if s.Connection.Transport == consts.WGStr {
+		if timePassed < wireguard.PingInterval+padding {
+			sessionsLog.Debugf("Last message with ping interval with padding")
+			return false
+		}
+	}
+	if s.Connection.Transport == "pivot" {
+		if time.Since(s.Connection.GetLastMessage()) < time.Duration(time.Minute)+padding {
+			sessionsLog.Debugf("Last message within pivot/server ping interval with padding")
+			return false
+		}
+	}
+	return true
 }
 
 // ToProtobuf - Get the protobuf version of the object
 func (s *Session) ToProtobuf() *clientpb.Session {
-	var (
-		lastCheckin string
-		isDead      bool
-	)
-	if s.LastCheckin != nil {
-		lastCheckin = s.LastCheckin.Format(time.RFC1123)
-
-		// Calculates how much time has passed in seconds and compares that to the ReconnectInterval+10 of the Implant.
-		// (ReconnectInterval+10 seconds is just abitrary padding to account for potential delays)
-		// If it hasn't checked in, flag it as DEAD.
-		var timePassed = uint32(math.Abs(s.LastCheckin.Sub(time.Now()).Seconds()))
-
-		if timePassed > (s.ReconnectInterval + 10) {
-			isDead = true
-		} else {
-			isDead = false
-		}
-	}
-
 	return &clientpb.Session{
-		ID:                uint32(s.ID),
+		ID:                s.ID,
 		Name:              s.Name,
 		Hostname:          s.Hostname,
 		Username:          s.Username,
+		UUID:              s.UUID,
 		UID:               s.UID,
 		GID:               s.GID,
-		OS:                s.Os,
+		OS:                s.OS,
 		Version:           s.Version,
 		Arch:              s.Arch,
-		Transport:         s.Transport,
-		RemoteAddress:     s.RemoteAddress,
+		Transport:         s.Connection.Transport,
+		RemoteAddress:     s.Connection.RemoteAddress,
 		PID:               int32(s.PID),
 		Filename:          s.Filename,
-		LastCheckin:       lastCheckin,
+		LastCheckin:       s.LastCheckin().Unix(),
 		ActiveC2:          s.ActiveC2,
-		IsDead:            isDead,
+		IsDead:            s.IsDead(),
 		ReconnectInterval: s.ReconnectInterval,
+		ProxyURL:          s.ProxyURL,
+		Burned:            s.Burned,
+		PeerID:            s.PeerID,
+		Locale:            s.Locale,
+		FirstContact:      s.FirstContact,
 	}
 }
 
 // Request - Sends a protobuf request to the active sliver and returns the response
 func (s *Session) Request(msgType uint32, timeout time.Duration, data []byte) ([]byte, error) {
-
 	resp := make(chan *sliverpb.Envelope)
 	reqID := EnvelopeID()
-	s.RespMutex.Lock()
-	s.Resp[reqID] = resp
-	s.RespMutex.Unlock()
+	s.Connection.RespMutex.Lock()
+	s.Connection.Resp[reqID] = resp
+	s.Connection.RespMutex.Unlock()
 	defer func() {
-		s.RespMutex.Lock()
-		defer s.RespMutex.Unlock()
+		s.Connection.RespMutex.Lock()
+		defer s.Connection.RespMutex.Unlock()
 		// close(resp)
-		delete(s.Resp, reqID)
+		delete(s.Connection.Resp, reqID)
 	}()
-	s.Send <- &sliverpb.Envelope{
+	if timeout == 0 {
+		timeout = 60 * time.Second
+	}
+	select {
+	case s.Connection.Send <- &sliverpb.Envelope{
 		ID:   reqID,
 		Type: msgType,
 		Data: data,
+	}:
+	case <-time.After(timeout):
+		return nil, ErrImplantTimeout
 	}
 
 	var respEnvelope *sliverpb.Envelope
@@ -139,46 +176,37 @@ func (s *Session) Request(msgType uint32, timeout time.Duration, data []byte) ([
 		return nil, ErrImplantTimeout
 	}
 	if respEnvelope.UnknownMessageType {
-		return nil, ErrUnknownMessateType
+		return nil, ErrUnknownMessageType
 	}
-	s.UpdateCheckin()
 	return respEnvelope.Data, nil
-}
-
-func (s *Session) UpdateCheckin() {
-	now := time.Now()
-	s.LastCheckin = &now
 }
 
 // sessions - Manages the slivers, provides atomic access
 type sessions struct {
-	mutex    *sync.RWMutex
-	sessions map[uint32]*Session
+	sessions *sync.Map // map[uint32]*Session
 }
 
 // All - Return a list of all sessions
 func (s *sessions) All() []*Session {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
 	all := []*Session{}
-	for _, session := range s.sessions {
-		all = append(all, session)
-	}
+	s.sessions.Range(func(key, value interface{}) bool {
+		all = append(all, value.(*Session))
+		return true
+	})
 	return all
 }
 
 // Get - Get a session by ID
-func (s *sessions) Get(sessionID uint32) *Session {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.sessions[sessionID]
+func (s *sessions) Get(sessionID string) *Session {
+	if val, ok := s.sessions.Load(sessionID); ok {
+		return val.(*Session)
+	}
+	return nil
 }
 
 // Add - Add a sliver to the hive (atomically)
 func (s *sessions) Add(session *Session) *Session {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.sessions[session.ID] = session
+	s.sessions.Store(session.ID, session)
 	EventBroker.Publish(Event{
 		EventType: consts.SessionOpenedEvent,
 		Session:   session,
@@ -187,30 +215,65 @@ func (s *sessions) Add(session *Session) *Session {
 }
 
 // Remove - Remove a sliver from the hive (atomically)
-func (s *sessions) Remove(sessionID uint32) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	session := s.sessions[sessionID]
-	if session != nil {
-		delete(s.sessions, sessionID)
-		EventBroker.Publish(Event{
-			EventType: consts.SessionClosedEvent,
-			Session:   session,
-		})
+func (s *sessions) Remove(sessionID string) {
+	val, ok := s.sessions.Load(sessionID)
+	if !ok {
+		return
+	}
+	parentSession := val.(*Session)
+	children := findAllChildrenByPeerID(parentSession.PeerID)
+	s.sessions.Delete(parentSession.ID)
+	coreLog.Debugf("Removing %d children of session %s (%v)", len(children), parentSession.ID, children)
+	for _, child := range children {
+		childSession, ok := s.sessions.LoadAndDelete(child.SessionID)
+		if ok {
+			PivotSessions.Delete(childSession.(*Session).Connection.ID)
+			EventBroker.Publish(Event{
+				EventType: consts.SessionClosedEvent,
+				Session:   childSession.(*Session),
+			})
+		}
+	}
+
+	// Remove the parent session
+	EventBroker.Publish(Event{
+		EventType: consts.SessionClosedEvent,
+		Session:   parentSession,
+	})
+}
+
+// NewSession - Create a new session
+func NewSession(implantConn *ImplantConnection) *Session {
+	implantConn.UpdateLastMessage()
+	return &Session{
+		ID:           nextSessionID(),
+		Connection:   implantConn,
+		FirstContact: time.Now().Unix(),
 	}
 }
 
-// NextSessionID - Returns an incremental nonce as an id
-func NextSessionID() uint32 {
-	newID := hiveID + 1
-	hiveID++
-	return newID
+// FromImplantConnection - Find the session associated with an implant connection
+func (s *sessions) FromImplantConnection(conn *ImplantConnection) *Session {
+	var found *Session
+	s.sessions.Range(func(key, value interface{}) bool {
+		if value.(*Session).Connection.ID == conn.ID {
+			found = value.(*Session)
+			return false
+		}
+		return true
+	})
+	return found
 }
 
+// nextSessionID - Returns an incremental nonce as an id
+func nextSessionID() string {
+	id, _ := uuid.NewV4()
+	return id.String()
+}
+
+// UpdateSession - In place update of a session pointer
 func (s *sessions) UpdateSession(session *Session) *Session {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.sessions[session.ID] = session
+	s.sessions.Store(session.ID, session)
 	EventBroker.Publish(Event{
 		EventType: consts.SessionUpdateEvent,
 		Session:   session,

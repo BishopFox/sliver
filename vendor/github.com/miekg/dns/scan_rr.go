@@ -3,6 +3,7 @@ package dns
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"net"
 	"strconv"
 	"strings"
@@ -609,7 +610,7 @@ func (rr *LOC) parse(c *zlexer, o string) *ParseError {
 
 	c.Next() // zBlank
 	l, _ = c.Next()
-	if i, err := strconv.ParseFloat(l.token, 32); err != nil || l.err || i < 0 || i >= 60 {
+	if i, err := strconv.ParseFloat(l.token, 64); err != nil || l.err || i < 0 || i >= 60 {
 		return &ParseError{"", "bad LOC Latitude seconds", l}
 	} else {
 		rr.Latitude += uint32(1000 * i)
@@ -645,7 +646,7 @@ East:
 	}
 	c.Next() // zBlank
 	l, _ = c.Next()
-	if i, err := strconv.ParseFloat(l.token, 32); err != nil || l.err || i < 0 || i >= 60 {
+	if i, err := strconv.ParseFloat(l.token, 64); err != nil || l.err || i < 0 || i >= 60 {
 		return &ParseError{"", "bad LOC Longitude seconds", l}
 	} else {
 		rr.Longitude += uint32(1000 * i)
@@ -662,7 +663,7 @@ East:
 Altitude:
 	c.Next() // zBlank
 	l, _ = c.Next()
-	if len(l.token) == 0 || l.err {
+	if l.token == "" || l.err {
 		return &ParseError{"", "bad LOC Altitude", l}
 	}
 	if l.token[len(l.token)-1] == 'M' || l.token[len(l.token)-1] == 'm' {
@@ -722,7 +723,7 @@ func (rr *HIP) parse(c *zlexer, o string) *ParseError {
 
 	c.Next()        // zBlank
 	l, _ = c.Next() // zString
-	if len(l.token) == 0 || l.err {
+	if l.token == "" || l.err {
 		return &ParseError{"", "bad HIP Hit", l}
 	}
 	rr.Hit = l.token // This can not contain spaces, see RFC 5205 Section 6.
@@ -730,11 +731,15 @@ func (rr *HIP) parse(c *zlexer, o string) *ParseError {
 
 	c.Next()        // zBlank
 	l, _ = c.Next() // zString
-	if len(l.token) == 0 || l.err {
+	if l.token == "" || l.err {
 		return &ParseError{"", "bad HIP PublicKey", l}
 	}
 	rr.PublicKey = l.token // This cannot contain spaces
-	rr.PublicKeyLength = uint16(base64.StdEncoding.DecodedLen(len(rr.PublicKey)))
+	decodedPK, decodedPKerr := base64.StdEncoding.DecodeString(rr.PublicKey)
+	if decodedPKerr != nil {
+		return &ParseError{"", "bad HIP PublicKey", l}
+	}
+	rr.PublicKeyLength = uint16(len(decodedPK))
 
 	// RendezvousServers (if any)
 	l, _ = c.Next()
@@ -846,6 +851,38 @@ func (rr *CSYNC) parse(c *zlexer, o string) *ParseError {
 	return nil
 }
 
+func (rr *ZONEMD) parse(c *zlexer, o string) *ParseError {
+	l, _ := c.Next()
+	i, e := strconv.ParseUint(l.token, 10, 32)
+	if e != nil || l.err {
+		return &ParseError{"", "bad ZONEMD Serial", l}
+	}
+	rr.Serial = uint32(i)
+
+	c.Next() // zBlank
+	l, _ = c.Next()
+	i, e1 := strconv.ParseUint(l.token, 10, 8)
+	if e1 != nil || l.err {
+		return &ParseError{"", "bad ZONEMD Scheme", l}
+	}
+	rr.Scheme = uint8(i)
+
+	c.Next() // zBlank
+	l, _ = c.Next()
+	i, err := strconv.ParseUint(l.token, 10, 8)
+	if err != nil || l.err {
+		return &ParseError{"", "bad ZONEMD Hash Algorithm", l}
+	}
+	rr.Hash = uint8(i)
+
+	s, e2 := endingToString(c, "bad ZONEMD Digest")
+	if e2 != nil {
+		return e2
+	}
+	rr.Digest = s
+	return nil
+}
+
 func (rr *SIG) parse(c *zlexer, o string) *ParseError { return rr.RRSIG.parse(c, o) }
 
 func (rr *RRSIG) parse(c *zlexer, o string) *ParseError {
@@ -867,11 +904,18 @@ func (rr *RRSIG) parse(c *zlexer, o string) *ParseError {
 
 	c.Next() // zBlank
 	l, _ = c.Next()
-	i, e := strconv.ParseUint(l.token, 10, 8)
-	if e != nil || l.err {
+	if l.err {
 		return &ParseError{"", "bad RRSIG Algorithm", l}
 	}
-	rr.Algorithm = uint8(i)
+	i, e := strconv.ParseUint(l.token, 10, 8)
+	rr.Algorithm = uint8(i) // if 0 we'll check the mnemonic in the if
+	if e != nil {
+		v, ok := StringToAlgorithm[l.token]
+		if !ok {
+			return &ParseError{"", "bad RRSIG Algorithm", l}
+		}
+		rr.Algorithm = v
+	}
 
 	c.Next() // zBlank
 	l, _ = c.Next()
@@ -997,7 +1041,7 @@ func (rr *NSEC3) parse(c *zlexer, o string) *ParseError {
 	rr.Iterations = uint16(i)
 	c.Next()
 	l, _ = c.Next()
-	if len(l.token) == 0 || l.err {
+	if l.token == "" || l.err {
 		return &ParseError{"", "bad NSEC3 Salt", l}
 	}
 	if l.token != "-" {
@@ -1007,7 +1051,7 @@ func (rr *NSEC3) parse(c *zlexer, o string) *ParseError {
 
 	c.Next()
 	l, _ = c.Next()
-	if len(l.token) == 0 || l.err {
+	if l.token == "" || l.err {
 		return &ParseError{"", "bad NSEC3 NextDomain", l}
 	}
 	rr.HashLength = 20 // Fix for NSEC3 (sha1 160 bits)
@@ -1179,6 +1223,117 @@ func (rr *CDNSKEY) parse(c *zlexer, o string) *ParseError { return rr.parseDNSKE
 func (rr *DS) parse(c *zlexer, o string) *ParseError      { return rr.parseDS(c, o, "DS") }
 func (rr *DLV) parse(c *zlexer, o string) *ParseError     { return rr.parseDS(c, o, "DLV") }
 func (rr *CDS) parse(c *zlexer, o string) *ParseError     { return rr.parseDS(c, o, "CDS") }
+
+func (rr *IPSECKEY) parse(c *zlexer, o string) *ParseError {
+	l, _ := c.Next()
+	num, err := strconv.ParseUint(l.token, 10, 8)
+	if err != nil || l.err {
+		return &ParseError{"", "bad IPSECKEY value", l}
+	}
+	rr.Precedence = uint8(num)
+	c.Next() // zBlank
+
+	l, _ = c.Next()
+	num, err = strconv.ParseUint(l.token, 10, 8)
+	if err != nil || l.err {
+		return &ParseError{"", "bad IPSECKEY value", l}
+	}
+	rr.GatewayType = uint8(num)
+	c.Next() // zBlank
+
+	l, _ = c.Next()
+	num, err = strconv.ParseUint(l.token, 10, 8)
+	if err != nil || l.err {
+		return &ParseError{"", "bad IPSECKEY value", l}
+	}
+	rr.Algorithm = uint8(num)
+	c.Next() // zBlank
+
+	l, _ = c.Next()
+	if l.err {
+		return &ParseError{"", "bad IPSECKEY gateway", l}
+	}
+
+	rr.GatewayAddr, rr.GatewayHost, err = parseAddrHostUnion(l.token, o, rr.GatewayType)
+	if err != nil {
+		return &ParseError{"", "IPSECKEY " + err.Error(), l}
+	}
+
+	c.Next() // zBlank
+
+	s, pErr := endingToString(c, "bad IPSECKEY PublicKey")
+	if pErr != nil {
+		return pErr
+	}
+	rr.PublicKey = s
+	return slurpRemainder(c)
+}
+
+func (rr *AMTRELAY) parse(c *zlexer, o string) *ParseError {
+	l, _ := c.Next()
+	num, err := strconv.ParseUint(l.token, 10, 8)
+	if err != nil || l.err {
+		return &ParseError{"", "bad AMTRELAY value", l}
+	}
+	rr.Precedence = uint8(num)
+	c.Next() // zBlank
+
+	l, _ = c.Next()
+	if l.err || !(l.token == "0" || l.token == "1") {
+		return &ParseError{"", "bad discovery value", l}
+	}
+	if l.token == "1" {
+		rr.GatewayType = 0x80
+	}
+
+	c.Next() // zBlank
+
+	l, _ = c.Next()
+	num, err = strconv.ParseUint(l.token, 10, 8)
+	if err != nil || l.err {
+		return &ParseError{"", "bad AMTRELAY value", l}
+	}
+	rr.GatewayType |= uint8(num)
+	c.Next() // zBlank
+
+	l, _ = c.Next()
+	if l.err {
+		return &ParseError{"", "bad AMTRELAY gateway", l}
+	}
+
+	rr.GatewayAddr, rr.GatewayHost, err = parseAddrHostUnion(l.token, o, rr.GatewayType&0x7f)
+	if err != nil {
+		return &ParseError{"", "AMTRELAY " + err.Error(), l}
+	}
+
+	return slurpRemainder(c)
+}
+
+// same constants and parsing between IPSECKEY and AMTRELAY
+func parseAddrHostUnion(token, o string, gatewayType uint8) (addr net.IP, host string, err error) {
+	switch gatewayType {
+	case IPSECGatewayNone:
+		if token != "." {
+			return addr, host, errors.New("gateway type none with gateway set")
+		}
+	case IPSECGatewayIPv4, IPSECGatewayIPv6:
+		addr = net.ParseIP(token)
+		if addr == nil {
+			return addr, host, errors.New("gateway IP invalid")
+		}
+		if (addr.To4() == nil) == (gatewayType == IPSECGatewayIPv4) {
+			return addr, host, errors.New("gateway IP family mismatch")
+		}
+	case IPSECGatewayHost:
+		var ok bool
+		host, ok = toAbsoluteName(token, o)
+		if !ok {
+			return addr, host, errors.New("invalid gateway host")
+		}
+	}
+
+	return addr, host, nil
+}
 
 func (rr *RKEY) parse(c *zlexer, o string) *ParseError {
 	l, _ := c.Next()
@@ -1387,7 +1542,7 @@ func (rr *RFC3597) parse(c *zlexer, o string) *ParseError {
 
 	c.Next() // zBlank
 	l, _ = c.Next()
-	rdlength, e := strconv.Atoi(l.token)
+	rdlength, e := strconv.ParseUint(l.token, 10, 16)
 	if e != nil || l.err {
 		return &ParseError{"", "bad RFC3597 Rdata ", l}
 	}
@@ -1396,7 +1551,7 @@ func (rr *RFC3597) parse(c *zlexer, o string) *ParseError {
 	if e1 != nil {
 		return e1
 	}
-	if rdlength*2 != len(s) {
+	if int(rdlength)*2 != len(s) {
 		return &ParseError{"", "bad RFC3597 Rdata", l}
 	}
 	rr.Rdata = s

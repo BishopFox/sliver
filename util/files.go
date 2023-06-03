@@ -19,11 +19,26 @@ package util
 */
 
 import (
+	"archive/tar"
+	"bytes"
+
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/klauspost/compress/flate"
+	"github.com/klauspost/compress/gzip"
 )
+
+// DeflateBuf - Deflate a buffer using BestCompression (9)
+func DeflateBuf(data []byte) []byte {
+	var buf bytes.Buffer
+	flateWriter, _ := flate.NewWriter(&buf, flate.BestCompression)
+	flateWriter.Write(data)
+	flateWriter.Close()
+	return buf.Bytes()
+}
 
 // ChmodR - Recursively chmod
 func ChmodR(path string, filePerm, dirPerm os.FileMode) error {
@@ -39,25 +54,6 @@ func ChmodR(path string, filePerm, dirPerm os.FileMode) error {
 	})
 }
 
-// CopyFileContents - Copy/overwrite src to dst
-func CopyFileContents(src string, dst string) error {
-	// Calling f.Sync() should be necessary as long as the
-	// returned err is properly checked. The only reason
-	// this would fail implicitly (meaning the file isn't
-	// available to a Stat() called immediately after calling
-	// this function) would be because the kernel or filesystem
-	// is inherently broken.
-	contents, err := ioutil.ReadFile(filepath.Clean(src))
-	if err != nil {
-		return err
-	}
-	stat, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(filepath.Clean(dst), contents, stat.Mode())
-}
-
 // ByteCountBinary - Pretty print byte size
 func ByteCountBinary(b int64) string {
 	const unit = 1024
@@ -70,4 +66,61 @@ func ByteCountBinary(b int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+// ReadFileFromTarGz - Read a file from a tar.gz file in-memory
+func ReadFileFromTarGz(tarGzFile string, tarPath string) ([]byte, error) {
+	f, err := os.Open(tarGzFile)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	gzf, err := gzip.NewReader(f)
+	if err != nil {
+		return nil, err
+	}
+	defer gzf.Close()
+
+	tarReader := tar.NewReader(gzf)
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if header.Name == tarPath {
+			switch header.Typeflag {
+			case tar.TypeDir: // = directory
+				continue
+			case tar.TypeReg: // = regular file
+				return io.ReadAll(tarReader)
+			}
+		}
+	}
+	return nil, nil
+}
+
+// CopyFile - Copy a file from src to dst
+func CopyFile(src string, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return err
+	}
+	err = out.Close()
+	if err != nil {
+		return err
+	}
+	return err
 }

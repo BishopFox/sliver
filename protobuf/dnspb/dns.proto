@@ -1,0 +1,32 @@
+syntax = "proto3";
+package dnspb;
+option go_package = "github.com/bishopfox/sliver/protobuf/dnspb";
+
+enum DNSMessageType {
+    NOP = 0; // aka FINGERPRINT
+    TOTP = 1;
+    INIT = 2;
+    POLL = 3;
+    CLOSE = 4;
+
+    MANIFEST = 6;
+    DATA_TO_IMPLANT = 7;
+    DATA_FROM_IMPLANT = 8;
+    CLEAR = 9;
+}
+
+/*
+    NOTE: DNS is very space sensitive so certain fields are re-purposed
+    depending on the DNSMessageType as noted below:
+
+    [Type TOTP]: ID field is used for the TOTP code
+
+*/
+message DNSMessage {
+    DNSMessageType Type = 1;
+    uint32 ID = 2; // 8 bit message id + 24 bit dns session ID
+    uint32 Start = 3; // Bytes start at
+    uint32 Stop = 4; // Bytes stop at
+    uint32 Size = 5; // Total size
+    bytes Data = 6; // Actual data
+}

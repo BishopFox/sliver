@@ -21,16 +21,15 @@ package core
 import (
 	"sync"
 
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
 var (
 	// Jobs - Holds pointers to all the current jobs
 	Jobs = &jobs{
-		active: map[int]*Job{},
-		mutex:  &sync.RWMutex{},
+		// ID -> *Job
+		active: &sync.Map{},
 	}
 	jobID = 0
 )
@@ -61,26 +60,22 @@ func (j *Job) ToProtobuf() *clientpb.Job {
 
 // jobs - Holds refs to all active jobs
 type jobs struct {
-	active map[int]*Job
-	mutex  *sync.RWMutex
+	active *sync.Map
 }
 
 // All - Return a list of all jobs
 func (j *jobs) All() []*Job {
-	j.mutex.RLock()
-	defer j.mutex.RUnlock()
 	all := []*Job{}
-	for _, job := range j.active {
-		all = append(all, job)
-	}
+	j.active.Range(func(key, value interface{}) bool {
+		all = append(all, value.(*Job))
+		return true
+	})
 	return all
 }
 
 // Add - Add a job to the hive (atomically)
 func (j *jobs) Add(job *Job) {
-	j.mutex.Lock()
-	defer j.mutex.Unlock()
-	j.active[job.ID] = job
+	j.active.Store(job.ID, job)
 	EventBroker.Publish(Event{
 		Job:       job,
 		EventType: consts.JobStartedEvent,
@@ -89,13 +84,13 @@ func (j *jobs) Add(job *Job) {
 
 // Remove - Remove a job
 func (j *jobs) Remove(job *Job) {
-	j.mutex.Lock()
-	defer j.mutex.Unlock()
-	delete(j.active, job.ID)
-	EventBroker.Publish(Event{
-		Job:       job,
-		EventType: consts.JobStoppedEvent,
-	})
+	_, ok := j.active.LoadAndDelete(job.ID)
+	if ok {
+		EventBroker.Publish(Event{
+			Job:       job,
+			EventType: consts.JobStoppedEvent,
+		})
+	}
 }
 
 // Get - Get a Job
@@ -103,9 +98,11 @@ func (j *jobs) Get(jobID int) *Job {
 	if jobID <= 0 {
 		return nil
 	}
-	j.mutex.RLock()
-	defer j.mutex.RUnlock()
-	return j.active[jobID]
+	val, ok := j.active.Load(jobID)
+	if ok {
+		return val.(*Job)
+	}
+	return nil
 }
 
 // NextJobID - Returns an incremental nonce as an id

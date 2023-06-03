@@ -29,15 +29,19 @@ type File struct {
 	DosStub    [64]byte // TODO(capnspacehook) make slice and correctly parse any DOS stub
 	RichHeader []byte
 	FileHeader
-	OptionalHeader   interface{} // of type *OptionalHeader32 or *OptionalHeader64
-	Sections         []*Section
-	Symbols          []*Symbol    // COFF symbols with auxiliary symbol records removed
-	COFFSymbols      []COFFSymbol // all COFF symbols (including auxiliary symbol records)
-	StringTable      StringTable
-	CertificateTable []byte
+	OptionalHeader      interface{} // of type *OptionalHeader32 or *OptionalHeader64
+	Sections            []*Section
+	BaseRelocationTable *[]RelocationTableEntry
+	Symbols             []*Symbol    // COFF symbols with auxiliary symbol records removed
+	COFFSymbols         []COFFSymbol // all COFF symbols (including auxiliary symbol records)
+	StringTable         StringTable
+	CertificateTable    []byte
 
-	InsertionAddr  uint32
-	InsertionBytes []byte
+	OptionalHeaderOffset int64 // offset of the start of the Optional Header
+	InsertionAddr        uint32
+	InsertionBytes       []byte
+
+	Net Net //If a managed executable, Net provides an interface to some of the metadata
 
 	closer io.Closer
 }
@@ -121,7 +125,7 @@ func newFileInternal(r io.ReaderAt, memoryMode bool) (*File, error) {
 		var sign [4]byte
 		r.ReadAt(sign[:], peHeaderOffset)
 		if !(sign[0] == 'P' && sign[1] == 'E' && sign[2] == 0 && sign[3] == 0) {
-			return nil, fmt.Errorf("Invalid PE COFF file signature of %v.", sign)
+			return nil, fmt.Errorf("Invalid PE COFF file signature of %v", sign)
 		}
 		peHeaderOffset += int64(4)
 	} else {
@@ -135,7 +139,7 @@ func newFileInternal(r io.ReaderAt, memoryMode bool) (*File, error) {
 	switch f.FileHeader.Machine {
 	case IMAGE_FILE_MACHINE_UNKNOWN, IMAGE_FILE_MACHINE_ARMNT, IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_I386:
 	default:
-		return nil, fmt.Errorf("Unrecognised COFF file header machine value of 0x%x.", f.FileHeader.Machine)
+		return nil, fmt.Errorf("Unrecognised COFF file header machine value of 0x%x", f.FileHeader.Machine)
 	}
 
 	var err error
@@ -144,7 +148,7 @@ func newFileInternal(r io.ReaderAt, memoryMode bool) (*File, error) {
 		//get strings table location - offset is wrong in the header because we are in memory mode. Can we fix it? Yes we can!
 		restore, err := sr.Seek(0, seekCurrent)
 		if err != nil {
-			return nil, fmt.Errorf("Had a bad time getting restore point: ", err)
+			return nil, fmt.Errorf("Had a bad time getting restore point: %v", err)
 		}
 		//seek to table start (skip the headers)
 		sr.Seek(peHeaderOffset+int64(binary.Size(f.FileHeader))+int64(f.FileHeader.SizeOfOptionalHeader), seekStart)
@@ -181,7 +185,8 @@ func newFileInternal(r io.ReaderAt, memoryMode bool) (*File, error) {
 	}
 
 	// Read optional header.
-	sr.Seek(peHeaderOffset+int64(binary.Size(f.FileHeader)), seekStart)
+	f.OptionalHeaderOffset = peHeaderOffset + int64(binary.Size(f.FileHeader))
+	sr.Seek(f.OptionalHeaderOffset, seekStart)
 
 	var oh32 OptionalHeader32
 	var oh64 OptionalHeader64
@@ -249,10 +254,55 @@ func newFileInternal(r io.ReaderAt, memoryMode bool) (*File, error) {
 		}
 	}
 
-	// Read certificate table
-	f.CertificateTable, err = readCertTable(f, sr)
+	// Read Base Relocation Block and Items
+	f.BaseRelocationTable, err = f.readBaseRelocationTable()
 	if err != nil {
 		return nil, err
+	}
+
+	// Read certificate table (only in disk mode)
+	if !memoryMode {
+		f.CertificateTable, err = readCertTable(f, sr)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	//fill net info
+	if f.IsManaged() {
+		var va, size uint32
+
+		//determine location of the COM descriptor directory
+		switch v := f.OptionalHeader.(type) {
+		case *OptionalHeader32:
+			va = v.DataDirectory[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress
+			size = v.DataDirectory[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].Size
+		case *OptionalHeader64:
+			va = v.DataDirectory[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress
+			size = v.DataDirectory[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].Size
+		}
+
+		//I'm unsure how to get a reader (not a readerat) for a particular thing, so copying buffers around.. this could be more optimal
+		buff := make([]byte, size)
+
+		//none of these reads have errors being caught either, which is probably not ideal
+		if !memoryMode {
+			r.ReadAt(buff, int64(f.RVAToFileOffset(va)))
+		} else {
+			r.ReadAt(buff, int64(va))
+		}
+		binary.Read(bytes.NewReader(buff), binary.LittleEndian, &f.Net.NetDirectory)
+
+		//Now that we have the COR20 header (COM descriptor directory header), we can get the metadata section header, which has the version
+		buff = make([]byte, f.Net.NetDirectory.MetaDataSize)
+		//again, none of the reads are error checked :shrug:
+		if !memoryMode {
+			r.ReadAt(buff, int64(f.RVAToFileOffset(f.Net.NetDirectory.MetaDataRVA)))
+		} else {
+			r.ReadAt(buff, int64(f.Net.NetDirectory.MetaDataRVA))
+		}
+		f.Net.MetaData, _ = newMetadataHeader(bytes.NewReader(buff))
+
 	}
 
 	return f, nil
@@ -380,140 +430,6 @@ func (f *File) DWARF() (*dwarf.Data, error) {
 	}
 
 	return d, nil
-}
-
-// TODO(brainman): document ImportDirectory once we decide what to do with it.
-
-type ImportDirectory struct {
-	OriginalFirstThunk uint32
-	TimeDateStamp      uint32
-	ForwarderChain     uint32
-	Name               uint32
-	FirstThunk         uint32
-
-	dll string
-}
-
-// ImportedSymbols returns the names of all symbols
-// referred to by the binary f that are expected to be
-// satisfied by other libraries at dynamic load time.
-// It does not return weak symbols.
-func (f *File) ImportedSymbols() ([]string, error) {
-	pe64 := f.Machine == IMAGE_FILE_MACHINE_AMD64
-
-	// grab the number of data directory entries
-	var dd_length uint32
-	if pe64 {
-		dd_length = f.OptionalHeader.(*OptionalHeader64).NumberOfRvaAndSizes
-	} else {
-		dd_length = f.OptionalHeader.(*OptionalHeader32).NumberOfRvaAndSizes
-	}
-
-	// check that the length of data directory entries is large
-	// enough to include the imports directory.
-	if dd_length < IMAGE_DIRECTORY_ENTRY_IMPORT+1 {
-		return nil, nil
-	}
-
-	// grab the import data directory entry
-	var idd DataDirectory
-	if pe64 {
-		idd = f.OptionalHeader.(*OptionalHeader64).DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT]
-	} else {
-		idd = f.OptionalHeader.(*OptionalHeader32).DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT]
-	}
-
-	// figure out which section contains the import directory table
-	var ds *Section
-	ds = nil
-	for _, s := range f.Sections {
-		if s.VirtualAddress <= idd.VirtualAddress && idd.VirtualAddress < s.VirtualAddress+s.VirtualSize {
-			ds = s
-			break
-		}
-	}
-
-	// didn't find a section, so no import libraries were found
-	if ds == nil {
-		return nil, nil
-	}
-
-	d, err := ds.Data()
-	if err != nil {
-		return nil, err
-	}
-
-	// seek to the virtual address specified in the import data directory
-	d = d[idd.VirtualAddress-ds.VirtualAddress:]
-
-	// start decoding the import directory
-	var ida []ImportDirectory
-	for len(d) > 0 {
-		var dt ImportDirectory
-		dt.OriginalFirstThunk = binary.LittleEndian.Uint32(d[0:4])
-		dt.TimeDateStamp = binary.LittleEndian.Uint32(d[4:8])
-		dt.ForwarderChain = binary.LittleEndian.Uint32(d[8:12])
-		dt.Name = binary.LittleEndian.Uint32(d[12:16])
-		dt.FirstThunk = binary.LittleEndian.Uint32(d[16:20])
-		d = d[20:]
-		if dt.OriginalFirstThunk == 0 {
-			break
-		}
-		ida = append(ida, dt)
-	}
-	// TODO(brainman): this needs to be rewritten
-	//  ds.Data() returns contents of section containing import table. Why store in variable called "names"?
-	//  Why we are retrieving it second time? We already have it in "d", and it is not modified anywhere.
-	//  getString does not extracts a string from symbol string table (as getString doco says).
-	//  Why ds.Data() called again and again in the loop?
-	//  Needs test before rewrite.
-	names, _ := ds.Data()
-	var all []string
-	for _, dt := range ida {
-		dt.dll, _ = getString(names, int(dt.Name-ds.VirtualAddress))
-		d, _ = ds.Data()
-		// seek to OriginalFirstThunk
-		d = d[dt.OriginalFirstThunk-ds.VirtualAddress:]
-		for len(d) > 0 {
-			if pe64 { // 64bit
-				va := binary.LittleEndian.Uint64(d[0:8])
-				d = d[8:]
-				if va == 0 {
-					break
-				}
-				if va&0x8000000000000000 > 0 { // is Ordinal
-					// TODO add dynimport ordinal support.
-				} else {
-					fn, _ := getString(names, int(uint32(va)-ds.VirtualAddress+2))
-					all = append(all, fn+":"+dt.dll)
-				}
-			} else { // 32bit
-				va := binary.LittleEndian.Uint32(d[0:4])
-				d = d[4:]
-				if va == 0 {
-					break
-				}
-				if va&0x80000000 > 0 { // is Ordinal
-					// TODO add dynimport ordinal support.
-					//ord := va&0x0000FFFF
-				} else {
-					fn, _ := getString(names, int(va-ds.VirtualAddress+2))
-					all = append(all, fn+":"+dt.dll)
-				}
-			}
-		}
-	}
-
-	return all, nil
-}
-
-// ImportedLibraries returns the names of all libraries
-// referred to by the binary f that are expected to be
-// linked with the binary at dynamic link time.
-func (f *File) ImportedLibraries() ([]string, error) {
-	// TODO
-	// cgo -dynimport don't use this for windows PE, so just return.
-	return nil, nil
 }
 
 // FormatError is unused.

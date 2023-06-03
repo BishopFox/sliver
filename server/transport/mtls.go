@@ -23,6 +23,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"runtime/debug"
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/certs"
@@ -49,7 +50,9 @@ var (
 // StartClientListener - Start a mutual TLS listener
 func StartClientListener(host string, port uint16) (*grpc.Server, net.Listener, error) {
 	mtlsLog.Infof("Starting gRPC  listener on %s:%d", host, port)
-	tlsConfig := getOperatorServerTLSConfig(host)
+
+	tlsConfig := getOperatorServerTLSConfig("multiplayer")
+
 	creds := credentials.NewTLS(tlsConfig)
 	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
@@ -61,12 +64,20 @@ func StartClientListener(host string, port uint16) (*grpc.Server, net.Listener, 
 		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
 		grpc.MaxSendMsgSize(ServerMaxMessageSize),
 	}
-	options = append(options, initLoggerMiddleware()...)
+	options = append(options, initMiddleware(true)...)
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
 	go func() {
+		panicked := true
+		defer func() {
+			if panicked {
+				mtlsLog.Errorf("stacktrace from panic: %s", string(debug.Stack()))
+			}
+		}()
 		if err := grpcServer.Serve(ln); err != nil {
 			mtlsLog.Warnf("gRPC server exited with error: %v", err)
+		} else {
+			panicked = false
 		}
 	}()
 	return grpcServer, ln, nil
@@ -75,7 +86,6 @@ func StartClientListener(host string, port uint16) (*grpc.Server, net.Listener, 
 // getOperatorServerTLSConfig - Generate the TLS configuration, we do now allow the end user
 // to specify any TLS paramters, we choose sensible defaults instead
 func getOperatorServerTLSConfig(host string) *tls.Config {
-
 	caCertPtr, _, err := certs.GetCertificateAuthority(certs.OperatorCA)
 	if err != nil {
 		mtlsLog.Fatalf("Invalid ca type (%s): %v", certs.OperatorCA, host)
@@ -99,13 +109,15 @@ func getOperatorServerTLSConfig(host string) *tls.Config {
 	}
 
 	tlsConfig := &tls.Config{
-		RootCAs:                  caCertPool,
-		ClientAuth:               tls.RequireAndVerifyClientCert,
-		ClientCAs:                caCertPool,
-		Certificates:             []tls.Certificate{cert},
-		PreferServerCipherSuites: true,
-		MinVersion:               tls.VersionTLS13,
+		RootCAs:      caCertPool,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    caCertPool,
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS13,
 	}
-	tlsConfig.BuildNameToCertificate()
+	if certs.TLSKeyLogger != nil {
+		tlsConfig.KeyLogWriter = certs.TLSKeyLogger
+	}
+
 	return tlsConfig
 }

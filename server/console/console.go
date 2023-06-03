@@ -23,13 +23,17 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/desertbit/grumble"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
-	clientconsole "github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/command"
+	"github.com/bishopfox/sliver/client/command/help"
+	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/client/help"
 	clienttransport "github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/transport"
 	"google.golang.org/grpc"
 )
@@ -48,69 +52,70 @@ func Start() {
 	}
 	conn, err := grpc.DialContext(context.Background(), "bufnet", options...)
 	if err != nil {
-		fmt.Printf(Warn+"Failed to dial bufnet: %s", err)
+		fmt.Printf(Warn+"Failed to dial bufnet: %s\n", err)
 		return
 	}
 	defer conn.Close()
 	localRPC := rpcpb.NewSliverRPCClient(conn)
-	clientconsole.Start(localRPC, serverOnlyCmds)
+	if err := configs.CheckHTTPC2ConfigErrors(); err != nil {
+		fmt.Printf(Warn+"Error in HTTP C2 config: %s\n", err)
+	}
+
+	con := console.NewConsole(false)
+	console.StartClient(con, localRPC, command.ServerCommands(con, nil), command.SliverCommands(con), true)
+
+	con.App.Start()
 }
 
-// ServerOnlyCmds - Server only commands
-func serverOnlyCmds(app *grumble.App, _ rpcpb.SliverRPCClient) {
-
+// serverOnlyCmds - Server only commands
+func serverOnlyCmds() (commands []*cobra.Command) {
 	// [ Multiplayer ] -----------------------------------------------------------------
 
-	app.AddCommand(&grumble.Command{
-		Name:     consts.MultiplayerModeStr,
-		Help:     "Enable multiplayer mode",
-		LongHelp: help.GetHelpFor(consts.MultiplayerModeStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("s", "server", "", "interface to bind server to")
-			f.Int("l", "lport", 31337, "tcp listen port")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			startMultiplayerModeCmd(ctx)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.MultiplayerHelpGroup,
+	startMultiplayer := &cobra.Command{
+		Use:     consts.MultiplayerModeStr,
+		Short:   "Enable multiplayer mode",
+		Long:    help.GetHelpFor([]string{consts.MultiplayerModeStr}),
+		Run:     startMultiplayerModeCmd,
+		GroupID: consts.MultiplayerHelpGroup,
+	}
+	command.Flags("multiplayer", false, startMultiplayer, func(f *pflag.FlagSet) {
+		f.StringP("lhost", "L", "", "interface to bind server to")
+		f.Uint16P("lport", "l", 31337, "tcp listen port")
+		f.BoolP("persistent", "p", false, "make persistent across restarts")
 	})
 
-	app.AddCommand(&grumble.Command{
-		Name:     consts.NewPlayerStr,
-		Help:     "Create a new player config file",
-		LongHelp: help.GetHelpFor(consts.NewPlayerStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("l", "lhost", "", "listen host")
-			f.Int("p", "lport", 31337, "listen port")
-			f.String("s", "save", "", "directory/file to the binary to")
-			f.String("n", "operator", "", "operator name")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			newOperatorCmd(ctx)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.MultiplayerHelpGroup,
-	})
+	commands = append(commands, startMultiplayer)
 
-	app.AddCommand(&grumble.Command{
-		Name:     consts.KickPlayerStr,
-		Help:     "Kick a player from the server",
-		LongHelp: help.GetHelpFor(consts.KickPlayerStr),
-		Flags: func(f *grumble.Flags) {
-			f.String("o", "operator", "", "operator name")
-		},
-		Run: func(ctx *grumble.Context) error {
-			fmt.Println()
-			kickOperatorCmd(ctx)
-			fmt.Println()
-			return nil
-		},
-		HelpGroup: consts.MultiplayerHelpGroup,
+	newOperator := &cobra.Command{
+		Use:     consts.NewOperatorStr,
+		Short:   "Create a new operator config file",
+		Long:    help.GetHelpFor([]string{consts.NewOperatorStr}),
+		Run:     newOperatorCmd,
+		GroupID: consts.MultiplayerHelpGroup,
+	}
+	command.Flags("operator", false, newOperator, func(f *pflag.FlagSet) {
+		f.StringP("lhost", "l", "", "listen host")
+		f.Uint16P("lport", "p", 31337, "listen port")
+		f.StringP("save", "s", "", "directory/file in which to save config")
+		f.StringP("name", "n", "", "operator name")
 	})
+	command.FlagComps(newOperator, func(comp *carapace.ActionMap) {
+		(*comp)["save"] = carapace.ActionDirectories()
+	})
+	commands = append(commands, newOperator)
 
+	kickOperator := &cobra.Command{
+		Use:     consts.KickOperatorStr,
+		Short:   "Kick an operator from the server",
+		Long:    help.GetHelpFor([]string{consts.KickOperatorStr}),
+		Run:     kickOperatorCmd,
+		GroupID: consts.MultiplayerHelpGroup,
+	}
+
+	command.Flags("operator", false, kickOperator, func(f *pflag.FlagSet) {
+		f.StringP("name", "n", "", "operator name")
+	})
+	commands = append(commands, kickOperator)
+
+	return
 }

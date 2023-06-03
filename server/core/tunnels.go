@@ -23,32 +23,81 @@ import (
 	"encoding/binary"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
-	// Tunnels - Interating with duplex tunnels
+	// Tunnels - Interacting with duplex tunnels
 	Tunnels = tunnels{
 		tunnels: map[uint64]*Tunnel{},
 		mutex:   &sync.Mutex{},
 	}
 
 	// ErrInvalidTunnelID - Invalid tunnel ID value
-	ErrInvalidTunnelID = errors.New("Invalid tunnel ID")
+	ErrInvalidTunnelID = errors.New("invalid tunnel ID")
+)
+
+const (
+	// delayBeforeClose - delay before closing the tunnel.
+	// I assume 10 seconds may be an overkill for a good connection, but it looks good enough for less stable one.
+	delayBeforeClose = 10 * time.Second
 )
 
 // Tunnel  - Essentially just a mapping between a specific client and sliver
 // with an identifier, these tunnels are full duplex. The server doesn't really
 // care what data gets passed back and forth it just facilitates the connection
 type Tunnel struct {
-	ID          uint64
-	SessionID   uint32
-	ToImplant   chan []byte
-	FromImplant chan []byte
-	Client      rpcpb.SliverRPC_TunnelDataServer
+	ID        uint64
+	SessionID string
+
+	ToImplant         chan []byte
+	ToImplantSequence uint64
+
+	FromImplant         chan *sliverpb.TunnelData
+	FromImplantSequence uint64
+
+	Client rpcpb.SliverRPC_TunnelDataServer
+
+	mutex               *sync.RWMutex
+	lastDataMessageTime time.Time
+}
+
+func NewTunnel(id uint64, sessionID string) *Tunnel {
+	return &Tunnel{
+		ID:          id,
+		SessionID:   sessionID,
+		ToImplant:   make(chan []byte),
+		FromImplant: make(chan *sliverpb.TunnelData),
+
+		mutex:               &sync.RWMutex{},
+		lastDataMessageTime: time.Now(), // need to be initialized
+	}
+}
+
+func (t *Tunnel) setLastMessageTime() {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	t.lastDataMessageTime = time.Now()
+}
+
+func (t *Tunnel) GetLastMessageTime() time.Time {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	return t.lastDataMessageTime
+}
+
+func (t *Tunnel) SendDataFromImplant(tunnelData *sliverpb.TunnelData) {
+	// Setting the date right before and right after message, since channel can be blocked for some amount of time
+	t.setLastMessageTime()
+	defer t.setLastMessageTime()
+
+	t.FromImplant <- tunnelData
 }
 
 type tunnels struct {
@@ -56,15 +105,15 @@ type tunnels struct {
 	mutex   *sync.Mutex
 }
 
-func (t *tunnels) Create(sessionID uint32) *Tunnel {
+func (t *tunnels) Create(sessionID string) *Tunnel {
 	tunnelID := NewTunnelID()
 	session := Sessions.Get(sessionID)
-	tunnel := &Tunnel{
-		ID:          tunnelID,
-		SessionID:   session.ID,
-		ToImplant:   make(chan []byte),
-		FromImplant: make(chan []byte),
-	}
+
+	tunnel := NewTunnel(
+		tunnelID,
+		session.ID,
+	)
+
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	t.tunnels[tunnel.ID] = tunnel
@@ -72,6 +121,39 @@ func (t *tunnels) Create(sessionID uint32) *Tunnel {
 	return tunnel
 }
 
+// ScheduleClose - schedules a close for tunnel, must be called as routine.
+// will close it once there is no data for at least delayBeforeClose delay since last message
+// This is _necessary_ since we processing messages asynchronously
+// and if tunnelCloseHandler routine will fire before tunnelDataHandler routine we will lose some data
+// (this is what happens for socks and portfwd)
+// There is no another way around it, if we want to stick to async processing as we do now.
+// All additional changes requires changes on implants(like sequencing for close messages),
+// and as there is a goal to keep compatibility we don't do that at the moment.
+// So there is trade off - more stability or more speed. Or rewriting implant logic.
+// At the moment, i see it affects only `shell` command and locking it for 10 seconds on exit. Not a big deal.
+func (t *tunnels) ScheduleClose(tunnelID uint64) {
+	tunnel := t.Get(tunnelID)
+	if tunnel == nil {
+		return
+	}
+
+	timeDelta := time.Since(tunnel.GetLastMessageTime())
+
+	coreLog.Printf("Scheduled close for channel %d (delta: %v)", tunnelID, timeDelta)
+
+	if timeDelta >= delayBeforeClose {
+		coreLog.Printf("Closing channel %d", tunnelID)
+		t.Close(tunnelID)
+	} else {
+		// Reschedule
+		coreLog.Printf("Rescheduling closing channel %d", tunnelID)
+		time.Sleep(delayBeforeClose - timeDelta + time.Second)
+		go t.ScheduleClose(tunnelID)
+	}
+}
+
+// Close - closing tunnel
+// It's preferred to use ScheduleClose function if you don't 100% sure there is no more data to receive
 func (t *tunnels) Close(tunnelID uint64) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -106,6 +188,7 @@ func (t *tunnels) Close(tunnelID uint64) error {
 func (t *tunnels) Get(tunnelID uint64) *Tunnel {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+
 	return t.tunnels[tunnelID]
 }
 

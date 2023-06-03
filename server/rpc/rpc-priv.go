@@ -20,19 +20,23 @@ package rpc
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
+	"path"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/generate"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // Impersonate - Impersonate a remote user
 func (rpc *Server) Impersonate(ctx context.Context, req *sliverpb.ImpersonateReq) (*sliverpb.Impersonate, error) {
-	resp := &sliverpb.Impersonate{}
+	resp := &sliverpb.Impersonate{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -42,7 +46,7 @@ func (rpc *Server) Impersonate(ctx context.Context, req *sliverpb.ImpersonateReq
 
 // RunAs - Run a remote process as a specific user
 func (rpc *Server) RunAs(ctx context.Context, req *sliverpb.RunAsReq) (*sliverpb.RunAs, error) {
-	resp := &sliverpb.RunAs{}
+	resp := &sliverpb.RunAs{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -52,7 +56,17 @@ func (rpc *Server) RunAs(ctx context.Context, req *sliverpb.RunAsReq) (*sliverpb
 
 // RevToSelf - Revert process context to self
 func (rpc *Server) RevToSelf(ctx context.Context, req *sliverpb.RevToSelfReq) (*sliverpb.RevToSelf, error) {
-	resp := &sliverpb.RevToSelf{}
+	resp := &sliverpb.RevToSelf{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// CurrentTokenOwner - Retrieve the thread token's owner
+func (rpc *Server) CurrentTokenOwner(ctx context.Context, req *sliverpb.CurrentTokenOwnerReq) (*sliverpb.CurrentTokenOwner, error) {
+	resp := &sliverpb.CurrentTokenOwner{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
@@ -68,17 +82,28 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		return nil, ErrInvalidSessionID
 	}
 
-	shellcode, err := getSliverShellcode(req.Config.GetName())
+	name := path.Base(req.Config.GetName())
+	shellcode, _, err := getSliverShellcode(name)
 	if err != nil {
-		config := generate.ImplantConfigFromProtobuf(req.Config)
-		config.Name = ""
-		config.Format = clientpb.ImplantConfig_SHELLCODE
+		name, config := generate.ImplantConfigFromProtobuf(req.Config)
+		if name == "" {
+			name, err = codenames.GetCodename()
+			if err != nil {
+				return nil, err
+			}
+		}
+		config.Format = clientpb.OutputFormat_SHELLCODE
 		config.ObfuscateSymbols = false
-		shellcodePath, err := generate.SliverShellcode(config)
+		otpSecret, _ := cryptography.TOTPServerSecret()
+		err = generate.GenerateConfig(name, config, true)
 		if err != nil {
 			return nil, err
 		}
-		shellcode, err = ioutil.ReadFile(shellcodePath)
+		shellcodePath, err := generate.SliverShellcode(name, otpSecret, config, true)
+		if err != nil {
+			return nil, err
+		}
+		shellcode, _ = os.ReadFile(shellcodePath)
 	}
 	data, err := proto.Marshal(&sliverpb.InvokeGetSystemReq{
 		Data:           shellcode,
@@ -104,7 +129,17 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 
 // MakeToken - Creates a new logon session to impersonate a user based on its credentials.
 func (rpc *Server) MakeToken(ctx context.Context, req *sliverpb.MakeTokenReq) (*sliverpb.MakeToken, error) {
-	resp := &sliverpb.MakeToken{}
+	resp := &sliverpb.MakeToken{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// GetPrivs - gRPC interface to get privilege information from the current process
+func (rpc *Server) GetPrivs(ctx context.Context, req *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error) {
+	resp := &sliverpb.GetPrivs{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err

@@ -18,72 +18,35 @@ package encoders
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import (
-	"errors"
-	insecureRand "math/rand"
-)
+import "io/fs"
 
 const (
-	// EncoderModulus - Nonce % EncoderModulus = EncoderID, and needs to be equal
-	//                  to or greater than the largest EncoderID value.
-	EncoderModulus = 101
-	maxN           = 999999
+
+	// EncoderModulus - The modulus used to calculate the encoder ID from a C2 request nonce
+	// *** IMPORTANT *** ENCODER IDs MUST BE LESS THAN THE MODULUS
+	EncoderModulus = uint64(65537)
+	MaxN           = uint64(9999999)
+
+	// These were chosen at random other than the "No Encoder" ID (0)
+	Base32EncoderID  = uint64(65)
+	Base58EncoderID  = uint64(43)
+	Base64EncoderID  = uint64(131)
+	EnglishEncoderID = uint64(31)
+	GzipEncoderID    = uint64(49)
+	HexEncoderID     = uint64(92)
+	PNGEncoderID     = uint64(22)
+	NoEncoderID      = uint64(0)
 )
 
-// Encoder - Can losslessly encode arbitrary binary data to ASCII
+// Encoder - Can losslessly encode arbitrary binary data
 type Encoder interface {
-	Encode([]byte) []byte
+	Encode([]byte) ([]byte, error)
 	Decode([]byte) ([]byte, error)
 }
 
-// EncoderMap - Maps EncoderIDs to Encoders
-var EncoderMap = map[int]Encoder{
-	Base64EncoderID:      Base64{},
-	HexEncoderID:         Hex{},
-	EnglishEncoderID:     English{},
-	GzipEncoderID:        Gzip{},
-	GzipEnglishEncoderID: GzipEnglish{},
-	Base64GzipEncoderID:  Base64Gzip{},
-}
-
-// EncoderFromNonce - Convert a nonce into an encoder
-func EncoderFromNonce(nonce int) (int, Encoder, error) {
-	encoderID := nonce % EncoderModulus
-	if encoderID == 0 {
-		return 0, new(NoEncoder), nil
-	}
-	if encoder, ok := EncoderMap[encoderID]; ok {
-		return encoderID, encoder, nil
-	}
-	return -1, nil, errors.New("{{if .Debug}}Invalid encoder nonce{{end}}")
-}
-
-// RandomEncoder - Get a random nonce identifier and a matching encoder
-func RandomEncoder() (int, Encoder) {
-	keys := make([]int, 0, len(EncoderMap))
-	for k := range EncoderMap {
-		keys = append(keys, k)
-	}
-	encoderID := keys[insecureRand.Intn(len(keys))]
-	nonce := (insecureRand.Intn(maxN) * EncoderModulus) + encoderID
-	return nonce, EncoderMap[encoderID]
-}
-
-// NopNonce - A NOP nonce identifies a request with no encoder/payload
-//            any value where mod = 0
-func NopNonce() int {
-	return insecureRand.Intn(maxN) * EncoderModulus
-}
-
-// NoEncoder - A NOP encoder
-type NoEncoder struct{}
-
-// Encode - Don't do anything
-func (n NoEncoder) Encode(data []byte) []byte {
-	return data
-}
-
-// Decode - Don't do anything
-func (n NoEncoder) Decode(data []byte) ([]byte, error) {
-	return data, nil
+// EncoderFS - Generic interface to read wasm encoders from a filesystem
+type EncoderFS interface {
+	Open(name string) (fs.File, error)
+	ReadDir(name string) ([]fs.DirEntry, error)
+	ReadFile(name string) ([]byte, error)
 }

@@ -19,6 +19,8 @@ package transport
 */
 
 import (
+	"runtime/debug"
+
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/rpc"
@@ -29,24 +31,32 @@ import (
 const bufSize = 2 * mb
 
 var (
-	pipeLog = log.NamedLogger("transport", "local")
+	bufConnLog = log.NamedLogger("transport", "local")
 )
 
 // LocalListener - Bind gRPC server to an in-memory listener, which is
 //                 typically used for unit testing, but ... it should be fine
 func LocalListener() (*grpc.Server, *bufconn.Listener, error) {
-	pipeLog.Infof("Binding gRPC to listener ...")
+	bufConnLog.Infof("Binding gRPC to listener ...")
 	ln := bufconn.Listen(bufSize)
 	options := []grpc.ServerOption{
 		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
 		grpc.MaxSendMsgSize(ServerMaxMessageSize),
 	}
-	options = append(options, initLoggerMiddleware()...)
+	options = append(options, initMiddleware(false)...)
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
 	go func() {
+		panicked := true
+		defer func() {
+			if panicked {
+				bufConnLog.Errorf("stacktrace from panic: %s", string(debug.Stack()))
+			}
+		}()
 		if err := grpcServer.Serve(ln); err != nil {
-			pipeLog.Fatalf("gRPC local listener error: %v", err)
+			bufConnLog.Fatalf("gRPC local listener error: %v", err)
+		} else {
+			panicked = false
 		}
 	}()
 	return grpcServer, ln, nil
