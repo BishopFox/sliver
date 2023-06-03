@@ -37,7 +37,7 @@ import (
 var randomGet = newHostFunc(wasip1.RandomGetName, randomGetFn, []api.ValueType{i32, i32}, "buf", "buf_len")
 
 func randomGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
-	sysCtx := mod.(*wasm.CallContext).Sys
+	sysCtx := mod.(*wasm.ModuleInstance).Sys
 	randSource := sysCtx.RandSource()
 	buf, bufLen := uint32(params[0]), uint32(params[1])
 

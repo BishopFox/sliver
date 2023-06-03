@@ -1,7 +1,6 @@
 package amd64
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -12,32 +11,37 @@ import (
 
 // nodeImpl implements asm.Node for amd64.
 type nodeImpl struct {
-	instruction asm.Instruction
-
-	offsetInBinaryField asm.NodeOffsetInBinary // Field suffix to dodge conflict with OffsetInBinary
-
 	// jumpTarget holds the target node in the linked for the jump-kind instruction.
 	jumpTarget *nodeImpl
-	flag       nodeFlag
-	// next holds the next node from this node in the assembled linked list.
-	next *nodeImpl
 
-	types                    operandTypes
-	srcReg, dstReg           asm.Register
-	srcConst, dstConst       asm.ConstantValue
-	srcMemIndex, dstMemIndex asm.Register
-	srcMemScale, dstMemScale byte
+	// prev and next hold the prev/next node from this node in the assembled linked list.
+	prev, next *nodeImpl
 
-	arg byte
+	// forwardJumpOrigins hold all the nodes trying to jump into this node as a
+	// singly linked list. In other words, all the nodes with .jumpTarget == this.
+	forwardJumpOrigins *nodeImpl
+
+	staticConst *asm.StaticConst
+
+	dstConst       asm.ConstantValue
+	offsetInBinary asm.NodeOffsetInBinary
+	srcConst       asm.ConstantValue
+	instruction    asm.Instruction
 
 	// readInstructionAddressBeforeTargetInstruction holds the instruction right before the target of
 	// read instruction address instruction. See asm.assemblerBase.CompileReadInstructionAddress.
 	readInstructionAddressBeforeTargetInstruction asm.Instruction
+	flag                                          nodeFlag
+	types                                         operandTypes
+	srcReg, dstReg                                asm.Register
+	srcMemIndex, dstMemIndex                      asm.Register
+	srcMemScale, dstMemScale                      byte
+	arg                                           byte
 
-	// jumpOrigins hold all the nodes trying to jump into this node. In other words, all the nodes with .jumpTarget == this.
-	jumpOrigins map[*nodeImpl]struct{}
-
-	staticConst *asm.StaticConst
+	// staticConstReferrersAdded true if this node is already added into AssemblerImpl.staticConstReferrers.
+	// Only used when staticConst is not nil. Through re-assembly, we might end up adding multiple times which causes unnecessary
+	// allocations, so we use this flag to do it once.
+	staticConstReferrersAdded bool
 }
 
 type nodeFlag byte
@@ -90,7 +94,7 @@ func (n *nodeImpl) AssignSourceConstant(value asm.ConstantValue) {
 
 // OffsetInBinary implements asm.Node.OffsetInBinary.
 func (n *nodeImpl) OffsetInBinary() asm.NodeOffsetInBinary {
-	return n.offsetInBinaryField
+	return n.offsetInBinary
 }
 
 // String implements fmt.Stringer.
@@ -158,132 +162,168 @@ func (n *nodeImpl) String() (ret string) {
 	return
 }
 
-// operandType represents where an operand is placed for an instruction.
-// Note: this is almost the same as obj.AddrType in GO assembler.
-type operandType byte
+type operandTypes byte
 
 const (
-	operandTypeNone operandType = iota
-	operandTypeRegister
-	operandTypeMemory
-	operandTypeConst
-	operandTypeStaticConst
-	operandTypeBranch
+	operandTypesNoneToNone operandTypes = iota
+	operandTypesNoneToRegister
+	operandTypesNoneToMemory
+	operandTypesNoneToBranch
+	operandTypesRegisterToNone
+	operandTypesRegisterToRegister
+	operandTypesRegisterToMemory
+	operandTypesRegisterToConst
+	operandTypesMemoryToRegister
+	operandTypesMemoryToConst
+	operandTypesConstToRegister
+	operandTypesConstToMemory
+	operandTypesStaticConstToRegister
+	operandTypesRegisterToStaticConst
 )
 
-func (o operandType) String() (ret string) {
+// String implements fmt.Stringer
+func (o operandTypes) String() (ret string) {
 	switch o {
-	case operandTypeNone:
-		ret = "none"
-	case operandTypeRegister:
-		ret = "register"
-	case operandTypeMemory:
-		ret = "memory"
-	case operandTypeConst:
-		ret = "const"
-	case operandTypeBranch:
-		ret = "branch"
-	case operandTypeStaticConst:
-		ret = "static-const"
+	case operandTypesNoneToNone:
+		ret = "NoneToNone"
+	case operandTypesNoneToRegister:
+		ret = "NoneToRegister"
+	case operandTypesNoneToMemory:
+		ret = "NoneToMemory"
+	case operandTypesNoneToBranch:
+		ret = "NoneToBranch"
+	case operandTypesRegisterToNone:
+		ret = "RegisterToNone"
+	case operandTypesRegisterToRegister:
+		ret = "RegisterToRegister"
+	case operandTypesRegisterToMemory:
+		ret = "RegisterToMemory"
+	case operandTypesRegisterToConst:
+		ret = "RegisterToConst"
+	case operandTypesMemoryToRegister:
+		ret = "MemoryToRegister"
+	case operandTypesMemoryToConst:
+		ret = "MemoryToConst"
+	case operandTypesConstToRegister:
+		ret = "ConstToRegister"
+	case operandTypesConstToMemory:
+		ret = "ConstToMemory"
+	case operandTypesStaticConstToRegister:
+		ret = "StaticConstToRegister"
+	case operandTypesRegisterToStaticConst:
+		ret = "RegisterToStaticConst"
 	}
 	return
 }
 
-// operandTypes represents the only combinations of two operandTypes used by wazero
-type operandTypes struct{ src, dst operandType }
+type (
+	// AssemblerImpl implements Assembler.
+	AssemblerImpl struct {
+		root    *nodeImpl
+		current *nodeImpl
+		asm.BaseAssemblerImpl
+		readInstructionAddressNodes []*nodeImpl
 
-var (
-	operandTypesNoneToNone            = operandTypes{operandTypeNone, operandTypeNone}
-	operandTypesNoneToRegister        = operandTypes{operandTypeNone, operandTypeRegister}
-	operandTypesNoneToMemory          = operandTypes{operandTypeNone, operandTypeMemory}
-	operandTypesNoneToBranch          = operandTypes{operandTypeNone, operandTypeBranch}
-	operandTypesRegisterToNone        = operandTypes{operandTypeRegister, operandTypeNone}
-	operandTypesRegisterToRegister    = operandTypes{operandTypeRegister, operandTypeRegister}
-	operandTypesRegisterToMemory      = operandTypes{operandTypeRegister, operandTypeMemory}
-	operandTypesRegisterToConst       = operandTypes{operandTypeRegister, operandTypeConst}
-	operandTypesMemoryToRegister      = operandTypes{operandTypeMemory, operandTypeRegister}
-	operandTypesMemoryToConst         = operandTypes{operandTypeMemory, operandTypeConst}
-	operandTypesConstToRegister       = operandTypes{operandTypeConst, operandTypeRegister}
-	operandTypesConstToMemory         = operandTypes{operandTypeConst, operandTypeMemory}
-	operandTypesStaticConstToRegister = operandTypes{operandTypeStaticConst, operandTypeRegister}
-	operandTypesRegisterToStaticConst = operandTypes{operandTypeRegister, operandTypeStaticConst}
+		// staticConstReferrers maintains the list of static const referrers which requires the
+		// offset resolution after finalizing the binary layout.
+		staticConstReferrers []staticConstReferrer
+
+		nodePool nodePool
+		pool     asm.StaticConstPool
+
+		// MaxDisplacementForConstantPool is fixed to defaultMaxDisplacementForConstantPool
+		// but have it as an exported field here for testability.
+		MaxDisplacementForConstantPool int
+
+		forceReAssemble bool
+	}
+
+	// staticConstReferrer represents a referrer of a asm.StaticConst.
+	staticConstReferrer struct {
+		n *nodeImpl
+		// instLen is the encoded length of the instruction for `n`.
+		instLen int
+	}
 )
-
-// String implements fmt.Stringer
-func (o operandTypes) String() string {
-	return fmt.Sprintf("from:%s,to:%s", o.src, o.dst)
-}
-
-// AssemblerImpl implements Assembler.
-type AssemblerImpl struct {
-	nodePool *nodePool
-	asm.BaseAssemblerImpl
-	enablePadding   bool
-	root, current   *nodeImpl
-	buf             *bytes.Buffer
-	forceReAssemble bool
-	// MaxDisplacementForConstantPool is fixed to defaultMaxDisplacementForConstantPool
-	// but have it as an exported field here for testability.
-	MaxDisplacementForConstantPool int
-
-	readInstructionAddressNodes []*nodeImpl
-
-	pool *asm.StaticConstPool
-}
 
 func NewAssembler() *AssemblerImpl {
 	return &AssemblerImpl{
-		nodePool:                       &nodePool{pages: [][nodePoolPageSize]nodeImpl{{}}},
-		buf:                            bytes.NewBuffer(nil),
-		enablePadding:                  true,
+		nodePool:                       nodePool{index: nodePageSize},
 		pool:                           asm.NewStaticConstPool(),
 		MaxDisplacementForConstantPool: defaultMaxDisplacementForConstantPool,
 	}
 }
 
-const nodePoolPageSize = 1000
+const nodePageSize = 128
+
+type nodePage = [nodePageSize]nodeImpl
 
 // nodePool is the central allocation pool for nodeImpl used by a single AssemblerImpl.
 // This reduces the allocations over compilation by reusing AssemblerImpl.
 type nodePool struct {
-	pages [][nodePoolPageSize]nodeImpl
-	// page is the index on pages to allocate node on.
-	page,
-	// pos is the index on pages[.page] where the next allocation target exists.
-	pos int
+	pages []*nodePage
+	index int
 }
 
 // allocNode allocates a new nodeImpl for use from the pool.
 // This expands the pool if there is no space left for it.
-func (n *nodePool) allocNode() (ret *nodeImpl) {
-	if n.pos == nodePoolPageSize {
-		if len(n.pages)-1 == n.page {
-			n.pages = append(n.pages, [nodePoolPageSize]nodeImpl{})
+func (n *nodePool) allocNode() *nodeImpl {
+	if n.index == nodePageSize {
+		if len(n.pages) == cap(n.pages) {
+			n.pages = append(n.pages, new(nodePage))
+		} else {
+			i := len(n.pages)
+			n.pages = n.pages[:i+1]
+			if n.pages[i] == nil {
+				n.pages[i] = new(nodePage)
+			}
 		}
-		n.page++
-		n.pos = 0
+		n.index = 0
 	}
-	ret = &n.pages[n.page][n.pos]
-	*ret = nodeImpl{jumpOrigins: map[*nodeImpl]struct{}{}}
-	n.pos++
-	return
+	ret := &n.pages[len(n.pages)-1][n.index]
+	n.index++
+	return ret
+}
+
+func (n *nodePool) reset() {
+	for _, ns := range n.pages {
+		pages := ns[:]
+		for i := range pages {
+			pages[i] = nodeImpl{}
+		}
+	}
+	n.pages = n.pages[:0]
+	n.index = nodePageSize
+}
+
+// AllocateNOP implements asm.AssemblerBase.
+func (a *AssemblerImpl) AllocateNOP() asm.Node {
+	n := a.nodePool.allocNode()
+	n.instruction = NOP
+	n.types = operandTypesNoneToNone
+	return n
+}
+
+// Add implements asm.AssemblerBase.
+func (a *AssemblerImpl) Add(n asm.Node) {
+	a.addNode(n.(*nodeImpl))
 }
 
 // Reset implements asm.AssemblerBase.
 func (a *AssemblerImpl) Reset() {
+	pool := a.pool
+	pool.Reset()
 	*a = AssemblerImpl{
-		buf:                         a.buf,
 		nodePool:                    a.nodePool,
-		pool:                        asm.NewStaticConstPool(),
-		enablePadding:               a.enablePadding,
+		pool:                        pool,
 		readInstructionAddressNodes: a.readInstructionAddressNodes[:0],
+		staticConstReferrers:        a.staticConstReferrers[:0],
 		BaseAssemblerImpl: asm.BaseAssemblerImpl{
 			SetBranchTargetOnNextNodes: a.SetBranchTargetOnNextNodes[:0],
 			JumpTableEntries:           a.JumpTableEntries[:0],
 		},
 	}
-	a.nodePool.pos, a.nodePool.page = 0, 0
-	a.buf.Reset()
+	a.nodePool.reset()
 }
 
 // newNode creates a new Node and appends it into the linked list.
@@ -303,6 +343,7 @@ func (a *AssemblerImpl) addNode(node *nodeImpl) {
 	} else {
 		parent := a.current
 		parent.next = node
+		node.prev = parent
 		a.current = node
 	}
 
@@ -310,41 +351,42 @@ func (a *AssemblerImpl) addNode(node *nodeImpl) {
 		origin := o.(*nodeImpl)
 		origin.jumpTarget = node
 	}
-	a.SetBranchTargetOnNextNodes = nil
+	// Reuse the underlying slice to avoid re-allocations.
+	a.SetBranchTargetOnNextNodes = a.SetBranchTargetOnNextNodes[:0]
 }
 
-// EncodeNode encodes the given node into writer.
-func (a *AssemblerImpl) EncodeNode(n *nodeImpl) (err error) {
+// encodeNode encodes the given node into writer.
+func (a *AssemblerImpl) encodeNode(buf asm.Buffer, n *nodeImpl) (err error) {
 	switch n.types {
 	case operandTypesNoneToNone:
-		err = a.encodeNoneToNone(n)
+		err = a.encodeNoneToNone(buf, n)
 	case operandTypesNoneToRegister:
-		err = a.encodeNoneToRegister(n)
+		err = a.encodeNoneToRegister(buf, n)
 	case operandTypesNoneToMemory:
-		err = a.encodeNoneToMemory(n)
+		err = a.encodeNoneToMemory(buf, n)
 	case operandTypesNoneToBranch:
 		// Branching operand can be encoded as relative jumps.
-		err = a.encodeRelativeJump(n)
+		err = a.encodeRelativeJump(buf, n)
 	case operandTypesRegisterToNone:
-		err = a.encodeRegisterToNone(n)
+		err = a.encodeRegisterToNone(buf, n)
 	case operandTypesRegisterToRegister:
-		err = a.encodeRegisterToRegister(n)
+		err = a.encodeRegisterToRegister(buf, n)
 	case operandTypesRegisterToMemory:
-		err = a.encodeRegisterToMemory(n)
+		err = a.encodeRegisterToMemory(buf, n)
 	case operandTypesRegisterToConst:
-		err = a.encodeRegisterToConst(n)
+		err = a.encodeRegisterToConst(buf, n)
 	case operandTypesMemoryToRegister:
-		err = a.encodeMemoryToRegister(n)
-	case operandTypesConstToRegister:
-		err = a.encodeConstToRegister(n)
-	case operandTypesConstToMemory:
-		err = a.encodeConstToMemory(n)
+		err = a.encodeMemoryToRegister(buf, n)
 	case operandTypesMemoryToConst:
-		err = a.encodeMemoryToConst(n)
+		err = a.encodeMemoryToConst(buf, n)
+	case operandTypesConstToRegister:
+		err = a.encodeConstToRegister(buf, n)
+	case operandTypesConstToMemory:
+		err = a.encodeConstToMemory(buf, n)
 	case operandTypesStaticConstToRegister:
-		err = a.encodeStaticConstToRegister(n)
+		err = a.encodeStaticConstToRegister(buf, n)
 	case operandTypesRegisterToStaticConst:
-		err = a.encodeRegisterToStaticConst(n)
+		err = a.encodeRegisterToStaticConst(buf, n)
 	default:
 		err = fmt.Errorf("encoder undefined for [%s] operand type", n.types)
 	}
@@ -355,15 +397,15 @@ func (a *AssemblerImpl) EncodeNode(n *nodeImpl) (err error) {
 }
 
 // Assemble implements asm.AssemblerBase
-func (a *AssemblerImpl) Assemble() ([]byte, error) {
-	a.InitializeNodesForEncoding()
+func (a *AssemblerImpl) Assemble(buf asm.Buffer) error {
+	a.initializeNodesForEncoding()
 
 	// Continue encoding until we are not forced to re-assemble which happens when
 	// a short relative jump ends up the offset larger than 8-bit length.
 	for {
-		err := a.Encode()
+		err := a.encode(buf)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if !a.forceReAssemble {
@@ -371,28 +413,36 @@ func (a *AssemblerImpl) Assemble() ([]byte, error) {
 		} else {
 			// We reset the length of buffer but don't delete the underlying slice since
 			// the binary size will roughly the same after reassemble.
-			a.buf.Reset()
+			buf.Reset()
 			// Reset the re-assemble flag in order to avoid the infinite loop!
 			a.forceReAssemble = false
 		}
 	}
 
-	code := a.buf.Bytes()
+	code := buf.Bytes()
 	for _, n := range a.readInstructionAddressNodes {
 		if err := a.finalizeReadInstructionAddressNode(code, n); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	if err := a.FinalizeJumpTableEntry(code); err != nil {
-		return nil, err
+	// Now that we've finished the layout, fill out static consts offsets.
+	for i := range a.staticConstReferrers {
+		ref := &a.staticConstReferrers[i]
+		n, instLen := ref.n, ref.instLen
+		// Calculate the displacement between the RIP (the offset _after_ n) and the static constant.
+		displacement := int(n.staticConst.OffsetInBinary) - int(n.OffsetInBinary()) - instLen
+		// The offset must be stored at the 4 bytes from the tail of this n. See AssemblerImpl.encodeStaticConstImpl for detail.
+		displacementOffsetInInstruction := n.OffsetInBinary() + uint64(instLen-4)
+		binary.LittleEndian.PutUint32(code[displacementOffsetInInstruction:], uint32(int32(displacement)))
 	}
-	return code, nil
+
+	return a.FinalizeJumpTableEntry(code)
 }
 
-// InitializeNodesForEncoding initializes nodeImpl.flag and determine all the jumps
+// initializeNodesForEncoding initializes nodeImpl.flag and determine all the jumps
 // are forward or backward jump.
-func (a *AssemblerImpl) InitializeNodesForEncoding() {
+func (a *AssemblerImpl) initializeNodesForEncoding() {
 	for n := a.root; n != nil; n = n.next {
 		n.flag |= nodeFlagInitializedForEncoding
 		if target := n.jumpTarget; target != nil {
@@ -404,93 +454,154 @@ func (a *AssemblerImpl) InitializeNodesForEncoding() {
 				// We start with assuming that the jump can be short (8-bit displacement).
 				// If it doens't fit, we change this flag in resolveRelativeForwardJump.
 				n.flag |= nodeFlagShortForwardJump
+
+				// If the target node is also the branching instruction, we replace the target with the NOP
+				// node so that we can avoid the collision of the target.forwardJumpOrigins both as destination and origins.
+				if target.types == operandTypesNoneToBranch {
+					// Allocate the NOP node from the pool.
+					nop := a.nodePool.allocNode()
+					nop.instruction = NOP
+					nop.types = operandTypesNoneToNone
+					// Insert it between target.prev and target: [target.prev, target] -> [target.prev, nop, target]
+					prev := target.prev
+					nop.prev = prev
+					prev.next = nop
+					nop.next = target
+					target.prev = nop
+					n.jumpTarget = nop
+					target = nop
+				}
+
+				// We add this node `n` into the end of the linked list (.forwardJumpOrigins) beginning from the `target.forwardJumpOrigins`.
+				// Insert the current `n` as the head of the list.
+				n.forwardJumpOrigins = target.forwardJumpOrigins
+				target.forwardJumpOrigins = n
 			}
 		}
 	}
 }
 
-func (a *AssemblerImpl) Encode() (err error) {
+func (a *AssemblerImpl) encode(buf asm.Buffer) error {
 	for n := a.root; n != nil; n = n.next {
 		// If an instruction needs NOP padding, we do so before encoding it.
+		//
+		// This is necessary to avoid Intel's jump erratum; see in Section 2.1
+		// in for when we have to pad NOP:
 		// https://www.intel.com/content/dam/support/us/en/documents/processors/mitigations-jump-conditional-code-erratum.pdf
-		if a.enablePadding {
-			if err = a.maybeNOPPadding(n); err != nil {
-				return
+		//
+		// This logic used to be implemented in a function called maybeNOPPadding,
+		// but the complexity of the logic made it impossible for the compiler to
+		// inline. Since this function is on a hot code path, we inlined the
+		// initial checks to skip the function call when instructions do not need
+		// NOP padding.
+		switch info := nopPaddingInfo[n.instruction]; {
+		case info.jmp:
+			if err := a.encodeJmpNOPPadding(buf, n); err != nil {
+				return err
+			}
+		case info.onNextJmp:
+			if err := a.encodeOnNextJmpNOPPAdding(buf, n); err != nil {
+				return err
 			}
 		}
 
 		// After the padding, we can finalize the offset of this instruction in the binary.
-		n.offsetInBinaryField = uint64(a.buf.Len())
+		n.offsetInBinary = uint64(buf.Len())
 
-		if err = a.EncodeNode(n); err != nil {
-			return
-		}
-
-		err = a.ResolveForwardRelativeJumps(n)
-		if err != nil {
-			err = fmt.Errorf("invalid relative forward jumps: %w", err)
-			break
-		}
-
-		a.maybeFlushConstants(n.next == nil)
-	}
-	return
-}
-
-// maybeNOPPadding maybe appends NOP instructions before the node `n`.
-// This is necessary to avoid Intel's jump erratum:
-// https://www.intel.com/content/dam/support/us/en/documents/processors/mitigations-jump-conditional-code-erratum.pdf
-func (a *AssemblerImpl) maybeNOPPadding(n *nodeImpl) (err error) {
-	var instructionLen int32
-
-	// See in Section 2.1 in for when we have to pad NOP.
-	// https://www.intel.com/content/dam/support/us/en/documents/processors/mitigations-jump-conditional-code-erratum.pdf
-	switch n.instruction {
-	case RET, JMP, JCC, JCS, JEQ, JGE, JGT, JHI, JLE, JLS, JLT, JMI, JNE, JPC, JPS:
-		// In order to know the instruction length before writing into the binary,
-		// we try encoding it.
-		prevLen := a.buf.Len()
-
-		// Assign the temporary offset which may or may not be correct depending on the padding decision.
-		n.offsetInBinaryField = uint64(prevLen)
-
-		// Encode the node and get the instruction length.
-		if err = a.EncodeNode(n); err != nil {
-			return
-		}
-		instructionLen = int32(a.buf.Len() - prevLen)
-
-		// Revert the written bytes.
-		a.buf.Truncate(prevLen)
-	case // The possible fused jump instructions if the next node is a conditional jump instruction.
-		CMPL, CMPQ, TESTL, TESTQ, ADDL, ADDQ, SUBL, SUBQ, ANDL, ANDQ, INCQ, DECQ:
-		instructionLen, err = a.fusedInstructionLength(n)
-		if err != nil {
+		if err := a.encodeNode(buf, n); err != nil {
 			return err
 		}
-	}
 
-	if instructionLen == 0 {
-		return
-	}
+		if n.forwardJumpOrigins != nil {
+			if err := a.resolveForwardRelativeJumps(buf, n); err != nil {
+				return fmt.Errorf("invalid relative forward jumps: %w", err)
+			}
+		}
 
+		a.maybeFlushConstants(buf, n.next == nil)
+	}
+	return nil
+}
+
+var nopPaddingInfo = [instructionEnd]struct {
+	jmp, onNextJmp bool
+}{
+	RET: {jmp: true},
+	JMP: {jmp: true},
+	JCC: {jmp: true},
+	JCS: {jmp: true},
+	JEQ: {jmp: true},
+	JGE: {jmp: true},
+	JGT: {jmp: true},
+	JHI: {jmp: true},
+	JLE: {jmp: true},
+	JLS: {jmp: true},
+	JLT: {jmp: true},
+	JMI: {jmp: true},
+	JNE: {jmp: true},
+	JPC: {jmp: true},
+	JPS: {jmp: true},
+	// The possible fused jump instructions if the next node is a conditional jump instruction.
+	CMPL:  {onNextJmp: true},
+	CMPQ:  {onNextJmp: true},
+	TESTL: {onNextJmp: true},
+	TESTQ: {onNextJmp: true},
+	ADDL:  {onNextJmp: true},
+	ADDQ:  {onNextJmp: true},
+	SUBL:  {onNextJmp: true},
+	SUBQ:  {onNextJmp: true},
+	ANDL:  {onNextJmp: true},
+	ANDQ:  {onNextJmp: true},
+	INCQ:  {onNextJmp: true},
+	DECQ:  {onNextJmp: true},
+}
+
+func (a *AssemblerImpl) encodeJmpNOPPadding(buf asm.Buffer, n *nodeImpl) error {
+	// In order to know the instruction length before writing into the binary,
+	// we try encoding it.
+	prevLen := buf.Len()
+
+	// Assign the temporary offset which may or may not be correct depending on the padding decision.
+	n.offsetInBinary = uint64(prevLen)
+
+	// Encode the node and get the instruction length.
+	if err := a.encodeNode(buf, n); err != nil {
+		return err
+	}
+	instructionLen := int32(buf.Len() - prevLen)
+
+	// Revert the written bytes.
+	buf.Truncate(prevLen)
+	return a.encodeNOPPadding(buf, instructionLen)
+}
+
+func (a *AssemblerImpl) encodeOnNextJmpNOPPAdding(buf asm.Buffer, n *nodeImpl) error {
+	instructionLen, err := a.fusedInstructionLength(buf, n)
+	if err != nil {
+		return err
+	}
+	return a.encodeNOPPadding(buf, instructionLen)
+}
+
+// encodeNOPPadding maybe appends NOP instructions before the node `n`.
+// This is necessary to avoid Intel's jump erratum:
+// https://www.intel.com/content/dam/support/us/en/documents/processors/mitigations-jump-conditional-code-erratum.pdf
+func (a *AssemblerImpl) encodeNOPPadding(buf asm.Buffer, instructionLen int32) error {
 	const boundaryInBytes int32 = 32
-	const mask int32 = boundaryInBytes - 1
-
+	const mask = boundaryInBytes - 1
 	var padNum int
-	currentPos := int32(a.buf.Len())
+	currentPos := int32(buf.Len())
 	if used := currentPos & mask; used+instructionLen >= boundaryInBytes {
 		padNum = int(boundaryInBytes - used)
 	}
-
-	a.padNOP(padNum)
-	return
+	a.padNOP(buf, padNum)
+	return nil
 }
 
 // fusedInstructionLength returns the length of "macro fused instruction" if the
 // instruction sequence starting from `n` can be fused by processor. Otherwise,
 // returns zero.
-func (a *AssemblerImpl) fusedInstructionLength(n *nodeImpl) (ret int32, err error) {
+func (a *AssemblerImpl) fusedInstructionLength(buf asm.Buffer, n *nodeImpl) (ret int32, err error) {
 	// Find the next non-NOP instruction.
 	next := n.next
 	for ; next != nil && next.instruction == NOP; next = next.next {
@@ -502,9 +613,7 @@ func (a *AssemblerImpl) fusedInstructionLength(n *nodeImpl) (ret int32, err erro
 
 	inst, jmpInst := n.instruction, next.instruction
 
-	if !(jmpInst == JCC || jmpInst == JCS || jmpInst == JEQ || jmpInst == JGE || jmpInst == JGT ||
-		jmpInst == JHI || jmpInst == JLE || jmpInst == JLS || jmpInst == JLT || jmpInst == JMI ||
-		jmpInst == JNE || jmpInst == JPC || jmpInst == JPS) {
+	if !nopPaddingInfo[jmpInst].jmp {
 		// If the next instruction is not jump kind, the instruction will not be fused.
 		return
 	}
@@ -515,8 +624,7 @@ func (a *AssemblerImpl) fusedInstructionLength(n *nodeImpl) (ret int32, err erro
 	isTest := inst == TESTL || inst == TESTQ
 	isCmp := inst == CMPQ || inst == CMPL
 	isTestCmp := isTest || isCmp
-	if isTestCmp && ((n.types.src == operandTypeMemory && n.types.dst == operandTypeConst) ||
-		(n.types.src == operandTypeConst && n.types.dst == operandTypeMemory)) {
+	if isTestCmp && (n.types == operandTypesMemoryToConst || n.types == operandTypesConstToMemory) {
 		// The manual says: "CMP and TEST can not be fused when comparing MEM-IMM".
 		return
 	}
@@ -541,19 +649,20 @@ func (a *AssemblerImpl) fusedInstructionLength(n *nodeImpl) (ret int32, err erro
 	// Now the instruction is ensured to be fused by the processor.
 	// In order to know the fused instruction length before writing into the binary,
 	// we try encoding it.
-	savedLen := uint64(a.buf.Len())
+	savedLen := uint64(buf.Len())
 
-	for _, fused := range []*nodeImpl{n, next} {
-		// Encode the node into the temporary buffer.
-		if err = a.EncodeNode(fused); err != nil {
-			return
-		}
+	// Encode the nodes into the buffer.
+	if err = a.encodeNode(buf, n); err != nil {
+		return
+	}
+	if err = a.encodeNode(buf, next); err != nil {
+		return
 	}
 
-	ret = int32(uint64(a.buf.Len()) - savedLen)
+	ret = int32(uint64(buf.Len()) - savedLen)
 
 	// Revert the written bytes.
-	a.buf.Truncate(int(savedLen))
+	buf.Truncate(int(savedLen))
 	return
 }
 
@@ -573,13 +682,13 @@ var nopOpcodes = [][11]byte{
 	{0x66, 0x66, 0x66, 0x0f, 0x1f, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00},
 }
 
-func (a *AssemblerImpl) padNOP(num int) {
+func (a *AssemblerImpl) padNOP(buf asm.Buffer, num int) {
 	for num > 0 {
 		singleNopNum := num
 		if singleNopNum > len(nopOpcodes) {
 			singleNopNum = len(nopOpcodes)
 		}
-		a.buf.Write(nopOpcodes[singleNopNum-1][:singleNopNum])
+		buf.AppendBytes(nopOpcodes[singleNopNum-1][:singleNopNum])
 		num -= singleNopNum
 	}
 }
@@ -813,41 +922,56 @@ func errorEncodingUnsupported(n *nodeImpl) error {
 	return fmt.Errorf("%s is unsupported for %s type", InstructionName(n.instruction), n.types)
 }
 
-func (a *AssemblerImpl) encodeNoneToNone(n *nodeImpl) (err error) {
+func (a *AssemblerImpl) encodeNoneToNone(buf asm.Buffer, n *nodeImpl) (err error) {
+	// Throughout the encoding methods, we use this pair of base offset and
+	// code buffer to write instructions.
+	//
+	// The code buffer is allocated at the end of the current buffer to a size
+	// large enough to hold all the bytes that may be written by the method.
+	//
+	// We use Go's append builtin to write to the buffer because it allows the
+	// compiler to generate much better code than if we made calls to write
+	// methods to mutate an encapsulated byte slice.
+	//
+	// At the end of the method, we truncate the buffer size back to the base
+	// plus the length of the code buffer so the end of the buffer points right
+	// after the last byte that was written.
+	base := buf.Len()
+	code := buf.Append(4)[:0]
+
 	switch n.instruction {
 	case CDQ:
 		// https://www.felixcloutier.com/x86/cwd:cdq:cqo
-		err = a.buf.WriteByte(0x99)
+		code = append(code, 0x99)
 	case CQO:
 		// https://www.felixcloutier.com/x86/cwd:cdq:cqo
-		_, err = a.buf.Write([]byte{RexPrefixW, 0x99})
+		code = append(code, rexPrefixW, 0x99)
 	case NOP:
 		// Simply optimize out the NOP instructions.
 	case RET:
 		// https://www.felixcloutier.com/x86/ret
-		err = a.buf.WriteByte(0xc3)
+		code = append(code, 0xc3)
 	case UD2:
 		// https://mudongliang.github.io/x86/html/file_module_x86_id_318.html
-		_, err = a.buf.Write([]byte{0x0f, 0x0b})
+		code = append(code, 0x0f, 0x0b)
 	case REPMOVSQ:
-		_, err = a.buf.Write([]byte{0xf3, RexPrefixW, 0xa5})
+		code = append(code, 0xf3, rexPrefixW, 0xa5)
 	case REPSTOSQ:
-		_, err = a.buf.Write([]byte{0xf3, RexPrefixW, 0xab})
+		code = append(code, 0xf3, rexPrefixW, 0xab)
 	case STD:
-		_, err = a.buf.Write([]byte{0xfd})
+		code = append(code, 0xfd)
 	case CLD:
-		_, err = a.buf.Write([]byte{0xfc})
+		code = append(code, 0xfc)
 	default:
 		err = errorEncodingUnsupported(n)
 	}
+
+	buf.Truncate(base + len(code))
 	return
 }
 
-func (a *AssemblerImpl) encodeNoneToRegister(n *nodeImpl) (err error) {
-	regBits, prefix, err := register3bits(n.dstReg, registerSpecifierPositionModRMFieldRM)
-	if err != nil {
-		return err
-	}
+func (a *AssemblerImpl) encodeNoneToRegister(buf asm.Buffer, n *nodeImpl) (err error) {
+	regBits, prefix := register3bits(n.dstReg, registerSpecifierPositionModRMFieldRM)
 
 	// https://wiki.osdev.org/X86-64_Instruction_Encoding#ModR.2FM
 	modRM := 0b11_000_000 | // Specifying that opeand is register.
@@ -857,85 +981,88 @@ func (a *AssemblerImpl) encodeNoneToRegister(n *nodeImpl) (err error) {
 		// in 4-6th bits in the ModRM byte. https://www.felixcloutier.com/x86/jmp
 		modRM |= 0b00_100_000
 	} else if n.instruction == NEGQ {
-		prefix |= RexPrefixW
+		prefix |= rexPrefixW
 		modRM |= 0b00_011_000
 	} else if n.instruction == INCQ {
-		prefix |= RexPrefixW
+		prefix |= rexPrefixW
 	} else if n.instruction == DECQ {
-		prefix |= RexPrefixW
+		prefix |= rexPrefixW
 		modRM |= 0b00_001_000
 	} else {
 		if RegSP <= n.dstReg && n.dstReg <= RegDI {
 			// If the destination is one byte length register, we need to have the default prefix.
 			// https: //wiki.osdev.org/X86-64_Instruction_Encoding#Registers
-			prefix |= RexPrefixDefault
+			prefix |= rexPrefixDefault
 		}
 	}
 
-	if prefix != RexPrefixNone {
+	base := buf.Len()
+	code := buf.Append(4)[:0]
+
+	if prefix != rexPrefixNone {
 		// https://wiki.osdev.org/X86-64_Instruction_Encoding#Encoding
-		if err = a.buf.WriteByte(prefix); err != nil {
-			return
-		}
+		code = append(code, prefix)
 	}
 
 	switch n.instruction {
 	case JMP:
 		// https://www.felixcloutier.com/x86/jmp
-		_, err = a.buf.Write([]byte{0xff, modRM})
+		code = append(code, 0xff, modRM)
 	case SETCC:
 		// https://www.felixcloutier.com/x86/setcc
-		_, err = a.buf.Write([]byte{0x0f, 0x93, modRM})
+		code = append(code, 0x0f, 0x93, modRM)
 	case SETCS:
 		// https://www.felixcloutier.com/x86/setcc
-		_, err = a.buf.Write([]byte{0x0f, 0x92, modRM})
+		code = append(code, 0x0f, 0x92, modRM)
 	case SETEQ:
 		// https://www.felixcloutier.com/x86/setcc
-		_, err = a.buf.Write([]byte{0x0f, 0x94, modRM})
+		code = append(code, 0x0f, 0x94, modRM)
 	case SETGE:
 		// https://www.felixcloutier.com/x86/setcc
-		_, err = a.buf.Write([]byte{0x0f, 0x9d, modRM})
+		code = append(code, 0x0f, 0x9d, modRM)
 	case SETGT:
 		// https://www.felixcloutier.com/x86/setcc
-		_, err = a.buf.Write([]byte{0x0f, 0x9f, modRM})
+		code = append(code, 0x0f, 0x9f, modRM)
 	case SETHI:
 		// https://www.felixcloutier.com/x86/setcc
-		_, err = a.buf.Write([]byte{0x0f, 0x97, modRM})
+		code = append(code, 0x0f, 0x97, modRM)
 	case SETLE:
 		// https://www.felixcloutier.com/x86/setcc
-		_, err = a.buf.Write([]byte{0x0f, 0x9e, modRM})
+		code = append(code, 0x0f, 0x9e, modRM)
 	case SETLS:
 		// https://www.felixcloutier.com/x86/setcc
-		_, err = a.buf.Write([]byte{0x0f, 0x96, modRM})
+		code = append(code, 0x0f, 0x96, modRM)
 	case SETLT:
 		// https://www.felixcloutier.com/x86/setcc
-		_, err = a.buf.Write([]byte{0x0f, 0x9c, modRM})
+		code = append(code, 0x0f, 0x9c, modRM)
 	case SETNE:
 		// https://www.felixcloutier.com/x86/setcc
-		_, err = a.buf.Write([]byte{0x0f, 0x95, modRM})
+		code = append(code, 0x0f, 0x95, modRM)
 	case SETPC:
 		// https://www.felixcloutier.com/x86/setcc
-		_, err = a.buf.Write([]byte{0x0f, 0x9b, modRM})
+		code = append(code, 0x0f, 0x9b, modRM)
 	case SETPS:
 		// https://www.felixcloutier.com/x86/setcc
-		_, err = a.buf.Write([]byte{0x0f, 0x9a, modRM})
+		code = append(code, 0x0f, 0x9a, modRM)
 	case NEGQ:
 		// https://www.felixcloutier.com/x86/neg
-		_, err = a.buf.Write([]byte{0xf7, modRM})
+		code = append(code, 0xf7, modRM)
 	case INCQ:
 		// https://www.felixcloutier.com/x86/inc
-		_, err = a.buf.Write([]byte{0xff, modRM})
+		code = append(code, 0xff, modRM)
 	case DECQ:
 		// https://www.felixcloutier.com/x86/dec
-		_, err = a.buf.Write([]byte{0xff, modRM})
+		code = append(code, 0xff, modRM)
 	default:
 		err = errorEncodingUnsupported(n)
 	}
+
+	buf.Truncate(base + len(code))
 	return
 }
 
-func (a *AssemblerImpl) encodeNoneToMemory(n *nodeImpl) (err error) {
-	RexPrefix, modRM, sbi, displacementWidth, err := n.GetMemoryLocation()
+func (a *AssemblerImpl) encodeNoneToMemory(buf asm.Buffer, n *nodeImpl) (err error) {
+	rexPrefix, modRM, sbi, sbiExist, displacementWidth, err := n.getMemoryLocation(true)
 	if err != nil {
 		return err
 	}
@@ -944,11 +1071,11 @@ func (a *AssemblerImpl) encodeNoneToMemory(n *nodeImpl) (err error) {
 	switch n.instruction {
 	case INCQ:
 		// https://www.felixcloutier.com/x86/inc
-		RexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		opcode = 0xff
 	case DECQ:
 		// https://www.felixcloutier.com/x86/dec
-		RexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		modRM |= 0b00_001_000 // DEC needs "/1" extension in ModRM.
 		opcode = 0xff
 	case JMP:
@@ -959,19 +1086,24 @@ func (a *AssemblerImpl) encodeNoneToMemory(n *nodeImpl) (err error) {
 		return errorEncodingUnsupported(n)
 	}
 
-	if RexPrefix != RexPrefixNone {
-		a.buf.WriteByte(RexPrefix)
+	base := buf.Len()
+	code := buf.Append(12)[:0]
+
+	if rexPrefix != rexPrefixNone {
+		code = append(code, rexPrefix)
 	}
 
-	a.buf.Write([]byte{opcode, modRM})
+	code = append(code, opcode, modRM)
 
-	if sbi != nil {
-		a.buf.WriteByte(*sbi)
+	if sbiExist {
+		code = append(code, sbi)
 	}
 
 	if displacementWidth != 0 {
-		a.WriteConst(n.dstConst, displacementWidth)
+		code = appendConst(code, n.dstConst, displacementWidth)
 	}
+
+	buf.Truncate(base + len(code))
 	return
 }
 
@@ -985,7 +1117,7 @@ func (o relativeJumpOpcode) instructionLen(short bool) int64 {
 	}
 }
 
-var relativeJumpOpcodes = map[asm.Instruction]relativeJumpOpcode{
+var relativeJumpOpcodes = [...]relativeJumpOpcode{
 	// https://www.felixcloutier.com/x86/jcc
 	JCC: {short: []byte{0x73}, long: []byte{0x0f, 0x83}},
 	JCS: {short: []byte{0x72}, long: []byte{0x0f, 0x82}},
@@ -1005,9 +1137,10 @@ var relativeJumpOpcodes = map[asm.Instruction]relativeJumpOpcode{
 	JMP: {short: []byte{0xeb}, long: []byte{0xe9}},
 }
 
-func (a *AssemblerImpl) ResolveForwardRelativeJumps(target *nodeImpl) (err error) {
+func (a *AssemblerImpl) resolveForwardRelativeJumps(buf asm.Buffer, target *nodeImpl) (err error) {
 	offsetInBinary := int64(target.OffsetInBinary())
-	for origin := range target.jumpOrigins {
+	origin := target.forwardJumpOrigins
+	for ; origin != nil; origin = origin.forwardJumpOrigins {
 		shortJump := origin.isForwardShortJump()
 		op := relativeJumpOpcodes[origin.instruction]
 		instructionLen := op.instructionLen(shortJump)
@@ -1024,29 +1157,25 @@ func (a *AssemblerImpl) ResolveForwardRelativeJumps(target *nodeImpl) (err error
 				// will always enter the "long jump offset encoding" block below
 				origin.flag ^= nodeFlagShortForwardJump
 			} else {
-				a.buf.Bytes()[origin.OffsetInBinary()+uint64(instructionLen)-1] = byte(offset)
+				buf.Bytes()[origin.OffsetInBinary()+uint64(instructionLen)-1] = byte(offset)
 			}
 		} else { // long jump offset encoding.
 			if offset > math.MaxInt32 {
 				return fmt.Errorf("too large jump offset %d for encoding %s", offset, InstructionName(origin.instruction))
 			}
-			binary.LittleEndian.PutUint32(a.buf.Bytes()[origin.OffsetInBinary()+uint64(instructionLen)-4:], uint32(offset))
+			binary.LittleEndian.PutUint32(buf.Bytes()[origin.OffsetInBinary()+uint64(instructionLen)-4:], uint32(offset))
 		}
 	}
 	return nil
 }
 
-func (a *AssemblerImpl) encodeRelativeJump(n *nodeImpl) (err error) {
+func (a *AssemblerImpl) encodeRelativeJump(buf asm.Buffer, n *nodeImpl) (err error) {
 	if n.jumpTarget == nil {
 		err = fmt.Errorf("jump target must not be nil for relative %s", InstructionName(n.instruction))
 		return
 	}
 
-	op, ok := relativeJumpOpcodes[n.instruction]
-	if !ok {
-		return errorEncodingUnsupported(n)
-	}
-
+	op := relativeJumpOpcodes[n.instruction]
 	var isShortJump bool
 	// offsetOfEIP means the offset of EIP register at the time of executing this jump instruction.
 	// Relative jump instructions can be encoded with the signed 8-bit or 32-bit integer offsets from the EIP.
@@ -1058,7 +1187,6 @@ func (a *AssemblerImpl) encodeRelativeJump(n *nodeImpl) (err error) {
 		offsetOfEIP = offsetOfJumpInstruction - op.instructionLen(isShortJump)
 	} else {
 		// For forward jumps, we resolve the offset when we Encode the target node. See AssemblerImpl.ResolveForwardRelativeJumps.
-		n.jumpTarget.jumpOrigins[n] = struct{}{}
 		isShortJump = n.isForwardShortJump()
 	}
 
@@ -1066,21 +1194,23 @@ func (a *AssemblerImpl) encodeRelativeJump(n *nodeImpl) (err error) {
 		return fmt.Errorf("too large jump offset %d for encoding %s", offsetOfEIP, InstructionName(n.instruction))
 	}
 
+	base := buf.Len()
+	code := buf.Append(6)[:0]
+
 	if isShortJump {
-		a.buf.Write(op.short)
-		a.WriteConst(offsetOfEIP, 8)
+		code = append(code, op.short...)
+		code = append(code, byte(offsetOfEIP))
 	} else {
-		a.buf.Write(op.long)
-		a.WriteConst(offsetOfEIP, 32)
+		code = append(code, op.long...)
+		code = appendUint32(code, uint32(offsetOfEIP))
 	}
+
+	buf.Truncate(base + len(code))
 	return
 }
 
-func (a *AssemblerImpl) encodeRegisterToNone(n *nodeImpl) (err error) {
-	regBits, prefix, err := register3bits(n.srcReg, registerSpecifierPositionModRMFieldRM)
-	if err != nil {
-		return err
-	}
+func (a *AssemblerImpl) encodeRegisterToNone(buf asm.Buffer, n *nodeImpl) (err error) {
+	regBits, prefix := register3bits(n.srcReg, registerSpecifierPositionModRMFieldRM)
 
 	// https://wiki.osdev.org/X86-64_Instruction_Encoding#ModR.2FM
 	modRM := 0b11_000_000 | // Specifying that opeand is register.
@@ -1094,7 +1224,7 @@ func (a *AssemblerImpl) encodeRegisterToNone(n *nodeImpl) (err error) {
 		opcode = 0xf7
 	case DIVQ:
 		// https://www.felixcloutier.com/x86/div
-		prefix |= RexPrefixW
+		prefix |= rexPrefixW
 		modRM |= 0b00_110_000
 		opcode = 0xf7
 	case IDIVL:
@@ -1103,7 +1233,7 @@ func (a *AssemblerImpl) encodeRegisterToNone(n *nodeImpl) (err error) {
 		opcode = 0xf7
 	case IDIVQ:
 		// https://www.felixcloutier.com/x86/idiv
-		prefix |= RexPrefixW
+		prefix |= rexPrefixW
 		modRM |= 0b00_111_000
 		opcode = 0xf7
 	case MULL:
@@ -1112,89 +1242,93 @@ func (a *AssemblerImpl) encodeRegisterToNone(n *nodeImpl) (err error) {
 		opcode = 0xf7
 	case MULQ:
 		// https://www.felixcloutier.com/x86/mul
-		prefix |= RexPrefixW
+		prefix |= rexPrefixW
 		modRM |= 0b00_100_000
 		opcode = 0xf7
 	default:
 		err = errorEncodingUnsupported(n)
 	}
 
-	if prefix != RexPrefixNone {
-		a.buf.WriteByte(prefix)
+	base := buf.Len()
+	code := buf.Append(3)[:0]
+
+	if prefix != rexPrefixNone {
+		code = append(code, prefix)
 	}
 
-	a.buf.Write([]byte{opcode, modRM})
+	code = append(code, opcode, modRM)
+
+	buf.Truncate(base + len(code))
 	return
 }
 
-var registerToRegisterOpcode = map[asm.Instruction]struct {
-	opcode                           []byte
-	rPrefix                          RexPrefix
-	mandatoryPrefix                  byte
-	srcOnModRMReg                    bool
-	isSrc8bit                        bool
-	needArg                          bool
-	requireSrcFloat, requireDstFloat bool
+var registerToRegisterOpcode = [instructionEnd]*struct {
+	opcode          []byte
+	rPrefix         rexPrefix
+	mandatoryPrefix byte
+	srcOnModRMReg   bool
+	isSrc8bit       bool
+	needArg         bool
 }{
 	// https://www.felixcloutier.com/x86/add
 	ADDL: {opcode: []byte{0x1}, srcOnModRMReg: true},
-	ADDQ: {opcode: []byte{0x1}, rPrefix: RexPrefixW, srcOnModRMReg: true},
+	ADDQ: {opcode: []byte{0x1}, rPrefix: rexPrefixW, srcOnModRMReg: true},
 	// https://www.felixcloutier.com/x86/and
 	ANDL: {opcode: []byte{0x21}, srcOnModRMReg: true},
-	ANDQ: {opcode: []byte{0x21}, rPrefix: RexPrefixW, srcOnModRMReg: true},
+	ANDQ: {opcode: []byte{0x21}, rPrefix: rexPrefixW, srcOnModRMReg: true},
 	// https://www.felixcloutier.com/x86/cmp
 	CMPL: {opcode: []byte{0x39}},
-	CMPQ: {opcode: []byte{0x39}, rPrefix: RexPrefixW},
+	CMPQ: {opcode: []byte{0x39}, rPrefix: rexPrefixW},
 	// https://www.felixcloutier.com/x86/cmovcc
-	CMOVQCS: {opcode: []byte{0x0f, 0x42}, rPrefix: RexPrefixW},
+	CMOVQCS: {opcode: []byte{0x0f, 0x42}, rPrefix: rexPrefixW},
 	// https://www.felixcloutier.com/x86/addsd
-	ADDSD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x58}, requireSrcFloat: true, requireDstFloat: true},
+	ADDSD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x58}},
 	// https://www.felixcloutier.com/x86/addss
-	ADDSS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x58}, requireSrcFloat: true, requireDstFloat: true},
+	ADDSS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x58}},
 	// https://www.felixcloutier.com/x86/addpd
-	ANDPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x54}, requireSrcFloat: true, requireDstFloat: true},
+	ANDPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x54}},
 	// https://www.felixcloutier.com/x86/addps
-	ANDPS: {opcode: []byte{0x0f, 0x54}, requireSrcFloat: true, requireDstFloat: true},
+	ANDPS: {opcode: []byte{0x0f, 0x54}},
 	// https://www.felixcloutier.com/x86/bsr
 	BSRL: {opcode: []byte{0xf, 0xbd}},
-	BSRQ: {opcode: []byte{0xf, 0xbd}, rPrefix: RexPrefixW},
+	BSRQ: {opcode: []byte{0xf, 0xbd}, rPrefix: rexPrefixW},
 	// https://www.felixcloutier.com/x86/comisd
-	COMISD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x2f}, requireSrcFloat: true, requireDstFloat: true},
+	COMISD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x2f}},
 	// https://www.felixcloutier.com/x86/comiss
-	COMISS: {opcode: []byte{0x0f, 0x2f}, requireSrcFloat: true, requireDstFloat: true},
+	COMISS: {opcode: []byte{0x0f, 0x2f}},
 	// https://www.felixcloutier.com/x86/cvtsd2ss
-	CVTSD2SS: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x5a}, requireSrcFloat: true, requireDstFloat: true},
+	CVTSD2SS: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x5a}},
 	// https://www.felixcloutier.com/x86/cvtsi2sd
-	CVTSL2SD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x2a}, requireDstFloat: true},
+	CVTSL2SD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x2a}},
 	// https://www.felixcloutier.com/x86/cvtsi2sd
-	CVTSQ2SD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x2a}, rPrefix: RexPrefixW, requireDstFloat: true},
+	CVTSQ2SD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x2a}, rPrefix: rexPrefixW},
 	// https://www.felixcloutier.com/x86/cvtsi2ss
-	CVTSL2SS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x2a}, requireDstFloat: true},
+	CVTSL2SS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x2a}},
 	// https://www.felixcloutier.com/x86/cvtsi2ss
-	CVTSQ2SS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x2a}, rPrefix: RexPrefixW, requireDstFloat: true},
+	CVTSQ2SS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x2a}, rPrefix: rexPrefixW},
 	// https://www.felixcloutier.com/x86/cvtss2sd
-	CVTSS2SD: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x5a}, requireSrcFloat: true, requireDstFloat: true},
+	CVTSS2SD: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x5a}},
 	// https://www.felixcloutier.com/x86/cvttsd2si
-	CVTTSD2SL: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x2c}, requireSrcFloat: true},
-	CVTTSD2SQ: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x2c}, rPrefix: RexPrefixW, requireSrcFloat: true},
+	CVTTSD2SL: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x2c}},
+	CVTTSD2SQ: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x2c}, rPrefix: rexPrefixW},
 	// https://www.felixcloutier.com/x86/cvttss2si
-	CVTTSS2SL: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x2c}, requireSrcFloat: true},
-	CVTTSS2SQ: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x2c}, rPrefix: RexPrefixW, requireSrcFloat: true},
+	CVTTSS2SL: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x2c}},
+	CVTTSS2SQ: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x2c}, rPrefix: rexPrefixW},
 	// https://www.felixcloutier.com/x86/divsd
-	DIVSD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x5e}, requireSrcFloat: true, requireDstFloat: true},
+	DIVSD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x5e}},
 	// https://www.felixcloutier.com/x86/divss
-	DIVSS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x5e}, requireSrcFloat: true, requireDstFloat: true},
+	DIVSS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x5e}},
 	// https://www.felixcloutier.com/x86/lzcnt
 	LZCNTL: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0xbd}},
-	LZCNTQ: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0xbd}, rPrefix: RexPrefixW},
+	LZCNTQ: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0xbd}, rPrefix: rexPrefixW},
 	// https://www.felixcloutier.com/x86/maxsd
-	MAXSD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x5f}, requireSrcFloat: true, requireDstFloat: true},
+	MAXSD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x5f}},
 	// https://www.felixcloutier.com/x86/maxss
-	MAXSS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x5f}, requireSrcFloat: true, requireDstFloat: true},
+	MAXSS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x5f}},
 	// https://www.felixcloutier.com/x86/minsd
-	MINSD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x5d}, requireSrcFloat: true, requireDstFloat: true},
+	MINSD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x5d}},
 	// https://www.felixcloutier.com/x86/minss
-	MINSS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x5d}, requireSrcFloat: true, requireDstFloat: true},
+	MINSS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x5d}},
 	// https://www.felixcloutier.com/x86/movsx:movsxd
 	MOVBLSX: {opcode: []byte{0x0f, 0xbe}, isSrc8bit: true},
 	// https://www.felixcloutier.com/x86/movzx
@@ -1202,410 +1336,385 @@ var registerToRegisterOpcode = map[asm.Instruction]struct {
 	// https://www.felixcloutier.com/x86/movzx
 	MOVWLZX: {opcode: []byte{0x0f, 0xb7}, isSrc8bit: true},
 	// https://www.felixcloutier.com/x86/movsx:movsxd
-	MOVBQSX: {opcode: []byte{0x0f, 0xbe}, rPrefix: RexPrefixW, isSrc8bit: true},
+	MOVBQSX: {opcode: []byte{0x0f, 0xbe}, rPrefix: rexPrefixW, isSrc8bit: true},
 	// https://www.felixcloutier.com/x86/movsx:movsxd
-	MOVLQSX: {opcode: []byte{0x63}, rPrefix: RexPrefixW},
+	MOVLQSX: {opcode: []byte{0x63}, rPrefix: rexPrefixW},
 	// https://www.felixcloutier.com/x86/movsx:movsxd
-	MOVWQSX: {opcode: []byte{0x0f, 0xbf}, rPrefix: RexPrefixW},
+	MOVWQSX: {opcode: []byte{0x0f, 0xbf}, rPrefix: rexPrefixW},
 	// https://www.felixcloutier.com/x86/movsx:movsxd
 	MOVWLSX: {opcode: []byte{0x0f, 0xbf}},
 	// https://www.felixcloutier.com/x86/imul
-	IMULQ: {opcode: []byte{0x0f, 0xaf}, rPrefix: RexPrefixW},
+	IMULQ: {opcode: []byte{0x0f, 0xaf}, rPrefix: rexPrefixW},
 	// https://www.felixcloutier.com/x86/mulss
-	MULSS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x59}, requireSrcFloat: true, requireDstFloat: true},
+	MULSS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x59}},
 	// https://www.felixcloutier.com/x86/mulsd
-	MULSD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x59}, requireSrcFloat: true, requireDstFloat: true},
+	MULSD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x59}},
 	// https://www.felixcloutier.com/x86/or
 	ORL: {opcode: []byte{0x09}, srcOnModRMReg: true},
-	ORQ: {opcode: []byte{0x09}, rPrefix: RexPrefixW, srcOnModRMReg: true},
+	ORQ: {opcode: []byte{0x09}, rPrefix: rexPrefixW, srcOnModRMReg: true},
 	// https://www.felixcloutier.com/x86/orpd
-	ORPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x56}, requireSrcFloat: true, requireDstFloat: true},
+	ORPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x56}},
 	// https://www.felixcloutier.com/x86/orps
-	ORPS: {opcode: []byte{0x0f, 0x56}, requireSrcFloat: true, requireDstFloat: true},
+	ORPS: {opcode: []byte{0x0f, 0x56}},
 	// https://www.felixcloutier.com/x86/popcnt
 	POPCNTL: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0xb8}},
-	POPCNTQ: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0xb8}, rPrefix: RexPrefixW},
+	POPCNTQ: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0xb8}, rPrefix: rexPrefixW},
 	// https://www.felixcloutier.com/x86/roundss
-	ROUNDSS: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x0a}, needArg: true, requireSrcFloat: true, requireDstFloat: true},
+	ROUNDSS: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x0a}, needArg: true},
 	// https://www.felixcloutier.com/x86/roundsd
-	ROUNDSD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x0b}, needArg: true, requireSrcFloat: true, requireDstFloat: true},
+	ROUNDSD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x0b}, needArg: true},
 	// https://www.felixcloutier.com/x86/sqrtss
-	SQRTSS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x51}, requireSrcFloat: true, requireDstFloat: true},
+	SQRTSS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x51}},
 	// https://www.felixcloutier.com/x86/sqrtsd
-	SQRTSD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x51}, requireSrcFloat: true, requireDstFloat: true},
+	SQRTSD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x51}},
 	// https://www.felixcloutier.com/x86/sub
 	SUBL: {opcode: []byte{0x29}, srcOnModRMReg: true},
-	SUBQ: {opcode: []byte{0x29}, rPrefix: RexPrefixW, srcOnModRMReg: true},
+	SUBQ: {opcode: []byte{0x29}, rPrefix: rexPrefixW, srcOnModRMReg: true},
 	// https://www.felixcloutier.com/x86/subss
-	SUBSS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x5c}, requireSrcFloat: true, requireDstFloat: true},
+	SUBSS: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x5c}},
 	// https://www.felixcloutier.com/x86/subsd
-	SUBSD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x5c}, requireSrcFloat: true, requireDstFloat: true},
+	SUBSD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x5c}},
 	// https://www.felixcloutier.com/x86/test
 	TESTL: {opcode: []byte{0x85}, srcOnModRMReg: true},
-	TESTQ: {opcode: []byte{0x85}, rPrefix: RexPrefixW, srcOnModRMReg: true},
+	TESTQ: {opcode: []byte{0x85}, rPrefix: rexPrefixW, srcOnModRMReg: true},
 	// https://www.felixcloutier.com/x86/tzcnt
 	TZCNTL: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0xbc}},
-	TZCNTQ: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0xbc}, rPrefix: RexPrefixW},
+	TZCNTQ: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0xbc}, rPrefix: rexPrefixW},
 	// https://www.felixcloutier.com/x86/ucomisd
-	UCOMISD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x2e}, requireSrcFloat: true, requireDstFloat: true},
+	UCOMISD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x2e}},
 	// https://www.felixcloutier.com/x86/ucomiss
-	UCOMISS: {opcode: []byte{0x0f, 0x2e}, requireSrcFloat: true, requireDstFloat: true},
+	UCOMISS: {opcode: []byte{0x0f, 0x2e}},
 	// https://www.felixcloutier.com/x86/xchg
-	XCHGQ: {opcode: []byte{0x87}, rPrefix: RexPrefixW, srcOnModRMReg: true},
+	XCHGQ: {opcode: []byte{0x87}, rPrefix: rexPrefixW, srcOnModRMReg: true},
 	// https://www.felixcloutier.com/x86/xor
 	XORL: {opcode: []byte{0x31}, srcOnModRMReg: true},
-	XORQ: {opcode: []byte{0x31}, rPrefix: RexPrefixW, srcOnModRMReg: true},
+	XORQ: {opcode: []byte{0x31}, rPrefix: rexPrefixW, srcOnModRMReg: true},
 	// https://www.felixcloutier.com/x86/xorpd
-	XORPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x57}, requireSrcFloat: true, requireDstFloat: true},
-	XORPS: {opcode: []byte{0x0f, 0x57}, requireSrcFloat: true, requireDstFloat: true},
+	XORPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x57}},
+	XORPS: {opcode: []byte{0x0f, 0x57}},
 	// https://www.felixcloutier.com/x86/pinsrb:pinsrd:pinsrq
-	PINSRB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x20}, requireSrcFloat: false, requireDstFloat: true, needArg: true},
+	PINSRB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x20}, needArg: true},
 	// https://www.felixcloutier.com/x86/pinsrw
-	PINSRW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xc4}, requireSrcFloat: false, requireDstFloat: true, needArg: true},
+	PINSRW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xc4}, needArg: true},
 	// https://www.felixcloutier.com/x86/pinsrb:pinsrd:pinsrq
-	PINSRD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x22}, requireSrcFloat: false, requireDstFloat: true, needArg: true},
+	PINSRD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x22}, needArg: true},
 	// https://www.felixcloutier.com/x86/pinsrb:pinsrd:pinsrq
-	PINSRQ: {mandatoryPrefix: 0x66, rPrefix: RexPrefixW, opcode: []byte{0x0f, 0x3a, 0x22}, requireSrcFloat: false, requireDstFloat: true, needArg: true},
+	PINSRQ: {mandatoryPrefix: 0x66, rPrefix: rexPrefixW, opcode: []byte{0x0f, 0x3a, 0x22}, needArg: true},
 	// https://www.felixcloutier.com/x86/movdqu:vmovdqu8:vmovdqu16:vmovdqu32:vmovdqu64
-	MOVDQU: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x6f}, requireSrcFloat: true, requireDstFloat: true},
+	MOVDQU: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x6f}},
 	// https://www.felixcloutier.com/x86/movdqa:vmovdqa32:vmovdqa64
-	MOVDQA: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x6f}, requireSrcFloat: true, requireDstFloat: true},
+	MOVDQA: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x6f}},
 	// https://www.felixcloutier.com/x86/paddb:paddw:paddd:paddq
-	PADDB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xfc}, requireSrcFloat: true, requireDstFloat: true},
-	PADDW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xfd}, requireSrcFloat: true, requireDstFloat: true},
-	PADDD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xfe}, requireSrcFloat: true, requireDstFloat: true},
-	PADDQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xd4}, requireSrcFloat: true, requireDstFloat: true},
+	PADDB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xfc}},
+	PADDW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xfd}},
+	PADDD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xfe}},
+	PADDQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xd4}},
 	// https://www.felixcloutier.com/x86/psubb:psubw:psubd
-	PSUBB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xf8}, requireSrcFloat: true, requireDstFloat: true},
-	PSUBW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xf9}, requireSrcFloat: true, requireDstFloat: true},
-	PSUBD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xfa}, requireSrcFloat: true, requireDstFloat: true},
+	PSUBB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xf8}},
+	PSUBW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xf9}},
+	PSUBD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xfa}},
 	// https://www.felixcloutier.com/x86/psubq
-	PSUBQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xfb}, requireSrcFloat: true, requireDstFloat: true},
+	PSUBQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xfb}},
 	// https://www.felixcloutier.com/x86/addps
-	ADDPS: {opcode: []byte{0x0f, 0x58}, requireSrcFloat: true, requireDstFloat: true},
+	ADDPS: {opcode: []byte{0x0f, 0x58}},
 	// https://www.felixcloutier.com/x86/addpd
-	ADDPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x58}, requireSrcFloat: true, requireDstFloat: true},
+	ADDPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x58}},
 	// https://www.felixcloutier.com/x86/subps
-	SUBPS: {opcode: []byte{0x0f, 0x5c}, requireSrcFloat: true, requireDstFloat: true},
+	SUBPS: {opcode: []byte{0x0f, 0x5c}},
 	// https://www.felixcloutier.com/x86/subpd
-	SUBPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x5c}, requireSrcFloat: true, requireDstFloat: true},
+	SUBPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x5c}},
 	// https://www.felixcloutier.com/x86/pxor
-	PXOR: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xef}, requireSrcFloat: true, requireDstFloat: true},
+	PXOR: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xef}},
 	// https://www.felixcloutier.com/x86/pand
-	PAND: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xdb}, requireSrcFloat: true, requireDstFloat: true},
+	PAND: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xdb}},
 	// https://www.felixcloutier.com/x86/por
-	POR: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xeb}, requireSrcFloat: true, requireDstFloat: true},
+	POR: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xeb}},
 	// https://www.felixcloutier.com/x86/pandn
-	PANDN: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xdf}, requireSrcFloat: true, requireDstFloat: true},
+	PANDN: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xdf}},
 	// https://www.felixcloutier.com/x86/pshufb
-	PSHUFB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x0}, requireSrcFloat: true, requireDstFloat: true},
+	PSHUFB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x0}},
 	// https://www.felixcloutier.com/x86/pshufd
-	PSHUFD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x70}, requireSrcFloat: true, requireDstFloat: true, needArg: true},
+	PSHUFD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x70}, needArg: true},
 	// https://www.felixcloutier.com/x86/pextrb:pextrd:pextrq
-	PEXTRB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x14}, requireSrcFloat: true, requireDstFloat: false, needArg: true, srcOnModRMReg: true},
+	PEXTRB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x14}, needArg: true, srcOnModRMReg: true},
 	// https://www.felixcloutier.com/x86/pextrw
-	PEXTRW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xc5}, requireSrcFloat: true, requireDstFloat: false, needArg: true},
+	PEXTRW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xc5}, needArg: true},
 	// https://www.felixcloutier.com/x86/pextrb:pextrd:pextrq
-	PEXTRD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x16}, requireSrcFloat: true, requireDstFloat: false, needArg: true, srcOnModRMReg: true},
+	PEXTRD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x16}, needArg: true, srcOnModRMReg: true},
 	// https://www.felixcloutier.com/x86/pextrb:pextrd:pextrq
-	PEXTRQ: {rPrefix: RexPrefixW, mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x16}, requireSrcFloat: true, requireDstFloat: false, needArg: true, srcOnModRMReg: true},
+	PEXTRQ: {rPrefix: rexPrefixW, mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x16}, needArg: true, srcOnModRMReg: true},
 	// https://www.felixcloutier.com/x86/insertps
-	INSERTPS: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x21}, requireSrcFloat: true, requireDstFloat: true, needArg: true},
+	INSERTPS: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x21}, needArg: true},
 	// https://www.felixcloutier.com/x86/movlhps
-	MOVLHPS: {opcode: []byte{0x0f, 0x16}, requireSrcFloat: true, requireDstFloat: true},
+	MOVLHPS: {opcode: []byte{0x0f, 0x16}},
 	// https://www.felixcloutier.com/x86/ptest
-	PTEST: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x17}, requireSrcFloat: true, requireDstFloat: true},
+	PTEST: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x17}},
 	// https://www.felixcloutier.com/x86/pcmpeqb:pcmpeqw:pcmpeqd
-	PCMPEQB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x74}, requireSrcFloat: true, requireDstFloat: true},
-	PCMPEQW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x75}, requireSrcFloat: true, requireDstFloat: true},
-	PCMPEQD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x76}, requireSrcFloat: true, requireDstFloat: true},
+	PCMPEQB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x74}},
+	PCMPEQW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x75}},
+	PCMPEQD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x76}},
 	// https://www.felixcloutier.com/x86/pcmpeqq
-	PCMPEQQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x29}, requireSrcFloat: true, requireDstFloat: true},
+	PCMPEQQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x29}},
 	// https://www.felixcloutier.com/x86/paddusb:paddusw
-	PADDUSB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xdc}, requireSrcFloat: true, requireDstFloat: true},
+	PADDUSB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xdc}},
 	// https://www.felixcloutier.com/x86/movsd
-	MOVSD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x10}, requireSrcFloat: true, requireDstFloat: true},
+	MOVSD: {mandatoryPrefix: 0xf2, opcode: []byte{0x0f, 0x10}},
 	// https://www.felixcloutier.com/x86/packsswb:packssdw
-	PACKSSWB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x63}, requireSrcFloat: true, requireDstFloat: true},
+	PACKSSWB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x63}},
 	// https://www.felixcloutier.com/x86/pmovmskb
-	PMOVMSKB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xd7}, requireSrcFloat: true, requireDstFloat: false},
+	PMOVMSKB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xd7}},
 	// https://www.felixcloutier.com/x86/movmskps
-	MOVMSKPS: {opcode: []byte{0x0f, 0x50}, requireSrcFloat: true, requireDstFloat: false},
+	MOVMSKPS: {opcode: []byte{0x0f, 0x50}},
 	// https://www.felixcloutier.com/x86/movmskpd
-	MOVMSKPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x50}, requireSrcFloat: true, requireDstFloat: false},
+	MOVMSKPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x50}},
 	// https://www.felixcloutier.com/x86/psraw:psrad:psraq
-	PSRAD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe2}, requireSrcFloat: true, requireDstFloat: true},
+	PSRAD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe2}},
 	// https://www.felixcloutier.com/x86/psraw:psrad:psraq
-	PSRAW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe1}, requireSrcFloat: true, requireDstFloat: true},
+	PSRAW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe1}},
 	// https://www.felixcloutier.com/x86/psrlw:psrld:psrlq
-	PSRLQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xd3}, requireSrcFloat: true, requireDstFloat: true},
+	PSRLQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xd3}},
 	// https://www.felixcloutier.com/x86/psrlw:psrld:psrlq
-	PSRLD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xd2}, requireSrcFloat: true, requireDstFloat: true},
+	PSRLD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xd2}},
 	// https://www.felixcloutier.com/x86/psrlw:psrld:psrlq
-	PSRLW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xd1}, requireSrcFloat: true, requireDstFloat: true},
+	PSRLW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xd1}},
 	// https://www.felixcloutier.com/x86/psllw:pslld:psllq
-	PSLLW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xf1}, requireSrcFloat: true, requireDstFloat: true},
+	PSLLW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xf1}},
 	// https://www.felixcloutier.com/x86/psllw:pslld:psllq
-	PSLLD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xf2}, requireSrcFloat: true, requireDstFloat: true},
+	PSLLD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xf2}},
 	// https://www.felixcloutier.com/x86/psllw:pslld:psllq
-	PSLLQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xf3}, requireSrcFloat: true, requireDstFloat: true},
+	PSLLQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xf3}},
 	// https://www.felixcloutier.com/x86/punpcklbw:punpcklwd:punpckldq:punpcklqdq
-	PUNPCKLBW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x60}, requireSrcFloat: true, requireDstFloat: true},
+	PUNPCKLBW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x60}},
 	// https://www.felixcloutier.com/x86/punpckhbw:punpckhwd:punpckhdq:punpckhqdq
-	PUNPCKHBW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x68}, requireSrcFloat: true, requireDstFloat: true},
+	PUNPCKHBW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x68}},
 	// https://www.felixcloutier.com/x86/cmpps
-	CMPPS: {opcode: []byte{0x0f, 0xc2}, requireSrcFloat: true, requireDstFloat: true, needArg: true},
+	CMPPS: {opcode: []byte{0x0f, 0xc2}, needArg: true},
 	// https://www.felixcloutier.com/x86/cmppd
-	CMPPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xc2}, requireSrcFloat: true, requireDstFloat: true, needArg: true},
+	CMPPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xc2}, needArg: true},
 	// https://www.felixcloutier.com/x86/pcmpgtq
-	PCMPGTQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x37}, requireSrcFloat: true, requireDstFloat: true},
+	PCMPGTQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x37}},
 	// https://www.felixcloutier.com/x86/pcmpgtb:pcmpgtw:pcmpgtd
-	PCMPGTD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x66}, requireSrcFloat: true, requireDstFloat: true},
+	PCMPGTD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x66}},
 	// https://www.felixcloutier.com/x86/pcmpgtb:pcmpgtw:pcmpgtd
-	PCMPGTW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x65}, requireSrcFloat: true, requireDstFloat: true},
+	PCMPGTW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x65}},
 	// https://www.felixcloutier.com/x86/pcmpgtb:pcmpgtw:pcmpgtd
-	PCMPGTB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x64}, requireSrcFloat: true, requireDstFloat: true},
+	PCMPGTB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x64}},
 	// https://www.felixcloutier.com/x86/pminsd:pminsq
-	PMINSD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x39}, requireSrcFloat: true, requireDstFloat: true},
+	PMINSD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x39}},
 	// https://www.felixcloutier.com/x86/pmaxsb:pmaxsw:pmaxsd:pmaxsq
-	PMAXSD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x3d}, requireSrcFloat: true, requireDstFloat: true},
+	PMAXSD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x3d}},
 	// https://www.felixcloutier.com/x86/pmaxsb:pmaxsw:pmaxsd:pmaxsq
-	PMAXSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xee}, requireSrcFloat: true, requireDstFloat: true},
+	PMAXSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xee}},
 	// https://www.felixcloutier.com/x86/pmaxsb:pmaxsw:pmaxsd:pmaxsq
-	PMAXSB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x3c}, requireSrcFloat: true, requireDstFloat: true},
+	PMAXSB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x3c}},
 	// https://www.felixcloutier.com/x86/pminsb:pminsw
-	PMINSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xea}, requireSrcFloat: true, requireDstFloat: true},
+	PMINSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xea}},
 	// https://www.felixcloutier.com/x86/pminsb:pminsw
-	PMINSB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x38}, requireSrcFloat: true, requireDstFloat: true},
+	PMINSB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x38}},
 	// https://www.felixcloutier.com/x86/pminud:pminuq
-	PMINUD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x3b}, requireSrcFloat: true, requireDstFloat: true},
+	PMINUD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x3b}},
 	// https://www.felixcloutier.com/x86/pminub:pminuw
-	PMINUW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x3a}, requireSrcFloat: true, requireDstFloat: true},
+	PMINUW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x3a}},
 	// https://www.felixcloutier.com/x86/pminub:pminuw
-	PMINUB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xda}, requireSrcFloat: true, requireDstFloat: true},
+	PMINUB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xda}},
 	// https://www.felixcloutier.com/x86/pmaxud:pmaxuq
-	PMAXUD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x3f}, requireSrcFloat: true, requireDstFloat: true},
+	PMAXUD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x3f}},
 	// https://www.felixcloutier.com/x86/pmaxub:pmaxuw
-	PMAXUW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x3e}, requireSrcFloat: true, requireDstFloat: true},
+	PMAXUW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x3e}},
 	// https://www.felixcloutier.com/x86/pmaxub:pmaxuw
-	PMAXUB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xde}, requireSrcFloat: true, requireDstFloat: true},
+	PMAXUB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xde}},
 	// https://www.felixcloutier.com/x86/pmullw
-	PMULLW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xd5}, requireSrcFloat: true, requireDstFloat: true},
+	PMULLW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xd5}},
 	// https://www.felixcloutier.com/x86/pmulld:pmullq
-	PMULLD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x40}, requireSrcFloat: true, requireDstFloat: true},
+	PMULLD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x40}},
 	// https://www.felixcloutier.com/x86/pmuludq
-	PMULUDQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xf4}, requireSrcFloat: true, requireDstFloat: true},
+	PMULUDQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xf4}},
 	// https://www.felixcloutier.com/x86/psubsb:psubsw
-	PSUBSB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe8}, requireSrcFloat: true, requireDstFloat: true},
+	PSUBSB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe8}},
 	// https://www.felixcloutier.com/x86/psubsb:psubsw
-	PSUBSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe9}, requireSrcFloat: true, requireDstFloat: true},
+	PSUBSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe9}},
 	// https://www.felixcloutier.com/x86/psubusb:psubusw
-	PSUBUSB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xd8}, requireSrcFloat: true, requireDstFloat: true},
+	PSUBUSB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xd8}},
 	// https://www.felixcloutier.com/x86/psubusb:psubusw
-	PSUBUSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xd9}, requireSrcFloat: true, requireDstFloat: true},
+	PSUBUSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xd9}},
 	// https://www.felixcloutier.com/x86/paddsb:paddsw
-	PADDSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xed}, requireSrcFloat: true, requireDstFloat: true},
+	PADDSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xed}},
 	// https://www.felixcloutier.com/x86/paddsb:paddsw
-	PADDSB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xec}, requireSrcFloat: true, requireDstFloat: true},
+	PADDSB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xec}},
 	// https://www.felixcloutier.com/x86/paddusb:paddusw
-	PADDUSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xdd}, requireSrcFloat: true, requireDstFloat: true},
+	PADDUSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xdd}},
 	// https://www.felixcloutier.com/x86/pavgb:pavgw
-	PAVGB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe0}, requireSrcFloat: true, requireDstFloat: true},
+	PAVGB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe0}},
 	// https://www.felixcloutier.com/x86/pavgb:pavgw
-	PAVGW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe3}, requireSrcFloat: true, requireDstFloat: true},
+	PAVGW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe3}},
 	// https://www.felixcloutier.com/x86/pabsb:pabsw:pabsd:pabsq
-	PABSB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x1c}, requireSrcFloat: true, requireDstFloat: true},
+	PABSB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x1c}},
 	// https://www.felixcloutier.com/x86/pabsb:pabsw:pabsd:pabsq
-	PABSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x1d}, requireSrcFloat: true, requireDstFloat: true},
+	PABSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x1d}},
 	// https://www.felixcloutier.com/x86/pabsb:pabsw:pabsd:pabsq
-	PABSD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x1e}, requireSrcFloat: true, requireDstFloat: true},
+	PABSD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x1e}},
 	// https://www.felixcloutier.com/x86/blendvpd
-	BLENDVPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x15}, requireSrcFloat: true, requireDstFloat: true},
+	BLENDVPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x15}},
 	// https://www.felixcloutier.com/x86/maxpd
-	MAXPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x5f}, requireSrcFloat: true, requireDstFloat: true},
+	MAXPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x5f}},
 	// https://www.felixcloutier.com/x86/maxps
-	MAXPS: {opcode: []byte{0x0f, 0x5f}, requireSrcFloat: true, requireDstFloat: true},
+	MAXPS: {opcode: []byte{0x0f, 0x5f}},
 	// https://www.felixcloutier.com/x86/minpd
-	MINPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x5d}, requireSrcFloat: true, requireDstFloat: true},
+	MINPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x5d}},
 	// https://www.felixcloutier.com/x86/minps
-	MINPS: {opcode: []byte{0x0f, 0x5d}, requireSrcFloat: true, requireDstFloat: true},
+	MINPS: {opcode: []byte{0x0f, 0x5d}},
 	// https://www.felixcloutier.com/x86/andnpd
-	ANDNPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x55}, requireSrcFloat: true, requireDstFloat: true},
+	ANDNPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x55}},
 	// https://www.felixcloutier.com/x86/andnps
-	ANDNPS: {opcode: []byte{0x0f, 0x55}, requireSrcFloat: true, requireDstFloat: true},
+	ANDNPS: {opcode: []byte{0x0f, 0x55}},
 	// https://www.felixcloutier.com/x86/mulps
-	MULPS: {opcode: []byte{0x0f, 0x59}, requireSrcFloat: true, requireDstFloat: true},
+	MULPS: {opcode: []byte{0x0f, 0x59}},
 	// https://www.felixcloutier.com/x86/mulpd
-	MULPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x59}, requireSrcFloat: true, requireDstFloat: true},
+	MULPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x59}},
 	// https://www.felixcloutier.com/x86/divps
-	DIVPS: {opcode: []byte{0x0f, 0x5e}, requireSrcFloat: true, requireDstFloat: true},
+	DIVPS: {opcode: []byte{0x0f, 0x5e}},
 	// https://www.felixcloutier.com/x86/divpd
-	DIVPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x5e}, requireSrcFloat: true, requireDstFloat: true},
+	DIVPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x5e}},
 	// https://www.felixcloutier.com/x86/sqrtps
-	SQRTPS: {opcode: []byte{0x0f, 0x51}, requireSrcFloat: true, requireDstFloat: true},
+	SQRTPS: {opcode: []byte{0x0f, 0x51}},
 	// https://www.felixcloutier.com/x86/sqrtpd
-	SQRTPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x51}, requireSrcFloat: true, requireDstFloat: true},
+	SQRTPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x51}},
 	// https://www.felixcloutier.com/x86/roundps
-	ROUNDPS: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x08}, requireSrcFloat: true, requireDstFloat: true, needArg: true},
+	ROUNDPS: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x08}, needArg: true},
 	// https://www.felixcloutier.com/x86/roundpd
-	ROUNDPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x09}, requireSrcFloat: true, requireDstFloat: true, needArg: true},
+	ROUNDPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x09}, needArg: true},
 	// https://www.felixcloutier.com/x86/palignr
-	PALIGNR: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x0f}, requireSrcFloat: true, requireDstFloat: true, needArg: true},
+	PALIGNR: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x3a, 0x0f}, needArg: true},
 	// https://www.felixcloutier.com/x86/punpcklbw:punpcklwd:punpckldq:punpcklqdq
-	PUNPCKLWD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x61}, requireSrcFloat: true, requireDstFloat: true},
+	PUNPCKLWD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x61}},
 	// https://www.felixcloutier.com/x86/punpckhbw:punpckhwd:punpckhdq:punpckhqdq
-	PUNPCKHWD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x69}, requireSrcFloat: true, requireDstFloat: true},
+	PUNPCKHWD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x69}},
 	// https://www.felixcloutier.com/x86/pmulhuw
-	PMULHUW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe4}, requireSrcFloat: true, requireDstFloat: true},
+	PMULHUW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe4}},
 	// https://www.felixcloutier.com/x86/pmuldq
-	PMULDQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x28}, requireSrcFloat: true, requireDstFloat: true},
+	PMULDQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x28}},
 	// https://www.felixcloutier.com/x86/pmulhrsw
-	PMULHRSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x0b}, requireSrcFloat: true, requireDstFloat: true},
+	PMULHRSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x0b}},
 	// https://www.felixcloutier.com/x86/pmovsx
-	PMOVSXBW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x20}, requireSrcFloat: true, requireDstFloat: true},
+	PMOVSXBW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x20}},
 	// https://www.felixcloutier.com/x86/pmovsx
-	PMOVSXWD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x23}, requireSrcFloat: true, requireDstFloat: true},
+	PMOVSXWD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x23}},
 	// https://www.felixcloutier.com/x86/pmovsx
-	PMOVSXDQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x25}, requireSrcFloat: true, requireDstFloat: true},
+	PMOVSXDQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x25}},
 	// https://www.felixcloutier.com/x86/pmovzx
-	PMOVZXBW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x30}, requireSrcFloat: true, requireDstFloat: true},
+	PMOVZXBW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x30}},
 	// https://www.felixcloutier.com/x86/pmovzx
-	PMOVZXWD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x33}, requireSrcFloat: true, requireDstFloat: true},
+	PMOVZXWD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x33}},
 	// https://www.felixcloutier.com/x86/pmovzx
-	PMOVZXDQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x35}, requireSrcFloat: true, requireDstFloat: true},
+	PMOVZXDQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x35}},
 	// https://www.felixcloutier.com/x86/pmulhw
-	PMULHW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe5}, requireSrcFloat: true, requireDstFloat: true},
+	PMULHW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe5}},
 	// https://www.felixcloutier.com/x86/cmpps
-	CMPEQPS: {opcode: []byte{0x0f, 0xc2}, requireSrcFloat: true, requireDstFloat: true, needArg: true},
+	CMPEQPS: {opcode: []byte{0x0f, 0xc2}, needArg: true},
 	// https://www.felixcloutier.com/x86/cmppd
-	CMPEQPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xc2}, requireSrcFloat: true, requireDstFloat: true, needArg: true},
+	CMPEQPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xc2}, needArg: true},
 	// https://www.felixcloutier.com/x86/cvttps2dq
-	CVTTPS2DQ: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x5b}, requireSrcFloat: true, requireDstFloat: true},
+	CVTTPS2DQ: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0x5b}},
 	// https://www.felixcloutier.com/x86/cvtdq2ps
-	CVTDQ2PS: {opcode: []byte{0x0f, 0x5b}, requireSrcFloat: true, requireDstFloat: true},
+	CVTDQ2PS: {opcode: []byte{0x0f, 0x5b}},
 	// https://www.felixcloutier.com/x86/cvtdq2pd
-	CVTDQ2PD: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0xe6}, requireSrcFloat: true, requireDstFloat: true},
+	CVTDQ2PD: {mandatoryPrefix: 0xf3, opcode: []byte{0x0f, 0xe6}},
 	// https://www.felixcloutier.com/x86/cvtpd2ps
-	CVTPD2PS: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x5a}, requireSrcFloat: true, requireDstFloat: true},
+	CVTPD2PS: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x5a}},
 	// https://www.felixcloutier.com/x86/cvtps2pd
-	CVTPS2PD: {opcode: []byte{0x0f, 0x5a}, requireSrcFloat: true, requireDstFloat: true},
+	CVTPS2PD: {opcode: []byte{0x0f, 0x5a}},
 	// https://www.felixcloutier.com/x86/movupd
-	MOVUPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x10}, requireSrcFloat: true, requireDstFloat: true},
+	MOVUPD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x10}},
 	// https://www.felixcloutier.com/x86/shufps
-	SHUFPS: {opcode: []byte{0x0f, 0xc6}, requireSrcFloat: true, requireDstFloat: true, needArg: true},
+	SHUFPS: {opcode: []byte{0x0f, 0xc6}, needArg: true},
 	// https://www.felixcloutier.com/x86/pmaddwd
-	PMADDWD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xf5}, requireSrcFloat: true, requireDstFloat: true},
+	PMADDWD: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xf5}},
 	// https://www.felixcloutier.com/x86/unpcklps
-	UNPCKLPS: {opcode: []byte{0x0f, 0x14}, requireSrcFloat: true, requireDstFloat: true},
+	UNPCKLPS: {opcode: []byte{0x0f, 0x14}},
 	// https://www.felixcloutier.com/x86/packuswb
-	PACKUSWB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x67}, requireSrcFloat: true, requireDstFloat: true},
+	PACKUSWB: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x67}},
 	// https://www.felixcloutier.com/x86/packsswb:packssdw
-	PACKSSDW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x6b}, requireSrcFloat: true, requireDstFloat: true},
+	PACKSSDW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x6b}},
 	// https://www.felixcloutier.com/x86/packusdw
-	PACKUSDW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x2b}, requireSrcFloat: true, requireDstFloat: true},
+	PACKUSDW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x2b}},
 	// https://www.felixcloutier.com/x86/pmaddubsw
-	PMADDUBSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x04}, requireSrcFloat: true, requireDstFloat: true},
+	PMADDUBSW: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0x38, 0x04}},
 	// https://www.felixcloutier.com/x86/cvttpd2dq
-	CVTTPD2DQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe6}, requireDstFloat: true, requireSrcFloat: true},
+	CVTTPD2DQ: {mandatoryPrefix: 0x66, opcode: []byte{0x0f, 0xe6}},
 }
 
-var RegisterToRegisterShiftOpcode = map[asm.Instruction]struct {
+var registerToRegisterShiftOpcode = [instructionEnd]*struct {
 	opcode         []byte
-	rPrefix        RexPrefix
+	rPrefix        rexPrefix
 	modRMExtension byte
 }{
 	// https://www.felixcloutier.com/x86/rcl:rcr:rol:ror
 	ROLL: {opcode: []byte{0xd3}},
-	ROLQ: {opcode: []byte{0xd3}, rPrefix: RexPrefixW},
+	ROLQ: {opcode: []byte{0xd3}, rPrefix: rexPrefixW},
 	RORL: {opcode: []byte{0xd3}, modRMExtension: 0b00_001_000},
-	RORQ: {opcode: []byte{0xd3}, modRMExtension: 0b00_001_000, rPrefix: RexPrefixW},
+	RORQ: {opcode: []byte{0xd3}, modRMExtension: 0b00_001_000, rPrefix: rexPrefixW},
 	// https://www.felixcloutier.com/x86/sal:sar:shl:shr
 	SARL: {opcode: []byte{0xd3}, modRMExtension: 0b00_111_000},
-	SARQ: {opcode: []byte{0xd3}, modRMExtension: 0b00_111_000, rPrefix: RexPrefixW},
+	SARQ: {opcode: []byte{0xd3}, modRMExtension: 0b00_111_000, rPrefix: rexPrefixW},
 	SHLL: {opcode: []byte{0xd3}, modRMExtension: 0b00_100_000},
-	SHLQ: {opcode: []byte{0xd3}, modRMExtension: 0b00_100_000, rPrefix: RexPrefixW},
+	SHLQ: {opcode: []byte{0xd3}, modRMExtension: 0b00_100_000, rPrefix: rexPrefixW},
 	SHRL: {opcode: []byte{0xd3}, modRMExtension: 0b00_101_000},
-	SHRQ: {opcode: []byte{0xd3}, modRMExtension: 0b00_101_000, rPrefix: RexPrefixW},
+	SHRQ: {opcode: []byte{0xd3}, modRMExtension: 0b00_101_000, rPrefix: rexPrefixW},
 }
 
-type registerToRegisterMOVOpcode struct {
-	opcode          []byte
-	mandatoryPrefix byte
-	srcOnModRMReg   bool
-	rPrefix         RexPrefix
-}
-
-var registerToRegisterMOVOpcodes = map[asm.Instruction]struct {
-	i2i, i2f, f2i, f2f registerToRegisterMOVOpcode
-}{
-	MOVL: {
-		// https://www.felixcloutier.com/x86/mov
-		i2i: registerToRegisterMOVOpcode{opcode: []byte{0x89}, srcOnModRMReg: true},
-		// https://www.felixcloutier.com/x86/movd:movq
-		i2f: registerToRegisterMOVOpcode{opcode: []byte{0x0f, 0x6e}, mandatoryPrefix: 0x66, srcOnModRMReg: false},
-		f2i: registerToRegisterMOVOpcode{opcode: []byte{0x0f, 0x7e}, mandatoryPrefix: 0x66, srcOnModRMReg: true},
-	},
-	MOVQ: {
-		// https://www.felixcloutier.com/x86/mov
-		i2i: registerToRegisterMOVOpcode{opcode: []byte{0x89}, srcOnModRMReg: true, rPrefix: RexPrefixW},
-		// https://www.felixcloutier.com/x86/movd:movq
-		i2f: registerToRegisterMOVOpcode{opcode: []byte{0x0f, 0x6e}, mandatoryPrefix: 0x66, srcOnModRMReg: false, rPrefix: RexPrefixW},
-		f2i: registerToRegisterMOVOpcode{opcode: []byte{0x0f, 0x7e}, mandatoryPrefix: 0x66, srcOnModRMReg: true, rPrefix: RexPrefixW},
-		// https://www.felixcloutier.com/x86/movq
-		f2f: registerToRegisterMOVOpcode{opcode: []byte{0x0f, 0x7e}, mandatoryPrefix: 0xf3},
-	},
-}
-
-func (a *AssemblerImpl) encodeRegisterToRegister(n *nodeImpl) (err error) {
+func (a *AssemblerImpl) encodeRegisterToRegister(buf asm.Buffer, n *nodeImpl) (err error) {
 	// Alias for readability
 	inst := n.instruction
+	base := buf.Len()
+	code := buf.Append(8)[:0]
 
-	if op, ok := registerToRegisterMOVOpcodes[inst]; ok {
-		var opcode registerToRegisterMOVOpcode
-		srcIsFloat, dstIsFloat := IsVectorRegister(n.srcReg), IsVectorRegister(n.dstReg)
-		if srcIsFloat && dstIsFloat {
-			if inst == MOVL {
-				return errors.New("MOVL for float to float is undefined")
-			}
-			opcode = op.f2f
+	switch inst {
+	case MOVL, MOVQ:
+		var (
+			opcode          []byte
+			mandatoryPrefix byte
+			srcOnModRMReg   bool
+			rPrefix         rexPrefix
+		)
+		srcIsFloat, dstIsFloat := isVectorRegister(n.srcReg), isVectorRegister(n.dstReg)
+		f2f := srcIsFloat && dstIsFloat
+		if f2f {
+			// https://www.felixcloutier.com/x86/movq
+			opcode, mandatoryPrefix = []byte{0x0f, 0x7e}, 0xf3
 		} else if srcIsFloat && !dstIsFloat {
-			opcode = op.f2i
+			// https://www.felixcloutier.com/x86/movd:movq
+			opcode, mandatoryPrefix, srcOnModRMReg = []byte{0x0f, 0x7e}, 0x66, true
 		} else if !srcIsFloat && dstIsFloat {
-			opcode = op.i2f
+			// https://www.felixcloutier.com/x86/movd:movq
+			opcode, mandatoryPrefix, srcOnModRMReg = []byte{0x0f, 0x6e}, 0x66, false
 		} else {
-			opcode = op.i2i
+			// https://www.felixcloutier.com/x86/mov
+			opcode, srcOnModRMReg = []byte{0x89}, true
 		}
 
-		rexPrefix, modRM, err := n.GetRegisterToRegisterModRM(opcode.srcOnModRMReg)
+		rexPrefix, modRM, err := n.getRegisterToRegisterModRM(srcOnModRMReg)
 		if err != nil {
 			return err
 		}
-		rexPrefix |= opcode.rPrefix
+		rexPrefix |= rPrefix
 
-		if opcode.mandatoryPrefix != 0 {
-			a.buf.WriteByte(opcode.mandatoryPrefix)
+		if inst == MOVQ && !f2f {
+			rexPrefix |= rexPrefixW
 		}
-
-		if rexPrefix != RexPrefixNone {
-			a.buf.WriteByte(rexPrefix)
+		if mandatoryPrefix != 0 {
+			code = append(code, mandatoryPrefix)
 		}
-		a.buf.Write(opcode.opcode)
-
-		a.buf.WriteByte(modRM)
+		if rexPrefix != rexPrefixNone {
+			code = append(code, rexPrefix)
+		}
+		code = append(code, opcode...)
+		code = append(code, modRM)
+		buf.Truncate(base + len(code))
 		return nil
-	} else if op, ok := registerToRegisterOpcode[inst]; ok {
-		srcIsFloat, dstIsFloat := IsVectorRegister(n.srcReg), IsVectorRegister(n.dstReg)
-		if op.requireSrcFloat && !srcIsFloat {
-			return fmt.Errorf("%s require float src register but got %s", InstructionName(inst), RegisterName(n.srcReg))
-		} else if op.requireDstFloat && !dstIsFloat {
-			return fmt.Errorf("%s require float dst register but got %s", InstructionName(inst), RegisterName(n.dstReg))
-		} else if !op.requireSrcFloat && srcIsFloat {
-			return fmt.Errorf("%s require integer src register but got %s", InstructionName(inst), RegisterName(n.srcReg))
-		} else if !op.requireDstFloat && dstIsFloat {
-			return fmt.Errorf("%s require integer dst register but got %s", InstructionName(inst), RegisterName(n.dstReg))
-		}
+	}
 
-		rexPrefix, modRM, err := n.GetRegisterToRegisterModRM(op.srcOnModRMReg)
+	if op := registerToRegisterOpcode[inst]; op != nil {
+		rexPrefix, modRM, err := n.getRegisterToRegisterModRM(op.srcOnModRMReg)
 		if err != nil {
 			return err
 		}
@@ -1613,55 +1722,46 @@ func (a *AssemblerImpl) encodeRegisterToRegister(n *nodeImpl) (err error) {
 
 		if op.isSrc8bit && RegSP <= n.srcReg && n.srcReg <= RegDI {
 			// If an operand register is 8-bit length of SP, BP, DI, or SI register, we need to have the default prefix.
-			// https: //wiki.osdev.org/X86-64_Instruction_Encoding#Registers
-			rexPrefix |= RexPrefixDefault
+			// https://wiki.osdev.org/X86-64_Instruction_Encoding#Registers
+			rexPrefix |= rexPrefixDefault
 		}
 
 		if op.mandatoryPrefix != 0 {
-			a.buf.WriteByte(op.mandatoryPrefix)
+			code = append(code, op.mandatoryPrefix)
 		}
 
-		if rexPrefix != RexPrefixNone {
-			a.buf.WriteByte(rexPrefix)
+		if rexPrefix != rexPrefixNone {
+			code = append(code, rexPrefix)
 		}
-		a.buf.Write(op.opcode)
-
-		a.buf.WriteByte(modRM)
+		code = append(code, op.opcode...)
+		code = append(code, modRM)
 
 		if op.needArg {
-			a.WriteConst(int64(n.arg), 8)
+			code = append(code, n.arg)
 		}
-		return nil
-	} else if op, ok := RegisterToRegisterShiftOpcode[inst]; ok {
-		if n.srcReg != RegCX {
-			return fmt.Errorf("shifting instruction %s require CX register as src but got %s", InstructionName(inst), RegisterName(n.srcReg))
-		} else if IsVectorRegister(n.dstReg) {
-			return fmt.Errorf("shifting instruction %s require integer register as dst but got %s", InstructionName(inst), RegisterName(n.srcReg))
-		}
-
-		reg3bits, rexPrefix, err := register3bits(n.dstReg, registerSpecifierPositionModRMFieldRM)
-		if err != nil {
-			return err
-		}
-
+	} else if op := registerToRegisterShiftOpcode[inst]; op != nil {
+		reg3bits, rexPrefix := register3bits(n.dstReg, registerSpecifierPositionModRMFieldRM)
 		rexPrefix |= op.rPrefix
-		if rexPrefix != RexPrefixNone {
-			a.buf.WriteByte(rexPrefix)
+		if rexPrefix != rexPrefixNone {
+			code = append(code, rexPrefix)
 		}
 
 		// https://wiki.osdev.org/X86-64_Instruction_Encoding#ModR.2FM
 		modRM := 0b11_000_000 |
 			(op.modRMExtension) |
 			reg3bits
-		a.buf.Write(append(op.opcode, modRM))
-		return nil
+		code = append(code, op.opcode...)
+		code = append(code, modRM)
 	} else {
 		return errorEncodingUnsupported(n)
 	}
+
+	buf.Truncate(base + len(code))
+	return nil
 }
 
-func (a *AssemblerImpl) encodeRegisterToMemory(n *nodeImpl) (err error) {
-	rexPrefix, modRM, sbi, displacementWidth, err := n.GetMemoryLocation()
+func (a *AssemblerImpl) encodeRegisterToMemory(buf asm.Buffer, n *nodeImpl) (err error) {
+	rexPrefix, modRM, sbi, sbiExist, displacementWidth, err := n.getMemoryLocation(true)
 	if err != nil {
 		return err
 	}
@@ -1676,17 +1776,17 @@ func (a *AssemblerImpl) encodeRegisterToMemory(n *nodeImpl) (err error) {
 		opcode = []byte{0x3b}
 	case CMPQ:
 		// https://www.felixcloutier.com/x86/cmp
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		opcode = []byte{0x3b}
 	case MOVB:
 		// https://www.felixcloutier.com/x86/mov
 		opcode = []byte{0x88}
 		// 1 byte register operands need default prefix for the following registers.
 		if n.srcReg >= RegSP && n.srcReg <= RegDI {
-			rexPrefix |= RexPrefixDefault
+			rexPrefix |= rexPrefixDefault
 		}
 	case MOVL:
-		if IsVectorRegister(n.srcReg) {
+		if isVectorRegister(n.srcReg) {
 			// https://www.felixcloutier.com/x86/movd:movq
 			opcode = []byte{0x0f, 0x7e}
 			mandatoryPrefix = 0x66
@@ -1695,13 +1795,13 @@ func (a *AssemblerImpl) encodeRegisterToMemory(n *nodeImpl) (err error) {
 			opcode = []byte{0x89}
 		}
 	case MOVQ:
-		if IsVectorRegister(n.srcReg) {
+		if isVectorRegister(n.srcReg) {
 			// https://www.felixcloutier.com/x86/movq
 			opcode = []byte{0x0f, 0xd6}
 			mandatoryPrefix = 0x66
 		} else {
 			// https://www.felixcloutier.com/x86/mov
-			rexPrefix |= RexPrefixW
+			rexPrefix |= rexPrefixW
 			opcode = []byte{0x89}
 		}
 	case MOVW:
@@ -1717,7 +1817,7 @@ func (a *AssemblerImpl) encodeRegisterToMemory(n *nodeImpl) (err error) {
 		isShiftInstruction = true
 	case SARQ:
 		// https://www.felixcloutier.com/x86/sal:sar:shl:shr
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		modRM |= 0b00_111_000
 		opcode = []byte{0xd3}
 		isShiftInstruction = true
@@ -1728,7 +1828,7 @@ func (a *AssemblerImpl) encodeRegisterToMemory(n *nodeImpl) (err error) {
 		isShiftInstruction = true
 	case SHLQ:
 		// https://www.felixcloutier.com/x86/sal:sar:shl:shr
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		modRM |= 0b00_100_000
 		opcode = []byte{0xd3}
 		isShiftInstruction = true
@@ -1739,7 +1839,7 @@ func (a *AssemblerImpl) encodeRegisterToMemory(n *nodeImpl) (err error) {
 		isShiftInstruction = true
 	case SHRQ:
 		// https://www.felixcloutier.com/x86/sal:sar:shl:shr
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		modRM |= 0b00_101_000
 		opcode = []byte{0xd3}
 		isShiftInstruction = true
@@ -1749,7 +1849,7 @@ func (a *AssemblerImpl) encodeRegisterToMemory(n *nodeImpl) (err error) {
 		isShiftInstruction = true
 	case ROLQ:
 		// https://www.felixcloutier.com/x86/rcl:rcr:rol:ror
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		opcode = []byte{0xd3}
 		isShiftInstruction = true
 	case RORL:
@@ -1759,7 +1859,7 @@ func (a *AssemblerImpl) encodeRegisterToMemory(n *nodeImpl) (err error) {
 		isShiftInstruction = true
 	case RORQ:
 		// https://www.felixcloutier.com/x86/rcl:rcr:rol:ror
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		opcode = []byte{0xd3}
 		modRM |= 0b00_001_000
 		isShiftInstruction = true
@@ -1781,7 +1881,7 @@ func (a *AssemblerImpl) encodeRegisterToMemory(n *nodeImpl) (err error) {
 		needArg = true
 	case PEXTRQ: // https://www.felixcloutier.com/x86/pextrb:pextrd:pextrq
 		mandatoryPrefix = 0x66
-		rexPrefix |= RexPrefixW // REX.W
+		rexPrefix |= rexPrefixW // REX.W
 		opcode = []byte{0x0f, 0x3a, 0x16}
 		needArg = true
 	default:
@@ -1789,10 +1889,7 @@ func (a *AssemblerImpl) encodeRegisterToMemory(n *nodeImpl) (err error) {
 	}
 
 	if !isShiftInstruction {
-		srcReg3Bits, prefix, err := register3bits(n.srcReg, registerSpecifierPositionModRMFieldReg)
-		if err != nil {
-			return err
-		}
+		srcReg3Bits, prefix := register3bits(n.srcReg, registerSpecifierPositionModRMFieldReg)
 
 		rexPrefix |= prefix
 		modRM |= srcReg3Bits << 3 // Place the source register on ModRM:reg
@@ -1802,60 +1899,64 @@ func (a *AssemblerImpl) encodeRegisterToMemory(n *nodeImpl) (err error) {
 		}
 	}
 
+	base := buf.Len()
+	code := buf.Append(16)[:0]
+
 	if mandatoryPrefix != 0 {
 		// https://wiki.osdev.org/X86-64_Instruction_Encoding#Mandatory_prefix
-		a.buf.WriteByte(mandatoryPrefix)
+		code = append(code, mandatoryPrefix)
 	}
 
-	if rexPrefix != RexPrefixNone {
-		a.buf.WriteByte(rexPrefix)
+	if rexPrefix != rexPrefixNone {
+		code = append(code, rexPrefix)
 	}
 
-	a.buf.Write(opcode)
+	code = append(code, opcode...)
+	code = append(code, modRM)
 
-	a.buf.WriteByte(modRM)
-
-	if sbi != nil {
-		a.buf.WriteByte(*sbi)
+	if sbiExist {
+		code = append(code, sbi)
 	}
 
 	if displacementWidth != 0 {
-		a.WriteConst(n.dstConst, displacementWidth)
+		code = appendConst(code, n.dstConst, displacementWidth)
 	}
 
 	if needArg {
-		a.WriteConst(int64(n.arg), 8)
+		code = append(code, n.arg)
 	}
+
+	buf.Truncate(base + len(code))
 	return
 }
 
-func (a *AssemblerImpl) encodeRegisterToConst(n *nodeImpl) (err error) {
-	regBits, prefix, err := register3bits(n.srcReg, registerSpecifierPositionModRMFieldRM)
-	if err != nil {
-		return err
-	}
+func (a *AssemblerImpl) encodeRegisterToConst(buf asm.Buffer, n *nodeImpl) (err error) {
+	regBits, prefix := register3bits(n.srcReg, registerSpecifierPositionModRMFieldRM)
+
+	base := buf.Len()
+	code := buf.Append(10)[:0]
 
 	switch n.instruction {
 	case CMPL, CMPQ:
 		if n.instruction == CMPQ {
-			prefix |= RexPrefixW
+			prefix |= rexPrefixW
 		}
-		if prefix != RexPrefixNone {
-			a.buf.WriteByte(prefix)
+		if prefix != rexPrefixNone {
+			code = append(code, prefix)
 		}
 		is8bitConst := fitInSigned8bit(n.dstConst)
 		// https://www.felixcloutier.com/x86/cmp
 		if n.srcReg == RegAX && !is8bitConst {
-			a.buf.Write([]byte{0x3d})
+			code = append(code, 0x3d)
 		} else {
 			// https://wiki.osdev.org/X86-64_Instruction_Encoding#ModR.2FM
 			modRM := 0b11_000_000 | // Specifying that opeand is register.
 				0b00_111_000 | // CMP with immediate needs "/7" extension.
 				regBits
 			if is8bitConst {
-				a.buf.Write([]byte{0x83, modRM})
+				code = append(code, 0x83, modRM)
 			} else {
-				a.buf.Write([]byte{0x81, modRM})
+				code = append(code, 0x81, modRM)
 			}
 		}
 	default:
@@ -1863,10 +1964,12 @@ func (a *AssemblerImpl) encodeRegisterToConst(n *nodeImpl) (err error) {
 	}
 
 	if fitInSigned8bit(n.dstConst) {
-		a.WriteConst(n.dstConst, 8)
+		code = append(code, byte(n.dstConst))
 	} else {
-		a.WriteConst(n.dstConst, 32)
+		code = appendUint32(code, uint32(n.dstConst))
 	}
+
+	buf.Truncate(base + len(code))
 	return
 }
 
@@ -1893,66 +1996,63 @@ func (a *AssemblerImpl) finalizeReadInstructionAddressNode(code []byte, n *nodeI
 	return nil
 }
 
-func (a *AssemblerImpl) encodeReadInstructionAddress(n *nodeImpl) error {
-	dstReg3Bits, rexPrefix, err := register3bits(n.dstReg, registerSpecifierPositionModRMFieldReg)
-	if err != nil {
-		return err
-	}
+func (a *AssemblerImpl) encodeReadInstructionAddress(buf asm.Buffer, n *nodeImpl) error {
+	dstReg3Bits, rexPrefix := register3bits(n.dstReg, registerSpecifierPositionModRMFieldReg)
 
 	a.readInstructionAddressNodes = append(a.readInstructionAddressNodes, n)
 
 	// https://www.felixcloutier.com/x86/lea
 	opcode := byte(0x8d)
-	rexPrefix |= RexPrefixW
+	rexPrefix |= rexPrefixW
 
 	// https://wiki.osdev.org/X86-64_Instruction_Encoding#32.2F64-bit_addressing
 	modRM := 0b00_000_101 | // Indicate "LEAQ [RIP + 32bit displacement], dstReg" encoding.
 		(dstReg3Bits << 3) // Place the dstReg on ModRM:reg.
 
-	a.buf.Write([]byte{rexPrefix, opcode, modRM})
-	a.WriteConst(int64(0), 32) // Preserve
+	code := buf.Append(7)
+	code[0] = rexPrefix
+	code[1] = opcode
+	code[2] = modRM
+	binary.LittleEndian.PutUint32(code[3:], 0) // Preserve
 	return nil
 }
 
-func (a *AssemblerImpl) encodeMemoryToRegister(n *nodeImpl) (err error) {
+func (a *AssemblerImpl) encodeMemoryToRegister(buf asm.Buffer, n *nodeImpl) (err error) {
 	if n.instruction == LEAQ && n.readInstructionAddressBeforeTargetInstruction != NONE {
-		return a.encodeReadInstructionAddress(n)
+		return a.encodeReadInstructionAddress(buf, n)
 	}
 
-	rexPrefix, modRM, sbi, displacementWidth, err := n.GetMemoryLocation()
+	rexPrefix, modRM, sbi, sbiExist, displacementWidth, err := n.getMemoryLocation(false)
 	if err != nil {
 		return err
 	}
 
-	dstReg3Bits, prefix, err := register3bits(n.dstReg, registerSpecifierPositionModRMFieldReg)
-	if err != nil {
-		return err
-	}
-
+	dstReg3Bits, prefix := register3bits(n.dstReg, registerSpecifierPositionModRMFieldReg)
 	rexPrefix |= prefix
 	modRM |= dstReg3Bits << 3 // Place the destination register on ModRM:reg
 
 	var mandatoryPrefix byte
 	var opcode []byte
 	var needArg bool
+
 	switch n.instruction {
 	case ADDL:
 		// https://www.felixcloutier.com/x86/add
 		opcode = []byte{0x03}
 	case ADDQ:
 		// https://www.felixcloutier.com/x86/add
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		opcode = []byte{0x03}
 	case CMPL:
 		// https://www.felixcloutier.com/x86/cmp
 		opcode = []byte{0x39}
 	case CMPQ:
 		// https://www.felixcloutier.com/x86/cmp
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		opcode = []byte{0x39}
 	case LEAQ:
 		// https://www.felixcloutier.com/x86/lea
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		opcode = []byte{0x8d}
 	case MOVBLSX:
 		// https://www.felixcloutier.com/x86/movsx:movsxd
@@ -1962,15 +2062,15 @@ func (a *AssemblerImpl) encodeMemoryToRegister(n *nodeImpl) (err error) {
 		opcode = []byte{0x0f, 0xb6}
 	case MOVBQSX:
 		// https://www.felixcloutier.com/x86/movsx:movsxd
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		opcode = []byte{0x0f, 0xbe}
 	case MOVBQZX:
 		// https://www.felixcloutier.com/x86/movzx
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		opcode = []byte{0x0f, 0xb6}
 	case MOVLQSX:
 		// https://www.felixcloutier.com/x86/movsx:movsxd
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		opcode = []byte{0x63}
 	case MOVLQZX:
 		// https://www.felixcloutier.com/x86/mov
@@ -1981,7 +2081,7 @@ func (a *AssemblerImpl) encodeMemoryToRegister(n *nodeImpl) (err error) {
 		// https://www.felixcloutier.com/x86/mov
 		// Note: MOVLQZX means zero extending 32bit reg to 64-bit reg and
 		// that is semantically equivalent to MOV 32bit to 32bit.
-		if IsVectorRegister(n.dstReg) {
+		if isVectorRegister(n.dstReg) {
 			// https://www.felixcloutier.com/x86/movd:movq
 			opcode = []byte{0x0f, 0x6e}
 			mandatoryPrefix = 0x66
@@ -1990,13 +2090,13 @@ func (a *AssemblerImpl) encodeMemoryToRegister(n *nodeImpl) (err error) {
 			opcode = []byte{0x8B}
 		}
 	case MOVQ:
-		if IsVectorRegister(n.dstReg) {
+		if isVectorRegister(n.dstReg) {
 			// https://www.felixcloutier.com/x86/movq
 			opcode = []byte{0x0f, 0x7e}
 			mandatoryPrefix = 0xf3
 		} else {
 			// https://www.felixcloutier.com/x86/mov
-			rexPrefix |= RexPrefixW
+			rexPrefix |= rexPrefixW
 			opcode = []byte{0x8B}
 		}
 	case MOVWLSX:
@@ -2007,15 +2107,15 @@ func (a *AssemblerImpl) encodeMemoryToRegister(n *nodeImpl) (err error) {
 		opcode = []byte{0x0f, 0xb7}
 	case MOVWQSX:
 		// https://www.felixcloutier.com/x86/movsx:movsxd
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		opcode = []byte{0x0f, 0xbf}
 	case MOVWQZX:
 		// https://www.felixcloutier.com/x86/movzx
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		opcode = []byte{0x0f, 0xb7}
 	case SUBQ:
 		// https://www.felixcloutier.com/x86/sub
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		opcode = []byte{0x2b}
 	case SUBSD:
 		// https://www.felixcloutier.com/x86/subsd
@@ -2067,7 +2167,7 @@ func (a *AssemblerImpl) encodeMemoryToRegister(n *nodeImpl) (err error) {
 		opcode = []byte{0x0f, 0x3a, 0x22}
 		needArg = true
 	case PINSRQ: // https://www.felixcloutier.com/x86/pinsrb:pinsrd:pinsrq
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		mandatoryPrefix = 0x66
 		opcode = []byte{0x0f, 0x3a, 0x22}
 		needArg = true
@@ -2075,40 +2175,41 @@ func (a *AssemblerImpl) encodeMemoryToRegister(n *nodeImpl) (err error) {
 		return errorEncodingUnsupported(n)
 	}
 
+	base := buf.Len()
+	code := buf.Append(16)[:0]
+
 	if mandatoryPrefix != 0 {
 		// https://wiki.osdev.org/X86-64_Instruction_Encoding#Mandatory_prefix
-		a.buf.WriteByte(mandatoryPrefix)
+		code = append(code, mandatoryPrefix)
 	}
 
-	if rexPrefix != RexPrefixNone {
-		a.buf.WriteByte(rexPrefix)
+	if rexPrefix != rexPrefixNone {
+		code = append(code, rexPrefix)
 	}
 
-	a.buf.Write(opcode)
+	code = append(code, opcode...)
+	code = append(code, modRM)
 
-	a.buf.WriteByte(modRM)
-
-	if sbi != nil {
-		a.buf.WriteByte(*sbi)
+	if sbiExist {
+		code = append(code, sbi)
 	}
 
 	if displacementWidth != 0 {
-		a.WriteConst(n.srcConst, displacementWidth)
+		code = appendConst(code, n.srcConst, displacementWidth)
 	}
 
 	if needArg {
-		a.WriteConst(int64(n.arg), 8)
+		code = append(code, n.arg)
 	}
+
+	buf.Truncate(base + len(code))
 	return
 }
 
-func (a *AssemblerImpl) encodeConstToRegister(n *nodeImpl) (err error) {
-	regBits, rexPrefix, err := register3bits(n.dstReg, registerSpecifierPositionModRMFieldRM)
-	if err != nil {
-		return err
-	}
+func (a *AssemblerImpl) encodeConstToRegister(buf asm.Buffer, n *nodeImpl) (err error) {
+	regBits, rexPrefix := register3bits(n.dstReg, registerSpecifierPositionModRMFieldRM)
 
-	isFloatReg := IsVectorRegister(n.dstReg)
+	isFloatReg := isVectorRegister(n.dstReg)
 	switch n.instruction {
 	case PSLLD, PSLLQ, PSRLD, PSRLQ, PSRAW, PSRLW, PSLLW, PSRAD:
 		if !isFloatReg {
@@ -2120,7 +2221,7 @@ func (a *AssemblerImpl) encodeConstToRegister(n *nodeImpl) (err error) {
 		}
 	}
 
-	if n.instruction != MOVQ && !FitIn32bit(n.srcConst) {
+	if n.instruction != MOVQ && !fitIn32bit(n.srcConst) {
 		return fmt.Errorf("constant must fit in 32-bit integer for %s, but got %d", InstructionName(n.instruction), n.srcConst)
 	} else if (n.instruction == SHLQ || n.instruction == SHRQ) && (n.srcConst < 0 || n.srcConst > math.MaxUint8) {
 		return fmt.Errorf("constant must fit in positive 8-bit integer for %s, but got %d", InstructionName(n.instruction), n.srcConst)
@@ -2131,132 +2232,129 @@ func (a *AssemblerImpl) encodeConstToRegister(n *nodeImpl) (err error) {
 		return fmt.Errorf("constant must fit in signed 8-bit integer for %s, but got %d", InstructionName(n.instruction), n.srcConst)
 	}
 
+	base := buf.Len()
+	code := buf.Append(32)[:0]
+
 	isSigned8bitConst := fitInSigned8bit(n.srcConst)
 	switch inst := n.instruction; inst {
 	case ADDQ:
 		// https://www.felixcloutier.com/x86/add
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		if n.dstReg == RegAX && !isSigned8bitConst {
-			a.buf.Write([]byte{rexPrefix, 0x05})
+			code = append(code, rexPrefix, 0x05)
 		} else {
 			modRM := 0b11_000_000 | // Specifying that opeand is register.
 				regBits
 			if isSigned8bitConst {
-				a.buf.Write([]byte{rexPrefix, 0x83, modRM})
+				code = append(code, rexPrefix, 0x83, modRM)
 			} else {
-				a.buf.Write([]byte{rexPrefix, 0x81, modRM})
+				code = append(code, rexPrefix, 0x81, modRM)
 			}
 		}
 		if isSigned8bitConst {
-			a.WriteConst(n.srcConst, 8)
+			code = append(code, byte(n.srcConst))
 		} else {
-			a.WriteConst(n.srcConst, 32)
+			code = appendUint32(code, uint32(n.srcConst))
 		}
 	case ANDQ:
 		// https://www.felixcloutier.com/x86/and
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		if n.dstReg == RegAX && !isSigned8bitConst {
-			a.buf.Write([]byte{rexPrefix, 0x25})
+			code = append(code, rexPrefix, 0x25)
 		} else {
 			modRM := 0b11_000_000 | // Specifying that opeand is register.
 				0b00_100_000 | // AND with immediate needs "/4" extension.
 				regBits
 			if isSigned8bitConst {
-				a.buf.Write([]byte{rexPrefix, 0x83, modRM})
+				code = append(code, rexPrefix, 0x83, modRM)
 			} else {
-				a.buf.Write([]byte{rexPrefix, 0x81, modRM})
+				code = append(code, rexPrefix, 0x81, modRM)
 			}
 		}
 		if fitInSigned8bit(n.srcConst) {
-			a.WriteConst(n.srcConst, 8)
+			code = append(code, byte(n.srcConst))
 		} else {
-			a.WriteConst(n.srcConst, 32)
+			code = appendUint32(code, uint32(n.srcConst))
 		}
 	case TESTQ:
 		// https://www.felixcloutier.com/x86/test
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		if n.dstReg == RegAX && !isSigned8bitConst {
-			a.buf.Write([]byte{rexPrefix, 0xa9})
+			code = append(code, rexPrefix, 0xa9)
 		} else {
 			modRM := 0b11_000_000 | // Specifying that operand is register
 				regBits
-			a.buf.Write([]byte{rexPrefix, 0xf7, modRM})
+			code = append(code, rexPrefix, 0xf7, modRM)
 		}
-		a.WriteConst(n.srcConst, 32)
+		code = appendUint32(code, uint32(n.srcConst))
 	case MOVL:
 		// https://www.felixcloutier.com/x86/mov
-		if rexPrefix != RexPrefixNone {
-			a.buf.WriteByte(rexPrefix)
+		if rexPrefix != rexPrefixNone {
+			code = append(code, rexPrefix)
 		}
-		a.buf.Write([]byte{0xb8 | regBits})
-		a.WriteConst(n.srcConst, 32)
+		code = append(code, 0xb8|regBits)
+		code = appendUint32(code, uint32(n.srcConst))
 	case MOVQ:
 		// https://www.felixcloutier.com/x86/mov
-		if FitIn32bit(n.srcConst) {
+		if fitIn32bit(n.srcConst) {
 			if n.srcConst > math.MaxInt32 {
-				if rexPrefix != RexPrefixNone {
-					a.buf.WriteByte(rexPrefix)
+				if rexPrefix != rexPrefixNone {
+					code = append(code, rexPrefix)
 				}
-				a.buf.Write([]byte{0xb8 | regBits})
+				code = append(code, 0xb8|regBits)
 			} else {
-				rexPrefix |= RexPrefixW
+				rexPrefix |= rexPrefixW
 				modRM := 0b11_000_000 | // Specifying that opeand is register.
 					regBits
-				a.buf.Write([]byte{rexPrefix, 0xc7, modRM})
+				code = append(code, rexPrefix, 0xc7, modRM)
 			}
-			a.WriteConst(n.srcConst, 32)
+			code = appendUint32(code, uint32(n.srcConst))
 		} else {
-			rexPrefix |= RexPrefixW
-			a.buf.Write([]byte{rexPrefix, 0xb8 | regBits})
-			a.WriteConst(n.srcConst, 64)
+			rexPrefix |= rexPrefixW
+			code = append(code, rexPrefix, 0xb8|regBits)
+			code = appendUint64(code, uint64(n.srcConst))
 		}
 	case SHLQ:
 		// https://www.felixcloutier.com/x86/sal:sar:shl:shr
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		modRM := 0b11_000_000 | // Specifying that opeand is register.
 			0b00_100_000 | // SHL with immediate needs "/4" extension.
 			regBits
 		if n.srcConst == 1 {
-			a.buf.Write([]byte{rexPrefix, 0xd1, modRM})
+			code = append(code, rexPrefix, 0xd1, modRM)
 		} else {
-			a.buf.Write([]byte{rexPrefix, 0xc1, modRM})
-			a.WriteConst(n.srcConst, 8)
+			code = append(code, rexPrefix, 0xc1, modRM, byte(n.srcConst))
 		}
 	case SHRQ:
 		// https://www.felixcloutier.com/x86/sal:sar:shl:shr
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		modRM := 0b11_000_000 | // Specifying that opeand is register.
 			0b00_101_000 | // SHR with immediate needs "/5" extension.
 			regBits
 		if n.srcConst == 1 {
-			a.buf.Write([]byte{rexPrefix, 0xd1, modRM})
+			code = append(code, rexPrefix, 0xd1, modRM)
 		} else {
-			a.buf.Write([]byte{rexPrefix, 0xc1, modRM})
-			a.WriteConst(n.srcConst, 8)
+			code = append(code, rexPrefix, 0xc1, modRM, byte(n.srcConst))
 		}
 	case PSLLD:
 		// https://www.felixcloutier.com/x86/psllw:pslld:psllq
 		modRM := 0b11_000_000 | // Specifying that opeand is register.
 			0b00_110_000 | // PSLL with immediate needs "/6" extension.
 			regBits
-		if rexPrefix != RexPrefixNone {
-			a.buf.Write([]byte{0x66, rexPrefix, 0x0f, 0x72, modRM})
-			a.WriteConst(n.srcConst, 8)
+		if rexPrefix != rexPrefixNone {
+			code = append(code, 0x66, rexPrefix, 0x0f, 0x72, modRM, byte(n.srcConst))
 		} else {
-			a.buf.Write([]byte{0x66, 0x0f, 0x72, modRM})
-			a.WriteConst(n.srcConst, 8)
+			code = append(code, 0x66, 0x0f, 0x72, modRM, byte(n.srcConst))
 		}
 	case PSLLQ:
 		// https://www.felixcloutier.com/x86/psllw:pslld:psllq
 		modRM := 0b11_000_000 | // Specifying that opeand is register.
 			0b00_110_000 | // PSLL with immediate needs "/6" extension.
 			regBits
-		if rexPrefix != RexPrefixNone {
-			a.buf.Write([]byte{0x66, rexPrefix, 0x0f, 0x73, modRM})
-			a.WriteConst(n.srcConst, 8)
+		if rexPrefix != rexPrefixNone {
+			code = append(code, 0x66, rexPrefix, 0x0f, 0x73, modRM, byte(n.srcConst))
 		} else {
-			a.buf.Write([]byte{0x66, 0x0f, 0x73, modRM})
-			a.WriteConst(n.srcConst, 8)
+			code = append(code, 0x66, 0x0f, 0x73, modRM, byte(n.srcConst))
 		}
 	case PSRLD:
 		// https://www.felixcloutier.com/x86/psrlw:psrld:psrlq
@@ -2264,33 +2362,29 @@ func (a *AssemblerImpl) encodeConstToRegister(n *nodeImpl) (err error) {
 		modRM := 0b11_000_000 | // Specifying that operand is register.
 			0b00_010_000 | // PSRL with immediate needs "/2" extension.
 			regBits
-		if rexPrefix != RexPrefixNone {
-			a.buf.Write([]byte{0x66, rexPrefix, 0x0f, 0x72, modRM})
-			a.WriteConst(n.srcConst, 8)
+		if rexPrefix != rexPrefixNone {
+			code = append(code, 0x66, rexPrefix, 0x0f, 0x72, modRM, byte(n.srcConst))
 		} else {
-			a.buf.Write([]byte{0x66, 0x0f, 0x72, modRM})
-			a.WriteConst(n.srcConst, 8)
+			code = append(code, 0x66, 0x0f, 0x72, modRM, byte(n.srcConst))
 		}
 	case PSRLQ:
 		// https://www.felixcloutier.com/x86/psrlw:psrld:psrlq
 		modRM := 0b11_000_000 | // Specifying that operand is register.
 			0b00_010_000 | // PSRL with immediate needs "/2" extension.
 			regBits
-		if rexPrefix != RexPrefixNone {
-			a.buf.Write([]byte{0x66, rexPrefix, 0x0f, 0x73, modRM})
-			a.WriteConst(n.srcConst, 8)
+		if rexPrefix != rexPrefixNone {
+			code = append(code, 0x66, rexPrefix, 0x0f, 0x73, modRM, byte(n.srcConst))
 		} else {
-			a.buf.Write([]byte{0x66, 0x0f, 0x73, modRM})
-			a.WriteConst(n.srcConst, 8)
+			code = append(code, 0x66, 0x0f, 0x73, modRM, byte(n.srcConst))
 		}
 	case PSRAW, PSRAD:
 		// https://www.felixcloutier.com/x86/psraw:psrad:psraq
 		modRM := 0b11_000_000 | // Specifying that operand is register.
 			0b00_100_000 | // PSRAW with immediate needs "/4" extension.
 			regBits
-		a.buf.WriteByte(0x66)
-		if rexPrefix != RexPrefixNone {
-			a.buf.WriteByte(rexPrefix)
+		code = append(code, 0x66)
+		if rexPrefix != rexPrefixNone {
+			code = append(code, rexPrefix)
 		}
 
 		var op byte
@@ -2300,67 +2394,66 @@ func (a *AssemblerImpl) encodeConstToRegister(n *nodeImpl) (err error) {
 			op = 0x71
 		}
 
-		a.buf.Write([]byte{0x0f, op, modRM})
-		a.WriteConst(n.srcConst, 8)
+		code = append(code, 0x0f, op, modRM, byte(n.srcConst))
 	case PSRLW:
 		// https://www.felixcloutier.com/x86/psrlw:psrld:psrlq
 		modRM := 0b11_000_000 | // Specifying that operand is register.
 			0b00_010_000 | // PSRLW with immediate needs "/2" extension.
 			regBits
-		a.buf.WriteByte(0x66)
-		if rexPrefix != RexPrefixNone {
-			a.buf.WriteByte(rexPrefix)
+		code = append(code, 0x66)
+		if rexPrefix != rexPrefixNone {
+			code = append(code, rexPrefix)
 		}
-		a.buf.Write([]byte{0x0f, 0x71, modRM})
-		a.WriteConst(n.srcConst, 8)
+		code = append(code, 0x0f, 0x71, modRM, byte(n.srcConst))
 	case PSLLW:
 		// https://www.felixcloutier.com/x86/psllw:pslld:psllq
 		modRM := 0b11_000_000 | // Specifying that operand is register.
 			0b00_110_000 | // PSLLW with immediate needs "/6" extension.
 			regBits
-		a.buf.WriteByte(0x66)
-		if rexPrefix != RexPrefixNone {
-			a.buf.WriteByte(rexPrefix)
+		code = append(code, 0x66)
+		if rexPrefix != rexPrefixNone {
+			code = append(code, rexPrefix)
 		}
-		a.buf.Write([]byte{0x0f, 0x71, modRM})
-		a.WriteConst(n.srcConst, 8)
+		code = append(code, 0x0f, 0x71, modRM, byte(n.srcConst))
 	case XORL, XORQ:
 		// https://www.felixcloutier.com/x86/xor
 		if inst == XORQ {
-			rexPrefix |= RexPrefixW
+			rexPrefix |= rexPrefixW
 		}
-		if rexPrefix != RexPrefixNone {
-			a.buf.WriteByte(rexPrefix)
+		if rexPrefix != rexPrefixNone {
+			code = append(code, rexPrefix)
 		}
 		if n.dstReg == RegAX && !isSigned8bitConst {
-			a.buf.Write([]byte{0x35})
+			code = append(code, 0x35)
 		} else {
 			modRM := 0b11_000_000 | // Specifying that opeand is register.
 				0b00_110_000 | // XOR with immediate needs "/6" extension.
 				regBits
 			if isSigned8bitConst {
-				a.buf.Write([]byte{0x83, modRM})
+				code = append(code, 0x83, modRM)
 			} else {
-				a.buf.Write([]byte{0x81, modRM})
+				code = append(code, 0x81, modRM)
 			}
 		}
 		if fitInSigned8bit(n.srcConst) {
-			a.WriteConst(n.srcConst, 8)
+			code = append(code, byte(n.srcConst))
 		} else {
-			a.WriteConst(n.srcConst, 32)
+			code = appendUint32(code, uint32(n.srcConst))
 		}
 	default:
 		err = errorEncodingUnsupported(n)
 	}
+
+	buf.Truncate(base + len(code))
 	return
 }
 
-func (a *AssemblerImpl) encodeMemoryToConst(n *nodeImpl) (err error) {
-	if !FitIn32bit(n.dstConst) {
+func (a *AssemblerImpl) encodeMemoryToConst(buf asm.Buffer, n *nodeImpl) (err error) {
+	if !fitIn32bit(n.dstConst) {
 		return fmt.Errorf("too large target const %d for %s", n.dstConst, InstructionName(n.instruction))
 	}
 
-	rexPrefix, modRM, sbi, displacementWidth, err := n.GetMemoryLocation()
+	rexPrefix, modRM, sbi, sbiExist, displacementWidth, err := n.getMemoryLocation(false)
 	if err != nil {
 		return err
 	}
@@ -2384,26 +2477,30 @@ func (a *AssemblerImpl) encodeMemoryToConst(n *nodeImpl) (err error) {
 		return errorEncodingUnsupported(n)
 	}
 
-	if rexPrefix != RexPrefixNone {
-		a.buf.WriteByte(rexPrefix)
+	base := buf.Len()
+	code := buf.Append(20)[:0]
+
+	if rexPrefix != rexPrefixNone {
+		code = append(code, rexPrefix)
 	}
 
-	a.buf.Write([]byte{opcode, modRM})
+	code = append(code, opcode, modRM)
 
-	if sbi != nil {
-		a.buf.WriteByte(*sbi)
+	if sbiExist {
+		code = append(code, sbi)
 	}
 
 	if displacementWidth != 0 {
-		a.WriteConst(n.srcConst, displacementWidth)
+		code = appendConst(code, n.srcConst, displacementWidth)
 	}
 
-	a.WriteConst(c, constWidth)
+	code = appendConst(code, c, constWidth)
+	buf.Truncate(base + len(code))
 	return
 }
 
-func (a *AssemblerImpl) encodeConstToMemory(n *nodeImpl) (err error) {
-	rexPrefix, modRM, sbi, displacementWidth, err := n.GetMemoryLocation()
+func (a *AssemblerImpl) encodeConstToMemory(buf asm.Buffer, n *nodeImpl) (err error) {
+	rexPrefix, modRM, sbi, sbiExist, displacementWidth, err := n.getMemoryLocation(true)
 	if err != nil {
 		return err
 	}
@@ -2414,7 +2511,7 @@ func (a *AssemblerImpl) encodeConstToMemory(n *nodeImpl) (err error) {
 
 	if inst == MOVB && !fitInSigned8bit(c) {
 		return fmt.Errorf("too large load target const %d for MOVB", c)
-	} else if !FitIn32bit(c) {
+	} else if !fitIn32bit(c) {
 		return fmt.Errorf("too large load target const %d for %s", c, InstructionName(n.instruction))
 	}
 
@@ -2427,64 +2524,70 @@ func (a *AssemblerImpl) encodeConstToMemory(n *nodeImpl) (err error) {
 		opcode = 0xc7
 		constWidth = 32
 	case MOVQ:
-		rexPrefix |= RexPrefixW
+		rexPrefix |= rexPrefixW
 		opcode = 0xc7
 		constWidth = 32
 	default:
 		return errorEncodingUnsupported(n)
 	}
 
-	if rexPrefix != RexPrefixNone {
-		a.buf.WriteByte(rexPrefix)
+	base := buf.Len()
+	code := buf.Append(20)[:0]
+
+	if rexPrefix != rexPrefixNone {
+		code = append(code, rexPrefix)
 	}
 
-	a.buf.Write([]byte{opcode, modRM})
+	code = append(code, opcode, modRM)
 
-	if sbi != nil {
-		a.buf.WriteByte(*sbi)
+	if sbiExist {
+		code = append(code, sbi)
 	}
 
 	if displacementWidth != 0 {
-		a.WriteConst(n.dstConst, displacementWidth)
+		code = appendConst(code, n.dstConst, displacementWidth)
 	}
 
-	a.WriteConst(c, constWidth)
+	code = appendConst(code, c, constWidth)
+
+	buf.Truncate(base + len(code))
 	return
 }
 
-func (a *AssemblerImpl) WriteConst(v int64, length byte) {
+func appendUint32(code []byte, v uint32) []byte {
+	b := [4]byte{}
+	binary.LittleEndian.PutUint32(b[:], uint32(v))
+	return append(code, b[:]...)
+}
+
+func appendUint64(code []byte, v uint64) []byte {
+	b := [8]byte{}
+	binary.LittleEndian.PutUint64(b[:], uint64(v))
+	return append(code, b[:]...)
+}
+
+func appendConst(code []byte, v int64, length byte) []byte {
 	switch length {
 	case 8:
-		a.buf.WriteByte(byte(int8(v)))
+		return append(code, byte(v))
 	case 32:
-		// TODO: any way to directly put little endian bytes into bytes.Buffer?
-		offsetBytes := make([]byte, 4)
-		binary.LittleEndian.PutUint32(offsetBytes, uint32(int32(v)))
-		a.buf.Write(offsetBytes)
-	case 64:
-		// TODO: any way to directly put little endian bytes into bytes.Buffer?
-		offsetBytes := make([]byte, 8)
-		binary.LittleEndian.PutUint64(offsetBytes, uint64(v))
-		a.buf.Write(offsetBytes)
+		return appendUint32(code, uint32(v))
 	default:
-		panic("BUG: length must be one of 8, 32 or 64")
+		return appendUint64(code, uint64(v))
 	}
 }
 
-func (n *nodeImpl) GetMemoryLocation() (p RexPrefix, modRM byte, sbi *byte, displacementWidth byte, err error) {
+func (n *nodeImpl) getMemoryLocation(dstMem bool) (p rexPrefix, modRM byte, sbi byte, sbiExist bool, displacementWidth byte, err error) {
 	var baseReg, indexReg asm.Register
 	var offset asm.ConstantValue
 	var scale byte
-	if n.types.dst == operandTypeMemory {
+	if dstMem {
 		baseReg, offset, indexReg, scale = n.dstReg, n.dstConst, n.dstMemIndex, n.dstMemScale
-	} else if n.types.src == operandTypeMemory {
-		baseReg, offset, indexReg, scale = n.srcReg, n.srcConst, n.srcMemIndex, n.srcMemScale
 	} else {
-		err = fmt.Errorf("memory location is not supported for %s", n.types)
-		return
+		baseReg, offset, indexReg, scale = n.srcReg, n.srcConst, n.srcMemIndex, n.srcMemScale
 	}
 
-	if !FitIn32bit(offset) {
+	if !fitIn32bit(offset) {
 		err = errors.New("offset does not fit in 32-bit integer")
 		return
 	}
@@ -2494,14 +2597,10 @@ func (n *nodeImpl) GetMemoryLocation() (p RexPrefix, modRM byte, sbi *byte, disp
 		err = errors.New("addressing without base register but with index is not implemented")
 	} else if baseReg == asm.NilRegister {
 		modRM = 0b00_000_100 // Indicate that the memory location is specified by SIB.
-		sbiValue := byte(0b00_100_101)
-		sbi = &sbiValue
+		sbi, sbiExist = byte(0b00_100_101), true
 		displacementWidth = 32
 	} else if indexReg == asm.NilRegister {
-		modRM, p, err = register3bits(baseReg, registerSpecifierPositionModRMFieldRM)
-		if err != nil {
-			return
-		}
+		modRM, p = register3bits(baseReg, registerSpecifierPositionModRMFieldRM)
 
 		// Create ModR/M byte so that this instruction takes [R/M + displacement] operand if displacement !=0
 		// and otherwise [R/M].
@@ -2530,8 +2629,7 @@ func (n *nodeImpl) GetMemoryLocation() (p RexPrefix, modRM byte, sbi *byte, disp
 		// Thefore we emit the SIB byte before the const so that [SIB + displacement] ends up [register + displacement].
 		// https://wiki.osdev.org/X86-64_Instruction_Encoding#32.2F64-bit_addressing_2
 		if baseReg == RegSP || baseReg == RegR12 {
-			sbiValue := byte(0b00_100_100)
-			sbi = &sbiValue
+			sbi, sbiExist = byte(0b00_100_100), true
 		}
 	} else {
 		if indexReg == RegSP {
@@ -2559,77 +2657,58 @@ func (n *nodeImpl) GetMemoryLocation() (p RexPrefix, modRM byte, sbi *byte, disp
 		}
 
 		var baseRegBits byte
-		baseRegBits, p, err = register3bits(baseReg, registerSpecifierPositionModRMFieldRM)
-		if err != nil {
-			return
-		}
+		baseRegBits, p = register3bits(baseReg, registerSpecifierPositionModRMFieldRM)
 
 		var indexRegBits byte
-		var indexRegPrefix RexPrefix
-		indexRegBits, indexRegPrefix, err = register3bits(indexReg, registerSpecifierPositionSIBIndex)
-		if err != nil {
-			return
-		}
+		var indexRegPrefix rexPrefix
+		indexRegBits, indexRegPrefix = register3bits(indexReg, registerSpecifierPositionSIBIndex)
 		p |= indexRegPrefix
 
-		sbiValue := baseRegBits | (indexRegBits << 3)
+		sbi, sbiExist = baseRegBits|(indexRegBits<<3), true
 		switch scale {
 		case 1:
-			sbiValue |= 0b00_000_000
+			sbi |= 0b00_000_000
 		case 2:
-			sbiValue |= 0b01_000_000
+			sbi |= 0b01_000_000
 		case 4:
-			sbiValue |= 0b10_000_000
+			sbi |= 0b10_000_000
 		case 8:
-			sbiValue |= 0b11_000_000
+			sbi |= 0b11_000_000
 		default:
 			err = fmt.Errorf("scale in SIB must be one of 1, 2, 4, 8 but got %d", scale)
 			return
 		}
 
-		sbi = &sbiValue
 	}
 	return
 }
 
-// GetRegisterToRegisterModRM does XXXX
+// getRegisterToRegisterModRM does XXXX
 //
 // TODO: srcOnModRMReg can be deleted after golang-asm removal. This is necessary to match our implementation
 // with golang-asm, but in practice, there are equivalent opcodes to always have src on ModRM:reg without ambiguity.
-func (n *nodeImpl) GetRegisterToRegisterModRM(srcOnModRMReg bool) (RexPrefix, modRM byte, err error) {
+func (n *nodeImpl) getRegisterToRegisterModRM(srcOnModRMReg bool) (rexPrefix, modRM byte, err error) {
 	var reg3bits, rm3bits byte
 	if srcOnModRMReg {
-		reg3bits, RexPrefix, err = register3bits(n.srcReg,
+		reg3bits, rexPrefix = register3bits(n.srcReg,
 			// Indicate that srcReg will be specified by ModRM:reg.
 			registerSpecifierPositionModRMFieldReg)
-		if err != nil {
-			return
-		}
 
 		var dstRexPrefix byte
-		rm3bits, dstRexPrefix, err = register3bits(n.dstReg,
+		rm3bits, dstRexPrefix = register3bits(n.dstReg,
 			// Indicate that dstReg will be specified by ModRM:r/m.
 			registerSpecifierPositionModRMFieldRM)
-		if err != nil {
-			return
-		}
-		RexPrefix |= dstRexPrefix
+		rexPrefix |= dstRexPrefix
 	} else {
-		rm3bits, RexPrefix, err = register3bits(n.srcReg,
+		rm3bits, rexPrefix = register3bits(n.srcReg,
 			// Indicate that srcReg will be specified by ModRM:r/m.
 			registerSpecifierPositionModRMFieldRM)
-		if err != nil {
-			return
-		}
 
 		var dstRexPrefix byte
-		reg3bits, dstRexPrefix, err = register3bits(n.dstReg,
+		reg3bits, dstRexPrefix = register3bits(n.dstReg,
 			// Indicate that dstReg will be specified by ModRM:reg.
 			registerSpecifierPositionModRMFieldReg)
-		if err != nil {
-			return
-		}
-		RexPrefix |= dstRexPrefix
+		rexPrefix |= dstRexPrefix
 	}
 
 	// https://wiki.osdev.org/X86-64_Instruction_Encoding#ModR.2FM
@@ -2641,16 +2720,16 @@ func (n *nodeImpl) GetRegisterToRegisterModRM(srcOnModRMReg bool) (RexPrefix, mo
 }
 
 // RexPrefix represents REX prefix https://wiki.osdev.org/X86-64_Instruction_Encoding#REX_prefix
-type RexPrefix = byte
+type rexPrefix = byte
 
 // REX prefixes are independent of each other and can be combined with OR.
 const (
-	RexPrefixNone    RexPrefix = 0x0000_0000 // Indicates that the instruction doesn't need RexPrefix.
-	RexPrefixDefault RexPrefix = 0b0100_0000
-	RexPrefixW                 = 0b0000_1000 | RexPrefixDefault // REX.W
-	RexPrefixR                 = 0b0000_0100 | RexPrefixDefault // REX.R
-	RexPrefixX                 = 0b0000_0010 | RexPrefixDefault // REX.X
-	RexPrefixB                 = 0b0000_0001 | RexPrefixDefault // REX.B
+	rexPrefixNone    rexPrefix = 0x0000_0000 // Indicates that the instruction doesn't need RexPrefix.
+	rexPrefixDefault rexPrefix = 0b0100_0000
+	rexPrefixW                 = 0b0000_1000 | rexPrefixDefault // REX.W
+	rexPrefixR                 = 0b0000_0100 | rexPrefixDefault // REX.R
+	rexPrefixX                 = 0b0000_0010 | rexPrefixDefault // REX.X
+	rexPrefixB                 = 0b0000_0001 | rexPrefixDefault // REX.B
 )
 
 // registerSpecifierPosition represents the position in the instruction bytes where an operand register is placed.
@@ -2662,48 +2741,65 @@ const (
 	registerSpecifierPositionSIBIndex
 )
 
+var regInfo = [...]struct {
+	bits    byte
+	needRex bool
+}{
+	RegAX:  {bits: 0b000},
+	RegCX:  {bits: 0b001},
+	RegDX:  {bits: 0b010},
+	RegBX:  {bits: 0b011},
+	RegSP:  {bits: 0b100},
+	RegBP:  {bits: 0b101},
+	RegSI:  {bits: 0b110},
+	RegDI:  {bits: 0b111},
+	RegR8:  {bits: 0b000, needRex: true},
+	RegR9:  {bits: 0b001, needRex: true},
+	RegR10: {bits: 0b010, needRex: true},
+	RegR11: {bits: 0b011, needRex: true},
+	RegR12: {bits: 0b100, needRex: true},
+	RegR13: {bits: 0b101, needRex: true},
+	RegR14: {bits: 0b110, needRex: true},
+	RegR15: {bits: 0b111, needRex: true},
+	RegX0:  {bits: 0b000},
+	RegX1:  {bits: 0b001},
+	RegX2:  {bits: 0b010},
+	RegX3:  {bits: 0b011},
+	RegX4:  {bits: 0b100},
+	RegX5:  {bits: 0b101},
+	RegX6:  {bits: 0b110},
+	RegX7:  {bits: 0b111},
+	RegX8:  {bits: 0b000, needRex: true},
+	RegX9:  {bits: 0b001, needRex: true},
+	RegX10: {bits: 0b010, needRex: true},
+	RegX11: {bits: 0b011, needRex: true},
+	RegX12: {bits: 0b100, needRex: true},
+	RegX13: {bits: 0b101, needRex: true},
+	RegX14: {bits: 0b110, needRex: true},
+	RegX15: {bits: 0b111, needRex: true},
+}
+
 func register3bits(
 	reg asm.Register,
 	registerSpecifierPosition registerSpecifierPosition,
-) (bits byte, prefix RexPrefix, err error) {
-	prefix = RexPrefixNone
-	if RegR8 <= reg && reg <= RegR15 || RegX8 <= reg && reg <= RegX15 {
+) (bits byte, prefix rexPrefix) {
+	info := regInfo[reg]
+	bits = info.bits
+	if info.needRex {
 		// https://wiki.osdev.org/X86-64_Instruction_Encoding#REX_prefix
 		switch registerSpecifierPosition {
 		case registerSpecifierPositionModRMFieldReg:
-			prefix = RexPrefixR
+			prefix = rexPrefixR
 		case registerSpecifierPositionModRMFieldRM:
-			prefix = RexPrefixB
+			prefix = rexPrefixB
 		case registerSpecifierPositionSIBIndex:
-			prefix = RexPrefixX
+			prefix = rexPrefixX
 		}
-	}
-
-	// https://wiki.osdev.org/X86-64_Instruction_Encoding#Registers
-	switch reg {
-	case RegAX, RegR8, RegX0, RegX8:
-		bits = 0b000
-	case RegCX, RegR9, RegX1, RegX9:
-		bits = 0b001
-	case RegDX, RegR10, RegX2, RegX10:
-		bits = 0b010
-	case RegBX, RegR11, RegX3, RegX11:
-		bits = 0b011
-	case RegSP, RegR12, RegX4, RegX12:
-		bits = 0b100
-	case RegBP, RegR13, RegX5, RegX13:
-		bits = 0b101
-	case RegSI, RegR14, RegX6, RegX14:
-		bits = 0b110
-	case RegDI, RegR15, RegX7, RegX15:
-		bits = 0b111
-	default:
-		err = fmt.Errorf("invalid register [%s]", RegisterName(reg))
 	}
 	return
 }
 
-func FitIn32bit(v int64) bool {
+func fitIn32bit(v int64) bool {
 	return math.MinInt32 <= v && v <= math.MaxUint32
 }
 
@@ -2711,6 +2807,6 @@ func fitInSigned8bit(v int64) bool {
 	return math.MinInt8 <= v && v <= math.MaxInt8
 }
 
-func IsVectorRegister(r asm.Register) bool {
+func isVectorRegister(r asm.Register) bool {
 	return RegX0 <= r && r <= RegX15
 }

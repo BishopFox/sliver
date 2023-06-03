@@ -33,6 +33,10 @@ func decodeElementInitValueVector(r *bytes.Reader) ([]wasm.Index, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read function index: %w", err)
 		}
+
+		if u32 >= wasm.MaximumFunctionIndex {
+			return nil, fmt.Errorf("too large function index in Element init: %d", u32)
+		}
 		vec[i] = u32
 	}
 	return vec, nil
@@ -56,6 +60,9 @@ func decodeElementConstExprVector(r *bytes.Reader, elemType wasm.RefType, enable
 				return nil, fmt.Errorf("element type mismatch: want %s, but constexpr has funcref", wasm.RefTypeName(elemType))
 			}
 			v, _, _ := leb128.LoadUint32(expr.Data)
+			if v >= wasm.MaximumFunctionIndex {
+				return nil, fmt.Errorf("too large function index in Element init: %d", v)
+			}
 			vec[i] = v
 		case wasm.OpcodeRefNull:
 			if elemType != expr.Data[0] {
@@ -63,6 +70,14 @@ func decodeElementConstExprVector(r *bytes.Reader, elemType wasm.RefType, enable
 					wasm.RefTypeName(elemType), wasm.RefTypeName(expr.Data[0]))
 			}
 			vec[i] = wasm.ElementInitNullReference
+		case wasm.OpcodeGlobalGet:
+			i32, _, _ := leb128.LoadInt32(expr.Data)
+			if elemType != wasm.RefTypeFuncref {
+				return nil, fmt.Errorf("element type mismatch: want %s, but requires funcref", wasm.RefTypeName(elemType))
+			}
+			// Resolving the function index is done at instantiation phase. See the comment on
+			// wasm.ElementInitImportedGlobalFunctionReference.
+			vec[i] = wasm.ElementInitImportedGlobalFunctionReference | wasm.Index(i32)
 		default:
 			return nil, fmt.Errorf("const expr must be either ref.null or ref.func but was %s", wasm.InstructionName(expr.Opcode))
 		}

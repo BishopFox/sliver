@@ -44,7 +44,7 @@ import (
 var argsGet = newHostFunc(wasip1.ArgsGetName, argsGetFn, []api.ValueType{i32, i32}, "argv", "argv_buf")
 
 func argsGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
-	sysCtx := mod.(*wasm.CallContext).Sys
+	sysCtx := mod.(*wasm.ModuleInstance).Sys
 	argv, argvBuf := uint32(params[0]), uint32(params[1])
 	return writeOffsetsAndNullTerminatedValues(mod.Memory(), sysCtx.Args(), argv, argvBuf, sysCtx.ArgsSize())
 }
@@ -81,7 +81,7 @@ func argsGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno
 var argsSizesGet = newHostFunc(wasip1.ArgsSizesGetName, argsSizesGetFn, []api.ValueType{i32, i32}, "result.argc", "result.argv_len")
 
 func argsSizesGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
-	sysCtx := mod.(*wasm.CallContext).Sys
+	sysCtx := mod.(*wasm.ModuleInstance).Sys
 	mem := mod.Memory()
 	resultArgc, resultArgvLen := uint32(params[0]), uint32(params[1])
 

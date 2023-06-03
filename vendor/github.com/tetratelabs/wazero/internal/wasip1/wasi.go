@@ -1,5 +1,4 @@
-// Package wasi_snapshot_preview1 is a helper to remove package cycles re-using
-// constants.
+// Package wasip1 is a helper to remove package cycles re-using constants.
 package wasip1
 
 import (

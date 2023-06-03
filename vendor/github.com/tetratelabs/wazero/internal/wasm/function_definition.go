@@ -2,6 +2,7 @@ package wasm
 
 import (
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/internal/internalapi"
 	"github.com/tetratelabs/wazero/internal/wasmdebug"
 )
 
@@ -9,11 +10,8 @@ import (
 //
 // Note: Unlike ExportedFunctions, there is no unique constraint on imports.
 func (m *Module) ImportedFunctions() (ret []api.FunctionDefinition) {
-	for i := range m.FunctionDefinitionSection {
-		d := &m.FunctionDefinitionSection[i]
-		if d.importDesc != nil {
-			ret = append(ret, d)
-		}
+	for i := uint32(0); i < m.ImportFunctionCount; i++ {
+		ret = append(ret, m.FunctionDefinition(i))
 	}
 	return
 }
@@ -21,25 +19,30 @@ func (m *Module) ImportedFunctions() (ret []api.FunctionDefinition) {
 // ExportedFunctions returns the definitions of each exported function.
 func (m *Module) ExportedFunctions() map[string]api.FunctionDefinition {
 	ret := map[string]api.FunctionDefinition{}
-	for i := range m.FunctionDefinitionSection {
-		d := &m.FunctionDefinitionSection[i]
-		for _, e := range d.exportNames {
-			ret[e] = d
+	for i := range m.ExportSection {
+		exp := &m.ExportSection[i]
+		if exp.Type == ExternTypeFunc {
+			d := m.FunctionDefinition(exp.Index)
+			ret[exp.Name] = d
 		}
 	}
 	return ret
 }
 
-// BuildFunctionDefinitions generates function metadata that can be parsed from
-// the module. This must be called after all validation.
-//
-// Note: This is exported for tests who don't use wazero.Runtime or
-// NewHostModule to compile the module.
-func (m *Module) BuildFunctionDefinitions() {
-	if len(m.FunctionSection) == 0 {
-		return
-	}
+// FunctionDefinition returns the FunctionDefinition for the given `index`.
+func (m *Module) FunctionDefinition(index Index) *FunctionDefinition {
+	// TODO: function initialization is lazy, but bulk. Make it per function.
+	m.buildFunctionDefinitions()
+	return &m.FunctionDefinitionSection[index]
+}
 
+// buildFunctionDefinitions generates function metadata that can be parsed from
+// the module. This must be called after all validation.
+func (m *Module) buildFunctionDefinitions() {
+	m.functionDefinitionSectionInitOnce.Do(m.buildFunctionDefinitionsOnce)
+}
+
+func (m *Module) buildFunctionDefinitionsOnce() {
 	var moduleName string
 	var functionNames NameMap
 	var localNames, resultNames IndirectNameMap
@@ -63,7 +66,7 @@ func (m *Module) BuildFunctionDefinitions() {
 		def := &m.FunctionDefinitionSection[importFuncIdx]
 		def.importDesc = imp
 		def.index = importFuncIdx
-		def.funcType = &m.TypeSection[imp.DescFunc]
+		def.Functype = &m.TypeSection[imp.DescFunc]
 		importFuncIdx++
 	}
 
@@ -72,7 +75,7 @@ func (m *Module) BuildFunctionDefinitions() {
 		idx := importFuncIdx + Index(codeIndex)
 		def := &m.FunctionDefinitionSection[idx]
 		def.index = idx
-		def.funcType = &m.TypeSection[typeIndex]
+		def.Functype = &m.TypeSection[typeIndex]
 		def.goFunc = code.GoFunc
 	}
 
@@ -84,7 +87,7 @@ func (m *Module) BuildFunctionDefinitions() {
 		funcIdx := d.index
 		var funcName string
 		for ; n < nLen; n++ {
-			next := functionNames[n]
+			next := &functionNames[n]
 			if next.Index > funcIdx {
 				break // we have function names, but starting at a later index.
 			} else if next.Index == funcIdx {
@@ -95,9 +98,9 @@ func (m *Module) BuildFunctionDefinitions() {
 
 		d.moduleName = moduleName
 		d.name = funcName
-		d.debugName = wasmdebug.FuncName(moduleName, funcName, funcIdx)
-		d.paramNames = paramNames(localNames, funcIdx, len(d.funcType.Params))
-		d.resultNames = paramNames(resultNames, funcIdx, len(d.funcType.Results))
+		d.Debugname = wasmdebug.FuncName(moduleName, funcName, funcIdx)
+		d.paramNames = paramNames(localNames, funcIdx, len(d.Functype.Params))
+		d.resultNames = paramNames(resultNames, funcIdx, len(d.Functype.Results))
 
 		for i := range m.ExportSection {
 			e := &m.ExportSection[i]
@@ -110,12 +113,15 @@ func (m *Module) BuildFunctionDefinitions() {
 
 // FunctionDefinition implements api.FunctionDefinition
 type FunctionDefinition struct {
-	moduleName  string
-	index       Index
-	name        string
-	debugName   string
-	goFunc      interface{}
-	funcType    *FunctionType
+	internalapi.WazeroOnlyType
+	moduleName string
+	index      Index
+	name       string
+	// Debugname is exported for testing purpose.
+	Debugname string
+	goFunc    interface{}
+	// Functype is exported for testing purpose.
+	Functype    *FunctionType
 	importDesc  *Import
 	exportNames []string
 	paramNames  []string
@@ -139,7 +145,7 @@ func (f *FunctionDefinition) Name() string {
 
 // DebugName implements the same method as documented on api.FunctionDefinition.
 func (f *FunctionDefinition) DebugName() string {
-	return f.debugName
+	return f.Debugname
 }
 
 // Import implements the same method as documented on api.FunctionDefinition.
@@ -163,7 +169,7 @@ func (f *FunctionDefinition) GoFunction() interface{} {
 
 // ParamTypes implements api.FunctionDefinition ParamTypes.
 func (f *FunctionDefinition) ParamTypes() []ValueType {
-	return f.funcType.Params
+	return f.Functype.Params
 }
 
 // ParamNames implements the same method as documented on api.FunctionDefinition.
@@ -173,7 +179,7 @@ func (f *FunctionDefinition) ParamNames() []string {
 
 // ResultTypes implements api.FunctionDefinition ResultTypes.
 func (f *FunctionDefinition) ResultTypes() []ValueType {
-	return f.funcType.Results
+	return f.Functype.Results
 }
 
 // ResultNames implements the same method as documented on api.FunctionDefinition.

@@ -19,13 +19,11 @@ import (
 //
 // See https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#proc_exit
 var procExit = &wasm.HostFunc{
-	ExportNames: []string{wasip1.ProcExitName},
-	Name:        wasip1.ProcExitName,
-	ParamTypes:  []api.ValueType{i32},
-	ParamNames:  []string{"rval"},
-	Code: wasm.Code{
-		GoFunc: api.GoModuleFunc(procExitFn),
-	},
+	ExportName: wasip1.ProcExitName,
+	Name:       wasip1.ProcExitName,
+	ParamTypes: []api.ValueType{i32},
+	ParamNames: []string{"rval"},
+	Code:       wasm.Code{GoFunc: api.GoModuleFunc(procExitFn)},
 }
 
 func procExitFn(ctx context.Context, mod api.Module, params []uint64) {

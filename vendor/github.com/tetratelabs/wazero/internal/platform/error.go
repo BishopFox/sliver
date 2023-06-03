@@ -21,7 +21,7 @@ func UnwrapOSError(err error) syscall.Errno {
 	// Note: Once we have our own file type, we should never see these.
 	switch err {
 	case nil, io.EOF:
-		return 0
+		return 0 // EOF is not a syscall.Errno
 	case fs.ErrInvalid:
 		return syscall.EINVAL
 	case fs.ErrPermission:

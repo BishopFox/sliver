@@ -112,6 +112,10 @@ type stackTrace struct {
 	frames []string
 }
 
+// GoRuntimeErrorTracePrefix is the prefix coming before the Go runtime stack trace included in the face of runtime.Error.
+// This is exported for testing purpose.
+const GoRuntimeErrorTracePrefix = "Go runtime stack trace:"
+
 func (s *stackTrace) FromRecovered(recovered interface{}) error {
 	if false {
 		debug.PrintStack()
@@ -131,8 +135,8 @@ func (s *stackTrace) FromRecovered(recovered interface{}) error {
 	// If we have a runtime.Error, something severe happened which should include the stack trace. This could be
 	// a nil pointer from wazero or a user-defined function from HostModuleBuilder.
 	if runtimeErr, ok := recovered.(runtime.Error); ok {
-		// TODO: consider adding debug.Stack(), but last time we attempted, some tests became unstable.
-		return fmt.Errorf("%w (recovered by wazero)\nwasm stack trace:\n\t%s", runtimeErr, stack)
+		return fmt.Errorf("%w (recovered by wazero)\nwasm stack trace:\n\t%s\n\n%s\n%s",
+			runtimeErr, stack, GoRuntimeErrorTracePrefix, debug.Stack())
 	}
 
 	// At this point we expect the error was from a function defined by HostModuleBuilder that intentionally called panic.

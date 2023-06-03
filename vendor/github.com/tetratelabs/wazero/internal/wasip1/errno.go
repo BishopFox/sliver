@@ -297,6 +297,8 @@ func ToErrno(errno syscall.Errno) Errno {
 		return ErrnoNotdir
 	case syscall.ENOTEMPTY:
 		return ErrnoNotempty
+	case syscall.ENOTSOCK:
+		return ErrnoNotsock
 	case syscall.ENOTSUP:
 		return ErrnoNotsup
 	case syscall.EPERM:

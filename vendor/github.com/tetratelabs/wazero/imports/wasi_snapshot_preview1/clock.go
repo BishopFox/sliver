@@ -40,7 +40,7 @@ import (
 var clockResGet = newHostFunc(wasip1.ClockResGetName, clockResGetFn, []api.ValueType{i32, i32}, "id", "result.resolution")
 
 func clockResGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
-	sysCtx := mod.(*wasm.CallContext).Sys
+	sysCtx := mod.(*wasm.ModuleInstance).Sys
 	id, resultResolution := uint32(params[0]), uint32(params[1])
 
 	var resolution uint64 // ns
@@ -93,7 +93,7 @@ func clockResGetFn(_ context.Context, mod api.Module, params []uint64) syscall.E
 var clockTimeGet = newHostFunc(wasip1.ClockTimeGetName, clockTimeGetFn, []api.ValueType{i32, i64, i32}, "id", "precision", "result.timestamp")
 
 func clockTimeGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
-	sysCtx := mod.(*wasm.CallContext).Sys
+	sysCtx := mod.(*wasm.ModuleInstance).Sys
 	id := uint32(params[0])
 	// TODO: precision is currently ignored.
 	// precision = params[1]

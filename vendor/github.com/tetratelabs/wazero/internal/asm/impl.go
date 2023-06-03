@@ -26,8 +26,8 @@ type JumpTableEntry struct {
 }
 
 // SetJumpTargetOnNext implements AssemblerBase.SetJumpTargetOnNext
-func (a *BaseAssemblerImpl) SetJumpTargetOnNext(nodes ...Node) {
-	a.SetBranchTargetOnNextNodes = append(a.SetBranchTargetOnNextNodes, nodes...)
+func (a *BaseAssemblerImpl) SetJumpTargetOnNext(node Node) {
+	a.SetBranchTargetOnNextNodes = append(a.SetBranchTargetOnNextNodes, node)
 }
 
 // BuildJumpTable implements AssemblerBase.BuildJumpTable

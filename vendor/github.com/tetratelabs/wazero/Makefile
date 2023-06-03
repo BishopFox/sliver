@@ -1,10 +1,10 @@
 
-gofumpt       := mvdan.cc/gofumpt@v0.4.0
-gosimports    := github.com/rinchsan/gosimports/cmd/gosimports@v0.3.7
-golangci_lint := github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2
+gofumpt       := mvdan.cc/gofumpt@v0.5.0
+gosimports    := github.com/rinchsan/gosimports/cmd/gosimports@v0.3.8
+golangci_lint := github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2
 asmfmt        := github.com/klauspost/asmfmt/cmd/asmfmt@v1.3.2
 # sync this with netlify.toml!
-hugo          := github.com/gohugoio/hugo@v0.111.2
+hugo          := github.com/gohugoio/hugo@v0.112.5
 
 # Make 3.81 doesn't support '**' globbing: Set explicitly instead of recursion.
 all_sources   := $(wildcard *.go */*.go */*/*.go */*/*/*.go */*/*/*.go */*/*/*/*.go)
@@ -18,20 +18,15 @@ main_sources  := $(wildcard $(filter-out %_test.go $(all_testdata) $(all_testing
 # Paths need to all start with ./, so we do that manually vs foreach which strips it.
 main_packages := $(sort $(foreach f,$(dir $(main_sources)),$(if $(findstring ./,$(f)),./,./$(f))))
 
-# By default, we don't run with -race as it's costly to run on every PR.
-go_test_options ?= -timeout 120s
+go_test_options ?= -timeout 300s
 
 ensureCompilerFastest := -ldflags '-X github.com/tetratelabs/wazero/internal/integration_test/vs.ensureCompilerFastest=true'
 .PHONY: bench
 bench:
-	@go test -run=NONE -benchmem -bench=. ./internal/integration_test/bench/...
-	@go test -benchmem -bench=. ./internal/integration_test/vs/... $(ensureCompilerFastest)
-
-.PHONY: bench.check
-bench.check:
+	@go test -run=NONE -benchmem -bench=. ./internal/engine/compiler/...
 	@go build ./internal/integration_test/bench/...
 	@# Don't use -test.benchmem as it isn't accurate when comparing against CGO libs
-	@for d in vs/time vs/wasmedge vs/wasmer vs/wasmtime ; do \
+	@for d in vs/time vs/wasmedge vs/wasmtime ; do \
 		cd ./internal/integration_test/$$d ; \
 		go test -bench=. . -tags='wasmedge' $(ensureCompilerFastest) ; \
 		cd - ;\
@@ -66,11 +61,12 @@ build.examples.tinygo: $(tinygo_sources)
 	done
 
 # We use zig to build C as it is easy to install and embeds a copy of zig-cc.
+# Note: Don't use "-Oz" as that breaks our wasi sock example.
 c_sources := imports/wasi_snapshot_preview1/example/testdata/zig-cc/cat.c imports/wasi_snapshot_preview1/testdata/zig-cc/wasi.c
 .PHONY: build.examples.zig-cc
 build.examples.zig-cc: $(c_sources)
 	@for f in $^; do \
-	    zig cc --target=wasm32-wasi -Oz -o $$(echo $$f | sed -e 's/\.c/\.wasm/') $$f; \
+	    zig cc --target=wasm32-wasi -o $$(echo $$f | sed -e 's/\.c/\.wasm/') $$f; \
 	done
 
 # Here are the emcc args we use:
@@ -123,8 +119,8 @@ spectest_v1_testdata_dir := $(spectest_v1_dir)/testdata
 spec_version_v1 := wg-1.0
 spectest_v2_dir := $(spectest_base_dir)/v2
 spectest_v2_testdata_dir := $(spectest_v2_dir)/testdata
-# Latest draft state as of Dec 16, 2022.
-spec_version_v2 := 1782235239ddebaf2cb079b00fdaa2d2c4dedba3
+# Latest draft state as of May 23, 2023.
+spec_version_v2 := 2e8912e88a3118a46b90e8ccb659e24b4e8f3c23
 
 .PHONY: build.spectest
 build.spectest:
@@ -166,7 +162,7 @@ build.spectest.v2: # Note: SIMD cases are placed in the "simd" subdirectory.
 	@cd $(spectest_v2_testdata_dir) \
 		&& curl -sSL 'https://api.github.com/repos/WebAssembly/spec/contents/test/core/simd?ref=$(spec_version_v2)' | jq -r '.[]| .download_url' | grep -E ".wast" | xargs -Iurl curl -sJL url -O
 	@cd $(spectest_v2_testdata_dir) && for f in `find . -name '*.wast'`; do \
-		wast2json --debug-names $$f; \
+		wast2json --debug-names --no-check $$f; \
 	done
 
 .PHONY: test
@@ -261,12 +257,11 @@ fuzz:
 #### CLI release related ####
 
 VERSION ?= dev
-# Default to a dummy version 0.0.1.rc1, which is always lower than a real release.
-# This must be in the form of [0-255].[0-255].[0-65535] plus optional fourth element which will be ignored.
-# We use the fourth field to represent the rc portion of release tag (e.g. rc1 of 1.0.0-rc2).
+# Default to a dummy version 0.0.1.1, which is always lower than a real release.
+# Legal version values should look like 'x.x.x.x' where x is an integer from 0 to 65534.
 # https://learn.microsoft.com/en-us/windows/win32/msi/productversion?redirectedfrom=MSDN
 # https://stackoverflow.com/questions/9312221/msi-version-numbers
-MSI_VERSION ?= 0.0.1.rc1
+MSI_VERSION ?= 0.0.1.1
 non_windows_platforms := darwin_amd64 darwin_arm64 linux_amd64 linux_arm64
 non_windows_archives  := $(non_windows_platforms:%=dist/wazero_$(VERSION)_%.tar.gz)
 windows_platforms     := windows_amd64 # TODO: add arm64 windows once we start testing on it.
@@ -288,7 +283,9 @@ build/wazero_%/wazero.exe:
 dist/wazero_$(VERSION)_%.tar.gz: build/wazero_%/wazero
 	@echo tar.gz "tarring $@"
 	@mkdir -p $(@D)
-	@tar -C $(<D) -cpzf $@ $(<F)
+# On Windows, we pass the special flag `--mode='+rx' to ensure that we set the executable flag.
+# This is only supported by GNU Tar, so we set it conditionally.
+	@tar -C $(<D) -cpzf $@ $(if $(findstring Windows_NT,$(OS)),--mode='+rx',) $(<F)
 	@echo tar.gz "ok"
 
 define go-build
@@ -325,12 +322,16 @@ define codesign
 	@printf "$(ansi_format_bright)" codesign "ok"
 endef
 
+# This task is only supported on Windows, where we use candle.exe (compile wxs to wixobj) and light.exe (link to msi)
 dist/wazero_$(VERSION)_%.msi: build/wazero_%/wazero.exe.signed
+ifeq ($(OS),Windows_NT)
 	@echo msi "building $@"
 	@mkdir -p $(@D)
-	@wixl -a $(call msi-arch,$@) -D Version=$(MSI_VERSION) -D Bin=$(<:.signed=) -o $@ packaging/msi/wazero.wxs
+	@candle -nologo -arch $(call msi-arch,$@) -dVersion=$(MSI_VERSION) -dBin=$(<:.signed=) -o build/wazero.wixobj packaging/msi/wazero.wxs
+	@light -nologo -o $@ build/wazero.wixobj -spdb
 	$(call codesign,$@)
 	@echo msi "ok"
+endif
 
 dist/wazero_$(VERSION)_%.zip: build/wazero_%/wazero.exe.signed
 	@echo zip "zipping $@"
@@ -343,4 +344,4 @@ sha256sum := $(if $(findstring darwin,$(shell go env GOOS)),shasum -a 256,sha256
 $(checksum_txt):
 	@cd $(@D); touch $(@F); $(sha256sum) * >> $(@F)
 
-dist: $(non_windows_archives) $(windows_archives) $(checksum_txt)
+dist: $(non_windows_archives) $(if $(findstring Windows_NT,$(OS)),$(windows_archives),) $(checksum_txt)

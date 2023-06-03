@@ -37,7 +37,7 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.1
-	github.com/tetratelabs/wazero v1.0.0
+	github.com/tetratelabs/wazero v1.2.0
 	github.com/things-go/go-socks5 v0.0.3
 	github.com/xlab/treeprint v1.2.0
 	github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e

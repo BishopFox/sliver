@@ -44,7 +44,7 @@ import (
 var environGet = newHostFunc(wasip1.EnvironGetName, environGetFn, []api.ValueType{i32, i32}, "environ", "environ_buf")
 
 func environGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
-	sysCtx := mod.(*wasm.CallContext).Sys
+	sysCtx := mod.(*wasm.ModuleInstance).Sys
 	environ, environBuf := uint32(params[0]), uint32(params[1])
 
 	return writeOffsetsAndNullTerminatedValues(mod.Memory(), sysCtx.Environ(), environ, environBuf, sysCtx.EnvironSize())
@@ -84,7 +84,7 @@ func environGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Er
 var environSizesGet = newHostFunc(wasip1.EnvironSizesGetName, environSizesGetFn, []api.ValueType{i32, i32}, "result.environc", "result.environv_len")
 
 func environSizesGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
-	sysCtx := mod.(*wasm.CallContext).Sys
+	sysCtx := mod.(*wasm.ModuleInstance).Sys
 	mem := mod.Memory()
 	resultEnvironc, resultEnvironvLen := uint32(params[0]), uint32(params[1])
 

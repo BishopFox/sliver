@@ -5,7 +5,7 @@ import "syscall"
 // See https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--0-499-
 const (
 	// ERROR_ACCESS_DENIED is a Windows error returned by syscall.Unlink
-	// instead of syscall.EPERM
+	// instead of syscall.EACCES
 	ERROR_ACCESS_DENIED = syscall.Errno(5)
 
 	// ERROR_INVALID_HANDLE is a Windows error returned by syscall.Write
@@ -59,7 +59,11 @@ func adjustErrno(err syscall.Errno) syscall.Errno {
 		return syscall.EEXIST
 	case ERROR_INVALID_HANDLE:
 		return syscall.EBADF
-	case ERROR_ACCESS_DENIED, ERROR_PRIVILEGE_NOT_HELD:
+	case ERROR_ACCESS_DENIED:
+		// POSIX read and write functions expect EBADF, not EACCES when not
+		// open for reading or writing.
+		return syscall.EBADF
+	case ERROR_PRIVILEGE_NOT_HELD:
 		return syscall.EPERM
 	case ERROR_NEGATIVE_SEEK, ERROR_INVALID_NAME:
 		return syscall.EINVAL

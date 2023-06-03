@@ -16,7 +16,7 @@ import (
 var schedYield = newHostFunc(wasip1.SchedYieldName, schedYieldFn, nil)
 
 func schedYieldFn(_ context.Context, mod api.Module, _ []uint64) syscall.Errno {
-	sysCtx := mod.(*wasm.CallContext).Sys
+	sysCtx := mod.(*wasm.ModuleInstance).Sys
 	sysCtx.Osyield()
 	return 0
 }

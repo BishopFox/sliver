@@ -32,17 +32,22 @@ import (
 //		x, _ := m.Memory().ReadUint32Le(ctx, offset)
 //		return x
 //	}
+//
+// # Notes
+//
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 type HostFunctionBuilder interface {
 	// WithGoFunction is an advanced feature for those who need higher
 	// performance than WithFunc at the cost of more complexity.
 	//
 	// Here's an example addition function:
 	//
-	//	builder.WithGoFunction(api.GoFunc(func(ctx context.Context, params []uint64) []uint64 {
-	//		x, y := uint32(params[0]), uint32(params[1])
+	//	builder.WithGoFunction(api.GoFunc(func(ctx context.Context, stack []uint64) {
+	//		x, y := api.DecodeI32(stack[0]), api.DecodeI32(stack[1])
 	//		sum := x + y
-	//		return []uint64{sum}
-	//	}, []api.ValueType{api.ValueTypeI32, api.ValueTypeI32}, []api.ValueType{api.ValueTypeI32})
+	//		stack[0] = api.EncodeI32(sum)
+	//	}), []api.ValueType{api.ValueTypeI32, api.ValueTypeI32}, []api.ValueType{api.ValueTypeI32})
 	//
 	// As you can see above, defining in this way implies knowledge of which
 	// WebAssembly api.ValueType is appropriate for each parameter and result.
@@ -55,16 +60,16 @@ type HostFunctionBuilder interface {
 	//
 	// Here's an example addition function that loads operands from memory:
 	//
-	//	builder.WithGoModuleFunction(api.GoModuleFunc(func(ctx context.Context, mod api.Module, params []uint64) []uint64 {
+	//	builder.WithGoModuleFunction(api.GoModuleFunc(func(ctx context.Context, m api.Module, stack []uint64) {
 	//		mem := m.Memory()
-	//		offset := uint32(params[0])
+	//		offset := api.DecodeU32(stack[0])
 	//
 	//		x, _ := mem.ReadUint32Le(ctx, offset)
 	//		y, _ := mem.ReadUint32Le(ctx, offset + 4) // 32 bits == 4 bytes!
 	//		sum := x + y
 	//
-	//		return []uint64{sum}
-	//	}, []api.ValueType{api.ValueTypeI32, api.ValueTypeI32}, []api.ValueType{api.ValueTypeI32})
+	//		stack[0] = api.EncodeU32(sum)
+	//	}), []api.ValueType{api.ValueTypeI32}, []api.ValueType{api.ValueTypeI32})
 	//
 	// As you can see above, defining in this way implies knowledge of which
 	// WebAssembly api.ValueType is appropriate for each parameter and result.
@@ -146,11 +151,11 @@ type HostFunctionBuilder interface {
 //	defer r.Close(ctx) // This closes everything this Runtime created.
 //
 //	hello := func() {
-//		fmt.Fprintln(stdout, "hello!")
+//		println("hello!")
 //	}
 //	env, _ := r.NewHostModuleBuilder("env").
 //		NewFunctionBuilder().WithFunc(hello).Export("hello").
-//		Instantiate(ctx, r)
+//		Instantiate(ctx)
 //
 // If the same module may be instantiated multiple times, it is more efficient
 // to separate steps. Here's an example:
@@ -166,12 +171,14 @@ type HostFunctionBuilder interface {
 //
 // # Notes
 //
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 //   - HostModuleBuilder is mutable: each method returns the same instance for
 //     chaining.
 //   - methods do not return errors, to allow chaining. Any validation errors
 //     are deferred until Compile.
-//   - Insertion order is not retained. Anything defined by this builder is
-//     sorted lexicographically on Compile.
+//   - Functions are indexed in order of calls to NewFunctionBuilder as
+//     insertion ordering is needed by ABI such as Emscripten (invoke_*).
 type HostModuleBuilder interface {
 	// Note: until golang/go#5860, we can't use example tests to embed code in interface godocs.
 
@@ -191,7 +198,7 @@ type HostModuleBuilder interface {
 	//	defer r.Close(ctx) // This closes everything this Runtime created.
 	//
 	//	hello := func() {
-	//		fmt.Fprintln(stdout, "hello!")
+	//		println("hello!")
 	//	}
 	//	env, _ := r.NewHostModuleBuilder("env").
 	//		NewFunctionBuilder().WithFunc(hello).Export("hello").
@@ -207,19 +214,18 @@ type HostModuleBuilder interface {
 
 // hostModuleBuilder implements HostModuleBuilder
 type hostModuleBuilder struct {
-	r            *runtime
-	moduleName   string
-	nameToGoFunc map[string]interface{}
-	funcToNames  map[string]*wasm.HostFuncNames
+	r              *runtime
+	moduleName     string
+	exportNames    []string
+	nameToHostFunc map[string]*wasm.HostFunc
 }
 
 // NewHostModuleBuilder implements Runtime.NewHostModuleBuilder
 func (r *runtime) NewHostModuleBuilder(moduleName string) HostModuleBuilder {
 	return &hostModuleBuilder{
-		r:            r,
-		moduleName:   moduleName,
-		nameToGoFunc: map[string]interface{}{},
-		funcToNames:  map[string]*wasm.HostFuncNames{},
+		r:              r,
+		moduleName:     moduleName,
+		nameToHostFunc: map[string]*wasm.HostFunc{},
 	}
 }
 
@@ -234,21 +240,13 @@ type hostFunctionBuilder struct {
 
 // WithGoFunction implements HostFunctionBuilder.WithGoFunction
 func (h *hostFunctionBuilder) WithGoFunction(fn api.GoFunction, params, results []api.ValueType) HostFunctionBuilder {
-	h.fn = &wasm.HostFunc{
-		ParamTypes:  params,
-		ResultTypes: results,
-		Code:        wasm.Code{GoFunc: fn},
-	}
+	h.fn = &wasm.HostFunc{ParamTypes: params, ResultTypes: results, Code: wasm.Code{GoFunc: fn}}
 	return h
 }
 
 // WithGoModuleFunction implements HostFunctionBuilder.WithGoModuleFunction
 func (h *hostFunctionBuilder) WithGoModuleFunction(fn api.GoModuleFunction, params, results []api.ValueType) HostFunctionBuilder {
-	h.fn = &wasm.HostFunc{
-		ParamTypes:  params,
-		ResultTypes: results,
-		Code:        wasm.Code{GoFunc: fn},
-	}
+	h.fn = &wasm.HostFunc{ParamTypes: params, ResultTypes: results, Code: wasm.Code{GoFunc: fn}}
 	return h
 }
 
@@ -278,30 +276,35 @@ func (h *hostFunctionBuilder) WithResultNames(names ...string) HostFunctionBuild
 
 // Export implements HostFunctionBuilder.Export
 func (h *hostFunctionBuilder) Export(exportName string) HostModuleBuilder {
-	if h.name == "" {
-		h.name = exportName
-	}
-	names := &wasm.HostFuncNames{
-		Name:        h.name,
-		ParamNames:  h.paramNames,
-		ResultNames: h.resultNames,
-	}
+	var hostFn *wasm.HostFunc
 	if fn, ok := h.fn.(*wasm.HostFunc); ok {
-		if fn.Name == "" {
-			fn.Name = names.Name
-		}
-		fn.ParamNames = names.ParamNames
-		fn.ResultNames = names.ResultNames
-		fn.ExportNames = []string{exportName}
+		hostFn = fn
+	} else {
+		hostFn = &wasm.HostFunc{Code: wasm.Code{GoFunc: h.fn}}
 	}
-	h.b.nameToGoFunc[exportName] = h.fn
-	h.b.funcToNames[exportName] = names
+
+	// Assign any names from the builder
+	hostFn.ExportName = exportName
+	if h.name != "" {
+		hostFn.Name = h.name
+	}
+	if len(h.paramNames) != 0 {
+		hostFn.ParamNames = h.paramNames
+	}
+	if len(h.resultNames) != 0 {
+		hostFn.ResultNames = h.resultNames
+	}
+
+	h.b.ExportHostFunc(hostFn)
 	return h.b
 }
 
 // ExportHostFunc implements wasm.HostFuncExporter
 func (b *hostModuleBuilder) ExportHostFunc(fn *wasm.HostFunc) {
-	b.nameToGoFunc[fn.ExportNames[0]] = fn
+	if _, ok := b.nameToHostFunc[fn.ExportName]; !ok { // add a new name
+		b.exportNames = append(b.exportNames, fn.ExportName)
+	}
+	b.nameToHostFunc[fn.ExportName] = fn
 }
 
 // NewFunctionBuilder implements HostModuleBuilder.NewFunctionBuilder
@@ -311,7 +314,7 @@ func (b *hostModuleBuilder) NewFunctionBuilder() HostFunctionBuilder {
 
 // Compile implements HostModuleBuilder.Compile
 func (b *hostModuleBuilder) Compile(ctx context.Context) (CompiledModule, error) {
-	module, err := wasm.NewHostModule(b.moduleName, b.nameToGoFunc, b.funcToNames, b.r.enabledFeatures)
+	module, err := wasm.NewHostModule(b.moduleName, b.exportNames, b.nameToHostFunc, b.r.enabledFeatures)
 	if err != nil {
 		return nil, err
 	} else if err = module.Validate(b.r.enabledFeatures); err != nil {
@@ -319,7 +322,7 @@ func (b *hostModuleBuilder) Compile(ctx context.Context) (CompiledModule, error)
 	}
 
 	c := &compiledModule{module: module, compiledEngine: b.r.store.Engine}
-	listeners, err := buildListeners(ctx, module)
+	listeners, err := buildFunctionListeners(ctx, module)
 	if err != nil {
 		return nil, err
 	}
