@@ -20,7 +20,6 @@ package extensions
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -50,7 +49,7 @@ func ExtensionsInstallCmd(cmd *cobra.Command, con *console.SliverConsoleClient, 
 
 // Install an extension from a directory
 func installFromDir(extLocalPath string, con *console.SliverConsoleClient) {
-	manifestData, err := ioutil.ReadFile(filepath.Join(extLocalPath, ManifestFileName))
+	manifestData, err := os.ReadFile(filepath.Join(extLocalPath, ManifestFileName))
 	if err != nil {
 		con.PrintErrorf("Error reading %s: %s", ManifestFileName, err)
 		return
@@ -78,7 +77,7 @@ func installFromDir(extLocalPath string, con *console.SliverConsoleClient) {
 		con.PrintErrorf("Error creating extension directory: %s\n", err)
 		return
 	}
-	err = ioutil.WriteFile(filepath.Join(installPath, ManifestFileName), manifestData, 0o600)
+	err = os.WriteFile(filepath.Join(installPath, ManifestFileName), manifestData, 0o600)
 	if err != nil {
 		con.PrintErrorf("Failed to write %s: %s\n", ManifestFileName, err)
 		forceRemoveAll(installPath)
@@ -131,7 +130,7 @@ func InstallFromFilePath(extLocalPath string, autoOverwrite bool, con *console.S
 		con.PrintErrorf("Failed to create extension directory: %s\n", err)
 		return nil
 	}
-	err = ioutil.WriteFile(filepath.Join(installPath, ManifestFileName), manifestData, 0o600)
+	err = os.WriteFile(filepath.Join(installPath, ManifestFileName), manifestData, 0o600)
 	if err != nil {
 		con.PrintErrorf("Failed to write %s: %s\n", ManifestFileName, err)
 		forceRemoveAll(installPath)
@@ -167,7 +166,7 @@ func installArtifact(extGzFilePath string, installPath string, artifactPath stri
 			return err
 		}
 	}
-	err = ioutil.WriteFile(localArtifactPath, data, 0o600)
+	err = os.WriteFile(localArtifactPath, data, 0o600)
 	if err != nil {
 		return err
 	}

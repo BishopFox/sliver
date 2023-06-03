@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -126,7 +125,7 @@ func ExtensionLoadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 
 // LoadExtensionManifest - Parse extension files
 func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
-	data, err := ioutil.ReadFile(manifestPath)
+	data, err := os.ReadFile(manifestPath)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +251,7 @@ func loadExtension(goos string, goarch string, checkCache bool, ext *ExtensionMa
 		}
 		return nil
 	}
-	binData, err := ioutil.ReadFile(binPath)
+	binData, err := os.ReadFile(binPath)
 	if err != nil {
 		return err
 	}
@@ -286,7 +285,7 @@ func loadDep(goos string, goarch string, depName string, cmd *cobra.Command, con
 		if err != nil {
 			return err
 		}
-		depBinData, err := ioutil.ReadFile(depBinPath)
+		depBinData, err := os.ReadFile(depBinPath)
 		if err != nil {
 			return err
 		}
@@ -407,7 +406,7 @@ func PrintExtOutput(extName string, commandName string, callExtension *sliverpb.
 
 func getBOFArgs(cmd *cobra.Command, args []string, binPath string, ext *ExtensionManifest) ([]byte, error) {
 	var extensionArgs []byte
-	binData, err := ioutil.ReadFile(binPath)
+	binData, err := os.ReadFile(binPath)
 	if err != nil {
 		return nil, err
 	}
@@ -467,7 +466,7 @@ func getBOFArgs(cmd *cobra.Command, args []string, binPath string, ext *Extensio
 		// Adding support for filepaths so we can
 		// send binary data like shellcodes to BOFs
 		case "file":
-			data, err := ioutil.ReadFile(word)
+			data, err := os.ReadFile(word)
 			if err != nil {
 				return nil, err
 			}

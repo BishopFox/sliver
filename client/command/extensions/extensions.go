@@ -21,7 +21,7 @@ package extensions
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -100,7 +100,7 @@ func getInstalledManifests() map[string]*ExtensionManifest {
 	manifestPaths := assets.GetInstalledExtensionManifests()
 	installedManifests := map[string]*ExtensionManifest{}
 	for _, manifestPath := range manifestPaths {
-		data, err := ioutil.ReadFile(manifestPath)
+		data, err := os.ReadFile(manifestPath)
 		if err != nil {
 			continue
 		}
