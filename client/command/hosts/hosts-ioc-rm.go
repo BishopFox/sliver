@@ -21,12 +21,13 @@ package hosts
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/desertbit/grumble"
 )
 
 // HostsIOCRmCmd - Remove a host from the database
-func HostsIOCRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func HostsIOCRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	host, err := SelectHost(con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

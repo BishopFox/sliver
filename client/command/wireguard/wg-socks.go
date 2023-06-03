@@ -20,16 +20,19 @@ package wireguard
 
 import (
 	"context"
+	"strconv"
+
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
-	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // WGSocksListCmd - List WireGuard SOCKS proxies
-func WGSocksListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func WGSocksListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -40,7 +43,7 @@ func WGSocksListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	socksList, err := con.Rpc.WGListSocksServers(context.Background(), &sliverpb.WGSocksServersReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
 		con.PrintErrorf("Error: %v", err)
@@ -68,5 +71,31 @@ func WGSocksListCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			con.Println(tw.Render())
 		}
 	}
+}
 
+// SocksIDCompleter IDs of WireGuard socks servers.
+func SocksIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+	callback := func(_ carapace.Context) carapace.Action {
+		results := make([]string, 0)
+
+		socksList, err := con.Rpc.WGListSocksServers(context.Background(), &sliverpb.WGSocksServersReq{
+			Request: con.ActiveTarget.Request(con.App.ActiveMenu().Root()),
+		})
+		if err != nil {
+			return carapace.ActionMessage("failed to get Wireguard Socks servers: %s", err.Error())
+		}
+
+		for _, serv := range socksList.Servers {
+			results = append(results, strconv.Itoa(int(serv.ID)))
+			results = append(results, serv.LocalAddr)
+		}
+
+		if len(results) == 0 {
+			return carapace.ActionMessage("no Wireguard Socks servers")
+		}
+
+		return carapace.ActionValuesDescribed(results...).Tag("wireguard socks servers")
+	}
+
+	return carapace.ActionCallback(callback)
 }

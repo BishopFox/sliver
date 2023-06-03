@@ -50,7 +50,7 @@ func GetConfigDir() string {
 	rootDir, _ := filepath.Abs(GetRootAppDir())
 	dir := filepath.Join(rootDir, ConfigDirName)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, 0700)
+		err = os.MkdirAll(dir, 0o700)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -70,7 +70,7 @@ func GetConfigs() map[string]*ClientConfig {
 	confs := map[string]*ClientConfig{}
 	for _, confFile := range configFiles {
 		confFilePath := filepath.Join(configDir, confFile.Name())
-		log.Printf("Parsing config %s", confFilePath)
+		// log.Printf("Parsing config %s", confFilePath)
 
 		conf, err := ReadConfig(confFilePath)
 		if err != nil {
@@ -113,7 +113,7 @@ func SaveConfig(config *ClientConfig) error {
 	filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(config.Operator), filepath.Base(config.LHost))
 	saveTo, _ := filepath.Abs(filepath.Join(configDir, filename))
 	configJSON, _ := json.Marshal(config)
-	err := os.WriteFile(saveTo, configJSON, 0600)
+	err := os.WriteFile(saveTo, configJSON, 0o600)
 	if err != nil {
 		log.Printf("Failed to write config to: %s (%v)", saveTo, err)
 		return err

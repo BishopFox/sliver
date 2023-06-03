@@ -21,18 +21,19 @@ package operator
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/prelude"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/desertbit/grumble"
 )
 
-func ConnectCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	url := ctx.Args.String("connection-string")
-	aesKey := ctx.Flags.String("aes-key")
-	agentRange := ctx.Flags.String("range")
-	skipExisting := ctx.Flags.Bool("skip-existing")
+func ConnectCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	url := args[0]
+	aesKey, _ := cmd.Flags().GetString("aes-key")
+	agentRange, _ := cmd.Flags().GetString("range")
+	skipExisting, _ := cmd.Flags().GetBool("skip-existing")
 
 	config := &prelude.OperatorConfig{
 		Range:       agentRange,

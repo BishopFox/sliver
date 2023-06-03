@@ -22,16 +22,17 @@ import (
 	"context"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/desertbit/grumble"
 )
 
 // WebsitesRmContent - Remove static content from a website
-func WebsitesRmContent(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	name := ctx.Flags.String("website")
-	webPath := ctx.Flags.String("web-path")
-	recursive := ctx.Flags.Bool("recursive")
+func WebsitesRmContent(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	name, _ := cmd.Flags().GetString("website")
+	webPath, _ := cmd.Flags().GetString("web-path")
+	recursive, _ := cmd.Flags().GetBool("recursive")
 
 	if name == "" {
 		con.PrintErrorf("Must specify a website name via --website, see --help\n")

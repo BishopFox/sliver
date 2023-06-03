@@ -21,30 +21,31 @@ import (
 	"context"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/desertbit/grumble"
 )
 
 // ChtimesCmd - Change the access and modified time of a file on the remote file system
-func ChtimesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func ChtimesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 	// DateTime layout (https://pkg.go.dev/time)
 	layout := "2006-01-02 15:04:05"
-	filePath := ctx.Args.String("path")
+	filePath := args[0]
 
 	if filePath == "" {
 		con.PrintErrorf("Missing parameter: file or directory name\n")
 		return
 	}
 
-	atime := ctx.Args.String("atime")
+	atime := args[1]
 
 	if atime == "" {
 		con.PrintErrorf("Missing parameter: Last accessed time id\n")
@@ -58,7 +59,7 @@ func ChtimesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 	unixAtime := t_a.Unix()
 
-	mtime := ctx.Args.String("mtime")
+	mtime := args[2]
 
 	if mtime == "" {
 		con.PrintErrorf("Missing parameter: Last modified time id\n")
@@ -71,12 +72,12 @@ func ChtimesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	unixMtime := t_b.Unix()
-	
+
 	chtimes, err := con.Rpc.Chtimes(context.Background(), &sliverpb.ChtimesReq{
-		Request:   con.ActiveTarget.Request(ctx),
-		Path:      filePath,
-		ATime:  unixAtime,
-		MTime:  unixMtime,
+		Request: con.ActiveTarget.Request(cmd),
+		Path:    filePath,
+		ATime:   unixAtime,
+		MTime:   unixMtime,
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

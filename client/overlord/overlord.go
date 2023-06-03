@@ -28,13 +28,14 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/bishopfox/sliver/client/core"
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/storage"
 	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
+
+	"github.com/bishopfox/sliver/client/core"
 )
 
 const (

@@ -28,7 +28,6 @@ import (
 )
 
 func selectConfig() *assets.ClientConfig {
-
 	configs := assets.GetConfigs()
 
 	if len(configs) == 0 {
@@ -53,7 +52,6 @@ func selectConfig() *assets.ClientConfig {
 }
 
 func getPromptForConfigs(configs map[string]*assets.ClientConfig) []*survey.Question {
-
 	keys := []string{}
 	for k := range configs {
 		keys = append(keys, k)

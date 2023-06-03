@@ -27,6 +27,8 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/overlord"
@@ -34,22 +36,21 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
 )
 
-func CursedElectronCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func CursedElectronCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
 
-	electronExe := ctx.Flags.String("exe")
+	electronExe, _ := cmd.Flags().GetString("exe")
 	if electronExe == "" {
 		con.PrintErrorf("Missing --exe flag, see --help\n")
 		return
 	}
 
-	curse := avadaKedavraElectron(electronExe, session, ctx, con)
+	curse := avadaKedavraElectron(electronExe, session, cmd, con, args)
 	if curse == nil {
 		return
 	}
@@ -67,8 +68,8 @@ func CursedElectronCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.PrintInfof("Found %d debug targets, good hunting!\n", len(targets))
 }
 
-func avadaKedavraElectron(electronExe string, session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) *core.CursedProcess {
-	exists, err := checkElectronPath(electronExe, session, ctx, con)
+func avadaKedavraElectron(electronExe string, session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient, cargs []string) *core.CursedProcess {
+	exists, err := checkElectronPath(electronExe, session, cmd, con)
 	if err != nil {
 		con.PrintErrorf("%s", err)
 		return nil
@@ -77,7 +78,7 @@ func avadaKedavraElectron(electronExe string, session *clientpb.Session, ctx *gr
 		con.PrintErrorf("Executable path does not exist: %s", electronExe)
 		return nil
 	}
-	electronProcess, err := checkElectronProcess(electronExe, session, ctx, con)
+	electronProcess, err := checkElectronProcess(electronExe, session, cmd, con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return nil
@@ -98,7 +99,7 @@ func avadaKedavraElectron(electronExe string, session *clientpb.Session, ctx *gr
 			return nil
 		}
 		terminateResp, err := con.Rpc.Terminate(context.Background(), &sliverpb.TerminateReq{
-			Request: con.ActiveTarget.Request(ctx),
+			Request: con.ActiveTarget.Request(cmd),
 			Pid:     electronProcess.Pid,
 		})
 		if err != nil {
@@ -110,7 +111,7 @@ func avadaKedavraElectron(electronExe string, session *clientpb.Session, ctx *gr
 			return nil
 		}
 	}
-	curse, err := startCursedElectronProcess(electronExe, session, ctx, con)
+	curse, err := startCursedElectronProcess(electronExe, session, cmd, con, cargs)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return nil
@@ -118,9 +119,9 @@ func avadaKedavraElectron(electronExe string, session *clientpb.Session, ctx *gr
 	return curse
 }
 
-func checkElectronPath(electronExe string, session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (bool, error) {
+func checkElectronPath(electronExe string, session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient) (bool, error) {
 	ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 		Path:    electronExe,
 	})
 	if err != nil {
@@ -129,9 +130,9 @@ func checkElectronPath(electronExe string, session *clientpb.Session, ctx *grumb
 	return ls.GetExists(), nil
 }
 
-func checkElectronProcess(electronExe string, session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (*commonpb.Process, error) {
+func checkElectronProcess(electronExe string, session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient) (*commonpb.Process, error) {
 	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
 		return nil, err
@@ -147,21 +148,21 @@ func checkElectronProcess(electronExe string, session *clientpb.Session, ctx *gr
 	return nil, nil
 }
 
-func startCursedElectronProcess(electronExe string, session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (*core.CursedProcess, error) {
+func startCursedElectronProcess(electronExe string, session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient, cargs []string) (*core.CursedProcess, error) {
 	con.PrintInfof("Starting '%s' ... ", path.Base(electronExe))
-	debugPort := getRemoteDebuggerPort(ctx)
+	debugPort := getRemoteDebuggerPort(cmd)
 	args := []string{
 		fmt.Sprintf("--remote-debugging-port=%d", debugPort),
 	}
-	additionalArgs := ctx.Args.StringList("args")
-	if len(additionalArgs) > 0 {
-		args = append(args, additionalArgs...)
+
+	if len(cargs) > 0 {
+		args = append(args, cargs...)
 	}
 
 	// Execute the Chrome process with the extra flags
 	// TODO: PPID spoofing, etc.
 	electronExec, err := con.Rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 		Path:    electronExe,
 		Args:    args,
 		Output:  false,
@@ -214,9 +215,9 @@ func startCursedElectronProcess(electronExe string, session *clientpb.Session, c
 	return curse, nil
 }
 
-func getElectronProcess(session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (*commonpb.Process, error) {
+func getElectronProcess(session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient) (*commonpb.Process, error) {
 	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
 		return nil, err

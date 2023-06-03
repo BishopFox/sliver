@@ -27,10 +27,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 )
 
 const (

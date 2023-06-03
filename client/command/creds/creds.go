@@ -20,18 +20,21 @@ package creds
 
 import (
 	"context"
+	"fmt"
 	"strings"
+
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/desertbit/grumble"
-	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // CredsCmd - Manage credentials
-func CredsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func CredsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -82,4 +85,98 @@ func printCollection(collection string, creds []*clientpb.Credential, con *conso
 		})
 	}
 	con.Printf("%s\n", tw.Render())
+}
+
+// CredsHashTypeCompleter completes hash types.
+func CredsHashTypeCompleter(con *console.SliverConsoleClient) carapace.Action {
+	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		results := make([]string, 0)
+
+		for hashType, desc := range hashTypes {
+			results = append(results, hashType)
+			results = append(results, desc)
+		}
+
+		return carapace.ActionValuesDescribed(results...).Tag("hash types")
+	})
+}
+
+// CredsHashFileFormatCompleter completes file formats for hash-files
+func CredsHashFileFormatCompleter(con *console.SliverConsoleClient) carapace.Action {
+	return carapace.ActionValuesDescribed(
+		UserColonHashNewlineFormat, "One hash per line.",
+		HashNewlineFormat, "A file containing lines of 'username:hash' pairs.",
+		CSVFormat, "A CSV file containing 'username,hash' pairs (additional columns ignored).",
+	).Tag("hash file formats")
+}
+
+// CredsCollectionCompleter completes existing creds collection names
+func CredsCollectionCompleter(con *console.SliverConsoleClient) carapace.Action {
+	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		results := make([]string, 0)
+
+		creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			return carapace.ActionMessage("failed to fetch credentials: %s", err.Error())
+		}
+		if len(creds.Credentials) == 0 {
+			return carapace.Action{}
+		}
+
+		for _, cred := range creds.Credentials {
+			if cred.Collection != "" {
+				results = append(results, cred.Collection)
+			}
+		}
+
+		return carapace.ActionValues(results...).Tag("creds collections")
+	})
+}
+
+// CredsCredentialIDCompleter completes credential IDs.
+func CredsCredentialIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		results := make([]string, 0)
+
+		creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			return carapace.ActionMessage("failed to fetch credentials: %s", err.Error())
+		}
+		if len(creds.Credentials) == 0 {
+			return carapace.Action{}
+		}
+
+		for _, cred := range creds.Credentials {
+			results = append(results, cred.ID)
+
+			var hostID string
+			if cred.OriginHostUUID != "" {
+				if len(cred.OriginHostUUID) > 8 {
+					hostID = cred.OriginHostUUID[8:]
+				} else {
+					hostID = cred.OriginHostUUID
+				}
+			} else {
+				hostID = "None"
+			}
+
+			var username string
+			if cred.Username != "" {
+				username = fmt.Sprintf(" (user: %s)", cred.Username)
+			}
+
+			var cracked string
+			if cred.IsCracked {
+				cracked = "[C]"
+			} else {
+				cracked = "[ ]"
+			}
+
+			desc := fmt.Sprintf("[Host: %s] ( %s ) %s%s", hostID, cred.HashType.String(), cracked, username)
+			results = append(results, desc)
+
+		}
+
+		return carapace.ActionValuesDescribed(results...).Tag("credentials")
+	})
 }

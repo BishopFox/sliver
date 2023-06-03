@@ -20,14 +20,16 @@ package wireguard
 
 import (
 	"context"
+	"strconv"
+
+	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
 )
 
 // WGSocksStopCmd - Stop a WireGuard SOCKS proxy
-func WGSocksStopCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func WGSocksStopCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSession()
 	if session == nil {
 		return
@@ -37,13 +39,16 @@ func WGSocksStopCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	socksID := ctx.Args.Int("id")
+	socksID, err := strconv.Atoi(args[0])
+	if err != nil {
+		con.PrintErrorf("Error converting Socks ID (%s) to int: %s", args[0], err.Error())
+		return
+	}
 
 	stopReq, err := con.Rpc.WGStopSocks(context.Background(), &sliverpb.WGSocksStopReq{
 		ID:      int32(socksID),
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 	})
-
 	if err != nil {
 		con.PrintErrorf("Error: %v", err)
 		return

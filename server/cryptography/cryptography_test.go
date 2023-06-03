@@ -39,7 +39,7 @@ var (
 )
 
 func randomData() []byte {
-	buf := make([]byte, insecureRand.Intn(256))
+	buf := make([]byte, insecureRand.Intn(256)+10)
 	rand.Read(buf)
 	return buf
 }

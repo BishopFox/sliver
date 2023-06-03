@@ -24,27 +24,23 @@ import (
 	"os"
 	"path"
 
-	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/client/command"
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/version"
-
+	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
+
+	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/version"
 )
 
 const (
 	logFileName = "sliver-client.log"
 )
 
-var (
-	sliverServerVersion = fmt.Sprintf("v%s", version.FullVersion())
-)
+var sliverServerVersion = fmt.Sprintf("v%s", version.FullVersion())
 
 // Initialize logging
 func initLogging(appDir string) *os.File {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	logFile, err := os.OpenFile(path.Join(appDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+	logFile, err := os.OpenFile(path.Join(appDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o600)
 	if err != nil {
 		panic(fmt.Sprintf("[!] Error opening file: %s", err))
 	}
@@ -53,51 +49,43 @@ func initLogging(appDir string) *os.File {
 }
 
 func init() {
+	rootCmd.TraverseChildren = true
+
+	// Create the console client, without any RPC or commands bound to it yet.
+	// This created before anything so that multiple commands can make use of
+	// the same underlying command/run infrastructure.
+	con := console.NewConsole(false)
 
 	// Import
-	rootCmd.AddCommand(cmdImport)
+	rootCmd.AddCommand(importCmd())
 
 	// Version
 	rootCmd.AddCommand(cmdVersion)
+
+	// Client console.
+	// All commands and RPC connection are generated WITHIN the command RunE():
+	// that means there should be no redundant command tree/RPC connections with
+	// other command trees below, such as the implant one.
+	rootCmd.AddCommand(consoleCmd(con))
+
+	// Implant.
+	// The implant command allows users to run commands on slivers from their
+	// system shell. It makes use of pre-runners for connecting to the server
+	// and binding sliver commands. These same pre-runners are also used for
+	// command completion/filtering purposes.
+	rootCmd.AddCommand(implantCmd(con))
+
+	// No subcommand invoked means starting the console.
+	rootCmd.RunE, rootCmd.PostRunE = consoleRunnerCmd(con, true)
+
+	// Completions
+	carapace.Gen(rootCmd)
 }
 
 var rootCmd = &cobra.Command{
 	Use:   "sliver-client",
 	Short: "",
 	Long:  ``,
-	Run: func(cmd *cobra.Command, args []string) {
-		appDir := assets.GetRootAppDir()
-		logFile := initLogging(appDir)
-		defer logFile.Close()
-
-		os.Args = os.Args[:1] // Stops grumble from complaining
-		err := StartClientConsole()
-		if err != nil {
-			fmt.Printf("[!] %s\n", err)
-		}
-	},
-}
-
-// StartClientConsole - Start the client console
-func StartClientConsole() error {
-	configs := assets.GetConfigs()
-	if len(configs) == 0 {
-		fmt.Printf("No config files found at %s (see --help)\n", assets.GetConfigDir())
-		return nil
-	}
-	config := selectConfig()
-	if config == nil {
-		return nil
-	}
-
-	fmt.Printf("Connecting to %s:%d ...\n", config.LHost, config.LPort)
-	rpc, ln, err := transport.MTLSConnect(config)
-	if err != nil {
-		fmt.Printf("Connection to server failed %s", err)
-		return nil
-	}
-	defer ln.Close()
-	return console.Start(rpc, command.BindCommands, func(con *console.SliverConsoleClient) {}, false)
 }
 
 // Execute - Execute root command

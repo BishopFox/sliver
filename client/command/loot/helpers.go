@@ -32,10 +32,11 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/desertbit/grumble"
 )
 
 var (
@@ -73,8 +74,7 @@ func AddLootFile(rpc rpcpb.SliverRPCClient, name string, fileName string, data [
 }
 
 // SelectLoot - Interactive menu for the user to select a piece loot (all types)
-func SelectLoot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) (*clientpb.Loot, error) {
-
+func SelectLoot(cmd *cobra.Command, rpc rpcpb.SliverRPCClient) (*clientpb.Loot, error) {
 	// Fetch data with optional filter
 	var allLoot *clientpb.AllLoot
 	var err error

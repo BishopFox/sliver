@@ -21,13 +21,14 @@ package loot
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/desertbit/grumble"
 )
 
 // LootFetchCmd - Display the contents of or download a piece of loot
-func LootFetchCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	loot, err := SelectLoot(ctx, con.Rpc)
+func LootFetchCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	loot, err := SelectLoot(cmd, con.Rpc)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -38,8 +39,9 @@ func LootFetchCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	PrintLootFile(loot, con)
-	if ctx.Flags.String("save") != "" {
-		savedTo, err := saveLootToDisk(ctx, loot)
+
+	if save, _ := cmd.Flags().GetString("save"); save != "" {
+		savedTo, err := saveLootToDisk(cmd, loot)
 		if err != nil {
 			con.PrintErrorf("Failed to save loot %s\n", err)
 		}

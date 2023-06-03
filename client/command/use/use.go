@@ -28,22 +28,28 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/desertbit/grumble"
 )
 
-var (
-	ErrNoSelection = errors.New("no selection")
-)
+var ErrNoSelection = errors.New("no selection")
 
 // UseCmd - Change the active session
-func UseCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func UseCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	var session *clientpb.Session
 	var beacon *clientpb.Beacon
 	var err error
-	idArg := ctx.Args.String("id")
+
+	var idArg string
+	if len(args) > 0 {
+		idArg = args[0]
+	}
+
+	// idArg := ctx.Args.String("id")
 	if idArg != "" {
 		session, beacon, err = SessionOrBeaconByID(idArg, con)
 	} else {
@@ -54,11 +60,11 @@ func UseCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	if session != nil {
-		con.ActiveTarget.Set(session, nil)
 		con.PrintInfof("Active session %s (%s)\n", session.Name, session.ID)
+		con.ActiveTarget.Set(session, nil)
 	} else if beacon != nil {
-		con.ActiveTarget.Set(nil, beacon)
 		con.PrintInfof("Active beacon %s (%s)\n", beacon.Name, beacon.ID)
+		con.ActiveTarget.Set(nil, beacon)
 	}
 }
 
@@ -176,25 +182,61 @@ func SelectSessionOrBeacon(con *console.SliverConsoleClient) (*clientpb.Session,
 }
 
 // BeaconAndSessionIDCompleter - BeaconAndSessionIDCompleter for beacon / session ids
-func BeaconAndSessionIDCompleter(prefix string, args []string, con *console.SliverConsoleClient) (results []string) {
-	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		return
+func BeaconAndSessionIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+	comps := func(ctx carapace.Context) carapace.Action {
+		var action carapace.Action
+
+		return action.Invoke(ctx).Merge(
+			SessionIDCompleter(con).Invoke(ctx),
+			BeaconIDCompleter(con).Invoke(ctx),
+		).ToA()
 	}
-	for _, s := range sessions.Sessions {
-		sid := s.ID
-		if strings.HasPrefix(sid, prefix) {
-			results = append(results, s.ID)
+
+	return carapace.ActionCallback(comps)
+}
+
+// SessionIDCompleter completes session IDs
+func SessionIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+	callback := func(_ carapace.Context) carapace.Action {
+		results := make([]string, 0)
+
+		sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
+		if err == nil {
+			for _, s := range sessions.Sessions {
+				link := fmt.Sprintf("[%s <- %s]", s.ActiveC2, s.RemoteAddress)
+				id := fmt.Sprintf("%s (%d)", s.Name, s.PID)
+				userHost := fmt.Sprintf("%s@%s", s.Username, s.Hostname)
+				desc := strings.Join([]string{id, userHost, link}, " ")
+
+				results = append(results, s.ID[:8])
+				results = append(results, desc)
+			}
 		}
+		return carapace.ActionValuesDescribed(results...).Tag("sessions")
 	}
-	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		return
-	}
-	for _, b := range beacons.Beacons {
-		if strings.HasPrefix(b.ID, prefix) {
-			results = append(results, b.ID)
+
+	return carapace.ActionCallback(callback)
+}
+
+// BeaconIDCompleter completes beacon IDs
+func BeaconIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+	callback := func(_ carapace.Context) carapace.Action {
+		results := make([]string, 0)
+
+		beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+		if err == nil {
+			for _, b := range beacons.Beacons {
+				link := fmt.Sprintf("[%s <- %s]", b.ActiveC2, b.RemoteAddress)
+				id := fmt.Sprintf("%s (%d)", b.Name, b.PID)
+				userHost := fmt.Sprintf("%s@%s", b.Username, b.Hostname)
+				desc := strings.Join([]string{id, userHost, link}, " ")
+
+				results = append(results, b.ID[:8])
+				results = append(results, desc)
+			}
 		}
+		return carapace.ActionValuesDescribed(results...).Tag("beacons")
 	}
-	return
+
+	return carapace.ActionCallback(callback)
 }

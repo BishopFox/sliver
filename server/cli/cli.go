@@ -26,6 +26,8 @@ import (
 	"runtime/debug"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/certs"
@@ -33,7 +35,6 @@ import (
 	"github.com/bishopfox/sliver/server/console"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/daemon"
-	"github.com/spf13/cobra"
 )
 
 const (
@@ -58,7 +59,7 @@ const (
 // Initialize logging
 func initConsoleLogging(appDir string) *os.File {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	logFile, err := os.OpenFile(filepath.Join(appDir, "logs", logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+	logFile, err := os.OpenFile(filepath.Join(appDir, "logs", logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o600)
 	if err != nil {
 		log.Fatalf("Error opening file: %v", err)
 	}
@@ -67,7 +68,6 @@ func initConsoleLogging(appDir string) *os.File {
 }
 
 func init() {
-
 	// Unpack
 	unpackCmd.Flags().BoolP(forceFlagStr, "f", false, "Force unpack and overwrite")
 	rootCmd.AddCommand(unpackCmd)
@@ -106,7 +106,6 @@ var rootCmd = &cobra.Command{
 	Short: "",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-
 		// Root command starts the server normally
 
 		appDir := assets.GetRootAppDir()
