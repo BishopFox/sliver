@@ -205,50 +205,56 @@ Also, note that the bind [seq] [command] slightly differs from the original bash
 		// Some keymaps are aliases of others, so use either all equivalents or fallback to the relevant keymap.
 		switch {
 		case cmd.Flags().Changed("unbind"):
-			binds := shell.Config.Binds[keymap]
-			if binds == nil {
-				return nil
-			}
-
 			command, _ := cmd.Flags().GetString("unbind")
 
-			// Make a list of all sequences bound to each command.
-			cmdBinds := make([]string, 0)
-
-			for key, bind := range binds {
-				if bind.Action != command {
-					continue
+			unbind := func(keymap string) {
+				binds := shell.Config.Binds[keymap]
+				if binds == nil {
+					return
 				}
 
-				cmdBinds = append(cmdBinds, key)
+				cmdBinds := make([]string, 0)
+
+				for key, bind := range binds {
+					if bind.Action != command {
+						continue
+					}
+
+					cmdBinds = append(cmdBinds, key)
+				}
+
+				for _, key := range cmdBinds {
+					delete(binds, key)
+				}
 			}
 
-			for _, key := range cmdBinds {
-				delete(binds, key)
-			}
+			applyToKeymap(keymap, unbind)
 
 		case cmd.Flags().Changed("remove"):
-			binds := shell.Config.Binds[keymap]
-			if binds == nil {
-				return nil
-			}
-
 			seq, _ := cmd.Flags().GetString("remove")
 
-			// Make a list of all sequences bound to each command.
-			cmdBinds := make([]string, 0)
-
-			for key := range binds {
-				if key != seq {
-					continue
+			removeBind := func(keymap string) {
+				binds := shell.Config.Binds[keymap]
+				if binds == nil {
+					return
 				}
 
-				cmdBinds = append(cmdBinds, key)
+				cmdBinds := make([]string, 0)
+
+				for key := range binds {
+					if key != seq {
+						continue
+					}
+
+					cmdBinds = append(cmdBinds, key)
+				}
+
+				for _, key := range cmdBinds {
+					delete(binds, key)
+				}
 			}
 
-			for _, key := range cmdBinds {
-				delete(binds, key)
-			}
+			applyToKeymap(keymap, removeBind)
 
 		case cmd.Flags().Changed("file"):
 			fileF, _ := cmd.Flags().GetString("file")
@@ -265,7 +271,7 @@ Also, note that the bind [seq] [command] slightly differs from the original bash
 			fmt.Printf("Read %s\n", file.Name())
 			// case cmd.Flags().Changed("execute"):
 
-			// Else, if sufficient arguments, bind the key sequence to the command.
+			// Else if sufficient arguments, bind the key sequence to the command.
 		default:
 			if len(args) < 2 {
 				return errors.New("Usage: bind [-m keymap] [keyseq] [command]")
@@ -292,8 +298,13 @@ Also, note that the bind [seq] [command] slightly differs from the original bash
 				shell.Config.Binds[keymap] = make(map[string]inputrc.Bind)
 			}
 
-			// Bind the key sequence to the command.
-			shell.Config.Binds[keymap][seq] = inputrc.Bind{Action: args[1]}
+			// Adjust some keymaps (aliases of each other).
+			bindkey := func(keymap string) {
+				shell.Config.Binds[keymap][seq] = inputrc.Bind{Action: args[1]}
+			}
+
+			// (Bind the key sequence to the command.)
+			applyToKeymap(keymap, bindkey)
 		}
 
 		return nil
@@ -375,4 +386,27 @@ Also, note that the bind [seq] [command] slightly differs from the original bash
 	)
 
 	return cmd
+}
+
+func applyToKeymap(keymap string, bind func(keymap string)) {
+	switch keymap {
+	case "emacs", "emacs-standard":
+		for _, km := range []string{"emacs", "emacs-standard"} {
+			bind(km)
+		}
+	case "emacs-ctlx":
+		for _, km := range []string{"emacs-ctlx", "emacs-standard", "emacs"} {
+			bind(km)
+		}
+	case "emacs-meta":
+		for _, km := range []string{"emacs-meta", "emacs-standard", "emacs"} {
+			bind(km)
+		}
+	case "vi", "vi-move", "vi-command":
+		for _, km := range []string{"vi", "vi-move", "vi-command"} {
+			bind(km)
+		}
+	default:
+		bind(keymap)
+	}
 }

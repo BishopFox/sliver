@@ -10,10 +10,20 @@ import (
 	"github.com/reeflective/readline/inputrc"
 )
 
+// readline global options specific to this library.
+var readlineOptions = map[string]interface{}{
+	"autocomplete":        false,
+	"autopairs":           false,
+	"transient-prompt":    false,
+	"history-autosuggest": false,
+	"usage-hint-always":   false,
+}
+
 // ReloadConfig parses all valid .inputrc configurations and immediately
 // updates/reloads all related settings (editing mode, variables behavior, etc.)
 func (m *Engine) ReloadConfig(opts ...inputrc.Option) (err error) {
 	// Builtin Go binds (in addition to default readline binds)
+	m.loadBuiltinOptions()
 	m.loadBuiltinBinds()
 
 	user, _ := user.Current()
@@ -57,6 +67,16 @@ func (m *Engine) ReloadConfig(opts ...inputrc.Option) (err error) {
 	}
 
 	return nil
+}
+
+// loadBuiltinOptions loads some options specific to
+// this library, if they are not loaded already.
+func (m *Engine) loadBuiltinOptions() {
+	for name, value := range readlineOptions {
+		if val := m.config.Get(name); val != nil {
+			m.config.Set(name, value)
+		}
+	}
 }
 
 // loadBuiltinBinds adds additional command mappins that are not part
