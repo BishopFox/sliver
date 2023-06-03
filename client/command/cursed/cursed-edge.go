@@ -20,7 +20,8 @@ package cursed
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
+
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -45,7 +46,7 @@ func CursedEdgeCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 	var payload []byte
 	var err error
 	if payloadPath != "" {
-		payload, err = ioutil.ReadFile(payloadPath)
+		payload, err = os.ReadFile(payloadPath)
 		if err != nil {
 			con.PrintErrorf("Could not read payload file: %s\n", err)
 			return

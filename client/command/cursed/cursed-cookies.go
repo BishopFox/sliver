@@ -20,7 +20,7 @@ package cursed
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -60,7 +60,7 @@ func CursedCookiesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 		}
 		jsonCookies = append(jsonCookies, string(jsonCookie))
 	}
-	err = ioutil.WriteFile(saveFile, []byte(strings.Join(jsonCookies, "\n")), 0o600)
+	err = os.WriteFile(saveFile, []byte(strings.Join(jsonCookies, "\n")), 0o600)
 	if err != nil {
 		con.PrintErrorf("Failed to save cookies: %s\n", err)
 		return

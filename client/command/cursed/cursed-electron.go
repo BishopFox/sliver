@@ -214,21 +214,3 @@ func startCursedElectronProcess(electronExe string, session *clientpb.Session, c
 
 	return curse, nil
 }
-
-func getElectronProcess(session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient) (*commonpb.Process, error) {
-	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
-		Request: con.ActiveTarget.Request(cmd),
-	})
-	if err != nil {
-		return nil, err
-	}
-	for _, process := range ps.Processes {
-		if process.GetOwner() != session.GetUsername() {
-			continue
-		}
-		if isChromeProcess(process.GetExecutable()) {
-			return process, nil
-		}
-	}
-	return nil, nil
-}

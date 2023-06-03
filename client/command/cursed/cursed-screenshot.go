@@ -20,7 +20,7 @@ package cursed
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -61,7 +61,7 @@ func CursedScreenshotCmd(cmd *cobra.Command, con *console.SliverConsoleClient, a
 	if saveFile == "" {
 		saveFile = fmt.Sprintf("screenshot-%s.png", time.Now().Format("20060102150405"))
 	}
-	err = ioutil.WriteFile(saveFile, data, 0o644)
+	err = os.WriteFile(saveFile, data, 0o644)
 	if err != nil {
 		con.PrintErrorf("Failed to save screenshot: %s\n", err)
 		return

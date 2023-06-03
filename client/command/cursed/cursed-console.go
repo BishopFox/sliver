@@ -22,7 +22,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"strings"
 	"text/tabwriter"
 
@@ -95,7 +95,7 @@ var helperHooks = []string{
 }
 
 func startCursedConsole(curse *core.CursedProcess, helpers bool, target *overlord.ChromeDebugTarget, con *console.SliverConsoleClient) {
-	tmpFile, _ := ioutil.TempFile("", "cursed")
+	tmpFile, _ := os.CreateTemp("", "cursed")
 	shell := readline.NewShell()
 	shell.History.AddFromFile("cursed history", tmpFile.Name())
 	shell.Prompt.Primary(func() string { return "\033[31mcursed »\033[0m " })
@@ -140,7 +140,7 @@ func startCursedConsole(curse *core.CursedProcess, helpers bool, target *overlor
 			con.Println()
 
 		case ":file":
-			jsCode, err := ioutil.ReadFile(line)
+			jsCode, err := os.ReadFile(line)
 			if err != nil {
 				con.PrintErrorf("%s\n", err)
 				continue
