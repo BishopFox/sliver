@@ -35,11 +35,9 @@ import (
 )
 
 var (
-	rpcClientConsoleLog = log.NamedLogger("rpc", "client-console-log")
-
 	ErrInvalidStreamName = status.Error(codes.InvalidArgument, "Invalid stream name")
-
-	streamName = regexp.MustCompile("^[a-z0-9_-]+$")
+	rpcClientLogs        = log.NamedLogger("rpc", "client-logs")
+	streamNamePattern    = regexp.MustCompile("^[a-z0-9_-]+$")
 )
 
 type LogStream struct {
@@ -52,6 +50,7 @@ func (rpc *Server) ClientLog(stream rpcpb.SliverRPC_ClientLogServer) error {
 	commonName := rpc.getClientCommonName(stream.Context())
 	logsDir, err := getClientLogsDir(commonName)
 	if err != nil {
+		rpcClientLogs.Errorf("Failed to get client console log directory: %s", err)
 		return err
 	}
 	streams := make(map[string]*LogStream)
@@ -67,12 +66,14 @@ func (rpc *Server) ClientLog(stream rpcpb.SliverRPC_ClientLogServer) error {
 			break
 		}
 		if err != nil {
+			rpcClientLogs.Errorf("Failed to receive client console log data: %s", err)
 			return err
 		}
 		streamName := fromClient.GetStream()
 		if _, ok := streams[streamName]; !ok {
 			streams[streamName], err = openNewLogStream(logsDir, streamName)
 			if err != nil {
+				rpcClientLogs.Errorf("Failed to open client console log file: %s", err)
 				return err
 			}
 		}
@@ -82,18 +83,18 @@ func (rpc *Server) ClientLog(stream rpcpb.SliverRPC_ClientLogServer) error {
 }
 
 func openNewLogStream(logsDir string, stream string) (*LogStream, error) {
-	if !streamName.MatchString(stream) {
+	if !streamNamePattern.MatchString(stream) {
 		return nil, ErrInvalidStreamName
 	}
 	stream = filepath.Base(stream)
 	dateTime := time.Now().Format("2006-01-02_15-04-05")
 	logPath := filepath.Join(logsDir, filepath.Base(fmt.Sprintf("%s_%s.gzip", stream, dateTime)))
 	if _, err := os.Stat(logPath); err == nil {
+		rpcClientLogs.Warnf("Client console log file already exists: %s", logPath)
 		logPath = filepath.Join(logsDir, filepath.Base(fmt.Sprintf("%s_%s_%s.gzip", stream, dateTime, randomSuffix(6))))
 	}
 	logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 	if err != nil {
-		rpcClientConsoleLog.Warnf("Failed to open client console log file: %s", err)
 		return nil, err
 	}
 	logGzip, _ := gzip.NewWriterLevel(logFile, gzip.BestCompression)
@@ -112,12 +113,12 @@ func randomSuffix(n int) string {
 func getClientLogsDir(client string) (string, error) {
 	parentLogDir := filepath.Join(log.GetLogDir(), "clients")
 	if err := os.MkdirAll(parentLogDir, 0o700); err != nil {
-		rpcClientConsoleLog.Warnf("Failed to create client console log directory: %s", err)
+		rpcClientLogs.Warnf("Failed to create client console log directory: %s", err)
 		return "", err
 	}
 	logDir := filepath.Join(parentLogDir, filepath.Base(client))
 	if err := os.MkdirAll(logDir, 0o700); err != nil {
-		rpcClientConsoleLog.Warnf("Failed to create client console log directory: %s", err)
+		rpcClientLogs.Warnf("Failed to create client console log directory: %s", err)
 		return "", err
 	}
 	return logDir, nil
