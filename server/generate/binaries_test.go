@@ -187,9 +187,11 @@ func trafficEncodersExecutable(t *testing.T, goos string, goarch string) {
 		ObfuscateSymbols:       false,
 		IsBeacon:               false,
 		TrafficEncodersEnabled: true,
+		Name:                   fmt.Sprintf("trafficEncodersDebug_test%d", nonce),
 	}
+	debugHttpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("trafficEncodersDebug_test%d", nonce), otpTestSecret, debugConfig)
+	_, err := SliverExecutable(otpTestSecret, debugConfig, debugHttpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -204,9 +206,10 @@ func trafficEncodersExecutable(t *testing.T, goos string, goarch string) {
 		ObfuscateSymbols:       true,
 		IsBeacon:               false,
 		TrafficEncodersEnabled: true,
+		Name:                   fmt.Sprintf("trafficEncodersProd_test%d", nonce),
 	}
 	nonce++
-	_, err = SliverExecutable(fmt.Sprintf("trafficEncodersProd_test%d", nonce), otpTestSecret, prodConfig)
+	_, err = SliverExecutable(otpTestSecret, prodConfig, debugHttpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -223,9 +226,11 @@ func mtlsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) 
 		Debug:            debug,
 		ObfuscateSymbols: false,
 		IsBeacon:         beacon,
+		Name:             fmt.Sprintf("mtls_test%d", nonce),
 	}
+	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("mtls_test%d", nonce), otpTestSecret, config)
+	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -242,9 +247,11 @@ func dnsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
 		Debug:            debug,
 		ObfuscateSymbols: false,
 		IsBeacon:         beacon,
+		Name:             fmt.Sprintf("dns_test%d", nonce),
 	}
+	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("dns_test%d", nonce), otpTestSecret, config)
+	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -265,9 +272,11 @@ func httpExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) 
 		Debug:            debug,
 		ObfuscateSymbols: false,
 		IsBeacon:         beacon,
+		Name:             fmt.Sprintf("http_test%d", nonce),
 	}
+	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("http_test%d", nonce), otpTestSecret, config)
+	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -289,9 +298,11 @@ func multiExe(t *testing.T, goos string, goarch string, beacon bool, debug bool)
 		Debug:            debug,
 		ObfuscateSymbols: false,
 		IsBeacon:         beacon,
+		Name:             fmt.Sprintf("multi_test%d", nonce),
 	}
+	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("multi_test%d", nonce), otpTestSecret, config)
+	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -313,9 +324,11 @@ func multiWindowsService(t *testing.T, goos string, goarch string, beacon bool, 
 		Debug:            debug,
 		ObfuscateSymbols: false,
 		IsBeacon:         beacon,
+		Name:             fmt.Sprintf("service_test%d", nonce),
 	}
+	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("service_test%d", nonce), otpTestSecret, config)
+	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -336,9 +349,11 @@ func tcpPivotExe(t *testing.T, goos string, goarch string, debug bool) {
 		},
 		Debug:            debug,
 		ObfuscateSymbols: false,
+		Name:             fmt.Sprintf("tcpPivot_test%d", nonce),
 	}
+	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("tcpPivot_test%d", nonce), otpTestSecret, config)
+	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -358,9 +373,11 @@ func namedPipeExe(t *testing.T, goos string, goarch string, debug bool) {
 		},
 		Debug:            debug,
 		ObfuscateSymbols: false,
+		Name:             fmt.Sprintf("namedpipe_test%d", nonce),
 	}
+	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("namedpipe_test%d", nonce), otpTestSecret, config)
+	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -386,10 +403,12 @@ func wireguardExe(t *testing.T, goos string, goarch string, beacon bool, debug b
 		WGKeyExchangePort: 1234,
 		WGTcpCommsPort:    5678,
 		IsBeacon:          beacon,
+		Name:              fmt.Sprintf("wireguard_test%d", nonce),
 	}
+	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
 	certs.SetupWGKeys()
-	_, err := SliverExecutable(fmt.Sprintf("wireguard_test%d", nonce), otpTestSecret, config)
+	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -418,9 +437,11 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 		WGPeerTunIP:       "100.64.0.2",
 		WGKeyExchangePort: 1234,
 		WGTcpCommsPort:    5678,
+		Name:              fmt.Sprintf("multilibrary_test%d", nonce),
 	}
+	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverSharedLibrary(fmt.Sprintf("multilibrary_test%d", nonce), otpTestSecret, config)
+	_, err := SliverSharedLibrary(otpTestSecret, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -441,9 +462,11 @@ func symbolObfuscation(t *testing.T, goos string, goarch string) {
 
 		Debug:            false,
 		ObfuscateSymbols: true,
+		Name:             fmt.Sprintf("symbol_test%d", nonce),
 	}
+	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("symbol_test%d", nonce), otpTestSecret, config)
+	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
