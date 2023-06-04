@@ -34,6 +34,7 @@ package command
 */
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -1462,9 +1463,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("L", "lhost", "", "Listening host")
 			f.Int("l", "lport", 8443, "Listening port")
 			f.String("r", "protocol", "tcp", "Staging protocol (tcp/http/https)")
-			f.String("f", "format", "raw", "Output format (msfvenom formats, see `help generate stager` for the list)")
+			f.String("f", "format", "raw", fmt.Sprintf("Output format (msfvenom formats, see `help generate %s` for the list)", consts.MsfStagerStr))
 			f.String("b", "badchars", "", "bytes to exclude from stage shellcode")
 			f.String("s", "save", "", "directory to save the generated stager to")
+			f.String("d", "advanced", "", "Advanced options for the stager using URI query syntax (option1=value1&option2=value2...)")
 
 			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},

@@ -71,6 +71,7 @@ func GenerateStagerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	format := ctx.Flags.String("format")
 	badChars := ctx.Flags.String("badchars")
 	save := ctx.Flags.String("save")
+	advOptions := ctx.Flags.String("advanced")
 
 	bChars := make([]string, 0)
 	if len(badChars) > 0 {
@@ -94,13 +95,14 @@ func GenerateStagerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	ctrl := make(chan bool)
 	con.SpinUntil("Generating stager, please wait ...", ctrl)
 	stageFile, err := con.Rpc.MsfStage(context.Background(), &clientpb.MsfStagerReq{
-		Arch:     arch,
-		BadChars: bChars,
-		Format:   format,
-		Host:     lhost,
-		Port:     uint32(lport),
-		Protocol: stageProto,
-		OS:       stageOS,
+		Arch:       arch,
+		BadChars:   bChars,
+		Format:     format,
+		Host:       lhost,
+		Port:       uint32(lport),
+		Protocol:   stageProto,
+		OS:         stageOS,
+		AdvOptions: advOptions,
 	})
 	ctrl <- true
 	<-ctrl
@@ -123,7 +125,7 @@ func GenerateStagerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		}
 		con.PrintInfof("Sliver implant stager saved to: %s\n", saveTo)
 	} else {
-		con.PrintInfof("Here's your stager:")
+		con.PrintInfof("Here's your stager:\n")
 		con.Println(string(stageFile.GetFile().GetData()))
 	}
 }
