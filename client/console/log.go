@@ -3,6 +3,7 @@ package console
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -17,12 +18,14 @@ import (
 )
 
 func (con *SliverConsoleClient) setupLogger(logFile *os.File) {
+	// File and Sliver RPC streams
+	logWriter := io.MultiWriter(logFile)
+
 	// JSON
 	jsonOptions := &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}
-
-	con.jsonHandler = slog.NewJSONHandler(logFile, jsonOptions)
+	con.jsonHandler = slog.NewJSONHandler(logWriter, jsonOptions)
 
 	// Log all commands before running them.
 	con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.logCommand)
