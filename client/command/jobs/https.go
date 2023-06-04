@@ -20,6 +20,8 @@ package jobs
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
 	"io/ioutil"
 	"time"
 
@@ -97,6 +99,10 @@ func getLocalCertificatePair(cmd *cobra.Command) ([]byte, []byte, error) {
 	key, err := ioutil.ReadFile(keyPath)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if _, err := tls.X509KeyPair(cert, key); err != nil {
+		return nil, nil, fmt.Errorf("- could not parse cert or key (encrypted keys are not supported): %s", err.Error())
 	}
 	return cert, key, nil
 }
