@@ -151,12 +151,12 @@ func saveLocation(save, DefaultName string, con *console.SliverConsoleClient) (s
 			saveTo, _ = filepath.Abs(save)
 		}
 	} else {
-		con.Printf("%s does exist\n", save)
+		con.PrintInfof("%s does exist\n", save)
 		if fi.IsDir() {
-			con.Printf("%s is dir\n", save)
+			con.PrintInfof("%s is dir\n", save)
 			saveTo, _ = filepath.Abs(filepath.Join(save, DefaultName))
 		} else {
-			con.Printf("%s is not dir\n", save)
+			con.PrintInfof("%s is not dir\n", save)
 			prompt := &survey.Confirm{Message: "Overwrite existing file?"}
 			var confirm bool
 			survey.AskOne(prompt, &confirm)

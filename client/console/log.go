@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"golang.org/x/exp/slog"
+	"golang.org/x/term"
 	"maze.io/x/asciicast"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -134,7 +135,7 @@ func (con *SliverConsoleClient) PrintEventInfof(format string, args ...any) {
 
 	logger.Info(fmt.Sprintf(format, args...))
 
-	con.printf(Clearln+"\n"+Info+format+"\r", args...)
+	con.printf(Clearln+"\r\n"+Info+format+"\r", args...)
 }
 
 // PrintEventErrorf prints an error message with a leading/trailing newline for emphasis.
@@ -143,7 +144,7 @@ func (con *SliverConsoleClient) PrintEventErrorf(format string, args ...any) {
 
 	logger.Error(fmt.Sprintf(format, args...))
 
-	con.printf(Clearln+"\n"+Warn+format+"\r", args...)
+	con.printf(Clearln+"\r\n"+Warn+format+"\r", args...)
 }
 
 // PrintEventSuccessf a success message with a leading/trailing newline for emphasis.
@@ -152,13 +153,30 @@ func (con *SliverConsoleClient) PrintEventSuccessf(format string, args ...any) {
 
 	logger.Info(fmt.Sprintf(format, args...))
 
-	con.printf(Clearln+"\n"+Success+format+"\r", args...)
+	con.printf(Clearln+"\r\n"+Success+format+"\r", args...)
 }
 
 func (con *SliverConsoleClient) setupAsciicastRecord(logFile *os.File) {
-	encoder := asciicast.NewEncoder(logFile, 80, 80)
+	x, y, err := term.GetSize(int(os.Stdin.Fd()))
+	if err != nil {
+		x, y = 80, 80
+	}
 
-	go io.Copy(encoder, os.Stdout)
+	encoder := asciicast.NewEncoder(logFile, x, y)
+	encoder.WriteHeader()
+
+	// save existing stdout | MultiWriter writes to saved stdout and file
+	out := os.Stdout
+	mw := io.MultiWriter(out, encoder)
+
+	// get pipe reader and writer | writes to pipe writer come out pipe reader
+	r, w, _ := os.Pipe()
+
+	// replace stdout,stderr with pipe writer | all writes to stdout, stderr will go through pipe instead (fmt.print, log)
+	os.Stdout = w
+	os.Stderr = w
+
+	go io.Copy(mw, r)
 }
 
 func getConsoleAsciicastFile() *os.File {
@@ -169,6 +187,5 @@ func getConsoleAsciicastFile() *os.File {
 	if err != nil {
 		log.Fatalf("Could not open log file: %s", err)
 	}
-	logFile.Write([]byte(fmt.Sprintf("Sliver Console Log - %s\n\n", dateTime)))
 	return logFile
 }

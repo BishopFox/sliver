@@ -38,7 +38,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
-	"maze.io/x/asciicast"
 
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -449,15 +448,15 @@ func (con *SliverConsoleClient) PrintLogo() {
 	serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
 
 	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
-	fmt.Println(logo)
-	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))])
-	fmt.Printf(Info+"Server v%s - %s%s\n", serverSemVer, serverVer.Commit, dirty)
+	fmt.Println(strings.ReplaceAll(logo, "\n", "\r\n"))
+	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))] + "\r")
+	fmt.Printf(Info+"Server v%s - %s%s\r\n", serverSemVer, serverVer.Commit, dirty)
 	if version.GitCommit != serverVer.Commit {
-		fmt.Printf(Info+"Client %s\n", version.FullVersion())
+		fmt.Printf(Info+"Client %s\r\n", version.FullVersion())
 	}
-	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
+	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options\r")
 	if serverVer.Major != int32(version.SemanticVersion()[0]) {
-		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\n")
+		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\r\n")
 	}
 	con.CheckLastUpdate()
 }
