@@ -100,8 +100,14 @@ EOF
 # Download and Unpack Sliver Server
 #
 ARTIFACTS=$(curl -s "https://api.github.com/repos/BishopFox/sliver/releases/latest" | awk -F '"' '/browser_download_url/{print $4}')
-SLIVER_SERVER='sliver-server_linux'
-SLIVER_CLIENT='sliver-client_linux'
+arch=$(uname -i)
+if [[ $arch == x86_64* ]]; then
+    SLIVER_SERVER='sliver-server_linux-amd64'
+    SLIVER_CLIENT='sliver-client_linux-amd64'
+elif  [[ $arch == arm* ]]; then
+    SLIVER_SERVER='sliver-server_linux-arm64'
+    SLIVER_CLIENT='sliver-client_linux-arm64'
+fi
 
 
 for URL in $ARTIFACTS
@@ -159,8 +165,11 @@ chown root:root /etc/systemd/system/sliver.service
 chmod 600 /etc/systemd/system/sliver.service
 systemctl start sliver
 
+# Enable on boot
+systemctl enable sliver
+
 # Generate local configs
-echo "Generating operator configs ..."
+echo "Generating local user operator configs ..."
 mkdir -p /root/.sliver-client/configs
 /root/sliver-server operator --name root --lhost localhost --save /root/.sliver-client/configs
 chown -R root:root /root/.sliver-client/
