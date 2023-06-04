@@ -22,6 +22,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	insecureRand "math/rand"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -87,6 +88,9 @@ func openNewLogStream(logsDir string, stream string) (*LogStream, error) {
 	stream = filepath.Base(stream)
 	dateTime := time.Now().Format("2006-01-02_15-04-05")
 	logPath := filepath.Join(logsDir, filepath.Base(fmt.Sprintf("%s_%s.gzip", stream, dateTime)))
+	if _, err := os.Stat(logPath); err == nil {
+		logPath = filepath.Join(logsDir, filepath.Base(fmt.Sprintf("%s_%s_%s.gzip", stream, dateTime, randomSuffix(6))))
+	}
 	logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 	if err != nil {
 		rpcClientConsoleLog.Warnf("Failed to open client console log file: %s", err)
@@ -94,6 +98,15 @@ func openNewLogStream(logsDir string, stream string) (*LogStream, error) {
 	}
 	logGzip, _ := gzip.NewWriterLevel(logFile, gzip.BestCompression)
 	return &LogStream{logFile: logFile, logGzip: logGzip}, nil
+}
+
+func randomSuffix(n int) string {
+	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	buf := make([]rune, n)
+	for i := range buf {
+		buf[i] = letterRunes[insecureRand.Intn(len(letterRunes))]
+	}
+	return string(buf)
 }
 
 func getClientLogsDir(client string) (string, error) {
