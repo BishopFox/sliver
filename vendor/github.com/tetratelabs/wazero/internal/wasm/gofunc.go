@@ -79,26 +79,6 @@ func (f *reflectGoFunction) Call(ctx context.Context, stack []uint64) {
 	callGoFunc(ctx, nil, f.fn, stack)
 }
 
-// PopValues pops the specified number of api.ValueType parameters off the
-// stack into a parameter slice for use in api.GoFunction or api.GoModuleFunction.
-//
-// For example, if the host function F requires the (x1 uint32, x2 float32)
-// parameters, and the stack is [..., A, B], then the function is called as
-// F(A, B) where A and B are interpreted as uint32 and float32 respectively.
-//
-// Note: the popper intentionally doesn't return bool or error because the
-// caller's stack depth is trusted.
-func PopValues(count int, popper func() uint64) []uint64 {
-	if count == 0 {
-		return nil
-	}
-	params := make([]uint64, count)
-	for i := count - 1; i >= 0; i-- {
-		params[i] = popper()
-	}
-	return params
-}
-
 // callGoFunc executes the reflective function by converting params to Go
 // types. The results of the function call are converted back to api.ValueType.
 func callGoFunc(ctx context.Context, mod api.Module, fn *reflect.Value, stack []uint64) {

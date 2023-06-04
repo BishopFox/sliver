@@ -7,15 +7,15 @@ import (
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/util"
-	"github.com/desertbit/grumble"
+	"github.com/spf13/cobra"
 )
 
-func parseMemFS(ctx *grumble.Context, con *console.SliverConsoleClient) (map[string][]byte, error) {
-
+func parseMemFS(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) (map[string][]byte, error) {
 	memfs := make(map[string][]byte)
 
 	totalSize := 0
-	fileArg := ctx.Flags.String("file")
+	fileArg, _ := cmd.Flags().GetString("file")
+	dirFlag, _ := cmd.Flags().GetString("dir")
 	if fileArg != "" {
 		files, err := filepath.Glob(fileArg)
 		if err != nil {
@@ -32,13 +32,13 @@ func parseMemFS(ctx *grumble.Context, con *console.SliverConsoleClient) (map[str
 			count++
 			totalSize += len(data)
 		}
-		if ctx.Flags.String("dir") == "" {
+		if dirFlag == "" {
 			con.PrintInfof("Added %d file(s) to memfs\n", count)
 			return memfs, nil
 		}
 	}
 
-	dirArg := ctx.Flags.String("dir")
+	dirArg, _ := cmd.Flags().GetString("dir")
 	dirCount := 0
 	fileCount := 0
 	if dirArg != "" {

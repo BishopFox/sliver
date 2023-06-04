@@ -22,19 +22,20 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/reeflective/readline"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/overlord"
-	"github.com/desertbit/grumble"
-	"github.com/desertbit/readline"
 )
 
-func CursedConsoleCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func CursedConsoleCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	curse := selectCursedProcess(con)
 	if curse == nil {
 		return
@@ -89,26 +90,19 @@ func selectDebugTarget(targets []overlord.ChromeDebugTarget, con *console.Sliver
 	return &selectedTarget
 }
 
-var (
-	helperHooks = []string{
-		"console.log = (...a) => {return a;}", // console.log
-	}
-)
+var helperHooks = []string{
+	"console.log = (...a) => {return a;}", // console.log
+}
 
 func startCursedConsole(curse *core.CursedProcess, helpers bool, target *overlord.ChromeDebugTarget, con *console.SliverConsoleClient) {
-	tmpFile, _ := ioutil.TempFile("", "cursed")
-	reader, err := readline.NewEx(&readline.Config{
-		Prompt:      "\033[31mcursed »\033[0m ",
-		HistoryFile: tmpFile.Name(),
-		// AutoComplete:    nil,
-		InterruptPrompt:   "^C",
-		EOFPrompt:         "exit",
-		HistorySearchFold: true,
-		// FuncFilterInputRune: filterInput,
-	})
-	if err != nil {
-		con.PrintErrorf("Failed to create read line: %s\n", err)
-		return
+	tmpFile, _ := os.CreateTemp("", "cursed")
+	shell := readline.NewShell()
+	shell.History.AddFromFile("cursed history", tmpFile.Name())
+	shell.Prompt.Primary(func() string { return "\033[31mcursed »\033[0m " })
+	// 	EOFPrompt:         "exit",
+
+	if con.Settings.VimMode {
+		shell.Config.Set("editing-mode", "vi")
 	}
 
 	if helpers {
@@ -123,8 +117,9 @@ func startCursedConsole(curse *core.CursedProcess, helpers bool, target *overlor
 	}
 
 	con.Printf(console.Bold+">>> Cursed Console, use ':help' for options%s\n\n", console.Normal)
+
 	for {
-		line, err := reader.Readline()
+		line, err := shell.Readline()
 		if err == readline.ErrInterrupt {
 			if len(line) == 0 {
 				break
@@ -134,8 +129,8 @@ func startCursedConsole(curse *core.CursedProcess, helpers bool, target *overlor
 		} else if err == io.EOF {
 			break
 		}
-		switch strings.TrimSpace(line) {
 
+		switch strings.TrimSpace(line) {
 		case ":help":
 			con.Println()
 			con.Println("Available commands:")
@@ -145,7 +140,7 @@ func startCursedConsole(curse *core.CursedProcess, helpers bool, target *overlor
 			con.Println()
 
 		case ":file":
-			jsCode, err := ioutil.ReadFile(line)
+			jsCode, err := os.ReadFile(line)
 			if err != nil {
 				con.PrintErrorf("%s\n", err)
 				continue

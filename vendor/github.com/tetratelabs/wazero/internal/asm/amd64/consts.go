@@ -1171,7 +1171,7 @@ const (
 	RegX13
 	// RegX14 is the x14 register
 	RegX14
-	// Regx15 is the x15 register
+	// RegX15 is the x15 register
 	RegX15
 )
 

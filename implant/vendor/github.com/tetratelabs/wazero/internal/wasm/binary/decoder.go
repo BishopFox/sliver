@@ -35,7 +35,7 @@ func DecodeModule(
 		return nil, ErrInvalidVersion
 	}
 
-	memorySizer := newMemorySizer(memoryLimitPages, memoryCapacityFromMax)
+	memSizer := newMemorySizer(memoryLimitPages, memoryCapacityFromMax)
 
 	m := &wasm.Module{}
 	var info, line, str, abbrev, ranges []byte // For DWARF Data.
@@ -106,7 +106,8 @@ func DecodeModule(
 		case wasm.SectionIDType:
 			m.TypeSection, err = decodeTypeSection(enabledFeatures, r)
 		case wasm.SectionIDImport:
-			if m.ImportSection, err = decodeImportSection(r, memorySizer, memoryLimitPages, enabledFeatures); err != nil {
+			m.ImportSection, m.ImportPerModule, m.ImportFunctionCount, m.ImportGlobalCount, m.ImportMemoryCount, m.ImportTableCount, err = decodeImportSection(r, memSizer, memoryLimitPages, enabledFeatures)
+			if err != nil {
 				return nil, err // avoid re-wrapping the error.
 			}
 		case wasm.SectionIDFunction:
@@ -114,13 +115,13 @@ func DecodeModule(
 		case wasm.SectionIDTable:
 			m.TableSection, err = decodeTableSection(r, enabledFeatures)
 		case wasm.SectionIDMemory:
-			m.MemorySection, err = decodeMemorySection(r, memorySizer, memoryLimitPages)
+			m.MemorySection, err = decodeMemorySection(r, memSizer, memoryLimitPages)
 		case wasm.SectionIDGlobal:
 			if m.GlobalSection, err = decodeGlobalSection(r, enabledFeatures); err != nil {
 				return nil, err // avoid re-wrapping the error.
 			}
 		case wasm.SectionIDExport:
-			m.ExportSection, err = decodeExportSection(r)
+			m.ExportSection, m.Exports, err = decodeExportSection(r)
 		case wasm.SectionIDStart:
 			if m.StartSection != nil {
 				return nil, errors.New("multiple start sections are invalid")
@@ -174,7 +175,18 @@ func newMemorySizer(memoryLimitPages uint32, memoryCapacityFromMax bool) memoryS
 			if memoryCapacityFromMax {
 				return minPages, *maxPages, *maxPages
 			}
+			// This is an invalid value: let it propagate, we will fail later.
+			if *maxPages > wasm.MemoryLimitPages {
+				return minPages, minPages, *maxPages
+			}
+			// This is a valid value, but it goes over the run-time limit: return the limit.
+			if *maxPages > memoryLimitPages {
+				return minPages, minPages, memoryLimitPages
+			}
 			return minPages, minPages, *maxPages
+		}
+		if memoryCapacityFromMax {
+			return minPages, memoryLimitPages, memoryLimitPages
 		}
 		return minPages, minPages, memoryLimitPages
 	}

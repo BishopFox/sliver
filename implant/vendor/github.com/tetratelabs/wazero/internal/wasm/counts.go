@@ -2,41 +2,6 @@ package wasm
 
 import "fmt"
 
-// ImportFuncCount returns the possibly empty count of imported functions. This plus SectionElementCount of
-// SectionIDFunction is the size of the function index.
-func (m *Module) ImportFuncCount() uint32 {
-	return m.importCount(ExternTypeFunc)
-}
-
-// ImportTableCount returns the possibly empty count of imported tables. This plus SectionElementCount of SectionIDTable
-// is the size of the table index.
-func (m *Module) ImportTableCount() uint32 {
-	return m.importCount(ExternTypeTable)
-}
-
-// ImportMemoryCount returns the possibly empty count of imported memories. This plus SectionElementCount of
-// SectionIDMemory is the size of the memory index.
-func (m *Module) ImportMemoryCount() uint32 {
-	return m.importCount(ExternTypeMemory) // TODO: once validation happens on decode, this is zero or one.
-}
-
-// ImportGlobalCount returns the possibly empty count of imported globals. This plus SectionElementCount of
-// SectionIDGlobal is the size of the global index.
-func (m *Module) ImportGlobalCount() uint32 {
-	return m.importCount(ExternTypeGlobal)
-}
-
-// importCount returns the count of a specific type of import. This is important because it is easy to mistake the
-// length of the import section with the count of a specific kind of import.
-func (m *Module) importCount(et ExternType) (res uint32) {
-	for _, im := range m.ImportSection {
-		if im.Type == et {
-			res++
-		}
-	}
-	return
-}
-
 // SectionElementCount returns the count of elements in a given section ID
 //
 // For example...

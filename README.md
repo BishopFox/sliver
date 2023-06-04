@@ -6,6 +6,12 @@ The server and client support MacOS, Windows, and Linux. Implants are supported 
 
 [![Release](https://github.com/BishopFox/sliver/actions/workflows/autorelease.yml/badge.svg)](https://github.com/BishopFox/sliver/actions/workflows/autorelease.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/BishopFox/sliver)](https://goreportcard.com/report/github.com/BishopFox/sliver) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
+# v1.6.0 / `master`
+
+**NOTE:** You are looking the latest master branch of Sliver v1.6.0; PRs should target this branch starting on 6/1/2023 ('MURICA format). However, this branch is NOT RECOMMENDED for production use yet. Please use release tagged versions for the best experience.
+
+For PRs containing bug fixes specific to Sliver v1.5, please target the [`v1.5.x/master` branch](https://github.com/BishopFox/sliver/tree/v1.5.x/master).
+
 ### Features
 
 - Dynamic code generation

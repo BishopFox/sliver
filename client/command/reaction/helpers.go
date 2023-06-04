@@ -20,10 +20,16 @@ package reaction
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"path"
+	"strconv"
+	"strings"
+
+	"github.com/rsteube/carapace"
 
 	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 )
 
@@ -43,7 +49,7 @@ func SaveReactions(reactions []core.Reaction) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(reactionFilePath, data, 0600)
+	return ioutil.WriteFile(reactionFilePath, data, 0o600)
 }
 
 // LoadReactions - Save the reactions to the reaction file
@@ -77,4 +83,20 @@ func isReactable(reaction core.Reaction) bool {
 		}
 	}
 	return false
+}
+
+// ReactionIDCompleter completes saved/available reaction IDs
+func ReactionIDCompleter(_ *console.SliverConsoleClient) carapace.Action {
+	results := make([]string, 0)
+
+	for _, reaction := range core.Reactions.All() {
+		results = append(results, strconv.Itoa(reaction.ID))
+		results = append(results, fmt.Sprintf("[%s] %s", reaction.EventType, strings.Join(reaction.Commands, ",")))
+	}
+
+	if len(results) == 0 {
+		return carapace.ActionMessage("no reactions available")
+	}
+
+	return carapace.ActionValuesDescribed(results...).Tag("reactions")
 }

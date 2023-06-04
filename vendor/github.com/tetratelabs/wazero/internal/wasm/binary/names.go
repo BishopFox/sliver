@@ -93,7 +93,7 @@ func decodeFunctionNames(r *bytes.Reader) (wasm.NameMap, error) {
 		if err != nil {
 			return nil, err
 		}
-		result[i] = &wasm.NameAssoc{Index: functionIndex, Name: name}
+		result[i] = wasm.NameAssoc{Index: functionIndex, Name: name}
 	}
 	return result, nil
 }
@@ -127,9 +127,9 @@ func decodeLocalNames(r *bytes.Reader) (wasm.IndirectNameMap, error) {
 			if err != nil {
 				return nil, err
 			}
-			locals[j] = &wasm.NameAssoc{Index: localIndex, Name: name}
+			locals[j] = wasm.NameAssoc{Index: localIndex, Name: name}
 		}
-		result[i] = &wasm.NameMapAssoc{Index: functionIndex, NameMap: locals}
+		result[i] = wasm.NameMapAssoc{Index: functionIndex, NameMap: locals}
 	}
 	return result, nil
 }

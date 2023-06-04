@@ -19,60 +19,39 @@ package completers
 */
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
+	"net"
 
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/rsteube/carapace"
 )
 
-// LocalPathCompleter - Completes a local file system path
-func LocalPathCompleter(prefix string, args []string, con *console.SliverConsoleClient) []string {
-	var parent string
-	var partial string
-	fi, err := os.Stat(prefix)
-	if os.IsNotExist(err) {
-		parent = filepath.Dir(prefix)
-		partial = filepath.Base(prefix)
-	} else {
-		if fi.IsDir() {
-			parent = prefix
-			partial = ""
-		} else {
-			parent = filepath.Dir(prefix)
-			partial = filepath.Base(prefix)
+// ClientInterfacesCompleter completes interface addresses on the client host.
+func ClientInterfacesCompleter() carapace.Action {
+	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
+		ifaces, err := net.Interfaces()
+		if err != nil {
+			return carapace.ActionMessage("failed to get net interfaces: %s", err.Error())
 		}
-	}
 
-	results := []string{}
-	ls, err := os.ReadDir(parent)
-	if err != nil {
-		return results
-	}
-	for _, fi := range ls {
-		if 0 < len(partial) {
-			if strings.HasPrefix(fi.Name(), partial) {
-				results = append(results, filepath.Join(parent, fi.Name()))
+		results := make([]string, 0)
+
+		for _, i := range ifaces {
+			addrs, err := i.Addrs()
+			if err != nil {
+				continue
 			}
-		} else {
-			results = append(results, filepath.Join(parent, fi.Name()))
-		}
-	}
-	return results
-}
 
-// TrafficEncoderCompleter - Completes the names of traffic encoders
-func TrafficEncoderCompleter(prefix string, args []string, con *console.SliverConsoleClient) []string {
-	grpcCtx, cancel := con.GrpcContext(nil)
-	defer cancel()
-	trafficEncoders, err := con.Rpc.TrafficEncoderMap(grpcCtx, &commonpb.Empty{})
-	if err != nil {
-		return []string{}
-	}
-	results := []string{}
-	for _, encoder := range trafficEncoders.Encoders {
-		results = append(results, encoder.Wasm.Name)
-	}
-	return results
+			for _, a := range addrs {
+				switch v := a.(type) {
+				case *net.IPAddr:
+					results = append(results, v.IP.String())
+				case *net.IPNet:
+					results = append(results, v.IP.String())
+				default:
+					results = append(results, v.String())
+				}
+			}
+		}
+
+		return carapace.ActionValues(results...).Tag("client interfaces").NoSpace(':')
+	})
 }

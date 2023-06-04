@@ -24,11 +24,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
+
+	appConsole "github.com/reeflective/console"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/help"
@@ -38,8 +44,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
-	"github.com/desertbit/grumble"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -102,24 +106,26 @@ func (e *ExtensionManifest) getFileForTarget(cmdName string, targetOS string, ta
 }
 
 // ExtensionLoadCmd - Load extension command
-func ExtensionLoadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	dirPath := ctx.Args.String("dir-path")
+func ExtensionLoadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	dirPath := args[0]
+	// dirPath := ctx.Args.String("dir-path")
 	extCmd, err := LoadExtensionManifest(filepath.Join(dirPath, ManifestFileName))
 	if err != nil {
 		return
 	}
 	// do not add if the command already exists
-	if CmdExists(extCmd.CommandName, con.App) {
+	sliverMenu := con.App.Menu("implant")
+	if CmdExists(extCmd.CommandName, sliverMenu.Command) {
 		con.PrintErrorf("%s command already exists\n", extCmd.CommandName)
 		return
 	}
-	ExtensionRegisterCommand(extCmd, con)
+	ExtensionRegisterCommand(extCmd, cmd.Root(), con)
 	con.PrintInfof("Added %s command: %s\n", extCmd.CommandName, extCmd.Help)
 }
 
 // LoadExtensionManifest - Parse extension files
 func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
-	data, err := ioutil.ReadFile(manifestPath)
+	data, err := os.ReadFile(manifestPath)
 	if err != nil {
 		return nil, err
 	}
@@ -169,60 +175,44 @@ func ParseExtensionManifest(data []byte) (*ExtensionManifest, error) {
 }
 
 // ExtensionRegisterCommand - Register a new extension command
-func ExtensionRegisterCommand(extCmd *ExtensionManifest, con *console.SliverConsoleClient) {
+func ExtensionRegisterCommand(extCmd *ExtensionManifest, cmd *cobra.Command, con *console.SliverConsoleClient) {
+	if errInvalidArgs := checkExtensionArgs(extCmd); errInvalidArgs != nil {
+		con.PrintErrorf(errInvalidArgs.Error())
+		return
+	}
+
 	loadedExtensions[extCmd.CommandName] = extCmd
 	helpMsg := extCmd.Help
-	extensionCmd := &grumble.Command{
-		Name:     extCmd.CommandName,
-		Help:     helpMsg,
-		LongHelp: help.FormatHelpTmpl(extCmd.LongHelp),
-		Run: func(extCtx *grumble.Context) error {
-			con.Println()
-			runExtensionCmd(extCtx, con)
-			con.Println()
-			return nil
+
+	// Command
+	extensionCmd := &cobra.Command{
+		Use:   extCmd.CommandName,
+		Short: helpMsg,
+		Long:  help.FormatHelpTmpl(extCmd.LongHelp),
+		Run: func(cmd *cobra.Command, args []string) {
+			runExtensionCmd(cmd, con, args)
 		},
-		Flags: func(f *grumble.Flags) {
-			// f.Bool("s", "save", false, "Save output to disk")
-			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
-		},
-		Args: func(a *grumble.Args) {
-			if 0 < len(extCmd.Arguments) {
-				// BOF specific
-				for _, arg := range extCmd.Arguments {
-					var (
-						argFunc      func(string, string, ...grumble.ArgOption)
-						defaultValue grumble.ArgOption
-					)
-					switch arg.Type {
-					case "int", "integer", "short":
-						argFunc = a.Int
-						defaultValue = grumble.Default(0)
-					case "string", "wstring", "file":
-						argFunc = a.String
-						defaultValue = grumble.Default("")
-					default:
-						con.PrintErrorf("Invalid argument type: %s\n", arg.Type)
-						return
-					}
-					if arg.Optional {
-						argFunc(arg.Name, arg.Desc, defaultValue)
-					} else {
-						argFunc(arg.Name, arg.Desc)
-					}
-				}
-			} else {
-				a.StringList("arguments", "arguments", grumble.Default([]string{}))
-			}
-		},
-		HelpGroup: consts.ExtensionHelpGroup,
+		GroupID:     consts.ExtensionHelpGroup,
+		Annotations: makeCommandPlatformFilters(extCmd),
 	}
-	con.App.AddCommand(extensionCmd)
+
+	// Flags
+	f := pflag.NewFlagSet(extCmd.Name, pflag.ContinueOnError)
+	f.BoolP("save", "s", false, "Save output to disk")
+	f.IntP("timeout", "t", defaultTimeout, "command timeout in seconds")
+	extensionCmd.Flags().AddFlagSet(f)
+	extensionCmd.Flags().ParseErrorsWhitelist.UnknownFlags = true
+
+	// Completions
+	comps := carapace.Gen(extensionCmd)
+	makeExtensionArgCompleter(extCmd, cmd, comps)
+
+	cmd.AddCommand(extensionCmd)
 }
 
-func loadExtension(goos string, goarch string, checkCache bool, ext *ExtensionManifest, ctx *grumble.Context, con *console.SliverConsoleClient) error {
+func loadExtension(goos string, goarch string, checkCache bool, ext *ExtensionManifest, cmd *cobra.Command, con *console.SliverConsoleClient) error {
 	var extensionList []string
-	binPath, err := ext.getFileForTarget(ctx.Command.Name, goos, goarch)
+	binPath, err := ext.getFileForTarget(cmd.Name(), goos, goarch)
 	if err != nil {
 		return err
 	}
@@ -230,7 +220,7 @@ func loadExtension(goos string, goarch string, checkCache bool, ext *ExtensionMa
 	// Try to find the extension in the loaded extensions
 	if checkCache {
 		extList, err := con.Rpc.ListExtensions(context.Background(), &sliverpb.ListExtensionsReq{
-			Request: con.ActiveTarget.Request(ctx),
+			Request: con.ActiveTarget.Request(cmd),
 		})
 		if err != nil {
 			con.PrintErrorf("List extensions error: %s\n", err.Error())
@@ -255,29 +245,29 @@ func loadExtension(goos string, goarch string, checkCache bool, ext *ExtensionMa
 		// BOFs are not loaded by the DLL loader, but we make sure the loader itself is loaded
 		// Auto load the coff loader if we have it
 		if !depLoaded {
-			if errLoad := loadDep(goos, goarch, ext.DependsOn, ctx, con); errLoad != nil {
+			if errLoad := loadDep(goos, goarch, ext.DependsOn, cmd, con); errLoad != nil {
 				return errLoad
 			}
 		}
 		return nil
 	}
-	binData, err := ioutil.ReadFile(binPath)
+	binData, err := os.ReadFile(binPath)
 	if err != nil {
 		return err
 	}
-	if errRegister := registerExtension(goos, ext, binData, ctx, con); errRegister != nil {
+	if errRegister := registerExtension(goos, ext, binData, cmd, con); errRegister != nil {
 		return errRegister
 	}
 	return nil
 }
 
-func registerExtension(goos string, ext *ExtensionManifest, binData []byte, ctx *grumble.Context, con *console.SliverConsoleClient) error {
+func registerExtension(goos string, ext *ExtensionManifest, binData []byte, cmd *cobra.Command, con *console.SliverConsoleClient) error {
 	registerResp, err := con.Rpc.RegisterExtension(context.Background(), &sliverpb.RegisterExtensionReq{
 		Name:    ext.CommandName,
 		Data:    binData,
 		OS:      goos,
 		Init:    ext.Init,
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
 		return err
@@ -288,23 +278,23 @@ func registerExtension(goos string, ext *ExtensionManifest, binData []byte, ctx 
 	return nil
 }
 
-func loadDep(goos string, goarch string, depName string, ctx *grumble.Context, con *console.SliverConsoleClient) error {
+func loadDep(goos string, goarch string, depName string, cmd *cobra.Command, con *console.SliverConsoleClient) error {
 	depExt, ok := loadedExtensions[depName]
 	if ok {
 		depBinPath, err := depExt.getFileForTarget(depExt.CommandName, goos, goarch)
 		if err != nil {
 			return err
 		}
-		depBinData, err := ioutil.ReadFile(depBinPath)
+		depBinData, err := os.ReadFile(depBinPath)
 		if err != nil {
 			return err
 		}
-		return registerExtension(goos, depExt, depBinData, ctx, con)
+		return registerExtension(goos, depExt, depBinData, cmd, con)
 	}
 	return fmt.Errorf("missing dependency %s", depName)
 }
 
-func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func runExtensionCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	var (
 		err           error
 		extensionArgs []byte
@@ -325,19 +315,19 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		goarch = beacon.Arch
 	}
 
-	ext, ok := loadedExtensions[ctx.Command.Name]
+	ext, ok := loadedExtensions[cmd.Name()]
 	if !ok {
-		con.PrintErrorf("No extension command found for `%s` command\n", ctx.Command.Name)
+		con.PrintErrorf("No extension command found for `%s` command\n", cmd.Name())
 		return
 	}
 
 	checkCache := session != nil
-	if err = loadExtension(goos, goarch, checkCache, ext, ctx, con); err != nil {
+	if err = loadExtension(goos, goarch, checkCache, ext, cmd, con); err != nil {
 		con.PrintErrorf("Could not load extension: %s\n", err)
 		return
 	}
 
-	binPath, err := ext.getFileForTarget(ctx.Command.Name, goos, goarch)
+	binPath, err := ext.getFileForTarget(cmd.Name(), goos, goarch)
 	if err != nil {
 		con.PrintErrorf("Failed to read extension file: %s\n", err)
 		return
@@ -352,7 +342,7 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	// the loader will extract and load.
 	if isBOF {
 		// Beacon Object File -- requires a COFF loader
-		extensionArgs, err = getBOFArgs(ctx, binPath, ext)
+		extensionArgs, err = getBOFArgs(cmd, args, binPath, ext)
 		if err != nil {
 			con.PrintErrorf("BOF args error: %s\n", err)
 			return
@@ -361,20 +351,20 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		entryPoint = loadedExtensions[extName].Entrypoint // should exist at this point
 	} else {
 		// Regular DLL
-		extArgs := strings.Join(ctx.Args.StringList("arguments"), " ")
+		extArgs := strings.Join(args, " ")
 		extensionArgs = []byte(extArgs)
 		extName = ext.CommandName
 		entryPoint = ext.Entrypoint
 	}
 
 	ctrl := make(chan bool)
-	msg := fmt.Sprintf("Executing %s ...", ctx.Command.Name)
+	msg := fmt.Sprintf("Executing %s ...", cmd.Name())
 	con.SpinUntil(msg, ctrl)
 	callExtResp, err := con.Rpc.CallExtension(context.Background(), &sliverpb.CallExtensionReq{
 		Name:    extName,
 		Export:  entryPoint,
 		Args:    extensionArgs,
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 	})
 	ctrl <- true
 	<-ctrl
@@ -401,62 +391,82 @@ func runExtensionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 // PrintExtOutput - Print the ext execution output
 func PrintExtOutput(extName string, commandName string, callExtension *sliverpb.CallExtension, con *console.SliverConsoleClient) {
 	if extName == commandName {
-		con.PrintInfof("Successfully executed %s\n", extName)
+		con.PrintInfof("Successfully executed %s", extName)
 	} else {
-		con.PrintInfof("Successfully executed %s (%s)\n", commandName, extName)
+		con.PrintInfof("Successfully executed %s (%s)", commandName, extName)
 	}
 	if 0 < len(string(callExtension.Output)) {
-		con.PrintInfof("Got output:\n%s\n", callExtension.Output)
+		con.PrintInfof("Got output:\n%s", callExtension.Output)
 	}
 	if callExtension.Response != nil && callExtension.Response.Err != "" {
-		con.PrintErrorf("%s\n", callExtension.Response.Err)
+		con.PrintErrorf(callExtension.Response.Err)
 		return
 	}
 }
 
-func getBOFArgs(ctx *grumble.Context, binPath string, ext *ExtensionManifest) ([]byte, error) {
+func getBOFArgs(cmd *cobra.Command, args []string, binPath string, ext *ExtensionManifest) ([]byte, error) {
 	var extensionArgs []byte
-	binData, err := ioutil.ReadFile(binPath)
+	binData, err := os.ReadFile(binPath)
 	if err != nil {
 		return nil, err
 	}
 	argsBuffer := core.BOFArgsBuffer{
 		Buffer: new(bytes.Buffer),
 	}
+
 	// Parse BOF arguments from grumble
+	missingRequiredArgs := make([]string, 0)
+
 	for _, arg := range ext.Arguments {
+		// If we don't have any positional words left to consume,
+		// add the remaining required extension arguments in the
+		// error message.
+		if len(args) == 0 {
+			if !arg.Optional {
+				missingRequiredArgs = append(missingRequiredArgs, "`"+arg.Name+"`")
+			}
+			continue
+		}
+
+		// Else pop a word from the list
+		word := args[0]
+		args = args[1:]
+
 		switch arg.Type {
 		case "integer":
 			fallthrough
 		case "int":
-			val := ctx.Args.Int(arg.Name)
+			val, err := strconv.Atoi(word)
+			if err != nil {
+				return nil, err
+			}
 			err = argsBuffer.AddInt(uint32(val))
 			if err != nil {
 				return nil, err
 			}
 		case "short":
-			val := ctx.Args.Int(arg.Name)
+			val, err := strconv.Atoi(word)
+			if err != nil {
+				return nil, err
+			}
 			err = argsBuffer.AddShort(uint16(val))
 			if err != nil {
 				return nil, err
 			}
 		case "string":
-			val := ctx.Args.String(arg.Name)
-			err = argsBuffer.AddString(val)
+			err = argsBuffer.AddString(word)
 			if err != nil {
 				return nil, err
 			}
 		case "wstring":
-			val := ctx.Args.String(arg.Name)
-			err = argsBuffer.AddWString(val)
+			err = argsBuffer.AddWString(word)
 			if err != nil {
 				return nil, err
 			}
 		// Adding support for filepaths so we can
 		// send binary data like shellcodes to BOFs
 		case "file":
-			val := ctx.Args.String(arg.Name)
-			data, err := ioutil.ReadFile(val)
+			data, err := os.ReadFile(word)
 			if err != nil {
 				return nil, err
 			}
@@ -466,6 +476,12 @@ func getBOFArgs(ctx *grumble.Context, binPath string, ext *ExtensionManifest) ([
 			}
 		}
 	}
+
+	// Return if we have missing required arguments
+	if len(missingRequiredArgs) > 0 {
+		return nil, fmt.Errorf("required arguments %s were not provided", strings.Join(missingRequiredArgs, ", "))
+	}
+
 	parsedArgs, err := argsBuffer.GetBuffer()
 	if err != nil {
 		return nil, err
@@ -491,15 +507,89 @@ func getBOFArgs(ctx *grumble.Context, binPath string, ext *ExtensionManifest) ([
 		return nil, err
 	}
 	return extensionArgs, nil
-
 }
 
 // CmdExists - checks if a command exists
-func CmdExists(name string, app *grumble.App) bool {
-	for _, c := range app.Commands().All() {
-		if name == c.Name {
+func CmdExists(name string, cmd *cobra.Command) bool {
+	for _, c := range cmd.Commands() {
+		if name == c.Name() {
 			return true
 		}
 	}
 	return false
+}
+
+// makeExtensionArgParser builds the valid positional arguments cobra handler for the extension.
+func checkExtensionArgs(extCmd *ExtensionManifest) error {
+	if 0 < len(extCmd.Arguments) {
+		for _, arg := range extCmd.Arguments {
+			switch arg.Type {
+			case "int", "integer", "short":
+			case "string", "wstring", "file":
+			default:
+				return fmt.Errorf("invalid argument type: %s", arg.Type)
+			}
+		}
+	}
+
+	return nil
+}
+
+// makeExtensionArgCompleter builds the positional arguments completer for the extension.
+func makeExtensionArgCompleter(extCmd *ExtensionManifest, _ *cobra.Command, comps *carapace.Carapace) {
+	var actions []carapace.Action
+
+	for _, arg := range extCmd.Arguments {
+		var action carapace.Action
+
+		switch arg.Type {
+		case "file":
+			action = carapace.ActionFiles().Tag("extension data")
+		}
+
+		usage := fmt.Sprintf("(%s) %s", arg.Type, arg.Desc)
+		if arg.Optional {
+			usage += " (optional)"
+		}
+
+		actions = append(actions, action.Usage(usage))
+	}
+
+	comps.PositionalCompletion(actions...)
+}
+
+func makeCommandPlatformFilters(extCmd *ExtensionManifest) map[string]string {
+	filtersOS := make(map[string]bool)
+	filtersArch := make(map[string]bool)
+
+	var all []string
+
+	// Only add filters for architectures when there OS matters.
+	for _, file := range extCmd.Files {
+		filtersOS[file.OS] = true
+
+		if filtersOS[file.OS] {
+			filtersArch[file.Arch] = true
+		}
+	}
+
+	for os, enabled := range filtersOS {
+		if enabled {
+			all = append(all, os)
+		}
+	}
+
+	for arch, enabled := range filtersArch {
+		if enabled {
+			all = append(all, arch)
+		}
+	}
+
+	if len(all) == 0 {
+		return map[string]string{}
+	}
+
+	return map[string]string{
+		appConsole.CommandFilterKey: strings.Join(all, ","),
+	}
 }

@@ -27,15 +27,16 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/desertbit/grumble"
 )
 
 // GenerateStagerCmd - Generate a stager using Metasploit
-func GenerateStagerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func GenerateStagerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	var stageProto clientpb.StageProtocol
-	lhost := ctx.Flags.String("lhost")
+	lhost, _ := cmd.Flags().GetString("lhost")
 	if lhost == "" {
 		con.PrintErrorf("Please specify a listening host")
 		return
@@ -64,13 +65,13 @@ func GenerateStagerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			lhost = addr[0]
 		}
 	}
-	lport := ctx.Flags.Int("lport")
-	stageOS := ctx.Flags.String("os")
-	arch := ctx.Flags.String("arch")
-	proto := ctx.Flags.String("protocol")
-	format := ctx.Flags.String("format")
-	badChars := ctx.Flags.String("badchars")
-	save := ctx.Flags.String("save")
+	lport, _ := cmd.Flags().GetUint32("lport")
+	stageOS, _ := cmd.Flags().GetString("os")
+	arch, _ := cmd.Flags().GetString("arch")
+	proto, _ := cmd.Flags().GetString("protocol")
+	format, _ := cmd.Flags().GetString("format")
+	badChars, _ := cmd.Flags().GetString("badchars")
+	save, _ := cmd.Flags().GetString("save")
 
 	bChars := make([]string, 0)
 	if len(badChars) > 0 {
@@ -98,7 +99,7 @@ func GenerateStagerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		BadChars: bChars,
 		Format:   format,
 		Host:     lhost,
-		Port:     uint32(lport),
+		Port:     lport,
 		Protocol: stageProto,
 		OS:       stageOS,
 	})
@@ -111,12 +112,12 @@ func GenerateStagerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	if save != "" || format == "raw" {
-		saveTo, err := saveLocation(save, stageFile.GetFile().GetName())
+		saveTo, err := saveLocation(save, stageFile.GetFile().GetName(), con)
 		if err != nil {
 			return
 		}
 
-		err = os.WriteFile(saveTo, stageFile.GetFile().GetData(), 0700)
+		err = os.WriteFile(saveTo, stageFile.GetFile().GetData(), 0o700)
 		if err != nil {
 			con.PrintErrorf("Failed to write to: %s\n", saveTo)
 			return

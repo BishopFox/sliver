@@ -21,34 +21,37 @@ package filesystem
 import (
 	"context"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/desertbit/grumble"
 )
 
-func MvCmd(ctx *grumble.Context, con *console.SliverConsoleClient) (err error) {
+func MvCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) (err error) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
-	src := ctx.Args.String("src")
-	if src == "" {
-		con.PrintErrorf("Missing parameter: src\n")
-		return
-	}
+	src := args[0]
+	// src := ctx.Args.String("src")
+	// if src == "" {
+	// 	con.PrintErrorf("Missing parameter: src\n")
+	// 	return
+	// }
 
-	dst := ctx.Args.String("dst")
-	if dst == "" {
-		con.PrintErrorf("Missing parameter: dst\n")
-		return
-	}
+	dst := args[1]
+	// dst := ctx.Args.String("dst")
+	// if dst == "" {
+	// 	con.PrintErrorf("Missing parameter: dst\n")
+	// 	return
+	// }
 
 	mv, err := con.Rpc.Mv(context.Background(), &sliverpb.MvReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 		Src:     src,
 		Dst:     dst,
 	})

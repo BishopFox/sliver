@@ -23,21 +23,23 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
 )
 
 // InteractiveCmd - Beacon only command to open an interactive session
-func InteractiveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func InteractiveCmd(cmd *cobra.Command, con *console.SliverConsoleClient, _ []string) {
 	beacon := con.ActiveTarget.GetBeaconInteractive()
 	if beacon == nil {
 		return
 	}
 
-	delay, err := time.ParseDuration(ctx.Flags.String("delay"))
+	delayF, _ := cmd.Flags().GetString("delay")
+	delay, err := time.ParseDuration(delayF)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -46,42 +48,48 @@ func InteractiveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	// Parse C2 Flags
 	c2s := []*clientpb.ImplantC2{}
 
-	mtlsC2, err := generate.ParseMTLSc2(ctx.Flags.String("mtls"))
+	mtlsC2F, _ := cmd.Flags().GetString("mtls")
+	mtlsC2, err := generate.ParseMTLSc2(mtlsC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
 		return
 	}
 	c2s = append(c2s, mtlsC2...)
 
-	wgC2, err := generate.ParseWGc2(ctx.Flags.String("wg"))
+	wgC2F, _ := cmd.Flags().GetString("wg")
+	wgC2, err := generate.ParseWGc2(wgC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
 		return
 	}
 	c2s = append(c2s, wgC2...)
 
-	httpC2, err := generate.ParseHTTPc2(ctx.Flags.String("http"))
+	httpC2F, _ := cmd.Flags().GetString("http")
+	httpC2, err := generate.ParseHTTPc2(httpC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
 		return
 	}
 	c2s = append(c2s, httpC2...)
 
-	dnsC2, err := generate.ParseDNSc2(ctx.Flags.String("dns"))
+	dnsC2F, _ := cmd.Flags().GetString("dns")
+	dnsC2, err := generate.ParseDNSc2(dnsC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
 		return
 	}
 	c2s = append(c2s, dnsC2...)
 
-	namedPipeC2, err := generate.ParseNamedPipec2(ctx.Flags.String("named-pipe"))
+	namedPipeC2F, _ := cmd.Flags().GetString("named-pipe")
+	namedPipeC2, err := generate.ParseNamedPipec2(namedPipeC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
 		return
 	}
 	c2s = append(c2s, namedPipeC2...)
 
-	tcpPivotC2, err := generate.ParseTCPPivotc2(ctx.Flags.String("tcp-pivot"))
+	tcpPivotC2F, _ := cmd.Flags().GetString("tcp-pivot")
+	tcpPivotC2, err := generate.ParseTCPPivotc2(tcpPivotC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
 		return
@@ -148,7 +156,7 @@ func InteractiveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	openSession := &sliverpb.OpenSession{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 		C2S:     []string{},
 		Delay:   int64(delay),
 	}

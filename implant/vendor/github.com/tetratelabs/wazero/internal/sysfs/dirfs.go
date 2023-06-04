@@ -5,10 +5,11 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/tetratelabs/wazero/internal/fsapi"
 	"github.com/tetratelabs/wazero/internal/platform"
 )
 
-func NewDirFS(dir string) FS {
+func NewDirFS(dir string) fsapi.FS {
 	return &dirFS{
 		dir:        dir,
 		cleanedDir: ensureTrailingPathSeparator(dir),
@@ -16,14 +17,14 @@ func NewDirFS(dir string) FS {
 }
 
 func ensureTrailingPathSeparator(dir string) string {
-	if dir[len(dir)-1] != os.PathSeparator {
+	if !os.IsPathSeparator(dir[len(dir)-1]) {
 		return dir + string(os.PathSeparator)
 	}
 	return dir
 }
 
 type dirFS struct {
-	UnimplementedFS
+	fsapi.UnimplementedFS
 	dir string
 	// cleanedDir is for easier OS-specific concatenation, as it always has
 	// a trailing path separator.
@@ -35,117 +36,111 @@ func (d *dirFS) String() string {
 	return d.dir
 }
 
-// Open implements the same method as documented on fs.FS
-func (d *dirFS) Open(name string) (fs.File, error) {
-	return fsOpen(d, name)
+// OpenFile implements the same method as documented on api.FS
+func (d *dirFS) OpenFile(path string, flag int, perm fs.FileMode) (fsapi.File, syscall.Errno) {
+	return OpenOSFile(d.join(path), flag, perm)
 }
 
-// OpenFile implements FS.OpenFile
-func (d *dirFS) OpenFile(name string, flag int, perm fs.FileMode) (fs.File, error) {
-	f, err := platform.OpenFile(d.join(name), flag, perm)
-	if err != nil {
-		return nil, UnwrapOSError(err)
-	}
-	return maybeWrapFile(f, d, name, flag, perm), nil
+// Lstat implements the same method as documented on api.FS
+func (d *dirFS) Lstat(path string) (fsapi.Stat_t, syscall.Errno) {
+	return lstat(d.join(path))
 }
 
-// Mkdir implements FS.Mkdir
-func (d *dirFS) Mkdir(name string, perm fs.FileMode) (err error) {
-	err = os.Mkdir(d.join(name), perm)
-	if err = UnwrapOSError(err); err == syscall.ENOTDIR {
-		err = syscall.ENOENT
+// Stat implements the same method as documented on api.FS
+func (d *dirFS) Stat(path string) (fsapi.Stat_t, syscall.Errno) {
+	return stat(d.join(path))
+}
+
+// Mkdir implements the same method as documented on api.FS
+func (d *dirFS) Mkdir(path string, perm fs.FileMode) (errno syscall.Errno) {
+	err := os.Mkdir(d.join(path), perm)
+	if errno = platform.UnwrapOSError(err); errno == syscall.ENOTDIR {
+		errno = syscall.ENOENT
 	}
 	return
 }
 
-// Chmod implements FS.Chmod
-func (d *dirFS) Chmod(name string, perm fs.FileMode) error {
-	err := os.Chmod(d.join(name), perm)
-	return UnwrapOSError(err)
+// Chmod implements the same method as documented on api.FS
+func (d *dirFS) Chmod(path string, perm fs.FileMode) syscall.Errno {
+	err := os.Chmod(d.join(path), perm)
+	return platform.UnwrapOSError(err)
 }
 
-// Rename implements FS.Rename
-func (d *dirFS) Rename(from, to string) error {
+// Chown implements the same method as documented on api.FS
+func (d *dirFS) Chown(path string, uid, gid int) syscall.Errno {
+	return Chown(d.join(path), uid, gid)
+}
+
+// Lchown implements the same method as documented on api.FS
+func (d *dirFS) Lchown(path string, uid, gid int) syscall.Errno {
+	return Lchown(d.join(path), uid, gid)
+}
+
+// Rename implements the same method as documented on api.FS
+func (d *dirFS) Rename(from, to string) syscall.Errno {
 	from, to = d.join(from), d.join(to)
-	err := platform.Rename(from, to)
-	return UnwrapOSError(err)
+	return Rename(from, to)
 }
 
-// Readlink implements FS.Readlink
-func (d *dirFS) Readlink(path string, buf []byte) (n int, err error) {
+// Readlink implements the same method as documented on api.FS
+func (d *dirFS) Readlink(path string) (string, syscall.Errno) {
 	// Note: do not use syscall.Readlink as that causes race on Windows.
 	// In any case, syscall.Readlink does almost the same logic as os.Readlink.
-	res, err := os.Readlink(d.join(path))
+	dst, err := os.Readlink(d.join(path))
 	if err != nil {
-		err = UnwrapOSError(err)
-		return
+		return "", platform.UnwrapOSError(err)
 	}
-
-	// We need to copy here, but syscall.Readlink does copy internally, so the cost is the same.
-	copy(buf, res)
-	n = len(res)
-	if n > len(buf) {
-		n = len(buf)
-	}
-	platform.SanitizeSeparator(buf[:n])
-	return
+	return platform.ToPosixPath(dst), 0
 }
 
-// Link implements FS.Link.
-func (d *dirFS) Link(oldName, newName string) error {
+// Link implements the same method as documented on api.FS
+func (d *dirFS) Link(oldName, newName string) syscall.Errno {
 	err := os.Link(d.join(oldName), d.join(newName))
-	return UnwrapOSError(err)
+	return platform.UnwrapOSError(err)
 }
 
-// Rmdir implements FS.Rmdir
-func (d *dirFS) Rmdir(name string) error {
-	err := syscall.Rmdir(d.join(name))
-	err = UnwrapOSError(err)
-	return adjustRmdirError(err)
+// Rmdir implements the same method as documented on api.FS
+func (d *dirFS) Rmdir(path string) syscall.Errno {
+	err := syscall.Rmdir(d.join(path))
+	return platform.UnwrapOSError(err)
 }
 
-// Unlink implements FS.Unlink
-func (d *dirFS) Unlink(name string) (err error) {
-	err = syscall.Unlink(d.join(name))
-	if err = UnwrapOSError(err); err == syscall.EPERM {
-		err = syscall.EISDIR
-	}
-	return
+// Unlink implements the same method as documented on api.FS
+func (d *dirFS) Unlink(path string) (err syscall.Errno) {
+	return Unlink(d.join(path))
 }
 
-// Symlink implements FS.Symlink
-func (d *dirFS) Symlink(oldName, link string) (err error) {
+// Symlink implements the same method as documented on api.FS
+func (d *dirFS) Symlink(oldName, link string) syscall.Errno {
 	// Note: do not resolve `oldName` relative to this dirFS. The link result is always resolved
 	// when dereference the `link` on its usage (e.g. readlink, read, etc).
 	// https://github.com/bytecodealliance/cap-std/blob/v1.0.4/cap-std/src/fs/dir.rs#L404-L409
-	err = os.Symlink(oldName, d.join(link))
-	return UnwrapOSError(err)
+	err := os.Symlink(oldName, d.join(link))
+	return platform.UnwrapOSError(err)
 }
 
-// Utimes implements FS.Utimes
-func (d *dirFS) Utimes(name string, atimeNsec, mtimeNsec int64) error {
-	err := syscall.UtimesNano(d.join(name), []syscall.Timespec{
-		syscall.NsecToTimespec(atimeNsec),
-		syscall.NsecToTimespec(mtimeNsec),
-	})
-	return UnwrapOSError(err)
+// Utimens implements the same method as documented on api.FS
+func (d *dirFS) Utimens(path string, times *[2]syscall.Timespec, symlinkFollow bool) syscall.Errno {
+	return Utimens(d.join(path), times, symlinkFollow)
 }
 
-// Truncate implements FS.Truncate
-func (d *dirFS) Truncate(name string, size int64) error {
+// Truncate implements the same method as documented on api.FS
+func (d *dirFS) Truncate(path string, size int64) syscall.Errno {
 	// Use os.Truncate as syscall.Truncate doesn't exist on Windows.
-	err := os.Truncate(d.join(name), size)
-	err = UnwrapOSError(err)
-	return adjustTruncateError(err)
+	err := os.Truncate(d.join(path), size)
+	return platform.UnwrapOSError(err)
 }
 
-func (d *dirFS) join(name string) string {
-	switch name {
+func (d *dirFS) join(path string) string {
+	switch path {
 	case "", ".", "/":
+		if d.cleanedDir == "/" {
+			return "/"
+		}
 		// cleanedDir includes an unnecessary delimiter for the root path.
 		return d.cleanedDir[:len(d.cleanedDir)-1]
 	}
-	// TODO: Enforce similar to safefilepath.FromFS(name), but be careful as
-	// relative path inputs are allowed. e.g. dir or name == ../
-	return d.cleanedDir + name
+	// TODO: Enforce similar to safefilepath.FromFS(path), but be careful as
+	// relative path inputs are allowed. e.g. dir or path == ../
+	return d.cleanedDir + path
 }

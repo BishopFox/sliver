@@ -25,27 +25,34 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
-	"google.golang.org/protobuf/proto"
 )
 
 // ExecuteAssemblyCmd - Execute a .NET assembly in-memory
-func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func ExecuteAssemblyCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
-	assemblyPath := ctx.Args.String("filepath")
+	arch, _ := cmd.Flags().GetString("arch")
+	method, _ := cmd.Flags().GetString("method")
+	className, _ := cmd.Flags().GetString("class")
+	appDomain, _ := cmd.Flags().GetString("app-domain")
+	pPid, _ := cmd.Flags().GetUint32("ppid")
+
+	assemblyPath := args[0]
 	isDLL := false
 	if filepath.Ext(assemblyPath) == ".dll" {
 		isDLL = true
 	}
 	if isDLL {
-		if ctx.Flags.String("class") == "" || ctx.Flags.String("method") == "" {
+		if className == "" || method == "" {
 			con.PrintErrorf("Please provide a class name (namespace.class) and method\n")
 			return
 		}
@@ -56,15 +63,15 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 		return
 	}
 
-	assemblyArgs := ctx.Args.StringList("arguments")
-	process := ctx.Flags.String("process")
-	processArgsStr := ctx.Flags.String("process-arguments")
+	assemblyArgs := args[1:]
+	process, _ := cmd.Flags().GetString("process")
+	processArgsStr, _ := cmd.Flags().GetString("process-arguments")
 	processArgs := strings.Split(processArgsStr, " ")
-	inProcess := ctx.Flags.Bool("in-process")
+	inProcess, _ := cmd.Flags().GetBool("in-process")
 
-	runtime := ctx.Flags.String("runtime")
-	etwBypass := ctx.Flags.Bool("etw-bypass")
-	amsiBypass := ctx.Flags.Bool("amsi-bypass")
+	runtime, _ := cmd.Flags().GetString("runtime")
+	etwBypass, _ := cmd.Flags().GetBool("etw-bypass")
+	amsiBypass, _ := cmd.Flags().GetBool("amsi-bypass")
 
 	if !inProcess && (runtime != "" || etwBypass || amsiBypass) {
 		con.PrintErrorf("The --runtime, --etw-bypass, and --amsi-bypass flags can only be used with the --in-process flag\n")
@@ -86,17 +93,17 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 	ctrl := make(chan bool)
 	con.SpinUntil("Executing assembly ...", ctrl)
 	execAssembly, err := con.Rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
-		Request:     con.ActiveTarget.Request(ctx),
+		Request:     con.ActiveTarget.Request(cmd),
 		IsDLL:       isDLL,
 		Process:     process,
 		Arguments:   assemblyArgsStr,
 		Assembly:    assemblyBytes,
-		Arch:        ctx.Flags.String("arch"),
-		Method:      ctx.Flags.String("method"),
-		ClassName:   ctx.Flags.String("class"),
-		AppDomain:   ctx.Flags.String("app-domain"),
+		Arch:        arch,
+		Method:      method,
+		ClassName:   className,
+		AppDomain:   appDomain,
 		ProcessArgs: processArgs,
-		PPid:        uint32(ctx.Flags.Uint("ppid")),
+		PPid:        pPid,
 		Runtime:     runtime,
 		EtwBypass:   etwBypass,
 		AmsiBypass:  amsiBypass,
@@ -117,26 +124,28 @@ func ExecuteAssemblyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) 
 				return
 			}
 
-			HandleExecuteAssemblyResponse(execAssembly, assemblyPath, hostName, ctx, con)
+			HandleExecuteAssemblyResponse(execAssembly, assemblyPath, hostName, cmd, con)
 		})
 		con.PrintAsyncResponse(execAssembly.Response)
 	} else {
-		HandleExecuteAssemblyResponse(execAssembly, assemblyPath, hostName, ctx, con)
+		HandleExecuteAssemblyResponse(execAssembly, assemblyPath, hostName, cmd, con)
 	}
 }
 
-func HandleExecuteAssemblyResponse(execAssembly *sliverpb.ExecuteAssembly, assemblyPath string, hostName string, ctx *grumble.Context, con *console.SliverConsoleClient) {
-	saveLoot := ctx.Flags.Bool("loot")
-	lootName := ctx.Flags.String("name")
+func HandleExecuteAssemblyResponse(execAssembly *sliverpb.ExecuteAssembly, assemblyPath string, hostName string, cmd *cobra.Command, con *console.SliverConsoleClient) {
+	saveLoot, _ := cmd.Flags().GetBool("loot")
+	lootName, _ := cmd.Flags().GetString("name")
 
 	if execAssembly.GetResponse().GetErr() != "" {
 		con.PrintErrorf("Error: %s\n", execAssembly.GetResponse().GetErr())
 		return
 	}
 
-	PrintExecutionOutput(string(execAssembly.GetOutput()), ctx.Flags.Bool("save"), ctx.Command.Name, hostName, con)
+	save, _ := cmd.Flags().GetBool("save")
+
+	PrintExecutionOutput(string(execAssembly.GetOutput()), save, cmd.Name(), hostName, con)
 
 	if saveLoot {
-		LootExecute(execAssembly.GetOutput(), lootName, ctx.Command.Name, assemblyPath, hostName, con)
+		LootExecute(execAssembly.GetOutput(), lootName, cmd.Name(), assemblyPath, hostName, con)
 	}
 }

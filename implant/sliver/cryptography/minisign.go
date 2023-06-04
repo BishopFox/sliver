@@ -26,6 +26,7 @@ package cryptography
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"strings"
 
@@ -33,11 +34,33 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+var (
+	// EdDSA refers to the Ed25519 signature scheme.
+	//
+	// Minisign uses this signature scheme to sign and
+	// verify (non-hashed) messages.
+	EdDSA uint16 = 0x6445
+
+	// HashEdDSA refers to a Ed25519 signature scheme
+	// with pre-hashed messages.
+	//
+	// Minisign uses this signature scheme to sign and
+	// verify message that don't fit into memory.
+	HashEdDSA uint16 = 0x4445
+
+	RawSigSize = 2 + 8 + ed25519.SignatureSize
+)
+
 // PublicKey - Represents a public key
 type PublicKey struct {
 	SignatureAlgorithm [2]byte
 	KeyId              [8]byte
 	PublicKey          [32]byte
+}
+
+// ID returns the 64 bit key ID.
+func (p PublicKey) ID() uint64 {
+	return binary.LittleEndian.Uint64(p.KeyId[:])
 }
 
 // Signature - Represents a minisign signature
@@ -132,4 +155,27 @@ func (publicKey *PublicKey) Verify(bin []byte, signature Signature) (bool, error
 		return false, errors.New("invalid global signature")
 	}
 	return true, nil
+}
+
+func verifyRaw(publicKey PublicKey, rawMessage []byte, isHashed bool) bool {
+	if len(rawMessage) < RawSigSize+1 {
+		return false
+	}
+	rawSigBuf := rawMessage[:RawSigSize]
+	algorithm := binary.LittleEndian.Uint16(rawSigBuf[:2])
+	keyID := binary.LittleEndian.Uint64(rawSigBuf[2:10])
+	signature := rawSigBuf[10:]
+	message := rawMessage[RawSigSize:]
+
+	if keyID != publicKey.ID() {
+		return false
+	}
+	if algorithm == HashEdDSA && !isHashed {
+		h := blake2b.Sum512(message)
+		message = h[:]
+	}
+	if !ed25519.Verify(ed25519.PublicKey(publicKey.PublicKey[:]), message, signature[:]) {
+		return false
+	}
+	return ed25519.Verify(ed25519.PublicKey(publicKey.PublicKey[:]), message, signature[:])
 }

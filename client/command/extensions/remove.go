@@ -25,15 +25,16 @@ import (
 	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/util"
-	"github.com/desertbit/grumble"
 )
 
 // ExtensionsRemoveCmd - Remove an extension
-func ExtensionsRemoveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	name := ctx.Args.String("name")
+func ExtensionsRemoveCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	name := args[0]
 	if name == "" {
 		con.PrintErrorf("Extension name is required\n")
 		return
@@ -62,7 +63,6 @@ func RemoveExtensionByCommandName(commandName string, con *console.SliverConsole
 		return errors.New("extension not loaded")
 	}
 	delete(loadedExtensions, commandName)
-	con.App.Commands().Remove(commandName)
 	extPath := filepath.Join(assets.GetExtensionsDir(), filepath.Base(commandName))
 	if _, err := os.Stat(extPath); os.IsNotExist(err) {
 		return nil

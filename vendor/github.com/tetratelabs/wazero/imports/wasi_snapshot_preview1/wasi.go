@@ -57,6 +57,11 @@ func Instantiate(ctx context.Context, r wazero.Runtime) (api.Closer, error) {
 }
 
 // Builder configures the ModuleName module for later use via Compile or Instantiate.
+//
+// # Notes
+//
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 type Builder interface {
 	// Compile compiles the ModuleName module. Call this before Instantiate.
 	//
@@ -94,6 +99,11 @@ func (b *builder) Instantiate(ctx context.Context) (api.Closer, error) {
 }
 
 // FunctionExporter exports functions into a wazero.HostModuleBuilder.
+//
+// # Notes
+//
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 type FunctionExporter interface {
 	ExportFunctions(wazero.HostModuleBuilder)
 }
@@ -263,7 +273,7 @@ func newHostFunc(
 	paramNames ...string,
 ) *wasm.HostFunc {
 	return &wasm.HostFunc{
-		ExportNames: []string{name},
+		ExportName:  name,
 		Name:        name,
 		ParamTypes:  paramTypes,
 		ParamNames:  paramNames,
@@ -291,8 +301,8 @@ func (f wasiFunc) Call(ctx context.Context, mod api.Module, stack []uint64) {
 // stubFunction stubs for GrainLang per #271.
 func stubFunction(name string, paramTypes []wasm.ValueType, paramNames ...string) *wasm.HostFunc {
 	return &wasm.HostFunc{
+		ExportName:  name,
 		Name:        name,
-		ExportNames: []string{name},
 		ParamTypes:  paramTypes,
 		ParamNames:  paramNames,
 		ResultTypes: []api.ValueType{i32},

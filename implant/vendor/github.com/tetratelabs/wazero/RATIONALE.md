@@ -25,6 +25,26 @@ At some point, we may allow extensions to supply their own platform-specific
 hooks. Until then, one end user impact/tradeoff is some glitches trying
 untested platforms (with the Compiler runtime).
 
+### Why do we use CGO to implement system calls on darwin?
+
+wazero is dependency and CGO free by design. In some cases, we have code that
+can optionally use CGO, but retain a fallback for when that's disabled. The only
+operating system (`GOOS`) we use CGO by default in is `darwin`.
+
+Unlike other operating systems, regardless of `CGO_ENABLED`, Go always uses
+"CGO" mechanisms in the runtime layer of `darwin`. This is explained in
+[Statically linked binaries on Mac OS X](https://developer.apple.com/library/archive/qa/qa1118/_index.html#//apple_ref/doc/uid/DTS10001666):
+
+> Apple does not support statically linked binaries on Mac OS X. A statically
+> linked binary assumes binary compatibility at the kernel system call
+> interface, and we do not make any guarantees on that front. Rather, we strive
+> to ensure binary compatibility in each dynamically linked system library and
+> framework.
+
+This plays to our advantage for system calls that aren't yet exposed in the Go
+standard library, notably `futimens` for nanosecond-precision timestamp
+manipulation.
+
 ### Why not x/sys
 
 Going beyond Go's SDK limitations can be accomplished with their [x/sys library](https://pkg.go.dev/golang.org/x/sys/unix).
@@ -465,6 +485,24 @@ Unfortunately, (WASI Snapshot Preview 1)[https://github.com/WebAssembly/WASI/blo
 This section describes how Wazero interprets and implements the semantics of several WASI APIs that may be interpreted differently by different wasm runtimes.
 Those APIs may affect the portability of a WASI application.
 
+### Why don't we attempt to pass wasi-testsuite on user-defined `fs.FS`?
+
+While most cases work fine on an `os.File` based implementation, we won't
+promise wasi-testsuite compatibility on user defined wrappers of `os.DirFS`.
+The only option for real systems is to use our `sysfs.FS`.
+
+There are a lot of areas where windows behaves differently, despite the
+`os.File` abstraction. This goes well beyond file locking concerns (e.g.
+`EBUSY` errors on open files). For example, errors like `ACCESS_DENIED` aren't
+properly mapped to `EPERM`. There are trickier parts too. `FileInfo.Sys()`
+doesn't return enough information to build inodes needed for WASI. To rebuild
+them requires the full path to the underlying file, not just its directory
+name, and there's no way for us to get that information. At one point we tried,
+but in practice things became tangled and functionality such as read-only
+wrappers became untenable. Finally, there are version-specific behaviors which
+are difficult to maintain even in our own code. For example, go 1.20 opens
+files in a different way than versions before it.
+
 ### Why aren't WASI rules enforced?
 
 The [snapshot-01](https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md) version of WASI has a
@@ -868,6 +906,96 @@ a few signs of implementation interest and cross-referencing:
 See https://github.com/WebAssembly/stack-switching/discussions/38
 See https://github.com/WebAssembly/wasi-threads#what-can-be-skipped
 See https://slinkydeveloper.com/Kubernetes-controllers-A-New-Hope/
+
+## poll_oneoff
+
+`poll_oneoff` is a WASI API for waiting for I/O events on multiple handles.
+It is conceptually similar to the POSIX `poll(2)` syscall.
+The name is not `poll`, because it references [“the fact that this function is not efficient
+when used repeatedly with the same large set of handles”][poll_oneoff].
+
+We chose to support this API in a handful of cases that work for regular files
+and standard input. We currently do not support other types of file descriptors such
+as socket handles.
+
+### Clock Subscriptions
+
+As detailed above in [sys.Nanosleep](#sysnanosleep), `poll_oneoff` handles
+relative clock subscriptions. In our implementation we use `sys.Nanosleep()`
+for this purpose in most cases, except when polling for interactive input
+from `os.Stdin` (see more details below).
+
+### FdRead and FdWrite Subscriptions
+
+When subscribing a file descriptor (except `Stdin`) for reads or writes,
+the implementation will generally return immediately with success, unless
+the file descriptor is unknown. The file descriptor is not checked further
+for new incoming data. Any timeout is cancelled, and the API call is able
+to return, unless there are subscriptions to `Stdin`: these are handled
+separately.
+
+### FdRead and FdWrite Subscription to Stdin
+
+Subscribing `Stdin` for reads (writes make no sense and cause an error),
+requires extra care: wazero allows to configure a custom reader for `Stdin`.
+
+In general, if a custom reader is found, the behavior will be the same
+as for regular file descriptors: data is assumed to be present and
+a success is written back to the result buffer.
+
+However, if the reader is detected to read from `os.Stdin`,
+a special code path is followed, invoking `platform.Select()`.
+
+`platform.Select()` is a wrapper for `select(2)` on POSIX systems,
+and it is mocked for a handful of cases also on Windows.
+
+### Select on POSIX
+
+On POSIX systems,`select(2)` allows to wait for incoming data on a file
+descriptor, and block until either data becomes available or the timeout
+expires. It is not surprising that `select(2)` and `poll(2)` have lot in common:
+the main difference is how the file descriptor parameters are passed.
+
+Usage of `platform.Select()` is only reserved for the standard input case, because
+
+1. it is really only necessary to handle interactive input: otherwise,
+   there is no way in Go to peek from Standard Input without actually
+   reading (and thus consuming) from it;
+
+2. if `Stdin` is connected to a pipe, it is ok in most cases to return
+   with success immediately;
+
+3. `platform.Select()` is currently a blocking call, irrespective of goroutines,
+   because the underlying syscall is; thus, it is better to limit its usage.
+
+So, if the subscription is for `os.Stdin` and the handle is detected
+to correspond to an interactive session, then `platform.Select()` will be
+invoked with a the `Stdin` handle *and* the timeout.
+
+This also means that in this specific case, the timeout is uninterruptible,
+unless data becomes available on `Stdin` itself.
+
+### Select on Windows
+
+On Windows the `platform.Select()` is much more straightforward,
+and it really just replicates the behavior found in the general cases
+for `FdRead` subscriptions: in other words, the subscription to `Stdin`
+is immediately acknowledged.
+
+The implementation also support a timeout, but in this case
+it relies on `time.Sleep()`, which notably, as compared to the POSIX
+case, interruptible and compatible with goroutines.
+
+However, because `Stdin` subscriptions are always acknowledged
+without wait and because this code path is always followed only
+when at least one `Stdin` subscription is present, then the
+timeout is effectively always handled externally.
+
+In any case, the behavior of `platform.Select` on Windows
+is sensibly different from the behavior on POSIX platforms;
+we plan to refine and further align it in semantics in the future.
+
+[poll_oneoff]: https://github.com/WebAssembly/wasi-poll#why-is-the-function-called-poll_oneoff
 
 ## Signed encoding of integer global constant initializers
 

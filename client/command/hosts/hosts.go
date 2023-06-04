@@ -29,11 +29,12 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/desertbit/grumble"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 )
@@ -46,7 +47,7 @@ var (
 )
 
 // HostsCmd - Main hosts command
-func HostsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func HostsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	allHosts, err := con.Rpc.Hosts(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s", err)
@@ -149,7 +150,7 @@ func SelectHost(con *console.SliverConsoleClient) (*clientpb.Host, error) {
 	// Sort the keys because maps have a randomized order, these keys must be ordered for the selection
 	// to work properly since we rely on the index of the user's selection to find the session in the map
 	var keys []string
-	var hostMap = make(map[string]*clientpb.Host)
+	hostMap := make(map[string]*clientpb.Host)
 	for _, host := range allHosts.Hosts {
 		keys = append(keys, host.HostUUID)
 		hostMap[host.HostUUID] = host

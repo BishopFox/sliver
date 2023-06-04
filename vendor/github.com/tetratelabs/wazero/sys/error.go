@@ -73,5 +73,11 @@ func (e *ExitError) Is(err error) bool {
 	if target, ok := err.(*ExitError); ok {
 		return e.exitCode == target.exitCode
 	}
+	if e.exitCode == ExitCodeContextCanceled && err == context.Canceled {
+		return true
+	}
+	if e.exitCode == ExitCodeDeadlineExceeded && err == context.DeadlineExceeded {
+		return true
+	}
 	return false
 }

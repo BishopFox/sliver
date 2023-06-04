@@ -23,18 +23,16 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-
-	"github.com/desertbit/grumble"
 )
 
-var (
-	portNumberOnlyRegexp = regexp.MustCompile("^[0-9]+$")
-)
+var portNumberOnlyRegexp = regexp.MustCompile("^[0-9]+$")
 
 // StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant
-func StartRportFwdListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func StartRportFwdListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -43,21 +41,21 @@ func StartRportFwdListenerCmd(ctx *grumble.Context, con *console.SliverConsoleCl
 		con.PrintWarnf("The current C2 is DNS, this is going to be a very slow tunnel!\n")
 	}
 
-	bindAddress := ctx.Flags.String("bind")
+	bindAddress, _ := cmd.Flags().GetString("bind")
 	// Check if the bind address is just a port number, if no host is specified
 	// we just bind to all interfaces implant-side
 	if portNumberOnlyRegexp.MatchString(bindAddress) {
 		bindAddress = fmt.Sprintf(":%s", bindAddress)
 	}
 
-	forwardAddress := ctx.Flags.String("remote")
+	forwardAddress, _ := cmd.Flags().GetString("remote")
 	// Check if the forward address is just a port number, if no host is specified
 	// we just forward to localhost client-side
 	if portNumberOnlyRegexp.MatchString(forwardAddress) {
 		forwardAddress = fmt.Sprintf("127.0.0.1:%s", forwardAddress)
 	}
 	rportfwdListener, err := con.Rpc.StartRportFwdListener(context.Background(), &sliverpb.RportFwdStartListenerReq{
-		Request:        con.ActiveTarget.Request(ctx),
+		Request:        con.ActiveTarget.Request(cmd),
 		BindAddress:    bindAddress,
 		ForwardAddress: forwardAddress,
 	})

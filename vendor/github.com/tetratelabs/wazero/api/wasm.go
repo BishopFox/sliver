@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+
+	"github.com/tetratelabs/wazero/internal/internalapi"
 )
 
 // ExternType classifies imports and exports with their respective types.
@@ -135,8 +137,9 @@ func ValueTypeName(t ValueType) string {
 //
 // # Notes
 //
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 //   - Closing the wazero.Runtime closes any Module it instantiated.
-//   - This is an interface for decoupling, not third-party implementations. All implementations are in wazero.
 type Module interface {
 	fmt.Stringer
 
@@ -186,9 +189,16 @@ type Module interface {
 
 	// Closer closes this module by delegating to CloseWithExitCode with an exit code of zero.
 	Closer
+
+	internalapi.WazeroOnly
 }
 
 // Closer closes a resource.
+//
+// # Notes
+//
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 type Closer interface {
 	// Close closes the resource.
 	//
@@ -202,6 +212,11 @@ type Closer interface {
 // (wazero.CompiledModule).
 //
 // See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#exports%E2%91%A0
+//
+// # Notes
+//
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 type ExportDefinition interface {
 	// ModuleName is the possibly empty name of the module defining this
 	// export.
@@ -225,12 +240,19 @@ type ExportDefinition interface {
 	// Note: The empty name is allowed in the WebAssembly Core Specification,
 	// so "" is possible.
 	ExportNames() []string
+
+	internalapi.WazeroOnly
 }
 
 // MemoryDefinition is a WebAssembly memory exported in a module
 // (wazero.CompiledModule). Units are in pages (64KB).
 //
 // See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#exports%E2%91%A0
+//
+// # Notes
+//
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 type MemoryDefinition interface {
 	ExportDefinition
 
@@ -240,12 +262,19 @@ type MemoryDefinition interface {
 	// Max returns the possibly zero max count of 64KB pages, or false if
 	// unbounded.
 	Max() (uint32, bool)
+
+	internalapi.WazeroOnly
 }
 
 // FunctionDefinition is a WebAssembly function exported in a module
 // (wazero.CompiledModule).
 //
 // See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#exports%E2%91%A0
+//
+// # Notes
+//
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 type FunctionDefinition interface {
 	ExportDefinition
 
@@ -297,12 +326,19 @@ type FunctionDefinition interface {
 	// ResultNames are index-correlated with ResultTypes or nil if not
 	// available for one or more results.
 	ResultNames() []string
+
+	internalapi.WazeroOnly
 }
 
 // Function is a WebAssembly function exported from an instantiated module
 // (wazero.Runtime InstantiateModule).
 //
 // See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#syntax-func
+//
+// # Notes
+//
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 type Function interface {
 	// Definition is metadata about this function from its defining module.
 	Definition() FunctionDefinition
@@ -329,6 +365,36 @@ type Function interface {
 	// WithCloseOnContextDone on wazero.RuntimeConfig for detail. See examples in context_done_example_test.go for
 	// the end-to-end demonstrations of how these terminations can be performed.
 	Call(ctx context.Context, params ...uint64) ([]uint64, error)
+
+	// CallWithStack is an optimized variation of Call that saves memory
+	// allocations when the stack slice is reused across calls.
+	//
+	// Stack length must be at least the max of parameter or result length.
+	// The caller adds parameters in order to the stack, and reads any results
+	// in order from the stack, except in the error case.
+	//
+	// For example, the following reuses the same stack slice to call searchFn
+	// repeatedly saving one allocation per iteration:
+	//
+	//	stack := make([]uint64, 4)
+	//	for i, search := range searchParams {
+	//		// copy the next params to the stack
+	//		copy(stack, search)
+	//		if err := searchFn.CallWithStack(ctx, stack); err != nil {
+	//			return err
+	//		} else if stack[0] == 1 { // found
+	//			return i // searchParams[i] matched!
+	//		}
+	//	}
+	//
+	// # Notes
+	//
+	//   - This is similar to GoModuleFunction, except for using calling functions
+	//     instead of implementing them. Moreover, this is used regardless of
+	//     whether the callee is a host or wasm defined function.
+	CallWithStack(ctx context.Context, stack []uint64) error
+
+	internalapi.WazeroOnly
 }
 
 // GoModuleFunction is a Function implemented in Go instead of a wasm binary.
@@ -426,6 +492,11 @@ func (f GoFunc) Call(ctx context.Context, stack []uint64) {
 //	}
 //
 // See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#globals%E2%91%A0
+//
+// # Notes
+//
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 type Global interface {
 	fmt.Stringer
 
@@ -439,6 +510,11 @@ type Global interface {
 }
 
 // MutableGlobal is a Global whose value can be updated at runtime (variable).
+//
+// # Notes
+//
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 type MutableGlobal interface {
 	Global
 
@@ -446,16 +522,19 @@ type MutableGlobal interface {
 	//
 	// See Global.Type for how to encode this value from a Go type.
 	Set(v uint64)
+
+	internalapi.WazeroOnly
 }
 
 // Memory allows restricted access to a module's memory. Notably, this does not allow growing.
 //
+// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#storage%E2%91%A0
+//
 // # Notes
 //
-//   - This is an interface for decoupling, not third-party implementations. All implementations are in wazero.
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 //   - This includes all value types available in WebAssembly 1.0 (20191205) and all are encoded little-endian.
-//
-// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#storage%E2%91%A0
 type Memory interface {
 	// Definition is metadata about this memory from its defining module.
 	Definition() MemoryDefinition
@@ -570,14 +649,23 @@ type Memory interface {
 
 	// WriteString writes the string to the underlying buffer at the offset or returns false if out of range.
 	WriteString(offset uint32, v string) bool
+
+	internalapi.WazeroOnly
 }
 
 // CustomSection contains the name and raw data of a custom section.
+//
+// # Notes
+//
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 type CustomSection interface {
 	// Name is the name of the custom section
 	Name() string
 	// Data is the raw data of the custom section
 	Data() []byte
+
+	internalapi.WazeroOnly
 }
 
 // EncodeExternref encodes the input as a ValueTypeExternref.

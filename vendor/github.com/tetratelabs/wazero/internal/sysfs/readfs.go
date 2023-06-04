@@ -1,29 +1,29 @@
 package sysfs
 
 import (
-	"io"
 	"io/fs"
 	"os"
 	"syscall"
+	"time"
 
-	"github.com/tetratelabs/wazero/internal/platform"
+	"github.com/tetratelabs/wazero/internal/fsapi"
 )
 
-// NewReadFS is used to mask an existing FS for reads. Notably, this allows
+// NewReadFS is used to mask an existing api.FS for reads. Notably, this allows
 // the CLI to do read-only mounts of directories the host user can write, but
 // doesn't want the guest wasm to. For example, Python libraries shouldn't be
 // written to at runtime by the python wasm file.
-func NewReadFS(fs FS) FS {
+func NewReadFS(fs fsapi.FS) fsapi.FS {
 	if _, ok := fs.(*readFS); ok {
 		return fs
-	} else if _, ok = fs.(UnimplementedFS); ok {
+	} else if _, ok = fs.(fsapi.UnimplementedFS); ok {
 		return fs // unimplemented is read-only
 	}
 	return &readFS{fs: fs}
 }
 
 type readFS struct {
-	fs FS
+	fs fsapi.FS
 }
 
 // String implements fmt.Stringer
@@ -31,13 +31,8 @@ func (r *readFS) String() string {
 	return r.fs.String()
 }
 
-// Open implements the same method as documented on fs.FS
-func (r *readFS) Open(name string) (fs.File, error) {
-	return fsOpen(r, name)
-}
-
-// OpenFile implements FS.OpenFile
-func (r *readFS) OpenFile(path string, flag int, perm fs.FileMode) (fs.File, syscall.Errno) {
+// OpenFile implements the same method as documented on api.FS
+func (r *readFS) OpenFile(path string, flag int, perm fs.FileMode) (fsapi.File, syscall.Errno) {
 	// TODO: Once the real implementation is complete, move the below to
 	// /RATIONALE.md. Doing this while the type is unstable creates
 	// documentation drift as we expect a lot of reshaping meanwhile.
@@ -59,153 +54,207 @@ func (r *readFS) OpenFile(path string, flag int, perm fs.FileMode) (fs.File, sys
 	// check if they are the opposite of read or not.
 	switch flag & (os.O_RDONLY | os.O_WRONLY | os.O_RDWR) {
 	case os.O_WRONLY, os.O_RDWR:
+		if flag&fsapi.O_DIRECTORY != 0 {
+			return nil, syscall.EISDIR
+		}
 		return nil, syscall.ENOSYS
-	default: // os.O_RDONLY so we are ok!
+	default: // os.O_RDONLY (or no flag) so we are ok!
 	}
 
 	f, errno := r.fs.OpenFile(path, flag, perm)
 	if errno != 0 {
 		return nil, errno
 	}
-	return maskForReads(f), 0
+	return &readFile{f: f}, 0
 }
 
-// maskForReads masks the file with read-only interfaces used by wazero.
-//
-// This technique was adapted from similar code in zipkin-go.
-func maskForReads(f fs.File) fs.File {
-	// Handle the most common types
-	rf, ok := f.(platform.ReadFile)
-	pf, pok := f.(platform.PathFile)
-	switch {
-	case ok && !pok:
-		return struct {
-			platform.ReadFile
-		}{rf}
-	case ok && pok:
-		return struct {
-			platform.ReadFile
-			platform.PathFile
-		}{rf, pf}
-	}
+// compile-time check to ensure readFile implements api.File.
+var _ fsapi.File = (*readFile)(nil)
 
-	// The below are the types wazero casts into.
-	// Note: os.File implements this even for normal files.
-	d, i0 := f.(fs.ReadDirFile)
-	ra, i1 := f.(io.ReaderAt)
-	s, i2 := f.(io.Seeker)
-
-	// Wrap any combination of the types above.
-	switch {
-	case !i0 && !i1 && !i2: // 0, 0, 0
-		return struct{ fs.File }{f}
-	case !i0 && !i1 && i2: // 0, 0, 1
-		return struct {
-			fs.File
-			io.Seeker
-		}{f, s}
-	case !i0 && i1 && !i2: // 0, 1, 0
-		return struct {
-			fs.File
-			io.ReaderAt
-		}{f, ra}
-	case !i0 && i1 && i2: // 0, 1, 1
-		return struct {
-			fs.File
-			io.ReaderAt
-			io.Seeker
-		}{f, ra, s}
-	case i0 && !i1 && !i2: // 1, 0, 0
-		return struct {
-			fs.ReadDirFile
-		}{d}
-	case i0 && !i1 && i2: // 1, 0, 1
-		return struct {
-			fs.ReadDirFile
-			io.Seeker
-		}{d, s}
-	case i0 && i1 && !i2: // 1, 1, 0
-		return struct {
-			fs.ReadDirFile
-			io.ReaderAt
-		}{d, ra}
-	case i0 && i1 && i2: // 1, 1, 1
-		return struct {
-			fs.ReadDirFile
-			io.ReaderAt
-			io.Seeker
-		}{d, ra, s}
-	default:
-		panic("BUG: unhandled pattern")
-	}
+type readFile struct {
+	f fsapi.File
 }
 
-// Lstat implements FS.Lstat
-func (r *readFS) Lstat(path string) (platform.Stat_t, syscall.Errno) {
+// Ino implements the same method as documented on fsapi.File.
+func (r *readFile) Ino() (uint64, syscall.Errno) {
+	return r.f.Ino()
+}
+
+// IsNonblock implements the same method as documented on fsapi.File.
+func (r *readFile) IsNonblock() bool {
+	return r.f.IsNonblock()
+}
+
+// SetNonblock implements the same method as documented on fsapi.File.
+func (r *readFile) SetNonblock(enabled bool) syscall.Errno {
+	return r.f.SetNonblock(enabled)
+}
+
+// IsAppend implements the same method as documented on fsapi.File.
+func (r *readFile) IsAppend() bool {
+	return r.f.IsAppend()
+}
+
+// SetAppend implements the same method as documented on fsapi.File.
+func (r *readFile) SetAppend(enabled bool) syscall.Errno {
+	return r.f.SetAppend(enabled)
+}
+
+// Stat implements the same method as documented on fsapi.File.
+func (r *readFile) Stat() (fsapi.Stat_t, syscall.Errno) {
+	return r.f.Stat()
+}
+
+// IsDir implements the same method as documented on fsapi.File.
+func (r *readFile) IsDir() (bool, syscall.Errno) {
+	return r.f.IsDir()
+}
+
+// Read implements the same method as documented on fsapi.File.
+func (r *readFile) Read(buf []byte) (int, syscall.Errno) {
+	return r.f.Read(buf)
+}
+
+// Pread implements the same method as documented on fsapi.File.
+func (r *readFile) Pread(buf []byte, offset int64) (int, syscall.Errno) {
+	return r.f.Pread(buf, offset)
+}
+
+// Seek implements the same method as documented on fsapi.File.
+func (r *readFile) Seek(offset int64, whence int) (int64, syscall.Errno) {
+	return r.f.Seek(offset, whence)
+}
+
+// Readdir implements the same method as documented on fsapi.File.
+func (r *readFile) Readdir(n int) (dirents []fsapi.Dirent, errno syscall.Errno) {
+	return r.f.Readdir(n)
+}
+
+// Write implements the same method as documented on fsapi.File.
+func (r *readFile) Write([]byte) (int, syscall.Errno) {
+	return 0, r.writeErr()
+}
+
+// Pwrite implements the same method as documented on fsapi.File.
+func (r *readFile) Pwrite([]byte, int64) (n int, errno syscall.Errno) {
+	return 0, r.writeErr()
+}
+
+// Truncate implements the same method as documented on fsapi.File.
+func (r *readFile) Truncate(int64) syscall.Errno {
+	return r.writeErr()
+}
+
+// Sync implements the same method as documented on fsapi.File.
+func (r *readFile) Sync() syscall.Errno {
+	return syscall.EBADF
+}
+
+// Datasync implements the same method as documented on fsapi.File.
+func (r *readFile) Datasync() syscall.Errno {
+	return syscall.EBADF
+}
+
+// Chmod implements the same method as documented on fsapi.File.
+func (r *readFile) Chmod(fs.FileMode) syscall.Errno {
+	return syscall.EBADF
+}
+
+// Chown implements the same method as documented on fsapi.File.
+func (r *readFile) Chown(int, int) syscall.Errno {
+	return syscall.EBADF
+}
+
+// Utimens implements the same method as documented on fsapi.File.
+func (r *readFile) Utimens(*[2]syscall.Timespec) syscall.Errno {
+	return syscall.EBADF
+}
+
+func (r *readFile) writeErr() syscall.Errno {
+	if isDir, errno := r.IsDir(); errno != 0 {
+		return errno
+	} else if isDir {
+		return syscall.EISDIR
+	}
+	return syscall.EBADF
+}
+
+// Close implements the same method as documented on fsapi.File.
+func (r *readFile) Close() syscall.Errno {
+	return r.f.Close()
+}
+
+// PollRead implements File.PollRead
+func (r *readFile) PollRead(timeout *time.Duration) (ready bool, errno syscall.Errno) {
+	return r.f.PollRead(timeout)
+}
+
+// Lstat implements the same method as documented on api.FS
+func (r *readFS) Lstat(path string) (fsapi.Stat_t, syscall.Errno) {
 	return r.fs.Lstat(path)
 }
 
-// Stat implements FS.Stat
-func (r *readFS) Stat(path string) (platform.Stat_t, syscall.Errno) {
+// Stat implements the same method as documented on api.FS
+func (r *readFS) Stat(path string) (fsapi.Stat_t, syscall.Errno) {
 	return r.fs.Stat(path)
 }
 
-// Readlink implements FS.Readlink
+// Readlink implements the same method as documented on api.FS
 func (r *readFS) Readlink(path string) (dst string, err syscall.Errno) {
 	return r.fs.Readlink(path)
 }
 
-// Mkdir implements FS.Mkdir
+// Mkdir implements the same method as documented on api.FS
 func (r *readFS) Mkdir(path string, perm fs.FileMode) syscall.Errno {
 	return syscall.EROFS
 }
 
-// Chmod implements FS.Chmod
+// Chmod implements the same method as documented on api.FS
 func (r *readFS) Chmod(path string, perm fs.FileMode) syscall.Errno {
 	return syscall.EROFS
 }
 
-// Chown implements FS.Chown
+// Chown implements the same method as documented on api.FS
 func (r *readFS) Chown(path string, uid, gid int) syscall.Errno {
 	return syscall.EROFS
 }
 
-// Lchown implements FS.Lchown
+// Lchown implements the same method as documented on api.FS
 func (r *readFS) Lchown(path string, uid, gid int) syscall.Errno {
 	return syscall.EROFS
 }
 
-// Rename implements FS.Rename
+// Rename implements the same method as documented on api.FS
 func (r *readFS) Rename(from, to string) syscall.Errno {
 	return syscall.EROFS
 }
 
-// Rmdir implements FS.Rmdir
+// Rmdir implements the same method as documented on api.FS
 func (r *readFS) Rmdir(path string) syscall.Errno {
 	return syscall.EROFS
 }
 
-// Link implements FS.Link
+// Link implements the same method as documented on api.FS
 func (r *readFS) Link(_, _ string) syscall.Errno {
 	return syscall.EROFS
 }
 
-// Symlink implements FS.Symlink
+// Symlink implements the same method as documented on api.FS
 func (r *readFS) Symlink(_, _ string) syscall.Errno {
 	return syscall.EROFS
 }
 
-// Unlink implements FS.Unlink
+// Unlink implements the same method as documented on api.FS
 func (r *readFS) Unlink(path string) syscall.Errno {
 	return syscall.EROFS
 }
 
-// Utimens implements FS.Utimens
+// Utimens implements the same method as documented on api.FS
 func (r *readFS) Utimens(path string, times *[2]syscall.Timespec, symlinkFollow bool) syscall.Errno {
 	return syscall.EROFS
 }
 
-// Truncate implements FS.Truncate
+// Truncate implements the same method as documented on api.FS
 func (r *readFS) Truncate(string, int64) syscall.Errno {
 	return syscall.EROFS
 }

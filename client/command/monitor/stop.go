@@ -21,13 +21,14 @@ package monitor
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/desertbit/grumble"
 )
 
 // MonitorStopCmd - Stop monitoring threat intel for implants
-func MonitorStopCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func MonitorStopCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	_, err := con.Rpc.MonitorStop(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

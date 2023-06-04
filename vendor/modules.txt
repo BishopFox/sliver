@@ -153,21 +153,6 @@ github.com/davecgh/go-spew/spew
 # github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d
 ## explicit
 github.com/demisto/goxforce
-# github.com/desertbit/closer/v3 v3.1.3
-## explicit; go 1.12
-github.com/desertbit/closer/v3
-# github.com/desertbit/columnize v2.1.0+incompatible
-## explicit
-github.com/desertbit/columnize
-# github.com/desertbit/go-shlex v0.1.1
-## explicit; go 1.14
-github.com/desertbit/go-shlex
-# github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.12
-## explicit; go 1.12
-github.com/desertbit/grumble
-# github.com/desertbit/readline v1.5.1
-## explicit; go 1.12
-github.com/desertbit/readline
 # github.com/dlclark/regexp2 v1.4.0
 ## explicit
 github.com/dlclark/regexp2
@@ -232,12 +217,6 @@ github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus
 github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus
 github.com/grpc-ecosystem/go-grpc-middleware/tags
 github.com/grpc-ecosystem/go-grpc-middleware/util/metautils
-# github.com/hashicorp/errwrap v1.1.0
-## explicit
-github.com/hashicorp/errwrap
-# github.com/hashicorp/go-multierror v1.1.1
-## explicit; go 1.13
-github.com/hashicorp/go-multierror
 # github.com/hashicorp/go-uuid v1.0.2
 ## explicit
 github.com/hashicorp/go-uuid
@@ -353,14 +332,71 @@ github.com/pquerna/otp
 github.com/pquerna/otp/hotp
 github.com/pquerna/otp/internal
 github.com/pquerna/otp/totp
+# github.com/reeflective/console v0.1.3
+## explicit; go 1.20
+github.com/reeflective/console
+github.com/reeflective/console/commands/readline
+# github.com/reeflective/readline v1.0.4
+## explicit; go 1.20
+github.com/reeflective/readline
+github.com/reeflective/readline/inputrc
+github.com/reeflective/readline/internal/color
+github.com/reeflective/readline/internal/completion
+github.com/reeflective/readline/internal/core
+github.com/reeflective/readline/internal/display
+github.com/reeflective/readline/internal/editor
+github.com/reeflective/readline/internal/history
+github.com/reeflective/readline/internal/keymap
+github.com/reeflective/readline/internal/macro
+github.com/reeflective/readline/internal/strutil
+github.com/reeflective/readline/internal/term
+github.com/reeflective/readline/internal/ui
 # github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
 ## explicit; go 1.12
 github.com/remyoudompheng/bigfft
-# github.com/rivo/uniseg v0.2.0
-## explicit; go 1.12
+# github.com/rivo/uniseg v0.4.4
+## explicit; go 1.18
 github.com/rivo/uniseg
 # github.com/rogpeppe/go-internal v1.10.0
 ## explicit; go 1.19
+# github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca
+## explicit; go 1.15
+github.com/rsteube/carapace
+github.com/rsteube/carapace/internal/cache
+github.com/rsteube/carapace/internal/common
+github.com/rsteube/carapace/internal/config
+github.com/rsteube/carapace/internal/env
+github.com/rsteube/carapace/internal/export
+github.com/rsteube/carapace/internal/man
+github.com/rsteube/carapace/internal/pflagfork
+github.com/rsteube/carapace/internal/shell
+github.com/rsteube/carapace/internal/shell/bash
+github.com/rsteube/carapace/internal/shell/bash_ble
+github.com/rsteube/carapace/internal/shell/elvish
+github.com/rsteube/carapace/internal/shell/export
+github.com/rsteube/carapace/internal/shell/fish
+github.com/rsteube/carapace/internal/shell/ion
+github.com/rsteube/carapace/internal/shell/library
+github.com/rsteube/carapace/internal/shell/nushell
+github.com/rsteube/carapace/internal/shell/oil
+github.com/rsteube/carapace/internal/shell/powershell
+github.com/rsteube/carapace/internal/shell/spec
+github.com/rsteube/carapace/internal/shell/tcsh
+github.com/rsteube/carapace/internal/shell/xonsh
+github.com/rsteube/carapace/internal/shell/zsh
+github.com/rsteube/carapace/internal/uid
+github.com/rsteube/carapace/pkg/cache
+github.com/rsteube/carapace/pkg/ps
+github.com/rsteube/carapace/pkg/style
+github.com/rsteube/carapace/pkg/xdg
+github.com/rsteube/carapace/third_party/github.com/acarl005/stripansi
+github.com/rsteube/carapace/third_party/github.com/drone/envsubst
+github.com/rsteube/carapace/third_party/github.com/drone/envsubst/parse
+github.com/rsteube/carapace/third_party/github.com/drone/envsubst/path
+github.com/rsteube/carapace/third_party/github.com/elves/elvish/pkg/cli/lscolors
+github.com/rsteube/carapace/third_party/github.com/elves/elvish/pkg/ui
+github.com/rsteube/carapace/third_party/github.com/mitchellh/go-ps
+github.com/rsteube/carapace/third_party/golang.org/x/sys/execabs
 # github.com/sirupsen/logrus v1.9.2
 ## explicit; go 1.13
 github.com/sirupsen/logrus
@@ -373,7 +409,7 @@ github.com/spf13/pflag
 # github.com/stretchr/testify v1.8.1
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
-# github.com/tetratelabs/wazero v1.0.0
+# github.com/tetratelabs/wazero v1.2.0
 ## explicit; go 1.18
 github.com/tetratelabs/wazero
 github.com/tetratelabs/wazero/api
@@ -382,14 +418,18 @@ github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1
 github.com/tetratelabs/wazero/internal/asm
 github.com/tetratelabs/wazero/internal/asm/amd64
 github.com/tetratelabs/wazero/internal/asm/arm64
+github.com/tetratelabs/wazero/internal/bitpack
 github.com/tetratelabs/wazero/internal/descriptor
 github.com/tetratelabs/wazero/internal/engine/compiler
 github.com/tetratelabs/wazero/internal/engine/interpreter
 github.com/tetratelabs/wazero/internal/filecache
+github.com/tetratelabs/wazero/internal/fsapi
 github.com/tetratelabs/wazero/internal/ieee754
+github.com/tetratelabs/wazero/internal/internalapi
 github.com/tetratelabs/wazero/internal/leb128
 github.com/tetratelabs/wazero/internal/moremath
 github.com/tetratelabs/wazero/internal/platform
+github.com/tetratelabs/wazero/internal/sock
 github.com/tetratelabs/wazero/internal/sys
 github.com/tetratelabs/wazero/internal/sysfs
 github.com/tetratelabs/wazero/internal/u32

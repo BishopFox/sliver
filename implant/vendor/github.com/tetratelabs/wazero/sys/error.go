@@ -25,7 +25,7 @@ const (
 //	main := module.ExportedFunction("main")
 //	if err := main(ctx); err != nil {
 //		if exitErr, ok := err.(*sys.ExitError); ok {
-//			// If your main function expects to exit, this could be ok if Code == 0
+//			// This means your module exited with non-zero code!
 //		}
 //	--snip--
 //
@@ -37,17 +37,18 @@ const (
 //
 // Note: In the case of context cancellation or timeout, the api.Module from which the api.Function created is closed.
 type ExitError struct {
-	moduleName string
-	exitCode   uint32
+	// Note: this is a struct not a uint32 type as it was originally one and
+	// we don't want to break call-sites that cast into it.
+	exitCode uint32
 }
 
-func NewExitError(moduleName string, exitCode uint32) *ExitError {
-	return &ExitError{moduleName: moduleName, exitCode: exitCode}
-}
+var exitZero = &ExitError{}
 
-// ModuleName is the api.Module that was closed.
-func (e *ExitError) ModuleName() string {
-	return e.moduleName
+func NewExitError(exitCode uint32) *ExitError {
+	if exitCode == 0 {
+		return exitZero
+	}
+	return &ExitError{exitCode: exitCode}
 }
 
 // ExitCode returns zero on success, and an arbitrary value otherwise.
@@ -59,18 +60,24 @@ func (e *ExitError) ExitCode() uint32 {
 func (e *ExitError) Error() string {
 	switch e.exitCode {
 	case ExitCodeContextCanceled:
-		return fmt.Sprintf("module %q closed with %s", e.moduleName, context.Canceled)
+		return fmt.Sprintf("module closed with %s", context.Canceled)
 	case ExitCodeDeadlineExceeded:
-		return fmt.Sprintf("module %q closed with %s", e.moduleName, context.DeadlineExceeded)
+		return fmt.Sprintf("module closed with %s", context.DeadlineExceeded)
 	default:
-		return fmt.Sprintf("module %q closed with exit_code(%d)", e.moduleName, e.exitCode)
+		return fmt.Sprintf("module closed with exit_code(%d)", e.exitCode)
 	}
 }
 
 // Is allows use via errors.Is
 func (e *ExitError) Is(err error) bool {
 	if target, ok := err.(*ExitError); ok {
-		return e.moduleName == target.moduleName && e.exitCode == target.exitCode
+		return e.exitCode == target.exitCode
+	}
+	if e.exitCode == ExitCodeContextCanceled && err == context.Canceled {
+		return true
+	}
+	if e.exitCode == ExitCodeDeadlineExceeded && err == context.DeadlineExceeded {
+		return true
 	}
 	return false
 }

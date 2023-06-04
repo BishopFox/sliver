@@ -3,6 +3,7 @@ package wazero
 import (
 	"io/fs"
 
+	"github.com/tetratelabs/wazero/internal/fsapi"
 	"github.com/tetratelabs/wazero/internal/sysfs"
 )
 
@@ -56,6 +57,8 @@ import (
 //
 // # Notes
 //
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 //   - FSConfig is immutable. Each WithXXX function returns a new instance
 //     including the corresponding change.
 //   - RATIONALE.md includes design background and relationship to WebAssembly
@@ -63,6 +66,10 @@ import (
 type FSConfig interface {
 	// WithDirMount assigns a directory at `dir` to any paths beginning at
 	// `guestPath`.
+	//
+	// For example, `dirPath` as / (or c:\ in Windows), makes the entire host
+	// volume writeable to the path on the guest. The `guestPath` is always a
+	// POSIX style path, slash (/) delimited, even if run on Windows.
 	//
 	// If the same `guestPath` was assigned before, this overrides its value,
 	// retaining the original precedence. See the documentation of FSConfig for
@@ -116,7 +123,7 @@ type FSConfig interface {
 
 type fsConfig struct {
 	// fs are the currently configured filesystems.
-	fs []sysfs.FS
+	fs []fsapi.FS
 	// guestPaths are the user-supplied names of the filesystems, retained for
 	// error messages and fmt.Stringer.
 	guestPaths []string
@@ -133,7 +140,7 @@ func NewFSConfig() FSConfig {
 // clone makes a deep copy of this module config.
 func (c *fsConfig) clone() *fsConfig {
 	ret := *c // copy except slice and maps which share a ref
-	ret.fs = make([]sysfs.FS, 0, len(c.fs))
+	ret.fs = make([]fsapi.FS, 0, len(c.fs))
 	ret.fs = append(ret.fs, c.fs...)
 	ret.guestPaths = make([]string, 0, len(c.guestPaths))
 	ret.guestPaths = append(ret.guestPaths, c.guestPaths...)
@@ -159,7 +166,7 @@ func (c *fsConfig) WithFSMount(fs fs.FS, guestPath string) FSConfig {
 	return c.withMount(sysfs.Adapt(fs), guestPath)
 }
 
-func (c *fsConfig) withMount(fs sysfs.FS, guestPath string) FSConfig {
+func (c *fsConfig) withMount(fs fsapi.FS, guestPath string) FSConfig {
 	cleaned := sysfs.StripPrefixesAndTrailingSlash(guestPath)
 	ret := c.clone()
 	if i, ok := ret.guestPathToFS[cleaned]; ok {
@@ -173,6 +180,6 @@ func (c *fsConfig) withMount(fs sysfs.FS, guestPath string) FSConfig {
 	return ret
 }
 
-func (c *fsConfig) toFS() (sysfs.FS, error) {
+func (c *fsConfig) toFS() (fsapi.FS, error) {
 	return sysfs.NewRootFS(c.fs, c.guestPaths)
 }

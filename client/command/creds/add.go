@@ -28,7 +28,7 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/desertbit/grumble"
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -38,18 +38,19 @@ const (
 )
 
 // CredsCmd - Add new credentials
-func CredsAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	collection := ctx.Flags.String("collection")
-	username := ctx.Flags.String("username")
-	plaintext := ctx.Flags.String("plaintext")
-	hash := ctx.Flags.String("hash")
-	hashType := parseHashType(ctx.Flags.String("hash-type"))
+func CredsAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	collection, _ := cmd.Flags().GetString("collection")
+	username, _ := cmd.Flags().GetString("username")
+	plaintext, _ := cmd.Flags().GetString("plaintext")
+	hash, _ := cmd.Flags().GetString("hash")
+	hashTypeF, _ := cmd.Flags().GetString("hash-type")
+	hashType := parseHashTypeString(hashTypeF)
 	if plaintext == "" && hash == "" {
 		con.PrintErrorf("Either a plaintext or a hash must be provided\n")
 		return
 	}
 	if hashType == clientpb.HashType_INVALID {
-		con.PrintErrorf("Invalid hash type '%s'\n", ctx.Flags.String("hash-type"))
+		con.PrintErrorf("Invalid hash type '%s'\n", hashTypeF)
 		return
 	}
 	_, err := con.Rpc.CredsAdd(context.Background(), &clientpb.Credentials{
@@ -76,17 +77,18 @@ func CredsAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 // CredsCmd - Add new credentials
-func CredsAddHashFileCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	collection := ctx.Flags.String("collection")
-	filePath := ctx.Args.String("file")
-	fileFormat := ctx.Flags.String("file-format")
+func CredsAddHashFileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	collection, _ := cmd.Flags().GetString("collection")
+	filePath := args[0]
+	fileFormat, _ := cmd.Flags().GetString("file-format")
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		con.PrintErrorf("File '%s' does not exist\n", filePath)
 		return
 	}
-	hashType := parseHashType(ctx.Flags.String("hash-type"))
+	hashTypeF, _ := cmd.Flags().GetString("hash-type")
+	hashType := parseHashTypeString(hashTypeF)
 	if hashType == clientpb.HashType_INVALID {
-		con.PrintErrorf("Invalid hash type '%s'\n", ctx.Flags.String("hash-type"))
+		con.PrintErrorf("Invalid hash type '%s'\n", hashTypeF)
 		return
 	}
 
@@ -130,6 +132,15 @@ func parseHashType(raw string) clientpb.HashType {
 	if err == nil {
 		return clientpb.HashType(hashInt)
 	}
+	return clientpb.HashType_INVALID
+}
+
+// same as parseHashType, but use the string representation.
+func parseHashTypeString(raw string) clientpb.HashType {
+	if hashType, valid := clientpb.HashType_value[raw]; valid {
+		return clientpb.HashType(hashType)
+	}
+
 	return clientpb.HashType_INVALID
 }
 

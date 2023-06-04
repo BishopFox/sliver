@@ -26,10 +26,10 @@ const maximumValuesOnStack = 1 << 27
 //
 // Returns an error if the instruction sequence is not valid,
 // or potentially it can exceed the maximum number of values on the stack.
-func (m *Module) validateFunction(enabledFeatures api.CoreFeatures, idx Index, functions []Index,
-	globals []GlobalType, memory *Memory, tables []Table, declaredFunctionIndexes map[Index]struct{},
+func (m *Module) validateFunction(sts *stacks, enabledFeatures api.CoreFeatures, idx Index, functions []Index,
+	globals []GlobalType, memory *Memory, tables []Table, declaredFunctionIndexes map[Index]struct{}, br *bytes.Reader,
 ) error {
-	return m.validateFunctionWithMaxStackValues(enabledFeatures, idx, functions, globals, memory, tables, maximumValuesOnStack, declaredFunctionIndexes)
+	return m.validateFunctionWithMaxStackValues(sts, enabledFeatures, idx, functions, globals, memory, tables, maximumValuesOnStack, declaredFunctionIndexes, br)
 }
 
 func readMemArg(pc uint64, body []byte) (align, offset uint32, read uint64, err error) {
@@ -52,8 +52,10 @@ func readMemArg(pc uint64, body []byte) (align, offset uint32, read uint64, err 
 
 // validateFunctionWithMaxStackValues is like validateFunction, but allows overriding maxStackValues for testing.
 //
+// * stacks is to track the state of Wasm value and control frame stacks at anypoint of execution, and reused to reduce allocation.
 // * maxStackValues is the maximum height of values stack which the target is allowed to reach.
 func (m *Module) validateFunctionWithMaxStackValues(
+	sts *stacks,
 	enabledFeatures api.CoreFeatures,
 	idx Index,
 	functions []Index,
@@ -62,20 +64,17 @@ func (m *Module) validateFunctionWithMaxStackValues(
 	tables []Table,
 	maxStackValues int,
 	declaredFunctionIndexes map[Index]struct{},
+	br *bytes.Reader,
 ) error {
 	functionType := &m.TypeSection[m.FunctionSection[idx]]
 	code := &m.CodeSection[idx]
 	body := code.Body
 	localTypes := code.LocalTypes
 
+	sts.reset(functionType)
+	valueTypeStack := &sts.vs
 	// We start with the outermost control block which is for function return if the code branches into it.
-	controlBlockStack := []*controlBlock{{blockType: functionType}}
-	// Create the valueTypeStack to track the state of Wasm value stacks at anypoint of execution.
-	valueTypeStack := &valueTypeStack{}
-
-	// Create bytes.Reader once as it causes allocation, and
-	// we frequently need it (e.g. on every If instruction).
-	br := bytes.NewReader(nil)
+	controlBlockStack := &sts.cs
 
 	// Now start walking through all the instructions in the body while tracking
 	// control blocks and value types to check the validity of all instructions.
@@ -90,7 +89,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			} else {
 				instName = InstructionName(op)
 			}
-			fmt.Printf("handling %s, stack=%s, blocks: %v\n", instName, valueTypeStack, controlBlockStack)
+			fmt.Printf("handling %s, stack=%s, blocks: %v\n", instName, valueTypeStack.stack, controlBlockStack)
 		}
 
 		if OpcodeI32Load <= op && op <= OpcodeI64Store32 {
@@ -391,12 +390,12 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			index, num, err := leb128.LoadUint32(body[pc:])
 			if err != nil {
 				return fmt.Errorf("read immediate: %v", err)
-			} else if int(index) >= len(controlBlockStack) {
+			} else if int(index) >= len(controlBlockStack.stack) {
 				return fmt.Errorf("invalid %s operation: index out of range", OpcodeBrName)
 			}
 			pc += num - 1
 			// Check type soundness.
-			target := controlBlockStack[len(controlBlockStack)-int(index)-1]
+			target := &controlBlockStack.stack[len(controlBlockStack.stack)-int(index)-1]
 			var targetResultType []ValueType
 			if target.op == OpcodeLoop {
 				targetResultType = target.blockType.Params
@@ -413,17 +412,17 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			index, num, err := leb128.LoadUint32(body[pc:])
 			if err != nil {
 				return fmt.Errorf("read immediate: %v", err)
-			} else if int(index) >= len(controlBlockStack) {
+			} else if int(index) >= len(controlBlockStack.stack) {
 				return fmt.Errorf(
 					"invalid ln param given for %s: index=%d with %d for the current label stack length",
-					OpcodeBrIfName, index, len(controlBlockStack))
+					OpcodeBrIfName, index, len(controlBlockStack.stack))
 			}
 			pc += num - 1
 			if err := valueTypeStack.popAndVerifyType(ValueTypeI32); err != nil {
 				return fmt.Errorf("cannot pop the required operand for %s", OpcodeBrIfName)
 			}
 			// Check type soundness.
-			target := controlBlockStack[len(controlBlockStack)-int(index)-1]
+			target := &controlBlockStack.stack[len(controlBlockStack.stack)-int(index)-1]
 			var targetResultType []ValueType
 			if target.op == OpcodeLoop {
 				targetResultType = target.blockType.Params
@@ -457,17 +456,17 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			ln, n, err := leb128.DecodeUint32(br)
 			if err != nil {
 				return fmt.Errorf("read immediate: %w", err)
-			} else if int(ln) >= len(controlBlockStack) {
+			} else if int(ln) >= len(controlBlockStack.stack) {
 				return fmt.Errorf(
 					"invalid ln param given for %s: ln=%d with %d for the current label stack length",
-					OpcodeBrTableName, ln, len(controlBlockStack))
+					OpcodeBrTableName, ln, len(controlBlockStack.stack))
 			}
 			pc += n + num - 1
 			// Check type soundness.
 			if err := valueTypeStack.popAndVerifyType(ValueTypeI32); err != nil {
 				return fmt.Errorf("cannot pop the required operand for %s", OpcodeBrTableName)
 			}
-			lnLabel := controlBlockStack[len(controlBlockStack)-1-int(ln)]
+			lnLabel := &controlBlockStack.stack[len(controlBlockStack.stack)-1-int(ln)]
 			var defaultLabelType []ValueType
 			// Below, we might modify the slice in case of unreachable. Therefore,
 			// we have to copy the content of block result types, otherwise the original
@@ -506,10 +505,10 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			}
 
 			for _, l := range list {
-				if int(l) >= len(controlBlockStack) {
+				if int(l) >= len(controlBlockStack.stack) {
 					return fmt.Errorf("invalid l param given for %s", OpcodeBrTableName)
 				}
-				label := controlBlockStack[len(controlBlockStack)-1-int(l)]
+				label := &controlBlockStack.stack[len(controlBlockStack.stack)-1-int(l)]
 				var tableLabelType []ValueType
 				if label.op != OpcodeLoop {
 					tableLabelType = label.blockType.Results
@@ -1395,11 +1394,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			if err != nil {
 				return fmt.Errorf("read block: %w", err)
 			}
-			controlBlockStack = append(controlBlockStack, &controlBlock{
-				startAt:        pc,
-				blockType:      bt,
-				blockTypeBytes: num,
-			})
+			controlBlockStack.push(pc, 0, 0, bt, num, 0)
 			if err = valueTypeStack.popParams(op, bt.Params, false); err != nil {
 				return err
 			}
@@ -1415,12 +1410,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			if err != nil {
 				return fmt.Errorf("read block: %w", err)
 			}
-			controlBlockStack = append(controlBlockStack, &controlBlock{
-				startAt:        pc,
-				blockType:      bt,
-				blockTypeBytes: num,
-				op:             op,
-			})
+			controlBlockStack.push(pc, 0, 0, bt, num, op)
 			if err = valueTypeStack.popParams(op, bt.Params, false); err != nil {
 				return err
 			}
@@ -1436,12 +1426,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			if err != nil {
 				return fmt.Errorf("read block: %w", err)
 			}
-			controlBlockStack = append(controlBlockStack, &controlBlock{
-				startAt:        pc,
-				blockType:      bt,
-				blockTypeBytes: num,
-				op:             op,
-			})
+			controlBlockStack.push(pc, 0, 0, bt, num, op)
 			if err = valueTypeStack.popAndVerifyType(ValueTypeI32); err != nil {
 				return fmt.Errorf("cannot pop the operand for 'if': %v", err)
 			}
@@ -1455,10 +1440,10 @@ func (m *Module) validateFunctionWithMaxStackValues(
 			valueTypeStack.pushStackLimit(len(bt.Params))
 			pc += num
 		} else if op == OpcodeElse {
-			if len(controlBlockStack) == 0 {
+			if len(controlBlockStack.stack) == 0 {
 				return fmt.Errorf("redundant Else instruction at %#x", pc)
 			}
-			bl := controlBlockStack[len(controlBlockStack)-1]
+			bl := &controlBlockStack.stack[len(controlBlockStack.stack)-1]
 			bl.elseAt = pc
 			// Check the type soundness of the instructions *before* entering this else Op.
 			if err := valueTypeStack.popResults(OpcodeIf, bl.blockType.Results, true); err != nil {
@@ -1471,12 +1456,11 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				valueTypeStack.push(p)
 			}
 		} else if op == OpcodeEnd {
-			if len(controlBlockStack) == 0 {
+			if len(controlBlockStack.stack) == 0 {
 				return fmt.Errorf("redundant End instruction at %#x", pc)
 			}
-			bl := controlBlockStack[len(controlBlockStack)-1]
+			bl := controlBlockStack.pop()
 			bl.endAt = pc
-			controlBlockStack = controlBlockStack[:len(controlBlockStack)-1]
 
 			// OpcodeEnd can end a block or the function itself. Check to see what it is:
 
@@ -1573,7 +1557,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 		}
 	}
 
-	if len(controlBlockStack) > 0 {
+	if len(controlBlockStack.stack) > 0 {
 		return fmt.Errorf("ill-nested block exists")
 	}
 	if valueTypeStack.maximumStackPointer > maxStackValues {
@@ -1637,16 +1621,52 @@ var vecSplatValueTypes = [...]ValueType{
 	OpcodeVecF64x2Splat: ValueTypeF64,
 }
 
+type stacks struct {
+	vs valueTypeStack
+	cs controlBlockStack
+}
+
+func (sts *stacks) reset(functionType *FunctionType) {
+	// Reset valueStack for reuse.
+	sts.vs.stack = sts.vs.stack[:0]
+	sts.vs.stackLimits = sts.vs.stackLimits[:0]
+	sts.vs.maximumStackPointer = 0
+	sts.cs.stack = sts.cs.stack[:0]
+	sts.cs.stack = append(sts.cs.stack, controlBlock{blockType: functionType})
+}
+
+type controlBlockStack struct {
+	stack []controlBlock
+}
+
+func (s *controlBlockStack) pop() *controlBlock {
+	tail := len(s.stack) - 1
+	ret := &s.stack[tail]
+	s.stack = s.stack[:tail]
+	return ret
+}
+
+func (s *controlBlockStack) push(startAt, elseAt, endAt uint64, blockType *FunctionType, blockTypeBytes uint64, op Opcode) {
+	s.stack = append(s.stack, controlBlock{
+		startAt:        startAt,
+		elseAt:         elseAt,
+		endAt:          endAt,
+		blockType:      blockType,
+		blockTypeBytes: blockTypeBytes,
+		op:             op,
+	})
+}
+
 type valueTypeStack struct {
 	stack               []ValueType
 	stackLimits         []int
 	maximumStackPointer int
+	// requireStackValuesTmp is used in requireStackValues function to reduce the allocation.
+	requireStackValuesTmp []ValueType
 }
 
-const (
-	// Only used in the analyzeFunction below.
-	valueTypeUnknown = ValueType(0xFF)
-)
+// Only used in the analyzeFunction below.
+const valueTypeUnknown = ValueType(0xFF)
 
 func (s *valueTypeStack) tryPop() (vt ValueType, limit int, ok bool) {
 	if len(s.stackLimits) > 0 {
@@ -1703,7 +1723,7 @@ func (s *valueTypeStack) resetAtStackLimit() {
 	if len(s.stackLimits) != 0 {
 		s.stack = s.stack[:s.stackLimits[len(s.stackLimits)-1]]
 	} else {
-		s.stack = []ValueType{}
+		s.stack = s.stack[:0]
 	}
 }
 
@@ -1741,16 +1761,16 @@ func (s *valueTypeStack) requireStackValues(
 	countWanted := len(want)
 
 	// First, check if there are enough values on the stack.
-	have := make([]ValueType, 0, countWanted)
+	s.requireStackValuesTmp = s.requireStackValuesTmp[:0]
 	for i := countWanted - 1; i >= 0; i-- {
 		popped, _, ok := s.tryPop()
 		if !ok {
-			if len(have) > len(want) {
-				return typeCountError(isParam, context, have, want)
+			if len(s.requireStackValuesTmp) > len(want) {
+				return typeCountError(isParam, context, s.requireStackValuesTmp, want)
 			}
-			return typeCountError(isParam, context, have, want)
+			return typeCountError(isParam, context, s.requireStackValuesTmp, want)
 		}
-		have = append(have, popped)
+		s.requireStackValuesTmp = append(s.requireStackValuesTmp, popped)
 	}
 
 	// Now, check if there are too many values.
@@ -1761,7 +1781,7 @@ func (s *valueTypeStack) requireStackValues(
 	}
 
 	// Finally, check the types of the values:
-	for i, v := range have {
+	for i, v := range s.requireStackValuesTmp {
 		nextWant := want[countWanted-i-1] // have is in reverse order (stack)
 		if v != nextWant && v != valueTypeUnknown && nextWant != valueTypeUnknown {
 			return typeMismatchError(isParam, context, v, nextWant, i)
@@ -1915,3 +1935,20 @@ var (
 	blockType_v_funcref   = &FunctionType{Results: []ValueType{ValueTypeFuncref}, ResultNumInUint64: 1}
 	blockType_v_externref = &FunctionType{Results: []ValueType{ValueTypeExternref}, ResultNumInUint64: 1}
 )
+
+// SplitCallStack returns the input stack resliced to the count of params and
+// results, or errors if it isn't long enough for either.
+func SplitCallStack(ft *FunctionType, stack []uint64) (params []uint64, results []uint64, err error) {
+	stackLen := len(stack)
+	if n := ft.ParamNumInUint64; n > stackLen {
+		return nil, nil, fmt.Errorf("need %d params, but stack size is %d", n, stackLen)
+	} else if n > 0 {
+		params = stack[:n]
+	}
+	if n := ft.ResultNumInUint64; n > stackLen {
+		return nil, nil, fmt.Errorf("need %d results, but stack size is %d", n, stackLen)
+	} else if n > 0 {
+		results = stack[:n]
+	}
+	return
+}

@@ -79,26 +79,6 @@ func (f *reflectGoFunction) Call(ctx context.Context, stack []uint64) {
 	callGoFunc(ctx, nil, f.fn, stack)
 }
 
-// PopValues pops the specified number of api.ValueType parameters off the
-// stack into a parameter slice for use in api.GoFunction or api.GoModuleFunction.
-//
-// For example, if the host function F requires the (x1 uint32, x2 float32)
-// parameters, and the stack is [..., A, B], then the function is called as
-// F(A, B) where A and B are interpreted as uint32 and float32 respectively.
-//
-// Note: the popper intentionally doesn't return bool or error because the
-// caller's stack depth is trusted.
-func PopValues(count int, popper func() uint64) []uint64 {
-	if count == 0 {
-		return nil
-	}
-	params := make([]uint64, count)
-	for i := count - 1; i >= 0; i-- {
-		params[i] = popper()
-	}
-	return params
-}
-
 // callGoFunc executes the reflective function by converting params to Go
 // types. The results of the function call are converted back to api.ValueType.
 func callGoFunc(ctx context.Context, mod api.Module, fn *reflect.Value, stack []uint64) {
@@ -175,7 +155,7 @@ func newModuleVal(m api.Module) reflect.Value {
 //
 // Exposing this simplifies FunctionDefinition of host functions in built-in host
 // modules and tests.
-func MustParseGoReflectFuncCode(fn interface{}) *Code {
+func MustParseGoReflectFuncCode(fn interface{}) Code {
 	_, _, code, err := parseGoReflectFunc(fn)
 	if err != nil {
 		panic(err)
@@ -183,7 +163,7 @@ func MustParseGoReflectFuncCode(fn interface{}) *Code {
 	return code
 }
 
-func parseGoReflectFunc(fn interface{}) (params, results []ValueType, code *Code, err error) {
+func parseGoReflectFunc(fn interface{}) (params, results []ValueType, code Code, err error) {
 	fnV := reflect.ValueOf(fn)
 	p := fnV.Type()
 
@@ -254,7 +234,7 @@ func parseGoReflectFunc(fn interface{}) (params, results []ValueType, code *Code
 		return
 	}
 
-	code = &Code{IsHostFunction: true}
+	code = Code{}
 	if pk == paramsKindContextModule {
 		code.GoFunc = &reflectGoModuleFunction{fn: &fnV, params: params, results: results}
 	} else {

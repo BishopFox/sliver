@@ -23,17 +23,19 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/desertbit/grumble"
-	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // ProfilesCmd - Display implant profiles
-func ProfilesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func ProfilesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	profiles := getImplantProfiles(con)
 	if profiles == nil {
 		return
@@ -119,16 +121,55 @@ func GetImplantProfileByName(name string, con *console.SliverConsoleClient) *cli
 }
 
 // ProfileNameCompleter - Completer for implant build names
-func ProfileNameCompleter(prefix string, args []string, con *console.SliverConsoleClient) []string {
-	pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		return []string{}
-	}
-	results := []string{}
-	for _, profile := range pbProfiles.Profiles {
-		if strings.HasPrefix(profile.Name, prefix) {
-			results = append(results, profile.Name)
+func ProfileNameCompleter(con *console.SliverConsoleClient) carapace.Action {
+	comps := func(ctx carapace.Context) carapace.Action {
+		var action carapace.Action
+
+		pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			return carapace.ActionMessage(fmt.Sprintf("No profiles, err: %s", err.Error()))
 		}
+
+		if len(pbProfiles.Profiles) == 0 {
+			return carapace.ActionMessage("No saved implant profiles")
+		}
+
+		results := []string{}
+		sessions := []string{}
+
+		for _, profile := range pbProfiles.Profiles {
+
+			osArch := fmt.Sprintf("[%s/%s]", profile.Config.GOOS, profile.Config.GOARCH)
+			buildFormat := profile.Config.Format.String()
+
+			profileType := ""
+			if profile.Config.IsBeacon {
+				profileType = "(B)"
+			} else {
+				profileType = "(S)"
+			}
+
+			var domains []string
+			for _, c2 := range profile.Config.C2 {
+				domains = append(domains, c2.GetURL())
+			}
+
+			desc := fmt.Sprintf("%s %s %s %s", profileType, osArch, buildFormat, strings.Join(domains, ","))
+
+			if profile.Config.IsBeacon {
+				results = append(results, profile.Name)
+				results = append(results, desc)
+			} else {
+				sessions = append(sessions, profile.Name)
+				sessions = append(sessions, desc)
+			}
+		}
+
+		return action.Invoke(ctx).Merge(
+			carapace.ActionValuesDescribed(sessions...).Tag("sessions").Invoke(ctx),
+			carapace.ActionValuesDescribed(results...).Tag("beacons").Invoke(ctx),
+		).ToA()
 	}
-	return results
+
+	return carapace.ActionCallback(comps)
 }

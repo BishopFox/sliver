@@ -24,14 +24,3 @@ func decodeMemory(
 
 	return mem, mem.Validate(memoryLimitPages)
 }
-
-// encodeMemory returns the wasm.Memory encoded in WebAssembly 1.0 (20191205) Binary Format.
-//
-// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#binary-memory
-func encodeMemory(i *wasm.Memory) []byte {
-	maxPtr := &i.Max
-	if !i.IsMaxEncoded {
-		maxPtr = nil
-	}
-	return encodeLimitsType(i.Min, maxPtr)
-}

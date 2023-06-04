@@ -1,6 +1,9 @@
 package wasm
 
-import "github.com/tetratelabs/wazero/api"
+import (
+	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/internal/internalapi"
+)
 
 // ImportedMemories implements the same method as documented on wazero.CompiledModule.
 func (m *Module) ImportedMemories() (ret []api.MemoryDefinition) {
@@ -81,6 +84,7 @@ func (m *Module) BuildMemoryDefinitions() {
 
 // MemoryDefinition implements api.MemoryDefinition
 type MemoryDefinition struct {
+	internalapi.WazeroOnlyType
 	moduleName  string
 	index       Index
 	importDesc  *[2]string

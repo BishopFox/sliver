@@ -6,7 +6,6 @@ package minisign
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 )
@@ -18,7 +17,7 @@ func TestRoundtrip(t *testing.T) {
 		t.Fatalf("Failed to load private key: %v", err)
 	}
 
-	message, err := ioutil.ReadFile("./internal/testdata/message.txt")
+	message, err := os.ReadFile("./internal/testdata/message.txt")
 	if err != nil {
 		t.Fatalf("Failed to load message: %v", err)
 	}
@@ -48,7 +47,7 @@ func TestReaderRoundtrip(t *testing.T) {
 	defer file.Close()
 
 	reader := NewReader(file)
-	if _, err = io.Copy(ioutil.Discard, reader); err != nil {
+	if _, err = io.Copy(io.Discard, reader); err != nil {
 		t.Fatalf("Failed to read message: %v", err)
 	}
 	signature := reader.Sign(privateKey)
