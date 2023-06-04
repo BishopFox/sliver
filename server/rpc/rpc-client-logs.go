@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -41,8 +42,42 @@ var (
 )
 
 type LogStream struct {
+	stream  string
 	logFile *os.File
-	logGzip *gzip.Writer
+	lock    *sync.Mutex
+	parts   int
+}
+
+func (l *LogStream) Write(data []byte) (int, error) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	n, err := l.logFile.Write(data)
+	if err != nil {
+		return n, err
+	}
+	l.logFile.Sync()
+	fi, err := os.Stat(l.logFile.Name())
+	if err != nil {
+		return n, err
+	}
+	// Rotate log file if it's over 50MB
+	if fi.Size() > (1024 * 1024 * 50) {
+		rpcClientLogs.Infof("Rotating client console log file: %s", l.logFile.Name())
+		l.logFile.Close()
+		l.parts++
+		fileName := l.logFile.Name()
+		partFileName := fileName + fmt.Sprintf(".part%d", l.parts)
+		err = os.Rename(fileName, partFileName)
+		if err != nil {
+			return n, err
+		}
+		go gzipFile(partFileName)
+		l.logFile, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+		if err != nil {
+			return n, err
+		}
+	}
+	return n, err
 }
 
 // ClientLogData - Send client console log data
@@ -56,7 +91,7 @@ func (rpc *Server) ClientLog(stream rpcpb.SliverRPC_ClientLogServer) error {
 	streams := make(map[string]*LogStream)
 	defer func() {
 		for _, stream := range streams {
-			stream.logGzip.Close()
+			rpcClientLogs.Infof("Closing client console log file: %s", stream.logFile.Name())
 			stream.logFile.Close()
 		}
 	}()
@@ -77,7 +112,8 @@ func (rpc *Server) ClientLog(stream rpcpb.SliverRPC_ClientLogServer) error {
 				return err
 			}
 		}
-		streams[streamName].logGzip.Write(fromClient.GetData())
+		rpcClientLogs.Infof("Received %d bytes of client console log data for stream %s", len(fromClient.GetData()), streamName)
+		streams[streamName].Write(fromClient.GetData())
 	}
 	return nil
 }
@@ -88,17 +124,16 @@ func openNewLogStream(logsDir string, stream string) (*LogStream, error) {
 	}
 	stream = filepath.Base(stream)
 	dateTime := time.Now().Format("2006-01-02_15-04-05")
-	logPath := filepath.Join(logsDir, filepath.Base(fmt.Sprintf("%s_%s.gzip", stream, dateTime)))
+	logPath := filepath.Join(logsDir, filepath.Base(fmt.Sprintf("%s_%s.log", stream, dateTime)))
 	if _, err := os.Stat(logPath); err == nil {
 		rpcClientLogs.Warnf("Client console log file already exists: %s", logPath)
-		logPath = filepath.Join(logsDir, filepath.Base(fmt.Sprintf("%s_%s_%s.gzip", stream, dateTime, randomSuffix(6))))
+		logPath = filepath.Join(logsDir, filepath.Base(fmt.Sprintf("%s_%s_%s.log", stream, dateTime, randomSuffix(6))))
 	}
 	logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 	if err != nil {
 		return nil, err
 	}
-	logGzip, _ := gzip.NewWriterLevel(logFile, gzip.BestCompression)
-	return &LogStream{logFile: logFile, logGzip: logGzip}, nil
+	return &LogStream{stream: stream, parts: 0, logFile: logFile, lock: &sync.Mutex{}}, nil
 }
 
 func randomSuffix(n int) string {
@@ -122,4 +157,33 @@ func getClientLogsDir(client string) (string, error) {
 		return "", err
 	}
 	return logDir, nil
+}
+
+func gzipFile(filePath string) {
+	inputFile, err := os.Open(filePath)
+	if err != nil {
+		rpcClientLogs.Errorf("Failed to open client console log file: %s", err)
+		return
+	}
+	defer inputFile.Close()
+	outFile, err := os.OpenFile(filePath+".gz", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+	if err != nil {
+		rpcClientLogs.Errorf("Failed to open gz client console log file: %s", err)
+		return
+	}
+	defer outFile.Close()
+
+	gzWriter := gzip.NewWriter(outFile)
+	defer gzWriter.Close()
+	_, err = io.Copy(gzWriter, inputFile)
+	if err != nil {
+		rpcClientLogs.Errorf("Failed to gzip client console log file: %s", err)
+		return
+	}
+	inputFile.Close()
+	err = os.Remove(filePath)
+	if err != nil {
+		rpcClientLogs.Errorf("Failed to remove client console log file: %s", err)
+		return
+	}
 }

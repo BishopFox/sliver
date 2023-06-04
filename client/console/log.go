@@ -1,5 +1,23 @@
 package console
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2023  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
 	"context"
 	"fmt"
@@ -17,13 +35,11 @@ import (
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 )
 
-func (con *SliverConsoleClient) setupLogger(logFile *os.File) {
-	// File and Sliver RPC streams
-	logWriter := io.MultiWriter(logFile)
-
-	// JSON
+func (con *SliverConsoleClient) setupLogger(writers ...io.Writer) {
+	logWriter := io.MultiWriter(writers...)
 	jsonOptions := &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}
@@ -31,6 +47,28 @@ func (con *SliverConsoleClient) setupLogger(logFile *os.File) {
 
 	// Log all commands before running them.
 	con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.logCommand)
+}
+
+// ConsoleClientLogger is an io.Writer that sends data to the server.
+type ConsoleClientLogger struct {
+	name   string
+	Stream rpcpb.SliverRPC_ClientLogClient
+}
+
+func (l *ConsoleClientLogger) Write(buf []byte) (int, error) {
+	err := l.Stream.Send(&clientpb.ClientLogData{
+		Stream: l.name,
+		Data:   buf,
+	})
+	return len(buf), err
+}
+
+func (con *SliverConsoleClient) ClientLogStream() (*ConsoleClientLogger, error) {
+	stream, err := con.Rpc.ClientLog(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	return &ConsoleClientLogger{name: "json", Stream: stream}, nil
 }
 
 func getConsoleLogFile() *os.File {
@@ -41,7 +79,6 @@ func getConsoleLogFile() *os.File {
 	if err != nil {
 		log.Fatalf("Could not open log file: %s", err)
 	}
-	logFile.Write([]byte(fmt.Sprintf("Sliver Console Log - %s\n\n", dateTime)))
 	return logFile
 }
 
@@ -50,10 +87,8 @@ func (con *SliverConsoleClient) logCommand(args []string) ([]string, error) {
 	if len(args) == 0 {
 		return args, nil
 	}
-
 	logger := slog.New(con.jsonHandler).With(slog.String("type", "command"))
 	logger.Debug(strings.Join(args, " "))
-
 	return args, nil
 }
 
@@ -86,10 +121,8 @@ func (con *SliverConsoleClient) Printf(format string, args ...any) {
 // Println prints an output without status and immediately below the last line of output.
 func (con *SliverConsoleClient) Println(args ...any) {
 	logger := slog.New(con.jsonHandler)
-
 	format := strings.Repeat("%s", len(args))
 	logger.Info(fmt.Sprintf(format, args))
-
 	con.printf(format, args...)
 }
 
