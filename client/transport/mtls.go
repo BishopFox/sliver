@@ -40,7 +40,7 @@ const (
 	gb = mb * 1024
 
 	// ClientMaxReceiveMessageSize - Max gRPC message size ~2Gb
-	ClientMaxReceiveMessageSize = 2 * gb
+	ClientMaxReceiveMessageSize = (2 * gb) - 1 // 2Gb - 1 byte
 
 	defaultTimeout = time.Duration(10 * time.Second)
 )
