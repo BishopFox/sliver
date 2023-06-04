@@ -97,13 +97,13 @@ func openNewLogStream(logsDir string, stream string) (*LogStream, error) {
 }
 
 func getClientLogsDir(client string) (string, error) {
-	parentLogDir := filepath.Join(log.GetLogDir(), "client-console")
-	if err := os.MkdirAll(parentLogDir, 0700); err != nil {
+	parentLogDir := filepath.Join(log.GetLogDir(), "clients")
+	if err := os.MkdirAll(parentLogDir, 0o700); err != nil {
 		rpcClientConsoleLog.Warnf("Failed to create client console log directory: %s", err)
 		return "", err
 	}
 	logDir := filepath.Join(parentLogDir, filepath.Base(client))
-	if err := os.MkdirAll(logDir, 0755); err != nil {
+	if err := os.MkdirAll(logDir, 0o700); err != nil {
 		rpcClientConsoleLog.Warnf("Failed to create client console log directory: %s", err)
 		return "", err
 	}
