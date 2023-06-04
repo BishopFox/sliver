@@ -2,7 +2,8 @@ name: Release
 
 on:
   push:
-    tags: ["v[1-9]+.[0-9]+.[0-9]+"]
+    tags:
+      - "v*.*.*"
     branches: [master]
 
 jobs:
@@ -22,7 +23,7 @@ jobs:
           sudo apt-get update --fix-missing && sudo apt-get -y install \
           git build-essential zlib1g zlib1g-dev wget zip unzip
 
-      - name: Check out code into the Go module directory
+      - name: Check Out Code
         uses: actions/checkout@v3
 
       - name: Git Fetch Tags
@@ -63,10 +64,7 @@ jobs:
         with:
           go-version: "^1.20"
 
-      - name: Mingw
-        run: brew install mingw-w64
-
-      - name: Check out code into the Go module directory
+      - name: Check Out Code
         uses: actions/checkout@v3
 
       - name: Git Fetch Tags
