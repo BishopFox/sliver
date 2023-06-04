@@ -188,16 +188,21 @@ func StartClient(con *SliverConsoleClient, rpc rpcpb.SliverRPCClient, serverCmds
 
 	// console logger
 	if con.Settings.ConsoleLogs {
+		// Classic logs
 		consoleLog := getConsoleLogFile()
-		consoleLogStream, err := con.ClientLogStream()
+		consoleLogStream, err := con.ClientLogStream("json")
 		if err != nil {
 			log.Printf("Could not get client log stream: %s", err)
 		}
 		con.setupLogger(consoleLog, consoleLogStream)
 		defer consoleLog.Close()
 
-		asciicastFile := getConsoleAsciicastFile()
-		con.setupAsciicastRecord(asciicastFile)
+		// Ascii cast sessions (complete terminal interface).
+		asciicastLog := getConsoleAsciicastFile()
+		defer asciicastLog.Close()
+
+		asciicastStream, err := con.ClientLogStream("asciicast")
+		con.setupAsciicastRecord(asciicastLog, asciicastStream)
 	}
 
 	if !con.IsCLI {
