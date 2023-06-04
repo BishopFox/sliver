@@ -24,34 +24,42 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/log"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
 	rpcClientConsoleLog = log.NamedLogger("rpc", "client-console-log")
+
+	ErrInvalidStreamName = status.Error(codes.InvalidArgument, "Invalid stream name")
+
+	streamName = regexp.MustCompile("^[a-z0-9_-]+$")
 )
 
-// ClientLogData - Send client console log data
-func (rpc *Server) ClientConsoleLog(stream rpcpb.SliverRPC_ClientConsoleLogServer) error {
-	commonName := rpc.getClientCommonName(stream.Context())
-	logsDir, err := getClientConsoleLogDir(commonName)
-	if err != nil {
-		return err
-	}
+type LogStream struct {
+	logFile *os.File
+	logGzip *gzip.Writer
+}
 
-	dateTime := time.Now().Format("2006-01-02_15-04-05")
-	logPath := filepath.Join(logsDir, fmt.Sprintf("%s.gzip", dateTime))
-	logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+// ClientLogData - Send client console log data
+func (rpc *Server) ClientLog(stream rpcpb.SliverRPC_ClientLogServer) error {
+	commonName := rpc.getClientCommonName(stream.Context())
+	logsDir, err := getClientLogsDir(commonName)
 	if err != nil {
-		rpcClientConsoleLog.Warnf("Failed to open client console log file: %s", err)
 		return err
 	}
-	defer logFile.Close()
-	logGzip, _ := gzip.NewWriterLevel(logFile, gzip.BestCompression)
-	defer logGzip.Close()
+	streams := make(map[string]*LogStream)
+	defer func() {
+		for _, stream := range streams {
+			stream.logGzip.Close()
+			stream.logFile.Close()
+		}
+	}()
 	for {
 		fromClient, err := stream.Recv()
 		if err == io.EOF {
@@ -60,15 +68,35 @@ func (rpc *Server) ClientConsoleLog(stream rpcpb.SliverRPC_ClientConsoleLogServe
 		if err != nil {
 			return err
 		}
-		_, err = logGzip.Write(fromClient.Data)
-		if err != nil {
-			return err
+		streamName := fromClient.GetStream()
+		if _, ok := streams[streamName]; !ok {
+			streams[streamName], err = openNewLogStream(logsDir, streamName)
+			if err != nil {
+				return err
+			}
 		}
+		streams[streamName].logGzip.Write(fromClient.GetData())
 	}
 	return nil
 }
 
-func getClientConsoleLogDir(client string) (string, error) {
+func openNewLogStream(logsDir string, stream string) (*LogStream, error) {
+	if !streamName.MatchString(stream) {
+		return nil, ErrInvalidStreamName
+	}
+	stream = filepath.Base(stream)
+	dateTime := time.Now().Format("2006-01-02_15-04-05")
+	logPath := filepath.Join(logsDir, filepath.Base(fmt.Sprintf("%s_%s.gzip", stream, dateTime)))
+	logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+	if err != nil {
+		rpcClientConsoleLog.Warnf("Failed to open client console log file: %s", err)
+		return nil, err
+	}
+	logGzip, _ := gzip.NewWriterLevel(logFile, gzip.BestCompression)
+	return &LogStream{logFile: logFile, logGzip: logGzip}, nil
+}
+
+func getClientLogsDir(client string) (string, error) {
 	parentLogDir := filepath.Join(log.GetLogDir(), "client-console")
 	if err := os.MkdirAll(parentLogDir, 0700); err != nil {
 		rpcClientConsoleLog.Warnf("Failed to create client console log directory: %s", err)
