@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"golang.org/x/exp/slog"
+	"maze.io/x/asciicast"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -152,4 +153,22 @@ func (con *SliverConsoleClient) PrintEventSuccessf(format string, args ...any) {
 	logger.Info(fmt.Sprintf(format, args...))
 
 	con.printf(Clearln+"\n"+Success+format+"\r", args...)
+}
+
+func (con *SliverConsoleClient) setupAsciicastRecord(logFile *os.File) {
+	encoder := asciicast.NewEncoder(logFile, 80, 80)
+
+	go io.Copy(encoder, os.Stdout)
+}
+
+func getConsoleAsciicastFile() *os.File {
+	logsDir := assets.GetConsoleLogsDir()
+	dateTime := time.Now().Format("2006-01-02_15-04-05")
+	logPath := filepath.Join(logsDir, fmt.Sprintf("asciicast_%s.log", dateTime))
+	logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o600)
+	if err != nil {
+		log.Fatalf("Could not open log file: %s", err)
+	}
+	logFile.Write([]byte(fmt.Sprintf("Sliver Console Log - %s\n\n", dateTime)))
+	return logFile
 }

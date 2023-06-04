@@ -790,6 +790,9 @@ gvisor.dev/gvisor/pkg/waiter
 # lukechampine.com/uint128 v1.2.0
 ## explicit; go 1.12
 lukechampine.com/uint128
+# maze.io/x/asciicast v1.0.1
+## explicit; go 1.12
+maze.io/x/asciicast
 # modernc.org/cc/v3 v3.40.0
 ## explicit; go 1.17
 modernc.org/cc/v3

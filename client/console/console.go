@@ -38,6 +38,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
+	"maze.io/x/asciicast"
 
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -191,6 +192,9 @@ func StartClient(con *SliverConsoleClient, rpc rpcpb.SliverRPCClient, serverCmds
 		consoleLog := getConsoleLogFile()
 		con.setupLogger(consoleLog)
 		defer consoleLog.Close()
+
+		asciicastFile := getConsoleAsciicastFile()
+		con.setupAsciicastRecord(asciicastFile)
 	}
 
 	if !con.IsCLI {
