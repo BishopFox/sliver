@@ -189,8 +189,13 @@ func StartClient(con *SliverConsoleClient, rpc rpcpb.SliverRPCClient, serverCmds
 	// console logger
 	if con.Settings.ConsoleLogs {
 		consoleLog := getConsoleLogFile()
-		con.setupLogger(consoleLog)
+		consoleLogStream, err := con.ClientLogStream()
+		if err != nil {
+			log.Printf("Could not get client log stream: %s", err)
+		}
+		con.setupLogger(consoleLog, consoleLogStream)
 		defer consoleLog.Close()
+		defer consoleLogStream.Stream.CloseSend()
 	}
 
 	if !con.IsCLI {
