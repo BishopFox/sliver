@@ -33,13 +33,13 @@ jobs:
         run: git fetch --prune --unshallow --tags -f
 
       - name: Make Linux (amd64)
-        run: make linux
+        run: make linux-amd64
 
       - name: Test Linux
         run: ./sliver-server unpack --force && ./go-tests.sh
 
       - name: Make Windows (amd64)
-        run: make windows
+        run: make windows-amd64
 
       - name: Make Linux (arm64)
         run: make linux-arm64
@@ -64,7 +64,7 @@ jobs:
         run: git fetch --prune --unshallow --tags -f
 
       - name: Make MacOS (amd64)
-        run: make macos
+        run: make macos-amd64
 
       - name: Test MacOS (amd64)
         env:
@@ -73,7 +73,7 @@ jobs:
         run: ./sliver-server unpack --force && ./go-tests.sh
 
       - name: Make MacOS (arm64)
-        run: make macos
+        run: make macos-arm64
 
   clients-build:
     name: Clients Build
