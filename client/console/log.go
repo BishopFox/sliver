@@ -28,9 +28,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/moloch--/asciicast"
 	"golang.org/x/exp/slog"
 	"golang.org/x/term"
-	"maze.io/x/asciicast"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/protobuf/clientpb"

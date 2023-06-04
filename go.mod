@@ -27,6 +27,7 @@ require (
 	github.com/lesnuages/snitch v0.6.0
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/miekg/dns v1.1.54
+	github.com/moloch--/asciicast v0.1.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/ncruces/go-sqlite3 v0.5.3
 	github.com/pquerna/otp v1.4.0
@@ -57,7 +58,6 @@ require (
 	gorm.io/driver/sqlite v1.5.1
 	gorm.io/gorm v1.25.1
 	gvisor.dev/gvisor v0.0.0-20220817001344-846276b3dbc5
-	maze.io/x/asciicast v1.0.1
 	modernc.org/sqlite v1.22.1
 )
 
