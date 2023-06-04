@@ -28,6 +28,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -529,6 +530,66 @@ func ParseWGc2(args string) ([]*clientpb.ImplantC2, error) {
 	return c2s, nil
 }
 
+func hasValidC2AdvancedOptions(options url.Values) (bool, error) {
+	for key, value := range options {
+		if len(value) > 1 {
+			return false, fmt.Errorf("too many values specified for advanced option %s. Only one value for %s can be specified.", key, key)
+		}
+		testValue := value[0]
+
+		switch key {
+		/*
+			The following options are passed through as-is:
+			proxy-username
+			proxy-password
+			host-header
+			force-resolv-conf (validation is handled server side)
+			resolvers
+		*/
+		case "net-timeout", "tls-timeout", "poll-timeout", "timeout", "retry-wait":
+			if _, err := time.ParseDuration(testValue); err != nil {
+				return false, fmt.Errorf("error parsing C2 option \"%s\": %s", key, err.Error())
+			}
+		case "max-errors", "retry-count", "workers-per-resolver":
+			if _, err := strconv.Atoi(testValue); err != nil {
+				return false, fmt.Errorf("error parsing C2 option \"%s\": %s", key, err.Error())
+			}
+		case "driver":
+			// If this is specified, then it should be wininet (the only alternative driver currently supported)
+			if testValue != "wininet" {
+				return false, fmt.Errorf("C2 option \"driver\" must be empty for the default driver or \"wininet\" for the wininet driver (Windows only)")
+			}
+		case "force-http", "disable-accept-header", "disable-upgrade-header", "ask-proxy-creds", "force-base32":
+			if testValue != "true" && testValue != "false" {
+				return false, fmt.Errorf("C2 option \"%s\" must be a boolean value: true or false", key)
+			}
+		case "proxy":
+			proxyUri, err := url.Parse(testValue)
+			if err != nil {
+				return false, fmt.Errorf("invalid C2 option \"proxy\" specified: %s", err.Error())
+			}
+			if proxyUri.Scheme != "http" && proxyUri.Scheme != "https" && proxyUri.Scheme != "socks5" {
+				if proxyUri.Scheme == "" {
+					return false, fmt.Errorf("a proxy scheme must be specified: http, https, or socks5")
+				} else {
+					return false, fmt.Errorf("%s is not a valid proxy scheme. Accepted values are http, https, and socks5", proxyUri.Scheme)
+				}
+			}
+			if proxyUri.Port() != "" {
+				port, err := strconv.Atoi(proxyUri.Port())
+				if err != nil {
+					return false, fmt.Errorf("invalid proxy port \"%s\" specified: proxy port must be a number between 1 and 65535", proxyUri.Port())
+				}
+				if port <= 0 || port > 65535 {
+					return false, fmt.Errorf("invalid proxy port \"%s\" specified: proxy port must be a number between 1 and 65535", proxyUri.Port())
+				}
+			}
+		}
+	}
+
+	return true, nil
+}
+
 // ParseHTTPc2 - Parse HTTP connection string arg
 func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
@@ -552,6 +613,9 @@ func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 		uri.Path = strings.TrimSuffix(uri.Path, "/")
 		if uri.Scheme != "http" && uri.Scheme != "https" {
 			return nil, fmt.Errorf("invalid http(s) scheme: %s", uri.Scheme)
+		}
+		if ok, err := hasValidC2AdvancedOptions(uri.Query()); !ok {
+			return nil, err
 		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
@@ -584,6 +648,9 @@ func ParseDNSc2(args string) ([]*clientpb.ImplantC2, error) {
 		}
 		if uri.Scheme != "dns" {
 			return nil, fmt.Errorf("invalid dns scheme: %s", uri.Scheme)
+		}
+		if ok, err := hasValidC2AdvancedOptions(uri.Query()); !ok {
+			return nil, err
 		}
 		c2s = append(c2s, &clientpb.ImplantC2{
 			Priority: uint32(index),
