@@ -352,7 +352,7 @@ func (s *SliverDNSClient) SessionInit() error {
 		// {{if .Config.Debug}}
 		log.Printf("[dns] no data received in message")
 		// {{end}}
-		return nil, nil
+		return ErrEmptyResponse
 	}
 
 	data, err := s.cipherCtx.Decrypt(respData)
