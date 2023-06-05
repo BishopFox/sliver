@@ -354,7 +354,7 @@ func (s *SliverDNSClient) SessionInit() error {
 		// {{end}}
 		return nil, nil
 	}
-	
+
 	data, err := s.cipherCtx.Decrypt(respData)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -521,7 +521,7 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	plaintext, err := s.cipherCtx.Decrypt(ciphertext)
 	if err != nil {
 		return nil, err
-	
+	}
 	envelope := &pb.Envelope{}
 	err = proto.Unmarshal(plaintext, envelope)
 	return envelope, err
