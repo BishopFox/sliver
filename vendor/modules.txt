@@ -400,7 +400,7 @@ github.com/rsteube/carapace/third_party/github.com/elves/elvish/pkg/cli/lscolors
 github.com/rsteube/carapace/third_party/github.com/elves/elvish/pkg/ui
 github.com/rsteube/carapace/third_party/github.com/mitchellh/go-ps
 github.com/rsteube/carapace/third_party/golang.org/x/sys/execabs
-# github.com/sirupsen/logrus v1.9.2
+# github.com/sirupsen/logrus v1.9.3
 ## explicit; go 1.13
 github.com/sirupsen/logrus
 # github.com/spf13/cobra v1.7.0
