@@ -25,7 +25,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/c2"
-	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
@@ -73,8 +72,9 @@ func (rpc *Server) KillJob(ctx context.Context, kill *clientpb.KillJobReq) (*cli
 		job.JobCtrl <- true
 		killJob.ID = uint32(job.ID)
 		killJob.Success = true
-		if job.PersistentID != "" {
-			configs.GetServerConfig().RemoveJob(job.PersistentID)
+		err = db.DeleteListener(killJob.ID)
+		if err != nil {
+			return nil, err
 		}
 	} else {
 		killJob.Success = false

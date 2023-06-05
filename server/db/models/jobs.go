@@ -30,7 +30,7 @@ type ListenerJob struct {
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
-	JobID               uint32
+	JobID               uint32 `gorm:"unique;"`
 	Type                string
 	HttpListener        HTTPListener
 	MtlsListener        MtlsListener
