@@ -191,8 +191,8 @@ github.com/moloch--/asciicast v0.1.0 h1:eBOJwuFKSk447s/kPs9MWsc4kAl5HmuKIDLDYD6/
 github.com/moloch--/asciicast v0.1.0/go.mod h1:OckO16UDLgxVLclrCnbocL1ix15Br/8Xv/caBoYq98o=
 github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945 h1:m3yCfV8Vqp4MF1B+gPPjbjINdufl0UXqyYplE0aGhx8=
 github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945/go.mod h1:1grVt4HaTofvhFUZYtofeRbGXfczNwCie9MYoM4lP/o=
-github.com/ncruces/go-sqlite3 v0.5.3 h1:n7kYgRp5CVZepOiZql/pgPG3IelkUIF95AE70EiM8JE=
-github.com/ncruces/go-sqlite3 v0.5.3/go.mod h1:bC0Wm1XQMcTz7BZzINEYFHLvfzxh+NbZftPo40xkfuc=
+github.com/ncruces/go-sqlite3 v0.7.0 h1:y86N7BwrI9ra4kRBYXskcHcJpyzcDinDRQgAKv0Cb54=
+github.com/ncruces/go-sqlite3 v0.7.0/go.mod h1:t3dP4AP9rJddU+ffFv0h6fWyeOCEhjxrYc1nsYG7aQI=
 github.com/ncruces/julianday v0.1.5 h1:hDJ9ejiMp3DHsoZ5KW4c1lwfMjbARS7u/gbYcd0FBZk=
 github.com/ncruces/julianday v0.1.5/go.mod h1:Dusn2KvZrrovOMJuOt0TNXL6tB7U2E8kvza5fFc9G7g=
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
@@ -303,7 +303,7 @@ golang.org/x/sync v0.0.0-20190423024810-112230192c58/go.mod h1:RxMgew5VJxzue5/jJ
 golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20210220032951-036812b2e83c/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
-golang.org/x/sync v0.1.0 h1:wsuoTGHzEhffawBOhz5CYhcrV4IdKZbEyZjBMuTp12o=
+golang.org/x/sync v0.2.0 h1:PUR+T4wwASmuSTYdKjYHI5TD22Wy5ogLU5qZCOLxBrI=
 golang.org/x/sys v0.0.0-20180830151530-49385e6e1522/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20190222072716-a9d3bda3a223/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=

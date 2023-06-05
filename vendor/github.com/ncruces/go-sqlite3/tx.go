@@ -69,7 +69,7 @@ func (tx Tx) End(errp *error) {
 		defer panic(recovered)
 	}
 
-	if (errp == nil || *errp == nil) && recovered == nil {
+	if *errp == nil && recovered == nil {
 		// Success path.
 		if tx.c.GetAutocommit() { // There is nothing to commit.
 			return
@@ -155,7 +155,7 @@ func (s Savepoint) Release(errp *error) {
 		defer panic(recovered)
 	}
 
-	if (errp == nil || *errp == nil) && recovered == nil {
+	if *errp == nil && recovered == nil {
 		// Success path.
 		if s.c.GetAutocommit() { // There is nothing to commit.
 			return
