@@ -116,29 +116,10 @@ func (s *HTTPSessions) Remove(sessionID string) {
 // HTTPHandler - Path mapped to a handler function
 type HTTPHandler func(resp http.ResponseWriter, req *http.Request)
 
-// HTTPServerConfig - Config data for servers
-type HTTPServerConfig struct {
-	Addr    string
-	LPort   uint16
-	Domain  string
-	Website string
-	Secure  bool
-	Cert    []byte
-	Key     []byte
-	ACME    bool
-
-	MaxRequestLength int
-
-	EnforceOTP      bool
-	LongPollTimeout time.Duration
-	LongPollJitter  time.Duration
-	RandomizeJARM   bool
-}
-
 // SliverHTTPC2 - Holds refs to all the C2 objects
 type SliverHTTPC2 struct {
 	HTTPServer   *http.Server
-	ServerConf   *HTTPServerConfig // Server config (user args)
+	ServerConf   *clientpb.HTTPListenerReq // Server config (user args)
 	HTTPSessions *HTTPSessions
 	SliverStage  []byte // Sliver shellcode to serve during staging process
 	Cleanup      func()
@@ -169,27 +150,27 @@ func (s *SliverHTTPC2) getCookieName() string {
 //	HTTP/HTTPS depending on the caller's conf
 //
 // TODO: Better error handling, configurable ACME host/port
-func StartHTTPListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
-	httpLog.Infof("Starting https listener on '%s'", conf.Addr)
+func StartHTTPListener(req *clientpb.HTTPListenerReq) (*SliverHTTPC2, error) {
+	httpLog.Infof("Starting https listener on '%s'", req.Host)
 	server := &SliverHTTPC2{
-		ServerConf: conf,
+		ServerConf: req,
 		HTTPSessions: &HTTPSessions{
 			active: map[string]*HTTPSession{},
 			mutex:  &sync.RWMutex{},
 		},
 	}
 	server.HTTPServer = &http.Server{
-		Addr:         conf.Addr,
+		Addr:         req.Host,
 		Handler:      server.router(),
 		WriteTimeout: DefaultHTTPTimeout,
 		ReadTimeout:  DefaultHTTPTimeout,
 		IdleTimeout:  DefaultHTTPTimeout,
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
-	if conf.ACME {
-		conf.Domain = filepath.Base(conf.Domain) // I don't think we need this, but we do it anyways
-		httpLog.Infof("Attempting to fetch let's encrypt certificate for '%s' ...", conf.Domain)
-		acmeManager := certs.GetACMEManager(conf.Domain)
+	if req.ACME {
+		req.Domain = filepath.Base(req.Domain) // I don't think we need this, but we do it anyways
+		httpLog.Infof("Attempting to fetch let's encrypt certificate for '%s' ...", req.Domain)
+		acmeManager := certs.GetACMEManager(req.Domain)
 		acmeHTTPServer := &http.Server{Addr: ":80", Handler: acmeManager.HTTPHandler(nil)}
 		go acmeHTTPServer.ListenAndServe()
 		server.HTTPServer.TLSConfig = &tls.Config{
@@ -209,7 +190,7 @@ func StartHTTPListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 			}
 		}
 	} else {
-		server.HTTPServer.TLSConfig = getHTTPSConfig(conf)
+		server.HTTPServer.TLSConfig = getHTTPSConfig(req)
 		server.Cleanup = func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
@@ -223,27 +204,27 @@ func StartHTTPListener(conf *HTTPServerConfig) (*SliverHTTPC2, error) {
 	return server, nil
 }
 
-func getHTTPSConfig(conf *HTTPServerConfig) *tls.Config {
-	if conf.Cert == nil || conf.Key == nil {
+func getHTTPSConfig(req *clientpb.HTTPListenerReq) *tls.Config {
+	if req.Cert == nil || req.Key == nil {
 		var err error
-		if conf.Domain != "" {
-			conf.Cert, conf.Key, err = certs.HTTPSGenerateRSACertificate(conf.Domain)
+		if req.Domain != "" {
+			req.Cert, req.Key, err = certs.HTTPSGenerateRSACertificate(req.Domain)
 		} else {
-			conf.Cert, conf.Key, err = certs.HTTPSGenerateRSACertificate("localhost")
+			req.Cert, req.Key, err = certs.HTTPSGenerateRSACertificate("localhost")
 		}
 		if err != nil {
 			httpLog.Errorf("Failed to generate self-signed tls cert/key pair %s", err)
 			return nil
 		}
 	}
-	cert, err := tls.X509KeyPair(conf.Cert, conf.Key)
+	cert, err := tls.X509KeyPair(req.Cert, req.Key)
 	if err != nil {
 		httpLog.Errorf("Failed to parse tls cert/key pair %s", err)
 		return nil
 	}
 
 	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
-	if !conf.RandomizeJARM {
+	if !req.RandomizeJARM {
 		return tlsConfig
 	}
 
@@ -355,12 +336,9 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	router := mux.NewRouter()
 	c2Configs := s.loadServerHTTPC2Configs()
 	s.c2Config = c2Configs[0].ToProtobuf()
-	if s.ServerConf.MaxRequestLength < 1024 {
-		s.ServerConf.MaxRequestLength = DefaultMaxBodyLength
-	}
 	if s.ServerConf.LongPollTimeout == 0 {
-		s.ServerConf.LongPollTimeout = DefaultLongPollTimeout
-		s.ServerConf.LongPollJitter = DefaultLongPollJitter
+		s.ServerConf.LongPollTimeout = int64(DefaultLongPollTimeout)
+		s.ServerConf.LongPollJitter = int64(DefaultLongPollJitter)
 	}
 
 	for _, c2Config := range c2Configs {
@@ -728,7 +706,7 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 
 	body, err := io.ReadAll(&io.LimitedReader{
 		R: req.Body,
-		N: int64(s.ServerConf.MaxRequestLength),
+		N: int64(DefaultMaxBodyLength),
 	})
 	if err != nil {
 		httpLog.Warnf("Failed to read request body %s", err)

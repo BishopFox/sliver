@@ -30,6 +30,7 @@ import (
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
@@ -108,7 +109,7 @@ func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListen
 		<-job.JobCtrl
 		jobLog.Infof("Stopping wg listener (%d) ...", job.ID)
 		ticker.Stop()
-		
+
 		err = ln.Close() // Kills listener GoRoutines in StartWGListener()
 		if err != nil {
 			jobLog.Fatal("Error closing listener", err)
@@ -169,24 +170,24 @@ func StartDNSListenerJob(bindIface string, lport uint16, domains []string, canar
 }
 
 // StartHTTPListenerJob - Start a HTTP listener as a job
-func StartHTTPListenerJob(conf *HTTPServerConfig) (*core.Job, error) {
-	server, err := StartHTTPListener(conf)
+func StartHTTPListenerJob(req *clientpb.HTTPListenerReq) (*core.Job, error) {
+	server, err := StartHTTPListener(req)
 	if err != nil {
 		return nil, err
 	}
 	name := "http"
-	if conf.Secure {
+	if req.Secure {
 		name = "https"
 	}
 
 	job := &core.Job{
 		ID:          core.NextJobID(),
 		Name:        name,
-		Description: fmt.Sprintf("%s for domain %s", name, conf.Domain),
+		Description: fmt.Sprintf("%s for domain %s", name, req.Domain),
 		Protocol:    "tcp",
-		Port:        uint16(conf.LPort),
+		Port:        uint16(req.Port),
 		JobCtrl:     make(chan bool),
-		Domains:     []string{conf.Domain},
+		Domains:     []string{req.Domain},
 	}
 	core.Jobs.Add(job)
 
@@ -207,7 +208,7 @@ func StartHTTPListenerJob(conf *HTTPServerConfig) (*core.Job, error) {
 			if server.ServerConf.ACME {
 				err = server.HTTPServer.ListenAndServeTLS("", "") // ACME manager pulls the certs under the hood
 			} else {
-				err = listenAndServeTLS(server.HTTPServer, conf.Cert, conf.Key)
+				err = listenAndServeTLS(server.HTTPServer, req.Cert, req.Key)
 			}
 		} else {
 			err = server.HTTPServer.ListenAndServe()
@@ -262,22 +263,22 @@ func StartTCPStagerListenerJob(host string, port uint16, shellcode []byte) (*cor
 }
 
 // StartHTTPStagerListenerJob - Start an HTTP(S) stager payload listener
-func StartHTTPStagerListenerJob(conf *HTTPServerConfig, data []byte) (*core.Job, error) {
-	server, err := StartHTTPListener(conf)
+func StartHTTPStagerListenerJob(req *clientpb.HTTPListenerReq, data []byte) (*core.Job, error) {
+	server, err := StartHTTPListener(req)
 	if err != nil {
 		return nil, err
 	}
 	name := "http"
-	if conf.Secure {
+	if req.Secure {
 		name = "https"
 	}
 	server.SliverStage = data
 	job := &core.Job{
 		ID:          core.NextJobID(),
 		Name:        name,
-		Description: fmt.Sprintf("Stager handler %s for domain %s", name, conf.Domain),
+		Description: fmt.Sprintf("Stager handler %s for domain %s", name, req.Domain),
 		Protocol:    "tcp",
-		Port:        uint16(conf.LPort),
+		Port:        uint16(req.Port),
 		JobCtrl:     make(chan bool),
 	}
 	core.Jobs.Add(job)
@@ -299,7 +300,7 @@ func StartHTTPStagerListenerJob(conf *HTTPServerConfig, data []byte) (*core.Job,
 			if server.ServerConf.ACME {
 				err = server.HTTPServer.ListenAndServeTLS("", "") // ACME manager pulls the certs under the hood
 			} else {
-				err = listenAndServeTLS(server.HTTPServer, conf.Cert, conf.Key)
+				err = listenAndServeTLS(server.HTTPServer, req.Cert, req.Key)
 			}
 		} else {
 			err = server.HTTPServer.ListenAndServe()
@@ -321,55 +322,57 @@ func StartHTTPStagerListenerJob(conf *HTTPServerConfig, data []byte) (*core.Job,
 
 // StartPersistentJobs - Start persistent jobs
 func StartPersistentJobs(cfg *configs.ServerConfig) error {
-	if cfg.Jobs == nil {
-		return nil
-	}
+	/*
+		if cfg.Jobs == nil {
+			return nil
+		}
 
-	for _, j := range cfg.Jobs.MTLS {
-		job, err := StartMTLSListenerJob(j.Host, j.Port)
-		if err != nil {
-			return err
+		for _, j := range cfg.Jobs.MTLS {
+			job, err := StartMTLSListenerJob(j.Host, j.Port)
+			if err != nil {
+				return err
+			}
+			job.PersistentID = j.JobID
 		}
-		job.PersistentID = j.JobID
-	}
 
-	for _, j := range cfg.Jobs.WG {
-		job, err := StartWGListenerJob(j.Port, j.NPort, j.KeyPort)
-		if err != nil {
-			return err
+		for _, j := range cfg.Jobs.WG {
+			job, err := StartWGListenerJob(j.Port, j.NPort, j.KeyPort)
+			if err != nil {
+				return err
+			}
+			job.PersistentID = j.JobID
 		}
-		job.PersistentID = j.JobID
-	}
 
-	for _, j := range cfg.Jobs.DNS {
-		job, err := StartDNSListenerJob(j.Host, j.Port, j.Domains, j.Canaries, j.EnforceOTP)
-		if err != nil {
-			return err
+		for _, j := range cfg.Jobs.DNS {
+			job, err := StartDNSListenerJob(j.Host, j.Port, j.Domains, j.Canaries, j.EnforceOTP)
+			if err != nil {
+				return err
+			}
+			job.PersistentID = j.JobID
 		}
-		job.PersistentID = j.JobID
-	}
 
-	for _, j := range cfg.Jobs.HTTP {
-		cfg := &HTTPServerConfig{
-			Addr:            fmt.Sprintf("%s:%d", j.Host, j.Port),
-			LPort:           j.Port,
-			Secure:          j.Secure,
-			Domain:          j.Domain,
-			Website:         j.Website,
-			Cert:            j.Cert,
-			Key:             j.Key,
-			ACME:            j.ACME,
-			EnforceOTP:      j.EnforceOTP,
-			LongPollTimeout: time.Duration(j.LongPollTimeout),
-			LongPollJitter:  time.Duration(j.LongPollJitter),
-			RandomizeJARM:   j.RandomizeJARM,
+		for _, j := range cfg.Jobs.HTTP {
+			cfg := &HTTPServerConfig{
+				Addr:            fmt.Sprintf("%s:%d", j.Host, j.Port),
+				LPort:           j.Port,
+				Secure:          j.Secure,
+				Domain:          j.Domain,
+				Website:         j.Website,
+				Cert:            j.Cert,
+				Key:             j.Key,
+				ACME:            j.ACME,
+				EnforceOTP:      j.EnforceOTP,
+				LongPollTimeout: time.Duration(j.LongPollTimeout),
+				LongPollJitter:  time.Duration(j.LongPollJitter),
+				RandomizeJARM:   j.RandomizeJARM,
+			}
+			job, err := StartHTTPListenerJob(cfg)
+			if err != nil {
+				return err
+			}
+			job.PersistentID = j.JobID
 		}
-		job, err := StartHTTPListenerJob(cfg)
-		if err != nil {
-			return err
-		}
-		job.PersistentID = j.JobID
-	}
+	*/
 
 	return nil
 }
