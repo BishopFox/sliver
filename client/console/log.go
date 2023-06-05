@@ -28,24 +28,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/moloch--/asciicast"
 	"golang.org/x/exp/slog"
+	"golang.org/x/term"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 )
-
-func (con *SliverConsoleClient) setupLogger(writers ...io.Writer) {
-	logWriter := io.MultiWriter(writers...)
-	jsonOptions := &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}
-	con.jsonHandler = slog.NewJSONHandler(logWriter, jsonOptions)
-
-	// Log all commands before running them.
-	con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.logCommand)
-}
 
 // ConsoleClientLogger is an io.Writer that sends data to the server.
 type ConsoleClientLogger struct {
@@ -61,12 +52,62 @@ func (l *ConsoleClientLogger) Write(buf []byte) (int, error) {
 	return len(buf), err
 }
 
-func (con *SliverConsoleClient) ClientLogStream() (*ConsoleClientLogger, error) {
+// ClientLogStream requires a log stream name, used to save the logs
+// going through this stream in a specific log subdirectory/file.
+func (con *SliverConsoleClient) ClientLogStream(name string) (*ConsoleClientLogger, error) {
 	stream, err := con.Rpc.ClientLog(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	return &ConsoleClientLogger{name: "json", Stream: stream}, nil
+	return &ConsoleClientLogger{name: name, Stream: stream}, nil
+}
+
+func (con *SliverConsoleClient) setupLogger(writers ...io.Writer) {
+	logWriter := io.MultiWriter(writers...)
+	jsonOptions := &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}
+	con.jsonHandler = slog.NewJSONHandler(logWriter, jsonOptions)
+
+	// Log all commands before running them.
+	con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.logCommand)
+}
+
+// logCommand logs non empty commands to the client log file.
+func (con *SliverConsoleClient) logCommand(args []string) ([]string, error) {
+	if len(args) == 0 {
+		return args, nil
+	}
+	logger := slog.New(con.jsonHandler).With(slog.String("type", "command"))
+	logger.Debug(strings.Join(args, " "))
+	return args, nil
+}
+
+func (con *SliverConsoleClient) setupAsciicastRecord(logFile *os.File, server io.Writer) {
+	x, y, err := term.GetSize(int(os.Stdin.Fd()))
+	if err != nil {
+		x, y = 80, 80
+	}
+
+	// Save the asciicast to the server and a local file.
+	destinations := io.MultiWriter(logFile, server)
+
+	encoder := asciicast.NewEncoder(destinations, x, y)
+	encoder.WriteHeader()
+
+	// save existing stdout | MultiWriter writes to saved stdout and file
+	out := os.Stdout
+	mw := io.MultiWriter(out, encoder)
+
+	// get pipe reader and writer | writes to pipe writer come out pipe reader
+	r, w, _ := os.Pipe()
+
+	// replace stdout,stderr with pipe writer | all writes to stdout,
+	// stderr will go through pipe instead (fmt.print, log)
+	os.Stdout = w
+	os.Stderr = w
+
+	go io.Copy(mw, r)
 }
 
 func getConsoleLogFile() *os.File {
@@ -80,14 +121,15 @@ func getConsoleLogFile() *os.File {
 	return logFile
 }
 
-// logCommand logs non empty commands to the client log file.
-func (con *SliverConsoleClient) logCommand(args []string) ([]string, error) {
-	if len(args) == 0 {
-		return args, nil
+func getConsoleAsciicastFile() *os.File {
+	logsDir := assets.GetConsoleLogsDir()
+	dateTime := time.Now().Format("2006-01-02_15-04-05")
+	logPath := filepath.Join(logsDir, fmt.Sprintf("asciicast_%s.log", dateTime))
+	logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o600)
+	if err != nil {
+		log.Fatalf("Could not open log file: %s", err)
 	}
-	logger := slog.New(con.jsonHandler).With(slog.String("type", "command"))
-	logger.Debug(strings.Join(args, " "))
-	return args, nil
+	return logFile
 }
 
 //
@@ -166,7 +208,7 @@ func (con *SliverConsoleClient) PrintEventInfof(format string, args ...any) {
 
 	logger.Info(fmt.Sprintf(format, args...))
 
-	con.printf(Clearln+"\n"+Info+format+"\r", args...)
+	con.printf(Clearln+"\r\n"+Info+format+"\r", args...)
 }
 
 // PrintEventErrorf prints an error message with a leading/trailing newline for emphasis.
@@ -175,7 +217,7 @@ func (con *SliverConsoleClient) PrintEventErrorf(format string, args ...any) {
 
 	logger.Error(fmt.Sprintf(format, args...))
 
-	con.printf(Clearln+"\n"+Warn+format+"\r", args...)
+	con.printf(Clearln+"\r\n"+Warn+format+"\r", args...)
 }
 
 // PrintEventSuccessf a success message with a leading/trailing newline for emphasis.
@@ -184,5 +226,5 @@ func (con *SliverConsoleClient) PrintEventSuccessf(format string, args ...any) {
 
 	logger.Info(fmt.Sprintf(format, args...))
 
-	con.printf(Clearln+"\n"+Success+format+"\r", args...)
+	con.printf(Clearln+"\r\n"+Success+format+"\r", args...)
 }

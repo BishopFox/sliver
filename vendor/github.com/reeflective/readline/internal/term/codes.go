@@ -2,6 +2,8 @@ package term
 
 // Terminal control sequences.
 const (
+	NewlineReturn = "\r\n"
+
 	ClearLineAfter   = "\x1b[0K"
 	ClearLineBefore  = "\x1b[1K"
 	ClearLine        = "\x1b[2K"

@@ -27,11 +27,12 @@ require (
 	github.com/lesnuages/snitch v0.6.0
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/miekg/dns v1.1.54
+	github.com/moloch--/asciicast v0.1.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/ncruces/go-sqlite3 v0.5.3
 	github.com/pquerna/otp v1.4.0
-	github.com/reeflective/console v0.1.3
-	github.com/reeflective/readline v1.0.4
+	github.com/reeflective/console v0.1.6
+	github.com/reeflective/readline v1.0.8
 	github.com/rsteube/carapace v0.36.3
 	github.com/sirupsen/logrus v1.9.2
 	github.com/spf13/cobra v1.7.0

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/reeflective/readline/internal/color"
+	"github.com/reeflective/readline/internal/term"
 )
 
 func (e *Engine) hintCompletions(comps Values) {
@@ -13,18 +14,18 @@ func (e *Engine) hintCompletions(comps Values) {
 	// and only if we don't have completions.
 	if len(comps.values) == 0 || e.config.GetBool("usage-hint-always") {
 		if comps.Usage != "" {
-			hint += color.Dim + comps.Usage + color.Reset + "\n"
+			hint += color.Dim + comps.Usage + color.Reset + term.NewlineReturn
 		}
 	}
 
 	// And all further messages
-	hint += strings.Join(comps.Messages.Get(), "\n")
+	hint += strings.Join(comps.Messages.Get(), term.NewlineReturn)
 
 	if e.Matches() == 0 && hint == "" && !e.auto {
 		hint = e.hintNoMatches()
 	}
 
-	hint = strings.TrimSuffix(hint, "\n")
+	hint = strings.TrimSuffix(hint, term.NewlineReturn)
 	if hint == "" {
 		return
 	}

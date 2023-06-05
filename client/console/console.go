@@ -188,14 +188,21 @@ func StartClient(con *SliverConsoleClient, rpc rpcpb.SliverRPCClient, serverCmds
 
 	// console logger
 	if con.Settings.ConsoleLogs {
+		// Classic logs
 		consoleLog := getConsoleLogFile()
-		consoleLogStream, err := con.ClientLogStream()
+		consoleLogStream, err := con.ClientLogStream("json")
 		if err != nil {
 			log.Printf("Could not get client log stream: %s", err)
 		}
 		con.setupLogger(consoleLog, consoleLogStream)
 		defer consoleLog.Close()
-		defer consoleLogStream.Stream.CloseSend()
+
+		// Ascii cast sessions (complete terminal interface).
+		asciicastLog := getConsoleAsciicastFile()
+		defer asciicastLog.Close()
+
+		asciicastStream, err := con.ClientLogStream("asciicast")
+		con.setupAsciicastRecord(asciicastLog, asciicastStream)
 	}
 
 	if !con.IsCLI {
@@ -450,15 +457,15 @@ func (con *SliverConsoleClient) PrintLogo() {
 	serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
 
 	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
-	fmt.Println(logo)
-	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))])
-	fmt.Printf(Info+"Server v%s - %s%s\n", serverSemVer, serverVer.Commit, dirty)
+	fmt.Println(strings.ReplaceAll(logo, "\n", "\r\n"))
+	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))] + "\r")
+	fmt.Printf(Info+"Server v%s - %s%s\r\n", serverSemVer, serverVer.Commit, dirty)
 	if version.GitCommit != serverVer.Commit {
-		fmt.Printf(Info+"Client %s\n", version.FullVersion())
+		fmt.Printf(Info+"Client %s\r\n", version.FullVersion())
 	}
-	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
+	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options\r")
 	if serverVer.Major != int32(version.SemanticVersion()[0]) {
-		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\n")
+		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\r\n")
 	}
 	con.CheckLastUpdate()
 }
