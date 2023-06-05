@@ -131,9 +131,8 @@ func (x *Request) GetSessionID() string {
 }
 
 // Response - Common fields used in all gRPC responses. Note that the Err field
-//
-//	only used when the implant needs to return an error to the server.
-//	Client<->Server comms should use normal gRPC error handling.
+//            only used when the implant needs to return an error to the server.
+//            Client<->Server comms should use normal gRPC error handling.
 type Response struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
