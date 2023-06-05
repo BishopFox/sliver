@@ -72,6 +72,7 @@ func GenerateStagerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 	format, _ := cmd.Flags().GetString("format")
 	badChars, _ := cmd.Flags().GetString("badchars")
 	save, _ := cmd.Flags().GetString("save")
+	advOptions, _ := cmd.Flags().GetString("advanced")
 
 	bChars := make([]string, 0)
 	if len(badChars) > 0 {
@@ -95,13 +96,14 @@ func GenerateStagerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 	ctrl := make(chan bool)
 	con.SpinUntil("Generating stager, please wait ...", ctrl)
 	stageFile, err := con.Rpc.MsfStage(context.Background(), &clientpb.MsfStagerReq{
-		Arch:     arch,
-		BadChars: bChars,
-		Format:   format,
-		Host:     lhost,
-		Port:     lport,
-		Protocol: stageProto,
-		OS:       stageOS,
+		Arch:       arch,
+		BadChars:   bChars,
+		Format:     format,
+		Host:       lhost,
+		Port:       lport,
+		Protocol:   stageProto,
+		OS:         stageOS,
+		AdvOptions: advOptions,
 	})
 	ctrl <- true
 	<-ctrl
@@ -124,7 +126,7 @@ func GenerateStagerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 		}
 		con.PrintInfof("Sliver implant stager saved to: %s\n", saveTo)
 	} else {
-		con.PrintInfof("Here's your stager:")
+		con.PrintInfof("Here's your stager:\n")
 		con.Println(string(stageFile.GetFile().GetData()))
 	}
 }

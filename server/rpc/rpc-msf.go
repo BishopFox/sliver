@@ -38,7 +38,7 @@ import (
 )
 
 var (
-	msfLog = log.NamedLogger("rcp", "msf")
+	msfLog = log.NamedLogger("rpc", "msf")
 )
 
 // Msf - Helper function to execute MSF payloads on the remote system
@@ -182,14 +182,15 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 	}
 
 	venomConfig := msf.VenomConfig{
-		Os:       req.GetOS(),
-		Payload:  payload,
-		LHost:    req.GetHost(),
-		LPort:    uint16(req.GetPort()),
-		Arch:     arch,
-		Format:   req.GetFormat(),
-		BadChars: req.GetBadChars(), // TODO: make this configurable
-		Luri:     uri,
+		Os:         req.GetOS(),
+		Payload:    payload,
+		LHost:      req.GetHost(),
+		LPort:      uint16(req.GetPort()),
+		Arch:       arch,
+		Format:     req.GetFormat(),
+		BadChars:   req.GetBadChars(), // TODO: make this configurable
+		Luri:       uri,
+		AdvOptions: req.AdvOptions,
 	}
 
 	stage, err := msf.VenomPayload(venomConfig)

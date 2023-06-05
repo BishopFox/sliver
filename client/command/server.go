@@ -758,9 +758,10 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			f.StringP("lhost", "L", "", "Listening host")
 			f.Uint32P("lport", "l", 8443, "Listening port")
 			f.StringP("protocol", "r", "tcp", "Staging protocol (tcp/http/https)")
-			f.StringP("format", "f", "raw", "Output format (msfvenom formats, see `help generate stager` for the list)")
+			f.StringP("format", "f", "raw", "Output format (msfvenom formats, see help generate msf-stager for the list)")
 			f.StringP("badchars", "b", "", "bytes to exclude from stage shellcode")
 			f.StringP("save", "s", "", "directory to save the generated stager to")
+			f.StringP("advanced", "d", "", "Advanced options for the stager using URI query syntax (option1=value1&option2=value2...)")
 		})
 		generateCmd.AddCommand(generateStagerCmd)
 
