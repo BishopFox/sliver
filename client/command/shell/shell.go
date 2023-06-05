@@ -131,7 +131,7 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 		}
 	}()
 	log.Printf("Reading from stdin ...")
-	n, err := io.Copy(tunnel, os.Stdin)
+	n, err := io.Copy(tunnel, newFilterReader(os.Stdin))
 	log.Printf("Read %d bytes from stdin", n)
 	if err != nil && err != io.EOF {
 		con.PrintErrorf("Error reading from stdin: %s\n", err)
