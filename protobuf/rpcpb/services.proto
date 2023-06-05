@@ -40,11 +40,11 @@ service SliverRPC {
     rpc KillJob(clientpb.KillJobReq) returns (clientpb.KillJob);
 
     // *** Listeners ***
-    rpc StartMTLSListener(clientpb.MTLSListenerReq) returns (clientpb.MTLSListener);
-    rpc StartWGListener(clientpb.WGListenerReq) returns (clientpb.WGListener);
-    rpc StartDNSListener(clientpb.DNSListenerReq) returns (clientpb.DNSListener);
-    rpc StartHTTPSListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener);
-    rpc StartHTTPListener(clientpb.HTTPListenerReq) returns (clientpb.HTTPListener);
+    rpc StartMTLSListener(clientpb.MTLSListenerReq) returns (clientpb.ListenerJob);
+    rpc StartWGListener(clientpb.WGListenerReq) returns (clientpb.ListenerJob);
+    rpc StartDNSListener(clientpb.DNSListenerReq) returns (clientpb.ListenerJob);
+    rpc StartHTTPSListener(clientpb.HTTPListenerReq) returns (clientpb.ListenerJob);
+    rpc StartHTTPListener(clientpb.HTTPListenerReq) returns (clientpb.ListenerJob);
 
     // *** Stager Listener ***
     rpc StartTCPStagerListener(clientpb.StagerListenerReq) returns(clientpb.StagerListener);

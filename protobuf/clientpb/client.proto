@@ -318,14 +318,25 @@ message KillJob {
 }
 
 // [ Listeners ] ----------------------------------------
+message ListenerJob {
+  string ID = 1;
+  string Type = 2;
+  uint32 JobID = 3;
+  MTLSListenerReq MTLSConf = 4;
+  WGListenerReq WGConf = 5;
+  DNSListenerReq DMSConf = 6;
+  HTTPListenerReq HTTPConf = 7;
+  MultiplayerListenerReq MultiConf = 8;
+}
+
+message MultiplayerListenerReq {
+  string Host = 1;
+  uint32 Port = 2;
+}
+
 message MTLSListenerReq {
   string Host = 1;
   uint32 Port = 2;
-  bool Persistent = 3;
-}
-
-message MTLSListener {
-  uint32 JobID = 1;
 }
 
 message WGListenerReq {
@@ -334,11 +345,6 @@ message WGListenerReq {
   string TunIP = 2;
   uint32 NPort = 3;
   uint32 KeyPort = 4;
-  bool Persistent = 5;
-}
-
-message WGListener {
-  uint32 JobID = 1;
 }
 
 message DNSListenerReq {
@@ -346,12 +352,7 @@ message DNSListenerReq {
   bool Canaries = 2;
   string Host = 3;
   uint32 Port = 4;
-  bool Persistent = 5;
   bool EnforceOTP = 6; 
-}
-
-message DNSListener {
-  uint32 JobID = 1;
 }
 
 message HTTPListenerReq {
@@ -363,7 +364,6 @@ message HTTPListenerReq {
   bytes Cert = 6;
   bytes Key = 7;
   bool ACME = 8;
-  bool Persistent = 9;
   bool EnforceOTP = 10;
   int64 LongPollTimeout = 11;
   int64 LongPollJitter = 12;
@@ -396,10 +396,6 @@ message TCPPivot {
   string Err = 2;
 
   commonpb.Response Response = 9;
-}
-
-message HTTPListener {
-  uint32 JobID = 1;
 }
 
 // [ commands ] ----------------------------------------
