@@ -46,13 +46,12 @@ func DNSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Host:       lhost,
 		Port:       uint32(lport),
 		Canaries:   !ctx.Flags.Bool("no-canaries"),
-		Persistent: ctx.Flags.Bool("persistent"),
 		EnforceOTP: !ctx.Flags.Bool("disable-otp"),
 	})
 	con.Println()
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 	} else {
-		con.PrintInfof("Successfully started job #%d\n", dns.JobID)
+		con.PrintInfof("Successfully started job #%d\n", dns.ID)
 	}
 }

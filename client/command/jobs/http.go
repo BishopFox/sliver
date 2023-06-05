@@ -44,14 +44,13 @@ func HTTPListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	con.PrintInfof("Starting HTTP %s:%d listener ...\n", domain, lport)
+	con.PrintInfof("Starting HTTP %d listener ...\n", lport)
 	http, err := con.Rpc.StartHTTPListener(context.Background(), &clientpb.HTTPListenerReq{
 		Domain:          domain,
 		Website:         ctx.Flags.String("website"),
 		Host:            lhost,
 		Port:            uint32(lport),
 		Secure:          false,
-		Persistent:      ctx.Flags.Bool("persistent"),
 		EnforceOTP:      !disableOTP,
 		LongPollTimeout: int64(longPollTimeout),
 		LongPollJitter:  int64(longPollJitter),
@@ -59,6 +58,6 @@ func HTTPListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 	} else {
-		con.PrintInfof("Successfully started job #%d\n", http.JobID)
+		con.PrintInfof("Successfully started job #%d\n", http.ID)
 	}
 }

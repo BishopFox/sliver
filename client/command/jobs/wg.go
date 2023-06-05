@@ -34,14 +34,13 @@ func WGListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	con.PrintInfof("Starting Wireguard listener ...\n")
 	wg, err := con.Rpc.StartWGListener(context.Background(), &clientpb.WGListenerReq{
-		Port:       uint32(lport),
-		NPort:      uint32(nport),
-		KeyPort:    uint32(keyExchangePort),
-		Persistent: ctx.Flags.Bool("persistent"),
+		Port:    uint32(lport),
+		NPort:   uint32(nport),
+		KeyPort: uint32(keyExchangePort),
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 	} else {
-		con.PrintInfof("Successfully started job #%d\n", wg.JobID)
+		con.PrintInfof("Successfully started job #%d\n", wg.ID)
 	}
 }

@@ -54,7 +54,7 @@ func HTTPSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	con.PrintInfof("Starting HTTPS %s:%d listener ...\n", domain, lport)
+	con.PrintInfof("Starting HTTPS %d listener ...\n", lport)
 	https, err := con.Rpc.StartHTTPSListener(context.Background(), &clientpb.HTTPListenerReq{
 		Domain:          domain,
 		Website:         website,
@@ -64,7 +64,6 @@ func HTTPSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Cert:            cert,
 		Key:             key,
 		ACME:            ctx.Flags.Bool("lets-encrypt"),
-		Persistent:      ctx.Flags.Bool("persistent"),
 		EnforceOTP:      !disableOTP,
 		LongPollTimeout: int64(longPollTimeout),
 		LongPollJitter:  int64(longPollJitter),
@@ -74,7 +73,7 @@ func HTTPSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 	} else {
-		con.PrintInfof("Successfully started job #%d\n", https.JobID)
+		con.PrintInfof("Successfully started job #%d\n", https.ID)
 	}
 }
 
