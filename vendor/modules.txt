@@ -166,10 +166,10 @@ github.com/fatih/color
 # github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5
 ## explicit
 github.com/gen2brain/shm
-# github.com/glebarez/go-sqlite v1.20.3
+# github.com/glebarez/go-sqlite v1.21.1
 ## explicit; go 1.17
 github.com/glebarez/go-sqlite
-# github.com/glebarez/sqlite v1.7.0
+# github.com/glebarez/sqlite v1.8.0
 ## explicit; go 1.18
 github.com/glebarez/sqlite
 # github.com/go-sql-driver/mysql v1.7.0
