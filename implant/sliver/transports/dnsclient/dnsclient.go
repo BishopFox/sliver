@@ -347,6 +347,14 @@ func (s *SliverDNSClient) SessionInit() error {
 		// {{end}}
 		return err
 	}
+
+	if len(respData) < 1 {
+		// {{if .Config.Debug}}
+		log.Printf("[dns] no data received in message")
+		// {{end}}
+		return nil, nil
+	}
+	
 	data, err := s.cipherCtx.Decrypt(respData)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -503,10 +511,17 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 		return nil, err
 	}
 
+	if len(respData) < 1 {
+		// {{if .Config.Debug}}
+		log.Printf("[dns] no data received in message")
+		// {{end}}
+		return nil, nil
+	}
+
 	plaintext, err := s.cipherCtx.Decrypt(ciphertext)
 	if err != nil {
 		return nil, err
-	}
+	
 	envelope := &pb.Envelope{}
 	err = proto.Unmarshal(plaintext, envelope)
 	return envelope, err
@@ -563,7 +578,7 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 
 	var bytesPerTxt uint32
 	if s.noTXT {
-		bytesPerTxt = 128
+		bytesPerTxt = 192
 	} else {
 		bytesPerTxt = 182 // 189 with base64, -6 metadata, -1 margin
 	}
@@ -628,6 +643,9 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 			recvMsg := &dnspb.DNSMessage{}
 			err := proto.Unmarshal(result.Data, recvMsg)
 			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("[dns] unmarshal error: %s", err)
+				// {{end}}
 				errors = append(errors, result.Err)
 				continue
 			}
