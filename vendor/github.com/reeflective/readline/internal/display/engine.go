@@ -257,7 +257,7 @@ func (e *Engine) displayLine() {
 	}
 
 	// Format tabs as spaces, for consistent display
-	line = strutil.FormatTabs(line)
+	line = strutil.FormatTabs(line) + term.ClearLineAfter
 
 	// And display the line.
 	e.suggested.Set([]rune(line)...)
