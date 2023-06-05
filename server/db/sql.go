@@ -85,6 +85,11 @@ func newDBClient() *gorm.DB {
 		&models.WebContent{},
 		&models.WGKeys{},
 		&models.WGPeer{},
+		&models.ListenerJob{},
+		&models.HTTPListener{},
+		&models.DNSListener{},
+		&models.WGListener{},
+		&models.MultiplayerListener{},
 	)
 	if err != nil {
 		clientLog.Error(err)

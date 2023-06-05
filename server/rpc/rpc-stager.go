@@ -46,9 +46,10 @@ func (rpc *Server) StartHTTPStagerListener(ctx context.Context, req *clientpb.St
 	if !checkInterface(req.GetHost()) {
 		host = "0.0.0.0"
 	}
-	conf := &c2.HTTPServerConfig{
-		Addr:   fmt.Sprintf("%s:%d", host, req.Port),
-		LPort:  uint16(req.Port),
+
+	conf := &clientpb.HTTPListenerReq{
+		Host:   fmt.Sprintf("%s:%d", host, req.Port),
+		Port:   req.Port,
 		Domain: req.Host,
 		Secure: false,
 	}

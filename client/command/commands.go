@@ -364,7 +364,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("l", "lport", generate.DefaultMTLSLPort, "tcp listen port")
 
 			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
-			f.Bool("p", "persistent", false, "make persistent across restarts")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -384,7 +383,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("l", "lport", generate.DefaultWGLPort, "udp listen port")
 			f.Int("n", "nport", generate.DefaultWGNPort, "virtual tun interface listen port")
 			f.Int("x", "key-port", generate.DefaultWGKeyExPort, "virtual tun interface key exchange port")
-			f.Bool("p", "persistent", false, "make persistent across restarts")
 
 			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
 		},
@@ -409,7 +407,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("D", "disable-otp", false, "disable otp authentication")
 
 			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
-			f.Bool("p", "persistent", false, "make persistent across restarts")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -434,7 +431,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.String("J", "long-poll-jitter", "2s", "server-side long poll jitter")
 
 			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
-			f.Bool("p", "persistent", false, "make persistent across restarts")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
@@ -464,7 +460,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("E", "disable-randomized-jarm", false, "disable randomized jarm fingerprints")
 
 			f.Int("t", "timeout", defaultTimeout, "grpc timeout in seconds")
-			f.Bool("p", "persistent", false, "make persistent across restarts")
 		},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()

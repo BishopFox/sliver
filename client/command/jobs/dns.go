@@ -52,6 +52,6 @@ func DNSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 	} else {
-		con.PrintInfof("Successfully started job #%d\n", dns.ID)
+		con.PrintInfof("Successfully started job #%d\n", dns.JobID)
 	}
 }

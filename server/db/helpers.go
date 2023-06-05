@@ -304,6 +304,17 @@ func HTTPC2ConfigSave(httpC2Config *models.HttpC2Config) error {
 	return nil
 }
 
+func HTTPC2ListenerSave(listenerConf *models.ListenerJob) error {
+	dbSession := Session()
+	result := dbSession.Clauses(clause.OnConflict{
+		UpdateAll: true,
+	}).Create(&listenerConf)
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
 // ImplantProfileNames - Fetch a list of all build names
 func ImplantProfileNames() ([]string, error) {
 	profiles := []*models.ImplantProfile{}
