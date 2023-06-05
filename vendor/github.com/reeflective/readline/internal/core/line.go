@@ -340,7 +340,7 @@ func DisplayLine(l *Line, indent int) {
 			if len(line)+indent < term.GetWidth() {
 				line += term.ClearLineAfter
 			}
-			line += "\n"
+			line += term.NewlineReturn
 		}
 
 		fmt.Print(line)

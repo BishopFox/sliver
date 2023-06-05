@@ -86,45 +86,44 @@ func DisplayHint(hint *Hint) {
 		return
 	}
 
-	var text string
-
-	// Add the various hints.
-	if len(hint.persistent) > 0 {
-		text += string(hint.persistent) + "\n"
-	}
-
-	if len(hint.text) > 0 {
-		text += string(hint.text) + "\n"
-	}
+	text := hint.renderHint()
 
 	if strutil.RealLength(text) == 0 {
 		return
 	}
 
-	text = strings.Join(strings.Split(text, "\n"), term.ClearLineAfter+"\n")
-
-	text = "\r" + text + term.ClearLineAfter + color.Reset
+	text += term.ClearLineAfter + color.Reset
 
 	if len(text) > 0 {
 		fmt.Print(text)
 	}
 }
 
+func (h *Hint) renderHint() (text string) {
+	if len(h.persistent) > 0 {
+		text += string(h.persistent) + term.NewlineReturn
+	}
+
+	if len(h.text) > 0 {
+		text += string(h.text) + term.NewlineReturn
+	}
+
+	if strutil.RealLength(text) == 0 {
+		return
+	}
+
+	// Ensure cross-platform, real display newline.
+	text = strings.ReplaceAll(text, term.NewlineReturn, term.ClearLineAfter+term.NewlineReturn)
+
+	return text
+}
+
 // CoordinatesHint returns the number of terminal rows used by the hint.
 func CoordinatesHint(hint *Hint) int {
-	var text string
-
-	// Add the various hints.
-	if len(hint.persistent) > 0 {
-		text += string(hint.persistent) + "\n"
-	}
-
-	if len(hint.text) > 0 {
-		text += string(hint.text)
-	}
+	text := hint.renderHint()
 
 	// Nothing to do if no real text
-	text = strings.TrimSuffix(text, "\n")
+	text = strings.TrimSuffix(text, term.ClearLineAfter+term.NewlineReturn)
 
 	if strutil.RealLength(text) == 0 {
 		return 0
@@ -132,7 +131,7 @@ func CoordinatesHint(hint *Hint) int {
 
 	// Otherwise compute the real length/span.
 	usedY := 0
-	lines := strings.Split(text, "\n")
+	lines := strings.Split(text, term.ClearLineAfter)
 
 	for i, line := range lines {
 		x, y := strutil.LineSpan([]rune(line), i, 0)

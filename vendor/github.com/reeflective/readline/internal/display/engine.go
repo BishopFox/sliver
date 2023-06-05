@@ -2,7 +2,6 @@ package display
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/reeflective/readline/inputrc"
 	"github.com/reeflective/readline/internal/color"
@@ -143,7 +142,7 @@ func (e *Engine) AcceptLine() {
 
 	// Go below this non-suggested line and clear everything.
 	term.MoveCursorBackwards(term.GetWidth())
-	fmt.Println()
+	fmt.Print(term.NewlineReturn)
 }
 
 // RefreshTransient goes back to the first line of the input buffer
@@ -160,7 +159,7 @@ func (e *Engine) RefreshTransient() {
 	// And redisplay the transient/primary/line.
 	e.prompt.TransientPrint()
 	e.displayLine()
-	fmt.Println()
+	fmt.Print(term.NewlineReturn)
 }
 
 // CursorToLineStart moves the cursor just after the primary prompt.
@@ -179,7 +178,7 @@ func (e *Engine) CursorToLineStart() {
 func (e *Engine) CursorBelowLine() {
 	term.MoveCursorUp(e.cursorRow)
 	term.MoveCursorDown(e.lineRows)
-	fmt.Println()
+	fmt.Print(term.NewlineReturn)
 }
 
 // lineStartToCursorPos can be used if the cursor is currently
@@ -265,7 +264,7 @@ func (e *Engine) displayLine() {
 
 	// Adjust the cursor if the line fits exactly in the terminal width.
 	if e.lineCol == 0 {
-		fmt.Println()
+		fmt.Print(term.NewlineReturn)
 		fmt.Print(term.ClearLineAfter)
 	}
 }
@@ -274,7 +273,7 @@ func (e *Engine) displayLine() {
 // It assumes that the cursor is on the last line of input,
 // and goes back to this same line after displaying this.
 func (e *Engine) displayHelpers() {
-	fmt.Println()
+	fmt.Print(term.NewlineReturn)
 
 	// Recompute completions and hints if autocompletion is on.
 	e.completer.Autocomplete()
@@ -294,7 +293,7 @@ func (e *Engine) displayHelpers() {
 // AvailableHelperLines returns the number of lines available below the hint section.
 // It returns half the terminal space if we currently have less than 1/3rd of it below.
 func (e *Engine) AvailableHelperLines() int {
-	_, termHeight, _ := term.GetSize(int(os.Stdout.Fd()))
+	termHeight := term.GetLength()
 	compLines := termHeight - e.startRows - e.lineRows - e.hintRows
 
 	if compLines < (termHeight / oneThirdTerminalHeight) {

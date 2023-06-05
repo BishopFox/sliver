@@ -78,14 +78,14 @@ func (e *Engine) cutCompletionsBelow(scanner *bufio.Scanner, maxRows int) (strin
 	for scanner.Scan() {
 		line := scanner.Text()
 		if count < maxRows-1 {
-			cropped += line + "\n"
+			cropped += line + term.NewlineReturn
 			count++
 		} else {
 			break
 		}
 	}
 
-	cropped = strings.TrimSuffix(cropped, "\n")
+	cropped = strings.TrimSuffix(cropped, term.NewlineReturn)
 
 	// Add hint for remaining completions, if any.
 	_, used := e.completionCount()
@@ -95,7 +95,7 @@ func (e *Engine) cutCompletionsBelow(scanner *bufio.Scanner, maxRows int) (strin
 		return cropped, count - 1
 	}
 
-	cropped += fmt.Sprintf("\n"+color.Dim+color.FgYellow+" %d more completion rows... (scroll down to show)"+color.Reset, remain)
+	cropped += fmt.Sprintf(term.NewlineReturn+color.Dim+color.FgYellow+" %d more completion rows... (scroll down to show)"+color.Reset, remain)
 
 	return cropped, count
 }
@@ -116,14 +116,14 @@ func (e *Engine) cutCompletionsAboveBelow(scanner *bufio.Scanner, maxRows, absPo
 		}
 
 		if count > cutAbove && count <= absPos {
-			cropped += line + "\n"
+			cropped += line + term.NewlineReturn
 			count++
 		} else {
 			break
 		}
 	}
 
-	cropped = strings.TrimSuffix(cropped, "\n")
+	cropped = strings.TrimSuffix(cropped, term.NewlineReturn)
 	count -= cutAbove + 1
 
 	// Add hint for remaining completions, if any.
@@ -134,7 +134,7 @@ func (e *Engine) cutCompletionsAboveBelow(scanner *bufio.Scanner, maxRows, absPo
 		return cropped, count - 1
 	}
 
-	cropped += fmt.Sprintf("\n"+color.Dim+color.FgYellow+" %d more completion rows... (scroll down to show)"+color.Reset, remain)
+	cropped += fmt.Sprintf(term.NewlineReturn+color.Dim+color.FgYellow+" %d more completion rows... (scroll down to show)"+color.Reset, remain)
 
 	return cropped, count
 }
