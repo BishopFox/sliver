@@ -1,6 +1,6 @@
 //go:build !sqlite3_bsd
 
-package sqlite3
+package vfs
 
 import (
 	"io"
@@ -23,14 +23,14 @@ type flocktimeout_t struct {
 	timeout unix.Timespec
 }
 
-func (vfsOSMethods) Sync(file *os.File, fullsync, dataonly bool) error {
+func osSync(file *os.File, fullsync, dataonly bool) error {
 	if fullsync {
 		return file.Sync()
 	}
 	return unix.Fsync(int(file.Fd()))
 }
 
-func (vfsOSMethods) Allocate(file *os.File, size int64) error {
+func osAllocate(file *os.File, size int64) error {
 	off, err := file.Seek(0, io.SeekEnd)
 	if err != nil {
 		return err
@@ -47,7 +47,7 @@ func (vfsOSMethods) Allocate(file *os.File, size int64) error {
 		Length:  size,
 	}
 
-	// Try to get a continous chunk of disk space.
+	// Try to get a continuous chunk of disk space.
 	err = unix.FcntlFstore(file.Fd(), unix.F_PREALLOCATE, &store)
 	if err != nil {
 		// OK, perhaps we are too fragmented, allocate non-continuous.
@@ -57,19 +57,19 @@ func (vfsOSMethods) Allocate(file *os.File, size int64) error {
 	return file.Truncate(size)
 }
 
-func (vfsOSMethods) unlock(file *os.File, start, len int64) xErrorCode {
+func osUnlock(file *os.File, start, len int64) _ErrorCode {
 	err := unix.FcntlFlock(file.Fd(), _F_OFD_SETLK, &unix.Flock_t{
 		Type:  unix.F_UNLCK,
 		Start: start,
 		Len:   len,
 	})
 	if err != nil {
-		return IOERR_UNLOCK
+		return _IOERR_UNLOCK
 	}
 	return _OK
 }
 
-func (vfsOSMethods) lock(file *os.File, typ int16, start, len int64, timeout time.Duration, def xErrorCode) xErrorCode {
+func osLock(file *os.File, typ int16, start, len int64, timeout time.Duration, def _ErrorCode) _ErrorCode {
 	lock := flocktimeout_t{fl: unix.Flock_t{
 		Type:  typ,
 		Start: start,
@@ -82,25 +82,25 @@ func (vfsOSMethods) lock(file *os.File, typ int16, start, len int64, timeout tim
 		lock.timeout = unix.NsecToTimespec(int64(timeout / time.Nanosecond))
 		err = unix.FcntlFlock(file.Fd(), _F_OFD_SETLKWTIMEOUT, &lock.fl)
 	}
-	return vfsOS.lockErrorCode(err, def)
+	return osLockErrorCode(err, def)
 }
 
-func (vfsOSMethods) readLock(file *os.File, start, len int64, timeout time.Duration) xErrorCode {
-	return vfsOS.lock(file, unix.F_RDLCK, start, len, timeout, IOERR_RDLOCK)
+func osReadLock(file *os.File, start, len int64, timeout time.Duration) _ErrorCode {
+	return osLock(file, unix.F_RDLCK, start, len, timeout, _IOERR_RDLOCK)
 }
 
-func (vfsOSMethods) writeLock(file *os.File, start, len int64, timeout time.Duration) xErrorCode {
-	return vfsOS.lock(file, unix.F_WRLCK, start, len, timeout, IOERR_LOCK)
+func osWriteLock(file *os.File, start, len int64, timeout time.Duration) _ErrorCode {
+	return osLock(file, unix.F_WRLCK, start, len, timeout, _IOERR_LOCK)
 }
 
-func (vfsOSMethods) checkLock(file *os.File, start, len int64) (bool, xErrorCode) {
+func osCheckLock(file *os.File, start, len int64) (bool, _ErrorCode) {
 	lock := unix.Flock_t{
 		Type:  unix.F_RDLCK,
 		Start: start,
 		Len:   len,
 	}
 	if unix.FcntlFlock(file.Fd(), _F_OFD_GETLK, &lock) != nil {
-		return false, IOERR_CHECKRESERVEDLOCK
+		return false, _IOERR_CHECKRESERVEDLOCK
 	}
 	return lock.Type != unix.F_UNLCK, _OK
 }

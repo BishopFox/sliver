@@ -36,6 +36,7 @@ import (
 	"github.com/reeflective/console"
 	"github.com/reeflective/readline"
 	"github.com/spf13/cobra"
+	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -98,7 +99,9 @@ type SliverConsoleClient struct {
 	Settings                 *assets.ClientSettings
 	IsServer                 bool
 	IsCLI                    bool
-	log                      func(format string, args ...any) (int, error)
+
+	jsonHandler slog.Handler
+	printf      func(format string, args ...any) (int, error)
 }
 
 // NewConsole creates the sliver client (and console), creating menus and prompts.
@@ -152,13 +155,6 @@ func NewConsole(isServer bool) *SliverConsoleClient {
 		con.PrintLogo()
 	})
 
-	// console logger
-	if settings.ConsoleLogs {
-		consoleLog := setupConsoleLogger()
-		defer consoleLog.Close()
-		// con.App.SetDuplicateWriter("local", consoleLog)
-	}
-
 	return con
 }
 
@@ -174,9 +170,9 @@ func StartClient(con *SliverConsoleClient, rpc rpcpb.SliverRPCClient, serverCmds
 	// If ran from a system shell, however, those queries will block because
 	// the system shell is in control of stdin. So just use the classic Printf.
 	if con.IsCLI {
-		con.log = fmt.Printf
+		con.printf = fmt.Printf
 	} else {
-		con.log = con.App.TransientPrintf
+		con.printf = con.App.TransientPrintf
 	}
 
 	// Bind commands to the app
@@ -190,23 +186,30 @@ func StartClient(con *SliverConsoleClient, rpc rpcpb.SliverRPCClient, serverCmds
 	go con.startEventLoop()
 	go core.TunnelLoop(rpc)
 
+	// console logger
+	if con.Settings.ConsoleLogs {
+		// Classic logs
+		consoleLog := getConsoleLogFile()
+		consoleLogStream, err := con.ClientLogStream("json")
+		if err != nil {
+			log.Printf("Could not get client log stream: %s", err)
+		}
+		con.setupLogger(consoleLog, consoleLogStream)
+		defer consoleLog.Close()
+
+		// Ascii cast sessions (complete terminal interface).
+		asciicastLog := getConsoleAsciicastFile()
+		defer asciicastLog.Close()
+
+		asciicastStream, err := con.ClientLogStream("asciicast")
+		con.setupAsciicastRecord(asciicastLog, asciicastStream)
+	}
+
 	if !con.IsCLI {
 		return con.App.Start()
 	}
 
 	return nil
-}
-
-func setupConsoleLogger() *os.File {
-	logsDir := assets.GetConsoleLogsDir()
-	dateTime := time.Now().Format("2006-01-02_15-04-05")
-	logPath := filepath.Join(logsDir, fmt.Sprintf("%s.log", dateTime))
-	logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o600)
-	if err != nil {
-		log.Fatalf("Could not open log file: %s", err)
-	}
-	logFile.Write([]byte(fmt.Sprintf("Sliver Console Log - %s\n\n", dateTime)))
-	return logFile
 }
 
 func (con *SliverConsoleClient) startEventLoop() {
@@ -454,15 +457,15 @@ func (con *SliverConsoleClient) PrintLogo() {
 	serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
 
 	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
-	fmt.Println(logo)
-	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))])
-	fmt.Printf(Info+"Server v%s - %s%s\n", serverSemVer, serverVer.Commit, dirty)
+	fmt.Println(strings.ReplaceAll(logo, "\n", "\r\n"))
+	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))] + "\r")
+	fmt.Printf(Info+"Server v%s - %s%s\r\n", serverSemVer, serverVer.Commit, dirty)
 	if version.GitCommit != serverVer.Commit {
-		fmt.Printf(Info+"Client %s\n", version.FullVersion())
+		fmt.Printf(Info+"Client %s\r\n", version.FullVersion())
 	}
-	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options")
+	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options\r")
 	if serverVer.Major != int32(version.SemanticVersion()[0]) {
-		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\n")
+		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\r\n")
 	}
 	con.CheckLastUpdate()
 }
@@ -576,70 +579,6 @@ func (c *SliverConsoleClient) exitImplantMenu(_ *console.Console) {
 	root := c.App.Menu(consts.ImplantMenu).Command
 	root.SetArgs([]string{"background"})
 	root.Execute()
-}
-
-//
-// -------------------------- [ Logging ] -----------------------------
-//
-// Logging function below differ slightly from their counterparts in client/log package:
-// These below will print their output regardless of the currently active menu (server/implant),
-// while those in the log package tie their output to the current menu.
-
-// PrintAsyncResponse - Print the generic async response information
-func (con *SliverConsoleClient) PrintAsyncResponse(resp *commonpb.Response) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	beacon, err := con.Rpc.GetBeacon(ctx, &clientpb.Beacon{ID: resp.BeaconID})
-	if err != nil {
-		con.PrintWarnf(err.Error())
-		return
-	}
-	con.PrintInfof("Tasked beacon %s (%s)", beacon.Name, strings.Split(resp.TaskID, "-")[0])
-}
-
-func (con *SliverConsoleClient) Printf(format string, args ...any) {
-	con.log(format, args...)
-}
-
-// Println prints an output without status and immediately below the last line of output.
-func (con *SliverConsoleClient) Println(args ...any) {
-	format := strings.Repeat("%s", len(args))
-	con.log(format, args...)
-}
-
-// PrintInfof prints an info message immediately below the last line of output.
-func (con *SliverConsoleClient) PrintInfof(format string, args ...any) {
-	con.log(Clearln+Info+format, args...)
-}
-
-// PrintSuccessf prints a success message immediately below the last line of output.
-func (con *SliverConsoleClient) PrintSuccessf(format string, args ...any) {
-	con.log(Clearln+Success+format, args...)
-}
-
-// PrintWarnf a warning message immediately below the last line of output.
-func (con *SliverConsoleClient) PrintWarnf(format string, args ...any) {
-	con.log(Clearln+"⚠️  "+Normal+format, args...)
-}
-
-// PrintErrorf prints an error message immediately below the last line of output.
-func (con *SliverConsoleClient) PrintErrorf(format string, args ...any) {
-	con.log(Clearln+Warn+format, args...)
-}
-
-// PrintEventInfof prints an info message with a leading/trailing newline for emphasis.
-func (con *SliverConsoleClient) PrintEventInfof(format string, args ...any) {
-	con.log(Clearln+"\n"+Info+format+"\r", args...)
-}
-
-// PrintEventErrorf prints an error message with a leading/trailing newline for emphasis.
-func (con *SliverConsoleClient) PrintEventErrorf(format string, args ...any) {
-	con.log(Clearln+"\n"+Warn+format+"\r", args...)
-}
-
-// PrintEventSuccessf a success message with a leading/trailing newline for emphasis.
-func (con *SliverConsoleClient) PrintEventSuccessf(format string, args ...any) {
-	con.log(Clearln+"\n"+Success+format+"\r", args...)
 }
 
 func (con *SliverConsoleClient) SpinUntil(message string, ctrl chan bool) {

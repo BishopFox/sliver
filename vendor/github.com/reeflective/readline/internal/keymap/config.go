@@ -73,7 +73,7 @@ func (m *Engine) ReloadConfig(opts ...inputrc.Option) (err error) {
 // this library, if they are not loaded already.
 func (m *Engine) loadBuiltinOptions() {
 	for name, value := range readlineOptions {
-		if val := m.config.Get(name); val != nil {
+		if val := m.config.Get(name); val == nil {
 			m.config.Set(name, value)
 		}
 	}

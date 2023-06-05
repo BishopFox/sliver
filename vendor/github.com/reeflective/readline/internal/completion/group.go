@@ -550,7 +550,7 @@ func (g *group) writeComps(eng *Engine) (comp string) {
 	}
 
 	if g.tag != "" {
-		comp += fmt.Sprintf("%s%s%s %s\n", color.Bold, color.FgYellow, g.tag, color.Reset) + term.ClearLineAfter
+		comp += fmt.Sprintf("%s%s%s %s", color.Bold, color.FgYellow, g.tag, color.Reset) + term.ClearLineAfter + term.NewlineReturn
 		eng.usedY++
 	}
 
@@ -561,7 +561,7 @@ func (g *group) writeComps(eng *Engine) (comp string) {
 		// Generate the completion string for this row (comp/aliases
 		// and/or descriptions), and apply any styles and isearch
 		// highlighting with pattern replacement,
-		comp += g.writeRow(eng, columns) + term.ClearLineAfter
+		comp += g.writeRow(eng, columns)
 
 		columns++
 		rows++
@@ -569,12 +569,6 @@ func (g *group) writeComps(eng *Engine) (comp string) {
 		if rows > g.maxY {
 			break
 		}
-	}
-
-	// Always add a newline to the group if
-	// the end if not punctuated with one.
-	if !strings.HasSuffix(strings.TrimSuffix(comp, term.ClearLineAfter), "\n") {
-		comp += "\n"
 	}
 
 	eng.usedY += rows
@@ -609,7 +603,7 @@ func (g *group) writeRow(eng *Engine, row int) (comp string) {
 		}
 	}
 
-	comp += "\r\n"
+	comp += term.ClearLineAfter + term.NewlineReturn
 
 	return
 }

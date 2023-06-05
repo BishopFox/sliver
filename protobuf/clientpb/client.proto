@@ -20,8 +20,8 @@ message Version {
 }
 
 // [ Client Logs ] ----------------------------------------
-message ClientConsoleLogData {
-  string ID = 1;
+message ClientLogData {
+  string Stream = 1;
   bytes Data = 2;
 }
 
