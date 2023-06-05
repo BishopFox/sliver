@@ -619,19 +619,21 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 			dnsLog.Errorf("[poll] error popping outgoing msg id: %s", err)
 			return s.refusedErrorResp(req)
 		} else {
+			msgLen = 0
+			msgID = 0
 			dnsLog.Debugf("[poll] error: %s", err)
 			oldID, ok := dnsSession.dnsIdMsgIdMap[msg.ID]
 			if !ok {
 				dnsLog.Debugf("[poll] no msg id for given request")
 				return s.refusedErrorResp(req)
 			} else {
+				msgID = oldID
 				ciphertext, ok := dnsSession.outgoingBuffers[oldID]
 				if !ok {
 					dnsLog.Debugf("[poll] no msg for given id")
-					return s.refusedErrorResp(req)
+				} else {
+					msgLen = uint32(len(ciphertext))
 				}
-				msgID = oldID
-				msgLen = uint32(len(ciphertext))
 			}
 
 		}
