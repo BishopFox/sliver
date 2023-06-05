@@ -519,7 +519,7 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	}
 
 	plaintext, err := s.cipherCtx.Decrypt(ciphertext)
-	if err != nil {
+	if err != nil && err != cryptography.ErrReplayAttack {
 		return nil, err
 	}
 	envelope := &pb.Envelope{}
