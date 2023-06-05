@@ -33,7 +33,7 @@ type ListenerJob struct {
 	JobID               uint32
 	Type                string
 	HttpListener        HTTPListener
-	MtlsListener        MTLSListener
+	MtlsListener        MtlsListener
 	DnsListener         DNSListener
 	WgListener          WGListener
 	MultiplayerListener MultiplayerListener
@@ -61,7 +61,7 @@ type DNSListener struct {
 	ID            uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	ListenerJobID uuid.UUID `gorm:"type:uuid;"`
 
-	Domains    []Domain
+	Domains    []DnsDomain
 	Canaries   bool
 	Host       string
 	Port       uint32
@@ -78,7 +78,7 @@ type WGListener struct {
 	TunIP         string
 }
 
-type MTLSListener struct {
+type MtlsListener struct {
 	ID            uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	ListenerJobID uuid.UUID `gorm:"type:uuid;"`
 	Host          string
@@ -92,7 +92,7 @@ type MultiplayerListener struct {
 	Port          uint32
 }
 
-type Domain struct {
+type DnsDomain struct {
 	ID            uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	DNSListenerID uuid.UUID `gorm:"type:uuid;"`
 	Domain        string
@@ -132,7 +132,7 @@ func (j *WGListener) BeforeCreate(tx *gorm.DB) (err error) {
 	return nil
 }
 
-func (j *MTLSListener) BeforeCreate(tx *gorm.DB) (err error) {
+func (j *MtlsListener) BeforeCreate(tx *gorm.DB) (err error) {
 	j.ID, err = uuid.NewV4()
 	if err != nil {
 		return err
@@ -196,7 +196,7 @@ func (j *WGListener) ToProtobuf() *clientpb.WGListenerReq {
 	}
 }
 
-func (j *MTLSListener) ToProtobuf() *clientpb.MTLSListenerReq {
+func (j *MtlsListener) ToProtobuf() *clientpb.MTLSListenerReq {
 	return &clientpb.MTLSListenerReq{
 		Host: j.Host,
 		Port: j.Port,
@@ -249,14 +249,14 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 			RandomizeJarm:   pbListenerJob.HTTPConf.RandomizeJARM,
 		}
 	case "mtls":
-		cfg.MtlsListener = MTLSListener{
+		cfg.MtlsListener = MtlsListener{
 			Host: pbListenerJob.MTLSConf.Host,
 			Port: pbListenerJob.MTLSConf.Port,
 		}
 	case "dns":
-		var domains []Domain
+		var domains []DnsDomain
 		for _, domain := range pbListenerJob.DNSConf.Domains {
-			domains = append(domains, Domain{Domain: domain})
+			domains = append(domains, DnsDomain{Domain: domain})
 		}
 		cfg.DnsListener = DNSListener{
 			Domains:    domains,
@@ -265,7 +265,7 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 			Port:       pbListenerJob.DNSConf.Port,
 			EnforceOtp: pbListenerJob.DNSConf.EnforceOTP,
 		}
-	case "WG":
+	case "wg":
 		cfg.WgListener = WGListener{
 			Host:    pbListenerJob.WGConf.Host,
 			Port:    pbListenerJob.WGConf.Port,

@@ -89,12 +89,11 @@ func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSList
 	if 65535 <= req.Port {
 		return nil, ErrInvalidPort
 	}
-	listenPort := uint16(defaultMTLSPort)
-	if req.Port != 0 {
-		listenPort = uint16(req.Port)
+	if req.Port == 0 {
+		req.Port = defaultMTLSPort
 	}
 
-	job, err := c2.StartMTLSListenerJob(req.Host, listenPort)
+	job, err := c2.StartMTLSListenerJob(req.Host, uint16(req.Port))
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +104,10 @@ func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSList
 		MTLSConf: req,
 	}
 	listenerModel := models.ListenerJobFromProtobuf(listenerJob)
-	db.HTTPC2ListenerSave(listenerModel)
+	err = db.HTTPC2ListenerSave(listenerModel)
+	if err != nil {
+		return nil, err
+	}
 
 	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
 }
@@ -142,7 +144,10 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 		WGConf: req,
 	}
 	listenerModel := models.ListenerJobFromProtobuf(listenerJob)
-	db.HTTPC2ListenerSave(listenerModel)
+	err = db.HTTPC2ListenerSave(listenerModel)
+	if err != nil {
+		return nil, err
+	}
 
 	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
 }
@@ -162,7 +167,16 @@ func (rpc *Server) StartDNSListener(ctx context.Context, req *clientpb.DNSListen
 		return nil, err
 	}
 
-	// TODO save listener to db
+	listenerJob := &clientpb.ListenerJob{
+		JobID:   uint32(job.ID),
+		Type:    "dns",
+		DNSConf: req,
+	}
+	listenerModel := models.ListenerJobFromProtobuf(listenerJob)
+	err = db.HTTPC2ListenerSave(listenerModel)
+	if err != nil {
+		return nil, err
+	}
 
 	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
 }
@@ -183,11 +197,14 @@ func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPLis
 
 	listenerJob := &clientpb.ListenerJob{
 		JobID:    uint32(job.ID),
-		Type:     "http",
+		Type:     "https",
 		HTTPConf: req,
 	}
 	listenerModel := models.ListenerJobFromProtobuf(listenerJob)
-	db.HTTPC2ListenerSave(listenerModel)
+	err = db.HTTPC2ListenerSave(listenerModel)
+	if err != nil {
+		return nil, err
+	}
 
 	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
 }
@@ -212,7 +229,10 @@ func (rpc *Server) StartHTTPListener(ctx context.Context, req *clientpb.HTTPList
 		HTTPConf: req,
 	}
 	listenerModel := models.ListenerJobFromProtobuf(listenerJob)
-	db.HTTPC2ListenerSave(listenerModel)
+	err = db.HTTPC2ListenerSave(listenerModel)
+	if err != nil {
+		return nil, err
+	}
 
 	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
 }
