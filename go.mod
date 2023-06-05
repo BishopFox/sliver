@@ -29,7 +29,7 @@ require (
 	github.com/miekg/dns v1.1.54
 	github.com/moloch--/asciicast v0.1.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
-	github.com/ncruces/go-sqlite3 v0.5.3
+	github.com/ncruces/go-sqlite3 v0.7.0
 	github.com/pquerna/otp v1.4.0
 	github.com/reeflective/console v0.1.6
 	github.com/reeflective/readline v1.0.8

@@ -9,23 +9,23 @@ import (
 // if it roundtrips back to the same string.
 // This way times can be persisted to, and recovered from, the database,
 // but if a string is needed, [database/sql] will recover the same string.
-func maybeTime(text string) driver.Value {
+func stringOrTime(text []byte) driver.Value {
 	// Weed out (some) values that can't possibly be
 	// [time.RFC3339Nano] timestamps.
 	if len(text) < len("2006-01-02T15:04:05Z") {
-		return text
+		return string(text)
 	}
 	if len(text) > len(time.RFC3339Nano) {
-		return text
+		return string(text)
 	}
 	if text[4] != '-' || text[10] != 'T' || text[16] != ':' {
-		return text
+		return string(text)
 	}
 
 	// Slow path.
-	date, err := time.Parse(time.RFC3339Nano, text)
-	if err == nil && date.Format(time.RFC3339Nano) == text {
+	date, err := time.Parse(time.RFC3339Nano, string(text))
+	if err == nil && date.Format(time.RFC3339Nano) == string(text) {
 		return date
 	}
-	return text
+	return string(text)
 }

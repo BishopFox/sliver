@@ -1,6 +1,6 @@
 //go:build linux || illumos
 
-package sqlite3
+package vfs
 
 import (
 	"os"
@@ -9,19 +9,19 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func (vfsOSMethods) unlock(file *os.File, start, len int64) xErrorCode {
+func osUnlock(file *os.File, start, len int64) _ErrorCode {
 	err := unix.FcntlFlock(file.Fd(), unix.F_OFD_SETLK, &unix.Flock_t{
 		Type:  unix.F_UNLCK,
 		Start: start,
 		Len:   len,
 	})
 	if err != nil {
-		return IOERR_UNLOCK
+		return _IOERR_UNLOCK
 	}
 	return _OK
 }
 
-func (vfsOSMethods) lock(file *os.File, typ int16, start, len int64, timeout time.Duration, def xErrorCode) xErrorCode {
+func osLock(file *os.File, typ int16, start, len int64, timeout time.Duration, def _ErrorCode) _ErrorCode {
 	lock := unix.Flock_t{
 		Type:  typ,
 		Start: start,
@@ -39,25 +39,25 @@ func (vfsOSMethods) lock(file *os.File, typ int16, start, len int64, timeout tim
 		timeout -= time.Millisecond
 		time.Sleep(time.Millisecond)
 	}
-	return vfsOS.lockErrorCode(err, def)
+	return osLockErrorCode(err, def)
 }
 
-func (vfsOSMethods) readLock(file *os.File, start, len int64, timeout time.Duration) xErrorCode {
-	return vfsOS.lock(file, unix.F_RDLCK, start, len, timeout, IOERR_RDLOCK)
+func osReadLock(file *os.File, start, len int64, timeout time.Duration) _ErrorCode {
+	return osLock(file, unix.F_RDLCK, start, len, timeout, _IOERR_RDLOCK)
 }
 
-func (vfsOSMethods) writeLock(file *os.File, start, len int64, timeout time.Duration) xErrorCode {
-	return vfsOS.lock(file, unix.F_WRLCK, start, len, timeout, IOERR_LOCK)
+func osWriteLock(file *os.File, start, len int64, timeout time.Duration) _ErrorCode {
+	return osLock(file, unix.F_WRLCK, start, len, timeout, _IOERR_LOCK)
 }
 
-func (vfsOSMethods) checkLock(file *os.File, start, len int64) (bool, xErrorCode) {
+func osCheckLock(file *os.File, start, len int64) (bool, _ErrorCode) {
 	lock := unix.Flock_t{
 		Type:  unix.F_RDLCK,
 		Start: start,
 		Len:   len,
 	}
 	if unix.FcntlFlock(file.Fd(), unix.F_OFD_GETLK, &lock) != nil {
-		return false, IOERR_CHECKRESERVEDLOCK
+		return false, _IOERR_CHECKRESERVEDLOCK
 	}
 	return lock.Type != unix.F_UNLCK, _OK
 }
