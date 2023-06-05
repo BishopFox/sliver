@@ -324,7 +324,7 @@ message ListenerJob {
   uint32 JobID = 3;
   MTLSListenerReq MTLSConf = 4;
   WGListenerReq WGConf = 5;
-  DNSListenerReq DMSConf = 6;
+  DNSListenerReq DNSConf = 6;
   HTTPListenerReq HTTPConf = 7;
   MultiplayerListenerReq MultiConf = 8;
 }
