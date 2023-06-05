@@ -213,11 +213,11 @@ type SliverRPCClient interface {
 	GetJobs(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Jobs, error)
 	KillJob(ctx context.Context, in *clientpb.KillJobReq, opts ...grpc.CallOption) (*clientpb.KillJob, error)
 	// *** Listeners ***
-	StartMTLSListener(ctx context.Context, in *clientpb.MTLSListenerReq, opts ...grpc.CallOption) (*clientpb.MTLSListener, error)
-	StartWGListener(ctx context.Context, in *clientpb.WGListenerReq, opts ...grpc.CallOption) (*clientpb.WGListener, error)
-	StartDNSListener(ctx context.Context, in *clientpb.DNSListenerReq, opts ...grpc.CallOption) (*clientpb.DNSListener, error)
-	StartHTTPSListener(ctx context.Context, in *clientpb.HTTPListenerReq, opts ...grpc.CallOption) (*clientpb.HTTPListener, error)
-	StartHTTPListener(ctx context.Context, in *clientpb.HTTPListenerReq, opts ...grpc.CallOption) (*clientpb.HTTPListener, error)
+	StartMTLSListener(ctx context.Context, in *clientpb.MTLSListenerReq, opts ...grpc.CallOption) (*clientpb.ListenerJob, error)
+	StartWGListener(ctx context.Context, in *clientpb.WGListenerReq, opts ...grpc.CallOption) (*clientpb.ListenerJob, error)
+	StartDNSListener(ctx context.Context, in *clientpb.DNSListenerReq, opts ...grpc.CallOption) (*clientpb.ListenerJob, error)
+	StartHTTPSListener(ctx context.Context, in *clientpb.HTTPListenerReq, opts ...grpc.CallOption) (*clientpb.ListenerJob, error)
+	StartHTTPListener(ctx context.Context, in *clientpb.HTTPListenerReq, opts ...grpc.CallOption) (*clientpb.ListenerJob, error)
 	// *** Stager Listener ***
 	StartTCPStagerListener(ctx context.Context, in *clientpb.StagerListenerReq, opts ...grpc.CallOption) (*clientpb.StagerListener, error)
 	StartHTTPStagerListener(ctx context.Context, in *clientpb.StagerListenerReq, opts ...grpc.CallOption) (*clientpb.StagerListener, error)
@@ -531,8 +531,8 @@ func (c *sliverRPCClient) KillJob(ctx context.Context, in *clientpb.KillJobReq, 
 	return out, nil
 }
 
-func (c *sliverRPCClient) StartMTLSListener(ctx context.Context, in *clientpb.MTLSListenerReq, opts ...grpc.CallOption) (*clientpb.MTLSListener, error) {
-	out := new(clientpb.MTLSListener)
+func (c *sliverRPCClient) StartMTLSListener(ctx context.Context, in *clientpb.MTLSListenerReq, opts ...grpc.CallOption) (*clientpb.ListenerJob, error) {
+	out := new(clientpb.ListenerJob)
 	err := c.cc.Invoke(ctx, SliverRPC_StartMTLSListener_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -540,8 +540,8 @@ func (c *sliverRPCClient) StartMTLSListener(ctx context.Context, in *clientpb.MT
 	return out, nil
 }
 
-func (c *sliverRPCClient) StartWGListener(ctx context.Context, in *clientpb.WGListenerReq, opts ...grpc.CallOption) (*clientpb.WGListener, error) {
-	out := new(clientpb.WGListener)
+func (c *sliverRPCClient) StartWGListener(ctx context.Context, in *clientpb.WGListenerReq, opts ...grpc.CallOption) (*clientpb.ListenerJob, error) {
+	out := new(clientpb.ListenerJob)
 	err := c.cc.Invoke(ctx, SliverRPC_StartWGListener_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -549,8 +549,8 @@ func (c *sliverRPCClient) StartWGListener(ctx context.Context, in *clientpb.WGLi
 	return out, nil
 }
 
-func (c *sliverRPCClient) StartDNSListener(ctx context.Context, in *clientpb.DNSListenerReq, opts ...grpc.CallOption) (*clientpb.DNSListener, error) {
-	out := new(clientpb.DNSListener)
+func (c *sliverRPCClient) StartDNSListener(ctx context.Context, in *clientpb.DNSListenerReq, opts ...grpc.CallOption) (*clientpb.ListenerJob, error) {
+	out := new(clientpb.ListenerJob)
 	err := c.cc.Invoke(ctx, SliverRPC_StartDNSListener_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -558,8 +558,8 @@ func (c *sliverRPCClient) StartDNSListener(ctx context.Context, in *clientpb.DNS
 	return out, nil
 }
 
-func (c *sliverRPCClient) StartHTTPSListener(ctx context.Context, in *clientpb.HTTPListenerReq, opts ...grpc.CallOption) (*clientpb.HTTPListener, error) {
-	out := new(clientpb.HTTPListener)
+func (c *sliverRPCClient) StartHTTPSListener(ctx context.Context, in *clientpb.HTTPListenerReq, opts ...grpc.CallOption) (*clientpb.ListenerJob, error) {
+	out := new(clientpb.ListenerJob)
 	err := c.cc.Invoke(ctx, SliverRPC_StartHTTPSListener_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -567,8 +567,8 @@ func (c *sliverRPCClient) StartHTTPSListener(ctx context.Context, in *clientpb.H
 	return out, nil
 }
 
-func (c *sliverRPCClient) StartHTTPListener(ctx context.Context, in *clientpb.HTTPListenerReq, opts ...grpc.CallOption) (*clientpb.HTTPListener, error) {
-	out := new(clientpb.HTTPListener)
+func (c *sliverRPCClient) StartHTTPListener(ctx context.Context, in *clientpb.HTTPListenerReq, opts ...grpc.CallOption) (*clientpb.ListenerJob, error) {
+	out := new(clientpb.ListenerJob)
 	err := c.cc.Invoke(ctx, SliverRPC_StartHTTPListener_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -1977,11 +1977,11 @@ type SliverRPCServer interface {
 	GetJobs(context.Context, *commonpb.Empty) (*clientpb.Jobs, error)
 	KillJob(context.Context, *clientpb.KillJobReq) (*clientpb.KillJob, error)
 	// *** Listeners ***
-	StartMTLSListener(context.Context, *clientpb.MTLSListenerReq) (*clientpb.MTLSListener, error)
-	StartWGListener(context.Context, *clientpb.WGListenerReq) (*clientpb.WGListener, error)
-	StartDNSListener(context.Context, *clientpb.DNSListenerReq) (*clientpb.DNSListener, error)
-	StartHTTPSListener(context.Context, *clientpb.HTTPListenerReq) (*clientpb.HTTPListener, error)
-	StartHTTPListener(context.Context, *clientpb.HTTPListenerReq) (*clientpb.HTTPListener, error)
+	StartMTLSListener(context.Context, *clientpb.MTLSListenerReq) (*clientpb.ListenerJob, error)
+	StartWGListener(context.Context, *clientpb.WGListenerReq) (*clientpb.ListenerJob, error)
+	StartDNSListener(context.Context, *clientpb.DNSListenerReq) (*clientpb.ListenerJob, error)
+	StartHTTPSListener(context.Context, *clientpb.HTTPListenerReq) (*clientpb.ListenerJob, error)
+	StartHTTPListener(context.Context, *clientpb.HTTPListenerReq) (*clientpb.ListenerJob, error)
 	// *** Stager Listener ***
 	StartTCPStagerListener(context.Context, *clientpb.StagerListenerReq) (*clientpb.StagerListener, error)
 	StartHTTPStagerListener(context.Context, *clientpb.StagerListenerReq) (*clientpb.StagerListener, error)
@@ -2196,19 +2196,19 @@ func (UnimplementedSliverRPCServer) GetJobs(context.Context, *commonpb.Empty) (*
 func (UnimplementedSliverRPCServer) KillJob(context.Context, *clientpb.KillJobReq) (*clientpb.KillJob, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method KillJob not implemented")
 }
-func (UnimplementedSliverRPCServer) StartMTLSListener(context.Context, *clientpb.MTLSListenerReq) (*clientpb.MTLSListener, error) {
+func (UnimplementedSliverRPCServer) StartMTLSListener(context.Context, *clientpb.MTLSListenerReq) (*clientpb.ListenerJob, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartMTLSListener not implemented")
 }
-func (UnimplementedSliverRPCServer) StartWGListener(context.Context, *clientpb.WGListenerReq) (*clientpb.WGListener, error) {
+func (UnimplementedSliverRPCServer) StartWGListener(context.Context, *clientpb.WGListenerReq) (*clientpb.ListenerJob, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartWGListener not implemented")
 }
-func (UnimplementedSliverRPCServer) StartDNSListener(context.Context, *clientpb.DNSListenerReq) (*clientpb.DNSListener, error) {
+func (UnimplementedSliverRPCServer) StartDNSListener(context.Context, *clientpb.DNSListenerReq) (*clientpb.ListenerJob, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartDNSListener not implemented")
 }
-func (UnimplementedSliverRPCServer) StartHTTPSListener(context.Context, *clientpb.HTTPListenerReq) (*clientpb.HTTPListener, error) {
+func (UnimplementedSliverRPCServer) StartHTTPSListener(context.Context, *clientpb.HTTPListenerReq) (*clientpb.ListenerJob, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartHTTPSListener not implemented")
 }
-func (UnimplementedSliverRPCServer) StartHTTPListener(context.Context, *clientpb.HTTPListenerReq) (*clientpb.HTTPListener, error) {
+func (UnimplementedSliverRPCServer) StartHTTPListener(context.Context, *clientpb.HTTPListenerReq) (*clientpb.ListenerJob, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartHTTPListener not implemented")
 }
 func (UnimplementedSliverRPCServer) StartTCPStagerListener(context.Context, *clientpb.StagerListenerReq) (*clientpb.StagerListener, error) {
