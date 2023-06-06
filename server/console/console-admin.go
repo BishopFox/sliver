@@ -31,6 +31,7 @@ import (
 	"regexp"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
@@ -179,9 +180,20 @@ func kickOperatorCmd(ctx *grumble.Context) {
 func startMultiplayerModeCmd(ctx *grumble.Context) {
 	lhost := ctx.Flags.String("lhost")
 	lport := uint16(ctx.Flags.Int("lport"))
-	_, err := JobStartClientListener(lhost, lport)
+	jobID, err := JobStartClientListener(lhost, lport)
 	if err == nil {
 		fmt.Printf(Info + "Multiplayer mode enabled!\n")
+		multiConfig := &clientpb.MultiplayerListenerReq{Host: lhost, Port: uint32(lport)}
+		listenerJob := &clientpb.ListenerJob{
+			JobID:     uint32(jobID),
+			Type:      "mp",
+			MultiConf: multiConfig,
+		}
+		listenerModel := models.ListenerJobFromProtobuf(listenerJob)
+		err = db.HTTPC2ListenerSave(listenerModel)
+		if err != nil {
+			fmt.Printf(Warn+"Failed to save job %v\n", err)
+		}
 
 	} else {
 		fmt.Printf(Warn+"Failed to start job %v\n", err)

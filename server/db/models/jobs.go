@@ -276,7 +276,7 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 	case "mp":
 		cfg.MultiplayerListener = MultiplayerListener{
 			Host: pbListenerJob.MultiConf.Host,
-			Port: pbListenerJob.MTLSConf.Port,
+			Port: pbListenerJob.MultiConf.Port,
 		}
 	}
 
