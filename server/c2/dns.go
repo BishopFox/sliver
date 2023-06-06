@@ -626,12 +626,12 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 			if !ok {
 				dnsLog.Debugf("[poll] no msg id for given request")
 			} else {
-				msgID = oldID
 				ciphertext, ok := dnsSession.outgoingBuffers[oldID]
 				if !ok {
 					dnsLog.Debugf("[poll] no msg for given id")
 				} else {
 					msgLen = uint32(len(ciphertext))
+					msgID = oldID
 				}
 			}
 
