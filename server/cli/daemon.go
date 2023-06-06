@@ -9,9 +9,11 @@ import (
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/certs"
-	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/server/console"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/daemon"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/spf13/cobra"
 )
 
@@ -55,9 +57,64 @@ var daemonCmd = &cobra.Command{
 		cryptography.TOTPServerSecret()
 		cryptography.MinisignServerPrivateKey()
 
-		serverConfig := configs.GetServerConfig()
-		c2.StartPersistentJobs(serverConfig)
+		listenerJobs, err := db.ListenerJobs()
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		err = StartPersistentJobs(listenerJobs)
+		if err != nil {
+			fmt.Println(err)
+		}
 
 		daemon.Start(lhost, uint16(lport))
 	},
+}
+
+func StartPersistentJobs(listenerJobs *[]models.ListenerJob) error {
+	if len(*listenerJobs) > 0 {
+		// StartPersistentJobs - Start persistent jobs
+
+		for _, j := range *listenerJobs {
+			listenerJob, err := db.ListenerByJobID(j.JobID)
+			if err != nil {
+				return err
+			}
+			switch j.Type {
+			case "http":
+				_, err := c2.StartHTTPListenerJob(listenerJob.ToProtobuf().HTTPConf)
+				if err != nil {
+					return err
+				}
+			case "https":
+				_, err := c2.StartHTTPListenerJob(listenerJob.ToProtobuf().HTTPConf)
+				if err != nil {
+					return err
+				}
+			case "mtls":
+				_, err := c2.StartMTLSListenerJob(listenerJob.MtlsListener.Host, uint16(listenerJob.MtlsListener.Port))
+				if err != nil {
+					return err
+				}
+			case "wg":
+				_, err := c2.StartWGListenerJob(uint16(listenerJob.WgListener.Port), uint16(listenerJob.WgListener.NPort), uint16(listenerJob.WgListener.KeyPort))
+				if err != nil {
+					return err
+				}
+			case "dns":
+				var domains []string
+				for _, domain := range listenerJob.DnsListener.Domains {
+					domains = append(domains, domain.Domain)
+				}
+				_, err := c2.StartDNSListenerJob(listenerJob.DnsListener.Host, uint16(listenerJob.DnsListener.Port), domains, listenerJob.DnsListener.Canaries, listenerJob.DnsListener.EnforceOtp)
+				if err != nil {
+					return err
+				}
+			case "mp":
+				console.JobStartClientListener(listenerJob.MultiplayerListener.Host, uint16(listenerJob.MultiplayerListener.Port))
+			}
+		}
+	}
+
+	return nil
 }

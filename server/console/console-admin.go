@@ -177,21 +177,11 @@ func kickOperatorCmd(ctx *grumble.Context) {
 	fmt.Printf(Info+"Operator %s has been kicked out.\n", operator)
 }
 
-func StartPersistentJobs(cfg *configs.ServerConfig) error {
-	if cfg.Jobs == nil {
-		return nil
-	}
-	for _, j := range cfg.Jobs.Multiplayer {
-		jobStartClientListener(j.Host, j.Port)
-	}
-	return nil
-}
-
 func startMultiplayerModeCmd(ctx *grumble.Context) {
 	lhost := ctx.Flags.String("lhost")
 	lport := uint16(ctx.Flags.Int("lport"))
 	persistent := ctx.Flags.Bool("persistent")
-	_, err := jobStartClientListener(lhost, lport)
+	_, err := JobStartClientListener(lhost, lport)
 	if err == nil {
 		fmt.Printf(Info + "Multiplayer mode enabled!\n")
 		if persistent {
@@ -207,7 +197,7 @@ func startMultiplayerModeCmd(ctx *grumble.Context) {
 	}
 }
 
-func jobStartClientListener(host string, port uint16) (int, error) {
+func JobStartClientListener(host string, port uint16) (int, error) {
 	_, ln, err := transport.StartClientListener(host, port)
 	if err != nil {
 		return -1, err // If we fail to bind don't setup the Job

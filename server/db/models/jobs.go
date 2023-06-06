@@ -273,6 +273,11 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 			KeyPort: pbListenerJob.WGConf.KeyPort,
 			TunIP:   pbListenerJob.WGConf.TunIP,
 		}
+	case "mp":
+		cfg.MultiplayerListener = MultiplayerListener{
+			Host: pbListenerJob.MultiConf.Host,
+			Port: pbListenerJob.MTLSConf.Port,
+		}
 	}
 
 	return cfg

@@ -316,9 +316,59 @@ func HTTPC2ListenerSave(listenerConf *models.ListenerJob) error {
 }
 
 func ListenerByJobID(JobID uint32) (*models.ListenerJob, error) {
-	listenerJob := *&models.ListenerJob{}
+	listenerJob := models.ListenerJob{}
 	err := Session().Where(&models.ListenerJob{JobID: JobID}).Find(&listenerJob).Error
+
+	switch listenerJob.Type {
+	case "http":
+		HttpListener := models.HTTPListener{}
+		err = Session().Where(&models.HTTPListener{
+			ListenerJobID: listenerJob.ID,
+		}).Find(&HttpListener).Error
+		listenerJob.HttpListener = HttpListener
+	case "https":
+		HttpListener := models.HTTPListener{}
+		err = Session().Where(&models.HTTPListener{
+			ListenerJobID: listenerJob.ID,
+		}).Find(&HttpListener).Error
+		listenerJob.HttpListener = HttpListener
+	case "dns":
+		DnsListener := models.DNSListener{}
+		err = Session().Where(&models.DNSListener{
+			ListenerJobID: listenerJob.ID,
+		}).Find(&DnsListener).Error
+		listenerJob.DnsListener = DnsListener
+	case "mtls":
+		MtlsListener := models.MtlsListener{}
+		err = Session().Where(&models.MtlsListener{
+			ListenerJobID: listenerJob.ID,
+		}).Find(&MtlsListener).Error
+		listenerJob.MtlsListener = MtlsListener
+	case "wg":
+		WGListener := models.WGListener{}
+		err = Session().Where(&models.WGListener{
+			ListenerJobID: listenerJob.ID,
+		}).Find(&WGListener).Error
+		listenerJob.WgListener = WGListener
+	case "mp":
+		MultiplayerListener := models.MultiplayerListener{}
+		err = Session().Where(&models.MultiplayerListener{
+			ListenerJobID: listenerJob.ID,
+		}).Find(&MultiplayerListener).Error
+		listenerJob.MultiplayerListener = MultiplayerListener
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
 	return &listenerJob, err
+}
+
+func ListenerJobs() (*[]models.ListenerJob, error) {
+	listenerJobs := []models.ListenerJob{}
+	err := Session().Where(&models.ListenerJob{}).Find(&listenerJobs).Error
+	return &listenerJobs, err
 }
 
 func DeleteListener(JobID uint32) error {
