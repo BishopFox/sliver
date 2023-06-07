@@ -21,6 +21,7 @@ package models
 import (
 	"time"
 
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
@@ -218,7 +219,7 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 	}
 
 	switch pbListenerJob.Type {
-	case "http":
+	case constants.HttpStr:
 		cfg.HttpListener = HTTPListener{
 			Domain:          pbListenerJob.HTTPConf.Domain,
 			Host:            pbListenerJob.HTTPConf.Host,
@@ -233,7 +234,7 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 			LongPollJitter:  pbListenerJob.HTTPConf.LongPollJitter,
 			RandomizeJarm:   pbListenerJob.HTTPConf.RandomizeJARM,
 		}
-	case "https":
+	case constants.HttpsStr:
 		cfg.HttpListener = HTTPListener{
 			Domain:          pbListenerJob.HTTPConf.Domain,
 			Host:            pbListenerJob.HTTPConf.Host,
@@ -248,12 +249,12 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 			LongPollJitter:  pbListenerJob.HTTPConf.LongPollJitter,
 			RandomizeJarm:   pbListenerJob.HTTPConf.RandomizeJARM,
 		}
-	case "mtls":
+	case constants.MtlsStr:
 		cfg.MtlsListener = MtlsListener{
 			Host: pbListenerJob.MTLSConf.Host,
 			Port: pbListenerJob.MTLSConf.Port,
 		}
-	case "dns":
+	case constants.DnsStr:
 		var domains []DnsDomain
 		for _, domain := range pbListenerJob.DNSConf.Domains {
 			domains = append(domains, DnsDomain{Domain: domain})
@@ -265,7 +266,7 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 			Port:       pbListenerJob.DNSConf.Port,
 			EnforceOtp: pbListenerJob.DNSConf.EnforceOTP,
 		}
-	case "wg":
+	case constants.WGStr:
 		cfg.WgListener = WGListener{
 			Host:    pbListenerJob.WGConf.Host,
 			Port:    pbListenerJob.WGConf.Port,
@@ -273,7 +274,7 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 			KeyPort: pbListenerJob.WGConf.KeyPort,
 			TunIP:   pbListenerJob.WGConf.TunIP,
 		}
-	case "mp":
+	case constants.MultiplayerModeStr:
 		cfg.MultiplayerListener = MultiplayerListener{
 			Host: pbListenerJob.MultiConf.Host,
 			Port: pbListenerJob.MultiConf.Port,

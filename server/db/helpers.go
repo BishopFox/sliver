@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/gofrs/uuid"
@@ -320,37 +321,37 @@ func ListenerByJobID(JobID uint32) (*models.ListenerJob, error) {
 	err := Session().Where(&models.ListenerJob{JobID: JobID}).Find(&listenerJob).Error
 
 	switch listenerJob.Type {
-	case "http":
+	case constants.HttpStr:
 		HttpListener := models.HTTPListener{}
 		err = Session().Where(&models.HTTPListener{
 			ListenerJobID: listenerJob.ID,
 		}).Find(&HttpListener).Error
 		listenerJob.HttpListener = HttpListener
-	case "https":
+	case constants.HttpsStr:
 		HttpListener := models.HTTPListener{}
 		err = Session().Where(&models.HTTPListener{
 			ListenerJobID: listenerJob.ID,
 		}).Find(&HttpListener).Error
 		listenerJob.HttpListener = HttpListener
-	case "dns":
+	case constants.DnsStr:
 		DnsListener := models.DNSListener{}
 		err = Session().Where(&models.DNSListener{
 			ListenerJobID: listenerJob.ID,
 		}).Find(&DnsListener).Error
 		listenerJob.DnsListener = DnsListener
-	case "mtls":
+	case constants.MtlsStr:
 		MtlsListener := models.MtlsListener{}
 		err = Session().Where(&models.MtlsListener{
 			ListenerJobID: listenerJob.ID,
 		}).Find(&MtlsListener).Error
 		listenerJob.MtlsListener = MtlsListener
-	case "wg":
+	case constants.WGStr:
 		WGListener := models.WGListener{}
 		err = Session().Where(&models.WGListener{
 			ListenerJobID: listenerJob.ID,
 		}).Find(&WGListener).Error
 		listenerJob.WgListener = WGListener
-	case "mp":
+	case constants.MultiplayerModeStr:
 		MultiplayerListener := models.MultiplayerListener{}
 		err = Session().Where(&models.MultiplayerListener{
 			ListenerJobID: listenerJob.ID,

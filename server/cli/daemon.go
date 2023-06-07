@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime/debug"
 
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/certs"
@@ -81,27 +82,27 @@ func StartPersistentJobs(listenerJobs *[]models.ListenerJob) error {
 				return err
 			}
 			switch j.Type {
-			case "http":
+			case constants.HttpStr:
 				_, err := c2.StartHTTPListenerJob(listenerJob.ToProtobuf().HTTPConf)
 				if err != nil {
 					return err
 				}
-			case "https":
+			case constants.HttpsStr:
 				_, err := c2.StartHTTPListenerJob(listenerJob.ToProtobuf().HTTPConf)
 				if err != nil {
 					return err
 				}
-			case "mtls":
+			case constants.MtlsStr:
 				_, err := c2.StartMTLSListenerJob(listenerJob.MtlsListener.Host, uint16(listenerJob.MtlsListener.Port))
 				if err != nil {
 					return err
 				}
-			case "wg":
+			case constants.WGStr:
 				_, err := c2.StartWGListenerJob(uint16(listenerJob.WgListener.Port), uint16(listenerJob.WgListener.NPort), uint16(listenerJob.WgListener.KeyPort))
 				if err != nil {
 					return err
 				}
-			case "dns":
+			case constants.DnsStr:
 				var domains []string
 				for _, domain := range listenerJob.DnsListener.Domains {
 					domains = append(domains, domain.Domain)
@@ -110,7 +111,7 @@ func StartPersistentJobs(listenerJobs *[]models.ListenerJob) error {
 				if err != nil {
 					return err
 				}
-			case "mp":
+			case constants.MultiplayerModeStr:
 				console.JobStartClientListener(listenerJob.MultiplayerListener.Host, uint16(listenerJob.MultiplayerListener.Port))
 			}
 		}

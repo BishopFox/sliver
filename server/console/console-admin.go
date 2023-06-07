@@ -186,7 +186,7 @@ func startMultiplayerModeCmd(ctx *grumble.Context) {
 		multiConfig := &clientpb.MultiplayerListenerReq{Host: lhost, Port: uint32(lport)}
 		listenerJob := &clientpb.ListenerJob{
 			JobID:     uint32(jobID),
-			Type:      "mp",
+			Type:      "multiplayer",
 			MultiConf: multiConfig,
 		}
 		listenerModel := models.ListenerJobFromProtobuf(listenerJob)
