@@ -151,9 +151,7 @@ func saveLocation(save, DefaultName string, con *console.SliverConsoleClient) (s
 			saveTo, _ = filepath.Abs(save)
 		}
 	} else {
-		con.PrintInfof("%s does exist\n", save)
 		if fi.IsDir() {
-			con.PrintInfof("%s is dir\n", save)
 			saveTo, _ = filepath.Abs(filepath.Join(save, DefaultName))
 		} else {
 			con.PrintInfof("%s is not dir\n", save)
