@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bishopfox/sliver/client/constants"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/certs"
@@ -51,9 +52,9 @@ func StartMTLSListenerJob(mtlsListener *clientpb.MTLSListenerReq) (*core.Job, er
 
 	job := &core.Job{
 		ID:          core.NextJobID(),
-		Name:        "mtls",
+		Name:        constants.MtlsStr,
 		Description: fmt.Sprintf("mutual tls listener %s", bind),
-		Protocol:    "tcp",
+		Protocol:    constants.TCPListenerStr,
 		Port:        uint16(mtlsListener.Port),
 		JobCtrl:     make(chan bool),
 	}
@@ -78,9 +79,9 @@ func StartWGListenerJob(wgListener *clientpb.WGListenerReq) (*core.Job, error) {
 
 	job := &core.Job{
 		ID:          core.NextJobID(),
-		Name:        "wg",
+		Name:        constants.WGStr,
 		Description: fmt.Sprintf("wg listener port: %d", wgListener.Port),
-		Protocol:    "udp",
+		Protocol:    constants.UDPListenerStr,
 		Port:        uint16(wgListener.Port),
 		JobCtrl:     make(chan bool),
 	}
@@ -131,9 +132,9 @@ func StartDNSListenerJob(dnsListener *clientpb.DNSListenerReq) (*core.Job, error
 	description := fmt.Sprintf("%s (canaries %v)", strings.Join(dnsListener.Domains, " "), dnsListener.Canaries)
 	job := &core.Job{
 		ID:          core.NextJobID(),
-		Name:        "dns",
+		Name:        constants.DnsStr,
 		Description: description,
-		Protocol:    "udp",
+		Protocol:    constants.UDPListenerStr,
 		Port:        uint16(dnsListener.Port),
 		JobCtrl:     make(chan bool),
 		Domains:     dnsListener.Domains,
@@ -174,16 +175,16 @@ func StartHTTPListenerJob(req *clientpb.HTTPListenerReq) (*core.Job, error) {
 	if err != nil {
 		return nil, err
 	}
-	name := "http"
+	name := constants.HttpStr
 	if req.Secure {
-		name = "https"
+		name = constants.HttpsStr
 	}
 
 	job := &core.Job{
 		ID:          core.NextJobID(),
 		Name:        name,
 		Description: fmt.Sprintf("%s for domain %s", name, req.Domain),
-		Protocol:    "tcp",
+		Protocol:    constants.TCPListenerStr,
 		Port:        uint16(req.Port),
 		JobCtrl:     make(chan bool),
 		Domains:     []string{req.Domain},
@@ -267,16 +268,16 @@ func StartHTTPStagerListenerJob(req *clientpb.HTTPListenerReq, data []byte) (*co
 	if err != nil {
 		return nil, err
 	}
-	name := "http"
+	name := constants.HttpStr
 	if req.Secure {
-		name = "https"
+		name = constants.HttpsStr
 	}
 	server.SliverStage = data
 	job := &core.Job{
 		ID:          core.NextJobID(),
 		Name:        name,
 		Description: fmt.Sprintf("Stager handler %s for domain %s", name, req.Domain),
-		Protocol:    "tcp",
+		Protocol:    constants.TCPListenerStr,
 		Port:        uint16(req.Port),
 		JobCtrl:     make(chan bool),
 	}

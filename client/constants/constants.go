@@ -172,6 +172,7 @@ const (
 	HttpsStr       = "https"
 	NamedPipeStr   = "named-pipe"
 	TCPListenerStr = "tcp"
+	UDPListenerStr = "udp"
 
 	MsfStr       = "msf"
 	MsfInjectStr = "msf-inject"
@@ -276,11 +277,12 @@ const (
 
 	BuildersStr = "builders"
 
-	CrackStr     = "crack"
-	StationsStr  = "stations"
-	WordlistsStr = "wordlists"
-	RulesStr     = "rules"
-	Hcstat2Str   = "hcstat2"
+	CrackStr         = "crack"
+	StationsStr      = "stations"
+	WordlistsStr     = "wordlists"
+	RulesStr         = "rules"
+	Hcstat2Str       = "hcstat2"
+	DefaultC2Profile = "default"
 )
 
 // Groups

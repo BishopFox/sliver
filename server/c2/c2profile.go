@@ -38,6 +38,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
@@ -45,7 +46,7 @@ import (
 
 func SetupDefaultC2Profiles() {
 
-	config, err := db.LoadHTTPC2ConfigByName("default")
+	config, err := db.LoadHTTPC2ConfigByName(constants.DefaultC2Profile)
 	if err != nil {
 		log.Printf("Error:\n%s", err)
 		os.Exit(-1)
