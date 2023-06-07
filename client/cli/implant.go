@@ -67,7 +67,7 @@ func makeCompleters(cmd *cobra.Command, con *console.SliverConsoleClient) {
 	})
 
 	// Bind completers to flags (wrap them to use the same pre-runners)
-	command.FlagComps(cmd, func(comp *carapace.ActionMap) {
+	command.BindFlagCompletions(cmd, func(comp *carapace.ActionMap) {
 		(*comp)["use"] = carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 			cmd.PersistentPreRunE(cmd, c.Args)
 			return use.SessionIDCompleter(con)

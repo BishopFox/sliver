@@ -25,6 +25,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/spf13/cobra"
 )
@@ -52,4 +53,16 @@ func ExitCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string
 		}
 	}
 	os.Exit(0)
+}
+
+// Commands returns the `exit` command.
+func Command(con *console.SliverConsoleClient) *cobra.Command {
+	return &cobra.Command{
+		Use:   "exit",
+		Short: "Exit the program",
+		Run: func(cmd *cobra.Command, args []string) {
+			ExitCmd(cmd, con, args)
+		},
+		GroupID: constants.GenericHelpGroup,
+	}
 }

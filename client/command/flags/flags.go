@@ -9,6 +9,10 @@ import (
 	"github.com/spf13/pflag"
 )
 
+const (
+	DefaultTimeout = 60
+)
+
 // Bind is a convenience function to bind flags to a command, through newly created
 // pflag.Flagset type. This function can be called any number of times for any command.
 // desc        - An optional name for the flag set (can be empty, but might end up useful).
