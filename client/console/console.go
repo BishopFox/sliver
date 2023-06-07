@@ -408,7 +408,7 @@ func (con *SliverConsoleClient) triggerBeaconTaskCallback(data []byte) {
 	if callback, ok := con.BeaconTaskCallbacks[task.ID]; ok {
 		if con.Settings.BeaconAutoResults {
 			if beacon != nil {
-				con.PrintEventSuccessf("%s completed task %s", beacon.Name, strings.Split(task.ID, "-")[0])
+				con.PrintSuccessf("%s completed task %s", beacon.Name, strings.Split(task.ID, "-")[0])
 			}
 			task_content, err := con.Rpc.GetBeaconTaskContent(ctx, &clientpb.BeaconTask{
 				ID: task.ID,
@@ -419,7 +419,6 @@ func (con *SliverConsoleClient) triggerBeaconTaskCallback(data []byte) {
 			} else {
 				con.PrintErrorf("Could not get beacon task content: %s", err)
 			}
-			con.Println()
 		}
 		delete(con.BeaconTaskCallbacks, task.ID)
 	}

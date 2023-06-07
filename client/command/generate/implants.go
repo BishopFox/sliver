@@ -120,7 +120,7 @@ func PrintImplantBuilds(configs map[string]*clientpb.ImplantConfig, filters Impl
 	}
 
 	con.Println(tw.Render())
-	con.Println()
+	con.Println("\n")
 }
 
 // ImplantBuildNameCompleter - Completer for implant build names

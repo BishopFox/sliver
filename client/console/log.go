@@ -148,7 +148,7 @@ func (con *SliverConsoleClient) PrintAsyncResponse(resp *commonpb.Response) {
 		con.PrintWarnf(err.Error())
 		return
 	}
-	con.PrintInfof("Tasked beacon %s (%s)", beacon.Name, strings.Split(resp.TaskID, "-")[0])
+	con.PrintInfof("Tasked beacon %s (%s)\n", beacon.Name, strings.Split(resp.TaskID, "-")[0])
 }
 
 func (con *SliverConsoleClient) Printf(format string, args ...any) {
