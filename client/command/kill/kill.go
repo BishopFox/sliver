@@ -23,16 +23,16 @@ import (
 	"errors"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/core"
-	"github.com/desertbit/grumble"
 )
 
 // KillCmd - Kill the active session (not to be confused with TerminateCmd)
-func KillCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func KillCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	// Confirm with the user, just in case they confused kill with terminate
 	confirm := false
@@ -42,7 +42,7 @@ func KillCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		if !confirm {
 			return
 		}
-		err := KillSession(session, ctx, con)
+		err := KillSession(session, cmd, con)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
@@ -55,7 +55,7 @@ func KillCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		if !confirm {
 			return
 		}
-		err := KillBeacon(beacon, ctx, con)
+		err := KillBeacon(beacon, cmd, con)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
@@ -65,35 +65,39 @@ func KillCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 	con.PrintErrorf("No active session or beacon\n")
-	return
 }
 
-func KillSession(session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) error {
+func KillSession(session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient) error {
 	if session == nil {
 		return errors.New("session does not exist")
 	}
+	timeout, _ := cmd.Flags().GetInt64("timeout")
+	force, _ := cmd.Flags().GetBool("force")
+
 	_, err := con.Rpc.Kill(context.Background(), &sliverpb.KillReq{
 		Request: &commonpb.Request{
 			SessionID: session.ID,
-			Timeout:   int64(ctx.Flags.Int("timeout")),
+			Timeout:   timeout,
 		},
-		Force: ctx.Flags.Bool("force"),
+		Force: force,
 	})
-	core.Sessions.Remove(session.ID)
 	return err
 }
 
-func KillBeacon(beacon *clientpb.Beacon, ctx *grumble.Context, con *console.SliverConsoleClient) error {
+func KillBeacon(beacon *clientpb.Beacon, cmd *cobra.Command, con *console.SliverConsoleClient) error {
 	if beacon == nil {
 		return errors.New("session does not exist")
 	}
+
+	timeout, _ := cmd.Flags().GetInt64("timeout")
+	force, _ := cmd.Flags().GetBool("force")
+
 	_, err := con.Rpc.Kill(context.Background(), &sliverpb.KillReq{
 		Request: &commonpb.Request{
 			BeaconID: beacon.ID,
-			Timeout:  int64(ctx.Flags.Int("timeout")),
+			Timeout:  timeout,
 		},
-		Force: ctx.Flags.Bool("force"),
+		Force: force,
 	})
 	return err
-
 }

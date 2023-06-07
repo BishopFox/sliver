@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
@@ -131,6 +132,10 @@ type ImplantConfig struct {
 	RunAtLoad bool
 
 	FileName string
+
+	NetGoEnabled           bool
+	TrafficEncodersEnabled bool
+	Assets                 []EncoderAsset
 }
 
 // BeforeCreate - GORM hook
@@ -188,12 +193,20 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		WGKeyExchangePort: ic.WGKeyExchangePort,
 		WGTcpCommsPort:    ic.WGTcpCommsPort,
 
-		FileName: ic.FileName,
+		FileName:               ic.FileName,
+		TrafficEncodersEnabled: ic.TrafficEncodersEnabled,
+		NetGoEnabled:           ic.NetGoEnabled,
 	}
 	// Copy Canary Domains
 	config.CanaryDomains = []string{}
 	for _, canaryDomain := range ic.CanaryDomains {
 		config.CanaryDomains = append(config.CanaryDomains, canaryDomain.Domain)
+	}
+
+	// Copy Assets
+	config.Assets = []*commonpb.File{}
+	for _, asset := range ic.Assets {
+		config.Assets = append(config.Assets, asset.ToProtobuf())
 	}
 
 	// Copy C2
@@ -287,4 +300,17 @@ func (ip *ImplantProfile) BeforeCreate(tx *gorm.DB) (err error) {
 	}
 	ip.CreatedAt = time.Now()
 	return nil
+}
+
+// EncoderAsset - Tracks which assets were embedded into the implant
+// but we currently don't keep a copy of the actual data
+type EncoderAsset struct {
+	ID              uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ImplantConfigID uuid.UUID
+
+	Name string
+}
+
+func (t *EncoderAsset) ToProtobuf() *commonpb.File {
+	return &commonpb.File{Name: t.Name}
 }

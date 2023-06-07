@@ -62,6 +62,11 @@ var (
 		pb.MsgCallExtensionReq:     callExtensionHandler,
 		pb.MsgListExtensionsReq:    listExtensionsHandler,
 
+		// Wasm Extensions - Note that execution can be done via a tunnel handler
+		pb.MsgRegisterWasmExtensionReq:   registerWasmExtensionHandler,
+		pb.MsgDeregisterWasmExtensionReq: deregisterWasmExtensionHandler,
+		pb.MsgListWasmExtensionsReq:      listWasmExtensionsHandler,
+
 		// {{if .Config.WGc2Enabled}}
 		// Wireguard specific
 		pb.MsgWGStartPortFwdReq:   wgStartPortfwdHandler,

@@ -100,7 +100,7 @@ func ClearTokenCache() {
 
 func serverAuthFunc(ctx context.Context) (context.Context, error) {
 	newCtx := context.WithValue(ctx, "transport", "local")
-	newCtx = context.WithValue(ctx, "operator", "server")
+	newCtx = context.WithValue(newCtx, "operator", "server")
 	return newCtx, nil
 }
 

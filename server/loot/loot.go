@@ -39,7 +39,6 @@ type LootBackend interface {
 	Update(*clientpb.Loot) (*clientpb.Loot, error)
 	GetContent(string, bool) (*clientpb.Loot, error)
 	All() *clientpb.AllLoot
-	AllOf(clientpb.LootType) *clientpb.AllLoot
 }
 
 // LootStore - The struct that represents the loot store
@@ -87,17 +86,11 @@ func (l *LootStore) All() *clientpb.AllLoot {
 	return l.backend.All()
 }
 
-// AllOf - Get loot of a particular type from the loot store
-func (l *LootStore) AllOf(lootType clientpb.LootType) *clientpb.AllLoot {
-	return l.backend.AllOf(lootType)
-}
-
 // GetLootStore - Get an instances of the core LootStore
 func GetLootStore() *LootStore {
 	return &LootStore{
 		backend: &LocalBackend{
-			LocalFileDir: GetLootFileDir(),
-			LocalCredDir: GetLootCredentialDir(),
+			LocalFileDir: GetLootDir(),
 		},
 	}
 }
@@ -112,28 +105,4 @@ func GetLootDir() string {
 		}
 	}
 	return lootDir
-}
-
-// GetLootFileDir - Get the subdirectory where loot files are stored
-func GetLootFileDir() string {
-	lootFileDir := filepath.Join(GetLootDir(), "files")
-	if _, err := os.Stat(lootFileDir); os.IsNotExist(err) {
-		err = os.MkdirAll(lootFileDir, 0700)
-		if err != nil {
-			panic(err.Error())
-		}
-	}
-	return lootFileDir
-}
-
-// GetLootCredentialDir - Get the subdirectory where loot credentials are stored
-func GetLootCredentialDir() string {
-	lootCredDir := filepath.Join(GetLootDir(), "credentials")
-	if _, err := os.Stat(lootCredDir); os.IsNotExist(err) {
-		err = os.MkdirAll(lootCredDir, 0700)
-		if err != nil {
-			panic(err.Error())
-		}
-	}
-	return lootCredDir
 }

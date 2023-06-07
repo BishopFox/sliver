@@ -20,15 +20,12 @@ package encoders
 
 import "encoding/hex"
 
-// HexEncoderID - EncoderID
-const HexEncoderID = 92
-
 // Hex Encoder
 type Hex struct{}
 
 // Encode - Hex Encode
-func (e Hex) Encode(data []byte) []byte {
-	return []byte(hex.EncodeToString(data))
+func (e Hex) Encode(data []byte) ([]byte, error) {
+	return []byte(hex.EncodeToString(data)), nil
 }
 
 // Decode - Hex Decode

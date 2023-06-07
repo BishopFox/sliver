@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 	insecureRand "math/rand"
 	"os"
-	"path"
+	"path/filepath"
 	"time"
 
 	"github.com/bishopfox/sliver/server/assets"
@@ -42,8 +42,8 @@ var (
 // GetServerConfigPath - File path to config.json
 func GetServerConfigPath() string {
 	appDir := assets.GetRootAppDir()
-	serverConfigPath := path.Join(appDir, "configs", serverConfigFileName)
-	serverConfigLog.Infof("Loading config from %s", serverConfigPath)
+	serverConfigPath := filepath.Join(appDir, "configs", serverConfigFileName)
+	serverConfigLog.Debugf("Loading config from %s", serverConfigPath)
 	return serverConfigPath
 }
 
@@ -138,7 +138,7 @@ type ServerConfig struct {
 // Save - Save config file to disk
 func (c *ServerConfig) Save() error {
 	configPath := GetServerConfigPath()
-	configDir := path.Dir(configPath)
+	configDir := filepath.Dir(configPath)
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
 		serverConfigLog.Debugf("Creating config dir %s", configDir)
 		err := os.MkdirAll(configDir, 0700)

@@ -23,34 +23,37 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
-	"google.golang.org/protobuf/proto"
 )
 
 // ExecuteCmd - Run a command on the remote system
-func ExecuteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func ExecuteCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
-	cmdPath := ctx.Args.String("command")
-	args := ctx.Args.StringList("arguments")
-	token := ctx.Flags.Bool("token")
-	output := ctx.Flags.Bool("output")
-	stdout := ctx.Flags.String("stdout")
-	stderr := ctx.Flags.String("stderr")
-	saveLoot := ctx.Flags.Bool("loot")
-	saveOutput := ctx.Flags.Bool("save")
-	ppid := ctx.Flags.Uint("ppid")
+	cmdPath := args[0]
+	args = args[1:]
+
+	token, _ := cmd.Flags().GetBool("token")
+	output, _ := cmd.Flags().GetBool("output")
+	stdout, _ := cmd.Flags().GetString("stdout")
+	stderr, _ := cmd.Flags().GetString("stderr")
+	saveLoot, _ := cmd.Flags().GetBool("loot")
+	saveOutput, _ := cmd.Flags().GetBool("save")
+	ppid, _ := cmd.Flags().GetUint32("ppid")
 	hostName := getHostname(session, beacon)
 
 	// If the user wants to loot or save the output, we have to capture it regardless of if they specified -o
-	var captureOutput bool = output || saveLoot || saveOutput
+	captureOutput := output || saveLoot || saveOutput
 
 	if output && beacon != nil {
 		con.PrintWarnf("Using --output in beacon mode, if the command blocks the task will never complete\n\n")
@@ -63,18 +66,18 @@ func ExecuteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.SpinUntil(fmt.Sprintf("Executing %s %s ...", cmdPath, strings.Join(args, " ")), ctrl)
 	if token || ppid != 0 {
 		exec, err = con.Rpc.ExecuteWindows(context.Background(), &sliverpb.ExecuteWindowsReq{
-			Request:  con.ActiveTarget.Request(ctx),
+			Request:  con.ActiveTarget.Request(cmd),
 			Path:     cmdPath,
 			Args:     args,
 			Output:   captureOutput,
 			Stderr:   stderr,
 			Stdout:   stdout,
 			UseToken: token,
-			PPid:     uint32(ppid),
+			PPid:     ppid,
 		})
 	} else {
 		exec, err = con.Rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
-			Request: con.ActiveTarget.Request(ctx),
+			Request: con.ActiveTarget.Request(cmd),
 			Path:    cmdPath,
 			Args:    args,
 			Output:  captureOutput,
@@ -96,44 +99,44 @@ func ExecuteCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			HandleExecuteResponse(exec, cmdPath, hostName, ctx, con)
+			HandleExecuteResponse(exec, cmdPath, hostName, cmd, con)
 		})
 		con.PrintAsyncResponse(exec.Response)
 	} else {
-		HandleExecuteResponse(exec, cmdPath, hostName, ctx, con)
+		HandleExecuteResponse(exec, cmdPath, hostName, cmd, con)
 	}
 }
 
-func HandleExecuteResponse(exec *sliverpb.Execute, cmdPath string, hostName string, ctx *grumble.Context, con *console.SliverConsoleClient) {
+func HandleExecuteResponse(exec *sliverpb.Execute, cmdPath string, hostName string, cmd *cobra.Command, con *console.SliverConsoleClient) {
 	var lootedOutput []byte
-	stdout := ctx.Flags.String("stdout")
-	saveLoot := ctx.Flags.Bool("loot")
-	saveOutput := ctx.Flags.Bool("save")
-	lootName := ctx.Flags.String("name")
-	ignoreStderr := ctx.Flags.Bool("ignore-stderr")
+	stdout, _ := cmd.Flags().GetString("stdout")
+	saveLoot, _ := cmd.Flags().GetBool("loot")
+	saveOutput, _ := cmd.Flags().GetBool("save")
+	lootName, _ := cmd.Flags().GetString("name")
+	ignoreStderr, _ := cmd.Flags().GetBool("ignore-stderr")
 
 	if saveLoot || saveOutput {
 		lootedOutput = combineCommandOutput(exec, stdout == "", !ignoreStderr && 0 < len(exec.Stderr))
 	}
 
 	if saveLoot {
-		LootExecute(lootedOutput, lootName, ctx.Command.Name, cmdPath, hostName, con)
+		LootExecute(lootedOutput, lootName, cmd.Name(), cmdPath, hostName, con)
 	}
 
 	if saveOutput {
-		SaveExecutionOutput(string(lootedOutput), ctx.Command.Name, hostName, con)
+		SaveExecutionOutput(string(lootedOutput), cmd.Name(), hostName, con)
 	}
 
-	PrintExecute(exec, ctx, con)
+	PrintExecute(exec, cmd, con)
 }
 
 // PrintExecute - Print the output of an executed command
-func PrintExecute(exec *sliverpb.Execute, ctx *grumble.Context, con *console.SliverConsoleClient) {
-	ignoreStderr := ctx.Flags.Bool("ignore-stderr")
-	stdout := ctx.Flags.String("stdout")
-	stderr := ctx.Flags.String("stderr")
+func PrintExecute(exec *sliverpb.Execute, cmd *cobra.Command, con *console.SliverConsoleClient) {
+	ignoreStderr, _ := cmd.Flags().GetBool("ignore-stderr")
+	stdout, _ := cmd.Flags().GetString("stdout")
+	stderr, _ := cmd.Flags().GetString("stderr")
 
-	output := ctx.Flags.Bool("output")
+	output, _ := cmd.Flags().GetBool("output")
 	if !output {
 		if exec.Status == 0 {
 			con.PrintInfof("Command executed successfully\n")
@@ -216,7 +219,7 @@ func LootExecute(commandOutput []byte, lootName string, sliverCmdName string, cm
 		lootName = fmt.Sprintf("[%s] %s on %s (%s)", sliverCmdName, shortCommandName, hostName, timeNow)
 	}
 
-	lootMessage := loot.CreateLootMessage(fileName, lootName, clientpb.LootType_LOOT_FILE, clientpb.FileType_TEXT, commandOutput)
+	lootMessage := loot.CreateLootMessage(fileName, lootName, clientpb.FileType_TEXT, commandOutput)
 	loot.SendLootMessage(lootMessage, con)
 }
 

@@ -21,8 +21,6 @@ package encoders
 import (
 	"bytes"
 	"testing"
-
-	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 )
 
 var (
@@ -31,7 +29,6 @@ var (
 	}{
 		{[]byte("abc")},   // byte count on image pixel alignment
 		{[]byte("abcde")}, // byte count offset of image pixel alignment
-		{randomData()},    // random binary data
 		{[]byte{0x0, 0x01, 0x02, 0x03, 0x04}},
 		{[]byte{0x01, 0x02, 0x03, 0x04, 0x0}},
 	}
@@ -40,7 +37,7 @@ var (
 func TestPNG(t *testing.T) {
 	pngEncoder := new(PNGEncoder)
 	for _, test := range imageTests {
-		buf := pngEncoder.Encode(test.Input)
+		buf, _ := pngEncoder.Encode(test.Input)
 		decodeOutput, err := pngEncoder.Decode(buf)
 		if err != nil {
 			t.Errorf("png decode returned error: %q", err)
@@ -49,27 +46,19 @@ func TestPNG(t *testing.T) {
 			t.Errorf("png Decode(img) => %q, expected %q", decodeOutput, test.Input)
 		}
 	}
+}
 
-	implantPNGEncoder := new(implantEncoders.PNGEncoder)
-	for _, test := range imageTests {
-		buf := implantPNGEncoder.Encode(test.Input)
-		decodeOutput, err := implantPNGEncoder.Decode(buf)
-		if err != nil {
-			t.Errorf("implant png decode returned error: %q", err)
-		}
-		if !bytes.Equal(test.Input, decodeOutput) {
-			t.Errorf("implant png Decode(img) => %q, expected %q", decodeOutput, test.Input)
-		}
-	}
-
-	for _, test := range imageTests {
-		buf := implantPNGEncoder.Encode(test.Input)
+func TestPNGRandomDataRandomSize(t *testing.T) {
+	pngEncoder := new(PNGEncoder)
+	for i := 0; i < 100; i++ {
+		sample := randomDataRandomSize(1024 * 1024)
+		buf, _ := pngEncoder.Encode(sample)
 		decodeOutput, err := pngEncoder.Decode(buf)
 		if err != nil {
-			t.Errorf("implant/server png decode returned error: %q", err)
+			t.Errorf("png decode returned error: %q", err)
 		}
-		if !bytes.Equal(test.Input, decodeOutput) {
-			t.Errorf("implant/server png Decode(img) => %q, expected %q", decodeOutput, test.Input)
+		if !bytes.Equal(sample, decodeOutput) {
+			t.Errorf("png Decode(img) => %q, expected %q", decodeOutput, sample)
 		}
 	}
 }

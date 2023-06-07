@@ -1,0 +1,7 @@
+github.com/rsteube/carapace-pflag v0.0.4 h1:Onb0cLNLxg1xJr2EsMlBldAI5KkybrvZ89b5cRElZXI=
+github.com/rsteube/carapace-pflag v0.0.4/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
+github.com/rsteube/carapace-pflag v0.0.5 h1:QQC0KnthHMayHsX7B7DxqOkr0B6JSIM0glB+KrSTruU=
+github.com/rsteube/carapace-pflag v0.0.5/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
+github.com/rsteube/carapace-pflag v0.1.0 h1:CPJRlj3jbyOnxuMf5pdrM76hEwdQ0STDDmkAHQcGbhg=
+github.com/rsteube/carapace-pflag v0.1.0/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
+gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=

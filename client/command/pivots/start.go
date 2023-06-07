@@ -22,23 +22,24 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
 )
 
 // StartTCPListenerCmd - Start a TCP pivot listener on the remote system
-func StartTCPListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func StartTCPListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
-	bind := ctx.Flags.String("bind")
-	lport := uint16(ctx.Flags.Int("lport"))
+	bind, _ := cmd.Flags().GetString("bind")
+	lport, _ := cmd.Flags().GetUint16("lport")
 	listener, err := con.Rpc.PivotStartListener(context.Background(), &sliverpb.PivotStartListenerReq{
 		Type:        sliverpb.PivotType_TCP,
 		BindAddress: fmt.Sprintf("%s:%d", bind, lport),
-		Request:     con.ActiveTarget.Request(ctx),
+		Request:     con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -52,17 +53,20 @@ func StartTCPListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 }
 
 // StartNamedPipeListenerCmd - Start a TCP pivot listener on the remote system
-func StartNamedPipeListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func StartNamedPipeListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
+	allowAll, _ := cmd.Flags().GetBool("allow-all")
+	bind, _ := cmd.Flags().GetString("bind")
+
 	var options []bool
-	options = append(options, ctx.Flags.Bool("allow-all"))
+	options = append(options, allowAll)
 	listener, err := con.Rpc.PivotStartListener(context.Background(), &sliverpb.PivotStartListenerReq{
 		Type:        sliverpb.PivotType_NamedPipe,
-		BindAddress: ctx.Flags.String("bind"),
-		Request:     con.ActiveTarget.Request(ctx),
+		BindAddress: bind,
+		Request:     con.ActiveTarget.Request(cmd),
 		Options:     options,
 	})
 	if err != nil {

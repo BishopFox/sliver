@@ -37,6 +37,9 @@ import (
 )
 
 func TestStartSessionHandler(t *testing.T) {
+
+	implantTransports.SetNonceQueryArgs("abcdedfghijklmnopqrstuvwxyz")
+
 	server, err := StartHTTPListener(&HTTPServerConfig{
 		Addr:       "127.0.0.1:8888",
 		Secure:     false,
@@ -54,7 +57,7 @@ func TestStartSessionHandler(t *testing.T) {
 		Host:   "127.0.0.1:8888",
 		Path:   fmt.Sprintf("/test/foo.%s", c2Config.ImplantConfig.StartSessionFileExt),
 	}
-	nonce, encoder := implantEncoders.RandomEncoder()
+	nonce, encoder := implantEncoders.RandomEncoder(0)
 	testURL := client.NonceQueryArgument(baseURL, nonce)
 	testURL = client.OTPQueryArgument(testURL, implantCrypto.GetOTPCode())
 
@@ -66,7 +69,7 @@ func TestStartSessionHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to encrypt session init %s", err)
 	}
-	payload := encoder.Encode(encryptedSessionInit)
+	payload, _ := encoder.Encode(encryptedSessionInit)
 	body := bytes.NewReader(payload)
 
 	validReq := httptest.NewRequest(http.MethodPost, testURL.String(), body)
@@ -80,8 +83,10 @@ func TestStartSessionHandler(t *testing.T) {
 }
 
 func TestGetOTPFromURL(t *testing.T) {
-	client := implantTransports.SliverHTTPClient{}
 
+	implantTransports.SetNonceQueryArgs("abcdedfghijklmnopqrstuvwxyz")
+
+	client := implantTransports.SliverHTTPClient{}
 	for i := 0; i < 100; i++ {
 		baseURL := &url.URL{
 			Scheme: "http",
@@ -101,6 +106,9 @@ func TestGetOTPFromURL(t *testing.T) {
 }
 
 func TestGetNonceFromURL(t *testing.T) {
+
+	implantTransports.SetNonceQueryArgs("abcdedfghijklmnopqrstuvwxyz")
+
 	client := implantTransports.SliverHTTPClient{}
 	for i := 0; i < 100; i++ {
 		baseURL := &url.URL{
@@ -108,14 +116,59 @@ func TestGetNonceFromURL(t *testing.T) {
 			Host:   "127.0.0.1:8888",
 			Path:   "/test/foo.txt",
 		}
-		nonce, _ := implantEncoders.RandomEncoder()
+		nonce, encoder := implantEncoders.RandomEncoder(0)
 		testURL := client.NonceQueryArgument(baseURL, nonce)
+		t.Log(testURL.String())
 		urlNonce, err := getNonceFromURL(testURL)
 		if err != nil {
+			t.Errorf("Nonce '%d' triggered error from %#v", nonce, encoder)
 			t.Fatal(err)
 		}
 		if urlNonce != nonce {
 			t.Fatalf("Mismatched encoder nonces %s (%d != %d)", testURL.String(), nonce, urlNonce)
 		}
 	}
+}
+
+func TestGetNonceFromURLWithCustomQueryArgs(t *testing.T) {
+	for j := 0; j < 100; j++ {
+
+		queryArgs := randomArgs(1)
+		implantTransports.SetNonceQueryArgs(queryArgs)
+		t.Logf("Using query args: %s", queryArgs)
+
+		client := implantTransports.SliverHTTPClient{}
+		for i := 0; i < 10; i++ {
+			baseURL := &url.URL{
+				Scheme: "http",
+				Host:   "127.0.0.1:8888",
+				Path:   "/test/foo.txt",
+			}
+			nonce, encoder := implantEncoders.RandomEncoder(0)
+			testURL := client.NonceQueryArgument(baseURL, nonce)
+			t.Log(testURL.String())
+			urlNonce, err := getNonceFromURL(testURL)
+			if err != nil {
+				t.Errorf("Nonce '%d' triggered error from %#v", nonce, encoder)
+				t.Fatal(err)
+			}
+			if urlNonce != nonce {
+				t.Fatalf("Mismatched encoder nonces %s (%d != %d)", testURL.String(), nonce, urlNonce)
+			}
+		}
+	}
+}
+
+func randomArgs(min int) string {
+	var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()")
+	size := insecureRand.Intn(25) + min
+	b := make(map[rune]interface{}, size)
+	for len(b) <= size {
+		b[letters[insecureRand.Intn(len(letters))]] = nil
+	}
+	var keys string
+	for k := range b {
+		keys += string(k)
+	}
+	return keys
 }

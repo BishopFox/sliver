@@ -1,0 +1,5 @@
+haltOnErr: true
+####----####
+"fo\"
+####----####
+error: bind missing closing quote

@@ -27,15 +27,16 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
-	"github.com/desertbit/grumble"
-	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // CursedChromeCmd - Execute a .NET assembly in-memory
-func CursedCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func CursedCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	// Collect existing curses from core
 	cursedProcesses := [][]string{}
 	core.CursedProcesses.Range(func(key, value interface{}) bool {
@@ -112,8 +113,8 @@ func selectCursedProcess(con *console.SliverConsoleClient) *core.CursedProcess {
 	return port2process[selectedPortNumber]
 }
 
-func getRemoteDebuggerPort(ctx *grumble.Context) int {
-	port := int(uint16(ctx.Flags.Int("remote-debugging-port")))
+func getRemoteDebuggerPort(cmd *cobra.Command) int {
+	port, _ := cmd.Flags().GetInt("remote-debugging-port")
 	if port == 0 {
 		port = insecureRand.Intn(30000) + 10000
 	}

@@ -3,19 +3,23 @@ package tasks
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/desertbit/grumble"
 )
 
 // TasksCancelCmd - Cancel a beacon task before it's sent to the implant
-func TasksCancelCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func TasksCancelCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	beacon := con.ActiveTarget.GetBeaconInteractive()
 	if beacon == nil {
 		return
 	}
 
-	idArg := ctx.Args.String("id")
+	var idArg string
+	if len(args) > 0 {
+		idArg = args[0]
+	}
 	var task *clientpb.BeaconTask
 	var err error
 	if idArg == "" {

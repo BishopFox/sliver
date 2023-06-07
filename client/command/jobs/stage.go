@@ -23,26 +23,29 @@ import (
 	"compress/zlib"
 	"context"
 	"encoding/binary"
-	"github.com/bishopfox/sliver/util/encoders"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/bishopfox/sliver/util/encoders"
 
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/util"
-	"github.com/desertbit/grumble"
 )
 
 // StageListenerCmd --url [tcp://ip:port | http://ip:port ] --profile name
-func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	profileName := ctx.Flags.String("profile")
-	listenerURL := ctx.Flags.String("url")
-	aesEncryptKey := ctx.Flags.String("aes-encrypt-key")
-	aesEncryptIv := ctx.Flags.String("aes-encrypt-iv")
-	prependSize := ctx.Flags.Bool("prepend-size")
-	compress := strings.ToLower(ctx.Flags.String("compress"))
+func StageListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	profileName, _ := cmd.Flags().GetString("profile")
+	listenerURL, _ := cmd.Flags().GetString("url")
+	aesEncryptKey, _ := cmd.Flags().GetString("aes-encrypt-key")
+	aesEncryptIv, _ := cmd.Flags().GetString("aes-encrypt-iv")
+	prependSize, _ := cmd.Flags().GetBool("prepend-size")
+	compressF, _ := cmd.Flags().GetString("compress")
+	compress := strings.ToLower(compressF)
 
 	if profileName == "" || listenerURL == "" {
 		con.PrintErrorf("Missing required flags, see `help stage-listener` for more info\n")
@@ -104,7 +107,7 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		zlibWriter.Close()
 		stage2 = compBuff.Bytes()
 	case "gzip":
-		stage2 = encoders.GzipBuf(stage2)
+		stage2, _ = encoders.GzipBuf(stage2)
 	case "deflate9":
 		fallthrough
 	case "deflate":
@@ -139,10 +142,11 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		}
 		con.PrintInfof("Job %d (http) started\n", stageListener.GetJobID())
 	case "https":
+		letsEncrypt, _ := cmd.Flags().GetBool("lets-encrypt")
 		if prependSize {
 			stage2 = prependPayloadSize(stage2)
 		}
-		cert, key, err := getLocalCertificatePair(ctx)
+		cert, key, err := getLocalCertificatePair(cmd)
 		if err != nil {
 			con.Println()
 			con.PrintErrorf("Failed to load local certificate %s\n", err)
@@ -157,7 +161,7 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			Port:     uint32(stagingPort),
 			Cert:     cert,
 			Key:      key,
-			ACME:     ctx.Flags.Bool("lets-encrypt"),
+			ACME:     letsEncrypt,
 		})
 		ctrl <- true
 		<-ctrl

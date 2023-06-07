@@ -20,40 +20,43 @@ package filesystem
 import (
 	"context"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/desertbit/grumble"
 )
 
 // ChmodCmd - Change the permissions of a file on the remote file system
-func ChmodCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func ChmodCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
-	filePath := ctx.Args.String("path")
+	filePath := args[0]
 
 	if filePath == "" {
 		con.PrintErrorf("Missing parameter: file or directory name\n")
 		return
 	}
 
-	fileMode := ctx.Args.String("mode")
+	fileMode := args[1]
 
 	if fileMode == "" {
 		con.PrintErrorf("Missing parameter: file permissions (mode)\n")
 		return
 	}
 
+	recursive, _ := cmd.Flags().GetBool("recursive")
+
 	chmod, err := con.Rpc.Chmod(context.Background(), &sliverpb.ChmodReq{
-		Request:   con.ActiveTarget.Request(ctx),
+		Request:   con.ActiveTarget.Request(cmd),
 		Path:      filePath,
 		FileMode:  fileMode,
-		Recursive: ctx.Flags.Bool("recursive"),
+		Recursive: recursive,
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

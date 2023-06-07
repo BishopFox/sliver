@@ -29,6 +29,12 @@ const (
 	LastUpdateCheckFileName = "last_update_check"
 )
 
+// Console
+const (
+	ImplantMenu = "implant"
+	ServerMenu  = ""
+)
+
 // Events
 const (
 	// UpdateStr - "update"
@@ -95,6 +101,17 @@ const (
 	ExternalBuildFailedEvent    = "external-build-failed"
 	ExternalBuildCompletedEvent = "external-build-completed"
 
+	// TrafficEncoder Events
+	TrafficEncoderTestProgressEvent = "traffic-encoder-test-progress"
+
+	// Crackstation Events
+	CrackstationConnected    = "crackstation-connected"
+	CrackstationDisconnected = "crackstation-disconnected"
+
+	// Crack Events - Events consumed by crackstations
+	CrackBenchmark   = "crack-benchmark"
+	CrackStatusEvent = "crack-status"
+
 	// WireGuardNewPeer - New Wireguard peer added
 	WireGuardNewPeer = "wireguard-newpeer"
 )
@@ -106,24 +123,25 @@ const (
 	KickOperatorStr    = "kick-operator"
 	MultiplayerModeStr = "multiplayer"
 
-	SessionsStr     = "sessions"
-	BackgroundStr   = "background"
-	InfoStr         = "info"
-	UseStr          = "use"
-	ReconfigStr     = "reconfig"
-	PruneStr        = "prune"
-	TasksStr        = "tasks"
-	CancelStr       = "cancel"
-	GenerateStr     = "generate"
-	RegenerateStr   = "regenerate"
-	CompilerInfoStr = "info"
-	StagerStr       = "stager"
-	ProfilesStr     = "profiles"
-	BeaconStr       = "beacon"
-	BeaconsStr      = "beacons"
-	WatchStr        = "watch"
-	SettingsStr     = "settings"
-	SearchStr       = "search"
+	SessionsStr        = "sessions"
+	BackgroundStr      = "background"
+	InfoStr            = "info"
+	UseStr             = "use"
+	ReconfigStr        = "reconfig"
+	PruneStr           = "prune"
+	TasksStr           = "tasks"
+	CancelStr          = "cancel"
+	GenerateStr        = "generate"
+	RegenerateStr      = "regenerate"
+	CompilerInfoStr    = "info"
+	MsfStagerStr       = "msf-stager"
+	ProfilesStr        = "profiles"
+	BeaconStr          = "beacon"
+	BeaconsStr         = "beacons"
+	WatchStr           = "watch"
+	SettingsStr        = "settings"
+	SearchStr          = "search"
+	TrafficEncodersStr = "traffic-encoders"
 
 	// Generic
 
@@ -139,12 +157,14 @@ const (
 	LoadStr    = "load"
 	TablesStr  = "tables"
 	DetailsStr = "details"
+	GraphStr   = "graph"
 
 	LootStr       = "loot"
 	LootLocalStr  = "local"
 	LootRemoteStr = "remote"
 	FetchStr      = "fetch"
-	LootCredsStr  = "creds"
+	CredsStr      = "creds"
+	FileStr       = "file"
 
 	RenameStr = "rename"
 
@@ -237,6 +257,7 @@ const (
 	DLLHijackStr          = "dllhijack"
 	InteractiveStr        = "interactive"
 	CloseStr              = "close"
+	WasmStr               = "wasm"
 
 	PortfwdStr  = "portfwd"
 	Socks5Str   = "socks5"
@@ -263,14 +284,44 @@ const (
 	CursedCookies  = "cookies"
 
 	BuildersStr = "builders"
+
+	CrackStr     = "crack"
+	StationsStr  = "stations"
+	WordlistsStr = "wordlists"
+	RulesStr     = "rules"
+	Hcstat2Str   = "hcstat2"
 )
 
 // Groups
 const (
-	GenericHelpGroup     = "Generic:"
-	SliverHelpGroup      = "Sliver:"
-	SliverWinHelpGroup   = "Sliver - Windows:"
-	MultiplayerHelpGroup = "Multiplayer:"
-	AliasHelpGroup       = "Sliver - 3rd Party macros:"
-	ExtensionHelpGroup   = "Sliver - 3rd Party extensions:"
+	// Server commands =====================
+	GenericHelpGroup  = "Generic"
+	NetworkHelpGroup  = "Network"
+	PayloadsHelpGroup = "Payload"
+	DataHelpGroup     = "Data"
+	SliverHelpGroup   = "Sliver"
+
+	// Sliver commands =====================
+	SliverCoreHelpGroup = "Core"
+	InfoHelpGroup       = "Info"
+	FilesystemHelpGroup = "Filesystem"
+	ExecutionHelpGroup  = "Execution"
+	PrivilegesHelpGroup = "Privileges"
+	ProcessHelpGroup    = "Process"
+
+	AliasHelpGroup     = "Sliver - 3rd Party macros"
+	ExtensionHelpGroup = "Sliver - 3rd Party extensions"
+
+	// Useless
+	SliverWinHelpGroup   = "Sliver - Windows"
+	MultiplayerHelpGroup = "Multiplayer"
+)
+
+// Command types / filters (per OS/type/C2/etc)
+// Should not be changed: extension.json artifact file (architecture/OS) rely on some of the values below,
+const (
+	SessionCmdsFilter   = "session"
+	BeaconCmdsFilter    = "beacon"
+	WindowsCmdsFilter   = "windows"
+	WireguardCmdsFilter = "wireguard"
 )

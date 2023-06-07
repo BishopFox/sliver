@@ -43,6 +43,7 @@ func TestSliverExecutableWindows(t *testing.T) {
 	wireguardExe(t, "windows", "386", false, false)
 	wireguardExe(t, "windows", "amd64", false, true)
 	wireguardExe(t, "windows", "386", false, true)
+
 	// Wireguard beacon
 	wireguardExe(t, "windows", "amd64", true, false)
 	wireguardExe(t, "windows", "386", true, false)
@@ -161,6 +162,57 @@ func TestSymbolObfuscation(t *testing.T) {
 
 	// Test an "unsupported" platform
 	symbolObfuscation(t, "freebsd", "amd64")
+}
+
+func TestTrafficEncoders(t *testing.T) {
+	// Supported platforms
+	trafficEncodersExecutable(t, "windows", "amd64")
+	trafficEncodersExecutable(t, "linux", "amd64")
+	trafficEncodersExecutable(t, "linux", "386")
+	trafficEncodersExecutable(t, "darwin", "amd64")
+	trafficEncodersExecutable(t, "darwin", "arm64")
+
+	// Test an "unsupported" platform
+	trafficEncodersExecutable(t, "freebsd", "amd64")
+}
+
+func trafficEncodersExecutable(t *testing.T, goos string, goarch string) {
+	t.Logf("[trafficEncoders] %s/%s", goos, goarch)
+	debugConfig := &models.ImplantConfig{
+		GOOS:   goos,
+		GOARCH: goarch,
+		C2: []models.ImplantC2{
+			{URL: "http://1.example.com"},
+		},
+		HTTPc2Enabled:          true,
+		Debug:                  true,
+		ObfuscateSymbols:       false,
+		IsBeacon:               false,
+		TrafficEncodersEnabled: true,
+	}
+	nonce++
+	_, err := SliverExecutable(fmt.Sprintf("trafficEncodersDebug_test%d", nonce), otpTestSecret, debugConfig, true)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	prodConfig := &models.ImplantConfig{
+		GOOS:   goos,
+		GOARCH: goarch,
+		C2: []models.ImplantC2{
+			{URL: "http://2.example.com"},
+		},
+		HTTPc2Enabled:          true,
+		Debug:                  false,
+		ObfuscateSymbols:       true,
+		IsBeacon:               false,
+		TrafficEncodersEnabled: true,
+	}
+	nonce++
+	_, err = SliverExecutable(fmt.Sprintf("trafficEncodersProd_test%d", nonce), otpTestSecret, prodConfig, true)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
 }
 
 func mtlsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {

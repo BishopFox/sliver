@@ -303,12 +303,10 @@ const (
 	MsgChmodReq
 	// MsgChmod - Replies with file path
 	MsgChmod
-
 	// MsgChownReq - Request to chown a file
 	MsgChownReq
 	// MsgChown - Replies with file path
 	MsgChown
-
 	// MsgChtimesReq - Request to chtimes a file
 	MsgChtimesReq
 	// MsgChown - Replies with file path
@@ -326,6 +324,15 @@ const (
 	MsgMemfilesRmReq
 	// MsgChown - Replies with file path
 	MsgMemfilesRm
+
+	// Wasm Extension messages
+	MsgRegisterWasmExtensionReq
+	MsgDeregisterWasmExtensionReq
+	MsgRegisterWasmExtension
+	MsgListWasmExtensionsReq
+	MsgListWasmExtensions
+	MsgExecWasmExtensionReq
+	MsgExecWasmExtension	
 )
 
 // Constants to replace enums
@@ -515,10 +522,8 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *RegisterExtensionReq:
 		return MsgRegisterExtensionReq
-
 	case *CallExtensionReq:
 		return MsgCallExtensionReq
-
 	case *ListExtensionsReq:
 		return MsgListExtensionsReq
 
@@ -576,6 +581,15 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgMemfilesRmReq
 	case *MemfilesRm:
 		return MsgMemfilesRm
+
+	case *RegisterWasmExtensionReq:
+		return MsgRegisterWasmExtensionReq
+	case *DeregisterWasmExtensionReq:
+		return MsgDeregisterWasmExtensionReq
+	case *ListWasmExtensionsReq:
+		return MsgListWasmExtensionsReq
+	case *ExecWasmExtensionReq:
+		return MsgExecWasmExtensionReq
 
 	}
 	return uint32(0)

@@ -146,7 +146,8 @@ func Encrypt(key [chacha20poly1305.KeySize]byte, plaintext []byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	plaintext = bytes.NewBuffer(encoders.GzipBuf(plaintext)).Bytes()
+	compressed, _ := encoders.GzipBuf(plaintext)
+	plaintext = bytes.NewBuffer(compressed).Bytes()
 	nonce := make([]byte, aead.NonceSize(), aead.NonceSize()+len(plaintext)+aead.Overhead())
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
@@ -218,7 +219,8 @@ func (c *CipherContext) Encrypt(plaintext []byte) ([]byte, error) {
 		b64Digest := base64.RawStdEncoding.EncodeToString(digest[:])
 		c.replay.Store(b64Digest, true)
 	}
-	return ciphertext, nil
+	rawSig := serverSignRawBuf(ciphertext)
+	return append(rawSig, ciphertext...), nil
 }
 
 // TOTPOptions - Customized totp validation options
@@ -229,6 +231,13 @@ func TOTPOptions() totp.ValidateOpts {
 		Period:    TOTPPeriod,
 		Skew:      uint(1),
 	}
+}
+
+// serverSignRawBuf - Sign a buffer with the server's minisign private key
+func serverSignRawBuf(buf []byte) []byte {
+	privateKey := MinisignServerPrivateKey()
+	rawSig := minisign.SignRawBuf(*privateKey, buf)
+	return rawSig[:]
 }
 
 // ECCServerKeyPair - Get teh server's ECC key pair
@@ -247,7 +256,6 @@ func ECCServerKeyPair() *ECCKeyPair {
 		panic(err)
 	}
 	return keyPair
-
 }
 
 func generateServerECCKeyPair() (*ECCKeyPair, error) {

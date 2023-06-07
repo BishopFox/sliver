@@ -30,13 +30,13 @@ func AllowedName(name string) error {
 		// do not allow for files ".", "..", or anything starting with ".."
 		additionalDeny := regexp.MustCompile(`^\.\.|^\.$`).MatchString
 		if !isAllowed(name) {
-			return errors.New("Name must be alphanumeric or .-_ only\n")
+			return errors.New("name must be alphanumeric or .-_ only")
 		} else if additionalDeny(name) {
-			return errors.New("Name cannot be \".\", \"..\", or start with \"..\"")
+			return errors.New("name cannot be \".\", \"..\", or start with \"..\"")
 		} else {
 			return nil
 		}
 	} else {
-		return errors.New("Name cannot be blank!")
+		return errors.New("name cannot be blank")
 	}
 }

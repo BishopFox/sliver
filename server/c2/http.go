@@ -44,11 +44,11 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/encoders"
 	sliverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/website"
 	"github.com/bishopfox/sliver/util"
-	"github.com/bishopfox/sliver/util/encoders"
 
 	"github.com/gorilla/mux"
 	"google.golang.org/protobuf/proto"
@@ -430,7 +430,7 @@ func (s *SliverHTTPC2) filterOTP(req *http.Request, rm *mux.RouteMatch) bool {
 	}
 }
 
-func getNonceFromURL(reqURL *url.URL) (int, error) {
+func getNonceFromURL(reqURL *url.URL) (uint64, error) {
 	qNonce := ""
 	for arg, values := range reqURL.Query() {
 		if len(arg) == 1 {
@@ -442,7 +442,7 @@ func getNonceFromURL(reqURL *url.URL) (int, error) {
 		httpLog.Warn("Nonce not found in request")
 		return 0, ErrMissingNonce
 	}
-	nonce, err := strconv.Atoi(qNonce)
+	nonce, err := strconv.ParseUint(qNonce, 10, 64)
 	if err != nil {
 		httpLog.Warnf("Invalid nonce, failed to parse '%s'", qNonce)
 		return 0, err
@@ -617,7 +617,8 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		HttpOnly: true,
 	})
 	s.noCacheHeader(resp)
-	resp.Write(encoder.Encode(responseCiphertext))
+	respData, _ := encoder.Encode(responseCiphertext)
+	resp.Write(respData)
 }
 
 func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request) {
@@ -683,7 +684,8 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request) 
 			ciphertext = []byte{}
 		}
 		s.noCacheHeader(resp)
-		resp.Write(encoder.Encode(ciphertext))
+		respData, _ := encoder.Encode(ciphertext)
+		resp.Write(respData)
 	case <-req.Context().Done():
 		httpLog.Debug("Poll client hang up")
 		return
@@ -767,7 +769,7 @@ func (s *SliverHTTPC2) stagerHandler(resp http.ResponseWriter, req *http.Request
 		httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverStage), getRemoteAddr(req))
 		resp.WriteHeader(http.StatusOK)
 	} else {
-		resp.WriteHeader(http.StatusNotFound)
+		s.defaultHandler(resp, req)
 	}
 }
 

@@ -27,7 +27,7 @@ import "C"
 import (
 	"crypto/rand"
 	"encoding/binary"
-	"log"
+
 	insecureRand "math/rand"
 	"os"
 	"os/user"
@@ -38,8 +38,8 @@ import (
 	"sync"
 	// {{end}}
 
-	// {{if .Config.Debug}}{{else}}
-	"io/ioutil"
+	// {{if .Config.Debug}}
+	"log"
 	// {{end}}
 
 	consts "github.com/bishopfox/sliver/implant/sliver/constants"
@@ -171,8 +171,6 @@ func main() {
 		}
 	}
 	// {{else}}
-	log.SetFlags(0)
-	log.SetOutput(ioutil.Discard)
 	// {{end}}
 
 	// {{if .Config.Debug}}
@@ -443,7 +441,7 @@ func beaconHandleTasklist(tasks []*sliverpb.Envelope) []*sliverpb.Envelope {
 	resultsMutex := &sync.Mutex{}
 	wg := &sync.WaitGroup{}
 	sysHandlers := handlers.GetSystemHandlers()
-	specHandlers := handlers.GetSpecialHandlers()
+	specHandlers := handlers.GetKillHandlers()
 
 	for _, task := range tasks {
 		// {{if .Config.Debug}}
@@ -595,7 +593,7 @@ func sessionMainLoop(connection *transports.Connection) error {
 	pivotHandlers := handlers.GetPivotHandlers()
 	tunHandlers := handlers.GetTunnelHandlers()
 	sysHandlers := handlers.GetSystemHandlers()
-	specialHandlers := handlers.GetSpecialHandlers()
+	specialHandlers := handlers.GetKillHandlers()
 	rportfwdHandlers := handlers.GetRportFwdHandlers()
 
 	for envelope := range connection.Recv {

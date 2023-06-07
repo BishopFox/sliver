@@ -36,25 +36,20 @@ const (
 
 	// we can shove three bytes into each pixel: R, G, and B.
 	bytesPerPixel = 3
-
-	// PNGEncoderID - Encoder ID
-	PNGEncoderID = 22
 )
 
 // PNGEncoder - PNG image object
 type PNGEncoder struct{}
 
 // Encode outputs a valid PNG file
-func (p PNGEncoder) Encode(data []byte) []byte {
-	payload := new(Hex).Encode(data)
-	img := imageFromBytes(payload)
+func (p PNGEncoder) Encode(data []byte) ([]byte, error) {
+	img := imageFromBytes(data)
 	encoder := &png.Encoder{
 		CompressionLevel: png.NoCompression,
 	}
 	var buf bytes.Buffer
 	encoder.Encode(&buf, img)
-
-	return buf.Bytes()
+	return buf.Bytes(), nil
 }
 
 // Decode reads a encoded PNG to get the original binary data
@@ -64,14 +59,17 @@ func (p PNGEncoder) Decode(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	data = bytesFromImage(img)
-	return new(Hex).Decode(data)
+	return bytesFromImage(img), nil
 }
 
 // imageFromBytes returns a valid image with data encoded in each pixel
 func imageFromBytes(data []byte) image.Image {
-	// lop off prefix and suffix nulls
-	data = bytes.Trim(data, "\x00")
+
+	// The data cannot contain null bytes in order to be valid, so
+	// we escape 0x0 and 0x1 as such:
+	data = bytes.Replace(data, []byte{0x1}, []byte{0x1, 0x1, 0x1}, -1)
+	data = bytes.Replace(data, []byte{0x0}, []byte{0x1, 0x0, 0x1}, -1)
+
 	nearestSquareRoot := math.Sqrt(float64(len(data)/bytesPerPixel)) + 1 // rounding up
 	width := int(nearestSquareRoot)
 	height := int(nearestSquareRoot)
@@ -106,5 +104,12 @@ func bytesFromImage(img image.Image) []byte {
 			data.WriteByte(byte(b))
 		}
 	}
-	return bytes.Trim(data.Bytes(), "\x00") // lopping off null padding
+
+	buf := bytes.Trim(data.Bytes(), "\x00") // May contain escaped null bytes
+
+	// Unescape null bytes
+	buf = bytes.Replace(buf, []byte{0x1, 0x1, 0x1}, []byte{0x1}, -1)
+	buf = bytes.Replace(buf, []byte{0x1, 0x0, 0x1}, []byte{0x0}, -1)
+
+	return buf // lopping off null padding
 }

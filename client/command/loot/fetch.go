@@ -21,35 +21,27 @@ package loot
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/desertbit/grumble"
 )
 
 // LootFetchCmd - Display the contents of or download a piece of loot
-func LootFetchCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	loot, err := SelectLoot(ctx, con.Rpc)
+func LootFetchCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	loot, err := SelectLoot(cmd, con.Rpc)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-
 	loot, err = con.Rpc.LootContent(context.Background(), loot)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	PrintLootFile(loot, con)
 
-	// Handle loot based on its type
-	switch loot.Type {
-	case clientpb.LootType_LOOT_FILE:
-		PrintLootFile(con.App.Stdout(), loot)
-	case clientpb.LootType_LOOT_CREDENTIAL:
-		PrintLootCredential(con.App.Stdout(), loot)
-	}
-
-	if ctx.Flags.String("save") != "" {
-		savedTo, err := saveLootToDisk(ctx, loot)
+	if save, _ := cmd.Flags().GetString("save"); save != "" {
+		savedTo, err := saveLootToDisk(cmd, loot)
 		if err != nil {
 			con.PrintErrorf("Failed to save loot %s\n", err)
 		}

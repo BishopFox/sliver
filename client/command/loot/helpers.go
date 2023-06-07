@@ -27,16 +27,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/bishopfox/sliver/client/console"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/desertbit/grumble"
 )
 
 var (
@@ -53,12 +53,7 @@ func AddLootFile(rpc rpcpb.SliverRPCClient, name string, fileName string, data [
 	if len(data) < 1 {
 		return ErrNoLootFileData
 	}
-	var lootType clientpb.LootType
-	if isCredential {
-		lootType = clientpb.LootType_LOOT_CREDENTIAL
-	} else {
-		lootType = clientpb.LootType_LOOT_FILE
-	}
+
 	var lootFileType clientpb.FileType
 	if isText(data) || strings.HasSuffix(fileName, ".txt") {
 		lootFileType = clientpb.FileType_TEXT
@@ -67,109 +62,26 @@ func AddLootFile(rpc rpcpb.SliverRPCClient, name string, fileName string, data [
 	}
 	loot := &clientpb.Loot{
 		Name:     name,
-		Type:     lootType,
 		FileType: lootFileType,
 		File: &commonpb.File{
-			Name: path.Base(fileName),
+			Name: filepath.Base(fileName),
 			Data: data,
 		},
 	}
-	if lootType == clientpb.LootType_LOOT_CREDENTIAL {
-		loot.CredentialType = clientpb.CredentialType_FILE
-	}
+
 	_, err := rpc.LootAdd(context.Background(), loot)
 	return err
-}
-
-// AddLootUserPassword - Add user/password as loot
-func AddLootUserPassword(rpc rpcpb.SliverRPCClient, name string, user string, password string) error {
-	loot := &clientpb.Loot{
-		Name:           name,
-		Type:           clientpb.LootType_LOOT_CREDENTIAL,
-		CredentialType: clientpb.CredentialType_USER_PASSWORD,
-		Credential: &clientpb.Credential{
-			User:     user,
-			Password: password,
-		},
-	}
-	_, err := rpc.LootAdd(context.Background(), loot)
-	return err
-}
-
-// AddLootAPIKey - Add a api key as loot
-func AddLootAPIKey(rpc rpcpb.SliverRPCClient, name string, apiKey string) error {
-	loot := &clientpb.Loot{
-		Name:           name,
-		Type:           clientpb.LootType_LOOT_CREDENTIAL,
-		CredentialType: clientpb.CredentialType_API_KEY,
-		Credential: &clientpb.Credential{
-			APIKey: apiKey,
-		},
-	}
-	_, err := rpc.LootAdd(context.Background(), loot)
-	return err
-}
-
-// SelectCredentials - An interactive menu for the user to select a piece of loot
-func SelectCredentials(con *console.SliverConsoleClient) (*clientpb.Loot, error) {
-	allLoot, err := con.Rpc.LootAllOf(context.Background(), &clientpb.Loot{
-		Type: clientpb.LootType_LOOT_CREDENTIAL,
-	})
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-	}
-
-	// Render selection table
-	buf := bytes.NewBufferString("")
-	table := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
-	for _, loot := range allLoot.Loot {
-		fmt.Fprintf(table, "%s\t%s\t%s\t\n", loot.Name, loot.CredentialType, loot.LootID)
-	}
-	table.Flush()
-	options := strings.Split(buf.String(), "\n")
-	options = options[:len(options)-1]
-	if len(options) == 0 {
-		return nil, errors.New("no loot to select from")
-	}
-
-	selected := ""
-	prompt := &survey.Select{
-		Message: "Select a piece of credentials:",
-		Options: options,
-	}
-	err = survey.AskOne(prompt, &selected)
-	if err != nil {
-		return nil, err
-	}
-	for index, value := range options {
-		if value == selected {
-			return allLoot.Loot[index], nil
-		}
-	}
-	return nil, errors.New("loot not found")
 }
 
 // SelectLoot - Interactive menu for the user to select a piece loot (all types)
-func SelectLoot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) (*clientpb.Loot, error) {
-
+func SelectLoot(cmd *cobra.Command, rpc rpcpb.SliverRPCClient) (*clientpb.Loot, error) {
 	// Fetch data with optional filter
-	filter := ctx.Flags.String("filter")
 	var allLoot *clientpb.AllLoot
 	var err error
-	if filter == "" {
-		allLoot, err = rpc.LootAll(context.Background(), &commonpb.Empty{})
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		lootType, err := lootTypeFromHumanStr(filter)
-		if err != nil {
-			return nil, ErrInvalidFileType
-		}
-		allLoot, err = rpc.LootAllOf(context.Background(), &clientpb.Loot{Type: lootType})
-		if err != nil {
-			return nil, err
-		}
+
+	allLoot, err = rpc.LootAll(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return nil, err
 	}
 
 	// Render selection table
@@ -181,9 +93,9 @@ func SelectLoot(ctx *grumble.Context, rpc rpcpb.SliverRPCClient) (*clientpb.Loot
 			filename = loot.File.Name
 		}
 		if loot.Name == filename {
-			fmt.Fprintf(table, "%s\t%s\t%s\t\n", loot.Name, loot.Type, loot.LootID)
+			fmt.Fprintf(table, "%s\t%s\t\n", loot.Name, loot.ID)
 		} else {
-			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t\n", loot.Name, filename, loot.Type, loot.LootID)
+			fmt.Fprintf(table, "%s\t(File name: %s)\t%s\t\n", loot.Name, filename, loot.ID)
 		}
 	}
 	table.Flush()

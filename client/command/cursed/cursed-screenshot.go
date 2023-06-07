@@ -20,15 +20,16 @@ package cursed
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
+
+	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/overlord"
-	"github.com/desertbit/grumble"
 )
 
-func CursedScreenshotCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func CursedScreenshotCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	curse := selectCursedProcess(con)
 	if curse == nil {
 		return
@@ -46,7 +47,7 @@ func CursedScreenshotCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 		return
 	}
 	con.PrintInfof("Taking a screenshot of '%s' ... \n\n", target.Title)
-	quality := ctx.Flags.Int64("quality")
+	quality, _ := cmd.Flags().GetInt64("quality")
 	if quality < 1 || quality > 100 {
 		con.PrintErrorf("Invalid quality value, must be between 1 and 100\n")
 		return
@@ -56,11 +57,11 @@ func CursedScreenshotCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 		con.PrintErrorf("Failed to take screenshot: %s\n", err)
 		return
 	}
-	saveFile := ctx.Flags.String("save")
+	saveFile, _ := cmd.Flags().GetString("save")
 	if saveFile == "" {
 		saveFile = fmt.Sprintf("screenshot-%s.png", time.Now().Format("20060102150405"))
 	}
-	err = ioutil.WriteFile(saveFile, data, 0644)
+	err = os.WriteFile(saveFile, data, 0o644)
 	if err != nil {
 		con.PrintErrorf("Failed to save screenshot: %s\n", err)
 		return

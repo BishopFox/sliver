@@ -24,9 +24,6 @@ import (
 	"sync"
 )
 
-// GzipEncoderID - EncoderID
-const GzipEncoderID = 49
-
 // Gzip - Gzip compression encoder
 type Gzip struct{}
 
@@ -42,13 +39,23 @@ func init() {
 }
 
 // GzipBuf - Gzip a buffer
-func GzipBuf(data []byte) []byte {
+func GzipBuf(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	gzipWriter := gzipWriterPools.Get().(*gzip.Writer)
 	gzipWriter.Reset(&buf)
 	gzipWriter.Write(data)
 	gzipWriter.Close()
 	gzipWriterPools.Put(gzipWriter)
+	return buf.Bytes(), nil
+}
+
+// GzipBufBestCompression - Gzip a buffer using the best compression setting
+func GzipBufBestCompression(data []byte) []byte {
+	gzipWriter, _ := gzip.NewWriterLevel(nil, gzip.BestSpeed)
+	var buf bytes.Buffer
+	gzipWriter.Reset(&buf)
+	gzipWriter.Write(data)
+	gzipWriter.Close()
 	return buf.Bytes()
 }
 
@@ -61,14 +68,14 @@ func GunzipBuf(data []byte) []byte {
 }
 
 // Encode - Compress data with gzip
-func (g Gzip) Encode(data []byte) []byte {
+func (g Gzip) Encode(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	gzipWriter := gzipWriterPools.Get().(*gzip.Writer)
 	gzipWriter.Reset(&buf)
 	gzipWriter.Write(data)
 	gzipWriter.Close()
 	gzipWriterPools.Put(gzipWriter)
-	return buf.Bytes()
+	return buf.Bytes(), nil
 }
 
 // Decode - Uncompressed data with gzip

@@ -274,10 +274,10 @@ func (p *PendingEnvelope) Reassemble() ([]byte, error) {
 	if 1 < len(keys) {
 		sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
 	}
-	dnsLog.Debugf("[dns] reassemble from: %v", keys)
-	for index, k := range keys {
-		dnsLog.Debugf("[dns] reassemble %d (%d->%d): %d bytes",
-			index, len(buffer), len(buffer)+len(p.messages[k]), len(p.messages[k]))
+	// dnsLog.Debugf("[dns] reassemble from: %v", keys)
+	for _, k := range keys {
+		// dnsLog.Debugf("[dns] reassemble %d (%d->%d): %d bytes",
+		// 	index, len(buffer), len(buffer)+len(p.messages[k]), len(p.messages[k]))
 		buffer = append(buffer, p.messages[k]...)
 	}
 	if len(buffer) != int(p.Size) {
@@ -294,8 +294,8 @@ func (p *PendingEnvelope) Insert(dnsMsg *dnspb.DNSMessage) bool {
 		return false // Already complete
 	}
 	p.messages[dnsMsg.Start] = bytes.NewBuffer(dnsMsg.Data).Bytes()
-	dnsLog.Debugf("[dns] msg id: %d, %d->%d, recv: %d of %d",
-		dnsMsg.ID, dnsMsg.Start, int(dnsMsg.Start)+len(dnsMsg.Data), p.received, p.Size)
+	// dnsLog.Debugf("[dns] msg id: %d, %d->%d, recv: %d of %d",
+	// 	dnsMsg.ID, dnsMsg.Start, int(dnsMsg.Start)+len(dnsMsg.Data), p.received, p.Size)
 
 	total := uint32(0)
 	for k := range p.messages {
@@ -303,9 +303,9 @@ func (p *PendingEnvelope) Insert(dnsMsg *dnspb.DNSMessage) bool {
 	}
 	p.received = total
 	p.complete = p.received >= p.Size
-	if p.complete {
-		dnsLog.Debugf("[dns] message complete %d of %d", p.received, p.Size)
-	}
+	// if p.complete {
+	// 	dnsLog.Debugf("[dns] message complete %d of %d", p.received, p.Size)
+	// }
 	return p.complete
 }
 
@@ -589,7 +589,8 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 			}
 
 		case dns.TypeTXT:
-			respTxt := string(implantBase64.Encode(respData))
+			rawTxt, _ := implantBase64.Encode(respData)
+			respTxt := string(rawTxt)
 			txts := []string{}
 			for start, stop := 0, 0; stop < len(respTxt); start = stop {
 				stop += s.MaxTXTLength
@@ -668,7 +669,8 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 			}
 
 		case dns.TypeTXT:
-			respTxt := string(implantBase64.Encode(respData))
+			rawTxt, _ := implantBase64.Encode(respData)
+			respTxt := string(rawTxt)
 			txts := []string{}
 			for start, stop := 0, 0; stop < len(respTxt); start = stop {
 				stop += s.MaxTXTLength
@@ -757,7 +759,8 @@ func (s *SliverDNSServer) handleDataToImplant(domain string, msg *dnspb.DNSMessa
 			}
 
 		case dns.TypeTXT:
-			respTxt := string(implantBase64.Encode(respData))
+			rawTxt, _ := implantBase64.Encode(respData)
+			respTxt := string(rawTxt)
 			txts := []string{}
 			for start, stop := 0, 0; stop < len(respTxt); start = stop {
 				stop += s.MaxTXTLength
@@ -797,7 +800,8 @@ func (s *SliverDNSServer) handleClear(domain string, msg *dnspb.DNSMessage, chec
 			}
 			resp.Answer = append(resp.Answer, a)
 		case dns.TypeTXT:
-			respTxt := string(implantBase64.Encode(respBuf))
+			rawTxt, _ := implantBase64.Encode(respBuf)
+			respTxt := string(rawTxt)
 			txts := []string{}
 			for start, stop := 0, 0; stop < len(respTxt); start = stop {
 				stop += s.MaxTXTLength

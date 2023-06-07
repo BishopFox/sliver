@@ -1,6 +1,7 @@
 // Copyright (c) 2021 Andreas Auernhammer. All rights reserved.
 // Use of this source code is governed by a license that can be
 // found in the LICENSE file.
+// Modifications moloch--
 
 // Package minisign implements the minisign signature scheme.
 package minisign
@@ -31,6 +32,8 @@ const (
 	// Minisign uses this signature scheme to sign and
 	// verify message that don't fit into memory.
 	HashEdDSA uint16 = 0x4445
+
+	RawSigSize = 2 + 8 + ed25519.SignatureSize
 )
 
 // GenerateKey generates a public/private key pair using entropy
@@ -95,10 +98,9 @@ func (r *Reader) Read(p []byte) (int, error) {
 // It behaves like SignWithComments but uses some generic comments.
 func (r *Reader) Sign(privateKey PrivateKey) []byte {
 	var (
-		trustedComment   = "timestamp:" + strconv.FormatInt(time.Now().Unix(), 10)
-		untrustedComment = "signature from private key: " + strings.ToUpper(strconv.FormatUint(privateKey.ID(), 16))
+		trustedComment = strconv.FormatInt(time.Now().Unix(), 10)
 	)
-	return r.SignWithComments(privateKey, trustedComment, untrustedComment)
+	return r.SignWithComments(privateKey, trustedComment, "")
 }
 
 // SignWithComments signs whatever has been read from the underlying
@@ -136,10 +138,19 @@ func (r *Reader) Verify(publicKey PublicKey, signature []byte) bool {
 // It behaves like SignWithComments with some generic comments.
 func Sign(privateKey PrivateKey, message []byte) []byte {
 	var (
-		trustedComment   = "timestamp:" + strconv.FormatInt(time.Now().Unix(), 10)
-		untrustedComment = "signature from private key: " + strings.ToUpper(strconv.FormatUint(privateKey.ID(), 16))
+		trustedComment = strconv.FormatInt(time.Now().Unix(), 10)
 	)
-	return SignWithComments(privateKey, message, trustedComment, untrustedComment)
+	return SignWithComments(privateKey, message, trustedComment, "")
+}
+
+// SignRawBuf - Sign buffer with raw signature
+func SignRawBuf(privateKey PrivateKey, message []byte) [RawSigSize]byte {
+	return signRaw(privateKey, message, false)
+}
+
+// VerifyRawBuf - Verify buffer with raw signature
+func VerifyRawBuf(publicKey PublicKey, rawMessage []byte) bool {
+	return verifyRaw(publicKey, rawMessage, false)
 }
 
 // SignWithComments signs the given message with the private key.
@@ -159,6 +170,44 @@ func SignWithComments(privateKey PrivateKey, message []byte, trustedComment, unt
 func Verify(publicKey PublicKey, message, signature []byte) bool {
 	const isHashed = false
 	return verify(publicKey, message, signature, isHashed)
+}
+
+func signRaw(privateKey PrivateKey, message []byte, isHashed bool) [RawSigSize]byte {
+	var algorithm = EdDSA
+	if isHashed {
+		algorithm = HashEdDSA
+	}
+	var (
+		msgSignature = ed25519.Sign(ed25519.PrivateKey(privateKey.RawBytes[:]), message)
+	)
+	var rawSig [RawSigSize]byte
+	binary.LittleEndian.PutUint16(rawSig[:2], algorithm)
+	binary.LittleEndian.PutUint64(rawSig[2:10], privateKey.ID())
+	copy(rawSig[10:], msgSignature[:])
+	return rawSig
+}
+
+func verifyRaw(publicKey PublicKey, rawMessage []byte, isHashed bool) bool {
+	if len(rawMessage) < RawSigSize+1 {
+		return false
+	}
+	rawSigBuf := rawMessage[:RawSigSize]
+	algorithm := binary.LittleEndian.Uint16(rawSigBuf[:2])
+	keyID := binary.LittleEndian.Uint64(rawSigBuf[2:10])
+	signature := rawSigBuf[10:]
+	message := rawMessage[RawSigSize:]
+
+	if keyID != publicKey.ID() {
+		return false
+	}
+	if algorithm == HashEdDSA && !isHashed {
+		h := blake2b.Sum512(message)
+		message = h[:]
+	}
+	if !ed25519.Verify(ed25519.PublicKey(publicKey.bytes[:]), message, signature[:]) {
+		return false
+	}
+	return ed25519.Verify(ed25519.PublicKey(publicKey.bytes[:]), message, signature[:])
 }
 
 func sign(privateKey PrivateKey, message []byte, trustedComment, untrustedComment string, isHashed bool) []byte {

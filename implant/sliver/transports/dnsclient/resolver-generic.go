@@ -52,7 +52,7 @@ func NewGenericResolver(address string, port string, retryWait time.Duration, re
 			WriteTimeout: timeout,
 			UDPSize:      65000,
 		},
-		base64: encoders.Base64{},
+		base64: encoders.Base64Encoder{},
 		parent: parent,
 	}
 }
@@ -63,7 +63,7 @@ type GenericResolver struct {
 	retries   int
 	retryWait time.Duration
 	resolver  *dns.Client
-	base64    encoders.Base64
+	base64    encoders.Base64Encoder
 	parent    string
 }
 

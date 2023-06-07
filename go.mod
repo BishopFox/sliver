@@ -1,8 +1,8 @@
 module github.com/bishopfox/sliver
 
-go 1.18
+go 1.20
 
-replace github.com/desertbit/grumble v1.1.1 => github.com/moloch--/grumble v1.1.6
+replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
@@ -15,30 +15,35 @@ require (
 	github.com/cheggaaa/pb/v3 v3.1.2
 	github.com/chromedp/cdproto v0.0.0-20230220211738-2b1ec77315c9
 	github.com/chromedp/chromedp v0.9.1
-	github.com/desertbit/columnize v2.1.0+incompatible
-	github.com/desertbit/go-shlex v0.1.1
-	github.com/desertbit/grumble v1.1.1
-	github.com/desertbit/readline v1.5.1
-	github.com/fatih/color v1.15.0
+	github.com/glebarez/sqlite v1.8.0
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
+	github.com/klauspost/compress v1.16.5
 	github.com/lesnuages/go-winio v0.4.19
 	github.com/lesnuages/snitch v0.6.0
-	github.com/mattn/go-sqlite3 v1.14.16
+	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/miekg/dns v1.1.54
+	github.com/moloch--/asciicast v0.1.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
+	github.com/ncruces/go-sqlite3 v0.7.0
 	github.com/pquerna/otp v1.4.0
-	github.com/sirupsen/logrus v1.9.2
+	github.com/reeflective/console v0.1.6
+	github.com/reeflective/readline v1.0.8
+	github.com/rsteube/carapace v0.36.3
+	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
+	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.1
+	github.com/tetratelabs/wazero v1.2.0
 	github.com/things-go/go-socks5 v0.0.3
 	github.com/xlab/treeprint v1.2.0
 	github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e
 	golang.org/x/crypto v0.9.0
+	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/net v0.10.0
 	golang.org/x/sys v0.8.0
 	golang.org/x/term v0.8.0
@@ -68,18 +73,17 @@ require (
 	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d // indirect
-	github.com/desertbit/closer/v3 v3.1.2 // indirect
 	github.com/dlclark/regexp2 v1.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/fatih/color v1.15.0 // indirect
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
+	github.com/glebarez/go-sqlite v1.21.1 // indirect
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.1.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/btree v1.0.1 // indirect
-	github.com/hashicorp/errwrap v1.1.0 // indirect
-	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -95,12 +99,12 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
-	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
+	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
+	github.com/ncruces/julianday v0.1.5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/thedevsaddam/gojsonq/v2 v2.5.2 // indirect
 	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
