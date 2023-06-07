@@ -75,7 +75,6 @@ var daemonCmd = &cobra.Command{
 func StartPersistentJobs(listenerJobs *[]models.ListenerJob) error {
 	if len(*listenerJobs) > 0 {
 		// StartPersistentJobs - Start persistent jobs
-
 		for _, j := range *listenerJobs {
 			listenerJob, err := db.ListenerByJobID(j.JobID)
 			if err != nil {
@@ -83,37 +82,47 @@ func StartPersistentJobs(listenerJobs *[]models.ListenerJob) error {
 			}
 			switch j.Type {
 			case constants.HttpStr:
-				_, err := c2.StartHTTPListenerJob(listenerJob.ToProtobuf().HTTPConf)
+				job, err := c2.StartHTTPListenerJob(listenerJob.ToProtobuf().HTTPConf)
 				if err != nil {
 					return err
 				}
+				j.JobID = uint32(job.ID)
 			case constants.HttpsStr:
-				_, err := c2.StartHTTPListenerJob(listenerJob.ToProtobuf().HTTPConf)
+				job, err := c2.StartHTTPListenerJob(listenerJob.ToProtobuf().HTTPConf)
 				if err != nil {
 					return err
 				}
+				j.JobID = uint32(job.ID)
 			case constants.MtlsStr:
-				_, err := c2.StartMTLSListenerJob(listenerJob.MtlsListener.Host, uint16(listenerJob.MtlsListener.Port))
+				job, err := c2.StartMTLSListenerJob(listenerJob.MtlsListener.Host, uint16(listenerJob.MtlsListener.Port))
 				if err != nil {
 					return err
 				}
+				j.JobID = uint32(job.ID)
 			case constants.WGStr:
-				_, err := c2.StartWGListenerJob(uint16(listenerJob.WgListener.Port), uint16(listenerJob.WgListener.NPort), uint16(listenerJob.WgListener.KeyPort))
+				job, err := c2.StartWGListenerJob(uint16(listenerJob.WgListener.Port), uint16(listenerJob.WgListener.NPort), uint16(listenerJob.WgListener.KeyPort))
 				if err != nil {
 					return err
 				}
+				j.JobID = uint32(job.ID)
 			case constants.DnsStr:
 				var domains []string
 				for _, domain := range listenerJob.DnsListener.Domains {
 					domains = append(domains, domain.Domain)
 				}
-				_, err := c2.StartDNSListenerJob(listenerJob.DnsListener.Host, uint16(listenerJob.DnsListener.Port), domains, listenerJob.DnsListener.Canaries, listenerJob.DnsListener.EnforceOtp)
+				job, err := c2.StartDNSListenerJob(listenerJob.DnsListener.Host, uint16(listenerJob.DnsListener.Port), domains, listenerJob.DnsListener.Canaries, listenerJob.DnsListener.EnforceOtp)
 				if err != nil {
 					return err
 				}
+				j.JobID = uint32(job.ID)
 			case constants.MultiplayerModeStr:
-				console.JobStartClientListener(listenerJob.MultiplayerListener.Host, uint16(listenerJob.MultiplayerListener.Port))
+				id, err := console.JobStartClientListener(listenerJob.MultiplayerListener.Host, uint16(listenerJob.MultiplayerListener.Port))
+				if err != nil {
+					return err
+				}
+				j.JobID = uint32(id)
 			}
+			db.HTTPC2ListenerUpdate(&j)
 		}
 	}
 

@@ -316,6 +316,15 @@ func HTTPC2ListenerSave(listenerConf *models.ListenerJob) error {
 	return nil
 }
 
+func HTTPC2ListenerUpdate(listenerConf *models.ListenerJob) error {
+	dbSession := Session()
+	result := dbSession.Save(listenerConf)
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
 func ListenerByJobID(JobID uint32) (*models.ListenerJob, error) {
 	listenerJob := models.ListenerJob{}
 	err := Session().Where(&models.ListenerJob{JobID: JobID}).Find(&listenerJob).Error
@@ -374,12 +383,7 @@ func ListenerJobs() (*[]models.ListenerJob, error) {
 
 func DeleteListener(JobID uint32) error {
 
-	listenerJob, err := ListenerByJobID(JobID)
-	if err != nil {
-		return err
-	}
-
-	return Session().Delete(listenerJob).Error
+	return Session().Where(&models.ListenerJob{JobID: JobID}).Delete(&models.ListenerJob{}).Error
 }
 
 // ImplantProfileNames - Fetch a list of all build names
