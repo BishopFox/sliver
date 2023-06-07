@@ -1259,3 +1259,14 @@ message CrackFileChunk {
 
   bytes Data = 9;
 }
+
+// watchtower 
+message Monitor {
+  repeated MonitoringProvider Providers = 1;
+}
+
+message MonitoringProvider {
+  string Type = 1;
+  string APIKey = 2;
+  string APIPassword = 3;
+}
