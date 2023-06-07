@@ -27,10 +27,12 @@ import (
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
 // wasmMaxModuleSize - Arbitrary 1.5Gb limit to put us well under the 2Gb max gRPC message size
@@ -139,20 +141,31 @@ func runNonInteractive(execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	if execWasmResp.Response != nil && execWasmResp.Response.Err != "" {
-		con.PrintErrorf("%s\n", execWasmResp.Response.Err)
-		return
+	if execWasmResp.Response != nil && execWasmResp.Response.Async {
+		con.AddBeaconCallback(execWasmResp.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, execWasmResp)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			con.PrintInfof("Executed wasm extension '%s' successfully\n", execWasmReq.Name)
+			os.Stdout.Write(execWasmResp.Stdout)
+			os.Stderr.Write(execWasmResp.Stderr)
+		})
+	} else {
+		con.PrintInfof("Executed wasm extension '%s' successfully\n", execWasmReq.Name)
+		os.Stdout.Write(execWasmResp.Stdout)
+		os.Stderr.Write(execWasmResp.Stderr)
 	}
-	con.PrintInfof("Executed wasm extension '%s' successfully\n", execWasmReq.Name)
-
-	os.Stdout.Write(execWasmResp.Stdout)
-	os.Stderr.Write(execWasmResp.Stderr)
 }
 
 func runInteractive(cmd *cobra.Command, execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.SliverConsoleClient) {
 	session := con.ActiveTarget.GetSession()
 	if session == nil {
 		con.PrintErrorf("No active session\n")
+		if beacon := con.ActiveTarget.GetBeacon(); beacon != nil {
+			con.PrintWarnf("Wasm modules cannot be executed with --pipe in beacon mode\n")
+		}
 		return
 	}
 
