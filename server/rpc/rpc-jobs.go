@@ -86,6 +86,12 @@ func (rpc *Server) KillJob(ctx context.Context, kill *clientpb.KillJobReq) (*cli
 
 // StartMTLSListener - Start an MTLS listener
 func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSListenerReq) (*clientpb.ListenerJob, error) {
+	if 65535 <= req.Port {
+		return nil, ErrInvalidPort
+	}
+	if req.Port == 0 {
+		req.Port = defaultMTLSPort
+	}
 
 	job, err := c2.StartMTLSListenerJob(req)
 	if err != nil {
@@ -112,22 +118,19 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 	if 65535 <= req.Port || 65535 <= req.NPort || 65535 <= req.KeyPort {
 		return nil, ErrInvalidPort
 	}
-	listenPort := uint16(defaultWGPort)
-	if req.Port != 0 {
-		listenPort = uint16(req.Port)
+	if req.Port == 0 {
+		req.Port = defaultWGPort
 	}
 
-	nListenPort := uint16(defaultWGNPort)
-	if req.NPort != 0 {
-		nListenPort = uint16(req.NPort)
+	if req.NPort == 0 {
+		req.NPort = defaultWGNPort
 	}
 
-	keyExchangeListenPort := uint16(defaultWGKeyExPort)
-	if req.NPort != 0 {
-		keyExchangeListenPort = uint16(req.KeyPort)
+	if req.KeyPort == 0 {
+		req.KeyPort = defaultWGKeyExPort
 	}
 
-	job, err := c2.StartWGListenerJob(&clientpb.WGListenerReq{Port: uint32(listenPort), NPort: uint32(nListenPort), KeyPort: uint32(keyExchangeListenPort)})
+	job, err := c2.StartWGListenerJob(req)
 	if err != nil {
 		return nil, err
 	}
