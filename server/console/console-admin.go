@@ -180,7 +180,7 @@ func kickOperatorCmd(ctx *grumble.Context) {
 func startMultiplayerModeCmd(ctx *grumble.Context) {
 	lhost := ctx.Flags.String("lhost")
 	lport := uint16(ctx.Flags.Int("lport"))
-	jobID, err := JobStartClientListener(lhost, lport)
+	jobID, err := JobStartClientListener(&clientpb.MultiplayerListenerReq{Host: lhost, Port: uint32(lport)})
 	if err == nil {
 		fmt.Printf(Info + "Multiplayer mode enabled!\n")
 		multiConfig := &clientpb.MultiplayerListenerReq{Host: lhost, Port: uint32(lport)}
@@ -200,8 +200,8 @@ func startMultiplayerModeCmd(ctx *grumble.Context) {
 	}
 }
 
-func JobStartClientListener(host string, port uint16) (int, error) {
-	_, ln, err := transport.StartClientListener(host, port)
+func JobStartClientListener(multiplayerListener *clientpb.MultiplayerListenerReq) (int, error) {
+	_, ln, err := transport.StartClientListener(multiplayerListener.Host, uint16(multiplayerListener.Port))
 	if err != nil {
 		return -1, err // If we fail to bind don't setup the Job
 	}
@@ -211,7 +211,7 @@ func JobStartClientListener(host string, port uint16) (int, error) {
 		Name:        "grpc",
 		Description: "client listener",
 		Protocol:    "tcp",
-		Port:        port,
+		Port:        uint16(multiplayerListener.Port),
 		JobCtrl:     make(chan bool),
 	}
 

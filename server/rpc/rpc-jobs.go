@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/c2"
@@ -86,21 +87,14 @@ func (rpc *Server) KillJob(ctx context.Context, kill *clientpb.KillJobReq) (*cli
 // StartMTLSListener - Start an MTLS listener
 func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSListenerReq) (*clientpb.ListenerJob, error) {
 
-	if 65535 <= req.Port {
-		return nil, ErrInvalidPort
-	}
-	if req.Port == 0 {
-		req.Port = defaultMTLSPort
-	}
-
-	job, err := c2.StartMTLSListenerJob(req.Host, uint16(req.Port))
+	job, err := c2.StartMTLSListenerJob(req)
 	if err != nil {
 		return nil, err
 	}
 
 	listenerJob := &clientpb.ListenerJob{
 		JobID:    uint32(job.ID),
-		Type:     "mtls",
+		Type:     constants.MtlsStr,
 		MTLSConf: req,
 	}
 	listenerModel := models.ListenerJobFromProtobuf(listenerJob)
@@ -133,14 +127,14 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 		keyExchangeListenPort = uint16(req.KeyPort)
 	}
 
-	job, err := c2.StartWGListenerJob(listenPort, nListenPort, keyExchangeListenPort)
+	job, err := c2.StartWGListenerJob(&clientpb.WGListenerReq{Port: uint32(listenPort), NPort: uint32(nListenPort), KeyPort: uint32(keyExchangeListenPort)})
 	if err != nil {
 		return nil, err
 	}
 
 	listenerJob := &clientpb.ListenerJob{
 		JobID:  uint32(job.ID),
-		Type:   "wg",
+		Type:   constants.WGStr,
 		WGConf: req,
 	}
 	listenerModel := models.ListenerJobFromProtobuf(listenerJob)
@@ -154,22 +148,14 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 
 // StartDNSListener - Start a DNS listener TODO: respect request's Host specification
 func (rpc *Server) StartDNSListener(ctx context.Context, req *clientpb.DNSListenerReq) (*clientpb.ListenerJob, error) {
-	if 65535 <= req.Port {
-		return nil, ErrInvalidPort
-	}
-	listenPort := uint16(defaultDNSPort)
-	if req.Port != 0 {
-		listenPort = uint16(req.Port)
-	}
-
-	job, err := c2.StartDNSListenerJob(req.Host, listenPort, req.Domains, req.Canaries, req.EnforceOTP)
+	job, err := c2.StartDNSListenerJob(req)
 	if err != nil {
 		return nil, err
 	}
 
 	listenerJob := &clientpb.ListenerJob{
 		JobID:   uint32(job.ID),
-		Type:    "dns",
+		Type:    constants.DnsStr,
 		DNSConf: req,
 	}
 	listenerModel := models.ListenerJobFromProtobuf(listenerJob)
@@ -197,7 +183,7 @@ func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPLis
 
 	listenerJob := &clientpb.ListenerJob{
 		JobID:    uint32(job.ID),
-		Type:     "https",
+		Type:     constants.HttpsStr,
 		HTTPConf: req,
 	}
 	listenerModel := models.ListenerJobFromProtobuf(listenerJob)
@@ -225,7 +211,7 @@ func (rpc *Server) StartHTTPListener(ctx context.Context, req *clientpb.HTTPList
 
 	listenerJob := &clientpb.ListenerJob{
 		JobID:    uint32(job.ID),
-		Type:     "http",
+		Type:     constants.HttpStr,
 		HTTPConf: req,
 	}
 	listenerModel := models.ListenerJobFromProtobuf(listenerJob)

@@ -94,29 +94,25 @@ func StartPersistentJobs(listenerJobs *[]models.ListenerJob) error {
 				}
 				j.JobID = uint32(job.ID)
 			case constants.MtlsStr:
-				job, err := c2.StartMTLSListenerJob(listenerJob.MtlsListener.Host, uint16(listenerJob.MtlsListener.Port))
+				job, err := c2.StartMTLSListenerJob(listenerJob.MtlsListener.ToProtobuf())
 				if err != nil {
 					return err
 				}
 				j.JobID = uint32(job.ID)
 			case constants.WGStr:
-				job, err := c2.StartWGListenerJob(uint16(listenerJob.WgListener.Port), uint16(listenerJob.WgListener.NPort), uint16(listenerJob.WgListener.KeyPort))
+				job, err := c2.StartWGListenerJob(listenerJob.WgListener.ToProtobuf())
 				if err != nil {
 					return err
 				}
 				j.JobID = uint32(job.ID)
 			case constants.DnsStr:
-				var domains []string
-				for _, domain := range listenerJob.DnsListener.Domains {
-					domains = append(domains, domain.Domain)
-				}
-				job, err := c2.StartDNSListenerJob(listenerJob.DnsListener.Host, uint16(listenerJob.DnsListener.Port), domains, listenerJob.DnsListener.Canaries, listenerJob.DnsListener.EnforceOtp)
+				job, err := c2.StartDNSListenerJob(listenerJob.DnsListener.ToProtobuf())
 				if err != nil {
 					return err
 				}
 				j.JobID = uint32(job.ID)
 			case constants.MultiplayerModeStr:
-				id, err := console.JobStartClientListener(listenerJob.MultiplayerListener.Host, uint16(listenerJob.MultiplayerListener.Port))
+				id, err := console.JobStartClientListener(listenerJob.MultiplayerListener.ToProtobuf())
 				if err != nil {
 					return err
 				}

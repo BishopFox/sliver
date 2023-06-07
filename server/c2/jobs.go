@@ -42,9 +42,9 @@ var (
 )
 
 // StartMTLSListenerJob - Start an mTLS listener as a job
-func StartMTLSListenerJob(host string, listenPort uint16) (*core.Job, error) {
-	bind := fmt.Sprintf("%s:%d", host, listenPort)
-	ln, err := StartMutualTLSListener(host, listenPort)
+func StartMTLSListenerJob(mtlsListener *clientpb.MTLSListenerReq) (*core.Job, error) {
+	bind := fmt.Sprintf("%s:%d", mtlsListener.Host, mtlsListener.Port)
+	ln, err := StartMutualTLSListener(mtlsListener.Host, uint16(mtlsListener.Port))
 	if err != nil {
 		return nil, err // If we fail to bind don't setup the Job
 	}
@@ -54,7 +54,7 @@ func StartMTLSListenerJob(host string, listenPort uint16) (*core.Job, error) {
 		Name:        "mtls",
 		Description: fmt.Sprintf("mutual tls listener %s", bind),
 		Protocol:    "tcp",
-		Port:        listenPort,
+		Port:        uint16(mtlsListener.Port),
 		JobCtrl:     make(chan bool),
 	}
 
@@ -70,8 +70,8 @@ func StartMTLSListenerJob(host string, listenPort uint16) (*core.Job, error) {
 }
 
 // StartWGListenerJob - Start a WireGuard listener as a job
-func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListenPort uint16) (*core.Job, error) {
-	ln, dev, _, err := StartWGListener(listenPort, nListenPort, keyExchangeListenPort)
+func StartWGListenerJob(wgListener *clientpb.WGListenerReq) (*core.Job, error) {
+	ln, dev, _, err := StartWGListener(uint16(wgListener.Port), uint16(wgListener.NPort), uint16(wgListener.KeyPort))
 	if err != nil {
 		return nil, err // If we fail to bind don't setup the Job
 	}
@@ -79,9 +79,9 @@ func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListen
 	job := &core.Job{
 		ID:          core.NextJobID(),
 		Name:        "wg",
-		Description: fmt.Sprintf("wg listener port: %d", listenPort),
+		Description: fmt.Sprintf("wg listener port: %d", wgListener.Port),
 		Protocol:    "udp",
-		Port:        listenPort,
+		Port:        uint16(wgListener.Port),
 		JobCtrl:     make(chan bool),
 	}
 
@@ -126,17 +126,17 @@ func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListen
 }
 
 // StartDNSListenerJob - Start a DNS listener as a job
-func StartDNSListenerJob(bindIface string, lport uint16, domains []string, canaries bool, enforceOTP bool) (*core.Job, error) {
-	server := StartDNSListener(bindIface, lport, domains, canaries, enforceOTP)
-	description := fmt.Sprintf("%s (canaries %v)", strings.Join(domains, " "), canaries)
+func StartDNSListenerJob(dnsListener *clientpb.DNSListenerReq) (*core.Job, error) {
+	server := StartDNSListener(dnsListener.Host, uint16(dnsListener.Port), dnsListener.Domains, dnsListener.Canaries, dnsListener.EnforceOTP)
+	description := fmt.Sprintf("%s (canaries %v)", strings.Join(dnsListener.Domains, " "), dnsListener.Canaries)
 	job := &core.Job{
 		ID:          core.NextJobID(),
 		Name:        "dns",
 		Description: description,
 		Protocol:    "udp",
-		Port:        lport,
+		Port:        uint16(dnsListener.Port),
 		JobCtrl:     make(chan bool),
-		Domains:     domains,
+		Domains:     dnsListener.Domains,
 	}
 
 	go func() {
