@@ -92,6 +92,8 @@ func newDBClient() *gorm.DB {
 		&models.MultiplayerListener{},
 		&models.MtlsListener{},
 		&models.DnsDomain{},
+		&models.Monitor{},
+		&models.MonitoringProvider{},
 	)
 	if err != nil {
 		clientLog.Error(err)
