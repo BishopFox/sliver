@@ -24,28 +24,14 @@ import (
 	"gorm.io/gorm"
 )
 
-// Loot - Represents a piece of loot
-type Monitor struct {
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	Providers []MonitoringProvider
-}
-
 type MonitoringProvider struct {
 	ID          uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	MonitorID   uuid.UUID `gorm:"type:uuid;"`
 	Type        string    // currently vt or xforce
 	APIKey      string
 	APIPassword string
 }
 
 // creation hooks
-func (m *Monitor) BeforeCreate(tx *gorm.DB) (err error) {
-	m.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 func (m *MonitoringProvider) BeforeCreate(tx *gorm.DB) (err error) {
 	m.ID, err = uuid.NewV4()
@@ -56,17 +42,6 @@ func (m *MonitoringProvider) BeforeCreate(tx *gorm.DB) (err error) {
 }
 
 // convert to protobuf
-func (m *Monitor) ToProtobuf() *clientpb.Monitor {
-	var providers []*clientpb.MonitoringProvider
-	for _, provider := range m.Providers {
-		pbProvider := provider.ToProtobuf()
-		providers = append(providers, pbProvider)
-	}
-	return &clientpb.Monitor{
-		Providers: providers,
-	}
-}
-
 func (m *MonitoringProvider) ToProtobuf() *clientpb.MonitoringProvider {
 	return &clientpb.MonitoringProvider{
 		Type:        m.Type,
@@ -76,21 +51,10 @@ func (m *MonitoringProvider) ToProtobuf() *clientpb.MonitoringProvider {
 }
 
 // convert from protobuf
-func MonitorFromProtobuf(m *clientpb.Monitor) Monitor {
-	var (
-		monitor   Monitor
-		providers []MonitoringProvider
-	)
-
-	for _, pbProvider := range m.Providers {
-		provider := MonitoringProvider{
-			Type:        pbProvider.Type,
-			APIKey:      pbProvider.APIKey,
-			APIPassword: pbProvider.APIPassword,
-		}
-		providers = append(providers, provider)
+func MonitorFromProtobuf(m *clientpb.MonitoringProvider) MonitoringProvider {
+	return MonitoringProvider{
+		Type:        m.Type,
+		APIKey:      m.APIKey,
+		APIPassword: m.APIPassword,
 	}
-
-	monitor.Providers = providers
-	return monitor
 }

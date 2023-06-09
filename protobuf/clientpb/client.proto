@@ -1261,12 +1261,13 @@ message CrackFileChunk {
 }
 
 // watchtower 
-message Monitor {
-  repeated MonitoringProvider Providers = 1;
+message MonitoringProviders {
+  repeated MonitoringProvider providers = 1;
 }
 
 message MonitoringProvider {
-  string Type = 1;
-  string APIKey = 2;
-  string APIPassword = 3;
+  string ID = 1;
+  string Type = 2;
+  string APIKey = 3;
+  string APIPassword = 4;
 }

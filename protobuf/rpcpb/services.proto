@@ -34,6 +34,9 @@ service SliverRPC {
     // ***Threat monitoring ***
     rpc MonitorStart(commonpb.Empty) returns (commonpb.Response);
     rpc MonitorStop(commonpb.Empty) returns (commonpb.Empty);
+    rpc MonitorListConfig(commonpb.Empty) returns (clientpb.MonitoringProviders);
+    rpc MonitorAddConfig(clientpb.MonitoringProvider) returns (commonpb.Response);
+    rpc MonitorDelConfig(clientpb.MonitoringProvider) returns (commonpb.Response);
     
     // *** Jobs ***
     rpc GetJobs(commonpb.Empty) returns (clientpb.Jobs);

@@ -3136,6 +3136,50 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 	})
+	monitorConfigCmd := &grumble.Command{
+		Name: "config",
+		Help: "configure watchtower api keys",
+		Flags: func(f *grumble.Flags) {
+			f.String("t", "type", "", "API key type, vt or xforce")
+			f.String("k", "apiKey", "", "API key")
+			f.String("p", "apiPassword", "", "API password")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			monitor.MonitorConfigCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	}
+
+	monitorConfigCmd.AddCommand(&grumble.Command{
+		Name: "add",
+		Help: "add api keys to watchtower configuration",
+		Flags: func(f *grumble.Flags) {
+			f.String("t", "type", "", "API key type, vt or xforce")
+			f.String("k", "apiKey", "", "API key")
+			f.String("p", "apiPassword", "", "API password")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			monitor.MonitorAddConfigCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+
+	monitorConfigCmd.AddCommand(&grumble.Command{
+		Name: "rm",
+		Help: "configure watchtower api keys",
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			monitor.MonitorDelConfigCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+	})
+
+	monitorCmd.AddCommand(monitorConfigCmd)
 	con.App.AddCommand(monitorCmd)
 
 	// [ Loot ] --------------------------------------------------------------

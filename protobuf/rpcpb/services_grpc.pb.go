@@ -36,6 +36,9 @@ const (
 	SliverRPC_CancelBeaconTask_FullMethodName                 = "/rpcpb.SliverRPC/CancelBeaconTask"
 	SliverRPC_MonitorStart_FullMethodName                     = "/rpcpb.SliverRPC/MonitorStart"
 	SliverRPC_MonitorStop_FullMethodName                      = "/rpcpb.SliverRPC/MonitorStop"
+	SliverRPC_MonitorListConfig_FullMethodName                = "/rpcpb.SliverRPC/MonitorListConfig"
+	SliverRPC_MonitorAddConfig_FullMethodName                 = "/rpcpb.SliverRPC/MonitorAddConfig"
+	SliverRPC_MonitorDelConfig_FullMethodName                 = "/rpcpb.SliverRPC/MonitorDelConfig"
 	SliverRPC_GetJobs_FullMethodName                          = "/rpcpb.SliverRPC/GetJobs"
 	SliverRPC_KillJob_FullMethodName                          = "/rpcpb.SliverRPC/KillJob"
 	SliverRPC_StartMTLSListener_FullMethodName                = "/rpcpb.SliverRPC/StartMTLSListener"
@@ -209,6 +212,9 @@ type SliverRPCClient interface {
 	// ***Threat monitoring ***
 	MonitorStart(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*commonpb.Response, error)
 	MonitorStop(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	MonitorListConfig(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.MonitoringProviders, error)
+	MonitorAddConfig(ctx context.Context, in *clientpb.MonitoringProvider, opts ...grpc.CallOption) (*commonpb.Response, error)
+	MonitorDelConfig(ctx context.Context, in *clientpb.MonitoringProvider, opts ...grpc.CallOption) (*commonpb.Response, error)
 	// *** Jobs ***
 	GetJobs(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Jobs, error)
 	KillJob(ctx context.Context, in *clientpb.KillJobReq, opts ...grpc.CallOption) (*clientpb.KillJob, error)
@@ -507,6 +513,33 @@ func (c *sliverRPCClient) MonitorStart(ctx context.Context, in *commonpb.Empty, 
 func (c *sliverRPCClient) MonitorStop(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*commonpb.Empty, error) {
 	out := new(commonpb.Empty)
 	err := c.cc.Invoke(ctx, SliverRPC_MonitorStop_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) MonitorListConfig(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.MonitoringProviders, error) {
+	out := new(clientpb.MonitoringProviders)
+	err := c.cc.Invoke(ctx, SliverRPC_MonitorListConfig_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) MonitorAddConfig(ctx context.Context, in *clientpb.MonitoringProvider, opts ...grpc.CallOption) (*commonpb.Response, error) {
+	out := new(commonpb.Response)
+	err := c.cc.Invoke(ctx, SliverRPC_MonitorAddConfig_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) MonitorDelConfig(ctx context.Context, in *clientpb.MonitoringProvider, opts ...grpc.CallOption) (*commonpb.Response, error) {
+	out := new(commonpb.Response)
+	err := c.cc.Invoke(ctx, SliverRPC_MonitorDelConfig_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1973,6 +2006,9 @@ type SliverRPCServer interface {
 	// ***Threat monitoring ***
 	MonitorStart(context.Context, *commonpb.Empty) (*commonpb.Response, error)
 	MonitorStop(context.Context, *commonpb.Empty) (*commonpb.Empty, error)
+	MonitorListConfig(context.Context, *commonpb.Empty) (*clientpb.MonitoringProviders, error)
+	MonitorAddConfig(context.Context, *clientpb.MonitoringProvider) (*commonpb.Response, error)
+	MonitorDelConfig(context.Context, *clientpb.MonitoringProvider) (*commonpb.Response, error)
 	// *** Jobs ***
 	GetJobs(context.Context, *commonpb.Empty) (*clientpb.Jobs, error)
 	KillJob(context.Context, *clientpb.KillJobReq) (*clientpb.KillJob, error)
@@ -2189,6 +2225,15 @@ func (UnimplementedSliverRPCServer) MonitorStart(context.Context, *commonpb.Empt
 }
 func (UnimplementedSliverRPCServer) MonitorStop(context.Context, *commonpb.Empty) (*commonpb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MonitorStop not implemented")
+}
+func (UnimplementedSliverRPCServer) MonitorListConfig(context.Context, *commonpb.Empty) (*clientpb.MonitoringProviders, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MonitorListConfig not implemented")
+}
+func (UnimplementedSliverRPCServer) MonitorAddConfig(context.Context, *clientpb.MonitoringProvider) (*commonpb.Response, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MonitorAddConfig not implemented")
+}
+func (UnimplementedSliverRPCServer) MonitorDelConfig(context.Context, *clientpb.MonitoringProvider) (*commonpb.Response, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MonitorDelConfig not implemented")
 }
 func (UnimplementedSliverRPCServer) GetJobs(context.Context, *commonpb.Empty) (*clientpb.Jobs, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetJobs not implemented")
@@ -2892,6 +2937,60 @@ func _SliverRPC_MonitorStop_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).MonitorStop(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_MonitorListConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).MonitorListConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_MonitorListConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).MonitorListConfig(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_MonitorAddConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.MonitoringProvider)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).MonitorAddConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_MonitorAddConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).MonitorAddConfig(ctx, req.(*clientpb.MonitoringProvider))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_MonitorDelConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.MonitoringProvider)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).MonitorDelConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_MonitorDelConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).MonitorDelConfig(ctx, req.(*clientpb.MonitoringProvider))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -5629,6 +5728,18 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MonitorStop",
 			Handler:    _SliverRPC_MonitorStop_Handler,
+		},
+		{
+			MethodName: "MonitorListConfig",
+			Handler:    _SliverRPC_MonitorListConfig_Handler,
+		},
+		{
+			MethodName: "MonitorAddConfig",
+			Handler:    _SliverRPC_MonitorAddConfig_Handler,
+		},
+		{
+			MethodName: "MonitorDelConfig",
+			Handler:    _SliverRPC_MonitorDelConfig_Handler,
 		},
 		{
 			MethodName: "GetJobs",
