@@ -6,7 +6,6 @@ import (
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
@@ -59,20 +58,25 @@ func addExistingImplants() error {
 	return nil
 }
 
-func StartWatchTower(config *configs.ServerConfig) error {
+func StartWatchTower(configs *clientpb.MonitoringProviders) error {
 	var scanners []snitch.Scanner
 	if watcher != nil {
 		return errors.New("monitoring already started")
 	}
-	if config.Watchtower == nil {
-		return errors.New("no provider info")
+	if len(configs.Providers) == 0 {
+		return errors.New("missing provider credentials")
 	}
-	if config.Watchtower.VTApiKey != "" {
-		scanners = append(scanners, snitch.NewVTScanner(config.Watchtower.VTApiKey, snitch.VTMaxRequests, "Virus Total"))
+
+	for _, config := range configs.Providers {
+		if config.Type == "vt" {
+			scanners = append(scanners, snitch.NewVTScanner(config.APIKey, snitch.VTMaxRequests, "Virus Total"))
+		}
+		if config.Type == "xforce" {
+			scanners = append(scanners, snitch.NewXForceScanner(config.APIKey, config.APIPassword, snitch.XForceMaxRequests, "IBM X-Force"))
+		}
+
 	}
-	if config.Watchtower.XForceApiKey != "" && config.Watchtower.XForceApiPassword != "" {
-		scanners = append(scanners, snitch.NewXForceScanner(config.Watchtower.XForceApiKey, config.Watchtower.XForceApiPassword, snitch.XForceMaxRequests, "IBM X-Force"))
-	}
+
 	if len(scanners) == 0 {
 		return errors.New("missing provider credentials")
 	}

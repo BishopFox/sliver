@@ -5,13 +5,12 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/watchtower"
 )
 
 func (rpc *Server) MonitorStart(ctx context.Context, _ *commonpb.Empty) (*commonpb.Response, error) {
 	resp := &commonpb.Response{}
-	config := configs.GetServerConfig()
+	config, _ := watchtower.ListConfig()
 	err := watchtower.StartWatchTower(config)
 	if err != nil {
 		resp.Err = err.Error()
