@@ -44,6 +44,7 @@ func (m *MonitoringProvider) BeforeCreate(tx *gorm.DB) (err error) {
 // convert to protobuf
 func (m *MonitoringProvider) ToProtobuf() *clientpb.MonitoringProvider {
 	return &clientpb.MonitoringProvider{
+		ID:          m.ID.String(),
 		Type:        m.Type,
 		APIKey:      m.APIKey,
 		APIPassword: m.APIPassword,
@@ -52,7 +53,9 @@ func (m *MonitoringProvider) ToProtobuf() *clientpb.MonitoringProvider {
 
 // convert from protobuf
 func MonitorFromProtobuf(m *clientpb.MonitoringProvider) MonitoringProvider {
+	uuid, _ := uuid.FromString(m.ID)
 	return MonitoringProvider{
+		ID:          uuid,
 		Type:        m.Type,
 		APIKey:      m.APIKey,
 		APIPassword: m.APIPassword,

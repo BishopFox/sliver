@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -52,7 +53,7 @@ func MonitorAddConfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 		MonitoringProvider.APIPassword = apiPassword
 	}
 
-	resp, err := con.Rpc.MonitorAddConfig(context.Background(), &clientpb.MonitoringProvider{})
+	resp, err := con.Rpc.MonitorAddConfig(context.Background(), MonitoringProvider)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -66,26 +67,24 @@ func MonitorAddConfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 
 func MonitorDelConfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
-	apiKey := ctx.Flags.String("apiKey")
-	apiPassword := ctx.Flags.String("apiPassword")
-	apiType := ctx.Flags.String("type")
-
-	MonitoringProvider := &clientpb.MonitoringProvider{Type: apiType, APIKey: apiKey}
-
-	if apiType == "xforce" {
-		MonitoringProvider.APIPassword = apiPassword
-	}
-
-	resp, err := con.Rpc.MonitorDelConfig(context.Background(), &clientpb.MonitoringProvider{})
+	resp, err := con.Rpc.MonitorListConfig(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	if resp != nil && resp.Err != "" {
-		con.PrintErrorf("%s\n", resp.Err)
+
+	config, err := selectWatchtowerConfig(resp)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
 		return
 	}
-	con.PrintInfof("Added monitoring configuration\n")
+
+	_, err = con.Rpc.MonitorDelConfig(context.Background(), config)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	con.PrintInfof("Removed monitoring configuration\n")
 }
 
 // PrintWTConfig - Print the current watchtower configuration
@@ -112,4 +111,29 @@ func PrintWTConfig(configs *clientpb.MonitoringProviders, con *console.SliverCon
 	}
 
 	con.Printf("%s\n", tw.Render())
+}
+
+func selectWatchtowerConfig(configs *clientpb.MonitoringProviders) (*clientpb.MonitoringProvider, error) {
+
+	var options []string
+	for _, config := range configs.Providers {
+		options = append(options, config.Type)
+	}
+
+	selected := ""
+	prompt := &survey.Select{
+		Message: "Select a configuration:",
+		Options: options,
+	}
+	err := survey.AskOne(prompt, &selected)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, provider := range configs.Providers {
+		if provider.Type == selected {
+			return provider, nil
+		}
+	}
+	return nil, nil
 }

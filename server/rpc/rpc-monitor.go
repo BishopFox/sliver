@@ -36,13 +36,17 @@ func (rpc *Server) MonitorListConfig(ctx context.Context, _ *commonpb.Empty) (*c
 func (rpc *Server) MonitorAddConfig(ctx context.Context, m *clientpb.MonitoringProvider) (*commonpb.Response, error) {
 	resp := &commonpb.Response{}
 	err := watchtower.AddConfig(m)
-	resp.Err = err
+	if err != nil {
+		resp.Err = err.Error()
+	}
 	return resp, nil
 }
 
 func (rpc *Server) MonitorDelConfig(ctx context.Context, m *clientpb.MonitoringProvider) (*commonpb.Response, error) {
 	resp := &commonpb.Response{}
 	err := watchtower.DelConfig(m)
-	resp.Err = err
+	if err != nil {
+		resp.Err = err.Error()
+	}
 	return resp, nil
 }

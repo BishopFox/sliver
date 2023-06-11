@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
@@ -100,4 +101,26 @@ func StopWatchTower() {
 	}
 	initialized = false
 	watcher = nil
+}
+
+func ListConfig() (*clientpb.MonitoringProviders, error) {
+	providers, err := db.WatchTowerConfigs()
+	res := clientpb.MonitoringProviders{}
+	for _, provider := range providers {
+		res.Providers = append(res.Providers, provider.ToProtobuf())
+	}
+	return &res, err
+}
+
+func AddConfig(m *clientpb.MonitoringProvider) error {
+
+	provider := models.MonitorFromProtobuf(m)
+	err := db.WatchTowerConfigSave(&provider)
+	return err
+}
+
+func DelConfig(m *clientpb.MonitoringProvider) error {
+	provider := models.MonitorFromProtobuf(m)
+	err := db.WatchTowerConfigDel(&provider)
+	return err
 }

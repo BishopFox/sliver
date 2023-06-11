@@ -382,7 +382,6 @@ func ListenerJobs() (*[]models.ListenerJob, error) {
 }
 
 func DeleteListener(JobID uint32) error {
-
 	return Session().Where(&models.ListenerJob{JobID: JobID}).Delete(&models.ListenerJob{}).Error
 }
 
@@ -862,4 +861,26 @@ func CrackFilesDiskUsage() (int64, error) {
 		sum += crackFile.UncompressedSize
 	}
 	return sum, nil
+}
+
+// watchtower - List configurations
+func WatchTowerConfigs() ([]*models.MonitoringProvider, error) {
+	var monitoringProviders []*models.MonitoringProvider
+	err := Session().Where(&models.MonitoringProvider{}).Find(&monitoringProviders).Error
+	return monitoringProviders, err
+}
+
+func WatchTowerConfigSave(m *models.MonitoringProvider) error {
+	dbSession := Session()
+	result := dbSession.Clauses(clause.OnConflict{
+		UpdateAll: true,
+	}).Create(&m)
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
+func WatchTowerConfigDel(m *models.MonitoringProvider) error {
+	return Session().Where(&models.MonitoringProvider{ID: m.ID}).Delete(&models.MonitoringProvider{}).Error
 }
