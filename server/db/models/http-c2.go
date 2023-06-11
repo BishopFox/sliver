@@ -22,9 +22,10 @@ import (
 	"fmt"
 	"time"
 
+	insecureRand "math/rand"
+
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/gofrs/uuid"
-	insecureRand "math/rand"
 
 	"gorm.io/gorm"
 )
@@ -375,6 +376,12 @@ func RandomizeImplantConfig(h *clientpb.HTTPC2ImplantConfig, goos string, goarch
 		CloseFileExtension:        h.CloseFileExtension,
 		PathSegments:              RandomPathSegments(h),
 		UserAgent:                 GenerateUserAgent(goos, goarch, h.UserAgent, h.ChromeBaseVersion, h.MacOSVersion),
+		ChromeBaseVersion:         h.ChromeBaseVersion,
+		MacOSVersion:              h.MacOSVersion,
+		MinFiles:                  h.MinFiles,
+		MaxFiles:                  h.MaxFiles,
+		MinPaths:                  h.MinPaths,
+		MaxPaths:                  h.MaxPaths,
 	}
 }
 
