@@ -735,10 +735,10 @@ gorm.io/driver/mysql
 # gorm.io/driver/postgres v1.5.2
 ## explicit; go 1.18
 gorm.io/driver/postgres
-# gorm.io/driver/sqlite v1.5.1
+# gorm.io/driver/sqlite v1.5.2
 ## explicit; go 1.20
 gorm.io/driver/sqlite
-# gorm.io/gorm v1.25.1
+# gorm.io/gorm v1.25.2-0.20230530020048-26663ab9bf55
 ## explicit; go 1.16
 gorm.io/gorm
 gorm.io/gorm/callbacks
