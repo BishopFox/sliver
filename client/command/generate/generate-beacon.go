@@ -33,8 +33,7 @@ func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 		save, _ = os.Getwd()
 	}
 	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
-		disableSGN, _ := cmd.Flags().GetBool("disable-sgn")
-		compile(config, disableSGN, save, con)
+		compile(config, save, con)
 	} else {
 		externalBuild(config, save, con)
 	}

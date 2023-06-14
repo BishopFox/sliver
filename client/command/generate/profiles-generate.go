@@ -46,8 +46,11 @@ func ProfilesGenerateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, a
 	}
 	profile := GetImplantProfileByName(name, con)
 	if profile != nil {
-		disableSGN, _ := cmd.Flags().GetBool("disable-sgn")
-		implantFile, err := compile(profile.Config, disableSGN, save, con)
+		// If SGN is explicitly disabled, make sure this compilation reflects that despite whatever is set in the profile
+		if SGNDisabled, _ := cmd.Flags().GetBool("disable-sgn"); SGNDisabled {
+			profile.Config.SGNEnabled = !SGNDisabled
+		}
+		implantFile, err := compile(profile.Config, save, con)
 		if err != nil {
 			return
 		}

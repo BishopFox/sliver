@@ -137,6 +137,7 @@ message ImplantConfig {
   bool Evasion = 9;
   bool ObfuscateSymbols = 10;
   string TemplateName = 11;
+  bool SGNEnabled = 12;
 
   string MtlsCACert = 20;
   string MtlsCert = 21;

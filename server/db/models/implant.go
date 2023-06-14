@@ -94,6 +94,7 @@ type ImplantConfig struct {
 	ReconnectInterval   int64
 	MaxConnectionErrors uint32
 	ConnectionStrategy  string
+	SGNEnabled          bool
 
 	// WireGuard
 	WGImplantPrivKey  string
@@ -171,6 +172,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		Evasion:          ic.Evasion,
 		ObfuscateSymbols: ic.ObfuscateSymbols,
 		TemplateName:     ic.TemplateName,
+		SGNEnabled:       ic.SGNEnabled,
 
 		ReconnectInterval:   ic.ReconnectInterval,
 		MaxConnectionErrors: ic.MaxConnectionErrors,

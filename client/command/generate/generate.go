@@ -99,8 +99,7 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 		save, _ = os.Getwd()
 	}
 	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
-		disableSGN, _ := cmd.Flags().GetBool("disable-sgn")
-		compile(config, disableSGN, save, con)
+		compile(config, save, con)
 	} else {
 		_, err := externalBuild(config, save, con)
 		if err != nil {
@@ -290,6 +289,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverConsoleClient) *cl
 	isSharedLib := false
 	isService := false
 	isShellcode := false
+	sgnEnabled := false
 
 	format, _ := cmd.Flags().GetString("format")
 	runAtLoad := false
@@ -304,6 +304,8 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverConsoleClient) *cl
 	case "shellcode":
 		configFormat = clientpb.OutputFormat_SHELLCODE
 		isShellcode = true
+		sgnEnabled, _ = cmd.Flags().GetBool("disable-sgn")
+		sgnEnabled = !sgnEnabled
 	case "service":
 		configFormat = clientpb.OutputFormat_SERVICE
 		isService = true
@@ -364,6 +366,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverConsoleClient) *cl
 		Name:             name,
 		Debug:            debug,
 		Evasion:          evasion,
+		SGNEnabled:       sgnEnabled,
 		ObfuscateSymbols: symbolObfuscation,
 		C2:               c2s,
 		CanaryDomains:    canaryDomains,
@@ -866,7 +869,7 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 	return nil, nil
 }
 
-func compile(config *clientpb.ImplantConfig, disableSGN bool, save string, con *console.SliverConsoleClient) (*commonpb.File, error) {
+func compile(config *clientpb.ImplantConfig, save string, con *console.SliverConsoleClient) (*commonpb.File, error) {
 	if config.IsBeacon {
 		interval := time.Duration(config.BeaconInterval)
 		con.PrintInfof("Generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
@@ -902,7 +905,7 @@ func compile(config *clientpb.ImplantConfig, disableSGN bool, save string, con *
 
 	fileData := generated.File.Data
 	if config.IsShellcode {
-		if disableSGN {
+		if !config.SGNEnabled {
 			con.PrintErrorf("Shikata ga nai encoder is %sdisabled%s\n", console.Bold, console.Normal)
 		} else {
 			con.PrintInfof("Encoding shellcode with shikata ga nai ... ")
