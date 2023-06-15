@@ -258,7 +258,7 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 						return
 					}
 				case <-time.After(mtls.PingInterval):
-					mtls.WritePing(conn)
+					err = mtls.WritePing(conn)
 					if err != nil {
 						return
 					}
@@ -370,7 +370,7 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 						return
 					}
 				case <-time.After(wireguard.PingInterval):
-					wireguard.WritePing(conn)
+					err = wireguard.WritePing(conn)
 					if err != nil {
 						return
 					}
