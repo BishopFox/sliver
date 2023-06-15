@@ -27,6 +27,7 @@ import "C"
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 	"log"
 	insecureRand "math/rand"
 	"os"
@@ -64,6 +65,7 @@ import (
 var (
 	InstanceID       string
 	connectionErrors = 0
+	ErrTerminate     = errors.New("terminate")
 )
 
 func init() {
@@ -239,6 +241,10 @@ func sessionStartup() {
 	for connection := range connections {
 		if connection != nil {
 			err := sessionMainLoop(connection)
+			if err == ErrTerminate {
+				connection.Cleanup()
+				return
+			}
 			if err != nil {
 				connectionErrors++
 				if transports.GetMaxConnectionErrors() < connectionErrors {
@@ -599,11 +605,13 @@ func sessionMainLoop(connection *transports.Connection) error {
 	rportfwdHandlers := handlers.GetRportFwdHandlers()
 
 	for envelope := range connection.Recv {
-		if handler, ok := specialHandlers[envelope.Type]; ok {
+		if _, ok := specialHandlers[envelope.Type]; ok {
+			// Special handler at this point is just the exit handler.
+			// We can safely return here, and let the caller know thart we want to terminate.
 			// {{if .Config.Debug}}
 			log.Printf("[recv] specialHandler %d", envelope.Type)
 			// {{end}}
-			handler(envelope.Data, connection)
+			return ErrTerminate
 		} else if handler, ok := pivotHandlers[envelope.Type]; ok {
 			// {{if .Config.Debug}}
 			log.Printf("[recv] pivotHandler with type %d", envelope.Type)

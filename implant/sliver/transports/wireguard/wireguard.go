@@ -89,8 +89,18 @@ func WriteEnvelope(connection net.Conn, envelope *pb.Envelope) error {
 	}
 	dataLengthBuf := new(bytes.Buffer)
 	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data)))
-	connection.Write(dataLengthBuf.Bytes())
-	connection.Write(data)
+	if _, werr := connection.Write(dataLengthBuf.Bytes()); werr != nil {
+		// {{if .Config.Debug}}
+		log.Print("Socket error (write msg-length): ", werr)
+		// {{end}}
+		return werr
+	}
+	if _, werr := connection.Write(data); werr != nil {
+		// {{if .Config.Debug}}
+		log.Print("Socket error (write msg): ", werr)
+		// {{end}}
+		return werr
+	}
 	return nil
 }
 
