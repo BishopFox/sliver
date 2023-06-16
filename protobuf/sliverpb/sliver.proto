@@ -442,6 +442,7 @@ message ExecuteWindowsReq {
   string Stdout = 4;
   string Stderr = 5;
   bool UseToken = 6;
+  bool HideWindow = 7;
   uint32 PPid = 10;
 
   commonpb.Request Request = 9;
