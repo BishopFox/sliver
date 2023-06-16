@@ -115,9 +115,6 @@ func getOperatorServerTLSConfig(host string) *tls.Config {
 		Certificates: []tls.Certificate{cert},
 		MinVersion:   tls.VersionTLS13,
 	}
-	if certs.TLSKeyLogger != nil {
-		tlsConfig.KeyLogWriter = certs.TLSKeyLogger
-	}
 
 	return tlsConfig
 }
