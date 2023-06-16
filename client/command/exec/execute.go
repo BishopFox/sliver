@@ -44,6 +44,7 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 	args = args[1:]
 
 	token, _ := cmd.Flags().GetBool("token")
+	hidden, _ := cmd.Flags().GetBool("hidden")
 	output, _ := cmd.Flags().GetBool("output")
 	stdout, _ := cmd.Flags().GetString("stdout")
 	stderr, _ := cmd.Flags().GetString("stderr")
@@ -64,16 +65,21 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("Executing %s %s ...", cmdPath, strings.Join(args, " ")), ctrl)
-	if token || ppid != 0 {
+	if token || hidden || ppid != 0 {
+		if session.OS != "windows" {
+			con.PrintErrorf("The token, hide window, and ppid options are not valid on %s\n", session.OS)
+			return
+		}
 		exec, err = con.Rpc.ExecuteWindows(context.Background(), &sliverpb.ExecuteWindowsReq{
-			Request:  con.ActiveTarget.Request(cmd),
-			Path:     cmdPath,
-			Args:     args,
-			Output:   captureOutput,
-			Stderr:   stderr,
-			Stdout:   stdout,
-			UseToken: token,
-			PPid:     ppid,
+			Request:    con.ActiveTarget.Request(cmd),
+			Path:       cmdPath,
+			Args:       args,
+			Output:     captureOutput,
+			Stderr:     stderr,
+			Stdout:     stdout,
+			UseToken:   token,
+			HideWindow: hidden,
+			PPid:       ppid,
 		})
 	} else {
 		exec, err = con.Rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
