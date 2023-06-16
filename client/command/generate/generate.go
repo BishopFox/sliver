@@ -534,7 +534,7 @@ func ParseWGc2(args string) ([]*clientpb.ImplantC2, error) {
 func hasValidC2AdvancedOptions(options url.Values) (bool, error) {
 	for key, value := range options {
 		if len(value) > 1 {
-			return false, fmt.Errorf("too many values specified for advanced option %s. Only one value for %s can be specified.", key, key)
+			return false, fmt.Errorf("too many values specified for advanced option %s. Only one value for %s can be specified", key, key)
 		}
 		testValue := value[0]
 
@@ -591,13 +591,35 @@ func hasValidC2AdvancedOptions(options url.Values) (bool, error) {
 	return true, nil
 }
 
+func checkOptionValue(c2Options url.Values, option string, value string) bool {
+	if !c2Options.Has(option) {
+		return false
+	} else {
+		optionValue := c2Options.Get(option)
+		return strings.ToLower(optionValue) == value
+	}
+}
+
+func uriWithoutProxyOptions(uri *url.URL) {
+	options := uri.Query()
+	// If any of the options do not exist, there is no error
+	options.Del("proxy")
+	options.Del("proxy-username")
+	options.Del("proxy-password")
+	options.Del("ask-proxy-creds")
+	options.Del("fallback")
+
+	uri.RawQuery = options.Encode()
+}
+
 // ParseHTTPc2 - Parse HTTP connection string arg
 func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
 		return c2s, nil
 	}
-	for index, arg := range strings.Split(args, ",") {
+	allArguments := strings.Split(args, ",")
+	for index, arg := range allArguments {
 		var uri *url.URL
 		var err error
 		if cmp := strings.ToLower(arg); strings.HasPrefix(cmp, "http://") || strings.HasPrefix(cmp, "https://") {
@@ -622,6 +644,16 @@ func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 			Priority: uint32(index),
 			URL:      uri.String(),
 		})
+		/* If a proxy is defined and the operator wants to fallback to connecting directly, add
+		   a C2 that connects directly without the proxy settings.
+		*/
+		if checkOptionValue(uri.Query(), "fallback", "true") && uri.Query().Has("proxy") && !checkOptionValue(uri.Query(), "driver", "wininet") {
+			uriWithoutProxyOptions(uri)
+			c2s = append(c2s, &clientpb.ImplantC2{
+				Priority: uint32(index + len(allArguments)),
+				URL:      uri.String(),
+			})
+		}
 	}
 	return c2s, nil
 }
