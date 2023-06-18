@@ -1837,7 +1837,7 @@ func BindCommands(con *console.SliverConsoleClient) {
         con.App.AddCommand(mkdirCmd)
         
 
-	con.App.AddCommand(&grumble.Command{
+        cdCmd := &grumble.Command{
 		Name:     consts.CdStr,
 		Help:     "Change directory",
 		LongHelp: help.GetHelpFor([]string{consts.CdStr}),
@@ -1854,7 +1854,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+	con.App.AddCommand(cdCmd)
 
 	con.App.AddCommand(&grumble.Command{
 		Name:     consts.PwdStr,
@@ -3693,8 +3694,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 
         // Add the relevant beacon commands as a subcommand to taskmany
         taskmanyCmd.AddCommand(wrapCommandWithTaskmany(executeCmd, con))
-        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(rmCmd, con))
         taskmanyCmd.AddCommand(wrapCommandWithTaskmany(lsCmd, con))
+        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(cdCmd, con))
         taskmanyCmd.AddCommand(wrapCommandWithTaskmany(mkdirCmd, con))
         taskmanyCmd.AddCommand(wrapCommandWithTaskmany(rmCmd, con))
         taskmanyCmd.AddCommand(wrapCommandWithTaskmany(uploadCmd, con))
