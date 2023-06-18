@@ -19,8 +19,6 @@ package c2
 */
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	insecureRand "math/rand"
 	"os"
 	"testing"
@@ -34,8 +32,7 @@ import (
 )
 
 var (
-	serverECCKeyPair  *cryptography.ECCKeyPair
-	implantECCKeyPair *cryptography.ECCKeyPair
+	serverAgeKeyPair *cryptography.AgeKeyPair
 )
 
 func TestMain(m *testing.M) {
@@ -58,29 +55,16 @@ func TestMain(m *testing.M) {
 func setup() *models.ImplantConfig {
 	var err error
 	certs.SetupCAs()
-	serverECCKeyPair = cryptography.ECCServerKeyPair()
-	implantECCKeyPair, err = cryptography.RandomECCKeyPair()
-	if err != nil {
-		panic(err)
-	}
-	totpSecret, err := cryptography.TOTPServerSecret()
-	if err != nil {
-		panic(err)
-	}
+	serverAgeKeyPair = cryptography.AgeServerKeyPair()
 	implantCrypto.SetSecrets(
-		implantECCKeyPair.PublicBase64(),
-		implantECCKeyPair.PrivateBase64(),
 		"",
-		serverECCKeyPair.PublicBase64(),
-		totpSecret,
 		"",
+		"",
+		serverAgeKeyPair.Public,
+		cryptography.MinisignServerPublicKey(),
 	)
-	digest := sha256.Sum256(implantECCKeyPair.Public[:])
 	implantConfig := &models.ImplantConfig{
-		ECCPublicKey:       implantECCKeyPair.PublicBase64(),
-		ECCPrivateKey:      implantECCKeyPair.PrivateBase64(),
-		ECCPublicKeyDigest: hex.EncodeToString(digest[:]),
-		ECCServerPublicKey: serverECCKeyPair.PublicBase64(),
+		ECCServerPublicKey: serverAgeKeyPair.Public,
 	}
 	err = db.Session().Create(implantConfig).Error
 	if err != nil {

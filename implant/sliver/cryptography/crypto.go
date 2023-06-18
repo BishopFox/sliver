@@ -26,29 +26,17 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"errors"
-	"io"
 	"os"
 	"sync"
-	"time"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
-	"github.com/pquerna/otp"
-	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/crypto/nacl/box"
 )
 
 var (
-	totpOptions = totp.ValidateOpts{
-		Digits:    8,
-		Algorithm: otp.AlgorithmSHA256,
-		Period:    uint(30),
-		Skew:      uint(1),
-	}
-
 	// ErrReplayAttack - Replay attack
 	ErrReplayAttack = errors.New("replay attack detected")
 	// ErrDecryptFailed
@@ -58,9 +46,9 @@ var (
 )
 
 // ECCKeyPair - Holds the public/private key pair
-type ECCKeyPair struct {
-	Public  *[32]byte
-	Private *[32]byte
+type AgeKeyPair struct {
+	Public  string
+	Private string
 }
 
 func init() {
@@ -74,23 +62,17 @@ func init() {
 
 const msgSizeLimit = 8 * 1024
 
-// ECCEncrypt - Encrypt using Nacl Box
-func ECCEncrypt(recipientPublicKey *[32]byte, senderPrivateKey *[32]byte, plaintext []byte) ([]byte, error) {
+// AgeEncrypt - Encrypt using Nacl Box
+func AgeEncrypt(recipientPublicKey string, plaintext []byte) ([]byte, error) {
 	// Arbitrary upper limit for plaintext
 	if msgSizeLimit < len(plaintext) {
 		return nil, errors.New("plaintext too long")
 	}
-
-	var nonce [24]byte
-	if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
-		return nil, err
-	}
-	encrypted := box.Seal(nonce[:], plaintext, &nonce, recipientPublicKey, senderPrivateKey)
-	return encrypted, nil
+	return nil, nil
 }
 
-// ECCDecrypt - Decrypt using Curve 25519 + ChaCha20Poly1305
-func ECCDecrypt(senderPublicKey *[32]byte, recipientPrivateKey *[32]byte, ciphertext []byte) ([]byte, error) {
+// AgeDecrypt - Decrypt using Curve 25519 + ChaCha20Poly1305
+func AgeDecrypt(recipientPrivateKey string, ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) < 24 {
 		return nil, errors.New("ciphertext too short")
 	}
@@ -99,13 +81,7 @@ func ECCDecrypt(senderPublicKey *[32]byte, recipientPrivateKey *[32]byte, cipher
 		return nil, errors.New("ciphertext too long")
 	}
 
-	var decryptNonce [24]byte
-	copy(decryptNonce[:], ciphertext[:24])
-	plaintext, ok := box.Open(nil, ciphertext[24:], &decryptNonce, senderPublicKey, recipientPrivateKey)
-	if !ok {
-		return nil, ErrDecryptFailed
-	}
-	return plaintext, nil
+	return nil, nil
 }
 
 // RandomKey - Generate random ID of randomIDSize bytes
@@ -184,7 +160,7 @@ func (c *CipherContext) Decrypt(msg []byte) ([]byte, error) {
 		return nil, ErrDecryptFailed
 	}
 	ciphertext := msg[minisignRawSigSize:]
-	serverPublicKey, err := DecodeMinisignPublicKey(minisignServerPublicKey)
+	serverPublicKey, err := DecodeMinisignPublicKey(serverMinisignPublicKey)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("failed to decode minisign public key: %s", err)
@@ -225,35 +201,6 @@ func (c *CipherContext) Encrypt(plaintext []byte) ([]byte, error) {
 		c.replay.Store(b64Digest, true)
 	}
 	return ciphertext, nil
-}
-
-// GetExactOTPCode - Get the OTP code for a specific timestamp
-func GetExactOTPCode(timestamp time.Time) string {
-	code, _ := totp.GenerateCodeCustom(totpSecret, timestamp, totpOptions)
-	// {{if .Config.Debug}}
-	log.Printf("TOTP Code (%s): %s", timestamp, code)
-	// {{end}}
-	return code
-}
-
-// GetOTPCode - Get the current OTP code
-func GetOTPCode() string {
-	now := time.Now().UTC()
-	code, _ := totp.GenerateCodeCustom(totpSecret, now, totpOptions)
-	// {{if .Config.Debug}}
-	log.Printf("TOTP Code: %s", code)
-	// {{end}}
-	return code
-}
-
-// ValidateTOTP - Validate a TOTP code
-func ValidateTOTP(code string) (bool, error) {
-	now := time.Now().UTC()
-	valid, err := totp.ValidateCustom(code, totpSecret, now, totpOptions)
-	if err != nil {
-		return false, err
-	}
-	return valid, nil
 }
 
 // rootOnlyVerifyCertificate - Go doesn't provide a method for only skipping hostname validation so

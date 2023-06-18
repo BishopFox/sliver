@@ -20,7 +20,6 @@ package generate
 
 import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db/models"
 )
 
@@ -30,12 +29,7 @@ func SliverExternal(name string, config *models.ImplantConfig) (*clientpb.Extern
 	if err != nil {
 		return nil, err
 	}
-	otpSecret, err := cryptography.TOTPServerSecret()
-	if err != nil {
-		return nil, err
-	}
 	return &clientpb.ExternalImplantConfig{
-		Config:    config.ToProtobuf(),
-		OTPSecret: otpSecret,
+		Config: config.ToProtobuf(),
 	}, nil
 }

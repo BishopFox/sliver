@@ -33,23 +33,16 @@ import (
 	"errors"
 	"io"
 	"sync"
-	"time"
 
+	"filippo.io/age"
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/util/encoders"
-	"github.com/pquerna/otp"
-	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/crypto/nacl/box"
 )
 
 const (
-	// TOTPDigits - Number of digits in the TOTP
-	TOTPDigits               = 8
-	TOTPPeriod               = uint(30)
-	TOTPSecretKey            = "server.totp"
-	ServerECCKeyPairKey      = "server.ecc"
+	ServerECCKeyPairKey      = "server.age"
 	serverMinisignPrivateKey = "server.minisign"
 )
 
@@ -93,48 +86,69 @@ func KeyFromBytes(data []byte) ([chacha20poly1305.KeySize]byte, error) {
 	return key, nil
 }
 
-// ECCKeyPair - Holds the public/private key pair
-type ECCKeyPair struct {
-	Public  *[32]byte `json:"public"`
-	Private *[32]byte `json:"private"`
+// AgeKeyPair - Holds the public/private key pair
+type AgeKeyPair struct {
+	Public  string `json:"public"`
+	Private string `json:"private"`
 }
 
-// PublicBase64 - Base64 encoded public key
-func (e *ECCKeyPair) PublicBase64() string {
-	return base64.RawStdEncoding.EncodeToString(e.Public[:])
+// PublicKey - Return the parsed public key
+func (e *AgeKeyPair) PublicKey() *age.X25519Recipient {
+	recipient, _ := age.ParseX25519Recipient(e.Public)
+	return recipient
 }
 
 // PrivateBase64 - Base64 encoded private key
-func (e *ECCKeyPair) PrivateBase64() string {
-	return base64.RawStdEncoding.EncodeToString(e.Private[:])
+func (e *AgeKeyPair) PrivateKey() string {
+	return e.Private
 }
 
-// RandomECCKeyPair - Generate a random Curve 25519 key pair
-func RandomECCKeyPair() (*ECCKeyPair, error) {
-	public, private, err := box.GenerateKey(rand.Reader)
+// RandomAgeKeyPair - Generate a random Curve 25519 key pair
+func RandomAgeKeyPair() (*AgeKeyPair, error) {
+	k, err := age.GenerateX25519Identity()
 	if err != nil {
 		return nil, err
 	}
-	return &ECCKeyPair{Public: public, Private: private}, nil
+	return &AgeKeyPair{
+		Public:  k.Recipient().String(),
+		Private: k.String(),
+	}, nil
 }
 
-// ECCEncrypt - Encrypt using Nacl Box
-func ECCEncrypt(recipientPublicKey *[32]byte, senderPrivateKey *[32]byte, plaintext []byte) ([]byte, error) {
-	var nonce [24]byte
-	if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
+// AgeEncrypt - Encrypt using Nacl Box
+func AgeEncrypt(recipientPublicKey string, plaintext []byte) ([]byte, error) {
+	recipient, err := age.ParseX25519Recipient(recipientPublicKey)
+	if err != nil {
 		return nil, err
 	}
-	encrypted := box.Seal(nonce[:], plaintext, &nonce, recipientPublicKey, senderPrivateKey)
-	return encrypted, nil
+	buf := bytes.NewBuffer([]byte{})
+	stream, err := age.Encrypt(buf, recipient)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := stream.Write(plaintext); err != nil {
+		return nil, err
+	}
+	if err := stream.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
-// ECCDecrypt - Decrypt using Curve 25519 + ChaCha20Poly1305
-func ECCDecrypt(senderPublicKey *[32]byte, recipientPrivateKey *[32]byte, ciphertext []byte) ([]byte, error) {
-	var decryptNonce [24]byte
-	copy(decryptNonce[:], ciphertext[:24])
-	plaintext, ok := box.Open(nil, ciphertext[24:], &decryptNonce, senderPublicKey, recipientPrivateKey)
-	if !ok {
-		return nil, ErrDecryptFailed
+// AgeDecrypt - Decrypt using Curve 25519 + ChaCha20Poly1305
+func AgeDecrypt(recipientPrivateKey string, ciphertext []byte) ([]byte, error) {
+	identity, err := age.ParseX25519Identity(recipientPrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	buf := bytes.NewBuffer(ciphertext)
+	stream, err := age.Decrypt(buf, identity)
+	if err != nil {
+		return nil, err
+	}
+	plaintext, err := io.ReadAll(stream)
+	if err != nil {
+		return nil, err
 	}
 	return plaintext, nil
 }
@@ -223,16 +237,6 @@ func (c *CipherContext) Encrypt(plaintext []byte) ([]byte, error) {
 	return append(rawSig, ciphertext...), nil
 }
 
-// TOTPOptions - Customized totp validation options
-func TOTPOptions() totp.ValidateOpts {
-	return totp.ValidateOpts{
-		Digits:    TOTPDigits,
-		Algorithm: otp.AlgorithmSHA256,
-		Period:    TOTPPeriod,
-		Skew:      uint(1),
-	}
-}
-
 // serverSignRawBuf - Sign a buffer with the server's minisign private key
 func serverSignRawBuf(buf []byte) []byte {
 	privateKey := MinisignServerPrivateKey()
@@ -240,8 +244,8 @@ func serverSignRawBuf(buf []byte) []byte {
 	return rawSig[:]
 }
 
-// ECCServerKeyPair - Get teh server's ECC key pair
-func ECCServerKeyPair() *ECCKeyPair {
+// AgeServerKeyPair - Get teh server's ECC key pair
+func AgeServerKeyPair() *AgeKeyPair {
 	data, err := db.GetKeyValue(ServerECCKeyPairKey)
 	if err == db.ErrRecordNotFound {
 		keyPair, err := generateServerECCKeyPair()
@@ -250,7 +254,7 @@ func ECCServerKeyPair() *ECCKeyPair {
 		}
 		return keyPair
 	}
-	keyPair := &ECCKeyPair{}
+	keyPair := &AgeKeyPair{}
 	err = json.Unmarshal([]byte(data), keyPair)
 	if err != nil {
 		panic(err)
@@ -258,8 +262,8 @@ func ECCServerKeyPair() *ECCKeyPair {
 	return keyPair
 }
 
-func generateServerECCKeyPair() (*ECCKeyPair, error) {
-	keyPair, err := RandomECCKeyPair()
+func generateServerECCKeyPair() (*AgeKeyPair, error) {
+	keyPair, err := RandomAgeKeyPair()
 	if err != nil {
 		return nil, err
 	}
@@ -269,47 +273,6 @@ func generateServerECCKeyPair() (*ECCKeyPair, error) {
 	}
 	err = db.SetKeyValue(ServerECCKeyPairKey, string(data))
 	return keyPair, err
-}
-
-// TOTPServerSecret - Get the server-wide totp secret value, the goal of the totp
-// is for the implant to prove it was generated by this server. To that end we simply
-// use a server-wide secret and ignore issuers/accounts. In order to bypass this check
-// you'd have to extract the totp secret from a binary generated by the server.
-func TOTPServerSecret() (string, error) {
-	secret, err := db.GetKeyValue(TOTPSecretKey)
-	if err == db.ErrRecordNotFound {
-		secret, err = totpGenerateSecret()
-	}
-	return secret, err
-}
-
-// ValidateTOTP - Validate a TOTP code
-func ValidateTOTP(code string) (bool, error) {
-	secret, err := TOTPServerSecret()
-	if err != nil {
-		return false, err
-	}
-	valid, err := totp.ValidateCustom(code, secret, time.Now().UTC(), TOTPOptions())
-	if err != nil {
-		return false, err
-	}
-	return valid, nil
-}
-
-func totpGenerateSecret() (string, error) {
-	otpSecret, err := totp.Generate(totp.GenerateOpts{
-		Issuer:      "foo",
-		AccountName: "bar",
-		Digits:      TOTPDigits,
-		Algorithm:   otp.AlgorithmSHA256,
-		Period:      TOTPPeriod,
-	})
-	if err != nil {
-		return "", err
-	}
-	secret := otpSecret.Secret()
-	err = db.SetKeyValue(TOTPSecretKey, secret)
-	return secret, err
 }
 
 // minisignPrivateKey - This is here so we can marshal to/from JSON

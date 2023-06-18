@@ -217,8 +217,8 @@ func serverKeyExchange(implantConn *core.ImplantConnection, peerEnvelope *sliver
 	}
 	var senderPublicKey [32]byte
 	copy(senderPublicKey[:], publicKey)
-	serverKeyPair := cryptography.ECCServerKeyPair()
-	rawSessionKey, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, serverKeyEx.SessionKey[32:])
+	serverKeyPair := cryptography.AgeServerKeyPair()
+	rawSessionKey, err := cryptography.AgeDecrypt(serverKeyPair.Private, serverKeyEx.SessionKey[32:])
 	if err != nil {
 		pivotLog.Warn("Failed to decrypt session key from origin")
 		return nil

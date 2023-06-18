@@ -460,17 +460,6 @@ func (s *SliverDNSServer) refusedErrorResp(req *dns.Msg) *dns.Msg {
 // ---------------------------
 func (s *SliverDNSServer) handleTOTP(domain string, msg *dnspb.DNSMessage, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[dns] totp request: %v", msg)
-	totpCode := fmt.Sprintf("%08d", msg.ID)
-	if s.EnforceOTP {
-		valid, err := cryptography.ValidateTOTP(totpCode)
-		if err != nil || !valid {
-			dnsLog.Warnf("totp request invalid (%v)", err)
-			return s.nameErrorResp(req)
-		}
-		dnsLog.Debugf("[dns] totp request valid")
-	} else {
-		dnsLog.Warn("[dns] totp validation is disabled")
-	}
 
 	dnsSessionID := dnsSessionID()
 	dnsLog.Debugf("[dns] Assigned new dns session id = %d", dnsSessionID&sessionIDBitMask)
@@ -529,8 +518,8 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 	}
 	var senderPublicKey [32]byte
 	copy(senderPublicKey[:], publicKey)
-	serverKeyPair := cryptography.ECCServerKeyPair()
-	sessionInit, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, msg.Data[32:])
+	serverKeyPair := cryptography.AgeServerKeyPair()
+	sessionInit, err := cryptography.AgeDecrypt(serverKeyPair.Private, msg.Data[32:])
 	if err != nil {
 		dnsLog.Errorf("[session init] error decrypting session init data: %s", err)
 		return s.refusedErrorResp(req)

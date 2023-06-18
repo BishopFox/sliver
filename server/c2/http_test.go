@@ -59,13 +59,12 @@ func TestStartSessionHandler(t *testing.T) {
 	}
 	nonce, encoder := implantEncoders.RandomEncoder(0)
 	testURL := client.NonceQueryArgument(baseURL, nonce)
-	testURL = client.OTPQueryArgument(testURL, implantCrypto.GetOTPCode())
 
 	// Generate key exchange request
 	sKey := cryptography.RandomKey()
 	httpSessionInit := &sliverpb.HTTPSessionInit{Key: sKey[:]}
 	data, _ := proto.Marshal(httpSessionInit)
-	encryptedSessionInit, err := implantCrypto.ECCEncryptToServer(data)
+	encryptedSessionInit, err := implantCrypto.AgeEncryptToServer(data)
 	if err != nil {
 		t.Fatalf("Failed to encrypt session init %s", err)
 	}

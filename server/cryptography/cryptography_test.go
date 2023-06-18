@@ -34,8 +34,8 @@ var (
 	sample1 = randomData()
 	sample2 = randomData()
 
-	serverECCKeyPair  *ECCKeyPair
-	implantECCKeyPair *ECCKeyPair
+	serverAgeKeyPair      *AgeKeyPair
+	implantPeerAgeKeyPair *AgeKeyPair
 )
 
 func randomData() []byte {
@@ -51,25 +51,19 @@ func TestMain(m *testing.M) {
 
 func setup() {
 	var err error
-	serverECCKeyPair, err = RandomECCKeyPair()
+	serverAgeKeyPair, err = RandomAgeKeyPair()
 	if err != nil {
 		panic(err)
 	}
-	implantECCKeyPair, err = RandomECCKeyPair()
+	implantPeerAgeKeyPair, err = RandomAgeKeyPair()
 	if err != nil {
 		panic(err)
 	}
-	totpSecret, err := TOTPServerSecret()
-	if err != nil {
-		panic(err)
-	}
-
 	implantCrypto.SetSecrets(
-		implantECCKeyPair.PublicBase64(),
-		implantECCKeyPair.PrivateBase64(),
-		MinisignServerSign(implantECCKeyPair.Public[:]),
-		serverECCKeyPair.PublicBase64(),
-		totpSecret,
+		implantPeerAgeKeyPair.Public,
+		implantPeerAgeKeyPair.Private,
+		MinisignServerSign([]byte(implantPeerAgeKeyPair.Public)),
+		serverAgeKeyPair.Public,
 		MinisignServerPublicKey(),
 	)
 }
@@ -171,29 +165,6 @@ func TestCipherContext(t *testing.T) {
 	}
 }
 
-func TestECCEncryptDecrypt(t *testing.T) {
-	sample := randomData()
-	sender, err := RandomECCKeyPair()
-	if err != nil {
-		t.Fatal(err)
-	}
-	receiver, err := RandomECCKeyPair()
-	if err != nil {
-		t.Fatal(err)
-	}
-	ciphertext, err := ECCEncrypt(receiver.Public, sender.Private, sample)
-	if err != nil {
-		t.Fatal(err)
-	}
-	plaintext, err := ECCDecrypt(sender.Public, receiver.Private, ciphertext)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(plaintext, sample) {
-		t.Fatalf("Sample does not match decrypted data")
-	}
-}
-
 // TestEncryptDecrypt - Test AEAD functions
 func TestImplantEncryptDecrypt(t *testing.T) {
 	key := RandomKey()
@@ -220,42 +191,6 @@ func TestImplantEncryptDecrypt(t *testing.T) {
 	}
 	if !bytes.Equal(sample2, data2) {
 		t.Fatalf("Sample does not match decrypted data")
-	}
-}
-
-func TestImplantECCEncryptDecrypt(t *testing.T) {
-	sample := randomData()
-	ciphertext, err := implantCrypto.ECCEncryptToServer(sample)
-	if err != nil {
-		t.Fatalf("encrypt to server failed: %s", err)
-	}
-	if len(ciphertext) < 33 {
-		t.Fatalf("ciphertext too short (%d)", len(ciphertext))
-	}
-
-	// Ciphertext has sender public key digest prepended [:32]
-	plaintext, err := ECCDecrypt(implantECCKeyPair.Public, serverECCKeyPair.Private, ciphertext[32:])
-	if err != nil {
-		t.Fatalf("failed to decrypt implant ciphertext: %s", err)
-	}
-	if !bytes.Equal(plaintext, sample) {
-		t.Fatalf("Sample does not match decrypted data")
-	}
-}
-
-func TestImplantECCEncryptDecryptTamperData(t *testing.T) {
-	sample := randomData()
-	ciphertext, err := implantCrypto.ECCEncryptToServer(sample)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(ciphertext) < 34 {
-		t.Fatal("ciphertext too short")
-	}
-	ciphertext[33]++ // Change a byte in the ciphertext
-	_, err = ECCDecrypt(implantECCKeyPair.Public, serverECCKeyPair.Private, ciphertext[32:])
-	if err == nil {
-		t.Fatal("ecc decrypted tampered data without error")
 	}
 }
 

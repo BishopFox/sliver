@@ -353,7 +353,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	router.HandleFunc(
 		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.StartSessionFileExt),
 		s.startSessionHandler,
-	).MatcherFunc(s.filterOTP).MatcherFunc(s.filterNonce).Methods(http.MethodGet, http.MethodPost)
+	).MatcherFunc(s.filterNonce).Methods(http.MethodGet, http.MethodPost)
 
 	// Session Handler
 	router.HandleFunc(
@@ -379,7 +379,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 	router.HandleFunc(
 		fmt.Sprintf("/{rpath:.*\\.%s[/]{0,1}.*$}", c2Config.ImplantConfig.StagerFileExt),
 		s.stagerHandler,
-	).MatcherFunc(s.filterOTP).Methods(http.MethodGet)
+	).Methods(http.MethodGet)
 
 	// Default handler returns static content or 404s
 	httpLog.Debugf("No pattern matches for request uri")
@@ -403,31 +403,6 @@ func (s *SliverHTTPC2) filterNonce(req *http.Request, rm *mux.RouteMatch) bool {
 		return false // NaN
 	}
 	return true
-}
-
-func (s *SliverHTTPC2) filterOTP(req *http.Request, rm *mux.RouteMatch) bool {
-	if s.ServerConf.EnforceOTP {
-		httpLog.Debug("Checking for valid OTP code ...")
-		otpCode, err := getOTPFromURL(req.URL)
-		if err != nil {
-			httpLog.Warnf("Failed to validate OTP: %s", err)
-			return false
-		}
-		valid, err := cryptography.ValidateTOTP(otpCode)
-		if err != nil {
-			httpLog.Warnf("Failed to validate OTP: %s", err)
-			return false
-		}
-		if valid {
-			httpLog.Debug("OTP code is valid")
-			return true
-		}
-		httpLog.Debugf("OTP code (%s) is invalid", otpCode)
-		return false
-	} else {
-		httpLog.Debug("OTP enforcement is disabled")
-		return true // OTP enforcement is disabled
-	}
 }
 
 func getNonceFromURL(reqURL *url.URL) (uint64, error) {
@@ -578,8 +553,8 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	var senderPublicKey [32]byte
 	copy(senderPublicKey[:], publicKey)
 
-	serverKeyPair := cryptography.ECCServerKeyPair()
-	sessionInitData, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, data[32:])
+	serverKeyPair := cryptography.AgeServerKeyPair()
+	sessionInitData, err := cryptography.AgeDecrypt(serverKeyPair.Private, data[32:])
 	if err != nil {
 		httpLog.Error("ECC decryption failed")
 		s.defaultHandler(resp, req)
