@@ -3680,10 +3680,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		Args: func(a *grumble.Args) {
-			//a.String("command", "command to execute")
-			//a.StringList("arguments", "arguments to the command")
-		},
+		Args: func(a *grumble.Args) {},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			taskmany.TaskmanyCmd(ctx, con)

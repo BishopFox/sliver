@@ -2,7 +2,8 @@ package taskmany
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2021 Bishop Fox
+	Copyright (C) 2023 ActualTrash
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -20,53 +21,159 @@ package taskmany
 
 import (
 	"context"
-	"errors"
+        "fmt"
+        "bytes"
+	"sort"
+	"strings"
+	"text/tabwriter"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/desertbit/grumble"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/client/command/filesystem"
-	"github.com/bishopfox/sliver/client/command/exec"
+	"github.com/desertbit/grumble"
 )
-
-var (
-	ErrNoSelection = errors.New("no selection")
-)
-
 
 // TaskmanyCmd - Task many beacons
 func TaskmanyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-    con.PrintErrorf("Not implemented yet\n")
+	con.PrintErrorf("Must specify subcommand. See taskmany --help for supported subcommands.\n")
 }
 
 // Wrap a function to run it for each beacon
 func WrapFunction(con *console.SliverConsoleClient, f func(ctx *grumble.Context) error) func(ctx *grumble.Context) error {
-    return func(ctx *grumble.Context) error {
-        beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
-        if err != nil {
-                con.PrintErrorf("%s\n", err)
-                return nil
-        }
-        sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
-        if err != nil {
-                con.PrintErrorf("%s\n", err)
-                return nil
+	return func(ctx *grumble.Context) error {
+                defer con.Println()
+
+                sessions, beacons, err := SelectMultipleBeaconsAndSessions(con)
+                if err != nil {
+                    con.Println()
+		    con.PrintErrorf("%s\n", err)
+                    return nil
+                }
+
+                con.Println()
+
+                // Save current active beacon or session
+                origSession, origBeacon := con.ActiveTarget.Get()
+
+		nB := 0
+		for _, b := range beacons {
+			if !b.IsDead {
+				con.ActiveTarget.Set(nil, b)
+				f(ctx)
+				nB += 1
+			}
+		}
+
+		// Maybe also make this whole thing transactional?
+                nS := 0
+		for _, s := range sessions {
+			if !s.IsDead {
+				con.ActiveTarget.Set(s, nil)
+				f(ctx)
+				nS += 1
+			}
+		}
+
+                // Restore active session / beacon
+                con.ActiveTarget.Set(origSession, origBeacon)
+
+		con.PrintInfof("Tasked %d sessions and %d beacons >:D\n", nS, nB)
+		return nil
+	}
+}
+
+
+func SelectMultipleBeaconsAndSessions(con *console.SliverConsoleClient) ([]*clientpb.Session, []*clientpb.Beacon, error) {
+	// Get and sort sessions
+	sessionsObj, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return nil, nil, err
+	}
+        sessions := sessionsObj.Sessions
+        sort.Slice(sessions, func(i, j int) bool {
+            return sessions[i].ID < sessions[j].ID
+        })
+
+	// Get and sort beacons
+	beaconsObj, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return nil, nil, err
+	}
+        beacons := beaconsObj.Beacons
+        sort.Slice(beacons, func(i, j int) bool {
+            return beacons[i].ID < beacons[j].ID
+        })
+
+	if len(beacons) == 0 && len(sessions) == 0 {
+		return nil, nil, fmt.Errorf("no sessions or beacons 🙁")
+	}
+
+	// Render selection table
+	outputBuf := bytes.NewBufferString("")
+	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
+
+        sessionOptionMap := map[string]*clientpb.Session{}
+	for _, session := range sessions {
+                option := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s",
+			"SESSION",
+			strings.Split(session.ID, "-")[0],
+			session.Name,
+			session.RemoteAddress,
+			session.Hostname,
+			session.Username,
+			fmt.Sprintf("%s/%s", session.OS, session.Arch),
+		)
+                fmt.Fprintf(table, option + "\n")
+                o := strings.ReplaceAll(option, "\t", "")
+                sessionOptionMap[o] = session
+	}
+
+        beaconOptionMap := map[string]*clientpb.Beacon{}
+	for _, beacon := range beacons {
+                option := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s",
+			"BEACON",
+			strings.Split(beacon.ID, "-")[0],
+			beacon.Name,
+			beacon.RemoteAddress,
+			beacon.Hostname,
+			beacon.Username,
+			fmt.Sprintf("%s/%s", beacon.OS, beacon.Arch),
+		)
+                fmt.Fprintf(table, option + "\n")
+                o := strings.ReplaceAll(option, "\t", "")
+                beaconOptionMap[o] = beacon
+	}
+	table.Flush()
+
+	options := strings.Split(outputBuf.String(), "\n")
+	options = options[:len(options)-1] // Remove the last empty option
+	prompt := &survey.MultiSelect{
+		Message: "Select sessions and beacons:",
+		Options: options,
+	}
+	selected := []string{}
+	survey.AskOne(prompt, &selected)
+
+        if len(selected) == 0 {
+		return nil, nil, fmt.Errorf("no sessions or beacons selected 🤔")
         }
 
-        n := 0
-        for _, b := range beacons.Beacons {
-                con.ActiveTarget.Set(nil, b)
-                f(ctx)
-                n += 1
-        }
+        selectedSessions := []*clientpb.Session{}
+        selectedBeacons := []*clientpb.Beacon{} 
+	for _, s := range selected {
+            s = strings.ReplaceAll(s, " ", "")
+            s = strings.ReplaceAll(s, "\t", "")
+            session, ok := sessionOptionMap[s]
+            if ok {
+                selectedSessions = append(selectedSessions, session)
+            }
 
-        for _, s := range sessions.Sessions {
-                con.ActiveTarget.Set(s, nil)
-                f(ctx)
-                n += 1
-        }
-        con.PrintInfof("Tasked %d of your beacons >:D\n", n)
-        return nil
-    }
+            beacon, ok := beaconOptionMap[s]
+            if ok {
+                selectedBeacons = append(selectedBeacons, beacon)
+            }
+	}
+
+	return selectedSessions, selectedBeacons, nil
 }
