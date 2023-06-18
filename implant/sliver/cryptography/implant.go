@@ -91,14 +91,14 @@ func MinisignVerify(message []byte, signature string) bool {
 	return valid
 }
 
-// GetServerECCPublicKey - Get the decoded server public key
-func GetServerECCPublicKey() string {
+// GetServerAgePublicKey - Get the decoded server public key
+func GetServerAgePublicKey() string {
 	return serverAgePublicKey
 }
 
 // AgeEncryptToServer - Encrypt using the server's public key
 func AgeEncryptToServer(plaintext []byte) ([]byte, error) {
-	recipientPublicKey := GetServerECCPublicKey()
+	recipientPublicKey := GetServerAgePublicKey()
 	if recipientPublicKey == "" {
 		panic("no server public key")
 	}

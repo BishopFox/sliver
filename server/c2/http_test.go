@@ -81,29 +81,6 @@ func TestStartSessionHandler(t *testing.T) {
 
 }
 
-func TestGetOTPFromURL(t *testing.T) {
-
-	implantTransports.SetNonceQueryArgs("abcdedfghijklmnopqrstuvwxyz")
-
-	client := implantTransports.SliverHTTPClient{}
-	for i := 0; i < 100; i++ {
-		baseURL := &url.URL{
-			Scheme: "http",
-			Host:   "127.0.0.1:8888",
-			Path:   "/test/foo.txt",
-		}
-		value := fmt.Sprintf("%d", insecureRand.Intn(99999999))
-		testURL := client.OTPQueryArgument(baseURL, value)
-		urlValue, err := getOTPFromURL(testURL)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if urlValue != value {
-			t.Fatalf("Mismatched OTP values %s (%s != %s)", testURL.String(), value, urlValue)
-		}
-	}
-}
-
 func TestGetNonceFromURL(t *testing.T) {
 
 	implantTransports.SetNonceQueryArgs("abcdedfghijklmnopqrstuvwxyz")

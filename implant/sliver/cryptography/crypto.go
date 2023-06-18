@@ -26,6 +26,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"errors"
+	"io"
 	"os"
 	"sync"
 
@@ -33,6 +34,7 @@ import (
 	"log"
 	// {{end}}
 
+	"filippo.io/age"
 	"golang.org/x/crypto/chacha20poly1305"
 )
 
@@ -43,6 +45,8 @@ var (
 	ErrDecryptFailed = errors.New("decryption failed")
 
 	gzipWriterPools = &sync.Pool{}
+
+	agePrefix = []byte("age-encryption.org/v1\n-> X25519 ")
 )
 
 // ECCKeyPair - Holds the public/private key pair
@@ -60,15 +64,24 @@ func init() {
 	}
 }
 
-const msgSizeLimit = 8 * 1024
-
 // AgeEncrypt - Encrypt using Nacl Box
 func AgeEncrypt(recipientPublicKey string, plaintext []byte) ([]byte, error) {
-	// Arbitrary upper limit for plaintext
-	if msgSizeLimit < len(plaintext) {
-		return nil, errors.New("plaintext too long")
+	recipient, err := age.ParseX25519Recipient(recipientPublicKey)
+	if err != nil {
+		return nil, err
 	}
-	return nil, nil
+	buf := bytes.NewBuffer([]byte{})
+	stream, err := age.Encrypt(buf, recipient)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := stream.Write(plaintext); err != nil {
+		return nil, err
+	}
+	if err := stream.Close(); err != nil {
+		return nil, err
+	}
+	return bytes.TrimPrefix(buf.Bytes(), agePrefix), nil
 }
 
 // AgeDecrypt - Decrypt using Curve 25519 + ChaCha20Poly1305
@@ -76,12 +89,20 @@ func AgeDecrypt(recipientPrivateKey string, ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) < 24 {
 		return nil, errors.New("ciphertext too short")
 	}
-	// Arbitrary upper limit for ciphertext
-	if msgSizeLimit < len(ciphertext) {
-		return nil, errors.New("ciphertext too long")
+	identity, err := age.ParseX25519Identity(recipientPrivateKey)
+	if err != nil {
+		return nil, err
 	}
-
-	return nil, nil
+	buf := bytes.NewBuffer(append(agePrefix, ciphertext...))
+	stream, err := age.Decrypt(buf, identity)
+	if err != nil {
+		return nil, err
+	}
+	plaintext, err := io.ReadAll(stream)
+	if err != nil {
+		return nil, err
+	}
+	return plaintext, nil
 }
 
 // RandomKey - Generate random ID of randomIDSize bytes

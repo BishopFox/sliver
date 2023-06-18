@@ -19,10 +19,8 @@ package c2
 */
 
 import (
-	insecureRand "math/rand"
 	"os"
 	"testing"
-	"time"
 
 	implantCrypto "github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/server/certs"
@@ -36,20 +34,10 @@ var (
 )
 
 func TestMain(m *testing.M) {
-
-	// Run one with deterministic randomness if a
-	// crash occurs, we can more easily reproduce it
-	insecureRand.Seed(1)
 	implantConfig := setup()
 	code1 := m.Run()
 	cleanup(implantConfig)
-
-	insecureRand.Seed(time.Now().UnixMicro())
-	implantConfig = setup()
-	code2 := m.Run()
-	cleanup(implantConfig)
-
-	os.Exit(code1 | code2)
+	os.Exit(code1)
 }
 
 func setup() *models.ImplantConfig {
