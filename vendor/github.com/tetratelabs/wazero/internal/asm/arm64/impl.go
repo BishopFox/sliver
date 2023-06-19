@@ -832,6 +832,8 @@ func (a *AssemblerImpl) relativeBranchFinalize(code []byte, n *nodeImpl) error {
 		condBits = 0b0001
 	case BCONDVS:
 		condBits = 0b0110
+	case BCONDVC:
+		condBits = 0b0111
 	}
 
 	branchInstOffset := int64(n.OffsetInBinary())
@@ -872,7 +874,7 @@ func (a *AssemblerImpl) relativeBranchFinalize(code []byte, n *nodeImpl) error {
 
 func (a *AssemblerImpl) encodeRelativeBranch(buf asm.Buffer, n *nodeImpl) error {
 	switch n.instruction {
-	case B, BCONDEQ, BCONDGE, BCONDGT, BCONDHI, BCONDHS, BCONDLE, BCONDLO, BCONDLS, BCONDLT, BCONDMI, BCONDNE, BCONDVS, BCONDPL:
+	case B, BCONDEQ, BCONDGE, BCONDGT, BCONDHI, BCONDHS, BCONDLE, BCONDLO, BCONDLS, BCONDLT, BCONDMI, BCONDNE, BCONDVS, BCONDVC, BCONDPL:
 	default:
 		return errorEncodingUnsupported(n)
 	}

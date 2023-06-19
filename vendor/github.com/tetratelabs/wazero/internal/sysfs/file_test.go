@@ -28,7 +28,7 @@ var (
 	emptyFile  = "empty.txt"
 )
 
-func TestFileSetNonblock(t *testing.T) {
+func TestStdioFileSetNonblock(t *testing.T) {
 	// Test using os.Pipe as it is known to support non-blocking reads.
 	r, w, err := os.Pipe()
 	require.NoError(t, err)
@@ -45,6 +45,54 @@ func TestFileSetNonblock(t *testing.T) {
 	errno = rF.SetNonblock(false)
 	require.EqualErrno(t, 0, errno)
 	require.False(t, rF.IsNonblock())
+}
+
+func TestRegularFileSetNonblock(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Nonblock on regular files is not supported on Windows")
+	}
+
+	// Test using os.Pipe as it is known to support non-blocking reads.
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	defer r.Close()
+	defer w.Close()
+
+	rF := newOsFile("", syscall.O_RDONLY, 0, r)
+
+	errno := rF.SetNonblock(true)
+	require.EqualErrno(t, 0, errno)
+	require.True(t, rF.IsNonblock())
+
+	// Read from the file without ever writing to it should not block.
+	buf := make([]byte, 8)
+	_, e := rF.Read(buf)
+	require.EqualErrno(t, syscall.EAGAIN, e)
+
+	errno = rF.SetNonblock(false)
+	require.EqualErrno(t, 0, errno)
+	require.False(t, rF.IsNonblock())
+}
+
+func TestReadFdNonblock(t *testing.T) {
+	// Test using os.Pipe as it is known to support non-blocking reads.
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	defer r.Close()
+	defer w.Close()
+
+	fd := r.Fd()
+	err = setNonblock(fd, true)
+	require.NoError(t, err)
+
+	// Read from the file without ever writing to it should not block.
+	buf := make([]byte, 8)
+	_, e := readFd(fd, buf)
+	if runtime.GOOS == "windows" {
+		require.EqualErrno(t, syscall.ENOSYS, e)
+	} else {
+		require.EqualErrno(t, syscall.EAGAIN, e)
+	}
 }
 
 func TestFileSetAppend(t *testing.T) {
