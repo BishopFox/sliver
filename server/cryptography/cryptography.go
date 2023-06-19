@@ -26,6 +26,7 @@ package cryptography
 import (
 	"bytes"
 	"crypto/ed25519"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -44,6 +45,8 @@ import (
 const (
 	serverAgeKeyPairKey      = "server.age"
 	serverMinisignPrivateKey = "server.minisign"
+
+	sha256Size = 32 // size in bytes of a sha256 hash
 )
 
 var (
@@ -56,6 +59,10 @@ var (
 	// ErrDecryptFailed
 	ErrDecryptFailed = errors.New("decryption failed")
 
+	// This will be prepended to any age encrypted message, however
+	// since we already know what it is, and who the recipient is,
+	// and we can ensure there will only ever be a single recipient,
+	// we can just ignore add/remove it at runtime to safe space.
 	agePrefix = []byte("age-encryption.org/v1\n-> X25519 ")
 )
 
@@ -157,15 +164,28 @@ func AgeDecrypt(recipientPrivateKey string, ciphertext []byte) ([]byte, error) {
 
 // AgeKeyPairFromImplant - Decrypt the session key from an implant
 func AgeKeyExFromImplant(serverPrivateKey string, implantPrivateKey string, ciphertext []byte) ([]byte, error) {
+	// Decrypt the message
 	plaintext, err := AgeDecrypt(serverPrivateKey, ciphertext)
 	if err != nil {
 		return nil, err
 	}
-	plaintext, err = AgeDecrypt(implantPrivateKey, plaintext)
-	if err != nil {
-		return nil, err
+
+	// Check there's enough data for an HMAC check
+	if len(plaintext) <= sha256Size {
+		return nil, ErrDecryptFailed
 	}
-	return plaintext, nil
+
+	// Recompute the HMAC to verify the message
+	privateDigest := sha256.New()
+	privateDigest.Write([]byte(implantPrivateKey))
+	mac := hmac.New(sha256.New, privateDigest.Sum(nil))
+	mac.Write(plaintext[sha256Size:])
+
+	// Constant-time comparison of the HMACs
+	if !hmac.Equal(mac.Sum(nil), plaintext[:sha256Size]) {
+		return nil, ErrDecryptFailed
+	}
+	return plaintext[sha256Size:], nil
 }
 
 // Encrypt - Encrypt using chacha20poly1305

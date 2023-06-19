@@ -19,6 +19,7 @@ package cryptography
 */
 
 import (
+	"crypto/hmac"
 	"crypto/sha256"
 	"errors"
 
@@ -54,12 +55,17 @@ func SetSecrets(peerPublicKey, peerPrivateKey, peerPublicKeySignature, serverPub
 
 // {{end}}
 
-// GetAgeKeyPair - Get the implant's key pair
-func GetAgeKeyPair() *AgeKeyPair {
+// GetPeerAgeKeyPair - Get the implant's key pair
+func GetPeerAgeKeyPair() *AgeKeyPair {
 	return &AgeKeyPair{
 		Public:  PeerAgePublicKey,
 		Private: peerAgePrivateKey,
 	}
+}
+
+// GetServerAgePublicKey - Get the decoded server public key
+func GetServerAgePublicKey() string {
+	return serverAgePublicKey
 }
 
 // MinisignVerify - Verify a minisign signature
@@ -91,11 +97,6 @@ func MinisignVerify(message []byte, signature string) bool {
 	return valid
 }
 
-// GetServerAgePublicKey - Get the decoded server public key
-func GetServerAgePublicKey() string {
-	return serverAgePublicKey
-}
-
 // AgeKeyExToServer - Encrypt using the server's public key
 func AgeKeyExToServer(plaintext []byte) ([]byte, error) {
 	recipientPublicKey := GetServerAgePublicKey()
@@ -103,21 +104,25 @@ func AgeKeyExToServer(plaintext []byte) ([]byte, error) {
 		panic("no server public key")
 	}
 
-	// Encrypt to ourselves first
-	plaintext, err := AgeEncrypt(PeerAgePublicKey, plaintext)
-	if err != nil {
-		return nil, err
-	}
-	ciphertext, err := AgeEncrypt(recipientPublicKey, plaintext)
+	peerKeyPair := GetPeerAgeKeyPair()
+
+	// First HMAC the plaintext with the hash of the implant's private key
+	// this ensures that the server is talking to a valid implant
+	privateDigest := sha256.New()
+	privateDigest.Write([]byte(peerKeyPair.Private))
+	mac := hmac.New(sha256.New, privateDigest.Sum(nil))
+	mac.Write(plaintext)
+
+	// Next encrypt using server's Age public key
+	ciphertext, err := AgeEncrypt(recipientPublicKey, append(mac.Sum(nil), plaintext...))
 	if err != nil {
 		return nil, err
 	}
 
 	// Sender includes hash of it's implant specific peer public key
-	keyPair := GetAgeKeyPair()
-	digest := sha256.Sum256([]byte(keyPair.Public))
+	publicDigest := sha256.Sum256([]byte(peerKeyPair.Public))
 	msg := make([]byte, 32+len(ciphertext))
-	copy(msg, digest[:])
+	copy(msg, publicDigest[:])
 	copy(msg[32:], ciphertext)
 	return msg, nil
 }
@@ -143,7 +148,7 @@ func AgeDecryptFromPeer(senderPublicKey []byte, senderPublicKeySig string, ciphe
 	}
 	var peerPublicKey [32]byte
 	copy(peerPublicKey[:], senderPublicKey)
-	keyPair := GetAgeKeyPair()
+	keyPair := GetPeerAgeKeyPair()
 	plaintext, err := AgeDecrypt(keyPair.Private, ciphertext)
 	if err != nil {
 		return nil, err

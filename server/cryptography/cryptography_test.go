@@ -68,6 +68,64 @@ func setup() {
 	)
 }
 
+func TestAgeEncryptDecrypt(t *testing.T) {
+	encrypted, err := AgeEncrypt(serverAgeKeyPair.Public, sample1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decrypted, err := AgeDecrypt(serverAgeKeyPair.Private, encrypted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(sample1, decrypted) {
+		t.Fatalf("Sample does not match decrypted data")
+	}
+}
+
+func TestAgeTamperEncryptDecrypt(t *testing.T) {
+	encrypted, err := AgeEncrypt(serverAgeKeyPair.Public, sample1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encrypted[insecureRand.Intn(len(encrypted))] ^= 0xFF
+	_, err = AgeDecrypt(serverAgeKeyPair.Private, encrypted)
+	if err == nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAgeWrongKeyEncryptDecrypt(t *testing.T) {
+	encrypted, err := AgeEncrypt(serverAgeKeyPair.Public, sample1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyPair, _ := RandomAgeKeyPair()
+	_, err = AgeDecrypt(keyPair.Private, encrypted)
+	if err == nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAgeKeyEx(t *testing.T) {
+	sessionKey := RandomKey()
+	plaintext := sessionKey[:]
+	ciphertext, err := implantCrypto.AgeKeyExToServer(plaintext)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decrypted, err := AgeKeyExFromImplant(
+		serverAgeKeyPair.Private,
+		implantPeerAgeKeyPair.Private,
+		ciphertext[32:], // Remove prepended public key hash
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(plaintext, decrypted) {
+		t.Fatalf("Session key does not match")
+	}
+}
+
 // TestEncryptDecrypt - Test AEAD functions
 func TestEncryptDecrypt(t *testing.T) {
 	key := RandomKey()
