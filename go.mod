@@ -27,7 +27,7 @@ require (
 	github.com/lesnuages/snitch v0.6.0
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/miekg/dns v1.1.54
-	github.com/moloch--/asciicast v0.1.0
+	github.com/moloch--/asciicast v0.1.1
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/ncruces/go-sqlite3 v0.7.2
 	github.com/pquerna/otp v1.4.0

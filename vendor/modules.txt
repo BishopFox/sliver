@@ -312,7 +312,7 @@ github.com/mgutz/ansi
 # github.com/miekg/dns v1.1.54
 ## explicit; go 1.19
 github.com/miekg/dns
-# github.com/moloch--/asciicast v0.1.0
+# github.com/moloch--/asciicast v0.1.1
 ## explicit; go 1.20
 github.com/moloch--/asciicast
 # github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
