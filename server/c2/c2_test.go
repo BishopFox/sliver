@@ -19,6 +19,8 @@ package c2
 */
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"testing"
 
@@ -52,7 +54,16 @@ func setup() *models.ImplantConfig {
 		serverAgeKeyPair.Public,
 		cryptography.MinisignServerPublicKey(),
 	)
+
+	digest := sha256.New()
+	digest.Write([]byte(peerAgeKeyPair.Public))
+	publicKeyDigest := hex.EncodeToString(digest.Sum(nil))
+
 	implantConfig := &models.ImplantConfig{
+		ECCPublicKey:       peerAgeKeyPair.Public,
+		ECCPublicKeyDigest: publicKeyDigest,
+		ECCPrivateKey:      peerAgeKeyPair.Private,
+
 		ECCServerPublicKey: serverAgeKeyPair.Public,
 	}
 	err = db.Session().Create(implantConfig).Error

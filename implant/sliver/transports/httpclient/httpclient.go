@@ -173,7 +173,7 @@ type SliverHTTPClient struct {
 
 // SessionInit - Initialize the session
 func (s *SliverHTTPClient) SessionInit() error {
-	sKey := cryptography.RandomKey()
+	sKey := cryptography.RandomSymmetricKey()
 	s.SessionCtx = cryptography.NewCipherContext(sKey)
 	httpSessionInit := &pb.HTTPSessionInit{Key: sKey[:]}
 	data, _ := proto.Marshal(httpSessionInit)

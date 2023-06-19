@@ -312,7 +312,7 @@ func (s *SliverDNSClient) SessionInit() error {
 	}
 
 	// Key agreement with server
-	sKey := cryptography.RandomKey()
+	sKey := cryptography.RandomSymmetricKey()
 	s.cipherCtx = cryptography.NewCipherContext(sKey)
 	initData, err := cryptography.AgeKeyExToServer(sKey[:])
 	if err != nil {

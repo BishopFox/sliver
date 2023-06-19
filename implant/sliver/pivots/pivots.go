@@ -408,7 +408,7 @@ func (p *NetConnPivot) peerKeyExchange() error {
 		return ErrFailedKeyExchange
 	}
 	p.downstreamPeerID = peerHello.PeerID
-	sessionKey := cryptography.RandomKey()
+	sessionKey := cryptography.RandomSymmetricKey()
 	p.cipherCtx = cryptography.NewCipherContext(sessionKey)
 	ciphertext, err := cryptography.AgeEncryptToPeer(peerHello.PublicKey, peerHello.PublicKeySignature, sessionKey[:])
 	if err != nil {

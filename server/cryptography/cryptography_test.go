@@ -126,6 +126,37 @@ func TestAgeKeyEx(t *testing.T) {
 	}
 }
 
+func TestAgeKeyExTamper(t *testing.T) {
+	sessionKey := RandomKey()
+	plaintext := sessionKey[:]
+	allCiphertext, err := implantCrypto.AgeKeyExToServer(plaintext)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Tamper with the ciphertext
+	ciphertext := allCiphertext[32:]
+	ciphertext[insecureRand.Intn(len(ciphertext))] ^= 0xFF
+	_, err = AgeKeyExFromImplant(
+		serverAgeKeyPair.Private,
+		implantPeerAgeKeyPair.Private,
+		ciphertext,
+	)
+	if err == nil {
+		t.Fatal(err)
+	}
+
+	// Leave an invalid header with valid ciphertext
+	_, err = AgeKeyExFromImplant(
+		serverAgeKeyPair.Private,
+		implantPeerAgeKeyPair.Private,
+		allCiphertext,
+	)
+	if err == nil {
+		t.Fatal(err)
+	}
+}
+
 // TestEncryptDecrypt - Test AEAD functions
 func TestEncryptDecrypt(t *testing.T) {
 	key := RandomKey()
