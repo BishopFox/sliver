@@ -59,7 +59,6 @@ var (
 	accessLog = log.NamedLogger("c2", "http-access")
 
 	ErrMissingNonce   = errors.New("nonce not found in request")
-	ErrMissingOTP     = errors.New("otp code not found in request")
 	ErrInvalidEncoder = errors.New("invalid request encoder")
 	ErrDecodeFailed   = errors.New("failed to decode request")
 	ErrDecryptFailed  = errors.New("failed to decrypt request")
@@ -128,7 +127,6 @@ type HTTPServerConfig struct {
 
 	MaxRequestLength int
 
-	EnforceOTP      bool
 	LongPollTimeout time.Duration
 	LongPollJitter  time.Duration
 	RandomizeJARM   bool
@@ -428,21 +426,6 @@ func getNonceFromURL(reqURL *url.URL) (uint64, error) {
 		return 0, err
 	}
 	return nonce, nil
-}
-
-func getOTPFromURL(reqURL *url.URL) (string, error) {
-	otpCode := ""
-	for arg, values := range reqURL.Query() {
-		if len(arg) == 2 {
-			otpCode = digitsOnly(values[0])
-			break
-		}
-	}
-	if otpCode == "" {
-		httpLog.Warn("OTP not found in request")
-		return "", ErrMissingNonce
-	}
-	return otpCode, nil
 }
 
 func digitsOnly(value string) string {

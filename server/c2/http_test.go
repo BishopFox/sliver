@@ -41,9 +41,8 @@ func TestStartSessionHandler(t *testing.T) {
 	implantTransports.SetNonceQueryArgs("abcdedfghijklmnopqrstuvwxyz")
 
 	server, err := StartHTTPListener(&HTTPServerConfig{
-		Addr:       "127.0.0.1:8888",
-		Secure:     false,
-		EnforceOTP: true,
+		Addr:   "127.0.0.1:8888",
+		Secure: false,
 	})
 	if err != nil {
 		t.Fatalf("Listener failed to start %s", err)
@@ -64,7 +63,7 @@ func TestStartSessionHandler(t *testing.T) {
 	sKey := cryptography.RandomKey()
 	httpSessionInit := &sliverpb.HTTPSessionInit{Key: sKey[:]}
 	data, _ := proto.Marshal(httpSessionInit)
-	encryptedSessionInit, err := implantCrypto.AgeEncryptToServer(data)
+	encryptedSessionInit, err := implantCrypto.AgeKeyExToServer(data)
 	if err != nil {
 		t.Fatalf("Failed to encrypt session init %s", err)
 	}
@@ -78,7 +77,6 @@ func TestStartSessionHandler(t *testing.T) {
 	if status := rr.Code; status != http.StatusOK {
 		t.Fatalf("handler returned wrong status code: got %d want %d", status, http.StatusOK)
 	}
-
 }
 
 func TestGetNonceFromURL(t *testing.T) {

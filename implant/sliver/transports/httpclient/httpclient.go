@@ -178,7 +178,7 @@ func (s *SliverHTTPClient) SessionInit() error {
 	httpSessionInit := &pb.HTTPSessionInit{Key: sKey[:]}
 	data, _ := proto.Marshal(httpSessionInit)
 
-	encryptedSessionInit, err := cryptography.AgeEncryptToServer(data)
+	encryptedSessionInit, err := cryptography.AgeKeyExToServer(data)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Nacl encrypt failed %v", err)

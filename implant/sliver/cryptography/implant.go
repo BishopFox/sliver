@@ -96,17 +96,25 @@ func GetServerAgePublicKey() string {
 	return serverAgePublicKey
 }
 
-// AgeEncryptToServer - Encrypt using the server's public key
-func AgeEncryptToServer(plaintext []byte) ([]byte, error) {
+// AgeKeyExToServer - Encrypt using the server's public key
+func AgeKeyExToServer(plaintext []byte) ([]byte, error) {
 	recipientPublicKey := GetServerAgePublicKey()
 	if recipientPublicKey == "" {
 		panic("no server public key")
 	}
-	keyPair := GetAgeKeyPair()
+
+	// Encrypt to ourselves first
+	plaintext, err := AgeEncrypt(PeerAgePublicKey, plaintext)
+	if err != nil {
+		return nil, err
+	}
 	ciphertext, err := AgeEncrypt(recipientPublicKey, plaintext)
 	if err != nil {
 		return nil, err
 	}
+
+	// Sender includes hash of it's implant specific peer public key
+	keyPair := GetAgeKeyPair()
 	digest := sha256.Sum256([]byte(keyPair.Public))
 	msg := make([]byte, 32+len(ciphertext))
 	copy(msg, digest[:])
@@ -120,10 +128,7 @@ func AgeEncryptToPeer(recipientPublicKey []byte, recipientPublicKeySig string, p
 	if !valid {
 		return nil, ErrInvalidPeerKey
 	}
-	var peerPublicKey [32]byte
-	copy(peerPublicKey[:], recipientPublicKey)
-	keyPair := GetAgeKeyPair()
-	ciphertext, err := AgeEncrypt(keyPair.Public, plaintext)
+	ciphertext, err := AgeEncrypt(string(recipientPublicKey), plaintext)
 	if err != nil {
 		return nil, err
 	}

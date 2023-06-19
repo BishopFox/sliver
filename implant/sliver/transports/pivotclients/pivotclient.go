@@ -116,7 +116,7 @@ func (p *NetConnPivotClient) peerKeyExchange() error {
 func (p *NetConnPivotClient) serverKeyExchange() error {
 	serverSessionKey := cryptography.RandomKey()
 	p.serverCipherCtx = cryptography.NewCipherContext(serverSessionKey)
-	ciphertext, err := cryptography.AgeEncryptToServer(serverSessionKey[:])
+	ciphertext, err := cryptography.AgeKeyExToServer(serverSessionKey[:])
 	if err != nil {
 		return err
 	}

@@ -42,7 +42,7 @@ import (
 )
 
 const (
-	ServerECCKeyPairKey      = "server.age"
+	serverAgeKeyPairKey      = "server.age"
 	serverMinisignPrivateKey = "server.minisign"
 )
 
@@ -155,6 +155,19 @@ func AgeDecrypt(recipientPrivateKey string, ciphertext []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
+// AgeKeyPairFromImplant - Decrypt the session key from an implant
+func AgeKeyExFromImplant(serverPrivateKey string, implantPrivateKey string, ciphertext []byte) ([]byte, error) {
+	plaintext, err := AgeDecrypt(serverPrivateKey, ciphertext)
+	if err != nil {
+		return nil, err
+	}
+	plaintext, err = AgeDecrypt(implantPrivateKey, plaintext)
+	if err != nil {
+		return nil, err
+	}
+	return plaintext, nil
+}
+
 // Encrypt - Encrypt using chacha20poly1305
 // https://pkg.go.dev/golang.org/x/crypto/chacha20poly1305
 func Encrypt(key [chacha20poly1305.KeySize]byte, plaintext []byte) ([]byte, error) {
@@ -248,9 +261,9 @@ func serverSignRawBuf(buf []byte) []byte {
 
 // AgeServerKeyPair - Get teh server's ECC key pair
 func AgeServerKeyPair() *AgeKeyPair {
-	data, err := db.GetKeyValue(ServerECCKeyPairKey)
+	data, err := db.GetKeyValue(serverAgeKeyPairKey)
 	if err == db.ErrRecordNotFound {
-		keyPair, err := generateServerECCKeyPair()
+		keyPair, err := generateServerKeyPair()
 		if err != nil {
 			panic(err)
 		}
@@ -264,7 +277,7 @@ func AgeServerKeyPair() *AgeKeyPair {
 	return keyPair
 }
 
-func generateServerECCKeyPair() (*AgeKeyPair, error) {
+func generateServerKeyPair() (*AgeKeyPair, error) {
 	keyPair, err := RandomAgeKeyPair()
 	if err != nil {
 		return nil, err
@@ -273,7 +286,7 @@ func generateServerECCKeyPair() (*AgeKeyPair, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = db.SetKeyValue(ServerECCKeyPairKey, string(data))
+	err = db.SetKeyValue(serverAgeKeyPairKey, string(data))
 	return keyPair, err
 }
 

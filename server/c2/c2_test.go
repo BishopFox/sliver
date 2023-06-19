@@ -44,9 +44,10 @@ func setup() *models.ImplantConfig {
 	var err error
 	certs.SetupCAs()
 	serverAgeKeyPair = cryptography.AgeServerKeyPair()
+	peerAgeKeyPair, _ := cryptography.RandomAgeKeyPair()
 	implantCrypto.SetSecrets(
-		"",
-		"",
+		peerAgeKeyPair.Public,
+		peerAgeKeyPair.Private,
 		"",
 		serverAgeKeyPair.Public,
 		cryptography.MinisignServerPublicKey(),
