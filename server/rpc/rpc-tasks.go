@@ -33,7 +33,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/generate"
@@ -78,12 +77,11 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		}
 		config.Format = clientpb.OutputFormat_SHELLCODE
 		config.ObfuscateSymbols = true
-		otpSecret, _ := cryptography.TOTPServerSecret()
 		err = generate.GenerateConfig(name, config, true)
 		if err != nil {
 			return nil, err
 		}
-		shellcodePath, err := generate.SliverShellcode(name, otpSecret, config, true)
+		shellcodePath, err := generate.SliverShellcode(name, config, true)
 		if err != nil {
 			return nil, err
 		}
@@ -216,7 +214,7 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 	}
 
 	if getOS(session, beacon) == "windows" {
-		shellcode, err := generate.DonutShellcodeFromPE(req.Data, arch, false, req.Args, "", req.EntryPoint, req.IsDLL, req.IsUnicode)
+		shellcode, err := generate.DonutShellcodeFromPE(req.Data, arch, false, req.Args, "", req.EntryPoint, req.IsDLL, req.IsUnicode, false)
 		if err != nil {
 			tasksLog.Errorf("Sideload failed: %s", err)
 			return nil, err
@@ -315,7 +313,7 @@ func getSliverShellcode(name string) ([]byte, string, error) {
 		if err != nil {
 			return []byte{}, "", err
 		}
-		data, err = generate.DonutShellcodeFromPE(fileData, build.ImplantConfig.GOARCH, false, "", "", "", false, false)
+		data, err = generate.DonutShellcodeFromPE(fileData, build.ImplantConfig.GOARCH, false, "", "", "", false, false, false)
 		if err != nil {
 			rpcLog.Errorf("DonutShellcodeFromPE error: %v\n", err)
 			return []byte{}, "", err

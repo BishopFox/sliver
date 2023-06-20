@@ -147,9 +147,9 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.BeaconInterval = pbConfig.BeaconInterval
 	cfg.BeaconJitter = pbConfig.BeaconJitter
 
-	cfg.ECCServerPublicKey = pbConfig.ECCServerPublicKey
-	cfg.ECCPrivateKey = pbConfig.ECCPrivateKey
-	cfg.ECCPublicKey = pbConfig.ECCPublicKey
+	cfg.AgeServerPublicKey = pbConfig.AgeServerPublicKey
+	cfg.PeerPrivateKey = pbConfig.PeerPrivateKey
+	cfg.PeerPublicKey = pbConfig.PeerPublicKey
 
 	cfg.GOOS = pbConfig.GOOS
 	cfg.GOARCH = pbConfig.GOARCH
@@ -160,6 +160,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.DebugFile = pbConfig.DebugFile
 	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
+	cfg.SGNEnabled = pbConfig.SGNEnabled
 	cfg.TemplateName = pbConfig.TemplateName
 	if cfg.TemplateName == "" {
 		cfg.TemplateName = SliverTemplateName
@@ -173,6 +174,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.WGTcpCommsPort = pbConfig.WGTcpCommsPort
 	cfg.ReconnectInterval = pbConfig.ReconnectInterval
 	cfg.MaxConnectionErrors = pbConfig.MaxConnectionErrors
+	cfg.PollTimeout = pbConfig.PollTimeout
 
 	cfg.LimitDomainJoined = pbConfig.LimitDomainJoined
 	cfg.LimitDatetime = pbConfig.LimitDatetime
@@ -279,7 +281,7 @@ func GetSliversDir() string {
 // -----------------------
 
 // SliverShellcode - Generates a sliver shellcode using Donut
-func SliverShellcode(name string, otpSecret string, config *models.ImplantConfig, save bool) (string, error) {
+func SliverShellcode(name string, config *models.ImplantConfig, save bool) (string, error) {
 	if config.GOOS != "windows" {
 		return "", fmt.Errorf("shellcode format is currently only supported on Windows")
 	}
@@ -299,7 +301,7 @@ func SliverShellcode(name string, otpSecret string, config *models.ImplantConfig
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
-	pkgPath, err := renderSliverGoCode(name, otpSecret, config, goConfig)
+	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
 		return "", err
 	}
@@ -344,7 +346,7 @@ func SliverShellcode(name string, otpSecret string, config *models.ImplantConfig
 }
 
 // SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
-func SliverSharedLibrary(name string, otpSecret string, config *models.ImplantConfig, save bool) (string, error) {
+func SliverSharedLibrary(name string, config *models.ImplantConfig, save bool) (string, error) {
 	// Compile go code
 	var cc string
 	var cxx string
@@ -376,7 +378,7 @@ func SliverSharedLibrary(name string, otpSecret string, config *models.ImplantCo
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
-	pkgPath, err := renderSliverGoCode(name, otpSecret, config, goConfig)
+	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
 		return "", err
 	}
@@ -423,7 +425,7 @@ func SliverSharedLibrary(name string, otpSecret string, config *models.ImplantCo
 }
 
 // SliverExecutable - Generates a sliver executable binary
-func SliverExecutable(name string, otpSecret string, config *models.ImplantConfig, save bool) (string, error) {
+func SliverExecutable(name string, config *models.ImplantConfig, save bool) (string, error) {
 	// Compile go code
 	appDir := assets.GetRootAppDir()
 	cgo := "0"
@@ -446,7 +448,7 @@ func SliverExecutable(name string, otpSecret string, config *models.ImplantConfi
 		GOGARBLE:    goGarble(config),
 	}
 
-	pkgPath, err := renderSliverGoCode(name, otpSecret, config, goConfig)
+	pkgPath, err := renderSliverGoCode(name, config, goConfig)
 	if err != nil {
 		return "", err
 	}
@@ -484,7 +486,7 @@ func SliverExecutable(name string, otpSecret string, config *models.ImplantConfi
 }
 
 // This function is a little too long, we should probably refactor it as some point
-func renderSliverGoCode(name string, otpSecret string, config *models.ImplantConfig, goConfig *gogo.GoConfig) (string, error) {
+func renderSliverGoCode(name string, config *models.ImplantConfig, goConfig *gogo.GoConfig) (string, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := gogo.ValidCompilerTargets(*goConfig)[target]; !ok {
 		return "", fmt.Errorf("invalid compiler target: %s", target)
@@ -584,12 +586,10 @@ func renderSliverGoCode(name string, otpSecret string, config *models.ImplantCon
 		err = sliverCode.Execute(buf, struct {
 			Name                string
 			Config              *models.ImplantConfig
-			OTPSecret           string
 			HTTPC2ImplantConfig *configs.HTTPC2ImplantConfig
 		}{
 			name,
 			config,
-			otpSecret,
 			configs.GetHTTPC2Config().RandomImplantConfig(),
 		})
 		if err != nil {
@@ -773,17 +773,17 @@ func GenerateConfig(name string, config *models.ImplantConfig, save bool) error 
 	}
 
 	// ECC keys
-	implantKeyPair, err := cryptography.RandomECCKeyPair()
+	implantKeyPair, err := cryptography.RandomAgeKeyPair()
 	if err != nil {
 		return err
 	}
-	serverKeyPair := cryptography.ECCServerKeyPair()
-	digest := sha256.Sum256((*implantKeyPair.Public)[:])
-	config.ECCPublicKey = implantKeyPair.PublicBase64()
-	config.ECCPublicKeyDigest = hex.EncodeToString(digest[:])
-	config.ECCPrivateKey = implantKeyPair.PrivateBase64()
-	config.ECCPublicKeySignature = cryptography.MinisignServerSign(implantKeyPair.Public[:])
-	config.ECCServerPublicKey = serverKeyPair.PublicBase64()
+	serverKeyPair := cryptography.AgeServerKeyPair()
+	digest := sha256.Sum256([]byte(implantKeyPair.Public))
+	config.PeerPublicKey = implantKeyPair.Public
+	config.PeerPublicKeyDigest = hex.EncodeToString(digest[:])
+	config.PeerPrivateKey = implantKeyPair.Private
+	config.PeerPublicKeySignature = cryptography.MinisignServerSign([]byte(implantKeyPair.Public))
+	config.AgeServerPublicKey = serverKeyPair.Public
 	config.MinisignServerPublicKey = cryptography.MinisignServerPublicKey()
 
 	// MTLS keys

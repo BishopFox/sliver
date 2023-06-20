@@ -21,10 +21,8 @@ package c2
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	insecureRand "math/rand"
 	"os"
 	"testing"
-	"time"
 
 	implantCrypto "github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/server/certs"
@@ -34,53 +32,39 @@ import (
 )
 
 var (
-	serverECCKeyPair  *cryptography.ECCKeyPair
-	implantECCKeyPair *cryptography.ECCKeyPair
+	serverAgeKeyPair *cryptography.AgeKeyPair
 )
 
 func TestMain(m *testing.M) {
-
-	// Run one with deterministic randomness if a
-	// crash occurs, we can more easily reproduce it
-	insecureRand.Seed(1)
 	implantConfig := setup()
 	code1 := m.Run()
 	cleanup(implantConfig)
-
-	insecureRand.Seed(time.Now().UnixMicro())
-	implantConfig = setup()
-	code2 := m.Run()
-	cleanup(implantConfig)
-
-	os.Exit(code1 | code2)
+	os.Exit(code1)
 }
 
 func setup() *models.ImplantConfig {
 	var err error
 	certs.SetupCAs()
-	serverECCKeyPair = cryptography.ECCServerKeyPair()
-	implantECCKeyPair, err = cryptography.RandomECCKeyPair()
-	if err != nil {
-		panic(err)
-	}
-	totpSecret, err := cryptography.TOTPServerSecret()
-	if err != nil {
-		panic(err)
-	}
+	serverAgeKeyPair = cryptography.AgeServerKeyPair()
+	peerAgeKeyPair, _ := cryptography.RandomAgeKeyPair()
 	implantCrypto.SetSecrets(
-		implantECCKeyPair.PublicBase64(),
-		implantECCKeyPair.PrivateBase64(),
+		peerAgeKeyPair.Public,
+		peerAgeKeyPair.Private,
 		"",
-		serverECCKeyPair.PublicBase64(),
-		totpSecret,
-		"",
+		serverAgeKeyPair.Public,
+		cryptography.MinisignServerPublicKey(),
 	)
-	digest := sha256.Sum256(implantECCKeyPair.Public[:])
+
+	digest := sha256.New()
+	digest.Write([]byte(peerAgeKeyPair.Public))
+	publicKeyDigest := hex.EncodeToString(digest.Sum(nil))
+
 	implantConfig := &models.ImplantConfig{
-		ECCPublicKey:       implantECCKeyPair.PublicBase64(),
-		ECCPrivateKey:      implantECCKeyPair.PrivateBase64(),
-		ECCPublicKeyDigest: hex.EncodeToString(digest[:]),
-		ECCServerPublicKey: serverECCKeyPair.PublicBase64(),
+		PeerPublicKey:       peerAgeKeyPair.Public,
+		PeerPublicKeyDigest: publicKeyDigest,
+		PeerPrivateKey:      peerAgeKeyPair.Private,
+
+		AgeServerPublicKey: serverAgeKeyPair.Public,
 	}
 	err = db.Session().Create(implantConfig).Error
 	if err != nil {

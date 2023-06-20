@@ -92,13 +92,17 @@ func mutexFromPtr(p uintptr) *mutex {
 	if p == 0 {
 		return nil
 	}
+
 	ix := p - 1
+
+	mutexes.Lock()
+	defer mutexes.Unlock()
+
 	return &mutexes.a[ix>>8][ix&255]
 }
 
 func (m *mutexPool) alloc(recursive bool) uintptr {
 	m.Lock()
-
 	defer m.Unlock()
 
 	n := len(m.freeList)
@@ -124,8 +128,8 @@ func (m *mutexPool) free(p uintptr) {
 	ptr := mutexFromPtr(p)
 	ix := ptr.poolIndex
 	*ptr = mutex{}
-	m.Lock()
 
+	m.Lock()
 	defer m.Unlock()
 
 	m.freeList = append(m.freeList, ix)

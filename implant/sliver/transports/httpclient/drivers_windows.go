@@ -27,6 +27,10 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient/drivers/win/wininet"
 )
 
+var (
+	wininetDriver = "wininet"
+)
+
 // GetHTTPDriver - Get an instance of the specified HTTP driver
 func GetHTTPDriver(origin string, secure bool, opts *HTTPOptions) (HTTPDriver, error) {
 	switch opts.Driver {

@@ -1,3 +1,9 @@
+# filippo.io/age v1.1.1
+## explicit; go 1.19
+filippo.io/age
+filippo.io/age/internal/bech32
+filippo.io/age/internal/format
+filippo.io/age/internal/stream
 # github.com/AlecAivazis/survey/v2 v2.3.6
 ## explicit; go 1.13
 github.com/AlecAivazis/survey/v2
@@ -80,11 +86,6 @@ github.com/awgh/cppgo/asmcall/cdecl
 # github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4
 ## explicit
 github.com/awgh/rawreader
-# github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc
-## explicit
-github.com/boombuler/barcode
-github.com/boombuler/barcode/qr
-github.com/boombuler/barcode/utils
 # github.com/cheggaaa/pb/v3 v3.1.2
 ## explicit; go 1.17
 github.com/cheggaaa/pb/v3
@@ -318,7 +319,7 @@ github.com/moloch--/asciicast
 # github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 ## explicit; go 1.17
 github.com/moloch--/memmod
-# github.com/ncruces/go-sqlite3 v0.7.0
+# github.com/ncruces/go-sqlite3 v0.7.2
 ## explicit; go 1.19
 github.com/ncruces/go-sqlite3
 github.com/ncruces/go-sqlite3/driver
@@ -331,12 +332,6 @@ github.com/ncruces/julianday
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
-# github.com/pquerna/otp v1.4.0
-## explicit; go 1.12
-github.com/pquerna/otp
-github.com/pquerna/otp/hotp
-github.com/pquerna/otp/internal
-github.com/pquerna/otp/totp
 # github.com/reeflective/console v0.1.6
 ## explicit; go 1.20
 github.com/reeflective/console
@@ -414,7 +409,7 @@ github.com/spf13/pflag
 # github.com/stretchr/testify v1.8.1
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
-# github.com/tetratelabs/wazero v1.2.0
+# github.com/tetratelabs/wazero v1.2.1
 ## explicit; go 1.18
 github.com/tetratelabs/wazero
 github.com/tetratelabs/wazero/api
@@ -474,11 +469,10 @@ golang.org/x/crypto/chacha20poly1305
 golang.org/x/crypto/curve25519
 golang.org/x/crypto/curve25519/internal/field
 golang.org/x/crypto/ed25519
+golang.org/x/crypto/hkdf
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
 golang.org/x/crypto/md4
-golang.org/x/crypto/nacl/box
-golang.org/x/crypto/nacl/secretbox
 golang.org/x/crypto/openpgp/armor
 golang.org/x/crypto/openpgp/elgamal
 golang.org/x/crypto/openpgp/errors
@@ -486,7 +480,6 @@ golang.org/x/crypto/openpgp/packet
 golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/poly1305
-golang.org/x/crypto/salsa20/salsa
 golang.org/x/crypto/scrypt
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
@@ -515,7 +508,7 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
 golang.org/x/net/trace
-# golang.org/x/sys v0.8.0
+# golang.org/x/sys v0.9.0
 ## explicit; go 1.17
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
@@ -586,10 +579,10 @@ golang.zx2c4.com/wireguard/tun
 # golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220208144051-fde48d68ee68
 ## explicit; go 1.13
 golang.zx2c4.com/wireguard/wgctrl/wgtypes
-# google.golang.org/genproto v0.0.0-20230306155012-7f2fa6fef1f4
+# google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.55.0
+# google.golang.org/grpc v1.56.0
 ## explicit; go 1.17
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -735,10 +728,10 @@ gorm.io/driver/mysql
 # gorm.io/driver/postgres v1.5.2
 ## explicit; go 1.18
 gorm.io/driver/postgres
-# gorm.io/driver/sqlite v1.5.1
+# gorm.io/driver/sqlite v1.5.2
 ## explicit; go 1.20
 gorm.io/driver/sqlite
-# gorm.io/gorm v1.25.1
+# gorm.io/gorm v1.25.2-0.20230530020048-26663ab9bf55
 ## explicit; go 1.16
 gorm.io/gorm
 gorm.io/gorm/callbacks
@@ -838,7 +831,7 @@ modernc.org/memory
 # modernc.org/opt v0.1.3
 ## explicit; go 1.13
 modernc.org/opt
-# modernc.org/sqlite v1.22.1
+# modernc.org/sqlite v1.23.1
 ## explicit; go 1.18
 modernc.org/sqlite
 modernc.org/sqlite/lib

@@ -17,6 +17,8 @@ provides a [`database/sql`](https://pkg.go.dev/database/sql) driver
 embeds a build of SQLite into your application.
 - Package [`github.com/ncruces/go-sqlite3/vfs`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs)
 wraps the [C SQLite VFS API](https://www.sqlite.org/vfs.html) and provides a pure Go implementation.
+- Package [`github.com/ncruces/go-sqlite3/gormlite`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/gormlite)
+provides a [GORM](https://gorm.io) driver.
 
 ### Caveats
 
