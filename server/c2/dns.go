@@ -505,7 +505,7 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 
 	var publicKeyDigest [32]byte
 	copy(publicKeyDigest[:], msg.Data[:32])
-	implantConfig, err := db.ImplantConfigByECCPublicKeyDigest(publicKeyDigest)
+	implantConfig, err := db.ImplantConfigByPublicKeyDigest(publicKeyDigest)
 	if err != nil || implantConfig == nil {
 		dnsLog.Errorf("[session init] error implant public key not found")
 		return s.refusedErrorResp(req)

@@ -11,7 +11,7 @@ on:
 
 jobs:
   linux-windows-build:
-    name: Linux & Windows Build
+    name: Linux & Windows Test
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -45,7 +45,7 @@ jobs:
         run: make linux-arm64
 
   macos-build:
-    name: MacOS Build
+    name: MacOS Test
     runs-on: macos-latest
     timeout-minutes: 90
     steps:

@@ -107,7 +107,7 @@ func TestAgeWrongKeyEncryptDecrypt(t *testing.T) {
 }
 
 func TestAgeKeyEx(t *testing.T) {
-	sessionKey := RandomKey()
+	sessionKey := RandomSymmetricKey()
 	plaintext := sessionKey[:]
 	ciphertext, err := implantCrypto.AgeKeyExToServer(plaintext)
 	if err != nil {
@@ -127,7 +127,7 @@ func TestAgeKeyEx(t *testing.T) {
 }
 
 func TestAgeKeyExTamper(t *testing.T) {
-	sessionKey := RandomKey()
+	sessionKey := RandomSymmetricKey()
 	plaintext := sessionKey[:]
 	allCiphertext, err := implantCrypto.AgeKeyExToServer(plaintext)
 	if err != nil {
@@ -159,7 +159,7 @@ func TestAgeKeyExTamper(t *testing.T) {
 
 // TestEncryptDecrypt - Test AEAD functions
 func TestEncryptDecrypt(t *testing.T) {
-	key := RandomKey()
+	key := RandomSymmetricKey()
 	cipher1, err := Encrypt(key, sample1)
 	if err != nil {
 		t.Fatal(err)
@@ -172,7 +172,7 @@ func TestEncryptDecrypt(t *testing.T) {
 		t.Fatalf("Sample does not match decrypted data")
 	}
 
-	key = RandomKey()
+	key = RandomSymmetricKey()
 	cipher2, err := Encrypt(key, sample2)
 	if err != nil {
 		t.Fatal(err)
@@ -188,7 +188,7 @@ func TestEncryptDecrypt(t *testing.T) {
 
 // TestTamperData - Detect tampered ciphertext
 func TestTamperData(t *testing.T) {
-	key := RandomKey()
+	key := RandomSymmetricKey()
 	cipher1, err := Encrypt(key, sample1)
 	if err != nil {
 		t.Fatal(err)
@@ -205,12 +205,12 @@ func TestTamperData(t *testing.T) {
 
 // TestWrongKey - Attempt to decrypt with wrong key
 func TestWrongKey(t *testing.T) {
-	key := RandomKey()
+	key := RandomSymmetricKey()
 	cipher1, err := Encrypt(key, sample1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	key2 := RandomKey()
+	key2 := RandomSymmetricKey()
 	_, err = Decrypt(key2, cipher1)
 	if err == nil {
 		t.Fatalf("Decrypted with wrong key, should have resulted in Fatal")
@@ -219,7 +219,7 @@ func TestWrongKey(t *testing.T) {
 
 // TestCipherContext - Test CipherContext
 func TestCipherContext(t *testing.T) {
-	testKey := RandomKey()
+	testKey := RandomSymmetricKey()
 	cipherCtx1 := &CipherContext{
 		Key:    testKey,
 		replay: &sync.Map{},
@@ -256,7 +256,7 @@ func TestCipherContext(t *testing.T) {
 
 // TestEncryptDecrypt - Test AEAD functions
 func TestImplantEncryptDecrypt(t *testing.T) {
-	key := RandomKey()
+	key := RandomSymmetricKey()
 	cipher1, err := Encrypt(key, sample1)
 	if err != nil {
 		t.Fatal(err)
@@ -269,7 +269,7 @@ func TestImplantEncryptDecrypt(t *testing.T) {
 		t.Fatalf("Sample does not match decrypted data")
 	}
 
-	key = RandomKey()
+	key = RandomSymmetricKey()
 	cipher2, err := implantCrypto.Encrypt(key, sample2)
 	if err != nil {
 		t.Fatal(err)
