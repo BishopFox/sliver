@@ -310,17 +310,20 @@ func fdFdstatSetFlagsFn(_ context.Context, mod api.Module, params []uint64) sysc
 
 	if f, ok := fsc.LookupFile(fd); !ok {
 		return syscall.EBADF
-	} else if isPreopenedStdio(fd, f) {
-		nonblock := wasip1.FD_NONBLOCK&wasiFlag != 0
-		return f.File.SetNonblock(nonblock)
-	} else if _, ok := f.File.(socketapi.TCPConn); ok {
-		nonblock := wasip1.FD_NONBLOCK&wasiFlag != 0
-		return f.File.SetNonblock(nonblock)
 	} else {
-		// For normal files, proceed to apply an append flag.
-		append := wasip1.FD_APPEND&wasiFlag != 0
-		return f.File.SetAppend(append)
+		nonblock := wasip1.FD_NONBLOCK&wasiFlag != 0
+		errno := f.File.SetNonblock(nonblock)
+		if errno != 0 {
+			return errno
+		}
+		if stat, err := f.File.Stat(); err == 0 && stat.Mode.IsRegular() {
+			// For normal files, proceed to apply an append flag.
+			append := wasip1.FD_APPEND&wasiFlag != 0
+			return f.File.SetAppend(append)
+		}
 	}
+
+	return 0
 }
 
 // fdFdstatSetRights will not be implemented as rights were removed from WASI.
@@ -1690,6 +1693,9 @@ func openFlags(dirflags, oflags, fdflags uint16, rights uint32) (openFlags int) 
 	if oflags&wasip1.O_CREAT != 0 {
 		openFlags |= syscall.O_CREAT
 		defaultMode = syscall.O_RDWR
+	}
+	if fdflags&wasip1.FD_NONBLOCK != 0 {
+		openFlags |= syscall.O_NONBLOCK
 	}
 	if fdflags&wasip1.FD_APPEND != 0 {
 		openFlags |= syscall.O_APPEND

@@ -13,12 +13,12 @@ import (
 
 var (
 	sqliteSeparator    = "`|\"|'|\t"
-	indexRegexp        = regexp.MustCompile(fmt.Sprintf("(?is)CREATE(?: UNIQUE)? INDEX [%v]?[\\w\\d-]+[%v]? ON (.*)$", sqliteSeparator, sqliteSeparator))
-	tableRegexp        = regexp.MustCompile(fmt.Sprintf("(?is)(CREATE TABLE [%v]?[\\w\\d-]+[%v]?)(?:\\s*\\((.*)\\))?", sqliteSeparator, sqliteSeparator))
+	indexRegexp        = regexp.MustCompile(fmt.Sprintf(`(?is)CREATE(?: UNIQUE)? INDEX [%v]?[\w\d-]+[%v]? ON (.*)$`, sqliteSeparator, sqliteSeparator))
+	tableRegexp        = regexp.MustCompile(fmt.Sprintf(`(?is)(CREATE TABLE [%v]?[\w\d-]+[%v]?)(?:\s*\((.*)\))?`, sqliteSeparator, sqliteSeparator))
 	separatorRegexp    = regexp.MustCompile(fmt.Sprintf("[%v]", sqliteSeparator))
-	columnsRegexp      = regexp.MustCompile(fmt.Sprintf("[(,][%v]?(\\w+)[%v]?", sqliteSeparator, sqliteSeparator))
-	columnRegexp       = regexp.MustCompile(fmt.Sprintf("^[%v]?([\\w\\d]+)[%v]?\\s+([\\w\\(\\)\\d]+)(.*)$", sqliteSeparator, sqliteSeparator))
-	defaultValueRegexp = regexp.MustCompile("(?i) DEFAULT \\(?(.+)?\\)?( |COLLATE|GENERATED|$)")
+	columnsRegexp      = regexp.MustCompile(fmt.Sprintf(`[(,][%v]?(\w+)[%v]?`, sqliteSeparator, sqliteSeparator))
+	columnRegexp       = regexp.MustCompile(fmt.Sprintf(`^[%v]?([\w\d]+)[%v]?\s+([\w\(\)\d]+)(.*)$`, sqliteSeparator, sqliteSeparator))
+	defaultValueRegexp = regexp.MustCompile(`(?i) DEFAULT \(?(.+)?\)?( |COLLATE|GENERATED|$)`)
 	regRealDataType    = regexp.MustCompile(`[^\d](\d+)[^\d]?`)
 )
 
@@ -162,7 +162,7 @@ func parseDDL(strs ...string) (*ddl, error) {
 			for _, column := range getAllColumns(matches[1]) {
 				for idx, c := range result.columns {
 					if c.NameValue.String == column {
-						c.UniqueValue = sql.NullBool{Bool: true, Valid: true}
+						c.UniqueValue = sql.NullBool{Bool: strings.ToUpper(strings.Fields(str)[1]) == "UNIQUE", Valid: true}
 						result.columns[idx] = c
 					}
 				}

@@ -214,7 +214,7 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 	}
 
 	if getOS(session, beacon) == "windows" {
-		shellcode, err := generate.DonutShellcodeFromPE(req.Data, arch, false, req.Args, "", req.EntryPoint, req.IsDLL, req.IsUnicode)
+		shellcode, err := generate.DonutShellcodeFromPE(req.Data, arch, false, req.Args, "", req.EntryPoint, req.IsDLL, req.IsUnicode, false)
 		if err != nil {
 			tasksLog.Errorf("Sideload failed: %s", err)
 			return nil, err
@@ -313,7 +313,7 @@ func getSliverShellcode(name string) ([]byte, string, error) {
 		if err != nil {
 			return []byte{}, "", err
 		}
-		data, err = generate.DonutShellcodeFromPE(fileData, build.ImplantConfig.GOARCH, false, "", "", "", false, false)
+		data, err = generate.DonutShellcodeFromPE(fileData, build.ImplantConfig.GOARCH, false, "", "", "", false, false, false)
 		if err != nil {
 			rpcLog.Errorf("DonutShellcodeFromPE error: %v\n", err)
 			return []byte{}, "", err

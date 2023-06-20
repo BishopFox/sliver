@@ -12,7 +12,7 @@ import (
 )
 
 func newDefaultOsFile(openPath string, openFlag int, openPerm fs.FileMode, f *os.File) fsapi.File {
-	return &osFile{path: openPath, flag: openFlag, perm: openPerm, file: f}
+	return &osFile{path: openPath, flag: openFlag, perm: openPerm, file: f, fd: f.Fd()}
 }
 
 // osFile is a file opened with this package, and uses os.File or syscalls to
@@ -22,6 +22,7 @@ type osFile struct {
 	flag int
 	perm fs.FileMode
 	file *os.File
+	fd   uintptr
 
 	// closed is true when closed was called. This ensures proper syscall.EBADF
 	closed bool
@@ -92,7 +93,7 @@ func (f *osFile) SetNonblock(enable bool) (errno syscall.Errno) {
 	} else {
 		f.flag &= ^fsapi.O_NONBLOCK
 	}
-	if err := setNonblock(f.file.Fd(), enable); err != nil {
+	if err := setNonblock(f.fd, enable); err != nil {
 		return fileError(f, f.closed, platform.UnwrapOSError(err))
 	}
 	return 0
@@ -126,7 +127,15 @@ func (f *osFile) Stat() (fsapi.Stat_t, syscall.Errno) {
 
 // Read implements the same method as documented on fsapi.File
 func (f *osFile) Read(buf []byte) (n int, errno syscall.Errno) {
-	if n, errno = read(f.file, buf); errno != 0 {
+	if len(buf) == 0 {
+		return 0, 0 // Short-circuit 0-len reads.
+	}
+	if NonBlockingFileIoSupported && f.IsNonblock() {
+		n, errno = readFd(f.fd, buf)
+	} else {
+		n, errno = read(f.file, buf)
+	}
+	if errno != 0 {
 		// Defer validation overhead until we've already had an error.
 		errno = fileError(f, f.closed, errno)
 	}
@@ -160,7 +169,7 @@ func (f *osFile) Seek(offset int64, whence int) (newOffset int64, errno syscall.
 // PollRead implements the same method as documented on fsapi.File
 func (f *osFile) PollRead(timeout *time.Duration) (ready bool, errno syscall.Errno) {
 	fdSet := platform.FdSet{}
-	fd := int(f.file.Fd())
+	fd := int(f.fd)
 	fdSet.Set(fd)
 	nfds := fd + 1 // See https://man7.org/linux/man-pages/man2/select.2.html#:~:text=condition%20has%20occurred.-,nfds,-This%20argument%20should
 	count, err := _select(nfds, &fdSet, nil, nil, timeout)
@@ -232,7 +241,7 @@ func (f *osFile) Chown(uid, gid int) syscall.Errno {
 		return syscall.EBADF
 	}
 
-	return fchown(f.file.Fd(), uid, gid)
+	return fchown(f.fd, uid, gid)
 }
 
 // Utimens implements the same method as documented on fsapi.File
@@ -241,7 +250,7 @@ func (f *osFile) Utimens(times *[2]syscall.Timespec) syscall.Errno {
 		return syscall.EBADF
 	}
 
-	err := futimens(f.file.Fd(), times)
+	err := futimens(f.fd, times)
 	return platform.UnwrapOSError(err)
 }
 

@@ -36,9 +36,11 @@ import (
 )
 
 var (
+	// ErrInvalidStreamName - Invalid stream name
 	ErrInvalidStreamName = status.Error(codes.InvalidArgument, "Invalid stream name")
-	rpcClientLogs        = log.NamedLogger("rpc", "client-logs")
-	streamNamePattern    = regexp.MustCompile("^[a-z0-9_-]+$")
+
+	rpcClientLogs     = log.NamedLogger("rpc", "client-logs")
+	streamNamePattern = regexp.MustCompile("^[a-z0-9_-]+$")
 )
 
 type LogStream struct {
@@ -72,7 +74,7 @@ func (l *LogStream) Write(data []byte) (int, error) {
 			return n, err
 		}
 		go gzipFile(partFileName)
-		l.logFile, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+		l.logFile, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o600)
 		if err != nil {
 			return n, err
 		}
@@ -129,7 +131,7 @@ func openNewLogStream(logsDir string, stream string) (*LogStream, error) {
 		rpcClientLogs.Warnf("Client console log file already exists: %s", logPath)
 		logPath = filepath.Join(logsDir, filepath.Base(fmt.Sprintf("%s_%s_%s.log", stream, dateTime, randomSuffix(6))))
 	}
-	logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+	logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o600)
 	if err != nil {
 		return nil, err
 	}

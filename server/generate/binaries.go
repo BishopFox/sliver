@@ -160,6 +160,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.DebugFile = pbConfig.DebugFile
 	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
+	cfg.SGNEnabled = pbConfig.SGNEnabled
 	cfg.TemplateName = pbConfig.TemplateName
 	if cfg.TemplateName == "" {
 		cfg.TemplateName = SliverTemplateName
@@ -173,6 +174,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.WGTcpCommsPort = pbConfig.WGTcpCommsPort
 	cfg.ReconnectInterval = pbConfig.ReconnectInterval
 	cfg.MaxConnectionErrors = pbConfig.MaxConnectionErrors
+	cfg.PollTimeout = pbConfig.PollTimeout
 
 	cfg.LimitDomainJoined = pbConfig.LimitDomainJoined
 	cfg.LimitDatetime = pbConfig.LimitDatetime
