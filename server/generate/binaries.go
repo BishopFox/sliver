@@ -147,9 +147,9 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) (string, *model
 	cfg.BeaconInterval = pbConfig.BeaconInterval
 	cfg.BeaconJitter = pbConfig.BeaconJitter
 
-	cfg.ECCServerPublicKey = pbConfig.ECCServerPublicKey
-	cfg.ECCPrivateKey = pbConfig.ECCPrivateKey
-	cfg.ECCPublicKey = pbConfig.ECCPublicKey
+	cfg.AgeServerPublicKey = pbConfig.AgeServerPublicKey
+	cfg.PeerPrivateKey = pbConfig.PeerPrivateKey
+	cfg.PeerPublicKey = pbConfig.PeerPublicKey
 
 	cfg.GOOS = pbConfig.GOOS
 	cfg.GOARCH = pbConfig.GOARCH
@@ -777,11 +777,11 @@ func GenerateConfig(name string, config *models.ImplantConfig, save bool) error 
 	}
 	serverKeyPair := cryptography.AgeServerKeyPair()
 	digest := sha256.Sum256([]byte(implantKeyPair.Public))
-	config.ECCPublicKey = implantKeyPair.Public
-	config.ECCPublicKeyDigest = hex.EncodeToString(digest[:])
-	config.ECCPrivateKey = implantKeyPair.Private
-	config.ECCPublicKeySignature = cryptography.MinisignServerSign([]byte(implantKeyPair.Public))
-	config.ECCServerPublicKey = serverKeyPair.Public
+	config.PeerPublicKey = implantKeyPair.Public
+	config.PeerPublicKeyDigest = hex.EncodeToString(digest[:])
+	config.PeerPrivateKey = implantKeyPair.Private
+	config.PeerPublicKeySignature = cryptography.MinisignServerSign([]byte(implantKeyPair.Public))
+	config.AgeServerPublicKey = serverKeyPair.Public
 	config.MinisignServerPublicKey = cryptography.MinisignServerPublicKey()
 
 	// MTLS keys

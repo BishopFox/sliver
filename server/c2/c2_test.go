@@ -60,11 +60,11 @@ func setup() *models.ImplantConfig {
 	publicKeyDigest := hex.EncodeToString(digest.Sum(nil))
 
 	implantConfig := &models.ImplantConfig{
-		ECCPublicKey:       peerAgeKeyPair.Public,
-		ECCPublicKeyDigest: publicKeyDigest,
-		ECCPrivateKey:      peerAgeKeyPair.Private,
+		PeerPublicKey:       peerAgeKeyPair.Public,
+		PeerPublicKeyDigest: publicKeyDigest,
+		PeerPrivateKey:      peerAgeKeyPair.Private,
 
-		ECCServerPublicKey: serverAgeKeyPair.Public,
+		AgeServerPublicKey: serverAgeKeyPair.Public,
 	}
 	err = db.Session().Create(implantConfig).Error
 	if err != nil {

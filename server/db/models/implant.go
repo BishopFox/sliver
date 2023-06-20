@@ -75,11 +75,11 @@ type ImplantConfig struct {
 	BeaconJitter   int64
 
 	// ECC
-	ECCPublicKey            string
-	ECCPublicKeyDigest      string
-	ECCPrivateKey           string
-	ECCPublicKeySignature   string
-	ECCServerPublicKey      string
+	PeerPublicKey           string
+	PeerPublicKeyDigest     string
+	PeerPrivateKey          string
+	PeerPublicKeySignature  string
+	AgeServerPublicKey      string
 	MinisignServerPublicKey string
 
 	// MTLS
@@ -159,9 +159,9 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 
 		GOOS:               ic.GOOS,
 		GOARCH:             ic.GOARCH,
-		ECCServerPublicKey: ic.ECCServerPublicKey,
-		ECCPublicKey:       ic.ECCPublicKey,
-		ECCPrivateKey:      ic.ECCPrivateKey,
+		AgeServerPublicKey: ic.AgeServerPublicKey,
+		PeerPublicKey:      ic.PeerPublicKey,
+		PeerPrivateKey:     ic.PeerPrivateKey,
 		MtlsCACert:         ic.MtlsCACert,
 		MtlsCert:           ic.MtlsCert,
 		MtlsKey:            ic.MtlsKey,

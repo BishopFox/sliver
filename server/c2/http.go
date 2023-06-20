@@ -528,7 +528,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	}
 
 	serverKeyPair := cryptography.AgeServerKeyPair()
-	sessionInitData, err := cryptography.AgeKeyExFromImplant(serverKeyPair.Private, implantConfig.ECCPrivateKey, data[32:])
+	sessionInitData, err := cryptography.AgeKeyExFromImplant(serverKeyPair.Private, implantConfig.PeerPrivateKey, data[32:])
 	if err != nil {
 		httpLog.Error("age key exchange decryption failed")
 		s.defaultHandler(resp, req)

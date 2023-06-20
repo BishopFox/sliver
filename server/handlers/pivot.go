@@ -210,7 +210,7 @@ func serverKeyExchange(implantConn *core.ImplantConnection, peerEnvelope *sliver
 		pivotLog.Warn("Unknown public key digest")
 		return nil
 	}
-	publicKey, err := base64.RawStdEncoding.DecodeString(implantConfig.ECCPublicKey)
+	publicKey, err := base64.RawStdEncoding.DecodeString(implantConfig.PeerPublicKey)
 	if err != nil || len(publicKey) != 32 {
 		pivotLog.Warn("Failed to decode public key")
 		return nil

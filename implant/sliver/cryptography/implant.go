@@ -30,13 +30,13 @@ import (
 
 var (
 	// PeerAgePublicKey - The implant's age public key
-	PeerAgePublicKey = "{{.Config.ECCPublicKey}}"
+	PeerAgePublicKey = "{{.Config.PeerPublicKey}}"
 	// peerPrivateKey - The implant's age private key
-	peerAgePrivateKey = "{{.Config.ECCPrivateKey}}"
+	peerAgePrivateKey = "{{.Config.PeerPrivateKey}}"
 	// PublicKeySignature - The implant's age public key minisigned'd
-	PeerAgePublicKeySignature = `{{.Config.ECCPublicKeySignature}}`
+	PeerAgePublicKeySignature = `{{.Config.PeerPublicKeySignature}}`
 	// serverPublicKey - Server's ECC public key
-	serverAgePublicKey = "{{.Config.ECCServerPublicKey}}"
+	serverAgePublicKey = "{{.Config.AgeServerPublicKey}}"
 	// serverMinisignPublicKey - The server's minisign public key
 	serverMinisignPublicKey = `{{.Config.MinisignServerPublicKey}}`
 
