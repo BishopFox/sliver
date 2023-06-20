@@ -23,7 +23,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -569,17 +568,13 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		s.defaultHandler(resp, req)
 		return
 	}
-	publicKey, err := base64.RawStdEncoding.DecodeString(implantConfig.ECCPublicKey)
-	if err != nil || len(publicKey) != 32 {
-		httpLog.Warn("Failed to decode public key")
-		s.defaultHandler(resp, req)
-		return
-	}
-	var senderPublicKey [32]byte
-	copy(senderPublicKey[:], publicKey)
 
 	serverKeyPair := cryptography.ECCServerKeyPair()
-	sessionInitData, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, data[32:])
+	sessionInitData, err := cryptography.AgeKeyExFromImplant(
+		serverKeyPair.Private,
+		implantConfig.ECCPrivateKey,
+		data[32:],
+	)
 	if err != nil {
 		httpLog.Error("ECC decryption failed")
 		s.defaultHandler(resp, req)

@@ -26,6 +26,7 @@ package cryptography
 import (
 	"bytes"
 	"crypto/ed25519"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -35,13 +36,13 @@ import (
 	"sync"
 	"time"
 
+	"filippo.io/age"
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/crypto/nacl/box"
 )
 
 const (
@@ -51,6 +52,8 @@ const (
 	TOTPSecretKey            = "server.totp"
 	ServerECCKeyPairKey      = "server.ecc"
 	serverMinisignPrivateKey = "server.minisign"
+
+	sha256Size = 32 // size in bytes of a sha256 hash
 )
 
 var (
@@ -62,6 +65,12 @@ var (
 
 	// ErrDecryptFailed
 	ErrDecryptFailed = errors.New("decryption failed")
+
+	// This will be prepended to any age encrypted message, however
+	// since we already know what it is, and who the recipient is,
+	// and we can ensure there will only ever be a single recipient,
+	// we can just ignore add/remove it at runtime to safe space.
+	agePrefix = []byte("age-encryption.org/v1\n-> X25519 ")
 )
 
 // deriveKeyFrom - Derives a key from input data using SHA256
@@ -93,50 +102,97 @@ func KeyFromBytes(data []byte) ([chacha20poly1305.KeySize]byte, error) {
 	return key, nil
 }
 
-// ECCKeyPair - Holds the public/private key pair
-type ECCKeyPair struct {
-	Public  *[32]byte `json:"public"`
-	Private *[32]byte `json:"private"`
+// AgeKeyPair - Holds the public/private key pair
+type AgeKeyPair struct {
+	Public  string `json:"public"`
+	Private string `json:"private"`
 }
 
-// PublicBase64 - Base64 encoded public key
-func (e *ECCKeyPair) PublicBase64() string {
-	return base64.RawStdEncoding.EncodeToString(e.Public[:])
+// PublicKey - Return the parsed public key
+func (e *AgeKeyPair) PublicKey() *age.X25519Recipient {
+	recipient, _ := age.ParseX25519Recipient(e.Public)
+	return recipient
 }
 
 // PrivateBase64 - Base64 encoded private key
-func (e *ECCKeyPair) PrivateBase64() string {
-	return base64.RawStdEncoding.EncodeToString(e.Private[:])
+func (e *AgeKeyPair) PrivateKey() string {
+	return e.Private
 }
 
-// RandomECCKeyPair - Generate a random Curve 25519 key pair
-func RandomECCKeyPair() (*ECCKeyPair, error) {
-	public, private, err := box.GenerateKey(rand.Reader)
+// RandomAgeKeyPair - Generate a random Curve 25519 key pair
+func RandomAgeKeyPair() (*AgeKeyPair, error) {
+	k, err := age.GenerateX25519Identity()
 	if err != nil {
 		return nil, err
 	}
-	return &ECCKeyPair{Public: public, Private: private}, nil
+	return &AgeKeyPair{
+		Public:  k.Recipient().String(),
+		Private: k.String(),
+	}, nil
 }
 
-// ECCEncrypt - Encrypt using Nacl Box
-func ECCEncrypt(recipientPublicKey *[32]byte, senderPrivateKey *[32]byte, plaintext []byte) ([]byte, error) {
-	var nonce [24]byte
-	if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
+// AgeEncrypt - Encrypt using Nacl Box
+func AgeEncrypt(recipientPublicKey string, plaintext []byte) ([]byte, error) {
+	recipient, err := age.ParseX25519Recipient(recipientPublicKey)
+	if err != nil {
 		return nil, err
 	}
-	encrypted := box.Seal(nonce[:], plaintext, &nonce, recipientPublicKey, senderPrivateKey)
-	return encrypted, nil
+	buf := bytes.NewBuffer([]byte{})
+	stream, err := age.Encrypt(buf, recipient)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := stream.Write(plaintext); err != nil {
+		return nil, err
+	}
+	if err := stream.Close(); err != nil {
+		return nil, err
+	}
+	return bytes.TrimPrefix(buf.Bytes(), agePrefix), nil
 }
 
-// ECCDecrypt - Decrypt using Curve 25519 + ChaCha20Poly1305
-func ECCDecrypt(senderPublicKey *[32]byte, recipientPrivateKey *[32]byte, ciphertext []byte) ([]byte, error) {
-	var decryptNonce [24]byte
-	copy(decryptNonce[:], ciphertext[:24])
-	plaintext, ok := box.Open(nil, ciphertext[24:], &decryptNonce, senderPublicKey, recipientPrivateKey)
-	if !ok {
-		return nil, ErrDecryptFailed
+// AgeDecrypt - Decrypt using Curve 25519 + ChaCha20Poly1305
+func AgeDecrypt(recipientPrivateKey string, ciphertext []byte) ([]byte, error) {
+	identity, err := age.ParseX25519Identity(recipientPrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	buf := bytes.NewBuffer(append(agePrefix, ciphertext...))
+	stream, err := age.Decrypt(buf, identity)
+	if err != nil {
+		return nil, err
+	}
+	plaintext, err := io.ReadAll(stream)
+	if err != nil {
+		return nil, err
 	}
 	return plaintext, nil
+}
+
+// AgeKeyPairFromImplant - Decrypt the session key from an implant
+func AgeKeyExFromImplant(serverPrivateKey string, implantPrivateKey string, ciphertext []byte) ([]byte, error) {
+	// Decrypt the message
+	plaintext, err := AgeDecrypt(serverPrivateKey, ciphertext)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check there's enough data for an HMAC check
+	if len(plaintext) <= sha256Size {
+		return nil, ErrDecryptFailed
+	}
+
+	// Recompute the HMAC to verify the message
+	privateDigest := sha256.New()
+	privateDigest.Write([]byte(implantPrivateKey))
+	mac := hmac.New(sha256.New, privateDigest.Sum(nil))
+	mac.Write(plaintext[sha256Size:])
+
+	// Constant-time comparison of the HMACs
+	if !hmac.Equal(mac.Sum(nil), plaintext[:sha256Size]) {
+		return nil, ErrDecryptFailed
+	}
+	return plaintext[sha256Size:], nil
 }
 
 // Encrypt - Encrypt using chacha20poly1305
@@ -232,7 +288,7 @@ func TOTPOptions() totp.ValidateOpts {
 }
 
 // ECCServerKeyPair - Get teh server's ECC key pair
-func ECCServerKeyPair() *ECCKeyPair {
+func ECCServerKeyPair() *AgeKeyPair {
 	data, err := db.GetKeyValue(ServerECCKeyPairKey)
 	if err == db.ErrRecordNotFound {
 		keyPair, err := generateServerECCKeyPair()
@@ -241,7 +297,7 @@ func ECCServerKeyPair() *ECCKeyPair {
 		}
 		return keyPair
 	}
-	keyPair := &ECCKeyPair{}
+	keyPair := &AgeKeyPair{}
 	err = json.Unmarshal([]byte(data), keyPair)
 	if err != nil {
 		panic(err)
@@ -250,8 +306,8 @@ func ECCServerKeyPair() *ECCKeyPair {
 
 }
 
-func generateServerECCKeyPair() (*ECCKeyPair, error) {
-	keyPair, err := RandomECCKeyPair()
+func generateServerECCKeyPair() (*AgeKeyPair, error) {
+	keyPair, err := RandomAgeKeyPair()
 	if err != nil {
 		return nil, err
 	}

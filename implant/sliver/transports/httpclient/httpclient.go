@@ -56,9 +56,9 @@ const (
 )
 
 var (
-	ErrClosed               = errors.New("http session closed")
-	ErrStatusCodeUnexpected = errors.New("unexpected http response code")
-	TimeDelta time.Duration = 0
+	ErrClosed                             = errors.New("http session closed")
+	ErrStatusCodeUnexpected               = errors.New("unexpected http response code")
+	TimeDelta               time.Duration = 0
 )
 
 // HTTPOptions - c2 specific configuration options
@@ -178,7 +178,7 @@ func (s *SliverHTTPClient) SessionInit() error {
 	httpSessionInit := &pb.HTTPSessionInit{Key: sKey[:]}
 	data, _ := proto.Marshal(httpSessionInit)
 
-	encryptedSessionInit, err := cryptography.ECCEncryptToServer(data)
+	encryptedSessionInit, err := cryptography.AgeKeyExToServer(data)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Nacl encrypt failed %v", err)
@@ -353,12 +353,12 @@ func (s *SliverHTTPClient) establishSessionID(sessionInit []byte) error {
 	if resp.StatusCode != http.StatusOK {
 		serverDateHeader := resp.Header.Get("Date")
 		if serverDateHeader != "" {
-				// If the request failed and there is a Date header, find the time difference and save it for the next request
-				curTime := time.Now().UTC()
-				serverTime, err := time.Parse(time.RFC1123, serverDateHeader)
-				if err == nil {
-					TimeDelta = serverTime.UTC().Sub(curTime)
-				}
+			// If the request failed and there is a Date header, find the time difference and save it for the next request
+			curTime := time.Now().UTC()
+			serverTime, err := time.Parse(time.RFC1123, serverDateHeader)
+			if err == nil {
+				TimeDelta = serverTime.UTC().Sub(curTime)
+			}
 		}
 		// {{if .Config.Debug}}
 		log.Printf("[http] non-200 response (%d): %v", resp.StatusCode, resp)

@@ -223,8 +223,6 @@ func getServerTLSConfig(host string) *tls.Config {
 		Certificates: []tls.Certificate{cert},
 		MinVersion:   tls.VersionTLS13, // Force TLS v1.3
 	}
-	if certs.TLSKeyLogger != nil {
-		tlsConfig.KeyLogWriter = certs.TLSKeyLogger
-	}
+
 	return tlsConfig
 }

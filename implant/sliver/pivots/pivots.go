@@ -21,7 +21,6 @@ package pivots
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -404,23 +403,22 @@ func (p *NetConnPivot) peerKeyExchange() error {
 	validPeer := cryptography.MinisignVerify(peerHello.PublicKey, peerHello.PublicKeySignature)
 	if !validPeer {
 		// {{if .Config.Debug}}
-		log.Printf("[pivot] invalid peer key")
+		log.Printf("[pivot] invalid peer key: %s (sig: %s)", string(peerHello.PublicKey), peerHello.PublicKeySignature)
 		// {{end}}
 		return ErrFailedKeyExchange
 	}
 	p.downstreamPeerID = peerHello.PeerID
 	sessionKey := cryptography.RandomKey()
 	p.cipherCtx = cryptography.NewCipherContext(sessionKey)
-	ciphertext, err := cryptography.ECCEncryptToPeer(peerHello.PublicKey, peerHello.PublicKeySignature, sessionKey[:])
+	ciphertext, err := cryptography.AgeEncryptToPeer(peerHello.PublicKey, peerHello.PublicKeySignature, sessionKey[:])
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[pivot] peer encryption failure: %s", err)
 		// {{end}}
 		return ErrFailedKeyExchange
 	}
-	publicKeyRaw, _ := base64.RawStdEncoding.DecodeString(cryptography.ECCPublicKey)
 	peerResponse, _ := proto.Marshal(&pb.PivotHello{
-		PublicKey:          publicKeyRaw,
+		PublicKey:          []byte(cryptography.ECCPublicKey),
 		PublicKeySignature: cryptography.ECCPublicKeySignature,
 		SessionKey:         ciphertext,
 	})

@@ -530,7 +530,7 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 	var senderPublicKey [32]byte
 	copy(senderPublicKey[:], publicKey)
 	serverKeyPair := cryptography.ECCServerKeyPair()
-	sessionInit, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, msg.Data[32:])
+	sessionInit, err := cryptography.AgeDecrypt(serverKeyPair.Private, msg.Data[32:])
 	if err != nil {
 		dnsLog.Errorf("[session init] error decrypting session init data: %s", err)
 		return s.refusedErrorResp(req)

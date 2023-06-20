@@ -62,7 +62,7 @@ func TestStartSessionHandler(t *testing.T) {
 	sKey := cryptography.RandomKey()
 	httpSessionInit := &sliverpb.HTTPSessionInit{Key: sKey[:]}
 	data, _ := proto.Marshal(httpSessionInit)
-	encryptedSessionInit, err := implantCrypto.ECCEncryptToServer(data)
+	encryptedSessionInit, err := implantCrypto.AgeKeyExToServer(data)
 	if err != nil {
 		t.Fatalf("Failed to encrypt session init %s", err)
 	}

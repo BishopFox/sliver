@@ -27,6 +27,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,11 +35,11 @@ import (
 	"log"
 	// {{end}}
 
+	"filippo.io/age"
 	"github.com/bishopfox/sliver/implant/sliver/encoders"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/crypto/nacl/box"
 )
 
 var (
@@ -53,34 +54,61 @@ var (
 	ErrReplayAttack = errors.New("replay attack detected")
 	// ErrDecryptFailed
 	ErrDecryptFailed = errors.New("decryption failed")
+
+	ageMsgPrefix        = []byte("age-encryption.org/v1\n-> X25519 ")
+	agePublicKeyPrefix  = "age1"
+	agePrivateKeyPrefix = "AGE-SECRET-KEY-1"
 )
 
-// ECCKeyPair - Holds the public/private key pair
-type ECCKeyPair struct {
-	Public  *[32]byte
-	Private *[32]byte
+// AgeKeyPair - Holds the public/private key pair
+type AgeKeyPair struct {
+	Public  string
+	Private string
 }
 
-// ECCEncrypt - Encrypt using Nacl Box
-func ECCEncrypt(recipientPublicKey *[32]byte, senderPrivateKey *[32]byte, plaintext []byte) ([]byte, error) {
-	var nonce [24]byte
-	if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
+// AgeEncrypt - Encrypt using Nacl Box
+func AgeEncrypt(recipientPublicKey string, plaintext []byte) ([]byte, error) {
+	if !strings.HasPrefix(recipientPublicKey, agePublicKeyPrefix) {
+		recipientPublicKey = agePublicKeyPrefix + recipientPublicKey
+	}
+	recipient, err := age.ParseX25519Recipient(recipientPublicKey)
+	if err != nil {
 		return nil, err
 	}
-	encrypted := box.Seal(nonce[:], plaintext, &nonce, recipientPublicKey, senderPrivateKey)
-	return encrypted, nil
+	buf := bytes.NewBuffer([]byte{})
+	stream, err := age.Encrypt(buf, recipient)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := stream.Write(plaintext); err != nil {
+		return nil, err
+	}
+	if err := stream.Close(); err != nil {
+		return nil, err
+	}
+	return bytes.TrimPrefix(buf.Bytes(), ageMsgPrefix), nil
 }
 
-// ECCDecrypt - Decrypt using Curve 25519 + ChaCha20Poly1305
-func ECCDecrypt(senderPublicKey *[32]byte, recipientPrivateKey *[32]byte, ciphertext []byte) ([]byte, error) {
+// AgeDecrypt - Decrypt using Curve 25519 + ChaCha20Poly1305
+func AgeDecrypt(recipientPrivateKey string, ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) < 24 {
 		return nil, errors.New("ciphertext too short")
 	}
-	var decryptNonce [24]byte
-	copy(decryptNonce[:], ciphertext[:24])
-	plaintext, ok := box.Open(nil, ciphertext[24:], &decryptNonce, senderPublicKey, recipientPrivateKey)
-	if !ok {
-		return nil, ErrDecryptFailed
+	if !strings.HasPrefix(recipientPrivateKey, agePrivateKeyPrefix) {
+		recipientPrivateKey = agePrivateKeyPrefix + recipientPrivateKey
+	}
+	identity, err := age.ParseX25519Identity(recipientPrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	buf := bytes.NewBuffer(append(ageMsgPrefix, ciphertext...))
+	stream, err := age.Decrypt(buf, identity)
+	if err != nil {
+		return nil, err
+	}
+	plaintext, err := io.ReadAll(stream)
+	if err != nil {
+		return nil, err
 	}
 	return plaintext, nil
 }

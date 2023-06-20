@@ -661,17 +661,17 @@ func GenerateConfig(name string, config *models.ImplantConfig, save bool) error 
 	}
 
 	// ECC keys
-	implantKeyPair, err := cryptography.RandomECCKeyPair()
+	implantKeyPair, err := cryptography.RandomAgeKeyPair()
 	if err != nil {
 		return err
 	}
 	serverKeyPair := cryptography.ECCServerKeyPair()
-	digest := sha256.Sum256((*implantKeyPair.Public)[:])
-	config.ECCPublicKey = implantKeyPair.PublicBase64()
+	digest := sha256.Sum256([]byte(implantKeyPair.Public))
+	config.ECCPublicKey = implantKeyPair.Public
 	config.ECCPublicKeyDigest = hex.EncodeToString(digest[:])
-	config.ECCPrivateKey = implantKeyPair.PrivateBase64()
-	config.ECCPublicKeySignature = cryptography.MinisignServerSign(implantKeyPair.Public[:])
-	config.ECCServerPublicKey = serverKeyPair.PublicBase64()
+	config.ECCPrivateKey = implantKeyPair.Private
+	config.ECCPublicKeySignature = cryptography.MinisignServerSign([]byte(implantKeyPair.Public))
+	config.ECCServerPublicKey = serverKeyPair.Public
 	config.MinisignServerPublicKey = cryptography.MinisignServerPublicKey()
 
 	// MTLS keys

