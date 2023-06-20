@@ -26,10 +26,6 @@ import (
 	"time"
 )
 
-const (
-	bufSize = 1024
-)
-
 var (
 	ErrFailedWrite = errors.New("write failed")
 
