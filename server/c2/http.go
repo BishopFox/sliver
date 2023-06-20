@@ -520,7 +520,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 
 	var publicKeyDigest [32]byte
 	copy(publicKeyDigest[:], data[:32])
-	implantConfig, err := db.ImplantConfigByECCPublicKeyDigest(publicKeyDigest)
+	implantConfig, err := db.ImplantConfigByPublicKeyDigest(publicKeyDigest)
 	if err != nil || implantConfig == nil {
 		httpLog.Warn("Unknown public key")
 		s.defaultHandler(resp, req)

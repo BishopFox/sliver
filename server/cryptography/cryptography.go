@@ -74,8 +74,8 @@ func deriveKeyFrom(data []byte) [chacha20poly1305.KeySize]byte {
 	return key
 }
 
-// RandomKey - Generate random ID of randomIDSize bytes
-func RandomKey() [chacha20poly1305.KeySize]byte {
+// RandomSymmetricKey - Generate random ID of randomIDSize bytes
+func RandomSymmetricKey() [chacha20poly1305.KeySize]byte {
 	randBuf := make([]byte, 64)
 	rand.Read(randBuf)
 	return deriveKeyFrom(randBuf)
@@ -89,7 +89,7 @@ func KeyFromBytes(data []byte) ([chacha20poly1305.KeySize]byte, error) {
 		// and it seems like a really bad idea to return a zero key in case
 		// the error is not checked by the caller, so instead we return a
 		// random key, which should break everything if the error is not checked.
-		return RandomKey(), ErrInvalidKeyLength
+		return RandomSymmetricKey(), ErrInvalidKeyLength
 	}
 	copy(key[:], data)
 	return key, nil
