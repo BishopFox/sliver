@@ -90,7 +90,7 @@ func ImplantConfigWithC2sByID(id string) (*models.ImplantConfig, error) {
 func ImplantConfigByECCPublicKeyDigest(publicKeyDigest [32]byte) (*models.ImplantConfig, error) {
 	config := models.ImplantConfig{}
 	err := Session().Where(&models.ImplantConfig{
-		ECCPublicKeyDigest: hex.EncodeToString(publicKeyDigest[:]),
+		PeerPublicKeyDigest: hex.EncodeToString(publicKeyDigest[:]),
 	}).First(&config).Error
 	if err != nil {
 		return nil, err

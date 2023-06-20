@@ -5,6 +5,7 @@ go 1.20
 replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca
 
 require (
+	filippo.io/age v1.1.1
 	github.com/AlecAivazis/survey/v2 v2.3.6
 	github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
 	github.com/Binject/debug v0.0.0-20210312092933-6277045c2fdf
@@ -30,7 +31,6 @@ require (
 	github.com/moloch--/asciicast v0.1.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/ncruces/go-sqlite3 v0.7.2
-	github.com/pquerna/otp v1.4.0
 	github.com/reeflective/console v0.1.6
 	github.com/reeflective/readline v1.0.8
 	github.com/rsteube/carapace v0.36.3
@@ -69,7 +69,6 @@ require (
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0 // indirect
 	github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4 // indirect
-	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d // indirect

@@ -178,11 +178,11 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
-		fPath, err = generate.SliverExecutable(extConfig.Config.Name, extConfig.OTPSecret, extModel, false)
+		fPath, err = generate.SliverExecutable(extConfig.Config.Name, extModel, false)
 	case clientpb.OutputFormat_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(extConfig.Config.Name, extConfig.OTPSecret, extModel, false)
+		fPath, err = generate.SliverSharedLibrary(extConfig.Config.Name, extModel, false)
 	case clientpb.OutputFormat_SHELLCODE:
-		fPath, err = generate.SliverShellcode(extConfig.Config.Name, extConfig.OTPSecret, extModel, false)
+		fPath, err = generate.SliverShellcode(extConfig.Config.Name, extModel, false)
 	default:
 		builderLog.Errorf("invalid output format: %s", extConfig.Config.Format)
 		rpc.BuilderTrigger(context.Background(), &clientpb.Event{

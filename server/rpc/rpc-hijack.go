@@ -36,7 +36,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/util/encoders"
 )
@@ -113,12 +112,11 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 				return nil, err
 			}
 		}
-		otpSecret, _ := cryptography.TOTPServerSecret()
 		err = generate.GenerateConfig(name, config, true)
 		if err != nil {
 			return nil, err
 		}
-		fPath, err := generate.SliverSharedLibrary(name, otpSecret, config, true)
+		fPath, err := generate.SliverSharedLibrary(name, config, true)
 		if err != nil {
 			return nil, err
 		}

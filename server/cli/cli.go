@@ -123,8 +123,7 @@ var rootCmd = &cobra.Command{
 		assets.Setup(false, true)
 		certs.SetupCAs()
 		certs.SetupWGKeys()
-		cryptography.ECCServerKeyPair()
-		cryptography.TOTPServerSecret()
+		cryptography.AgeServerKeyPair()
 		cryptography.MinisignServerPrivateKey()
 
 		serverConfig := configs.GetServerConfig()
