@@ -414,7 +414,7 @@ github.com/spf13/pflag
 # github.com/stretchr/testify v1.8.1
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
-# github.com/tetratelabs/wazero v1.2.0
+# github.com/tetratelabs/wazero v1.2.1
 ## explicit; go 1.18
 github.com/tetratelabs/wazero
 github.com/tetratelabs/wazero/api

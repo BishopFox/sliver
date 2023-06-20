@@ -13,7 +13,7 @@ import (
 
 func newOsFile(openPath string, openFlag int, openPerm fs.FileMode, f *os.File) fsapi.File {
 	return &windowsOsFile{
-		osFile: osFile{path: openPath, flag: openFlag, perm: openPerm, file: f},
+		osFile: osFile{path: openPath, flag: openFlag, perm: openPerm, file: f, fd: f.Fd()},
 	}
 }
 
