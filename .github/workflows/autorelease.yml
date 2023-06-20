@@ -6,7 +6,7 @@ on:
 
 jobs:
   servers-build:
-    name: Build Server Binaries
+    name: Release Build Server
     if: startsWith( github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -37,7 +37,7 @@ jobs:
           path: ./sliver-server_*
 
   clients-build:
-    name: Build Client Binaries
+    name: Release Build Client
     if: startsWith( github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 45
