@@ -10,7 +10,7 @@ on:
       - ready_for_review
 
 jobs:
-  linux-windows-build:
+  linux-windows-build-test:
     name: Linux & Windows Test
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -44,7 +44,7 @@ jobs:
       - name: Make Linux (arm64)
         run: make linux-arm64
 
-  macos-build:
+  macos-build-test:
     name: MacOS Test
     runs-on: macos-latest
     timeout-minutes: 90
