@@ -1,4 +1,4 @@
-package operators
+package builders
 
 import (
 	"github.com/spf13/cobra"
@@ -12,18 +12,18 @@ import (
 
 // Commands returns the “ command and its subcommands.
 func Commands(con *console.SliverConsoleClient) []*cobra.Command {
-	operatorsCmd := &cobra.Command{
-		Use:   consts.OperatorsStr,
-		Short: "Manage operators",
-		Long:  help.GetHelpFor([]string{consts.OperatorsStr}),
+	buildersCmd := &cobra.Command{
+		Use:   consts.BuildersStr,
+		Short: "List external builders",
+		Long:  help.GetHelpFor([]string{consts.BuildersStr}),
 		Run: func(cmd *cobra.Command, args []string) {
-			OperatorsCmd(cmd, con, args)
+			BuildersCmd(cmd, con, args)
 		},
-		GroupID: consts.GenericHelpGroup,
+		GroupID: consts.PayloadsHelpGroup,
 	}
-	flags.Bind("operators", false, operatorsCmd, func(f *pflag.FlagSet) {
-		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	flags.Bind("builders", false, buildersCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 
-	return []*cobra.Command{operatorsCmd}
+	return []*cobra.Command{buildersCmd}
 }

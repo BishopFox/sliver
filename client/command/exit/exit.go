@@ -56,13 +56,13 @@ func ExitCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string
 }
 
 // Commands returns the `exit` command.
-func Command(con *console.SliverConsoleClient) *cobra.Command {
-	return &cobra.Command{
+func Command(con *console.SliverConsoleClient) []*cobra.Command {
+	return []*cobra.Command{{
 		Use:   "exit",
 		Short: "Exit the program",
 		Run: func(cmd *cobra.Command, args []string) {
 			ExitCmd(cmd, con, args)
 		},
 		GroupID: constants.GenericHelpGroup,
-	}
+	}}
 }
