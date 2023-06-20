@@ -60,7 +60,7 @@ func TestStartSessionHandler(t *testing.T) {
 	testURL := client.NonceQueryArgument(baseURL, nonce)
 
 	// Generate key exchange request
-	sKey := cryptography.RandomKey()
+	sKey := cryptography.RandomSymmetricKey()
 	httpSessionInit := &sliverpb.HTTPSessionInit{Key: sKey[:]}
 	data, _ := proto.Marshal(httpSessionInit)
 	encryptedSessionInit, err := implantCrypto.AgeKeyExToServer(data)

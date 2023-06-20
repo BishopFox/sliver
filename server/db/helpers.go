@@ -86,8 +86,8 @@ func ImplantConfigWithC2sByID(id string) (*models.ImplantConfig, error) {
 	return &config, err
 }
 
-// ImplantConfigByECCPublicKey - Fetch implant build by it's ecc public key
-func ImplantConfigByECCPublicKeyDigest(publicKeyDigest [32]byte) (*models.ImplantConfig, error) {
+// ImplantConfigByPublicKeyDigest - Fetch implant build by it's ecc public key
+func ImplantConfigByPublicKeyDigest(publicKeyDigest [32]byte) (*models.ImplantConfig, error) {
 	config := models.ImplantConfig{}
 	err := Session().Where(&models.ImplantConfig{
 		PeerPublicKeyDigest: hex.EncodeToString(publicKeyDigest[:]),
