@@ -86,11 +86,6 @@ github.com/awgh/cppgo/asmcall/cdecl
 # github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4
 ## explicit
 github.com/awgh/rawreader
-# github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc
-## explicit
-github.com/boombuler/barcode
-github.com/boombuler/barcode/qr
-github.com/boombuler/barcode/utils
 # github.com/cheggaaa/pb/v3 v3.1.2
 ## explicit; go 1.17
 github.com/cheggaaa/pb/v3
@@ -337,12 +332,6 @@ github.com/ncruces/julianday
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
-# github.com/pquerna/otp v1.4.0
-## explicit; go 1.12
-github.com/pquerna/otp
-github.com/pquerna/otp/hotp
-github.com/pquerna/otp/internal
-github.com/pquerna/otp/totp
 # github.com/reeflective/console v0.1.6
 ## explicit; go 1.20
 github.com/reeflective/console
@@ -484,8 +473,6 @@ golang.org/x/crypto/hkdf
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
 golang.org/x/crypto/md4
-golang.org/x/crypto/nacl/box
-golang.org/x/crypto/nacl/secretbox
 golang.org/x/crypto/openpgp/armor
 golang.org/x/crypto/openpgp/elgamal
 golang.org/x/crypto/openpgp/errors
@@ -493,7 +480,6 @@ golang.org/x/crypto/openpgp/packet
 golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/poly1305
-golang.org/x/crypto/salsa20/salsa
 golang.org/x/crypto/scrypt
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
