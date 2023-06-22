@@ -68,7 +68,7 @@ func SessionIDCompleter(con *console.SliverConsoleClient) carapace.Action {
 
 		sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 		if err == nil {
-			for _, s := range Sessions {
+			for _, s := range sessions.Sessions {
 				link := fmt.Sprintf("[%s <- %s]", s.ActiveC2, s.RemoteAddress)
 				id := fmt.Sprintf("%s (%d)", s.Name, s.PID)
 				userHost := fmt.Sprintf("%s@%s", s.Username, s.Hostname)

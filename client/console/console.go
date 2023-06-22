@@ -40,7 +40,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/client/command/reaction"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/prelude"
@@ -204,16 +203,6 @@ func StartClient(con *SliverConsoleClient, rpc rpcpb.SliverRPCClient, serverCmds
 
 		asciicastStream, err := con.ClientLogStream("asciicast")
 		con.setupAsciicastRecord(asciicastLog, asciicastStream)
-	}
-
-	// Only load reactions when the console is going to be started.
-	if !con.IsCLI {
-		n, err := reaction.LoadReactions()
-		if err != nil && !os.IsNotExist(err) {
-			con.PrintErrorf("Failed to load reactions: %s\n", err)
-		} else if n > 0 {
-			con.PrintInfof("Loaded %d reaction(s) from disk\n", n)
-		}
 	}
 
 	if !con.IsCLI {

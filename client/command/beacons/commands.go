@@ -1,15 +1,19 @@
 package beacons
 
 import (
+	"context"
+	"fmt"
+	"strings"
+
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
-	"github.com/bishopfox/sliver/client/command/use"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
 // Commands returns the “ command and its subcommands.
@@ -35,7 +39,7 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 		f.StringP("filter-re", "e", "", "filter beacons by regular expression")
 	})
 	flags.BindFlagCompletions(beaconsCmd, func(comp *carapace.ActionMap) {
-		(*comp)["kill"] = use.BeaconIDCompleter(con)
+		(*comp)["kill"] = BeaconIDCompleter(con)
 	})
 	beaconsRmCmd := &cobra.Command{
 		Use:   consts.RmStr,
@@ -45,7 +49,7 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 			BeaconsRmCmd(cmd, con, args)
 		},
 	}
-	carapace.Gen(beaconsRmCmd).PositionalCompletion(use.BeaconIDCompleter(con))
+	carapace.Gen(beaconsRmCmd).PositionalCompletion(BeaconIDCompleter(con))
 	beaconsCmd.AddCommand(beaconsRmCmd)
 
 	beaconsWatchCmd := &cobra.Command{
@@ -72,4 +76,27 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 	beaconsCmd.AddCommand(beaconsPruneCmd)
 
 	return []*cobra.Command{beaconsCmd}
+}
+
+// BeaconIDCompleter completes beacon IDs
+func BeaconIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+	callback := func(_ carapace.Context) carapace.Action {
+		results := make([]string, 0)
+
+		beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+		if err == nil {
+			for _, b := range beacons.Beacons {
+				link := fmt.Sprintf("[%s <- %s]", b.ActiveC2, b.RemoteAddress)
+				id := fmt.Sprintf("%s (%d)", b.Name, b.PID)
+				userHost := fmt.Sprintf("%s@%s", b.Username, b.Hostname)
+				desc := strings.Join([]string{id, userHost, link}, " ")
+
+				results = append(results, b.ID[:8])
+				results = append(results, desc)
+			}
+		}
+		return carapace.ActionValuesDescribed(results...).Tag("beacons")
+	}
+
+	return carapace.ActionCallback(callback)
 }

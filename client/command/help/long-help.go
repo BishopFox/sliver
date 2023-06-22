@@ -28,7 +28,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/bishopfox/sliver/client/command/creds"
 	consts "github.com/bishopfox/sliver/client/constants"
 )
 
@@ -1219,7 +1218,7 @@ Sliver uses the same hash identifiers as Hashcat (use the #):
 % 10s - One hash per line.
 % 10s - A file containing lines of 'username:hash' pairs.
 % 10s - A CSV file containing 'username,hash' pairs (additional columns ignored).
-`, creds.HashNewlineFormat, creds.UserColonHashNewlineFormat, creds.CSVFormat)
+`, consts.HashNewlineFormat, consts.UserColonHashNewlineFormat, consts.CSVFormat)
 )
 
 const (

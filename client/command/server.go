@@ -19,6 +19,8 @@ package command
 */
 
 import (
+	"os"
+
 	"github.com/reeflective/console"
 	"github.com/spf13/cobra"
 
@@ -120,6 +122,16 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 		// Everything below this line should preferably not be any command binding
 		// (although you can do so without fear). If there are any final modifications
 		// to make to the server menu command tree, it time to do them here.
+
+		// Only load reactions when the console is going to be started.
+		if !con.IsCLI {
+			n, err := reaction.LoadReactions()
+			if err != nil && !os.IsNotExist(err) {
+				con.PrintErrorf("Failed to load reactions: %s\n", err)
+			} else if n > 0 {
+				con.PrintInfof("Loaded %d reaction(s) from disk\n", n)
+			}
+		}
 
 		server.InitDefaultHelpCmd()
 		server.SetHelpCommandGroupID(consts.GenericHelpGroup)

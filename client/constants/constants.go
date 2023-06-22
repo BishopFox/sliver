@@ -325,3 +325,10 @@ const (
 	WindowsCmdsFilter   = "windows"
 	WireguardCmdsFilter = "wireguard"
 )
+
+// Creds (needed here to avoid recursive imports)
+const (
+	UserColonHashNewlineFormat = "user:hash" // username:hash\n
+	HashNewlineFormat          = "hash"      // hash\n
+	CSVFormat                  = "csv"       // username,hash\n
+)

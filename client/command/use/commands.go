@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -46,7 +47,7 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 			UseBeaconCmd(cmd, con, args)
 		},
 	}
-	carapace.Gen(useBeaconCmd).PositionalCompletion(BeaconIDCompleter(con))
+	carapace.Gen(useBeaconCmd).PositionalCompletion(beacons.BeaconIDCompleter(con))
 	useCmd.AddCommand(useBeaconCmd)
 
 	return []*cobra.Command{useCmd}
