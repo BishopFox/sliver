@@ -45,8 +45,8 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 		f.StringP("file-type", "F", "", "force a specific file type (binary/text)")
 	})
 	flags.BindFlagCompletions(lootAddCmd, func(comp *carapace.ActionMap) {
-		(*comp)["type"] = carapace.ActionValues("file", "cred").Tag("loot type")
-		(*comp)["file-type"] = carapace.ActionValues("binary", "text").Tag("loot file type")
+		(*comp)["type"] = LootTypeCompleter(con)
+		(*comp)["file-type"] = FileTypeCompleter(con)
 	})
 	carapace.Gen(lootAddCmd).PositionalCompletion(
 		carapace.ActionFiles().Tag("local loot file").Usage("The local file path to the loot"))
@@ -67,8 +67,8 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 		f.StringP("file-type", "F", "", "force a specific file type (binary/text)")
 	})
 	flags.BindFlagCompletions(lootRemoteCmd, func(comp *carapace.ActionMap) {
-		(*comp)["type"] = carapace.ActionValues("file", "cred").Tag("loot type")
-		(*comp)["file-type"] = carapace.ActionValues("binary", "text").Tag("loot file type")
+		(*comp)["type"] = LootTypeCompleter(con)
+		(*comp)["file-type"] = FileTypeCompleter(con)
 	})
 	carapace.Gen(lootRemoteCmd).PositionalCompletion(carapace.ActionValues().Usage("The file path on the remote host to the loot"))
 
@@ -97,6 +97,7 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 	})
 	flags.BindFlagCompletions(lootFetchCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save loot")
+		(*comp)["filter"] = FileTypeCompleter(con)
 	})
 
 	lootRmCmd := &cobra.Command{
@@ -111,6 +112,19 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 	flags.Bind("loot", false, lootRmCmd, func(f *pflag.FlagSet) {
 		f.StringP("filter", "f", "", "filter based on loot type")
 	})
+	flags.BindFlagCompletions(lootRmCmd, func(comp *carapace.ActionMap) {
+		(*comp)["filter"] = LootTypeCompleter(con)
+	})
 
 	return []*cobra.Command{lootCmd}
+}
+
+// FileTypeCompleter completes valid filetypes for loot.
+func FileTypeCompleter(con *console.SliverConsoleClient) carapace.Action {
+	return carapace.ActionValues("binary", "text").Tag("loot file type")
+}
+
+// LootTypeCompleter completes valid loot type for a loot.
+func LootTypeCompleter(con *console.SliverConsoleClient) carapace.Action {
+	return carapace.ActionValues("file", "cred").Tag("loot type")
 }

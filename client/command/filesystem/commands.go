@@ -7,6 +7,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
+	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 )
@@ -147,6 +148,10 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 		f.StringP("name", "n", "", "name to assign the download if looting")
 		f.BoolP("recurse", "r", false, "recursively download all files in a directory")
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	flags.BindFlagCompletions(downloadCmd, func(comp *carapace.ActionMap) {
+		(*comp)["type"] = loot.LootTypeCompleter(con)
+		(*comp)["file-type"] = loot.FileTypeCompleter(con)
 	})
 	carapace.Gen(downloadCmd).PositionalCompletion(
 		carapace.ActionValues().Usage("path to the file or directory to download"),

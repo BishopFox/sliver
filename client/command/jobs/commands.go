@@ -136,6 +136,10 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 
 		f.BoolP("persistent", "p", false, "make persistent across restarts")
 	})
+	flags.BindFlagCompletions(httpsCmd, func(comp *carapace.ActionMap) {
+		(*comp)["cert"] = carapace.ActionFiles().Tag("certificate file")
+		(*comp)["key"] = carapace.ActionFiles().Tag("key file")
+	})
 
 	// Staging listeners
 	stageCmd := &cobra.Command{

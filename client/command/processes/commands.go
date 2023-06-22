@@ -52,6 +52,9 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
+	flags.BindFlagCompletions(procdumpCmd, func(comp *carapace.ActionMap) {
+		(*comp)["save"] = carapace.ActionFiles()
+	})
 
 	terminateCmd := &cobra.Command{
 		Use:   consts.TerminateStr,

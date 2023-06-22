@@ -55,5 +55,5 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 	}
 	hostsIOCCmd.AddCommand(hostsIOCRmCmd)
 
-	return []*cobra.Command{hostsCmd, hostsIOCCmd}
+	return []*cobra.Command{hostsCmd}
 }

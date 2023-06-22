@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/bishopfox/sliver/client/command/flags"
+	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -237,6 +238,7 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 	})
 	flags.BindFlagCompletions(psExecCmd, func(comp *carapace.ActionMap) {
 		(*comp)["custom-exe"] = carapace.ActionFiles()
+		(*comp)["profile"] = generate.ProfileNameCompleter(con)
 	})
 	carapace.Gen(psExecCmd).PositionalCompletion(carapace.ActionValues().Usage("hostname (required)"))
 

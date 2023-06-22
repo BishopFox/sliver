@@ -1,9 +1,11 @@
 package update
 
 import (
+	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -27,6 +29,9 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 		f.StringP("save", "s", "", "save downloaded files to specific directory (default user home dir)")
 		f.BoolP("insecure", "I", false, "skip tls certificate validation")
 		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	flags.BindFlagCompletions(updateCmd, func(comp *carapace.ActionMap) {
+		(*comp)["proxy"] = completers.LocalProxyCompleter()
 	})
 
 	versionCmd := &cobra.Command{

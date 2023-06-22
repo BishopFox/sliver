@@ -67,6 +67,9 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 		f.StringP("save", "s", "", "directory to save the generated stager to")
 		f.StringP("advanced", "d", "", "Advanced options for the stager using URI query syntax (option1=value1&option2=value2...)")
 	})
+	flags.BindFlagCompletions(generateStagerCmd, func(comp *carapace.ActionMap) {
+		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+	})
 	generateCmd.AddCommand(generateStagerCmd)
 
 	generateInfoCmd := &cobra.Command{
@@ -327,6 +330,7 @@ func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverConsoleCl
 		(*comp)["strategy"] = carapace.ActionValuesDescribed([]string{"r", "random", "rd", "random domain", "s", "sequential"}...).Tag("C2 strategy")
 		(*comp)["format"] = FormatCompleter()
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+		(*comp)["traffic-encoders"] = TrafficEncodersCompleter(con).UniqueList(",")
 	})
 }
 

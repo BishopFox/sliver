@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -27,6 +28,9 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 		f.StringP("proxy", "p", "", "specify a proxy url (e.g. http://localhost:8080)")
 		f.BoolP("ignore-cache", "c", false, "ignore metadata cache, force refresh")
 		f.StringP("timeout", "t", "15m", "download timeout")
+	})
+	flags.BindFlagCompletions(armoryCmd, func(comp *carapace.ActionMap) {
+		(*comp)["proxy"] = completers.LocalProxyCompleter()
 	})
 
 	armoryInstallCmd := &cobra.Command{
