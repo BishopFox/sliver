@@ -76,7 +76,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 		// the present calls.
 
 		// Core
-		bindCommands(consts.GenericHelpGroup, server, con,
+		bind(consts.GenericHelpGroup, server, con,
 			exit.Command,
 			licenses.Commands,
 			settings.Commands,
@@ -90,21 +90,21 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 		)
 
 		// C2 Network
-		bindCommands(consts.NetworkHelpGroup, server, con,
+		bind(consts.NetworkHelpGroup, server, con,
 			jobs.Commands,
 			websites.Commands,
 			wireguard.Commands,
 		)
 
 		// Payloads
-		bindCommands(consts.PayloadsHelpGroup, server, con,
+		bind(consts.PayloadsHelpGroup, server, con,
 			sgn.Commands,
 			generate.Commands,
 			builders.Commands,
 		)
 
 		// Slivers
-		bindCommands(consts.SliverHelpGroup, server, con,
+		bind(consts.SliverHelpGroup, server, con,
 			use.Commands,
 			info.Commands,
 			sessions.Commands,
@@ -115,7 +115,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			reaction.Commands,
 		)
 
-		// [ Post-command declaration setup]-----------------------------------------
+		// [ Post-command declaration setup ]-----------------------------------------
 
 		// Everything below this line should preferably not be any command binding
 		// (although you can do so without fear). If there are any final modifications

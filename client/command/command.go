@@ -101,11 +101,11 @@ func RestrictTargets(filters ...string) map[string]string {
 // - double bind session commands
 // - don't bind readline command in CLI.
 
-// bindCommands is a helper used to bind a list of root commands to a given menu, for a given "command help group".
+// bind is a helper used to bind a list of root commands to a given menu, for a given "command help group".
 // @group - Name of the group under which the command should be shown. Preferably use a string in the constants package.
 // @menu  - The command menu to which the commands should be bound (either server or implant menu).
 // @ cmds - A list of functions returning a list of root commands to bind. See any package's `commands.go` file and function.
-func bindCommands(group string, menu *cobra.Command, con *client.SliverConsoleClient, cmds ...func(con *client.SliverConsoleClient) []*cobra.Command) {
+func bind(group string, menu *cobra.Command, con *client.SliverConsoleClient, cmds ...func(con *client.SliverConsoleClient) []*cobra.Command) {
 	found := false
 
 	// Ensure the given command group is available in the menu.

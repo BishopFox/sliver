@@ -30,3 +30,73 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 
 	return []*cobra.Command{infoCmd}
 }
+
+// SliverCommands returns all info commands working on an active target.
+func SliverCommands(con *console.SliverConsoleClient) []*cobra.Command {
+	pingCmd := &cobra.Command{
+		Use:   consts.PingStr,
+		Short: "Send round trip message to implant (does not use ICMP)",
+		Long:  help.GetHelpFor([]string{consts.PingStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			PingCmd(cmd, con, args)
+		},
+		GroupID: consts.InfoHelpGroup,
+	}
+	flags.Bind("", false, pingCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+
+	getPIDCmd := &cobra.Command{
+		Use:   consts.GetPIDStr,
+		Short: "Get session pid",
+		Long:  help.GetHelpFor([]string{consts.GetPIDStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			PIDCmd(cmd, con, args)
+		},
+		GroupID: consts.InfoHelpGroup,
+	}
+	flags.Bind("", false, getPIDCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+
+	getUIDCmd := &cobra.Command{
+		Use:   consts.GetUIDStr,
+		Short: "Get session process UID",
+		Long:  help.GetHelpFor([]string{consts.GetUIDStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			UIDCmd(cmd, con, args)
+		},
+		GroupID: consts.InfoHelpGroup,
+	}
+	flags.Bind("", false, getUIDCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+
+	getGIDCmd := &cobra.Command{
+		Use:   consts.GetGIDStr,
+		Short: "Get session process GID",
+		Long:  help.GetHelpFor([]string{consts.GetGIDStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			GIDCmd(cmd, con, args)
+		},
+		GroupID: consts.InfoHelpGroup,
+	}
+	flags.Bind("", false, getGIDCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+
+	whoamiCmd := &cobra.Command{
+		Use:   consts.WhoamiStr,
+		Short: "Get session user execution context",
+		Long:  help.GetHelpFor([]string{consts.WhoamiStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			WhoamiCmd(cmd, con, args)
+		},
+		GroupID: consts.InfoHelpGroup,
+	}
+	flags.Bind("", false, whoamiCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+
+	return []*cobra.Command{pingCmd, getPIDCmd, getUIDCmd, getGIDCmd, whoamiCmd}
+}
