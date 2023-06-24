@@ -3680,7 +3680,6 @@ func BindCommands(con *console.SliverConsoleClient) {
 		Flags: func(f *grumble.Flags) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
-		Args: func(a *grumble.Args) {},
 		Run: func(ctx *grumble.Context) error {
 			con.Println()
 			taskmany.TaskmanyCmd(ctx, con)
@@ -3690,29 +3689,14 @@ func BindCommands(con *console.SliverConsoleClient) {
 	}
 
         // Add the relevant beacon commands as a subcommand to taskmany
-        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(executeCmd, con))
-        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(lsCmd, con))
-        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(cdCmd, con))
-        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(mkdirCmd, con))
-        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(rmCmd, con))
-        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(uploadCmd, con))
-        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(downloadCmd, con))
-        taskmanyCmd.AddCommand(wrapCommandWithTaskmany(openSessionCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(executeCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(lsCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(cdCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(mkdirCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(rmCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(uploadCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(downloadCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(openSessionCmd, con))
 
 	con.App.AddCommand(taskmanyCmd)
 }
-
-
-// Helper function to wrap commands with taskmany logic
-func wrapCommandWithTaskmany(c *grumble.Command, con *console.SliverConsoleClient) *grumble.Command {
-    wc := &grumble.Command{
-        Name:     c.Name,
-        Help:     c.Help,
-        LongHelp: c.LongHelp,
-        Flags:    c.Flags,
-        Args:     c.Args,
-        Run:      taskmany.WrapFunction(con, c.Run),
-    }
-    return wc
-}
-
