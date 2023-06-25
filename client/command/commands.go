@@ -916,7 +916,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
-	con.App.AddCommand(&grumble.Command{
+        pingCmd := &grumble.Command{
 		Name:     consts.PingStr,
 		Help:     "Send round trip message to implant (does not use ICMP)",
 		LongHelp: help.GetHelpFor([]string{consts.PingStr}),
@@ -930,7 +930,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+        con.App.AddCommand(pingCmd)
 
 	con.App.AddCommand(&grumble.Command{
 		Name:     consts.GetPIDStr,
@@ -1857,7 +1858,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 	}
 	con.App.AddCommand(cdCmd)
 
-	con.App.AddCommand(&grumble.Command{
+        pwdCmd := &grumble.Command{
 		Name:     consts.PwdStr,
 		Help:     "Print working directory",
 		LongHelp: help.GetHelpFor([]string{consts.PwdStr}),
@@ -1871,9 +1872,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+        con.App.AddCommand(pwdCmd)
 
-	con.App.AddCommand(&grumble.Command{
+        catCmd := &grumble.Command{
 		Name:     consts.CatStr,
 		Help:     "Dump file to stdout",
 		LongHelp: help.GetHelpFor([]string{consts.CatStr}),
@@ -1896,7 +1898,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+        con.App.AddCommand(catCmd)
 
         downloadCmd := &grumble.Command{
 		Name:     consts.DownloadStr,
@@ -1950,7 +1953,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 
 	// [ Network ] ---------------------------------------------
 
-	con.App.AddCommand(&grumble.Command{
+        ifconfigCmd := &grumble.Command{
 		Name:     consts.IfconfigStr,
 		Help:     "View network interface configurations",
 		LongHelp: help.GetHelpFor([]string{consts.IfconfigStr}),
@@ -1966,9 +1969,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+        con.App.AddCommand(ifconfigCmd)
 
-	con.App.AddCommand(&grumble.Command{
+        netstatCmd := &grumble.Command{
 		Name:     consts.NetstatStr,
 		Help:     "Print network connection information",
 		LongHelp: help.GetHelpFor([]string{consts.NetstatStr}),
@@ -1988,11 +1992,12 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+        con.App.AddCommand(netstatCmd)
 
 	// [ Processes ] ---------------------------------------------
 
-	con.App.AddCommand(&grumble.Command{
+        psCmd := &grumble.Command{
 		Name:     consts.PsStr,
 		Help:     "List remote processes",
 		LongHelp: help.GetHelpFor([]string{consts.PsStr}),
@@ -2014,7 +2019,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+        con.App.AddCommand(psCmd)
 
 	con.App.AddCommand(&grumble.Command{
 		Name:     consts.ProcdumpStr,
@@ -2157,7 +2163,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 		},
 	})
 
-	con.App.AddCommand(&grumble.Command{
+        chmodCmd := &grumble.Command{
 		Name:     consts.ChmodStr,
 		Help:     "Change permissions on a file or directory",
 		LongHelp: help.GetHelpFor([]string{consts.ChmodStr}),
@@ -2176,9 +2182,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+        con.App.AddCommand(chmodCmd)
 
-	con.App.AddCommand(&grumble.Command{
+        chownCmd := &grumble.Command{
 		Name:     consts.ChownStr,
 		Help:     "Change owner on a file or directory",
 		LongHelp: help.GetHelpFor([]string{consts.ChownStr}),
@@ -2198,9 +2205,10 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+        con.App.AddCommand(chownCmd)
 
-	con.App.AddCommand(&grumble.Command{
+        chtimesCmd := &grumble.Command{
 		Name:     consts.ChtimesStr,
 		Help:     "Change access and modification times on a file (timestomp)",
 		LongHelp: help.GetHelpFor([]string{consts.ChtimesStr}),
@@ -2219,7 +2227,8 @@ func BindCommands(con *console.SliverConsoleClient) {
 			return nil
 		},
 		HelpGroup: consts.SliverHelpGroup,
-	})
+	}
+        con.App.AddCommand(chtimesCmd)
 
 	// [ Websites ] ---------------------------------------------
 
@@ -3697,6 +3706,16 @@ func BindCommands(con *console.SliverConsoleClient) {
         taskmanyCmd.AddCommand(taskmany.WrapCommand(uploadCmd, con))
         taskmanyCmd.AddCommand(taskmany.WrapCommand(downloadCmd, con))
         taskmanyCmd.AddCommand(taskmany.WrapCommand(openSessionCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(chmodCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(chownCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(chtimesCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(pwdCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(catCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(mvCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(pingCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(netstatCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(psCmd, con))
+        taskmanyCmd.AddCommand(taskmany.WrapCommand(ifconfigCmd, con))
 
 	con.App.AddCommand(taskmanyCmd)
 }
