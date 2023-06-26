@@ -77,7 +77,10 @@ func deriveKeyFrom(data []byte) [chacha20poly1305.KeySize]byte {
 // RandomSymmetricKey - Generate random ID of randomIDSize bytes
 func RandomSymmetricKey() [chacha20poly1305.KeySize]byte {
 	randBuf := make([]byte, 64)
-	rand.Read(randBuf)
+	_, err := rand.Read(randBuf)
+	if err != nil {
+		panic(err)
+	}
 	return deriveKeyFrom(randBuf)
 }
 
@@ -164,6 +167,11 @@ func AgeDecrypt(recipientPrivateKey string, ciphertext []byte) ([]byte, error) {
 
 // AgeKeyPairFromImplant - Decrypt the session key from an implant
 func AgeKeyExFromImplant(serverPrivateKey string, implantPrivateKey string, ciphertext []byte) ([]byte, error) {
+	// Check for replay attacks
+	if err := db.CheckKeyExReplay(ciphertext); err != nil {
+		return nil, ErrDecryptFailed
+	}
+
 	// Decrypt the message
 	plaintext, err := AgeDecrypt(serverPrivateKey, ciphertext)
 	if err != nil {
@@ -176,9 +184,8 @@ func AgeKeyExFromImplant(serverPrivateKey string, implantPrivateKey string, ciph
 	}
 
 	// Recompute the HMAC to verify the message
-	privateDigest := sha256.New()
-	privateDigest.Write([]byte(implantPrivateKey))
-	mac := hmac.New(sha256.New, privateDigest.Sum(nil))
+	privateKeyDigest := sha256.Sum256([]byte(implantPrivateKey))
+	mac := hmac.New(sha256.New, privateKeyDigest[:])
 	mac.Write(plaintext[sha256Size:])
 
 	// Constant-time comparison of the HMACs
