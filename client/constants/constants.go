@@ -127,6 +127,7 @@ const (
 	BackgroundStr      = "background"
 	InfoStr            = "info"
 	UseStr             = "use"
+	TaskmanyStr        = "taskmany"
 	ReconfigStr        = "reconfig"
 	PruneStr           = "prune"
 	TasksStr           = "tasks"
