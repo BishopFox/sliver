@@ -21,23 +21,25 @@ package environment
 import (
 	"context"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
-	"google.golang.org/protobuf/proto"
 )
 
 // EnvSetCmd - Set a remote environment variable
-func EnvSetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func EnvSetCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
-	name := ctx.Args.String("name")
-	value := ctx.Args.String("value")
+	name := args[0]
+	value := args[1]
 	if name == "" || value == "" {
 		con.PrintErrorf("Usage: setenv KEY VALUE\n")
 		return
@@ -48,7 +50,7 @@ func EnvSetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			Key:   name,
 			Value: value,
 		},
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -67,7 +69,6 @@ func EnvSetCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	} else {
 		PrintSetEnvInfo(name, value, envInfo, con)
 	}
-
 }
 
 // PrintSetEnvInfo - Print the set environment info

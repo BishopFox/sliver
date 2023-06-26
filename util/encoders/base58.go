@@ -31,15 +31,12 @@ import (
 	"math/big"
 )
 
-// Base62EncoderID - EncoderID
-const Base58EncoderID = 43
-
 // Base58 Encoder
 type Base58 struct{}
 
 // Encode - Base58 Encode
-func (e Base58) Encode(data []byte) []byte {
-	return []byte(B58Encode(data))
+func (e Base58) Encode(data []byte) ([]byte, error) {
+	return []byte(B58Encode(data)), nil
 }
 
 // Decode - Base58 Decode

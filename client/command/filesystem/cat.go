@@ -27,24 +27,27 @@ import (
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/desertbit/grumble"
 )
 
 // CatCmd - Display the contents of a remote file
-func CatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func CatCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
-	filePath := ctx.Args.String("path")
+	var filePath string
+	if len(args) > 0 {
+		filePath = args[0]
+	}
 	if filePath == "" {
 		con.PrintErrorf("Missing parameter: file name\n")
 		return
@@ -53,7 +56,7 @@ func CatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("Downloading %s ...", filePath), ctrl)
 	download, err := con.Rpc.Download(context.Background(), &sliverpb.DownloadReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 		Path:    filePath,
 	})
 	ctrl <- true
@@ -69,24 +72,23 @@ func CatCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			PrintCat(download, ctx, con)
+			PrintCat(download, cmd, con)
 		})
 		con.PrintAsyncResponse(download.Response)
 	} else {
-		PrintCat(download, ctx, con)
+		PrintCat(download, cmd, con)
 	}
 }
 
 // PrintCat - Print the download to stdout
-func PrintCat(download *sliverpb.Download, ctx *grumble.Context, con *console.SliverConsoleClient) {
+func PrintCat(download *sliverpb.Download, cmd *cobra.Command, con *console.SliverConsoleClient) {
 	var (
 		lootDownload bool = true
 		err          error
 	)
-	saveLoot := ctx.Flags.Bool("loot")
-	lootName := ctx.Flags.String("name")
-	userLootType := ctx.Flags.String("type")
-	userLootFileType := ctx.Flags.String("file-type")
+	saveLoot, _ := cmd.Flags().GetBool("loot")
+	lootName, _ := cmd.Flags().GetString("name")
+	userLootFileType, _ := cmd.Flags().GetString("file-type")
 	if download.Response != nil && download.Response.Err != "" {
 		con.PrintErrorf("%s\n", download.Response.Err)
 		return
@@ -100,26 +102,18 @@ func PrintCat(download *sliverpb.Download, ctx *grumble.Context, con *console.Sl
 	}
 
 	if saveLoot {
-		lootType, err := loot.ValidateLootType(userLootType)
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			// Even if the loot type is bad, we can still print the result to the screen
-			// We will not loot it though
-			lootDownload = false
-		}
 		fileType := loot.ValidateLootFileType(userLootFileType, download.Data)
-
 		if lootDownload {
-			loot.LootDownload(download, lootName, lootType, fileType, ctx, con)
+			loot.LootDownload(download, lootName, fileType, cmd, con)
 			con.Printf("\n")
 		}
 	}
-	if ctx.Flags.Bool("colorize-output") {
+	if color, _ := cmd.Flags().GetBool("colorize-output"); color {
 		if err = colorize(download); err != nil {
 			con.Println(string(download.Data))
 		}
 	} else {
-		if ctx.Flags.Bool("hex") {
+		if phex, _ := cmd.Flags().GetBool("hex"); phex {
 			con.Println(hex.Dump(download.Data))
 		} else {
 			con.Println(string(download.Data))

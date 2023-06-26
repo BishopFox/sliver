@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
@@ -74,11 +75,11 @@ type ImplantConfig struct {
 	BeaconJitter   int64
 
 	// ECC
-	ECCPublicKey            string
-	ECCPublicKeyDigest      string
-	ECCPrivateKey           string
-	ECCPublicKeySignature   string
-	ECCServerPublicKey      string
+	PeerPublicKey           string
+	PeerPublicKeyDigest     string
+	PeerPrivateKey          string
+	PeerPublicKeySignature  string
+	AgeServerPublicKey      string
 	MinisignServerPublicKey string
 
 	// MTLS
@@ -91,8 +92,10 @@ type ImplantConfig struct {
 	Evasion             bool
 	ObfuscateSymbols    bool
 	ReconnectInterval   int64
+	PollTimeout         int64
 	MaxConnectionErrors uint32
 	ConnectionStrategy  string
+	SGNEnabled          bool
 
 	// WireGuard
 	WGImplantPrivKey  string
@@ -131,6 +134,10 @@ type ImplantConfig struct {
 	RunAtLoad bool
 
 	FileName string
+
+	NetGoEnabled           bool
+	TrafficEncodersEnabled bool
+	Assets                 []EncoderAsset
 }
 
 // BeforeCreate - GORM hook
@@ -154,9 +161,9 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 
 		GOOS:               ic.GOOS,
 		GOARCH:             ic.GOARCH,
-		ECCServerPublicKey: ic.ECCServerPublicKey,
-		ECCPublicKey:       ic.ECCPublicKey,
-		ECCPrivateKey:      ic.ECCPrivateKey,
+		AgeServerPublicKey: ic.AgeServerPublicKey,
+		PeerPublicKey:      ic.PeerPublicKey,
+		PeerPrivateKey:     ic.PeerPrivateKey,
 		MtlsCACert:         ic.MtlsCACert,
 		MtlsCert:           ic.MtlsCert,
 		MtlsKey:            ic.MtlsKey,
@@ -166,9 +173,11 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		Evasion:          ic.Evasion,
 		ObfuscateSymbols: ic.ObfuscateSymbols,
 		TemplateName:     ic.TemplateName,
+		SGNEnabled:       ic.SGNEnabled,
 
 		ReconnectInterval:   ic.ReconnectInterval,
 		MaxConnectionErrors: ic.MaxConnectionErrors,
+		PollTimeout:         ic.PollTimeout,
 		ConnectionStrategy:  ic.ConnectionStrategy,
 
 		LimitDatetime:     ic.LimitDatetime,
@@ -188,12 +197,20 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		WGKeyExchangePort: ic.WGKeyExchangePort,
 		WGTcpCommsPort:    ic.WGTcpCommsPort,
 
-		FileName: ic.FileName,
+		FileName:               ic.FileName,
+		TrafficEncodersEnabled: ic.TrafficEncodersEnabled,
+		NetGoEnabled:           ic.NetGoEnabled,
 	}
 	// Copy Canary Domains
 	config.CanaryDomains = []string{}
 	for _, canaryDomain := range ic.CanaryDomains {
 		config.CanaryDomains = append(config.CanaryDomains, canaryDomain.Domain)
+	}
+
+	// Copy Assets
+	config.Assets = []*commonpb.File{}
+	for _, asset := range ic.Assets {
+		config.Assets = append(config.Assets, asset.ToProtobuf())
 	}
 
 	// Copy C2
@@ -287,4 +304,17 @@ func (ip *ImplantProfile) BeforeCreate(tx *gorm.DB) (err error) {
 	}
 	ip.CreatedAt = time.Now()
 	return nil
+}
+
+// EncoderAsset - Tracks which assets were embedded into the implant
+// but we currently don't keep a copy of the actual data
+type EncoderAsset struct {
+	ID              uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ImplantConfigID uuid.UUID
+
+	Name string
+}
+
+func (t *EncoderAsset) ToProtobuf() *commonpb.File {
+	return &commonpb.File{Name: t.Name}
 }

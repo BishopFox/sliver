@@ -108,7 +108,7 @@ func StartWGListenerJob(listenPort uint16, nListenPort uint16, keyExchangeListen
 		<-job.JobCtrl
 		jobLog.Infof("Stopping wg listener (%d) ...", job.ID)
 		ticker.Stop()
-		
+
 		err = ln.Close() // Kills listener GoRoutines in StartWGListener()
 		if err != nil {
 			jobLog.Fatal("Error closing listener", err)
@@ -228,7 +228,7 @@ func StartHTTPListenerJob(conf *HTTPServerConfig) (*core.Job, error) {
 }
 
 // StartTCPStagerListenerJob - Start a TCP staging payload listener
-func StartTCPStagerListenerJob(host string, port uint16, shellcode []byte) (*core.Job, error) {
+func StartTCPStagerListenerJob(host string, port uint16, profileName string, shellcode []byte) (*core.Job, error) {
 	ln, err := StartTCPListener(host, port, shellcode)
 	if err != nil {
 		return nil, err // If we fail to bind don't setup the Job
@@ -240,6 +240,7 @@ func StartTCPStagerListenerJob(host string, port uint16, shellcode []byte) (*cor
 		Description: "Raw TCP listener (stager only)",
 		Protocol:    "tcp",
 		Port:        port,
+		ProfileName: profileName,
 		JobCtrl:     make(chan bool),
 	}
 
@@ -262,7 +263,7 @@ func StartTCPStagerListenerJob(host string, port uint16, shellcode []byte) (*cor
 }
 
 // StartHTTPStagerListenerJob - Start an HTTP(S) stager payload listener
-func StartHTTPStagerListenerJob(conf *HTTPServerConfig, data []byte) (*core.Job, error) {
+func StartHTTPStagerListenerJob(conf *HTTPServerConfig, profileName string, data []byte) (*core.Job, error) {
 	server, err := StartHTTPListener(conf)
 	if err != nil {
 		return nil, err
@@ -278,6 +279,7 @@ func StartHTTPStagerListenerJob(conf *HTTPServerConfig, data []byte) (*core.Job,
 		Description: fmt.Sprintf("Stager handler %s for domain %s", name, conf.Domain),
 		Protocol:    "tcp",
 		Port:        uint16(conf.LPort),
+		ProfileName: profileName,
 		JobCtrl:     make(chan bool),
 	}
 	core.Jobs.Add(job)
@@ -359,7 +361,6 @@ func StartPersistentJobs(cfg *configs.ServerConfig) error {
 			Cert:            j.Cert,
 			Key:             j.Key,
 			ACME:            j.ACME,
-			EnforceOTP:      j.EnforceOTP,
 			LongPollTimeout: time.Duration(j.LongPollTimeout),
 			LongPollJitter:  time.Duration(j.LongPollJitter),
 			RandomizeJARM:   j.RandomizeJARM,

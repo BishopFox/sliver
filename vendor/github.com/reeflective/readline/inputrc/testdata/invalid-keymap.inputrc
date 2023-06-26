@@ -1,0 +1,6 @@
+haltOnErr: true
+strict: true
+####----####
+set keymap foo
+####----####
+error: invalid keymap

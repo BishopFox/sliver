@@ -146,7 +146,7 @@ func Open(dialector Dialector, opts ...Option) (db *DB, err error) {
 	}
 
 	if config.NamingStrategy == nil {
-		config.NamingStrategy = schema.NamingStrategy{}
+		config.NamingStrategy = schema.NamingStrategy{IdentifierMaxLength: 64} // Default Identifier length is 64
 	}
 
 	if config.Logger == nil {
@@ -179,6 +179,12 @@ func Open(dialector Dialector, opts ...Option) (db *DB, err error) {
 
 	if config.Dialector != nil {
 		err = config.Dialector.Initialize(db)
+
+		if err != nil {
+			if db, err := db.DB(); err == nil {
+				_ = db.Close()
+			}
+		}
 	}
 
 	preparedStmt := &PreparedStmtDB{

@@ -21,13 +21,14 @@ package util
 import (
 	"archive/tar"
 	"bytes"
-	"compress/flate"
-	"compress/gzip"
+
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/klauspost/compress/flate"
+	"github.com/klauspost/compress/gzip"
 )
 
 // DeflateBuf - Deflate a buffer using BestCompression (9)
@@ -94,7 +95,7 @@ func ReadFileFromTarGz(tarGzFile string, tarPath string) ([]byte, error) {
 			case tar.TypeDir: // = directory
 				continue
 			case tar.TypeReg: // = regular file
-				return ioutil.ReadAll(tarReader)
+				return io.ReadAll(tarReader)
 			}
 		}
 	}

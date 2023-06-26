@@ -20,7 +20,6 @@ package pivotclients
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -73,17 +72,10 @@ func (p *NetConnPivotClient) KeyExchange() error {
 }
 
 func (p *NetConnPivotClient) peerKeyExchange() error {
-	publicKey, err := base64.RawStdEncoding.DecodeString(cryptography.ECCPublicKey)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("[pivot] Error decoding public key: %v", err)
-		// {{end}}
-		return err
-	}
 	pivotHello, _ := proto.Marshal(&pb.PivotHello{
-		PublicKey:          publicKey,
+		PublicKey:          []byte(cryptography.PeerAgePublicKey),
 		PeerID:             pivots.MyPeerID,
-		PublicKeySignature: cryptography.ECCPublicKeySignature,
+		PublicKeySignature: cryptography.PeerAgePublicKeySignature,
 	})
 
 	// Enforce deadlines on the key exchange
@@ -108,7 +100,7 @@ func (p *NetConnPivotClient) peerKeyExchange() error {
 		// {{end}}
 		return err
 	}
-	peerSessionKey, err := cryptography.ECCDecryptFromPeer(peerHello.PublicKey, peerHello.PublicKeySignature, peerHello.SessionKey)
+	peerSessionKey, err := cryptography.AgeDecryptFromPeer(peerHello.PublicKey, peerHello.PublicKeySignature, peerHello.SessionKey)
 	if err != nil || len(peerSessionKey) != 32 {
 		// {{if .Config.Debug}}
 		log.Printf("[pivot] Error decrypting session key: %v", err)
@@ -122,9 +114,9 @@ func (p *NetConnPivotClient) peerKeyExchange() error {
 }
 
 func (p *NetConnPivotClient) serverKeyExchange() error {
-	serverSessionKey := cryptography.RandomKey()
+	serverSessionKey := cryptography.RandomSymmetricKey()
 	p.serverCipherCtx = cryptography.NewCipherContext(serverSessionKey)
-	ciphertext, err := cryptography.ECCEncryptToServer(serverSessionKey[:])
+	ciphertext, err := cryptography.AgeKeyExToServer(serverSessionKey[:])
 	if err != nil {
 		return err
 	}

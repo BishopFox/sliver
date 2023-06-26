@@ -21,15 +21,16 @@ package socks
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
 )
 
 // SocksStopCmd - Remove an existing tunneled port forward
-func SocksStopCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	socksID := ctx.Flags.Uint64("id")
+func SocksStopCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	socksID, _ := cmd.Flags().GetUint64("id")
 	if socksID < 1 {
 		con.PrintErrorf("Must specify a valid socks5 id\n")
 		return

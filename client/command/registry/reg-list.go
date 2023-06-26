@@ -21,15 +21,17 @@ package registry
 import (
 	"context"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
-	"google.golang.org/protobuf/proto"
 )
 
 // RegListSubKeysCmd - List sub registry keys
-func RegListSubKeysCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func RegListSubKeysCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -40,15 +42,15 @@ func RegListSubKeysCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	regPath := ctx.Args.String("registry-path")
-	hive := ctx.Flags.String("hive")
-	hostname := ctx.Flags.String("hostname")
+	regPath := args[0]
+	hive, _ := cmd.Flags().GetString("hive")
+	hostname, _ := cmd.Flags().GetString("hostname")
 
 	regList, err := con.Rpc.RegistryListSubKeys(context.Background(), &sliverpb.RegistrySubKeyListReq{
 		Hive:     hive,
 		Hostname: hostname,
 		Path:     regPath,
-		Request:  con.ActiveTarget.Request(ctx),
+		Request:  con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -85,21 +87,21 @@ func PrintListSubKeys(regList *sliverpb.RegistrySubKeyList, hive string, regPath
 }
 
 // RegListValuesCmd - List registry values
-func RegListValuesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func RegListValuesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
-	regPath := ctx.Args.String("registry-path")
-	hive := ctx.Flags.String("hive")
-	hostname := ctx.Flags.String("hostname")
+	regPath := args[0]
+	hive, _ := cmd.Flags().GetString("hive")
+	hostname, _ := cmd.Flags().GetString("hostname")
 
 	regList, err := con.Rpc.RegistryListValues(context.Background(), &sliverpb.RegistryListValuesReq{
 		Hive:     hive,
 		Hostname: hostname,
 		Path:     regPath,
-		Request:  con.ActiveTarget.Request(ctx),
+		Request:  con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

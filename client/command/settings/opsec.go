@@ -20,13 +20,14 @@ package settings
 
 import (
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/desertbit/grumble"
 )
 
 // SettingsAutoAdultCmd - The client settings command
-func SettingsAutoAdultCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func SettingsAutoAdultCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	var err error
 	if con.Settings == nil {
 		con.Settings, err = assets.LoadSettings()

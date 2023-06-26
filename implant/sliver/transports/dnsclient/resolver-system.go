@@ -33,13 +33,13 @@ import (
 // NewSystemResolver - Initialize a new system resolver
 func NewSystemResolver() DNSResolver {
 	return &SystemResolver{
-		base64: encoders.Base64{},
+		base64: encoders.Base64Encoder{},
 	}
 }
 
 // SystemResolver -
 type SystemResolver struct {
-	base64 encoders.Base64
+	base64 encoders.Base64Encoder
 }
 
 // Address - Returns the address of the resolver

@@ -90,7 +90,7 @@ func (s *Session) IsDead() bool {
 	reconnect := time.Duration(s.ReconnectInterval)
 	pollTimeout := time.Duration(s.PollTimeout)
 	if timePassed < reconnect+padding && timePassed < pollTimeout+padding {
-		sessionsLog.Debugf("Last message within reconnect interval / poll timeout with padding")
+		sessionsLog.Debugf("Last message within reconnect interval / poll timeout + padding")
 		return false
 	}
 	if s.Connection.Transport == consts.MtlsStr {
@@ -223,7 +223,7 @@ func (s *sessions) Remove(sessionID string) {
 	parentSession := val.(*Session)
 	children := findAllChildrenByPeerID(parentSession.PeerID)
 	s.sessions.Delete(parentSession.ID)
-	coreLog.Debugf("Removing %d children of session %d (%v)", len(children), parentSession.ID, children)
+	coreLog.Debugf("Removing %d children of session %s (%v)", len(children), parentSession.ID, children)
 	for _, child := range children {
 		childSession, ok := s.sessions.LoadAndDelete(child.SessionID)
 		if ok {

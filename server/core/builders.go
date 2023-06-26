@@ -41,7 +41,10 @@ func AddBuilder(builder *clientpb.Builder) error {
 }
 
 func GetBuilder(builderName string) *clientpb.Builder {
-	builder, _ := builders.Load(builderName)
+	builder, ok := builders.Load(builderName)
+	if !ok {
+		return nil
+	}
 	return builder.(*clientpb.Builder)
 }
 

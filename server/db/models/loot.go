@@ -21,6 +21,7 @@ package models
 import (
 	"time"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
@@ -30,12 +31,21 @@ type Loot struct {
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
-	Type           int
-	FileType       int
-	CredentialType int
-	Name           string
+	FileType int
+	Name     string
+	Size     int64
 
-	OriginHost uuid.UUID `gorm:"type:uuid;"`
+	OriginHostID uuid.UUID `gorm:"type:uuid;"`
+}
+
+func (l *Loot) ToProtobuf() *clientpb.Loot {
+	return &clientpb.Loot{
+		ID:             l.ID.String(),
+		FileType:       clientpb.FileType(l.FileType),
+		Name:           l.Name,
+		Size:           l.Size,
+		OriginHostUUID: l.OriginHostID.String(),
+	}
 }
 
 // BeforeCreate - GORM hook

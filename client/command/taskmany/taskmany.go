@@ -31,37 +31,38 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/desertbit/grumble"
+	"github.com/spf13/cobra"
 )
 
 // TaskmanyCmd - Task many beacons / sessions
-func TaskmanyCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func TaskmanyCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	con.PrintErrorf("Must specify subcommand. See taskmany --help for supported subcommands.\n")
 }
 
 // Helper function to wrap grumble commands with taskmany logic
-func WrapCommand(c *grumble.Command, con *console.SliverConsoleClient) *grumble.Command {
-	wc := &grumble.Command{
-		Name:     c.Name,
-		Help:     c.Help,
-		LongHelp: c.LongHelp,
-		Flags:    c.Flags,
-		Args:     c.Args,
-		Run:      wrapFunctionWithTaskmany(con, c.Run),
+func WrapCommand(c *cobra.Command, con *console.SliverConsoleClient) *cobra.Command {
+	wc := &cobra.Command{
+		Use:   c.Use,
+		Short: c.Short,
+		Long:  c.Long,
+		Args:  c.Args,
+		Run:   wrapFunctionWithTaskmany(con, c.Run),
 	}
+	wc.Flags().AddFlagSet(c.Flags())
+	wc.PersistentFlags().AddFlagSet(c.PersistentFlags())
 	return wc
 }
 
 // Wrap a function to run it for each beacon / session
-func wrapFunctionWithTaskmany(con *console.SliverConsoleClient, f func(ctx *grumble.Context) error) func(ctx *grumble.Context) error {
-	return func(ctx *grumble.Context) error {
+func wrapFunctionWithTaskmany(con *console.SliverConsoleClient, f func(cmd *cobra.Command, args []string)) func(cmd *cobra.Command, args []string) {
+	return func(cmd *cobra.Command, args []string) {
 		defer con.Println()
 
 		sessions, beacons, err := SelectMultipleBeaconsAndSessions(con)
 		if err != nil {
 			con.Println()
 			con.PrintErrorf("%s\n", err)
-			return nil
+			return
 		}
 
 		con.Println()
@@ -74,7 +75,7 @@ func wrapFunctionWithTaskmany(con *console.SliverConsoleClient, f func(ctx *grum
 		for _, b := range beacons {
 			if !b.IsDead {
 				con.ActiveTarget.Set(nil, b)
-				f(ctx)
+				f(cmd, args)
 				nB += 1
 			} else {
 				nBSkipped += 1
@@ -86,7 +87,7 @@ func wrapFunctionWithTaskmany(con *console.SliverConsoleClient, f func(ctx *grum
 		for _, s := range sessions {
 			if !s.IsDead {
 				con.ActiveTarget.Set(s, nil)
-				f(ctx)
+				f(cmd, args)
 				nS += 1
 			} else {
 				nSSkipped += 1
@@ -100,7 +101,6 @@ func wrapFunctionWithTaskmany(con *console.SliverConsoleClient, f func(ctx *grum
 		if nBSkipped > 0 || nSSkipped > 0 {
 			con.PrintWarnf("Skipped %d dead sessions and %d dead beacons\n", nSSkipped, nBSkipped)
 		}
-		return nil
 	}
 }
 

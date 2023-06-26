@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	genericPivotHandlers = map[uint32]PivotHandler{
+	genericPivotHandlers = map[uint32]TunnelHandler{
 		pb.MsgPivotListenersReq:     pivotListenersHandler,
 		pb.MsgPivotStartListenerReq: pivotStartListenerHandler,
 		pb.MsgPivotStopListenerReq:  pivotStopListenerHandler,
@@ -40,7 +40,7 @@ var (
 )
 
 // GetPivotHandlers - Returns a map of pivot handlers
-func GetPivotHandlers() map[uint32]PivotHandler {
+func GetPivotHandlers() map[uint32]TunnelHandler {
 	return genericPivotHandlers
 }
 

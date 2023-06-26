@@ -24,7 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -79,7 +79,7 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 		return nil, err
 	}
 
-	resp, body, err := httpRequest(clientConfig, armoryConfig.RepoURL, armoryConfig, http.Header{})
+	resp, body, _ := httpRequest(clientConfig, armoryConfig.RepoURL, armoryConfig, http.Header{})
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.New("api returned non-200 status code")
 	}
@@ -427,7 +427,7 @@ func httpRequest(clientConfig ArmoryHTTPConfig, reqURL string, armoryConfig *ass
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	return resp, body, err
 }
 
@@ -437,7 +437,7 @@ func downloadRequest(clientConfig ArmoryHTTPConfig, reqURL string, armoryConfig 
 	}
 	resp, body, err := httpRequest(clientConfig, reqURL, armoryConfig, downloadHdr)
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusFound {
-		return nil, fmt.Errorf("Error downloading asset: http %d", resp.StatusCode)
+		return nil, fmt.Errorf("error downloading asset: http %d", resp.StatusCode)
 	}
 
 	return body, err

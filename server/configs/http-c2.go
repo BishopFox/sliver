@@ -34,7 +34,7 @@ import (
 
 const (
 	httpC2ConfigFileName = "http-c2.json"
-	DefaultChromeBaseVer = 100
+	DefaultChromeBaseVer = 106
 	DefaultMacOSVer      = "10_15_7"
 )
 
@@ -42,6 +42,30 @@ const (
 type HTTPC2Config struct {
 	ImplantConfig *HTTPC2ImplantConfig `json:"implant_config"`
 	ServerConfig  *HTTPC2ServerConfig  `json:"server_config"`
+}
+
+// RandomImplantConfig - Randomly generate a new implant config from the parent config,
+// this is the primary configuration used by the implant generation.
+func (h *HTTPC2Config) RandomImplantConfig() *HTTPC2ImplantConfig {
+	return &HTTPC2ImplantConfig{
+
+		NonceQueryArgs: h.ImplantConfig.NonceQueryArgs,
+		URLParameters:  h.ImplantConfig.URLParameters,
+		Headers:        h.ImplantConfig.Headers,
+
+		PollFileExt: h.ImplantConfig.PollFileExt,
+		PollFiles:   h.ImplantConfig.RandomPollFiles(),
+		PollPaths:   h.ImplantConfig.RandomPollPaths(),
+
+		StartSessionFileExt: h.ImplantConfig.StartSessionFileExt,
+		SessionFileExt:      h.ImplantConfig.SessionFileExt,
+		SessionFiles:        h.ImplantConfig.RandomSessionFiles(),
+		SessionPaths:        h.ImplantConfig.RandomSessionPaths(),
+
+		CloseFileExt: h.ImplantConfig.CloseFileExt,
+		CloseFiles:   h.ImplantConfig.RandomCloseFiles(),
+		ClosePaths:   h.ImplantConfig.RandomClosePaths(),
+	}
 }
 
 // GenerateUserAgent - Generate a user-agent depending on OS/Arch
@@ -98,23 +122,6 @@ func (h *HTTPC2Config) MacOSVer() string {
 	return macosVer
 }
 
-// RandomImplantConfig - Randomly generate a config
-func (h *HTTPC2Config) RandomImplantConfig() *HTTPC2ImplantConfig {
-	config := &HTTPC2ImplantConfig{}
-	*config = *h.ImplantConfig
-
-	config.PollFiles = h.ImplantConfig.RandomPollFiles()
-	config.PollPaths = h.ImplantConfig.RandomPollPaths()
-
-	config.SessionFiles = h.ImplantConfig.RandomSessionFiles()
-	config.SessionPaths = h.ImplantConfig.RandomSessionPaths()
-
-	config.CloseFiles = h.ImplantConfig.RandomCloseFiles()
-	config.ClosePaths = h.ImplantConfig.RandomClosePaths()
-
-	return config
-}
-
 // HTTPC2ServerConfig - Server configuration options
 type HTTPC2ServerConfig struct {
 	RandomVersionHeaders bool                   `json:"random_version_headers"`
@@ -126,6 +133,7 @@ type NameValueProbability struct {
 	Name        string `json:"name"`
 	Value       string `json:"value"`
 	Probability int    `json:"probability"`
+	Methods     []string
 }
 
 // HTTPC2ImplantConfig - Implant configuration options
@@ -144,16 +152,19 @@ type HTTPC2ImplantConfig struct {
 	ChromeBaseVersion int    `json:"chrome_base_version"`
 	MacOSVersion      string `json:"macos_version"`
 
-	URLParameters []NameValueProbability `json:"url_parameters"`
-	Headers       []NameValueProbability `json:"headers"`
+	NonceQueryArgs string                 `json:"nonce_query_args"`
+	URLParameters  []NameValueProbability `json:"url_parameters"`
+	Headers        []NameValueProbability `json:"headers"`
 
 	MaxFiles int `json:"max_files"`
 	MinFiles int `json:"min_files"`
 	MaxPaths int `json:"max_paths"`
 	MinPaths int `json:"min_paths"`
 
-	// Stager File Extension
-	StagerFileExt string `json:"stager_file_ext"`
+	// Stager files and paths
+	StagerFileExt string   `json:"stager_file_ext"`
+	StagerFiles   []string `json:"stager_files"`
+	StagerPaths   []string `json:"stager_paths"`
 
 	// Poll files and paths
 	PollFileExt string   `json:"poll_file_ext"`
@@ -246,7 +257,22 @@ var (
 			MaxPaths:          8,
 			MinPaths:          2,
 
+			Headers: []NameValueProbability{
+				{Name: "Accept-Language", Value: "en-US,en;q=0.9", Methods: []string{"GET"}, Probability: 100},
+				{Name: "Accept", Value: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9", Methods: []string{"GET"}, Probability: 100},
+			},
+
+			NonceQueryArgs: "abcdefghijklmnopqrstuvwxyz",
+
 			StagerFileExt: ".woff",
+			StagerFiles: []string{
+				"attribute_text_w01_regular", "ZillaSlab-Regular.subset.bbc33fb47cf6",
+				"ZillaSlab-Bold.subset.e96c15f68c68", "Inter-Regular",
+				"Inter-Medium",
+			},
+			StagerPaths: []string{
+				"static", "assets", "fonts", "locales",
+			},
 
 			PollFileExt: ".js",
 			PollFiles: []string{
@@ -356,6 +382,7 @@ func generateDefaultConfig(saveTo string) error {
 var (
 	ErrMissingCookies             = errors.New("server config must specify at least one cookie")
 	ErrMissingStagerFileExt       = errors.New("implant config must specify a stager_file_ext")
+	ErrTooFewStagerFiles          = errors.New("implant config must specify at least one stager_files value")
 	ErrMissingPollFileExt         = errors.New("implant config must specify a poll_file_ext")
 	ErrTooFewPollFiles            = errors.New("implant config must specify at least one poll_files value")
 	ErrMissingKeyExchangeFileExt  = errors.New("implant config must specify a key_exchange_file_ext")
@@ -445,6 +472,10 @@ func checkImplantConfig(config *HTTPC2ImplantConfig) error {
 	config.StagerFileExt = coerceFileExt(config.StagerFileExt)
 	if config.StagerFileExt == "" {
 		return ErrMissingStagerFileExt
+	}
+	config.StagerFiles = coerceFiles(config.StagerFiles, config.StagerFileExt)
+	if len(config.StagerFiles) < 1 {
+		return ErrTooFewStagerFiles
 	}
 
 	// Poll Settings

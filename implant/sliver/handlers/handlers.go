@@ -50,17 +50,11 @@ type RPCResponse func([]byte, error)
 // RPCHandler - Request handler
 type RPCHandler func([]byte, RPCResponse)
 
-// SpecialHandler - Handlers that need to interact directly with the transport
-type SpecialHandler func([]byte, *transports.Connection) error
+// KillHandler - Handlers that need to interact directly with the transport
+type KillHandler func([]byte, *transports.Connection) error
 
 // TunnelHandler - Tunnel related functionality for duplex connections
 type TunnelHandler func(*sliverpb.Envelope, *transports.Connection)
-
-// PivotHandler - Handler related to pivoting
-type PivotHandler func(*sliverpb.Envelope, *transports.Connection)
-
-// RportFwdHandler - Handler related to reverse port forwarding
-type RportFwdHandler func(*sliverpb.Envelope, *transports.Connection)
 
 // -----------------------------------------------------
 // -----------------------------------------------------
@@ -117,7 +111,7 @@ func determineDirPathFilter(targetPath string) (string, string) {
 		} else {
 			// Then we need to test for a filter on the end of the string
 
-			// The indicies should be the same because we did not change the length of the string
+			// The indices should be the same because we did not change the length of the string
 			path = targetPath[:lastSeparatorOccurrence+1]
 			filter = targetPath[lastSeparatorOccurrence+1:]
 		}
@@ -202,15 +196,20 @@ func dirListHandler(data []byte, resp RPCResponse) {
 				if fileInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
 					linkPath, err = filepath.EvalSymlinks(path + dirEntry.Name())
 					if err != nil {
-						linkPath = ""
+						link_str, err := os.Readlink(path + dirEntry.Name())
+						if err == nil {
+							linkPath = link_str
+						} else {
+							linkPath = ""
+						}
 					}
 				} else {
 					linkPath = ""
 				}
-			}
 
-			sliverFileInfo.Uid = getUid(fileInfo)
-            sliverFileInfo.Gid = getGid(fileInfo)
+				sliverFileInfo.Uid = getUid(fileInfo)
+				sliverFileInfo.Gid = getGid(fileInfo)
+			}
 
 			sliverFileInfo.Name = dirEntry.Name()
 			sliverFileInfo.IsDir = dirEntry.IsDir()

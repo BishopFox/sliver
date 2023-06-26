@@ -24,9 +24,12 @@ package db
 */
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 	"time"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
@@ -84,11 +87,11 @@ func ImplantConfigWithC2sByID(id string) (*models.ImplantConfig, error) {
 	return &config, err
 }
 
-// ImplantConfigByECCPublicKey - Fetch implant build by it's ecc public key
-func ImplantConfigByECCPublicKeyDigest(publicKeyDigest [32]byte) (*models.ImplantConfig, error) {
+// ImplantConfigByPublicKeyDigest - Fetch implant build by it's ecc public key
+func ImplantConfigByPublicKeyDigest(publicKeyDigest [32]byte) (*models.ImplantConfig, error) {
 	config := models.ImplantConfig{}
 	err := Session().Where(&models.ImplantConfig{
-		ECCPublicKeyDigest: hex.EncodeToString(publicKeyDigest[:]),
+		PeerPublicKeyDigest: hex.EncodeToString(publicKeyDigest[:]),
 	}).First(&config).Error
 	if err != nil {
 		return nil, err
@@ -529,4 +532,157 @@ func DeleteKeyValue(key string, value string) error {
 	return Session().Delete(&models.KeyValue{
 		Key: key,
 	}).Error
+}
+
+// CrackstationByHostUUID - Get crackstation by the session's reported HostUUID
+func CrackstationByHostUUID(hostUUID string) (*models.Crackstation, error) {
+	id := uuid.FromStringOrNil(hostUUID)
+	if id == uuid.Nil {
+		return nil, ErrRecordNotFound
+	}
+	crackstation := models.Crackstation{}
+	err := Session().Where(
+		&models.Crackstation{ID: id},
+	).Preload("Tasks").Preload("Benchmarks").First(&crackstation).Error
+	if err != nil {
+		return nil, err
+	}
+	return &crackstation, nil
+}
+
+// CredentialsByHashType
+func CredentialsByHashType(hashType clientpb.HashType) ([]*models.Credential, error) {
+	credentials := []*models.Credential{}
+	err := Session().Where(&models.Credential{
+		HashType: int32(hashType),
+	}).Find(&credentials).Error
+	return credentials, err
+}
+
+// CredentialsByHashType
+func CredentialsByCollection(collection string) ([]*models.Credential, error) {
+	credentials := []*models.Credential{}
+	err := Session().Where(&models.Credential{
+		Collection: collection,
+	}).Find(&credentials).Error
+	return credentials, err
+}
+
+// PlaintextCredentials
+func PlaintextCredentialsByHashType(hashType clientpb.HashType) ([]*models.Credential, error) {
+	credentials := []*models.Credential{}
+	err := Session().Where(&models.Credential{
+		HashType: int32(hashType),
+	}).Not("plaintext = ?", "").Find(&credentials).Error
+	return credentials, err
+}
+
+// CredentialsByID
+func CredentialByID(id string) (*models.Credential, error) {
+	credential := &models.Credential{}
+	credID := uuid.FromStringOrNil(id)
+	if credID != uuid.Nil {
+		err := Session().Where(&models.Credential{ID: credID}).First(&credential).Error
+		return credential, err
+	}
+	credentials := []*models.Credential{}
+	err := Session().Where(&models.Credential{}).Find(&credentials).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, cred := range credentials {
+		if strings.HasPrefix(cred.ID.String(), id) {
+			return cred, nil
+		}
+	}
+	return nil, ErrRecordNotFound
+}
+
+// GetCrackTaskByID - Get a crack task by its ID
+func GetCrackTaskByID(id string) (*models.CrackTask, error) {
+	taskID := uuid.FromStringOrNil(id)
+	if taskID == uuid.Nil {
+		return nil, ErrRecordNotFound
+	}
+	task := &models.CrackTask{}
+	err := Session().Where(&models.CrackTask{ID: taskID}).Preload("Command").Find(&task).Error
+	if err != nil {
+		return nil, err
+	}
+	return task, nil
+}
+
+// GetByCrackFileByID - Get a crack task by its ID
+func GetByCrackFileByID(id string) (*models.CrackFile, error) {
+	crackFileID := uuid.FromStringOrNil(id)
+	if crackFileID == uuid.Nil {
+		return nil, ErrRecordNotFound
+	}
+	crackFile := &models.CrackFile{}
+	err := Session().Where(&models.CrackFile{ID: crackFileID}).Preload("Chunks").Find(&crackFile).Error
+	if err != nil {
+		return nil, err
+	}
+	return crackFile, nil
+}
+
+// CrackFilesByType - Get all files by crack file type
+func CrackFilesByType(fileType clientpb.CrackFileType) ([]*models.CrackFile, error) {
+	crackFiles := []*models.CrackFile{}
+	err := Session().Where(&models.CrackFile{
+		Type:       int32(fileType),
+		IsComplete: true,
+	}).Preload("Chunks").Find(&crackFiles).Error
+	if err != nil {
+		return nil, err
+	}
+	return crackFiles, nil
+}
+
+func AllCrackFiles() ([]*models.CrackFile, error) {
+	crackFiles := []*models.CrackFile{}
+	err := Session().Preload("Chunks").Find(&crackFiles).Error
+	if err != nil {
+		return nil, err
+	}
+	return crackFiles, nil
+}
+
+// CrackWordlistByName - Get all files by crack file type
+func CrackWordlistByName(name string) (*models.CrackFile, error) {
+	crackFile := &models.CrackFile{}
+	err := Session().Where(&models.CrackFile{
+		Name: name,
+		Type: int32(clientpb.CrackFileType_WORDLIST),
+	}).First(&crackFile).Error
+	if err != nil {
+		return nil, err
+	}
+	return crackFile, nil
+}
+
+// CrackFilesDiskUsage - Get all files by crack file type
+func CrackFilesDiskUsage() (int64, error) {
+	crackFiles := []*models.CrackFile{}
+	err := Session().Where(&models.CrackFile{}).Find(&crackFiles).Error
+	if err != nil {
+		return -1, err
+	}
+	sum := int64(0)
+	for _, crackFile := range crackFiles {
+		sum += crackFile.UncompressedSize
+	}
+	return sum, nil
+}
+
+// CheckKeyExReplay - Store the hash of a key exchange to prevent replays
+func CheckKeyExReplay(ciphertext []byte) error {
+	keyExSha256Hash := sha256.Sum256(ciphertext)
+	return Session().Create(
+		// The Sha256 is a primary key, do duplicates/nulls will
+		// result in an error
+		&models.KeyExHistory{
+			Sha256: hex.EncodeToString(keyExSha256Hash[:]),
+		},
+	).Error
 }

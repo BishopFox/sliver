@@ -21,32 +21,32 @@ package armory
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
-	"github.com/desertbit/grumble"
 )
 
-var (
-	// ErrPackageNotFound - The package was not found
-	ErrPackageNotFound = errors.New("package not found")
-)
+// ErrPackageNotFound - The package was not found
+var ErrPackageNotFound = errors.New("package not found")
 
 // ArmoryInstallCmd - The armory install command
-func ArmoryInstallCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	name := ctx.Args.String("name")
+func ArmoryInstallCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	name := args[0]
+	// name := ctx.Args.String("name")
 	if name == "" {
 		con.PrintErrorf("A package or bundle name is required")
 		return
 	}
-	clientConfig := parseArmoryHTTPConfig(ctx)
+	clientConfig := parseArmoryHTTPConfig(cmd)
 	refresh(clientConfig)
 	if name == "all" {
 		aliases, extensions := packagesInCache()
@@ -159,7 +159,7 @@ func installAliasPackageByName(name string, clientConfig ArmoryHTTPConfig, con *
 		return errors.New("signature verification failed")
 	}
 
-	tmpFile, err := ioutil.TempFile("", "sliver-armory-")
+	tmpFile, err := os.CreateTemp("", "sliver-armory-")
 	if err != nil {
 		return err
 	}
@@ -176,7 +176,10 @@ func installAliasPackageByName(name string, clientConfig ArmoryHTTPConfig, con *
 	if installPath == nil {
 		return errors.New("failed to install alias")
 	}
-	_, err = alias.LoadAlias(filepath.Join(*installPath, alias.ManifestFileName), con)
+
+	menuCmd := con.App.Menu(constants.ImplantMenu).Root()
+
+	_, err = alias.LoadAlias(filepath.Join(*installPath, alias.ManifestFileName), menuCmd, con)
 	if err != nil {
 		return err
 	}
@@ -186,8 +189,9 @@ func installAliasPackageByName(name string, clientConfig ArmoryHTTPConfig, con *
 func installExtension(ext *extensions.ExtensionManifest, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) {
 	deps := make(map[string]struct{})
 	resolveExtensionPackageDependencies(ext.CommandName, deps, clientConfig, con)
+	sliverMenu := con.App.Menu(constants.ImplantMenu)
 	for dep := range deps {
-		if extensions.CmdExists(dep, con.App) {
+		if extensions.CmdExists(dep, sliverMenu.Command) {
 			continue // Dependency is already installed
 		}
 		err := installExtensionPackageByName(dep, clientConfig, con)
@@ -277,7 +281,7 @@ func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, c
 		return errors.New("signature verification failed")
 	}
 
-	tmpFile, err := ioutil.TempFile("", "sliver-armory-")
+	tmpFile, err := os.CreateTemp("", "sliver-armory-")
 	if err != nil {
 		return err
 	}
@@ -301,9 +305,12 @@ func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, c
 	if err != nil {
 		return err
 	}
-	if extensions.CmdExists(extCmd.Name, con.App) {
-		con.App.Commands().Remove(extCmd.Name)
-	}
-	extensions.ExtensionRegisterCommand(extCmd, con)
+
+	sliverMenu := con.App.Menu(constants.ImplantMenu)
+	//
+	// if extensions.CmdExists(extCmd.Name, sliverMenu.Command) {
+	// 	con.App.Commands().Remove(extCmd.Name)
+	// }
+	extensions.ExtensionRegisterCommand(extCmd, sliverMenu.Command, con)
 	return nil
 }

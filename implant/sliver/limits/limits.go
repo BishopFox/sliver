@@ -121,9 +121,11 @@ func ExecLimits() {
 		} else {
 			log.Printf("LimitLocale regexp %#v does not match %#v", `{{.Config.LimitLocale}}`, locale)
 		}
+		// {{else}}
+		_ = err
 		// {{end}}
 		os.Exit(1)
-	} 
+	}
 	// {{end}}
 
 	// {{if .Config.Debug}}

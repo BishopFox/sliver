@@ -14,10 +14,12 @@
 /sliver-server
 /sliver-server_arm64
 /sliver.exe
+/sliver-server_*
 
 /sliver-client
 /sliver-client_arm64
 /sliver-client.exe
+/sliver-client_*
 
 sliver-server-linux.zip
 sliver-server-macos.zip
@@ -32,6 +34,7 @@ sliver-server-windows.zip
 
 # Test binary, build with `go test -c`
 /*.test
+/test.py
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 /*.out

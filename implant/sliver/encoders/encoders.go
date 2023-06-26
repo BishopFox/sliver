@@ -2,7 +2,7 @@ package encoders
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2023  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -19,86 +19,208 @@ package encoders
 */
 
 import (
+	"crypto/rand"
+	"embed"
+	"encoding/binary"
 	"errors"
 	insecureRand "math/rand"
+	"strings"
+
+	// {{if .Config.Debug}}
+	"log"
+	// {{end}}
+
+	// {{if .Config.TrafficEncodersEnabled}}
+	"path"
+	// {{end}}
+
+	// {{if .Config.TrafficEncodersEnabled}}
+	"github.com/bishopfox/sliver/implant/sliver/encoders/traffic"
+	// {{end}}
 )
 
-const (
-	// EncoderModulus - Nonce % EncoderModulus = EncoderID, and needs to be equal
-	//                  to or greater than the largest EncoderID value.
-	EncoderModulus = 101
-	maxN           = 999999
+var (
+	EncoderModulus = uint64(65537)
+	MaxN           = uint64(9999999)
+
+	Base32EncoderID  = uint64(65)
+	Base58EncoderID  = uint64(43)
+	Base64EncoderID  = uint64(131)
+	EnglishEncoderID = uint64(31)
+	GzipEncoderID    = uint64(49)
+	HexEncoderID     = uint64(92)
+	PNGEncoderID     = uint64(22)
 )
 
-// Encoder - Can losslessly encode arbitrary binary data to ASCII
+func init() {
+	err := loadWasmEncodersFromAssets()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to load WASM encoders: %v", err)
+		// {{end}}
+		return
+	}
+	err = loadEnglishDictionaryFromAssets()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to load english dictionary: %v", err)
+		// {{end}}
+		return
+	}
+}
+
+var (
+	//go:embed assets/*
+	implantAssetsFS embed.FS // files will be gzip'd
+
+	Base64  = Base64Encoder{}
+	Base58  = Base58Encoder{}
+	Base32  = Base32Encoder{}
+	Hex     = HexEncoder{}
+	English = EnglishEncoder{}
+	Gzip    = GzipEncoder{}
+	PNG     = PNGEncoder{}
+
+	// {{if .Config.Debug}}
+	Nop = NoEncoder{}
+	// {{end}}
+)
+
+// EncoderMap - Maps EncoderIDs to Encoders
+var EncoderMap = map[uint64]Encoder{}
+
+// EncoderMap - Maps EncoderIDs to Encoders
+var NativeEncoderMap = map[uint64]Encoder{
+	Base64EncoderID:  Base64,
+	HexEncoderID:     Hex,
+	EnglishEncoderID: English,
+	GzipEncoderID:    Gzip,
+	PNGEncoderID:     PNG,
+
+	// {{if .Config.Debug}}
+	0: NoEncoder{},
+	// {{end}}
+}
+
+// Encoder - Can lossless-ly encode arbitrary binary data
 type Encoder interface {
-	Encode([]byte) []byte
+	Encode([]byte) ([]byte, error)
 	Decode([]byte) ([]byte, error)
 }
 
-// EncoderMap - Maps EncoderIDs to Encoders
-var EncoderMap = map[int]Encoder{
-	Base64EncoderID:      Base64{},
-	HexEncoderID:         Hex{},
-	EnglishEncoderID:     English{},
-	GzipEncoderID:        Gzip{},
-	GzipEnglishEncoderID: GzipEnglish{},
-	Base64GzipEncoderID:  Base64Gzip{},
-}
-
 // EncoderFromNonce - Convert a nonce into an encoder
-func EncoderFromNonce(nonce int) (int, Encoder, error) {
+func EncoderFromNonce(nonce uint64) (uint64, Encoder, error) {
 	encoderID := nonce % EncoderModulus
 	if encoderID == 0 {
-		return 0, NoEncoder{}, nil
+		return 0, new(NoEncoder), nil
 	}
 	if encoder, ok := EncoderMap[encoderID]; ok {
 		return encoderID, encoder, nil
 	}
-	return -1, nil, errors.New("{{if .Config.Debug}}Invalid encoder nonce{{end}}")
+	return 0, nil, errors.New("invalid encoder nonce")
+}
+
+func getMaxEncoderSize() int {
+	return 16 * 1024 * 1024 // 16MB
 }
 
 // RandomEncoder - Get a random nonce identifier and a matching encoder
-func RandomEncoder() (int, Encoder) {
-	keys := make([]int, 0, len(EncoderMap))
-	for k := range EncoderMap {
+func RandomEncoder(size int) (uint64, Encoder) {
+	if size < getMaxEncoderSize() && len(EncoderMap) > 0 {
+		return randomEncoderFromMap(EncoderMap) // Small message, use any encoder
+	} else {
+		return randomEncoderFromMap(NativeEncoderMap) // Large message, use native encoders
+	}
+}
+
+func randomEncoderFromMap(encoderMap map[uint64]Encoder) (uint64, Encoder) {
+	keys := make([]uint64, 0, len(encoderMap))
+	for k := range encoderMap {
 		keys = append(keys, k)
 	}
 	encoderID := keys[insecureRand.Intn(len(keys))]
-	nonce := (insecureRand.Intn(maxN) * EncoderModulus) + encoderID
-	return nonce, EncoderMap[encoderID]
+	nonce := (randomUint64(MaxN) * EncoderModulus) + encoderID
+	return nonce, encoderMap[encoderID]
 }
 
-// RandomTxtEncoder - Get a random nonce identifier and a matching encoder
-func RandomTxtEncoder() (int, Encoder) {
-	textEncoders := map[int]Encoder{
-		EnglishEncoderID: English{},
-		Base64EncoderID:  Base64{},
+func randomUint64(max uint64) uint64 {
+	buf := make([]byte, 8)
+	rand.Read(buf)
+	return binary.LittleEndian.Uint64(buf) % max
+}
+
+func loadWasmEncodersFromAssets() error {
+
+	// *** {{if .Config.TrafficEncodersEnabled}} ***
+
+	// {{if .Config.Debug}}}
+	log.Printf("initializing traffic encoder map...")
+	// {{end}}
+
+	assetFiles, err := implantAssetsFS.ReadDir("assets")
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Failed to read assets directory: %v", err)
+		// {{end}}
+		return err
 	}
-	keys := make([]int, 0, len(textEncoders))
-	for k := range textEncoders {
-		keys = append(keys, k)
+	for _, assetFile := range assetFiles {
+		// {{if .Config.Debug}}
+		log.Printf("Unpacking asset: %s", assetFile.Name())
+		// {{end}}
+		if assetFile.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(assetFile.Name(), ".wasm") {
+			continue
+		}
+		// WASM Module name should be equal to file name without the extension
+		wasmEncoderModuleName := strings.TrimSuffix(assetFile.Name(), ".wasm")
+		wasmEncoderData, err := implantAssetsFS.ReadFile(path.Join("assets", assetFile.Name()))
+		if err != nil {
+			return err
+		}
+		wasmEncoderData, err = Gzip.Decode(wasmEncoderData)
+		if err != nil {
+			return err
+		}
+		wasmEncoderID := traffic.CalculateWasmEncoderID(wasmEncoderData)
+		trafficEncoder, err := traffic.CreateTrafficEncoder(wasmEncoderModuleName, wasmEncoderData, func(msg string) {
+			// {{if .Config.Debug}}
+			log.Printf("[Traffic Encoder] %s", msg)
+			// {{end}}
+		})
+		if err != nil {
+			return err
+		}
+		EncoderMap[wasmEncoderID] = trafficEncoder
+		// {{if .Config.Debug}}
+		log.Printf("loading %s (id: %d, bytes: %d)", wasmEncoderModuleName, wasmEncoderID, len(wasmEncoderData))
+		// {{end}}
 	}
-	encoderID := keys[insecureRand.Intn(len(keys))]
-	nonce := (insecureRand.Intn(maxN) * EncoderModulus) + encoderID
-	return nonce, textEncoders[encoderID]
+	// {{if .Config.Debug}}
+	log.Printf("completed loading traffic encoders")
+	log.Printf("current encoder map:")
+	for encoderID, encoder := range EncoderMap {
+		log.Printf("encoder %d -> %#v", encoderID, encoder)
+	}
+	//	{{end}}
+
+	// *** {{end}} ***
+	return nil
 }
 
-// NopNonce - A NOP nonce identifies a request with no encoder/payload
-//            any value where mod = 0
-func NopNonce() int {
-	return insecureRand.Intn(maxN) * EncoderModulus
-}
-
-// NoEncoder - A NOP encoder
-type NoEncoder struct{}
-
-// Encode - Don't do anything
-func (n NoEncoder) Encode(data []byte) []byte {
-	return data
-}
-
-// Decode - Don't do anything
-func (n NoEncoder) Decode(data []byte) ([]byte, error) {
-	return data, nil
+func loadEnglishDictionaryFromAssets() error {
+	englishData, err := implantAssetsFS.ReadFile("assets/english.gz")
+	if err != nil {
+		return err
+	}
+	englishData, err = Gzip.Decode(englishData)
+	if err != nil {
+		return err
+	}
+	for _, word := range strings.Split(string(englishData), "\n") {
+		rawEnglishDictionary = append(rawEnglishDictionary, strings.TrimSpace(word))
+	}
+	return nil
 }

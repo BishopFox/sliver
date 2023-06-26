@@ -25,6 +25,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -33,18 +35,20 @@ import (
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
+	"github.com/bishopfox/sliver/util/encoders/traffic"
 	"github.com/gofrs/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
-	rcpLog = log.NamedLogger("rpc", "generate")
+	rcpGenLog = log.NamedLogger("rpc", "generate")
 )
 
 // Generate - Generate a new implant
@@ -62,7 +66,6 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		config.TemplateName = generate.SliverTemplateName
 	}
 
-	otpSecret, _ := cryptography.TOTPServerSecret()
 	err = generate.GenerateConfig(name, config, true)
 	if err != nil {
 		return nil, err
@@ -74,11 +77,11 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
-		fPath, err = generate.SliverExecutable(name, otpSecret, config, true)
+		fPath, err = generate.SliverExecutable(name, config, true)
 	case clientpb.OutputFormat_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(name, otpSecret, config, true)
+		fPath, err = generate.SliverSharedLibrary(name, config, true)
 	case clientpb.OutputFormat_SHELLCODE:
-		fPath, err = generate.SliverShellcode(name, otpSecret, config, true)
+		fPath, err = generate.SliverShellcode(name, config, true)
 	default:
 		return nil, fmt.Errorf("invalid output format: %s", req.Config.Format)
 	}
@@ -263,7 +266,7 @@ func (rpc *Server) GetCompiler(ctx context.Context, _ *commonpb.Empty) (*clientp
 		UnsupportedTargets: generate.GetUnsupportedTargets(),
 		CrossCompilers:     generate.GetCrossCompilers(),
 	}
-	rcpLog.Debugf("GetCompiler = %v", compiler)
+	rcpGenLog.Debugf("GetCompiler = %v", compiler)
 	return compiler, nil
 }
 
@@ -295,6 +298,7 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalG
 	return externalConfig, err
 }
 
+// GenerateExternalSaveBuild - Allows an external builder to save the build to the server
 func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.ExternalImplantBinary) (*commonpb.Empty, error) {
 	implantConfig, err := db.ImplantConfigWithC2sByID(req.ImplantConfigID)
 	if err != nil {
@@ -322,7 +326,7 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 	defer os.Remove(tmpFile.Name())
 	_, err = tmpFile.Write(req.File.Data)
 	if err != nil {
-		rcpLog.Errorf("Failed to write implant binary to temp file: %s", err)
+		rcpGenLog.Errorf("Failed to write implant binary to temp file: %s", err)
 		return nil, status.Error(codes.Internal, "Failed to write implant binary to temp file")
 	}
 	rpcLog.Infof("Saving external build '%s' from %s", req.Name, tmpFile.Name())
@@ -343,6 +347,7 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 	return &commonpb.Empty{}, nil
 }
 
+// GenerateExternalGetImplantConfig - Get an implant config for external builder
 func (rpc *Server) GenerateExternalGetImplantConfig(ctx context.Context, req *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
 	implantConfig, err := db.ImplantConfigWithC2sByID(req.ID)
 	if err != nil {
@@ -352,27 +357,21 @@ func (rpc *Server) GenerateExternalGetImplantConfig(ctx context.Context, req *cl
 		return nil, status.Error(codes.InvalidArgument, "implant config already has a build")
 	}
 
-	otpSecret, err := cryptography.TOTPServerSecret()
-	if err != nil {
-		return nil, err
-	}
-
 	return &clientpb.ExternalImplantConfig{
-		Config:    implantConfig.ToProtobuf(),
-		OTPSecret: otpSecret,
+		Config: implantConfig.ToProtobuf(),
 	}, nil
 }
 
-// BuilderRegister
+// BuilderRegister - Register a new builder with the server
 func (rpc *Server) BuilderRegister(req *clientpb.Builder, stream rpcpb.SliverRPC_BuilderRegisterServer) error {
 	req.OperatorName = rpc.getClientCommonName(stream.Context())
 	if req.Name == "" {
-		rcpLog.Warnf("Failed to register builder, missing builder name")
+		rcpGenLog.Warnf("Failed to register builder, missing builder name")
 		return status.Error(codes.InvalidArgument, "missing builder name")
 	}
 	err := core.AddBuilder(req)
 	if err != nil {
-		rcpLog.Warnf("Failed to register builder: %s", err)
+		rcpGenLog.Warnf("Failed to register builder: %s", err)
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
 
@@ -424,10 +423,12 @@ func (rpc *Server) BuilderRegister(req *clientpb.Builder, stream rpcpb.SliverRPC
 	}
 }
 
+// Builders - Get a list of all builders
 func (rpc *Server) Builders(ctx context.Context, _ *commonpb.Empty) (*clientpb.Builders, error) {
 	return &clientpb.Builders{Builders: core.AllBuilders()}, nil
 }
 
+// BuilderTrigger - Trigger a builder event
 func (rpc *Server) BuilderTrigger(ctx context.Context, req *clientpb.Event) (*commonpb.Empty, error) {
 
 	switch req.EventType {
@@ -445,5 +446,153 @@ func (rpc *Server) BuilderTrigger(ctx context.Context, req *clientpb.Event) (*co
 
 	}
 
+	return &commonpb.Empty{}, nil
+}
+
+// TrafficEncoderMap - Get a map of the server's traffic encoders
+func (rpc *Server) TrafficEncoderMap(ctx context.Context, _ *commonpb.Empty) (*clientpb.TrafficEncoderMap, error) {
+	trafficEncoderMap := make(map[string]*clientpb.TrafficEncoder)
+	for id, encoder := range encoders.TrafficEncoderMap {
+		trafficEncoderMap[encoder.FileName] = &clientpb.TrafficEncoder{
+			ID: id,
+			Wasm: &commonpb.File{
+				Name: encoder.FileName,
+				Data: encoder.Data,
+			},
+		}
+	}
+	return &clientpb.TrafficEncoderMap{Encoders: trafficEncoderMap}, nil
+}
+
+// TrafficEncoderAdd - Add a new traffic encoder, and test for correctness
+func (rpc *Server) TrafficEncoderAdd(ctx context.Context, req *clientpb.TrafficEncoder) (*clientpb.TrafficEncoderTests, error) {
+	req.ID = traffic.CalculateWasmEncoderID(req.Wasm.Data)
+	req.Wasm.Name = filepath.Base(req.Wasm.Name)
+	rpcLog.Infof("Adding new traffic encoder: %s (%d)", req.Wasm.Name, req.ID)
+	progress := make(chan []byte, 1)
+	go testProgress(progress)
+	tests, err := testTrafficEncoder(ctx, req, progress)
+	close(progress)
+	if err != nil {
+		return nil, err
+	}
+	return tests, nil
+}
+
+func testProgress(progress chan []byte) {
+	for data := range progress {
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.TrafficEncoderTestProgressEvent,
+			Data:      data,
+		})
+	}
+}
+
+// testTrafficEncoder - Test a traffic encoder for correctness by encoding/decoding random samples
+func testTrafficEncoder(ctx context.Context, req *clientpb.TrafficEncoder, progress chan []byte) (*clientpb.TrafficEncoderTests, error) {
+	if req.Wasm == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing wasm file")
+	}
+	if req.Wasm.Name == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing wasm name")
+	}
+	if !strings.HasSuffix(req.Wasm.Name, ".wasm") {
+		return nil, status.Error(codes.InvalidArgument, "invalid wasm file name, must have a .wasm extension")
+	}
+	if req.Wasm.Data == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing wasm data")
+	}
+	rpcLog.Infof("Testing traffic encoder %s (%d) - %d bytes", req.Wasm.Name, req.ID, len(req.Wasm.Data))
+	encoder, err := traffic.CreateTrafficEncoder(strings.TrimSuffix(req.Wasm.Name, ".wasm"), req.Wasm.Data, func(s string) {
+		rpcLog.Infof("[traffic encoder test] %s", s)
+	})
+	if err != nil {
+		rpcLog.Errorf("Failed to create traffic encoder: %s", err.Error())
+		return nil, err
+	}
+
+	// Test Suite for Traffic Encoders
+	testSuite := []string{
+		traffic.SmallRandom,
+		traffic.SmallRandom,
+		traffic.SmallRandom,
+		traffic.MediumRandom,
+		traffic.MediumRandom,
+		traffic.MediumRandom,
+		traffic.LargeRandom,
+		traffic.LargeRandom,
+		traffic.LargeRandom,
+		traffic.VeryLargeRandom,
+	}
+
+	tests := []*clientpb.TrafficEncoderTest{}
+	if !req.SkipTests {
+		for index, testName := range testSuite {
+			rpcLog.Infof("Running test '%s' ...", testName)
+			tester := traffic.TrafficEncoderTesters[testName]
+			if tester == nil {
+				panic("invalid traffic encoder test")
+			}
+			test := tester(encoder)
+			tests = append(tests, test)
+			testData, _ := proto.Marshal(&clientpb.TrafficEncoderTests{
+				Encoder:    req,
+				TotalTests: int32(len(testSuite)),
+				Tests:      tests,
+			})
+			progress <- testData
+			if int64(time.Duration(30*time.Second)) < test.Duration {
+				rpcLog.Warnf("Test '%s' took longer than 30 seconds to complete, skip remaining tests", testName)
+				remainingTests := testSuite[index:]
+				for _, skipTest := range remainingTests {
+					tests = append(tests, &clientpb.TrafficEncoderTest{
+						Name:    skipTest,
+						Success: false,
+						Err:     "test skipped, encoder too slow",
+					})
+				}
+				break
+			}
+		}
+	}
+
+	if allTestsPassed(tests) || req.SkipTests {
+		err = encoders.SaveTrafficEncoder(req.Wasm.Name, req.Wasm.Data)
+		if err != nil {
+			return nil, status.Error(codes.FailedPrecondition, err.Error())
+		}
+	}
+
+	return &clientpb.TrafficEncoderTests{
+		Encoder:    req,
+		TotalTests: int32(len(testSuite)),
+		Tests:      tests,
+	}, nil
+}
+
+func allTestsPassed(tests []*clientpb.TrafficEncoderTest) bool {
+	for _, test := range tests {
+		if !test.Success {
+			return false
+		}
+	}
+	return true
+}
+
+// TrafficEncoderRm - Remove a traffic encoder
+func (rpc *Server) TrafficEncoderRm(ctx context.Context, req *clientpb.TrafficEncoder) (*commonpb.Empty, error) {
+	if req.Wasm == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing wasm file")
+	}
+	if req.Wasm.Name == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing wasm file name")
+	}
+	if !strings.HasSuffix(req.Wasm.Name, ".wasm") {
+		return nil, status.Error(codes.InvalidArgument, "invalid wasm file name, must have a .wasm extension")
+	}
+	err := encoders.RemoveTrafficEncoder(req.Wasm.Name)
+	if err != nil {
+		return nil, status.Error(codes.Aborted, err.Error())
+	}
 	return &commonpb.Empty{}, nil
 }

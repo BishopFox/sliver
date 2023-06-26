@@ -21,22 +21,24 @@ package filesystem
 import (
 	"context"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/desertbit/grumble"
 )
 
 // MkdirCmd - Make a remote directory
-func MkdirCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func MkdirCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
-	filePath := ctx.Args.String("path")
+	filePath := args[0]
+	// filePath := ctx.Args.String("path")
 
 	if filePath == "" {
 		con.PrintErrorf("Missing parameter: directory name\n")
@@ -44,7 +46,7 @@ func MkdirCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	mkdir, err := con.Rpc.Mkdir(context.Background(), &sliverpb.MkdirReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 		Path:    filePath,
 	})
 	if err != nil {

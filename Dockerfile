@@ -1,4 +1,4 @@
-FROM golang:1.20.2
+FROM golang:1.20.4
 
 #
 # IMPORTANT: This Dockerfile is used for testing, I do not recommend deploying
@@ -43,20 +43,18 @@ RUN mkdir -p ~/.msf4/ && touch ~/.msf4/initial_setup_complete \
 #
 
 # Protoc
-WORKDIR /tmp
-RUN wget -O protoc-${PROTOC_VER}-linux-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-linux-x86_64.zip \
-    && unzip protoc-${PROTOC_VER}-linux-x86_64.zip \
-    && cp -vv ./bin/protoc /usr/local/bin
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VER} \
-    && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@${GRPC_GO}
+# WORKDIR /tmp
+# RUN wget -O protoc-${PROTOC_VER}-linux-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-linux-x86_64.zip \
+#     && unzip protoc-${PROTOC_VER}-linux-x86_64.zip \
+#     && cp -vv ./bin/protoc /usr/local/bin
+# RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VER} \
+#     && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@${GRPC_GO}
 
 # Go assets
 WORKDIR /go/src/github.com/bishopfox/sliver
 ADD . /go/src/github.com/bishopfox/sliver/
 RUN make clean-all \
-    && ./go-assets.sh
-
-RUN make \
+    && make \
     && cp -vv sliver-server /opt/sliver-server \
     && /opt/sliver-server unpack --force 
 

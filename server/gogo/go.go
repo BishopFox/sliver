@@ -177,16 +177,15 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 }
 
 // GoBuild - Execute a go build command, returns stdout/error
-func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []string, ldflags []string, gcflags, asmflags string, trimpath string) ([]byte, error) {
+func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []string, ldflags []string, gcflags, asmflags string) ([]byte, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := ValidCompilerTargets(config)[target]; !ok {
 		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
 	}
 	var goCommand = []string{"build"}
 
-	if 0 < len(trimpath) {
-		goCommand = append(goCommand, trimpath)
-	}
+	goCommand = append(goCommand, "-trimpath") // remove absolute paths from any compiled binary
+
 	if 0 < len(tags) {
 		goCommand = append(goCommand, "-tags")
 		goCommand = append(goCommand, tags...)

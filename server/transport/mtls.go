@@ -109,17 +109,12 @@ func getOperatorServerTLSConfig(host string) *tls.Config {
 	}
 
 	tlsConfig := &tls.Config{
-		RootCAs:                  caCertPool,
-		ClientAuth:               tls.RequireAndVerifyClientCert,
-		ClientCAs:                caCertPool,
-		Certificates:             []tls.Certificate{cert},
-		PreferServerCipherSuites: true,
-		MinVersion:               tls.VersionTLS13,
-	}
-	if certs.TLSKeyLogger != nil {
-		tlsConfig.KeyLogWriter = certs.TLSKeyLogger
+		RootCAs:      caCertPool,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    caCertPool,
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS13,
 	}
 
-	tlsConfig.BuildNameToCertificate()
 	return tlsConfig
 }

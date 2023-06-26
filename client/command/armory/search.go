@@ -21,19 +21,22 @@ package armory
 import (
 	"regexp"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/desertbit/grumble"
 )
 
 // ArmorySearchCmd - Search for packages by name
-func ArmorySearchCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func ArmorySearchCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	con.PrintInfof("Refreshing package cache ... ")
-	clientConfig := parseArmoryHTTPConfig(ctx)
+	clientConfig := parseArmoryHTTPConfig(cmd)
 	refresh(clientConfig)
 	con.Printf(console.Clearln + "\r")
-	rawNameExpr := ctx.Args.String("name")
+
+	rawNameExpr := args[0]
+	// rawNameExpr := ctx.Args.String("name")
 	if rawNameExpr == "" {
 		con.PrintErrorf("Please specify a search term!\n")
 		return

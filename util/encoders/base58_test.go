@@ -21,15 +21,13 @@ package encoders
 import (
 	"bytes"
 	"testing"
-
-	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 )
 
 func TestBase58(t *testing.T) {
 	sample := randomData()
 
 	b58 := new(Base58)
-	output := b58.Encode(sample)
+	output, _ := b58.Encode(sample)
 	data, err := b58.Decode(output)
 	if err != nil {
 		t.Errorf("b58 decode returned an error %v", err)
@@ -41,40 +39,4 @@ func TestBase58(t *testing.T) {
 		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
 	}
 
-	implantBase58 := new(implantEncoders.Base58)
-	output2 := implantBase58.Encode(sample)
-	data2, err := implantBase58.Decode(output2)
-	if err != nil {
-		t.Errorf("implant b58 decode returned an error %v", err)
-	}
-	if !bytes.Equal(sample, data2) {
-		t.Logf("sample  = %#v", sample)
-		t.Logf("output2 = %#v", output2)
-		t.Logf("  data2 = %#v", data2)
-		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-	}
-
-	output = b58.Encode(sample)
-	data, err = implantBase58.Decode(output)
-	if err != nil {
-		t.Errorf("b58 decode returned an error %v", err)
-	}
-	if !bytes.Equal(sample, data) {
-		t.Logf("sample = %#v", sample)
-		t.Logf("output = %#v", output)
-		t.Logf("  data = %#v", data)
-		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-	}
-
-	output = implantBase58.Encode(sample)
-	data, err = b58.Decode(output)
-	if err != nil {
-		t.Errorf("b58 decode returned an error %v", err)
-	}
-	if !bytes.Equal(sample, data) {
-		t.Logf("sample = %#v", sample)
-		t.Logf("output = %#v", output)
-		t.Logf("  data = %#v", data)
-		t.Errorf("sample does not match returned\n%#v != %#v", sample, data)
-	}
 }

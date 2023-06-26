@@ -21,23 +21,55 @@ package exec
 import (
 	"context"
 	"fmt"
+	"strings"
+
+	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/desertbit/grumble"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 // MigrateCmd - Windows only, inject an implant into another process
-func MigrateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func MigrateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSession()
 	if session == nil {
 		return
 	}
 
-	pid := ctx.Args.Uint("pid")
+	pid, _ := cmd.Flags().GetUint32("pid")
+	procName, _ := cmd.Flags().GetString("process-name")
+	if pid == 0 && procName == "" {
+		con.PrintErrorf("Error: Must specify either a PID or process name\n")
+		return
+	}
+	if procName != "" {
+		procCtrl := make(chan bool)
+		con.SpinUntil(fmt.Sprintf("Searching for %s ...", procName), procCtrl)
+		proc, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
+			Request: con.ActiveTarget.Request(cmd),
+		})
+		if err != nil {
+			con.PrintErrorf("Error: %v\n", err)
+			return
+		}
+		procCtrl <- true
+		<-procCtrl
+		for _, p := range proc.GetProcesses() {
+			if strings.EqualFold(p.Executable, procName) {
+				pid = uint32(p.Pid)
+				break
+			}
+		}
+		if pid == 0 {
+			con.PrintErrorf("Error: Could not find process %s\n", procName)
+			return
+		}
+		con.PrintInfof("Process name specified, overriding PID with %d\n", pid)
+	}
 	config := con.GetActiveSessionConfig()
 	encoder := clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
-	if ctx.Flags.Bool("disable-sgn") {
+	if disableSgn, _ := cmd.Flags().GetBool("disable-sgn"); disableSgn {
 		encoder = clientpb.ShellcodeEncoder_NONE
 	}
 
@@ -45,9 +77,9 @@ func MigrateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.SpinUntil(fmt.Sprintf("Migrating into %d ...", pid), ctrl)
 
 	migrate, err := con.Rpc.Migrate(context.Background(), &clientpb.MigrateReq{
-		Pid:     uint32(pid),
+		Pid:     pid,
 		Config:  config,
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 		Encoder: encoder,
 	})
 	ctrl <- true

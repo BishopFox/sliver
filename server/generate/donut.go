@@ -16,11 +16,11 @@ func DonutShellcodeFromFile(filePath string, arch string, dotnet bool, params st
 		return
 	}
 	isDLL := (filepath.Ext(filePath) == ".dll")
-	return DonutShellcodeFromPE(pe, arch, dotnet, params, className, method, isDLL, false)
+	return DonutShellcodeFromPE(pe, arch, dotnet, params, className, method, isDLL, false, true)
 }
 
 // DonutShellcodeFromPE returns a Donut shellcode for the given PE file
-func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, className string, method string, isDLL bool, isUnicode bool) (data []byte, err error) {
+func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, className string, method string, isDLL bool, isUnicode bool, createNewThread bool) (data []byte, err error) {
 	ext := ".exe"
 	if isDLL {
 		ext = ".dll"
@@ -28,6 +28,11 @@ func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, cl
 	var isUnicodeVar uint32
 	if isUnicode {
 		isUnicodeVar = 1
+	}
+
+	thread := uint32(0)
+	if createNewThread {
+		thread = 1
 	}
 	donutArch := getDonutArch(arch)
 	// We don't use DonutConfig.Thread = 1 because we create our own remote thread
@@ -49,6 +54,7 @@ func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, cl
 		Compress:   uint32(1), // 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman
 		ExitOpt:    1,         // exit thread
 		Unicode:    isUnicodeVar,
+		Thread:     thread,
 	}
 	return getDonut(pe, &config)
 }

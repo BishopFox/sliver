@@ -33,7 +33,7 @@ type Host struct {
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	Hostname  string
-	OSVersion string // Verbore OS version
+	OSVersion string // Verbose OS version
 	Locale    string // Detected language code
 
 	IOCs          []IOC
