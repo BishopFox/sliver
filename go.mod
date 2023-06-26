@@ -6,7 +6,7 @@ replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v
 
 require (
 	filippo.io/age v1.1.1
-	github.com/AlecAivazis/survey/v2 v2.3.6
+	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
 	github.com/Binject/debug v0.0.0-20210312092933-6277045c2fdf
 	github.com/Binject/go-donut v0.0.0-20210701074227-67a31e2d883e
