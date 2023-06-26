@@ -47,6 +47,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	sgn "github.com/bishopfox/sliver/client/command/shikata-ga-nai"
+	"github.com/bishopfox/sliver/client/command/taskmany"
 	"github.com/bishopfox/sliver/client/command/update"
 	"github.com/bishopfox/sliver/client/command/use"
 	"github.com/bishopfox/sliver/client/command/websites"
@@ -1746,6 +1747,47 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 		carapace.Gen(hcstat2RmCmd).PositionalCompletion(crack.CrackHcstat2Completer(con).Usage("hcstat2 to remove"))
 		hcstat2Cmd.AddCommand(hcstat2RmCmd)
 
+		// [ Task many ]-----------------------------------------
+
+		taskmanyCmd := &cobra.Command{
+			Use:     consts.TaskmanyStr,
+			Short:   "Task many beacons or sessions",
+			Long:    help.GetHelpFor([]string{consts.TaskmanyStr}),
+			GroupID: consts.GenericHelpGroup,
+			Run: func(cmd *cobra.Command, args []string) {
+				taskmany.TaskmanyCmd(cmd, con, args)
+			},
+		}
+		server.AddCommand(taskmanyCmd)
+
+		// Add the relevant beacon commands as a subcommand to taskmany
+		taskmanyCmds := map[string]bool{
+			consts.ExecuteStr:     true,
+			consts.LsStr:          true,
+			consts.CdStr:          true,
+			consts.MkdirStr:       true,
+			consts.RmStr:          true,
+			consts.UploadStr:      true,
+			consts.DownloadStr:    true,
+			consts.InteractiveStr: true,
+			consts.ChmodStr:       true,
+			consts.ChownStr:       true,
+			consts.ChtimesStr:     true,
+			consts.PwdStr:         true,
+			consts.CatStr:         true,
+			consts.MvStr:          true,
+			consts.PingStr:        true,
+			consts.NetstatStr:     true,
+			consts.PsStr:          true,
+			consts.IfconfigStr:    true,
+		}
+
+		for _, c := range SliverCommands(con)().Commands() {
+			_, ok := taskmanyCmds[c.Use]
+			if ok {
+				taskmanyCmd.AddCommand(taskmany.WrapCommand(c, con))
+			}
+		}
 		// [ Post-command declaration setup]-----------------------------------------
 
 		// Everything below this line should preferably not be any command binding
