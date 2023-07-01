@@ -1398,7 +1398,7 @@ func (s *StatCounter) Decrement() {
 }
 
 // Value returns the current value of the counter.
-func (s *StatCounter) Value(...string) uint64 {
+func (s *StatCounter) Value() uint64 {
 	return s.count.Load()
 }
 
@@ -1563,6 +1563,10 @@ type ICMPv6PacketStats struct {
 	// counted.
 	MulticastListenerReport *StatCounter
 
+	// MulticastListenerReportV2 is the number of Multicast Listener Report
+	// messages counted.
+	MulticastListenerReportV2 *StatCounter
+
 	// MulticastListenerDone is the number of Multicast Listener Done messages
 	// counted.
 	MulticastListenerDone *StatCounter
@@ -1643,6 +1647,10 @@ type IGMPPacketStats struct {
 	// counted.
 	V2MembershipReport *StatCounter
 
+	// V3MembershipReport is the number of Version 3 Membership Report messages
+	// counted.
+	V3MembershipReport *StatCounter
+
 	// LeaveGroup is the number of Leave Group messages counted.
 	LeaveGroup *StatCounter
 
@@ -1705,6 +1713,11 @@ type IPForwardingStats struct {
 	// because their TTL was exhausted.
 	ExhaustedTTL *StatCounter
 
+	// InitializingSource is the number of IP packets which were dropped
+	// because they contained a source address that may only be used on the local
+	// network as part of initialization work.
+	InitializingSource *StatCounter
+
 	// LinkLocalSource is the number of IP packets which were dropped
 	// because they contained a link-local source address.
 	LinkLocalSource *StatCounter
@@ -1738,6 +1751,10 @@ type IPForwardingStats struct {
 	// NoMulticastPendingQueueBufferSpace is the number of multicast packets that
 	// were dropped due to insufficent buffer space in the pending packet queue.
 	NoMulticastPendingQueueBufferSpace *StatCounter
+
+	// OutgoingDeviceNoBufferSpace is the number of packets that were dropped due
+	// to insufficient space in the outgoing device.
+	OutgoingDeviceNoBufferSpace *StatCounter
 
 	// Errors is the number of IP packets received which could not be
 	// successfully forwarded.
@@ -2035,6 +2052,16 @@ type NICNeighborStats struct {
 	// UnreachableEntryLookups counts the number of lookups performed on an
 	// entry in Unreachable state.
 	UnreachableEntryLookups *StatCounter
+
+	// DroppedConfirmationForNoninitiatedNeighbor counts the number of neighbor
+	// responses that were dropped because they didn't match an entry in the
+	// cache.
+	DroppedConfirmationForNoninitiatedNeighbor *StatCounter
+
+	// DroppedInvalidLinkAddressConfirmations counts the number of neighbor
+	// responses that were ignored because they had an invalid source link-layer
+	// address.
+	DroppedInvalidLinkAddressConfirmations *StatCounter
 
 	// LINT.ThenChange(stack/nic_stats.go:multiCounterNICNeighborStats)
 }
