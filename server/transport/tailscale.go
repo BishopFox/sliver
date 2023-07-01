@@ -40,6 +40,14 @@ var (
 
 // StartTsNetClientListener - Start a TSNet gRPC listener
 func StartTsNetClientListener(hostname string, port uint16) (*grpc.Server, net.Listener, error) {
+	if hostname == "" {
+		hostname = "sliver-server"
+		machineName, _ := os.Hostname()
+		if machineName != "" {
+			hostname = fmt.Sprintf("%s-%s", hostname, machineName)
+		}
+	}
+
 	tsNetLog.Infof("Starting gRPC/tsnet  listener on %s:%d", hostname, port)
 
 	authKey := os.Getenv("TS_AUTHKEY")
@@ -48,8 +56,7 @@ func StartTsNetClientListener(hostname string, port uint16) (*grpc.Server, net.L
 		return nil, nil, fmt.Errorf("TS_AUTHKEY not set")
 	}
 
-	appDir := assets.GetRootAppDir()
-	tsnetDir := filepath.Join(appDir, "tsnet")
+	tsnetDir := filepath.Join(assets.GetRootAppDir(), "tsnet")
 	if err := os.MkdirAll(tsnetDir, 0700); err != nil {
 		return nil, nil, err
 	}
@@ -60,9 +67,7 @@ func StartTsNetClientListener(hostname string, port uint16) (*grpc.Server, net.L
 		Logf:     tsNetLog.Debugf,
 		AuthKey:  authKey,
 	}
-	defer tsNetServer.Close()
-	listenInterface := fmt.Sprintf(":%d", port)
-	ln, err := tsNetServer.Listen("tcp", listenInterface)
+	ln, err := tsNetServer.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, nil, err
 	}

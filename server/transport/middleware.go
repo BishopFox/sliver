@@ -42,9 +42,15 @@ import (
 )
 
 var (
-	serverConfig = configs.GetServerConfig()
-
+	serverConfig  = configs.GetServerConfig()
 	middlewareLog = log.NamedLogger("transport", "middleware")
+)
+
+type contextKey int
+
+const (
+	Transport contextKey = iota
+	Operator
 )
 
 // initMiddleware - Initialize middleware logger
@@ -100,8 +106,8 @@ func ClearTokenCache() {
 }
 
 func serverAuthFunc(ctx context.Context) (context.Context, error) {
-	newCtx := context.WithValue(ctx, "transport", "local")
-	newCtx = context.WithValue(newCtx, "operator", "server")
+	newCtx := context.WithValue(ctx, Transport, "local")
+	newCtx = context.WithValue(newCtx, Operator, "server")
 	return newCtx, nil
 }
 
@@ -116,10 +122,10 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	// Check auth cache
 	digest := sha256.Sum256([]byte(rawToken))
 	token := hex.EncodeToString(digest[:])
-	newCtx := context.WithValue(ctx, "transport", "mtls")
+	newCtx := context.WithValue(ctx, Transport, "mtls")
 	if name, ok := tokenCache.Load(token); ok {
 		mtlsLog.Debugf("Token in cache!")
-		newCtx = context.WithValue(newCtx, "operator", name.(string))
+		newCtx = context.WithValue(newCtx, Operator, name.(string))
 		return newCtx, nil
 	}
 	operator, err := db.OperatorByToken(token)
@@ -130,7 +136,7 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	mtlsLog.Debugf("Valid user token for %s", operator.Name)
 	tokenCache.Store(token, operator.Name)
 
-	newCtx = context.WithValue(newCtx, "operator", operator.Name)
+	newCtx = context.WithValue(newCtx, Operator, operator.Name)
 	return newCtx, nil
 }
 
