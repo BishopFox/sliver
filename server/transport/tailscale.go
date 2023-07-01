@@ -30,20 +30,21 @@ import (
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/rpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"tailscale.com/tsnet"
 )
 
 var (
-	tsLog = log.NamedLogger("transport", "ts")
+	tsNetLog = log.NamedLogger("transport", "tsnet")
 )
 
-// StartTsClientListener - Start a TSNet gRPC listener
-func StartTsClientListener(hostname string, port uint16) (*grpc.Server, net.Listener, error) {
-	tsLog.Infof("Starting gRPC/tsnet  listener on %s:%d", hostname, port)
+// StartTsNetClientListener - Start a TSNet gRPC listener
+func StartTsNetClientListener(hostname string, port uint16) (*grpc.Server, net.Listener, error) {
+	tsNetLog.Infof("Starting gRPC/tsnet  listener on %s:%d", hostname, port)
 
 	authKey := os.Getenv("TS_AUTHKEY")
 	if authKey == "" {
-		tsLog.Errorf("TS_AUTHKEY not set")
+		tsNetLog.Errorf("TS_AUTHKEY not set")
 		return nil, nil, fmt.Errorf("TS_AUTHKEY not set")
 	}
 
@@ -56,7 +57,7 @@ func StartTsClientListener(hostname string, port uint16) (*grpc.Server, net.List
 	tsNetServer := &tsnet.Server{
 		Hostname: hostname,
 		Dir:      tsnetDir,
-		Logf:     tsLog.Debugf,
+		Logf:     tsNetLog.Debugf,
 		AuthKey:  authKey,
 	}
 	defer tsNetServer.Close()
@@ -66,7 +67,12 @@ func StartTsClientListener(hostname string, port uint16) (*grpc.Server, net.List
 		return nil, nil, err
 	}
 
+	// We don't really need the mutual TLS here, but it's easier
+	// maintain compatibility with existing config files
+	tlsConfig := getOperatorServerTLSConfig("multiplayer")
+	creds := credentials.NewTLS(tlsConfig)
 	options := []grpc.ServerOption{
+		grpc.Creds(creds),
 		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
 		grpc.MaxSendMsgSize(ServerMaxMessageSize),
 	}
@@ -77,11 +83,11 @@ func StartTsClientListener(hostname string, port uint16) (*grpc.Server, net.List
 		panicked := true
 		defer func() {
 			if panicked {
-				tsLog.Errorf("stacktrace from panic: %s", string(debug.Stack()))
+				tsNetLog.Errorf("stacktrace from panic: %s", string(debug.Stack()))
 			}
 		}()
 		if err := grpcServer.Serve(ln); err != nil {
-			tsLog.Warnf("gRPC/tsnet server exited with error: %v", err)
+			tsNetLog.Warnf("gRPC/tsnet server exited with error: %v", err)
 		} else {
 			panicked = false
 		}

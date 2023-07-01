@@ -71,9 +71,10 @@ type JobConfig struct {
 }
 
 type MultiplayerJobConfig struct {
-	Host  string `json:"host"`
-	Port  uint16 `json:"port"`
-	JobID string `json:"job_id"`
+	Host      string `json:"host"`
+	Port      uint16 `json:"port"`
+	JobID     string `json:"job_id"`
+	Tailscale bool   `json:"tailscale"`
 }
 
 // MTLSJobConfig - Per-type job configs
