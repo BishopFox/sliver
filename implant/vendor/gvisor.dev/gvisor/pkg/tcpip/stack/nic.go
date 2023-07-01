@@ -19,7 +19,6 @@ import (
 	"reflect"
 
 	"gvisor.dev/gvisor/pkg/atomicbitops"
-	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 )
@@ -28,15 +27,6 @@ type linkResolver struct {
 	resolver LinkAddressResolver
 
 	neigh neighborCache
-}
-
-func (l *linkResolver) getNeighborLinkAddress(addr, localAddr tcpip.Address, onResolve func(LinkResolutionResult)) (tcpip.LinkAddress, <-chan struct{}, tcpip.Error) {
-	entry, ch, err := l.neigh.entry(addr, localAddr, onResolve)
-	return entry.LinkAddr, ch, err
-}
-
-func (l *linkResolver) confirmReachable(addr tcpip.Address) {
-	l.neigh.handleUpperLevelConfirmation(addr)
 }
 
 var _ NetworkInterface = (*nic)(nil)
@@ -54,30 +44,32 @@ type nic struct {
 
 	stats sharedStats
 
+	// enableDisableMu is used to synchronize attempts to enable/disable the NIC.
+	// Without this mutex, calls to enable/disable the NIC may interleave and
+	// leave the NIC in an inconsistent state.
+	enableDisableMu nicRWMutex
+
 	// The network endpoints themselves may be modified by calling the interface's
 	// methods, but the map reference and entries must be constant.
 	networkEndpoints          map[tcpip.NetworkProtocolNumber]NetworkEndpoint
 	linkAddrResolvers         map[tcpip.NetworkProtocolNumber]*linkResolver
 	duplicateAddressDetectors map[tcpip.NetworkProtocolNumber]DuplicateAddressDetector
 
-	// enabled is set to 1 when the NIC is enabled and 0 when it is disabled.
-	enabled atomicbitops.Uint32
+	// enabled indicates whether the NIC is enabled.
+	enabled atomicbitops.Bool
+
+	// spoofing indicates whether the NIC is spoofing.
+	spoofing atomicbitops.Bool
+
+	// promiscuous indicates whether the NIC is promiscuous.
+	promiscuous atomicbitops.Bool
 
 	// linkResQueue holds packets that are waiting for link resolution to
 	// complete.
 	linkResQueue packetsPendingLinkResolution
 
-	// mu protects annotated fields below.
-	mu sync.RWMutex
-
-	// +checklocks:mu
-	spoofing bool
-
-	// +checklocks:mu
-	promiscuous bool
-
 	// packetEPsMu protects annotated fields below.
-	packetEPsMu sync.RWMutex
+	packetEPsMu packetEPsRWMutex
 
 	// eps is protected by the mutex, but the values contained in it are not.
 	//
@@ -85,6 +77,8 @@ type nic struct {
 	packetEPs map[tcpip.NetworkProtocolNumber]*packetEndpointList
 
 	qDisc QueueingDiscipline
+
+	gro groDispatcher
 }
 
 // makeNICStats initializes the NIC statistics and associates them to the global
@@ -97,7 +91,7 @@ func makeNICStats(global tcpip.NICStats) sharedStats {
 }
 
 type packetEndpointList struct {
-	mu sync.RWMutex
+	mu packetEndpointListRWMutex
 
 	// eps is protected by mu, but the contained PacketEndpoint values are not.
 	//
@@ -146,7 +140,7 @@ type delegatingQueueingDiscipline struct {
 func (*delegatingQueueingDiscipline) Close() {}
 
 // WritePacket passes the packet through to the underlying LinkWriter's WritePackets.
-func (qDisc *delegatingQueueingDiscipline) WritePacket(pkt *PacketBuffer) tcpip.Error {
+func (qDisc *delegatingQueueingDiscipline) WritePacket(pkt PacketBufferPtr) tcpip.Error {
 	var pkts PacketBufferList
 	pkts.PushBack(pkt)
 	_, err := qDisc.LinkWriter.WritePackets(pkts)
@@ -208,6 +202,7 @@ func newNIC(stack *Stack, id tcpip.NICID, ep LinkEndpoint, opts NICOptions) *nic
 		}
 	}
 
+	nic.gro.init(opts.GROTimeout)
 	nic.NetworkLinkEndpoint.Attach(nic)
 
 	return nic
@@ -219,33 +214,32 @@ func (n *nic) getNetworkEndpoint(proto tcpip.NetworkProtocolNumber) NetworkEndpo
 
 // Enabled implements NetworkInterface.
 func (n *nic) Enabled() bool {
-	return n.enabled.Load() == 1
+	return n.enabled.Load()
 }
 
 // setEnabled sets the enabled status for the NIC.
 //
 // Returns true if the enabled status was updated.
+//
+// +checklocks:n.enableDisableMu
 func (n *nic) setEnabled(v bool) bool {
-	if v {
-		return n.enabled.Swap(1) == 0
-	}
-	return n.enabled.Swap(0) == 1
+	return n.enabled.Swap(v) != v
 }
 
 // disable disables n.
 //
 // It undoes the work done by enable.
 func (n *nic) disable() {
-	n.mu.Lock()
+	n.enableDisableMu.Lock()
+	defer n.enableDisableMu.Unlock()
 	n.disableLocked()
-	n.mu.Unlock()
 }
 
 // disableLocked disables n.
 //
 // It undoes the work done by enable.
 //
-// n MUST be locked.
+// +checklocks:n.enableDisableMu
 func (n *nic) disableLocked() {
 	if !n.Enabled() {
 		return
@@ -285,8 +279,8 @@ func (n *nic) disableLocked() {
 // routers if the stack is not operating as a router. If the stack is also
 // configured to auto-generate a link-local address, one will be generated.
 func (n *nic) enable() tcpip.Error {
-	n.mu.Lock()
-	defer n.mu.Unlock()
+	n.enableDisableMu.Lock()
+	defer n.enableDisableMu.Unlock()
 
 	if !n.setEnabled(true) {
 		return nil
@@ -305,8 +299,7 @@ func (n *nic) enable() tcpip.Error {
 // resources. This guarantees no packets between this NIC and the network
 // stack.
 func (n *nic) remove() tcpip.Error {
-	n.mu.Lock()
-	defer n.mu.Unlock()
+	n.enableDisableMu.Lock()
 
 	n.disableLocked()
 
@@ -314,7 +307,13 @@ func (n *nic) remove() tcpip.Error {
 		ep.Close()
 	}
 
-	// drain and drop any packets pending link resolution.
+	n.enableDisableMu.Unlock()
+
+	// Shutdown GRO.
+	n.gro.close()
+
+	// Drain and drop any packets pending link resolution.
+	// We must not hold n.enableDisableMu here.
 	n.linkResQueue.cancel()
 
 	// Prevent packets from going down to the link before shutting the link down.
@@ -326,17 +325,12 @@ func (n *nic) remove() tcpip.Error {
 
 // setPromiscuousMode enables or disables promiscuous mode.
 func (n *nic) setPromiscuousMode(enable bool) {
-	n.mu.Lock()
-	n.promiscuous = enable
-	n.mu.Unlock()
+	n.promiscuous.Store(enable)
 }
 
 // Promiscuous implements NetworkInterface.
 func (n *nic) Promiscuous() bool {
-	n.mu.RLock()
-	rv := n.promiscuous
-	n.mu.RUnlock()
-	return rv
+	return n.promiscuous.Load()
 }
 
 // IsLoopback implements NetworkInterface.
@@ -345,7 +339,7 @@ func (n *nic) IsLoopback() bool {
 }
 
 // WritePacket implements NetworkEndpoint.
-func (n *nic) WritePacket(r *Route, pkt *PacketBuffer) tcpip.Error {
+func (n *nic) WritePacket(r *Route, pkt PacketBufferPtr) tcpip.Error {
 	routeInfo, _, err := r.resolvedFields(nil)
 	switch err.(type) {
 	case nil:
@@ -376,7 +370,7 @@ func (n *nic) WritePacket(r *Route, pkt *PacketBuffer) tcpip.Error {
 }
 
 // WritePacketToRemote implements NetworkInterface.
-func (n *nic) WritePacketToRemote(remoteLinkAddr tcpip.LinkAddress, pkt *PacketBuffer) tcpip.Error {
+func (n *nic) WritePacketToRemote(remoteLinkAddr tcpip.LinkAddress, pkt PacketBufferPtr) tcpip.Error {
 	pkt.EgressRoute = RouteInfo{
 		routeInfo: routeInfo{
 			NetProto:         pkt.NetworkProtocolNumber,
@@ -387,12 +381,14 @@ func (n *nic) WritePacketToRemote(remoteLinkAddr tcpip.LinkAddress, pkt *PacketB
 	return n.writePacket(pkt)
 }
 
-func (n *nic) writePacket(pkt *PacketBuffer) tcpip.Error {
+func (n *nic) writePacket(pkt PacketBufferPtr) tcpip.Error {
 	n.NetworkLinkEndpoint.AddHeader(pkt)
 	return n.writeRawPacket(pkt)
 }
 
-func (n *nic) writeRawPacket(pkt *PacketBuffer) tcpip.Error {
+func (n *nic) writeRawPacket(pkt PacketBufferPtr) tcpip.Error {
+	// Always an outgoing packet.
+	pkt.PktType = tcpip.PacketOutgoing
 	if err := n.qDisc.WritePacket(pkt); err != nil {
 		if _, ok := err.(*tcpip.ErrNoBufferSpace); ok {
 			n.stats.txPacketsDroppedNoBufferSpace.Increment()
@@ -407,23 +403,19 @@ func (n *nic) writeRawPacket(pkt *PacketBuffer) tcpip.Error {
 
 // setSpoofing enables or disables address spoofing.
 func (n *nic) setSpoofing(enable bool) {
-	n.mu.Lock()
-	n.spoofing = enable
-	n.mu.Unlock()
+	n.spoofing.Store(enable)
 }
 
 // Spoofing implements NetworkInterface.
 func (n *nic) Spoofing() bool {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
-	return n.spoofing
+	return n.spoofing.Load()
 }
 
 // primaryAddress returns an address that can be used to communicate with
 // remoteAddr.
 func (n *nic) primaryEndpoint(protocol tcpip.NetworkProtocolNumber, remoteAddr tcpip.Address) AssignableAddressEndpoint {
-	ep, ok := n.networkEndpoints[protocol]
-	if !ok {
+	ep := n.getNetworkEndpoint(protocol)
+	if ep == nil {
 		return nil
 	}
 
@@ -432,11 +424,7 @@ func (n *nic) primaryEndpoint(protocol tcpip.NetworkProtocolNumber, remoteAddr t
 		return nil
 	}
 
-	n.mu.RLock()
-	spoofing := n.spoofing
-	n.mu.RUnlock()
-
-	return addressableEndpoint.AcquireOutgoingPrimaryAddress(remoteAddr, spoofing)
+	return addressableEndpoint.AcquireOutgoingPrimaryAddress(remoteAddr, n.Spoofing())
 }
 
 type getAddressBehaviour int
@@ -480,23 +468,21 @@ func (n *nic) findEndpoint(protocol tcpip.NetworkProtocolNumber, address tcpip.A
 // If the address is the IPv4 broadcast address for an endpoint's network, that
 // endpoint will be returned.
 func (n *nic) getAddressOrCreateTemp(protocol tcpip.NetworkProtocolNumber, address tcpip.Address, peb PrimaryEndpointBehavior, tempRef getAddressBehaviour) AssignableAddressEndpoint {
-	n.mu.RLock()
 	var spoofingOrPromiscuous bool
 	switch tempRef {
 	case spoofing:
-		spoofingOrPromiscuous = n.spoofing
+		spoofingOrPromiscuous = n.Spoofing()
 	case promiscuous:
-		spoofingOrPromiscuous = n.promiscuous
+		spoofingOrPromiscuous = n.Promiscuous()
 	}
-	n.mu.RUnlock()
 	return n.getAddressOrCreateTempInner(protocol, address, spoofingOrPromiscuous, peb)
 }
 
 // getAddressOrCreateTempInner is like getAddressEpOrCreateTemp except a boolean
 // is passed to indicate whether or not we should generate temporary endpoints.
 func (n *nic) getAddressOrCreateTempInner(protocol tcpip.NetworkProtocolNumber, address tcpip.Address, createTemp bool, peb PrimaryEndpointBehavior) AssignableAddressEndpoint {
-	ep, ok := n.networkEndpoints[protocol]
-	if !ok {
+	ep := n.getNetworkEndpoint(protocol)
+	if ep == nil {
 		return nil
 	}
 
@@ -511,8 +497,8 @@ func (n *nic) getAddressOrCreateTempInner(protocol tcpip.NetworkProtocolNumber, 
 // addAddress adds a new address to n, so that it starts accepting packets
 // targeted at the given address (and network protocol).
 func (n *nic) addAddress(protocolAddress tcpip.ProtocolAddress, properties AddressProperties) tcpip.Error {
-	ep, ok := n.networkEndpoints[protocolAddress.Protocol]
-	if !ok {
+	ep := n.getNetworkEndpoint(protocolAddress.Protocol)
+	if ep == nil {
 		return &tcpip.ErrUnknownProtocol{}
 	}
 
@@ -564,8 +550,8 @@ func (n *nic) primaryAddresses() []tcpip.ProtocolAddress {
 
 // PrimaryAddress implements NetworkInterface.
 func (n *nic) PrimaryAddress(proto tcpip.NetworkProtocolNumber) (tcpip.AddressWithPrefix, tcpip.Error) {
-	ep, ok := n.networkEndpoints[proto]
-	if !ok {
+	ep := n.getNetworkEndpoint(proto)
+	if ep == nil {
 		return tcpip.AddressWithPrefix{}, &tcpip.ErrUnknownProtocol{}
 	}
 
@@ -625,7 +611,7 @@ func (n *nic) getLinkAddress(addr, localAddr tcpip.Address, protocol tcpip.Netwo
 		return nil
 	}
 
-	_, _, err := linkRes.getNeighborLinkAddress(addr, localAddr, onResolve)
+	_, _, err := linkRes.neigh.entry(addr, localAddr, onResolve)
 	return err
 }
 
@@ -674,8 +660,8 @@ func (n *nic) joinGroup(protocol tcpip.NetworkProtocolNumber, addr tcpip.Address
 	// as an MLD packet's source address must be a link-local address as
 	// outlined in RFC 3810 section 5.
 
-	ep, ok := n.networkEndpoints[protocol]
-	if !ok {
+	ep := n.getNetworkEndpoint(protocol)
+	if ep == nil {
 		return &tcpip.ErrNotSupported{}
 	}
 
@@ -690,8 +676,8 @@ func (n *nic) joinGroup(protocol tcpip.NetworkProtocolNumber, addr tcpip.Address
 // leaveGroup decrements the count for the given multicast address, and when it
 // reaches zero removes the endpoint for this address.
 func (n *nic) leaveGroup(protocol tcpip.NetworkProtocolNumber, addr tcpip.Address) tcpip.Error {
-	ep, ok := n.networkEndpoints[protocol]
-	if !ok {
+	ep := n.getNetworkEndpoint(protocol)
+	if ep == nil {
 		return &tcpip.ErrNotSupported{}
 	}
 
@@ -722,7 +708,7 @@ func (n *nic) isInGroup(addr tcpip.Address) bool {
 // DeliverNetworkPacket finds the appropriate network protocol endpoint and
 // hands the packet over for further processing. This function is called when
 // the NIC receives a packet from the link endpoint.
-func (n *nic) DeliverNetworkPacket(protocol tcpip.NetworkProtocolNumber, pkt *PacketBuffer) {
+func (n *nic) DeliverNetworkPacket(protocol tcpip.NetworkProtocolNumber, pkt PacketBufferPtr) {
 	enabled := n.Enabled()
 	// If the NIC is not yet enabled, don't receive any packets.
 	if !enabled {
@@ -734,27 +720,27 @@ func (n *nic) DeliverNetworkPacket(protocol tcpip.NetworkProtocolNumber, pkt *Pa
 	n.stats.rx.packets.Increment()
 	n.stats.rx.bytes.IncrementBy(uint64(pkt.Data().Size()))
 
-	networkEndpoint, ok := n.networkEndpoints[protocol]
-	if !ok {
+	networkEndpoint := n.getNetworkEndpoint(protocol)
+	if networkEndpoint == nil {
 		n.stats.unknownL3ProtocolRcvdPacketCounts.Increment(uint64(protocol))
 		return
 	}
 
-	pkt.RXTransportChecksumValidated = n.NetworkLinkEndpoint.Capabilities()&CapabilityRXChecksumOffload != 0
+	pkt.RXChecksumValidated = n.NetworkLinkEndpoint.Capabilities()&CapabilityRXChecksumOffload != 0
 
-	networkEndpoint.HandlePacket(pkt)
+	n.gro.dispatch(pkt, protocol, networkEndpoint)
 }
 
-func (n *nic) DeliverLinkPacket(protocol tcpip.NetworkProtocolNumber, pkt *PacketBuffer, incoming bool) {
+func (n *nic) DeliverLinkPacket(protocol tcpip.NetworkProtocolNumber, pkt PacketBufferPtr) {
 	// Deliver to interested packet endpoints without holding NIC lock.
-	var packetEPPkt *PacketBuffer
+	var packetEPPkt PacketBufferPtr
 	defer func() {
-		if packetEPPkt != nil {
+		if !packetEPPkt.IsNil() {
 			packetEPPkt.DecRef()
 		}
 	}()
 	deliverPacketEPs := func(ep PacketEndpoint) {
-		if packetEPPkt == nil {
+		if packetEPPkt.IsNil() {
 			// Packet endpoints hold the full packet.
 			//
 			// We perform a deep copy because higher-level endpoints may point to
@@ -771,11 +757,13 @@ func (n *nic) DeliverLinkPacket(protocol tcpip.NetworkProtocolNumber, pkt *Packe
 			// populate it in the packet buffer we provide to packet endpoints as
 			// packet endpoints inspect link headers.
 			packetEPPkt.LinkHeader().Consume(len(pkt.LinkHeader().Slice()))
-
-			if incoming {
+			packetEPPkt.PktType = pkt.PktType
+			// Assume the packet is for us if the packet type is unset.
+			// The packet type is set to PacketOutgoing when sending packets so
+			// this may only be unset for incoming packets where link endpoints
+			// have not set it.
+			if packetEPPkt.PktType == 0 {
 				packetEPPkt.PktType = tcpip.PacketHost
-			} else {
-				packetEPPkt.PktType = tcpip.PacketOutgoing
 			}
 		}
 
@@ -792,7 +780,7 @@ func (n *nic) DeliverLinkPacket(protocol tcpip.NetworkProtocolNumber, pkt *Packe
 	n.packetEPsMu.Unlock()
 
 	// On Linux, only ETH_P_ALL endpoints get outbound packets.
-	if incoming && protoEPsOK {
+	if pkt.PktType != tcpip.PacketOutgoing && protoEPsOK {
 		protoEPs.forEach(deliverPacketEPs)
 	}
 	if anyEPsOK {
@@ -802,7 +790,7 @@ func (n *nic) DeliverLinkPacket(protocol tcpip.NetworkProtocolNumber, pkt *Packe
 
 // DeliverTransportPacket delivers the packets to the appropriate transport
 // protocol endpoint.
-func (n *nic) DeliverTransportPacket(protocol tcpip.TransportProtocolNumber, pkt *PacketBuffer) TransportPacketDisposition {
+func (n *nic) DeliverTransportPacket(protocol tcpip.TransportProtocolNumber, pkt PacketBufferPtr) TransportPacketDisposition {
 	state, ok := n.stack.transportProtocols[protocol]
 	if !ok {
 		n.stats.unknownL4ProtocolRcvdPacketCounts.Increment(uint64(protocol))
@@ -862,7 +850,7 @@ func (n *nic) DeliverTransportPacket(protocol tcpip.TransportProtocolNumber, pkt
 }
 
 // DeliverTransportError implements TransportDispatcher.
-func (n *nic) DeliverTransportError(local, remote tcpip.Address, net tcpip.NetworkProtocolNumber, trans tcpip.TransportProtocolNumber, transErr TransportError, pkt *PacketBuffer) {
+func (n *nic) DeliverTransportError(local, remote tcpip.Address, net tcpip.NetworkProtocolNumber, trans tcpip.TransportProtocolNumber, transErr TransportError, pkt PacketBufferPtr) {
 	state, ok := n.stack.transportProtocols[trans]
 	if !ok {
 		return
@@ -890,7 +878,7 @@ func (n *nic) DeliverTransportError(local, remote tcpip.Address, net tcpip.Netwo
 }
 
 // DeliverRawPacket implements TransportDispatcher.
-func (n *nic) DeliverRawPacket(protocol tcpip.TransportProtocolNumber, pkt *PacketBuffer) {
+func (n *nic) DeliverRawPacket(protocol tcpip.TransportProtocolNumber, pkt PacketBufferPtr) {
 	// For ICMPv4 only we validate the header length for compatibility with
 	// raw(7) ICMP_FILTER. The same check is made in Linux here:
 	// https://github.com/torvalds/linux/blob/70585216/net/ipv4/raw.c#L189.
@@ -965,10 +953,7 @@ func (n *nic) unregisterPacketEndpoint(netProto tcpip.NetworkProtocolNumber, ep 
 // packet. It requires the endpoint to not be marked expired (i.e., its address
 // has been removed) unless the NIC is in spoofing mode, or temporary.
 func (n *nic) isValidForOutgoing(ep AssignableAddressEndpoint) bool {
-	n.mu.RLock()
-	spoofing := n.spoofing
-	n.mu.RUnlock()
-	return n.Enabled() && ep.IsAssigned(spoofing)
+	return n.Enabled() && ep.IsAssigned(n.Spoofing())
 }
 
 // HandleNeighborProbe implements NetworkInterface.

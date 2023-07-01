@@ -43,7 +43,7 @@ type NotificationHandle struct {
 
 type queue struct {
 	// c is the outbound packet channel.
-	c  chan *stack.PacketBuffer
+	c  chan stack.PacketBufferPtr
 	mu sync.RWMutex
 	// +checklocks:mu
 	notify []*NotificationHandle
@@ -58,25 +58,25 @@ func (q *queue) Close() {
 	q.closed = true
 }
 
-func (q *queue) Read() *stack.PacketBuffer {
+func (q *queue) Read() stack.PacketBufferPtr {
 	select {
 	case p := <-q.c:
 		return p
 	default:
-		return nil
+		return stack.PacketBufferPtr{}
 	}
 }
 
-func (q *queue) ReadContext(ctx context.Context) *stack.PacketBuffer {
+func (q *queue) ReadContext(ctx context.Context) stack.PacketBufferPtr {
 	select {
 	case pkt := <-q.c:
 		return pkt
 	case <-ctx.Done():
-		return nil
+		return stack.PacketBufferPtr{}
 	}
 }
 
-func (q *queue) Write(pkt *stack.PacketBuffer) tcpip.Error {
+func (q *queue) Write(pkt stack.PacketBufferPtr) tcpip.Error {
 	// q holds the PacketBuffer.
 	q.mu.RLock()
 	if q.closed {
@@ -135,11 +135,14 @@ var _ stack.GSOEndpoint = (*Endpoint)(nil)
 // Endpoint is link layer endpoint that stores outbound packets in a channel
 // and allows injection of inbound packets.
 type Endpoint struct {
-	dispatcher         stack.NetworkDispatcher
 	mtu                uint32
 	linkAddr           tcpip.LinkAddress
 	LinkEPCapabilities stack.LinkEndpointCapabilities
 	SupportedGSOKind   stack.SupportedGSO
+
+	mu sync.RWMutex
+	// +checklocks:mu
+	dispatcher stack.NetworkDispatcher
 
 	// Outbound packet queue.
 	q *queue
@@ -149,7 +152,7 @@ type Endpoint struct {
 func New(size int, mtu uint32, linkAddr tcpip.LinkAddress) *Endpoint {
 	return &Endpoint{
 		q: &queue{
-			c: make(chan *stack.PacketBuffer, size),
+			c: make(chan stack.PacketBufferPtr, size),
 		},
 		mtu:      mtu,
 		linkAddr: linkAddr,
@@ -164,20 +167,20 @@ func (e *Endpoint) Close() {
 }
 
 // Read does non-blocking read one packet from the outbound packet queue.
-func (e *Endpoint) Read() *stack.PacketBuffer {
+func (e *Endpoint) Read() stack.PacketBufferPtr {
 	return e.q.Read()
 }
 
 // ReadContext does blocking read for one packet from the outbound packet queue.
 // It can be cancelled by ctx, and in this case, it returns nil.
-func (e *Endpoint) ReadContext(ctx context.Context) *stack.PacketBuffer {
+func (e *Endpoint) ReadContext(ctx context.Context) stack.PacketBufferPtr {
 	return e.q.ReadContext(ctx)
 }
 
 // Drain removes all outbound packets from the channel and counts them.
 func (e *Endpoint) Drain() int {
 	c := 0
-	for pkt := e.Read(); pkt != nil; pkt = e.Read() {
+	for pkt := e.Read(); !pkt.IsNil(); pkt = e.Read() {
 		pkt.DecRef()
 		c++
 	}
@@ -189,19 +192,29 @@ func (e *Endpoint) NumQueued() int {
 	return e.q.Num()
 }
 
-// InjectInbound injects an inbound packet.
-func (e *Endpoint) InjectInbound(protocol tcpip.NetworkProtocolNumber, pkt *stack.PacketBuffer) {
-	e.dispatcher.DeliverNetworkPacket(protocol, pkt)
+// InjectInbound injects an inbound packet. If the endpoint is not attached, the
+// packet is not delivered.
+func (e *Endpoint) InjectInbound(protocol tcpip.NetworkProtocolNumber, pkt stack.PacketBufferPtr) {
+	e.mu.RLock()
+	d := e.dispatcher
+	e.mu.RUnlock()
+	if d != nil {
+		d.DeliverNetworkPacket(protocol, pkt)
+	}
 }
 
 // Attach saves the stack network-layer dispatcher for use later when packets
 // are injected.
 func (e *Endpoint) Attach(dispatcher stack.NetworkDispatcher) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.dispatcher = dispatcher
 }
 
 // IsAttached implements stack.LinkEndpoint.IsAttached.
 func (e *Endpoint) IsAttached() bool {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	return e.dispatcher != nil
 }
 
@@ -274,4 +287,4 @@ func (*Endpoint) ARPHardwareType() header.ARPHardwareType {
 }
 
 // AddHeader implements stack.LinkEndpoint.AddHeader.
-func (*Endpoint) AddHeader(*stack.PacketBuffer) {}
+func (*Endpoint) AddHeader(stack.PacketBufferPtr) {}

@@ -79,8 +79,9 @@ func serverOnlyCmds() (commands []*cobra.Command) {
 		GroupID: consts.MultiplayerHelpGroup,
 	}
 	command.Flags("multiplayer", false, startMultiplayer, func(f *pflag.FlagSet) {
-		f.StringP("lhost", "L", "", "interface to bind server to")
+		f.StringP("lhost", "L", "", "hostname to bind server to")
 		f.Uint16P("lport", "l", 31337, "tcp listen port")
+		f.BoolP("tailscale", "T", false, "only expose multiplayer interface over Tailscale (requires TS_AUTHKEY)")
 		f.BoolP("persistent", "p", false, "make persistent across restarts")
 	})
 

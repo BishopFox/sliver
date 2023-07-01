@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 )
@@ -85,7 +84,7 @@ type IPTables struct {
 
 	reaper tcpip.Timer
 
-	mu sync.RWMutex
+	mu ipTablesRWMutex
 	// v4Tables and v6tables map tableIDs to tables. They hold builtin
 	// tables only, not user tables.
 	//
@@ -240,7 +239,7 @@ type IPHeaderFilter struct {
 //
 // Preconditions: pkt.NetworkHeader is set and is at least of the minimal IPv4
 // or IPv6 header length.
-func (fl IPHeaderFilter) match(pkt *PacketBuffer, hook Hook, inNicName, outNicName string) bool {
+func (fl IPHeaderFilter) match(pkt PacketBufferPtr, hook Hook, inNicName, outNicName string) bool {
 	// Extract header fields.
 	var (
 		transProto tcpip.TransportProtocolNumber
@@ -345,7 +344,7 @@ type Matcher interface {
 	// used for suspicious packets.
 	//
 	// Precondition: packet.NetworkHeader is set.
-	Match(hook Hook, packet *PacketBuffer, inputInterfaceName, outputInterfaceName string) (matches bool, hotdrop bool)
+	Match(hook Hook, packet PacketBufferPtr, inputInterfaceName, outputInterfaceName string) (matches bool, hotdrop bool)
 }
 
 // A Target is the interface for taking an action for a packet.
@@ -353,5 +352,5 @@ type Target interface {
 	// Action takes an action on the packet and returns a verdict on how
 	// traversal should (or should not) continue. If the return value is
 	// Jump, it also returns the index of the rule to jump to.
-	Action(*PacketBuffer, Hook, *Route, AddressableEndpoint) (RuleVerdict, int)
+	Action(PacketBufferPtr, Hook, *Route, AddressableEndpoint) (RuleVerdict, int)
 }

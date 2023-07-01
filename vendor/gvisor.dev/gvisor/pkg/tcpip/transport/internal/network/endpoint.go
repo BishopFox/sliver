@@ -118,10 +118,9 @@ type multicastMembership struct {
 // Init initializes the endpoint.
 func (e *Endpoint) Init(s *stack.Stack, netProto tcpip.NetworkProtocolNumber, transProto tcpip.TransportProtocolNumber, ops *tcpip.SocketOptions, waiterQueue *waiter.Queue) {
 	e.mu.Lock()
-	memberships := e.multicastMemberships
-	e.mu.Unlock()
-	if memberships != nil {
-		panic(fmt.Sprintf("endpoint is already initialized; got e.multicastMemberships = %#v, want = nil", memberships))
+	defer e.mu.Unlock()
+	if e.multicastMemberships != nil {
+		panic(fmt.Sprintf("endpoint is already initialized; got e.multicastMemberships = %#v, want = nil", e.multicastMemberships))
 	}
 
 	switch netProto {
@@ -130,27 +129,24 @@ func (e *Endpoint) Init(s *stack.Stack, netProto tcpip.NetworkProtocolNumber, tr
 		panic(fmt.Sprintf("invalid protocol number = %d", netProto))
 	}
 
-	*e = Endpoint{
-		stack:       s,
-		ops:         ops,
-		netProto:    netProto,
-		transProto:  transProto,
-		waiterQueue: waiterQueue,
-
-		info: stack.TransportEndpointInfo{
-			NetProto:   netProto,
-			TransProto: transProto,
-		},
-		effectiveNetProto: netProto,
-		ipv4TTL:           tcpip.UseDefaultIPv4TTL,
-		ipv6HopLimit:      tcpip.UseDefaultIPv6HopLimit,
-		// Linux defaults to TTL=1.
-		multicastTTL:         1,
-		multicastMemberships: make(map[multicastMembership]struct{}),
+	e.stack = s
+	e.ops = ops
+	e.netProto = netProto
+	e.transProto = transProto
+	e.waiterQueue = waiterQueue
+	e.infoMu.Lock()
+	e.info = stack.TransportEndpointInfo{
+		NetProto:   netProto,
+		TransProto: transProto,
 	}
+	e.infoMu.Unlock()
+	e.effectiveNetProto = netProto
+	e.ipv4TTL = tcpip.UseDefaultIPv4TTL
+	e.ipv6HopLimit = tcpip.UseDefaultIPv6HopLimit
 
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	// Linux defaults to TTL=1.
+	e.multicastTTL = 1
+	e.multicastMemberships = make(map[multicastMembership]struct{})
 	e.setEndpointState(transport.DatagramEndpointStateInitial)
 }
 
@@ -269,14 +265,14 @@ func (c *WriteContext) PacketInfo() WritePacketInfo {
 //
 // If this method returns nil, the caller should wait for the endpoint to become
 // writable.
-func (c *WriteContext) TryNewPacketBuffer(reserveHdrBytes int, data bufferv2.Buffer) *stack.PacketBuffer {
+func (c *WriteContext) TryNewPacketBuffer(reserveHdrBytes int, data bufferv2.Buffer) stack.PacketBufferPtr {
 	e := c.e
 
 	e.sendBufferSizeInUseMu.Lock()
 	defer e.sendBufferSizeInUseMu.Unlock()
 
 	if !e.hasSendSpaceRLocked() {
-		return nil
+		return stack.PacketBufferPtr{}
 	}
 
 	// Note that we allow oversubscription - if there is any space at all in the
@@ -312,7 +308,7 @@ func (c *WriteContext) TryNewPacketBuffer(reserveHdrBytes int, data bufferv2.Buf
 }
 
 // WritePacket attempts to write the packet.
-func (c *WriteContext) WritePacket(pkt *stack.PacketBuffer, headerIncluded bool) tcpip.Error {
+func (c *WriteContext) WritePacket(pkt stack.PacketBufferPtr, headerIncluded bool) tcpip.Error {
 	c.e.mu.RLock()
 	pkt.Owner = c.e.owner
 	c.e.mu.RUnlock()
@@ -447,7 +443,7 @@ func (e *Endpoint) AcquireContextForWrite(opts tcpip.WriteOptions) (WriteContext
 				// interface (usually when using link-local addresses), make sure the
 				// interface matches the specified local interface.
 				if nicID != 0 && nicID != pktInfoNICID {
-					return WriteContext{}, &tcpip.ErrNoRoute{}
+					return WriteContext{}, &tcpip.ErrHostUnreachable{}
 				}
 
 				// If a local address is not specified, then we need to make sure the
@@ -459,7 +455,7 @@ func (e *Endpoint) AcquireContextForWrite(opts tcpip.WriteOptions) (WriteContext
 					//
 					// The bound interface is usually only set for link-local addresses.
 					if info.BindNICID != 0 && info.BindNICID != pktInfoNICID {
-						return WriteContext{}, &tcpip.ErrNoRoute{}
+						return WriteContext{}, &tcpip.ErrHostUnreachable{}
 					}
 					if len(info.ID.LocalAddress) != 0 && e.stack.CheckLocalAddress(pktInfoNICID, header.IPv6ProtocolNumber, info.ID.LocalAddress) == 0 {
 						return WriteContext{}, &tcpip.ErrBadLocalAddress{}
@@ -483,7 +479,7 @@ func (e *Endpoint) AcquireContextForWrite(opts tcpip.WriteOptions) (WriteContext
 		} else {
 			if info.BindNICID != 0 {
 				if nicID != 0 && nicID != info.BindNICID {
-					return WriteContext{}, &tcpip.ErrNoRoute{}
+					return WriteContext{}, &tcpip.ErrHostUnreachable{}
 				}
 
 				nicID = info.BindNICID
@@ -652,6 +648,7 @@ func (e *Endpoint) ConnectAndThen(addr tcpip.FullAddress, f func(netProto tcpip.
 	}
 
 	if err := f(r.NetProto(), info.ID, id); err != nil {
+		r.Release()
 		return err
 	}
 
@@ -951,7 +948,7 @@ func (e *Endpoint) SetSockOpt(opt tcpip.SettableSocketOption) tcpip.Error {
 		e.multicastMemberships[memToInsert] = struct{}{}
 
 	case *tcpip.RemoveMembershipOption:
-		if !header.IsV4MulticastAddress(v.MulticastAddr) && !header.IsV6MulticastAddress(v.MulticastAddr) {
+		if !(header.IsV4MulticastAddress(v.MulticastAddr) && e.netProto == header.IPv4ProtocolNumber) && !(header.IsV6MulticastAddress(v.MulticastAddr) && e.netProto == header.IPv6ProtocolNumber) {
 			return &tcpip.ErrInvalidOptionValue{}
 		}
 
