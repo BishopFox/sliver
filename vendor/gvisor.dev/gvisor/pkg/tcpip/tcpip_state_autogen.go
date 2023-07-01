@@ -552,25 +552,67 @@ func (e *ErrNoPortAvailable) afterLoad() {}
 func (e *ErrNoPortAvailable) StateLoad(stateSourceObject state.Source) {
 }
 
-func (e *ErrNoRoute) StateTypeName() string {
-	return "pkg/tcpip.ErrNoRoute"
+func (e *ErrHostUnreachable) StateTypeName() string {
+	return "pkg/tcpip.ErrHostUnreachable"
 }
 
-func (e *ErrNoRoute) StateFields() []string {
+func (e *ErrHostUnreachable) StateFields() []string {
 	return []string{}
 }
 
-func (e *ErrNoRoute) beforeSave() {}
+func (e *ErrHostUnreachable) beforeSave() {}
 
 // +checklocksignore
-func (e *ErrNoRoute) StateSave(stateSinkObject state.Sink) {
+func (e *ErrHostUnreachable) StateSave(stateSinkObject state.Sink) {
 	e.beforeSave()
 }
 
-func (e *ErrNoRoute) afterLoad() {}
+func (e *ErrHostUnreachable) afterLoad() {}
 
 // +checklocksignore
-func (e *ErrNoRoute) StateLoad(stateSourceObject state.Source) {
+func (e *ErrHostUnreachable) StateLoad(stateSourceObject state.Source) {
+}
+
+func (e *ErrHostDown) StateTypeName() string {
+	return "pkg/tcpip.ErrHostDown"
+}
+
+func (e *ErrHostDown) StateFields() []string {
+	return []string{}
+}
+
+func (e *ErrHostDown) beforeSave() {}
+
+// +checklocksignore
+func (e *ErrHostDown) StateSave(stateSinkObject state.Sink) {
+	e.beforeSave()
+}
+
+func (e *ErrHostDown) afterLoad() {}
+
+// +checklocksignore
+func (e *ErrHostDown) StateLoad(stateSourceObject state.Source) {
+}
+
+func (e *ErrNoNet) StateTypeName() string {
+	return "pkg/tcpip.ErrNoNet"
+}
+
+func (e *ErrNoNet) StateFields() []string {
+	return []string{}
+}
+
+func (e *ErrNoNet) beforeSave() {}
+
+// +checklocksignore
+func (e *ErrNoNet) StateSave(stateSinkObject state.Sink) {
+	e.beforeSave()
+}
+
+func (e *ErrNoNet) afterLoad() {}
+
+// +checklocksignore
+func (e *ErrNoNet) StateLoad(stateSourceObject state.Source) {
 }
 
 func (e *ErrNoSuchFile) StateTypeName() string {
@@ -1295,7 +1337,7 @@ func (c *ReceivableControlMessages) StateLoad(stateSourceObject state.Source) {
 	stateSourceObject.Load(16, &c.HasOriginalDstAddress)
 	stateSourceObject.Load(17, &c.OriginalDstAddress)
 	stateSourceObject.Load(18, &c.SockErr)
-	stateSourceObject.LoadValue(0, new(int64), func(y interface{}) { c.loadTimestamp(y.(int64)) })
+	stateSourceObject.LoadValue(0, new(int64), func(y any) { c.loadTimestamp(y.(int64)) })
 }
 
 func (l *LinkPacketInfo) StateTypeName() string {
@@ -1654,7 +1696,9 @@ func init() {
 	state.Register((*ErrNetworkUnreachable)(nil))
 	state.Register((*ErrNoBufferSpace)(nil))
 	state.Register((*ErrNoPortAvailable)(nil))
-	state.Register((*ErrNoRoute)(nil))
+	state.Register((*ErrHostUnreachable)(nil))
+	state.Register((*ErrHostDown)(nil))
+	state.Register((*ErrNoNet)(nil))
 	state.Register((*ErrNoSuchFile)(nil))
 	state.Register((*ErrNotConnected)(nil))
 	state.Register((*ErrNotPermitted)(nil))

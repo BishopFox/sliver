@@ -208,7 +208,7 @@ func startMultiplayerModeCmd(cmd *cobra.Command, _ []string) {
 }
 
 func jobStartClientListener(host string, port uint16) (int, error) {
-	_, ln, err := transport.StartClientListener(host, port)
+	_, ln, err := transport.StartMtlsClientListener(host, port)
 	if err != nil {
 		return -1, err // If we fail to bind don't setup the Job
 	}
