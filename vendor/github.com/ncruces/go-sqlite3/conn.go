@@ -39,7 +39,7 @@ func Open(filename string) (*Conn, error) {
 // If none of the required flags is used, a combination of [OPEN_READWRITE] and [OPEN_CREATE] is used.
 // If a URI filename is used, PRAGMA statements to execute can be specified using "_pragma":
 //
-//	sqlite3.Open("file:demo.db?_pragma=busy_timeout(10000)&_pragma=locking_mode(normal)")
+//	sqlite3.Open("file:demo.db?_pragma=busy_timeout(10000)")
 //
 // https://www.sqlite.org/c3ref/open.html
 func OpenFlags(filename string, flags OpenFlag) (*Conn, error) {
@@ -278,7 +278,7 @@ func (c *Conn) SetInterrupt(ctx context.Context) (old context.Context) {
 			break
 
 		case <-ctx.Done(): // Done was closed.
-			const isInterruptedOffset = 280
+			const isInterruptedOffset = 288
 			buf := util.View(c.mod, c.handle+isInterruptedOffset, 4)
 			(*atomic.Uint32)(unsafe.Pointer(&buf[0])).Store(1)
 			// Wait for the next call to SetInterrupt.
@@ -295,7 +295,7 @@ func (c *Conn) checkInterrupt() bool {
 	if c.interrupt == nil || c.interrupt.Err() == nil {
 		return false
 	}
-	const isInterruptedOffset = 280
+	const isInterruptedOffset = 288
 	buf := util.View(c.mod, c.handle+isInterruptedOffset, 4)
 	(*atomic.Uint32)(unsafe.Pointer(&buf[0])).Store(1)
 	return true

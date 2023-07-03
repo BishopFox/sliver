@@ -31,16 +31,11 @@ This has benefits, but also comes with some drawbacks.
 Because WASM does not support shared memory,
 [WAL](https://www.sqlite.org/wal.html) support is [limited](https://www.sqlite.org/wal.html#noshm).
 
-To work around this limitation, SQLite is compiled with
-[`SQLITE_DEFAULT_LOCKING_MODE=1`](https://www.sqlite.org/compile.html#default_locking_mode),
-making `EXCLUSIVE` the default locking mode.
-For non-WAL databases, `NORMAL` locking mode can be activated with
-[`PRAGMA locking_mode=NORMAL`](https://www.sqlite.org/pragma.html#pragma_locking_mode).
+To work around this limitation, SQLite is [patched](sqlite3/locking_mode.patch)
+to always use `EXCLUSIVE` locking mode for WAL databases.
 
 Because connection pooling is incompatible with `EXCLUSIVE` locking mode,
-the `database/sql` driver defaults to `NORMAL` locking mode.
-To open WAL databases, or use `EXCLUSIVE` locking mode,
-disable connection pooling by calling
+to open WAL databases you should disable connection pooling by calling
 [`db.SetMaxOpenConns(1)`](https://pkg.go.dev/database/sql#DB.SetMaxOpenConns).
 
 #### POSIX Advisory Locks
