@@ -38,7 +38,7 @@ func (e *endpoint) beforeSave() {
 	case epState == StateInitial || epState == StateBound:
 	case epState.connected() || epState.handshake():
 		if !e.route.HasSaveRestoreCapability() {
-			if !e.route.HasDisconncetOkCapability() {
+			if !e.route.HasDisconnectOkCapability() {
 				panic(&tcpip.ErrSaveRejection{
 					Err: fmt.Errorf("endpoint cannot be saved in connected state: local %s:%d, remote %s:%d", e.TransportEndpointInfo.ID.LocalAddress, e.TransportEndpointInfo.ID.LocalPort, e.TransportEndpointInfo.ID.RemoteAddress, e.TransportEndpointInfo.ID.RemotePort),
 				})
@@ -55,10 +55,6 @@ func (e *endpoint) beforeSave() {
 		// Nothing to do.
 	default:
 		panic(fmt.Sprintf("endpoint in unknown state %v", e.EndpointState()))
-	}
-
-	if e.waiterQueue != nil && !e.waiterQueue.IsEmpty() {
-		panic("endpoint still has waiters upon save")
 	}
 }
 
@@ -136,24 +132,6 @@ func (e *endpoint) Resume(s *stack.Stack) {
 	e.protocol = protocolFromStack(s)
 	e.ops.InitHandler(e, e.stack, GetTCPSendBufferLimits, GetTCPReceiveBufferLimits)
 	e.segmentQueue.thaw()
-	epState := EndpointState(e.origEndpointState)
-	switch epState {
-	case StateInitial, StateBound, StateListen, StateConnecting, StateEstablished:
-		var ss tcpip.TCPSendBufferSizeRangeOption
-		if err := e.stack.TransportProtocolOption(ProtocolNumber, &ss); err == nil {
-			sendBufferSize := e.getSendBufferSize()
-			if sendBufferSize < ss.Min || sendBufferSize > ss.Max {
-				panic(fmt.Sprintf("endpoint sendBufferSize %d is outside the min and max allowed [%d, %d]", sendBufferSize, ss.Min, ss.Max))
-			}
-		}
-
-		var rs tcpip.TCPReceiveBufferSizeRangeOption
-		if err := e.stack.TransportProtocolOption(ProtocolNumber, &rs); err == nil {
-			if rcvBufSize := e.ops.GetReceiveBufferSize(); rcvBufSize < int64(rs.Min) || rcvBufSize > int64(rs.Max) {
-				panic(fmt.Sprintf("endpoint rcvBufSize %d is outside the min and max allowed [%d, %d]", rcvBufSize, rs.Min, rs.Max))
-			}
-		}
-	}
 
 	bind := func() {
 		e.mu.Lock()
@@ -180,6 +158,7 @@ func (e *endpoint) Resume(s *stack.Stack) {
 		e.setEndpointState(StateBound)
 	}
 
+	epState := EndpointState(e.origEndpointState)
 	switch {
 	case epState.connected():
 		bind()

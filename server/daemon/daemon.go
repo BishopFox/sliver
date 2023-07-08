@@ -53,7 +53,7 @@ func Start(host string, port uint16) {
 	}
 
 	daemonLog.Infof("Starting Sliver daemon %s:%d ...", host, port)
-	_, ln, err := transport.StartClientListener(host, port)
+	_, ln, err := transport.StartMtlsClientListener(host, port)
 	if err != nil {
 		fmt.Printf("[!] Failed to start daemon %s", err)
 		daemonLog.Errorf("Error starting client listener %s", err)

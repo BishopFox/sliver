@@ -35,9 +35,10 @@ var (
 )
 
 // LocalListener - Bind gRPC server to an in-memory listener, which is
-//                 typically used for unit testing, but ... it should be fine
+//
+//	typically used for unit testing, but ... it should be fine
 func LocalListener() (*grpc.Server, *bufconn.Listener, error) {
-	bufConnLog.Infof("Binding gRPC to listener ...")
+	bufConnLog.Infof("Binding gRPC/bufconn to listener ...")
 	ln := bufconn.Listen(bufSize)
 	options := []grpc.ServerOption{
 		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
