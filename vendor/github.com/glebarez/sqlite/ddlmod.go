@@ -13,14 +13,25 @@ import (
 
 var (
 	sqliteSeparator    = "`|\"|'|\t"
-	indexRegexp        = regexp.MustCompile(fmt.Sprintf("(?is)CREATE(?: UNIQUE)? INDEX [%v]?[\\w\\d-]+[%v]? ON (.*)$", sqliteSeparator, sqliteSeparator))
-	tableRegexp        = regexp.MustCompile(fmt.Sprintf("(?is)(CREATE TABLE [%v]?[\\w\\d-]+[%v]?)(?: \\((.*)\\))?", sqliteSeparator, sqliteSeparator))
+	indexRegexp        = regexp.MustCompile(fmt.Sprintf(`(?is)CREATE(?: UNIQUE)? INDEX [%v]?[\w\d-]+[%v]? ON (.*)$`, sqliteSeparator, sqliteSeparator))
+	tableRegexp        = regexp.MustCompile(fmt.Sprintf(`(?is)(CREATE TABLE [%v]?[\w\d-]+[%v]?)(?:\s*\((.*)\))?`, sqliteSeparator, sqliteSeparator))
 	separatorRegexp    = regexp.MustCompile(fmt.Sprintf("[%v]", sqliteSeparator))
-	columnsRegexp      = regexp.MustCompile(fmt.Sprintf("\\([%v]?([\\w\\d]+)[%v]?(?:,[%v]?([\\w\\d]+)[%v]){0,}\\)", sqliteSeparator, sqliteSeparator, sqliteSeparator, sqliteSeparator))
-	columnRegexp       = regexp.MustCompile(fmt.Sprintf("^[%v]?([\\w\\d]+)[%v]?\\s+([\\w\\(\\)\\d]+)(.*)$", sqliteSeparator, sqliteSeparator))
-	defaultValueRegexp = regexp.MustCompile("(?i) DEFAULT \\(?(.+)?\\)?( |COLLATE|GENERATED|$)")
+	columnsRegexp      = regexp.MustCompile(fmt.Sprintf(`[(,][%v]?(\w+)[%v]?`, sqliteSeparator, sqliteSeparator))
+	columnRegexp       = regexp.MustCompile(fmt.Sprintf(`^[%v]?([\w\d]+)[%v]?\s+([\w\(\)\d]+)(.*)$`, sqliteSeparator, sqliteSeparator))
+	defaultValueRegexp = regexp.MustCompile(`(?i) DEFAULT \(?(.+)?\)?( |COLLATE|GENERATED|$)`)
 	regRealDataType    = regexp.MustCompile(`[^\d](\d+)[^\d]?`)
 )
+
+func getAllColumns(s string) []string {
+	allMatches := columnsRegexp.FindAllStringSubmatch(s, -1)
+	columns := make([]string, 0, len(allMatches))
+	for _, matches := range allMatches {
+		if len(matches) > 1 {
+			columns = append(columns, matches[1])
+		}
+	}
+	return columns
+}
 
 type ddl struct {
 	head    string
@@ -98,15 +109,12 @@ func parseDDL(strs ...string) (*ddl, error) {
 				}
 
 				if strings.HasPrefix(fUpper, "PRIMARY KEY") {
-					matches := columnsRegexp.FindStringSubmatch(f)
-					if len(matches) > 1 {
-						for _, name := range matches[1:] {
-							for idx, column := range result.columns {
-								if column.NameValue.String == name {
-									column.PrimaryKeyValue = sql.NullBool{Bool: true, Valid: true}
-									result.columns[idx] = column
-									break
-								}
+					for _, name := range getAllColumns(f) {
+						for idx, column := range result.columns {
+							if column.NameValue.String == name {
+								column.PrimaryKeyValue = sql.NullBool{Bool: true, Valid: true}
+								result.columns[idx] = column
+								break
 							}
 						}
 					}
@@ -151,10 +159,10 @@ func parseDDL(strs ...string) (*ddl, error) {
 				}
 			}
 		} else if matches := indexRegexp.FindStringSubmatch(str); len(matches) > 0 {
-			if columns := columnsRegexp.FindStringSubmatch(matches[1]); len(columns) == 1 {
+			for _, column := range getAllColumns(matches[1]) {
 				for idx, c := range result.columns {
-					if c.NameValue.String == columns[0] {
-						c.UniqueValue = sql.NullBool{Bool: true, Valid: true}
+					if c.NameValue.String == column {
+						c.UniqueValue = sql.NullBool{Bool: strings.ToUpper(strings.Fields(str)[1]) == "UNIQUE", Valid: true}
 						result.columns[idx] = c
 					}
 				}

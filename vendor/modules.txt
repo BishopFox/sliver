@@ -279,10 +279,10 @@ github.com/fxamacker/cbor/v2
 # github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5
 ## explicit
 github.com/gen2brain/shm
-# github.com/glebarez/go-sqlite v1.21.1
+# github.com/glebarez/go-sqlite v1.21.2
 ## explicit; go 1.17
 github.com/glebarez/go-sqlite
-# github.com/glebarez/sqlite v1.8.0
+# github.com/glebarez/sqlite v1.9.0
 ## explicit; go 1.18
 github.com/glebarez/sqlite
 # github.com/go-ole/go-ole v1.2.6
