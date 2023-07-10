@@ -14,10 +14,9 @@
 //
 // [PRAGMA] statements can be specified using "_pragma":
 //
-//	sql.Open("sqlite3", "file:demo.db?_pragma=busy_timeout(10000)&_pragma=locking_mode(normal)")
+//	sql.Open("sqlite3", "file:demo.db?_pragma=busy_timeout(10000)")
 //
-// If no PRAGMAs are specified, a busy timeout of 1 minute
-// and normal locking mode are used.
+// If no PRAGMAs are specified, a busy timeout of 1 minute is set.
 //
 // Order matters:
 // busy timeout and locking mode should be the first PRAGMAs set, in that order.
@@ -54,8 +53,8 @@ func (sqlite) Open(name string) (_ driver.Conn, err error) {
 		return nil, err
 	}
 
+	var pragmas bool
 	c.txBegin = "BEGIN"
-	var pragmas []string
 	if strings.HasPrefix(name, "file:") {
 		if _, after, ok := strings.Cut(name, "?"); ok {
 			query, _ := url.ParseQuery(after)
@@ -70,14 +69,11 @@ func (sqlite) Open(name string) (_ driver.Conn, err error) {
 				return nil, fmt.Errorf("sqlite3: invalid _txlock: %s", s)
 			}
 
-			pragmas = query["_pragma"]
+			pragmas = len(query["_pragma"]) > 0
 		}
 	}
-	if len(pragmas) == 0 {
-		err := c.Conn.Exec(`
-			PRAGMA busy_timeout=60000;
-			PRAGMA locking_mode=normal;
-		`)
+	if !pragmas {
+		err := c.Conn.Exec(`PRAGMA busy_timeout=60000`)
 		if err != nil {
 			c.Close()
 			return nil, err

@@ -25,67 +25,72 @@ var (
 	Path   string // Path to load the binary from.
 )
 
-var sqlite3 struct {
+var instance struct {
 	runtime  wazero.Runtime
 	compiled wazero.CompiledModule
 	err      error
 	once     sync.Once
 }
 
-func instantiateModule() (*module, error) {
+func instantiateSQLite() (*sqlite, error) {
 	ctx := context.Background()
 
-	sqlite3.once.Do(compileModule)
-	if sqlite3.err != nil {
-		return nil, sqlite3.err
+	instance.once.Do(compileSQLite)
+	if instance.err != nil {
+		return nil, instance.err
 	}
 
 	cfg := wazero.NewModuleConfig()
 
-	mod, err := sqlite3.runtime.InstantiateModule(ctx, sqlite3.compiled, cfg)
+	mod, err := instance.runtime.InstantiateModule(ctx, instance.compiled, cfg)
 	if err != nil {
 		return nil, err
 	}
-	return newModule(mod)
+	return newSQLite(mod)
 }
 
-func compileModule() {
+func compileSQLite() {
 	ctx := context.Background()
-	sqlite3.runtime = wazero.NewRuntime(ctx)
+	instance.runtime = wazero.NewRuntime(ctx)
 
-	env := vfs.ExportHostFunctions(sqlite3.runtime.NewHostModuleBuilder("env"))
-	_, sqlite3.err = env.Instantiate(ctx)
-	if sqlite3.err != nil {
+	env := instance.runtime.NewHostModuleBuilder("env")
+	env = vfs.ExportHostFunctions(env)
+	env = exportHostFunctions(env)
+	_, instance.err = env.Instantiate(ctx)
+	if instance.err != nil {
 		return
 	}
 
 	bin := Binary
 	if bin == nil && Path != "" {
-		bin, sqlite3.err = os.ReadFile(Path)
-		if sqlite3.err != nil {
+		bin, instance.err = os.ReadFile(Path)
+		if instance.err != nil {
 			return
 		}
 	}
 	if bin == nil {
-		sqlite3.err = util.BinaryErr
+		instance.err = util.BinaryErr
 		return
 	}
 
-	sqlite3.compiled, sqlite3.err = sqlite3.runtime.CompileModule(ctx, bin)
+	instance.compiled, instance.err = instance.runtime.CompileModule(ctx, bin)
 }
 
-type module struct {
-	ctx context.Context
-	mod api.Module
-	vfs io.Closer
-	api sqliteAPI
-	arg [8]uint64
+type sqlite struct {
+	ctx    context.Context
+	mod    api.Module
+	closer io.Closer
+	api    sqliteAPI
+	stack  [8]uint64
 }
 
-func newModule(mod api.Module) (m *module, err error) {
-	m = new(module)
-	m.mod = mod
-	m.ctx, m.vfs = vfs.NewContext(context.Background())
+type sqliteKey struct{}
+
+func newSQLite(mod api.Module) (sqlt *sqlite, err error) {
+	sqlt = new(sqlite)
+	sqlt.ctx, sqlt.closer = util.NewContext(context.Background())
+	sqlt.ctx = context.WithValue(sqlt.ctx, sqliteKey{}, sqlt)
+	sqlt.mod = mod
 
 	getFun := func(name string) api.Function {
 		f := mod.ExportedFunction(name)
@@ -105,7 +110,7 @@ func newModule(mod api.Module) (m *module, err error) {
 		return util.ReadUint32(mod, uint32(g.Get()))
 	}
 
-	m.api = sqliteAPI{
+	sqlt.api = sqliteAPI{
 		free:            getFun("free"),
 		malloc:          getFun("malloc"),
 		destructor:      getVal("malloc_destructor"),
@@ -153,20 +158,45 @@ func newModule(mod api.Module) (m *module, err error) {
 		changes:         getFun("sqlite3_changes64"),
 		lastRowid:       getFun("sqlite3_last_insert_rowid"),
 		autocommit:      getFun("sqlite3_get_autocommit"),
+		anyCollation:    getFun("sqlite3_anycollseq_init"),
+		createCollation: getFun("sqlite3_create_collation_go"),
+		createFunction:  getFun("sqlite3_create_function_go"),
+		createAggregate: getFun("sqlite3_create_aggregate_function_go"),
+		createWindow:    getFun("sqlite3_create_window_function_go"),
+		aggregateCtx:    getFun("sqlite3_aggregate_context"),
+		userData:        getFun("sqlite3_user_data"),
+		setAuxData:      getFun("sqlite3_set_auxdata_go"),
+		getAuxData:      getFun("sqlite3_get_auxdata"),
+		valueType:       getFun("sqlite3_value_type"),
+		valueInteger:    getFun("sqlite3_value_int64"),
+		valueFloat:      getFun("sqlite3_value_double"),
+		valueText:       getFun("sqlite3_value_text"),
+		valueBlob:       getFun("sqlite3_value_blob"),
+		valueBytes:      getFun("sqlite3_value_bytes"),
+		resultNull:      getFun("sqlite3_result_null"),
+		resultInteger:   getFun("sqlite3_result_int64"),
+		resultFloat:     getFun("sqlite3_result_double"),
+		resultText:      getFun("sqlite3_result_text64"),
+		resultBlob:      getFun("sqlite3_result_blob64"),
+		resultZeroBlob:  getFun("sqlite3_result_zeroblob64"),
+		resultError:     getFun("sqlite3_result_error"),
+		resultErrorCode: getFun("sqlite3_result_error_code"),
+		resultErrorMem:  getFun("sqlite3_result_error_nomem"),
+		resultErrorBig:  getFun("sqlite3_result_error_toobig"),
 	}
 	if err != nil {
 		return nil, err
 	}
-	return m, nil
+	return sqlt, nil
 }
 
-func (m *module) close() error {
-	err := m.mod.Close(m.ctx)
-	m.vfs.Close()
+func (sqlt *sqlite) close() error {
+	err := sqlt.mod.Close(sqlt.ctx)
+	sqlt.closer.Close()
 	return err
 }
 
-func (m *module) error(rc uint64, handle uint32, sql ...string) error {
+func (sqlt *sqlite) error(rc uint64, handle uint32, sql ...string) error {
 	if rc == _OK {
 		return nil
 	}
@@ -177,16 +207,16 @@ func (m *module) error(rc uint64, handle uint32, sql ...string) error {
 		panic(util.OOMErr)
 	}
 
-	if r := m.call(m.api.errstr, rc); r != 0 {
-		err.str = util.ReadString(m.mod, uint32(r), _MAX_STRING)
+	if r := sqlt.call(sqlt.api.errstr, rc); r != 0 {
+		err.str = util.ReadString(sqlt.mod, uint32(r), _MAX_STRING)
 	}
 
-	if r := m.call(m.api.errmsg, uint64(handle)); r != 0 {
-		err.msg = util.ReadString(m.mod, uint32(r), _MAX_STRING)
+	if r := sqlt.call(sqlt.api.errmsg, uint64(handle)); r != 0 {
+		err.msg = util.ReadString(sqlt.mod, uint32(r), _MAX_STRING)
 	}
 
 	if sql != nil {
-		if r := m.call(m.api.erroff, uint64(handle)); r != math.MaxUint32 {
+		if r := sqlt.call(sqlt.api.erroff, uint64(handle)); r != math.MaxUint32 {
 			err.sql = sql[0][r:]
 		}
 	}
@@ -198,60 +228,60 @@ func (m *module) error(rc uint64, handle uint32, sql ...string) error {
 	return &err
 }
 
-func (m *module) call(fn api.Function, params ...uint64) uint64 {
-	copy(m.arg[:], params)
-	err := fn.CallWithStack(m.ctx, m.arg[:])
+func (sqlt *sqlite) call(fn api.Function, params ...uint64) uint64 {
+	copy(sqlt.stack[:], params)
+	err := fn.CallWithStack(sqlt.ctx, sqlt.stack[:])
 	if err != nil {
 		// The module closed or panicked; release resources.
-		m.vfs.Close()
+		sqlt.closer.Close()
 		panic(err)
 	}
-	return m.arg[0]
+	return sqlt.stack[0]
 }
 
-func (m *module) free(ptr uint32) {
+func (sqlt *sqlite) free(ptr uint32) {
 	if ptr == 0 {
 		return
 	}
-	m.call(m.api.free, uint64(ptr))
+	sqlt.call(sqlt.api.free, uint64(ptr))
 }
 
-func (m *module) new(size uint64) uint32 {
+func (sqlt *sqlite) new(size uint64) uint32 {
 	if size > _MAX_ALLOCATION_SIZE {
 		panic(util.OOMErr)
 	}
-	ptr := uint32(m.call(m.api.malloc, size))
+	ptr := uint32(sqlt.call(sqlt.api.malloc, size))
 	if ptr == 0 && size != 0 {
 		panic(util.OOMErr)
 	}
 	return ptr
 }
 
-func (m *module) newBytes(b []byte) uint32 {
+func (sqlt *sqlite) newBytes(b []byte) uint32 {
 	if b == nil {
 		return 0
 	}
-	ptr := m.new(uint64(len(b)))
-	util.WriteBytes(m.mod, ptr, b)
+	ptr := sqlt.new(uint64(len(b)))
+	util.WriteBytes(sqlt.mod, ptr, b)
 	return ptr
 }
 
-func (m *module) newString(s string) uint32 {
-	ptr := m.new(uint64(len(s) + 1))
-	util.WriteString(m.mod, ptr, s)
+func (sqlt *sqlite) newString(s string) uint32 {
+	ptr := sqlt.new(uint64(len(s) + 1))
+	util.WriteString(sqlt.mod, ptr, s)
 	return ptr
 }
 
-func (m *module) newArena(size uint64) arena {
+func (sqlt *sqlite) newArena(size uint64) arena {
 	return arena{
-		m:    m,
-		base: m.new(size),
+		sqlt: sqlt,
 		size: uint32(size),
+		base: sqlt.new(size),
 	}
 }
 
 type arena struct {
-	m    *module
+	sqlt *sqlite
 	ptrs []uint32
 	base uint32
 	next uint32
@@ -259,17 +289,17 @@ type arena struct {
 }
 
 func (a *arena) free() {
-	if a.m == nil {
+	if a.sqlt == nil {
 		return
 	}
 	a.reset()
-	a.m.free(a.base)
-	a.m = nil
+	a.sqlt.free(a.base)
+	a.sqlt = nil
 }
 
 func (a *arena) reset() {
 	for _, ptr := range a.ptrs {
-		a.m.free(ptr)
+		a.sqlt.free(ptr)
 	}
 	a.ptrs = nil
 	a.next = 0
@@ -281,7 +311,7 @@ func (a *arena) new(size uint64) uint32 {
 		a.next += uint32(size)
 		return ptr
 	}
-	ptr := a.m.new(size)
+	ptr := a.sqlt.new(size)
 	a.ptrs = append(a.ptrs, ptr)
 	return ptr
 }
@@ -291,13 +321,13 @@ func (a *arena) bytes(b []byte) uint32 {
 		return 0
 	}
 	ptr := a.new(uint64(len(b)))
-	util.WriteBytes(a.m.mod, ptr, b)
+	util.WriteBytes(a.sqlt.mod, ptr, b)
 	return ptr
 }
 
 func (a *arena) string(s string) uint32 {
 	ptr := a.new(uint64(len(s) + 1))
-	util.WriteString(a.m.mod, ptr, s)
+	util.WriteString(a.sqlt.mod, ptr, s)
 	return ptr
 }
 
@@ -317,10 +347,10 @@ type sqliteAPI struct {
 	step            api.Function
 	exec            api.Function
 	clearBindings   api.Function
-	bindNull        api.Function
 	bindCount       api.Function
 	bindIndex       api.Function
 	bindName        api.Function
+	bindNull        api.Function
 	bindInteger     api.Function
 	bindFloat       api.Function
 	bindText        api.Function
@@ -348,5 +378,30 @@ type sqliteAPI struct {
 	changes         api.Function
 	lastRowid       api.Function
 	autocommit      api.Function
+	anyCollation    api.Function
+	createCollation api.Function
+	createFunction  api.Function
+	createAggregate api.Function
+	createWindow    api.Function
+	aggregateCtx    api.Function
+	userData        api.Function
+	setAuxData      api.Function
+	getAuxData      api.Function
+	valueType       api.Function
+	valueInteger    api.Function
+	valueFloat      api.Function
+	valueText       api.Function
+	valueBlob       api.Function
+	valueBytes      api.Function
+	resultNull      api.Function
+	resultInteger   api.Function
+	resultFloat     api.Function
+	resultText      api.Function
+	resultBlob      api.Function
+	resultZeroBlob  api.Function
+	resultError     api.Function
+	resultErrorCode api.Function
+	resultErrorMem  api.Function
+	resultErrorBig  api.Function
 	destructor      uint32
 }

@@ -30,7 +30,7 @@ require (
 	github.com/miekg/dns v1.1.55
 	github.com/moloch--/asciicast v0.1.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
-	github.com/ncruces/go-sqlite3 v0.7.2
+	github.com/ncruces/go-sqlite3 v0.8.2
 	github.com/reeflective/console v0.1.6
 	github.com/reeflective/readline v1.0.8
 	github.com/rsteube/carapace v0.36.3
@@ -45,7 +45,7 @@ require (
 	golang.org/x/crypto v0.10.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/net v0.11.0
-	golang.org/x/sys v0.9.0
+	golang.org/x/sys v0.10.0
 	golang.org/x/term v0.9.0
 	golang.org/x/text v0.10.0
 	golang.zx2c4.com/wireguard v0.0.0-20220316235147-5aff28b14c24
@@ -154,7 +154,7 @@ require (
 	go4.org/mem v0.0.0-20220726221520-4f986261bf13 // indirect
 	go4.org/netipx v0.0.0-20230303233057-f1b76eb4bb35 // indirect
 	golang.org/x/mod v0.10.0 // indirect
-	golang.org/x/sync v0.2.0 // indirect
+	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
