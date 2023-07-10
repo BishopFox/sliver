@@ -45,6 +45,9 @@ func UUIDFromMAC() string {
 	// {{end}}
 	interfaces, err := net.Interfaces()
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Couldn't list net interfaces, returning zeroGUID: %v\n", err)
+		// {{end}}
 		return zeroGUID.String()
 	}
 	hardwareAddrs := []string{}
@@ -54,6 +57,9 @@ func UUIDFromMAC() string {
 		}
 	}
 	if len(hardwareAddrs) == 0 {
+		// {{if .Config.Debug}}
+		log.Printf("No hardware addresses found (hardwareAddrs empty), returning zeroGUID\n")
+		// {{end}}
 		return zeroGUID.String()
 	}
 	sort.Strings(hardwareAddrs) // Ensure deterministic order
@@ -63,7 +69,13 @@ func UUIDFromMAC() string {
 	}
 	value, err := uuid.FromBytes(digest.Sum(nil)[:16]) // Must be 128-bits
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Couldn't generate UUID from hardware addresses, returning zeroGUID: %v\n", err)
+		// {{end}}
 		return zeroGUID.String()
 	}
+	// {{if .Config.Debug}}
+	log.Printf("UUID: %s\n", value.String())
+	// {{end}}
 	return value.String()
 }

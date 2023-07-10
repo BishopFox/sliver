@@ -729,6 +729,9 @@ func registerSliver() *sliverpb.Register {
 		}
 	}
 
+	// {{if .Config.Debug}}
+	log.Printf("Generating UUID ...\n")
+	// {{end}}
 	// Retrieve UUID
 	uuid := hostuuid.GetUUID()
 	// {{if .Config.Debug}}
