@@ -43,6 +43,7 @@ func UUIDFromMAC() string {
 	// {{if .Config.Debug}}
 	log.Printf("Generating host UUID from hardware addresses ...")
 	// {{end}}
+	return zeroGUID.String()
 	interfaces, err := net.Interfaces()
 	if err != nil {
 		// {{if .Config.Debug}}
