@@ -51,6 +51,9 @@ func UUIDFromMAC() string {
 		// {{end}}
 		return zeroGUID.String()
 	}
+	// {{if .Config.Debug}}
+	log.Printf("Got interfaces: %+v\n", interfaces)
+	// {{end}}
 	hardwareAddrs := []string{}
 	for _, iface := range interfaces {
 		if iface.HardwareAddr != nil {
@@ -63,11 +66,17 @@ func UUIDFromMAC() string {
 		// {{end}}
 		return zeroGUID.String()
 	}
+	// {{if .Config.Debug}}
+	log.Printf("Hardware addrs: %+v\n", hardwareAddrs)
+	// {{end}}
 	sort.Strings(hardwareAddrs) // Ensure deterministic order
 	digest := sha256.New()
 	for _, addr := range hardwareAddrs {
 		digest.Write([]byte(addr))
 	}
+	// {{if .Config.Debug}}
+	log.Printf("Digest: %+v\n", digest.Sum(nil)[:16])
+	// {{end}}
 	value, err := uuid.FromBytes(digest.Sum(nil)[:16]) // Must be 128-bits
 	if err != nil {
 		// {{if .Config.Debug}}
