@@ -78,5 +78,5 @@ func PrintCp(cp *sliverpb.Cp, con *console.SliverConsoleClient) {
 		return
 	}
 
-	con.PrintInfof("copied '%s' to '%s' (%d bytes written)\n", cp.Src, cp.Dst, cp.BytesWritten)
+	con.PrintInfof("Copied '%s' to '%s' (%d bytes written)\n", cp.Src, cp.Dst, cp.BytesWritten)
 }
