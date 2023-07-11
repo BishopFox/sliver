@@ -51,9 +51,16 @@ func (n *node) insert(proc *commonpb.Process) {
 }
 
 func (n *node) findParent(proc *commonpb.Process) *node {
+	// Empty node
 	if n.Value == nil {
 		return nil
 	}
+	// Skip self when called from reorder
+	// otherwise things might explode, see #1340
+	if n.Value.Pid == proc.Pid {
+		return nil
+	}
+	// Found parent
 	if n.Value.Pid == proc.Ppid {
 		return n
 	}
