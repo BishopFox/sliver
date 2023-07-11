@@ -259,6 +259,7 @@ message UploadReq {
   string Encoder = 2;
   bytes Data = 3;
   bool IsIOC = 4;
+  string FileName = 5;
 
   commonpb.Request Request = 9;
 }
