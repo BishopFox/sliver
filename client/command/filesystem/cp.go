@@ -36,6 +36,11 @@ func CpCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) 
 		return
 	}
 
+	if len(args) != 2 {
+		con.PrintErrorf("Please specify a source and destination filename.\n")
+		return
+	}
+
 	src := args[0]
 	dst := args[1]
 
