@@ -488,6 +488,19 @@ func uploadHandler(data []byte, resp RPCResponse) {
 
 	// Process Upload
 	upload := &sliverpb.Upload{Path: uploadPath}
+	uploadPathInfo, err := os.Stat(uploadPath)
+	if err != nil && !os.IsNotExist(err) {
+		upload.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%v", err),
+		}
+	}
+
+	if !os.IsNotExist(err) && uploadPathInfo.IsDir() {
+		if !strings.HasSuffix(uploadPath, string(os.PathSeparator)) {
+			uploadPath += string(os.PathSeparator)
+		}
+		uploadPath += uploadReq.FileName
+	}
 
 	f, err := os.Create(uploadPath)
 	if err != nil {
