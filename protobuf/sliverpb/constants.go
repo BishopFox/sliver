@@ -280,12 +280,6 @@ const (
 	// MsgMv - Confirms the success/failure of the mv request (resp to MsgMvReq)
 	MsgMv
 
-	// MsgCpReq - Request to copy a file from one place to another
-	MsgCpReq
-	// MsgCp - Confirms the success/failure, as well as the total number of bytes
-	// written of the cp request (resp to MsgCpReq)
-	MsgCp
-
 	// MsgCurrentTokenOwnerReq - Request to query the thread token owner
 	MsgCurrentTokenOwnerReq
 	// MsgCurrentTokenOwner - Replies with the current thread owner (resp to MsfCurrentToken)
@@ -339,6 +333,12 @@ const (
 	MsgListWasmExtensions
 	MsgExecWasmExtensionReq
 	MsgExecWasmExtension
+
+	// MsgCpReq - Request to copy a file from one place to another
+	MsgCpReq
+	// MsgCp - Confirms the success/failure, as well as the total number of bytes
+	// written of the cp request (resp to MsgCpReq)
+	MsgCp
 )
 
 // Constants to replace enums
