@@ -791,6 +791,25 @@ func SliverCommands(con *client.SliverConsoleClient) console.Commands {
 			carapace.ActionValues().Usage("path to dest file (required)"),
 		)
 
+		cpCmd := &cobra.Command{
+			Use:   consts.CpStr,
+			Short: "Copy a file",
+			Long:  help.GetHelpFor([]string{consts.CpStr}),
+			Args:  cobra.ExactArgs(2),
+			Run: func(cmd *cobra.Command, args []string) {
+				filesystem.CpCmd(cmd, con, args)
+			},
+			GroupID: consts.FilesystemHelpGroup,
+		}
+		sliver.AddCommand(cpCmd)
+		Flags("", false, cpCmd, func(f *pflag.FlagSet) {
+			f.Int64P("timeout", "t", defaultTimeout, "grpc timeout in seconds")
+		})
+		carapace.Gen(cpCmd).PositionalCompletion(
+			carapace.ActionValues().Usage("path to source file (required)"),
+			carapace.ActionValues().Usage("path to dest file (required)"),
+		)
+
 		lsCmd := &cobra.Command{
 			Use:   consts.LsStr,
 			Short: "List current directory",
