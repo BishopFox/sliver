@@ -219,6 +219,21 @@ message Mv {
   commonpb.Response Response = 9;
 }
 
+message CpReq {
+  string Src = 1;
+  string Dst = 2;
+
+  commonpb.Request Request = 9;
+}
+
+message Cp {
+  string Src = 1;
+  string Dst = 2;
+  int64 BytesWritten = 3;
+
+  commonpb.Response Response = 9;
+}
+
 message MkdirReq {
   string Path = 1;
 
