@@ -12,7 +12,7 @@ fi
 # Debian-based OS (Debian, Ubuntu, etc)
 if command -v apt &> /dev/null; then
     echo "Installing dependencies using apt..."
-    DEBIAN_FRONTEND=noninteractive apt-get install -yqq \
+    DEBIAN_FRONTEND=noninteractive apt install -yqq \
         gpg curl build-essential git \
         mingw-w64 binutils-mingw-w64 g++-mingw-w64
 elif command -v yum &> /dev/null; then # Redhat-based OS (Fedora, CentOS, RHEL)
