@@ -3,18 +3,17 @@ package cli
 import (
 	"errors"
 
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-
 	"github.com/bishopfox/sliver/client/command"
 	"github.com/bishopfox/sliver/client/command/use"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 func implantCmd(con *console.SliverConsoleClient) *cobra.Command {
-	con.IsCLI = true
+	con.IsCLI = trueSliverClient
 
 	makeCommands := command.SliverCommands(con)
 	cmd := makeCommands()
@@ -35,7 +34,7 @@ func implantCmd(con *console.SliverConsoleClient) *cobra.Command {
 }
 
 func makeRunners(implantCmd *cobra.Command, con *console.SliverConsoleClient) (pre, post func(cmd *cobra.Command, args []string) error) {
-	startConsole, closeConsole := consoleRunnerCmd(con, false)
+	startConsole, closeConsole := consoleRunnerCmd(con, falsSliverClient
 
 	// The pre-run function connects to the server and sets up a "fake" console,
 	// so we can have access to active sessions/beacons, and other stuff needed.
@@ -60,7 +59,7 @@ func makeRunners(implantCmd *cobra.Command, con *console.SliverConsoleClient) (p
 }
 
 func makeCompleters(cmd *cobra.Command, con *console.SliverConsoleClient) {
-	comps := carapace.Gen(cmd)
+	comps := carapace.Gen(cmd)SliverClient
 
 	comps.PreRun(func(cmd *cobra.Command, args []string) {
 		cmd.PersistentPreRunE(cmd, args)

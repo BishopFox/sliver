@@ -23,18 +23,18 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"strings"
 
-	"github.com/spf13/cobra"
-
+	"github.com/bishopfox/sliver/client/command"
+	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/configs"
-	"github.com/bishopfox/sliver/server/console"
 	"github.com/bishopfox/sliver/server/cryptography"
-	"github.com/bishopfox/sliver/server/daemon"
+	"github.com/reeflective/team/server/commands"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -68,16 +68,130 @@ func initConsoleLogging(appDir string) *os.File {
 }
 
 func init() {
+	// Console interface, started closed-loop or not.
+	con := console.NewConsole(false)
+
+	// Teamserver/client API and commands for remote/local CLI.
+	teamserver, teamclient := newSliverTeam(con)
+	teamserverCmds := commands.Generate(teamserver, teamclient)
+
+	rootCmd.AddCommand(teamserverCmds)
+
+	// Pre-runners to self-connect
+	preRun := func(cmd *cobra.Command, _ []string) error {
+		// Ensure the server has what it needs
+		assets.Setup(false, true)
+		certs.SetupCAs()
+		certs.SetupWGKeys()
+		cryptography.AgeServerKeyPair()
+		cryptography.MinisignServerPrivateKey()
+
+		// Let our runtime teamclient be served.
+		if err := teamserver.Serve(teamclient); err != nil {
+			return err
+		}
+
+		// Start persistent implant/c2 jobs (not teamservers)
+		serverConfig := configs.GetServerConfig()
+		c2.StartPersistentJobs(serverConfig)
+
+		// Only start the teamservers when the console being
+		// ran is the console itself: the daemon command will
+		// start them on its own, since the config is different.
+		if cmd.Name() == "console" {
+			teamserver.ListenerStartPersistents() // Automatically logged errors.
+			// 	console.StartPersistentJobs(serverConfig) // Old alternative
+		}
+
+		return nil
+	}
+
+	rootCmd.PersistentPreRunE = preRun
+
+	rootCmd.AddCommand(consoleCmd(con))
+
+	// Unpack
+	unpackCmd.Flags().BoolP(forceFlagStr, "f", false, "Force unpack and overwrite")
+	rootCmd.AddCommand(unpackCmd)
+
+	// Certs
+	cmdExportCA.Flags().StringP(saveFlagStr, "s", "", "save CA to file ...")
+	cmdExportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
+	rootCmd.AddCommand(cmdExportCA)
+
+	cmdImportCA.Flags().StringP(loadFlagStr, "l", "", "load CA from file ...")
+	cmdImportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
+	rootCmd.AddCommand(cmdImportCA)
+
+	// Builder
+	rootCmd.AddCommand(initBuilderCmd())
+
+	// Version
+	rootCmd.AddCommand(versionCmd)
+
+	// Completions
+	comps := carapace.Gen(rootCmd)
+	comps.PreRun(func(cmd *cobra.Command, args []string) {
+		preRun(cmd, args)
+	})
+}
+
+var rootCmd = &cobra.Command{
+	Use:   "sliver-server",
+	Short: "",
+	Long:  ``,
+	// Run: func(cmd *cobra.Command, args []string) {
+	// 	// Root command starts the server normally
+	//
+	// 	appDir := assets.GetRootAppDir()
+	// 	logFile := initConsoleLogging(appDir)
+	// 	defer logFile.Close()
+	//
+	// 	defer func() {
+	// 		if r := recover(); r != nil {
+	// 			log.Printf("panic:\n%s", debug.Stack())
+	// 			fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
+	// 			os.Exit(99)
+	// 		}
+	// 	}()
+	//
+	// 	assets.Setup(false, true)
+	// 	certs.SetupCAs()
+	// 	certs.SetupWGKeys()
+	// 	cryptography.AgeServerKeyPair()
+	// 	cryptography.MinisignServerPrivateKey()
+	//
+	// 	serverConfig := configs.GetServerConfig()
+	// 	c2.StartPersistentJobs(serverConfig)
+	// 	console.StartPersistentJobs(serverConfig)
+	// 	if serverConfig.DaemonMode {
+	// 		daemon.Start(daemon.BlankHost, daemon.BlankPort)
+	// 	} else {
+	// 		os.Args = os.Args[:1] // Hide cli from grumble console
+	// 		console.Start()
+	// 	}
+	// },
+}
+
+// Execute - Execute root command
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+func initAlt() {
 	// Unpack
 	unpackCmd.Flags().BoolP(forceFlagStr, "f", false, "Force unpack and overwrite")
 	rootCmd.AddCommand(unpackCmd)
 
 	// Operator
-	operatorCmd.Flags().StringP(nameFlagStr, "n", "", "operator name")
-	operatorCmd.Flags().StringP(lhostFlagStr, "l", "", "multiplayer listener host")
-	operatorCmd.Flags().Uint16P(lportFlagStr, "p", uint16(31337), "multiplayer listener port")
-	operatorCmd.Flags().StringP(saveFlagStr, "s", "", "save file to ...")
-	rootCmd.AddCommand(operatorCmd)
+	// operatorCmd.Flags().StringP(nameFlagStr, "n", "", "operator name")
+	// operatorCmd.Flags().StringP(lhostFlagStr, "l", "", "multiplayer listener host")
+	// operatorCmd.Flags().Uint16P(lportFlagStr, "p", uint16(31337), "multiplayer listener port")
+	// operatorCmd.Flags().StringP(saveFlagStr, "s", "", "save file to ...")
+	// rootCmd.AddCommand(operatorCmd)
 
 	// Certs
 	cmdExportCA.Flags().StringP(saveFlagStr, "s", "", "save CA to file ...")
@@ -89,10 +203,10 @@ func init() {
 	rootCmd.AddCommand(cmdImportCA)
 
 	// Daemon
-	daemonCmd.Flags().StringP(lhostFlagStr, "l", daemon.BlankHost, "multiplayer listener host")
-	daemonCmd.Flags().Uint16P(lportFlagStr, "p", daemon.BlankPort, "multiplayer listener port")
-	daemonCmd.Flags().BoolP(forceFlagStr, "f", false, "force unpack and overwrite static assets")
-	rootCmd.AddCommand(daemonCmd)
+	// daemonCmd.Flags().StringP(lhostFlagStr, "l", daemon.BlankHost, "multiplayer listener host")
+	// daemonCmd.Flags().Uint16P(lportFlagStr, "p", daemon.BlankPort, "multiplayer listener port")
+	// daemonCmd.Flags().BoolP(forceFlagStr, "f", false, "force unpack and overwrite static assets")
+	// rootCmd.AddCommand(daemonCmd)
 
 	// Builder
 	rootCmd.AddCommand(initBuilderCmd())
@@ -101,47 +215,17 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 }
 
-var rootCmd = &cobra.Command{
-	Use:   "sliver-server",
-	Short: "",
-	Long:  ``,
-	Run: func(cmd *cobra.Command, args []string) {
-		// Root command starts the server normally
-
-		appDir := assets.GetRootAppDir()
-		logFile := initConsoleLogging(appDir)
-		defer logFile.Close()
-
-		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("panic:\n%s", debug.Stack())
-				fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
-				os.Exit(99)
-			}
-		}()
-
-		assets.Setup(false, true)
-		certs.SetupCAs()
-		certs.SetupWGKeys()
-		cryptography.AgeServerKeyPair()
-		cryptography.MinisignServerPrivateKey()
-
-		serverConfig := configs.GetServerConfig()
-		c2.StartPersistentJobs(serverConfig)
-		console.StartPersistentJobs(serverConfig)
-		if serverConfig.DaemonMode {
-			daemon.Start(daemon.BlankHost, daemon.BlankPort)
-		} else {
-			os.Args = os.Args[:1] // Hide cli from grumble console
-			console.Start()
-		}
-	},
-}
-
-// Execute - Execute root command
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+// consoleCmd generates the console with required pre/post runners
+func consoleCmd(con *console.SliverClient) *cobra.Command {
+	consoleCmd := &cobra.Command{
+		Use:   "console",
+		Short: "Start the sliver client console",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return console.StartClient(con, con.Rpc, command.ServerCommands(con, nil), command.SliverCommands(con), true)
+		},
 	}
+
+	// consoleCmd.RunE, consoleCmd.PersistentPostRunE = consoleRunnerCmd(con, true)
+
+	return consoleCmd
 }

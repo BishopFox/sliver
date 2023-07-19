@@ -32,7 +32,6 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	clienttransport "github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/transport"
 	"google.golang.org/grpc"
@@ -56,13 +55,13 @@ func Start() {
 		return
 	}
 	defer conn.Close()
-	localRPC := rpcpb.NewSliverRPCClient(conn)
+	// localRPC := rpcpb.NewSliverRPCClient(conn)
 	if err := configs.CheckHTTPC2ConfigErrors(); err != nil {
 		fmt.Printf(Warn+"Error in HTTP C2 config: %s\n", err)
 	}
 
 	con := console.NewConsole(false)
-	console.StartClient(con, localRPC, command.ServerCommands(con, serverOnlyCmds), command.SliverCommands(con), true)
+	console.StartClient(con, command.ServerCommands(con, serverOnlyCmds), command.SliverCommands(con), true)
 
 	con.App.Start()
 }

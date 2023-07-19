@@ -24,11 +24,11 @@ import (
 	"os"
 	"path"
 
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/version"
+	"github.com/reeflective/team/client/commands"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -37,7 +37,7 @@ const (
 
 var sliverServerVersion = fmt.Sprintf("v%s", version.FullVersion())
 
-// Initialize logging
+// Initialize logging.
 func initLogging(appDir string) *os.File {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	logFile, err := os.OpenFile(path.Join(appDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o600)
@@ -49,18 +49,25 @@ func initLogging(appDir string) *os.File {
 }
 
 func init() {
-	rootCmd.TraverseChildren = true
-
 	// Create the console client, without any RPC or commands bound to it yet.
 	// This created before anything so that multiple commands can make use of
 	// the same underlying command/run infrastructure.
 	con := console.NewConsole(false)
 
-	// Import
-	rootCmd.AddCommand(importCmd())
+	// Teamclient API and commands for remote CLI.
+	teamclient := newSliverTeam(con)
+	teamclientCmds := commands.Generate(teamclient)
+
+	// rootCmd.AddCommand(teamclientCmds)
 
 	// Version
 	rootCmd.AddCommand(cmdVersion)
+
+	preRun := func(_ *cobra.Command, _ []string) error {
+		return teamclient.Connect()
+	}
+
+	rootCmd.PersistentPreRunE = preRun
 
 	// Client console.
 	// All commands and RPC connection are generated WITHIN the command RunE():
@@ -75,20 +82,21 @@ func init() {
 	// command completion/filtering purposes.
 	rootCmd.AddCommand(implantCmd(con))
 
-	// No subcommand invoked means starting the console.
-	rootCmd.RunE, rootCmd.PostRunE = consoleRunnerCmd(con, true)
-
 	// Completions
-	carapace.Gen(rootCmd)
+	comps := carapace.Gen(rootCmd)
+	comps.PreRun(func(cmd *cobra.Command, args []string) {
+		preRun(cmd, args)
+	})
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "sliver-client",
-	Short: "",
-	Long:  ``,
+	Use:              "sliver-client",
+	Short:            "Client-only Sliver C2 management",
+	Long:             ``,
+	TraverseChildren: true,
 }
 
-// Execute - Execute root command
+// Execute - Execute root command.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
