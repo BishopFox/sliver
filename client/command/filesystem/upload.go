@@ -42,8 +42,13 @@ func UploadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 		return
 	}
 
+	remotePath := ""
+
 	localPath := args[0]
-	remotePath := args[1]
+	if len(args) > 1 {
+		remotePath = args[1]
+	}
+
 	// localPath := ctx.Args.String("local-path")
 	// remotePath := ctx.Args.String("remote-path")
 	isIOC, _ := cmd.Flags().GetBool("ioc")
@@ -59,11 +64,12 @@ func UploadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	fileName := filepath.Base(src)
 
 	if remotePath == "" {
-		fileName := filepath.Base(src)
 		remotePath = fileName
 	}
+
 	dst := remotePath
 
 	fileBuf, err := ioutil.ReadFile(src)
@@ -76,11 +82,12 @@ func UploadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("%s -> %s", src, dst), ctrl)
 	upload, err := con.Rpc.Upload(context.Background(), &sliverpb.UploadReq{
-		Request: con.ActiveTarget.Request(cmd),
-		Path:    dst,
-		Data:    uploadGzip,
-		Encoder: "gzip",
-		IsIOC:   isIOC,
+		Request:  con.ActiveTarget.Request(cmd),
+		Path:     dst,
+		Data:     uploadGzip,
+		Encoder:  "gzip",
+		IsIOC:    isIOC,
+		FileName: fileName,
 	})
 	ctrl <- true
 	<-ctrl
