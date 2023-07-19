@@ -31,7 +31,7 @@ import (
 )
 
 // WGPortFwdRmCmd - Remove a WireGuard port forward
-func WGPortFwdRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func WGPortFwdRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -67,7 +67,7 @@ func WGPortFwdRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 }
 
 // PortfwdIDCompleter completes IDs of WireGuard remote portforwarders
-func PortfwdIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+func PortfwdIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
 		results := make([]string, 0)
 

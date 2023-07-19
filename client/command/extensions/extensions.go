@@ -35,7 +35,7 @@ import (
 )
 
 // ExtensionsCmd - List information about installed extensions
-func ExtensionsCmd(cmd *cobra.Command, con *console.SliverConsoleClient) {
+func ExtensionsCmd(cmd *cobra.Command, con *console.SliverClient) {
 	if 0 < len(getInstalledManifests()) {
 		PrintExtensions(con)
 	} else {
@@ -44,7 +44,7 @@ func ExtensionsCmd(cmd *cobra.Command, con *console.SliverConsoleClient) {
 }
 
 // PrintExtensions - Print a list of loaded extensions
-func PrintExtensions(con *console.SliverConsoleClient) {
+func PrintExtensions(con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
@@ -115,7 +115,7 @@ func getInstalledManifests() map[string]*ExtensionManifest {
 }
 
 // ExtensionsCommandNameCompleter - Completer for installed extensions command names
-func ExtensionsCommandNameCompleter(con *console.SliverConsoleClient) carapace.Action {
+func ExtensionsCommandNameCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		installedManifests := getInstalledManifests()
 		results := []string{}

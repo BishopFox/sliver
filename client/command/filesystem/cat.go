@@ -38,7 +38,7 @@ import (
 )
 
 // CatCmd - Display the contents of a remote file
-func CatCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CatCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -81,7 +81,7 @@ func CatCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string)
 }
 
 // PrintCat - Print the download to stdout
-func PrintCat(download *sliverpb.Download, cmd *cobra.Command, con *console.SliverConsoleClient) {
+func PrintCat(download *sliverpb.Download, cmd *cobra.Command, con *console.SliverClient) {
 	var (
 		lootDownload bool = true
 		err          error

@@ -11,7 +11,7 @@ import (
 )
 
 // PingCmd - Send a round trip C2 message to an implant (does not use ICMP)
-func PingCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func PingCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

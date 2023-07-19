@@ -30,7 +30,7 @@ import (
 	"github.com/bishopfox/sliver/client/overlord"
 )
 
-func CursedCookiesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CursedCookiesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	curse := selectCursedProcess(con)
 	if curse == nil {
 		return

@@ -27,7 +27,7 @@ import (
 )
 
 // ProfilesNewCmd - Create a new implant profile
-func ProfilesNewCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ProfilesNewCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var name string
 	if len(args) > 0 {
 		name = args[0]
@@ -50,7 +50,7 @@ func ProfilesNewCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 }
 
 // ProfilesNewBeaconCmd - Create a new beacon profile
-func ProfilesNewBeaconCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ProfilesNewBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var name string
 	if len(args) > 0 {
 		name = args[0]

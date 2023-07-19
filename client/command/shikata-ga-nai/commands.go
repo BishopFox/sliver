@@ -12,7 +12,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	shikataGaNaiCmd := &cobra.Command{
 		Use:   consts.ShikataGaNai,
 		Short: "Polymorphic binary shellcode encoder (ノ ゜Д゜)ノ ︵ 仕方がない",

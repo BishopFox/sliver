@@ -11,7 +11,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	hostsCmd := &cobra.Command{
 		Use:   consts.HostsStr,
 		Short: "Manage the database of hosts",

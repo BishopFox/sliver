@@ -32,7 +32,7 @@ import (
 )
 
 // WGSocksListCmd - List WireGuard SOCKS proxies
-func WGSocksListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func WGSocksListCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -74,7 +74,7 @@ func WGSocksListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 }
 
 // SocksIDCompleter IDs of WireGuard socks servers.
-func SocksIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+func SocksIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
 		results := make([]string, 0)
 

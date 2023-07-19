@@ -13,7 +13,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	dllhijackCmd := &cobra.Command{
 		Use:         consts.DLLHijackStr,
 		Short:       "Plant a DLL for a hijack scenario",

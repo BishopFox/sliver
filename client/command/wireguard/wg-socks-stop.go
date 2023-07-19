@@ -29,7 +29,7 @@ import (
 )
 
 // WGSocksStopCmd - Stop a WireGuard SOCKS proxy
-func WGSocksStopCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func WGSocksStopCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSession()
 	if session == nil {
 		return

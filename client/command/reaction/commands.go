@@ -12,7 +12,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	reactionCmd := &cobra.Command{
 		Use:   consts.ReactionStr,
 		Short: "Manage automatic reactions to events",

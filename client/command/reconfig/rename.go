@@ -29,7 +29,7 @@ import (
 )
 
 // RecnameCmd - Reconfigure metadata about a sessions
-func RenameCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func RenameCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return

@@ -29,7 +29,7 @@ import (
 )
 
 // SocksStopCmd - Remove an existing tunneled port forward
-func SocksStopCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func SocksStopCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	socksID, _ := cmd.Flags().GetUint64("id")
 	if socksID < 1 {
 		con.PrintErrorf("Must specify a valid socks5 id\n")

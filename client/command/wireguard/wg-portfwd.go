@@ -30,7 +30,7 @@ import (
 )
 
 // WGPortFwdListCmd - List WireGuard port forwards
-func WGPortFwdListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func WGPortFwdListCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

@@ -12,7 +12,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	tasksCmd := &cobra.Command{
 		Use:   consts.TasksStr,
 		Short: "Beacon task management",

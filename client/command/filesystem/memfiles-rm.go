@@ -30,7 +30,7 @@ import (
 )
 
 // MemfilesRmCmd - Remove a memfile
-func MemfilesRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func MemfilesRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -68,7 +68,7 @@ func MemfilesRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 }
 
 // PrintRmMemfile - Remove a memfile
-func PrintRmMemfile(memfilesList *sliverpb.MemfilesRm, con *console.SliverConsoleClient) {
+func PrintRmMemfile(memfilesList *sliverpb.MemfilesRm, con *console.SliverClient) {
 	if memfilesList.Response != nil && memfilesList.Response.Err != "" {
 		con.PrintErrorf("%s\n", memfilesList.Response.Err)
 		return

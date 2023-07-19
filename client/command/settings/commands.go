@@ -10,7 +10,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	settingsCmd := &cobra.Command{
 		Use:   consts.SettingsStr,
 		Short: "Manage client settings",

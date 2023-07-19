@@ -33,7 +33,7 @@ import (
 )
 
 // TasksCmd - Manage beacon tasks
-func TasksCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func TasksCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	beacon := con.ActiveTarget.GetBeaconInteractive()
 	if beacon == nil {
 		return
@@ -47,7 +47,7 @@ func TasksCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 }
 
 // PrintBeaconTasks - Print beacon tasks
-func PrintBeaconTasks(tasks []*clientpb.BeaconTask, cmd *cobra.Command, con *console.SliverConsoleClient) {
+func PrintBeaconTasks(tasks []*clientpb.BeaconTask, cmd *cobra.Command, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{

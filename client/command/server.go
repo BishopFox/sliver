@@ -21,9 +21,6 @@ package command
 import (
 	"os"
 
-	"github.com/reeflective/console"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/armory"
 	"github.com/bishopfox/sliver/client/command/beacons"
@@ -51,11 +48,13 @@ import (
 	"github.com/bishopfox/sliver/client/command/wireguard"
 	client "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/reeflective/console"
+	"github.com/spf13/cobra"
 )
 
 // ServerCommands returns all commands bound to the server menu, optionally
 // accepting a function returning a list of additional (admin) commands.
-func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.Command) console.Commands {
+func ServerCommands(con *client.SliverClient, serverCmds func() *cobra.Command) console.Commands {
 	serverCommands := func() *cobra.Command {
 		server := &cobra.Command{
 			Short: "Server commands",
@@ -65,8 +64,8 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 		}
 
 		if serverCmds != nil {
-			server.AddGroup(&cobra.Group{ID: consts.MultiplayerHelpGroup, Title: consts.MultiplayerHelpGroup})
-			server.AddCommand(serverCmds()...)
+			server.AddGroup(&cobra.Group{ID: consts.GenericHelpGroup, Title: consts.GenericHelpGroup})
+			server.AddCommand(serverCmds())
 		}
 
 		// [ Bind commands ] --------------------------------------------------------

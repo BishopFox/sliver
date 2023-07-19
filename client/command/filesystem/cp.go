@@ -30,7 +30,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-func CpCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) (err error) {
+func CpCmd(cmd *cobra.Command, con *console.SliverClient, args []string) (err error) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -72,7 +72,7 @@ func CpCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) 
 	return
 }
 
-func PrintCp(cp *sliverpb.Cp, con *console.SliverConsoleClient) {
+func PrintCp(cp *sliverpb.Cp, con *console.SliverClient) {
 	if cp.Response != nil && cp.Response.Err != "" {
 		con.PrintErrorf("%s\n", cp.Response.Err)
 		return

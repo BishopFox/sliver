@@ -25,7 +25,7 @@ import (
 )
 
 // BeaconsRmCmd - Display/interact with beacons
-func BeaconsRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func BeaconsRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	beacon, err := SelectBeacon(con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

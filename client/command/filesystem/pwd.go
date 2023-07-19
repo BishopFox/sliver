@@ -31,7 +31,7 @@ import (
 )
 
 // PwdCmd - Print the remote working directory
-func PwdCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func PwdCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -59,7 +59,7 @@ func PwdCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string)
 }
 
 // PrintPwd - Print the remote working directory
-func PrintPwd(pwd *sliverpb.Pwd, con *console.SliverConsoleClient) {
+func PrintPwd(pwd *sliverpb.Pwd, con *console.SliverClient) {
 	if pwd.Response != nil && pwd.Response.Err != "" {
 		con.PrintErrorf("%s\n", pwd.Response.Err)
 		return

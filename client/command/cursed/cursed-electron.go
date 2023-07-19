@@ -38,7 +38,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-func CursedElectronCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CursedElectronCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -68,7 +68,7 @@ func CursedElectronCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 	con.PrintInfof("Found %d debug targets, good hunting!\n", len(targets))
 }
 
-func avadaKedavraElectron(electronExe string, session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient, cargs []string) *core.CursedProcess {
+func avadaKedavraElectron(electronExe string, session *clientpb.Session, cmd *cobra.Command, con *console.SliverClient, cargs []string) *core.CursedProcess {
 	exists, err := checkElectronPath(electronExe, session, cmd, con)
 	if err != nil {
 		con.PrintErrorf("%s", err)
@@ -119,7 +119,7 @@ func avadaKedavraElectron(electronExe string, session *clientpb.Session, cmd *co
 	return curse
 }
 
-func checkElectronPath(electronExe string, session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient) (bool, error) {
+func checkElectronPath(electronExe string, session *clientpb.Session, cmd *cobra.Command, con *console.SliverClient) (bool, error) {
 	ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
 		Request: con.ActiveTarget.Request(cmd),
 		Path:    electronExe,
@@ -130,7 +130,7 @@ func checkElectronPath(electronExe string, session *clientpb.Session, cmd *cobra
 	return ls.GetExists(), nil
 }
 
-func checkElectronProcess(electronExe string, session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient) (*commonpb.Process, error) {
+func checkElectronProcess(electronExe string, session *clientpb.Session, cmd *cobra.Command, con *console.SliverClient) (*commonpb.Process, error) {
 	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
 		Request: con.ActiveTarget.Request(cmd),
 	})
@@ -148,7 +148,7 @@ func checkElectronProcess(electronExe string, session *clientpb.Session, cmd *co
 	return nil, nil
 }
 
-func startCursedElectronProcess(electronExe string, session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient, cargs []string) (*core.CursedProcess, error) {
+func startCursedElectronProcess(electronExe string, session *clientpb.Session, cmd *cobra.Command, con *console.SliverClient, cargs []string) (*core.CursedProcess, error) {
 	con.PrintInfof("Starting '%s' ... ", path.Base(electronExe))
 	debugPort := getRemoteDebuggerPort(cmd)
 	args := []string{

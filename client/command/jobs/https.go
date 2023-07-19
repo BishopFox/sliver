@@ -32,7 +32,7 @@ import (
 )
 
 // HTTPSListenerCmd - Start an HTTPS listener
-func HTTPSListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func HTTPSListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	domain, _ := cmd.Flags().GetString("domain")
 	lhost, _ := cmd.Flags().GetString("lhost")
 	lport, _ := cmd.Flags().GetUint32("lport")

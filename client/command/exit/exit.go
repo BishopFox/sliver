@@ -31,7 +31,7 @@ import (
 )
 
 // ExitCmd - Exit the console
-func ExitCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ExitCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	fmt.Println("Exiting...")
 	if con.IsServer {
 		sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
@@ -56,7 +56,7 @@ func ExitCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string
 }
 
 // Commands returns the `exit` command.
-func Command(con *console.SliverConsoleClient) []*cobra.Command {
+func Command(con *console.SliverClient) []*cobra.Command {
 	return []*cobra.Command{{
 		Use:   "exit",
 		Short: "Exit the program",

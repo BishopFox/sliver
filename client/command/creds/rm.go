@@ -28,7 +28,7 @@ import (
 )
 
 // CredsCmd - Add new credentials
-func CredsRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CredsRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var id string
 	if len(args) > 0 {
 		id = args[0]

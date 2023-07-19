@@ -36,7 +36,7 @@ import (
 )
 
 // CrackWordlistsCmd - Manage GPU cracking stations
-func CrackWordlistsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CrackWordlistsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	wordlists, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_WORDLIST})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -56,7 +56,7 @@ func CrackWordlistsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 }
 
 // CrackRulesCmd - Manage GPU cracking stations
-func CrackRulesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CrackRulesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	rules, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_RULES})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -76,7 +76,7 @@ func CrackRulesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 }
 
 // CrackHcstat2Cmd - Manage GPU cracking stations
-func CrackHcstat2Cmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CrackHcstat2Cmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	hcstat2, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_MARKOV_HCSTAT2})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -95,7 +95,7 @@ func CrackHcstat2Cmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 	}
 }
 
-func PrintCrackFiles(crackFiles *clientpb.CrackFiles, con *console.SliverConsoleClient) {
+func PrintCrackFiles(crackFiles *clientpb.CrackFiles, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{"Name", "Size"})
@@ -105,7 +105,7 @@ func PrintCrackFiles(crackFiles *clientpb.CrackFiles, con *console.SliverConsole
 	con.Printf("%s\n", tw.Render())
 }
 
-func PrintCrackFilesByType(crackFiles *clientpb.CrackFiles, con *console.SliverConsoleClient) {
+func PrintCrackFilesByType(crackFiles *clientpb.CrackFiles, con *console.SliverClient) {
 	wordlistTable := table.NewWriter()
 	wordlistTable.SetTitle(console.Bold + "Wordlists" + console.Normal)
 	wordlistTable.SetStyle(settings.GetTableStyle(con))
@@ -163,7 +163,7 @@ func PrintCrackFilesByType(crackFiles *clientpb.CrackFiles, con *console.SliverC
 }
 
 // CrackWordlistsAddCmd - Manage GPU cracking stations
-func CrackWordlistsAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CrackWordlistsAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name, _ := cmd.Flags().GetString("name")
 
 	var localPath string
@@ -207,7 +207,7 @@ func CrackWordlistsAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, 
 }
 
 // CrackRulesAddCmd - add a rules file
-func CrackRulesAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CrackRulesAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name, _ := cmd.Flags().GetString("name")
 
 	var localPath string
@@ -251,7 +251,7 @@ func CrackRulesAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 }
 
 // CrackHcstat2AddCmd - add a hcstat2 file
-func CrackHcstat2AddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CrackHcstat2AddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name, _ := cmd.Flags().GetString("name")
 
 	var localPath string
@@ -294,7 +294,7 @@ func CrackHcstat2AddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 	addCrackFile(hcstat2, crackFile, con)
 }
 
-func addCrackFile(localFile *os.File, crackFile *clientpb.CrackFile, con *console.SliverConsoleClient) {
+func addCrackFile(localFile *os.File, crackFile *clientpb.CrackFile, con *console.SliverClient) {
 	digest := sha256.New()
 	wordlistReader := io.TeeReader(localFile, digest)
 
@@ -403,7 +403,7 @@ func readChunkAt(tmpFile *os.File, offset int64, chunkSize int64) ([]byte, error
 }
 
 // CrackWordlistsRmCmd - Manage GPU cracking stations
-func CrackWordlistsRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CrackWordlistsRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var wordlistName string
 	if len(args) > 0 {
 		wordlistName = args[0]
@@ -437,7 +437,7 @@ func CrackWordlistsRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, a
 }
 
 // CrackRulesRmCmd - Manage GPU cracking stations
-func CrackRulesRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CrackRulesRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var rulesName string
 	if len(args) > 0 {
 		rulesName = args[0]
@@ -471,7 +471,7 @@ func CrackRulesRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 }
 
 // CrackHcstat2RmCmd - remove a hcstat2 file
-func CrackHcstat2RmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CrackHcstat2RmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var hcstat2Name string
 	if len(args) > 0 {
 		hcstat2Name = args[0]

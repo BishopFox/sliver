@@ -34,7 +34,7 @@ import (
 )
 
 // StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant
-func RportFwdListenersCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func RportFwdListenersCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -50,7 +50,7 @@ func RportFwdListenersCmd(cmd *cobra.Command, con *console.SliverConsoleClient, 
 	PrintRportFwdListeners(rportfwdListeners, cmd.Flags(), con)
 }
 
-func PrintRportFwdListeners(rportfwdListeners *sliverpb.RportFwdListeners, flags *pflag.FlagSet, con *console.SliverConsoleClient) {
+func PrintRportFwdListeners(rportfwdListeners *sliverpb.RportFwdListeners, flags *pflag.FlagSet, con *console.SliverClient) {
 	if rportfwdListeners.Response != nil && rportfwdListeners.Response.Err != "" {
 		con.PrintErrorf("%s\n", rportfwdListeners.Response.Err)
 		return
@@ -79,7 +79,7 @@ func PrintRportFwdListeners(rportfwdListeners *sliverpb.RportFwdListeners, flags
 }
 
 // PortfwdIDCompleter completes IDs of remote portforwarders
-func PortfwdIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+func PortfwdIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
 		results := make([]string, 0)
 

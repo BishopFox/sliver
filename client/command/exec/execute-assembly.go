@@ -34,7 +34,7 @@ import (
 )
 
 // ExecuteAssemblyCmd - Execute a .NET assembly in-memory
-func ExecuteAssemblyCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ExecuteAssemblyCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -132,7 +132,7 @@ func ExecuteAssemblyCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 	}
 }
 
-func HandleExecuteAssemblyResponse(execAssembly *sliverpb.ExecuteAssembly, assemblyPath string, hostName string, cmd *cobra.Command, con *console.SliverConsoleClient) {
+func HandleExecuteAssemblyResponse(execAssembly *sliverpb.ExecuteAssembly, assemblyPath string, hostName string, cmd *cobra.Command, con *console.SliverClient) {
 	saveLoot, _ := cmd.Flags().GetBool("loot")
 	lootName, _ := cmd.Flags().GetString("name")
 

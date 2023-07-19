@@ -29,7 +29,7 @@ import (
 )
 
 // MemfilesAddCmd - Add memfile
-func MemfilesAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func MemfilesAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -58,7 +58,7 @@ func MemfilesAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 }
 
 // PrintAddMemfile - Print the memfiles response
-func PrintAddMemfile(memfilesAdd *sliverpb.MemfilesAdd, con *console.SliverConsoleClient) {
+func PrintAddMemfile(memfilesAdd *sliverpb.MemfilesAdd, con *console.SliverClient) {
 	if memfilesAdd.Response != nil && memfilesAdd.Response.Err != "" {
 		con.PrintErrorf("%s\n", memfilesAdd.Response.Err)
 		return

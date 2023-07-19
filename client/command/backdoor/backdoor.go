@@ -28,7 +28,7 @@ import (
 )
 
 // BackdoorCmd - Command to inject implant code into an existing binary
-func BackdoorCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func BackdoorCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

@@ -39,7 +39,7 @@ const (
 )
 
 // WebsitesCmd - Manage websites
-func WebsitesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func WebsitesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if len(args) > 0 {
 		websiteName := args[0]
 		ListWebsiteContent(websiteName, con)
@@ -49,7 +49,7 @@ func WebsitesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 }
 
 // ListWebsites - Display a list of websites
-func ListWebsites(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ListWebsites(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	websites, err := con.Rpc.Websites(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("Failed to list websites %s", err)
@@ -67,7 +67,7 @@ func ListWebsites(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 }
 
 // ListWebsiteContent - List the static contents of a website
-func ListWebsiteContent(websiteName string, con *console.SliverConsoleClient) {
+func ListWebsiteContent(websiteName string, con *console.SliverClient) {
 	website, err := con.Rpc.Website(context.Background(), &clientpb.Website{
 		Name: websiteName,
 	})
@@ -83,7 +83,7 @@ func ListWebsiteContent(websiteName string, con *console.SliverConsoleClient) {
 }
 
 // PrintWebsite - Print a website and its contents, paths, etc.
-func PrintWebsite(web *clientpb.Website, con *console.SliverConsoleClient) {
+func PrintWebsite(web *clientpb.Website, con *console.SliverClient) {
 	con.Println(console.Clearln + console.Info + web.Name)
 	con.Println()
 	tw := table.NewWriter()
@@ -111,7 +111,7 @@ func PrintWebsite(web *clientpb.Website, con *console.SliverConsoleClient) {
 }
 
 // WebsiteNameCompleter completes the names of available websites.
-func WebsiteNameCompleter(con *console.SliverConsoleClient) carapace.Action {
+func WebsiteNameCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		results := make([]string, 0)
 

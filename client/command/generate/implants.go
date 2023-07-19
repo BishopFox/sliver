@@ -44,7 +44,7 @@ type ImplantBuildFilter struct {
 }
 
 // ImplantsCmd - Displays archived implant builds
-func ImplantsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ImplantsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -60,7 +60,7 @@ func ImplantsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 }
 
 // PrintImplantBuilds - Print the implant builds on the server
-func PrintImplantBuilds(configs map[string]*clientpb.ImplantConfig, filters ImplantBuildFilter, con *console.SliverConsoleClient) {
+func PrintImplantBuilds(configs map[string]*clientpb.ImplantConfig, filters ImplantBuildFilter, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
@@ -124,7 +124,7 @@ func PrintImplantBuilds(configs map[string]*clientpb.ImplantConfig, filters Impl
 }
 
 // ImplantBuildNameCompleter - Completer for implant build names
-func ImplantBuildNameCompleter(con *console.SliverConsoleClient) carapace.Action {
+func ImplantBuildNameCompleter(con *console.SliverClient) carapace.Action {
 	comps := func(ctx carapace.Context) carapace.Action {
 		var action carapace.Action
 
@@ -194,7 +194,7 @@ func ImplantBuildNameCompleter(con *console.SliverConsoleClient) carapace.Action
 }
 
 // ImplantBuildByName - Get an implant build by name
-func ImplantBuildByName(name string, con *console.SliverConsoleClient) *clientpb.ImplantConfig {
+func ImplantBuildByName(name string, con *console.SliverClient) *clientpb.ImplantConfig {
 	builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		return nil

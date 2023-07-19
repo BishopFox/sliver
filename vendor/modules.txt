@@ -489,7 +489,7 @@ github.com/moloch--/asciicast
 # github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 ## explicit; go 1.17
 github.com/moloch--/memmod
-# github.com/ncruces/go-sqlite3 v0.7.2
+# github.com/ncruces/go-sqlite3 v0.8.1
 ## explicit; go 1.19
 github.com/ncruces/go-sqlite3
 github.com/ncruces/go-sqlite3/driver
@@ -512,6 +512,9 @@ github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
+# github.com/psanford/memfs v0.0.0-20230130182539-4dbf7e3e865e
+## explicit; go 1.16
+github.com/psanford/memfs
 # github.com/reeflective/console v0.1.6
 ## explicit; go 1.20
 github.com/reeflective/console
@@ -531,13 +534,32 @@ github.com/reeflective/readline/internal/macro
 github.com/reeflective/readline/internal/strutil
 github.com/reeflective/readline/internal/term
 github.com/reeflective/readline/internal/ui
+# github.com/reeflective/team v0.0.0-20230717232729-e28a155bca96 => /home/user/code/github.com/reeflective/team
+## explicit; go 1.20
+github.com/reeflective/team
+github.com/reeflective/team/client
+github.com/reeflective/team/client/commands
+github.com/reeflective/team/internal/assets
+github.com/reeflective/team/internal/certs
+github.com/reeflective/team/internal/command
+github.com/reeflective/team/internal/db
+github.com/reeflective/team/internal/db/wasmsqlite
+github.com/reeflective/team/internal/log
+github.com/reeflective/team/internal/systemd
+github.com/reeflective/team/internal/version
+github.com/reeflective/team/server
+github.com/reeflective/team/server/commands
+github.com/reeflective/team/transports/grpc/client
+github.com/reeflective/team/transports/grpc/common
+github.com/reeflective/team/transports/grpc/proto
+github.com/reeflective/team/transports/grpc/server
 # github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
 ## explicit; go 1.12
 github.com/remyoudompheng/bigfft
 # github.com/rivo/uniseg v0.4.4
 ## explicit; go 1.18
 github.com/rivo/uniseg
-# github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca
+# github.com/rsteube/carapace v0.37.3 => github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca
 ## explicit; go 1.15
 github.com/rsteube/carapace
 github.com/rsteube/carapace/internal/cache
@@ -728,7 +750,7 @@ golang.org/x/exp/slices
 golang.org/x/exp/slog
 golang.org/x/exp/slog/internal
 golang.org/x/exp/slog/internal/buffer
-# golang.org/x/mod v0.10.0
+# golang.org/x/mod v0.11.0
 ## explicit; go 1.17
 golang.org/x/mod/semver
 # golang.org/x/net v0.11.0
@@ -751,8 +773,8 @@ golang.org/x/net/ipv6
 golang.org/x/net/proxy
 golang.org/x/net/route
 golang.org/x/net/trace
-# golang.org/x/sync v0.2.0
-## explicit
+# golang.org/x/sync v0.3.0
+## explicit; go 1.17
 golang.org/x/sync/errgroup
 # golang.org/x/sys v0.9.0
 ## explicit; go 1.17

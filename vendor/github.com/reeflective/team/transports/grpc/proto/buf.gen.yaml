@@ -1,0 +1,13 @@
+version: v1
+managed:
+  enabled: true
+  go_package_prefix:
+    default: github.com/reeflective/team/transports/grpc/proto
+
+plugins:
+  - name: go
+    out: .
+    opt: paths=source_relative
+  - name: go-grpc
+    out: .
+    opt: paths=source_relative

@@ -21,12 +21,11 @@ package command
 import (
 	"strings"
 
+	client "github.com/bishopfox/sliver/client/console"
 	"github.com/reeflective/console"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
-	client "github.com/bishopfox/sliver/client/console"
 )
 
 const defaultTimeout = 60
@@ -105,7 +104,7 @@ func RestrictTargets(filters ...string) map[string]string {
 // @group - Name of the group under which the command should be shown. Preferably use a string in the constants package.
 // @menu  - The command menu to which the commands should be bound (either server or implant menu).
 // @ cmds - A list of functions returning a list of root commands to bind. See any package's `commands.go` file and function.
-func bind(group string, menu *cobra.Command, con *client.SliverConsoleClient, cmds ...func(con *client.SliverConsoleClient) []*cobra.Command) {
+func bind(group string, menu *cobra.Command, con *client.SliverClient, cmds ...func(con *client.SliverClient) []*cobra.Command) {
 	found := false
 
 	// Ensure the given command group is available in the menu.

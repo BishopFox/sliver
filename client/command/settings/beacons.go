@@ -26,7 +26,7 @@ import (
 )
 
 // SettingsBeaconsAutoResultCmd - The client settings command
-func SettingsBeaconsAutoResultCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func SettingsBeaconsAutoResultCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
 		con.Settings, err = assets.LoadSettings()

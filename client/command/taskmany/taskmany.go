@@ -37,7 +37,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
-func Command(con *console.SliverConsoleClient) []*cobra.Command {
+func Command(con *console.SliverClient) []*cobra.Command {
 	taskmanyCmd := &cobra.Command{
 		Use:     consts.TaskmanyStr,
 		Short:   "Task many beacons or sessions",
@@ -81,12 +81,12 @@ func Command(con *console.SliverConsoleClient) []*cobra.Command {
 }
 
 // TaskmanyCmd - Task many beacons / sessions
-func TaskmanyCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func TaskmanyCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	con.PrintErrorf("Must specify subcommand. See taskmany --help for supported subcommands.\n")
 }
 
 // Helper function to wrap grumble commands with taskmany logic
-func WrapCommand(c *cobra.Command, con *console.SliverConsoleClient) *cobra.Command {
+func WrapCommand(c *cobra.Command, con *console.SliverClient) *cobra.Command {
 	wc := &cobra.Command{
 		Use:   c.Use,
 		Short: c.Short,
@@ -100,7 +100,7 @@ func WrapCommand(c *cobra.Command, con *console.SliverConsoleClient) *cobra.Comm
 }
 
 // Wrap a function to run it for each beacon / session
-func wrapFunctionWithTaskmany(con *console.SliverConsoleClient, f func(cmd *cobra.Command, args []string)) func(cmd *cobra.Command, args []string) {
+func wrapFunctionWithTaskmany(con *console.SliverClient, f func(cmd *cobra.Command, args []string)) func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
 		defer con.Println()
 
@@ -150,7 +150,7 @@ func wrapFunctionWithTaskmany(con *console.SliverConsoleClient, f func(cmd *cobr
 	}
 }
 
-func SelectMultipleBeaconsAndSessions(con *console.SliverConsoleClient) ([]*clientpb.Session, []*clientpb.Beacon, error) {
+func SelectMultipleBeaconsAndSessions(con *console.SliverClient) ([]*clientpb.Session, []*clientpb.Beacon, error) {
 	// Get and sort sessions
 	sessionsObj, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {

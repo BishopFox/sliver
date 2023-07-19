@@ -33,7 +33,7 @@ import (
 )
 
 // ExtensionsRemoveCmd - Remove an extension
-func ExtensionsRemoveCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ExtensionsRemoveCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name := args[0]
 	if name == "" {
 		con.PrintErrorf("Extension name is required\n")
@@ -55,7 +55,7 @@ func ExtensionsRemoveCmd(cmd *cobra.Command, con *console.SliverConsoleClient, a
 }
 
 // RemoveExtensionByCommandName - Remove an extension by command name
-func RemoveExtensionByCommandName(commandName string, con *console.SliverConsoleClient) error {
+func RemoveExtensionByCommandName(commandName string, con *console.SliverClient) error {
 	if commandName == "" {
 		return errors.New("command name is required")
 	}

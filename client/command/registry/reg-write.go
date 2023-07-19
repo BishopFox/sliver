@@ -35,7 +35,7 @@ import (
 )
 
 // RegWriteCmd - Write to a Windows registry key: registry write --hive HKCU --type dword "software\google\chrome\blbeacon\hello" 32
-func RegWriteCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func RegWriteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -160,7 +160,7 @@ func RegWriteCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 }
 
 // PrintRegWrite - Print the registry write operation
-func PrintRegWrite(regWrite *sliverpb.RegistryWrite, con *console.SliverConsoleClient) {
+func PrintRegWrite(regWrite *sliverpb.RegistryWrite, con *console.SliverClient) {
 	if regWrite.Response != nil && regWrite.Response.Err != "" {
 		con.PrintErrorf("%s", regWrite.Response.Err)
 		return

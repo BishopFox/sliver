@@ -124,7 +124,7 @@ func (a *AliasManifest) getFileForTarget(cmdName string, targetOS string, target
 }
 
 // AliasesLoadCmd - Locally load a alias into the Sliver shell.
-func AliasesLoadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func AliasesLoadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	dirPath := args[0]
 	// dirPath := ctx.Args.String("dir-path")
 	alias, err := LoadAlias(dirPath, cmd.Root(), con)
@@ -136,7 +136,7 @@ func AliasesLoadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 }
 
 // LoadAlias - Load an alias into the Sliver shell from a given directory
-func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverConsoleClient) (*AliasManifest, error) {
+func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClient) (*AliasManifest, error) {
 	// retrieve alias manifest
 	var err error
 	manifestPath, err = filepath.Abs(manifestPath)
@@ -241,7 +241,7 @@ func ParseAliasManifest(data []byte) (*AliasManifest, error) {
 	return alias, nil
 }
 
-func runAliasCommand(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -475,7 +475,7 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 }
 
 // PrintSpawnDLLOutput - Prints the output of a spawn dll command
-func PrintSpawnDLLOutput(cmdName string, spawnDllResp *sliverpb.SpawnDll, outFilePath *os.File, con *console.SliverConsoleClient) {
+func PrintSpawnDLLOutput(cmdName string, spawnDllResp *sliverpb.SpawnDll, outFilePath *os.File, con *console.SliverClient) {
 	con.PrintInfof("%s output:\n%s", cmdName, spawnDllResp.GetResult())
 	if outFilePath != nil {
 		outFilePath.Write([]byte(spawnDllResp.GetResult()))
@@ -484,7 +484,7 @@ func PrintSpawnDLLOutput(cmdName string, spawnDllResp *sliverpb.SpawnDll, outFil
 }
 
 // PrintSideloadOutput - Prints the output of a sideload command
-func PrintSideloadOutput(cmdName string, sideloadResp *sliverpb.Sideload, outFilePath *os.File, con *console.SliverConsoleClient) {
+func PrintSideloadOutput(cmdName string, sideloadResp *sliverpb.Sideload, outFilePath *os.File, con *console.SliverClient) {
 	con.PrintInfof("%s output:\n%s", cmdName, sideloadResp.GetResult())
 	if outFilePath != nil {
 		outFilePath.Write([]byte(sideloadResp.GetResult()))
@@ -493,7 +493,7 @@ func PrintSideloadOutput(cmdName string, sideloadResp *sliverpb.Sideload, outFil
 }
 
 // PrintAssemblyOutput - Prints the output of an execute-assembly command
-func PrintAssemblyOutput(cmdName string, execAsmResp *sliverpb.ExecuteAssembly, outFilePath *os.File, con *console.SliverConsoleClient) {
+func PrintAssemblyOutput(cmdName string, execAsmResp *sliverpb.ExecuteAssembly, outFilePath *os.File, con *console.SliverClient) {
 	con.PrintInfof("%s output:\n%s", cmdName, string(execAsmResp.GetOutput()))
 	if outFilePath != nil {
 		outFilePath.Write(execAsmResp.GetOutput())

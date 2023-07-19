@@ -28,7 +28,7 @@ import (
 )
 
 // ExtensionsListCmd - List all extension loaded on the active session/beacon
-func ExtensionsListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ExtensionsListCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

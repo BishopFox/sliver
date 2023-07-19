@@ -16,7 +16,7 @@ import (
 )
 
 // SelectCredential - Interactive menu for the user to select a credentials from the database
-func SelectCredential(plaintext bool, hashType clientpb.HashType, con *console.SliverConsoleClient) (*clientpb.Credential, error) {
+func SelectCredential(plaintext bool, hashType clientpb.HashType, con *console.SliverClient) (*clientpb.Credential, error) {
 	var creds *clientpb.Credentials
 	var err error
 	if hashType == clientpb.HashType_INVALID {

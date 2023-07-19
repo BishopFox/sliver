@@ -34,7 +34,7 @@ import (
 )
 
 // AliasesInstallCmd - Install an alias
-func AliasesInstallCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func AliasesInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	aliasLocalPath := args[0]
 	fi, err := os.Stat(aliasLocalPath)
 	if os.IsNotExist(err) {
@@ -49,7 +49,7 @@ func AliasesInstallCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 }
 
 // Install an extension from a directory
-func installFromDir(aliasLocalPath string, con *console.SliverConsoleClient) {
+func installFromDir(aliasLocalPath string, con *console.SliverClient) {
 	manifestData, err := ioutil.ReadFile(filepath.Join(aliasLocalPath, ManifestFileName))
 	if err != nil {
 		con.PrintErrorf("Error reading %s: %s", ManifestFileName, err)
@@ -102,7 +102,7 @@ func installFromDir(aliasLocalPath string, con *console.SliverConsoleClient) {
 }
 
 // Install an extension from a .tar.gz file
-func InstallFromFile(aliasGzFilePath string, autoOverwrite bool, con *console.SliverConsoleClient) *string {
+func InstallFromFile(aliasGzFilePath string, autoOverwrite bool, con *console.SliverClient) *string {
 	manifestData, err := util.ReadFileFromTarGz(aliasGzFilePath, fmt.Sprintf("./%s", ManifestFileName))
 	if err != nil {
 		con.PrintErrorf("Failed to read %s from '%s': %s\n", ManifestFileName, aliasGzFilePath, err)
@@ -153,7 +153,7 @@ func InstallFromFile(aliasGzFilePath string, autoOverwrite bool, con *console.Sl
 	return &installPath
 }
 
-func installArtifact(aliasGzFilePath string, installPath, artifactPath string, con *console.SliverConsoleClient) error {
+func installArtifact(aliasGzFilePath string, installPath, artifactPath string, con *console.SliverClient) error {
 	data, err := util.ReadFileFromTarGz(aliasGzFilePath, fmt.Sprintf("./%s", strings.TrimPrefix(artifactPath, string(os.PathSeparator))))
 	if err != nil {
 		return err

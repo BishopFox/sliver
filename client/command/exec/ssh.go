@@ -33,7 +33,7 @@ import (
 )
 
 // SSHCmd - A built-in SSH client command for the remote system (doesn't shell out)
-func SSHCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func SSHCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var (
 		privKey []byte
 		err     error
@@ -121,7 +121,7 @@ func SSHCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string)
 }
 
 // PrintSSHCmd - Print the ssh command response
-func PrintSSHCmd(sshCmd *sliverpb.SSHCommand, con *console.SliverConsoleClient) {
+func PrintSSHCmd(sshCmd *sliverpb.SSHCommand, con *console.SliverClient) {
 	if sshCmd.Response != nil && sshCmd.Response.Err != "" {
 		con.PrintErrorf("Error: %s\n", sshCmd.Response.Err)
 		if sshCmd.StdErr != "" {
@@ -139,7 +139,7 @@ func PrintSSHCmd(sshCmd *sliverpb.SSHCommand, con *console.SliverConsoleClient) 
 	}
 }
 
-func tryCredsFromLoot(con *console.SliverConsoleClient) (string, string, []byte) {
+func tryCredsFromLoot(con *console.SliverClient) (string, string, []byte) {
 	var (
 		username string
 		password string

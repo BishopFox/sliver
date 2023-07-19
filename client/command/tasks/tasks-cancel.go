@@ -10,7 +10,7 @@ import (
 )
 
 // TasksCancelCmd - Cancel a beacon task before it's sent to the implant
-func TasksCancelCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func TasksCancelCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	beacon := con.ActiveTarget.GetBeaconInteractive()
 	if beacon == nil {
 		return

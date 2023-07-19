@@ -29,7 +29,7 @@ import (
 )
 
 // DNSListenerCmd - Start a DNS lisenter
-func DNSListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func DNSListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	domainsF, _ := cmd.Flags().GetString("domains")
 	domains := strings.Split(domainsF, ",")
 	for index, domain := range domains {

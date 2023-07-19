@@ -17,7 +17,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	beaconsCmd := &cobra.Command{
 		Use:     consts.BeaconsStr,
 		Short:   "Manage beacons",
@@ -79,7 +79,7 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 }
 
 // BeaconIDCompleter completes beacon IDs
-func BeaconIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+func BeaconIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
 		results := make([]string, 0)
 

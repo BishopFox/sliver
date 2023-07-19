@@ -2,7 +2,9 @@ module github.com/bishopfox/sliver
 
 go 1.20
 
-replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca
+replace github.com/rsteube/carapace v0.37.3 => github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca
+
+replace github.com/reeflective/team v0.0.0-20230717232729-e28a155bca96 => /home/user/code/github.com/reeflective/team
 
 require (
 	filippo.io/age v1.1.1
@@ -30,10 +32,11 @@ require (
 	github.com/miekg/dns v1.1.55
 	github.com/moloch--/asciicast v0.1.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
-	github.com/ncruces/go-sqlite3 v0.7.2
+	github.com/ncruces/go-sqlite3 v0.8.1
 	github.com/reeflective/console v0.1.6
 	github.com/reeflective/readline v1.0.8
-	github.com/rsteube/carapace v0.36.3
+	github.com/reeflective/team v0.0.0-20230717232729-e28a155bca96
+	github.com/rsteube/carapace v0.37.3
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
@@ -138,6 +141,7 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.17 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/psanford/memfs v0.0.0-20230130182539-4dbf7e3e865e // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/tailscale/certstore v0.1.1-0.20220316223106-78d6e1c49d8d // indirect
@@ -153,8 +157,8 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	go4.org/mem v0.0.0-20220726221520-4f986261bf13 // indirect
 	go4.org/netipx v0.0.0-20230303233057-f1b76eb4bb35 // indirect
-	golang.org/x/mod v0.10.0 // indirect
-	golang.org/x/sync v0.2.0 // indirect
+	golang.org/x/mod v0.11.0 // indirect
+	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect

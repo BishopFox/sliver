@@ -32,7 +32,7 @@ import (
 )
 
 // MsfCmd - Inject a metasploit payload into the current remote process
-func MsfCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func MsfCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return

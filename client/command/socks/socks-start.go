@@ -34,7 +34,7 @@ import (
 )
 
 // SocksStartCmd - Add a new tunneled port forward
-func SocksStartCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func SocksStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

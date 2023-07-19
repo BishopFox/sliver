@@ -26,7 +26,7 @@ import (
 )
 
 // PortfwdRmCmd - Remove an existing tunneled port forward
-func PortfwdRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func PortfwdRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	portfwdID, _ := cmd.Flags().GetInt("id")
 	if portfwdID < 1 {
 		con.PrintErrorf("Must specify a valid portfwd id\n")

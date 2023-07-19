@@ -48,7 +48,7 @@ import (
 )
 
 // UpdateCmd - Check for updates
-func UpdateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func UpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	VerboseVersionsCmd(cmd, con, args)
 
 	timeoutF, _ := cmd.Flags().GetInt("timeout")
@@ -127,7 +127,7 @@ func UpdateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 }
 
 // VerboseVersionsCmd - Get verbose version information about the client and server
-func VerboseVersionsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func VerboseVersionsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	clientVer := version.FullVersion()
 	serverVer, err := con.Rpc.GetVersion(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -219,7 +219,7 @@ func clientAssetForGOOS(assets []version.Asset) *version.Asset {
 	return findAssetFor(prefix, suffixes, assets)
 }
 
-func updateAvailable(con *console.SliverConsoleClient, client *http.Client, release *version.Release, saveTo string) {
+func updateAvailable(con *console.SliverClient, client *http.Client, release *version.Release, saveTo string) {
 	serverAsset := serverAssetForGOOS(release.Assets)
 	clientAsset := clientAssetForGOOS(release.Assets)
 

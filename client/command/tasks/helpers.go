@@ -50,7 +50,7 @@ func SelectBeaconTask(tasks []*clientpb.BeaconTask) (*clientpb.BeaconTask, error
 }
 
 // BeaconTaskIDCompleter returns a structured list of tasks completions, grouped by state.
-func BeaconTaskIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+func BeaconTaskIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(ctx carapace.Context) carapace.Action {
 		beacon := con.ActiveTarget.GetBeacon()
 		if beacon == nil {
@@ -115,7 +115,7 @@ func BeaconTaskIDCompleter(con *console.SliverConsoleClient) carapace.Action {
 }
 
 // BeaconPendingTasksCompleter completes pending tasks
-func BeaconPendingTasksCompleter(con *console.SliverConsoleClient) carapace.Action {
+func BeaconPendingTasksCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(ctx carapace.Context) carapace.Action {
 		beacon := con.ActiveTarget.GetBeacon()
 		if beacon == nil {

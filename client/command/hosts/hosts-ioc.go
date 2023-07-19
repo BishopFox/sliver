@@ -34,7 +34,7 @@ import (
 )
 
 // HostsIOCCmd - Remove a host from the database
-func HostsIOCCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func HostsIOCCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	host, err := SelectHost(con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -48,7 +48,7 @@ func HostsIOCCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 	}
 }
 
-func hostIOCsTable(host *clientpb.Host, con *console.SliverConsoleClient) string {
+func hostIOCsTable(host *clientpb.Host, con *console.SliverClient) string {
 	tw := table.NewWriter()
 	tw.SetStyle(table.StyleBold)
 	tw.AppendHeader(table.Row{"File Path", "SHA-256"})
@@ -61,7 +61,7 @@ func hostIOCsTable(host *clientpb.Host, con *console.SliverConsoleClient) string
 	return tw.Render()
 }
 
-func SelectHostIOC(host *clientpb.Host, con *console.SliverConsoleClient) (*clientpb.IOC, error) {
+func SelectHostIOC(host *clientpb.Host, con *console.SliverClient) (*clientpb.IOC, error) {
 	// Sort the keys because maps have a randomized order, these keys must be ordered for the selection
 	// to work properly since we rely on the index of the user's selection to find the session in the map
 	var keys []string

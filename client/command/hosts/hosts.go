@@ -47,7 +47,7 @@ var (
 )
 
 // HostsCmd - Main hosts command
-func HostsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func HostsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	allHosts, err := con.Rpc.Hosts(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s", err)
@@ -60,7 +60,7 @@ func HostsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 	}
 }
 
-func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string {
+func hostsTable(hosts []*clientpb.Host, con *console.SliverClient) string {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
@@ -96,7 +96,7 @@ func hostsTable(hosts []*clientpb.Host, con *console.SliverConsoleClient) string
 	return tw.Render()
 }
 
-func hostSessions(hostUUID string, con *console.SliverConsoleClient) string {
+func hostSessions(hostUUID string, con *console.SliverClient) string {
 	hostSessions := SessionsForHost(hostUUID, con)
 	if len(hostSessions) == 0 {
 		return "None"
@@ -108,7 +108,7 @@ func hostSessions(hostUUID string, con *console.SliverConsoleClient) string {
 	return fmt.Sprintf("%d", len(sessionIDs))
 }
 
-func hostBeacons(hostUUID string, con *console.SliverConsoleClient) string {
+func hostBeacons(hostUUID string, con *console.SliverClient) string {
 	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		return "Error"
@@ -127,7 +127,7 @@ func hostBeacons(hostUUID string, con *console.SliverConsoleClient) string {
 }
 
 // SessionsForHost - Find session for a given host by id
-func SessionsForHost(hostUUID string, con *console.SliverConsoleClient) []*clientpb.Session {
+func SessionsForHost(hostUUID string, con *console.SliverClient) []*clientpb.Session {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		return []*clientpb.Session{}
@@ -142,7 +142,7 @@ func SessionsForHost(hostUUID string, con *console.SliverConsoleClient) []*clien
 }
 
 // SelectHost - Interactively select a host from the database
-func SelectHost(con *console.SliverConsoleClient) (*clientpb.Host, error) {
+func SelectHost(con *console.SliverClient) (*clientpb.Host, error) {
 	allHosts, err := con.Rpc.Hosts(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		return nil, err

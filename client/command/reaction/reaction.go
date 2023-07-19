@@ -32,7 +32,7 @@ import (
 )
 
 // ReactionCmd - Manage reactions to events
-func ReactionCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ReactionCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	totalReactions := 0
 	for _, eventType := range core.ReactableEvents {
 		reactions := core.Reactions.On(eventType)
@@ -49,7 +49,7 @@ func ReactionCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 	}
 }
 
-func displayReactionsTable(eventType string, reactions []core.Reaction, con *console.SliverConsoleClient) {
+func displayReactionsTable(eventType string, reactions []core.Reaction, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.SetTitle(fmt.Sprintf(console.Bold+"%s"+console.Normal, EventTypeToTitle(eventType)))

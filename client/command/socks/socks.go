@@ -33,7 +33,7 @@ import (
 )
 
 // SocksCmd - Display information about tunneled port forward(s)
-func SocksCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func SocksCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	socks := core.SocksProxies.List()
 	if len(socks) == 0 {
 		con.PrintInfof("No socks5 proxies\n")
@@ -60,7 +60,7 @@ func SocksCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 }
 
 // SocksIDCompleter completes IDs of remote of socks proxy servers
-func SocksIDCompleter(_ *console.SliverConsoleClient) carapace.Action {
+func SocksIDCompleter(_ *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
 		results := make([]string, 0)
 

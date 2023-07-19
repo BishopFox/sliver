@@ -12,7 +12,7 @@ import (
 )
 
 // GetSliverBinary - Get the binary of an implant based on it's profile
-func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverConsoleClient) ([]byte, error) {
+func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverClient) ([]byte, error) {
 	var data []byte
 	// get implant builds
 	builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
@@ -59,7 +59,7 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverConsol
 }
 
 // FormatCompleter completes builds' architectures.
-func ArchCompleter(con *console.SliverConsoleClient) carapace.Action {
+func ArchCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		compiler, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
 		if err != nil {
@@ -93,7 +93,7 @@ func ArchCompleter(con *console.SliverConsoleClient) carapace.Action {
 }
 
 // FormatCompleter completes build operating systems
-func OSCompleter(con *console.SliverConsoleClient) carapace.Action {
+func OSCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		compiler, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
 		if err != nil {
@@ -136,7 +136,7 @@ func FormatCompleter() carapace.Action {
 }
 
 // TrafficEncoderCompleter - Completes the names of traffic encoders
-func TrafficEncodersCompleter(con *console.SliverConsoleClient) carapace.Action {
+func TrafficEncodersCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		grpcCtx, cancel := con.GrpcContext(nil)
 		defer cancel()

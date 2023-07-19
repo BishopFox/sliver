@@ -89,7 +89,7 @@ var (
 )
 
 // GenerateCmd - The main command used to generate implant binaries
-func GenerateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	config := parseCompileFlags(cmd, con)
 	if config == nil {
 		return
@@ -127,7 +127,7 @@ func expandPath(path string) string {
 	return filepath.Join(os.Getenv("HOME"), path[1:])
 }
 
-func saveLocation(save, DefaultName string, con *console.SliverConsoleClient) (string, error) {
+func saveLocation(save, DefaultName string, con *console.SliverClient) (string, error) {
 	var saveTo string
 	if save == "" {
 		save, _ = os.Getwd()
@@ -182,7 +182,7 @@ func nameOfOutputFormat(value clientpb.OutputFormat) string {
 }
 
 // Shared function that extracts the compile flags from the grumble context
-func parseCompileFlags(cmd *cobra.Command, con *console.SliverConsoleClient) *clientpb.ImplantConfig {
+func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) *clientpb.ImplantConfig {
 	var name string
 	if nameF, _ := cmd.Flags().GetString("name"); nameF != "" {
 		name = strings.ToLower(nameF)
@@ -405,7 +405,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverConsoleClient) *cl
 }
 
 // parseTrafficEncoderArgs - parses the traffic encoder args and returns a bool indicating if traffic encoders are enabled
-func parseTrafficEncoderArgs(cmd *cobra.Command, httpC2Enabled bool, con *console.SliverConsoleClient) (bool, []*commonpb.File) {
+func parseTrafficEncoderArgs(cmd *cobra.Command, httpC2Enabled bool, con *console.SliverClient) (bool, []*commonpb.File) {
 	trafficEncoders, _ := cmd.Flags().GetString("traffic-encoders")
 	encoders := []*commonpb.File{}
 	if trafficEncoders != "" {
@@ -425,7 +425,7 @@ func parseTrafficEncoderArgs(cmd *cobra.Command, httpC2Enabled bool, con *consol
 	return false, encoders
 }
 
-func getTargets(targetOS string, targetArch string, con *console.SliverConsoleClient) (string, string) {
+func getTargets(targetOS string, targetArch string, con *console.SliverClient) (string, string) {
 	/* For UX we convert some synonymous terms */
 	if targetOS == "darwin" || targetOS == "mac" || targetOS == "macos" || targetOS == "osx" {
 		targetOS = "darwin"
@@ -778,7 +778,7 @@ func ParseTCPPivotc2(args string) ([]*clientpb.ImplantC2, error) {
 	return c2s, nil
 }
 
-func externalBuild(config *clientpb.ImplantConfig, save string, con *console.SliverConsoleClient) (*commonpb.File, error) {
+func externalBuild(config *clientpb.ImplantConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
 	potentialBuilders, err := findExternalBuilders(config, con)
 	if err != nil {
 		return nil, err
@@ -901,7 +901,7 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 	return nil, nil
 }
 
-func compile(config *clientpb.ImplantConfig, save string, con *console.SliverConsoleClient) (*commonpb.File, error) {
+func compile(config *clientpb.ImplantConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
 	if config.IsBeacon {
 		interval := time.Duration(config.BeaconInterval)
 		con.PrintInfof("Generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
@@ -994,7 +994,7 @@ func getLimitsString(config *clientpb.ImplantConfig) string {
 	return strings.Join(limits, "; ")
 }
 
-func checkBuildTargetCompatibility(format clientpb.OutputFormat, targetOS string, targetArch string, con *console.SliverConsoleClient) bool {
+func checkBuildTargetCompatibility(format clientpb.OutputFormat, targetOS string, targetArch string, con *console.SliverClient) bool {
 	if format == clientpb.OutputFormat_EXECUTABLE {
 		return true // We don't need cross-compilers when targeting EXECUTABLE formats
 	}
@@ -1035,7 +1035,7 @@ func hasCC(targetOS string, targetArch string, crossCompilers []*clientpb.CrossC
 	return false
 }
 
-func warnMissingCrossCompiler(format clientpb.OutputFormat, targetOS string, targetArch string, con *console.SliverConsoleClient) bool {
+func warnMissingCrossCompiler(format clientpb.OutputFormat, targetOS string, targetArch string, con *console.SliverClient) bool {
 	con.PrintWarnf("Missing cross-compiler for %s on %s/%s\n", nameOfOutputFormat(format), targetOS, targetArch)
 	switch targetOS {
 	case "windows":
@@ -1053,7 +1053,7 @@ func warnMissingCrossCompiler(format clientpb.OutputFormat, targetOS string, tar
 	return confirm
 }
 
-func findExternalBuilders(config *clientpb.ImplantConfig, con *console.SliverConsoleClient) ([]*clientpb.Builder, error) {
+func findExternalBuilders(config *clientpb.ImplantConfig, con *console.SliverClient) ([]*clientpb.Builder, error) {
 	builders, err := con.Rpc.Builders(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		return nil, err
@@ -1079,7 +1079,7 @@ func findExternalBuilders(config *clientpb.ImplantConfig, con *console.SliverCon
 	return validBuilders, nil
 }
 
-func selectExternalBuilder(builders []*clientpb.Builder, con *console.SliverConsoleClient) (*clientpb.Builder, error) {
+func selectExternalBuilder(builders []*clientpb.Builder, con *console.SliverClient) (*clientpb.Builder, error) {
 	choices := []string{}
 	for _, builder := range builders {
 		choices = append(choices, builder.Name)

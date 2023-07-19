@@ -30,7 +30,7 @@ import (
 )
 
 // ChmodCmd - Change the permissions of a file on the remote file system
-func ChmodCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ChmodCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -78,7 +78,7 @@ func ChmodCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 }
 
 // PrintChmod - Print the chmod response
-func PrintChmod(chmod *sliverpb.Chmod, con *console.SliverConsoleClient) {
+func PrintChmod(chmod *sliverpb.Chmod, con *console.SliverClient) {
 	if chmod.Response != nil && chmod.Response.Err != "" {
 		con.PrintErrorf("%s\n", chmod.Response.Err)
 		return

@@ -35,7 +35,7 @@ import (
 )
 
 // MemfilesListCmd - List memfiles
-func MemfilesListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func MemfilesListCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -64,7 +64,7 @@ func MemfilesListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 }
 
 // PrintMemfiles - Display an sliverpb.Ls object
-func PrintMemfiles(ls *sliverpb.Ls, con *console.SliverConsoleClient) {
+func PrintMemfiles(ls *sliverpb.Ls, con *console.SliverClient) {
 	if ls.Response != nil && ls.Response.Err != "" {
 		con.PrintErrorf("%s\n", ls.Response.Err)
 		return

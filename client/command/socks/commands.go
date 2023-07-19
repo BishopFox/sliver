@@ -13,7 +13,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	socksCmd := &cobra.Command{
 		Use:   consts.Socks5Str,
 		Short: "In-band SOCKS5 Proxy",

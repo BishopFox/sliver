@@ -12,7 +12,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	// [ Generate ] --------------------------------------------------------------
 	generateCmd := &cobra.Command{
 		Use:   consts.GenerateStr,
@@ -334,7 +334,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 }
 
 // coreImplantFlagCompletions binds completions to flags registered in coreImplantFlags.
-func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverConsoleClient) {
+func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverClient) {
 	flags.BindFlagCompletions(cmd, func(comp *carapace.ActionMap) {
 		(*comp)["debug-file"] = carapace.ActionFiles()
 		(*comp)["os"] = OSCompleter(con)

@@ -34,7 +34,7 @@ import (
 )
 
 // ExecuteCmd - Run a command on the remote system
-func ExecuteCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -113,7 +113,7 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 	}
 }
 
-func HandleExecuteResponse(exec *sliverpb.Execute, cmdPath string, hostName string, cmd *cobra.Command, con *console.SliverConsoleClient) {
+func HandleExecuteResponse(exec *sliverpb.Execute, cmdPath string, hostName string, cmd *cobra.Command, con *console.SliverClient) {
 	var lootedOutput []byte
 	stdout, _ := cmd.Flags().GetString("stdout")
 	saveLoot, _ := cmd.Flags().GetBool("loot")
@@ -137,7 +137,7 @@ func HandleExecuteResponse(exec *sliverpb.Execute, cmdPath string, hostName stri
 }
 
 // PrintExecute - Print the output of an executed command
-func PrintExecute(exec *sliverpb.Execute, cmd *cobra.Command, con *console.SliverConsoleClient) {
+func PrintExecute(exec *sliverpb.Execute, cmd *cobra.Command, con *console.SliverClient) {
 	ignoreStderr, _ := cmd.Flags().GetBool("ignore-stderr")
 	stdout, _ := cmd.Flags().GetString("stdout")
 	stderr, _ := cmd.Flags().GetString("stderr")
@@ -210,7 +210,7 @@ func combineCommandOutput(exec *sliverpb.Execute, combineStdOut bool, combineStd
 	return []byte(outputString)
 }
 
-func LootExecute(commandOutput []byte, lootName string, sliverCmdName string, cmdName string, hostName string, con *console.SliverConsoleClient) {
+func LootExecute(commandOutput []byte, lootName string, sliverCmdName string, cmdName string, hostName string, con *console.SliverClient) {
 	if len(commandOutput) == 0 {
 		con.PrintInfof("There was no output from execution, so there is nothing to loot.\n")
 		return
@@ -229,7 +229,7 @@ func LootExecute(commandOutput []byte, lootName string, sliverCmdName string, cm
 	loot.SendLootMessage(lootMessage, con)
 }
 
-func PrintExecutionOutput(executionOutput string, saveOutput bool, commandName string, hostName string, con *console.SliverConsoleClient) {
+func PrintExecutionOutput(executionOutput string, saveOutput bool, commandName string, hostName string, con *console.SliverClient) {
 	con.PrintInfof("Output:\n%s", executionOutput)
 
 	if saveOutput {
@@ -237,7 +237,7 @@ func PrintExecutionOutput(executionOutput string, saveOutput bool, commandName s
 	}
 }
 
-func SaveExecutionOutput(executionOutput string, commandName string, hostName string, con *console.SliverConsoleClient) {
+func SaveExecutionOutput(executionOutput string, commandName string, hostName string, con *console.SliverClient) {
 	var outFilePath *os.File
 	var err error
 

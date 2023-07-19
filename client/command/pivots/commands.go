@@ -13,7 +13,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	pivotsCmd := &cobra.Command{
 		Use:   consts.PivotsStr,
 		Short: "List pivots for active session",

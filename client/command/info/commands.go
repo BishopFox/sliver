@@ -13,7 +13,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	infoCmd := &cobra.Command{
 		Use:   consts.InfoStr,
 		Short: "Get info about session",
@@ -32,7 +32,7 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 }
 
 // SliverCommands returns all info commands working on an active target.
-func SliverCommands(con *console.SliverConsoleClient) []*cobra.Command {
+func SliverCommands(con *console.SliverClient) []*cobra.Command {
 	pingCmd := &cobra.Command{
 		Use:   consts.PingStr,
 		Short: "Send round trip message to implant (does not use ICMP)",

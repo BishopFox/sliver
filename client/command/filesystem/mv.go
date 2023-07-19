@@ -30,7 +30,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-func MvCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) (err error) {
+func MvCmd(cmd *cobra.Command, con *console.SliverClient, args []string) (err error) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -78,7 +78,7 @@ func MvCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) 
 }
 
 // PrintMv - Print the renamed file
-func PrintMv(mv *sliverpb.Mv, con *console.SliverConsoleClient) {
+func PrintMv(mv *sliverpb.Mv, con *console.SliverClient) {
 	if mv.Response != nil && mv.Response.Err != "" {
 		con.PrintErrorf("%s\n", mv.Response.Err)
 		return

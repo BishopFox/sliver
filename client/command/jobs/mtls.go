@@ -28,7 +28,7 @@ import (
 )
 
 // MTLSListenerCmd - Start an mTLS listener
-func MTLSListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func MTLSListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	lhost, _ := cmd.Flags().GetString("lhost")
 	lport, _ := cmd.Flags().GetUint32("lport")
 	persistent, _ := cmd.Flags().GetBool("persistent")

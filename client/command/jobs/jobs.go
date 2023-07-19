@@ -37,7 +37,7 @@ import (
 )
 
 // JobsCmd - Manage server jobs (listeners, etc)
-func JobsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func JobsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if pid, _ := cmd.Flags().GetInt32("kill"); pid != -1 {
 		jobKill(uint32(pid), con)
 	} else if all, _ := cmd.Flags().GetBool("kill-all"); all {
@@ -62,7 +62,7 @@ func JobsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string
 }
 
 // PrintJobs - Prints a list of active jobs
-func PrintJobs(jobs map[uint32]*clientpb.Job, con *console.SliverConsoleClient) {
+func PrintJobs(jobs map[uint32]*clientpb.Job, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
@@ -91,7 +91,7 @@ func PrintJobs(jobs map[uint32]*clientpb.Job, con *console.SliverConsoleClient) 
 }
 
 // JobsIDCompleter completes jobs IDs with descriptions.
-func JobsIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+func JobsIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
 		jobs, err := con.Rpc.GetJobs(context.Background(), &commonpb.Empty{})
 		if err != nil {
@@ -112,7 +112,7 @@ func JobsIDCompleter(con *console.SliverConsoleClient) carapace.Action {
 	return carapace.ActionCallback(callback)
 }
 
-func jobKill(jobID uint32, con *console.SliverConsoleClient) {
+func jobKill(jobID uint32, con *console.SliverClient) {
 	con.PrintInfof("Killing job #%d ...\n", jobID)
 	jobKill, err := con.Rpc.KillJob(context.Background(), &clientpb.KillJobReq{
 		ID: jobID,
@@ -124,7 +124,7 @@ func jobKill(jobID uint32, con *console.SliverConsoleClient) {
 	}
 }
 
-func killAllJobs(con *console.SliverConsoleClient) {
+func killAllJobs(con *console.SliverClient) {
 	jobs, err := con.Rpc.GetJobs(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

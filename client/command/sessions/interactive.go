@@ -32,7 +32,7 @@ import (
 )
 
 // InteractiveCmd - Beacon only command to open an interactive session
-func InteractiveCmd(cmd *cobra.Command, con *console.SliverConsoleClient, _ []string) {
+func InteractiveCmd(cmd *cobra.Command, con *console.SliverClient, _ []string) {
 	beacon := con.ActiveTarget.GetBeaconInteractive()
 	if beacon == nil {
 		return

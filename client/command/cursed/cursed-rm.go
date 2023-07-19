@@ -30,7 +30,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-func CursedRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CursedRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

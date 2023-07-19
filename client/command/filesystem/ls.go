@@ -39,7 +39,7 @@ import (
 )
 
 // LsCmd - List the contents of a remote directory
-func LsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func LsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -76,7 +76,7 @@ func LsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) 
 }
 
 // PrintLs - Display an sliverpb.Ls object
-func PrintLs(ls *sliverpb.Ls, flags *pflag.FlagSet, con *console.SliverConsoleClient) {
+func PrintLs(ls *sliverpb.Ls, flags *pflag.FlagSet, con *console.SliverClient) {
 	if ls.Response != nil && ls.Response.Err != "" {
 		con.PrintErrorf("%s\n", ls.Response.Err)
 		return

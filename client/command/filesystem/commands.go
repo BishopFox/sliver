@@ -13,7 +13,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	mvCmd := &cobra.Command{
 		Use:   consts.MvStr,
 		Short: "Move or rename a file",

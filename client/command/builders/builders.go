@@ -33,7 +33,7 @@ import (
 )
 
 // BuildersCmd - List external builders
-func BuildersCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func BuildersCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	builders, err := con.Rpc.Builders(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s", err)
@@ -46,7 +46,7 @@ func BuildersCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 	}
 }
 
-func PrintBuilders(externalBuilders []*clientpb.Builder, con *console.SliverConsoleClient) {
+func PrintBuilders(externalBuilders []*clientpb.Builder, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{

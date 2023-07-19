@@ -11,7 +11,7 @@ import (
 )
 
 // Commands returns the `alias` command and its child commands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	aliasCmd := &cobra.Command{
 		Use:   consts.AliasesStr,
 		Short: "List current aliases",
