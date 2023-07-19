@@ -96,6 +96,7 @@ var (
 		sliverpb.MsgPwdReq:         pwdHandler,
 		sliverpb.MsgRmReq:          rmHandler,
 		sliverpb.MsgMvReq:          mvHandler,
+		sliverpb.MsgCpReq:          cpHandler,
 		sliverpb.MsgMkdirReq:       mkdirHandler,
 		sliverpb.MsgExecuteReq:     executeHandler,
 		sliverpb.MsgReconfigureReq: reconfigureHandler,
@@ -365,6 +366,8 @@ func executeWindowsHandler(data []byte, resp RPCResponse) {
 	if execReq.UseToken {
 		cmd.SysProcAttr.Token = syscall.Token(priv.CurrentToken)
 	}
+	// Hide the window if requested
+	cmd.SysProcAttr.HideWindow = execReq.HideWindow
 	if execReq.PPid != 0 {
 		err := spoof.SpoofParent(execReq.PPid, cmd)
 		if err != nil {
@@ -794,11 +797,11 @@ func listExtensionsHandler(data []byte, resp RPCResponse) {
 }
 
 // Stub since Windows doesn't support UID
-func getUid(fileInfo os.FileInfo) (string) {
+func getUid(fileInfo os.FileInfo) string {
 	return ""
 }
 
 // Stub since Windows doesn't support GID
-func getGid(fileInfo os.FileInfo) (string) {
-    return ""
+func getGid(fileInfo os.FileInfo) string {
+	return ""
 }

@@ -22,6 +22,7 @@ import (
 	"gvisor.dev/gvisor/pkg/bufferv2"
 	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
+	"gvisor.dev/gvisor/pkg/tcpip/checksum"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/ports"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
@@ -35,7 +36,7 @@ type icmpPacket struct {
 	icmpPacketEntry
 	senderAddress tcpip.FullAddress
 	packetInfo    tcpip.IPPacketInfo
-	data          *stack.PacketBuffer
+	data          stack.PacketBufferPtr
 	receivedAt    time.Time `state:".(int64)"`
 
 	// tosOrTClass stores either the Type of Service for IPv4 or the Traffic Class
@@ -299,7 +300,7 @@ func (e *endpoint) Write(p tcpip.Payloader, opts tcpip.WriteOptions) (int64, tcp
 		e.stats.WriteErrors.WriteClosed.Increment()
 	case *tcpip.ErrInvalidEndpointState:
 		e.stats.WriteErrors.InvalidEndpointState.Increment()
-	case *tcpip.ErrNoRoute, *tcpip.ErrBroadcastDisabled, *tcpip.ErrNetworkUnreachable:
+	case *tcpip.ErrHostUnreachable, *tcpip.ErrBroadcastDisabled, *tcpip.ErrNetworkUnreachable:
 		// Errors indicating any problem with IP routing of the packet.
 		e.stats.SendErrors.NoRoute.Increment()
 	default:
@@ -335,6 +336,11 @@ func (e *endpoint) write(p tcpip.Payloader, opts tcpip.WriteOptions) (int64, tcp
 		return 0, err
 	}
 	defer ctx.Release()
+
+	// Prevents giant buffer allocations.
+	if p.Len() > header.DatagramMaximumSize {
+		return 0, &tcpip.ErrMessageTooLong{}
+	}
 
 	v := bufferv2.NewView(p.Len())
 	defer v.Release()
@@ -406,7 +412,7 @@ func send4(s *stack.Stack, ctx *network.WriteContext, ident uint16, data *buffer
 	}
 
 	pkt := ctx.TryNewPacketBuffer(header.ICMPv4MinimumSize+int(maxHeaderLength), bufferv2.Buffer{})
-	if pkt == nil {
+	if pkt.IsNil() {
 		return &tcpip.ErrWouldBlock{}
 	}
 	defer pkt.DecRef()
@@ -425,7 +431,7 @@ func send4(s *stack.Stack, ctx *network.WriteContext, ident uint16, data *buffer
 	}
 
 	icmpv4.SetChecksum(0)
-	icmpv4.SetChecksum(^header.Checksum(icmpv4, header.Checksum(data.AsSlice(), 0)))
+	icmpv4.SetChecksum(^checksum.Checksum(icmpv4, checksum.Checksum(data.AsSlice(), 0)))
 	pkt.Data().AppendView(data.Clone())
 
 	// Because this icmp endpoint is implemented in the transport layer, we can
@@ -448,7 +454,7 @@ func send6(s *stack.Stack, ctx *network.WriteContext, ident uint16, data *buffer
 	}
 
 	pkt := ctx.TryNewPacketBuffer(header.ICMPv6MinimumSize+int(maxHeaderLength), bufferv2.Buffer{})
-	if pkt == nil {
+	if pkt.IsNil() {
 		return &tcpip.ErrWouldBlock{}
 	}
 	defer pkt.DecRef()
@@ -465,13 +471,13 @@ func send6(s *stack.Stack, ctx *network.WriteContext, ident uint16, data *buffer
 	}
 
 	pkt.Data().AppendView(data.Clone())
-	dataRange := pkt.Data().AsRange()
+	pktData := pkt.Data()
 	icmpv6.SetChecksum(header.ICMPv6Checksum(header.ICMPv6ChecksumParams{
 		Header:      icmpv6,
 		Src:         src,
 		Dst:         dst,
-		PayloadCsum: dataRange.Checksum(),
-		PayloadLen:  dataRange.Size(),
+		PayloadCsum: pktData.Checksum(),
+		PayloadLen:  pktData.Size(),
 	}))
 
 	// Because this icmp endpoint is implemented in the transport layer, we can
@@ -690,7 +696,7 @@ func (e *endpoint) Readiness(mask waiter.EventMask) waiter.EventMask {
 
 // HandlePacket is called by the stack when new packets arrive to this transport
 // endpoint.
-func (e *endpoint) HandlePacket(id stack.TransportEndpointID, pkt *stack.PacketBuffer) {
+func (e *endpoint) HandlePacket(id stack.TransportEndpointID, pkt stack.PacketBufferPtr) {
 	// Only accept echo replies.
 	switch e.net.NetProto() {
 	case header.IPv4ProtocolNumber:
@@ -778,7 +784,7 @@ func (e *endpoint) HandlePacket(id stack.TransportEndpointID, pkt *stack.PacketB
 }
 
 // HandleError implements stack.TransportEndpoint.
-func (*endpoint) HandleError(stack.TransportError, *stack.PacketBuffer) {}
+func (*endpoint) HandleError(stack.TransportError, stack.PacketBufferPtr) {}
 
 // State implements tcpip.Endpoint.State. The ICMP endpoint currently doesn't
 // expose internal socket state.

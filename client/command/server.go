@@ -44,6 +44,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	sgn "github.com/bishopfox/sliver/client/command/shikata-ga-nai"
+	"github.com/bishopfox/sliver/client/command/taskmany"
 	"github.com/bishopfox/sliver/client/command/update"
 	"github.com/bishopfox/sliver/client/command/use"
 	"github.com/bishopfox/sliver/client/command/websites"
@@ -63,7 +64,6 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			},
 		}
 
-		// [ Server-only ]
 		if serverCmds != nil {
 			server.AddGroup(&cobra.Group{ID: consts.MultiplayerHelpGroup, Title: consts.MultiplayerHelpGroup})
 			server.AddCommand(serverCmds()...)
@@ -115,6 +115,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			loot.Commands,
 			hosts.Commands,
 			reaction.Commands,
+			taskmany.Command,
 		)
 
 		// [ Post-command declaration setup ]-----------------------------------------

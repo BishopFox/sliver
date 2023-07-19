@@ -99,8 +99,7 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 		save, _ = os.Getwd()
 	}
 	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
-		disableSGN, _ := cmd.Flags().GetBool("disable-sgn")
-		compile(config, disableSGN, save, con)
+		compile(config, save, con)
 	} else {
 		_, err := externalBuild(config, save, con)
 		if err != nil {
@@ -290,6 +289,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverConsoleClient) *cl
 	isSharedLib := false
 	isService := false
 	isShellcode := false
+	sgnEnabled := false
 
 	format, _ := cmd.Flags().GetString("format")
 	runAtLoad := false
@@ -304,6 +304,8 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverConsoleClient) *cl
 	case "shellcode":
 		configFormat = clientpb.OutputFormat_SHELLCODE
 		isShellcode = true
+		sgnEnabled, _ = cmd.Flags().GetBool("disable-sgn")
+		sgnEnabled = !sgnEnabled
 	case "service":
 		configFormat = clientpb.OutputFormat_SERVICE
 		isService = true
@@ -364,6 +366,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverConsoleClient) *cl
 		Name:             name,
 		Debug:            debug,
 		Evasion:          evasion,
+		SGNEnabled:       sgnEnabled,
 		ObfuscateSymbols: symbolObfuscation,
 		C2:               c2s,
 		CanaryDomains:    canaryDomains,
@@ -531,7 +534,7 @@ func ParseWGc2(args string) ([]*clientpb.ImplantC2, error) {
 func hasValidC2AdvancedOptions(options url.Values) (bool, error) {
 	for key, value := range options {
 		if len(value) > 1 {
-			return false, fmt.Errorf("too many values specified for advanced option %s. Only one value for %s can be specified.", key, key)
+			return false, fmt.Errorf("too many values specified for advanced option %s. Only one value for %s can be specified", key, key)
 		}
 		testValue := value[0]
 
@@ -588,13 +591,35 @@ func hasValidC2AdvancedOptions(options url.Values) (bool, error) {
 	return true, nil
 }
 
+func checkOptionValue(c2Options url.Values, option string, value string) bool {
+	if !c2Options.Has(option) {
+		return false
+	} else {
+		optionValue := c2Options.Get(option)
+		return strings.ToLower(optionValue) == value
+	}
+}
+
+func uriWithoutProxyOptions(uri *url.URL) {
+	options := uri.Query()
+	// If any of the options do not exist, there is no error
+	options.Del("proxy")
+	options.Del("proxy-username")
+	options.Del("proxy-password")
+	options.Del("ask-proxy-creds")
+	options.Del("fallback")
+
+	uri.RawQuery = options.Encode()
+}
+
 // ParseHTTPc2 - Parse HTTP connection string arg
 func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
 		return c2s, nil
 	}
-	for index, arg := range strings.Split(args, ",") {
+	allArguments := strings.Split(args, ",")
+	for index, arg := range allArguments {
 		var uri *url.URL
 		var err error
 		if cmp := strings.ToLower(arg); strings.HasPrefix(cmp, "http://") || strings.HasPrefix(cmp, "https://") {
@@ -619,6 +644,16 @@ func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 			Priority: uint32(index),
 			URL:      uri.String(),
 		})
+		/* If a proxy is defined and the operator wants to fallback to connecting directly, add
+		   a C2 that connects directly without the proxy settings.
+		*/
+		if checkOptionValue(uri.Query(), "fallback", "true") && uri.Query().Has("proxy") && !checkOptionValue(uri.Query(), "driver", "wininet") {
+			uriWithoutProxyOptions(uri)
+			c2s = append(c2s, &clientpb.ImplantC2{
+				Priority: uint32(index + len(allArguments)),
+				URL:      uri.String(),
+			})
+		}
 	}
 	return c2s, nil
 }
@@ -866,7 +901,7 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 	return nil, nil
 }
 
-func compile(config *clientpb.ImplantConfig, disableSGN bool, save string, con *console.SliverConsoleClient) (*commonpb.File, error) {
+func compile(config *clientpb.ImplantConfig, save string, con *console.SliverConsoleClient) (*commonpb.File, error) {
 	if config.IsBeacon {
 		interval := time.Duration(config.BeaconInterval)
 		con.PrintInfof("Generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
@@ -902,7 +937,7 @@ func compile(config *clientpb.ImplantConfig, disableSGN bool, save string, con *
 
 	fileData := generated.File.Data
 	if config.IsShellcode {
-		if disableSGN {
+		if !config.SGNEnabled {
 			con.PrintErrorf("Shikata ga nai encoder is %sdisabled%s\n", console.Bold, console.Normal)
 		} else {
 			con.PrintInfof("Encoding shellcode with shikata ga nai ... ")

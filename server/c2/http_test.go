@@ -41,9 +41,8 @@ func TestStartSessionHandler(t *testing.T) {
 	implantTransports.SetNonceQueryArgs("abcdedfghijklmnopqrstuvwxyz")
 
 	server, err := StartHTTPListener(&HTTPServerConfig{
-		Addr:       "127.0.0.1:8888",
-		Secure:     false,
-		EnforceOTP: true,
+		Addr:   "127.0.0.1:8888",
+		Secure: false,
 	})
 	if err != nil {
 		t.Fatalf("Listener failed to start %s", err)
@@ -59,13 +58,12 @@ func TestStartSessionHandler(t *testing.T) {
 	}
 	nonce, encoder := implantEncoders.RandomEncoder(0)
 	testURL := client.NonceQueryArgument(baseURL, nonce)
-	testURL = client.OTPQueryArgument(testURL, implantCrypto.GetOTPCode())
 
 	// Generate key exchange request
-	sKey := cryptography.RandomKey()
+	sKey := cryptography.RandomSymmetricKey()
 	httpSessionInit := &sliverpb.HTTPSessionInit{Key: sKey[:]}
 	data, _ := proto.Marshal(httpSessionInit)
-	encryptedSessionInit, err := implantCrypto.ECCEncryptToServer(data)
+	encryptedSessionInit, err := implantCrypto.AgeKeyExToServer(data)
 	if err != nil {
 		t.Fatalf("Failed to encrypt session init %s", err)
 	}
@@ -78,30 +76,6 @@ func TestStartSessionHandler(t *testing.T) {
 	server.HTTPServer.Handler.ServeHTTP(rr, validReq)
 	if status := rr.Code; status != http.StatusOK {
 		t.Fatalf("handler returned wrong status code: got %d want %d", status, http.StatusOK)
-	}
-
-}
-
-func TestGetOTPFromURL(t *testing.T) {
-
-	implantTransports.SetNonceQueryArgs("abcdedfghijklmnopqrstuvwxyz")
-
-	client := implantTransports.SliverHTTPClient{}
-	for i := 0; i < 100; i++ {
-		baseURL := &url.URL{
-			Scheme: "http",
-			Host:   "127.0.0.1:8888",
-			Path:   "/test/foo.txt",
-		}
-		value := fmt.Sprintf("%d", insecureRand.Intn(99999999))
-		testURL := client.OTPQueryArgument(baseURL, value)
-		urlValue, err := getOTPFromURL(testURL)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if urlValue != value {
-			t.Fatalf("Mismatched OTP values %s (%s != %s)", testURL.String(), value, urlValue)
-		}
 	}
 }
 

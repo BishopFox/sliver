@@ -54,6 +54,7 @@ func (sqlite) Open(name string) (_ driver.Conn, err error) {
 		return nil, err
 	}
 
+	c.txBegin = "BEGIN"
 	var pragmas []string
 	if strings.HasPrefix(name, "file:") {
 		if _, after, ok := strings.Cut(name, "?"); ok {

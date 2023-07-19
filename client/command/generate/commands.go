@@ -216,6 +216,18 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 	carapace.Gen(profilesRmCmd).PositionalCompletion(ProfileNameCompleter(con))
 	profilesCmd.AddCommand(profilesRmCmd)
 
+	profilesInfoCmd := &cobra.Command{
+		Use:   consts.InfoStr,
+		Short: "Details about a profile",
+		Long:  help.GetHelpFor([]string{consts.ProfilesStr, consts.RmStr}),
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			PrintProfileInfo(args[0], con)
+		},
+	}
+	carapace.Gen(profilesInfoCmd).PositionalCompletion(ProfileNameCompleter(con))
+	profilesCmd.AddCommand(profilesInfoCmd)
+
 	// [ Implants ] --------------------------------------------------------------
 
 	implantBuildsCmd := &cobra.Command{

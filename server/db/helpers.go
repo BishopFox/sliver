@@ -24,6 +24,7 @@ package db
 */
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"strings"
 	"time"
@@ -86,11 +87,11 @@ func ImplantConfigWithC2sByID(id string) (*models.ImplantConfig, error) {
 	return &config, err
 }
 
-// ImplantConfigByECCPublicKey - Fetch implant build by it's ecc public key
-func ImplantConfigByECCPublicKeyDigest(publicKeyDigest [32]byte) (*models.ImplantConfig, error) {
+// ImplantConfigByPublicKeyDigest - Fetch implant build by it's ecc public key
+func ImplantConfigByPublicKeyDigest(publicKeyDigest [32]byte) (*models.ImplantConfig, error) {
 	config := models.ImplantConfig{}
 	err := Session().Where(&models.ImplantConfig{
-		ECCPublicKeyDigest: hex.EncodeToString(publicKeyDigest[:]),
+		PeerPublicKeyDigest: hex.EncodeToString(publicKeyDigest[:]),
 	}).First(&config).Error
 	if err != nil {
 		return nil, err
@@ -672,4 +673,16 @@ func CrackFilesDiskUsage() (int64, error) {
 		sum += crackFile.UncompressedSize
 	}
 	return sum, nil
+}
+
+// CheckKeyExReplay - Store the hash of a key exchange to prevent replays
+func CheckKeyExReplay(ciphertext []byte) error {
+	keyExSha256Hash := sha256.Sum256(ciphertext)
+	return Session().Create(
+		// The Sha256 is a primary key, do duplicates/nulls will
+		// result in an error
+		&models.KeyExHistory{
+			Sha256: hex.EncodeToString(keyExSha256Hash[:]),
+		},
+	).Error
 }

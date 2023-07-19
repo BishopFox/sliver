@@ -148,6 +148,8 @@ func SliverCommands(con *client.SliverConsoleClient) console.Commands {
 			extensions.ExtensionRegisterCommand(ext, sliver, con)
 		}
 
+		// [ Post-command declaration setup ]----------------------------------------
+
 		// Everything below this line should preferably not be any command binding
 		// (although you can do so without fear). If there are any final modifications
 		// to make to the server menu command tree, it time to do them here.

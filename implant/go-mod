@@ -1,8 +1,9 @@
 module github.com/bishopfox/sliver
 
-go 1.18
+go 1.20
 
 require (
+	filippo.io/age v1.1.1
 	github.com/Binject/universal v0.0.0-20210304094126-daefaa886313
 	github.com/Ne0nd0g/go-clr v1.0.3
 	github.com/gofrs/uuid v4.0.0+incompatible
@@ -10,39 +11,35 @@ require (
 	github.com/lesnuages/go-winio v0.4.19
 	github.com/miekg/dns v1.1.50
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
-	github.com/pquerna/otp v1.3.0
 	github.com/stretchr/testify v1.7.0
 	github.com/tetratelabs/wazero v1.2.0
 	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
 	github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e
-	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
-	golang.org/x/net v0.0.0-20220722155237-a158d28d115b
-	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f
+	golang.org/x/crypto v0.4.0
+	golang.org/x/net v0.5.0
+	golang.org/x/sys v0.4.0
 	golang.zx2c4.com/wireguard v0.0.0-20220316235147-5aff28b14c24
-	google.golang.org/protobuf v1.28.0
-	gvisor.dev/gvisor v0.0.0-20220817001344-846276b3dbc5
+	google.golang.org/protobuf v1.28.2-0.20230118093459-a9481185b34d
+	gvisor.dev/gvisor v0.0.0-20230504175454-7b0a1988a28f
 )
 
 require (
 	github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2 // indirect
 	github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc // indirect
-	github.com/Microsoft/go-winio v0.5.1 // indirect
+	github.com/Microsoft/go-winio v0.6.0 // indirect
 	github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0 // indirect
 	github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4 // indirect
-	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
 	github.com/google/btree v1.0.1 // indirect
-	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/jcmturner/gofork v1.0.0 // indirect
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/mod v0.5.1 // indirect
-	golang.org/x/text v0.3.7 // indirect
-	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
-	golang.org/x/tools v0.1.9 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	golang.org/x/mod v0.7.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
+	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
+	golang.org/x/tools v0.5.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20211104114900-415007cec224 // indirect
 	gopkg.in/jcmturner/aescts.v1 v1.0.1 // indirect
 	gopkg.in/jcmturner/dnsutils.v1 v1.0.1 // indirect

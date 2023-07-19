@@ -43,6 +43,7 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 	listenerURL, _ := cmd.Flags().GetString("url")
 	aesEncryptKey, _ := cmd.Flags().GetString("aes-encrypt-key")
 	aesEncryptIv, _ := cmd.Flags().GetString("aes-encrypt-iv")
+	rc4EncryptKey, _ := cmd.Flags().GetString("rc4-encrypt-key")
 	prependSize, _ := cmd.Flags().GetBool("prepend-size")
 	compressF, _ := cmd.Flags().GetString("compress")
 	compress := strings.ToLower(compressF)
@@ -68,6 +69,21 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 	if profile == nil {
 		con.PrintErrorf("Profile not found\n")
 		return
+	}
+
+	if rc4EncryptKey != "" && aesEncryptKey != "" {
+		con.PrintErrorf("Cannot use both RC4 and AES encryption\n")
+		return
+	}
+
+	rc4Encrypt := false
+	if rc4EncryptKey != "" {
+		// RC4 keysize can be between 1 to 256 bytes
+		if len(rc4EncryptKey) < 1 || len(rc4EncryptKey) > 256 {
+			con.PrintErrorf("Incorrect length of RC4 Key\n")
+			return
+		}
+		rc4Encrypt = true
 	}
 
 	aesEncrypt := false
@@ -119,6 +135,10 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 		// but it's also useful here as more advanced cipher modes are often difficult to implement in
 		// a stager.
 		stage2 = util.PreludeEncrypt(stage2, []byte(aesEncryptKey), []byte(aesEncryptIv))
+	}
+
+	if rc4Encrypt {
+		stage2 = util.RC4EncryptUnsafe(stage2, []byte(rc4EncryptKey))
 	}
 
 	switch stagingURL.Scheme {
@@ -197,6 +217,10 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 	if aesEncrypt {
 		con.PrintInfof("AES KEY: %v\n", aesEncryptKey)
 		con.PrintInfof("AES IV: %v\n", aesEncryptIv)
+	}
+
+	if rc4Encrypt {
+		con.PrintInfof("RC4 KEY: %v\n", rc4EncryptKey)
 	}
 }
 

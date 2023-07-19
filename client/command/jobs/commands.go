@@ -159,6 +159,7 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 		f.BoolP("lets-encrypt", "e", false, "attempt to provision a let's encrypt certificate (HTTPS only)")
 		f.String("aes-encrypt-key", "", "encrypt stage with AES encryption key")
 		f.String("aes-encrypt-iv", "", "encrypt stage with AES encryption iv")
+		f.String("rc4-encrypt-key", "", "encrypt stage with RC4 encryption key")
 		f.StringP("compress", "C", "none", "compress the stage before encrypting (zlib, gzip, deflate9, none)")
 		f.BoolP("prepend-size", "P", false, "prepend the size of the stage to the payload (to use with MSF stagers)")
 	})

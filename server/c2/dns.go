@@ -37,7 +37,6 @@ package c2
 import (
 	"bytes"
 	secureRand "crypto/rand"
-	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -99,9 +98,9 @@ func StartDNSListener(bindIface string, lport uint16, domains []string, canaries
 
 // DNSSession - Holds DNS session information
 type DNSSession struct {
-	ID         uint32
-	ImplanConn *core.ImplantConnection
-	CipherCtx  *cryptography.CipherContext
+	ID          uint32
+	ImplantConn *core.ImplantConnection
+	CipherCtx   *cryptography.CipherContext
 
 	outgoingMsgIDs  []uint32
 	outgoingBuffers map[uint32][]byte
@@ -226,18 +225,18 @@ func (s *DNSSession) ForwardCompletedEnvelope(msgID uint32, pending *PendingEnve
 		return
 	}
 
-	s.ImplanConn.UpdateLastMessage()
+	s.ImplantConn.UpdateLastMessage()
 	handlers := sliverHandlers.GetHandlers()
 	if envelope.ID != 0 {
-		s.ImplanConn.RespMutex.RLock()
-		defer s.ImplanConn.RespMutex.RUnlock()
-		if resp, ok := s.ImplanConn.Resp[envelope.ID]; ok {
+		s.ImplantConn.RespMutex.RLock()
+		defer s.ImplantConn.RespMutex.RUnlock()
+		if resp, ok := s.ImplantConn.Resp[envelope.ID]; ok {
 			resp <- envelope
 		}
 	} else if handler, ok := handlers[envelope.Type]; ok {
-		respEnvelope := handler(s.ImplanConn, envelope.Data)
+		respEnvelope := handler(s.ImplantConn, envelope.Data)
 		if respEnvelope != nil {
-			s.ImplanConn.Send <- respEnvelope
+			s.ImplantConn.Send <- respEnvelope
 		}
 	}
 }
@@ -381,7 +380,7 @@ func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 
 	// TOTP Handler can be called without dns session ID
 	if msg.Type == dnspb.DNSMessageType_TOTP {
-		return s.handleTOTP(domain, msg, req)
+		return s.handleHello(domain, msg, req)
 	}
 
 	// All other handlers require a valid dns session ID
@@ -458,19 +457,8 @@ func (s *SliverDNSServer) refusedErrorResp(req *dns.Msg) *dns.Msg {
 // ---------------------------
 // DNS Message Handlers
 // ---------------------------
-func (s *SliverDNSServer) handleTOTP(domain string, msg *dnspb.DNSMessage, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handleHello(domain string, msg *dnspb.DNSMessage, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[dns] totp request: %v", msg)
-	totpCode := fmt.Sprintf("%08d", msg.ID)
-	if s.EnforceOTP {
-		valid, err := cryptography.ValidateTOTP(totpCode)
-		if err != nil || !valid {
-			dnsLog.Warnf("totp request invalid (%v)", err)
-			return s.nameErrorResp(req)
-		}
-		dnsLog.Debugf("[dns] totp request valid")
-	} else {
-		dnsLog.Warn("[dns] totp validation is disabled")
-	}
 
 	dnsSessionID := dnsSessionID()
 	dnsLog.Debugf("[dns] Assigned new dns session id = %d", dnsSessionID&sessionIDBitMask)
@@ -517,20 +505,14 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 
 	var publicKeyDigest [32]byte
 	copy(publicKeyDigest[:], msg.Data[:32])
-	implantConfig, err := db.ImplantConfigByECCPublicKeyDigest(publicKeyDigest)
+	implantConfig, err := db.ImplantConfigByPublicKeyDigest(publicKeyDigest)
 	if err != nil || implantConfig == nil {
 		dnsLog.Errorf("[session init] error implant public key not found")
 		return s.refusedErrorResp(req)
 	}
-	publicKey, err := base64.RawStdEncoding.DecodeString(implantConfig.ECCPublicKey)
-	if err != nil || len(publicKey) != 32 {
-		dnsLog.Errorf("[session init] error decoding public key: %s", err)
-		return s.refusedErrorResp(req)
-	}
-	var senderPublicKey [32]byte
-	copy(senderPublicKey[:], publicKey)
-	serverKeyPair := cryptography.ECCServerKeyPair()
-	sessionInit, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, msg.Data[32:])
+
+	serverKeyPair := cryptography.AgeServerKeyPair()
+	sessionInit, err := cryptography.AgeKeyExFromImplant(serverKeyPair.Private, implantConfig.PeerPrivateKey, msg.Data[32:])
 	if err != nil {
 		dnsLog.Errorf("[session init] error decrypting session init data: %s", err)
 		return s.refusedErrorResp(req)
@@ -541,10 +523,10 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 		return s.refusedErrorResp(req)
 	}
 
-	dnsSession.ImplanConn = core.NewImplantConnection("dns", "n/a")
+	dnsSession.ImplantConn = core.NewImplantConnection("dns", "n/a")
 	go func() {
 		dnsLog.Debugf("[dns] starting implant conn send loop")
-		for envelope := range dnsSession.ImplanConn.Send {
+		for envelope := range dnsSession.ImplantConn.Send {
 			dnsSession.StageOutgoingEnvelope(envelope)
 		}
 		dnsLog.Debugf("[dns] closing implant conn send loop")

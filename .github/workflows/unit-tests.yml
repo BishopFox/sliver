@@ -1,0 +1,95 @@
+name: Build & Test
+on:
+  pull_request:
+    branches:
+      - master
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+jobs:
+  linux-windows-build-test:
+    name: Linux & Windows Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Go 1.20
+        uses: actions/setup-go@v4
+        with:
+          go-version: "^1.20"
+
+      - name: OS Packages
+        run: |
+          sudo apt-get update --fix-missing && sudo apt-get -y install \
+          git build-essential zlib1g zlib1g-dev wget zip unzip \
+          mingw-w64 binutils-mingw-w64 g++-mingw-w64 gcc-multilib
+
+      - name: Check Out Code
+        uses: actions/checkout@v3
+
+      - name: Git Fetch Tags
+        run: git fetch --prune --unshallow --tags -f
+
+      - name: Make Linux (amd64)
+        run: make linux-amd64
+
+      - name: Test Linux
+        run: ./sliver-server unpack --force && ./go-tests.sh
+
+      - name: Make Windows (amd64)
+        run: make windows-amd64
+
+      - name: Make Linux (arm64)
+        run: make linux-arm64
+
+  macos-build-test:
+    name: MacOS Test
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - name: Go 1.20
+        uses: actions/setup-go@v4
+        with:
+          go-version: "^1.20"
+
+      - name: Mingw
+        run: brew install mingw-w64
+
+      - name: Check Out Code
+        uses: actions/checkout@v3
+
+      - name: Git Fetch Tags
+        run: git fetch --prune --unshallow --tags -f
+
+      - name: Make MacOS (amd64)
+        run: make macos-amd64
+
+      - name: Test MacOS (amd64)
+        env:
+          SLIVER_CC_32: /usr/local/bin/i686-w64-mingw32-gcc
+          SLIVER_CC_64: /usr/local/bin/x86_64-w64-mingw32-gcc
+        run: ./sliver-server unpack --force && ./go-tests.sh
+
+      - name: Make MacOS (arm64)
+        run: make macos-arm64
+
+  clients-build:
+    name: Clients Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Go 1.20
+        uses: actions/setup-go@v4
+        with:
+          go-version: "^1.20"
+
+      - name: Check Out Code
+        uses: actions/checkout@v3
+
+      - name: Git Fetch Tags
+        run: git fetch --prune --unshallow --tags -f
+
+      - name: Make
+        run: make clients

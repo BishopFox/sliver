@@ -259,7 +259,7 @@ func MakeToken(domain string, username string, password string, logonType uint32
 	if err != nil {
 		return err
 	}
-	if logonType == 0 {
+	if logonType == syscalls.LOGON32_LOGON_NEW_CREDENTIALS {
 		err = syscalls.LogonUser(pu, pd, pp, logonType, syscalls.LOGON32_PROVIDER_WINNT50, &token)
 	} else {
 		err = syscalls.LogonUser(pu, pd, pp, logonType, syscalls.LOGON32_PROVIDER_DEFAULT, &token)

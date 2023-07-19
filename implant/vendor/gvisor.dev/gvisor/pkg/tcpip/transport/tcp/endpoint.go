@@ -605,6 +605,12 @@ func calculateAdvertisedMSS(userMSS uint16, r *stack.Route) uint16 {
 	return maxMSS
 }
 
+// isOwnedByUser() returns true if the endpoint lock is currently
+// held by a user(syscall) goroutine.
+func (e *endpoint) isOwnedByUser() bool {
+	return e.ownedByUser.Load() == 1
+}
+
 // LockUser tries to lock e.mu and if it fails it will check if the lock is held
 // by another syscall goroutine. If yes, then it will goto sleep waiting for the
 // lock to be released, if not then it will spin till it acquires the lock or
@@ -613,10 +619,31 @@ func calculateAdvertisedMSS(userMSS uint16, r *stack.Route) uint16 {
 //
 // The assumption behind spinning here being that background packet processing
 // should not be holding the lock for long and spinning reduces latency as we
-// avoid an expensive sleep/wakeup of of the syscall goroutine).
+// avoid an expensive sleep/wakeup of the syscall goroutine).
 // +checklocksacquire:e.mu
 func (e *endpoint) LockUser() {
-	for {
+	const iterations = 5
+	for i := 0; i < iterations; i++ {
+		// Try first if the sock is locked then check if it's owned
+		// by another user goroutine if not then we spin, otherwise
+		// we just go to sleep on the Lock() and wait.
+		if !e.TryLock() {
+			// If socket is owned by the user then just go to sleep
+			// as the lock could be held for a reasonably long time.
+			if e.ownedByUser.Load() == 1 {
+				e.mu.Lock()
+				e.ownedByUser.Store(1)
+				return
+			}
+			// Spin but don't yield the processor since the lower half
+			// should yield the lock soon.
+			continue
+		}
+		e.ownedByUser.Store(1)
+		return
+	}
+
+	for i := 0; i < iterations; i++ {
 		// Try first if the sock is locked then check if it's owned
 		// by another user goroutine if not then we spin, otherwise
 		// we just go to sleep on the Lock() and wait.
@@ -636,6 +663,10 @@ func (e *endpoint) LockUser() {
 		e.ownedByUser.Store(1)
 		return
 	}
+
+	// Finally just give up and wait for the Lock.
+	e.mu.Lock()
+	e.ownedByUser.Store(1)
 }
 
 // UnlockUser will check if there are any segments already queued for processing
@@ -981,6 +1012,7 @@ func (e *endpoint) Abort() {
 	switch state := e.EndpointState(); {
 	case state.connected():
 		e.resetConnectionLocked(&tcpip.ErrAborted{})
+		e.waiterQueue.Notify(waiter.EventHUp | waiter.EventErr | waiter.ReadableEvents | waiter.WritableEvents)
 		return
 	}
 	e.closeLocked()
@@ -2354,7 +2386,7 @@ func (e *endpoint) connect(addr tcpip.FullAddress, handshake bool) tcpip.Error {
 		}
 
 		if nicID != 0 && nicID != e.boundNICID {
-			return &tcpip.ErrNoRoute{}
+			return &tcpip.ErrHostUnreachable{}
 		}
 
 		nicID = e.boundNICID
@@ -2776,7 +2808,7 @@ func (e *endpoint) getRemoteAddress() tcpip.FullAddress {
 	}
 }
 
-func (*endpoint) HandlePacket(stack.TransportEndpointID, *stack.PacketBuffer) {
+func (*endpoint) HandlePacket(stack.TransportEndpointID, stack.PacketBufferPtr) {
 	// TCP HandlePacket is not required anymore as inbound packets first
 	// land at the Dispatcher which then can either deliver using the
 	// worker go routine or directly do the invoke the tcp processing inline
@@ -2794,7 +2826,7 @@ func (e *endpoint) enqueueSegment(s *segment) bool {
 	return true
 }
 
-func (e *endpoint) onICMPError(err tcpip.Error, transErr stack.TransportError, pkt *stack.PacketBuffer) {
+func (e *endpoint) onICMPError(err tcpip.Error, transErr stack.TransportError, pkt stack.PacketBufferPtr) {
 	// Update last error first.
 	e.lastErrorMu.Lock()
 	e.lastError = err
@@ -2851,7 +2883,7 @@ func (e *endpoint) onICMPError(err tcpip.Error, transErr stack.TransportError, p
 }
 
 // HandleError implements stack.TransportEndpoint.
-func (e *endpoint) HandleError(transErr stack.TransportError, pkt *stack.PacketBuffer) {
+func (e *endpoint) HandleError(transErr stack.TransportError, pkt stack.PacketBufferPtr) {
 	handlePacketTooBig := func(mtu uint32) {
 		e.sndQueueInfo.sndQueueMu.Lock()
 		update := false
@@ -2875,9 +2907,19 @@ func (e *endpoint) HandleError(transErr stack.TransportError, pkt *stack.PacketB
 	case stack.PacketTooBigTransportError:
 		handlePacketTooBig(transErr.Info())
 	case stack.DestinationHostUnreachableTransportError:
-		e.onICMPError(&tcpip.ErrNoRoute{}, transErr, pkt)
+		e.onICMPError(&tcpip.ErrHostUnreachable{}, transErr, pkt)
 	case stack.DestinationNetworkUnreachableTransportError:
 		e.onICMPError(&tcpip.ErrNetworkUnreachable{}, transErr, pkt)
+	case stack.DestinationPortUnreachableTransportError:
+		e.onICMPError(&tcpip.ErrConnectionRefused{}, transErr, pkt)
+	case stack.DestinationProtoUnreachableTransportError:
+		e.onICMPError(&tcpip.ErrUnknownProtocolOption{}, transErr, pkt)
+	case stack.SourceRouteFailedTransportError:
+		e.onICMPError(&tcpip.ErrNotSupported{}, transErr, pkt)
+	case stack.SourceHostIsolatedTransportError:
+		e.onICMPError(&tcpip.ErrNoNet{}, transErr, pkt)
+	case stack.DestinationHostDownTransportError:
+		e.onICMPError(&tcpip.ErrHostDown{}, transErr, pkt)
 	}
 }
 

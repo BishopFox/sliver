@@ -137,15 +137,16 @@ message ImplantConfig {
   bool Evasion = 9;
   bool ObfuscateSymbols = 10;
   string TemplateName = 11;
+  bool SGNEnabled = 12;
 
   string MtlsCACert = 20;
   string MtlsCert = 21;
   string MtlsKey = 22;
 
-  string ECCServerPublicKey = 23;
-  string ECCPublicKey = 24;
-  string ECCPrivateKey = 25;
-  string ECCPublicKeySignature = 26;
+  string AgeServerPublicKey = 23;
+  string PeerPublicKey = 24;
+  string PeerPrivateKey = 25;
+  string PeerPublicKeySignature = 26;
   string MinisignServerPublicKey = 27;
 
   string WGImplantPrivKey = 30;

@@ -32,6 +32,24 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 		carapace.ActionValues().Usage("path to dest file (required)"),
 	)
 
+	cpCmd := &cobra.Command{
+		Use:   consts.CpStr,
+		Short: "Copy a file",
+		Long:  help.GetHelpFor([]string{consts.CpStr}),
+		Args:  cobra.ExactArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			CpCmd(cmd, con, args)
+		},
+		GroupID: consts.FilesystemHelpGroup,
+	}
+	flags.Bind("", false, cpCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	carapace.Gen(cpCmd).PositionalCompletion(
+		carapace.ActionValues().Usage("path to source file (required)"),
+		carapace.ActionValues().Usage("path to dest file (required)"),
+	)
+
 	lsCmd := &cobra.Command{
 		Use:   consts.LsStr,
 		Short: "List current directory",
@@ -213,5 +231,17 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 
 	carapace.Gen(memfilesRmCmd).PositionalCompletion(carapace.ActionValues().Usage("memfile file descriptor"))
 
-	return []*cobra.Command{mvCmd, lsCmd, rmCmd, mkdirCmd, pwdCmd, catCmd, cdCmd, downloadCmd, uploadCmd, memfilesCmd}
+	return []*cobra.Command{
+		mvCmd,
+		cpCmd,
+		lsCmd,
+		rmCmd,
+		mkdirCmd,
+		pwdCmd,
+		catCmd,
+		cdCmd,
+		downloadCmd,
+		uploadCmd,
+		memfilesCmd,
+	}
 }

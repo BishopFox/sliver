@@ -47,9 +47,9 @@ var (
 	mtlsLog = log.NamedLogger("transport", "mtls")
 )
 
-// StartClientListener - Start a mutual TLS listener
-func StartClientListener(host string, port uint16) (*grpc.Server, net.Listener, error) {
-	mtlsLog.Infof("Starting gRPC  listener on %s:%d", host, port)
+// StartMtlsClientListener - Start a mutual TLS listener
+func StartMtlsClientListener(host string, port uint16) (*grpc.Server, net.Listener, error) {
+	mtlsLog.Infof("Starting gRPC/mtls  listener on %s:%d", host, port)
 
 	tlsConfig := getOperatorServerTLSConfig("multiplayer")
 
@@ -114,9 +114,6 @@ func getOperatorServerTLSConfig(host string) *tls.Config {
 		ClientCAs:    caCertPool,
 		Certificates: []tls.Certificate{cert},
 		MinVersion:   tls.VersionTLS13,
-	}
-	if certs.TLSKeyLogger != nil {
-		tlsConfig.KeyLogWriter = certs.TLSKeyLogger
 	}
 
 	return tlsConfig

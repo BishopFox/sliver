@@ -181,7 +181,11 @@ func StartPersistentJobs(cfg *configs.ServerConfig) error {
 		return nil
 	}
 	for _, j := range cfg.Jobs.Multiplayer {
-		jobStartClientListener(j.Host, j.Port)
+		if j.Tailscale {
+			jobStartTsNetClientListener(j.Host, j.Port)
+		} else {
+			jobStartMtlsClientListener(j.Host, j.Port)
+		}
 	}
 	return nil
 }
@@ -190,15 +194,22 @@ func startMultiplayerModeCmd(cmd *cobra.Command, _ []string) {
 	lhost, _ := cmd.Flags().GetString("lhost")
 	lport, _ := cmd.Flags().GetUint16("lport")
 	persistent, _ := cmd.Flags().GetBool("persistent")
+	tailscale, _ := cmd.Flags().GetBool("tailscale")
 
-	_, err := jobStartClientListener(lhost, lport)
+	var err error
+	if tailscale {
+		_, err = jobStartTsNetClientListener(lhost, lport)
+	} else {
+		_, err = jobStartMtlsClientListener(lhost, lport)
+	}
 	if err == nil {
 		fmt.Printf(Info + "Multiplayer mode enabled!\n")
 		if persistent {
 			serverConfig := configs.GetServerConfig()
 			serverConfig.AddMultiplayerJob(&configs.MultiplayerJobConfig{
-				Host: lhost,
-				Port: lport,
+				Host:      lhost,
+				Port:      lport,
+				Tailscale: tailscale,
 			})
 			serverConfig.Save()
 		}
@@ -207,15 +218,46 @@ func startMultiplayerModeCmd(cmd *cobra.Command, _ []string) {
 	}
 }
 
-func jobStartClientListener(host string, port uint16) (int, error) {
-	_, ln, err := transport.StartClientListener(host, port)
+func jobStartMtlsClientListener(host string, port uint16) (int, error) {
+	_, ln, err := transport.StartMtlsClientListener(host, port)
 	if err != nil {
 		return -1, err // If we fail to bind don't setup the Job
 	}
 
 	job := &core.Job{
 		ID:          core.NextJobID(),
-		Name:        "grpc",
+		Name:        "grpc/mtls",
+		Description: "client listener",
+		Protocol:    "tcp",
+		Port:        port,
+		JobCtrl:     make(chan bool),
+	}
+
+	go func() {
+		<-job.JobCtrl
+		log.Printf("Stopping client listener (%d) ...\n", job.ID)
+		ln.Close() // Kills listener GoRoutines in startMutualTLSListener() but NOT connections
+
+		core.Jobs.Remove(job)
+		core.EventBroker.Publish(core.Event{
+			Job:       job,
+			EventType: consts.JobStoppedEvent,
+		})
+	}()
+
+	core.Jobs.Add(job)
+	return job.ID, nil
+}
+
+func jobStartTsNetClientListener(host string, port uint16) (int, error) {
+	_, ln, err := transport.StartTsNetClientListener(host, port)
+	if err != nil {
+		return -1, err // If we fail to bind don't setup the Job
+	}
+
+	job := &core.Job{
+		ID:          core.NextJobID(),
+		Name:        "grpc/tsnet",
 		Description: "client listener",
 		Protocol:    "tcp",
 		Port:        port,

@@ -38,6 +38,7 @@ import (
 	"io"
 	stdlog "log"
 	"os"
+	"regexp"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -80,7 +81,7 @@ func (l Level) String() string {
 type Emitter interface {
 	// Emit emits the given log statement. This allows for control over the
 	// timestamp used for logging.
-	Emit(depth int, level Level, timestamp time.Time, format string, v ...interface{})
+	Emit(depth int, level Level, timestamp time.Time, format string, v ...any)
 }
 
 // Writer writes the output to the given writer.
@@ -144,7 +145,7 @@ func (l *Writer) Write(data []byte) (int, error) {
 }
 
 // Emit emits the message.
-func (l *Writer) Emit(_ int, _ Level, _ time.Time, format string, args ...interface{}) {
+func (l *Writer) Emit(_ int, _ Level, _ time.Time, format string, args ...any) {
 	fmt.Fprintf(l, format, args...)
 }
 
@@ -152,7 +153,7 @@ func (l *Writer) Emit(_ int, _ Level, _ time.Time, format string, args ...interf
 type MultiEmitter []Emitter
 
 // Emit emits to all emitters.
-func (m *MultiEmitter) Emit(depth int, level Level, timestamp time.Time, format string, v ...interface{}) {
+func (m *MultiEmitter) Emit(depth int, level Level, timestamp time.Time, format string, v ...any) {
 	for _, e := range *m {
 		e.Emit(1+depth, level, timestamp, format, v...)
 	}
@@ -160,7 +161,7 @@ func (m *MultiEmitter) Emit(depth int, level Level, timestamp time.Time, format 
 
 // TestLogger is implemented by testing.T and testing.B.
 type TestLogger interface {
-	Logf(format string, v ...interface{})
+	Logf(format string, v ...any)
 }
 
 // TestEmitter may be used for wrapping tests.
@@ -169,7 +170,7 @@ type TestEmitter struct {
 }
 
 // Emit emits to the TestLogger.
-func (t *TestEmitter) Emit(_ int, level Level, timestamp time.Time, format string, v ...interface{}) {
+func (t *TestEmitter) Emit(_ int, level Level, timestamp time.Time, format string, v ...any) {
 	t.Logf(format, v...)
 }
 
@@ -179,13 +180,13 @@ func (t *TestEmitter) Emit(_ int, level Level, timestamp time.Time, format strin
 // satisfies this interface, and may be passed around as a Logger.
 type Logger interface {
 	// Debugf logs a debug statement.
-	Debugf(format string, v ...interface{})
+	Debugf(format string, v ...any)
 
 	// Infof logs at an info level.
-	Infof(format string, v ...interface{})
+	Infof(format string, v ...any)
 
 	// Warningf logs at a warning level.
-	Warningf(format string, v ...interface{})
+	Warningf(format string, v ...any)
 
 	// IsLogging returns true iff this level is being logged. This may be
 	// used to short-circuit expensive operations for debugging calls.
@@ -199,36 +200,36 @@ type BasicLogger struct {
 }
 
 // Debugf implements logger.Debugf.
-func (l *BasicLogger) Debugf(format string, v ...interface{}) {
+func (l *BasicLogger) Debugf(format string, v ...any) {
 	l.DebugfAtDepth(1, format, v...)
 }
 
 // Infof implements logger.Infof.
-func (l *BasicLogger) Infof(format string, v ...interface{}) {
+func (l *BasicLogger) Infof(format string, v ...any) {
 	l.InfofAtDepth(1, format, v...)
 }
 
 // Warningf implements logger.Warningf.
-func (l *BasicLogger) Warningf(format string, v ...interface{}) {
+func (l *BasicLogger) Warningf(format string, v ...any) {
 	l.WarningfAtDepth(1, format, v...)
 }
 
 // DebugfAtDepth logs at a specific depth.
-func (l *BasicLogger) DebugfAtDepth(depth int, format string, v ...interface{}) {
+func (l *BasicLogger) DebugfAtDepth(depth int, format string, v ...any) {
 	if l.IsLogging(Debug) {
 		l.Emit(1+depth, Debug, time.Now(), format, v...)
 	}
 }
 
 // InfofAtDepth logs at a specific depth.
-func (l *BasicLogger) InfofAtDepth(depth int, format string, v ...interface{}) {
+func (l *BasicLogger) InfofAtDepth(depth int, format string, v ...any) {
 	if l.IsLogging(Info) {
 		l.Emit(1+depth, Info, time.Now(), format, v...)
 	}
 }
 
 // WarningfAtDepth logs at a specific depth.
-func (l *BasicLogger) WarningfAtDepth(depth int, format string, v ...interface{}) {
+func (l *BasicLogger) WarningfAtDepth(depth int, format string, v ...any) {
 	if l.IsLogging(Warning) {
 		l.Emit(1+depth, Warning, time.Now(), format, v...)
 	}
@@ -275,32 +276,32 @@ func SetLevel(newLevel Level) {
 }
 
 // Debugf logs to the global logger.
-func Debugf(format string, v ...interface{}) {
+func Debugf(format string, v ...any) {
 	Log().DebugfAtDepth(1, format, v...)
 }
 
 // Infof logs to the global logger.
-func Infof(format string, v ...interface{}) {
+func Infof(format string, v ...any) {
 	Log().InfofAtDepth(1, format, v...)
 }
 
 // Warningf logs to the global logger.
-func Warningf(format string, v ...interface{}) {
+func Warningf(format string, v ...any) {
 	Log().WarningfAtDepth(1, format, v...)
 }
 
 // DebugfAtDepth logs to the global logger.
-func DebugfAtDepth(depth int, format string, v ...interface{}) {
+func DebugfAtDepth(depth int, format string, v ...any) {
 	Log().DebugfAtDepth(1+depth, format, v...)
 }
 
 // InfofAtDepth logs to the global logger.
-func InfofAtDepth(depth int, format string, v ...interface{}) {
+func InfofAtDepth(depth int, format string, v ...any) {
 	Log().InfofAtDepth(1+depth, format, v...)
 }
 
 // WarningfAtDepth logs to the global logger.
-func WarningfAtDepth(depth int, format string, v ...interface{}) {
+func WarningfAtDepth(depth int, format string, v ...any) {
 	Log().WarningfAtDepth(1+depth, format, v...)
 }
 
@@ -325,11 +326,27 @@ func Stacks(all bool) []byte {
 	return trace
 }
 
+// stackRegexp matches one level within a stack trace.
+var stackRegexp = regexp.MustCompile("(?m)^\\S+\\(.*\\)$\\r?\\n^\\t\\S+:\\d+.*$\\r?\\n")
+
+// LocalStack returns the local goroutine stack, excluding the top N entries.
+// LocalStack's own entry is excluded by default and does not need to be counted in excludeTopN.
+func LocalStack(excludeTopN int) []byte {
+	replaceNext := excludeTopN + 1
+	return stackRegexp.ReplaceAllFunc(Stacks(false), func(s []byte) []byte {
+		if replaceNext > 0 {
+			replaceNext--
+			return nil
+		}
+		return s
+	})
+}
+
 // Traceback logs the given message and dumps a stacktrace of the current
 // goroutine.
 //
 // This will be print a traceback, tb, as Warningf(format+":\n%s", v..., tb).
-func Traceback(format string, v ...interface{}) {
+func Traceback(format string, v ...any) {
 	v = append(v, Stacks(false))
 	Warningf(format+":\n%s", v...)
 }
@@ -337,7 +354,7 @@ func Traceback(format string, v ...interface{}) {
 // TracebackAll logs the given message and dumps a stacktrace of all goroutines.
 //
 // This will be print a traceback, tb, as Warningf(format+":\n%s", v..., tb).
-func TracebackAll(format string, v ...interface{}) {
+func TracebackAll(format string, v ...any) {
 	v = append(v, Stacks(true))
 	Warningf(format+":\n%s", v...)
 }
@@ -350,7 +367,7 @@ func IsLogging(level Level) bool {
 // CopyStandardLogTo redirects the stdlib log package global output to the global
 // logger for the specified level.
 func CopyStandardLogTo(l Level) error {
-	var f func(string, ...interface{})
+	var f func(string, ...any)
 
 	switch l {
 	case Debug:

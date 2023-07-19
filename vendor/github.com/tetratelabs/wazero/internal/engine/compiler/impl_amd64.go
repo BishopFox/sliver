@@ -93,6 +93,7 @@ type amd64Compiler struct {
 	stackPointerCeil uint64
 	// assignStackPointerCeilNeeded holds an asm.Node whose AssignDestinationConstant must be called with the determined stack pointer ceiling.
 	assignStackPointerCeilNeeded asm.Node
+	compiledTrapTargets          [nativeCallStatusModuleClosed]asm.Node
 	withListener                 bool
 	typ                          *wasm.FunctionType
 	// locationStackForEntrypoint is the initial location stack for all functions. To reuse the allocated stack,
@@ -583,7 +584,7 @@ func (c *amd64Compiler) compileBrIf(o *wazeroir.UnionOperation) error {
 			return err
 		}
 		// Check if the value not equals zero.
-		c.assembler.CompileRegisterToConst(amd64.CMPQ, cond.register, 0)
+		c.assembler.CompileRegisterToRegister(amd64.TESTQ, cond.register, cond.register)
 
 		// Emit jump instruction which jumps when the value does not equals zero.
 		jmpWithCond = c.assembler.CompileJump(amd64.JNE)
@@ -869,13 +870,9 @@ func (c *amd64Compiler) compileCallIndirect(o *wazeroir.UnionOperation) error {
 	// tmp = &module.Tables[0] + Index*8 = &module.Tables[0] + sizeOf(*TableInstance)*index = module.Tables[o.TableIndex].
 	c.assembler.CompileMemoryToRegister(amd64.MOVQ, tmp, int64(tableIndex*8), tmp)
 
-	// Then, we need to check if the offset doesn't exceed the length of table.
+	// Then, we need to trap if the offset exceeds the length of table.
 	c.assembler.CompileMemoryToRegister(amd64.CMPQ, tmp, tableInstanceTableLenOffset, offset.register)
-	notLengthExceedJump := c.assembler.CompileJump(amd64.JHI)
-
-	// If it exceeds, we return the function with nativeCallStatusCodeInvalidTableAccess.
-	c.compileExitFromNativeCode(nativeCallStatusCodeInvalidTableAccess)
-	c.assembler.SetJumpTargetOnNext(notLengthExceedJump)
+	c.compileMaybeExitFromNativeCode(amd64.JHI, nativeCallStatusCodeInvalidTableAccess)
 
 	// next we check if the target's type matches the operation's one.
 	// In order to get the type instance's address, we have to multiply the offset
@@ -893,15 +890,10 @@ func (c *amd64Compiler) compileCallIndirect(o *wazeroir.UnionOperation) error {
 	// At this point offset.register holds the address of *code (as uintptr) at wasm.Table[offset].
 	//
 	// Check if the value of table[offset] equals zero, meaning that the target is uninitialized.
-	c.assembler.CompileRegisterToConst(amd64.CMPQ, offset.register, 0)
+	c.assembler.CompileRegisterToRegister(amd64.TESTQ, offset.register, offset.register)
 
-	// Jump if the target is initialized element.
-	jumpIfInitialized := c.assembler.CompileJump(amd64.JNE)
-
-	// If not initialized, we return the function with nativeCallStatusCodeInvalidTableAccess.
-	c.compileExitFromNativeCode(nativeCallStatusCodeInvalidTableAccess)
-
-	c.assembler.SetJumpTargetOnNext(jumpIfInitialized)
+	// Skipped if the target is initialized.
+	c.compileMaybeExitFromNativeCode(amd64.JNE, nativeCallStatusCodeInvalidTableAccess)
 
 	// Next, we need to check the type matches, i.e. table[offset].source.TypeID == targetFunctionType's typeID.
 	//
@@ -911,14 +903,9 @@ func (c *amd64Compiler) compileCallIndirect(o *wazeroir.UnionOperation) error {
 		tmp2)
 	c.assembler.CompileMemoryToRegister(amd64.MOVL, tmp2, int64(typeIndex)*4, tmp2)
 
-	// Jump if the type matches.
+	// Skipped if the type matches.
 	c.assembler.CompileMemoryToRegister(amd64.CMPL, offset.register, functionTypeIDOffset, tmp2)
-	jumpIfTypeMatch := c.assembler.CompileJump(amd64.JEQ)
-
-	// Otherwise, exit with type mismatch status.
-	c.compileExitFromNativeCode(nativeCallStatusCodeTypeMismatchOnIndirectCall)
-
-	c.assembler.SetJumpTargetOnNext(jumpIfTypeMatch)
+	c.compileMaybeExitFromNativeCode(amd64.JEQ, nativeCallStatusCodeTypeMismatchOnIndirectCall)
 	targetFunctionType := &c.ir.Types[typeIndex]
 	if err = c.compileCallFunctionImpl(offset.register, targetFunctionType); err != nil {
 		return nil
@@ -947,7 +934,7 @@ func (c *amd64Compiler) compileSelectV128Impl(selectorReg asm.Register) error {
 	}
 
 	// Compare the conditional value with zero.
-	c.assembler.CompileRegisterToConst(amd64.CMPQ, selectorReg, 0)
+	c.assembler.CompileRegisterToRegister(amd64.TESTQ, selectorReg, selectorReg)
 
 	// Set the jump if the top value is not zero.
 	jmpIfNotZero := c.assembler.CompileJump(amd64.JNE)
@@ -988,7 +975,7 @@ func (c *amd64Compiler) compileSelect(o *wazeroir.UnionOperation) error {
 	peekedX1 := c.locationStack.peek()
 
 	// Compare the conditional value with zero.
-	c.assembler.CompileRegisterToConst(amd64.CMPQ, cv.register, 0)
+	c.assembler.CompileRegisterToRegister(amd64.TESTQ, cv.register, cv.register)
 
 	// Now we can use c.register as temporary location.
 	// We alias it here for readability.
@@ -1295,7 +1282,7 @@ func (c *amd64Compiler) compileClz(o *wazeroir.UnionOperation) error {
 
 		// First, we have to check if the target is non-zero as BSR is undefined
 		// on zero. See https://www.felixcloutier.com/x86/bsr.
-		c.assembler.CompileRegisterToConst(amd64.CMPQ, target.register, 0)
+		c.assembler.CompileRegisterToRegister(amd64.TESTQ, target.register, target.register)
 		jmpIfNonZero := c.assembler.CompileJump(amd64.JNE)
 
 		// If the value is zero, we just push the const value.
@@ -1358,7 +1345,7 @@ func (c *amd64Compiler) compileCtz(o *wazeroir.UnionOperation) error {
 		// https://www.felixcloutier.com/x86/tzcnt.html
 
 		// First we compare the target with zero.
-		c.assembler.CompileRegisterToConst(amd64.CMPQ, target.register, 0)
+		c.assembler.CompileRegisterToRegister(amd64.TESTQ, target.register, target.register)
 		jmpIfNonZero := c.assembler.CompileJump(amd64.JNE)
 
 		// If the value is zero, we just push the const value.
@@ -1523,18 +1510,13 @@ func (c *amd64Compiler) performDivisionOnInts(isRem, is32Bit, signed bool) error
 
 	// Check if the x2 equals zero.
 	if is32Bit {
-		c.assembler.CompileRegisterToConst(amd64.CMPL, x2.register, 0)
+		c.assembler.CompileRegisterToRegister(amd64.TESTL, x2.register, x2.register)
 	} else {
-		c.assembler.CompileRegisterToConst(amd64.CMPQ, x2.register, 0)
+		c.assembler.CompileRegisterToRegister(amd64.TESTQ, x2.register, x2.register)
 	}
 
-	// Jump if the divisor is not zero.
-	jmpIfNotZero := c.assembler.CompileJump(amd64.JNE)
-
-	// Otherwise, we return with nativeCallStatusIntegerDivisionByZero status.
-	c.compileExitFromNativeCode(nativeCallStatusIntegerDivisionByZero)
-
-	c.assembler.SetJumpTargetOnNext(jmpIfNotZero)
+	// Skipped if the divisor is nonzero.
+	c.compileMaybeExitFromNativeCode(amd64.JNE, nativeCallStatusIntegerDivisionByZero)
 
 	// next, we ensure that x1 is placed on AX.
 	x1 := c.locationStack.pop()
@@ -1567,29 +1549,17 @@ func (c *amd64Compiler) performDivisionOnInts(isRem, is32Bit, signed bool) error
 		// for divisions on (-2^31) / -1 where we do not need to emit the special branches.
 		// For detail, please refer to https://stackoverflow.com/questions/56303282/why-idiv-with-1-causes-floating-point-exception
 
-		// First we compare the division with -1.
+		// First we store zero into the remainder result register (DX) and compare the divisor with -1.
 		if is32Bit {
+			c.assembler.CompileRegisterToRegister(amd64.XORL, remainderRegister, remainderRegister)
 			c.assembler.CompileRegisterToConst(amd64.CMPL, x2.register, -1)
 		} else {
+			c.assembler.CompileRegisterToRegister(amd64.XORQ, remainderRegister, remainderRegister)
 			c.assembler.CompileRegisterToConst(amd64.CMPQ, x2.register, -1)
 		}
 
-		// If it doesn't equal minus one, we jump to the normal case.
-		okJmp := c.assembler.CompileJump(amd64.JNE)
-
-		// Otherwise, we store zero into the remainder result register (DX).
-		if is32Bit {
-			c.assembler.CompileRegisterToRegister(amd64.XORL, remainderRegister, remainderRegister)
-		} else {
-			c.assembler.CompileRegisterToRegister(amd64.XORQ, remainderRegister, remainderRegister)
-		}
-
-		// Emit the exit jump instruction for the divisor -1 case so
-		// we skips the normal case.
-		signedRemMinusOneDivisorJmp = c.assembler.CompileJump(amd64.JMP)
-
-		// Set the normal case's jump target.
-		c.assembler.SetJumpTargetOnNext(okJmp)
+		// If it equals minus one, we skip the normal case.
+		signedRemMinusOneDivisorJmp = c.assembler.CompileJump(amd64.JEQ)
 	} else if isSignedDiv {
 		// For signed division, we have to have branches for "math.MinInt{32,64} / -1"
 		// case which results in the floating point exception via division error as
@@ -1606,7 +1576,7 @@ func (c *amd64Compiler) performDivisionOnInts(isRem, is32Bit, signed bool) error
 		nonMinusOneDivisorJmp := c.assembler.CompileJump(amd64.JNE)
 
 		// next we check if the quotient is the most negative value for the signed integer.
-		// That means whether or not we try to do (math.MaxInt32 / -1) or (math.Math.Int64 / -1) respectively.
+		// That means whether or not we try to do (math.MinInt32 / -1) or (math.MinInt64 / -1) respectively.
 		if is32Bit {
 			if err := c.assembler.CompileRegisterToStaticConst(amd64.CMPL, x1.register, c.minimum32BitSignedInt); err != nil {
 				return err
@@ -1617,17 +1587,12 @@ func (c *amd64Compiler) performDivisionOnInts(isRem, is32Bit, signed bool) error
 			}
 		}
 
-		// If it doesn't equal, we jump to the normal case.
-		jmpOK := c.assembler.CompileJump(amd64.JNE)
-
-		// Otherwise, we are trying to do (math.MaxInt32 / -1) or (math.Math.Int64 / -1),
-		// and that is the overflow in division as the result becomes 2^31 which is larger than
+		// Trap if we are trying to do (math.MinInt32 / -1) or (math.MinInt64 / -1),
+		// as that is the overflow in division as the result becomes 2^31 which is larger than
 		// the maximum of signed 32-bit int (2^31-1).
-		c.compileExitFromNativeCode(nativeCallStatusIntegerOverflow)
-
+		c.compileMaybeExitFromNativeCode(amd64.JNE, nativeCallStatusIntegerOverflow)
 		// Set the normal case's jump target.
 		c.assembler.SetJumpTargetOnNext(nonMinusOneDivisorJmp)
-		c.assembler.SetJumpTargetOnNext(jmpOK)
 	}
 
 	// Now ready to emit the div instruction.
@@ -2196,19 +2161,17 @@ func (c *amd64Compiler) emitUnsignedI32TruncFromFloat(isFloat32Bit, nonTrapping 
 	}
 
 	// Check the parity flag (set when the value is NaN), and if it is set, we should raise an exception.
-	jmpIfNotNaN := c.assembler.CompileJump(amd64.JPC) // jump if parity is not set.
-
 	var nonTrappingNaNJump asm.Node
-	if !nonTrapping {
-		c.compileExitFromNativeCode(nativeCallStatusCodeInvalidFloatToIntConversion)
-	} else {
+	if nonTrapping {
+		jmpIfNotNaN := c.assembler.CompileJump(amd64.JPC) // jump if parity is not set.
 		// In non trapping case, NaN is casted as zero.
 		// Zero out the result register by XOR itsself.
 		c.assembler.CompileRegisterToRegister(amd64.XORL, result, result)
 		nonTrappingNaNJump = c.assembler.CompileJump(amd64.JMP)
+		c.assembler.SetJumpTargetOnNext(jmpIfNotNaN)
+	} else {
+		c.compileMaybeExitFromNativeCode(amd64.JPC, nativeCallStatusCodeInvalidFloatToIntConversion)
 	}
-
-	c.assembler.SetJumpTargetOnNext(jmpIfNotNaN)
 
 	// Jump if the source float value is above or equal math.MaxInt32+1.
 	jmpAboveOrEqualMaxIn32PlusOne := c.assembler.CompileJump(amd64.JCC)
@@ -2222,19 +2185,18 @@ func (c *amd64Compiler) emitUnsignedI32TruncFromFloat(isFloat32Bit, nonTrapping 
 
 	// Then if the result is minus, it is invalid conversion from minus float (incl. -Inf).
 	c.assembler.CompileRegisterToRegister(amd64.TESTL, result, result)
-	jmpIfNotMinusOrMinusInf := c.assembler.CompileJump(amd64.JPL)
 
 	var nonTrappingMinusJump asm.Node
-	if !nonTrapping {
-		c.compileExitFromNativeCode(nativeCallStatusIntegerOverflow)
-	} else {
+	if nonTrapping {
+		jmpIfNotMinusOrMinusInf := c.assembler.CompileJump(amd64.JPL)
 		// In non trapping case, the minus value is casted as zero.
 		// Zero out the result register by XOR itsself.
 		c.assembler.CompileRegisterToRegister(amd64.XORL, result, result)
 		nonTrappingMinusJump = c.assembler.CompileJump(amd64.JMP)
+		c.assembler.SetJumpTargetOnNext(jmpIfNotMinusOrMinusInf)
+	} else {
+		c.compileMaybeExitFromNativeCode(amd64.JPL, nativeCallStatusIntegerOverflow)
 	}
-
-	c.assembler.SetJumpTargetOnNext(jmpIfNotMinusOrMinusInf)
 
 	// Otherwise, the values is valid.
 	okJmpForLessThanMaxInt32PlusOne := c.assembler.CompileJump(amd64.JMP)
@@ -2265,7 +2227,18 @@ func (c *amd64Compiler) emitUnsignedI32TruncFromFloat(isFloat32Bit, nonTrapping 
 	c.assembler.CompileRegisterToRegister(amd64.TESTL, result, result)
 
 	// If the result is minus, the conversion is invalid (from NaN or +Inf)
-	jmpIfPlusInf := c.assembler.CompileJump(amd64.JMI)
+	var nonTrappingAboveOrEqualMaxInt32PlusOne asm.Node
+	if nonTrapping {
+		jmpIfNotPlusInf := c.assembler.CompileJump(amd64.JPL)
+		err = c.assembler.CompileStaticConstToRegister(amd64.MOVL, c.maximum32BitUnsignedInt, result)
+		if err != nil {
+			return err
+		}
+		nonTrappingAboveOrEqualMaxInt32PlusOne = c.assembler.CompileJump(amd64.JMP)
+		c.assembler.SetJumpTargetOnNext(jmpIfNotPlusInf)
+	} else {
+		c.compileMaybeExitFromNativeCode(amd64.JPL, nativeCallStatusIntegerOverflow)
+	}
 
 	// Otherwise, we successfully converted the source float minus (math.MaxInt32+1) to int.
 	// So, we retrieve the original source float value by adding the sign mask.
@@ -2273,22 +2246,10 @@ func (c *amd64Compiler) emitUnsignedI32TruncFromFloat(isFloat32Bit, nonTrapping 
 		return err
 	}
 
-	okJmpForAboveOrEqualMaxInt32PlusOne := c.assembler.CompileJump(amd64.JMP)
-
-	c.assembler.SetJumpTargetOnNext(jmpIfPlusInf)
-	if !nonTrapping {
-		c.compileExitFromNativeCode(nativeCallStatusIntegerOverflow)
-	} else {
-		err = c.assembler.CompileStaticConstToRegister(amd64.MOVL, c.maximum32BitUnsignedInt, result)
-		if err != nil {
-			return err
-		}
-	}
-
 	// We jump to the next instructions for valid cases.
 	c.assembler.SetJumpTargetOnNext(okJmpForLessThanMaxInt32PlusOne)
-	c.assembler.SetJumpTargetOnNext(okJmpForAboveOrEqualMaxInt32PlusOne)
 	if nonTrapping {
+		c.assembler.SetJumpTargetOnNext(nonTrappingAboveOrEqualMaxInt32PlusOne)
 		c.assembler.SetJumpTargetOnNext(nonTrappingMinusJump)
 		c.assembler.SetJumpTargetOnNext(nonTrappingNaNJump)
 	}
@@ -2323,19 +2284,17 @@ func (c *amd64Compiler) emitUnsignedI64TruncFromFloat(isFloat32Bit, nonTrapping 
 	}
 
 	// Check the parity flag (set when the value is NaN), and if it is set, we should raise an exception.
-	jmpIfNotNaN := c.assembler.CompileJump(amd64.JPC) // jump if parity is c.not set.
-
 	var nonTrappingNaNJump asm.Node
-	if !nonTrapping {
-		c.compileExitFromNativeCode(nativeCallStatusCodeInvalidFloatToIntConversion)
-	} else {
+	if nonTrapping {
+		jmpIfNotNaN := c.assembler.CompileJump(amd64.JPC) // jump if parity is c.not set.
 		// In non trapping case, NaN is casted as zero.
 		// Zero out the result register by XOR itsself.
 		c.assembler.CompileRegisterToRegister(amd64.XORQ, result, result)
 		nonTrappingNaNJump = c.assembler.CompileJump(amd64.JMP)
+		c.assembler.SetJumpTargetOnNext(jmpIfNotNaN)
+	} else {
+		c.compileMaybeExitFromNativeCode(amd64.JPC, nativeCallStatusCodeInvalidFloatToIntConversion)
 	}
-
-	c.assembler.SetJumpTargetOnNext(jmpIfNotNaN)
 
 	// Jump if the source float values is above or equal math.MaxInt64+1.
 	jmpAboveOrEqualMaxIn32PlusOne := c.assembler.CompileJump(amd64.JCC)
@@ -2349,19 +2308,18 @@ func (c *amd64Compiler) emitUnsignedI64TruncFromFloat(isFloat32Bit, nonTrapping 
 
 	// Then if the result is minus, it is invalid conversion from minus float (incl. -Inf).
 	c.assembler.CompileRegisterToRegister(amd64.TESTQ, result, result)
-	jmpIfNotMinusOrMinusInf := c.assembler.CompileJump(amd64.JPL)
 
 	var nonTrappingMinusJump asm.Node
-	if !nonTrapping {
-		c.compileExitFromNativeCode(nativeCallStatusIntegerOverflow)
-	} else {
+	if nonTrapping {
+		jmpIfNotMinusOrMinusInf := c.assembler.CompileJump(amd64.JPL)
 		// In non trapping case, the minus value is casted as zero.
 		// Zero out the result register by XOR itsself.
 		c.assembler.CompileRegisterToRegister(amd64.XORQ, result, result)
 		nonTrappingMinusJump = c.assembler.CompileJump(amd64.JMP)
+		c.assembler.SetJumpTargetOnNext(jmpIfNotMinusOrMinusInf)
+	} else {
+		c.compileMaybeExitFromNativeCode(amd64.JPL, nativeCallStatusIntegerOverflow)
 	}
-
-	c.assembler.SetJumpTargetOnNext(jmpIfNotMinusOrMinusInf)
 
 	// Otherwise, the values is valid.
 	okJmpForLessThanMaxInt64PlusOne := c.assembler.CompileJump(amd64.JMP)
@@ -2392,7 +2350,18 @@ func (c *amd64Compiler) emitUnsignedI64TruncFromFloat(isFloat32Bit, nonTrapping 
 	c.assembler.CompileRegisterToRegister(amd64.TESTQ, result, result)
 
 	// If the result is minus, the conversion is invalid (from NaN or +Inf)
-	jmpIfPlusInf := c.assembler.CompileJump(amd64.JMI)
+	var nonTrappingAboveOrEqualMaxInt64PlusOne asm.Node
+	if nonTrapping {
+		jmpIfNotPlusInf := c.assembler.CompileJump(amd64.JPL)
+		err = c.assembler.CompileStaticConstToRegister(amd64.MOVQ, c.maximum64BitUnsignedInt, result)
+		if err != nil {
+			return err
+		}
+		nonTrappingAboveOrEqualMaxInt64PlusOne = c.assembler.CompileJump(amd64.JMP)
+		c.assembler.SetJumpTargetOnNext(jmpIfNotPlusInf)
+	} else {
+		c.compileMaybeExitFromNativeCode(amd64.JPL, nativeCallStatusIntegerOverflow)
+	}
 
 	// Otherwise, we successfully converted the the source float minus (math.MaxInt64+1) to int.
 	// So, we retrieve the original source float value by adding the sign mask.
@@ -2400,22 +2369,10 @@ func (c *amd64Compiler) emitUnsignedI64TruncFromFloat(isFloat32Bit, nonTrapping 
 		return err
 	}
 
-	okJmpForAboveOrEqualMaxInt64PlusOne := c.assembler.CompileJump(amd64.JMP)
-
-	c.assembler.SetJumpTargetOnNext(jmpIfPlusInf)
-	if !nonTrapping {
-		c.compileExitFromNativeCode(nativeCallStatusIntegerOverflow)
-	} else {
-		err = c.assembler.CompileStaticConstToRegister(amd64.MOVQ, c.maximum64BitUnsignedInt, result)
-		if err != nil {
-			return err
-		}
-	}
-
 	// We jump to the next instructions for valid cases.
 	c.assembler.SetJumpTargetOnNext(okJmpForLessThanMaxInt64PlusOne)
-	c.assembler.SetJumpTargetOnNext(okJmpForAboveOrEqualMaxInt64PlusOne)
 	if nonTrapping {
+		c.assembler.SetJumpTargetOnNext(nonTrappingAboveOrEqualMaxInt64PlusOne)
 		c.assembler.SetJumpTargetOnNext(nonTrappingMinusJump)
 		c.assembler.SetJumpTargetOnNext(nonTrappingNaNJump)
 	}
@@ -2467,22 +2424,21 @@ func (c *amd64Compiler) emitSignedI32TruncFromFloat(isFloat32Bit, nonTrapping bo
 	}
 
 	// Check the parity flag (set when the value is NaN), and if it is set, we should raise an exception.
-	jmpIfNotNaN := c.assembler.CompileJump(amd64.JPC) // jump if parity is not set.
-
 	var nontrappingNanJump asm.Node
-	if !nonTrapping {
-		// If the value is NaN, we return the function with nativeCallStatusCodeInvalidFloatToIntConversion.
-		c.compileExitFromNativeCode(nativeCallStatusCodeInvalidFloatToIntConversion)
-	} else {
+	if nonTrapping {
+		jmpIfNotNaN := c.assembler.CompileJump(amd64.JPC) // jump if parity is not set.
 		// In non trapping case, NaN is casted as zero.
 		// Zero out the result register by XOR itsself.
 		c.assembler.CompileRegisterToRegister(amd64.XORL, result, result)
 		nontrappingNanJump = c.assembler.CompileJump(amd64.JMP)
+		c.assembler.SetJumpTargetOnNext(jmpIfNotNaN)
+	} else {
+		// If the value is NaN, we return the function with nativeCallStatusCodeInvalidFloatToIntConversion.
+		c.compileMaybeExitFromNativeCode(amd64.JPC, nativeCallStatusCodeInvalidFloatToIntConversion)
 	}
 
 	// Check if the value is larger than or equal the minimum 32-bit integer value,
 	// meaning that the value exceeds the lower bound of 32-bit signed integer range.
-	c.assembler.SetJumpTargetOnNext(jmpIfNotNaN)
 	if isFloat32Bit {
 		err = c.assembler.CompileStaticConstToRegister(amd64.UCOMISS, c.float32ForMinimumSigned32bitInteger, source.register)
 	} else {
@@ -2493,12 +2449,11 @@ func (c *amd64Compiler) emitSignedI32TruncFromFloat(isFloat32Bit, nonTrapping bo
 	}
 
 	if !nonTrapping {
-		// Jump if the value exceeds the lower bound.
-		var jmpIfExceedsLowerBound asm.Node
+		// Trap if the value does not exceed the lower bound.
 		if isFloat32Bit {
-			jmpIfExceedsLowerBound = c.assembler.CompileJump(amd64.JCS)
+			c.compileMaybeExitFromNativeCode(amd64.JCC, nativeCallStatusIntegerOverflow)
 		} else {
-			jmpIfExceedsLowerBound = c.assembler.CompileJump(amd64.JLS)
+			c.compileMaybeExitFromNativeCode(amd64.JHI, nativeCallStatusIntegerOverflow)
 		}
 
 		// At this point, the value is the minimum signed 32-bit int (=-2147483648.000000) or larger than 32-bit maximum.
@@ -2512,14 +2467,11 @@ func (c *amd64Compiler) emitSignedI32TruncFromFloat(isFloat32Bit, nonTrapping bo
 			return err
 		}
 
-		jmpIfMinimumSignedInt := c.assembler.CompileJump(amd64.JCS) // jump if the value is minus (= the minimum signed 32-bit int).
-
-		c.assembler.SetJumpTargetOnNext(jmpIfExceedsLowerBound)
-		c.compileExitFromNativeCode(nativeCallStatusIntegerOverflow)
+		// Trap if the value is not minus (= the minimum signed 32-bit int).
+		c.compileMaybeExitFromNativeCode(amd64.JCS, nativeCallStatusIntegerOverflow)
 
 		// We jump to the next instructions for valid cases.
 		c.assembler.SetJumpTargetOnNext(okJmp)
-		c.assembler.SetJumpTargetOnNext(jmpIfMinimumSignedInt)
 	} else {
 		// Jump if the value does not exceed the lower bound.
 		var jmpIfNotExceedsLowerBound asm.Node
@@ -2605,21 +2557,20 @@ func (c *amd64Compiler) emitSignedI64TruncFromFloat(isFloat32Bit, nonTrapping bo
 	}
 
 	// Check the parity flag (set when the value is NaN), and if it is set, we should raise an exception.
-	jmpIfNotNaN := c.assembler.CompileJump(amd64.JPC) // jump if parity is not set.
-
 	var nontrappingNanJump asm.Node
-	if !nonTrapping {
-		c.compileExitFromNativeCode(nativeCallStatusCodeInvalidFloatToIntConversion)
-	} else {
+	if nonTrapping {
+		jmpIfNotNaN := c.assembler.CompileJump(amd64.JPC) // jump if parity is not set.
 		// In non trapping case, NaN is casted as zero.
 		// Zero out the result register by XOR itsself.
 		c.assembler.CompileRegisterToRegister(amd64.XORQ, result, result)
 		nontrappingNanJump = c.assembler.CompileJump(amd64.JMP)
+		c.assembler.SetJumpTargetOnNext(jmpIfNotNaN)
+	} else {
+		c.compileMaybeExitFromNativeCode(amd64.JPC, nativeCallStatusCodeInvalidFloatToIntConversion)
 	}
 
 	// Check if the value is larger than or equal the minimum 64-bit integer value,
 	// meaning that the value exceeds the lower bound of 64-bit signed integer range.
-	c.assembler.SetJumpTargetOnNext(jmpIfNotNaN)
 	if isFloat32Bit {
 		err = c.assembler.CompileStaticConstToRegister(amd64.UCOMISS, c.float32ForMinimumSigned64bitInteger, source.register)
 	} else {
@@ -2631,7 +2582,7 @@ func (c *amd64Compiler) emitSignedI64TruncFromFloat(isFloat32Bit, nonTrapping bo
 
 	if !nonTrapping {
 		// Jump if the value is -Inf.
-		jmpIfExceedsLowerBound := c.assembler.CompileJump(amd64.JCS)
+		c.compileMaybeExitFromNativeCode(amd64.JCC, nativeCallStatusIntegerOverflow)
 
 		// At this point, the value is the minimum signed 64-bit int (=-9223372036854775808.0) or larger than 64-bit maximum.
 		// So, check if the value equals the minimum signed 64-bit int.
@@ -2644,14 +2595,11 @@ func (c *amd64Compiler) emitSignedI64TruncFromFloat(isFloat32Bit, nonTrapping bo
 			return err
 		}
 
-		jmpIfMinimumSignedInt := c.assembler.CompileJump(amd64.JCS) // jump if the value is minus (= the minimum signed 64-bit int).
-
-		c.assembler.SetJumpTargetOnNext(jmpIfExceedsLowerBound)
-		c.compileExitFromNativeCode(nativeCallStatusIntegerOverflow)
+		// Trap if the value is not minus (= the minimum signed 64-bit int).
+		c.compileMaybeExitFromNativeCode(amd64.JCS, nativeCallStatusIntegerOverflow)
 
 		// We jump to the next instructions for valid cases.
 		c.assembler.SetJumpTargetOnNext(okJmp)
-		c.assembler.SetJumpTargetOnNext(jmpIfMinimumSignedInt)
 	} else {
 		// Jump if the value is not -Inf.
 		jmpIfNotExceedsLowerBound := c.assembler.CompileJump(amd64.JCC)
@@ -3504,13 +3452,8 @@ func (c *amd64Compiler) compileMemoryAccessCeilSetup(offsetArg uint32, targetSiz
 	c.assembler.CompileMemoryToRegister(amd64.CMPQ,
 		amd64ReservedRegisterForCallEngine, callEngineModuleContextMemorySliceLenOffset, result)
 
-	// Jump if the value is within the memory length.
-	okJmp := c.assembler.CompileJump(amd64.JCC)
-
-	// Otherwise, we exit the function with out-of-bounds status code.
-	c.compileExitFromNativeCode(nativeCallStatusCodeMemoryOutOfBounds)
-
-	c.assembler.SetJumpTargetOnNext(okJmp)
+	// Trap if the value is out-of-bounds of memory length.
+	c.compileMaybeExitFromNativeCode(amd64.JCC, nativeCallStatusCodeMemoryOutOfBounds)
 
 	c.locationStack.markRegisterUnused(result)
 	return result, nil
@@ -3664,9 +3607,7 @@ func (c *amd64Compiler) compileInitImpl(isTable bool, index, tableIndex uint32) 
 	c.assembler.CompileMemoryToRegister(amd64.CMPQ,
 		instanceAddr, 8, // DataInstance and Element instance holds the length is stored at offset 8.
 		sourceOffset.register)
-	sourceBoundOKJump := c.assembler.CompileJump(amd64.JCC)
-	c.compileExitFromNativeCode(outOfBoundsErrorStatus)
-	c.assembler.SetJumpTargetOnNext(sourceBoundOKJump)
+	c.compileMaybeExitFromNativeCode(amd64.JCC, outOfBoundsErrorStatus)
 
 	// Check destination bounds and if exceeds the length, exit with out of bounds error.
 	if isTable {
@@ -3681,14 +3622,12 @@ func (c *amd64Compiler) compileInitImpl(isTable bool, index, tableIndex uint32) 
 			destinationOffset.register)
 	}
 
-	destinationBoundOKJump := c.assembler.CompileJump(amd64.JCC)
-	c.compileExitFromNativeCode(outOfBoundsErrorStatus)
-	c.assembler.SetJumpTargetOnNext(destinationBoundOKJump)
+	c.compileMaybeExitFromNativeCode(amd64.JCC, outOfBoundsErrorStatus)
 
 	// Otherwise, ready to copy the value from source to destination.
 	//
 	// If the copy size equal zero, we skip the entire instructions below.
-	c.assembler.CompileRegisterToConst(amd64.CMPQ, copySize.register, 0)
+	c.assembler.CompileRegisterToRegister(amd64.TESTQ, copySize.register, copySize.register)
 	skipJump := c.assembler.CompileJump(amd64.JEQ)
 
 	var scale int16
@@ -3782,7 +3721,7 @@ func (c *amd64Compiler) compileLoadDataInstanceAddress(dataIndex uint32, dst asm
 // compileCopyLoopImpl implements a REP MOVSQ memory copy for the given range with support for both directions.
 func (c *amd64Compiler) compileCopyLoopImpl(destinationOffset, sourceOffset, copySize *runtimeValueLocation, backwards bool, bwOffset uint8) {
 	// skip if nothing to copy
-	c.assembler.CompileRegisterToConst(amd64.CMPQ, copySize.register, 0)
+	c.assembler.CompileRegisterToRegister(amd64.TESTQ, copySize.register, copySize.register)
 	emptyEightGroupsJump := c.assembler.CompileJump(amd64.JEQ)
 
 	// Prepare registers for swaps. There will never be more than 3 XCHGs in total.
@@ -3894,23 +3833,18 @@ func (c *amd64Compiler) compileMemoryCopy() error {
 	c.assembler.CompileRegisterToRegister(amd64.ADDQ, copySize.register, sourceOffset.register)
 	// destinationOffset += size.
 	c.assembler.CompileRegisterToRegister(amd64.ADDQ, copySize.register, destinationOffset.register)
+	// tmp = max(sourceOffset, destinationOffset).
+	c.assembler.CompileRegisterToRegister(amd64.CMPQ, sourceOffset.register, destinationOffset.register)
+	c.assembler.CompileRegisterToRegister(amd64.MOVQ, sourceOffset.register, tmp)
+	c.assembler.CompileRegisterToRegister(amd64.CMOVQCS, destinationOffset.register, tmp)
 
-	// Check source bounds and if exceeds the length, exit with out of bounds error.
+	// Check maximum bounds and if exceeds the length, exit with out of bounds error.
 	c.assembler.CompileMemoryToRegister(amd64.CMPQ,
-		amd64ReservedRegisterForCallEngine, callEngineModuleContextMemorySliceLenOffset, sourceOffset.register)
-	sourceBoundOKJump := c.assembler.CompileJump(amd64.JCC)
-	c.compileExitFromNativeCode(nativeCallStatusCodeMemoryOutOfBounds)
-	c.assembler.SetJumpTargetOnNext(sourceBoundOKJump)
-
-	// Check destination bounds and if exceeds the length, exit with out of bounds error.
-	c.assembler.CompileMemoryToRegister(amd64.CMPQ,
-		amd64ReservedRegisterForCallEngine, callEngineModuleContextMemorySliceLenOffset, destinationOffset.register)
-	destinationBoundOKJump := c.assembler.CompileJump(amd64.JCC)
-	c.compileExitFromNativeCode(nativeCallStatusCodeMemoryOutOfBounds)
-	c.assembler.SetJumpTargetOnNext(destinationBoundOKJump)
+		amd64ReservedRegisterForCallEngine, callEngineModuleContextMemorySliceLenOffset, tmp)
+	c.compileMaybeExitFromNativeCode(amd64.JCC, nativeCallStatusCodeMemoryOutOfBounds)
 
 	// Skip zero size.
-	c.assembler.CompileRegisterToConst(amd64.CMPQ, copySize.register, 0)
+	c.assembler.CompileRegisterToRegister(amd64.TESTQ, copySize.register, copySize.register)
 	skipJump := c.assembler.CompileJump(amd64.JEQ)
 
 	// If dest < source, we can copy forwards
@@ -3943,7 +3877,7 @@ func (c *amd64Compiler) compileMemoryCopy() error {
 // compileFillLoopImpl implements a REP STOSQ fill loop.
 func (c *amd64Compiler) compileFillLoopImpl(destinationOffset, value, fillSize *runtimeValueLocation, tmp asm.Register, replicateByte bool) {
 	// Skip if nothing to fill.
-	c.assembler.CompileRegisterToConst(amd64.CMPQ, fillSize.register, 0)
+	c.assembler.CompileRegisterToRegister(amd64.TESTQ, fillSize.register, fillSize.register)
 	emptyEightGroupsJump := c.assembler.CompileJump(amd64.JEQ)
 
 	if replicateByte {
@@ -4028,18 +3962,16 @@ func (c *amd64Compiler) compileFillImpl(isTable bool, tableIndex uint32) error {
 			amd64ReservedRegisterForCallEngine, callEngineModuleContextMemorySliceLenOffset,
 			destinationOffset.register)
 	}
-	destinationBoundOKJump := c.assembler.CompileJump(amd64.JCC)
 	if isTable {
-		c.compileExitFromNativeCode(nativeCallStatusCodeInvalidTableAccess)
+		c.compileMaybeExitFromNativeCode(amd64.JCC, nativeCallStatusCodeInvalidTableAccess)
 	} else {
-		c.compileExitFromNativeCode(nativeCallStatusCodeMemoryOutOfBounds)
+		c.compileMaybeExitFromNativeCode(amd64.JCC, nativeCallStatusCodeMemoryOutOfBounds)
 	}
-	c.assembler.SetJumpTargetOnNext(destinationBoundOKJump)
 
 	// Otherwise, ready to copy the value from source to destination.
 	//
 	// If the copy size equal zero, we skip the entire instructions below.
-	c.assembler.CompileRegisterToConst(amd64.CMPQ, copySize.register, 0)
+	c.assembler.CompileRegisterToRegister(amd64.TESTQ, copySize.register, copySize.register)
 	skipJump := c.assembler.CompileJump(amd64.JEQ)
 
 	// destinationOffset -= size.
@@ -4055,7 +3987,7 @@ func (c *amd64Compiler) compileFillImpl(isTable bool, tableIndex uint32) error {
 		// destinationOffset += memory buffer's absolute address.
 		c.assembler.CompileRegisterToRegister(amd64.ADDQ, amd64ReservedRegisterForMemory, destinationOffset.register)
 
-		// Copy first %15 bytes with simple MOVB instruction.
+		// Copy first % 16 bytes with simple MOVB instruction.
 		beginCopyLoop := c.assembler.CompileStandAlone(amd64.NOP)
 		c.assembler.CompileConstToRegister(amd64.TESTQ, 15, copySize.register)
 		breakLoop := c.assembler.CompileJump(amd64.JEQ)
@@ -4154,20 +4086,16 @@ func (c *amd64Compiler) compileTableCopy(o *wazeroir.UnionOperation) error {
 	c.assembler.CompileMemoryToRegister(amd64.MOVQ, amd64ReservedRegisterForCallEngine, callEngineModuleContextTablesElement0AddressOffset, tmp)
 	c.assembler.CompileMemoryToRegister(amd64.MOVQ, tmp, int64(srcTableIndex*8), tmp)
 	c.assembler.CompileMemoryToRegister(amd64.CMPQ, tmp, tableInstanceTableLenOffset, sourceOffset.register)
-	sourceBoundOKJump := c.assembler.CompileJump(amd64.JCC)
-	c.compileExitFromNativeCode(nativeCallStatusCodeInvalidTableAccess)
-	c.assembler.SetJumpTargetOnNext(sourceBoundOKJump)
+	c.compileMaybeExitFromNativeCode(amd64.JCC, nativeCallStatusCodeInvalidTableAccess)
 
 	// Check destination bounds and if exceeds the length, exit with out of bounds error.
 	c.assembler.CompileMemoryToRegister(amd64.MOVQ, amd64ReservedRegisterForCallEngine, callEngineModuleContextTablesElement0AddressOffset, tmp)
 	c.assembler.CompileMemoryToRegister(amd64.MOVQ, tmp, int64(dstTableIndex*8), tmp)
 	c.assembler.CompileMemoryToRegister(amd64.CMPQ, tmp, tableInstanceTableLenOffset, destinationOffset.register)
-	destinationBoundOKJump := c.assembler.CompileJump(amd64.JCC)
-	c.compileExitFromNativeCode(nativeCallStatusCodeInvalidTableAccess)
-	c.assembler.SetJumpTargetOnNext(destinationBoundOKJump)
+	c.compileMaybeExitFromNativeCode(amd64.JCC, nativeCallStatusCodeInvalidTableAccess)
 
 	// Skip zero size.
-	c.assembler.CompileRegisterToConst(amd64.CMPQ, copySize.register, 0)
+	c.assembler.CompileRegisterToRegister(amd64.TESTQ, copySize.register, copySize.register)
 	skipJump := c.assembler.CompileJump(amd64.JEQ)
 
 	// If dest < source, we can copy forwards.
@@ -4257,9 +4185,7 @@ func (c *amd64Compiler) compileTableGet(o *wazeroir.UnionOperation) error {
 
 	// Out of bounds check.
 	c.assembler.CompileMemoryToRegister(amd64.CMPQ, ref, tableInstanceTableLenOffset, offset.register)
-	boundOKJmp := c.assembler.CompileJump(amd64.JHI)
-	c.compileExitFromNativeCode(nativeCallStatusCodeInvalidTableAccess)
-	c.assembler.SetJumpTargetOnNext(boundOKJmp)
+	c.compileMaybeExitFromNativeCode(amd64.JHI, nativeCallStatusCodeInvalidTableAccess)
 
 	// ref = [&tables[TableIndex] + tableInstanceTableOffset] = &tables[TableIndex].References[0]
 	c.assembler.CompileMemoryToRegister(amd64.MOVQ, ref, tableInstanceTableOffset, ref)
@@ -4307,9 +4233,7 @@ func (c *amd64Compiler) compileTableSet(o *wazeroir.UnionOperation) error {
 
 	// Out of bounds check.
 	c.assembler.CompileMemoryToRegister(amd64.CMPQ, tmp, tableInstanceTableLenOffset, offset.register)
-	boundOKJmp := c.assembler.CompileJump(amd64.JHI)
-	c.compileExitFromNativeCode(nativeCallStatusCodeInvalidTableAccess)
-	c.assembler.SetJumpTargetOnNext(boundOKJmp)
+	c.compileMaybeExitFromNativeCode(amd64.JHI, nativeCallStatusCodeInvalidTableAccess)
 
 	// tmp = [&tables[TableIndex] + tableInstanceTableOffset] = &tables[TableIndex].References[0]
 	c.assembler.CompileMemoryToRegister(amd64.MOVQ, tmp, tableInstanceTableOffset, tmp)
@@ -4789,11 +4713,7 @@ func (c *amd64Compiler) compileReturnFunction() error {
 	)
 	c.assembler.CompileRegisterToRegister(amd64.TESTQ, returnAddressRegister, returnAddressRegister)
 
-	jmpIfNotReturn := c.assembler.CompileJump(amd64.JNE)
-	c.compileExitFromNativeCode(nativeCallStatusCodeReturned)
-
-	// Otherwise, we return to the caller.
-	c.assembler.SetJumpTargetOnNext(jmpIfNotReturn)
+	c.compileMaybeExitFromNativeCode(amd64.JNE, nativeCallStatusCodeReturned)
 
 	// Alias for readability.
 	tmpRegister := amd64CallingConventionDestinationFunctionModuleInstanceAddressRegister
@@ -4896,16 +4816,52 @@ func (c *amd64Compiler) compileReleaseRegisterToStack(loc *runtimeValueLocation)
 	}
 }
 
-func (c *amd64Compiler) compileExitFromNativeCode(status nativeCallStatusCode) {
-	c.assembler.CompileConstToMemory(amd64.MOVB, int64(status),
-		amd64ReservedRegisterForCallEngine, callEngineExitContextNativeCallStatusCodeOffset)
+func (c *amd64Compiler) compileMaybeExitFromNativeCode(skipCondition asm.Instruction, status nativeCallStatusCode) {
+	if target := c.compiledTrapTargets[status]; target != nil {
+		// We've already compiled this.
+		// Invert the return condition to jump into the appropriate target.
+		var returnCondition asm.Instruction
+		switch skipCondition {
+		case amd64.JHI:
+			returnCondition = amd64.JLS
+		case amd64.JLS:
+			returnCondition = amd64.JHI
+		case amd64.JNE:
+			returnCondition = amd64.JEQ
+		case amd64.JEQ:
+			returnCondition = amd64.JNE
+		case amd64.JCC:
+			returnCondition = amd64.JCS
+		case amd64.JCS:
+			returnCondition = amd64.JCC
+		case amd64.JPC:
+			returnCondition = amd64.JPS
+		case amd64.JPS:
+			returnCondition = amd64.JPC
+		case amd64.JPL:
+			returnCondition = amd64.JMI
+		case amd64.JMI:
+			returnCondition = amd64.JPL
+		default:
+			panic("BUG: couldn't invert condition")
+		}
+		c.assembler.CompileJump(returnCondition).AssignJumpTarget(target)
+	} else {
+		skip := c.assembler.CompileJump(skipCondition)
+		c.compileExitFromNativeCode(status)
+		c.assembler.SetJumpTargetOnNext(skip)
+	}
+}
 
-	// Write back the cached SP to the actual eng.stackPointer.
-	c.assembler.CompileConstToMemory(amd64.MOVQ, int64(c.locationStack.sp),
-		amd64ReservedRegisterForCallEngine, callEngineStackContextStackPointerOffset)
+func (c *amd64Compiler) compileExitFromNativeCode(status nativeCallStatusCode) {
+	if target := c.compiledTrapTargets[status]; target != nil {
+		c.assembler.CompileJump(amd64.JMP).AssignJumpTarget(target)
+	}
 
 	switch status {
 	case nativeCallStatusCodeReturned:
+		// Save the target for reuse.
+		c.compiledTrapTargets[status] = c.compileNOP()
 	case nativeCallStatusCodeCallGoHostFunction, nativeCallStatusCodeCallBuiltInFunction:
 		// Read the return address, and write it to callEngine.exitContext.returnAddress.
 		returnAddressReg, ok := c.locationStack.takeFreeRegister(registerTypeGeneralPurpose)
@@ -4916,13 +4872,26 @@ func (c *amd64Compiler) compileExitFromNativeCode(status nativeCallStatusCode) {
 		c.assembler.CompileRegisterToMemory(amd64.MOVQ,
 			returnAddressReg, amd64ReservedRegisterForCallEngine, callEngineExitContextReturnAddressOffset)
 	default:
-		// This case, the execution traps, so take tmpReg and store the instruction address onto callEngine.returnAddress
-		// so that the stack trace can contain the top frame's source position.
-		tmpReg := amd64.RegR15
-		c.assembler.CompileReadInstructionAddress(tmpReg, amd64.MOVQ)
-		c.assembler.CompileRegisterToMemory(amd64.MOVQ,
-			tmpReg, amd64ReservedRegisterForCallEngine, callEngineExitContextReturnAddressOffset)
+		if c.ir.IROperationSourceOffsetsInWasmBinary != nil {
+			// This case, the execution traps and we want the top frame's source position in the stack trace.
+			// Take RegR15 and store the instruction address onto callEngine.returnAddress.
+			returnAddressReg := amd64.RegR15
+			c.assembler.CompileReadInstructionAddress(returnAddressReg, amd64.MOVQ)
+			c.assembler.CompileRegisterToMemory(amd64.MOVQ,
+				returnAddressReg, amd64ReservedRegisterForCallEngine, callEngineExitContextReturnAddressOffset)
+		} else {
+			// We won't use the source position, so just save the target for reuse.
+			c.compiledTrapTargets[status] = c.compileNOP()
+		}
 	}
+
+	// Write the status to callEngine.exitContext.statusCode.
+	c.assembler.CompileConstToMemory(amd64.MOVB, int64(status),
+		amd64ReservedRegisterForCallEngine, callEngineExitContextNativeCallStatusCodeOffset)
+
+	// Write back the cached SP to the actual eng.stackPointer.
+	c.assembler.CompileConstToMemory(amd64.MOVQ, int64(c.locationStack.sp),
+		amd64ReservedRegisterForCallEngine, callEngineStackContextStackPointerOffset)
 
 	c.assembler.CompileStandAlone(amd64.RET)
 }

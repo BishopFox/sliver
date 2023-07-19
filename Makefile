@@ -5,7 +5,7 @@
 GO ?= go
 ARTIFACT_SUFFIX ?= 
 ENV =
-TAGS ?= -tags osusergo,netgo,go_sqlite
+TAGS ?= -tags go_sqlite
 CGO_ENABLED = 0
 
 ifneq (,$(findstring cgo_sqlite,$(TAGS)))
@@ -155,11 +155,11 @@ clients: clean .downloaded_assets validate-go-version
 
 .PHONY: servers
 servers: 
-	GOOS=windows GOARCH=amd64 $(ENV) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_windows-amd64$(ARTIFACT_SUFFIX).exe ./server
-	GOOS=linux GOARCH=amd64 $(ENV) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_linux-amd64$(ARTIFACT_SUFFIX) ./server
-	GOOS=linux GOARCH=arm64 $(ENV) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_linux-arm64$(ARTIFACT_SUFFIX) ./server
-	GOOS=darwin GOARCH=arm64 $(ENV) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_darwin-arm64$(ARTIFACT_SUFFIX) ./server
-	GOOS=darwin GOARCH=amd64 $(ENV) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_darwin-amd64$(ARTIFACT_SUFFIX) ./server
+	GOOS=windows GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_windows-amd64$(ARTIFACT_SUFFIX).exe ./server
+	GOOS=linux GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_linux-amd64$(ARTIFACT_SUFFIX) ./server
+	GOOS=linux GOARCH=arm64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_linux-arm64$(ARTIFACT_SUFFIX) ./server
+	GOOS=darwin GOARCH=arm64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_darwin-arm64$(ARTIFACT_SUFFIX) ./server
+	GOOS=darwin GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_darwin-amd64$(ARTIFACT_SUFFIX) ./server
 
 .PHONY: pb
 pb:

@@ -332,7 +332,13 @@ const (
 	MsgListWasmExtensionsReq
 	MsgListWasmExtensions
 	MsgExecWasmExtensionReq
-	MsgExecWasmExtension	
+	MsgExecWasmExtension
+
+	// MsgCpReq - Request to copy a file from one place to another
+	MsgCpReq
+	// MsgCp - Confirms the success/failure, as well as the total number of bytes
+	// written of the cp request (resp to MsgCpReq)
+	MsgCp
 )
 
 // Constants to replace enums
@@ -539,6 +545,11 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgMvReq
 	case *Mv:
 		return MsgMv
+
+	case *CpReq:
+		return MsgCpReq
+	case *Cp:
+		return MsgCp
 
 	case *CurrentTokenOwnerReq:
 		return MsgCurrentTokenOwnerReq

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"gvisor.dev/gvisor/pkg/tcpip"
+	"gvisor.dev/gvisor/pkg/tcpip/checksum"
 )
 
 // RFC 971 defines the fields of the IPv4 header on page 11 using the following
@@ -50,7 +51,7 @@ const (
 	flagsFO            = 6
 	ttl                = 8
 	protocol           = 9
-	checksum           = 10
+	xsum               = 10
 	srcAddr            = 12
 	dstAddr            = 16
 	options            = 20
@@ -209,6 +210,31 @@ var IPv4EmptySubnet = func() tcpip.Subnet {
 	return subnet
 }()
 
+// IPv4CurrentNetworkSubnet is the subnet of addresses for the current network,
+// per RFC 6890 section 2.2.2,
+//
+//	+----------------------+----------------------------+
+//	| Attribute            | Value                      |
+//	+----------------------+----------------------------+
+//	| Address Block        | 0.0.0.0/8                  |
+//	| Name                 | "This host on this network"|
+//	| RFC                  | [RFC1122], Section 3.2.1.3 |
+//	| Allocation Date      | September 1981             |
+//	| Termination Date     | N/A                        |
+//	| Source               | True                       |
+//	| Destination          | False                      |
+//	| Forwardable          | False                      |
+//	| Global               | False                      |
+//	| Reserved-by-Protocol | True                       |
+//	+----------------------+----------------------------+
+var IPv4CurrentNetworkSubnet = func() tcpip.Subnet {
+	subnet, err := tcpip.NewSubnet(IPv4Any, tcpip.AddressMask("\xff\x00\x00\x00"))
+	if err != nil {
+		panic(err)
+	}
+	return subnet
+}()
+
 // IPv4LoopbackSubnet is the loopback subnet for IPv4.
 var IPv4LoopbackSubnet = func() tcpip.Subnet {
 	subnet, err := tcpip.NewSubnet(tcpip.Address("\x7f\x00\x00\x00"), tcpip.AddressMask("\xff\x00\x00\x00"))
@@ -301,7 +327,7 @@ func (b IPv4) TotalLength() uint16 {
 
 // Checksum returns the checksum field of the IPv4 header.
 func (b IPv4) Checksum() uint16 {
-	return binary.BigEndian.Uint16(b[checksum:])
+	return binary.BigEndian.Uint16(b[xsum:])
 }
 
 // SourceAddress returns the "source address" field of the IPv4 header.
@@ -382,7 +408,7 @@ func (b IPv4) SetTotalLength(totalLength uint16) {
 
 // SetChecksum sets the checksum field of the IPv4 header.
 func (b IPv4) SetChecksum(v uint16) {
-	PutChecksum(b[checksum:], v)
+	checksum.Put(b[xsum:], v)
 }
 
 // SetFlagsFragmentOffset sets the "flags" and "fragment offset" fields of the
@@ -410,7 +436,7 @@ func (b IPv4) SetDestinationAddress(addr tcpip.Address) {
 
 // CalculateChecksum calculates the checksum of the IPv4 header.
 func (b IPv4) CalculateChecksum() uint16 {
-	return Checksum(b[:b.HeaderLength()], 0)
+	return checksum.Checksum(b[:b.HeaderLength()], 0)
 }
 
 // Encode encodes all the fields of the IPv4 header.
@@ -444,8 +470,8 @@ func (b IPv4) Encode(i *IPv4Fields) {
 // packets are produced.
 func (b IPv4) EncodePartial(partialChecksum, totalLength uint16) {
 	b.SetTotalLength(totalLength)
-	checksum := Checksum(b[IPv4TotalLenOffset:IPv4TotalLenOffset+2], partialChecksum)
-	b.SetChecksum(^checksum)
+	xsum := checksum.Checksum(b[IPv4TotalLenOffset:IPv4TotalLenOffset+2], partialChecksum)
+	b.SetChecksum(^xsum)
 }
 
 // IsValid performs basic validation on the packet.
