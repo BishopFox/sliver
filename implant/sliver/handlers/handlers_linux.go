@@ -55,6 +55,7 @@ var (
 		sliverpb.MsgRmReq:        rmHandler,
 		sliverpb.MsgMkdirReq:     mkdirHandler,
 		sliverpb.MsgMvReq:        mvHandler,
+		sliverpb.MsgCpReq:        cpHandler,
 		sliverpb.MsgTaskReq:      taskHandler,
 		sliverpb.MsgIfconfigReq:  ifconfigHandler,
 		sliverpb.MsgExecuteReq:   executeHandler,
