@@ -61,7 +61,7 @@ func Start() {
 	}
 
 	con := console.NewConsole(false)
-	console.StartClient(con, command.ServerCommands(con, serverOnlyCmds), command.SliverCommands(con), true)
+	// console.StartClient(con, command.ServerCommands(con, serverOnlyCmds), command.SliverCommands(con), true)
 
 	con.App.Start()
 }

@@ -31,7 +31,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func newSliverTeam(con *console.SliverConsoleClient) (*server.Server, *client.Client) {
+func newSliverTeam(con *console.SliverClient) (*server.Server, *client.Client) {
 	// Teamserver
 	gTeamserver := teamGrpc.NewListener()
 

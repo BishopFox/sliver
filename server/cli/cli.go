@@ -221,7 +221,7 @@ func consoleCmd(con *console.SliverClient) *cobra.Command {
 		Use:   "console",
 		Short: "Start the sliver client console",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return console.StartClient(con, con.Rpc, command.ServerCommands(con, nil), command.SliverCommands(con), true)
+			return console.StartClient(con, command.ServerCommands(con, nil), command.SliverCommands(con), true)
 		},
 	}
 

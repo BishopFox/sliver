@@ -179,7 +179,7 @@ func (rootFS *FS) create(path string) (*File, error) {
 
 	newFile := &File{
 		name:    filePart,
-		perm:    0o666,
+		perm:    0666,
 		content: &bytes.Buffer{},
 	}
 	dir.children[filePart] = newFile
@@ -366,7 +366,8 @@ func (f *File) Close() error {
 	return nil
 }
 
-type childI interface{}
+type childI interface {
+}
 
 type fileInfo struct {
 	name    string

@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/pflag"
 )
 
-func implantCmd(con *console.SliverConsoleClient) *cobra.Command {
-	con.IsCLI = trueSliverClient
+func implantCmd(con *console.SliverClient) *cobra.Command {
+	con.IsCLI = true
 
 	makeCommands := command.SliverCommands(con)
 	cmd := makeCommands()
@@ -33,13 +33,13 @@ func implantCmd(con *console.SliverConsoleClient) *cobra.Command {
 	return cmd
 }
 
-func makeRunners(implantCmd *cobra.Command, con *console.SliverConsoleClient) (pre, post func(cmd *cobra.Command, args []string) error) {
-	startConsole, closeConsole := consoleRunnerCmd(con, falsSliverClient
+func makeRunners(implantCmd *cobra.Command, con *console.SliverClient) (pre, post func(cmd *cobra.Command, args []string) error) {
+	// startConsole, closeConsole := consoleRunnerCmd(con, falsSliverClient
 
 	// The pre-run function connects to the server and sets up a "fake" console,
 	// so we can have access to active sessions/beacons, and other stuff needed.
 	pre = func(_ *cobra.Command, args []string) error {
-		startConsole(implantCmd, args)
+		// startConsole(implantCmd, args)
 
 		// Set the active target.
 		target, _ := implantCmd.Flags().GetString("use")
@@ -55,11 +55,11 @@ func makeRunners(implantCmd *cobra.Command, con *console.SliverConsoleClient) (p
 		return nil
 	}
 
-	return pre, closeConsole
+	return pre, nil
 }
 
-func makeCompleters(cmd *cobra.Command, con *console.SliverConsoleClient) {
-	comps := carapace.Gen(cmd)SliverClient
+func makeCompleters(cmd *cobra.Command, con *console.SliverClient) {
+	comps := carapace.Gen(cmd)
 
 	comps.PreRun(func(cmd *cobra.Command, args []string) {
 		cmd.PersistentPreRunE(cmd, args)

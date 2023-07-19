@@ -58,7 +58,7 @@ func init() {
 	teamclient := newSliverTeam(con)
 	teamclientCmds := commands.Generate(teamclient)
 
-	// rootCmd.AddCommand(teamclientCmds)
+	rootCmd.AddCommand(teamclientCmds)
 
 	// Version
 	rootCmd.AddCommand(cmdVersion)
