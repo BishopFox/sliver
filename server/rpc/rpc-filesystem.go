@@ -55,6 +55,16 @@ func (rpc *Server) Mv(ctx context.Context, req *sliverpb.MvReq) (*sliverpb.Mv, e
 	return resp, nil
 }
 
+// Cp - Copy a file to another location
+func (rpc *Server) Cp(ctx context.Context, req *sliverpb.CpReq) (*sliverpb.Cp, error) {
+	resp := &sliverpb.Cp{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 // Rm - Remove file or directory
 func (rpc *Server) Rm(ctx context.Context, req *sliverpb.RmReq) (*sliverpb.Rm, error) {
 	resp := &sliverpb.Rm{Response: &commonpb.Response{}}
