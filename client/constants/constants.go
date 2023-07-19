@@ -199,6 +199,7 @@ const (
 
 	LsStr       = "ls"
 	MvStr       = "mv"
+	CpStr       = "cp"
 	RmStr       = "rm"
 	MkdirStr    = "mkdir"
 	CdStr       = "cd"
