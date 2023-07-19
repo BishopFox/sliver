@@ -302,6 +302,74 @@ func mvHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
+func cpHandler(data []byte, resp RPCResponse) {
+	cpReq := &sliverpb.CpReq{}
+	err := proto.Unmarshal(data, cpReq)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		return
+	}
+
+	copy := &sliverpb.Cp{
+		Src: cpReq.Src,
+		Dst: cpReq.Dst,
+	}
+
+	srcFile, err := os.Open(cpReq.Src)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("failed to open source file: %v", err)
+		// {{end}}
+
+		copy.Response = &commonpb.Response{Err: err.Error()}
+		data, err = proto.Marshal(copy)
+		resp(data, err)
+		return
+	}
+
+	dstFile, err := os.Create(cpReq.Dst)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("failed to open destination file: %v", err)
+		// {{end}}
+
+		copy.Response = &commonpb.Response{Err: err.Error()}
+		data, err = proto.Marshal(copy)
+		resp(data, err)
+		return
+	}
+
+	bytesWritten, err := io.Copy(dstFile, srcFile)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("failed to copy bytes to destination file: %v", err)
+		// {{end}}
+
+		copy.Response = &commonpb.Response{Err: err.Error()}
+		data, err = proto.Marshal(copy)
+		resp(data, err)
+		return
+	}
+
+	err = dstFile.Sync()
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("failed to sync destination file: %v", err)
+		// {{end}}
+
+		copy.Response = &commonpb.Response{Err: err.Error()}
+		data, err = proto.Marshal(copy)
+		resp(data, err)
+		return
+	}
+
+	copy.BytesWritten = bytesWritten
+	data, err = proto.Marshal(copy)
+	resp(data, err)
+}
+
 func mkdirHandler(data []byte, resp RPCResponse) {
 	mkdirReq := &sliverpb.MkdirReq{}
 	err := proto.Unmarshal(data, mkdirReq)
@@ -488,6 +556,19 @@ func uploadHandler(data []byte, resp RPCResponse) {
 
 	// Process Upload
 	upload := &sliverpb.Upload{Path: uploadPath}
+	uploadPathInfo, err := os.Stat(uploadPath)
+	if err != nil && !os.IsNotExist(err) {
+		upload.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%v", err),
+		}
+	}
+
+	if !os.IsNotExist(err) && uploadPathInfo.IsDir() {
+		if !strings.HasSuffix(uploadPath, string(os.PathSeparator)) {
+			uploadPath += string(os.PathSeparator)
+		}
+		uploadPath += uploadReq.FileName
+	}
 
 	f, err := os.Create(uploadPath)
 	if err != nil {
