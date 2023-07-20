@@ -20,20 +20,22 @@ package cli
 
 import (
 	"fmt"
-	"log"
 	"os"
-	"path/filepath"
-	"strings"
 
-	"github.com/bishopfox/sliver/client/command"
-	sliverConsoleCmd "github.com/bishopfox/sliver/client/command/console"
-	"github.com/bishopfox/sliver/client/console"
-	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/server/assets"
-	"github.com/bishopfox/sliver/server/certs"
-	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
+
+	"github.com/bishopfox/sliver/client/command"
+	assetsCmds "github.com/bishopfox/sliver/server/command/assets"
+	builderCmds "github.com/bishopfox/sliver/server/command/builder"
+	certsCmds "github.com/bishopfox/sliver/server/command/certs"
+
+	consoleCmd "github.com/bishopfox/sliver/client/command/console"
+	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/c2"
+	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/server/cryptography"
 )
 
 const (
@@ -50,78 +52,13 @@ const (
 	// Cert flags
 	caTypeFlagStr = "type"
 	loadFlagStr   = "load"
-
-	// console log file name
-	logFileName = "console.log"
 )
-
-// Initialize logging
-func initConsoleLogging(appDir string) *os.File {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	logFile, err := os.OpenFile(filepath.Join(appDir, "logs", logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o600)
-	if err != nil {
-		log.Fatalf("Error opening file: %v", err)
-	}
-	log.SetOutput(logFile)
-	return logFile
-}
-
-var rootCmd = &cobra.Command{
-	Use:   "sliver-server",
-	Short: "",
-	Long:  ``,
-	// Run: func(cmd *cobra.Command, args []string) {
-	// 	// Root command starts the server normally
-	//
-	// 	appDir := assets.GetRootAppDir()
-	// 	logFile := initConsoleLogging(appDir)
-	// 	defer logFile.Close()
-	//
-	// 	defer func() {
-	// 		if r := recover(); r != nil {
-	// 			log.Printf("panic:\n%s", debug.Stack())
-	// 			fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
-	// 			os.Exit(99)
-	// 		}
-	// 	}()
-	//
-	// 	assets.Setup(false, true)
-	// 	certs.SetupCAs()
-	// 	certs.SetupWGKeys()
-	// 	cryptography.AgeServerKeyPair()
-	// 	cryptography.MinisignServerPrivateKey()
-	//
-	// 	serverConfig := configs.GetServerConfig()
-	// 	c2.StartPersistentJobs(serverConfig)
-	// 	console.StartPersistentJobs(serverConfig)
-	// 	if serverConfig.DaemonMode {
-	// 		daemon.Start(daemon.BlankHost, daemon.BlankPort)
-	// 	} else {
-	// 		os.Args = os.Args[:1] // Hide cli from grumble console
-	// 		console.Start()
-	// 	}
-	// },
-}
 
 // Execute - Execute root command
 func Execute() {
 	// Console interface, started closed-loop or not.
-	con := console.NewConsole(true)
-
 	// Teamserver/client API and commands for remote/local CLI.
-	teamserver, teamclient := newSliverTeam(con)
-
-	con.Teamclient = teamclient
-
-	// Bind commands to the app
-	server := con.App.Menu(consts.ServerMenu)
-	server.SetCommands(command.ServerCommands(con, teamserver))
-
-	serverCmds := command.ServerCommands(con, teamserver)()
-	serverCmds.Use = "sliver-server"
-
-	// sliver := con.App.Menu(consts.ImplantMenu)
-	// sliver.SetCommands(command.SliverCommands(con))
+	teamserver, con := newSliverTeam()
 
 	// Pre-runners to self-connect
 	preRun := func(cmd *cobra.Command, _ []string) error {
@@ -132,86 +69,47 @@ func Execute() {
 		cryptography.AgeServerKeyPair()
 		cryptography.MinisignServerPrivateKey()
 
+		// TODO: Move this out of here.
+		serverConfig := configs.GetServerConfig()
+		c2.StartPersistentJobs(serverConfig)
+
 		// Let our runtime teamclient be served.
 		if err := teamserver.Serve(con.Teamclient); err != nil {
 			return err
 		}
 
-		console.StartClient(con, command.ServerCommands(con, teamserver), command.SliverCommands(con))
 		return nil
 	}
 
+	serverCmds := command.ServerCommands(con, teamserver)()
+	serverCmds.Use = "sliver-server"
+
 	serverCmds.PersistentPreRunE = preRun
 
-	serverCmds.AddCommand(sliverConsoleCmd.Command(con))
+	serverCmds.AddCommand(versionCmd)
+	serverCmds.AddCommand(assetsCmds.Commands()...)
+	serverCmds.AddCommand(builderCmds.Commands()...)
+	serverCmds.AddCommand(certsCmds.Commands()...)
 
-	// Unpack
-	unpackCmd.Flags().BoolP(forceFlagStr, "f", false, "Force unpack and overwrite")
-	serverCmds.AddCommand(unpackCmd)
-
-	// Certs
-	cmdExportCA.Flags().StringP(saveFlagStr, "s", "", "save CA to file ...")
-	cmdExportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
-	serverCmds.AddCommand(cmdExportCA)
-
-	cmdImportCA.Flags().StringP(loadFlagStr, "l", "", "load CA from file ...")
-	cmdImportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
-	serverCmds.AddCommand(cmdImportCA)
-
-	// Builder
-	// rootCmd.AddCommand(initBuilderCmd())
-
-	// Version
-	// rootCmd.AddCommand(versionCmd)
+	// Console
+	consoleServerCmds := command.ServerCommands(con, teamserver)
+	consoleSliverCmds := command.SliverCommands(con)
+	serverCmds.AddCommand(consoleCmd.Command(con, consoleServerCmds, consoleSliverCmds))
 
 	// Completions
 	comps := carapace.Gen(serverCmds)
 	comps.PreRun(func(cmd *cobra.Command, args []string) {
 		preRun(cmd, args)
 	})
-	// comps.PostRun(func(cmd *cobra.Command, args []string) {
-	// 	postRun(cmd, args)
-	// })
+	comps.PostRun(func(cmd *cobra.Command, args []string) {
+		con.Teamclient.Disconnect()
+	})
 
 	if err := serverCmds.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 }
-
-// func initAlt() {
-// 	// Unpack
-// 	unpackCmd.Flags().BoolP(forceFlagStr, "f", false, "Force unpack and overwrite")
-// 	rootCmd.AddCommand(unpackCmd)
-//
-// 	// Operator
-// 	// operatorCmd.Flags().StringP(nameFlagStr, "n", "", "operator name")
-// 	// operatorCmd.Flags().StringP(lhostFlagStr, "l", "", "multiplayer listener host")
-// 	// operatorCmd.Flags().Uint16P(lportFlagStr, "p", uint16(31337), "multiplayer listener port")
-// 	// operatorCmd.Flags().StringP(saveFlagStr, "s", "", "save file to ...")
-// 	// rootCmd.AddCommand(operatorCmd)
-//
-// 	// Certs
-// 	cmdExportCA.Flags().StringP(saveFlagStr, "s", "", "save CA to file ...")
-// 	cmdExportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
-// 	rootCmd.AddCommand(cmdExportCA)
-//
-// 	cmdImportCA.Flags().StringP(loadFlagStr, "l", "", "load CA from file ...")
-// 	cmdImportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
-// 	rootCmd.AddCommand(cmdImportCA)
-//
-// 	// Daemon
-// 	// daemonCmd.Flags().StringP(lhostFlagStr, "l", daemon.BlankHost, "multiplayer listener host")
-// 	// daemonCmd.Flags().Uint16P(lportFlagStr, "p", daemon.BlankPort, "multiplayer listener port")
-// 	// daemonCmd.Flags().BoolP(forceFlagStr, "f", false, "force unpack and overwrite static assets")
-// 	// rootCmd.AddCommand(daemonCmd)
-//
-// 	// Builder
-// 	rootCmd.AddCommand(initBuilderCmd())
-//
-// 	// Version
-// 	rootCmd.AddCommand(versionCmd)
-// }
 
 // func init() {
 // 	// Console interface, started closed-loop or not.
@@ -296,4 +194,41 @@ func Execute() {
 // 	comps.PreRun(func(cmd *cobra.Command, args []string) {
 // 		preRun(cmd, args)
 // 	})
+// }
+
+// var rootCmd = &cobra.Command{
+// 	Use:   "sliver-server",
+// 	Short: "",
+// 	Long:  ``,
+// Run: func(cmd *cobra.Command, args []string) {
+// 	// Root command starts the server normally
+//
+// 	appDir := assets.GetRootAppDir()
+// 	logFile := initConsoleLogging(appDir)
+// 	defer logFile.Close()
+//
+// 	defer func() {
+// 		if r := recover(); r != nil {
+// 			log.Printf("panic:\n%s", debug.Stack())
+// 			fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
+// 			os.Exit(99)
+// 		}
+// 	}()
+//
+// 	assets.Setup(false, true)
+// 	certs.SetupCAs()
+// 	certs.SetupWGKeys()
+// 	cryptography.AgeServerKeyPair()
+// 	cryptography.MinisignServerPrivateKey()
+//
+// 	serverConfig := configs.GetServerConfig()
+// 	c2.StartPersistentJobs(serverConfig)
+// 	console.StartPersistentJobs(serverConfig)
+// 	if serverConfig.DaemonMode {
+// 		daemon.Start(daemon.BlankHost, daemon.BlankPort)
+// 	} else {
+// 		os.Args = os.Args[:1] // Hide cli from grumble console
+// 		console.Start()
+// 	}
+// },
 // }

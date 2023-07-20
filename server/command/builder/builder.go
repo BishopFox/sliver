@@ -1,4 +1,4 @@
-package cli
+package builder
 
 /*
 	Sliver Implant Framework
@@ -35,11 +35,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	builderLog = log.NamedLogger("cli", "builder")
-)
+var builderLog = log.NamedLogger("cli", "builder")
 
 const (
+	nameFlagStr = "name"
+
 	enableTargetFlagStr  = "enable-target"
 	disableTargetFlagStr = "disable-target"
 
@@ -48,7 +48,15 @@ const (
 	logLevelFlagStr       = "log-level"
 )
 
-func initBuilderCmd() *cobra.Command {
+// Commands returns all commands for using Sliver as a builder backend.
+func Commands() []*cobra.Command {
+	builderCmd := &cobra.Command{
+		Use:   "builder",
+		Short: "Start the process as an external builder",
+		Long:  ``,
+		Run:   runBuilderCmd,
+	}
+
 	builderCmd.Flags().StringP(nameFlagStr, "n", "", "Name of the builder (blank = hostname)")
 	builderCmd.Flags().IntP(logLevelFlagStr, "L", 4, "Logging level: 1/fatal, 2/error, 3/warn, 4/info, 5/debug, 6/trace")
 	builderCmd.Flags().StringP(operatorConfigFlagStr, "c", "", "operator config file path")
@@ -58,77 +66,72 @@ func initBuilderCmd() *cobra.Command {
 	builderCmd.Flags().StringSlice(enableTargetFlagStr, []string{}, "force enable a target: format:goos/goarch")
 	builderCmd.Flags().StringSlice(disableTargetFlagStr, []string{}, "force disable target arch: format:goos/goarch")
 
-	return builderCmd
+	return []*cobra.Command{builderCmd}
 }
 
-var builderCmd = &cobra.Command{
-	Use:   "builder",
-	Short: "Start the process as an external builder",
-	Long:  ``,
-	Run: func(cmd *cobra.Command, args []string) {
-		configPath, err := cmd.Flags().GetString(operatorConfigFlagStr)
+func runBuilderCmd(cmd *cobra.Command, args []string) {
+	configPath, err := cmd.Flags().GetString(operatorConfigFlagStr)
+	if err != nil {
+		builderLog.Errorf("Failed to parse --%s flag %s\n", operatorConfigFlagStr, err)
+		return
+	}
+	if configPath == "" {
+		builderLog.Errorf("Missing --%s flag\n", operatorConfigFlagStr)
+		return
+	}
+
+	quiet, err := cmd.Flags().GetBool(quietFlagStr)
+	if err != nil {
+		builderLog.Errorf("Failed to parse --%s flag %s\n", quietFlagStr, err)
+	}
+	if !quiet {
+		log.RootLogger.AddHook(log.NewStdoutHook(log.RootLoggerName))
+	}
+	builderLog.Infof("Initializing Sliver external builder - %s", version.FullVersion())
+
+	level, err := cmd.Flags().GetInt(logLevelFlagStr)
+	if err != nil {
+		builderLog.Errorf("Failed to parse --%s flag %s\n", logLevelFlagStr, err)
+		return
+	}
+	log.RootLogger.SetLevel(log.LevelFrom(level))
+
+	defer func() {
+		if r := recover(); r != nil {
+			builderLog.Printf("panic:\n%s", debug.Stack())
+			builderLog.Fatalf("stacktrace from panic: \n" + string(debug.Stack()))
+			os.Exit(99)
+		}
+	}()
+
+	externalBuilder := parseBuilderConfigFlags(cmd)
+	externalBuilder.Templates = []string{"sliver"}
+
+	// load the client configuration from the filesystem
+	config, err := clientAssets.ReadConfig(configPath)
+	if err != nil {
+		builderLog.Fatalf("Invalid config file: %s", err)
+		os.Exit(-1)
+	}
+	if externalBuilder.Name == "" {
+		builderLog.Infof("No builder name was specified, attempting to use hostname")
+		externalBuilder.Name, err = os.Hostname()
 		if err != nil {
-			builderLog.Errorf("Failed to parse --%s flag %s\n", operatorConfigFlagStr, err)
-			return
+			builderLog.Errorf("Failed to get hostname: %s", err)
+			externalBuilder.Name = fmt.Sprintf("%s's %s builder", config.Operator, runtime.GOOS)
 		}
-		if configPath == "" {
-			builderLog.Errorf("Missing --%s flag\n", operatorConfigFlagStr)
-			return
-		}
+	}
+	builderLog.Infof("Hello my name is: %s", externalBuilder.Name)
 
-		quiet, err := cmd.Flags().GetBool(quietFlagStr)
-		if err != nil {
-			builderLog.Errorf("Failed to parse --%s flag %s\n", quietFlagStr, err)
-		}
-		if !quiet {
-			log.RootLogger.AddHook(log.NewStdoutHook(log.RootLoggerName))
-		}
-		builderLog.Infof("Initializing Sliver external builder - %s", version.FullVersion())
-
-		level, err := cmd.Flags().GetInt(logLevelFlagStr)
-		if err != nil {
-			builderLog.Errorf("Failed to parse --%s flag %s\n", logLevelFlagStr, err)
-			return
-		}
-		log.RootLogger.SetLevel(log.LevelFrom(level))
-
-		defer func() {
-			if r := recover(); r != nil {
-				builderLog.Printf("panic:\n%s", debug.Stack())
-				builderLog.Fatalf("stacktrace from panic: \n" + string(debug.Stack()))
-				os.Exit(99)
-			}
-		}()
-
-		externalBuilder := parseBuilderConfigFlags(cmd)
-		externalBuilder.Templates = []string{"sliver"}
-
-		// load the client configuration from the filesystem
-		config, err := clientAssets.ReadConfig(configPath)
-		if err != nil {
-			builderLog.Fatalf("Invalid config file: %s", err)
-			os.Exit(-1)
-		}
-		if externalBuilder.Name == "" {
-			builderLog.Infof("No builder name was specified, attempting to use hostname")
-			externalBuilder.Name, err = os.Hostname()
-			if err != nil {
-				builderLog.Errorf("Failed to get hostname: %s", err)
-				externalBuilder.Name = fmt.Sprintf("%s's %s builder", config.Operator, runtime.GOOS)
-			}
-		}
-		builderLog.Infof("Hello my name is: %s", externalBuilder.Name)
-
-		// connect to the server
-		builderLog.Infof("Connecting to %s@%s:%d ...", config.Operator, config.LHost, config.LPort)
-		rpc, ln, err := transport.MTLSConnect(config)
-		if err != nil {
-			builderLog.Errorf("Failed to connect to server: %s", err)
-			os.Exit(-2)
-		}
-		defer ln.Close()
-		builder.StartBuilder(externalBuilder, rpc)
-	},
+	// connect to the server
+	builderLog.Infof("Connecting to %s@%s:%d ...", config.Operator, config.LHost, config.LPort)
+	rpc, ln, err := transport.MTLSConnect(config)
+	if err != nil {
+		builderLog.Errorf("Failed to connect to server: %s", err)
+		os.Exit(-2)
+	}
+	defer ln.Close()
+	builder.StartBuilder(externalBuilder, rpc)
 }
 
 func parseBuilderConfigFlags(cmd *cobra.Command) *clientpb.Builder {

@@ -21,6 +21,7 @@ package console
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -45,8 +46,10 @@ import (
 	"github.com/reeflective/console"
 	"github.com/reeflective/readline"
 	"github.com/reeflective/team/client"
+	teamGrpc "github.com/reeflective/team/transports/grpc/client"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slog"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -106,10 +109,32 @@ type SliverClient struct {
 	Teamclient *client.Client
 }
 
-// NewConsole creates the sliver client (and console), creating menus and prompts.
+func NewSliverClient(teamclient *teamGrpc.Teamclient) (*SliverClient, []client.Options) {
+	con := newConsole(false)
+
+	bindClient := func(clientConn any) error {
+		grpcClient, ok := clientConn.(*grpc.ClientConn)
+		if !ok || grpcClient == nil {
+			return errors.New("No gRPC client to use for service")
+		}
+
+		startClient(con, grpcClient)
+
+		return nil
+	}
+
+	var clientOpts []client.Options
+	clientOpts = append(clientOpts,
+		client.WithDialer(teamclient, bindClient),
+	)
+
+	return con, clientOpts
+}
+
+// newConsole creates the sliver client (and console), creating menus and prompts.
 // The returned console does neither have commands nor a working RPC connection yet,
 // thus has not started monitoring any server events, or started the application.
-func NewConsole(isServer bool) *SliverClient {
+func newConsole(isServer bool) *SliverClient {
 	assets.Setup(false, false)
 	settings, _ := assets.LoadSettings()
 
@@ -164,7 +189,9 @@ func NewConsole(isServer bool) *SliverClient {
 // Init requires a working RPC connection to the sliver server, and 2 different sets of commands.
 // If run is true, the console application is started, making this call blocking. Otherwise, commands and
 // RPC connection are bound to the console (making the console ready to run), but the console does not start.
-func StartClient(con *SliverClient, serverCmds, sliverCmds console.Commands) {
+func startClient(con *SliverClient, conn *grpc.ClientConn) {
+	con.Rpc = rpcpb.NewSliverRPCClient(conn)
+
 	// The console application needs to query the terminal for cursor positions
 	// when asynchronously printing logs (that is, when no command is running).
 	// If ran from a system shell, however, those queries will block because
@@ -175,34 +202,27 @@ func StartClient(con *SliverClient, serverCmds, sliverCmds console.Commands) {
 		con.printf = con.App.TransientPrintf
 	}
 
-	// Bind commands to the app
-	server := con.App.Menu(consts.ServerMenu)
-	server.SetCommands(serverCmds)
-
-	sliver := con.App.Menu(consts.ImplantMenu)
-	sliver.SetCommands(sliverCmds)
-
 	// Events
 	go con.startEventLoop()
 	go core.TunnelLoop(con.Rpc)
 
 	// console logger
 	if con.Settings.ConsoleLogs {
-		// 	// Classic logs
+		// Classic logs
 		consoleLog := getConsoleLogFile()
-		// 	consoleLogStream, err := con.ClientLogStream("json")
-		// 	if err != nil {
-		// 		log.Printf("Could not get client log stream: %s", err)
-		// 	}
-		con.setupLogger(consoleLog)
+		consoleLogStream, err := con.ClientLogStream("json")
+		if err != nil {
+			log.Printf("Could not get client log stream: %s", err)
+		}
+		con.setupLogger(consoleLog, consoleLogStream)
 		// 	defer consoleLog.Close()
 		//
-		// 	// Ascii cast sessions (complete terminal interface).
-		// 	asciicastLog := getConsoleAsciicastFile()
-		// 	defer asciicastLog.Close()
-		//
-		// 	asciicastStream, err := con.ClientLogStream("asciicast")
-		// 	con.setupAsciicastRecord(asciicastLog, asciicastStream)
+		// Ascii cast sessions (complete terminal interface).
+		// asciicastLog := getConsoleAsciicastFile()
+		// defer asciicastLog.Close()
+
+		// asciicastStream, err := con.ClientLogStream("asciicast")
+		// con.setupAsciicastRecord(asciicastLog, asciicastStream)
 	}
 }
 

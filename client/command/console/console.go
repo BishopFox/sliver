@@ -19,16 +19,27 @@ package console
 */
 
 import (
-	"github.com/bishopfox/sliver/client/console"
+	client "github.com/bishopfox/sliver/client/console"
+	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/reeflective/console"
 	"github.com/spf13/cobra"
 )
 
-func Command(con *console.SliverClient) *cobra.Command {
+func Command(con *client.SliverClient, serverCmds, sliverCmds console.Commands) *cobra.Command {
 	consoleCmd := &cobra.Command{
 		Use:   "console",
 		Short: "Start the sliver client console",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			con.IsCLI = false
+
+			// Bind commands to the app
+			server := con.App.Menu(consts.ServerMenu)
+			server.SetCommands(serverCmds)
+
+			sliver := con.App.Menu(consts.ImplantMenu)
+			sliver.SetCommands(sliverCmds)
+
+			// Start the console, blocking until player exit.
 			return con.App.Start()
 		},
 	}

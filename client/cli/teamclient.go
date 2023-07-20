@@ -19,38 +19,22 @@ package cli
 */
 
 import (
-	"errors"
-
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/reeflective/team/client"
 	teamGrpc "github.com/reeflective/team/transports/grpc/client"
-	"google.golang.org/grpc"
 )
 
-func newSliverTeam(con *console.SliverClient) *client.Client {
+func newSliverTeam() *console.SliverClient {
 	gTeamclient := teamGrpc.NewTeamClient()
 
-	bindClient := func(clientConn any) error {
-		grpcClient, ok := clientConn.(*grpc.ClientConn)
-		if !ok || grpcClient == nil {
-			return errors.New("No gRPC client to use for service")
-		}
+	con, opts := console.NewSliverClient(gTeamclient)
 
-		con.Rpc = rpcpb.NewSliverRPCClient(grpcClient)
-
-		return nil
-	}
-
-	var clientOpts []client.Options
-	clientOpts = append(clientOpts,
-		client.WithDialer(gTeamclient, bindClient),
-	)
-
-	teamclient, err := client.New("sliver", gTeamclient, clientOpts...)
+	teamclient, err := client.New("sliver", gTeamclient, opts...)
 	if err != nil {
 		panic(err)
 	}
 
-	return teamclient
+	con.Teamclient = teamclient
+
+	return con
 }

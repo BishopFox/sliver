@@ -24,6 +24,7 @@ import (
 
 const (
 	// Size is arbitrary, just want to avoid weird cases where we'd block on channel sends
+	//
 	// NOTE: Changed by me: when clients are one-time exec CLI commands, you don't know how
 	// fast they connect/disconnect from their RPC.Events() call.
 	// When the event channels are buffered, sooner or later the broker writes to a closed

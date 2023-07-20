@@ -106,10 +106,8 @@ endif
 #
 .PHONY: default
 default: clean .downloaded_assets validate-go-version
-	$(ENV) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
-	# $(ENV) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
-	$(ENV) CGO_ENABLED=0 $(GO) build -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
-	# $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
+	$(ENV) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
+	$(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 # Allows you to build a CGO-free client for any target e.g. `GOOS=windows GOARCH=arm64 make client`
 # NOTE: WireGuard is not supported on all platforms, but most 64-bit GOOS/GOARCH combinations should work.

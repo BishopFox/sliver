@@ -25,21 +25,14 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/rpc"
-	"github.com/reeflective/team/client"
 	"github.com/reeflective/team/server"
 	teamGrpc "github.com/reeflective/team/transports/grpc/server"
 	"google.golang.org/grpc"
 )
 
-func newSliverTeam(con *console.SliverClient) (*server.Server, *client.Client) {
+func newSliverTeam() (*server.Server, *console.SliverClient) {
 	// Teamserver
 	gTeamserver := teamGrpc.NewListener()
-
-	var serverOpts []server.Options
-	serverOpts = append(serverOpts,
-		server.WithDefaultPort(31337),
-		server.WithListener(gTeamserver),
-	)
 
 	bindServer := func(grpcServer *grpc.Server) error {
 		if grpcServer == nil {
@@ -51,6 +44,12 @@ func newSliverTeam(con *console.SliverClient) (*server.Server, *client.Client) {
 		return nil
 	}
 
+	var serverOpts []server.Options
+	serverOpts = append(serverOpts,
+		server.WithDefaultPort(31337),
+		server.WithListener(gTeamserver),
+	)
+
 	gTeamserver.PostServe(bindServer)
 
 	teamserver, err := server.New("sliver", serverOpts...)
@@ -61,23 +60,9 @@ func newSliverTeam(con *console.SliverClient) (*server.Server, *client.Client) {
 	// Teamclient
 	gTeamclient := teamGrpc.NewClientFrom(gTeamserver)
 
-	bindClient := func(clientConn any) error {
-		grpcClient, ok := clientConn.(*grpc.ClientConn)
-		if !ok || grpcClient == nil {
-			return errors.New("No gRPC client to use for service")
-		}
+	sliver, opts := console.NewSliverClient(gTeamclient)
 
-		con.Rpc = rpcpb.NewSliverRPCClient(grpcClient)
+	sliver.Teamclient = teamserver.Self(opts...)
 
-		return nil
-	}
-
-	var clientOpts []client.Options
-	clientOpts = append(clientOpts,
-		client.WithDialer(gTeamclient, bindClient),
-	)
-
-	teamclient := teamserver.Self(clientOpts...)
-
-	return teamserver, teamclient
+	return teamserver, sliver
 }

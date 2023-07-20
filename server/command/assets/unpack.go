@@ -1,4 +1,4 @@
-package cli
+package assets
 
 /*
 	Sliver Implant Framework
@@ -25,18 +25,29 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var unpackCmd = &cobra.Command{
-	Use:   "unpack",
-	Short: "Unpack assets and exit",
-	Long:  ``,
-	Run: func(cmd *cobra.Command, args []string) {
+const (
+	// Unpack flags
+	forceFlagStr = "force"
+)
 
-		force, err := cmd.Flags().GetBool(forceFlagStr)
-		if err != nil {
-			fmt.Printf("Failed to parse --%s flag %s\n", forceFlagStr, err)
-			return
-		}
+// Commands returns all commands for Sliver assets management.
+func Commands() []*cobra.Command {
+	unpackCmd := &cobra.Command{
+		Use:   "unpack",
+		Short: "Unpack assets and exit",
+		Long:  ``,
+		Run: func(cmd *cobra.Command, args []string) {
+			force, err := cmd.Flags().GetBool(forceFlagStr)
+			if err != nil {
+				fmt.Printf("Failed to parse --%s flag %s\n", forceFlagStr, err)
+				return
+			}
 
-		assets.Setup(force, true)
-	},
+			assets.Setup(force, true)
+		},
+	}
+
+	unpackCmd.Flags().BoolP(forceFlagStr, "f", false, "Force unpack and overwrite")
+
+	return []*cobra.Command{unpackCmd}
 }
