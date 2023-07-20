@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rsteube/carapace"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/rsteube/carapace"
 )
 
-// GetSliverBinary - Get the binary of an implant based on it's profile
+// GetSliverBinary - Get the binary of an implant based on it's profile.
 func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverClient) ([]byte, error) {
 	var data []byte
 	// get implant builds
@@ -92,7 +91,7 @@ func ArchCompleter(con *console.SliverClient) carapace.Action {
 	})
 }
 
-// FormatCompleter completes build operating systems
+// FormatCompleter completes build operating systems.
 func OSCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		compiler, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
@@ -126,7 +125,7 @@ func OSCompleter(con *console.SliverClient) carapace.Action {
 	})
 }
 
-// FormatCompleter completes build formats
+// FormatCompleter completes build formats.
 func FormatCompleter() carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		return carapace.ActionValues([]string{
@@ -135,7 +134,7 @@ func FormatCompleter() carapace.Action {
 	})
 }
 
-// TrafficEncoderCompleter - Completes the names of traffic encoders
+// TrafficEncoderCompleter - Completes the names of traffic encoders.
 func TrafficEncodersCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		grpcCtx, cancel := con.GrpcContext(nil)

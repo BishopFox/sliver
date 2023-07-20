@@ -87,6 +87,45 @@ func (c *Console) Start() error {
 	}
 }
 
+// Execute is a mimic of the classic one-time cobra command execution.
+// This call is thus blocking during the entire parsing/execution process
+// of a command-line, but will not happen in the closed-loop console, nor
+// will start it (unless the target command does it by itself).
+//
+// This function should be useful if you have trees of commands that can
+// be executed both in closed-loop applications or in a one-off exec style.
+// Normally, most command should, if your command behavior/API has no magic.
+// This function also does not print any logo.
+//
+// The command line (os.Args) is matched against the currently active menu.
+// Be sure to set and verify this menu before calling this function.
+func (c *Console) ExecuteOnce() error {
+	// Always ensure we work with the active menu, with freshly
+	// generated commands, bound prompts and some other things.
+	menu := c.activeMenu()
+	menu.resetPreRun()
+
+	c.printed = false
+
+	if c.NewlineBefore {
+		fmt.Println()
+	}
+
+	// Run user-provided pre-run line hooks,
+	// which may modify the input line args.
+	args, err := c.runLineHooks(os.Args)
+	if err != nil {
+		return fmt.Errorf("Line error: %s\n", err.Error())
+	}
+
+	// Run all pre-run hooks and the command itself
+	// Don't check the error: if its a cobra error,
+	// the library user is responsible for setting
+	// the cobra behavior.
+	// If it's an interrupt, we take care of it.
+	return c.execute(menu, args, false)
+}
+
 // RunCommand is a convenience function to run a command in a given menu.
 // After running, the menu commands are reset, and the prompts reloaded.
 func (m *Menu) RunCommand(line string) (err error) {
@@ -135,13 +174,12 @@ func (c *Console) execute(menu *Menu, args []string, async bool) (err error) {
 	// Find the target command: if this command is filtered, don't run it.
 	target, _, _ := cmd.Find(args)
 	if c.isFiltered(target) {
-		return
+		return nil
 	}
 
 	// Console-wide pre-run hooks, cannot.
 	if err = c.runPreRunHooks(); err != nil {
-		fmt.Printf("Pre-run error: %s\n", err.Error())
-		return
+		return fmt.Errorf("pre-run error: %s", err.Error())
 	}
 
 	// Assign those arguments to our parser.

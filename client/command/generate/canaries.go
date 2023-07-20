@@ -4,16 +4,15 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
 )
 
-// CanariesCmd - Display canaries from the database and their status
+// CanariesCmd - Display canaries from the database and their status.
 func CanariesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	canaries, err := con.Rpc.Canaries(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -28,7 +27,7 @@ func CanariesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-// PrintCanaries - Print the canaries tracked by the server
+// PrintCanaries - Print the canaries tracked by the server.
 func PrintCanaries(con *console.SliverClient, canaries []*clientpb.DNSCanary, burnedOnly bool) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))

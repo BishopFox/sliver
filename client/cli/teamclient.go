@@ -49,7 +49,6 @@ func newSliverTeam(con *console.SliverClient) *client.Client {
 
 	teamclient, err := client.New("sliver", gTeamclient, clientOpts...)
 	if err != nil {
-		// WARN: Remote this
 		panic(err)
 	}
 

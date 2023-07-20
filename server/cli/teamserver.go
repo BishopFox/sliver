@@ -41,11 +41,6 @@ func newSliverTeam(con *console.SliverClient) (*server.Server, *client.Client) {
 		server.WithListener(gTeamserver),
 	)
 
-	teamserver, err := server.New("sliver", serverOpts...)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	bindServer := func(grpcServer *grpc.Server) error {
 		if grpcServer == nil {
 			return errors.New("No gRPC server to use for service")
@@ -57,6 +52,11 @@ func newSliverTeam(con *console.SliverClient) (*server.Server, *client.Client) {
 	}
 
 	gTeamserver.PostServe(bindServer)
+
+	teamserver, err := server.New("sliver", serverOpts...)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Teamclient
 	gTeamclient := teamGrpc.NewClientFrom(gTeamserver)

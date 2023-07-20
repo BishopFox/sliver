@@ -28,13 +28,13 @@ import (
 )
 
 var (
-	// tunnelsStorage - Holds refs to all tunnels
+	// tunnelsStorage - Holds refs to all tunnels.
 	tunnelsStorage *tunnels
 
 	tunnelsSingletonLock = &sync.Mutex{}
 )
 
-// GetTunnels - singleton function that returns or initializes all tunnels
+// GetTunnels - singleton function that returns or initializes all tunnels.
 func GetTunnels() *tunnels {
 	tunnelsSingletonLock.Lock()
 	defer tunnelsSingletonLock.Unlock()
@@ -53,7 +53,7 @@ func GetTunnels() *tunnels {
 }
 
 // Holds the tunnels locally so we can map incoming data
-// messages to the tunnel
+// messages to the tunnel.
 type tunnels struct {
 	tunnels     *map[uint64]*TunnelIO
 	mutex       *sync.RWMutex
@@ -70,7 +70,7 @@ func (t *tunnels) SetStream(stream rpcpb.SliverRPC_TunnelDataClient) {
 	t.stream = stream
 }
 
-// Get - Get a tunnel
+// Get - Get a tunnel.
 func (t *tunnels) Get(tunnelID uint64) *TunnelIO {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
@@ -81,7 +81,7 @@ func (t *tunnels) Get(tunnelID uint64) *TunnelIO {
 }
 
 // send - safe way to send a message to the stream
-// protobuf stream allow only one writer at a time, so just in case there is a mutex for it
+// protobuf stream allow only one writer at a time, so just in case there is a mutex for it.
 func (t *tunnels) send(tunnelData *sliverpb.TunnelData) error {
 	t.streamMutex.Lock()
 	defer t.streamMutex.Unlock()
@@ -95,7 +95,7 @@ func (t *tunnels) send(tunnelData *sliverpb.TunnelData) error {
 	return t.stream.Send(tunnelData)
 }
 
-// Start - Add a tunnel to the core mapper
+// Start - Add a tunnel to the core mapper.
 func (t *tunnels) Start(tunnelID uint64, sessionID string) *TunnelIO {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -116,7 +116,6 @@ func (t *tunnels) Start(tunnelID uint64, sessionID string) *TunnelIO {
 				SessionID: tunnel.SessionID,
 				Data:      data,
 			})
-
 			if err != nil {
 				log.Printf("Error sending, %s", err)
 			}
@@ -129,7 +128,7 @@ func (t *tunnels) Start(tunnelID uint64, sessionID string) *TunnelIO {
 	return tunnel
 }
 
-// Close - Close the tunnel channels
+// Close - Close the tunnel channels.
 func (t *tunnels) Close(tunnelID uint64) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -145,7 +144,7 @@ func (t *tunnels) Close(tunnelID uint64) {
 	}
 }
 
-// CloseForSession - closing all tunnels for specified session id
+// CloseForSession - closing all tunnels for specified session id.
 func (t *tunnels) CloseForSession(sessionID string) {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()

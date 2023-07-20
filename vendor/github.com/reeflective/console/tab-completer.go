@@ -114,7 +114,7 @@ func sanitizeArgs(rbuffer []rune, args []string) (sanitized []string) {
 // Regenerate commands and apply any filters.
 func (c *Console) completeCommands(menu *Menu) func() {
 	commands := func() {
-		menu.resetCommands()
+		menu.ResetCommands()
 		c.hideFilteredCommands()
 	}
 

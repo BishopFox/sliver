@@ -25,18 +25,16 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 )
 
-// JobsCmd - Manage server jobs (listeners, etc)
+// JobsCmd - Manage server jobs (listeners, etc).
 func JobsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if pid, _ := cmd.Flags().GetInt32("kill"); pid != -1 {
 		jobKill(uint32(pid), con)
@@ -61,7 +59,7 @@ func JobsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-// PrintJobs - Prints a list of active jobs
+// PrintJobs - Prints a list of active jobs.
 func PrintJobs(jobs map[uint32]*clientpb.Job, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))

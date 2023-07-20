@@ -44,6 +44,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/reeflective/console"
 	"github.com/reeflective/readline"
+	"github.com/reeflective/team/client"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
@@ -101,6 +102,8 @@ type SliverClient struct {
 
 	jsonHandler slog.Handler
 	printf      func(format string, args ...any) (int, error)
+
+	Teamclient *client.Client
 }
 
 // NewConsole creates the sliver client (and console), creating menus and prompts.
@@ -121,6 +124,7 @@ func NewConsole(isServer bool) *SliverClient {
 		BeaconTaskCallbacksMutex: &sync.Mutex{},
 		IsServer:                 isServer,
 		Settings:                 settings,
+		IsCLI:                    true,
 	}
 
 	// The active target needs access to the console
@@ -160,9 +164,7 @@ func NewConsole(isServer bool) *SliverClient {
 // Init requires a working RPC connection to the sliver server, and 2 different sets of commands.
 // If run is true, the console application is started, making this call blocking. Otherwise, commands and
 // RPC connection are bound to the console (making the console ready to run), but the console does not start.
-func StartClient(con *SliverClient, serverCmds, sliverCmds console.Commands, run bool) error {
-	con.IsCLI = !run
-
+func StartClient(con *SliverClient, serverCmds, sliverCmds console.Commands) {
 	// The console application needs to query the terminal for cursor positions
 	// when asynchronously printing logs (that is, when no command is running).
 	// If ran from a system shell, however, those queries will block because
@@ -186,28 +188,22 @@ func StartClient(con *SliverClient, serverCmds, sliverCmds console.Commands, run
 
 	// console logger
 	if con.Settings.ConsoleLogs {
-		// Classic logs
+		// 	// Classic logs
 		consoleLog := getConsoleLogFile()
-		consoleLogStream, err := con.ClientLogStream("json")
-		if err != nil {
-			log.Printf("Could not get client log stream: %s", err)
-		}
-		con.setupLogger(consoleLog, consoleLogStream)
-		defer consoleLog.Close()
-
-		// Ascii cast sessions (complete terminal interface).
-		asciicastLog := getConsoleAsciicastFile()
-		defer asciicastLog.Close()
-
-		asciicastStream, err := con.ClientLogStream("asciicast")
-		con.setupAsciicastRecord(asciicastLog, asciicastStream)
+		// 	consoleLogStream, err := con.ClientLogStream("json")
+		// 	if err != nil {
+		// 		log.Printf("Could not get client log stream: %s", err)
+		// 	}
+		con.setupLogger(consoleLog)
+		// 	defer consoleLog.Close()
+		//
+		// 	// Ascii cast sessions (complete terminal interface).
+		// 	asciicastLog := getConsoleAsciicastFile()
+		// 	defer asciicastLog.Close()
+		//
+		// 	asciicastStream, err := con.ClientLogStream("asciicast")
+		// 	con.setupAsciicastRecord(asciicastLog, asciicastStream)
 	}
-
-	if !con.IsCLI {
-		return con.App.Start()
-	}
-
-	return nil
 }
 
 func (con *SliverClient) startEventLoop() {

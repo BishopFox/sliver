@@ -24,9 +24,10 @@ import (
 	"os"
 	"path"
 
+	"github.com/bishopfox/sliver/client/command"
 	"github.com/bishopfox/sliver/client/console"
+	// consts "github.com/bishopfox/sliver/client/constants".
 	"github.com/bishopfox/sliver/client/version"
-	"github.com/reeflective/team/client/commands"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 )
@@ -49,44 +50,6 @@ func initLogging(appDir string) *os.File {
 }
 
 func init() {
-	// Create the console client, without any RPC or commands bound to it yet.
-	// This created before anything so that multiple commands can make use of
-	// the same underlying command/run infrastructure.
-	con := console.NewConsole(false)
-
-	// Teamclient API and commands for remote CLI.
-	teamclient := newSliverTeam(con)
-	teamclientCmds := commands.Generate(teamclient)
-
-	rootCmd.AddCommand(teamclientCmds)
-
-	// Version
-	rootCmd.AddCommand(cmdVersion)
-
-	preRun := func(_ *cobra.Command, _ []string) error {
-		return teamclient.Connect()
-	}
-
-	rootCmd.PersistentPreRunE = preRun
-
-	// Client console.
-	// All commands and RPC connection are generated WITHIN the command RunE():
-	// that means there should be no redundant command tree/RPC connections with
-	// other command trees below, such as the implant one.
-	rootCmd.AddCommand(consoleCmd(con))
-
-	// Implant.
-	// The implant command allows users to run commands on slivers from their
-	// system shell. It makes use of pre-runners for connecting to the server
-	// and binding sliver commands. These same pre-runners are also used for
-	// command completion/filtering purposes.
-	rootCmd.AddCommand(implantCmd(con))
-
-	// Completions
-	comps := carapace.Gen(rootCmd)
-	comps.PreRun(func(cmd *cobra.Command, args []string) {
-		preRun(cmd, args)
-	})
 }
 
 var rootCmd = &cobra.Command{
@@ -98,8 +61,130 @@ var rootCmd = &cobra.Command{
 
 // Execute - Execute root command.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	// Create the console client, without any RPC or commands bound to it yet.
+	// This created before anything so that multiple commands can make use of
+	// the same underlying command/run infrastructure.
+	con := console.NewConsole(false)
+
+	// Teamclient API and commands for remote CLI.
+	teamclient := newSliverTeam(con)
+	con.Teamclient = teamclient
+
+	// Bind commands to the app
+	// server := con.App.Menu(consts.ServerMenu)
+	// server.SetCommands(command.ServerCommands(con, nil))
+	//
+	// sliver := con.App.Menu(consts.ImplantMenu)
+	// sliver.SetCommands(command.SliverCommands(con))
+
+	serverCmds := command.ServerCommands(con, nil)()
+
+	// serverCmds = server.Command
+	serverCmds.Use = "sliver-client"
+
+	// Version
+	serverCmds.AddCommand(cmdVersion)
+
+	preRun := func(_ *cobra.Command, _ []string) error {
+		teamclient.Connect()
+
+		console.StartClient(con, command.ServerCommands(con, nil), command.SliverCommands(con))
+		return nil
+	}
+
+	serverCmds.PersistentPreRunE = preRun
+
+	postRun := func(_ *cobra.Command, _ []string) error {
+		// teamclient.SetLogLevel(1)
+		teamclient.Disconnect()
+		return nil
+	}
+
+	// serverCmds.PersistentPostRunE = postRun
+	// Client console.
+	// All commands and RPC connection are generated WITHIN the command RunE():
+	// that means there should be no redundant command tree/RPC connections with
+	// other command trees below, such as the implant one.
+	serverCmds.AddCommand(consoleCmd(con))
+
+	// Implant.
+	// The implant command allows users to run commands on slivers from their
+	// system shell. It makes use of pre-runners for connecting to the server
+	// and binding sliver commands. These same pre-runners are also used for
+	// command completion/filtering purposes.
+	serverCmds.AddCommand(implantCmd(con))
+
+	// Completions
+	comps := carapace.Gen(serverCmds)
+	comps.PreRun(func(cmd *cobra.Command, args []string) {
+		preRun(cmd, args)
+	})
+	comps.PostRun(func(cmd *cobra.Command, args []string) {
+		postRun(cmd, args)
+	})
+
+	if err := serverCmds.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 }
+
+// func Execute() {
+// 	// Create the console client, without any RPC or commands bound to it yet.
+// 	// This created before anything so that multiple commands can make use of
+// 	// the same underlying command/run infrastructure.
+// 	con := console.NewConsole(false)
+//
+// 	// Teamclient API and commands for remote CLI.
+// 	teamclient := newSliverTeam(con)
+// 	teamclientCmds := commands.Generate(teamclient)
+//
+// 	rootCmd.AddCommand(teamclientCmds)
+//
+// 	// Bind commands to the app
+// 	server := con.App.Menu(consts.ServerMenu)
+// 	server.SetCommands(command.ServerCommands(con, nil))
+//
+// 	sliver := con.App.Menu(consts.ImplantMenu)
+// 	sliver.SetCommands(command.SliverCommands(con))
+//
+// 	server.Reset()
+//
+// 	rootCmd = server.Command
+// 	rootCmd.Use = "sliver-client"
+//
+// 	// Version
+// 	rootCmd.AddCommand(cmdVersion)
+//
+// 	preRun := func(_ *cobra.Command, _ []string) error {
+// 		// return teamclient.Connect()
+// 		teamclient.Connect()
+// 		console.StartClient(con, nil, nil)
+// 		return nil
+// 	}
+//
+// 	rootCmd.PersistentPreRunE = preRun
+//
+// 	// Client console.
+// 	// All commands and RPC connection are generated WITHIN the command RunE():
+// 	// that means there should be no redundant command tree/RPC connections with
+// 	// other command trees below, such as the implant one.
+// 	rootCmd.AddCommand(consoleCmd(con))
+//
+// 	// Implant.
+// 	// The implant command allows users to run commands on slivers from their
+// 	// system shell. It makes use of pre-runners for connecting to the server
+// 	// and binding sliver commands. These same pre-runners are also used for
+// 	// command completion/filtering purposes.
+// 	rootCmd.AddCommand(implantCmd(con))
+//
+// 	// Completions
+// 	comps := carapace.Gen(rootCmd)
+// 	comps.PreRun(func(cmd *cobra.Command, args []string) {
+// 		preRun(cmd, args)
+// 	})
+// 	if err := rootCmd.Execute(); err != nil {
+// 		fmt.Println(err)
+// 		os.Exit(1)
+// 	}
+// }

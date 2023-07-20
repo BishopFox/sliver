@@ -194,7 +194,7 @@ func (m *Menu) resetPreRun() {
 	defer m.console.mutex.RUnlock()
 
 	// Menu setup
-	m.resetCommands()              // Regenerate the commands for the menu.
+	m.ResetCommands()              // Regenerate the commands for the menu.
 	m.resetCmdOutput()             // Reset or adjust any buffered command output.
 	m.prompt.bind(m.console.shell) // Prompt binding
 
@@ -217,7 +217,7 @@ func (m *Menu) resetCmdOutput() {
 	m.out.WriteString("\n")
 }
 
-func (m *Menu) resetCommands() {
+func (m *Menu) Reset() {
 	if m.cmds != nil {
 		m.Command = m.cmds()
 	}

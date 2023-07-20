@@ -26,13 +26,12 @@ import (
 	"strings"
 
 	"github.com/bishopfox/sliver/client/command"
+	sliverConsoleCmd "github.com/bishopfox/sliver/client/command/console"
 	"github.com/bishopfox/sliver/client/console"
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/server/assets"
-	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/certs"
-	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/cryptography"
-	"github.com/reeflective/team/server/commands"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 )
@@ -65,75 +64,6 @@ func initConsoleLogging(appDir string) *os.File {
 	}
 	log.SetOutput(logFile)
 	return logFile
-}
-
-func init() {
-	// Console interface, started closed-loop or not.
-	con := console.NewConsole(false)
-
-	// Teamserver/client API and commands for remote/local CLI.
-	teamserver, teamclient := newSliverTeam(con)
-	teamserverCmds := commands.Generate(teamserver, teamclient)
-
-	rootCmd.AddCommand(teamserverCmds)
-
-	// Pre-runners to self-connect
-	preRun := func(cmd *cobra.Command, _ []string) error {
-		// Ensure the server has what it needs
-		assets.Setup(false, true)
-		certs.SetupCAs()
-		certs.SetupWGKeys()
-		cryptography.AgeServerKeyPair()
-		cryptography.MinisignServerPrivateKey()
-
-		// Let our runtime teamclient be served.
-		if err := teamserver.Serve(teamclient); err != nil {
-			return err
-		}
-
-		// Start persistent implant/c2 jobs (not teamservers)
-		serverConfig := configs.GetServerConfig()
-		c2.StartPersistentJobs(serverConfig)
-
-		// Only start the teamservers when the console being
-		// ran is the console itself: the daemon command will
-		// start them on its own, since the config is different.
-		if cmd.Name() == "console" {
-			teamserver.ListenerStartPersistents() // Automatically logged errors.
-			// 	console.StartPersistentJobs(serverConfig) // Old alternative
-		}
-
-		return nil
-	}
-
-	rootCmd.PersistentPreRunE = preRun
-
-	rootCmd.AddCommand(consoleCmd(con))
-
-	// Unpack
-	unpackCmd.Flags().BoolP(forceFlagStr, "f", false, "Force unpack and overwrite")
-	rootCmd.AddCommand(unpackCmd)
-
-	// Certs
-	cmdExportCA.Flags().StringP(saveFlagStr, "s", "", "save CA to file ...")
-	cmdExportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
-	rootCmd.AddCommand(cmdExportCA)
-
-	cmdImportCA.Flags().StringP(loadFlagStr, "l", "", "load CA from file ...")
-	cmdImportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
-	rootCmd.AddCommand(cmdImportCA)
-
-	// Builder
-	rootCmd.AddCommand(initBuilderCmd())
-
-	// Version
-	rootCmd.AddCommand(versionCmd)
-
-	// Completions
-	comps := carapace.Gen(rootCmd)
-	comps.PreRun(func(cmd *cobra.Command, args []string) {
-		preRun(cmd, args)
-	})
 }
 
 var rootCmd = &cobra.Command{
@@ -175,57 +105,195 @@ var rootCmd = &cobra.Command{
 
 // Execute - Execute root command
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	// Console interface, started closed-loop or not.
+	con := console.NewConsole(true)
+
+	// Teamserver/client API and commands for remote/local CLI.
+	teamserver, teamclient := newSliverTeam(con)
+
+	con.Teamclient = teamclient
+
+	// Bind commands to the app
+	server := con.App.Menu(consts.ServerMenu)
+	server.SetCommands(command.ServerCommands(con, teamserver))
+
+	serverCmds := command.ServerCommands(con, teamserver)()
+	serverCmds.Use = "sliver-server"
+
+	// sliver := con.App.Menu(consts.ImplantMenu)
+	// sliver.SetCommands(command.SliverCommands(con))
+
+	// Pre-runners to self-connect
+	preRun := func(cmd *cobra.Command, _ []string) error {
+		// Ensure the server has what it needs
+		assets.Setup(false, true)
+		certs.SetupCAs()
+		certs.SetupWGKeys()
+		cryptography.AgeServerKeyPair()
+		cryptography.MinisignServerPrivateKey()
+
+		// Let our runtime teamclient be served.
+		if err := teamserver.Serve(con.Teamclient); err != nil {
+			return err
+		}
+
+		console.StartClient(con, command.ServerCommands(con, teamserver), command.SliverCommands(con))
+		return nil
+	}
+
+	serverCmds.PersistentPreRunE = preRun
+
+	serverCmds.AddCommand(sliverConsoleCmd.Command(con))
+
+	// Unpack
+	unpackCmd.Flags().BoolP(forceFlagStr, "f", false, "Force unpack and overwrite")
+	serverCmds.AddCommand(unpackCmd)
+
+	// Certs
+	cmdExportCA.Flags().StringP(saveFlagStr, "s", "", "save CA to file ...")
+	cmdExportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
+	serverCmds.AddCommand(cmdExportCA)
+
+	cmdImportCA.Flags().StringP(loadFlagStr, "l", "", "load CA from file ...")
+	cmdImportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
+	serverCmds.AddCommand(cmdImportCA)
+
+	// Builder
+	// rootCmd.AddCommand(initBuilderCmd())
+
+	// Version
+	// rootCmd.AddCommand(versionCmd)
+
+	// Completions
+	comps := carapace.Gen(serverCmds)
+	comps.PreRun(func(cmd *cobra.Command, args []string) {
+		preRun(cmd, args)
+	})
+	// comps.PostRun(func(cmd *cobra.Command, args []string) {
+	// 	postRun(cmd, args)
+	// })
+
+	if err := serverCmds.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 }
 
-func initAlt() {
-	// Unpack
-	unpackCmd.Flags().BoolP(forceFlagStr, "f", false, "Force unpack and overwrite")
-	rootCmd.AddCommand(unpackCmd)
+// func initAlt() {
+// 	// Unpack
+// 	unpackCmd.Flags().BoolP(forceFlagStr, "f", false, "Force unpack and overwrite")
+// 	rootCmd.AddCommand(unpackCmd)
+//
+// 	// Operator
+// 	// operatorCmd.Flags().StringP(nameFlagStr, "n", "", "operator name")
+// 	// operatorCmd.Flags().StringP(lhostFlagStr, "l", "", "multiplayer listener host")
+// 	// operatorCmd.Flags().Uint16P(lportFlagStr, "p", uint16(31337), "multiplayer listener port")
+// 	// operatorCmd.Flags().StringP(saveFlagStr, "s", "", "save file to ...")
+// 	// rootCmd.AddCommand(operatorCmd)
+//
+// 	// Certs
+// 	cmdExportCA.Flags().StringP(saveFlagStr, "s", "", "save CA to file ...")
+// 	cmdExportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
+// 	rootCmd.AddCommand(cmdExportCA)
+//
+// 	cmdImportCA.Flags().StringP(loadFlagStr, "l", "", "load CA from file ...")
+// 	cmdImportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
+// 	rootCmd.AddCommand(cmdImportCA)
+//
+// 	// Daemon
+// 	// daemonCmd.Flags().StringP(lhostFlagStr, "l", daemon.BlankHost, "multiplayer listener host")
+// 	// daemonCmd.Flags().Uint16P(lportFlagStr, "p", daemon.BlankPort, "multiplayer listener port")
+// 	// daemonCmd.Flags().BoolP(forceFlagStr, "f", false, "force unpack and overwrite static assets")
+// 	// rootCmd.AddCommand(daemonCmd)
+//
+// 	// Builder
+// 	rootCmd.AddCommand(initBuilderCmd())
+//
+// 	// Version
+// 	rootCmd.AddCommand(versionCmd)
+// }
 
-	// Operator
-	// operatorCmd.Flags().StringP(nameFlagStr, "n", "", "operator name")
-	// operatorCmd.Flags().StringP(lhostFlagStr, "l", "", "multiplayer listener host")
-	// operatorCmd.Flags().Uint16P(lportFlagStr, "p", uint16(31337), "multiplayer listener port")
-	// operatorCmd.Flags().StringP(saveFlagStr, "s", "", "save file to ...")
-	// rootCmd.AddCommand(operatorCmd)
-
-	// Certs
-	cmdExportCA.Flags().StringP(saveFlagStr, "s", "", "save CA to file ...")
-	cmdExportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
-	rootCmd.AddCommand(cmdExportCA)
-
-	cmdImportCA.Flags().StringP(loadFlagStr, "l", "", "load CA from file ...")
-	cmdImportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
-	rootCmd.AddCommand(cmdImportCA)
-
-	// Daemon
-	// daemonCmd.Flags().StringP(lhostFlagStr, "l", daemon.BlankHost, "multiplayer listener host")
-	// daemonCmd.Flags().Uint16P(lportFlagStr, "p", daemon.BlankPort, "multiplayer listener port")
-	// daemonCmd.Flags().BoolP(forceFlagStr, "f", false, "force unpack and overwrite static assets")
-	// rootCmd.AddCommand(daemonCmd)
-
-	// Builder
-	rootCmd.AddCommand(initBuilderCmd())
-
-	// Version
-	rootCmd.AddCommand(versionCmd)
-}
-
-// consoleCmd generates the console with required pre/post runners
-func consoleCmd(con *console.SliverClient) *cobra.Command {
-	consoleCmd := &cobra.Command{
-		Use:   "console",
-		Short: "Start the sliver client console",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return console.StartClient(con, command.ServerCommands(con, nil), command.SliverCommands(con), true)
-		},
-	}
-
-	// consoleCmd.RunE, consoleCmd.PersistentPostRunE = consoleRunnerCmd(con, true)
-
-	return consoleCmd
-}
+// func init() {
+// 	// Console interface, started closed-loop or not.
+// 	con := console.NewConsole(false)
+//
+// 	// Teamserver/client API and commands for remote/local CLI.
+// 	teamserver, teamclient := newSliverTeam(con)
+// 	// teamserverCmds := commands.Generate(teamserver, teamclient)
+//
+// 	con.Teamclient = teamclient
+//
+// 	// Bind commands to the app
+// 	server := con.App.Menu(consts.ServerMenu)
+// 	server.SetCommands(command.ServerCommands(con, teamserver))
+//
+// 	serverCmds := command.ServerCommands(con, teamserver)()
+//
+// 	// server.Reset()
+// 	// sliver := con.App.Menu(consts.ImplantMenu)
+// 	// sliver.SetCommands(command.SliverCommands(con))
+// 	// rootCmd = server.Command
+// 	// rootCmd.Use = "sliver-server"
+//
+// 	// rootCmd.AddCommand(teamserverCmds)
+//
+// 	// Pre-runners to self-connect
+// 	preRun := func(cmd *cobra.Command, _ []string) error {
+// 		// Ensure the server has what it needs
+// 		assets.Setup(false, true)
+// 		certs.SetupCAs()
+// 		certs.SetupWGKeys()
+// 		cryptography.AgeServerKeyPair()
+// 		cryptography.MinisignServerPrivateKey()
+//
+// 		// Let our runtime teamclient be served.
+// 		if err := teamserver.Serve(teamclient); err != nil {
+// 			return err
+// 		}
+//
+// 		// Start persistent implant/c2 jobs (not teamservers)
+// 		// serverConfig := configs.GetServerConfig()
+// 		// c2.StartPersistentJobs(serverConfig)
+//
+// 		// Only start the teamservers when the console being
+// 		// ran is the console itself: the daemon command will
+// 		// start them on its own, since the config is different.
+// 		// if cmd.Name() == "console" {
+// 		// 	teamserver.ListenerStartPersistents() // Automatically logged errors.
+// 		// 	// 	console.StartPersistentJobs(serverConfig) // Old alternative
+// 		// }
+//
+// 		console.StartClient(con, nil, nil)
+// 		return nil
+// 	}
+// 	// return nil
+//
+// 	serverCmds.PersistentPreRunE = preRun
+//
+// 	serverCmds.AddCommand(consoleCmd(con))
+//
+// 	// Unpack
+// 	unpackCmd.Flags().BoolP(forceFlagStr, "f", false, "Force unpack and overwrite")
+// 	serverCmds.AddCommand(unpackCmd)
+//
+// 	// Certs
+// 	cmdExportCA.Flags().StringP(saveFlagStr, "s", "", "save CA to file ...")
+// 	cmdExportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
+// 	serverCmds.AddCommand(cmdExportCA)
+//
+// 	cmdImportCA.Flags().StringP(loadFlagStr, "l", "", "load CA from file ...")
+// 	cmdImportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
+// 	serverCmds.AddCommand(cmdImportCA)
+//
+// 	// Builder
+// 	// rootCmd.AddCommand(initBuilderCmd())
+//
+// 	// Version
+// 	// rootCmd.AddCommand(versionCmd)
+//
+// 	// Completions
+// 	comps := carapace.Gen(serverCmds)
+// 	comps.PreRun(func(cmd *cobra.Command, args []string) {
+// 		preRun(cmd, args)
+// 	})
+// }

@@ -33,39 +33,38 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/util"
+	"github.com/spf13/cobra"
 )
 
 const (
-	// DefaultMTLSLPort is the default port for mtls
+	// DefaultMTLSLPort is the default port for mtls.
 	DefaultMTLSLPort = 8888
-	// DefaultWGPort is the default port for wg
+	// DefaultWGPort is the default port for wg.
 	DefaultWGLPort = 53
-	// DefaultWGNPort is the default n port for wg
+	// DefaultWGNPort is the default n port for wg.
 	DefaultWGNPort = 8888
-	// DefaultWGKeyExPort is the default port for wg key exchange
+	// DefaultWGKeyExPort is the default port for wg key exchange.
 	DefaultWGKeyExPort = 1337
-	// DefaultHTTPLPort is the default port for http
+	// DefaultHTTPLPort is the default port for http.
 	DefaultHTTPLPort = 80
-	// DefaultHTTPSLPort is the default port for https
+	// DefaultHTTPSLPort is the default port for https.
 	DefaultHTTPSLPort = 443
-	// DefaultDNSLPortis the default port for dns
+	// DefaultDNSLPortis the default port for dns.
 	DefaultDNSLPort = 53
-	// DefaultTCPPivotPort is the default port for tcp pivots
+	// DefaultTCPPivotPort is the default port for tcp pivots.
 	DefaultTCPPivotPort = 9898
 
-	// DefaultReconnect is the default reconnect time
+	// DefaultReconnect is the default reconnect time.
 	DefaultReconnect = 60
-	// DefaultPollTimeout is the default poll timeout
+	// DefaultPollTimeout is the default poll timeout.
 	DefaultPollTimeout = 360 // 6 minutes
-	// DefaultMaxErrors is the default max reconnection errors before giving up
+	// DefaultMaxErrors is the default max reconnection errors before giving up.
 	DefaultMaxErrors = 1000
 )
 
@@ -74,7 +73,7 @@ const (
 )
 
 var (
-	// SupportedCompilerTargets - Supported compiler targets
+	// SupportedCompilerTargets - Supported compiler targets.
 	SupportedCompilerTargets = map[string]bool{
 		"darwin/amd64":  true,
 		"darwin/arm64":  true,
@@ -88,7 +87,7 @@ var (
 	ErrNoValidBuilders   = errors.New("no valid external builders for target")
 )
 
-// GenerateCmd - The main command used to generate implant binaries
+// GenerateCmd - The main command used to generate implant binaries.
 func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	config := parseCompileFlags(cmd, con)
 	if config == nil {
@@ -181,7 +180,7 @@ func nameOfOutputFormat(value clientpb.OutputFormat) string {
 	}
 }
 
-// Shared function that extracts the compile flags from the grumble context
+// Shared function that extracts the compile flags from the grumble context.
 func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) *clientpb.ImplantConfig {
 	var name string
 	if nameF, _ := cmd.Flags().GetString("name"); nameF != "" {
@@ -404,7 +403,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) *clientpb.
 	return config
 }
 
-// parseTrafficEncoderArgs - parses the traffic encoder args and returns a bool indicating if traffic encoders are enabled
+// parseTrafficEncoderArgs - parses the traffic encoder args and returns a bool indicating if traffic encoders are enabled.
 func parseTrafficEncoderArgs(cmd *cobra.Command, httpC2Enabled bool, con *console.SliverClient) (bool, []*commonpb.File) {
 	trafficEncoders, _ := cmd.Flags().GetString("traffic-encoders")
 	encoders := []*commonpb.File{}
@@ -461,7 +460,7 @@ func getTargets(targetOS string, targetArch string, con *console.SliverClient) (
 	return targetOS, targetArch
 }
 
-// ParseMTLSc2 - Parse mtls connection string arg
+// ParseMTLSc2 - Parse mtls connection string arg.
 func ParseMTLSc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
@@ -496,7 +495,7 @@ func ParseMTLSc2(args string) ([]*clientpb.ImplantC2, error) {
 	return c2s, nil
 }
 
-// ParseWGc2 - Parse wg connect string arg
+// ParseWGc2 - Parse wg connect string arg.
 func ParseWGc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
@@ -612,7 +611,7 @@ func uriWithoutProxyOptions(uri *url.URL) {
 	uri.RawQuery = options.Encode()
 }
 
-// ParseHTTPc2 - Parse HTTP connection string arg
+// ParseHTTPc2 - Parse HTTP connection string arg.
 func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
@@ -658,7 +657,7 @@ func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 	return c2s, nil
 }
 
-// ParseDNSc2 - Parse DNS connection string arg
+// ParseDNSc2 - Parse DNS connection string arg.
 func ParseDNSc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
@@ -693,7 +692,7 @@ func ParseDNSc2(args string) ([]*clientpb.ImplantC2, error) {
 	return c2s, nil
 }
 
-// ParseNamedPipec2 - Parse named pipe connection string arg
+// ParseNamedPipec2 - Parse named pipe connection string arg.
 func ParseNamedPipec2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
@@ -740,7 +739,7 @@ func ParseNamedPipec2(args string) ([]*clientpb.ImplantC2, error) {
 	return c2s, nil
 }
 
-// ParseTCPPivotc2 - Parse tcp pivot connection string arg
+// ParseTCPPivotc2 - Parse tcp pivot connection string arg.
 func ParseTCPPivotc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {

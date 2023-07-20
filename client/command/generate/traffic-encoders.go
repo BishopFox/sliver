@@ -27,22 +27,21 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/gofrs/uuid"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/spf13/cobra"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/util"
+	"github.com/gofrs/uuid"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+	"google.golang.org/protobuf/proto"
 )
 
-// TrafficEncodersCmd - Generate traffic encoders command implementation
+// TrafficEncodersCmd - Generate traffic encoders command implementation.
 func TrafficEncodersCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	grpcCtx, cancel := con.GrpcContext(cmd)
 	defer cancel()
@@ -54,7 +53,7 @@ func TrafficEncodersCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 	DisplayTrafficEncoders(encoderMap, con)
 }
 
-// DisplayTrafficEncoders - Display traffic encoders map from server
+// DisplayTrafficEncoders - Display traffic encoders map from server.
 func DisplayTrafficEncoders(encoderMap *clientpb.TrafficEncoderMap, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
@@ -83,7 +82,7 @@ func DisplayTrafficEncoders(encoderMap *clientpb.TrafficEncoderMap, con *console
 	con.Println(tw.Render())
 }
 
-// TrafficEncodersAddCmd - Add a new traffic encoder to the server
+// TrafficEncodersAddCmd - Add a new traffic encoder to the server.
 func TrafficEncodersAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	grpcCtx, cancel := con.GrpcContext(cmd)
 	defer cancel()
@@ -138,7 +137,7 @@ func TrafficEncodersAddCmd(cmd *cobra.Command, con *console.SliverClient, args [
 	con.PrintInfof("Successfully added traffic encoder: %s\n", trafficEncoder.Wasm.Name)
 }
 
-// saveFailedSample - Save the sample the encoder failed to properly encode/decode
+// saveFailedSample - Save the sample the encoder failed to properly encode/decode.
 func saveFailedSample(encoderName string, test *clientpb.TrafficEncoderTest) {
 	confirm := false
 	prompt := &survey.Confirm{
@@ -156,7 +155,7 @@ func saveFailedSample(encoderName string, test *clientpb.TrafficEncoderTest) {
 	}
 }
 
-// allTestsPassed - Check if all tests passed
+// allTestsPassed - Check if all tests passed.
 func allTestsPassed(tests *clientpb.TrafficEncoderTests) bool {
 	for _, test := range tests.Tests {
 		if !test.Success {
@@ -166,7 +165,7 @@ func allTestsPassed(tests *clientpb.TrafficEncoderTests) bool {
 	return true
 }
 
-// displayTrafficEncoderTests - Display traffic encoder tests in real time
+// displayTrafficEncoderTests - Display traffic encoder tests in real time.
 func displayTrafficEncoderTestProgress(testID string, completed chan interface{}, con *console.SliverClient) {
 	listenerID, events := con.CreateEventListener()
 	defer con.RemoveEventListener(listenerID)
@@ -191,7 +190,7 @@ func displayTrafficEncoderTestProgress(testID string, completed chan interface{}
 	}
 }
 
-// clearLines - Clear a number of lines from the console
+// clearLines - Clear a number of lines from the console.
 func clearLines(count int, con *console.SliverClient) {
 	for i := 0; i < count; i++ {
 		con.Printf(console.Clearln + "\r")
@@ -199,7 +198,7 @@ func clearLines(count int, con *console.SliverClient) {
 	}
 }
 
-// displayTrafficEncoderTests - Display the results of traffic encoder tests, return number of lines written
+// displayTrafficEncoderTests - Display the results of traffic encoder tests, return number of lines written.
 func displayTrafficEncoderTests(running bool, tests *clientpb.TrafficEncoderTests, con *console.SliverClient) int {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
@@ -245,7 +244,7 @@ func displayTrafficEncoderTests(running bool, tests *clientpb.TrafficEncoderTest
 	return lineCount
 }
 
-// TrafficEncodersRemoveCmd - Remove a traffic encoder
+// TrafficEncodersRemoveCmd - Remove a traffic encoder.
 func TrafficEncodersRemoveCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	_, cancel := con.GrpcContext(cmd)
 	defer cancel()
@@ -272,7 +271,7 @@ func TrafficEncodersRemoveCmd(cmd *cobra.Command, con *console.SliverClient, arg
 	con.PrintInfof("Successfully removed traffic encoder: %s\n", name)
 }
 
-// SelectTrafficEncoder - Select a traffic encoder from a list
+// SelectTrafficEncoder - Select a traffic encoder from a list.
 func SelectTrafficEncoder(con *console.SliverClient) string {
 	grpcCtx, cancel := con.GrpcContext(nil)
 	defer cancel()

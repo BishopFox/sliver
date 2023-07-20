@@ -42,7 +42,7 @@ type Console struct {
 	// input line being ultimately provided to the command parser. This might
 	// be used by people who want to apply supplemental, specific processing
 	// on the command input line.
-	PreCmdRunLineHooks []func(args []string) ([]string, error)
+	PreCmdRunLineHooks []func(raw []string) (args []string, err error)
 
 	// PreCmdRunHooks - Once the user has entered a command, but before executing
 	// the target command, the console will execute every function in this list.

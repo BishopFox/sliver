@@ -22,13 +22,12 @@ import (
 	"context"
 	"os"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/spf13/cobra"
 )
 
-// RegenerateCmd - Download an archived implant build/binary
+// RegenerateCmd - Download an archived implant build/binary.
 func RegenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	save, _ := cmd.Flags().GetString("save")
 	if save == "" {

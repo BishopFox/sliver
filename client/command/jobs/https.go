@@ -25,13 +25,12 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/spf13/cobra"
 )
 
-// HTTPSListenerCmd - Start an HTTPS listener
+// HTTPSListenerCmd - Start an HTTPS listener.
 func HTTPSListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	domain, _ := cmd.Flags().GetString("domain")
 	lhost, _ := cmd.Flags().GetString("lhost")

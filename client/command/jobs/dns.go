@@ -22,13 +22,12 @@ import (
 	"context"
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/spf13/cobra"
 )
 
-// DNSListenerCmd - Start a DNS lisenter
+// DNSListenerCmd - Start a DNS lisenter.
 func DNSListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	domainsF, _ := cmd.Flags().GetString("domains")
 	domains := strings.Split(domainsF, ",")

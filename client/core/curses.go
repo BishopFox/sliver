@@ -24,10 +24,8 @@ import (
 	"sync"
 )
 
-var (
-	// SessionID -> CursedProcess
-	CursedProcesses = &sync.Map{}
-)
+// SessionID -> CursedProcess.
+var CursedProcesses = &sync.Map{}
 
 type CursedProcess struct {
 	SessionID         string

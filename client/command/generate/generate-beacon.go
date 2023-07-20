@@ -5,10 +5,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -16,7 +15,7 @@ var (
 	ErrBeaconIntervalTooShort = fmt.Errorf("beacon interval must be %v or greater", minBeaconInterval)
 )
 
-// GenerateBeaconCmd - The main command used to generate implant binaries
+// GenerateBeaconCmd - The main command used to generate implant binaries.
 func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	config := parseCompileFlags(cmd, con)
 	if config == nil {
