@@ -19,8 +19,16 @@ package cli
 */
 
 import (
+	"errors"
 	"fmt"
+	"log"
 	"os"
+
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/server/rpc"
+	teamserver "github.com/reeflective/team/server"
+	teamGrpc "github.com/reeflective/team/transports/grpc/server"
+	"google.golang.org/grpc"
 
 	"github.com/reeflective/console"
 	"github.com/reeflective/team/server"
@@ -52,7 +60,7 @@ func Execute() {
 	// This teamclient is used to create a Sliver Client, which functioning
 	// is agnostic to its execution mode (one-exec CLI, or closed-loop console).
 	// The client has no commands available yet.
-	teamserver, con := newSliverTeam()
+	teamserver, con := newSliverServer()
 
 	// Prepare the entire Sliver Command-line Interface as yielder functions:
 	// - Server commands are all commands which don't need an active Sliver implant.
@@ -64,7 +72,7 @@ func Execute() {
 	// These are used as the primary, one-exec-only CLI of Sliver, and are equiped with
 	// a pre-runner ensuring the server and its teamclient are set up and connected.
 	rootCmd := serverCmds()
-	rootCmd.Use = "sliver-server"
+	rootCmd.Use = "sliver-server" // Needed by completion scripts.
 	rootCmd.PersistentPreRunE = preRunServer(teamserver, con)
 
 	// Bind additional commands peculiar to the one-exec CLI.
@@ -113,6 +121,74 @@ func Execute() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+// newSliverServer creates a new application teamserver.
+// The gRPC listener is hooked with an in-memory teamclient, and the latter
+// is passed to our client console package to create a new SliverClient.
+func newSliverServer() (*teamserver.Server, *client.SliverClient) {
+	//
+	// 1) Teamserver ---------
+	//
+
+	// NOTE: Teamserver gRPC stack.
+	// The teamserver stack is for now contained in a package of the third-party
+	// module github.com/reeflective/team:
+	// 1) The listener is pre-set with all gRPC transport,auth and middleware logging.
+	// 2) This listener could be partially/fully reimplemented within the Sliver repo.
+	gTeamserver := teamGrpc.NewListener()
+
+	// NOTE: This might not be needed if 2) above is chosen.
+	// The listener obviously works with gRPC servers, so we need to pass
+	// a hook for service binding before starting those gRPC HTTP/2 listeners.
+	gTeamserver.PostServe(func(grpcServer *grpc.Server) error {
+		if grpcServer == nil {
+			return errors.New("No gRPC server to use for service")
+		}
+
+		rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
+
+		return nil
+	})
+
+	// Here is an import step, where we are given a change to setup
+	// the reeflective/teamserver with everything we want: our own
+	// database, the application daemon default port, loggers or files,
+	// directories, and much more.
+	var serverOpts []teamserver.Options
+	serverOpts = append(serverOpts,
+		teamserver.WithDefaultPort(31337),
+		teamserver.WithListener(gTeamserver),
+	)
+
+	// Create the application teamserver.
+	// Any error is critical, and means we can't work correctly.
+	teamserver, err := teamserver.New("sliver", serverOpts...)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	//
+	// 2) Teamclient ---------
+	//
+
+	// The gRPC teamserver backend is hooked to produce a single
+	// in-memory teamclient RPC/dialer backend. Not encrypted.
+	gTeamclient := teamGrpc.NewClientFrom(gTeamserver)
+
+	// Pass the gRPC teamclient backend to our console package,
+	// with registers a hook to bind its RPC client and start
+	// monitoring events/logs/etc when asked to connect.
+	//
+	// The options returned are used to dictate to the server
+	// how it should configure and run its self-teamclient.
+	sliver, opts := client.NewSliverClient(gTeamclient)
+
+	// And let the server create its own teamclient,
+	// pass to the Sliver client for normal usage.
+	sliver.Teamclient = teamserver.Self(opts...)
+
+	return teamserver, sliver
 }
 
 // getSliverCommands wraps the `teamserver` specific commands in a command yielder function, passes those
