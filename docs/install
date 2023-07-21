@@ -37,6 +37,7 @@ echo "Running from $(pwd)"
 echo "Importing GPG key..."
 gpg --import <<EOF
 -----BEGIN PGP PUBLIC KEY BLOCK-----
+
 mQINBGBlvl8BEACpoAriv9d1vf9FioSKCrretCZg4RnpjEVNDyy6Y4eFp5dyR9KK
 VJbm8gP4ymgqoTrjwqRp/tSiTB6h/inKnxlgy7It0gsRNRpZCGslPRVIQQBStiTv
 sxQ4qIxebvku/4/dqoSmJzhNg9MzClR8HTO7Iv74jP7gGMD+gebvXwapstBkua66
