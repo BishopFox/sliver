@@ -22,10 +22,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/reeflective/console"
+	"github.com/reeflective/team/server"
+	"github.com/reeflective/team/server/commands"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/command"
+	client "github.com/bishopfox/sliver/client/console"
 	assetsCmds "github.com/bishopfox/sliver/server/command/assets"
 	builderCmds "github.com/bishopfox/sliver/server/command/builder"
 	certsCmds "github.com/bishopfox/sliver/server/command/certs"
@@ -38,31 +42,98 @@ import (
 	"github.com/bishopfox/sliver/server/cryptography"
 )
 
-const (
-
-	// Unpack flags
-	forceFlagStr = "force"
-
-	// Operator flags
-	nameFlagStr  = "name"
-	lhostFlagStr = "lhost"
-	lportFlagStr = "lport"
-	saveFlagStr  = "save"
-
-	// Cert flags
-	caTypeFlagStr = "type"
-	loadFlagStr   = "load"
-)
-
-// Execute - Execute root command
+// Execute the sliver server binary.
 func Execute() {
-	// Console interface, started closed-loop or not.
-	// Teamserver/client API and commands for remote/local CLI.
+	// Create a self-serving teamserver:
+	// This teamserver creates an in-memory -gRPC-transported- teamclient
+	// (which is not yet connected). The server is also able to serve remote
+	// clients, although no persistent/network listeners are started by default.
+	//
+	// This teamclient is used to create a Sliver Client, which functioning
+	// is agnostic to its execution mode (one-exec CLI, or closed-loop console).
+	// The client has no commands available yet.
 	teamserver, con := newSliverTeam()
 
-	// Pre-runners to self-connect
-	preRun := func(cmd *cobra.Command, _ []string) error {
-		// Ensure the server has what it needs
+	// Prepare the entire Sliver Command-line Interface as yielder functions:
+	// - Server commands are all commands which don't need an active Sliver implant.
+	//   These commands include a server-binary-specific set of "teamserver" commands.
+	// - Sliver commands are all commands requiring an active target.
+	serverCmds, sliverCmds := getSliverCommands(teamserver, con)
+
+	// Generate a single tree instance of server commands:
+	// These are used as the primary, one-exec-only CLI of Sliver, and are equiped with
+	// a pre-runner ensuring the server and its teamclient are set up and connected.
+	rootCmd := serverCmds()
+	rootCmd.Use = "sliver-server"
+	rootCmd.PersistentPreRunE = preRunServer(teamserver, con)
+
+	// Bind additional commands peculiar to the one-exec CLI.
+	// NOTE: Down the road these commands should probably stripped of their
+	// os.Exit() calls and adapted so that they can be used in the console too.
+	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(assetsCmds.Commands()...)
+	rootCmd.AddCommand(builderCmds.Commands()...)
+	rootCmd.AddCommand(certsCmds.Commands()...)
+
+	// Bind the closed-loop console:
+	// The console shares the same setup/connection pre-runners as other commands,
+	// but the command yielders we pass as arguments don't: this is because we only
+	// need one connection for the entire lifetime of the console.
+	rootCmd.AddCommand(consoleCmd.Command(con, serverCmds, sliverCmds))
+
+	// Completion setup:
+	// Following the same logic as the console command, we only generate and setup
+	// completions in our root command tree instance. This setup is not needed in
+	// the command yielder functions themselves, because the closed-loop console
+	// takes care of its own completion/API interfacing.
+	comps := carapace.Gen(rootCmd)
+	comps.PreRun(func(cmd *cobra.Command, args []string) {
+		rootCmd.PersistentPreRunE(cmd, args)
+	})
+	comps.PostRun(func(cmd *cobra.Command, args []string) {
+		con.Teamclient.Disconnect()
+	})
+
+	// Run the target Sliver command:
+	// Three different examples here, to illustrate.
+	//
+	// - `sliver generate --os linux` starts the server, ensuring assets are unpacked, etc.
+	//    Once ready, the generate command is executed (from the client, passed to the server
+	//    via the in-memory RPC, and executed, compiled, then returned to the client).
+	//    When the binary exits, an implant is compiled and available client-side (locally here).
+	//
+	// - `sliver console` starts the console, and everything works like it ever did.
+	//    On top of that, you can access and use the entire `teamserver` control commands to
+	//    start/close/delete client listeners, create/delete users, manage CAs, show status, etc.
+	//
+	// - `sliver teamserver serve` is a teamserver-tree specific command, and the teamserver
+	//   set above in the init() code has been given a single hook to register its RPC backend.
+	//   The call blocks like your old daemon command, and works _just the same_.
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+// getSliverCommands wraps the `teamserver` specific commands in a command yielder function, passes those
+// server-binary only commands to the main Sliver command yielders, and returns the full, execution-mode
+// agnostic Command-Line-Interface for the Sliver Framework.
+func getSliverCommands(teamserver *server.Server, con *client.SliverClient) (server, sliver console.Commands) {
+	teamserverCmds := func() *cobra.Command {
+		return commands.Generate(teamserver, con.Teamclient)
+	}
+
+	serverCmds := command.ServerCommands(con, teamserverCmds)
+	sliverCmds := command.SliverCommands(con)
+
+	return serverCmds, sliverCmds
+}
+
+// preRunServer is the server-binary-specific pre-run; it ensures that the server
+// has everything it needs to perform any client-side command/task.
+func preRunServer(teamserver *server.Server, con *client.SliverClient) func(_ *cobra.Command, _ []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		// Ensure the server has what it needs.
 		assets.Setup(false, true)
 		certs.SetupCAs()
 		certs.SetupWGKeys()
@@ -73,69 +144,11 @@ func Execute() {
 		serverConfig := configs.GetServerConfig()
 		c2.StartPersistentJobs(serverConfig)
 
-		// Let our runtime teamclient be served.
-		if err := teamserver.Serve(con.Teamclient); err != nil {
-			return err
-		}
-
-		return nil
-	}
-
-	serverCmds := command.ServerCommands(con, teamserver)()
-	serverCmds.Use = "sliver-server"
-
-	serverCmds.PersistentPreRunE = preRun
-
-	serverCmds.AddCommand(versionCmd)
-	serverCmds.AddCommand(assetsCmds.Commands()...)
-	serverCmds.AddCommand(builderCmds.Commands()...)
-	serverCmds.AddCommand(certsCmds.Commands()...)
-
-	// Console
-	consoleServerCmds := command.ServerCommands(con, teamserver)
-	consoleSliverCmds := command.SliverCommands(con)
-	serverCmds.AddCommand(consoleCmd.Command(con, consoleServerCmds, consoleSliverCmds))
-
-	// Completions
-	comps := carapace.Gen(serverCmds)
-	comps.PreRun(func(cmd *cobra.Command, args []string) {
-		preRun(cmd, args)
-	})
-	comps.PostRun(func(cmd *cobra.Command, args []string) {
-		con.Teamclient.Disconnect()
-	})
-
-	if err := serverCmds.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		// Let our in-memory teamclient be served.
+		return teamserver.Serve(con.Teamclient)
 	}
 }
 
-// func init() {
-// 	// Console interface, started closed-loop or not.
-// 	con := console.NewConsole(false)
-//
-// 	// Teamserver/client API and commands for remote/local CLI.
-// 	teamserver, teamclient := newSliverTeam(con)
-// 	// teamserverCmds := commands.Generate(teamserver, teamclient)
-//
-// 	con.Teamclient = teamclient
-//
-// 	// Bind commands to the app
-// 	server := con.App.Menu(consts.ServerMenu)
-// 	server.SetCommands(command.ServerCommands(con, teamserver))
-//
-// 	serverCmds := command.ServerCommands(con, teamserver)()
-//
-// 	// server.Reset()
-// 	// sliver := con.App.Menu(consts.ImplantMenu)
-// 	// sliver.SetCommands(command.SliverCommands(con))
-// 	// rootCmd = server.Command
-// 	// rootCmd.Use = "sliver-server"
-//
-// 	// rootCmd.AddCommand(teamserverCmds)
-//
-// 	// Pre-runners to self-connect
 // 	preRun := func(cmd *cobra.Command, _ []string) error {
 // 		// Ensure the server has what it needs
 // 		assets.Setup(false, true)
@@ -164,71 +177,3 @@ func Execute() {
 // 		console.StartClient(con, nil, nil)
 // 		return nil
 // 	}
-// 	// return nil
-//
-// 	serverCmds.PersistentPreRunE = preRun
-//
-// 	serverCmds.AddCommand(consoleCmd(con))
-//
-// 	// Unpack
-// 	unpackCmd.Flags().BoolP(forceFlagStr, "f", false, "Force unpack and overwrite")
-// 	serverCmds.AddCommand(unpackCmd)
-//
-// 	// Certs
-// 	cmdExportCA.Flags().StringP(saveFlagStr, "s", "", "save CA to file ...")
-// 	cmdExportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
-// 	serverCmds.AddCommand(cmdExportCA)
-//
-// 	cmdImportCA.Flags().StringP(loadFlagStr, "l", "", "load CA from file ...")
-// 	cmdImportCA.Flags().StringP(caTypeFlagStr, "t", "", fmt.Sprintf("ca type (%s)", strings.Join(validCATypes(), ", ")))
-// 	serverCmds.AddCommand(cmdImportCA)
-//
-// 	// Builder
-// 	// rootCmd.AddCommand(initBuilderCmd())
-//
-// 	// Version
-// 	// rootCmd.AddCommand(versionCmd)
-//
-// 	// Completions
-// 	comps := carapace.Gen(serverCmds)
-// 	comps.PreRun(func(cmd *cobra.Command, args []string) {
-// 		preRun(cmd, args)
-// 	})
-// }
-
-// var rootCmd = &cobra.Command{
-// 	Use:   "sliver-server",
-// 	Short: "",
-// 	Long:  ``,
-// Run: func(cmd *cobra.Command, args []string) {
-// 	// Root command starts the server normally
-//
-// 	appDir := assets.GetRootAppDir()
-// 	logFile := initConsoleLogging(appDir)
-// 	defer logFile.Close()
-//
-// 	defer func() {
-// 		if r := recover(); r != nil {
-// 			log.Printf("panic:\n%s", debug.Stack())
-// 			fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
-// 			os.Exit(99)
-// 		}
-// 	}()
-//
-// 	assets.Setup(false, true)
-// 	certs.SetupCAs()
-// 	certs.SetupWGKeys()
-// 	cryptography.AgeServerKeyPair()
-// 	cryptography.MinisignServerPrivateKey()
-//
-// 	serverConfig := configs.GetServerConfig()
-// 	c2.StartPersistentJobs(serverConfig)
-// 	console.StartPersistentJobs(serverConfig)
-// 	if serverConfig.DaemonMode {
-// 		daemon.Start(daemon.BlankHost, daemon.BlankPort)
-// 	} else {
-// 		os.Args = os.Args[:1] // Hide cli from grumble console
-// 		console.Start()
-// 	}
-// },
-// }

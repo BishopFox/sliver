@@ -41,6 +41,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	sgn "github.com/bishopfox/sliver/client/command/shikata-ga-nai"
+	// "github.com/bishopfox/sliver/client/command/taskmany".
 	"github.com/bishopfox/sliver/client/command/update"
 	"github.com/bishopfox/sliver/client/command/use"
 	"github.com/bishopfox/sliver/client/command/websites"
@@ -48,15 +49,12 @@ import (
 	client "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/reeflective/console"
-	teamclientCmds "github.com/reeflective/team/client/commands"
-	"github.com/reeflective/team/server"
-	teamserverCmds "github.com/reeflective/team/server/commands"
 	"github.com/spf13/cobra"
 )
 
 // ServerCommands returns all commands bound to the server menu, optionally
 // accepting a function returning a list of additional (admin) commands.
-func ServerCommands(con *client.SliverClient, serv *server.Server) console.Commands {
+func ServerCommands(con *client.SliverClient, serverCmds console.Commands) console.Commands {
 	serverCommands := func() *cobra.Command {
 		server := &cobra.Command{
 			Short: "Server commands",
@@ -65,14 +63,9 @@ func ServerCommands(con *client.SliverClient, serv *server.Server) console.Comma
 			},
 		}
 
-		if serv != nil {
+		if serverCmds != nil {
 			server.AddGroup(&cobra.Group{ID: consts.GenericHelpGroup, Title: consts.GenericHelpGroup})
-			teamserverCmds := teamserverCmds.Generate(serv, con.Teamclient)
-			server.AddCommand(teamserverCmds)
-		} else {
-			server.AddGroup(&cobra.Group{ID: consts.GenericHelpGroup, Title: consts.GenericHelpGroup})
-			teamclientCmds := teamclientCmds.Generate(con.Teamclient)
-			server.AddCommand(teamclientCmds)
+			server.AddCommand(serverCmds())
 		}
 
 		// [ Bind commands ] --------------------------------------------------------

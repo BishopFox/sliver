@@ -32,7 +32,7 @@ func Command(con *client.SliverClient, serverCmds, sliverCmds console.Commands) 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			con.IsCLI = false
 
-			// Bind commands to the app
+			// Bind commands to the closed-loop console.
 			server := con.App.Menu(consts.ServerMenu)
 			server.SetCommands(serverCmds)
 

@@ -24,6 +24,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/command"
 	consoleCmd "github.com/bishopfox/sliver/client/command/console"
+	"github.com/reeflective/team/client/commands"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 )
@@ -32,30 +33,33 @@ import (
 func Execute() {
 	con := newSliverTeam()
 
-	serverCmds := command.ServerCommands(con, nil)()
-	serverCmds.Use = "sliver-client"
-
-	// Version
-	serverCmds.AddCommand(cmdVersion)
-
 	preRun := func(_ *cobra.Command, _ []string) error {
 		return con.Teamclient.Connect()
 	}
-
-	serverCmds.PersistentPreRunE = preRun
 
 	postRun := func(_ *cobra.Command, _ []string) error {
 		return con.Teamclient.Disconnect()
 	}
 
 	// serverCmds.PersistentPostRunE = postRun
+	teamclientCmds := func() *cobra.Command {
+		return commands.Generate(con.Teamclient)
+	}
 
 	// Client console.
 	// All commands and RPC connection are generated WITHIN the command RunE():
 	// that means there should be no redundant command tree/RPC connections with
 	// other command trees below, such as the implant one.
-	consoleServerCmds := command.ServerCommands(con, nil)
+	consoleServerCmds := command.ServerCommands(con, teamclientCmds)
 	consoleSliverCmds := command.SliverCommands(con)
+
+	serverCmds := command.ServerCommands(con, teamclientCmds)()
+	serverCmds.Use = "sliver-client"
+
+	// Version
+	serverCmds.AddCommand(cmdVersion)
+
+	serverCmds.PersistentPreRunE = preRun
 
 	serverCmds.AddCommand(consoleCmd.Command(con, consoleServerCmds, consoleSliverCmds))
 
