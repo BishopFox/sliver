@@ -24,30 +24,35 @@ import (
 	"log"
 	"os"
 
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/server/rpc"
-	teamserver "github.com/reeflective/team/server"
-	teamGrpc "github.com/reeflective/team/transports/grpc/server"
-	"google.golang.org/grpc"
-
+	// CLI dependencies
 	"github.com/reeflective/console"
-	"github.com/reeflective/team/server"
-	"github.com/reeflective/team/server/commands"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 
+	// Teamserver/teamclient dependencies
+	"github.com/reeflective/team/server"
+	teamserver "github.com/reeflective/team/server"
+	"github.com/reeflective/team/server/commands"
+	teamGrpc "github.com/reeflective/team/transports/grpc/server"
+	"google.golang.org/grpc"
+
+	// Sliver Client core, and generic/server-only commands
 	"github.com/bishopfox/sliver/client/command"
+	consoleCmd "github.com/bishopfox/sliver/client/command/console"
 	client "github.com/bishopfox/sliver/client/console"
 	assetsCmds "github.com/bishopfox/sliver/server/command/assets"
 	builderCmds "github.com/bishopfox/sliver/server/command/builder"
 	certsCmds "github.com/bishopfox/sliver/server/command/certs"
+	"github.com/bishopfox/sliver/server/encoders"
 
-	consoleCmd "github.com/bishopfox/sliver/client/command/console"
+	// Server-only imports
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/cryptography"
+	"github.com/bishopfox/sliver/server/rpc"
 )
 
 // Execute the sliver server binary.
@@ -57,7 +62,7 @@ func Execute() {
 	// (which is not yet connected). The server is also able to serve remote
 	// clients, although no persistent/network listeners are started by default.
 	//
-	// This teamclient is used to create a Sliver Client, which functioning
+	// The server-only teamclient is used to create a Sliver Client, which functioning
 	// is agnostic to its execution mode (one-exec CLI, or closed-loop console).
 	// The client has no commands available yet.
 	teamserver, con := newSliverServer()
@@ -73,7 +78,6 @@ func Execute() {
 	// a pre-runner ensuring the server and its teamclient are set up and connected.
 	rootCmd := serverCmds()
 	rootCmd.Use = "sliver-server" // Needed by completion scripts.
-	rootCmd.PersistentPreRunE = preRunServer(teamserver, con)
 
 	// Bind additional commands peculiar to the one-exec CLI.
 	// NOTE: Down the road these commands should probably stripped of their
@@ -90,17 +94,11 @@ func Execute() {
 	rootCmd.AddCommand(consoleCmd.Command(con, serverCmds, sliverCmds))
 
 	// Completion setup:
-	// Following the same logic as the console command, we only generate and setup
-	// completions in our root command tree instance. This setup is not needed in
-	// the command yielder functions themselves, because the closed-loop console
-	// takes care of its own completion/API interfacing.
-	comps := carapace.Gen(rootCmd)
-	comps.PreRun(func(cmd *cobra.Command, args []string) {
-		rootCmd.PersistentPreRunE(cmd, args)
-	})
-	comps.PostRun(func(cmd *cobra.Command, args []string) {
-		con.Teamclient.Disconnect()
-	})
+	carapace.Gen(rootCmd)
+	command.BindRunners(rootCmd, true, preRunServer(teamserver, con))
+	// command.BindRunners(rootCmd, false, func(_ *cobra.Command, _ []string) error {
+	// 	return con.Teamclient.Disconnect()
+	// })
 
 	// Run the target Sliver command:
 	// Three different examples here, to illustrate.
@@ -115,7 +113,7 @@ func Execute() {
 	//    start/close/delete client listeners, create/delete users, manage CAs, show status, etc.
 	//
 	// - `sliver teamserver serve` is a teamserver-tree specific command, and the teamserver
-	//   set above in the init() code has been given a single hook to register its RPC backend.
+	//   set above in the code has been given a single hook to register its RPC backend.
 	//   The call blocks like your old daemon command, and works _just the same_.
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -211,6 +209,7 @@ func preRunServer(teamserver *server.Server, con *client.SliverClient) func(_ *c
 	return func(_ *cobra.Command, _ []string) error {
 		// Ensure the server has what it needs.
 		assets.Setup(false, true)
+		encoders.Setup() // WARN: I added this here after assets.Setup(), but used to be in init. Is it wrong to put it here ?
 		certs.SetupCAs()
 		certs.SetupWGKeys()
 		cryptography.AgeServerKeyPair()

@@ -22,14 +22,13 @@ import (
 	"fmt"
 	"os"
 
-	teamclient "github.com/reeflective/team/client"
-	teamGrpc "github.com/reeflective/team/transports/grpc/client"
-
 	"github.com/bishopfox/sliver/client/command"
 	consoleCmd "github.com/bishopfox/sliver/client/command/console"
 	client "github.com/bishopfox/sliver/client/console"
 	"github.com/reeflective/console"
+	teamclient "github.com/reeflective/team/client"
 	"github.com/reeflective/team/client/commands"
+	teamGrpc "github.com/reeflective/team/transports/grpc/client"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 )
@@ -46,12 +45,10 @@ func Execute() {
 	serverCmds, sliverCmds := getSliverCommands(con)
 
 	// Generate a single tree instance of server commands:
-	// These are used as the primary, one-exec-only CLI of Sliver, and are equiped with
+	// These are used as the primary, one-exec-only CLI of Sliver, and are equipped with
 	// a pre-runner ensuring the server and its teamclient are set up and connected.
 	rootCmd := serverCmds()
 	rootCmd.Use = "sliver-client" // Needed by completion scripts.
-	rootCmd.PersistentPreRunE = preRunClient(con)
-	rootCmd.PersistentPostRunE = postRunClient(con)
 
 	// Version
 	rootCmd.AddCommand(cmdVersion)
@@ -69,17 +66,11 @@ func Execute() {
 	// command completion/filtering purposes.
 	rootCmd.AddCommand(implantCmd(con))
 
-	// Completions
-	// Following the same logic as the console command, we only generate
-	// and setup completions in our root command tree instance. We also
-	// ensure that we correctly disconnect from the server on each run.
-	comps := carapace.Gen(rootCmd)
-	comps.PreRun(func(cmd *cobra.Command, args []string) {
-		rootCmd.PersistentPreRunE(cmd, args)
-	})
-	comps.PostRun(func(cmd *cobra.Command, args []string) {
-		rootCmd.PersistentPostRunE(cmd, args)
-	})
+	// Pre/post runners and completions.
+	command.BindRunners(rootCmd, true, preRunClient(con))
+	// command.BindRunners(rootCmd, false, postRunClient(con))
+
+	carapace.Gen(rootCmd)
 
 	// Run the sliver client binary.
 	if err := rootCmd.Execute(); err != nil {

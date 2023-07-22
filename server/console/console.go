@@ -60,10 +60,10 @@ func Start() {
 		fmt.Printf(Warn+"Error in HTTP C2 config: %s\n", err)
 	}
 
-	con := console.NewConsole(false)
+	// con := console.NewConsole(false)
 	// console.StartClient(con, command.ServerCommands(con, serverOnlyCmds), command.SliverCommands(con), true)
 
-	con.App.Start()
+	// con.App.Start()
 }
 
 // serverOnlyCmds - Server only commands

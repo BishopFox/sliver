@@ -27,11 +27,10 @@ import (
 	"os"
 	"time"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 const (
@@ -39,7 +38,7 @@ const (
 	mb = kb * 1024
 	gb = mb * 1024
 
-	// ClientMaxReceiveMessageSize - Max gRPC message size ~2Gb
+	// ClientMaxReceiveMessageSize - Max gRPC message size ~2Gb.
 	ClientMaxReceiveMessageSize = (2 * gb) - 1 // 2Gb - 1 byte
 
 	defaultTimeout = time.Duration(10 * time.Second)
@@ -60,7 +59,7 @@ func (TokenAuth) RequireTransportSecurity() bool {
 	return true
 }
 
-// MTLSConnect - Connect to the sliver server
+// MTLSConnect - Connect to the sliver server.
 func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
 	tlsConfig, err := getTLSConfig(config.CACertificate, config.Certificate, config.PrivateKey)
 	if err != nil {
@@ -84,7 +83,6 @@ func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.Clie
 }
 
 func getTLSConfig(caCertificate string, certificate string, privateKey string) (*tls.Config, error) {
-
 	certPEM, err := tls.X509KeyPair([]byte(certificate), []byte(privateKey))
 	if err != nil {
 		log.Printf("Cannot parse client certificate: %v", err)

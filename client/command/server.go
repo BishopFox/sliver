@@ -49,6 +49,7 @@ import (
 	client "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/reeflective/console"
+	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 )
 
@@ -140,4 +141,77 @@ func ServerCommands(con *client.SliverClient, serverCmds console.Commands) conso
 	}
 
 	return serverCommands
+}
+
+// BindRunners is used to register specific pre/post-runs for a given command/tree.
+//
+// This function is special in that it will only bind the pre/post-runners to commands
+// in the tree if they have a non-nil Run/RunE function, or if they are leaf commands.
+//
+// This allows us to optimize client-to-server connections for things like completions.
+func BindRunners(root *cobra.Command, pre bool, runs ...func(_ *cobra.Command, _ []string) error) {
+	for _, cmd := range root.Commands() {
+		ePreE := cmd.PersistentPreRunE
+		ePostE := cmd.PersistentPostRunE
+		run, runE := cmd.Run, cmd.RunE
+
+		// Don't modify commands in charge on their own tree.
+		if pre && ePreE != nil {
+			continue
+		} else if ePostE != nil {
+			continue
+		}
+
+		// Always go to find the leaf commands, irrespective
+		// of what we do with this parent command.
+		if cmd.HasSubCommands() {
+			BindRunners(cmd, pre, runs...)
+		}
+
+		// If the command has no runners, there's nothing to bind:
+		// If it has flags, any child command requiring them should
+		// trigger the prerunners, which will connect to the server.
+		if run == nil && runE == nil {
+			continue
+		}
+
+		// Else we have runners, bind the pre-runs if possible.
+		if pre && cmd.PreRunE != nil {
+			continue
+		} else if cmd.PostRunE != nil {
+			continue
+		}
+
+		// Compound all runners together.
+		cRun := func(c *cobra.Command, args []string) error {
+			for _, run := range runs {
+				err := run(c, args)
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
+		}
+
+		// Bind
+		if pre {
+			cmd.PreRunE = cRun
+		} else {
+			cmd.PostRunE = cRun
+		}
+
+		// Completions use this pre-runner as well.
+		cmdComps := carapace.Gen(cmd)
+
+		completionRun := func(c *cobra.Command, args []string) {
+			cRun(c, args)
+		}
+
+		if pre {
+			cmdComps.PreRun(completionRun)
+		} else {
+			cmdComps.PostRun(completionRun)
+		}
+	}
 }
