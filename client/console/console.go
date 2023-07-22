@@ -109,16 +109,22 @@ type SliverClient struct {
 	Teamclient *client.Client
 }
 
+// NewSliverClient is the general-purpose Sliver Client constructor.
 func NewSliverClient(teamclient *teamGrpc.Teamclient) (*SliverClient, []client.Options) {
-	con := newConsole(false)
+	// Generate the console client, setting up menus, etc.
+	con := newConsole()
 
+	// The teamclient requires hooks to bind RPC clients around its connection.
+	// NOTE: this might not be needed either if Sliver uses its own teamclient backend.
 	bindClient := func(clientConn any) error {
 		grpcClient, ok := clientConn.(*grpc.ClientConn)
 		if !ok || grpcClient == nil {
 			return errors.New("No gRPC client to use for service")
 		}
 
-		startClient(con, grpcClient)
+		// Register our core Sliver RPC client, and start monitoring
+		// events, tunnels, logs, and all.
+		con.connect(grpcClient)
 
 		return nil
 	}
@@ -134,7 +140,7 @@ func NewSliverClient(teamclient *teamGrpc.Teamclient) (*SliverClient, []client.O
 // newConsole creates the sliver client (and console), creating menus and prompts.
 // The returned console does neither have commands nor a working RPC connection yet,
 // thus has not started monitoring any server events, or started the application.
-func newConsole(isServer bool) *SliverClient {
+func newConsole() *SliverClient {
 	assets.Setup(false, false)
 	settings, _ := assets.LoadSettings()
 
@@ -147,14 +153,13 @@ func newConsole(isServer bool) *SliverClient {
 		EventListeners:           &sync.Map{},
 		BeaconTaskCallbacks:      map[string]BeaconTaskCallback{},
 		BeaconTaskCallbacksMutex: &sync.Mutex{},
-		IsServer:                 isServer,
 		Settings:                 settings,
 		IsCLI:                    true,
 	}
 
-	// The active target needs access to the console
-	// to automatically switch between command menus.
-	con.ActiveTarget.con = con
+	con.App.SetPrintLogo(func(_ *console.Console) {
+		con.PrintLogo()
+	})
 
 	// Readline-shell (edition) settings
 	if settings.VimMode {
@@ -179,17 +184,16 @@ func newConsole(isServer bool) *SliverClient {
 	sliver.Prompt().Primary = con.GetPrompt
 	sliver.AddInterrupt(io.EOF, con.exitImplantMenu) // Ctrl-D
 
-	con.App.SetPrintLogo(func(_ *console.Console) {
-		con.PrintLogo()
-	})
+	// The active target needs access to the console
+	// to automatically switch between command menus.
+	con.ActiveTarget.con = con
 
 	return con
 }
 
-// Init requires a working RPC connection to the sliver server, and 2 different sets of commands.
-// If run is true, the console application is started, making this call blocking. Otherwise, commands and
-// RPC connection are bound to the console (making the console ready to run), but the console does not start.
-func startClient(con *SliverClient, conn *grpc.ClientConn) {
+// connect requires a working gRPC connection to the sliver server.
+// It starts monitoring events, implant tunnels and client logs streams.
+func (con *SliverClient) connect(conn *grpc.ClientConn) {
 	con.Rpc = rpcpb.NewSliverRPCClient(conn)
 
 	// The console application needs to query the terminal for cursor positions
@@ -335,7 +339,6 @@ func (con *SliverClient) startEventLoop() {
 
 		case consts.BeaconTaskResultEvent:
 			con.triggerBeaconTaskCallback(event.Data)
-
 		}
 
 		con.triggerReactions(event)
