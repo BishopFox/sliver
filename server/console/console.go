@@ -29,7 +29,6 @@ import (
 
 	"github.com/bishopfox/sliver/client/command"
 	"github.com/bishopfox/sliver/client/command/help"
-	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	clienttransport "github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/server/configs"

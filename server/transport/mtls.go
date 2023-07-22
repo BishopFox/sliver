@@ -34,18 +34,7 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-const (
-	kb = 1024
-	mb = kb * 1024
-	gb = mb * 1024
-
-	// ServerMaxMessageSize - Server-side max GRPC message size
-	ServerMaxMessageSize = 2 * gb
-)
-
-var (
-	mtlsLog = log.NamedLogger("transport", "mtls")
-)
+var mtlsLog = log.NamedLogger("transport", "mtls")
 
 // StartMtlsClientListener - Start a mutual TLS listener
 func StartMtlsClientListener(host string, port uint16) (*grpc.Server, net.Listener, error) {
@@ -64,7 +53,7 @@ func StartMtlsClientListener(host string, port uint16) (*grpc.Server, net.Listen
 		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
 		grpc.MaxSendMsgSize(ServerMaxMessageSize),
 	}
-	options = append(options, initMiddleware(true)...)
+	// options = append(options, initMiddleware(true)...)
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
 	go func() {

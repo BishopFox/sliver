@@ -33,7 +33,6 @@ import (
 	"github.com/reeflective/team/server"
 	teamserver "github.com/reeflective/team/server"
 	"github.com/reeflective/team/server/commands"
-	teamGrpc "github.com/reeflective/team/transports/grpc/server"
 	"google.golang.org/grpc"
 
 	// Sliver Client core, and generic/server-only commands
@@ -44,6 +43,7 @@ import (
 	builderCmds "github.com/bishopfox/sliver/server/command/builder"
 	certsCmds "github.com/bishopfox/sliver/server/command/certs"
 	"github.com/bishopfox/sliver/server/encoders"
+	"github.com/bishopfox/sliver/server/transport"
 
 	// Server-only imports
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -134,7 +134,7 @@ func newSliverServer() (*teamserver.Server, *client.SliverClient) {
 	// module github.com/reeflective/team:
 	// 1) The listener is pre-set with all gRPC transport,auth and middleware logging.
 	// 2) This listener could be partially/fully reimplemented within the Sliver repo.
-	gTeamserver := teamGrpc.NewListener()
+	gTeamserver := transport.NewListener()
 
 	// NOTE: This might not be needed if 2) above is chosen.
 	// The listener obviously works with gRPC servers, so we need to pass
@@ -172,7 +172,7 @@ func newSliverServer() (*teamserver.Server, *client.SliverClient) {
 
 	// The gRPC teamserver backend is hooked to produce a single
 	// in-memory teamclient RPC/dialer backend. Not encrypted.
-	gTeamclient := teamGrpc.NewClientFrom(gTeamserver)
+	gTeamclient := transport.NewClientFrom(gTeamserver)
 
 	// Pass the gRPC teamclient backend to our console package,
 	// with registers a hook to bind its RPC client and start

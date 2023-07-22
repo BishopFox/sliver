@@ -25,10 +25,10 @@ import (
 	"github.com/bishopfox/sliver/client/command"
 	consoleCmd "github.com/bishopfox/sliver/client/command/console"
 	client "github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/reeflective/console"
 	teamclient "github.com/reeflective/team/client"
 	"github.com/reeflective/team/client/commands"
-	teamGrpc "github.com/reeflective/team/transports/grpc/client"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 )
@@ -83,7 +83,7 @@ func Execute() {
 // From this teamclient, configured to work with TLS connections
 // to remote teamservers, generate a new Sliver Client.
 func newSliverClient() *client.SliverClient {
-	gTeamclient := teamGrpc.NewTeamClient()
+	gTeamclient := transport.NewTeamClient()
 
 	con, opts := client.NewSliverClient(gTeamclient)
 

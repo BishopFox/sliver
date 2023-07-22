@@ -34,9 +34,7 @@ import (
 	"tailscale.com/tsnet"
 )
 
-var (
-	tsNetLog = log.NamedLogger("transport", "tsnet")
-)
+var tsNetLog = log.NamedLogger("transport", "tsnet")
 
 // StartTsNetClientListener - Start a TSNet gRPC listener
 func StartTsNetClientListener(hostname string, port uint16) (*grpc.Server, net.Listener, error) {
@@ -57,7 +55,7 @@ func StartTsNetClientListener(hostname string, port uint16) (*grpc.Server, net.L
 	}
 
 	tsnetDir := filepath.Join(assets.GetRootAppDir(), "tsnet")
-	if err := os.MkdirAll(tsnetDir, 0700); err != nil {
+	if err := os.MkdirAll(tsnetDir, 0o700); err != nil {
 		return nil, nil, err
 	}
 
@@ -81,7 +79,7 @@ func StartTsNetClientListener(hostname string, port uint16) (*grpc.Server, net.L
 		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
 		grpc.MaxSendMsgSize(ServerMaxMessageSize),
 	}
-	options = append(options, initMiddleware(true)...)
+	// options = append(options, initMiddleware(true)...)
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
 	go func() {

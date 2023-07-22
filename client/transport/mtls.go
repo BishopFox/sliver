@@ -25,39 +25,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
-
-const (
-	kb = 1024
-	mb = kb * 1024
-	gb = mb * 1024
-
-	// ClientMaxReceiveMessageSize - Max gRPC message size ~2Gb.
-	ClientMaxReceiveMessageSize = (2 * gb) - 1 // 2Gb - 1 byte
-
-	defaultTimeout = time.Duration(10 * time.Second)
-)
-
-type TokenAuth struct {
-	token string
-}
-
-// Return value is mapped to request headers.
-func (t TokenAuth) GetRequestMetadata(ctx context.Context, in ...string) (map[string]string, error) {
-	return map[string]string{
-		"Authorization": "Bearer " + t.token,
-	}, nil
-}
-
-func (TokenAuth) RequireTransportSecurity() bool {
-	return true
-}
 
 // MTLSConnect - Connect to the sliver server.
 func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
@@ -66,7 +39,7 @@ func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.Clie
 		return nil, nil, err
 	}
 	transportCreds := credentials.NewTLS(tlsConfig)
-	callCreds := credentials.PerRPCCredentials(TokenAuth{token: config.Token})
+	callCreds := credentials.PerRPCCredentials(TokenAuth(config.Token))
 	options := []grpc.DialOption{
 		grpc.WithTransportCredentials(transportCreds),
 		grpc.WithPerRPCCredentials(callCreds),

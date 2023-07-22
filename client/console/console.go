@@ -38,6 +38,7 @@ import (
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/prelude"
 	"github.com/bishopfox/sliver/client/spin"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -46,7 +47,6 @@ import (
 	"github.com/reeflective/console"
 	"github.com/reeflective/readline"
 	"github.com/reeflective/team/client"
-	teamGrpc "github.com/reeflective/team/transports/grpc/client"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slog"
 	"google.golang.org/grpc"
@@ -110,7 +110,7 @@ type SliverClient struct {
 }
 
 // NewSliverClient is the general-purpose Sliver Client constructor.
-func NewSliverClient(teamclient *teamGrpc.Teamclient) (*SliverClient, []client.Options) {
+func NewSliverClient(teamclient *transport.Teamclient) (*SliverClient, []client.Options) {
 	// Generate the console client, setting up menus, etc.
 	con := newConsole()
 
