@@ -1,4 +1,4 @@
-package cli
+package version
 
 /*
 	Sliver Implant Framework
@@ -21,16 +21,19 @@ package cli
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/version"
+	"github.com/spf13/cobra"
 )
 
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print version and exit",
-	Long:  ``,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("%s\n", version.FullVersion())
-	},
+func Commands() []*cobra.Command {
+	versionCmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print version and exit",
+		Long:  ``,
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("%s\n", version.FullVersion())
+		},
+	}
+
+	return []*cobra.Command{versionCmd}
 }

@@ -65,7 +65,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 		// the sliver menu: call the function with the name of the
 		// group under which this/these commands should be added,
 		// and the group will be automatically created if needed.
-		bind := makeBind(sliver, con)
+		bind := MakeBind(sliver, con)
 
 		// [ Core ]
 		bind(consts.SliverCoreHelpGroup,

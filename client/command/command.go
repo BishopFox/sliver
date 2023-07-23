@@ -30,11 +30,11 @@ import (
 
 const defaultTimeout = 60
 
-// Bind is a convenience function to bind flags to a given command.
+// bindFlags is a convenience function to bind flags to a given command.
 // name - The name of the flag set (can be empty).
 // cmd  - The command to which the flags should be bound.
 // flags - A function exposing the flag set through which flags are declared.
-func Bind(name string, persistent bool, cmd *cobra.Command, flags func(f *pflag.FlagSet)) {
+func bindFlags(name string, persistent bool, cmd *cobra.Command, flags func(f *pflag.FlagSet)) {
 	flagSet := pflag.NewFlagSet(name, pflag.ContinueOnError) // Create the flag set.
 	flags(flagSet)                                           // Let the user bind any number of flags to it.
 
@@ -77,9 +77,9 @@ func RestrictTargets(filters ...string) map[string]string {
 	}
 }
 
-// makeBind returns a commandBinder helper function
+// MakeBind returns a commandBinder helper function.
 // @menu  - The command menu to which the commands should be bound (either server or implant menu).
-func makeBind(cmd *cobra.Command, con *client.SliverClient) func(group string, cmds ...func(con *client.SliverClient) []*cobra.Command) {
+func MakeBind(cmd *cobra.Command, con *client.SliverClient) commandBinder {
 	return func(group string, cmds ...func(con *client.SliverClient) []*cobra.Command) {
 		found := false
 
@@ -102,7 +102,15 @@ func makeBind(cmd *cobra.Command, con *client.SliverClient) func(group string, c
 
 		// Bind the command to the root
 		for _, command := range cmds {
-			cmd.AddCommand(command(con)...)
+			subcommands := command(con)
+
+			// Always rudely overwrite the current
+			// command group: we don't cobra to panic.
+			for _, sub := range subcommands {
+				sub.GroupID = group
+			}
+
+			cmd.AddCommand(subcommands...)
 		}
 	}
 }

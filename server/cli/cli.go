@@ -40,6 +40,7 @@ import (
 	assetsCmds "github.com/bishopfox/sliver/server/command/assets"
 	builderCmds "github.com/bishopfox/sliver/server/command/builder"
 	certsCmds "github.com/bishopfox/sliver/server/command/certs"
+	"github.com/bishopfox/sliver/server/command/version"
 	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/transport"
 
@@ -74,14 +75,6 @@ func Execute() {
 	// a pre-runner ensuring the server and its teamclient are set up and connected.
 	rootCmd := serverCmds()
 	rootCmd.Use = "sliver-server" // Needed by completion scripts.
-
-	// Bind additional commands peculiar to the one-exec CLI.
-	// NOTE: Down the road these commands should probably stripped of their
-	// os.Exit() calls and adapted so that they can be used in the console too.
-	rootCmd.AddCommand(versionCmd)
-	rootCmd.AddCommand(assetsCmds.Commands()...)
-	rootCmd.AddCommand(builderCmds.Commands()...)
-	rootCmd.AddCommand(certsCmds.Commands()...)
 
 	// Bind the closed-loop console:
 	// The console shares the same setup/connection pre-runners as other commands,
@@ -174,10 +167,17 @@ func newSliverServer() (*teamserver.Server, *client.SliverClient) {
 // server-binary only commands to the main Sliver command yielders, and returns the full, execution-mode
 // agnostic Command-Line-Interface for the Sliver Framework.
 func getSliverCommands(teamserver *server.Server, con *client.SliverClient) (server, sliver console.Commands) {
-	teamserverCmds := func() []*cobra.Command {
-		return []*cobra.Command{
-			commands.Generate(teamserver, con.Teamclient),
-		}
+	teamserverCmds := func() (cmds []*cobra.Command) {
+		// Teamserver management
+		cmds = append(cmds, commands.Generate(teamserver, con.Teamclient))
+
+		// Sliver-specific
+		cmds = append(cmds, version.Commands()...)
+		cmds = append(cmds, assetsCmds.Commands()...)
+		cmds = append(cmds, builderCmds.Commands()...)
+		cmds = append(cmds, certsCmds.Commands()...)
+
+		return cmds
 	}
 
 	serverCmds := command.ServerCommands(con, teamserverCmds)

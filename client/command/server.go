@@ -67,11 +67,12 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 		// the sliver menu: call the function with the name of the
 		// group under which this/these commands should be added,
 		// and the group will be automatically created if needed.
-		bind := makeBind(server, con)
+		bind := MakeBind(server, con)
 
 		if serverCmds != nil {
-			server.AddGroup(&cobra.Group{ID: consts.MultiplayerHelpGroup, Title: consts.MultiplayerHelpGroup})
-			server.AddCommand(serverCmds()...)
+			bind(consts.TeamserverHelpGroup,
+				func(con *client.SliverClient) []*cobra.Command { return serverCmds() },
+			)
 		}
 
 		// [ Bind commands ] --------------------------------------------------------

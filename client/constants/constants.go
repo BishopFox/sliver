@@ -296,6 +296,9 @@ const (
 
 // Groups.
 const (
+	// "Server-binary-only" group.
+	TeamserverHelpGroup = "Teamserver"
+
 	// Server commands =====================.
 	GenericHelpGroup  = "Generic"
 	NetworkHelpGroup  = "Network"
@@ -315,8 +318,7 @@ const (
 	ExtensionHelpGroup = "Sliver - 3rd Party extensions"
 
 	// Useless.
-	SliverWinHelpGroup   = "Sliver - Windows"
-	MultiplayerHelpGroup = "Multiplayer"
+	SliverWinHelpGroup = "Sliver - Windows"
 )
 
 // Command types / filters (per OS/type/C2/etc)
