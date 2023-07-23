@@ -3,17 +3,16 @@ package cli
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
-
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
 )
 
-// consoleCmd generates the console with required pre/post runners
+// consoleCmd generates the console with required pre/post runners.
 func consoleCmd(con *console.SliverConsoleClient) *cobra.Command {
 	consoleCmd := &cobra.Command{
 		Use:   "console",

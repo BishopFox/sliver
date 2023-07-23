@@ -21,12 +21,11 @@ package command
 import (
 	"strings"
 
+	client "github.com/bishopfox/sliver/client/console"
 	"github.com/reeflective/console"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
-	client "github.com/bishopfox/sliver/client/console"
 )
 
 const defaultTimeout = 60

@@ -21,9 +21,6 @@ package command
 import (
 	"os"
 
-	"github.com/reeflective/console"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/armory"
 	"github.com/bishopfox/sliver/client/command/beacons"
@@ -51,6 +48,8 @@ import (
 	"github.com/bishopfox/sliver/client/command/wireguard"
 	client "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/reeflective/console"
+	"github.com/spf13/cobra"
 )
 
 // ServerCommands returns all commands bound to the server menu, optionally

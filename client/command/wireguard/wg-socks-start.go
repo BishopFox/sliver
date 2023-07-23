@@ -21,13 +21,12 @@ package wireguard
 import (
 	"context"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
 )
 
-// WGSocksStartCmd - Start a WireGuard reverse SOCKS proxy
+// WGSocksStartCmd - Start a WireGuard reverse SOCKS proxy.
 func WGSocksStartCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {

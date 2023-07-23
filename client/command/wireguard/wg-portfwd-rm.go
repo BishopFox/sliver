@@ -23,14 +23,13 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 )
 
-// WGPortFwdRmCmd - Remove a WireGuard port forward
+// WGPortFwdRmCmd - Remove a WireGuard port forward.
 func WGPortFwdRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
@@ -66,7 +65,7 @@ func WGPortFwdRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 	}
 }
 
-// PortfwdIDCompleter completes IDs of WireGuard remote portforwarders
+// PortfwdIDCompleter completes IDs of WireGuard remote portforwarders.
 func PortfwdIDCompleter(con *console.SliverConsoleClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
 		results := make([]string, 0)

@@ -23,17 +23,16 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/bishopfox/sliver/client/command/settings"
+	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
-	"github.com/bishopfox/sliver/client/command/settings"
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant
+// StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant.
 func RportFwdListenersCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
@@ -78,7 +77,7 @@ func PrintRportFwdListeners(rportfwdListeners *sliverpb.RportFwdListeners, flags
 	con.Printf("%s\n", tw.Render())
 }
 
-// PortfwdIDCompleter completes IDs of remote portforwarders
+// PortfwdIDCompleter completes IDs of remote portforwarders.
 func PortfwdIDCompleter(con *console.SliverConsoleClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
 		results := make([]string, 0)

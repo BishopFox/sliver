@@ -27,12 +27,11 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/reeflective/readline"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/overlord"
+	"github.com/reeflective/readline"
+	"github.com/spf13/cobra"
 )
 
 func CursedConsoleCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {

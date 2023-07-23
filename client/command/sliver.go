@@ -19,9 +19,6 @@ package command
 */
 
 import (
-	"github.com/reeflective/console"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/backdoor"
@@ -50,6 +47,8 @@ import (
 	"github.com/bishopfox/sliver/client/command/wireguard"
 	client "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/reeflective/console"
+	"github.com/spf13/cobra"
 )
 
 // SliverCommands returns all commands bound to the implant menu.
@@ -145,6 +144,7 @@ func SliverCommands(con *client.SliverConsoleClient) console.Commands {
 				con.PrintErrorf("Failed to load extension: %s", err)
 				continue
 			}
+
 			extensions.ExtensionRegisterCommand(ext, sliver, con)
 		}
 
