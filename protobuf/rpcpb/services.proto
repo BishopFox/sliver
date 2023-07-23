@@ -14,9 +14,6 @@ service SliverRPC {
   // *** Client Logs ***
   rpc ClientLog(stream clientpb.ClientLogData) returns (commonpb.Empty);
 
-  // *** Operator Commands ***
-  rpc GetOperators(commonpb.Empty) returns (clientpb.Operators);
-
   // *** Generic ***
   rpc Kill(sliverpb.KillReq) returns (commonpb.Empty);
   rpc Reconfigure(sliverpb.ReconfigureReq) returns (sliverpb.Reconfigure);

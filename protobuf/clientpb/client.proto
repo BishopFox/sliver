@@ -514,8 +514,6 @@ message Event {
   string Err = 6; // Can't trigger normal gRPC error
 }
 
-message Operators { repeated Operator Operators = 1; }
-
 message Operator {
   bool Online = 1;
   string Name = 2;

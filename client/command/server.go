@@ -35,7 +35,6 @@ import (
 	"github.com/bishopfox/sliver/client/command/licenses"
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/command/monitor"
-	"github.com/bishopfox/sliver/client/command/operators"
 	operator "github.com/bishopfox/sliver/client/command/prelude-operator"
 	"github.com/bishopfox/sliver/client/command/reaction"
 	"github.com/bishopfox/sliver/client/command/sessions"
@@ -85,7 +84,6 @@ func ServerCommands(con *client.SliverClient, serverCmds console.Commands) conso
 			alias.Commands,
 			armory.Commands,
 			update.Commands,
-			operators.Commands,
 			operator.Commands,
 			creds.Commands,
 			crack.Commands,

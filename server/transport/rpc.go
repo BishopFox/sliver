@@ -21,6 +21,7 @@ package transport
 import (
 	"context"
 
+	"github.com/bishopfox/sliver/server/core"
 	"github.com/reeflective/team/server"
 	"github.com/reeflective/team/transports/grpc/proto"
 )
@@ -62,12 +63,22 @@ func (ts *rpcServer) GetUsers(context.Context, *proto.Empty) (*proto.Users, erro
 	userspb := make([]*proto.User, len(users))
 	for i, user := range users {
 		userspb[i] = &proto.User{
-			Name:     user.Name,
-			Online:   user.Online,
+			Name:   user.Name,
+			Online: isOperatorOnline(user.Name),
+			// Online:   user.Online,
 			LastSeen: user.LastSeen.Unix(),
 			Clients:  int32(user.Clients),
 		}
 	}
 
 	return &proto.Users{Users: userspb}, err
+}
+
+func isOperatorOnline(commonName string) bool {
+	for _, operator := range core.Clients.ActiveOperators() {
+		if commonName == operator {
+			return true
+		}
+	}
+	return false
 }
