@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-func implantCmd(con *console.SliverConsoleClient) *cobra.Command {
+func implantCmd(con *console.SliverClient) *cobra.Command {
 	con.IsCLI = true
 
 	makeCommands := command.SliverCommands(con)
@@ -33,7 +33,7 @@ func implantCmd(con *console.SliverConsoleClient) *cobra.Command {
 	return cmd
 }
 
-func makeRunners(implantCmd *cobra.Command, con *console.SliverConsoleClient) (pre, post func(cmd *cobra.Command, args []string) error) {
+func makeRunners(implantCmd *cobra.Command, con *console.SliverClient) (pre, post func(cmd *cobra.Command, args []string) error) {
 	startConsole, closeConsole := consoleRunnerCmd(con, false)
 
 	// The pre-run function connects to the server and sets up a "fake" console,
@@ -58,7 +58,7 @@ func makeRunners(implantCmd *cobra.Command, con *console.SliverConsoleClient) (p
 	return pre, closeConsole
 }
 
-func makeCompleters(cmd *cobra.Command, con *console.SliverConsoleClient) {
+func makeCompleters(cmd *cobra.Command, con *console.SliverClient) {
 	comps := carapace.Gen(cmd)
 
 	comps.PreRun(func(cmd *cobra.Command, args []string) {

@@ -13,7 +13,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	backdoorCmd := &cobra.Command{
 		Use:         consts.BackdoorStr,
 		Short:       "Infect a remote file with a sliver shellcode",

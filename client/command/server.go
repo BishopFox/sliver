@@ -54,7 +54,7 @@ import (
 
 // ServerCommands returns all commands bound to the server menu, optionally
 // accepting a function returning a list of additional (admin) commands.
-func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.Command) console.Commands {
+func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command) console.Commands {
 	serverCommands := func() *cobra.Command {
 		server := &cobra.Command{
 			Short: "Server commands",

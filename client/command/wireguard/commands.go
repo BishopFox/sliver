@@ -11,7 +11,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	wgConfigCmd := &cobra.Command{
 		Use:   consts.WgConfigStr,
 		Short: "Generate a new WireGuard client config",
@@ -36,7 +36,7 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 }
 
 // SliverCommands returns all Wireguard commands that can be used on an active target.
-func SliverCommands(con *console.SliverConsoleClient) []*cobra.Command {
+func SliverCommands(con *console.SliverClient) []*cobra.Command {
 	wgPortFwdCmd := &cobra.Command{
 		Use:     consts.WgPortFwdStr,
 		Short:   "List ports forwarded by the WireGuard tun interface",

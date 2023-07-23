@@ -12,7 +12,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	registryCmd := &cobra.Command{
 		Use:         consts.RegistryStr,
 		Short:       "Windows registry operations",

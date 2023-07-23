@@ -1,16 +1,15 @@
 package settings
 
 import (
-	"github.com/reeflective/console/commands/readline"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/reeflective/console/commands/readline"
+	"github.com/spf13/cobra"
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	settingsCmd := &cobra.Command{
 		Use:   consts.SettingsStr,
 		Short: "Manage client settings",

@@ -13,7 +13,7 @@ import (
 )
 
 // consoleCmd generates the console with required pre/post runners.
-func consoleCmd(con *console.SliverConsoleClient) *cobra.Command {
+func consoleCmd(con *console.SliverClient) *cobra.Command {
 	consoleCmd := &cobra.Command{
 		Use:   "console",
 		Short: "Start the sliver client console",
@@ -24,7 +24,7 @@ func consoleCmd(con *console.SliverConsoleClient) *cobra.Command {
 	return consoleCmd
 }
 
-func consoleRunnerCmd(con *console.SliverConsoleClient, run bool) (pre, post func(cmd *cobra.Command, args []string) error) {
+func consoleRunnerCmd(con *console.SliverClient, run bool) (pre, post func(cmd *cobra.Command, args []string) error) {
 	var ln *grpc.ClientConn
 
 	pre = func(_ *cobra.Command, _ []string) error {

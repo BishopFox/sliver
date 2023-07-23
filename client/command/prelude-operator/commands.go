@@ -12,7 +12,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	operatorCmd := &cobra.Command{
 		Use:     consts.PreludeOperatorStr,
 		Short:   "Manage connection to Prelude's Operator",

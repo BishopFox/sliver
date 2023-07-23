@@ -31,7 +31,7 @@ import (
 )
 
 // ImpersonateCmd - Windows only, impersonate a user token
-func ImpersonateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ImpersonateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -63,7 +63,7 @@ func ImpersonateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 }
 
 // PrintImpersonate - Print the results of the attempted impersonation
-func PrintImpersonate(impersonate *sliverpb.Impersonate, username string, con *console.SliverConsoleClient) {
+func PrintImpersonate(impersonate *sliverpb.Impersonate, username string, con *console.SliverClient) {
 	if impersonate.Response != nil && impersonate.Response.GetErr() != "" {
 		con.PrintErrorf("%s\n", impersonate.Response.GetErr())
 		return

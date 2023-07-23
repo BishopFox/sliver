@@ -8,7 +8,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	monitorCmd := &cobra.Command{
 		Use:     consts.MonitorStr,
 		Short:   "Monitor threat intel platforms for Sliver implants",

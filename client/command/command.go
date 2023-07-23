@@ -79,8 +79,8 @@ func RestrictTargets(filters ...string) map[string]string {
 
 // makeBind returns a commandBinder helper function
 // @menu  - The command menu to which the commands should be bound (either server or implant menu).
-func makeBind(cmd *cobra.Command, con *client.SliverConsoleClient) func(group string, cmds ...func(con *client.SliverConsoleClient) []*cobra.Command) {
-	return func(group string, cmds ...func(con *client.SliverConsoleClient) []*cobra.Command) {
+func makeBind(cmd *cobra.Command, con *client.SliverClient) func(group string, cmds ...func(con *client.SliverClient) []*cobra.Command) {
+	return func(group string, cmds ...func(con *client.SliverClient) []*cobra.Command) {
 		found := false
 
 		// Ensure the given command group is available in the menu.
@@ -111,7 +111,7 @@ func makeBind(cmd *cobra.Command, con *client.SliverConsoleClient) func(group st
 //
 // @group - Name of the group under which the command should be shown. Preferably use a string in the constants package.
 // @ cmds - A list of functions returning a list of root commands to bind. See any package's `commands.go` file and function.
-type commandBinder func(group string, cmds ...func(con *client.SliverConsoleClient) []*cobra.Command)
+type commandBinder func(group string, cmds ...func(con *client.SliverClient) []*cobra.Command)
 
 // [ Core ]
 // [ Sessions ]

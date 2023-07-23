@@ -13,7 +13,7 @@ import (
 )
 
 // Commands returns the `armory` command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	armoryCmd := &cobra.Command{
 		Use:   consts.ArmoryStr,
 		Short: "Automatically download and install extensions/aliases",

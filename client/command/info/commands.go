@@ -1,19 +1,18 @@
 package info
 
 import (
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/command/use"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	infoCmd := &cobra.Command{
 		Use:   consts.InfoStr,
 		Short: "Get info about session",
@@ -32,7 +31,7 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 }
 
 // SliverCommands returns all info commands working on an active target.
-func SliverCommands(con *console.SliverConsoleClient) []*cobra.Command {
+func SliverCommands(con *console.SliverClient) []*cobra.Command {
 	pingCmd := &cobra.Command{
 		Use:   consts.PingStr,
 		Short: "Send round trip message to implant (does not use ICMP)",

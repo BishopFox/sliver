@@ -29,7 +29,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func CursedCookiesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CursedCookiesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	curse := selectCursedProcess(con)
 	if curse == nil {
 		return

@@ -52,7 +52,7 @@ import (
 )
 
 // SliverCommands returns all commands bound to the implant menu.
-func SliverCommands(con *client.SliverConsoleClient) console.Commands {
+func SliverCommands(con *client.SliverClient) console.Commands {
 	sliverCommands := func() *cobra.Command {
 		sliver := &cobra.Command{
 			Short: "Implant commands",

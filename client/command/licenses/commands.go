@@ -10,7 +10,7 @@ import (
 )
 
 // Commands returns the `licences` command.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	licensesCmd := &cobra.Command{
 		Use:   consts.LicensesStr,
 		Short: "Open source licenses",

@@ -34,7 +34,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func CursedConsoleCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CursedConsoleCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	curse := selectCursedProcess(con)
 	if curse == nil {
 		return
@@ -55,7 +55,7 @@ func CursedConsoleCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 	startCursedConsole(curse, true, target, con)
 }
 
-func selectDebugTarget(targets []overlord.ChromeDebugTarget, con *console.SliverConsoleClient) *overlord.ChromeDebugTarget {
+func selectDebugTarget(targets []overlord.ChromeDebugTarget, con *console.SliverClient) *overlord.ChromeDebugTarget {
 	if len(targets) < 1 {
 		con.PrintErrorf("No debug targets\n")
 		return nil
@@ -93,7 +93,7 @@ var helperHooks = []string{
 	"console.log = (...a) => {return a;}", // console.log
 }
 
-func startCursedConsole(curse *core.CursedProcess, helpers bool, target *overlord.ChromeDebugTarget, con *console.SliverConsoleClient) {
+func startCursedConsole(curse *core.CursedProcess, helpers bool, target *overlord.ChromeDebugTarget, con *console.SliverClient) {
 	tmpFile, _ := os.CreateTemp("", "cursed")
 	shell := readline.NewShell()
 	shell.History.AddFromFile("cursed history", tmpFile.Name())

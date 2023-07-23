@@ -46,7 +46,7 @@ const (
 var wasmRegistrationCache = make(map[string][]string)
 
 // WasmCmd - Execute a WASM module extension.
-func WasmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func WasmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -95,7 +95,7 @@ func WasmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string
 	}
 }
 
-func isRegistered(name string, cmd *cobra.Command, con *console.SliverConsoleClient) bool {
+func isRegistered(name string, cmd *cobra.Command, con *console.SliverClient) bool {
 	// Check if we have already registered this wasm module
 	if wasmRegistrationCache[idOf(con)] != nil {
 		if util.Contains(wasmRegistrationCache[idOf(con)], name) {
@@ -121,7 +121,7 @@ func isRegistered(name string, cmd *cobra.Command, con *console.SliverConsoleCli
 }
 
 // idOf - Quickly return the id of the current session or beacon.
-func idOf(con *console.SliverConsoleClient) string {
+func idOf(con *console.SliverClient) string {
 	if con.ActiveTarget != nil {
 		if session := con.ActiveTarget.GetSession(); session != nil {
 			return session.ID
@@ -133,7 +133,7 @@ func idOf(con *console.SliverConsoleClient) string {
 	return ""
 }
 
-func runNonInteractive(execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.SliverConsoleClient) {
+func runNonInteractive(execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.SliverClient) {
 	grpcCtx, cancel := con.GrpcContext(nil)
 	defer cancel()
 	execWasmResp, err := con.Rpc.ExecWasmExtension(grpcCtx, execWasmReq)
@@ -159,7 +159,7 @@ func runNonInteractive(execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.
 	}
 }
 
-func runInteractive(cmd *cobra.Command, execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.SliverConsoleClient) {
+func runInteractive(cmd *cobra.Command, execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.SliverClient) {
 	session := con.ActiveTarget.GetSession()
 	if session == nil {
 		con.PrintErrorf("No active session\n")
@@ -227,7 +227,7 @@ func runInteractive(cmd *cobra.Command, execWasmReq *sliverpb.ExecWasmExtensionR
 	}
 }
 
-func registerWasmExtension(wasmFilePath string, cmd *cobra.Command, con *console.SliverConsoleClient) error {
+func registerWasmExtension(wasmFilePath string, cmd *cobra.Command, con *console.SliverClient) error {
 	grpcCtx, cancel := con.GrpcContext(cmd)
 	defer cancel()
 	data, err := os.ReadFile(wasmFilePath)
@@ -254,7 +254,7 @@ func registerWasmExtension(wasmFilePath string, cmd *cobra.Command, con *console
 }
 
 // WasmLsCmd - Execute a WASM module extension.
-func WasmLsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func WasmLsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return

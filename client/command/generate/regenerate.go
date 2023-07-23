@@ -28,7 +28,7 @@ import (
 )
 
 // RegenerateCmd - Download an archived implant build/binary.
-func RegenerateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func RegenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	save, _ := cmd.Flags().GetString("save")
 	if save == "" {
 		save, _ = os.Getwd()

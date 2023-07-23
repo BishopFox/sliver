@@ -16,7 +16,7 @@ var (
 )
 
 // GenerateBeaconCmd - The main command used to generate implant binaries.
-func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	config := parseCompileFlags(cmd, con)
 	if config == nil {
 		return
@@ -38,7 +38,7 @@ func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 	}
 }
 
-func parseBeaconFlags(cmd *cobra.Command, con *console.SliverConsoleClient, config *clientpb.ImplantConfig) error {
+func parseBeaconFlags(cmd *cobra.Command, con *console.SliverClient, config *clientpb.ImplantConfig) error {
 	days, _ := cmd.Flags().GetInt64("days")
 	hours, _ := cmd.Flags().GetInt64("hours")
 	minutes, _ := cmd.Flags().GetInt64("minutes")

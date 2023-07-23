@@ -5,19 +5,18 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // Commands returns the `sessions` command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	sessionsCmd := &cobra.Command{
 		Use:   consts.SessionsStr,
 		Short: "Session management",
@@ -61,8 +60,8 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 	return []*cobra.Command{sessionsCmd}
 }
 
-// SessionIDCompleter completes session IDs
-func SessionIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+// SessionIDCompleter completes session IDs.
+func SessionIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
 		results := make([]string, 0)
 
@@ -85,7 +84,7 @@ func SessionIDCompleter(con *console.SliverConsoleClient) carapace.Action {
 }
 
 // SliverCommands returns all session control commands for the active target.
-func SliverCommands(con *console.SliverConsoleClient) []*cobra.Command {
+func SliverCommands(con *console.SliverClient) []*cobra.Command {
 	backgroundCmd := &cobra.Command{
 		Use:   consts.BackgroundStr,
 		Short: "Background an active session",

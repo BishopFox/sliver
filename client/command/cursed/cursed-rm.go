@@ -29,7 +29,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func CursedRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CursedRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

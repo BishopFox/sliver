@@ -23,18 +23,17 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 )
 
-// CredsCmd - Manage credentials
-func CredsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CredsCmd - Manage credentials.
+func CredsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -47,7 +46,7 @@ func CredsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 	PrintCreds(creds.Credentials, con)
 }
 
-func PrintCreds(creds []*clientpb.Credential, con *console.SliverConsoleClient) {
+func PrintCreds(creds []*clientpb.Credential, con *console.SliverClient) {
 	collections := make(map[string][]*clientpb.Credential)
 	for _, cred := range creds {
 		collections[cred.Collection] = append(collections[cred.Collection], cred)
@@ -58,7 +57,7 @@ func PrintCreds(creds []*clientpb.Credential, con *console.SliverConsoleClient) 
 	}
 }
 
-func printCollection(collection string, creds []*clientpb.Credential, con *console.SliverConsoleClient) {
+func printCollection(collection string, creds []*clientpb.Credential, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	if collection != "" {
@@ -88,7 +87,7 @@ func printCollection(collection string, creds []*clientpb.Credential, con *conso
 }
 
 // CredsHashTypeCompleter completes hash types.
-func CredsHashTypeCompleter(con *console.SliverConsoleClient) carapace.Action {
+func CredsHashTypeCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		results := make([]string, 0)
 
@@ -101,8 +100,8 @@ func CredsHashTypeCompleter(con *console.SliverConsoleClient) carapace.Action {
 	})
 }
 
-// CredsHashFileFormatCompleter completes file formats for hash-files
-func CredsHashFileFormatCompleter(con *console.SliverConsoleClient) carapace.Action {
+// CredsHashFileFormatCompleter completes file formats for hash-files.
+func CredsHashFileFormatCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionValuesDescribed(
 		UserColonHashNewlineFormat, "One hash per line.",
 		HashNewlineFormat, "A file containing lines of 'username:hash' pairs.",
@@ -110,8 +109,8 @@ func CredsHashFileFormatCompleter(con *console.SliverConsoleClient) carapace.Act
 	).Tag("hash file formats")
 }
 
-// CredsCollectionCompleter completes existing creds collection names
-func CredsCollectionCompleter(con *console.SliverConsoleClient) carapace.Action {
+// CredsCollectionCompleter completes existing creds collection names.
+func CredsCollectionCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		results := make([]string, 0)
 
@@ -134,7 +133,7 @@ func CredsCollectionCompleter(con *console.SliverConsoleClient) carapace.Action 
 }
 
 // CredsCredentialIDCompleter completes credential IDs.
-func CredsCredentialIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+func CredsCredentialIDCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		results := make([]string, 0)
 

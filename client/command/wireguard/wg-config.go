@@ -52,7 +52,7 @@ type wgQuickConfig struct {
 }
 
 // WGConfigCmd - Generate a WireGuard client configuration.
-func WGConfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func WGConfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	wgConfig, err := con.Rpc.GenerateWGClientConfig(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("Error: %s\n", err)

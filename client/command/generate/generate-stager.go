@@ -33,7 +33,7 @@ import (
 )
 
 // GenerateStagerCmd - Generate a stager using Metasploit.
-func GenerateStagerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func GenerateStagerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var stageProto clientpb.StageProtocol
 	lhost, _ := cmd.Flags().GetString("lhost")
 	if lhost == "" {

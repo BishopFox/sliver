@@ -22,14 +22,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/spf13/cobra"
 )
 
-// HTTPListenerCmd - Start an HTTP listener
-func HTTPListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// HTTPListenerCmd - Start an HTTP listener.
+func HTTPListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	domain, _ := cmd.Flags().GetString("domain")
 	lhost, _ := cmd.Flags().GetString("lhost")
 	lport, _ := cmd.Flags().GetUint32("lport")

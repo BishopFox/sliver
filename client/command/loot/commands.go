@@ -12,7 +12,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
-func Commands(con *console.SliverConsoleClient) []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	lootCmd := &cobra.Command{
 		Use:   consts.LootStr,
 		Short: "Manage the server's loot store",
@@ -120,11 +120,11 @@ func Commands(con *console.SliverConsoleClient) []*cobra.Command {
 }
 
 // FileTypeCompleter completes valid filetypes for loot.
-func FileTypeCompleter(con *console.SliverConsoleClient) carapace.Action {
+func FileTypeCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionValues("binary", "text").Tag("loot file type")
 }
 
 // LootTypeCompleter completes valid loot type for a loot.
-func LootTypeCompleter(con *console.SliverConsoleClient) carapace.Action {
+func LootTypeCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionValues("file", "cred").Tag("loot type")
 }

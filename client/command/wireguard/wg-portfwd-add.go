@@ -28,7 +28,7 @@ import (
 )
 
 // WGPortFwdAddCmd - Add a new WireGuard port forward.
-func WGPortFwdAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func WGPortFwdAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

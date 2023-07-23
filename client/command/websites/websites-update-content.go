@@ -21,14 +21,13 @@ package websites
 import (
 	"context"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/spf13/cobra"
 )
 
-// WebsitesUpdateContentCmd - Update metadata about static website content
-func WebsitesUpdateContentCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// WebsitesUpdateContentCmd - Update metadata about static website content.
+func WebsitesUpdateContentCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	websiteName, _ := cmd.Flags().GetString("website")
 	if websiteName == "" {
 		con.PrintErrorf("Must specify a website name via --website, see --help\n")

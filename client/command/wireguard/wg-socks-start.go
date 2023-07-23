@@ -27,7 +27,7 @@ import (
 )
 
 // WGSocksStartCmd - Start a WireGuard reverse SOCKS proxy.
-func WGSocksStartCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func WGSocksStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

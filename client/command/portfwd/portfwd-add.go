@@ -34,7 +34,7 @@ import (
 var portNumberOnlyRegexp = regexp.MustCompile("^[0-9]+$")
 
 // PortfwdAddCmd - Add a new tunneled port forward.
-func PortfwdAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func PortfwdAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

@@ -28,7 +28,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func CursedScreenshotCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CursedScreenshotCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	curse := selectCursedProcess(con)
 	if curse == nil {
 		return
