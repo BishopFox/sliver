@@ -51,22 +51,22 @@ func Generate(teamserver *server.Server, teamclient *client.Client) *cobra.Comma
 	// On top, they need a listener in memory.
 	servCmds := serverCommands(teamserver, teamclient)
 
-	for _, cmd := range servCmds.Commands() {
-		cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-			return teamserver.Serve(teamclient)
-		}
-	}
+	// for _, cmd := range servCmds.Commands() {
+	// 	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+	// 		return teamserver.Serve(teamclient)
+	// 	}
+	// }
 
 	// We bind the same runners to the client-side commands.
 	cliCmds := cli.Generate(teamclient)
 	cliCmds.Use = "client"
 	cliCmds.GroupID = command.TeamServerGroup
 
-	for _, cmd := range cliCmds.Commands() {
-		cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-			return teamserver.Serve(teamclient)
-		}
-	}
+	// for _, cmd := range cliCmds.Commands() {
+	// 	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+	// 		return teamserver.Serve(teamclient)
+	// 	}
+	// }
 
 	servCmds.AddCommand(cliCmds)
 
