@@ -28,7 +28,7 @@ const (
 	settingsFileName = "tui-settings.json"
 )
 
-// ClientSettings - Client JSON config
+// ClientSettings - Client JSON config.
 type ClientSettings struct {
 	TableStyle        string `json:"tables"`
 	AutoAdult         bool   `json:"autoadult"`
@@ -40,7 +40,7 @@ type ClientSettings struct {
 	ConsoleLogs       bool   `json:"console_logs"`
 }
 
-// LoadSettings - Load the client settings from disk
+// LoadSettings - Load the client settings from disk.
 func LoadSettings() (*ClientSettings, error) {
 	rootDir, _ := filepath.Abs(GetRootAppDir())
 	data, err := os.ReadFile(filepath.Join(rootDir, settingsFileName))
@@ -67,7 +67,7 @@ func defaultSettings() *ClientSettings {
 	}
 }
 
-// SaveSettings - Save the current settings to disk
+// SaveSettings - Save the current settings to disk.
 func SaveSettings(settings *ClientSettings) error {
 	rootDir, _ := filepath.Abs(GetRootAppDir())
 	if settings == nil {

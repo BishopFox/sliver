@@ -30,18 +30,18 @@ import (
 )
 
 const (
-	// SliverClientDirName - Directory storing all of the client configs/logs
+	// SliverClientDirName - Directory storing all of the client configs/logs.
 	SliverClientDirName = ".sliver-client"
 
 	versionFileName = "version"
 )
 
-// GetRootAppDir - Get the Sliver app dir ~/.sliver-client/
+// GetRootAppDir - Get the Sliver app dir ~/.sliver-client/.
 func GetRootAppDir() string {
 	user, _ := user.Current()
 	dir := filepath.Join(user.HomeDir, SliverClientDirName)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, 0700)
+		err = os.MkdirAll(dir, 0o700)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -49,11 +49,11 @@ func GetRootAppDir() string {
 	return dir
 }
 
-// GetClientLogsDir - Get the Sliver client logs dir ~/.sliver-client/logs/
+// GetClientLogsDir - Get the Sliver client logs dir ~/.sliver-client/logs/.
 func GetClientLogsDir() string {
 	logsDir := filepath.Join(GetRootAppDir(), "logs")
 	if _, err := os.Stat(logsDir); os.IsNotExist(err) {
-		err = os.MkdirAll(logsDir, 0700)
+		err = os.MkdirAll(logsDir, 0o700)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -61,11 +61,11 @@ func GetClientLogsDir() string {
 	return logsDir
 }
 
-// GetConsoleLogsDir - Get the Sliver client console logs dir ~/.sliver-client/logs/console/
+// GetConsoleLogsDir - Get the Sliver client console logs dir ~/.sliver-client/logs/console/.
 func GetConsoleLogsDir() string {
 	consoleLogsDir := filepath.Join(GetClientLogsDir(), "console")
 	if _, err := os.Stat(consoleLogsDir); os.IsNotExist(err) {
-		err = os.MkdirAll(consoleLogsDir, 0700)
+		err = os.MkdirAll(consoleLogsDir, 0o700)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -86,10 +86,10 @@ func saveAssetVersion(appDir string) {
 	versionFilePath := filepath.Join(appDir, versionFileName)
 	fVer, _ := os.Create(versionFilePath)
 	defer fVer.Close()
-	fVer.Write([]byte(ver.GitCommit))
+	fVer.WriteString(ver.GitCommit)
 }
 
-// Setup - Extract or create local assets
+// Setup - Extract or create local assets.
 func Setup(force bool, echo bool) {
 	appDir := GetRootAppDir()
 	localVer := assetVersion()

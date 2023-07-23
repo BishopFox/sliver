@@ -26,7 +26,6 @@ import (
 	"runtime/debug"
 	"strings"
 
-	clientAssets "github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -112,22 +111,6 @@ func runBuilderCmd(cmd *cobra.Command, args []string) {
 	externalBuilder.Templates = []string{"sliver"}
 
 	// load the client configuration from the filesystem
-	config, err := clientAssets.ReadConfig(configPath)
-	if err != nil {
-		builderLog.Fatalf("Invalid config file: %s", err)
-		os.Exit(-1)
-	}
-	if externalBuilder.Name == "" {
-		builderLog.Infof("No builder name was specified, attempting to use hostname")
-		externalBuilder.Name, err = os.Hostname()
-		if err != nil {
-			builderLog.Errorf("Failed to get hostname: %s", err)
-			externalBuilder.Name = fmt.Sprintf("%s's %s builder", config.Operator, runtime.GOOS)
-		}
-	}
-	builderLog.Infof("Hello my name is: %s", externalBuilder.Name)
-
-	builderLog.Infof("Connecting to %s@%s:%d ...", config.Operator, config.LHost, config.LPort)
 	startBuilderTeamclient(externalBuilder, configPath)
 }
 
@@ -267,7 +250,6 @@ func startBuilderTeamclient(externalBuilder *clientpb.Builder, configPath string
 	gTeamclient := transport.NewTeamClient()
 
 	// The teamclient requires hooks to bind RPC clients around its connection.
-	// NOTE: this might not be needed either if Sliver uses its own teamclient backend.
 	bindClient := func(clientConn any) error {
 		grpcClient, ok := clientConn.(*grpc.ClientConn)
 		if !ok || grpcClient == nil {
@@ -295,6 +277,18 @@ func startBuilderTeamclient(externalBuilder *clientpb.Builder, configPath string
 		builderLog.Fatalf("Invalid config file: %s", err)
 		os.Exit(-1)
 	}
+
+	if externalBuilder.Name == "" {
+		builderLog.Infof("No builder name was specified, attempting to use hostname")
+		externalBuilder.Name, err = os.Hostname()
+		if err != nil {
+			builderLog.Errorf("Failed to get hostname: %s", err)
+			externalBuilder.Name = fmt.Sprintf("%s's %s builder", config.User, runtime.GOOS)
+		}
+	}
+	builderLog.Infof("Hello my name is: %s", externalBuilder.Name)
+
+	builderLog.Infof("Connecting to %s@%s:%d ...", config.User, config.Host, config.Port)
 
 	// And immediately connect with it.
 	teamclient.Connect(client.WithConfig(config))

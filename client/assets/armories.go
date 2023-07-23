@@ -31,9 +31,9 @@ const (
 )
 
 var (
-	// DefaultArmoryPublicKey - The default public key for the armory
+	// DefaultArmoryPublicKey - The default public key for the armory.
 	DefaultArmoryPublicKey string
-	// DefaultArmoryRepoURL - The default repo url for the armory
+	// DefaultArmoryRepoURL - The default repo url for the armory.
 	DefaultArmoryRepoURL string
 
 	defaultArmoryConfig = &ArmoryConfig{
@@ -42,7 +42,7 @@ var (
 	}
 )
 
-// ArmoryConfig - The armory config file
+// ArmoryConfig - The armory config file.
 type ArmoryConfig struct {
 	PublicKey        string `json:"public_key"`
 	RepoURL          string `json:"repo_url"`
@@ -50,7 +50,7 @@ type ArmoryConfig struct {
 	AuthorizationCmd string `json:"authorization_cmd"`
 }
 
-// GetArmoriesConfig - The parsed armory config file
+// GetArmoriesConfig - The parsed armory config file.
 func GetArmoriesConfig() []*ArmoryConfig {
 	armoryConfigPath := filepath.Join(GetRootAppDir(), armoryConfigFileName)
 	if _, err := os.Stat(armoryConfigPath); os.IsNotExist(err) {
