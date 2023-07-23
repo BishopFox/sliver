@@ -5,13 +5,12 @@ import (
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/spf13/cobra"
 )
 
-// ImplantsRmCmd - Deletes an archived implant build from the server
+// ImplantsRmCmd - Deletes an archived implant build from the server.
 func ImplantsRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	name := args[0]
 	// name := ctx.Args.String("name")

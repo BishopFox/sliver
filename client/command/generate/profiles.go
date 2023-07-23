@@ -24,18 +24,17 @@ import (
 	"math"
 	"strings"
 
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 )
 
-// ProfilesCmd - Display implant profiles
+// ProfilesCmd - Display implant profiles.
 func ProfilesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	profiles := getImplantProfiles(con)
 	if profiles == nil {
@@ -49,7 +48,7 @@ func ProfilesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 	}
 }
 
-// PrintProfiles - Print the profiles
+// PrintProfiles - Print the profiles.
 func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverConsoleClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
@@ -106,7 +105,7 @@ func getImplantProfiles(con *console.SliverConsoleClient) []*clientpb.ImplantPro
 	return pbProfiles.Profiles
 }
 
-// GetImplantProfileByName - Get an implant profile by a specific name
+// GetImplantProfileByName - Get an implant profile by a specific name.
 func GetImplantProfileByName(name string, con *console.SliverConsoleClient) *clientpb.ImplantProfile {
 	pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -263,7 +262,7 @@ func populateProfileProperties(config *clientpb.ImplantConfig) map[string]string
 	return properties
 }
 
-// PrintProfileInfo - Print detailed information about a given profile
+// PrintProfileInfo - Print detailed information about a given profile.
 func PrintProfileInfo(name string, con *console.SliverConsoleClient) {
 	profile := GetImplantProfileByName(name, con)
 	if profile == nil {
@@ -273,7 +272,7 @@ func PrintProfileInfo(name string, con *console.SliverConsoleClient) {
 
 	config := profile.Config
 	properties := populateProfileProperties(config)
-	//con.Printf("--- Details for profile %s ---\n", profile.Name)
+
 	tw := table.NewWriter()
 
 	// Implant Basics
@@ -420,7 +419,7 @@ func PrintProfileInfo(name string, con *console.SliverConsoleClient) {
 	}
 }
 
-// ProfileNameCompleter - Completer for implant build names
+// ProfileNameCompleter - Completer for implant build names.
 func ProfileNameCompleter(con *console.SliverConsoleClient) carapace.Action {
 	comps := func(ctx carapace.Context) carapace.Action {
 		var action carapace.Action
