@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"runtime/debug"
 	"syscall"
 
 	"github.com/reeflective/team/client"
@@ -114,11 +115,11 @@ func (ts *Server) ServeDaemon(host string, port uint16, opts ...Options) (err er
 		log.Debugf("No port specified, using config file default: %d", port)
 	}
 
-	// defer func() {
-	// 	if r := recover(); r != nil {
-	// 		log.Errorf("panic:\n%s", debug.Stack())
-	// 	}
-	// }()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("panic:\n%s", debug.Stack())
+		}
+	}()
 
 	// Start the listener.
 	log.Infof("Starting %s teamserver daemon on %s:%d ...", ts.Name(), host, port)
