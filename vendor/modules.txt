@@ -549,10 +549,8 @@ github.com/reeflective/team/internal/systemd
 github.com/reeflective/team/internal/version
 github.com/reeflective/team/server
 github.com/reeflective/team/server/commands
-github.com/reeflective/team/transports/grpc/client
 github.com/reeflective/team/transports/grpc/common
 github.com/reeflective/team/transports/grpc/proto
-github.com/reeflective/team/transports/grpc/server
 # github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
 ## explicit; go 1.12
 github.com/remyoudompheng/bigfft

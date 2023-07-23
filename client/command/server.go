@@ -52,9 +52,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type CommandBinder func(con *client.SliverClient) []*cobra.Command
+
 // ServerCommands returns all commands bound to the server menu, optionally
 // accepting a function returning a list of additional (admin) commands.
-func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command) console.Commands {
+func ServerCommands(con *client.SliverClient, serverCmds CommandBinder) console.Commands {
 	serverCommands := func() *cobra.Command {
 		server := &cobra.Command{
 			Short: "Server commands",
@@ -71,7 +73,7 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 
 		if serverCmds != nil {
 			bind(consts.TeamserverHelpGroup,
-				func(con *client.SliverClient) []*cobra.Command { return serverCmds() },
+				serverCmds,
 			)
 		}
 

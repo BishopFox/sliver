@@ -37,9 +37,7 @@ import (
 	"github.com/bishopfox/sliver/util"
 )
 
-var (
-	builderLog = log.NamedLogger("builder", "sliver")
-)
+var builderLog = log.NamedLogger("builder", "sliver")
 
 type Config struct {
 	GOOSs   []string
@@ -49,14 +47,14 @@ type Config struct {
 
 // StartBuilder - main entry point for the builder
 func StartBuilder(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) {
-
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt)
 
 	builderLog.Infof("Attempting to register builder: %s", externalBuilder.Name)
 	events, err := buildEvents(externalBuilder, rpc)
 	if err != nil {
-		os.Exit(1)
+		builderLog.Errorf("Build events handler error: %s", err.Error())
+		return
 	}
 
 	// Wait for signal or builds

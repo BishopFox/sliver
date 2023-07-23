@@ -199,6 +199,46 @@ func ConfigsCompleter(cli *client.Client, filePath, ext, tag string, noSelf bool
 	}
 }
 
+// ConfigsAppCompleter completes file paths to the current application configs.
+func ConfigsAppCompleter(cli *client.Client, tag string) carapace.Action {
+	return carapace.ActionCallback(func(ctx carapace.Context) carapace.Action {
+		var compErrors []carapace.Action
+
+		configPath := cli.ConfigsDir()
+
+		files, err := os.ReadDir(configPath)
+		if err != nil {
+			compErrors = append(compErrors, carapace.ActionMessage("failed to list user directories: %s", err))
+		}
+
+		var results []string
+
+		for _, file := range files {
+			if !strings.HasSuffix(file.Name(), command.ClientConfigExt) {
+				continue
+			}
+
+			filePath := filepath.Join(configPath, file.Name())
+
+			cfg, err := cli.ReadConfig(filePath)
+			if err != nil || cfg == nil {
+				continue
+			}
+
+			results = append(results, filePath)
+			results = append(results, fmt.Sprintf("[%s] %s:%d", cfg.User, cfg.Host, cfg.Port))
+		}
+
+		configsAction := carapace.ActionValuesDescribed(results...).StyleF(getConfigStyle(command.ClientConfigExt))
+
+		return carapace.Batch(append(
+			compErrors,
+			configsAction.Tag(tag),
+			carapace.ActionFiles())...,
+		).ToA()
+	})
+}
+
 func isConfigDir(cli *client.Client, dir fs.DirEntry, noSelf bool) bool {
 	if !strings.HasPrefix(dir.Name(), ".") {
 		return false

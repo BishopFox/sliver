@@ -21,11 +21,12 @@ package version
 import (
 	"fmt"
 
+	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/spf13/cobra"
 )
 
-func Commands() []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print version and exit",

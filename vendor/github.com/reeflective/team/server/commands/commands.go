@@ -19,6 +19,8 @@ package commands
 */
 
 import (
+	"fmt"
+
 	"github.com/reeflective/team/client"
 	cli "github.com/reeflective/team/client/commands"
 	"github.com/reeflective/team/internal/command"
@@ -33,13 +35,13 @@ import (
 // This is so that all CLI applications which can be a teamserver can also be a client of their own.
 //
 // ** Commands do:
-//   - Ensure they are connected to a server instance (in memory).
 //   - Work even if the teamserver/client returns errors: those are returned &| printed &| logged.
 //   - Use the cobra utilities OutOrStdout(), ErrOrStdErr(), ... for all and every command output.
 //   - Have attached completions for users/listeners/config files of all sorts, and other things.
 //   - Have the ability to be ran in closed-loop console applications ("single runtime shell").
 //
 // ** Commands do NOT:
+//   - Ensure they are connected to a server instance before running (in memory).
 //   - Call os.Exit() anywhere, thus will not exit the program embedding them.
 //   - Ignite/start the teamserver core/filesystem/backends before they absolutely need to.
 //     Consequently, do not touch the filesystem until they absolutely need to.
@@ -51,22 +53,10 @@ func Generate(teamserver *server.Server, teamclient *client.Client) *cobra.Comma
 	// On top, they need a listener in memory.
 	servCmds := serverCommands(teamserver, teamclient)
 
-	// for _, cmd := range servCmds.Commands() {
-	// 	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-	// 		return teamserver.Serve(teamclient)
-	// 	}
-	// }
-
 	// We bind the same runners to the client-side commands.
 	cliCmds := cli.Generate(teamclient)
 	cliCmds.Use = "client"
 	cliCmds.GroupID = command.TeamServerGroup
-
-	// for _, cmd := range cliCmds.Commands() {
-	// 	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-	// 		return teamserver.Serve(teamclient)
-	// 	}
-	// }
 
 	servCmds.AddCommand(cliCmds)
 
@@ -76,7 +66,7 @@ func Generate(teamserver *server.Server, teamclient *client.Client) *cobra.Comma
 func serverCommands(server *server.Server, client *client.Client) *cobra.Command {
 	teamCmd := &cobra.Command{
 		Use:          "teamserver",
-		Short:        "Manage the application server-side teamserver and users",
+		Short:        fmt.Sprintf("Manage the %s teamserver and users", server.Name()),
 		SilenceUsage: true,
 	}
 

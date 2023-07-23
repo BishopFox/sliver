@@ -26,6 +26,8 @@ import (
 	"runtime/debug"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/command/flags"
+	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -34,6 +36,8 @@ import (
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/reeflective/team/client"
+	"github.com/reeflective/team/client/commands"
+	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 )
@@ -52,7 +56,7 @@ const (
 )
 
 // Commands returns all commands for using Sliver as a builder backend.
-func Commands() []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	builderCmd := &cobra.Command{
 		Use:   "builder",
 		Short: "Start the process as an external builder",
@@ -68,6 +72,12 @@ func Commands() []*cobra.Command {
 	// Artifact configuration options
 	builderCmd.Flags().StringSlice(enableTargetFlagStr, []string{}, "force enable a target: format:goos/goarch")
 	builderCmd.Flags().StringSlice(disableTargetFlagStr, []string{}, "force disable target arch: format:goos/goarch")
+
+	flags.BindFlagCompletions(builderCmd, func(comp *carapace.ActionMap) {
+		(*comp)["enable-target"] = builderFormatsCompleter()
+		(*comp)["disable-target"] = builderFormatsCompleter()
+		(*comp)["config"] = commands.ConfigsAppCompleter(con.Teamclient, "detected Sliver configs")
+	})
 
 	return []*cobra.Command{builderCmd}
 }
@@ -296,4 +306,52 @@ func startBuilderTeamclient(externalBuilder *clientpb.Builder, configPath string
 
 	// Let the builder do its work, blocking.
 	builder.StartBuilder(externalBuilder, rpc)
+}
+
+// builderFormatsCompleter completes supported builders architectures.
+func builderFormatsCompleter() carapace.Action {
+	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
+		return carapace.ActionMultiParts(":", func(c carapace.Context) carapace.Action {
+			var results []string
+
+			switch len(c.Parts) {
+
+			// Binary targets
+			case 1:
+				for _, target := range generate.GetCompilerTargets() {
+					results = append(results, fmt.Sprintf("%s/%s", target.GOOS, target.GOARCH))
+				}
+
+				for _, target := range generate.GetUnsupportedTargets() {
+					results = append(results, fmt.Sprintf("%s/%s", target.GOOS, target.GOARCH))
+				}
+
+				return carapace.ActionValues(results...).Tag("architectures")
+
+				// Binary formats
+			case 0:
+				for _, fmt := range []string{"executable", "exe", "exec", "pe"} {
+					results = append(results, fmt, clientpb.OutputFormat_EXECUTABLE.String())
+				}
+
+				for _, fmt := range []string{"shared-lib", "sharedlib", "dll", "so", "dylib"} {
+					results = append(results, fmt, clientpb.OutputFormat_SHARED_LIB.String())
+				}
+
+				for _, fmt := range []string{"service", "svc"} {
+					results = append(results, fmt, clientpb.OutputFormat_SERVICE.String())
+				}
+
+				for _, fmt := range []string{"shellcode", "shell", "sc"} {
+					results = append(results, fmt, clientpb.OutputFormat_SHELLCODE.String())
+				}
+
+				return carapace.ActionValuesDescribed(results...).Tag("formats").Suffix(":")
+			}
+
+			return carapace.ActionValues()
+		})
+		// Our flags --enable-target/--disable-targets are list,
+		// so users can coma-separate their values for a single flag.
+	}).UniqueList(",")
 }

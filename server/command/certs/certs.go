@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/spf13/cobra"
 )
@@ -57,7 +58,7 @@ func validCATypes() []string {
 }
 
 // Commands returns all commands for Sliver-specific Certificates management.
-func Commands() []*cobra.Command {
+func Commands(con *console.SliverClient) []*cobra.Command {
 	cmdImportCA := &cobra.Command{
 		Use:   "import-ca",
 		Short: "Import certificate authority",

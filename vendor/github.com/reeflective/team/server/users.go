@@ -277,3 +277,59 @@ func (ts *Server) updateLastSeen(name string) {
 	lastSeen := time.Now().Round(1 * time.Second)
 	ts.dbSession().Model(&db.User{}).Where("name", name).Update("LastSeen", lastSeen)
 }
+
+// func TestRootOnlyVerifyCertificate(t *testing.T) {
+// 	certs.SetupCAs()
+//
+// 	data, err := NewOperatorConfig("zerocool", "localhost", uint16(1337))
+// 	if err != nil {
+// 		t.Fatalf("failed to generate test player profile %s", err)
+// 	}
+// 	config := &ClientConfig{}
+// 	err = json.Unmarshal(data, config)
+// 	if err != nil {
+// 		t.Fatalf("failed to parse client config %s", err)
+// 	}
+//
+// 	_, _, err = certs.OperatorServerGetCertificate("localhost")
+// 	if err == certs.ErrCertDoesNotExist {
+// 		certs.OperatorServerGenerateCertificate("localhost")
+// 	}
+//
+// 	// Test with a valid certificate
+// 	certPEM, _, _ := certs.OperatorServerGetCertificate("localhost")
+// 	block, _ := pem.Decode(certPEM)
+// 	err = clienttransport.RootOnlyVerifyCertificate(config.CACertificate, [][]byte{block.Bytes})
+// 	if err != nil {
+// 		t.Fatalf("root only verify certificate error: %s", err)
+// 	}
+//
+// 	// Test with wrong CA
+// 	wrongCert, _ := certs.GenerateECCCertificate(certs.HTTPSCA, "foobar", false, false)
+// 	block, _ = pem.Decode(wrongCert)
+// 	err = clienttransport.RootOnlyVerifyCertificate(config.CACertificate, [][]byte{block.Bytes})
+// 	if err == nil {
+// 		t.Fatal("root only verify cert verified a certificate with invalid ca!")
+// 	}
+//
+// }
+
+// func TestOperatorGenerateCertificate(t *testing.T) {
+// 	GenerateCertificateAuthority(OperatorCA, "")
+// 	cert1, key1, err := OperatorClientGenerateCertificate("test3")
+// 	if err != nil {
+// 		t.Errorf("Failed to store ecc certificate %v", err)
+// 		return
+// 	}
+//
+// 	cert2, key2, err := OperatorClientGetCertificate("test3")
+// 	if err != nil {
+// 		t.Errorf("Failed to get ecc certificate %v", err)
+// 		return
+// 	}
+//
+// 	if !bytes.Equal(cert1, cert2) || !bytes.Equal(key1, key2) {
+// 		t.Errorf("Stored ecc cert/key does match generated cert/key: %v != %v", cert1, cert2)
+// 		return
+// 	}
+// }

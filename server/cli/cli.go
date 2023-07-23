@@ -167,15 +167,15 @@ func newSliverServer() (*teamserver.Server, *client.SliverClient) {
 // server-binary only commands to the main Sliver command yielders, and returns the full, execution-mode
 // agnostic Command-Line-Interface for the Sliver Framework.
 func getSliverCommands(teamserver *server.Server, con *client.SliverClient) (server, sliver console.Commands) {
-	teamserverCmds := func() (cmds []*cobra.Command) {
+	teamserverCmds := func(con *client.SliverClient) (cmds []*cobra.Command) {
 		// Teamserver management
 		cmds = append(cmds, commands.Generate(teamserver, con.Teamclient))
 
 		// Sliver-specific
-		cmds = append(cmds, version.Commands()...)
+		cmds = append(cmds, version.Commands(con)...)
 		cmds = append(cmds, assetsCmds.Commands()...)
-		cmds = append(cmds, builderCmds.Commands()...)
-		cmds = append(cmds, certsCmds.Commands()...)
+		cmds = append(cmds, builderCmds.Commands(con)...)
+		cmds = append(cmds, certsCmds.Commands(con)...)
 
 		return cmds
 	}

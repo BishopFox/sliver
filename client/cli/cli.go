@@ -99,7 +99,7 @@ func newSliverClient() *client.SliverClient {
 
 // getSliverCommands returns the entire command tree of the Sliver Framework as yielder functions.
 func getSliverCommands(con *client.SliverClient) (server, sliver console.Commands) {
-	teamclientCmds := func() []*cobra.Command {
+	teamclientCmds := func(con *client.SliverClient) []*cobra.Command {
 		return []*cobra.Command{
 			commands.Generate(con.Teamclient),
 		}

@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// Commands returns the “ command and its subcommands.
+// Commands returns all payload compilation commands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	// [ Generate ] --------------------------------------------------------------
 	generateCmd := &cobra.Command{
