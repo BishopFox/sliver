@@ -63,6 +63,12 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			},
 		}
 
+		// Utility function to be used for binding new commands to
+		// the sliver menu: call the function with the name of the
+		// group under which this/these commands should be added,
+		// and the group will be automatically created if needed.
+		bind := makeBind(server, con)
+
 		if serverCmds != nil {
 			server.AddGroup(&cobra.Group{ID: consts.MultiplayerHelpGroup, Title: consts.MultiplayerHelpGroup})
 			server.AddCommand(serverCmds()...)
@@ -77,7 +83,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 		// the present calls.
 
 		// Core
-		bind(consts.GenericHelpGroup, server, con,
+		bind(consts.GenericHelpGroup,
 			exit.Command,
 			licenses.Commands,
 			settings.Commands,
@@ -91,21 +97,21 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 		)
 
 		// C2 Network
-		bind(consts.NetworkHelpGroup, server, con,
+		bind(consts.NetworkHelpGroup,
 			jobs.Commands,
 			websites.Commands,
 			wireguard.Commands,
 		)
 
 		// Payloads
-		bind(consts.PayloadsHelpGroup, server, con,
+		bind(consts.PayloadsHelpGroup,
 			sgn.Commands,
 			generate.Commands,
 			builders.Commands,
 		)
 
 		// Slivers
-		bind(consts.SliverHelpGroup, server, con,
+		bind(consts.SliverHelpGroup,
 			use.Commands,
 			info.Commands,
 			sessions.Commands,

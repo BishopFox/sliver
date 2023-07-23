@@ -61,8 +61,14 @@ func SliverCommands(con *client.SliverConsoleClient) console.Commands {
 			},
 		}
 
+		// Utility function to be used for binding new commands to
+		// the sliver menu: call the function with the name of the
+		// group under which this/these commands should be added,
+		// and the group will be automatically created if needed.
+		bind := makeBind(sliver, con)
+
 		// [ Core ]
-		bind(consts.SliverCoreHelpGroup, sliver, con,
+		bind(consts.SliverCoreHelpGroup,
 			reconfig.Commands,
 			// sessions.Commands,
 			sessions.SliverCommands,
@@ -73,7 +79,7 @@ func SliverCommands(con *client.SliverConsoleClient) console.Commands {
 		)
 
 		// [ Info ]
-		bind(consts.InfoHelpGroup, sliver, con,
+		bind(consts.InfoHelpGroup,
 			// info.Commands,
 			info.SliverCommands,
 			screenshot.Commands,
@@ -82,12 +88,12 @@ func SliverCommands(con *client.SliverConsoleClient) console.Commands {
 		)
 
 		// [ Filesystem ]
-		bind(consts.FilesystemHelpGroup, sliver, con,
+		bind(consts.FilesystemHelpGroup,
 			filesystem.Commands,
 		)
 
 		// [ Network tools ]
-		bind(consts.NetworkHelpGroup, sliver, con,
+		bind(consts.NetworkHelpGroup,
 			network.Commands,
 			rportfwd.Commands,
 			portfwd.Commands,
@@ -96,7 +102,7 @@ func SliverCommands(con *client.SliverConsoleClient) console.Commands {
 		)
 
 		// [ Execution ]
-		bind(consts.ExecutionHelpGroup, sliver, con,
+		bind(consts.ExecutionHelpGroup,
 			shell.Commands,
 			exec.Commands,
 			backdoor.Commands,
@@ -106,20 +112,20 @@ func SliverCommands(con *client.SliverConsoleClient) console.Commands {
 		)
 
 		// [ Privileges ]
-		bind(consts.PrivilegesHelpGroup, sliver, con,
+		bind(consts.PrivilegesHelpGroup,
 			privilege.Commands,
 		)
 
 		// [ Processes ]
-		bind(consts.ProcessHelpGroup, sliver, con,
+		bind(consts.ProcessHelpGroup,
 			processes.Commands,
 		)
 
 		// [ Aliases ]
-		bind(consts.AliasHelpGroup, sliver, con)
+		bind(consts.AliasHelpGroup)
 
 		// [ Extensions ]
-		bind(consts.ExtensionHelpGroup, sliver, con,
+		bind(consts.ExtensionHelpGroup,
 			extensions.Commands,
 		)
 

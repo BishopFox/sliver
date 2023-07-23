@@ -77,6 +77,42 @@ func RestrictTargets(filters ...string) map[string]string {
 	}
 }
 
+// makeBind returns a commandBinder helper function
+// @menu  - The command menu to which the commands should be bound (either server or implant menu).
+func makeBind(cmd *cobra.Command, con *client.SliverConsoleClient) func(group string, cmds ...func(con *client.SliverConsoleClient) []*cobra.Command) {
+	return func(group string, cmds ...func(con *client.SliverConsoleClient) []*cobra.Command) {
+		found := false
+
+		// Ensure the given command group is available in the menu.
+		if group != "" {
+			for _, grp := range cmd.Groups() {
+				if grp.Title == group {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				cmd.AddGroup(&cobra.Group{
+					ID:    group,
+					Title: group,
+				})
+			}
+		}
+
+		// Bind the command to the root
+		for _, command := range cmds {
+			cmd.AddCommand(command(con)...)
+		}
+	}
+}
+
+// commandBinder is a helper used to bind commands to a given menu, for a given "command help group".
+//
+// @group - Name of the group under which the command should be shown. Preferably use a string in the constants package.
+// @ cmds - A list of functions returning a list of root commands to bind. See any package's `commands.go` file and function.
+type commandBinder func(group string, cmds ...func(con *client.SliverConsoleClient) []*cobra.Command)
+
 // [ Core ]
 // [ Sessions ]
 // [ Execution ]
@@ -99,33 +135,3 @@ func RestrictTargets(filters ...string) map[string]string {
 // - double bind help command
 // - double bind session commands
 // - don't bind readline command in CLI.
-
-// bind is a helper used to bind a list of root commands to a given menu, for a given "command help group".
-// @group - Name of the group under which the command should be shown. Preferably use a string in the constants package.
-// @menu  - The command menu to which the commands should be bound (either server or implant menu).
-// @ cmds - A list of functions returning a list of root commands to bind. See any package's `commands.go` file and function.
-func bind(group string, menu *cobra.Command, con *client.SliverConsoleClient, cmds ...func(con *client.SliverConsoleClient) []*cobra.Command) {
-	found := false
-
-	// Ensure the given command group is available in the menu.
-	if group != "" {
-		for _, grp := range menu.Groups() {
-			if grp.Title == group {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			menu.AddGroup(&cobra.Group{
-				ID:    group,
-				Title: group,
-			})
-		}
-	}
-
-	// Bind the command to the root
-	for _, command := range cmds {
-		menu.AddCommand(command(con)...)
-	}
-}
