@@ -31,9 +31,8 @@ import (
 
 // CATypes - CA types
 var CATypes = map[string]string{
-	"operator": certs.OperatorCA,
-	"mtls":     certs.MtlsImplantCA,
-	"https":    certs.HTTPSCA,
+	"mtls":  certs.MtlsImplantCA,
+	"https": certs.HTTPSCA,
 }
 
 const (
