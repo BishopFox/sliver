@@ -38,20 +38,20 @@ const (
 var (
 	msfLog = log.NamedLogger("msf", "venom")
 
-	// ValidArches - Support CPU architectures
+	// ValidArches - Support CPU architectures.
 	ValidArches = map[string]bool{
 		"x86": true,
 		"x64": true,
 	}
 
-	// ValidEncoders - Valid MSF encoders
+	// ValidEncoders - Valid MSF encoders.
 	ValidEncoders = map[string]bool{
 		"":                   true,
 		"x86/shikata_ga_nai": true,
 		"x64/xor_dynamic":    true,
 	}
 
-	// ValidPayloads - Valid payloads and OS combos
+	// ValidPayloads - Valid payloads and OS combos.
 	validPayloads = map[string]map[string]bool{
 		"windows": {
 			"meterpreter_reverse_http":  true,
@@ -102,7 +102,7 @@ var (
 	}
 )
 
-// VenomConfig -
+// VenomConfig -.
 type VenomConfig struct {
 	Os         string
 	Arch       string
@@ -117,13 +117,13 @@ type VenomConfig struct {
 	AdvOptions string
 }
 
-// Version - Return the version of MSFVenom
+// Version - Return the version of MSFVenom.
 func Version() (string, error) {
 	stdout, err := consoleCmd([]string{"--version"})
 	return string(stdout), err
 }
 
-// VenomPayload - Generates an MSFVenom payload
+// VenomPayload - Generates an MSFVenom payload.
 func VenomPayload(config VenomConfig) ([]byte, error) {
 	// Check if msfvenom is in the path
 	if _, err := exec.LookPath(venomBin); err != nil {
@@ -216,7 +216,7 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 	return venomCmd(args)
 }
 
-// venomCmd - Execute a msfvenom command
+// venomCmd - Execute a msfvenom command.
 func venomCmd(args []string) ([]byte, error) {
 	msfLog.Printf("%s %v", venomBin, args)
 	cmd := exec.Command(venomBin, args...)
@@ -235,7 +235,7 @@ func venomCmd(args []string) ([]byte, error) {
 	return stdout.Bytes(), err
 }
 
-// consoleCmd - Execute a msfvenom command
+// consoleCmd - Execute a msfvenom command.
 func consoleCmd(args []string) ([]byte, error) {
 	cmd := exec.Command(consoleBin, args...)
 	var stdout bytes.Buffer
@@ -252,7 +252,7 @@ func consoleCmd(args []string) ([]byte, error) {
 	return stdout.Bytes(), err
 }
 
-// Arch - Convert golang arch to msf arch
+// Arch - Convert golang arch to msf arch.
 func Arch(arch string) string {
 	if arch == "amd64" {
 		return "x64"
