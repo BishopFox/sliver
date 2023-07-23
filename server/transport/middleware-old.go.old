@@ -93,12 +93,9 @@ func initMiddleware(remoteAuth bool) []grpc.ServerOption {
 			),
 		}
 	}
-
 }
 
-var (
-	tokenCache = sync.Map{}
-)
+var tokenCache = sync.Map{}
 
 // ClearTokenCache - Clear the auth token cache
 func ClearTokenCache() {
@@ -253,7 +250,6 @@ func getUser(client *peer.Peer) string {
 }
 
 func getActiveTarget(rawRequest []byte) (*clientpb.Session, *clientpb.Beacon, error) {
-
 	var activeBeacon *clientpb.Beacon
 	var activeSession *clientpb.Session
 

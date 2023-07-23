@@ -1,21 +1,21 @@
 package transport
 
 /*
-   team - Embedded teamserver for Go programs and CLI applications
-   Copyright (C) 2023 Reeflective
+	Sliver Implant Framework
+	Copyright (C) 2019  Bishop Fox
 
-   This program is free software: you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation, either version 3 of the License, or
-   (at your option) any later version.
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
 
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 import (
@@ -30,6 +30,8 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 
 	clientTransport "github.com/bishopfox/sliver/client/transport"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/server/rpc"
 )
 
 const (
@@ -49,17 +51,12 @@ const (
 //
 // This teamserver embeds a team/server.Server core driver and uses it for fetching
 // server-side TLS configurations, use its loggers and access its database/users/list.
-//
-// By default, the server has no grpc.Server options attached.
-// Please see the other functions of this package for pre-configured option sets.
 type Teamserver struct {
 	*teamserver.Server
 
 	options []grpc.ServerOption
 	conn    *bufconn.Listener
 	mutex   *sync.RWMutex
-
-	hooks []func(server *grpc.Server) error
 }
 
 // NewListener is a simple constructor returning a teamserver loaded with the
@@ -99,14 +96,7 @@ func NewClientFrom(server *Teamserver, opts ...grpc.DialOption) *clientTransport
 // Name immplements team/server.Handler.Name().
 // It indicates the transport/rpc stack, in this case "gRPC".
 func (h *Teamserver) Name() string {
-	return "gRPC"
-}
-
-// PostServe registers one or more hook functions to be ran on the server
-// before it is served to the listener. These hooks should naturally be
-// used to register additional services to it.
-func (h *Teamserver) PostServe(hooks ...func(server *grpc.Server) error) {
-	h.hooks = append(h.hooks, hooks...)
+	return "gRPC/mTLS"
 }
 
 // Init implements team/server.Handler.Init().
@@ -136,9 +126,6 @@ func (h *Teamserver) Init(serv *teamserver.Server) (err error) {
 // If the teamserver has previously been given an in-memory connection,
 // it returns it as the listener without errors.
 func (h *Teamserver) Listen(addr string) (ln net.Listener, err error) {
-	rpcLog := h.NamedLogger("transport", "mTLS")
-
-	// Only wrap the connection in TLS when remote.
 	// In-memory connection are not authenticated.
 	if h.conn == nil {
 		ln, err = net.Listen("tcp", addr)
@@ -160,17 +147,30 @@ func (h *Teamserver) Listen(addr string) (ln net.Listener, err error) {
 		h.mutex.Unlock()
 	}
 
+	h.serve(ln)
+
+	return ln, nil
+}
+
+// Close implements team/server.Handler.Close().
+// In this implementation, the function does nothing. Thus the underlying
+// *grpc.Server.Shutdown() method is not called, and only the listener
+// will be closed by the server automatically when using CloseListener().
+//
+// This is probably not optimal from a resource usage standpoint, but currently it
+// fits most use cases. Feel free to reimplement or propose changes to this lib.
+func (h *Teamserver) Close() error {
+	return nil
+}
+
+func (h *Teamserver) serve(ln net.Listener) {
 	grpcServer := grpc.NewServer(h.options...)
 
-	// Register the core teamserver service
-	proto.RegisterTeamServer(grpcServer, newServer(h.Server))
+	rpcLog := h.NamedLogger("transport", "gRPC")
 
-	for _, hook := range h.hooks {
-		if err := hook(grpcServer); err != nil {
-			rpcLog.Errorf("service bind error: %s", err)
-			return nil, err
-		}
-	}
+	// Teamserver/Sliver services
+	proto.RegisterTeamServer(grpcServer, newServer(h.Server))
+	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
 
 	rpcLog.Infof("Serving gRPC teamserver on %s", ln.Addr())
 
@@ -189,17 +189,4 @@ func (h *Teamserver) Listen(addr string) (ln net.Listener, err error) {
 			panicked = false
 		}
 	}()
-
-	return ln, nil
-}
-
-// Close implements team/server.Handler.Close().
-// In this implementation, the function does nothing. Thus the underlying
-// *grpc.Server.Shutdown() method is not called, and only the listener
-// will be closed by the server automatically when using CloseListener().
-//
-// This is probably not optimal from a resource usage standpoint, but currently it
-// fits most use cases. Feel free to reimplement or propose changes to this lib.
-func (h *Teamserver) Close() error {
-	return nil
 }

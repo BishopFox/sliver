@@ -19,6 +19,7 @@ package builder
 */
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -29,10 +30,13 @@ import (
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/builder"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/reeflective/team/client"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
 )
 
 var builderLog = log.NamedLogger("cli", "builder")
@@ -123,15 +127,8 @@ func runBuilderCmd(cmd *cobra.Command, args []string) {
 	}
 	builderLog.Infof("Hello my name is: %s", externalBuilder.Name)
 
-	// connect to the server
 	builderLog.Infof("Connecting to %s@%s:%d ...", config.Operator, config.LHost, config.LPort)
-	rpc, ln, err := transport.MTLSConnect(config)
-	if err != nil {
-		builderLog.Errorf("Failed to connect to server: %s", err)
-		os.Exit(-2)
-	}
-	defer ln.Close()
-	builder.StartBuilder(externalBuilder, rpc)
+	startBuilderTeamclient(externalBuilder, configPath)
 }
 
 func parseBuilderConfigFlags(cmd *cobra.Command) *clientpb.Builder {
@@ -262,4 +259,47 @@ func parseForceDisableTargets(cmd *cobra.Command, externalBuilder *clientpb.Buil
 			}
 		}
 	}
+}
+
+func startBuilderTeamclient(externalBuilder *clientpb.Builder, configPath string) {
+	var rpc rpcpb.SliverRPCClient
+
+	gTeamclient := transport.NewTeamClient()
+
+	// The teamclient requires hooks to bind RPC clients around its connection.
+	// NOTE: this might not be needed either if Sliver uses its own teamclient backend.
+	bindClient := func(clientConn any) error {
+		grpcClient, ok := clientConn.(*grpc.ClientConn)
+		if !ok || grpcClient == nil {
+			return errors.New("No gRPC client to use for service")
+		}
+
+		rpc = rpcpb.NewSliverRPCClient(grpcClient)
+
+		return nil
+	}
+
+	var clientOpts []client.Options
+	clientOpts = append(clientOpts,
+		client.WithDialer(gTeamclient, bindClient),
+	)
+
+	teamclient, err := client.New("sliver", gTeamclient, clientOpts...)
+	if err != nil {
+		panic(err)
+	}
+
+	// Now use our teamclient to fetch the configuration.
+	config, err := teamclient.ReadConfig(configPath)
+	if err != nil {
+		builderLog.Fatalf("Invalid config file: %s", err)
+		os.Exit(-1)
+	}
+
+	// And immediately connect with it.
+	teamclient.Connect(client.WithConfig(config))
+	defer teamclient.Disconnect()
+
+	// Let the builder do its work, blocking.
+	builder.StartBuilder(externalBuilder, rpc)
 }

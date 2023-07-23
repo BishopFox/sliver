@@ -21,23 +21,43 @@ package transport
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
-	"runtime/debug"
+	"sync"
 
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/server/assets"
-	"github.com/bishopfox/sliver/server/log"
-	"github.com/bishopfox/sliver/server/rpc"
+	"github.com/reeflective/team/server"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"tailscale.com/tsnet"
+
+	"github.com/bishopfox/sliver/server/assets"
 )
 
-var tsNetLog = log.NamedLogger("transport", "tsnet")
+type TailScaleTeamserver struct {
+	*Teamserver
+}
 
-// StartTsNetClientListener - Start a TSNet gRPC listener
-func StartTsNetClientListener(hostname string, port uint16) (*grpc.Server, net.Listener, error) {
+func NewTailScaleListener(opts ...grpc.ServerOption) server.Listener {
+	core := &Teamserver{
+		mutex: &sync.RWMutex{},
+	}
+
+	core.options = append(core.options, opts...)
+
+	return &TailScaleTeamserver{core}
+}
+
+func (ts *TailScaleTeamserver) Listen(addr string) (ln net.Listener, err error) {
+	tsNetLog := ts.NamedLogger("transport", "tailscale")
+
+	url, err := url.Parse(fmt.Sprintf("ts://%s", addr))
+	if err != nil {
+		return nil, err
+	}
+
+	hostname := url.Hostname()
+	port := url.Port()
+
 	if hostname == "" {
 		hostname = "sliver-server"
 		machineName, _ := os.Hostname()
@@ -46,17 +66,17 @@ func StartTsNetClientListener(hostname string, port uint16) (*grpc.Server, net.L
 		}
 	}
 
-	tsNetLog.Infof("Starting gRPC/tsnet  listener on %s:%d", hostname, port)
+	tsNetLog.Infof("Starting gRPC/tsnet listener on %s:%d", hostname, port)
 
 	authKey := os.Getenv("TS_AUTHKEY")
 	if authKey == "" {
 		tsNetLog.Errorf("TS_AUTHKEY not set")
-		return nil, nil, fmt.Errorf("TS_AUTHKEY not set")
+		return nil, fmt.Errorf("TS_AUTHKEY not set")
 	}
 
 	tsnetDir := filepath.Join(assets.GetRootAppDir(), "tsnet")
 	if err := os.MkdirAll(tsnetDir, 0o700); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	tsNetServer := &tsnet.Server{
@@ -65,35 +85,18 @@ func StartTsNetClientListener(hostname string, port uint16) (*grpc.Server, net.L
 		Logf:     tsNetLog.Debugf,
 		AuthKey:  authKey,
 	}
-	ln, err := tsNetServer.Listen("tcp", fmt.Sprintf(":%d", port))
+
+	ln, err = tsNetServer.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	// We don't really need the mutual TLS here, but it's easier
-	// maintain compatibility with existing config files
-	tlsConfig := getOperatorServerTLSConfig("multiplayer")
-	creds := credentials.NewTLS(tlsConfig)
-	options := []grpc.ServerOption{
-		grpc.Creds(creds),
-		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
-		grpc.MaxSendMsgSize(ServerMaxMessageSize),
-	}
-	// options = append(options, initMiddleware(true)...)
-	grpcServer := grpc.NewServer(options...)
-	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
-	go func() {
-		panicked := true
-		defer func() {
-			if panicked {
-				tsNetLog.Errorf("stacktrace from panic: %s", string(debug.Stack()))
-			}
-		}()
-		if err := grpcServer.Serve(ln); err != nil {
-			tsNetLog.Warnf("gRPC/tsnet server exited with error: %v", err)
-		} else {
-			panicked = false
-		}
-	}()
-	return grpcServer, ln, nil
+	ts.serve(ln)
+
+	return ln, nil
+}
+
+// It indicates the transport/rpc stack, in this case "gRPC".
+func (ts *TailScaleTeamserver) Name() string {
+	return "gRPC/TSNet"
 }

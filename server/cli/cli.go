@@ -19,7 +19,6 @@ package cli
 */
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -33,7 +32,6 @@ import (
 	"github.com/reeflective/team/server"
 	teamserver "github.com/reeflective/team/server"
 	"github.com/reeflective/team/server/commands"
-	"google.golang.org/grpc"
 
 	// Sliver Client core, and generic/server-only commands
 	"github.com/bishopfox/sliver/client/command"
@@ -46,13 +44,11 @@ import (
 	"github.com/bishopfox/sliver/server/transport"
 
 	// Server-only imports
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/cryptography"
-	"github.com/bishopfox/sliver/server/rpc"
 )
 
 // Execute the sliver server binary.
@@ -129,25 +125,9 @@ func newSliverServer() (*teamserver.Server, *client.SliverClient) {
 	// 1) Teamserver ---------
 	//
 
-	// NOTE: Teamserver gRPC stack.
-	// The teamserver stack is for now contained in a package of the third-party
-	// module github.com/reeflective/team:
-	// 1) The listener is pre-set with all gRPC transport,auth and middleware logging.
-	// 2) This listener could be partially/fully reimplemented within the Sliver repo.
-	gTeamserver := transport.NewListener()
-
-	// NOTE: This might not be needed if 2) above is chosen.
-	// The listener obviously works with gRPC servers, so we need to pass
-	// a hook for service binding before starting those gRPC HTTP/2 listeners.
-	gTeamserver.PostServe(func(grpcServer *grpc.Server) error {
-		if grpcServer == nil {
-			return errors.New("No gRPC server to use for service")
-		}
-
-		rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
-
-		return nil
-	})
+	// We can use several teamserver listener/stack backends.
+	tlsListener := transport.NewListener()
+	tailscaleListener := transport.NewTailScaleListener()
 
 	// Here is an import step, where we are given a change to setup
 	// the reeflective/teamserver with everything we want: our own
@@ -156,7 +136,8 @@ func newSliverServer() (*teamserver.Server, *client.SliverClient) {
 	var serverOpts []teamserver.Options
 	serverOpts = append(serverOpts,
 		teamserver.WithDefaultPort(31337),
-		teamserver.WithListener(gTeamserver),
+		teamserver.WithListener(tlsListener),
+		teamserver.WithListener(tailscaleListener),
 	)
 
 	// Create the application teamserver.
@@ -172,7 +153,7 @@ func newSliverServer() (*teamserver.Server, *client.SliverClient) {
 
 	// The gRPC teamserver backend is hooked to produce a single
 	// in-memory teamclient RPC/dialer backend. Not encrypted.
-	gTeamclient := transport.NewClientFrom(gTeamserver)
+	gTeamclient := transport.NewClientFrom(tlsListener)
 
 	// Pass the gRPC teamclient backend to our console package,
 	// with registers a hook to bind its RPC client and start

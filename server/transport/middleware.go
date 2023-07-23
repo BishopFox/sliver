@@ -22,17 +22,17 @@ import (
 	"context"
 	"encoding/json"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpc_tags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	"github.com/reeflective/team/server"
-	"github.com/reeflective/team/transports/grpc/common"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
+
+	"github.com/reeflective/team/server"
+	"github.com/reeflective/team/transports/grpc/common"
 )
 
 // BufferingOptions returns a list of server options with max send/receive
@@ -96,8 +96,8 @@ func LogMiddlewareOptions(s *server.Server) ([]grpc.ServerOption, error) {
 	)
 
 	return []grpc.ServerOption{
-		grpc_middleware.WithUnaryServerChain(requestOpts...),
-		grpc_middleware.WithStreamServerChain(streamOpts...),
+		grpc.ChainUnaryInterceptor(requestOpts...),
+		grpc.ChainStreamInterceptor(streamOpts...),
 	}, nil
 }
 
@@ -146,15 +146,21 @@ func (ts *Teamserver) initAuthMiddleware() ([]grpc.ServerOption, error) {
 
 	// Return middleware for all requests and stream interactions in gRPC.
 	return []grpc.ServerOption{
-		grpc_middleware.WithUnaryServerChain(requestOpts...),
-		grpc_middleware.WithStreamServerChain(streamOpts...),
+		grpc.ChainUnaryInterceptor(requestOpts...),
+		grpc.ChainStreamInterceptor(streamOpts...),
 	}, nil
 }
 
-// TODO: Should we change the default in-memory server name ?
+type contextKey int
+
+const (
+	Transport contextKey = iota
+	Operator
+)
+
 func serverAuthFunc(ctx context.Context) (context.Context, error) {
-	newCtx := context.WithValue(ctx, "transport", "local")
-	newCtx = context.WithValue(newCtx, "user", "server")
+	newCtx := context.WithValue(ctx, Transport, "local")
+	newCtx = context.WithValue(newCtx, Operator, "server")
 
 	return newCtx, nil
 }
@@ -175,8 +181,8 @@ func (ts *Teamserver) tokenAuthFunc(ctx context.Context) (context.Context, error
 		return nil, status.Error(codes.Unauthenticated, "Authentication failure")
 	}
 
-	newCtx := context.WithValue(ctx, "transport", "mtls")
-	newCtx = context.WithValue(newCtx, "user", user)
+	newCtx := context.WithValue(ctx, Transport, "mtls")
+	newCtx = context.WithValue(newCtx, Operator, user)
 
 	return newCtx, nil
 }
