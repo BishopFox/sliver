@@ -23,17 +23,16 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 )
 
-// CredsCmd - Manage credentials
+// CredsCmd - Manage credentials.
 func CredsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -101,7 +100,7 @@ func CredsHashTypeCompleter(con *console.SliverClient) carapace.Action {
 	})
 }
 
-// CredsHashFileFormatCompleter completes file formats for hash-files
+// CredsHashFileFormatCompleter completes file formats for hash-files.
 func CredsHashFileFormatCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionValuesDescribed(
 		UserColonHashNewlineFormat, "One hash per line.",
@@ -110,7 +109,7 @@ func CredsHashFileFormatCompleter(con *console.SliverClient) carapace.Action {
 	).Tag("hash file formats")
 }
 
-// CredsCollectionCompleter completes existing creds collection names
+// CredsCollectionCompleter completes existing creds collection names.
 func CredsCollectionCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		results := make([]string, 0)

@@ -26,11 +26,6 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
 	"github.com/bishopfox/sliver/client/command/extensions"
@@ -45,9 +40,13 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"google.golang.org/protobuf/proto"
 )
 
-// TasksFetchCmd - Manage beacon tasks
+// TasksFetchCmd - Manage beacon tasks.
 func TasksFetchCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	beacon := con.ActiveTarget.GetBeaconInteractive()
 	if beacon == nil {
@@ -124,7 +123,7 @@ func filterTasksByTaskType(taskType string, tasks []*clientpb.BeaconTask) []*cli
 	return filteredTasks
 }
 
-// PrintTask - Print the details of a beacon task
+// PrintTask - Print the details of a beacon task.
 func PrintTask(task *clientpb.BeaconTask, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableWithBordersStyle(con))
@@ -171,7 +170,7 @@ func emojiState(state string) string {
 	}
 }
 
-// Decode and render message specific content
+// Decode and render message specific content.
 func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 	reqEnvelope := &sliverpb.Envelope{}
 	proto.Unmarshal(task.Request, reqEnvelope)

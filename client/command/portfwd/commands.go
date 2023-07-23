@@ -1,27 +1,27 @@
 package portfwd
 
 import (
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-
 	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // Commands returns the “ command and its subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	portfwdCmd := &cobra.Command{
-		Use:   consts.PortfwdStr,
-		Short: "In-band TCP port forwarding",
-		Long:  help.GetHelpFor([]string{consts.PortfwdStr}),
+		Use:         consts.PortfwdStr,
+		Short:       "In-band TCP port forwarding",
+		Long:        help.GetHelpFor([]string{consts.PortfwdStr}),
+		GroupID:     consts.NetworkHelpGroup,
+		Annotations: flags.RestrictTargets(consts.SessionCmdsFilter),
 		Run: func(cmd *cobra.Command, args []string) {
 			PortfwdCmd(cmd, con, args)
 		},
-		GroupID: consts.NetworkHelpGroup,
 	}
 	flags.Bind("", true, portfwdCmd, func(f *pflag.FlagSet) {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")

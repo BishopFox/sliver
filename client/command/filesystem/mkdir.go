@@ -21,16 +21,14 @@ package filesystem
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// MkdirCmd - Make a remote directory
+// MkdirCmd - Make a remote directory.
 func MkdirCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -68,7 +66,7 @@ func MkdirCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-// PrintMkdir - Print make directory
+// PrintMkdir - Print make directory.
 func PrintMkdir(mkdir *sliverpb.Mkdir, con *console.SliverClient) {
 	if mkdir.Response != nil && mkdir.Response.Err != "" {
 		con.PrintErrorf("%s\n", mkdir.Response.Err)

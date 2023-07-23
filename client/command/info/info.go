@@ -22,17 +22,16 @@ import (
 	"context"
 	"time"
 
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/bishopfox/sliver/client/command/use"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// InfoCmd - Display information about the active session
+// InfoCmd - Display information about the active session.
 func InfoCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 
@@ -110,7 +109,7 @@ func InfoCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-// PIDCmd - Get the active session's PID
+// PIDCmd - Get the active session's PID.
 func PIDCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -123,7 +122,7 @@ func PIDCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-// UIDCmd - Get the active session's UID
+// UIDCmd - Get the active session's UID.
 func UIDCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -136,7 +135,7 @@ func UIDCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-// GIDCmd - Get the active session's GID
+// GIDCmd - Get the active session's GID.
 func GIDCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -149,7 +148,7 @@ func GIDCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-// WhoamiCmd - Displays the current user of the active session
+// WhoamiCmd - Displays the current user of the active session.
 func WhoamiCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {

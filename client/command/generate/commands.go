@@ -26,15 +26,6 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 
-	preRun := func(_ *cobra.Command, _ []string) error {
-		con.Teamclient.Connect()
-		return nil
-	}
-	comps := carapace.Gen(generateCmd)
-	comps.PreRun(func(cmd *cobra.Command, args []string) {
-		preRun(cmd, args)
-	})
-
 	// Session flags and completions.
 	coreImplantFlags("session", generateCmd)
 	compileImplantFlags("session", generateCmd)
@@ -52,6 +43,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	// Beacon flags and completions.
 	coreImplantFlags("beacon", generateBeaconCmd)
 	compileImplantFlags("beacon", generateBeaconCmd)
+	coreBeaconFlags("beacon", generateBeaconCmd)
 	coreImplantFlagCompletions(generateBeaconCmd, con)
 
 	generateCmd.AddCommand(generateBeaconCmd)
@@ -210,6 +202,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	// Beacon flags and completions.
 	coreImplantFlags("beacon", profilesNewBeaconCmd)
 	compileImplantFlags("beacon", profilesNewBeaconCmd)
+	coreBeaconFlags("beacon", profilesNewBeaconCmd)
 	coreImplantFlagCompletions(profilesNewBeaconCmd, con)
 
 	profilesRmCmd := &cobra.Command{

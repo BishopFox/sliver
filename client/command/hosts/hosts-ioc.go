@@ -26,14 +26,13 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
 )
 
-// HostsIOCCmd - Remove a host from the database
+// HostsIOCCmd - Remove a host from the database.
 func HostsIOCCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	host, err := SelectHost(con)
 	if err != nil {

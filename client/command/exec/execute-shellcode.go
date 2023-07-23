@@ -26,18 +26,16 @@ import (
 	"log"
 	"os"
 
-	"golang.org/x/term"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+	"google.golang.org/protobuf/proto"
 )
 
-// ExecuteShellcodeCmd - Execute shellcode in-memory
+// ExecuteShellcodeCmd - Execute shellcode in-memory.
 func ExecuteShellcodeCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -128,7 +126,7 @@ func ExecuteShellcodeCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 	}
 }
 
-// PrintExecuteShellcode - Display result of shellcode execution
+// PrintExecuteShellcode - Display result of shellcode execution.
 func PrintExecuteShellcode(task *sliverpb.Task, con *console.SliverClient) {
 	if task.Response.GetErr() != "" {
 		con.PrintErrorf("%s\n", task.Response.GetErr())

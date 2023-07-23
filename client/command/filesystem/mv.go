@@ -21,13 +21,11 @@ package filesystem
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
 func MvCmd(cmd *cobra.Command, con *console.SliverClient, args []string) (err error) {
@@ -77,7 +75,7 @@ func MvCmd(cmd *cobra.Command, con *console.SliverClient, args []string) (err er
 	return
 }
 
-// PrintMv - Print the renamed file
+// PrintMv - Print the renamed file.
 func PrintMv(mv *sliverpb.Mv, con *console.SliverClient) {
 	if mv.Response != nil && mv.Response.Err != "" {
 		con.PrintErrorf("%s\n", mv.Response.Err)

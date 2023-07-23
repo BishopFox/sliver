@@ -26,14 +26,13 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/util"
+	"github.com/spf13/cobra"
 )
 
-// AliasesInstallCmd - Install an alias
+// AliasesInstallCmd - Install an alias.
 func AliasesInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	aliasLocalPath := args[0]
 	fi, err := os.Stat(aliasLocalPath)
@@ -48,7 +47,7 @@ func AliasesInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 	}
 }
 
-// Install an extension from a directory
+// Install an extension from a directory.
 func installFromDir(aliasLocalPath string, con *console.SliverClient) {
 	manifestData, err := ioutil.ReadFile(filepath.Join(aliasLocalPath, ManifestFileName))
 	if err != nil {
@@ -101,7 +100,7 @@ func installFromDir(aliasLocalPath string, con *console.SliverClient) {
 	con.Printf("done!\n")
 }
 
-// Install an extension from a .tar.gz file
+// Install an extension from a .tar.gz file.
 func InstallFromFile(aliasGzFilePath string, autoOverwrite bool, con *console.SliverClient) *string {
 	manifestData, err := util.ReadFileFromTarGz(aliasGzFilePath, fmt.Sprintf("./%s", ManifestFileName))
 	if err != nil {

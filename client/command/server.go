@@ -40,7 +40,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	sgn "github.com/bishopfox/sliver/client/command/shikata-ga-nai"
-	// "github.com/bishopfox/sliver/client/command/taskmany".
+	"github.com/bishopfox/sliver/client/command/taskmany"
 	"github.com/bishopfox/sliver/client/command/update"
 	"github.com/bishopfox/sliver/client/command/use"
 	"github.com/bishopfox/sliver/client/command/websites"
@@ -54,7 +54,7 @@ import (
 
 // ServerCommands returns all commands bound to the server menu, optionally
 // accepting a function returning a list of additional (admin) commands.
-func ServerCommands(con *client.SliverClient, serverCmds console.Commands) console.Commands {
+func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command) console.Commands {
 	serverCommands := func() *cobra.Command {
 		server := &cobra.Command{
 			Short: "Server commands",
@@ -63,9 +63,15 @@ func ServerCommands(con *client.SliverClient, serverCmds console.Commands) conso
 			},
 		}
 
+		// Utility function to be used for binding new commands to
+		// the sliver menu: call the function with the name of the
+		// group under which this/these commands should be added,
+		// and the group will be automatically created if needed.
+		bind := makeBind(server, con)
+
 		if serverCmds != nil {
-			server.AddGroup(&cobra.Group{ID: consts.GenericHelpGroup, Title: consts.GenericHelpGroup})
-			server.AddCommand(serverCmds())
+			server.AddGroup(&cobra.Group{ID: consts.MultiplayerHelpGroup, Title: consts.MultiplayerHelpGroup})
+			server.AddCommand(serverCmds()...)
 		}
 
 		// [ Bind commands ] --------------------------------------------------------
@@ -77,7 +83,7 @@ func ServerCommands(con *client.SliverClient, serverCmds console.Commands) conso
 		// the present calls.
 
 		// Core
-		bind(consts.GenericHelpGroup, server, con,
+		bind(consts.GenericHelpGroup,
 			exit.Command,
 			licenses.Commands,
 			settings.Commands,
@@ -90,21 +96,21 @@ func ServerCommands(con *client.SliverClient, serverCmds console.Commands) conso
 		)
 
 		// C2 Network
-		bind(consts.NetworkHelpGroup, server, con,
+		bind(consts.NetworkHelpGroup,
 			jobs.Commands,
 			websites.Commands,
 			wireguard.Commands,
 		)
 
 		// Payloads
-		bind(consts.PayloadsHelpGroup, server, con,
+		bind(consts.PayloadsHelpGroup,
 			sgn.Commands,
 			generate.Commands,
 			builders.Commands,
 		)
 
 		// Slivers
-		bind(consts.SliverHelpGroup, server, con,
+		bind(consts.SliverHelpGroup,
 			use.Commands,
 			info.Commands,
 			sessions.Commands,
@@ -113,7 +119,7 @@ func ServerCommands(con *client.SliverClient, serverCmds console.Commands) conso
 			loot.Commands,
 			hosts.Commands,
 			reaction.Commands,
-			// taskmany.Command,
+			taskmany.Command,
 		)
 
 		// [ Post-command declaration setup ]-----------------------------------------

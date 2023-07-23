@@ -25,15 +25,14 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// ExecuteAssemblyCmd - Execute a .NET assembly in-memory
+// ExecuteAssemblyCmd - Execute a .NET assembly in-memory.
 func ExecuteAssemblyCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {

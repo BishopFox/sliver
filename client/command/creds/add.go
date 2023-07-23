@@ -37,7 +37,7 @@ const (
 	CSVFormat                  = "csv"       // username,hash\n
 )
 
-// CredsCmd - Add new credentials
+// CredsCmd - Add new credentials.
 func CredsAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	collection, _ := cmd.Flags().GetString("collection")
 	username, _ := cmd.Flags().GetString("username")
@@ -76,7 +76,7 @@ func CredsAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	PrintCreds(creds.Credentials, con)
 }
 
-// CredsCmd - Add new credentials
+// CredsCmd - Add new credentials.
 func CredsAddHashFileCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	collection, _ := cmd.Flags().GetString("collection")
 	filePath := args[0]

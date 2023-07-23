@@ -30,7 +30,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ExitCmd - Exit the console
+// ExitCmd - Exit the console.
 func ExitCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	fmt.Println("Exiting...")
 	if con.IsServer {

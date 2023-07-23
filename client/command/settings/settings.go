@@ -22,14 +22,13 @@ import (
 	"strconv"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
 )
 
-// SettingsCmd - The client settings command
+// SettingsCmd - The client settings command.
 func SettingsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
@@ -53,7 +52,7 @@ func SettingsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	con.Printf("%s\n", tw.Render())
 }
 
-// SettingsAlwaysOverflow - Toggle always overflow
+// SettingsAlwaysOverflow - Toggle always overflow.
 func SettingsAlwaysOverflow(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
@@ -67,7 +66,7 @@ func SettingsAlwaysOverflow(cmd *cobra.Command, con *console.SliverClient, args 
 	con.PrintInfof("Always overflow = %v\n", con.Settings.AlwaysOverflow)
 }
 
-// SettingsConsoleLogs - Toggle console logs
+// SettingsConsoleLogs - Toggle console logs.
 func SettingsConsoleLogs(cmd *cobra.Command, con *console.SliverClient) {
 	var err error
 	if con.Settings == nil {
@@ -81,7 +80,7 @@ func SettingsConsoleLogs(cmd *cobra.Command, con *console.SliverClient) {
 	con.PrintInfof("Console Logs = %v\n", con.Settings.ConsoleLogs)
 }
 
-// SettingsSmallTerm - Modify small terminal width value
+// SettingsSmallTerm - Modify small terminal width value.
 func SettingsSmallTerm(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
@@ -111,7 +110,7 @@ func SettingsSmallTerm(cmd *cobra.Command, con *console.SliverClient, args []str
 	con.PrintInfof("Small terminal width set to %d\n", con.Settings.SmallTermWidth)
 }
 
-// SettingsTablesCmd - The client settings command
+// SettingsTablesCmd - The client settings command.
 func SettingsTablesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
@@ -143,7 +142,7 @@ func SettingsTablesCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 	}
 }
 
-// SettingsSaveCmd - The client settings command
+// SettingsSaveCmd - The client settings command.
 func SettingsSaveCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
@@ -161,7 +160,7 @@ func SettingsSaveCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 }
 
-// SettingsAlwaysOverflow - Toggle always overflow
+// SettingsAlwaysOverflow - Toggle always overflow.
 func SettingsUserConnect(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {

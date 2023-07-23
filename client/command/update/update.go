@@ -36,18 +36,17 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/cheggaaa/pb/v3"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/util"
+	"github.com/cheggaaa/pb/v3"
+	"github.com/spf13/cobra"
 )
 
-// UpdateCmd - Check for updates
+// UpdateCmd - Check for updates.
 func UpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	VerboseVersionsCmd(cmd, con, args)
 
@@ -126,7 +125,7 @@ func UpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-// VerboseVersionsCmd - Get verbose version information about the client and server
+// VerboseVersionsCmd - Get verbose version information about the client and server.
 func VerboseVersionsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	clientVer := version.FullVersion()
 	serverVer, err := con.Rpc.GetVersion(context.Background(), &commonpb.Empty{})

@@ -23,14 +23,13 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -38,7 +37,7 @@ const (
 	defaultMimeType = "application/octet-stream"
 )
 
-// WebsitesCmd - Manage websites
+// WebsitesCmd - Manage websites.
 func WebsitesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if len(args) > 0 {
 		websiteName := args[0]
@@ -48,7 +47,7 @@ func WebsitesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-// ListWebsites - Display a list of websites
+// ListWebsites - Display a list of websites.
 func ListWebsites(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	websites, err := con.Rpc.Websites(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -66,7 +65,7 @@ func ListWebsites(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	}
 }
 
-// ListWebsiteContent - List the static contents of a website
+// ListWebsiteContent - List the static contents of a website.
 func ListWebsiteContent(websiteName string, con *console.SliverClient) {
 	website, err := con.Rpc.Website(context.Background(), &clientpb.Website{
 		Name: websiteName,

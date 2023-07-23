@@ -25,17 +25,15 @@ import (
 	"os"
 	"path/filepath"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// UploadCmd - Upload a file to the remote system
+// UploadCmd - Upload a file to the remote system.
 func UploadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -110,7 +108,7 @@ func UploadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-// PrintUpload - Print the result of the upload command
+// PrintUpload - Print the result of the upload command.
 func PrintUpload(upload *sliverpb.Upload, con *console.SliverClient) {
 	if upload.Response != nil && upload.Response.Err != "" {
 		con.PrintErrorf("%s\n", upload.Response.Err)

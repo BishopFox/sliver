@@ -23,16 +23,15 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/spf13/cobra"
 )
 
-// ErrNonReactableEvent - Event does not exist or is not supported by reactions
+// ErrNonReactableEvent - Event does not exist or is not supported by reactions.
 var ErrNonReactableEvent = errors.New("non-reactable event type")
 
-// ReactionSetCmd - Set a reaction upon an event
+// ReactionSetCmd - Set a reaction upon an event.
 func ReactionSetCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	eventType, err := getEventType(cmd, con)
 	if err != nil {

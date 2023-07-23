@@ -24,15 +24,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
 )
 
-// TasksCmd - Manage beacon tasks
+// TasksCmd - Manage beacon tasks.
 func TasksCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	beacon := con.ActiveTarget.GetBeaconInteractive()
 	if beacon == nil {
@@ -46,7 +45,7 @@ func TasksCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	PrintBeaconTasks(beaconTasks.Tasks, cmd, con)
 }
 
-// PrintBeaconTasks - Print beacon tasks
+// PrintBeaconTasks - Print beacon tasks.
 func PrintBeaconTasks(tasks []*clientpb.BeaconTask, cmd *cobra.Command, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))

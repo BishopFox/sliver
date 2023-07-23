@@ -25,13 +25,12 @@ import (
 	"log"
 	"os"
 
-	"github.com/spf13/cobra"
-	"golang.org/x/term"
-
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 const (
@@ -40,7 +39,7 @@ const (
 	linux   = "linux"
 )
 
-// ShellCmd - Start an interactive shell on the remote system
+// ShellCmd - Start an interactive shell on the remote system.
 func ShellCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {

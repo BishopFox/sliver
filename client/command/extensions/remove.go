@@ -25,14 +25,13 @@ import (
 	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/util"
+	"github.com/spf13/cobra"
 )
 
-// ExtensionsRemoveCmd - Remove an extension
+// ExtensionsRemoveCmd - Remove an extension.
 func ExtensionsRemoveCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name := args[0]
 	if name == "" {
@@ -54,7 +53,7 @@ func ExtensionsRemoveCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 	}
 }
 
-// RemoveExtensionByCommandName - Remove an extension by command name
+// RemoveExtensionByCommandName - Remove an extension by command name.
 func RemoveExtensionByCommandName(commandName string, con *console.SliverClient) error {
 	if commandName == "" {
 		return errors.New("command name is required")

@@ -27,17 +27,16 @@ import (
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// CatCmd - Display the contents of a remote file
+// CatCmd - Display the contents of a remote file.
 func CatCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -80,7 +79,7 @@ func CatCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-// PrintCat - Print the download to stdout
+// PrintCat - Print the download to stdout.
 func PrintCat(download *sliverpb.Download, cmd *cobra.Command, con *console.SliverClient) {
 	var (
 		lootDownload bool = true

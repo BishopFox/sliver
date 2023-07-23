@@ -36,16 +36,16 @@ import (
 )
 
 // wasmMaxModuleSize - Arbitrary 1.5Gb limit to put us well under the 2Gb max gRPC message size
-// this is also the *compressed size* limit, so it's pretty generous
+// this is also the *compressed size* limit, so it's pretty generous.
 const (
 	gb                = 1024 * 1024 * 1024
 	wasmMaxModuleSize = gb + (gb / 2)
 )
 
-// WasmCmd - session/beacon id -> list of loaded wasm extension names
+// WasmCmd - session/beacon id -> list of loaded wasm extension names.
 var wasmRegistrationCache = make(map[string][]string)
 
-// WasmCmd - Execute a WASM module extension
+// WasmCmd - Execute a WASM module extension.
 func WasmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -120,7 +120,7 @@ func isRegistered(name string, cmd *cobra.Command, con *console.SliverClient) bo
 	return false
 }
 
-// idOf - Quickly return the id of the current session or beacon
+// idOf - Quickly return the id of the current session or beacon.
 func idOf(con *console.SliverClient) string {
 	if con.ActiveTarget != nil {
 		if session := con.ActiveTarget.GetSession(); session != nil {
@@ -253,7 +253,7 @@ func registerWasmExtension(wasmFilePath string, cmd *cobra.Command, con *console
 	return nil
 }
 
-// WasmLsCmd - Execute a WASM module extension
+// WasmLsCmd - Execute a WASM module extension.
 func WasmLsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {

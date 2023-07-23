@@ -29,24 +29,22 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
 )
 
 var (
-	// ErrNoHosts - No hosts in database
+	// ErrNoHosts - No hosts in database.
 	ErrNoHosts = errors.New("no hosts")
-	// ErrNoSelection - No selection made
+	// ErrNoSelection - No selection made.
 	ErrNoSelection = errors.New("no selection")
 )
 
-// HostsCmd - Main hosts command
+// HostsCmd - Main hosts command.
 func HostsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	allHosts, err := con.Rpc.Hosts(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -126,7 +124,7 @@ func hostBeacons(hostUUID string, con *console.SliverClient) string {
 	}
 }
 
-// SessionsForHost - Find session for a given host by id
+// SessionsForHost - Find session for a given host by id.
 func SessionsForHost(hostUUID string, con *console.SliverClient) []*clientpb.Session {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -141,7 +139,7 @@ func SessionsForHost(hostUUID string, con *console.SliverClient) []*clientpb.Ses
 	return hostSessions
 }
 
-// SelectHost - Interactively select a host from the database
+// SelectHost - Interactively select a host from the database.
 func SelectHost(con *console.SliverClient) (*clientpb.Host, error) {
 	allHosts, err := con.Rpc.Hosts(context.Background(), &commonpb.Empty{})
 	if err != nil {

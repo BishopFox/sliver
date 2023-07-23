@@ -10,13 +10,12 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/rsteube/carapace"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/rsteube/carapace"
 )
 
-// SelectBeaconTask - Select a beacon task interactively
+// SelectBeaconTask - Select a beacon task interactively.
 func SelectBeaconTask(tasks []*clientpb.BeaconTask) (*clientpb.BeaconTask, error) {
 	// Render selection table
 	buf := bytes.NewBufferString("")
@@ -114,7 +113,7 @@ func BeaconTaskIDCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(callback)
 }
 
-// BeaconPendingTasksCompleter completes pending tasks
+// BeaconPendingTasksCompleter completes pending tasks.
 func BeaconPendingTasksCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(ctx carapace.Context) carapace.Action {
 		beacon := con.ActiveTarget.GetBeacon()

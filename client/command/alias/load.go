@@ -28,11 +28,6 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	app "github.com/reeflective/console"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -40,6 +35,10 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
+	app "github.com/reeflective/console"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -53,7 +52,7 @@ const (
 )
 
 var (
-	// alias name -> manifest/command
+	// alias name -> manifest/command.
 	loadedAliases = map[string]*loadedAlias{}
 
 	defaultHostProc = map[string]string{
@@ -63,20 +62,20 @@ var (
 	}
 )
 
-// Ties the manifest struct to the command struct
+// Ties the manifest struct to the command struct.
 type loadedAlias struct {
 	Manifest *AliasManifest
 	Command  *cobra.Command
 }
 
-// AliasFile - An OS/Arch specific file
+// AliasFile - An OS/Arch specific file.
 type AliasFile struct {
 	OS   string `json:"os"`
 	Arch string `json:"arch"`
 	Path string `json:"path"`
 }
 
-// AliasManifest - The manifest for an alias, contains metadata
+// AliasManifest - The manifest for an alias, contains metadata.
 type AliasManifest struct {
 	Name           string `json:"name"`
 	Version        string `json:"version"`
@@ -135,7 +134,7 @@ func AliasesLoadCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 	}
 }
 
-// LoadAlias - Load an alias into the Sliver shell from a given directory
+// LoadAlias - Load an alias into the Sliver shell from a given directory.
 func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClient) (*AliasManifest, error) {
 	// retrieve alias manifest
 	var err error
@@ -205,7 +204,7 @@ func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClien
 	return aliasManifest, nil
 }
 
-// ParseAliasManifest - Parse an alias manifest
+// ParseAliasManifest - Parse an alias manifest.
 func ParseAliasManifest(data []byte) (*AliasManifest, error) {
 	// parse it
 	alias := &AliasManifest{}
@@ -474,25 +473,25 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 }
 
-// PrintSpawnDLLOutput - Prints the output of a spawn dll command
+// PrintSpawnDLLOutput - Prints the output of a spawn dll command.
 func PrintSpawnDLLOutput(cmdName string, spawnDllResp *sliverpb.SpawnDll, outFilePath *os.File, con *console.SliverClient) {
 	con.PrintInfof("%s output:\n%s", cmdName, spawnDllResp.GetResult())
 	if outFilePath != nil {
-		outFilePath.Write([]byte(spawnDllResp.GetResult()))
+		outFilePath.WriteString(spawnDllResp.GetResult())
 		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
 	}
 }
 
-// PrintSideloadOutput - Prints the output of a sideload command
+// PrintSideloadOutput - Prints the output of a sideload command.
 func PrintSideloadOutput(cmdName string, sideloadResp *sliverpb.Sideload, outFilePath *os.File, con *console.SliverClient) {
 	con.PrintInfof("%s output:\n%s", cmdName, sideloadResp.GetResult())
 	if outFilePath != nil {
-		outFilePath.Write([]byte(sideloadResp.GetResult()))
+		outFilePath.WriteString(sideloadResp.GetResult())
 		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
 	}
 }
 
-// PrintAssemblyOutput - Prints the output of an execute-assembly command
+// PrintAssemblyOutput - Prints the output of an execute-assembly command.
 func PrintAssemblyOutput(cmdName string, execAsmResp *sliverpb.ExecuteAssembly, outFilePath *os.File, con *console.SliverClient) {
 	con.PrintInfof("%s output:\n%s", cmdName, string(execAsmResp.GetOutput()))
 	if outFilePath != nil {

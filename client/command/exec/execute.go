@@ -23,17 +23,15 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// ExecuteCmd - Run a command on the remote system
+// ExecuteCmd - Run a command on the remote system.
 func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -136,7 +134,7 @@ func HandleExecuteResponse(exec *sliverpb.Execute, cmdPath string, hostName stri
 	PrintExecute(exec, cmd, con)
 }
 
-// PrintExecute - Print the output of an executed command
+// PrintExecute - Print the output of an executed command.
 func PrintExecute(exec *sliverpb.Execute, cmd *cobra.Command, con *console.SliverClient) {
 	ignoreStderr, _ := cmd.Flags().GetBool("ignore-stderr")
 	stdout, _ := cmd.Flags().GetString("stdout")
@@ -258,7 +256,7 @@ func SaveExecutionOutput(executionOutput string, commandName string, hostName st
 	}
 
 	if outFilePath != nil {
-		outFilePath.Write([]byte(executionOutput))
+		outFilePath.WriteString(executionOutput)
 		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
 	}
 }

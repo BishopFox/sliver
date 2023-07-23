@@ -26,13 +26,12 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/spf13/cobra"
 )
 
-// ReactionUnsetCmd - Unset a reaction upon an event
+// ReactionUnsetCmd - Unset a reaction upon an event.
 func ReactionUnsetCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	reactionID, _ := cmd.Flags().GetInt("id")
 	if reactionID == 0 {

@@ -21,15 +21,14 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// MemfilesRmCmd - Remove a memfile
+// MemfilesRmCmd - Remove a memfile.
 func MemfilesRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -67,7 +66,7 @@ func MemfilesRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 	}
 }
 
-// PrintRmMemfile - Remove a memfile
+// PrintRmMemfile - Remove a memfile.
 func PrintRmMemfile(memfilesList *sliverpb.MemfilesRm, con *console.SliverClient) {
 	if memfilesList.Response != nil && memfilesList.Response.Err != "" {
 		con.PrintErrorf("%s\n", memfilesList.Response.Err)

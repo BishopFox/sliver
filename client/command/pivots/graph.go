@@ -23,13 +23,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/spf13/cobra"
 )
 
-// PivotsGraphCmd - Display pivots for all sessions
+// PivotsGraphCmd - Display pivots for all sessions.
 func PivotsGraphCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	graph, err := con.Rpc.PivotGraph(context.Background(), &commonpb.Empty{})
 	if err != nil {

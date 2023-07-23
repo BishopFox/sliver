@@ -22,17 +22,15 @@ import (
 	"context"
 	"fmt"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// MsfInjectCmd - Inject a metasploit payload into a remote process
+// MsfInjectCmd - Inject a metasploit payload into a remote process.
 func MsfInjectCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -99,7 +97,7 @@ func MsfInjectCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	}
 }
 
-// PrintMsfRemote - Print the results of the remote injection attempt
+// PrintMsfRemote - Print the results of the remote injection attempt.
 func PrintMsfRemote(msfRemote *sliverpb.Task, con *console.SliverClient) {
 	if msfRemote.Response == nil {
 		con.PrintErrorf("Empty response from msf payload injection task")

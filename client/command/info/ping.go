@@ -4,13 +4,12 @@ import (
 	"context"
 	insecureRand "math/rand"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
 )
 
-// PingCmd - Send a round trip C2 message to an implant (does not use ICMP)
+// PingCmd - Send a round trip C2 message to an implant (does not use ICMP).
 func PingCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {

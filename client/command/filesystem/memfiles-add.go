@@ -20,15 +20,14 @@ package filesystem
 import (
 	"context"
 
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// MemfilesAddCmd - Add memfile
+// MemfilesAddCmd - Add memfile.
 func MemfilesAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -57,7 +56,7 @@ func MemfilesAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 	}
 }
 
-// PrintAddMemfile - Print the memfiles response
+// PrintAddMemfile - Print the memfiles response.
 func PrintAddMemfile(memfilesAdd *sliverpb.MemfilesAdd, con *console.SliverClient) {
 	if memfilesAdd.Response != nil && memfilesAdd.Response.Err != "" {
 		con.PrintErrorf("%s\n", memfilesAdd.Response.Err)

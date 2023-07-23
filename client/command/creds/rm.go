@@ -27,7 +27,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// CredsCmd - Add new credentials
+// CredsCmd - Add new credentials.
 func CredsRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var id string
 	if len(args) > 0 {

@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // Commands returns the `sessions` command and its subcommands.
@@ -61,7 +60,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	return []*cobra.Command{sessionsCmd}
 }
 
-// SessionIDCompleter completes session IDs
+// SessionIDCompleter completes session IDs.
 func SessionIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
 		results := make([]string, 0)

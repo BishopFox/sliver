@@ -24,14 +24,13 @@ import (
 	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/util"
+	"github.com/spf13/cobra"
 )
 
-// ExtensionsInstallCmd - Install an extension
+// ExtensionsInstallCmd - Install an extension.
 func ExtensionsInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	extLocalPath := args[0]
 
@@ -47,7 +46,7 @@ func ExtensionsInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []
 	}
 }
 
-// Install an extension from a directory
+// Install an extension from a directory.
 func installFromDir(extLocalPath string, con *console.SliverClient) {
 	manifestData, err := os.ReadFile(filepath.Join(extLocalPath, ManifestFileName))
 	if err != nil {
@@ -98,7 +97,7 @@ func installFromDir(extLocalPath string, con *console.SliverClient) {
 	}
 }
 
-// InstallFromFilePath - Install an extension from a .tar.gz file
+// InstallFromFilePath - Install an extension from a .tar.gz file.
 func InstallFromFilePath(extLocalPath string, autoOverwrite bool, con *console.SliverClient) *string {
 	manifestData, err := util.ReadFileFromTarGz(extLocalPath, fmt.Sprintf("./%s", ManifestFileName))
 	if err != nil {

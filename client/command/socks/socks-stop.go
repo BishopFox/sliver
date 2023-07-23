@@ -21,14 +21,13 @@ package socks
 import (
 	"context"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
 )
 
-// SocksStopCmd - Remove an existing tunneled port forward
+// SocksStopCmd - Remove an existing tunneled port forward.
 func SocksStopCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	socksID, _ := cmd.Flags().GetUint64("id")
 	if socksID < 1 {

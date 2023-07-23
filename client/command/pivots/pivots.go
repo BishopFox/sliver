@@ -21,15 +21,14 @@ package pivots
 import (
 	"context"
 
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
 )
 
-// PivotsCmd - Display pivots for all sessions
+// PivotsCmd - Display pivots for all sessions.
 func PivotsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
@@ -54,7 +53,7 @@ func PivotsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-// PrintPivotListeners - Print a table of pivot listeners
+// PrintPivotListeners - Print a table of pivot listeners.
 func PrintPivotListeners(pivotListeners []*sliverpb.PivotListener, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
@@ -75,7 +74,7 @@ func PrintPivotListeners(pivotListeners []*sliverpb.PivotListener, con *console.
 	con.Printf("%s\n", tw.Render())
 }
 
-// PivotTypeToString - Convert a pivot type to a human string
+// PivotTypeToString - Convert a pivot type to a human string.
 func PivotTypeToString(pivotType sliverpb.PivotType) string {
 	switch pivotType {
 	case sliverpb.PivotType_TCP:

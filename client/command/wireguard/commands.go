@@ -1,14 +1,13 @@
 package wireguard
 
 import (
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // Commands returns the “ command and its subcommands.
@@ -39,14 +38,17 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 // SliverCommands returns all Wireguard commands that can be used on an active target.
 func SliverCommands(con *console.SliverClient) []*cobra.Command {
 	wgPortFwdCmd := &cobra.Command{
-		Use:   consts.WgPortFwdStr,
-		Short: "List ports forwarded by the WireGuard tun interface",
-		Long:  help.GetHelpFor([]string{consts.WgPortFwdStr}),
+		Use:     consts.WgPortFwdStr,
+		Short:   "List ports forwarded by the WireGuard tun interface",
+		Long:    help.GetHelpFor([]string{consts.WgPortFwdStr}),
+		GroupID: consts.NetworkHelpGroup,
+		Annotations: flags.RestrictTargets(
+			consts.WireguardCmdsFilter,
+			consts.SessionCmdsFilter,
+		),
 		Run: func(cmd *cobra.Command, args []string) {
 			WGPortFwdListCmd(cmd, con, args)
 		},
-		GroupID:     consts.NetworkHelpGroup,
-		Annotations: flags.RestrictTargets(consts.WireguardCmdsFilter),
 	}
 	flags.Bind("wg portforward", true, wgPortFwdCmd, func(f *pflag.FlagSet) {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
