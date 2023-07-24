@@ -25,14 +25,13 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/spf13/cobra"
 )
 
-// LootAddLocalCmd - Add a local file to the server as loot
+// LootAddLocalCmd - Add a local file to the server as loot.
 func LootAddLocalCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	localPath := args[0]
 	if _, err := os.Stat(localPath); os.IsNotExist(err) {

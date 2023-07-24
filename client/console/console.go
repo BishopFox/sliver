@@ -42,6 +42,7 @@ import (
 	"github.com/reeflective/console"
 	"github.com/reeflective/readline"
 	"github.com/reeflective/team/client"
+	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slog"
 	"google.golang.org/grpc"
@@ -213,9 +214,29 @@ func (con *SliverClient) connect(conn *grpc.ClientConn) {
 	con.startClientLog()
 }
 
+// ConnectCompletion is a special connection mode which should be
+// called in completer functions that need to use the client RPC.
+//
+// This function is safe to call regardless of the client being used
+// as a closed-loop console mode or in an exec-once CLI mode.
+func (con *SliverClient) ConnectCompletion() (carapace.Action, error) {
+	con.IsCompleting = true
+
+	err := con.Teamclient.Connect()
+	if err != nil {
+		return carapace.ActionMessage("connection error: %s", err), nil
+	}
+
+	return carapace.ActionValues(), nil
+}
+
+// Disconnect disconnectss the client from its Sliver server,
+// closing all its event/log streams and files, then closing
+// the core Sliver RPC client connection.
+// After this call, the client can reconnect should it want to.
 func (con *SliverClient) Disconnect() error {
 	// Close all RPC streams and local files.
-	con.CloseClientLog()
+	con.closeClientLogs()
 
 	// Close the RPC client connection.
 	return con.Teamclient.Disconnect()

@@ -28,14 +28,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
 func ValidateLootFileType(lootFileTypeInput string, data []byte) clientpb.FileType {
@@ -53,7 +52,7 @@ func ValidateLootFileType(lootFileTypeInput string, data []byte) clientpb.FileTy
 
 /*
 Eventually this function needs to be refactored out, but we made the decision to
-duplicate it for now
+duplicate it for now.
 */
 func PerformDownload(remotePath string, fileName string, cmd *cobra.Command, con *console.SliverClient) (*sliverpb.Download, error) {
 	ctrl := make(chan bool)
@@ -197,7 +196,7 @@ func LootDownload(download *sliverpb.Download, lootName string, fileType clientp
 	}
 }
 
-// LootAddRemoteCmd - Add a file from the remote system to the server as loot
+// LootAddRemoteCmd - Add a file from the remote system to the server as loot.
 func LootAddRemoteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {

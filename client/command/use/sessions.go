@@ -19,13 +19,12 @@ package use
 */
 
 import (
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/spf13/cobra"
 )
 
-// UseSessionCmd - Change the active session
+// UseSessionCmd - Change the active session.
 func UseSessionCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, err := sessions.SelectSession(false, con)
 	if session != nil {

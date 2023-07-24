@@ -68,6 +68,10 @@ func SelectPivotListener(listeners []*sliverpb.PivotListener, con *console.Slive
 // PivotIDCompleter completes pivot listeners' IDs.
 func PivotIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
+		if msg, err := con.ConnectCompletion(); err != nil {
+			return msg
+		}
+
 		results := make([]string, 0)
 
 		pivotListeners, err := con.Rpc.PivotSessionListeners(context.Background(), &sliverpb.PivotListenersReq{

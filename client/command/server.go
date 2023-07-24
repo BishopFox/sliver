@@ -48,7 +48,6 @@ import (
 	client "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/reeflective/console"
-	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 )
 
@@ -206,19 +205,6 @@ func BindRunners(root *cobra.Command, pre bool, runs ...func(_ *cobra.Command, _
 			cmd.PreRunE = cRun
 		} else {
 			cmd.PostRunE = cRun
-		}
-
-		// Completions use this pre-runner as well.
-		cmdComps := carapace.Gen(cmd)
-
-		completionRun := func(c *cobra.Command, args []string) {
-			cRun(c, args)
-		}
-
-		if pre {
-			cmdComps.PreRun(completionRun)
-		} else {
-			// cmdComps.PostRun(completionRun)
 		}
 	}
 }

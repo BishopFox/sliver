@@ -27,17 +27,16 @@ import (
 	"unicode/utf8"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/util"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
 )
 
-// LootCmd - The loot root command
+// LootCmd - The loot root command.
 func LootCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	allLoot, err := con.Rpc.LootAll(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -47,7 +46,7 @@ func LootCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	PrintAllFileLootTable(allLoot, con)
 }
 
-// PrintAllFileLootTable - Displays a table of all file loot
+// PrintAllFileLootTable - Displays a table of all file loot.
 func PrintAllFileLootTable(allLoot *clientpb.AllLoot, con *console.SliverClient) {
 	if allLoot == nil || len(allLoot.Loot) == 0 {
 		con.PrintInfof("No loot 🙁\n")
@@ -76,7 +75,7 @@ func PrintAllFileLootTable(allLoot *clientpb.AllLoot, con *console.SliverClient)
 	con.Printf("%s\n", tw.Render())
 }
 
-// PrintLootFile - Display the contents of a piece of loot
+// PrintLootFile - Display the contents of a piece of loot.
 func PrintLootFile(loot *clientpb.Loot, con *console.SliverClient) {
 	if loot.File == nil {
 		return
@@ -95,7 +94,7 @@ func PrintLootFile(loot *clientpb.Loot, con *console.SliverClient) {
 	}
 }
 
-// Any loot with a "File" can be saved to disk
+// Any loot with a "File" can be saved to disk.
 func saveLootToDisk(cmd *cobra.Command, loot *clientpb.Loot) (string, error) {
 	if loot.File == nil {
 		return "", errors.New("loot does not contain a file")

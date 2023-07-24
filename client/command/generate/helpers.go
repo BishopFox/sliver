@@ -61,6 +61,10 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverClient
 // FormatCompleter completes builds' architectures.
 func ArchCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
+		if msg, err := con.ConnectCompletion(); err != nil {
+			return msg
+		}
+
 		compiler, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
 		if err != nil {
 			return carapace.ActionMessage("No compiler info: %s", err.Error())
@@ -95,6 +99,10 @@ func ArchCompleter(con *console.SliverClient) carapace.Action {
 // FormatCompleter completes build operating systems.
 func OSCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
+		if msg, err := con.ConnectCompletion(); err != nil {
+			return msg
+		}
+
 		compiler, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
 		if err != nil {
 			return carapace.ActionMessage("No compiler info: %s", err.Error())
@@ -138,6 +146,10 @@ func FormatCompleter() carapace.Action {
 // TrafficEncoderCompleter - Completes the names of traffic encoders.
 func TrafficEncodersCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		if msg, err := con.ConnectCompletion(); err != nil {
+			return msg
+		}
+
 		grpcCtx, cancel := con.GrpcContext(nil)
 		defer cancel()
 		trafficEncoders, err := con.Rpc.TrafficEncoderMap(grpcCtx, &commonpb.Empty{})

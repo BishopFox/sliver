@@ -23,17 +23,16 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/spf13/cobra"
 )
 
 // dllhijack --ref-path c:\windows\system32\msasn1.dll --file /tmp/runner.dll TARGET_PATH
 // dllhijack --ref-path c:\windows\system32\msasn1.dll --profile dll  TARGET_PATH
 // dllhijack --ref-path c:\windows\system32\msasn1.dll --ref-file /tmp/ref.dll --profile dll  TARGET_PATH
 
-// DllHijackCmd -- implements the dllhijack command
+// DllHijackCmd -- implements the dllhijack command.
 func DllHijackCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var (
 		localRefData  []byte

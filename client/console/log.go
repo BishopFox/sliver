@@ -51,6 +51,16 @@ func (l *ConsoleClientLogger) Write(buf []byte) (int, error) {
 	return len(buf), err
 }
 
+// ClientLogStream requires a log stream name, used to save the logs
+// going through this stream in a specific log subdirectory/file.
+func (con *SliverClient) ClientLogStream(name string) (*ConsoleClientLogger, error) {
+	stream, err := con.Rpc.ClientLog(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	return &ConsoleClientLogger{name: name, Stream: stream}, nil
+}
+
 func (con *SliverClient) startClientLog() error {
 	if con.IsCompleting {
 		return nil
@@ -93,7 +103,7 @@ func (con *SliverClient) startClientLog() error {
 	return nil
 }
 
-func (con *SliverClient) CloseClientLog() {
+func (con *SliverClient) closeClientLogs() {
 	if con.closeLogs == nil {
 		return
 	}
@@ -105,16 +115,6 @@ func (con *SliverClient) CloseClientLog() {
 	con.closeLogs()
 }
 
-// ClientLogStream requires a log stream name, used to save the logs
-// going through this stream in a specific log subdirectory/file.
-func (con *SliverClient) ClientLogStream(name string) (*ConsoleClientLogger, error) {
-	stream, err := con.Rpc.ClientLog(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	return &ConsoleClientLogger{name: name, Stream: stream}, nil
-}
-
 func (con *SliverClient) setupLogger(writers ...io.Writer) {
 	logWriter := io.MultiWriter(writers...)
 	jsonOptions := &slog.HandlerOptions{
@@ -124,16 +124,6 @@ func (con *SliverClient) setupLogger(writers ...io.Writer) {
 
 	// Log all commands before running them.
 	con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.logCommand)
-}
-
-// logCommand logs non empty commands to the client log file.
-func (con *SliverClient) logCommand(args []string) ([]string, error) {
-	if len(args) == 0 {
-		return args, nil
-	}
-	logger := slog.New(con.jsonHandler).With(slog.String("type", "command"))
-	logger.Debug(strings.Join(args, " "))
-	return args, nil
 }
 
 func (con *SliverClient) setupAsciicastRecord(logFile *os.File, server io.Writer) error {
@@ -165,6 +155,16 @@ func (con *SliverClient) setupAsciicastRecord(logFile *os.File, server io.Writer
 	go io.Copy(multiOut, read)
 
 	return nil
+}
+
+// logCommand logs non empty commands to the client log file.
+func (con *SliverClient) logCommand(args []string) ([]string, error) {
+	if len(args) == 0 {
+		return args, nil
+	}
+	logger := slog.New(con.jsonHandler).With(slog.String("type", "command"))
+	logger.Debug(strings.Join(args, " "))
+	return args, nil
 }
 
 func getConsoleLogFile() *os.File {

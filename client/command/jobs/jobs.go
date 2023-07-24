@@ -91,6 +91,10 @@ func PrintJobs(jobs map[uint32]*clientpb.Job, con *console.SliverClient) {
 // JobsIDCompleter completes jobs IDs with descriptions.
 func JobsIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
+		if msg, err := con.ConnectCompletion(); err != nil {
+			return msg
+		}
+
 		jobs, err := con.Rpc.GetJobs(context.Background(), &commonpb.Empty{})
 		if err != nil {
 			return carapace.ActionMessage("No active jobs")

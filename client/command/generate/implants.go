@@ -125,6 +125,10 @@ func PrintImplantBuilds(configs map[string]*clientpb.ImplantConfig, filters Impl
 // ImplantBuildNameCompleter - Completer for implant build names.
 func ImplantBuildNameCompleter(con *console.SliverClient) carapace.Action {
 	comps := func(ctx carapace.Context) carapace.Action {
+		if msg, err := con.ConnectCompletion(); err != nil {
+			return msg
+		}
+
 		var action carapace.Action
 
 		builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
