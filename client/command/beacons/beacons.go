@@ -24,18 +24,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/spf13/cobra"
-	"golang.org/x/term"
-
 	"github.com/bishopfox/sliver/client/command/kill"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
-// BeaconsCmd - Display/interact with beacons
+// BeaconsCmd - Display/interact with beacons.
 func BeaconsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	killFlag, _ := cmd.Flags().GetString("kill")
 	killAll, _ := cmd.Flags().GetBool("kill-all")
@@ -93,7 +92,7 @@ func BeaconsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	PrintBeacons(beacons.Beacons, filter, filterRegex, con)
 }
 
-// PrintBeacons - Display a list of beacons
+// PrintBeacons - Display a list of beacons.
 func PrintBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverClient) {
 	if len(beacons) == 0 {
 		con.PrintInfof("No beacons 🙁\n")
@@ -112,6 +111,7 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	wideTermWidth := con.Settings.SmallTermWidth < width
+	settings.SetMaxTableSize(tw)
 	if wideTermWidth {
 		tw.AppendHeader(table.Row{
 			"ID",

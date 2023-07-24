@@ -3,6 +3,7 @@ package generate
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -122,7 +123,7 @@ func OSCompleter(con *console.SliverClient) carapace.Action {
 		}
 
 		return carapace.ActionValues(results...).Tag("operating systems")
-	})
+	}).Cache(10 * time.Second)
 }
 
 // FormatCompleter completes build formats.

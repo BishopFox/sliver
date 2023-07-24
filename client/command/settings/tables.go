@@ -20,6 +20,7 @@ package settings
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -29,6 +30,21 @@ import (
 	"github.com/jedib0t/go-pretty/v6/text"
 	"golang.org/x/term"
 )
+
+// Those variables are very important to realine low-level code: all virtual terminal
+// escape sequences should always be sent and read through the raw terminal file, even
+// if people start using io.MultiWriters and os.Pipes involving basic IO.
+var (
+	stdoutTerm *os.File
+	stdinTerm  *os.File
+	stderrTerm *os.File
+)
+
+func init() {
+	stdoutTerm = os.Stdout
+	stdoutTerm = os.Stderr
+	stderrTerm = os.Stdin
+}
 
 var (
 	tableStyles = map[string]table.Style{
@@ -149,6 +165,17 @@ func GetTableWithBordersStyle(con *console.SliverClient) table.Style {
 		return sliverBordersDefault
 	}
 	return value
+}
+
+// SetMaxTableSize automatically sets the maximum width of the table based on
+// the current terminal width: excess columns are wrapped by the table itself.
+func SetMaxTableSize(tb table.Writer) {
+	width, _, err := term.GetSize(int(stderrTerm.Fd()))
+	if err != nil {
+		width, _ = 80, 80
+	}
+
+	tb.SetAllowedRowLength(width)
 }
 
 // GetPageSize - Page size for tables.

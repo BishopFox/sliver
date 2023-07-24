@@ -27,22 +27,21 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
 var (
-	// ErrNoBeacons - No sessions available
+	// ErrNoBeacons - No sessions available.
 	ErrNoBeacons = errors.New("no beacons")
-	// ErrNoSelection - No selection made
+	// ErrNoSelection - No selection made.
 	ErrNoSelection = errors.New("no selection")
-	// ErrBeaconNotFound
+	// ErrBeaconNotFound.
 	ErrBeaconNotFound = errors.New("no beacon found for this ID")
 )
 
-// SelectBeacon - Interactive menu for the user to select an session, optionally only display live sessions
+// SelectBeacon - Interactive menu for the user to select an session, optionally only display live sessions.
 func SelectBeacon(con *console.SliverClient) (*clientpb.Beacon, error) {
 	grpcCtx, cancel := con.GrpcContext(nil)
 	defer cancel()

@@ -19,12 +19,11 @@ package beacons
 */
 
 import (
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/spf13/cobra"
 )
 
-// BeaconsRmCmd - Display/interact with beacons
+// BeaconsRmCmd - Display/interact with beacons.
 func BeaconsRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	beacon, err := SelectBeacon(con)
 	if err != nil {

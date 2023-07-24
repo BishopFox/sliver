@@ -230,11 +230,11 @@ func (con *SliverClient) connect(conn *grpc.ClientConn) {
 		// 	defer consoleLog.Close()
 		//
 		// Ascii cast sessions (complete terminal interface).
-		asciicastLog := getConsoleAsciicastFile()
+		// asciicastLog := getConsoleAsciicastFile()
 		// defer asciicastLog.Close()
 
-		asciicastStream, err := con.ClientLogStream("asciicast")
-		con.setupAsciicastRecord(asciicastLog, asciicastStream)
+		// asciicastStream, err := con.ClientLogStream("asciicast")
+		// con.setupAsciicastRecord(asciicastLog, asciicastStream)
 	}
 }
 

@@ -22,14 +22,13 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/spf13/cobra"
 )
 
-// BeaconsPruneCmd - Prune stale beacons automatically
+// BeaconsPruneCmd - Prune stale beacons automatically.
 func BeaconsPruneCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	duration, _ := cmd.Flags().GetString("duration")
 	pruneDuration, err := time.ParseDuration(duration)
