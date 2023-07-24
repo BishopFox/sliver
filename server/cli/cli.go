@@ -189,7 +189,7 @@ func getSliverCommands(teamserver *server.Server, con *client.SliverClient) (ser
 // preRunServer is the server-binary-specific pre-run; it ensures that the server
 // has everything it needs to perform any client-side command/task.
 func preRunServer(teamserver *server.Server, con *client.SliverClient) func(_ *cobra.Command, _ []string) error {
-	return func(_ *cobra.Command, _ []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
 		// Ensure the server has what it needs.
 		assets.Setup(false, true)
 		encoders.Setup() // WARN: I added this here after assets.Setup(), but used to be in init. Is it wrong to put it here ?
@@ -201,6 +201,15 @@ func preRunServer(teamserver *server.Server, con *client.SliverClient) func(_ *c
 		// TODO: Move this out of here.
 		serverConfig := configs.GetServerConfig()
 		c2.StartPersistentJobs(serverConfig)
+
+		// Don't stream console asciicast/logs when using the completion subcommand.
+		// We don't use cmd.Root().Find() for this, as it would always trigger the condition true.
+		for _, compCmd := range cmd.Root().Commands() {
+			if compCmd != nil && compCmd.Name() == "_carapace" && compCmd.CalledAs() != "" {
+				con.IsCompleting = true
+				break
+			}
+		}
 
 		// Let our in-memory teamclient be served.
 		return teamserver.Serve(con.Teamclient)

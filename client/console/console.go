@@ -93,20 +93,23 @@ type (
 )
 
 type SliverClient struct {
-	App                      *console.Console
+	// Core client
+	Teamclient   *client.Client
+	App          *console.Console
+	IsServer     bool
+	IsCLI        bool
+	IsCompleting bool
+
+	jsonHandler slog.Handler
+	printf      func(format string, args ...any) (int, error)
+
+	// Sliver-specific
 	Rpc                      rpcpb.SliverRPCClient
 	ActiveTarget             *ActiveTarget
 	EventListeners           *sync.Map
 	BeaconTaskCallbacks      map[string]BeaconTaskCallback
 	BeaconTaskCallbacksMutex *sync.Mutex
 	Settings                 *assets.ClientSettings
-	IsServer                 bool
-	IsCLI                    bool
-
-	jsonHandler slog.Handler
-	printf      func(format string, args ...any) (int, error)
-
-	Teamclient *client.Client
 }
 
 // NewSliverClient is the general-purpose Sliver Client constructor.
@@ -210,23 +213,28 @@ func (con *SliverClient) connect(conn *grpc.ClientConn) {
 	go con.startEventLoop()
 	go core.TunnelLoop(con.Rpc)
 
-	// console logger
-	if con.Settings.ConsoleLogs {
+	// Don't stream console logs and asciicast when the client
+	// is used within a completion subcommand: not only this
+	// output is not useful to anyone, but this strongly increases
+	// changes of stdio being wired to pipes it should not, etc.
+	if !con.IsCompleting && con.Settings.ConsoleLogs {
 		// Classic logs
 		consoleLog := getConsoleLogFile()
+
 		consoleLogStream, err := con.ClientLogStream("json")
 		if err != nil {
-			log.Printf("Could not get client log stream: %s", err)
+			fmt.Printf("Could not get client log stream: %s", err)
 		}
+
 		con.setupLogger(consoleLog, consoleLogStream)
 		// 	defer consoleLog.Close()
 		//
 		// Ascii cast sessions (complete terminal interface).
-		// asciicastLog := getConsoleAsciicastFile()
+		asciicastLog := getConsoleAsciicastFile()
 		// defer asciicastLog.Close()
 
-		// asciicastStream, err := con.ClientLogStream("asciicast")
-		// con.setupAsciicastRecord(asciicastLog, asciicastStream)
+		asciicastStream, err := con.ClientLogStream("asciicast")
+		con.setupAsciicastRecord(asciicastLog, asciicastStream)
 	}
 }
 
