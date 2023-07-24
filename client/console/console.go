@@ -19,13 +19,10 @@ package console
 */
 
 import (
-	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log"
-	insecureRand "math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -36,21 +33,18 @@ import (
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
-	"github.com/bishopfox/sliver/client/prelude"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/gofrs/uuid"
 	"github.com/reeflective/console"
 	"github.com/reeflective/readline"
 	"github.com/reeflective/team/client"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slog"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -100,8 +94,10 @@ type SliverClient struct {
 	IsCLI        bool
 	IsCompleting bool
 
+	// Logging
 	jsonHandler slog.Handler
 	printf      func(format string, args ...any) (int, error)
+	closeLogs   func()
 
 	// Sliver-specific
 	Rpc                      rpcpb.SliverRPCClient
@@ -122,7 +118,7 @@ func NewSliverClient(teamclient *transport.Teamclient) (*SliverClient, []client.
 	bindClient := func(clientConn any) error {
 		grpcClient, ok := clientConn.(*grpc.ClientConn)
 		if !ok || grpcClient == nil {
-			return errors.New("No gRPC client to use for service")
+			return client.ErrNoTeamclient
 		}
 
 		// Register our core Sliver RPC client, and start monitoring
@@ -213,319 +209,66 @@ func (con *SliverClient) connect(conn *grpc.ClientConn) {
 	go con.startEventLoop()
 	go core.TunnelLoop(con.Rpc)
 
-	// Don't stream console logs and asciicast when the client
-	// is used within a completion subcommand: not only this
-	// output is not useful to anyone, but this strongly increases
-	// changes of stdio being wired to pipes it should not, etc.
-	if !con.IsCompleting && con.Settings.ConsoleLogs {
-		// Classic logs
-		consoleLog := getConsoleLogFile()
-
-		consoleLogStream, err := con.ClientLogStream("json")
-		if err != nil {
-			fmt.Printf("Could not get client log stream: %s", err)
-		}
-
-		con.setupLogger(consoleLog, consoleLogStream)
-		// 	defer consoleLog.Close()
-		//
-		// Ascii cast sessions (complete terminal interface).
-		// asciicastLog := getConsoleAsciicastFile()
-		// defer asciicastLog.Close()
-
-		// asciicastStream, err := con.ClientLogStream("asciicast")
-		// con.setupAsciicastRecord(asciicastLog, asciicastStream)
-	}
+	// Stream logs/asciicasts
+	con.startClientLog()
 }
 
-func (con *SliverClient) startEventLoop() {
-	eventStream, err := con.Rpc.Events(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		fmt.Printf(Warn+"%s\n", err)
-		return
-	}
-	for {
-		event, err := eventStream.Recv()
-		if err == io.EOF || event == nil {
-			return
-		}
+func (con *SliverClient) Disconnect() error {
+	// Close all RPC streams and local files.
+	con.CloseClientLog()
 
-		go con.triggerEventListeners(event)
-
-		// Trigger event based on type
-		switch event.EventType {
-
-		case consts.CanaryEvent:
-			con.PrintEventErrorf(Bold+"WARNING: %s%s has been burned (DNS Canary)", Normal, event.Session.Name)
-			sessions := con.GetSessionsByName(event.Session.Name)
-			for _, session := range sessions {
-				shortID := strings.Split(session.ID, "-")[0]
-				con.PrintErrorf("\t🔥 Session %s is affected", shortID)
-			}
-
-		case consts.WatchtowerEvent:
-			msg := string(event.Data)
-			con.PrintEventErrorf(Bold+"WARNING: %s%s has been burned (seen on %s)", Normal, event.Session.Name, msg)
-			sessions := con.GetSessionsByName(event.Session.Name)
-			for _, session := range sessions {
-				shortID := strings.Split(session.ID, "-")[0]
-				con.PrintErrorf("\t🔥 Session %s is affected", shortID)
-			}
-
-		case consts.JoinedEvent:
-			if con.Settings.UserConnect {
-				con.PrintInfof("%s has joined the game", event.Client.Operator.Name)
-			}
-		case consts.LeftEvent:
-			if con.Settings.UserConnect {
-				con.PrintInfof("%s left the game", event.Client.Operator.Name)
-			}
-
-		case consts.JobStoppedEvent:
-			job := event.Job
-			con.PrintErrorf("Job #%d stopped (%s/%s)", job.ID, job.Protocol, job.Name)
-
-		case consts.SessionOpenedEvent:
-			session := event.Session
-			currentTime := time.Now().Format(time.RFC1123)
-			shortID := strings.Split(session.ID, "-")[0]
-			con.PrintEventInfof("Session %s %s - %s (%s) - %s/%s - %v",
-				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
-
-			// Prelude Operator
-			if prelude.ImplantMapper != nil {
-				err = prelude.ImplantMapper.AddImplant(session, nil)
-				if err != nil {
-					con.PrintErrorf("Could not add session to Operator: %s", err)
-				}
-			}
-
-		case consts.SessionUpdateEvent:
-			session := event.Session
-			currentTime := time.Now().Format(time.RFC1123)
-			shortID := strings.Split(session.ID, "-")[0]
-			con.PrintInfof("Session %s has been updated - %v", shortID, currentTime)
-
-		case consts.SessionClosedEvent:
-			session := event.Session
-			currentTime := time.Now().Format(time.RFC1123)
-			shortID := strings.Split(session.ID, "-")[0]
-			con.PrintEventErrorf("Lost session %s %s - %s (%s) - %s/%s - %v",
-				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
-			activeSession := con.ActiveTarget.GetSession()
-			core.GetTunnels().CloseForSession(session.ID)
-			core.CloseCursedProcesses(session.ID)
-			if activeSession != nil && activeSession.ID == session.ID {
-				con.ActiveTarget.Set(nil, nil)
-				con.PrintErrorf("Active session disconnected")
-			}
-			if prelude.ImplantMapper != nil {
-				err = prelude.ImplantMapper.RemoveImplant(session)
-				if err != nil {
-					con.PrintErrorf("Could not remove session from Operator: %s", err)
-				}
-				con.PrintInfof("Removed session %s from Operator", session.Name)
-			}
-
-		case consts.BeaconRegisteredEvent:
-			beacon := &clientpb.Beacon{}
-			proto.Unmarshal(event.Data, beacon)
-			currentTime := time.Now().Format(time.RFC1123)
-			shortID := strings.Split(beacon.ID, "-")[0]
-			con.PrintEventInfof("Beacon %s %s - %s (%s) - %s/%s - %v",
-				shortID, beacon.Name, beacon.RemoteAddress, beacon.Hostname, beacon.OS, beacon.Arch, currentTime)
-
-			// Prelude Operator
-			if prelude.ImplantMapper != nil {
-				err = prelude.ImplantMapper.AddImplant(beacon, func(taskID string, cb func(*clientpb.BeaconTask)) {
-					con.AddBeaconCallback(taskID, cb)
-				})
-				if err != nil {
-					con.PrintErrorf("Could not add beacon to Operator: %s", err)
-				}
-			}
-
-		case consts.BeaconTaskResultEvent:
-			con.triggerBeaconTaskCallback(event.Data)
-		}
-
-		con.triggerReactions(event)
-	}
+	// Close the RPC client connection.
+	return con.Teamclient.Disconnect()
 }
 
-// CreateEventListener - creates a new event listener and returns its ID.
-func (con *SliverClient) CreateEventListener() (string, <-chan *clientpb.Event) {
-	listener := make(chan *clientpb.Event, 100)
-	listenerID, _ := uuid.NewV4()
-	con.EventListeners.Store(listenerID.String(), listener)
-	return listenerID.String(), listener
-}
+// Expose or hide commands if the active target does support them (or not).
+// Ex; hide Windows commands on Linux implants, Wireguard tools on HTTP C2, etc.
+func (con *SliverClient) ExposeCommands() {
+	con.App.ShowCommands()
 
-// RemoveEventListener - removes an event listener given its id.
-func (con *SliverClient) RemoveEventListener(listenerID string) {
-	value, ok := con.EventListeners.LoadAndDelete(listenerID)
-	if ok {
-		close(value.(chan *clientpb.Event))
-	}
-}
-
-func (con *SliverClient) triggerEventListeners(event *clientpb.Event) {
-	con.EventListeners.Range(func(key, value interface{}) bool {
-		listener := value.(chan *clientpb.Event)
-		listener <- event // Do not block while sending the event to the listener
-		return true
-	})
-}
-
-func (con *SliverClient) triggerReactions(event *clientpb.Event) {
-	reactions := core.Reactions.On(event.EventType)
-	if len(reactions) == 0 {
+	if con.ActiveTarget.session == nil && con.ActiveTarget.beacon == nil {
 		return
 	}
 
-	// We need some special handling for SessionOpenedEvent to
-	// set the new session as the active session
-	currentActiveSession, currentActiveBeacon := con.ActiveTarget.Get()
-	defer func() {
-		con.ActiveTarget.Set(currentActiveSession, currentActiveBeacon)
-	}()
+	filters := make([]string, 0)
 
-	if event.EventType == consts.SessionOpenedEvent {
-		con.ActiveTarget.Set(nil, nil)
+	// Target type.
+	switch {
+	case con.ActiveTarget.session != nil:
+		session := con.ActiveTarget.session
 
-		con.ActiveTarget.Set(event.Session, nil)
-	} else if event.EventType == consts.BeaconRegisteredEvent {
-		con.ActiveTarget.Set(nil, nil)
+		// Forbid all beacon-only commands.
+		filters = append(filters, consts.BeaconCmdsFilter)
 
-		beacon := &clientpb.Beacon{}
-		proto.Unmarshal(event.Data, beacon)
-		con.ActiveTarget.Set(nil, beacon)
-	}
+		// Operating system
+		if session.OS != "windows" {
+			filters = append(filters, consts.WindowsCmdsFilter)
+		}
 
-	for _, reaction := range reactions {
-		for _, line := range reaction.Commands {
-			con.PrintInfof(Bold+"Execute reaction: '%s'"+Normal, line)
-			err := con.App.ActiveMenu().RunCommand(line)
-			if err != nil {
-				con.PrintErrorf("Reaction command error: %s\n", err)
-			}
+		// C2 stack
+		if session.Transport != "wg" {
+			filters = append(filters, consts.WireguardCmdsFilter)
+		}
+
+	case con.ActiveTarget.beacon != nil:
+		beacon := con.ActiveTarget.beacon
+
+		// Forbid all session-only commands.
+		filters = append(filters, consts.SessionCmdsFilter)
+
+		// Operating system
+		if beacon.OS != "windows" {
+			filters = append(filters, consts.WindowsCmdsFilter)
+		}
+
+		// C2 stack
+		if beacon.Transport != "wg" {
+			filters = append(filters, consts.WireguardCmdsFilter)
 		}
 	}
-}
 
-// triggerBeaconTaskCallback - Triggers the callback for a beacon task.
-func (con *SliverClient) triggerBeaconTaskCallback(data []byte) {
-	task := &clientpb.BeaconTask{}
-	err := proto.Unmarshal(data, task)
-	if err != nil {
-		con.PrintErrorf("\rCould not unmarshal beacon task: %s", err)
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	beacon, _ := con.Rpc.GetBeacon(ctx, &clientpb.Beacon{ID: task.BeaconID})
-
-	// If the callback is not in our map then we don't do anything, the beacon task
-	// was either issued by another operator in multiplayer mode or the client process
-	// was restarted between the time the task was created and when the server got the result
-	con.BeaconTaskCallbacksMutex.Lock()
-	defer con.BeaconTaskCallbacksMutex.Unlock()
-	if callback, ok := con.BeaconTaskCallbacks[task.ID]; ok {
-		if con.Settings.BeaconAutoResults {
-			if beacon != nil {
-				con.PrintSuccessf("%s completed task %s", beacon.Name, strings.Split(task.ID, "-")[0])
-			}
-			task_content, err := con.Rpc.GetBeaconTaskContent(ctx, &clientpb.BeaconTask{
-				ID: task.ID,
-			})
-			con.Printf(Clearln + "\r")
-			if err == nil {
-				callback(task_content)
-			} else {
-				con.PrintErrorf("Could not get beacon task content: %s", err)
-			}
-		}
-		delete(con.BeaconTaskCallbacks, task.ID)
-	}
-}
-
-func (con *SliverClient) AddBeaconCallback(taskID string, callback BeaconTaskCallback) {
-	con.BeaconTaskCallbacksMutex.Lock()
-	defer con.BeaconTaskCallbacksMutex.Unlock()
-	con.BeaconTaskCallbacks[taskID] = callback
-}
-
-func (con *SliverClient) GetPrompt() string {
-	prompt := Underline + "sliver" + Normal
-	if con.IsServer {
-		prompt = Bold + "[server] " + Normal + Underline + "sliver" + Normal
-	}
-	if con.ActiveTarget.GetSession() != nil {
-		prompt += fmt.Sprintf(Bold+Red+" (%s)%s", con.ActiveTarget.GetSession().Name, Normal)
-	} else if con.ActiveTarget.GetBeacon() != nil {
-		prompt += fmt.Sprintf(Bold+Blue+" (%s)%s", con.ActiveTarget.GetBeacon().Name, Normal)
-	}
-	prompt += " > "
-	return Clearln + prompt
-}
-
-func (con *SliverClient) PrintLogo() {
-	serverVer, err := con.Rpc.GetVersion(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		panic(err.Error())
-	}
-	dirty := ""
-	if serverVer.Dirty {
-		dirty = fmt.Sprintf(" - %sDirty%s", Bold, Normal)
-	}
-	serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
-
-	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
-	fmt.Println(strings.ReplaceAll(logo, "\n", "\r\n"))
-	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))] + "\r")
-	fmt.Printf(Info+"Server v%s - %s%s\r\n", serverSemVer, serverVer.Commit, dirty)
-	if version.GitCommit != serverVer.Commit {
-		fmt.Printf(Info+"Client %s\r\n", version.FullVersion())
-	}
-	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options\r")
-	if serverVer.Major != int32(version.SemanticVersion()[0]) {
-		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\r\n")
-	}
-	con.CheckLastUpdate()
-}
-
-func (con *SliverClient) CheckLastUpdate() {
-	now := time.Now()
-	lastUpdate := getLastUpdateCheck()
-	compiledAt, err := version.Compiled()
-	if err != nil {
-		log.Printf("Failed to parse compiled at timestamp %s", err)
-		return
-	}
-
-	day := 24 * time.Hour
-	if compiledAt.Add(30 * day).Before(now) {
-		if lastUpdate == nil || lastUpdate.Add(30*day).Before(now) {
-			con.Printf(Info + "Check for updates with the 'update' command\n\n")
-		}
-	}
-}
-
-func getLastUpdateCheck() *time.Time {
-	appDir := assets.GetRootAppDir()
-	lastUpdateCheckPath := filepath.Join(appDir, consts.LastUpdateCheckFileName)
-	data, err := os.ReadFile(lastUpdateCheckPath)
-	if err != nil {
-		log.Printf("Failed to read last update check %s", err)
-		return nil
-	}
-	unixTime, err := strconv.Atoi(string(data))
-	if err != nil {
-		log.Printf("Failed to parse last update check %s", err)
-		return nil
-	}
-	lastUpdate := time.Unix(int64(unixTime), 0)
-	return &lastUpdate
+	// Use all defined filters.
+	con.App.HideCommands(filters...)
 }
 
 func (con *SliverClient) GetSession(arg string) *clientpb.Session {
@@ -586,25 +329,6 @@ func (con *SliverClient) GetActiveSessionConfig() *clientpb.ImplantConfig {
 	return config
 }
 
-// exitConsole prompts the user for confirmation to exit the console.
-func (c *SliverClient) exitConsole(_ *console.Console) {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Confirm exit (Y/y, Ctrl-C): ")
-	text, _ := reader.ReadString('\n')
-	answer := strings.TrimSpace(text)
-
-	if (answer == "Y") || (answer == "y") {
-		os.Exit(0)
-	}
-}
-
-// exitImplantMenu uses the background command to detach from the implant menu.
-func (c *SliverClient) exitImplantMenu(_ *console.Console) {
-	root := c.App.Menu(consts.ImplantMenu).Command
-	root.SetArgs([]string{"background"})
-	root.Execute()
-}
-
 func (con *SliverClient) SpinUntil(message string, ctrl chan bool) {
 	go spin.Until(os.Stdout, message, ctrl)
 }
@@ -651,281 +375,36 @@ func (con *SliverClient) GrpcContext(cmd *cobra.Command) (context.Context, conte
 	return context.WithTimeout(context.Background(), timeout)
 }
 
-//
-// -------------------------- [ Active Target ] --------------------------
-//
-
-type ActiveTarget struct {
-	session    *clientpb.Session
-	beacon     *clientpb.Beacon
-	observers  map[int]Observer
-	observerID int
-	con        *SliverClient
-}
-
-// GetSessionInteractive - Get the active target(s).
-func (s *ActiveTarget) GetInteractive() (*clientpb.Session, *clientpb.Beacon) {
-	if s.session == nil && s.beacon == nil {
-		fmt.Printf(Warn + "Please select a session or beacon via `use`\n")
-		return nil, nil
+func (con *SliverClient) CheckLastUpdate() {
+	now := time.Now()
+	lastUpdate := getLastUpdateCheck()
+	compiledAt, err := version.Compiled()
+	if err != nil {
+		log.Printf("Failed to parse compiled at timestamp %s", err)
+		return
 	}
-	return s.session, s.beacon
+
+	day := 24 * time.Hour
+	if compiledAt.Add(30 * day).Before(now) {
+		if lastUpdate == nil || lastUpdate.Add(30*day).Before(now) {
+			con.Printf(Info + "Check for updates with the 'update' command\n\n")
+		}
+	}
 }
 
-// GetSessionInteractive - Get the active target(s).
-func (s *ActiveTarget) Get() (*clientpb.Session, *clientpb.Beacon) {
-	return s.session, s.beacon
-}
-
-// GetSessionInteractive - GetSessionInteractive the active session.
-func (s *ActiveTarget) GetSessionInteractive() *clientpb.Session {
-	if s.session == nil {
-		fmt.Printf(Warn + "Please select a session via `use`\n")
+func getLastUpdateCheck() *time.Time {
+	appDir := assets.GetRootAppDir()
+	lastUpdateCheckPath := filepath.Join(appDir, consts.LastUpdateCheckFileName)
+	data, err := os.ReadFile(lastUpdateCheckPath)
+	if err != nil {
+		log.Printf("Failed to read last update check %s", err)
 		return nil
 	}
-	return s.session
-}
-
-// GetSession - Same as GetSession() but doesn't print a warning.
-func (s *ActiveTarget) GetSession() *clientpb.Session {
-	return s.session
-}
-
-// GetBeaconInteractive - Get beacon interactive the active session.
-func (s *ActiveTarget) GetBeaconInteractive() *clientpb.Beacon {
-	if s.beacon == nil {
-		fmt.Printf(Warn + "Please select a beacon via `use`\n")
+	unixTime, err := strconv.Atoi(string(data))
+	if err != nil {
+		log.Printf("Failed to parse last update check %s", err)
 		return nil
 	}
-	return s.beacon
-}
-
-// GetBeacon - Same as GetBeacon() but doesn't print a warning.
-func (s *ActiveTarget) GetBeacon() *clientpb.Beacon {
-	return s.beacon
-}
-
-// IsSession - Is the current target a session?
-func (s *ActiveTarget) IsSession() bool {
-	return s.session != nil
-}
-
-// AddObserver - Observers to notify when the active session changes.
-func (s *ActiveTarget) AddObserver(observer Observer) int {
-	s.observerID++
-	s.observers[s.observerID] = observer
-	return s.observerID
-}
-
-func (s *ActiveTarget) RemoveObserver(observerID int) {
-	delete(s.observers, observerID)
-}
-
-func (s *ActiveTarget) Request(cmd *cobra.Command) *commonpb.Request {
-	if s.session == nil && s.beacon == nil {
-		return nil
-	}
-
-	// One less than the gRPC timeout so that the server should timeout first
-	timeOutF := int64(defaultTimeout) - 1
-	if cmd != nil {
-		timeOutF, _ = cmd.Flags().GetInt64("timeout")
-	}
-	timeout := (int64(time.Second) * timeOutF) - 1
-
-	req := &commonpb.Request{}
-	req.Timeout = timeout
-
-	if s.session != nil {
-		req.Async = false
-		req.SessionID = s.session.ID
-	}
-	if s.beacon != nil {
-		req.Async = true
-		req.BeaconID = s.beacon.ID
-	}
-	return req
-}
-
-// Set - Change the active session.
-func (s *ActiveTarget) Set(session *clientpb.Session, beacon *clientpb.Beacon) {
-	if session != nil && beacon != nil {
-		s.con.PrintErrorf("cannot set both an active beacon and an active session")
-		return
-	}
-
-	defer s.con.ExposeCommands()
-
-	// Backgrounding
-	if session == nil && beacon == nil {
-		s.session = nil
-		s.beacon = nil
-		for _, observer := range s.observers {
-			observer(s.session, s.beacon)
-		}
-
-		if s.con.IsCLI {
-			return
-		}
-
-		// Switch back to server menu.
-		if s.con.App.ActiveMenu().Name() == consts.ImplantMenu {
-			s.con.App.SwitchMenu(consts.ServerMenu)
-		}
-
-		return
-	}
-
-	// Foreground
-	if session != nil {
-		s.session = session
-		s.beacon = nil
-		for _, observer := range s.observers {
-			observer(s.session, s.beacon)
-		}
-	} else if beacon != nil {
-		s.beacon = beacon
-		s.session = nil
-		for _, observer := range s.observers {
-			observer(s.session, s.beacon)
-		}
-	}
-
-	if s.con.IsCLI {
-		return
-	}
-
-	// Update menus, prompts and commands
-	if s.con.App.ActiveMenu().Name() != consts.ImplantMenu {
-		s.con.App.SwitchMenu(consts.ImplantMenu)
-	}
-}
-
-// Background - Background the active session.
-func (s *ActiveTarget) Background() {
-	defer s.con.App.ShowCommands()
-
-	s.session = nil
-	s.beacon = nil
-	for _, observer := range s.observers {
-		observer(nil, nil)
-	}
-
-	// Switch back to server menu.
-	if !s.con.IsCLI && s.con.App.ActiveMenu().Name() == consts.ImplantMenu {
-		s.con.App.SwitchMenu(consts.ServerMenu)
-	}
-}
-
-// Expose or hide commands if the active target does support them (or not).
-// Ex; hide Windows commands on Linux implants, Wireguard tools on HTTP C2, etc.
-func (con *SliverClient) ExposeCommands() {
-	con.App.ShowCommands()
-
-	if con.ActiveTarget.session == nil && con.ActiveTarget.beacon == nil {
-		return
-	}
-
-	filters := make([]string, 0)
-
-	// Target type.
-	switch {
-	case con.ActiveTarget.session != nil:
-		session := con.ActiveTarget.session
-		filters = append(filters, consts.BeaconCmdsFilter)
-
-		// Operating system
-		if session.OS != "windows" {
-			filters = append(filters, consts.WindowsCmdsFilter)
-		}
-
-		// C2 stack
-		if session.Transport != "wg" {
-			filters = append(filters, consts.WireguardCmdsFilter)
-		}
-
-	case con.ActiveTarget.beacon != nil:
-		beacon := con.ActiveTarget.beacon
-		filters = append(filters, consts.SessionCmdsFilter)
-
-		// Operating system
-		if beacon.OS != "windows" {
-			filters = append(filters, consts.WindowsCmdsFilter)
-		}
-
-		// C2 stack
-		if beacon.Transport != "wg" {
-			filters = append(filters, consts.WireguardCmdsFilter)
-		}
-	}
-
-	// Use all defined filters.
-	con.App.HideCommands(filters...)
-}
-
-var abilities = []string{
-	"first strike",
-	"vigilance",
-	"haste",
-	"indestructible",
-	"hexproof",
-	"deathtouch",
-	"fear",
-	"epic",
-	"ninjitsu",
-	"recover",
-	"persist",
-	"conspire",
-	"reinforce",
-	"exalted",
-	"annihilator",
-	"infect",
-	"undying",
-	"living weapon",
-	"miracle",
-	"scavenge",
-	"cipher",
-	"evolve",
-	"dethrone",
-	"hidden agenda",
-	"prowess",
-	"dash",
-	"exploit",
-	"renown",
-	"skulk",
-	"improvise",
-	"assist",
-	"jump-start",
-}
-
-var asciiLogos = []string{
-	Red + `
- 	  ██████  ██▓     ██▓ ██▒   █▓▓█████  ██▀███
-	▒██    ▒ ▓██▒    ▓██▒▓██░   █▒▓█   ▀ ▓██ ▒ ██▒
-	░ ▓██▄   ▒██░    ▒██▒ ▓██  █▒░▒███   ▓██ ░▄█ ▒
-	  ▒   ██▒▒██░    ░██░  ▒██ █░░▒▓█  ▄ ▒██▀▀█▄
-	▒██████▒▒░██████▒░██░   ▒▀█░  ░▒████▒░██▓ ▒██▒
-	▒ ▒▓▒ ▒ ░░ ▒░▓  ░░▓     ░ ▐░  ░░ ▒░ ░░ ▒▓ ░▒▓░
-	░ ░▒  ░ ░░ ░ ▒  ░ ▒ ░   ░ ░░   ░ ░  ░  ░▒ ░ ▒░
-	░  ░  ░    ░ ░    ▒ ░     ░░     ░     ░░   ░
-		  ░      ░  ░ ░        ░     ░  ░   ░
-` + Normal,
-
-	Green + `
-    ███████╗██╗     ██╗██╗   ██╗███████╗██████╗
-    ██╔════╝██║     ██║██║   ██║██╔════╝██╔══██╗
-    ███████╗██║     ██║██║   ██║█████╗  ██████╔╝
-    ╚════██║██║     ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗
-    ███████║███████╗██║ ╚████╔╝ ███████╗██║  ██║
-    ╚══════╝╚══════╝╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
-` + Normal,
-
-	Bold + Gray + `
-.------..------..------..------..------..------.
-|S.--. ||L.--. ||I.--. ||V.--. ||E.--. ||R.--. |
-| :/\: || :/\: || (\/) || :(): || (\/) || :(): |
-| :\/: || (__) || :\/: || ()() || :\/: || ()() |
-| '--'S|| '--'L|| '--'I|| '--'V|| '--'E|| '--'R|
-` + "`------'`------'`------'`------'`------'`------'" + `
-` + Normal,
+	lastUpdate := time.Unix(int64(unixTime), 0)
+	return &lastUpdate
 }

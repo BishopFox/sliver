@@ -68,7 +68,7 @@ func Execute() {
 
 	// Pre/post runners and completions.
 	command.BindRunners(rootCmd, true, preRunClient(con))
-	// command.BindRunners(rootCmd, false, postRunClient(con))
+	command.BindRunners(rootCmd, false, postRunClient(con))
 
 	carapace.Gen(rootCmd)
 
@@ -130,6 +130,6 @@ func preRunClient(con *client.SliverClient) func(_ *cobra.Command, _ []string) e
 // After running any CLI entry command, correctly disconnect from the server.
 func postRunClient(con *client.SliverClient) func(_ *cobra.Command, _ []string) error {
 	return func(_ *cobra.Command, _ []string) error {
-		return con.Teamclient.Disconnect()
+		return con.Disconnect()
 	}
 }

@@ -218,7 +218,7 @@ func BindRunners(root *cobra.Command, pre bool, runs ...func(_ *cobra.Command, _
 		if pre {
 			cmdComps.PreRun(completionRun)
 		} else {
-			cmdComps.PostRun(completionRun)
+			// cmdComps.PostRun(completionRun)
 		}
 	}
 }

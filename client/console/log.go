@@ -51,6 +51,60 @@ func (l *ConsoleClientLogger) Write(buf []byte) (int, error) {
 	return len(buf), err
 }
 
+func (con *SliverClient) startClientLog() error {
+	if con.IsCompleting {
+		return nil
+	}
+
+	if !con.Settings.ConsoleLogs {
+		return nil
+	}
+
+	// Classic logs.
+	clientLogFile := getConsoleLogFile()
+
+	clientLogs, err := con.ClientLogStream("json")
+	if err != nil {
+		return fmt.Errorf("Could not get client log stream: %w", err)
+	}
+
+	con.setupLogger(clientLogFile, clientLogs)
+
+	// Asciicast sessions.
+	asciicastFile := getConsoleAsciicastFile()
+
+	asciicastStream, err := con.ClientLogStream("asciicast")
+	if err != nil {
+		return fmt.Errorf("Could not get client log stream: %w", err)
+	}
+
+	err = con.setupAsciicastRecord(asciicastFile, asciicastStream)
+
+	con.closeLogs = func() {
+		// Local files
+		clientLogFile.Close()
+		asciicastFile.Close()
+
+		// Server streams.
+		clientLogs.Stream.CloseAndRecv()
+		asciicastStream.Stream.CloseAndRecv()
+	}
+
+	return nil
+}
+
+func (con *SliverClient) CloseClientLog() {
+	if con.closeLogs == nil {
+		return
+	}
+
+	defer func() {
+		con.closeLogs = nil
+	}()
+
+	con.closeLogs()
+}
+
 // ClientLogStream requires a log stream name, used to save the logs
 // going through this stream in a specific log subdirectory/file.
 func (con *SliverClient) ClientLogStream(name string) (*ConsoleClientLogger, error) {
@@ -82,31 +136,35 @@ func (con *SliverClient) logCommand(args []string) ([]string, error) {
 	return args, nil
 }
 
-func (con *SliverClient) setupAsciicastRecord(logFile *os.File, server io.Writer) {
-	x, y, err := term.GetSize(int(os.Stdin.Fd()))
+func (con *SliverClient) setupAsciicastRecord(logFile *os.File, server io.Writer) error {
+	width, height, err := term.GetSize(int(os.Stdin.Fd()))
 	if err != nil {
-		x, y = 80, 80
+		width, height = 80, 80
 	}
 
 	// Save the asciicast to the server and a local file.
 	destinations := io.MultiWriter(logFile, server)
 
-	encoder := asciicast.NewEncoder(destinations, x, y)
-	encoder.WriteHeader()
+	encoder := asciicast.NewEncoder(destinations, width, height)
+	if err := encoder.WriteHeader(); err != nil {
+		return err
+	}
 
 	// save existing stdout | MultiWriter writes to saved stdout and file
 	out := os.Stdout
-	mw := io.MultiWriter(out, encoder)
+	multiOut := io.MultiWriter(out, encoder)
 
 	// get pipe reader and writer | writes to pipe writer come out pipe reader
-	r, w, _ := os.Pipe()
+	read, write, _ := os.Pipe()
 
 	// replace stdout,stderr with pipe writer | all writes to stdout,
 	// stderr will go through pipe instead (fmt.print, log)
-	os.Stdout = w
-	os.Stderr = w
+	os.Stdout = write
+	os.Stderr = write
 
-	go io.Copy(mw, r)
+	go io.Copy(multiOut, read)
+
+	return nil
 }
 
 func getConsoleLogFile() *os.File {

@@ -135,6 +135,10 @@ func (h *Teamclient) Dial() (rpcClient any, err error) {
 
 // Close implements team/client.Dialer.Close(), and closes the gRPC client connection.
 func (h *Teamclient) Close() error {
+	if h.conn == nil {
+		return nil
+	}
+
 	return h.conn.Close()
 }
 
