@@ -60,7 +60,7 @@ func SocksCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 // SocksIDCompleter completes IDs of remote of socks proxy servers.
 func SocksIDCompleter(_ *console.SliverClient) carapace.Action {
-	callback := func(_ carapace.Context) carapace.Action {
+	callback := func(c carapace.Context) carapace.Action {
 		results := make([]string, 0)
 
 		socks := core.SocksProxies.List()
@@ -77,7 +77,9 @@ func SocksIDCompleter(_ *console.SliverClient) carapace.Action {
 			return carapace.ActionMessage("no Socks servers")
 		}
 
-		return carapace.ActionValuesDescribed(results...).Tag("socks servers")
+		comps := carapace.ActionValuesDescribed(results...).Tag("socks servers")
+
+		return comps.Invoke(c).Filter(c.Args).ToA()
 	}
 
 	return carapace.ActionCallback(callback)

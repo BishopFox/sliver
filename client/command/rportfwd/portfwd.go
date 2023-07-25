@@ -79,7 +79,7 @@ func PrintRportFwdListeners(rportfwdListeners *sliverpb.RportFwdListeners, flags
 
 // PortfwdIDCompleter completes IDs of remote portforwarders.
 func PortfwdIDCompleter(con *console.SliverClient) carapace.Action {
-	callback := func(_ carapace.Context) carapace.Action {
+	callback := func(c carapace.Context) carapace.Action {
 		if msg, err := con.ConnectCompletion(); err != nil {
 			return msg
 		}
@@ -104,7 +104,9 @@ func PortfwdIDCompleter(con *console.SliverClient) carapace.Action {
 			return carapace.ActionMessage("no remote port forwarders")
 		}
 
-		return carapace.ActionValuesDescribed(results...).Tag("remote port forwarders")
+		comps := carapace.ActionValuesDescribed(results...).Tag("remote port forwarders")
+
+		return comps.Invoke(c).Filter(c.Args).ToA()
 	}
 
 	return carapace.ActionCallback(callback)

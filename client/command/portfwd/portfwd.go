@@ -68,7 +68,7 @@ func PrintPortfwd(con *console.SliverClient) {
 
 // PortfwdIDCompleter completes IDs of local portforwarders.
 func PortfwdIDCompleter(_ *console.SliverClient) carapace.Action {
-	callback := func(_ carapace.Context) carapace.Action {
+	callback := func(c carapace.Context) carapace.Action {
 		results := make([]string, 0)
 
 		portfwds := core.Portfwds.List()
@@ -85,7 +85,9 @@ func PortfwdIDCompleter(_ *console.SliverClient) carapace.Action {
 			return carapace.ActionMessage("no local port forwarders")
 		}
 
-		return carapace.ActionValuesDescribed(results...).Tag("local port forwarders")
+		comps := carapace.ActionValuesDescribed(results...).Tag("local port forwarders")
+
+		return comps.Invoke(c).Filter(c.Args).ToA()
 	}
 
 	return carapace.ActionCallback(callback)

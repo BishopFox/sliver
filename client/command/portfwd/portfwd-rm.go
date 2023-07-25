@@ -19,6 +19,8 @@ package portfwd
 */
 
 import (
+	"strconv"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/spf13/cobra"
@@ -26,15 +28,21 @@ import (
 
 // PortfwdRmCmd - Remove an existing tunneled port forward.
 func PortfwdRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
-	portfwdID, _ := cmd.Flags().GetInt("id")
-	if portfwdID < 1 {
-		con.PrintErrorf("Must specify a valid portfwd id\n")
-		return
-	}
-	found := core.Portfwds.Remove(portfwdID)
-	if !found {
-		con.PrintErrorf("No portfwd with id %d\n", portfwdID)
-	} else {
-		con.PrintInfof("Removed portfwd\n")
+	for _, arg := range args {
+		portfwdID, err := strconv.Atoi(arg)
+		if err != nil {
+			con.PrintErrorf("Failed to parse portfwd id: %s\n", err)
+		}
+		if portfwdID < 1 {
+			con.PrintErrorf("Must specify a valid portfwd id\n")
+			return
+		}
+
+		found := core.Portfwds.Remove(portfwdID)
+		if !found {
+			con.PrintErrorf("No portfwd with id %d\n", portfwdID)
+		} else {
+			con.PrintInfof("Removed portfwd\n")
+		}
 	}
 }

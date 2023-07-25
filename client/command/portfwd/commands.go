@@ -48,17 +48,16 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Use:   consts.RmStr,
 		Short: "Remove a port forwarding tunnel",
 		Long:  help.GetHelpFor([]string{consts.PortfwdStr}),
+		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			PortfwdRmCmd(cmd, con, args)
 		},
 	}
+
+	rmComps := flags.NewCompletions(portfwdRmCmd)
+	rmComps.PositionalAnyCompletion(PortfwdIDCompleter(con).Usage("ID of portforwarder(s) to remove"))
+
 	portfwdCmd.AddCommand(portfwdRmCmd)
-	flags.Bind("", false, portfwdRmCmd, func(f *pflag.FlagSet) {
-		f.IntP("id", "i", 0, "id of portfwd to remove")
-	})
-	flags.BindFlagCompletions(portfwdRmCmd, func(comp *carapace.ActionMap) {
-		(*comp)["id"] = PortfwdIDCompleter(con)
-	})
 
 	return []*cobra.Command{portfwdCmd}
 }

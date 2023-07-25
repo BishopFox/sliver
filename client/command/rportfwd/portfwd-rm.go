@@ -20,6 +20,7 @@ package rportfwd
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -33,16 +34,28 @@ func StopRportFwdListenerCmd(cmd *cobra.Command, con *console.SliverClient, args
 		return
 	}
 
-	listenerID, _ := cmd.Flags().GetUint32("id")
-	rportfwdListener, err := con.Rpc.StopRportFwdListener(context.Background(), &sliverpb.RportFwdStopListenerReq{
-		Request: con.ActiveTarget.Request(cmd),
-		ID:      listenerID,
-	})
-	if err != nil {
-		con.PrintWarnf("%s\n", err)
-		return
+	for _, arg := range args {
+		listenerID, err := strconv.ParseUint(arg, 10, 32)
+		if err != nil {
+			con.PrintErrorf("Failed to parse portfwd id: %s\n", err)
+		}
+
+		if listenerID < 1 {
+			con.PrintErrorf("Must specify a valid portfwd id\n")
+			return
+		}
+
+		rportfwdListener, err := con.Rpc.StopRportFwdListener(context.Background(), &sliverpb.RportFwdStopListenerReq{
+			Request: con.ActiveTarget.Request(cmd),
+			ID:      uint32(listenerID),
+		})
+		if err != nil {
+			con.PrintWarnf("%s\n", err)
+			return
+		}
+
+		printStoppedRportFwdListener(rportfwdListener, con)
 	}
-	printStoppedRportFwdListener(rportfwdListener, con)
 }
 
 func printStoppedRportFwdListener(rportfwdListener *sliverpb.RportFwdListener, con *console.SliverClient) {

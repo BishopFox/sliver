@@ -49,17 +49,16 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Use:   consts.StopStr,
 		Short: "Stop a SOCKS5 proxy",
 		Long:  help.GetHelpFor([]string{consts.Socks5Str}),
+		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			SocksStopCmd(cmd, con, args)
 		},
 	}
+
+	rmComps := flags.NewCompletions(socksStopCmd)
+	rmComps.PositionalAnyCompletion(SocksIDCompleter(con).Usage("ID of Socks server(s) to remove"))
+
 	socksCmd.AddCommand(socksStopCmd)
-	flags.Bind("", false, socksStopCmd, func(f *pflag.FlagSet) {
-		f.Uint64P("id", "i", 0, "id of portfwd to remove")
-	})
-	flags.BindFlagCompletions(socksStopCmd, func(comp *carapace.ActionMap) {
-		(*comp)["id"] = SocksIDCompleter(con)
-	})
 
 	return []*cobra.Command{socksCmd}
 }

@@ -114,7 +114,7 @@ func (rpc *Server) ClientLog(stream rpcpb.SliverRPC_ClientLogServer) error {
 				return err
 			}
 		}
-		rpcClientLogs.Infof("Received %d bytes of client console log data for stream %s", len(fromClient.GetData()), streamName)
+		rpcClientLogs.Debugf("Received %d bytes of client console log data for stream %s", len(fromClient.GetData()), streamName)
 		streams[streamName].Write(fromClient.GetData())
 	}
 	return nil
@@ -139,7 +139,7 @@ func openNewLogStream(logsDir string, stream string) (*LogStream, error) {
 }
 
 func randomSuffix(n int) string {
-	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 	buf := make([]rune, n)
 	for i := range buf {
 		buf[i] = letterRunes[insecureRand.Intn(len(letterRunes))]
@@ -168,7 +168,7 @@ func gzipFile(filePath string) {
 		return
 	}
 	defer inputFile.Close()
-	outFile, err := os.OpenFile(filePath+".gz", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+	outFile, err := os.OpenFile(filePath+".gz", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o600)
 	if err != nil {
 		rpcClientLogs.Errorf("Failed to open gz client console log file: %s", err)
 		return

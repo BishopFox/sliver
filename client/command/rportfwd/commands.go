@@ -48,17 +48,15 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Use:   consts.RmStr,
 		Short: "Stop and remove reverse port forwarding",
 		Long:  help.GetHelpFor([]string{consts.RportfwdStr}),
+		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			StopRportFwdListenerCmd(cmd, con, args)
 		},
 	}
+	rmComps := flags.NewCompletions(rportfwdRmCmd)
+	rmComps.PositionalAnyCompletion(PortfwdIDCompleter(con).Usage("ID of portforwarder(s) to remove"))
+
 	rportfwdCmd.AddCommand(rportfwdRmCmd)
-	flags.Bind("", false, rportfwdRmCmd, func(f *pflag.FlagSet) {
-		f.Uint32P("id", "i", 0, "id of portfwd to remove")
-	})
-	flags.BindFlagCompletions(rportfwdRmCmd, func(comp *carapace.ActionMap) {
-		(*comp)["id"] = PortfwdIDCompleter(con)
-	})
 
 	return []*cobra.Command{rportfwdCmd}
 }
