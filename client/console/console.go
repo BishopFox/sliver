@@ -155,6 +155,7 @@ func newConsole() *SliverClient {
 		BeaconTaskCallbacksMutex: &sync.Mutex{},
 		Settings:                 settings,
 		IsCLI:                    true,
+		printf:                   fmt.Printf,
 	}
 
 	con.App.SetPrintLogo(func(_ *console.Console) {
@@ -196,22 +197,22 @@ func newConsole() *SliverClient {
 func (con *SliverClient) connect(conn *grpc.ClientConn) {
 	con.Rpc = rpcpb.NewSliverRPCClient(conn)
 
-	// The console application needs to query the terminal for cursor positions
-	// when asynchronously printing logs (that is, when no command is running).
-	// If ran from a system shell, however, those queries will block because
-	// the system shell is in control of stdin. So just use the classic Printf.
-	if con.IsCLI {
-		con.printf = fmt.Printf
-	} else {
-		con.printf = con.App.TransientPrintf
-	}
-
 	// Events
 	go con.startEventLoop()
 	go core.TunnelLoop(con.Rpc)
 
 	// Stream logs/asciicasts
 	con.startClientLog()
+}
+
+// StartConsole is a blocking call that starts the Sliver closed console.
+// The command/events/log outputs use the specific-console fmt.Printer,
+// because the console needs to query the terminal for cursor positions
+// when asynchronously printing logs (that is, when no command is running).
+func (con *SliverClient) StartConsole() error {
+	con.printf = con.App.TransientPrintf
+
+	return con.App.Start()
 }
 
 // ConnectCompletion is a special connection mode which should be
@@ -247,46 +248,7 @@ func (con *SliverClient) Disconnect() error {
 func (con *SliverClient) ExposeCommands() {
 	con.App.ShowCommands()
 
-	if con.ActiveTarget.session == nil && con.ActiveTarget.beacon == nil {
-		return
-	}
-
-	filters := make([]string, 0)
-
-	// Target type.
-	switch {
-	case con.ActiveTarget.session != nil:
-		session := con.ActiveTarget.session
-
-		// Forbid all beacon-only commands.
-		filters = append(filters, consts.BeaconCmdsFilter)
-
-		// Operating system
-		if session.OS != "windows" {
-			filters = append(filters, consts.WindowsCmdsFilter)
-		}
-
-		// C2 stack
-		if session.Transport != "wg" {
-			filters = append(filters, consts.WireguardCmdsFilter)
-		}
-
-	case con.ActiveTarget.beacon != nil:
-		beacon := con.ActiveTarget.beacon
-
-		// Forbid all session-only commands.
-		filters = append(filters, consts.SessionCmdsFilter)
-
-		// Operating system
-		if beacon.OS != "windows" {
-			filters = append(filters, consts.WindowsCmdsFilter)
-		}
-
-		// C2 stack
-		if beacon.Transport != "wg" {
-			filters = append(filters, consts.WireguardCmdsFilter)
-		}
-	}
+	filters := con.ActiveTarget.Filters()
 
 	// Use all defined filters.
 	con.App.HideCommands(filters...)
@@ -299,6 +261,20 @@ func (con *SliverClient) GetSession(arg string) *clientpb.Session {
 		return nil
 	}
 	for _, session := range sessions.GetSessions() {
+		if session.Name == arg || strings.HasPrefix(session.ID, arg) {
+			return session
+		}
+	}
+	return nil
+}
+
+func (con *SliverClient) GetBeacon(arg string) *clientpb.Beacon {
+	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		con.PrintWarnf("%s", err)
+		return nil
+	}
+	for _, session := range beacons.GetBeacons() {
 		if session.Name == arg || strings.HasPrefix(session.ID, arg) {
 			return session
 		}

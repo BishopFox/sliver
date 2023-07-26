@@ -58,7 +58,8 @@ type CommandBinder func(con *client.SliverClient) []*cobra.Command
 func ServerCommands(con *client.SliverClient, serverCmds CommandBinder) console.Commands {
 	serverCommands := func() *cobra.Command {
 		server := &cobra.Command{
-			Short: "Server commands",
+			Short:            "Server commands",
+			TraverseChildren: true,
 			CompletionOptions: cobra.CompletionOptions{
 				HiddenDefaultCmd: true,
 			},

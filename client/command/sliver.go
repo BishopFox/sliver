@@ -55,7 +55,8 @@ import (
 func SliverCommands(con *client.SliverClient) console.Commands {
 	sliverCommands := func() *cobra.Command {
 		sliver := &cobra.Command{
-			Short: "Implant commands",
+			Short:            "Implant commands",
+			TraverseChildren: true,
 			CompletionOptions: cobra.CompletionOptions{
 				HiddenDefaultCmd: true,
 			},

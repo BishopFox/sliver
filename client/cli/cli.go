@@ -64,13 +64,11 @@ func Execute() {
 	// system shell. It makes use of pre-runners for connecting to the server
 	// and binding sliver commands. These same pre-runners are also used for
 	// command completion/filtering purposes.
+	rootCmd.AddCommand(implantCmd(con, sliverCmds))
 
 	// Pre/post runners and completions.
 	command.BindRunners(rootCmd, true, preRunClient(con))
 	command.BindRunners(rootCmd, false, postRunClient(con))
-
-	// For now don't include any pre-runners
-	rootCmd.AddCommand(implantCmd(con, sliverCmds))
 
 	carapace.Gen(rootCmd)
 

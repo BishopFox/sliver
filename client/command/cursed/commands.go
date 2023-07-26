@@ -13,8 +13,9 @@ import (
 // Commands returns the “ command and its subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	cursedCmd := &cobra.Command{
-		Use:         consts.Cursed,
-		Short:       "Chrome/electron post-exploitation tool kit (∩｀-´)⊃━☆ﾟ.*･｡ﾟ",
+		Use:   consts.Cursed,
+		Short: "Chrome/electron post-exploitation tool kit (∩`-´)⊃━☆ﾟ.*･｡ﾟ",
+		// Short:       "Chrome/electron post-exploitation tool kit (∩｀-´)⊃━☆ﾟ.*･｡ﾟ",
 		Long:        help.GetHelpFor([]string{consts.Cursed}),
 		GroupID:     consts.ExecutionHelpGroup,
 		Annotations: flags.RestrictTargets(consts.SessionCmdsFilter),

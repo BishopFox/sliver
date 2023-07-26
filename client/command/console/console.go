@@ -40,7 +40,7 @@ func Command(con *client.SliverClient, serverCmds, sliverCmds console.Commands) 
 			sliver.SetCommands(sliverCmds)
 
 			// Start the console, blocking until player exit.
-			return con.App.Start()
+			return con.StartConsole()
 		},
 	}
 
