@@ -20,11 +20,13 @@ package console
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/reeflective/console"
 	"github.com/spf13/cobra"
 )
 
@@ -174,6 +176,22 @@ func (s *ActiveTarget) Set(session *clientpb.Session, beacon *clientpb.Beacon) {
 	}
 }
 
+// Background - Background the active session.
+func (s *ActiveTarget) Background() {
+	defer s.con.App.ShowCommands()
+
+	s.session = nil
+	s.beacon = nil
+	for _, observer := range s.observers {
+		observer(nil, nil)
+	}
+
+	// Switch back to server menu.
+	if !s.con.IsCLI && s.con.App.ActiveMenu().Name() == consts.ImplantMenu {
+		s.con.App.SwitchMenu(consts.ServerMenu)
+	}
+}
+
 // Filters returns list of constants describing which types of commands
 // should NOT be available for the current target, eg. beacon commands if
 // the target is a session, Windows commands if the target host is Linux.
@@ -222,18 +240,43 @@ func (s *ActiveTarget) Filters() []string {
 	return filters
 }
 
-// Background - Background the active session.
-func (s *ActiveTarget) Background() {
-	defer s.con.App.ShowCommands()
+// FilterCommands - The active target may have various transport stacks,
+// run on different hosts and operating systems, have networking tools, etc.
+//
+// Given a tree of commands which may or may not all act on a given target,
+// the implant adds a series of annotations and hide directives to those which
+// should not be available in the current state of things.
+func (s *ActiveTarget) FilterCommands(rootCmd *cobra.Command) {
+	targetFilters := s.Filters()
 
-	s.session = nil
-	s.beacon = nil
-	for _, observer := range s.observers {
-		observer(nil, nil)
+	for _, cmd := range rootCmd.Commands() {
+		// Don't override commands if they are already hidden
+		if cmd.Hidden {
+			continue
+		}
+
+		if isFiltered(cmd, targetFilters) {
+			cmd.Hidden = true
+		}
+	}
+}
+
+func isFiltered(cmd *cobra.Command, targetFilters []string) bool {
+	if cmd.Annotations == nil {
+		return false
 	}
 
-	// Switch back to server menu.
-	if !s.con.IsCLI && s.con.App.ActiveMenu().Name() == consts.ImplantMenu {
-		s.con.App.SwitchMenu(consts.ServerMenu)
+	// Get the filters on the command
+	filterStr := cmd.Annotations[console.CommandFilterKey]
+	filters := strings.Split(filterStr, ",")
+
+	for _, cmdFilter := range filters {
+		for _, filter := range targetFilters {
+			if cmdFilter != "" && cmdFilter == filter {
+				return true
+			}
+		}
 	}
+
+	return false
 }

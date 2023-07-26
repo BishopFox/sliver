@@ -70,6 +70,7 @@ func Execute() {
 	command.BindRunners(rootCmd, true, preRunClient(con))
 	command.BindRunners(rootCmd, false, postRunClient(con))
 
+	// Generate the root completion command.
 	carapace.Gen(rootCmd)
 
 	// Run the sliver client binary.

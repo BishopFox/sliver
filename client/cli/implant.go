@@ -2,7 +2,6 @@ package cli
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/bishopfox/sliver/client/command"
 	"github.com/bishopfox/sliver/client/command/use"
@@ -15,24 +14,24 @@ import (
 )
 
 func implantCmd(con *client.SliverClient, sliverCmds console.Commands) *cobra.Command {
+	// Generate a not-yet filtered tree of all commands
+	// usable in the context of an active target implant.
 	implantCmd := sliverCmds()
 	implantCmd.Use = constants.ImplantMenu
 
+	// But let the user set this implant with a flag.
 	implantFlags := pflag.NewFlagSet(constants.ImplantMenu, pflag.ContinueOnError)
 	implantFlags.StringP("use", "s", "", "Set the active target session/beacon")
 	implantCmd.Flags().AddFlagSet(implantFlags)
 
-	// Setup the active target before going down the implant command tree.
-	implantCmd.PersistentPreRunE = sliverPrerun(implantCmd, con)
+	// And when pre-running any of the commands in this tree,
+	// connect to the server as we always do, but also set the
+	// active target for this binary run.
+	implantCmd.PersistentPreRunE = implantPreRun(implantCmd, con)
 
-	// Completions:
-	command.BindFlagCompletions(implantCmd, func(comp *carapace.ActionMap) {
-		(*comp)["use"] = carapace.ActionCallback(func(c carapace.Context) carapace.Action {
-			return use.BeaconAndSessionIDCompleter(con)
-		})
-	})
-
-	// Hide all commands not available for the current target.
+	// Completions.
+	// Unlike the server-only command tree, we need to unconditionally
+	// pre-connect when completing commands, so that we can filter commands.
 	comps := carapace.Gen(implantCmd)
 	comps.PreRun(func(cmd *cobra.Command, args []string) {
 		err := implantCmd.PersistentPreRunE(cmd, args)
@@ -40,55 +39,28 @@ func implantCmd(con *client.SliverClient, sliverCmds console.Commands) *cobra.Co
 			return
 		}
 
-		hideUnavailableCommands(implantCmd, con)
+		// And let the console and its active target decide
+		// what should be available to us, and what should not.
+		con.ActiveTarget.FilterCommands(implantCmd)
+	})
+
+	// This completer will try connect to the server anyway, if not done already.
+	command.BindFlagCompletions(implantCmd, func(comp *carapace.ActionMap) {
+		(*comp)["use"] = carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+			return use.BeaconAndSessionIDCompleter(con)
+		})
 	})
 
 	return implantCmd
 }
 
-// hide commands that are filtered so that they are not
-// shown in the help strings or proposed as completions.
-func hideUnavailableCommands(rootCmd *cobra.Command, con *client.SliverClient) {
-	targetFilters := con.ActiveTarget.Filters()
-
-	for _, cmd := range rootCmd.Commands() {
-		// Don't override commands if they are already hidden
-		if cmd.Hidden {
-			continue
-		}
-
-		if isFiltered(cmd, targetFilters) {
-			cmd.Hidden = true
-		}
-	}
-}
-
-func isFiltered(cmd *cobra.Command, targetFilters []string) bool {
-	if cmd.Annotations == nil {
-		return false
-	}
-
-	// Get the filters on the command
-	filterStr := cmd.Annotations[console.CommandFilterKey]
-	filters := strings.Split(filterStr, ",")
-
-	for _, cmdFilter := range filters {
-		for _, filter := range targetFilters {
-			if cmdFilter != "" && cmdFilter == filter {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-func sliverPrerun(implantCmd *cobra.Command, con *client.SliverClient) func(cmd *cobra.Command, args []string) error {
+func implantPreRun(implantCmd *cobra.Command, con *client.SliverClient) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		if err := preRunClient(con)(cmd, args); err != nil {
 			return err
 		}
 
+		// Pre-parse the flags and get our active target.
 		if err := implantCmd.ParseFlags(args); err != nil {
 			return err
 		}
@@ -110,6 +82,10 @@ func sliverPrerun(implantCmd *cobra.Command, con *client.SliverClient) func(cmd 
 			con.ActiveTarget.Set(nil, beacon)
 			return nil
 		}
+
+		// And let the console and its active target decide
+		// what should be available to us, and what should not.
+		con.ActiveTarget.FilterCommands(implantCmd)
 
 		return nil
 	}
