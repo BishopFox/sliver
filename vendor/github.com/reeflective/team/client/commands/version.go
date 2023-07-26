@@ -56,7 +56,14 @@ func versionCmd(cli *client.Client) func(cmd *cobra.Command, args []string) erro
 		fmt.Fprintf(cmd.OutOrStdout(), command.Info+"Server v%s - %s%s\n", serverSemVer, serverVer.Commit, dirty)
 
 		// Client
-		fmt.Fprintf(cmd.OutOrStdout(), command.Info+"Client %s\n", version.Full())
+		cdirty := ""
+		if version.GitDirty() {
+			cdirty = fmt.Sprintf(" - %sDirty%s", command.Bold, command.Normal)
+		}
+
+		cliVer := version.Semantic()
+		cliSemVer := fmt.Sprintf("%d.%d.%d", cliVer[0], cliVer[1], cliVer[2])
+		fmt.Fprintf(cmd.OutOrStdout(), command.Info+"Client v%s - %s%s\n", cliSemVer, version.GitCommit(), cdirty)
 
 		return nil
 	}

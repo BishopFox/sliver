@@ -22,7 +22,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
 
 	"github.com/reeflective/team"
@@ -164,7 +163,6 @@ func (ts *Server) Self(opts ...client.Options) *client.Client {
 
 // Version returns the teamserver binary version information.
 func (ts *Server) Version() (team.Version, error) {
-	dirty := version.GitDirty != ""
 	semVer := version.Semantic()
 	compiled, _ := version.Compiled()
 
@@ -180,8 +178,8 @@ func (ts *Server) Version() (team.Version, error) {
 		Major:      major,
 		Minor:      minor,
 		Patch:      patch,
-		Commit:     strings.TrimSuffix(version.GitCommit, "\n"),
-		Dirty:      dirty,
+		Commit:     version.GitCommit(),
+		Dirty:      version.GitDirty(),
 		CompiledAt: compiled.Unix(),
 		OS:         runtime.GOOS,
 		Arch:       runtime.GOARCH,

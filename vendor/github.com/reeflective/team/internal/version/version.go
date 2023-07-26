@@ -20,45 +20,30 @@ package version
 
 import (
 	_ "embed"
-	"fmt"
+	"errors"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
-)
-
-//go:generate bash teamserver_version_info
-var (
-	// Version - The semantic version in string form
-	//go:embed client_version.compiled
-	Version string
-
-	// GoVersion - Go compiler version
-	//go:embed go_version.compiled
-	GoVersion string
-
-	// GitCommit - The commit id at compile time
-	//go:embed commit_version.compiled
-	GitCommit string
-
-	// GitDirty - Was the commit dirty at compile time
-	//go:embed dirty_version.compiled
-	GitDirty string
-
-	// CompiledAt - When was this binary compiled
-	//go:embed compiled_version.compiled
-	CompiledAt string
 )
 
 const (
 	semVerLen = 3
 )
 
+var ErrNoBuildInfo = errors.New("No binary build info")
+
 // Semantic - Get the structured semantic
 // version of the application binary.
 func Semantic() []int {
 	semVer := make([]int, semVerLen)
-	version := strings.TrimSuffix(Version, "\n")
-	version = strings.TrimPrefix(version, "v")
+
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return semVer
+	}
+
+	version := info.Main.Version
 
 	for i, part := range strings.Split(version, ".") {
 		number, _ := strconv.ParseInt(part, 10, 32)
@@ -70,7 +55,19 @@ func Semantic() []int {
 
 // Compiled - Get time this binary was compiled.
 func Compiled() (time.Time, error) {
-	compiledAt := strings.TrimSuffix(CompiledAt, "\n")
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return time.Unix(0, 0), ErrNoBuildInfo
+	}
+
+	var compiledAt string
+
+	for _, set := range info.Settings {
+		if set.Key == "vcs.time" {
+			compiledAt = set.Value
+			break
+		}
+	}
 
 	compiled, err := strconv.ParseInt(compiledAt, 10, 64)
 	if err != nil {
@@ -80,17 +77,35 @@ func Compiled() (time.Time, error) {
 	return time.Unix(compiled, 0), nil
 }
 
-// Full - Full version string.
-func Full() string {
-	ver := strings.TrimSuffix(Version, "\n")
-	if GitCommit != "" {
-		ver += fmt.Sprintf(" - %s", GitCommit)
+// GitCommit returns the last commit hash.
+func GitCommit() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return ""
 	}
 
-	compiled, err := Compiled()
-	if err == nil {
-		ver += fmt.Sprintf(" - Compiled %s", compiled.String())
+	for _, set := range info.Settings {
+		if set.Key == "vcs.revision" {
+			return set.Value
+		}
 	}
 
-	return ver
+	return ""
+}
+
+// GitDirty returns true if the binary was compiled
+// with modified files in the VCS working area.
+func GitDirty() bool {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return false
+	}
+
+	for _, set := range info.Settings {
+		if set.Key == "vcs.modified" {
+			return set.Key == "true"
+		}
+	}
+
+	return false
 }
