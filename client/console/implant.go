@@ -192,6 +192,27 @@ func (s *ActiveTarget) Background() {
 	}
 }
 
+// FilterCommands - The active target may have various transport stacks,
+// run on different hosts and operating systems, have networking tools, etc.
+//
+// Given a tree of commands which may or may not all act on a given target,
+// the implant adds a series of annotations and hide directives to those which
+// should not be available in the current state of things.
+func (s *ActiveTarget) FilterCommands(rootCmd *cobra.Command) {
+	targetFilters := s.Filters()
+
+	for _, cmd := range rootCmd.Commands() {
+		// Don't override commands if they are already hidden
+		if cmd.Hidden {
+			continue
+		}
+
+		if isFiltered(cmd, targetFilters) {
+			cmd.Hidden = true
+		}
+	}
+}
+
 // Filters returns list of constants describing which types of commands
 // should NOT be available for the current target, eg. beacon commands if
 // the target is a session, Windows commands if the target host is Linux.
@@ -238,27 +259,6 @@ func (s *ActiveTarget) Filters() []string {
 	}
 
 	return filters
-}
-
-// FilterCommands - The active target may have various transport stacks,
-// run on different hosts and operating systems, have networking tools, etc.
-//
-// Given a tree of commands which may or may not all act on a given target,
-// the implant adds a series of annotations and hide directives to those which
-// should not be available in the current state of things.
-func (s *ActiveTarget) FilterCommands(rootCmd *cobra.Command) {
-	targetFilters := s.Filters()
-
-	for _, cmd := range rootCmd.Commands() {
-		// Don't override commands if they are already hidden
-		if cmd.Hidden {
-			continue
-		}
-
-		if isFiltered(cmd, targetFilters) {
-			cmd.Hidden = true
-		}
-	}
 }
 
 func isFiltered(cmd *cobra.Command, targetFilters []string) bool {

@@ -131,6 +131,9 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("", false, CursedCookiesCmd, func(f *pflag.FlagSet) {
 		f.StringP("save", "s", "", "save to file")
 	})
+	flags.BindFlagCompletions(CursedCookiesCmd, func(comp *carapace.ActionMap) {
+		(*comp)["save"] = carapace.ActionFiles()
+	})
 
 	cursedScreenshotCmd := &cobra.Command{
 		Use:   consts.ScreenshotStr,
