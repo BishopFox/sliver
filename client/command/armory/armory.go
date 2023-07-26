@@ -26,20 +26,22 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"golang.org/x/term"
-
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
-// ArmoryIndex - Index JSON containing alias/extension/bundle information
+const (
+	armoryCacheFileName = "armory-cache.json"
+)
+
+// ArmoryIndex - Index JSON containing alias/extension/bundle information.
 type ArmoryIndex struct {
 	ArmoryConfig *assets.ArmoryConfig `json:"-"`
 	Aliases      []*ArmoryPackage     `json:"aliases"`
@@ -47,7 +49,7 @@ type ArmoryIndex struct {
 	Bundles      []*ArmoryBundle      `json:"bundles"`
 }
 
-// ArmoryPackage - JSON metadata for alias or extension
+// ArmoryPackage - JSON metadata for alias or extension.
 type ArmoryPackage struct {
 	Name        string `json:"name"`
 	CommandName string `json:"command_name"`
@@ -57,13 +59,13 @@ type ArmoryPackage struct {
 	IsAlias bool `json:"-"`
 }
 
-// ArmoryBundle - A list of packages
+// ArmoryBundle - A list of packages.
 type ArmoryBundle struct {
 	Name     string   `json:"name"`
 	Packages []string `json:"packages"`
 }
 
-// ArmoryHTTPConfig - Configuration for armory HTTP client
+// ArmoryHTTPConfig - Configuration for armory HTTP client.
 type ArmoryHTTPConfig struct {
 	ArmoryConfig         *assets.ArmoryConfig
 	IgnoreCache          bool
@@ -92,19 +94,19 @@ type pkgCacheEntry struct {
 }
 
 var (
-	// public key -> armoryCacheEntry
+	// public key -> armoryCacheEntry.
 	indexCache = sync.Map{}
-	// public key -> armoryPkgCacheEntry
+	// public key -> armoryPkgCacheEntry.
 	pkgCache = sync.Map{}
 
-	// cacheTime - How long to cache the index/pkg manifests
+	// cacheTime - How long to cache the index/pkg manifests.
 	cacheTime = time.Hour
 
-	// This will kill a download if exceeded so needs to be large
+	// This will kill a download if exceeded so needs to be large.
 	defaultTimeout = 15 * time.Minute
 )
 
-// ArmoryCmd - The main armory command
+// ArmoryCmd - The main armory command.
 func ArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	armoriesConfig := assets.GetArmoriesConfig()
 	con.PrintInfof("Fetching %d armory index(es) ... ", len(armoriesConfig))
@@ -172,6 +174,12 @@ func refresh(clientConfig ArmoryHTTPConfig) {
 	armoriesConfig := assets.GetArmoriesConfig()
 	indexes := fetchIndexes(armoriesConfig, clientConfig)
 	fetchPackageSignatures(indexes, clientConfig)
+
+	// Save the list of bundles/exts/aliases on disk.
+	// This is only for completion purposes, so this
+	// does not include ANY cryptographic or remote
+	// information on the packages.
+	saveArmoryCompletionCache()
 }
 
 func packagesInCache() ([]*alias.AliasManifest, []*extensions.ExtensionManifest) {
@@ -201,45 +209,7 @@ func bundlesInCache() []*ArmoryBundle {
 	return bundles
 }
 
-// AliasExtensionOrBundleCompleter - Completer for alias, extension, and bundle names
-func AliasExtensionOrBundleCompleter() carapace.Action {
-	comps := func(ctx carapace.Context) carapace.Action {
-		var action carapace.Action
-
-		results := []string{}
-		aliases, exts := packagesInCache()
-		bundles := bundlesInCache()
-
-		for _, aliasPkg := range aliases {
-			results = append(results, aliasPkg.CommandName)
-			results = append(results, aliasPkg.Help)
-		}
-		aliasesComps := carapace.ActionValuesDescribed(results...).Tag("aliases").Invoke(ctx)
-		results = make([]string, 0)
-
-		for _, extensionPkg := range exts {
-			results = append(results, extensionPkg.CommandName)
-			results = append(results, extensionPkg.Help)
-		}
-		extentionComps := carapace.ActionValuesDescribed(results...).Tag("extensions").Invoke(ctx)
-		results = make([]string, 0)
-
-		for _, bundle := range bundles {
-			results = append(results, bundle.Name)
-		}
-		bundleComps := carapace.ActionValues(results...).Tag("bundles").Invoke(ctx)
-
-		return action.Invoke(ctx).Merge(
-			aliasesComps,
-			extentionComps,
-			bundleComps,
-		).ToA()
-	}
-
-	return carapace.ActionCallback(comps)
-}
-
-// PrintArmoryPackages - Prints the armory packages
+// PrintArmoryPackages - Prints the armory packages.
 func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.ExtensionManifest, con *console.SliverClient) {
 	width, _, err := term.GetSize(0)
 	if err != nil {
@@ -330,7 +300,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 	con.Printf("%s\n", tw.Render())
 }
 
-// PrintArmoryBundles - Prints the armory bundles
+// PrintArmoryBundles - Prints the armory bundles.
 func PrintArmoryBundles(bundles []*ArmoryBundle, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
@@ -397,7 +367,7 @@ func parseArmoryHTTPConfig(cmd *cobra.Command) ArmoryHTTPConfig {
 }
 
 // fetch armory indexes, only returns indexes that were fetched successfully
-// errors are still in the cache objects however and can be checked
+// errors are still in the cache objects however and can be checked.
 func fetchIndexes(armoryConfigs []*assets.ArmoryConfig, clientConfig ArmoryHTTPConfig) []ArmoryIndex {
 	wg := &sync.WaitGroup{}
 	for _, armoryConfig := range armoryConfigs {

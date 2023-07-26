@@ -36,10 +36,10 @@ import (
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
 )
 
-// ArmoryIndexParser - Generic interface to fetch armory indexes
+// ArmoryIndexParser - Generic interface to fetch armory indexes.
 type ArmoryIndexParser func(*assets.ArmoryConfig, ArmoryHTTPConfig) (*ArmoryIndex, error)
 
-// ArmoryPackageParser - Generic interface to fetch armory package manifests
+// ArmoryPackageParser - Generic interface to fetch armory package manifests.
 type ArmoryPackageParser func(*assets.ArmoryConfig, *ArmoryPackage, bool, ArmoryHTTPConfig) (*minisign.Signature, []byte, error)
 
 var (
@@ -71,7 +71,7 @@ type armoryPkgResponse struct {
 // Default Parsers for Self-Hosted Armories
 //
 
-// DefaultArmoryParser - Parse the armory index directly from the url
+// DefaultArmoryParser - Parse the armory index directly from the url.
 func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig) (*ArmoryIndex, error) {
 	var publicKey minisign.PublicKey
 	err := publicKey.UnmarshalText([]byte(armoryConfig.PublicKey))
@@ -114,7 +114,7 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 	return armoryIndex, nil
 }
 
-// DefaultArmoryPkgParser - Parse the armory package manifest directly from the url
+// DefaultArmoryPkgParser - Parse the armory package manifest directly from the url.
 func DefaultArmoryPkgParser(armoryConfig *assets.ArmoryConfig, armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
 	var publicKey minisign.PublicKey
 	err := publicKey.UnmarshalText([]byte(armoryPkg.PublicKey))
@@ -183,7 +183,7 @@ type GithubRelease struct {
 	Assets      []GithubAsset `json:"assets"`
 }
 
-// GithubAPIArmoryIndexParser - Parse the armory index from a GitHub release
+// GithubAPIArmoryIndexParser - Parse the armory index from a GitHub release.
 func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig) (*ArmoryIndex, error) {
 	var publicKey minisign.PublicKey
 	err := publicKey.UnmarshalText([]byte(armoryConfig.PublicKey))
@@ -245,7 +245,7 @@ func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig 
 	return armoryIndex, nil
 }
 
-// GithubAPIArmoryPackageParser - Retrieve the minisig and tar.gz for an armory package from a GitHub release
+// GithubAPIArmoryPackageParser - Retrieve the minisig and tar.gz for an armory package from a GitHub release.
 func GithubAPIArmoryPackageParser(armoryConfig *assets.ArmoryConfig, armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
 	var publicKey minisign.PublicKey
 	err := publicKey.UnmarshalText([]byte(armoryPkg.PublicKey))
@@ -298,7 +298,7 @@ func GithubAPIArmoryPackageParser(armoryConfig *assets.ArmoryConfig, armoryPkg *
 // GitHub Parsers
 //
 
-// GithubArmoryPackageParser - Uses github.com instead of api.github.com to download packages
+// GithubArmoryPackageParser - Uses github.com instead of api.github.com to download packages.
 func GithubArmoryPackageParser(_ *assets.ArmoryConfig, armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
 	latestTag, err := githubLatestTagParser(armoryPkg, clientConfig)
 	if err != nil {
@@ -341,7 +341,7 @@ func GithubArmoryPackageParser(_ *assets.ArmoryConfig, armoryPkg *ArmoryPackage,
 	return sig, tarGz, nil
 }
 
-// We need to intercept the 302 redirect to determine the latest version tag
+// We need to intercept the 302 redirect to determine the latest version tag.
 func githubLatestTagParser(armoryPkg *ArmoryPackage, clientConfig ArmoryHTTPConfig) (string, error) {
 	client := httpClient(clientConfig)
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {

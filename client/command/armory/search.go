@@ -21,14 +21,13 @@ package armory
 import (
 	"regexp"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/spf13/cobra"
 )
 
-// ArmorySearchCmd - Search for packages by name
+// ArmorySearchCmd - Search for packages by name.
 func ArmorySearchCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	con.PrintInfof("Refreshing package cache ... ")
 	clientConfig := parseArmoryHTTPConfig(cmd)

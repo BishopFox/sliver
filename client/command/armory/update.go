@@ -22,15 +22,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/spf13/cobra"
 )
 
-// ArmoryUpdateCmd - Update all installed extensions/aliases
+// ArmoryUpdateCmd - Update all installed extensions/aliases.
 func ArmoryUpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	con.PrintInfof("Refreshing package cache ... ")
 	clientConfig := parseArmoryHTTPConfig(cmd)
