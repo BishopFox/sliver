@@ -1,4 +1,4 @@
-package pivots
+package jobs
 
 /*
 	Sliver Implant Framework
@@ -49,32 +49,4 @@ func StartTCPListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 		return
 	}
 	con.PrintInfof("Started tcp pivot listener %s with id %d\n", listener.BindAddress, listener.ID)
-}
-
-// StartNamedPipeListenerCmd - Start a TCP pivot listener on the remote system.
-func StartNamedPipeListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
-	session := con.ActiveTarget.GetSessionInteractive()
-	if session == nil {
-		return
-	}
-	allowAll, _ := cmd.Flags().GetBool("allow-all")
-	bind, _ := cmd.Flags().GetString("bind")
-
-	var options []bool
-	options = append(options, allowAll)
-	listener, err := con.Rpc.PivotStartListener(context.Background(), &sliverpb.PivotStartListenerReq{
-		Type:        sliverpb.PivotType_NamedPipe,
-		BindAddress: bind,
-		Request:     con.ActiveTarget.Request(cmd),
-		Options:     options,
-	})
-	if err != nil {
-		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
-		return
-	}
-	if listener.Response != nil && listener.Response.Err != "" {
-		con.PrintErrorf("%s\n", listener.Response.Err)
-		return
-	}
-	con.PrintInfof("Started named pipe pivot listener %s with id %d\n", listener.BindAddress, listener.ID)
 }

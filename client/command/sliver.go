@@ -30,6 +30,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/filesystem"
 	"github.com/bishopfox/sliver/client/command/history"
 	"github.com/bishopfox/sliver/client/command/info"
+	"github.com/bishopfox/sliver/client/command/jobs"
 	"github.com/bishopfox/sliver/client/command/kill"
 	"github.com/bishopfox/sliver/client/command/network"
 	"github.com/bishopfox/sliver/client/command/pivots"
@@ -84,7 +85,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 
 		// [ Info ]
 		bind(consts.InfoHelpGroup,
-			// info.Commands,
+			info.Commands,
 			info.SliverCommands,
 			screenshot.Commands,
 			environment.Commands,
@@ -98,6 +99,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 
 		// [ Network tools ]
 		bind(consts.NetworkHelpGroup,
+			jobs.SliverCommands,
 			network.Commands,
 			rportfwd.Commands,
 			portfwd.Commands,

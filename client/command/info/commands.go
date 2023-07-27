@@ -17,6 +17,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Use:   consts.InfoStr,
 		Short: "Get info about session",
 		Long:  help.GetHelpFor([]string{consts.InfoStr}),
+		Args:  cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			InfoCmd(cmd, con, args)
 		},
@@ -25,7 +26,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("use", false, infoCmd, func(f *pflag.FlagSet) {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
-	carapace.Gen(infoCmd).PositionalCompletion(use.BeaconAndSessionIDCompleter(con))
+
+	carapace.Gen(infoCmd).PositionalCompletion(use.BeaconAndSessionIDCompleter(con).Usage("implant target to show (optional)"))
 
 	return []*cobra.Command{infoCmd}
 }

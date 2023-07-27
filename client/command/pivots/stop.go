@@ -20,6 +20,7 @@ package pivots
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -33,8 +34,13 @@ func StopPivotListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []
 		return
 	}
 
-	id, _ := cmd.Flags().GetUint32("id")
-	if id == uint32(0) {
+	id, err := strconv.ParseUint(args[0], 10, 32)
+	if err != nil {
+		con.PrintErrorf("Failed to parse pivot ID: %s\n", err)
+		return
+	}
+
+	if id == 0 {
 		pivotListeners, err := con.Rpc.PivotSessionListeners(context.Background(), &sliverpb.PivotListenersReq{
 			Request: con.ActiveTarget.Request(cmd),
 		})
@@ -51,10 +57,10 @@ func StopPivotListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []
 			con.PrintErrorf("%s\n", err)
 			return
 		}
-		id = selectedListener.ID
+		id = uint64(selectedListener.ID)
 	}
-	_, err := con.Rpc.PivotStopListener(context.Background(), &sliverpb.PivotStopListenerReq{
-		ID:      id,
+	_, err = con.Rpc.PivotStopListener(context.Background(), &sliverpb.PivotStopListenerReq{
+		ID:      uint32(id),
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {

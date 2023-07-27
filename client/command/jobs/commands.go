@@ -171,3 +171,36 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 	return []*cobra.Command{jobsCmd, mtlsCmd, wgCmd, httpCmd, httpsCmd, stageCmd}
 }
+
+// SliverCommands returns all C2 channels control commands available for an implant target.
+func SliverCommands(con *console.SliverClient) []*cobra.Command {
+	namedPipeCmd := &cobra.Command{
+		Use:         consts.NamedPipeStr,
+		Short:       "Start a named pipe pivot listener",
+		Long:        help.GetHelpFor([]string{consts.PivotsStr, consts.NamedPipeStr}),
+		Annotations: flags.RestrictTargets(consts.SessionCmdsFilter),
+		Run: func(cmd *cobra.Command, args []string) {
+			StartNamedPipeListenerCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("", false, namedPipeCmd, func(f *pflag.FlagSet) {
+		f.StringP("bind", "b", "", "name of the named pipe to bind pivot listener")
+		f.BoolP("allow-all", "a", false, "allow all users to connect")
+	})
+
+	tcpListenerCmd := &cobra.Command{
+		Use:         consts.TCPListenerStr,
+		Short:       "Start a TCP pivot listener",
+		Long:        help.GetHelpFor([]string{consts.PivotsStr, consts.TCPListenerStr}),
+		Annotations: flags.RestrictTargets(consts.SessionCmdsFilter),
+		Run: func(cmd *cobra.Command, args []string) {
+			StartTCPListenerCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("", false, tcpListenerCmd, func(f *pflag.FlagSet) {
+		f.StringP("bind", "b", "", "remote interface to bind pivot listener")
+		f.Uint16P("lport", "l", generate.DefaultTCPPivotPort, "tcp pivot listener port")
+	})
+
+	return []*cobra.Command{namedPipeCmd, tcpListenerCmd}
+}

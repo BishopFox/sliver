@@ -21,6 +21,7 @@ package pivots
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
@@ -47,19 +48,24 @@ func PivotDetailsCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		return
 	}
 
-	id, _ := cmd.Flags().GetUint32("id")
-	if id == uint32(0) {
+	id, err := strconv.ParseUint(args[0], 10, 32)
+	if err != nil {
+		con.PrintErrorf("Failed to parse pivot ID: %s\n", err)
+		return
+	}
+
+	if id == 0 {
 		selectedListener, err := SelectPivotListener(pivotListeners.Listeners, con)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
-		id = selectedListener.ID
+		id = uint64(selectedListener.ID)
 	}
 
 	found := false
 	for _, listener := range pivotListeners.Listeners {
-		if listener.ID == id {
+		if listener.ID == uint32(id) {
 			PrintPivotListenerDetails(listener, con)
 			found = true
 		}
