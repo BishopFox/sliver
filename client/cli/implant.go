@@ -2,6 +2,7 @@ package cli
 
 import (
 	"errors"
+	"os"
 
 	"github.com/bishopfox/sliver/client/command"
 	"github.com/bishopfox/sliver/client/command/use"
@@ -11,6 +12,7 @@ import (
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"golang.org/x/exp/slices"
 )
 
 func implantCmd(con *client.SliverClient, sliverCmds console.Commands) *cobra.Command {
@@ -27,7 +29,8 @@ func implantCmd(con *client.SliverClient, sliverCmds console.Commands) *cobra.Co
 	// And when pre-running any of the commands in this tree,
 	// connect to the server as we always do, but also set the
 	// active target for this binary run.
-	implantCmd.PersistentPreRunE = implantPreRun(implantCmd, con)
+	implantCmd.PersistentPreRunE = preRunImplant(implantCmd, con)
+	implantCmd.PersistentPostRunE = postRunImplant(implantCmd, con)
 
 	// Completions.
 	// Unlike the server-only command tree, we need to unconditionally
@@ -54,7 +57,7 @@ func implantCmd(con *client.SliverClient, sliverCmds console.Commands) *cobra.Co
 	return implantCmd
 }
 
-func implantPreRun(implantCmd *cobra.Command, con *client.SliverClient) func(cmd *cobra.Command, args []string) error {
+func preRunImplant(implantCmd *cobra.Command, con *client.SliverClient) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		if err := preRunClient(con)(cmd, args); err != nil {
 			return err
@@ -88,5 +91,23 @@ func implantPreRun(implantCmd *cobra.Command, con *client.SliverClient) func(cmd
 		con.ActiveTarget.FilterCommands(implantCmd)
 
 		return nil
+	}
+}
+
+func postRunImplant(implantCmd *cobra.Command, con *client.SliverClient) func(_ *cobra.Command, _ []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		var saveArgs []string
+
+		for i, arg := range os.Args {
+			if arg == cmd.Name() {
+				saveArgs = os.Args[i:]
+			} else if slices.Contains(cmd.Aliases, arg) {
+				saveArgs = os.Args[i:]
+			}
+		}
+
+		con.ActiveTarget.SaveCommandLine(saveArgs)
+
+		return con.Disconnect()
 	}
 }

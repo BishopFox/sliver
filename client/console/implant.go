@@ -36,6 +36,16 @@ type ActiveTarget struct {
 	observers  map[int]Observer
 	observerID int
 	con        *SliverClient
+	hist       *implantHistory
+}
+
+func newActiveTarget() *ActiveTarget {
+	at := &ActiveTarget{
+		observers:  map[int]Observer{},
+		observerID: 0,
+	}
+
+	return at
 }
 
 // GetSessionInteractive - Get the active target(s).

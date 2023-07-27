@@ -91,6 +91,7 @@ type SliverClient struct {
 	// Core client
 	Teamclient   *client.Client
 	App          *console.Console
+	Settings     *assets.ClientSettings
 	IsServer     bool
 	IsCLI        bool
 	IsCompleting bool
@@ -106,7 +107,6 @@ type SliverClient struct {
 	EventListeners           *sync.Map
 	BeaconTaskCallbacks      map[string]BeaconTaskCallback
 	BeaconTaskCallbacksMutex *sync.Mutex
-	Settings                 *assets.ClientSettings
 }
 
 // NewSliverClient is the general-purpose Sliver Client constructor.
@@ -145,17 +145,14 @@ func newConsole() *SliverClient {
 	settings, _ := assets.LoadSettings()
 
 	con := &SliverClient{
-		App: console.New("sliver"),
-		ActiveTarget: &ActiveTarget{
-			observers:  map[int]Observer{},
-			observerID: 0,
-		},
-		EventListeners:           &sync.Map{},
-		BeaconTaskCallbacks:      map[string]BeaconTaskCallback{},
-		BeaconTaskCallbacksMutex: &sync.Mutex{},
+		App:                      console.New("sliver"),
 		Settings:                 settings,
 		IsCLI:                    true,
 		printf:                   fmt.Printf,
+		ActiveTarget:             newActiveTarget(),
+		EventListeners:           &sync.Map{},
+		BeaconTaskCallbacks:      map[string]BeaconTaskCallback{},
+		BeaconTaskCallbacksMutex: &sync.Mutex{},
 	}
 
 	con.App.SetPrintLogo(func(_ *console.Console) {
@@ -217,6 +214,8 @@ func (con *SliverClient) connect(conn *grpc.ClientConn) {
 	if err == nil {
 		sliver.AddHistorySource("implant history (all users)", histAll)
 	}
+
+	con.ActiveTarget.hist = histAll
 
 	con.closeLogs = append(con.closeLogs, func() {
 		histuser.Close()

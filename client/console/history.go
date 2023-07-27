@@ -21,6 +21,7 @@ package console
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -33,6 +34,19 @@ type implantHistory struct {
 	Stream rpcpb.SliverRPC_ImplantHistoryClient
 	pos    int
 	user   bool
+}
+
+// SaveCommandLine sends a command-line to the server for saving,
+// with information about the currrent active target and user.
+// Called in the implant-command tree root persistent post-runner.
+func (s *ActiveTarget) SaveCommandLine(args []string) {
+	if s.hist == nil {
+		return
+	}
+
+	cmdline := strings.Join(args, " ")
+
+	s.hist.Write(cmdline)
 }
 
 func (con *SliverClient) newImplantHistory(user bool) (*implantHistory, error) {
@@ -61,21 +75,23 @@ func (con *SliverClient) newImplantHistory(user bool) (*implantHistory, error) {
 }
 
 // Write - Sends the last command to the server for saving.
-func (h *implantHistory) Write(s string) (int, error) {
+func (h *implantHistory) Write(cmdline string) (int, error) {
 	sess, beac := h.con.ActiveTarget.Get()
 	if sess == nil && beac == nil {
 		return len(h.items), nil
 	}
 
+	cmdline = strings.TrimSpace(cmdline)
+
 	// Don't save queries for the list of commands.
-	if s == "history" {
+	if isTrivialCommand(cmdline) {
 		return len(h.items), nil
 	}
 
 	// Populate a command line with its context.
 	cmd := &clientpb.ImplantCommand{}
 
-	cmd.Block = s
+	cmd.Block = cmdline
 	cmd.ExecutedAt = time.Now().Unix()
 
 	if sess != nil {
@@ -99,8 +115,8 @@ func (h *implantHistory) Write(s string) (int, error) {
 }
 
 // GetLine returns a line from history.
-func (h *implantHistory) GetLine(i int) (string, error) {
-	if i < 0 {
+func (h *implantHistory) GetLine(pos int) (string, error) {
+	if pos < 0 {
 		return "", nil
 	}
 
@@ -109,11 +125,11 @@ func (h *implantHistory) GetLine(i int) (string, error) {
 		h.Dump()
 	}
 
-	if i >= len(h.items) {
+	if pos >= len(h.items) {
 		return "", errors.New("Invalid history index")
 	}
 
-	return h.items[i].Block, nil
+	return h.items[pos].Block, nil
 }
 
 // Len returns the number of lines in history.
@@ -159,4 +175,25 @@ func (h *implantHistory) Close() error {
 
 	_, err := h.Stream.CloseAndRecv()
 	return err
+}
+
+func isTrivialCommand(cmdline string) bool {
+	ignoreCmds := map[string]bool{
+		"":           true,
+		"background": true,
+		"history":    true,
+	}
+
+	for key := range ignoreCmds {
+		if key != "" && strings.HasPrefix(cmdline, key) {
+			return true
+		}
+	}
+
+	ignore, found := ignoreCmds[cmdline]
+	if !found {
+		return false
+	}
+
+	return ignore
 }

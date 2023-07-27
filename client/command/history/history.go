@@ -25,6 +25,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -33,9 +34,10 @@ import (
 
 // Commands returns all commands related to implant history.
 func Commands(con *console.SliverClient) []*cobra.Command {
-	history := &cobra.Command{
-		Use:   "history",
-		Short: "Print the implant command history",
+	historyCmd := &cobra.Command{
+		Use:     "history",
+		Short:   "Print the implant command history",
+		GroupID: constants.SliverCoreHelpGroup,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sess, beac := con.ActiveTarget.Get()
 			if sess == nil && beac == nil {
@@ -63,7 +65,11 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 				return err
 			}
 
-			for i, command := range history.GetCommands() {
+			commands := history.GetCommands()
+
+			for i := len(commands) - 1; i >= 0; i-- {
+				command := commands[i]
+
 				if user && command.GetUser() != clientUser {
 					continue
 				}
@@ -84,10 +90,10 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		},
 	}
 
-	flags.Bind("history", false, history, func(f *pflag.FlagSet) {
+	flags.Bind("history", false, historyCmd, func(f *pflag.FlagSet) {
 		f.BoolP("user", "u", false, "Only print implant commands executed by user")
 		f.BoolP("time", "t", false, "Print the exec time before the command line (tab separated)")
 	})
 
-	return []*cobra.Command{history}
+	return []*cobra.Command{historyCmd}
 }
