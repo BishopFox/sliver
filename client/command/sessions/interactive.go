@@ -165,7 +165,7 @@ func InteractiveCmd(cmd *cobra.Command, con *console.SliverClient, _ []string) {
 
 	openSession, err = con.Rpc.OpenSession(context.Background(), openSession)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	}
 	if openSession.Response != nil && openSession.Response.Async {
 		con.PrintAsyncResponse(openSession.Response)

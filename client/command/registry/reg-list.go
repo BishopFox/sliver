@@ -21,16 +21,14 @@ package registry
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// RegListSubKeysCmd - List sub registry keys
+// RegListSubKeysCmd - List sub registry keys.
 func RegListSubKeysCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -53,7 +51,7 @@ func RegListSubKeysCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 		Request:  con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
@@ -72,7 +70,7 @@ func RegListSubKeysCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 	}
 }
 
-// PrintListSubKeys - Print the list sub keys command result
+// PrintListSubKeys - Print the list sub keys command result.
 func PrintListSubKeys(regList *sliverpb.RegistrySubKeyList, hive string, regPath string, con *console.SliverClient) {
 	if regList.Response != nil && regList.Response.Err != "" {
 		con.PrintErrorf("%s\n", regList.Response.Err)
@@ -86,7 +84,7 @@ func PrintListSubKeys(regList *sliverpb.RegistrySubKeyList, hive string, regPath
 	}
 }
 
-// RegListValuesCmd - List registry values
+// RegListValuesCmd - List registry values.
 func RegListValuesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -104,7 +102,7 @@ func RegListValuesCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		Request:  con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
@@ -123,7 +121,7 @@ func RegListValuesCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 	}
 }
 
-// PrintListValues - Print the registry list values
+// PrintListValues - Print the registry list values.
 func PrintListValues(regList *sliverpb.RegistryValuesList, hive string, regPath string, con *console.SliverClient) {
 	if regList.Response != nil && regList.Response.Err != "" {
 		con.PrintErrorf("%s\n", regList.Response.Err)

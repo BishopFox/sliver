@@ -155,7 +155,7 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		ctrl <- true
 		<-ctrl
 		if err != nil {
-			con.PrintErrorf("Error starting HTTP staging listener: %s\n", err)
+			con.PrintErrorf("Error starting HTTP staging listener: %s\n", con.UnwrapServerErr(err))
 			return
 		}
 		con.PrintInfof("Job %d (http) started\n", stageListener.GetJobID())
@@ -184,7 +184,7 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		ctrl <- true
 		<-ctrl
 		if err != nil {
-			con.PrintErrorf("Error starting HTTPS staging listener: %v\n", err)
+			con.PrintErrorf("Error starting HTTPS staging listener: %v\n", con.UnwrapServerErr(err))
 			return
 		}
 		con.PrintInfof("Job %d (https) started\n", stageListener.GetJobID())
@@ -202,7 +202,7 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		ctrl <- true
 		<-ctrl
 		if err != nil {
-			con.PrintErrorf("Error starting TCP staging listener: %v\n", err)
+			con.PrintErrorf("Error starting TCP staging listener: %v\n", con.UnwrapServerErr(err))
 			return
 		}
 		con.PrintInfof("Job %d (tcp) started\n", stageListener.GetJobID())

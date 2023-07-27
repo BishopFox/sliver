@@ -40,7 +40,7 @@ import (
 func LootCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	allLoot, err := con.Rpc.LootAll(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("Failed to fetch loot %s\n", err)
+		con.PrintErrorf("Failed to fetch loot %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	PrintAllFileLootTable(allLoot, con)

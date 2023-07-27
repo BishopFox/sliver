@@ -46,7 +46,7 @@ func WebsitesRmContent(cmd *cobra.Command, con *console.SliverClient, args []str
 		Name: name,
 	})
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return
 	}
 
@@ -65,7 +65,7 @@ func WebsitesRmContent(cmd *cobra.Command, con *console.SliverClient, args []str
 	}
 	web, err := con.Rpc.WebsiteRemoveContent(context.Background(), rmWebContent)
 	if err != nil {
-		con.PrintErrorf("Failed to remove content %s", err)
+		con.PrintErrorf("Failed to remove content %s", con.UnwrapServerErr(err))
 		return
 	}
 	PrintWebsite(web, con)

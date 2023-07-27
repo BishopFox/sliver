@@ -62,7 +62,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 			history, err := con.Rpc.GetImplantHistory(context.Background(), req)
 			if err != nil {
-				return err
+				return con.UnwrapServerErr(err)
 			}
 
 			commands := history.GetCommands()

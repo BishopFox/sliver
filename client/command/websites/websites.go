@@ -51,7 +51,7 @@ func WebsitesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 func ListWebsites(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	websites, err := con.Rpc.Websites(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("Failed to list websites %s", err)
+		con.PrintErrorf("Failed to list websites %s", con.UnwrapServerErr(err))
 		return
 	}
 	if len(websites.Websites) < 1 {
@@ -71,7 +71,7 @@ func ListWebsiteContent(websiteName string, con *console.SliverClient) {
 		Name: websiteName,
 	})
 	if err != nil {
-		con.PrintErrorf("Failed to list website content %s", err)
+		con.PrintErrorf("Failed to list website content %s", con.UnwrapServerErr(err))
 		return
 	}
 	if 0 < len(website.Contents) {
@@ -120,7 +120,7 @@ func WebsiteNameCompleter(con *console.SliverClient) carapace.Action {
 
 		websites, err := con.Rpc.Websites(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			return carapace.ActionMessage("Failed to list websites %s", err)
+			return carapace.ActionMessage("Failed to list websites %s", con.UnwrapServerErr(err))
 		}
 
 		for _, ws := range websites.Websites {

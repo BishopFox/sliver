@@ -41,7 +41,7 @@ func StartTCPListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 		Request:     con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if listener.Response != nil && listener.Response.Err != "" {
@@ -69,7 +69,7 @@ func StartNamedPipeListenerCmd(cmd *cobra.Command, con *console.SliverClient, ar
 		Options:     options,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if listener.Response != nil && listener.Response.Err != "" {

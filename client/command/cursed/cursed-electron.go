@@ -102,7 +102,7 @@ func avadaKedavraElectron(electronExe string, session *clientpb.Session, cmd *co
 			Pid:     electronProcess.Pid,
 		})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			return nil
 		}
 		if terminateResp.Response != nil && terminateResp.Response.Err != "" {
@@ -124,7 +124,7 @@ func checkElectronPath(electronExe string, session *clientpb.Session, cmd *cobra
 		Path:    electronExe,
 	})
 	if err != nil {
-		return false, err
+		return false, con.UnwrapServerErr(err)
 	}
 	return ls.GetExists(), nil
 }
@@ -134,7 +134,7 @@ func checkElectronProcess(electronExe string, session *clientpb.Session, cmd *co
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	for _, process := range ps.Processes {
 		if process.GetOwner() != session.GetUsername() {
@@ -168,7 +168,7 @@ func startCursedElectronProcess(electronExe string, session *clientpb.Session, c
 	})
 	if err != nil {
 		con.Printf("failure!\n")
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	con.Printf("(pid: %d) success!\n", electronExec.GetPid())
 

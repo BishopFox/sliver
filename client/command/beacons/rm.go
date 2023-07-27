@@ -34,7 +34,7 @@ func BeaconsRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	defer cancel()
 	_, err = con.Rpc.RmBeacon(grpcCtx, beacon)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Beacon removed (%s)\n", beacon.ID)

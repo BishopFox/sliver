@@ -138,7 +138,7 @@ func runNonInteractive(execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.
 	defer cancel()
 	execWasmResp, err := con.Rpc.ExecWasmExtension(grpcCtx, execWasmReq)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if execWasmResp.Response != nil && execWasmResp.Response.Async {
@@ -176,7 +176,7 @@ func runInteractive(cmd *cobra.Command, execWasmReq *sliverpb.ExecWasmExtensionR
 	})
 	defer cancelTunnel()
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Wait approximately 10 seconds after exit, and press <enter> to continue\n")
@@ -190,7 +190,7 @@ func runInteractive(cmd *cobra.Command, execWasmReq *sliverpb.ExecWasmExtensionR
 	// Send the exec request
 	wasmExt, err := con.Rpc.ExecWasmExtension(context.Background(), execWasmReq)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if wasmExt.Response != nil && wasmExt.Response.Err != "" {
@@ -200,7 +200,7 @@ func runInteractive(cmd *cobra.Command, execWasmReq *sliverpb.ExecWasmExtensionR
 			SessionID: session.ID,
 		})
 		if err != nil {
-			con.PrintErrorf("RPC Error: %s\n", err)
+			con.PrintErrorf("RPC Error: %s\n", con.UnwrapServerErr(err))
 		}
 		return
 	}
@@ -247,7 +247,7 @@ func registerWasmExtension(wasmFilePath string, cmd *cobra.Command, con *console
 		WasmGz:  data,
 	})
 	if err != nil {
-		return err
+		return con.UnwrapServerErr(err)
 	}
 	wasmRegistrationCache[idOf(con)] = append(wasmRegistrationCache[idOf(con)], filepath.Base(wasmFilePath))
 	return nil
@@ -266,7 +266,7 @@ func WasmLsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return
 	}
 	if len(loaded.Names) < 1 {

@@ -21,13 +21,11 @@ package privilege
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
 var logonTypes = map[string]uint32{
@@ -40,7 +38,7 @@ var logonTypes = map[string]uint32{
 	"LOGON_NEW_CREDENTIALS":   9,
 }
 
-// MakeTokenCmd - Windows only, create a token using "valid" credentails
+// MakeTokenCmd - Windows only, create a token using "valid" credentials.
 func MakeTokenCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -75,7 +73,7 @@ func MakeTokenCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
@@ -94,7 +92,7 @@ func MakeTokenCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	}
 }
 
-// PrintMakeToken - Print the results of attempting to make a token
+// PrintMakeToken - Print the results of attempting to make a token.
 func PrintMakeToken(makeToken *sliverpb.MakeToken, domain string, username string, con *console.SliverClient) {
 	if makeToken.Response != nil && makeToken.Response.GetErr() != "" {
 		con.PrintErrorf("%s\n", makeToken.Response.GetErr())

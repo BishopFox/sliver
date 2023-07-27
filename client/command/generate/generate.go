@@ -821,7 +821,7 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 		BuilderName: externalBuilder.Name,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return nil, err
 	}
 	con.Printf("done\n")
@@ -881,7 +881,7 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 		ImplantName: name,
 	})
 	if err != nil {
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	con.PrintInfof("Build name: %s (%d bytes)\n", name, len(generated.File.Data))
 
@@ -923,7 +923,7 @@ func compile(config *clientpb.ImplantConfig, save string, con *console.SliverCli
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return nil, err
 	}
 
@@ -948,7 +948,7 @@ func compile(config *clientpb.ImplantConfig, save string, con *console.SliverCli
 				Data:         fileData,
 			})
 			if err != nil {
-				con.PrintErrorf("%s\n", err)
+				con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			} else {
 				con.Printf("success!\n")
 				fileData = resp.GetData()
@@ -1000,7 +1000,7 @@ func checkBuildTargetCompatibility(format clientpb.OutputFormat, targetOS string
 
 	compilers, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("Failed to check target compatibility: %s\n", err)
+		con.PrintErrorf("Failed to check target compatibility: %s\n", con.UnwrapServerErr(err))
 		return true
 	}
 
@@ -1055,7 +1055,7 @@ func warnMissingCrossCompiler(format clientpb.OutputFormat, targetOS string, tar
 func findExternalBuilders(config *clientpb.ImplantConfig, con *console.SliverClient) ([]*clientpb.Builder, error) {
 	builders, err := con.Rpc.Builders(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	if len(builders.Builders) < 1 {
 		return []*clientpb.Builder{}, ErrNoExternalBuilder

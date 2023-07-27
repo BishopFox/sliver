@@ -21,17 +21,16 @@ package monitor
 import (
 	"context"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/spf13/cobra"
 )
 
-// MonitorStartCmd - Start monitoring threat intel for implants
+// MonitorStartCmd - Start monitoring threat intel for implants.
 func MonitorStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	resp, err := con.Rpc.MonitorStart(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if resp != nil && resp.Err != "" {

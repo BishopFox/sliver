@@ -78,7 +78,7 @@ func ChtimesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		MTime:   unixMtime,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if chtimes.Response != nil && chtimes.Response.Async {

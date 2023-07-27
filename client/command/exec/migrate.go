@@ -49,7 +49,7 @@ func MigrateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			Request: con.ActiveTarget.Request(cmd),
 		})
 		if err != nil {
-			con.PrintErrorf("Error: %v\n", err)
+			con.PrintErrorf("Error: %v\n", con.UnwrapServerErr(err))
 			return
 		}
 		procCtrl <- true
@@ -84,7 +84,7 @@ func MigrateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("Error: %v", err)
+		con.PrintErrorf("Error: %v", con.UnwrapServerErr(err))
 		return
 	}
 	if !migrate.Success {

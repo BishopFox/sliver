@@ -49,12 +49,12 @@ func CredsRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		},
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if len(creds.Credentials) == 0 {

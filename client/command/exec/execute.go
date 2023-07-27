@@ -92,7 +92,7 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return
 	}
 

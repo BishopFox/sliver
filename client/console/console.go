@@ -20,6 +20,7 @@ package console
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -46,6 +47,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slog"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -247,6 +249,12 @@ func (con *SliverClient) ConnectCompletion() (carapace.Action, error) {
 	}
 
 	return carapace.ActionValues(), nil
+}
+
+// UnwrapServerErr unwraps errors returned by gRPC method calls.
+// Should be used to return every non-nil resp, err := con.Rpc.Function().
+func (con *SliverClient) UnwrapServerErr(err error) error {
+	return errors.New(status.Convert(err).Message())
 }
 
 // Disconnect disconnectss the client from its Sliver server,

@@ -47,7 +47,7 @@ func SelectBeacon(con *console.SliverClient) (*clientpb.Beacon, error) {
 	defer cancel()
 	beacons, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
 	if err != nil {
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	if len(beacons.Beacons) == 0 {
 		return nil, ErrNoBeacons
@@ -106,7 +106,7 @@ func GetBeacon(con *console.SliverClient, beaconID string) (*clientpb.Beacon, er
 	defer cancel()
 	beacons, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
 	if err != nil {
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	if len(beacons.Beacons) == 0 {
 		return nil, ErrNoBeacons
@@ -124,7 +124,7 @@ func GetBeacons(con *console.SliverClient) (*clientpb.Beacons, error) {
 	defer cancel()
 	beacons, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
 	if err != nil {
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	if len(beacons.Beacons) == 0 {
 		return nil, ErrNoBeacons

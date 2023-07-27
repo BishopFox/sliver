@@ -130,7 +130,7 @@ func VerboseVersionsCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 	clientVer := version.FullVersion()
 	serverVer, err := con.Rpc.GetVersion(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("Failed to check server version %s\n", err)
+		con.PrintErrorf("Failed to check server version %s\n", con.UnwrapServerErr(err))
 		return
 	}
 

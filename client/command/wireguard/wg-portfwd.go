@@ -43,7 +43,7 @@ func WGPortFwdListCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("Error: %v", err)
+		con.PrintErrorf("Error: %v", con.UnwrapServerErr(err))
 		return
 	}
 	if fwdList.Response != nil && fwdList.Response.Err != "" {

@@ -22,15 +22,14 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// TerminateCmd - Terminate a process on the remote system
+// TerminateCmd - Terminate a process on the remote system.
 func TerminateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -52,7 +51,7 @@ func TerminateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 		Force:   force,
 	})
 	if err != nil {
-		con.PrintErrorf("Terminate failed: %s", err)
+		con.PrintErrorf("Terminate failed: %s", con.UnwrapServerErr(err))
 		return
 	}
 
@@ -71,7 +70,7 @@ func TerminateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	}
 }
 
-// PrintTerminate - Print the results of the terminate command
+// PrintTerminate - Print the results of the terminate command.
 func PrintTerminate(terminated *sliverpb.Terminate, con *console.SliverClient) {
 	if terminated.Response != nil && terminated.Response.GetErr() != "" {
 		con.PrintErrorf("%s\n", terminated.Response.GetErr())

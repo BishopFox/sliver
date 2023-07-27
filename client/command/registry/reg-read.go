@@ -23,13 +23,11 @@ import (
 	"fmt"
 	"strings"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
 var validHives = []string{
@@ -74,7 +72,7 @@ func getType(t string) (uint32, error) {
 	return res, nil
 }
 
-// RegReadCmd - Read a windows registry key: registry read --hostname aa.bc.local --hive HKCU "software\google\chrome\blbeacon\version"
+// RegReadCmd - Read a windows registry key: registry read --hostname aa.bc.local --hive HKCU "software\google\chrome\blbeacon\version".
 func RegReadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var (
 		finalPath string
@@ -126,7 +124,7 @@ func RegReadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		Request:  con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
@@ -145,7 +143,7 @@ func RegReadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-// PrintRegRead - Print the results of the registry read command
+// PrintRegRead - Print the results of the registry read command.
 func PrintRegRead(regRead *sliverpb.RegistryRead, con *console.SliverClient) {
 	if regRead.Response != nil && regRead.Response.Err != "" {
 		con.PrintErrorf("%s\n", regRead.Response.Err)

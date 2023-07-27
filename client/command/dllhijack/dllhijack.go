@@ -90,7 +90,7 @@ func DllHijackCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("Error: %s\n", err)
+		con.PrintErrorf("Error: %s\n", con.UnwrapServerErr(err))
 		return
 	}
 

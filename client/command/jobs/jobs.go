@@ -43,7 +43,7 @@ func JobsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	} else {
 		jobs, err := con.Rpc.GetJobs(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			return
 		}
 		// Convert to a map
@@ -97,7 +97,7 @@ func JobsIDCompleter(con *console.SliverClient) carapace.Action {
 
 		jobs, err := con.Rpc.GetJobs(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			return carapace.ActionMessage("No active jobs")
+			return carapace.ActionMessage("Failed to get server jobs: %s", con.UnwrapServerErr(err))
 		}
 
 		results := make([]string, 0)
@@ -120,7 +120,7 @@ func jobKill(jobID uint32, con *console.SliverClient) {
 		ID: jobID,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	} else {
 		con.PrintInfof("Successfully killed job #%d\n", jobKill.ID)
 	}
@@ -129,7 +129,7 @@ func jobKill(jobID uint32, con *console.SliverClient) {
 func killAllJobs(con *console.SliverClient) {
 	jobs, err := con.Rpc.GetJobs(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	for _, job := range jobs.Active {

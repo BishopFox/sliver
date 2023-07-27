@@ -72,7 +72,7 @@ func UseCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 func SessionOrBeaconByID(id string, con *console.SliverClient) (*clientpb.Session, *clientpb.Beacon, error) {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, con.UnwrapServerErr(err)
 	}
 	if err == nil {
 		for _, session := range sessions.Sessions {
@@ -83,7 +83,7 @@ func SessionOrBeaconByID(id string, con *console.SliverClient) (*clientpb.Sessio
 	}
 	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, con.UnwrapServerErr(err)
 	}
 	for _, beacon := range beacons.Beacons {
 		if strings.HasPrefix(beacon.ID, id) {
@@ -98,7 +98,7 @@ func SelectSessionOrBeacon(con *console.SliverClient) (*clientpb.Session, *clien
 	// Get and sort sessions
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, con.UnwrapServerErr(err)
 	}
 	sessionsMap := map[string]*clientpb.Session{}
 	for _, session := range sessions.GetSessions() {
@@ -113,7 +113,7 @@ func SelectSessionOrBeacon(con *console.SliverClient) (*clientpb.Session, *clien
 	// Get and sort beacons
 	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, con.UnwrapServerErr(err)
 	}
 	beaconsMap := map[string]*clientpb.Beacon{}
 	for _, beacon := range beacons.Beacons {

@@ -76,7 +76,7 @@ func WebsitesAddContentCmd(cmd *cobra.Command, con *console.SliverClient, args [
 
 	web, err := con.Rpc.WebsiteAddContent(context.Background(), addWeb)
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return
 	}
 	PrintWebsite(web, con)

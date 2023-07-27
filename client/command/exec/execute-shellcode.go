@@ -81,7 +81,7 @@ func ExecuteShellcodeCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 			Data:         shellcodeBin,
 		})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			return
 		}
 		oldSize := len(shellcodeBin)
@@ -107,7 +107,7 @@ func ExecuteShellcodeCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
@@ -151,7 +151,7 @@ func executeInteractive(cmd *cobra.Command, hostProc string, shellcode []byte, r
 		SessionID: session.ID,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
@@ -164,7 +164,7 @@ func executeInteractive(cmd *cobra.Command, hostProc string, shellcode []byte, r
 		TunnelID:  tunnel.ID,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	// Retrieve PID and start remote task
@@ -183,7 +183,7 @@ func executeInteractive(cmd *cobra.Command, hostProc string, shellcode []byte, r
 	<-ctrl
 
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 

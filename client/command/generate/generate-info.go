@@ -12,7 +12,7 @@ import (
 func GenerateInfoCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	compiler, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("Failed to get compiler information: %s\n", err)
+		con.PrintErrorf("Failed to get compiler information: %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.Printf("%sServer:%s %s/%s\n", console.Bold, console.Normal, compiler.GOOS, compiler.GOARCH)

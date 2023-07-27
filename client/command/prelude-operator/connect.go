@@ -21,12 +21,11 @@ package operator
 import (
 	"context"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/prelude"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/spf13/cobra"
 )
 
 func ConnectCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
@@ -48,7 +47,7 @@ func ConnectCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if !skipExisting {
 		sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			con.PrintErrorf("Could not get session list: %s", err)
+			con.PrintErrorf("Could not get session list: %s", con.UnwrapServerErr(err))
 			return
 		}
 		if len(sessions.Sessions) > 0 {
@@ -65,7 +64,7 @@ func ConnectCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		}
 		beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			con.PrintErrorf("Could not get beacon list: %s", err)
+			con.PrintErrorf("Could not get beacon list: %s", con.UnwrapServerErr(err))
 			return
 		}
 		if len(beacons.Beacons) > 0 {

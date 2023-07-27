@@ -64,7 +64,7 @@ func PerformDownload(remotePath string, fileName string, cmd *cobra.Command, con
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	if download.Response != nil && download.Response.Async {
 		con.AddBeaconCallback(download.Response.TaskID, func(task *clientpb.BeaconTask) {
@@ -114,7 +114,7 @@ func SendLootMessage(loot *clientpb.Loot, con *console.SliverClient) {
 	control <- true
 	<-control
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	}
 
 	if loot.Name != loot.File.Name {

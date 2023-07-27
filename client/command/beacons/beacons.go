@@ -86,7 +86,7 @@ func BeaconsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	defer cancel()
 	beacons, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	PrintBeacons(beacons.Beacons, filter, filterRegex, con)

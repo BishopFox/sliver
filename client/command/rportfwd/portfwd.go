@@ -43,7 +43,7 @@ func RportFwdListenersCmd(cmd *cobra.Command, con *console.SliverClient, args []
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintWarnf("%s\n", err)
+		con.PrintWarnf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	PrintRportFwdListeners(rportfwdListeners, cmd.Flags(), con)

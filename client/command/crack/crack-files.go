@@ -38,7 +38,7 @@ import (
 func CrackWordlistsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	wordlists, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_WORDLIST})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if len(wordlists.Files) == 0 {
@@ -58,7 +58,7 @@ func CrackWordlistsCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 func CrackRulesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	rules, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_RULES})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if len(rules.Files) == 0 {
@@ -78,7 +78,7 @@ func CrackRulesCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 func CrackHcstat2Cmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	hcstat2, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_MARKOV_HCSTAT2})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if len(hcstat2.Files) == 0 {
@@ -195,7 +195,7 @@ func CrackWordlistsAddCmd(cmd *cobra.Command, con *console.SliverClient, args []
 		IsCompressed:     true,
 	})
 	if err != nil {
-		con.PrintErrorf("Failed to create file: %s\n", err)
+		con.PrintErrorf("Failed to create file: %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Adding new wordlist '%s' (uncompressed: %s)\n",
@@ -239,7 +239,7 @@ func CrackRulesAddCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		IsCompressed:     true,
 	})
 	if err != nil {
-		con.PrintErrorf("Failed to create file: %s\n", err)
+		con.PrintErrorf("Failed to create file: %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Adding new rules file '%s' (uncompressed: %s)\n",
@@ -283,7 +283,7 @@ func CrackHcstat2AddCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 		IsCompressed:     true,
 	})
 	if err != nil {
-		con.PrintErrorf("Failed to create file: %s\n", err)
+		con.PrintErrorf("Failed to create file: %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Adding new markov hcstat2 file '%s' (uncompressed: %s)\n",
@@ -320,7 +320,7 @@ func addCrackFile(localFile *os.File, crackFile *clientpb.CrackFile, con *consol
 		})
 		n++
 		if err != nil {
-			errors = append(errors, err)
+			errors = append(errors, con.UnwrapServerErr(err))
 			continue
 		}
 	}
@@ -340,7 +340,7 @@ func addCrackFile(localFile *os.File, crackFile *clientpb.CrackFile, con *consol
 		Sha2_256: hex.EncodeToString(digest.Sum(nil)),
 	})
 	if err != nil {
-		con.PrintErrorf("Failed to complete file upload: %s\n", err)
+		con.PrintErrorf("Failed to complete file upload: %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Upload completed (compressed: %s)\n", util.ByteCountBinary(total))
@@ -413,7 +413,7 @@ func CrackWordlistsRmCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 	}
 	wordlists, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_WORDLIST})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	found := false
@@ -422,7 +422,7 @@ func CrackWordlistsRmCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 			found = true
 			_, err := con.Rpc.CrackFileDelete(context.Background(), wordlist)
 			if err != nil {
-				con.PrintErrorf("%s\n", err)
+				con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 				return
 			}
 			break
@@ -447,7 +447,7 @@ func CrackRulesRmCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 	rules, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_RULES})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	found := false
@@ -456,7 +456,7 @@ func CrackRulesRmCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 			found = true
 			_, err := con.Rpc.CrackFileDelete(context.Background(), rulesFile)
 			if err != nil {
-				con.PrintErrorf("%s\n", err)
+				con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 				return
 			}
 			break
@@ -481,7 +481,7 @@ func CrackHcstat2RmCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 	}
 	hcstat2s, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_MARKOV_HCSTAT2})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	found := false
@@ -490,7 +490,7 @@ func CrackHcstat2RmCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 			found = true
 			_, err := con.Rpc.CrackFileDelete(context.Background(), hcstat2File)
 			if err != nil {
-				con.PrintErrorf("%s\n", err)
+				con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 				return
 			}
 			break

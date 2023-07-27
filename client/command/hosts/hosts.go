@@ -48,7 +48,7 @@ var (
 func HostsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	allHosts, err := con.Rpc.Hosts(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return
 	}
 	if 0 < len(allHosts.Hosts) {
@@ -143,7 +143,7 @@ func SessionsForHost(hostUUID string, con *console.SliverClient) []*clientpb.Ses
 func SelectHost(con *console.SliverClient) (*clientpb.Host, error) {
 	allHosts, err := con.Rpc.Hosts(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	// Sort the keys because maps have a randomized order, these keys must be ordered for the selection
 	// to work properly since we rely on the index of the user's selection to find the session in the map

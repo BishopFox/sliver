@@ -56,7 +56,7 @@ func ProfilesGenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 		profile.Config.Name = buildImplantName(implantFile.Name)
 		_, err = con.Rpc.SaveImplantProfile(context.Background(), profile)
 		if err != nil {
-			con.PrintErrorf("could not update implant profile: %v\n", err)
+			con.PrintErrorf("could not update implant profile: %v\n", con.UnwrapServerErr(err))
 			return
 		}
 	} else {

@@ -22,16 +22,14 @@ import (
 	"context"
 	"strings"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// RegDeleteKeyCmd - Remove a Windows registry key
+// RegDeleteKeyCmd - Remove a Windows registry key.
 func RegDeleteKeyCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -78,7 +76,7 @@ func RegDeleteKeyCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		Request:  con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
@@ -97,7 +95,7 @@ func RegDeleteKeyCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 }
 
-// PrintDeleteKey - Print the results of the delete key command
+// PrintDeleteKey - Print the results of the delete key command.
 func PrintDeleteKey(deleteKey *sliverpb.RegistryDeleteKey, regPath string, key string, con *console.SliverClient) {
 	if deleteKey.Response != nil && deleteKey.Response.Err != "" {
 		con.PrintErrorf("%s", deleteKey.Response.Err)

@@ -41,7 +41,7 @@ func BeaconsPruneCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	defer cancel()
 	beacons, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	pruneBeacons := []*clientpb.Beacon{}
@@ -63,7 +63,7 @@ func BeaconsPruneCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	for index, beacon := range pruneBeacons {
 		beacon, err := con.Rpc.GetBeacon(grpcCtx, &clientpb.Beacon{ID: beacon.ID})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			continue
 		}
 		con.Printf("\t%d. %s (%s)\n", (index + 1), beacon.Name, beacon.ID)
@@ -79,7 +79,7 @@ func BeaconsPruneCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	for _, beacon := range pruneBeacons {
 		_, err := con.Rpc.RmBeacon(grpcCtx, &clientpb.Beacon{ID: beacon.ID})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			errCount++
 		}
 	}

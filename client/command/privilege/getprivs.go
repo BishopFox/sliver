@@ -23,15 +23,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// GetPrivsCmd - Get the current process privileges (Windows only)
+// GetPrivsCmd - Get the current process privileges (Windows only).
 func GetPrivsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -47,7 +46,7 @@ func GetPrivsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	pid := getPID(session, beacon)
@@ -66,7 +65,7 @@ func GetPrivsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-// PrintGetPrivs - Print the results of the get privs command
+// PrintGetPrivs - Print the results of the get privs command.
 func PrintGetPrivs(privs *sliverpb.GetPrivs, pid int32, con *console.SliverClient) {
 	// Response is the Envelope (see RPC API), Err is part of it.
 	if privs.Response != nil && privs.Response.Err != "" {

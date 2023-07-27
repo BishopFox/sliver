@@ -24,7 +24,7 @@ func TasksCancelCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 	if idArg == "" {
 		beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			return
 		}
 		tasks := []*clientpb.BeaconTask{}
@@ -47,7 +47,7 @@ func TasksCancelCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 	} else {
 		task, err = con.Rpc.GetBeaconTaskContent(context.Background(), &clientpb.BeaconTask{ID: idArg})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			return
 		}
 	}
@@ -55,7 +55,7 @@ func TasksCancelCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 	if task != nil {
 		task, err := con.Rpc.CancelBeaconTask(context.Background(), task)
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			return
 		}
 		con.PrintInfof("Task %s canceled\n", task.ID)

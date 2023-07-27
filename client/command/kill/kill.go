@@ -23,15 +23,14 @@ import (
 	"errors"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
 )
 
-// KillCmd - Kill the active session (not to be confused with TerminateCmd)
+// KillCmd - Kill the active session (not to be confused with TerminateCmd).
 func KillCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	// Confirm with the user, just in case they confused kill with terminate
@@ -81,7 +80,7 @@ func KillSession(session *clientpb.Session, cmd *cobra.Command, con *console.Sli
 		},
 		Force: force,
 	})
-	return err
+	return con.UnwrapServerErr(err)
 }
 
 func KillBeacon(beacon *clientpb.Beacon, cmd *cobra.Command, con *console.SliverClient) error {
@@ -99,5 +98,5 @@ func KillBeacon(beacon *clientpb.Beacon, cmd *cobra.Command, con *console.Sliver
 		},
 		Force: force,
 	})
-	return err
+	return con.UnwrapServerErr(err)
 }

@@ -31,7 +31,7 @@ import (
 func SessionsPruneCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if len(sessions.GetSessions()) == 0 {

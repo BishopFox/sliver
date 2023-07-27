@@ -48,7 +48,7 @@ func MkdirCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		Path:    filePath,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if mkdir.Response != nil && mkdir.Response.Async {

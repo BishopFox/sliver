@@ -76,7 +76,7 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 	})
 	defer cancelTunnel()
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	log.Printf("Created new tunnel with id: %d, binding to shell ...", rpcTunnel.TunnelID)
@@ -91,7 +91,7 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 		TunnelID:  tunnel.ID,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	//
@@ -102,7 +102,7 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 			SessionID: session.ID,
 		})
 		if err != nil {
-			con.PrintErrorf("RPC Error: %s\n", err)
+			con.PrintErrorf("RPC Error: %s\n", con.UnwrapServerErr(err))
 		}
 		return
 	}

@@ -62,7 +62,7 @@ func HTTPListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		LongPollJitter:  int64(longPollJitter),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	} else {
 		con.PrintInfof("Successfully started job #%d\n", http.JobID)
 	}

@@ -49,7 +49,7 @@ func WGSocksStopCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("Error: %v", err)
+		con.PrintErrorf("Error: %v", con.UnwrapServerErr(err))
 		return
 	}
 

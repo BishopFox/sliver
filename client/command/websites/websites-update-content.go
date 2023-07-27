@@ -54,7 +54,7 @@ func WebsitesUpdateContentCmd(cmd *cobra.Command, con *console.SliverClient, arg
 
 	web, err := con.Rpc.WebsiteUpdateContent(context.Background(), updateWeb)
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return
 	}
 	PrintWebsite(web, con)

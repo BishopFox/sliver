@@ -111,7 +111,7 @@ func ExecuteAssemblyCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return
 	}
 	hostName := getHostname(session, beacon)

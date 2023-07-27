@@ -48,7 +48,7 @@ func CpCmd(cmd *cobra.Command, con *console.SliverClient, args []string) (err er
 		Dst:     dst,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 

@@ -28,13 +28,13 @@ import (
 func LootRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	loot, err := SelectLoot(cmd, con.Rpc)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
 	_, err = con.Rpc.LootRm(context.Background(), loot)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.Println()

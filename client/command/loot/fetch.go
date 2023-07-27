@@ -34,7 +34,7 @@ func LootFetchCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	}
 	loot, err = con.Rpc.LootContent(context.Background(), loot)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	PrintLootFile(loot, con)

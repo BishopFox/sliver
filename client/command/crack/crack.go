@@ -38,14 +38,14 @@ func CrackCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	} else {
 		crackers, err := con.Rpc.Crackstations(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			return
 		}
 		con.PrintInfof("%d crackstation(s) connected to server\n", len(crackers.Crackstations))
 	}
 	crackFiles, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if len(crackFiles.Files) == 0 {
@@ -60,7 +60,7 @@ func CrackCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 func CrackStationsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	crackers, err := con.Rpc.Crackstations(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if len(crackers.Crackstations) == 0 {

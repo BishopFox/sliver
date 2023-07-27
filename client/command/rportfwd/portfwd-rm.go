@@ -50,7 +50,7 @@ func StopRportFwdListenerCmd(cmd *cobra.Command, con *console.SliverClient, args
 			ID:      uint32(listenerID),
 		})
 		if err != nil {
-			con.PrintWarnf("%s\n", err)
+			con.PrintWarnf("%s\n", con.UnwrapServerErr(err))
 			return
 		}
 

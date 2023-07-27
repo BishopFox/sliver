@@ -80,7 +80,7 @@ func ReconfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		Request:           con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintWarnf("%s\n", err)
+		con.PrintWarnf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if reconfig.Response != nil && reconfig.Response.Async {

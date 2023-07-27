@@ -17,7 +17,7 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverClient
 	// get implant builds
 	builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		return data, err
+		return data, con.UnwrapServerErr(err)
 	}
 
 	implantName := buildImplantName(profile.GetConfig().GetFileName())
@@ -35,14 +35,14 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverClient
 		<-ctrl
 		if err != nil {
 			con.PrintErrorf("Error generating implant\n")
-			return data, err
+			return data, con.UnwrapServerErr(err)
 		}
 		data = generated.GetFile().GetData()
 		profile.Config.FileName = generated.File.Name
 		_, err = con.Rpc.SaveImplantProfile(context.Background(), profile)
 		if err != nil {
 			con.PrintErrorf("Error updating implant profile\n")
-			return data, err
+			return data, con.UnwrapServerErr(err)
 		}
 	} else {
 		// Found a build, reuse that one
@@ -51,7 +51,7 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverClient
 			ImplantName: implantName,
 		})
 		if err != nil {
-			return data, err
+			return data, con.UnwrapServerErr(err)
 		}
 		data = regenerate.GetFile().GetData()
 	}
@@ -67,7 +67,7 @@ func ArchCompleter(con *console.SliverClient) carapace.Action {
 
 		compiler, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			return carapace.ActionMessage("No compiler info: %s", err.Error())
+			return carapace.ActionMessage("No compiler info: %s", con.UnwrapServerErr(err))
 		}
 
 		var results []string
@@ -105,7 +105,7 @@ func OSCompleter(con *console.SliverClient) carapace.Action {
 
 		compiler, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			return carapace.ActionMessage("No compiler info: %s", err.Error())
+			return carapace.ActionMessage("No compiler info: %s", con.UnwrapServerErr(err))
 		}
 
 		var results []string
@@ -154,7 +154,7 @@ func TrafficEncodersCompleter(con *console.SliverClient) carapace.Action {
 		defer cancel()
 		trafficEncoders, err := con.Rpc.TrafficEncoderMap(grpcCtx, &commonpb.Empty{})
 		if err != nil {
-			return carapace.ActionMessage("failed to fetch traffic encoders: %s", err.Error())
+			return carapace.ActionMessage("failed to fetch traffic encoders: %s", con.UnwrapServerErr(err))
 		}
 
 		results := []string{}

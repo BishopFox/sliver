@@ -90,7 +90,7 @@ func UploadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if upload.Response != nil && upload.Response.Async {

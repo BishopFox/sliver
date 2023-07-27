@@ -32,7 +32,7 @@ import (
 func PivotsGraphCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	graph, err := con.Rpc.PivotGraph(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 

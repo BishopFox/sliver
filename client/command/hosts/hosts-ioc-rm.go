@@ -39,7 +39,7 @@ func HostsIOCRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 	}
 	_, err = con.Rpc.HostIOCRm(context.Background(), ioc)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Removed host from database\n")

@@ -18,7 +18,7 @@ func CrackHcstat2Completer(con *console.SliverClient) carapace.Action {
 
 		hcstat2, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_MARKOV_HCSTAT2})
 		if err != nil {
-			return carapace.ActionMessage("failed to fetch crack files: %s", err.Error())
+			return carapace.ActionMessage("failed to fetch crack files: %s", con.UnwrapServerErr(err))
 		}
 
 		results := make([]string, 0)
@@ -45,7 +45,7 @@ func CrackWordlistCompleter(con *console.SliverClient) carapace.Action {
 
 		hcstat2, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_MARKOV_HCSTAT2})
 		if err != nil {
-			return carapace.ActionMessage("failed to fetch crack files: %s", err.Error())
+			return carapace.ActionMessage("failed to fetch crack files: %s", con.UnwrapServerErr(err))
 		}
 
 		results := make([]string, 0)
@@ -73,7 +73,7 @@ func CrackRulesCompleter(con *console.SliverClient) carapace.Action {
 
 		hcstat2, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_MARKOV_HCSTAT2})
 		if err != nil {
-			return carapace.ActionMessage("failed to fetch crack files: %s", err.Error())
+			return carapace.ActionMessage("failed to fetch crack files: %s", con.UnwrapServerErr(err))
 		}
 
 		results := make([]string, 0)

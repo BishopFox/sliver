@@ -21,16 +21,14 @@ package privilege
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// GetSystemCmd - Windows only, attempt to get SYSTEM on the remote system
+// GetSystemCmd - Windows only, attempt to get SYSTEM on the remote system.
 func GetSystemCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -55,7 +53,7 @@ func GetSystemCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
@@ -74,7 +72,7 @@ func GetSystemCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	}
 }
 
-// PrintGetSystem - Print the results of get system
+// PrintGetSystem - Print the results of get system.
 func PrintGetSystem(getsystemResp *sliverpb.GetSystem, con *console.SliverClient) {
 	if getsystemResp.Response != nil && getsystemResp.Response.GetErr() != "" {
 		con.PrintErrorf("%s\n", getsystemResp.GetResponse().GetErr())

@@ -54,7 +54,7 @@ func ProfilesRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 		Name: name,
 	})
 	if err != nil {
-		con.PrintErrorf("Failed to delete profile %s\n", err)
+		con.PrintErrorf("Failed to delete profile %s\n", con.UnwrapServerErr(err))
 		return
 	}
 }

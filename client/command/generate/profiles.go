@@ -99,7 +99,7 @@ func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverClien
 func getImplantProfiles(con *console.SliverClient) []*clientpb.ImplantProfile {
 	pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return nil
 	}
 	return pbProfiles.Profiles
@@ -109,7 +109,7 @@ func getImplantProfiles(con *console.SliverClient) []*clientpb.ImplantProfile {
 func GetImplantProfileByName(name string, con *console.SliverClient) *clientpb.ImplantProfile {
 	pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return nil
 	}
 	for _, profile := range pbProfiles.Profiles {
@@ -430,7 +430,7 @@ func ProfileNameCompleter(con *console.SliverClient) carapace.Action {
 
 		pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			return carapace.ActionMessage(fmt.Sprintf("No profiles, err: %s", err.Error()))
+			return carapace.ActionMessage(fmt.Sprintf("No profiles, err: %s", con.UnwrapServerErr(err)))
 		}
 
 		if len(pbProfiles.Profiles) == 0 {

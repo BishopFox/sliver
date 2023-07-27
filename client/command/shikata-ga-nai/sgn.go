@@ -24,13 +24,12 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/spf13/cobra"
 )
 
-// ShikataGaNaiCmd - Command wrapper for the Shikata Ga Nai shellcode encoder
+// ShikataGaNaiCmd - Command wrapper for the Shikata Ga Nai shellcode encoder.
 func ShikataGaNaiCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	shellcodeFile := args[0]
 	rawShellcode, err := ioutil.ReadFile(shellcodeFile)
@@ -59,7 +58,7 @@ func ShikataGaNaiCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		Request:      con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if shellcodeResp.Response != nil && shellcodeResp.Response.Err != "" {

@@ -21,12 +21,12 @@ func SelectCredential(plaintext bool, hashType clientpb.HashType, con *console.S
 	if hashType == clientpb.HashType_INVALID {
 		creds, err = con.Rpc.Creds(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			return nil, err
+			return nil, con.UnwrapServerErr(err)
 		}
 	} else {
 		creds, err = con.Rpc.GetCredsByHashType(context.Background(), &clientpb.Credential{HashType: hashType})
 		if err != nil {
-			return nil, err
+			return nil, con.UnwrapServerErr(err)
 		}
 	}
 	if len(creds.Credentials) == 0 {

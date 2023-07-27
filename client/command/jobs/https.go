@@ -79,7 +79,7 @@ func HTTPSListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 	})
 	con.Println()
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	} else {
 		con.PrintInfof("Successfully started job #%d\n", https.JobID)
 	}

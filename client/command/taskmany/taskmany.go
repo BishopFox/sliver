@@ -27,14 +27,13 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/spf13/cobra"
-
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/spf13/cobra"
 )
 
 func Command(con *console.SliverClient) []*cobra.Command {
@@ -80,12 +79,12 @@ func Command(con *console.SliverClient) []*cobra.Command {
 	return []*cobra.Command{taskmanyCmd}
 }
 
-// TaskmanyCmd - Task many beacons / sessions
+// TaskmanyCmd - Task many beacons / sessions.
 func TaskmanyCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	con.PrintErrorf("Must specify subcommand. See taskmany --help for supported subcommands.\n")
 }
 
-// Helper function to wrap grumble commands with taskmany logic
+// Helper function to wrap grumble commands with taskmany logic.
 func WrapCommand(c *cobra.Command, con *console.SliverClient) *cobra.Command {
 	wc := &cobra.Command{
 		Use:   c.Use,
@@ -99,7 +98,7 @@ func WrapCommand(c *cobra.Command, con *console.SliverClient) *cobra.Command {
 	return wc
 }
 
-// Wrap a function to run it for each beacon / session
+// Wrap a function to run it for each beacon / session.
 func wrapFunctionWithTaskmany(con *console.SliverClient, f func(cmd *cobra.Command, args []string)) func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
 		defer con.Println()
@@ -154,7 +153,7 @@ func SelectMultipleBeaconsAndSessions(con *console.SliverClient) ([]*clientpb.Se
 	// Get and sort sessions
 	sessionsObj, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, con.UnwrapServerErr(err)
 	}
 	sessions := sessionsObj.Sessions
 	sort.Slice(sessions, func(i, j int) bool {
@@ -164,7 +163,7 @@ func SelectMultipleBeaconsAndSessions(con *console.SliverClient) ([]*clientpb.Se
 	// Get and sort beacons
 	beaconsObj, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, con.UnwrapServerErr(err)
 	}
 	beacons := beaconsObj.Beacons
 	sort.Slice(beacons, func(i, j int) bool {

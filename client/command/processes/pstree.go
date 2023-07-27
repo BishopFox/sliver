@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/xlab/treeprint"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/xlab/treeprint"
 )
 
-// A PsTree is a tree of *commonpb.Process
+// A PsTree is a tree of *commonpb.Process.
 type PsTree struct {
 	printableTree treeprint.Tree // only used for rendering
 	implantPID    int32
@@ -23,7 +22,7 @@ type node struct {
 	Parent   *node             // The parent of this node
 }
 
-// NewPsTree creates a new PsTree
+// NewPsTree creates a new PsTree.
 func NewPsTree(pid int32) *PsTree {
 	return &PsTree{
 		printableTree: treeprint.New(),

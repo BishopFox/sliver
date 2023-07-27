@@ -72,7 +72,7 @@ func LootAddLocalCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	}
 
 	con.PrintInfof("Successfully added loot to server (%s)\n", loot.ID)

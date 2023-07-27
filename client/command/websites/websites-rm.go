@@ -37,7 +37,7 @@ func WebsiteRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 		Name: name,
 	})
 	if err != nil {
-		con.PrintErrorf("Failed to remove website %s", err)
+		con.PrintErrorf("Failed to remove website %s", con.UnwrapServerErr(err))
 		return
 	}
 }

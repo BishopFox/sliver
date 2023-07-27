@@ -137,7 +137,7 @@ func avadaKedavraChrome(session *clientpb.Session, cmd *cobra.Command, con *cons
 			Pid:     chromeProcess.GetPid(),
 		})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			return nil
 		}
 		if terminateResp.Response != nil && terminateResp.Response.Err != "" {
@@ -206,7 +206,7 @@ func startCursedChromeProcess(isEdge bool, session *clientpb.Session, cmd *cobra
 	})
 	if err != nil {
 		con.Printf("failure!\n")
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	con.Printf("(pid: %d) success!\n", chromeExec.GetPid())
 
@@ -276,7 +276,7 @@ func findChromeUserDataDir(isEdge bool, session *clientpb.Session, cmd *cobra.Co
 				Path:    userDataDir,
 			})
 			if err != nil {
-				return "", err
+				return "", con.UnwrapServerErr(err)
 			}
 			if ls.GetExists() {
 				return userDataDir, nil
@@ -294,7 +294,7 @@ func findChromeUserDataDir(isEdge bool, session *clientpb.Session, cmd *cobra.Co
 			Path:    userDataDir,
 		})
 		if err != nil {
-			return "", err
+			return "", con.UnwrapServerErr(err)
 		}
 		if ls.GetExists() {
 			return userDataDir, nil
@@ -341,7 +341,7 @@ func findChromeExecutablePath(isEdge bool, session *clientpb.Session, cmd *cobra
 					Path:    chromeExecutablePath,
 				})
 				if err != nil {
-					return "", err
+					return "", con.UnwrapServerErr(err)
 				}
 				if ls.GetExists() {
 					return chromeExecutablePath, nil
@@ -361,7 +361,7 @@ func findChromeExecutablePath(isEdge bool, session *clientpb.Session, cmd *cobra
 			Path:    defaultChromePath,
 		})
 		if err != nil {
-			return "", err
+			return "", con.UnwrapServerErr(err)
 		}
 		if ls.GetExists() {
 			return defaultChromePath, nil
@@ -387,7 +387,7 @@ func findChromeExecutablePath(isEdge bool, session *clientpb.Session, cmd *cobra
 				Path:    chromePath,
 			})
 			if err != nil {
-				return "", err
+				return "", con.UnwrapServerErr(err)
 			}
 			if ls.GetExists() {
 				return chromePath, nil
@@ -421,7 +421,7 @@ func getChromeProcess(session *clientpb.Session, cmd *cobra.Command, con *consol
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	for _, process := range ps.Processes {
 		if process.GetOwner() != session.GetUsername() {

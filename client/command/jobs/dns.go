@@ -54,7 +54,7 @@ func DNSListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 	})
 	con.Println()
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	} else {
 		con.PrintInfof("Successfully started job #%d\n", dns.JobID)
 	}

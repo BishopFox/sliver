@@ -59,7 +59,7 @@ func StartRportFwdListenerCmd(cmd *cobra.Command, con *console.SliverClient, arg
 		ForwardAddress: forwardAddress,
 	})
 	if err != nil {
-		con.PrintWarnf("%s\n", err)
+		con.PrintWarnf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	printStartedRportFwdListener(rportfwdListener, con)

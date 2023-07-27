@@ -78,7 +78,7 @@ func MsfInjectCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 

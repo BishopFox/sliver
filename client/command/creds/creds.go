@@ -36,7 +36,7 @@ import (
 func CredsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if len(creds.Credentials) == 0 {
@@ -120,7 +120,7 @@ func CredsCollectionCompleter(con *console.SliverClient) carapace.Action {
 
 		creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			return carapace.ActionMessage("failed to fetch credentials: %s", err.Error())
+			return carapace.ActionMessage("failed to fetch credentials: %s", con.UnwrapServerErr(err))
 		}
 		if len(creds.Credentials) == 0 {
 			return carapace.Action{}
@@ -147,7 +147,7 @@ func CredsCredentialIDCompleter(con *console.SliverClient) carapace.Action {
 
 		creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			return carapace.ActionMessage("failed to fetch credentials: %s", err.Error())
+			return carapace.ActionMessage("failed to fetch credentials: %s", con.UnwrapServerErr(err))
 		}
 		if len(creds.Credentials) == 0 {
 			return carapace.Action{}

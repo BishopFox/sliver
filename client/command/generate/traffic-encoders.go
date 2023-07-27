@@ -47,7 +47,7 @@ func TrafficEncodersCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 	defer cancel()
 	encoderMap, err := con.Rpc.TrafficEncoderMap(grpcCtx, &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return
 	}
 	DisplayTrafficEncoders(encoderMap, con)
@@ -116,7 +116,7 @@ func TrafficEncodersAddCmd(cmd *cobra.Command, con *console.SliverClient, args [
 	<-completed
 	close(completed)
 	if err != nil {
-		con.PrintErrorf("Failed to add traffic encoder %s", err)
+		con.PrintErrorf("Failed to add traffic encoder %s", con.UnwrapServerErr(err))
 		con.Println()
 		return
 	}
@@ -264,7 +264,7 @@ func TrafficEncodersRemoveCmd(cmd *cobra.Command, con *console.SliverClient, arg
 		},
 	})
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return
 	}
 	con.Println()
@@ -277,7 +277,7 @@ func SelectTrafficEncoder(con *console.SliverClient) string {
 	defer cancel()
 	encoders, err := con.Rpc.TrafficEncoderMap(grpcCtx, &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return ""
 	}
 	var encoderNames []string

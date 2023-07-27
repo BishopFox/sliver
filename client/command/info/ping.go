@@ -23,7 +23,7 @@ func PingCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	} else {
 		con.PrintInfof("Pong %d\n", pong.Nonce)
 	}

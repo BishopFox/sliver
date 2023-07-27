@@ -108,7 +108,7 @@ func GenerateStagerCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 	<-ctrl
 
 	if err != nil {
-		con.PrintErrorf("Error: %v - Please make sure Metasploit framework >= v6.2 is installed and msfvenom/msfconsole are in your PATH", err)
+		con.PrintErrorf("Error: %v - Please make sure Metasploit framework >= v6.2 is installed and msfvenom/msfconsole are in your PATH", con.UnwrapServerErr(err))
 		return
 	}
 

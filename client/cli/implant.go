@@ -70,7 +70,7 @@ func preRunImplant(implantCmd *cobra.Command, con *client.SliverClient) func(cmd
 
 		target, _ := implantCmd.Flags().GetString("use")
 		if target == "" {
-			return errors.New("no target implant to run command on")
+			return errors.New("no active implant target to run command")
 		}
 
 		// Load either the session or the beacon.
@@ -98,6 +98,10 @@ func postRunImplant(implantCmd *cobra.Command, con *client.SliverClient) func(_ 
 	return func(cmd *cobra.Command, args []string) error {
 		var saveArgs []string
 
+		// Save only the subset of the command line starting
+		// at the implant root (not the server one). This
+		// is quite hackish, but I could not come up with
+		// a better solution.
 		for i, arg := range os.Args {
 			if arg == cmd.Name() {
 				saveArgs = os.Args[i:]

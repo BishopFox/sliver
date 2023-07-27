@@ -31,7 +31,7 @@ import (
 func LootRenameCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	loot, err := SelectLoot(cmd, con.Rpc)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	oldName := loot.Name
@@ -44,7 +44,7 @@ func LootRenameCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 		Name: newName,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Renamed %s -> %s\n", oldName, loot.Name)

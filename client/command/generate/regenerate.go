@@ -43,7 +43,7 @@ func RegenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 		ImplantName: name,
 	})
 	if err != nil {
-		con.PrintErrorf("Failed to regenerate implant %s\n", err)
+		con.PrintErrorf("Failed to regenerate implant %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if regenerate.File == nil {

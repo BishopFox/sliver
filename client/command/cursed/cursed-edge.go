@@ -120,7 +120,7 @@ func avadaKedavraEdge(session *clientpb.Session, cmd *cobra.Command, con *consol
 			Pid:     edgeProcess.GetPid(),
 		})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			return nil
 		}
 		if terminateResp.Response != nil && terminateResp.Response.Err != "" {
@@ -156,7 +156,7 @@ func getEdgeProcess(session *clientpb.Session, cmd *cobra.Command, con *console.
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	for _, process := range ps.Processes {
 		if process.GetOwner() != session.GetUsername() {

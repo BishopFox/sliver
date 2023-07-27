@@ -42,7 +42,7 @@ func ProfilesNewCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 	}
 	resp, err := con.Rpc.SaveImplantProfile(context.Background(), profile)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	} else {
 		con.PrintInfof("Saved new implant profile %s\n", resp.Name)
 	}

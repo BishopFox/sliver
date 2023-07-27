@@ -22,16 +22,14 @@ import (
 	"context"
 	"strings"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// RegCreateKeyCmd - Create a new Windows registry key
+// RegCreateKeyCmd - Create a new Windows registry key.
 func RegCreateKeyCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -78,7 +76,7 @@ func RegCreateKeyCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		Request:  con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
@@ -97,7 +95,7 @@ func RegCreateKeyCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 }
 
-// PrintCreateKey - Print the results of the create key command
+// PrintCreateKey - Print the results of the create key command.
 func PrintCreateKey(createKey *sliverpb.RegistryCreateKey, regPath string, key string, con *console.SliverClient) {
 	if createKey.Response != nil && createKey.Response.Err != "" {
 		con.PrintErrorf("%s", createKey.Response.Err)

@@ -34,7 +34,7 @@ func HostsRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 	_, err = con.Rpc.HostRm(context.Background(), host)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Removed host from database\n")

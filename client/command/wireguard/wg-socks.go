@@ -45,7 +45,7 @@ func WGSocksListCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("Error: %v", err)
+		con.PrintErrorf("Error: %v", con.UnwrapServerErr(err))
 		return
 	}
 	if socksList.Response != nil && socksList.Response.Err != "" {
@@ -85,7 +85,7 @@ func SocksIDCompleter(con *console.SliverClient) carapace.Action {
 			Request: con.ActiveTarget.Request(con.App.ActiveMenu().Root()),
 		})
 		if err != nil {
-			return carapace.ActionMessage("failed to get Wireguard Socks servers: %s", err.Error())
+			return carapace.ActionMessage("failed to get Wireguard Socks servers: %s", con.UnwrapServerErr(err))
 		}
 
 		for _, serv := range socksList.Servers {

@@ -65,12 +65,12 @@ func CredsAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		},
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	PrintCreds(creds.Credentials, con)
@@ -116,12 +116,12 @@ func CredsAddHashFileCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 	con.PrintInfof("Adding %d credential(s) ...\n", len(creds.Credentials))
 	_, err = con.Rpc.CredsAdd(context.Background(), creds)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	creds, err = con.Rpc.Creds(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	PrintCreds(creds.Credentials, con)

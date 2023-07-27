@@ -48,7 +48,7 @@ func MemfilesRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 		Fd:      fdInt,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if memfilesList.Response != nil && memfilesList.Response.Async {

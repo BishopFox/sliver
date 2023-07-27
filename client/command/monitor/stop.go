@@ -21,17 +21,16 @@ package monitor
 import (
 	"context"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/spf13/cobra"
 )
 
-// MonitorStopCmd - Stop monitoring threat intel for implants
+// MonitorStopCmd - Stop monitoring threat intel for implants.
 func MonitorStopCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	_, err := con.Rpc.MonitorStop(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Stopped monitoring threat intel platforms for implants hashes\n")

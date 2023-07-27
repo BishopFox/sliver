@@ -62,7 +62,7 @@ func BeaconTaskIDCompleter(con *console.SliverClient) carapace.Action {
 
 		beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
 		if err != nil {
-			return carapace.ActionMessage("Failed to fetch tasks: %s", err.Error())
+			return carapace.ActionMessage("Failed to fetch tasks: %s", con.UnwrapServerErr(err))
 		}
 
 		completed := make([]string, 0)
@@ -131,7 +131,7 @@ func BeaconPendingTasksCompleter(con *console.SliverClient) carapace.Action {
 
 		beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
 		if err != nil {
-			return carapace.ActionMessage("Failed to fetch tasks: %s", err.Error())
+			return carapace.ActionMessage("Failed to fetch tasks: %s", con.UnwrapServerErr(err))
 		}
 
 		pending := make([]string, 0)

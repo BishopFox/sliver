@@ -46,7 +46,7 @@ type ImplantBuildFilter struct {
 func ImplantsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	implantBuildFilters := ImplantBuildFilter{}
@@ -133,7 +133,7 @@ func ImplantBuildNameCompleter(con *console.SliverClient) carapace.Action {
 
 		builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			return carapace.ActionMessage("failed to get implant builds: %s", err.Error())
+			return carapace.ActionMessage("failed to get implant builds: %s", con.UnwrapServerErr(err))
 		}
 
 		filters := &ImplantBuildFilter{}

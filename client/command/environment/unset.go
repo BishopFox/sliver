@@ -21,16 +21,14 @@ package environment
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// EnvUnsetCmd - Unset a remote environment variable
+// EnvUnsetCmd - Unset a remote environment variable.
 func EnvUnsetCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -48,7 +46,7 @@ func EnvUnsetCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if unsetResp.Response != nil && unsetResp.Response.Async {
@@ -66,7 +64,7 @@ func EnvUnsetCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-// PrintUnsetEnvInfo - Print the set environment info
+// PrintUnsetEnvInfo - Print the set environment info.
 func PrintUnsetEnvInfo(name string, envInfo *sliverpb.UnsetEnv, con *console.SliverClient) {
 	if envInfo.Response != nil && envInfo.Response.Err != "" {
 		con.PrintErrorf("%s\n", envInfo.Response.Err)

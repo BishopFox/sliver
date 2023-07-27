@@ -44,7 +44,7 @@ var (
 func SelectSession(onlyAlive bool, con *console.SliverClient) (*clientpb.Session, error) {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	if len(sessions.Sessions) == 0 {
 		return nil, ErrNoSessions

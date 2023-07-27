@@ -57,7 +57,7 @@ func ChmodCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		Recursive: recursive,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if chmod.Response != nil && chmod.Response.Async {

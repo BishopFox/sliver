@@ -54,7 +54,7 @@ func TasksFetchCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 	}
 	beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	tasks := beaconTasks.Tasks
@@ -97,7 +97,7 @@ func TasksFetchCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 	}
 	task, err = con.Rpc.GetBeaconTaskContent(context.Background(), &clientpb.BeaconTask{ID: task.ID})
 	if err != nil {
-		con.PrintErrorf("Failed to fetch task content: %s\n", err)
+		con.PrintErrorf("Failed to fetch task content: %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	PrintTask(task, con)
@@ -507,7 +507,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 		}
 		beacon, err := con.Rpc.GetBeacon(context.Background(), &clientpb.Beacon{ID: task.BeaconID})
 		if err != nil {
-			con.PrintErrorf("Failed to fetch beacon: %s\n", err)
+			con.PrintErrorf("Failed to fetch beacon: %s\n", con.UnwrapServerErr(err))
 			return
 		}
 		network.PrintNetstat(netstat, beacon.PID, beacon.ActiveC2, false, con)
@@ -524,7 +524,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 		}
 		beacon, err := con.Rpc.GetBeacon(context.Background(), &clientpb.Beacon{ID: task.BeaconID})
 		if err != nil {
-			con.PrintErrorf("Failed to fetch beacon: %s\n", err)
+			con.PrintErrorf("Failed to fetch beacon: %s\n", con.UnwrapServerErr(err))
 			return
 		}
 		privilege.PrintGetPrivs(privs, beacon.PID, con)
@@ -591,7 +591,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 		}
 		beacon, err := con.Rpc.GetBeacon(context.Background(), &clientpb.Beacon{ID: task.BeaconID})
 		if err != nil {
-			con.PrintErrorf("Failed to fetch beacon: %s\n", err)
+			con.PrintErrorf("Failed to fetch beacon: %s\n", con.UnwrapServerErr(err))
 			return
 		}
 		privilege.PrintRunAs(runAs, runAsReq.ProcessName, runAsReq.Args, beacon.Name, con)
@@ -617,7 +617,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 		}
 		beacon, err := con.Rpc.GetBeacon(context.Background(), &clientpb.Beacon{ID: task.BeaconID})
 		if err != nil {
-			con.PrintErrorf("Failed to get beacon: %s\n", err)
+			con.PrintErrorf("Failed to get beacon: %s\n", con.UnwrapServerErr(err))
 			return
 		}
 

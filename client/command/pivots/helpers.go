@@ -78,7 +78,7 @@ func PivotIDCompleter(con *console.SliverClient) carapace.Action {
 			Request: con.ActiveTarget.Request(con.App.ActiveMenu().Root()),
 		})
 		if err != nil {
-			return carapace.ActionMessage("failed to get remote pivots: %s", err.Error())
+			return carapace.ActionMessage("failed to get remote pivots: %s", con.UnwrapServerErr(err))
 		}
 
 		for _, listener := range pivotListeners.Listeners {
