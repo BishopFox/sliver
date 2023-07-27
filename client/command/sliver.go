@@ -28,6 +28,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/exec"
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/command/filesystem"
+	"github.com/bishopfox/sliver/client/command/history"
 	"github.com/bishopfox/sliver/client/command/info"
 	"github.com/bishopfox/sliver/client/command/kill"
 	"github.com/bishopfox/sliver/client/command/network"
@@ -57,6 +58,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 		sliver := &cobra.Command{
 			Short:            "Implant commands",
 			TraverseChildren: true,
+			SilenceUsage:     true,
 			CompletionOptions: cobra.CompletionOptions{
 				HiddenDefaultCmd: true,
 			},
@@ -77,6 +79,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 			// use.Commands,
 			tasks.Commands,
 			pivots.Commands,
+			history.Commands,
 		)
 
 		// [ Info ]

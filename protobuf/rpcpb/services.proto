@@ -19,6 +19,9 @@ service SliverRPC {
   rpc Reconfigure(sliverpb.ReconfigureReq) returns (sliverpb.Reconfigure);
   rpc Rename(clientpb.RenameReq) returns (commonpb.Empty);
 
+  rpc ImplantHistory(stream clientpb.ImplantCommand) returns (commonpb.Empty);
+  rpc GetImplantHistory(clientpb.HistoryRequest) returns (clientpb.History);
+
   // *** Sessions ***
   rpc GetSessions(commonpb.Empty) returns (clientpb.Sessions);
 

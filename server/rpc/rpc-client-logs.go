@@ -40,7 +40,7 @@ var (
 	ErrInvalidStreamName = status.Error(codes.InvalidArgument, "Invalid stream name")
 
 	rpcClientLogs     = log.NamedLogger("rpc", "client-logs")
-	streamNamePattern = regexp.MustCompile("^[a-z0-9_-]+$")
+	streamNamePattern = regexp.MustCompile("^[a-zA-Z0-9_-]+$")
 )
 
 type LogStream struct {

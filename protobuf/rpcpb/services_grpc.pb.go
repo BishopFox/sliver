@@ -27,6 +27,8 @@ const (
 	SliverRPC_Kill_FullMethodName                             = "/rpcpb.SliverRPC/Kill"
 	SliverRPC_Reconfigure_FullMethodName                      = "/rpcpb.SliverRPC/Reconfigure"
 	SliverRPC_Rename_FullMethodName                           = "/rpcpb.SliverRPC/Rename"
+	SliverRPC_ImplantHistory_FullMethodName                   = "/rpcpb.SliverRPC/ImplantHistory"
+	SliverRPC_GetImplantHistory_FullMethodName                = "/rpcpb.SliverRPC/GetImplantHistory"
 	SliverRPC_GetSessions_FullMethodName                      = "/rpcpb.SliverRPC/GetSessions"
 	SliverRPC_GetBeacons_FullMethodName                       = "/rpcpb.SliverRPC/GetBeacons"
 	SliverRPC_GetBeacon_FullMethodName                        = "/rpcpb.SliverRPC/GetBeacon"
@@ -201,6 +203,8 @@ type SliverRPCClient interface {
 	Kill(ctx context.Context, in *sliverpb.KillReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	Reconfigure(ctx context.Context, in *sliverpb.ReconfigureReq, opts ...grpc.CallOption) (*sliverpb.Reconfigure, error)
 	Rename(ctx context.Context, in *clientpb.RenameReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
+	ImplantHistory(ctx context.Context, opts ...grpc.CallOption) (SliverRPC_ImplantHistoryClient, error)
+	GetImplantHistory(ctx context.Context, in *clientpb.HistoryRequest, opts ...grpc.CallOption) (*clientpb.History, error)
 	// *** Sessions ***
 	GetSessions(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Sessions, error)
 	// *** Beacons ***
@@ -459,6 +463,49 @@ func (c *sliverRPCClient) Reconfigure(ctx context.Context, in *sliverpb.Reconfig
 func (c *sliverRPCClient) Rename(ctx context.Context, in *clientpb.RenameReq, opts ...grpc.CallOption) (*commonpb.Empty, error) {
 	out := new(commonpb.Empty)
 	err := c.cc.Invoke(ctx, SliverRPC_Rename_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) ImplantHistory(ctx context.Context, opts ...grpc.CallOption) (SliverRPC_ImplantHistoryClient, error) {
+	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[1], SliverRPC_ImplantHistory_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &sliverRPCImplantHistoryClient{stream}
+	return x, nil
+}
+
+type SliverRPC_ImplantHistoryClient interface {
+	Send(*clientpb.ImplantCommand) error
+	CloseAndRecv() (*commonpb.Empty, error)
+	grpc.ClientStream
+}
+
+type sliverRPCImplantHistoryClient struct {
+	grpc.ClientStream
+}
+
+func (x *sliverRPCImplantHistoryClient) Send(m *clientpb.ImplantCommand) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *sliverRPCImplantHistoryClient) CloseAndRecv() (*commonpb.Empty, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(commonpb.Empty)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *sliverRPCClient) GetImplantHistory(ctx context.Context, in *clientpb.HistoryRequest, opts ...grpc.CallOption) (*clientpb.History, error) {
+	out := new(clientpb.History)
+	err := c.cc.Invoke(ctx, SliverRPC_GetImplantHistory_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -817,7 +864,7 @@ func (c *sliverRPCClient) GenerateExternalGetImplantConfig(ctx context.Context, 
 }
 
 func (c *sliverRPCClient) BuilderRegister(ctx context.Context, in *clientpb.Builder, opts ...grpc.CallOption) (SliverRPC_BuilderRegisterClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[1], SliverRPC_BuilderRegister_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[2], SliverRPC_BuilderRegister_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -867,7 +914,7 @@ func (c *sliverRPCClient) Builders(ctx context.Context, in *commonpb.Empty, opts
 }
 
 func (c *sliverRPCClient) CrackstationRegister(ctx context.Context, in *clientpb.Crackstation, opts ...grpc.CallOption) (SliverRPC_CrackstationRegisterClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[2], SliverRPC_CrackstationRegister_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[3], SliverRPC_CrackstationRegister_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1907,7 +1954,7 @@ func (c *sliverRPCClient) CloseSocks(ctx context.Context, in *sliverpb.Socks, op
 }
 
 func (c *sliverRPCClient) SocksProxy(ctx context.Context, opts ...grpc.CallOption) (SliverRPC_SocksProxyClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[3], SliverRPC_SocksProxy_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[4], SliverRPC_SocksProxy_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1956,7 +2003,7 @@ func (c *sliverRPCClient) CloseTunnel(ctx context.Context, in *sliverpb.Tunnel, 
 }
 
 func (c *sliverRPCClient) TunnelData(ctx context.Context, opts ...grpc.CallOption) (SliverRPC_TunnelDataClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[4], SliverRPC_TunnelData_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[5], SliverRPC_TunnelData_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1987,7 +2034,7 @@ func (x *sliverRPCTunnelDataClient) Recv() (*sliverpb.TunnelData, error) {
 }
 
 func (c *sliverRPCClient) Events(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (SliverRPC_EventsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[5], SliverRPC_Events_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[6], SliverRPC_Events_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2030,6 +2077,8 @@ type SliverRPCServer interface {
 	Kill(context.Context, *sliverpb.KillReq) (*commonpb.Empty, error)
 	Reconfigure(context.Context, *sliverpb.ReconfigureReq) (*sliverpb.Reconfigure, error)
 	Rename(context.Context, *clientpb.RenameReq) (*commonpb.Empty, error)
+	ImplantHistory(SliverRPC_ImplantHistoryServer) error
+	GetImplantHistory(context.Context, *clientpb.HistoryRequest) (*clientpb.History, error)
 	// *** Sessions ***
 	GetSessions(context.Context, *commonpb.Empty) (*clientpb.Sessions, error)
 	// *** Beacons ***
@@ -2235,6 +2284,12 @@ func (UnimplementedSliverRPCServer) Reconfigure(context.Context, *sliverpb.Recon
 }
 func (UnimplementedSliverRPCServer) Rename(context.Context, *clientpb.RenameReq) (*commonpb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Rename not implemented")
+}
+func (UnimplementedSliverRPCServer) ImplantHistory(SliverRPC_ImplantHistoryServer) error {
+	return status.Errorf(codes.Unimplemented, "method ImplantHistory not implemented")
+}
+func (UnimplementedSliverRPCServer) GetImplantHistory(context.Context, *clientpb.HistoryRequest) (*clientpb.History, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetImplantHistory not implemented")
 }
 func (UnimplementedSliverRPCServer) GetSessions(context.Context, *commonpb.Empty) (*clientpb.Sessions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSessions not implemented")
@@ -2823,6 +2878,50 @@ func _SliverRPC_Rename_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).Rename(ctx, req.(*clientpb.RenameReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_ImplantHistory_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SliverRPCServer).ImplantHistory(&sliverRPCImplantHistoryServer{stream})
+}
+
+type SliverRPC_ImplantHistoryServer interface {
+	SendAndClose(*commonpb.Empty) error
+	Recv() (*clientpb.ImplantCommand, error)
+	grpc.ServerStream
+}
+
+type sliverRPCImplantHistoryServer struct {
+	grpc.ServerStream
+}
+
+func (x *sliverRPCImplantHistoryServer) SendAndClose(m *commonpb.Empty) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *sliverRPCImplantHistoryServer) Recv() (*clientpb.ImplantCommand, error) {
+	m := new(clientpb.ImplantCommand)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func _SliverRPC_GetImplantHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.HistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetImplantHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_GetImplantHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetImplantHistory(ctx, req.(*clientpb.HistoryRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -5756,6 +5855,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_Rename_Handler,
 		},
 		{
+			MethodName: "GetImplantHistory",
+			Handler:    _SliverRPC_GetImplantHistory_Handler,
+		},
+		{
 			MethodName: "GetSessions",
 			Handler:    _SliverRPC_GetSessions_Handler,
 		},
@@ -6380,6 +6483,11 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ClientLog",
 			Handler:       _SliverRPC_ClientLog_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "ImplantHistory",
+			Handler:       _SliverRPC_ImplantHistory_Handler,
 			ClientStreams: true,
 		},
 		{

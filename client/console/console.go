@@ -98,7 +98,7 @@ type SliverClient struct {
 	// Logging
 	jsonHandler slog.Handler
 	printf      func(format string, args ...any) (int, error)
-	closeLogs   func()
+	closeLogs   []func()
 
 	// Sliver-specific
 	Rpc                      rpcpb.SliverRPCClient
@@ -177,7 +177,8 @@ func newConsole() *SliverClient {
 	server.Prompt().Primary = con.GetPrompt
 	server.AddInterrupt(readline.ErrInterrupt, con.exitConsole) // Ctrl-C
 
-	server.AddHistorySourceFile("server history", filepath.Join(assets.GetRootAppDir(), "history"))
+	histPath := filepath.Join(assets.GetRootAppDir(), "history")
+	server.AddHistorySourceFile("server history", histPath)
 
 	// Implant menu.
 	sliver := con.App.NewMenu(consts.ImplantMenu)
@@ -203,6 +204,24 @@ func (con *SliverClient) connect(conn *grpc.ClientConn) {
 
 	// Stream logs/asciicasts
 	con.startClientLog()
+
+	// History sources
+	sliver := con.App.NewMenu(consts.ImplantMenu)
+
+	histuser, err := con.newImplantHistory(true)
+	if err == nil {
+		sliver.AddHistorySource("implant history (user)", histuser)
+	}
+
+	histAll, err := con.newImplantHistory(false)
+	if err == nil {
+		sliver.AddHistorySource("implant history (all users)", histAll)
+	}
+
+	con.closeLogs = append(con.closeLogs, func() {
+		histuser.Close()
+		histAll.Close()
+	})
 }
 
 // StartConsole is a blocking call that starts the Sliver closed console.
@@ -237,7 +256,7 @@ func (con *SliverClient) ConnectCompletion() (carapace.Action, error) {
 // After this call, the client can reconnect should it want to.
 func (con *SliverClient) Disconnect() error {
 	// Close all RPC streams and local files.
-	con.closeClientLogs()
+	con.closeClientStreams()
 
 	// Close the RPC client connection.
 	return con.Teamclient.Disconnect()

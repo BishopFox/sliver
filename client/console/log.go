@@ -90,7 +90,7 @@ func (con *SliverClient) startClientLog() error {
 
 	err = con.setupAsciicastRecord(asciicastFile, asciicastStream)
 
-	con.closeLogs = func() {
+	con.closeLogs = append(con.closeLogs, func() {
 		// Local files
 		clientLogFile.Close()
 		asciicastFile.Close()
@@ -98,12 +98,12 @@ func (con *SliverClient) startClientLog() error {
 		// Server streams.
 		clientLogs.Stream.CloseAndRecv()
 		asciicastStream.Stream.CloseAndRecv()
-	}
+	})
 
 	return nil
 }
 
-func (con *SliverClient) closeClientLogs() {
+func (con *SliverClient) closeClientStreams() {
 	if con.closeLogs == nil {
 		return
 	}
@@ -112,7 +112,9 @@ func (con *SliverClient) closeClientLogs() {
 		con.closeLogs = nil
 	}()
 
-	con.closeLogs()
+	for _, closeLog := range con.closeLogs {
+		closeLog()
+	}
 }
 
 func (con *SliverClient) setupLogger(writers ...io.Writer) {
@@ -162,7 +164,16 @@ func (con *SliverClient) logCommand(args []string) ([]string, error) {
 	if len(args) == 0 {
 		return args, nil
 	}
+
 	logger := slog.New(con.jsonHandler).With(slog.String("type", "command"))
+
+	sess, beac := con.ActiveTarget.Get()
+	if sess != nil {
+		logger = logger.With(slog.String("implant_id", sess.ID))
+	} else if beac != nil {
+		logger = logger.With(slog.String("implant_id", beac.ID))
+	}
+
 	logger.Debug(strings.Join(args, " "))
 	return args, nil
 }

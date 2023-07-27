@@ -25,6 +25,37 @@ message ClientLogData {
   bytes Data = 2;
 }
 
+// [ History commands ] ----------------------------------------
+
+message ImplantCommand {
+  string Stream = 1;
+  string User = 2;
+  string ImplantID = 3;
+  string ImplantName = 4;
+  int64 ExecutedAt = 5;
+  string Block = 6;
+
+  commonpb.Request Request = 9;
+}
+
+message HistoryRequest {
+  bool UserOnly = 1;
+  int32 MaxLines = 2;         
+  string ImplantID = 3;      
+  string ImplantName = 4;
+        
+  commonpb.Request Request = 9;
+}
+
+// History - Command history content.
+message History {
+  int32 HistoryLen = 2;
+  bool UserOnly = 3;
+  repeated ImplantCommand Commands = 4;
+
+  commonpb.Response Response = 9;
+}
+
 // [ Core ] ----------------------------------------
 
 message Session {
