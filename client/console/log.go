@@ -51,6 +51,13 @@ func (l *ConsoleClientLogger) Write(buf []byte) (int, error) {
 	return len(buf), err
 }
 
+// CompleteDisableLog forbids the server from streaming its asciicast
+// and some logs output to the server, as asciicast and completions both
+// tinker with very low-level IO and very often don't work nice together.
+func (con *SliverClient) CompleteDisableLog() {
+	con.completing = true
+}
+
 // ClientLogStream requires a log stream name, used to save the logs
 // going through this stream in a specific log subdirectory/file.
 func (con *SliverClient) ClientLogStream(name string) (*ConsoleClientLogger, error) {
@@ -62,7 +69,7 @@ func (con *SliverClient) ClientLogStream(name string) (*ConsoleClientLogger, err
 }
 
 func (con *SliverClient) startClientLog() error {
-	if con.IsCompleting {
+	if con.completing {
 		return nil
 	}
 

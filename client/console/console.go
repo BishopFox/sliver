@@ -91,12 +91,12 @@ type (
 
 type SliverClient struct {
 	// Core client
-	Teamclient   *client.Client
-	App          *console.Console
-	Settings     *assets.ClientSettings
-	IsServer     bool
-	IsCLI        bool
-	IsCompleting bool
+	Teamclient *client.Client
+	App        *console.Console
+	Settings   *assets.ClientSettings
+	IsServer   bool
+	IsCLI      bool
+	completing bool
 
 	// Logging
 	jsonHandler slog.Handler
@@ -241,7 +241,7 @@ func (con *SliverClient) StartConsole() error {
 // This function is safe to call regardless of the client being used
 // as a closed-loop console mode or in an exec-once CLI mode.
 func (con *SliverClient) ConnectCompletion() (carapace.Action, error) {
-	con.IsCompleting = true
+	con.completing = true
 
 	err := con.Teamclient.Connect()
 	if err != nil {

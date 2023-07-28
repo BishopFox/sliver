@@ -117,11 +117,8 @@ func preRunClient(con *client.SliverClient) func(_ *cobra.Command, _ []string) e
 	return func(cmd *cobra.Command, _ []string) error {
 		// Don't stream console asciicast/logs when using the completion subcommand.
 		// We don't use cmd.Root().Find() for this, as it would always trigger the condition true.
-		for _, compCmd := range cmd.Root().Commands() {
-			if compCmd != nil && compCmd.Name() == "_carapace" && compCmd.CalledAs() != "" {
-				con.IsCompleting = true
-				break
-			}
+		if compCommandCalled(cmd) {
+			con.CompleteDisableLog()
 		}
 
 		return con.Teamclient.Connect()
@@ -133,4 +130,14 @@ func postRunClient(con *client.SliverClient) func(_ *cobra.Command, _ []string) 
 	return func(_ *cobra.Command, _ []string) error {
 		return con.Disconnect()
 	}
+}
+
+func compCommandCalled(cmd *cobra.Command) bool {
+	for _, compCmd := range cmd.Root().Commands() {
+		if compCmd != nil && compCmd.Name() == "_carapace" && compCmd.CalledAs() != "" {
+			return true
+		}
+	}
+
+	return false
 }

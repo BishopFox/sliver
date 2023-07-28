@@ -204,16 +204,23 @@ func preRunServer(teamserver *server.Server, con *client.SliverClient) func(_ *c
 
 		// Don't stream console asciicast/logs when using the completion subcommand.
 		// We don't use cmd.Root().Find() for this, as it would always trigger the condition true.
-		for _, compCmd := range cmd.Root().Commands() {
-			if compCmd != nil && compCmd.Name() == "_carapace" && compCmd.CalledAs() != "" {
-				con.IsCompleting = true
-				break
-			}
+		if compCommandCalled(cmd) {
+			con.CompleteDisableLog()
 		}
 
 		// Let our in-memory teamclient be served.
 		return teamserver.Serve(con.Teamclient)
 	}
+}
+
+func compCommandCalled(cmd *cobra.Command) bool {
+	for _, compCmd := range cmd.Root().Commands() {
+		if compCmd != nil && compCmd.Name() == "_carapace" && compCmd.CalledAs() != "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // 	preRun := func(cmd *cobra.Command, _ []string) error {
