@@ -69,6 +69,9 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 	flags.BindFlagCompletions(generateStagerCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+		(*comp)["arch"] = MsfArchCompleter(con)
+		(*comp)["format"] = MsfFormatCompleter(con)
+		(*comp)["payload"] = MsfPayloadCompleter(con)
 	})
 	generateCmd.AddCommand(generateStagerCmd)
 

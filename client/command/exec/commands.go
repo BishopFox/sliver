@@ -195,6 +195,10 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
+	flags.BindFlagCompletions(msfCmd, func(comp *carapace.ActionMap) {
+		(*comp)["payload"] = generate.MsfPayloadCompleter(con)
+		(*comp)["encoder"] = generate.MsfEncoderCompleter(con)
+	})
 
 	msfInjectCmd := &cobra.Command{
 		Use:   consts.MsfInjectStr,

@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/msf"
 	"github.com/spf13/cobra"
 )
 
@@ -44,6 +45,7 @@ func Commands() []*cobra.Command {
 			}
 
 			assets.Setup(force, true)
+			msf.CacheModules()
 		},
 	}
 

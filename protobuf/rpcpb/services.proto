@@ -125,6 +125,7 @@ service SliverRPC {
   rpc MsfStage(clientpb.MsfStagerReq) returns (clientpb.MsfStager);
   rpc ShellcodeRDI(clientpb.ShellcodeRDIReq) returns (clientpb.ShellcodeRDI);
   rpc GetCompiler(commonpb.Empty) returns (clientpb.Compiler);
+  rpc GetMetasploitCompiler(commonpb.Empty) returns (clientpb.MetasploitCompiler);
   rpc ShellcodeEncoder(clientpb.ShellcodeEncodeReq)
       returns (clientpb.ShellcodeEncode);
   rpc ShellcodeEncoderMap(commonpb.Empty)

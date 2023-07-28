@@ -3,12 +3,15 @@ package generate
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/rsteube/carapace"
+	"github.com/rsteube/carapace/pkg/cache"
+	"github.com/rsteube/carapace/pkg/style"
 )
 
 // GetSliverBinary - Get the binary of an implant based on it's profile.
@@ -170,4 +173,113 @@ func TrafficEncodersCompleter(con *console.SliverClient) carapace.Action {
 
 		return carapace.ActionValuesDescribed(results...).Tag("traffic encoders")
 	})
+}
+
+// MsfFormatCompleter completes MsfVenom stager formats.
+func MsfFormatCompleter(con *console.SliverClient) carapace.Action {
+	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
+		if msg, err := con.ConnectCompletion(); err != nil {
+			return msg
+		}
+
+		info, err := con.Rpc.GetMetasploitCompiler(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			return carapace.ActionMessage("failed to fetch Metasploit info: %s", con.UnwrapServerErr(err))
+		}
+
+		var results []string
+
+		for _, fmt := range info.Formats {
+			fmt = strings.TrimSpace(fmt)
+			if fmt == "" {
+				continue
+			}
+
+			results = append(results, fmt)
+
+		}
+
+		return carapace.ActionValues(results...).Tag("msfvenom formats")
+	}).Cache(1 * time.Minute)
+}
+
+// MsfArchCompleter completes MsfVenom stager architectures.
+func MsfArchCompleter(con *console.SliverClient) carapace.Action {
+	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
+		if msg, err := con.ConnectCompletion(); err != nil {
+			return msg
+		}
+
+		info, err := con.Rpc.GetMetasploitCompiler(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			return carapace.ActionMessage("failed to fetch Metasploit info: %s", con.UnwrapServerErr(err))
+		}
+
+		var results []string
+
+		for _, arch := range info.Archs {
+			arch = strings.TrimSpace(arch)
+			if arch == "" {
+				continue
+			}
+
+			results = append(results, arch)
+		}
+
+		return carapace.ActionValues(results...).Tag("msfvenom archs")
+	}).Cache(1 * time.Minute)
+}
+
+// MsfFormatCompleter completes MsfVenom stager encoders.
+func MsfEncoderCompleter(con *console.SliverClient) carapace.Action {
+	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
+		if msg, err := con.ConnectCompletion(); err != nil {
+			return msg
+		}
+
+		info, err := con.Rpc.GetMetasploitCompiler(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			return carapace.ActionMessage("failed to fetch Metasploit info: %s", con.UnwrapServerErr(err))
+		}
+
+		var results []string
+
+		for _, mod := range info.Encoders {
+			results = append(results, mod.FullName)
+
+			level := fmt.Sprintf("%-10s", "["+mod.Quality+"]")
+			desc := fmt.Sprintf("%s %s", level, mod.Description)
+
+			results = append(results, desc)
+		}
+
+		return carapace.ActionValuesDescribed(results...).Tag("msfvenom encoders")
+	}).Cache(1 * time.Minute)
+}
+
+// MsfPayloadCompleter completes Metasploit payloads.
+func MsfPayloadCompleter(con *console.SliverClient) carapace.Action {
+	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		if msg, err := con.ConnectCompletion(); err != nil {
+			return msg
+		}
+
+		info, err := con.Rpc.GetMetasploitCompiler(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			return carapace.ActionMessage("failed to fetch Metasploit info: %s", con.UnwrapServerErr(err))
+		}
+
+		var results []string
+
+		for _, mod := range info.Payloads {
+			if mod.FullName == "" && mod.Name == "" {
+				continue
+			}
+
+			results = append(results, mod.FullName)
+			results = append(results, mod.Description)
+		}
+
+		return carapace.ActionValuesDescribed(results...)
+	}).Cache(1*time.Minute, cache.String("payloads")).MultiParts("/").StyleF(style.ForPath)
 }

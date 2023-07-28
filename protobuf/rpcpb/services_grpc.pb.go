@@ -95,6 +95,7 @@ const (
 	SliverRPC_MsfStage_FullMethodName                         = "/rpcpb.SliverRPC/MsfStage"
 	SliverRPC_ShellcodeRDI_FullMethodName                     = "/rpcpb.SliverRPC/ShellcodeRDI"
 	SliverRPC_GetCompiler_FullMethodName                      = "/rpcpb.SliverRPC/GetCompiler"
+	SliverRPC_GetMetasploitCompiler_FullMethodName            = "/rpcpb.SliverRPC/GetMetasploitCompiler"
 	SliverRPC_ShellcodeEncoder_FullMethodName                 = "/rpcpb.SliverRPC/ShellcodeEncoder"
 	SliverRPC_ShellcodeEncoderMap_FullMethodName              = "/rpcpb.SliverRPC/ShellcodeEncoderMap"
 	SliverRPC_TrafficEncoderMap_FullMethodName                = "/rpcpb.SliverRPC/TrafficEncoderMap"
@@ -284,6 +285,7 @@ type SliverRPCClient interface {
 	MsfStage(ctx context.Context, in *clientpb.MsfStagerReq, opts ...grpc.CallOption) (*clientpb.MsfStager, error)
 	ShellcodeRDI(ctx context.Context, in *clientpb.ShellcodeRDIReq, opts ...grpc.CallOption) (*clientpb.ShellcodeRDI, error)
 	GetCompiler(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Compiler, error)
+	GetMetasploitCompiler(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.MetasploitCompiler, error)
 	ShellcodeEncoder(ctx context.Context, in *clientpb.ShellcodeEncodeReq, opts ...grpc.CallOption) (*clientpb.ShellcodeEncode, error)
 	ShellcodeEncoderMap(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.ShellcodeEncoderMap, error)
 	TrafficEncoderMap(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.TrafficEncoderMap, error)
@@ -1146,6 +1148,15 @@ func (c *sliverRPCClient) ShellcodeRDI(ctx context.Context, in *clientpb.Shellco
 func (c *sliverRPCClient) GetCompiler(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Compiler, error) {
 	out := new(clientpb.Compiler)
 	err := c.cc.Invoke(ctx, SliverRPC_GetCompiler_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GetMetasploitCompiler(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.MetasploitCompiler, error) {
+	out := new(clientpb.MetasploitCompiler)
+	err := c.cc.Invoke(ctx, SliverRPC_GetMetasploitCompiler_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2158,6 +2169,7 @@ type SliverRPCServer interface {
 	MsfStage(context.Context, *clientpb.MsfStagerReq) (*clientpb.MsfStager, error)
 	ShellcodeRDI(context.Context, *clientpb.ShellcodeRDIReq) (*clientpb.ShellcodeRDI, error)
 	GetCompiler(context.Context, *commonpb.Empty) (*clientpb.Compiler, error)
+	GetMetasploitCompiler(context.Context, *commonpb.Empty) (*clientpb.MetasploitCompiler, error)
 	ShellcodeEncoder(context.Context, *clientpb.ShellcodeEncodeReq) (*clientpb.ShellcodeEncode, error)
 	ShellcodeEncoderMap(context.Context, *commonpb.Empty) (*clientpb.ShellcodeEncoderMap, error)
 	TrafficEncoderMap(context.Context, *commonpb.Empty) (*clientpb.TrafficEncoderMap, error)
@@ -2488,6 +2500,9 @@ func (UnimplementedSliverRPCServer) ShellcodeRDI(context.Context, *clientpb.Shel
 }
 func (UnimplementedSliverRPCServer) GetCompiler(context.Context, *commonpb.Empty) (*clientpb.Compiler, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCompiler not implemented")
+}
+func (UnimplementedSliverRPCServer) GetMetasploitCompiler(context.Context, *commonpb.Empty) (*clientpb.MetasploitCompiler, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMetasploitCompiler not implemented")
 }
 func (UnimplementedSliverRPCServer) ShellcodeEncoder(context.Context, *clientpb.ShellcodeEncodeReq) (*clientpb.ShellcodeEncode, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ShellcodeEncoder not implemented")
@@ -4116,6 +4131,24 @@ func _SliverRPC_GetCompiler_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).GetCompiler(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GetMetasploitCompiler_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetMetasploitCompiler(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_GetMetasploitCompiler_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetMetasploitCompiler(ctx, req.(*commonpb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -6113,6 +6146,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCompiler",
 			Handler:    _SliverRPC_GetCompiler_Handler,
+		},
+		{
+			MethodName: "GetMetasploitCompiler",
+			Handler:    _SliverRPC_GetMetasploitCompiler_Handler,
 		},
 		{
 			MethodName: "ShellcodeEncoder",

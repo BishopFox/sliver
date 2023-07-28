@@ -22,10 +22,15 @@ import (
 	"bytes"
 	"fmt"
 	"net/url"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/log"
 )
 
@@ -102,6 +107,8 @@ var (
 	}
 )
 
+var msfCache = sync.Map{}
+
 // VenomConfig -
 type VenomConfig struct {
 	Os         string
@@ -115,6 +122,65 @@ type VenomConfig struct {
 	Format     string
 	Luri       string
 	AdvOptions string
+}
+
+// CacheModules parses the text output of some our relevant
+// Metasploit generation helpers, to be used for completions.
+func CacheModules() {
+	if _, err := exec.LookPath(venomBin); err != nil {
+		return
+	}
+
+	msfLog.Infof("Caching msfvenom data (this may take a few seconds)")
+
+	all := sync.WaitGroup{}
+
+	targets := []string{"formats", "archs", "payloads", "encoders"}
+
+	for i := range targets {
+		all.Add(1)
+		target := targets[i]
+
+		go func() {
+			defer all.Done()
+
+			result, err := venomCmd([]string{"--list", target})
+			if err != nil {
+				msfLog.Error(err)
+				return
+			}
+
+			fileName := filepath.Join(assets.GetRootAppDir(), "msf-"+target+".cache")
+			if err := os.WriteFile(fileName, result, 0o600); err != nil {
+				msfLog.Error(err)
+			}
+		}()
+	}
+
+	all.Wait()
+	msfLog.Infof("Done caching msfvenom data")
+}
+
+// GetMsfCache returns the cache of Metasploit modules and other info.
+func GetMsfCache() *clientpb.MetasploitCompiler {
+	formats, ok := msfCache.Load("formats")
+	if !ok {
+		loadCache()
+	}
+
+	formats, ok = msfCache.Load("formats")
+	archs, _ := msfCache.Load("archs")
+	payloads, _ := msfCache.Load("payloads")
+	encoders, _ := msfCache.Load("encoders")
+
+	msf := &clientpb.MetasploitCompiler{
+		Formats:  formats.([]string),
+		Archs:    archs.([]string),
+		Payloads: payloads.([]*clientpb.MetasploitModule),
+		Encoders: encoders.([]*clientpb.MetasploitModule),
+	}
+
+	return msf
 }
 
 // Version - Return the version of MSFVenom
@@ -258,4 +324,120 @@ func Arch(arch string) string {
 		return "x64"
 	}
 	return "x86"
+}
+
+func loadCache() {
+	msf := parseCache()
+
+	if len(msf.Formats) == 0 {
+		return
+	}
+
+	msfCache.Store("formats", msf.Formats)
+	msfCache.Store("archs", msf.Archs)
+	msfCache.Store("payloads", msf.Payloads)
+	msfCache.Store("encoders", msf.Encoders)
+}
+
+// parseCache returns the MSFvenom information useful to Sliver.
+func parseCache() *clientpb.MetasploitCompiler {
+	msf := &clientpb.MetasploitCompiler{}
+
+	if _, err := exec.LookPath(venomBin); err != nil {
+		return msf
+	}
+
+	ver, err := Version()
+	if err != nil {
+		return msf
+	}
+
+	msf.Version = ver
+
+	fileName := filepath.Join(assets.GetRootAppDir(), "msf-formats.cache")
+	if formats, err := os.ReadFile(fileName); err == nil {
+		raw := strings.Split(string(formats), "----")
+		all := strings.Split(raw[len(raw)-1], "\n")
+
+		for _, fmt := range all {
+			msf.Formats = append(msf.Formats, strings.TrimSpace(fmt))
+		}
+	}
+
+	archsFile := filepath.Join(assets.GetRootAppDir(), "msf-archs.cache")
+	if archs, err := os.ReadFile(archsFile); err == nil {
+		raw := strings.Split(string(archs), "----")
+		all := strings.Split(raw[len(raw)-1], "\n")
+
+		for _, arch := range all {
+			msf.Archs = append(msf.Archs, strings.TrimSpace(arch))
+		}
+	}
+
+	payloadsFile := filepath.Join(assets.GetRootAppDir(), "msf-payloads.cache")
+	if payloads, err := os.ReadFile(payloadsFile); err == nil {
+		raw := strings.Split(string(payloads), "-----------")
+		all := strings.Split(raw[len(raw)-1], "\n")
+
+		for _, info := range all {
+			payload := &clientpb.MetasploitModule{}
+
+			items := filterEmpty(strings.Split(strings.TrimSpace(info), " "))
+
+			if len(items) > 0 {
+				fullname := strings.TrimSpace(items[0])
+				payload.FullName = fullname
+				payload.Name = filepath.Base(fullname)
+			}
+			if len(items) > 1 {
+				payload.Description = strings.Join(items[1:], " ")
+			}
+
+			msf.Payloads = append(msf.Payloads, payload)
+		}
+	}
+
+	encodersFile := filepath.Join(assets.GetRootAppDir(), "msf-encoders.cache")
+	if encoders, err := os.ReadFile(encodersFile); err == nil {
+		raw := strings.Split(string(encoders), "-----------")
+		all := strings.Split(raw[len(raw)-1], "\n")
+
+		for _, info := range all {
+			encoder := &clientpb.MetasploitModule{}
+
+			// First split the name from everything else following.
+			items := filterEmpty(strings.Split(strings.TrimSpace(info), " "))
+			if len(items) == 0 {
+				continue
+			}
+
+			if len(items) > 0 {
+				fullname := strings.TrimSpace(items[0])
+				encoder.FullName = fullname
+				encoder.Name = filepath.Base(fullname)
+			}
+
+			// Then try to find a level, and a description.
+			if len(items) > 1 {
+				encoder.Quality = strings.TrimSpace(items[1])
+				encoder.Description = strings.Join(items[2:], " ")
+			}
+
+			msf.Encoders = append(msf.Encoders, encoder)
+		}
+	}
+
+	return msf
+}
+
+func filterEmpty(list []string) []string {
+	var full []string
+	for _, item := range list {
+		trim := strings.TrimSpace(item)
+		if trim != "" {
+			full = append(full, trim)
+		}
+	}
+
+	return full
 }

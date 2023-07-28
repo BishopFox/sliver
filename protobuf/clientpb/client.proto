@@ -282,6 +282,21 @@ message Compiler {
   repeated CompilerTarget UnsupportedTargets = 5;
 }
 
+message MetasploitModule {
+  string Name = 1;
+  string FullName = 2;
+  string Description = 3;
+  string Quality = 4;
+}
+
+message MetasploitCompiler {
+  string Version = 1;
+  repeated string Formats = 2;
+  repeated string Archs = 3;
+  repeated MetasploitModule Encoders = 4;
+  repeated MetasploitModule Payloads = 5;
+}
+
 message DeleteReq { string Name = 1; }
 
 // DNSCanary - Single canary and metadata
