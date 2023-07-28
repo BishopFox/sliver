@@ -74,13 +74,12 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 		// [ Core ]
 		bind(consts.SliverCoreHelpGroup,
 			reconfig.Commands,
-			// sessions.Commands,
 			sessions.SliverCommands,
 			kill.Commands,
-			// use.Commands,
 			tasks.Commands,
 			pivots.Commands,
 			history.Commands,
+			extensions.Commands,
 		)
 
 		// [ Info ]
@@ -131,9 +130,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 		bind(consts.AliasHelpGroup)
 
 		// [ Extensions ]
-		bind(consts.ExtensionHelpGroup,
-			extensions.Commands,
-		)
+		bind(consts.ExtensionHelpGroup)
 
 		// [ Post-command declaration setup ]----------------------------------------
 

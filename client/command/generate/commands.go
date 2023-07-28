@@ -68,8 +68,9 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("advanced", "d", "", "Advanced options for the stager using URI query syntax (option1=value1&option2=value2...)")
 	})
 	flags.BindFlagCompletions(generateStagerCmd, func(comp *carapace.ActionMap) {
-		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
-		(*comp)["arch"] = carapace.ActionValues("amd64", "x86")
+		(*comp)["save"] = carapace.ActionDirectories()
+		(*comp)["os"] = carapace.ActionValues("windows", "linux", "darwin").Tag("msf stager OS")
+		(*comp)["arch"] = carapace.ActionValues("amd64", "x86").Tag("msf stager archs")
 		(*comp)["format"] = MsfFormatCompleter(con)
 		(*comp)["protocol"] = carapace.ActionValues("http", "https", "tcp").Tag("msf stager protocols")
 	})

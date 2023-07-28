@@ -38,6 +38,7 @@ const (
 	consoleBin = "msfconsole"
 	venomBin   = "msfvenom"
 	sep        = "/"
+	msfDir     = "msf"
 )
 
 var (
@@ -105,6 +106,13 @@ var (
 		"vbapplication": true,
 		"vbscript":      true,
 	}
+
+	msfModuleTypes = []string{
+		"encoders",
+		"payloads",
+		"formats",
+		"archs",
+	}
 )
 
 var msfCache = sync.Map{}
@@ -135,11 +143,9 @@ func CacheModules() {
 
 	all := sync.WaitGroup{}
 
-	targets := []string{"formats", "archs", "payloads", "encoders"}
-
-	for i := range targets {
+	for i := range msfModuleTypes {
 		all.Add(1)
-		target := targets[i]
+		target := msfModuleTypes[i]
 
 		go func() {
 			defer all.Done()
@@ -150,7 +156,9 @@ func CacheModules() {
 				return
 			}
 
-			fileName := filepath.Join(assets.GetRootAppDir(), "msf-"+target+".cache")
+			msfDir := filepath.Join(assets.GetRootAppDir(), msfDir)
+
+			fileName := filepath.Join(msfDir, "msf-"+target+".cache")
 			if err := os.WriteFile(fileName, result, 0o600); err != nil {
 				msfLog.Error(err)
 			}
@@ -354,76 +362,84 @@ func parseCache() *clientpb.MetasploitCompiler {
 
 	msf.Version = ver
 
-	fileName := filepath.Join(assets.GetRootAppDir(), "msf-formats.cache")
-	if formats, err := os.ReadFile(fileName); err == nil {
-		raw := strings.Split(string(formats), "----")
-		all := strings.Split(raw[len(raw)-1], "\n")
+	msfDir := filepath.Join(assets.GetRootAppDir(), msfDir)
 
-		for _, fmt := range all {
-			msf.Formats = append(msf.Formats, strings.TrimSpace(fmt))
-		}
-	}
+	for _, file := range msfModuleTypes {
+		fileName := filepath.Join(msfDir, fmt.Sprintf("msf-%s.cache", file))
 
-	archsFile := filepath.Join(assets.GetRootAppDir(), "msf-archs.cache")
-	if archs, err := os.ReadFile(archsFile); err == nil {
-		raw := strings.Split(string(archs), "----")
-		all := strings.Split(raw[len(raw)-1], "\n")
+		switch file {
+		case "formats":
+			if formats, err := os.ReadFile(fileName); err == nil {
+				raw := strings.Split(string(formats), "----")
+				all := strings.Split(raw[len(raw)-1], "\n")
 
-		for _, arch := range all {
-			msf.Archs = append(msf.Archs, strings.TrimSpace(arch))
-		}
-	}
-
-	payloadsFile := filepath.Join(assets.GetRootAppDir(), "msf-payloads.cache")
-	if payloads, err := os.ReadFile(payloadsFile); err == nil {
-		raw := strings.Split(string(payloads), "-----------")
-		all := strings.Split(raw[len(raw)-1], "\n")
-
-		for _, info := range all {
-			payload := &clientpb.MetasploitModule{}
-
-			items := filterEmpty(strings.Split(strings.TrimSpace(info), " "))
-
-			if len(items) > 0 {
-				fullname := strings.TrimSpace(items[0])
-				payload.FullName = fullname
-				payload.Name = filepath.Base(fullname)
-			}
-			if len(items) > 1 {
-				payload.Description = strings.Join(items[1:], " ")
+				for _, fmt := range all {
+					msf.Formats = append(msf.Formats, strings.TrimSpace(fmt))
+				}
 			}
 
-			msf.Payloads = append(msf.Payloads, payload)
-		}
-	}
+		case "archs":
+			if archs, err := os.ReadFile(fileName); err == nil {
+				raw := strings.Split(string(archs), "----")
+				all := strings.Split(raw[len(raw)-1], "\n")
 
-	encodersFile := filepath.Join(assets.GetRootAppDir(), "msf-encoders.cache")
-	if encoders, err := os.ReadFile(encodersFile); err == nil {
-		raw := strings.Split(string(encoders), "-----------")
-		all := strings.Split(raw[len(raw)-1], "\n")
-
-		for _, info := range all {
-			encoder := &clientpb.MetasploitModule{}
-
-			// First split the name from everything else following.
-			items := filterEmpty(strings.Split(strings.TrimSpace(info), " "))
-			if len(items) == 0 {
-				continue
+				for _, arch := range all {
+					msf.Archs = append(msf.Archs, strings.TrimSpace(arch))
+				}
 			}
 
-			if len(items) > 0 {
-				fullname := strings.TrimSpace(items[0])
-				encoder.FullName = fullname
-				encoder.Name = filepath.Base(fullname)
+		case "payloads":
+			if payloads, err := os.ReadFile(fileName); err == nil {
+				raw := strings.Split(string(payloads), "-----------")
+				all := strings.Split(raw[len(raw)-1], "\n")
+
+				for _, info := range all {
+					payload := &clientpb.MetasploitModule{}
+
+					items := filterEmpty(strings.Split(strings.TrimSpace(info), " "))
+
+					if len(items) > 0 {
+						fullname := strings.TrimSpace(items[0])
+						payload.FullName = fullname
+						payload.Name = filepath.Base(fullname)
+					}
+					if len(items) > 1 {
+						payload.Description = strings.Join(items[1:], " ")
+					}
+
+					msf.Payloads = append(msf.Payloads, payload)
+				}
 			}
 
-			// Then try to find a level, and a description.
-			if len(items) > 1 {
-				encoder.Quality = strings.TrimSpace(items[1])
-				encoder.Description = strings.Join(items[2:], " ")
-			}
+		case "encoders":
+			if encoders, err := os.ReadFile(fileName); err == nil {
+				raw := strings.Split(string(encoders), "-----------")
+				all := strings.Split(raw[len(raw)-1], "\n")
 
-			msf.Encoders = append(msf.Encoders, encoder)
+				for _, info := range all {
+					encoder := &clientpb.MetasploitModule{}
+
+					// First split the name from everything else following.
+					items := filterEmpty(strings.Split(strings.TrimSpace(info), " "))
+					if len(items) == 0 {
+						continue
+					}
+
+					if len(items) > 0 {
+						fullname := strings.TrimSpace(items[0])
+						encoder.FullName = fullname
+						encoder.Name = filepath.Base(fullname)
+					}
+
+					// Then try to find a level, and a description.
+					if len(items) > 1 {
+						encoder.Quality = strings.TrimSpace(items[1])
+						encoder.Description = strings.Join(items[2:], " ")
+					}
+
+					msf.Encoders = append(msf.Encoders, encoder)
+				}
+			}
 		}
 	}
 
