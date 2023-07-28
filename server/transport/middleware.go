@@ -22,6 +22,11 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/reeflective/team/server"
+
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpc_tags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
@@ -29,10 +34,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-
-	"github.com/reeflective/team/server"
-	"github.com/reeflective/team/transports/grpc/common"
 )
 
 // bufferingOptions returns a list of server options with max send/receive
@@ -76,7 +79,7 @@ func logMiddlewareOptions(s *server.Server) ([]grpc.ServerOption, error) {
 	// Logging interceptors
 	logrusEntry := s.NamedLogger("transport", "grpc")
 	logrusOpts := []grpc_logrus.Option{
-		grpc_logrus.WithLevels(common.CodeToLevel),
+		grpc_logrus.WithLevels(codeToLevel),
 	}
 
 	grpc_logrus.ReplaceGrpcLogger(logrusEntry)
@@ -165,6 +168,7 @@ func serverAuthFunc(ctx context.Context) (context.Context, error) {
 	return newCtx, nil
 }
 
+// tokenAuthFunc uses the core reeflective/team/server to authenticate user requests.
 func (ts *Teamserver) tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	log := ts.NamedLogger("transport", "grpc")
 	log.Debugf("Auth interceptor checking user token ...")
@@ -175,6 +179,8 @@ func (ts *Teamserver) tokenAuthFunc(ctx context.Context) (context.Context, error
 		return nil, status.Error(codes.Unauthenticated, "Authentication failure")
 	}
 
+	// Let our core teamserver driver authenticate the user.
+	// The teamserver has its credentials, tokens and everything in database.
 	user, authorized, err := ts.UserAuthenticate(rawToken)
 	if err != nil || !authorized || user == "" {
 		log.Errorf("Authentication failure: %s", err)
@@ -188,8 +194,12 @@ func (ts *Teamserver) tokenAuthFunc(ctx context.Context) (context.Context, error
 }
 
 type auditUnaryLogMsg struct {
-	Request string `json:"request"`
-	Method  string `json:"method"`
+	Request  string `json:"request"`
+	Method   string `json:"method"`
+	Session  string `json:"session,omitempty"`
+	Beacon   string `json:"beacon,omitempty"`
+	RemoteIP string `json:"remote_ip"`
+	User     string `json:"user"`
 }
 
 func auditLogUnaryServerInterceptor(ts *server.Server, auditLog *logrus.Logger) grpc.UnaryServerInterceptor {
@@ -203,15 +213,27 @@ func auditLogUnaryServerInterceptor(ts *server.Server, auditLog *logrus.Logger) 
 		}
 
 		log.Debugf("Raw request: %s", string(rawRequest))
-
+		session, beacon, err := getActiveTarget(log, rawRequest)
 		if err != nil {
 			log.Errorf("Middleware failed to insert details: %s", err)
 		}
 
+		p, _ := peer.FromContext(ctx)
+
 		// Construct Log Message
 		msg := &auditUnaryLogMsg{
-			Request: string(rawRequest),
-			Method:  info.FullMethod,
+			Request:  string(rawRequest),
+			Method:   info.FullMethod,
+			User:     getUser(p),
+			RemoteIP: p.Addr.String(),
+		}
+		if session != nil {
+			sessionJSON, _ := json.Marshal(session)
+			msg.Session = string(sessionJSON)
+		}
+		if beacon != nil {
+			beaconJSON, _ := json.Marshal(beacon)
+			msg.Beacon = string(beaconJSON)
 		}
 
 		msgData, _ := json.Marshal(msg)
@@ -220,5 +242,103 @@ func auditLogUnaryServerInterceptor(ts *server.Server, auditLog *logrus.Logger) 
 		resp, err := handler(ctx, req)
 
 		return resp, err
+	}
+}
+
+func getUser(client *peer.Peer) string {
+	tlsAuth, ok := client.AuthInfo.(credentials.TLSInfo)
+	if !ok {
+		return ""
+	}
+	if len(tlsAuth.State.VerifiedChains) == 0 || len(tlsAuth.State.VerifiedChains[0]) == 0 {
+		return ""
+	}
+	if tlsAuth.State.VerifiedChains[0][0].Subject.CommonName != "" {
+		return tlsAuth.State.VerifiedChains[0][0].Subject.CommonName
+	}
+	return ""
+}
+
+func getActiveTarget(middlewareLog *logrus.Entry, rawRequest []byte) (*clientpb.Session, *clientpb.Beacon, error) {
+	var activeBeacon *clientpb.Beacon
+	var activeSession *clientpb.Session
+
+	var request map[string]interface{}
+	err := json.Unmarshal(rawRequest, &request)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// RPC is not a session/beacon request
+	if _, ok := request["Request"]; !ok {
+		return nil, nil, nil
+	}
+
+	rpcRequest := request["Request"].(map[string]interface{})
+
+	middlewareLog.Debugf("RPC Request: %v", rpcRequest)
+
+	if rawBeaconID, ok := rpcRequest["BeaconID"]; ok {
+		beaconID := rawBeaconID.(string)
+		middlewareLog.Debugf("Found Beacon ID: %s", beaconID)
+		beacon, err := db.BeaconByID(beaconID)
+		if err != nil {
+			middlewareLog.Errorf("Failed to get beacon %s: %s", beaconID, err)
+		} else if beacon != nil {
+			activeBeacon = beacon.ToProtobuf()
+		}
+	}
+
+	if rawSessionID, ok := rpcRequest["SessionID"]; ok {
+		sessionID := rawSessionID.(string)
+		middlewareLog.Debugf("Found Session ID: %s", sessionID)
+		session := core.Sessions.Get(sessionID)
+		if session != nil {
+			activeSession = session.ToProtobuf()
+		}
+	}
+
+	return activeSession, activeBeacon, nil
+}
+
+// Maps a grpc response code to a logging level
+func codeToLevel(code codes.Code) logrus.Level {
+	switch code {
+	case codes.OK:
+		return logrus.InfoLevel
+	case codes.Canceled:
+		return logrus.InfoLevel
+	case codes.Unknown:
+		return logrus.ErrorLevel
+	case codes.InvalidArgument:
+		return logrus.InfoLevel
+	case codes.DeadlineExceeded:
+		return logrus.WarnLevel
+	case codes.NotFound:
+		return logrus.InfoLevel
+	case codes.AlreadyExists:
+		return logrus.InfoLevel
+	case codes.PermissionDenied:
+		return logrus.WarnLevel
+	case codes.Unauthenticated:
+		return logrus.InfoLevel
+	case codes.ResourceExhausted:
+		return logrus.WarnLevel
+	case codes.FailedPrecondition:
+		return logrus.WarnLevel
+	case codes.Aborted:
+		return logrus.WarnLevel
+	case codes.OutOfRange:
+		return logrus.WarnLevel
+	case codes.Unimplemented:
+		return logrus.ErrorLevel
+	case codes.Internal:
+		return logrus.ErrorLevel
+	case codes.Unavailable:
+		return logrus.WarnLevel
+	case codes.DataLoss:
+		return logrus.ErrorLevel
+	default:
+		return logrus.ErrorLevel
 	}
 }

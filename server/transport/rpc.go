@@ -58,6 +58,7 @@ func (ts *rpcServer) GetVersion(context.Context, *proto.Empty) (*proto.Version, 
 
 // GetUsers returns the list of teamserver users and their status.
 func (ts *rpcServer) GetUsers(context.Context, *proto.Empty) (*proto.Users, error) {
+	// Fetch users from the teamserver user database.
 	users, err := ts.server.Users()
 
 	userspb := make([]*proto.User, len(users))
