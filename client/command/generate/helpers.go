@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -96,7 +96,7 @@ func ArchCompleter(con *console.SliverClient) carapace.Action {
 		}
 
 		return carapace.ActionValues(results...).Tag("architectures")
-	})
+	}).Cache(completers.CacheCompilerInfo)
 }
 
 // FormatCompleter completes build operating systems.
@@ -134,7 +134,7 @@ func OSCompleter(con *console.SliverClient) carapace.Action {
 		}
 
 		return carapace.ActionValues(results...).Tag("operating systems")
-	}).Cache(10 * time.Second)
+	}).Cache(completers.CacheCompilerInfo)
 }
 
 // FormatCompleter completes build formats.
@@ -172,7 +172,7 @@ func TrafficEncodersCompleter(con *console.SliverClient) carapace.Action {
 		}
 
 		return carapace.ActionValuesDescribed(results...).Tag("traffic encoders")
-	})
+	}).Cache(completers.CacheCompilerInfo)
 }
 
 // MsfFormatCompleter completes MsfVenom stager formats.
@@ -200,7 +200,7 @@ func MsfFormatCompleter(con *console.SliverClient) carapace.Action {
 		}
 
 		return carapace.ActionValues(results...).Tag("msfvenom formats")
-	}).Cache(1 * time.Minute)
+	}).Cache(completers.CacheMsf)
 }
 
 // MsfArchCompleter completes MsfVenom stager architectures.
@@ -227,7 +227,7 @@ func MsfArchCompleter(con *console.SliverClient) carapace.Action {
 		}
 
 		return carapace.ActionValues(results...).Tag("msfvenom archs")
-	}).Cache(1 * time.Minute)
+	}).Cache(completers.CacheMsf)
 }
 
 // MsfFormatCompleter completes MsfVenom stager encoders.
@@ -254,7 +254,7 @@ func MsfEncoderCompleter(con *console.SliverClient) carapace.Action {
 		}
 
 		return carapace.ActionValuesDescribed(results...).Tag("msfvenom encoders")
-	}).Cache(1 * time.Minute)
+	}).Cache(completers.CacheMsf)
 }
 
 // MsfPayloadCompleter completes Metasploit payloads.
@@ -281,5 +281,5 @@ func MsfPayloadCompleter(con *console.SliverClient) carapace.Action {
 		}
 
 		return carapace.ActionValuesDescribed(results...)
-	}).Cache(1*time.Minute, cache.String("payloads")).MultiParts("/").StyleF(style.ForPath)
+	}).Cache(completers.CacheMsf, cache.String("payloads")).MultiParts("/").StyleF(style.ForPath)
 }

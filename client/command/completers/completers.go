@@ -20,8 +20,19 @@ package completers
 
 import (
 	"net"
+	"time"
 
 	"github.com/rsteube/carapace"
+)
+
+const (
+	days = 24 * time.Hour
+
+	CacheSessions     = 1 * time.Minute // CacheSessions caches session/beacon IDs for a minute on-disk.
+	CacheEncodersInfo = 1 * time.Minute // CacheCompilerInfo caches encoders info for a minute on disk.
+
+	CacheMsf          = 7 * days      // CacheMsf caches server Metasploit info for a week on disk
+	CacheCompilerInfo = 1 * time.Hour // CacheCompilerInfo caches server compiler info for an hour on disk.
 )
 
 // ClientInterfacesCompleter completes interface addresses on the client host.
