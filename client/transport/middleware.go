@@ -1,8 +1,8 @@
 package transport
 
 /*
-   team - Embedded teamserver for Go programs and CLI applications
-   Copyright (C) 2023 Reeflective
+   Sliver Implant Framework
+   Copyright (C) 2019  Bishop Fox
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -33,10 +33,10 @@ import (
 // specifically the "Authorization": "Bearer" key:value pair.
 type TokenAuth string
 
-// LogMiddlewareOptions is an example list of gRPC options with logging middleware set up.
+// logMiddlewareOptions is an example list of gRPC options with logging middleware set up.
 // This function uses the core teamclient loggers to log the gRPC stack/requests events.
 // The Teamclient of this package uses them by default.
-func LogMiddlewareOptions(cli *client.Client) []grpc.DialOption {
+func logMiddlewareOptions(cli *client.Client) []grpc.DialOption {
 	logrusEntry := cli.NamedLogger("transport", "grpc")
 	logrusOpts := []grpc_logrus.Option{
 		grpc_logrus.WithLevels(common.CodeToLevel),

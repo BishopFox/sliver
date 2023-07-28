@@ -1,8 +1,8 @@
 package transport
 
 /*
-   team - Embedded teamserver for Go programs and CLI applications
-   Copyright (C) 2023 Reeflective
+   Sliver Implant Framework
+   Copyright (C) 2019  Bishop Fox
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -63,9 +63,8 @@ func (ts *rpcServer) GetUsers(context.Context, *proto.Empty) (*proto.Users, erro
 	userspb := make([]*proto.User, len(users))
 	for i, user := range users {
 		userspb[i] = &proto.User{
-			Name:   user.Name,
-			Online: isOperatorOnline(user.Name),
-			// Online:   user.Online,
+			Name:     user.Name,
+			Online:   isOperatorOnline(user.Name),
 			LastSeen: user.LastSeen.Unix(),
 			Clients:  int32(user.Clients),
 		}

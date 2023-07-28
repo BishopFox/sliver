@@ -1,8 +1,8 @@
 package transport
 
 /*
-   team - Embedded teamserver for Go programs and CLI applications
-   Copyright (C) 2023 Reeflective
+   Sliver Implant Framework
+   Copyright (C) 2019  Bishop Fox
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -45,27 +45,19 @@ const (
 var (
 	// ErrNoRPC indicates that no gRPC generated proto.Teamclient bound to a client
 	// connection is available. The error is raised when the handler hasn't connected.
-	ErrNoRPC = errors.New("no working grpc.Teamclient available")
+	ErrNoRPC = errors.New("no working core Teamclient available")
 
 	// ErrNoTLSCredentials is an error raised if the teamclient was asked to setup, or try
 	// connecting with, TLS credentials. If such an error is raised, make sure your team
 	// client has correctly fetched -using client.Config()- a remote teamserver config.
-	ErrNoTLSCredentials = errors.New("the grpc Teamclient has no TLS credentials to use")
+	ErrNoTLSCredentials = errors.New("the Teamclient has no TLS credentials to use")
 )
 
-// Teamclient is a simple example gRPC teamclient and dialer backend.
-// It comes correctly configured with Mutual TLS authentication and
-// RPC connection/registration/use when created with NewTeamClient().
+// Teamclient is a vanilla gRPC client set up and configured
+// to interact with remotes/in-memory Sliver teamservers.
 //
 // This teamclient embeds a team/client.Client core driver and uses
 // it for fetching/setting up the transport credentials, dialers, etc...
-// It also has a few internal types (clientConns, options) for working.
-//
-// Note that this teamclient is not able to be used as an in-memory dialer.
-// See the counterpart `team/transports/grpc/server` package for creating one.
-// Also note that this example transport has been made for a single use-case,
-// and that your program might require more elaborated behavior.
-// In this case, please use this simple code as a reference for what/not to do.
 type Teamclient struct {
 	*client.Client
 	conn    *grpc.ClientConn
@@ -89,16 +81,16 @@ func NewTeamClient(opts ...grpc.DialOption) *Teamclient {
 }
 
 // Init implements team/client.Dialer.Init(c).
-// This implementation asks the teamclient core for its remote server
-// configuration, and uses it to load a set of Mutual TLS dialing options.
+// It uses teamclient core driver for a remote server configuration,
+// and uses it to load a set of Mutual TLS dialing options.
 func (h *Teamclient) Init(cli *client.Client) error {
 	h.Client = cli
 	config := cli.Config()
 
-	options := LogMiddlewareOptions(cli)
+	options := logMiddlewareOptions(cli)
 
-	// If the configuration has no credentials, we are most probably
-	// an in-memory dialer, don't authenticate and encrypt the conn.
+	// If the configuration has no credentials, we are an
+	// in-memory dialer, don't authenticate/encrypt the conn.
 	if config.PrivateKey != "" {
 		tlsOpts, err := tlsAuthMiddleware(cli)
 		if err != nil {
@@ -133,7 +125,8 @@ func (h *Teamclient) Dial() (rpcClient any, err error) {
 	return h.conn, nil
 }
 
-// Close implements team/client.Dialer.Close(), and closes the gRPC client connection.
+// Close implements team/client.Dialer.Close().
+// It closes the gRPC client connection if any.
 func (h *Teamclient) Close() error {
 	if h.conn == nil {
 		return nil
@@ -168,8 +161,6 @@ func (h *Teamclient) Users() (users []team.User, err error) {
 
 // ServerVersion returns the version information of the server to which
 // the client is connected, or nil and an error if it could not retrieve it.
-// If the gRPC teamclient is not connected or does not have an RPC client,
-// an ErrNoRPC is returned.
 func (h *Teamclient) Version() (version team.Version, err error) {
 	if h.rpc == nil {
 		return version, ErrNoRPC

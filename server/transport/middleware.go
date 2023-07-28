@@ -1,8 +1,8 @@
 package transport
 
 /*
-   team - Embedded teamserver for Go programs and CLI applications
-   Copyright (C) 2023 Reeflective
+   Sliver Implant Framework
+   Copyright (C) 2019  Bishop Fox
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -35,9 +35,9 @@ import (
 	"github.com/reeflective/team/transports/grpc/common"
 )
 
-// BufferingOptions returns a list of server options with max send/receive
+// bufferingOptions returns a list of server options with max send/receive
 // message size, which value is that of the ServerMaxMessageSize variable (2GB).
-func BufferingOptions() (options []grpc.ServerOption) {
+func bufferingOptions() (options []grpc.ServerOption) {
 	options = append(options,
 		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
 		grpc.MaxSendMsgSize(ServerMaxMessageSize),
@@ -46,11 +46,11 @@ func BufferingOptions() (options []grpc.ServerOption) {
 	return
 }
 
-// LogMiddlewareOptions is a set of logging middleware options
+// logMiddlewareOptions is a set of logging middleware options
 // preconfigured to perform the following tasks:
 // - Log all connections/disconnections to/from the teamserver listener.
 // - Log all raw client requests into a teamserver audit file (see server.AuditLog()).
-func LogMiddlewareOptions(s *server.Server) ([]grpc.ServerOption, error) {
+func logMiddlewareOptions(s *server.Server) ([]grpc.ServerOption, error) {
 	var requestOpts []grpc.UnaryServerInterceptor
 	var streamOpts []grpc.StreamServerInterceptor
 
@@ -101,11 +101,11 @@ func LogMiddlewareOptions(s *server.Server) ([]grpc.ServerOption, error) {
 	}, nil
 }
 
-// TLSAuthMiddlewareOptions is a set of transport security options which will use
+// tlsAuthMiddlewareOptions is a set of transport security options which will use
 // the preconfigured teamserver TLS (credentials) configuration to authenticate
 // incoming client connections. The authentication is Mutual TLS, used because
 // all teamclients will connect with a known TLS credentials set.
-func TLSAuthMiddlewareOptions(s *server.Server) ([]grpc.ServerOption, error) {
+func tlsAuthMiddlewareOptions(s *server.Server) ([]grpc.ServerOption, error) {
 	var options []grpc.ServerOption
 
 	tlsConfig, err := s.UsersTLSConfig()

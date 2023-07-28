@@ -24,7 +24,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/reeflective/team/server"
 	"google.golang.org/grpc"
@@ -33,21 +32,28 @@ import (
 	"github.com/bishopfox/sliver/server/assets"
 )
 
-type TailScaleTeamserver struct {
+// tailscaleTeamserver is unexported since we only need it as
+// a reeflective/team/server.Listener interface implementation.
+type tailscaleTeamserver struct {
 	*Teamserver
 }
 
+// NewTailScaleListener returns a Sliver teamserver backend using Tailscale.
 func NewTailScaleListener(opts ...grpc.ServerOption) server.Listener {
-	core := &Teamserver{
-		mutex: &sync.RWMutex{},
-	}
+	core := NewListener(opts...)
 
-	core.options = append(core.options, opts...)
-
-	return &TailScaleTeamserver{core}
+	return &tailscaleTeamserver{core}
 }
 
-func (ts *TailScaleTeamserver) Listen(addr string) (ln net.Listener, err error) {
+// Name indicates the transport/rpc stack.
+func (ts *tailscaleTeamserver) Name() string {
+	return "gRPC/TSNet"
+}
+
+// Close implements team/server.Handler.Close().
+// Instead of serving a classic TCP+TLS listener,
+// we start a tailscale stack and create the listener out of it.
+func (ts *tailscaleTeamserver) Listen(addr string) (ln net.Listener, err error) {
 	tsNetLog := ts.NamedLogger("transport", "tailscale")
 
 	url, err := url.Parse(fmt.Sprintf("ts://%s", addr))
@@ -94,9 +100,4 @@ func (ts *TailScaleTeamserver) Listen(addr string) (ln net.Listener, err error) 
 	ts.serve(ln)
 
 	return ln, nil
-}
-
-// It indicates the transport/rpc stack, in this case "gRPC".
-func (ts *TailScaleTeamserver) Name() string {
-	return "gRPC/TSNet"
 }

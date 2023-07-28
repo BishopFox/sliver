@@ -45,11 +45,8 @@ const (
 	ServerMaxMessageSize = 2*gb - 1
 )
 
-// Teamserver is a simple example gRPC teamserver listener and server backend.
-// This server can handle both remote and local (in-memory) connections, provided
-// that it is being created with the correct grpc.Server options.
-//
-// This teamserver embeds a team/server.Server core driver and uses it for fetching
+// Teamserver is a vanilla TCP+MTLS gRPC server offering all Sliver services through it.
+// This listener backend embeds a team/server.Server core driver and uses it for fetching
 // server-side TLS configurations, use its loggers and access its database/users/list.
 type Teamserver struct {
 	*teamserver.Server
@@ -59,11 +56,13 @@ type Teamserver struct {
 	mutex   *sync.RWMutex
 }
 
-// NewListener is a simple constructor returning a teamserver loaded with the
-// provided list of server options. By default the server does not come with any.
+// NewListener returns a vanilla tcp+mtls gRPC teamserver listener backend.
+// Developers: note that the teamserver type is already set with logging/
+// auth/middleware/buffering gRPC options. You can still override them.
 func NewListener(opts ...grpc.ServerOption) *Teamserver {
 	listener := &Teamserver{
-		mutex: &sync.RWMutex{},
+		mutex:   &sync.RWMutex{},
+		options: bufferingOptions(),
 	}
 
 	listener.options = append(listener.options, opts...)
@@ -94,7 +93,7 @@ func NewClientFrom(server *Teamserver, opts ...grpc.DialOption) *clientTransport
 }
 
 // Name immplements team/server.Handler.Name().
-// It indicates the transport/rpc stack, in this case "gRPC".
+// It indicates the transport/rpc stack.
 func (h *Teamserver) Name() string {
 	return "gRPC/mTLS"
 }
@@ -105,26 +104,27 @@ func (h *Teamserver) Name() string {
 func (h *Teamserver) Init(serv *teamserver.Server) (err error) {
 	h.Server = serv
 
-	h.options, err = LogMiddlewareOptions(h.Server)
+	// Logging
+	logOptions, err := logMiddlewareOptions(h.Server)
 	if err != nil {
 		return err
 	}
 
-	// Logging/authentication/audit
-	serverOptions, err := h.initAuthMiddleware()
+	h.options = append(h.options, logOptions...)
+
+	// Authentication/audit
+	authOptions, err := h.initAuthMiddleware()
 	if err != nil {
 		return err
 	}
 
-	h.options = append(h.options, serverOptions...)
+	h.options = append(h.options, authOptions...)
 
 	return nil
 }
 
 // Listen implements team/server.Handler.Listen().
-// It starts listening on a network address for incoming gRPC clients.
-// If the teamserver has previously been given an in-memory connection,
-// it returns it as the listener without errors.
+// this teamserver uses a tcp+TLS (mutual) listener to serve remote clients.
 func (h *Teamserver) Listen(addr string) (ln net.Listener, err error) {
 	// In-memory connection are not authenticated.
 	if h.conn == nil {
@@ -134,7 +134,7 @@ func (h *Teamserver) Listen(addr string) (ln net.Listener, err error) {
 		}
 
 		// Encryption.
-		tlsOptions, err := TLSAuthMiddlewareOptions(h.Server)
+		tlsOptions, err := tlsAuthMiddlewareOptions(h.Server)
 		if err != nil {
 			return nil, err
 		}
@@ -153,16 +153,17 @@ func (h *Teamserver) Listen(addr string) (ln net.Listener, err error) {
 }
 
 // Close implements team/server.Handler.Close().
-// In this implementation, the function does nothing. Thus the underlying
-// *grpc.Server.Shutdown() method is not called, and only the listener
-// will be closed by the server automatically when using CloseListener().
-//
-// This is probably not optimal from a resource usage standpoint, but currently it
-// fits most use cases. Feel free to reimplement or propose changes to this lib.
+// Original sliver never closes the gRPC HTTP server itself
+// with server.Shutdown(), so here we don't close anything.
+// Note that the listener itself is controled/closed by
+// our core teamserver driver.
 func (h *Teamserver) Close() error {
 	return nil
 }
 
+// serve is the transport-agnostic routine to serve the gRPC server
+// (and its implemented Sliver services) onto a generic listener.
+// Both mTLS and Tailscale teamserver backends use this.
 func (h *Teamserver) serve(ln net.Listener) {
 	grpcServer := grpc.NewServer(h.options...)
 
