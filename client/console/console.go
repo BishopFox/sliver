@@ -89,14 +89,28 @@ type (
 	BeaconTaskCallback func(*clientpb.BeaconTask)
 )
 
+// SliverClient is a general-purpose, interface-agnostic client.
+//
+// It allows to use the Sliver toolset with an arbitrary number of remote/local
+// Sliver servers, either through its API (RPC client), CLI (the command tree),
+// or through an arbitrary mix of those.
+//
+// The Sliver client will by default be used with remote, mutual TLS authenticated
+// connections to Sliver teamservers, which configurations are found in the teamclient
+// directory.
+// However, the teamclient API/CLI offers ways to manage and use those configurations,
+// which means that users of this Sliver client may build arbitrarily complex server
+// selection/connection strategies.
 type SliverClient struct {
 	// Core client
+	App      *console.Console
+	Settings *assets.ClientSettings
+	IsServer bool
+	IsCLI    bool
+
+	// Teamclient & remotes
 	Teamclient *client.Client
-	App        *console.Console
-	Settings   *assets.ClientSettings
-	IsServer   bool
-	IsCLI      bool
-	completing bool
+	dialer     *transport.TeamClient
 
 	// Logging
 	jsonHandler slog.Handler
@@ -112,37 +126,46 @@ type SliverClient struct {
 }
 
 // NewSliverClient is the general-purpose Sliver Client constructor.
-func NewSliverClient(teamclient *transport.Teamclient) (*SliverClient, []client.Options) {
-	// Generate the console client, setting up menus, etc.
-	con := newConsole()
+//
+// The returned client includes and is ready to use the following:
+//   - A reeflective/team.Client to manage, use and interact with an arbitrary
+//     number of Sliver teamservers. This includes connecting, registering RPC
+//     client interfaces, logging, authenticating and disconnecting.
+//   - A console application, which can either be used closed-loop, or in a classic
+//     exec-once CLI style. Users of this client are free to use either at will.
+//   - Cobra-command runner methods to be included in new commands and completers.
+//   - Methods to set and interact with a Sliver implant target.
+//   - Various logging/streaming utilities.
+//
+// Any error returned from this call is critical, meaning that given the current
+// options (teamclient, gRPC, etc), the SliverClient is not able to work properly.
+func NewSliverClient(opts ...grpc.DialOption) (con *SliverClient, err error) {
+	// Create the client core, everything interface-related.
+	con = newClient()
 
-	// The teamclient requires hooks to bind RPC clients around its connection.
-	// NOTE: this might not be needed either if Sliver uses its own teamclient backend.
-	bindClient := func(clientConn any) error {
-		grpcClient, ok := clientConn.(*grpc.ClientConn)
-		if !ok || grpcClient == nil {
-			return client.ErrNoTeamclient
-		}
-
-		// Register our core Sliver RPC client, and start monitoring
-		// events, tunnels, logs, and all.
-		con.connect(grpcClient)
-
-		return nil
-	}
+	// Our reeflective/team.Client needs our gRPC stack.
+	con.dialer = transport.NewClient(opts...)
 
 	var clientOpts []client.Options
 	clientOpts = append(clientOpts,
-		client.WithDialer(teamclient, bindClient),
+		client.WithDialer(con.dialer),
 	)
 
-	return con, clientOpts
+	// Create a new reeflective/team.Client, which is in charge of selecting,
+	// and connecting with, remote Sliver teamserver configurations, etc.
+	// Includes client backend logging, authentication, core teamclient methods...
+	con.Teamclient, err = client.New("sliver", con, clientOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return con, nil
 }
 
-// newConsole creates the sliver client (and console), creating menus and prompts.
+// newClient creates the sliver client (and console), creating menus and prompts.
 // The returned console does neither have commands nor a working RPC connection yet,
 // thus has not started monitoring any server events, or started the application.
-func newConsole() *SliverClient {
+func newClient() *SliverClient {
 	assets.Setup(false, false)
 	settings, _ := assets.LoadSettings()
 
@@ -192,6 +215,56 @@ func newConsole() *SliverClient {
 	return con
 }
 
+// ConnectRun is a spf13/cobra-compliant runner function to be included
+// in/as any of the runners that such cobra.Commands offer to use.
+//
+// The function will connect the Sliver teamclient to a remote server,
+// register its client RPC interfaces, and start handling events/log streams.
+//
+// Note that this function will always check if it used as part of a completion
+// command execution call, in which case asciicast/logs streaming is disabled.
+func (con *SliverClient) ConnectRun(cmd *cobra.Command, args []string) error {
+	// Let our teamclient connect the transport/RPC stack.
+	// Note that this uses a sync.Once to ensure we don't
+	// connect more than once.
+	err := con.Teamclient.Connect()
+	if err != nil {
+		return err
+	}
+
+	// Register our Sliver client services, and monitor events.
+	// Also set ourselves up to save our client commands in history.
+	con.connect(con.dialer.Conn)
+
+	// Never enable asciicasts/logs streaming when this
+	// client is used to perform completions. Both of these will tinker
+	// with very low-level IO and very often don't work nice together.
+	if compCommandCalled(cmd) {
+		return nil
+	}
+
+	// Else, initialize our logging/asciicasts streams.
+	return con.startClientLog()
+}
+
+// ConnectComplete is a special connection mode which should be
+// called in completer functions that need to use the client RPC.
+// It is almost equivalent to client.ConnectRun(), but for completions.
+//
+// If the connection failed, an error is returned along with a completion
+// action include the error as a status message, to be returned by completers.
+//
+// This function is safe to call regardless of the client being used
+// as a closed-loop console mode or in an exec-once CLI mode.
+func (con *SliverClient) ConnectComplete() (carapace.Action, error) {
+	err := con.Teamclient.Connect()
+	if err != nil {
+		return carapace.ActionMessage("connection error: %s", err), nil
+	}
+
+	return carapace.ActionValues(), nil
+}
+
 // connect requires a working gRPC connection to the sliver server.
 // It starts monitoring events, implant tunnels and client logs streams.
 func (con *SliverClient) connect(conn *grpc.ClientConn) {
@@ -201,11 +274,8 @@ func (con *SliverClient) connect(conn *grpc.ClientConn) {
 	go con.startEventLoop()
 	go core.TunnelLoop(con.Rpc)
 
-	// Stream logs/asciicasts
-	con.startClientLog()
-
 	// History sources
-	sliver := con.App.NewMenu(consts.ImplantMenu)
+	sliver := con.App.Menu(consts.ImplantMenu)
 
 	histuser, err := con.newImplantHistory(true)
 	if err == nil {
@@ -233,28 +303,6 @@ func (con *SliverClient) StartConsole() error {
 	con.printf = con.App.TransientPrintf
 
 	return con.App.Start()
-}
-
-// ConnectCompletion is a special connection mode which should be
-// called in completer functions that need to use the client RPC.
-//
-// This function is safe to call regardless of the client being used
-// as a closed-loop console mode or in an exec-once CLI mode.
-func (con *SliverClient) ConnectCompletion() (carapace.Action, error) {
-	con.completing = true
-
-	err := con.Teamclient.Connect()
-	if err != nil {
-		return carapace.ActionMessage("connection error: %s", err), nil
-	}
-
-	return carapace.ActionValues(), nil
-}
-
-// UnwrapServerErr unwraps errors returned by gRPC method calls.
-// Should be used to return every non-nil resp, err := con.Rpc.Function().
-func (con *SliverClient) UnwrapServerErr(err error) error {
-	return errors.New(status.Convert(err).Message())
 }
 
 // Disconnect disconnectss the client from its Sliver server,
@@ -398,6 +446,12 @@ func (con *SliverClient) GrpcContext(cmd *cobra.Command) (context.Context, conte
 	return context.WithTimeout(context.Background(), timeout)
 }
 
+// UnwrapServerErr unwraps errors returned by gRPC method calls.
+// Should be used to return every non-nil resp, err := con.Rpc.Function().
+func (con *SliverClient) UnwrapServerErr(err error) error {
+	return errors.New(status.Convert(err).Message())
+}
+
 func (con *SliverClient) CheckLastUpdate() {
 	now := time.Now()
 	lastUpdate := getLastUpdateCheck()
@@ -430,4 +484,14 @@ func getLastUpdateCheck() *time.Time {
 	}
 	lastUpdate := time.Unix(int64(unixTime), 0)
 	return &lastUpdate
+}
+
+func compCommandCalled(cmd *cobra.Command) bool {
+	for _, compCmd := range cmd.Root().Commands() {
+		if compCmd != nil && compCmd.Name() == "_carapace" && compCmd.CalledAs() != "" {
+			return true
+		}
+	}
+
+	return false
 }

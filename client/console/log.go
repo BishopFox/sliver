@@ -51,13 +51,6 @@ func (l *ConsoleClientLogger) Write(buf []byte) (int, error) {
 	return len(buf), err
 }
 
-// CompleteDisableLog forbids the server from streaming its asciicast
-// and some logs output to the server, as asciicast and completions both
-// tinker with very low-level IO and very often don't work nice together.
-func (con *SliverClient) CompleteDisableLog() {
-	con.completing = true
-}
-
 // ClientLogStream requires a log stream name, used to save the logs
 // going through this stream in a specific log subdirectory/file.
 func (con *SliverClient) ClientLogStream(name string) (*ConsoleClientLogger, error) {
@@ -69,10 +62,6 @@ func (con *SliverClient) ClientLogStream(name string) (*ConsoleClientLogger, err
 }
 
 func (con *SliverClient) startClientLog() error {
-	if con.completing {
-		return nil
-	}
-
 	if !con.Settings.ConsoleLogs {
 		return nil
 	}
@@ -88,23 +77,23 @@ func (con *SliverClient) startClientLog() error {
 	con.setupLogger(clientLogFile, clientLogs)
 
 	// Asciicast sessions.
-	asciicastFile := getConsoleAsciicastFile()
-
-	asciicastStream, err := con.ClientLogStream("asciicast")
-	if err != nil {
-		return fmt.Errorf("Could not get client log stream: %w", err)
-	}
-
-	err = con.setupAsciicastRecord(asciicastFile, asciicastStream)
+	// asciicastFile := getConsoleAsciicastFile()
+	//
+	// asciicastStream, err := con.ClientLogStream("asciicast")
+	// if err != nil {
+	// 	return fmt.Errorf("Could not get client log stream: %w", err)
+	// }
+	//
+	// err = con.setupAsciicastRecord(asciicastFile, asciicastStream)
 
 	con.closeLogs = append(con.closeLogs, func() {
 		// Local files
 		clientLogFile.Close()
-		asciicastFile.Close()
+		// asciicastFile.Close()
 
 		// Server streams.
 		clientLogs.Stream.CloseAndRecv()
-		asciicastStream.Stream.CloseAndRecv()
+		// asciicastStream.Stream.CloseAndRecv()
 	})
 
 	return nil

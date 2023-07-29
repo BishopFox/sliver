@@ -16,10 +16,8 @@ const (
 	dateLayout   = "2006-01-02T15:04:05Z"
 )
 
-var (
-	// GithubReleasesURL - Check this Github releases API for updates
-	GithubReleasesURL string
-)
+// GithubReleasesURL - Check this Github releases API for updates.
+var GithubReleasesURL string
 
 // Release - A single Github release object
 // https://developer.github.com/v3/repos/releases/
@@ -49,12 +47,12 @@ type Asset struct {
 	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
-// Created - Get the time the release was created
+// Created - Get the time the release was created.
 func (r *Release) Created() (time.Time, error) {
 	return time.Parse(dateLayout, r.CreatedAt)
 }
 
-// Published - Get the time the release was published
+// Published - Get the time the release was published.
 func (r *Release) Published() (time.Time, error) {
 	return time.Parse(dateLayout, r.PublishedAt)
 }
@@ -113,7 +111,7 @@ func CheckForUpdates(client *http.Client, prereleases bool) (*Release, error) {
 	return nil, nil
 }
 
-// parseGitTag - Get the structured sematic version
+// parseGitTag - Get the structured sematic version.
 func parseGitTag(tag string) []int {
 	semVer := []int{}
 	version := tag

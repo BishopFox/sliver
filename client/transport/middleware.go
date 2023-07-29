@@ -21,6 +21,8 @@ package transport
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"time"
 
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/reeflective/team/client"
@@ -29,14 +31,30 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+const (
+	kb = 1024
+	mb = kb * 1024
+	gb = mb * 1024
+
+	// ClientMaxReceiveMessageSize - Max gRPC message size ~2Gb.
+	ClientMaxReceiveMessageSize = (2 * gb) - 1 // 2Gb - 1 byte
+
+	defaultTimeout = 10 * time.Second
+)
+
+// ErrNoTLSCredentials is an error raised if the teamclient was asked to setup, or try
+// connecting with, TLS credentials. If such an error is raised, make sure your team
+// client has correctly fetched -using client.Config()- a remote teamserver config.
+var ErrNoTLSCredentials = errors.New("the Teamclient has no TLS credentials to use")
+
 // TokenAuth extracts authentication metadata from contexts,
 // specifically the "Authorization": "Bearer" key:value pair.
 type TokenAuth string
 
-// logMiddlewareOptions is an example list of gRPC options with logging middleware set up.
+// LogMiddlewareOptions is an example list of gRPC options with logging middleware set up.
 // This function uses the core teamclient loggers to log the gRPC stack/requests events.
 // The Teamclient of this package uses them by default.
-func logMiddlewareOptions(cli *client.Client) []grpc.DialOption {
+func LogMiddlewareOptions(cli *client.Client) []grpc.DialOption {
 	logrusEntry := cli.NamedLogger("transport", "grpc")
 	logrusOpts := []grpc_logrus.Option{
 		grpc_logrus.WithLevels(common.CodeToLevel),
@@ -66,7 +84,7 @@ func logMiddlewareOptions(cli *client.Client) []grpc.DialOption {
 	return options
 }
 
-func tlsAuthMiddleware(cli *client.Client) ([]grpc.DialOption, error) {
+func TLSAuthMiddleware(cli *client.Client) ([]grpc.DialOption, error) {
 	config := cli.Config()
 	if config.PrivateKey == "" {
 		return nil, ErrNoTLSCredentials

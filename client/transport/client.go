@@ -20,79 +20,54 @@ package transport
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"time"
 
-	"github.com/reeflective/team"
 	"github.com/reeflective/team/client"
-	"github.com/reeflective/team/transports/grpc/proto"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/status"
 )
 
-const (
-	kb = 1024
-	mb = kb * 1024
-	gb = mb * 1024
-
-	// ClientMaxReceiveMessageSize - Max gRPC message size ~2Gb.
-	ClientMaxReceiveMessageSize = (2 * gb) - 1 // 2Gb - 1 byte
-
-	defaultTimeout = 10 * time.Second
-)
-
-var (
-	// ErrNoRPC indicates that no gRPC generated proto.Teamclient bound to a client
-	// connection is available. The error is raised when the handler hasn't connected.
-	ErrNoRPC = errors.New("no working core Teamclient available")
-
-	// ErrNoTLSCredentials is an error raised if the teamclient was asked to setup, or try
-	// connecting with, TLS credentials. If such an error is raised, make sure your team
-	// client has correctly fetched -using client.Config()- a remote teamserver config.
-	ErrNoTLSCredentials = errors.New("the Teamclient has no TLS credentials to use")
-)
-
-// Teamclient is a vanilla gRPC client set up and configured
-// to interact with remotes/in-memory Sliver teamservers.
-//
-// This teamclient embeds a team/client.Client core driver and uses
-// it for fetching/setting up the transport credentials, dialers, etc...
-type Teamclient struct {
-	*client.Client
-	conn    *grpc.ClientConn
-	rpc     proto.TeamClient
+// TeamClient is a type implementing the reeflective/team/client.Dialer
+// interface, and can thus be used to communicate with any remote or
+// in-memory Sliver teamserver.
+// When used to connect remotely, this type can safely
+// be instantiated with `new(transport.Teamclient)`.
+type TeamClient struct {
+	team    *client.Client
 	options []grpc.DialOption
+	Conn    *grpc.ClientConn
 }
 
-// NewTeamClient creates a new gRPC-based RPC teamclient and dialer backend.
-// This client has by default only a few options, like max message buffer size.
-// All options passed to this call are stored as is and will be used later.
-func NewTeamClient(opts ...grpc.DialOption) *Teamclient {
-	client := &Teamclient{
-		options: opts,
-	}
+// NewClient creates a teamclient transport with specific gRPC options.
+// It can also be used for in-memory clients, which specify their dialer.
+func NewClient(opts ...grpc.DialOption) *TeamClient {
+	tc := new(TeamClient)
+	tc.options = append(tc.options, opts...)
 
-	client.options = append(client.options,
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(ClientMaxReceiveMessageSize)),
-	)
-
-	return client
+	return tc
 }
 
 // Init implements team/client.Dialer.Init(c).
-// It uses teamclient core driver for a remote server configuration,
-// and uses it to load a set of Mutual TLS dialing options.
-func (h *Teamclient) Init(cli *client.Client) error {
-	h.Client = cli
+// It uses teamclient core driver for a remote server configuration.
+// It also includes all pre-existing Sliver-specific log/middleware.
+func (h *TeamClient) Init(cli *client.Client) error {
+	h.team = cli
 	config := cli.Config()
 
-	options := logMiddlewareOptions(cli)
+	// Buffering
+	h.options = append(h.options,
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallRecvMsgSize(ClientMaxReceiveMessageSize),
+		),
+	)
+
+	// Logging/audit
+	options := LogMiddlewareOptions(cli)
+	h.options = append(h.options, options...)
 
 	// If the configuration has no credentials, we are an
 	// in-memory dialer, don't authenticate/encrypt the conn.
 	if config.PrivateKey != "" {
-		tlsOpts, err := tlsAuthMiddleware(cli)
+		tlsOpts, err := TLSAuthMiddleware(cli)
 		if err != nil {
 			return err
 		}
@@ -100,85 +75,34 @@ func (h *Teamclient) Init(cli *client.Client) error {
 		h.options = append(h.options, tlsOpts...)
 	}
 
-	h.options = append(h.options, options...)
-
 	return nil
 }
 
 // Dial implements team/client.Dialer.Dial().
 // It uses the teamclient remote server configuration as a target of a dial call.
-// If the connection is successful, the teamclient registers a proto.Teamclient
-// RPC around its client connection, to provide the core teamclient functionality.
-func (h *Teamclient) Dial() (rpcClient any, err error) {
+// If the connection is successful, the teamclient registers a Sliver RPC client.
+func (h *TeamClient) Dial() (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 
-	host := fmt.Sprintf("%s:%d", h.Config().Host, h.Config().Port)
+	cfg := h.team.Config()
 
-	h.conn, err = grpc.DialContext(ctx, host, h.options...)
+	host := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+
+	h.Conn, err = grpc.DialContext(ctx, host, h.options...)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	h.rpc = proto.NewTeamClient(h.conn)
-
-	return h.conn, nil
+	return nil
 }
 
 // Close implements team/client.Dialer.Close().
 // It closes the gRPC client connection if any.
-func (h *Teamclient) Close() error {
-	if h.conn == nil {
+func (h *TeamClient) Close() error {
+	if h.Conn == nil {
 		return nil
 	}
 
-	return h.conn.Close()
-}
-
-// Users returns a list of all users registered with the app teamserver.
-// If the gRPC teamclient is not connected or does not have an RPC client,
-// an ErrNoRPC is returned.
-func (h *Teamclient) Users() (users []team.User, err error) {
-	if h.rpc == nil {
-		return nil, ErrNoRPC
-	}
-
-	res, err := h.rpc.GetUsers(context.Background(), &proto.Empty{})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, user := range res.GetUsers() {
-		users = append(users, team.User{
-			Name:     user.Name,
-			Online:   user.Online,
-			LastSeen: time.Unix(user.LastSeen, 0),
-		})
-	}
-
-	return
-}
-
-// ServerVersion returns the version information of the server to which
-// the client is connected, or nil and an error if it could not retrieve it.
-func (h *Teamclient) Version() (version team.Version, err error) {
-	if h.rpc == nil {
-		return version, ErrNoRPC
-	}
-
-	ver, err := h.rpc.GetVersion(context.Background(), &proto.Empty{})
-	if err != nil {
-		return version, errors.New(status.Convert(err).Message())
-	}
-
-	return team.Version{
-		Major:      ver.Major,
-		Minor:      ver.Minor,
-		Patch:      ver.Patch,
-		Commit:     ver.Commit,
-		Dirty:      ver.Dirty,
-		CompiledAt: ver.CompiledAt,
-		OS:         ver.OS,
-		Arch:       ver.Arch,
-	}, nil
+	return h.Conn.Close()
 }
