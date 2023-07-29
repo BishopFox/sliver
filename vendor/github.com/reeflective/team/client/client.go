@@ -58,8 +58,8 @@ type Client struct {
 	mutex        *sync.RWMutex  // Sync access.
 	initOpts     sync.Once      // Some options can only be set once when creating the server.
 
-	dialer  Dialer[any] // Connection backend for the teamclient.
-	connect *sync.Once  // A client can only connect once per run.
+	dialer  Dialer     // Connection backend for the teamclient.
+	connect *sync.Once // A client can only connect once per run.
 
 	// Client is the implementation of the core teamclient functionality,
 	// which is to query a server version and its current users.
@@ -80,19 +80,16 @@ type Client struct {
 // - The clientConn is a specific, but non-idiomatic RPC client (ex: a *grpc.ClientConn).
 // - A simple net.Conn over which anything can be done further.
 // - Nothing: a dialer might not need to use or even create a client connection.
-type Dialer[clientConn any] interface {
+type Dialer interface {
 	// Init is used by any dialer to query the teamclient driving it about:
 	// - The remote teamserver address and transport credentials
 	// - The user registered in this remote teamserver configuration.
 	// - To make use of client-side loggers, filesystem and other utilities.
 	Init(c *Client) error
 
-	// Dial should connect to the endpoint available in the client configuration.
-	// Note that the configuration is not required as a function parameter, since
-	// the dialer has already been provided access to the entire teamclient in Init()
-	// The c`clientConn` type is then passed to all hook functions registered
-	// with the dialer when using the client.WithDialer(dialer, hooks...) option.
-	Dial() (conn clientConn, err error)
+	// Dial should connect to the endpoint available in any
+	// of the client remote teamserver configurations.
+	Dial() error
 
 	// Close should close the connection or any related component.
 	Close() error
@@ -176,23 +173,10 @@ func (tc *Client) Connect(options ...Options) (err error) {
 			return
 		}
 
-		// Connect to the teamserver.
-		var client any
-
-		client, err = tc.dialer.Dial()
+		err = tc.dialer.Dial()
 		if err != nil {
 			err = tc.errorf("%w: %w", ErrClient, err)
 			return
-		}
-
-		// Post-run hooks are used by consumers to further setup/consume
-		// the connection after the latter was established. In the case
-		// of RPCs, this client is generally used to register them.
-		for _, hook := range tc.opts.hooks {
-			if err = hook(client); err != nil {
-				err = tc.errorf("%w: %w", ErrClient, err)
-				return
-			}
 		}
 	})
 

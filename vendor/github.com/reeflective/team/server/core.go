@@ -154,7 +154,7 @@ func (ts *Server) Name() string {
 // of the application using this teamserver.
 // See the server.Listener and client.Dialer types documentation for more.
 func (ts *Server) Self(opts ...client.Options) *client.Client {
-	opts = append(opts, client.WithLocalDialer())
+	// opts = append(opts, client.WithLocalDialer())
 
 	teamclient, _ := client.New(ts.Name(), ts, opts...)
 

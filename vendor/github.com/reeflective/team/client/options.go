@@ -47,8 +47,7 @@ type opts struct {
 	stdout   io.Writer
 	config   *Config
 	logger   *logrus.Logger
-	dialer   Dialer[any]
-	hooks    []func(s any) error
+	dialer   Dialer
 }
 
 func defaultOpts() *opts {
@@ -167,10 +166,9 @@ func WithLogger(logger *logrus.Logger) Options {
 //
 // This option can be used multiple times, either when using
 // team/client.New() or when using the teamclient.Connect() method.
-func WithDialer(dialer Dialer[any], hooks ...func(clientConn any) error) Options {
+func WithDialer(dialer Dialer, hooks ...func(clientConn any) error) Options {
 	return func(opts *opts) {
 		opts.dialer = dialer
-		opts.hooks = append(opts.hooks, hooks...)
 	}
 }
 
