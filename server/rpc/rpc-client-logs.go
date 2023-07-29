@@ -20,6 +20,8 @@ package rpc
 
 import (
 	"compress/gzip"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	insecureRand "math/rand"
@@ -102,10 +104,15 @@ func (rpc *Server) ClientLog(stream rpcpb.SliverRPC_ClientLogServer) error {
 		if err == io.EOF {
 			break
 		}
+
 		if err != nil {
-			rpcClientLogs.Errorf("Failed to receive client console log data: %s", err)
+			err = errors.New(status.Convert(err).Message()) // Unwrap the gRPC error
+			if !errors.Is(err, context.Canceled) {
+				rpcClientLogs.Errorf("Failed to receive client console log data: %s", err)
+			}
 			return err
 		}
+
 		streamName := fromClient.GetStream()
 		if _, ok := streams[streamName]; !ok {
 			streams[streamName], err = openNewLogStream(logsDir, streamName)

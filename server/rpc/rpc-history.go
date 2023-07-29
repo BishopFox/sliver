@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/log"
+	"google.golang.org/grpc/status"
 )
 
 /*
@@ -117,7 +119,12 @@ func (rpc *Server) ImplantHistory(stream rpcpb.SliverRPC_ImplantHistoryServer) e
 			break
 		}
 		if err != nil {
-			rpcClientLogs.Errorf("Failed to receive implant history data: %s", err)
+			// gRPC errors are a pain to work with...
+			canceled := errors.New(context.Canceled.Error())
+
+			if !errors.As(errors.New(status.Convert(err).Message()), &canceled) {
+				rpcClientLogs.Errorf("Failed to receive implant history data: %s", err)
+			}
 			return err
 		}
 
