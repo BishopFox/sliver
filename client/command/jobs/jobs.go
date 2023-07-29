@@ -91,7 +91,7 @@ func PrintJobs(jobs map[uint32]*clientpb.Job, con *console.SliverClient) {
 // JobsIDCompleter completes jobs IDs with descriptions.
 func JobsIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
-		if msg, err := con.ConnectCompletion(); err != nil {
+		if msg, err := con.ConnectComplete(); err != nil {
 			return msg
 		}
 

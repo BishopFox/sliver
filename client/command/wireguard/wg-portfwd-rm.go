@@ -68,7 +68,7 @@ func WGPortFwdRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 // PortfwdIDCompleter completes IDs of WireGuard remote portforwarders.
 func PortfwdIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
-		if msg, err := con.ConnectCompletion(); err != nil {
+		if msg, err := con.ConnectComplete(); err != nil {
 			return msg
 		}
 

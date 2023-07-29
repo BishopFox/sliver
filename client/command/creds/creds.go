@@ -112,7 +112,7 @@ func CredsHashFileFormatCompleter(con *console.SliverClient) carapace.Action {
 // CredsCollectionCompleter completes existing creds collection names.
 func CredsCollectionCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
-		if msg, err := con.ConnectCompletion(); err != nil {
+		if msg, err := con.ConnectComplete(); err != nil {
 			return msg
 		}
 
@@ -139,7 +139,7 @@ func CredsCollectionCompleter(con *console.SliverClient) carapace.Action {
 // CredsCredentialIDCompleter completes credential IDs.
 func CredsCredentialIDCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
-		if msg, err := con.ConnectCompletion(); err != nil {
+		if msg, err := con.ConnectComplete(); err != nil {
 			return msg
 		}
 

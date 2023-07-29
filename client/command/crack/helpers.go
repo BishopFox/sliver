@@ -12,7 +12,7 @@ import (
 
 func CrackHcstat2Completer(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
-		if msg, err := con.ConnectCompletion(); err != nil {
+		if msg, err := con.ConnectComplete(); err != nil {
 			return msg
 		}
 
@@ -39,7 +39,7 @@ func CrackHcstat2Completer(con *console.SliverClient) carapace.Action {
 
 func CrackWordlistCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
-		if msg, err := con.ConnectCompletion(); err != nil {
+		if msg, err := con.ConnectComplete(); err != nil {
 			return msg
 		}
 
@@ -67,7 +67,7 @@ func CrackWordlistCompleter(con *console.SliverClient) carapace.Action {
 
 func CrackRulesCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
-		if msg, err := con.ConnectCompletion(); err != nil {
+		if msg, err := con.ConnectComplete(); err != nil {
 			return msg
 		}
 

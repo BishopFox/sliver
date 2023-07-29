@@ -89,6 +89,7 @@ func BeaconsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
+
 	PrintBeacons(beacons.Beacons, filter, filterRegex, con)
 }
 

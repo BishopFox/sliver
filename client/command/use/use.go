@@ -198,7 +198,7 @@ func BeaconAndSessionIDCompleter(con *console.SliverClient) carapace.Action {
 // SessionIDCompleter completes session IDs.
 func SessionIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
-		if msg, err := con.ConnectCompletion(); err != nil {
+		if msg, err := con.ConnectComplete(); err != nil {
 			return msg
 		}
 

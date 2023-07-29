@@ -75,7 +75,7 @@ func WGSocksListCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 // SocksIDCompleter IDs of WireGuard socks servers.
 func SocksIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
-		if msg, err := con.ConnectCompletion(); err != nil {
+		if msg, err := con.ConnectComplete(); err != nil {
 			return msg
 		}
 
