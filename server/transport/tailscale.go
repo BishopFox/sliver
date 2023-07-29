@@ -35,12 +35,12 @@ import (
 // tailscaleTeamserver is unexported since we only need it as
 // a reeflective/team/server.Listener interface implementation.
 type tailscaleTeamserver struct {
-	*Teamserver
+	*teamserver
 }
 
-// NewTailScaleListener returns a Sliver teamserver backend using Tailscale.
-func NewTailScaleListener(opts ...grpc.ServerOption) server.Listener {
-	core := NewListener(opts...)
+// newTeamserverTailScale returns a Sliver teamserver backend using Tailscale.
+func newTeamserverTailScale(opts ...grpc.ServerOption) server.Listener {
+	core := newTeamserverTLS(opts...)
 
 	return &tailscaleTeamserver{core}
 }

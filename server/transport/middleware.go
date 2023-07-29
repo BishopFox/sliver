@@ -123,7 +123,7 @@ func tlsAuthMiddlewareOptions(s *server.Server) ([]grpc.ServerOption, error) {
 }
 
 // initAuthMiddleware - Initialize middleware logger.
-func (ts *Teamserver) initAuthMiddleware() ([]grpc.ServerOption, error) {
+func (ts *teamserver) initAuthMiddleware() ([]grpc.ServerOption, error) {
 	var requestOpts []grpc.UnaryServerInterceptor
 	var streamOpts []grpc.StreamServerInterceptor
 
@@ -169,7 +169,7 @@ func serverAuthFunc(ctx context.Context) (context.Context, error) {
 }
 
 // tokenAuthFunc uses the core reeflective/team/server to authenticate user requests.
-func (ts *Teamserver) tokenAuthFunc(ctx context.Context) (context.Context, error) {
+func (ts *teamserver) tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	log := ts.NamedLogger("transport", "grpc")
 	log.Debugf("Auth interceptor checking user token ...")
 
