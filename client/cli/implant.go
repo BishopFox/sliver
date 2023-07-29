@@ -59,7 +59,7 @@ func implantCmd(con *client.SliverClient, sliverCmds console.Commands) *cobra.Co
 
 func preRunImplant(implantCmd *cobra.Command, con *client.SliverClient) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		if err := preRunClient(con)(cmd, args); err != nil {
+		if err := con.ConnectRun(cmd, args); err != nil {
 			return err
 		}
 

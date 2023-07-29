@@ -19,13 +19,14 @@ package console
 */
 
 import (
+	"github.com/bishopfox/sliver/client/command"
 	client "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/reeflective/console"
 	"github.com/spf13/cobra"
 )
 
-func Command(con *client.SliverClient, serverCmds, sliverCmds console.Commands) *cobra.Command {
+func Command(con *client.SliverClient, serverCmds console.Commands) *cobra.Command {
 	consoleCmd := &cobra.Command{
 		Use:   "console",
 		Short: "Start the sliver client console",
@@ -37,7 +38,7 @@ func Command(con *client.SliverClient, serverCmds, sliverCmds console.Commands) 
 			server.SetCommands(serverCmds)
 
 			sliver := con.App.Menu(consts.ImplantMenu)
-			sliver.SetCommands(sliverCmds)
+			sliver.SetCommands(command.SliverCommands(con))
 
 			// Start the console, blocking until player exit.
 			return con.StartConsole()
