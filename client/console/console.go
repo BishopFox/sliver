@@ -33,7 +33,6 @@ import (
 
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/version"
@@ -43,7 +42,6 @@ import (
 	"github.com/reeflective/console"
 	"github.com/reeflective/readline"
 	"github.com/reeflective/team/client"
-	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slog"
 	"google.golang.org/grpc"
@@ -215,86 +213,6 @@ func newClient() *SliverClient {
 	return con
 }
 
-// ConnectRun is a spf13/cobra-compliant runner function to be included
-// in/as any of the runners that such cobra.Commands offer to use.
-//
-// The function will connect the Sliver teamclient to a remote server,
-// register its client RPC interfaces, and start handling events/log streams.
-//
-// Note that this function will always check if it used as part of a completion
-// command execution call, in which case asciicast/logs streaming is disabled.
-func (con *SliverClient) ConnectRun(cmd *cobra.Command, args []string) error {
-	// Let our teamclient connect the transport/RPC stack.
-	// Note that this uses a sync.Once to ensure we don't
-	// connect more than once.
-	err := con.Teamclient.Connect()
-	if err != nil {
-		return err
-	}
-
-	// Register our Sliver client services, and monitor events.
-	// Also set ourselves up to save our client commands in history.
-	con.connect(con.dialer.Conn)
-
-	// Never enable asciicasts/logs streaming when this
-	// client is used to perform completions. Both of these will tinker
-	// with very low-level IO and very often don't work nice together.
-	if compCommandCalled(cmd) {
-		return nil
-	}
-
-	// Else, initialize our logging/asciicasts streams.
-	return con.startClientLog()
-}
-
-// ConnectComplete is a special connection mode which should be
-// called in completer functions that need to use the client RPC.
-// It is almost equivalent to client.ConnectRun(), but for completions.
-//
-// If the connection failed, an error is returned along with a completion
-// action include the error as a status message, to be returned by completers.
-//
-// This function is safe to call regardless of the client being used
-// as a closed-loop console mode or in an exec-once CLI mode.
-func (con *SliverClient) ConnectComplete() (carapace.Action, error) {
-	err := con.Teamclient.Connect()
-	if err != nil {
-		return carapace.ActionMessage("connection error: %s", err), nil
-	}
-
-	return carapace.ActionValues(), nil
-}
-
-// connect requires a working gRPC connection to the sliver server.
-// It starts monitoring events, implant tunnels and client logs streams.
-func (con *SliverClient) connect(conn *grpc.ClientConn) {
-	con.Rpc = rpcpb.NewSliverRPCClient(conn)
-
-	// Events
-	go con.startEventLoop()
-	go core.TunnelLoop(con.Rpc)
-
-	// History sources
-	sliver := con.App.Menu(consts.ImplantMenu)
-
-	histuser, err := con.newImplantHistory(true)
-	if err == nil {
-		sliver.AddHistorySource("implant history (user)", histuser)
-	}
-
-	histAll, err := con.newImplantHistory(false)
-	if err == nil {
-		sliver.AddHistorySource("implant history (all users)", histAll)
-	}
-
-	con.ActiveTarget.hist = histAll
-
-	con.closeLogs = append(con.closeLogs, func() {
-		histuser.Close()
-		histAll.Close()
-	})
-}
-
 // StartConsole is a blocking call that starts the Sliver closed console.
 // The command/events/log outputs use the specific-console fmt.Printer,
 // because the console needs to query the terminal for cursor positions
@@ -303,18 +221,6 @@ func (con *SliverClient) StartConsole() error {
 	con.printf = con.App.TransientPrintf
 
 	return con.App.Start()
-}
-
-// Disconnect disconnectss the client from its Sliver server,
-// closing all its event/log streams and files, then closing
-// the core Sliver RPC client connection.
-// After this call, the client can reconnect should it want to.
-func (con *SliverClient) Disconnect() error {
-	// Close all RPC streams and local files.
-	con.closeClientStreams()
-
-	// Close the RPC client connection.
-	return con.Teamclient.Disconnect()
 }
 
 // Expose or hide commands if the active target does support them (or not).
