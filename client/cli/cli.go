@@ -31,7 +31,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Execute - Run the sliver-client binary.
+// Execute - Run the sliver client binary.
 func Execute() {
 	// Create a client-only (remote TLS-transported connections)
 	// Sliver Client, prepared with a working reeflective/teamclient.

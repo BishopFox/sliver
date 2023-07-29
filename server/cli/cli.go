@@ -183,7 +183,5 @@ func preRunServer(teamserver *server.Server, con *client.SliverClient) func(_ *c
 // 		// 	teamserver.ListenerStartPersistents() // Automatically logged errors.
 // 		// 	// 	console.StartPersistentJobs(serverConfig) // Old alternative
 // 		// }
-//
-// 		console.StartClient(con, nil, nil)
 // 		return nil
 // 	}

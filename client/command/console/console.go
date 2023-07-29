@@ -26,6 +26,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Command returns the closed-loop Sliver console command.
+//
+// The latter requires only the set of "server" commands, that is, all commands that
+// do not require an active target to run on. This is only because sliver-client/server
+// binaries are distinct, and the implant command tree does not care about this, so it
+// is always the same in the console.
 func Command(con *client.SliverClient, serverCmds console.Commands) *cobra.Command {
 	consoleCmd := &cobra.Command{
 		Use:   "console",
