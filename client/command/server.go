@@ -60,6 +60,7 @@ func ServerCommands(con *client.SliverClient, serverCmds CommandBinder) console.
 		server := &cobra.Command{
 			Short:            "Server commands",
 			TraverseChildren: true,
+			SilenceUsage:     true,
 			CompletionOptions: cobra.CompletionOptions{
 				HiddenDefaultCmd: true,
 			},

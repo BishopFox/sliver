@@ -19,7 +19,6 @@ package cli
 */
 
 import (
-	"fmt"
 	"os"
 
 	// CLI dependencies
@@ -92,7 +91,6 @@ func Execute() {
 	//   set above in the code has been given a single hook to register its RPC backend.
 	//   The call blocks like your old daemon command, and works _just the same_.
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
 		os.Exit(1)
 	}
 }

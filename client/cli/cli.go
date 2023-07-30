@@ -19,7 +19,6 @@ package cli
 */
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/bishopfox/sliver/client/command"
@@ -56,7 +55,6 @@ func Execute() {
 
 	// Run the sliver client binary.
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
 		os.Exit(1)
 	}
 }

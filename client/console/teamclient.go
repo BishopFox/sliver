@@ -43,6 +43,11 @@ import (
 // Note that this function will always check if it used as part of a completion
 // command execution call, in which case asciicast/logs streaming is disabled.
 func (con *SliverClient) ConnectRun(cmd *cobra.Command, _ []string) error {
+	// Some commands don't need a remote teamserver connection.
+	if con.isOffline(cmd) {
+		return nil
+	}
+
 	// Let our teamclient connect the transport/RPC stack.
 	// Note that this uses a sync.Once to ensure we don't
 	// connect more than once.
@@ -176,4 +181,22 @@ func (con *SliverClient) connect(conn *grpc.ClientConn) {
 		histuser.Close()
 		histAll.Close()
 	})
+}
+
+// WARN: this is the premise of a big burden. Please bear this in mind.
+// If I haven't speaked to you about it, or if you're not sure of what
+// that means, ping me up and ask.
+func (con *SliverClient) isOffline(cmd *cobra.Command) bool {
+	// Teamclient configuration import does not need network.
+	ts, _, err := cmd.Root().Find([]string{"teamserver", "client", "import"})
+	if err == nil && ts != nil && ts == cmd {
+		return true
+	}
+
+	tc, _, err := cmd.Root().Find([]string{"teamclient", "import"})
+	if err == nil && ts != nil && tc == cmd {
+		return true
+	}
+
+	return false
 }
