@@ -151,13 +151,13 @@ func ServerCommands(con *client.SliverClient, serverCmds SliverBinder) console.C
 	return serverCommands
 }
 
-// BindRunners is used to register specific pre/post-runs for a given command/tree.
+// BindPrePost is used to register specific pre/post-runs for a given command/tree.
 //
 // This function is special in that it will only bind the pre/post-runners to commands
 // in the tree if they have a non-nil Run/RunE function, or if they are leaf commands.
 //
 // This allows us to optimize client-to-server connections for things like completions.
-func BindRunners(root *cobra.Command, pre bool, runs ...func(_ *cobra.Command, _ []string) error) {
+func BindPrePost(root *cobra.Command, pre bool, runs ...func(_ *cobra.Command, _ []string) error) {
 	for _, cmd := range root.Commands() {
 		ePreE := cmd.PersistentPreRunE
 		ePostE := cmd.PersistentPostRunE
@@ -173,7 +173,7 @@ func BindRunners(root *cobra.Command, pre bool, runs ...func(_ *cobra.Command, _
 		// Always go to find the leaf commands, irrespective
 		// of what we do with this parent command.
 		if cmd.HasSubCommands() {
-			BindRunners(cmd, pre, runs...)
+			BindPrePost(cmd, pre, runs...)
 		}
 
 		// If the command has no runners, there's nothing to bind:

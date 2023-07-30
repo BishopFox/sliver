@@ -88,8 +88,8 @@ func SliverCLI(con *client.SliverClient) (root *cobra.Command, server console.Co
 	root.AddCommand(implantCmd(con, sliver))
 
 	// Pre/post runners and completions.
-	command.BindRunners(root, true, con.ConnectRun)
-	command.BindRunners(root, false, func(_ *cobra.Command, _ []string) error {
+	command.BindPrePost(root, true, con.ConnectRun)
+	command.BindPrePost(root, false, func(_ *cobra.Command, _ []string) error {
 		return con.Disconnect()
 	})
 

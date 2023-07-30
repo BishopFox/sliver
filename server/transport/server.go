@@ -28,6 +28,9 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/rpc"
 )
 
@@ -56,9 +59,15 @@ func NewTeamserver() (team *server.Server, clientOpts []grpc.DialOption, err err
 	// directories, and much more.
 	var serverOpts []server.Options
 	serverOpts = append(serverOpts,
-		server.WithDefaultPort(31337),
-		server.WithListener(tlsListener),
-		server.WithListener(tailscaleListener),
+		// Core directories/loggers.
+		server.WithHomeDirectory(assets.GetRootAppDir()), // ~/.sliver/
+		server.WithLogger(log.RootLogger),                // Logs to ~/.sliver/logs/sliver.{log,json} and audit.json
+		server.WithDatabase(db.Session()),                // Uses our traditional ~/.sliver/sliver.db for storing users.
+
+		// Network options/stacks
+		server.WithDefaultPort(31337),          // Our now famous port.
+		server.WithListener(tlsListener),       // Our legacy TCP+MTLS gRPC stack.
+		server.WithListener(tailscaleListener), // And our new Tailscale variant.
 	)
 
 	// Create the application teamserver.

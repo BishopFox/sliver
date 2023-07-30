@@ -62,6 +62,8 @@ func Execute() {
 		panic(err)
 	}
 
+	// The server is also a client of itself, so add our sliver-server
+	// binary specific pre-run hooks: assets, encoders, toolchains, etc.
 	con.AddConnectHooks(preRunServer(teamserver, con))
 
 	// Generate our complete Sliver Framework command-line interface.
@@ -111,8 +113,8 @@ func sliverServerCLI(team *server.Server, con *client.SliverClient) (root *cobra
 	root.Use = "sliver-server" // Needed by completion scripts.
 
 	// Pre/post runners and completions.
-	clientCommand.BindRunners(root, true, con.ConnectRun)
-	clientCommand.BindRunners(root, false, func(_ *cobra.Command, _ []string) error {
+	clientCommand.BindPrePost(root, true, con.ConnectRun)
+	clientCommand.BindPrePost(root, false, func(_ *cobra.Command, _ []string) error {
 		return con.Disconnect()
 	})
 
