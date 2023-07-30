@@ -51,11 +51,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type CommandBinder func(con *client.SliverClient) []*cobra.Command
+type SliverBinder func(con *client.SliverClient) []*cobra.Command
 
 // ServerCommands returns all commands bound to the server menu, optionally
 // accepting a function returning a list of additional (admin) commands.
-func ServerCommands(con *client.SliverClient, serverCmds CommandBinder) console.Commands {
+func ServerCommands(con *client.SliverClient, serverCmds SliverBinder) console.Commands {
 	serverCommands := func() *cobra.Command {
 		server := &cobra.Command{
 			Short:            "Server commands",

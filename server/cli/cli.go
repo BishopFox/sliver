@@ -28,16 +28,12 @@ import (
 
 	// Teamserver/teamclient dependencies
 	"github.com/reeflective/team/server"
-	"github.com/reeflective/team/server/commands"
 
 	// Sliver Client core, and generic/server-only commands
-	"github.com/bishopfox/sliver/client/command"
+	clientCommand "github.com/bishopfox/sliver/client/command"
 	consoleCmd "github.com/bishopfox/sliver/client/command/console"
 	client "github.com/bishopfox/sliver/client/console"
-	assetsCmds "github.com/bishopfox/sliver/server/command/assets"
-	builderCmds "github.com/bishopfox/sliver/server/command/builder"
-	certsCmds "github.com/bishopfox/sliver/server/command/certs"
-	"github.com/bishopfox/sliver/server/command/version"
+	"github.com/bishopfox/sliver/server/command"
 	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/transport"
 
@@ -65,6 +61,8 @@ func Execute() {
 	if err != nil {
 		panic(err)
 	}
+
+	con.AddConnectHooks(preRunServer(teamserver, con))
 
 	// Generate our complete Sliver Framework command-line interface.
 	rootCmd, server := sliverServerCLI(teamserver, con)
@@ -102,19 +100,19 @@ func Execute() {
 //
 // Counterpart of sliver/client/cli.SliverCLI() (not identical: no implant command here).
 func sliverServerCLI(team *server.Server, con *client.SliverClient) (root *cobra.Command, server console.Commands) {
-	teamserverCmds := teamserverCmds(team, con)
+	teamserverCmds := command.TeamserverCommands(team, con)
 
 	// Generate a single tree instance of server commands:
 	// These are used as the primary, one-exec-only CLI of Sliver, and are equipped with
 	// a pre-runner ensuring the server and its teamclient are set up and connected.
-	server = command.ServerCommands(con, teamserverCmds)
+	server = clientCommand.ServerCommands(con, teamserverCmds)
 
 	root = server()
 	root.Use = "sliver-server" // Needed by completion scripts.
 
 	// Pre/post runners and completions.
-	command.BindRunners(root, true, preRunServer(team, con))
-	command.BindRunners(root, false, func(_ *cobra.Command, _ []string) error {
+	clientCommand.BindRunners(root, true, con.ConnectRun)
+	clientCommand.BindRunners(root, false, func(_ *cobra.Command, _ []string) error {
 		return con.Disconnect()
 	})
 
@@ -124,28 +122,10 @@ func sliverServerCLI(team *server.Server, con *client.SliverClient) (root *cobra
 	return root, server
 }
 
-// Yielder function for server-binary only functions.
-func teamserverCmds(teamserver *server.Server, con *client.SliverClient) func(con *client.SliverClient) (cmds []*cobra.Command) {
-	return func(con *client.SliverClient) (cmds []*cobra.Command) {
-		// Teamserver management
-		cmds = append(cmds, commands.Generate(teamserver, con.Teamclient))
-
-		// Sliver-specific
-		cmds = append(cmds, version.Commands(con)...)
-		cmds = append(cmds, assetsCmds.Commands()...)
-		cmds = append(cmds, certsCmds.Commands(con)...)
-
-		// Commands requiring the server to be a remote teamclient.
-		cmds = append(cmds, builderCmds.Commands(con, teamserver)...)
-
-		return cmds
-	}
-}
-
 // preRunServer is the server-binary-specific pre-run; it ensures that the server
 // has everything it needs to perform any client-side command/task.
-func preRunServer(teamserver *server.Server, con *client.SliverClient) func(_ *cobra.Command, _ []string) error {
-	return func(cmd *cobra.Command, args []string) error {
+func preRunServer(teamserver *server.Server, con *client.SliverClient) func() error {
+	return func() error {
 		// Ensure the server has what it needs.
 		assets.Setup(false, true)
 		encoders.Setup() // WARN: I added this here after assets.Setup(), but used to be in init. Is it wrong to put it here ?
@@ -159,12 +139,7 @@ func preRunServer(teamserver *server.Server, con *client.SliverClient) func(_ *c
 		// c2.StartPersistentJobs(serverConfig)
 
 		// Let our in-memory teamclient be served.
-		err := teamserver.Serve(con.Teamclient)
-		if err != nil {
-			return err
-		}
-
-		return con.ConnectRun(cmd, args)
+		return teamserver.Serve(con.Teamclient)
 	}
 }
 

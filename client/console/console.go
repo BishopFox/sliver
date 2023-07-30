@@ -107,8 +107,9 @@ type SliverClient struct {
 	IsCLI    bool
 
 	// Teamclient & remotes
-	Teamclient *client.Client
-	dialer     *transport.TeamClient
+	Teamclient   *client.Client
+	dialer       *transport.TeamClient
+	connectHooks []func() error
 
 	// Logging
 	jsonHandler slog.Handler
@@ -146,6 +147,7 @@ func NewSliverClient(opts ...grpc.DialOption) (con *SliverClient, err error) {
 
 	var clientOpts []client.Options
 	clientOpts = append(clientOpts,
+		client.WithHomeDirectory(assets.GetRootAppDir()),
 		client.WithDialer(con.dialer),
 	)
 

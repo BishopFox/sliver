@@ -48,10 +48,15 @@ func (con *SliverClient) ConnectRun(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
+	err := con.runPreConnectHooks()
+	if err != nil {
+		return err
+	}
+
 	// Let our teamclient connect the transport/RPC stack.
 	// Note that this uses a sync.Once to ensure we don't
 	// connect more than once.
-	err := con.Teamclient.Connect()
+	err = con.Teamclient.Connect()
 	if err != nil {
 		return err
 	}
@@ -81,9 +86,15 @@ func (con *SliverClient) ConnectRun(cmd *cobra.Command, _ []string) error {
 // This function is safe to call regardless of the client being used
 // as a closed-loop console mode or in an exec-once CLI mode.
 func (con *SliverClient) ConnectComplete() (carapace.Action, error) {
-	err := con.Teamclient.Connect()
+	// This almost only ever runs teamserver-side pre-runs.
+	err := con.runPreConnectHooks()
 	if err != nil {
-		return carapace.ActionMessage("connection error: %s", err), nil
+		return carapace.ActionMessage("connection error: %s", err), err
+	}
+
+	err = con.Teamclient.Connect()
+	if err != nil {
+		return carapace.ActionMessage("connection error: %s", err), err
 	}
 
 	// Register our Sliver client services, and monitor events.
@@ -103,6 +114,14 @@ func (con *SliverClient) Disconnect() error {
 
 	// Close the RPC client connection.
 	return con.Teamclient.Disconnect()
+}
+
+// AddConnectHooks should be considered part of the temporary API.
+// It is used to all the Sliver client to run hooks before running
+// its own pre-connect handlers, and can thus be used to register
+// server-only pre-run routines.
+func (con *SliverClient) AddConnectHooks(hooks ...func() error) {
+	con.connectHooks = append(con.connectHooks, hooks...)
 }
 
 // Users returns a list of all users registered with the app teamserver.
@@ -181,6 +200,20 @@ func (con *SliverClient) connect(conn *grpc.ClientConn) {
 		histuser.Close()
 		histAll.Close()
 	})
+}
+
+func (con *SliverClient) runPreConnectHooks() error {
+	for _, hook := range con.connectHooks {
+		if hook == nil {
+			continue
+		}
+
+		if err := hook(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // WARN: this is the premise of a big burden. Please bear this in mind.
