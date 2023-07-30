@@ -41,6 +41,8 @@ func (ts *Server) HomeDir() string {
 		if ts.homeDir == "" {
 			user, _ := user.Current()
 			dir = filepath.Join(user.HomeDir, "."+ts.name)
+		} else {
+			dir = ts.homeDir
 		}
 	} else {
 		dir = "." + ts.name

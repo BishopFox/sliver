@@ -76,27 +76,18 @@ func (ts *Server) AuditLogger() (*logrus.Logger, error) {
 
 // Initialize loggers in files/stdout according to options.
 func (ts *Server) initLogging() (err error) {
-	// By default, the stdout logger is never nil.
-	// We might overwrite it below if using our defaults.
-	// ts.stdoutLogger = log.NewStdio(logrus.WarnLevel)
+	// If user supplied a logger, use it in place of the
+	// file-based logger, since the file logger is optional.
+	if ts.opts.logger != nil {
+		ts.fileLog = ts.opts.logger
+		return nil
+	}
 
 	logFile := filepath.Join(ts.LogsDir(), log.FileName(ts.Name(), true))
 
 	// If the teamserver should log to a given file.
 	if ts.opts.logFile != "" {
 		logFile = ts.opts.logFile
-	}
-
-	// Ensure all teamserver-specific directories are writable.
-	// if err := ts.checkWritableFiles(); err != nil {
-	// 	return fmt.Errorf("%w: %w", ErrDirectory, err)
-	// }
-
-	// If user supplied a logger, use it in place of the
-	// file-based logger, since the file logger is optional.
-	if ts.opts.logger != nil {
-		ts.fileLog = ts.opts.logger
-		return nil
 	}
 
 	level := logrus.Level(ts.opts.config.Log.Level)

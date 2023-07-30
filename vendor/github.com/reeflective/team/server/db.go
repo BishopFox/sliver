@@ -169,6 +169,7 @@ func (ts *Server) initDatabase() (err error) {
 		dbLogger := ts.NamedLogger("database", "database")
 
 		if ts.db != nil {
+			err = ts.db.AutoMigrate(db.Schema()...)
 			return
 		}
 
@@ -183,7 +184,7 @@ func (ts *Server) initDatabase() (err error) {
 		}
 	})
 
-	return nil
+	return err
 }
 
 func (ts *Server) dbSession() *gorm.DB {

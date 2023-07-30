@@ -83,10 +83,7 @@ func NewClient(dbConfig *Config, dbLogger *logrus.Entry) (*gorm.DB, error) {
 		return nil, fmt.Errorf("%w: '%s'", ErrUnsupportedDialect, dbConfig.Dialect)
 	}
 
-	err = dbClient.AutoMigrate(
-		&Certificate{},
-		&User{},
-	)
+	err = dbClient.AutoMigrate(Schema())
 	if err != nil {
 		dbLogger.Error(err)
 	}
@@ -109,6 +106,15 @@ func NewClient(dbConfig *Config, dbLogger *logrus.Entry) (*gorm.DB, error) {
 	return dbClient.Session(&gorm.Session{
 		FullSaveAssociations: true,
 	}), nil
+}
+
+// Schema returns all objects which should be registered
+// to the teamserver database backend.
+func Schema() []any {
+	return []any{
+		&Certificate{},
+		&User{},
+	}
 }
 
 func postgresClient(dsn string, log logger.Interface) (*gorm.DB, error) {

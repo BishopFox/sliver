@@ -38,6 +38,8 @@ func (tc *Client) HomeDir() string {
 		if tc.homeDir == "" {
 			user, _ := user.Current()
 			dir = filepath.Join(user.HomeDir, "."+tc.name)
+		} else {
+			dir = tc.homeDir
 		}
 	} else {
 		dir = "." + tc.name

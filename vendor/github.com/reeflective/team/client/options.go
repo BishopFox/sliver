@@ -43,7 +43,6 @@ type opts struct {
 	logFile  string
 	inMemory bool
 	console  bool
-	local    bool
 	stdout   io.Writer
 	config   *Config
 	logger   *logrus.Logger
@@ -166,21 +165,9 @@ func WithLogger(logger *logrus.Logger) Options {
 //
 // This option can be used multiple times, either when using
 // team/client.New() or when using the teamclient.Connect() method.
-func WithDialer(dialer Dialer, hooks ...func(clientConn any) error) Options {
+func WithDialer(dialer Dialer) Options {
 	return func(opts *opts) {
 		opts.dialer = dialer
-	}
-}
-
-// WithLocalDialer sets the teamclient to connect with an in-memory dialer
-// (provided when creating the teamclient). This in effect only prevents
-// the teamclient from looking and loading/prompting remote client configs.
-//
-// Because this is automatically called by the teamserver.Serve(client)
-// function, you should probably not have any reason to use this option.
-func WithLocalDialer() Options {
-	return func(opts *opts) {
-		opts.local = true
 	}
 }
 

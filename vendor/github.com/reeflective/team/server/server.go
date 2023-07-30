@@ -90,7 +90,12 @@ func (ts *Server) Serve(cli *client.Client, opts ...Options) error {
 		return err
 	}
 
-	return cli.Connect(client.WithLocalDialer())
+	// Use a fake config with a non-empty name.
+	cliOpts := []client.Options{
+		client.WithConfig(&client.Config{User: "server"}),
+	}
+
+	return cli.Connect(cliOpts...)
 }
 
 // ServeDaemon is a blocking call which starts the teamserver as daemon process, using

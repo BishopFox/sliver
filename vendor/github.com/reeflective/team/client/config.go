@@ -53,7 +53,7 @@ type Config struct {
 	Certificate   string `json:"certificate"`
 }
 
-func (tc *Client) initConfig() error {
+func (tc *Client) initConfig() (err error) {
 	cfg := tc.opts.config
 
 	// We assume that any configuration passed with WithConfig()
@@ -63,17 +63,21 @@ func (tc *Client) initConfig() error {
 	}
 
 	// Else fetch the unique config or prompt user for which.
-	if !tc.opts.local {
+	if tc.dialer != nil {
 		configs := tc.GetConfigs()
 		if len(configs) == 0 {
-			return tc.errorf("no config files found at %s", tc.ConfigsDir())
+			err = fmt.Errorf("no configs found in %s", tc.ConfigsDir())
+		} else {
+			cfg = tc.SelectConfig()
 		}
-
-		cfg = tc.SelectConfig()
 	}
 
 	// We must have a config.
 	if cfg == nil {
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrNoConfig, err)
+		}
+
 		return ErrNoConfig
 	}
 
