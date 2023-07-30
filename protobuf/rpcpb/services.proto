@@ -8,8 +8,9 @@ import "clientpb/client.proto";
 
 service SliverRPC {
 
-  // *** Version ***
+  // *** Teamclient ***
   rpc GetVersion(commonpb.Empty) returns (clientpb.Version);
+  rpc GetUsers(commonpb.Empty) returns (clientpb.Users);
 
   // *** Client Logs ***
   rpc ClientLog(stream clientpb.ClientLogData) returns (commonpb.Empty);

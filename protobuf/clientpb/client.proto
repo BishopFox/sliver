@@ -4,7 +4,7 @@ option go_package = "github.com/bishopfox/sliver/protobuf/clientpb";
 
 import "commonpb/common.proto";
 
-// [ Version ] ----------------------------------------
+// [ Teamclient ] -------------------------------------------
 
 message Version {
   int32 Major = 1;
@@ -19,7 +19,17 @@ message Version {
   string Arch = 8;
 }
 
-// [ Client Logs ] ----------------------------------------
+message Users { repeated User Users = 1; }
+
+message User {
+  string Name = 1;
+  bool Online = 2;
+  int64 LastSeen = 3;
+  int32 Clients = 4;
+}
+
+
+// [ Client Logs ] ------------------------------------------
 message ClientLogData {
   string Stream = 1;
   bytes Data = 2;

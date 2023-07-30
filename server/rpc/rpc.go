@@ -21,27 +21,23 @@ package rpc
 import (
 	"context"
 	"errors"
-	"runtime"
 	"strings"
 	"time"
 
-	"github.com/bishopfox/sliver/client/version"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/reeflective/team/server"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-var (
-	rpcLog = log.NamedLogger("rpc", "server")
-)
+var rpcLog = log.NamedLogger("rpc", "server")
 
 const (
 	minTimeout = time.Duration(30 * time.Second)
@@ -49,6 +45,10 @@ const (
 
 // Server - gRPC server
 type Server struct {
+	// Access all teamclient/teamserver base stuff.
+	// Users, credentials, server configs, loggers, etc.
+	team *server.Server
+
 	// Magical methods to break backwards compatibility
 	// Here be dragons: https://github.com/grpc/grpc-go/issues/3794
 	rpcpb.UnimplementedSliverRPCServer
@@ -75,26 +75,9 @@ type GenericResponse interface {
 }
 
 // NewServer - Create new server instance
-func NewServer() *Server {
+func NewServer(team *server.Server) *Server {
 	core.StartEventAutomation()
-	return &Server{}
-}
-
-// GetVersion - Get the server version
-func (rpc *Server) GetVersion(ctx context.Context, _ *commonpb.Empty) (*clientpb.Version, error) {
-	dirty := version.GitDirty != ""
-	semVer := version.SemanticVersion()
-	compiled, _ := version.Compiled()
-	return &clientpb.Version{
-		Major:      int32(semVer[0]),
-		Minor:      int32(semVer[1]),
-		Patch:      int32(semVer[2]),
-		Commit:     version.GitCommit,
-		Dirty:      dirty,
-		CompiledAt: compiled.Unix(),
-		OS:         runtime.GOOS,
-		Arch:       runtime.GOARCH,
-	}, nil
+	return &Server{team: team}
 }
 
 // GenericHandler - Pass the request to the Sliver/Session

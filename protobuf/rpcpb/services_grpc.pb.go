@@ -23,6 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	SliverRPC_GetVersion_FullMethodName                       = "/rpcpb.SliverRPC/GetVersion"
+	SliverRPC_GetUsers_FullMethodName                         = "/rpcpb.SliverRPC/GetUsers"
 	SliverRPC_ClientLog_FullMethodName                        = "/rpcpb.SliverRPC/ClientLog"
 	SliverRPC_Kill_FullMethodName                             = "/rpcpb.SliverRPC/Kill"
 	SliverRPC_Reconfigure_FullMethodName                      = "/rpcpb.SliverRPC/Reconfigure"
@@ -196,8 +197,9 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SliverRPCClient interface {
-	// *** Version ***
+	// *** Teamclient ***
 	GetVersion(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Version, error)
+	GetUsers(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Users, error)
 	// *** Client Logs ***
 	ClientLog(ctx context.Context, opts ...grpc.CallOption) (SliverRPC_ClientLogClient, error)
 	// *** Generic ***
@@ -404,6 +406,15 @@ func NewSliverRPCClient(cc grpc.ClientConnInterface) SliverRPCClient {
 func (c *sliverRPCClient) GetVersion(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Version, error) {
 	out := new(clientpb.Version)
 	err := c.cc.Invoke(ctx, SliverRPC_GetVersion_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GetUsers(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Users, error) {
+	out := new(clientpb.Users)
+	err := c.cc.Invoke(ctx, SliverRPC_GetUsers_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2080,8 +2091,9 @@ func (x *sliverRPCEventsClient) Recv() (*clientpb.Event, error) {
 // All implementations must embed UnimplementedSliverRPCServer
 // for forward compatibility
 type SliverRPCServer interface {
-	// *** Version ***
+	// *** Teamclient ***
 	GetVersion(context.Context, *commonpb.Empty) (*clientpb.Version, error)
+	GetUsers(context.Context, *commonpb.Empty) (*clientpb.Users, error)
 	// *** Client Logs ***
 	ClientLog(SliverRPC_ClientLogServer) error
 	// *** Generic ***
@@ -2284,6 +2296,9 @@ type UnimplementedSliverRPCServer struct {
 
 func (UnimplementedSliverRPCServer) GetVersion(context.Context, *commonpb.Empty) (*clientpb.Version, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVersion not implemented")
+}
+func (UnimplementedSliverRPCServer) GetUsers(context.Context, *commonpb.Empty) (*clientpb.Users, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUsers not implemented")
 }
 func (UnimplementedSliverRPCServer) ClientLog(SliverRPC_ClientLogServer) error {
 	return status.Errorf(codes.Unimplemented, "method ClientLog not implemented")
@@ -2813,6 +2828,24 @@ func _SliverRPC_GetVersion_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).GetVersion(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GetUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_GetUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetUsers(ctx, req.(*commonpb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -5874,6 +5907,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetVersion",
 			Handler:    _SliverRPC_GetVersion_Handler,
+		},
+		{
+			MethodName: "GetUsers",
+			Handler:    _SliverRPC_GetUsers_Handler,
 		},
 		{
 			MethodName: "Kill",

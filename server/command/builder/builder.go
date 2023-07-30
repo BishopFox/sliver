@@ -19,7 +19,6 @@ package builder
 */
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -37,9 +36,9 @@ import (
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/reeflective/team/client"
 	"github.com/reeflective/team/client/commands"
+	"github.com/reeflective/team/server"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
 )
 
 var builderLog = log.NamedLogger("cli", "builder")
@@ -56,12 +55,14 @@ const (
 )
 
 // Commands returns all commands for using Sliver as a builder backend.
-func Commands(con *console.SliverClient) []*cobra.Command {
+func Commands(con *console.SliverClient, team *server.Server) []*cobra.Command {
 	builderCmd := &cobra.Command{
 		Use:   "builder",
 		Short: "Start the process as an external builder",
 		Long:  ``,
-		Run:   runBuilderCmd,
+		Run: func(cmd *cobra.Command, args []string) {
+			runBuilderCmd(cmd, args, team)
+		},
 	}
 
 	builderCmd.Flags().StringP(nameFlagStr, "n", "", "Name of the builder (blank = hostname)")
@@ -82,7 +83,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	return []*cobra.Command{builderCmd}
 }
 
-func runBuilderCmd(cmd *cobra.Command, args []string) {
+func runBuilderCmd(cmd *cobra.Command, args []string, team *server.Server) {
 	configPath, err := cmd.Flags().GetString(operatorConfigFlagStr)
 	if err != nil {
 		builderLog.Errorf("Failed to parse --%s flag %s\n", operatorConfigFlagStr, err)
@@ -121,7 +122,7 @@ func runBuilderCmd(cmd *cobra.Command, args []string) {
 	externalBuilder.Templates = []string{"sliver"}
 
 	// load the client configuration from the filesystem
-	startBuilderTeamclient(externalBuilder, configPath)
+	startBuilderTeamclient(externalBuilder, configPath, team)
 }
 
 func parseBuilderConfigFlags(cmd *cobra.Command) *clientpb.Builder {
@@ -254,32 +255,10 @@ func parseForceDisableTargets(cmd *cobra.Command, externalBuilder *clientpb.Buil
 	}
 }
 
-func startBuilderTeamclient(externalBuilder *clientpb.Builder, configPath string) {
-	var rpc rpcpb.SliverRPCClient
+func startBuilderTeamclient(externalBuilder *clientpb.Builder, configPath string, team *server.Server) {
+	tc := new(transport.TeamClient)
 
-	gTeamclient := transport.NewTeamClient()
-
-	// The teamclient requires hooks to bind RPC clients around its connection.
-	bindClient := func(clientConn any) error {
-		grpcClient, ok := clientConn.(*grpc.ClientConn)
-		if !ok || grpcClient == nil {
-			return errors.New("No gRPC client to use for service")
-		}
-
-		rpc = rpcpb.NewSliverRPCClient(grpcClient)
-
-		return nil
-	}
-
-	var clientOpts []client.Options
-	clientOpts = append(clientOpts,
-		client.WithDialer(gTeamclient, bindClient),
-	)
-
-	teamclient, err := client.New("sliver", gTeamclient, clientOpts...)
-	if err != nil {
-		panic(err)
-	}
+	teamclient := team.Self(client.WithDialer(tc))
 
 	// Now use our teamclient to fetch the configuration.
 	config, err := teamclient.ReadConfig(configPath)
@@ -303,6 +282,8 @@ func startBuilderTeamclient(externalBuilder *clientpb.Builder, configPath string
 	// And immediately connect with it.
 	teamclient.Connect(client.WithConfig(config))
 	defer teamclient.Disconnect()
+
+	rpc := rpcpb.NewSliverRPCClient(tc.Conn)
 
 	// Let the builder do its work, blocking.
 	builder.StartBuilder(externalBuilder, rpc)
