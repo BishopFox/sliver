@@ -328,7 +328,8 @@ func cpHandler(data []byte, resp RPCResponse) {
 		resp(data, err)
 		return
 	}
-
+	defer srcFile.Close()
+	
 	dstFile, err := os.Create(cpReq.Dst)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -340,7 +341,8 @@ func cpHandler(data []byte, resp RPCResponse) {
 		resp(data, err)
 		return
 	}
-
+	defer dstFile.Close()
+	
 	bytesWritten, err := io.Copy(dstFile, srcFile)
 	if err != nil {
 		// {{if .Config.Debug}}
