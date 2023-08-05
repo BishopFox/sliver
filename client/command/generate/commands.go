@@ -213,7 +213,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Use:   consts.RmStr,
 		Short: "Remove a profile",
 		Long:  help.GetHelpFor([]string{consts.ProfilesStr, consts.RmStr}),
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ProfilesRmCmd(cmd, con, args)
 		},
@@ -265,7 +265,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Use:   consts.RmStr,
 		Short: "Remove implant build",
 		Long:  help.GetHelpFor([]string{consts.ImplantBuildsStr, consts.RmStr}),
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ImplantsRmCmd(cmd, con, args)
 		},

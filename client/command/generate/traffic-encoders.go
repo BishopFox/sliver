@@ -246,14 +246,29 @@ func displayTrafficEncoderTests(running bool, tests *clientpb.TrafficEncoderTest
 
 // TrafficEncodersRemoveCmd - Remove a traffic encoder.
 func TrafficEncodersRemoveCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
-	_, cancel := con.GrpcContext(cmd)
-	defer cancel()
-
 	var name string
 	if len(args) > 0 {
-		name = args[0]
-	}
-	if name == "" {
+		for _, name := range args {
+			if name == "" {
+				continue
+			}
+
+			grpcCtx, cancel := con.GrpcContext(cmd)
+			_, err := con.Rpc.TrafficEncoderRm(grpcCtx, &clientpb.TrafficEncoder{
+				Wasm: &commonpb.File{
+					Name: name,
+				},
+			})
+			cancel()
+
+			if err != nil {
+				con.PrintErrorf("%s", con.UnwrapServerErr(err))
+				continue
+			}
+
+			con.PrintInfof("Successfully removed traffic encoder: %s\n", name)
+		}
+	} else {
 		name = SelectTrafficEncoder(con)
 	}
 	grpcCtx, cancel := con.GrpcContext(cmd)
@@ -267,7 +282,6 @@ func TrafficEncodersRemoveCmd(cmd *cobra.Command, con *console.SliverClient, arg
 		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return
 	}
-	con.Println()
 	con.PrintInfof("Successfully removed traffic encoder: %s\n", name)
 }
 

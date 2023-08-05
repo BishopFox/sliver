@@ -48,7 +48,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 			BeaconsRmCmd(cmd, con, args)
 		},
 	}
-	carapace.Gen(beaconsRmCmd).PositionalCompletion(BeaconIDCompleter(con))
+	carapace.Gen(beaconsRmCmd).PositionalCompletion(BeaconIDCompleter(con).Usage("beacon to delete (optional, prompts if no args given)"))
 	beaconsCmd.AddCommand(beaconsRmCmd)
 
 	beaconsWatchCmd := &cobra.Command{
@@ -79,7 +79,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 // BeaconIDCompleter completes beacon IDs.
 func BeaconIDCompleter(con *console.SliverClient) carapace.Action {
-	callback := func(_ carapace.Context) carapace.Action {
+	callback := func(c carapace.Context) carapace.Action {
 		if msg, err := con.ConnectComplete(); err != nil {
 			return msg
 		}
@@ -98,7 +98,9 @@ func BeaconIDCompleter(con *console.SliverClient) carapace.Action {
 				results = append(results, desc)
 			}
 		}
-		return carapace.ActionValuesDescribed(results...).Tag("beacons")
+
+		return carapace.ActionValuesDescribed(results...).Tag("beacons").
+			Invoke(c).Filter(c.Args).ToA()
 	}
 
 	return carapace.ActionCallback(callback)
