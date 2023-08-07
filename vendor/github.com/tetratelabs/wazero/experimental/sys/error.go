@@ -1,39 +1,32 @@
-package platform
+package sys
 
 import (
 	"io"
 	"io/fs"
 	"os"
-	"syscall"
 )
 
-// UnwrapOSError returns a syscall.Errno or zero if the input is nil.
-func UnwrapOSError(err error) syscall.Errno {
+// UnwrapOSError returns an Errno or zero if the input is nil.
+func UnwrapOSError(err error) Errno {
 	if err == nil {
 		return 0
 	}
 	err = underlyingError(err)
-	if se, ok := err.(syscall.Errno); ok {
-		return adjustErrno(se)
-	}
-	// Below are all the fs.ErrXXX in fs.go.
-	//
-	// Note: Once we have our own file type, we should never see these.
 	switch err {
 	case nil, io.EOF:
-		return 0 // EOF is not a syscall.Errno
+		return 0 // EOF is not a Errno
 	case fs.ErrInvalid:
-		return syscall.EINVAL
+		return EINVAL
 	case fs.ErrPermission:
-		return syscall.EPERM
+		return EPERM
 	case fs.ErrExist:
-		return syscall.EEXIST
+		return EEXIST
 	case fs.ErrNotExist:
-		return syscall.ENOENT
+		return ENOENT
 	case fs.ErrClosed:
-		return syscall.EBADF
+		return EBADF
 	}
-	return syscall.EIO
+	return errorToErrno(err)
 }
 
 // underlyingError returns the underlying error if a well-known OS error type.

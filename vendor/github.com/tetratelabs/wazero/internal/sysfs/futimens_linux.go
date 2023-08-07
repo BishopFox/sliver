@@ -7,19 +7,13 @@ import (
 )
 
 const (
-	_AT_FDCWD               = -0x64
-	_AT_SYMLINK_NOFOLLOW    = 0x100
-	_UTIME_NOW              = (1 << 30) - 1
-	_UTIME_OMIT             = (1 << 30) - 2
-	SupportsSymlinkNoFollow = true
+	_AT_FDCWD   = -0x64
+	_UTIME_NOW  = (1 << 30) - 1
+	_UTIME_OMIT = (1 << 30) - 2
 )
 
-func utimens(path string, times *[2]syscall.Timespec, symlinkFollow bool) (err error) {
+func utimens(path string, times *[2]syscall.Timespec) (err error) {
 	var flags int
-	if !symlinkFollow {
-		flags = _AT_SYMLINK_NOFOLLOW
-	}
-
 	var _p0 *byte
 	_p0, err = syscall.BytePtrFromString(path)
 	if err != nil {

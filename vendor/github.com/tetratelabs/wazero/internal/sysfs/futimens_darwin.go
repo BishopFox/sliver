@@ -6,22 +6,18 @@ import (
 )
 
 const (
-	_AT_FDCWD               = -0x2
-	_AT_SYMLINK_NOFOLLOW    = 0x0020
-	_UTIME_NOW              = -1
-	_UTIME_OMIT             = -2
-	SupportsSymlinkNoFollow = true
+	_AT_FDCWD            = -0x2
+	_AT_SYMLINK_NOFOLLOW = 0x0020
+	_UTIME_NOW           = -1
+	_UTIME_OMIT          = -2
 )
 
 //go:noescape
 //go:linkname utimensat syscall.utimensat
 func utimensat(dirfd int, path string, times *[2]syscall.Timespec, flags int) error
 
-func utimens(path string, times *[2]syscall.Timespec, symlinkFollow bool) error {
+func utimens(path string, times *[2]syscall.Timespec) error {
 	var flags int
-	if !symlinkFollow {
-		flags = _AT_SYMLINK_NOFOLLOW
-	}
 	return utimensat(_AT_FDCWD, path, times, flags)
 }
 

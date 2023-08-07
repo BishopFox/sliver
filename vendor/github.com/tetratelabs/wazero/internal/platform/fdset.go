@@ -1,3 +1,5 @@
+//go:build !windows
+
 package platform
 
 // Set adds the given fd to the set.

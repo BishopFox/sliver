@@ -496,6 +496,13 @@ func (e *engine) Close() (err error) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 	// Releasing the references to compiled codes including the memory-mapped machine codes.
+
+	for i := range e.codes {
+		for j := range e.codes[i].functions {
+			e.codes[i].functions[j].parent = nil
+		}
+	}
+
 	e.codes = nil
 	return
 }
