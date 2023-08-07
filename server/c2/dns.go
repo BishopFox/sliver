@@ -522,6 +522,8 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 		return s.refusedErrorResp(req)
 	}
 
+	dnsLog.Infof("[session init] init data sent: %d bytes", len(msg.Data))
+
 	serverKeyPair := cryptography.ECCServerKeyPair()
 	sessionInit, err := cryptography.AgeKeyExFromImplant(
 		serverKeyPair.Private,

