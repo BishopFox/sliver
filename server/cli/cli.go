@@ -22,7 +22,6 @@ import (
 	"os"
 
 	// CLI dependencies
-	"github.com/reeflective/console"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 
@@ -33,7 +32,9 @@ import (
 	clientCommand "github.com/bishopfox/sliver/client/command"
 	consoleCmd "github.com/bishopfox/sliver/client/command/console"
 	client "github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/command"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/transport"
 
@@ -67,13 +68,7 @@ func Execute() {
 	con.AddConnectHooks(preRunServer(teamserver, con))
 
 	// Generate our complete Sliver Framework command-line interface.
-	rootCmd, server := sliverServerCLI(teamserver, con)
-
-	// Bind the closed-loop console:
-	// The console shares the same setup/connection pre-runners as other commands,
-	// but the command yielders we pass as arguments don't: this is because we only
-	// need one connection for the entire lifetime of the console.
-	rootCmd.AddCommand(consoleCmd.Command(con, server))
+	rootCmd := sliverServerCLI(teamserver, con)
 
 	// Run the target Sliver command:
 	// Three different examples here, to illustrate.
@@ -101,16 +96,22 @@ func Execute() {
 // It will also register the appropriate teamclient management commands.
 //
 // Counterpart of sliver/client/cli.SliverCLI() (not identical: no implant command here).
-func sliverServerCLI(team *server.Server, con *client.SliverClient) (root *cobra.Command, server console.Commands) {
+func sliverServerCLI(team *server.Server, con *client.SliverClient) (root *cobra.Command) {
 	teamserverCmds := command.TeamserverCommands(team, con)
 
 	// Generate a single tree instance of server commands:
 	// These are used as the primary, one-exec-only CLI of Sliver, and are equipped with
 	// a pre-runner ensuring the server and its teamclient are set up and connected.
-	server = clientCommand.ServerCommands(con, teamserverCmds)
+	server := clientCommand.ServerCommands(con, teamserverCmds)
 
 	root = server()
 	root.Use = "sliver-server" // Needed by completion scripts.
+
+	// Bind the closed-loop console:
+	// The console shares the same setup/connection pre-runners as other commands,
+	// but the command yielders we pass as arguments don't: this is because we only
+	// need one connection for the entire lifetime of the console.
+	root.AddCommand(consoleCmd.Command(con, server))
 
 	// Pre/post runners and completions.
 	clientCommand.BindPrePost(root, true, con.ConnectRun)
@@ -121,7 +122,7 @@ func sliverServerCLI(team *server.Server, con *client.SliverClient) (root *cobra
 	// Generate the root completion command.
 	carapace.Gen(root)
 
-	return root, server
+	return root
 }
 
 // preRunServer is the server-binary-specific pre-run; it ensures that the server
@@ -130,15 +131,15 @@ func preRunServer(teamserver *server.Server, con *client.SliverClient) func() er
 	return func() error {
 		// Ensure the server has what it needs.
 		assets.Setup(false, true)
-		encoders.Setup() // WARN: I added this here after assets.Setup(), but used to be in init. Is it wrong to put it here ?
+		encoders.Setup()
 		certs.SetupCAs()
 		certs.SetupWGKeys()
 		cryptography.AgeServerKeyPair()
 		cryptography.MinisignServerPrivateKey()
 
 		// TODO: Move this out of here.
-		// serverConfig := configs.GetServerConfig()
-		// c2.StartPersistentJobs(serverConfig)
+		serverConfig := configs.GetServerConfig()
+		c2.StartPersistentJobs(serverConfig)
 
 		// Let our in-memory teamclient be served.
 		return teamserver.Serve(con.Teamclient)

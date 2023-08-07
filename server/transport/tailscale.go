@@ -25,9 +25,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/reeflective/team/server"
 	"google.golang.org/grpc"
 	"tailscale.com/tsnet"
+
+	"github.com/reeflective/team/server"
 
 	"github.com/bishopfox/sliver/server/assets"
 )

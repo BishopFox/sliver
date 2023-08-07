@@ -156,9 +156,7 @@ func CacheModules() {
 				return
 			}
 
-			msfDir := filepath.Join(assets.GetRootAppDir(), msfDir)
-
-			fileName := filepath.Join(msfDir, "msf-"+target+".cache")
+			fileName := filepath.Join(MsfDir(), "msf-"+target+".cache")
 			if err := os.WriteFile(fileName, result, 0o600); err != nil {
 				msfLog.Error(err)
 			}
@@ -167,6 +165,19 @@ func CacheModules() {
 
 	all.Wait()
 	msfLog.Infof("Done caching msfvenom data")
+}
+
+// GetRootAppDir - Get the Sliver app dir, default is: ~/.sliver/
+func MsfDir() string {
+	msfDir := filepath.Join(assets.GetRootAppDir(), msfDir)
+
+	if _, err := os.Stat(msfDir); os.IsNotExist(err) {
+		err = os.MkdirAll(msfDir, 0o700)
+		if err != nil {
+			msfLog.Fatalf("Cannot write to sliver root dir %s", err)
+		}
+	}
+	return msfDir
 }
 
 // GetMsfCache returns the cache of Metasploit modules and other info.
@@ -362,10 +373,8 @@ func parseCache() *clientpb.MetasploitCompiler {
 
 	msf.Version = ver
 
-	msfDir := filepath.Join(assets.GetRootAppDir(), msfDir)
-
 	for _, file := range msfModuleTypes {
-		fileName := filepath.Join(msfDir, fmt.Sprintf("msf-%s.cache", file))
+		fileName := filepath.Join(MsfDir(), fmt.Sprintf("msf-%s.cache", file))
 
 		switch file {
 		case "formats":

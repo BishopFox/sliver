@@ -19,6 +19,8 @@ package command
 */
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/server/command/assets"
@@ -27,7 +29,6 @@ import (
 	"github.com/bishopfox/sliver/server/command/version"
 	"github.com/reeflective/team/server"
 	"github.com/reeflective/team/server/commands"
-	"github.com/spf13/cobra"
 )
 
 // TeamserverCommands is the equivalent of client/command.ServerCommands(), but for server-binary only ones.

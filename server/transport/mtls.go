@@ -22,9 +22,10 @@ import (
 	"net"
 	"sync"
 
-	"github.com/reeflective/team/server"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
+
+	"github.com/reeflective/team/server"
 )
 
 // teamserver is a vanilla TCP+MTLS gRPC server offering all Sliver services through it.

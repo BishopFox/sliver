@@ -197,6 +197,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 	flags.BindFlagCompletions(msfCmd, func(comp *carapace.ActionMap) {
 		(*comp)["encoder"] = generate.MsfEncoderCompleter(con)
+		(*comp)["payload"] = generate.MsfPayloadCompleter(con)
 	})
 
 	msfInjectCmd := &cobra.Command{

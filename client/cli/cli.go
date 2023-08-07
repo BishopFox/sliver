@@ -24,7 +24,6 @@ import (
 	"github.com/bishopfox/sliver/client/command"
 	sliverConsole "github.com/bishopfox/sliver/client/command/console"
 	client "github.com/bishopfox/sliver/client/console"
-	"github.com/reeflective/console"
 	"github.com/reeflective/team/client/commands"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
@@ -42,13 +41,7 @@ func Execute() {
 	}
 
 	// Generate our complete Sliver Framework command-line interface.
-	rootCmd, server := SliverCLI(con)
-
-	// Bind the closed-loop console.
-	// The console shares the same setup/connection pre-runners as other commands,
-	// but the command yielders we pass as arguments don't: this is because we only
-	// need one connection for the entire lifetime of the console.
-	rootCmd.AddCommand(sliverConsole.Command(con, server))
+	rootCmd := SliverCLI(con)
 
 	// Version
 	rootCmd.AddCommand(cmdVersion)
@@ -63,7 +56,7 @@ func Execute() {
 // The ready-to-execute command tree (root *cobra.Command) returned is correctly equipped
 // with all prerunners needed to connect to remote Sliver teamservers.
 // It will also register the appropriate teamclient management commands.
-func SliverCLI(con *client.SliverClient) (root *cobra.Command, server console.Commands) {
+func SliverCLI(con *client.SliverClient) (root *cobra.Command) {
 	teamclientCmds := func(con *client.SliverClient) []*cobra.Command {
 		return []*cobra.Command{
 			commands.Generate(con.Teamclient),
@@ -73,10 +66,16 @@ func SliverCLI(con *client.SliverClient) (root *cobra.Command, server console.Co
 	// Generate a single tree instance of server commands:
 	// These are used as the primary, one-exec-only CLI of Sliver, and are equipped with
 	// a pre-runner ensuring the server and its teamclient are set up and connected.
-	server = command.ServerCommands(con, teamclientCmds)
+	server := command.ServerCommands(con, teamclientCmds)
 
 	root = server()
 	root.Use = "sliver-client" // Needed by completion scripts.
+
+	// Bind the closed-loop console.
+	// The console shares the same setup/connection pre-runners as other commands,
+	// but the command yielders we pass as arguments don't: this is because we only
+	// need one connection for the entire lifetime of the console.
+	root.AddCommand(sliverConsole.Command(con, server))
 
 	// Implant.
 	// The implant command allows users to run commands on slivers from their
@@ -96,5 +95,5 @@ func SliverCLI(con *client.SliverClient) (root *cobra.Command, server console.Co
 	// Generate the root completion command.
 	carapace.Gen(root)
 
-	return root, server
+	return root
 }

@@ -23,9 +23,10 @@ import (
 	"net"
 	"runtime/debug"
 
-	"github.com/reeflective/team/server"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
+
+	"github.com/reeflective/team/server"
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/assets"
