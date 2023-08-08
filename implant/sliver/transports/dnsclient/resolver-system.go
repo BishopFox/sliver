@@ -19,6 +19,7 @@ package dnsclient
 */
 
 import (
+	"context"
 	"net"
 	"strings"
 	"time"
@@ -63,6 +64,26 @@ func (r *SystemResolver) A(domain string) ([]byte, time.Duration, error) {
 		if ip.To4() != nil {
 			addrs = append(addrs, ip.To4()...)
 		}
+		if ip.To16() != nil {
+			addrs = append(addrs, ip.To16()...)
+		}
+	}
+	return addrs, rtt, nil
+}
+
+// AAAA - Query for AAAA records
+func (r *SystemResolver) AAAA(domain string) ([]byte, time.Duration, error) {
+	// {{if .Config.Debug}}
+	log.Printf("[dns] %s->AAAA record of %s?", r.Address(), domain)
+	// {{end}}
+	started := time.Now()
+	ips, err := net.DefaultResolver.LookupIP(context.Background(), "ip4", domain)
+	rtt := time.Since(started)
+	if err != nil {
+		return nil, rtt, err
+	}
+	var addrs []byte
+	for _, ip := range ips {
 		if ip.To16() != nil {
 			addrs = append(addrs, ip.To16()...)
 		}
