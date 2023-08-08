@@ -4856,6 +4856,7 @@ func (c *amd64Compiler) compileMaybeExitFromNativeCode(skipCondition asm.Instruc
 func (c *amd64Compiler) compileExitFromNativeCode(status nativeCallStatusCode) {
 	if target := c.compiledTrapTargets[status]; target != nil {
 		c.assembler.CompileJump(amd64.JMP).AssignJumpTarget(target)
+		return
 	}
 
 	switch status {

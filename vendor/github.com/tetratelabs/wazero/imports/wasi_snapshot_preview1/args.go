@@ -2,9 +2,9 @@ package wasi_snapshot_preview1
 
 import (
 	"context"
-	"syscall"
 
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental/sys"
 	"github.com/tetratelabs/wazero/internal/wasip1"
 	"github.com/tetratelabs/wazero/internal/wasm"
 )
@@ -23,7 +23,7 @@ import (
 // Result (Errno)
 //
 // The return value is ErrnoSuccess except the following error conditions:
-//   - syscall.EFAULT: there is not enough memory to write results
+//   - sys.EFAULT: there is not enough memory to write results
 //
 // For example, if argsSizesGet wrote argc=2 and argvLen=5 for arguments:
 // "a" and "bc" parameters argv=7 and argvBuf=1, this function writes the below
@@ -43,7 +43,7 @@ import (
 // See https://en.wikipedia.org/wiki/Null-terminated_string
 var argsGet = newHostFunc(wasip1.ArgsGetName, argsGetFn, []api.ValueType{i32, i32}, "argv", "argv_buf")
 
-func argsGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
+func argsGetFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
 	sysCtx := mod.(*wasm.ModuleInstance).Sys
 	argv, argvBuf := uint32(params[0]), uint32(params[1])
 	return writeOffsetsAndNullTerminatedValues(mod.Memory(), sysCtx.Args(), argv, argvBuf, sysCtx.ArgsSize())
@@ -61,7 +61,7 @@ func argsGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno
 // Result (Errno)
 //
 // The return value is ErrnoSuccess except the following error conditions:
-//   - syscall.EFAULT: there is not enough memory to write results
+//   - sys.EFAULT: there is not enough memory to write results
 //
 // For example, if args are "a", "bc" and parameters resultArgc=1 and
 // resultArgvLen=6, this function writes the below to api.Memory:
@@ -80,7 +80,7 @@ func argsGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno
 // See https://en.wikipedia.org/wiki/Null-terminated_string
 var argsSizesGet = newHostFunc(wasip1.ArgsSizesGetName, argsSizesGetFn, []api.ValueType{i32, i32}, "result.argc", "result.argv_len")
 
-func argsSizesGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
+func argsSizesGetFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
 	sysCtx := mod.(*wasm.ModuleInstance).Sys
 	mem := mod.Memory()
 	resultArgc, resultArgvLen := uint32(params[0]), uint32(params[1])
@@ -88,10 +88,10 @@ func argsSizesGetFn(_ context.Context, mod api.Module, params []uint64) syscall.
 	// argc and argv_len offsets are not necessarily sequential, so we have to
 	// write them independently.
 	if !mem.WriteUint32Le(resultArgc, uint32(len(sysCtx.Args()))) {
-		return syscall.EFAULT
+		return sys.EFAULT
 	}
 	if !mem.WriteUint32Le(resultArgvLen, sysCtx.ArgsSize()) {
-		return syscall.EFAULT
+		return sys.EFAULT
 	}
 	return 0
 }

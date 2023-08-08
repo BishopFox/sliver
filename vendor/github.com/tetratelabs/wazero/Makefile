@@ -1,10 +1,10 @@
 
 gofumpt       := mvdan.cc/gofumpt@v0.5.0
 gosimports    := github.com/rinchsan/gosimports/cmd/gosimports@v0.3.8
-golangci_lint := github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2
+golangci_lint := github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.3
 asmfmt        := github.com/klauspost/asmfmt/cmd/asmfmt@v1.3.2
 # sync this with netlify.toml!
-hugo          := github.com/gohugoio/hugo@v0.112.5
+hugo          := github.com/gohugoio/hugo@v0.115.2
 
 # Make 3.81 doesn't support '**' globbing: Set explicitly instead of recursion.
 all_sources   := $(wildcard *.go */*.go */*/*.go */*/*/*.go */*/*/*.go */*/*/*/*.go)
@@ -53,7 +53,7 @@ build.examples.as:
 build.examples.zig: examples/allocation/zig/testdata/greet.wasm imports/wasi_snapshot_preview1/example/testdata/zig/cat.wasm imports/wasi_snapshot_preview1/testdata/zig/wasi.wasm
 	@cd internal/testing/dwarftestdata/testdata/zig; zig build; mv zig-out/*/main.wasm ./ # Need DWARF custom sections.
 
-tinygo_sources := examples/basic/testdata/add.go examples/allocation/tinygo/testdata/greet.go examples/cli/testdata/cli.go imports/wasi_snapshot_preview1/example/testdata/tinygo/cat.go
+tinygo_sources := examples/basic/testdata/add.go examples/allocation/tinygo/testdata/greet.go examples/cli/testdata/cli.go imports/wasi_snapshot_preview1/example/testdata/tinygo/cat.go imports/wasi_snapshot_preview1/testdata/tinygo/wasi.go
 .PHONY: build.examples.tinygo
 build.examples.tinygo: $(tinygo_sources)
 	@for f in $^; do \
@@ -62,7 +62,7 @@ build.examples.tinygo: $(tinygo_sources)
 
 # We use zig to build C as it is easy to install and embeds a copy of zig-cc.
 # Note: Don't use "-Oz" as that breaks our wasi sock example.
-c_sources := imports/wasi_snapshot_preview1/example/testdata/zig-cc/cat.c imports/wasi_snapshot_preview1/testdata/zig-cc/wasi.c
+c_sources := imports/wasi_snapshot_preview1/example/testdata/zig-cc/cat.c imports/wasi_snapshot_preview1/testdata/zig-cc/wasi.c internal/testing/dwarftestdata/testdata/zig-cc/main.c
 .PHONY: build.examples.zig-cc
 build.examples.zig-cc: $(c_sources)
 	@for f in $^; do \
@@ -250,9 +250,9 @@ clean: ## Ensure a clean build
 fuzz_timeout_seconds ?= 10
 .PHONY: fuzz
 fuzz:
-	@cd internal/integration_test/fuzz && cargo fuzz run basic -- -max_total_time=$(fuzz_timeout_seconds)
-	@cd internal/integration_test/fuzz && cargo fuzz run memory_no_diff -- -max_total_time=$(fuzz_timeout_seconds)
-	@cd internal/integration_test/fuzz && cargo fuzz run validation -- -max_total_time=$(fuzz_timeout_seconds)
+	@cd internal/integration_test/fuzz && cargo fuzz run basic -- -rss_limit_mb=8192 -max_total_time=$(fuzz_timeout_seconds)
+	@cd internal/integration_test/fuzz && cargo fuzz run memory_no_diff -- -rss_limit_mb=8192 -max_total_time=$(fuzz_timeout_seconds)
+	@cd internal/integration_test/fuzz && cargo fuzz run validation -- -rss_limit_mb=8192 -max_total_time=$(fuzz_timeout_seconds)
 
 #### CLI release related ####
 

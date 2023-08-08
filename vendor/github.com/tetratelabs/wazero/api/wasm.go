@@ -150,6 +150,10 @@ type Module interface {
 	Memory() Memory
 
 	// ExportedFunction returns a function exported from this module or nil if it wasn't.
+	//
+	// Note: The default wazero.ModuleConfig attempts to invoke `_start`, which
+	// in rare cases can close the module. When in doubt, check IsClosed prior
+	// to invoking a function export after instantiation.
 	ExportedFunction(name string) Function
 
 	// ExportedFunctionDefinitions returns all the exported function
@@ -189,6 +193,21 @@ type Module interface {
 
 	// Closer closes this module by delegating to CloseWithExitCode with an exit code of zero.
 	Closer
+
+	// IsClosed returns true if the module is closed, so no longer usable.
+	//
+	// This can happen for the following reasons:
+	//   - Closer was called directly.
+	//   - A guest function called Closer indirectly, such as `_start` calling
+	//     `proc_exit`, which internally closed the module.
+	//   - wazero.RuntimeConfig `WithCloseOnContextDone` was enabled and a
+	//     context completion closed the module.
+	//
+	// Where any of the above are possible, check this value before calling an
+	// ExportedFunction, even if you didn't formerly receive a sys.ExitError.
+	// sys.ExitError is only returned on non-zero code, something that closes
+	// the module successfully will not result it one.
+	IsClosed() bool
 
 	internalapi.WazeroOnly
 }
