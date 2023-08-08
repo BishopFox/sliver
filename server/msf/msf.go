@@ -82,6 +82,7 @@ var (
 		"csharp":        true,
 		"dw":            true,
 		"dword":         true,
+		"exe":           true,
 		"hex":           true,
 		"java":          true,
 		"js_be":         true,
