@@ -534,7 +534,7 @@ github.com/reeflective/readline/internal/macro
 github.com/reeflective/readline/internal/strutil
 github.com/reeflective/readline/internal/term
 github.com/reeflective/readline/internal/ui
-# github.com/reeflective/team v0.0.0-20230717232729-e28a155bca96 => /home/user/code/github.com/reeflective/team
+# github.com/reeflective/team v0.0.0-20230730014339-6d91952bc187 => /home/user/code/github.com/reeflective/team
 ## explicit; go 1.20
 github.com/reeflective/team
 github.com/reeflective/team/client
@@ -556,7 +556,7 @@ github.com/remyoudompheng/bigfft
 # github.com/rivo/uniseg v0.4.4
 ## explicit; go 1.18
 github.com/rivo/uniseg
-# github.com/rsteube/carapace v0.37.3 => /home/user/code/github.com/reeflective/carapace
+# github.com/rsteube/carapace v0.37.3 => github.com/reeflective/carapace v0.25.2-0.20230808000955-080d3bd7f194
 ## explicit; go 1.15
 github.com/rsteube/carapace
 github.com/rsteube/carapace/internal/cache
@@ -1266,3 +1266,4 @@ tailscale.com/wgengine/wgcfg/nmcfg
 tailscale.com/wgengine/wgint
 tailscale.com/wgengine/wglog
 tailscale.com/wgengine/winnet
+# github.com/reeflective/team => /home/user/code/github.com/reeflective/team

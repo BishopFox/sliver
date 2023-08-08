@@ -20,7 +20,6 @@ type entry struct {
 	dashAny       Action
 	preinvoke     func(cmd *cobra.Command, flag *pflag.Flag, action Action) Action
 	prerun        func(cmd *cobra.Command, args []string)
-	postrun       func(cmd *cobra.Command, args []string)
 	bridged       bool
 }
 
@@ -65,13 +64,6 @@ func (s _storage) preRun(cmd *cobra.Command, args []string) {
 	if entry := s.get(cmd); entry.prerun != nil {
 		LOG.Printf("executing PreRun for %#v with args %#v", cmd.Name(), args)
 		entry.prerun(cmd, args)
-	}
-}
-
-func (s _storage) postRun(cmd *cobra.Command, args []string) {
-	if entry := s.get(cmd); entry.postrun != nil {
-		LOG.Printf("executing PreRun for %#v with args %#v", cmd.Name(), args)
-		entry.postrun(cmd, args)
 	}
 }
 

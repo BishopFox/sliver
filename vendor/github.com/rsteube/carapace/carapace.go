@@ -38,19 +38,6 @@ func (c Carapace) PreRun(f func(cmd *cobra.Command, args []string)) {
 	}
 }
 
-func (c Carapace) PostRun(f func(cmd *cobra.Command, args []string)) {
-	if entry := storage.get(c.cmd); entry.postrun != nil {
-		_f := entry.postrun
-		entry.postrun = func(cmd *cobra.Command, args []string) {
-			// TODO yuck - probably best to append to a slice in storage
-			_f(cmd, args)
-			f(cmd, args)
-		}
-	} else {
-		entry.prerun = f
-	}
-}
-
 // PreInvoke sets a function to alter actions before they are invoked.
 func (c Carapace) PreInvoke(f func(cmd *cobra.Command, flag *pflag.Flag, action Action) Action) {
 	if entry := storage.get(c.cmd); entry.preinvoke != nil {

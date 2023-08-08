@@ -322,12 +322,12 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
 github.com/psanford/memfs v0.0.0-20230130182539-4dbf7e3e865e h1:51xcRlSMBU5rhM9KahnJGfEsBPVPz3182TgFRowA8yY=
 github.com/psanford/memfs v0.0.0-20230130182539-4dbf7e3e865e/go.mod h1:tcaRap0jS3eifrEEllL6ZMd9dg8IlDpi2S1oARrQ+NI=
+github.com/reeflective/carapace v0.25.2-0.20230808000955-080d3bd7f194 h1:Ibirru7u3sKdsKHQRQluOfwv/eXsw+v+r9h50cf1kU8=
+github.com/reeflective/carapace v0.25.2-0.20230808000955-080d3bd7f194/go.mod h1:jkLt41Ne2TD2xPuMdX/2O05Smhy8vMgG7O2TYvC0yOc=
 github.com/reeflective/console v0.1.6 h1:BhhvQU/m8QOpaIRzrXfwcbtkGQJX9jVR5qIqAy/Mcuw=
 github.com/reeflective/console v0.1.6/go.mod h1:7owTBE9k2lg2QpVw7g4DrK1HxEgr/5DQCmA3O2Znoek=
 github.com/reeflective/readline v1.0.8 h1:VuDGI82lAwl1H5by+hpW4OQgM+9ikh6EuOySQUGP3sI=
 github.com/reeflective/readline v1.0.8/go.mod h1:5JgnHb/ZCvp/6RUA59HEansPBxWTkyBO4hJ5LL9Fp1Y=
-github.com/reeflective/team v0.0.0-20230730014339-6d91952bc187 h1:FT77nbrQlbSz7yxL23ezc0zHu/xnu+hY5OG2PS+TyPg=
-github.com/reeflective/team v0.0.0-20230730014339-6d91952bc187/go.mod h1:6pibborkTGBH30FAz3R+tByK7NPVVkalQU0w90Koq90=
 github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=

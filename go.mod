@@ -2,13 +2,12 @@ module github.com/bishopfox/sliver
 
 go 1.20
 
-// replace github.com/rsteube/carapace v0.37.3 => github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca
+// A fork of the completion engine is currently used in order to consume the engine
+// as a library. The fork is a very slightly patched mainline tree for that purpose.
+replace github.com/rsteube/carapace v0.37.3 => github.com/reeflective/carapace v0.25.2-0.20230808000955-080d3bd7f194
 
-replace github.com/rsteube/carapace v0.37.3 => /home/user/code/github.com/reeflective/carapace
-
-replace github.com/reeflective/team v0.0.0-20230717232729-e28a155bca96 => /home/user/code/github.com/reeflective/team
-
-// replace github.com/reeflective/console v0.1.6 => /home/user/code/github.com/reeflective/console
+// Team is the teamserver/teamclient library, and this directive should be removed.
+replace github.com/reeflective/team => /home/user/code/github.com/reeflective/team
 
 require (
 	filippo.io/age v1.1.1

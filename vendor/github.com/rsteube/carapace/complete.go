@@ -49,11 +49,7 @@ func complete(cmd *cobra.Command, args []string) (string, error) {
 			action = ActionMessage("failed to load config: " + err.Error())
 		}
 
-		act := action.Invoke(context).value(args[0], args[len(args)-1])
-		storage.postRun(cmd, args)
-
-		return act, nil
-		// return action.Invoke(context).value(args[0], args[len(args)-1]), nil
+		return action.Invoke(context).value(args[0], args[len(args)-1]), nil
 	}
 }
 
