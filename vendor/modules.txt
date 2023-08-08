@@ -622,16 +622,18 @@ github.com/tailscale/wireguard-go/tun
 # github.com/tcnksm/go-httpstat v0.2.0
 ## explicit
 github.com/tcnksm/go-httpstat
-# github.com/tetratelabs/wazero v1.2.1
+# github.com/tetratelabs/wazero v1.3.1
 ## explicit; go 1.18
 github.com/tetratelabs/wazero
 github.com/tetratelabs/wazero/api
 github.com/tetratelabs/wazero/experimental
+github.com/tetratelabs/wazero/experimental/sys
 github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1
 github.com/tetratelabs/wazero/internal/asm
 github.com/tetratelabs/wazero/internal/asm/amd64
 github.com/tetratelabs/wazero/internal/asm/arm64
 github.com/tetratelabs/wazero/internal/bitpack
+github.com/tetratelabs/wazero/internal/close
 github.com/tetratelabs/wazero/internal/descriptor
 github.com/tetratelabs/wazero/internal/engine/compiler
 github.com/tetratelabs/wazero/internal/engine/interpreter

@@ -5,8 +5,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/tetratelabs/wazero/internal/fsapi"
-	"github.com/tetratelabs/wazero/internal/platform"
+	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
+	"github.com/tetratelabs/wazero/sys"
 )
 
 const (
@@ -28,45 +28,34 @@ const (
 // The `times` parameter includes the access and modification timestamps to
 // assign. Special syscall.Timespec NSec values UTIME_NOW and UTIME_OMIT may be
 // specified instead of real timestamps. A nil `times` parameter behaves the
-// same as if both were set to UTIME_NOW.
-//
-// When the `symlinkFollow` parameter is true and the path is a symbolic link,
-// the target of expanding that link is updated.
+// same as if both were set to UTIME_NOW. If the path is a symbolic link, the
+// target of expanding that link is updated.
 //
 // # Errors
 //
-// A zero syscall.Errno is success. The below are expected otherwise:
-//   - syscall.ENOSYS: the implementation does not support this function.
-//   - syscall.EINVAL: `path` is invalid.
-//   - syscall.EEXIST: `path` exists and is a directory.
-//   - syscall.ENOTDIR: `path` exists and is a file.
+// A zero sys.Errno is success. The below are expected otherwise:
+//   - sys.ENOSYS: the implementation does not support this function.
+//   - sys.EINVAL: `path` is invalid.
+//   - sys.EEXIST: `path` exists and is a directory.
+//   - sys.ENOTDIR: `path` exists and is a file.
 //
 // # Notes
 //
 //   - This is like syscall.UtimesNano and `utimensat` with `AT_FDCWD` in
 //     POSIX. See https://pubs.opengroup.org/onlinepubs/9699919799/functions/futimens.html
-func Utimens(path string, times *[2]syscall.Timespec, symlinkFollow bool) syscall.Errno {
-	err := utimens(path, times, symlinkFollow)
-	return platform.UnwrapOSError(err)
+func Utimens(path string, times *[2]syscall.Timespec) experimentalsys.Errno {
+	err := utimens(path, times)
+	return experimentalsys.UnwrapOSError(err)
 }
-
-var _zero uintptr //nolint:unused
 
 func timesToPtr(times *[2]syscall.Timespec) unsafe.Pointer { //nolint:unused
-	var _p0 unsafe.Pointer
 	if times != nil {
-		_p0 = unsafe.Pointer(&times[0])
-	} else {
-		_p0 = unsafe.Pointer(&_zero)
+		return unsafe.Pointer(&times[0])
 	}
-	return _p0
+	return unsafe.Pointer(nil)
 }
 
-func utimensPortable(path string, times *[2]syscall.Timespec, symlinkFollow bool) error { //nolint:unused
-	if !symlinkFollow {
-		return syscall.ENOSYS
-	}
-
+func utimensPortable(path string, times *[2]syscall.Timespec) error { //nolint:unused
 	// Handle when both inputs are current system time.
 	if times == nil || times[0].Nsec == UTIME_NOW && times[1].Nsec == UTIME_NOW {
 		ts := nowTimespec()
@@ -97,7 +86,7 @@ func utimensPortable(path string, times *[2]syscall.Timespec, symlinkFollow bool
 	}
 }
 
-func normalizeTimespec(path string, times *[2]syscall.Timespec, i int) (ts syscall.Timespec, err syscall.Errno) { //nolint:unused
+func normalizeTimespec(path string, times *[2]syscall.Timespec, i int) (ts syscall.Timespec, err experimentalsys.Errno) { //nolint:unused
 	switch times[i].Nsec {
 	case UTIME_NOW: // declined in Go per golang/go#31880.
 		ts = nowTimespec()
@@ -107,7 +96,7 @@ func normalizeTimespec(path string, times *[2]syscall.Timespec, i int) (ts sysca
 		// stat to read-back the value to re-apply.
 		// - https://github.com/golang/go/issues/32558.
 		// - https://go-review.googlesource.com/c/go/+/219638 (unmerged)
-		var st fsapi.Stat_t
+		var st sys.Stat_t
 		if st, err = stat(path); err != 0 {
 			return
 		}

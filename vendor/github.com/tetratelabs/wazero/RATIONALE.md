@@ -414,12 +414,49 @@ In reflection, this approach worked well for the nearly 1.5 year period leading
 to version 1.0. We've only had to create a single sub-configuration, `FSConfig`,
 and it was well understood why when it occurred.
 
-## Why does InstantiateModule call "_start" by default?
-We formerly had functions like `StartWASICommand` that would verify preconditions and start WASI's "_start" command.
-However, this caused confusion because both many languages compiled a WASI dependency, and many did so inconsistently.
+## Why does `ModuleConfig.WithStartFunctions` default to `_start`?
 
-That said, if "_start" isn't called, it causes issues in TinyGo, as it needs this in order to implement panic. To deal
-with this a different way, we have a configuration to call any start functions that exist, which defaults to "_start".
+We formerly had functions like `StartWASICommand` that would verify
+preconditions and start WASI's `_start` command. However, this caused confusion
+because both many languages compiled a WASI dependency, and many did so
+inconsistently.
+
+The conflict is that exported functions need to use features the language
+runtime provides, such as garbage collection. There's a "chicken-egg problem"
+where `_start` needs to complete in order for exported behavior to work.
+
+For example, unlike `GOOS=wasip1` in Go 1.21, TinyGo's "wasi" target supports
+function exports. So, the only way to use FFI style is via the "wasi" target.
+Not explicitly calling `_start` before an ABI such as wapc-go, would crash, due
+to setup not happening (e.g. to implement `panic`). Other embedders such as
+Envoy also called `_start` for the same reason. To avoid a common problem for
+users unaware of WASI, and also to simplify normal use of WASI (e.g. `main`),
+we added `_start` to `ModuleConfig.WithStartFunctions`.
+
+In cases of multiple initializers, such as in wapc-go, users can override this
+to add the others *after* `_start`. Users who want to explicitly control
+`_start`, such as some of our unit tests, can clear the start functions and
+remove it.
+
+This decision was made in 2022, and holds true in 2023, even with the
+introduction of "wasix". It holds because "wasix" is backwards compatible with
+"wasip1". In the future, there will be other ways to start applications, and
+may not be backwards compatible with "wasip1".
+
+Most notably WASI "Preview 2" is not implemented in a way compatible with
+wasip1. Its start function is likely to be different, and defined in the
+wasi-cli "world". When the design settles, and it is implemented by compilers,
+wazero will attempt to support "wasip2". However, it won't do so in a way that
+breaks existing compilers.
+
+In other words, we won't remove `_start` if "wasip2" continues a path of an
+alternate function name. If we did, we'd break existing users despite our
+compatibility promise saying we don't. The most likely case is that when we
+build-in something incompatible with "wasip1", that start function will be
+added to the start functions list in addition to `_start`.
+
+See http://wasix.org
+See https://github.com/WebAssembly/wasi-cli
 
 ## Runtime == Engine+Store
 wazero defines a single user-type which combines the specification concept of `Store` with the unspecified `Engine`
@@ -447,26 +484,26 @@ https://github.com/bytecodealliance/wasmtime/blob/v0.29.0/crates/lightbeam/src/m
 
 ## Exit
 
-### Why do we return a `sys.ExitError` on exit code zero?
+### Why do we only return a `sys.ExitError` on a non-zero exit code?
 
-It may be surprising to find an error returned on success (exit code zero).
-This can be explained easier when you think of function returns: When results
-aren't empty, then you must return an error. This is trickier to explain when
-results are empty, such as the case in the "_start" function in WASI.
+It is reasonable to think an exit error should be returned, even if the code is
+success (zero). Even on success, the module is no longer functional. For
+example, function exports would error later. However, wazero does not. The only
+time `sys.ExitError` is on error (non-zero).
 
-The main rationale for returning an exit error even if the code is success is
-that the module is no longer functional. For example, function exports would
-error later. In cases like these, it is better to handle errors where they
-occur.
+This decision was to improve performance and ergonomics for guests that both
+use WASI (have a `_start` function), and also allow custom exports.
+Specifically, Rust, TinyGo and normal wasi-libc, don't exit the module during
+`_start`. If they did, it would invalidate their function exports. This means
+it is unlikely most compilers will change this behavior.
 
-Luckily, it is not common to exit a module during the "_start" function. For
-example, the only known compilation target that does this is Emscripten. Most,
-such as Rust, TinyGo, or normal wasi-libc, don't. If they did, it would
-invalidate their function exports. This means it is unlikely most compilers
-will change this behavior.
+`GOOS=waspi1` from Go 1.21 does exit during `_start`. However, it doesn't
+support other exports besides `_start`, and `_start` is not defined to be
+called multiple times anyway.
 
-In summary, we return a `sys.ExitError` to the caller whenever we get it, as it
-properly reflects the state of the module, which would be closed on this error.
+Since `sys.ExitError` is not always returned, we added `Module.IsClosed` for
+defensive checks. This helps integrators avoid calling functions which will
+always fail.
 
 ### Why panic with `sys.ExitError` after a host function exits?
 
@@ -531,7 +568,7 @@ In short, wazero defined system configuration in `ModuleConfig`, not a WASI type
 one spec to another with minimal impact. This has other helpful benefits, as centralized resources are simpler to close
 coherently (ex via `Module.Close`).
 
-In reflection, this worked well as more ABI became usable in wazero. For example, `GOARCH=wasm GOOS=js` code uses the
+In reflection, this worked well as more ABI became usable in wazero. For example, `GOOS=js GOARCH=wasm` code uses the
 same `ModuleConfig` (and `FSConfig`) WASI uses, and in compatible ways.
 
 ### Background on `ModuleConfig` design
@@ -664,7 +701,7 @@ WASI is an abstraction over syscalls. For example, the signature of `fs.Open`
 does not permit use of flags. This creates conflict on what default behaviors
 to take when Go implemented `os.DirFS`. On the other hand, `path_open` can pass
 flags, and in fact tests require them to be honored in specific ways. This
-extends beyond WASI as even `GOARCH=wasm GOOS=js` compiled code requires
+extends beyond WASI as even `GOOS=js GOARCH=wasm` compiled code requires
 certain flags passed to `os.OpenFile` which are impossible to pass due to the
 signature of `fs.FS`.
 
@@ -681,7 +718,61 @@ these to be easier to close.
 See https://github.com/WebAssembly/wasi-testsuite
 See https://github.com/golang/go/issues/58141
 
-### fd_pread: io.Seeker fallback when io.ReaderAt is not supported
+## Why is our `Readdir` function more like Go's `os.File` than POSIX `readdir`?
+
+At one point we attempted to move from a bulk `Readdir` function to something
+more like the POSIX `DIR` struct, exposing functions like `telldir`, `seekdir`
+and `readdir`. However, we chose the design more like `os.File.Readdir`,
+because it performs and fits wasip1 better.
+
+### wasip1/wasix
+
+`fd_readdir` in wasip1 (and so also wasix) is like `getdents` in Linux, not
+`readdir` in POSIX. `getdents` is more like Go's `os.File.Readdir`.
+
+We currently have an internal type `sys.DirentCache` which only is used by
+wasip1 or wasix. When `HostModuleBuilder` adds support for instantiation state,
+we could move this to the `wasi_snapshot_preview1` package. Meanwhile, all
+filesystem code is internal anyway, so this special-case is acceptable.
+
+### wasip2
+
+`directory-entry-stream` in wasi-filesystem preview2 is defined in component
+model, not an ABI, but in wasmtime it is a consuming iterator. A consuming
+iterator is easy to support with anything (like `Readdir(1)`), even if it is
+inefficient as you can neither bulk read nor skip. The implementation of the
+preview1 adapter (uses preview2) confirms this. They use a dirent cache similar
+in some ways to our `sysfs.DirentCache`. As there is no seek concept in
+preview2, they interpret the cookie as numeric and read on repeat entries when
+a cache wasn't available. Note: we currently do not skip-read like this as it
+risks buffering large directories, and no user has requested entries before the
+cache, yet.
+
+Regardless, wasip2 is not complete until the end of 2023. We can defer design
+discussion until after it is stable and after the reference impl wasmtime
+implements it.
+
+See
+ * https://github.com/WebAssembly/wasi-filesystem/blob/ef9fc87c07323a6827632edeb6a7388b31266c8e/example-world.md#directory_entry_stream
+ * https://github.com/bytecodealliance/wasmtime/blob/b741f7c79d72492d17ab8a29c8ffe4687715938e/crates/wasi/src/preview2/preview2/filesystem.rs#L286-L296
+ * https://github.com/bytecodealliance/preview2-prototyping/blob/e4c04bcfbd11c42c27c28984948d501a3e168121/crates/wasi-preview1-component-adapter/src/lib.rs#L2131-L2137
+ * https://github.com/bytecodealliance/preview2-prototyping/blob/e4c04bcfbd11c42c27c28984948d501a3e168121/crates/wasi-preview1-component-adapter/src/lib.rs#L936
+
+### wasip3
+
+`directory-entry-stream` is documented to change significantly in wasip3 moving
+from synchronous to synchronous streams. This is dramatically different than
+POSIX `readdir` which is synchronous.
+
+Regardless, wasip3 is not complete until after wasip2, which means 2024 or
+later. We can defer design discussion until after it is stable and after the
+reference impl wasmtime implements it.
+
+See
+ * https://github.com/WebAssembly/WASI/blob/ddfe3d1dda5d1473f37ecebc552ae20ce5fd319a/docs/WitInWasi.md#Streams
+ * https://docs.google.com/presentation/d/1MNVOZ8hdofO3tI0szg_i-Yoy0N2QPU2C--LzVuoGSlE/edit#slide=id.g1270ef7d5b6_0_662
+
+### How do we implement `Pread` with an `fs.File`?
 
 `ReadAt` is the Go equivalent to `pread`: it does not affect, and is not
 affected by, the underlying file offset. Unfortunately, `io.ReaderAt` is not
@@ -729,7 +820,7 @@ third `path_len` has ambiguous semantics.
   `path` offset for the exact length of `path_len`.
 
 Wasmer considers `path_len` to be the maximum length instead of the exact
-length  that should be written.
+length that should be written.
 See https://github.com/wasmerio/wasmer/blob/3463c51268ed551933392a4063bd4f8e7498b0f6/lib/wasi/src/syscalls/mod.rs#L764
 
 The semantics in wazero follows that of wasmtime.
@@ -738,11 +829,84 @@ See https://github.com/bytecodealliance/wasmtime/blob/2ca01ae9478f199337cf743a6a
 Their semantics match when `path_len` == the length of `path`, so in practice
 this difference won't matter match.
 
-## Why does fd_readdir not include dot (".") and dot-dot ("..") entries?
+## fd_readdir
 
-When reading a directory, wazero code does not return dot (".") and dot-dot
-("..") entries. The main reason is that Go does not return them from
-`os.ReadDir`, and materializing them is complicated (at least dot-dot is).
+### Why does "wasi_snapshot_preview1" require dot entries when POSIX does not?
+
+In October 2019, WASI project knew requiring dot entries ("." and "..") was not
+documented in preview1, not required by POSIX and problematic to synthesize.
+For example, Windows runtimes backed by `FindNextFileW` could not return these.
+A year later, the tag representing WASI preview 1 (`snapshot-01`) was made.
+This did not include the requested change of making dot entries optional.
+
+The `phases/snapshot/docs.md` document was altered in subsequent years in
+significant ways, often in lock-step with wasmtime or wasi-libc. In January
+2022, `sock_accept` was added to `phases/snapshot/docs.md`, a document later
+renamed to later renamed to `legacy/preview1/docs.md`.
+
+As a result, the ABI and behavior remained unstable: The `snapshot-01` tag was
+not an effective basis of portability. A test suite was requested well before
+this tag, in April 2019. Meanwhile, compliance had no meaning. Developers had
+to track changes to the latest doc, while clarifying with wasi-libc or wasmtime
+behavior. This lack of stability could have permitted a fix to the dot entries
+problem, just as it permitted changes desired by other users.
+
+In November 2022, the wasi-testsuite project began and started solidifying
+expectations. This quickly led to changes in runtimes and the spec doc. WASI
+began importing tests from wasmtime as required behaviors for all runtimes.
+Some changes implied changes to wasi-libc. For example, `readdir` began to
+imply inode fan-outs, which caused performance regressions. Most notably a
+test merged in January required dot entries. Tests were merged without running
+against any runtime, and even when run ad-hoc only against Linux. Hence,
+portability issues mentioned over three years earlier did not trigger any
+failure until wazero (which tests Windows) noticed.
+
+In the same month, wazero requested to revert this change primarily because
+Go does not return them from `os.ReadDir`, and materializing them is
+complicated due to tests also requiring inodes. Moreover, they are discarded by
+not just Go, but other common programming languages. This was rejected by the
+WASI lead for preview1, but considered for the completely different ABI named
+preview2.
+
+In February 2023, the WASI chair declared that new rule requiring preview1 to
+return dot entries "was decided by the subgroup as a whole", citing meeting
+notes. According to these notes, the WASI lead stated incorrectly that POSIX
+conformance required returning dot entries, something it explicitly says are
+optional. In other words, he said filtering them out would make Preview1
+non-conforming, and asked if anyone objects to this. The co-chair was noted to
+say "Because there are existing P1 programs, we shouldn’t make changes like
+this." No other were recorded to say anything.
+
+In summary, preview1 was changed retrospectively to require dot entries and
+preview2 was changed to require their absence. This rule was reverse engineered
+from wasmtime tests, and affirmed on two false premises:
+
+* POSIX compliance requires dot entries
+  * POSIX literally says these are optional
+* WASI cannot make changes because there are existing P1 programs.
+  * Changes to Preview 1 happened before and after this topic.
+
+As of June 2023, wasi-testsuite still only runs on Linux, so compliance of this
+rule on Windows is left to runtimes to decide to validate. The preview2 adapter
+uses fake cookies zero and one to refer to dot dirents, uses a real inode for
+the dot(".") entry and zero inode for dot-dot("..").
+
+See https://github.com/WebAssembly/wasi-filesystem/issues/3
+See https://github.com/WebAssembly/WASI/tree/snapshot-01
+See https://github.com/WebAssembly/WASI/issues/9
+See https://github.com/WebAssembly/WASI/pull/458
+See https://github.com/WebAssembly/wasi-testsuite/pull/32
+See https://github.com/WebAssembly/wasi-libc/pull/345
+See https://github.com/WebAssembly/wasi-testsuite/issues/52
+See https://github.com/WebAssembly/WASI/pull/516
+See https://github.com/WebAssembly/meetings/blob/main/wasi/2023/WASI-02-09.md#should-preview1-fd_readdir-filter-out--and-
+See https://github.com/bytecodealliance/preview2-prototyping/blob/e4c04bcfbd11c42c27c28984948d501a3e168121/crates/wasi-preview1-component-adapter/src/lib.rs#L1026-L1041
+
+### Why are dot (".") and dot-dot ("..") entries problematic?
+
+When reading a directory, dot (".") and dot-dot ("..") entries are problematic.
+For example, Go does not return them from `os.ReadDir`, and materializing them
+is complicated (at least dot-dot is).
 
 A directory entry has stat information in it. The stat information includes
 inode which is used for comparing file equivalence. In the simple case of dot,
@@ -758,7 +922,19 @@ well, such as the decision to not return ".." from a root path. In any case,
 this should start to explain that faking entries when underlying stdlib doesn't
 return them is tricky and requires quite a lot of state.
 
-Even if we did that, it would cause expense to all users of wazero, so we'd
+Another issue is around the `Dirent.Off` value of a directory entry, sometimes
+called a "cookie" in Linux man pagers. When the host operating system or
+library function does not return dot entries, to support functions such as
+`seekdir`, you still need a value for `Dirent.Off`. Naively, you can synthesize
+these by choosing sequential offsets zero and one. However, POSIX strictly says
+offsets should be treated opaquely. The backing filesystem could use these to
+represent real entries. For example, a directory with one entry could use zero
+as the `Dirent.Off` value. If you also used zero for the "." dirent, there
+would be a clash. This means if you synthesize `Dirent.Off` for any entry, you
+need to synthesize this value for all entries. In practice, the simplest way is
+using an incrementing number, such as done in the WASI preview2 adapter.
+
+Working around these issues causes expense to all users of wazero, so we'd
 then look to see if that would be justified or not. However, the most common
 compilers involved in end user questions, as of early 2023 are TinyGo, Rust and
 Zig. All of these compile code which ignores dot and dot-dot entries. In other
@@ -773,12 +949,100 @@ which summarizes to "these are optional"
 
 > The readdir() function shall not return directory entries containing empty names. If entries for dot or dot-dot exist, one entry shall be returned for dot and one entry shall be returned for dot-dot; otherwise, they shall not be returned.
 
-In summary, wazero not only doesn't return dot and dot-dot entries because Go
-doesn't and emulating them in spite of that would result in no difference
-except hire overhead to the majority of our users.
+Unfortunately, as described above, the WASI project decided in early 2023 to
+require dot entries in both the spec and the wasi-testsuite. For only this
+reason, wazero adds overhead to synthesize dot entries despite it being
+unnecessary for most users.
 
 See https://pubs.opengroup.org/onlinepubs/9699919799/functions/readdir.html
 See https://github.com/golang/go/blob/go1.20/src/os/dir_unix.go#L108-L110
+See https://github.com/bytecodealliance/preview2-prototyping/blob/e4c04bcfbd11c42c27c28984948d501a3e168121/crates/wasi-preview1-component-adapter/src/lib.rs#L1026-L1041
+
+### Why don't we pre-populate an inode for the dot-dot ("..") entry?
+
+We only populate an inode for dot (".") because wasi-testsuite requires it, and
+we likely already have it (because we cache it). We could attempt to populate
+one for dot-dot (".."), but chose not to.
+
+Firstly, wasi-testsuite does not require the inode of dot-dot, possibly because
+the wasip2 adapter doesn't populate it (but we don't really know why).
+
+The only other reason to populate it would be to avoid wasi-libc's stat fanout
+when it is missing. However, wasi-libc explicitly doesn't fan-out to lstat on
+the ".." entry on a zero ino.
+
+Fetching dot-dot's inode despite the above not only doesn't help wasi-libc, but
+it also hurts languages that don't use it, such as Go. These languages would
+pay a stat syscall penalty even if they don't need the inode. In fact, Go
+discards both dot entries!
+
+In summary, there are no significant upsides in attempting to pre-fetch
+dot-dot's inode, and there are downsides to doing it anyway.
+
+See
+ * https://github.com/WebAssembly/wasi-libc/blob/bd950eb128bff337153de217b11270f948d04bb4/libc-bottom-half/cloudlibc/src/libc/dirent/readdir.c#L87-L94
+ * https://github.com/WebAssembly/wasi-testsuite/blob/main/tests/rust/src/bin/fd_readdir.rs#L108
+ * https://github.com/bytecodealliance/preview2-prototyping/blob/e4c04bcfbd11c42c27c28984948d501a3e168121/crates/wasi-preview1-component-adapter/src/lib.rs#L1037
+
+### Why don't we require inodes to be non-zero?
+
+We don't require a non-zero value for `Dirent.Ino` because doing so can prevent
+a real one from resolving later via `Stat_t.Ino`.
+
+We define `Ino` like `d_ino` in POSIX which doesn't special-case zero. It can
+be zero for a few reasons:
+
+* The file is not a regular file or directory.
+* The underlying filesystem does not support inodes. e.g. embed:fs
+* A directory doesn't include inodes, but a later stat can. e.g. Windows
+* The backend is based on wasi-filesystem (a.k.a wasip2), which has
+  `directory_entry.inode` optional, and might remove it entirely.
+
+There are other downsides to returning a zero inode in widely used compilers:
+
+* File equivalence utilities, like `os.SameFile` will not work.
+* wasi-libc's `wasip1` mode will call `lstat` and attempt to retrieve a
+  non-zero value (unless the entry is named "..").
+
+A new compiler may accidentally skip a `Dirent` with a zero `Ino` if emulating
+a non-POSIX function and re-using `Dirent.Ino` for `d_fileno`.
+
+* Linux `getdents` doesn't define `d_fileno` must be non-zero
+* BSD `getdirentries` is implementation specific. For example, OpenBSD will
+  return dirents with a zero `d_fileno`, but Darwin will skip them.
+
+The above shouldn't be a problem, even in the case of BSD, because `wasip1` is
+defined more in terms of `getdents` than `getdirentries`. The bottom half of
+either should treat `wasip1` (or any similar ABI such as wasix or wasip2) as a
+different operating system and either use different logic that doesn't skip, or
+synthesize a fake non-zero `d_fileno` when `d_ino` is zero.
+
+However, this has been a problem. Go's `syscall.ParseDirent` utility is shared
+for all `GOOS=unix`. For simplicity, this abstracts `direntIno` with data from
+`d_fileno` or `d_ino`, and drops if either are zero, even if `d_fileno` is the
+only field with zero explicitly defined. This led to a change to special case
+`GOOS=wasip1` as otherwise virtual files would be unconditionally skipped.
+
+In practice, this problem is rather unique due to so many compilers relying on
+wasi-libc, which tolerates a zero inode. For example, while issues were
+reported about the performance regression when wasi-libc began doing a fan-out
+on zero `Dirent.Ino`, no issues were reported about dirents being dropped as a
+result.
+
+In summary, rather than complicating implementation and forcing non-zero inodes
+for a rare case, we permit zero. We instead document this topic thoroughly, so
+that emerging compilers can re-use the research and reference it on conflict.
+We also document that `Ino` should be non-zero, so that users implementing that
+field will attempt to get it.
+
+See
+ * https://github.com/WebAssembly/wasi-filesystem/pull/81
+ * https://github.com/WebAssembly/wasi-libc/blob/bd950eb128bff337153de217b11270f948d04bb4/libc-bottom-half/cloudlibc/src/libc/dirent/readdir.c#L87-L94
+ * https://linux.die.net/man/3/getdents
+ * https://www.unix.com/man-page/osx/2/getdirentries/
+ * https://man.openbsd.org/OpenBSD-5.4/getdirentries.2
+ * https://github.com/golang/go/blob/go1.20/src/syscall/dirent.go#L60-L102
+ * https://go-review.googlesource.com/c/go/+/507915
 
 ## sys.Walltime and Nanotime
 
@@ -907,6 +1171,68 @@ See https://github.com/WebAssembly/stack-switching/discussions/38
 See https://github.com/WebAssembly/wasi-threads#what-can-be-skipped
 See https://slinkydeveloper.com/Kubernetes-controllers-A-New-Hope/
 
+## sys.Stat_t
+
+We expose `stat` information as `sys.Stat_t`, like `syscall.Stat_t` except
+defined without build constraints. For example, you can use `sys.Stat_t` on
+`GOOS=windows` which doesn't define `syscall.Stat_t`.
+
+The first use case of this is to return inodes from `fs.FileInfo` without
+relying on platform-specifics. For example, a user could return `*sys.Stat_t`
+from `info.Sys()` and define a non-zero inode for a virtual file, or map a
+real inode to a virtual one.
+
+Notable choices per field are listed below, where `sys.Stat_t` is unlike
+`syscall.Stat_t` on `GOOS=linux`, or needs clarification. One common issue
+not repeated below is that numeric fields are 64-bit when at least one platform
+defines it that large. Also, zero values are equivalent to nil or absent.
+
+* `Dev` and `Ino` (`Inode`) are both defined unsigned as they are defined
+  opaque, and most `syscall.Stat_t` also defined them unsigned. There are
+  separate sections in this document discussing the impact of zero in `Ino`.
+* `Mode` is defined as a `fs.FileMode` even though that is not defined in POSIX
+  and will not map to all possible values. This is because the current use is
+  WASI, which doesn't define any types or features not already supported. By
+  using `fs.FileMode`, we can re-use routine experience in Go.
+* `NLink` is unsigned because it is defined that way in `syscall.Stat_t`: there
+  can never be less than zero links to a file. We suggest defaulting to 1 in
+  conversions when information is not knowable because at least that many links
+  exist.
+* `Size` is signed because it is defined that way in `syscall.Stat_t`: while
+  regular files and directories will always be non-negative, irregular files
+  are possibly negative or not defined. Notably sparse files are known to
+  return negative values.
+* `Atim`, `Mtim` and `Ctim` are signed because they are defined that way in
+  `syscall.Stat_t`: Negative values are time before 1970. The resolution is
+  nanosecond because that's the maximum resolution currently supported in Go.
+
+### Why do we use `sys.EpochNanos` instead of `time.Time` or similar?
+
+To simplify documentation, we defined a type alias `sys.EpochNanos` for int64.
+`time.Time` is a data structure, and we could have used this for
+`syscall.Stat_t` time values. The most important reason we do not is conversion
+penalty deriving time from common types.
+
+The most common ABI used in `wasip2`. This, and compatible ABI such as `wasix`,
+encode timestamps in memory as a 64-bit number. If we used `time.Time`, we
+would have to convert an underlying type like `syscall.Timespec` to `time.Time`
+only to later have to call `.UnixNano()` to convert it back to a 64-bit number.
+
+In the future, the component model module "wasi-filesystem" may represent stat
+timestamps with a type shared with "wasi-clocks", abstractly structured similar
+to `time.Time`. However, component model intentionally does not define an ABI.
+It is likely that the canonical ABI for timestamp will be in two parts, but it
+is not required for it to be intermediately represented this way. A utility
+like `syscall.NsecToTimespec` could split an int64 so that it could be written
+to memory as 96 bytes (int64, int32), without allocating a struct.
+
+Finally, some may confuse epoch nanoseconds with 32-bit epoch seconds. While
+32-bit epoch seconds has "The year 2038" problem, epoch nanoseconds has
+"The Year 2262" problem, which is even less concerning for this library. If
+the Go programming language and wazero exist in the 2200's, we can make a major
+version increment to adjust the `sys.EpochNanos` approach. Meanwhile, we have
+faster code.
+
 ## poll_oneoff
 
 `poll_oneoff` is a WASI API for waiting for I/O events on multiple handles.
@@ -947,7 +1273,7 @@ However, if the reader is detected to read from `os.Stdin`,
 a special code path is followed, invoking `platform.Select()`.
 
 `platform.Select()` is a wrapper for `select(2)` on POSIX systems,
-and it is mocked for a handful of cases also on Windows.
+and it is emulated on Windows.
 
 ### Select on POSIX
 
@@ -977,25 +1303,35 @@ unless data becomes available on `Stdin` itself.
 
 ### Select on Windows
 
-On Windows the `platform.Select()` is much more straightforward,
-and it really just replicates the behavior found in the general cases
-for `FdRead` subscriptions: in other words, the subscription to `Stdin`
-is immediately acknowledged.
+On Windows `platform.Select()` cannot be delegated to a single
+syscall, because there is no single syscall to handle sockets,
+pipes and regular files.
 
-The implementation also support a timeout, but in this case
-it relies on `time.Sleep()`, which notably, as compared to the POSIX
-case, interruptible and compatible with goroutines.
+Instead, we emulate its behavior for the cases that are currently
+of interest. 
 
-However, because `Stdin` subscriptions are always acknowledged
-without wait and because this code path is always followed only
-when at least one `Stdin` subscription is present, then the
-timeout is effectively always handled externally.
+- For regular files, we _always_ report them as ready, as
+[most operating systems do anyway][async-io-windows].
 
-In any case, the behavior of `platform.Select` on Windows
-is sensibly different from the behavior on POSIX platforms;
-we plan to refine and further align it in semantics in the future.
+- For pipes, we iterate on the given `readfds` 
+and we invoke [`PeekNamedPipe`][peeknamedpipe]. We currently ignore
+`writefds` and `exceptfds` for pipes. In particular,
+`Stdin`, when present, is set to the `readfds` FdSet.
+
+- Notably, we include also support for sockets using the [WinSock
+implementation of `select`][winsock-select], but instead
+of relying on the timeout argument of the `select` function,
+we set a 0-duration timeout so that it behaves like a peek.
+
+This way, we can check for regular files all at once,
+at the beginning of the function, then we poll pipes and 
+sockets periodically using a cancellable `time.Tick`,
+which plays nicely with the rest of the Go runtime.
 
 [poll_oneoff]: https://github.com/WebAssembly/wasi-poll#why-is-the-function-called-poll_oneoff
+[async-io-windows]: https://tinyclouds.org/iocp_links
+[peeknamedpipe]: https://learn.microsoft.com/en-us/windows/win32/api/namedpipeapi/nf-namedpipeapi-peeknamedpipe
+[winsock-select]: https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-select
 
 ## Signed encoding of integer global constant initializers
 

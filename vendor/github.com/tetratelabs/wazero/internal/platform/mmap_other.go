@@ -1,4 +1,4 @@
-// This uses syscall.Mprotect. Go's SDK only supports this on darwin and linux.
+// Separated from linux which has support for huge pages.
 //go:build darwin || freebsd
 
 package platform

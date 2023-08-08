@@ -7,6 +7,7 @@ import (
 
 	"github.com/tetratelabs/wazero/api"
 	experimentalapi "github.com/tetratelabs/wazero/experimental"
+	internalclose "github.com/tetratelabs/wazero/internal/close"
 	internalsock "github.com/tetratelabs/wazero/internal/sock"
 	internalsys "github.com/tetratelabs/wazero/internal/sys"
 	"github.com/tetratelabs/wazero/internal/wasm"
@@ -31,7 +32,8 @@ import (
 //   - Closing this closes any CompiledModule or Module it instantiated.
 type Runtime interface {
 	// Instantiate instantiates a module from the WebAssembly binary (%.wasm)
-	// with default configuration.
+	// with default configuration, which notably calls the "_start" function,
+	// if it exists.
 	//
 	// Here's an example:
 	//	ctx := context.Background()
@@ -291,8 +293,7 @@ func (r *runtime) InstantiateModule(
 	code := compiled.(*compiledModule)
 	config := mConfig.(*moduleConfig)
 
-	// Only build listeners on a guest module. A host module doesn't have
-	// memory, and a guest without memory can't use listeners anyway.
+	// Only add guest module configuration to guests.
 	if !code.module.IsHostModule {
 		if sockConfig, ok := ctx.Value(internalsock.ConfigKey{}).(*internalsock.Config); ok {
 			config.sockConfig = sockConfig
@@ -319,7 +320,12 @@ func (r *runtime) InstantiateModule(
 		return
 	}
 
-	// Attach the code closer so that anything afterwards closes the compiled code when closing the module.
+	if closeNotifier, ok := ctx.Value(internalclose.NotifierKey{}).(internalclose.Notifier); ok {
+		mod.(*wasm.ModuleInstance).CloseNotifier = closeNotifier
+	}
+
+	// Attach the code closer so that anything afterward closes the compiled
+	// code when closing the module.
 	if code.closeWithModule {
 		mod.(*wasm.ModuleInstance).CodeCloser = code
 	}

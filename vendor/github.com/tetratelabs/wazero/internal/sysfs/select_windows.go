@@ -6,78 +6,74 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/tetratelabs/wazero/experimental/sys"
 	"github.com/tetratelabs/wazero/internal/platform"
 )
 
-// wasiFdStdin is the constant value for stdin on Wasi.
-// We need this constant because on Windows os.Stdin.Fd() != 0.
-const wasiFdStdin = 0
-
-// pollInterval is the interval between each calls to peekNamedPipe in pollNamedPipe
+// pollInterval is the interval between each calls to peekNamedPipe in selectAllHandles
 const pollInterval = 100 * time.Millisecond
 
-var kernel32 = syscall.NewLazyDLL("kernel32.dll")
+// zeroDuration is the zero value for time.Duration. It is used in selectAllHandles.
+var zeroDuration = time.Duration(0)
 
-// procPeekNamedPipe is the syscall.LazyProc in kernel32 for PeekNamedPipe
-var procPeekNamedPipe = kernel32.NewProc("PeekNamedPipe")
-
-// syscall_select emulates the select syscall on Windows for two, well-known cases, returns syscall.ENOSYS for all others.
-// If r contains fd 0, and it is a regular file, then it immediately returns 1 (data ready on stdin)
-// and r will have the fd 0 bit set.
-// If r contains fd 0, and it is a FILE_TYPE_CHAR, then it invokes PeekNamedPipe to check the buffer for input;
-// if there is data ready, then it returns 1 and r will have fd 0 bit set.
-// If n==0 it will wait for the given timeout duration, but it will return syscall.ENOSYS if timeout is nil,
+// syscall_select emulates the select syscall on Windows, for a subset of cases.
+//
+// r, w, e may contain any number of file handles, but regular files and pipes are only processed for r (Read).
+// Stdin is a pipe, thus it is checked for readiness when present. Pipes are checked using PeekNamedPipe.
+// Regular files always immediately report as ready, regardless their actual state and timeouts.
+//
+// If n==0 it will wait for the given timeout duration, but it will return sys.ENOSYS if timeout is nil,
 // i.e. it won't block indefinitely.
 //
-// Note: idea taken from https://stackoverflow.com/questions/6839508/test-if-stdin-has-input-for-c-windows-and-or-linux
+// Note: ideas taken from https://stackoverflow.com/questions/6839508/test-if-stdin-has-input-for-c-windows-and-or-linux
 // PeekNamedPipe: https://learn.microsoft.com/en-us/windows/win32/api/namedpipeapi/nf-namedpipeapi-peeknamedpipe
-// "GetFileType can assist in determining what device type the handle refers to. A console handle presents as FILE_TYPE_CHAR."
-// https://learn.microsoft.com/en-us/windows/console/console-handles
 func syscall_select(n int, r, w, e *platform.FdSet, timeout *time.Duration) (int, error) {
 	if n == 0 {
 		// Don't block indefinitely.
 		if timeout == nil {
-			return -1, syscall.ENOSYS
+			return -1, sys.ENOSYS
 		}
 		time.Sleep(*timeout)
 		return 0, nil
 	}
-	if r.IsSet(wasiFdStdin) {
-		fileType, err := syscall.GetFileType(syscall.Stdin)
-		if err != nil {
-			return 0, err
-		}
-		if fileType&syscall.FILE_TYPE_CHAR != 0 {
-			res, err := pollNamedPipe(context.TODO(), syscall.Stdin, timeout)
-			if err != nil {
-				return -1, err
-			}
-			if !res {
-				r.Zero()
-				return 0, nil
-			}
-		}
-		r.Zero()
-		r.Set(wasiFdStdin)
-		return 1, nil
+
+	n, errno := selectAllHandles(context.TODO(), r, w, e, timeout)
+	if errno == 0 {
+		return n, nil
 	}
-	return -1, syscall.ENOSYS
+	return n, errno
 }
 
-// pollNamedPipe polls the given named pipe handle for the given duration.
+// selectAllHandles emulates a general-purpose POSIX select on Windows.
 //
 // The implementation actually polls every 100 milliseconds until it reaches the given duration.
 // The duration may be nil, in which case it will wait undefinely. The given ctx is
-// used to allow for cancellation. Currently used only in tests.
-func pollNamedPipe(ctx context.Context, pipeHandle syscall.Handle, duration *time.Duration) (bool, error) {
-	// Short circuit when the duration is zero.
-	if duration != nil && *duration == time.Duration(0) {
-		return peekNamedPipe(pipeHandle)
+// used to allow for cancellation, and it is currently used only in tests.
+//
+// As indicated in the man page for select [1], r, w, e are modified upon completion:
+//
+// "Upon successful completion, the pselect() or select() function shall modify the objects pointed to by the readfds,
+// writefds, and errorfds arguments to indicate which file descriptors are ready for reading, ready for writing,
+// or have an error condition pending, respectively, and shall return the total number of ready descriptors in all the output sets"
+//
+// However, for our purposes, this may be pedantic because currently we do not check the values of r, w, e
+// after the invocation of select; thus, this behavior may be subject to change in the future for the sake of simplicity.
+//
+// [1]: https://linux.die.net/man/3/select
+func selectAllHandles(ctx context.Context, r, w, e *platform.FdSet, duration *time.Duration) (n int, errno sys.Errno) {
+	r2, w2, e2 := r.Copy(), w.Copy(), e.Copy()
+	n, errno = peekAllHandles(r2, w2, e2)
+	// Short circuit when there is an error, there is data or the duration is zero.
+	if errno != 0 || n > 0 || (duration != nil && *duration == time.Duration(0)) {
+		r.SetAll(r2)
+		w.SetAll(w2)
+		e.SetAll(e2)
+		return
 	}
 
 	// Ticker that emits at every pollInterval.
 	tick := time.NewTicker(pollInterval)
-	tichCh := tick.C
+	tickCh := tick.C
 	defer tick.Stop()
 
 	// Timer that expires after the given duration.
@@ -93,35 +89,85 @@ func pollNamedPipe(ctx context.Context, pipeHandle syscall.Handle, duration *tim
 	for {
 		select {
 		case <-ctx.Done():
-			return false, nil
+			r.Zero()
+			w.Zero()
+			e.Zero()
+			return
 		case <-afterCh:
-			return false, nil
-		case <-tichCh:
-			res, err := peekNamedPipe(pipeHandle)
-			if err != nil {
-				return false, err
-			}
-			if res {
-				return true, nil
+			r.Zero()
+			w.Zero()
+			e.Zero()
+			return
+		case <-tickCh:
+			r2, w2, e2 = r.Copy(), w.Copy(), e.Copy()
+			n, errno = peekAllHandles(r2, w2, e2)
+			if errno != 0 || n > 0 {
+				r.SetAll(r2)
+				w.SetAll(w2)
+				e.SetAll(e2)
+				return
 			}
 		}
 	}
 }
 
-// peekNamedPipe partially exposes PeekNamedPipe from the Win32 API
-// see https://learn.microsoft.com/en-us/windows/win32/api/namedpipeapi/nf-namedpipeapi-peeknamedpipe
-func peekNamedPipe(handle syscall.Handle) (bool, error) {
-	var totalBytesAvail uint32
-	totalBytesPtr := unsafe.Pointer(&totalBytesAvail)
-	_, _, err := procPeekNamedPipe.Call(
-		uintptr(handle),        // [in]            HANDLE  hNamedPipe,
-		0,                      // [out, optional] LPVOID  lpBuffer,
-		0,                      // [in]            DWORD   nBufferSize,
-		0,                      // [out, optional] LPDWORD lpBytesRead
-		uintptr(totalBytesPtr), // [out, optional] LPDWORD lpTotalBytesAvail,
-		0)                      // [out, optional] LPDWORD lpBytesLeftThisMessage
-	if err == syscall.Errno(0) {
-		return totalBytesAvail > 0, nil
+func peekAllHandles(r, w, e *platform.FdSet) (int, sys.Errno) {
+	// pipes are not checked on w, e
+	w.Pipes().Zero()
+	e.Pipes().Zero()
+
+	// peek pipes only for reading
+	errno := peekAllPipes(r.Pipes())
+	if errno != 0 {
+		return 0, errno
 	}
-	return totalBytesAvail > 0, err
+
+	_, errno = winsock_select(r.Sockets(), w.Sockets(), e.Sockets(), &zeroDuration)
+	if errno != 0 {
+		return 0, errno
+	}
+
+	return r.Count() + w.Count() + e.Count(), 0
+}
+
+func peekAllPipes(pipeHandles *platform.WinSockFdSet) sys.Errno {
+	ready := &platform.WinSockFdSet{}
+	for i := 0; i < pipeHandles.Count(); i++ {
+		h := pipeHandles.Get(i)
+		bytes, errno := peekNamedPipe(h)
+		if bytes > 0 {
+			ready.Set(int(h))
+		}
+		if errno != 0 {
+			return sys.UnwrapOSError(errno)
+		}
+	}
+	*pipeHandles = *ready
+	return 0
+}
+
+func winsock_select(r, w, e *platform.WinSockFdSet, timeout *time.Duration) (int, sys.Errno) {
+	if r.Count() == 0 && w.Count() == 0 && e.Count() == 0 {
+		return 0, 0
+	}
+
+	var t *syscall.Timeval
+	if timeout != nil {
+		tv := syscall.NsecToTimeval(timeout.Nanoseconds())
+		t = &tv
+	}
+
+	rp := unsafe.Pointer(r)
+	wp := unsafe.Pointer(w)
+	ep := unsafe.Pointer(e)
+	tp := unsafe.Pointer(t)
+
+	r0, _, err := syscall.SyscallN(
+		procselect.Addr(),
+		uintptr(0), // the first argument is ignored and exists only for compat with BSD sockets.
+		uintptr(rp),
+		uintptr(wp),
+		uintptr(ep),
+		uintptr(tp))
+	return int(r0), sys.UnwrapOSError(err)
 }

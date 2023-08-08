@@ -2,10 +2,10 @@ package wasi_snapshot_preview1
 
 import (
 	"context"
-	"syscall"
 	"time"
 
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental/sys"
 	internalsys "github.com/tetratelabs/wazero/internal/sys"
 	"github.com/tetratelabs/wazero/internal/wasip1"
 	"github.com/tetratelabs/wazero/internal/wasm"
@@ -18,15 +18,15 @@ import (
 //
 //   - in: pointer to the subscriptions (48 bytes each)
 //   - out: pointer to the resulting events (32 bytes each)
-//   - nsubscriptions: count of subscriptions, zero returns syscall.EINVAL.
+//   - nsubscriptions: count of subscriptions, zero returns sys.EINVAL.
 //   - resultNevents: count of events.
 //
 // Result (Errno)
 //
 // The return value is 0 except the following error conditions:
-//   - syscall.EINVAL: the parameters are invalid
-//   - syscall.ENOTSUP: a parameters is valid, but not yet supported.
-//   - syscall.EFAULT: there is not enough memory to read the subscriptions or
+//   - sys.EINVAL: the parameters are invalid
+//   - sys.ENOTSUP: a parameters is valid, but not yet supported.
+//   - sys.EFAULT: there is not enough memory to read the subscriptions or
 //     write results.
 //
 // # Notes
@@ -49,14 +49,14 @@ type event struct {
 	outOffset uint32
 }
 
-func pollOneoffFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
+func pollOneoffFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
 	in := uint32(params[0])
 	out := uint32(params[1])
 	nsubscriptions := uint32(params[2])
 	resultNevents := uint32(params[3])
 
 	if nsubscriptions == 0 {
-		return syscall.EINVAL
+		return sys.EINVAL
 	}
 
 	mem := mod.Memory()
@@ -64,7 +64,7 @@ func pollOneoffFn(_ context.Context, mod api.Module, params []uint64) syscall.Er
 	// Ensure capacity prior to the read loop to reduce error handling.
 	inBuf, ok := mem.Read(in, nsubscriptions*48)
 	if !ok {
-		return syscall.EFAULT
+		return sys.EFAULT
 	}
 	outBuf, ok := mem.Read(out, nsubscriptions*32)
 	// zero-out all buffer before writing
@@ -73,21 +73,21 @@ func pollOneoffFn(_ context.Context, mod api.Module, params []uint64) syscall.Er
 	}
 
 	if !ok {
-		return syscall.EFAULT
+		return sys.EFAULT
 	}
 
 	// Eagerly write the number of events which will equal subscriptions unless
 	// there's a fault in parsing (not processing).
 	if !mod.Memory().WriteUint32Le(resultNevents, nsubscriptions) {
-		return syscall.EFAULT
+		return sys.EFAULT
 	}
 
 	// Loop through all subscriptions and write their output.
 
 	// Extract FS context, used in the body of the for loop for FS access.
 	fsc := mod.(*wasm.ModuleInstance).Sys.FS()
-	// Slice of events that are processed out of the loop (stdin subscribers).
-	var stdinSubs []*event
+	// Slice of events that are processed out of the loop (blocking stdin subscribers).
+	var blockingStdinSubs []*event
 	// The timeout is initialized at max Duration, the loop will find the minimum.
 	var timeout time.Duration = 1<<63 - 1
 	// Count of all the clock subscribers that have been already written back to outBuf.
@@ -129,27 +129,35 @@ func pollOneoffFn(_ context.Context, mod api.Module, params []uint64) syscall.Er
 		case wasip1.EventTypeFdRead:
 			fd := int32(le.Uint32(argBuf))
 			if fd < 0 {
-				return syscall.EBADF
+				return sys.EBADF
 			}
-			if fd == internalsys.FdStdin {
-				// if the fd is Stdin, do not ack yet,
-				// append to a slice for delayed evaluation.
-				stdinSubs = append(stdinSubs, evt)
+			if file, ok := fsc.LookupFile(fd); !ok {
+				evt.errno = wasip1.ErrnoBadf
+				writeEvent(outBuf, evt)
+				readySubs++
+				continue
+			} else if fd == internalsys.FdStdin && !file.File.IsNonblock() {
+				// if the fd is Stdin, and it is in non-blocking mode,
+				// do not ack yet, append to a slice for delayed evaluation.
+				blockingStdinSubs = append(blockingStdinSubs, evt)
 			} else {
-				evt.errno = processFDEventRead(fsc, fd)
 				writeEvent(outBuf, evt)
 				readySubs++
 			}
 		case wasip1.EventTypeFdWrite:
 			fd := int32(le.Uint32(argBuf))
 			if fd < 0 {
-				return syscall.EBADF
+				return sys.EBADF
 			}
-			evt.errno = processFDEventWrite(fsc, fd)
+			if _, ok := fsc.LookupFile(fd); ok {
+				evt.errno = wasip1.ErrnoNotsup
+			} else {
+				evt.errno = wasip1.ErrnoBadf
+			}
 			readySubs++
 			writeEvent(outBuf, evt)
 		default:
-			return syscall.EINVAL
+			return sys.EINVAL
 		}
 	}
 
@@ -159,11 +167,11 @@ func pollOneoffFn(_ context.Context, mod api.Module, params []uint64) syscall.Er
 		timeout = 0
 	}
 
-	// If there are stdin subscribers, check for data with given timeout.
-	if len(stdinSubs) > 0 {
+	// If there are blocking stdin subscribers, check for data with given timeout.
+	if len(blockingStdinSubs) > 0 {
 		stdin, ok := fsc.LookupFile(internalsys.FdStdin)
 		if !ok {
-			return syscall.EBADF
+			return sys.EBADF
 		}
 		// Wait for the timeout to expire, or for some data to become available on Stdin.
 		stdinReady, errno := stdin.File.PollRead(&timeout)
@@ -172,9 +180,9 @@ func pollOneoffFn(_ context.Context, mod api.Module, params []uint64) syscall.Er
 		}
 		if stdinReady {
 			// stdin has data ready to for reading, write back all the events
-			for i := range stdinSubs {
+			for i := range blockingStdinSubs {
 				readySubs++
-				evt := stdinSubs[i]
+				evt := blockingStdinSubs[i]
 				evt.errno = 0
 				writeEvent(outBuf, evt)
 			}
@@ -187,7 +195,7 @@ func pollOneoffFn(_ context.Context, mod api.Module, params []uint64) syscall.Er
 
 	if readySubs != nsubscriptions {
 		if !mod.Memory().WriteUint32Le(resultNevents, readySubs+clockEvents) {
-			return syscall.EFAULT
+			return sys.EFAULT
 		}
 	}
 
@@ -196,20 +204,20 @@ func pollOneoffFn(_ context.Context, mod api.Module, params []uint64) syscall.Er
 
 // processClockEvent supports only relative name events, as that's what's used
 // to implement sleep in various compilers including Rust, Zig and TinyGo.
-func processClockEvent(inBuf []byte) (time.Duration, syscall.Errno) {
+func processClockEvent(inBuf []byte) (time.Duration, sys.Errno) {
 	_ /* ID */ = le.Uint32(inBuf[0:8])          // See below
 	timeout := le.Uint64(inBuf[8:16])           // nanos if relative
 	_ /* precision */ = le.Uint64(inBuf[16:24]) // Unused
 	flags := le.Uint16(inBuf[24:32])
 
-	var err syscall.Errno
+	var err sys.Errno
 	// subclockflags has only one flag defined:  subscription_clock_abstime
 	switch flags {
 	case 0: // relative time
 	case 1: // subscription_clock_abstime
-		err = syscall.ENOTSUP
+		err = sys.ENOTSUP
 	default: // subclockflags has only one flag defined.
-		err = syscall.EINVAL
+		err = sys.EINVAL
 	}
 
 	if err != 0 {
@@ -221,23 +229,6 @@ func processClockEvent(inBuf []byte) (time.Duration, syscall.Errno) {
 
 		return time.Duration(timeout), 0
 	}
-}
-
-// processFDEventRead returns ErrnoSuccess if the file exists and ErrnoBadf otherwise.
-func processFDEventRead(fsc *internalsys.FSContext, fd int32) wasip1.Errno {
-	if _, ok := fsc.LookupFile(fd); ok {
-		return wasip1.ErrnoSuccess
-	} else {
-		return wasip1.ErrnoBadf
-	}
-}
-
-// processFDEventWrite returns ErrnoNotsup if the file exists and ErrnoBadf otherwise.
-func processFDEventWrite(fsc *internalsys.FSContext, fd int32) wasip1.Errno {
-	if _, ok := fsc.LookupFile(fd); ok {
-		return wasip1.ErrnoNotsup
-	}
-	return wasip1.ErrnoBadf
 }
 
 // writeEvent writes the event corresponding to the processed subscription.

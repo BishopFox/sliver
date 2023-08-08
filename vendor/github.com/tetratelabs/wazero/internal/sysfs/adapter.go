@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
-	"syscall"
 
+	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
 	"github.com/tetratelabs/wazero/internal/fsapi"
+	"github.com/tetratelabs/wazero/sys"
 )
 
-// Adapt adapts the input to api.FS unless it is already one. Use NewDirFS instead
+// Adapt adapts the input to fsapi.FS unless it is already one. Use NewDirFS instead
 // of os.DirFS as it handles interop issues such as windows support.
 //
 // Note: This performs no flag verification on OpenFile. fsapi.FS cannot read
@@ -36,26 +37,26 @@ func (a *adapter) String() string {
 	return fmt.Sprintf("%v", a.fs)
 }
 
-// OpenFile implements the same method as documented on api.FS
-func (a *adapter) OpenFile(path string, flag int, perm fs.FileMode) (fsapi.File, syscall.Errno) {
+// OpenFile implements the same method as documented on fsapi.FS
+func (a *adapter) OpenFile(path string, flag fsapi.Oflag, perm fs.FileMode) (fsapi.File, experimentalsys.Errno) {
 	return OpenFSFile(a.fs, cleanPath(path), flag, perm)
 }
 
-// Stat implements the same method as documented on api.FS
-func (a *adapter) Stat(path string) (fsapi.Stat_t, syscall.Errno) {
-	f, errno := a.OpenFile(path, syscall.O_RDONLY, 0)
+// Stat implements the same method as documented on fsapi.FS
+func (a *adapter) Stat(path string) (sys.Stat_t, experimentalsys.Errno) {
+	f, errno := a.OpenFile(path, fsapi.O_RDONLY, 0)
 	if errno != 0 {
-		return fsapi.Stat_t{}, errno
+		return sys.Stat_t{}, errno
 	}
 	defer f.Close()
 	return f.Stat()
 }
 
-// Lstat implements the same method as documented on api.FS
-func (a *adapter) Lstat(path string) (fsapi.Stat_t, syscall.Errno) {
-	// At this time, we make the assumption that api.FS instances do not support
+// Lstat implements the same method as documented on fsapi.FS
+func (a *adapter) Lstat(path string) (sys.Stat_t, experimentalsys.Errno) {
+	// At this time, we make the assumption that fsapi.FS instances do not support
 	// symbolic links, therefore Lstat is the same as Stat. This is obviously
-	// not true but until api.FS has a solid story for how to handle symlinks we
+	// not true but until fsapi.FS has a solid story for how to handle symlinks we
 	// are better off not making a decision that would be difficult to revert
 	// later on.
 	//

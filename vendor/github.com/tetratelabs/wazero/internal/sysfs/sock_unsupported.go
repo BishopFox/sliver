@@ -4,8 +4,8 @@ package sysfs
 
 import (
 	"net"
-	"syscall"
 
+	"github.com/tetratelabs/wazero/experimental/sys"
 	socketapi "github.com/tetratelabs/wazero/internal/sock"
 )
 
@@ -21,6 +21,6 @@ type unsupportedSockFile struct {
 }
 
 // Accept implements the same method as documented on socketapi.TCPSock
-func (f *unsupportedSockFile) Accept() (socketapi.TCPConn, syscall.Errno) {
-	return nil, syscall.ENOSYS
+func (f *unsupportedSockFile) Accept() (socketapi.TCPConn, sys.Errno) {
+	return nil, sys.ENOSYS
 }

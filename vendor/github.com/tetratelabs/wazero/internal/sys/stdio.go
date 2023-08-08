@@ -3,12 +3,12 @@ package sys
 import (
 	"io"
 	"os"
-	"syscall"
 	"time"
 
+	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
 	"github.com/tetratelabs/wazero/internal/fsapi"
-	"github.com/tetratelabs/wazero/internal/platform"
 	"github.com/tetratelabs/wazero/internal/sysfs"
+	"github.com/tetratelabs/wazero/sys"
 )
 
 // StdinFile is a fs.ModeDevice file for use implementing FdStdin.
@@ -19,10 +19,10 @@ type StdinFile struct {
 	io.Reader
 }
 
-// Read implements the same method as documented on internalapi.File
-func (f *StdinFile) Read(buf []byte) (int, syscall.Errno) {
+// Read implements the same method as documented on fsapi.File
+func (f *StdinFile) Read(buf []byte) (int, experimentalsys.Errno) {
 	n, err := f.Reader.Read(buf)
-	return n, platform.UnwrapOSError(err)
+	return n, experimentalsys.UnwrapOSError(err)
 }
 
 type writerFile struct {
@@ -31,10 +31,10 @@ type writerFile struct {
 	w io.Writer
 }
 
-// Write implements the same method as documented on internalapi.File
-func (f *writerFile) Write(buf []byte) (int, syscall.Errno) {
+// Write implements the same method as documented on fsapi.File
+func (f *writerFile) Write(buf []byte) (int, experimentalsys.Errno) {
 	n, err := f.w.Write(buf)
-	return n, platform.UnwrapOSError(err)
+	return n, experimentalsys.UnwrapOSError(err)
 }
 
 // noopStdinFile is a fs.ModeDevice file for use implementing FdStdin. This is
@@ -44,18 +44,13 @@ type noopStdinFile struct {
 	noopStdioFile
 }
 
-// AccessMode implements the same method as documented on internalapi.File
-func (noopStdinFile) AccessMode() int {
-	return syscall.O_RDONLY
-}
-
-// Read implements the same method as documented on internalapi.File
-func (noopStdinFile) Read([]byte) (int, syscall.Errno) {
+// Read implements the same method as documented on fsapi.File
+func (noopStdinFile) Read([]byte) (int, experimentalsys.Errno) {
 	return 0, 0 // Always EOF
 }
 
-// PollRead implements the same method as documented on internalapi.File
-func (noopStdinFile) PollRead(*time.Duration) (ready bool, errno syscall.Errno) {
+// PollRead implements the same method as documented on fsapi.File
+func (noopStdinFile) PollRead(*time.Duration) (ready bool, errno experimentalsys.Errno) {
 	return true, 0 // always ready to read nothing
 }
 
@@ -65,13 +60,8 @@ type noopStdoutFile struct {
 	noopStdioFile
 }
 
-// AccessMode implements the same method as documented on internalapi.File
-func (noopStdoutFile) AccessMode() int {
-	return syscall.O_WRONLY
-}
-
-// Write implements the same method as documented on internalapi.File
-func (noopStdoutFile) Write(buf []byte) (int, syscall.Errno) {
+// Write implements the same method as documented on fsapi.File
+func (noopStdoutFile) Write(buf []byte) (int, experimentalsys.Errno) {
 	return len(buf), 0 // same as io.Discard
 }
 
@@ -79,18 +69,18 @@ type noopStdioFile struct {
 	fsapi.UnimplementedFile
 }
 
-// Stat implements the same method as documented on internalapi.File
-func (noopStdioFile) Stat() (fsapi.Stat_t, syscall.Errno) {
-	return fsapi.Stat_t{Mode: modeDevice, Nlink: 1}, 0
+// Stat implements the same method as documented on fsapi.File
+func (noopStdioFile) Stat() (sys.Stat_t, experimentalsys.Errno) {
+	return sys.Stat_t{Mode: modeDevice, Nlink: 1}, 0
 }
 
-// IsDir implements the same method as documented on internalapi.File
-func (noopStdioFile) IsDir() (bool, syscall.Errno) {
+// IsDir implements the same method as documented on fsapi.File
+func (noopStdioFile) IsDir() (bool, experimentalsys.Errno) {
 	return false, 0
 }
 
-// Close implements the same method as documented on internalapi.File
-func (noopStdioFile) Close() (errno syscall.Errno) { return }
+// Close implements the same method as documented on fsapi.File
+func (noopStdioFile) Close() (errno experimentalsys.Errno) { return }
 
 func stdinFileEntry(r io.Reader) (*FileEntry, error) {
 	if r == nil {

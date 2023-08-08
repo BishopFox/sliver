@@ -7,15 +7,15 @@ import (
 	"os"
 	"path"
 	"runtime"
-	"strings"
-	"syscall"
 	"testing"
 	gofstest "testing/fstest"
 	"time"
 
+	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
 	"github.com/tetratelabs/wazero/internal/fsapi"
 	"github.com/tetratelabs/wazero/internal/platform"
 	"github.com/tetratelabs/wazero/internal/testing/require"
+	"github.com/tetratelabs/wazero/sys"
 )
 
 //go:embed file_test.go
@@ -48,17 +48,13 @@ func TestStdioFileSetNonblock(t *testing.T) {
 }
 
 func TestRegularFileSetNonblock(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Nonblock on regular files is not supported on Windows")
-	}
-
 	// Test using os.Pipe as it is known to support non-blocking reads.
 	r, w, err := os.Pipe()
 	require.NoError(t, err)
 	defer r.Close()
 	defer w.Close()
 
-	rF := newOsFile("", syscall.O_RDONLY, 0, r)
+	rF := newOsFile("", fsapi.O_RDONLY, 0, r)
 
 	errno := rF.SetNonblock(true)
 	require.EqualErrno(t, 0, errno)
@@ -67,7 +63,7 @@ func TestRegularFileSetNonblock(t *testing.T) {
 	// Read from the file without ever writing to it should not block.
 	buf := make([]byte, 8)
 	_, e := rF.Read(buf)
-	require.EqualErrno(t, syscall.EAGAIN, e)
+	require.EqualErrno(t, experimentalsys.EAGAIN, e)
 
 	errno = rF.SetNonblock(false)
 	require.EqualErrno(t, 0, errno)
@@ -88,11 +84,38 @@ func TestReadFdNonblock(t *testing.T) {
 	// Read from the file without ever writing to it should not block.
 	buf := make([]byte, 8)
 	_, e := readFd(fd, buf)
-	if runtime.GOOS == "windows" {
-		require.EqualErrno(t, syscall.ENOSYS, e)
-	} else {
-		require.EqualErrno(t, syscall.EAGAIN, e)
+	require.EqualErrno(t, experimentalsys.EAGAIN, e)
+}
+
+func TestWriteFdNonblock(t *testing.T) {
+	// Test using os.Pipe as it is known to support non-blocking reads.
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	defer r.Close()
+	defer w.Close()
+
+	fd := w.Fd()
+	err = setNonblock(fd, true)
+
+	require.NoError(t, err)
+
+	// Create a buffer (the content is not relevant)
+	buf := make([]byte, 1024)
+	// Write to the file until the pipe buffer gets filled up.
+	numWrites := 100
+	for i := 0; i < numWrites; i++ {
+		_, e := writeFd(fd, buf)
+		if e != 0 {
+			if runtime.GOOS == "windows" {
+				// This is currently not supported on Windows.
+				require.EqualErrno(t, experimentalsys.ENOSYS, e)
+			} else {
+				require.EqualErrno(t, experimentalsys.EAGAIN, e)
+			}
+			return
+		}
 	}
+	t.Fatal("writeFd should return EAGAIN at some point")
 }
 
 func TestFileSetAppend(t *testing.T) {
@@ -102,7 +125,7 @@ func TestFileSetAppend(t *testing.T) {
 	require.NoError(t, os.WriteFile(fPath, []byte("0123456789"), 0o600))
 
 	// Open without APPEND.
-	f, errno := OpenOSFile(fPath, os.O_RDWR, 0o600)
+	f, errno := OpenOSFile(fPath, fsapi.O_RDWR, 0o600)
 	require.EqualErrno(t, 0, errno)
 	require.False(t, f.IsAppend())
 
@@ -131,6 +154,16 @@ func TestFileSetAppend(t *testing.T) {
 	requireFileContent("wazero6789wazero")
 }
 
+func TestStdioFile_SetAppend(t *testing.T) {
+	// SetAppend should not affect Stdio.
+	file, err := NewStdioFile(false, os.Stdout)
+	require.NoError(t, err)
+	errno := file.SetAppend(true)
+	require.EqualErrno(t, 0, errno)
+	_, errno = file.Write([]byte{})
+	require.EqualErrno(t, 0, errno)
+}
+
 func TestFileIno(t *testing.T) {
 	tmpDir := t.TempDir()
 	dirFS, embedFS, mapFS := dirEmbedMapFS(t, tmpDir)
@@ -142,7 +175,7 @@ func TestFileIno(t *testing.T) {
 	tests := []struct {
 		name        string
 		fs          fs.FS
-		expectedIno uint64
+		expectedIno sys.Inode
 	}{
 		{name: "os.DirFS", fs: dirFS, expectedIno: st.Ino},
 		{name: "embed.api.FS", fs: embedFS},
@@ -153,39 +186,44 @@ func TestFileIno(t *testing.T) {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
-			d, errno := OpenFSFile(tc.fs, ".", syscall.O_RDONLY, 0)
+			d, errno := OpenFSFile(tc.fs, ".", fsapi.O_RDONLY, 0)
 			require.EqualErrno(t, 0, errno)
 			defer d.Close()
 
 			ino, errno := d.Ino()
 			require.EqualErrno(t, 0, errno)
-			if !canReadDirInode() {
-				tc.expectedIno = 0
+			// Results are inconsistent, so don't validate the opposite.
+			if statSetsIno() {
+				require.Equal(t, tc.expectedIno, ino)
 			}
-			require.Equal(t, tc.expectedIno, ino)
 		})
 	}
 
 	t.Run("OS", func(t *testing.T) {
-		d, errno := OpenOSFile(tmpDir, syscall.O_RDONLY, 0)
+		d, errno := OpenOSFile(tmpDir, fsapi.O_RDONLY, 0)
 		require.EqualErrno(t, 0, errno)
 		defer d.Close()
 
 		ino, errno := d.Ino()
 		require.EqualErrno(t, 0, errno)
-		if canReadDirInode() {
+		// Results are inconsistent, so don't validate the opposite.
+		if statSetsIno() {
 			require.Equal(t, st.Ino, ino)
-		} else {
-			require.Zero(t, ino)
 		}
 	})
 }
 
-func canReadDirInode() bool {
+// statSetsIno returns true if this will set fsapi.Stat_t Ino on stat. The
+// reverse doesn't mean it won't. Rather it is inconsistent. This is needed
+// because Windows on Go 1.18 sometimes, but not always returns non-zero inode.
+func statSetsIno() bool {
 	if runtime.GOOS != "windows" {
 		return true
 	} else {
-		return strings.HasPrefix(runtime.Version(), "go1.20")
+		// Go can read the inode via a Windows file handle, but it is
+		// inconsistent on Go 1.18.
+		// TODO: check on 1.19 can!
+		return platform.IsAtLeastGo120
 	}
 }
 
@@ -206,7 +244,7 @@ func TestFileIsDir(t *testing.T) {
 
 		t.Run(tc.name, func(t *testing.T) {
 			t.Run("file", func(t *testing.T) {
-				f, errno := OpenFSFile(tc.fs, wazeroFile, syscall.O_RDONLY, 0)
+				f, errno := OpenFSFile(tc.fs, wazeroFile, fsapi.O_RDONLY, 0)
 				require.EqualErrno(t, 0, errno)
 				defer f.Close()
 
@@ -216,7 +254,7 @@ func TestFileIsDir(t *testing.T) {
 			})
 
 			t.Run("dir", func(t *testing.T) {
-				d, errno := OpenFSFile(tc.fs, ".", syscall.O_RDONLY, 0)
+				d, errno := OpenFSFile(tc.fs, ".", fsapi.O_RDONLY, 0)
 				require.EqualErrno(t, 0, errno)
 				defer d.Close()
 
@@ -228,7 +266,7 @@ func TestFileIsDir(t *testing.T) {
 	}
 
 	t.Run("OS dir", func(t *testing.T) {
-		d, errno := OpenOSFile(t.TempDir(), syscall.O_RDONLY, 0)
+		d, errno := OpenOSFile(t.TempDir(), fsapi.O_RDONLY, 0)
 		require.EqualErrno(t, 0, errno)
 		defer d.Close()
 
@@ -256,7 +294,7 @@ func TestFileReadAndPread(t *testing.T) {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
-			f, errno := OpenFSFile(tc.fs, wazeroFile, syscall.O_RDONLY, 0)
+			f, errno := OpenFSFile(tc.fs, wazeroFile, fsapi.O_RDONLY, 0)
 			require.EqualErrno(t, 0, errno)
 			defer f.Close()
 
@@ -296,10 +334,6 @@ func TestFilePollRead(t *testing.T) {
 
 	// When there's nothing in the pipe, it isn't ready.
 	ready, errno := rF.PollRead(&timeout)
-	if runtime.GOOS == "windows" {
-		require.EqualErrno(t, syscall.ENOSYS, errno)
-		t.Skip("TODO: windows File.PollRead")
-	}
 	require.EqualErrno(t, 0, errno)
 	require.False(t, ready)
 
@@ -350,7 +384,7 @@ func TestFileRead_empty(t *testing.T) {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
-			f, errno := OpenFSFile(tc.fs, emptyFile, syscall.O_RDONLY, 0)
+			f, errno := OpenFSFile(tc.fs, emptyFile, fsapi.O_RDONLY, 0)
 			require.EqualErrno(t, 0, errno)
 			defer f.Close()
 
@@ -383,13 +417,13 @@ func TestFilePread_Unsupported(t *testing.T) {
 	embedFS, err := fs.Sub(testdata, "testdata")
 	require.NoError(t, err)
 
-	f, errno := OpenFSFile(&maskFS{embedFS}, emptyFile, syscall.O_RDONLY, 0)
+	f, errno := OpenFSFile(&maskFS{embedFS}, emptyFile, fsapi.O_RDONLY, 0)
 	require.EqualErrno(t, 0, errno)
 	defer f.Close()
 
 	buf := make([]byte, 3)
 	_, errno = f.Pread(buf, 0)
-	require.EqualErrno(t, syscall.ENOSYS, errno)
+	require.EqualErrno(t, experimentalsys.ENOSYS, errno)
 }
 
 func TestFileRead_Errors(t *testing.T) {
@@ -397,20 +431,20 @@ func TestFileRead_Errors(t *testing.T) {
 	path := path.Join(t.TempDir(), emptyFile)
 
 	// Open the file write-only
-	flag := syscall.O_WRONLY | syscall.O_CREAT
+	flag := fsapi.O_WRONLY | fsapi.O_CREAT
 	f := requireOpenFile(t, path, flag, 0o600)
 	defer f.Close()
 	buf := make([]byte, 5)
 
 	tests := []struct {
 		name string
-		fn   func(fsapi.File) syscall.Errno
+		fn   func(fsapi.File) experimentalsys.Errno
 	}{
-		{name: "Read", fn: func(f fsapi.File) syscall.Errno {
+		{name: "Read", fn: func(f fsapi.File) experimentalsys.Errno {
 			_, errno := f.Read(buf)
 			return errno
 		}},
-		{name: "Pread", fn: func(f fsapi.File) syscall.Errno {
+		{name: "Pread", fn: func(f fsapi.File) experimentalsys.Errno {
 			_, errno := f.Pread(buf, 0)
 			return errno
 		}},
@@ -423,7 +457,7 @@ func TestFileRead_Errors(t *testing.T) {
 			t.Run("EBADF when not open for reading", func(t *testing.T) {
 				// The descriptor exists, but not open for reading
 				errno := tc.fn(f)
-				require.EqualErrno(t, syscall.EBADF, errno)
+				require.EqualErrno(t, experimentalsys.EBADF, errno)
 			})
 			testEISDIR(t, tc.fn)
 		})
@@ -431,15 +465,25 @@ func TestFileRead_Errors(t *testing.T) {
 }
 
 func TestFileSeek(t *testing.T) {
-	dirFS, embedFS, mapFS := dirEmbedMapFS(t, t.TempDir())
+	tmpDir := t.TempDir()
+	dirFS, embedFS, mapFS := dirEmbedMapFS(t, tmpDir)
 
 	tests := []struct {
-		name string
-		fs   fs.FS
+		name     string
+		openFile func(string) (fsapi.File, experimentalsys.Errno)
 	}{
-		{name: "os.DirFS", fs: dirFS},
-		{name: "embed.api.FS", fs: embedFS},
-		{name: "fstest.MapFS", fs: mapFS},
+		{name: "fsFile os.DirFS", openFile: func(name string) (fsapi.File, experimentalsys.Errno) {
+			return OpenFSFile(dirFS, name, fsapi.O_RDONLY, 0)
+		}},
+		{name: "fsFile embed.api.FS", openFile: func(name string) (fsapi.File, experimentalsys.Errno) {
+			return OpenFSFile(embedFS, name, fsapi.O_RDONLY, 0)
+		}},
+		{name: "fsFile fstest.MapFS", openFile: func(name string) (fsapi.File, experimentalsys.Errno) {
+			return OpenFSFile(mapFS, name, fsapi.O_RDONLY, 0)
+		}},
+		{name: "osFile", openFile: func(name string) (fsapi.File, experimentalsys.Errno) {
+			return OpenOSFile(path.Join(tmpDir, name), fsapi.O_RDONLY, 0o666)
+		}},
 	}
 
 	buf := make([]byte, 3)
@@ -448,19 +492,19 @@ func TestFileSeek(t *testing.T) {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
-			f, errno := OpenFSFile(tc.fs, wazeroFile, syscall.O_RDONLY, 0)
+			f, errno := tc.openFile(wazeroFile)
 			require.EqualErrno(t, 0, errno)
 			defer f.Close()
 
 			// Shouldn't be able to use an invalid whence
 			_, errno = f.Seek(0, io.SeekEnd+1)
-			require.EqualErrno(t, syscall.EINVAL, errno)
+			require.EqualErrno(t, experimentalsys.EINVAL, errno)
 			_, errno = f.Seek(0, -1)
-			require.EqualErrno(t, syscall.EINVAL, errno)
+			require.EqualErrno(t, experimentalsys.EINVAL, errno)
 
 			// Shouldn't be able to seek before the file starts.
 			_, errno = f.Seek(-1, io.SeekStart)
-			require.EqualErrno(t, syscall.EINVAL, errno)
+			require.EqualErrno(t, experimentalsys.EINVAL, errno)
 
 			requireRead(t, f, buf) // read 3 bytes
 
@@ -491,29 +535,38 @@ func TestFileSeek(t *testing.T) {
 			require.Equal(t, "o\n", string(buf[:2]))
 
 			t.Run("directory seek to zero", func(t *testing.T) {
-				d, errno := OpenFSFile(tc.fs, ".", syscall.O_RDONLY, 0)
+				dotF, errno := tc.openFile(".")
 				require.EqualErrno(t, 0, errno)
-				defer d.Close()
+				defer dotF.Close()
 
-				_, errno = d.Seek(0, io.SeekStart)
+				dirents, errno := dotF.Readdir(-1)
 				require.EqualErrno(t, 0, errno)
+				direntCount := len(dirents)
+				require.False(t, direntCount == 0)
+
+				// rewind via seek to zero
+				newOffset, errno := dotF.Seek(0, io.SeekStart)
+				require.EqualErrno(t, 0, errno)
+				require.Zero(t, newOffset)
+
+				// redundantly seek to zero again
+				newOffset, errno = dotF.Seek(0, io.SeekStart)
+				require.EqualErrno(t, 0, errno)
+				require.Zero(t, newOffset)
+
+				// We should be able to read again
+				dirents, errno = dotF.Readdir(-1)
+				require.EqualErrno(t, 0, errno)
+				require.Equal(t, direntCount, len(dirents))
 			})
+
+			seekToZero := func(f fsapi.File) experimentalsys.Errno {
+				_, errno := f.Seek(0, io.SeekStart)
+				return errno
+			}
+			testEBADFIfFileClosed(t, seekToZero)
 		})
 	}
-
-	t.Run("os.File directory seek to zero", func(t *testing.T) {
-		d := requireOpenFile(t, os.TempDir(), syscall.O_RDONLY|fsapi.O_DIRECTORY, 0o666)
-		defer d.Close()
-
-		_, errno := d.Seek(0, io.SeekStart)
-		require.EqualErrno(t, 0, errno)
-	})
-
-	seekToZero := func(f fsapi.File) syscall.Errno {
-		_, errno := f.Seek(0, io.SeekStart)
-		return errno
-	}
-	testEBADFIfFileClosed(t, seekToZero)
 }
 
 func requireSeek(t *testing.T, f fsapi.File, off int64, whence int) int64 {
@@ -538,7 +591,7 @@ func TestFileSeek_empty(t *testing.T) {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
-			f, errno := OpenFSFile(tc.fs, emptyFile, syscall.O_RDONLY, 0)
+			f, errno := OpenFSFile(tc.fs, emptyFile, fsapi.O_RDONLY, 0)
 			require.EqualErrno(t, 0, errno)
 			defer f.Close()
 
@@ -561,19 +614,19 @@ func TestFileSeek_Unsupported(t *testing.T) {
 	embedFS, err := fs.Sub(testdata, "testdata")
 	require.NoError(t, err)
 
-	f, errno := OpenFSFile(&maskFS{embedFS}, emptyFile, syscall.O_RDONLY, 0)
+	f, errno := OpenFSFile(&maskFS{embedFS}, emptyFile, fsapi.O_RDONLY, 0)
 	require.EqualErrno(t, 0, errno)
 	defer f.Close()
 
 	_, errno = f.Seek(0, io.SeekCurrent)
-	require.EqualErrno(t, syscall.ENOSYS, errno)
+	require.EqualErrno(t, experimentalsys.ENOSYS, errno)
 }
 
 func TestFileWriteAndPwrite(t *testing.T) {
 	// fsapi.FS doesn't support writes, and there is no other built-in
 	// implementation except os.File.
 	path := path.Join(t.TempDir(), wazeroFile)
-	f := requireOpenFile(t, path, syscall.O_RDWR|os.O_CREATE, 0o600)
+	f := requireOpenFile(t, path, fsapi.O_RDWR|fsapi.O_CREAT, 0o600)
 	defer f.Close()
 
 	text := "wazero"
@@ -626,20 +679,20 @@ func TestFileWrite_empty(t *testing.T) {
 	// fsapi.FS doesn't support writes, and there is no other built-in
 	// implementation except os.File.
 	path := path.Join(t.TempDir(), emptyFile)
-	f := requireOpenFile(t, path, syscall.O_RDWR|os.O_CREATE, 0o600)
+	f := requireOpenFile(t, path, fsapi.O_RDWR|fsapi.O_CREAT, 0o600)
 	defer f.Close()
 
 	tests := []struct {
 		name string
-		fn   func(fsapi.File, []byte) (int, syscall.Errno)
+		fn   func(fsapi.File, []byte) (int, experimentalsys.Errno)
 	}{
-		{name: "Write", fn: func(f fsapi.File, buf []byte) (int, syscall.Errno) {
+		{name: "Write", fn: func(f fsapi.File, buf []byte) (int, experimentalsys.Errno) {
 			return f.Write(buf)
 		}},
-		{name: "Pwrite from zero", fn: func(f fsapi.File, buf []byte) (int, syscall.Errno) {
+		{name: "Pwrite from zero", fn: func(f fsapi.File, buf []byte) (int, experimentalsys.Errno) {
 			return f.Pwrite(buf, 0)
 		}},
-		{name: "Pwrite from 3", fn: func(f fsapi.File, buf []byte) (int, syscall.Errno) {
+		{name: "Pwrite from 3", fn: func(f fsapi.File, buf []byte) (int, experimentalsys.Errno) {
 			return f.Pwrite(buf, 3)
 		}},
 	}
@@ -666,19 +719,19 @@ func TestFileWrite_Unsupported(t *testing.T) {
 	embedFS, err := fs.Sub(testdata, "testdata")
 	require.NoError(t, err)
 
-	// Use syscall.O_RDWR so that it fails due to type not flags
-	f, errno := OpenFSFile(&maskFS{embedFS}, wazeroFile, syscall.O_RDWR, 0)
+	// Use fsapi.O_RDWR so that it fails due to type not flags
+	f, errno := OpenFSFile(&maskFS{embedFS}, wazeroFile, fsapi.O_RDWR, 0)
 	require.EqualErrno(t, 0, errno)
 	defer f.Close()
 
 	tests := []struct {
 		name string
-		fn   func(fsapi.File, []byte) (int, syscall.Errno)
+		fn   func(fsapi.File, []byte) (int, experimentalsys.Errno)
 	}{
-		{name: "Write", fn: func(f fsapi.File, buf []byte) (int, syscall.Errno) {
+		{name: "Write", fn: func(f fsapi.File, buf []byte) (int, experimentalsys.Errno) {
 			return f.Write(buf)
 		}},
-		{name: "Pwrite", fn: func(f fsapi.File, buf []byte) (int, syscall.Errno) {
+		{name: "Pwrite", fn: func(f fsapi.File, buf []byte) (int, experimentalsys.Errno) {
 			return f.Pwrite(buf, 0)
 		}},
 	}
@@ -690,7 +743,7 @@ func TestFileWrite_Unsupported(t *testing.T) {
 
 		t.Run(tc.name, func(t *testing.T) {
 			_, errno := tc.fn(f, buf)
-			require.EqualErrno(t, syscall.ENOSYS, errno)
+			require.EqualErrno(t, experimentalsys.ENOSYS, errno)
 		})
 	}
 }
@@ -703,20 +756,20 @@ func TestFileWrite_Errors(t *testing.T) {
 	require.NoError(t, of.Close())
 
 	// Open the file read-only
-	flag := syscall.O_RDONLY
+	flag := fsapi.O_RDONLY
 	f := requireOpenFile(t, path, flag, 0o600)
 	defer f.Close()
 	buf := []byte("wazero")
 
 	tests := []struct {
 		name string
-		fn   func(fsapi.File) syscall.Errno
+		fn   func(fsapi.File) experimentalsys.Errno
 	}{
-		{name: "Write", fn: func(f fsapi.File) syscall.Errno {
+		{name: "Write", fn: func(f fsapi.File) experimentalsys.Errno {
 			_, errno := f.Write(buf)
 			return errno
 		}},
-		{name: "Pwrite", fn: func(f fsapi.File) syscall.Errno {
+		{name: "Pwrite", fn: func(f fsapi.File) experimentalsys.Errno {
 			_, errno := f.Pwrite(buf, 0)
 			return errno
 		}},
@@ -729,7 +782,7 @@ func TestFileWrite_Errors(t *testing.T) {
 			t.Run("EBADF when not open for writing", func(t *testing.T) {
 				// The descriptor exists, but not open for writing
 				errno := tc.fn(f)
-				require.EqualErrno(t, syscall.EBADF, errno)
+				require.EqualErrno(t, experimentalsys.EBADF, errno)
 			})
 			testEISDIR(t, tc.fn)
 		})
@@ -744,14 +797,14 @@ func TestFileDatasync_NoError(t *testing.T) {
 	testSync_NoError(t, fsapi.File.Datasync)
 }
 
-func testSync_NoError(t *testing.T, sync func(fsapi.File) syscall.Errno) {
+func testSync_NoError(t *testing.T, sync func(fsapi.File) experimentalsys.Errno) {
 	roPath := "file_test.go"
-	ro, errno := OpenFSFile(embedFS, roPath, syscall.O_RDONLY, 0)
+	ro, errno := OpenFSFile(embedFS, roPath, fsapi.O_RDONLY, 0)
 	require.EqualErrno(t, 0, errno)
 	defer ro.Close()
 
 	rwPath := path.Join(t.TempDir(), "datasync")
-	rw, errno := OpenOSFile(rwPath, syscall.O_CREAT|syscall.O_RDWR, 0o600)
+	rw, errno := OpenOSFile(rwPath, fsapi.O_CREAT|fsapi.O_RDWR, 0o600)
 	require.EqualErrno(t, 0, errno)
 	defer rw.Close()
 
@@ -784,10 +837,10 @@ func TestFileDatasync(t *testing.T) {
 // testSync doesn't guarantee sync works because the operating system may
 // sync anyway. There is no test in Go for syscall.Fdatasync, but closest is
 // similar to below. Effectively, this only tests that things don't error.
-func testSync(t *testing.T, sync func(fsapi.File) syscall.Errno) {
+func testSync(t *testing.T, sync func(fsapi.File) experimentalsys.Errno) {
 	// Even though it is invalid, try to sync a directory
 	dPath := t.TempDir()
-	d := requireOpenFile(t, dPath, syscall.O_RDONLY, 0)
+	d := requireOpenFile(t, dPath, fsapi.O_RDONLY, 0)
 	defer d.Close()
 
 	errno := sync(d)
@@ -795,7 +848,7 @@ func testSync(t *testing.T, sync func(fsapi.File) syscall.Errno) {
 
 	fPath := path.Join(dPath, t.Name())
 
-	f := requireOpenFile(t, fPath, syscall.O_RDWR|os.O_CREATE, 0o600)
+	f := requireOpenFile(t, fPath, fsapi.O_RDWR|fsapi.O_CREAT, 0o600)
 	defer f.Close()
 
 	expected := "hello world!"
@@ -876,7 +929,7 @@ func TestFileTruncate(t *testing.T) {
 		})
 	}
 
-	truncateToZero := func(f fsapi.File) syscall.Errno {
+	truncateToZero := func(f fsapi.File) experimentalsys.Errno {
 		return f.Truncate(0)
 	}
 
@@ -894,7 +947,7 @@ func TestFileTruncate(t *testing.T) {
 		defer f.Close()
 
 		errno := f.Truncate(-1)
-		require.EqualErrno(t, syscall.EINVAL, errno)
+		require.EqualErrno(t, experimentalsys.EINVAL, errno)
 	})
 }
 
@@ -903,7 +956,7 @@ func TestFileUtimens(t *testing.T) {
 	case "linux", "darwin": // supported
 	case "freebsd": // TODO: support freebsd w/o CGO
 	case "windows":
-		if !platform.IsGo120 {
+		if !platform.IsAtLeastGo120 {
 			t.Skip("windows only works after Go 1.20") // TODO: possibly 1.19 ;)
 		}
 	default: // expect ENOSYS and callers need to fall back to Utimens
@@ -912,10 +965,10 @@ func TestFileUtimens(t *testing.T) {
 
 	testUtimens(t, true)
 
-	testEBADFIfFileClosed(t, func(f fsapi.File) syscall.Errno {
+	testEBADFIfFileClosed(t, func(f fsapi.File) experimentalsys.Errno {
 		return f.Utimens(nil)
 	})
-	testEBADFIfDirClosed(t, func(d fsapi.File) syscall.Errno {
+	testEBADFIfDirClosed(t, func(d fsapi.File) experimentalsys.Errno {
 		return d.Utimens(nil)
 	})
 }
@@ -989,18 +1042,18 @@ func TestNewStdioFile(t *testing.T) {
 	}
 }
 
-func testEBADFIfDirClosed(t *testing.T, fn func(fsapi.File) syscall.Errno) bool {
+func testEBADFIfDirClosed(t *testing.T, fn func(fsapi.File) experimentalsys.Errno) bool {
 	return t.Run("EBADF if dir closed", func(t *testing.T) {
-		d := requireOpenFile(t, t.TempDir(), syscall.O_RDONLY, 0o755)
+		d := requireOpenFile(t, t.TempDir(), fsapi.O_RDONLY, 0o755)
 
 		// close the directory underneath
 		require.EqualErrno(t, 0, d.Close())
 
-		require.EqualErrno(t, syscall.EBADF, fn(d))
+		require.EqualErrno(t, experimentalsys.EBADF, fn(d))
 	})
 }
 
-func testEBADFIfFileClosed(t *testing.T, fn func(fsapi.File) syscall.Errno) bool {
+func testEBADFIfFileClosed(t *testing.T, fn func(fsapi.File) experimentalsys.Errno) bool {
 	return t.Run("EBADF if file closed", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
@@ -1009,28 +1062,28 @@ func testEBADFIfFileClosed(t *testing.T, fn func(fsapi.File) syscall.Errno) bool
 		// close the file underneath
 		require.EqualErrno(t, 0, f.Close())
 
-		require.EqualErrno(t, syscall.EBADF, fn(f))
+		require.EqualErrno(t, experimentalsys.EBADF, fn(f))
 	})
 }
 
-func testEISDIR(t *testing.T, fn func(fsapi.File) syscall.Errno) bool {
+func testEISDIR(t *testing.T, fn func(fsapi.File) experimentalsys.Errno) bool {
 	return t.Run("EISDIR if directory", func(t *testing.T) {
-		f := requireOpenFile(t, os.TempDir(), syscall.O_RDONLY|fsapi.O_DIRECTORY, 0o666)
+		f := requireOpenFile(t, os.TempDir(), fsapi.O_RDONLY|fsapi.O_DIRECTORY, 0o666)
 		defer f.Close()
 
-		require.EqualErrno(t, syscall.EISDIR, fn(f))
+		require.EqualErrno(t, experimentalsys.EISDIR, fn(f))
 	})
 }
 
 func openForWrite(t *testing.T, path string, content []byte) fsapi.File {
 	require.NoError(t, os.WriteFile(path, content, 0o0666))
-	f := requireOpenFile(t, path, syscall.O_RDWR, 0o666)
+	f := requireOpenFile(t, path, fsapi.O_RDWR, 0o666)
 	_, errno := f.Write(content)
 	require.EqualErrno(t, 0, errno)
 	return f
 }
 
-func requireOpenFile(t *testing.T, path string, flag int, perm fs.FileMode) fsapi.File {
+func requireOpenFile(t *testing.T, path string, flag fsapi.Oflag, perm fs.FileMode) fsapi.File {
 	f, errno := OpenOSFile(path, flag, perm)
 	require.EqualErrno(t, 0, errno)
 	return f
