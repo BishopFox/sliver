@@ -240,6 +240,10 @@ func sessionStartup() {
 		if connection != nil {
 			err := sessionMainLoop(connection)
 			if err != nil {
+				if err == ErrTerminate {
+					connection.Cleanup()
+					return
+				}
 				connectionErrors++
 				if transports.GetMaxConnectionErrors() < connectionErrors {
 					return
