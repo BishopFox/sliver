@@ -142,7 +142,7 @@ func setupGo(appDir string) error {
 	os.MkdirAll(goRootPath, 0700)
 
 	// Go compiler and stdlib
-	goZipFSPath := filepath.Join("fs", runtime.GOOS, runtime.GOARCH, "go.zip")
+	goZipFSPath := path.Join("fs", runtime.GOOS, runtime.GOARCH, "go.zip")
 	goZip, err := assetsFs.ReadFile(goZipFSPath)
 	if err != nil {
 		setupLog.Errorf("static asset not found: %s", goZipFSPath)
@@ -176,7 +176,7 @@ func setupGo(appDir string) error {
 	if runtime.GOOS == "windows" {
 		garbleFileName = "garble.exe"
 	}
-	garbleAssetPath := filepath.Join("fs", runtime.GOOS, runtime.GOARCH, garbleFileName)
+	garbleAssetPath := path.Join("fs", runtime.GOOS, runtime.GOARCH, garbleFileName)
 	garbleFile, err := assetsFs.ReadFile(garbleAssetPath)
 	if err != nil {
 		setupLog.Errorf("Static asset not found: %s", garbleFile)
@@ -194,7 +194,7 @@ func setupGo(appDir string) error {
 
 func setupSGN(appDir string) error {
 	goBinPath := filepath.Join(appDir, "go", "bin")
-	sgnZipFSPath := filepath.Join("fs", runtime.GOOS, runtime.GOARCH, "sgn.zip")
+	sgnZipFSPath := path.Join("fs", runtime.GOOS, runtime.GOARCH, "sgn.zip")
 	sgnZip, err := assetsFs.ReadFile(sgnZipFSPath)
 	if err != nil {
 		setupLog.Errorf("static asset not found: %s", sgnZipFSPath)
