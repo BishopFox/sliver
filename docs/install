@@ -1,47 +1,40 @@
 #!/bin/bash
 set -e
 
-SLIVER_GPG_KEY_ID=4449039C
+SLIVER_GPG_KEY_ID="4449039C"
 
-if [ "$EUID" -ne 0 ]
-  then echo "Please run as root"
-  exit
+if [[ "$EUID" -ne 0 ]];then
+    echo "Please run as root"
+    exit
 fi
 
-if [ -n "$(command -v yum)" ]
-then
-    yum -y install gnupg curl gcc gcc-c++ make mingw64-gcc git
-fi
-
-if [ -n "$(command -v apt-get)" ]
-then
-    DEBIAN_FRONTEND=noninteractive apt-get install -yqq \
+# Determine OS type
+# Debian-based OS (Debian, Ubuntu, etc)
+if command -v apt &> /dev/null; then
+    echo "Installing dependencies using apt..."
+    DEBIAN_FRONTEND=noninteractive apt install -yqq \
         gpg curl build-essential git \
         mingw-w64 binutils-mingw-w64 g++-mingw-w64
+elif command -v yum &> /dev/null; then # Redhat-based OS (Fedora, CentOS, RHEL)
+    echo "Installing dependencies using yum..."
+    yum -y install gnupg curl gcc gcc-c++ make mingw64-gcc git
+else
+    echo "Unsupported OS, exiting"
+    exit
 fi
 
-# Curl
-if ! command -v curl &> /dev/null
-then
-    echo "curl could not be found"
-    exit 1
-fi
-# Awk
-if ! command -v awk &> /dev/null
-then
-    echo "awk could not be found"
-    exit 1
-fi
-# GPG
-if ! command -v gpg &> /dev/null
-then
-    echo "gpg could not be found"
-    exit 1
-fi
+# Verify if necessary tools are installed
+for cmd in curl awk gpg; do
+    if ! command -v "$cmd" &> /dev/null; then
+        echo "$cmd could not be found, exiting"
+        exit 1
+    fi
+done
 
-cd /root
+cd /root || exit
 echo "Running from $(pwd)"
 
+echo "Importing GPG key..."
 gpg --import <<EOF
 -----BEGIN PGP PUBLIC KEY BLOCK-----
 
@@ -96,42 +89,53 @@ DxkLsLOBBZZRXOrgxit+tAqinGJ6N9hOvkUlwTLfJM1tpCEFb/Z786g=
 -----END PGP PUBLIC KEY BLOCK-----
 EOF
 
-#
 # Download and Unpack Sliver Server
-#
+echo "Fetching latest Sliver release URLs..."
 ARTIFACTS=$(curl -s "https://api.github.com/repos/BishopFox/sliver/releases/latest" | awk -F '"' '/browser_download_url/{print $4}')
-SLIVER_SERVER='sliver-server_linux'
-SLIVER_CLIENT='sliver-client_linux'
-
+SLIVER_SERVER="sliver-server_linux"
+SLIVER_CLIENT="sliver-client_linux"
 
 for URL in $ARTIFACTS
 do
     if [[ "$URL" == *"$SLIVER_SERVER"* ]]; then
         echo "Downloading $URL"
-        curl --silent -L $URL --output $(basename $URL)
+        curl --silent -L "$URL" --output "$(basename "$URL")"
     fi
     if [[ "$URL" == *"$SLIVER_CLIENT"* ]]; then
         echo "Downloading $URL"
-        curl --silent -L $URL --output $(basename $URL)
+        curl --silent -L "$URL" --output "$(basename "$URL")"
     fi
 done
 
+# Signature verification
 echo "Verifying signatures ..."
-gpg --default-key $SLIVER_GPG_KEY_ID --verify /root/$SLIVER_SERVER.sig /root/$SLIVER_SERVER
-gpg --default-key $SLIVER_GPG_KEY_ID --verify /root/$SLIVER_CLIENT.sig /root/$SLIVER_CLIENT
+gpg --default-key "$SLIVER_GPG_KEY_ID" --verify "/root/$SLIVER_SERVER.sig" "/root/$SLIVER_SERVER"
+gpg --default-key "$SLIVER_GPG_KEY_ID" --verify "/root/$SLIVER_CLIENT.sig" "/root/$SLIVER_CLIENT"
 
 if test -f "/root/$SLIVER_SERVER"; then
-    mv /root/$SLIVER_SERVER /root/sliver-server
+    echo "Moving the Sliver server executable to /root/sliver-server..."
+    mv "/root/$SLIVER_SERVER" /root/sliver-server
+
+    echo "Setting permissions for the Sliver server executable..."
     chmod 755 /root/sliver-server
+
+    echo "Unpacking the Sliver server..."
     /root/sliver-server unpack --force
 else
     exit 3
 fi
 
 if test -f "/root/$SLIVER_CLIENT"; then
-    chmod 755 /root/$SLIVER_CLIENT 
-    cp -vv /root/$SLIVER_CLIENT /usr/local/bin/sliver-client
-    ln -s /usr/local/bin/sliver-client /usr/local/bin/sliver
+    echo "Setting permissions for the Sliver client executable..."
+    chmod 755 "/root/$SLIVER_CLIENT"
+
+    echo "Copying the Sliver client executable to /usr/local/bin/sliver-client..."
+    cp -vv "/root/$SLIVER_CLIENT" /usr/local/bin/sliver-client
+
+    echo "Creating a symbolic link for sliver-client at /usr/local/bin/sliver..."
+    ln -sf /usr/local/bin/sliver-client /usr/local/bin/sliver
+
+    echo "Setting permissions for the symbolic link /usr/local/bin/sliver..."
     chmod 755 /usr/local/bin/sliver
 else
     exit 3
@@ -157,7 +161,11 @@ WantedBy=multi-user.target
 EOF
 chown root:root /etc/systemd/system/sliver.service
 chmod 600 /etc/systemd/system/sliver.service
-systemctl start sliver
+echo "Starting the Sliver service..."
+systemctl start sliver # Start the service now
+
+# Generate local configs
+echo "Generating local configs ..."
 
 # Generate local configs
 echo "Generating operator configs ..."
@@ -167,10 +175,11 @@ chown -R root:root /root/.sliver-client/
 
 USER_DIRS=(/home/*)
 for USER_DIR in "${USER_DIRS[@]}"; do
-    USER=$(basename $USER_DIR)
-    if id -u $USER >/dev/null 2>&1; then
-        mkdir -p $USER_DIR/.sliver-client/configs
-        /root/sliver-server operator --name $USER --lhost localhost --save $USER_DIR/.sliver-client/configs
-        chown -R $USER:"$(id -gn $USER)" $USER_DIR/.sliver-client/
+    USER=$(basename "$USER_DIR")
+    if id -u "$USER" >/dev/null 2>&1; then
+        echo "Generating operator configs for user $USER..."
+        mkdir -p "$USER_DIR/.sliver-client/configs"
+        /root/sliver-server operator --name "$USER" --lhost localhost --save "$USER_DIR/.sliver-client/configs"
+        chown -R "$USER":"$(id -gn "$USER")" "$USER_DIR/.sliver-client/"
     fi
 done
