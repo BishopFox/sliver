@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/internal/close"
 	"github.com/tetratelabs/wazero/internal/internalapi"
 	"github.com/tetratelabs/wazero/internal/leb128"
 	internalsys "github.com/tetratelabs/wazero/internal/sys"
@@ -124,6 +125,9 @@ type (
 		prev, next *ModuleInstance
 		// Source is a pointer to the Module from which this ModuleInstance derives.
 		Source *Module
+
+		// CloseNotifier is an experimental hook called once on close.
+		CloseNotifier close.Notifier
 	}
 
 	// DataInstance holds bytes corresponding to the data segment in a module.

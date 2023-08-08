@@ -1,0 +1,16 @@
+//go:build !darwin && !linux && !windows && !illumos && !solaris && !freebsd
+
+package sysfs
+
+import "github.com/tetratelabs/wazero/internal/fsapi"
+
+const supportedSyscallOflag = fsapi.Oflag(0)
+
+func withSyscallOflag(oflag fsapi.Oflag, flag int) int {
+	// O_DIRECTORY not defined
+	// O_DSYNC not defined
+	// O_NOFOLLOW not defined
+	// O_NONBLOCK not defined
+	// O_RSYNC not defined
+	return flag
+}

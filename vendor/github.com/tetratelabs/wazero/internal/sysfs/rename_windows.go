@@ -1,47 +1,55 @@
 package sysfs
 
 import (
-	"errors"
 	"os"
 	"syscall"
 
-	"github.com/tetratelabs/wazero/internal/platform"
+	"github.com/tetratelabs/wazero/experimental/sys"
 )
 
-func Rename(from, to string) syscall.Errno {
+func rename(from, to string) sys.Errno {
 	if from == to {
 		return 0
 	}
 
-	fromStat, err := os.Stat(from)
-	if err != nil {
-		return syscall.ENOENT
+	var fromIsDir, toIsDir bool
+	if fromStat, errno := stat(from); errno != 0 {
+		return errno // failed to stat from
+	} else {
+		fromIsDir = fromStat.Mode.IsDir()
+	}
+	if toStat, errno := stat(to); errno == sys.ENOENT {
+		return syscallRename(from, to) // file or dir to not-exist is ok
+	} else if errno != 0 {
+		return errno // failed to stat to
+	} else {
+		toIsDir = toStat.Mode.IsDir()
 	}
 
-	if toStat, err := os.Stat(to); err == nil {
-		fromIsDir, toIsDir := fromStat.IsDir(), toStat.IsDir()
-		if fromIsDir && !toIsDir { // dir to file
-			return syscall.ENOTDIR
-		} else if !fromIsDir && toIsDir { // file to dir
-			return syscall.EISDIR
-		} else if !fromIsDir && !toIsDir { // file to file
-			// Use os.Rename instead of syscall.Rename in order to allow the overrides of the existing file.
-			// Underneath os.Rename, it uses MoveFileEx instead of MoveFile (used by syscall.Rename).
-			return platform.UnwrapOSError(os.Rename(from, to))
-		} else { // dir to dir
-			if dirs, _ := os.ReadDir(to); len(dirs) == 0 {
-				// On Windows, renaming to the empty dir will be rejected,
-				// so first we remove the empty dir, and then rename to it.
-				if err := os.Remove(to); err != nil {
-					return platform.UnwrapOSError(err)
-				}
-				return platform.UnwrapOSError(syscall.Rename(from, to))
-			}
-			return syscall.ENOTEMPTY
+	// Now, handle known cases
+	switch {
+	case !fromIsDir && toIsDir: // file to dir
+		return sys.EISDIR
+	case !fromIsDir && !toIsDir: // file to file
+		// Use os.Rename instead of syscall.Rename to overwrite a file.
+		// This uses MoveFileEx instead of MoveFile (used by syscall.Rename).
+		return sys.UnwrapOSError(os.Rename(from, to))
+	case fromIsDir && !toIsDir: // dir to file
+		return sys.ENOTDIR
+	default: // dir to dir
+
+		// We can't tell if a directory is empty or not, via stat information.
+		// Reading the directory is expensive, as it can buffer large amounts
+		// of data on fail. Instead, speculatively try to remove the directory.
+		// This is only one syscall and won't buffer anything.
+		if errno := rmdir(to); errno == 0 || errno == sys.ENOENT {
+			return syscallRename(from, to)
+		} else {
+			return errno
 		}
-	} else if !errors.Is(err, syscall.ENOENT) { // Failed to stat the destination.
-		return platform.UnwrapOSError(err)
-	} else { // Destination not-exist.
-		return platform.UnwrapOSError(syscall.Rename(from, to))
 	}
+}
+
+func syscallRename(from string, to string) sys.Errno {
+	return sys.UnwrapOSError(syscall.Rename(from, to))
 }

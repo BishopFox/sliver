@@ -2,9 +2,9 @@ package wasi_snapshot_preview1
 
 import (
 	"context"
-	"syscall"
 
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental/sys"
 	"github.com/tetratelabs/wazero/internal/wasip1"
 	"github.com/tetratelabs/wazero/internal/wasm"
 )
@@ -24,7 +24,7 @@ import (
 // Result (Errno)
 //
 // The return value is 0 except the following error conditions:
-//   - syscall.EFAULT: there is not enough memory to write results
+//   - sys.EFAULT: there is not enough memory to write results
 //
 // For example, if environSizesGet wrote environc=2 and environLen=9 for
 // environment variables: "a=b", "b=cd" and parameters environ=11 and
@@ -43,7 +43,7 @@ import (
 // See https://en.wikipedia.org/wiki/Null-terminated_string
 var environGet = newHostFunc(wasip1.EnvironGetName, environGetFn, []api.ValueType{i32, i32}, "environ", "environ_buf")
 
-func environGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
+func environGetFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
 	sysCtx := mod.(*wasm.ModuleInstance).Sys
 	environ, environBuf := uint32(params[0]), uint32(params[1])
 
@@ -63,7 +63,7 @@ func environGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Er
 // Result (Errno)
 //
 // The return value is 0 except the following error conditions:
-//   - syscall.EFAULT: there is not enough memory to write results
+//   - sys.EFAULT: there is not enough memory to write results
 //
 // For example, if environ are "a=b","b=cd" and parameters resultEnvironc=1 and
 // resultEnvironvLen=6, this function writes the below to api.Memory:
@@ -83,7 +83,7 @@ func environGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Er
 // and https://en.wikipedia.org/wiki/Null-terminated_string
 var environSizesGet = newHostFunc(wasip1.EnvironSizesGetName, environSizesGetFn, []api.ValueType{i32, i32}, "result.environc", "result.environv_len")
 
-func environSizesGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
+func environSizesGetFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
 	sysCtx := mod.(*wasm.ModuleInstance).Sys
 	mem := mod.Memory()
 	resultEnvironc, resultEnvironvLen := uint32(params[0]), uint32(params[1])
@@ -91,10 +91,10 @@ func environSizesGetFn(_ context.Context, mod api.Module, params []uint64) sysca
 	// environc and environv_len offsets are not necessarily sequential, so we
 	// have to write them independently.
 	if !mem.WriteUint32Le(resultEnvironc, uint32(len(sysCtx.Environ()))) {
-		return syscall.EFAULT
+		return sys.EFAULT
 	}
 	if !mem.WriteUint32Le(resultEnvironvLen, sysCtx.EnvironSize()) {
-		return syscall.EFAULT
+		return sys.EFAULT
 	}
 	return 0
 }

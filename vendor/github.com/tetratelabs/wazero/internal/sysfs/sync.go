@@ -4,11 +4,10 @@ package sysfs
 
 import (
 	"os"
-	"syscall"
 
-	"github.com/tetratelabs/wazero/internal/platform"
+	"github.com/tetratelabs/wazero/experimental/sys"
 )
 
-func fsync(f *os.File) syscall.Errno {
-	return platform.UnwrapOSError(f.Sync())
+func fsync(f *os.File) sys.Errno {
+	return sys.UnwrapOSError(f.Sync())
 }
