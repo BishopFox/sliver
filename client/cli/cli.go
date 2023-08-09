@@ -21,12 +21,13 @@ package cli
 import (
 	"os"
 
-	"github.com/bishopfox/sliver/client/command"
-	sliverConsole "github.com/bishopfox/sliver/client/command/console"
-	client "github.com/bishopfox/sliver/client/console"
 	"github.com/reeflective/team/client/commands"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
+
+	"github.com/bishopfox/sliver/client/command"
+	consoleCmd "github.com/bishopfox/sliver/client/command/console"
+	"github.com/bishopfox/sliver/client/console"
 )
 
 // Execute - Run the sliver client binary.
@@ -35,7 +36,7 @@ func Execute() {
 	// Sliver Client, prepared with a working reeflective/teamclient.
 	// The teamclient automatically handles remote teamserver configuration
 	// prompting/loading and use, as well as other things.
-	con, err := client.NewSliverClient()
+	con, err := console.NewSliverClient()
 	if err != nil {
 		panic(err)
 	}
@@ -56,8 +57,8 @@ func Execute() {
 // The ready-to-execute command tree (root *cobra.Command) returned is correctly equipped
 // with all prerunners needed to connect to remote Sliver teamservers.
 // It will also register the appropriate teamclient management commands.
-func SliverCLI(con *client.SliverClient) (root *cobra.Command) {
-	teamclientCmds := func(con *client.SliverClient) []*cobra.Command {
+func SliverCLI(con *console.SliverClient) (root *cobra.Command) {
+	teamclientCmds := func(con *console.SliverClient) []*cobra.Command {
 		return []*cobra.Command{
 			commands.Generate(con.Teamclient),
 		}
@@ -75,7 +76,7 @@ func SliverCLI(con *client.SliverClient) (root *cobra.Command) {
 	// The console shares the same setup/connection pre-runners as other commands,
 	// but the command yielders we pass as arguments don't: this is because we only
 	// need one connection for the entire lifetime of the console.
-	root.AddCommand(sliverConsole.Command(con, server))
+	root.AddCommand(consoleCmd.Command(con, server))
 
 	// Implant.
 	// The implant command allows users to run commands on slivers from their

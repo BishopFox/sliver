@@ -20,6 +20,8 @@ func implantCmd(con *client.SliverClient, sliverCmds console.Commands) *cobra.Co
 	// usable in the context of an active target implant.
 	implantCmd := sliverCmds()
 	implantCmd.Use = constants.ImplantMenu
+	implantCmd.Short = "Implant target command tree (equivalent of the sliver menu)"
+	implantCmd.GroupID = constants.SliverHelpGroup
 
 	// But let the user set this implant with a flag.
 	implantFlags := pflag.NewFlagSet(constants.ImplantMenu, pflag.ContinueOnError)

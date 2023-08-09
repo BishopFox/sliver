@@ -32,6 +32,7 @@ import (
 	"github.com/reeflective/console"
 )
 
+// GetPrompt returns the prompt string computed for the current context.
 func (con *SliverClient) GetPrompt() string {
 	prompt := Underline + "sliver" + Normal
 	if con.IsServer {
@@ -46,6 +47,7 @@ func (con *SliverClient) GetPrompt() string {
 	return Clearln + prompt
 }
 
+// PrintLogo prints the Sliver console logo.
 func (con *SliverClient) PrintLogo() {
 	serverVer, err := con.Rpc.GetVersion(context.Background(), &commonpb.Empty{})
 	if err != nil {

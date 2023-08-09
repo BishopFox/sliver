@@ -31,6 +31,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/cobra"
+	"golang.org/x/exp/slog"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
+
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/spin"
@@ -42,10 +47,6 @@ import (
 	"github.com/reeflective/console"
 	"github.com/reeflective/readline"
 	"github.com/reeflective/team/client"
-	"github.com/spf13/cobra"
-	"golang.org/x/exp/slog"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -195,7 +196,6 @@ func newClient() *SliverClient {
 
 	// Server menu.
 	server := con.App.Menu(consts.ServerMenu)
-	server.Short = "Server commands"
 	server.Prompt().Primary = con.GetPrompt
 	server.AddInterrupt(readline.ErrInterrupt, con.exitConsole) // Ctrl-C
 
@@ -204,7 +204,6 @@ func newClient() *SliverClient {
 
 	// Implant menu.
 	sliver := con.App.NewMenu(consts.ImplantMenu)
-	sliver.Short = "Implant commands"
 	sliver.Prompt().Primary = con.GetPrompt
 	sliver.AddInterrupt(io.EOF, con.exitImplantMenu) // Ctrl-D
 
@@ -220,6 +219,7 @@ func newClient() *SliverClient {
 // because the console needs to query the terminal for cursor positions
 // when asynchronously printing logs (that is, when no command is running).
 func (con *SliverClient) StartConsole() error {
+	con.IsCLI = false
 	con.printf = con.App.TransientPrintf
 
 	return con.App.Start()

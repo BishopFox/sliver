@@ -23,6 +23,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/command"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/server/command/assets"
 	"github.com/bishopfox/sliver/server/command/builder"
 	"github.com/bishopfox/sliver/server/command/certs"
@@ -35,7 +36,9 @@ import (
 func TeamserverCommands(team *server.Server, con *console.SliverClient) command.SliverBinder {
 	return func(con *console.SliverClient) (cmds []*cobra.Command) {
 		// Teamserver management
-		cmds = append(cmds, commands.Generate(team, con.Teamclient))
+		teamclientCmds := commands.Generate(team, con.Teamclient)
+		teamclientCmds.GroupID = constants.GenericHelpGroup
+		cmds = append(cmds, teamclientCmds)
 
 		// Sliver-specific
 		cmds = append(cmds, version.Commands(con)...)

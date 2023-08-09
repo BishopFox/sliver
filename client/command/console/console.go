@@ -19,11 +19,12 @@ package console
 */
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command"
 	client "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/reeflective/console"
-	"github.com/spf13/cobra"
 )
 
 // Command returns the closed-loop Sliver console command.
@@ -34,10 +35,10 @@ import (
 // is always the same in the console.
 func Command(con *client.SliverClient, serverCmds console.Commands) *cobra.Command {
 	consoleCmd := &cobra.Command{
-		Use:   "console",
-		Short: "Start the sliver client console",
+		Use:     "console",
+		Short:   "Start the sliver client console",
+		GroupID: consts.GenericHelpGroup,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			con.IsCLI = false
 
 			// Bind commands to the closed-loop console.
 			server := con.App.Menu(consts.ServerMenu)
