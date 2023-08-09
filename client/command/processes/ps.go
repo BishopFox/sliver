@@ -86,6 +86,10 @@ var knownSecurityTools = map[string][]string{
 	"eguiproxy.exe":                   {console.Red, "ESET Security"},                // ESET Internet Security
 	"ekrn.exe":                        {console.Red, "ESET Security"},                // ESET Internet Security
 	"efwd.exe":                        {console.Red, "ESET Security"},                // ESET Internet Security
+	"AmSvc.exe":                       {console.Red, "Cybereason ActiveProbe"},       // Cybereason ActiveProbe
+	"CrAmTray.exe":                    {console.Red, "Cybereason ActiveProbe"},       // Cybereason ActiveProbe
+	"CrsSvc.exe":                      {console.Red, "Cybereason ActiveProbe"},       // Cybereason ActiveProbe
+	"CybereasonAV.exe":                {console.Red, "Cybereason ActiveProbe"},       // Cybereason ActiveProbe
 }
 
 // PsCmd - List processes on the remote system
