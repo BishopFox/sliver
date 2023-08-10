@@ -43,10 +43,6 @@ func implantCmd(con *client.SliverClient, sliverCmds console.Commands) *cobra.Co
 		if err != nil {
 			return
 		}
-
-		// And let the console and its active target decide
-		// what should be available to us, and what should not.
-		con.ActiveTarget.FilterCommands(implantCmd)
 	})
 
 	// This completer will try connect to the server anyway, if not done already.
@@ -79,18 +75,19 @@ func preRunImplant(implantCmd *cobra.Command, con *client.SliverClient) func(cmd
 		session := con.GetSession(target)
 		if session != nil {
 			con.ActiveTarget.Set(session, nil)
-			return nil
 		}
 
 		beacon := con.GetBeacon(target)
 		if beacon != nil {
 			con.ActiveTarget.Set(nil, beacon)
-			return nil
 		}
 
-		// And let the console and its active target decide
-		// what should be available to us, and what should not.
-		con.ActiveTarget.FilterCommands(implantCmd)
+		// If the command is marked filtered (should not be ran in
+		// the current context/target), don't do anything and return.
+		// This is identical to the filtering behavior in the console.
+		if err := con.App.Menu(constants.ImplantMenu).ErrUnavailableCommand(cmd); err != nil {
+			return err
+		}
 
 		return nil
 	}

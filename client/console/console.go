@@ -238,6 +238,7 @@ func (con *SliverClient) ExposeCommands() {
 	con.App.HideCommands(filters...)
 }
 
+// GetSession returns the session matching an ID, either by prefix or strictly.
 func (con *SliverClient) GetSession(arg string) *clientpb.Session {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -252,6 +253,7 @@ func (con *SliverClient) GetSession(arg string) *clientpb.Session {
 	return nil
 }
 
+// GetBeacon returns the beacon matching an ID, either by prefix or strictly.
 func (con *SliverClient) GetBeacon(arg string) *clientpb.Beacon {
 	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -310,6 +312,7 @@ func (con *SliverClient) GetActiveSessionConfig() *clientpb.ImplantConfig {
 	return config
 }
 
+// SpinUntil starts a console display spinner in the background (non-blocking)
 func (con *SliverClient) SpinUntil(message string, ctrl chan bool) {
 	go spin.Until(os.Stdout, message, ctrl)
 }

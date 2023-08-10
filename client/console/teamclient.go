@@ -48,16 +48,14 @@ func (con *SliverClient) ConnectRun(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	err := con.runPreConnectHooks()
-	if err != nil {
+	if err := con.runPreConnectHooks(); err != nil {
 		return err
 	}
 
 	// Let our teamclient connect the transport/RPC stack.
 	// Note that this uses a sync.Once to ensure we don't
 	// connect more than once.
-	err = con.Teamclient.Connect()
-	if err != nil {
+	if err := con.Teamclient.Connect(); err != nil {
 		return err
 	}
 
