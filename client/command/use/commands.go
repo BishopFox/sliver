@@ -4,6 +4,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
+	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/rsteube/carapace"
@@ -35,7 +36,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 			UseSessionCmd(cmd, con, args)
 		},
 	}
-	carapace.Gen(useSessionCmd).PositionalCompletion(SessionIDCompleter(con))
+	carapace.Gen(useSessionCmd).PositionalCompletion(sessions.SessionIDCompleter(con))
 	useCmd.AddCommand(useSessionCmd)
 
 	useBeaconCmd := &cobra.Command{

@@ -29,6 +29,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/beacons"
+	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -187,37 +188,10 @@ func BeaconAndSessionIDCompleter(con *console.SliverClient) carapace.Action {
 		var action carapace.Action
 
 		return action.Invoke(ctx).Merge(
-			SessionIDCompleter(con).Invoke(ctx),
+			sessions.SessionIDCompleter(con).Invoke(ctx),
 			beacons.BeaconIDCompleter(con).Invoke(ctx),
 		).ToA()
 	}
 
 	return carapace.ActionCallback(comps)
-}
-
-// SessionIDCompleter completes session IDs.
-func SessionIDCompleter(con *console.SliverClient) carapace.Action {
-	callback := func(_ carapace.Context) carapace.Action {
-		if msg, err := con.ConnectComplete(); err != nil {
-			return msg
-		}
-
-		results := make([]string, 0)
-
-		sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
-		if err == nil {
-			for _, s := range sessions.Sessions {
-				link := fmt.Sprintf("[%s <- %s]", s.ActiveC2, s.RemoteAddress)
-				id := fmt.Sprintf("%s (%d)", s.Name, s.PID)
-				userHost := fmt.Sprintf("%s@%s", s.Username, s.Hostname)
-				desc := strings.Join([]string{id, userHost, link}, " ")
-
-				results = append(results, s.ID[:8])
-				results = append(results, desc)
-			}
-		}
-		return carapace.ActionValuesDescribed(results...).Tag("sessions")
-	}
-
-	return carapace.ActionCallback(callback)
 }

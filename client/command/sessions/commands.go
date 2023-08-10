@@ -1,15 +1,10 @@
 package sessions
 
 import (
-	"context"
-	"fmt"
-	"strings"
-
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -58,29 +53,6 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	sessionsCmd.AddCommand(sessionsPruneCmd)
 
 	return []*cobra.Command{sessionsCmd}
-}
-
-// SessionIDCompleter completes session IDs.
-func SessionIDCompleter(con *console.SliverClient) carapace.Action {
-	callback := func(_ carapace.Context) carapace.Action {
-		results := make([]string, 0)
-
-		sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
-		if err == nil {
-			for _, s := range sessions.Sessions {
-				link := fmt.Sprintf("[%s <- %s]", s.ActiveC2, s.RemoteAddress)
-				id := fmt.Sprintf("%s (%d)", s.Name, s.PID)
-				userHost := fmt.Sprintf("%s@%s", s.Username, s.Hostname)
-				desc := strings.Join([]string{id, userHost, link}, " ")
-
-				results = append(results, s.ID[:8])
-				results = append(results, desc)
-			}
-		}
-		return carapace.ActionValuesDescribed(results...).Tag("sessions")
-	}
-
-	return carapace.ActionCallback(callback)
 }
 
 // SliverCommands returns all session control commands for the active target.
