@@ -1,6 +1,6 @@
 module github.com/bishopfox/sliver
 
-go 1.20
+go 1.21
 
 // A fork of the completion engine is currently used in order to consume the engine
 // as a library. The fork is a very slightly patched mainline tree for that purpose,
