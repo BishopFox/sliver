@@ -82,7 +82,7 @@ func ChtimesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 	if chtimes.Response != nil && chtimes.Response.Async {
-		con.AddBeaconCallback(chtimes.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(chtimes.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, chtimes)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -90,7 +90,6 @@ func ChtimesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			PrintChtimes(chtimes, con)
 		})
-		con.PrintAsyncResponse(chtimes.Response)
 	} else {
 		PrintChtimes(chtimes, con)
 	}

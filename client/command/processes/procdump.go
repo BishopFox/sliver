@@ -79,7 +79,7 @@ func ProcdumpCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 	hostname := getHostname(session, beacon)
 	if dump.Response != nil && dump.Response.Async {
-		con.AddBeaconCallback(dump.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(dump.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, dump)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -93,7 +93,6 @@ func ProcdumpCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 				PrintProcessDump(dump, saveTo, hostname, pid, con)
 			}
 		})
-		con.PrintAsyncResponse(dump.Response)
 	} else {
 		if saveLoot {
 			LootProcessDump(dump, lootName, hostname, pid, con)

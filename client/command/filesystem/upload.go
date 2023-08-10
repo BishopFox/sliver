@@ -94,7 +94,7 @@ func UploadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 	if upload.Response != nil && upload.Response.Async {
-		con.AddBeaconCallback(upload.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(upload.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, upload)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -102,7 +102,6 @@ func UploadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			PrintUpload(upload, con)
 		})
-		con.PrintAsyncResponse(upload.Response)
 	} else {
 		PrintUpload(upload, con)
 	}

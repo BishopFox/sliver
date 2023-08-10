@@ -78,7 +78,7 @@ func MakeTokenCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	}
 
 	if makeToken.Response != nil && makeToken.Response.Async {
-		con.AddBeaconCallback(makeToken.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(makeToken.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, makeToken)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -86,7 +86,6 @@ func MakeTokenCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 			}
 			PrintMakeToken(makeToken, domain, username, con)
 		})
-		con.PrintAsyncResponse(makeToken.Response)
 	} else {
 		PrintMakeToken(makeToken, domain, username, con)
 	}

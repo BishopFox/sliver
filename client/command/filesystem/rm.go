@@ -57,7 +57,7 @@ func RmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 	if rm.Response != nil && rm.Response.Async {
-		con.AddBeaconCallback(rm.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(rm.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, rm)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -65,7 +65,6 @@ func RmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			PrintRm(rm, con)
 		})
-		con.PrintAsyncResponse(rm.Response)
 	} else {
 		PrintRm(rm, con)
 	}

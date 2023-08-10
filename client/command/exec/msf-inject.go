@@ -83,7 +83,7 @@ func MsfInjectCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	}
 
 	if msfTask.Response != nil && msfTask.Response.Async {
-		con.AddBeaconCallback(msfTask.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(msfTask.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, msfTask)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -91,7 +91,6 @@ func MsfInjectCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 			}
 			PrintMsfRemote(msfTask, con)
 		})
-		con.PrintAsyncResponse(msfTask.Response)
 	} else {
 		PrintMsfRemote(msfTask, con)
 	}

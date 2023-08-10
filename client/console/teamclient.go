@@ -84,6 +84,10 @@ func (con *SliverClient) ConnectRun(cmd *cobra.Command, _ []string) error {
 // This function is safe to call regardless of the client being used
 // as a closed-loop console mode or in an exec-once CLI mode.
 func (con *SliverClient) ConnectComplete() (carapace.Action, error) {
+	if con.Rpc != nil {
+		return carapace.ActionValues(), nil
+	}
+
 	// This almost only ever runs teamserver-side pre-runs.
 	err := con.runPreConnectHooks()
 	if err != nil {

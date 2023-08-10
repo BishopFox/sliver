@@ -373,7 +373,7 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 
 	if callExtResp.Response != nil && callExtResp.Response.Async {
-		con.AddBeaconCallback(callExtResp.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(callExtResp.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, callExtResp)
 			if err != nil {
 				con.PrintErrorf("Failed to decode call ext response %s\n", err)
@@ -381,7 +381,6 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 			}
 			PrintExtOutput(extName, ext.CommandName, callExtResp, con)
 		})
-		con.PrintAsyncResponse(callExtResp.Response)
 	} else {
 		PrintExtOutput(extName, ext.CommandName, callExtResp, con)
 	}

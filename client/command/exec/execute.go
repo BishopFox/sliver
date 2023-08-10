@@ -97,7 +97,7 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 
 	if exec.Response != nil && exec.Response.Async {
-		con.AddBeaconCallback(exec.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(exec.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, exec)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -105,7 +105,6 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			HandleExecuteResponse(exec, cmdPath, hostName, cmd, con)
 		})
-		con.PrintAsyncResponse(exec.Response)
 	} else {
 		HandleExecuteResponse(exec, cmdPath, hostName, cmd, con)
 	}

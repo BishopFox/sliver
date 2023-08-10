@@ -55,7 +55,7 @@ func EnvSetCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 	if envInfo.Response != nil && envInfo.Response.Async {
-		con.AddBeaconCallback(envInfo.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(envInfo.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, envInfo)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -63,7 +63,6 @@ func EnvSetCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			PrintSetEnvInfo(name, value, envInfo, con)
 		})
-		con.PrintAsyncResponse(envInfo.Response)
 	} else {
 		PrintSetEnvInfo(name, value, envInfo, con)
 	}

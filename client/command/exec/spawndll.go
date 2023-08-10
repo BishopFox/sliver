@@ -68,7 +68,7 @@ func SpawnDllCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 	hostName := getHostname(session, beacon)
 	if spawndll.Response != nil && spawndll.Response.Async {
-		con.AddBeaconCallback(spawndll.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(spawndll.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, spawndll)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -77,7 +77,6 @@ func SpawnDllCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 			HandleSpawnDLLResponse(spawndll, binPath, hostName, cmd, con)
 		})
-		con.PrintAsyncResponse(spawndll.Response)
 	} else {
 		HandleSpawnDLLResponse(spawndll, binPath, hostName, cmd, con)
 	}

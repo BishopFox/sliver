@@ -70,7 +70,7 @@ func RunAsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 	name := getName(session, beacon)
 	if runAs.Response != nil && runAs.Response.Async {
-		con.AddBeaconCallback(runAs.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(runAs.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, runAs)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -78,7 +78,6 @@ func RunAsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			PrintRunAs(runAs, process, arguments, name, con)
 		})
-		con.PrintAsyncResponse(runAs.Response)
 	} else {
 		PrintRunAs(runAs, process, arguments, name, con)
 	}

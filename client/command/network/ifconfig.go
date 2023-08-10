@@ -49,7 +49,7 @@ func IfconfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 	all, _ := cmd.Flags().GetBool("all")
 	if ifconfig.Response != nil && ifconfig.Response.Async {
-		con.AddBeaconCallback(ifconfig.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(ifconfig.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, ifconfig)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -57,7 +57,6 @@ func IfconfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			PrintIfconfig(ifconfig, all, con)
 		})
-		con.PrintAsyncResponse(ifconfig.Response)
 	} else {
 		PrintIfconfig(ifconfig, all, con)
 	}

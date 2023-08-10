@@ -129,7 +129,7 @@ func RegReadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 
 	if regRead.Response != nil && regRead.Response.Async {
-		con.AddBeaconCallback(regRead.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(regRead.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, regRead)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -137,7 +137,6 @@ func RegReadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			PrintRegRead(regRead, con)
 		})
-		con.PrintAsyncResponse(regRead.Response)
 	} else {
 		PrintRegRead(regRead, con)
 	}

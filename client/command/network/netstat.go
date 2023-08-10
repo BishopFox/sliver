@@ -62,7 +62,7 @@ func NetstatCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 	if netstat.Response != nil && netstat.Response.Async {
-		con.AddBeaconCallback(netstat.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(netstat.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, netstat)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -70,7 +70,6 @@ func NetstatCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			PrintNetstat(netstat, implantPID, activeC2, numeric, con)
 		})
-		con.PrintAsyncResponse(netstat.Response)
 	} else {
 		PrintNetstat(netstat, implantPID, activeC2, numeric, con)
 	}

@@ -132,6 +132,7 @@ const (
 	PruneStr           = "prune"
 	TasksStr           = "tasks"
 	CancelStr          = "cancel"
+	WaitStr            = "wait"
 	GenerateStr        = "generate"
 	RegenerateStr      = "regenerate"
 	CompilerInfoStr    = "info"

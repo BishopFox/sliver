@@ -56,7 +56,7 @@ func TerminateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	}
 
 	if terminated.Response != nil && terminated.Response.Async {
-		con.AddBeaconCallback(terminated.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(terminated.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, terminated)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -64,7 +64,6 @@ func TerminateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 			}
 			PrintTerminate(terminated, con)
 		})
-		con.PrintAsyncResponse(terminated.Response)
 	} else {
 		PrintTerminate(terminated, con)
 	}

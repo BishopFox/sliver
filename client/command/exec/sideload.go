@@ -79,7 +79,7 @@ func SideloadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 	hostName := getHostname(session, beacon)
 	if sideload.Response != nil && sideload.Response.Async {
-		con.AddBeaconCallback(sideload.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(sideload.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, sideload)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -88,7 +88,6 @@ func SideloadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 			HandleSideloadResponse(sideload, binPath, hostName, cmd, con)
 		})
-		con.PrintAsyncResponse(sideload.Response)
 	} else {
 		HandleSideloadResponse(sideload, binPath, hostName, cmd, con)
 	}

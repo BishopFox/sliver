@@ -42,7 +42,7 @@ func MemfilesAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 		return
 	}
 	if memfilesAdd.Response != nil && memfilesAdd.Response.Async {
-		con.AddBeaconCallback(memfilesAdd.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(memfilesAdd.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, memfilesAdd)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -50,7 +50,6 @@ func MemfilesAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 			}
 			PrintAddMemfile(memfilesAdd, con)
 		})
-		con.PrintAsyncResponse(memfilesAdd.Response)
 	} else {
 		PrintAddMemfile(memfilesAdd, con)
 	}

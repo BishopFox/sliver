@@ -65,7 +65,7 @@ func CatCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 	if download.Response != nil && download.Response.Async {
-		con.AddBeaconCallback(download.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(download.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, download)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -73,7 +73,6 @@ func CatCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			PrintCat(download, cmd, con)
 		})
-		con.PrintAsyncResponse(download.Response)
 	} else {
 		PrintCat(download, cmd, con)
 	}

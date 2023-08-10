@@ -46,7 +46,7 @@ func ImpersonateCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 	}
 
 	if impersonate.Response != nil && impersonate.Response.Async {
-		con.AddBeaconCallback(impersonate.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(impersonate.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, impersonate)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -54,7 +54,6 @@ func ImpersonateCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 			}
 			PrintImpersonate(impersonate, username, con)
 		})
-		con.PrintAsyncResponse(impersonate.Response)
 	} else {
 		PrintImpersonate(impersonate, username, con)
 	}

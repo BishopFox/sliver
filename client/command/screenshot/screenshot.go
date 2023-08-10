@@ -62,7 +62,7 @@ func ScreenshotCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 
 	hostname := getHostname(session, beacon)
 	if screenshot.Response != nil && screenshot.Response.Async {
-		con.AddBeaconCallback(screenshot.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(screenshot.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, screenshot)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -80,7 +80,6 @@ func ScreenshotCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 				PrintScreenshot(screenshot, hostname, cmd, con)
 			}
 		})
-		con.PrintAsyncResponse(screenshot.Response)
 	} else {
 		if saveLoot {
 			if len(screenshot.Data) > 0 {

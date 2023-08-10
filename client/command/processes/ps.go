@@ -102,7 +102,7 @@ func PsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 	os := getOS(session, beacon)
 	if ps.Response != nil && ps.Response.Async {
-		con.AddBeaconCallback(ps.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(ps.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, ps)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -115,7 +115,6 @@ func PsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 				con.PrintWarnf("Security Product(s): %s\n", strings.Join(products, ", "))
 			}
 		})
-		con.PrintAsyncResponse(ps.Response)
 	} else {
 		PrintPS(os, ps, true, cmd.Flags(), con)
 		products := findKnownSecurityProducts(ps)

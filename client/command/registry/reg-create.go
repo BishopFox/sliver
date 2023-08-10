@@ -81,7 +81,7 @@ func RegCreateKeyCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 
 	if createKey.Response != nil && createKey.Response.Async {
-		con.AddBeaconCallback(createKey.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(createKey.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, createKey)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -89,7 +89,6 @@ func RegCreateKeyCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 			}
 			PrintCreateKey(createKey, finalPath, key, con)
 		})
-		con.PrintAsyncResponse(createKey.Response)
 	} else {
 		PrintCreateKey(createKey, finalPath, key, con)
 	}

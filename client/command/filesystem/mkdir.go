@@ -52,7 +52,7 @@ func MkdirCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 	if mkdir.Response != nil && mkdir.Response.Async {
-		con.AddBeaconCallback(mkdir.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(mkdir.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, mkdir)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -60,7 +60,6 @@ func MkdirCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			PrintMkdir(mkdir, con)
 		})
-		con.PrintAsyncResponse(mkdir.Response)
 	} else {
 		PrintMkdir(mkdir, con)
 	}

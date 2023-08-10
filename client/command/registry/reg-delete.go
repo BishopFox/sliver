@@ -81,7 +81,7 @@ func RegDeleteKeyCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 
 	if deleteKey.Response != nil && deleteKey.Response.Async {
-		con.AddBeaconCallback(deleteKey.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(deleteKey.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, deleteKey)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -89,7 +89,6 @@ func RegDeleteKeyCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 			}
 			PrintDeleteKey(deleteKey, finalPath, key, con)
 		})
-		con.PrintAsyncResponse(deleteKey.Response)
 	} else {
 		PrintDeleteKey(deleteKey, finalPath, key, con)
 	}

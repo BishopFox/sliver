@@ -61,7 +61,7 @@ func DownloadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 	if download.Response != nil && download.Response.Async {
-		con.AddBeaconCallback(download.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(download.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, download)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -69,7 +69,6 @@ func DownloadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			HandleDownloadResponse(download, cmd, args, con)
 		})
-		con.PrintAsyncResponse(download.Response)
 	} else {
 		HandleDownloadResponse(download, cmd, args, con)
 	}

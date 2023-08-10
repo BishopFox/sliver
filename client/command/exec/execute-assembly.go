@@ -116,7 +116,7 @@ func ExecuteAssemblyCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 	}
 	hostName := getHostname(session, beacon)
 	if execAssembly.Response != nil && execAssembly.Response.Async {
-		con.AddBeaconCallback(execAssembly.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(execAssembly.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, execAssembly)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -125,7 +125,6 @@ func ExecuteAssemblyCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 
 			HandleExecuteAssemblyResponse(execAssembly, assemblyPath, hostName, cmd, con)
 		})
-		con.PrintAsyncResponse(execAssembly.Response)
 	} else {
 		HandleExecuteAssemblyResponse(execAssembly, assemblyPath, hostName, cmd, con)
 	}

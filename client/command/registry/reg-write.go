@@ -143,7 +143,7 @@ func RegWriteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 
 	if regWrite.Response != nil && regWrite.Response.Async {
-		con.AddBeaconCallback(regWrite.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(regWrite.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, regWrite)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -151,7 +151,6 @@ func RegWriteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			PrintRegWrite(regWrite, con)
 		})
-		con.PrintAsyncResponse(regWrite.Response)
 	} else {
 		PrintRegWrite(regWrite, con)
 	}

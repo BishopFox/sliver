@@ -49,7 +49,7 @@ func CdCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 	if pwd.Response != nil && pwd.Response.Async {
-		con.AddBeaconCallback(pwd.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(pwd.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, pwd)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -57,7 +57,6 @@ func CdCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			PrintPwd(pwd, con)
 		})
-		con.PrintAsyncResponse(pwd.Response)
 	} else {
 		PrintPwd(pwd, con)
 	}

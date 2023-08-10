@@ -71,7 +71,7 @@ func ConnectCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			con.PrintInfof("Adding existing beacons ...\n")
 			for _, beacon := range beacons.Beacons {
 				err = implantMapper.AddImplant(beacon, func(taskID string, cb func(task *clientpb.BeaconTask)) {
-					con.AddBeaconCallback(taskID, cb)
+					con.AddBeaconCallback(&commonpb.Response{TaskID: taskID}, cb)
 				})
 				if err != nil {
 					con.PrintErrorf("Could not add beacon %s to implant mapper: %s", beacon.Name, err)

@@ -379,7 +379,7 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 		}
 
 		if executeAssemblyResp.Response != nil && executeAssemblyResp.Response.Async {
-			con.AddBeaconCallback(executeAssemblyResp.Response.TaskID, func(task *clientpb.BeaconTask) {
+			con.AddBeaconCallback(executeAssemblyResp.Response, func(task *clientpb.BeaconTask) {
 				err = proto.Unmarshal(task.Response, executeAssemblyResp)
 				if err != nil {
 					con.PrintErrorf("Failed to decode call ext response %s\n", err)
@@ -387,7 +387,6 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 				}
 				PrintAssemblyOutput(cmd.Name(), executeAssemblyResp, outFilePath, con)
 			})
-			con.PrintAsyncResponse(executeAssemblyResp.Response)
 		} else {
 			PrintAssemblyOutput(cmd.Name(), executeAssemblyResp, outFilePath, con)
 		}
@@ -418,7 +417,7 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 		}
 
 		if spawnDllResp.Response != nil && spawnDllResp.Response.Async {
-			con.AddBeaconCallback(spawnDllResp.Response.TaskID, func(task *clientpb.BeaconTask) {
+			con.AddBeaconCallback(spawnDllResp.Response, func(task *clientpb.BeaconTask) {
 				err = proto.Unmarshal(task.Response, spawnDllResp)
 				if err != nil {
 					con.PrintErrorf("Failed to decode call ext response %s\n", err)
@@ -426,7 +425,6 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 				}
 				PrintSpawnDLLOutput(cmd.Name(), spawnDllResp, outFilePath, con)
 			})
-			con.PrintAsyncResponse(spawnDllResp.Response)
 		} else {
 			PrintSpawnDLLOutput(cmd.Name(), spawnDllResp, outFilePath, con)
 		}
@@ -458,7 +456,7 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 		}
 
 		if sideloadResp.Response != nil && sideloadResp.Response.Async {
-			con.AddBeaconCallback(sideloadResp.Response.TaskID, func(task *clientpb.BeaconTask) {
+			con.AddBeaconCallback(sideloadResp.Response, func(task *clientpb.BeaconTask) {
 				err = proto.Unmarshal(task.Response, sideloadResp)
 				if err != nil {
 					con.PrintErrorf("Failed to decode call ext response %s\n", err)
@@ -466,7 +464,6 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 				}
 				PrintSideloadOutput(cmd.Name(), sideloadResp, outFilePath, con)
 			})
-			con.PrintAsyncResponse(sideloadResp.Response)
 		} else {
 			PrintSideloadOutput(cmd.Name(), sideloadResp, outFilePath, con)
 		}

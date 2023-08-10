@@ -55,14 +55,13 @@ func CpCmd(cmd *cobra.Command, con *console.SliverClient, args []string) (err er
 	cp.Src, cp.Dst = src, dst
 
 	if cp.Response != nil && cp.Response.Async {
-		con.AddBeaconCallback(cp.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(cp.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, cp)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
 		})
-		con.PrintAsyncResponse(cp.Response)
 	} else {
 		PrintCp(cp, con)
 	}

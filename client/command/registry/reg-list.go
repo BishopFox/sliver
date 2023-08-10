@@ -56,7 +56,7 @@ func RegListSubKeysCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 	}
 
 	if regList.Response != nil && regList.Response.Async {
-		con.AddBeaconCallback(regList.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(regList.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, regList)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -64,7 +64,6 @@ func RegListSubKeysCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 			}
 			PrintListSubKeys(regList, hive, regPath, con)
 		})
-		con.PrintAsyncResponse(regList.Response)
 	} else {
 		PrintListSubKeys(regList, hive, regPath, con)
 	}
@@ -107,7 +106,7 @@ func RegListValuesCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 	}
 
 	if regList.Response != nil && regList.Response.Async {
-		con.AddBeaconCallback(regList.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(regList.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, regList)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -115,7 +114,6 @@ func RegListValuesCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 			}
 			PrintListValues(regList, hive, regPath, con)
 		})
-		con.PrintAsyncResponse(regList.Response)
 	} else {
 		PrintListValues(regList, hive, regPath, con)
 	}

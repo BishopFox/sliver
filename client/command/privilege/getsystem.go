@@ -58,7 +58,7 @@ func GetSystemCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	}
 
 	if getSystem.Response != nil && getSystem.Response.Async {
-		con.AddBeaconCallback(getSystem.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(getSystem.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, getSystem)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -66,7 +66,6 @@ func GetSystemCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 			}
 			PrintGetSystem(getSystem, con)
 		})
-		con.PrintAsyncResponse(getSystem.Response)
 	} else {
 		PrintGetSystem(getSystem, con)
 	}

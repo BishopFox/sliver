@@ -61,7 +61,7 @@ func ChmodCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 	if chmod.Response != nil && chmod.Response.Async {
-		con.AddBeaconCallback(chmod.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(chmod.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, chmod)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -69,7 +69,6 @@ func ChmodCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			PrintChmod(chmod, con)
 		})
-		con.PrintAsyncResponse(chmod.Response)
 	} else {
 		PrintChmod(chmod, con)
 	}

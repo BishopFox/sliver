@@ -135,7 +135,7 @@ func (con *SliverClient) startEventLoop() {
 			// Prelude Operator
 			if prelude.ImplantMapper != nil {
 				err = prelude.ImplantMapper.AddImplant(beacon, func(taskID string, cb func(*clientpb.BeaconTask)) {
-					con.AddBeaconCallback(taskID, cb)
+					con.AddBeaconCallback(&commonpb.Response{TaskID: taskID}, cb)
 				})
 				if err != nil {
 					con.PrintErrorf("Could not add beacon to Operator: %s", err)
@@ -219,14 +219,6 @@ func (con *SliverClient) triggerBeaconTaskCallback(data []byte) {
 		return
 	}
 
-	// If needed, wait for the "request sent" status to be printed first.
-	if waitStatus := con.beaconSentStatus[task.ID]; waitStatus != nil {
-		waitStatus.Wait()
-		con.beaconTaskSentMutex.Lock()
-		delete(con.beaconSentStatus, task.ID)
-		con.beaconTaskSentMutex.Unlock()
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	beacon, _ := con.Rpc.GetBeacon(ctx, &clientpb.Beacon{ID: task.BeaconID})
@@ -237,35 +229,82 @@ func (con *SliverClient) triggerBeaconTaskCallback(data []byte) {
 	con.BeaconTaskCallbacksMutex.Lock()
 	defer con.BeaconTaskCallbacksMutex.Unlock()
 	if callback, ok := con.BeaconTaskCallbacks[task.ID]; ok {
+
+		// If needed, wait for the "request sent" status to be printed first.
+		con.beaconTaskSentMutex.Lock()
+		if waitStatus := con.beaconSentStatus[task.ID]; waitStatus != nil {
+			waitStatus.Wait()
+			delete(con.beaconSentStatus, task.ID)
+		}
+		con.beaconTaskSentMutex.Unlock()
+
 		if con.Settings.BeaconAutoResults {
 			if beacon != nil {
-				con.PrintSuccessf("%s completed task %s", beacon.Name, strings.Split(task.ID, "-")[0])
+				con.PrintSuccessf("%s completed task %s\n", beacon.Name, strings.Split(task.ID, "-")[0])
 			}
 			task_content, err := con.Rpc.GetBeaconTaskContent(ctx, &clientpb.BeaconTask{
 				ID: task.ID,
 			})
-			con.Printf(Clearln + "\r")
+			con.Printf(Clearln + "\r\n")
 			if err == nil {
 				callback(task_content)
 			} else {
-				con.PrintErrorf("Could not get beacon task content: %s", err)
+				con.PrintErrorf("Could not get beacon task content: %s\n", err)
 			}
 		}
 		delete(con.BeaconTaskCallbacks, task.ID)
+		con.waitingResult <- true
 	}
 }
 
-func (con *SliverClient) AddBeaconCallback(taskID string, callback BeaconTaskCallback) {
+func (con *SliverClient) AddBeaconCallback(resp *commonpb.Response, callback BeaconTaskCallback) {
+	if resp == nil || resp.TaskID == "" {
+		return
+	}
+
 	// Store the task ID.
 	con.BeaconTaskCallbacksMutex.Lock()
-	defer con.BeaconTaskCallbacksMutex.Unlock()
-	con.BeaconTaskCallbacks[taskID] = callback
+	con.BeaconTaskCallbacks[resp.TaskID] = callback
+	con.BeaconTaskCallbacksMutex.Unlock()
 
-	// And wait for the "request sent" status to be printed before results.
+	// Wait for the "request sent" status to be printed before results.
 	con.beaconTaskSentMutex.Lock()
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	con.beaconSentStatus[taskID] = wait
-	defer con.beaconTaskSentMutex.Unlock()
+	con.beaconSentStatus[resp.TaskID] = wait
+	con.beaconTaskSentMutex.Unlock()
 
+	con.PrintAsyncResponse(resp)
+	con.waitSignalOrClose()
 }
+
+// NewTask registers a new task (asynchronous -beacon- or not). If:
+// - the provided (task) Response is nil,
+// - if the task is not marked Async,
+// - or if it's ID is nil,
+// the task is considered synchronous, and we will directly call
+// the handle function to execute the post-response workflow.
+func (con *SliverClient) NewTask(resp *commonpb.Response, message proto.Message, handle func()) {
+	// We're no beacon here.
+	if resp == nil || !resp.Async || resp.TaskID == "" {
+		if handle != nil {
+			handle()
+		}
+		return
+	}
+
+	// Else, we are a beacon.
+	con.AddBeaconCallback(resp, func(task *clientpb.BeaconTask) {
+		err := proto.Unmarshal(task.Response, message)
+		if err != nil {
+			con.PrintErrorf("Failed to decode response %s\n", err)
+			return
+		}
+
+		if handle != nil {
+			handle()
+		}
+	})
+}
+
+// con.NewTask(download.Response, download, func() { PrintCat(download, cmd, con) })

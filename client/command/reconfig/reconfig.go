@@ -84,7 +84,7 @@ func ReconfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 	if reconfig.Response != nil && reconfig.Response.Async {
-		con.AddBeaconCallback(reconfig.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(reconfig.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, reconfig)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -92,7 +92,6 @@ func ReconfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			con.PrintInfof("Reconfigured beacon\n")
 		})
-		con.PrintAsyncResponse(reconfig.Response)
 	} else {
 		con.PrintInfof("Reconfiguration complete\n")
 	}

@@ -44,7 +44,7 @@ func RevToSelfCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	}
 
 	if revert.Response != nil && revert.Response.Async {
-		con.AddBeaconCallback(revert.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(revert.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, revert)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -52,7 +52,6 @@ func RevToSelfCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 			}
 			PrintRev2Self(revert, con)
 		})
-		con.PrintAsyncResponse(revert.Response)
 	} else {
 		PrintRev2Self(revert, con)
 	}

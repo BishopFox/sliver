@@ -179,7 +179,7 @@ func WhoamiCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		}
 
 		if cto.Response != nil && cto.Response.Async {
-			con.AddBeaconCallback(cto.Response.TaskID, func(task *clientpb.BeaconTask) {
+			con.AddBeaconCallback(cto.Response, func(task *clientpb.BeaconTask) {
 				err = proto.Unmarshal(task.Response, cto)
 				if err != nil {
 					con.PrintErrorf("Failed to decode response %s\n", err)
@@ -187,7 +187,6 @@ func WhoamiCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 				}
 				PrintTokenOwner(cto, con)
 			})
-			con.PrintAsyncResponse(cto.Response)
 		} else {
 			PrintTokenOwner(cto, con)
 		}

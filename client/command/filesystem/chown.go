@@ -69,7 +69,7 @@ func ChownCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 	if chown.Response != nil && chown.Response.Async {
-		con.AddBeaconCallback(chown.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(chown.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, chown)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -77,7 +77,6 @@ func ChownCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			PrintChown(chown, con)
 		})
-		con.PrintAsyncResponse(chown.Response)
 	} else {
 		PrintChown(chown, con)
 	}

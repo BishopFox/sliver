@@ -51,7 +51,7 @@ func GetPrivsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 	pid := getPID(session, beacon)
 	if privs.Response != nil && privs.Response.Async {
-		con.AddBeaconCallback(privs.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(privs.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, privs)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -59,7 +59,6 @@ func GetPrivsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			PrintGetPrivs(privs, pid, con)
 		})
-		con.PrintAsyncResponse(privs.Response)
 	} else {
 		PrintGetPrivs(privs, pid, con)
 	}

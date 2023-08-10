@@ -142,7 +142,7 @@ func runNonInteractive(execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.
 		return
 	}
 	if execWasmResp.Response != nil && execWasmResp.Response.Async {
-		con.AddBeaconCallback(execWasmResp.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(execWasmResp.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, execWasmResp)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)

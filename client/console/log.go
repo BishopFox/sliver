@@ -28,13 +28,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/moloch--/asciicast"
+	"golang.org/x/exp/slog"
+	"golang.org/x/term"
+
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/moloch--/asciicast"
-	"golang.org/x/exp/slog"
-	"golang.org/x/term"
 )
 
 // ConsoleClientLogger is an io.Writer that sends data to the server.

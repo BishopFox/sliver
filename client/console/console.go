@@ -120,13 +120,18 @@ type SliverClient struct {
 	closeLogs   []func()
 
 	// Sliver-specific
-	Rpc                      rpcpb.SliverRPCClient
-	ActiveTarget             *ActiveTarget
-	EventListeners           *sync.Map
+	Rpc            rpcpb.SliverRPCClient
+	ActiveTarget   *ActiveTarget
+	EventListeners *sync.Map
+
+	// Tasks (pending)
+	beaconSentStatus    map[string]*sync.WaitGroup
+	beaconTaskSentMutex *sync.Mutex
+	waitingResult       chan bool
+
+	// Tasks (completed)
 	BeaconTaskCallbacks      map[string]BeaconTaskCallback
-	beaconSentStatus         map[string]*sync.WaitGroup
 	BeaconTaskCallbacksMutex *sync.Mutex
-	beaconTaskSentMutex      *sync.Mutex
 }
 
 // NewSliverClient is the general-purpose Sliver Client constructor.
@@ -344,6 +349,36 @@ func (con *SliverClient) WaitSignal() error {
 
 	sig := <-sigchan
 	con.PrintInfof("Received signal %s\n", sig)
+
+	return nil
+}
+
+func (con *SliverClient) waitSignalOrClose() error {
+	if !con.isCLI {
+		return nil
+	}
+
+	sigchan := make(chan os.Signal, 1)
+
+	signal.Notify(
+		sigchan,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+		// syscall.SIGKILL,
+	)
+
+	if con.waitingResult == nil {
+		con.waitingResult = make(chan bool)
+	}
+
+	select {
+	case sig := <-sigchan:
+		con.PrintInfof("Received signal %s\n", sig)
+	case <-con.waitingResult:
+		con.waitingResult = make(chan bool)
+		return nil
+	}
 
 	return nil
 }
