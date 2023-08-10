@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -217,6 +218,15 @@ func (con *SliverClient) triggerBeaconTaskCallback(data []byte) {
 		con.PrintErrorf("\rCould not unmarshal beacon task: %s", err)
 		return
 	}
+
+	// If needed, wait for the "request sent" status to be printed first.
+	if waitStatus := con.beaconSentStatus[task.ID]; waitStatus != nil {
+		waitStatus.Wait()
+		con.beaconTaskSentMutex.Lock()
+		delete(con.beaconSentStatus, task.ID)
+		con.beaconTaskSentMutex.Unlock()
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	beacon, _ := con.Rpc.GetBeacon(ctx, &clientpb.Beacon{ID: task.BeaconID})
@@ -246,7 +256,16 @@ func (con *SliverClient) triggerBeaconTaskCallback(data []byte) {
 }
 
 func (con *SliverClient) AddBeaconCallback(taskID string, callback BeaconTaskCallback) {
+	// Store the task ID.
 	con.BeaconTaskCallbacksMutex.Lock()
 	defer con.BeaconTaskCallbacksMutex.Unlock()
 	con.BeaconTaskCallbacks[taskID] = callback
+
+	// And wait for the "request sent" status to be printed before results.
+	con.beaconTaskSentMutex.Lock()
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	con.beaconSentStatus[taskID] = wait
+	defer con.beaconTaskSentMutex.Unlock()
+
 }

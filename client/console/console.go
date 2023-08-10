@@ -124,7 +124,9 @@ type SliverClient struct {
 	ActiveTarget             *ActiveTarget
 	EventListeners           *sync.Map
 	BeaconTaskCallbacks      map[string]BeaconTaskCallback
+	beaconSentStatus         map[string]*sync.WaitGroup
 	BeaconTaskCallbacksMutex *sync.Mutex
+	beaconTaskSentMutex      *sync.Mutex
 }
 
 // NewSliverClient is the general-purpose Sliver Client constructor.
@@ -180,7 +182,9 @@ func newClient() *SliverClient {
 		ActiveTarget:             newActiveTarget(),
 		EventListeners:           &sync.Map{},
 		BeaconTaskCallbacks:      map[string]BeaconTaskCallback{},
+		beaconSentStatus:         map[string]*sync.WaitGroup{},
 		BeaconTaskCallbacksMutex: &sync.Mutex{},
+		beaconTaskSentMutex:      &sync.Mutex{},
 	}
 
 	con.App.SetPrintLogo(func(_ *console.Console) {

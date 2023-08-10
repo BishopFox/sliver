@@ -205,8 +205,11 @@ func getConsoleAsciicastFile() *os.File {
 
 // PrintAsyncResponse - Print the generic async response information.
 func (con *SliverClient) PrintAsyncResponse(resp *commonpb.Response) {
+	defer con.beaconSentStatus[resp.TaskID].Done()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
 	beacon, err := con.Rpc.GetBeacon(ctx, &clientpb.Beacon{ID: resp.BeaconID})
 	if err != nil {
 		con.PrintWarnf(err.Error())
