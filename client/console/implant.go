@@ -139,7 +139,7 @@ func (s *ActiveTarget) Set(session *clientpb.Session, beacon *clientpb.Beacon) {
 		return
 	}
 
-	defer s.con.ExposeCommands()
+	defer s.con.FilterCommands(s.con.App.ActiveMenu().Command)
 
 	// Backgrounding
 	if session == nil && beacon == nil {
@@ -175,10 +175,6 @@ func (s *ActiveTarget) Set(session *clientpb.Session, beacon *clientpb.Beacon) {
 			observer(s.session, s.beacon)
 		}
 	}
-
-	// if s.con.isCLI {
-	// 	return
-	// }
 
 	// Update menus, prompts and commands
 	if s.con.App.ActiveMenu().Name() != consts.ImplantMenu {

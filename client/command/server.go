@@ -19,6 +19,9 @@ package command
 */
 
 import (
+	"github.com/reeflective/console"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/armory"
 	"github.com/bishopfox/sliver/client/command/beacons"
@@ -45,9 +48,6 @@ import (
 	"github.com/bishopfox/sliver/client/command/wireguard"
 	client "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	cc "github.com/ivanpirog/coloredcobra"
-	"github.com/reeflective/console"
-	"github.com/spf13/cobra"
 )
 
 // SliverBinder is the signature of command yielder functions passed and used by
@@ -67,18 +67,6 @@ func ServerCommands(con *client.SliverClient, serverCmds SliverBinder) console.C
 				HiddenDefaultCmd: true,
 			},
 		}
-
-		cc.Init(&cc.Config{
-			RootCmd:         server,
-			NoExtraNewlines: true,
-			NoBottomNewline: true,
-			Headings:        cc.HiCyan + cc.Bold + cc.Underline,
-			ExecName:        cc.Bold,
-			Example:         cc.Italic,
-			Commands:        cc.HiYellow + cc.Bold,
-			Flags:           cc.Bold,
-			FlagsDataType:   cc.Italic,
-		})
 
 		// Utility function to be used for binding new commands to
 		// the sliver menu: call the function with the name of the

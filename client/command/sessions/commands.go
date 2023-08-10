@@ -58,9 +58,10 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 // SliverCommands returns all session control commands for the active target.
 func SliverCommands(con *console.SliverClient) []*cobra.Command {
 	backgroundCmd := &cobra.Command{
-		Use:   consts.BackgroundStr,
-		Short: "Background an active session",
-		Long:  help.GetHelpFor([]string{consts.BackgroundStr}),
+		Use:         consts.BackgroundStr,
+		Short:       "Background an active session",
+		Long:        help.GetHelpFor([]string{consts.BackgroundStr}),
+		Annotations: flags.RestrictTargets(consts.ConsoleCmdsFilter),
 		Run: func(cmd *cobra.Command, args []string) {
 			BackgroundCmd(cmd, con, args)
 		},

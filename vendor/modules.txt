@@ -365,9 +365,6 @@ github.com/insomniacslk/dhcp/dhcpv4
 github.com/insomniacslk/dhcp/iana
 github.com/insomniacslk/dhcp/interfaces
 github.com/insomniacslk/dhcp/rfc1035label
-# github.com/ivanpirog/coloredcobra v1.0.1
-## explicit; go 1.15
-github.com/ivanpirog/coloredcobra
 # github.com/jackc/pgpassfile v1.0.0
 ## explicit; go 1.12
 github.com/jackc/pgpassfile

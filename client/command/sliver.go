@@ -19,7 +19,8 @@ package command
 */
 
 import (
-	"strings"
+	"github.com/reeflective/console"
+	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/alias"
@@ -51,9 +52,6 @@ import (
 	"github.com/bishopfox/sliver/client/command/wireguard"
 	client "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/reeflective/console"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
 )
 
 // SliverCommands returns all commands bound to the implant menu.
@@ -168,51 +166,12 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 
 		sliver.InitDefaultHelpCmd()
 		sliver.SetHelpCommandGroupID(consts.SliverCoreHelpGroup)
-		initHelpCompletion(sliver)
 
 		// Compute which commands should be available based on the current session/beacon.
-		con.ExposeCommands()
+		con.FilterCommands(sliver)
 
 		return sliver
 	}
 
 	return sliverCommands
-}
-
-func actionSubcommands(cmd *cobra.Command) carapace.Action {
-	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
-		batch := carapace.Batch()
-		for _, subcommand := range cmd.Commands() {
-			if !subcommand.Hidden && subcommand.Deprecated == "" {
-				batch = append(batch, carapace.ActionValuesDescribed(subcommand.Name(), subcommand.Short).Tag(subcommand.GroupID))
-				for _, alias := range subcommand.Aliases {
-					batch = append(batch, carapace.ActionValuesDescribed(alias, subcommand.Short).Tag(subcommand.GroupID))
-				}
-			}
-		}
-		return batch.ToA()
-	})
-}
-
-func initHelpCompletion(cmd *cobra.Command) {
-	helpCmd, _, err := cmd.Find([]string{"help"})
-	if err != nil {
-		return
-	}
-
-	if helpCmd.Name() != "help" ||
-		helpCmd.Short != "Help about any command" ||
-		!strings.HasPrefix(helpCmd.Long, `Help provides help for any command in the application.`) {
-		return
-	}
-
-	carapace.Gen(helpCmd).PositionalAnyCompletion(
-		carapace.ActionCallback(func(c carapace.Context) carapace.Action {
-			lastCmd, _, err := cmd.Find(c.Args)
-			if err != nil {
-				return carapace.ActionMessage(err.Error())
-			}
-			return actionSubcommands(lastCmd)
-		}),
-	)
 }

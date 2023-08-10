@@ -236,21 +236,10 @@ func (con *SliverClient) StartConsole() error {
 	return con.App.Start()
 }
 
-// Expose or hide commands if the active target does support them (or not).
-// Ex; hide Windows commands on Linux implants, Wireguard tools on HTTP C2, etc.
-func (con *SliverClient) ExposeCommands() {
-	con.App.ShowCommands()
-
-	filters := con.ActiveTarget.Filters()
-
-	if !con.isCLI {
-		filters = append(filters, consts.ConsoleCmdsFilter)
-	}
-
-	// Use all defined filters.
-	con.App.HideCommands(filters...)
-}
-
+// FilterCommands shows/hides commands if the active target does support them (or not).
+// Ex; to hide Windows commands on Linux implants, Wireguard tools on HTTP C2, etc.
+// Both the cmd *cobra.Command passed and the filters can be nil, in which case the
+// filters are recomputed by the console application for the current context.
 func (con *SliverClient) FilterCommands(cmd *cobra.Command, filters ...string) {
 	con.App.ShowCommands()
 
@@ -265,14 +254,15 @@ func (con *SliverClient) FilterCommands(cmd *cobra.Command, filters ...string) {
 
 	con.App.HideCommands(filters...)
 
-	for _, cmd := range cmd.Commands() {
-		// Don't override commands if they are already hidden
-		if cmd.Hidden {
-			continue
-		}
+	if cmd != nil {
+		for _, cmd := range cmd.Commands() {
+			if cmd.Hidden {
+				continue
+			}
 
-		if isFiltered(cmd, filters) {
-			cmd.Hidden = true
+			if isFiltered(cmd, filters) {
+				cmd.Hidden = true
+			}
 		}
 	}
 }
