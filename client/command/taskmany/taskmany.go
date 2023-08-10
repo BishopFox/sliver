@@ -47,6 +47,9 @@ func Command(con *console.SliverClient) []*cobra.Command {
 		},
 	}
 
+	// Subcommands might have flags of their own.
+	taskmanyCmd.DisableFlagParsing = true
+
 	// Add the relevant beacon commands as a subcommand to taskmany
 	// taskmanyCmds := map[string]bool{
 	// 	consts.ExecuteStr:     true,

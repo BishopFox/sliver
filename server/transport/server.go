@@ -63,7 +63,7 @@ func NewTeamserver() (team *server.Server, clientOpts []grpc.DialOption, err err
 		// Core directories/loggers.
 		server.WithHomeDirectory(assets.GetRootAppDir()), // ~/.sliver/
 		server.WithLogger(log.RootLogger),                // Logs to ~/.sliver/logs/sliver.{log,json} and audit.json
-		server.WithDatabase(db.Session()),                // Uses our traditional ~/.sliver/sliver.db for storing users.
+		server.WithDatabase(db.Client),                   // Uses our traditional ~/.sliver/sliver.db for storing users.
 
 		// Network options/stacks
 		server.WithDefaultPort(31337),          // Our now famous port.
