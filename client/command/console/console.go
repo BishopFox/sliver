@@ -19,12 +19,15 @@ package console
 */
 
 import (
+	"os"
+
+	"github.com/reeflective/console"
 	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/command"
+	"github.com/bishopfox/sliver/client/command/reaction"
 	client "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/reeflective/console"
 )
 
 // Command returns the closed-loop Sliver console command.
@@ -46,6 +49,14 @@ func Command(con *client.SliverClient, serverCmds console.Commands) *cobra.Comma
 
 			sliver := con.App.Menu(consts.ImplantMenu)
 			sliver.SetCommands(command.SliverCommands(con))
+
+			// Reactions
+			n, err := reaction.LoadReactions()
+			if err != nil && !os.IsNotExist(err) {
+				con.PrintErrorf("Failed to load reactions: %s\n", err)
+			} else if n > 0 {
+				con.PrintInfof("Loaded %d reaction(s) from disk\n", n)
+			}
 
 			// Start the console, blocking until player exit.
 			return con.StartConsole()

@@ -19,8 +19,6 @@ package command
 */
 
 import (
-	"os"
-
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/armory"
 	"github.com/bishopfox/sliver/client/command/beacons"
@@ -47,10 +45,14 @@ import (
 	"github.com/bishopfox/sliver/client/command/wireguard"
 	client "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	cc "github.com/ivanpirog/coloredcobra"
 	"github.com/reeflective/console"
 	"github.com/spf13/cobra"
 )
 
+// SliverBinder is the signature of command yielder functions passed and used by
+// the Sliver client. Currently this function type is only used as an alias for
+// loading command sets easily, and is not part of any interface.
 type SliverBinder func(con *client.SliverClient) []*cobra.Command
 
 // ServerCommands returns all commands bound to the server menu, optionally
@@ -66,6 +68,18 @@ func ServerCommands(con *client.SliverClient, serverCmds SliverBinder) console.C
 			},
 		}
 
+		cc.Init(&cc.Config{
+			RootCmd:         server,
+			NoExtraNewlines: true,
+			NoBottomNewline: true,
+			Headings:        cc.HiCyan + cc.Bold + cc.Underline,
+			ExecName:        cc.Bold,
+			Example:         cc.Italic,
+			Commands:        cc.HiYellow + cc.Bold,
+			Flags:           cc.Bold,
+			FlagsDataType:   cc.Italic,
+		})
+
 		// Utility function to be used for binding new commands to
 		// the sliver menu: call the function with the name of the
 		// group under which this/these commands should be added,
@@ -73,7 +87,7 @@ func ServerCommands(con *client.SliverClient, serverCmds SliverBinder) console.C
 		bind := MakeBind(server, con)
 
 		if serverCmds != nil {
-			bind(consts.TeamserverHelpGroup,
+			bind(consts.GenericHelpGroup,
 				serverCmds,
 			)
 		}
@@ -131,16 +145,6 @@ func ServerCommands(con *client.SliverClient, serverCmds SliverBinder) console.C
 		// Everything below this line should preferably not be any command binding
 		// (although you can do so without fear). If there are any final modifications
 		// to make to the server menu command tree, it time to do them here.
-
-		// Only load reactions when the console is going to be started.
-		if !con.IsCLI {
-			n, err := reaction.LoadReactions()
-			if err != nil && !os.IsNotExist(err) {
-				con.PrintErrorf("Failed to load reactions: %s\n", err)
-			} else if n > 0 {
-				con.PrintInfof("Loaded %d reaction(s) from disk\n", n)
-			}
-		}
 
 		server.InitDefaultHelpCmd()
 		server.SetHelpCommandGroupID(consts.GenericHelpGroup)

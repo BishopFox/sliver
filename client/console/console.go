@@ -107,7 +107,7 @@ type SliverClient struct {
 	App      *console.Console
 	Settings *assets.ClientSettings
 	IsServer bool
-	IsCLI    bool
+	isCLI    bool
 
 	// Teamclient & remotes
 	Teamclient   *client.Client
@@ -175,7 +175,7 @@ func newClient() *SliverClient {
 	con := &SliverClient{
 		App:                      console.New("sliver"),
 		Settings:                 settings,
-		IsCLI:                    true,
+		isCLI:                    true,
 		printf:                   fmt.Printf,
 		ActiveTarget:             newActiveTarget(),
 		EventListeners:           &sync.Map{},
@@ -221,7 +221,7 @@ func newClient() *SliverClient {
 // because the console needs to query the terminal for cursor positions
 // when asynchronously printing logs (that is, when no command is running).
 func (con *SliverClient) StartConsole() error {
-	con.IsCLI = false
+	con.isCLI = false
 	con.printf = con.App.TransientPrintf
 
 	return con.App.Start()
@@ -321,7 +321,7 @@ func (con *SliverClient) SpinUntil(message string, ctrl chan bool) {
 // if the command is ran in the closed-loop console, this function will not monitor signals
 // and return immediately.
 func (con *SliverClient) WaitSignal() error {
-	if !con.IsCLI {
+	if !con.isCLI {
 		return nil
 	}
 

@@ -149,7 +149,7 @@ func (s *ActiveTarget) Set(session *clientpb.Session, beacon *clientpb.Beacon) {
 			observer(s.session, s.beacon)
 		}
 
-		if s.con.IsCLI {
+		if s.con.isCLI {
 			return
 		}
 
@@ -176,7 +176,7 @@ func (s *ActiveTarget) Set(session *clientpb.Session, beacon *clientpb.Beacon) {
 		}
 	}
 
-	if s.con.IsCLI {
+	if s.con.isCLI {
 		return
 	}
 
@@ -197,7 +197,7 @@ func (s *ActiveTarget) Background() {
 	}
 
 	// Switch back to server menu.
-	if !s.con.IsCLI && s.con.App.ActiveMenu().Name() == consts.ImplantMenu {
+	if !s.con.isCLI && s.con.App.ActiveMenu().Name() == consts.ImplantMenu {
 		s.con.App.SwitchMenu(consts.ServerMenu)
 	}
 }
