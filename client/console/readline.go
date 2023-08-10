@@ -19,14 +19,14 @@ package console
 */
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	insecureRand "math/rand"
 	"os"
 	"strings"
 
-	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/reeflective/console"
@@ -73,23 +73,67 @@ func (con *SliverClient) PrintLogo() {
 	con.CheckLastUpdate()
 }
 
+// ExitConfirm tries to exit the Sliver go program.
+// It will prompt on stdin for confirmation if:
+// - The program is a Sliver server and has active slivers under management.
+// - The program is a client and has active port forwarders or SOCKS proxies.
+// In any of those cases and without confirm, the function does nothing.
+func (con *SliverClient) ExitConfirm() {
+	fmt.Println("Exiting...")
+
+	if con.IsServer {
+		sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			os.Exit(1)
+		}
+		beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			os.Exit(1)
+		}
+		if 0 < len(sessions.Sessions) || 0 < len(beacons.Beacons) {
+			con.Printf("There are %d active sessions and %d active beacons.\n", len(sessions.Sessions), len(beacons.Beacons))
+			confirm := false
+			prompt := &survey.Confirm{Message: "Are you sure you want to exit?"}
+			survey.AskOne(prompt, &confirm)
+			if !confirm {
+				return
+			}
+		}
+	}
+
+	// Client might have portfwds/socks
+	portfwds := core.Portfwds.List()
+	servers := core.SocksProxies.List()
+
+	if len(portfwds) > 0 {
+		con.Printf("There are %d active (bind) port forwarders.\n", len(portfwds))
+	}
+
+	if len(servers) > 0 {
+		con.Printf("There are %d active SOCKS servers.\n", len(servers))
+	}
+
+	if len(portfwds)+len(servers) > 0 {
+		confirm := false
+		prompt := &survey.Confirm{Message: "Are you sure you want to exit?"}
+		survey.AskOne(prompt, &confirm)
+		if !confirm {
+			return
+		}
+	}
+
+	os.Exit(0)
+}
+
 // exitConsole prompts the user for confirmation to exit the console.
 func (c *SliverClient) exitConsole(_ *console.Console) {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Confirm exit (Y/y, Ctrl-C): ")
-	text, _ := reader.ReadString('\n')
-	answer := strings.TrimSpace(text)
-
-	if (answer == "Y") || (answer == "y") {
-		os.Exit(0)
-	}
+	c.ExitConfirm()
 }
 
 // exitImplantMenu uses the background command to detach from the implant menu.
 func (c *SliverClient) exitImplantMenu(_ *console.Console) {
-	root := c.App.Menu(consts.ImplantMenu).Command
-	root.SetArgs([]string{"background"})
-	root.Execute()
+	c.ActiveTarget.Background()
+	c.PrintInfof("Background ...\n")
 }
 
 var abilities = []string{
