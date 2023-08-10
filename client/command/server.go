@@ -149,6 +149,8 @@ func ServerCommands(con *client.SliverClient, serverCmds SliverBinder) console.C
 		server.InitDefaultHelpCmd()
 		server.SetHelpCommandGroupID(consts.GenericHelpGroup)
 
+		con.FilterCommands(server)
+
 		return server
 	}
 

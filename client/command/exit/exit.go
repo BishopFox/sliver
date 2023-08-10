@@ -19,6 +19,7 @@ package exit
 */
 
 import (
+	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/spf13/cobra"
@@ -27,8 +28,9 @@ import (
 // Commands returns the `exit` command.
 func Command(con *console.SliverClient) []*cobra.Command {
 	return []*cobra.Command{{
-		Use:   "exit",
-		Short: "Exit the program",
+		Use:         "exit",
+		Short:       "Exit the program",
+		Annotations: flags.RestrictTargets(constants.ConsoleCmdsFilter),
 		Run: func(cmd *cobra.Command, args []string) {
 			con.ExitConfirm()
 		},

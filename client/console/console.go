@@ -243,8 +243,38 @@ func (con *SliverClient) ExposeCommands() {
 
 	filters := con.ActiveTarget.Filters()
 
+	if !con.isCLI {
+		filters = append(filters, consts.ConsoleCmdsFilter)
+	}
+
 	// Use all defined filters.
 	con.App.HideCommands(filters...)
+}
+
+func (con *SliverClient) FilterCommands(cmd *cobra.Command, filters ...string) {
+	con.App.ShowCommands()
+
+	if con.isCLI {
+		filters = append(filters, consts.ConsoleCmdsFilter)
+	}
+
+	sess, beac := con.ActiveTarget.Get()
+	if sess != nil || beac != nil {
+		filters = append(filters, con.ActiveTarget.Filters()...)
+	}
+
+	con.App.HideCommands(filters...)
+
+	for _, cmd := range cmd.Commands() {
+		// Don't override commands if they are already hidden
+		if cmd.Hidden {
+			continue
+		}
+
+		if isFiltered(cmd, filters) {
+			cmd.Hidden = true
+		}
+	}
 }
 
 // GetSession returns the session matching an ID, either by prefix or strictly.

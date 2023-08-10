@@ -1,21 +1,41 @@
 package reaction
 
+/*
+   Sliver Implant Framework
+   Copyright (C) 2019  Bishop Fox
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Commands returns the “ command and its subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	reactionCmd := &cobra.Command{
-		Use:   consts.ReactionStr,
-		Short: "Manage automatic reactions to events",
-		Long:  help.GetHelpFor([]string{consts.ReactionStr}),
+		Use:         consts.ReactionStr,
+		Short:       "Manage automatic reactions to events",
+		Long:        help.GetHelpFor([]string{consts.ReactionStr}),
+		Annotations: flags.RestrictTargets(consts.ConsoleCmdsFilter),
 		Run: func(cmd *cobra.Command, args []string) {
 			ReactionCmd(cmd, con, args)
 		},

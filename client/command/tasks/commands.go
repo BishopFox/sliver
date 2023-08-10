@@ -72,17 +72,5 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	tasksCmd.AddCommand(cancelCmd)
 	carapace.Gen(cancelCmd).PositionalCompletion(BeaconPendingTasksCompleter(con).Usage("beacon task ID"))
 
-	waitCmd := &cobra.Command{
-		Use:   consts.WaitStr,
-		Short: "Block and wait for a task to complete and return its results",
-		Long:  help.GetHelpFor([]string{consts.TasksStr, consts.WaitStr}),
-		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			TaskWaitCmd(cmd, con, args)
-		},
-	}
-	tasksCmd.AddCommand(waitCmd)
-	carapace.Gen(waitCmd).PositionalCompletion(BeaconPendingTasksCompleter(con).Usage("beacon task ID"))
-
 	return []*cobra.Command{tasksCmd}
 }

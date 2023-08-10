@@ -43,6 +43,14 @@ import (
 // Note that this function will always check if it used as part of a completion
 // command execution call, in which case asciicast/logs streaming is disabled.
 func (con *SliverClient) ConnectRun(cmd *cobra.Command, _ []string) error {
+	con.FilterCommands(cmd)
+
+	// If commands are imcompatible with the current requirements.
+	err := con.App.ActiveMenu().ErrUnavailableCommand(cmd)
+	if err != nil {
+		return err
+	}
+
 	// Some commands don't need a remote teamserver connection.
 	if con.isOffline(cmd) {
 		return nil

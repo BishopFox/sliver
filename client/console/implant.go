@@ -176,9 +176,9 @@ func (s *ActiveTarget) Set(session *clientpb.Session, beacon *clientpb.Beacon) {
 		}
 	}
 
-	if s.con.isCLI {
-		return
-	}
+	// if s.con.isCLI {
+	// 	return
+	// }
 
 	// Update menus, prompts and commands
 	if s.con.App.ActiveMenu().Name() != consts.ImplantMenu {
