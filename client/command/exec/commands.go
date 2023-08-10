@@ -1,14 +1,16 @@
 package exec
 
 import (
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Commands returns the “ command and its subcommands.
@@ -97,7 +99,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
-	flags.BindFlagCompletions(executeShellcodeCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(executeShellcodeCmd, func(comp *carapace.ActionMap) {
 		(*comp)["shikata-ga-nai"] = carapace.ActionValues("386", "amd64").Tag("shikata-ga-nai architectures")
 	})
 	carapace.Gen(executeShellcodeCmd).PositionalCompletion(carapace.ActionFiles().Usage("path to shellcode file (required)"))
@@ -195,7 +197,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
-	flags.BindFlagCompletions(msfCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(msfCmd, func(comp *carapace.ActionMap) {
 		(*comp)["encoder"] = generate.MsfEncoderCompleter(con)
 		(*comp)["payload"] = generate.MsfPayloadCompleter(con)
 	})
@@ -219,7 +221,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
-	flags.BindFlagCompletions(msfInjectCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(msfInjectCmd, func(comp *carapace.ActionMap) {
 		(*comp)["encoder"] = generate.MsfEncoderCompleter(con)
 	})
 
@@ -243,7 +245,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
-	flags.BindFlagCompletions(psExecCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(psExecCmd, func(comp *carapace.ActionMap) {
 		(*comp)["custom-exe"] = carapace.ActionFiles()
 		(*comp)["profile"] = generate.ProfileNameCompleter(con)
 	})
@@ -273,7 +275,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 	sshCmd.Flags().ParseErrorsWhitelist.UnknownFlags = true
 
-	flags.BindFlagCompletions(sshCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(sshCmd, func(comp *carapace.ActionMap) {
 		(*comp)["private-key"] = carapace.ActionFiles()
 		(*comp)["kerberos-keytab"] = carapace.ActionFiles()
 	})

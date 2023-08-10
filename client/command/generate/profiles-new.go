@@ -20,9 +20,10 @@ package generate
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/spf13/cobra"
 )
 
 // ProfilesNewCmd - Create a new implant profile.

@@ -28,6 +28,11 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+	app "github.com/reeflective/console"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -35,10 +40,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
-	app "github.com/reeflective/console"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"google.golang.org/protobuf/proto"
 )
 
 const (

@@ -23,9 +23,10 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/spf13/cobra"
 )
 
 // dllhijack --ref-path c:\windows\system32\msasn1.dll --file /tmp/runner.dll TARGET_PATH

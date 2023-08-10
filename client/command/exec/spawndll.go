@@ -24,11 +24,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
 )
 
 // SpawnDllCmd - Spawn execution of a DLL on the remote system.

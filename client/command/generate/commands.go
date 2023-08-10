@@ -1,13 +1,15 @@
 package generate
 
 import (
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Commands returns all payload compilation commands.
@@ -67,7 +69,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("save", "s", "", "directory to save the generated stager to")
 		f.StringP("advanced", "d", "", "Advanced options for the stager using URI query syntax (option1=value1&option2=value2...)")
 	})
-	flags.BindFlagCompletions(generateStagerCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(generateStagerCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionDirectories()
 		(*comp)["os"] = carapace.ActionValues("windows", "linux", "darwin").Tag("msf stager OS")
 		(*comp)["arch"] = carapace.ActionValues("amd64", "x86").Tag("msf stager archs")
@@ -139,7 +141,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("regenerate", false, regenerateCmd, func(f *pflag.FlagSet) {
 		f.StringP("save", "s", "", "directory/file to the binary to")
 	})
-	flags.BindFlagCompletions(regenerateCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(regenerateCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
 	})
 	carapace.Gen(regenerateCmd).PositionalCompletion(ImplantBuildNameCompleter(con))
@@ -172,7 +174,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("save", "s", "", "directory/file to the binary to")
 		f.BoolP("disable-sgn", "G", false, "disable shikata ga nai shellcode encoder")
 	})
-	flags.BindFlagCompletions(profilesGenerateCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(profilesGenerateCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
 	})
 	carapace.Gen(profilesGenerateCmd).PositionalCompletion(ProfileNameCompleter(con))
@@ -255,7 +257,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("only-beacons", "b", false, "filter beacons")
 		f.BoolP("no-debug", "d", false, "filter builds by debug flag")
 	})
-	flags.BindFlagCompletions(implantBuildsCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(implantBuildsCmd, func(comp *carapace.ActionMap) {
 		(*comp)["os"] = OSCompleter(con)
 		(*comp)["arch"] = ArchCompleter(con)
 		(*comp)["format"] = FormatCompleter()
@@ -340,7 +342,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 
 // coreImplantFlagCompletions binds completions to flags registered in coreImplantFlags.
 func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverClient) {
-	flags.BindFlagCompletions(cmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(cmd, func(comp *carapace.ActionMap) {
 		(*comp)["debug-file"] = carapace.ActionFiles()
 		(*comp)["os"] = OSCompleter(con)
 		(*comp)["arch"] = ArchCompleter(con)

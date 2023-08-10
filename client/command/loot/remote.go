@@ -28,13 +28,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
 )
 
 func ValidateLootFileType(lootFileTypeInput string, data []byte) clientpb.FileType {

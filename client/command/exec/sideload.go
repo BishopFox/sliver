@@ -25,11 +25,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
 )
 
 // SideloadCmd - Sideload a shared library on the remote system.

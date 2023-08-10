@@ -1,14 +1,15 @@
 package update
 
 import (
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
 	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Commands returns the “ command and its subcommands.
@@ -29,7 +30,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("insecure", "I", false, "skip tls certificate validation")
 		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
-	flags.BindFlagCompletions(updateCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(updateCmd, func(comp *carapace.ActionMap) {
 		(*comp)["proxy"] = completers.LocalProxyCompleter()
 	})
 

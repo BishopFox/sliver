@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -34,6 +35,28 @@ const (
 	CacheMsf          = 7 * days      // CacheMsf caches server Metasploit info for a week on disk
 	CacheCompilerInfo = 1 * time.Hour // CacheCompilerInfo caches server compiler info for an hour on disk.
 )
+
+// NewCompsFor registers the command to the application completion engine and returns
+// you a type through which you can register all sorts of completions for this command,
+// from flag arguments, positional ones, per index or remaining, etc.
+//
+//	See https://rsteube.github.io/carapace/ for a complete documentation of carapace completions.
+func NewCompsFor(cmd *cobra.Command) *carapace.Carapace {
+	return carapace.Gen(cmd)
+}
+
+// BindFlagCompletions is a convenience function for binding completers to flags requiring arguments.
+// (It wraps a few steps to be used through the *carapace.Carapace type so you don't have to bother).
+// cmd   - The target command/subcommand which flags to be completed.
+// bind  - A function using a map "flag-name":carapace.Action for you to bind completions to the flag.
+//
+//	See https://rsteube.github.io/carapace/ for a complete documentation of carapace completions.
+func NewFlagCompsFor(cmd *cobra.Command, bind func(comp *carapace.ActionMap)) {
+	comps := make(carapace.ActionMap)
+	bind(&comps)
+
+	carapace.Gen(cmd).FlagCompletion(comps)
+}
 
 // ClientInterfacesCompleter completes interface addresses on the client host.
 func ClientInterfacesCompleter() carapace.Action {

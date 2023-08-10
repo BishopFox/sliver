@@ -23,11 +23,12 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/spf13/cobra"
 )
 
 // InteractiveCmd - Beacon only command to open an interactive session.

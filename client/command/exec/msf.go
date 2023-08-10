@@ -22,11 +22,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
 )
 
 // MsfCmd - Inject a metasploit payload into the current remote process.

@@ -26,13 +26,14 @@ import (
 	"log"
 	"os"
 
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/spf13/cobra"
-	"golang.org/x/term"
-	"google.golang.org/protobuf/proto"
 )
 
 // ExecuteShellcodeCmd - Execute shellcode in-memory.

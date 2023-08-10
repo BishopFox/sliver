@@ -24,15 +24,16 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"google.golang.org/protobuf/proto"
 )
 
 // Stylizes known processes in the `ps` command.

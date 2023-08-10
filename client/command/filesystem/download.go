@@ -28,14 +28,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
+	"gopkg.in/AlecAivazis/survey.v1"
+
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
-	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 func DownloadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {

@@ -21,9 +21,10 @@ package jobs
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/spf13/cobra"
 )
 
 // StartNamedPipeListenerCmd - Start a TCP pivot listener on the remote system.

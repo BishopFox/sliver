@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Commands returns the “ command and its subcommands.
@@ -37,7 +39,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("filter", "f", "", "filter beacons by substring")
 		f.StringP("filter-re", "e", "", "filter beacons by regular expression")
 	})
-	flags.BindFlagCompletions(beaconsCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(beaconsCmd, func(comp *carapace.ActionMap) {
 		(*comp)["kill"] = BeaconIDCompleter(con)
 	})
 	beaconsRmCmd := &cobra.Command{

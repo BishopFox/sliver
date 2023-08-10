@@ -1,12 +1,14 @@
 package pivots
 
 import (
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Commands returns the “ command and its subcommands.
@@ -35,7 +37,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	pivotsCmd.AddCommand(pivotStopCmd)
 
-	stopComs := flags.NewCompletions(pivotStopCmd)
+	stopComs := completers.NewCompsFor(pivotStopCmd)
 	stopComs.PositionalCompletion(PivotIDCompleter(con).Usage("id of the pivot listener to stop"))
 
 	pivotDetailsCmd := &cobra.Command{
@@ -49,7 +51,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	pivotsCmd.AddCommand(pivotDetailsCmd)
 
-	detailsComps := flags.NewCompletions(pivotDetailsCmd)
+	detailsComps := completers.NewCompsFor(pivotDetailsCmd)
 	detailsComps.PositionalCompletion(PivotIDCompleter(con).Usage("ID of the pivot listener to get details for"))
 
 	graphCmd := &cobra.Command{

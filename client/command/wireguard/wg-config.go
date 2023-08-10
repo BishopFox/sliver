@@ -28,9 +28,10 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/spf13/cobra"
 )
 
 var wgQuickTemplate = `[Interface]

@@ -1,14 +1,15 @@
 package armory
 
 import (
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
 	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Commands returns the `armory` command and its subcommands.
@@ -28,7 +29,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("ignore-cache", "c", false, "ignore metadata cache, force refresh")
 		f.StringP("timeout", "t", "15m", "download timeout")
 	})
-	flags.BindFlagCompletions(armoryCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(armoryCmd, func(comp *carapace.ActionMap) {
 		(*comp)["proxy"] = completers.LocalProxyCompleter()
 	})
 
@@ -42,7 +43,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		},
 	}
 	armoryCmd.AddCommand(armoryInstallCmd)
-	flags.NewCompletions(armoryInstallCmd).PositionalCompletion(
+	completers.NewCompsFor(armoryInstallCmd).PositionalCompletion(
 		AliasExtensionOrBundleCompleter().Usage("name of the extension or alias to install"),
 	)
 
@@ -66,7 +67,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		},
 	}
 	armoryCmd.AddCommand(armorySearchCmd)
-	flags.NewCompletions(armorySearchCmd).PositionalCompletion(carapace.ActionValues().Usage("a name regular expression"))
+	completers.NewCompsFor(armorySearchCmd).PositionalCompletion(carapace.ActionValues().Usage("a name regular expression"))
 
 	return []*cobra.Command{armoryCmd}
 }

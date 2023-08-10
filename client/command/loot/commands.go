@@ -1,13 +1,15 @@
 package loot
 
 import (
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Commands returns the “ command and its subcommands.
@@ -43,7 +45,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("type", "T", "", "force a specific loot type (file/cred)")
 		f.StringP("file-type", "F", "", "force a specific file type (binary/text)")
 	})
-	flags.BindFlagCompletions(lootAddCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(lootAddCmd, func(comp *carapace.ActionMap) {
 		(*comp)["type"] = LootTypeCompleter(con)
 		(*comp)["file-type"] = FileTypeCompleter(con)
 	})
@@ -65,7 +67,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("type", "T", "", "force a specific loot type (file/cred)")
 		f.StringP("file-type", "F", "", "force a specific file type (binary/text)")
 	})
-	flags.BindFlagCompletions(lootRemoteCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(lootRemoteCmd, func(comp *carapace.ActionMap) {
 		(*comp)["type"] = LootTypeCompleter(con)
 		(*comp)["file-type"] = FileTypeCompleter(con)
 	})
@@ -94,7 +96,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("save", "s", "", "save loot to a local file")
 		f.StringP("filter", "f", "", "filter based on loot type")
 	})
-	flags.BindFlagCompletions(lootFetchCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(lootFetchCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save loot")
 		(*comp)["filter"] = FileTypeCompleter(con)
 	})
@@ -111,7 +113,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("loot", false, lootRmCmd, func(f *pflag.FlagSet) {
 		f.StringP("filter", "f", "", "filter based on loot type")
 	})
-	flags.BindFlagCompletions(lootRmCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(lootRmCmd, func(comp *carapace.ActionMap) {
 		(*comp)["filter"] = LootTypeCompleter(con)
 	})
 

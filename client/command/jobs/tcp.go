@@ -22,9 +22,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/spf13/cobra"
 )
 
 // StartTCPListenerCmd - Start a TCP pivot listener on the remote system.

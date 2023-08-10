@@ -21,9 +21,10 @@ package wireguard
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/spf13/cobra"
 )
 
 // WGSocksStartCmd - Start a WireGuard reverse SOCKS proxy.

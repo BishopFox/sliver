@@ -25,10 +25,11 @@ import (
 	"net"
 	"time"
 
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/core"
 	"github.com/spf13/cobra"
 	"gopkg.in/AlecAivazis/survey.v1"
+
+	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/core"
 )
 
 // SocksStartCmd - Add a new tunneled port forward.

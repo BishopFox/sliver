@@ -21,9 +21,10 @@ package portfwd
 import (
 	"strconv"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
-	"github.com/spf13/cobra"
 )
 
 // PortfwdRmCmd - Remove an existing tunneled port forward.

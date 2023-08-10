@@ -22,9 +22,10 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/spf13/cobra"
 )
 
 // WGSocksStopCmd - Stop a WireGuard SOCKS proxy.

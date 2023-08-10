@@ -28,10 +28,11 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/rsteube/carapace"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/rsteube/carapace"
 )
 
 var (

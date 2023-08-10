@@ -21,12 +21,13 @@ package environment
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
 )
 
 // EnvSetCmd - Set a remote environment variable.

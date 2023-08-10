@@ -23,13 +23,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
 )
 
 // ImplantBuildFilter - Filter implant builds.

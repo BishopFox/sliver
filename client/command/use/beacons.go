@@ -19,9 +19,10 @@ package use
 */
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/spf13/cobra"
 )
 
 // UseBeaconCmd - Change the active beacon.

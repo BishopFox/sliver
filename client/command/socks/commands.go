@@ -1,14 +1,15 @@
 package socks
 
 import (
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
 	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Commands returns the “ command and its subcommands.
@@ -41,7 +42,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("port", "P", "1081", "Bind a Socks5 Port")
 		f.StringP("user", "u", "", "socks5 auth username (will generate random password)")
 	})
-	flags.BindFlagCompletions(socksStartCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(socksStartCmd, func(comp *carapace.ActionMap) {
 		(*comp)["host"] = completers.ClientInterfacesCompleter()
 	})
 
@@ -55,7 +56,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		},
 	}
 
-	rmComps := flags.NewCompletions(socksStopCmd)
+	rmComps := completers.NewCompsFor(socksStopCmd)
 	rmComps.PositionalAnyCompletion(SocksIDCompleter(con).Usage("ID of Socks server(s) to remove"))
 
 	socksCmd.AddCommand(socksStopCmd)

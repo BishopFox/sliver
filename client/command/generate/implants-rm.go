@@ -5,9 +5,10 @@ import (
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/spf13/cobra"
 )
 
 // ImplantsRmCmd - Deletes an archived implant build from the server.

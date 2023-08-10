@@ -19,10 +19,11 @@ package exit
 */
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
-	"github.com/spf13/cobra"
 )
 
 // Commands returns the `exit` command.

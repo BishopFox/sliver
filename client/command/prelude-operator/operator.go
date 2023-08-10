@@ -19,9 +19,10 @@ package operator
 */
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/prelude"
-	"github.com/spf13/cobra"
 )
 
 func OperatorCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {

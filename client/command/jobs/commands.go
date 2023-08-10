@@ -1,14 +1,16 @@
 package jobs
 
 import (
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Commands returns the “ command and its subcommands.
@@ -31,7 +33,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("kill-all", "K", false, "kill all jobs")
 		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
-	flags.BindFlagCompletions(jobsCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(jobsCmd, func(comp *carapace.ActionMap) {
 		(*comp)["kill"] = JobsIDCompleter(con)
 	})
 
@@ -135,7 +137,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 		f.BoolP("persistent", "p", false, "make persistent across restarts")
 	})
-	flags.BindFlagCompletions(httpsCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(httpsCmd, func(comp *carapace.ActionMap) {
 		(*comp)["cert"] = carapace.ActionFiles().Tag("certificate file")
 		(*comp)["key"] = carapace.ActionFiles().Tag("key file")
 	})
@@ -162,7 +164,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("compress", "C", "none", "compress the stage before encrypting (zlib, gzip, deflate9, none)")
 		f.BoolP("prepend-size", "P", false, "prepend the size of the stage to the payload (to use with MSF stagers)")
 	})
-	flags.BindFlagCompletions(stageCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(stageCmd, func(comp *carapace.ActionMap) {
 		(*comp)["profile"] = generate.ProfileNameCompleter(con)
 		(*comp)["cert"] = carapace.ActionFiles().Tag("certificate file")
 		(*comp)["key"] = carapace.ActionFiles().Tag("key file")

@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -55,7 +56,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("event", "e", "", "specify the event type to react to")
 	})
 
-	flags.BindFlagCompletions(reactionSetCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(reactionSetCmd, func(comp *carapace.ActionMap) {
 		(*comp)["event"] = carapace.ActionValues(
 			consts.SessionOpenedEvent,
 			consts.SessionClosedEvent,
@@ -78,7 +79,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("reactions", false, reactionUnsetCmd, func(f *pflag.FlagSet) {
 		f.IntP("id", "i", 0, "the id of the reaction to remove")
 	})
-	flags.BindFlagCompletions(reactionUnsetCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(reactionUnsetCmd, func(comp *carapace.ActionMap) {
 		(*comp)["id"] = ReactionIDCompleter(con)
 	})
 

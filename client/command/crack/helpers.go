@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/rsteube/carapace"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/rsteube/carapace"
 )
 
 func CrackHcstat2Completer(con *console.SliverClient) carapace.Action {

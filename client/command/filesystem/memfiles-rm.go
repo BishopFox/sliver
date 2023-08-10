@@ -21,11 +21,12 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
 )
 
 // MemfilesRmCmd - Remove a memfile.

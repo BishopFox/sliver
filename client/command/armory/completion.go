@@ -25,10 +25,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/rsteube/carapace"
+
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/extensions"
-	"github.com/rsteube/carapace"
 )
 
 // AliasExtensionOrBundleCompleter - Completer for alias, extension, and bundle names.

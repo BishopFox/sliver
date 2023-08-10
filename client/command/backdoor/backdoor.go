@@ -21,9 +21,10 @@ package backdoor
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/spf13/cobra"
 )
 
 // BackdoorCmd - Command to inject implant code into an existing binary.

@@ -25,12 +25,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
 )
 
 // UploadCmd - Upload a file to the remote system.

@@ -1,14 +1,15 @@
 package portfwd
 
 import (
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
 	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Commands returns the “ command and its subcommands.
@@ -40,7 +41,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("remote", "r", "", "remote target host:port (e.g., 10.0.0.1:445)")
 		f.StringP("bind", "b", "127.0.0.1:8080", "bind port forward to interface")
 	})
-	flags.BindFlagCompletions(addCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(addCmd, func(comp *carapace.ActionMap) {
 		(*comp)["bind"] = completers.ClientInterfacesCompleter()
 	})
 
@@ -54,7 +55,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		},
 	}
 
-	rmComps := flags.NewCompletions(portfwdRmCmd)
+	rmComps := completers.NewCompsFor(portfwdRmCmd)
 	rmComps.PositionalAnyCompletion(PortfwdIDCompleter(con).Usage("ID of portforwarder(s) to remove"))
 
 	portfwdCmd.AddCommand(portfwdRmCmd)

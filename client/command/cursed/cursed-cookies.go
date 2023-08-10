@@ -24,9 +24,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/overlord"
-	"github.com/spf13/cobra"
 )
 
 func CursedCookiesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {

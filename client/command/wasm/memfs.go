@@ -5,9 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/util"
-	"github.com/spf13/cobra"
 )
 
 func parseMemFS(cmd *cobra.Command, con *console.SliverClient, args []string) (map[string][]byte, error) {

@@ -25,13 +25,14 @@ import (
 	"io"
 	"os"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/klauspost/compress/zstd"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/util"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/klauspost/compress/zstd"
-	"github.com/spf13/cobra"
 )
 
 // CrackWordlistsCmd - Manage GPU cracking stations.

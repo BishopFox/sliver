@@ -24,8 +24,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bishopfox/sliver/client/console"
 	"github.com/spf13/cobra"
+
+	"github.com/bishopfox/sliver/client/console"
 )
 
 // ProfilesGenerateCmd - Generate an implant binary based on a profile.

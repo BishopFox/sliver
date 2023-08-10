@@ -26,15 +26,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 const (

@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/rsteube/carapace"
+	"github.com/rsteube/carapace/pkg/cache"
+	"github.com/rsteube/carapace/pkg/style"
+
 	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/rsteube/carapace"
-	"github.com/rsteube/carapace/pkg/cache"
-	"github.com/rsteube/carapace/pkg/style"
 )
 
 // GetSliverBinary - Get the binary of an implant based on it's profile.

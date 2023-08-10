@@ -1,13 +1,15 @@
 package cursed
 
 import (
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Commands returns the “ command and its subcommands.
@@ -73,7 +75,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("keep-alive", "k", false, "keeps browser alive after last browser window closes")
 		f.BoolP("headless", "H", false, "start browser process in headless mode")
 	})
-	flags.BindFlagCompletions(cursedChromeCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(cursedChromeCmd, func(comp *carapace.ActionMap) {
 		(*comp)["payload"] = carapace.ActionFiles("js").Tag("javascript files")
 	})
 	cursedChromeCmd.Flags().ParseErrorsWhitelist.UnknownFlags = true
@@ -97,7 +99,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("keep-alive", "k", false, "keeps browser alive after last browser window closes")
 		f.BoolP("headless", "H", false, "start browser process in headless mode")
 	})
-	flags.BindFlagCompletions(cursedEdgeCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(cursedEdgeCmd, func(comp *carapace.ActionMap) {
 		(*comp)["payload"] = carapace.ActionFiles("js").Tag("javascript files")
 	})
 	cursedEdgeCmd.Flags().ParseErrorsWhitelist.UnknownFlags = true
@@ -131,7 +133,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("", false, CursedCookiesCmd, func(f *pflag.FlagSet) {
 		f.StringP("save", "s", "", "save to file")
 	})
-	flags.BindFlagCompletions(CursedCookiesCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(CursedCookiesCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles()
 	})
 

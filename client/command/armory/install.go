@@ -26,12 +26,13 @@ import (
 	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/server/cryptography/minisign"
-	"github.com/spf13/cobra"
 )
 
 // ErrPackageNotFound - The package was not found.

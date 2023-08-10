@@ -27,13 +27,14 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"google.golang.org/protobuf/proto"
 )
 
 // LsCmd - List the contents of a remote directory.

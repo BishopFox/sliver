@@ -1,14 +1,16 @@
 package dllhijack
 
 import (
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Commands returns the “ command and its subcommands.
@@ -31,7 +33,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("profile", "p", "", "Profile name to use as a base DLL")
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
-	flags.BindFlagCompletions(dllhijackCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(dllhijackCmd, func(comp *carapace.ActionMap) {
 		(*comp)["reference-file"] = carapace.ActionFiles()
 		(*comp)["file"] = carapace.ActionFiles()
 		(*comp)["profile"] = generate.ProfileNameCompleter(con)

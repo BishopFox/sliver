@@ -22,9 +22,10 @@ import (
 	"context"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/spf13/cobra"
 )
 
 // BeaconsRmCmd - Display/interact with beacons.

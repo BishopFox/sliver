@@ -10,9 +10,10 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/rsteube/carapace"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/rsteube/carapace"
 )
 
 // SelectBeaconTask - Select a beacon task interactively.

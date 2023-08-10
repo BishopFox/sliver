@@ -27,12 +27,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
-	"github.com/spf13/cobra"
 )
 
 // StageListenerCmd --url [tcp://ip:port | http://ip:port ] --profile name.

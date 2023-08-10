@@ -23,13 +23,14 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/fatih/color"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/fatih/color"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Commands returns all commands related to implant history.

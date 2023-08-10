@@ -23,9 +23,10 @@ import (
 	"os"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
-	"github.com/spf13/cobra"
 )
 
 // ReactionSaveCmd - Manage reactions to events.

@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/xlab/treeprint"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/xlab/treeprint"
 )
 
 // A PsTree is a tree of *commonpb.Process.
