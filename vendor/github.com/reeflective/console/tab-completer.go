@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -26,6 +27,9 @@ func (c *Console) complete(line []rune, pos int) readline.Completions {
 	// Prepare arguments for the carapace completer
 	// (we currently need those two dummies for avoiding a panic).
 	args = append([]string{"examples", "_carapace"}, args...)
+
+	// Regenerate a new instance of the commands.
+	// menu.hideFilteredCommands(cmd)
 
 	// Call the completer with our current command context.
 	values, meta := carapace.Complete(menu.Command, args, c.completeCommands(menu))
@@ -64,6 +68,9 @@ func (c *Console) complete(line []rune, pos int) readline.Completions {
 }
 
 func splitArgs(line []rune) (args []string, prefix string) {
+	// Remove all colors from the string
+	line = []rune(strip(string(line)))
+
 	// Split the line as shellwords, return them if all went fine.
 	args, remain, err := splitCompWords(string(line))
 	if err == nil {
@@ -114,8 +121,13 @@ func sanitizeArgs(rbuffer []rune, args []string) (sanitized []string) {
 // Regenerate commands and apply any filters.
 func (c *Console) completeCommands(menu *Menu) func() {
 	commands := func() {
-		menu.resetCommands()
-		c.hideFilteredCommands()
+		cmd := menu.Command
+		if menu.cmds != nil {
+			cmd = menu.cmds()
+		}
+
+		menu.resetPreRun()
+		menu.hideFilteredCommands(cmd)
 	}
 
 	return commands
@@ -298,4 +310,13 @@ double:
 
 done:
 	return buf.String(), input, nil
+}
+
+const ansi = "[\u001B\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PRZcf-ntqry=><~]))"
+
+var re = regexp.MustCompile(ansi)
+
+// strip removes all ANSI escaped color sequences in a string.
+func strip(str string) string {
+	return re.ReplaceAllString(str, "")
 }

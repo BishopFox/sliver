@@ -18,8 +18,8 @@ func MoveCursorDown(i int) {
 	printf("\x1b[%dB", i)
 }
 
-// MoveCursorForwards moves the cursor forward i columns.
-func MoveCursorForwards(i int) {
+// MoveCursorForward moves the cursor forward i columns.
+func MoveCursorForward(i int) {
 	if i < 1 {
 		return
 	}
@@ -27,8 +27,8 @@ func MoveCursorForwards(i int) {
 	printf("\x1b[%dC", i)
 }
 
-// MoveCursorBackwards moves the cursor backward i columns.
-func MoveCursorBackwards(i int) {
+// MoveCursorBackward moves the cursor backward i columns.
+func MoveCursorBackward(i int) {
 	if i < 1 {
 		return
 	}

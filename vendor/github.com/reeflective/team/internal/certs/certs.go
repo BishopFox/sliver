@@ -63,11 +63,11 @@ var ErrCertDoesNotExist = errors.New("Certificate does not exist")
 // Manager is used to manage the certificate infrastructure for a given teamserver.
 // Has access to a given database for storage, a logger and an abstract filesystem.
 type Manager struct {
-	appName string
-	appDir  string
-	log     *logrus.Entry
-	db      *gorm.DB
-	fs      *assets.FS
+	appName  string
+	appDir   string
+	log      *logrus.Entry
+	database *gorm.DB
+	fs       *assets.FS
 }
 
 // NewManager initializes and returns a certificate manager for a given teamserver.
@@ -78,16 +78,22 @@ type Manager struct {
 // panic and exit.
 func NewManager(filesystem *assets.FS, db *gorm.DB, logger *logrus.Entry, appName, appDir string) *Manager {
 	certs := &Manager{
-		appName: appName,
-		appDir:  appDir,
-		log:     logger,
-		db:      db,
-		fs:      filesystem,
+		appName:  appName,
+		appDir:   appDir,
+		log:      logger,
+		database: db,
+		fs:       filesystem,
 	}
 
 	certs.generateCA(userCA, "teamusers")
 
 	return certs
+}
+
+func (m *Manager) db() *gorm.DB {
+	return m.database.Session(&gorm.Session{
+		FullSaveAssociations: true,
+	})
 }
 
 // GetECCCertificate - Get an ECC certificate.
@@ -109,7 +115,7 @@ func (c *Manager) GetCertificate(caType string, keyType string, commonName strin
 	c.log.Infof("Getting certificate ca type = %s, cn = '%s'", caType, commonName)
 
 	certModel := db.Certificate{}
-	result := c.db.Where(&db.Certificate{
+	result := c.db().Where(&db.Certificate{
 		CAType:     caType,
 		KeyType:    keyType,
 		CommonName: commonName,
@@ -134,7 +140,7 @@ func (c *Manager) RemoveCertificate(caType string, keyType string, commonName st
 
 	c.log.Infof("Deleting certificate for cn = '%s'", commonName)
 
-	err := c.db.Where(&db.Certificate{
+	err := c.db().Where(&db.Certificate{
 		CAType:     caType,
 		KeyType:    keyType,
 		CommonName: commonName,
@@ -301,7 +307,7 @@ func (c *Manager) saveCertificate(caType string, keyType string, commonName stri
 		PrivateKeyPEM:  string(key),
 	}
 
-	result := c.db.Create(&certModel)
+	result := c.db().Create(&certModel)
 
 	return result.Error
 }

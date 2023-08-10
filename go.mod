@@ -3,11 +3,14 @@ module github.com/bishopfox/sliver
 go 1.20
 
 // A fork of the completion engine is currently used in order to consume the engine
-// as a library. The fork is a very slightly patched mainline tree for that purpose.
-replace github.com/rsteube/carapace v0.37.3 => github.com/reeflective/carapace v0.25.2-0.20230808000955-080d3bd7f194
+// as a library. The fork is a very slightly patched mainline tree for that purpose,
+// and is regularly maintained up-to-date with upstream. Should be removed long-term.
+replace github.com/rsteube/carapace v0.42.1 => github.com/reeflective/carapace v0.25.2-0.20230808000955-080d3bd7f194
 
 // Team is the teamserver/teamclient library, and this directive should be removed.
 replace github.com/reeflective/team => /home/user/code/github.com/reeflective/team
+
+replace github.com/reeflective/readline => /home/user/code/github.com/reeflective/readline
 
 require (
 	filippo.io/age v1.1.1
@@ -27,6 +30,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
+	github.com/ivanpirog/coloredcobra v1.0.1
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/klauspost/compress v1.16.6
@@ -37,10 +41,10 @@ require (
 	github.com/moloch--/asciicast v0.1.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/ncruces/go-sqlite3 v0.8.1
-	github.com/reeflective/console v0.1.6
+	github.com/reeflective/console v0.1.7-0.20230810163856-bb6bbfdcae4a
 	github.com/reeflective/readline v1.0.8
 	github.com/reeflective/team v0.0.0-20230730014339-6d91952bc187
-	github.com/rsteube/carapace v0.37.3
+	github.com/rsteube/carapace v0.42.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5

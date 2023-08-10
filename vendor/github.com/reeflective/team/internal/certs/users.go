@@ -70,7 +70,7 @@ func (c *Manager) UserServerGenerateCertificate() ([]byte, []byte, error) {
 func (c *Manager) UserClientListCertificates() []*x509.Certificate {
 	userCerts := []*db.Certificate{}
 
-	result := c.db.Where(&db.Certificate{CAType: userCA}).Find(&userCerts)
+	result := c.db().Where(&db.Certificate{CAType: userCA}).Find(&userCerts)
 	if result.Error != nil {
 		c.log.Error(result.Error)
 		return []*x509.Certificate{}

@@ -212,7 +212,7 @@ func (p *Prompt) TransientPrint() {
 	}
 
 	// Clean everything below where the prompt will be printed.
-	term.MoveCursorBackwards(term.GetWidth())
+	term.MoveCursorBackward(term.GetWidth())
 	term.MoveCursorUp(p.primaryRows)
 	fmt.Print(term.ClearScreenBelow)
 

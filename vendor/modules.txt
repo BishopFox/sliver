@@ -365,6 +365,9 @@ github.com/insomniacslk/dhcp/dhcpv4
 github.com/insomniacslk/dhcp/iana
 github.com/insomniacslk/dhcp/interfaces
 github.com/insomniacslk/dhcp/rfc1035label
+# github.com/ivanpirog/coloredcobra v1.0.1
+## explicit; go 1.15
+github.com/ivanpirog/coloredcobra
 # github.com/jackc/pgpassfile v1.0.0
 ## explicit; go 1.12
 github.com/jackc/pgpassfile
@@ -515,11 +518,11 @@ github.com/pmezard/go-difflib/difflib
 # github.com/psanford/memfs v0.0.0-20230130182539-4dbf7e3e865e
 ## explicit; go 1.16
 github.com/psanford/memfs
-# github.com/reeflective/console v0.1.6
+# github.com/reeflective/console v0.1.7-0.20230810163856-bb6bbfdcae4a
 ## explicit; go 1.20
 github.com/reeflective/console
 github.com/reeflective/console/commands/readline
-# github.com/reeflective/readline v1.0.8
+# github.com/reeflective/readline v1.0.8 => /home/user/code/github.com/reeflective/readline
 ## explicit; go 1.20
 github.com/reeflective/readline
 github.com/reeflective/readline/inputrc
@@ -556,7 +559,7 @@ github.com/remyoudompheng/bigfft
 # github.com/rivo/uniseg v0.4.4
 ## explicit; go 1.18
 github.com/rivo/uniseg
-# github.com/rsteube/carapace v0.37.3 => github.com/reeflective/carapace v0.25.2-0.20230808000955-080d3bd7f194
+# github.com/rsteube/carapace v0.42.1 => github.com/reeflective/carapace v0.25.2-0.20230808000955-080d3bd7f194
 ## explicit; go 1.15
 github.com/rsteube/carapace
 github.com/rsteube/carapace/internal/cache
@@ -1267,3 +1270,4 @@ tailscale.com/wgengine/wgint
 tailscale.com/wgengine/wglog
 tailscale.com/wgengine/winnet
 # github.com/reeflective/team => /home/user/code/github.com/reeflective/team
+# github.com/reeflective/readline => /home/user/code/github.com/reeflective/readline

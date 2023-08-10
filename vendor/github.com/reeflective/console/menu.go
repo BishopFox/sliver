@@ -2,9 +2,12 @@ package console
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
+	"text/template"
 
 	"github.com/reeflective/readline"
 	"github.com/spf13/cobra"
@@ -34,6 +37,9 @@ type Menu struct {
 
 	// Command spawner
 	cmds Commands
+
+	// An error template to use to produce errors when a command is unavailable.
+	errFilteredTemplate string
 
 	// History sources peculiar to this menu.
 	historyNames []string
@@ -186,21 +192,104 @@ func (m *Menu) Printf(msg string, args ...any) (n int, err error) {
 	return m.console.Printf(buf)
 }
 
+// ErrUnavailableCommand checks if a target command is marked as filtered as per the console
+// application registered/and or active filters (added with console.Hide/ShowCommand()), and
+// if yes, returns a template-formatted error message showing the list of incompatible filters.
+func (m *Menu) ErrUnavailableCommand(target *cobra.Command) error {
+	if target == nil {
+		return nil
+	}
+
+	filters := m.ActiveFiltersFor(target)
+	if len(filters) == 0 {
+		return nil
+	}
+
+	var bufErr strings.Builder
+
+	err := tmpl(&bufErr, m.errorFilteredCommandTemplate(filters), map[string]interface{}{
+		"menu":    m,
+		"cmd":     target,
+		"filters": filters,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return errors.New(bufErr.String())
+}
+
+// ActiveFiltersFor returns all the active menu filters that a given command
+// does not declare as compliant with (added with console.Hide/ShowCommand()).
+func (m *Menu) ActiveFiltersFor(cmd *cobra.Command) []string {
+	if cmd.Annotations == nil {
+		return nil
+	}
+
+	m.console.mutex.Lock()
+	defer m.console.mutex.Unlock()
+
+	// Get the filters on the command
+	filterStr := cmd.Annotations[CommandFilterKey]
+	var filters []string
+
+	for _, cmdFilter := range strings.Split(filterStr, ",") {
+		for _, filter := range m.console.filters {
+			if cmdFilter != "" && cmdFilter == filter {
+				filters = append(filters, cmdFilter)
+			}
+		}
+	}
+
+	return filters
+}
+
+// SetErrFilteredCommandTemplate sets the error template to be used
+// when a called command can't be executed because it's mark filtered.
+func (m *Menu) SetErrFilteredCommandTemplate(s string) {
+	m.errFilteredTemplate = s
+}
+
 // resetPreRun is called before each new read line loop and before arbitrary RunCommand() calls.
 // This function is responsible for resetting the menu state to a clean state, regenerating the
 // menu commands, and ensuring that the correct prompt is bound to the shell.
 func (m *Menu) resetPreRun() {
-	m.console.mutex.RLock()
-	defer m.console.mutex.RUnlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	// Commands
+	if m.cmds != nil {
+		m.Command = m.cmds()
+	}
+
+	if m.Command == nil {
+		m.Command = &cobra.Command{
+			Annotations: make(map[string]string),
+		}
+	}
+
+	// Hide commands that are not available
+	m.hideFilteredCommands(m.Command)
 
 	// Menu setup
-	m.resetCommands()              // Regenerate the commands for the menu.
 	m.resetCmdOutput()             // Reset or adjust any buffered command output.
 	m.prompt.bind(m.console.shell) // Prompt binding
+}
 
-	// Console-wide setup.
-	m.console.ensureNoRootRunner()   // Avoid printing any help when the command line is empty
-	m.console.hideFilteredCommands() // Hide commands that are not available
+// hide commands that are filtered so that they are not
+// shown in the help strings or proposed as completions.
+func (m *Menu) hideFilteredCommands(root *cobra.Command) {
+	for _, cmd := range root.Commands() {
+		// Don't override commands if they are already hidden
+		if cmd.Hidden {
+			continue
+		}
+
+		if filters := m.ActiveFiltersFor(cmd); len(filters) > 0 {
+			cmd.Hidden = true
+		}
+	}
 }
 
 func (m *Menu) resetCmdOutput() {
@@ -217,20 +306,6 @@ func (m *Menu) resetCmdOutput() {
 	m.out.WriteString("\n")
 }
 
-func (m *Menu) resetCommands() {
-	if m.cmds != nil {
-		m.Command = m.cmds()
-	}
-
-	if m.Command == nil {
-		m.Command = &cobra.Command{
-			Annotations: make(map[string]string),
-		}
-	}
-
-	m.SilenceUsage = true
-}
-
 func (m *Menu) defaultHistoryName() string {
 	var name string
 
@@ -239,4 +314,26 @@ func (m *Menu) defaultHistoryName() string {
 	}
 
 	return fmt.Sprintf("local history%s", name)
+}
+
+func (m *Menu) errorFilteredCommandTemplate(filters []string) string {
+	if m.errFilteredTemplate != "" {
+		return m.errFilteredTemplate
+	}
+
+	return `Command {{.cmd.Name}} is only available for: {{range .filters }}
+    - {{.}} 
+{{end}}`
+}
+
+// tmpl executes the given template text on data, writing the result to w.
+func tmpl(w io.Writer, text string, data interface{}) error {
+	t := template.New("top")
+	t.Funcs(templateFuncs)
+	template.Must(t.Parse(text))
+	return t.Execute(w, data)
+}
+
+var templateFuncs = template.FuncMap{
+	"trim": strings.TrimSpace,
 }

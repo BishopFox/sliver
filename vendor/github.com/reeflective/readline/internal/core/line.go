@@ -331,7 +331,7 @@ func DisplayLine(l *Line, indent int) {
 
 		// Clear everything before each line, except the first.
 		if num > 0 {
-			term.MoveCursorForwards(indent)
+			term.MoveCursorForward(indent)
 			line = term.ClearLineBefore + line
 		}
 

@@ -144,7 +144,7 @@ func (rl *Shell) Printf(msg string, args ...any) (n int, err error) {
 	// First go back to the last line of the input line,
 	// and clear everything below (hints and completions).
 	rl.Display.CursorBelowLine()
-	term.MoveCursorBackwards(term.GetWidth())
+	term.MoveCursorBackward(term.GetWidth())
 	fmt.Print(term.ClearScreenBelow)
 
 	// Skip a line, and print the formatted message.
@@ -163,7 +163,7 @@ func (rl *Shell) PrintTransientf(msg string, args ...any) (n int, err error) {
 	// First go back to the beginning of the line/prompt, and
 	// clear everything below (prompt/line/hints/completions).
 	rl.Display.CursorToLineStart()
-	term.MoveCursorBackwards(term.GetWidth())
+	term.MoveCursorBackward(term.GetWidth())
 	term.MoveCursorUp(rl.Prompt.PrimaryUsed())
 	fmt.Print(term.ClearScreenBelow)
 

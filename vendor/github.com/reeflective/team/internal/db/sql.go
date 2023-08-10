@@ -103,9 +103,7 @@ func NewClient(dbConfig *Config, dbLogger *logrus.Entry) (*gorm.DB, error) {
 	// SetConnMaxLifetime sets the maximum amount of time a connection may be reused.
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	return dbClient.Session(&gorm.Session{
-		FullSaveAssociations: true,
-	}), nil
+	return dbClient, nil
 }
 
 // Schema returns all objects which should be registered

@@ -73,7 +73,7 @@ func (e *Engine) Refresh() {
 
 	// Go back to the first column, and if the primary prompt
 	// was not printed yet, back up to the line's beginning row.
-	term.MoveCursorBackwards(term.GetWidth())
+	term.MoveCursorBackward(term.GetWidth())
 
 	if !e.primaryPrinted {
 		term.MoveCursorUp(e.cursorRow)
@@ -113,7 +113,7 @@ func (e *Engine) ClearHelpers() {
 	term.MoveCursorUp(1)
 	term.MoveCursorUp(e.lineRows)
 	term.MoveCursorDown(e.cursorRow)
-	term.MoveCursorForwards(e.cursorCol)
+	term.MoveCursorForward(e.cursorCol)
 }
 
 // ResetHelpers cancels all active hints and completions.
@@ -132,16 +132,16 @@ func (e *Engine) AcceptLine() {
 	e.computeCoordinates()
 
 	// Go back to the end of the non-suggested line.
-	term.MoveCursorBackwards(term.GetWidth())
+	term.MoveCursorBackward(term.GetWidth())
 	term.MoveCursorDown(e.lineRows)
-	term.MoveCursorForwards(e.lineCol)
+	term.MoveCursorForward(e.lineCol)
 	fmt.Print(term.ClearScreenBelow)
 
 	// Reprint the right-side prompt if it's not a tooltip one.
 	e.prompt.RightPrint(e.lineCol, false)
 
 	// Go below this non-suggested line and clear everything.
-	term.MoveCursorBackwards(term.GetWidth())
+	term.MoveCursorBackward(term.GetWidth())
 	fmt.Print(term.NewlineReturn)
 }
 
@@ -166,9 +166,9 @@ func (e *Engine) RefreshTransient() {
 // This function should only be called when the cursor is on its
 // "cursor" position on the input line.
 func (e *Engine) CursorToLineStart() {
-	term.MoveCursorBackwards(e.cursorCol)
+	term.MoveCursorBackward(e.cursorCol)
 	term.MoveCursorUp(e.cursorRow)
-	term.MoveCursorForwards(e.startCols)
+	term.MoveCursorForward(e.startCols)
 }
 
 // CursorBelowLine moves the cursor to the leftmost
@@ -186,8 +186,8 @@ func (e *Engine) CursorBelowLine() {
 // last character of the prompt.
 func (e *Engine) lineStartToCursorPos() {
 	term.MoveCursorDown(e.cursorRow)
-	term.MoveCursorBackwards(term.GetWidth())
-	term.MoveCursorForwards(e.cursorCol)
+	term.MoveCursorBackward(term.GetWidth())
+	term.MoveCursorForward(e.cursorCol)
 }
 
 // cursor is on the line below the last line of input.
@@ -285,7 +285,7 @@ func (e *Engine) displayHelpers() {
 	e.compRows = completion.Coordinates(e.completer)
 
 	// Go back to the first line below the input line.
-	term.MoveCursorBackwards(term.GetWidth())
+	term.MoveCursorBackward(term.GetWidth())
 	term.MoveCursorUp(e.compRows)
 	term.MoveCursorUp(ui.CoordinatesHint(e.hint))
 }
