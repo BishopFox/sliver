@@ -77,8 +77,14 @@ func PortfwdIDCompleter(_ *console.SliverClient) carapace.Action {
 		}
 
 		for _, fwd := range portfwds {
+
 			results = append(results, strconv.Itoa(int(fwd.ID)))
-			results = append(results, fmt.Sprintf("%s (%s)", fwd.BindAddr, fwd.SessionID))
+			results = append(results, fmt.Sprintf("%s (%s) %s -> %s",
+				fwd.BindAddr,
+				fwd.SessionID[:8],
+				fwd.BindAddr,
+				fwd.RemoteAddr,
+			))
 		}
 
 		if len(results) == 0 {

@@ -81,6 +81,8 @@ func SocksStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 	}(core.SocksProxies.Add(channelProxy).ChannelProxy)
 	con.PrintInfof("Started SOCKS5 %s %s %s %s\n", host, port, username, password)
 	con.PrintWarnf("In-band SOCKS proxies can be a little unstable depending on protocol\n")
+
+	con.WaitSignal()
 }
 
 func randomPassword() string {

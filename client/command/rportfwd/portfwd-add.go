@@ -63,6 +63,8 @@ func StartRportFwdListenerCmd(cmd *cobra.Command, con *console.SliverClient, arg
 		return
 	}
 	printStartedRportFwdListener(rportfwdListener, con)
+
+	con.WaitSignal()
 }
 
 func printStartedRportFwdListener(rportfwdListener *sliverpb.RportFwdListener, con *console.SliverClient) {

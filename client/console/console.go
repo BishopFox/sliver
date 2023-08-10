@@ -25,10 +25,12 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -310,6 +312,33 @@ func (con *SliverClient) GetActiveSessionConfig() *clientpb.ImplantConfig {
 
 func (con *SliverClient) SpinUntil(message string, ctrl chan bool) {
 	go spin.Until(os.Stdout, message, ctrl)
+}
+
+// WaitSignal listens for os.Signals and returns when receiving one of the following:
+// SIGINT, SIGTERM, SIGQUIT.
+//
+// This can be used for commands which should block if executed in an exec-once CLI run:
+// if the command is ran in the closed-loop console, this function will not monitor signals
+// and return immediately.
+func (con *SliverClient) WaitSignal() error {
+	if !con.IsCLI {
+		return nil
+	}
+
+	sigchan := make(chan os.Signal, 1)
+
+	signal.Notify(
+		sigchan,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+		// syscall.SIGKILL,
+	)
+
+	sig := <-sigchan
+	con.PrintInfof("Received signal %s\n", sig)
+
+	return nil
 }
 
 // FormatDateDelta - Generate formatted date string of the time delta between then and now.

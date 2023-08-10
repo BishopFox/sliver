@@ -88,4 +88,6 @@ func PortfwdAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 	}()
 
 	con.PrintInfof("Port forwarding %s -> %s:%s\n", bindAddr, remoteHost, remotePort)
+
+	con.WaitSignal()
 }
