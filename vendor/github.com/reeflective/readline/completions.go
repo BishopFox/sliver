@@ -22,6 +22,7 @@ type Completions struct {
 	noSort   map[string]bool
 	listSep  map[string]string
 	pad      map[string]bool
+	escapes  map[string]bool
 
 	// Initially this will be set to the part of the current word
 	// from the beginning of the word up to the position of the cursor.
@@ -48,7 +49,7 @@ func CompleteValues(values ...string) Completions {
 // CompleteStyledValues is like CompleteValues but also accepts a style.
 func CompleteStyledValues(values ...string) Completions {
 	if length := len(values); length%2 != 0 {
-		return Message("invalid amount of arguments [CompleteStyledValues]: %v", length)
+		return CompleteMessage("invalid amount of arguments [CompleteStyledValues]: %v", length)
 	}
 
 	vals := make([]Completion, 0, len(values)/2)
@@ -62,7 +63,7 @@ func CompleteStyledValues(values ...string) Completions {
 // CompleteValuesDescribed completes arbitrary key (values) with an additional description (value, description pairs).
 func CompleteValuesDescribed(values ...string) Completions {
 	if length := len(values); length%2 != 0 {
-		return Message("invalid amount of arguments [CompleteValuesDescribed]: %v", length)
+		return CompleteMessage("invalid amount of arguments [CompleteValuesDescribed]: %v", length)
 	}
 
 	vals := make([]Completion, 0, len(values)/2)
@@ -76,7 +77,7 @@ func CompleteValuesDescribed(values ...string) Completions {
 // CompleteStyledValuesDescribed is like CompleteValues but also accepts a style.
 func CompleteStyledValuesDescribed(values ...string) Completions {
 	if length := len(values); length%3 != 0 {
-		return Message("invalid amount of arguments [CompleteStyledValuesDescribed]: %v", length)
+		return CompleteMessage("invalid amount of arguments [CompleteStyledValuesDescribed]: %v", length)
 	}
 
 	vals := make([]Completion, 0, len(values)/3)
@@ -87,13 +88,27 @@ func CompleteStyledValuesDescribed(values ...string) Completions {
 	return Completions{values: vals}
 }
 
+// CompleteMessage ads a help message to display along with
+// or in places where no completions can be generated.
+func CompleteMessage(msg string, args ...any) Completions {
+	comps := Completions{}
+
+	if len(args) > 0 {
+		msg = fmt.Sprintf(msg, args...)
+	}
+
+	comps.messages.Add(msg)
+
+	return comps
+}
+
 // CompleteRaw directly accepts a list of prepared Completion values.
 func CompleteRaw(values []Completion) Completions {
 	return Completions{values: completion.RawValues(values)}
 }
 
 // Message displays a help messages in places where no completions can be generated.
-func Message(msg string, args ...interface{}) Completions {
+func Message(msg string, args ...any) Completions {
 	comps := Completions{}
 
 	if len(args) > 0 {
@@ -108,7 +123,7 @@ func Message(msg string, args ...interface{}) Completions {
 // Suppress suppresses specific error messages using regular expressions.
 func (c Completions) Suppress(expr ...string) Completions {
 	if err := c.messages.Suppress(expr...); err != nil {
-		return Message(err.Error())
+		return CompleteMessage(err.Error())
 	}
 
 	return c
@@ -153,7 +168,7 @@ func (c Completions) Suffix(suffix string) Completions {
 }
 
 // Usage sets the usage.
-func (c Completions) Usage(usage string, args ...interface{}) Completions {
+func (c Completions) Usage(usage string, args ...any) Completions {
 	return c.UsageF(func() string {
 		return fmt.Sprintf(usage, args...)
 	})
@@ -255,7 +270,7 @@ func (c Completions) ListSeparator(seps ...string) Completions {
 	}
 
 	if length := len(seps); len(seps) > 1 && length%2 != 0 {
-		return Message("invalid amount of arguments (ListSeparator): %v", length)
+		return CompleteMessage("invalid amount of arguments (ListSeparator): %v", length)
 	}
 
 	if len(seps) == 1 {
@@ -317,6 +332,35 @@ func (c Completions) JustifyDescriptions(tags ...string) Completions {
 
 	for _, tag := range tags {
 		c.pad[tag] = true
+	}
+
+	return c
+}
+
+// PreserveEscapes forces the completion engine to keep all escaped characters in
+// the inserted completion (c.Value of the Completion type). By default, those are
+// stripped out and only kept in the completion.Display. If no arguments are given,
+// escape sequence preservation will apply to all tags.
+//
+// This has very few use cases: one of them might be when you want to read a string
+// from the readline shell that might include color sequences to be preserved.
+// In such cases, this function gives a double advantage: the resulting completion
+// is still "color-displayed" in the input line, and returned to the readline with
+// them. A classic example is where you want to read a prompt string configuration.
+//
+// Note that this option might have various undefined behaviors when it comes to
+// completion prefix matching, insertion, removal and related things.
+func (c Completions) PreserveEscapes(tags ...string) Completions {
+	if c.escapes == nil {
+		c.escapes = make(map[string]bool)
+	}
+
+	if len(tags) == 0 {
+		c.escapes["*"] = true
+	}
+
+	for _, tag := range tags {
+		c.escapes[tag] = true
 	}
 
 	return c
@@ -400,6 +444,10 @@ func (c *Completions) convert() completion.Values {
 	comps.NoSort = c.noSort
 	comps.ListSep = c.listSep
 	comps.Pad = c.pad
+	comps.Escapes = c.escapes
+
+	comps.PREFIX = c.PREFIX
+	comps.SUFFIX = c.SUFFIX
 
 	return comps
 }

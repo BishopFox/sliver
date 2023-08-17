@@ -12,11 +12,18 @@ import (
 
 // readline global options specific to this library.
 var readlineOptions = map[string]interface{}{
-	"autocomplete":        false,
-	"autopairs":           false,
+	// General edition
+	"autopairs": false,
+
+	// Completion
+	"autocomplete":               false,
+	"completion-list-separator":  "--",
+	"completion-selection-style": "\x1b[1;30m",
+
+	// Prompt & General UI
 	"transient-prompt":    false,
-	"history-autosuggest": false,
 	"usage-hint-always":   false,
+	"history-autosuggest": false,
 }
 
 // ReloadConfig parses all valid .inputrc configurations and immediately

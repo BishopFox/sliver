@@ -23,7 +23,6 @@ import (
 
 	"github.com/reeflective/team/client"
 	"github.com/reeflective/team/internal/command"
-	"github.com/reeflective/team/internal/version"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -42,7 +41,7 @@ func versionCmd(cli *client.Client) func(cmd *cobra.Command, args []string) erro
 		}
 
 		// Server
-		serverVer, err := cli.ServerVersion()
+		serverVer, err := cli.VersionServer()
 		if err != nil {
 			fmt.Fprintf(cmd.ErrOrStderr(), command.Warn+"Server error: %s\n", err)
 		}
@@ -56,14 +55,19 @@ func versionCmd(cli *client.Client) func(cmd *cobra.Command, args []string) erro
 		fmt.Fprintf(cmd.OutOrStdout(), command.Info+"Server v%s - %s%s\n", serverSemVer, serverVer.Commit, dirty)
 
 		// Client
+		clientVer, err := cli.Version()
+		if err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), command.Warn+"Client error: %s\n", err)
+			return nil
+		}
+
 		cdirty := ""
-		if version.GitDirty() {
+		if clientVer.Dirty {
 			cdirty = fmt.Sprintf(" - %sDirty%s", command.Bold, command.Normal)
 		}
 
-		cliVer := version.Semantic()
-		cliSemVer := fmt.Sprintf("%d.%d.%d", cliVer[0], cliVer[1], cliVer[2])
-		fmt.Fprintf(cmd.OutOrStdout(), command.Info+"Client v%s - %s%s\n", cliSemVer, version.GitCommit(), cdirty)
+		cliSemVer := fmt.Sprintf("%d.%d.%d", clientVer.Major, clientVer.Minor, clientVer.Patch)
+		fmt.Fprintf(cmd.OutOrStdout(), command.Info+"Client v%s - %s%s\n", cliSemVer, clientVer.Commit, cdirty)
 
 		return nil
 	}

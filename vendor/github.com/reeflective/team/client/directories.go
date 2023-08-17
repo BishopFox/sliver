@@ -57,7 +57,7 @@ func (tc *Client) HomeDir() string {
 // creating the directory if needed, or logging an error event if failing to create it.
 // This directory is used to store teamclient logs and remote server configs.
 func (tc *Client) TeamDir() string {
-	dir := filepath.Join(tc.HomeDir(), assets.DirClient)
+	dir := filepath.Join(tc.HomeDir(), tc.opts.teamDir)
 
 	err := tc.fs.MkdirAll(dir, log.DirPerm)
 	if err != nil {

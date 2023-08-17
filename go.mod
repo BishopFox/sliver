@@ -12,6 +12,8 @@ replace github.com/reeflective/team => /home/user/code/github.com/reeflective/te
 
 replace github.com/reeflective/readline => /home/user/code/github.com/reeflective/readline
 
+//replace github.com/reeflective/console => /home/user/code/github.com/reeflective/console
+
 require (
 	filippo.io/age v1.1.1
 	github.com/AlecAivazis/survey/v2 v2.3.7
@@ -40,10 +42,10 @@ require (
 	github.com/moloch--/asciicast v0.1.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/ncruces/go-sqlite3 v0.8.1
-	github.com/reeflective/console v0.1.7-0.20230810163856-bb6bbfdcae4a
-	github.com/reeflective/readline v1.0.8
+	github.com/reeflective/console v0.1.7
+	github.com/reeflective/readline v1.0.9
 	github.com/reeflective/team v0.0.0-20230730014339-6d91952bc187
-	github.com/rsteube/carapace v0.42.1
+	github.com/rsteube/carapace v0.43.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
@@ -150,6 +152,7 @@ require (
 	github.com/psanford/memfs v0.0.0-20230130182539-4dbf7e3e865e // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
+	github.com/rsteube/carapace-shlex v0.0.4 // indirect
 	github.com/tailscale/certstore v0.1.1-0.20220316223106-78d6e1c49d8d // indirect
 	github.com/tailscale/golang-x-crypto v0.0.0-20221115211329-17a3db2c30d2 // indirect
 	github.com/tailscale/goupnp v1.0.1-0.20210804011211-c64d0f06ea05 // indirect

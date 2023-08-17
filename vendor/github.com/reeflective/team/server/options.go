@@ -23,10 +23,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/reeflective/team/internal/assets"
 	"github.com/reeflective/team/internal/db"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
+
+const noTeamdir = "no team subdirectory"
 
 // Options are server options.
 // With these you can set/reset or modify the behavior of a teamserver
@@ -40,6 +43,7 @@ type Options func(opts *opts)
 
 type opts struct {
 	homeDir         string
+	teamDir         string
 	logFile         string
 	local           bool
 	noLogs          bool
@@ -78,6 +82,13 @@ func (ts *Server) apply(options ...Options) {
 			ts.homeDir = homeDir
 		} else {
 			ts.homeDir = ts.opts.homeDir
+		}
+
+		// Team directory.
+		if ts.opts.teamDir == noTeamdir {
+			ts.opts.teamDir = ""
+		} else if ts.opts.teamDir == "" {
+			ts.opts.teamDir = assets.DirServer
 		}
 
 		// User-defined database.
@@ -158,6 +169,23 @@ func WithDatabaseConfig(config *db.Config) Options {
 func WithHomeDirectory(path string) Options {
 	return func(opts *opts) {
 		opts.homeDir = path
+	}
+}
+
+// WithTeamDirectory sets the name (not a path) of the teamserver-specific subdirectory.
+// For example, passing "my_server_dir" will make the teamserver use ~/.app/my_server_dir/
+// instead of ~/.app/teamserver/.
+// If this function is called with an empty string, the teamserver will not use any
+// subdirectory for its own outputs, thus using ~/.app as its teamserver directory.
+//
+// This option can only be used once, and must be passed to server.New().
+func WithTeamDirectory(name string) Options {
+	return func(opts *opts) {
+		if name == "" {
+			name = noTeamdir
+		}
+
+		opts.teamDir = name
 	}
 }
 

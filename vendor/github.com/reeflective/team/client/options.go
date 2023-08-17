@@ -24,8 +24,11 @@ import (
 	"os"
 	"strings"
 
+	"github.com/reeflective/team/internal/assets"
 	"github.com/sirupsen/logrus"
 )
+
+const noTeamdir = "no team subdirectory"
 
 // Options are client options.
 // You can set or modify the behavior of a teamclient at various
@@ -39,6 +42,7 @@ type Options func(opts *opts)
 
 type opts struct {
 	homeDir  string
+	teamDir  string
 	noLogs   bool
 	logFile  string
 	inMemory bool
@@ -77,6 +81,13 @@ func (tc *Client) apply(options ...Options) {
 		tc.dialer = tc.opts.dialer
 	}
 
+	// Team directory.
+	if tc.opts.teamDir == noTeamdir {
+		tc.opts.teamDir = ""
+	} else if tc.opts.teamDir == "" {
+		tc.opts.teamDir = assets.DirClient
+	}
+
 	if tc.opts.stdout != nil {
 		tc.stdoutLogger.Out = tc.opts.stdout
 	}
@@ -91,7 +102,7 @@ func (tc *Client) apply(options ...Options) {
 // This might be useful for testing, or if you happen to embed a teamclient in a program
 // without the intent of using it now, etc.
 //
-// This option can only be used once, and should be passed to server.New().
+// This option can only be used once, and should be passed client.New().
 func WithInMemory() Options {
 	return func(opts *opts) {
 		opts.noLogs = true
@@ -110,10 +121,27 @@ func WithConfig(config *Config) Options {
 // WithHomeDirectory sets the default path (~/.app/) of the application directory.
 // This path can still be overridden at the user-level with the env var APP_ROOT_DIR.
 //
-// This option can only be used once, and must be passed to server.New().
+// This option can only be used once, and must be passed client.New().
 func WithHomeDirectory(path string) Options {
 	return func(opts *opts) {
 		opts.homeDir = path
+	}
+}
+
+// WithTeamDirectory sets the name (not a path) of the teamclient-specific subdirectory.
+// For example, passing "my_team_dir" will make the teamclient use ~/.app/my_team_dir/
+// instead of ~/.app/teamclient/.
+// If this function is called with an empty string, the teamclient will not use any
+// subdirectory for its own outputs, thus using ~/.app as its teamclient directory.
+//
+// This option can only be used once, and should be passed client.New().
+func WithTeamDirectory(name string) Options {
+	return func(opts *opts) {
+		if name == "" {
+			name = noTeamdir
+		}
+
+		opts.teamDir = name
 	}
 }
 
@@ -124,7 +152,7 @@ func WithHomeDirectory(path string) Options {
 // WithNoLogs deactivates all logging normally done by the teamclient
 // if noLogs is set to true, or keeps/reestablishes them if false.
 //
-// This option can only be used once, and should be passed to server.New().
+// This option can only be used once, and should be passed client.New().
 func WithNoLogs(noLogs bool) Options {
 	return func(opts *opts) {
 		opts.noLogs = noLogs
@@ -134,7 +162,7 @@ func WithNoLogs(noLogs bool) Options {
 // WithLogFile sets the path to the file where teamclient logging should be done.
 // If not specified, the client log file is ~/.app/teamclient/logs/app.teamclient.log.
 //
-// This option can only be used once, and should be passed to server.New().
+// This option can only be used once, and should be passed client.New().
 func WithLogFile(filePath string) Options {
 	return func(opts *opts) {
 		opts.logFile = filePath
@@ -143,7 +171,7 @@ func WithLogFile(filePath string) Options {
 
 // WithLogger sets the teamclient to use a specific logger for logging.
 //
-// This option can only be used once, and should be passed to server.New().
+// This option can only be used once, and should be passed client.New().
 func WithLogger(logger *logrus.Logger) Options {
 	return func(opts *opts) {
 		opts.logger = logger
@@ -177,7 +205,7 @@ func WithDialer(dialer Dialer) Options {
 // If this is the case, this option will ensure that any cobra client command
 // runners produced by this library will not disconnect after each execution.
 //
-// This option can only be used once, and should be passed to server.New().
+// This option can only be used once, and should be passed client.New().
 func WithNoDisconnect() Options {
 	return func(opts *opts) {
 		opts.console = true

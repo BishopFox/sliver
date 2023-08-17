@@ -28,8 +28,12 @@ import "time"
 //     is to be provided by the teamclients and teamservers alike.
 //   - To harmonize the use of team/client and team/server core drivers.
 type Client interface {
+	// Users returns the list of teamserver users and their status.
 	Users() ([]User, error)
-	Version() (Version, error)
+	// VersionClient returns the compilation/version information for the client.
+	VersionClient() (Version, error)
+	// VersionServer returns the compilation/version information from a connected teamserver.
+	VersionServer() (Version, error)
 }
 
 // User represents a teamserver user.

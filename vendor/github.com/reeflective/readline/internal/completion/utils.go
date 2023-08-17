@@ -4,12 +4,15 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/reeflective/readline/internal/color"
 	"github.com/reeflective/readline/internal/keymap"
 	"github.com/reeflective/readline/internal/term"
 )
 
-// Maximum ratio of the screen that described values can have.
-var maxValuesAreaRatio = 0.5
+const (
+	trailingDescLen  = 3
+	trailingValueLen = 4
+)
 
 var sanitizer = strings.NewReplacer(
 	"\n", ``,
@@ -21,16 +24,38 @@ var sanitizer = strings.NewReplacer(
 // and prefix/suffix strings, but does not attempt any candidate
 // insertion/abortion on the line.
 func (e *Engine) prepare(completions Values) {
+	e.prefix = ""
 	e.groups = make([]*group, 0)
 
 	e.setPrefix(completions)
 	e.setSuffix(completions)
-
-	e.group(completions)
+	e.generate(completions)
 }
 
-func (e *Engine) setPrefix(comps Values) {
-	switch comps.PREFIX {
+func (e *Engine) generate(completions Values) {
+	// Compute hints once we found either any errors,
+	// or if we have no completions but usage strings.
+	defer func() {
+		e.hintCompletions(completions)
+	}()
+
+	// Nothing else to do if no completions
+	if len(completions.values) == 0 {
+		return
+	}
+
+	// Apply the prefix to the completions, and filter out any
+	// completions that don't match, optionally ignoring case.
+	matchCase := e.config.GetBool("completion-ignore-case")
+	completions.values = completions.values.FilterPrefix(e.prefix, !matchCase)
+
+	// Classify, group together and initialize completions.
+	completions.values.EachTag(e.generateGroup(completions))
+	e.justifyGroups(completions)
+}
+
+func (e *Engine) setPrefix(completions Values) {
+	switch completions.PREFIX {
 	case "":
 		// Select the character just before the cursor.
 		cpos := e.cursor.Pos() - 1
@@ -49,15 +74,18 @@ func (e *Engine) setPrefix(comps Values) {
 			cpos++
 		}
 
+		// You might wonder why we trim spaces here:
+		// in practice we don't really ever want to
+		// consider "how many spaces are somewhere".
 		e.prefix = strings.TrimSpace(string((*e.line)[bpos:cpos]))
 
 	default:
-		e.prefix = comps.PREFIX
+		e.prefix = completions.PREFIX
 	}
 }
 
-func (e *Engine) setSuffix(comps Values) {
-	switch comps.SUFFIX {
+func (e *Engine) setSuffix(completions Values) {
+	switch completions.SUFFIX {
 	case "":
 		cpos := e.cursor.Pos()
 		_, epos := e.line.SelectBlankWord(cpos)
@@ -81,8 +109,68 @@ func (e *Engine) setSuffix(comps Values) {
 		e.suffix = strings.TrimSpace(string((*e.line)[cpos:epos]))
 
 	default:
-		e.suffix = comps.SUFFIX
+		e.suffix = completions.SUFFIX
 	}
+}
+
+// Returns a function to run on each completio group tag.
+func (e *Engine) generateGroup(comps Values) func(tag string, values RawValues) {
+	return func(tag string, values RawValues) {
+		// Separate the completions that have a description and
+		// those which don't, and devise if there are aliases.
+		vals, noDescVals, descriptions := e.groupNonDescribed(&comps, values)
+
+		// Create a "first" group with the "first" grouped values
+		e.newCompletionGroup(comps, tag, vals, descriptions)
+
+		// If we have a remaining group of values without descriptions,
+		// we will print and use them in a separate, anonymous group.
+		if len(noDescVals) > 0 {
+			e.newCompletionGroup(comps, "", vals, descriptions)
+		}
+	}
+}
+
+// groupNonDescribed separates values based on whether they have descriptions, or are aliases of each other.
+func (e *Engine) groupNonDescribed(comps *Values, values RawValues) (vals, noDescVals RawValues, descs []string) {
+	var descriptions []string
+
+	prefix := ""
+	if e.prefix != "\"\"" && e.prefix != "''" {
+		prefix = e.prefix
+	}
+
+	for _, val := range values {
+		// Ensure all values have a display string.
+		if val.Display == "" {
+			val.Display = val.Value
+		}
+
+		// Currently this is because errors are passed as completions.
+		if strings.HasPrefix(val.Value, prefix+"ERR") && val.Value == prefix+"_" {
+			comps.Messages.Add(color.FgRed + val.Display + val.Description)
+
+			continue
+		}
+
+		// Grid completions
+		if val.Description == "" {
+			noDescVals = append(noDescVals, val)
+
+			continue
+		}
+
+		descriptions = append(descriptions, val.Description)
+		vals = append(vals, val)
+	}
+
+	// if no candidates have a description, swap
+	if len(vals) == 0 {
+		vals = noDescVals
+		noDescVals = make(RawValues, 0)
+	}
+
+	return vals, noDescVals, descriptions
 }
 
 func (e *Engine) currentGroup() (grp *group) {
@@ -95,7 +183,7 @@ func (e *Engine) currentGroup() (grp *group) {
 	// If there are groups but no current, make first one the king.
 	if len(e.groups) > 0 {
 		for _, g := range e.groups {
-			if len(g.values) > 0 {
+			if len(g.rows) > 0 {
 				g.isCurrent = true
 				return g
 			}
@@ -124,7 +212,7 @@ func (e *Engine) cycleNextGroup() {
 
 	for {
 		next := e.currentGroup()
-		if len(next.values) == 0 {
+		if len(next.rows) == 0 {
 			e.cycleNextGroup()
 			continue
 		}
@@ -151,12 +239,46 @@ func (e *Engine) cyclePreviousGroup() {
 
 	for {
 		prev := e.currentGroup()
-		if len(prev.values) == 0 {
+		if len(prev.rows) == 0 {
 			e.cyclePreviousGroup()
 			continue
 		}
 
 		return
+	}
+}
+
+func (e *Engine) justifyGroups(values Values) {
+	commandGroups := make([]*group, 0)
+	maxCellLength := 0
+
+	for _, group := range e.groups {
+		// Skip groups that are not to be justified
+		justify := values.Pad[group.tag]
+		if !justify {
+			justify = values.Pad["*"]
+		}
+
+		if !justify {
+			continue
+		}
+
+		// Skip groups that are aliased or have more than one column
+		if group.aliased || len(group.columnsWidth) > 1 {
+			continue
+		}
+
+		// Else this group should be justified-padded globally.
+		commandGroups = append(commandGroups, group)
+
+		if group.longestValue > maxCellLength {
+			maxCellLength = group.longestValue
+		}
+	}
+
+	for _, group := range commandGroups {
+		group.columnsWidth[0] = maxCellLength
+		group.longestValue = maxCellLength
 	}
 }
 
@@ -190,23 +312,25 @@ func (e *Engine) adjustSelectKeymap() {
 	}
 }
 
+// completionCount returns the number of completions for a given group,
+// as well as the number of real terminal lines it spans on, including
+// the group name if there is one.
 func (e *Engine) completionCount() (comps int, used int) {
 	for _, group := range e.groups {
-		groupComps := 0
-
-		for _, row := range group.values {
-			groupComps += len(row)
-			comps += groupComps
+		// First, agree on the number of comps.
+		for _, row := range group.rows {
+			comps += len(row)
 		}
 
-		if group.maxY > len(group.values) {
-			used += len(group.values)
-		} else {
-			used += group.maxY
-		}
-
-		if groupComps > 0 {
+		// One line for the group name
+		if group.tag != "" {
 			used++
+		}
+
+		if group.maxY > len(group.rows) {
+			used += group.maxY
+		} else {
+			used += len(group.rows)
 		}
 	}
 
@@ -224,18 +348,18 @@ func (e *Engine) hasUniqueCandidate() bool {
 			return false
 		}
 
-		if len(cur.values) == 1 {
-			return len(cur.values[0]) == 1
+		if len(cur.rows) == 1 {
+			return len(cur.rows[0]) == 1
 		}
 
-		return len(cur.values) == 1
+		return len(cur.rows) == 1
 
 	default:
 		var count int
 
 	GROUPS:
 		for _, group := range e.groups {
-			for _, row := range group.values {
+			for _, row := range group.rows {
 				count++
 				for range row {
 					count++
@@ -252,7 +376,7 @@ func (e *Engine) hasUniqueCandidate() bool {
 
 func (e *Engine) noCompletions() bool {
 	for _, group := range e.groups {
-		if len(group.values) > 0 {
+		if len(group.rows) > 0 {
 			return false
 		}
 	}
@@ -314,7 +438,7 @@ func (e *Engine) getAbsPos() int {
 	for _, grp := range e.groups {
 		groupComps := 0
 
-		for _, row := range grp.values {
+		for _, row := range grp.rows {
 			groupComps += len(row)
 		}
 
@@ -346,35 +470,6 @@ func (e *Engine) getAbsPos() int {
 	return prev
 }
 
-// getColumnPad either updates or adds a new column for an alias.
-func getColumnPad(columns []int, valLen int, numAliases int) []int {
-	switch {
-	case (float64(sum(columns) + valLen)) >
-		(float64(term.GetWidth()) * maxValuesAreaRatio):
-		columnX := numAliases % len(columns)
-
-		if columns[columnX] < valLen {
-			columns[columnX] = valLen
-		}
-	case numAliases > len(columns):
-		columns = append(columns, valLen)
-	case columns[numAliases-1] < valLen:
-		columns[numAliases-1] = valLen
-	}
-
-	return columns
-}
-
-func stringInSlice(s string, sl []string) bool {
-	for _, str := range sl {
-		if s == str {
-			return true
-		}
-	}
-
-	return false
-}
-
 func sum(vals []int) (sum int) {
 	for _, val := range vals {
 		sum += val
@@ -391,4 +486,19 @@ func hasUpper(line []rune) bool {
 	}
 
 	return false
+}
+
+func longest(vals []string, trimEscapes bool) int {
+	var length int
+	for _, val := range vals {
+		if trimEscapes {
+			val = color.Strip(val)
+		}
+
+		if len(val) > length {
+			length = len(val)
+		}
+	}
+
+	return length
 }

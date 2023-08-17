@@ -154,15 +154,20 @@ func (ts *Server) Name() string {
 // of the application using this teamserver.
 // See the server.Listener and client.Dialer types documentation for more.
 func (ts *Server) Self(opts ...client.Options) *client.Client {
-	// opts = append(opts, client.WithLocalDialer())
-
 	teamclient, _ := client.New(ts.Name(), ts, opts...)
 
 	return teamclient
 }
 
+// Version implements team.Client.VersionClient() interface
+// method, so that the teamserver can be a teamclient of itself.
+// This simply returns the server.VersionServer() output.
+func (ts *Server) VersionClient() (team.Version, error) {
+	return ts.VersionServer()
+}
+
 // Version returns the teamserver binary version information.
-func (ts *Server) Version() (team.Version, error) {
+func (ts *Server) VersionServer() (team.Version, error) {
 	semVer := version.Semantic()
 	compiled, _ := version.Compiled()
 

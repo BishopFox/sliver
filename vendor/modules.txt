@@ -520,7 +520,7 @@ github.com/psanford/memfs
 github.com/reeflective/console
 github.com/reeflective/console/commands/readline
 # github.com/reeflective/readline v1.0.8 => /home/user/code/github.com/reeflective/readline
-## explicit; go 1.20
+## explicit; go 1.21
 github.com/reeflective/readline
 github.com/reeflective/readline/inputrc
 github.com/reeflective/readline/internal/color

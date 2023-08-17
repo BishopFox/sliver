@@ -19,8 +19,6 @@ package server
 */
 
 import (
-	"fmt"
-	"os"
 	"os/user"
 	"path"
 	"path/filepath"
@@ -60,7 +58,7 @@ func (ts *Server) HomeDir() string {
 // creating the directory if needed, or logging an error event if failing to create it.
 // This directory is used to store teamserver certificates, database, logs, and configs.
 func (ts *Server) TeamDir() string {
-	dir := path.Join(ts.HomeDir(), assets.DirServer)
+	dir := path.Join(ts.HomeDir(), ts.opts.teamDir)
 
 	err := ts.fs.MkdirAll(dir, log.DirPerm)
 	if err != nil {
@@ -94,33 +92,4 @@ func (ts *Server) CertificatesDir() string {
 	}
 
 	return certDir
-}
-
-// When creating a new server, don't write anything to anywhere yet,
-// but ensure that at least all directories to which we are supposed
-// to write do indeed exist, and make them anyway.
-// If any error happens it will returned right away and the creator
-// of the teamserver will know right away that it can't work correctly.
-func (ts *Server) checkWritableFiles() error {
-	if ts.opts.inMemory {
-		return nil
-	}
-
-	// Check home application directory.
-	// If it does not exist but we don't have write permission
-	// on /user/home, we return an error as we can't work.
-	appDirWrite, err := log.IsWritable(ts.TeamDir())
-
-	switch {
-	case os.IsNotExist(err):
-		if homeWritable, err := log.IsWritable(os.Getenv("HOME")); !homeWritable {
-			return fmt.Errorf("Cannot create %w", err)
-		}
-	case err != nil:
-		return fmt.Errorf("Cannot write to %w", err)
-	case !appDirWrite:
-		return ErrDirectoryUnwritable
-	}
-
-	return nil
 }

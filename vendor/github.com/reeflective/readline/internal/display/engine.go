@@ -73,7 +73,7 @@ func (e *Engine) Refresh() {
 
 	// Go back to the first column, and if the primary prompt
 	// was not printed yet, back up to the line's beginning row.
-	term.MoveCursorBackward(term.GetWidth())
+	term.MoveCursorBackwards(term.GetWidth())
 
 	if !e.primaryPrinted {
 		term.MoveCursorUp(e.cursorRow)
@@ -84,7 +84,7 @@ func (e *Engine) Refresh() {
 
 	// Get all positions required for the redisplay to come:
 	// prompt end (thus indentation), cursor positions, etc.
-	e.computeCoordinates()
+	e.computeCoordinates(true)
 
 	// Print the line, right prompt, hints and completions.
 	e.displayLine()
@@ -113,7 +113,7 @@ func (e *Engine) ClearHelpers() {
 	term.MoveCursorUp(1)
 	term.MoveCursorUp(e.lineRows)
 	term.MoveCursorDown(e.cursorRow)
-	term.MoveCursorForward(e.cursorCol)
+	term.MoveCursorForwards(e.cursorCol)
 }
 
 // ResetHelpers cancels all active hints and completions.
@@ -129,19 +129,19 @@ func (e *Engine) ResetHelpers() {
 func (e *Engine) AcceptLine() {
 	e.CursorToLineStart()
 
-	e.computeCoordinates()
+	e.computeCoordinates(false)
 
 	// Go back to the end of the non-suggested line.
-	term.MoveCursorBackward(term.GetWidth())
+	term.MoveCursorBackwards(term.GetWidth())
 	term.MoveCursorDown(e.lineRows)
-	term.MoveCursorForward(e.lineCol)
+	term.MoveCursorForwards(e.lineCol)
 	fmt.Print(term.ClearScreenBelow)
 
 	// Reprint the right-side prompt if it's not a tooltip one.
 	e.prompt.RightPrint(e.lineCol, false)
 
 	// Go below this non-suggested line and clear everything.
-	term.MoveCursorBackward(term.GetWidth())
+	term.MoveCursorBackwards(term.GetWidth())
 	fmt.Print(term.NewlineReturn)
 }
 
@@ -166,9 +166,9 @@ func (e *Engine) RefreshTransient() {
 // This function should only be called when the cursor is on its
 // "cursor" position on the input line.
 func (e *Engine) CursorToLineStart() {
-	term.MoveCursorBackward(e.cursorCol)
+	term.MoveCursorBackwards(e.cursorCol)
 	term.MoveCursorUp(e.cursorRow)
-	term.MoveCursorForward(e.startCols)
+	term.MoveCursorForwards(e.startCols)
 }
 
 // CursorBelowLine moves the cursor to the leftmost
@@ -186,8 +186,8 @@ func (e *Engine) CursorBelowLine() {
 // last character of the prompt.
 func (e *Engine) lineStartToCursorPos() {
 	term.MoveCursorDown(e.cursorRow)
-	term.MoveCursorBackward(term.GetWidth())
-	term.MoveCursorForward(e.cursorCol)
+	term.MoveCursorBackwards(term.GetWidth())
+	term.MoveCursorForwards(e.cursorCol)
 }
 
 // cursor is on the line below the last line of input.
@@ -197,7 +197,7 @@ func (e *Engine) cursorHintToLineStart() {
 	e.CursorToLineStart()
 }
 
-func (e *Engine) computeCoordinates() {
+func (e *Engine) computeCoordinates(suggested bool) {
 	// Get the new input line and auto-suggested one.
 	e.line, e.cursor = e.completer.Line()
 	if e.completer.IsInserting() {
@@ -222,7 +222,7 @@ func (e *Engine) computeCoordinates() {
 	e.cursorCol, e.cursorRow = core.CoordinatesCursor(e.cursor, e.startCols)
 
 	// Get the number of rows used by the line, and the end line X pos.
-	if e.opts.GetBool("history-autosuggest") {
+	if e.opts.GetBool("history-autosuggest") && suggested {
 		e.lineCol, e.lineRows = core.CoordinatesLine(&e.suggested, e.startCols)
 	} else {
 		e.lineCol, e.lineRows = core.CoordinatesLine(e.line, e.startCols)
@@ -285,7 +285,7 @@ func (e *Engine) displayHelpers() {
 	e.compRows = completion.Coordinates(e.completer)
 
 	// Go back to the first line below the input line.
-	term.MoveCursorBackward(term.GetWidth())
+	term.MoveCursorBackwards(term.GetWidth())
 	term.MoveCursorUp(e.compRows)
 	term.MoveCursorUp(ui.CoordinatesHint(e.hint))
 }

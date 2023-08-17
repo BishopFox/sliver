@@ -174,7 +174,7 @@ func (e *Engine) hlAdd(regions []core.Selection, newHl core.Selection, line []ru
 
 	// Update the highlighting with inputrc settings if any.
 	if bg != "" && !matcher {
-		background := strings.ReplaceAll(e.opts.GetString("active-region-start-color"), `\e`, "\x1b")
+		background := color.UnquoteRC("active-region-start-color")
 		if bg, _ = strconv.Unquote(background); bg == "" {
 			bg = color.Reverse
 		}
