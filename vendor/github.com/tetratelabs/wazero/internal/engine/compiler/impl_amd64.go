@@ -1088,7 +1088,7 @@ func (c *amd64Compiler) compileAdd(o *wazeroir.UnionOperation) error {
 		return err
 	}
 
-	x1 := c.locationStack.peek() // Note this is peek, pop!
+	x1 := c.locationStack.peek() // Note this is peek!
 	if err := c.compileEnsureOnRegister(x1); err != nil {
 		return err
 	}
@@ -1125,7 +1125,7 @@ func (c *amd64Compiler) compileSub(o *wazeroir.UnionOperation) error {
 		return err
 	}
 
-	x1 := c.locationStack.peek() // Note this is peek, pop!
+	x1 := c.locationStack.peek() // Note this is peek!
 	if err := c.compileEnsureOnRegister(x1); err != nil {
 		return err
 	}
@@ -3499,7 +3499,7 @@ func (c *amd64Compiler) compileStoreImpl(offsetConst uint32, inst asm.Instructio
 
 	reg, err := c.compileMemoryAccessCeilSetup(offsetConst, targetSizeInBytes)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	c.assembler.CompileRegisterToMemoryWithIndex(
@@ -4856,6 +4856,7 @@ func (c *amd64Compiler) compileMaybeExitFromNativeCode(skipCondition asm.Instruc
 func (c *amd64Compiler) compileExitFromNativeCode(status nativeCallStatusCode) {
 	if target := c.compiledTrapTargets[status]; target != nil {
 		c.assembler.CompileJump(amd64.JMP).AssignJumpTarget(target)
+		return
 	}
 
 	switch status {

@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 
 	"github.com/reeflective/team/internal/assets"
-	"github.com/reeflective/team/internal/log"
 )
 
 // HomeDir returns the root application directory (~/.app/ by default).
@@ -45,7 +44,7 @@ func (tc *Client) HomeDir() string {
 		dir = "." + tc.name
 	}
 
-	err := tc.fs.MkdirAll(dir, log.DirPerm)
+	err := tc.fs.MkdirAll(dir, assets.DirPerm)
 	if err != nil {
 		tc.log().Errorf("cannot write to %s root dir: %s", dir, err)
 	}
@@ -59,7 +58,7 @@ func (tc *Client) HomeDir() string {
 func (tc *Client) TeamDir() string {
 	dir := filepath.Join(tc.HomeDir(), tc.opts.teamDir)
 
-	err := tc.fs.MkdirAll(dir, log.DirPerm)
+	err := tc.fs.MkdirAll(dir, assets.DirPerm)
 	if err != nil {
 		tc.log().Errorf("cannot write to %s root dir: %s", dir, err)
 	}
@@ -72,7 +71,7 @@ func (tc *Client) TeamDir() string {
 func (tc *Client) LogsDir() string {
 	logsDir := filepath.Join(tc.TeamDir(), assets.DirLogs)
 
-	err := tc.fs.MkdirAll(logsDir, log.DirPerm)
+	err := tc.fs.MkdirAll(logsDir, assets.DirPerm)
 	if err != nil {
 		tc.log().Errorf("cannot write to %s root dir: %s", logsDir, err)
 	}
@@ -80,14 +79,14 @@ func (tc *Client) LogsDir() string {
 	return logsDir
 }
 
-// GetConfigDir returns the path to the remote teamserver configs directory
+// ConfigsDir returns the path to the remote teamserver configs directory
 // for this application (~/.app/teamclient/configs), creating the directory
 // if needed, or logging a fatal event if failing to create it.
 func (tc *Client) ConfigsDir() string {
 	rootDir, _ := filepath.Abs(tc.TeamDir())
 	dir := filepath.Join(rootDir, assets.DirConfigs)
 
-	err := tc.fs.MkdirAll(dir, log.DirPerm)
+	err := tc.fs.MkdirAll(dir, assets.DirPerm)
 	if err != nil {
 		tc.log().Errorf("cannot write to %s configs dir: %s", dir, err)
 	}

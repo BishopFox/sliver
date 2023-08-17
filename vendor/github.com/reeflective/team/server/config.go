@@ -27,8 +27,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/reeflective/team/internal/assets"
 	"github.com/reeflective/team/internal/command"
-	"github.com/reeflective/team/internal/log"
 	"github.com/sirupsen/logrus"
 )
 
@@ -45,9 +45,9 @@ const (
 //
 // Its default path is ~/.app/teamserver/configs/app.teamserver.cfg.
 // It uses the following default values:
-// - Daemon host: ""
-// - Daemon port: 31416
-// - logging file level: Info.
+//   - Daemon host: ""
+//   - Daemon port: 31416
+//   - logging file level: Info.
 type Config struct {
 	// When the teamserver command `app teamserver daemon` is executed
 	// without --host/--port flags, the teamserver will use the config.
@@ -77,15 +77,14 @@ type Config struct {
 
 // ConfigPath returns the path to the server config.json file, on disk or in-memory.
 func (ts *Server) ConfigPath() string {
-	appDir := ts.TeamDir()
-	configDir := filepath.Join(appDir, "configs")
+	appDir := ts.ConfigsDir()
 
-	err := ts.fs.MkdirAll(configDir, log.DirPerm)
+	err := ts.fs.MkdirAll(appDir, assets.DirPerm)
 	if err != nil {
-		ts.log().Errorf("cannot write to %s config dir: %s", configDir, err)
+		ts.log().Errorf("cannot write to %s config dir: %s", appDir, err)
 	}
 
-	serverConfigPath := filepath.Join(configDir, fmt.Sprintf("%s.%s", ts.Name(), command.ServerConfigExt))
+	serverConfigPath := filepath.Join(appDir, fmt.Sprintf("%s.%s", ts.Name(), command.ServerConfigExt))
 
 	return serverConfigPath
 }
@@ -135,7 +134,7 @@ func (ts *Server) GetConfig() *Config {
 	return ts.opts.config
 }
 
-// Save saves config file to disk.
+// SaveConfig saves config file to disk.
 // This uses the on-disk filesystem even if the teamclient is in memory mode.
 func (ts *Server) SaveConfig(cfg *Config) error {
 	cfgLog := ts.NamedLogger("config", "server")
@@ -150,7 +149,7 @@ func (ts *Server) SaveConfig(cfg *Config) error {
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
 		cfgLog.Debugf("Creating config dir %s", configDir)
 
-		err := os.MkdirAll(configDir, log.DirPerm)
+		err := os.MkdirAll(configDir, assets.DirPerm)
 		if err != nil {
 			return ts.errorf("%w: %w", ErrConfig, err)
 		}
@@ -163,7 +162,7 @@ func (ts *Server) SaveConfig(cfg *Config) error {
 
 	cfgLog.Debugf("Saving config to %s", configPath)
 
-	err = os.WriteFile(configPath, data, log.FileReadPerm)
+	err = os.WriteFile(configPath, data, assets.FileReadPerm)
 	if err != nil {
 		return ts.errorf("%w: failed to write config: %s", ErrConfig, err)
 	}

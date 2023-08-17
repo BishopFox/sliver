@@ -25,9 +25,9 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/reeflective/team/internal/assets"
 	"github.com/reeflective/team/internal/command"
 	"github.com/reeflective/team/internal/db"
-	"github.com/reeflective/team/internal/log"
 	"gorm.io/gorm"
 )
 
@@ -37,9 +37,10 @@ const (
 )
 
 // Database returns a new teamserver database session, which may not be nil:
-// at worst, this database will be an in-memory one. The default is a file-
-// based Sqlite database in the teamserver directory, but it might be a
-// specific database passed through options.
+// if no custom database backend was passed to the server at creation time,
+// this database will be an in-memory one. The default is a file-based Sqlite
+// database in the teamserver directory, but it might be a specific database
+// passed through options.
 func (ts *Server) Database() *gorm.DB {
 	return ts.db.Session(&gorm.Session{
 		FullSaveAssociations: true,
@@ -47,7 +48,7 @@ func (ts *Server) Database() *gorm.DB {
 }
 
 // DatabaseConfig returns the server database backend configuration struct.
-// If configuration could be found on disk, the default Sqlite file-based
+// If no configuration could be found on disk, the default Sqlite file-based
 // database is returned, with app-corresponding file paths.
 func (ts *Server) DatabaseConfig() *db.Config {
 	cfg, err := ts.getDatabaseConfig()
@@ -60,9 +61,10 @@ func (ts *Server) DatabaseConfig() *db.Config {
 
 // GetDatabaseConfigPath - File path to config.json.
 func (ts *Server) dbConfigPath() string {
-	appDir := ts.TeamDir()
+	appDir := ts.ConfigsDir()
 	log := ts.NamedLogger("config", "database")
-	databaseConfigPath := filepath.Join(appDir, "configs", fmt.Sprintf("%s.%s", ts.Name()+"_database", command.ServerConfigExt))
+	dbFileName := fmt.Sprintf("%s.%s", ts.Name()+"_database", command.ServerConfigExt)
+	databaseConfigPath := filepath.Join(appDir, dbFileName)
 	log.Debugf("Loading config from %s", databaseConfigPath)
 
 	return databaseConfigPath
@@ -83,7 +85,7 @@ func (ts *Server) saveDatabaseConfig(cfg *db.Config) error {
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
 		dblog.Debugf("Creating config dir %s", configDir)
 
-		err := os.MkdirAll(configDir, log.DirPerm)
+		err := os.MkdirAll(configDir, assets.DirPerm)
 		if err != nil {
 			return err
 		}
@@ -96,7 +98,7 @@ func (ts *Server) saveDatabaseConfig(cfg *db.Config) error {
 
 	dblog.Debugf("Saving config to %s", configPath)
 
-	return os.WriteFile(configPath, data, log.FileReadPerm)
+	return os.WriteFile(configPath, data, assets.FileReadPerm)
 }
 
 // getDatabaseConfig returns a working database configuration,

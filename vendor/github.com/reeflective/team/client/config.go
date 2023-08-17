@@ -29,10 +29,10 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/reeflective/team/internal/assets"
 	"github.com/reeflective/team/internal/certs"
 	"github.com/reeflective/team/internal/command"
-	"github.com/reeflective/team/internal/log"
-	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 const (
@@ -154,7 +154,7 @@ func (tc *Client) SaveConfig(config *Config) error {
 
 	// If we are in-memory, still make the directory.
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
-		if err = os.MkdirAll(configDir, log.DirPerm); err != nil {
+		if err = os.MkdirAll(configDir, assets.DirPerm); err != nil {
 			return tc.errorf("%w: %w", ErrConfig, err)
 		}
 	}

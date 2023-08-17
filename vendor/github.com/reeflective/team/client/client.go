@@ -39,14 +39,14 @@ import (
 // The client also DOES NOT include any teamserver-side code.
 //
 // This teamclient core job is to:
-// - Fetch, configure and use teamserver endpoint configurations.
-// - Drive the process of connecting to & disconnecting from a server.
-// - Query a teamserver for its version and users information.
+//   - Fetch, configure and use teamserver endpoint configurations.
+//   - Drive the process of connecting to & disconnecting from a server.
+//   - Query a teamserver for its version and users information.
 //
 // Additionally, this client offers:
-// - Pre-configured loggers for all client-side related events.
-// - Various options to configure its backends and behaviors.
-// - A builtin, abstracted and app-specific filesystem (in memory or on disk).
+//   - Pre-configured loggers for all client-side related events.
+//   - Various options to configure its backends and behaviors.
+//   - A builtin, abstracted and app-specific filesystem (in memory or on disk).
 //
 // Various combinations of teamclient/teamserver usage are possible.
 // Please see the Go module example/ directory for a list of them.
@@ -79,14 +79,14 @@ type Client struct {
 // using this dialer, and this clientConn will be provided to these hooks.
 //
 // Examples of what this clientConn can be:
-// - The clientConn is a specific, but non-idiomatic RPC client (ex: a *grpc.ClientConn).
-// - A simple net.Conn over which anything can be done further.
-// - Nothing: a dialer might not need to use or even create a client connection.
+//   - The clientConn is a specific, but non-idiomatic RPC client (ex: a *grpc.ClientConn).
+//   - A simple net.Conn over which anything can be done further.
+//   - Nothing: a dialer might not need to use or even create a client connection.
 type Dialer interface {
 	// Init is used by any dialer to query the teamclient driving it about:
-	// - The remote teamserver address and transport credentials
-	// - The user registered in this remote teamserver configuration.
-	// - To make use of client-side loggers, filesystem and other utilities.
+	//   - The remote teamserver address and transport credentials
+	//   - The user registered in this remote teamserver configuration.
+	//   - To make use of client-side loggers, filesystem and other utilities.
 	Init(c *Client) error
 
 	// Dial should connect to the endpoint available in any
@@ -109,8 +109,8 @@ type Dialer interface {
 //   - When being provided a specific dialer/client/RPC backend.
 //
 // The teamclient will only perform a few init things before being returned:
-// - Setup its filesystem, either on-disk (default behavior) or in-memory.
-// - Initialize loggers and the files they use, if any.
+//   - Setup its filesystem, either on-disk (default behavior) or in-memory.
+//   - Initialize loggers and the files they use, if any.
 //
 // This may return an error if the teamclient is unable to work with the provided
 // options (or lack thereof), which may happen if the teamclient cannot use and write

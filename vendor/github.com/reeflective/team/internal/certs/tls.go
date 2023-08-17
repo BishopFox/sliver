@@ -24,10 +24,11 @@ import (
 	"log"
 	"os"
 
-	teamlog "github.com/reeflective/team/internal/log"
+	"github.com/reeflective/team/internal/assets"
 )
 
 const (
+	// DefaultPort is the default team.Server listening port.
 	// Should be 31415, but... go to hell with your endless limits.
 	DefaultPort = 31416
 )
@@ -37,7 +38,7 @@ const (
 func (c *Manager) OpenTLSKeyLogFile() *os.File {
 	keyFilePath, present := os.LookupEnv("SSLKEYLOGFILE")
 	if present {
-		keyFile, err := os.OpenFile(keyFilePath, teamlog.FileWriteOpenMode, teamlog.FileReadPerm)
+		keyFile, err := os.OpenFile(keyFilePath, assets.FileWriteOpenMode, assets.FileReadPerm)
 		if err != nil {
 			c.log.Errorf("Failed to open TLS key file %v", err)
 			return nil

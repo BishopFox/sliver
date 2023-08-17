@@ -77,7 +77,7 @@ func (c *Conn) backupInit(dst uint32, dstName string, src uint32, srcName string
 	if r == 0 {
 		defer c.closeDB(other)
 		r = c.call(c.api.errcode, uint64(dst))
-		return nil, c.module.error(r, dst)
+		return nil, c.sqlite.error(r, dst)
 	}
 
 	return &Backup{

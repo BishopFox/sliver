@@ -167,6 +167,18 @@ const (
 	PREPARE_NO_VTAB    PrepareFlag = 0x04
 )
 
+// FunctionFlag is a flag that can be passed to [Conn.PrepareFlags].
+//
+// https://www.sqlite.org/c3ref/c_deterministic.html
+type FunctionFlag uint32
+
+const (
+	DETERMINISTIC FunctionFlag = 0x000000800
+	DIRECTONLY    FunctionFlag = 0x000080000
+	SUBTYPE       FunctionFlag = 0x000100000
+	INNOCUOUS     FunctionFlag = 0x000200000
+)
+
 // Datatype is a fundamental datatype of SQLite.
 //
 // https://www.sqlite.org/c3ref/c_blob.html
@@ -182,18 +194,18 @@ const (
 
 // String implements the [fmt.Stringer] interface.
 func (t Datatype) String() string {
-	const name = "INTEGERFLOATTEXTBLOBNULL"
+	const name = "INTEGERFLOATEXTBLOBNULL"
 	switch t {
 	case INTEGER:
 		return name[0:7]
 	case FLOAT:
 		return name[7:12]
 	case TEXT:
-		return name[12:16]
+		return name[11:15]
 	case BLOB:
-		return name[16:20]
+		return name[15:19]
 	case NULL:
-		return name[20:24]
+		return name[19:23]
 	}
 	return strconv.FormatUint(uint64(t), 10)
 }

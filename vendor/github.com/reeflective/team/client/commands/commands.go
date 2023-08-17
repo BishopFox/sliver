@@ -25,12 +25,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/reeflective/team/client"
-	"github.com/reeflective/team/internal/command"
 	"github.com/rsteube/carapace"
 	"github.com/rsteube/carapace/pkg/style"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"github.com/reeflective/team/client"
+	"github.com/reeflective/team/internal/command"
 )
 
 // Generate returns a command tree to embed in client applications connecting
@@ -139,6 +140,46 @@ func clientCommands(cli *client.Client) *cobra.Command {
 	return teamCmd
 }
 
+// ConfigsAppCompleter completes file paths to the current application configs.
+func ConfigsAppCompleter(cli *client.Client, tag string) carapace.Action {
+	return carapace.ActionCallback(func(ctx carapace.Context) carapace.Action {
+		var compErrors []carapace.Action
+
+		configPath := cli.ConfigsDir()
+
+		files, err := os.ReadDir(configPath)
+		if err != nil {
+			compErrors = append(compErrors, carapace.ActionMessage("failed to list user directories: %s", err))
+		}
+
+		var results []string
+
+		for _, file := range files {
+			if !strings.HasSuffix(file.Name(), command.ClientConfigExt) {
+				continue
+			}
+
+			filePath := filepath.Join(configPath, file.Name())
+
+			cfg, err := cli.ReadConfig(filePath)
+			if err != nil || cfg == nil {
+				continue
+			}
+
+			results = append(results, filePath)
+			results = append(results, fmt.Sprintf("[%s] %s:%d", cfg.User, cfg.Host, cfg.Port))
+		}
+
+		configsAction := carapace.ActionValuesDescribed(results...).StyleF(getConfigStyle(command.ClientConfigExt))
+
+		return carapace.Batch(append(
+			compErrors,
+			configsAction.Tag(tag),
+			carapace.ActionFiles())...,
+		).ToA()
+	})
+}
+
 // ConfigsCompleter completes file paths to other teamserver application configs (clients/users CA, etc)
 // The filepath is the directory  between .app/ and the target directory where config files of a certain
 // type should be found, ext is the normal/default extension for those target files, and tag is used in comps.
@@ -197,46 +238,6 @@ func ConfigsCompleter(cli *client.Client, filePath, ext, tag string, noSelf bool
 
 		return configsAction.Tag(tag)
 	}
-}
-
-// ConfigsAppCompleter completes file paths to the current application configs.
-func ConfigsAppCompleter(cli *client.Client, tag string) carapace.Action {
-	return carapace.ActionCallback(func(ctx carapace.Context) carapace.Action {
-		var compErrors []carapace.Action
-
-		configPath := cli.ConfigsDir()
-
-		files, err := os.ReadDir(configPath)
-		if err != nil {
-			compErrors = append(compErrors, carapace.ActionMessage("failed to list user directories: %s", err))
-		}
-
-		var results []string
-
-		for _, file := range files {
-			if !strings.HasSuffix(file.Name(), command.ClientConfigExt) {
-				continue
-			}
-
-			filePath := filepath.Join(configPath, file.Name())
-
-			cfg, err := cli.ReadConfig(filePath)
-			if err != nil || cfg == nil {
-				continue
-			}
-
-			results = append(results, filePath)
-			results = append(results, fmt.Sprintf("[%s] %s:%d", cfg.User, cfg.Host, cfg.Port))
-		}
-
-		configsAction := carapace.ActionValuesDescribed(results...).StyleF(getConfigStyle(command.ClientConfigExt))
-
-		return carapace.Batch(append(
-			compErrors,
-			configsAction.Tag(tag),
-			carapace.ActionFiles())...,
-		).ToA()
-	})
 }
 
 func isConfigDir(cli *client.Client, dir fs.DirEntry, noSelf bool) bool {

@@ -21,7 +21,11 @@ package db
 */
 
 import (
-	_ "github.com/mattn/go-sqlite3"
+	// Embedded SQLite instance.
+	_ "github.com/ncruces/go-sqlite3/embed"
+	// C-code.
+	_ "github.com/ncruces/go-sqlite3"
+
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

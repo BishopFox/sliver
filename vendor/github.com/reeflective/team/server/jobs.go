@@ -79,7 +79,7 @@ func (ts *Server) Listeners() []*job {
 	return all
 }
 
-// AddListenerJob adds a teamserver listener job to the teamserver configuration.
+// ListenerAdd adds a teamserver listener job to the teamserver configuration.
 // This function does not start the given listener, and you must call the server
 // ServeAddr(name, host, port) function for this.
 func (ts *Server) ListenerAdd(name, host string, port uint16) error {
@@ -104,7 +104,7 @@ func (ts *Server) ListenerAdd(name, host string, port uint16) error {
 	return ts.SaveConfig(ts.opts.config)
 }
 
-// RemoveListenerJob removes a server listener job from the configuration.
+// ListenerRemove removes a server listener job from the configuration.
 // This function does not stop any running listener for the given ID: you
 // must call server.CloseListener(id) for this.
 func (ts *Server) ListenerRemove(listenerID string) {

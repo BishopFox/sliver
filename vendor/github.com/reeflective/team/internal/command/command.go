@@ -25,18 +25,24 @@ import (
 )
 
 type (
+	// CobraRunnerE is a cobra runner returning an error.
 	CobraRunnerE func(*cobra.Command, []string) error
-	CobraRunner  func(*cobra.Command, []string)
+	// CobraRunner is a cobra runner returning nothing.
+	CobraRunner func(*cobra.Command, []string)
 )
 
 const (
-	ClientConfigExt = "teamclient.cfg"  // Client remote server config file extension.
-	ServerConfigExt = "teamserver.json" // Server backend config file extension.
+	// ClientConfigExt is the client remote server config file extension.
+	ClientConfigExt = "teamclient.cfg"
+	// ServerConfigExt is the server backend config file extension.
+	ServerConfigExt = "teamserver.json"
 )
 
 const (
-	TeamServerGroup     = "teamserver control" // TeamServerGroup is the group of all server/client control commands.
-	UserManagementGroup = "user management"    // UserManagementGroup is the group to manage teamserver users.
+	// TeamServerGroup is the group of all server/client control commands.
+	TeamServerGroup = "teamserver control"
+	// UserManagementGroup is the group to manage teamserver users.
+	UserManagementGroup = "user management"
 )
 
 // Colors / effects.
@@ -57,11 +63,11 @@ const (
 	DownN     = "\033[%dB"
 	Underline = "\033[4m"
 
-	// info - Display colorful information.
+	// Info - Display colorful information.
 	Info = Cyan + "[*] " + Normal
-	// warn - warn a user.
+	// Warn - warn a user.
 	Warn = Red + "[!] " + Normal
-	// debugl - Display debugl information.
+	// Debugl - Display debugl information.
 	Debugl = Purple + "[-] " + Normal
 )
 

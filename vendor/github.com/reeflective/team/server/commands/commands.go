@@ -21,13 +21,14 @@ package commands
 import (
 	"fmt"
 
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
 	"github.com/reeflective/team/client"
 	cli "github.com/reeflective/team/client/commands"
 	"github.com/reeflective/team/internal/command"
 	"github.com/reeflective/team/server"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Generate returns a "teamserver" command root and its tree for teamserver (server-side) management.

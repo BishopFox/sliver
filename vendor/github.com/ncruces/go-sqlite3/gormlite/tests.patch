@@ -1,0 +1,31 @@
+diff --git a/tests/.gitignore b/tests/.gitignore
+--- a/tests/.gitignore
++++ b/tests/.gitignore
+@@ -1 +1 @@
+-go.sum
++*
+diff --git a/tests/tests_test.go b/tests/tests_test.go
+--- a/tests/tests_test.go
++++ b/tests/tests_test.go
+@@ -7,9 +7,11 @@ import (
+ 	"path/filepath"
+ 	"time"
+ 
++	_ "github.com/ncruces/go-sqlite3/embed"
++	sqlite "github.com/ncruces/go-sqlite3/gormlite"
++
+ 	"gorm.io/driver/mysql"
+ 	"gorm.io/driver/postgres"
+-	"gorm.io/driver/sqlite"
+ 	"gorm.io/driver/sqlserver"
+ 	"gorm.io/gorm"
+ 	"gorm.io/gorm/logger"
+@@ -89,7 +91,7 @@ func OpenTestConnection(cfg *gorm.Config) (db *gorm.DB, err error) {
+ 		db, err = gorm.Open(mysql.Open(dbDSN), cfg)
+ 	default:
+ 		log.Println("testing sqlite3...")
+-		db, err = gorm.Open(sqlite.Open(filepath.Join(os.TempDir(), "gorm.db?_foreign_keys=on")), cfg)
++		db, err = gorm.Open(sqlite.Open("file:"+filepath.Join(os.TempDir(), "gorm.db")+"?_pragma=busy_timeout(1000)&_pragma=foreign_keys(1)"), cfg)
+ 	}
+ 
+ 	if err != nil {

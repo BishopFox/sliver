@@ -112,6 +112,9 @@ func WithInMemory() Options {
 
 // WithConfig sets the client to use a given remote teamserver configuration which
 // to connect to, instead of using default on-disk user/application configurations.
+// This function will be very useful to library users who wish to implement specific
+// remote teamserver selection & connection strategies, depending on the domains and
+// and use cases of these tools.
 func WithConfig(config *Config) Options {
 	return func(opts *opts) {
 		opts.config = config

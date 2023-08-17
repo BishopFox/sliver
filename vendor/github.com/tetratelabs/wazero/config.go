@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/tetratelabs/wazero/api"
+	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
 	"github.com/tetratelabs/wazero/internal/engine/compiler"
 	"github.com/tetratelabs/wazero/internal/engine/interpreter"
 	"github.com/tetratelabs/wazero/internal/filecache"
-	"github.com/tetratelabs/wazero/internal/fsapi"
 	"github.com/tetratelabs/wazero/internal/internalapi"
 	"github.com/tetratelabs/wazero/internal/platform"
 	internalsock "github.com/tetratelabs/wazero/internal/sock"
@@ -490,12 +490,19 @@ type ModuleConfig interface {
 	// WithStartFunctions configures the functions to call after the module is
 	// instantiated. Defaults to "_start".
 	//
+	// Clearing the default is supported, via `WithStartFunctions()`.
+	//
 	// # Notes
 	//
-	//   - If any function doesn't exist, it is skipped. However, all functions
-	//	  that do exist are called in order.
-	//   - Some start functions may exit the module during instantiate with a
-	//	  sys.ExitError (e.g. emscripten), preventing use of exported functions.
+	//   - If a start function doesn't exist, it is skipped. However, any that
+	//     do exist are called in order.
+	//   - Start functions are not intended to be called multiple times.
+	//     Functions that should be called multiple times should be invoked
+	//     manually via api.Module's `ExportedFunction` method.
+	//   - Start functions commonly exit the module during instantiation,
+	//     preventing use of any functions later. This is the case in "wasip1",
+	//     which defines the default value "_start".
+	//   - See /RATIONALE.md for motivation of this feature.
 	WithStartFunctions(...string) ModuleConfig
 
 	// WithStderr configures where standard error (file descriptor 2) is written. Defaults to io.Discard.
@@ -839,11 +846,10 @@ func (c *moduleConfig) toSysContext() (sysCtx *internalsys.Context, err error) {
 		environ = append(environ, result)
 	}
 
-	var fs fsapi.FS
+	var fs []experimentalsys.FS
+	var guestPaths []string
 	if f, ok := c.fsConfig.(*fsConfig); ok {
-		if fs, err = f.toFS(); err != nil {
-			return
-		}
+		fs, guestPaths = f.preopens()
 	}
 
 	var listeners []*net.TCPListener
@@ -864,7 +870,7 @@ func (c *moduleConfig) toSysContext() (sysCtx *internalsys.Context, err error) {
 		c.walltime, c.walltimeResolution,
 		c.nanotime, c.nanotimeResolution,
 		c.nanosleep, c.osyield,
-		fs,
+		fs, guestPaths,
 		listeners,
 	)
 }

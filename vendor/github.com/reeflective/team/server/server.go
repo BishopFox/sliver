@@ -50,9 +50,9 @@ type Listener interface {
 	Name() string
 
 	// Init is used by the listener to access the core teamserver, needed for:
-	// - Fetching server-side transport/session-level credentials.
-	// - Authenticating users connections/requests.
-	// - Using the builtin teamserver loggers, filesystem and other utilities.
+	//   - Fetching server-side transport/session-level credentials.
+	//   - Authenticating users connections/requests.
+	//   - Using the builtin teamserver loggers, filesystem and other utilities.
 	// Any non-nil error returned will abort the listener starting process.
 	Init(s *Server) error
 
@@ -68,8 +68,8 @@ type Listener interface {
 
 	// Close should close the listener stack.
 	// This can mean different things depending on use case, but some are not recommended.
-	// - It can simply close the "listener" layer without shutting down the "server/RPC" layer.
-	// - It can shutdown anything, thus in effect disconnecting all of its clients from server.
+	//   - It can simply close the "listener" layer without shutting down the "server/RPC" layer.
+	//   - It can shutdown anything, thus in effect disconnecting all of its clients from server.
 	Close() error
 }
 
@@ -167,6 +167,7 @@ func (ts *Server) ServeDaemon(host string, port uint16, opts ...Options) (err er
 // ServeAddr attempts to serve a listener stack identified by "name" (the listener should be registered
 // with the teamserver with WithListener() option), on a given host:port address, with any provided option.
 // If returns either a critical error raised by the listener, or the ID of the listener job, for control.
+// The call is non-blocking, contrarily to the server.ServeDaemon() method.
 func (ts *Server) ServeAddr(name string, host string, port uint16, opts ...Options) (id string, err error) {
 	// If server was not initialized yet, do it.
 	// This at least will update any listener/server-specific options.

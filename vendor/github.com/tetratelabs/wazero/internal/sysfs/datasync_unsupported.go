@@ -4,10 +4,11 @@ package sysfs
 
 import (
 	"os"
-	"syscall"
+
+	"github.com/tetratelabs/wazero/experimental/sys"
 )
 
-func datasync(f *os.File) syscall.Errno {
+func datasync(f *os.File) sys.Errno {
 	// Attempt to sync everything, even if we only need to sync the data.
 	return fsync(f)
 }

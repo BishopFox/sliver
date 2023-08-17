@@ -50,19 +50,22 @@ OFD locks are fully compatible with process-associated POSIX advisory locks.
 
 On BSD Unixes, this module uses
 [BSD locks](https://man.freebsd.org/cgi/man.cgi?query=flock&sektion=2).
-BSD locks may _not_ be compatible with process-associated POSIX advisory locks.
+BSD locks may _not_ be compatible with process-associated POSIX advisory locks
+(they are on FreeBSD).
 
 #### Testing
 
-The pure Go VFS is tested by running an unmodified build of SQLite's
+The pure Go VFS is tested by running SQLite's
 [mptest](https://github.com/sqlite/sqlite/blob/master/mptest/mptest.c)
-on Linux, macOS and Windows.
+on Linux, macOS and Windows;
+BSD code paths are tested on macOS using the `sqlite3_bsd` build tag.
 Performance is tested by running
 [speedtest1](https://github.com/sqlite/sqlite/blob/master/test/speedtest1.c).
 
 ### Roadmap
 
 - [ ] advanced SQLite features
+  - [x] custom functions
   - [x] nested transactions
   - [x] incremental BLOB I/O
   - [x] online backup
@@ -72,7 +75,7 @@ Performance is tested by running
   - [x] in-memory VFS
   - [x] read-only VFS, wrapping an [`io.ReaderAt`](https://pkg.go.dev/io#ReaderAt)
   - [ ] cloud-based VFS, based on [Cloud Backed SQLite](https://sqlite.org/cloudsqlite/doc/trunk/www/index.wiki)
-- [ ] custom SQL functions
+  - [ ] [MVCC](https://en.wikipedia.org/wiki/Multiversion_concurrency_control) VFS, using [BadgerDB](https://github.com/dgraph-io/badger)
 
 ### Alternatives
 

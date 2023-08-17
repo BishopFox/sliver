@@ -20,6 +20,7 @@ package systemd
 
 import (
 	"bytes"
+	// Embed our example teamserver.service file.
 	_ "embed"
 	"fmt"
 	"log"
@@ -41,6 +42,7 @@ type Config struct {
 //go:embed teamserver.service
 var systemdServiceTemplate string
 
+// NewFrom returns a new templated systemd configuration file.
 func NewFrom(name string, userCfg *Config) string {
 	cfg := NewDefaultConfig()
 

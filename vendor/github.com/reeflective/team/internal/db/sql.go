@@ -32,6 +32,8 @@ import (
 )
 
 const (
+	// SQLiteInMemoryHost is the default string used by SQLite
+	// as a host when ran in memory (string value is ":memory:").
 	SQLiteInMemoryHost = ":memory:"
 )
 
@@ -54,10 +56,11 @@ func NewClient(dbConfig *Config, dbLogger *logrus.Entry) (*gorm.DB, error) {
 
 	// Logging middleware (queries)
 	dbLog := log.NewDatabase(dbLogger, dbConfig.LogLevel)
+	logDbDsn := fmt.Sprintf("%s (%s:%d)", dbConfig.Database, dbConfig.Host, dbConfig.Port)
 
 	switch dbConfig.Dialect {
 	case Sqlite:
-		dbLogger.Infof("Connecting to SQLite database %s", dsn)
+		dbLogger.Infof("Connecting to SQLite database %s", logDbDsn)
 
 		dbClient, err = sqliteClient(dsn, dbLog)
 		if err != nil {
@@ -65,7 +68,7 @@ func NewClient(dbConfig *Config, dbLogger *logrus.Entry) (*gorm.DB, error) {
 		}
 
 	case Postgres:
-		dbLogger.Infof("Connecting to PostgreSQL database %s", dsn)
+		dbLogger.Infof("Connecting to PostgreSQL database %s", logDbDsn)
 
 		dbClient, err = postgresClient(dsn, dbLog)
 		if err != nil {
@@ -73,7 +76,7 @@ func NewClient(dbConfig *Config, dbLogger *logrus.Entry) (*gorm.DB, error) {
 		}
 
 	case MySQL:
-		dbLogger.Infof("Connecting to MySQL database %s", dsn)
+		dbLogger.Infof("Connecting to MySQL database %s", logDbDsn)
 
 		dbClient, err = mySQLClient(dsn, dbLog)
 		if err != nil {
@@ -83,7 +86,7 @@ func NewClient(dbConfig *Config, dbLogger *logrus.Entry) (*gorm.DB, error) {
 		return nil, fmt.Errorf("%w: '%s'", ErrUnsupportedDialect, dbConfig.Dialect)
 	}
 
-	err = dbClient.AutoMigrate(Schema())
+	err = dbClient.AutoMigrate(Schema()...)
 	if err != nil {
 		dbLogger.Error(err)
 	}

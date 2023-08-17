@@ -19,7 +19,6 @@ package version
 */
 
 import (
-	_ "embed"
 	"errors"
 	"runtime/debug"
 	"strconv"
@@ -31,6 +30,7 @@ const (
 	semVerLen = 3
 )
 
+// ErrNoBuildInfo is an error indicating that we could not fetch any binary build info.
 var ErrNoBuildInfo = errors.New("No binary build info")
 
 // Semantic - Get the structured semantic

@@ -17,6 +17,7 @@ import (
 func (e *engine) deleteCompiledModule(module *wasm.Module) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
+
 	delete(e.codes, module.ID)
 
 	// Note: we do not call e.Cache.Delete, as the lifetime of
@@ -158,14 +159,18 @@ func deserializeCompiledModule(wazeroVersion string, reader io.ReadCloser, modul
 
 	ensureTermination := header[cachedVersionEnd] != 0
 	functionsNum := binary.LittleEndian.Uint32(header[len(header)-4:])
-	cm = &compiledModule{functions: make([]compiledFunction, functionsNum), ensureTermination: ensureTermination}
+	cm = &compiledModule{
+		compiledCode:      new(compiledCode),
+		functions:         make([]compiledFunction, functionsNum),
+		ensureTermination: ensureTermination,
+	}
 
 	imported := module.ImportFunctionCount
 
 	var eightBytes [8]byte
 	for i := uint32(0); i < functionsNum; i++ {
 		f := &cm.functions[i]
-		f.parent = cm
+		f.parent = cm.compiledCode
 
 		// Read the stack pointer ceil.
 		if f.stackPointerCeil, err = readUint64(reader, &eightBytes); err != nil {

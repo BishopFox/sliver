@@ -35,7 +35,6 @@ func IsWritable(path string) (isWritable bool, err error) {
 		return
 	}
 
-	err = nil
 	if !info.IsDir() {
 		return false, fmt.Errorf("Path isn't a directory")
 	}
@@ -56,5 +55,6 @@ func IsWritable(path string) (isWritable bool, err error) {
 	}
 
 	isWritable = true
+
 	return
 }

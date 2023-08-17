@@ -380,42 +380,16 @@ func (c *arm64Compiler) compileReturnFunction() error {
 }
 
 func (c *arm64Compiler) compileMaybeExitFromNativeCode(skipCondition asm.Instruction, status nativeCallStatusCode) {
-	if target := c.compiledTrapTargets[status]; target != nil {
-		// We've already compiled this.
-		// Invert the condition to jump into the appropriate target.
-		var trapCondition asm.Instruction
-		switch skipCondition {
-		case arm64.BCONDEQ:
-			trapCondition = arm64.BCONDNE
-		case arm64.BCONDNE:
-			trapCondition = arm64.BCONDEQ
-		case arm64.BCONDLO:
-			trapCondition = arm64.BCONDHS
-		case arm64.BCONDHS:
-			trapCondition = arm64.BCONDLO
-		case arm64.BCONDLS:
-			trapCondition = arm64.BCONDHI
-		case arm64.BCONDHI:
-			trapCondition = arm64.BCONDLS
-		case arm64.BCONDVS:
-			trapCondition = arm64.BCONDVC
-		case arm64.BCONDVC:
-			trapCondition = arm64.BCONDVS
-		default:
-			panic("BUG: couldn't invert condition")
-		}
-		c.assembler.CompileJump(trapCondition).AssignJumpTarget(target)
-	} else {
-		skip := c.assembler.CompileJump(skipCondition)
-		c.compileExitFromNativeCode(status)
-		c.assembler.SetJumpTargetOnNext(skip)
-	}
+	skip := c.assembler.CompileJump(skipCondition)
+	c.compileExitFromNativeCode(status)
+	c.assembler.SetJumpTargetOnNext(skip)
 }
 
 // compileExitFromNativeCode adds instructions to give the control back to ce.exec with the given status code.
 func (c *arm64Compiler) compileExitFromNativeCode(status nativeCallStatusCode) {
 	if target := c.compiledTrapTargets[status]; target != nil {
 		c.assembler.CompileJump(arm64.B).AssignJumpTarget(target)
+		return
 	}
 
 	switch status {

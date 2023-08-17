@@ -136,9 +136,9 @@ func (ts *Server) UserDelete(name string) error {
 // user of a connected/connecting teamclient. The token is hashed and checked against the
 // teamserver users database for the matching user.
 // This function shall alternatively return:
-// - The name of the authenticated user, true for authenticated and no error.
-// - No name, false for authenticated, and an ErrUnauthenticated error.
-// - No name, false for authenticated, and a database error, if was ignited now.
+//   - The name of the authenticated user, true for authenticated and no error.
+//   - No name, false for authenticated, and an ErrUnauthenticated error.
+//   - No name, false for authenticated, and a database error, if was ignited now.
 //
 // This call updates the last time the user has been seen by the server.
 func (ts *Server) UserAuthenticate(rawToken string) (name string, authorized bool, err error) {

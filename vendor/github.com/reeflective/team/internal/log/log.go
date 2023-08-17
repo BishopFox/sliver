@@ -21,7 +21,6 @@ package log
 import (
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 
 	"github.com/reeflective/team/internal/assets"
@@ -29,21 +28,17 @@ import (
 )
 
 const (
-	FileReadPerm  = 0o600 // FileReadPerm is the permission bit given to the OS when reading files.
-	DirPerm       = 0o700 // DirPerm is the permission bit given to teamserver/client directories.
-	FileWritePerm = 0o644 // FileWritePerm is the permission bit given to the OS when writing files.
-
-	FileWriteOpenMode = os.O_APPEND | os.O_CREATE | os.O_WRONLY // Opening log files in append/create/write-only mode.
-
-	ClientLogFileExt = "teamclient.log" // Log files of all teamclients have this extension by default.
-	ServerLogFileExt = "teamserver.log" // Log files of all teamserver have this extension by default.
+	// ClientLogFileExt is used as extension by all main teamclients log files by default.
+	ClientLogFileExt = "teamclient.log"
+	// ServerLogFileExt is used as extension by all teamservers core log files by default.
+	ServerLogFileExt = "teamserver.log"
 )
 
 // Init is the main constructor that is (and should be) used for teamserver and teamclient logging.
 // It hooks a normal logger with a sublogger writing to a file in text version, and another logger
 // writing to stdout/stderr with enhanced formatting/coloring support.
 func Init(fs *assets.FS, file string, level logrus.Level) (*logrus.Logger, *logrus.Logger, error) {
-	logFile, err := fs.OpenFile(file, FileWriteOpenMode, FileWritePerm)
+	logFile, err := fs.OpenFile(file, assets.FileWriteOpenMode, assets.FileWritePerm)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to open log file %w", err)
 	}
@@ -102,7 +97,7 @@ func NewJSON(fs *assets.FS, file string, level logrus.Level) (*logrus.Logger, er
 	rootLogger.Formatter = &logrus.JSONFormatter{}
 	jsonFilePath := fmt.Sprintf("%s.json", file)
 
-	logFile, err := fs.OpenFile(jsonFilePath, FileWriteOpenMode, FileWritePerm)
+	logFile, err := fs.OpenFile(jsonFilePath, assets.FileWriteOpenMode, assets.FileWritePerm)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open log file %w", err)
 	}
@@ -121,7 +116,7 @@ func NewAudit(fs *assets.FS, logDir string) (*logrus.Logger, error) {
 	auditLogger.Formatter = &logrus.JSONFormatter{}
 	jsonFilePath := filepath.Join(logDir, "audit.json")
 
-	logFile, err := fs.OpenFile(jsonFilePath, FileWriteOpenMode, FileWritePerm)
+	logFile, err := fs.OpenFile(jsonFilePath, assets.FileWriteOpenMode, assets.FileWritePerm)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open log file %w", err)
 	}

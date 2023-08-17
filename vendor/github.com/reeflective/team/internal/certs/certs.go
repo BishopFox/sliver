@@ -38,7 +38,6 @@ import (
 
 	"github.com/reeflective/team/internal/assets"
 	"github.com/reeflective/team/internal/db"
-	"github.com/reeflective/team/internal/log"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
@@ -90,8 +89,8 @@ func NewManager(filesystem *assets.FS, db *gorm.DB, logger *logrus.Entry, appNam
 	return certs
 }
 
-func (m *Manager) db() *gorm.DB {
-	return m.database.Session(&gorm.Session{
+func (c *Manager) db() *gorm.DB {
+	return c.database.Session(&gorm.Session{
 		FullSaveAssociations: true,
 	})
 }
@@ -317,7 +316,7 @@ func (c *Manager) getCertDir() string {
 	rootDir := c.appDir
 	certDir := filepath.Join(rootDir, "certs")
 
-	err := c.fs.MkdirAll(certDir, log.DirPerm)
+	err := c.fs.MkdirAll(certDir, assets.DirPerm)
 	if err != nil {
 		c.log.Fatalf("Failed to create cert dir: %s", err)
 	}

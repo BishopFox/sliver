@@ -26,7 +26,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/reeflective/team/internal/log"
+	"github.com/reeflective/team/internal/assets"
 )
 
 // -----------------------
@@ -137,12 +137,12 @@ func (c *Manager) saveCA(caType string, cert []byte, key []byte) {
 	certFilePath := filepath.Join(storageDir, fmt.Sprintf("%s_%s-ca-cert.%s", c.appName, caType, certFileExt))
 	keyFilePath := filepath.Join(storageDir, fmt.Sprintf("%s_%s-ca-key.%s", c.appName, caType, certFileExt))
 
-	err := c.fs.WriteFile(certFilePath, cert, log.FileReadPerm)
+	err := c.fs.WriteFile(certFilePath, cert, assets.FileReadPerm)
 	if err != nil {
 		c.log.Fatalf("Failed write certificate data to %s, %s", certFilePath, err)
 	}
 
-	err = c.fs.WriteFile(keyFilePath, key, log.FileReadPerm)
+	err = c.fs.WriteFile(keyFilePath, key, assets.FileReadPerm)
 	if err != nil {
 		c.log.Fatalf("Failed write certificate data to %s: %s", keyFilePath, err)
 	}

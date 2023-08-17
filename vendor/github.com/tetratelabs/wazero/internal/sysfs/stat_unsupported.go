@@ -5,38 +5,36 @@ package sysfs
 import (
 	"io/fs"
 	"os"
-	"syscall"
 
-	"github.com/tetratelabs/wazero/internal/fsapi"
-	"github.com/tetratelabs/wazero/internal/platform"
+	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
+	"github.com/tetratelabs/wazero/sys"
 )
 
-func lstat(path string) (fsapi.Stat_t, syscall.Errno) {
-	t, err := os.Lstat(path)
-	if errno := platform.UnwrapOSError(err); errno == 0 {
-		return statFromFileInfo(t), 0
+// Note: go:build constraints must be the same as /sys.stat_unsupported.go for
+// the same reasons.
+
+// dirNlinkIncludesDot might be true for some operating systems, which can have
+// new stat_XX.go files as necessary.
+//
+// Note: this is only used in tests
+const dirNlinkIncludesDot = false
+
+func lstat(path string) (sys.Stat_t, experimentalsys.Errno) {
+	if info, err := os.Lstat(path); err != nil {
+		return sys.Stat_t{}, experimentalsys.UnwrapOSError(err)
 	} else {
-		return fsapi.Stat_t{}, errno
+		return sys.NewStat_t(info), 0
 	}
 }
 
-func stat(path string) (fsapi.Stat_t, syscall.Errno) {
-	t, err := os.Stat(path)
-	if errno := platform.UnwrapOSError(err); errno == 0 {
-		return statFromFileInfo(t), 0
+func stat(path string) (sys.Stat_t, experimentalsys.Errno) {
+	if info, err := os.Stat(path); err != nil {
+		return sys.Stat_t{}, experimentalsys.UnwrapOSError(err)
 	} else {
-		return fsapi.Stat_t{}, errno
+		return sys.NewStat_t(info), 0
 	}
 }
 
-func statFile(f *os.File) (fsapi.Stat_t, syscall.Errno) {
+func statFile(f fs.File) (sys.Stat_t, experimentalsys.Errno) {
 	return defaultStatFile(f)
-}
-
-func inoFromFileInfo(_ string, t fs.FileInfo) (ino uint64, err syscall.Errno) {
-	return
-}
-
-func statFromFileInfo(t fs.FileInfo) fsapi.Stat_t {
-	return StatFromDefaultFileInfo(t)
 }

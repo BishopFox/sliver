@@ -3,18 +3,18 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
 
-	"github.com/reeflective/team/client"
-	"github.com/reeflective/team/internal/command"
-	"github.com/reeflective/team/internal/log"
-	"github.com/reeflective/team/server"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/reeflective/team/client"
+	"github.com/reeflective/team/internal/assets"
+	"github.com/reeflective/team/internal/command"
+	"github.com/reeflective/team/server"
 )
 
 func createUserCmd(serv *server.Server, cli *client.Client) func(cmd *cobra.Command, args []string) {
@@ -50,7 +50,7 @@ func createUserCmd(serv *server.Server, cli *client.Client) func(cmd *cobra.Comm
 			filename = fmt.Sprintf("%s_%s_default", serv.Name(), user.Username)
 			saveTo = cli.ConfigsDir()
 
-			err = os.MkdirAll(saveTo, log.DirPerm)
+			err = os.MkdirAll(saveTo, assets.DirPerm)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), command.Warn+"cannot write to %s root dir: %s\n", saveTo, err)
 				return
@@ -84,7 +84,7 @@ func createUserCmd(serv *server.Server, cli *client.Client) func(cmd *cobra.Comm
 
 		saveTo = filepath.Join(saveTo, filename+".teamclient.cfg")
 
-		err = ioutil.WriteFile(saveTo, configJSON, log.FileReadPerm)
+		err = os.WriteFile(saveTo, configJSON, assets.FileReadPerm)
 		if err != nil {
 			fmt.Fprintf(cmd.ErrOrStderr(), command.Warn+"Failed to write config to %s: %s\n", saveTo, err)
 			return
@@ -207,7 +207,7 @@ func exportCACmd(serv *server.Server) func(cmd *cobra.Command, args []string) {
 
 		data, _ := json.Marshal(exportedCA)
 
-		err = os.WriteFile(saveTo, data, log.FileWritePerm)
+		err = os.WriteFile(saveTo, data, assets.FileWritePerm)
 		if err != nil {
 			fmt.Fprintf(cmd.ErrOrStderr(), command.Warn+"Write failed: %s (%s)\n", saveTo, err)
 			return
