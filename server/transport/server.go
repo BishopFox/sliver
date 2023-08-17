@@ -24,6 +24,7 @@ import (
 	"runtime/debug"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/reeflective/team/server"
@@ -88,6 +89,7 @@ func NewTeamserver() (team *server.Server, clientOpts []grpc.DialOption, err err
 // It returns a teamclient meant to be ran in memory, with TLS credentials disabled.
 func clientOptionsFor(server *teamserver, opts ...grpc.DialOption) []grpc.DialOption {
 	conn := bufconn.Listen(bufSize)
+    insecureCreds := insecure.NewCredentials()
 
 	ctxDialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return conn.Dial()
@@ -95,7 +97,7 @@ func clientOptionsFor(server *teamserver, opts ...grpc.DialOption) []grpc.DialOp
 
 	opts = append(opts, []grpc.DialOption{
 		ctxDialer,
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(insecureCreds),
 	}...)
 
 	// The server will use this conn as a listener.

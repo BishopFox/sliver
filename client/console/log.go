@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/moloch--/asciicast"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slog"
 	"golang.org/x/term"
 
@@ -195,6 +196,31 @@ func getConsoleAsciicastFile() *os.File {
 		log.Fatalf("Could not open log file: %s", err)
 	}
 	return logFile
+}
+
+// initTeamclientLog returns a logrus logger to be passed to the Sliver 
+// team.Client for logging all client-side transport/RPC events.
+func initTeamclientLog() (*logrus.Logger) {
+	logsDir := assets.GetConsoleLogsDir()
+	dateTime := time.Now().Format("2006-01-02_15-04-05")
+	logPath := filepath.Join(logsDir, fmt.Sprintf("%s.log", dateTime))
+
+	textLogger := logrus.New()
+    textLogger.SetFormatter(&logrus.TextFormatter{})
+
+	logFile, err := os.OpenFile(logPath, os.O_APPEND | os.O_CREATE | os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalf("Failed to open log file %s", err)
+        return textLogger
+	}
+
+	// Text-format logger, writing to file.
+	textLogger.Out = logFile
+
+	textLogger.SetLevel(logrus.InfoLevel)
+	textLogger.SetReportCaller(true)
+
+	return textLogger
 }
 
 //

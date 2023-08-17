@@ -26,8 +26,9 @@ import (
 
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/reeflective/team/client"
-	"github.com/reeflective/team/transports/grpc/common"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 )
 
@@ -57,7 +58,7 @@ type TokenAuth string
 func LogMiddlewareOptions(cli *client.Client) []grpc.DialOption {
 	logrusEntry := cli.NamedLogger("transport", "grpc")
 	logrusOpts := []grpc_logrus.Option{
-		grpc_logrus.WithLevels(common.CodeToLevel),
+		grpc_logrus.WithLevels(codeToLevel),
 	}
 
 	grpc_logrus.ReplaceGrpcLogger(logrusEntry)
@@ -84,6 +85,8 @@ func LogMiddlewareOptions(cli *client.Client) []grpc.DialOption {
 	return options
 }
 
+// TLSAuthMiddleware returns the TLS credentials and token authentication options
+// built from a given team.Client and its active (target) remote server configuration.
 func TLSAuthMiddleware(cli *client.Client) ([]grpc.DialOption, error) {
 	config := cli.Config()
 	if config.PrivateKey == "" {
@@ -114,4 +117,46 @@ func (t TokenAuth) GetRequestMetadata(_ context.Context, _ ...string) (map[strin
 // RequireTransportSecurity always return true.
 func (TokenAuth) RequireTransportSecurity() bool {
 	return true
+}
+
+// Maps a grpc response code to a logging level
+func codeToLevel(code codes.Code) logrus.Level {
+	switch code {
+	case codes.OK:
+		return logrus.InfoLevel
+	case codes.Canceled:
+		return logrus.InfoLevel
+	case codes.Unknown:
+		return logrus.ErrorLevel
+	case codes.InvalidArgument:
+		return logrus.InfoLevel
+	case codes.DeadlineExceeded:
+		return logrus.WarnLevel
+	case codes.NotFound:
+		return logrus.InfoLevel
+	case codes.AlreadyExists:
+		return logrus.InfoLevel
+	case codes.PermissionDenied:
+		return logrus.WarnLevel
+	case codes.Unauthenticated:
+		return logrus.InfoLevel
+	case codes.ResourceExhausted:
+		return logrus.WarnLevel
+	case codes.FailedPrecondition:
+		return logrus.WarnLevel
+	case codes.Aborted:
+		return logrus.WarnLevel
+	case codes.OutOfRange:
+		return logrus.WarnLevel
+	case codes.Unimplemented:
+		return logrus.ErrorLevel
+	case codes.Internal:
+		return logrus.ErrorLevel
+	case codes.Unavailable:
+		return logrus.WarnLevel
+	case codes.DataLoss:
+		return logrus.ErrorLevel
+	default:
+		return logrus.ErrorLevel
+	}
 }
