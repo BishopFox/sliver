@@ -21,10 +21,12 @@ package console
 import (
 	"context"
 	"errors"
+	"runtime"
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/reeflective/team"
@@ -46,7 +48,7 @@ func (con *SliverClient) ConnectRun(cmd *cobra.Command, _ []string) error {
 	con.FilterCommands(cmd)
 
 	// If commands are imcompatible with the current requirements.
-	err := con.App.ActiveMenu().ErrUnavailableCommand(cmd)
+	err := con.App.ActiveMenu().CheckIsAvailable(cmd)
 	if err != nil {
 		return err
 	}
@@ -158,9 +160,27 @@ func (con *SliverClient) Users() (users []team.User, err error) {
 	return
 }
 
+// Version implements team.Client.VersionClient() interface method, overriding
+// the default teamclient version output to use our Makefile-prepared one.
+func (con *SliverClient) VersionClient() (v team.Version, err error) {
+	dirty := version.GitDirty != ""
+	semVer := version.SemanticVersion()
+	compiled, _ := version.Compiled()
+	return team.Version{
+		Major:      int32(semVer[0]),
+		Minor:      int32(semVer[1]),
+		Patch:      int32(semVer[2]),
+		Commit:     version.GitCommit,
+		Dirty:      dirty,
+		CompiledAt: compiled.Unix(),
+		OS:         runtime.GOOS,
+		Arch:       runtime.GOARCH,
+	}, nil
+}
+
 // ServerVersion returns the version information of the server to which
 // the client is connected, or nil and an error if it could not retrieve it.
-func (con *SliverClient) Version() (version team.Version, err error) {
+func (con *SliverClient) VersionServer() (version team.Version, err error) {
 	if con.Rpc == nil {
 		return version, errors.New("No Sliver client RPC")
 	}

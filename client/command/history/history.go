@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/rsteube/carapace/third_party/github.com/elves/elvish/pkg/ui"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -32,6 +33,8 @@ import (
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
+
+const sgrPrefix = "\033["
 
 // Commands returns all commands related to implant history.
 func Commands(con *console.SliverClient) []*cobra.Command {
@@ -78,7 +81,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 				preLine := color.HiBlackString("%-3s", strconv.Itoa(i))
 
 				if !user {
-					preLine += fmt.Sprintf("%*s\t", 5, color.YellowString(command.User))
+					preLine += fmt.Sprintf("%*s\t", 5, sgrPrefix+ui.ApplyStyling(ui.Style{}, ui.FgYellow).SGR()+"m"+command.User)
 				}
 				if showTime {
 					preLine += color.BlueString(time.Unix(command.GetExecutedAt(), 0).Format(time.Stamp)) + "\t"

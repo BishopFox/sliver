@@ -124,7 +124,7 @@ func CredsCollectionCompleter(con *console.SliverClient) carapace.Action {
 			return carapace.ActionMessage("failed to fetch credentials: %s", con.UnwrapServerErr(err))
 		}
 		if len(creds.Credentials) == 0 {
-			return carapace.Action{}
+			return carapace.ActionMessage("No credentials in database")
 		}
 
 		for _, cred := range creds.Credentials {
@@ -151,7 +151,7 @@ func CredsCredentialIDCompleter(con *console.SliverClient) carapace.Action {
 			return carapace.ActionMessage("failed to fetch credentials: %s", con.UnwrapServerErr(err))
 		}
 		if len(creds.Credentials) == 0 {
-			return carapace.Action{}
+			return carapace.ActionMessage("No credentials in database")
 		}
 
 		for _, cred := range creds.Credentials {

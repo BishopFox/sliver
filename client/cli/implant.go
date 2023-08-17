@@ -80,17 +80,17 @@ func preRunImplant(implantCmd *cobra.Command, con *client.SliverClient) func(cmd
 		session := con.GetSession(target)
 		if session != nil {
 			con.ActiveTarget.Set(session, nil)
-		}
-
-		beacon := con.GetBeacon(target)
-		if beacon != nil {
-			con.ActiveTarget.Set(nil, beacon)
+		} else {
+			beacon := con.GetBeacon(target)
+			if beacon != nil {
+				con.ActiveTarget.Set(nil, beacon)
+			}
 		}
 
 		// If the command is marked filtered (should not be ran in
 		// the current context/target), don't do anything and return.
 		// This is identical to the filtering behavior in the console.
-		if err := con.App.ActiveMenu().ErrUnavailableCommand(cmd); err != nil {
+		if err := con.App.ActiveMenu().CheckIsAvailable(cmd); err != nil {
 			return err
 		}
 

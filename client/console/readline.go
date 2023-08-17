@@ -44,7 +44,7 @@ func (con *SliverClient) GetPrompt() string {
 		prompt += fmt.Sprintf(Bold+Blue+" (%s)%s", con.ActiveTarget.GetBeacon().Name, Normal)
 	}
 	prompt += " > "
-	return Clearln + prompt
+	return prompt
 }
 
 // PrintLogo prints the Sliver console logo.

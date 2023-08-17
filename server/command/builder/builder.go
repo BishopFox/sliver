@@ -25,7 +25,13 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/bishopfox/sliver/client/command/flags"
+	"github.com/reeflective/team/client"
+	"github.com/reeflective/team/client/commands"
+	"github.com/reeflective/team/server"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/version"
@@ -34,11 +40,6 @@ import (
 	"github.com/bishopfox/sliver/server/builder"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/reeflective/team/client"
-	"github.com/reeflective/team/client/commands"
-	"github.com/reeflective/team/server"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
 )
 
 var builderLog = log.NamedLogger("cli", "builder")
@@ -74,7 +75,7 @@ func Commands(con *console.SliverClient, team *server.Server) []*cobra.Command {
 	builderCmd.Flags().StringSlice(enableTargetFlagStr, []string{}, "force enable a target: format:goos/goarch")
 	builderCmd.Flags().StringSlice(disableTargetFlagStr, []string{}, "force disable target arch: format:goos/goarch")
 
-	flags.BindFlagCompletions(builderCmd, func(comp *carapace.ActionMap) {
+	completers.NewFlagCompsFor(builderCmd, func(comp *carapace.ActionMap) {
 		(*comp)["enable-target"] = builderFormatsCompleter()
 		(*comp)["disable-target"] = builderFormatsCompleter()
 		(*comp)["config"] = commands.ConfigsAppCompleter(con.Teamclient, "detected Sliver configs")
