@@ -8,7 +8,7 @@ go 1.21
 replace github.com/rsteube/carapace v0.43.0 => github.com/reeflective/carapace v0.25.2-0.20230816093630-a30f5184fa0d
 
 // Team is the teamserver/teamclient library, and this directive should be removed.
-replace github.com/reeflective/team => /home/user/code/github.com/reeflective/team
+// replace github.com/reeflective/team => /home/user/code/github.com/reeflective/team
 
 require (
 	filippo.io/age v1.1.1
@@ -37,25 +37,25 @@ require (
 	github.com/miekg/dns v1.1.55
 	github.com/moloch--/asciicast v0.1.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
-	github.com/ncruces/go-sqlite3 v0.8.1
+	github.com/ncruces/go-sqlite3 v0.8.4
 	github.com/reeflective/console v0.1.7
 	github.com/reeflective/readline v1.0.9
-	github.com/reeflective/team v0.0.0-20230730014339-6d91952bc187
+	github.com/reeflective/team v0.1.0
 	github.com/rsteube/carapace v0.43.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.2
-	github.com/tetratelabs/wazero v1.2.1
+	github.com/tetratelabs/wazero v1.4.0
 	github.com/things-go/go-socks5 v0.0.3
 	github.com/xlab/treeprint v1.2.0
 	github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e
 	golang.org/x/crypto v0.10.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/net v0.11.0
-	golang.org/x/sys v0.9.0
+	golang.org/x/sys v0.11.0
 	golang.org/x/term v0.9.0
-	golang.org/x/text v0.10.0
+	golang.org/x/text v0.12.0
 	golang.zx2c4.com/wireguard v0.0.0-20220316235147-5aff28b14c24
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220208144051-fde48d68ee68
 	google.golang.org/grpc v1.56.1

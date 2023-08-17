@@ -183,10 +183,10 @@ linters:
     - godot           # checks if comments end in a period                        (style,cmt)
     - godox           # tool for detection of FIXME, TODO and other comments      (style,cmt)
     - goerr113        # checks the errors handling expressions                    (style,err)
-    - gofmt           # formats and checks for code simplification                (fmt)
-    - gofumpt         # checks whether code was gofumpt-ed                        (fmt)
+    # - gofmt           # formats and checks for code simplification                (fmt)
+    # - gofumpt         # checks whether code was gofumpt-ed                        (fmt)
     - goheader        # checks if file header matches to pattern                  (style)
-    # - goimports       # fixes imports, formats code same as gofmt                 (fmt,import)
+    #- goimports       # fixes imports, formats code same as gofmt                 (fmt,import)
     # - golint          # Deprecated 
     - gomnd           # analyzer to detect magic numbers                          (style)
     - gomoddirectives # manage replace/retract/excludes directives in go.mod      (style,mod)
@@ -280,6 +280,8 @@ linters:
     - musttag 
     - wrapcheck       # checks errors returned from external packages are wrapped (style,err)
     - tagliatelle     # checks struct tags                                        (style)
+    - gofmt           # formats and checks for code simplification                (fmt)
+    - gofumpt         # checks whether code was gofumpt-ed                        (fmt)
       
   # Run only fast linters from enabled linters set (first run won't be fast)
   # Default: false
@@ -336,6 +338,9 @@ linters-settings:
 
   paralleltest:
     ignore-missing: true
+
+  goimports:
+    local-prefixes: github.com/reeflective/team
 
 #
 # ----------------------- Other exclusions & Issues management -------------------------- #

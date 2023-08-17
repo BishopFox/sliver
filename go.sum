@@ -320,6 +320,7 @@ github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945 h1:m3yCfV8Vqp4MF1B
 github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945/go.mod h1:1grVt4HaTofvhFUZYtofeRbGXfczNwCie9MYoM4lP/o=
 github.com/ncruces/go-sqlite3 v0.8.1 h1:e1Y7uHu96xC4fWKsCVWprbTi8vAaQX9R+8kgkxOHWaY=
 github.com/ncruces/go-sqlite3 v0.8.1/go.mod h1:EhHe1qvG6Zc/8ffYMzre8n//rTRs1YNN5dUD1f1mEGc=
+github.com/ncruces/go-sqlite3 v0.8.4/go.mod h1:XvDtjKk5MgwHX7L4I7BPzzKl36bTZ7+Hr6Kr2QeVkVw=
 github.com/ncruces/julianday v0.1.5 h1:hDJ9ejiMp3DHsoZ5KW4c1lwfMjbARS7u/gbYcd0FBZk=
 github.com/ncruces/julianday v0.1.5/go.mod h1:Dusn2KvZrrovOMJuOt0TNXL6tB7U2E8kvza5fFc9G7g=
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
@@ -345,6 +346,8 @@ github.com/reeflective/console v0.1.7 h1:nCuWfWv5x6B9T1XSko/2LdFQSftiwnE+NpNvKDF
 github.com/reeflective/console v0.1.7/go.mod h1:hnei2839LkOh6N4m2rTx2Vx3QAVkF9X74BG7MKbIljs=
 github.com/reeflective/readline v1.0.9 h1:ZA+V4HIWonwn8B4gUaaKwPtBogch19qgdk1I+hqULdk=
 github.com/reeflective/readline v1.0.9/go.mod h1:mcD0HxNVJVteVwDm9caXKg52nQACVyfh8EyuBmgVlzY=
+github.com/reeflective/team v0.1.0 h1:QsByDuinPxSir2KH1/tCFyQ3W1z/YBX9Y4SwVbU1hK0=
+github.com/reeflective/team v0.1.0/go.mod h1:vl9Qz2nXOy+iOHIQPm15Dno3NXn6LO8+7M3bKTaKIC8=
 github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
@@ -391,6 +394,7 @@ github.com/tcnksm/go-httpstat v0.2.0 h1:rP7T5e5U2HfmOBmZzGgGZjBQ5/GluWUylujl0tJ0
 github.com/tcnksm/go-httpstat v0.2.0/go.mod h1:s3JVJFtQxtBEBC9dwcdTTXS9xFnM3SXAZwPG41aurT8=
 github.com/tetratelabs/wazero v1.2.1 h1:J4X2hrGzJvt+wqltuvcSjHQ7ujQxA9gb6PeMs4qlUWs=
 github.com/tetratelabs/wazero v1.2.1/go.mod h1:wYx2gNRg8/WihJfSDxA1TIL8H+GkfLYm+bIfbblu9VQ=
+github.com/tetratelabs/wazero v1.4.0/go.mod h1:0U0G41+ochRKoPKCJlh0jMg1CHkyfK8kDqiirMmKY8A=
 github.com/thedevsaddam/gojsonq/v2 v2.5.2 h1:CoMVaYyKFsVj6TjU6APqAhAvC07hTI6IQen8PHzHYY0=
 github.com/thedevsaddam/gojsonq/v2 v2.5.2/go.mod h1:bv6Xa7kWy82uT0LnXPE2SzGqTj33TAEeR560MdJkiXs=
 github.com/things-go/go-socks5 v0.0.3 h1:QtlIhkwDuLNCwW3wnt2uTjn1mQzpyjnwct2xdPuqroI=
@@ -515,6 +519,7 @@ golang.org/x/sys v0.4.1-0.20230131160137-e7d7f63158de/go.mod h1:oPkhp1MJrh7nUepC
 golang.org/x/sys v0.6.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.9.0 h1:KS/R3tvhPqvJvwcKfnBHJwwthS11LRhmM5D59eEXa0s=
 golang.org/x/sys v0.9.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.11.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
 golang.org/x/term v0.0.0-20210927222741-03fcf44c2211/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
 golang.org/x/term v0.9.0 h1:GRRCnKYhdQrD8kfRAdQ6Zcw1P0OcELxGLKJvtjVMZ28=
@@ -527,6 +532,7 @@ golang.org/x/text v0.3.7/go.mod h1:u+2+/6zg+i71rQMx5EYifcz6MCKuco9NR6JIITiCfzQ=
 golang.org/x/text v0.4.0/go.mod h1:mrYo+phRRbMaCq/xk9113O4dZlRixOauAjOtrjsXDZ8=
 golang.org/x/text v0.10.0 h1:UpjohKhiEgNc0CSauXmwYftY1+LlaC75SJwh0SgCX58=
 golang.org/x/text v0.10.0/go.mod h1:TvPlkZtksWOMsz7fbANvkp4WM8x/WCo/om8BMLbz+aE=
+golang.org/x/text v0.12.0/go.mod h1:TvPlkZtksWOMsz7fbANvkp4WM8x/WCo/om8BMLbz+aE=
 golang.org/x/time v0.0.0-20191024005414-555d28b269f0/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
 golang.org/x/time v0.3.0 h1:rg5rLMjNzMS1RkNLzCG38eapWhnYLFYXDXj2gOlr8j4=
 golang.org/x/time v0.3.0/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=

@@ -73,7 +73,7 @@ func (ts *tailscaleTeamserver) Listen(addr string) (ln net.Listener, err error) 
 		}
 	}
 
-	tsNetLog.Infof("Starting gRPC/tsnet listener on %s:%d", hostname, port)
+	tsNetLog.Infof("Starting gRPC/tsnet listener on %s:%s", hostname, port)
 
 	authKey := os.Getenv("TS_AUTHKEY")
 	if authKey == "" {
@@ -93,7 +93,7 @@ func (ts *tailscaleTeamserver) Listen(addr string) (ln net.Listener, err error) 
 		AuthKey:  authKey,
 	}
 
-	ln, err = tsNetServer.Listen("tcp", fmt.Sprintf(":%d", port))
+	ln, err = tsNetServer.Listen("tcp", fmt.Sprintf(":%s", port))
 	if err != nil {
 		return nil, err
 	}

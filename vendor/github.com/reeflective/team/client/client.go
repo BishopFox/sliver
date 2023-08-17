@@ -21,10 +21,12 @@ package client
 import (
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"sync"
 
 	"github.com/reeflective/team"
 	"github.com/reeflective/team/internal/assets"
+	"github.com/reeflective/team/internal/version"
 	"github.com/sirupsen/logrus"
 )
 
@@ -230,11 +232,31 @@ func (tc *Client) Users() (users []team.User, err error) {
 // This function satisfies the VersionClient() function of the team.Client interface,
 // which means that library users are free to reimplement it however they wish.
 func (tc *Client) VersionClient() (ver team.Version, err error) {
-	if tc.client == nil {
-		return ver, ErrNoTeamclient
+	if tc.client != nil {
+		return tc.client.VersionClient()
 	}
 
-	return tc.client.VersionClient()
+	semVer := version.Semantic()
+	compiled, _ := version.Compiled()
+
+	var major, minor, patch int32
+
+	if len(semVer) == 3 {
+		major = int32(semVer[0])
+		minor = int32(semVer[1])
+		patch = int32(semVer[2])
+	}
+
+	return team.Version{
+		Major:      major,
+		Minor:      minor,
+		Patch:      patch,
+		Commit:     version.GitCommit(),
+		Dirty:      version.GitDirty(),
+		CompiledAt: compiled.Unix(),
+		OS:         runtime.GOOS,
+		Arch:       runtime.GOARCH,
+	}, nil
 }
 
 // VersionServer returns the version information of the server to which

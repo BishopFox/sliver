@@ -20,6 +20,7 @@ package commands
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/reeflective/team/client"
 	"github.com/reeflective/team/internal/command"
@@ -46,13 +47,14 @@ func versionCmd(cli *client.Client) func(cmd *cobra.Command, args []string) erro
 			fmt.Fprintf(cmd.ErrOrStderr(), command.Warn+"Server error: %s\n", err)
 		}
 
-		dirty := ""
-		if serverVer.Dirty {
-			dirty = fmt.Sprintf(" - %sDirty%s", command.Bold, command.Normal)
-		}
+		serverVerInfo := fmt.Sprintf("Server v%d.%d.%d - %s - %s/%s\n",
+			serverVer.Major, serverVer.Minor, serverVer.Patch, serverVer.Commit,
+			serverVer.OS, serverVer.Arch)
+		serverCompiledAt := time.Unix(serverVer.CompiledAt, 0)
 
-		serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
-		fmt.Fprintf(cmd.OutOrStdout(), command.Info+"Server v%s - %s%s\n", serverSemVer, serverVer.Commit, dirty)
+		fmt.Fprint(cmd.OutOrStdout(), command.Info+serverVerInfo)
+		fmt.Fprintf(cmd.OutOrStdout(), "    Compiled at %s\n", serverCompiledAt)
+		fmt.Fprintln(cmd.OutOrStdout())
 
 		// Client
 		clientVer, err := cli.VersionClient()
@@ -61,13 +63,13 @@ func versionCmd(cli *client.Client) func(cmd *cobra.Command, args []string) erro
 			return nil
 		}
 
-		cdirty := ""
-		if clientVer.Dirty {
-			cdirty = fmt.Sprintf(" - %sDirty%s", command.Bold, command.Normal)
-		}
+		clientVerInfo := fmt.Sprintf("Client v%d.%d.%d - %s - %s/%s\n",
+			clientVer.Major, clientVer.Minor, clientVer.Patch, clientVer.Commit,
+			clientVer.OS, clientVer.Arch)
+		clientCompiledAt := time.Unix(clientVer.CompiledAt, 0)
 
-		cliSemVer := fmt.Sprintf("%d.%d.%d", clientVer.Major, clientVer.Minor, clientVer.Patch)
-		fmt.Fprintf(cmd.OutOrStdout(), command.Info+"Client v%s - %s%s\n", cliSemVer, clientVer.Commit, cdirty)
+		fmt.Fprint(cmd.OutOrStdout(), command.Info+clientVerInfo)
+		fmt.Fprintf(cmd.OutOrStdout(), "    Compiled at %s\n", clientCompiledAt)
 
 		return nil
 	}
