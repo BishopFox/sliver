@@ -55,7 +55,7 @@ func versionCmd(cli *client.Client) func(cmd *cobra.Command, args []string) erro
 		fmt.Fprintf(cmd.OutOrStdout(), command.Info+"Server v%s - %s%s\n", serverSemVer, serverVer.Commit, dirty)
 
 		// Client
-		clientVer, err := cli.Version()
+		clientVer, err := cli.VersionClient()
 		if err != nil {
 			fmt.Fprintf(cmd.ErrOrStderr(), command.Warn+"Client error: %s\n", err)
 			return nil

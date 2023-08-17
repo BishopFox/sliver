@@ -5,14 +5,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/reeflective/readline"
+	"github.com/reeflective/readline/inputrc"
 	"github.com/rsteube/carapace"
 	"github.com/rsteube/carapace/pkg/style"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
-
-	"github.com/reeflective/readline"
-	"github.com/reeflective/readline/inputrc"
 )
 
 var (

@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/reeflective/readline"
@@ -20,16 +21,11 @@ func (c *Console) complete(line []rune, pos int) readline.Completions {
 
 	// Split the line as shell words, only using
 	// what the right buffer (up to the cursor)
-	rbuffer := line[:pos]
-	args, prefix := splitArgs(rbuffer)
-	args = sanitizeArgs(rbuffer, args)
+	args, prefixComp, prefixLine := splitArgs(line, pos)
 
 	// Prepare arguments for the carapace completer
 	// (we currently need those two dummies for avoiding a panic).
 	args = append([]string{"examples", "_carapace"}, args...)
-
-	// Regenerate a new instance of the commands.
-	// menu.hideFilteredCommands(cmd)
 
 	// Call the completer with our current command context.
 	values, meta := carapace.Complete(menu.Command, args, c.completeCommands(menu))
@@ -38,14 +34,13 @@ func (c *Console) complete(line []rune, pos int) readline.Completions {
 	raw := make([]readline.Completion, len(values))
 
 	for idx, val := range values {
-		value := readline.Completion{
-			Value:       val.Value,
+		raw[idx] = readline.Completion{
+			Value:       unescapeValue(prefixComp, prefixLine, val.Value),
 			Display:     val.Display,
 			Description: val.Description,
 			Style:       val.Style,
 			Tag:         val.Tag,
 		}
-		raw[idx] = value
 	}
 
 	// Assign both completions and command/flags/args usage strings.
@@ -58,64 +53,17 @@ func (c *Console) complete(line []rune, pos int) readline.Completions {
 		comps = comps.NoSpace([]rune(meta.Nospace.String())...)
 	}
 
+	// Other status/error messages
+	for _, msg := range meta.Messages.Get() {
+		comps = comps.Merge(readline.CompleteMessage(msg))
+	}
+
 	// If we have a quote/escape sequence unaccounted
 	// for in our completions, add it to all of them.
-	if prefix != "" {
-		comps = comps.Prefix(prefix)
-	}
+	comps = comps.Prefix(prefixComp)
+	comps.PREFIX = prefixLine
 
 	return comps
-}
-
-func splitArgs(line []rune) (args []string, prefix string) {
-	// Remove all colors from the string
-	line = []rune(strip(string(line)))
-
-	// Split the line as shellwords, return them if all went fine.
-	args, remain, err := splitCompWords(string(line))
-	if err == nil {
-		return args, remain
-	}
-
-	// If we had an error, it's because we have an unterminated quote/escape sequence.
-	// In this case we split the remainder again, as the completer only ever considers
-	// words as space-separated chains of characters.
-	if errors.Is(err, errUnterminatedDoubleQuote) {
-		remain = strings.Trim(remain, "\"")
-		prefix = "\""
-	} else if errors.Is(err, errUnterminatedSingleQuote) {
-		remain = strings.Trim(remain, "'")
-		prefix = "'"
-	}
-
-	args = append(args, strings.Split(remain, " ")...)
-
-	return
-}
-
-func sanitizeArgs(rbuffer []rune, args []string) (sanitized []string) {
-	// Like in classic system shells, we need to add an empty
-	// argument if the last character is a space: the args
-	// returned from the previous call don't account for it.
-	if strings.HasSuffix(string(rbuffer), " ") || len(args) == 0 {
-		args = append(args, "")
-	} else if strings.HasSuffix(string(rbuffer), "\n") {
-		args = append(args, "")
-	}
-
-	if len(args) == 0 {
-		return
-	}
-
-	sanitized = args[:len(args)-1]
-	last := args[len(args)-1]
-
-	// The last word should not comprise newlines.
-	last = strings.ReplaceAll(last, "\n", " ")
-	last = strings.ReplaceAll(last, "\\ ", " ")
-	sanitized = append(sanitized, last)
-
-	return sanitized
 }
 
 // Regenerate commands and apply any filters.
@@ -175,6 +123,109 @@ func (c *Console) defaultStyleConfig() {
 	style.Set("carapace.FlagOptArg", "bright-white")
 }
 
+// splitArgs splits the line in valid words, prepares them in various ways before calling
+// the completer with them, and also determines which parts of them should be used as
+// prefixes, in the completions and/or in the line.
+func splitArgs(line []rune, pos int) (args []string, prefixComp, prefixLine string) {
+	line = line[:pos]
+
+	// Remove all colors from the string
+	line = []rune(strip(string(line)))
+
+	// Split the line as shellwords, return them if all went fine.
+	args, remain, err := splitCompWords(string(line))
+
+	// We might have either no error and args, or no error and
+	// the cursor ready to complete a new word (last character
+	// in line is a space).
+	// In some of those cases we append a single dummy argument
+	// for the completer to understand we want a new word comp.
+	mustComplete, args, remain := mustComplete(line, args, remain, err)
+	if mustComplete {
+		return sanitizeArgs(args), "", remain
+	}
+
+	// But the completion candidates themselves might need slightly
+	// different prefixes, for an optimal completion experience.
+	arg, prefixComp, prefixLine := adjustQuotedPrefix(remain, err)
+
+	// The remainder is everything following the open charater.
+	// Pass it as is to the carapace completion engine.
+	args = append(args, arg)
+
+	return sanitizeArgs(args), prefixComp, prefixLine
+}
+
+func mustComplete(line []rune, args []string, remain string, err error) (bool, []string, string) {
+	dummyArg := ""
+
+	// Empty command line, complete the root command.
+	if len(args) == 0 || len(line) == 0 {
+		return true, append(args, dummyArg), remain
+	}
+
+	// If we have an error, we must handle it later.
+	if err != nil {
+		return false, args, remain
+	}
+
+	lastChar := line[len(line)-1]
+
+	// No remain and a trailing space means we want to complete
+	// for the next word, except when this last space was escaped.
+	if remain == "" && unicode.IsSpace(lastChar) {
+		if strings.HasSuffix(string(line), "\\ ") {
+			return true, args, args[len(args)-1]
+		}
+
+		return true, append(args, dummyArg), remain
+	}
+
+	// Else there is a character under the cursor, which means we are
+	// in the middle/at the end of a posentially completed word.
+	return true, args, remain
+}
+
+func adjustQuotedPrefix(remain string, err error) (arg, comp, line string) {
+	arg = remain
+
+	switch {
+	case errors.Is(err, errUnterminatedDoubleQuote):
+		comp = "\""
+		line = comp + arg
+	case errors.Is(err, errUnterminatedSingleQuote):
+		comp = "'"
+		line = comp + arg
+	case errors.Is(err, errUnterminatedEscape):
+		arg = strings.ReplaceAll(arg, "\\", "")
+	}
+
+	return arg, comp, line
+}
+
+// sanitizeArg unescapes a restrained set of characters.
+func sanitizeArgs(args []string) (sanitized []string) {
+	for _, arg := range args {
+		arg = replacer.Replace(arg)
+		sanitized = append(sanitized, arg)
+	}
+
+	return sanitized
+}
+
+// when the completer has returned us some completions, we sometimes
+// needed to post-process them a little before passing them to our shell.
+func unescapeValue(prefixComp, prefixLine, val string) string {
+	quoted := strings.HasPrefix(prefixLine, "\"") ||
+		strings.HasPrefix(prefixLine, "'")
+
+	if quoted {
+		val = strings.ReplaceAll(val, "\\ ", " ")
+	}
+
+	return val
+}
+
 // split has been copied from go-shellquote and slightly modified so as to also
 // return the remainder when the parsing failed because of an unterminated quote.
 func splitCompWords(input string) (words []string, remainder string, err error) {
@@ -206,8 +257,7 @@ func splitCompWords(input string) (words []string, remainder string, err error) 
 		word, input, err = splitCompWord(input, &buf)
 
 		if err != nil {
-			remainder = input
-			return
+			return words, word + input, err
 		}
 
 		words = append(words, word)
@@ -320,3 +370,9 @@ var re = regexp.MustCompile(ansi)
 func strip(str string) string {
 	return re.ReplaceAllString(str, "")
 }
+
+var replacer = strings.NewReplacer(
+	"\n", ` `,
+	"\t", ` `,
+	"\\ ", " ", // User-escaped spaces in words.
+)

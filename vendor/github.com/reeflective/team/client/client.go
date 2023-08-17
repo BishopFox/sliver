@@ -234,7 +234,7 @@ func (tc *Client) VersionClient() (ver team.Version, err error) {
 		return ver, ErrNoTeamclient
 	}
 
-	return
+	return tc.client.VersionClient()
 }
 
 // VersionServer returns the version information of the server to which

@@ -515,11 +515,11 @@ github.com/pmezard/go-difflib/difflib
 # github.com/psanford/memfs v0.0.0-20230130182539-4dbf7e3e865e
 ## explicit; go 1.16
 github.com/psanford/memfs
-# github.com/reeflective/console v0.1.7-0.20230810163856-bb6bbfdcae4a
-## explicit; go 1.20
+# github.com/reeflective/console v0.1.7
+## explicit; go 1.21
 github.com/reeflective/console
 github.com/reeflective/console/commands/readline
-# github.com/reeflective/readline v1.0.8 => /home/user/code/github.com/reeflective/readline
+# github.com/reeflective/readline v1.0.9
 ## explicit; go 1.21
 github.com/reeflective/readline
 github.com/reeflective/readline/inputrc
@@ -556,7 +556,7 @@ github.com/remyoudompheng/bigfft
 # github.com/rivo/uniseg v0.4.4
 ## explicit; go 1.18
 github.com/rivo/uniseg
-# github.com/rsteube/carapace v0.42.1 => github.com/reeflective/carapace v0.25.2-0.20230808000955-080d3bd7f194
+# github.com/rsteube/carapace v0.43.0 => github.com/reeflective/carapace v0.25.2-0.20230816093630-a30f5184fa0d
 ## explicit; go 1.15
 github.com/rsteube/carapace
 github.com/rsteube/carapace/internal/cache
@@ -1267,4 +1267,3 @@ tailscale.com/wgengine/wgint
 tailscale.com/wgengine/wglog
 tailscale.com/wgengine/winnet
 # github.com/reeflective/team => /home/user/code/github.com/reeflective/team
-# github.com/reeflective/readline => /home/user/code/github.com/reeflective/readline

@@ -5,14 +5,10 @@ go 1.21
 // A fork of the completion engine is currently used in order to consume the engine
 // as a library. The fork is a very slightly patched mainline tree for that purpose,
 // and is regularly maintained up-to-date with upstream. Should be removed long-term.
-replace github.com/rsteube/carapace v0.42.1 => github.com/reeflective/carapace v0.25.2-0.20230808000955-080d3bd7f194
+replace github.com/rsteube/carapace v0.43.0 => github.com/reeflective/carapace v0.25.2-0.20230816093630-a30f5184fa0d
 
 // Team is the teamserver/teamclient library, and this directive should be removed.
 replace github.com/reeflective/team => /home/user/code/github.com/reeflective/team
-
-replace github.com/reeflective/readline => /home/user/code/github.com/reeflective/readline
-
-//replace github.com/reeflective/console => /home/user/code/github.com/reeflective/console
 
 require (
 	filippo.io/age v1.1.1
@@ -152,7 +148,6 @@ require (
 	github.com/psanford/memfs v0.0.0-20230130182539-4dbf7e3e865e // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
-	github.com/rsteube/carapace-shlex v0.0.4 // indirect
 	github.com/tailscale/certstore v0.1.1-0.20220316223106-78d6e1c49d8d // indirect
 	github.com/tailscale/golang-x-crypto v0.0.0-20221115211329-17a3db2c30d2 // indirect
 	github.com/tailscale/goupnp v1.0.1-0.20210804011211-c64d0f06ea05 // indirect

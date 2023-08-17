@@ -20,12 +20,12 @@ package readline
 
 import (
 	"fmt"
-
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
+	"strings"
 
 	"github.com/reeflective/readline"
 	"github.com/reeflective/readline/inputrc"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 )
 
 func completeKeymaps(sh *readline.Shell, _ *cobra.Command) carapace.Action {
@@ -60,22 +60,34 @@ func completeBindSequences(sh *readline.Shell, cmd *cobra.Command) carapace.Acti
 		}
 
 		// Make a list of all sequences bound to each command, with descriptions.
-		cmdBinds := make([]string, 0)
-		insertBinds := make([]string, 0)
+		var cmdBinds, insertBinds []string
 
 		for key, bind := range binds {
+			val := inputrc.Escape(key)
+
 			if bind.Action == "self-insert" {
-				insertBinds = append(insertBinds, "\""+inputrc.Escape(key)+"\"")
+				insertBinds = append(insertBinds, val)
 			} else {
-				cmdBinds = append(cmdBinds, "\""+inputrc.Escape(key)+"\"")
+				cmdBinds = append(cmdBinds, val)
 				cmdBinds = append(cmdBinds, bind.Action)
 			}
 		}
 
-		return carapace.Batch(
+		// Build the list of bind sequences bompletions
+		completions := carapace.Batch(
 			carapace.ActionValues(insertBinds...).Tag(fmt.Sprintf("self-insert binds (%s)", keymap)).Usage("sequence"),
 			carapace.ActionValuesDescribed(cmdBinds...).Tag(fmt.Sprintf("non-insert binds (%s)", keymap)).Usage("sequence"),
-		).ToA()
+		).ToA().Suffix("\"")
+
+		// We're lucky and be particularly cautious about completion here:
+		// Look for the current argument and check whether or not it's quoted.
+		// If yes, only include quotes at the end of the inserted value.
+		// If no quotes, include them in both.
+		if strings.HasPrefix(ctx.Value, "\"") || ctx.Value == "" {
+			completions = completions.Prefix("\"")
+		}
+
+		return completions
 	})
 }
 

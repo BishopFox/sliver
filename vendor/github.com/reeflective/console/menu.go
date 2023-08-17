@@ -192,15 +192,17 @@ func (m *Menu) Printf(msg string, args ...any) (n int, err error) {
 	return m.console.Printf(buf)
 }
 
-// ErrUnavailableCommand checks if a target command is marked as filtered as per the console
-// application registered/and or active filters (added with console.Hide/ShowCommand()), and
-// if yes, returns a template-formatted error message showing the list of incompatible filters.
-func (m *Menu) ErrUnavailableCommand(target *cobra.Command) error {
-	if target == nil {
+// CheckIsAvailable checks if a target command is marked as filtered
+// by the console application registered/and or active filters (added
+// with console.Hide/ShowCommand()).
+// If filtered, returns a template-formatted error message showing the
+// list of incompatible filters. If not filtered, no error is returned.
+func (m *Menu) CheckIsAvailable(cmd *cobra.Command) error {
+	if cmd == nil {
 		return nil
 	}
 
-	filters := m.ActiveFiltersFor(target)
+	filters := m.ActiveFiltersFor(cmd)
 	if len(filters) == 0 {
 		return nil
 	}
@@ -209,7 +211,7 @@ func (m *Menu) ErrUnavailableCommand(target *cobra.Command) error {
 
 	err := tmpl(&bufErr, m.errorFilteredCommandTemplate(filters), map[string]interface{}{
 		"menu":    m,
-		"cmd":     target,
+		"cmd":     cmd,
 		"filters": filters,
 	})
 
@@ -322,8 +324,7 @@ func (m *Menu) errorFilteredCommandTemplate(filters []string) string {
 	}
 
 	return `Command {{.cmd.Name}} is only available for: {{range .filters }}
-    - {{.}} 
-{{end}}`
+    - {{.}} {{end}}`
 }
 
 // tmpl executes the given template text on data, writing the result to w.
