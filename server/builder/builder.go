@@ -46,11 +46,11 @@ type Config struct {
 }
 
 // StartBuilder - main entry point for the builder
-func StartBuilder(externalBuilder *clientpb.Builder, con *console.SliverClient) error {
+func StartBuilder(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient, con *console.SliverClient) error {
 	builderLog.Infof("Attempting to register builder: %s", externalBuilder.Name)
 	con.PrintInfof("Attempting to register builder: %s", externalBuilder.Name)
 
-	events, err := buildEvents(externalBuilder, con.Rpc)
+	events, err := buildEvents(externalBuilder, rpc)
 	if err != nil {
 		builderLog.Errorf("Build events handler error: %s", err.Error())
 		return nil
@@ -59,7 +59,7 @@ func StartBuilder(externalBuilder *clientpb.Builder, con *console.SliverClient) 
 	// Wait for signal or builds
 	go func() {
 		for event := range events {
-			go handleBuildEvent(externalBuilder, event, con.Rpc)
+			go handleBuildEvent(externalBuilder, event, rpc)
 		}
 	}()
 

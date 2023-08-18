@@ -21,9 +21,10 @@ package assets
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/msf"
-	"github.com/spf13/cobra"
 )
 
 const (
