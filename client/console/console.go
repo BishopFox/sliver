@@ -189,7 +189,7 @@ func newClient() *SliverClient {
 	}
 
 	con.App.SetPrintLogo(func(_ *console.Console) {
-		con.PrintLogo()
+		con.printLogo()
 	})
 
 	// Readline-shell (edition) settings

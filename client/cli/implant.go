@@ -17,6 +17,9 @@ import (
 	"github.com/reeflective/console"
 )
 
+// implantCmd returns the command tree for Sliver active targets.
+// This function has not yet found its place into one of the commands subdirectories,
+// since I'm not really sure how to do it in a way that would be optimal for everyone.
 func implantCmd(con *client.SliverClient, sliverCmds console.Commands) *cobra.Command {
 	// Generate a not-yet filtered tree of all commands
 	// usable in the context of an active target implant.
@@ -61,6 +64,10 @@ func implantCmd(con *client.SliverClient, sliverCmds console.Commands) *cobra.Co
 	return implantCmd
 }
 
+// preRunImplant returns the pre-runner to be ran before any implant-targeting command,
+// to connect to the server, query the sessions/beacons and set one as the active target.
+// Like implantCmd, this function can moved from here down the road, either integrated as
+// a console.Client method to be used easily by the users using "custom" Go clients for some things.
 func preRunImplant(implantCmd *cobra.Command, con *client.SliverClient) command.CobraRunnerE {
 	return func(cmd *cobra.Command, args []string) error {
 		if err := con.ConnectRun(cmd, args); err != nil {
@@ -100,6 +107,8 @@ func preRunImplant(implantCmd *cobra.Command, con *client.SliverClient) command.
 	}
 }
 
+// postRunImplant saves the current CLI os.Args command line to the server, so that all interactions
+// with an implant from a system shell will be logged and accessible just the same as in the console.
 func postRunImplant(implantCmd *cobra.Command, con *client.SliverClient) command.CobraRunnerE {
 	return func(cmd *cobra.Command, args []string) error {
 		var saveArgs []string

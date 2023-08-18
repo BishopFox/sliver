@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -47,8 +48,8 @@ func (con *SliverClient) GetPrompt() string {
 	return prompt
 }
 
-// PrintLogo prints the Sliver console logo.
-func (con *SliverClient) PrintLogo() {
+// printLogo prints the Sliver console logo.
+func (con *SliverClient) printLogo() {
 	serverVer, err := con.Rpc.GetVersion(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		panic(err.Error())
