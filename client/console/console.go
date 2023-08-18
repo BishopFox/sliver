@@ -25,12 +25,9 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -40,11 +37,9 @@ import (
 
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/reeflective/console"
 	"github.com/reeflective/readline"
@@ -159,7 +154,7 @@ func NewSliverClient(opts ...grpc.DialOption) (con *SliverClient, err error) {
 	clientOpts = append(clientOpts,
 		client.WithHomeDirectory(assets.GetRootAppDir()),
 		client.WithDialer(con.dialer),
-        client.WithLogger(initTeamclientLog()),
+		client.WithLogger(initTeamclientLog()),
 	)
 
 	// Create a new reeflective/team.Client, which is in charge of selecting,
@@ -237,173 +232,6 @@ func (con *SliverClient) StartConsole() error {
 	return con.App.Start()
 }
 
-// FilterCommands shows/hides commands if the active target does support them (or not).
-// Ex; to hide Windows commands on Linux implants, Wireguard tools on HTTP C2, etc.
-// Both the cmd *cobra.Command passed and the filters can be nil, in which case the
-// filters are recomputed by the console application for the current context.
-func (con *SliverClient) FilterCommands(cmd *cobra.Command, filters ...string) {
-	con.App.ShowCommands()
-
-	if con.isCLI {
-		filters = append(filters, consts.ConsoleCmdsFilter)
-	}
-
-	sess, beac := con.ActiveTarget.Get()
-	if sess != nil || beac != nil {
-		filters = append(filters, con.ActiveTarget.Filters()...)
-	}
-
-	con.App.HideCommands(filters...)
-
-	if cmd != nil {
-		for _, cmd := range cmd.Commands() {
-			if cmd.Hidden {
-				continue
-			}
-
-			if isFiltered(cmd, filters) {
-				cmd.Hidden = true
-			}
-		}
-	}
-}
-
-// GetSession returns the session matching an ID, either by prefix or strictly.
-func (con *SliverClient) GetSession(arg string) *clientpb.Session {
-	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		con.PrintWarnf("%s", err)
-		return nil
-	}
-	for _, session := range sessions.GetSessions() {
-		if session.Name == arg || strings.HasPrefix(session.ID, arg) {
-			return session
-		}
-	}
-	return nil
-}
-
-// GetBeacon returns the beacon matching an ID, either by prefix or strictly.
-func (con *SliverClient) GetBeacon(arg string) *clientpb.Beacon {
-	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		con.PrintWarnf("%s", err)
-		return nil
-	}
-	for _, session := range beacons.GetBeacons() {
-		if session.Name == arg || strings.HasPrefix(session.ID, arg) {
-			return session
-		}
-	}
-	return nil
-}
-
-// GetSessionsByName - Return all sessions for an Implant by name.
-func (con *SliverClient) GetSessionsByName(name string) []*clientpb.Session {
-	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		fmt.Printf(Warn+"%s\n", err)
-		return nil
-	}
-	matched := []*clientpb.Session{}
-	for _, session := range sessions.GetSessions() {
-		if session.Name == name {
-			matched = append(matched, session)
-		}
-	}
-	return matched
-}
-
-// GetActiveSessionConfig - Get the active sessions's config
-// TODO: Switch to query config based on ConfigID.
-func (con *SliverClient) GetActiveSessionConfig() *clientpb.ImplantConfig {
-	session := con.ActiveTarget.GetSession()
-	if session == nil {
-		return nil
-	}
-	c2s := []*clientpb.ImplantC2{}
-	c2s = append(c2s, &clientpb.ImplantC2{
-		URL:      session.GetActiveC2(),
-		Priority: uint32(0),
-	})
-	config := &clientpb.ImplantConfig{
-		Name:    session.GetName(),
-		GOOS:    session.GetOS(),
-		GOARCH:  session.GetArch(),
-		Debug:   true,
-		Evasion: session.GetEvasion(),
-
-		MaxConnectionErrors: uint32(1000),
-		ReconnectInterval:   int64(60),
-		Format:              clientpb.OutputFormat_SHELLCODE,
-		IsSharedLib:         true,
-		C2:                  c2s,
-	}
-	return config
-}
-
-// SpinUntil starts a console display spinner in the background (non-blocking)
-func (con *SliverClient) SpinUntil(message string, ctrl chan bool) {
-	go spin.Until(os.Stdout, message, ctrl)
-}
-
-// WaitSignal listens for os.Signals and returns when receiving one of the following:
-// SIGINT, SIGTERM, SIGQUIT.
-//
-// This can be used for commands which should block if executed in an exec-once CLI run:
-// if the command is ran in the closed-loop console, this function will not monitor signals
-// and return immediately.
-func (con *SliverClient) WaitSignal() error {
-	if !con.isCLI {
-		return nil
-	}
-
-	sigchan := make(chan os.Signal, 1)
-
-	signal.Notify(
-		sigchan,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-		// syscall.SIGKILL,
-	)
-
-	sig := <-sigchan
-	con.PrintInfof("Received signal %s\n", sig)
-
-	return nil
-}
-
-func (con *SliverClient) waitSignalOrClose() error {
-	if !con.isCLI {
-		return nil
-	}
-
-	sigchan := make(chan os.Signal, 1)
-
-	signal.Notify(
-		sigchan,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-		// syscall.SIGKILL,
-	)
-
-	if con.waitingResult == nil {
-		con.waitingResult = make(chan bool)
-	}
-
-	select {
-	case sig := <-sigchan:
-		con.PrintInfof("Received signal %s\n", sig)
-	case <-con.waitingResult:
-		con.waitingResult = make(chan bool)
-		return nil
-	}
-
-	return nil
-}
-
 // FormatDateDelta - Generate formatted date string of the time delta between then and now.
 func (con *SliverClient) FormatDateDelta(t time.Time, includeDate bool, color bool) string {
 	nextTime := t.Format(time.UnixDate)
@@ -432,7 +260,7 @@ func (con *SliverClient) FormatDateDelta(t time.Time, includeDate bool, color bo
 	return interval
 }
 
-// GrpcContext - Generate a context for a GRPC request, if no grumble context or an invalid flag is provided 60 seconds is used instead.
+// GrpcContext - Generate a context for a GRPC request, if no cobra context or an invalid flag is provided 60 seconds is used instead.
 func (con *SliverClient) GrpcContext(cmd *cobra.Command) (context.Context, context.CancelFunc) {
 	if cmd == nil {
 		return context.WithTimeout(context.Background(), 60*time.Second)
@@ -452,6 +280,7 @@ func (con *SliverClient) UnwrapServerErr(err error) error {
 	return errors.New(status.Convert(err).Message())
 }
 
+// CheckLastUpdate prints a message to the CLI if updates are available.
 func (con *SliverClient) CheckLastUpdate() {
 	now := time.Now()
 	lastUpdate := getLastUpdateCheck()

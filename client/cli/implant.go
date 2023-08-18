@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/exp/slices"
 
+	"github.com/bishopfox/sliver/client/command"
 	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/use"
 	client "github.com/bishopfox/sliver/client/console"
@@ -60,7 +61,7 @@ func implantCmd(con *client.SliverClient, sliverCmds console.Commands) *cobra.Co
 	return implantCmd
 }
 
-func preRunImplant(implantCmd *cobra.Command, con *client.SliverClient) func(cmd *cobra.Command, args []string) error {
+func preRunImplant(implantCmd *cobra.Command, con *client.SliverClient) command.CobraRunnerE {
 	return func(cmd *cobra.Command, args []string) error {
 		if err := con.ConnectRun(cmd, args); err != nil {
 			return err
@@ -99,7 +100,7 @@ func preRunImplant(implantCmd *cobra.Command, con *client.SliverClient) func(cmd
 	}
 }
 
-func postRunImplant(implantCmd *cobra.Command, con *client.SliverClient) func(_ *cobra.Command, _ []string) error {
+func postRunImplant(implantCmd *cobra.Command, con *client.SliverClient) command.CobraRunnerE {
 	return func(cmd *cobra.Command, args []string) error {
 		var saveArgs []string
 

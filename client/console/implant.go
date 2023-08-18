@@ -19,15 +19,16 @@ package console
 */
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/reeflective/console"
-	"github.com/spf13/cobra"
 )
 
 type ActiveTarget struct {
@@ -46,6 +47,80 @@ func newActiveTarget() *ActiveTarget {
 	}
 
 	return at
+}
+
+// GetSession returns the session matching an ID, either by prefix or strictly.
+func (con *SliverClient) GetSession(arg string) *clientpb.Session {
+	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		con.PrintWarnf("%s", err)
+		return nil
+	}
+	for _, session := range sessions.GetSessions() {
+		if session.Name == arg || strings.HasPrefix(session.ID, arg) {
+			return session
+		}
+	}
+	return nil
+}
+
+// GetBeacon returns the beacon matching an ID, either by prefix or strictly.
+func (con *SliverClient) GetBeacon(arg string) *clientpb.Beacon {
+	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		con.PrintWarnf("%s", err)
+		return nil
+	}
+	for _, session := range beacons.GetBeacons() {
+		if session.Name == arg || strings.HasPrefix(session.ID, arg) {
+			return session
+		}
+	}
+	return nil
+}
+
+// GetSessionsByName - Return all sessions for an Implant by name.
+func (con *SliverClient) GetSessionsByName(name string) []*clientpb.Session {
+	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf(Warn+"%s\n", err)
+		return nil
+	}
+	matched := []*clientpb.Session{}
+	for _, session := range sessions.GetSessions() {
+		if session.Name == name {
+			matched = append(matched, session)
+		}
+	}
+	return matched
+}
+
+// GetActiveSessionConfig - Get the active sessions's config
+// TODO: Switch to query config based on ConfigID.
+func (con *SliverClient) GetActiveSessionConfig() *clientpb.ImplantConfig {
+	session := con.ActiveTarget.GetSession()
+	if session == nil {
+		return nil
+	}
+	c2s := []*clientpb.ImplantC2{}
+	c2s = append(c2s, &clientpb.ImplantC2{
+		URL:      session.GetActiveC2(),
+		Priority: uint32(0),
+	})
+	config := &clientpb.ImplantConfig{
+		Name:    session.GetName(),
+		GOOS:    session.GetOS(),
+		GOARCH:  session.GetArch(),
+		Debug:   true,
+		Evasion: session.GetEvasion(),
+
+		MaxConnectionErrors: uint32(1000),
+		ReconnectInterval:   int64(60),
+		Format:              clientpb.OutputFormat_SHELLCODE,
+		IsSharedLib:         true,
+		C2:                  c2s,
+	}
+	return config
 }
 
 // GetSessionInteractive - Get the active target(s).
@@ -196,93 +271,4 @@ func (s *ActiveTarget) Background() {
 	if !s.con.isCLI && s.con.App.ActiveMenu().Name() == consts.ImplantMenu {
 		s.con.App.SwitchMenu(consts.ServerMenu)
 	}
-}
-
-// FilterCommands - The active target may have various transport stacks,
-// run on different hosts and operating systems, have networking tools, etc.
-//
-// Given a tree of commands which may or may not all act on a given target,
-// the implant adds a series of annotations and hide directives to those which
-// should not be available in the current state of things.
-func (s *ActiveTarget) FilterCommands(rootCmd *cobra.Command) {
-	targetFilters := s.Filters()
-
-	for _, cmd := range rootCmd.Commands() {
-		// Don't override commands if they are already hidden
-		if cmd.Hidden {
-			continue
-		}
-
-		if isFiltered(cmd, targetFilters) {
-			cmd.Hidden = true
-		}
-	}
-}
-
-// Filters returns list of constants describing which types of commands
-// should NOT be available for the current target, eg. beacon commands if
-// the target is a session, Windows commands if the target host is Linux.
-func (s *ActiveTarget) Filters() []string {
-	if s.session == nil && s.beacon == nil {
-		return nil
-	}
-
-	filters := make([]string, 0)
-
-	// Target type.
-	switch {
-	case s.session != nil:
-		session := s.session
-
-		// Forbid all beacon-only commands.
-		filters = append(filters, consts.BeaconCmdsFilter)
-
-		// Operating system
-		if session.OS != "windows" {
-			filters = append(filters, consts.WindowsCmdsFilter)
-		}
-
-		// C2 stack
-		if session.Transport != "wg" {
-			filters = append(filters, consts.WireguardCmdsFilter)
-		}
-
-	case s.beacon != nil:
-		beacon := s.beacon
-
-		// Forbid all session-only commands.
-		filters = append(filters, consts.SessionCmdsFilter)
-
-		// Operating system
-		if beacon.OS != "windows" {
-			filters = append(filters, consts.WindowsCmdsFilter)
-		}
-
-		// C2 stack
-		if beacon.Transport != "wg" {
-			filters = append(filters, consts.WireguardCmdsFilter)
-		}
-	}
-
-	return filters
-}
-
-func isFiltered(cmd *cobra.Command, targetFilters []string) bool {
-	if cmd.Annotations == nil {
-		return false
-	}
-
-	// Get the filters on the command
-	filterStr := cmd.Annotations[console.CommandFilterKey]
-	filters := strings.Split(filterStr, ",")
-
-	for _, cmdFilter := range filters {
-		for _, filter := range targetFilters {
-			if cmdFilter != "" && cmdFilter == filter {
-				return true
-			}
-		}
-	}
-
-	return false
 }
