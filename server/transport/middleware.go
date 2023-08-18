@@ -21,6 +21,7 @@ package transport
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/core"
@@ -274,7 +275,10 @@ func getActiveTarget(middlewareLog *logrus.Entry, rawRequest []byte) (*clientpb.
 		return nil, nil, nil
 	}
 
-	rpcRequest := request["Request"].(map[string]interface{})
+	rpcRequest, ok := request["Request"].(map[string]interface{})
+	if !ok {
+		return nil, nil, errors.New("Failed to cast RPC request to map[string]interface{}")
+	}
 
 	middlewareLog.Debugf("RPC Request: %v", rpcRequest)
 
