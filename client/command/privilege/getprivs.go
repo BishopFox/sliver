@@ -20,6 +20,7 @@ package privilege
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 
@@ -37,7 +38,12 @@ func GetPrivsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if session == nil && beacon == nil {
 		return
 	}
-	targetOS := getOS(session, beacon)
+	targetOS, err := getOS(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
+
 	if targetOS != "windows" {
 		con.PrintErrorf("Command only supported on Windows.\n")
 		return
@@ -50,7 +56,12 @@ func GetPrivsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
-	pid := getPID(session, beacon)
+	pid, err := getPID(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
+
 	if privs.Response != nil && privs.Response.Async {
 		con.AddBeaconCallback(privs.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, privs)
@@ -125,22 +136,24 @@ func PrintGetPrivs(privs *sliverpb.GetPrivs, pid int32, con *console.SliverClien
 	}
 }
 
-func getOS(session *clientpb.Session, beacon *clientpb.Beacon) string {
+func getOS(session *clientpb.Session, beacon *clientpb.Beacon) (string, error) {
 	if session != nil {
-		return session.OS
+		return session.OS, nil
 	}
 	if beacon != nil {
-		return beacon.OS
+		return beacon.OS, nil
 	}
-	panic("no session or beacon")
+
+	return "", errors.New("no session or beacon")
 }
 
-func getPID(session *clientpb.Session, beacon *clientpb.Beacon) int32 {
+func getPID(session *clientpb.Session, beacon *clientpb.Beacon) (int32, error) {
 	if session != nil {
-		return session.PID
+		return session.PID, nil
 	}
 	if beacon != nil {
-		return beacon.PID
+		return beacon.PID, nil
 	}
-	panic("no session or beacon")
+
+	return -1, errors.New("no session or beacon")
 }

@@ -20,6 +20,7 @@ package screenshot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -43,7 +44,11 @@ func ScreenshotCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 		return
 	}
 
-	targetOS := getOS(session, beacon)
+	targetOS, err := getOS(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
 	if targetOS != "windows" && targetOS != "linux" {
 		con.PrintWarnf("Target platform may not support screenshots!\n")
 		return
@@ -61,7 +66,11 @@ func ScreenshotCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 	lootName, _ := cmd.Flags().GetString("name")
 	saveTo, _ := cmd.Flags().GetString("save")
 
-	hostname := getHostname(session, beacon)
+	hostname, err := getHostname(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
 	if screenshot.Response != nil && screenshot.Response.Async {
 		con.AddBeaconCallback(screenshot.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, screenshot)
@@ -140,22 +149,23 @@ func LootScreenshot(screenshot *sliverpb.Screenshot, lootName string, hostName s
 	loot.SendLootMessage(lootMessage, con)
 }
 
-func getOS(session *clientpb.Session, beacon *clientpb.Beacon) string {
+func getOS(session *clientpb.Session, beacon *clientpb.Beacon) (string, error) {
 	if session != nil {
-		return session.OS
+		return session.OS, nil
 	}
 	if beacon != nil {
-		return beacon.OS
+		return beacon.OS, nil
 	}
-	panic("no session or beacon")
+
+	return "", errors.New("no session or beacon")
 }
 
-func getHostname(session *clientpb.Session, beacon *clientpb.Beacon) string {
+func getHostname(session *clientpb.Session, beacon *clientpb.Beacon) (string, error) {
 	if session != nil {
-		return session.Hostname
+		return session.Hostname, nil
 	}
 	if beacon != nil {
-		return beacon.Hostname
+		return beacon.Hostname, nil
 	}
-	panic("no session or beacon")
+	return "", errors.New("no session or beacon")
 }

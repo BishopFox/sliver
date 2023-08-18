@@ -21,6 +21,7 @@ package console
 import (
 	"context"
 	"fmt"
+	"log"
 	insecureRand "math/rand"
 	"os"
 	"os/signal"
@@ -165,7 +166,7 @@ func (con *SliverClient) waitSignalOrClose() error {
 func (con *SliverClient) printLogo() {
 	serverVer, err := con.Rpc.GetVersion(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		panic(err.Error())
+		log.Fatal(err)
 	}
 	dirty := ""
 	if serverVer.Dirty {

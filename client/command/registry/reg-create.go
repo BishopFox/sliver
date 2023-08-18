@@ -20,6 +20,7 @@ package registry
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -36,7 +37,11 @@ func RegCreateKeyCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	if session == nil && beacon == nil {
 		return
 	}
-	targetOS := getOS(session, beacon)
+	targetOS, err := getOS(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
 	if targetOS != "windows" {
 		con.PrintErrorf("Registry operations can only target Windows\n")
 		return
@@ -104,12 +109,13 @@ func PrintCreateKey(createKey *sliverpb.RegistryCreateKey, regPath string, key s
 	con.PrintInfof("Key created at %s\\%s", regPath, key)
 }
 
-func getOS(session *clientpb.Session, beacon *clientpb.Beacon) string {
+func getOS(session *clientpb.Session, beacon *clientpb.Beacon) (string, error) {
 	if session != nil {
-		return session.OS
+		return session.OS, nil
 	}
 	if beacon != nil {
-		return beacon.OS
+		return beacon.OS, nil
 	}
-	panic("no session or beacon")
+
+	return "", errors.New("no session or beacon")
 }

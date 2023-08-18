@@ -20,6 +20,7 @@ package privilege
 
 import (
 	"context"
+	"errors"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/proto"
@@ -69,7 +70,12 @@ func RunAsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 
-	name := getName(session, beacon)
+	name, err := getName(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
+
 	if runAs.Response != nil && runAs.Response.Async {
 		con.AddBeaconCallback(runAs.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, runAs)
@@ -93,12 +99,13 @@ func PrintRunAs(runAs *sliverpb.RunAs, process string, args string, name string,
 	con.PrintInfof("Successfully ran %s %s on %s\n", process, args, name)
 }
 
-func getName(session *clientpb.Session, beacon *clientpb.Beacon) string {
+func getName(session *clientpb.Session, beacon *clientpb.Beacon) (string, error) {
 	if session != nil {
-		return session.Name
+		return session.Name, nil
 	}
 	if beacon != nil {
-		return beacon.Name
+		return beacon.Name, nil
 	}
-	panic("no session or beacon")
+
+	return "", errors.New("no session or beacon")
 }

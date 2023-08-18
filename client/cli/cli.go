@@ -19,6 +19,7 @@ package cli
 */
 
 import (
+	"log"
 	"os"
 
 	"github.com/rsteube/carapace"
@@ -39,7 +40,7 @@ func Execute() {
 	// prompting/loading and use, as well as other things.
 	con, err := client.NewSliverClient()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	// Generate our complete Sliver Framework command-line interface.
