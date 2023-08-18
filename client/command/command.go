@@ -21,40 +21,25 @@ package command
 import (
 	"strings"
 
-	"github.com/reeflective/console"
-	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
+
+	"github.com/reeflective/console"
 
 	client "github.com/bishopfox/sliver/client/console"
 )
 
-const defaultTimeout = 60
+// ***** Exported Command API Types ******
 
-// bindFlags is a convenience function to bind flags to a given command.
-// name - The name of the flag set (can be empty).
-// cmd  - The command to which the flags should be bound.
-// flags - A function exposing the flag set through which flags are declared.
-func bindFlags(name string, persistent bool, cmd *cobra.Command, flags func(f *pflag.FlagSet)) {
-	flagSet := pflag.NewFlagSet(name, pflag.ContinueOnError) // Create the flag set.
-	flags(flagSet)                                           // Let the user bind any number of flags to it.
+// SliverBinder is the signature of command yielder functions passed and used by
+// the Sliver client. Currently this function type is only used as an alias for
+// loading command sets easily, and is not part of any interface.
+type SliverBinder func(con *client.SliverClient) []*cobra.Command
 
-	if persistent {
-		cmd.PersistentFlags().AddFlagSet(flagSet)
-	} else {
-		cmd.Flags().AddFlagSet(flagSet)
-	}
-}
+// CobraRunnerE is a simple type alias to denote cobra Runners with errors.
+// The type is mostly use to register additional pre/post runners for commands.
+type CobraRunnerE func(_ *cobra.Command, _ []string) error
 
-// BindFlagCompletions is a convenience function for adding completions to a command's flags.
-// cmd - The command owning the flags to complete.
-// bind - A function exposing a map["flag-name"]carapace.Action.
-func BindFlagCompletions(cmd *cobra.Command, bind func(comp *carapace.ActionMap)) {
-	comps := make(carapace.ActionMap)
-	bind(&comps)
-
-	carapace.Gen(cmd).FlagCompletion(comps)
-}
+// ***** Other Commands Binding Utilties ******
 
 // RestrictTargets generates a cobra annotation map with a single console.CommandHiddenFilter key
 // to a comma-separated list of filters to use in order to expose/hide commands based on requirements.
@@ -78,9 +63,9 @@ func RestrictTargets(filters ...string) map[string]string {
 	}
 }
 
-// MakeBind returns a commandBinder helper function.
+// makeBind returns a commandBinder helper function.
 // @menu  - The command menu to which the commands should be bound (either server or implant menu).
-func MakeBind(cmd *cobra.Command, con *client.SliverClient) commandBinder {
+func makeBind(cmd *cobra.Command, con *client.SliverClient) commandBinder {
 	return func(group string, cmds ...func(con *client.SliverClient) []*cobra.Command) {
 		found := false
 
@@ -117,7 +102,6 @@ func MakeBind(cmd *cobra.Command, con *client.SliverClient) commandBinder {
 }
 
 // commandBinder is a helper used to bind commands to a given menu, for a given "command help group".
-//
 // @group - Name of the group under which the command should be shown. Preferably use a string in the constants package.
 // @ cmds - A list of functions returning a list of root commands to bind. See any package's `commands.go` file and function.
 type commandBinder func(group string, cmds ...func(con *client.SliverClient) []*cobra.Command)
@@ -135,12 +119,6 @@ type commandBinder func(group string, cmds ...func(con *client.SliverClient) []*
 // [ Aliases ]
 // [ Extensions ]
 
-// Commands not to bind in CLI:
-// - portforwarders
-// - Socks (and wg-socks ?)
-// - shell ?
-
 // Take care of:
 // - double bind help command
 // - double bind session commands
-// - don't bind readline command in CLI.

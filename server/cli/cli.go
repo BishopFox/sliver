@@ -114,8 +114,8 @@ func sliverServerCLI(team *server.Server, con *client.SliverClient) (root *cobra
 	root.AddCommand(consoleCmd.Command(con, server))
 
 	// Pre/post runners and completions.
-	clientCommand.BindPrePost(root, true, con.ConnectRun)
-	clientCommand.BindPrePost(root, false, func(_ *cobra.Command, _ []string) error {
+	clientCommand.BindPreRun(root, con.ConnectRun)
+	clientCommand.BindPostRun(root, func(_ *cobra.Command, _ []string) error {
 		return con.Disconnect()
 	})
 

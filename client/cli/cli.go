@@ -21,9 +21,10 @@ package cli
 import (
 	"os"
 
-	"github.com/reeflective/team/client/commands"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
+
+	"github.com/reeflective/team/client/commands"
 
 	"github.com/bishopfox/sliver/client/command"
 	sliverConsole "github.com/bishopfox/sliver/client/command/console"
@@ -88,8 +89,8 @@ func SliverCLI(con *client.SliverClient) (root *cobra.Command) {
 	root.AddCommand(implantCmd(con, sliver))
 
 	// Pre/post runners and completions.
-	command.BindPrePost(root, true, con.ConnectRun)
-	command.BindPrePost(root, false, func(_ *cobra.Command, _ []string) error {
+	command.BindPreRun(root, con.ConnectRun)
+	command.BindPostRun(root, func(_ *cobra.Command, _ []string) error {
 		return con.Disconnect()
 	})
 

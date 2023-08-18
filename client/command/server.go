@@ -19,8 +19,9 @@ package command
 */
 
 import (
-	"github.com/reeflective/console"
 	"github.com/spf13/cobra"
+
+	"github.com/reeflective/console"
 
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/armory"
@@ -50,10 +51,7 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 )
 
-// SliverBinder is the signature of command yielder functions passed and used by
-// the Sliver client. Currently this function type is only used as an alias for
-// loading command sets easily, and is not part of any interface.
-type SliverBinder func(con *client.SliverClient) []*cobra.Command
+// ***** Command Generators and Runner Binders ******
 
 // ServerCommands returns all commands bound to the server menu, optionally
 // accepting a function returning a list of additional (admin) commands.
@@ -72,7 +70,7 @@ func ServerCommands(con *client.SliverClient, serverCmds SliverBinder) console.C
 		// the sliver menu: call the function with the name of the
 		// group under which this/these commands should be added,
 		// and the group will be automatically created if needed.
-		bind := MakeBind(server, con)
+		bind := makeBind(server, con)
 
 		if serverCmds != nil {
 			bind(consts.GenericHelpGroup,
@@ -145,29 +143,22 @@ func ServerCommands(con *client.SliverClient, serverCmds SliverBinder) console.C
 	return serverCommands
 }
 
-// BindPrePost is used to register specific pre/post-runs for a given command/tree.
-//
-// This function is special in that it will only bind the pre/post-runners to commands
-// in the tree if they have a non-nil Run/RunE function, or if they are leaf commands.
-//
-// This allows us to optimize client-to-server connections for things like completions.
-func BindPrePost(root *cobra.Command, pre bool, runs ...func(_ *cobra.Command, _ []string) error) {
+// BindPreRun registers specific pre-execution runners for all
+// leafs commands (and some nodes) of a given command/tree.
+func BindPreRun(root *cobra.Command, runs ...CobraRunnerE) {
 	for _, cmd := range root.Commands() {
 		ePreE := cmd.PersistentPreRunE
-		ePostE := cmd.PersistentPostRunE
 		run, runE := cmd.Run, cmd.RunE
 
 		// Don't modify commands in charge on their own tree.
-		if pre && ePreE != nil {
-			continue
-		} else if ePostE != nil {
+		if ePreE != nil {
 			continue
 		}
 
 		// Always go to find the leaf commands, irrespective
 		// of what we do with this parent command.
 		if cmd.HasSubCommands() {
-			BindPrePost(cmd, pre, runs...)
+			BindPreRun(cmd, runs...)
 		}
 
 		// If the command has no runners, there's nothing to bind:
@@ -178,9 +169,7 @@ func BindPrePost(root *cobra.Command, pre bool, runs ...func(_ *cobra.Command, _
 		}
 
 		// Else we have runners, bind the pre-runs if possible.
-		if pre && cmd.PreRunE != nil {
-			continue
-		} else if cmd.PostRunE != nil {
+		if cmd.PreRunE != nil {
 			continue
 		}
 
@@ -197,10 +186,53 @@ func BindPrePost(root *cobra.Command, pre bool, runs ...func(_ *cobra.Command, _
 		}
 
 		// Bind
-		if pre {
-			cmd.PreRunE = cRun
-		} else {
-			cmd.PostRunE = cRun
+		cmd.PreRunE = cRun
+	}
+}
+
+// BindPostRun registers specific post-execution runners for all
+// leafs commands (and some nodes) of a given command/tree.
+func BindPostRun(root *cobra.Command, runs ...CobraRunnerE) {
+	for _, cmd := range root.Commands() {
+		ePostE := cmd.PersistentPostRunE
+		run, runE := cmd.Run, cmd.RunE
+
+		// Don't modify commands in charge on their own tree.
+		if ePostE != nil {
+			continue
 		}
+
+		// Always go to find the leaf commands, irrespective
+		// of what we do with this parent command.
+		if cmd.HasSubCommands() {
+			BindPostRun(cmd, runs...)
+		}
+
+		// If the command has no runners, there's nothing to bind:
+		// If it has flags, any child command requiring them should
+		// trigger the prerunners, which will connect to the server.
+		if run == nil && runE == nil {
+			continue
+		}
+
+		// Else we have runners, bind the pre-runs if possible.
+		if cmd.PostRunE != nil {
+			continue
+		}
+
+		// Compound all runners together.
+		cRun := func(c *cobra.Command, args []string) error {
+			for _, run := range runs {
+				err := run(c, args)
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
+		}
+
+		// Bind
+		cmd.PostRunE = cRun
 	}
 }

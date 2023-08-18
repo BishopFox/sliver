@@ -19,8 +19,9 @@ package command
 */
 
 import (
-	"github.com/reeflective/console"
 	"github.com/spf13/cobra"
+
+	"github.com/reeflective/console"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/alias"
@@ -70,7 +71,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 		// the sliver menu: call the function with the name of the
 		// group under which this/these commands should be added,
 		// and the group will be automatically created if needed.
-		bind := MakeBind(sliver, con)
+		bind := makeBind(sliver, con)
 
 		// [ Core ]
 		bind(consts.SliverCoreHelpGroup,
