@@ -63,10 +63,6 @@ func Execute() {
 		panic(err)
 	}
 
-	// The server is also a client of itself, so add our sliver-server
-	// binary specific pre-run hooks: assets, encoders, toolchains, etc.
-	con.AddConnectHooks(preRunServer(teamserver, con))
-
 	// Generate our complete Sliver Framework command-line interface.
 	rootCmd := sliverServerCLI(teamserver, con)
 
@@ -113,16 +109,48 @@ func sliverServerCLI(team *server.Server, con *client.SliverClient) (root *cobra
 	// need one connection for the entire lifetime of the console.
 	root.AddCommand(consoleCmd.Command(con, server))
 
+	// The server is also a client of itself, so add our sliver-server
+	// binary specific pre-run hooks: assets, encoders, toolchains, etc.
+	con.AddPreRunners(preRunServerS(team, con))
+
 	// Pre/post runners and completions.
 	clientCommand.BindPreRun(root, con.ConnectRun)
-	clientCommand.BindPostRun(root, func(_ *cobra.Command, _ []string) error {
-		return con.Disconnect()
-	})
+	clientCommand.BindPostRun(root, con.PostRunDisconnect)
 
 	// Generate the root completion command.
 	carapace.Gen(root)
 
 	return root
+}
+
+func preRunServerS(teamserver *server.Server, con *client.SliverClient) clientCommand.CobraRunnerE {
+	return func(cmd *cobra.Command, args []string) error {
+		// All commands of the teamserver binary
+		// must always have at least these working.
+		assets.Setup(false, true)
+		encoders.Setup()
+		certs.SetupCAs()
+		certs.SetupWGKeys()
+		cryptography.AgeServerKeyPair()
+		cryptography.MinisignServerPrivateKey()
+
+		// But we don't start Sliver-specific C2 listeners unless
+		// we are being ran in daemon mode, or in the console.
+		// We don't always have access to a command, such when
+		if cmd != nil {
+			if (cmd.Name() == "daemon" && cmd.Parent().Name() == "teamserver") ||
+				cmd.Name() == "console" {
+				serverConfig := configs.GetServerConfig()
+				err := c2.StartPersistentJobs(serverConfig)
+				if err != nil {
+					con.PrintWarnf("Persistent jobs restart error: %s", err)
+				}
+			}
+
+		}
+		// Let our in-memory teamclient be served.
+		return teamserver.Serve(con.Teamclient)
+	}
 }
 
 // preRunServer is the server-binary-specific pre-run; it ensures that the server

@@ -34,6 +34,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -198,20 +199,20 @@ func getConsoleAsciicastFile() *os.File {
 	return logFile
 }
 
-// initTeamclientLog returns a logrus logger to be passed to the Sliver 
+// initTeamclientLog returns a logrus logger to be passed to the Sliver
 // team.Client for logging all client-side transport/RPC events.
-func initTeamclientLog() (*logrus.Logger) {
+func initTeamclientLog() *logrus.Logger {
 	logsDir := assets.GetConsoleLogsDir()
 	dateTime := time.Now().Format("2006-01-02_15-04-05")
 	logPath := filepath.Join(logsDir, fmt.Sprintf("%s.log", dateTime))
 
 	textLogger := logrus.New()
-    textLogger.SetFormatter(&logrus.TextFormatter{})
+	textLogger.SetFormatter(&logrus.TextFormatter{})
 
-	logFile, err := os.OpenFile(logPath, os.O_APPEND | os.O_CREATE | os.O_WRONLY, 0644)
+	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalf("Failed to open log file %s", err)
-        return textLogger
+		return textLogger
 	}
 
 	// Text-format logger, writing to file.
@@ -321,4 +322,9 @@ func (con *SliverClient) PrintEventSuccessf(format string, args ...any) {
 	logger.Info(fmt.Sprintf(format, args...))
 
 	con.printf(Clearln+"\r\n"+Success+format+"\r", args...)
+}
+
+// SpinUntil starts a console display spinner in the background (non-blocking)
+func (con *SliverClient) SpinUntil(message string, ctrl chan bool) {
+	go spin.Until(os.Stdout, message, ctrl)
 }

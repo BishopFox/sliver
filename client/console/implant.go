@@ -272,3 +272,51 @@ func (s *ActiveTarget) Background() {
 		s.con.App.SwitchMenu(consts.ServerMenu)
 	}
 }
+
+// Filters returns list of constants describing which types of commands
+// should NOT be available for the current target, eg. beacon commands if
+// the target is a session, Windows commands if the target host is Linux.
+func (s *ActiveTarget) Filters() []string {
+	if s.session == nil && s.beacon == nil {
+		return nil
+	}
+
+	filters := make([]string, 0)
+
+	// Target type.
+	switch {
+	case s.session != nil:
+		session := s.session
+
+		// Forbid all beacon-only commands.
+		filters = append(filters, consts.BeaconCmdsFilter)
+
+		// Operating system
+		if session.OS != "windows" {
+			filters = append(filters, consts.WindowsCmdsFilter)
+		}
+
+		// C2 stack
+		if session.Transport != "wg" {
+			filters = append(filters, consts.WireguardCmdsFilter)
+		}
+
+	case s.beacon != nil:
+		beacon := s.beacon
+
+		// Forbid all session-only commands.
+		filters = append(filters, consts.SessionCmdsFilter)
+
+		// Operating system
+		if beacon.OS != "windows" {
+			filters = append(filters, consts.WindowsCmdsFilter)
+		}
+
+		// C2 stack
+		if beacon.Transport != "wg" {
+			filters = append(filters, consts.WireguardCmdsFilter)
+		}
+	}
+
+	return filters
+}

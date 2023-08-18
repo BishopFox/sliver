@@ -84,15 +84,11 @@ func SliverCLI(con *client.SliverClient) (root *cobra.Command) {
 	// system shell. It makes use of pre-runners for connecting to the server
 	// and binding sliver commands. These same pre-runners are also used for
 	// command completion/filtering purposes.
-	sliver := command.SliverCommands(con)
-
-	root.AddCommand(implantCmd(con, sliver))
+	root.AddCommand(implantCmd(con, command.SliverCommands(con)))
 
 	// Pre/post runners and completions.
 	command.BindPreRun(root, con.ConnectRun)
-	command.BindPostRun(root, func(_ *cobra.Command, _ []string) error {
-		return con.Disconnect()
-	})
+	command.BindPostRun(root, con.PostRunDisconnect)
 
 	// Generate the root completion command.
 	carapace.Gen(root)

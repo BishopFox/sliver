@@ -127,6 +127,7 @@ func postRunImplant(implantCmd *cobra.Command, con *client.SliverClient) command
 
 		con.ActiveTarget.SaveCommandLine(saveArgs)
 
-		return con.Disconnect()
+		// And disconnect from the server like for other commands.
+		return con.PostRunDisconnect(cmd, args)
 	}
 }

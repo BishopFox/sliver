@@ -23,7 +23,9 @@ import (
 	"fmt"
 	insecureRand "math/rand"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/AlecAivazis/survey/v2"
 
@@ -46,32 +48,6 @@ func (con *SliverClient) GetPrompt() string {
 	}
 	prompt += " > "
 	return prompt
-}
-
-// printLogo prints the Sliver console logo.
-func (con *SliverClient) printLogo() {
-	serverVer, err := con.Rpc.GetVersion(context.Background(), &commonpb.Empty{})
-	if err != nil {
-		panic(err.Error())
-	}
-	dirty := ""
-	if serverVer.Dirty {
-		dirty = fmt.Sprintf(" - %sDirty%s", Bold, Normal)
-	}
-	serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
-
-	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
-	fmt.Println(strings.ReplaceAll(logo, "\n", "\r\n"))
-	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))] + "\r")
-	fmt.Printf(Info+"Server v%s - %s%s\r\n", serverSemVer, serverVer.Commit, dirty)
-	if version.GitCommit != serverVer.Commit {
-		fmt.Printf(Info+"Client %s\r\n", version.FullVersion())
-	}
-	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options\r")
-	if serverVer.Major != int32(version.SemanticVersion()[0]) {
-		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\r\n")
-	}
-	con.CheckLastUpdate()
 }
 
 // ExitConfirm tries to exit the Sliver go program.
@@ -124,6 +100,89 @@ func (con *SliverClient) ExitConfirm() {
 	}
 
 	os.Exit(0)
+}
+
+// WaitSignal listens for os.Signals and returns when receiving one of the following:
+// SIGINT, SIGTERM, SIGQUIT.
+//
+// This can be used for commands which should block if executed in an exec-once CLI run:
+// if the command is ran in the closed-loop console, this function will not monitor signals
+// and return immediately.
+func (con *SliverClient) WaitSignal() error {
+	if !con.isCLI {
+		return nil
+	}
+
+	sigchan := make(chan os.Signal, 1)
+
+	signal.Notify(
+		sigchan,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+		// syscall.SIGKILL,
+	)
+
+	sig := <-sigchan
+	con.PrintInfof("Received signal %s\n", sig)
+
+	return nil
+}
+
+func (con *SliverClient) waitSignalOrClose() error {
+	if !con.isCLI {
+		return nil
+	}
+
+	sigchan := make(chan os.Signal, 1)
+
+	signal.Notify(
+		sigchan,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+		// syscall.SIGKILL,
+	)
+
+	if con.waitingResult == nil {
+		con.waitingResult = make(chan bool)
+	}
+
+	select {
+	case sig := <-sigchan:
+		con.PrintInfof("Received signal %s\n", sig)
+	case <-con.waitingResult:
+		con.waitingResult = make(chan bool)
+		return nil
+	}
+
+	return nil
+}
+
+// printLogo prints the Sliver console logo.
+func (con *SliverClient) printLogo() {
+	serverVer, err := con.Rpc.GetVersion(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		panic(err.Error())
+	}
+	dirty := ""
+	if serverVer.Dirty {
+		dirty = fmt.Sprintf(" - %sDirty%s", Bold, Normal)
+	}
+	serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
+
+	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
+	fmt.Println(strings.ReplaceAll(logo, "\n", "\r\n"))
+	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))] + "\r")
+	fmt.Printf(Info+"Server v%s - %s%s\r\n", serverSemVer, serverVer.Commit, dirty)
+	if version.GitCommit != serverVer.Commit {
+		fmt.Printf(Info+"Client %s\r\n", version.FullVersion())
+	}
+	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options\r")
+	if serverVer.Major != int32(version.SemanticVersion()[0]) {
+		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\r\n")
+	}
+	con.CheckLastUpdate()
 }
 
 // exitConsole prompts the user for confirmation to exit the console.

@@ -24,16 +24,17 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
+
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/reeflective/team"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/status"
 )
 
 // ConnectRun is a spf13/cobra-compliant runner function to be included
@@ -44,7 +45,7 @@ import (
 //
 // Note that this function will always check if it used as part of a completion
 // command execution call, in which case asciicast/logs streaming is disabled.
-func (con *SliverClient) ConnectRun(cmd *cobra.Command, _ []string) error {
+func (con *SliverClient) ConnectRun(cmd *cobra.Command, args []string) error {
 	con.FilterCommands(cmd)
 
 	// If commands are imcompatible with the current requirements.
@@ -58,7 +59,7 @@ func (con *SliverClient) ConnectRun(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	if err := con.runPreConnectHooks(); err != nil {
+	if err := con.runPreConnectHooks(cmd, args); err != nil {
 		return err
 	}
 
@@ -99,7 +100,9 @@ func (con *SliverClient) ConnectComplete() (carapace.Action, error) {
 	}
 
 	// This almost only ever runs teamserver-side pre-runs.
-	err := con.runPreConnectHooks()
+	// We don't need to pass a command to this call, since
+	// it does call hooks that should handle nil commands.
+	err := con.runPreConnectHooks(nil, nil)
 	if err != nil {
 		return carapace.ActionMessage("connection error: %s", err), err
 	}
@@ -116,24 +119,16 @@ func (con *SliverClient) ConnectComplete() (carapace.Action, error) {
 	return carapace.ActionValues(), nil
 }
 
-// Disconnect disconnects the client from its Sliver server,
-// closing all its event/log streams and files, then closing
-// the core Sliver RPC client connection.
+// PostRunDisconnect disconnects the client from its Sliver server,
+// closing all its event/log streams and files, then closing the core
+// Sliver RPC client connection. This should be ran as a post-runner.
 // After this call, the client can reconnect should it want to.
-func (con *SliverClient) Disconnect() error {
+func (con *SliverClient) PostRunDisconnect(cmd *cobra.Command, args []string) error {
 	// Close all RPC streams and local files.
 	con.closeClientStreams()
 
 	// Close the RPC client connection.
 	return con.Teamclient.Disconnect()
-}
-
-// AddConnectHooks should be considered part of the temporary API.
-// It is used to all the Sliver client to run hooks before running
-// its own pre-connect handlers, and can thus be used to register
-// server-only pre-run routines.
-func (con *SliverClient) AddConnectHooks(hooks ...func() error) {
-	con.connectHooks = append(con.connectHooks, hooks...)
 }
 
 // Users returns a list of all users registered with the app teamserver.
@@ -230,36 +225,4 @@ func (con *SliverClient) connect(conn *grpc.ClientConn) {
 		histuser.Close()
 		histAll.Close()
 	})
-}
-
-func (con *SliverClient) runPreConnectHooks() error {
-	for _, hook := range con.connectHooks {
-		if hook == nil {
-			continue
-		}
-
-		if err := hook(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// WARN: this is the premise of a big burden. Please bear this in mind.
-// If I haven't speaked to you about it, or if you're not sure of what
-// that means, ping me up and ask.
-func (con *SliverClient) isOffline(cmd *cobra.Command) bool {
-	// Teamclient configuration import does not need network.
-	ts, _, err := cmd.Root().Find([]string{"teamserver", "client", "import"})
-	if err == nil && ts != nil && ts == cmd {
-		return true
-	}
-
-	tc, _, err := cmd.Root().Find([]string{"teamclient", "import"})
-	if err == nil && ts != nil && tc == cmd {
-		return true
-	}
-
-	return false
 }

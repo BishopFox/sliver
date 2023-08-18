@@ -105,9 +105,9 @@ type SliverClient struct {
 	isCLI    bool
 
 	// Teamclient & remotes
-	Teamclient   *client.Client
-	dialer       *transport.TeamClient
-	connectHooks []func() error
+	Teamclient *client.Client
+	dialer     *transport.TeamClient
+	preRunners []func(*cobra.Command, []string) error
 
 	// Logging
 	jsonHandler slog.Handler

@@ -19,18 +19,35 @@ package console
 */
 
 import (
-	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 
 	"github.com/spf13/cobra"
 
 	"github.com/reeflective/console"
 
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/client/spin"
 )
+
+// FilterCommands - The active target may have various transport stacks,
+// run on different hosts and operating systems, have networking tools, etc.
+//
+// Given a tree of commands which may or may not all act on a given target,
+// the implant adds a series of annotations and hide directives to those which
+// should not be available in the current state of things.
+func (s *ActiveTarget) FilterCommands(rootCmd *cobra.Command) {
+	targetFilters := s.Filters()
+
+	for _, cmd := range rootCmd.Commands() {
+		// Don't override commands if they are already hidden
+		if cmd.Hidden {
+			continue
+		}
+
+		if isFiltered(cmd, targetFilters) {
+			cmd.Hidden = true
+		}
+	}
+}
 
 // FilterCommands shows/hides commands if the active target does support them (or not).
 // Ex; to hide Windows commands on Linux implants, Wireguard tools on HTTP C2, etc.
@@ -63,73 +80,45 @@ func (con *SliverClient) FilterCommands(cmd *cobra.Command, filters ...string) {
 	}
 }
 
-// FilterCommands - The active target may have various transport stacks,
-// run on different hosts and operating systems, have networking tools, etc.
-//
-// Given a tree of commands which may or may not all act on a given target,
-// the implant adds a series of annotations and hide directives to those which
-// should not be available in the current state of things.
-func (s *ActiveTarget) FilterCommands(rootCmd *cobra.Command) {
-	targetFilters := s.Filters()
+// AddPreRunner should be considered part of the temporary API.
+// It is used by the Sliver client to run hooks before running its own pre-connect
+// handlers, and can thus be used to register server-only pre-run routines.
+func (con *SliverClient) AddPreRunners(hooks ...func(_ *cobra.Command, _ []string) error) {
+	con.preRunners = append(con.preRunners, hooks...)
+}
 
-	for _, cmd := range rootCmd.Commands() {
-		// Don't override commands if they are already hidden
-		if cmd.Hidden {
+// runPreConnectHooks is also a function which might be temporary, and currently used
+// to run "server-side provided" command pre-runners (for assets setup, jobs, etc)
+func (con *SliverClient) runPreConnectHooks(cmd *cobra.Command, args []string) error {
+	for _, hook := range con.preRunners {
+		if hook == nil {
 			continue
 		}
 
-		if isFiltered(cmd, targetFilters) {
-			cmd.Hidden = true
+		if err := hook(cmd, args); err != nil {
+			return err
 		}
 	}
+
+	return nil
 }
 
-// Filters returns list of constants describing which types of commands
-// should NOT be available for the current target, eg. beacon commands if
-// the target is a session, Windows commands if the target host is Linux.
-func (s *ActiveTarget) Filters() []string {
-	if s.session == nil && s.beacon == nil {
-		return nil
+// WARN: this is the premise of a big burden. Please bear this in mind.
+// If I haven't speaked to you about it, or if you're not sure of what
+// that means, ping me up and ask.
+func (con *SliverClient) isOffline(cmd *cobra.Command) bool {
+	// Teamclient configuration import does not need network.
+	ts, _, err := cmd.Root().Find([]string{"teamserver", "client", "import"})
+	if err == nil && ts != nil && ts == cmd {
+		return true
 	}
 
-	filters := make([]string, 0)
-
-	// Target type.
-	switch {
-	case s.session != nil:
-		session := s.session
-
-		// Forbid all beacon-only commands.
-		filters = append(filters, consts.BeaconCmdsFilter)
-
-		// Operating system
-		if session.OS != "windows" {
-			filters = append(filters, consts.WindowsCmdsFilter)
-		}
-
-		// C2 stack
-		if session.Transport != "wg" {
-			filters = append(filters, consts.WireguardCmdsFilter)
-		}
-
-	case s.beacon != nil:
-		beacon := s.beacon
-
-		// Forbid all session-only commands.
-		filters = append(filters, consts.SessionCmdsFilter)
-
-		// Operating system
-		if beacon.OS != "windows" {
-			filters = append(filters, consts.WindowsCmdsFilter)
-		}
-
-		// C2 stack
-		if beacon.Transport != "wg" {
-			filters = append(filters, consts.WireguardCmdsFilter)
-		}
+	tc, _, err := cmd.Root().Find([]string{"teamclient", "import"})
+	if err == nil && ts != nil && tc == cmd {
+		return true
 	}
 
-	return filters
+	return false
 }
 
 func isFiltered(cmd *cobra.Command, targetFilters []string) bool {
@@ -150,66 +139,4 @@ func isFiltered(cmd *cobra.Command, targetFilters []string) bool {
 	}
 
 	return false
-}
-
-// SpinUntil starts a console display spinner in the background (non-blocking)
-func (con *SliverClient) SpinUntil(message string, ctrl chan bool) {
-	go spin.Until(os.Stdout, message, ctrl)
-}
-
-// WaitSignal listens for os.Signals and returns when receiving one of the following:
-// SIGINT, SIGTERM, SIGQUIT.
-//
-// This can be used for commands which should block if executed in an exec-once CLI run:
-// if the command is ran in the closed-loop console, this function will not monitor signals
-// and return immediately.
-func (con *SliverClient) WaitSignal() error {
-	if !con.isCLI {
-		return nil
-	}
-
-	sigchan := make(chan os.Signal, 1)
-
-	signal.Notify(
-		sigchan,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-		// syscall.SIGKILL,
-	)
-
-	sig := <-sigchan
-	con.PrintInfof("Received signal %s\n", sig)
-
-	return nil
-}
-
-func (con *SliverClient) waitSignalOrClose() error {
-	if !con.isCLI {
-		return nil
-	}
-
-	sigchan := make(chan os.Signal, 1)
-
-	signal.Notify(
-		sigchan,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-		// syscall.SIGKILL,
-	)
-
-	if con.waitingResult == nil {
-		con.waitingResult = make(chan bool)
-	}
-
-	select {
-	case sig := <-sigchan:
-		con.PrintInfof("Received signal %s\n", sig)
-	case <-con.waitingResult:
-		con.waitingResult = make(chan bool)
-		return nil
-	}
-
-	return nil
 }
