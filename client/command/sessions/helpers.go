@@ -109,7 +109,7 @@ func SelectSession(onlyAlive bool, con *console.SliverClient) (*clientpb.Session
 // SessionIDCompleter completes session IDs.
 func SessionIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
-		if msg, err := con.ConnectComplete(); err != nil {
+		if msg, err := con.PreRunComplete(); err != nil {
 			return msg
 		}
 

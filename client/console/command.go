@@ -83,7 +83,7 @@ func (con *SliverClient) FilterCommands(cmd *cobra.Command, filters ...string) {
 // AddPreRunner should be considered part of the temporary API.
 // It is used by the Sliver client to run hooks before running its own pre-connect
 // handlers, and can thus be used to register server-only pre-run routines.
-func (con *SliverClient) AddPreRunners(hooks ...func(_ *cobra.Command, _ []string) error) {
+func (con *SliverClient) AddPreRuns(hooks ...func(_ *cobra.Command, _ []string) error) {
 	con.preRunners = append(con.preRunners, hooks...)
 }
 

@@ -113,7 +113,7 @@ func PrintWebsite(web *clientpb.Website, con *console.SliverClient) {
 // WebsiteNameCompleter completes the names of available websites.
 func WebsiteNameCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
-		if msg, err := con.ConnectComplete(); err != nil {
+		if msg, err := con.PreRunComplete(); err != nil {
 			return msg
 		}
 

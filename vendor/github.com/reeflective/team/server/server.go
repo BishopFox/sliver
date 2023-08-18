@@ -142,7 +142,7 @@ func (ts *Server) ServeDaemon(host string, port uint16, opts ...Options) (err er
 
 	err = ts.ListenerStartPersistents()
 	if err != nil && hostPort.MatchString(err.Error()) {
-		log.Errorf("Error starting persistent listeners: %s", err)
+		log.Errorf("Error starting persistent listeners: %s\n", err)
 	}
 
 	done := make(chan bool)

@@ -180,6 +180,7 @@ func newClient() *SliverClient {
 		Settings:                 settings,
 		isCLI:                    true,
 		printf:                   fmt.Printf,
+		jsonHandler:              slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{}),
 		ActiveTarget:             newActiveTarget(),
 		EventListeners:           &sync.Map{},
 		BeaconTaskCallbacks:      map[string]BeaconTaskCallback{},

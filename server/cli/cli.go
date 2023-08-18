@@ -111,10 +111,10 @@ func sliverServerCLI(team *server.Server, con *client.SliverClient) (root *cobra
 
 	// The server is also a client of itself, so add our sliver-server
 	// binary specific pre-run hooks: assets, encoders, toolchains, etc.
-	con.AddPreRunners(preRunServerS(team, con))
+	con.AddPreRuns(preRunServerS(team, con))
 
 	// Pre/post runners and completions.
-	clientCommand.BindPreRun(root, con.ConnectRun)
+	clientCommand.BindPreRun(root, con.PreRunConnect)
 	clientCommand.BindPostRun(root, con.PostRunDisconnect)
 
 	// Generate the root completion command.
@@ -155,24 +155,24 @@ func preRunServerS(teamserver *server.Server, con *client.SliverClient) clientCo
 
 // preRunServer is the server-binary-specific pre-run; it ensures that the server
 // has everything it needs to perform any client-side command/task.
-func preRunServer(teamserver *server.Server, con *client.SliverClient) func() error {
-	return func() error {
-		// Ensure the server has what it needs.
-		assets.Setup(false, true)
-		encoders.Setup()
-		certs.SetupCAs()
-		certs.SetupWGKeys()
-		cryptography.AgeServerKeyPair()
-		cryptography.MinisignServerPrivateKey()
-
-		// TODO: Move this out of here.
-		serverConfig := configs.GetServerConfig()
-		c2.StartPersistentJobs(serverConfig)
-
-		// Let our in-memory teamclient be served.
-		return teamserver.Serve(con.Teamclient)
-	}
-}
+// func preRunServer(teamserver *server.Server, con *client.SliverClient) func() error {
+// 	return func() error {
+// 		// Ensure the server has what it needs.
+// 		assets.Setup(false, true)
+// 		encoders.Setup()
+// 		certs.SetupCAs()
+// 		certs.SetupWGKeys()
+// 		cryptography.AgeServerKeyPair()
+// 		cryptography.MinisignServerPrivateKey()
+//
+// 		// TODO: Move this out of here.
+// 		serverConfig := configs.GetServerConfig()
+// 		c2.StartPersistentJobs(serverConfig)
+//
+// 		// Let our in-memory teamclient be served.
+// 		return teamserver.Serve(con.Teamclient)
+// 	}
+// }
 
 // 	preRun := func(cmd *cobra.Command, _ []string) error {
 //

@@ -70,7 +70,7 @@ func implantCmd(con *client.SliverClient, sliverCmds console.Commands) *cobra.Co
 // a console.Client method to be used easily by the users using "custom" Go clients for some things.
 func preRunImplant(implantCmd *cobra.Command, con *client.SliverClient) command.CobraRunnerE {
 	return func(cmd *cobra.Command, args []string) error {
-		if err := con.ConnectRun(cmd, args); err != nil {
+		if err := con.PreRunConnect(cmd, args); err != nil {
 			return err
 		}
 

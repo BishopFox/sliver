@@ -65,7 +65,7 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverClient
 // FormatCompleter completes builds' architectures.
 func ArchCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
-		if msg, err := con.ConnectComplete(); err != nil {
+		if msg, err := con.PreRunComplete(); err != nil {
 			return msg
 		}
 
@@ -103,7 +103,7 @@ func ArchCompleter(con *console.SliverClient) carapace.Action {
 // FormatCompleter completes build operating systems.
 func OSCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
-		if msg, err := con.ConnectComplete(); err != nil {
+		if msg, err := con.PreRunComplete(); err != nil {
 			return msg
 		}
 
@@ -150,7 +150,7 @@ func FormatCompleter() carapace.Action {
 // TrafficEncoderCompleter - Completes the names of traffic encoders.
 func TrafficEncodersCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
-		if msg, err := con.ConnectComplete(); err != nil {
+		if msg, err := con.PreRunComplete(); err != nil {
 			return msg
 		}
 
@@ -180,7 +180,7 @@ func TrafficEncodersCompleter(con *console.SliverClient) carapace.Action {
 // MsfFormatCompleter completes MsfVenom stager formats.
 func MsfFormatCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
-		if msg, err := con.ConnectComplete(); err != nil {
+		if msg, err := con.PreRunComplete(); err != nil {
 			return msg
 		}
 
@@ -208,7 +208,7 @@ func MsfFormatCompleter(con *console.SliverClient) carapace.Action {
 // MsfArchCompleter completes MsfVenom stager architectures.
 func MsfArchCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
-		if msg, err := con.ConnectComplete(); err != nil {
+		if msg, err := con.PreRunComplete(); err != nil {
 			return msg
 		}
 
@@ -235,7 +235,7 @@ func MsfArchCompleter(con *console.SliverClient) carapace.Action {
 // MsfFormatCompleter completes MsfVenom stager encoders.
 func MsfEncoderCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
-		if msg, err := con.ConnectComplete(); err != nil {
+		if msg, err := con.PreRunComplete(); err != nil {
 			return msg
 		}
 
@@ -262,7 +262,7 @@ func MsfEncoderCompleter(con *console.SliverClient) carapace.Action {
 // MsfPayloadCompleter completes Metasploit payloads.
 func MsfPayloadCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
-		if msg, err := con.ConnectComplete(); err != nil {
+		if msg, err := con.PreRunComplete(); err != nil {
 			return msg
 		}
 

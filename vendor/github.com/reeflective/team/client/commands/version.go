@@ -22,11 +22,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-
 	"github.com/reeflective/team/client"
 	"github.com/reeflective/team/internal/command"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 )
 
 func versionCmd(cli *client.Client) func(cmd *cobra.Command, args []string) error {

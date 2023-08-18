@@ -423,7 +423,7 @@ func PrintProfileInfo(name string, con *console.SliverClient) {
 // ProfileNameCompleter - Completer for implant build names.
 func ProfileNameCompleter(con *console.SliverClient) carapace.Action {
 	comps := func(ctx carapace.Context) carapace.Action {
-		if msg, err := con.ConnectComplete(); err != nil {
+		if msg, err := con.PreRunComplete(); err != nil {
 			return msg
 		}
 

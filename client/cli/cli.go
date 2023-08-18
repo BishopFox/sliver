@@ -87,7 +87,7 @@ func SliverCLI(con *client.SliverClient) (root *cobra.Command) {
 	root.AddCommand(implantCmd(con, command.SliverCommands(con)))
 
 	// Pre/post runners and completions.
-	command.BindPreRun(root, con.ConnectRun)
+	command.BindPreRun(root, con.PreRunConnect)
 	command.BindPostRun(root, con.PostRunDisconnect)
 
 	// Generate the root completion command.

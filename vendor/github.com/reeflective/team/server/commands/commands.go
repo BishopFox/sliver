@@ -21,14 +21,13 @@ package commands
 import (
 	"fmt"
 
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-
 	"github.com/reeflective/team/client"
 	cli "github.com/reeflective/team/client/commands"
 	"github.com/reeflective/team/internal/command"
 	"github.com/reeflective/team/server"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // Generate returns a "teamserver" command root and its tree for teamserver (server-side) management.
@@ -118,7 +117,12 @@ func serverCommands(server *server.Server, client *client.Client) *cobra.Command
 	closeComps.PositionalAnyCompletion(carapace.ActionCallback(listenerIDCompleter(client, server)))
 
 	closeComps.PreRun(func(cmd *cobra.Command, args []string) {
-		cmd.PersistentPreRunE(cmd, args)
+		if cmd.PersistentPreRunE != nil {
+			cmd.PersistentPreRunE(cmd, args)
+		}
+		if cmd.PreRunE != nil {
+			cmd.PreRunE(cmd, args)
+		}
 	})
 
 	teamCmd.AddCommand(closeCmd)
@@ -213,7 +217,12 @@ func serverCommands(server *server.Server, client *client.Client) *cobra.Command
 	rmUserComps.PositionalCompletion(carapace.ActionCallback(userCompleter(client, server)))
 
 	rmUserComps.PreRun(func(cmd *cobra.Command, args []string) {
-		cmd.PersistentPreRunE(cmd, args)
+		if cmd.PersistentPreRunE != nil {
+			cmd.PersistentPreRunE(cmd, args)
+		}
+		if cmd.PreRunE != nil {
+			cmd.PreRunE(cmd, args)
+		}
 	})
 
 	// Import a list of users and their credentials.

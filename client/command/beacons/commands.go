@@ -82,7 +82,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 // BeaconIDCompleter completes beacon IDs.
 func BeaconIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(c carapace.Context) carapace.Action {
-		if msg, err := con.ConnectComplete(); err != nil {
+		if msg, err := con.PreRunComplete(); err != nil {
 			return msg
 		}
 

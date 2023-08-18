@@ -537,7 +537,7 @@ github.com/reeflective/readline/internal/macro
 github.com/reeflective/readline/internal/strutil
 github.com/reeflective/readline/internal/term
 github.com/reeflective/readline/internal/ui
-# github.com/reeflective/team v0.1.0
+# github.com/reeflective/team v0.1.1
 ## explicit; go 1.21
 github.com/reeflective/team
 github.com/reeflective/team/client

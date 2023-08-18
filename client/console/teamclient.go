@@ -37,7 +37,7 @@ import (
 	"github.com/reeflective/team"
 )
 
-// ConnectRun is a spf13/cobra-compliant runner function to be included
+// PreRunConnect is a spf13/cobra-compliant runner function to be included
 // in/as any of the runners that such cobra.Commands offer to use.
 //
 // The function will connect the Sliver teamclient to a remote server,
@@ -45,7 +45,7 @@ import (
 //
 // Note that this function will always check if it used as part of a completion
 // command execution call, in which case asciicast/logs streaming is disabled.
-func (con *SliverClient) ConnectRun(cmd *cobra.Command, args []string) error {
+func (con *SliverClient) PreRunConnect(cmd *cobra.Command, args []string) error {
 	con.FilterCommands(cmd)
 
 	// If commands are imcompatible with the current requirements.
@@ -85,7 +85,7 @@ func (con *SliverClient) ConnectRun(cmd *cobra.Command, args []string) error {
 	return con.startClientLog()
 }
 
-// ConnectComplete is a special connection mode which should be
+// PreRunComplete is a special connection mode which should be
 // called in completer functions that need to use the client RPC.
 // It is almost equivalent to client.ConnectRun(), but for completions.
 //
@@ -94,7 +94,7 @@ func (con *SliverClient) ConnectRun(cmd *cobra.Command, args []string) error {
 //
 // This function is safe to call regardless of the client being used
 // as a closed-loop console mode or in an exec-once CLI mode.
-func (con *SliverClient) ConnectComplete() (carapace.Action, error) {
+func (con *SliverClient) PreRunComplete() (carapace.Action, error) {
 	if con.Rpc != nil {
 		return carapace.ActionValues(), nil
 	}
@@ -124,7 +124,6 @@ func (con *SliverClient) ConnectComplete() (carapace.Action, error) {
 // Sliver RPC client connection. This should be ran as a post-runner.
 // After this call, the client can reconnect should it want to.
 func (con *SliverClient) PostRunDisconnect(cmd *cobra.Command, args []string) error {
-	// Close all RPC streams and local files.
 	con.closeClientStreams()
 
 	// Close the RPC client connection.
