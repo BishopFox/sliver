@@ -88,6 +88,7 @@ func PrintWebsite(web *clientpb.Website, con *console.SliverClient) {
 	con.Println()
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"Path",
 		"Content-type",

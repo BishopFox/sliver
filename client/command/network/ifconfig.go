@@ -74,6 +74,7 @@ func PrintIfconfig(ifconfig *sliverpb.Ifconfig, all bool, con *console.SliverCli
 	for index, iface := range interfaces {
 		tw := table.NewWriter()
 		tw.SetStyle(settings.GetTableWithBordersStyle(con))
+		settings.SetMaxTableSize(tw)
 		tw.SetTitle(fmt.Sprintf(console.Bold+"%s"+console.Normal, iface.Name))
 		tw.SetColumnConfigs([]table.ColumnConfig{
 			{Name: "#", AutoMerge: true},

@@ -32,6 +32,7 @@ func CanariesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 func PrintCanaries(con *console.SliverClient, canaries []*clientpb.DNSCanary, burnedOnly bool) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"Sliver Name",
 		"Domain",

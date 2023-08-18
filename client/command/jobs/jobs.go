@@ -64,6 +64,7 @@ func JobsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 func PrintJobs(jobs map[uint32]*clientpb.Job, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Name",

@@ -52,6 +52,7 @@ func ReactionCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 func displayReactionsTable(eventType string, reactions []core.Reaction, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.SetTitle(fmt.Sprintf(console.Bold+"%s"+console.Normal, EventTypeToTitle(eventType)))
 	tw.AppendSeparator()
 	slackSpace := len(EventTypeToTitle(eventType)) - len("Commands") - len("ID") - 3

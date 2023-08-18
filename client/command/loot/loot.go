@@ -55,6 +55,7 @@ func PrintAllFileLootTable(allLoot *clientpb.AllLoot, con *console.SliverClient)
 	}
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Name",

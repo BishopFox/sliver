@@ -53,6 +53,7 @@ func ProfilesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"Profile Name",
 		"Implant Type",

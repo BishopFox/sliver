@@ -42,6 +42,7 @@ func SettingsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 	tw := table.NewWriter()
 	tw.SetStyle(GetTableStyle(con))
+	SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{"Name", "Value", "Description"})
 	tw.AppendRow(table.Row{"Tables", con.Settings.TableStyle, "Set the stylization of tables"})
 	tw.AppendRow(table.Row{"Auto Adult", con.Settings.AutoAdult, "Automatically accept OPSEC warnings"})

@@ -63,6 +63,7 @@ func PrintRportFwdListeners(rportfwdListeners *sliverpb.RportFwdListeners, flags
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Remote Address",

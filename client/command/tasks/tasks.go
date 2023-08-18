@@ -50,6 +50,7 @@ func TasksCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 func PrintBeaconTasks(tasks []*clientpb.BeaconTask, cmd *cobra.Command, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"ID",
 		"State",

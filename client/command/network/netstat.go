@@ -88,6 +88,7 @@ func PrintNetstat(netstat *sliverpb.Netstat, implantPID int32, activeC2 string, 
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{"Protocol", "Local Address", "Foreign Address", "State", "PID/Program name"})
 
 	for _, entry := range netstat.Entries {

@@ -62,6 +62,7 @@ func HostsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 func hostsTable(hosts []*clientpb.Host, con *console.SliverClient) string {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Hostname",

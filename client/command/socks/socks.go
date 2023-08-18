@@ -45,6 +45,7 @@ func SocksCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Session ID",

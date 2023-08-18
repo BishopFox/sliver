@@ -220,6 +220,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.SetTitle(console.Bold + "Packages" + console.Normal)
+	settings.SetMaxTableSize(tw)
 
 	urlMargin := 150 // Extra margin needed to show URL column
 
@@ -306,6 +307,7 @@ func PrintArmoryBundles(bundles []*ArmoryBundle, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.SetTitle(console.Bold + "Bundles" + console.Normal)
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"Name",
 		"Contains",

@@ -63,6 +63,7 @@ func ImplantsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 func PrintImplantBuilds(configs map[string]*clientpb.ImplantConfig, filters ImplantBuildFilter, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"Name",
 		"Implant Type",

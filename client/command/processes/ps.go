@@ -164,6 +164,7 @@ func PrintPS(os string, ps *sliverpb.Ps, interactive bool, flags *pflag.FlagSet,
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 
 	switch os {
 	case "windows":

@@ -135,6 +135,7 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	wideTermWidth := con.Settings.SmallTermWidth < width
 
 	if wideTermWidth {

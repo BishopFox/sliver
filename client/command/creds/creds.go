@@ -61,6 +61,7 @@ func PrintCreds(creds []*clientpb.Credential, con *console.SliverClient) {
 func printCollection(collection string, creds []*clientpb.Credential, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	if collection != "" {
 		tw.SetTitle(console.Bold + collection + console.Normal)
 	} else {

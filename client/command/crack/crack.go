@@ -140,6 +140,7 @@ func printBenchmarks(cracker *clientpb.Crackstation, con *console.SliverClient) 
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.SetTitle(console.Bold + "Benchmarks" + console.Normal)
 	tw.SortBy([]table.SortBy{{Name: "Hash Type"}})
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{"Hash Type", "Rate (H/s)"})
 	for hashType, speed := range cracker.Benchmarks {
 		tw.AppendRow(table.Row{clientpb.HashType(hashType), fmt.Sprintf("%d", speed)})

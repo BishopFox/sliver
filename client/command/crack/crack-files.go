@@ -98,6 +98,7 @@ func CrackHcstat2Cmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 func PrintCrackFiles(crackFiles *clientpb.CrackFiles, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{"Name", "Size"})
 	for _, file := range crackFiles.Files {
 		tw.AppendRow(table.Row{file.Name, util.ByteCountBinary(file.UncompressedSize)})
@@ -109,16 +110,19 @@ func PrintCrackFilesByType(crackFiles *clientpb.CrackFiles, con *console.SliverC
 	wordlistTable := table.NewWriter()
 	wordlistTable.SetTitle(console.Bold + "Wordlists" + console.Normal)
 	wordlistTable.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(wordlistTable)
 	wordlistTable.AppendHeader(table.Row{"Name", "Size"})
 
 	rulesTable := table.NewWriter()
 	rulesTable.SetTitle(console.Bold + "Rules" + console.Normal)
 	rulesTable.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(rulesTable)
 	rulesTable.AppendHeader(table.Row{"Name", "Size"})
 
 	hcTable := table.NewWriter()
 	hcTable.SetTitle(console.Bold + "Markov Hcstat2" + console.Normal)
 	hcTable.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(hcTable)
 	hcTable.AppendHeader(table.Row{"Name", "Size"})
 
 	wordlists := 0

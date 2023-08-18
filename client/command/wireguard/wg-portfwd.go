@@ -58,6 +58,7 @@ func WGPortFwdListCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		} else {
 			tw := table.NewWriter()
 			tw.SetStyle(settings.GetTableStyle(con))
+			settings.SetMaxTableSize(tw)
 			tw.AppendHeader(table.Row{
 				"ID",
 				"Name",

@@ -49,6 +49,7 @@ func AliasesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) er
 func PrintAliases(con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"Name",
 		"Command Name",

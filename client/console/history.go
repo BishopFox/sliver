@@ -75,6 +75,7 @@ func (con *SliverClient) newImplantHistory(user bool) (*implantHistory, error) {
 }
 
 // Write - Sends the last command to the server for saving.
+// Some commands are not saved (background, exit, etc)
 func (h *implantHistory) Write(cmdline string) (int, error) {
 	sess, beac := h.con.ActiveTarget.Get()
 	if sess == nil && beac == nil {
@@ -138,7 +139,8 @@ func (h *implantHistory) Len() int {
 	return len(h.items)
 }
 
-// Dump returns the entire history.
+// Dump returns the entire history, and caches it
+// internally to avoid queries when possible.
 func (h *implantHistory) Dump() interface{} {
 	sess, beac := h.con.ActiveTarget.Get()
 	if sess == nil && beac == nil {
@@ -177,6 +179,8 @@ func (h *implantHistory) Close() error {
 	return err
 }
 
+// isTrivialCommand returns true for commands that don't
+// need to be saved in a given implant command history.
 func isTrivialCommand(cmdline string) bool {
 	ignoreCmds := map[string]bool{
 		"":           true,

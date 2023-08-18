@@ -89,6 +89,7 @@ func PrintPivotListenerDetails(listener *sliverpb.PivotListener, con *console.Sl
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.SetTitle(fmt.Sprintf(console.Bold+"%s Pivots"+console.Normal, PivotTypeToString(listener.Type)))
 	tw.AppendSeparator()
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Remote Address",

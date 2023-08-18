@@ -58,6 +58,7 @@ func WGSocksListCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 		if 0 < len(socksList.Servers) {
 			tw := table.NewWriter()
 			tw.SetStyle(settings.GetTableStyle(con))
+			settings.SetMaxTableSize(tw)
 			tw.AppendHeader(table.Row{
 				"ID",
 				"Local Address",

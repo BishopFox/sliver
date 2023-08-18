@@ -29,6 +29,7 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
@@ -51,6 +52,7 @@ func HostsIOCCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 func hostIOCsTable(host *clientpb.Host, con *console.SliverClient) string {
 	tw := table.NewWriter()
 	tw.SetStyle(table.StyleBold)
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{"File Path", "SHA-256"})
 	for _, ioc := range host.IOCs {
 		tw.AppendRow(table.Row{

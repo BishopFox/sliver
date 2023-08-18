@@ -58,6 +58,7 @@ func TrafficEncodersCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 func DisplayTrafficEncoders(encoderMap *clientpb.TrafficEncoderMap, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Name",
@@ -203,6 +204,7 @@ func clearLines(count int, con *console.SliverClient) {
 func displayTrafficEncoderTests(running bool, tests *clientpb.TrafficEncoderTests, con *console.SliverClient) int {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"Test",
 		"Result",

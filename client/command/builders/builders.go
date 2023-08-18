@@ -49,6 +49,7 @@ func BuildersCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 func PrintBuilders(externalBuilders []*clientpb.Builder, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"Name", "Operator", "Templates", "Platform", "Compiler Targets",
 	})

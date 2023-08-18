@@ -55,6 +55,7 @@ func CursedCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if 0 < len(cursedProcesses) {
 		tw := table.NewWriter()
 		tw.SetStyle(settings.GetTableStyle(con))
+		settings.SetMaxTableSize(tw)
 		tw.AppendHeader(table.Row{
 			"Bind Port", "Session ID", "PID", "Platform", "Executable", "Debug URL",
 		})
