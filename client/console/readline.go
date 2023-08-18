@@ -113,6 +113,8 @@ func (con *SliverClient) WaitSignal() error {
 		return nil
 	}
 
+	con.PrintInfof("(Use Ctrl-C/SIGINT to exit, Ctrl-Z to background)")
+
 	sigchan := make(chan os.Signal, 1)
 
 	signal.Notify(

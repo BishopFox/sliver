@@ -25,18 +25,17 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/reeflective/team/client"
-	"github.com/reeflective/team/client/commands"
-	"github.com/reeflective/team/server"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 
+	"github.com/reeflective/team/client"
+	"github.com/reeflective/team/client/commands"
+	"github.com/reeflective/team/server"
+
 	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/builder"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
@@ -84,15 +83,15 @@ func Commands(con *console.SliverClient, team *server.Server) []*cobra.Command {
 	return []*cobra.Command{builderCmd}
 }
 
-func runBuilderCmd(cmd *cobra.Command, args []string, team *server.Server) {
+func runBuilderCmd(cmd *cobra.Command, args []string, team *server.Server) error {
 	configPath, err := cmd.Flags().GetString(operatorConfigFlagStr)
 	if err != nil {
 		builderLog.Errorf("Failed to parse --%s flag %s\n", operatorConfigFlagStr, err)
-		return
+		return nil
 	}
 	if configPath == "" {
 		builderLog.Errorf("Missing --%s flag\n", operatorConfigFlagStr)
-		return
+		return nil
 	}
 
 	quiet, err := cmd.Flags().GetBool(quietFlagStr)
@@ -107,7 +106,7 @@ func runBuilderCmd(cmd *cobra.Command, args []string, team *server.Server) {
 	level, err := cmd.Flags().GetInt(logLevelFlagStr)
 	if err != nil {
 		builderLog.Errorf("Failed to parse --%s flag %s\n", logLevelFlagStr, err)
-		return
+		return nil
 	}
 	log.RootLogger.SetLevel(log.LevelFrom(level))
 
@@ -123,7 +122,7 @@ func runBuilderCmd(cmd *cobra.Command, args []string, team *server.Server) {
 	externalBuilder.Templates = []string{"sliver"}
 
 	// load the client configuration from the filesystem
-	startBuilderTeamclient(externalBuilder, configPath, team)
+	return startBuilderTeamclient(externalBuilder, configPath, team)
 }
 
 func parseBuilderConfigFlags(cmd *cobra.Command) *clientpb.Builder {
@@ -256,10 +255,14 @@ func parseForceDisableTargets(cmd *cobra.Command, externalBuilder *clientpb.Buil
 	}
 }
 
-func startBuilderTeamclient(externalBuilder *clientpb.Builder, configPath string, team *server.Server) {
-	tc := new(transport.TeamClient)
+func startBuilderTeamclient(externalBuilder *clientpb.Builder, configPath string, team *server.Server) error {
+	// Make an altogether new Sliver client. We have all of its tooling by default, at no cost.
+	sliverClient, err := console.NewSliverClient()
+	if err != nil {
+		return err
+	}
 
-	teamclient := team.Self(client.WithDialer(tc))
+	teamclient := sliverClient.Teamclient
 
 	// Now use our teamclient to fetch the configuration.
 	config, err := teamclient.ReadConfig(configPath)
@@ -279,15 +282,14 @@ func startBuilderTeamclient(externalBuilder *clientpb.Builder, configPath string
 	builderLog.Infof("Hello my name is: %s", externalBuilder.Name)
 
 	builderLog.Infof("Connecting to %s@%s:%d ...", config.User, config.Host, config.Port)
+	sliverClient.PrintInfof("Connecting to %s@%s:%d ...", config.User, config.Host, config.Port)
 
-	// And immediately connect with it.
+	// And immediately connect to it.
 	teamclient.Connect(client.WithConfig(config))
 	defer teamclient.Disconnect()
 
-	rpc := rpcpb.NewSliverRPCClient(tc.Conn)
-
 	// Let the builder do its work, blocking.
-	builder.StartBuilder(externalBuilder, rpc)
+	return builder.StartBuilder(externalBuilder, sliverClient)
 }
 
 // builderFormatsCompleter completes supported builders architectures.
