@@ -103,6 +103,7 @@ type SliverClient struct {
 	Settings *assets.ClientSettings
 	IsServer bool
 	isCLI    bool
+	signals  map[string]chan os.Signal
 
 	// Teamclient & remotes
 	Teamclient *client.Client
@@ -179,6 +180,7 @@ func newClient() *SliverClient {
 		App:                      console.New("sliver"),
 		Settings:                 settings,
 		isCLI:                    true,
+		signals:                  make(map[string]chan os.Signal),
 		printf:                   fmt.Printf,
 		jsonHandler:              slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{}),
 		ActiveTarget:             newActiveTarget(),

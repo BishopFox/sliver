@@ -26,13 +26,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gofrs/uuid"
+	"google.golang.org/protobuf/proto"
+
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/prelude"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/gofrs/uuid"
-	"google.golang.org/protobuf/proto"
 )
 
 func (con *SliverClient) startEventLoop() {
@@ -144,6 +145,9 @@ func (con *SliverClient) startEventLoop() {
 
 		case consts.BeaconTaskResultEvent:
 			con.triggerBeaconTaskCallback(event.Data)
+
+		case consts.BeaconTaskCanceledEvent:
+			con.triggerTaskCancel(event.Data)
 		}
 
 		con.triggerReactions(event)
@@ -252,6 +256,36 @@ func (con *SliverClient) triggerBeaconTaskCallback(data []byte) {
 				con.PrintErrorf("Could not get beacon task content: %s\n", err)
 			}
 		}
+		delete(con.BeaconTaskCallbacks, task.ID)
+		con.waitingResult <- true
+	}
+}
+
+// triggerTaskCancel cancels any command thread that is waiting for a task that has just been canceled.
+func (con *SliverClient) triggerTaskCancel(data []byte) {
+	task := &clientpb.BeaconTask{}
+	err := proto.Unmarshal(data, task)
+	if err != nil {
+		con.PrintErrorf("\rCould not unmarshal beacon task: %s", err)
+		return
+	}
+
+	// If the callback is not in our map then we don't do anything: we are not the origin
+	// of the task and we are therefore not blocking somewhere waiting for its results.
+	con.BeaconTaskCallbacksMutex.Lock()
+	defer con.BeaconTaskCallbacksMutex.Unlock()
+	if _, ok := con.BeaconTaskCallbacks[task.ID]; ok {
+
+		// If needed, wait for the "request sent" status to be printed first.
+		con.beaconTaskSentMutex.Lock()
+		if waitStatus := con.beaconSentStatus[task.ID]; waitStatus != nil {
+			waitStatus.Wait()
+			delete(con.beaconSentStatus, task.ID)
+		}
+		con.beaconTaskSentMutex.Unlock()
+
+		// Display a message indicating that the task was canceled.
+		con.PrintWarnf("Task %s was cancelled by another client\n", strings.Split(task.ID, "-")[0])
 		delete(con.BeaconTaskCallbacks, task.ID)
 		con.waitingResult <- true
 	}

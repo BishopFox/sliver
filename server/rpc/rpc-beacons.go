@@ -21,8 +21,12 @@ package rpc
 import (
 	"context"
 
+	"google.golang.org/protobuf/proto"
+
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
@@ -129,5 +133,21 @@ func (rpc *Server) CancelBeaconTask(ctx context.Context, req *clientpb.BeaconTas
 	if err != nil {
 		return nil, ErrInvalidBeaconTaskID
 	}
+
+	// Some client might be currently blocking for the canceled
+	// task result, so tell them about it so they can exit.
+	beacon, err := db.BeaconByID(task.BeaconID.String())
+	if err != nil {
+		return task.ToProtobuf(false), ErrInvalidBeaconID
+	}
+
+	eventData, _ := proto.Marshal(task.ToProtobuf(false))
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.BeaconTaskCanceledEvent,
+		Data:      eventData,
+		Beacon:    beacon,
+	})
+
 	return task.ToProtobuf(false), nil
 }

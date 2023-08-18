@@ -563,11 +563,12 @@ message Client {
 message Event {
   string EventType = 1;
   Session Session = 2;
-  Job Job = 3;
-  Client Client = 4;
-  bytes Data = 5;
+  Beacon Beacon = 3;
+  Job Job = 4;
+  Client Client = 5;
+  bytes Data = 6;
 
-  string Err = 6; // Can't trigger normal gRPC error
+  string Err = 7; // Can't trigger normal gRPC error
 }
 
 message Operator {

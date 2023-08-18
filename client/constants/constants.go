@@ -95,6 +95,9 @@ const (
 	// BeaconTaskResult - Beacon task completed with a result.
 	BeaconTaskResultEvent = "beacon-taskresult"
 
+	// BeaconTaskCanceledEvent - Indicates that a beacon task has been canceled.
+	BeaconTaskCanceledEvent = "beacon-task-canceled"
+
 	// ExternalBuildEvent.
 	ExternalBuildEvent          = "external-build"
 	AcknowledgeBuildEvent       = "external-acknowledge"
