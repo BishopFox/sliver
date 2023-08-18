@@ -105,11 +105,8 @@ type SliverClient struct {
 	isCLI    bool
 
 	// Teamclient & remotes
-	// The dialer being exported is quite dirty,
-	// and there might be a way to unexport it.
-	// The problem is currently with builders which need it.
 	Teamclient *client.Client
-	Dialer     *transport.TeamClient
+	dialer     *transport.TeamClient
 	preRunners []func(*cobra.Command, []string) error
 
 	// Logging
@@ -151,12 +148,12 @@ func NewSliverClient(opts ...grpc.DialOption) (con *SliverClient, err error) {
 	con = newClient()
 
 	// Our reeflective/team.Client needs our gRPC stack.
-	con.Dialer = transport.NewClient(opts...)
+	con.dialer = transport.NewClient(opts...)
 
 	var clientOpts []client.Options
 	clientOpts = append(clientOpts,
 		client.WithHomeDirectory(assets.GetRootAppDir()),
-		client.WithDialer(con.Dialer),
+		client.WithDialer(con.dialer),
 		client.WithLogger(initTeamclientLog()),
 	)
 

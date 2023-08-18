@@ -72,7 +72,7 @@ func (con *SliverClient) PreRunConnect(cmd *cobra.Command, args []string) error 
 
 	// Register our Sliver client services, and monitor events.
 	// Also set ourselves up to save our client commands in history.
-	con.connect(con.Dialer.Conn)
+	con.connect(con.dialer.Conn)
 
 	// Never enable asciicasts/logs streaming when this
 	// client is used to perform completions. Both of these will tinker
@@ -114,7 +114,7 @@ func (con *SliverClient) PreRunComplete() (carapace.Action, error) {
 
 	// Register our Sliver client services, and monitor events.
 	// Also set ourselves up to save our client commands in history.
-	con.connect(con.Dialer.Conn)
+	con.connect(con.dialer.Conn)
 
 	return carapace.ActionValues(), nil
 }
