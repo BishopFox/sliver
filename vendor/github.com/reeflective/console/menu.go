@@ -9,8 +9,9 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/reeflective/readline"
 	"github.com/spf13/cobra"
+
+	"github.com/reeflective/readline"
 )
 
 // Menu - A menu is a simple way to seggregate commands based on

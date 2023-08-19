@@ -10,10 +10,11 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/reeflective/readline"
 	"github.com/rsteube/carapace"
 	"github.com/rsteube/carapace/pkg/style"
 	"github.com/rsteube/carapace/pkg/xdg"
+
+	"github.com/reeflective/readline"
 )
 
 func (c *Console) complete(line []rune, pos int) readline.Completions {

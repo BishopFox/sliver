@@ -23,9 +23,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/reeflective/readline"
 	"github.com/reeflective/readline/inputrc"
-	"github.com/spf13/cobra"
 )
 
 const (

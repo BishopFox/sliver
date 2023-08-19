@@ -5,20 +5,21 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/reeflective/readline"
-	"github.com/reeflective/readline/inputrc"
 	"github.com/rsteube/carapace"
 	"github.com/rsteube/carapace/pkg/style"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
+
+	"github.com/reeflective/readline"
+	"github.com/reeflective/readline/inputrc"
 )
 
 var (
 	// We here must assume that all bind changes during the lifetime
 	// of the binary are all made by a single readline application.
 	// This config only stores the vars/binds that have been changed.
-	cfgChanged = inputrc.Config{}
+	cfgChanged = inputrc.NewConfig()
 )
 
 // Set returns a command named `set`, for manipulating readline global options.

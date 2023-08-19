@@ -7,9 +7,6 @@ go 1.21
 // and is regularly maintained up-to-date with upstream. Should be removed long-term.
 replace github.com/rsteube/carapace v0.43.0 => github.com/reeflective/carapace v0.25.2-0.20230816093630-a30f5184fa0d
 
-// Team is the teamserver/teamclient library, and this directive should be removed.
-// replace github.com/reeflective/team => /home/user/code/github.com/reeflective/team
-
 require (
 	filippo.io/age v1.1.1
 	github.com/AlecAivazis/survey/v2 v2.3.7
@@ -29,6 +26,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/jedib0t/go-pretty/v6 v6.4.6
+	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/klauspost/compress v1.16.6
 	github.com/lesnuages/go-winio v0.4.19
@@ -38,7 +36,7 @@ require (
 	github.com/moloch--/asciicast v0.1.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/ncruces/go-sqlite3 v0.8.4
-	github.com/reeflective/console v0.1.7
+	github.com/reeflective/console v0.1.8
 	github.com/reeflective/readline v1.0.9
 	github.com/reeflective/team v0.1.1
 	github.com/rsteube/carapace v0.43.0
@@ -128,7 +126,6 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/josharian/native v1.1.1-0.20230202152459-5c7d0dd6ab86 // indirect
 	github.com/jsimonetti/rtnetlink v1.3.2 // indirect
-	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kortschak/wol v0.0.0-20200729010619-da482cc4850a // indirect
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
