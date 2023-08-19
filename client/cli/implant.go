@@ -9,12 +9,13 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/exp/slices"
 
+	"github.com/reeflective/console"
+
 	"github.com/bishopfox/sliver/client/command"
 	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/use"
 	client "github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
-	"github.com/reeflective/console"
 )
 
 // implantCmd returns the command tree for Sliver active targets.
@@ -101,6 +102,16 @@ func preRunImplant(implantCmd *cobra.Command, con *client.SliverClient) command.
 		// This is identical to the filtering behavior in the console.
 		if err := con.App.ActiveMenu().CheckIsAvailable(cmd); err != nil {
 			return err
+		}
+
+		// Keep a copy of the command-line: used for beacon task command-line info.
+		con.Args = os.Args[1:]
+		for i, arg := range os.Args {
+			if arg == cmd.Name() {
+				con.Args = os.Args[i:]
+			} else if slices.Contains(cmd.Aliases, arg) {
+				con.Args = os.Args[i:]
+			}
 		}
 
 		return nil

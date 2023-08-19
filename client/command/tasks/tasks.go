@@ -54,7 +54,7 @@ func PrintBeaconTasks(tasks []*clientpb.BeaconTask, cmd *cobra.Command, con *con
 	tw.AppendHeader(table.Row{
 		"ID",
 		"State",
-		"Message Type",
+		"Command Line",
 		"Created",
 		"Sent",
 		"Completed",

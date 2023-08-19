@@ -102,6 +102,7 @@ func sliverServerCLI(team *server.Server, con *client.SliverClient) (root *cobra
 
 	root = server()
 	root.Use = "sliver-server" // Needed by completion scripts.
+	con.IsServer = true
 
 	// Bind the closed-loop console:
 	// The console shares the same setup/connection pre-runners as other commands,

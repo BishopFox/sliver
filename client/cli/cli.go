@@ -28,6 +28,7 @@ import (
 	"github.com/reeflective/team/client/commands"
 
 	"github.com/bishopfox/sliver/client/command"
+	"github.com/bishopfox/sliver/client/command/completers"
 	sliverConsole "github.com/bishopfox/sliver/client/command/console"
 	client "github.com/bishopfox/sliver/client/console"
 )
@@ -35,7 +36,7 @@ import (
 // Execute - Run the sliver client binary.
 func Execute() {
 	// Create a client-only (remote TLS-transported connections)
-	// Sliver Client, prepared with a working reeflective/teamclient.
+	// Sliver client, prepared with a working reeflective/teamclient.
 	// The teamclient automatically handles remote teamserver configuration
 	// prompting/loading and use, as well as other things.
 	con, err := client.NewSliverClient()
@@ -43,7 +44,7 @@ func Execute() {
 		log.Fatal(err)
 	}
 
-	// Generate our complete Sliver Framework command-line interface.
+	// Generate the entire Sliver framework command-line interface.
 	rootCmd := SliverCLI(con)
 
 	// Version
@@ -67,12 +68,12 @@ func SliverCLI(con *client.SliverClient) (root *cobra.Command) {
 	}
 
 	// Generate a single tree instance of server commands:
-	// These are used as the primary, one-exec-only CLI of Sliver, and are equipped with
-	// a pre-runner ensuring the server and its teamclient are set up and connected.
+	// These are used as the primary, one-exec-only CLI of Sliver, and will be equipped
+	// with a pre-runner ensuring the server and its teamclient are set up and connected.
 	server := command.ServerCommands(con, teamclientCmds)
 
-	root = server()
-	root.Use = "sliver-client" // Needed by completion scripts.
+	root = server()            // The root has an empty command name...
+	root.Use = "sliver-client" // so adjust it, because needed by completion scripts.
 
 	// Bind the closed-loop console.
 	// The console shares the same setup/connection pre-runners as other commands,
@@ -90,6 +91,15 @@ func SliverCLI(con *client.SliverClient) (root *cobra.Command) {
 	// Pre/post runners and completions.
 	command.BindPreRun(root, con.PreRunConnect)
 	command.BindPostRun(root, con.PostRunDisconnect)
+
+	// Add a CLI-specific flag for allowing users to force a specific remote
+	// Sliver server configuration to be used, instead of prompting user to choose.
+	root.Flags().StringP("config", "c", "", "Force connecting to a specific Sliver server")
+	completers.NewFlagCompsFor(root, func(comp *carapace.ActionMap) {
+		(*comp)["config"] = carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+			return commands.ConfigsAppCompleter(con.Teamclient, "configs")
+		})
+	})
 
 	// Generate the root completion command.
 	carapace.Gen(root)

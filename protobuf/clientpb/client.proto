@@ -143,6 +143,7 @@ message BeaconTask {
   bytes Request = 7;
   bytes Response = 8;
   string Description = 9;
+  repeated string CmdLine = 10;
 }
 
 message BeaconTasks {

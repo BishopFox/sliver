@@ -291,6 +291,7 @@ func (con *SliverClient) triggerTaskCancel(data []byte) {
 	}
 }
 
+// AddBeaconCallback registers a new function to call once a beacon task is completed and received.
 func (con *SliverClient) AddBeaconCallback(resp *commonpb.Response, callback BeaconTaskCallback) {
 	if resp == nil || resp.TaskID == "" {
 		return
@@ -312,14 +313,29 @@ func (con *SliverClient) AddBeaconCallback(resp *commonpb.Response, callback Bea
 	con.waitSignalOrClose()
 }
 
-// NewTask registers a new task (asynchronous -beacon- or not). If:
-// - the provided (task) Response is nil,
-// - if the task is not marked Async,
-// - or if it's ID is nil,
-// the task is considered synchronous, and we will directly call
-// the handle function to execute the post-response workflow.
+// NewTask is a function resting on the idea that a task can be handled identically regardless
+// of if it's a beacon or a session one. This function tries to solve several problems at once:
+//
+//   - Enable commands to declare only a single "execution workflow" for all implant types.
+//   - Allow us to hook onto the process for various things. Example: we want to save each
+//     beacon task with its corresponding command-line (for accessibility/display purposes),
+//     and we would prefer doing it without having to call History RPC stuff in another place.
+//   - Eventually or potentially, also treat all session requests as tasks, with 0 delay.
+//     You then have a single, more unified way of treating all implant interactions.
+//     No need to store implant history in JSON/text files, just use the database for it.
+//
+// This function DOES NOT register a beacon callback (eg. treats the task as synchronous), when:
+//   - the provided (task) Response is nil,
+//   - if the task is not marked Async,
+//   - or if it's ID is nil,
+//
+// In which case, the handle function is directly called and executed with the result.
+// This function is not used, but is fully compatible with all of your code (I checked).
+//
+// Usage:
+// con.NewTask(download.Response, download, func() { PrintCat(download, cmd, con) })
 func (con *SliverClient) NewTask(resp *commonpb.Response, message proto.Message, handle func()) {
-	// We're no beacon here.
+	// We're no beacon here, just run the response handler.
 	if resp == nil || !resp.Async || resp.TaskID == "" {
 		if handle != nil {
 			handle()
@@ -340,5 +356,3 @@ func (con *SliverClient) NewTask(resp *commonpb.Response, message proto.Message,
 		}
 	})
 }
-
-// con.NewTask(download.Response, download, func() { PrintCat(download, cmd, con) })

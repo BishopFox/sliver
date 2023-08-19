@@ -80,9 +80,9 @@ func (con *SliverClient) FilterCommands(cmd *cobra.Command, filters ...string) {
 	}
 }
 
-// AddPreRunner should be considered part of the temporary API.
+// AddPreRuns should be considered part of the temporary API.
 // It is used by the Sliver client to run hooks before running its own pre-connect
-// handlers, and can thus be used to register server-only pre-run routines.
+// handlers, and this function is thus used to register server-only pre-run routines.
 func (con *SliverClient) AddPreRuns(hooks ...func(_ *cobra.Command, _ []string) error) {
 	con.preRunners = append(con.preRunners, hooks...)
 }
@@ -103,24 +103,6 @@ func (con *SliverClient) runPreConnectHooks(cmd *cobra.Command, args []string) e
 	return nil
 }
 
-// WARN: this is the premise of a big burden. Please bear this in mind.
-// If I haven't speaked to you about it, or if you're not sure of what
-// that means, ping me up and ask.
-func (con *SliverClient) isOffline(cmd *cobra.Command) bool {
-	// Teamclient configuration import does not need network.
-	ts, _, err := cmd.Root().Find([]string{"teamserver", "client", "import"})
-	if err == nil && ts != nil && ts == cmd {
-		return true
-	}
-
-	tc, _, err := cmd.Root().Find([]string{"teamclient", "import"})
-	if err == nil && ts != nil && tc == cmd {
-		return true
-	}
-
-	return false
-}
-
 func isFiltered(cmd *cobra.Command, targetFilters []string) bool {
 	if cmd.Annotations == nil {
 		return false
@@ -139,4 +121,44 @@ func isFiltered(cmd *cobra.Command, targetFilters []string) bool {
 	}
 
 	return false
+}
+
+// isOffline is unfortunately required for now.
+// Some commands don't need access to the server, and therefore should
+// be runnable even if no remote teamserver configs are available.
+//
+// An alternative would be to add some annotations to the commands
+// just like we use annotations for implant command filtering, but
+// I didn't want to impose such a practice without being sure of
+// where it ultimately leads. Plus, there are not that many commands
+// that need such a check, so I prefered to just hardcode them in
+// the offlineCommands list below.
+//
+// This function only returns true when the exact command matches.
+func (con *SliverClient) isOffline(cmd *cobra.Command) bool {
+	for _, cmdLine := range offlineCommands {
+		ts, _, err := cmd.Root().Find(cmdLine)
+		if err != nil || ts == nil {
+			continue
+		}
+
+		if ts == cmd {
+			return true
+		}
+	}
+
+	return false
+}
+
+var offlineCommands = [][]string{
+	// Teamclient/teamserver management
+	{"teamserver", "client", "import"}, // sliver-server
+	{"teamclient", "import"},           // sliver-client
+
+	// Sliver-specific
+	{"help"},
+	{consts.UpdateStr},
+	{consts.VersionStr},
+	{consts.LicensesStr},
+	{consts.SettingsStr},
 }

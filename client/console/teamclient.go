@@ -29,12 +29,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 
+	"github.com/reeflective/team"
+	"github.com/reeflective/team/client"
+
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/reeflective/team"
 )
 
 // PreRunConnect is a spf13/cobra-compliant runner function to be included
@@ -59,14 +61,23 @@ func (con *SliverClient) PreRunConnect(cmd *cobra.Command, args []string) error 
 		return nil
 	}
 
+	// Run any additional pre-run hooks, generally those registered
+	// by the sliver-server binary to ensure assets are setup, etc.
 	if err := con.runPreConnectHooks(cmd, args); err != nil {
+		return err
+	}
+
+	// Check if the user told us to connect to a specific server
+	// instead of prompting him with all the configs we found.
+	clientOpts, err := con.loadConfig(cmd)
+	if err != nil {
 		return err
 	}
 
 	// Let our teamclient connect the transport/RPC stack.
 	// Note that this uses a sync.Once to ensure we don't
 	// connect more than once.
-	if err := con.Teamclient.Connect(); err != nil {
+	if err := con.Teamclient.Connect(clientOpts...); err != nil {
 		return err
 	}
 
@@ -83,6 +94,33 @@ func (con *SliverClient) PreRunConnect(cmd *cobra.Command, args []string) error 
 
 	// Else, initialize our logging/asciicasts streams.
 	return con.startClientLog()
+}
+
+// loadConfig uses the --config flag (if existing), to override the server remote
+// configuration to use, therefore skipping user prompts when there are more than one.
+func (con *SliverClient) loadConfig(cmd *cobra.Command) ([]client.Options, error) {
+	// No overriding
+	if !cmd.Flags().Changed("config") {
+		return nil, nil
+	}
+
+	configPath, err := cmd.Flags().GetString("config")
+	if err != nil {
+		return nil, err
+	}
+
+	// Let the teamclient attempt to read the config.
+	config, err := con.Teamclient.ReadConfig(configPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Should not happen, but just in case.
+	if config == nil {
+		return nil, errors.New("The teamclient returned no config, but no error")
+	}
+
+	return append([]client.Options{}, client.WithConfig(config)), nil
 }
 
 // PreRunComplete is a special connection mode which should be
@@ -154,7 +192,7 @@ func (con *SliverClient) Users() (users []team.User, err error) {
 	return
 }
 
-// Version implements team.Client.VersionClient() interface method, overriding
+// VersionClient implements team.Client.VersionClient() interface method, overriding
 // the default teamclient version output to use our Makefile-prepared one.
 func (con *SliverClient) VersionClient() (v team.Version, err error) {
 	dirty := version.GitDirty != ""
@@ -172,7 +210,7 @@ func (con *SliverClient) VersionClient() (v team.Version, err error) {
 	}, nil
 }
 
-// ServerVersion returns the version information of the server to which
+// VersionServer returns the version information of the server to which
 // the client is connected, or nil and an error if it could not retrieve it.
 func (con *SliverClient) VersionServer() (version team.Version, err error) {
 	if con.Rpc == nil {

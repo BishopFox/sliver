@@ -30,10 +30,11 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 
+	"github.com/reeflective/console"
+
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/reeflective/console"
 )
 
 // GetPrompt returns the prompt string computed for the current context.

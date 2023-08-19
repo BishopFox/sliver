@@ -35,15 +35,16 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 
+	"github.com/reeflective/console"
+	"github.com/reeflective/readline"
+	"github.com/reeflective/team/client"
+
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/reeflective/console"
-	"github.com/reeflective/readline"
-	"github.com/reeflective/team/client"
 )
 
 const (
@@ -98,17 +99,18 @@ type (
 // which means that users of this Sliver client may build arbitrarily complex server
 // selection/connection strategies.
 type SliverClient struct {
-	// Core client
-	App      *console.Console
-	Settings *assets.ClientSettings
-	IsServer bool
-	isCLI    bool
-	signals  map[string]chan os.Signal
-
-	// Teamclient & remotes
+	// Core Client & Teamclient
+	App        *console.Console
+	Settings   *assets.ClientSettings
+	IsServer   bool
 	Teamclient *client.Client
-	dialer     *transport.TeamClient
-	preRunners []func(*cobra.Command, []string) error
+	dialer     *transport.TeamClient // Allows to access the grpc.Conn.
+
+	// Command utilities
+	isCLI      bool                                   // Are we in a exec-once CLI command mode.
+	preRunners []func(*cobra.Command, []string) error // Additional pre-runners (server)
+	signals    map[string]chan os.Signal              // Some commands can block, and be unblocked.
+	Args       []string                               // Cache the last command-line we have run.
 
 	// Logging
 	jsonHandler slog.Handler
@@ -121,6 +123,7 @@ type SliverClient struct {
 	EventListeners *sync.Map
 
 	// Tasks (pending)
+	// (Ensure we always print result after sent status display)
 	beaconSentStatus    map[string]*sync.WaitGroup
 	beaconTaskSentMutex *sync.Mutex
 	waitingResult       chan bool
@@ -231,6 +234,15 @@ func newClient() *SliverClient {
 func (con *SliverClient) StartConsole() error {
 	con.isCLI = false
 	con.printf = con.App.TransientPrintf
+
+	// os.Args are useless, and we need to keep each
+	// of our commands in case they are ran on beacons:
+	// those "need" the command line attached to task requests.
+	con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks,
+		func(args []string) ([]string, error) {
+			con.Args = args
+			return args, nil
+		})
 
 	return con.App.Start()
 }

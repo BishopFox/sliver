@@ -177,10 +177,12 @@ func (s *ActiveTarget) AddObserver(observer Observer) int {
 	return s.observerID
 }
 
+// RemoveObserver removes an observer from the active target.
 func (s *ActiveTarget) RemoveObserver(observerID int) {
 	delete(s.observers, observerID)
 }
 
+// Request prepares a request metadata for the currently active target.
 func (s *ActiveTarget) Request(cmd *cobra.Command) *commonpb.Request {
 	if s.session == nil && s.beacon == nil {
 		return nil
@@ -204,6 +206,9 @@ func (s *ActiveTarget) Request(cmd *cobra.Command) *commonpb.Request {
 		req.Async = true
 		req.BeaconID = s.beacon.ID
 	}
+
+	req.CmdLine = s.con.Args
+
 	return req
 }
 

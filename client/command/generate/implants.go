@@ -66,7 +66,7 @@ func PrintImplantBuilds(configs map[string]*clientpb.ImplantConfig, filters Impl
 	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"Name",
-		"Implant Type",
+		"Type",
 		"Template",
 		"OS/Arch",
 		"Format",

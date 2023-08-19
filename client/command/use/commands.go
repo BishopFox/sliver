@@ -16,9 +16,10 @@ import (
 // Commands returns the “ command and its subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	useCmd := &cobra.Command{
-		Use:   consts.UseStr,
-		Short: "Switch the active session or beacon",
-		Long:  help.GetHelpFor([]string{consts.UseStr}),
+		Use:         consts.UseStr,
+		Short:       "Switch the active session or beacon",
+		Long:        help.GetHelpFor([]string{consts.UseStr}),
+		Annotations: flags.RestrictTargets(consts.ConsoleCmdsFilter),
 		Run: func(cmd *cobra.Command, args []string) {
 			UseCmd(cmd, con, args)
 		},

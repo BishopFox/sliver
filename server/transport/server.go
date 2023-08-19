@@ -89,7 +89,7 @@ func NewTeamserver() (team *server.Server, clientOpts []grpc.DialOption, err err
 // It returns a teamclient meant to be ran in memory, with TLS credentials disabled.
 func clientOptionsFor(server *teamserver, opts ...grpc.DialOption) []grpc.DialOption {
 	conn := bufconn.Listen(bufSize)
-    insecureCreds := insecure.NewCredentials()
+	insecureCreds := insecure.NewCredentials()
 
 	ctxDialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return conn.Dial()

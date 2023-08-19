@@ -21,8 +21,14 @@ package rpc
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
+
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+
+	"github.com/kballard/go-shellquote"
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -31,10 +37,6 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/reeflective/team/server"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/peer"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 var rpcLog = log.NamedLogger("rpc", "server")
@@ -151,9 +153,13 @@ func (rpc *Server) asyncGenericHandler(req GenericRequest, resp GenericResponse)
 		rpcLog.Errorf("Database error: %s", err)
 		return ErrDatabaseFailure
 	}
-	parts := strings.Split(string(req.ProtoReflect().Descriptor().FullName().Name()), ".")
-	name := parts[len(parts)-1]
-	task.Description = name
+	// Save the command-line being ran as description instead, and preserve quoting.
+	// Currently this is not optimal, as it uses a UNIX-style quoter. I've found
+	// other packages that handle all operating systems, such as https://github.com/apparentlymart/go-shquot.
+	task.Description = shellquote.Join(request.GetCmdLine()...)
+	// parts := strings.Split(string(req.ProtoReflect().Descriptor().FullName().Name()), ".")
+	// name := parts[len(parts)-1]
+
 	err = db.Session().Save(task).Error
 	if err != nil {
 		rpcLog.Errorf("Database error: %s", err)
