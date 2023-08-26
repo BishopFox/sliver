@@ -34,6 +34,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Use:   consts.SessionsStr,
 		Short: "Switch the active session",
 		Long:  help.GetHelpFor([]string{consts.UseStr, consts.SessionsStr}),
+		Annotations: flags.RestrictTargets(consts.ConsoleCmdsFilter),
 		Run: func(cmd *cobra.Command, args []string) {
 			UseSessionCmd(cmd, con, args)
 		},
@@ -45,6 +46,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Use:   consts.BeaconsStr,
 		Short: "Switch the active beacon",
 		Long:  help.GetHelpFor([]string{consts.UseStr, consts.BeaconsStr}),
+		Annotations: flags.RestrictTargets(consts.ConsoleCmdsFilter),
 		Run: func(cmd *cobra.Command, args []string) {
 			UseBeaconCmd(cmd, con, args)
 		},

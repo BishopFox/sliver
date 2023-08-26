@@ -5,6 +5,10 @@ go 1.21
 // A fork of the completion engine is currently used in order to consume the engine
 // as a library. The fork is a very slightly patched mainline tree for that purpose,
 // and is regularly maintained up-to-date with upstream. Should be removed long-term.
+//
+// To update or try to: 
+// - You must replace rsteube/carapace v0.43.0 with the version found in the main require.
+// - You must replace v0.25.2... with "library", then go mod tidy && go mod vendor.
 replace github.com/rsteube/carapace v0.43.0 => github.com/reeflective/carapace v0.25.2-0.20230816093630-a30f5184fa0d
 
 require (
