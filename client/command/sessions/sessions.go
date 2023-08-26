@@ -90,6 +90,7 @@ func SessionsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		if err != nil {
 			con.PrintErrorf("%s", err)
 		}
+		con.PrintInfof("Killed %s (%s)\n", session.Name, session.ID)
 		return
 	}
 

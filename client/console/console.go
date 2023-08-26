@@ -292,6 +292,10 @@ func (con *SliverClient) GrpcContext(cmd *cobra.Command) (context.Context, conte
 // UnwrapServerErr unwraps errors returned by gRPC method calls.
 // Should be used to return every non-nil resp, err := con.Rpc.Function().
 func (con *SliverClient) UnwrapServerErr(err error) error {
+	if err == nil {
+		return nil
+	}
+
 	return errors.New(status.Convert(err).Message())
 }
 
