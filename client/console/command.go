@@ -158,7 +158,6 @@ var offlineCommands = [][]string{
 	// Sliver-specific
 	{"help"},
 	{consts.UpdateStr},
-	{consts.VersionStr},
 	{consts.LicensesStr},
 	{consts.SettingsStr},
 }
