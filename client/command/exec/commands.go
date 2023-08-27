@@ -179,52 +179,6 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 	carapace.Gen(migrateCmd).PositionalCompletion(carapace.ActionValues().Usage("PID of process to migrate into"))
 
-	msfCmd := &cobra.Command{
-		Use:   consts.MsfStr,
-		Short: "Execute an MSF payload in the current process",
-		Long:  help.GetHelpFor([]string{consts.MsfStr}),
-		Run: func(cmd *cobra.Command, args []string) {
-			MsfCmd(cmd, con, args)
-		},
-		GroupID: consts.ExecutionHelpGroup,
-	}
-	flags.Bind("", false, msfCmd, func(f *pflag.FlagSet) {
-		f.StringP("payload", "m", "meterpreter_reverse_https", "msf payload")
-		f.StringP("lhost", "L", "", "listen host")
-		f.IntP("lport", "l", 4444, "listen port")
-		f.StringP("encoder", "e", "", "msf encoder")
-		f.IntP("iterations", "i", 1, "iterations of the encoder")
-
-		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
-	})
-	completers.NewFlagCompsFor(msfCmd, func(comp *carapace.ActionMap) {
-		(*comp)["encoder"] = generate.MsfEncoderCompleter(con)
-		(*comp)["payload"] = generate.MsfPayloadCompleter(con)
-	})
-
-	msfInjectCmd := &cobra.Command{
-		Use:   consts.MsfInjectStr,
-		Short: "Inject an MSF payload into a process",
-		Long:  help.GetHelpFor([]string{consts.MsfInjectStr}),
-		Run: func(cmd *cobra.Command, args []string) {
-			MsfInjectCmd(cmd, con, args)
-		},
-		GroupID: consts.ExecutionHelpGroup,
-	}
-	flags.Bind("", false, msfInjectCmd, func(f *pflag.FlagSet) {
-		f.IntP("pid", "p", -1, "pid to inject into")
-		f.StringP("payload", "m", "meterpreter_reverse_https", "msf payload")
-		f.StringP("lhost", "L", "", "listen host")
-		f.IntP("lport", "l", 4444, "listen port")
-		f.StringP("encoder", "e", "", "msf encoder")
-		f.IntP("iterations", "i", 1, "iterations of the encoder")
-
-		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
-	})
-	completers.NewFlagCompsFor(msfInjectCmd, func(comp *carapace.ActionMap) {
-		(*comp)["encoder"] = generate.MsfEncoderCompleter(con)
-	})
-
 	psExecCmd := &cobra.Command{
 		Use:   consts.PsExecStr,
 		Short: "Start a sliver service on a remote target",
@@ -283,5 +237,5 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	carapace.Gen(sshCmd).PositionalCompletion(carapace.ActionValues().Usage("remote host to SSH to (required)"))
 	carapace.Gen(sshCmd).PositionalAnyCompletion(carapace.ActionValues().Usage("command line with arguments"))
 
-	return []*cobra.Command{executeCmd, executeAssemblyCmd, executeShellcodeCmd, sideloadCmd, spawnDllCmd, migrateCmd, msfCmd, msfInjectCmd, psExecCmd, sshCmd}
+	return []*cobra.Command{executeCmd, executeAssemblyCmd, executeShellcodeCmd, sideloadCmd, spawnDllCmd, migrateCmd, psExecCmd, sshCmd}
 }

@@ -19,9 +19,8 @@ package command
 */
 
 import (
-	"github.com/spf13/cobra"
-
 	"github.com/reeflective/console"
+	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/alias"
@@ -34,9 +33,10 @@ import (
 	"github.com/bishopfox/sliver/client/command/filesystem"
 	"github.com/bishopfox/sliver/client/command/history"
 	"github.com/bishopfox/sliver/client/command/info"
-	"github.com/bishopfox/sliver/client/command/jobs"
 	"github.com/bishopfox/sliver/client/command/kill"
+	"github.com/bishopfox/sliver/client/command/msf"
 	"github.com/bishopfox/sliver/client/command/network"
+	"github.com/bishopfox/sliver/client/command/pipe"
 	"github.com/bishopfox/sliver/client/command/pivots"
 	"github.com/bishopfox/sliver/client/command/portfwd"
 	"github.com/bishopfox/sliver/client/command/privilege"
@@ -49,6 +49,8 @@ import (
 	"github.com/bishopfox/sliver/client/command/shell"
 	"github.com/bishopfox/sliver/client/command/socks"
 	"github.com/bishopfox/sliver/client/command/tasks"
+	"github.com/bishopfox/sliver/client/command/tcp"
+	"github.com/bishopfox/sliver/client/command/transports"
 	"github.com/bishopfox/sliver/client/command/wasm"
 	"github.com/bishopfox/sliver/client/command/wireguard"
 	client "github.com/bishopfox/sliver/client/console"
@@ -100,7 +102,9 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 
 		// [ Network tools ]
 		bind(consts.NetworkHelpGroup,
-			jobs.SliverCommands,
+			transports.SliverCommands,
+			tcp.SliverCommands,
+			pipe.Commands,
 			network.Commands,
 			rportfwd.Commands,
 			portfwd.Commands,
@@ -112,6 +116,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 		bind(consts.ExecutionHelpGroup,
 			shell.Commands,
 			exec.Commands,
+			msf.Commands,
 			backdoor.Commands,
 			dllhijack.Commands,
 			cursed.Commands,

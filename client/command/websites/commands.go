@@ -28,6 +28,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 	carapace.Gen(websitesCmd).PositionalCompletion(WebsiteNameCompleter(con))
 
+	// General websites management
 	websitesRmCmd := &cobra.Command{
 		Use:   consts.RmStr,
 		Short: "Remove an entire website and all of its contents",
@@ -39,10 +40,17 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	carapace.Gen(websitesRmCmd).PositionalCompletion(WebsiteNameCompleter(con))
 	websitesCmd.AddCommand(websitesRmCmd)
 
+	// Content management
+	contentCmd := &cobra.Command{
+		Use:   consts.ContentStr,
+		Short: "Manage wesite contents",
+	}
+	websitesCmd.AddCommand(contentCmd)
+
 	websitesRmWebContentCmd := &cobra.Command{
-		Use:   consts.RmWebContentStr,
+		Use:   consts.RmStr,
 		Short: "Remove specific content from a website",
-		Long:  help.GetHelpFor([]string{consts.WebsitesStr, consts.RmWebContentStr}),
+		Long:  help.GetHelpFor([]string{consts.WebsitesStr, consts.RmStr}),
 		Run: func(cmd *cobra.Command, args []string) {
 			WebsitesRmContent(cmd, con, args)
 		},
@@ -52,36 +60,36 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("website", "w", "", "website name")
 		f.StringP("web-path", "p", "", "http path to host file at")
 	})
-	websitesCmd.AddCommand(websitesRmWebContentCmd)
+	contentCmd.AddCommand(websitesRmWebContentCmd)
 	completers.NewFlagCompsFor(websitesRmWebContentCmd, func(comp *carapace.ActionMap) {
 		(*comp)["website"] = WebsiteNameCompleter(con)
 	})
 
 	websitesContentCmd := &cobra.Command{
-		Use:   consts.AddWebContentStr,
+		Use:   consts.AddStr,
 		Short: "Add content to a website",
-		Long:  help.GetHelpFor([]string{consts.WebsitesStr, consts.RmWebContentStr}),
+		Long:  help.GetHelpFor([]string{consts.WebsitesStr, consts.AddStr}),
+		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			WebsitesAddContentCmd(cmd, con, args)
 		},
 	}
+	contentCmd.AddCommand(websitesContentCmd)
 	flags.Bind("websites", false, websitesContentCmd, func(f *pflag.FlagSet) {
 		f.StringP("website", "w", "", "website name")
 		f.StringP("content-type", "m", "", "mime content-type (if blank use file ext.)")
 		f.StringP("web-path", "p", "/", "http path to host file at")
-		f.StringP("content", "c", "", "local file path/dir (must use --recursive for dir)")
 		f.BoolP("recursive", "r", false, "recursively add/rm content")
 	})
 	completers.NewFlagCompsFor(websitesContentCmd, func(comp *carapace.ActionMap) {
-		(*comp)["content"] = carapace.ActionFiles().Tag("content directory/files")
 		(*comp)["website"] = WebsiteNameCompleter(con)
 	})
-	websitesCmd.AddCommand(websitesContentCmd)
+	carapace.Gen(websitesContentCmd).PositionalCompletion(carapace.ActionFiles())
 
 	websitesContentTypeCmd := &cobra.Command{
-		Use:   consts.WebContentTypeStr,
+		Use:   consts.TypeStr,
 		Short: "Update a path's content-type",
-		Long:  help.GetHelpFor([]string{consts.WebsitesStr, consts.WebContentTypeStr}),
+		Long:  help.GetHelpFor([]string{consts.WebsitesStr, consts.TypeStr}),
 		Run: func(cmd *cobra.Command, args []string) {
 			WebsitesUpdateContentCmd(cmd, con, args)
 		},
@@ -91,7 +99,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("content-type", "m", "", "mime content-type (if blank use file ext.)")
 		f.StringP("web-path", "p", "/", "http path to host file at")
 	})
-	websitesCmd.AddCommand(websitesContentTypeCmd)
+	contentCmd.AddCommand(websitesContentTypeCmd)
 	completers.NewFlagCompsFor(websitesContentTypeCmd, func(comp *carapace.ActionMap) {
 		(*comp)["website"] = WebsiteNameCompleter(con)
 	})

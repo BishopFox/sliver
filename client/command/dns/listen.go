@@ -1,4 +1,4 @@
-package jobs
+package dns
 
 /*
 	Sliver Implant Framework
@@ -28,8 +28,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// DNSListenerCmd - Start a DNS lisenter.
-func DNSListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+// ListenCmd - Start a DNS lisenter.
+func ListenCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	domainsF, _ := cmd.Flags().GetString("domains")
 	domains := strings.Split(domainsF, ",")
 	for index, domain := range domains {

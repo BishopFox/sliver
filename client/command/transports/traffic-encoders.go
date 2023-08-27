@@ -1,4 +1,4 @@
-package generate
+package transports
 
 /*
 	Sliver Implant Framework
@@ -29,11 +29,13 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/gofrs/uuid"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -309,4 +311,34 @@ func SelectTrafficEncoder(con *console.SliverClient) string {
 	}
 	survey.AskOne(prompt, &selectedEncoder)
 	return selectedEncoder
+}
+
+// TrafficEncoderCompleter - Completes the names of traffic encoders.
+func TrafficEncodersCompleter(con *console.SliverClient) carapace.Action {
+	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		if msg, err := con.PreRunComplete(); err != nil {
+			return msg
+		}
+
+		grpcCtx, cancel := con.GrpcContext(nil)
+		defer cancel()
+		trafficEncoders, err := con.Rpc.TrafficEncoderMap(grpcCtx, &commonpb.Empty{})
+		if err != nil {
+			return carapace.ActionMessage("failed to fetch traffic encoders: %s", con.UnwrapServerErr(err))
+		}
+
+		results := []string{}
+		for _, encoder := range trafficEncoders.Encoders {
+			results = append(results, encoder.Wasm.Name)
+			skipTests := ""
+			if encoder.SkipTests {
+				skipTests = "[skip-tests]"
+			}
+			desc := fmt.Sprintf("(Wasm: %s) %s", encoder.Wasm.Name, skipTests)
+			results = append(results, desc)
+		}
+
+		return carapace.ActionValuesDescribed(results...).Tag("traffic encoders").
+			Invoke(c).Filter(c.Args).ToA()
+	}).Cache(completers.CacheCompilerInfo)
 }

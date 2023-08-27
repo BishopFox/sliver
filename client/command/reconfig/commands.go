@@ -12,23 +12,6 @@ import (
 
 // Commands returns the “ command and its subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
-	reconfigCmd := &cobra.Command{
-		Use:   consts.ReconfigStr,
-		Short: "Reconfigure the active beacon/session",
-		Long:  help.GetHelpFor([]string{consts.ReconfigStr}),
-		Run: func(cmd *cobra.Command, args []string) {
-			ReconfigCmd(cmd, con, args)
-		},
-		GroupID:     consts.SliverCoreHelpGroup,
-		Annotations: flags.RestrictTargets(consts.BeaconCmdsFilter),
-	}
-	flags.Bind("reconfig", false, reconfigCmd, func(f *pflag.FlagSet) {
-		f.StringP("reconnect-interval", "r", "", "reconnect interval for implant")
-		f.StringP("beacon-interval", "i", "", "beacon callback interval")
-		f.StringP("beacon-jitter", "j", "", "beacon callback jitter (random up to)")
-		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
-	})
-
 	renameCmd := &cobra.Command{
 		Use:   consts.RenameStr,
 		Short: "Rename the active beacon/session",
@@ -43,5 +26,5 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 
-	return []*cobra.Command{reconfigCmd, renameCmd}
+	return []*cobra.Command{renameCmd}
 }

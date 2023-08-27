@@ -1,4 +1,4 @@
-package jobs
+package pipe
 
 /*
    Sliver Implant Framework
@@ -27,8 +27,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// StartNamedPipeListenerCmd - Start a TCP pivot listener on the remote system.
-func StartNamedPipeListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+// ListenCmd - Start a TCP pivot listener on the remote system.
+func ListenCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

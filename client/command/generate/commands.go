@@ -8,6 +8,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
+	"github.com/bishopfox/sliver/client/command/transports"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 )
@@ -87,44 +88,6 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		},
 	}
 	generateCmd.AddCommand(generateInfoCmd)
-
-	// Traffic Encoder SubCommands
-	trafficEncodersCmd := &cobra.Command{
-		Use:   consts.TrafficEncodersStr,
-		Short: "Manage implant traffic encoders",
-		Long:  help.GetHelpFor([]string{consts.GenerateStr, consts.TrafficEncodersStr}),
-		Run: func(cmd *cobra.Command, args []string) {
-			TrafficEncodersCmd(cmd, con, args)
-		},
-	}
-	generateCmd.AddCommand(trafficEncodersCmd)
-
-	trafficEncodersAddCmd := &cobra.Command{
-		Use:   consts.AddStr,
-		Short: "Add a new traffic encoder to the server from the local file system",
-		Long:  help.GetHelpFor([]string{consts.GenerateStr, consts.TrafficEncodersStr, consts.AddStr}),
-		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			TrafficEncodersAddCmd(cmd, con, args)
-		},
-	}
-	flags.Bind("", false, trafficEncodersAddCmd, func(f *pflag.FlagSet) {
-		f.BoolP("skip-tests", "s", false, "skip testing the traffic encoder (not recommended)")
-	})
-	carapace.Gen(trafficEncodersAddCmd).PositionalCompletion(carapace.ActionFiles("wasm").Tag("wasm files").Usage("local file path (expects .wasm)"))
-	trafficEncodersCmd.AddCommand(trafficEncodersAddCmd)
-
-	trafficEncodersRmCmd := &cobra.Command{
-		Use:   consts.RmStr,
-		Short: "Remove a traffic encoder from the server",
-		Long:  help.GetHelpFor([]string{consts.GenerateStr, consts.TrafficEncodersStr, consts.RmStr}),
-		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			TrafficEncodersRemoveCmd(cmd, con, args)
-		},
-	}
-	carapace.Gen(trafficEncodersRmCmd).PositionalCompletion(TrafficEncodersCompleter(con).Usage("traffic encoder to remove"))
-	trafficEncodersCmd.AddCommand(trafficEncodersRmCmd)
 
 	// [ Regenerate ] --------------------------------------------------------------
 
@@ -349,7 +312,7 @@ func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverClient) {
 		(*comp)["strategy"] = carapace.ActionValuesDescribed([]string{"r", "random", "rd", "random domain", "s", "sequential"}...).Tag("C2 strategy")
 		(*comp)["format"] = FormatCompleter()
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
-		(*comp)["traffic-encoders"] = TrafficEncodersCompleter(con).UniqueList(",")
+		(*comp)["traffic-encoders"] = transports.TrafficEncodersCompleter(con).UniqueList(",")
 	})
 }
 

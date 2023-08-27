@@ -1,4 +1,4 @@
-package jobs
+package https
 
 /*
 	Sliver Implant Framework
@@ -36,8 +36,8 @@ import (
 	"github.com/bishopfox/sliver/util/encoders"
 )
 
-// StageListenerCmd --url [tcp://ip:port | http://ip:port ] --profile name.
-func StageListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+// ServeStageCmd --url [tcp://ip:port | http://ip:port ] --profile name.
+func ServeStageCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	profileName, _ := cmd.Flags().GetString("profile")
 	listenerURL, _ := cmd.Flags().GetString("url")
 	aesEncryptKey, _ := cmd.Flags().GetString("aes-encrypt-key")
@@ -140,78 +140,34 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		stage2 = util.RC4EncryptUnsafe(stage2, []byte(rc4EncryptKey))
 	}
 
-	switch stagingURL.Scheme {
-	case "http":
-		if prependSize {
-			stage2 = prependPayloadSize(stage2)
-		}
-		ctrl := make(chan bool)
-		con.SpinUntil("Starting HTTP staging listener...", ctrl)
-		stageListener, err := con.Rpc.StartHTTPStagerListener(context.Background(), &clientpb.StagerListenerReq{
-			Protocol: clientpb.StageProtocol_HTTP,
-			Data:     stage2,
-			Host:     stagingURL.Hostname(),
-			Port:     uint32(stagingPort),
-		})
-		ctrl <- true
-		<-ctrl
-		if err != nil {
-			con.PrintErrorf("Error starting HTTP staging listener: %s\n", con.UnwrapServerErr(err))
-			return
-		}
-		con.PrintInfof("Job %d (http) started\n", stageListener.GetJobID())
-	case "https":
-		letsEncrypt, _ := cmd.Flags().GetBool("lets-encrypt")
-		if prependSize {
-			stage2 = prependPayloadSize(stage2)
-		}
-		cert, key, err := getLocalCertificatePair(cmd)
-		if err != nil {
-			con.Println()
-			con.PrintErrorf("Failed to load local certificate %s\n", err)
-			return
-		}
-		ctrl := make(chan bool)
-		con.SpinUntil("Starting HTTPS staging listener...", ctrl)
-		stageListener, err := con.Rpc.StartHTTPStagerListener(context.Background(), &clientpb.StagerListenerReq{
-			Protocol: clientpb.StageProtocol_HTTPS,
-			Data:     stage2,
-			Host:     stagingURL.Hostname(),
-			Port:     uint32(stagingPort),
-			Cert:     cert,
-			Key:      key,
-			ACME:     letsEncrypt,
-		})
-		ctrl <- true
-		<-ctrl
-		if err != nil {
-			con.PrintErrorf("Error starting HTTPS staging listener: %v\n", con.UnwrapServerErr(err))
-			return
-		}
-		con.PrintInfof("Job %d (https) started\n", stageListener.GetJobID())
-	case "tcp":
-		// Always prepend payload size for TCP stagers
+	letsEncrypt, _ := cmd.Flags().GetBool("lets-encrypt")
+	if prependSize {
 		stage2 = prependPayloadSize(stage2)
-		ctrl := make(chan bool)
-		con.SpinUntil("Starting TCP staging listener...", ctrl)
-		stageListener, err := con.Rpc.StartTCPStagerListener(context.Background(), &clientpb.StagerListenerReq{
-			Protocol: clientpb.StageProtocol_TCP,
-			Data:     stage2,
-			Host:     stagingURL.Hostname(),
-			Port:     uint32(stagingPort),
-		})
-		ctrl <- true
-		<-ctrl
-		if err != nil {
-			con.PrintErrorf("Error starting TCP staging listener: %v\n", con.UnwrapServerErr(err))
-			return
-		}
-		con.PrintInfof("Job %d (tcp) started\n", stageListener.GetJobID())
-
-	default:
-		con.PrintErrorf("Unsupported staging protocol: %s\n", stagingURL.Scheme)
+	}
+	cert, key, err := getLocalCertificatePair(cmd)
+	if err != nil {
+		con.Println()
+		con.PrintErrorf("Failed to load local certificate %s\n", err)
 		return
 	}
+	ctrl := make(chan bool)
+	con.SpinUntil("Starting HTTPS staging listener...", ctrl)
+	stageListener, err := con.Rpc.StartHTTPStagerListener(context.Background(), &clientpb.StagerListenerReq{
+		Protocol: clientpb.StageProtocol_HTTPS,
+		Data:     stage2,
+		Host:     stagingURL.Hostname(),
+		Port:     uint32(stagingPort),
+		Cert:     cert,
+		Key:      key,
+		ACME:     letsEncrypt,
+	})
+	ctrl <- true
+	<-ctrl
+	if err != nil {
+		con.PrintErrorf("Error starting HTTPS staging listener: %v\n", con.UnwrapServerErr(err))
+		return
+	}
+	con.PrintInfof("Job %d (https) started\n", stageListener.GetJobID())
 
 	if aesEncrypt {
 		con.PrintInfof("AES KEY: %v\n", aesEncryptKey)

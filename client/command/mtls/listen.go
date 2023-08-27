@@ -1,4 +1,4 @@
-package jobs
+package mtls
 
 /*
 	Sliver Implant Framework
@@ -27,8 +27,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// MTLSListenerCmd - Start an mTLS listener.
-func MTLSListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+// ListenCmd - Start an mTLS listener.
+func ListenCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	lhost, _ := cmd.Flags().GetString("lhost")
 	lport, _ := cmd.Flags().GetUint32("lport")
 	persistent, _ := cmd.Flags().GetBool("persistent")

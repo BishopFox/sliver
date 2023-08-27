@@ -146,7 +146,12 @@ const (
 	WatchStr           = "watch"
 	SettingsStr        = "settings"
 	SearchStr          = "search"
-	TrafficEncodersStr = "traffic-encoders"
+	TrafficEncodersStr = "encoders"
+
+	// C2 actions
+	ListenStr = "listen"
+	DialStr   = "dial"
+	ServeStr  = "serve"
 
 	// Generic.
 
@@ -176,6 +181,7 @@ const (
 	ImplantBuildsStr = "implants"
 	CanariesStr      = "canaries"
 
+	TranportsStr   = "transports"
 	JobsStr        = "jobs"
 	MtlsStr        = "mtls"
 	WGStr          = "wg"
@@ -186,7 +192,7 @@ const (
 	TCPListenerStr = "tcp"
 
 	MsfStr       = "msf"
-	MsfInjectStr = "msf-inject"
+	MsfInjectStr = "inject"
 
 	PsStr        = "ps"
 	PingStr      = "ping"
@@ -237,10 +243,9 @@ const (
 	AliasesStr          = "aliases"
 	StageListenerStr    = "stage-listener"
 
-	WebsitesStr       = "websites"
-	RmWebContentStr   = "rm-content"
-	AddWebContentStr  = "add-content"
-	WebContentTypeStr = "content-type"
+	WebsitesStr = "websites"
+	ContentStr  = "content"
+	TypeStr     = "type"
 
 	ScreenshotStr         = "screenshot"
 	PsExecStr             = "psexec"
@@ -255,7 +260,7 @@ const (
 	RegistryCreateKeyStr  = "create"
 	RegistryDeleteKeyStr  = "delete"
 	PivotsStr             = "pivots"
-	WgConfigStr           = "wg-config"
+	WgConfigStr           = "config"
 	WgSocksStr            = "wg-socks"
 	WgPortFwdStr          = "wg-portfwd"
 	MonitorStr            = "monitor"
@@ -328,6 +333,7 @@ const (
 // Command types / filters (per OS/type/C2/etc)
 // Should not be changed: extension.json artifact file (architecture/OS) rely on some of the values below,.
 const (
+	ActiveTargetFilter  = "Implants" // Need an active target, irrespective of its specs
 	SessionCmdsFilter   = "Sessions"
 	BeaconCmdsFilter    = "Beacons"
 	WindowsCmdsFilter   = "Windows"

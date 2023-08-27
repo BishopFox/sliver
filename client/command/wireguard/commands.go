@@ -1,5 +1,23 @@
 package wireguard
 
+/*
+   Sliver Implant Framework
+   Copyright (C) 2019  Bishop Fox
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
@@ -7,13 +25,21 @@ import (
 
 	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
+	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 )
 
-// Commands returns the “ command and its subcommands.
+// Commands returns the `wg` command and its subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
+	wgCmd := &cobra.Command{
+		Use:     consts.WGStr,
+		Short:   "WireGuard C2 commands (configs, listeners, etc.)",
+		GroupID: consts.NetworkHelpGroup,
+	}
+
+	// Configurations
 	wgConfigCmd := &cobra.Command{
 		Use:   consts.WgConfigStr,
 		Short: "Generate a new WireGuard client config",
@@ -21,8 +47,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			WGConfigCmd(cmd, con, args)
 		},
-		GroupID: consts.NetworkHelpGroup,
 	}
+	wgCmd.AddCommand(wgConfigCmd)
 
 	flags.Bind("wg-config", true, wgConfigCmd, func(f *pflag.FlagSet) {
 		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
@@ -34,7 +60,25 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save config")
 	})
 
-	return []*cobra.Command{wgConfigCmd}
+	// Listeners
+	wgListenCmd := &cobra.Command{
+		Use:   consts.ListenStr,
+		Short: "Start a WireGuard listener",
+		Long:  help.GetHelpFor([]string{consts.WGStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			ListenCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("WireGuard listener", false, wgCmd, func(f *pflag.FlagSet) {
+		f.StringP("lhost", "L", "", "interface to bind server to")
+		f.Uint32P("lport", "l", generate.DefaultWGLPort, "udp listen port")
+		f.Uint32P("nport", "n", generate.DefaultWGNPort, "virtual tun interface listen port")
+		f.Uint32P("key-port", "x", generate.DefaultWGKeyExPort, "virtual tun interface key exchange port")
+		f.BoolP("persistent", "p", false, "make persistent across restarts")
+	})
+	wgCmd.AddCommand(wgListenCmd)
+
+	return []*cobra.Command{wgCmd}
 }
 
 // SliverCommands returns all Wireguard commands that can be used on an active target.

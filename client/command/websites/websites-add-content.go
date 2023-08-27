@@ -46,11 +46,8 @@ func WebsitesAddContentCmd(cmd *cobra.Command, con *console.SliverClient, args [
 		con.PrintErrorf("Must specify a web path via --web-path, see --help\n")
 		return
 	}
-	contentPath, _ := cmd.Flags().GetString("content")
-	if contentPath == "" {
-		con.PrintErrorf("Must specify some --content\n")
-		return
-	}
+
+	contentPath := args[0]
 	contentPath, _ = filepath.Abs(contentPath)
 	contentType, _ := cmd.Flags().GetString("content-type")
 	recursive, _ := cmd.Flags().GetBool("recursive")

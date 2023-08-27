@@ -1,4 +1,4 @@
-package jobs
+package http
 
 /*
 	Sliver Implant Framework
@@ -28,8 +28,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// HTTPListenerCmd - Start an HTTP listener.
-func HTTPListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+// ListenCmd - Start an HTTP listener.
+func ListenCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	domain, _ := cmd.Flags().GetString("domain")
 	lhost, _ := cmd.Flags().GetString("lhost")
 	lport, _ := cmd.Flags().GetUint32("lport")
