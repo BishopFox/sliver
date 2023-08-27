@@ -41,7 +41,7 @@ require (
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/ncruces/go-sqlite3 v0.8.4
 	github.com/reeflective/console v0.1.8
-	github.com/reeflective/readline v1.0.9
+	github.com/reeflective/readline v1.0.10
 	github.com/reeflective/team v0.1.1
 	github.com/rsteube/carapace v0.43.0
 	github.com/sirupsen/logrus v1.9.3

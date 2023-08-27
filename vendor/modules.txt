@@ -522,7 +522,7 @@ github.com/psanford/memfs
 ## explicit; go 1.21
 github.com/reeflective/console
 github.com/reeflective/console/commands/readline
-# github.com/reeflective/readline v1.0.9
+# github.com/reeflective/readline v1.0.10
 ## explicit; go 1.21
 github.com/reeflective/readline
 github.com/reeflective/readline/inputrc

@@ -6,9 +6,10 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/exp/slices"
+
 	"github.com/reeflective/readline/internal/color"
 	"github.com/reeflective/readline/internal/term"
-	"golang.org/x/exp/slices"
 )
 
 // group is used to structure different types of completions with different
@@ -326,7 +327,16 @@ func (g *group) longestValueDescribed(vals []Candidate) int {
 
 		if val.descLen > longestDesc {
 			longestDesc = val.descLen
+
 		}
+
+		if val.descLen > longestDesc {
+			longestDesc = val.descLen
+		}
+	}
+
+	if longestDesc > 0 {
+		longestDesc += descSeparatorLen
 	}
 
 	if longestDesc > 0 {
@@ -398,7 +408,7 @@ func (g *group) trimDesc(val Candidate, pad int) (desc, padded string) {
 
 func (g *group) getPad(value Candidate, columnIndex int, desc bool) int {
 	columns := g.columnsWidth
-	var valLen = value.displayLen - 1
+	valLen := value.displayLen - 1
 
 	if desc {
 		columns = g.descriptionsWidth

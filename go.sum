@@ -345,8 +345,8 @@ github.com/reeflective/carapace v0.25.2-0.20230816093630-a30f5184fa0d h1:RK0OaQs
 github.com/reeflective/carapace v0.25.2-0.20230816093630-a30f5184fa0d/go.mod h1:jkLt41Ne2TD2xPuMdX/2O05Smhy8vMgG7O2TYvC0yOc=
 github.com/reeflective/console v0.1.8 h1:PZaQxh53zBNqB968RBnRRpUlQNhktZxEYKHhMUaifqU=
 github.com/reeflective/console v0.1.8/go.mod h1:hnei2839LkOh6N4m2rTx2Vx3QAVkF9X74BG7MKbIljs=
-github.com/reeflective/readline v1.0.9 h1:ZA+V4HIWonwn8B4gUaaKwPtBogch19qgdk1I+hqULdk=
-github.com/reeflective/readline v1.0.9/go.mod h1:mcD0HxNVJVteVwDm9caXKg52nQACVyfh8EyuBmgVlzY=
+github.com/reeflective/readline v1.0.10 h1:neAdbArjB1f5LZ2JBh/9TZ9ibFUrjjvBS8xuhLbx5do=
+github.com/reeflective/readline v1.0.10/go.mod h1:mcD0HxNVJVteVwDm9caXKg52nQACVyfh8EyuBmgVlzY=
 github.com/reeflective/team v0.1.1 h1:6kWg+LwrYAV/QIjPfXZFp8wA9cEj4IUEE1L9BGOal0U=
 github.com/reeflective/team v0.1.1/go.mod h1:vl9Qz2nXOy+iOHIQPm15Dno3NXn6LO8+7M3bKTaKIC8=
 github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=

@@ -126,7 +126,7 @@ func (e *Engine) generateGroup(comps Values) func(tag string, values RawValues) 
 		// If we have a remaining group of values without descriptions,
 		// we will print and use them in a separate, anonymous group.
 		if len(noDescVals) > 0 {
-			e.newCompletionGroup(comps, "", vals, descriptions)
+			e.newCompletionGroup(comps, "", noDescVals, descriptions)
 		}
 	}
 }
