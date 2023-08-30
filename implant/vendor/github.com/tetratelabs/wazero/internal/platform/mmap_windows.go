@@ -2,7 +2,6 @@ package platform
 
 import (
 	"fmt"
-	"io"
 	"reflect"
 	"syscall"
 	"unsafe"
@@ -30,7 +29,7 @@ func munmapCodeSegment(code []byte) error {
 // allocateMemory commits the memory region via the "VirtualAlloc" function.
 // See https://docs.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualalloc
 func allocateMemory(size uintptr, protect uintptr) (uintptr, error) {
-	address := uintptr(0) // TODO: document why zero
+	address := uintptr(0) // system determines where to allocate the region.
 	alloctype := windows_MEM_COMMIT
 	if r, _, err := procVirtualAlloc.Call(address, size, alloctype, protect); r == 0 {
 		return 0, fmt.Errorf("compiler: VirtualAlloc error: %w", ensureErr(err))
@@ -42,10 +41,10 @@ func allocateMemory(size uintptr, protect uintptr) (uintptr, error) {
 // freeMemory releases the memory region via the "VirtualFree" function.
 // See https://docs.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualfree
 func freeMemory(code []byte) error {
-	address := uintptr(unsafe.Pointer(&code[0]))
+	address := unsafe.Pointer(&code[0])
 	size := uintptr(0) // size must be 0 because we're using MEM_RELEASE.
 	freetype := windows_MEM_RELEASE
-	if r, _, err := procVirtualFree.Call(address, size, freetype); r == 0 {
+	if r, _, err := procVirtualFree.Call(uintptr(address), size, freetype); r == 0 {
 		return fmt.Errorf("compiler: VirtualFree error: %w", ensureErr(err))
 	}
 	return nil
@@ -58,7 +57,7 @@ func virtualProtect(address, size, newprotect uintptr, oldprotect *uint32) error
 	return nil
 }
 
-func mmapCodeSegmentAMD64(code io.Reader, size int) ([]byte, error) {
+func mmapCodeSegmentAMD64(size int) ([]byte, error) {
 	p, err := allocateMemory(uintptr(size), windows_PAGE_EXECUTE_READWRITE)
 	if err != nil {
 		return nil, err
@@ -69,13 +68,10 @@ func mmapCodeSegmentAMD64(code io.Reader, size int) ([]byte, error) {
 	sh.Data = p
 	sh.Len = size
 	sh.Cap = size
-
-	w := &bufWriter{underlying: mem}
-	_, err = io.CopyN(w, code, int64(size))
 	return mem, err
 }
 
-func mmapCodeSegmentARM64(code io.Reader, size int) ([]byte, error) {
+func mmapCodeSegmentARM64(size int) ([]byte, error) {
 	p, err := allocateMemory(uintptr(size), windows_PAGE_READWRITE)
 	if err != nil {
 		return nil, err
@@ -86,18 +82,14 @@ func mmapCodeSegmentARM64(code io.Reader, size int) ([]byte, error) {
 	sh.Data = p
 	sh.Len = size
 	sh.Cap = size
-	w := &bufWriter{underlying: mem}
-	_, err = io.CopyN(w, code, int64(size))
-	if err != nil {
-		return nil, err
-	}
-
-	old := uint32(windows_PAGE_READWRITE)
-	err = virtualProtect(p, uintptr(size), windows_PAGE_EXECUTE_READ, &old)
-	if err != nil {
-		return nil, err
-	}
 	return mem, nil
+}
+
+var old = uint32(windows_PAGE_READWRITE)
+
+func MprotectRX(b []byte) (err error) {
+	err = virtualProtect(uintptr(unsafe.Pointer(&b[0])), uintptr(len(b)), windows_PAGE_EXECUTE_READ, &old)
+	return
 }
 
 // ensureErr returns syscall.EINVAL when the input error is nil.

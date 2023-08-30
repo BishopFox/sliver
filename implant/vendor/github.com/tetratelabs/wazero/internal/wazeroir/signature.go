@@ -240,7 +240,7 @@ var (
 // the function instance (for example, local types).
 // "index" parameter is not used by most of opcodes.
 // The returned signature is used for stack validation when lowering Wasm's opcodes to wazeroir.
-func (c *compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature, error) {
+func (c *Compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature, error) {
 	switch op {
 	case wasm.OpcodeUnreachable, wasm.OpcodeNop, wasm.OpcodeBlock, wasm.OpcodeLoop:
 		return signature_None_None, nil
@@ -253,11 +253,9 @@ func (c *compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature
 	case wasm.OpcodeReturn:
 		return signature_None_None, nil
 	case wasm.OpcodeCall:
-		return funcTypeToSignature(c.types[c.funcs[index]]), nil
+		return c.funcTypeToSigs.get(c.funcs[index], false /* direct */), nil
 	case wasm.OpcodeCallIndirect:
-		ret := funcTypeToSignature(c.types[index])
-		ret.in = append(ret.in, UnsignedTypeI32)
-		return ret, nil
+		return c.funcTypeToSigs.get(index, true /* call_indirect */), nil
 	case wasm.OpcodeDrop:
 		return signature_Unknown_None, nil
 	case wasm.OpcodeSelect, wasm.OpcodeTypedSelect:
@@ -593,15 +591,53 @@ func (c *compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature
 	}
 }
 
-func funcTypeToSignature(tps *wasm.FunctionType) *signature {
-	ret := &signature{}
-	for _, vt := range tps.Params {
-		ret.in = append(ret.in, wasmValueTypeToUnsignedType(vt))
+// funcTypeToIRSignatures is the central cache for a module to get the *signature
+// for function calls.
+type funcTypeToIRSignatures struct {
+	directCalls   []*signature
+	indirectCalls []*signature
+	wasmTypes     []wasm.FunctionType
+}
+
+// get returns the *signature for the direct or indirect function call against functions whose type is at `typeIndex`.
+func (f *funcTypeToIRSignatures) get(typeIndex wasm.Index, indirect bool) *signature {
+	var sig *signature
+	if indirect {
+		sig = f.indirectCalls[typeIndex]
+	} else {
+		sig = f.directCalls[typeIndex]
 	}
-	for _, vt := range tps.Results {
-		ret.out = append(ret.out, wasmValueTypeToUnsignedType(vt))
+	if sig != nil {
+		return sig
 	}
-	return ret
+
+	tp := &f.wasmTypes[typeIndex]
+	if indirect {
+		sig = &signature{
+			in:  make([]UnsignedType, 0, len(tp.Params)+1), // +1 to reserve space for call indirect index.
+			out: make([]UnsignedType, 0, len(tp.Results)),
+		}
+	} else {
+		sig = &signature{
+			in:  make([]UnsignedType, 0, len(tp.Params)),
+			out: make([]UnsignedType, 0, len(tp.Results)),
+		}
+	}
+
+	for _, vt := range tp.Params {
+		sig.in = append(sig.in, wasmValueTypeToUnsignedType(vt))
+	}
+	for _, vt := range tp.Results {
+		sig.out = append(sig.out, wasmValueTypeToUnsignedType(vt))
+	}
+
+	if indirect {
+		sig.in = append(sig.in, UnsignedTypeI32)
+		f.indirectCalls[typeIndex] = sig
+	} else {
+		f.directCalls[typeIndex] = sig
+	}
+	return sig
 }
 
 func wasmValueTypeToUnsignedType(vt wasm.ValueType) UnsignedType {

@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/internal/internalapi"
 )
 
 const (
@@ -32,6 +33,8 @@ var _ api.Memory = &MemoryInstance{}
 // wasm.Store Memories index zero: `store.Memories[0]`
 // See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#memory-instances%E2%91%A0.
 type MemoryInstance struct {
+	internalapi.WazeroOnlyType
+
 	Buffer        []byte
 	Min, Cap, Max uint32
 	// mux is used to prevent overlapping calls to Grow.
@@ -108,7 +111,7 @@ func (m *MemoryInstance) ReadFloat64Le(offset uint32) (float64, bool) {
 
 // Read implements the same method as documented on api.Memory.
 func (m *MemoryInstance) Read(offset, byteCount uint32) ([]byte, bool) {
-	if !m.hasSize(offset, byteCount) {
+	if !m.hasSize(offset, uint64(byteCount)) {
 		return nil, false
 	}
 	return m.Buffer[offset : offset+byteCount : offset+byteCount], true
@@ -154,7 +157,7 @@ func (m *MemoryInstance) WriteFloat64Le(offset uint32, v float64) bool {
 
 // Write implements the same method as documented on api.Memory.
 func (m *MemoryInstance) Write(offset uint32, val []byte) bool {
-	if !m.hasSize(offset, uint32(len(val))) {
+	if !m.hasSize(offset, uint64(len(val))) {
 		return false
 	}
 	copy(m.Buffer[offset:], val)
@@ -163,7 +166,7 @@ func (m *MemoryInstance) Write(offset uint32, val []byte) bool {
 
 // WriteString implements the same method as documented on api.Memory.
 func (m *MemoryInstance) WriteString(offset uint32, val string) bool {
-	if !m.hasSize(offset, uint32(len(val))) {
+	if !m.hasSize(offset, uint64(len(val))) {
 		return false
 	}
 	copy(m.Buffer[offset:], val)
@@ -240,8 +243,8 @@ func (m *MemoryInstance) size() uint32 {
 // hasSize returns true if Len is sufficient for byteCount at the given offset.
 //
 // Note: This is always fine, because memory can grow, but never shrink.
-func (m *MemoryInstance) hasSize(offset uint32, byteCount uint32) bool {
-	return uint64(offset)+uint64(byteCount) <= uint64(len(m.Buffer)) // uint64 prevents overflow on add
+func (m *MemoryInstance) hasSize(offset uint32, byteCount uint64) bool {
+	return uint64(offset)+byteCount <= uint64(len(m.Buffer)) // uint64 prevents overflow on add
 }
 
 // readUint32Le implements ReadUint32Le without using a context. This is extracted as both ints and floats are stored in

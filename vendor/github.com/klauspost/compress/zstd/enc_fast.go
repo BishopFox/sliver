@@ -43,7 +43,7 @@ func (e *fastEncoder) Encode(blk *blockEnc, src []byte) {
 	)
 
 	// Protect against e.cur wraparound.
-	for e.cur >= bufferReset {
+	for e.cur >= e.bufferReset-int32(len(e.hist)) {
 		if len(e.hist) == 0 {
 			for i := range e.table[:] {
 				e.table[i] = tableEntry{}
@@ -133,8 +133,7 @@ encodeLoop:
 			if canRepeat && repIndex >= 0 && load3232(src, repIndex) == uint32(cv>>16) {
 				// Consider history as well.
 				var seq seq
-				var length int32
-				length = 4 + e.matchlen(s+6, repIndex+4, src)
+				length := 4 + e.matchlen(s+6, repIndex+4, src)
 				seq.matchLen = uint32(length - zstdMinMatch)
 
 				// We might be able to match backwards.
@@ -310,7 +309,7 @@ func (e *fastEncoder) EncodeNoHist(blk *blockEnc, src []byte) {
 	}
 
 	// Protect against e.cur wraparound.
-	if e.cur >= bufferReset {
+	if e.cur >= e.bufferReset {
 		for i := range e.table[:] {
 			e.table[i] = tableEntry{}
 		}
@@ -538,7 +537,7 @@ encodeLoop:
 		println("returning, recent offsets:", blk.recentOffsets, "extra literals:", blk.extraLits)
 	}
 	// We do not store history, so we must offset e.cur to avoid false matches for next user.
-	if e.cur < bufferReset {
+	if e.cur < e.bufferReset {
 		e.cur += int32(len(src))
 	}
 }
@@ -555,11 +554,9 @@ func (e *fastEncoderDict) Encode(blk *blockEnc, src []byte) {
 		return
 	}
 	// Protect against e.cur wraparound.
-	for e.cur >= bufferReset {
+	for e.cur >= e.bufferReset-int32(len(e.hist)) {
 		if len(e.hist) == 0 {
-			for i := range e.table[:] {
-				e.table[i] = tableEntry{}
-			}
+			e.table = [tableSize]tableEntry{}
 			e.cur = e.maxMatchOff
 			break
 		}
@@ -647,8 +644,7 @@ encodeLoop:
 			if canRepeat && repIndex >= 0 && load3232(src, repIndex) == uint32(cv>>16) {
 				// Consider history as well.
 				var seq seq
-				var length int32
-				length = 4 + e.matchlen(s+6, repIndex+4, src)
+				length := 4 + e.matchlen(s+6, repIndex+4, src)
 
 				seq.matchLen = uint32(length - zstdMinMatch)
 

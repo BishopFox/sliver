@@ -35,7 +35,6 @@ import (
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/encoders"
@@ -66,8 +65,6 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		return nil, err
 	}
 
-	otpSecret, _ := cryptography.TOTPServerSecret()
-
 	config, err := generate.GenerateConfig(req.Config, true)
 	if err != nil {
 		return nil, err
@@ -88,11 +85,19 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
+<<<<<<< HEAD
 		fPath, err = generate.SliverExecutable(otpSecret, config, pbC2Implant)
 	case clientpb.OutputFormat_SHARED_LIB:
 		fPath, err = generate.SliverSharedLibrary(otpSecret, config, pbC2Implant)
 	case clientpb.OutputFormat_SHELLCODE:
 		fPath, err = generate.SliverShellcode(otpSecret, config, pbC2Implant)
+=======
+		fPath, err = generate.SliverExecutable(name, config, true)
+	case clientpb.OutputFormat_SHARED_LIB:
+		fPath, err = generate.SliverSharedLibrary(name, config, true)
+	case clientpb.OutputFormat_SHELLCODE:
+		fPath, err = generate.SliverShellcode(name, config, true)
+>>>>>>> master
 	default:
 		return nil, fmt.Errorf("invalid output format: %s", req.Config.Format)
 	}
@@ -367,14 +372,8 @@ func (rpc *Server) GenerateExternalGetImplantConfig(ctx context.Context, req *cl
 		return nil, status.Error(codes.InvalidArgument, "implant config already has a build")
 	}
 
-	otpSecret, err := cryptography.TOTPServerSecret()
-	if err != nil {
-		return nil, err
-	}
-
 	return &clientpb.ExternalImplantConfig{
-		Config:    implantConfig.ToProtobuf(),
-		OTPSecret: otpSecret,
+		Config: implantConfig.ToProtobuf(),
 	}, nil
 }
 

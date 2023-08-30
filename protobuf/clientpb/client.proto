@@ -20,8 +20,8 @@ message Version {
 }
 
 // [ Client Logs ] ----------------------------------------
-message ClientConsoleLogData {
-  string ID = 1;
+message ClientLogData {
+  string Stream = 1;
   bytes Data = 2;
 }
 
@@ -137,24 +137,24 @@ message ImplantConfig {
   bool Evasion = 9;
   bool ObfuscateSymbols = 10;
   string TemplateName = 11;
+  bool SGNEnabled = 12;
 
-  bool IncludeMTLS = 12;
-  bool IncludeHTTP = 13;
-  bool IncludeWG = 14;
-  bool IncludeDNS = 15;
-  bool IncludeNamePipe = 16;
-  bool IncludeTCP = 17;
+  bool IncludeMTLS = 13;
+  bool IncludeHTTP = 14;
+  bool IncludeWG = 15;
+  bool IncludeDNS = 16;
+  bool IncludeNamePipe = 17;
+  bool IncludeTCP = 18;
 
   string MtlsCACert = 20;
   string MtlsCert = 21;
   string MtlsKey = 22;
 
-  string ECCServerPublicKey = 23;
-  string ECCPublicKey = 24;
-  string ECCPrivateKey = 25;
-  string ECCPublicKeySignature = 26;
-  string ECCPublicKeyDigest = 27;
-  string MinisignServerPublicKey = 28;
+  string AgeServerPublicKey = 23;
+  string PeerPublicKey = 24;
+  string PeerPrivateKey = 25;
+  string PeerPublicKeySignature = 26;
+  string MinisignServerPublicKey = 27;
 
   string WGImplantPrivKey = 30;
   string WGServerPubKey = 31;
@@ -459,7 +459,8 @@ message MsfStagerReq {
   string OS = 5; // reserved for future usage
   StageProtocol Protocol = 6;
   repeated string BadChars = 7;
-  string HTTPC2ConfigName = 8;
+  string AdvOptions = 8;
+  string HTTPC2ConfigName = 9;
 }
 
 message MsfStager { commonpb.File File = 1; }

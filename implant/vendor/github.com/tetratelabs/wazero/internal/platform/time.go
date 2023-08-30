@@ -15,32 +15,30 @@ const (
 
 // NewFakeWalltime implements sys.Walltime with FakeEpochNanos that increases by 1ms each reading.
 // See /RATIONALE.md
-func NewFakeWalltime() *sys.Walltime {
+func NewFakeWalltime() sys.Walltime {
 	// AddInt64 returns the new value. Adjust so the first reading will be FakeEpochNanos
 	t := FakeEpochNanos - ms
-	var wt sys.Walltime = func() (sec int64, nsec int32) {
+	return func() (sec int64, nsec int32) {
 		wt := atomic.AddInt64(&t, ms)
 		return wt / 1e9, int32(wt % 1e9)
 	}
-	return &wt
 }
 
 // NewFakeNanotime implements sys.Nanotime that increases by 1ms each reading.
 // See /RATIONALE.md
-func NewFakeNanotime() *sys.Nanotime {
+func NewFakeNanotime() sys.Nanotime {
 	// AddInt64 returns the new value. Adjust so the first reading will be zero.
 	t := int64(0) - ms
-	var nt sys.Nanotime = func() int64 {
+	return func() int64 {
 		return atomic.AddInt64(&t, ms)
 	}
-	return &nt
 }
 
 // FakeNanosleep implements sys.Nanosleep by returning without sleeping.
-func FakeNanosleep(int64) {}
+var FakeNanosleep = sys.Nanosleep(func(int64) {})
 
 // FakeOsyield implements sys.Osyield by returning without yielding.
-func FakeOsyield() {}
+var FakeOsyield = sys.Osyield(func() {})
 
 // Walltime implements sys.Walltime with time.Now.
 //

@@ -37,12 +37,13 @@ sqlite3_blob_bytes
 sqlite3_blob_read
 sqlite3_blob_write
 sqlite3_blob_reopen
-sqlite3_get_autocommit
-sqlite3_last_insert_rowid
-sqlite3_changes64
 sqlite3_backup_init
 sqlite3_backup_step
 sqlite3_backup_finish
 sqlite3_backup_remaining
 sqlite3_backup_pagecount
-sqlite3_interrupt_offset
+sqlite3_uri_parameter
+sqlite3_uri_key
+sqlite3_changes64
+sqlite3_last_insert_rowid
+sqlite3_get_autocommit

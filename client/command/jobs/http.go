@@ -22,23 +22,28 @@ import (
 	"context"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/desertbit/grumble"
 )
 
 // HTTPListenerCmd - Start an HTTP listener
-func HTTPListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	domain := ctx.Flags.String("domain")
-	lhost := ctx.Flags.String("lhost")
-	lport := uint16(ctx.Flags.Int("lport"))
-	disableOTP := ctx.Flags.Bool("disable-otp")
-	longPollTimeout, err := time.ParseDuration(ctx.Flags.String("long-poll-timeout"))
+func HTTPListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	domain, _ := cmd.Flags().GetString("domain")
+	lhost, _ := cmd.Flags().GetString("lhost")
+	lport, _ := cmd.Flags().GetUint32("lport")
+	disableOTP, _ := cmd.Flags().GetBool("disable-otp")
+	pollTimeout, _ := cmd.Flags().GetString("long-poll-timeout")
+	pollJitter, _ := cmd.Flags().GetString("long-poll-jitter")
+	website, _ := cmd.Flags().GetString("website")
+
+	longPollTimeout, err := time.ParseDuration(pollTimeout)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	longPollJitter, err := time.ParseDuration(ctx.Flags.String("long-poll-jitter"))
+	longPollJitter, err := time.ParseDuration(pollJitter)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -47,9 +52,9 @@ func HTTPListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	con.PrintInfof("Starting HTTP %d listener ...\n", lport)
 	http, err := con.Rpc.StartHTTPListener(context.Background(), &clientpb.HTTPListenerReq{
 		Domain:          domain,
-		Website:         ctx.Flags.String("website"),
+		Website:         website,
 		Host:            lhost,
-		Port:            uint32(lport),
+		Port:            lport,
 		Secure:          false,
 		EnforceOTP:      !disableOTP,
 		LongPollTimeout: int64(longPollTimeout),

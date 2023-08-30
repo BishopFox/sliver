@@ -20,7 +20,6 @@ package generate
 
 import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/cryptography"
 )
 
 // SliverExternal - Generates the cryptographic keys for the implant but compiles no code
@@ -29,12 +28,7 @@ func SliverExternal(config *clientpb.ImplantConfig) (*clientpb.ExternalImplantCo
 	if err != nil {
 		return nil, err
 	}
-	otpSecret, err := cryptography.TOTPServerSecret()
-	if err != nil {
-		return nil, err
-	}
 	return &clientpb.ExternalImplantConfig{
-		Config:    config,
-		OTPSecret: otpSecret,
+		Config: config,
 	}, nil
 }

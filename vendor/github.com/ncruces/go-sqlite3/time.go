@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ncruces/go-sqlite3/internal/util"
 	"github.com/ncruces/julianday"
 )
 
@@ -148,7 +149,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		case int64:
 			return julianday.Time(v, 0), nil
 		default:
-			return time.Time{}, timeErr
+			return time.Time{}, util.TimeErr
 		}
 
 	case TimeFormatUnix, TimeFormatUnixFrac:
@@ -167,7 +168,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		case int64:
 			return time.Unix(v, 0), nil
 		default:
-			return time.Time{}, timeErr
+			return time.Time{}, util.TimeErr
 		}
 
 	case TimeFormatUnixMilli:
@@ -184,7 +185,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		case int64:
 			return time.UnixMilli(int64(v)), nil
 		default:
-			return time.Time{}, timeErr
+			return time.Time{}, util.TimeErr
 		}
 
 	case TimeFormatUnixMicro:
@@ -201,14 +202,14 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		case int64:
 			return time.UnixMicro(int64(v)), nil
 		default:
-			return time.Time{}, timeErr
+			return time.Time{}, util.TimeErr
 		}
 
 	case TimeFormatUnixNano:
 		if s, ok := v.(string); ok {
 			i, err := strconv.ParseInt(s, 10, 64)
 			if err != nil {
-				return time.Time{}, timeErr
+				return time.Time{}, util.TimeErr
 			}
 			v = i
 		}
@@ -218,7 +219,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		case int64:
 			return time.Unix(0, int64(v)), nil
 		default:
-			return time.Time{}, timeErr
+			return time.Time{}, util.TimeErr
 		}
 
 	// Special formats
@@ -288,7 +289,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 			}
 			return TimeFormatUnixNano.Decode(v)
 		default:
-			return time.Time{}, timeErr
+			return time.Time{}, util.TimeErr
 		}
 
 	case
@@ -300,7 +301,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		TimeFormat7, TimeFormat7TZ:
 		s, ok := v.(string)
 		if !ok {
-			return time.Time{}, timeErr
+			return time.Time{}, util.TimeErr
 		}
 		return f.parseRelaxed(s)
 
@@ -310,7 +311,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		TimeFormat10, TimeFormat10TZ:
 		s, ok := v.(string)
 		if !ok {
-			return time.Time{}, timeErr
+			return time.Time{}, util.TimeErr
 		}
 		t, err := f.parseRelaxed(s)
 		return t.AddDate(2000, 0, 0), err
@@ -318,7 +319,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 	default:
 		s, ok := v.(string)
 		if !ok {
-			return time.Time{}, timeErr
+			return time.Time{}, util.TimeErr
 		}
 		if f == "" {
 			f = time.RFC3339Nano

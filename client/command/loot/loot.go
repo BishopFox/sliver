@@ -27,17 +27,18 @@ import (
 	"unicode/utf8"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/util"
-	"github.com/desertbit/grumble"
-	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // LootCmd - The loot root command
-func LootCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func LootCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	allLoot, err := con.Rpc.LootAll(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("Failed to fetch loot %s\n", err)
@@ -95,12 +96,12 @@ func PrintLootFile(loot *clientpb.Loot, con *console.SliverConsoleClient) {
 }
 
 // Any loot with a "File" can be saved to disk
-func saveLootToDisk(ctx *grumble.Context, loot *clientpb.Loot) (string, error) {
+func saveLootToDisk(cmd *cobra.Command, loot *clientpb.Loot) (string, error) {
 	if loot.File == nil {
 		return "", errors.New("loot does not contain a file")
 	}
 
-	saveTo := ctx.Flags.String("save")
+	saveTo, _ := cmd.Flags().GetString("save")
 	fi, err := os.Stat(saveTo)
 	if err != nil && !os.IsNotExist(err) {
 		return "", err
@@ -116,7 +117,7 @@ func saveLootToDisk(ctx *grumble.Context, loot *clientpb.Loot) (string, error) {
 			return "", nil
 		}
 	}
-	err = os.WriteFile(saveTo, loot.File.Data, 0600)
+	err = os.WriteFile(saveTo, loot.File.Data, 0o600)
 	return saveTo, err
 }
 

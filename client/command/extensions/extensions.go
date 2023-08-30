@@ -21,19 +21,21 @@ package extensions
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
+
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/desertbit/grumble"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/jedib0t/go-pretty/v6/text"
 )
 
 // ExtensionsCmd - List information about installed extensions
-func ExtensionsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func ExtensionsCmd(cmd *cobra.Command, con *console.SliverConsoleClient) {
 	if 0 < len(getInstalledManifests()) {
 		PrintExtensions(con)
 	} else {
@@ -98,7 +100,7 @@ func getInstalledManifests() map[string]*ExtensionManifest {
 	manifestPaths := assets.GetInstalledExtensionManifests()
 	installedManifests := map[string]*ExtensionManifest{}
 	for _, manifestPath := range manifestPaths {
-		data, err := ioutil.ReadFile(manifestPath)
+		data, err := os.ReadFile(manifestPath)
 		if err != nil {
 			continue
 		}
@@ -113,13 +115,15 @@ func getInstalledManifests() map[string]*ExtensionManifest {
 }
 
 // ExtensionsCommandNameCompleter - Completer for installed extensions command names
-func ExtensionsCommandNameCompleter(prefix string, args []string, con *console.SliverConsoleClient) []string {
-	installedManifests := getInstalledManifests()
-	results := []string{}
-	for _, manifest := range installedManifests {
-		if strings.HasPrefix(manifest.CommandName, prefix) {
+func ExtensionsCommandNameCompleter(con *console.SliverConsoleClient) carapace.Action {
+	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		installedManifests := getInstalledManifests()
+		results := []string{}
+		for _, manifest := range installedManifests {
 			results = append(results, manifest.CommandName)
+			results = append(results, manifest.Help)
 		}
-	}
-	return results
+
+		return carapace.ActionValuesDescribed(results...).Tag("extension commands")
+	})
 }

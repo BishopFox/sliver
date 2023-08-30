@@ -14,6 +14,7 @@
 /sliver-server
 /sliver-server_arm64
 /sliver.exe
+/sliver-server_*
 
 /sliver-client
 /sliver-client_arm64

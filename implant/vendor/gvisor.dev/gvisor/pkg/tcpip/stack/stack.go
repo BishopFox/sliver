@@ -32,7 +32,6 @@ import (
 	"gvisor.dev/gvisor/pkg/bufferv2"
 	"gvisor.dev/gvisor/pkg/log"
 	cryptorand "gvisor.dev/gvisor/pkg/rand"
-	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/ports"
@@ -46,7 +45,7 @@ const (
 
 type transportProtocolState struct {
 	proto          TransportProtocol
-	defaultHandler func(id TransportEndpointID, pkt *PacketBuffer) bool
+	defaultHandler func(id TransportEndpointID, pkt PacketBufferPtr) bool
 }
 
 // ResumableEndpoint is an endpoint that needs to be resumed after restore.
@@ -85,18 +84,20 @@ type Stack struct {
 	stats tcpip.Stats
 
 	// routeMu protects annotated fields below.
-	routeMu sync.RWMutex
+	routeMu routeStackRWMutex
 
 	// +checklocks:routeMu
 	routeTable []tcpip.Route
 
-	mu                       sync.RWMutex
+	mu stackRWMutex
+	// +checklocks:mu
 	nics                     map[tcpip.NICID]*nic
 	defaultForwardingEnabled map[tcpip.NetworkProtocolNumber]struct{}
 
 	// cleanupEndpointsMu protects cleanupEndpoints.
-	cleanupEndpointsMu sync.Mutex
-	cleanupEndpoints   map[TransportEndpoint]struct{}
+	cleanupEndpointsMu cleanupEndpointsMutex
+	// +checklocks:cleanupEndpointsMu
+	cleanupEndpoints map[TransportEndpoint]struct{}
 
 	*ports.PortManager
 
@@ -306,7 +307,7 @@ func (t *TransportEndpointInfo) AddrNetProtoLocked(addr tcpip.FullAddress, v6onl
 	case netProto == t.NetProto:
 	case netProto == header.IPv4ProtocolNumber && t.NetProto == header.IPv6ProtocolNumber:
 		if v6only {
-			return tcpip.FullAddress{}, 0, &tcpip.ErrNoRoute{}
+			return tcpip.FullAddress{}, 0, &tcpip.ErrHostUnreachable{}
 		}
 	default:
 		return tcpip.FullAddress{}, 0, &tcpip.ErrInvalidEndpointState{}
@@ -487,7 +488,7 @@ func (s *Stack) TransportProtocolOption(transport tcpip.TransportProtocolNumber,
 //
 // It must be called only during initialization of the stack. Changing it as the
 // stack is operating is not supported.
-func (s *Stack) SetTransportProtocolHandler(p tcpip.TransportProtocolNumber, h func(TransportEndpointID, *PacketBuffer) bool) {
+func (s *Stack) SetTransportProtocolHandler(p tcpip.TransportProtocolNumber, h func(TransportEndpointID, PacketBufferPtr) bool) {
 	state := s.transportProtocols[p]
 	if state != nil {
 		state.defaultHandler = h
@@ -708,6 +709,33 @@ func (s *Stack) SetPortRange(start uint16, end uint16) tcpip.Error {
 	return s.PortManager.SetPortRange(start, end)
 }
 
+// GROTimeout returns the GRO timeout.
+func (s *Stack) GROTimeout(NICID int32) (time.Duration, tcpip.Error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	nic, ok := s.nics[tcpip.NICID(NICID)]
+	if !ok {
+		return 0, &tcpip.ErrUnknownNICID{}
+	}
+
+	return nic.gro.getInterval(), nil
+}
+
+// SetGROTimeout sets the GRO timeout.
+func (s *Stack) SetGROTimeout(NICID int32, timeout time.Duration) tcpip.Error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	nic, ok := s.nics[tcpip.NICID(NICID)]
+	if !ok {
+		return &tcpip.ErrUnknownNICID{}
+	}
+
+	nic.gro.setInterval(timeout)
+	return nil
+}
+
 // SetRouteTable assigns the route table to be used by this stack. It
 // specifies which NIC to use for given destination address ranges.
 //
@@ -788,7 +816,7 @@ func (s *Stack) NewPacketEndpoint(cooked bool, netProto tcpip.NetworkProtocolNum
 }
 
 // NICContext is an opaque pointer used to store client-supplied NIC metadata.
-type NICContext interface{}
+type NICContext any
 
 // NICOptions specifies the configuration of a NIC as it is being created.
 // The zero value creates an enabled, unnamed NIC.
@@ -808,6 +836,9 @@ type NICOptions struct {
 
 	// QDisc is the queue discipline to use for this NIC.
 	QDisc QueueingDiscipline
+
+	// GROTimeout specifies the GRO timeout. Zero bypasses GRO.
+	GROTimeout time.Duration
 }
 
 // CreateNICWithOptions creates a NIC with the provided id, LinkEndpoint, and
@@ -920,14 +951,11 @@ func (s *Stack) RemoveNIC(id tcpip.NICID) tcpip.Error {
 
 // removeNICLocked removes NIC and all related routes from the network stack.
 //
-// s.mu must be locked.
+// +checklocks:s.mu
 func (s *Stack) removeNICLocked(id tcpip.NICID) tcpip.Error {
 	nic, ok := s.nics[id]
 	if !ok {
 		return &tcpip.ErrUnknownNICID{}
-	}
-	if nic.IsLoopback() {
-		return &tcpip.ErrNotSupported{}
 	}
 	delete(s.nics, id)
 
@@ -1150,6 +1178,9 @@ func (s *Stack) getAddressEP(nic *nic, localAddr, remoteAddr tcpip.Address, netP
 //
 // Returns nil if validation fails.
 func (s *Stack) NewRouteForMulticast(nicID tcpip.NICID, remoteAddr tcpip.Address, netProto tcpip.NetworkProtocolNumber) *Route {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	nic, ok := s.nics[nicID]
 	if !ok || !nic.Enabled() {
 		return nil
@@ -1164,7 +1195,7 @@ func (s *Stack) NewRouteForMulticast(nicID tcpip.NICID, remoteAddr tcpip.Address
 // findLocalRouteFromNICRLocked is like findLocalRouteRLocked but finds a route
 // from the specified NIC.
 //
-// Precondition: s.mu must be read locked.
+// +checklocksread:s.mu
 func (s *Stack) findLocalRouteFromNICRLocked(localAddressNIC *nic, localAddr, remoteAddr tcpip.Address, netProto tcpip.NetworkProtocolNumber) *Route {
 	localAddressEndpoint := localAddressNIC.getAddressOrCreateTempInner(netProto, localAddr, false /* createTemp */, NeverPrimaryEndpoint)
 	if localAddressEndpoint == nil {
@@ -1217,7 +1248,7 @@ func (s *Stack) findLocalRouteFromNICRLocked(localAddressNIC *nic, localAddr, re
 // A local route is a route to some remote address which the stack owns. That
 // is, a local route is a route where packets never have to leave the stack.
 //
-// Precondition: s.mu must be read locked.
+// +checklocksread:s.mu
 func (s *Stack) findLocalRouteRLocked(localAddressNICID tcpip.NICID, localAddr, remoteAddr tcpip.Address, netProto tcpip.NetworkProtocolNumber) *Route {
 	if len(localAddr) == 0 {
 		localAddr = remoteAddr
@@ -1384,7 +1415,8 @@ func (s *Stack) FindRoute(id tcpip.NICID, localAddr, remoteAddr tcpip.Address, n
 				}
 			}
 
-			return nil, &tcpip.ErrNoRoute{}
+			// TODO(https://gvisor.dev/issues/8105): This should be ErrNetworkUnreachable.
+			return nil, &tcpip.ErrHostUnreachable{}
 		}
 
 		if id == 0 {
@@ -1404,11 +1436,13 @@ func (s *Stack) FindRoute(id tcpip.NICID, localAddr, remoteAddr tcpip.Address, n
 	}
 
 	if needRoute {
-		return nil, &tcpip.ErrNoRoute{}
+		// TODO(https://gvisor.dev/issues/8105): This should be ErrNetworkUnreachable.
+		return nil, &tcpip.ErrHostUnreachable{}
 	}
 	if header.IsV6LoopbackAddress(remoteAddr) {
 		return nil, &tcpip.ErrBadLocalAddress{}
 	}
+	// TODO(https://gvisor.dev/issues/8105): This should be ErrNetworkUnreachable.
 	return nil, &tcpip.ErrNetworkUnreachable{}
 }
 
@@ -1422,7 +1456,10 @@ func (s *Stack) CheckNetworkProtocol(protocol tcpip.NetworkProtocolNumber) bool 
 // CheckDuplicateAddress performs duplicate address detection for the address on
 // the specified interface.
 func (s *Stack) CheckDuplicateAddress(nicID tcpip.NICID, protocol tcpip.NetworkProtocolNumber, addr tcpip.Address, h DADCompletionHandler) (DADCheckAddressDisposition, tcpip.Error) {
+	s.mu.RLock()
 	nic, ok := s.nics[nicID]
+	s.mu.RUnlock()
+
 	if !ok {
 		return 0, &tcpip.ErrUnknownNICID{}
 	}
@@ -1727,6 +1764,12 @@ func (s *Stack) Wait() {
 	}
 }
 
+// Destroy destroys the stack with all endpoints.
+func (s *Stack) Destroy() {
+	s.Close()
+	s.Wait()
+}
+
 // Pause pauses any protocol level background workers.
 func (s *Stack) Pause() {
 	for _, p := range s.transportProtocols {
@@ -1792,6 +1835,7 @@ func (s *Stack) UnregisterPacketEndpoint(nicID tcpip.NICID, netProto tcpip.Netwo
 	s.unregisterPacketEndpointLocked(nicID, netProto, ep)
 }
 
+// +checklocks:s.mu
 func (s *Stack) unregisterPacketEndpointLocked(nicID tcpip.NICID, netProto tcpip.NetworkProtocolNumber, ep PacketEndpoint) {
 	// If no NIC is specified, unregister on all devices.
 	if nicID == 0 {
@@ -2062,7 +2106,7 @@ const (
 
 // ParsePacketBufferTransport parses the provided packet buffer's transport
 // header.
-func (s *Stack) ParsePacketBufferTransport(protocol tcpip.TransportProtocolNumber, pkt *PacketBuffer) ParseResult {
+func (s *Stack) ParsePacketBufferTransport(protocol tcpip.TransportProtocolNumber, pkt PacketBufferPtr) ParseResult {
 	pkt.TransportProtocolNumber = protocol
 	// Parse the transport header if present.
 	state, ok := s.transportProtocols[protocol]

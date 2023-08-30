@@ -23,16 +23,17 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/desertbit/grumble"
-	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // CrackCmd - GPU password cracking interface
-func CrackCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func CrackCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	if !AreCrackersOnline(con) {
 		PrintNoCrackstations(con)
 	} else {
@@ -57,7 +58,7 @@ func CrackCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 // CrackStationsCmd - Manage GPU cracking stations
-func CrackStationsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func CrackStationsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	crackers, err := con.Rpc.Crackstations(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

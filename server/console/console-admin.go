@@ -30,6 +30,8 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/spf13/cobra"
+
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/certs"
@@ -37,8 +39,6 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/transport"
-
-	"github.com/desertbit/grumble"
 )
 
 const (
@@ -68,9 +68,7 @@ const (
 	Woot = bold + green + "[$] " + normal
 )
 
-var (
-	namePattern = regexp.MustCompile("^[a-zA-Z0-9_-]*$") // Only allow alphanumeric chars
-)
+var namePattern = regexp.MustCompile("^[a-zA-Z0-9_-]*$") // Only allow alphanumeric chars
 
 // ClientConfig - Client JSON config
 type ClientConfig struct {
@@ -83,11 +81,11 @@ type ClientConfig struct {
 	Certificate   string `json:"certificate"`
 }
 
-func newOperatorCmd(ctx *grumble.Context) {
-	name := ctx.Flags.String("name")
-	lhost := ctx.Flags.String("lhost")
-	lport := uint16(ctx.Flags.Int("lport"))
-	save := ctx.Flags.String("save")
+func newOperatorCmd(cmd *cobra.Command, _ []string) {
+	name, _ := cmd.Flags().GetString("name")
+	lhost, _ := cmd.Flags().GetString("lhost")
+	lport, _ := cmd.Flags().GetUint16("lport")
+	save, _ := cmd.Flags().GetString("save")
 
 	if save == "" {
 		save, _ = os.Getwd()
@@ -110,7 +108,7 @@ func newOperatorCmd(ctx *grumble.Context) {
 		filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(name), filepath.Base(lhost))
 		saveTo = filepath.Join(saveTo, filename)
 	}
-	err = ioutil.WriteFile(saveTo, configJSON, 0600)
+	err = ioutil.WriteFile(saveTo, configJSON, 0o600)
 	if err != nil {
 		fmt.Printf(Warn+"Failed to write config to: %s (%s) \n", saveTo, err)
 		return
@@ -121,13 +119,13 @@ func newOperatorCmd(ctx *grumble.Context) {
 // NewOperatorConfig - Generate a new player/client/operator configuration
 func NewOperatorConfig(operatorName string, lhost string, lport uint16) ([]byte, error) {
 	if !namePattern.MatchString(operatorName) {
-		return nil, errors.New("Invalid operator name (alphanumerics only)")
+		return nil, errors.New("invalid operator name (alphanumerics only)")
 	}
 	if operatorName == "" {
-		return nil, errors.New("Operator name required")
+		return nil, errors.New("operator name required")
 	}
 	if lhost == "" {
-		return nil, errors.New("Invalid lhost")
+		return nil, errors.New("invalid lhost")
 	}
 
 	rawToken := models.GenerateOperatorToken()
@@ -143,7 +141,7 @@ func NewOperatorConfig(operatorName string, lhost string, lport uint16) ([]byte,
 
 	publicKey, privateKey, err := certs.OperatorClientGenerateCertificate(operatorName)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to generate certificate %s", err)
+		return nil, fmt.Errorf("failed to generate certificate %s", err)
 	}
 	caCertPEM, _, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
 	config := ClientConfig{
@@ -158,8 +156,9 @@ func NewOperatorConfig(operatorName string, lhost string, lport uint16) ([]byte,
 	return json.Marshal(config)
 }
 
-func kickOperatorCmd(ctx *grumble.Context) {
-	operator := ctx.Flags.String("name")
+func kickOperatorCmd(cmd *cobra.Command, _ []string) {
+	operator, _ := cmd.Flags().GetString("name")
+
 	fmt.Printf(Info+"Removing auth token(s) for %s, please wait ... \n", operator)
 	err := db.Session().Where(&models.Operator{
 		Name: operator,
@@ -177,10 +176,18 @@ func kickOperatorCmd(ctx *grumble.Context) {
 	fmt.Printf(Info+"Operator %s has been kicked out.\n", operator)
 }
 
-func startMultiplayerModeCmd(ctx *grumble.Context) {
-	lhost := ctx.Flags.String("lhost")
-	lport := uint16(ctx.Flags.Int("lport"))
-	jobID, err := JobStartClientListener(&clientpb.MultiplayerListenerReq{Host: lhost, Port: uint32(lport)})
+func startMultiplayerModeCmd(cmd *cobra.Command, _ []string) {
+	lhost, _ := cmd.Flags().GetString("lhost")
+	lport, _ := cmd.Flags().GetUint16("lport")
+	tailscale, _ := cmd.Flags().GetBool("tailscale")
+
+	var err error
+	var jobID int
+	if tailscale {
+		_, err = jobStartTsNetClientListener(lhost, lport)
+	} else {
+		jobID, err = JobStartClientListener(&clientpb.MultiplayerListenerReq{Host: lhost, Port: uint32(lport)})
+	}
 	if err == nil {
 		fmt.Printf(Info + "Multiplayer mode enabled!\n")
 		multiConfig := &clientpb.MultiplayerListenerReq{Host: lhost, Port: uint32(lport)}
@@ -201,17 +208,48 @@ func startMultiplayerModeCmd(ctx *grumble.Context) {
 }
 
 func JobStartClientListener(multiplayerListener *clientpb.MultiplayerListenerReq) (int, error) {
-	_, ln, err := transport.StartClientListener(multiplayerListener.Host, uint16(multiplayerListener.Port))
+	_, ln, err := transport.StartMtlsClientListener(multiplayerListener.Host, uint16(multiplayerListener.Port))
 	if err != nil {
 		return -1, err // If we fail to bind don't setup the Job
 	}
 
 	job := &core.Job{
 		ID:          core.NextJobID(),
-		Name:        "grpc",
+		Name:        "grpc/mtls",
 		Description: "client listener",
 		Protocol:    "tcp",
 		Port:        uint16(multiplayerListener.Port),
+		JobCtrl:     make(chan bool),
+	}
+
+	go func() {
+		<-job.JobCtrl
+		log.Printf("Stopping client listener (%d) ...\n", job.ID)
+		ln.Close() // Kills listener GoRoutines in startMutualTLSListener() but NOT connections
+
+		core.Jobs.Remove(job)
+		core.EventBroker.Publish(core.Event{
+			Job:       job,
+			EventType: consts.JobStoppedEvent,
+		})
+	}()
+
+	core.Jobs.Add(job)
+	return job.ID, nil
+}
+
+func jobStartTsNetClientListener(host string, port uint16) (int, error) {
+	_, ln, err := transport.StartTsNetClientListener(host, port)
+	if err != nil {
+		return -1, err // If we fail to bind don't setup the Job
+	}
+
+	job := &core.Job{
+		ID:          core.NextJobID(),
+		Name:        "grpc/tsnet",
+		Description: "client listener",
+		Protocol:    "tcp",
+		Port:        uint16(port),
 		JobCtrl:     make(chan bool),
 	}
 

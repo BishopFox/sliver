@@ -19,10 +19,10 @@ package wasi_snapshot_preview1
 import (
 	"context"
 	"encoding/binary"
-	"syscall"
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental/sys"
 	"github.com/tetratelabs/wazero/internal/wasip1"
 	"github.com/tetratelabs/wazero/internal/wasm"
 )
@@ -57,6 +57,11 @@ func Instantiate(ctx context.Context, r wazero.Runtime) (api.Closer, error) {
 }
 
 // Builder configures the ModuleName module for later use via Compile or Instantiate.
+//
+// # Notes
+//
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 type Builder interface {
 	// Compile compiles the ModuleName module. Call this before Instantiate.
 	//
@@ -94,6 +99,11 @@ func (b *builder) Instantiate(ctx context.Context) (api.Closer, error) {
 }
 
 // FunctionExporter exports functions into a wazero.HostModuleBuilder.
+//
+// # Notes
+//
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
 type FunctionExporter interface {
 	ExportFunctions(wazero.HostModuleBuilder)
 }
@@ -219,18 +229,18 @@ func exportFunctions(builder wazero.HostModuleBuilder) {
 // writeOffsetsAndNullTerminatedValues is used to write NUL-terminated values
 // for args or environ, given a pre-defined bytesLen (which includes NUL
 // terminators).
-func writeOffsetsAndNullTerminatedValues(mem api.Memory, values [][]byte, offsets, bytes, bytesLen uint32) syscall.Errno {
+func writeOffsetsAndNullTerminatedValues(mem api.Memory, values [][]byte, offsets, bytes, bytesLen uint32) sys.Errno {
 	// The caller may not place bytes directly after offsets, so we have to
 	// read them independently.
 	valuesLen := len(values)
 	offsetsLen := uint32(valuesLen * 4) // uint32Le
 	offsetsBuf, ok := mem.Read(offsets, offsetsLen)
 	if !ok {
-		return syscall.EFAULT
+		return sys.EFAULT
 	}
 	bytesBuf, ok := mem.Read(bytes, bytesLen)
 	if !ok {
-		return syscall.EFAULT
+		return sys.EFAULT
 	}
 
 	// Loop through the values, first writing the location of its data to
@@ -263,7 +273,7 @@ func newHostFunc(
 	paramNames ...string,
 ) *wasm.HostFunc {
 	return &wasm.HostFunc{
-		ExportNames: []string{name},
+		ExportName:  name,
 		Name:        name,
 		ParamTypes:  paramTypes,
 		ParamNames:  paramNames,
@@ -275,7 +285,7 @@ func newHostFunc(
 
 // wasiFunc special cases that all WASI functions return a single Errno
 // result. The returned value will be written back to the stack at index zero.
-type wasiFunc func(ctx context.Context, mod api.Module, params []uint64) syscall.Errno
+type wasiFunc func(ctx context.Context, mod api.Module, params []uint64) sys.Errno
 
 // Call implements the same method as documented on api.GoModuleFunction.
 func (f wasiFunc) Call(ctx context.Context, mod api.Module, stack []uint64) {
@@ -291,8 +301,8 @@ func (f wasiFunc) Call(ctx context.Context, mod api.Module, stack []uint64) {
 // stubFunction stubs for GrainLang per #271.
 func stubFunction(name string, paramTypes []wasm.ValueType, paramNames ...string) *wasm.HostFunc {
 	return &wasm.HostFunc{
+		ExportName:  name,
 		Name:        name,
-		ExportNames: []string{name},
 		ParamTypes:  paramTypes,
 		ParamNames:  paramNames,
 		ResultTypes: []api.ValueType{i32},

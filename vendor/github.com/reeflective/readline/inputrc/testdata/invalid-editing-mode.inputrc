@@ -1,0 +1,5 @@
+haltOnErr: true
+####----####
+set editing-mode foo
+####----####
+error: invalid editing mode

@@ -27,48 +27,54 @@ import (
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
-	"github.com/desertbit/grumble"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
 // wasmMaxModuleSize - Arbitrary 1.5Gb limit to put us well under the 2Gb max gRPC message size
 // this is also the *compressed size* limit, so it's pretty generous
-const gb = 1024 * 1024 * 1024
-const wasmMaxModuleSize = gb + (gb / 2)
+const (
+	gb                = 1024 * 1024 * 1024
+	wasmMaxModuleSize = gb + (gb / 2)
+)
 
 // WasmCmd - session/beacon id -> list of loaded wasm extension names
 var wasmRegistrationCache = make(map[string][]string)
 
 // WasmCmd - Execute a WASM module extension
-func WasmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func WasmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
 	// Wasm module file path
-	wasmFilePath := ctx.Args.String("filepath")
+	wasmFilePath := args[0]
 	if _, err := os.Stat(wasmFilePath); os.IsNotExist(err) {
 		con.PrintErrorf("File does not exist: %s", wasmFilePath)
 		return
 	}
 
 	// Parse memfs args and build memfs map
-	memfs, err := parseMemFS(ctx, con)
+	memfs, err := parseMemFS(cmd, con, args)
 	if err != nil {
 		con.PrintErrorf("memfs error: %s", err)
 		return
 	}
 
 	// Wasm module args
-	wasmArgs := ctx.Args.StringList("arguments")
-	interactive := ctx.Flags.Bool("pipe")
+	wasmArgs := args[1:]
+	interactive, _ := cmd.Flags().GetBool("pipe")
 
-	if !ctx.Flags.Bool("skip-registration") && !isRegistered(filepath.Base(wasmFilePath), ctx, con) {
+	skipRegistration, _ := cmd.Flags().GetBool("skip-registration")
+
+	if !skipRegistration && !isRegistered(filepath.Base(wasmFilePath), cmd, con) {
 		con.PrintInfof("Registering wasm extension '%s' ...\n", wasmFilePath)
-		err := registerWasmExtension(wasmFilePath, ctx, con)
+		err := registerWasmExtension(wasmFilePath, cmd, con)
 		if err != nil {
 			con.PrintErrorf("Failed to register wasm extension '%s': %s\n", wasmFilePath, err)
 			return
@@ -80,17 +86,16 @@ func WasmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Args:        wasmArgs,
 		MemFS:       memfs,
 		Interactive: interactive,
-		Request:     con.ActiveTarget.Request(ctx),
+		Request:     con.ActiveTarget.Request(cmd),
 	}
 	if interactive {
-		runInteractive(ctx, execWasmReq, con)
+		runInteractive(cmd, execWasmReq, con)
 	} else {
 		runNonInteractive(execWasmReq, con)
 	}
 }
 
-func isRegistered(name string, ctx *grumble.Context, con *console.SliverConsoleClient) bool {
-
+func isRegistered(name string, cmd *cobra.Command, con *console.SliverConsoleClient) bool {
 	// Check if we have already registered this wasm module
 	if wasmRegistrationCache[idOf(con)] != nil {
 		if util.Contains(wasmRegistrationCache[idOf(con)], name) {
@@ -98,10 +103,10 @@ func isRegistered(name string, ctx *grumble.Context, con *console.SliverConsoleC
 		}
 	}
 
-	grpcCtx, cancel := con.GrpcContext(ctx)
+	grpcCtx, cancel := con.GrpcContext(cmd)
 	defer cancel()
 	loaded, err := con.Rpc.ListWasmExtensions(grpcCtx, &sliverpb.ListWasmExtensionsReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
 		return false
@@ -136,20 +141,31 @@ func runNonInteractive(execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	if execWasmResp.Response != nil && execWasmResp.Response.Err != "" {
-		con.PrintErrorf("%s\n", execWasmResp.Response.Err)
-		return
+	if execWasmResp.Response != nil && execWasmResp.Response.Async {
+		con.AddBeaconCallback(execWasmResp.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, execWasmResp)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+				return
+			}
+			con.PrintInfof("Executed wasm extension '%s' successfully\n", execWasmReq.Name)
+			os.Stdout.Write(execWasmResp.Stdout)
+			os.Stderr.Write(execWasmResp.Stderr)
+		})
+	} else {
+		con.PrintInfof("Executed wasm extension '%s' successfully\n", execWasmReq.Name)
+		os.Stdout.Write(execWasmResp.Stdout)
+		os.Stderr.Write(execWasmResp.Stderr)
 	}
-	con.PrintInfof("Executed wasm extension '%s' successfully\n", execWasmReq.Name)
-
-	con.App.Stdout().Write(execWasmResp.Stdout)
-	con.App.Stderr().Write(execWasmResp.Stderr)
 }
 
-func runInteractive(ctx *grumble.Context, execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.SliverConsoleClient) {
+func runInteractive(cmd *cobra.Command, execWasmReq *sliverpb.ExecWasmExtensionReq, con *console.SliverConsoleClient) {
 	session := con.ActiveTarget.GetSession()
 	if session == nil {
 		con.PrintErrorf("No active session\n")
+		if beacon := con.ActiveTarget.GetBeacon(); beacon != nil {
+			con.PrintWarnf("Wasm modules cannot be executed with --pipe in beacon mode\n")
+		}
 		return
 	}
 
@@ -211,8 +227,8 @@ func runInteractive(ctx *grumble.Context, execWasmReq *sliverpb.ExecWasmExtensio
 	}
 }
 
-func registerWasmExtension(wasmFilePath string, ctx *grumble.Context, con *console.SliverConsoleClient) error {
-	grpcCtx, cancel := con.GrpcContext(ctx)
+func registerWasmExtension(wasmFilePath string, cmd *cobra.Command, con *console.SliverConsoleClient) error {
+	grpcCtx, cancel := con.GrpcContext(cmd)
 	defer cancel()
 	data, err := os.ReadFile(wasmFilePath)
 	if err != nil {
@@ -226,7 +242,7 @@ func registerWasmExtension(wasmFilePath string, ctx *grumble.Context, con *conso
 		)
 	}
 	_, err = con.Rpc.RegisterWasmExtension(grpcCtx, &sliverpb.RegisterWasmExtensionReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 		Name:    filepath.Base(wasmFilePath),
 		WasmGz:  data,
 	})
@@ -238,16 +254,16 @@ func registerWasmExtension(wasmFilePath string, ctx *grumble.Context, con *conso
 }
 
 // WasmLsCmd - Execute a WASM module extension
-func WasmLsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func WasmLsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
-	grpcCtx, cancel := con.GrpcContext(ctx)
+	grpcCtx, cancel := con.GrpcContext(cmd)
 	defer cancel()
 	loaded, err := con.Rpc.ListWasmExtensions(grpcCtx, &sliverpb.ListWasmExtensionsReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
 		con.PrintErrorf("%s", err)

@@ -7,12 +7,9 @@ const (
 	_ROW  = 100 /* sqlite3_step() has another row ready */
 	_DONE = 101 /* sqlite3_step() has finished executing */
 
-	_OK_SYMLINK = (_OK | (2 << 8)) /* internal use only */
-
 	_UTF8 = 1
 
-	_MAX_STRING   = 512 // Used for short strings: names, error messages…
-	_MAX_PATHNAME = 512
+	_MAX_STRING = 512 // Used for short strings: names, error messages…
 
 	_MAX_ALLOCATION_SIZE = 0x7ffffeff
 
@@ -140,34 +137,23 @@ const (
 	AUTH_USER               ExtendedErrorCode = xErrorCode(AUTH) | (1 << 8)
 )
 
-// OpenFlag is a flag for a file open operation.
+// OpenFlag is a flag for the [OpenFlags] function.
 //
 // https://www.sqlite.org/c3ref/c_open_autoproxy.html
 type OpenFlag uint32
 
 const (
-	OPEN_READONLY      OpenFlag = 0x00000001 /* Ok for sqlite3_open_v2() */
-	OPEN_READWRITE     OpenFlag = 0x00000002 /* Ok for sqlite3_open_v2() */
-	OPEN_CREATE        OpenFlag = 0x00000004 /* Ok for sqlite3_open_v2() */
-	OPEN_DELETEONCLOSE OpenFlag = 0x00000008 /* VFS only */
-	OPEN_EXCLUSIVE     OpenFlag = 0x00000010 /* VFS only */
-	OPEN_AUTOPROXY     OpenFlag = 0x00000020 /* VFS only */
-	OPEN_URI           OpenFlag = 0x00000040 /* Ok for sqlite3_open_v2() */
-	OPEN_MEMORY        OpenFlag = 0x00000080 /* Ok for sqlite3_open_v2() */
-	OPEN_MAIN_DB       OpenFlag = 0x00000100 /* VFS only */
-	OPEN_TEMP_DB       OpenFlag = 0x00000200 /* VFS only */
-	OPEN_TRANSIENT_DB  OpenFlag = 0x00000400 /* VFS only */
-	OPEN_MAIN_JOURNAL  OpenFlag = 0x00000800 /* VFS only */
-	OPEN_TEMP_JOURNAL  OpenFlag = 0x00001000 /* VFS only */
-	OPEN_SUBJOURNAL    OpenFlag = 0x00002000 /* VFS only */
-	OPEN_SUPER_JOURNAL OpenFlag = 0x00004000 /* VFS only */
-	OPEN_NOMUTEX       OpenFlag = 0x00008000 /* Ok for sqlite3_open_v2() */
-	OPEN_FULLMUTEX     OpenFlag = 0x00010000 /* Ok for sqlite3_open_v2() */
-	OPEN_SHAREDCACHE   OpenFlag = 0x00020000 /* Ok for sqlite3_open_v2() */
-	OPEN_PRIVATECACHE  OpenFlag = 0x00040000 /* Ok for sqlite3_open_v2() */
-	OPEN_WAL           OpenFlag = 0x00080000 /* VFS only */
-	OPEN_NOFOLLOW      OpenFlag = 0x01000000 /* Ok for sqlite3_open_v2() */
-	OPEN_EXRESCODE     OpenFlag = 0x02000000 /* Extended result codes */
+	OPEN_READONLY     OpenFlag = 0x00000001 /* Ok for sqlite3_open_v2() */
+	OPEN_READWRITE    OpenFlag = 0x00000002 /* Ok for sqlite3_open_v2() */
+	OPEN_CREATE       OpenFlag = 0x00000004 /* Ok for sqlite3_open_v2() */
+	OPEN_URI          OpenFlag = 0x00000040 /* Ok for sqlite3_open_v2() */
+	OPEN_MEMORY       OpenFlag = 0x00000080 /* Ok for sqlite3_open_v2() */
+	OPEN_NOMUTEX      OpenFlag = 0x00008000 /* Ok for sqlite3_open_v2() */
+	OPEN_FULLMUTEX    OpenFlag = 0x00010000 /* Ok for sqlite3_open_v2() */
+	OPEN_SHAREDCACHE  OpenFlag = 0x00020000 /* Ok for sqlite3_open_v2() */
+	OPEN_PRIVATECACHE OpenFlag = 0x00040000 /* Ok for sqlite3_open_v2() */
+	OPEN_NOFOLLOW     OpenFlag = 0x01000000 /* Ok for sqlite3_open_v2() */
+	OPEN_EXRESCODE    OpenFlag = 0x02000000 /* Extended result codes */
 )
 
 // PrepareFlag is a flag that can be passed to [Conn.PrepareFlags].
@@ -211,65 +197,3 @@ func (t Datatype) String() string {
 	}
 	return strconv.FormatUint(uint64(t), 10)
 }
-
-type _AccessFlag uint32
-
-const (
-	_ACCESS_EXISTS    _AccessFlag = 0
-	_ACCESS_READWRITE _AccessFlag = 1 /* Used by PRAGMA temp_store_directory */
-	_ACCESS_READ      _AccessFlag = 2 /* Unused */
-)
-
-type _SyncFlag uint32
-
-const (
-	_SYNC_NORMAL   _SyncFlag = 0x00002
-	_SYNC_FULL     _SyncFlag = 0x00003
-	_SYNC_DATAONLY _SyncFlag = 0x00010
-)
-
-type _FcntlOpcode uint32
-
-const (
-	_FCNTL_LOCKSTATE             = 1
-	_FCNTL_GET_LOCKPROXYFILE     = 2
-	_FCNTL_SET_LOCKPROXYFILE     = 3
-	_FCNTL_LAST_ERRNO            = 4
-	_FCNTL_SIZE_HINT             = 5
-	_FCNTL_CHUNK_SIZE            = 6
-	_FCNTL_FILE_POINTER          = 7
-	_FCNTL_SYNC_OMITTED          = 8
-	_FCNTL_WIN32_AV_RETRY        = 9
-	_FCNTL_PERSIST_WAL           = 10
-	_FCNTL_OVERWRITE             = 11
-	_FCNTL_VFSNAME               = 12
-	_FCNTL_POWERSAFE_OVERWRITE   = 13
-	_FCNTL_PRAGMA                = 14
-	_FCNTL_BUSYHANDLER           = 15
-	_FCNTL_TEMPFILENAME          = 16
-	_FCNTL_MMAP_SIZE             = 18
-	_FCNTL_TRACE                 = 19
-	_FCNTL_HAS_MOVED             = 20
-	_FCNTL_SYNC                  = 21
-	_FCNTL_COMMIT_PHASETWO       = 22
-	_FCNTL_WIN32_SET_HANDLE      = 23
-	_FCNTL_WAL_BLOCK             = 24
-	_FCNTL_ZIPVFS                = 25
-	_FCNTL_RBU                   = 26
-	_FCNTL_VFS_POINTER           = 27
-	_FCNTL_JOURNAL_POINTER       = 28
-	_FCNTL_WIN32_GET_HANDLE      = 29
-	_FCNTL_PDB                   = 30
-	_FCNTL_BEGIN_ATOMIC_WRITE    = 31
-	_FCNTL_COMMIT_ATOMIC_WRITE   = 32
-	_FCNTL_ROLLBACK_ATOMIC_WRITE = 33
-	_FCNTL_LOCK_TIMEOUT          = 34
-	_FCNTL_DATA_VERSION          = 35
-	_FCNTL_SIZE_LIMIT            = 36
-	_FCNTL_CKPT_DONE             = 37
-	_FCNTL_RESERVE_BYTES         = 38
-	_FCNTL_CKPT_START            = 39
-	_FCNTL_EXTERNAL_READER       = 40
-	_FCNTL_CKSM_FILE             = 41
-	_FCNTL_RESET_CACHE           = 42
-)

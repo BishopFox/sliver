@@ -16,10 +16,10 @@ jobs:
 
     steps:
       # Setup go environment
-      - name: Go 1.20
+      - name: Go 1.21
         uses: actions/setup-go@v4
         with:
-          go-version: "^1.20"
+          go-version: "^1.21"
 
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -33,25 +33,19 @@ jobs:
       - name: OS Packages
         run: |
           sudo apt-get update --fix-missing && sudo apt-get -y install \
-          git build-essential zlib1g zlib1g-dev wget zip unzip \
-          mingw-w64 binutils-mingw-w64 g++-mingw-w64
+          git build-essential zlib1g zlib1g-dev wget zip unzip
 
-      - name: Check out code into the Go module directory
+      - name: Check Out Code
         uses: actions/checkout@v3
 
-      - name: Go Assets
-        run: ./go-assets.sh
-
-      # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v2
         with:
           config-file: ./.github/codeql/codeql-config.yml
           languages: go
 
-      # Build the server ... is this necessary though?
-      - run: |
-          make
+      - name: Make
+        run: make
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2

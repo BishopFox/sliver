@@ -23,7 +23,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -60,7 +59,6 @@ var (
 	accessLog = log.NamedLogger("c2", "http-access")
 
 	ErrMissingNonce   = errors.New("nonce not found in request")
-	ErrMissingOTP     = errors.New("otp code not found in request")
 	ErrInvalidEncoder = errors.New("invalid request encoder")
 	ErrDecodeFailed   = errors.New("failed to decode request")
 	ErrDecryptFailed  = errors.New("failed to decrypt request")
@@ -343,13 +341,11 @@ func (s *SliverHTTPC2) router() *mux.Router {
 
 	for _, c2Config := range c2Configs {
 
-		httpLog.Debugf("HTTP C2 Implant Config = %v", c2Config.ImplantConfig)
-		httpLog.Debugf("HTTP C2 Server Config = %v", c2Config.ServerConfig)
-		// Start Session Handler
-		router.HandleFunc(
-			fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.StartSessionFileExtension),
-			s.startSessionHandler,
-		).MatcherFunc(s.filterOTP).MatcherFunc(s.filterNonce).Methods(http.MethodGet, http.MethodPost)
+	// Start Session Handler
+	router.HandleFunc(
+		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.StartSessionFileExtension),
+		s.startSessionHandler,
+	).MatcherFunc(s.filterNonce).Methods(http.MethodGet, http.MethodPost)
 
 		// Session Handler
 		router.HandleFunc(
@@ -369,15 +365,13 @@ func (s *SliverHTTPC2) router() *mux.Router {
 			s.closeHandler,
 		).MatcherFunc(s.filterNonce).Methods(http.MethodGet)
 
-		// Can't force the user agent on the stager payload
-		// Request from msf stager payload will look like:
-		// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
-		router.HandleFunc(
-			fmt.Sprintf("/{rpath:.*\\.%s[/]{0,1}.*$}", c2Config.ImplantConfig.StagerFileExtension),
-			s.stagerHandler,
-		).MatcherFunc(s.filterOTP).Methods(http.MethodGet)
-
-	}
+	// Can't force the user agent on the stager payload
+	// Request from msf stager payload will look like:
+	// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
+	router.HandleFunc(
+		fmt.Sprintf("/{rpath:.*\\.%s[/]{0,1}.*$}", c2Config.ImplantConfig.StagerFileExtension),
+		s.stagerHandler,
+	).Methods(http.MethodGet)
 
 	// Default handler returns static content or 404s
 	httpLog.Debugf("No pattern matches for request uri")
@@ -403,31 +397,6 @@ func (s *SliverHTTPC2) filterNonce(req *http.Request, rm *mux.RouteMatch) bool {
 	return true
 }
 
-func (s *SliverHTTPC2) filterOTP(req *http.Request, rm *mux.RouteMatch) bool {
-	if s.ServerConf.EnforceOTP {
-		httpLog.Debug("Checking for valid OTP code ...")
-		otpCode, err := getOTPFromURL(req.URL)
-		if err != nil {
-			httpLog.Warnf("Failed to validate OTP: %s", err)
-			return false
-		}
-		valid, err := cryptography.ValidateTOTP(otpCode)
-		if err != nil {
-			httpLog.Warnf("Failed to validate OTP: %s", err)
-			return false
-		}
-		if valid {
-			httpLog.Debug("OTP code is valid")
-			return true
-		}
-		httpLog.Debugf("OTP code (%s) is invalid", otpCode)
-		return false
-	} else {
-		httpLog.Debug("OTP enforcement is disabled")
-		return true // OTP enforcement is disabled
-	}
-}
-
 func getNonceFromURL(reqURL *url.URL) (uint64, error) {
 	qNonce := ""
 	for arg, values := range reqURL.Query() {
@@ -451,21 +420,6 @@ func getNonceFromURL(reqURL *url.URL) (uint64, error) {
 		return 0, err
 	}
 	return nonce, nil
-}
-
-func getOTPFromURL(reqURL *url.URL) (string, error) {
-	otpCode := ""
-	for arg, values := range reqURL.Query() {
-		if len(arg) == 2 {
-			otpCode = digitsOnly(values[0])
-			break
-		}
-	}
-	if otpCode == "" {
-		httpLog.Warn("OTP not found in request")
-		return "", ErrMissingNonce
-	}
-	return otpCode, nil
 }
 
 func digitsOnly(value string) string {
@@ -561,25 +515,17 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 
 	var publicKeyDigest [32]byte
 	copy(publicKeyDigest[:], data[:32])
-	implantConfig, err := db.ImplantConfigByECCPublicKeyDigest(publicKeyDigest)
+	implantConfig, err := db.ImplantConfigByPublicKeyDigest(publicKeyDigest)
 	if err != nil || implantConfig == nil {
 		httpLog.Warn("Unknown public key")
 		s.defaultHandler(resp, req)
 		return
 	}
-	publicKey, err := base64.RawStdEncoding.DecodeString(implantConfig.ECCPublicKey)
-	if err != nil || len(publicKey) != 32 {
-		httpLog.Warn("Failed to decode public key")
-		s.defaultHandler(resp, req)
-		return
-	}
-	var senderPublicKey [32]byte
-	copy(senderPublicKey[:], publicKey)
 
-	serverKeyPair := cryptography.ECCServerKeyPair()
-	sessionInitData, err := cryptography.ECCDecrypt(&senderPublicKey, serverKeyPair.Private, data[32:])
+	serverKeyPair := cryptography.AgeServerKeyPair()
+	sessionInitData, err := cryptography.AgeKeyExFromImplant(serverKeyPair.Private, implantConfig.PeerPrivateKey, data[32:])
 	if err != nil {
-		httpLog.Error("ECC decryption failed")
+		httpLog.Error("age key exchange decryption failed")
 		s.defaultHandler(resp, req)
 		return
 	}

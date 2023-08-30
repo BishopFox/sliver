@@ -54,8 +54,7 @@ var daemonCmd = &cobra.Command{
 		assets.Setup(force, false)
 		certs.SetupCAs()
 		certs.SetupWGKeys()
-		cryptography.ECCServerKeyPair()
-		cryptography.TOTPServerSecret()
+		cryptography.AgeServerKeyPair()
 		cryptography.MinisignServerPrivateKey()
 
 		listenerJobs, err := db.ListenerJobs()

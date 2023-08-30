@@ -21,23 +21,23 @@ package rportfwd
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-
-	"github.com/desertbit/grumble"
 )
 
 // StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant
-func StopRportFwdListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func StopRportFwdListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
 
-	listenerID := ctx.Flags.Int("id")
+	listenerID, _ := cmd.Flags().GetUint32("id")
 	rportfwdListener, err := con.Rpc.StopRportFwdListener(context.Background(), &sliverpb.RportFwdStopListenerReq{
-		Request: con.ActiveTarget.Request(ctx),
-		ID:      uint32(listenerID),
+		Request: con.ActiveTarget.Request(cmd),
+		ID:      listenerID,
 	})
 	if err != nil {
 		con.PrintWarnf("%s\n", err)

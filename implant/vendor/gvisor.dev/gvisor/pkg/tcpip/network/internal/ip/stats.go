@@ -30,6 +30,11 @@ type MultiCounterIPForwardingStats struct {
 	// because their TTL was exhausted.
 	ExhaustedTTL tcpip.MultiCounterStat
 
+	// InitializingSource is the number of IP packets which were dropped
+	// because they contained a source address that may only be used on the local
+	// network as part of initialization work.
+	InitializingSource tcpip.MultiCounterStat
+
 	// LinkLocalSource is the number of IP packets which were dropped
 	// because they contained a link-local source address.
 	LinkLocalSource tcpip.MultiCounterStat
@@ -64,6 +69,10 @@ type MultiCounterIPForwardingStats struct {
 	// were dropped due to insufficent buffer space in the pending packet queue.
 	NoMulticastPendingQueueBufferSpace tcpip.MultiCounterStat
 
+	// OutgoingDeviceNoBufferSpace is the number of packets that were dropped due
+	// to insufficient space in the outgoing device.
+	OutgoingDeviceNoBufferSpace tcpip.MultiCounterStat
+
 	// Errors is the number of IP packets received which could not be
 	// successfully forwarded.
 	Errors tcpip.MultiCounterStat
@@ -73,6 +82,7 @@ type MultiCounterIPForwardingStats struct {
 func (m *MultiCounterIPForwardingStats) Init(a, b *tcpip.IPForwardingStats) {
 	m.Unrouteable.Init(a.Unrouteable, b.Unrouteable)
 	m.Errors.Init(a.Errors, b.Errors)
+	m.InitializingSource.Init(a.InitializingSource, b.InitializingSource)
 	m.LinkLocalSource.Init(a.LinkLocalSource, b.LinkLocalSource)
 	m.LinkLocalDestination.Init(a.LinkLocalDestination, b.LinkLocalDestination)
 	m.ExtensionHeaderProblem.Init(a.ExtensionHeaderProblem, b.ExtensionHeaderProblem)
@@ -82,6 +92,7 @@ func (m *MultiCounterIPForwardingStats) Init(a, b *tcpip.IPForwardingStats) {
 	m.UnexpectedMulticastInputInterface.Init(a.UnexpectedMulticastInputInterface, b.UnexpectedMulticastInputInterface)
 	m.UnknownOutputEndpoint.Init(a.UnknownOutputEndpoint, b.UnknownOutputEndpoint)
 	m.NoMulticastPendingQueueBufferSpace.Init(a.NoMulticastPendingQueueBufferSpace, b.NoMulticastPendingQueueBufferSpace)
+	m.OutgoingDeviceNoBufferSpace.Init(a.OutgoingDeviceNoBufferSpace, b.OutgoingDeviceNoBufferSpace)
 }
 
 // LINT.ThenChange(:MultiCounterIPForwardingStats, ../../../tcpip.go:IPForwardingStats)

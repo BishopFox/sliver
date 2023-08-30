@@ -8,6 +8,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/internal/ieee754"
@@ -48,6 +49,9 @@ type Module struct {
 	ImportGlobalCount,
 	ImportMemoryCount,
 	ImportTableCount Index
+	// ImportPerModule maps a module name to the list of Import to be imported from the module.
+	// This is used to do fast import resolution during instantiation.
+	ImportPerModule map[string][]*Import
 
 	// FunctionSection contains the index in TypeSection of each function defined in this module.
 	//
@@ -152,16 +156,6 @@ type Module struct {
 	// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#custom-section%E2%91%A0
 	CustomSections []*CustomSection
 
-	// validatedActiveElementSegments are built on Validate when
-	// SectionIDElement is non-empty and all inputs are valid.
-	//
-	// Note: elementSegments retain Module.ElementSection order. Since an
-	// ElementSegment can overlap with another, order preservation ensures a
-	// consistent initialization result.
-	//
-	// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#table-instances%E2%91%A0
-	validatedActiveElementSegments []validatedActiveElementSegment
-
 	// DataCountSection is the optional section and holds the number of data segments in the data section.
 	//
 	// Note: This may exist in WebAssembly 2.0 or WebAssembly 1.0 with CoreFeatureBulkMemoryOperations.
@@ -169,16 +163,20 @@ type Module struct {
 	// See https://www.w3.org/TR/2022/WD-wasm-core-2-20220419/appendix/changes.html#bulk-memory-and-table-instructions
 	DataCountSection *uint32
 
-	// ID is the sha256 value of the source wasm and is used for caching.
+	// ID is the sha256 value of the source wasm plus the configurations which affect the runtime representation of
+	// Wasm binary. This is only used for caching.
 	ID ModuleID
 
 	// IsHostModule true if this is the host module, false otherwise.
 	IsHostModule bool
 
-	// FunctionDefinitionSection is a wazero-specific section built on Validate.
+	// functionDefinitionSectionInitOnce guards FunctionDefinitionSection so that it is initialized exactly once.
+	functionDefinitionSectionInitOnce sync.Once
+
+	// FunctionDefinitionSection is a wazero-specific section.
 	FunctionDefinitionSection []FunctionDefinition
 
-	// MemoryDefinitionSection is a wazero-specific section built on Validate.
+	// MemoryDefinitionSection is a wazero-specific section.
 	MemoryDefinitionSection []MemoryDefinition
 
 	// DWARFLines is used to emit DWARF based stack trace. This is created from the multiple custom sections
@@ -198,33 +196,48 @@ const (
 	MaximumTableIndex    = uint32(1 << 27)
 )
 
-// AssignModuleID calculates a sha256 checksum on `wasm` and set Module.ID to the result.
-func (m *Module) AssignModuleID(wasm []byte) {
-	m.ID = sha256.Sum256(wasm)
+// AssignModuleID calculates a sha256 checksum on `wasm` and other args, and set Module.ID to the result.
+// See the doc on Module.ID on what it's used for.
+func (m *Module) AssignModuleID(wasm []byte, withListener, withEnsureTermination bool) {
+	h := sha256.New()
+	h.Write(wasm)
+	// Use the pre-allocated space on m.ID to append the booleans to sha256 hash.
+	m.ID[0] = boolToByte(withListener)
+	m.ID[1] = boolToByte(withEnsureTermination)
+	h.Write(m.ID[:2])
+	// Get checksum by passing the slice underlying m.ID.
+	h.Sum(m.ID[:0])
 }
 
-// TypeOfFunction returns the wasm.SectionIDType index for the given function space index or nil.
-// Note: The function index is preceded by imported functions.
-// TODO: Returning nil should be impossible when decode results are validated. Validate decode before back-filling tests.
-func (m *Module) TypeOfFunction(funcIdx Index) *FunctionType {
-	typeSectionLength := uint32(len(m.TypeSection))
-	if typeSectionLength == 0 {
-		return nil
+func boolToByte(b bool) (ret byte) {
+	if b {
+		ret = 1
 	}
-	funcImportCount := Index(0)
-	for i := range m.ImportSection {
-		imp := &m.ImportSection[i]
-		if imp.Type == ExternTypeFunc {
-			if funcIdx == funcImportCount {
+	return
+}
+
+// typeOfFunction returns the wasm.FunctionType for the given function space index or nil.
+func (m *Module) typeOfFunction(funcIdx Index) *FunctionType {
+	typeSectionLength, importedFunctionCount := uint32(len(m.TypeSection)), m.ImportFunctionCount
+	if funcIdx < importedFunctionCount {
+		// Imports are not exclusively functions. This is the current function index in the loop.
+		cur := Index(0)
+		for i := range m.ImportSection {
+			imp := &m.ImportSection[i]
+			if imp.Type != ExternTypeFunc {
+				continue
+			}
+			if funcIdx == cur {
 				if imp.DescFunc >= typeSectionLength {
 					return nil
 				}
 				return &m.TypeSection[imp.DescFunc]
 			}
-			funcImportCount++
+			cur++
 		}
 	}
-	funcSectionIdx := funcIdx - funcImportCount
+
+	funcSectionIdx := funcIdx - m.ImportFunctionCount
 	if funcSectionIdx >= uint32(len(m.FunctionSection)) {
 		return nil
 	}
@@ -272,7 +285,7 @@ func (m *Module) Validate(enabledFeatures api.CoreFeatures) error {
 		}
 	} // No need to validate host functions as NewHostModule validates
 
-	if _, err = m.validateTable(enabledFeatures, tables, MaximumTableIndex); err != nil {
+	if err = m.validateTable(enabledFeatures, tables, MaximumTableIndex); err != nil {
 		return err
 	}
 
@@ -287,7 +300,7 @@ func (m *Module) validateStartSection() error {
 	// TODO: this should be verified during decode so that errors have the correct source positions
 	if m.StartSection != nil {
 		startIndex := *m.StartSection
-		ft := m.TypeOfFunction(startIndex)
+		ft := m.typeOfFunction(startIndex)
 		if ft == nil { // TODO: move this check to decoder so that a module can never be decoded invalidly
 			return fmt.Errorf("invalid start function: func[%d] has an invalid type", startIndex)
 		}
@@ -317,7 +330,7 @@ func (m *Module) validateGlobals(globals []GlobalType, numFuncts, maxGlobals uin
 
 func (m *Module) validateFunctions(enabledFeatures api.CoreFeatures, functions []Index, globals []GlobalType, memory *Memory, tables []Table, maximumFunctionIndex uint32) error {
 	if uint32(len(functions)) > maximumFunctionIndex {
-		return fmt.Errorf("too many functions in a module")
+		return fmt.Errorf("too many functions (%d) in a module", len(functions))
 	}
 
 	functionCount := m.SectionElementCount(SectionIDFunction)
@@ -336,6 +349,11 @@ func (m *Module) validateFunctions(enabledFeatures api.CoreFeatures, functions [
 		return err
 	}
 
+	// Create bytes.Reader once as it causes allocation, and
+	// we frequently need it (e.g. on every If instruction).
+	br := bytes.NewReader(nil)
+	// Also, we reuse the stacks across multiple function validations to reduce allocations.
+	vs := &stacks{}
 	for idx, typeIndex := range m.FunctionSection {
 		if typeIndex >= typeCount {
 			return fmt.Errorf("invalid %s: type section index %d out of range", m.funcDesc(SectionIDFunction, Index(idx)), typeIndex)
@@ -344,7 +362,7 @@ func (m *Module) validateFunctions(enabledFeatures api.CoreFeatures, functions [
 		if c.GoFunc != nil {
 			continue
 		}
-		if err = m.validateFunction(enabledFeatures, Index(idx), functions, globals, memory, tables, declaredFuncIndexes); err != nil {
+		if err = m.validateFunction(vs, enabledFeatures, Index(idx), functions, globals, memory, tables, declaredFuncIndexes, br); err != nil {
 			return fmt.Errorf("invalid %s: %w", m.funcDesc(SectionIDFunction, Index(idx)), err)
 		}
 	}
@@ -593,38 +611,17 @@ func (m *ModuleInstance) buildGlobals(module *Module, funcRefResolver func(funcI
 	}
 }
 
-// BuildFunctions generates function instances for all host or wasm-defined
-// functions in this module.
-//
-// # Notes
-//   - This relies on data generated by Module.BuildFunctionDefinitions.
-//   - This is exported for tests that don't call Instantiate, notably only
-//     enginetest.go.
-func (m *ModuleInstance) BuildFunctions(mod *Module) {
-	for i, section := range mod.FunctionSection {
-		offset := uint32(i) + mod.ImportFunctionCount
-		d := &mod.FunctionDefinitionSection[offset]
-		// This object is only referenced from a slice. Instead of creating a heap object
-		// here and storing a pointer, we store the struct directly in the slice. This
-		// reduces the number of heap objects which improves GC performance.
-		m.Functions[offset] = FunctionInstance{
-			TypeID:     m.TypeIDs[section],
-			Module:     m,
-			Type:       d.funcType,
-			Definition: d,
-		}
-	}
-}
-
 func paramNames(localNames IndirectNameMap, funcIdx uint32, paramLen int) []string {
-	for _, nm := range localNames {
+	for i := range localNames {
+		nm := &localNames[i]
 		// Only build parameter names if we have one for each.
 		if nm.Index != funcIdx || len(nm.NameMap) < paramLen {
 			continue
 		}
 
 		ret := make([]string, paramLen)
-		for _, p := range nm.NameMap {
+		for j := range nm.NameMap {
+			p := &nm.NameMap[j]
 			if int(p.Index) < paramLen {
 				ret[p.Index] = p.Name
 			}
@@ -637,8 +634,8 @@ func paramNames(localNames IndirectNameMap, funcIdx uint32, paramLen int) []stri
 func (m *ModuleInstance) buildMemory(module *Module) {
 	memSec := module.MemorySection
 	if memSec != nil {
-		m.Memory = NewMemoryInstance(memSec)
-		m.Memory.definition = &module.MemoryDefinitionSection[0]
+		m.MemoryInstance = NewMemoryInstance(memSec)
+		m.MemoryInstance.definition = &module.MemoryDefinitionSection[0]
 	}
 }
 
@@ -744,6 +741,8 @@ type Import struct {
 	DescMem *Memory
 	// DescGlobal is the inlined GlobalType when Type equals ExternTypeGlobal
 	DescGlobal GlobalType
+	// IndexPerType has the index of this import per ExternType.
+	IndexPerType Index
 }
 
 // Memory describes the limits of pages (64KB) in a memory.
@@ -895,7 +894,7 @@ type CustomSection struct {
 // Note: NameMap is unique by NameAssoc.Index, but NameAssoc.Name needn't be unique.
 // Note: When encoding in the Binary format, this must be ordered by NameAssoc.Index
 // See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#binary-namemap
-type NameMap []*NameAssoc
+type NameMap []NameAssoc
 
 type NameAssoc struct {
 	Index Index
@@ -907,7 +906,7 @@ type NameAssoc struct {
 // Note: IndirectNameMap is unique by NameMapAssoc.Index, but NameMapAssoc.NameMap needn't be unique.
 // Note: When encoding in the Binary format, this must be ordered by NameMapAssoc.Index
 // https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#binary-indirectnamemap
-type IndirectNameMap []*NameMapAssoc
+type IndirectNameMap []NameMapAssoc
 
 type NameMapAssoc struct {
 	Index   Index

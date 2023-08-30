@@ -23,7 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	SliverRPC_GetVersion_FullMethodName                       = "/rpcpb.SliverRPC/GetVersion"
-	SliverRPC_ClientConsoleLog_FullMethodName                 = "/rpcpb.SliverRPC/ClientConsoleLog"
+	SliverRPC_ClientLog_FullMethodName                        = "/rpcpb.SliverRPC/ClientLog"
 	SliverRPC_GetOperators_FullMethodName                     = "/rpcpb.SliverRPC/GetOperators"
 	SliverRPC_Kill_FullMethodName                             = "/rpcpb.SliverRPC/Kill"
 	SliverRPC_Reconfigure_FullMethodName                      = "/rpcpb.SliverRPC/Reconfigure"
@@ -117,6 +117,7 @@ const (
 	SliverRPC_Cd_FullMethodName                               = "/rpcpb.SliverRPC/Cd"
 	SliverRPC_Pwd_FullMethodName                              = "/rpcpb.SliverRPC/Pwd"
 	SliverRPC_Mv_FullMethodName                               = "/rpcpb.SliverRPC/Mv"
+	SliverRPC_Cp_FullMethodName                               = "/rpcpb.SliverRPC/Cp"
 	SliverRPC_Rm_FullMethodName                               = "/rpcpb.SliverRPC/Rm"
 	SliverRPC_Mkdir_FullMethodName                            = "/rpcpb.SliverRPC/Mkdir"
 	SliverRPC_Download_FullMethodName                         = "/rpcpb.SliverRPC/Download"
@@ -198,8 +199,8 @@ const (
 type SliverRPCClient interface {
 	// *** Version ***
 	GetVersion(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Version, error)
-	// *** Client Console Logs ***
-	ClientConsoleLog(ctx context.Context, opts ...grpc.CallOption) (SliverRPC_ClientConsoleLogClient, error)
+	// *** Client Logs ***
+	ClientLog(ctx context.Context, opts ...grpc.CallOption) (SliverRPC_ClientLogClient, error)
 	// *** Operator Commands ***
 	GetOperators(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Operators, error)
 	// *** Generic ***
@@ -310,6 +311,7 @@ type SliverRPCClient interface {
 	Cd(ctx context.Context, in *sliverpb.CdReq, opts ...grpc.CallOption) (*sliverpb.Pwd, error)
 	Pwd(ctx context.Context, in *sliverpb.PwdReq, opts ...grpc.CallOption) (*sliverpb.Pwd, error)
 	Mv(ctx context.Context, in *sliverpb.MvReq, opts ...grpc.CallOption) (*sliverpb.Mv, error)
+	Cp(ctx context.Context, in *sliverpb.CpReq, opts ...grpc.CallOption) (*sliverpb.Cp, error)
 	Rm(ctx context.Context, in *sliverpb.RmReq, opts ...grpc.CallOption) (*sliverpb.Rm, error)
 	Mkdir(ctx context.Context, in *sliverpb.MkdirReq, opts ...grpc.CallOption) (*sliverpb.Mkdir, error)
 	Download(ctx context.Context, in *sliverpb.DownloadReq, opts ...grpc.CallOption) (*sliverpb.Download, error)
@@ -411,30 +413,30 @@ func (c *sliverRPCClient) GetVersion(ctx context.Context, in *commonpb.Empty, op
 	return out, nil
 }
 
-func (c *sliverRPCClient) ClientConsoleLog(ctx context.Context, opts ...grpc.CallOption) (SliverRPC_ClientConsoleLogClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[0], SliverRPC_ClientConsoleLog_FullMethodName, opts...)
+func (c *sliverRPCClient) ClientLog(ctx context.Context, opts ...grpc.CallOption) (SliverRPC_ClientLogClient, error) {
+	stream, err := c.cc.NewStream(ctx, &SliverRPC_ServiceDesc.Streams[0], SliverRPC_ClientLog_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &sliverRPCClientConsoleLogClient{stream}
+	x := &sliverRPCClientLogClient{stream}
 	return x, nil
 }
 
-type SliverRPC_ClientConsoleLogClient interface {
-	Send(*clientpb.ClientConsoleLogData) error
+type SliverRPC_ClientLogClient interface {
+	Send(*clientpb.ClientLogData) error
 	CloseAndRecv() (*commonpb.Empty, error)
 	grpc.ClientStream
 }
 
-type sliverRPCClientConsoleLogClient struct {
+type sliverRPCClientLogClient struct {
 	grpc.ClientStream
 }
 
-func (x *sliverRPCClientConsoleLogClient) Send(m *clientpb.ClientConsoleLogData) error {
+func (x *sliverRPCClientLogClient) Send(m *clientpb.ClientLogData) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *sliverRPCClientConsoleLogClient) CloseAndRecv() (*commonpb.Empty, error) {
+func (x *sliverRPCClientLogClient) CloseAndRecv() (*commonpb.Empty, error) {
 	if err := x.ClientStream.CloseSend(); err != nil {
 		return nil, err
 	}
@@ -1328,6 +1330,15 @@ func (c *sliverRPCClient) Mv(ctx context.Context, in *sliverpb.MvReq, opts ...gr
 	return out, nil
 }
 
+func (c *sliverRPCClient) Cp(ctx context.Context, in *sliverpb.CpReq, opts ...grpc.CallOption) (*sliverpb.Cp, error) {
+	out := new(sliverpb.Cp)
+	err := c.cc.Invoke(ctx, SliverRPC_Cp_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) Rm(ctx context.Context, in *sliverpb.RmReq, opts ...grpc.CallOption) (*sliverpb.Rm, error) {
 	out := new(sliverpb.Rm)
 	err := c.cc.Invoke(ctx, SliverRPC_Rm_FullMethodName, in, out, opts...)
@@ -2058,8 +2069,8 @@ func (x *sliverRPCEventsClient) Recv() (*clientpb.Event, error) {
 type SliverRPCServer interface {
 	// *** Version ***
 	GetVersion(context.Context, *commonpb.Empty) (*clientpb.Version, error)
-	// *** Client Console Logs ***
-	ClientConsoleLog(SliverRPC_ClientConsoleLogServer) error
+	// *** Client Logs ***
+	ClientLog(SliverRPC_ClientLogServer) error
 	// *** Operator Commands ***
 	GetOperators(context.Context, *commonpb.Empty) (*clientpb.Operators, error)
 	// *** Generic ***
@@ -2170,6 +2181,7 @@ type SliverRPCServer interface {
 	Cd(context.Context, *sliverpb.CdReq) (*sliverpb.Pwd, error)
 	Pwd(context.Context, *sliverpb.PwdReq) (*sliverpb.Pwd, error)
 	Mv(context.Context, *sliverpb.MvReq) (*sliverpb.Mv, error)
+	Cp(context.Context, *sliverpb.CpReq) (*sliverpb.Cp, error)
 	Rm(context.Context, *sliverpb.RmReq) (*sliverpb.Rm, error)
 	Mkdir(context.Context, *sliverpb.MkdirReq) (*sliverpb.Mkdir, error)
 	Download(context.Context, *sliverpb.DownloadReq) (*sliverpb.Download, error)
@@ -2262,8 +2274,8 @@ type UnimplementedSliverRPCServer struct {
 func (UnimplementedSliverRPCServer) GetVersion(context.Context, *commonpb.Empty) (*clientpb.Version, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVersion not implemented")
 }
-func (UnimplementedSliverRPCServer) ClientConsoleLog(SliverRPC_ClientConsoleLogServer) error {
-	return status.Errorf(codes.Unimplemented, "method ClientConsoleLog not implemented")
+func (UnimplementedSliverRPCServer) ClientLog(SliverRPC_ClientLogServer) error {
+	return status.Errorf(codes.Unimplemented, "method ClientLog not implemented")
 }
 func (UnimplementedSliverRPCServer) GetOperators(context.Context, *commonpb.Empty) (*clientpb.Operators, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetOperators not implemented")
@@ -2544,6 +2556,9 @@ func (UnimplementedSliverRPCServer) Pwd(context.Context, *sliverpb.PwdReq) (*sli
 func (UnimplementedSliverRPCServer) Mv(context.Context, *sliverpb.MvReq) (*sliverpb.Mv, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Mv not implemented")
 }
+func (UnimplementedSliverRPCServer) Cp(context.Context, *sliverpb.CpReq) (*sliverpb.Cp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Cp not implemented")
+}
 func (UnimplementedSliverRPCServer) Rm(context.Context, *sliverpb.RmReq) (*sliverpb.Rm, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Rm not implemented")
 }
@@ -2794,26 +2809,26 @@ func _SliverRPC_GetVersion_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SliverRPC_ClientConsoleLog_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SliverRPCServer).ClientConsoleLog(&sliverRPCClientConsoleLogServer{stream})
+func _SliverRPC_ClientLog_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SliverRPCServer).ClientLog(&sliverRPCClientLogServer{stream})
 }
 
-type SliverRPC_ClientConsoleLogServer interface {
+type SliverRPC_ClientLogServer interface {
 	SendAndClose(*commonpb.Empty) error
-	Recv() (*clientpb.ClientConsoleLogData, error)
+	Recv() (*clientpb.ClientLogData, error)
 	grpc.ServerStream
 }
 
-type sliverRPCClientConsoleLogServer struct {
+type sliverRPCClientLogServer struct {
 	grpc.ServerStream
 }
 
-func (x *sliverRPCClientConsoleLogServer) SendAndClose(m *commonpb.Empty) error {
+func (x *sliverRPCClientLogServer) SendAndClose(m *commonpb.Empty) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *sliverRPCClientConsoleLogServer) Recv() (*clientpb.ClientConsoleLogData, error) {
-	m := new(clientpb.ClientConsoleLogData)
+func (x *sliverRPCClientLogServer) Recv() (*clientpb.ClientLogData, error) {
+	m := new(clientpb.ClientLogData)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -4496,6 +4511,24 @@ func _SliverRPC_Mv_Handler(srv interface{}, ctx context.Context, dec func(interf
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).Mv(ctx, req.(*sliverpb.MvReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_Cp_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.CpReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).Cp(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_Cp_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).Cp(ctx, req.(*sliverpb.CpReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -6209,6 +6242,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_Mv_Handler,
 		},
 		{
+			MethodName: "Cp",
+			Handler:    _SliverRPC_Cp_Handler,
+		},
+		{
 			MethodName: "Rm",
 			Handler:    _SliverRPC_Rm_Handler,
 		},
@@ -6491,8 +6528,8 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "ClientConsoleLog",
-			Handler:       _SliverRPC_ClientConsoleLog_Handler,
+			StreamName:    "ClientLog",
+			Handler:       _SliverRPC_ClientLog_Handler,
 			ClientStreams: true,
 		},
 		{

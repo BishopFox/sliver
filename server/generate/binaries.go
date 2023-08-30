@@ -157,7 +157,7 @@ func GetSliversDir() string {
 // -----------------------
 
 // SliverShellcode - Generates a sliver shellcode using Donut
-func SliverShellcode(otpSecret string, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+func SliverShellcode(config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	if config.GOOS != "windows" {
 		return "", fmt.Errorf("shellcode format is currently only supported on Windows")
 	}
@@ -177,7 +177,7 @@ func SliverShellcode(otpSecret string, config *clientpb.ImplantConfig, pbC2Impla
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
-	pkgPath, err := renderSliverGoCode(config.Name, otpSecret, config, goConfig, pbC2Implant)
+	pkgPath, err := renderSliverGoCode(config.Name, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
 	}
@@ -216,7 +216,7 @@ func SliverShellcode(otpSecret string, config *clientpb.ImplantConfig, pbC2Impla
 }
 
 // SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
-func SliverSharedLibrary(otpSecret string, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+func SliverSharedLibrary(config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	// Compile go code
 	var cc string
 	var cxx string
@@ -248,7 +248,7 @@ func SliverSharedLibrary(otpSecret string, config *clientpb.ImplantConfig, pbC2I
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
-	pkgPath, err := renderSliverGoCode(config.Name, otpSecret, config, goConfig, pbC2Implant)
+	pkgPath, err := renderSliverGoCode(config.Name, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
 	}
@@ -289,7 +289,7 @@ func SliverSharedLibrary(otpSecret string, config *clientpb.ImplantConfig, pbC2I
 }
 
 // SliverExecutable - Generates a sliver executable binary
-func SliverExecutable(otpSecret string, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+func SliverExecutable(config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	// Compile go code
 	appDir := assets.GetRootAppDir()
 	cgo := "0"
@@ -312,7 +312,7 @@ func SliverExecutable(otpSecret string, config *clientpb.ImplantConfig, pbC2Impl
 		GOGARBLE:    goGarble(config),
 	}
 
-	pkgPath, err := renderSliverGoCode(config.Name, otpSecret, config, goConfig, pbC2Implant)
+	pkgPath, err := renderSliverGoCode(config.Name, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
 	}
@@ -345,7 +345,7 @@ func SliverExecutable(otpSecret string, config *clientpb.ImplantConfig, pbC2Impl
 }
 
 // This function is a little too long, we should probably refactor it as some point
-func renderSliverGoCode(name string, otpSecret string, config *clientpb.ImplantConfig, goConfig *gogo.GoConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+func renderSliverGoCode(name string, config *clientpb.ImplantConfig, goConfig *gogo.GoConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := gogo.ValidCompilerTargets(*goConfig)[target]; !ok {
 		return "", fmt.Errorf("invalid compiler target: %s", target)
@@ -445,12 +445,10 @@ func renderSliverGoCode(name string, otpSecret string, config *clientpb.ImplantC
 		err = sliverCode.Execute(buf, struct {
 			Name                string
 			Config              *clientpb.ImplantConfig
-			OTPSecret           string
 			HTTPC2ImplantConfig *clientpb.HTTPC2ImplantConfig
 		}{
 			name,
 			config,
-			otpSecret,
 			pbC2Implant,
 		})
 		if err != nil {
@@ -675,18 +673,18 @@ func GenerateConfig(implantConfig *clientpb.ImplantConfig, save bool) (*clientpb
 	}
 
 	// ECC keys
-	implantKeyPair, err := cryptography.RandomECCKeyPair()
+	implantKeyPair, err := cryptography.RandomAgeKeyPair()
 	if err != nil {
 		return nil, err
 	}
-	serverKeyPair := cryptography.ECCServerKeyPair()
-	digest := sha256.Sum256((*implantKeyPair.Public)[:])
-	implantConfig.ECCPublicKey = implantKeyPair.PublicBase64()
-	implantConfig.ECCPublicKeyDigest = hex.EncodeToString(digest[:])
-	implantConfig.ECCPrivateKey = implantKeyPair.PrivateBase64()
-	implantConfig.ECCPublicKeySignature = cryptography.MinisignServerSign(implantKeyPair.Public[:])
-	implantConfig.ECCServerPublicKey = serverKeyPair.PublicBase64()
-	implantConfig.MinisignServerPublicKey = cryptography.MinisignServerPublicKey()
+	serverKeyPair := cryptography.AgeServerKeyPair()
+	digest := sha256.Sum256([]byte(implantKeyPair.Public))
+	config.PeerPublicKey = implantKeyPair.Public
+	config.PeerPublicKeyDigest = hex.EncodeToString(digest[:])
+	config.PeerPrivateKey = implantKeyPair.Private
+	config.PeerPublicKeySignature = cryptography.MinisignServerSign([]byte(implantKeyPair.Public))
+	config.AgeServerPublicKey = serverKeyPair.Public
+	config.MinisignServerPublicKey = cryptography.MinisignServerPublicKey()
 
 	// MTLS keys
 	if models.IsC2Enabled([]string{"mtls"}, implantConfig.C2) {

@@ -21,22 +21,23 @@ package jobs
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/desertbit/grumble"
 )
 
 // WGListenerCmd - Start a WireGuard listener
-func WGListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	lport := uint16(ctx.Flags.Int("lport"))
-	nport := uint16(ctx.Flags.Int("nport"))
-	keyExchangePort := uint16(ctx.Flags.Int("key-port"))
+func WGListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	lport, _ := cmd.Flags().GetUint32("lport")
+	nport, _ := cmd.Flags().GetUint32("nport")
+	keyExchangePort, _ := cmd.Flags().GetUint32("key-port")
 
 	con.PrintInfof("Starting Wireguard listener ...\n")
 	wg, err := con.Rpc.StartWGListener(context.Background(), &clientpb.WGListenerReq{
-		Port:    uint32(lport),
-		NPort:   uint32(nport),
-		KeyPort: uint32(keyExchangePort),
+		Port:    lport,
+		NPort:   nport,
+		KeyPort: keyExchangePort,
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

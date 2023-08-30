@@ -27,23 +27,24 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/gofrs/uuid"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/util"
-	"github.com/desertbit/grumble"
-	"github.com/gofrs/uuid"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
-	"google.golang.org/protobuf/proto"
 )
 
 // TrafficEncodersCmd - Generate traffic encoders command implementation
-func TrafficEncodersCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	grpcCtx, cancel := con.GrpcContext(ctx)
+func TrafficEncodersCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	grpcCtx, cancel := con.GrpcContext(cmd)
 	defer cancel()
 	encoderMap, err := con.Rpc.TrafficEncoderMap(grpcCtx, &commonpb.Empty{})
 	if err != nil {
@@ -83,22 +84,24 @@ func DisplayTrafficEncoders(encoderMap *clientpb.TrafficEncoderMap, con *console
 }
 
 // TrafficEncodersAddCmd - Add a new traffic encoder to the server
-func TrafficEncodersAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	grpcCtx, cancel := con.GrpcContext(ctx)
+func TrafficEncodersAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	grpcCtx, cancel := con.GrpcContext(cmd)
 	defer cancel()
 
-	data, err := os.ReadFile(ctx.Args.String("file"))
+	data, err := os.ReadFile(args[0])
 	if err != nil {
 		con.PrintErrorf("%s", err)
 		return
 	}
+
+	skipTests, _ := cmd.Flags().GetBool("skip-tests")
 	testID := uuid.Must(uuid.NewV4()).String()
 	trafficEncoder := &clientpb.TrafficEncoder{
 		Wasm: &commonpb.File{
-			Name: filepath.Base(ctx.Args.String("file")),
+			Name: filepath.Base(args[0]),
 			Data: data,
 		},
-		SkipTests: ctx.Flags.Bool("skip-tests"),
+		SkipTests: skipTests,
 		TestID:    testID,
 	}
 
@@ -146,7 +149,7 @@ func saveFailedSample(encoderName string, test *clientpb.TrafficEncoderTest) {
 		return
 	}
 	sampleFileName := fmt.Sprintf("sample-failed_%s_%s.bin", time.Now().Format("2006-01-02-15-04-05"), filepath.Base(encoderName))
-	err := os.WriteFile(sampleFileName, test.Sample, 0644)
+	err := os.WriteFile(sampleFileName, test.Sample, 0o644)
 	if err != nil {
 		fmt.Printf("Failed to save failed sample to disk: %s", err)
 		return
@@ -243,14 +246,18 @@ func displayTrafficEncoderTests(running bool, tests *clientpb.TrafficEncoderTest
 }
 
 // TrafficEncodersRemoveCmd - Remove a traffic encoder
-func TrafficEncodersRemoveCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	_, cancel := con.GrpcContext(ctx)
+func TrafficEncodersRemoveCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	_, cancel := con.GrpcContext(cmd)
 	defer cancel()
-	name := ctx.Args.String("name")
+
+	var name string
+	if len(args) > 0 {
+		name = args[0]
+	}
 	if name == "" {
 		name = SelectTrafficEncoder(con)
 	}
-	grpcCtx, cancel := con.GrpcContext(ctx)
+	grpcCtx, cancel := con.GrpcContext(cmd)
 	defer cancel()
 	_, err := con.Rpc.TrafficEncoderRm(grpcCtx, &clientpb.TrafficEncoder{
 		Wasm: &commonpb.File{

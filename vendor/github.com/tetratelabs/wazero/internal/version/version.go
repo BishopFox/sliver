@@ -5,6 +5,9 @@ import (
 	"strings"
 )
 
+// Default is the default version value used when none was found.
+const Default = "dev"
+
 // version holds the current version from the go.mod of downstream users or set by ldflag for wazero CLI.
 var version string
 
@@ -36,7 +39,7 @@ func GetWazeroVersion() (ret string) {
 		}
 	}
 	if versionMissing(ret) {
-		return "dev" // don't return parens
+		return Default // don't return parens
 	}
 
 	// Cache for the subsequent calls.

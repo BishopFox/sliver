@@ -2,9 +2,10 @@ package wasi_snapshot_preview1
 
 import (
 	"context"
+	"syscall"
 
 	"github.com/tetratelabs/wazero/api"
-	. "github.com/tetratelabs/wazero/internal/wasi_snapshot_preview1"
+	"github.com/tetratelabs/wazero/internal/wasip1"
 	"github.com/tetratelabs/wazero/internal/wasm"
 )
 
@@ -22,8 +23,8 @@ import (
 //
 // Result (Errno)
 //
-// The return value is ErrnoSuccess except the following error conditions:
-//   - ErrnoFault: there is not enough memory to write results
+// The return value is 0 except the following error conditions:
+//   - syscall.EFAULT: there is not enough memory to write results
 //
 // For example, if environSizesGet wrote environc=2 and environLen=9 for
 // environment variables: "a=b", "b=cd" and parameters environ=11 and
@@ -40,10 +41,10 @@ import (
 // See environSizesGet
 // See https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#environ_get
 // See https://en.wikipedia.org/wiki/Null-terminated_string
-var environGet = newHostFunc(EnvironGetName, environGetFn, []api.ValueType{i32, i32}, "environ", "environ_buf")
+var environGet = newHostFunc(wasip1.EnvironGetName, environGetFn, []api.ValueType{i32, i32}, "environ", "environ_buf")
 
-func environGetFn(_ context.Context, mod api.Module, params []uint64) Errno {
-	sysCtx := mod.(*wasm.CallContext).Sys
+func environGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
+	sysCtx := mod.(*wasm.ModuleInstance).Sys
 	environ, environBuf := uint32(params[0]), uint32(params[1])
 
 	return writeOffsetsAndNullTerminatedValues(mod.Memory(), sysCtx.Environ(), environ, environBuf, sysCtx.EnvironSize())
@@ -61,8 +62,8 @@ func environGetFn(_ context.Context, mod api.Module, params []uint64) Errno {
 //
 // Result (Errno)
 //
-// The return value is ErrnoSuccess except the following error conditions:
-//   - ErrnoFault: there is not enough memory to write results
+// The return value is 0 except the following error conditions:
+//   - syscall.EFAULT: there is not enough memory to write results
 //
 // For example, if environ are "a=b","b=cd" and parameters resultEnvironc=1 and
 // resultEnvironvLen=6, this function writes the below to api.Memory:
@@ -80,20 +81,20 @@ func environGetFn(_ context.Context, mod api.Module, params []uint64) Errno {
 // See environGet
 // https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#environ_sizes_get
 // and https://en.wikipedia.org/wiki/Null-terminated_string
-var environSizesGet = newHostFunc(EnvironSizesGetName, environSizesGetFn, []api.ValueType{i32, i32}, "result.environc", "result.environv_len")
+var environSizesGet = newHostFunc(wasip1.EnvironSizesGetName, environSizesGetFn, []api.ValueType{i32, i32}, "result.environc", "result.environv_len")
 
-func environSizesGetFn(_ context.Context, mod api.Module, params []uint64) Errno {
-	sysCtx := mod.(*wasm.CallContext).Sys
+func environSizesGetFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
+	sysCtx := mod.(*wasm.ModuleInstance).Sys
 	mem := mod.Memory()
 	resultEnvironc, resultEnvironvLen := uint32(params[0]), uint32(params[1])
 
 	// environc and environv_len offsets are not necessarily sequential, so we
 	// have to write them independently.
 	if !mem.WriteUint32Le(resultEnvironc, uint32(len(sysCtx.Environ()))) {
-		return ErrnoFault
+		return syscall.EFAULT
 	}
 	if !mem.WriteUint32Le(resultEnvironvLen, sysCtx.EnvironSize()) {
-		return ErrnoFault
+		return syscall.EFAULT
 	}
-	return ErrnoSuccess
+	return 0
 }

@@ -20,21 +20,28 @@ package cursed
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
 )
 
-func CursedRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func CursedRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
-	kill := ctx.Flags.Bool("kill")
-	bindPort := ctx.Args.Int("bind-port")
+	bindPort, err := strconv.Atoi(args[0])
+	if err != nil {
+		con.PrintErrorf("Failed to parse bind port argument: %s (%s)", args[0], err.Error())
+		return
+	}
+
+	kill, _ := cmd.Flags().GetBool("kill")
 	core.CloseCursedProcessesByBindPort(session.ID, bindPort)
 	if kill {
 		confirm := false
@@ -60,7 +67,7 @@ func CursedRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			return
 		}
 		terminateResp, err := con.Rpc.Terminate(context.Background(), &sliverpb.TerminateReq{
-			Request: con.ActiveTarget.Request(ctx),
+			Request: con.ActiveTarget.Request(cmd),
 			Pid:     int32(cursedProc.PID),
 		})
 		if err != nil {

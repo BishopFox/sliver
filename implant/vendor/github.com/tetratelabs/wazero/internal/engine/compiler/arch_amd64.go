@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"github.com/tetratelabs/wazero/internal/asm"
 	"github.com/tetratelabs/wazero/internal/asm/amd64"
 )
 
@@ -23,4 +24,12 @@ func newArchContextImpl() (ret archContext) { return }
 // Note: ir param can be nil for host functions.
 func newCompiler() compiler {
 	return newAmd64Compiler()
+}
+
+func registerMaskShift(r asm.Register) int {
+	return int(r - amd64.RegAX)
+}
+
+func registerFromMaskShift(s int) asm.Register {
+	return amd64.RegAX + asm.Register(s)
 }

@@ -21,33 +21,38 @@ package filesystem
 import (
 	"context"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/desertbit/grumble"
 )
 
 // RmCmd - Remove a directory from the remote file system
-func RmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func RmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
-	filePath := ctx.Args.String("path")
+	filePath := args[0]
+	// filePath := ctx.Args.String("path")
 
 	if filePath == "" {
 		con.PrintErrorf("Missing parameter: file or directory name\n")
 		return
 	}
 
+	recursive, _ := cmd.Flags().GetBool("recursive")
+	force, _ := cmd.Flags().GetBool("force")
+
 	rm, err := con.Rpc.Rm(context.Background(), &sliverpb.RmReq{
-		Request:   con.ActiveTarget.Request(ctx),
+		Request:   con.ActiveTarget.Request(cmd),
 		Path:      filePath,
-		Recursive: ctx.Flags.Bool("recursive"),
-		Force:     ctx.Flags.Bool("force"),
+		Recursive: recursive,
+		Force:     force,
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

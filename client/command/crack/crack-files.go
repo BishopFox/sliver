@@ -25,17 +25,18 @@ import (
 	"io"
 	"os"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/klauspost/compress/zstd"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/util"
-	"github.com/desertbit/grumble"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/klauspost/compress/zstd"
 )
 
 // CrackWordlistsCmd - Manage GPU cracking stations
-func CrackWordlistsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func CrackWordlistsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	wordlists, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_WORDLIST})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -55,7 +56,7 @@ func CrackWordlistsCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 // CrackRulesCmd - Manage GPU cracking stations
-func CrackRulesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func CrackRulesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	rules, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_RULES})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -75,7 +76,7 @@ func CrackRulesCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 // CrackHcstat2Cmd - Manage GPU cracking stations
-func CrackHcstat2Cmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func CrackHcstat2Cmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	hcstat2, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_MARKOV_HCSTAT2})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -162,9 +163,13 @@ func PrintCrackFilesByType(crackFiles *clientpb.CrackFiles, con *console.SliverC
 }
 
 // CrackWordlistsAddCmd - Manage GPU cracking stations
-func CrackWordlistsAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	name := ctx.Flags.String("name")
-	localPath := ctx.Args.String("path")
+func CrackWordlistsAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	name, _ := cmd.Flags().GetString("name")
+
+	var localPath string
+	if len(args) > 0 {
+		localPath = args[0]
+	}
 	if localPath == "" {
 		con.PrintErrorf("No path specified, see --help\n")
 		return
@@ -202,9 +207,13 @@ func CrackWordlistsAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient
 }
 
 // CrackRulesAddCmd - add a rules file
-func CrackRulesAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	name := ctx.Flags.String("name")
-	localPath := ctx.Args.String("path")
+func CrackRulesAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	name, _ := cmd.Flags().GetString("name")
+
+	var localPath string
+	if len(args) > 0 {
+		localPath = args[0]
+	}
 	if localPath == "" {
 		con.PrintErrorf("No path specified, see --help\n")
 		return
@@ -242,9 +251,13 @@ func CrackRulesAddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 // CrackHcstat2AddCmd - add a hcstat2 file
-func CrackHcstat2AddCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	name := ctx.Flags.String("name")
-	localPath := ctx.Args.String("path")
+func CrackHcstat2AddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	name, _ := cmd.Flags().GetString("name")
+
+	var localPath string
+	if len(args) > 0 {
+		localPath = args[0]
+	}
 	if localPath == "" {
 		con.PrintErrorf("No path specified, see --help\n")
 		return
@@ -390,8 +403,11 @@ func readChunkAt(tmpFile *os.File, offset int64, chunkSize int64) ([]byte, error
 }
 
 // CrackWordlistsRmCmd - Manage GPU cracking stations
-func CrackWordlistsRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	wordlistName := ctx.Args.String("name")
+func CrackWordlistsRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	var wordlistName string
+	if len(args) > 0 {
+		wordlistName = args[0]
+	}
 	if wordlistName == "" {
 		con.PrintErrorf("No name specified, see --help\n")
 		return
@@ -421,8 +437,11 @@ func CrackWordlistsRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 }
 
 // CrackRulesRmCmd - Manage GPU cracking stations
-func CrackRulesRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	rulesName := ctx.Args.String("name")
+func CrackRulesRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	var rulesName string
+	if len(args) > 0 {
+		rulesName = args[0]
+	}
 	if rulesName == "" {
 		con.PrintErrorf("No name specified, see --help\n")
 		return
@@ -452,8 +471,11 @@ func CrackRulesRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 }
 
 // CrackHcstat2RmCmd - remove a hcstat2 file
-func CrackHcstat2RmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	hcstat2Name := ctx.Args.String("name")
+func CrackHcstat2RmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	var hcstat2Name string
+	if len(args) > 0 {
+		hcstat2Name = args[0]
+	}
 	if hcstat2Name == "" {
 		con.PrintErrorf("No name specified, see --help\n")
 		return

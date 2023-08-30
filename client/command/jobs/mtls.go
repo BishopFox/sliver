@@ -21,20 +21,21 @@ package jobs
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/desertbit/grumble"
 )
 
 // MTLSListenerCmd - Start an mTLS listener
-func MTLSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	lhost := ctx.Flags.String("lhost")
-	lport := uint16(ctx.Flags.Int("lport"))
+func MTLSListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	lhost, _ := cmd.Flags().GetString("lhost")
+	lport, _ := cmd.Flags().GetUint32("lport")
 
 	con.PrintInfof("Starting mTLS listener ...\n")
 	mtls, err := con.Rpc.StartMTLSListener(context.Background(), &clientpb.MTLSListenerReq{
 		Host: lhost,
-		Port: uint32(lport),
+		Port: lport,
 	})
 	con.Println()
 	if err != nil {

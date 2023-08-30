@@ -1,50 +1,49 @@
 package wasm
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/tetratelabs/wazero/api"
 )
 
-// moduleListNode is a node in a doubly linked list of names.
-type moduleListNode struct {
-	name       string
-	module     *ModuleInstance
-	next, prev *moduleListNode
-}
-
-// setModule makes the module visible for import.
-func (s *Store) setModule(m *ModuleInstance) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	node, ok := s.nameToNode[m.Name]
-	if !ok {
-		return fmt.Errorf("module[%s] name has not been required", m.Name)
-	}
-
-	node.module = m
-	return nil
-}
-
 // deleteModule makes the moduleName available for instantiation again.
-func (s *Store) deleteModule(moduleName string) error {
+func (s *Store) deleteModule(m *ModuleInstance) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	node, ok := s.nameToNode[moduleName]
-	if !ok {
-		return nil
-	}
 
-	// remove this module name
-	if node.prev != nil {
-		node.prev.next = node.next
-	} else {
-		s.moduleList = node.next
+	// Remove this module name.
+	if m.prev != nil {
+		m.prev.next = m.next
 	}
-	if node.next != nil {
-		node.next.prev = node.prev
+	if m.next != nil {
+		m.next.prev = m.prev
 	}
-	delete(s.nameToNode, moduleName)
+	if s.moduleList == m {
+		s.moduleList = m.next
+	}
+	// Clear the m state so it does not enter any other branch
+	// on subsequent calls to deleteModule.
+	m.prev = nil
+	m.next = nil
+
+	if m.ModuleName != "" {
+		delete(s.nameToModule, m.ModuleName)
+
+		// Shrink the map if it's allocated more than twice the size of the list
+		newCap := len(s.nameToModule)
+		if newCap < nameToModuleShrinkThreshold {
+			newCap = nameToModuleShrinkThreshold
+		}
+		if newCap*2 <= s.nameToModuleCap {
+			nameToModule := make(map[string]*ModuleInstance, newCap)
+			for k, v := range s.nameToModule {
+				nameToModule[k] = v
+			}
+			s.nameToModule = nameToModule
+			s.nameToModuleCap = newCap
+		}
+	}
 	return nil
 }
 
@@ -52,64 +51,39 @@ func (s *Store) deleteModule(moduleName string) error {
 func (s *Store) module(moduleName string) (*ModuleInstance, error) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
-	node, ok := s.nameToNode[moduleName]
+	m, ok := s.nameToModule[moduleName]
 	if !ok {
-		return nil, fmt.Errorf("module[%s] not in store", moduleName)
+		return nil, fmt.Errorf("module[%s] not instantiated", moduleName)
 	}
-
-	if node.module == nil {
-		return nil, fmt.Errorf("module[%s] not set in store", moduleName)
-	}
-
-	return node.module, nil
+	return m, nil
 }
 
-// requireModules returns all instantiated modules whose names equal the keys in the input, or errs if any are missing.
-func (s *Store) requireModules(moduleNames map[string]struct{}) (map[string]*ModuleInstance, error) {
-	ret := make(map[string]*ModuleInstance, len(moduleNames))
+// registerModule registers a ModuleInstance into the store.
+// This makes the ModuleInstance visible for import if it's not anonymous, and ensures it is closed when the store is.
+func (s *Store) registerModule(m *ModuleInstance) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
 
-	s.mux.RLock()
-	defer s.mux.RUnlock()
+	if s.nameToModule == nil {
+		return errors.New("already closed")
+	}
 
-	for n := range moduleNames {
-		node, ok := s.nameToNode[n]
-		if !ok {
-			return nil, fmt.Errorf("module[%s] not instantiated", n)
+	if m.ModuleName != "" {
+		if _, ok := s.nameToModule[m.ModuleName]; ok {
+			return fmt.Errorf("module[%s] has already been instantiated", m.ModuleName)
 		}
-		ret[n] = node.module
-	}
-	return ret, nil
-}
-
-// requireModuleName is a pre-flight check to reserve a module.
-// This must be reverted on error with deleteModule if initialization fails.
-func (s *Store) requireModuleName(moduleName string) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	if _, ok := s.nameToNode[moduleName]; ok {
-		return fmt.Errorf("module[%s] has already been instantiated", moduleName)
+		s.nameToModule[m.ModuleName] = m
+		if len(s.nameToModule) > s.nameToModuleCap {
+			s.nameToModuleCap = len(s.nameToModule)
+		}
 	}
 
-	// add the newest node to the moduleNamesList as the head.
-	node := &moduleListNode{
-		name: moduleName,
-		next: s.moduleList,
+	// Add the newest node to the moduleNamesList as the head.
+	m.next = s.moduleList
+	if m.next != nil {
+		m.next.prev = m
 	}
-	if node.next != nil {
-		node.next.prev = node
-	}
-	s.moduleList = node
-	s.nameToNode[moduleName] = node
-	return nil
-}
-
-// AliasModule aliases the instantiated module named `src` as `dst`.
-//
-// Note: This is only used for spectests.
-func (s *Store) AliasModule(src, dst string) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	s.nameToNode[dst] = s.nameToNode[src]
+	s.moduleList = m
 	return nil
 }
 
@@ -119,5 +93,5 @@ func (s *Store) Module(moduleName string) api.Module {
 	if err != nil {
 		return nil
 	}
-	return m.CallCtx
+	return m
 }

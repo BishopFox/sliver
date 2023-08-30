@@ -30,20 +30,27 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpc_tags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
 
 var (
-	serverConfig = configs.GetServerConfig()
-
+	serverConfig  = configs.GetServerConfig()
 	middlewareLog = log.NamedLogger("transport", "middleware")
+)
+
+type contextKey int
+
+const (
+	Transport contextKey = iota
+	Operator
 )
 
 // initMiddleware - Initialize middleware logger
@@ -55,14 +62,14 @@ func initMiddleware(remoteAuth bool) []grpc.ServerOption {
 	grpc_logrus.ReplaceGrpcLogger(logrusEntry)
 	if remoteAuth {
 		return []grpc.ServerOption{
-			grpc_middleware.WithUnaryServerChain(
+			grpc.ChainUnaryInterceptor(
 				grpc_auth.UnaryServerInterceptor(tokenAuthFunc),
 				auditLogUnaryServerInterceptor(),
 				grpc_tags.UnaryServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
 				grpc_logrus.UnaryServerInterceptor(logrusEntry, logrusOpts...),
 				grpc_logrus.PayloadUnaryServerInterceptor(logrusEntry, deciderUnary),
 			),
-			grpc_middleware.WithStreamServerChain(
+			grpc.ChainStreamInterceptor(
 				grpc_auth.StreamServerInterceptor(tokenAuthFunc),
 				grpc_tags.StreamServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
 				grpc_logrus.StreamServerInterceptor(logrusEntry, logrusOpts...),
@@ -71,14 +78,14 @@ func initMiddleware(remoteAuth bool) []grpc.ServerOption {
 		}
 	} else {
 		return []grpc.ServerOption{
-			grpc_middleware.WithUnaryServerChain(
+			grpc.ChainUnaryInterceptor(
 				grpc_auth.UnaryServerInterceptor(serverAuthFunc),
 				auditLogUnaryServerInterceptor(),
 				grpc_tags.UnaryServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
 				grpc_logrus.UnaryServerInterceptor(logrusEntry, logrusOpts...),
 				grpc_logrus.PayloadUnaryServerInterceptor(logrusEntry, deciderUnary),
 			),
-			grpc_middleware.WithStreamServerChain(
+			grpc.ChainStreamInterceptor(
 				grpc_auth.StreamServerInterceptor(serverAuthFunc),
 				grpc_tags.StreamServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
 				grpc_logrus.StreamServerInterceptor(logrusEntry, logrusOpts...),
@@ -99,8 +106,8 @@ func ClearTokenCache() {
 }
 
 func serverAuthFunc(ctx context.Context) (context.Context, error) {
-	newCtx := context.WithValue(ctx, "transport", "local")
-	newCtx = context.WithValue(newCtx, "operator", "server")
+	newCtx := context.WithValue(ctx, Transport, "local")
+	newCtx = context.WithValue(newCtx, Operator, "server")
 	return newCtx, nil
 }
 
@@ -115,10 +122,10 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	// Check auth cache
 	digest := sha256.Sum256([]byte(rawToken))
 	token := hex.EncodeToString(digest[:])
-	newCtx := context.WithValue(ctx, "transport", "mtls")
+	newCtx := context.WithValue(ctx, Transport, "mtls")
 	if name, ok := tokenCache.Load(token); ok {
 		mtlsLog.Debugf("Token in cache!")
-		newCtx = context.WithValue(newCtx, "operator", name.(string))
+		newCtx = context.WithValue(newCtx, Operator, name.(string))
 		return newCtx, nil
 	}
 	operator, err := db.OperatorByToken(token)
@@ -129,7 +136,7 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	mtlsLog.Debugf("Valid user token for %s", operator.Name)
 	tokenCache.Store(token, operator.Name)
 
-	newCtx = context.WithValue(newCtx, "operator", operator.Name)
+	newCtx = context.WithValue(newCtx, Operator, operator.Name)
 	return newCtx, nil
 }
 
@@ -184,10 +191,12 @@ func codeToLevel(code codes.Code) logrus.Level {
 }
 
 type auditUnaryLogMsg struct {
-	Request string `json:"request"`
-	Method  string `json:"method"`
-	Session string `json:"session,omitempty"`
-	Beacon  string `json:"beacon,omitempty"`
+	Request  string `json:"request"`
+	Method   string `json:"method"`
+	Session  string `json:"session,omitempty"`
+	Beacon   string `json:"beacon,omitempty"`
+	RemoteIP string `json:"remote_ip"`
+	User     string `json:"user"`
 }
 
 func auditLogUnaryServerInterceptor() grpc.UnaryServerInterceptor {
@@ -203,10 +212,14 @@ func auditLogUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 			middlewareLog.Errorf("Middleware failed to insert details: %s", err)
 		}
 
+		p, _ := peer.FromContext(ctx)
+
 		// Construct Log Message
 		msg := &auditUnaryLogMsg{
-			Request: string(rawRequest),
-			Method:  info.FullMethod,
+			Request:  string(rawRequest),
+			Method:   info.FullMethod,
+			User:     getUser(p),
+			RemoteIP: p.Addr.String(),
 		}
 		if session != nil {
 			sessionJSON, _ := json.Marshal(session)
@@ -223,6 +236,20 @@ func auditLogUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 		resp, err := handler(ctx, req)
 		return resp, err
 	}
+}
+
+func getUser(client *peer.Peer) string {
+	tlsAuth, ok := client.AuthInfo.(credentials.TLSInfo)
+	if !ok {
+		return ""
+	}
+	if len(tlsAuth.State.VerifiedChains) == 0 || len(tlsAuth.State.VerifiedChains[0]) == 0 {
+		return ""
+	}
+	if tlsAuth.State.VerifiedChains[0][0].Subject.CommonName != "" {
+		return tlsAuth.State.VerifiedChains[0][0].Subject.CommonName
+	}
+	return ""
 }
 
 func getActiveTarget(rawRequest []byte) (*clientpb.Session, *clientpb.Beacon, error) {

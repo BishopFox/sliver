@@ -25,25 +25,33 @@ import (
 	"os"
 	"path/filepath"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/desertbit/grumble"
 )
 
 // UploadCmd - Upload a file to the remote system
-func UploadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func UploadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
-	localPath := ctx.Args.String("local-path")
-	remotePath := ctx.Args.String("remote-path")
-	isIOC := ctx.Flags.Bool("ioc")
+	remotePath := ""
+
+	localPath := args[0]
+	if len(args) > 1 {
+		remotePath = args[1]
+	}
+
+	// localPath := ctx.Args.String("local-path")
+	// remotePath := ctx.Args.String("remote-path")
+	isIOC, _ := cmd.Flags().GetBool("ioc")
 
 	if localPath == "" {
 		con.PrintErrorf("Missing parameter, see `help upload`\n")
@@ -56,11 +64,12 @@ func UploadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	fileName := filepath.Base(src)
 
 	if remotePath == "" {
-		fileName := filepath.Base(src)
 		remotePath = fileName
 	}
+
 	dst := remotePath
 
 	fileBuf, err := ioutil.ReadFile(src)
@@ -73,11 +82,12 @@ func UploadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("%s -> %s", src, dst), ctrl)
 	upload, err := con.Rpc.Upload(context.Background(), &sliverpb.UploadReq{
-		Request: con.ActiveTarget.Request(ctx),
-		Path:    dst,
-		Data:    uploadGzip,
-		Encoder: "gzip",
-		IsIOC:   isIOC,
+		Request:  con.ActiveTarget.Request(cmd),
+		Path:     dst,
+		Data:     uploadGzip,
+		Encoder:  "gzip",
+		IsIOC:    isIOC,
+		FileName: fileName,
 	})
 	ctrl <- true
 	<-ctrl

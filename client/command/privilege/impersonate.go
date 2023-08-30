@@ -21,23 +21,25 @@ package privilege
 import (
 	"context"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/desertbit/grumble"
-	"google.golang.org/protobuf/proto"
 )
 
 // ImpersonateCmd - Windows only, impersonate a user token
-func ImpersonateCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func ImpersonateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
-	username := ctx.Args.String("username")
+	username := args[0]
 	impersonate, err := con.Rpc.Impersonate(context.Background(), &sliverpb.ImpersonateReq{
-		Request:  con.ActiveTarget.Request(ctx),
+		Request:  con.ActiveTarget.Request(cmd),
 		Username: username,
 	})
 	if err != nil {

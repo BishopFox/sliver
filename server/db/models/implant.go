@@ -85,11 +85,11 @@ type ImplantConfig struct {
 	BeaconJitter   int64
 
 	// ECC
-	ECCPublicKey            string
-	ECCPublicKeyDigest      string
-	ECCPrivateKey           string
-	ECCPublicKeySignature   string
-	ECCServerPublicKey      string
+	PeerPublicKey           string
+	PeerPublicKeyDigest     string
+	PeerPrivateKey          string
+	PeerPublicKeySignature  string
+	AgeServerPublicKey      string
 	MinisignServerPublicKey string
 
 	// MTLS
@@ -102,8 +102,10 @@ type ImplantConfig struct {
 	Evasion             bool
 	ObfuscateSymbols    bool
 	ReconnectInterval   int64
+	PollTimeout         int64
 	MaxConnectionErrors uint32
 	ConnectionStrategy  string
+	SGNEnabled          bool
 
 	// WireGuard
 	WGImplantPrivKey  string
@@ -171,10 +173,9 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 
 		GOOS:               ic.GOOS,
 		GOARCH:             ic.GOARCH,
-		ECCServerPublicKey: ic.ECCServerPublicKey,
-		ECCPublicKey:       ic.ECCPublicKey,
-		ECCPrivateKey:      ic.ECCPrivateKey,
-		ECCPublicKeyDigest: ic.ECCPublicKeyDigest,
+		AgeServerPublicKey: ic.AgeServerPublicKey,
+		PeerPublicKey:      ic.PeerPublicKey,
+		PeerPrivateKey:     ic.PeerPrivateKey,
 		MtlsCACert:         ic.MtlsCACert,
 		MtlsCert:           ic.MtlsCert,
 		MtlsKey:            ic.MtlsKey,
@@ -184,9 +185,11 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		Evasion:          ic.Evasion,
 		ObfuscateSymbols: ic.ObfuscateSymbols,
 		TemplateName:     ic.TemplateName,
+		SGNEnabled:       ic.SGNEnabled,
 
 		ReconnectInterval:   ic.ReconnectInterval,
 		MaxConnectionErrors: ic.MaxConnectionErrors,
+		PollTimeout:         ic.PollTimeout,
 		ConnectionStrategy:  ic.ConnectionStrategy,
 
 		LimitDatetime:     ic.LimitDatetime,
@@ -337,11 +340,6 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.IsBeacon = pbConfig.IsBeacon
 	cfg.BeaconInterval = pbConfig.BeaconInterval
 	cfg.BeaconJitter = pbConfig.BeaconJitter
-
-	cfg.ECCServerPublicKey = pbConfig.ECCServerPublicKey
-	cfg.ECCPrivateKey = pbConfig.ECCPrivateKey
-	cfg.ECCPublicKey = pbConfig.ECCPublicKey
-	cfg.ECCPublicKeyDigest = pbConfig.ECCPublicKeyDigest
 
 	cfg.GOOS = pbConfig.GOOS
 	cfg.GOARCH = pbConfig.GOARCH

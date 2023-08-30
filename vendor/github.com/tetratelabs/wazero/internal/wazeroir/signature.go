@@ -240,7 +240,7 @@ var (
 // the function instance (for example, local types).
 // "index" parameter is not used by most of opcodes.
 // The returned signature is used for stack validation when lowering Wasm's opcodes to wazeroir.
-func (c *compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature, error) {
+func (c *Compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature, error) {
 	switch op {
 	case wasm.OpcodeUnreachable, wasm.OpcodeNop, wasm.OpcodeBlock, wasm.OpcodeLoop:
 		return signature_None_None, nil

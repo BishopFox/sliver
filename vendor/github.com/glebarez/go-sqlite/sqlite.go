@@ -876,6 +876,12 @@ func applyQueryParams(c *conn, query string) error {
 		return err
 	}
 
+	// set default BUSY_TIMEOUT, just like mattn/go-sqlite3 does.
+	_, err = c.exec(context.Background(), `pragma BUSY_TIMEOUT(5000)`, nil)
+	if err != nil {
+		return err
+	}
+
 	for _, v := range q["_pragma"] {
 		cmd := "pragma " + v
 		_, err := c.exec(context.Background(), cmd, nil)

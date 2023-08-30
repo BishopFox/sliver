@@ -21,22 +21,22 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/desertbit/grumble"
 )
 
 // MemfilesRmCmd - Remove a memfile
-func MemfilesRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func MemfilesRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
-	fdArg := ctx.Args.String("fd")
+	fdArg := args[0]
 	if fdArg == "" {
 		con.PrintErrorf("Missing parameter: File Descriptor\n")
 		return
@@ -45,7 +45,7 @@ func MemfilesRmCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	fdInt, err := strconv.ParseInt(fdArg, 0, 64)
 
 	memfilesList, err := con.Rpc.MemfilesRm(context.Background(), &sliverpb.MemfilesRmReq{
-		Request: con.ActiveTarget.Request(ctx),
+		Request: con.ActiveTarget.Request(cmd),
 		Fd:      fdInt,
 	})
 	if err != nil {

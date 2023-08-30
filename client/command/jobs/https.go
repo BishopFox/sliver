@@ -25,31 +25,36 @@ import (
 	"io/ioutil"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/desertbit/grumble"
 )
 
 // HTTPSListenerCmd - Start an HTTPS listener
-func HTTPSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
-	domain := ctx.Flags.String("domain")
-	website := ctx.Flags.String("website")
-	lhost := ctx.Flags.String("lhost")
-	lport := uint16(ctx.Flags.Int("lport"))
+func HTTPSListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	domain, _ := cmd.Flags().GetString("domain")
+	lhost, _ := cmd.Flags().GetString("lhost")
+	lport, _ := cmd.Flags().GetUint32("lport")
+	disableOTP, _ := cmd.Flags().GetBool("disable-otp")
+	pollTimeout, _ := cmd.Flags().GetString("long-poll-timeout")
+	pollJitter, _ := cmd.Flags().GetString("long-poll-jitter")
+	website, _ := cmd.Flags().GetString("website")
+	letsEncrypt, _ := cmd.Flags().GetBool("lets-encrypt")
+	disableRandomize, _ := cmd.Flags().GetBool("disable-randomized-jarm")
 
-	disableOTP := ctx.Flags.Bool("disable-otp")
-	longPollTimeout, err := time.ParseDuration(ctx.Flags.String("long-poll-timeout"))
+	longPollTimeout, err := time.ParseDuration(pollTimeout)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	longPollJitter, err := time.ParseDuration(ctx.Flags.String("long-poll-jitter"))
+	longPollJitter, err := time.ParseDuration(pollJitter)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
 
-	cert, key, err := getLocalCertificatePair(ctx)
+	cert, key, err := getLocalCertificatePair(cmd)
 	if err != nil {
 		con.Println()
 		con.PrintErrorf("Failed to load local certificate %s\n", err)
@@ -61,15 +66,15 @@ func HTTPSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		Domain:          domain,
 		Website:         website,
 		Host:            lhost,
-		Port:            uint32(lport),
+		Port:            lport,
 		Secure:          true,
 		Cert:            cert,
 		Key:             key,
-		ACME:            ctx.Flags.Bool("lets-encrypt"),
+		ACME:            letsEncrypt,
 		EnforceOTP:      !disableOTP,
 		LongPollTimeout: int64(longPollTimeout),
 		LongPollJitter:  int64(longPollJitter),
-		RandomizeJARM:   !ctx.Flags.Bool("disable-randomized-jarm"),
+		RandomizeJARM:   !disableRandomize,
 	})
 	con.Println()
 	if err != nil {
@@ -79,15 +84,17 @@ func HTTPSListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 }
 
-func getLocalCertificatePair(ctx *grumble.Context) ([]byte, []byte, error) {
-	if ctx.Flags.String("cert") == "" && ctx.Flags.String("key") == "" {
+func getLocalCertificatePair(cmd *cobra.Command) ([]byte, []byte, error) {
+	certPath, _ := cmd.Flags().GetString("cert")
+	keyPath, _ := cmd.Flags().GetString("key")
+	if certPath == "" && keyPath == "" {
 		return nil, nil, nil
 	}
-	cert, err := ioutil.ReadFile(ctx.Flags.String("cert"))
+	cert, err := ioutil.ReadFile(certPath)
 	if err != nil {
 		return nil, nil, err
 	}
-	key, err := ioutil.ReadFile(ctx.Flags.String("key"))
+	key, err := ioutil.ReadFile(keyPath)
 	if err != nil {
 		return nil, nil, err
 	}

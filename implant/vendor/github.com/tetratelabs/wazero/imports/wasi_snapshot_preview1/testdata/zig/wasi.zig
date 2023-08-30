@@ -11,7 +11,7 @@ pub fn main() !void {
     defer std.process.argsFree(allocator, args);
 
     if (std.mem.eql(u8, args[1], "ls")) {
-        // TODO: This only looks at fd 3. See #1077
+        // TODO: This only looks at fd 3. See #14678
         var dir = std.fs.cwd().openIterableDir(args[2], .{}) catch |err| switch (err) {
             error.NotDir => {
                 try stdout.print("ENOTDIR\n", .{});
@@ -36,7 +36,7 @@ pub fn main() !void {
         var wasi_preopens = try preopensAlloc(allocator);
         // fs.wasi.Preopens does not have a free function
 
-        for (wasi_preopens.names) |preopen, i| {
+        for (wasi_preopens.names, 0..) |preopen, i| {
             try stdout.print("{}: {s}\n", .{ i, preopen });
         }
     }

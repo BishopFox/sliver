@@ -5,7 +5,7 @@
 GO ?= go
 ARTIFACT_SUFFIX ?= 
 ENV =
-TAGS ?= -tags osusergo,netgo,go_sqlite
+TAGS ?= -tags go_sqlite
 CGO_ENABLED = 0
 
 ifneq (,$(findstring cgo_sqlite,$(TAGS)))
@@ -115,8 +115,8 @@ default: clean .downloaded_assets validate-go-version
 client: clean .downloaded_assets validate-go-version
 	$(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client ./client
 
-.PHONY: macos
-macos: clean .downloaded_assets validate-go-version
+.PHONY: macos-amd64
+macos-amd64: clean .downloaded_assets validate-go-version
 	GOOS=darwin GOARCH=amd64 $(ENV) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
 	GOOS=darwin GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
@@ -125,8 +125,8 @@ macos-arm64: clean .downloaded_assets validate-go-version
 	GOOS=darwin GOARCH=arm64 $(ENV) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
 	GOOS=darwin GOARCH=arm64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
-.PHONY: linux
-linux: clean .downloaded_assets validate-go-version
+.PHONY: linux-amd64
+linux-amd64: clean .downloaded_assets validate-go-version
 	GOOS=linux GOARCH=amd64 $(ENV) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
 	GOOS=linux GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
@@ -135,19 +135,31 @@ linux-arm64: clean .downloaded_assets validate-go-version
 	GOOS=linux GOARCH=arm64 $(ENV) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
 	GOOS=linux GOARCH=arm64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
-.PHONY: windows
-windows: clean .downloaded_assets validate-go-version
+.PHONY: windows-amd64
+windows-amd64: clean .downloaded_assets validate-go-version
 	GOOS=windows GOARCH=amd64 $(ENV) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX).exe ./server
 	GOOS=windows GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX).exe ./client
 
 .PHONY: clients
 clients: clean .downloaded_assets validate-go-version
-	GOOS=darwin GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_macos$(ARTIFACT_SUFFIX) ./client
+	GOOS=darwin GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_macos-amd64$(ARTIFACT_SUFFIX) ./client
 	GOOS=darwin GOARCH=arm64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_macos-arm64$(ARTIFACT_SUFFIX) ./client
-	GOOS=linux GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_linux$(ARTIFACT_SUFFIX) ./client
+	GOOS=linux GOARCH=386 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_linux-386$(ARTIFACT_SUFFIX) ./client
+	GOOS=linux GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_linux-amd64$(ARTIFACT_SUFFIX) ./client
 	GOOS=linux GOARCH=arm64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_linux-arm64$(ARTIFACT_SUFFIX) ./client
-	GOOS=windows GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_windows$(ARTIFACT_SUFFIX).exe ./client
+	GOOS=windows GOARCH=386 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_windows-386$(ARTIFACT_SUFFIX).exe ./client
+	GOOS=windows GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_windows-amd64$(ARTIFACT_SUFFIX).exe ./client
 	GOOS=windows GOARCH=arm64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_windows-arm64$(ARTIFACT_SUFFIX).exe ./client
+	GOOS=freebsd GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_freebsd-amd64$(ARTIFACT_SUFFIX) ./client
+	GOOS=freebsd GOARCH=arm64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_freebsd-arm64$(ARTIFACT_SUFFIX) ./client
+
+.PHONY: servers
+servers: 
+	GOOS=windows GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_windows-amd64$(ARTIFACT_SUFFIX).exe ./server
+	GOOS=linux GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_linux-amd64$(ARTIFACT_SUFFIX) ./server
+	GOOS=linux GOARCH=arm64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_linux-arm64$(ARTIFACT_SUFFIX) ./server
+	GOOS=darwin GOARCH=arm64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_darwin-arm64$(ARTIFACT_SUFFIX) ./server
+	GOOS=darwin GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_darwin-amd64$(ARTIFACT_SUFFIX) ./server
 
 .PHONY: pb
 pb:
@@ -184,7 +196,7 @@ clean-all: clean
 
 .PHONY: clean
 clean:
-	rm -f sliver-client sliver-client_* sliver-server sliver-*.exe
+	rm -f sliver-client sliver-client_* sliver-server sliver-server_* sliver-*.exe
 
 .downloaded_assets:
 	./go-assets.sh

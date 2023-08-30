@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"unicode/utf8"
+	"unsafe"
 
 	"github.com/tetratelabs/wazero/internal/leb128"
 	"github.com/tetratelabs/wazero/internal/wasm"
@@ -40,6 +41,10 @@ func decodeUTF8(r *bytes.Reader, contextFormat string, contextArgs ...interface{
 		return "", 0, fmt.Errorf("failed to read %s size: %w", fmt.Sprintf(contextFormat, contextArgs...), err)
 	}
 
+	if size == 0 {
+		return "", uint32(sizeOfSize), nil
+	}
+
 	buf := make([]byte, size)
 	if _, err = io.ReadFull(r, buf); err != nil {
 		return "", 0, fmt.Errorf("failed to read %s: %w", fmt.Sprintf(contextFormat, contextArgs...), err)
@@ -49,5 +54,7 @@ func decodeUTF8(r *bytes.Reader, contextFormat string, contextArgs ...interface{
 		return "", 0, fmt.Errorf("%s is not valid UTF-8", fmt.Sprintf(contextFormat, contextArgs...))
 	}
 
-	return string(buf), size + uint32(sizeOfSize), nil
+	// TODO: use unsafe.String after flooring Go 1.20.
+	ret := *(*string)(unsafe.Pointer(&buf))
+	return ret, size + uint32(sizeOfSize), nil
 }

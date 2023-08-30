@@ -25,13 +25,13 @@ import (
 	"log"
 	"os"
 
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"golang.org/x/term"
-
-	"github.com/desertbit/grumble"
 )
 
 const (
@@ -41,7 +41,7 @@ const (
 )
 
 // ShellCmd - Start an interactive shell on the remote system
-func ShellCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func ShellCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -51,16 +51,16 @@ func ShellCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		return
 	}
 
-	shellPath := ctx.Flags.String("shell-path")
-	noPty := ctx.Flags.Bool("no-pty")
+	shellPath, _ := cmd.Flags().GetString("shell-path")
+	noPty, _ := cmd.Flags().GetBool("no-pty")
 	if con.ActiveTarget.GetSession().OS != linux && con.ActiveTarget.GetSession().OS != darwin {
 		noPty = true // Sliver's PTYs are only supported on linux/darwin
 	}
-	runInteractive(ctx, shellPath, noPty, con)
+	runInteractive(cmd, shellPath, noPty, con)
 	con.Println("Shell exited")
 }
 
-func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *console.SliverConsoleClient) {
+func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *console.SliverConsoleClient) {
 	con.Println()
 	con.PrintInfof("Wait approximately 10 seconds after exit, and press <enter> to continue\n")
 	con.PrintInfof("Opening shell tunnel (EOF to exit) ...\n\n")
@@ -86,7 +86,7 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *con
 	tunnel := core.GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
 
 	shell, err := con.Rpc.Shell(context.Background(), &sliverpb.ShellReq{
-		Request:   con.ActiveTarget.Request(ctx),
+		Request:   con.ActiveTarget.Request(cmd),
 		Path:      shellPath,
 		EnablePTY: !noPty,
 		TunnelID:  tunnel.ID,
@@ -131,7 +131,7 @@ func runInteractive(ctx *grumble.Context, shellPath string, noPty bool, con *con
 		}
 	}()
 	log.Printf("Reading from stdin ...")
-	n, err := io.Copy(tunnel, os.Stdin)
+	n, err := io.Copy(tunnel, newFilterReader(os.Stdin))
 	log.Printf("Read %d bytes from stdin", n)
 	if err != nil && err != io.EOF {
 		con.PrintErrorf("Error reading from stdin: %s\n", err)

@@ -321,6 +321,63 @@ func StartHTTPStagerListenerJob(req *clientpb.HTTPListenerReq, data []byte) (*co
 	return job, nil
 }
 
+<<<<<<< HEAD
+=======
+// StartPersistentJobs - Start persistent jobs
+func StartPersistentJobs(cfg *configs.ServerConfig) error {
+	if cfg.Jobs == nil {
+		return nil
+	}
+
+	for _, j := range cfg.Jobs.MTLS {
+		job, err := StartMTLSListenerJob(j.Host, j.Port)
+		if err != nil {
+			return err
+		}
+		job.PersistentID = j.JobID
+	}
+
+	for _, j := range cfg.Jobs.WG {
+		job, err := StartWGListenerJob(j.Port, j.NPort, j.KeyPort)
+		if err != nil {
+			return err
+		}
+		job.PersistentID = j.JobID
+	}
+
+	for _, j := range cfg.Jobs.DNS {
+		job, err := StartDNSListenerJob(j.Host, j.Port, j.Domains, j.Canaries, j.EnforceOTP)
+		if err != nil {
+			return err
+		}
+		job.PersistentID = j.JobID
+	}
+
+	for _, j := range cfg.Jobs.HTTP {
+		cfg := &HTTPServerConfig{
+			Addr:            fmt.Sprintf("%s:%d", j.Host, j.Port),
+			LPort:           j.Port,
+			Secure:          j.Secure,
+			Domain:          j.Domain,
+			Website:         j.Website,
+			Cert:            j.Cert,
+			Key:             j.Key,
+			ACME:            j.ACME,
+			LongPollTimeout: time.Duration(j.LongPollTimeout),
+			LongPollJitter:  time.Duration(j.LongPollJitter),
+			RandomizeJARM:   j.RandomizeJARM,
+		}
+		job, err := StartHTTPListenerJob(cfg)
+		if err != nil {
+			return err
+		}
+		job.PersistentID = j.JobID
+	}
+
+	return nil
+}
+
+>>>>>>> master
 // Fuck'in Go - https://stackoverflow.com/questions/30815244/golang-https-server-passing-certfile-and-kyefile-in-terms-of-byte-array
 // basically the same as server.ListenAndServerTLS() but we can pass in byte slices instead of file paths
 func listenAndServeTLS(srv *http.Server, certPEMBlock, keyPEMBlock []byte) error {

@@ -18,6 +18,7 @@ import (
 	"encoding/binary"
 
 	"gvisor.dev/gvisor/pkg/tcpip"
+	"gvisor.dev/gvisor/pkg/tcpip/checksum"
 )
 
 // ICMPv6 represents an ICMPv6 header stored in a byte array.
@@ -120,6 +121,10 @@ const (
 	ICMPv6MulticastListenerQuery  ICMPv6Type = 130
 	ICMPv6MulticastListenerReport ICMPv6Type = 131
 	ICMPv6MulticastListenerDone   ICMPv6Type = 132
+
+	// Multicast Listener Discovert Version 2 (MLDv2) messages, see RFC 3810.
+
+	ICMPv6MulticastListenerV2Report ICMPv6Type = 143
 )
 
 // IsErrorType returns true if the receiver is an ICMP error type.
@@ -198,8 +203,8 @@ func (b ICMPv6) Checksum() uint16 {
 }
 
 // SetChecksum sets the ICMP checksum field.
-func (b ICMPv6) SetChecksum(checksum uint16) {
-	PutChecksum(b[ICMPv6ChecksumOffset:], checksum)
+func (b ICMPv6) SetChecksum(cs uint16) {
+	checksum.Put(b[ICMPv6ChecksumOffset:], cs)
 }
 
 // SourcePort implements Transport.SourcePort.
@@ -283,11 +288,11 @@ func ICMPv6Checksum(params ICMPv6ChecksumParams) uint16 {
 	h := params.Header
 
 	xsum := PseudoHeaderChecksum(ICMPv6ProtocolNumber, params.Src, params.Dst, uint16(len(h)+params.PayloadLen))
-	xsum = ChecksumCombine(xsum, params.PayloadCsum)
+	xsum = checksum.Combine(xsum, params.PayloadCsum)
 
 	// h[2:4] is the checksum itself, skip it to avoid checksumming the checksum.
-	xsum = Checksum(h[:2], xsum)
-	xsum = Checksum(h[4:], xsum)
+	xsum = checksum.Checksum(h[:2], xsum)
+	xsum = checksum.Checksum(h[4:], xsum)
 
 	return ^xsum
 }

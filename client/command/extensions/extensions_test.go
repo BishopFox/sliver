@@ -241,5 +241,4 @@ func TestParseExtensionManifestErrors(t *testing.T) {
 			t.Fatalf("Expected missing files.path error, got none")
 		}
 	}
-
 }

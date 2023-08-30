@@ -1,0 +1,67 @@
+version: '3'
+
+services:
+  build: &base
+    build: .
+    image: ghcr.io/rsteube/carapace
+    command: sh -c 'cd /carapace/example && go build -buildvcs=false .'
+    environment:
+      TARGET: /carapace/example/example
+    volumes:
+      - '.:/carapace/'
+
+  bash:
+    <<: *base
+    command: bash
+
+  ble:
+    <<: *base
+    command: bash
+    environment:
+      BLE: 1
+      TARGET: /carapace/example/example
+
+  elvish:
+    <<: *base
+    command: elvish
+
+  fish:
+    <<: *base
+    command: fish
+  
+  ion:
+    <<: *base
+    command: ion
+  
+  nushell:
+    <<: *base
+    command: nu
+  
+  oil:
+    <<: *base
+    command: osh --completion-display minimal
+
+  powershell:
+    <<: *base
+    command: pwsh
+  
+  tcsh:
+    <<: *base
+    command: tcsh
+
+  xonsh: 
+    <<: *base
+    command: xonsh
+
+  zsh:
+    <<: *base
+    command: zsh
+
+  test:
+    <<: *base
+    working_dir: /carapace
+    command: fish -c "go test -v ./..."
+
+
+volumes:
+  go:

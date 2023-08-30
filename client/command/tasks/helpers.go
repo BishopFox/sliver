@@ -2,18 +2,22 @@ package tasks
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/rsteube/carapace"
+
+	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
 // SelectBeaconTask - Select a beacon task interactively
 func SelectBeaconTask(tasks []*clientpb.BeaconTask) (*clientpb.BeaconTask, error) {
-
 	// Render selection table
 	buf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
@@ -43,4 +47,97 @@ func SelectBeaconTask(tasks []*clientpb.BeaconTask) (*clientpb.BeaconTask, error
 		}
 	}
 	return nil, errors.New("task not found")
+}
+
+// BeaconTaskIDCompleter returns a structured list of tasks completions, grouped by state.
+func BeaconTaskIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+	callback := func(ctx carapace.Context) carapace.Action {
+		beacon := con.ActiveTarget.GetBeacon()
+		if beacon == nil {
+			return carapace.ActionMessage("no active beacon")
+		}
+
+		beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
+		if err != nil {
+			return carapace.ActionMessage("Failed to fetch tasks: %s", err.Error())
+		}
+
+		completed := make([]string, 0)
+		pending := make([]string, 0)
+		sent := make([]string, 0)
+		canceled := make([]string, 0)
+
+		for _, task := range beaconTasks.Tasks {
+			var desc string
+
+			switch task.State {
+			case "pending":
+				pending = append(pending, task.ID)
+				pending = append(pending, task.Description)
+
+			case "completed":
+				completedAt := time.Unix(task.CompletedAt, 0).Format(time.RFC1123)
+				if time.Unix(task.CompletedAt, 0).IsZero() {
+					completedAt = ""
+				}
+				desc += fmt.Sprintf("(completed: %s)", completedAt)
+				desc += task.Description
+
+				completed = append(completed, task.ID)
+				completed = append(completed, task.Description)
+
+			case "sent":
+				sentAt := time.Unix(task.SentAt, 0).Format(time.RFC1123)
+				if time.Unix(task.SentAt, 0).IsZero() {
+					sentAt = ""
+				}
+				desc += fmt.Sprintf("(sent: %s)", sentAt)
+				desc += task.Description
+
+				sent = append(sent, task.ID)
+				sent = append(sent, task.Description)
+
+			case "canceled":
+				canceled = append(canceled, task.ID)
+				canceled = append(canceled, task.Description)
+			}
+		}
+
+		return carapace.Batch(
+			carapace.ActionValuesDescribed(pending...).Tag("pending tasks"),
+			carapace.ActionValuesDescribed(completed...).Tag("completed tasks"),
+			carapace.ActionValuesDescribed(sent...).Tag("sent tasks"),
+			carapace.ActionValuesDescribed(canceled...).Tag("canceled tasks"),
+		).ToA()
+	}
+
+	return carapace.ActionCallback(callback)
+}
+
+// BeaconPendingTasksCompleter completes pending tasks
+func BeaconPendingTasksCompleter(con *console.SliverConsoleClient) carapace.Action {
+	callback := func(ctx carapace.Context) carapace.Action {
+		beacon := con.ActiveTarget.GetBeacon()
+		if beacon == nil {
+			return carapace.ActionMessage("no active beacon")
+		}
+
+		beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
+		if err != nil {
+			return carapace.ActionMessage("Failed to fetch tasks: %s", err.Error())
+		}
+
+		pending := make([]string, 0)
+
+		for _, task := range beaconTasks.Tasks {
+			if task.State == "pending" {
+				pending = append(pending, task.ID)
+				pending = append(pending, task.Description)
+			}
+		}
+
+		return carapace.ActionValuesDescribed(pending...).Tag("pending tasks")
+	}
+
+	return carapace.ActionCallback(callback)
 }

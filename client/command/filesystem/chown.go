@@ -20,48 +20,51 @@ package filesystem
 import (
 	"context"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/desertbit/grumble"
 )
 
 // ChownCmd - Change the owner of a file on the remote file system
-func ChownCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func ChownCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
-	filePath := ctx.Args.String("path")
+	filePath := args[0]
 
 	if filePath == "" {
 		con.PrintErrorf("Missing parameter: file or directory name\n")
 		return
 	}
 
-	uid := ctx.Args.String("uid")
+	uid := args[1]
 
 	if uid == "" {
 		con.PrintErrorf("Missing parameter: user id\n")
 		return
 	}
 
-	gid := ctx.Args.String("gid")
+	gid := args[2]
 
 	if gid == "" {
 		con.PrintErrorf("Missing parameter: group id\n")
 		return
 	}
-	
+
+	recursive, _ := cmd.Flags().GetBool("recursive")
+
 	chown, err := con.Rpc.Chown(context.Background(), &sliverpb.ChownReq{
-		Request:   con.ActiveTarget.Request(ctx),
+		Request:   con.ActiveTarget.Request(cmd),
 		Path:      filePath,
-		Uid:  uid,
-		Gid:  gid,
-		Recursive: ctx.Flags.Bool("recursive"),
+		Uid:       uid,
+		Gid:       gid,
+		Recursive: recursive,
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

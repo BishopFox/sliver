@@ -27,10 +27,6 @@ import (
 	"github.com/bishopfox/sliver/server/certs"
 )
 
-const (
-	otpTestSecret = "12345678901234567890"
-)
-
 var (
 	nonce = 0
 )
@@ -191,7 +187,7 @@ func trafficEncodersExecutable(t *testing.T, goos string, goarch string) {
 	}
 	debugHttpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(otpTestSecret, debugConfig, debugHttpC2Config)
+	_, err := SliverExecutable(debugConfig, debugHttpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -209,7 +205,7 @@ func trafficEncodersExecutable(t *testing.T, goos string, goarch string) {
 		Name:                   fmt.Sprintf("trafficEncodersProd_test%d", nonce),
 	}
 	nonce++
-	_, err = SliverExecutable(otpTestSecret, prodConfig, debugHttpC2Config)
+	_, err = SliverExecutable(prodConfig, debugHttpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -230,7 +226,7 @@ func mtlsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) 
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
+	_, err := SliverExecutable(config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -251,7 +247,7 @@ func dnsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
+	_, err := SliverExecutable(config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -276,7 +272,7 @@ func httpExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) 
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
+	_, err := SliverExecutable(config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -302,7 +298,7 @@ func multiExe(t *testing.T, goos string, goarch string, beacon bool, debug bool)
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
+	_, err := SliverExecutable(config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -328,7 +324,7 @@ func multiWindowsService(t *testing.T, goos string, goarch string, beacon bool, 
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
+	_, err := SliverExecutable(config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -353,7 +349,7 @@ func tcpPivotExe(t *testing.T, goos string, goarch string, debug bool) {
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
+	_, err := SliverExecutable(config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -377,7 +373,7 @@ func namedPipeExe(t *testing.T, goos string, goarch string, debug bool) {
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
+	_, err := SliverExecutable(config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -408,7 +404,7 @@ func wireguardExe(t *testing.T, goos string, goarch string, beacon bool, debug b
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
 	certs.SetupWGKeys()
-	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
+	_, err := SliverExecutable(config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -441,7 +437,7 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverSharedLibrary(otpTestSecret, config, httpC2Config)
+	_, err := SliverSharedLibrary(config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -466,7 +462,7 @@ func symbolObfuscation(t *testing.T, goos string, goarch string) {
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(otpTestSecret, config, httpC2Config)
+	_, err := SliverExecutable(config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}

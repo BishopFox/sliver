@@ -27,7 +27,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
 
@@ -94,12 +93,11 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	if err != nil {
 		req.Config.Format = clientpb.OutputFormat_SHELLCODE
 		req.Config.ObfuscateSymbols = false
-		otpSecret, _ := cryptography.TOTPServerSecret()
 		config, err := generate.GenerateConfig(req.Config, true)
 		if err != nil {
 			return nil, err
 		}
-		shellcodePath, err := generate.SliverShellcode(otpSecret, config, pbC2Implant)
+		shellcodePath, err := generate.SliverShellcode(config, pbC2Implant)
 		if err != nil {
 			return nil, err
 		}

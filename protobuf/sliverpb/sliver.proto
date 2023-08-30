@@ -219,6 +219,21 @@ message Mv {
   commonpb.Response Response = 9;
 }
 
+message CpReq {
+  string Src = 1;
+  string Dst = 2;
+
+  commonpb.Request Request = 9;
+}
+
+message Cp {
+  string Src = 1;
+  string Dst = 2;
+  int64 BytesWritten = 3;
+
+  commonpb.Response Response = 9;
+}
+
 message MkdirReq {
   string Path = 1;
 
@@ -259,6 +274,7 @@ message UploadReq {
   string Encoder = 2;
   bytes Data = 3;
   bool IsIOC = 4;
+  string FileName = 5;
 
   commonpb.Request Request = 9;
 }
@@ -442,6 +458,7 @@ message ExecuteWindowsReq {
   string Stdout = 4;
   string Stderr = 5;
   bool UseToken = 6;
+  bool HideWindow = 7;
   uint32 PPid = 10;
 
   commonpb.Request Request = 9;

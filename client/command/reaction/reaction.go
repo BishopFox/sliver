@@ -22,16 +22,17 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
-	"github.com/desertbit/grumble"
-	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // ReactionCmd - Manage reactions to events
-func ReactionCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func ReactionCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	totalReactions := 0
 	for _, eventType := range core.ReactableEvents {
 		reactions := core.Reactions.On(eventType)

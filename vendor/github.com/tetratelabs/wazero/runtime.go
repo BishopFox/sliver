@@ -2,12 +2,13 @@ package wazero
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync/atomic"
 
 	"github.com/tetratelabs/wazero/api"
 	experimentalapi "github.com/tetratelabs/wazero/experimental"
+	internalclose "github.com/tetratelabs/wazero/internal/close"
+	internalsock "github.com/tetratelabs/wazero/internal/sock"
 	internalsys "github.com/tetratelabs/wazero/internal/sys"
 	"github.com/tetratelabs/wazero/internal/wasm"
 	binaryformat "github.com/tetratelabs/wazero/internal/wasm/binary"
@@ -23,9 +24,16 @@ import (
 //	defer r.Close(ctx) // This closes everything this Runtime created.
 //
 //	mod, _ := r.Instantiate(ctx, wasm)
+//
+// # Notes
+//
+//   - This is an interface for decoupling, not third-party implementations.
+//     All implementations are in wazero.
+//   - Closing this closes any CompiledModule or Module it instantiated.
 type Runtime interface {
 	// Instantiate instantiates a module from the WebAssembly binary (%.wasm)
-	// with default configuration.
+	// with default configuration, which notably calls the "_start" function,
+	// if it exists.
 	//
 	// Here's an example:
 	//	ctx := context.Background()
@@ -200,10 +208,6 @@ func (r *runtime) CompileModule(ctx context.Context, binary []byte) (CompiledMod
 		return nil, err
 	}
 
-	if binary == nil {
-		return nil, errors.New("binary == nil")
-	}
-
 	internal, err := binaryformat.DecodeModule(binary, r.enabledFeatures,
 		r.memoryLimitPages, r.memoryCapacityFromMax, !r.dwarfDisabled, r.storeCustomSections)
 	if err != nil {
@@ -214,10 +218,8 @@ func (r *runtime) CompileModule(ctx context.Context, binary []byte) (CompiledMod
 		return nil, err
 	}
 
-	internal.AssignModuleID(binary)
-
-	// Now that the module is validated, cache the function and memory definitions.
-	internal.BuildFunctionDefinitions()
+	// Now that the module is validated, cache the memory definitions.
+	// TODO: lazy initialization of memory definition.
 	internal.BuildMemoryDefinitions()
 
 	c := &compiledModule{module: internal, compiledEngine: r.store.Engine}
@@ -229,18 +231,18 @@ func (r *runtime) CompileModule(ctx context.Context, binary []byte) (CompiledMod
 	}
 	c.typeIDs = typeIDs
 
-	listeners, err := buildListeners(ctx, internal)
+	listeners, err := buildFunctionListeners(ctx, internal)
 	if err != nil {
 		return nil, err
 	}
-
+	internal.AssignModuleID(binary, len(listeners) > 0, r.ensureTermination)
 	if err = r.store.Engine.CompileModule(ctx, internal, listeners, r.ensureTermination); err != nil {
 		return nil, err
 	}
 	return c, nil
 }
 
-func buildListeners(ctx context.Context, internal *wasm.Module) ([]experimentalapi.FunctionListener, error) {
+func buildFunctionListeners(ctx context.Context, internal *wasm.Module) ([]experimentalapi.FunctionListener, error) {
 	// Test to see if internal code are using an experimental feature.
 	fnlf := ctx.Value(experimentalapi.FunctionListenerFactoryKey{})
 	if fnlf == nil {
@@ -250,7 +252,7 @@ func buildListeners(ctx context.Context, internal *wasm.Module) ([]experimentala
 	importCount := internal.ImportFunctionCount
 	listeners := make([]experimentalapi.FunctionListener, len(internal.FunctionSection))
 	for i := 0; i < len(listeners); i++ {
-		listeners[i] = factory.NewListener(&internal.FunctionDefinitionSection[uint32(i)+importCount])
+		listeners[i] = factory.NewFunctionListener(internal.FunctionDefinition(uint32(i) + importCount))
 	}
 	return listeners, nil
 }
@@ -291,6 +293,13 @@ func (r *runtime) InstantiateModule(
 	code := compiled.(*compiledModule)
 	config := mConfig.(*moduleConfig)
 
+	// Only add guest module configuration to guests.
+	if !code.module.IsHostModule {
+		if sockConfig, ok := ctx.Value(internalsock.ConfigKey{}).(*internalsock.Config); ok {
+			config.sockConfig = sockConfig
+		}
+	}
+
 	var sysCtx *internalsys.Context
 	if sysCtx, err = config.toSysContext(); err != nil {
 		return
@@ -311,9 +320,14 @@ func (r *runtime) InstantiateModule(
 		return
 	}
 
-	// Attach the code closer so that anything afterwards closes the compiled code when closing the module.
+	if closeNotifier, ok := ctx.Value(internalclose.NotifierKey{}).(internalclose.Notifier); ok {
+		mod.(*wasm.ModuleInstance).CloseNotifier = closeNotifier
+	}
+
+	// Attach the code closer so that anything afterward closes the compiled
+	// code when closing the module.
 	if code.closeWithModule {
-		mod.(*wasm.CallContext).CodeCloser = code
+		mod.(*wasm.ModuleInstance).CodeCloser = code
 	}
 
 	// Now, invoke any start functions, failing at first error.

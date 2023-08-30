@@ -7,12 +7,13 @@ import (
 
 // compileDropRange adds instruction to drop the values on the target range
 // in an architecture independent way.
-func compileDropRange(c compiler, r *wazeroir.InclusiveRange) (err error) {
+func compileDropRange(c compiler, raw uint64) (err error) {
+	r := wazeroir.InclusiveRangeFromU64(raw)
 	locationStack := c.runtimeValueLocationStack()
-	if r == nil {
+	if r.Start < 0 {
 		return
 	} else if r.Start == 0 {
-		for i := 0; i <= r.End; i++ {
+		for i := 0; i <= int(r.End); i++ {
 			if loc := locationStack.pop(); loc.onRegister() {
 				locationStack.releaseRegister(loc)
 			}
@@ -115,7 +116,7 @@ func getTemporariesForStackedLiveValues(c compiler, liveValues []runtimeValueLoc
 
 // dropsLivesForInclusiveRange returns the live and drop target values for the given wazeroir.InclusiveRange.
 func (v *runtimeValueLocationStack) dropsLivesForInclusiveRange(
-	r *wazeroir.InclusiveRange,
+	r wazeroir.InclusiveRange,
 ) (dropValues, liveValues []runtimeValueLocation) {
 	// liveValues are must be pushed backed after dropping the target range.
 	liveValues = v.stack[v.sp-uint64(r.Start) : v.sp]
