@@ -59,6 +59,7 @@ func (rpc *Server) GetJobs(ctx context.Context, _ *commonpb.Empty) (*clientpb.Jo
 			Protocol:    job.Protocol,
 			Port:        uint32(job.Port),
 			Domains:     job.Domains,
+			ProfileName: job.ProfileName,
 		})
 	}
 	return jobs, nil

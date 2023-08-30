@@ -2306,6 +2306,54 @@ func BindCommands(con *console.SliverConsoleClient) {
 		HelpGroup: consts.SliverHelpGroup,
 	})
 
+	memfilesCmd := &grumble.Command{
+		Name:     consts.MemfilesStr,
+		Help:     "List current memfiles",
+		LongHelp: help.GetHelpFor([]string{consts.MemfilesStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			filesystem.MemfilesListCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+		HelpGroup: consts.SliverHelpGroup,
+	}
+	memfilesCmd.AddCommand(&grumble.Command{
+		Name:     consts.AddStr,
+		Help:     "Add a memfile",
+		LongHelp: help.GetHelpFor([]string{consts.MemfilesStr, consts.AddStr}),
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			filesystem.MemfilesAddCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+	})
+	memfilesCmd.AddCommand(&grumble.Command{
+		Name:     consts.RmStr,
+		Help:     "Remove a memfile",
+		LongHelp: help.GetHelpFor([]string{consts.MemfilesStr, consts.RmStr}),
+		Args: func(a *grumble.Args) {
+			a.String("fd", "memfile file descriptor")
+		},
+		Run: func(ctx *grumble.Context) error {
+			con.Println()
+			filesystem.MemfilesRmCmd(ctx, con)
+			con.Println()
+			return nil
+		},
+		Flags: func(f *grumble.Flags) {
+			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
+		},
+	})
+	con.App.AddCommand(memfilesCmd)
+
 	// [ Websites ] ---------------------------------------------
 
 	websitesCmd := &grumble.Command{

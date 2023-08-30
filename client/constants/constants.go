@@ -205,6 +205,8 @@ const (
 	ChownStr    = "chown"
 	ChtimesStr  = "chtimes"
 
+	MemfilesStr = "memfiles"
+
 	ProcdumpStr         = "procdump"
 	ImpersonateStr      = "impersonate"
 	RunAsStr            = "runas"

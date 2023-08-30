@@ -33,7 +33,7 @@ func (rpc *Server) StartTCPStagerListener(ctx context.Context, req *clientpb.Sta
 	if !checkInterface(req.GetHost()) {
 		host = "0.0.0.0"
 	}
-	job, err := c2.StartTCPStagerListenerJob(host, uint16(req.GetPort()), req.GetData())
+	job, err := c2.StartTCPStagerListenerJob(host, uint16(req.GetPort()), req.ProfileName, req.GetData())
 	if err != nil {
 		return nil, err
 	}

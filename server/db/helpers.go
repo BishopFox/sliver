@@ -517,6 +517,7 @@ func BeaconByID(id string) (*models.Beacon, error) {
 	if beaconID == uuid.Nil {
 		return nil, ErrRecordNotFound
 	}
+
 	beacon := &models.Beacon{}
 	err := Session().Where(
 		&models.Beacon{ID: beaconID},

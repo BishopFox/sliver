@@ -249,6 +249,7 @@ func getActiveTarget(rawRequest []byte) (*clientpb.Session, *clientpb.Beacon, er
 		beaconID := rawBeaconID.(string)
 		middlewareLog.Debugf("Found Beacon ID: %s", beaconID)
 		beacon, err := db.BeaconByID(beaconID)
+		middlewareLog.Infof("query complete")
 		if err != nil {
 			middlewareLog.Errorf("Failed to get beacon %s: %s", beaconID, err)
 		} else if beacon != nil {

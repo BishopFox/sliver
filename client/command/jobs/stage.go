@@ -23,7 +23,9 @@ import (
 	"compress/zlib"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"net/url"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -131,6 +133,8 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			Data:     stage2,
 			Host:     stagingURL.Hostname(),
 			Port:     uint32(stagingPort),
+			ProfileName: fmt.Sprintf("%s (Sliver name: %s)", profileName,
+				strings.TrimSuffix(profile.GetConfig().FileName, filepath.Ext(profile.GetConfig().FileName))),
 		})
 		ctrl <- true
 		<-ctrl
@@ -159,6 +163,8 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			Cert:     cert,
 			Key:      key,
 			ACME:     ctx.Flags.Bool("lets-encrypt"),
+			ProfileName: fmt.Sprintf("%s (Silver name: %s)", profileName,
+				strings.TrimSuffix(profile.GetConfig().FileName, filepath.Ext(profile.GetConfig().FileName))),
 		})
 		ctrl <- true
 		<-ctrl
@@ -177,6 +183,8 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 			Data:     stage2,
 			Host:     stagingURL.Hostname(),
 			Port:     uint32(stagingPort),
+			ProfileName: fmt.Sprintf("%s (Sliver name: %s)", profileName,
+				strings.TrimSuffix(profile.GetConfig().FileName, filepath.Ext(profile.GetConfig().FileName))),
 		})
 		ctrl <- true
 		<-ctrl

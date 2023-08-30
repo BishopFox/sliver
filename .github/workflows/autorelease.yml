@@ -15,7 +15,7 @@ jobs:
       - name: Go 1.20
         uses: actions/setup-go@v4
         with:
-          go-version: "1.20.2"
+          go-version: "^1.20"
 
       - name: OS Packages
         run: |
@@ -65,7 +65,7 @@ jobs:
       - name: Go 1.20
         uses: actions/setup-go@v4
         with:
-          go-version: "1.20.2"
+          go-version: "^1.20"
 
       - name: Mingw
         run: brew install mingw-w64
@@ -147,9 +147,7 @@ jobs:
           gpg --default-key 4449039C --output ./artifacts/sliver-client_macos-arm64.sig --detach-sig ./artifacts/sliver-client_macos-arm64
 
       - name: "Publish Release"
-        uses: "marvinpinto/action-automatic-releases@latest"
+        uses: "bishopfox/action-gh-release@v1"
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          prerelease: true
           files: |
             ./artifacts/*
