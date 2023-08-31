@@ -90,7 +90,7 @@ type pkgCacheEntry struct {
 	Pkg          ArmoryPackage
 	Sig          minisign.Signature
 	Alias        *alias.AliasManifest
-	Extension    *extensions.ExtensionManifest
+	Extension    extensions.MultiManifest
 	LastErr      error
 }
 
@@ -144,7 +144,7 @@ func ArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 				if cacheEntry.Pkg.IsAlias {
 					aliases = append(aliases, cacheEntry.Alias)
 				} else {
-					exts = append(exts, cacheEntry.Extension)
+					exts = append(exts, cacheEntry.Extension...)
 				}
 			}
 			return true
@@ -192,7 +192,7 @@ func packagesInCache() ([]*alias.AliasManifest, []*extensions.ExtensionManifest)
 			if cacheEntry.Pkg.IsAlias {
 				aliases = append(aliases, cacheEntry.Alias)
 			} else {
-				exts = append(exts, cacheEntry.Extension)
+				exts = append(exts, cacheEntry.Extension...)
 			}
 		}
 		return true
@@ -506,7 +506,7 @@ func fetchPackageSignature(wg *sync.WaitGroup, armoryConfig *assets.ArmoryConfig
 		if armoryPkg.IsAlias {
 			pkgCacheEntry.Alias, err = alias.ParseAliasManifest(manifestData)
 		} else {
-			pkgCacheEntry.Extension, err = extensions.ParseExtensionManifest(manifestData)
+			pkgCacheEntry.Extension, err = extensions.ParseMultiManifest(manifestData)
 		}
 		if err != nil {
 			pkgCacheEntry.LastErr = fmt.Errorf("failed to parse trusted manifest in pkg signature: %s", err)

@@ -25,12 +25,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/reeflective/team/client"
-	"github.com/reeflective/team/internal/command"
 	"github.com/rsteube/carapace"
 	"github.com/rsteube/carapace/pkg/style"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"github.com/reeflective/team/client"
+	"github.com/reeflective/team/internal/command"
 )
 
 // Generate returns a command tree to embed in client applications connecting

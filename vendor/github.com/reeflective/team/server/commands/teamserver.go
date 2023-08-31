@@ -28,12 +28,13 @@ import (
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+
 	"github.com/reeflective/team/internal/command"
 	"github.com/reeflective/team/internal/log"
 	"github.com/reeflective/team/internal/systemd"
 	"github.com/reeflective/team/server"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 )
 
 func daemoncmd(serv *server.Server) func(cmd *cobra.Command, args []string) error {

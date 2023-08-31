@@ -529,7 +529,11 @@ func ActionCobra(f func(cmd *cobra.Command, args []string, toComplete string) ([
 			LOG.Print("cmd is nil [ActionCobra]")
 			c.cmd = &cobra.Command{Use: "_carapace_actioncobra", Hidden: true, Deprecated: "dummy command for ActionCobra"}
 		}
-		values, directive := f(c.cmd, c.cmd.Flags().Args(), c.Value)
+
+		if !c.cmd.DisableFlagParsing {
+			c.Args = c.cmd.Flags().Args()
+		}
+		values, directive := f(c.cmd, c.Args, c.Value)
 		return compDirective(directive).ToA(values...)
 	})
 }

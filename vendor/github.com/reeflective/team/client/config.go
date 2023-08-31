@@ -30,6 +30,7 @@ import (
 	"sort"
 
 	"github.com/AlecAivazis/survey/v2"
+
 	"github.com/reeflective/team/internal/assets"
 	"github.com/reeflective/team/internal/certs"
 	"github.com/reeflective/team/internal/command"

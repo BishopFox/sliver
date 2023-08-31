@@ -149,14 +149,15 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 		// Load Extensions
 		extensionManifests := assets.GetInstalledExtensionManifests()
 		for _, manifest := range extensionManifests {
-			ext, err := extensions.LoadExtensionManifest(manifest)
+			mext, err := extensions.LoadExtensionManifest(manifest)
 			// Absorb error in case there's no extensions manifest
 			if err != nil {
 				con.PrintErrorf("Failed to load extension: %s", err)
 				continue
 			}
-
-			extensions.ExtensionRegisterCommand(ext, sliver, con)
+			for _, ext := range mext {
+				extensions.ExtensionRegisterCommand(ext, sliver, con)
+			}
 		}
 
 		// [ Post-command declaration setup ]----------------------------------------

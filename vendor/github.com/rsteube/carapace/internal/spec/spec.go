@@ -9,7 +9,7 @@ import (
 )
 
 // Snippet generates the spec file.
-func Snippet(cmd *cobra.Command) string {
+func Spec(cmd *cobra.Command) string {
 	m, _ := yaml.Marshal(command(cmd))
 	return string(m)
 }

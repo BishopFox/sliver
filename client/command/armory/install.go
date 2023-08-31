@@ -222,24 +222,25 @@ func resolveExtensionPackageDependencies(name string, deps map[string]struct{}, 
 	if entry == nil {
 		return
 	}
+	for _, multiExt := range entry.Extension {
+		if multiExt.DependsOn == "" {
+			continue // Avoid adding empty dependency
+		}
 
-	if entry.Extension.DependsOn == "" {
-		return // Avoid adding empty dependency
+		if multiExt.DependsOn == name {
+			continue // Avoid infinite loop of something that depends on itself
+		}
+		// We also need to look out for circular dependencies, so if we've already
+		// seen this dependency, we stop resolving
+		if _, ok := deps[multiExt.DependsOn]; ok {
+			continue // Already resolved
+		}
+		if maxDepDepth < len(deps) {
+			continue
+		}
+		deps[multiExt.DependsOn] = struct{}{}
+		resolveExtensionPackageDependencies(multiExt.DependsOn, deps, clientConfig, con)
 	}
-
-	if entry.Extension.DependsOn == name {
-		return // Avoid infinite loop of something that depends on itself
-	}
-	// We also need to look out for circular dependencies, so if we've already
-	// seen this dependency, we stop resolving
-	if _, ok := deps[entry.Extension.DependsOn]; ok {
-		return // Already resolved
-	}
-	if maxDepDepth < len(deps) {
-		return
-	}
-	deps[entry.Extension.DependsOn] = struct{}{}
-	resolveExtensionPackageDependencies(entry.Extension.DependsOn, deps, clientConfig, con)
 }
 
 func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, con *console.SliverClient) error {
@@ -301,7 +302,7 @@ func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, c
 	if installPath == nil {
 		return errors.New("failed to install extension")
 	}
-	extCmd, err := extensions.LoadExtensionManifest(filepath.Join(*installPath, extensions.ManifestFileName))
+	manyfest, err := extensions.LoadExtensionManifest(filepath.Join(*installPath, extensions.ManifestFileName))
 	if err != nil {
 		return err
 	}
@@ -311,6 +312,8 @@ func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, c
 	// if extensions.CmdExists(extCmd.Name, sliverMenu.Command) {
 	// 	con.App.Commands().Remove(extCmd.Name)
 	// }
-	extensions.ExtensionRegisterCommand(extCmd, sliverMenu.Command, con)
+	for _, extCmd := range manyfest {
+		extensions.ExtensionRegisterCommand(extCmd, sliverMenu.Command, con)
+	}
 	return nil
 }

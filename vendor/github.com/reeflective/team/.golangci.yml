@@ -173,7 +173,7 @@ linters:
     # - forbidigo       # Forbids identifiers                                       (style)
     - forcetypeassert # finds forced type assertions                              (style)
     - funlen          # tool for detection of long functions                      (cplx)
-    - gci             # Controls package import order and makes deterministic     (fmt,import)
+    # - gci             # Controls package import order and makes deterministic     (fmt,import)
     # - gochecknoglobals # checks that no global variables exist                    (style)
     # - gochecknoinits  # checks that no init functions are present                 (style)
     - gocognit        # computes and checks the cognitive complexity of functions (cplx)
@@ -184,9 +184,9 @@ linters:
     - godox           # tool for detection of FIXME, TODO and other comments      (style,cmt)
     - goerr113        # checks the errors handling expressions                    (style,err)
     # - gofmt           # formats and checks for code simplification                (fmt)
-    # - gofumpt         # checks whether code was gofumpt-ed                        (fmt)
+    - gofumpt         # checks whether code was gofumpt-ed                        (fmt)
     - goheader        # checks if file header matches to pattern                  (style)
-    #- goimports       # fixes imports, formats code same as gofmt                 (fmt,import)
+    - goimports       # fixes imports, formats code same as gofmt                 (fmt,import)
     # - golint          # Deprecated 
     - gomnd           # analyzer to detect magic numbers                          (style)
     - gomoddirectives # manage replace/retract/excludes directives in go.mod      (style,mod)
@@ -261,7 +261,6 @@ linters:
     - forbidigo       # Forbids identifiers                                       (style)
     - gochecknoglobals # checks that no global variables exist                    (style)
     - gochecknoinits  # checks that no init functions are present                 (style)
-    - goimports       # fixes imports, formats code same as gofmt                 (fmt,import)
     - lll             # Report long lines                                         (style)
     - promlinter      # checks Prometheus metrics naming via promlint
     - rowserrcheck    # checks if Err of rows is checked successfully             (bugs,sql)
@@ -281,7 +280,8 @@ linters:
     - wrapcheck       # checks errors returned from external packages are wrapped (style,err)
     - tagliatelle     # checks struct tags                                        (style)
     - gofmt           # formats and checks for code simplification                (fmt)
-    - gofumpt         # checks whether code was gofumpt-ed                        (fmt)
+    # - gofumpt         # checks whether code was gofumpt-ed                        (fmt)
+    # - goimports       # fixes imports, formats code same as gofmt                 (fmt,import)
       
   # Run only fast linters from enabled linters set (first run won't be fast)
   # Default: false
