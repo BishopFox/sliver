@@ -293,7 +293,7 @@ const (
 	WordlistsStr     = "wordlists"
 	RulesStr         = "rules"
 	Hcstat2Str       = "hcstat2"
-	DefaultC2Profile = "dcc75548-3367-4d31-b868-85c76c6f4ff2"
+	DefaultC2Profile = "default"
 )
 
 // Groups

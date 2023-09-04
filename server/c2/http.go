@@ -319,7 +319,7 @@ func (s *SliverHTTPC2) loadServerHTTPC2Configs() []*models.HttpC2Config {
 
 	for _, httpC2Config := range *httpc2Configs {
 		httpLog.Debugf("Loading %v", httpC2Config.Name)
-		httpC2Config, err := db.LoadHTTPC2ConfigByID(httpC2Config.ID.String())
+		httpC2Config, err := db.LoadHTTPC2ConfigByName(httpC2Config.Name)
 		if err != nil {
 			httpLog.Errorf("failed to load  %s from database %s", httpC2Config.Name, err)
 			return nil

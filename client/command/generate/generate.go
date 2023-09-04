@@ -404,8 +404,8 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverConsoleClient) *cl
 		TrafficEncodersEnabled: trafficEncodersEnabled,
 		Assets:                 trafficEncoderAssets,
 
-		DebugFile:      debugFile,
-		HTTPC2ConfigID: c2Profile,
+		DebugFile:        debugFile,
+		HTTPC2ConfigName: c2Profile,
 	}
 
 	return config

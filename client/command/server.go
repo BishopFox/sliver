@@ -53,6 +53,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/websites"
 	"github.com/bishopfox/sliver/client/command/wireguard"
 	client "github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/constants"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/licenses"
 )
@@ -662,6 +663,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 
 			f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
 			f.StringP("save", "s", "", "directory/file to the binary to")
+			f.StringP("c2profile", "C", constants.DefaultC2Profile, "HTTP C2 profile to use")
 		})
 		FlagComps(generateCmd, func(comp *carapace.ActionMap) {
 			(*comp)["debug-file"] = carapace.ActionFiles()
@@ -670,6 +672,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			(*comp)["strategy"] = carapace.ActionValuesDescribed([]string{"r", "random", "rd", "random domain", "s", "sequential"}...).Tag("C2 strategy")
 			(*comp)["format"] = generate.FormatCompleter()
 			(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+			(*comp)["c2profile"] = generate.HTTPC2Completer(con)
 		})
 		server.AddCommand(generateCmd)
 
@@ -730,6 +733,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 
 			f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
 			f.StringP("save", "s", "", "directory/file to the binary to")
+			f.StringP("c2profile", "C", constants.DefaultC2Profile, "HTTP C2 profile to use")
 		})
 		FlagComps(generateBeaconCmd, func(comp *carapace.ActionMap) {
 			(*comp)["debug-file"] = carapace.ActionFiles()
@@ -738,6 +742,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			(*comp)["strategy"] = carapace.ActionValuesDescribed([]string{"r", "random", "rd", "random domain", "s", "sequential"}...).Tag("C2 strategy")
 			(*comp)["format"] = generate.FormatCompleter()
 			(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+			(*comp)["c2profile"] = generate.HTTPC2Completer(con)
 		})
 		generateCmd.AddCommand(generateBeaconCmd)
 

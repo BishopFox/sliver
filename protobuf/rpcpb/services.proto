@@ -92,6 +92,9 @@ service SliverRPC {
   rpc GenerateExternalGetImplantConfig(clientpb.ImplantConfig)
       returns (clientpb.ExternalImplantConfig);
 
+  // *** HTTP C2 Profiles ***
+  rpc HTTPC2Profiles(commonpb.Empty) returns (clientpb.HTTPC2Configs);
+
   // *** Builders ***
   rpc BuilderRegister(clientpb.Builder) returns (stream clientpb.Event);
   rpc BuilderTrigger(clientpb.Event) returns (commonpb.Empty);

@@ -46,7 +46,7 @@ import (
 
 func SetupDefaultC2Profiles() {
 
-	config, err := db.LoadHTTPC2ConfigByID(constants.DefaultC2Profile)
+	config, err := db.LoadHTTPC2ConfigByName(constants.DefaultC2Profile)
 	if err != nil {
 		log.Printf("Error:\n%s", err)
 		os.Exit(-1)

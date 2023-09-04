@@ -94,7 +94,7 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 	}
 
 	// retrieve http c2 implant config
-	httpC2Config, err := db.LoadHTTPC2ConfigByID(p.Config.HTTPC2ConfigID)
+	httpC2Config, err := db.LoadHTTPC2ConfigByName(p.Config.HTTPC2ConfigName)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

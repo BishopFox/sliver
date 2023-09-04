@@ -167,10 +167,10 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 		payload = "meterpreter/reverse_tcp"
 	case clientpb.StageProtocol_HTTP:
 		payload = "custom/reverse_winhttp"
-		uri = generateCallbackURI(req.HTTPC2ConfigID)
+		uri = generateCallbackURI(req.HTTPC2ConfigName)
 	case clientpb.StageProtocol_HTTPS:
 		payload = "custom/reverse_winhttps"
-		uri = generateCallbackURI(req.HTTPC2ConfigID)
+		uri = generateCallbackURI(req.HTTPC2ConfigName)
 	default:
 		return MSFStage, errors.New("protocol not supported")
 	}
@@ -207,8 +207,8 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 }
 
 // Utility functions
-func generateCallbackURI(httpC2ConfigID string) string {
-	httpC2Config, err := db.LoadHTTPC2ConfigByID(httpC2ConfigID)
+func generateCallbackURI(httpC2ConfigName string) string {
+	httpC2Config, err := db.LoadHTTPC2ConfigByName(httpC2ConfigName)
 	if err != nil {
 		return ""
 	}

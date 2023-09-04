@@ -187,7 +187,7 @@ message ImplantConfig {
   bool RunAtLoad = 105;
   string DebugFile = 106;
 
-  string HTTPC2ConfigID = 150;
+  string HTTPC2ConfigName = 150;
   bool NetGoEnabled = 151;
   bool TrafficEncodersEnabled = 152;
   repeated string TrafficEncoders = 153;
@@ -461,7 +461,7 @@ message MsfStagerReq {
   StageProtocol Protocol = 6;
   repeated string BadChars = 7;
   string AdvOptions = 8;
-  string HTTPC2ConfigID = 9;
+  string HTTPC2ConfigName = 9;
 }
 
 message MsfStager { commonpb.File File = 1; }
@@ -678,6 +678,8 @@ message Builder {
 }
 
 // [ HTTP C2 ] ----------------------------------------
+message HTTPC2Configs { repeated HTTPC2Config configs = 1; }
+
 message HTTPC2Config {
   string ID = 1;
   int64 Created = 2;

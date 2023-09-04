@@ -145,7 +145,7 @@ type ImplantConfig struct {
 
 	FileName string
 
-	HttpC2ConfigID         uuid.UUID
+	HttpC2ConfigName       string
 	NetGoEnabled           bool
 	TrafficEncodersEnabled bool
 	Assets                 []EncoderAsset
@@ -414,11 +414,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.RunAtLoad = pbConfig.RunAtLoad
 	cfg.DebugFile = pbConfig.DebugFile
 
-	C2UUID, err := uuid.FromString(pbConfig.HTTPC2ConfigID)
-	if err != nil {
-		modelLog.Warnf("Invalid C2 uuid %v", err)
-	}
-	cfg.HttpC2ConfigID = C2UUID
+	cfg.HttpC2ConfigName = pbConfig.HTTPC2ConfigName
 	cfg.NetGoEnabled = pbConfig.NetGoEnabled
 	cfg.TrafficEncodersEnabled = pbConfig.TrafficEncodersEnabled
 

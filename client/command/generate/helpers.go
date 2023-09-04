@@ -135,6 +135,24 @@ func FormatCompleter() carapace.Action {
 	})
 }
 
+// HTTPC2Completer - Completes the HTTP C2 PROFILES
+func HTTPC2Completer(con *console.SliverConsoleClient) carapace.Action {
+	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		grpcCtx, cancel := con.GrpcContext(nil)
+		defer cancel()
+		httpC2Profiles, err := con.Rpc.HTTPC2Profiles(grpcCtx, &commonpb.Empty{})
+		if err != nil {
+			return carapace.ActionMessage("failed to fetch HTTP C2 profiles: %s", err.Error())
+		}
+
+		var results []string
+		for _, profile := range httpC2Profiles.Configs {
+			results = append(results, profile.Name)
+		}
+		return carapace.ActionValues(results...).Tag("HTTP C2 Profiles")
+	})
+}
+
 // TrafficEncoderCompleter - Completes the names of traffic encoders
 func TrafficEncodersCompleter(con *console.SliverConsoleClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {

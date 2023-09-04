@@ -208,18 +208,16 @@ func LoadHTTPC2s() (*[]models.HttpC2Config, error) {
 	return &c2Configs, nil
 }
 
-func LoadHTTPC2ConfigByID(id string) (*models.HttpC2Config, error) {
-	if len(id) < 1 {
+func LoadHTTPC2ConfigByName(name string) (*models.HttpC2Config, error) {
+	if len(name) < 1 {
 		return nil, ErrRecordNotFound
 	}
-	uuid, err := uuid.FromString(id)
-	if err != nil {
-		return nil, err
-	}
+
 	c2Config := models.HttpC2Config{}
-	err = Session().Where(&models.HttpC2Config{
-		ID: uuid,
+	err := Session().Where(&models.HttpC2Config{
+		Name: name,
 	}).Find(&c2Config).Error
+
 	if err != nil {
 		return nil, err
 	}
