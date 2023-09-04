@@ -19,14 +19,15 @@ package handlers
 */
 
 import (
-	"github.com/bishopfox/sliver/implant/sliver/extension"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
-	"google.golang.org/protobuf/proto"
 	"os"
 	"os/user"
 	"strconv"
 	"syscall"
+
+	"github.com/bishopfox/sliver/implant/sliver/extension"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
 )
 
 var (

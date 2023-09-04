@@ -319,7 +319,7 @@ func (s *SliverHTTPC2) loadServerHTTPC2Configs() []*models.HttpC2Config {
 
 	for _, httpC2Config := range *httpc2Configs {
 		httpLog.Debugf("Loading %v", httpC2Config.Name)
-		httpC2Config, err := db.LoadHTTPC2ConfigByName(httpC2Config.Name)
+		httpC2Config, err := db.LoadHTTPC2ConfigByID(httpC2Config.ID.String())
 		if err != nil {
 			httpLog.Errorf("failed to load  %s from database %s", httpC2Config.Name, err)
 			return nil
@@ -341,11 +341,11 @@ func (s *SliverHTTPC2) router() *mux.Router {
 
 	for _, c2Config := range c2Configs {
 
-	// Start Session Handler
-	router.HandleFunc(
-		fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.StartSessionFileExtension),
-		s.startSessionHandler,
-	).MatcherFunc(s.filterNonce).Methods(http.MethodGet, http.MethodPost)
+		// Start Session Handler
+		router.HandleFunc(
+			fmt.Sprintf("/{rpath:.*\\.%s$}", c2Config.ImplantConfig.StartSessionFileExtension),
+			s.startSessionHandler,
+		).MatcherFunc(s.filterNonce).Methods(http.MethodGet, http.MethodPost)
 
 		// Session Handler
 		router.HandleFunc(
@@ -365,13 +365,14 @@ func (s *SliverHTTPC2) router() *mux.Router {
 			s.closeHandler,
 		).MatcherFunc(s.filterNonce).Methods(http.MethodGet)
 
-	// Can't force the user agent on the stager payload
-	// Request from msf stager payload will look like:
-	// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
-	router.HandleFunc(
-		fmt.Sprintf("/{rpath:.*\\.%s[/]{0,1}.*$}", c2Config.ImplantConfig.StagerFileExtension),
-		s.stagerHandler,
-	).Methods(http.MethodGet)
+		// Can't force the user agent on the stager payload
+		// Request from msf stager payload will look like:
+		// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
+		router.HandleFunc(
+			fmt.Sprintf("/{rpath:.*\\.%s[/]{0,1}.*$}", c2Config.ImplantConfig.StagerFileExtension),
+			s.stagerHandler,
+		).Methods(http.MethodGet)
+	}
 
 	// Default handler returns static content or 404s
 	httpLog.Debugf("No pattern matches for request uri")
@@ -518,6 +519,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	implantConfig, err := db.ImplantConfigByPublicKeyDigest(publicKeyDigest)
 	if err != nil || implantConfig == nil {
 		httpLog.Warn("Unknown public key")
+		fmt.Println(err.Error())
 		s.defaultHandler(resp, req)
 		return
 	}

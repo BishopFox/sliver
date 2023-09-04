@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io/fs"
 	insecureRand "math/rand"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -137,6 +138,40 @@ const (
 	// SliverPlatformCXX32EnvVar - Environment variable that can specify the 32 bit mingw path
 	SliverPlatformCXX32EnvVar = "SLIVER_%s_CXX_32"
 )
+
+func copyC2List(src []*clientpb.ImplantC2) []models.ImplantC2 {
+	c2s := []models.ImplantC2{}
+	for _, srcC2 := range src {
+		c2URL, err := url.Parse(srcC2.URL)
+		if err != nil {
+			buildLog.Warnf("Failed to parse c2 url %v", err)
+			continue
+		}
+		c2s = append(c2s, models.ImplantC2{
+			Priority: srcC2.Priority,
+			URL:      c2URL.String(),
+			Options:  srcC2.Options,
+		})
+	}
+	return c2s
+}
+
+func isC2Enabled(schemes []string, c2s []models.ImplantC2) bool {
+	for _, c2 := range c2s {
+		c2URL, err := url.Parse(c2.URL)
+		if err != nil {
+			buildLog.Warnf("Failed to parse c2 url %v", err)
+			continue
+		}
+		for _, scheme := range schemes {
+			if scheme == c2URL.Scheme {
+				return true
+			}
+		}
+	}
+	buildLog.Debugf("No %v URLs found in %v", schemes, c2s)
+	return false
+}
 
 // GetSliversDir - Get the binary directory
 func GetSliversDir() string {
@@ -679,12 +714,12 @@ func GenerateConfig(implantConfig *clientpb.ImplantConfig, save bool) (*clientpb
 	}
 	serverKeyPair := cryptography.AgeServerKeyPair()
 	digest := sha256.Sum256([]byte(implantKeyPair.Public))
-	config.PeerPublicKey = implantKeyPair.Public
-	config.PeerPublicKeyDigest = hex.EncodeToString(digest[:])
-	config.PeerPrivateKey = implantKeyPair.Private
-	config.PeerPublicKeySignature = cryptography.MinisignServerSign([]byte(implantKeyPair.Public))
-	config.AgeServerPublicKey = serverKeyPair.Public
-	config.MinisignServerPublicKey = cryptography.MinisignServerPublicKey()
+	implantConfig.PeerPublicKey = implantKeyPair.Public
+	implantConfig.PeerPublicKeyDigest = hex.EncodeToString(digest[:])
+	implantConfig.PeerPrivateKey = implantKeyPair.Private
+	implantConfig.PeerPublicKeySignature = cryptography.MinisignServerSign([]byte(implantKeyPair.Public))
+	implantConfig.AgeServerPublicKey = serverKeyPair.Public
+	implantConfig.MinisignServerPublicKey = cryptography.MinisignServerPublicKey()
 
 	// MTLS keys
 	if models.IsC2Enabled([]string{"mtls"}, implantConfig.C2) {

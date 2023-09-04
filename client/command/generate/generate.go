@@ -36,6 +36,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/constants"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -348,7 +349,6 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverConsoleClient) *cl
 	}
 
 	netGo, _ := cmd.Flags().GetBool("netgo")
-	c2Profile, _ := cmd.Flags().GetString("c2profile")
 
 	// TODO: Use generics or something to check in a slice
 	connectionStrategy, _ := cmd.Flags().GetString("strategy")
@@ -360,6 +360,11 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverConsoleClient) *cl
 	// Parse Traffic Encoder Args
 	httpC2Enabled := 0 < len(httpC2)
 	trafficEncodersEnabled, trafficEncoderAssets := parseTrafficEncoderArgs(cmd, httpC2Enabled, con)
+
+	c2Profile, _ := cmd.Flags().GetString("c2profile")
+	if c2Profile == "" {
+		c2Profile = constants.DefaultC2Profile
+	}
 
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
@@ -399,8 +404,8 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverConsoleClient) *cl
 		TrafficEncodersEnabled: trafficEncodersEnabled,
 		Assets:                 trafficEncoderAssets,
 
-		DebugFile:        debugFile,
-		HTTPC2ConfigName: c2Profile,
+		DebugFile:      debugFile,
+		HTTPC2ConfigID: c2Profile,
 	}
 
 	return config

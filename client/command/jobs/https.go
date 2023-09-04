@@ -61,7 +61,7 @@ func HTTPSListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 		return
 	}
 
-	con.PrintInfof("Starting HTTPS %d listener ...\n", lport)
+	con.PrintInfof("Starting HTTPS %s:%d listener ...\n", domain, lport)
 	https, err := con.Rpc.StartHTTPSListener(context.Background(), &clientpb.HTTPListenerReq{
 		Domain:          domain,
 		Website:         website,

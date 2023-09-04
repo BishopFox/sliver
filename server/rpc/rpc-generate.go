@@ -54,7 +54,6 @@ var (
 
 // Generate - Generate a new implant
 func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.Generate, error) {
-
 	var err error
 	if req.Config.Name == "" {
 		req.Config.Name, err = codenames.GetCodename()
@@ -74,7 +73,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	}
 
 	// retrieve http c2 implant config
-	httpC2Config, err := db.LoadHTTPC2ConfigByName(req.Config.HTTPC2ConfigName)
+	httpC2Config, err := db.LoadHTTPC2ConfigByID(req.Config.HTTPC2ConfigID)
 	if err != nil {
 		return nil, err
 	}
@@ -85,19 +84,11 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
-<<<<<<< HEAD
-		fPath, err = generate.SliverExecutable(otpSecret, config, pbC2Implant)
+		fPath, err = generate.SliverExecutable(config, pbC2Implant)
 	case clientpb.OutputFormat_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(otpSecret, config, pbC2Implant)
+		fPath, err = generate.SliverSharedLibrary(config, pbC2Implant)
 	case clientpb.OutputFormat_SHELLCODE:
-		fPath, err = generate.SliverShellcode(otpSecret, config, pbC2Implant)
-=======
-		fPath, err = generate.SliverExecutable(name, config, true)
-	case clientpb.OutputFormat_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(name, config, true)
-	case clientpb.OutputFormat_SHELLCODE:
-		fPath, err = generate.SliverShellcode(name, config, true)
->>>>>>> master
+		fPath, err = generate.SliverShellcode(config, pbC2Implant)
 	default:
 		return nil, fmt.Errorf("invalid output format: %s", req.Config.Format)
 	}

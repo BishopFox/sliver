@@ -168,7 +168,7 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 	extModel := models.ImplantConfigFromProtobuf(extConfig.Config)
 
 	// retrieve http c2 implant config
-	httpC2Config, err := db.LoadHTTPC2ConfigByName(extConfig.Config.HTTPC2ConfigName)
+	httpC2Config, err := db.LoadHTTPC2ConfigByID(extConfig.Config.HTTPC2ConfigID)
 	if err != nil {
 		builderLog.Errorf("Unable to load HTTP C2 Configuration: %s", err)
 		return

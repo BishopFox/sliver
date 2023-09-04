@@ -77,20 +77,19 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		}
 		config.Format = clientpb.OutputFormat_SHELLCODE
 		config.ObfuscateSymbols = true
-		otpSecret, _ := cryptography.TOTPServerSecret()
 		_, err = generate.GenerateConfig(config, true)
 		if err != nil {
 			return nil, err
 		}
 
 		// retrieve http c2 implant config
-		httpC2Config, err := db.LoadHTTPC2ConfigByName(req.Config.HTTPC2ConfigName)
+		httpC2Config, err := db.LoadHTTPC2ConfigByID(req.Config.HTTPC2ConfigID)
 		if err != nil {
 			return nil, err
 		}
 		pbC2Implant := httpC2Config.ImplantConfig.ToProtobuf()
 
-		shellcodePath, err := generate.SliverShellcode(otpSecret, config, pbC2Implant)
+		shellcodePath, err := generate.SliverShellcode(config, pbC2Implant)
 		if err != nil {
 			return nil, err
 		}

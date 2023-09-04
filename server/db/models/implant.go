@@ -335,7 +335,7 @@ const defaultTemplateName = "sliver"
 
 // ImplantConfigFromProtobuf - Create a native config struct from Protobuf
 func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig {
-	cfg := &ImplantConfig{}
+	cfg := ImplantConfig{}
 
 	cfg.IsBeacon = pbConfig.IsBeacon
 	cfg.BeaconInterval = pbConfig.BeaconInterval
@@ -343,42 +343,84 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 
 	cfg.GOOS = pbConfig.GOOS
 	cfg.GOARCH = pbConfig.GOARCH
-	cfg.MtlsCACert = pbConfig.MtlsCACert
-	cfg.MtlsCert = pbConfig.MtlsCert
-	cfg.MtlsKey = pbConfig.MtlsKey
+	name := ""
+	if err := util.AllowedName(pbConfig.Name); err != nil {
+
+	} else {
+		name = pbConfig.Name
+	}
+	cfg.Name = name
+
 	cfg.Debug = pbConfig.Debug
-	cfg.DebugFile = pbConfig.DebugFile
 	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
 	cfg.TemplateName = pbConfig.TemplateName
 	if cfg.TemplateName == "" {
 		cfg.TemplateName = defaultTemplateName
 	}
-	cfg.ConnectionStrategy = pbConfig.ConnectionStrategy
+	cfg.SGNEnabled = pbConfig.SGNEnabled
+
+	cfg.IncludeMTLS = IsC2Enabled([]string{"mtls"}, pbConfig.C2)
+	cfg.IncludeWG = IsC2Enabled([]string{"wg"}, pbConfig.C2)
+	cfg.IncludeHTTP = IsC2Enabled([]string{"http", "https"}, pbConfig.C2)
+	cfg.IncludeDNS = IsC2Enabled([]string{"dns"}, pbConfig.C2)
+	cfg.IncludeNamePipe = IsC2Enabled([]string{"namedpipe"}, pbConfig.C2)
+	cfg.IncludeTCP = IsC2Enabled([]string{"tcppivot"}, pbConfig.C2)
+
+	cfg.MtlsCACert = pbConfig.MtlsCACert
+	cfg.MtlsCert = pbConfig.MtlsCert
+	cfg.MtlsKey = pbConfig.MtlsKey
+
+	cfg.AgeServerPublicKey = pbConfig.AgeServerPublicKey
+	cfg.PeerPublicKey = pbConfig.PeerPublicKey
+	cfg.PeerPrivateKey = pbConfig.PeerPrivateKey
+	cfg.PeerPublicKeySignature = pbConfig.PeerPublicKeySignature
+	cfg.MinisignServerPublicKey = pbConfig.MinisignServerPublicKey
+	cfg.PeerPublicKeyDigest = pbConfig.PeerPublicKeyDigest
 
 	cfg.WGImplantPrivKey = pbConfig.WGImplantPrivKey
 	cfg.WGServerPubKey = pbConfig.WGServerPubKey
 	cfg.WGPeerTunIP = pbConfig.WGPeerTunIP
 	cfg.WGKeyExchangePort = pbConfig.WGKeyExchangePort
 	cfg.WGTcpCommsPort = pbConfig.WGTcpCommsPort
+
 	cfg.ReconnectInterval = pbConfig.ReconnectInterval
 	cfg.MaxConnectionErrors = pbConfig.MaxConnectionErrors
+	cfg.PollTimeout = pbConfig.PollTimeout
+
+	cfg.C2 = copyC2List(pbConfig.C2)
+	cfg.CanaryDomains = []CanaryDomain{}
+	for _, pbCanary := range pbConfig.CanaryDomains {
+		cfg.CanaryDomains = append(cfg.CanaryDomains, CanaryDomain{
+			Domain: pbCanary,
+		})
+	}
+	cfg.ConnectionStrategy = pbConfig.ConnectionStrategy
 
 	cfg.LimitDomainJoined = pbConfig.LimitDomainJoined
 	cfg.LimitDatetime = pbConfig.LimitDatetime
-	cfg.LimitUsername = pbConfig.LimitUsername
 	cfg.LimitHostname = pbConfig.LimitHostname
+	cfg.LimitUsername = pbConfig.LimitUsername
 	cfg.LimitFileExists = pbConfig.LimitFileExists
 	cfg.LimitLocale = pbConfig.LimitLocale
 
 	cfg.Format = pbConfig.Format
 	cfg.IsSharedLib = pbConfig.IsSharedLib
+	if pbConfig.FileName != "" {
+		cfg.FileName = path.Base(pbConfig.FileName)
+	}
 	cfg.IsService = pbConfig.IsService
 	cfg.IsShellcode = pbConfig.IsShellcode
-
 	cfg.RunAtLoad = pbConfig.RunAtLoad
-	cfg.TrafficEncodersEnabled = pbConfig.TrafficEncodersEnabled
+	cfg.DebugFile = pbConfig.DebugFile
+
+	C2UUID, err := uuid.FromString(pbConfig.HTTPC2ConfigID)
+	if err != nil {
+		modelLog.Warnf("Invalid C2 uuid %v", err)
+	}
+	cfg.HttpC2ConfigID = C2UUID
 	cfg.NetGoEnabled = pbConfig.NetGoEnabled
+	cfg.TrafficEncodersEnabled = pbConfig.TrafficEncodersEnabled
 
 	cfg.Assets = []EncoderAsset{}
 	for _, pbAsset := range pbConfig.Assets {
@@ -387,34 +429,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 		})
 	}
 
-	cfg.CanaryDomains = []CanaryDomain{}
-	for _, pbCanary := range pbConfig.CanaryDomains {
-		cfg.CanaryDomains = append(cfg.CanaryDomains, CanaryDomain{
-			Domain: pbCanary,
-		})
-	}
-
-	// Copy C2
-	cfg.C2 = copyC2List(pbConfig.C2)
-	cfg.IncludeMTLS = IsC2Enabled([]string{"mtls"}, pbConfig.C2)
-	cfg.IncludeWG = IsC2Enabled([]string{"wg"}, pbConfig.C2)
-	cfg.IncludeHTTP = IsC2Enabled([]string{"http", "https"}, pbConfig.C2)
-	cfg.IncludeDNS = IsC2Enabled([]string{"dns"}, pbConfig.C2)
-	cfg.IncludeNamePipe = IsC2Enabled([]string{"namedpipe"}, pbConfig.C2)
-	cfg.IncludeTCP = IsC2Enabled([]string{"tcppivot"}, pbConfig.C2)
-
-	if pbConfig.FileName != "" {
-		cfg.FileName = path.Base(pbConfig.FileName)
-	}
-
-	name := ""
-	if err := util.AllowedName(pbConfig.Name); err != nil {
-
-	} else {
-		name = pbConfig.Name
-	}
-	cfg.Name = name
-	return cfg
+	return &cfg
 }
 
 func copyC2List(src []*clientpb.ImplantC2) []ImplantC2 {
