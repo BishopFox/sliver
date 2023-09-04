@@ -140,8 +140,13 @@ func (s *SliverHTTPC2) getServerHeader() string {
 	return serverVersionHeader
 }
 
-func (s *SliverHTTPC2) getCookieName() string {
-	cookies := s.c2Config[0].ServerConfig.Cookies
+func (s *SliverHTTPC2) getCookieName(c2ConfigName string) string {
+	httpC2Config, err := db.LoadHTTPC2ConfigByName(c2ConfigName)
+	if err != nil {
+		httpLog.Errorf("Failed to retrieve c2 profile %s", err)
+		return "SESSIONID"
+	}
+	cookies := httpC2Config.ServerConfig.Cookies
 	index := insecureRand.Intn(len(cookies))
 	return cookies[index].Name
 }
@@ -570,7 +575,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	}
 	http.SetCookie(resp, &http.Cookie{
 		Domain:   s.ServerConf.Domain,
-		Name:     s.getCookieName(),
+		Name:     s.getCookieName(implantConfig.HttpC2ConfigName),
 		Value:    httpSession.ID,
 		Secure:   false,
 		HttpOnly: true,
