@@ -166,7 +166,7 @@ func StartHTTPListener(req *clientpb.HTTPListenerReq) (*SliverHTTPC2, error) {
 		},
 	}
 	server.HTTPServer = &http.Server{
-		Addr:         req.Host,
+		Addr:         fmt.Sprintf("%s:%d", req.Host, req.Port),
 		Handler:      server.router(),
 		WriteTimeout: DefaultHTTPTimeout,
 		ReadTimeout:  DefaultHTTPTimeout,
@@ -425,17 +425,43 @@ func loggingMiddleware(next http.Handler) http.Handler {
 // DefaultRespHeaders - Configures default response headers
 func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		if s.c2Config[0].ServerConfig.RandomVersionHeaders {
-			resp.Header().Set("Server", s.getServerHeader())
-		}
-		for _, header := range s.c2Config[0].ServerConfig.Headers {
-			if 0 < header.Probability && header.Probability < 100 {
-				roll := insecureRand.Intn(99) + 1
-				if header.Probability < int32(roll) {
-					continue
+		var (
+			profile *models.HttpC2Config
+			err     error
+		)
+
+		extension := strings.TrimLeft(path.Ext(req.URL.Path), ".")
+		// Check if the requests matches an existing session
+		httpSession := s.getHTTPSession(req)
+		if httpSession != nil {
+			// find correct c2 profile and from there call correct handler
+			profile, err = db.LoadHTTPC2ConfigByName(httpSession.C2Profile)
+			if err != nil {
+				httpLog.Debugf("Failed to resolve http profile %s", err)
+				return
+			}
+		} else {
+			for _, c2profile := range s.c2Config {
+				if extension == c2profile.ImplantConfig.StartSessionFileExtension {
+					profile = c2profile
+					break
 				}
 			}
-			resp.Header().Set(header.Name, header.Value)
+		}
+
+		if profile != nil {
+			if s.c2Config[0].ServerConfig.RandomVersionHeaders {
+				resp.Header().Set("Server", s.getServerHeader())
+			}
+			for _, header := range s.c2Config[0].ServerConfig.Headers {
+				if 0 < header.Probability && header.Probability < 100 {
+					roll := insecureRand.Intn(99) + 1
+					if header.Probability < int32(roll) {
+						continue
+					}
+				}
+				resp.Header().Set(header.Name, header.Value)
+			}
 		}
 		next.ServeHTTP(resp, req)
 	})
