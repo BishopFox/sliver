@@ -102,6 +102,12 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		return nil, err
 	}
 
+	err = generate.ImplantBuildSave(req.Config.Name, models.ImplantConfigFromProtobuf(req.Config), fPath)
+	if err != nil {
+		rpcLog.Errorf("Failed to save external build: %s", err)
+		return nil, err
+	}
+
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.BuildCompletedEvent,
 		Data:      []byte(fileName),

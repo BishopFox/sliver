@@ -71,6 +71,7 @@ func PrintImplantBuilds(configs map[string]*clientpb.ImplantConfig, filters Impl
 		"Format",
 		"Command & Control",
 		"Debug",
+		"C2 Config",
 	})
 	tw.SortBy([]table.SortBy{
 		{Name: "Name", Mode: table.Asc},
@@ -116,6 +117,7 @@ func PrintImplantBuilds(configs map[string]*clientpb.ImplantConfig, filters Impl
 			config.Format,
 			strings.Join(c2URLs, "\n"),
 			fmt.Sprintf("%v", config.Debug),
+			fmt.Sprintf(config.HTTPC2ConfigName),
 		})
 	}
 
