@@ -143,6 +143,8 @@ const (
 	SettingsStr        = "settings"
 	SearchStr          = "search"
 	TrafficEncodersStr = "traffic-encoders"
+	C2ProfileStr       = "c2profiles"
+	ImportC2ProfileStr = "import"
 
 	// Generic
 

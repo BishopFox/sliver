@@ -113,6 +113,9 @@ var (
 
 		// Builders
 		consts.BuildersStr: buildersHelp,
+
+		// HTTP C2
+		consts.C2ProfileStr: c2ProfilesHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -1220,6 +1223,14 @@ Sliver uses the same hash identifiers as Hashcat (use the #):
 % 10s - A file containing lines of 'username:hash' pairs.
 % 10s - A CSV file containing 'username,hash' pairs (additional columns ignored).
 `, creds.HashNewlineFormat, creds.UserColonHashNewlineFormat, creds.CSVFormat)
+
+	c2ProfilesHelp = `[[.Bold]]Command:[[.Normal]] c2profile
+[[.Bold]]About:[[.Normal]] Display details of HTTP C2 profiles loaded into Sliver.
+`
+
+	C2ProfileImportStr = `[[.Bold]]Command:[[.Normal]] Import
+	[[.Bold]]About:[[.Normal]] Load custom HTTP C2 profiles.
+	`
 )
 
 const (

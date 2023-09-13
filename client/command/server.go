@@ -31,6 +31,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/armory"
 	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/command/builders"
+	"github.com/bishopfox/sliver/client/command/c2profiles"
 	"github.com/bishopfox/sliver/client/command/crack"
 	"github.com/bishopfox/sliver/client/command/creds"
 	"github.com/bishopfox/sliver/client/command/exit"
@@ -1789,6 +1790,39 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 				taskmanyCmd.AddCommand(taskmany.WrapCommand(c, con))
 			}
 		}
+
+		// [ HTTP C2 Profiles ] --------------------------------------------------------------
+
+		ImportC2ProfileCmd := &cobra.Command{
+			Use:   consts.ImportC2ProfileStr,
+			Short: "Import HTTP C2 profile",
+			Long:  help.GetHelpFor([]string{consts.ImportC2ProfileStr}),
+			Run: func(cmd *cobra.Command, args []string) {
+				c2profiles.ImportC2ProfileCmd(cmd, con, args)
+			},
+		}
+		Flags(consts.ImportC2ProfileStr, true, ImportC2ProfileCmd, func(f *pflag.FlagSet) {
+			f.StringP("name", "n", constants.DefaultC2Profile, "HTTP C2 Profile name")
+			f.StringP("file", "f", "", "Path to C2 configuration file to import")
+		})
+
+		C2ProfileCmd := &cobra.Command{
+			Use:   consts.C2ProfileStr,
+			Short: "Display C2 profile details",
+			Long:  help.GetHelpFor([]string{consts.C2ProfileStr}),
+			Run: func(cmd *cobra.Command, args []string) {
+				c2profiles.C2ProfileCmd(cmd, con, args)
+			},
+		}
+		Flags(consts.C2ProfileStr, true, C2ProfileCmd, func(f *pflag.FlagSet) {
+			f.StringP("name", "n", constants.DefaultC2Profile, "HTTP C2 Profile to display")
+		})
+		FlagComps(C2ProfileCmd, func(comp *carapace.ActionMap) {
+			(*comp)["name"] = generate.HTTPC2Completer(con)
+		})
+		C2ProfileCmd.AddCommand(ImportC2ProfileCmd)
+		server.AddCommand(C2ProfileCmd)
+
 		// [ Post-command declaration setup]-----------------------------------------
 
 		// Everything below this line should preferably not be any command binding

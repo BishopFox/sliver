@@ -140,7 +140,7 @@ func HTTPC2Completer(con *console.SliverConsoleClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		grpcCtx, cancel := con.GrpcContext(nil)
 		defer cancel()
-		httpC2Profiles, err := con.Rpc.HTTPC2Profiles(grpcCtx, &commonpb.Empty{})
+		httpC2Profiles, err := con.Rpc.GetHTTPC2Profiles(grpcCtx, &commonpb.Empty{})
 		if err != nil {
 			return carapace.ActionMessage("failed to fetch HTTP C2 profiles: %s", err.Error())
 		}

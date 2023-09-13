@@ -680,6 +680,10 @@ message Builder {
 // [ HTTP C2 ] ----------------------------------------
 message HTTPC2Configs { repeated HTTPC2Config configs = 1; }
 
+message C2ProfileReq {
+  string Name = 1;
+}
+
 message HTTPC2Config {
   string ID = 1;
   int64 Created = 2;

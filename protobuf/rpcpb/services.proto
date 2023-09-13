@@ -93,7 +93,9 @@ service SliverRPC {
       returns (clientpb.ExternalImplantConfig);
 
   // *** HTTP C2 Profiles ***
-  rpc HTTPC2Profiles(commonpb.Empty) returns (clientpb.HTTPC2Configs);
+  rpc GetHTTPC2Profiles(commonpb.Empty) returns (clientpb.HTTPC2Configs);
+  rpc GetHTTPC2ProfileByName(clientpb.C2ProfileReq) returns (clientpb.HTTPC2Config);
+  rpc SaveHTTPC2Profile(clientpb.HTTPC2Config) returns (commonpb.Empty);
 
   // *** Builders ***
   rpc BuilderRegister(clientpb.Builder) returns (stream clientpb.Event);

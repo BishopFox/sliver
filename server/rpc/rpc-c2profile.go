@@ -27,7 +27,7 @@ import (
 )
 
 // GetC2Profiles - Retrieve C2 Profile names and id's
-func (rpc *Server) HTTPC2Profiles(ctx context.Context, req *commonpb.Empty) (*clientpb.HTTPC2Configs, error) {
+func (rpc *Server) GetHTTPC2Profiles(ctx context.Context, req *commonpb.Empty) (*clientpb.HTTPC2Configs, error) {
 	c2Configs := clientpb.HTTPC2Configs{}
 	httpC2Config, err := db.LoadHTTPC2s()
 	if err != nil {
@@ -39,4 +39,23 @@ func (rpc *Server) HTTPC2Profiles(ctx context.Context, req *commonpb.Empty) (*cl
 	}
 
 	return &c2Configs, nil
+}
+
+// GetC2ProfileByName - Retrieve C2 Profile by name
+func (rpc *Server) GetHTTPC2ProfileByName(ctx context.Context, req *clientpb.C2ProfileReq) (*clientpb.HTTPC2Config, error) {
+	httpC2Config, err := db.LoadHTTPC2ConfigByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return httpC2Config.ToProtobuf(), nil
+}
+
+// Save HTTP C2 Profile
+func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2Config) (*commonpb.Empty, error) {
+	/*err := configs.CheckHTTPC2ConfigErrors(req)
+	if err != nil {
+		return nil, err
+	}*/
+	return nil, nil
 }

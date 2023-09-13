@@ -70,7 +70,9 @@ const (
 	SliverRPC_GenerateExternal_FullMethodName                 = "/rpcpb.SliverRPC/GenerateExternal"
 	SliverRPC_GenerateExternalSaveBuild_FullMethodName        = "/rpcpb.SliverRPC/GenerateExternalSaveBuild"
 	SliverRPC_GenerateExternalGetImplantConfig_FullMethodName = "/rpcpb.SliverRPC/GenerateExternalGetImplantConfig"
-	SliverRPC_HTTPC2Profiles_FullMethodName                   = "/rpcpb.SliverRPC/HTTPC2Profiles"
+	SliverRPC_GetHTTPC2Profiles_FullMethodName                = "/rpcpb.SliverRPC/GetHTTPC2Profiles"
+	SliverRPC_GetHTTPC2ProfileByName_FullMethodName           = "/rpcpb.SliverRPC/GetHTTPC2ProfileByName"
+	SliverRPC_SaveHTTPC2Profile_FullMethodName                = "/rpcpb.SliverRPC/SaveHTTPC2Profile"
 	SliverRPC_BuilderRegister_FullMethodName                  = "/rpcpb.SliverRPC/BuilderRegister"
 	SliverRPC_BuilderTrigger_FullMethodName                   = "/rpcpb.SliverRPC/BuilderTrigger"
 	SliverRPC_Builders_FullMethodName                         = "/rpcpb.SliverRPC/Builders"
@@ -261,7 +263,9 @@ type SliverRPCClient interface {
 	GenerateExternalSaveBuild(ctx context.Context, in *clientpb.ExternalImplantBinary, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	GenerateExternalGetImplantConfig(ctx context.Context, in *clientpb.ImplantConfig, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error)
 	// *** HTTP C2 Profiles ***
-	HTTPC2Profiles(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.HTTPC2Configs, error)
+	GetHTTPC2Profiles(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.HTTPC2Configs, error)
+	GetHTTPC2ProfileByName(ctx context.Context, in *clientpb.C2ProfileReq, opts ...grpc.CallOption) (*clientpb.HTTPC2Config, error)
+	SaveHTTPC2Profile(ctx context.Context, in *clientpb.HTTPC2Config, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	// *** Builders ***
 	BuilderRegister(ctx context.Context, in *clientpb.Builder, opts ...grpc.CallOption) (SliverRPC_BuilderRegisterClient, error)
 	BuilderTrigger(ctx context.Context, in *clientpb.Event, opts ...grpc.CallOption) (*commonpb.Empty, error)
@@ -864,9 +868,27 @@ func (c *sliverRPCClient) GenerateExternalGetImplantConfig(ctx context.Context, 
 	return out, nil
 }
 
-func (c *sliverRPCClient) HTTPC2Profiles(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.HTTPC2Configs, error) {
+func (c *sliverRPCClient) GetHTTPC2Profiles(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.HTTPC2Configs, error) {
 	out := new(clientpb.HTTPC2Configs)
-	err := c.cc.Invoke(ctx, SliverRPC_HTTPC2Profiles_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, SliverRPC_GetHTTPC2Profiles_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GetHTTPC2ProfileByName(ctx context.Context, in *clientpb.C2ProfileReq, opts ...grpc.CallOption) (*clientpb.HTTPC2Config, error) {
+	out := new(clientpb.HTTPC2Config)
+	err := c.cc.Invoke(ctx, SliverRPC_GetHTTPC2ProfileByName_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) SaveHTTPC2Profile(ctx context.Context, in *clientpb.HTTPC2Config, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, SliverRPC_SaveHTTPC2Profile_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2142,7 +2164,9 @@ type SliverRPCServer interface {
 	GenerateExternalSaveBuild(context.Context, *clientpb.ExternalImplantBinary) (*commonpb.Empty, error)
 	GenerateExternalGetImplantConfig(context.Context, *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error)
 	// *** HTTP C2 Profiles ***
-	HTTPC2Profiles(context.Context, *commonpb.Empty) (*clientpb.HTTPC2Configs, error)
+	GetHTTPC2Profiles(context.Context, *commonpb.Empty) (*clientpb.HTTPC2Configs, error)
+	GetHTTPC2ProfileByName(context.Context, *clientpb.C2ProfileReq) (*clientpb.HTTPC2Config, error)
+	SaveHTTPC2Profile(context.Context, *clientpb.HTTPC2Config) (*commonpb.Empty, error)
 	// *** Builders ***
 	BuilderRegister(*clientpb.Builder, SliverRPC_BuilderRegisterServer) error
 	BuilderTrigger(context.Context, *clientpb.Event) (*commonpb.Empty, error)
@@ -2429,8 +2453,14 @@ func (UnimplementedSliverRPCServer) GenerateExternalSaveBuild(context.Context, *
 func (UnimplementedSliverRPCServer) GenerateExternalGetImplantConfig(context.Context, *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GenerateExternalGetImplantConfig not implemented")
 }
-func (UnimplementedSliverRPCServer) HTTPC2Profiles(context.Context, *commonpb.Empty) (*clientpb.HTTPC2Configs, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method HTTPC2Profiles not implemented")
+func (UnimplementedSliverRPCServer) GetHTTPC2Profiles(context.Context, *commonpb.Empty) (*clientpb.HTTPC2Configs, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetHTTPC2Profiles not implemented")
+}
+func (UnimplementedSliverRPCServer) GetHTTPC2ProfileByName(context.Context, *clientpb.C2ProfileReq) (*clientpb.HTTPC2Config, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetHTTPC2ProfileByName not implemented")
+}
+func (UnimplementedSliverRPCServer) SaveHTTPC2Profile(context.Context, *clientpb.HTTPC2Config) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SaveHTTPC2Profile not implemented")
 }
 func (UnimplementedSliverRPCServer) BuilderRegister(*clientpb.Builder, SliverRPC_BuilderRegisterServer) error {
 	return status.Errorf(codes.Unimplemented, "method BuilderRegister not implemented")
@@ -3680,20 +3710,56 @@ func _SliverRPC_GenerateExternalGetImplantConfig_Handler(srv interface{}, ctx co
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SliverRPC_HTTPC2Profiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _SliverRPC_GetHTTPC2Profiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(commonpb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SliverRPCServer).HTTPC2Profiles(ctx, in)
+		return srv.(SliverRPCServer).GetHTTPC2Profiles(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SliverRPC_HTTPC2Profiles_FullMethodName,
+		FullMethod: SliverRPC_GetHTTPC2Profiles_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).HTTPC2Profiles(ctx, req.(*commonpb.Empty))
+		return srv.(SliverRPCServer).GetHTTPC2Profiles(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GetHTTPC2ProfileByName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.C2ProfileReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GetHTTPC2ProfileByName(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_GetHTTPC2ProfileByName_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GetHTTPC2ProfileByName(ctx, req.(*clientpb.C2ProfileReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_SaveHTTPC2Profile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.HTTPC2Config)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).SaveHTTPC2Profile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_SaveHTTPC2Profile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).SaveHTTPC2Profile(ctx, req.(*clientpb.HTTPC2Config))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -6097,8 +6163,16 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_GenerateExternalGetImplantConfig_Handler,
 		},
 		{
-			MethodName: "HTTPC2Profiles",
-			Handler:    _SliverRPC_HTTPC2Profiles_Handler,
+			MethodName: "GetHTTPC2Profiles",
+			Handler:    _SliverRPC_GetHTTPC2Profiles_Handler,
+		},
+		{
+			MethodName: "GetHTTPC2ProfileByName",
+			Handler:    _SliverRPC_GetHTTPC2ProfileByName_Handler,
+		},
+		{
+			MethodName: "SaveHTTPC2Profile",
+			Handler:    _SliverRPC_SaveHTTPC2Profile_Handler,
 		},
 		{
 			MethodName: "BuilderTrigger",
