@@ -28,13 +28,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
 	"google.golang.org/protobuf/proto"
-	"gopkg.in/AlecAivazis/survey.v1"
 
 	"github.com/desertbit/grumble"
 )
@@ -60,6 +60,61 @@ func DownloadCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+
+	fileName := filepath.Base(remotePath)
+	localPath := ctx.Args.String("local-path")
+	dst, err := filepath.Abs(localPath)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	fi, err := os.Stat(dst)
+	if err != nil && !os.IsNotExist(err) {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	if err == nil && fi.IsDir() {
+		if download.IsDir {
+			// Come up with a good file name - filters might make the filename ugly
+			session, beacon := con.ActiveTarget.Get()
+			implantName := ""
+			if session != nil {
+				implantName = session.Name
+			} else if beacon != nil {
+				implantName = beacon.Name
+			}
+
+			fileName = fmt.Sprintf("%s_download_%s_%d.tar.gz", filepath.Base(implantName), filepath.Base(prettifyDownloadName(remotePath)), time.Now().Unix())
+		}
+		if runtime.GOOS == "windows" {
+			// Windows has a file path length of 260 characters
+			// +1 for the path separator before the file name
+			if len(dst)+len(fileName)+1 > 260 {
+				// Make an effort to shorten the file name. If this does not work, the operator will have to find somewhere else to put the file
+				fileName = fmt.Sprintf("down_%d.tar.gz", time.Now().Unix())
+			}
+		}
+		dst = filepath.Join(dst, fileName)
+	}
+
+	// Add an extension to a directory download if one is not provided.
+	if download.IsDir && (!strings.HasSuffix(dst, ".tgz") && !strings.HasSuffix(dst, ".tar.gz")) {
+		dst += ".tar.gz"
+	}
+
+	if _, err := os.Stat(dst); err == nil {
+		overwrite := false
+		prompt := &survey.Confirm{Message: "Overwrite local file?"}
+		survey.AskOne(prompt, &overwrite, nil)
+		if !overwrite {
+			return
+		}
+	}
+
+	//Update the local-path to the full derived path
+	ctx.Args["local-path"].Value = dst
+
 	if download.Response != nil && download.Response.Async {
 		con.AddBeaconCallback(download.Response.TaskID, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, download)
@@ -118,7 +173,6 @@ func HandleDownloadResponse(download *sliverpb.Download, ctx *grumble.Context, c
 		}
 	}
 
-	remotePath := ctx.Args.String("remote-path")
 	localPath := ctx.Args.String("local-path")
 	saveLoot := ctx.Flags.Bool("loot")
 
@@ -139,56 +193,7 @@ func HandleDownloadResponse(download *sliverpb.Download, ctx *grumble.Context, c
 		fileType := loot.ValidateLootFileType(ctx.Flags.String("file-type"), download.Data)
 		loot.LootDownload(download, lootName, lootType, fileType, ctx, con)
 	} else {
-		fileName := filepath.Base(remotePath)
-		dst, err := filepath.Abs(localPath)
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return
-		}
-
-		fi, err := os.Stat(dst)
-		if err != nil && !os.IsNotExist(err) {
-			con.PrintErrorf("%s\n", err)
-			return
-		}
-		if err == nil && fi.IsDir() {
-			if download.IsDir {
-				// Come up with a good file name - filters might make the filename ugly
-				session, beacon := con.ActiveTarget.Get()
-				implantName := ""
-				if session != nil {
-					implantName = session.Name
-				} else if beacon != nil {
-					implantName = beacon.Name
-				}
-
-				fileName = fmt.Sprintf("%s_download_%s_%d.tar.gz", filepath.Base(implantName), filepath.Base(prettifyDownloadName(remotePath)), time.Now().Unix())
-			}
-			if runtime.GOOS == "windows" {
-				// Windows has a file path length of 260 characters
-				// +1 for the path separator before the file name
-				if len(dst)+len(fileName)+1 > 260 {
-					// Make an effort to shorten the file name. If this does not work, the operator will have to find somewhere else to put the file
-					fileName = fmt.Sprintf("down_%d.tar.gz", time.Now().Unix())
-				}
-			}
-			dst = filepath.Join(dst, fileName)
-		}
-
-		// Add an extension to a directory download if one is not provided.
-		if download.IsDir && (!strings.HasSuffix(dst, ".tgz") && !strings.HasSuffix(dst, ".tar.gz")) {
-			dst += ".tar.gz"
-		}
-
-		if _, err := os.Stat(dst); err == nil {
-			overwrite := false
-			prompt := &survey.Confirm{Message: "Overwrite local file?"}
-			survey.AskOne(prompt, &overwrite, nil)
-			if !overwrite {
-				return
-			}
-		}
-
+		dst := localPath
 		dstFile, err := os.Create(dst)
 		if err != nil {
 			con.PrintErrorf("Failed to open local file %s: %s\n", dst, err)
