@@ -58,9 +58,8 @@ func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 		return
 	}
 	byteFile, _ := io.ReadAll(jsonFile)
-	var config configs.HTTPC2Config
+	var config *configs.HTTPC2Config = &configs.HTTPC2Config{}
 	json.Unmarshal(byteFile, config)
-
 	_, err = con.Rpc.SaveHTTPC2Profile(context.Background(), C2ConfigToProtobuf(profileName, config))
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -69,7 +68,7 @@ func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 }
 
 // convert json to protobuf
-func C2ConfigToProtobuf(profileName string, config configs.HTTPC2Config) *clientpb.HTTPC2Config {
+func C2ConfigToProtobuf(profileName string, config *configs.HTTPC2Config) *clientpb.HTTPC2Config {
 
 	httpC2UrlParameters := []*clientpb.HTTPC2URLParameter{}
 	httpC2Headers := []*clientpb.HTTPC2Header{}

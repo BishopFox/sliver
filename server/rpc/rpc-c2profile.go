@@ -57,5 +57,5 @@ func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2Co
 	if err != nil {
 		return nil, err
 	}*/
-	return nil, nil
+	return &commonpb.Empty{}, nil
 }

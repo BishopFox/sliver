@@ -35,8 +35,8 @@ const (
 
 // HTTPC2Config - Parent config file struct for implant/server
 type HTTPC2Config struct {
-	ImplantConfig *HTTPC2ImplantConfig `json:"implant_config"`
-	ServerConfig  *HTTPC2ServerConfig  `json:"server_config"`
+	ImplantConfig HTTPC2ImplantConfig `json:"implant_config"`
+	ServerConfig  HTTPC2ServerConfig  `json:"server_config"`
 }
 
 // HTTPC2ServerConfig - Server configuration options
