@@ -35,8 +35,9 @@ import (
 // SSHCmd - A built-in SSH client command for the remote system (doesn't shell out)
 func SSHCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	var (
-		privKey []byte
-		err     error
+		privKey       []byte
+		signeUserCert []byte
+		err           error
 	)
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
@@ -58,6 +59,15 @@ func SSHCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		}
 	}
 	password := ctx.Flags.String("password")
+
+	signeUserCertPath := ctx.Flags.String("signed-user-cert")
+	if signeUserCertPath != "" {
+		signeUserCert, err = os.ReadFile(signeUserCertPath)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+	}
 
 	hostname := ctx.Args.String("hostname")
 	command := ctx.Args.StringList("command")
@@ -87,16 +97,17 @@ func SSHCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	}
 
 	sshCmd, err := con.Rpc.RunSSHCommand(context.Background(), &sliverpb.SSHCommandReq{
-		Username: username,
-		Hostname: hostname,
-		Port:     uint32(port),
-		PrivKey:  privKey,
-		Password: password,
-		Command:  strings.Join(command, " "),
-		Realm:    kerberosRealm,
-		Krb5Conf: kerberosConfig,
-		Keytab:   kerberosKeytab,
-		Request:  con.ActiveTarget.Request(ctx),
+		Username:       username,
+		Hostname:       hostname,
+		Port:           uint32(port),
+		PrivKey:        privKey,
+		Password:       password,
+		Command:        strings.Join(command, " "),
+		Realm:          kerberosRealm,
+		Krb5Conf:       kerberosConfig,
+		Keytab:         kerberosKeytab,
+		Request:        con.ActiveTarget.Request(ctx),
+		SignedUserCert: signeUserCert,
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
