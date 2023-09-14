@@ -34,7 +34,6 @@ package c2
 
 */
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -57,7 +56,6 @@ func SetupDefaultC2Profiles() {
 		httpC2ConfigModel := models.HTTPC2ConfigFromProtobuf(defaultConfig)
 		err = db.HTTPC2ConfigSave(httpC2ConfigModel)
 		if err != nil {
-			fmt.Println(err)
 			log.Printf("Error:\n%s", err)
 			os.Exit(-1)
 		}

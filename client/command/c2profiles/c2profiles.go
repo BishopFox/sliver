@@ -48,7 +48,16 @@ func C2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 
 func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	profileName, _ := cmd.Flags().GetString("name")
+	if profileName == "" {
+		con.PrintErrorf("Invalid profile name\n")
+		return
+	}
+
 	filepath, _ := cmd.Flags().GetString("file")
+	if filepath == "" {
+		con.PrintErrorf("Missing file path\n")
+		return
+	}
 
 	// retrieve and unmarshal profile config
 	jsonFile, err := os.Open(filepath)
@@ -57,8 +66,13 @@ func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 		return
 	}
 	byteFile, _ := io.ReadAll(jsonFile)
-	var config assets.HTTPC2Config = assets.HTTPC2Config{}
-	json.Unmarshal(byteFile, config)
+	var config *assets.HTTPC2Config = &assets.HTTPC2Config{}
+	err = json.Unmarshal(byteFile, config)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
 	_, err = con.Rpc.SaveHTTPC2Profile(context.Background(), C2ConfigToProtobuf(profileName, config))
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -67,7 +81,7 @@ func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 }
 
 // convert json to protobuf
-func C2ConfigToProtobuf(profileName string, config assets.HTTPC2Config) *clientpb.HTTPC2Config {
+func C2ConfigToProtobuf(profileName string, config *assets.HTTPC2Config) *clientpb.HTTPC2Config {
 
 	httpC2UrlParameters := []*clientpb.HTTPC2URLParameter{}
 	httpC2Headers := []*clientpb.HTTPC2Header{}

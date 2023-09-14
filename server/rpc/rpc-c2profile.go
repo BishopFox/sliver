@@ -20,10 +20,14 @@ package rpc
 
 import (
 	"context"
+	"log"
+	"os"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 )
 
 // GetC2Profiles - Retrieve C2 Profile names and id's
@@ -53,9 +57,17 @@ func (rpc *Server) GetHTTPC2ProfileByName(ctx context.Context, req *clientpb.C2P
 
 // Save HTTP C2 Profile
 func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2Config) (*commonpb.Empty, error) {
-	/*err := configs.CheckHTTPC2ConfigErrors(req)
+	err := configs.CheckHTTPC2ConfigErrors(req)
 	if err != nil {
 		return nil, err
-	}*/
+	}
+
+	httpC2ConfigModel := models.HTTPC2ConfigFromProtobuf(req)
+	err = db.HTTPC2ConfigSave(httpC2ConfigModel)
+	if err != nil {
+		log.Printf("Error:\n%s", err)
+		os.Exit(-1)
+	}
+
 	return &commonpb.Empty{}, nil
 }
