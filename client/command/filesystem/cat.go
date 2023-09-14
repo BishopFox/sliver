@@ -56,8 +56,9 @@ func CatCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string)
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("Downloading %s ...", filePath), ctrl)
 	download, err := con.Rpc.Download(context.Background(), &sliverpb.DownloadReq{
-		Request: con.ActiveTarget.Request(cmd),
-		Path:    filePath,
+		Request:          con.ActiveTarget.Request(cmd),
+		RestrictedToFile: true,
+		Path:             filePath,
 	})
 	ctrl <- true
 	<-ctrl

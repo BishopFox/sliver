@@ -206,6 +206,8 @@ const (
 	PwdStr      = "pwd"
 	CatStr      = "cat"
 	DownloadStr = "download"
+	HeadStr     = "head"
+	TailStr     = "tail"
 	UploadStr   = "upload"
 	IfconfigStr = "ifconfig"
 	NetstatStr  = "netstat"

