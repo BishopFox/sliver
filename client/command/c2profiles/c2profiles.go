@@ -28,6 +28,7 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 
+	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -56,7 +57,7 @@ func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 		return
 	}
 	byteFile, _ := io.ReadAll(jsonFile)
-	var config HTTPC2Config = HTTPC2Config{}
+	var config assets.HTTPC2Config = assets.HTTPC2Config{}
 	json.Unmarshal(byteFile, config)
 	_, err = con.Rpc.SaveHTTPC2Profile(context.Background(), C2ConfigToProtobuf(profileName, config))
 	if err != nil {
@@ -66,7 +67,7 @@ func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 }
 
 // convert json to protobuf
-func C2ConfigToProtobuf(profileName string, config HTTPC2Config) *clientpb.HTTPC2Config {
+func C2ConfigToProtobuf(profileName string, config assets.HTTPC2Config) *clientpb.HTTPC2Config {
 
 	httpC2UrlParameters := []*clientpb.HTTPC2URLParameter{}
 	httpC2Headers := []*clientpb.HTTPC2Header{}
@@ -356,71 +357,4 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverConsoleC
 
 	con.Println(tw.Render())
 	con.Println("\n")
-}
-
-// HTTPC2Config - Parent config file struct for implant/server
-type HTTPC2Config struct {
-	ImplantConfig HTTPC2ImplantConfig `json:"implant_config"`
-	ServerConfig  HTTPC2ServerConfig  `json:"server_config"`
-}
-
-// HTTPC2ServerConfig - Server configuration options
-type HTTPC2ServerConfig struct {
-	RandomVersionHeaders bool                   `json:"random_version_headers"`
-	Headers              []NameValueProbability `json:"headers"`
-	Cookies              []string               `json:"cookies"`
-}
-
-type NameValueProbability struct {
-	Name        string `json:"name"`
-	Value       string `json:"value"`
-	Probability int    `json:"probability"`
-	Methods     []string
-}
-
-// HTTPC2ImplantConfig - Implant configuration options
-// Procedural C2
-// ===============
-// .txt = rsakey
-// .css = start
-// .php = session
-//
-//	.js = poll
-//
-// .png = stop
-// .woff = sliver shellcode
-type HTTPC2ImplantConfig struct {
-	UserAgent         string `json:"user_agent"`
-	ChromeBaseVersion int    `json:"chrome_base_version"`
-	MacOSVersion      string `json:"macos_version"`
-
-	NonceQueryArgChars string                 `json:"nonce_query_args"`
-	URLParameters      []NameValueProbability `json:"url_parameters"`
-	Headers            []NameValueProbability `json:"headers"`
-
-	MaxFiles int `json:"max_files"`
-	MinFiles int `json:"min_files"`
-	MaxPaths int `json:"max_paths"`
-	MinPaths int `json:"min_paths"`
-
-	// Stager files and paths
-	StagerFileExt string   `json:"stager_file_ext"`
-	StagerFiles   []string `json:"stager_files"`
-	StagerPaths   []string `json:"stager_paths"`
-
-	// Poll files and paths
-	PollFileExt string   `json:"poll_file_ext"`
-	PollFiles   []string `json:"poll_files"`
-	PollPaths   []string `json:"poll_paths"`
-
-	// Session files and paths
-	StartSessionFileExt string   `json:"start_session_file_ext"`
-	SessionFileExt      string   `json:"session_file_ext"`
-	SessionFiles        []string `json:"session_files"`
-	SessionPaths        []string `json:"session_paths"`
-
-	// Close session files and paths
-	CloseFileExt string   `json:"close_file_ext"`
-	CloseFiles   []string `json:"close_files"`
-	ClosePaths   []string `json:"close_paths"`
 }
