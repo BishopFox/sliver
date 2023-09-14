@@ -31,8 +31,6 @@ import (
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/configs"
-	"github.com/bishopfox/sliver/server/db/models"
 )
 
 // C2ProfileCmd list available http profiles
@@ -58,7 +56,7 @@ func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 		return
 	}
 	byteFile, _ := io.ReadAll(jsonFile)
-	var config *configs.HTTPC2Config = &configs.HTTPC2Config{}
+	var config HTTPC2Config = HTTPC2Config{}
 	json.Unmarshal(byteFile, config)
 	_, err = con.Rpc.SaveHTTPC2Profile(context.Background(), C2ConfigToProtobuf(profileName, config))
 	if err != nil {
@@ -68,7 +66,7 @@ func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 }
 
 // convert json to protobuf
-func C2ConfigToProtobuf(profileName string, config *configs.HTTPC2Config) *clientpb.HTTPC2Config {
+func C2ConfigToProtobuf(profileName string, config HTTPC2Config) *clientpb.HTTPC2Config {
 
 	httpC2UrlParameters := []*clientpb.HTTPC2URLParameter{}
 	httpC2Headers := []*clientpb.HTTPC2Header{}
@@ -193,7 +191,6 @@ func C2ConfigToProtobuf(profileName string, config *configs.HTTPC2Config) *clien
 
 // PrintImplantBuilds - Print the implant builds on the server
 func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverConsoleClient) {
-	profileModel := models.HTTPC2ConfigFromProtobuf(profile)
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
@@ -206,13 +203,13 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverConsoleC
 
 	tw.AppendRow(table.Row{
 		"Profile Name",
-		profileModel.Name,
+		profile.Name,
 	})
 
 	// Server side configuration
 
 	var serverHeaders []string
-	for _, header := range profileModel.ServerConfig.Headers {
+	for _, header := range profile.ServerConfig.Headers {
 		serverHeaders = append(serverHeaders, header.Value)
 	}
 	tw.AppendRow(table.Row{
@@ -221,7 +218,7 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverConsoleC
 	})
 
 	var serverCookies []string
-	for _, cookie := range profileModel.ServerConfig.Cookies {
+	for _, cookie := range profile.ServerConfig.Cookies {
 		serverCookies = append(serverCookies, cookie.Name)
 	}
 	tw.AppendRow(table.Row{
@@ -231,13 +228,13 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverConsoleC
 
 	tw.AppendRow(table.Row{
 		"Randomize Server Headers",
-		profileModel.ServerConfig.RandomVersionHeaders,
+		profile.ServerConfig.RandomVersionHeaders,
 	})
 
 	// Client side configuration
 
 	var clientHeaders []string
-	for _, header := range profileModel.ImplantConfig.Headers {
+	for _, header := range profile.ImplantConfig.Headers {
 		clientHeaders = append(clientHeaders, header.Value)
 	}
 	tw.AppendRow(table.Row{
@@ -246,7 +243,7 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverConsoleC
 	})
 
 	var clientUrlParams []string
-	for _, clientUrlParam := range profileModel.ImplantConfig.ExtraURLParameters {
+	for _, clientUrlParam := range profile.ImplantConfig.ExtraURLParameters {
 		clientUrlParams = append(clientUrlParams, clientUrlParam.Name)
 	}
 	tw.AppendRow(table.Row{
@@ -255,52 +252,52 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverConsoleC
 	})
 	tw.AppendRow(table.Row{
 		"User agent",
-		profileModel.ImplantConfig.UserAgent,
+		profile.ImplantConfig.UserAgent,
 	})
 	tw.AppendRow(table.Row{
 		"Chrome base version",
-		profileModel.ImplantConfig.ChromeBaseVersion,
+		profile.ImplantConfig.ChromeBaseVersion,
 	})
 	tw.AppendRow(table.Row{
 		"MacOS version",
-		profileModel.ImplantConfig.MacOSVersion,
+		profile.ImplantConfig.MacOSVersion,
 	})
 	tw.AppendRow(table.Row{
 		"Nonce query arg chars",
-		profileModel.ImplantConfig.NonceQueryArgChars,
+		profile.ImplantConfig.NonceQueryArgChars,
 	})
 	tw.AppendRow(table.Row{
 		"Max files",
-		profileModel.ImplantConfig.MaxFiles,
+		profile.ImplantConfig.MaxFiles,
 	})
 	tw.AppendRow(table.Row{
 		"Min files",
-		profileModel.ImplantConfig.MinFiles,
+		profile.ImplantConfig.MinFiles,
 	})
 	tw.AppendRow(table.Row{
 		"Max paths",
-		profileModel.ImplantConfig.MaxPaths,
+		profile.ImplantConfig.MaxPaths,
 	})
 	tw.AppendRow(table.Row{
 		"Min paths",
-		profileModel.ImplantConfig.MinPaths,
+		profile.ImplantConfig.MinPaths,
 	})
 
 	tw.AppendRow(table.Row{
 		"Stager file extension",
-		profileModel.ImplantConfig.StagerFileExtension,
+		profile.ImplantConfig.StagerFileExtension,
 	})
 	tw.AppendRow(table.Row{
 		"Start session file extension",
-		profileModel.ImplantConfig.StartSessionFileExtension,
+		profile.ImplantConfig.StartSessionFileExtension,
 	})
 	tw.AppendRow(table.Row{
 		"Session file extension",
-		profileModel.ImplantConfig.SessionFileExtension,
+		profile.ImplantConfig.SessionFileExtension,
 	})
 	tw.AppendRow(table.Row{
 		"Close file extension",
-		profileModel.ImplantConfig.CloseFileExtension,
+		profile.ImplantConfig.CloseFileExtension,
 	})
 
 	var (
@@ -311,7 +308,7 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverConsoleC
 		closePaths   []string
 		closeFiles   []string
 	)
-	for _, segment := range profileModel.ImplantConfig.PathSegments {
+	for _, segment := range profile.ImplantConfig.PathSegments {
 		if segment.IsFile {
 			switch segment.SegmentType {
 			case 0:
@@ -359,4 +356,71 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverConsoleC
 
 	con.Println(tw.Render())
 	con.Println("\n")
+}
+
+// HTTPC2Config - Parent config file struct for implant/server
+type HTTPC2Config struct {
+	ImplantConfig HTTPC2ImplantConfig `json:"implant_config"`
+	ServerConfig  HTTPC2ServerConfig  `json:"server_config"`
+}
+
+// HTTPC2ServerConfig - Server configuration options
+type HTTPC2ServerConfig struct {
+	RandomVersionHeaders bool                   `json:"random_version_headers"`
+	Headers              []NameValueProbability `json:"headers"`
+	Cookies              []string               `json:"cookies"`
+}
+
+type NameValueProbability struct {
+	Name        string `json:"name"`
+	Value       string `json:"value"`
+	Probability int    `json:"probability"`
+	Methods     []string
+}
+
+// HTTPC2ImplantConfig - Implant configuration options
+// Procedural C2
+// ===============
+// .txt = rsakey
+// .css = start
+// .php = session
+//
+//	.js = poll
+//
+// .png = stop
+// .woff = sliver shellcode
+type HTTPC2ImplantConfig struct {
+	UserAgent         string `json:"user_agent"`
+	ChromeBaseVersion int    `json:"chrome_base_version"`
+	MacOSVersion      string `json:"macos_version"`
+
+	NonceQueryArgChars string                 `json:"nonce_query_args"`
+	URLParameters      []NameValueProbability `json:"url_parameters"`
+	Headers            []NameValueProbability `json:"headers"`
+
+	MaxFiles int `json:"max_files"`
+	MinFiles int `json:"min_files"`
+	MaxPaths int `json:"max_paths"`
+	MinPaths int `json:"min_paths"`
+
+	// Stager files and paths
+	StagerFileExt string   `json:"stager_file_ext"`
+	StagerFiles   []string `json:"stager_files"`
+	StagerPaths   []string `json:"stager_paths"`
+
+	// Poll files and paths
+	PollFileExt string   `json:"poll_file_ext"`
+	PollFiles   []string `json:"poll_files"`
+	PollPaths   []string `json:"poll_paths"`
+
+	// Session files and paths
+	StartSessionFileExt string   `json:"start_session_file_ext"`
+	SessionFileExt      string   `json:"session_file_ext"`
+	SessionFiles        []string `json:"session_files"`
+	SessionPaths        []string `json:"session_paths"`
+
+	// Close session files and paths
+	CloseFileExt string   `json:"close_file_ext"`
+	CloseFiles   []string `json:"close_files"`
+	ClosePaths   []string `json:"close_paths"`
 }
