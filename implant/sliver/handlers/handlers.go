@@ -455,9 +455,7 @@ func prepareDownload(path string, filter string, recurse bool, maxBytes int64, m
 	var err error
 
 	fileInfo, err := os.Stat(path + filter)
-	if err != nil {
-		return nil, false, 0, 1, err
-	}
+
 	if err == nil && !fileInfo.IsDir() {
 		// Then this is a single file
 		fileHandle, err := os.Open(path + filter)
