@@ -17,7 +17,7 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 )
 
-func getClient(host string, port uint16, username string, password string, privKey []byte, krb5conf string, keytab []byte, realm string) (*ssh.Client, error) {
+func getClient(host string, port uint16, username string, password string, privKey []byte, signedUserCert []byte, krb5conf string, keytab []byte, realm string) (*ssh.Client, error) {
 	var authMethods []ssh.AuthMethod
 	if password != "" {
 		// Try password auth first
@@ -28,6 +28,22 @@ func getClient(host string, port uint16, username string, password string, privK
 		if err != nil {
 			return nil, err
 		}
+		// If certificate based auth add signed public key
+		if len(signedUserCert) != 0 {
+			cert, _, _, _, err := ssh.ParseAuthorizedKey(signedUserCert)
+			if err != nil {
+				return nil, err
+			}
+
+			// create a signer using both the certificate and the private key:
+			certSigner, err := ssh.NewCertSigner(cert.(*ssh.Certificate), signer)
+			if err != nil {
+				return nil, err
+			}
+			//Update signer
+			signer = certSigner
+		}
+
 		authMethods = append(authMethods, ssh.PublicKeys(signer))
 	} else if krb5conf != "" && keytab != nil && realm != "" {
 		// Then try kerberos auth
@@ -74,12 +90,12 @@ func getClient(host string, port uint16, username string, password string, privK
 }
 
 // RunSSHCommand - SSH to a host and execute a command
-func RunSSHCommand(host string, port uint16, username string, password string, privKey []byte, krb5conf string, keytab []byte, realm string, command string) (string, string, error) {
+func RunSSHCommand(host string, port uint16, username string, password string, privKey []byte, signedUserCert []byte, krb5conf string, keytab []byte, realm string, command string) (string, string, error) {
 	var (
 		stdout bytes.Buffer
 		stderr bytes.Buffer
 	)
-	sshc, err := getClient(host, port, username, password, privKey, krb5conf, keytab, realm)
+	sshc, err := getClient(host, port, username, password, privKey, signedUserCert, krb5conf, keytab, realm)
 	if err != nil {
 		return "", "", err
 	}

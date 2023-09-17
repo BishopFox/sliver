@@ -1295,6 +1295,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Int("t", "timeout", defaultTimeout, "command timeout in seconds")
 			f.Uint("p", "port", 22, "SSH port")
 			f.String("i", "private-key", "", "path to private key file")
+			f.String("u", "signed-user-cert", "", "path to user signed certificate (certificate based auth)")
 			f.String("P", "password", "", "SSH user password")
 			f.String("l", "login", "", "username to use to connect")
 			f.Bool("s", "skip-loot", false, "skip the prompt to use loot credentials")

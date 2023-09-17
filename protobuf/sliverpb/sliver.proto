@@ -984,6 +984,7 @@ message SSHCommandReq {
   bytes Keytab = 8;
   string Realm = 10;
   commonpb.Request Request = 9;
+  bytes SignedUserCert = 11;
 }
 
 message SSHCommand {

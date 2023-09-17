@@ -295,6 +295,7 @@ func runSSHCommandHandler(data []byte, resp RPCResponse) {
 		commandReq.Username,
 		commandReq.Password,
 		commandReq.PrivKey,
+		commandReq.SignedUserCert,
 		commandReq.Krb5Conf,
 		commandReq.Keytab,
 		commandReq.Realm,
