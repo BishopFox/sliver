@@ -58,6 +58,8 @@ var (
 	ErrTooFewSessionFiles         = errors.New("implant config must specify at least one session_files value")
 	ErrNonUniqueFileExt           = errors.New("implant config must specify unique file extensions")
 	ErrQueryParamNameLen          = errors.New("implant config url query parameter names must be 3 or more characters")
+	ErrDuplicateStageExt          = errors.New("stager extension is already used in another C2 profile")
+	ErrDuplicateC2ProfileName     = errors.New("C2 Profile name is already in use")
 
 	fileNameExp = regexp.MustCompile(`[^a-zA-Z0-9\\._-]+`)
 )

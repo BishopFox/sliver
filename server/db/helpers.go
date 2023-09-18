@@ -31,6 +31,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
@@ -206,6 +207,22 @@ func LoadHTTPC2s() (*[]models.HttpC2Config, error) {
 		return nil, err
 	}
 	return &c2Configs, nil
+}
+
+func SearchStageExtensions(stagerExtension string) error {
+	c2Config := models.HttpC2ImplantConfig{}
+	err := Session().Where(&models.HttpC2ImplantConfig{
+		StagerFileExtension: stagerExtension,
+	}).Find(&c2Config).Error
+
+	if err != nil {
+		return err
+	}
+
+	if c2Config.StagerFileExtension != "" {
+		return configs.ErrDuplicateStageExt
+	}
+	return nil
 }
 
 func LoadHTTPC2ConfigByName(name string) (*models.HttpC2Config, error) {

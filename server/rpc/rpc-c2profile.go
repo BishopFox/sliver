@@ -62,6 +62,19 @@ func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2Co
 		return nil, err
 	}
 
+	err = db.SearchStageExtensions(req.ImplantConfig.StagerFileExtension)
+	if err != nil {
+		return nil, err
+	}
+
+	httpC2Config, err := db.LoadHTTPC2ConfigByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	if httpC2Config.Name != "" {
+		return nil, configs.ErrDuplicateC2ProfileName
+	}
+
 	httpC2ConfigModel := models.HTTPC2ConfigFromProtobuf(req)
 	err = db.HTTPC2ConfigSave(httpC2ConfigModel)
 	if err != nil {
