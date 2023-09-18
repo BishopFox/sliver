@@ -329,7 +329,7 @@ func cpHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	defer srcFile.Close()
-	
+
 	dstFile, err := os.Create(cpReq.Dst)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -342,7 +342,7 @@ func cpHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	defer dstFile.Close()
-	
+
 	bytesWritten, err := io.Copy(dstFile, srcFile)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -452,9 +452,7 @@ func prepareDownload(path string, filter string, recurse bool) ([]byte, bool, in
 		to download a single file
 	*/
 	fileInfo, err := os.Stat(path + filter)
-	if err != nil {
-		return nil, false, 0, 1, err
-	}
+
 	if err == nil && !fileInfo.IsDir() {
 		// Then this is a single file
 		rawData, err := os.ReadFile(path + filter)

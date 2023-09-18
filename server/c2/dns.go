@@ -74,6 +74,8 @@ var (
 	implantBase64         = encoders.Base64{} // Implant's version of base64 with custom alphabet
 	ErrInvalidMsg         = errors.New("invalid dns message")
 	ErrNoOutgoingMessages = errors.New("no outgoing messages")
+	ErrMsgTooLong         = errors.New("too much data to encode")
+	ErrMsgTooShort        = errors.New("too little data to encode")
 )
 
 // StartDNSListener - Start a DNS listener
@@ -102,6 +104,7 @@ type DNSSession struct {
 	ImplantConn *core.ImplantConnection
 	CipherCtx   *cryptography.CipherContext
 
+	dnsIdMsgIdMap   map[uint32]uint32
 	outgoingMsgIDs  []uint32
 	outgoingBuffers map[uint32][]byte
 	outgoingMutex   *sync.RWMutex
@@ -122,13 +125,15 @@ func (s *DNSSession) nextMsgID() uint32 {
 
 // StageOutgoingEnvelope - Stage an outgoing envelope
 func (s *DNSSession) StageOutgoingEnvelope(envelope *sliverpb.Envelope) error {
-	// dnsLog.Debugf("Staging outgoing envelope %v", envelope)
+	dnsLog.Debugf("Staging outgoing envelope %v", envelope)
 	plaintext, err := proto.Marshal(envelope)
 	if err != nil {
+		dnsLog.Errorf("[dns] failed to marshal outgoing message %s", err)
 		return err
 	}
 	ciphertext, err := s.CipherCtx.Encrypt(plaintext)
 	if err != nil {
+		dnsLog.Errorf("[dns] failed to encrypt outgoing message %s", err)
 		return err
 	}
 
@@ -143,7 +148,7 @@ func (s *DNSSession) StageOutgoingEnvelope(envelope *sliverpb.Envelope) error {
 
 // PopOutgoingMsgID - Pop the next outgoing message ID, FIFO
 // returns msgID, len, err
-func (s *DNSSession) PopOutgoingMsgID() (uint32, uint32, error) {
+func (s *DNSSession) PopOutgoingMsgID(msg *dnspb.DNSMessage) (uint32, uint32, error) {
 	s.outgoingMutex.Lock()
 	defer s.outgoingMutex.Unlock()
 	if len(s.outgoingMsgIDs) == 0 {
@@ -155,6 +160,8 @@ func (s *DNSSession) PopOutgoingMsgID() (uint32, uint32, error) {
 	if !ok {
 		return 0, 0, errors.New("no buffer for msg id")
 	}
+	//Necessary for any race conditions for resolvers that send out multiple identical requests
+	s.dnsIdMsgIdMap[msg.ID] = msgID
 	return msgID, uint32(len(ciphertext)), nil
 }
 
@@ -464,6 +471,7 @@ func (s *SliverDNSServer) handleHello(domain string, msg *dnspb.DNSMessage, req 
 	dnsLog.Debugf("[dns] Assigned new dns session id = %d", dnsSessionID&sessionIDBitMask)
 	s.sessions.Store(dnsSessionID&sessionIDBitMask, &DNSSession{
 		ID:                dnsSessionID & sessionIDBitMask,
+		dnsIdMsgIdMap:     map[uint32]uint32{},
 		outgoingMsgIDs:    []uint32{},
 		outgoingBuffers:   map[uint32][]byte{},
 		outgoingMutex:     &sync.RWMutex{},
@@ -545,6 +553,23 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 	resp.Authoritative = true
 	for _, q := range req.Question {
 		switch q.Qtype {
+
+		case dns.TypeAAAA:
+
+			chunks := splitToChunks(respData, 16)
+			msg_len := len(respData)
+			dnsLog.Infof("[dns] msg length: %d)", msg_len)
+			for i, chunk := range chunks {
+				ttl := uint32(msg_len)
+				chunkIdx := uint32(i) << 8
+				ttl = ttl ^ chunkIdx
+				a_record := &dns.AAAA{
+					Hdr:  dns.RR_Header{Name: q.Name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: ttl},
+					AAAA: chunk,
+				}
+				resp.Answer = append(resp.Answer, a_record)
+			}
+
 		case dns.TypeTXT:
 			rawTxt, _ := implantBase64.Encode(respData)
 			respTxt := string(rawTxt)
@@ -571,26 +596,60 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
 
-	msgID, msgLen, err := dnsSession.PopOutgoingMsgID()
-	if err != nil && err != ErrNoOutgoingMessages {
-		dnsLog.Errorf("[poll] error popping outgoing msg id: %s", err)
-		return s.refusedErrorResp(req)
+	msgID, msgLen, err := dnsSession.PopOutgoingMsgID(msg)
+	if err != nil {
+		if err != ErrNoOutgoingMessages {
+			dnsLog.Errorf("[poll] error popping outgoing msg id: %s", err)
+			return s.refusedErrorResp(req)
+		} else {
+			msgLen = 0
+			msgID = 0
+			dnsLog.Debugf("[poll] error: %s", err)
+			oldID, ok := dnsSession.dnsIdMsgIdMap[msg.ID]
+			if !ok {
+				dnsLog.Debugf("[poll] no msg id for given request")
+			} else {
+				ciphertext, ok := dnsSession.outgoingBuffers[oldID]
+				if !ok {
+					dnsLog.Debugf("[poll] no msg for given id")
+				} else {
+					msgLen = uint32(len(ciphertext))
+					msgID = oldID
+				}
+			}
+
+		}
 	}
+
 	respData := []byte{}
-	if err == nil {
-		dnsLog.Debugf("[poll] manifest %d (%d bytes)", msgID, msgLen)
-		respData, _ = proto.Marshal(&dnspb.DNSMessage{
-			Type: dnspb.DNSMessageType_MANIFEST,
-			ID:   msgID,
-			Size: msgLen,
-		})
-	}
+	dnsLog.Debugf("[poll] manifest %d (%d bytes)", msgID, msgLen)
+	respData, _ = proto.Marshal(&dnspb.DNSMessage{
+		Type: dnspb.DNSMessageType_MANIFEST,
+		ID:   msgID,
+		Size: msgLen,
+	})
 
 	resp := new(dns.Msg)
 	resp.SetReply(req)
 	resp.Authoritative = true
 	for _, q := range req.Question {
 		switch q.Qtype {
+		case dns.TypeAAAA:
+
+			chunks := splitToChunks(respData, 16)
+			msg_len := len(respData)
+			dnsLog.Infof("[dns] msg length: %d)", msg_len)
+			for i, chunk := range chunks {
+				ttl := uint32(msg_len)
+				chunkIdx := uint32(i) << 8
+				ttl = ttl ^ chunkIdx
+				a_record := &dns.AAAA{
+					Hdr:  dns.RR_Header{Name: q.Name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: ttl},
+					AAAA: chunk,
+				}
+				resp.Answer = append(resp.Answer, a_record)
+			}
+
 		case dns.TypeTXT:
 			rawTxt, _ := implantBase64.Encode(respData)
 			respTxt := string(rawTxt)
@@ -609,6 +668,7 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 			resp.Answer = append(resp.Answer, txt)
 		}
 	}
+
 	return resp
 }
 
@@ -664,6 +724,22 @@ func (s *SliverDNSServer) handleDataToImplant(domain string, msg *dnspb.DNSMessa
 	resp.Authoritative = true
 	for _, q := range req.Question {
 		switch q.Qtype {
+		case dns.TypeAAAA:
+
+			chunks := splitToChunks(respData, 16)
+			msg_len := len(respData)
+			dnsLog.Infof("[dns] msg length: %d)", msg_len)
+			for i, chunk := range chunks {
+				ttl := uint32(msg_len)
+				chunkIdx := uint32(i) << 8
+				ttl = ttl ^ chunkIdx
+				a_record := &dns.AAAA{
+					Hdr:  dns.RR_Header{Name: q.Name, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: ttl},
+					AAAA: chunk,
+				}
+				resp.Answer = append(resp.Answer, a_record)
+			}
+
 		case dns.TypeTXT:
 			rawTxt, _ := implantBase64.Encode(respData)
 			respTxt := string(rawTxt)
@@ -800,4 +876,25 @@ func dnsSessionID() uint32 {
 	}
 	dnsSessionID := binary.LittleEndian.Uint32(randBuf)
 	return dnsSessionID
+}
+
+func splitToChunks(data []byte, chunkSize int) [][]byte {
+	var chunks [][]byte
+
+	for i := 0; i < len(data); i += chunkSize {
+		end := i + chunkSize
+
+		// If end is greater than the length of the data,
+		// adjust it to be the length of data to avoid slicing beyond.
+		if end > len(data) {
+			end = len(data)
+		}
+
+		chunk := make([]byte, chunkSize)
+		copy(chunk, data[i:end])
+
+		chunks = append(chunks, chunk)
+	}
+
+	return chunks
 }
