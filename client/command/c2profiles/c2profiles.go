@@ -27,16 +27,30 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
+	"gopkg.in/AlecAivazis/survey.v1"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
 // C2ProfileCmd list available http profiles
 func C2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	profileName, _ := cmd.Flags().GetString("name")
+
+	if profileName == constants.DefaultC2Profile {
+		httpC2Profiles, err := con.Rpc.GetHTTPC2Profiles(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			con.PrintErrorf("failed to fetch HTTP C2 profiles: %s", err.Error())
+			return
+		}
+		if len(httpC2Profiles.Configs) != 1 {
+			profileName = selectC2Profile(httpC2Profiles.Configs)
+		}
+	}
 
 	profile, err := con.Rpc.GetHTTPC2ProfileByName(context.Background(), &clientpb.C2ProfileReq{Name: profileName})
 	if err != nil {
@@ -371,4 +385,20 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverConsoleC
 
 	con.Println(tw.Render())
 	con.Println("\n")
+}
+
+func selectC2Profile(c2profiles []*clientpb.HTTPC2Config) string {
+	c2profile := ""
+	var choices []string
+	for _, c2profile := range c2profiles {
+		choices = append(choices, c2profile.Name)
+	}
+
+	prompt := &survey.Select{
+		Message: "Select a c2 profile",
+		Options: choices,
+	}
+	survey.AskOne(prompt, &c2profile, nil)
+
+	return c2profile
 }
