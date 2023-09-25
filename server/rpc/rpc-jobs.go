@@ -65,6 +65,26 @@ func (rpc *Server) GetJobs(ctx context.Context, _ *commonpb.Empty) (*clientpb.Jo
 	return jobs, nil
 }
 
+// Restart Jobs - Reload jobs
+func (rpc *Server) RestartJobs(ctx context.Context, restartJobReq *clientpb.RestartJobReq) (*commonpb.Empty, error) {
+	// reload jobs to include new profile
+	for _, jobID := range restartJobReq.JobIDs {
+		job := core.Jobs.Get(int(jobID))
+		listenerJob, err := db.ListenerByJobID(jobID)
+		if err != nil {
+			return &commonpb.Empty{}, err
+		}
+		job.JobCtrl <- true
+		job, err = c2.StartHTTPListenerJob(listenerJob.ToProtobuf().HTTPConf)
+		if err != nil {
+			return &commonpb.Empty{}, err
+		}
+		listenerJob.JobID = uint32(job.ID)
+		db.HTTPC2ListenerUpdate(listenerJob)
+	}
+	return &commonpb.Empty{}, nil
+}
+
 // KillJob - Kill a server-side job
 func (rpc *Server) KillJob(ctx context.Context, kill *clientpb.KillJobReq) (*clientpb.KillJob, error) {
 	job := core.Jobs.Get(int(kill.ID))

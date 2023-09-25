@@ -25,9 +25,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
-	"gopkg.in/AlecAivazis/survey.v1"
+	"golang.org/x/exp/slices"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -61,6 +62,7 @@ func C2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 }
 
 func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+	protocols := []string{constants.HttpStr, constants.HttpsStr}
 	profileName, _ := cmd.Flags().GetString("name")
 	if profileName == "" {
 		con.PrintErrorf("Invalid profile name\n")
@@ -91,6 +93,29 @@ func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
+	}
+	confirm := false
+	prompt := &survey.Confirm{Message: "Restart HTTP/S jobs?"}
+	survey.AskOne(prompt, &confirm)
+	if confirm {
+		var restartJobReq clientpb.RestartJobReq
+		jobs, err := con.Rpc.GetJobs(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		// reload jobs to include new profile
+		for _, job := range jobs.Active {
+			if job != nil && slices.Contains(protocols, job.Name) {
+				restartJobReq.JobIDs = append(restartJobReq.JobIDs, job.ID)
+			}
+		}
+
+		_, err = con.Rpc.RestartJobs(context.Background(), &restartJobReq)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
 	}
 }
 

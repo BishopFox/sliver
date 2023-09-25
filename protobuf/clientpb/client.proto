@@ -303,6 +303,10 @@ message Jobs { repeated Job Active = 1; }
 
 message KillJobReq { uint32 ID = 1; }
 
+message RestartJobReq {
+  repeated uint32 JobIDs = 1;
+}
+
 message KillJob {
   uint32 ID = 1;
   bool Success = 2;

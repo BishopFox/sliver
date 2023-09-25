@@ -51,6 +51,7 @@ service SliverRPC {
   // *** Jobs ***
   rpc GetJobs(commonpb.Empty) returns (clientpb.Jobs);
   rpc KillJob(clientpb.KillJobReq) returns (clientpb.KillJob);
+  rpc RestartJobs(clientpb.RestartJobReq) returns (commonpb.Empty);
 
 
   // *** Stager Listener ***
