@@ -23,11 +23,15 @@ import (
 	"log"
 	"os"
 
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
+	"golang.org/x/exp/slices"
 )
 
 // GetC2Profiles - Retrieve C2 Profile names and id's
@@ -57,6 +61,7 @@ func (rpc *Server) GetHTTPC2ProfileByName(ctx context.Context, req *clientpb.C2P
 
 // Save HTTP C2 Profile
 func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2Config) (*commonpb.Empty, error) {
+	protocols := []string{constants.HttpStr, constants.HttpsStr}
 	err := configs.CheckHTTPC2ConfigErrors(req)
 	if err != nil {
 		return nil, err
@@ -80,6 +85,31 @@ func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2Co
 	if err != nil {
 		log.Printf("Error:\n%s", err)
 		os.Exit(-1)
+	}
+	// reload jobs to include new profile
+	for _, job := range core.Jobs.All() {
+		if job != nil && slices.Contains(protocols, job.Name) {
+			job.JobCtrl <- true
+		}
+	}
+	listenerJobs, err := db.ListenerJobs()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, j := range *listenerJobs {
+		listenerJob, err := db.ListenerByJobID(j.JobID)
+		if err != nil {
+			return nil, err
+		}
+		if slices.Contains(protocols, j.Type) {
+			job, err := c2.StartHTTPListenerJob(listenerJob.ToProtobuf().HTTPConf)
+			if err != nil {
+				return nil, err
+			}
+			j.JobID = uint32(job.ID)
+			db.HTTPC2ListenerUpdate(&j)
+		}
 	}
 
 	return &commonpb.Empty{}, nil
