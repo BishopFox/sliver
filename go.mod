@@ -47,7 +47,7 @@ require (
 	golang.org/x/net v0.11.0
 	golang.org/x/sys v0.10.0
 	golang.org/x/term v0.10.0
-	golang.org/x/text v0.11.0
+	golang.org/x/text v0.13.0
 	golang.zx2c4.com/wireguard v0.0.0-20220316235147-5aff28b14c24
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220208144051-fde48d68ee68
 	google.golang.org/grpc v1.56.1
