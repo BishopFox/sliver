@@ -56,31 +56,43 @@ func (rpc *Server) GetHTTPC2ProfileByName(ctx context.Context, req *clientpb.C2P
 }
 
 // Save HTTP C2 Profile
-func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2Config) (*commonpb.Empty, error) {
-	err := configs.CheckHTTPC2ConfigErrors(req)
+func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2ConfigReq) (*commonpb.Empty, error) {
+	err := configs.CheckHTTPC2ConfigErrors(req.C2Config)
 	if err != nil {
 		return nil, err
 	}
 
-	err = db.SearchStageExtensions(req.ImplantConfig.StagerFileExtension)
+	profileName := ""
+	if req.Overwrite {
+		profileName = req.C2Config.Name
+	}
+	err = db.SearchStageExtensions(req.C2Config.ImplantConfig.StagerFileExtension, profileName)
 	if err != nil {
 		return nil, err
 	}
 
-	httpC2Config, err := db.LoadHTTPC2ConfigByName(req.Name)
+	httpC2Config, err := db.LoadHTTPC2ConfigByName(req.C2Config.Name)
 	if err != nil {
 		return nil, err
 	}
-	if httpC2Config.Name != "" {
+	if httpC2Config.Name != "" && req.Overwrite == false {
 		return nil, configs.ErrDuplicateC2ProfileName
 	}
 
-	httpC2ConfigModel := models.HTTPC2ConfigFromProtobuf(req)
-	err = db.HTTPC2ConfigSave(httpC2ConfigModel)
-	if err != nil {
-		log.Printf("Error:\n%s", err)
-		os.Exit(-1)
-	}
+	httpC2ConfigModel := models.HTTPC2ConfigFromProtobuf(req.C2Config)
 
+	if req.Overwrite {
+		err = db.HTTPC2ConfigUpdate(httpC2ConfigModel, httpC2Config)
+		if err != nil {
+			log.Printf("Error:\n%s", err)
+			os.Exit(-1)
+		}
+	} else {
+		err = db.HTTPC2ConfigSave(httpC2ConfigModel)
+		if err != nil {
+			log.Printf("Error:\n%s", err)
+			os.Exit(-1)
+		}
+	}
 	return &commonpb.Empty{}, nil
 }

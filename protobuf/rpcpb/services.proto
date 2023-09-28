@@ -96,7 +96,7 @@ service SliverRPC {
   // *** HTTP C2 Profiles ***
   rpc GetHTTPC2Profiles(commonpb.Empty) returns (clientpb.HTTPC2Configs);
   rpc GetHTTPC2ProfileByName(clientpb.C2ProfileReq) returns (clientpb.HTTPC2Config);
-  rpc SaveHTTPC2Profile(clientpb.HTTPC2Config) returns (commonpb.Empty);
+  rpc SaveHTTPC2Profile(clientpb.HTTPC2ConfigReq) returns (commonpb.Empty);
 
   // *** Builders ***
   rpc BuilderRegister(clientpb.Builder) returns (stream clientpb.Event);

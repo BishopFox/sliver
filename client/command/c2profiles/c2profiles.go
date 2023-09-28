@@ -75,6 +75,8 @@ func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 		return
 	}
 
+	overwrite, _ := cmd.Flags().GetBool("overwrite")
+
 	// retrieve and unmarshal profile config
 	jsonFile, err := os.Open(filepath)
 	if err != nil {
@@ -89,7 +91,9 @@ func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 		return
 	}
 
-	_, err = con.Rpc.SaveHTTPC2Profile(context.Background(), C2ConfigToProtobuf(profileName, config))
+	httpC2ConfigReq := clientpb.HTTPC2ConfigReq{Overwrite: overwrite, C2Config: C2ConfigToProtobuf(profileName, config)}
+
+	_, err = con.Rpc.SaveHTTPC2Profile(context.Background(), &httpC2ConfigReq)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return

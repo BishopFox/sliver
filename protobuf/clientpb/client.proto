@@ -688,6 +688,11 @@ message C2ProfileReq {
   string Name = 1;
 }
 
+message HTTPC2ConfigReq {
+  bool overwrite = 1;
+  HTTPC2Config C2Config = 2;
+}
+
 message HTTPC2Config {
   string ID = 1;
   int64 Created = 2;

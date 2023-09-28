@@ -1804,6 +1804,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 		Flags(consts.ImportC2ProfileStr, true, ImportC2ProfileCmd, func(f *pflag.FlagSet) {
 			f.StringP("name", "n", constants.DefaultC2Profile, "HTTP C2 Profile name")
 			f.StringP("file", "f", "", "Path to C2 configuration file to import")
+			f.BoolP("overwrite", "o", false, "Overwrite profile if it exists")
 		})
 
 		C2ProfileCmd := &cobra.Command{

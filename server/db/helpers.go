@@ -209,7 +209,7 @@ func LoadHTTPC2s() (*[]models.HttpC2Config, error) {
 	return &c2Configs, nil
 }
 
-func SearchStageExtensions(stagerExtension string) error {
+func SearchStageExtensions(stagerExtension string, profileName string) error {
 	c2Config := models.HttpC2ImplantConfig{}
 	err := Session().Where(&models.HttpC2ImplantConfig{
 		StagerFileExtension: stagerExtension,
@@ -219,7 +219,16 @@ func SearchStageExtensions(stagerExtension string) error {
 		return err
 	}
 
-	if c2Config.StagerFileExtension != "" {
+	if c2Config.StagerFileExtension != "" && profileName != "" {
+		// check if the stager extension is used in the provided profile
+		httpC2Config := models.HttpC2Config{}
+		err = Session().Where(&models.HttpC2Config{ID: c2Config.HttpC2ConfigID}).Find(&httpC2Config).Error
+		if err != nil {
+			return err
+		}
+		if httpC2Config.Name == profileName {
+			return nil
+		}
 		return configs.ErrDuplicateStageExt
 	}
 	return nil
@@ -321,6 +330,23 @@ func HTTPC2ConfigSave(httpC2Config *models.HttpC2Config) error {
 	}).Create(&httpC2Config)
 	if result.Error != nil {
 		return result.Error
+	}
+	return nil
+}
+
+func HTTPC2ConfigUpdate(newConf *models.HttpC2Config, oldConf *models.HttpC2Config) error {
+	err := Session().Where(&models.ImplantConfig{
+		ID: oldConf.ImplantConfig.ID,
+	}).Updates(newConf.ImplantConfig)
+	if err != nil {
+		return err.Error
+	}
+
+	err = Session().Where(&models.HttpC2ServerConfig{
+		ID: oldConf.ServerConfig.ID,
+	}).Updates(newConf.ServerConfig)
+	if err != nil {
+		return err.Error
 	}
 	return nil
 }
