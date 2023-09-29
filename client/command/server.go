@@ -1269,6 +1269,14 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			Short:   "Monitor threat intel platforms for Sliver implants",
 			GroupID: consts.SliverHelpGroup,
 		}
+
+		configCmd := &cobra.Command{
+			Use:   consts.MonitorConfigStr,
+			Short: "Configure monitor API keys",
+			Run: func(cmd *cobra.Command, args []string) {
+				monitor.MonitorConfigCmd(cmd, con, args)
+			},
+		}
 		monitorCmd.AddCommand(&cobra.Command{
 			Use:   "start",
 			Short: "Start the monitoring loops",
@@ -1283,6 +1291,23 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 				monitor.MonitorStopCmd(cmd, con, args)
 			},
 		})
+		configCmd.AddCommand(&cobra.Command{
+			Use:   "add",
+			Short: "Add API key configuration",
+			Run: func(cmd *cobra.Command, args []string) {
+				monitor.MonitorAddConfigCmd(cmd, con, args)
+			},
+		})
+
+		configCmd.AddCommand(&cobra.Command{
+			Use:   "del",
+			Short: "Remove API key configuration",
+			Run: func(cmd *cobra.Command, args []string) {
+				monitor.MonitorDelConfigCmd(cmd, con, args)
+			},
+		})
+
+		monitorCmd.AddCommand(configCmd)
 		server.AddCommand(monitorCmd)
 
 		// [ Loot ] --------------------------------------------------------------

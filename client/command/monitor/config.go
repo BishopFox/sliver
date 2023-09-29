@@ -27,11 +27,11 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/desertbit/grumble"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
 )
 
-func MonitorConfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func MonitorConfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 
 	resp, err := con.Rpc.MonitorListConfig(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -41,11 +41,11 @@ func MonitorConfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	PrintWTConfig(resp, con)
 }
 
-func MonitorAddConfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func MonitorAddConfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 
-	apiKey := ctx.Flags.String("apiKey")
-	apiPassword := ctx.Flags.String("apiPassword")
-	apiType := ctx.Flags.String("type")
+	apiKey, _ := cmd.Flags().GetString("apiKey")
+	apiPassword, _ := cmd.Flags().GetString("apiPassword")
+	apiType, _ := cmd.Flags().GetString("type")
 
 	MonitoringProvider := &clientpb.MonitoringProvider{Type: apiType, APIKey: apiKey}
 
@@ -65,7 +65,7 @@ func MonitorAddConfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient)
 	con.PrintInfof("Added monitoring configuration\n")
 }
 
-func MonitorDelConfigCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
+func MonitorDelConfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 
 	resp, err := con.Rpc.MonitorListConfig(context.Background(), &commonpb.Empty{})
 	if err != nil {
