@@ -97,19 +97,18 @@ func checkForExtensionUpdates(clientConfig ArmoryHTTPConfig, con *console.Sliver
 		if err != nil {
 			continue
 		}
-		manyfest, err := extensions.ParseMultiManifest(data)
+		localManifest, err := extensions.ParseExtensionManifest(data)
 		if err != nil {
 			continue
 		}
-		for _, localManifest := range manyfest {
-			for _, latestExt := range cachedExtensions {
-				// Right now we don't try to enforce any kind of versioning, it is assumed if the version from
-				// the armory differs at all from the local version, the extension is out of date.
-				if latestExt.CommandName == localManifest.CommandName && latestExt.Version != localManifest.Version {
-					results = append(results, localManifest.CommandName)
-				}
+		for _, latestExt := range cachedExtensions {
+			// Right now we don't try to enforce any kind of versioning, it is assumed if the version from
+			// the armory differs at all from the local version, the extension is out of date.
+			if latestExt.Name == localManifest.Name && latestExt.Version != localManifest.Version {
+				results = append(results, localManifest.Name)
 			}
 		}
 	}
+
 	return results
 }

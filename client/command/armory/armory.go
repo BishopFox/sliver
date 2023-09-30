@@ -87,7 +87,7 @@ type pkgCacheEntry struct {
 	Pkg          ArmoryPackage
 	Sig          minisign.Signature
 	Alias        *alias.AliasManifest
-	Extension    extensions.MultiManifest
+	Extension    *extensions.ExtensionManifest
 	LastErr      error
 }
 
@@ -141,7 +141,7 @@ func ArmoryCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 				if cacheEntry.Pkg.IsAlias {
 					aliases = append(aliases, cacheEntry.Alias)
 				} else {
-					exts = append(exts, cacheEntry.Extension...)
+					exts = append(exts, cacheEntry.Extension) //todo: check this isn't a bug
 				}
 			}
 			return true
@@ -183,7 +183,7 @@ func packagesInCache() ([]*alias.AliasManifest, []*extensions.ExtensionManifest)
 			if cacheEntry.Pkg.IsAlias {
 				aliases = append(aliases, cacheEntry.Alias)
 			} else {
-				exts = append(exts, cacheEntry.Extension...)
+				exts = append(exts, cacheEntry.Extension) //todo: check this isn't a bug
 			}
 		}
 		return true
@@ -217,9 +217,11 @@ func AliasExtensionOrBundleCompleter() carapace.Action {
 		aliasesComps := carapace.ActionValuesDescribed(results...).Tag("aliases").Invoke(ctx)
 		results = make([]string, 0)
 
-		for _, extensionPkg := range exts {
-			results = append(results, extensionPkg.CommandName)
-			results = append(results, extensionPkg.Help)
+		for _, extension := range exts {
+			for _, extensionPkg := range extension.ExtCommand {
+				results = append(results, extensionPkg.CommandName)
+				results = append(results, extensionPkg.Help)
+			}
 		}
 		extentionComps := carapace.ActionValuesDescribed(results...).Tag("extensions").Invoke(ctx)
 		results = make([]string, 0)
@@ -291,14 +293,16 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 			URL:         aliasPkg.RepoURL,
 		})
 	}
-	for _, extension := range exts {
-		entries = append(entries, pkgInfo{
-			CommandName: extension.CommandName,
-			Version:     extension.Version,
-			Type:        "Extension",
-			Help:        extension.Help,
-			URL:         extension.RepoURL,
-		})
+	for _, extm := range exts {
+		for _, extension := range extm.ExtCommand {
+			entries = append(entries, pkgInfo{
+				CommandName: extension.CommandName,
+				Version:     extension.Manifest.Version,
+				Type:        "Extension",
+				Help:        extension.Help,
+				URL:         extension.Manifest.RepoURL,
+			})
+		}
 	}
 
 	sliverMenu := con.App.Menu("implant")
@@ -533,7 +537,7 @@ func fetchPackageSignature(wg *sync.WaitGroup, armoryConfig *assets.ArmoryConfig
 		if armoryPkg.IsAlias {
 			pkgCacheEntry.Alias, err = alias.ParseAliasManifest(manifestData)
 		} else {
-			pkgCacheEntry.Extension, err = extensions.ParseMultiManifest(manifestData)
+			pkgCacheEntry.Extension, err = extensions.ParseExtensionManifest(manifestData)
 		}
 		if err != nil {
 			pkgCacheEntry.LastErr = fmt.Errorf("failed to parse trusted manifest in pkg signature: %s", err)
