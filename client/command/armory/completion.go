@@ -63,6 +63,7 @@ func AliasExtensionOrBundleCompleter() carapace.Action {
 			}
 		}
 
+		// Aliases
 		for _, aliasPkg := range aliases {
 			results = append(results, aliasPkg.CommandName)
 			results = append(results, aliasPkg.Help)
@@ -70,13 +71,17 @@ func AliasExtensionOrBundleCompleter() carapace.Action {
 		aliasesComps := carapace.ActionValuesDescribed(results...).Tag("aliases").Invoke(ctx)
 		results = make([]string, 0)
 
+		// Extensions
 		for _, extensionPkg := range exts {
-			results = append(results, extensionPkg.CommandName)
-			results = append(results, extensionPkg.Help)
+			for _, cmd := range extensionPkg.ExtCommand {
+				results = append(results, cmd.CommandName)
+				results = append(results, cmd.Help)
+			}
 		}
 		extentionComps := carapace.ActionValuesDescribed(results...).Tag("extensions").Invoke(ctx)
 		results = make([]string, 0)
 
+		// Bundles
 		for _, bundle := range bundles {
 			results = append(results, bundle.Name)
 		}

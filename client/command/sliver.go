@@ -155,7 +155,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 				con.PrintErrorf("Failed to load extension: %s", err)
 				continue
 			}
-			for _, ext := range mext {
+			for _, ext := range mext.ExtCommand {
 				extensions.ExtensionRegisterCommand(ext, sliver, con)
 			}
 		}
