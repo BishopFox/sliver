@@ -206,6 +206,7 @@ const (
 	PwdStr      = "pwd"
 	CatStr      = "cat"
 	DownloadStr = "download"
+	GrepStr     = "grep"
 	HeadStr     = "head"
 	TailStr     = "tail"
 	UploadStr   = "upload"

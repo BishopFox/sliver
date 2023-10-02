@@ -141,6 +141,7 @@ type SliverRPCClient interface {
 	Mkdir(ctx context.Context, in *sliverpb.MkdirReq, opts ...grpc.CallOption) (*sliverpb.Mkdir, error)
 	Download(ctx context.Context, in *sliverpb.DownloadReq, opts ...grpc.CallOption) (*sliverpb.Download, error)
 	Upload(ctx context.Context, in *sliverpb.UploadReq, opts ...grpc.CallOption) (*sliverpb.Upload, error)
+	Grep(ctx context.Context, in *sliverpb.GrepReq, opts ...grpc.CallOption) (*sliverpb.Grep, error)
 	Chmod(ctx context.Context, in *sliverpb.ChmodReq, opts ...grpc.CallOption) (*sliverpb.Chmod, error)
 	Chown(ctx context.Context, in *sliverpb.ChownReq, opts ...grpc.CallOption) (*sliverpb.Chown, error)
 	Chtimes(ctx context.Context, in *sliverpb.ChtimesReq, opts ...grpc.CallOption) (*sliverpb.Chtimes, error)
@@ -1173,6 +1174,15 @@ func (c *sliverRPCClient) Upload(ctx context.Context, in *sliverpb.UploadReq, op
 	return out, nil
 }
 
+func (c *sliverRPCClient) Grep(ctx context.Context, in *sliverpb.GrepReq, opts ...grpc.CallOption) (*sliverpb.Grep, error) {
+	out := new(sliverpb.Grep)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Grep", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) Chmod(ctx context.Context, in *sliverpb.ChmodReq, opts ...grpc.CallOption) (*sliverpb.Chmod, error) {
 	out := new(sliverpb.Chmod)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Chmod", in, out, opts...)
@@ -1981,6 +1991,7 @@ type SliverRPCServer interface {
 	Mkdir(context.Context, *sliverpb.MkdirReq) (*sliverpb.Mkdir, error)
 	Download(context.Context, *sliverpb.DownloadReq) (*sliverpb.Download, error)
 	Upload(context.Context, *sliverpb.UploadReq) (*sliverpb.Upload, error)
+	Grep(context.Context, *sliverpb.GrepReq) (*sliverpb.Grep, error)
 	Chmod(context.Context, *sliverpb.ChmodReq) (*sliverpb.Chmod, error)
 	Chown(context.Context, *sliverpb.ChownReq) (*sliverpb.Chown, error)
 	Chtimes(context.Context, *sliverpb.ChtimesReq) (*sliverpb.Chtimes, error)
@@ -2356,6 +2367,9 @@ func (UnimplementedSliverRPCServer) Download(context.Context, *sliverpb.Download
 }
 func (UnimplementedSliverRPCServer) Upload(context.Context, *sliverpb.UploadReq) (*sliverpb.Upload, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Upload not implemented")
+}
+func (UnimplementedSliverRPCServer) Grep(context.Context, *sliverpb.GrepReq) (*sliverpb.Grep, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Grep not implemented")
 }
 func (UnimplementedSliverRPCServer) Chmod(context.Context, *sliverpb.ChmodReq) (*sliverpb.Chmod, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Chmod not implemented")
@@ -4337,6 +4351,24 @@ func _SliverRPC_Upload_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_Grep_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.GrepReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).Grep(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/Grep",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).Grep(ctx, req.(*sliverpb.GrepReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_Chmod_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.ChmodReq)
 	if err := dec(in); err != nil {
@@ -5980,6 +6012,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Upload",
 			Handler:    _SliverRPC_Upload_Handler,
+		},
+		{
+			MethodName: "Grep",
+			Handler:    _SliverRPC_Grep_Handler,
 		},
 		{
 			MethodName: "Chmod",
