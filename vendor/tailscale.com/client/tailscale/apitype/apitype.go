@@ -10,12 +10,14 @@ import "tailscale.com/tailcfg"
 const LocalAPIHost = "local-tailscaled.sock"
 
 // WhoIsResponse is the JSON type returned by tailscaled debug server's /whois?ip=$IP handler.
+// In successful whois responses, Node and UserProfile are never nil.
 type WhoIsResponse struct {
 	Node        *tailcfg.Node
 	UserProfile *tailcfg.UserProfile
 
-	// Caps are extra capabilities that the remote Node has to this node.
-	Caps []string `json:",omitempty"`
+	// CapMap is a map of capabilities to their values.
+	// See tailcfg.PeerCapMap and tailcfg.PeerCapability for details.
+	CapMap tailcfg.PeerCapMap
 }
 
 // FileTarget is a node to which files can be sent, and the PeerAPI

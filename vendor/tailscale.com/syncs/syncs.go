@@ -227,6 +227,13 @@ func (m *Map[K, V]) Len() int {
 	return len(m.m)
 }
 
+// Clear removes all entries from the map.
+func (m *Map[K, V]) Clear() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	clear(m.m)
+}
+
 // WaitGroup is identical to [sync.WaitGroup],
 // but provides a Go method to start a goroutine.
 type WaitGroup struct{ sync.WaitGroup }
