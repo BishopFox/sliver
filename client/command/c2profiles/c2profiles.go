@@ -65,7 +65,7 @@ func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 	protocols := []string{constants.HttpStr, constants.HttpsStr}
 	profileName, _ := cmd.Flags().GetString("name")
 	if profileName == "" {
-		con.PrintErrorf("Invalid profile name\n")
+		con.PrintErrorf("Invalid c2 profile name\n")
 		return
 	}
 

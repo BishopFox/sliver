@@ -923,6 +923,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			f.StringP("limit-locale", "L", "", "limit execution to hosts that match this locale")
 
 			f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
+			f.StringP("c2profile", "C", constants.DefaultC2Profile, "HTTP C2 profile to use")
 		})
 		FlagComps(profilesNewCmd, func(comp *carapace.ActionMap) {
 			(*comp)["debug-file"] = carapace.ActionFiles()
@@ -931,6 +932,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			(*comp)["strategy"] = carapace.ActionValuesDescribed([]string{"r", "random", "rd", "random domain", "s", "sequential"}...).Tag("C2 strategy")
 			(*comp)["format"] = generate.FormatCompleter()
 			(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+			(*comp)["c2profile"] = generate.HTTPC2Completer(con)
 		})
 		carapace.Gen(profilesNewCmd).PositionalCompletion(carapace.ActionValues().Usage("name of the session profile (optional)"))
 		profilesCmd.AddCommand(profilesNewCmd)
@@ -993,6 +995,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			f.StringP("limit-locale", "L", "", "limit execution to hosts that match this locale")
 
 			f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
+			f.StringP("c2profile", "C", constants.DefaultC2Profile, "HTTP C2 profile to use")
 		})
 		FlagComps(profilesNewBeaconCmd, func(comp *carapace.ActionMap) {
 			(*comp)["debug-file"] = carapace.ActionFiles()
@@ -1001,6 +1004,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			(*comp)["strategy"] = carapace.ActionValuesDescribed([]string{"r", "random", "rd", "random domain", "s", "sequential"}...).Tag("C2 strategy")
 			(*comp)["format"] = generate.FormatCompleter()
 			(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+			(*comp)["c2profile"] = generate.HTTPC2Completer(con)
 		})
 		carapace.Gen(profilesNewBeaconCmd).PositionalCompletion(carapace.ActionValues().Usage("name of the beacon profile (optional)"))
 		profilesNewCmd.AddCommand(profilesNewBeaconCmd)
