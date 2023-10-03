@@ -62,6 +62,7 @@ func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverConso
 		"Format",
 		"Obfuscation",
 		"Limitations",
+		"C2 Profile",
 	})
 	tw.SortBy([]table.SortBy{
 		{Name: "Profile Name", Mode: table.Asc},
@@ -91,6 +92,7 @@ func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverConso
 			fmt.Sprintf("%v", config.Format),
 			obfuscation,
 			getLimitsString(config),
+			config.HTTPC2ConfigName,
 		})
 	}
 
