@@ -306,6 +306,8 @@ func UploadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 		if !strings.HasSuffix(src, string(os.PathSeparator)) {
 			src += string(os.PathSeparator)
 		}
+		srcPath = src
+		srcFilter = ""
 	}
 
 	if err != nil {

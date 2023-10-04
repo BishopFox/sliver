@@ -553,7 +553,12 @@ func extractFiles(data []byte, path string, overwrite bool) (int, int, error) {
 			// Just in case the error is nil, skip it
 			continue
 		}
+		// Validate file path
 		fileName := filepath.Join(path, header.Name)
+		if !strings.HasPrefix(fileName, filepath.Clean(path)+string(os.PathSeparator)) {
+			// Invalid path
+			continue
+		}
 
 		_, err = os.Stat(fileName)
 
