@@ -289,7 +289,11 @@ func printGrepResults(results map[string]*sliverpb.GrepResultsForFile, colorize 
 				}
 				resultOutput = append(resultOutput, "\n")
 			} else {
-				resultOutput = append(resultOutput, fmt.Sprintf("%s: Line %d: %s", fileName, lineResult.LineNumber, grepLineResult(lineResult.Positions, line, colorize, allowFormatting)))
+				if lineResult.LineNumber == -1 {
+					resultOutput = append(resultOutput, fmt.Sprintf("Error when reading file %s: %s", fileName, line))
+				} else {
+					resultOutput = append(resultOutput, fmt.Sprintf("%s: Line %d: %s", fileName, lineResult.LineNumber, grepLineResult(lineResult.Positions, line, colorize, allowFormatting)))
+				}
 			}
 			numberOfResults += 1
 		}
