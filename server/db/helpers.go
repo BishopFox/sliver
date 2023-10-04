@@ -943,3 +943,27 @@ func WatchTowerConfigSave(m *models.MonitoringProvider) error {
 func WatchTowerConfigDel(m *models.MonitoringProvider) error {
 	return Session().Where(&models.MonitoringProvider{ID: m.ID}).Delete(&models.MonitoringProvider{}).Error
 }
+
+// ResourceID queries
+func ResourceIDByType(resourceType string) ([]*models.ResourceID, error) {
+	resourceID := []*models.ResourceID{}
+	err := Session().Where(&models.ResourceID{
+		Type: resourceType,
+	}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return resourceID, nil
+}
+
+func ResourceIDSave(r *models.ResourceID) error {
+	dbSession := Session()
+	result := dbSession.Clauses(clause.OnConflict{
+		UpdateAll: true,
+	}).Create(&r)
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
