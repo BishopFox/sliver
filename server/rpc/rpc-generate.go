@@ -41,6 +41,7 @@ import (
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
+	utilEncoders "github.com/bishopfox/sliver/util/encoders"
 	"github.com/bishopfox/sliver/util/encoders/traffic"
 	"github.com/gofrs/uuid"
 	"google.golang.org/grpc/codes"
@@ -239,6 +240,17 @@ func (rpc *Server) DeleteImplantProfile(ctx context.Context, req *clientpb.Delet
 			EventType: consts.ProfileEvent,
 			Data:      []byte(profile.Name),
 		})
+	}
+
+	resourceID, err := db.ResourceIDByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	utilEncoders.PrimeNumbers = append(utilEncoders.PrimeNumbers, resourceID.Value)
+	err = db.Session().Where(&models.ResourceID{Name: req.Name}).Delete(&models.ResourceID{}).Error
+	if err != nil {
+		return nil, err
 	}
 	return &commonpb.Empty{}, err
 }

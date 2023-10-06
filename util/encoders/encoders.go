@@ -39,7 +39,7 @@ const (
 
 var (
 	// These were chosen at random other than the "No Encoder" ID (0)
-	primeNumbers     = generateDefaultPrimeNumbers()
+	PrimeNumbers     = generateDefaultPrimeNumbers()
 	Base32EncoderID  = uint64(SetupDefaultEncoders("Base32Encoder"))
 	Base58EncoderID  = uint64(SetupDefaultEncoders("Base58EncoderID"))
 	Base64EncoderID  = uint64(SetupDefaultEncoders("Base64EncoderID"))
@@ -118,7 +118,7 @@ func generateDefaultPrimeNumbers() []uint64 {
 }
 
 func GetPrimeNumber() uint64 {
-	prime := primeNumbers[insecureRand.Intn(len(primeNumbers))]
-	primeNumbers = util.RemoveElement(primeNumbers, prime)
+	prime := PrimeNumbers[insecureRand.Intn(len(PrimeNumbers))]
+	PrimeNumbers = util.RemoveElement(PrimeNumbers, prime)
 	return prime
 }
