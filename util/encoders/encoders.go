@@ -50,6 +50,16 @@ var (
 	NoEncoderID      = uint64(0)
 )
 
+type Encoders struct {
+	Base32EncoderID  uint64
+	Base58EncoderID  uint64
+	Base64EncoderID  uint64
+	EnglishEncoderID uint64
+	GzipEncoderID    uint64
+	HexEncoderID     uint64
+	PNGEncoderID     uint64
+}
+
 // Encoder - Can losslessly encode arbitrary binary data
 type Encoder interface {
 	Encode([]byte) ([]byte, error)

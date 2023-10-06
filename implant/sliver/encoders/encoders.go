@@ -43,13 +43,13 @@ var (
 	EncoderModulus = uint64(65537)
 	MaxN           = uint64(9999999)
 
-	Base32EncoderID  = uint64(65)
-	Base58EncoderID  = uint64(43)
-	Base64EncoderID  = uint64(131)
-	EnglishEncoderID = uint64(31)
-	GzipEncoderID    = uint64(49)
-	HexEncoderID     = uint64(92)
-	PNGEncoderID     = uint64(22)
+	Base32EncoderID  = uint64({{.Encoders.Base32EncoderID}})
+	Base58EncoderID  = uint64({{.Encoders.Base58EncoderID}})
+	Base64EncoderID  = uint64({{.Encoders.Base64EncoderID}})
+	EnglishEncoderID = uint64({{.Encoders.EnglishEncoderID}})
+	GzipEncoderID    = uint64({{.Encoders.GzipEncoderID}})
+	HexEncoderID     = uint64({{.Encoders.HexEncoderID}})
+	PNGEncoderID     = uint64({{.Encoders.PNGEncoderID}})
 )
 
 func init() {
