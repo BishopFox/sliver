@@ -37,6 +37,14 @@ func SaveImplantProfile(name string, config *models.ImplantConfig) error {
 	dbSession := db.Session()
 	if errors.Is(err, db.ErrRecordNotFound) {
 		implantID := uint64(encoders.GetPrimeNumber())
+		err = db.ResourceIDSave(&models.ResourceID{
+			Type:  "stager",
+			Value: implantID,
+			Name:  name,
+		})
+		if err != nil {
+			return err
+		}
 		err = dbSession.Create(&models.ImplantProfile{
 			Name:          name,
 			ImplantConfig: config,

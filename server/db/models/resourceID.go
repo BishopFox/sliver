@@ -32,7 +32,7 @@ type ResourceID struct {
 
 	Type  string // encoder or stager
 	Name  string
-	Value int // prime number used to reference resource in requests
+	Value uint64 // prime number used to reference resource in requests
 }
 
 // BeforeCreate - GORM hook

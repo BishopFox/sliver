@@ -40,13 +40,13 @@ const (
 var (
 	// These were chosen at random other than the "No Encoder" ID (0)
 	primeNumbers     = generateDefaultPrimeNumbers()
-	Base32EncoderID  = uint64(SetupDefaultEncoders("Base32Encoder"))    //uint64(65)
-	Base58EncoderID  = uint64(SetupDefaultEncoders("Base58EncoderID"))  //uint64(43)
-	Base64EncoderID  = uint64(SetupDefaultEncoders("Base64EncoderID"))  //uint64(131)
-	EnglishEncoderID = uint64(SetupDefaultEncoders("EnglishEncoderID")) //uint64(31)
-	GzipEncoderID    = uint64(SetupDefaultEncoders("GzipEncoderID"))    //uint64(49)
-	HexEncoderID     = uint64(SetupDefaultEncoders("HexEncoderID"))     //uint64(92)
-	PNGEncoderID     = uint64(SetupDefaultEncoders("PNGEncoderID"))     //uint64(22)
+	Base32EncoderID  = uint64(SetupDefaultEncoders("Base32Encoder"))
+	Base58EncoderID  = uint64(SetupDefaultEncoders("Base58EncoderID"))
+	Base64EncoderID  = uint64(SetupDefaultEncoders("Base64EncoderID"))
+	EnglishEncoderID = uint64(SetupDefaultEncoders("EnglishEncoderID"))
+	GzipEncoderID    = uint64(SetupDefaultEncoders("GzipEncoderID"))
+	HexEncoderID     = uint64(SetupDefaultEncoders("HexEncoderID"))
+	PNGEncoderID     = uint64(SetupDefaultEncoders("PNGEncoderID"))
 	NoEncoderID      = uint64(0)
 )
 
@@ -73,7 +73,7 @@ type EncoderFS interface {
 	ReadFile(name string) ([]byte, error)
 }
 
-func SetupDefaultEncoders(name string) int {
+func SetupDefaultEncoders(name string) uint64 {
 
 	encoders, err := db.ResourceIDByType("encoder")
 	if err != nil {
@@ -102,7 +102,7 @@ func SetupDefaultEncoders(name string) int {
 	return prime
 }
 
-func generateDefaultPrimeNumbers() []int {
+func generateDefaultPrimeNumbers() []uint64 {
 	// remove already used prime numbers from available pool
 	resourceIDs, err := db.ResourceIDs()
 	if err != nil {
@@ -117,7 +117,7 @@ func generateDefaultPrimeNumbers() []int {
 	return pool
 }
 
-func GetPrimeNumber() int {
+func GetPrimeNumber() uint64 {
 	prime := primeNumbers[insecureRand.Intn(len(primeNumbers))]
 	primeNumbers = util.RemoveElement(primeNumbers, prime)
 	return prime
