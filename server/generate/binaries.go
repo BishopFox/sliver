@@ -461,7 +461,7 @@ func renderSliverGoCode(name string, config *clientpb.ImplantConfig, goConfig *g
 			return err
 		}
 
-		encoderStruct := utilEncoders.Encoders{
+		encoderStruct := utilEncoders.EncodersList{
 			Base32EncoderID:  utilEncoders.Base32EncoderID,
 			Base58EncoderID:  utilEncoders.Base58EncoderID,
 			Base64EncoderID:  utilEncoders.Base64EncoderID,
@@ -491,7 +491,7 @@ func renderSliverGoCode(name string, config *clientpb.ImplantConfig, goConfig *g
 			Name                string
 			Config              *clientpb.ImplantConfig
 			HTTPC2ImplantConfig *clientpb.HTTPC2ImplantConfig
-			Encoders            utilEncoders.Encoders
+			Encoders            utilEncoders.EncodersList
 		}{
 			name,
 			config,

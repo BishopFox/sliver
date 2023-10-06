@@ -50,7 +50,7 @@ var (
 	NoEncoderID      = uint64(0)
 )
 
-type Encoders struct {
+type EncodersList struct {
 	Base32EncoderID  uint64
 	Base58EncoderID  uint64
 	Base64EncoderID  uint64

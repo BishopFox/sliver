@@ -24,6 +24,7 @@ import (
 	"encoding/binary"
 	"errors"
 	insecureRand "math/rand"
+	"strconv"
 	"strings"
 
 	// {{if .Config.Debug}}
@@ -43,13 +44,13 @@ var (
 	EncoderModulus = uint64(65537)
 	MaxN           = uint64(9999999)
 
-	Base32EncoderID  = uint64({{.Encoders.Base32EncoderID}})
-	Base58EncoderID  = uint64({{.Encoders.Base58EncoderID}})
-	Base64EncoderID  = uint64({{.Encoders.Base64EncoderID}})
-	EnglishEncoderID = uint64({{.Encoders.EnglishEncoderID}})
-	GzipEncoderID    = uint64({{.Encoders.GzipEncoderID}})
-	HexEncoderID     = uint64({{.Encoders.HexEncoderID}})
-	PNGEncoderID     = uint64({{.Encoders.PNGEncoderID}})
+	Base32EncoderID, _  = strconv.ParseUint(`{{.Encoders.Base32EncoderID}}`, 10, 64)
+	Base58EncoderID, _  = strconv.ParseUint(`.Encoders.Base58EncoderID}}`, 10, 64)
+	Base64EncoderID, _  = strconv.ParseUint(`{{.Encoders.Base64EncoderID}}`, 10, 64)
+	EnglishEncoderID, _ = strconv.ParseUint(`{{.Encoders.EnglishEncoderID}}`, 10, 64)
+	GzipEncoderID, _    = strconv.ParseUint(`{{.Encoders.GzipEncoderID}}`, 10, 64)
+	HexEncoderID, _     = strconv.ParseUint(`{{.Encoders.HexEncoderID}}`, 10, 64)
+	PNGEncoderID, _     = strconv.ParseUint(`{{.Encoders.PNGEncoderID}}`, 10, 64)
 )
 
 func init() {
