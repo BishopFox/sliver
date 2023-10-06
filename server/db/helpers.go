@@ -949,12 +949,21 @@ func ResourceIDByType(resourceType string) ([]*models.ResourceID, error) {
 	resourceID := []*models.ResourceID{}
 	err := Session().Where(&models.ResourceID{
 		Type: resourceType,
-	}).Error
+	}).Find(&resourceID).Error
 	if err != nil {
 		return nil, err
 	}
 
 	return resourceID, nil
+}
+
+func ResourceIDs() ([]*models.ResourceID, error) {
+	resourceIDs := []*models.ResourceID{}
+	err := Session().Where(&models.ResourceID{}).Find(&resourceIDs).Error
+	if err != nil {
+		return nil, err
+	}
+	return resourceIDs, nil
 }
 
 func ResourceIDSave(r *models.ResourceID) error {

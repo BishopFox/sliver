@@ -18,7 +18,16 @@ package encoders
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import "io/fs"
+import (
+	"io/fs"
+	"log"
+	insecureRand "math/rand"
+	"os"
+
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/bishopfox/sliver/util"
+)
 
 const (
 
@@ -26,15 +35,18 @@ const (
 	// *** IMPORTANT *** ENCODER IDs MUST BE LESS THAN THE MODULUS
 	EncoderModulus = uint64(65537)
 	MaxN           = uint64(9999999)
+)
 
+var (
 	// These were chosen at random other than the "No Encoder" ID (0)
-	Base32EncoderID  = uint64(65)
-	Base58EncoderID  = uint64(43)
-	Base64EncoderID  = uint64(131)
-	EnglishEncoderID = uint64(31)
-	GzipEncoderID    = uint64(49)
-	HexEncoderID     = uint64(92)
-	PNGEncoderID     = uint64(22)
+	primeNumbers     = generateDefaultPrimeNumbers()
+	Base32EncoderID  = uint64(SetupDefaultEncoders("Base32Encoder"))    //uint64(65)
+	Base58EncoderID  = uint64(SetupDefaultEncoders("Base58EncoderID"))  //uint64(43)
+	Base64EncoderID  = uint64(SetupDefaultEncoders("Base64EncoderID"))  //uint64(131)
+	EnglishEncoderID = uint64(SetupDefaultEncoders("EnglishEncoderID")) //uint64(31)
+	GzipEncoderID    = uint64(SetupDefaultEncoders("GzipEncoderID"))    //uint64(49)
+	HexEncoderID     = uint64(SetupDefaultEncoders("HexEncoderID"))     //uint64(92)
+	PNGEncoderID     = uint64(SetupDefaultEncoders("PNGEncoderID"))     //uint64(22)
 	NoEncoderID      = uint64(0)
 )
 
@@ -49,4 +61,54 @@ type EncoderFS interface {
 	Open(name string) (fs.File, error)
 	ReadDir(name string) ([]fs.DirEntry, error)
 	ReadFile(name string) ([]byte, error)
+}
+
+func SetupDefaultEncoders(name string) int {
+
+	encoders, err := db.ResourceIDByType("encoder")
+	if err != nil {
+		log.Printf("Error:\n%s", err)
+		os.Exit(-1)
+	}
+
+	for _, encoder := range encoders {
+		if encoder.Name == name {
+			return encoder.Value
+		}
+	}
+
+	prime := GetPrimeNumber()
+	resourceID := models.ResourceID{
+		Type:  "encoder",
+		Name:  name,
+		Value: prime,
+	}
+	err = db.ResourceIDSave(&resourceID)
+	if err != nil {
+		log.Printf("Error:\n%s", err)
+		os.Exit(-1)
+	}
+
+	return prime
+}
+
+func generateDefaultPrimeNumbers() []int {
+	// remove already used prime numbers from available pool
+	resourceIDs, err := db.ResourceIDs()
+	if err != nil {
+		log.Printf("Error:\n%s", err)
+		os.Exit(-1)
+	}
+	pool := util.DefaultPrimeNumbers
+	for _, resourceID := range resourceIDs {
+		pool = util.RemoveElement(pool, resourceID.Value)
+	}
+
+	return pool
+}
+
+func GetPrimeNumber() int {
+	prime := primeNumbers[insecureRand.Intn(len(primeNumbers))]
+	primeNumbers = util.RemoveElement(primeNumbers, prime)
+	return prime
 }
