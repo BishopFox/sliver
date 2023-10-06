@@ -307,6 +307,7 @@ type ImplantProfile struct {
 
 	Name          string `gorm:"unique;"`
 	ImplantConfig *ImplantConfig
+	ImplantID     uint64
 }
 
 // BeforeCreate - GORM hook

@@ -23,6 +23,7 @@ import (
 
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/bishopfox/sliver/util/encoders"
 )
 
 // SaveImplantProfile - Save a sliver profile to disk
@@ -35,9 +36,11 @@ func SaveImplantProfile(name string, config *models.ImplantConfig) error {
 
 	dbSession := db.Session()
 	if errors.Is(err, db.ErrRecordNotFound) {
+		implantID := uint64(encoders.GetPrimeNumber())
 		err = dbSession.Create(&models.ImplantProfile{
 			Name:          name,
 			ImplantConfig: config,
+			ImplantID:     implantID,
 		}).Error
 	} else {
 		err = dbSession.Save(&models.ImplantProfile{
