@@ -48,7 +48,7 @@ func (rpc *Server) StartHTTPStagerListener(ctx context.Context, req *clientpb.St
 	}
 
 	conf := &clientpb.HTTPListenerReq{
-		Host:   fmt.Sprintf("%s:%d", host, req.Port),
+		Host:   host,
 		Port:   req.Port,
 		Domain: req.Host,
 		Secure: false,
