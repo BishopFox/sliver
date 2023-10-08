@@ -268,13 +268,61 @@ func ExtensionRegisterCommand(extCmd *ExtCommand, cmd *cobra.Command, con *conso
 	}
 
 	loadedExtensions[extCmd.CommandName] = extCmd
-	helpMsg := extCmd.Help
+	//helpMsg := extCmd.Help
+
+	usage := strings.Builder{}
+	usage.WriteString(extCmd.CommandName)
+	//build usage including args
+	for _, arg := range extCmd.Arguments {
+		usage.WriteString(" ")
+		if arg.Optional {
+			usage.WriteString("[")
+		}
+		usage.WriteString(strings.ToUpper(arg.Name))
+		if arg.Optional {
+			usage.WriteString("]")
+		}
+	}
+	longHelp := strings.Builder{}
+	//prepend the help value, because otherwise I don't see where it is meant to be shown
+	//build the command ref
+	longHelp.WriteString("[[.Bold]]Command:[[.Normal]]")
+	longHelp.WriteString(usage.String())
+	longHelp.WriteString("\n")
+	if len(extCmd.Help) > 0 || len(extCmd.LongHelp) > 0 {
+		longHelp.WriteString("[[.Bold]]About:[[.Normal]]")
+		if len(extCmd.Help) > 0 {
+			longHelp.WriteString(extCmd.Help)
+			longHelp.WriteString("\n")
+		}
+		if len(extCmd.LongHelp) > 0 {
+			longHelp.WriteString(extCmd.LongHelp)
+			longHelp.WriteString("\n")
+		}
+	}
+	if len(extCmd.Arguments) > 0 {
+		longHelp.WriteString("[[.Bold]]Arguments:[[.Normal]]")
+	}
+	//if more than 0 args specified, describe each arg at the bottom of the long help text (incase the manifest doesn't include it)
+	for _, arg := range extCmd.Arguments {
+		longHelp.WriteString("\n\t")
+		optStr := ""
+		if arg.Optional {
+			optStr = "[OPTIONAL]"
+		}
+		aType := arg.Type
+		if aType == "wstring" {
+			aType = "string" //avoid confusion, as this is mostly for telling operator what to shove into the args
+		}
+		//idk how to make this look nice, tabs don't work especially good - maybe should use the table stuff other things do? Pls help.
+		longHelp.WriteString(fmt.Sprintf("%s (%s):\t%s%s", strings.ToUpper(arg.Name), aType, optStr, arg.Desc))
+	}
 
 	// Command
 	extensionCmd := &cobra.Command{
-		Use:   extCmd.CommandName,
-		Short: helpMsg,
-		Long:  help.FormatHelpTmpl(extCmd.LongHelp),
+		Use: usage.String(), //extCmd.CommandName,
+		//Short: helpMsg.String(), doesn't appear to be used?
+		Long: help.FormatHelpTmpl(longHelp.String()),
 		Run: func(cmd *cobra.Command, args []string) {
 			runExtensionCmd(cmd, con, args)
 		},
