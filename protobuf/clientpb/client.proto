@@ -280,6 +280,7 @@ message UniqueWGIP { string IP = 1; }
 message ImplantProfile {
   string Name = 1;
   ImplantConfig Config = 2;
+  uint64 ImplantID = 3;
 }
 
 message ImplantProfiles { repeated ImplantProfile Profiles = 1; }

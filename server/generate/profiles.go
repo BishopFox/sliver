@@ -55,6 +55,7 @@ func SaveImplantProfile(name string, config *models.ImplantConfig) error {
 			ID:            profile.ID,
 			Name:          name,
 			ImplantConfig: config,
+			ImplantID:     profile.ImplantID,
 		}).Error
 	}
 	return err
