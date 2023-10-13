@@ -202,9 +202,9 @@ func (rpc *Server) ImplantProfiles(ctx context.Context, _ *commonpb.Empty) (*cli
 	}
 	for _, dbProfile := range dbProfiles {
 		implantProfiles.Profiles = append(implantProfiles.Profiles, &clientpb.ImplantProfile{
-			Name:      dbProfile.Name,
-			Config:    dbProfile.ImplantConfig.ToProtobuf(),
-			ImplantID: dbProfile.ImplantID,
+			Name:   dbProfile.Name,
+			Config: dbProfile.ImplantConfig.ToProtobuf(),
+			// ImplantID: dbProfile.ImplantID,
 		})
 	}
 	return implantProfiles, nil
@@ -243,6 +243,11 @@ func (rpc *Server) DeleteImplantProfile(ctx context.Context, req *clientpb.Delet
 		})
 	}
 
+	return &commonpb.Empty{}, err
+}
+
+// DeleteImplantBuild - Delete an implant build
+func (rpc *Server) DeleteImplantBuild(ctx context.Context, req *clientpb.DeleteReq) (*commonpb.Empty, error) {
 	resourceID, err := db.ResourceIDByName(req.Name)
 	if err != nil {
 		return nil, err
@@ -253,15 +258,12 @@ func (rpc *Server) DeleteImplantProfile(ctx context.Context, req *clientpb.Delet
 	if err != nil {
 		return nil, err
 	}
-	return &commonpb.Empty{}, err
-}
 
-// DeleteImplantBuild - Delete an implant build
-func (rpc *Server) DeleteImplantBuild(ctx context.Context, req *clientpb.DeleteReq) (*commonpb.Empty, error) {
 	build, err := db.ImplantBuildByName(req.Name)
 	if err != nil {
 		return nil, err
 	}
+
 	err = db.Session().Delete(build).Error
 	if err != nil {
 		return nil, err

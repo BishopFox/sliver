@@ -151,6 +151,18 @@ func ImplantBuildNames() ([]string, error) {
 	return names, nil
 }
 
+// ImplantBuildByResourceID - Fetch implant build from resource ID
+func ImplantBuildByResourceID(resourceID uint64) (*models.ImplantBuild, error) {
+	build := models.ImplantBuild{}
+	err := Session().Where(&models.ImplantBuild{
+		ImplantID: resourceID,
+	}).Find(&build).Error
+	if err != nil {
+		return nil, err
+	}
+	return &build, nil
+}
+
 // ImplantProfiles - Fetch a map of name<->profiles current in the database
 func ImplantProfiles() ([]*models.ImplantProfile, error) {
 	profiles := []*models.ImplantProfile{}

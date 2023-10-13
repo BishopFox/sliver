@@ -50,6 +50,7 @@ const (
 	SliverRPC_RestartJobs_FullMethodName                      = "/rpcpb.SliverRPC/RestartJobs"
 	SliverRPC_StartTCPStagerListener_FullMethodName           = "/rpcpb.SliverRPC/StartTCPStagerListener"
 	SliverRPC_StartHTTPStagerListener_FullMethodName          = "/rpcpb.SliverRPC/StartHTTPStagerListener"
+	SliverRPC_SaveStager_FullMethodName                       = "/rpcpb.SliverRPC/SaveStager"
 	SliverRPC_LootAdd_FullMethodName                          = "/rpcpb.SliverRPC/LootAdd"
 	SliverRPC_LootRm_FullMethodName                           = "/rpcpb.SliverRPC/LootRm"
 	SliverRPC_LootUpdate_FullMethodName                       = "/rpcpb.SliverRPC/LootUpdate"
@@ -239,6 +240,7 @@ type SliverRPCClient interface {
 	// *** Stager Listener ***
 	StartTCPStagerListener(ctx context.Context, in *clientpb.StagerListenerReq, opts ...grpc.CallOption) (*clientpb.StagerListener, error)
 	StartHTTPStagerListener(ctx context.Context, in *clientpb.StagerListenerReq, opts ...grpc.CallOption) (*clientpb.StagerListener, error)
+	SaveStager(ctx context.Context, in *clientpb.SaveStagerReq, opts ...grpc.CallOption) (*clientpb.SaveStagerResp, error)
 	// *** Loot ***
 	LootAdd(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*clientpb.Loot, error)
 	LootRm(ctx context.Context, in *clientpb.Loot, opts ...grpc.CallOption) (*commonpb.Empty, error)
@@ -684,6 +686,15 @@ func (c *sliverRPCClient) StartTCPStagerListener(ctx context.Context, in *client
 func (c *sliverRPCClient) StartHTTPStagerListener(ctx context.Context, in *clientpb.StagerListenerReq, opts ...grpc.CallOption) (*clientpb.StagerListener, error) {
 	out := new(clientpb.StagerListener)
 	err := c.cc.Invoke(ctx, SliverRPC_StartHTTPStagerListener_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) SaveStager(ctx context.Context, in *clientpb.SaveStagerReq, opts ...grpc.CallOption) (*clientpb.SaveStagerResp, error) {
+	out := new(clientpb.SaveStagerResp)
+	err := c.cc.Invoke(ctx, SliverRPC_SaveStager_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2150,6 +2161,7 @@ type SliverRPCServer interface {
 	// *** Stager Listener ***
 	StartTCPStagerListener(context.Context, *clientpb.StagerListenerReq) (*clientpb.StagerListener, error)
 	StartHTTPStagerListener(context.Context, *clientpb.StagerListenerReq) (*clientpb.StagerListener, error)
+	SaveStager(context.Context, *clientpb.SaveStagerReq) (*clientpb.SaveStagerResp, error)
 	// *** Loot ***
 	LootAdd(context.Context, *clientpb.Loot) (*clientpb.Loot, error)
 	LootRm(context.Context, *clientpb.Loot) (*commonpb.Empty, error)
@@ -2404,6 +2416,9 @@ func (UnimplementedSliverRPCServer) StartTCPStagerListener(context.Context, *cli
 }
 func (UnimplementedSliverRPCServer) StartHTTPStagerListener(context.Context, *clientpb.StagerListenerReq) (*clientpb.StagerListener, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartHTTPStagerListener not implemented")
+}
+func (UnimplementedSliverRPCServer) SaveStager(context.Context, *clientpb.SaveStagerReq) (*clientpb.SaveStagerResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SaveStager not implemented")
 }
 func (UnimplementedSliverRPCServer) LootAdd(context.Context, *clientpb.Loot) (*clientpb.Loot, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LootAdd not implemented")
@@ -3361,6 +3376,24 @@ func _SliverRPC_StartHTTPStagerListener_Handler(srv interface{}, ctx context.Con
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).StartHTTPStagerListener(ctx, req.(*clientpb.StagerListenerReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_SaveStager_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.SaveStagerReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).SaveStager(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SliverRPC_SaveStager_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).SaveStager(ctx, req.(*clientpb.SaveStagerReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -6114,6 +6147,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StartHTTPStagerListener",
 			Handler:    _SliverRPC_StartHTTPStagerListener_Handler,
+		},
+		{
+			MethodName: "SaveStager",
+			Handler:    _SliverRPC_SaveStager_Handler,
 		},
 		{
 			MethodName: "LootAdd",

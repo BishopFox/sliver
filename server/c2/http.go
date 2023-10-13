@@ -761,8 +761,7 @@ func (s *SliverHTTPC2) stagerHandler(resp http.ResponseWriter, req *http.Request
 			s.defaultHandler(resp, req)
 			return
 		}
-		profile, _ := db.ImplantProfileByName(resourceID.Name)
-		build, _ := db.ImplantBuildByName(profile.ImplantConfig.FileName)
+		build, _ := db.ImplantBuildByResourceID(resourceID.Value)
 		payload, err := generate.ImplantFileFromBuild(build)
 		if err != nil {
 			httpLog.Infof("Unable to retrieve Implant build %s", build)

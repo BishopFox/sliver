@@ -36,6 +36,7 @@ import (
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/watchtower"
+	"github.com/bishopfox/sliver/util/encoders"
 	"gorm.io/gorm/clause"
 )
 
@@ -88,6 +89,17 @@ func ImplantBuildSave(name string, config *models.ImplantConfig, fPath string) e
 	if err != nil {
 		return err
 	}
+
+	implantID := uint64(encoders.GetPrimeNumber())
+	err = db.ResourceIDSave(&models.ResourceID{
+		Type:  "stager",
+		Value: implantID,
+		Name:  name,
+	})
+	if err != nil {
+		return err
+	}
+
 	dbSession := db.Session()
 	implantBuild := &models.ImplantBuild{
 		Name:          name,
@@ -95,6 +107,7 @@ func ImplantBuildSave(name string, config *models.ImplantConfig, fPath string) e
 		MD5:           md5Hash,
 		SHA1:          sha1Hash,
 		SHA256:        sha256Hash,
+		ImplantID:     implantID,
 	}
 	watchtower.AddImplantToWatchlist(implantBuild)
 	result := dbSession.Create(&implantBuild)

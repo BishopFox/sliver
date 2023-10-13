@@ -51,6 +51,9 @@ type ImplantBuild struct {
 	// has been seen on threat intel platforms
 	Burned bool
 
+	// Resource ID referencing build
+	ImplantID uint64
+
 	ImplantConfig ImplantConfig
 }
 

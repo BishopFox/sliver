@@ -280,7 +280,6 @@ message UniqueWGIP { string IP = 1; }
 message ImplantProfile {
   string Name = 1;
   ImplantConfig Config = 2;
-  uint64 ImplantID = 3;
 }
 
 message ImplantProfiles { repeated ImplantProfile Profiles = 1; }
@@ -448,6 +447,14 @@ message StagerListenerReq {
 }
 
 message StagerListener { uint32 JobID = 1; }
+
+message SaveStagerReq {
+  ImplantConfig Config = 1;
+}
+
+message SaveStagerResp {
+  string ResourceID = 1;
+}
 
 message ShellcodeRDIReq {
   bytes Data = 1;

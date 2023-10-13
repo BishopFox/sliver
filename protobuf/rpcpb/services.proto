@@ -59,6 +59,8 @@ service SliverRPC {
       returns (clientpb.StagerListener);
   rpc StartHTTPStagerListener(clientpb.StagerListenerReq)
       returns (clientpb.StagerListener);
+  rpc SaveStager(clientpb.SaveStagerReq)
+      returns (clientpb.SaveStagerResp);
 
   // *** Loot ***
   rpc LootAdd(clientpb.Loot) returns (clientpb.Loot);
