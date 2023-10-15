@@ -465,14 +465,14 @@ func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 
 func (s *SliverHTTPC2) websiteContentHandler(resp http.ResponseWriter, req *http.Request) error {
 	httpLog.Infof("Request for site %v -> %s", s.ServerConf.Website, req.RequestURI)
-	contentType, content, err := website.GetContent(s.ServerConf.Website, req.RequestURI)
+	content, err := website.GetContent(s.ServerConf.Website, req.RequestURI)
 	if err != nil {
 		httpLog.Infof("No website content for %s", req.RequestURI)
 		return err
 	}
-	resp.Header().Set("Content-type", contentType)
+	resp.Header().Set("Content-type", content.ContentType)
 	s.noCacheHeader(resp)
-	resp.Write(content)
+	resp.Write(content.Content)
 	return nil
 }
 

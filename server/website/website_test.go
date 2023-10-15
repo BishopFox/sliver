@@ -25,6 +25,7 @@ import (
 	insecureRand "math/rand"
 	"testing"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
 )
@@ -51,11 +52,23 @@ func randomData() []byte {
 }
 
 func TestAddContent(t *testing.T) {
-	err := AddContent(website1, "/data1", contentType1, data1)
+	webContent := clientpb.WebContent{
+		Path:        contentType1,
+		ContentType: contentType1,
+		Size:        uint64(len(data1)),
+		Content:     data1,
+	}
+	err := AddContent(website1, &webContent)
 	if err != nil {
 		t.Error(err)
 	}
-	err = AddContent(website2, "/data2", contentType2, data2)
+	webContent2 := clientpb.WebContent{
+		Path:        contentType2,
+		ContentType: contentType2,
+		Size:        uint64(len(data2)),
+		Content:     data1,
+	}
+	err = AddContent(website2, &webContent2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -63,50 +76,74 @@ func TestAddContent(t *testing.T) {
 
 func TestGetContent(t *testing.T) {
 
-	err := AddContent(website1, "/data1", contentType1, data1)
+	webContent := clientpb.WebContent{
+		Path:        contentType1,
+		ContentType: contentType1,
+		Size:        uint64(len(data1)),
+		Content:     data1,
+	}
+	err := AddContent(website1, &webContent)
 	if err != nil {
 		t.Error(err)
 	}
-	err = AddContent(website2, "/data2", contentType2, data2)
+	webContent2 := clientpb.WebContent{
+		Path:        contentType2,
+		ContentType: contentType2,
+		Size:        uint64(len(data2)),
+		Content:     data1,
+	}
+	err = AddContent(website2, &webContent2)
 	if err != nil {
 		t.Error(err)
 	}
 
 	// Website 1
-	contentType, content, err := GetContent(website1, "/data1")
+	content, err := GetContent(website1, "/data1")
 	if err != nil {
 		t.Error(err)
 	}
 
-	if contentType != contentType1 {
-		t.Errorf("ContentType mismatch: %s != %s", contentType, contentType1)
+	if content.ContentType != contentType1 {
+		t.Errorf("ContentType mismatch: %s != %s", content.ContentType, contentType1)
 	}
 
-	if !bytes.Equal(content, data1) {
+	if !bytes.Equal(content.Content, data1) {
 		t.Errorf("Content does not match sample")
 	}
 
 	// Website 2
-	contentType, content, err = GetContent(website2, "/data2")
+	content, err = GetContent(website2, "/data2")
 	if err != nil {
 		t.Error(err)
 	}
 
-	if contentType != contentType2 {
-		t.Errorf("ContentType mismatch: %s != %s", contentType, contentType2)
+	if content.ContentType != contentType2 {
+		t.Errorf("ContentType mismatch: %s != %s", content.ContentType, contentType2)
 	}
 
-	if !bytes.Equal(content, data2) {
+	if !bytes.Equal(content.Content, data2) {
 		t.Errorf("Content does not match sample")
 	}
 }
 
 func TestContentMap(t *testing.T) {
-	err := AddContent(website1, "/data1", contentType1, data1)
+	webContent := clientpb.WebContent{
+		Path:        contentType1,
+		ContentType: contentType1,
+		Size:        uint64(len(data1)),
+		Content:     data1,
+	}
+	err := AddContent(website1, &webContent)
 	if err != nil {
 		t.Error(err)
 	}
-	err = AddContent(website1, "/data2", contentType2, data2)
+	webContent2 := clientpb.WebContent{
+		Path:        contentType2,
+		ContentType: contentType2,
+		Size:        uint64(len(data2)),
+		Content:     data1,
+	}
+	err = AddContent(website2, &webContent2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -133,11 +170,23 @@ func contains(haystack []string, needle string) bool {
 }
 
 func TestNames(t *testing.T) {
-	err := AddContent(website1, "/data1", contentType1, data1)
+	webContent := clientpb.WebContent{
+		Path:        contentType1,
+		ContentType: contentType1,
+		Size:        uint64(len(data1)),
+		Content:     data1,
+	}
+	err := AddContent(website1, &webContent)
 	if err != nil {
 		t.Error(err)
 	}
-	err = AddContent(website1, "/data2", contentType2, data2)
+	webContent2 := clientpb.WebContent{
+		Path:        contentType2,
+		ContentType: contentType2,
+		Size:        uint64(len(data2)),
+		Content:     data1,
+	}
+	err = AddContent(website2, &webContent2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -152,16 +201,28 @@ func TestNames(t *testing.T) {
 }
 
 func TestRemoveContent(t *testing.T) {
-	err := AddContent(website1, "/data1", contentType1, data1)
+	webContent := clientpb.WebContent{
+		Path:        contentType1,
+		ContentType: contentType1,
+		Size:        uint64(len(data1)),
+		Content:     data1,
+	}
+	err := AddContent(website1, &webContent)
 	if err != nil {
 		t.Error(err)
 	}
-	err = AddContent(website1, "/data2", contentType2, data2)
+	webContent2 := clientpb.WebContent{
+		Path:        contentType2,
+		ContentType: contentType2,
+		Size:        uint64(len(data2)),
+		Content:     data1,
+	}
+	err = AddContent(website2, &webContent2)
 	if err != nil {
 		t.Error(err)
 	}
 
-	_, _, err = GetContent(website1, "/data1")
+	_, err = GetContent(website1, "/data1")
 	if err != nil {
 		t.Error(err)
 	}
@@ -171,12 +232,12 @@ func TestRemoveContent(t *testing.T) {
 		t.Error(err)
 	}
 
-	_, _, err = GetContent(website1, "/foobar")
+	_, err = GetContent(website1, "/foobar")
 	if !errors.Is(err, db.ErrRecordNotFound) {
 		t.Errorf("Expected ErrRecordNotFound, but got %v", err)
 	}
 
-	_, _, err = GetContent(website1, "/data1")
+	_, err = GetContent(website1, "/data1")
 	if !errors.Is(err, db.ErrRecordNotFound) {
 		t.Errorf("Expected ErrRecordNotFound, but got %v", err)
 	}

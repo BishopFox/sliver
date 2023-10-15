@@ -26,6 +26,9 @@ package db
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -486,16 +489,103 @@ func CanaryByDomain(domain string) (*models.DNSCanary, error) {
 }
 
 // WebsiteByName - Get website by name
-func WebsiteByName(name string) (*models.Website, error) {
+func WebsiteByName(name string, webContentDir string) (*clientpb.Website, error) {
 	if len(name) < 1 {
 		return nil, ErrRecordNotFound
 	}
 	website := models.Website{}
-	err := Session().Where(&models.Website{Name: name}).First(&website).Error
+	err := Session().Where(&models.Website{Name: name}).Preload("WebContents").First(&website).Error
 	if err != nil {
 		return nil, err
 	}
-	return &website, nil
+	return website.ToProtobuf(webContentDir), nil
+}
+
+// Websites - Return all websites
+func Websites(webContentDir string) ([]*clientpb.Website, error) {
+	websites := []*models.Website{}
+	err := Session().Where(&models.Website{}).Find(&websites).Error
+
+	var pbWebsites []*clientpb.Website
+	for _, website := range websites {
+		pbWebsites = append(pbWebsites, website.ToProtobuf(webContentDir))
+	}
+
+	return pbWebsites, err
+}
+
+// WebContent by ID and path
+func WebContentByIDAndPath(id string, path string, webContentDir string, lazyload bool) (*clientpb.WebContent, error) {
+	uuid, _ := uuid.FromString(id)
+	content := models.WebContent{}
+	err := Session().Where(&models.WebContent{
+		WebsiteID: uuid,
+		Path:      path,
+	}).First(&content).Error
+
+	if err != nil {
+		return nil, err
+	}
+	var data []byte
+	if lazyload {
+		data, err = ioutil.ReadFile(filepath.Join(webContentDir, content.ID.String()))
+	} else {
+		data = []byte{}
+	}
+	return content.ToProtobuf(&data), err
+}
+
+// AddWebsite - Return website, create if it does not exist
+func AddWebSite(webSiteName string, webContentDir string) (*clientpb.Website, error) {
+
+	pbWebSite, err := WebsiteByName(webSiteName, webContentDir)
+	if errors.Is(err, ErrRecordNotFound) {
+		err = Session().Create(&models.Website{Name: webSiteName}).Error
+		pbWebSite, err = WebsiteByName(webSiteName, webContentDir)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pbWebSite, nil
+}
+
+// AddContent - Add content to website
+func AddContent(pbWebContent *clientpb.WebContent, webContentDir string) (*clientpb.WebContent, error) {
+
+	dbWebContent, err := WebContentByIDAndPath(pbWebContent.WebsiteID, pbWebContent.Path, webContentDir, false)
+	if errors.Is(err, ErrRecordNotFound) {
+		dbModelWebContent := models.WebContentFromProtobuf(pbWebContent)
+		err = Session().Create(&dbModelWebContent).Error
+		if err != nil {
+			return nil, err
+		}
+		dbWebContent, err = WebContentByIDAndPath(pbWebContent.WebsiteID, pbWebContent.Path, webContentDir, false)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		dbWebContent.ContentType = pbWebContent.ContentType
+		dbWebContent.Size = pbWebContent.Size
+
+		dbModelWebContent := models.WebContentFromProtobuf(dbWebContent)
+		err = Session().Save(&dbModelWebContent).Error
+		if err != nil {
+			return nil, err
+		}
+	}
+	return dbWebContent, nil
+}
+
+func RemoveContent(id string) error {
+	uuid, _ := uuid.FromString(id)
+	err := Session().Delete(&models.WebContent{}, uuid).Error
+	return err
+}
+
+func RemoveWebSite(id string) error {
+	uuid, _ := uuid.FromString(id)
+	err := Session().Delete(&models.Website{}, uuid).Error
+	return err
 }
 
 // WGPeerIPs - Fetch a list of ips for all wireguard peers

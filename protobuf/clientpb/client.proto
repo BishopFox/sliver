@@ -553,9 +553,11 @@ message Operator {
 
 // [ Websites ] ----------------------------------------
 message WebContent {
-  string Path = 1;
-  string ContentType = 2;
-  uint64 Size = 3 [ jstype = JS_STRING ];
+  string ID = 1;
+  string WebsiteID = 2;
+  string Path = 3;
+  string ContentType = 4;
+  uint64 Size = 5 [ jstype = JS_STRING ];
 
   bytes Content = 9;
 }
@@ -571,8 +573,9 @@ message WebsiteRemoveContent {
 }
 
 message Website {
-  string Name = 1;
-  map<string, WebContent> Contents = 2;
+  string ID = 1;
+  string Name = 2;
+  map<string, WebContent> Contents = 3;
 }
 
 message Websites { repeated Website Websites = 1; }
