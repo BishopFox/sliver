@@ -26,7 +26,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/bishopfox/sliver/util"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
@@ -54,7 +53,7 @@ type ImplantBuild struct {
 	// Resource ID referencing build
 	ImplantID uint64
 
-	ImplantConfig ImplantConfig
+	ImplantConfigID uuid.UUID
 }
 
 // BeforeCreate - GORM hook
@@ -74,8 +73,6 @@ type ImplantConfig struct {
 	ImplantProfileID uuid.UUID
 
 	CreatedAt time.Time `gorm:"->;<-:create;"`
-
-	Name string
 
 	// Go
 	GOOS   string
@@ -164,15 +161,27 @@ func (ic *ImplantConfig) BeforeCreate(tx *gorm.DB) (err error) {
 	return nil
 }
 
+// ToProtobuf - Convert ImplantProfile to protobuf equiv
+func (ip *ImplantProfile) ToProtobuf() *clientpb.ImplantProfile {
+	profile := &clientpb.ImplantProfile{
+		ID:     ip.ID.String(),
+		Name:   ip.Name,
+		Config: ip.ImplantConfig.ToProtobuf(),
+	}
+
+	return profile
+}
+
 // ToProtobuf - Convert ImplantConfig to protobuf equiv
 func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 	config := &clientpb.ImplantConfig{
-		ID: ic.ID.String(),
+		ID:               ic.ID.String(),
+		ImplantBuildID:   ic.ImplantBuildID.String(),
+		ImplantProfileID: ic.ImplantProfileID.String(),
 
 		IsBeacon:       ic.IsBeacon,
 		BeaconInterval: ic.BeaconInterval,
 		BeaconJitter:   ic.BeaconJitter,
-		Name:           ic.Name,
 
 		GOOS:               ic.GOOS,
 		GOARCH:             ic.GOARCH,
@@ -310,7 +319,6 @@ type ImplantProfile struct {
 
 	Name          string `gorm:"unique;"`
 	ImplantConfig *ImplantConfig
-	ImplantID     uint64
 }
 
 // BeforeCreate - GORM hook
@@ -338,9 +346,27 @@ func (t *EncoderAsset) ToProtobuf() *commonpb.File {
 
 const defaultTemplateName = "sliver"
 
+// ImplantProfileFromProtobuf - Create a native profile struct from Protobuf
+func ImplantProfileFromProtobuf(pbProfile *clientpb.ImplantProfile) *ImplantProfile {
+	cfg := ImplantProfile{}
+	id, _ := uuid.FromString(pbProfile.ID)
+	cfg.ID = id
+	cfg.Name = pbProfile.Name
+	config := ImplantConfigFromProtobuf(pbProfile.Config)
+	cfg.ImplantConfig = config
+
+	return &cfg
+}
+
 // ImplantConfigFromProtobuf - Create a native config struct from Protobuf
 func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig {
 	cfg := ImplantConfig{}
+	id, _ := uuid.FromString(pbConfig.ID)
+	cfg.ID = id
+	buildID, _ := uuid.FromString(pbConfig.ImplantBuildID)
+	cfg.ImplantBuildID = buildID
+	profileID, _ := uuid.FromString(pbConfig.ImplantProfileID)
+	cfg.ImplantProfileID = profileID
 
 	cfg.IsBeacon = pbConfig.IsBeacon
 	cfg.BeaconInterval = pbConfig.BeaconInterval
@@ -348,14 +374,6 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 
 	cfg.GOOS = pbConfig.GOOS
 	cfg.GOARCH = pbConfig.GOARCH
-	name := ""
-	if err := util.AllowedName(pbConfig.Name); err != nil {
-
-	} else {
-		name = pbConfig.Name
-	}
-	cfg.Name = name
-
 	cfg.Debug = pbConfig.Debug
 	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols

@@ -43,7 +43,7 @@ var (
 	ErrRecordNotFound = gorm.ErrRecordNotFound
 )
 
-// ImplantConfigByID - Fetch implant build by name
+// ImplantConfigByID - Fetch implant config by id
 func ImplantConfigByID(id string) (*models.ImplantConfig, error) {
 	if len(id) < 1 {
 		return nil, ErrRecordNotFound
@@ -105,15 +105,9 @@ func ImplantConfigByPublicKeyDigest(publicKeyDigest [32]byte) (*models.ImplantCo
 // ImplantBuilds - Return all implant builds
 func ImplantBuilds() ([]*models.ImplantBuild, error) {
 	builds := []*models.ImplantBuild{}
-	err := Session().Where(&models.ImplantBuild{}).Preload("ImplantConfig").Find(&builds).Error
+	err := Session().Where(&models.ImplantBuild{}).Find(&builds).Error
 	if err != nil {
 		return nil, err
-	}
-	for _, build := range builds {
-		err = loadC2s(&build.ImplantConfig)
-		if err != nil {
-			return nil, err
-		}
 	}
 	return builds, err
 }
@@ -126,11 +120,7 @@ func ImplantBuildByName(name string) (*models.ImplantBuild, error) {
 	build := models.ImplantBuild{}
 	err := Session().Where(&models.ImplantBuild{
 		Name: name,
-	}).Preload("ImplantConfig").First(&build).Error
-	if err != nil {
-		return nil, err
-	}
-	err = loadC2s(&build.ImplantConfig)
+	}).First(&build).Error
 	if err != nil {
 		return nil, err
 	}
@@ -185,12 +175,22 @@ func ImplantProfileByName(name string) (*models.ImplantProfile, error) {
 		return nil, ErrRecordNotFound
 	}
 	profile := models.ImplantProfile{}
+	config := models.ImplantConfig{}
 	err := Session().Where(&models.ImplantProfile{
 		Name: name,
-	}).Preload("ImplantConfig").First(&profile).Error
+	}).First(&profile).Error
 	if err != nil {
 		return nil, err
 	}
+	err = Session().Where(models.ImplantConfig{
+		ImplantProfileID: profile.ID,
+	}).First(&config).Error
+	if err != nil {
+		return nil, err
+	}
+
+	profile.ImplantConfig = &config
+
 	err = loadC2s(profile.ImplantConfig)
 	if err != nil {
 		return nil, err

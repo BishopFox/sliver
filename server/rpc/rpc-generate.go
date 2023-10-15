@@ -55,7 +55,10 @@ var (
 
 // Generate - Generate a new implant
 func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.Generate, error) {
-	var err error
+	var (
+		err    error
+		config *clientpb.ImplantConfig
+	)
 	if req.Config.Name == "" {
 		req.Config.Name, err = codenames.GetCodename()
 		if err != nil {
@@ -65,10 +68,21 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		return nil, err
 	}
 
-	config, err := generate.GenerateConfig(req.Config, true)
-	if err != nil {
-		return nil, err
+	if req.Config.ID != "" {
+		// if this is a profile reuse existing configuration
+		dbConfig, err := db.ImplantConfigByID(req.Config.ID)
+		if err != nil {
+			return nil, err
+		}
+		config = dbConfig.ToProtobuf()
+
+	} else {
+		config, err = generate.GenerateConfig(req.Config, true)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	if config == nil {
 		return nil, errors.New("invalid implant config")
 	}
@@ -100,6 +114,12 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	fileName := filepath.Base(fPath)
 	fileData, err := os.ReadFile(fPath)
 	if err != nil {
+		return nil, err
+	}
+
+	err = generate.ImplantConfigSave(config)
+	if err != nil {
+		rpcLog.Errorf("Failed to save implant config: %s", err)
 		return nil, err
 	}
 
@@ -135,10 +155,14 @@ func (rpc *Server) Regenerate(ctx context.Context, req *clientpb.RegenerateReq) 
 	if err != nil {
 		return nil, err
 	}
+	config, err := db.ImplantConfigByID(build.ImplantConfigID.String())
+	if err != nil {
+		return nil, err
+	}
 
 	return &clientpb.Generate{
 		File: &commonpb.File{
-			Name: build.ImplantConfig.FileName,
+			Name: config.FileName,
 			Data: fileData,
 		},
 	}, nil
@@ -154,7 +178,11 @@ func (rpc *Server) ImplantBuilds(ctx context.Context, _ *commonpb.Empty) (*clien
 		Configs: map[string]*clientpb.ImplantConfig{},
 	}
 	for _, dbBuild := range dbBuilds {
-		pbBuilds.Configs[dbBuild.Name] = dbBuild.ImplantConfig.ToProtobuf()
+		config, err := db.ImplantConfigByID(dbBuild.ImplantConfigID.String())
+		if err != nil {
+			return nil, err
+		}
+		pbBuilds.Configs[dbBuild.Name] = config.ToProtobuf()
 	}
 	return pbBuilds, nil
 }
@@ -212,11 +240,10 @@ func (rpc *Server) ImplantProfiles(ctx context.Context, _ *commonpb.Empty) (*cli
 
 // SaveImplantProfile - Save a new profile
 func (rpc *Server) SaveImplantProfile(ctx context.Context, profile *clientpb.ImplantProfile) (*clientpb.ImplantProfile, error) {
-	config := models.ImplantConfigFromProtobuf(profile.Config)
 	profile.Name = filepath.Base(profile.Name)
 	if 0 < len(profile.Name) && profile.Name != "." {
 		rpcLog.Infof("Saving new profile with name %#v", profile.Name)
-		err := generate.SaveImplantProfile(profile.Name, config)
+		profile, err := generate.SaveImplantProfile(profile)
 		if err != nil {
 			return nil, err
 		}

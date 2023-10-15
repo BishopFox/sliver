@@ -305,7 +305,12 @@ func getSliverShellcode(name string) ([]byte, string, error) {
 		return nil, "", err
 	}
 
-	switch build.ImplantConfig.Format {
+	config, err := db.ImplantConfigByID(build.ImplantConfigID.String())
+	if err != nil {
+		return nil, "", err
+	}
+
+	switch config.Format {
 
 	case clientpb.OutputFormat_SHELLCODE:
 		fileData, err := generate.ImplantFileFromBuild(build)
@@ -321,7 +326,7 @@ func getSliverShellcode(name string) ([]byte, string, error) {
 		if err != nil {
 			return []byte{}, "", err
 		}
-		data, err = generate.DonutShellcodeFromPE(fileData, build.ImplantConfig.GOARCH, false, "", "", "", false, false, false)
+		data, err = generate.DonutShellcodeFromPE(fileData, config.GOARCH, false, "", "", "", false, false, false)
 		if err != nil {
 			rpcLog.Errorf("DonutShellcodeFromPE error: %v\n", err)
 			return []byte{}, "", err
@@ -344,7 +349,7 @@ func getSliverShellcode(name string) ([]byte, string, error) {
 		err = fmt.Errorf("no existing shellcode found")
 	}
 
-	return data, build.ImplantConfig.GOARCH, err
+	return data, config.GOARCH, err
 }
 
 // ExportDirectory - stores the Export data

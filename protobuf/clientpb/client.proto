@@ -125,37 +125,39 @@ enum OutputFormat {
 
 message ImplantConfig {
   string ID = 1;
-  bool IsBeacon = 2;
-  int64 BeaconInterval = 3;
-  int64 BeaconJitter = 4;
+  string ImplantBuildID = 2;
+  string ImplantProfileID = 3;
+  bool IsBeacon = 4;
+  int64 BeaconInterval = 5;
+  int64 BeaconJitter = 6;
 
-  string GOOS = 5;
-  string GOARCH = 6;
-  string Name = 7;
+  string GOOS = 7;
+  string GOARCH = 8;
+  string Name = 9;
 
-  bool Debug = 8;
-  bool Evasion = 9;
-  bool ObfuscateSymbols = 10;
-  string TemplateName = 11;
-  bool SGNEnabled = 12;
+  bool Debug = 10;
+  bool Evasion = 11;
+  bool ObfuscateSymbols = 12;
+  string TemplateName = 13;
+  bool SGNEnabled = 14;
 
-  bool IncludeMTLS = 13;
-  bool IncludeHTTP = 14;
-  bool IncludeWG = 15;
-  bool IncludeDNS = 16;
-  bool IncludeNamePipe = 17;
-  bool IncludeTCP = 18;
+  bool IncludeMTLS = 53;
+  bool IncludeHTTP = 16;
+  bool IncludeWG = 17;
+  bool IncludeDNS = 18;
+  bool IncludeNamePipe = 19;
+  bool IncludeTCP = 20;
 
-  string MtlsCACert = 20;
-  string MtlsCert = 21;
-  string MtlsKey = 22;
+  string MtlsCACert = 21;
+  string MtlsCert = 22;
+  string MtlsKey = 23;
 
-  string AgeServerPublicKey = 23;
-  string PeerPublicKey = 24;
-  string PeerPrivateKey = 25;
-  string PeerPublicKeySignature = 26;
-  string MinisignServerPublicKey = 27;
-  string PeerPublicKeyDigest = 28;
+  string AgeServerPublicKey = 24;
+  string PeerPublicKey = 25;
+  string PeerPrivateKey = 26;
+  string PeerPublicKeySignature = 27;
+  string MinisignServerPublicKey = 28;
+  string PeerPublicKeyDigest = 29;
 
   string WGImplantPrivKey = 30;
   string WGServerPubKey = 31;
@@ -278,8 +280,9 @@ message Canaries { repeated DNSCanary Canaries = 1; }
 message UniqueWGIP { string IP = 1; }
 
 message ImplantProfile {
-  string Name = 1;
-  ImplantConfig Config = 2;
+  string ID = 1;
+  string Name = 2;
+  ImplantConfig Config = 3;
 }
 
 message ImplantProfiles { repeated ImplantProfile Profiles = 1; }
@@ -450,6 +453,7 @@ message StagerListener { uint32 JobID = 1; }
 
 message SaveStagerReq {
   ImplantConfig Config = 1;
+  bytes Stage = 2;
 }
 
 message SaveStagerResp {

@@ -61,15 +61,23 @@ func getBuildsDir() (string, error) {
 
 // ImplantConfigSave - Save only the config to the database
 func ImplantConfigSave(config *clientpb.ImplantConfig) error {
-	implantConfig := models.ImplantConfigFromProtobuf(config)
-	dbSession := db.Session()
-	result := dbSession.Clauses(clause.OnConflict{
-		UpdateAll: true,
-	}).Create(&implantConfig)
-	if result.Error != nil {
-		return result.Error
+
+	dbConfig, err := db.ImplantConfigByID(config.ID)
+	if err != nil && !errors.Is(err, db.ErrRecordNotFound) {
+		return err
 	}
-	return nil
+
+	modelConfig := models.ImplantConfigFromProtobuf(config)
+	dbSession := db.Session()
+	if errors.Is(err, db.ErrRecordNotFound) {
+		err = dbSession.Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).Create(modelConfig).Error
+	} else {
+		modelConfig.ImplantProfileID = dbConfig.ImplantProfileID
+		err = dbSession.Save(modelConfig).Error
+	}
+	return err
 }
 
 // ImplantBuildSave - Saves a binary file into the database
@@ -102,12 +110,12 @@ func ImplantBuildSave(name string, config *models.ImplantConfig, fPath string) e
 
 	dbSession := db.Session()
 	implantBuild := &models.ImplantBuild{
-		Name:          name,
-		ImplantConfig: (*config),
-		MD5:           md5Hash,
-		SHA1:          sha1Hash,
-		SHA256:        sha256Hash,
-		ImplantID:     implantID,
+		Name:            name,
+		ImplantConfigID: config.ID,
+		MD5:             md5Hash,
+		SHA1:            sha1Hash,
+		SHA256:          sha256Hash,
+		ImplantID:       implantID,
 	}
 	watchtower.AddImplantToWatchlist(implantBuild)
 	result := dbSession.Create(&implantBuild)

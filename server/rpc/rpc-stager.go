@@ -22,10 +22,12 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db/models"
@@ -78,11 +80,16 @@ func (rpc *Server) StartHTTPStagerListener(ctx context.Context, req *clientpb.St
 func (rpc *Server) SaveStager(ctx context.Context, req *clientpb.SaveStagerReq) (*clientpb.SaveStagerResp, error) {
 
 	// write implant to disk
-	fPath := ""
+	appDir := assets.GetRootAppDir()
+	fPath := filepath.Join(appDir, "builds", filepath.Base(req.Config.Name))
+	err := os.WriteFile(fPath, req.Stage, 0600)
+	if err != nil {
+		return &clientpb.SaveStagerResp{}, err
+	}
 
 	// save implant build
 	fileName := filepath.Base(fPath)
-	err := generate.ImplantBuildSave(req.Config.Name, models.ImplantConfigFromProtobuf(req.Config), fPath)
+	err = generate.ImplantBuildSave(req.Config.Name, models.ImplantConfigFromProtobuf(req.Config), fPath)
 	if err != nil {
 		rpcLog.Errorf("Failed to save build: %s", err)
 		return nil, err
