@@ -215,13 +215,18 @@ func loadC2s(config *models.ImplantConfig) error {
 	return nil
 }
 
-func LoadHTTPC2s() (*[]models.HttpC2Config, error) {
+func LoadHTTPC2s() ([]*clientpb.HTTPC2Config, error) {
 	c2Configs := []models.HttpC2Config{}
 	err := Session().Where(&models.HttpC2Config{}).Find(&c2Configs).Error
 	if err != nil {
 		return nil, err
 	}
-	return &c2Configs, nil
+	pbC2Configs := []*clientpb.HTTPC2Config{}
+	for _, c2config := range c2Configs {
+		pbC2Configs = append(pbC2Configs, c2config.ToProtobuf())
+	}
+
+	return pbC2Configs, nil
 }
 
 func SearchStageExtensions(stagerExtension string, profileName string) error {
@@ -249,7 +254,7 @@ func SearchStageExtensions(stagerExtension string, profileName string) error {
 	return nil
 }
 
-func LoadHTTPC2ConfigByName(name string) (*models.HttpC2Config, error) {
+func LoadHTTPC2ConfigByName(name string) (*clientpb.HTTPC2Config, error) {
 	if len(name) < 1 {
 		return nil, ErrRecordNotFound
 	}
@@ -335,30 +340,33 @@ func LoadHTTPC2ConfigByName(name string) (*models.HttpC2Config, error) {
 	c2Config.ServerConfig = c2ServerConfig
 	c2Config.ImplantConfig = c2ImplantConfig
 
-	return &c2Config, nil
+	return c2Config.ToProtobuf(), nil
 }
 
-func HTTPC2ConfigSave(httpC2Config *models.HttpC2Config) error {
+func HTTPC2ConfigSave(httpC2Config *clientpb.HTTPC2Config) error {
+	httpC2ConfigModel := models.HTTPC2ConfigFromProtobuf(httpC2Config)
 	dbSession := Session()
 	result := dbSession.Clauses(clause.OnConflict{
 		UpdateAll: true,
-	}).Create(&httpC2Config)
+	}).Create(&httpC2ConfigModel)
 	if result.Error != nil {
 		return result.Error
 	}
 	return nil
 }
 
-func HTTPC2ConfigUpdate(newConf *models.HttpC2Config, oldConf *models.HttpC2Config) error {
+func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2Config) error {
+	clientID, _ := uuid.FromString(oldConf.ImplantConfig.ID)
 	err := Session().Where(&models.ImplantConfig{
-		ID: oldConf.ImplantConfig.ID,
+		ID: clientID,
 	}).Updates(newConf.ImplantConfig)
 	if err != nil {
 		return err.Error
 	}
 
+	serverID, _ := uuid.FromString(oldConf.ImplantConfig.ID)
 	err = Session().Where(&models.HttpC2ServerConfig{
-		ID: oldConf.ServerConfig.ID,
+		ID: serverID,
 	}).Updates(newConf.ServerConfig)
 	if err != nil {
 		return err.Error

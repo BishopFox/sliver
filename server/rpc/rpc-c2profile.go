@@ -27,7 +27,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/db/models"
 )
 
 // GetC2Profiles - Retrieve C2 Profile names and id's
@@ -38,9 +37,7 @@ func (rpc *Server) GetHTTPC2Profiles(ctx context.Context, req *commonpb.Empty) (
 		return nil, err
 	}
 
-	for _, c2Config := range *httpC2Config {
-		c2Configs.Configs = append(c2Configs.Configs, c2Config.ToProtobuf())
-	}
+	c2Configs.Configs = httpC2Config
 
 	return &c2Configs, nil
 }
@@ -52,7 +49,7 @@ func (rpc *Server) GetHTTPC2ProfileByName(ctx context.Context, req *clientpb.C2P
 		return nil, err
 	}
 
-	return httpC2Config.ToProtobuf(), nil
+	return httpC2Config, nil
 }
 
 // Save HTTP C2 Profile
@@ -79,16 +76,14 @@ func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2Co
 		return nil, configs.ErrDuplicateC2ProfileName
 	}
 
-	httpC2ConfigModel := models.HTTPC2ConfigFromProtobuf(req.C2Config)
-
 	if req.Overwrite {
-		err = db.HTTPC2ConfigUpdate(httpC2ConfigModel, httpC2Config)
+		err = db.HTTPC2ConfigUpdate(req.C2Config, httpC2Config)
 		if err != nil {
 			log.Printf("Error:\n%s", err)
 			os.Exit(-1)
 		}
 	} else {
-		err = db.HTTPC2ConfigSave(httpC2ConfigModel)
+		err = db.HTTPC2ConfigSave(req.C2Config)
 		if err != nil {
 			log.Printf("Error:\n%s", err)
 			os.Exit(-1)

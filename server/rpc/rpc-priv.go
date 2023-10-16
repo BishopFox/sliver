@@ -86,7 +86,6 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	if err != nil {
 		return nil, err
 	}
-	pbC2Implant := httpC2Config.ImplantConfig.ToProtobuf()
 
 	name := path.Base(req.Config.GetName())
 	shellcode, _, err = getSliverShellcode(name)
@@ -97,7 +96,7 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		if err != nil {
 			return nil, err
 		}
-		shellcodePath, err := generate.SliverShellcode(config, pbC2Implant)
+		shellcodePath, err := generate.SliverShellcode(config, httpC2Config.ImplantConfig)
 		if err != nil {
 			return nil, err
 		}

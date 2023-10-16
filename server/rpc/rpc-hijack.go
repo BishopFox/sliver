@@ -123,9 +123,8 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 		if err != nil {
 			return nil, err
 		}
-		pbC2Implant := httpC2Config.ImplantConfig.ToProtobuf()
 
-		fPath, err := generate.SliverSharedLibrary(config, pbC2Implant)
+		fPath, err := generate.SliverSharedLibrary(config, httpC2Config.ImplantConfig)
 
 		if err != nil {
 			return nil, err

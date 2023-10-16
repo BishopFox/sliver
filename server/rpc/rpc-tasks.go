@@ -87,9 +87,8 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		if err != nil {
 			return nil, err
 		}
-		pbC2Implant := httpC2Config.ImplantConfig.ToProtobuf()
 
-		shellcodePath, err := generate.SliverShellcode(config, pbC2Implant)
+		shellcodePath, err := generate.SliverShellcode(config, httpC2Config.ImplantConfig)
 		if err != nil {
 			return nil, err
 		}

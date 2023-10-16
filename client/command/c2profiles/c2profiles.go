@@ -354,6 +354,10 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverConsoleC
 		profile.ImplantConfig.SessionFileExtension,
 	})
 	tw.AppendRow(table.Row{
+		"Poll file extension",
+		profile.ImplantConfig.PollFileExtension,
+	})
+	tw.AppendRow(table.Row{
 		"Close file extension",
 		profile.ImplantConfig.CloseFileExtension,
 	})

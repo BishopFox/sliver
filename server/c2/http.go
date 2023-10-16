@@ -45,7 +45,6 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/generate"
 	sliverHandlers "github.com/bishopfox/sliver/server/handlers"
@@ -126,7 +125,7 @@ type SliverHTTPC2 struct {
 	SliverStage  []byte // Sliver shellcode to serve during staging process
 	Cleanup      func()
 
-	c2Config []*models.HttpC2Config // C2 configs
+	c2Config []*clientpb.HTTPC2Config // C2 configs
 }
 
 func (s *SliverHTTPC2) getServerHeader() string {
@@ -316,9 +315,9 @@ func getHTTPSConfig(req *clientpb.HTTPListenerReq) *tls.Config {
 	return tlsConfig
 }
 
-func (s *SliverHTTPC2) loadServerHTTPC2Configs() []*models.HttpC2Config {
+func (s *SliverHTTPC2) loadServerHTTPC2Configs() *clientpb.HTTPC2Configs {
 
-	ret := []*models.HttpC2Config{}
+	ret := clientpb.HTTPC2Configs{}
 	// load config names
 	httpc2Configs, err := db.LoadHTTPC2s()
 	if err != nil {
@@ -326,30 +325,30 @@ func (s *SliverHTTPC2) loadServerHTTPC2Configs() []*models.HttpC2Config {
 		return nil
 	}
 
-	for _, httpC2Config := range *httpc2Configs {
+	for _, httpC2Config := range httpc2Configs {
 		httpLog.Debugf("Loading %v", httpC2Config.Name)
 		httpC2Config, err := db.LoadHTTPC2ConfigByName(httpC2Config.Name)
 		if err != nil {
 			httpLog.Errorf("failed to load  %s from database %s", httpC2Config.Name, err)
 			return nil
 		}
-		ret = append(ret, httpC2Config)
+		ret.Configs = append(ret.Configs, httpC2Config)
 	}
 
-	return ret
+	return &ret
 }
 
 func (s *SliverHTTPC2) router() *mux.Router {
 	router := mux.NewRouter()
 	c2Configs := s.loadServerHTTPC2Configs()
-	s.c2Config = c2Configs
+	s.c2Config = c2Configs.Configs
 	if s.ServerConf.LongPollTimeout == 0 {
 		s.ServerConf.LongPollTimeout = int64(DefaultLongPollTimeout)
 		s.ServerConf.LongPollJitter = int64(DefaultLongPollJitter)
 	}
 
 	// start stager handlers, extension are unique accross all profiles
-	for _, c2Config := range c2Configs {
+	for _, c2Config := range c2Configs.Configs {
 		// Can't force the user agent on the stager payload
 		// Request from msf stager payload will look like:
 		// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
@@ -359,7 +358,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 		).Methods(http.MethodGet)
 	}
 
-	router.HandleFunc("/{rpath:.*}", s.mainHandler).MatcherFunc(s.filterNonce).Methods(http.MethodGet, http.MethodPost)
+	router.HandleFunc("/{rpath:.*}", s.mainHandler).Methods(http.MethodGet, http.MethodPost)
 
 	router.Use(loggingMiddleware)
 	router.Use(s.DefaultRespHeaders)
@@ -422,7 +421,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 		var (
-			profile *models.HttpC2Config
+			profile *clientpb.HTTPC2Config
 			err     error
 		)
 
@@ -504,12 +503,16 @@ func (s *SliverHTTPC2) mainHandler(resp http.ResponseWriter, req *http.Request) 
 		}
 		if extension == c2Config.ImplantConfig.PollFileExtension {
 			s.pollHandler(resp, req)
+			return
 		} else if extension == c2Config.ImplantConfig.CloseFileExtension {
 			s.closeHandler(resp, req)
+			return
 		} else if extension == c2Config.ImplantConfig.SessionFileExtension {
 			s.sessionHandler(resp, req)
+			return
 		} else {
 			s.defaultHandler(resp, req)
+			return
 		}
 	}
 
@@ -517,9 +520,9 @@ func (s *SliverHTTPC2) mainHandler(resp http.ResponseWriter, req *http.Request) 
 	for _, profile := range s.c2Config {
 		if extension == profile.ImplantConfig.StartSessionFileExtension {
 			s.startSessionHandler(resp, req)
+			return
 		}
 	}
-
 	// redirect to default page
 	httpLog.Debugf("No pattern matches for request uri")
 	s.defaultHandler(resp, req)

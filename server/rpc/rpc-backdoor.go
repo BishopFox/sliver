@@ -98,9 +98,8 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	pbC2Implant := httpC2Config.ImplantConfig.ToProtobuf()
 
-	fPath, err := generate.SliverShellcode(p.Config, pbC2Implant)
+	fPath, err := generate.SliverShellcode(p.Config, httpC2Config.ImplantConfig)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

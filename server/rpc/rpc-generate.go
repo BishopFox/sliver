@@ -92,18 +92,17 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	if err != nil {
 		return nil, err
 	}
-	pbC2Implant := httpC2Config.ImplantConfig.ToProtobuf()
 
 	var fPath string
 	switch req.Config.Format {
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
-		fPath, err = generate.SliverExecutable(config, pbC2Implant)
+		fPath, err = generate.SliverExecutable(config, httpC2Config.ImplantConfig)
 	case clientpb.OutputFormat_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(config, pbC2Implant)
+		fPath, err = generate.SliverSharedLibrary(config, httpC2Config.ImplantConfig)
 	case clientpb.OutputFormat_SHELLCODE:
-		fPath, err = generate.SliverShellcode(config, pbC2Implant)
+		fPath, err = generate.SliverShellcode(config, httpC2Config.ImplantConfig)
 	default:
 		return nil, fmt.Errorf("invalid output format: %s", req.Config.Format)
 	}

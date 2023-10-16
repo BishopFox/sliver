@@ -79,7 +79,7 @@ func GetContent(websiteName string, path string) (*clientpb.WebContent, error) {
 		return nil, err
 	}
 
-	webContent, err := db.WebContentByIDAndPath(website.ID, u.Path, webContentDir, false)
+	webContent, err := db.WebContentByIDAndPath(website.ID, u.Path, webContentDir, true)
 	if err != nil {
 		return nil, err
 	}
