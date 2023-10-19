@@ -192,7 +192,7 @@ func StartClient(con *SliverConsoleClient, rpc rpcpb.SliverRPCClient, serverCmds
 		consoleLog := getConsoleLogFile()
 		consoleLogStream, err := con.ClientLogStream("json")
 		if err != nil {
-			log.Printf("Could not get client log stream: %s", err)
+			log.Printf("Could not get client json log stream: %s", err)
 		}
 		con.setupLogger(consoleLog, consoleLogStream)
 		defer consoleLog.Close()
@@ -202,6 +202,9 @@ func StartClient(con *SliverConsoleClient, rpc rpcpb.SliverRPCClient, serverCmds
 		defer asciicastLog.Close()
 
 		asciicastStream, err := con.ClientLogStream("asciicast")
+		if err != nil {
+			log.Printf("Could not get client asciicast log stream: %s", err)
+		}
 		con.setupAsciicastRecord(asciicastLog, asciicastStream)
 	}
 
