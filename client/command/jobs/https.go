@@ -22,7 +22,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -92,11 +92,11 @@ func getLocalCertificatePair(cmd *cobra.Command) ([]byte, []byte, error) {
 	if certPath == "" && keyPath == "" {
 		return nil, nil, nil
 	}
-	cert, err := ioutil.ReadFile(certPath)
+	cert, err := os.ReadFile(certPath)
 	if err != nil {
 		return nil, nil, err
 	}
-	key, err := ioutil.ReadFile(keyPath)
+	key, err := os.ReadFile(keyPath)
 	if err != nil {
 		return nil, nil, err
 	}

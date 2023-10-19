@@ -21,7 +21,7 @@ package sgn
 import (
 	"context"
 	"encoding/hex"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -33,7 +33,7 @@ import (
 // ShikataGaNaiCmd - Command wrapper for the Shikata Ga Nai shellcode encoder
 func ShikataGaNaiCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	shellcodeFile := args[0]
-	rawShellcode, err := ioutil.ReadFile(shellcodeFile)
+	rawShellcode, err := os.ReadFile(shellcodeFile)
 	if err != nil {
 		con.PrintErrorf("Failed to read shellcode file: %s", err)
 		return
@@ -73,7 +73,7 @@ func ShikataGaNaiCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 		outputFile += ".sgn"
 	}
 
-	err = ioutil.WriteFile(outputFile, shellcodeResp.Data, 0o644)
+	err = os.WriteFile(outputFile, shellcodeResp.Data, 0o644)
 	if err != nil {
 		con.PrintErrorf("Failed to write shellcode file: %s", err)
 		return
