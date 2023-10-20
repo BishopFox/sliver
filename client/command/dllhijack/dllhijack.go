@@ -21,7 +21,7 @@ package dllhijack
 import (
 	"context"
 	"fmt"
-	"o"
+	"os"
 
 	"github.com/spf13/cobra"
 
