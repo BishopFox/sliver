@@ -197,6 +197,11 @@ func LootDownload(download *sliverpb.Download, lootName string, fileType clientp
 	}
 }
 
+func LootText(text string, lootName string, lootFileName string, fileType clientpb.FileType, con *console.SliverConsoleClient) {
+	lootMessage := CreateLootMessage(lootFileName, lootName, fileType, []byte(text))
+	SendLootMessage(lootMessage, con)
+}
+
 // LootAddRemoteCmd - Add a file from the remote system to the server as loot
 func LootAddRemoteCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
