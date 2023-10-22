@@ -152,7 +152,7 @@ func (rpc *Server) Regenerate(ctx context.Context, req *clientpb.RegenerateReq) 
 	if err != nil {
 		return nil, err
 	}
-	config, err := db.ImplantConfigByID(build.ImplantConfigID.String())
+	config, err := db.ImplantConfigByID(build.ImplantConfigID)
 	if err != nil {
 		return nil, err
 	}

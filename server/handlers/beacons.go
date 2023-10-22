@@ -165,7 +165,7 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) *slive
 		envelope.ID = pendingTask.EnvelopeID
 		tasks = append(tasks, envelope)
 		pendingTask.State = models.SENT
-		pendingTask.SentAt = time.Now()
+		pendingTask.SentAt = time.Now().Unix()
 		err = db.Session().Model(&models.BeaconTask{}).Where(&models.BeaconTask{
 			ID: pendingTask.ID,
 		}).Updates(pendingTask).Error

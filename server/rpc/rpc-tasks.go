@@ -310,7 +310,7 @@ func getSliverShellcode(name string) ([]byte, string, error) {
 		return nil, "", err
 	}
 
-	config, err := db.ImplantConfigByID(build.ImplantConfigID.String())
+	config, err := db.ImplantConfigByID(build.ImplantConfigID)
 	if err != nil {
 		return nil, "", err
 	}

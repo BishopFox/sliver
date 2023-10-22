@@ -66,6 +66,37 @@ func (ib *ImplantBuild) BeforeCreate(tx *gorm.DB) (err error) {
 	return nil
 }
 
+// Convert ImplantBuild To Protobuf
+func (ib *ImplantBuild) ToProtobuf() *clientpb.ImplantBuild {
+	build := clientpb.ImplantBuild{
+		ID:              ib.ID.String(),
+		Name:            ib.Name,
+		MD5:             ib.MD5,
+		SHA1:            ib.SHA1,
+		SHA256:          ib.SHA256,
+		Burned:          ib.Burned,
+		ImplantID:       ib.ImplantID,
+		ImplantConfigID: ib.ImplantConfigID.String(),
+	}
+	return &build
+}
+
+func ImplantBuildFromProtobuf(ib *clientpb.ImplantBuild) *ImplantBuild {
+	id, _ := uuid.FromString(ib.ID)
+	ImplantConfidID, _ := uuid.FromString(ib.ImplantConfigID)
+	build := ImplantBuild{
+		ID:              id,
+		Name:            ib.Name,
+		MD5:             ib.MD5,
+		SHA1:            ib.SHA1,
+		SHA256:          ib.SHA256,
+		Burned:          ib.Burned,
+		ImplantID:       ib.ImplantID,
+		ImplantConfigID: ImplantConfidID,
+	}
+	return &build
+}
+
 // ImplantConfig - An implant build configuration
 type ImplantConfig struct {
 	ID               uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`

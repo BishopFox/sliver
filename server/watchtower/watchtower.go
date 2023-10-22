@@ -19,7 +19,7 @@ var (
 	watchtowerLog = log.NamedLogger("watchtower", "samples")
 )
 
-func update(implantBuild *models.ImplantBuild) {
+func update(implantBuild *clientpb.ImplantBuild) {
 	if watcher != nil && initialized {
 		watchtowerLog.Debugf("Monitoring implant %s (%s)", implantBuild.Name, implantBuild.MD5)
 		watcher.Add(implantBuild.Name, implantBuild.MD5)
@@ -99,7 +99,7 @@ func StartWatchTower(configs *clientpb.MonitoringProviders) error {
 	return nil
 }
 
-func AddImplantToWatchlist(implant *models.ImplantBuild) {
+func AddImplantToWatchlist(implant *clientpb.ImplantBuild) {
 	update(implant)
 }
 

@@ -241,6 +241,20 @@ message ExternalImplantBinary {
 // Configs of previously built implants
 message ImplantBuilds { map<string, ImplantConfig> Configs = 1; }
 
+message ImplantBuild {
+  string ID = 1;
+  string Name = 2;
+
+	string MD5    = 3;
+	string SHA1   = 4;
+	string SHA256 = 5;
+
+  bool Burned = 6;
+	uint64 ImplantID = 7;
+
+	string ImplantConfigID = 8;
+}
+
 message CompilerTarget {
   string GOOS = 1;   // The server's OS
   string GOARCH = 2; // The server's Arch

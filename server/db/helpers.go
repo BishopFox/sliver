@@ -125,8 +125,24 @@ func ImplantBuilds() (*clientpb.ImplantBuilds, error) {
 	return pbBuilds, err
 }
 
+// SaveImplantBuild
+func SaveImplantBuild(ib *clientpb.ImplantBuild) (*clientpb.ImplantBuild, error) {
+	implantBuild := models.ImplantBuildFromProtobuf(ib)
+	dbSession := Session()
+	err := dbSession.Create(&implantBuild).Error
+	if err != nil {
+		return nil, err
+	}
+	build, err := ImplantBuildByName(implantBuild.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return build, nil
+}
+
 // ImplantBuildByName - Fetch implant build by name
-func ImplantBuildByName(name string) (*models.ImplantBuild, error) {
+func ImplantBuildByName(name string) (*clientpb.ImplantBuild, error) {
 	if len(name) < 1 {
 		return nil, ErrRecordNotFound
 	}
@@ -137,25 +153,11 @@ func ImplantBuildByName(name string) (*models.ImplantBuild, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &build, err
-}
-
-// ImplantBuildNames - Fetch a list of all build names
-func ImplantBuildNames() ([]string, error) {
-	builds := []*models.ImplantBuild{}
-	err := Session().Where(&models.ImplantBuild{}).Find(&builds).Error
-	if err != nil {
-		return []string{}, err
-	}
-	names := []string{}
-	for _, build := range builds {
-		names = append(names, build.Name)
-	}
-	return names, nil
+	return build.ToProtobuf(), err
 }
 
 // ImplantBuildByResourceID - Fetch implant build from resource ID
-func ImplantBuildByResourceID(resourceID uint64) (*models.ImplantBuild, error) {
+func ImplantBuildByResourceID(resourceID uint64) (*clientpb.ImplantBuild, error) {
 	build := models.ImplantBuild{}
 	err := Session().Where(&models.ImplantBuild{
 		ImplantID: resourceID,
@@ -163,7 +165,7 @@ func ImplantBuildByResourceID(resourceID uint64) (*models.ImplantBuild, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &build, nil
+	return build.ToProtobuf(), nil
 }
 
 // ImplantProfiles - Fetch a map of name<->profiles current in the database
@@ -749,14 +751,17 @@ func BeaconTaskByID(id string) (*clientpb.BeaconTask, error) {
 	if len(id) < 1 {
 		return nil, ErrRecordNotFound
 	}
-	taskID := uuid.FromStringOrNil(id)
+	taskID, err := uuid.FromString(id)
 	if taskID == uuid.Nil {
 		return nil, ErrRecordNotFound
 	}
 	task := &models.BeaconTask{}
-	err := Session().Where(
+	err = Session().Where(
 		&models.BeaconTask{ID: taskID},
 	).First(task).Error
+	if err != nil {
+		return nil, err
+	}
 	return task.ToProtobuf(true), err
 }
 

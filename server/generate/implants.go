@@ -110,23 +110,21 @@ func ImplantBuildSave(name string, config *clientpb.ImplantConfig, fPath string)
 		return err
 	}
 
-	id, _ := uuid.FromString(config.ID)
-	dbSession := db.Session()
-	implantBuild := &models.ImplantBuild{
+	implantBuild := &clientpb.ImplantBuild{
 		Name:            name,
-		ImplantConfigID: id,
+		ImplantConfigID: config.ID,
 		MD5:             md5Hash,
 		SHA1:            sha1Hash,
 		SHA256:          sha256Hash,
 		ImplantID:       implantID,
 	}
-	watchtower.AddImplantToWatchlist(implantBuild)
-	result := dbSession.Create(&implantBuild)
-	if result.Error != nil {
-		return result.Error
+	implantBuild, err = db.SaveImplantBuild(implantBuild)
+	if err != nil {
+		return err
 	}
+	watchtower.AddImplantToWatchlist(implantBuild)
 	storageLog.Infof("%s -> %s", implantBuild.ID, implantBuild.Name)
-	return os.WriteFile(filepath.Join(buildsDir, implantBuild.ID.String()), data, 0600)
+	return os.WriteFile(filepath.Join(buildsDir, implantBuild.ID), data, 0600)
 }
 
 func computeHashes(data []byte) (string, string, string) {
@@ -140,12 +138,12 @@ func computeHashes(data []byte) (string, string, string) {
 }
 
 // ImplantFileFromBuild - Saves a binary file into the database
-func ImplantFileFromBuild(build *models.ImplantBuild) ([]byte, error) {
+func ImplantFileFromBuild(build *clientpb.ImplantBuild) ([]byte, error) {
 	buildsDir, err := getBuildsDir()
 	if err != nil {
 		return nil, err
 	}
-	buildFilePath := path.Join(buildsDir, build.ID.String())
+	buildFilePath := path.Join(buildsDir, build.ID)
 	if _, err := os.Stat(buildFilePath); os.IsNotExist(err) {
 		return nil, ErrImplantBuildFileNotFound
 	}
@@ -153,12 +151,12 @@ func ImplantFileFromBuild(build *models.ImplantBuild) ([]byte, error) {
 }
 
 // ImplantFileDelete - Delete the implant from the file system
-func ImplantFileDelete(build *models.ImplantBuild) error {
+func ImplantFileDelete(build *clientpb.ImplantBuild) error {
 	buildsDir, err := getBuildsDir()
 	if err != nil {
 		return err
 	}
-	buildFilePath := filepath.Join(buildsDir, build.ID.String())
+	buildFilePath := filepath.Join(buildsDir, build.ID)
 	if _, err := os.Stat(buildFilePath); os.IsNotExist(err) {
 		return ErrImplantBuildFileNotFound
 	}
