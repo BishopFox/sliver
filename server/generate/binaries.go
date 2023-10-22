@@ -754,9 +754,11 @@ func GenerateConfig(implantConfig *clientpb.ImplantConfig, save bool) (*clientpb
 		implantConfig.WGServerPubKey = serverPubKey
 	}
 
-	err = ImplantConfigSave(implantConfig)
-	if err != nil {
-		return nil, err
+	if save {
+		err = ImplantConfigSave(implantConfig)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return implantConfig, nil

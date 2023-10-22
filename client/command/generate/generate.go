@@ -36,7 +36,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/constants"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -363,7 +362,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverConsoleClient) *cl
 
 	c2Profile, _ := cmd.Flags().GetString("c2profile")
 	if c2Profile == "" {
-		c2Profile = constants.DefaultC2Profile
+		c2Profile = consts.DefaultC2Profile
 	}
 
 	config := &clientpb.ImplantConfig{

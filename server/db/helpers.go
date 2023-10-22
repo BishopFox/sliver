@@ -56,7 +56,7 @@ func ImplantConfigByID(id string) (*clientpb.ImplantConfig, error) {
 		return nil, ErrRecordNotFound
 	}
 	config := models.ImplantConfig{}
-	err := Session().Where(&models.ImplantConfig{
+	err := Session().Preload("C2").Preload("Assets").Preload("CanaryDomains").Where(&models.ImplantConfig{
 		ID: configID,
 	}).First(&config).Error
 	if err != nil {

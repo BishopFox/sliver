@@ -58,14 +58,6 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		err    error
 		config *clientpb.ImplantConfig
 	)
-	if req.Config.Name == "" {
-		req.Config.Name, err = codenames.GetCodename()
-		if err != nil {
-			return nil, err
-		}
-	} else if err := util.AllowedName(req.Config.Name); err != nil {
-		return nil, err
-	}
 
 	if req.Config.ID != "" {
 		// if this is a profile reuse existing configuration
@@ -73,12 +65,25 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		if err != nil {
 			return nil, err
 		}
-
-	} else {
-		config, err = generate.GenerateConfig(req.Config, true)
+		config, err = generate.GenerateConfig(config, false)
 		if err != nil {
 			return nil, err
 		}
+	} else {
+
+		config, err = generate.GenerateConfig(config, true)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if config.Name == "" {
+		config.Name, err = codenames.GetCodename()
+		if err != nil {
+			return nil, err
+		}
+	} else if err := util.AllowedName(config.Name); err != nil {
+		return nil, err
 	}
 
 	if config == nil {
@@ -114,13 +119,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		return nil, err
 	}
 
-	err = generate.ImplantConfigSave(config)
-	if err != nil {
-		rpcLog.Errorf("Failed to save implant config: %s", err)
-		return nil, err
-	}
-
-	err = generate.ImplantBuildSave(req.Config.Name, req.Config, fPath)
+	err = generate.ImplantBuildSave(config.Name, config, fPath)
 	if err != nil {
 		rpcLog.Errorf("Failed to save external build: %s", err)
 		return nil, err
