@@ -52,7 +52,7 @@ func SetupDefaultC2Profiles() {
 
 	if config.Name == "" {
 		defaultConfig := configs.GenerateDefaultHTTPC2Config()
-		err = db.HTTPC2ConfigSave(defaultConfig)
+		err = db.SaveHTTPC2Config(defaultConfig)
 		if err != nil {
 			log.Printf("Error:\n%s", err)
 			os.Exit(-1)

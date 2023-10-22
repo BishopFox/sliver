@@ -364,7 +364,7 @@ func LoadHTTPC2ConfigByName(name string) (*clientpb.HTTPC2Config, error) {
 	return c2Config.ToProtobuf(), nil
 }
 
-func HTTPC2ConfigSave(httpC2Config *clientpb.HTTPC2Config) error {
+func SaveHTTPC2Config(httpC2Config *clientpb.HTTPC2Config) error {
 	httpC2ConfigModel := models.HTTPC2ConfigFromProtobuf(httpC2Config)
 	dbSession := Session()
 	result := dbSession.Clauses(clause.OnConflict{
@@ -396,7 +396,7 @@ func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2
 	return nil
 }
 
-func HTTPC2ListenerSave(listenerConf *clientpb.ListenerJob) error {
+func SaveHTTPC2Listener(listenerConf *clientpb.ListenerJob) error {
 	dbListener := models.ListenerJobFromProtobuf(listenerConf)
 	dbSession := Session()
 	result := dbSession.Clauses(clause.OnConflict{
@@ -408,7 +408,7 @@ func HTTPC2ListenerSave(listenerConf *clientpb.ListenerJob) error {
 	return nil
 }
 
-func HTTPC2ListenerUpdate(listenerConf *clientpb.ListenerJob) error {
+func UpdateHTTPC2Listener(listenerConf *clientpb.ListenerJob) error {
 	dbListener := models.ListenerJobFromProtobuf(listenerConf)
 	dbSession := Session()
 	result := dbSession.Save(dbListener)
@@ -1122,7 +1122,7 @@ func WatchTowerConfigs() ([]*clientpb.MonitoringProvider, error) {
 	return pbMonitoringProviders, err
 }
 
-func WatchTowerConfigSave(m *clientpb.MonitoringProvider) error {
+func SaveWatchTowerConfig(m *clientpb.MonitoringProvider) error {
 	dbMonitoringProvider := models.MonitorFromProtobuf(m)
 	dbSession := Session()
 	result := dbSession.Clauses(clause.OnConflict{
@@ -1199,7 +1199,7 @@ func ResourceIDByValue(id uint64) (*clientpb.ResourceID, error) {
 	return resourceID.ToProtobuf(), nil
 }
 
-func ResourceIDSave(r *clientpb.ResourceID) error {
+func SaveResourceID(r *clientpb.ResourceID) error {
 	resourceID := &models.ResourceID{
 		Type:  r.Type,
 		Name:  r.Name,

@@ -101,7 +101,7 @@ func ImplantBuildSave(name string, config *clientpb.ImplantConfig, fPath string)
 	}
 
 	implantID := uint64(encoders.GetPrimeNumber())
-	err = db.ResourceIDSave(&clientpb.ResourceID{
+	err = db.SaveResourceID(&clientpb.ResourceID{
 		Type:  "stager",
 		Value: implantID,
 		Name:  name,

@@ -83,7 +83,7 @@ func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2Co
 			os.Exit(-1)
 		}
 	} else {
-		err = db.HTTPC2ConfigSave(req.C2Config)
+		err = db.SaveHTTPC2Config(req.C2Config)
 		if err != nil {
 			log.Printf("Error:\n%s", err)
 			os.Exit(-1)

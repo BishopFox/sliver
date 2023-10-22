@@ -88,7 +88,7 @@ func SetupDefaultEncoders(name string) uint64 {
 	}
 
 	prime := GetPrimeNumber()
-	err = db.ResourceIDSave(&clientpb.ResourceID{
+	err = db.SaveResourceID(&clientpb.ResourceID{
 		Type:  "encoder",
 		Name:  name,
 		Value: prime,

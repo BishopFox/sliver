@@ -31,7 +31,7 @@ func handleBurnedImplant(result *snitch.ScanResult) {
 	build, err := db.ImplantBuildByName(result.Sample.Name())
 	if build != nil && err == nil {
 		build.Burned = true
-		db.Session().Save(build)
+		db.SaveImplantBuild(build)
 	}
 	for _, session := range core.Sessions.All() {
 		// Won't work for sessions that have been renamed
@@ -123,7 +123,7 @@ func ListConfig() (*clientpb.MonitoringProviders, error) {
 func AddConfig(m *clientpb.MonitoringProvider) error {
 
 	provider := models.MonitorFromProtobuf(m)
-	err := db.WatchTowerConfigSave(provider.ToProtobuf())
+	err := db.SaveWatchTowerConfig(provider.ToProtobuf())
 	return err
 }
 

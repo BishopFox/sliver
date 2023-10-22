@@ -117,7 +117,7 @@ func StartPersistentJobs(listenerJobs *[]clientpb.ListenerJob) error {
 				}
 				j.JobID = uint32(id)
 			}
-			db.HTTPC2ListenerUpdate(&j)
+			db.UpdateHTTPC2Listener(&j)
 		}
 	}
 
