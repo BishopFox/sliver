@@ -21,6 +21,7 @@ package rpc
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -113,6 +114,11 @@ func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSList
 		req.Port = defaultMTLSPort
 	}
 
+	err := PortInUse(req.Port)
+	if err != nil {
+		return nil, err
+	}
+
 	job, err := c2.StartMTLSListenerJob(req)
 	if err != nil {
 		return nil, err
@@ -149,6 +155,21 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 		req.KeyPort = defaultWGKeyExPort
 	}
 
+	err := PortInUse(req.Port)
+	if err != nil {
+		return nil, err
+	}
+
+	err = PortInUse(req.NPort)
+	if err != nil {
+		return nil, err
+	}
+
+	err = PortInUse(req.KeyPort)
+	if err != nil {
+		return nil, err
+	}
+
 	job, err := c2.StartWGListenerJob(req)
 	if err != nil {
 		return nil, err
@@ -169,6 +190,11 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 
 // StartDNSListener - Start a DNS listener TODO: respect request's Host specification
 func (rpc *Server) StartDNSListener(ctx context.Context, req *clientpb.DNSListenerReq) (*clientpb.ListenerJob, error) {
+	err := PortInUse(req.Port)
+	if err != nil {
+		return nil, err
+	}
+
 	job, err := c2.StartDNSListenerJob(req)
 	if err != nil {
 		return nil, err
@@ -194,6 +220,11 @@ func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPLis
 	}
 	if req.Port == 0 {
 		req.Port = defaultHTTPSPort
+	}
+
+	err := PortInUse(req.Port)
+	if err != nil {
+		return nil, err
 	}
 
 	job, err := c2.StartHTTPListenerJob(req)
@@ -223,6 +254,11 @@ func (rpc *Server) StartHTTPListener(ctx context.Context, req *clientpb.HTTPList
 		req.Port = defaultHTTPPort
 	}
 
+	err := PortInUse(req.Port)
+	if err != nil {
+		return nil, err
+	}
+
 	job, err := c2.StartHTTPListenerJob(req)
 	if err != nil {
 		return nil, err
@@ -239,4 +275,37 @@ func (rpc *Server) StartHTTPListener(ctx context.Context, req *clientpb.HTTPList
 	}
 
 	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
+}
+
+func PortInUse(newPort uint32) error {
+	listenerJobs, err := db.ListenerJobs()
+	if err != nil {
+		return err
+	}
+	var port uint32
+	for _, job := range *listenerJobs {
+		listener, err := db.ListenerByJobID(job.JobID)
+		if err != nil {
+			return err
+		}
+		switch job.Type {
+		case "http":
+			port = listener.HTTPConf.Port
+		case "https":
+			port = listener.HTTPConf.Port
+		case "mtls":
+			port = listener.MTLSConf.Port
+		case "dns":
+			port = listener.DNSConf.Port
+		case "wg":
+			port = listener.WGConf.Port
+		case "multiplayer":
+			port = listener.MultiConf.Port
+		}
+
+		if port == newPort {
+			return errors.New(fmt.Sprintf("port %d is in use", port))
+		}
+	}
+	return nil
 }
