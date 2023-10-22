@@ -266,12 +266,13 @@ message DeleteReq { string Name = 1; }
 
 // DNSCanary - Single canary and metadata
 message DNSCanary {
-  string ImplantName = 1;
-  string Domain = 2;
-  bool Triggered = 3;
-  string FirstTriggered = 4;
-  string LatestTrigger = 5;
-  uint32 Count = 6;
+  string ID = 1;
+  string ImplantName = 2;
+  string Domain = 3;
+  bool Triggered = 4;
+  string FirstTriggered = 5;
+  string LatestTrigger = 6;
+  uint32 Count = 7;
 }
 
 message Canaries { repeated DNSCanary Canaries = 1; }
@@ -618,15 +619,16 @@ message IOC {
 message ExtensionData { string Output = 1; }
 
 message Host {
-  string Hostname = 1;
-  string HostUUID = 2;
-  string OSVersion = 3;
+  string ID = 1;
+  string Hostname = 2;
+  string HostUUID = 3;
+  string OSVersion = 4;
 
-  repeated IOC IOCs = 4;
-  map<string, ExtensionData> ExtensionData = 5;
+  repeated IOC IOCs = 5;
+  map<string, ExtensionData> ExtensionData = 6;
 
-  string Locale = 6;
-  int64 FirstContact = 7;
+  string Locale = 7;
+  int64 FirstContact = 8;
 }
 
 message AllHosts { repeated Host Hosts = 1; }
@@ -993,14 +995,15 @@ message CrackTask {
 }
 
 message Crackstation {
-  string Name = 1;
-  string OperatorName = 2;
-  string GOOS = 3;   // The cracker's OS
-  string GOARCH = 4; // The cracker's Arch
-  string HashcatVersion = 5;
-  string HostUUID = 6;
-  string Version = 7;
-  map<int32, uint64> Benchmarks = 8;
+  string ID = 1;
+  string Name = 2;
+  string OperatorName = 3;
+  string GOOS = 4;   // The cracker's OS
+  string GOARCH = 5; // The cracker's Arch
+  string HashcatVersion = 6;
+  string HostUUID = 7;
+  string Version = 8;
+  map<int32, uint64> Benchmarks = 9;
 
   repeated CUDABackendInfo CUDA = 100;
   repeated MetalBackendInfo Metal = 101;
@@ -1255,4 +1258,12 @@ message MonitoringProvider {
   string Type = 2;
   string APIKey = 3;
   string APIPassword = 4;
+}
+
+// resource IDs
+message ResourceID {
+  string ID = 1;
+  string Type = 2;
+  string Name = 3;
+  uint64 Value = 4;
 }

@@ -850,9 +850,9 @@ func (s *SliverDNSServer) handleCanary(req *dns.Msg) *dns.Msg {
 					EventType: consts.CanaryEvent,
 				})
 				canary.Triggered = true
-				canary.FirstTrigger = time.Now()
+				canary.FirstTriggered = time.Now().Format(time.RFC1123)
 			}
-			canary.LatestTrigger = time.Now()
+			canary.LatestTrigger = time.Now().Format(time.RFC1123)
 			canary.Count++
 			generate.UpdateCanary(canary)
 		}

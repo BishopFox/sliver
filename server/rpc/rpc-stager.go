@@ -30,7 +30,6 @@ import (
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/generate"
 )
 
@@ -89,7 +88,7 @@ func (rpc *Server) SaveStager(ctx context.Context, req *clientpb.SaveStagerReq) 
 
 	// save implant build
 	fileName := filepath.Base(fPath)
-	err = generate.ImplantBuildSave(req.Config.Name, models.ImplantConfigFromProtobuf(req.Config), fPath)
+	err = generate.ImplantBuildSave(req.Config.Name, req.Config, fPath)
 	if err != nil {
 		rpcLog.Errorf("Failed to save build: %s", err)
 		return nil, err

@@ -28,7 +28,6 @@ import (
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/db/models"
 )
 
 const (
@@ -75,7 +74,7 @@ func (rpc *Server) RestartJobs(ctx context.Context, restartJobReq *clientpb.Rest
 			return &commonpb.Empty{}, err
 		}
 		job.JobCtrl <- true
-		job, err = c2.StartHTTPListenerJob(listenerJob.ToProtobuf().HTTPConf)
+		job, err = c2.StartHTTPListenerJob(listenerJob.HTTPConf)
 		if err != nil {
 			return &commonpb.Empty{}, err
 		}
@@ -124,8 +123,7 @@ func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSList
 		Type:     constants.MtlsStr,
 		MTLSConf: req,
 	}
-	listenerModel := models.ListenerJobFromProtobuf(listenerJob)
-	err = db.HTTPC2ListenerSave(listenerModel)
+	err = db.HTTPC2ListenerSave(listenerJob)
 	if err != nil {
 		return nil, err
 	}
@@ -161,8 +159,7 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 		Type:   constants.WGStr,
 		WGConf: req,
 	}
-	listenerModel := models.ListenerJobFromProtobuf(listenerJob)
-	err = db.HTTPC2ListenerSave(listenerModel)
+	err = db.HTTPC2ListenerSave(listenerJob)
 	if err != nil {
 		return nil, err
 	}
@@ -182,8 +179,7 @@ func (rpc *Server) StartDNSListener(ctx context.Context, req *clientpb.DNSListen
 		Type:    constants.DnsStr,
 		DNSConf: req,
 	}
-	listenerModel := models.ListenerJobFromProtobuf(listenerJob)
-	err = db.HTTPC2ListenerSave(listenerModel)
+	err = db.HTTPC2ListenerSave(listenerJob)
 	if err != nil {
 		return nil, err
 	}
@@ -210,8 +206,7 @@ func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPLis
 		Type:     constants.HttpsStr,
 		HTTPConf: req,
 	}
-	listenerModel := models.ListenerJobFromProtobuf(listenerJob)
-	err = db.HTTPC2ListenerSave(listenerModel)
+	err = db.HTTPC2ListenerSave(listenerJob)
 	if err != nil {
 		return nil, err
 	}
@@ -238,8 +233,7 @@ func (rpc *Server) StartHTTPListener(ctx context.Context, req *clientpb.HTTPList
 		Type:     constants.HttpStr,
 		HTTPConf: req,
 	}
-	listenerModel := models.ListenerJobFromProtobuf(listenerJob)
-	err = db.HTTPC2ListenerSave(listenerModel)
+	err = db.HTTPC2ListenerSave(listenerJob)
 	if err != nil {
 		return nil, err
 	}

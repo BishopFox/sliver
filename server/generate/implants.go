@@ -37,6 +37,7 @@ import (
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/watchtower"
 	"github.com/bishopfox/sliver/util/encoders"
+	"github.com/gofrs/uuid"
 	"gorm.io/gorm/clause"
 )
 
@@ -74,14 +75,15 @@ func ImplantConfigSave(config *clientpb.ImplantConfig) error {
 			UpdateAll: true,
 		}).Create(modelConfig).Error
 	} else {
-		modelConfig.ImplantProfileID = dbConfig.ImplantProfileID
+		id, _ := uuid.FromString(dbConfig.ImplantProfileID)
+		modelConfig.ImplantProfileID = id
 		err = dbSession.Save(modelConfig).Error
 	}
 	return err
 }
 
 // ImplantBuildSave - Saves a binary file into the database
-func ImplantBuildSave(name string, config *models.ImplantConfig, fPath string) error {
+func ImplantBuildSave(name string, config *clientpb.ImplantConfig, fPath string) error {
 	rootAppDir, _ := filepath.Abs(assets.GetRootAppDir())
 	fPath, _ = filepath.Abs(fPath)
 	if !strings.HasPrefix(fPath, rootAppDir) {
@@ -99,7 +101,7 @@ func ImplantBuildSave(name string, config *models.ImplantConfig, fPath string) e
 	}
 
 	implantID := uint64(encoders.GetPrimeNumber())
-	err = db.ResourceIDSave(&models.ResourceID{
+	err = db.ResourceIDSave(&clientpb.ResourceID{
 		Type:  "stager",
 		Value: implantID,
 		Name:  name,
@@ -108,10 +110,11 @@ func ImplantBuildSave(name string, config *models.ImplantConfig, fPath string) e
 		return err
 	}
 
+	id, _ := uuid.FromString(config.ID)
 	dbSession := db.Session()
 	implantBuild := &models.ImplantBuild{
 		Name:            name,
-		ImplantConfigID: config.ID,
+		ImplantConfigID: id,
 		MD5:             md5Hash,
 		SHA1:            sha1Hash,
 		SHA256:          sha256Hash,

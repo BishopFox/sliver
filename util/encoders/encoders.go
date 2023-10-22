@@ -24,8 +24,8 @@ import (
 	insecureRand "math/rand"
 	"os"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/util"
 )
 
@@ -88,12 +88,11 @@ func SetupDefaultEncoders(name string) uint64 {
 	}
 
 	prime := GetPrimeNumber()
-	resourceID := models.ResourceID{
+	err = db.ResourceIDSave(&clientpb.ResourceID{
 		Type:  "encoder",
 		Name:  name,
 		Value: prime,
-	}
-	err = db.ResourceIDSave(&resourceID)
+	})
 	if err != nil {
 		log.Printf("Error:\n%s", err)
 		os.Exit(-1)

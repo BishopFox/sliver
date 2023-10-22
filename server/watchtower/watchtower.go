@@ -50,7 +50,11 @@ func addExistingImplants() error {
 	if err != nil {
 		return err
 	}
-	for _, build := range builds {
+	for name, _ := range builds.Configs {
+		build, err := db.ImplantBuildByName(name)
+		if err != nil {
+			return err
+		}
 		if !build.Burned {
 			update(build)
 		}
@@ -111,7 +115,7 @@ func ListConfig() (*clientpb.MonitoringProviders, error) {
 	providers, err := db.WatchTowerConfigs()
 	res := clientpb.MonitoringProviders{}
 	for _, provider := range providers {
-		res.Providers = append(res.Providers, provider.ToProtobuf())
+		res.Providers = append(res.Providers, provider)
 	}
 	return &res, err
 }
@@ -119,12 +123,12 @@ func ListConfig() (*clientpb.MonitoringProviders, error) {
 func AddConfig(m *clientpb.MonitoringProvider) error {
 
 	provider := models.MonitorFromProtobuf(m)
-	err := db.WatchTowerConfigSave(&provider)
+	err := db.WatchTowerConfigSave(provider.ToProtobuf())
 	return err
 }
 
 func DelConfig(m *clientpb.MonitoringProvider) error {
 	provider := models.MonitorFromProtobuf(m)
-	err := db.WatchTowerConfigDel(&provider)
+	err := db.WatchTowerConfigDel(provider.ToProtobuf())
 	return err
 }

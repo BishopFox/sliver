@@ -133,7 +133,8 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 // ExecuteAssembly - Execute a .NET assembly on the remote system in-memory (Windows only)
 func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAssemblyReq) (*sliverpb.ExecuteAssembly, error) {
 	var session *core.Session
-	var beacon *models.Beacon
+	var beacon *clientpb.Beacon
+	var dbBeacon *models.Beacon
 	var err error
 	if !req.Request.Async {
 		session = core.Sessions.Get(req.Request.SessionID)
@@ -141,11 +142,12 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 			return nil, ErrInvalidSessionID
 		}
 	} else {
-		beacon, err = db.BeaconByID(req.Request.BeaconID)
+		dbBeacon, err = db.BeaconByID(req.Request.BeaconID)
 		if err != nil {
 			tasksLog.Errorf("%s", err)
 			return nil, ErrDatabaseFailure
 		}
+		beacon = dbBeacon.ToProtobuf()
 		if beacon == nil {
 			return nil, ErrInvalidBeaconID
 		}
@@ -197,10 +199,11 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 // Sideload - Sideload a DLL on the remote system (Windows only)
 func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sliverpb.Sideload, error) {
 	var (
-		session *core.Session
-		beacon  *models.Beacon
-		err     error
-		arch    string
+		session  *core.Session
+		beacon   *clientpb.Beacon
+		dbBeacon *models.Beacon
+		err      error
+		arch     string
 	)
 	if !req.Request.Async {
 		session = core.Sessions.Get(req.Request.SessionID)
@@ -209,11 +212,12 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 		}
 		arch = session.Arch
 	} else {
-		beacon, err = db.BeaconByID(req.Request.BeaconID)
+		dbBeacon, err = db.BeaconByID(req.Request.BeaconID)
 		if err != nil {
 			msfLog.Errorf("%s", err)
 			return nil, ErrDatabaseFailure
 		}
+		beacon = dbBeacon.ToProtobuf()
 		if beacon == nil {
 			return nil, ErrInvalidBeaconID
 		}
@@ -246,7 +250,8 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 // SpawnDll - Spawn a DLL on the remote system (Windows only)
 func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq) (*sliverpb.SpawnDll, error) {
 	var session *core.Session
-	var beacon *models.Beacon
+	var beacon *clientpb.Beacon
+	var dbBeacon *models.Beacon
 	var err error
 	if !req.Request.Async {
 		session = core.Sessions.Get(req.Request.SessionID)
@@ -254,11 +259,12 @@ func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq
 			return nil, ErrInvalidSessionID
 		}
 	} else {
-		beacon, err = db.BeaconByID(req.Request.BeaconID)
+		dbBeacon, err = db.BeaconByID(req.Request.BeaconID)
 		if err != nil {
 			msfLog.Errorf("%s", err)
 			return nil, ErrDatabaseFailure
 		}
+		beacon = dbBeacon.ToProtobuf()
 		if beacon == nil {
 			return nil, ErrInvalidBeaconID
 		}
@@ -286,7 +292,7 @@ func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq
 	return resp, nil
 }
 
-func getOS(session *core.Session, beacon *models.Beacon) string {
+func getOS(session *core.Session, beacon *clientpb.Beacon) string {
 	if session != nil {
 		return session.OS
 	}

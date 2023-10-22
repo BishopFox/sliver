@@ -7,6 +7,7 @@ import (
 	"runtime/debug"
 
 	"github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/certs"
@@ -14,7 +15,6 @@ import (
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/daemon"
 	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/spf13/cobra"
 )
 
@@ -71,7 +71,7 @@ var daemonCmd = &cobra.Command{
 	},
 }
 
-func StartPersistentJobs(listenerJobs *[]models.ListenerJob) error {
+func StartPersistentJobs(listenerJobs *[]clientpb.ListenerJob) error {
 	if len(*listenerJobs) > 0 {
 		// StartPersistentJobs - Start persistent jobs
 		for _, j := range *listenerJobs {
@@ -81,37 +81,37 @@ func StartPersistentJobs(listenerJobs *[]models.ListenerJob) error {
 			}
 			switch j.Type {
 			case constants.HttpStr:
-				job, err := c2.StartHTTPListenerJob(listenerJob.ToProtobuf().HTTPConf)
+				job, err := c2.StartHTTPListenerJob(listenerJob.HTTPConf)
 				if err != nil {
 					return err
 				}
 				j.JobID = uint32(job.ID)
 			case constants.HttpsStr:
-				job, err := c2.StartHTTPListenerJob(listenerJob.ToProtobuf().HTTPConf)
+				job, err := c2.StartHTTPListenerJob(listenerJob.HTTPConf)
 				if err != nil {
 					return err
 				}
 				j.JobID = uint32(job.ID)
 			case constants.MtlsStr:
-				job, err := c2.StartMTLSListenerJob(listenerJob.MtlsListener.ToProtobuf())
+				job, err := c2.StartMTLSListenerJob(listenerJob.MTLSConf)
 				if err != nil {
 					return err
 				}
 				j.JobID = uint32(job.ID)
 			case constants.WGStr:
-				job, err := c2.StartWGListenerJob(listenerJob.WgListener.ToProtobuf())
+				job, err := c2.StartWGListenerJob(listenerJob.WGConf)
 				if err != nil {
 					return err
 				}
 				j.JobID = uint32(job.ID)
 			case constants.DnsStr:
-				job, err := c2.StartDNSListenerJob(listenerJob.DnsListener.ToProtobuf())
+				job, err := c2.StartDNSListenerJob(listenerJob.DNSConf)
 				if err != nil {
 					return err
 				}
 				j.JobID = uint32(job.ID)
 			case constants.MultiplayerModeStr:
-				id, err := console.JobStartClientListener(listenerJob.MultiplayerListener.ToProtobuf())
+				id, err := console.JobStartClientListener(listenerJob.MultiConf)
 				if err != nil {
 					return err
 				}

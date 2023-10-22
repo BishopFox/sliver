@@ -29,6 +29,7 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/gofrs/uuid"
 )
 
 var (
@@ -207,8 +208,9 @@ func trackIOC(req *sliverpb.UploadReq, resp *sliverpb.Upload) {
 	}
 
 	sum := sha256.Sum256(req.Data)
+	id, _ := uuid.FromString(host.ID)
 	ioc := &models.IOC{
-		HostID:   host.ID,
+		HostID:   id,
 		Path:     resp.Path,
 		FileHash: fmt.Sprintf("%x", sum),
 	}

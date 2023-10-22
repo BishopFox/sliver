@@ -43,7 +43,6 @@ import (
 	"github.com/bishopfox/sliver/util"
 	utilEncoders "github.com/bishopfox/sliver/util/encoders"
 	"github.com/bishopfox/sliver/util/encoders/traffic"
-	"github.com/gofrs/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -70,11 +69,10 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 
 	if req.Config.ID != "" {
 		// if this is a profile reuse existing configuration
-		dbConfig, err := db.ImplantConfigByID(req.Config.ID)
+		config, err = db.ImplantConfigByID(req.Config.ID)
 		if err != nil {
 			return nil, err
 		}
-		config = dbConfig.ToProtobuf()
 
 	} else {
 		config, err = generate.GenerateConfig(req.Config, true)
@@ -122,7 +120,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		return nil, err
 	}
 
-	err = generate.ImplantBuildSave(req.Config.Name, models.ImplantConfigFromProtobuf(req.Config), fPath)
+	err = generate.ImplantBuildSave(req.Config.Name, req.Config, fPath)
 	if err != nil {
 		rpcLog.Errorf("Failed to save external build: %s", err)
 		return nil, err
@@ -169,21 +167,11 @@ func (rpc *Server) Regenerate(ctx context.Context, req *clientpb.RegenerateReq) 
 
 // ImplantBuilds - List existing implant builds
 func (rpc *Server) ImplantBuilds(ctx context.Context, _ *commonpb.Empty) (*clientpb.ImplantBuilds, error) {
-	dbBuilds, err := db.ImplantBuilds()
+	builds, err := db.ImplantBuilds()
 	if err != nil {
 		return nil, err
 	}
-	pbBuilds := &clientpb.ImplantBuilds{
-		Configs: map[string]*clientpb.ImplantConfig{},
-	}
-	for _, dbBuild := range dbBuilds {
-		config, err := db.ImplantConfigByID(dbBuild.ImplantConfigID.String())
-		if err != nil {
-			return nil, err
-		}
-		pbBuilds.Configs[dbBuild.Name] = config.ToProtobuf()
-	}
-	return pbBuilds, nil
+	return builds, nil
 }
 
 // Canaries - List existing canaries
@@ -196,7 +184,7 @@ func (rpc *Server) Canaries(ctx context.Context, _ *commonpb.Empty) (*clientpb.C
 	rpcLog.Infof("Found %d canaries", len(dbCanaries))
 	canaries := []*clientpb.DNSCanary{}
 	for _, canary := range dbCanaries {
-		canaries = append(canaries, canary.ToProtobuf())
+		canaries = append(canaries, canary)
 	}
 
 	return &clientpb.Canaries{
@@ -220,21 +208,12 @@ func (rpc *Server) GenerateUniqueIP(ctx context.Context, _ *commonpb.Empty) (*cl
 
 // ImplantProfiles - List profiles
 func (rpc *Server) ImplantProfiles(ctx context.Context, _ *commonpb.Empty) (*clientpb.ImplantProfiles, error) {
-	implantProfiles := &clientpb.ImplantProfiles{
-		Profiles: []*clientpb.ImplantProfile{},
-	}
-	dbProfiles, err := db.ImplantProfiles()
+	implantProfiles, err := db.ImplantProfiles()
 	if err != nil {
-		return implantProfiles, err
+		return nil, err
 	}
-	for _, dbProfile := range dbProfiles {
-		implantProfiles.Profiles = append(implantProfiles.Profiles, &clientpb.ImplantProfile{
-			Name:   dbProfile.Name,
-			Config: dbProfile.ImplantConfig.ToProtobuf(),
-			// ImplantID: dbProfile.ImplantID,
-		})
-	}
-	return implantProfiles, nil
+
+	return &clientpb.ImplantProfiles{Profiles: implantProfiles}, nil
 }
 
 // SaveImplantProfile - Save a new profile
@@ -385,7 +364,7 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 	rpcLog.Infof("Saving external build '%s' from %s", req.Name, tmpFile.Name())
 
 	implantConfig.FileName = req.File.Name
-	generate.ImplantConfigSave(implantConfig.ToProtobuf())
+	generate.ImplantConfigSave(implantConfig)
 	err = generate.ImplantBuildSave(req.Name, implantConfig, tmpFile.Name())
 	if err != nil {
 		rpcLog.Errorf("Failed to save external build: %s", err)
@@ -406,12 +385,12 @@ func (rpc *Server) GenerateExternalGetImplantConfig(ctx context.Context, req *cl
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid implant config id")
 	}
-	if implantConfig.ImplantBuildID != uuid.Nil {
+	if implantConfig.ImplantBuildID != "" {
 		return nil, status.Error(codes.InvalidArgument, "implant config already has a build")
 	}
 
 	return &clientpb.ExternalImplantConfig{
-		Config: implantConfig.ToProtobuf(),
+		Config: implantConfig,
 	}, nil
 }
 

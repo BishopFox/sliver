@@ -24,6 +24,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/gofrs/uuid"
 )
 
 // SaveImplantProfile - Save a sliver profile to disk
@@ -45,7 +46,8 @@ func SaveImplantProfile(pbProfile *clientpb.ImplantProfile) (*clientpb.ImplantPr
 		if err != nil {
 			return nil, err
 		}
-		profile.ID = dbProfile.ID
+		id, _ := uuid.FromString(dbProfile.ID)
+		profile.ID = id
 	} else {
 		dbSession.Save(profile)
 	}

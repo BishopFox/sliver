@@ -21,6 +21,7 @@ package models
 import (
 	"time"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
@@ -43,4 +44,14 @@ func (h *ResourceID) BeforeCreate(tx *gorm.DB) (err error) {
 	}
 	h.CreatedAt = time.Now()
 	return nil
+}
+
+// ToProtobuf - Converts to protobuf object
+func (rid *ResourceID) ToProtobuf() *clientpb.ResourceID {
+	return &clientpb.ResourceID{
+		ID:    rid.ID.String(),
+		Type:  rid.Type,
+		Name:  rid.Name,
+		Value: rid.Value,
+	}
 }

@@ -47,7 +47,7 @@ var (
 )
 
 // ImplantConfigByID - Fetch implant config by id
-func ImplantConfigByID(id string) (*models.ImplantConfig, error) {
+func ImplantConfigByID(id string) (*clientpb.ImplantConfig, error) {
 	if len(id) < 1 {
 		return nil, ErrRecordNotFound
 	}
@@ -62,11 +62,11 @@ func ImplantConfigByID(id string) (*models.ImplantConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &config, err
+	return config.ToProtobuf(), err
 }
 
 // ImplantConfigWithC2sByID - Fetch implant build by name
-func ImplantConfigWithC2sByID(id string) (*models.ImplantConfig, error) {
+func ImplantConfigWithC2sByID(id string) (*clientpb.ImplantConfig, error) {
 	if len(id) < 1 {
 		return nil, ErrRecordNotFound
 	}
@@ -90,11 +90,11 @@ func ImplantConfigWithC2sByID(id string) (*models.ImplantConfig, error) {
 		return nil, err
 	}
 	config.C2 = c2s
-	return &config, err
+	return config.ToProtobuf(), err
 }
 
 // ImplantConfigByPublicKeyDigest - Fetch implant build by it's ecc public key
-func ImplantConfigByPublicKeyDigest(publicKeyDigest [32]byte) (*models.ImplantConfig, error) {
+func ImplantConfigByPublicKeyDigest(publicKeyDigest [32]byte) (*clientpb.ImplantConfig, error) {
 	config := models.ImplantConfig{}
 	err := Session().Where(&models.ImplantConfig{
 		PeerPublicKeyDigest: hex.EncodeToString(publicKeyDigest[:]),
@@ -102,17 +102,27 @@ func ImplantConfigByPublicKeyDigest(publicKeyDigest [32]byte) (*models.ImplantCo
 	if err != nil {
 		return nil, err
 	}
-	return &config, err
+	return config.ToProtobuf(), err
 }
 
 // ImplantBuilds - Return all implant builds
-func ImplantBuilds() ([]*models.ImplantBuild, error) {
+func ImplantBuilds() (*clientpb.ImplantBuilds, error) {
 	builds := []*models.ImplantBuild{}
 	err := Session().Where(&models.ImplantBuild{}).Find(&builds).Error
 	if err != nil {
 		return nil, err
 	}
-	return builds, err
+	pbBuilds := &clientpb.ImplantBuilds{
+		Configs: map[string]*clientpb.ImplantConfig{},
+	}
+	for _, dbBuild := range builds {
+		config, err := ImplantConfigByID(dbBuild.ImplantConfigID.String())
+		if err != nil {
+			return nil, err
+		}
+		pbBuilds.Configs[dbBuild.Name] = config
+	}
+	return pbBuilds, err
 }
 
 // ImplantBuildByName - Fetch implant build by name
@@ -157,23 +167,26 @@ func ImplantBuildByResourceID(resourceID uint64) (*models.ImplantBuild, error) {
 }
 
 // ImplantProfiles - Fetch a map of name<->profiles current in the database
-func ImplantProfiles() ([]*models.ImplantProfile, error) {
+func ImplantProfiles() ([]*clientpb.ImplantProfile, error) {
 	profiles := []*models.ImplantProfile{}
 	err := Session().Where(&models.ImplantProfile{}).Preload("ImplantConfig").Find(&profiles).Error
 	if err != nil {
 		return nil, err
 	}
+	pbProfiles := []*clientpb.ImplantProfile{}
 	for _, profile := range profiles {
-		err = loadC2s(profile.ImplantConfig)
+		pbProfile := profile.ToProtobuf()
+		err = loadC2s(pbProfile.Config)
 		if err != nil {
 			return nil, err
 		}
+		pbProfiles = append(pbProfiles, pbProfile)
 	}
-	return profiles, nil
+	return pbProfiles, nil
 }
 
 // ImplantProfileByName - Fetch implant build by name
-func ImplantProfileByName(name string) (*models.ImplantProfile, error) {
+func ImplantProfileByName(name string) (*clientpb.ImplantProfile, error) {
 	if len(name) < 1 {
 		return nil, ErrRecordNotFound
 	}
@@ -193,25 +206,30 @@ func ImplantProfileByName(name string) (*models.ImplantProfile, error) {
 	}
 
 	profile.ImplantConfig = &config
+	pbProfile := profile.ToProtobuf()
 
-	err = loadC2s(profile.ImplantConfig)
+	err = loadC2s(pbProfile.Config)
 	if err != nil {
 		return nil, err
 	}
-	return &profile, err
+	return pbProfile, err
 }
 
-// C2s are not eager-loaded, this will load them for a given ImplantConfig
-// I wasn't able to get GORM's nested loading to work, so I went with this.
-func loadC2s(config *models.ImplantConfig) error {
+// load c2 for a given implant config
+func loadC2s(config *clientpb.ImplantConfig) error {
+	id, _ := uuid.FromString(config.ID)
 	c2s := []models.ImplantC2{}
 	err := Session().Where(&models.ImplantC2{
-		ImplantConfigID: config.ID,
+		ImplantConfigID: id,
 	}).Find(&c2s).Error
 	if err != nil {
 		return err
 	}
-	config.C2 = c2s
+	var implantC2 []*clientpb.ImplantC2
+	for _, c2 := range c2s {
+		implantC2 = append(implantC2, c2.ToProtobuf())
+	}
+	config.C2 = implantC2
 	return nil
 }
 
@@ -229,6 +247,7 @@ func LoadHTTPC2s() ([]*clientpb.HTTPC2Config, error) {
 	return pbC2Configs, nil
 }
 
+// used to prevent duplicate stager extensions
 func SearchStageExtensions(stagerExtension string, profileName string) error {
 	c2Config := models.HttpC2ImplantConfig{}
 	err := Session().Where(&models.HttpC2ImplantConfig{
@@ -357,9 +376,10 @@ func HTTPC2ConfigSave(httpC2Config *clientpb.HTTPC2Config) error {
 
 func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2Config) error {
 	clientID, _ := uuid.FromString(oldConf.ImplantConfig.ID)
+	c2Config := models.HTTPC2ConfigFromProtobuf(newConf)
 	err := Session().Where(&models.ImplantConfig{
 		ID: clientID,
-	}).Updates(newConf.ImplantConfig)
+	}).Updates(c2Config.ImplantConfig)
 	if err != nil {
 		return err.Error
 	}
@@ -367,34 +387,36 @@ func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2
 	serverID, _ := uuid.FromString(oldConf.ImplantConfig.ID)
 	err = Session().Where(&models.HttpC2ServerConfig{
 		ID: serverID,
-	}).Updates(newConf.ServerConfig)
+	}).Updates(c2Config.ServerConfig)
 	if err != nil {
 		return err.Error
 	}
 	return nil
 }
 
-func HTTPC2ListenerSave(listenerConf *models.ListenerJob) error {
+func HTTPC2ListenerSave(listenerConf *clientpb.ListenerJob) error {
+	dbListener := models.ListenerJobFromProtobuf(listenerConf)
 	dbSession := Session()
 	result := dbSession.Clauses(clause.OnConflict{
 		UpdateAll: true,
-	}).Create(&listenerConf)
+	}).Create(&dbListener)
 	if result.Error != nil {
 		return result.Error
 	}
 	return nil
 }
 
-func HTTPC2ListenerUpdate(listenerConf *models.ListenerJob) error {
+func HTTPC2ListenerUpdate(listenerConf *clientpb.ListenerJob) error {
+	dbListener := models.ListenerJobFromProtobuf(listenerConf)
 	dbSession := Session()
-	result := dbSession.Save(listenerConf)
+	result := dbSession.Save(dbListener)
 	if result.Error != nil {
 		return result.Error
 	}
 	return nil
 }
 
-func ListenerByJobID(JobID uint32) (*models.ListenerJob, error) {
+func ListenerByJobID(JobID uint32) (*clientpb.ListenerJob, error) {
 	listenerJob := models.ListenerJob{}
 	err := Session().Where(&models.ListenerJob{JobID: JobID}).Find(&listenerJob).Error
 
@@ -441,13 +463,18 @@ func ListenerByJobID(JobID uint32) (*models.ListenerJob, error) {
 		return nil, err
 	}
 
-	return &listenerJob, err
+	return listenerJob.ToProtobuf(), err
 }
 
-func ListenerJobs() (*[]models.ListenerJob, error) {
+func ListenerJobs() (*[]clientpb.ListenerJob, error) {
 	listenerJobs := []models.ListenerJob{}
 	err := Session().Where(&models.ListenerJob{}).Find(&listenerJobs).Error
-	return &listenerJobs, err
+	pbListenerJobs := []clientpb.ListenerJob{}
+	for _, listenerJob := range listenerJobs {
+		pbListenerJobs = append(pbListenerJobs, *listenerJob.ToProtobuf())
+	}
+
+	return &pbListenerJobs, err
 }
 
 func DeleteListener(JobID uint32) error {
@@ -469,31 +496,36 @@ func ImplantProfileNames() ([]string, error) {
 }
 
 // ProfileByName - Fetch a single profile from the database
-func ProfileByName(name string) (*models.ImplantProfile, error) {
+func ProfileByName(name string) (*clientpb.ImplantProfile, error) {
 	if len(name) < 1 {
 		return nil, ErrRecordNotFound
 	}
 	dbProfile := &models.ImplantProfile{}
 	err := Session().Where(&models.ImplantProfile{Name: name}).Find(&dbProfile).Error
-	return dbProfile, err
+	return dbProfile.ToProtobuf(), err
 }
 
 // ListCanaries - List of all embedded canaries
-func ListCanaries() ([]*models.DNSCanary, error) {
+func ListCanaries() ([]*clientpb.DNSCanary, error) {
 	canaries := []*models.DNSCanary{}
 	err := Session().Where(&models.DNSCanary{}).Find(&canaries).Error
-	return canaries, err
+	pbCanaries := []*clientpb.DNSCanary{}
+	for _, canary := range canaries {
+		pbCanaries = append(pbCanaries, canary.ToProtobuf())
+	}
+
+	return pbCanaries, err
 }
 
 // CanaryByDomain - Check if a canary exists
-func CanaryByDomain(domain string) (*models.DNSCanary, error) {
+func CanaryByDomain(domain string) (*clientpb.DNSCanary, error) {
 	if len(domain) < 1 {
 		return nil, ErrRecordNotFound
 	}
 	dbSession := Session()
 	canary := models.DNSCanary{}
 	err := dbSession.Where(&models.DNSCanary{Domain: domain}).First(&canary).Error
-	return &canary, err
+	return canary.ToProtobuf(), err
 }
 
 // WebsiteByName - Get website by name
@@ -611,26 +643,32 @@ func WGPeerIPs() ([]string, error) {
 }
 
 // ListHosts - List of all hosts in the database
-func ListHosts() ([]*models.Host, error) {
+func ListHosts() ([]*clientpb.Host, error) {
 	hosts := []*models.Host{}
 	err := Session().Where(
 		&models.Host{},
 	).Preload("IOCs").Preload("ExtensionData").Find(&hosts).Error
-	return hosts, err
+
+	pbHosts := []*clientpb.Host{}
+	for _, host := range hosts {
+		pbHosts = append(pbHosts, host.ToProtobuf())
+	}
+
+	return pbHosts, err
 }
 
 // HostByHostID - Get host by the session's reported HostUUID
-func HostByHostID(id uuid.UUID) (*models.Host, error) {
+func HostByHostID(id uuid.UUID) (*clientpb.Host, error) {
 	host := models.Host{}
 	err := Session().Where(&models.Host{ID: id}).First(&host).Error
 	if err != nil {
 		return nil, err
 	}
-	return &host, nil
+	return host.ToProtobuf(), nil
 }
 
 // HostByHostUUID - Get host by the session's reported HostUUID
-func HostByHostUUID(id string) (*models.Host, error) {
+func HostByHostUUID(id string) (*clientpb.Host, error) {
 	if len(id) < 1 {
 		return nil, ErrRecordNotFound
 	}
@@ -645,11 +683,11 @@ func HostByHostUUID(id string) (*models.Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &host, nil
+	return host.ToProtobuf(), nil
 }
 
 // IOCByID - Select an IOC by ID
-func IOCByID(id string) (*models.IOC, error) {
+func IOCByID(id string) (*clientpb.IOC, error) {
 	if len(id) < 1 {
 		return nil, ErrRecordNotFound
 	}
@@ -661,7 +699,7 @@ func IOCByID(id string) (*models.IOC, error) {
 	err := Session().Where(
 		&models.IOC{ID: iocID},
 	).First(ioc).Error
-	return ioc, err
+	return ioc.ToProtobuf(), err
 }
 
 // BeaconByID - Select a Beacon by ID
@@ -684,7 +722,7 @@ func BeaconByID(id string) (*models.Beacon, error) {
 // BeaconTasksByBeaconID - Get all tasks for a specific beacon
 // by default will not fetch the request/response columns since
 // these could be arbitrarily large.
-func BeaconTasksByBeaconID(beaconID string) ([]*models.BeaconTask, error) {
+func BeaconTasksByBeaconID(beaconID string) ([]*clientpb.BeaconTask, error) {
 	if len(beaconID) < 1 {
 		return nil, ErrRecordNotFound
 	}
@@ -697,12 +735,17 @@ func BeaconTasksByBeaconID(beaconID string) ([]*models.BeaconTask, error) {
 		"ID", "EnvelopeID", "BeaconID", "CreatedAt", "State", "SentAt", "CompletedAt",
 		"Description",
 	}).Where(&models.BeaconTask{BeaconID: id}).Find(&beaconTasks).Error
-	return beaconTasks, err
+
+	pbBeaconTasks := []*clientpb.BeaconTask{}
+	for _, beaconTask := range beaconTasks {
+		pbBeaconTasks = append(pbBeaconTasks, beaconTask.ToProtobuf(true))
+	}
+	return pbBeaconTasks, err
 }
 
 // BeaconTaskByID - Select a specific BeaconTask by ID, this
 // will fetch the full request/response
-func BeaconTaskByID(id string) (*models.BeaconTask, error) {
+func BeaconTaskByID(id string) (*clientpb.BeaconTask, error) {
 	if len(id) < 1 {
 		return nil, ErrRecordNotFound
 	}
@@ -714,14 +757,19 @@ func BeaconTaskByID(id string) (*models.BeaconTask, error) {
 	err := Session().Where(
 		&models.BeaconTask{ID: taskID},
 	).First(task).Error
-	return task, err
+	return task.ToProtobuf(true), err
 }
 
 // ListBeacons - Select a Beacon by ID
-func ListBeacons() ([]*models.Beacon, error) {
+func ListBeacons() ([]*clientpb.Beacon, error) {
 	beacons := []*models.Beacon{}
 	err := Session().Where(&models.Beacon{}).Find(&beacons).Error
-	return beacons, err
+
+	pbBeacons := []*clientpb.Beacon{}
+	for _, beacon := range beacons {
+		pbBeacons = append(pbBeacons, beacon.ToProtobuf())
+	}
+	return pbBeacons, err
 }
 
 // RenameBeacon - Rename a beacon
@@ -758,6 +806,7 @@ func PendingBeaconTasksByBeaconID(id string) ([]*models.BeaconTask, error) {
 			State:    models.PENDING,
 		},
 	).Order("created_at").Find(&tasks).Error
+
 	return tasks, err
 }
 
@@ -780,7 +829,7 @@ func UpdateBeaconCheckinByID(id string, next int64) error {
 }
 
 // BeaconTasksByEnvelopeID - Select a (sent) BeaconTask by its envelope ID
-func BeaconTaskByEnvelopeID(beaconID string, envelopeID int64) (*models.BeaconTask, error) {
+func BeaconTaskByEnvelopeID(beaconID string, envelopeID int64) (*clientpb.BeaconTask, error) {
 	if len(beaconID) < 1 {
 		return nil, ErrRecordNotFound
 	}
@@ -796,19 +845,20 @@ func BeaconTaskByEnvelopeID(beaconID string, envelopeID int64) (*models.BeaconTa
 			State:      models.SENT,
 		},
 	).First(task).Error
-	return task, err
+	return task.ToProtobuf(true), err
 }
 
 // CountTasksByBeaconID - Select a (sent) BeaconTask by its envelope ID
-func CountTasksByBeaconID(beaconID uuid.UUID) (int64, int64, error) {
-	if beaconID == uuid.Nil {
+func CountTasksByBeaconID(beaconID string) (int64, int64, error) {
+	beaconUUID, _ := uuid.FromString(beaconID)
+	if beaconUUID == uuid.Nil {
 		return 0, 0, ErrRecordNotFound
 	}
 	allTasks := int64(0)
 	completedTasks := int64(0)
 	err := Session().Model(&models.BeaconTask{}).Where(
 		&models.BeaconTask{
-			BeaconID: beaconID,
+			BeaconID: beaconUUID,
 		},
 	).Count(&allTasks).Error
 	if err != nil {
@@ -816,7 +866,7 @@ func CountTasksByBeaconID(beaconID uuid.UUID) (int64, int64, error) {
 	}
 	err = Session().Model(&models.BeaconTask{}).Where(
 		&models.BeaconTask{
-			BeaconID: beaconID,
+			BeaconID: beaconUUID,
 			State:    models.COMPLETED,
 		},
 	).Count(&completedTasks).Error
@@ -839,6 +889,7 @@ func OperatorByToken(value string) (*models.Operator, error) {
 func OperatorAll() ([]*models.Operator, error) {
 	operators := []*models.Operator{}
 	err := Session().Distinct("Name").Find(&operators).Error
+
 	return operators, err
 }
 
@@ -896,39 +947,55 @@ func CrackstationByHostUUID(hostUUID string) (*models.Crackstation, error) {
 }
 
 // CredentialsByHashType
-func CredentialsByHashType(hashType clientpb.HashType) ([]*models.Credential, error) {
+func CredentialsByHashType(hashType clientpb.HashType) ([]*clientpb.Credential, error) {
 	credentials := []*models.Credential{}
 	err := Session().Where(&models.Credential{
 		HashType: int32(hashType),
 	}).Find(&credentials).Error
-	return credentials, err
+
+	pbCredentials := []*clientpb.Credential{}
+	for _, credential := range credentials {
+		pbCredentials = append(pbCredentials, credential.ToProtobuf())
+	}
+
+	return pbCredentials, err
 }
 
 // CredentialsByHashType
-func CredentialsByCollection(collection string) ([]*models.Credential, error) {
+func CredentialsByCollection(collection string) ([]*clientpb.Credential, error) {
 	credentials := []*models.Credential{}
 	err := Session().Where(&models.Credential{
 		Collection: collection,
 	}).Find(&credentials).Error
-	return credentials, err
+
+	pbCredentials := []*clientpb.Credential{}
+	for _, credential := range credentials {
+		pbCredentials = append(pbCredentials, credential.ToProtobuf())
+	}
+	return pbCredentials, err
 }
 
 // PlaintextCredentials
-func PlaintextCredentialsByHashType(hashType clientpb.HashType) ([]*models.Credential, error) {
+func PlaintextCredentialsByHashType(hashType clientpb.HashType) ([]*clientpb.Credential, error) {
 	credentials := []*models.Credential{}
 	err := Session().Where(&models.Credential{
 		HashType: int32(hashType),
 	}).Not("plaintext = ?", "").Find(&credentials).Error
-	return credentials, err
+
+	pbCredentials := []*clientpb.Credential{}
+	for _, credential := range credentials {
+		pbCredentials = append(pbCredentials, credential.ToProtobuf())
+	}
+	return pbCredentials, err
 }
 
 // CredentialsByID
-func CredentialByID(id string) (*models.Credential, error) {
+func CredentialByID(id string) (*clientpb.Credential, error) {
 	credential := &models.Credential{}
 	credID := uuid.FromStringOrNil(id)
 	if credID != uuid.Nil {
 		err := Session().Where(&models.Credential{ID: credID}).First(&credential).Error
-		return credential, err
+		return credential.ToProtobuf(), err
 	}
 	credentials := []*models.Credential{}
 	err := Session().Where(&models.Credential{}).Find(&credentials).Error
@@ -937,7 +1004,7 @@ func CredentialByID(id string) (*models.Credential, error) {
 	}
 	for _, cred := range credentials {
 		if strings.HasPrefix(cred.ID.String(), id) {
-			return cred, nil
+			return cred.ToProtobuf(), nil
 		}
 	}
 	return nil, ErrRecordNotFound
@@ -981,6 +1048,7 @@ func CrackFilesByType(fileType clientpb.CrackFileType) ([]*models.CrackFile, err
 	if err != nil {
 		return nil, err
 	}
+
 	return crackFiles, nil
 }
 
@@ -989,6 +1057,10 @@ func AllCrackFiles() ([]*models.CrackFile, error) {
 	err := Session().Preload("Chunks").Find(&crackFiles).Error
 	if err != nil {
 		return nil, err
+	}
+	pbCrackFiles := []*clientpb.CrackFile{}
+	for _, crackFile := range crackFiles {
+		pbCrackFiles = append(pbCrackFiles, crackFile.ToProtobuf())
 	}
 	return crackFiles, nil
 }
@@ -1033,51 +1105,69 @@ func CheckKeyExReplay(ciphertext []byte) error {
 }
 
 // watchtower - List configurations
-func WatchTowerConfigs() ([]*models.MonitoringProvider, error) {
+func WatchTowerConfigs() ([]*clientpb.MonitoringProvider, error) {
 	var monitoringProviders []*models.MonitoringProvider
 	err := Session().Where(&models.MonitoringProvider{}).Find(&monitoringProviders).Error
-	return monitoringProviders, err
+
+	pbMonitoringProviders := []*clientpb.MonitoringProvider{}
+	for _, monitoringProvider := range monitoringProviders {
+		pbMonitoringProviders = append(pbMonitoringProviders, monitoringProvider.ToProtobuf())
+	}
+
+	return pbMonitoringProviders, err
 }
 
-func WatchTowerConfigSave(m *models.MonitoringProvider) error {
+func WatchTowerConfigSave(m *clientpb.MonitoringProvider) error {
+	dbMonitoringProvider := models.MonitorFromProtobuf(m)
 	dbSession := Session()
 	result := dbSession.Clauses(clause.OnConflict{
 		UpdateAll: true,
-	}).Create(&m)
+	}).Create(&dbMonitoringProvider)
 	if result.Error != nil {
 		return result.Error
 	}
 	return nil
 }
 
-func WatchTowerConfigDel(m *models.MonitoringProvider) error {
-	return Session().Where(&models.MonitoringProvider{ID: m.ID}).Delete(&models.MonitoringProvider{}).Error
+func WatchTowerConfigDel(m *clientpb.MonitoringProvider) error {
+	id, _ := uuid.FromString(m.ID)
+	return Session().Where(&models.MonitoringProvider{ID: id}).Delete(&models.MonitoringProvider{}).Error
 }
 
 // ResourceID queries
-func ResourceIDByType(resourceType string) ([]*models.ResourceID, error) {
-	resourceID := []*models.ResourceID{}
+func ResourceIDByType(resourceType string) ([]*clientpb.ResourceID, error) {
+	resourceIDs := []*models.ResourceID{}
 	err := Session().Where(&models.ResourceID{
 		Type: resourceType,
-	}).Find(&resourceID).Error
+	}).Find(&resourceIDs).Error
 	if err != nil {
 		return nil, err
 	}
 
-	return resourceID, nil
+	pbResourceID := []*clientpb.ResourceID{}
+	for _, resourceID := range resourceIDs {
+		pbResourceID = append(pbResourceID, resourceID.ToProtobuf())
+	}
+
+	return pbResourceID, nil
 }
 
-func ResourceIDs() ([]*models.ResourceID, error) {
+func ResourceIDs() ([]*clientpb.ResourceID, error) {
 	resourceIDs := []*models.ResourceID{}
 	err := Session().Where(&models.ResourceID{}).Find(&resourceIDs).Error
 	if err != nil {
 		return nil, err
 	}
-	return resourceIDs, nil
+	pbResourceIDs := []*clientpb.ResourceID{}
+	for _, resourceID := range resourceIDs {
+		pbResourceIDs = append(pbResourceIDs, resourceID.ToProtobuf())
+	}
+
+	return pbResourceIDs, nil
 }
 
 // ResourceID by name
-func ResourceIDByName(name string) (*models.ResourceID, error) {
+func ResourceIDByName(name string) (*clientpb.ResourceID, error) {
 	resourceID := &models.ResourceID{}
 	err := Session().Where(&models.ResourceID{
 		Name: name,
@@ -1086,11 +1176,13 @@ func ResourceIDByName(name string) (*models.ResourceID, error) {
 		return nil, err
 	}
 
-	return resourceID, nil
+	pbResourceID := resourceID.ToProtobuf()
+
+	return pbResourceID, nil
 }
 
 // ResourceID by value
-func ResourceIDByValue(id uint64) (*models.ResourceID, error) {
+func ResourceIDByValue(id uint64) (*clientpb.ResourceID, error) {
 	resourceID := &models.ResourceID{}
 	err := Session().Where(&models.ResourceID{
 		Value: id,
@@ -1099,14 +1191,20 @@ func ResourceIDByValue(id uint64) (*models.ResourceID, error) {
 		return nil, err
 	}
 
-	return resourceID, nil
+	return resourceID.ToProtobuf(), nil
 }
 
-func ResourceIDSave(r *models.ResourceID) error {
+func ResourceIDSave(r *clientpb.ResourceID) error {
+	resourceID := &models.ResourceID{
+		Type:  r.Type,
+		Name:  r.Name,
+		Value: r.Value,
+	}
+
 	dbSession := Session()
 	result := dbSession.Clauses(clause.OnConflict{
 		UpdateAll: true,
-	}).Create(&r)
+	}).Create(&resourceID)
 	if result.Error != nil {
 		return result.Error
 	}

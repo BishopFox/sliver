@@ -587,7 +587,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	}
 	httpSession.CipherCtx = cryptography.NewCipherContext(sKey)
 	httpSession.ImplantConn = core.NewImplantConnection("http(s)", getRemoteAddr(req))
-	httpSession.C2Profile = implantConfig.HttpC2ConfigName
+	httpSession.C2Profile = implantConfig.HTTPC2ConfigName
 	s.HTTPSessions.Add(httpSession)
 	httpLog.Infof("Started new session with http session id: %s", httpSession.ID)
 
@@ -599,7 +599,7 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	}
 	http.SetCookie(resp, &http.Cookie{
 		Domain:   s.ServerConf.Domain,
-		Name:     s.getCookieName(implantConfig.HttpC2ConfigName),
+		Name:     s.getCookieName(implantConfig.HTTPC2ConfigName),
 		Value:    httpSession.ID,
 		Secure:   false,
 		HttpOnly: true,
