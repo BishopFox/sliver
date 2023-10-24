@@ -468,16 +468,6 @@ message StagerListenerReq {
 
 message StagerListener { uint32 JobID = 1; }
 
-message SaveStagerReq {
-  ImplantConfig Config = 1;
-  bytes Stage = 2;
-  string Name =3;
-}
-
-message SaveStagerResp {
-  string ResourceID = 1;
-}
-
 message ShellcodeRDIReq {
   bytes Data = 1;
   string FunctionName = 2;
@@ -718,7 +708,7 @@ message Builder {
   repeated string Templates = 5;
   repeated CompilerTarget Targets = 6;
   repeated CrossCompiler CrossCompilers = 7;
-  
+
 }
 
 // [ HTTP C2 ] ----------------------------------------

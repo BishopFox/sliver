@@ -22,15 +22,9 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
-	"path/filepath"
 
-	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/c2"
-	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/generate"
 )
 
 // StartTCPStagerListener starts a TCP stager listener
@@ -73,37 +67,6 @@ func (rpc *Server) StartHTTPStagerListener(ctx context.Context, req *clientpb.St
 		return nil, fmt.Errorf("job is nil")
 	}
 	return &clientpb.StagerListener{JobID: uint32(job.ID)}, err
-}
-
-// SaveStager payload save an obfuscated sliver build to disk and database
-func (rpc *Server) SaveStager(ctx context.Context, req *clientpb.SaveStagerReq) (*clientpb.SaveStagerResp, error) {
-
-	// write implant to disk
-	appDir := assets.GetRootAppDir()
-	fPath := filepath.Join(appDir, "builds", filepath.Base(req.Name))
-	err := os.WriteFile(fPath, req.Stage, 0600)
-	if err != nil {
-		return &clientpb.SaveStagerResp{}, err
-	}
-
-	// save implant build
-	fileName := filepath.Base(fPath)
-	err = generate.ImplantBuildSave(req.Name, req.Config, fPath)
-	if err != nil {
-		rpcLog.Errorf("Failed to save build: %s", err)
-		return nil, err
-	}
-
-	core.EventBroker.Publish(core.Event{
-		EventType: consts.BuildCompletedEvent,
-		Data:      []byte(fileName),
-	})
-
-	// Implant profile ?
-	// display implant conf and resource id -> reuse display client side ?
-	res := clientpb.SaveStagerResp{}
-
-	return &res, nil
 }
 
 // checkInterface verifies if an IP address
