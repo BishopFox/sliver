@@ -133,7 +133,6 @@ message ImplantConfig {
 
   string GOOS = 7;
   string GOARCH = 8;
-  string Name = 9;
 
   bool Debug = 10;
   bool Evasion = 11;
@@ -422,7 +421,10 @@ message RenameReq {
   string Name = 3;
 }
 
-message GenerateReq { ImplantConfig Config = 1; }
+message GenerateReq { 
+  ImplantConfig Config = 1; 
+  string Name = 2;
+}
 
 message Generate { commonpb.File File = 1; }
 
@@ -469,6 +471,7 @@ message StagerListener { uint32 JobID = 1; }
 message SaveStagerReq {
   ImplantConfig Config = 1;
   bytes Stage = 2;
+  string Name =3;
 }
 
 message SaveStagerResp {
@@ -502,6 +505,7 @@ message MsfStager { commonpb.File File = 1; }
 message GetSystemReq {
   string HostingProcess = 1;
   ImplantConfig Config = 2;
+  string Name = 3;
 
   commonpb.Request Request = 9;
 }
@@ -512,6 +516,7 @@ message MigrateReq {
   uint32 Pid = 1;
   ImplantConfig Config = 2;
   ShellcodeEncoder Encoder = 3;
+  string Name = 4;
 
   commonpb.Request Request = 9;
 }
@@ -654,6 +659,7 @@ message DllHijackReq {
   bytes ReferenceDLL = 3;
   bytes TargetDLL = 4;
   string ProfileName = 5;
+  string Name = 6;
 
   commonpb.Request Request = 9;
 }
@@ -663,6 +669,7 @@ message DllHijack { commonpb.Response Response = 9; }
 message BackdoorReq {
   string FilePath = 1;
   string ProfileName = 2;
+  string Name = 3;
 
   commonpb.Request Request = 9;
 }
@@ -698,6 +705,7 @@ message ShellcodeEncoderMap { map<string, ShellcodeEncoder> Encoders = 1; }
 message ExternalGenerateReq {
   ImplantConfig Config = 1;
   string BuilderName = 2;
+  string Name = 3;
 }
 
 message Builders { repeated Builder Builders = 1; }
@@ -710,6 +718,7 @@ message Builder {
   repeated string Templates = 5;
   repeated CompilerTarget Targets = 6;
   repeated CrossCompiler CrossCompilers = 7;
+  
 }
 
 // [ HTTP C2 ] ----------------------------------------

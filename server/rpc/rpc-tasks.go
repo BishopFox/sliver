@@ -38,6 +38,7 @@ import (
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/sgn"
+	"github.com/bishopfox/sliver/util"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -65,19 +66,23 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
-	name := filepath.Base(req.Config.GetName())
+	name := filepath.Base(req.Name)
 	shellcode, arch, err := getSliverShellcode(name)
 	if err != nil {
 		config := req.Config
-		if config.Name == "" {
-			config.Name, err = codenames.GetCodename()
+		if req.Name == "" {
+			name, err = codenames.GetCodename()
 			if err != nil {
 				return nil, err
 			}
+		} else if err := util.AllowedName(name); err != nil {
+			return nil, err
+		} else {
+			name = req.Name
 		}
 		config.Format = clientpb.OutputFormat_SHELLCODE
 		config.ObfuscateSymbols = true
-		_, err = generate.GenerateConfig(config, true)
+		_, err = generate.GenerateConfig(name, config, true)
 		if err != nil {
 			return nil, err
 		}
@@ -88,7 +93,7 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 			return nil, err
 		}
 
-		shellcodePath, err := generate.SliverShellcode(config, httpC2Config.ImplantConfig)
+		shellcodePath, err := generate.SliverShellcode(name, config, httpC2Config.ImplantConfig)
 		if err != nil {
 			return nil, err
 		}

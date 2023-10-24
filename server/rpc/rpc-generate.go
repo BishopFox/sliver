@@ -57,7 +57,19 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	var (
 		err    error
 		config *clientpb.ImplantConfig
+		name   string
 	)
+
+	if req.Name == "" {
+		name, err = codenames.GetCodename()
+		if err != nil {
+			return nil, err
+		}
+	} else if err := util.AllowedName(name); err != nil {
+		return nil, err
+	} else {
+		name = req.Name
+	}
 
 	if req.Config.ID != "" {
 		// if this is a profile reuse existing configuration
@@ -66,21 +78,11 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 			return nil, err
 		}
 	} else {
-
 		config = req.Config
 	}
 
-	config, err = generate.GenerateConfig(config, false)
+	config, err = generate.GenerateConfig(name, config, true)
 	if err != nil {
-		return nil, err
-	}
-
-	if config.Name == "" {
-		config.Name, err = codenames.GetCodename()
-		if err != nil {
-			return nil, err
-		}
-	} else if err := util.AllowedName(config.Name); err != nil {
 		return nil, err
 	}
 
@@ -99,11 +101,11 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
-		fPath, err = generate.SliverExecutable(config, httpC2Config.ImplantConfig)
+		fPath, err = generate.SliverExecutable(name, config, httpC2Config.ImplantConfig)
 	case clientpb.OutputFormat_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(config, httpC2Config.ImplantConfig)
+		fPath, err = generate.SliverSharedLibrary(name, config, httpC2Config.ImplantConfig)
 	case clientpb.OutputFormat_SHELLCODE:
-		fPath, err = generate.SliverShellcode(config, httpC2Config.ImplantConfig)
+		fPath, err = generate.SliverShellcode(name, config, httpC2Config.ImplantConfig)
 	default:
 		return nil, fmt.Errorf("invalid output format: %s", req.Config.Format)
 	}
@@ -117,7 +119,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		return nil, err
 	}
 
-	err = generate.ImplantBuildSave(config.Name, config, fPath)
+	err = generate.ImplantBuildSave(name, config, fPath)
 	if err != nil {
 		rpcLog.Errorf("Failed to save external build: %s", err)
 		return nil, err
@@ -303,18 +305,25 @@ func (rpc *Server) GetCompiler(ctx context.Context, _ *commonpb.Empty) (*clientp
 
 // Generate - Generate a new implant
 func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalGenerateReq) (*clientpb.ExternalImplantConfig, error) {
-	var err error
+	var (
+		err  error
+		name string
+	)
 	config := req.Config
-	if config.Name == "" {
-		config.Name, err = codenames.GetCodename()
+	if req.Name == "" {
+		name, err = codenames.GetCodename()
 		if err != nil {
 			return nil, err
 		}
+	} else if err := util.AllowedName(name); err != nil {
+		return nil, err
+	} else {
+		name = req.Name
 	}
 	if config == nil {
 		return nil, errors.New("invalid implant config")
 	}
-	externalConfig, err := generate.SliverExternal(config)
+	externalConfig, err := generate.SliverExternal(name, config)
 	if err != nil {
 		return nil, err
 	}

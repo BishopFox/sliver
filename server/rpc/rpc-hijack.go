@@ -38,6 +38,7 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
+	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
 )
 
@@ -46,6 +47,7 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 	var (
 		refDLL        []byte
 		targetDLLData []byte
+		name          string
 	)
 	resp := &clientpb.DllHijack{
 		Response: &commonpb.Response{},
@@ -108,13 +110,17 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 		}
 
 		config := p.Config
-		if config.Name == "" {
-			config.Name, err = codenames.GetCodename()
+		if req.Name == "" {
+			name, err = codenames.GetCodename()
 			if err != nil {
 				return nil, err
 			}
+		} else if err := util.AllowedName(name); err != nil {
+			return nil, err
+		} else {
+			name = req.Name
 		}
-		_, err = generate.GenerateConfig(config, true)
+		_, err = generate.GenerateConfig(name, config, true)
 		if err != nil {
 			return nil, err
 		}
@@ -124,7 +130,7 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 			return nil, err
 		}
 
-		fPath, err := generate.SliverSharedLibrary(config, httpC2Config.ImplantConfig)
+		fPath, err := generate.SliverSharedLibrary(name, config, httpC2Config.ImplantConfig)
 
 		if err != nil {
 			return nil, err

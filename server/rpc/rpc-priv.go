@@ -21,14 +21,15 @@ package rpc
 import (
 	"context"
 	"os"
-	"path"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/generate"
+	"github.com/bishopfox/sliver/util"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -75,7 +76,11 @@ func (rpc *Server) CurrentTokenOwner(ctx context.Context, req *sliverpb.CurrentT
 
 // GetSystem - Attempt to get 'NT AUTHORITY/SYSTEM' access on a remote Windows system
 func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*sliverpb.GetSystem, error) {
-	var shellcode []byte
+	var (
+		shellcode []byte
+		name      string
+	)
+
 	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID
@@ -87,16 +92,26 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		return nil, err
 	}
 
-	name := path.Base(req.Config.GetName())
+	if req.Name == "" {
+		name, err = codenames.GetCodename()
+		if err != nil {
+			return nil, err
+		}
+	} else if err := util.AllowedName(name); err != nil {
+		return nil, err
+	} else {
+		name = req.Name
+	}
+
 	shellcode, _, err = getSliverShellcode(name)
 	if err != nil {
 		req.Config.Format = clientpb.OutputFormat_SHELLCODE
 		req.Config.ObfuscateSymbols = false
-		config, err := generate.GenerateConfig(req.Config, true)
+		config, err := generate.GenerateConfig(name, req.Config, true)
 		if err != nil {
 			return nil, err
 		}
-		shellcodePath, err := generate.SliverShellcode(config, httpC2Config.ImplantConfig)
+		shellcodePath, err := generate.SliverShellcode(name, config, httpC2Config.ImplantConfig)
 		if err != nil {
 			return nil, err
 		}

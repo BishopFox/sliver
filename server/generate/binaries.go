@@ -192,7 +192,7 @@ func GetSliversDir() string {
 // -----------------------
 
 // SliverShellcode - Generates a sliver shellcode using Donut
-func SliverShellcode(config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+func SliverShellcode(name string, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	if config.GOOS != "windows" {
 		return "", fmt.Errorf("shellcode format is currently only supported on Windows")
 	}
@@ -212,12 +212,12 @@ func SliverShellcode(config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
-	pkgPath, err := renderSliverGoCode(config.Name, config, goConfig, pbC2Implant)
+	pkgPath, err := renderSliverGoCode(name, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
 	}
 
-	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(config.Name))
+	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
 	dest += ".bin"
 
 	tags := []string{}
@@ -251,7 +251,7 @@ func SliverShellcode(config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC
 }
 
 // SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
-func SliverSharedLibrary(config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+func SliverSharedLibrary(name string, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	// Compile go code
 	var cc string
 	var cxx string
@@ -283,12 +283,12 @@ func SliverSharedLibrary(config *clientpb.ImplantConfig, pbC2Implant *clientpb.H
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
-	pkgPath, err := renderSliverGoCode(config.Name, config, goConfig, pbC2Implant)
+	pkgPath, err := renderSliverGoCode(name, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
 	}
 
-	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(config.Name))
+	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
 	if goConfig.GOOS == WINDOWS {
 		dest += ".dll"
 	}
@@ -324,7 +324,7 @@ func SliverSharedLibrary(config *clientpb.ImplantConfig, pbC2Implant *clientpb.H
 }
 
 // SliverExecutable - Generates a sliver executable binary
-func SliverExecutable(config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+func SliverExecutable(name string, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	// Compile go code
 	appDir := assets.GetRootAppDir()
 	cgo := "0"
@@ -347,12 +347,12 @@ func SliverExecutable(config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTP
 		GOGARBLE:    goGarble(config),
 	}
 
-	pkgPath, err := renderSliverGoCode(config.Name, config, goConfig, pbC2Implant)
+	pkgPath, err := renderSliverGoCode(name, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
 	}
 
-	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(config.Name))
+	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
 	if goConfig.GOOS == WINDOWS {
 		dest += ".exe"
 	}
@@ -701,7 +701,7 @@ func renderMacOSVer(implantConfig *clientpb.HTTPC2ImplantConfig) string {
 }
 
 // GenerateConfig - Generate the keys/etc for the implant
-func GenerateConfig(implantConfig *clientpb.ImplantConfig, save bool) (*clientpb.ImplantConfig, error) {
+func GenerateConfig(name string, implantConfig *clientpb.ImplantConfig, save bool) (*clientpb.ImplantConfig, error) {
 	var err error
 
 	// configure c2 channels to enable
@@ -714,7 +714,7 @@ func GenerateConfig(implantConfig *clientpb.ImplantConfig, save bool) (*clientpb
 
 	// Cert PEM encoded certificates
 	serverCACert, _, _ := certs.GetCertificateAuthorityPEM(certs.MtlsServerCA)
-	sliverCert, sliverKey, err := certs.MtlsC2ImplantGenerateECCCertificate(implantConfig.Name)
+	sliverCert, sliverKey, err := certs.MtlsC2ImplantGenerateECCCertificate(name)
 	if err != nil {
 		return nil, err
 	}

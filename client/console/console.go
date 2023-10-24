@@ -547,7 +547,6 @@ func (con *SliverConsoleClient) GetActiveSessionConfig() *clientpb.ImplantConfig
 		Priority: uint32(0),
 	})
 	config := &clientpb.ImplantConfig{
-		Name:    session.GetName(),
 		GOOS:    session.GetOS(),
 		GOARCH:  session.GetArch(),
 		Debug:   true,

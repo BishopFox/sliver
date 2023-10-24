@@ -80,7 +80,7 @@ func (rpc *Server) SaveStager(ctx context.Context, req *clientpb.SaveStagerReq) 
 
 	// write implant to disk
 	appDir := assets.GetRootAppDir()
-	fPath := filepath.Join(appDir, "builds", filepath.Base(req.Config.Name))
+	fPath := filepath.Join(appDir, "builds", filepath.Base(req.Name))
 	err := os.WriteFile(fPath, req.Stage, 0600)
 	if err != nil {
 		return &clientpb.SaveStagerResp{}, err
@@ -88,7 +88,7 @@ func (rpc *Server) SaveStager(ctx context.Context, req *clientpb.SaveStagerReq) 
 
 	// save implant build
 	fileName := filepath.Base(fPath)
-	err = generate.ImplantBuildSave(req.Config.Name, req.Config, fPath)
+	err = generate.ImplantBuildSave(req.Name, req.Config, fPath)
 	if err != nil {
 		rpcLog.Errorf("Failed to save build: %s", err)
 		return nil, err

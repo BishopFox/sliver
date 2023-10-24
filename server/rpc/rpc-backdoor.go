@@ -39,6 +39,22 @@ import (
 
 // Backdoor - Inject a sliver payload in a file on the remote system
 func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*clientpb.Backdoor, error) {
+	var (
+		name string
+		err  error
+	)
+
+	if req.Name == "" {
+		name, err = codenames.GetCodename()
+		if err != nil {
+			return nil, err
+		}
+	} else if err := util.AllowedName(name); err != nil {
+		return nil, err
+	} else {
+		name = req.Name
+	}
+
 	resp := &clientpb.Backdoor{}
 	session := core.Sessions.Get(req.Request.SessionID)
 	if session.OS != "windows" {
@@ -79,16 +95,7 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 		return nil, fmt.Errorf("please select a profile targeting a shellcode format")
 	}
 
-	if p.Config.Name == "" {
-		p.Config.Name, err = codenames.GetCodename()
-		if err != nil {
-			return nil, err
-		}
-	} else if err := util.AllowedName(p.Config.Name); err != nil {
-		return nil, err
-	}
-
-	_, err = generate.GenerateConfig(p.Config, true)
+	_, err = generate.GenerateConfig(name, p.Config, true)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +106,7 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	fPath, err := generate.SliverShellcode(p.Config, httpC2Config.ImplantConfig)
+	fPath, err := generate.SliverShellcode(name, p.Config, httpC2Config.ImplantConfig)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
