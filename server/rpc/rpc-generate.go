@@ -71,7 +71,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		}
 	} else {
 
-		config, err = generate.GenerateConfig(config, true)
+		config, err = generate.GenerateConfig(req.Config, true)
 		if err != nil {
 			return nil, err
 		}
