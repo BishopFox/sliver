@@ -65,16 +65,14 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		if err != nil {
 			return nil, err
 		}
-		config, err = generate.GenerateConfig(config, false)
-		if err != nil {
-			return nil, err
-		}
 	} else {
 
-		config, err = generate.GenerateConfig(req.Config, true)
-		if err != nil {
-			return nil, err
-		}
+		config = req.Config
+	}
+
+	config, err = generate.GenerateConfig(config, false)
+	if err != nil {
+		return nil, err
 	}
 
 	if config.Name == "" {
