@@ -206,6 +206,7 @@ const (
 	PwdStr      = "pwd"
 	CatStr      = "cat"
 	DownloadStr = "download"
+	GrepStr     = "grep"
 	UploadStr   = "upload"
 	IfconfigStr = "ifconfig"
 	NetstatStr  = "netstat"

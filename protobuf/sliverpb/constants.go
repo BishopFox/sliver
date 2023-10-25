@@ -339,6 +339,9 @@ const (
 	// MsgCp - Confirms the success/failure, as well as the total number of bytes
 	// written of the cp request (resp to MsgCpReq)
 	MsgCp
+
+	// MsgGrepReq - Request to grep for data
+	MsgGrepReq
 )
 
 // Constants to replace enums
@@ -581,6 +584,9 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgChtimesReq
 	case *Chtimes:
 		return MsgChtimes
+
+	case *GrepReq:
+		return MsgGrepReq
 
 	case *MemfilesListReq:
 		return MsgMemfilesListReq

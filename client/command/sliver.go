@@ -939,6 +939,35 @@ func SliverCommands(con *client.SliverConsoleClient) console.Commands {
 			carapace.ActionFiles().Usage("local path where the downloaded file will be saved (optional)"),
 		)
 
+		grepCmd := &cobra.Command{
+			Use:   consts.GrepStr,
+			Short: "Search for strings that match a regex within a file or directory",
+			Long:  help.GetHelpFor([]string{consts.GrepStr}),
+			Args:  cobra.ExactArgs(2),
+			Run: func(cmd *cobra.Command, args []string) {
+				filesystem.GrepCmd(cmd, con, args)
+			},
+			GroupID: consts.FilesystemHelpGroup,
+		}
+		sliver.AddCommand(grepCmd)
+		Flags("", false, grepCmd, func(f *pflag.FlagSet) {
+			f.BoolP("colorize-output", "c", false, "colorize output")
+			f.BoolP("loot", "X", false, "save output as loot (loot is saved without formatting)")
+			f.StringP("name", "n", "", "name to assign loot (optional)")
+			f.StringP("type", "T", "", "force a specific loot type (file/cred) if looting (optional)")
+			f.Int64P("timeout", "t", defaultTimeout, "grpc timeout in seconds")
+			f.BoolP("recursive", "r", false, "search recursively")
+			f.BoolP("insensitive", "i", false, "case-insensitive search")
+			f.Int32P("after", "A", 0, "number of lines to print after a match (ignored if the file is binary)")
+			f.Int32P("before", "B", 0, "number of lines to print before a match (ignored if the file is binary)")
+			f.Int32P("context", "C", 0, "number of lines to print before and after a match (ignored if the file is binary), equivalent to -A x -B x")
+			f.BoolP("exact", "e", false, "match the search term exactly")
+		})
+		carapace.Gen(grepCmd).PositionalCompletion(
+			carapace.ActionValues().Usage("regex to search the file for"),
+			carapace.ActionValues().Usage("remote path / file to search in"),
+		)
+
 		uploadCmd := &cobra.Command{
 			Use:   consts.UploadStr,
 			Short: "Upload a file",
