@@ -23,7 +23,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -120,7 +119,7 @@ func UpdateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 	lastCheck := []byte(fmt.Sprintf("%d", now.Unix()))
 	appDir := assets.GetRootAppDir()
 	lastUpdateCheckPath := path.Join(appDir, consts.LastUpdateCheckFileName)
-	err = ioutil.WriteFile(lastUpdateCheckPath, lastCheck, 0o600)
+	err = os.WriteFile(lastUpdateCheckPath, lastCheck, 0o600)
 	if err != nil {
 		con.Printf("Failed to save update check time %s", err)
 	}

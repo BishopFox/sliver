@@ -34,7 +34,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -212,7 +211,7 @@ func getProcName(s []byte) string {
 func (p *procFd) iterFdDir() {
 	// link name is of the form socket:[5860846]
 	fddir := path.Join(p.base, "/fd")
-	fi, err := ioutil.ReadDir(fddir)
+	fi, err := os.ReadDir(fddir)
 	if err != nil {
 		return
 	}
@@ -252,7 +251,7 @@ func (p *procFd) iterFdDir() {
 
 func extractProcInfo(sktab []SockTabEntry) {
 	var basedir = "/proc"
-	fi, err := ioutil.ReadDir(basedir)
+	fi, err := os.ReadDir(basedir)
 	if err != nil {
 		return
 	}

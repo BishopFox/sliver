@@ -21,7 +21,6 @@ package filesystem
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -72,7 +71,7 @@ func UploadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 
 	dst := remotePath
 
-	fileBuf, err := ioutil.ReadFile(src)
+	fileBuf, err := os.ReadFile(src)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return

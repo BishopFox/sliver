@@ -23,8 +23,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
-	"io/ioutil"
 	"net"
+	"os"
 	"strings"
 	"text/template"
 
@@ -95,7 +95,7 @@ func WGConfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 		if !strings.HasSuffix(save, ".conf") {
 			save += ".conf"
 		}
-		err = ioutil.WriteFile(save, output.Bytes(), 0o600)
+		err = os.WriteFile(save, output.Bytes(), 0o600)
 		if err != nil {
 			con.PrintErrorf("Error: %s\n", err)
 			return
