@@ -3,7 +3,6 @@ package ssh
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -31,7 +30,7 @@ func getClient(host string, port uint16, username string, password string, privK
 		authMethods = append(authMethods, ssh.PublicKeys(signer))
 	} else if krb5conf != "" && keytab != nil && realm != "" {
 		// Then try kerberos auth
-		krb5ConfData, err := ioutil.ReadFile(krb5conf)
+		krb5ConfData, err := os.ReadFile(krb5conf)
 		if err != nil {
 			return nil, err
 		}

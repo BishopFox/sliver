@@ -20,7 +20,6 @@ package alias
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,7 +49,7 @@ func AliasesInstallCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 
 // Install an extension from a directory
 func installFromDir(aliasLocalPath string, con *console.SliverConsoleClient) {
-	manifestData, err := ioutil.ReadFile(filepath.Join(aliasLocalPath, ManifestFileName))
+	manifestData, err := os.ReadFile(filepath.Join(aliasLocalPath, ManifestFileName))
 	if err != nil {
 		con.PrintErrorf("Error reading %s: %s", ManifestFileName, err)
 		return
@@ -78,7 +77,7 @@ func installFromDir(aliasLocalPath string, con *console.SliverConsoleClient) {
 		con.PrintErrorf("Error creating alias directory: %s\n", err)
 		return
 	}
-	err = ioutil.WriteFile(filepath.Join(installPath, ManifestFileName), manifestData, 0o600)
+	err = os.WriteFile(filepath.Join(installPath, ManifestFileName), manifestData, 0o600)
 	if err != nil {
 		con.PrintErrorf("Failed to write %s: %s\n", ManifestFileName, err)
 		forceRemoveAll(installPath)
@@ -133,7 +132,7 @@ func InstallFromFile(aliasGzFilePath string, autoOverwrite bool, con *console.Sl
 		con.PrintErrorf("Failed to create alias directory: %s\n", err)
 		return nil
 	}
-	err = ioutil.WriteFile(filepath.Join(installPath, ManifestFileName), manifestData, 0o600)
+	err = os.WriteFile(filepath.Join(installPath, ManifestFileName), manifestData, 0o600)
 	if err != nil {
 		con.PrintErrorf("Failed to write %s: %s\n", ManifestFileName, err)
 		forceRemoveAll(installPath)
@@ -166,7 +165,7 @@ func installArtifact(aliasGzFilePath string, installPath, artifactPath string, c
 	if _, err := os.Stat(artifactDir); os.IsNotExist(err) {
 		os.MkdirAll(artifactDir, 0o700)
 	}
-	err = ioutil.WriteFile(localArtifactPath, data, 0o600)
+	err = os.WriteFile(localArtifactPath, data, 0o600)
 	if err != nil {
 		return err
 	}

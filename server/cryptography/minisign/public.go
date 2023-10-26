@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -15,7 +15,7 @@ import (
 // PublicKeyFromFile reads a new PublicKey from the
 // given file.
 func PublicKeyFromFile(path string) (PublicKey, error) {
-	bytes, err := ioutil.ReadFile(path)
+	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return PublicKey{}, err
 	}

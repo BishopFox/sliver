@@ -10,7 +10,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -18,7 +18,7 @@ import (
 // SignatureFromFile reads a new Signature from the
 // given file.
 func SignatureFromFile(file string) (Signature, error) {
-	bytes, err := ioutil.ReadFile(file)
+	bytes, err := os.ReadFile(file)
 	if err != nil {
 		return Signature{}, err
 	}
