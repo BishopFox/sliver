@@ -17,7 +17,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -247,7 +246,7 @@ func (p *provider) unmarshalProxyConfigFile() (map[string]string, error) {
 	} else if stat.Size() > 1048576 {
 		return nil, errors.New(fmt.Sprintf("proxy configuration file too large: %s", f))
 	}
-	out, err := ioutil.ReadFile(f)
+	out, err := os.ReadFile(f)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("failed to read proxy configuration file: %s: %s", f, err))
 	}
