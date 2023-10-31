@@ -503,8 +503,25 @@ func ProfileByName(name string) (*clientpb.ImplantProfile, error) {
 		return nil, ErrRecordNotFound
 	}
 	dbProfile := &models.ImplantProfile{}
-	err := Session().Where(&models.ImplantProfile{Name: name}).Find(&dbProfile).Error
+	err := Session().Preload("ImplantConfig").Where(&models.ImplantProfile{Name: name}).Find(dbProfile).Error
 	return dbProfile.ToProtobuf(), err
+}
+
+// DeleteProfile - Delete a profile from the database
+func DeleteProfile(name string) error {
+	profile, err := ProfileByName(name)
+	if err != nil {
+		return err
+	}
+
+	uuid, _ := uuid.FromString(profile.Config.ID)
+
+	// delete linked ImplantConfig
+	err = Session().Where(&models.ImplantConfig{ID: uuid}).Delete(&models.ImplantConfig{}).Error
+
+	// delete profile
+	err = Session().Where(&models.ImplantProfile{Name: name}).Delete(&models.ImplantProfile{}).Error
+	return err
 }
 
 // ListCanaries - List of all embedded canaries

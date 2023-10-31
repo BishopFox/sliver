@@ -235,18 +235,7 @@ func (rpc *Server) SaveImplantProfile(ctx context.Context, profile *clientpb.Imp
 
 // DeleteImplantProfile - Delete an implant profile
 func (rpc *Server) DeleteImplantProfile(ctx context.Context, req *clientpb.DeleteReq) (*commonpb.Empty, error) {
-	profile, err := db.ProfileByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	err = db.Session().Delete(profile).Error
-	if err == nil {
-		core.EventBroker.Publish(core.Event{
-			EventType: consts.ProfileEvent,
-			Data:      []byte(profile.Name),
-		})
-	}
-
+	err := db.DeleteProfile(req.Name)
 	return &commonpb.Empty{}, err
 }
 
