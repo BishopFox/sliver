@@ -208,6 +208,7 @@ const (
 	DownloadStr = "download"
 	HeadStr     = "head"
 	TailStr     = "tail"
+	GrepStr     = "grep"
 	UploadStr   = "upload"
 	IfconfigStr = "ifconfig"
 	NetstatStr  = "netstat"

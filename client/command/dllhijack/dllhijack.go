@@ -21,7 +21,7 @@ package dllhijack
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -58,7 +58,7 @@ func DllHijackCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 	}
 
 	if localReferenceFilePath != "" {
-		localRefData, err = ioutil.ReadFile(localReferenceFilePath)
+		localRefData, err = os.ReadFile(localReferenceFilePath)
 		if err != nil {
 			con.PrintErrorf("Could not load the reference file from the client: %s\n", err)
 			return
@@ -70,7 +70,7 @@ func DllHijackCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 			con.PrintErrorf("please use either --profile or --File")
 			return
 		}
-		targetDLLData, err = ioutil.ReadFile(localFile)
+		targetDLLData, err = os.ReadFile(localFile)
 		if err != nil {
 			con.PrintErrorf("Error: %s\n", err)
 			return
