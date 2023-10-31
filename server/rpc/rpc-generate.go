@@ -257,7 +257,7 @@ func (rpc *Server) DeleteImplantBuild(ctx context.Context, req *clientpb.DeleteR
 		return nil, err
 	}
 
-	utilEncoders.PrimeNumbers = append(utilEncoders.PrimeNumbers, resourceID.Value)
+	utilEncoders.UnavailableID = util.RemoveElement(utilEncoders.UnavailableID, resourceID.Value)
 	err = db.Session().Where(&models.ResourceID{Name: req.Name}).Delete(&models.ResourceID{}).Error
 	if err != nil {
 		return nil, err
@@ -633,4 +633,75 @@ func (rpc *Server) TrafficEncoderRm(ctx context.Context, req *clientpb.TrafficEn
 		return nil, status.Error(codes.Aborted, err.Error())
 	}
 	return &commonpb.Empty{}, nil
+}
+
+// GenerateStage - Generate a new stage
+func (rpc *Server) GenerateStage(ctx context.Context, req *clientpb.GenerateStageReq) (*clientpb.Generate, error) {
+	var (
+		err  error
+		name string
+	)
+
+	profile, err := db.ImplantProfileByName(req.Profile)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Name == "" {
+		name, err = codenames.GetCodename()
+		if err != nil {
+			return nil, err
+		}
+	} else if err := util.AllowedName(name); err != nil {
+		return nil, err
+	} else {
+		name = req.Name
+	}
+
+	// retrieve http c2 implant config
+	httpC2Config, err := db.LoadHTTPC2ConfigByName(profile.Config.HTTPC2ConfigName)
+	if err != nil {
+		return nil, err
+	}
+
+	var fPath string
+	switch profile.Config.Format {
+	case clientpb.OutputFormat_SERVICE:
+		fallthrough
+	case clientpb.OutputFormat_EXECUTABLE:
+		fPath, err = generate.SliverExecutable(name, profile.Config, httpC2Config.ImplantConfig)
+	case clientpb.OutputFormat_SHARED_LIB:
+		fPath, err = generate.SliverSharedLibrary(name, profile.Config, httpC2Config.ImplantConfig)
+	case clientpb.OutputFormat_SHELLCODE:
+		fPath, err = generate.SliverShellcode(name, profile.Config, httpC2Config.ImplantConfig)
+	default:
+		return nil, fmt.Errorf("invalid output format: %s", profile.Config.Format)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	fileName := filepath.Base(fPath)
+	fileData, err := os.ReadFile(fPath)
+	if err != nil {
+		return nil, err
+	}
+
+	err = generate.ImplantBuildSave(name, profile.Config, fPath)
+	if err != nil {
+		rpcLog.Errorf("Failed to save external build: %s", err)
+		return nil, err
+	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.BuildCompletedEvent,
+		Data:      []byte(fileName),
+	})
+
+	return &clientpb.Generate{
+		File: &commonpb.File{
+			Name: fileName,
+			Data: fileData,
+		},
+	}, err
 }

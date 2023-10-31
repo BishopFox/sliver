@@ -23,10 +23,10 @@ import (
 	"log"
 	insecureRand "math/rand"
 	"os"
+	"slices"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/util"
 )
 
 const (
@@ -39,7 +39,7 @@ const (
 
 var (
 	// These were chosen at random other than the "No Encoder" ID (0)
-	PrimeNumbers     = generateDefaultPrimeNumbers()
+	UnavailableID    = populateID()
 	Base32EncoderID  = uint64(SetupDefaultEncoders("Base32Encoder"))
 	Base58EncoderID  = uint64(SetupDefaultEncoders("Base58EncoderID"))
 	Base64EncoderID  = uint64(SetupDefaultEncoders("Base64EncoderID"))
@@ -87,37 +87,42 @@ func SetupDefaultEncoders(name string) uint64 {
 		}
 	}
 
-	prime := GetPrimeNumber()
+	id := GetRandomID()
 	err = db.SaveResourceID(&clientpb.ResourceID{
 		Type:  "encoder",
 		Name:  name,
-		Value: prime,
+		Value: id,
 	})
 	if err != nil {
 		log.Printf("Error:\n%s", err)
 		os.Exit(-1)
 	}
 
-	return prime
+	return id
 }
 
-func generateDefaultPrimeNumbers() []uint64 {
+// generate unavailable id array on startup
+func populateID() []uint64 {
 	// remove already used prime numbers from available pool
 	resourceIDs, err := db.ResourceIDs()
 	if err != nil {
 		log.Printf("Error:\n%s", err)
 		os.Exit(-1)
 	}
-	pool := util.DefaultPrimeNumbers
+	var UnavailableID []uint64
 	for _, resourceID := range resourceIDs {
-		pool = util.RemoveElement(pool, resourceID.Value)
+		UnavailableID = append(UnavailableID, resourceID.Value)
 	}
 
-	return pool
+	return UnavailableID
 }
 
-func GetPrimeNumber() uint64 {
-	prime := PrimeNumbers[insecureRand.Intn(len(PrimeNumbers))]
-	PrimeNumbers = util.RemoveElement(PrimeNumbers, prime)
-	return prime
+// generate a random id and ensure it is not in use
+func GetRandomID() uint64 {
+	id := insecureRand.Intn(int(EncoderModulus))
+	for slices.Contains(UnavailableID, uint64(id)) {
+		id = insecureRand.Intn(int(EncoderModulus))
+	}
+	UnavailableID = append(UnavailableID, uint64(id))
+	return uint64(id)
 }
