@@ -246,12 +246,6 @@ func (rpc *Server) DeleteImplantBuild(ctx context.Context, req *clientpb.DeleteR
 		return nil, err
 	}
 
-	utilEncoders.UnavailableID = util.RemoveElement(utilEncoders.UnavailableID, resourceID.Value)
-	err = db.Session().Where(&models.ResourceID{Name: req.Name}).Delete(&models.ResourceID{}).Error
-	if err != nil {
-		return nil, err
-	}
-
 	build, err := db.ImplantBuildByName(req.Name)
 	if err != nil {
 		return nil, err
@@ -261,6 +255,13 @@ func (rpc *Server) DeleteImplantBuild(ctx context.Context, req *clientpb.DeleteR
 	if err != nil {
 		return nil, err
 	}
+
+	utilEncoders.UnavailableID = util.RemoveElement(utilEncoders.UnavailableID, resourceID.Value)
+	err = db.Session().Where(&models.ResourceID{Name: req.Name}).Delete(&models.ResourceID{}).Error
+	if err != nil {
+		return nil, err
+	}
+
 	err = generate.ImplantFileDelete(build)
 	if err == nil {
 		core.EventBroker.Publish(core.Event{
@@ -268,6 +269,7 @@ func (rpc *Server) DeleteImplantBuild(ctx context.Context, req *clientpb.DeleteR
 			Data:      []byte(build.Name),
 		})
 	}
+
 	return &commonpb.Empty{}, err
 }
 
