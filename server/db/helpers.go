@@ -504,7 +504,17 @@ func ProfileByName(name string) (*clientpb.ImplantProfile, error) {
 	}
 	dbProfile := &models.ImplantProfile{}
 	err := Session().Preload("ImplantConfig").Where(&models.ImplantProfile{Name: name}).Find(dbProfile).Error
-	return dbProfile.ToProtobuf(), err
+
+	dbBuilds := []*models.ImplantBuild{}
+	err = Session().Where(&models.ImplantBuild{ImplantConfigID: dbProfile.ImplantConfig.ID}).Find(&dbBuilds).Error
+	builds := []*clientpb.ImplantBuild{}
+	for _, build := range dbBuilds {
+		builds = append(builds, build.ToProtobuf())
+	}
+	pbProfile := dbProfile.ToProtobuf()
+	pbProfile.Config.ImplantBuilds = builds
+
+	return pbProfile, err
 }
 
 // DeleteProfile - Delete a profile from the database

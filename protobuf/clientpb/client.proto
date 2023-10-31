@@ -125,7 +125,7 @@ enum OutputFormat {
 
 message ImplantConfig {
   string ID = 1;
-  string ImplantBuildID = 2;
+  repeated ImplantBuild ImplantBuilds = 2;
   string ImplantProfileID = 3;
   bool IsBeacon = 4;
   int64 BeaconInterval = 5;

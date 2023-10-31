@@ -100,10 +100,10 @@ func ImplantBuildFromProtobuf(ib *clientpb.ImplantBuild) *ImplantBuild {
 // ImplantConfig - An implant build configuration
 type ImplantConfig struct {
 	ID               uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	ImplantBuildID   uuid.UUID
 	ImplantProfileID uuid.UUID
 
-	CreatedAt time.Time `gorm:"->;<-:create;"`
+	ImplantBuilds []ImplantBuild
+	CreatedAt     time.Time `gorm:"->;<-:create;"`
 
 	// Go
 	GOOS   string
@@ -205,9 +205,13 @@ func (ip *ImplantProfile) ToProtobuf() *clientpb.ImplantProfile {
 
 // ToProtobuf - Convert ImplantConfig to protobuf equiv
 func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
+	implantBuilds := []*clientpb.ImplantBuild{}
+	for _, implantBuild := range ic.ImplantBuilds {
+		implantBuilds = append(implantBuilds, implantBuild.ToProtobuf())
+	}
 	config := &clientpb.ImplantConfig{
 		ID:               ic.ID.String(),
-		ImplantBuildID:   ic.ImplantBuildID.String(),
+		ImplantBuilds:    implantBuilds,
 		ImplantProfileID: ic.ImplantProfileID.String(),
 
 		IsBeacon:       ic.IsBeacon,
@@ -391,11 +395,14 @@ func ImplantProfileFromProtobuf(pbProfile *clientpb.ImplantProfile) *ImplantProf
 
 // ImplantConfigFromProtobuf - Create a native config struct from Protobuf
 func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig {
+	implantBuilds := []ImplantBuild{}
+	for _, implantBuild := range pbConfig.ImplantBuilds {
+		implantBuilds = append(implantBuilds, *ImplantBuildFromProtobuf(implantBuild))
+	}
 	cfg := ImplantConfig{}
 	id, _ := uuid.FromString(pbConfig.ID)
 	cfg.ID = id
-	buildID, _ := uuid.FromString(pbConfig.ImplantBuildID)
-	cfg.ImplantBuildID = buildID
+	cfg.ImplantBuilds = implantBuilds
 	profileID, _ := uuid.FromString(pbConfig.ImplantProfileID)
 	cfg.ImplantProfileID = profileID
 

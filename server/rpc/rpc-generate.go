@@ -235,31 +235,47 @@ func (rpc *Server) SaveImplantProfile(ctx context.Context, profile *clientpb.Imp
 
 // DeleteImplantProfile - Delete an implant profile
 func (rpc *Server) DeleteImplantProfile(ctx context.Context, req *clientpb.DeleteReq) (*commonpb.Empty, error) {
-	err := db.DeleteProfile(req.Name)
+	profile, err := db.ProfileByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	for _, build := range profile.Config.ImplantBuilds {
+		err = RemoveBuildByName(build.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	err = db.DeleteProfile(req.Name)
 	return &commonpb.Empty{}, err
 }
 
 // DeleteImplantBuild - Delete an implant build
 func (rpc *Server) DeleteImplantBuild(ctx context.Context, req *clientpb.DeleteReq) (*commonpb.Empty, error) {
-	resourceID, err := db.ResourceIDByName(req.Name)
+	err := RemoveBuildByName(req.Name)
+	return &commonpb.Empty{}, err
+}
+
+// Remove Implant build given the build name
+func RemoveBuildByName(name string) error {
+	resourceID, err := db.ResourceIDByName(name)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	build, err := db.ImplantBuildByName(req.Name)
+	build, err := db.ImplantBuildByName(name)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	err = db.Session().Delete(build).Error
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	utilEncoders.UnavailableID = util.RemoveElement(utilEncoders.UnavailableID, resourceID.Value)
-	err = db.Session().Where(&models.ResourceID{Name: req.Name}).Delete(&models.ResourceID{}).Error
+	err = db.Session().Where(&models.ResourceID{Name: name}).Delete(&models.ResourceID{}).Error
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	err = generate.ImplantFileDelete(build)
@@ -269,8 +285,7 @@ func (rpc *Server) DeleteImplantBuild(ctx context.Context, req *clientpb.DeleteR
 			Data:      []byte(build.Name),
 		})
 	}
-
-	return &commonpb.Empty{}, err
+	return nil
 }
 
 // ShellcodeRDI - Generates a RDI shellcode from a given DLL
@@ -381,9 +396,6 @@ func (rpc *Server) GenerateExternalGetImplantConfig(ctx context.Context, req *cl
 	implantConfig, err := db.ImplantConfigWithC2sByID(req.ID)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid implant config id")
-	}
-	if implantConfig.ImplantBuildID != "" {
-		return nil, status.Error(codes.InvalidArgument, "implant config already has a build")
 	}
 
 	return &clientpb.ExternalImplantConfig{
