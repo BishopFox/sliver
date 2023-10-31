@@ -426,6 +426,11 @@ message GenerateReq {
   string Name = 2;
 }
 
+message GenerateStageReq {
+  string Profile = 1;
+  string Name = 2;
+}
+
 message Generate { commonpb.File File = 1; }
 
 message MSFReq {
