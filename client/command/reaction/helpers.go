@@ -21,7 +21,7 @@ package reaction
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -49,13 +49,13 @@ func SaveReactions(reactions []core.Reaction) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(reactionFilePath, data, 0o600)
+	return os.WriteFile(reactionFilePath, data, 0o600)
 }
 
 // LoadReactions - Save the reactions to the reaction file
 func LoadReactions() (int, error) {
 	reactionFilePath := GetReactionFilePath()
-	data, err := ioutil.ReadFile(reactionFilePath)
+	data, err := os.ReadFile(reactionFilePath)
 	if err != nil {
 		return 0, err
 	}

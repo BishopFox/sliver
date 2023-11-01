@@ -24,7 +24,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -161,7 +161,7 @@ func requestPayload(target string) ([]byte, error) {
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("invalid status code: %d", resp.StatusCode)
 	}
-	return ioutil.ReadAll(resp.Body)
+	return io.ReadAll(resp.Body)
 }
 
 func (a *OperatorImplantBridge) refreshBeacon() {

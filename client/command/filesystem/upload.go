@@ -84,9 +84,10 @@ func determineDirPathFilter(targetPath string) (string, string) {
 	return path, filter
 }
 
-func standarizeArchiveFileName(path string) string {
+func standarizeArchiveFileName(path string, uploadPathSpecified string) string {
 	// Change all backslashes to forward slashes
 	var standardFilePath string = strings.ReplaceAll(path, "\\", "/")
+	var standardUploadPath string = strings.ReplaceAll(uploadPathSpecified, "\\", "/")
 
 	/*
 		Remove the volume / root from the directory
@@ -101,6 +102,11 @@ func standarizeArchiveFileName(path string) string {
 		// If this a UNC path, filepath.Rel is not going to work
 		return standardFilePath[2:]
 	} else {
+		beginningOfUploadPath, _, _ := strings.Cut(standardUploadPath, "/")
+		if index := strings.Index(standardFilePath, beginningOfUploadPath); index != -1 {
+			// Add a / in front to make the specified upload path the root
+			standardFilePath = "/" + standardFilePath[index:]
+		}
 		// Calculate a path relative to the root
 		pathParts := strings.SplitN(standardFilePath, "/", 2)
 		if len(pathParts) < 2 {
@@ -129,7 +135,7 @@ func standarizeArchiveFileName(path string) string {
 	}
 }
 
-func tarDirectory(sourcePath string, sourceFilter string, recurse bool, preserveDirStructure bool) ([]byte, int, int, error) {
+func tarDirectory(sourcePath string, pathAsSpecified string, sourceFilter string, recurse bool, preserveDirStructure bool) ([]byte, int, int, error) {
 	readFiles := 0
 	unreadableFiles := 0
 	var matchingFiles []string
@@ -198,7 +204,7 @@ func tarDirectory(sourcePath string, sourceFilter string, recurse bool, preserve
 		}
 
 		if preserveDirStructure {
-			fileName = standarizeArchiveFileName(file)
+			fileName = standarizeArchiveFileName(file, pathAsSpecified)
 		} else {
 			fileName = fi.Name()
 		}
@@ -336,7 +342,7 @@ func UploadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 
 	if sourceInfomation.IsDir() {
 		// tar the directory and send it over
-		uploadData, readFiles, unreadableFiles, err = tarDirectory(srcPath, srcFilter, recurse, preserve)
+		uploadData, readFiles, unreadableFiles, err = tarDirectory(srcPath, localPath, srcFilter, recurse, preserve)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
