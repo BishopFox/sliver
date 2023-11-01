@@ -251,6 +251,9 @@ message DownloadReq {
   int64 Start = 2;
   int64 Stop = 3;
   bool Recurse = 4;
+  int64 MaxBytes = 5;
+  int64 MaxLines = 6;
+  bool RestrictedToFile = 7;
 
   commonpb.Request Request = 9;
 }

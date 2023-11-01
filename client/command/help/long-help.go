@@ -60,6 +60,8 @@ var (
 		consts.CatStr:              catHelp,
 		consts.DownloadStr:         downloadHelp,
 		consts.GrepStr:             grepHelp,
+		consts.HeadStr:             headHelp,
+		consts.TailStr:             tailHelp,
 		consts.UploadStr:           uploadHelp,
 		consts.MkdirStr:            mkdirHelp,
 		consts.RmStr:               rmHelp,
@@ -321,6 +323,12 @@ Downloads can be filtered using the following patterns:
 
 If you need to match a special character (*, ?, '-', '[', ']', '\\'), place '\\' in front of it (example: \\?).
 On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
+
+	headHelp = `[[.Bold]]Command:[[.Normal]] head [--bytes/-b <number of bytes>] [--lines/-l <number of lines>] <remote path> 
+	[[.Bold]]About:[[.Normal]] Fetch the first number of bytes or lines from a remote file and display it to stdout.`
+
+	tailHelp = `[[.Bold]]Command:[[.Normal]] tail [--bytes/-b <number of bytes>] [--lines/-l <number of lines>] <remote path> 
+	[[.Bold]]About:[[.Normal]] Fetch the last number of bytes or lines from a remote file and display it to stdout.`
 
 	uploadHelp = `[[.Bold]]Command:[[.Normal]] upload [local src] <remote dst>
 [[.Bold]]About:[[.Normal]] Upload a file or directory to the remote system.
