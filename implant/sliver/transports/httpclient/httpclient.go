@@ -48,7 +48,7 @@ import (
 var (
 	goHTTPDriver = "go"
 
-	userAgent      = "{{GenerateUserAgent}}"
+	userAgent      = `{{GenerateUserAgent}}`
 	nonceQueryArgs = "{{.HTTPC2ImplantConfig.NonceQueryArgs}}" // "abcdefghijklmnopqrstuvwxyz"
 
 	ErrClosed                             = errors.New("http session closed")
