@@ -394,6 +394,7 @@ var (
 	ErrTooFewSessionFiles         = errors.New("implant config must specify at least one session_files value")
 	ErrNonuniqueFileExt           = errors.New("implant config must specify unique file extensions")
 	ErrQueryParamNameLen          = errors.New("implant config url query parameter names must be 3 or more characters")
+	ErrUserAgentIllegalCharacters = errors.New("user agent cannot contain the ` character")
 
 	fileNameExp = regexp.MustCompile(`[^a-zA-Z0-9\\._-]+`)
 )
@@ -534,6 +535,18 @@ func checkImplantConfig(config *HTTPC2ImplantConfig) error {
 		if len(queryParam.Name) < 3 {
 			return ErrQueryParamNameLen
 		}
+	}
+
+	/*
+		User agent
+
+		Do not allow backticks in user agents because that breaks compilation of the
+		implant.
+	*/
+	if strings.Index(config.UserAgent, "`") != -1 {
+		// Blank out the user agent so that a default one will be filled in later
+		config.UserAgent = ""
+		return ErrUserAgentIllegalCharacters
 	}
 
 	return nil
