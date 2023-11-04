@@ -347,15 +347,17 @@ func (s *SliverHTTPC2) router() *mux.Router {
 		s.ServerConf.LongPollJitter = int64(DefaultLongPollJitter)
 	}
 
-	// start stager handlers, extension are unique accross all profiles
-	for _, c2Config := range c2Configs.Configs {
-		// Can't force the user agent on the stager payload
-		// Request from msf stager payload will look like:
-		// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
-		router.HandleFunc(
-			fmt.Sprintf("/{rpath:.*\\.%s[/]{0,1}.*$}", c2Config.ImplantConfig.StagerFileExtension),
-			s.stagerHandler,
-		).Methods(http.MethodGet)
+	if s.ServerConf.Staging {
+		// start stager handlers, extension are unique accross all profiles
+		for _, c2Config := range c2Configs.Configs {
+			// Can't force the user agent on the stager payload
+			// Request from msf stager payload will look like:
+			// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
+			router.HandleFunc(
+				fmt.Sprintf("/{rpath:.*\\.%s[/]{0,1}.*$}", c2Config.ImplantConfig.StagerFileExtension),
+				s.stagerHandler,
+			).Methods(http.MethodGet)
+		}
 	}
 
 	router.HandleFunc("/{rpath:.*}", s.mainHandler).Methods(http.MethodGet, http.MethodPost)

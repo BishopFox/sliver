@@ -380,6 +380,7 @@ message HTTPListenerReq {
   int64 LongPollTimeout = 11;
   int64 LongPollJitter = 12;
   bool RandomizeJARM = 13; // Only valid with Secure = true
+  bool Staging = 14;
 }
 
 // Named Pipes Messages for pivoting

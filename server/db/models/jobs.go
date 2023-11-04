@@ -56,6 +56,7 @@ type HTTPListener struct {
 	LongPollTimeout int64
 	LongPollJitter  int64
 	RandomizeJarm   bool
+	Staging         bool
 }
 
 type DNSListener struct {
@@ -170,6 +171,7 @@ func (j *HTTPListener) ToProtobuf() *clientpb.HTTPListenerReq {
 		LongPollTimeout: int64(j.LongPollTimeout),
 		LongPollJitter:  int64(j.LongPollJitter),
 		RandomizeJARM:   j.RandomizeJarm,
+		Staging:         j.Staging,
 	}
 }
 
@@ -233,6 +235,7 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 			LongPollTimeout: pbListenerJob.HTTPConf.LongPollTimeout,
 			LongPollJitter:  pbListenerJob.HTTPConf.LongPollJitter,
 			RandomizeJarm:   pbListenerJob.HTTPConf.RandomizeJARM,
+			Staging:         pbListenerJob.HTTPConf.Staging,
 		}
 	case constants.HttpsStr:
 		cfg.HttpListener = HTTPListener{
@@ -248,6 +251,7 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 			LongPollTimeout: pbListenerJob.HTTPConf.LongPollTimeout,
 			LongPollJitter:  pbListenerJob.HTTPConf.LongPollJitter,
 			RandomizeJarm:   pbListenerJob.HTTPConf.RandomizeJARM,
+			Staging:         pbListenerJob.HTTPConf.Staging,
 		}
 	case constants.MtlsStr:
 		cfg.MtlsListener = MtlsListener{
