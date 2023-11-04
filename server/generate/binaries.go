@@ -755,7 +755,7 @@ func GenerateConfig(name string, implantConfig *clientpb.ImplantConfig, save boo
 	}
 
 	if save {
-		err = ImplantConfigSave(implantConfig)
+		implantConfig, err = ImplantConfigSave(implantConfig)
 		if err != nil {
 			return nil, err
 		}

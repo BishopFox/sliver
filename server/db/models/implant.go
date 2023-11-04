@@ -260,6 +260,13 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		TrafficEncodersEnabled: ic.TrafficEncodersEnabled,
 		NetGoEnabled:           ic.NetGoEnabled,
 		HTTPC2ConfigName:       ic.HttpC2ConfigName,
+
+		IncludeMTLS:     ic.IncludeMTLS,
+		IncludeHTTP:     ic.IncludeHTTP,
+		IncludeDNS:      ic.IncludeDNS,
+		IncludeNamePipe: ic.IncludeNamePipe,
+		IncludeWG:       ic.IncludeWG,
+		IncludeTCP:      ic.IncludeTCP,
 	}
 	// Copy Canary Domains
 	config.CanaryDomains = []string{}

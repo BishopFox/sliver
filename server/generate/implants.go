@@ -61,11 +61,11 @@ func getBuildsDir() (string, error) {
 }
 
 // ImplantConfigSave - Save only the config to the database
-func ImplantConfigSave(config *clientpb.ImplantConfig) error {
+func ImplantConfigSave(config *clientpb.ImplantConfig) (*clientpb.ImplantConfig, error) {
 
 	dbConfig, err := db.ImplantConfigByID(config.ID)
 	if err != nil && !errors.Is(err, db.ErrRecordNotFound) {
-		return err
+		return nil, err
 	}
 
 	modelConfig := models.ImplantConfigFromProtobuf(config)
@@ -74,12 +74,14 @@ func ImplantConfigSave(config *clientpb.ImplantConfig) error {
 		err = dbSession.Clauses(clause.OnConflict{
 			UpdateAll: true,
 		}).Create(modelConfig).Error
+
 	} else {
 		id, _ := uuid.FromString(dbConfig.ImplantProfileID)
 		modelConfig.ImplantProfileID = id
 		err = dbSession.Save(modelConfig).Error
 	}
-	return err
+
+	return modelConfig.ToProtobuf(), err
 }
 
 // ImplantBuildSave - Saves a binary file into the database
