@@ -133,12 +133,8 @@ func SaveImplantBuild(ib *clientpb.ImplantBuild) (*clientpb.ImplantBuild, error)
 	if err != nil {
 		return nil, err
 	}
-	build, err := ImplantBuildByName(implantBuild.Name)
-	if err != nil {
-		return nil, err
-	}
 
-	return build, nil
+	return implantBuild.ToProtobuf(), nil
 }
 
 // ImplantBuildByName - Fetch implant build by name
