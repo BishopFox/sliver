@@ -81,13 +81,10 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		config = req.Config
 	}
 
+	// generate config if necessary, otherwise the same config is reused
 	config, err = generate.GenerateConfig(name, config, true)
 	if err != nil {
 		return nil, err
-	}
-
-	if config == nil {
-		return nil, errors.New("invalid implant config")
 	}
 
 	// retrieve http c2 implant config

@@ -719,29 +719,31 @@ func GenerateConfig(name string, implantConfig *clientpb.ImplantConfig, save boo
 		return nil, err
 	}
 
-	// ECC keys
-	implantKeyPair, err := cryptography.RandomAgeKeyPair()
-	if err != nil {
-		return nil, err
+	// ECC keys - only generate if config is not set
+	if implantConfig.PeerPublicKeyDigest == "" {
+		implantKeyPair, err := cryptography.RandomAgeKeyPair()
+		if err != nil {
+			return nil, err
+		}
+		serverKeyPair := cryptography.AgeServerKeyPair()
+		digest := sha256.Sum256([]byte(implantKeyPair.Public))
+		implantConfig.PeerPublicKey = implantKeyPair.Public
+		implantConfig.PeerPublicKeyDigest = hex.EncodeToString(digest[:])
+		implantConfig.PeerPrivateKey = implantKeyPair.Private
+		implantConfig.PeerPublicKeySignature = cryptography.MinisignServerSign([]byte(implantKeyPair.Public))
+		implantConfig.AgeServerPublicKey = serverKeyPair.Public
+		implantConfig.MinisignServerPublicKey = cryptography.MinisignServerPublicKey()
 	}
-	serverKeyPair := cryptography.AgeServerKeyPair()
-	digest := sha256.Sum256([]byte(implantKeyPair.Public))
-	implantConfig.PeerPublicKey = implantKeyPair.Public
-	implantConfig.PeerPublicKeyDigest = hex.EncodeToString(digest[:])
-	implantConfig.PeerPrivateKey = implantKeyPair.Private
-	implantConfig.PeerPublicKeySignature = cryptography.MinisignServerSign([]byte(implantKeyPair.Public))
-	implantConfig.AgeServerPublicKey = serverKeyPair.Public
-	implantConfig.MinisignServerPublicKey = cryptography.MinisignServerPublicKey()
 
 	// MTLS keys
-	if models.IsC2Enabled([]string{"mtls"}, implantConfig.C2) {
+	if models.IsC2Enabled([]string{"mtls"}, implantConfig.C2) && implantConfig.MtlsCACert == "" {
 		implantConfig.MtlsCACert = string(serverCACert)
 		implantConfig.MtlsCert = string(sliverCert)
 		implantConfig.MtlsKey = string(sliverKey)
 	}
 
 	// Generate wg Keys as needed
-	if models.IsC2Enabled([]string{"wg"}, implantConfig.C2) {
+	if models.IsC2Enabled([]string{"wg"}, implantConfig.C2) && implantConfig.WGImplantPrivKey == "" {
 		implantPrivKey, _, err := certs.ImplantGenerateWGKeys(implantConfig.WGPeerTunIP)
 		if err != nil {
 			return nil, err

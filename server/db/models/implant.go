@@ -224,6 +224,8 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		PeerPublicKey:           ic.PeerPublicKey,
 		PeerPrivateKey:          ic.PeerPrivateKey,
 		MinisignServerPublicKey: ic.MinisignServerPublicKey,
+		PeerPublicKeySignature:  ic.PeerPublicKeySignature,
+		PeerPublicKeyDigest:     ic.PeerPublicKeyDigest,
 		MtlsCACert:              ic.MtlsCACert,
 		MtlsCert:                ic.MtlsCert,
 		MtlsKey:                 ic.MtlsKey,
@@ -343,6 +345,7 @@ func (c2 *ImplantC2) BeforeCreate(tx *gorm.DB) (err error) {
 // ToProtobuf - Convert to protobuf version
 func (c2 *ImplantC2) ToProtobuf() *clientpb.ImplantC2 {
 	return &clientpb.ImplantC2{
+		ID:       c2.ID.String(),
 		Priority: c2.Priority,
 		URL:      c2.URL,
 		Options:  c2.Options,
@@ -457,7 +460,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.MaxConnectionErrors = pbConfig.MaxConnectionErrors
 	cfg.PollTimeout = pbConfig.PollTimeout
 
-	cfg.C2 = copyC2List(pbConfig.C2)
+	cfg.C2 = copyC2List(pbConfig.C2, cfg.ID)
 	cfg.CanaryDomains = []CanaryDomain{}
 	for _, pbCanary := range pbConfig.CanaryDomains {
 		cfg.CanaryDomains = append(cfg.CanaryDomains, CanaryDomain{
@@ -497,7 +500,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	return &cfg
 }
 
-func copyC2List(src []*clientpb.ImplantC2) []ImplantC2 {
+func copyC2List(src []*clientpb.ImplantC2, id uuid.UUID) []ImplantC2 {
 	c2s := []ImplantC2{}
 	for _, srcC2 := range src {
 		c2URL, err := url.Parse(srcC2.URL)
@@ -505,10 +508,13 @@ func copyC2List(src []*clientpb.ImplantC2) []ImplantC2 {
 			modelLog.Warnf("Failed to parse c2 url %v", err)
 			continue
 		}
+		uuid, _ := uuid.FromString(srcC2.ID)
 		c2s = append(c2s, ImplantC2{
-			Priority: srcC2.Priority,
-			URL:      c2URL.String(),
-			Options:  srcC2.Options,
+			ID:              uuid,
+			ImplantConfigID: id,
+			Priority:        srcC2.Priority,
+			URL:             c2URL.String(),
+			Options:         srcC2.Options,
 		})
 	}
 	return c2s

@@ -110,9 +110,10 @@ message BeaconTasks {
 }
 
 message ImplantC2 {
-  uint32 Priority = 1;
-  string URL = 2;
-  string Options = 3; // Protocol specific options
+  string ID = 1;
+  uint32 Priority = 2;
+  string URL = 3;
+  string Options = 4; // Protocol specific options
 }
 
 enum OutputFormat {

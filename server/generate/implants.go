@@ -78,7 +78,12 @@ func ImplantConfigSave(config *clientpb.ImplantConfig) (*clientpb.ImplantConfig,
 	} else {
 		id, _ := uuid.FromString(dbConfig.ImplantProfileID)
 		modelConfig.ImplantProfileID = id
+
+		// this avoids gorm saving duplicate c2 objects ...
+		tempC2 := modelConfig.C2
+		modelConfig.C2 = nil
 		err = dbSession.Save(modelConfig).Error
+		modelConfig.C2 = tempC2
 	}
 
 	return modelConfig.ToProtobuf(), err
