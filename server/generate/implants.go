@@ -90,7 +90,7 @@ func ImplantConfigSave(config *clientpb.ImplantConfig) (*clientpb.ImplantConfig,
 }
 
 // ImplantBuildSave - Saves a binary file into the database
-func ImplantBuildSave(name string, config *clientpb.ImplantConfig, fPath string) error {
+func ImplantBuildSave(build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, fPath string) error {
 	rootAppDir, _ := filepath.Abs(assets.GetRootAppDir())
 	fPath, _ = filepath.Abs(fPath)
 	if !strings.HasPrefix(fPath, rootAppDir) {
@@ -111,24 +111,28 @@ func ImplantBuildSave(name string, config *clientpb.ImplantConfig, fPath string)
 	err = db.SaveResourceID(&clientpb.ResourceID{
 		Type:  "stager",
 		Value: implantID,
-		Name:  name,
+		Name:  build.Name,
 	})
 	if err != nil {
 		return err
 	}
 
-	implantBuild := &clientpb.ImplantBuild{
-		Name:            name,
-		ImplantConfigID: config.ID,
-		MD5:             md5Hash,
-		SHA1:            sha1Hash,
-		SHA256:          sha256Hash,
-		ImplantID:       implantID,
-	}
-	implantBuild, err = db.SaveImplantBuild(implantBuild)
+	build.ImplantID = implantID
+	build.MD5 = md5Hash
+	build.SHA1 = sha1Hash
+	build.SHA256 = sha256Hash
+
+	config, err = db.SaveImplantConfig(config)
 	if err != nil {
 		return err
 	}
+
+	build.ImplantConfigID = config.ID
+	implantBuild, err := db.SaveImplantBuild(build)
+	if err != nil {
+		return err
+	}
+
 	watchtower.AddImplantToWatchlist(implantBuild)
 	storageLog.Infof("%s -> %s", implantBuild.ID, implantBuild.Name)
 	return os.WriteFile(filepath.Join(buildsDir, implantBuild.ID), data, 0600)

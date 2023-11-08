@@ -24,11 +24,12 @@ import (
 
 // SliverExternal - Generates the cryptographic keys for the implant but compiles no code
 func SliverExternal(name string, config *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
-	config, err := GenerateConfig(name, config, true)
+	build, err := GenerateConfig(name, config)
 	if err != nil {
 		return nil, err
 	}
 	return &clientpb.ExternalImplantConfig{
 		Config: config,
+		Build:  build,
 	}, nil
 }

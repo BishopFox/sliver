@@ -560,15 +560,22 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 
 	var publicKeyDigest [32]byte
 	copy(publicKeyDigest[:], data[:32])
-	implantConfig, err := db.ImplantConfigByPublicKeyDigest(publicKeyDigest)
-	if err != nil || implantConfig == nil {
+	implantBuild, err := db.ImplantBuildByPublicKeyDigest(publicKeyDigest)
+	if err != nil || implantBuild == nil {
 		httpLog.Warn("Unknown public key")
 		s.defaultHandler(resp, req)
 		return
 	}
 
+	implantConfig, err := db.ImplantConfigByID(implantBuild.ImplantConfigID)
+	if err != nil || implantConfig == nil {
+		httpLog.Warn("Unknown implant config")
+		s.defaultHandler(resp, req)
+		return
+	}
+
 	serverKeyPair := cryptography.AgeServerKeyPair()
-	sessionInitData, err := cryptography.AgeKeyExFromImplant(serverKeyPair.Private, implantConfig.PeerPrivateKey, data[32:])
+	sessionInitData, err := cryptography.AgeKeyExFromImplant(serverKeyPair.Private, implantBuild.PeerPrivateKey, data[32:])
 	if err != nil {
 		httpLog.Error("age key exchange decryption failed")
 		s.defaultHandler(resp, req)

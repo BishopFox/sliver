@@ -95,7 +95,7 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 		return nil, fmt.Errorf("please select a profile targeting a shellcode format")
 	}
 
-	_, err = generate.GenerateConfig(name, p.Config, true)
+	build, err := generate.GenerateConfig(name, p.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	fPath, err := generate.SliverShellcode(name, p.Config, httpC2Config.ImplantConfig)
+	fPath, err := generate.SliverShellcode(name, build, p.Config, httpC2Config.ImplantConfig)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

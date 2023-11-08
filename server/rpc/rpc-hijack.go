@@ -120,7 +120,7 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 		} else {
 			name = req.Name
 		}
-		_, err = generate.GenerateConfig(name, config, true)
+		build, err := generate.GenerateConfig(name, config)
 		if err != nil {
 			return nil, err
 		}
@@ -130,7 +130,7 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 			return nil, err
 		}
 
-		fPath, err := generate.SliverSharedLibrary(name, config, httpC2Config.ImplantConfig)
+		fPath, err := generate.SliverSharedLibrary(name, build, config, httpC2Config.ImplantConfig)
 
 		if err != nil {
 			return nil, err

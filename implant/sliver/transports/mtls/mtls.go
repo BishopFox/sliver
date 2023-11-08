@@ -46,10 +46,10 @@ var (
 	PingInterval = 2 * time.Minute
 
 	// caCertPEM - PEM encoded CA certificate
-	caCertPEM = `{{.Config.MtlsCACert}}`
+	caCertPEM = `{{.Build.MtlsCACert}}`
 
-	keyPEM  = `{{.Config.MtlsKey}}`
-	certPEM = `{{.Config.MtlsCert}}`
+	keyPEM  = `{{.Build.MtlsKey}}`
+	certPEM = `{{.Build.MtlsCert}}`
 )
 
 // WriteEnvelope - Writes a message to the TLS socket using length prefix framing

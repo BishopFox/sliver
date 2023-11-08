@@ -148,19 +148,6 @@ message ImplantConfig {
   bool IncludeNamePipe = 19;
   bool IncludeTCP = 20;
 
-  string MtlsCACert = 21;
-  string MtlsCert = 22;
-  string MtlsKey = 23;
-
-  string AgeServerPublicKey = 24;
-  string PeerPublicKey = 25;
-  string PeerPrivateKey = 26;
-  string PeerPublicKeySignature = 27;
-  string MinisignServerPublicKey = 28;
-  string PeerPublicKeyDigest = 29;
-
-  string WGImplantPrivKey = 30;
-  string WGServerPubKey = 31;
   string WGPeerTunIP = 32;
   uint32 WGKeyExchangePort = 33;
   uint32 WGTcpCommsPort = 34;
@@ -183,7 +170,6 @@ message ImplantConfig {
 
   OutputFormat Format = 100;
   bool IsSharedLib = 101;
-  string FileName = 102;
   bool IsService = 103;
   bool IsShellcode = 104;
   bool RunAtLoad = 105;
@@ -229,7 +215,7 @@ message TrafficEncoderTests {
 
 message ExternalImplantConfig {
   ImplantConfig Config = 1;
-  string OTPSecret = 2;
+  ImplantBuild Build = 2;
 }
 
 message ExternalImplantBinary {
@@ -253,6 +239,18 @@ message ImplantBuild {
 	uint64 ImplantID = 7;
 
 	string ImplantConfigID = 8;
+  string AgeServerPublicKey = 9;
+  string PeerPublicKey = 10;
+  string PeerPrivateKey = 11;
+  string PeerPublicKeySignature = 12;
+  string MinisignServerPublicKey = 13;
+  string PeerPublicKeyDigest = 14;
+
+  string WGImplantPrivKey = 15;
+  string WGServerPubKey = 16;
+  string MtlsCACert = 17;
+  string MtlsCert = 18;
+  string MtlsKey = 19;
 }
 
 message CompilerTarget {

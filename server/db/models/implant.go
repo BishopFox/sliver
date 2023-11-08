@@ -20,7 +20,6 @@ package models
 
 import (
 	"net/url"
-	"path"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -54,6 +53,23 @@ type ImplantBuild struct {
 	ImplantID uint64
 
 	ImplantConfigID uuid.UUID
+
+	// ECC
+	PeerPublicKey           string
+	PeerPublicKeyDigest     string
+	PeerPrivateKey          string
+	PeerPublicKeySignature  string
+	AgeServerPublicKey      string
+	MinisignServerPublicKey string
+
+	// MTLS
+	MtlsCACert string
+	MtlsCert   string
+	MtlsKey    string
+
+	// WireGuard
+	WGImplantPrivKey string
+	WGServerPubKey   string
 }
 
 // BeforeCreate - GORM hook
@@ -69,14 +85,25 @@ func (ib *ImplantBuild) BeforeCreate(tx *gorm.DB) (err error) {
 // Convert ImplantBuild To Protobuf
 func (ib *ImplantBuild) ToProtobuf() *clientpb.ImplantBuild {
 	build := clientpb.ImplantBuild{
-		ID:              ib.ID.String(),
-		Name:            ib.Name,
-		MD5:             ib.MD5,
-		SHA1:            ib.SHA1,
-		SHA256:          ib.SHA256,
-		Burned:          ib.Burned,
-		ImplantID:       ib.ImplantID,
-		ImplantConfigID: ib.ImplantConfigID.String(),
+		ID:                      ib.ID.String(),
+		Name:                    ib.Name,
+		MD5:                     ib.MD5,
+		SHA1:                    ib.SHA1,
+		SHA256:                  ib.SHA256,
+		Burned:                  ib.Burned,
+		ImplantID:               ib.ImplantID,
+		ImplantConfigID:         ib.ImplantConfigID.String(),
+		AgeServerPublicKey:      ib.AgeServerPublicKey,
+		PeerPublicKey:           ib.PeerPublicKey,
+		PeerPrivateKey:          ib.PeerPrivateKey,
+		MinisignServerPublicKey: ib.MinisignServerPublicKey,
+		PeerPublicKeySignature:  ib.PeerPublicKeySignature,
+		PeerPublicKeyDigest:     ib.PeerPublicKeyDigest,
+		MtlsCACert:              ib.MtlsCACert,
+		MtlsCert:                ib.MtlsCert,
+		MtlsKey:                 ib.MtlsKey,
+		WGImplantPrivKey:        ib.WGImplantPrivKey,
+		WGServerPubKey:          ib.WGServerPubKey,
 	}
 	return &build
 }
@@ -93,6 +120,19 @@ func ImplantBuildFromProtobuf(ib *clientpb.ImplantBuild) *ImplantBuild {
 		Burned:          ib.Burned,
 		ImplantID:       ib.ImplantID,
 		ImplantConfigID: ImplantConfidID,
+		MtlsCACert:      ib.MtlsCACert,
+		MtlsCert:        ib.MtlsCert,
+		MtlsKey:         ib.MtlsKey,
+
+		AgeServerPublicKey:      ib.AgeServerPublicKey,
+		PeerPublicKey:           ib.PeerPublicKey,
+		PeerPrivateKey:          ib.PeerPrivateKey,
+		PeerPublicKeySignature:  ib.PeerPublicKeySignature,
+		MinisignServerPublicKey: ib.MinisignServerPublicKey,
+		PeerPublicKeyDigest:     ib.PeerPublicKeyDigest,
+
+		WGImplantPrivKey: ib.WGImplantPrivKey,
+		WGServerPubKey:   ib.WGServerPubKey,
 	}
 	return &build
 }
@@ -115,19 +155,6 @@ type ImplantConfig struct {
 	BeaconInterval int64
 	BeaconJitter   int64
 
-	// ECC
-	PeerPublicKey           string
-	PeerPublicKeyDigest     string
-	PeerPrivateKey          string
-	PeerPublicKeySignature  string
-	AgeServerPublicKey      string
-	MinisignServerPublicKey string
-
-	// MTLS
-	MtlsCACert string
-	MtlsCert   string
-	MtlsKey    string
-
 	Debug               bool
 	DebugFile           string
 	Evasion             bool
@@ -139,8 +166,6 @@ type ImplantConfig struct {
 	SGNEnabled          bool
 
 	// WireGuard
-	WGImplantPrivKey  string
-	WGServerPubKey    string
 	WGPeerTunIP       string
 	WGKeyExchangePort uint32
 	WGTcpCommsPort    uint32
@@ -173,8 +198,6 @@ type ImplantConfig struct {
 	IsShellcode bool
 
 	RunAtLoad bool
-
-	FileName string
 
 	HttpC2ConfigName       string
 	NetGoEnabled           bool
@@ -218,17 +241,8 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		BeaconInterval: ic.BeaconInterval,
 		BeaconJitter:   ic.BeaconJitter,
 
-		GOOS:                    ic.GOOS,
-		GOARCH:                  ic.GOARCH,
-		AgeServerPublicKey:      ic.AgeServerPublicKey,
-		PeerPublicKey:           ic.PeerPublicKey,
-		PeerPrivateKey:          ic.PeerPrivateKey,
-		MinisignServerPublicKey: ic.MinisignServerPublicKey,
-		PeerPublicKeySignature:  ic.PeerPublicKeySignature,
-		PeerPublicKeyDigest:     ic.PeerPublicKeyDigest,
-		MtlsCACert:              ic.MtlsCACert,
-		MtlsCert:                ic.MtlsCert,
-		MtlsKey:                 ic.MtlsKey,
+		GOOS:   ic.GOOS,
+		GOARCH: ic.GOARCH,
 
 		Debug:            ic.Debug,
 		DebugFile:        ic.DebugFile,
@@ -253,13 +267,10 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		IsService:         ic.IsService,
 		IsShellcode:       ic.IsShellcode,
 		Format:            ic.Format,
-		WGImplantPrivKey:  ic.WGImplantPrivKey,
-		WGServerPubKey:    ic.WGServerPubKey,
 		WGPeerTunIP:       ic.WGPeerTunIP,
 		WGKeyExchangePort: ic.WGKeyExchangePort,
 		WGTcpCommsPort:    ic.WGTcpCommsPort,
 
-		FileName:               ic.FileName,
 		TrafficEncodersEnabled: ic.TrafficEncodersEnabled,
 		NetGoEnabled:           ic.NetGoEnabled,
 		HTTPC2ConfigName:       ic.HttpC2ConfigName,
@@ -439,19 +450,6 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.IncludeNamePipe = IsC2Enabled([]string{"namedpipe"}, pbConfig.C2)
 	cfg.IncludeTCP = IsC2Enabled([]string{"tcppivot"}, pbConfig.C2)
 
-	cfg.MtlsCACert = pbConfig.MtlsCACert
-	cfg.MtlsCert = pbConfig.MtlsCert
-	cfg.MtlsKey = pbConfig.MtlsKey
-
-	cfg.AgeServerPublicKey = pbConfig.AgeServerPublicKey
-	cfg.PeerPublicKey = pbConfig.PeerPublicKey
-	cfg.PeerPrivateKey = pbConfig.PeerPrivateKey
-	cfg.PeerPublicKeySignature = pbConfig.PeerPublicKeySignature
-	cfg.MinisignServerPublicKey = pbConfig.MinisignServerPublicKey
-	cfg.PeerPublicKeyDigest = pbConfig.PeerPublicKeyDigest
-
-	cfg.WGImplantPrivKey = pbConfig.WGImplantPrivKey
-	cfg.WGServerPubKey = pbConfig.WGServerPubKey
 	cfg.WGPeerTunIP = pbConfig.WGPeerTunIP
 	cfg.WGKeyExchangePort = pbConfig.WGKeyExchangePort
 	cfg.WGTcpCommsPort = pbConfig.WGTcpCommsPort
@@ -478,9 +476,6 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 
 	cfg.Format = pbConfig.Format
 	cfg.IsSharedLib = pbConfig.IsSharedLib
-	if pbConfig.FileName != "" {
-		cfg.FileName = path.Base(pbConfig.FileName)
-	}
 	cfg.IsService = pbConfig.IsService
 	cfg.IsShellcode = pbConfig.IsShellcode
 	cfg.RunAtLoad = pbConfig.RunAtLoad

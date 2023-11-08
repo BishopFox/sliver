@@ -186,8 +186,9 @@ func trafficEncodersExecutable(t *testing.T, goos string, goarch string) {
 		TrafficEncodersEnabled: true,
 	}
 	debugHttpC2Config := &clientpb.HTTPC2ImplantConfig{}
+	build, _ := GenerateConfig(name, debugConfig)
 	nonce++
-	_, err := SliverExecutable(name, debugConfig, debugHttpC2Config)
+	_, err := SliverExecutable(name, build, debugConfig, debugHttpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -203,8 +204,9 @@ func trafficEncodersExecutable(t *testing.T, goos string, goarch string) {
 		IsBeacon:               false,
 		TrafficEncodersEnabled: true,
 	}
+	build, _ = GenerateConfig(name, prodConfig)
 	nonce++
-	_, err = SliverExecutable(name, prodConfig, debugHttpC2Config)
+	_, err = SliverExecutable(name, build, prodConfig, debugHttpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -224,8 +226,9 @@ func mtlsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) 
 		IsBeacon:         beacon,
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
+	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(name, config, httpC2Config)
+	_, err := SliverExecutable(name, build, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -245,8 +248,9 @@ func dnsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
 		IsBeacon:         beacon,
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
+	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(name, config, httpC2Config)
+	_, err := SliverExecutable(name, build, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -270,8 +274,9 @@ func httpExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) 
 		IsBeacon:         beacon,
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
+	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(name, config, httpC2Config)
+	_, err := SliverExecutable(name, build, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -296,8 +301,9 @@ func multiExe(t *testing.T, goos string, goarch string, beacon bool, debug bool)
 		IsBeacon:         beacon,
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
+	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(name, config, httpC2Config)
+	_, err := SliverExecutable(name, build, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -322,8 +328,9 @@ func multiWindowsService(t *testing.T, goos string, goarch string, beacon bool, 
 		IsBeacon:         beacon,
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
+	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(name, config, httpC2Config)
+	_, err := SliverExecutable(name, build, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -347,8 +354,9 @@ func tcpPivotExe(t *testing.T, goos string, goarch string, debug bool) {
 		ObfuscateSymbols: false,
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
+	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(name, config, httpC2Config)
+	_, err := SliverExecutable(name, build, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -371,8 +379,9 @@ func namedPipeExe(t *testing.T, goos string, goarch string, debug bool) {
 		ObfuscateSymbols: false,
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
+	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(name, config, httpC2Config)
+	_, err := SliverExecutable(name, build, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -393,8 +402,6 @@ func wireguardExe(t *testing.T, goos string, goarch string, beacon bool, debug b
 		},
 		Debug:             debug,
 		ObfuscateSymbols:  false,
-		WGImplantPrivKey:  "153be871d7e54545c01a9700880f86fc83087275669c9237b9bcd617ddbfa43f",
-		WGServerPubKey:    "153be871d7e54545c01a9700880f86fc83087275669c9237b9bcd617ddbfa43f",
 		WGPeerTunIP:       "100.64.0.2",
 		WGKeyExchangePort: 1234,
 		WGTcpCommsPort:    5678,
@@ -403,7 +410,8 @@ func wireguardExe(t *testing.T, goos string, goarch string, beacon bool, debug b
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
 	certs.SetupWGKeys()
-	_, err := SliverExecutable(name, config, httpC2Config)
+	build, _ := GenerateConfig(name, config)
+	_, err := SliverExecutable(name, build, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -428,15 +436,14 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 		ObfuscateSymbols:  false,
 		Format:            clientpb.OutputFormat_SHARED_LIB,
 		IsSharedLib:       true,
-		WGImplantPrivKey:  "153be871d7e54545c01a9700880f86fc83087275669c9237b9bcd617ddbfa43f",
-		WGServerPubKey:    "153be871d7e54545c01a9700880f86fc83087275669c9237b9bcd617ddbfa43f",
 		WGPeerTunIP:       "100.64.0.2",
 		WGKeyExchangePort: 1234,
 		WGTcpCommsPort:    5678,
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverSharedLibrary(name, config, httpC2Config)
+	build, _ := GenerateConfig(name, config)
+	_, err := SliverSharedLibrary(name, build, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -461,7 +468,8 @@ func symbolObfuscation(t *testing.T, goos string, goarch string) {
 	}
 	httpC2Config := &clientpb.HTTPC2ImplantConfig{}
 	nonce++
-	_, err := SliverExecutable(name, config, httpC2Config)
+	build, _ := GenerateConfig(name, config)
+	_, err := SliverExecutable(name, build, config, httpC2Config)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}

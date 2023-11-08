@@ -181,16 +181,22 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 		Data:      []byte(implantConfigID),
 	})
 
+	build, err := generate.GenerateConfig(name, extConfig.Config)
+	if err != nil {
+		builderLog.Errorf("Failed to generate config: %s", err)
+		return
+	}
+
 	var fPath string
 	switch extConfig.Config.Format {
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
-		fPath, err = generate.SliverExecutable(name, extConfig.Config, httpC2Config.ImplantConfig)
+		fPath, err = generate.SliverExecutable(name, build, extConfig.Config, httpC2Config.ImplantConfig)
 	case clientpb.OutputFormat_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(name, extConfig.Config, httpC2Config.ImplantConfig)
+		fPath, err = generate.SliverSharedLibrary(name, build, extConfig.Config, httpC2Config.ImplantConfig)
 	case clientpb.OutputFormat_SHELLCODE:
-		fPath, err = generate.SliverShellcode(name, extConfig.Config, httpC2Config.ImplantConfig)
+		fPath, err = generate.SliverShellcode(name, build, extConfig.Config, httpC2Config.ImplantConfig)
 	default:
 		builderLog.Errorf("invalid output format: %s", extConfig.Config.Format)
 		rpc.BuilderTrigger(context.Background(), &clientpb.Event{

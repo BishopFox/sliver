@@ -93,16 +93,16 @@ func ImplantConfigWithC2sByID(id string) (*clientpb.ImplantConfig, error) {
 	return config.ToProtobuf(), err
 }
 
-// ImplantConfigByPublicKeyDigest - Fetch implant build by it's ecc public key
-func ImplantConfigByPublicKeyDigest(publicKeyDigest [32]byte) (*clientpb.ImplantConfig, error) {
-	config := models.ImplantConfig{}
-	err := Session().Where(&models.ImplantConfig{
+// ImplantBuildByPublicKeyDigest - Fetch implant build by it's ecc public key
+func ImplantBuildByPublicKeyDigest(publicKeyDigest [32]byte) (*clientpb.ImplantBuild, error) {
+	build := models.ImplantBuild{}
+	err := Session().Where(&models.ImplantBuild{
 		PeerPublicKeyDigest: hex.EncodeToString(publicKeyDigest[:]),
-	}).First(&config).Error
+	}).First(&build).Error
 	if err != nil {
 		return nil, err
 	}
-	return config.ToProtobuf(), err
+	return build.ToProtobuf(), err
 }
 
 // ImplantBuilds - Return all implant builds
@@ -135,6 +135,18 @@ func SaveImplantBuild(ib *clientpb.ImplantBuild) (*clientpb.ImplantBuild, error)
 	}
 
 	return implantBuild.ToProtobuf(), nil
+}
+
+// SaveImplantConfig
+func SaveImplantConfig(ic *clientpb.ImplantConfig) (*clientpb.ImplantConfig, error) {
+	implantConfig := models.ImplantConfigFromProtobuf(ic)
+	dbSession := Session()
+	err := dbSession.Create(&implantConfig).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return implantConfig.ToProtobuf(), nil
 }
 
 // ImplantBuildByName - Fetch implant build by name

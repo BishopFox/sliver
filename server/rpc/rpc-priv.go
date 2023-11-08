@@ -107,11 +107,11 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	if err != nil {
 		req.Config.Format = clientpb.OutputFormat_SHELLCODE
 		req.Config.ObfuscateSymbols = false
-		config, err := generate.GenerateConfig(name, req.Config, true)
+		build, err := generate.GenerateConfig(name, req.Config)
 		if err != nil {
 			return nil, err
 		}
-		shellcodePath, err := generate.SliverShellcode(name, config, httpC2Config.ImplantConfig)
+		shellcodePath, err := generate.SliverShellcode(name, build, req.Config, httpC2Config.ImplantConfig)
 		if err != nil {
 			return nil, err
 		}

@@ -82,7 +82,7 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		}
 		config.Format = clientpb.OutputFormat_SHELLCODE
 		config.ObfuscateSymbols = true
-		_, err = generate.GenerateConfig(name, config, true)
+		build, err := generate.GenerateConfig(name, config)
 		if err != nil {
 			return nil, err
 		}
@@ -93,7 +93,7 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 			return nil, err
 		}
 
-		shellcodePath, err := generate.SliverShellcode(name, config, httpC2Config.ImplantConfig)
+		shellcodePath, err := generate.SliverShellcode(name, build, config, httpC2Config.ImplantConfig)
 		if err != nil {
 			return nil, err
 		}
