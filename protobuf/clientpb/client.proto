@@ -225,7 +225,10 @@ message ExternalImplantBinary {
 }
 
 // Configs of previously built implants
-message ImplantBuilds { map<string, ImplantConfig> Configs = 1; }
+message ImplantBuilds { 
+  map<string, ImplantConfig> Configs = 1; 
+  map<string, ResourceID> ResourceIDs = 2; 
+}
 
 message ImplantBuild {
   string ID = 1;

@@ -113,7 +113,8 @@ func ImplantBuilds() (*clientpb.ImplantBuilds, error) {
 		return nil, err
 	}
 	pbBuilds := &clientpb.ImplantBuilds{
-		Configs: map[string]*clientpb.ImplantConfig{},
+		Configs:     map[string]*clientpb.ImplantConfig{},
+		ResourceIDs: map[string]*clientpb.ResourceID{},
 	}
 	for _, dbBuild := range builds {
 		config, err := ImplantConfigByID(dbBuild.ImplantConfigID.String())
@@ -121,7 +122,14 @@ func ImplantBuilds() (*clientpb.ImplantBuilds, error) {
 			return nil, err
 		}
 		pbBuilds.Configs[dbBuild.Name] = config
+
+		resource, err := ResourceIDByName(dbBuild.Name)
+		if err != nil {
+			return nil, err
+		}
+		pbBuilds.ResourceIDs[dbBuild.Name] = resource
 	}
+
 	return pbBuilds, err
 }
 

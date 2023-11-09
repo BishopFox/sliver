@@ -53,14 +53,14 @@ func ImplantsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 	implantBuildFilters := ImplantBuildFilter{}
 
 	if 0 < len(builds.Configs) {
-		PrintImplantBuilds(builds.Configs, implantBuildFilters, con)
+		PrintImplantBuilds(builds, implantBuildFilters, con)
 	} else {
 		con.PrintInfof("No implant builds\n")
 	}
 }
 
 // PrintImplantBuilds - Print the implant builds on the server
-func PrintImplantBuilds(configs map[string]*clientpb.ImplantConfig, filters ImplantBuildFilter, con *console.SliverConsoleClient) {
+func PrintImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFilter, con *console.SliverConsoleClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
@@ -72,12 +72,13 @@ func PrintImplantBuilds(configs map[string]*clientpb.ImplantConfig, filters Impl
 		"Command & Control",
 		"Debug",
 		"C2 Config",
+		"ID",
 	})
 	tw.SortBy([]table.SortBy{
 		{Name: "Name", Mode: table.Asc},
 	})
 
-	for sliverName, config := range configs {
+	for sliverName, config := range builds.Configs {
 		if filters.GOOS != "" && config.GOOS != filters.GOOS {
 			continue
 		}
@@ -118,6 +119,7 @@ func PrintImplantBuilds(configs map[string]*clientpb.ImplantConfig, filters Impl
 			strings.Join(c2URLs, "\n"),
 			fmt.Sprintf("%v", config.Debug),
 			fmt.Sprintf(config.HTTPC2ConfigName),
+			fmt.Sprintf("%v", builds.ResourceIDs[sliverName].Value),
 		})
 	}
 
