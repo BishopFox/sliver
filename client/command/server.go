@@ -327,7 +327,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			f.BoolP("disable-otp", "D", false, "disable otp authentication")
 			f.StringP("long-poll-timeout", "T", "1s", "server-side long poll timeout")
 			f.StringP("long-poll-jitter", "J", "2s", "server-side long poll jitter")
-			f.BoolP("enable-staging", "s", false, "enable staging")
+			f.BoolP("staging", "s", false, "enable staging")
 		})
 		server.AddCommand(httpCmd)
 
@@ -1033,11 +1033,11 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			},
 		}
 		Flags("stage", false, profilesStageCmd, func(f *pflag.FlagSet) {
-			f.StringP("profile", "p", "", "implant profile name")
+			f.StringP("name", "n", "", "implant name")
 			f.String("aes-encrypt-key", "", "encrypt stage with AES encryption key")
 			f.String("aes-encrypt-iv", "", "encrypt stage with AES encryption iv")
 			f.String("rc4-encrypt-key", "", "encrypt stage with RC4 encryption key")
-			f.StringP("compress", "C", "none", "compress the stage before encrypting (zlib, gzip, deflate9, none)")
+			f.StringP("compress", "C", "", "compress the stage before encrypting (zlib, gzip, deflate9, none)")
 			f.BoolP("prepend-size", "P", false, "prepend the size of the stage to the payload (to use with MSF stagers)")
 		})
 		carapace.Gen(profilesStageCmd).PositionalCompletion(generate.ProfileNameCompleter(con))

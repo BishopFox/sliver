@@ -99,9 +99,15 @@ func PrintImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFilt
 			continue
 		}
 
-		implantType := "session"
+		implantType := ""
+		if builds.ResourceIDs[sliverName].Type != "" {
+			implantType = builds.ResourceIDs[sliverName].Type
+		}
+
 		if config.IsBeacon {
-			implantType = "beacon"
+			implantType += "beacon"
+		} else {
+			implantType += "session"
 		}
 		c2URLs := []string{}
 		for index, c2 := range config.C2 {

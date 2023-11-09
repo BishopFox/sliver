@@ -714,21 +714,37 @@ func (rpc *Server) GenerateStage(ctx context.Context, req *clientpb.GenerateStag
 		Data:      []byte(fileName),
 	})
 
+	var (
+		stageType string
+		stage2    []byte
+	)
+
 	if req.PrependSize {
 		fileData = prependPayloadSize(fileData)
 	}
 
-	stage2, err := Compress(fileData, req.Compress)
-	if err != nil {
-		return nil, err
+	if req.Compress != "" {
+		stageType = req.Compress + " - "
+		stage2, err = Compress(fileData, req.Compress)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	stage2, err = Encrypt(stage2, req)
-	if err != nil {
-		return nil, err
+	if req.AESEncryptKey != "" || req.RC4EncryptKey != "" {
+		if req.RC4EncryptKey != "" {
+			stageType += "RC4 - "
+		} else {
+			stageType += "AES - "
+		}
+
+		stage2, err = Encrypt(stage2, req)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	err = generate.SaveStage(build, profile.Config, stage2)
+	err = generate.SaveStage(build, profile.Config, stage2, stageType)
 	if err != nil {
 		rpcLog.Errorf("Failed to save external build: %s", err)
 		return nil, err

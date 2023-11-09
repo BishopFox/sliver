@@ -109,7 +109,7 @@ func ImplantBuildSave(build *clientpb.ImplantBuild, config *clientpb.ImplantConf
 
 	implantID := uint64(encoders.GetRandomID())
 	err = db.SaveResourceID(&clientpb.ResourceID{
-		Type:  "stager",
+		Type:  "",
 		Value: implantID,
 		Name:  build.Name,
 	})
@@ -138,7 +138,7 @@ func ImplantBuildSave(build *clientpb.ImplantBuild, config *clientpb.ImplantConf
 	return os.WriteFile(filepath.Join(buildsDir, implantBuild.ID), data, 0600)
 }
 
-func SaveStage(build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, stage2 []byte) error {
+func SaveStage(build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, stage2 []byte, stageType string) error {
 	md5Hash, sha1Hash, sha256Hash := computeHashes(stage2)
 	buildsDir, err := getBuildsDir()
 	if err != nil {
@@ -147,7 +147,7 @@ func SaveStage(build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, sta
 
 	implantID := uint64(encoders.GetRandomID())
 	err = db.SaveResourceID(&clientpb.ResourceID{
-		Type:  "stager",
+		Type:  stageType,
 		Value: implantID,
 		Name:  build.Name,
 	})
