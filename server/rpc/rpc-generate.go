@@ -19,7 +19,10 @@ package rpc
 */
 
 import (
+	"bytes"
+	"compress/zlib"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
@@ -706,7 +709,26 @@ func (rpc *Server) GenerateStage(ctx context.Context, req *clientpb.GenerateStag
 		return nil, err
 	}
 
-	err = generate.ImplantBuildSave(build, profile.Config, fPath)
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.BuildCompletedEvent,
+		Data:      []byte(fileName),
+	})
+
+	if req.PrependSize {
+		fileData = prependPayloadSize(fileData)
+	}
+
+	stage2, err := Compress(fileData, req.Compress)
+	if err != nil {
+		return nil, err
+	}
+
+	stage2, err = Encrypt(stage2, req)
+	if err != nil {
+		return nil, err
+	}
+
+	err = generate.SaveStage(build, profile.Config, stage2)
 	if err != nil {
 		rpcLog.Errorf("Failed to save external build: %s", err)
 		return nil, err
@@ -723,4 +745,66 @@ func (rpc *Server) GenerateStage(ctx context.Context, req *clientpb.GenerateStag
 			Data: fileData,
 		},
 	}, err
+}
+
+func Encrypt(stage2 []byte, req *clientpb.GenerateStageReq) ([]byte, error) {
+	if req.RC4EncryptKey != "" && req.AESEncryptKey != "" {
+		return nil, errors.New("Cannot use both RC4 and AES encryption\n")
+	}
+	if req.RC4EncryptKey != "" {
+		// RC4 keysize can be between 1 to 256 bytes
+		if len(req.RC4EncryptKey) < 1 || len(req.RC4EncryptKey) > 256 {
+			return nil, errors.New("Incorrect length of RC4 Key\n")
+		}
+		stage2 = util.RC4EncryptUnsafe(stage2, []byte(req.RC4EncryptKey))
+		return stage2, nil
+	}
+
+	if req.AESEncryptKey != "" {
+		// check if aes encryption key is correct length
+		if len(req.AESEncryptKey)%16 != 0 {
+			return nil, errors.New("Incorrect length of AES Key\n")
+		}
+
+		// set default aes iv
+		if req.AESEncryptIv == "" {
+			req.AESEncryptIv = "0000000000000000"
+		} else {
+			// check if aes iv is correct length
+			if len(req.AESEncryptIv)%16 != 0 {
+				return nil, errors.New("Incorrect length of AES IV\n")
+			}
+		}
+		stage2 = util.PreludeEncrypt(stage2, []byte(req.AESEncryptKey), []byte(req.AESEncryptIv))
+		return stage2, nil
+	}
+	return stage2, nil
+}
+
+func Compress(stage2 []byte, compress string) ([]byte, error) {
+
+	switch compress {
+	case "zlib":
+		// use zlib to compress the stage2
+		var compBuff bytes.Buffer
+		zlibWriter := zlib.NewWriter(&compBuff)
+		zlibWriter.Write(stage2)
+		zlibWriter.Close()
+		stage2 = compBuff.Bytes()
+	case "gzip":
+		stage2, _ = utilEncoders.GzipBuf(stage2)
+	case "deflate9":
+		fallthrough
+	case "deflate":
+		stage2 = util.DeflateBuf(stage2)
+	}
+	return stage2, nil
+
+}
+
+func prependPayloadSize(payload []byte) []byte {
+	payloadSize := uint32(len(payload))
+	lenBuf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(lenBuf, payloadSize)
+	return append(lenBuf, payload...)
 }

@@ -138,6 +138,44 @@ func ImplantBuildSave(build *clientpb.ImplantBuild, config *clientpb.ImplantConf
 	return os.WriteFile(filepath.Join(buildsDir, implantBuild.ID), data, 0600)
 }
 
+func SaveStage(build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, stage2 []byte) error {
+	md5Hash, sha1Hash, sha256Hash := computeHashes(stage2)
+	buildsDir, err := getBuildsDir()
+	if err != nil {
+		return err
+	}
+
+	implantID := uint64(encoders.GetRandomID())
+	err = db.SaveResourceID(&clientpb.ResourceID{
+		Type:  "stager",
+		Value: implantID,
+		Name:  build.Name,
+	})
+	if err != nil {
+		return err
+	}
+
+	build.ImplantID = implantID
+	build.MD5 = md5Hash
+	build.SHA1 = sha1Hash
+	build.SHA256 = sha256Hash
+
+	config, err = db.SaveImplantConfig(config)
+	if err != nil {
+		return err
+	}
+
+	build.ImplantConfigID = config.ID
+	implantBuild, err := db.SaveImplantBuild(build)
+	if err != nil {
+		return err
+	}
+
+	watchtower.AddImplantToWatchlist(implantBuild)
+	storageLog.Infof("%s -> %s", implantBuild.ID, implantBuild.Name)
+	return os.WriteFile(filepath.Join(buildsDir, implantBuild.ID), stage2, 0600)
+}
+
 func computeHashes(data []byte) (string, string, string) {
 	md5Sum := md5.Sum(data)
 	md5Hash := hex.EncodeToString(md5Sum[:])

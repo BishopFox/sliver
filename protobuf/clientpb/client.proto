@@ -429,6 +429,12 @@ message GenerateReq {
 message GenerateStageReq {
   string Profile = 1;
   string Name = 2;
+  string AESEncryptKey = 3;
+  string AESEncryptIv = 4;
+  string RC4EncryptKey = 5;
+  bool PrependSize = 6;
+  string CompressF = 7;
+  string Compress = 8;
 }
 
 message Generate { commonpb.File File = 1; }

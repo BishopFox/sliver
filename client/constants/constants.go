@@ -204,6 +204,7 @@ const (
 	MvStr       = "mv"
 	CpStr       = "cp"
 	RmStr       = "rm"
+	StageStr    = "stage"
 	MkdirStr    = "mkdir"
 	CdStr       = "cd"
 	PwdStr      = "pwd"

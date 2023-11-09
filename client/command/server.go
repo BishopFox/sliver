@@ -1023,6 +1023,26 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 		carapace.Gen(profilesRmCmd).PositionalCompletion(generate.ProfileNameCompleter(con))
 		profilesCmd.AddCommand(profilesRmCmd)
 
+		profilesStageCmd := &cobra.Command{
+			Use:   consts.StageStr,
+			Short: "Generate an encrypted and/or compressed implant",
+			Long:  help.GetHelpFor([]string{consts.ProfilesStr, consts.StageStr}),
+			Args:  cobra.ExactArgs(1),
+			Run: func(cmd *cobra.Command, args []string) {
+				generate.ProfilesStageCmd(cmd, con, args)
+			},
+		}
+		Flags("stage", false, profilesStageCmd, func(f *pflag.FlagSet) {
+			f.StringP("profile", "p", "", "implant profile name")
+			f.String("aes-encrypt-key", "", "encrypt stage with AES encryption key")
+			f.String("aes-encrypt-iv", "", "encrypt stage with AES encryption iv")
+			f.String("rc4-encrypt-key", "", "encrypt stage with RC4 encryption key")
+			f.StringP("compress", "C", "none", "compress the stage before encrypting (zlib, gzip, deflate9, none)")
+			f.BoolP("prepend-size", "P", false, "prepend the size of the stage to the payload (to use with MSF stagers)")
+		})
+		carapace.Gen(profilesStageCmd).PositionalCompletion(generate.ProfileNameCompleter(con))
+		profilesCmd.AddCommand(profilesStageCmd)
+
 		profilesInfoCmd := &cobra.Command{
 			Use:   consts.InfoStr,
 			Short: "Details about a profile",
