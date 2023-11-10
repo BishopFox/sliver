@@ -39,6 +39,7 @@ func ProfilesStageCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 	prependSize, _ := cmd.Flags().GetBool("prepend-size")
 	compressF, _ := cmd.Flags().GetString("compress")
 	compress := strings.ToLower(compressF)
+	save, _ := cmd.Flags().GetString("save")
 
 	profile := GetImplantProfileByName(profileName, con)
 	if profile == nil {
@@ -46,14 +47,9 @@ func ProfilesStageCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 		return
 	}
 
-	save, _ := cmd.Flags().GetString("save")
-	if save == "" {
-		save, _ = os.Getwd()
-	}
-
 	ctrl := make(chan bool)
 	con.SpinUntil("Compiling, please wait ...", ctrl)
-	_, err := con.Rpc.GenerateStage(context.Background(), &clientpb.GenerateStageReq{
+	stage2, err := con.Rpc.GenerateStage(context.Background(), &clientpb.GenerateStageReq{
 		Profile:       profileName,
 		Name:          name,
 		AESEncryptKey: aesEncryptKey,
@@ -68,4 +64,17 @@ func ProfilesStageCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+
+	saveTo, err := saveLocation(save, stage2.File.Name, con)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	err = os.WriteFile(saveTo, stage2.File.Data, 0o700)
+	if err != nil {
+		con.PrintErrorf("Failed to write to: %s\n", saveTo)
+		return
+	}
+	con.PrintInfof("Implant saved to %s\n", saveTo)
 }
