@@ -32,7 +32,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/server/cryptography/minisign"
+	"github.com/bishopfox/sliver/util/minisign"
 )
 
 // ErrPackageNotFound - The package was not found

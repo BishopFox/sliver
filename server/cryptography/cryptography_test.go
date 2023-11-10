@@ -27,7 +27,7 @@ import (
 	"testing"
 
 	implantCrypto "github.com/bishopfox/sliver/implant/sliver/cryptography"
-	"github.com/bishopfox/sliver/server/cryptography/minisign"
+	"github.com/bishopfox/sliver/util/minisign"
 )
 
 var (
