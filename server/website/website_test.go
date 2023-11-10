@@ -50,7 +50,7 @@ func randomData() []byte {
 
 func TestAddContent(t *testing.T) {
 	webContent := clientpb.WebContent{
-		Path:        contentType1,
+		Path:        "/data1",
 		ContentType: contentType1,
 		Size:        uint64(len(data1)),
 		Content:     data1,
@@ -60,7 +60,7 @@ func TestAddContent(t *testing.T) {
 		t.Error(err)
 	}
 	webContent2 := clientpb.WebContent{
-		Path:        contentType2,
+		Path:        "/data2",
 		ContentType: contentType2,
 		Size:        uint64(len(data2)),
 		Content:     data1,
@@ -87,7 +87,7 @@ func TestGetContent(t *testing.T) {
 		Path:        "/data2",
 		ContentType: contentType2,
 		Size:        uint64(len(data2)),
-		Content:     data1,
+		Content:     data2,
 	}
 	err = AddContent(website2, &webContent2)
 	if err != nil {
@@ -119,13 +119,13 @@ func TestGetContent(t *testing.T) {
 	}
 
 	if !bytes.Equal(content2.Content, data2) {
-		t.Errorf("Content does not match sample")
+		t.Errorf("Content does not match sample: %v != %v", content2.Content, data2)
 	}
 }
 
 func TestContentMap(t *testing.T) {
 	webContent := clientpb.WebContent{
-		Path:        contentType1,
+		Path:        "/a/b/c/data1",
 		ContentType: contentType1,
 		Size:        uint64(len(data1)),
 		Content:     data1,
@@ -135,10 +135,10 @@ func TestContentMap(t *testing.T) {
 		t.Error(err)
 	}
 	webContent2 := clientpb.WebContent{
-		Path:        contentType2,
+		Path:        "/a/b/data2",
 		ContentType: contentType2,
 		Size:        uint64(len(data2)),
-		Content:     data1,
+		Content:     data2,
 	}
 	err = AddContent(website2, &webContent2)
 	if err != nil {
@@ -150,7 +150,7 @@ func TestContentMap(t *testing.T) {
 		t.Error(err)
 	}
 
-	content := contentMap.Contents["/data1"].GetContent()
+	content := contentMap.Contents["/a/b/c/data1"].GetContent()
 	if !bytes.Equal(content, data1) {
 		t.Errorf("Content map %v does not match sample %v != %v", contentMap, content, data1)
 	}
@@ -168,7 +168,7 @@ func contains(haystack []string, needle string) bool {
 
 func TestNames(t *testing.T) {
 	webContent := clientpb.WebContent{
-		Path:        contentType1,
+		Path:        "/a/b/c/data1",
 		ContentType: contentType1,
 		Size:        uint64(len(data1)),
 		Content:     data1,
@@ -178,7 +178,7 @@ func TestNames(t *testing.T) {
 		t.Error(err)
 	}
 	webContent2 := clientpb.WebContent{
-		Path:        contentType2,
+		Path:        "/a/b/data2",
 		ContentType: contentType2,
 		Size:        uint64(len(data2)),
 		Content:     data1,
@@ -199,7 +199,7 @@ func TestNames(t *testing.T) {
 
 func TestRemoveContent(t *testing.T) {
 	webContent := clientpb.WebContent{
-		Path:        contentType1,
+		Path:        "/data1",
 		ContentType: contentType1,
 		Size:        uint64(len(data1)),
 		Content:     data1,
@@ -209,10 +209,10 @@ func TestRemoveContent(t *testing.T) {
 		t.Error(err)
 	}
 	webContent2 := clientpb.WebContent{
-		Path:        contentType2,
+		Path:        "/data2",
 		ContentType: contentType2,
 		Size:        uint64(len(data2)),
-		Content:     data1,
+		Content:     data2,
 	}
 	err = AddContent(website2, &webContent2)
 	if err != nil {

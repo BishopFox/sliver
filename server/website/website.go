@@ -26,11 +26,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/log"
-)
-
-var (
-	websiteLog = log.NamedLogger("website", "content")
 )
 
 func getWebContentDir() (string, error) {
@@ -46,13 +41,13 @@ func getWebContentDir() (string, error) {
 }
 
 // GetContent - Get static content for a given path
-func GetContent(websiteName string, path string) (*clientpb.WebContent, error) {
+func GetContent(name string, path string) (*clientpb.WebContent, error) {
 	webContentDir, err := getWebContentDir()
 	if err != nil {
 		return nil, err
 	}
 
-	website, err := db.WebsiteByName(websiteName, webContentDir)
+	website, err := db.WebsiteByName(name, webContentDir)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +67,7 @@ func GetContent(websiteName string, path string) (*clientpb.WebContent, error) {
 }
 
 // AddContent - Add website content for a path
-func AddContent(websiteName string, pbWebContent *clientpb.WebContent) error {
+func AddContent(name string, pbWebContent *clientpb.WebContent) error {
 	// websiteName string, path string, contentType string, content []byte
 	var (
 		err     error
@@ -85,7 +80,7 @@ func AddContent(websiteName string, pbWebContent *clientpb.WebContent) error {
 	}
 
 	if pbWebContent.WebsiteID == "" {
-		website, err = db.AddWebSite(websiteName, webContentDir)
+		website, err = db.AddWebSite(name, webContentDir)
 		if err != nil {
 			return err
 		}
@@ -103,13 +98,13 @@ func AddContent(websiteName string, pbWebContent *clientpb.WebContent) error {
 }
 
 // RemoveContent - Remove website content for a path
-func RemoveContent(websiteName string, path string) error {
+func RemoveContent(name string, path string) error {
 	webContentDir, err := getWebContentDir()
 	if err != nil {
 		return err
 	}
 
-	website, err := db.WebsiteByName(websiteName, webContentDir)
+	website, err := db.WebsiteByName(name, webContentDir)
 	if err != nil {
 		return err
 	}
@@ -154,27 +149,38 @@ func Names() ([]string, error) {
 }
 
 // MapContent - List the content of a specific site, returns map of path->json(content-type/size)
-func MapContent(websiteName string, eagerLoadContents bool) (*clientpb.Website, error) {
+func MapContent(name string, eager bool) (*clientpb.Website, error) {
 	webContentDir, err := getWebContentDir()
 	if err != nil {
 		return nil, err
 	}
 
-	website, err := db.WebsiteByName(websiteName, webContentDir)
+	website, err := db.WebsiteByName(name, webContentDir)
 	if err != nil {
 		return nil, err
 	}
-	websiteLog.Debugf("%d WebContent(s)", len(website.Contents))
+
+	if eager {
+		eagerContents := map[string]*clientpb.WebContent{}
+		for _, content := range website.Contents {
+			eagerContent, err := db.WebContentByIDAndPath(website.ID, content.Path, webContentDir, true)
+			if err != nil {
+				continue
+			}
+			eagerContents[content.Path] = eagerContent
+		}
+		website.Contents = eagerContents
+	}
 
 	return website, nil
 }
 
-func AddWebsite(websitename string) (*clientpb.Website, error) {
+func AddWebsite(name string) (*clientpb.Website, error) {
 	webContentDir, err := getWebContentDir()
 	if err != nil {
 		return nil, err
 	}
-	website, err := db.AddWebSite(websitename, webContentDir)
+	website, err := db.AddWebSite(name, webContentDir)
 	if err != nil {
 		return nil, err
 	}

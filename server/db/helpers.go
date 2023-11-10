@@ -600,7 +600,7 @@ func Websites(webContentDir string) ([]*clientpb.Website, error) {
 }
 
 // WebContent by ID and path
-func WebContentByIDAndPath(id string, path string, webContentDir string, lazyload bool) (*clientpb.WebContent, error) {
+func WebContentByIDAndPath(id string, path string, webContentDir string, eager bool) (*clientpb.WebContent, error) {
 	uuid, _ := uuid.FromString(id)
 	content := models.WebContent{}
 	err := Session().Where(&models.WebContent{
@@ -612,7 +612,7 @@ func WebContentByIDAndPath(id string, path string, webContentDir string, lazyloa
 		return nil, err
 	}
 	var data []byte
-	if lazyload {
+	if eager {
 		data, err = os.ReadFile(filepath.Join(webContentDir, content.ID.String()))
 	} else {
 		data = []byte{}

@@ -1,6 +1,8 @@
 module github.com/bishopfox/sliver
 
-go 1.20
+go 1.21
+
+toolchain go1.21.4
 
 replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca
 
@@ -17,7 +19,6 @@ require (
 	github.com/chromedp/cdproto v0.0.0-20230220211738-2b1ec77315c9
 	github.com/chromedp/chromedp v0.9.1
 	github.com/fatih/color v1.15.0
-	github.com/desertbit/grumble v1.1.3
 	github.com/glebarez/sqlite v1.8.0
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/google/uuid v1.3.1
@@ -95,10 +96,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dblohm7/wingoes v0.0.0-20230821191801-fc76608aecf0 // indirect
 	github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d // indirect
-	github.com/desertbit/closer/v3 v3.1.2 // indirect
-	github.com/desertbit/columnize v2.1.0+incompatible // indirect
-	github.com/desertbit/go-shlex v0.1.1 // indirect
-	github.com/desertbit/readline v1.5.1 // indirect
 	github.com/dlclark/regexp2 v1.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.4.0 // indirect
@@ -114,8 +111,6 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
-	github.com/hashicorp/errwrap v1.1.0 // indirect
-	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/google/nftables v0.1.1-0.20230115205135-9aa6fdf5a28c // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hdevalence/ed25519consensus v0.1.0 // indirect
