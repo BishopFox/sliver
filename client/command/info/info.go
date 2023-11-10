@@ -43,6 +43,10 @@ func InfoCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string
 		// ID passed via argument takes priority
 		idArg := args[0]
 		session, beacon, err = use.SessionOrBeaconByID(idArg, con)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
 	} else if session != nil || beacon != nil {
 		currID := ""
 		if session != nil {
@@ -51,6 +55,10 @@ func InfoCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string
 			currID = beacon.ID
 		}
 		session, beacon, err = use.SessionOrBeaconByID(currID, con)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
 	} else {
 		if session == nil && beacon == nil {
 			session, beacon, err = use.SelectSessionOrBeacon(con)

@@ -21,7 +21,7 @@ package registry
 import (
 	"context"
 	"encoding/hex"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 
@@ -100,7 +100,7 @@ func RegWriteCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 				return
 			}
 		} else {
-			v, err = ioutil.ReadFile(binPath)
+			v, err = os.ReadFile(binPath)
 			if err != nil {
 				con.PrintErrorf("%s\n", err)
 				return

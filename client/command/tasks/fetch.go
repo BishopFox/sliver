@@ -20,7 +20,6 @@ package tasks
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -782,7 +781,7 @@ func promptSaveToFile(data []byte, con *console.SliverConsoleClient) {
 			return
 		}
 	}
-	err = ioutil.WriteFile(saveTo, data, 0o600)
+	err = os.WriteFile(saveTo, data, 0o600)
 	if err != nil {
 		con.PrintErrorf("Failed to save file: %s\n", err)
 		return

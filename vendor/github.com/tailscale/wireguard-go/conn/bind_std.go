@@ -144,6 +144,11 @@ func listenNet(network string, port int) (*net.UDPConn, int, error) {
 	return conn.(*net.UDPConn), uaddr.Port, nil
 }
 
+// errEADDRINUSE is syscall.EADDRINUSE, boxed into an interface once
+// in erraddrinuse.go on almost all platforms. For other platforms,
+// it's at least non-nil.
+var errEADDRINUSE error = errors.New("")
+
 func (s *StdNetBind) Open(uport uint16) ([]ReceiveFunc, uint16, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -170,7 +175,7 @@ again:
 
 	// Listen on the same port as we're using for ipv4.
 	v6conn, port, err = listenNet("udp6", port)
-	if uport == 0 && errors.Is(err, syscall.EADDRINUSE) && tries < 100 {
+	if uport == 0 && errors.Is(err, errEADDRINUSE) && tries < 100 {
 		v4conn.Close()
 		tries++
 		goto again

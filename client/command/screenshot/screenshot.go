@@ -21,7 +21,6 @@ package screenshot
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -107,7 +106,7 @@ func PrintScreenshot(screenshot *sliverpb.Screenshot, hostname string, cmd *cobr
 	var err error
 	if saveTo == "" {
 		tmpFileName := filepath.Base(fmt.Sprintf("screenshot_%s_%s_*.png", filepath.Base(hostname), timestamp))
-		saveToFile, err = ioutil.TempFile("", tmpFileName)
+		saveToFile, err = os.CreateTemp("", tmpFileName)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return

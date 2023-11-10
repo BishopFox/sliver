@@ -13,7 +13,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -25,7 +25,7 @@ import (
 // PrivateKeyFromFile reads and decrypts the private key
 // file with the given password.
 func PrivateKeyFromFile(password, path string) (PrivateKey, error) {
-	bytes, err := ioutil.ReadFile(path)
+	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return PrivateKey{}, err
 	}
