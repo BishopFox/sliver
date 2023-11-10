@@ -27,7 +27,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -613,7 +613,7 @@ func WebContentByIDAndPath(id string, path string, webContentDir string, lazyloa
 	}
 	var data []byte
 	if lazyload {
-		data, err = ioutil.ReadFile(filepath.Join(webContentDir, content.ID.String()))
+		data, err = os.ReadFile(filepath.Join(webContentDir, content.ID.String()))
 	} else {
 		data = []byte{}
 	}
@@ -622,10 +622,12 @@ func WebContentByIDAndPath(id string, path string, webContentDir string, lazyloa
 
 // AddWebsite - Return website, create if it does not exist
 func AddWebSite(webSiteName string, webContentDir string) (*clientpb.Website, error) {
-
 	pbWebSite, err := WebsiteByName(webSiteName, webContentDir)
 	if errors.Is(err, ErrRecordNotFound) {
 		err = Session().Create(&models.Website{Name: webSiteName}).Error
+		if err != nil {
+			return nil, err
+		}
 		pbWebSite, err = WebsiteByName(webSiteName, webContentDir)
 		if err != nil {
 			return nil, err
@@ -636,7 +638,6 @@ func AddWebSite(webSiteName string, webContentDir string) (*clientpb.Website, er
 
 // AddContent - Add content to website
 func AddContent(pbWebContent *clientpb.WebContent, webContentDir string) (*clientpb.WebContent, error) {
-
 	dbWebContent, err := WebContentByIDAndPath(pbWebContent.WebsiteID, pbWebContent.Path, webContentDir, false)
 	if errors.Is(err, ErrRecordNotFound) {
 		dbModelWebContent := models.WebContentFromProtobuf(pbWebContent)

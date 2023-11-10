@@ -27,7 +27,6 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/log"
 )
 
 const (
@@ -39,10 +38,8 @@ const (
 )
 
 var (
-	data1          = randomData()
-	data2          = randomData()
-	data3          = randomData()
-	websiteTestLog = log.NamedLogger("website", "test")
+	data1 = randomData()
+	data2 = randomData()
 )
 
 func randomData() []byte {
@@ -77,7 +74,7 @@ func TestAddContent(t *testing.T) {
 func TestGetContent(t *testing.T) {
 
 	webContent := clientpb.WebContent{
-		Path:        contentType1,
+		Path:        "/data1",
 		ContentType: contentType1,
 		Size:        uint64(len(data1)),
 		Content:     data1,
@@ -87,7 +84,7 @@ func TestGetContent(t *testing.T) {
 		t.Error(err)
 	}
 	webContent2 := clientpb.WebContent{
-		Path:        contentType2,
+		Path:        "/data2",
 		ContentType: contentType2,
 		Size:        uint64(len(data2)),
 		Content:     data1,
@@ -112,16 +109,16 @@ func TestGetContent(t *testing.T) {
 	}
 
 	// Website 2
-	content, err = GetContent(website2, "/data2")
+	content2, err := GetContent(website2, "/data2")
 	if err != nil {
 		t.Error(err)
 	}
 
-	if content.ContentType != contentType2 {
-		t.Errorf("ContentType mismatch: %s != %s", content.ContentType, contentType2)
+	if content2.ContentType != contentType2 {
+		t.Errorf("ContentType mismatch: %s != %s", content2.ContentType, contentType2)
 	}
 
-	if !bytes.Equal(content.Content, data2) {
+	if !bytes.Equal(content2.Content, data2) {
 		t.Errorf("Content does not match sample")
 	}
 }

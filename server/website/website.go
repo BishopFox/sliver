@@ -22,16 +22,11 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
-)
-
-const (
-	websiteBucketName = "websites" // keys are <website name>.<path> -> clientpb.WebContent{} (json)
 )
 
 var (
@@ -48,17 +43,6 @@ func getWebContentDir() (string, error) {
 		}
 	}
 	return webContentDir, nil
-}
-
-func normalizePath(path string) string {
-	if !strings.HasSuffix(path, "/") {
-		path = "/" + path
-	}
-	path, err := filepath.Abs(path)
-	if err != nil {
-		return "/"
-	}
-	return path
 }
 
 // GetContent - Get static content for a given path
@@ -116,19 +100,6 @@ func AddContent(websiteName string, pbWebContent *clientpb.WebContent) error {
 	// Write content to disk
 	webContentPath := filepath.Join(webContentDir, webContent.ID)
 	return os.WriteFile(webContentPath, pbWebContent.Content, 0600)
-}
-
-func webContentByPath(website *clientpb.Website, path string) (*clientpb.WebContent, error) {
-	webContentDir, err := getWebContentDir()
-	if err != nil {
-		return nil, err
-	}
-
-	webContent, err := db.WebContentByIDAndPath(website.ID, path, webContentDir, false)
-	if err != nil {
-		return nil, err
-	}
-	return webContent, err
 }
 
 // RemoveContent - Remove website content for a path
