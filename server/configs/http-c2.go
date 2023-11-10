@@ -60,6 +60,7 @@ var (
 	ErrQueryParamNameLen          = errors.New("implant config url query parameter names must be 3 or more characters")
 	ErrDuplicateStageExt          = errors.New("stager extension is already used in another C2 profile")
 	ErrDuplicateC2ProfileName     = errors.New("C2 Profile name is already in use")
+	ErrUserAgentIllegalCharacters = errors.New("user agent cannot contain the ` character")
 
 	fileNameExp = regexp.MustCompile(`[^a-zA-Z0-9\\._-]+`)
 )
@@ -156,6 +157,18 @@ func checkImplantConfig(config *clientpb.HTTPC2ImplantConfig) error {
 	config.CloseFileExtension = coerceFileExt(config.CloseFileExtension)
 	if config.CloseFileExtension == "" {
 		return ErrMissingCloseFileExt
+	}
+
+	/*
+		User agent
+
+		Do not allow backticks in user agents because that breaks compilation of the
+		implant.
+	*/
+	if strings.Index(config.UserAgent, "`") != -1 {
+		// Blank out the user agent so that a default one will be filled in later
+		config.UserAgent = ""
+		return ErrUserAgentIllegalCharacters
 	}
 
 	return nil

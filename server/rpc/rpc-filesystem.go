@@ -218,3 +218,13 @@ func trackIOC(req *sliverpb.UploadReq, resp *sliverpb.Upload) {
 		fsLog.Error("Failed to create IOC")
 	}
 }
+
+// Grep - Search a file or directory for text matching a regex
+func (rpc *Server) Grep(ctx context.Context, req *sliverpb.GrepReq) (*sliverpb.Grep, error) {
+	resp := &sliverpb.Grep{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

@@ -102,6 +102,7 @@ var (
 		sliverpb.MsgReconfigureReq: reconfigureHandler,
 		sliverpb.MsgSSHCommandReq:  runSSHCommandHandler,
 		sliverpb.MsgChtimesReq:     chtimesHandler,
+		sliverpb.MsgGrepReq:        grepHandler,
 
 		// Extensions
 		sliverpb.MsgRegisterExtensionReq: registerExtensionHandler,

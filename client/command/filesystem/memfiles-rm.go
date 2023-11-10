@@ -43,7 +43,10 @@ func MemfilesRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 	}
 
 	fdInt, err := strconv.ParseInt(fdArg, 0, 64)
-
+	if err != nil {
+		con.PrintErrorf("Failed to parse fdArg: %s\n", err)
+		return
+	}
 	memfilesList, err := con.Rpc.MemfilesRm(context.Background(), &sliverpb.MemfilesRmReq{
 		Request: con.ActiveTarget.Request(cmd),
 		Fd:      fdInt,

@@ -18,9 +18,9 @@ func newIntrospectIntf(h *defaultHandler) *exportedIntf {
 	return newExportedIntf(methods, true)
 }
 
-//NewDefaultHandler returns an instance of the default
-//call handler. This is useful if you want to implement only
-//one of the two handlers but not both.
+// NewDefaultHandler returns an instance of the default
+// call handler. This is useful if you want to implement only
+// one of the two handlers but not both.
 //
 // Deprecated: this is the default value, don't use it, it will be unexported.
 func NewDefaultHandler() *defaultHandler {
@@ -148,7 +148,7 @@ func (m exportedMethod) Call(args ...interface{}) ([]interface{}, error) {
 		out[i] = val.Interface()
 	}
 	if nilErr || err == nil {
-		//concrete type to interface nil is a special case
+		// concrete type to interface nil is a special case
 		return out, nil
 	}
 	return out, err
@@ -215,10 +215,6 @@ func (obj *exportedObj) LookupMethod(name string) (Method, bool) {
 	return nil, false
 }
 
-func (obj *exportedObj) isFallbackInterface() bool {
-	return false
-}
-
 func newExportedIntf(methods map[string]Method, includeSubtree bool) *exportedIntf {
 	return &exportedIntf{
 		methods:        methods,
@@ -242,9 +238,9 @@ func (obj *exportedIntf) isFallbackInterface() bool {
 	return obj.includeSubtree
 }
 
-//NewDefaultSignalHandler returns an instance of the default
-//signal handler. This is useful if you want to implement only
-//one of the two handlers but not both.
+// NewDefaultSignalHandler returns an instance of the default
+// signal handler. This is useful if you want to implement only
+// one of the two handlers but not both.
 //
 // Deprecated: this is the default value, don't use it, it will be unexported.
 func NewDefaultSignalHandler() *defaultSignalHandler {
