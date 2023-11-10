@@ -27,12 +27,23 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
 	util "github.com/bishopfox/sliver/util/encoders"
 	"github.com/bishopfox/sliver/util/encoders/traffic"
+)
+
+const (
+
+	// EncoderModulus - The modulus used to calculate the encoder ID from a C2 request nonce
+	// *** IMPORTANT *** ENCODER IDs MUST BE LESS THAN THE MODULUS
+	EncoderModulus = uint64(65537)
+	MaxN           = uint64(9999999)
 )
 
 var (
@@ -49,7 +60,72 @@ var (
 	Gzip    = util.Gzip{}
 	PNG     = util.PNGEncoder{}
 	Nop     = util.NoEncoder{}
+
+	NoEncoderID      = uint64(0)
+	Base64EncoderID  = SetupDefaultEncoders("base64")
+	Base58EncoderID  = SetupDefaultEncoders("base58")
+	Base32EncoderID  = SetupDefaultEncoders("base32")
+	HexEncoderID     = SetupDefaultEncoders("hex")
+	EnglishEncoderID = SetupDefaultEncoders("english")
+	GzipEncoderID    = SetupDefaultEncoders("gzip")
+	PNGEncoderID     = SetupDefaultEncoders("png")
+	NopEncoderID     = SetupDefaultEncoders("nop")
+	UnavailableID    = PopulateID()
 )
+
+func SetupDefaultEncoders(name string) uint64 {
+
+	encoders, err := db.ResourceIDByType("encoder")
+	if err != nil {
+		encodersLog.Printf("Error:\n%s", err)
+		os.Exit(-1)
+	}
+
+	for _, encoder := range encoders {
+		if encoder.Name == name {
+			return encoder.Value
+		}
+	}
+
+	id := GetRandomID()
+	err = db.SaveResourceID(&clientpb.ResourceID{
+		Type:  "encoder",
+		Name:  name,
+		Value: id,
+	})
+	if err != nil {
+		encodersLog.Printf("Error:\n%s", err)
+		os.Exit(-1)
+	}
+
+	return id
+}
+
+// generate unavailable id array on startup
+func PopulateID() []uint64 {
+	// remove already used prime numbers from available pool
+	resourceIDs, err := db.ResourceIDs()
+	if err != nil {
+		encodersLog.Printf("Error:\n%s", err)
+		os.Exit(-1)
+	}
+	var UnavailableID []uint64
+	for _, resourceID := range resourceIDs {
+		UnavailableID = append(UnavailableID, resourceID.Value)
+	}
+
+	return UnavailableID
+}
+
+// generate a random id and ensure it is not in use
+func GetRandomID() uint64 {
+	id := insecureRand.Intn(int(EncoderModulus))
+	for slices.Contains(UnavailableID, uint64(id)) {
+		id = insecureRand.Intn(int(EncoderModulus))
+	}
+	UnavailableID = append(UnavailableID, uint64(id))
+	return uint64(id)
+}
 
 func init() {
 	util.SetEnglishDictionary(assets.English())
@@ -63,13 +139,13 @@ func init() {
 
 // EncoderMap - A map of all available encoders (native and traffic/wasm)
 var EncoderMap = map[uint64]util.Encoder{
-	util.Base64EncoderID:  Base64,
-	util.Base58EncoderID:  Base58,
-	util.Base32EncoderID:  Base32,
-	util.HexEncoderID:     Hex,
-	util.EnglishEncoderID: English,
-	util.GzipEncoderID:    Gzip,
-	util.PNGEncoderID:     PNG,
+	Base64EncoderID:  Base64,
+	Base58EncoderID:  Base58,
+	Base32EncoderID:  Base32,
+	HexEncoderID:     Hex,
+	EnglishEncoderID: English,
+	GzipEncoderID:    Gzip,
+	PNGEncoderID:     PNG,
 }
 
 // TrafficEncoderMap - Keeps track of the loaded traffic encoders (i.e., wasm-based encoder functions)
@@ -77,11 +153,11 @@ var TrafficEncoderMap = map[uint64]*traffic.TrafficEncoder{}
 
 // FastEncoderMap - Keeps track of fast native encoders that can be used for large messages
 var FastEncoderMap = map[uint64]util.Encoder{
-	util.Base64EncoderID: Base64,
-	util.Base58EncoderID: Base58,
-	util.Base32EncoderID: Base32,
-	util.HexEncoderID:    Hex,
-	util.GzipEncoderID:   Gzip,
+	Base64EncoderID: Base64,
+	Base58EncoderID: Base58,
+	Base32EncoderID: Base32,
+	HexEncoderID:    Hex,
+	GzipEncoderID:   Gzip,
 }
 
 // SaveTrafficEncoder - Save a traffic encoder to the filesystem
@@ -176,7 +252,7 @@ func loadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) e
 
 // EncoderFromNonce - Convert a nonce into an encoder
 func EncoderFromNonce(nonce uint64) (uint64, util.Encoder, error) {
-	encoderID := uint64(nonce) % util.EncoderModulus
+	encoderID := uint64(nonce) % EncoderModulus
 	if encoderID == 0 {
 		return 0, new(util.NoEncoder), nil
 	}
@@ -193,7 +269,7 @@ func RandomEncoder() (uint64, util.Encoder) {
 		keys = append(keys, k)
 	}
 	encoderID := keys[insecureRand.Intn(len(keys))]
-	nonce := (randomUint64(util.MaxN) * util.EncoderModulus) + encoderID
+	nonce := (randomUint64(MaxN) * EncoderModulus) + encoderID
 	return nonce, EncoderMap[encoderID]
 }
 

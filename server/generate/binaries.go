@@ -459,13 +459,13 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 		}
 
 		encoderStruct := utilEncoders.EncodersList{
-			Base32EncoderID:  utilEncoders.Base32EncoderID,
-			Base58EncoderID:  utilEncoders.Base58EncoderID,
-			Base64EncoderID:  utilEncoders.Base64EncoderID,
-			EnglishEncoderID: utilEncoders.EnglishEncoderID,
-			GzipEncoderID:    utilEncoders.GzipEncoderID,
-			HexEncoderID:     utilEncoders.HexEncoderID,
-			PNGEncoderID:     utilEncoders.PNGEncoderID,
+			Base32EncoderID:  encoders.Base32EncoderID,
+			Base58EncoderID:  encoders.Base58EncoderID,
+			Base64EncoderID:  encoders.Base64EncoderID,
+			EnglishEncoderID: encoders.EnglishEncoderID,
+			GzipEncoderID:    encoders.GzipEncoderID,
+			HexEncoderID:     encoders.HexEncoderID,
+			PNGEncoderID:     encoders.PNGEncoderID,
 		}
 
 		// --------------

@@ -275,7 +275,7 @@ func RemoveBuildByName(name string) error {
 		return err
 	}
 
-	utilEncoders.UnavailableID = util.RemoveElement(utilEncoders.UnavailableID, resourceID.Value)
+	encoders.UnavailableID = util.RemoveElement(encoders.UnavailableID, resourceID.Value)
 	err = db.Session().Where(&models.ResourceID{Name: name}).Delete(&models.ResourceID{}).Error
 	if err != nil {
 		return err

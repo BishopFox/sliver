@@ -34,9 +34,9 @@ import (
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/watchtower"
-	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm/clause"
 )
