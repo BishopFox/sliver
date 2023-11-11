@@ -33,7 +33,7 @@ RUN curl https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/conf
     && ./msfinstall
 RUN mkdir -p ~/.msf4/ \
     && touch ~/.msf4/initial_setup_complete \
-    &&  su -l sliver -c 'mkdir -p ~/.msf4/ && touch ~/.msf4/initial_setup_complete'
+    && su -l sliver -c 'mkdir -p ~/.msf4/ && touch ~/.msf4/initial_setup_complete'
 
 #
 # > Sliver
