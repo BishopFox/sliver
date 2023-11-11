@@ -1,14 +1,10 @@
-FROM golang:1.21.3
+FROM --platform=linux/amd64 golang:1.21.4
 
 #
 # IMPORTANT: This Dockerfile is used for testing, I do not recommend deploying
 #            Sliver using this container configuration! However, if you do want
 #            a Docker deployment this is probably a good place to start.
 #
-
-ENV PROTOC_VER 21.12
-ENV PROTOC_GEN_GO_VER v1.27.1
-ENV GRPC_GO v1.2.0
 
 # Base packages
 RUN apt-get update --fix-missing && apt-get -y install \
@@ -35,20 +31,13 @@ RUN mkdir -p /home/sliver/ && chown -R sliver:sliver /home/sliver
 RUN curl https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb > msfinstall \
     && chmod 755 msfinstall \
     && ./msfinstall
-RUN mkdir -p ~/.msf4/ && touch ~/.msf4/initial_setup_complete \
+RUN mkdir -p ~/.msf4/ \
+    && touch ~/.msf4/initial_setup_complete \
     &&  su -l sliver -c 'mkdir -p ~/.msf4/ && touch ~/.msf4/initial_setup_complete'
 
 #
 # > Sliver
 #
-
-# Protoc
-# WORKDIR /tmp
-# RUN wget -O protoc-${PROTOC_VER}-linux-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-linux-x86_64.zip \
-#     && unzip protoc-${PROTOC_VER}-linux-x86_64.zip \
-#     && cp -vv ./bin/protoc /usr/local/bin
-# RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VER} \
-#     && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@${GRPC_GO}
 
 # Go assets
 WORKDIR /go/src/github.com/bishopfox/sliver
