@@ -114,7 +114,7 @@ var (
 		sliverpb.MsgDeregisterWasmExtensionReq: deregisterWasmExtensionHandler,
 		sliverpb.MsgListWasmExtensionsReq:      listWasmExtensionsHandler,
 
-		// {{if .Config.WGc2Enabled}}
+		// {{if .Config.IncludeWG}}
 		// Wireguard specific
 		sliverpb.MsgWGStartPortFwdReq:   wgStartPortfwdHandler,
 		sliverpb.MsgWGStopPortFwdReq:    wgStopPortfwdHandler,

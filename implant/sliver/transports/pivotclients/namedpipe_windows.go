@@ -18,7 +18,7 @@ package pivotclients
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// {{if .Config.NamePipec2Enabled}}
+// {{if .Config.IncludeNamePipe}}
 
 import (
 	"net/url"
@@ -63,4 +63,4 @@ func NamedPipePivotStartSession(uri *url.URL, opts *NamedPipePivotOptions) (*Net
 	return pivot, nil
 }
 
-// {{end}} -NamePipec2Enabled
+// {{end}} -IncludeNamePipe

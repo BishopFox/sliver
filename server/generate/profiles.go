@@ -21,30 +21,36 @@ package generate
 import (
 	"errors"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/gofrs/uuid"
 )
 
 // SaveImplantProfile - Save a sliver profile to disk
-func SaveImplantProfile(name string, config *models.ImplantConfig) error {
-
-	profile, err := db.ImplantProfileByName(name)
+func SaveImplantProfile(pbProfile *clientpb.ImplantProfile) (*clientpb.ImplantProfile, error) {
+	dbProfile, err := db.ImplantProfileByName(pbProfile.Name)
 	if err != nil && !errors.Is(err, db.ErrRecordNotFound) {
-		return err
+		return nil, err
 	}
 
+	profile := models.ImplantProfileFromProtobuf(pbProfile)
 	dbSession := db.Session()
+
 	if errors.Is(err, db.ErrRecordNotFound) {
 		err = dbSession.Create(&models.ImplantProfile{
-			Name:          name,
-			ImplantConfig: config,
+			Name:          profile.Name,
+			ImplantConfig: profile.ImplantConfig,
 		}).Error
+		dbProfile, err = db.ImplantProfileByName(profile.Name)
+		if err != nil {
+			return nil, err
+		}
+		id, _ := uuid.FromString(dbProfile.ID)
+		profile.ID = id
 	} else {
-		err = dbSession.Save(&models.ImplantProfile{
-			ID:            profile.ID,
-			Name:          name,
-			ImplantConfig: config,
-		}).Error
+		dbSession.Save(profile)
 	}
-	return err
+	pbProfile = profile.ToProtobuf()
+	return pbProfile, err
 }

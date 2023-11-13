@@ -20,16 +20,16 @@ package generate
 
 import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/db/models"
 )
 
 // SliverExternal - Generates the cryptographic keys for the implant but compiles no code
-func SliverExternal(name string, config *models.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
-	err := GenerateConfig(name, config, true)
+func SliverExternal(name string, config *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
+	build, err := GenerateConfig(name, config)
 	if err != nil {
 		return nil, err
 	}
 	return &clientpb.ExternalImplantConfig{
-		Config: config.ToProtobuf(),
+		Config: config,
+		Build:  build,
 	}, nil
 }

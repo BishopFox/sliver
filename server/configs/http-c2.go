@@ -19,364 +19,28 @@ package configs
 */
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	insecureRand "math/rand"
-	"os"
-	"path"
 	"regexp"
 	"strings"
 
-	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/log"
 )
 
 const (
-	httpC2ConfigFileName = "http-c2.json"
 	DefaultChromeBaseVer = 106
 	DefaultMacOSVer      = "10_15_7"
 )
 
-// HTTPC2Config - Parent config file struct for implant/server
-type HTTPC2Config struct {
-	ImplantConfig *HTTPC2ImplantConfig `json:"implant_config"`
-	ServerConfig  *HTTPC2ServerConfig  `json:"server_config"`
-}
-
-// RandomImplantConfig - Randomly generate a new implant config from the parent config,
-// this is the primary configuration used by the implant generation.
-func (h *HTTPC2Config) RandomImplantConfig() *HTTPC2ImplantConfig {
-	return &HTTPC2ImplantConfig{
-
-		NonceQueryArgs: h.ImplantConfig.NonceQueryArgs,
-		URLParameters:  h.ImplantConfig.URLParameters,
-		Headers:        h.ImplantConfig.Headers,
-
-		PollFileExt: h.ImplantConfig.PollFileExt,
-		PollFiles:   h.ImplantConfig.RandomPollFiles(),
-		PollPaths:   h.ImplantConfig.RandomPollPaths(),
-
-		StartSessionFileExt: h.ImplantConfig.StartSessionFileExt,
-		SessionFileExt:      h.ImplantConfig.SessionFileExt,
-		SessionFiles:        h.ImplantConfig.RandomSessionFiles(),
-		SessionPaths:        h.ImplantConfig.RandomSessionPaths(),
-
-		CloseFileExt: h.ImplantConfig.CloseFileExt,
-		CloseFiles:   h.ImplantConfig.RandomCloseFiles(),
-		ClosePaths:   h.ImplantConfig.RandomClosePaths(),
-	}
-}
-
-// GenerateUserAgent - Generate a user-agent depending on OS/Arch
-func (h *HTTPC2Config) GenerateUserAgent(goos string, goarch string) string {
-	return h.generateChromeUserAgent(goos, goarch)
-}
-
-func (h *HTTPC2Config) generateChromeUserAgent(goos string, goarch string) string {
-	if h.ImplantConfig.UserAgent == "" {
-		switch goos {
-		case "windows":
-			switch goarch {
-			case "amd64":
-				return fmt.Sprintf("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", h.ChromeVer())
-			}
-
-		case "linux":
-			switch goarch {
-			case "amd64":
-				return fmt.Sprintf("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", h.ChromeVer())
-			}
-
-		case "darwin":
-			switch goarch {
-			case "arm64":
-				fallthrough // https://source.chromium.org/chromium/chromium/src/+/master:third_party/blink/renderer/core/frame/navigator_id.cc;l=76
-			case "amd64":
-				return fmt.Sprintf("Mozilla/5.0 (Macintosh; Intel Mac OS X %s) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", h.MacOSVer(), h.ChromeVer())
-			}
-
-		}
-	} else {
-		return h.ImplantConfig.UserAgent
-	}
-
-	// Default is a generic Windows/Chrome
-	return fmt.Sprintf("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", h.ChromeVer())
-}
-
-// ChromeVer - Generate a random Chrome user-agent
-func (h *HTTPC2Config) ChromeVer() string {
-	chromeVer := h.ImplantConfig.ChromeBaseVersion
-	if chromeVer == 0 {
-		chromeVer = DefaultChromeBaseVer
-	}
-	return fmt.Sprintf("%d.0.%d.%d", chromeVer+insecureRand.Intn(3), 1000+insecureRand.Intn(8999), insecureRand.Intn(999))
-}
-
-func (h *HTTPC2Config) MacOSVer() string {
-	macosVer := h.ImplantConfig.MacOSVersion
-	if macosVer == "" {
-		macosVer = DefaultMacOSVer
-	}
-	return macosVer
-}
-
-// HTTPC2ServerConfig - Server configuration options
-type HTTPC2ServerConfig struct {
-	RandomVersionHeaders bool                   `json:"random_version_headers"`
-	Headers              []NameValueProbability `json:"headers"`
-	Cookies              []string               `json:"cookies"`
-}
-
-type NameValueProbability struct {
-	Name        string `json:"name"`
-	Value       string `json:"value"`
-	Probability int    `json:"probability"`
-	Methods     []string
-}
-
-// HTTPC2ImplantConfig - Implant configuration options
-// Procedural C2
-// ===============
-// .txt = rsakey
-// .css = start
-// .php = session
-//
-//	.js = poll
-//
-// .png = stop
-// .woff = sliver shellcode
-type HTTPC2ImplantConfig struct {
-	UserAgent         string `json:"user_agent"`
-	ChromeBaseVersion int    `json:"chrome_base_version"`
-	MacOSVersion      string `json:"macos_version"`
-
-	NonceQueryArgs string                 `json:"nonce_query_args"`
-	URLParameters  []NameValueProbability `json:"url_parameters"`
-	Headers        []NameValueProbability `json:"headers"`
-
-	MaxFiles int `json:"max_files"`
-	MinFiles int `json:"min_files"`
-	MaxPaths int `json:"max_paths"`
-	MinPaths int `json:"min_paths"`
-
-	// Stager files and paths
-	StagerFileExt string   `json:"stager_file_ext"`
-	StagerFiles   []string `json:"stager_files"`
-	StagerPaths   []string `json:"stager_paths"`
-
-	// Poll files and paths
-	PollFileExt string   `json:"poll_file_ext"`
-	PollFiles   []string `json:"poll_files"`
-	PollPaths   []string `json:"poll_paths"`
-
-	// Session files and paths
-	StartSessionFileExt string   `json:"start_session_file_ext"`
-	SessionFileExt      string   `json:"session_file_ext"`
-	SessionFiles        []string `json:"session_files"`
-	SessionPaths        []string `json:"session_paths"`
-
-	// Close session files and paths
-	CloseFileExt string   `json:"close_file_ext"`
-	CloseFiles   []string `json:"close_files"`
-	ClosePaths   []string `json:"close_paths"`
-}
-
-func (h *HTTPC2ImplantConfig) RandomPollFiles() []string {
-	min := h.MinFiles
-	if min < 1 {
-		min = 1
-	}
-	return h.randomSample(h.PollFiles, h.PollFileExt, min, h.MaxFiles)
-}
-
-func (h *HTTPC2ImplantConfig) RandomPollPaths() []string {
-	return h.randomSample(h.PollPaths, "", h.MinPaths, h.MaxPaths)
-}
-
-func (h *HTTPC2ImplantConfig) RandomCloseFiles() []string {
-	min := h.MinFiles
-	if min < 1 {
-		min = 1
-	}
-	return h.randomSample(h.CloseFiles, h.CloseFileExt, min, h.MaxFiles)
-}
-
-func (h *HTTPC2ImplantConfig) RandomClosePaths() []string {
-	return h.randomSample(h.ClosePaths, "", h.MinPaths, h.MaxPaths)
-}
-
-func (h *HTTPC2ImplantConfig) RandomSessionFiles() []string {
-	min := h.MinFiles
-	if min < 1 {
-		min = 1
-	}
-	return h.randomSample(h.SessionFiles, h.SessionFileExt, min, h.MaxFiles)
-}
-
-func (h *HTTPC2ImplantConfig) RandomSessionPaths() []string {
-	return h.randomSample(h.SessionPaths, "", h.MinPaths, h.MaxPaths)
-}
-
-func (h *HTTPC2ImplantConfig) randomSample(values []string, ext string, min int, max int) []string {
-	count := insecureRand.Intn(len(values))
-	if count < min {
-		count = min
-	}
-	if max < count {
-		count = max
-	}
-	sample := []string{}
-	for i := 0; len(sample) < count; i++ {
-		index := (count + i) % len(values)
-		sample = append(sample, values[index])
-	}
-	return sample
-}
-
-var (
-	httpC2ConfigLog = log.NamedLogger("config", "http-c2")
-
-	defaultHTTPC2Config = HTTPC2Config{
-		ServerConfig: &HTTPC2ServerConfig{
-			RandomVersionHeaders: false,
-			Cookies: []string{
-				"PHPSESSID", "SID", "SSID", "APISID", "csrf-state", "AWSALBCORS",
-			},
-			Headers: []NameValueProbability{
-				// {Name: "Cache-Control", Value: "no-store, no-cache, must-revalidate", Probability: 100},
-			},
-		},
-		ImplantConfig: &HTTPC2ImplantConfig{
-			UserAgent:         "", // Blank string is rendered as randomized platform user-agent
-			ChromeBaseVersion: DefaultChromeBaseVer,
-			MacOSVersion:      DefaultMacOSVer,
-			MaxFiles:          8,
-			MinFiles:          2,
-			MaxPaths:          8,
-			MinPaths:          2,
-
-			Headers: []NameValueProbability{
-				{Name: "Accept-Language", Value: "en-US,en;q=0.9", Methods: []string{"GET"}, Probability: 100},
-				{Name: "Accept", Value: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9", Methods: []string{"GET"}, Probability: 100},
-			},
-
-			NonceQueryArgs: "abcdefghijklmnopqrstuvwxyz",
-
-			StagerFileExt: ".woff",
-			StagerFiles: []string{
-				"attribute_text_w01_regular", "ZillaSlab-Regular.subset.bbc33fb47cf6",
-				"ZillaSlab-Bold.subset.e96c15f68c68", "Inter-Regular",
-				"Inter-Medium",
-			},
-			StagerPaths: []string{
-				"static", "assets", "fonts", "locales",
-			},
-
-			PollFileExt: ".js",
-			PollFiles: []string{
-				"bootstrap", "bootstrap.min", "jquery.min", "jquery", "route",
-				"app", "app.min", "array", "backbone", "script", "email",
-			},
-			PollPaths: []string{
-				"js", "umd", "assets", "bundle", "bundles", "scripts", "script", "javascripts",
-				"javascript", "jscript",
-			},
-
-			StartSessionFileExt: ".html",
-			SessionFileExt:      ".php",
-			SessionFiles: []string{
-				"login", "signin", "api", "samples", "rpc", "index",
-				"admin", "register", "sign-up",
-			},
-			SessionPaths: []string{
-				"php", "api", "upload", "actions", "rest", "v1", "auth", "authenticate",
-				"oauth", "oauth2", "oauth2callback", "database", "db", "namespaces",
-			},
-
-			CloseFileExt: ".png",
-			CloseFiles: []string{
-				"favicon", "sample", "example",
-			},
-			ClosePaths: []string{
-				"static", "www", "assets", "images", "icons", "image", "icon", "png",
-			},
-		},
-	}
-)
-
-// GetHTTPC2ConfigPath - File path to http-c2.json
-func GetHTTPC2ConfigPath() string {
-	appDir := assets.GetRootAppDir()
-	httpC2ConfigPath := path.Join(appDir, "configs", httpC2ConfigFileName)
-	return httpC2ConfigPath
-}
-
-// GetHTTPC2Config - Get the current HTTP C2 config
-func GetHTTPC2Config() *HTTPC2Config {
-	configPath := GetHTTPC2ConfigPath()
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		err = generateDefaultConfig(configPath)
-		if err != nil {
-			httpC2ConfigLog.Errorf("Failed to generate http c2 config %s", err)
-			return &defaultHTTPC2Config
-		}
-	}
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		httpC2ConfigLog.Errorf("Failed to read http c2 config %s", err)
-		return &defaultHTTPC2Config
-	}
-	config := &HTTPC2Config{}
-	err = json.Unmarshal(data, config)
-	if err != nil {
-		httpC2ConfigLog.Errorf("Failed to parse http c2 config %s", err)
-		return &defaultHTTPC2Config
-	}
-	err = checkHTTPC2Config(config)
-	if err != nil {
-		httpC2ConfigLog.Errorf("Invalid http c2 config: %s", err)
-		return &defaultHTTPC2Config
-	}
-	return config
-}
-
 // CheckHTTPC2ConfigErrors - Get the current HTTP C2 config
-func CheckHTTPC2ConfigErrors() error {
-	configPath := GetHTTPC2ConfigPath()
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		err = generateDefaultConfig(configPath)
-		if err != nil {
-			httpC2ConfigLog.Errorf("Failed to generate http c2 config %s", err)
-			return err
-		}
-	}
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		httpC2ConfigLog.Errorf("Failed to read http c2 config %s", err)
-		return err
-	}
-	config := &HTTPC2Config{}
-	err = json.Unmarshal(data, config)
-	if err != nil {
-		httpC2ConfigLog.Errorf("Failed to parse http c2 config %s", err)
-		return err
-	}
-	err = checkHTTPC2Config(config)
+func CheckHTTPC2ConfigErrors(config *clientpb.HTTPC2Config) error {
+	err := checkHTTPC2Config(config)
 	if err != nil {
 		httpC2ConfigLog.Errorf("Invalid http c2 config: %s", err)
 		return err
 	}
 	return nil
-}
-
-func generateDefaultConfig(saveTo string) error {
-	data, err := json.MarshalIndent(defaultHTTPC2Config, "", "    ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(saveTo, data, 0600)
 }
 
 var (
@@ -392,15 +56,17 @@ var (
 	ErrMissingStartSessionFileExt = errors.New("implant config must specify a start_session_file_ext")
 	ErrMissingSessionFileExt      = errors.New("implant config must specify a session_file_ext")
 	ErrTooFewSessionFiles         = errors.New("implant config must specify at least one session_files value")
-	ErrNonuniqueFileExt           = errors.New("implant config must specify unique file extensions")
+	ErrNonUniqueFileExt           = errors.New("implant config must specify unique file extensions")
 	ErrQueryParamNameLen          = errors.New("implant config url query parameter names must be 3 or more characters")
+	ErrDuplicateStageExt          = errors.New("stager extension is already used in another C2 profile")
+	ErrDuplicateC2ProfileName     = errors.New("C2 Profile name is already in use")
 	ErrUserAgentIllegalCharacters = errors.New("user agent cannot contain the ` character")
 
 	fileNameExp = regexp.MustCompile(`[^a-zA-Z0-9\\._-]+`)
 )
 
 // checkHTTPC2Config - Validate the HTTP C2 config, coerces common mistakes
-func checkHTTPC2Config(config *HTTPC2Config) error {
+func checkHTTPC2Config(config *clientpb.HTTPC2Config) error {
 	err := checkServerConfig(config.ServerConfig)
 	if err != nil {
 		return err
@@ -444,14 +110,14 @@ func uniqueFileName(strSlice []string) []string {
 	return list
 }
 
-func checkServerConfig(config *HTTPC2ServerConfig) error {
+func checkServerConfig(config *clientpb.HTTPC2ServerConfig) error {
 	if len(config.Cookies) < 1 {
 		return ErrMissingCookies
 	}
 	return nil
 }
 
-func checkImplantConfig(config *HTTPC2ImplantConfig) error {
+func checkImplantConfig(config *clientpb.HTTPC2ImplantConfig) error {
 
 	// MinFiles and MaxFiles
 	if config.MinFiles < 1 {
@@ -470,71 +136,27 @@ func checkImplantConfig(config *HTTPC2ImplantConfig) error {
 	}
 
 	// Stager
-	config.StagerFileExt = coerceFileExt(config.StagerFileExt)
-	if config.StagerFileExt == "" {
+	config.StagerFileExtension = coerceFileExt(config.StagerFileExtension)
+	if config.StagerFileExtension == "" {
 		return ErrMissingStagerFileExt
 	}
-	config.StagerFiles = coerceFiles(config.StagerFiles, config.StagerFileExt)
-	if len(config.StagerFiles) < 1 {
-		return ErrTooFewStagerFiles
-	}
 
-	// Poll Settings
-	config.PollFileExt = coerceFileExt(config.PollFileExt)
-	if config.PollFileExt == "" {
+	// File Extensions
+	config.PollFileExtension = coerceFileExt(config.PollFileExtension)
+	if config.PollFileExtension == "" {
 		return ErrMissingPollFileExt
 	}
-	config.PollFiles = coerceFiles(config.PollFiles, config.PollFileExt)
-	if len(config.PollFiles) < 1 {
-		return ErrTooFewPollFiles
-	}
-
-	// Session Settings
-	config.StartSessionFileExt = coerceFileExt(config.StartSessionFileExt)
-	if config.StartSessionFileExt == "" {
+	config.StartSessionFileExtension = coerceFileExt(config.StartSessionFileExtension)
+	if config.StartSessionFileExtension == "" {
 		return ErrMissingStartSessionFileExt
 	}
-	config.SessionFileExt = coerceFileExt(config.SessionFileExt)
-	if config.SessionFileExt == "" {
+	config.SessionFileExtension = coerceFileExt(config.SessionFileExtension)
+	if config.SessionFileExtension == "" {
 		return ErrMissingSessionFileExt
 	}
-	config.SessionFiles = coerceFiles(config.SessionFiles, config.StartSessionFileExt)
-	config.SessionFiles = coerceFiles(config.SessionFiles, config.SessionFileExt)
-	if len(config.SessionFiles) < 1 {
-		return ErrTooFewSessionFiles
-	}
-
-	// Close Settings
-	config.CloseFileExt = coerceFileExt(config.CloseFileExt)
-	if config.CloseFileExt == "" {
+	config.CloseFileExtension = coerceFileExt(config.CloseFileExtension)
+	if config.CloseFileExtension == "" {
 		return ErrMissingCloseFileExt
-	}
-	config.CloseFiles = coerceFiles(config.CloseFiles, config.CloseFileExt)
-	if len(config.CloseFiles) < 1 {
-		return ErrTooFewCloseFiles
-	}
-
-	// Unique file extensions
-	allExtensions := map[string]bool{}
-	extensions := []string{
-		config.StagerFileExt,
-		config.PollFileExt,
-		config.StartSessionFileExt,
-		config.SessionFileExt,
-		config.CloseFileExt,
-	}
-	for _, ext := range extensions {
-		if _, ok := allExtensions[ext]; ok {
-			return ErrNonuniqueFileExt
-		}
-		allExtensions[ext] = true
-	}
-
-	// Query Parameter Names
-	for _, queryParam := range config.URLParameters {
-		if len(queryParam.Name) < 3 {
-			return ErrQueryParamNameLen
-		}
 	}
 
 	/*
@@ -551,3 +173,232 @@ func checkImplantConfig(config *HTTPC2ImplantConfig) error {
 
 	return nil
 }
+
+func GenerateDefaultHTTPC2Config() *clientpb.HTTPC2Config {
+
+	// Implant Config
+	httpC2UrlParameters := []*clientpb.HTTPC2URLParameter{}
+	httpC2Headers := []*clientpb.HTTPC2Header{}
+	pathSegments := GenerateHTTPC2DefaultPathSegment()
+
+	implantConfig := clientpb.HTTPC2ImplantConfig{
+		UserAgent:                 "",
+		ChromeBaseVersion:         DefaultChromeBaseVer,
+		MacOSVersion:              DefaultMacOSVer,
+		NonceQueryArgChars:        "abcdefghijklmnopqrstuvwxyz",
+		ExtraURLParameters:        httpC2UrlParameters,
+		Headers:                   httpC2Headers,
+		MaxFiles:                  8,
+		MinFiles:                  2,
+		MaxPaths:                  8,
+		MinPaths:                  2,
+		StagerFileExtension:       "woff",
+		PollFileExtension:         "js",
+		StartSessionFileExtension: "html",
+		SessionFileExtension:      "php",
+		CloseFileExtension:        "png",
+		PathSegments:              pathSegments,
+	}
+
+	// Server Config
+	serverHeaders := []*clientpb.HTTPC2Header{
+		{
+			Method:      "GET",
+			Name:        "Cache-Control",
+			Value:       "no-store, no-cache, must-revalidate",
+			Probability: 100,
+		},
+	}
+	cookies := GenerateDefaultHTTPC2Cookies()
+	serverConfig := clientpb.HTTPC2ServerConfig{
+		RandomVersionHeaders: false,
+		Headers:              serverHeaders,
+		Cookies:              cookies,
+	}
+
+	// HTTPC2Config
+
+	defaultConfig := clientpb.HTTPC2Config{
+		ServerConfig:  &serverConfig,
+		ImplantConfig: &implantConfig,
+		Name:          "default",
+	}
+
+	return &defaultConfig
+}
+
+func GenerateDefaultHTTPC2Cookies() []*clientpb.HTTPC2Cookie {
+	cookies := []*clientpb.HTTPC2Cookie{}
+	for _, cookie := range Cookies {
+		cookies = append(cookies, &clientpb.HTTPC2Cookie{
+			Name: cookie,
+		})
+	}
+	return cookies
+}
+
+func GenerateHTTPC2DefaultPathSegment() []*clientpb.HTTPC2PathSegment {
+	pathSegments := []*clientpb.HTTPC2PathSegment{}
+
+	/*
+		IsFile      bool
+		SegmentType int32 // Poll, Session, Close, stager
+		Value       string
+	*/
+
+	// files
+	for _, poll := range PollFiles {
+		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
+			IsFile:      true,
+			SegmentType: 0,
+			Value:       poll,
+		})
+	}
+
+	for _, session := range SessionFiles {
+		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
+			IsFile:      true,
+			SegmentType: 1,
+			Value:       session,
+		})
+	}
+
+	for _, close := range CloseFiles {
+		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
+			IsFile:      true,
+			SegmentType: 2,
+			Value:       close,
+		})
+	}
+
+	for _, stager := range StagerFiles {
+		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
+			IsFile:      true,
+			SegmentType: 3,
+			Value:       stager,
+		})
+	}
+
+	// paths
+	for _, poll := range PollPaths {
+		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
+			IsFile:      false,
+			SegmentType: 0,
+			Value:       poll,
+		})
+	}
+
+	for _, session := range SessionPaths {
+		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
+			IsFile:      false,
+			SegmentType: 1,
+			Value:       session,
+		})
+	}
+
+	for _, close := range ClosePaths {
+		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
+			IsFile:      false,
+			SegmentType: 2,
+			Value:       close,
+		})
+	}
+
+	for _, stager := range StagerPaths {
+		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
+			IsFile:      false,
+			SegmentType: 3,
+			Value:       stager,
+		})
+	}
+
+	return pathSegments
+}
+
+var (
+	httpC2ConfigLog = log.NamedLogger("config", "http-c2")
+
+	Cookies = []string{
+		"PHPSESSID",
+		"SID",
+		"SSID",
+		"APISID",
+		"csrf-state",
+		"AWSALBCORS",
+	}
+	PollFiles = []string{
+		"bootstrap",
+		"bootstrap.min",
+		"jquery.min",
+		"jquery",
+		"route",
+		"app",
+		"app.min",
+		"array",
+		"backbone",
+		"script",
+		"email",
+	}
+	PollPaths = []string{
+		"js",
+		"umd",
+		"assets",
+		"bundle",
+		"bundles",
+		"scripts",
+		"script",
+		"javascripts",
+		"javascript",
+		"jscript",
+	}
+	SessionFiles = []string{
+		"login",
+		"signin",
+		"api",
+		"samples",
+		"rpc",
+		"index",
+		"admin",
+		"register",
+		"sign-up",
+	}
+	SessionPaths = []string{
+		"php",
+		"api",
+		"upload",
+		"actions",
+		"rest",
+		"v1",
+		"auth",
+		"authenticate",
+		"oauth",
+		"oauth2",
+		"oauth2callback",
+		"database",
+		"db",
+		"namespaces",
+	}
+	CloseFiles = []string{
+		"favicon",
+		"sample",
+		"example",
+	}
+	ClosePaths = []string{
+		"static",
+		"www",
+		"assets",
+		"images",
+		"icons",
+		"image",
+		"icon",
+		"png",
+	}
+	StagerFiles = []string{
+		"attribute_text_w01_regular", "ZillaSlab-Regular.subset.bbc33fb47cf6",
+		"ZillaSlab-Bold.subset.e96c15f68c68", "Inter-Regular",
+		"Inter-Medium",
+	}
+	StagerPaths = []string{
+		"static", "assets", "fonts", "locales",
+	}
+)

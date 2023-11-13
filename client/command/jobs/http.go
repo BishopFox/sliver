@@ -37,7 +37,7 @@ func HTTPListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 	pollTimeout, _ := cmd.Flags().GetString("long-poll-timeout")
 	pollJitter, _ := cmd.Flags().GetString("long-poll-jitter")
 	website, _ := cmd.Flags().GetString("website")
-	persistent, _ := cmd.Flags().GetBool("persistent")
+	staging, _ := cmd.Flags().GetBool("staging")
 
 	longPollTimeout, err := time.ParseDuration(pollTimeout)
 	if err != nil {
@@ -57,10 +57,10 @@ func HTTPListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 		Host:            lhost,
 		Port:            lport,
 		Secure:          false,
-		Persistent:      persistent,
 		EnforceOTP:      !disableOTP,
 		LongPollTimeout: int64(longPollTimeout),
 		LongPollJitter:  int64(longPollJitter),
+		Staging:         staging,
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

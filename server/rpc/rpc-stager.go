@@ -46,9 +46,10 @@ func (rpc *Server) StartHTTPStagerListener(ctx context.Context, req *clientpb.St
 	if !checkInterface(req.GetHost()) {
 		host = "0.0.0.0"
 	}
-	conf := &c2.HTTPServerConfig{
-		Addr:   fmt.Sprintf("%s:%d", host, req.Port),
-		LPort:  uint16(req.Port),
+
+	conf := &clientpb.HTTPListenerReq{
+		Host:   host,
+		Port:   req.Port,
 		Domain: req.Host,
 		Secure: false,
 	}
@@ -58,7 +59,7 @@ func (rpc *Server) StartHTTPStagerListener(ctx context.Context, req *clientpb.St
 		conf.Cert = req.Cert
 		conf.ACME = req.ACME
 	}
-	job, err := c2.StartHTTPStagerListenerJob(conf, req.ProfileName, req.Data)
+	job, err := c2.StartHTTPStagerListenerJob(conf, req.Data)
 	if err != nil {
 		return nil, err
 	}

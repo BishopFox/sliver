@@ -25,7 +25,7 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/certs"
-	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/bishopfox/sliver/server/configs"
 )
 
 var (
@@ -174,38 +174,43 @@ func TestTrafficEncoders(t *testing.T) {
 
 func trafficEncodersExecutable(t *testing.T, goos string, goarch string) {
 	t.Logf("[trafficEncoders] %s/%s", goos, goarch)
-	debugConfig := &models.ImplantConfig{
+	name := fmt.Sprintf("trafficEncodersDebug_test%d", nonce)
+	debugConfig := &clientpb.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
-		C2: []models.ImplantC2{
+		C2: []*clientpb.ImplantC2{
 			{URL: "http://1.example.com"},
 		},
-		HTTPc2Enabled:          true,
 		Debug:                  true,
 		ObfuscateSymbols:       false,
 		IsBeacon:               false,
 		TrafficEncodersEnabled: true,
+		IncludeHTTP:            true,
 	}
+
+	debugHttpC2Config := configs.GenerateDefaultHTTPC2Config()
+	build, _ := GenerateConfig(name, debugConfig)
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("trafficEncodersDebug_test%d", nonce), debugConfig, true)
+	_, err := SliverExecutable(name, build, debugConfig, debugHttpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-
-	prodConfig := &models.ImplantConfig{
+	name = fmt.Sprintf("trafficEncodersProd_test%d", nonce)
+	prodConfig := &clientpb.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
-		C2: []models.ImplantC2{
+		C2: []*clientpb.ImplantC2{
 			{URL: "http://2.example.com"},
 		},
-		HTTPc2Enabled:          true,
 		Debug:                  false,
 		ObfuscateSymbols:       true,
 		IsBeacon:               false,
 		TrafficEncodersEnabled: true,
+		IncludeHTTP:            true,
 	}
+	build, _ = GenerateConfig(name, prodConfig)
 	nonce++
-	_, err = SliverExecutable(fmt.Sprintf("trafficEncodersProd_test%d", nonce), prodConfig, true)
+	_, err = SliverExecutable(name, build, prodConfig, debugHttpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -213,19 +218,22 @@ func trafficEncodersExecutable(t *testing.T, goos string, goarch string) {
 
 func mtlsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
 	t.Logf("[mtls] EXE %s/%s - debug: %v", goos, goarch, debug)
-	config := &models.ImplantConfig{
+	name := fmt.Sprintf("mtls_test%d", nonce)
+	config := &clientpb.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
-		C2: []models.ImplantC2{
+		C2: []*clientpb.ImplantC2{
 			{URL: "mtls://1.example.com"},
 		},
-		MTLSc2Enabled:    true,
 		Debug:            debug,
 		ObfuscateSymbols: false,
 		IsBeacon:         beacon,
+		IncludeMTLS:      true,
 	}
+	httpC2Config := configs.GenerateDefaultHTTPC2Config()
+	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("mtls_test%d", nonce), config, true)
+	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -233,19 +241,22 @@ func mtlsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) 
 
 func dnsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
 	t.Logf("[dns] EXE %s/%s - debug: %v", goos, goarch, debug)
-	config := &models.ImplantConfig{
+	name := fmt.Sprintf("dns_test%d", nonce)
+	config := &clientpb.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
-		C2: []models.ImplantC2{
+		C2: []*clientpb.ImplantC2{
 			{URL: "dns://3.example.com"},
 		},
-		DNSc2Enabled:     true,
 		Debug:            debug,
 		ObfuscateSymbols: false,
 		IsBeacon:         beacon,
+		IncludeDNS:       true,
 	}
+	httpC2Config := configs.GenerateDefaultHTTPC2Config()
+	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("dns_test%d", nonce), config, true)
+	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -253,23 +264,26 @@ func dnsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
 
 func httpExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
 	t.Logf("[http] EXE %s/%s - debug: %v", goos, goarch, debug)
-	config := &models.ImplantConfig{
+	name := fmt.Sprintf("http_test%d", nonce)
+	config := &clientpb.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
-		C2: []models.ImplantC2{
+		C2: []*clientpb.ImplantC2{
 			{
 				Priority: 1,
 				URL:      "http://4.example.com",
 				Options:  "asdf",
 			},
 		},
-		HTTPc2Enabled:    true,
 		Debug:            debug,
 		ObfuscateSymbols: false,
 		IsBeacon:         beacon,
+		IncludeHTTP:      true,
 	}
+	httpC2Config := configs.GenerateDefaultHTTPC2Config()
+	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("http_test%d", nonce), config, true)
+	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -277,27 +291,30 @@ func httpExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) 
 
 func multiExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
 	t.Logf("[multi] %s/%s - debug: %v", goos, goarch, debug)
-	config := &models.ImplantConfig{
+	name := fmt.Sprintf("multi_test%d", nonce)
+	config := &clientpb.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
 
-		C2: []models.ImplantC2{
+		C2: []*clientpb.ImplantC2{
 			{URL: "mtls://1.example.com"},
 			{URL: "mtls://2.example.com", Options: "asdf"},
 			{URL: "https://3.example.com"},
 			{Priority: 3, URL: "dns://4.example.com"},
 			{Priority: 4, URL: "wg://5.example.com"},
 		},
-		MTLSc2Enabled:    true,
-		HTTPc2Enabled:    true,
-		DNSc2Enabled:     true,
-		WGc2Enabled:      true,
 		Debug:            debug,
 		ObfuscateSymbols: false,
 		IsBeacon:         beacon,
+		IncludeMTLS:      true,
+		IncludeHTTP:      true,
+		IncludeWG:        true,
+		IncludeDNS:       true,
 	}
+	httpC2Config := configs.GenerateDefaultHTTPC2Config()
+	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("multi_test%d", nonce), config, true)
+	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -305,26 +322,29 @@ func multiExe(t *testing.T, goos string, goarch string, beacon bool, debug bool)
 
 func multiWindowsService(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
 	t.Logf("[multi] %s/%s - debug: %v", goos, goarch, debug)
-	config := &models.ImplantConfig{
+	name := fmt.Sprintf("service_test%d", nonce)
+	config := &clientpb.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
 		Format: clientpb.OutputFormat_SERVICE,
 
-		C2: []models.ImplantC2{
+		C2: []*clientpb.ImplantC2{
 			{URL: "mtls://1.example.com"},
 			{URL: "mtls://2.example.com", Options: "asdf"},
 			{URL: "https://3.example.com"},
 			{Priority: 3, URL: "dns://4.example.com"},
 		},
-		MTLSc2Enabled:    true,
-		HTTPc2Enabled:    true,
-		DNSc2Enabled:     true,
 		Debug:            debug,
 		ObfuscateSymbols: false,
 		IsBeacon:         beacon,
+		IncludeMTLS:      true,
+		IncludeHTTP:      true,
+		IncludeDNS:       true,
 	}
+	httpC2Config := configs.GenerateDefaultHTTPC2Config()
+	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("service_test%d", nonce), config, true)
+	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -333,22 +353,25 @@ func multiWindowsService(t *testing.T, goos string, goarch string, beacon bool, 
 // Pivots do not support beacon mode
 func tcpPivotExe(t *testing.T, goos string, goarch string, debug bool) {
 	t.Logf("[tcppivot] EXE %s/%s - debug: %v", goos, goarch, debug)
-	config := &models.ImplantConfig{
+	name := fmt.Sprintf("tcpPivot_test%d", nonce)
+	config := &clientpb.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
-		C2: []models.ImplantC2{
+		C2: []*clientpb.ImplantC2{
 			{
 				Priority: 1,
 				URL:      "tcppivot://127.0.0.1:8080",
 				Options:  "asdf",
 			},
 		},
-		NamePipec2Enabled: true,
-		Debug:             debug,
-		ObfuscateSymbols:  false,
+		Debug:            debug,
+		ObfuscateSymbols: false,
+		IncludeTCP:       true,
 	}
+	httpC2Config := configs.GenerateDefaultHTTPC2Config()
+	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("tcpPivot_test%d", nonce), config, true)
+	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -356,22 +379,25 @@ func tcpPivotExe(t *testing.T, goos string, goarch string, debug bool) {
 
 func namedPipeExe(t *testing.T, goos string, goarch string, debug bool) {
 	t.Logf("[namedpipe] EXE %s/%s - debug: %v", goos, goarch, debug)
-	config := &models.ImplantConfig{
+	name := fmt.Sprintf("namedpipe_test%d", nonce)
+	config := &clientpb.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
-		C2: []models.ImplantC2{
+		C2: []*clientpb.ImplantC2{
 			{
 				Priority: 1,
 				URL:      "namedpipe://./pipe/test",
 				Options:  "asdf",
 			},
 		},
-		NamePipec2Enabled: true,
-		Debug:             debug,
-		ObfuscateSymbols:  false,
+		Debug:            debug,
+		ObfuscateSymbols: false,
+		IncludeNamePipe:  true,
 	}
+	httpC2Config := configs.GenerateDefaultHTTPC2Config()
+	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("namedpipe_test%d", nonce), config, true)
+	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -379,29 +405,30 @@ func namedPipeExe(t *testing.T, goos string, goarch string, debug bool) {
 
 func wireguardExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
 	t.Logf("[wireguard] EXE %s/%s - debug: %v", goos, goarch, debug)
-	config := &models.ImplantConfig{
+	name := fmt.Sprintf("wireguard_test%d", nonce)
+	config := &clientpb.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
-		C2: []models.ImplantC2{
+		C2: []*clientpb.ImplantC2{
 			{
 				Priority: 1,
 				URL:      "wg://1.example.com:8000",
 				Options:  "asdf",
 			},
 		},
-		WGc2Enabled:       true,
 		Debug:             debug,
 		ObfuscateSymbols:  false,
-		WGImplantPrivKey:  "153be871d7e54545c01a9700880f86fc83087275669c9237b9bcd617ddbfa43f",
-		WGServerPubKey:    "153be871d7e54545c01a9700880f86fc83087275669c9237b9bcd617ddbfa43f",
 		WGPeerTunIP:       "100.64.0.2",
 		WGKeyExchangePort: 1234,
 		WGTcpCommsPort:    5678,
 		IsBeacon:          beacon,
+		IncludeWG:         true,
 	}
+	httpC2Config := configs.GenerateDefaultHTTPC2Config()
 	nonce++
 	certs.SetupWGKeys()
-	_, err := SliverExecutable(fmt.Sprintf("wireguard_test%d", nonce), config, true)
+	build, _ := GenerateConfig(name, config)
+	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -409,11 +436,12 @@ func wireguardExe(t *testing.T, goos string, goarch string, beacon bool, debug b
 
 func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 	t.Logf("[multi] LIB %s/%s - debug: %v", goos, goarch, debug)
-	config := &models.ImplantConfig{
+	name := fmt.Sprintf("multilibrary_test%d", nonce)
+	config := &clientpb.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
 
-		C2: []models.ImplantC2{
+		C2: []*clientpb.ImplantC2{
 			{URL: "mtls://1.example.com"},
 			{Priority: 2, URL: "mtls://2.example.com"},
 			{URL: "https://3.example.com"},
@@ -425,15 +453,18 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 		ObfuscateSymbols:  false,
 		Format:            clientpb.OutputFormat_SHARED_LIB,
 		IsSharedLib:       true,
-		WGc2Enabled:       true,
-		WGImplantPrivKey:  "153be871d7e54545c01a9700880f86fc83087275669c9237b9bcd617ddbfa43f",
-		WGServerPubKey:    "153be871d7e54545c01a9700880f86fc83087275669c9237b9bcd617ddbfa43f",
 		WGPeerTunIP:       "100.64.0.2",
 		WGKeyExchangePort: 1234,
 		WGTcpCommsPort:    5678,
+		IncludeMTLS:       true,
+		IncludeHTTP:       true,
+		IncludeWG:         true,
+		IncludeDNS:        true,
 	}
+	httpC2Config := configs.GenerateDefaultHTTPC2Config()
 	nonce++
-	_, err := SliverSharedLibrary(fmt.Sprintf("multilibrary_test%d", nonce), config, true)
+	build, _ := GenerateConfig(name, config)
+	_, err := SliverSharedLibrary(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -441,25 +472,28 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 
 func symbolObfuscation(t *testing.T, goos string, goarch string) {
 	t.Logf("[symbol obfuscation] %s/%s ...", goos, goarch)
-	config := &models.ImplantConfig{
+	name := fmt.Sprintf("symbol_test%d", nonce)
+	config := &clientpb.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
 
-		C2: []models.ImplantC2{
+		C2: []*clientpb.ImplantC2{
 			{URL: "mtls://1.example.com"},
 			{Priority: 2, URL: "mtls://2.example.com"},
 			{URL: "https://3.example.com"},
 			{URL: "dns://4.example.com", Options: "asdf"},
 		},
-		MTLSc2Enabled: true,
-		HTTPc2Enabled: true,
-		DNSc2Enabled:  true,
 
 		Debug:            false,
 		ObfuscateSymbols: true,
+		IncludeMTLS:      true,
+		IncludeHTTP:      true,
+		IncludeDNS:       true,
 	}
+	httpC2Config := configs.GenerateDefaultHTTPC2Config()
 	nonce++
-	_, err := SliverExecutable(fmt.Sprintf("symbol_test%d", nonce), config, true)
+	build, _ := GenerateConfig(name, config)
+	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
