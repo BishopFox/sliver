@@ -53,8 +53,8 @@ var (
 	tunnelNet   *netstack.Net
 	tunAddress  string
 
-	wgImplantPrivKey  = `{{.Config.WGImplantPrivKey}}`
-	wgServerPubKey    = `{{.Config.WGServerPubKey}}`
+	wgImplantPrivKey  = `{{.Build.WGImplantPrivKey}}`
+	wgServerPubKey    = `{{.Build.WGServerPubKey}}`
 	wgPeerTunIP       = `{{.Config.WGPeerTunIP}}`
 	wgKeyExchangePort = getWgKeyExchangePort()
 	wgTcpCommsPort    = getWgTcpCommsPort()
