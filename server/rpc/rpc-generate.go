@@ -176,6 +176,22 @@ func (rpc *Server) ImplantBuilds(ctx context.Context, _ *commonpb.Empty) (*clien
 	return builds, nil
 }
 
+// StageImplantBuild - Serve a previously generated build
+func (rpc *Server) StageImplantBuild(ctx context.Context, req *clientpb.ImplantStageReq) (*commonpb.Empty, error) {
+	err := db.Session().Model(&models.ImplantBuild{}).Where("Stage = ?", true).Update("Stage", false).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, name := range req.Build {
+		err = db.Session().Model(&models.ImplantBuild{}).Where(&models.ImplantBuild{Name: name}).Update("Stage", true).Error
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &commonpb.Empty{}, nil
+}
+
 // Canaries - List existing canaries
 func (rpc *Server) Canaries(ctx context.Context, _ *commonpb.Empty) (*clientpb.Canaries, error) {
 	dbCanaries, err := db.ListCanaries()

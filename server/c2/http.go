@@ -122,7 +122,6 @@ type SliverHTTPC2 struct {
 	HTTPServer   *http.Server
 	ServerConf   *clientpb.HTTPListenerReq // Server config (user args)
 	HTTPSessions *HTTPSessions
-	SliverStage  []byte // Sliver shellcode to serve during staging process
 	Cleanup      func()
 
 	c2Config []*clientpb.HTTPC2Config // C2 configs
@@ -347,17 +346,15 @@ func (s *SliverHTTPC2) router() *mux.Router {
 		s.ServerConf.LongPollJitter = int64(DefaultLongPollJitter)
 	}
 
-	if s.ServerConf.Staging {
-		// start stager handlers, extension are unique accross all profiles
-		for _, c2Config := range c2Configs.Configs {
-			// Can't force the user agent on the stager payload
-			// Request from msf stager payload will look like:
-			// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
-			router.HandleFunc(
-				fmt.Sprintf("/{rpath:.*\\.%s[/]{0,1}.*$}", c2Config.ImplantConfig.StagerFileExtension),
-				s.stagerHandler,
-			).Methods(http.MethodGet)
-		}
+	// start stager handlers, extension are unique accross all profiles
+	for _, c2Config := range c2Configs.Configs {
+		// Can't force the user agent on the stager payload
+		// Request from msf stager payload will look like:
+		// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
+		router.HandleFunc(
+			fmt.Sprintf("/{rpath:.*\\.%s[/]{0,1}.*$}", c2Config.ImplantConfig.StagerFileExtension),
+			s.stagerHandler,
+		).Methods(http.MethodGet)
 	}
 
 	router.HandleFunc("/{rpath:.*}", s.mainHandler).Methods(http.MethodGet, http.MethodPost)
@@ -760,13 +757,7 @@ func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request)
 func (s *SliverHTTPC2) stagerHandler(resp http.ResponseWriter, req *http.Request) {
 	nonce, _ := getNonceFromURL(req.URL)
 	httpLog.Debug("Stager request")
-	if len(s.SliverStage) != 0 {
-		httpLog.Infof("Received staging request from %s", getRemoteAddr(req))
-		s.noCacheHeader(resp)
-		resp.Write(s.SliverStage)
-		httpLog.Infof("Serving sliver shellcode (size %d) to %s", len(s.SliverStage), getRemoteAddr(req))
-		resp.WriteHeader(http.StatusOK)
-	} else if nonce != 0 {
+	if nonce != 0 {
 		resourceID, err := db.ResourceIDByValue(nonce)
 		if err != nil {
 			httpLog.Infof("No profile with id %#v", nonce)
@@ -774,21 +765,21 @@ func (s *SliverHTTPC2) stagerHandler(resp http.ResponseWriter, req *http.Request
 			return
 		}
 		build, _ := db.ImplantBuildByResourceID(resourceID.Value)
-		payload, err := generate.ImplantFileFromBuild(build)
-		if err != nil {
-			httpLog.Infof("Unable to retrieve Implant build %s", build)
-			s.defaultHandler(resp, req)
-			return
+		if build.Stage {
+			payload, err := generate.ImplantFileFromBuild(build)
+			if err != nil {
+				httpLog.Infof("Unable to retrieve Implant build %s", build)
+				s.defaultHandler(resp, req)
+				return
+			}
+			httpLog.Infof("Received staging request from %s", getRemoteAddr(req))
+			s.noCacheHeader(resp)
+			resp.Write(payload)
+			httpLog.Infof("Serving sliver shellcode (size %d) %s to %s", len(payload), resourceID.Name, getRemoteAddr(req))
+			resp.WriteHeader(http.StatusOK)
 		}
-		httpLog.Infof("Received staging request from %s", getRemoteAddr(req))
-		s.noCacheHeader(resp)
-		resp.Write(payload)
-		httpLog.Infof("Serving sliver shellcode (size %d) %s to %s", len(payload), resourceID.Name, getRemoteAddr(req))
-		resp.WriteHeader(http.StatusOK)
-
-	} else {
-		s.defaultHandler(resp, req)
 	}
+	s.defaultHandler(resp, req)
 }
 
 func (s *SliverHTTPC2) getHTTPSession(req *http.Request) *HTTPSession {

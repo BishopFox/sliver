@@ -1094,6 +1094,16 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 		carapace.Gen(implantsRmCmd).PositionalCompletion(generate.ImplantBuildNameCompleter(con))
 		implantBuildsCmd.AddCommand(implantsRmCmd)
 
+		implantStageCmd := &cobra.Command{
+			Use:   consts.StageStr,
+			Short: "Serve a previously generated implant",
+			Long:  help.GetHelpFor([]string{consts.ImplantBuildsStr, consts.StageStr}),
+			Run: func(cmd *cobra.Command, args []string) {
+				generate.ImplantsStageCmd(cmd, con, args)
+			},
+		}
+		implantBuildsCmd.AddCommand(implantStageCmd)
+
 		canariesCmd := &cobra.Command{
 			Use:   consts.CanariesStr,
 			Short: "List previously generated canaries",

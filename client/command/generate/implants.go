@@ -73,6 +73,7 @@ func PrintImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFilt
 		"Debug",
 		"C2 Config",
 		"ID",
+		"Stage",
 	})
 	tw.SortBy([]table.SortBy{
 		{Name: "Name", Mode: table.Asc},
@@ -126,6 +127,7 @@ func PrintImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFilt
 			fmt.Sprintf("%v", config.Debug),
 			fmt.Sprintf(config.HTTPC2ConfigName),
 			fmt.Sprintf("%v", builds.ResourceIDs[sliverName].Value),
+			fmt.Sprintf("%v", builds.Staged[sliverName]),
 		})
 	}
 
