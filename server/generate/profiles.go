@@ -46,11 +46,26 @@ func SaveImplantProfile(pbProfile *clientpb.ImplantProfile) (*clientpb.ImplantPr
 		if err != nil {
 			return nil, err
 		}
-		id, _ := uuid.FromString(dbProfile.ID)
-		profile.ID = id
 	} else {
-		dbSession.Save(profile)
+		configID, _ := uuid.FromString(dbProfile.Config.ID)
+		profile.ImplantConfig.ID = configID
+
+		profileID, _ := uuid.FromString(dbProfile.ID)
+		profile.ImplantConfig.ImplantProfileID = profileID
+
+		for _, c2 := range dbProfile.Config.C2 {
+			id, _ := uuid.FromString(c2.ID)
+			err := db.DeleteC2(id)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		err := dbSession.Save(profile.ImplantConfig).Error
+		if err != nil {
+			return nil, err
+		}
+		dbProfile = profile.ToProtobuf()
 	}
-	pbProfile = profile.ToProtobuf()
-	return pbProfile, err
+	return dbProfile, err
 }
