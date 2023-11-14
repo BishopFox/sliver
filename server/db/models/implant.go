@@ -70,6 +70,8 @@ type ImplantBuild struct {
 	// WireGuard
 	WGImplantPrivKey string
 	WGServerPubKey   string
+
+	Stage bool
 }
 
 // BeforeCreate - GORM hook
@@ -104,6 +106,7 @@ func (ib *ImplantBuild) ToProtobuf() *clientpb.ImplantBuild {
 		MtlsKey:                 ib.MtlsKey,
 		WGImplantPrivKey:        ib.WGImplantPrivKey,
 		WGServerPubKey:          ib.WGServerPubKey,
+		Stage:                   ib.Stage,
 	}
 	return &build
 }
@@ -133,6 +136,7 @@ func ImplantBuildFromProtobuf(ib *clientpb.ImplantBuild) *ImplantBuild {
 
 		WGImplantPrivKey: ib.WGImplantPrivKey,
 		WGServerPubKey:   ib.WGServerPubKey,
+		Stage:            ib.Stage,
 	}
 	return &build
 }
