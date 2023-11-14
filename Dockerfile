@@ -2,7 +2,7 @@
 ## Compiles Sliver for use
 FROM golang:1.21.4 as base
 
-#### Base packages
+### Base packages
 RUN apt-get update --fix-missing && apt-get -y install \
     git build-essential zlib1g zlib1g-dev wget zip unzip
 
