@@ -19,26 +19,13 @@ package website
 */
 
 import (
-	"errors"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/db/models"
-	"github.com/bishopfox/sliver/server/log"
-)
-
-const (
-	websiteBucketName = "websites" // keys are <website name>.<path> -> clientpb.WebContent{} (json)
-)
-
-var (
-	websiteLog = log.NamedLogger("website", "content")
 )
 
 func getWebContentDir() (string, error) {
@@ -53,124 +40,78 @@ func getWebContentDir() (string, error) {
 	return webContentDir, nil
 }
 
-func normalizePath(path string) string {
-	if !strings.HasSuffix(path, "/") {
-		path = "/" + path
-	}
-	path, err := filepath.Abs(path)
-	if err != nil {
-		return "/"
-	}
-	return path
-}
-
 // GetContent - Get static content for a given path
-func GetContent(websiteName string, path string) (string, []byte, error) {
-	website, err := db.WebsiteByName(websiteName)
+func GetContent(name string, path string) (*clientpb.WebContent, error) {
+	webContentDir, err := getWebContentDir()
 	if err != nil {
-		return "", []byte{}, err
+		return nil, err
 	}
 
-	dbSession := db.Session()
-	content := models.WebContent{}
+	website, err := db.WebsiteByName(name, webContentDir)
+	if err != nil {
+		return nil, err
+	}
+
 	// Use path without any query parameters
 	u, err := url.Parse(path)
 	if err != nil {
-		return "", []byte{}, err
-	}
-	result := dbSession.Where(&models.WebContent{
-		WebsiteID: website.ID,
-		Path:      u.Path,
-	}).First(&content)
-	if result.Error != nil {
-		return "", []byte{}, result.Error
+		return nil, err
 	}
 
-	webContentDir, err := getWebContentDir()
+	webContent, err := db.WebContentByIDAndPath(website.ID, u.Path, webContentDir, true)
 	if err != nil {
-		return "", []byte{}, err
+		return nil, err
 	}
-	data, err := ioutil.ReadFile(filepath.Join(webContentDir, content.ID.String()))
-	return content.ContentType, data, err
-}
 
-// AddWebsite - Add website with no content
-func AddWebsite(websiteName string) (*models.Website, error) {
-	dbSession := db.Session()
-	website, err := db.WebsiteByName(websiteName)
-	if errors.Is(err, db.ErrRecordNotFound) {
-		website = &models.Website{Name: websiteName}
-		err = dbSession.Create(&website).Error
-	}
-	dbSession.Commit()
-	return website, err
+	return webContent, err
 }
 
 // AddContent - Add website content for a path
-func AddContent(websiteName string, path string, contentType string, content []byte) error {
-	dbSession := db.Session()
+func AddContent(name string, pbWebContent *clientpb.WebContent) error {
+	// websiteName string, path string, contentType string, content []byte
+	var (
+		err     error
+		website *clientpb.Website
+	)
 
-	website, err := db.WebsiteByName(websiteName)
-	if errors.Is(err, db.ErrRecordNotFound) {
-		website = &models.Website{Name: websiteName}
-		err = dbSession.Create(&website).Error
-	}
-	if err != nil {
-		return err
-	}
-
-	webContent, err := webContentByPath(website, path)
-	if errors.Is(err, db.ErrRecordNotFound) {
-		webContent = &models.WebContent{
-			WebsiteID:   website.ID,
-			Path:        path,
-			ContentType: contentType,
-			Size:        len(content),
-		}
-		err = dbSession.Create(webContent).Error
-	} else {
-		webContent.ContentType = contentType
-		webContent.Size = len(content)
-		err = dbSession.Save(webContent).Error
-	}
-	if err != nil {
-		return err
-	}
-	dbSession.Commit()
-
-	// Write content to disk
 	webContentDir, err := getWebContentDir()
 	if err != nil {
 		return err
 	}
-	webContentPath := filepath.Join(webContentDir, webContent.ID.String())
-	return ioutil.WriteFile(webContentPath, content, 0600)
-}
 
-func webContentByPath(website *models.Website, path string) (*models.WebContent, error) {
-	dbSession := db.Session()
-	webContent := models.WebContent{}
-	err := dbSession.Where(&models.WebContent{
-		WebsiteID: website.ID,
-		Path:      path,
-	}).First(&webContent).Error
-	return &webContent, err
-}
+	if pbWebContent.WebsiteID == "" {
+		website, err = db.AddWebSite(name, webContentDir)
+		if err != nil {
+			return err
+		}
+		pbWebContent.WebsiteID = website.ID
+	}
 
-// RemoveContent - Remove website content for a path
-func RemoveContent(websiteName string, path string) error {
-	website, err := db.WebsiteByName(websiteName)
+	webContent, err := db.AddContent(pbWebContent, webContentDir)
 	if err != nil {
 		return err
 	}
-	dbSession := db.Session()
-	content := models.WebContent{}
-	result := dbSession.Where(&models.WebContent{
-		WebsiteID: website.ID,
-		Path:      path,
-	}).First(&content)
-	if result.Error != nil {
-		return result.Error
+
+	// Write content to disk
+	webContentPath := filepath.Join(webContentDir, webContent.ID)
+	return os.WriteFile(webContentPath, pbWebContent.Content, 0600)
+}
+
+// RemoveContent - Remove website content for a path
+func RemoveContent(name string, path string) error {
+	webContentDir, err := getWebContentDir()
+	if err != nil {
+		return err
+	}
+
+	website, err := db.WebsiteByName(name, webContentDir)
+	if err != nil {
+		return err
+	}
+
+	content, err := db.WebContentByIDAndPath(website.ID, path, webContentDir, true)
+	if err != nil {
+		return err
 	}
 
 	// Delete file
@@ -178,25 +119,28 @@ func RemoveContent(websiteName string, path string) error {
 	if err != nil {
 		return err
 	}
-	err = os.Remove(filepath.Join(webContentsDir, content.ID.String()))
+	err = os.Remove(filepath.Join(webContentsDir, content.ID))
 	if err != nil {
 		return err
 	}
 
 	// Delete row
-	result = dbSession.Delete(&models.WebContent{}, content.ID)
-	dbSession.Commit()
-	return result.Error
+	err = db.RemoveContent(content.ID)
+	return err
 }
 
 // Names - List all websites
 func Names() ([]string, error) {
-	websites := []*models.Website{}
-	dbSession := db.Session()
-	result := dbSession.Where(&models.Website{}).Find(&websites)
-	if result.Error != nil {
-		return nil, result.Error
+	webContentsDir, err := getWebContentDir()
+	if err != nil {
+		return nil, err
 	}
+
+	websites, err := db.Websites(webContentsDir)
+	if err != nil {
+		return nil, err
+	}
+
 	names := []string{}
 	for _, website := range websites {
 		names = append(names, website.Name)
@@ -205,39 +149,52 @@ func Names() ([]string, error) {
 }
 
 // MapContent - List the content of a specific site, returns map of path->json(content-type/size)
-func MapContent(websiteName string, eagerLoadContents bool) (*clientpb.Website, error) {
-	website := models.Website{}
-	dbSession := db.Session()
-	result := dbSession.Where(&models.Website{
-		Name: websiteName,
-	}).Preload("WebContents").Find(&website)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	pbWebsite := &clientpb.Website{
-		Name:     website.Name,
-		Contents: map[string]*clientpb.WebContent{},
-	}
-
+func MapContent(name string, eager bool) (*clientpb.Website, error) {
 	webContentDir, err := getWebContentDir()
 	if err != nil {
 		return nil, err
 	}
-	websiteLog.Debugf("%d WebContent(s)", len(website.WebContents))
-	for _, content := range website.WebContents {
-		if eagerLoadContents {
-			data, err := ioutil.ReadFile(filepath.Join(webContentDir, content.ID.String()))
-			websiteLog.Debugf("Read %d bytes of content", len(data))
-			if err != nil {
-				websiteLog.Error(err)
-				continue
-			}
-			pbWebsite.Contents[content.Path] = content.ToProtobuf(data)
-		} else {
-			pbWebsite.Contents[content.Path] = content.ToProtobuf([]byte{})
-		}
+
+	website, err := db.WebsiteByName(name, webContentDir)
+	if err != nil {
+		return nil, err
 	}
 
-	return pbWebsite, nil
+	if eager {
+		eagerContents := map[string]*clientpb.WebContent{}
+		for _, content := range website.Contents {
+			eagerContent, err := db.WebContentByIDAndPath(website.ID, content.Path, webContentDir, true)
+			if err != nil {
+				continue
+			}
+			eagerContents[content.Path] = eagerContent
+		}
+		website.Contents = eagerContents
+	}
+
+	return website, nil
+}
+
+func AddWebsite(name string) (*clientpb.Website, error) {
+	webContentDir, err := getWebContentDir()
+	if err != nil {
+		return nil, err
+	}
+	website, err := db.AddWebSite(name, webContentDir)
+	if err != nil {
+		return nil, err
+	}
+	return website, nil
+}
+
+func WebsiteByName(name string) (*clientpb.Website, error) {
+	webContentDir, err := getWebContentDir()
+	if err != nil {
+		return nil, err
+	}
+	dbWebsite, err := db.WebsiteByName(name, webContentDir)
+	if err != nil {
+		return nil, err
+	}
+	return dbWebsite, nil
 }

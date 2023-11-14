@@ -12,10 +12,11 @@ import (
 	"net"
 	"net/netip"
 	"runtime"
+	"slices"
+	"strings"
 	"sync/atomic"
 	"time"
 
-	"golang.org/x/exp/slices"
 	"tailscale.com/health"
 	"tailscale.com/net/dns/resolver"
 	"tailscale.com/net/netmon"
@@ -96,7 +97,9 @@ func (m *Manager) Set(cfg Config) error {
 	m.logf("Resolvercfg: %v", logger.ArgWriter(func(w *bufio.Writer) {
 		rcfg.WriteToBufioWriter(w)
 	}))
-	m.logf("OScfg: %+v", ocfg)
+	m.logf("OScfg: %v", logger.ArgWriter(func(w *bufio.Writer) {
+		ocfg.WriteToBufioWriter(w)
+	}))
 
 	if err := m.resolver.SetConfig(rcfg); err != nil {
 		return err
@@ -139,14 +142,15 @@ func compileHostEntries(cfg Config) (hosts []*HostEntry) {
 			}
 		}
 	}
-	slices.SortFunc(hosts, func(a, b *HostEntry) bool {
-		if len(a.Hosts) == 0 {
-			return false
+	slices.SortFunc(hosts, func(a, b *HostEntry) int {
+		if len(a.Hosts) == 0 && len(b.Hosts) == 0 {
+			return 0
+		} else if len(a.Hosts) == 0 {
+			return -1
+		} else if len(b.Hosts) == 0 {
+			return 1
 		}
-		if len(b.Hosts) == 0 {
-			return true
-		}
-		return a.Hosts[0] < b.Hosts[0]
+		return strings.Compare(a.Hosts[0], b.Hosts[0])
 	})
 	return hosts
 }

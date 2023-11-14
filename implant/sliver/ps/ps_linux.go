@@ -5,7 +5,6 @@ package ps
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"strconv"
@@ -86,7 +85,7 @@ func getProcessOwner(pid int) (string, error) {
 
 func getProcessCmdLine(pid int) ([]string, error) {
 	cmdLinePath := fmt.Sprintf("/proc/%d/cmdline", pid)
-	data, err := ioutil.ReadFile(cmdLinePath)
+	data, err := os.ReadFile(cmdLinePath)
 	if err != nil {
 		return []string{""}, err
 	}
@@ -129,7 +128,7 @@ func getProcessArchitecture(pid int) (string, error) {
 // Refresh reloads all the data associated with this process.
 func (p *UnixProcess) Refresh() error {
 	statPath := fmt.Sprintf("/proc/%d/stat", p.pid)
-	dataBytes, err := ioutil.ReadFile(statPath)
+	dataBytes, err := os.ReadFile(statPath)
 	if err != nil {
 		return err
 	}

@@ -33,7 +33,7 @@ func ProfilesNewCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 		name = args[0]
 	}
 	// name := ctx.Args.String("name")
-	config := parseCompileFlags(cmd, con)
+	_, config := parseCompileFlags(cmd, con)
 	if config == nil {
 		return
 	}
@@ -60,7 +60,7 @@ func ProfilesNewBeaconCmd(cmd *cobra.Command, con *console.SliverConsoleClient, 
 		con.PrintErrorf("No profile name specified\n")
 		return
 	}
-	config := parseCompileFlags(cmd, con)
+	_, config := parseCompileFlags(cmd, con)
 	if config == nil {
 		return
 	}

@@ -30,15 +30,15 @@ import (
 
 var (
 	// PeerAgePublicKey - The implant's age public key
-	PeerAgePublicKey = "{{.Config.PeerPublicKey}}"
+	PeerAgePublicKey = "{{.Build.PeerPublicKey}}"
 	// peerPrivateKey - The implant's age private key
-	peerAgePrivateKey = "{{.Config.PeerPrivateKey}}"
+	peerAgePrivateKey = "{{.Build.PeerPrivateKey}}"
 	// PublicKeySignature - The implant's age public key minisigned'd
-	PeerAgePublicKeySignature = `{{.Config.PeerPublicKeySignature}}`
+	PeerAgePublicKeySignature = `{{.Build.PeerPublicKeySignature}}`
 	// serverPublicKey - Server's ECC public key
-	serverAgePublicKey = "{{.Config.AgeServerPublicKey}}"
+	serverAgePublicKey = "{{.Build.AgeServerPublicKey}}"
 	// serverMinisignPublicKey - The server's minisign public key
-	serverMinisignPublicKey = `{{.Config.MinisignServerPublicKey}}`
+	serverMinisignPublicKey = `{{.Build.MinisignServerPublicKey}}`
 
 	// ErrInvalidPeerKey - Peer to peer key exchange failed
 	ErrInvalidPeerKey = errors.New("invalid peer key")

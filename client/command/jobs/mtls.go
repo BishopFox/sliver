@@ -31,13 +31,11 @@ import (
 func MTLSListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	lhost, _ := cmd.Flags().GetString("lhost")
 	lport, _ := cmd.Flags().GetUint32("lport")
-	persistent, _ := cmd.Flags().GetBool("persistent")
 
 	con.PrintInfof("Starting mTLS listener ...\n")
 	mtls, err := con.Rpc.StartMTLSListener(context.Background(), &clientpb.MTLSListenerReq{
-		Host:       lhost,
-		Port:       lport,
-		Persistent: persistent,
+		Host: lhost,
+		Port: lport,
 	})
 	con.Println()
 	if err != nil {

@@ -23,6 +23,7 @@ import (
 	insecureRand "math/rand"
 	"strings"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 )
@@ -50,7 +51,7 @@ func canarySubDomain() string {
 }
 
 // UpdateCanary - Update an existing canary
-func UpdateCanary(canary *models.DNSCanary) error {
+func UpdateCanary(canary *clientpb.DNSCanary) error {
 	dbSession := db.Session()
 	result := dbSession.Save(&canary)
 	return result.Error
@@ -63,7 +64,7 @@ type CanaryGenerator struct {
 }
 
 // GenerateCanary - Generate a canary domain and save it to the db
-// 				    currently this gets called by template engine
+// currently this gets called by template engine
 func (g *CanaryGenerator) GenerateCanary() string {
 
 	if len(g.ParentDomains) < 1 {

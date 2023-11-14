@@ -22,7 +22,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -40,7 +40,6 @@ func HTTPSListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 	pollTimeout, _ := cmd.Flags().GetString("long-poll-timeout")
 	pollJitter, _ := cmd.Flags().GetString("long-poll-jitter")
 	website, _ := cmd.Flags().GetString("website")
-	persistent, _ := cmd.Flags().GetBool("persistent")
 	letsEncrypt, _ := cmd.Flags().GetBool("lets-encrypt")
 	disableRandomize, _ := cmd.Flags().GetBool("disable-randomized-jarm")
 
@@ -72,7 +71,6 @@ func HTTPSListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 		Cert:            cert,
 		Key:             key,
 		ACME:            letsEncrypt,
-		Persistent:      persistent,
 		EnforceOTP:      !disableOTP,
 		LongPollTimeout: int64(longPollTimeout),
 		LongPollJitter:  int64(longPollJitter),
@@ -92,11 +90,11 @@ func getLocalCertificatePair(cmd *cobra.Command) ([]byte, []byte, error) {
 	if certPath == "" && keyPath == "" {
 		return nil, nil, nil
 	}
-	cert, err := ioutil.ReadFile(certPath)
+	cert, err := os.ReadFile(certPath)
 	if err != nil {
 		return nil, nil, err
 	}
-	key, err := ioutil.ReadFile(keyPath)
+	key, err := os.ReadFile(keyPath)
 	if err != nil {
 		return nil, nil, err
 	}

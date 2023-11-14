@@ -59,6 +59,9 @@ var (
 		consts.PwdStr:              pwdHelp,
 		consts.CatStr:              catHelp,
 		consts.DownloadStr:         downloadHelp,
+		consts.GrepStr:             grepHelp,
+		consts.HeadStr:             headHelp,
+		consts.TailStr:             tailHelp,
 		consts.UploadStr:           uploadHelp,
 		consts.MkdirStr:            mkdirHelp,
 		consts.RmStr:               rmHelp,
@@ -113,6 +116,9 @@ var (
 
 		// Builders
 		consts.BuildersStr: buildersHelp,
+
+		// HTTP C2
+		consts.C2ProfileStr: c2ProfilesHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -320,6 +326,12 @@ Downloads can be filtered using the following patterns:
 
 If you need to match a special character (*, ?, '-', '[', ']', '\\'), place '\\' in front of it (example: \\?).
 On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
+
+	headHelp = `[[.Bold]]Command:[[.Normal]] head [--bytes/-b <number of bytes>] [--lines/-l <number of lines>] <remote path> 
+	[[.Bold]]About:[[.Normal]] Fetch the first number of bytes or lines from a remote file and display it to stdout.`
+
+	tailHelp = `[[.Bold]]Command:[[.Normal]] tail [--bytes/-b <number of bytes>] [--lines/-l <number of lines>] <remote path> 
+	[[.Bold]]About:[[.Normal]] Fetch the last number of bytes or lines from a remote file and display it to stdout.`
 
 	uploadHelp = `[[.Bold]]Command:[[.Normal]] upload [local src] <remote dst>
 [[.Bold]]About:[[.Normal]] Upload a file to the remote system.`
@@ -1220,6 +1232,41 @@ Sliver uses the same hash identifiers as Hashcat (use the #):
 % 10s - A file containing lines of 'username:hash' pairs.
 % 10s - A CSV file containing 'username,hash' pairs (additional columns ignored).
 `, creds.HashNewlineFormat, creds.UserColonHashNewlineFormat, creds.CSVFormat)
+
+	c2ProfilesHelp = `[[.Bold]]Command:[[.Normal]] c2profile
+[[.Bold]]About:[[.Normal]] Display details of HTTP C2 profiles loaded into Sliver.
+`
+
+	C2ProfileImportStr = `[[.Bold]]Command:[[.Normal]] Import
+	[[.Bold]]About:[[.Normal]] Load custom HTTP C2 profiles.
+	`
+
+	grepHelp = `[[.Bold]]Command:[[.Normal]] grep [flags / options] <search pattern> <path>
+[[.Bold]]About:[[.Normal]] Search a file or path for a search pattern
+[[.Bold]][[.Underline]]Search Patterns[[.Normal]]
+Search patterns use RE2 regular expression syntax.
+[[.Bold]][[.Underline]]Binary Files[[.Normal]]
+When searching a binary file, grep will only return the line that matches if it exclusively contains UTF-8 printable characters.
+Before, after, and context options are disabled for binary files.
+[[.Bold]][[.Underline]]Path Filters[[.Normal]]
+Filters are a way to limit searches to file names matching given criteria. Filters DO NOT apply to directory names.
+
+Filters are specified after the path.  A blank path will filter on names in the current directory.  For example:
+grep something /etc/*.conf will search all files in /etc whose names end in .conf. /etc/ is the path, *.conf is the filter.
+
+Searches can be filtered using the following patterns:
+'*': Wildcard, matches any sequence of non-path separators (slashes)
+	Example: n*.txt will search all file names starting with n and ending with .txt
+
+'?': Single character wildcard, matches a single non-path separator (slashes)
+	Example: s?iver will search all file names starting with s followed by any non-separator character and ending with iver.
+
+'[{range}]': Match a range of characters.  Ranges are specified with '-'. This is usually combined with other patterns. Ranges can be negated with '^'.
+	Example: [a-c] will match the characters a, b, and c.  [a-c]* will match all file names that start with a, b, or c.
+		^[r-u] will match all characters except r, s, t, and u.
+
+If you need to match a special character (*, ?, '-', '[', ']', '\\'), place '\\' in front of it (example: \\?).
+On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
 )
 
 const (

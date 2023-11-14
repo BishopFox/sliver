@@ -204,8 +204,8 @@ func serverKeyExchange(implantConn *core.ImplantConnection, peerEnvelope *sliver
 	// everything after that is the encrypted session key
 	var publicKeyDigest [32]byte
 	copy(publicKeyDigest[:], serverKeyEx.SessionKey[:32])
-	implantConfig, err := db.ImplantConfigByPublicKeyDigest(publicKeyDigest)
-	if err != nil || implantConfig == nil {
+	implantBuild, err := db.ImplantBuildByPublicKeyDigest(publicKeyDigest)
+	if err != nil || implantBuild == nil {
 		pivotLog.Warn("Unknown public key digest")
 		return nil
 	}
@@ -213,7 +213,7 @@ func serverKeyExchange(implantConn *core.ImplantConnection, peerEnvelope *sliver
 	serverKeyPair := cryptography.AgeServerKeyPair()
 	rawSessionKey, err := cryptography.AgeKeyExFromImplant(
 		serverKeyPair.Private,
-		implantConfig.PeerPrivateKey,
+		implantBuild.PeerPrivateKey,
 		serverKeyEx.SessionKey[32:],
 	)
 	if err != nil {

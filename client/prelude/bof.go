@@ -22,7 +22,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io/ioutil"
+	"os"
 	"path"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -139,7 +139,7 @@ func registerLoader(implant ActiveImplant, rpc rpcpb.SliverRPCClient) error {
 		coffLoaderPath = "COFFLoader.x86.dll"
 	}
 	loaderPath := path.Join(assets.GetExtensionsDir(), coffLoaderName, coffLoaderPath)
-	loaderData, err := ioutil.ReadFile(loaderPath)
+	loaderData, err := os.ReadFile(loaderPath)
 	if err != nil {
 		return err
 	}

@@ -41,7 +41,6 @@ func DNSListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 	lhost, _ := cmd.Flags().GetString("lhost")
 	lport, _ := cmd.Flags().GetUint32("lport")
 	canaries, _ := cmd.Flags().GetBool("no-canaries")
-	persistent, _ := cmd.Flags().GetBool("persistent")
 	enforceOTP, _ := cmd.Flags().GetBool("disable-otp")
 
 	con.PrintInfof("Starting DNS listener with parent domain(s) %v ...\n", domains)
@@ -50,7 +49,6 @@ func DNSListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 		Host:       lhost,
 		Port:       lport,
 		Canaries:   !canaries,
-		Persistent: persistent,
 		EnforceOTP: !enforceOTP,
 	})
 	con.Println()

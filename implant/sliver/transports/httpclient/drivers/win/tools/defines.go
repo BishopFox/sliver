@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -138,7 +138,7 @@ func processFile(
 	}
 	defer f.Close()
 
-	if b, err = ioutil.ReadAll(f); err != nil {
+	if b, err = io.ReadAll(f); err != nil {
 		return fmt.Errorf("failed to read %s: %w", file, err)
 	}
 
