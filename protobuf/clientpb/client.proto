@@ -228,6 +228,11 @@ message ExternalImplantBinary {
 message ImplantBuilds { 
   map<string, ImplantConfig> Configs = 1; 
   map<string, ResourceID> ResourceIDs = 2; 
+  map<string, bool> staged = 3;
+}
+
+message ImplantStageReq {
+  repeated string Build = 1;
 }
 
 message ImplantBuild {
@@ -254,6 +259,7 @@ message ImplantBuild {
   string MtlsCACert = 17;
   string MtlsCert = 18;
   string MtlsKey = 19;
+  bool Stage = 20;
 }
 
 message CompilerTarget {
@@ -382,7 +388,6 @@ message HTTPListenerReq {
   int64 LongPollTimeout = 11;
   int64 LongPollJitter = 12;
   bool RandomizeJARM = 13; // Only valid with Secure = true
-  bool Staging = 14;
 }
 
 // Named Pipes Messages for pivoting

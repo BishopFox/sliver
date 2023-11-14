@@ -263,64 +263,6 @@ func StartTCPStagerListenerJob(host string, port uint16, profileName string, she
 	return job, nil
 }
 
-// StartHTTPStagerListenerJob - Start an HTTP(S) stager payload listener
-func StartHTTPStagerListenerJob(req *clientpb.HTTPListenerReq, data []byte) (*core.Job, error) {
-	server, err := StartHTTPListener(req)
-	if err != nil {
-		return nil, err
-	}
-	name := constants.HttpStr
-	if req.Secure {
-		name = constants.HttpsStr
-	}
-	server.SliverStage = data
-	job := &core.Job{
-		ID:          core.NextJobID(),
-		Name:        name,
-		Description: fmt.Sprintf("Stager handler %s for domain %s", name, req.Domain),
-		Protocol:    constants.TCPListenerStr,
-		Port:        uint16(req.Port),
-		JobCtrl:     make(chan bool),
-	}
-	core.Jobs.Add(job)
-
-	cleanup := func(err error) {
-		server.Cleanup()
-		core.Jobs.Remove(job)
-		core.EventBroker.Publish(core.Event{
-			Job:       job,
-			EventType: consts.JobStoppedEvent,
-			Err:       err,
-		})
-	}
-	once := &sync.Once{}
-
-	go func() {
-		var err error
-		if server.ServerConf.Secure {
-			if server.ServerConf.ACME {
-				err = server.HTTPServer.ListenAndServeTLS("", "") // ACME manager pulls the certs under the hood
-			} else {
-				err = listenAndServeTLS(server.HTTPServer, req.Cert, req.Key)
-			}
-		} else {
-			err = server.HTTPServer.ListenAndServe()
-		}
-		if err != nil {
-			jobLog.Errorf("%s listener error %v", name, err)
-			once.Do(func() { cleanup(err) })
-			job.JobCtrl <- true // Cleanup other goroutine
-		}
-	}()
-
-	go func() {
-		<-job.JobCtrl
-		once.Do(func() { cleanup(nil) })
-	}()
-
-	return job, nil
-}
-
 // Fuck'in Go - https://stackoverflow.com/questions/30815244/golang-https-server-passing-certfile-and-kyefile-in-terms-of-byte-array
 // basically the same as server.ListenAndServerTLS() but we can pass in byte slices instead of file paths
 func listenAndServeTLS(srv *http.Server, certPEMBlock, keyPEMBlock []byte) error {

@@ -57,8 +57,6 @@ service SliverRPC {
   // *** Stager Listener ***
   rpc StartTCPStagerListener(clientpb.StagerListenerReq)
       returns (clientpb.StagerListener);
-  rpc StartHTTPStagerListener(clientpb.StagerListenerReq)
-      returns (clientpb.StagerListener);
 
   // *** Loot ***
   rpc LootAdd(clientpb.Loot) returns (clientpb.Loot);
@@ -94,6 +92,8 @@ service SliverRPC {
       returns (clientpb.ExternalImplantConfig);
   rpc GenerateStage(clientpb.GenerateStageReq)
       returns (clientpb.Generate);
+  rpc StageImplantBuild(clientpb.ImplantStageReq)
+      returns (commonpb.Empty);
 
   // *** HTTP C2 Profiles ***
   rpc GetHTTPC2Profiles(commonpb.Empty) returns (clientpb.HTTPC2Configs);

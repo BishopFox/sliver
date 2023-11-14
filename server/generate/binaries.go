@@ -749,6 +749,8 @@ func GenerateConfig(name string, implantConfig *clientpb.ImplantConfig) (*client
 		build.WGServerPubKey = serverPubKey
 	}
 
+	build.Stage = false
+
 	return &build, nil
 }
 
