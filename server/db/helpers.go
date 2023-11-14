@@ -499,6 +499,10 @@ func DeleteListener(JobID uint32) error {
 	return Session().Where(&models.ListenerJob{JobID: JobID}).Delete(&models.ListenerJob{}).Error
 }
 
+func DeleteC2(c2ID uuid.UUID) error {
+	return Session().Where(&models.ImplantC2{ID: c2ID}).Delete(&models.ImplantC2{}).Error
+}
+
 // ImplantProfileNames - Fetch a list of all build names
 func ImplantProfileNames() ([]string, error) {
 	profiles := []*models.ImplantProfile{}
