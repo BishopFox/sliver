@@ -22,7 +22,7 @@ jobs:
           git build-essential zlib1g zlib1g-dev wget zip unzip
 
       - name: Check Out Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Git Fetch Tags
         run: git fetch --prune --unshallow --tags -f
@@ -48,7 +48,7 @@ jobs:
           go-version: "^1.21"
 
       - name: Check Out Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Git Fetch Tags
         run: git fetch --prune --unshallow --tags -f
