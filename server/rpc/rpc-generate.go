@@ -355,7 +355,7 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalG
 
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.ExternalBuildEvent,
-		Data:      []byte(fmt.Sprintf("%s:%s", req.BuilderName, config.ID)),
+		Data:      []byte(fmt.Sprintf("%s:%s", req.BuilderName, externalConfig.Build.ID)),
 	})
 
 	return externalConfig, err
@@ -363,22 +363,14 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalG
 
 // GenerateExternalSaveBuild - Allows an external builder to save the build to the server
 func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.ExternalImplantBinary) (*commonpb.Empty, error) {
-	implantConfig, err := db.ImplantConfigWithC2sByID(req.ImplantConfigID)
+	implantBuild, err := db.ImplantBuildByID(req.ImplantBuildID)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid implant config id")
+		return nil, status.Error(codes.InvalidArgument, "invalid implant build id")
 	}
-	if implantConfig.TemplateName == "" {
-		return nil, status.Error(codes.InvalidArgument, "invalid payload name")
-	}
-	err = util.AllowedName(req.Name)
+
+	implantConfig, err := db.ImplantConfigWithC2sByID(implantBuild.ImplantConfigID)
 	if err != nil {
-		rpcLog.Errorf("Invalid build name: %s", err)
-		return nil, ErrInvalidName
-	}
-	_, err = db.ImplantBuildByName(req.Name)
-	if err == nil {
-		rpcLog.Errorf("Build '%s' already exists!", req.Name)
-		return nil, ErrBuildExists
+		return nil, status.Error(codes.Internal, "invalid implant config id")
 	}
 
 	tmpFile, err := os.CreateTemp(assets.GetRootAppDir(), "tmp-external-build-*")
@@ -393,20 +385,7 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 		return nil, status.Error(codes.Internal, "Failed to write implant binary to temp file")
 	}
 	rpcLog.Infof("Saving external build '%s' from %s", req.Name, tmpFile.Name())
-
-	implantConfig, err = generate.ImplantConfigSave(implantConfig)
-	if err != nil {
-		rpcLog.Errorf("Failed to save implant config: %s", err)
-		return nil, err
-	}
-
-	build, err := generate.GenerateConfig(req.Name, implantConfig)
-	if err != nil {
-		rpcLog.Errorf("Failed to generate implant config: %s", err)
-		return nil, err
-	}
-
-	err = generate.ImplantBuildSave(build, implantConfig, tmpFile.Name())
+	err = generate.ImplantBuildSave(implantBuild, implantConfig, tmpFile.Name())
 	if err != nil {
 		rpcLog.Errorf("Failed to save external build: %s", err)
 		return nil, err
@@ -414,21 +393,34 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.BuildCompletedEvent,
-		Data:      []byte(req.Name),
+		Data:      []byte(implantBuild.Name),
 	})
 
 	return &commonpb.Empty{}, nil
 }
 
 // GenerateExternalGetImplantConfig - Get an implant config for external builder
-func (rpc *Server) GenerateExternalGetImplantConfig(ctx context.Context, req *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
-	implantConfig, err := db.ImplantConfigWithC2sByID(req.ID)
+func (rpc *Server) GenerateExternalGetBuildConfig(ctx context.Context, req *clientpb.ImplantBuild) (*clientpb.ExternalImplantConfig, error) {
+	build, err := db.ImplantBuildByID(req.ID)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid implant config id")
+		return nil, status.Error(codes.InvalidArgument, "invalid implant build id")
+	}
+
+	implantConfig, err := db.ImplantConfigWithC2sByID(build.ImplantConfigID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "invalid implant config id")
+	}
+
+	// retrieve http c2 implant config
+	httpC2Config, err := db.LoadHTTPC2ConfigByName(implantConfig.HTTPC2ConfigName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, fmt.Sprintf("Unable to load HTTP C2 Configuration: %s", err))
 	}
 
 	return &clientpb.ExternalImplantConfig{
 		Config: implantConfig,
+		Build:  build,
+		HTTPC2: httpC2Config,
 	}, nil
 }
 

@@ -216,11 +216,12 @@ message TrafficEncoderTests {
 message ExternalImplantConfig {
   ImplantConfig Config = 1;
   ImplantBuild Build = 2;
+  HTTPC2Config HTTPC2 = 3;
 }
 
 message ExternalImplantBinary {
   string Name = 1;
-  string ImplantConfigID = 2;
+  string ImplantBuildID = 2;
   commonpb.File File = 3;
 }
 

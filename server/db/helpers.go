@@ -138,25 +138,50 @@ func ImplantBuilds() (*clientpb.ImplantBuilds, error) {
 
 // SaveImplantBuild
 func SaveImplantBuild(ib *clientpb.ImplantBuild) (*clientpb.ImplantBuild, error) {
-	implantBuild := models.ImplantBuildFromProtobuf(ib)
 	dbSession := Session()
-	err := dbSession.Create(&implantBuild).Error
-	if err != nil {
-		return nil, err
-	}
+	var implantBuild *models.ImplantBuild
+	if ib.ID != "" {
+		_, err := ImplantBuildByID(ib.ID)
+		if err != nil {
+			return nil, err
+		}
+		implantBuild = models.ImplantBuildFromProtobuf(ib)
+		err = dbSession.Save(implantBuild).Error
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		implantBuild = models.ImplantBuildFromProtobuf(ib)
+		err := dbSession.Create(&implantBuild).Error
+		if err != nil {
+			return nil, err
+		}
 
+	}
 	return implantBuild.ToProtobuf(), nil
 }
 
 // SaveImplantConfig
 func SaveImplantConfig(ic *clientpb.ImplantConfig) (*clientpb.ImplantConfig, error) {
-	implantConfig := models.ImplantConfigFromProtobuf(ic)
 	dbSession := Session()
-	err := dbSession.Create(&implantConfig).Error
-	if err != nil {
-		return nil, err
+	var implantConfig *models.ImplantConfig
+	if ic.ID != "" {
+		_, err := ImplantConfigByID(ic.ID)
+		if err != nil {
+			return nil, err
+		}
+		implantConfig = models.ImplantConfigFromProtobuf(ic)
+		err = dbSession.Save(implantConfig).Error
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		implantConfig = models.ImplantConfigFromProtobuf(ic)
+		err := dbSession.Create(&implantConfig).Error
+		if err != nil {
+			return nil, err
+		}
 	}
-
 	return implantConfig.ToProtobuf(), nil
 }
 
@@ -180,6 +205,19 @@ func ImplantBuildByResourceID(resourceID uint64) (*clientpb.ImplantBuild, error)
 	build := models.ImplantBuild{}
 	err := Session().Where(&models.ImplantBuild{
 		ImplantID: resourceID,
+	}).Find(&build).Error
+	if err != nil {
+		return nil, err
+	}
+	return build.ToProtobuf(), nil
+}
+
+// ImplantBuildByID - Fetch implant build from ID
+func ImplantBuildByID(id string) (*clientpb.ImplantBuild, error) {
+	build := models.ImplantBuild{}
+	uuid, _ := uuid.FromString(id)
+	err := Session().Where(&models.ImplantBuild{
+		ID: uuid,
 	}).Find(&build).Error
 	if err != nil {
 		return nil, err
