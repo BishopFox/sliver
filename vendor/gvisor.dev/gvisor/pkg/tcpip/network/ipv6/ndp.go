@@ -1169,7 +1169,7 @@ func (ndp *ndpState) addAndAcquireSLAACAddr(addr tcpip.AddressWithPrefix, tempor
 // The IPv6 endpoint that ndp belongs to MUST be locked.
 func (ndp *ndpState) generateSLAACAddr(prefix tcpip.Subnet, state *slaacPrefixState) bool {
 	if addressEndpoint := state.stableAddr.addressEndpoint; addressEndpoint != nil {
-		panic(fmt.Sprintf("ndp: SLAAC prefix %s already has a permenant address %s", prefix, addressEndpoint.AddressWithPrefix()))
+		panic(fmt.Sprintf("ndp: SLAAC prefix %s already has a permanent address %s", prefix, addressEndpoint.AddressWithPrefix()))
 	}
 
 	// If we have already reached the maximum address generation attempts for the
@@ -1620,7 +1620,7 @@ func (ndp *ndpState) refreshSLAACPrefixLifetimes(prefix tcpip.Subnet, prefixStat
 	// have been regenerated, or we need to immediately regenerate an address
 	// due to an update in preferred lifetime.
 	//
-	// If each temporay address has already been regenerated, no new temporary
+	// If each temporary address has already been regenerated, no new temporary
 	// address is generated. To ensure continuation of temporary SLAAC addresses,
 	// we manually try to regenerate an address here.
 	if regenForAddr.BitLen() != 0 || allAddressesRegenerated {
@@ -1820,7 +1820,7 @@ func (ndp *ndpState) startSolicitingRouters() {
 	// 4861 section 6.3.7.
 	var delay time.Duration
 	if ndp.configs.MaxRtrSolicitationDelay > 0 {
-		delay = time.Duration(ndp.ep.protocol.stack.Rand().Int63n(int64(ndp.configs.MaxRtrSolicitationDelay)))
+		delay = time.Duration(ndp.ep.protocol.stack.InsecureRNG().Int63n(int64(ndp.configs.MaxRtrSolicitationDelay)))
 	}
 
 	// Protected by ndp.ep.mu.
@@ -1965,7 +1965,7 @@ func (ndp *ndpState) init(ep *endpoint, dadOptions ip.DADOptions) {
 	ndp.slaacPrefixes = make(map[tcpip.Subnet]slaacPrefixState)
 
 	header.InitialTempIID(ndp.temporaryIIDHistory[:], ndp.ep.protocol.options.TempIIDSeed, ndp.ep.nic.ID())
-	ndp.temporaryAddressDesyncFactor = time.Duration(ep.protocol.stack.Rand().Int63n(int64(MaxDesyncFactor)))
+	ndp.temporaryAddressDesyncFactor = time.Duration(ep.protocol.stack.InsecureRNG().Int63n(int64(MaxDesyncFactor)))
 }
 
 func (ndp *ndpState) SendDADMessage(addr tcpip.Address, nonce []byte) tcpip.Error {

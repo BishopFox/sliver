@@ -18,9 +18,8 @@ package ports
 
 import (
 	"math"
-	"math/rand"
 
-	"gvisor.dev/gvisor/pkg/atomicbitops"
+	"gvisor.dev/gvisor/pkg/rand"
 	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
@@ -228,13 +227,6 @@ type PortManager struct {
 	ephemeralMu    sync.RWMutex
 	firstEphemeral uint16
 	numEphemeral   uint16
-
-	// hint is used to pick ports ephemeral ports in a stable order for
-	// a given port offset.
-	//
-	// hint must be accessed using the portHint/incPortHint helpers.
-	// TODO(gvisor.dev/issue/940): S/R this field.
-	hint atomicbitops.Uint32
 }
 
 // NewPortManager creates new PortManager.
@@ -255,41 +247,13 @@ type PortTester func(port uint16) (good bool, err tcpip.Error)
 // possible ephemeral ports, allowing the caller to decide whether a given port
 // is suitable for its needs, and stopping when a port is found or an error
 // occurs.
-func (pm *PortManager) PickEphemeralPort(rng *rand.Rand, testPort PortTester) (port uint16, err tcpip.Error) {
+func (pm *PortManager) PickEphemeralPort(rng rand.RNG, testPort PortTester) (port uint16, err tcpip.Error) {
 	pm.ephemeralMu.RLock()
 	firstEphemeral := pm.firstEphemeral
 	numEphemeral := pm.numEphemeral
 	pm.ephemeralMu.RUnlock()
 
-	offset := uint32(rng.Int31n(int32(numEphemeral)))
-	return pickEphemeralPort(offset, firstEphemeral, numEphemeral, testPort)
-}
-
-// portHint atomically reads and returns the pm.hint value.
-func (pm *PortManager) portHint() uint32 {
-	return pm.hint.Load()
-}
-
-// incPortHint atomically increments pm.hint by 1.
-func (pm *PortManager) incPortHint() {
-	pm.hint.Add(1)
-}
-
-// PickEphemeralPortStable starts at the specified offset + pm.portHint and
-// iterates over all ephemeral ports, allowing the caller to decide whether a
-// given port is suitable for its needs and stopping when a port is found or an
-// error occurs.
-func (pm *PortManager) PickEphemeralPortStable(offset uint32, testPort PortTester) (port uint16, err tcpip.Error) {
-	pm.ephemeralMu.RLock()
-	firstEphemeral := pm.firstEphemeral
-	numEphemeral := pm.numEphemeral
-	pm.ephemeralMu.RUnlock()
-
-	p, err := pickEphemeralPort(pm.portHint()+offset, firstEphemeral, numEphemeral, testPort)
-	if err == nil {
-		pm.incPortHint()
-	}
-	return p, err
+	return pickEphemeralPort(rng.Uint32(), firstEphemeral, numEphemeral, testPort)
 }
 
 // pickEphemeralPort starts at the offset specified from the FirstEphemeral port
@@ -297,6 +261,7 @@ func (pm *PortManager) PickEphemeralPortStable(offset uint32, testPort PortTeste
 // caller to decide whether a given port is suitable for its needs, and stopping
 // when a port is found or an error occurs.
 func pickEphemeralPort(offset uint32, first, count uint16, testPort PortTester) (port uint16, err tcpip.Error) {
+	// This implements Algorithm 1 as per RFC 6056 Section 3.3.1.
 	for i := uint32(0); i < uint32(count); i++ {
 		port := uint16(uint32(first) + (offset+i)%uint32(count))
 		ok, err := testPort(port)
@@ -320,7 +285,7 @@ func pickEphemeralPort(offset uint32, first, count uint16, testPort PortTester) 
 // An optional PortTester can be passed in which if provided will be used to
 // test if the picked port can be used. The function should return true if the
 // port is safe to use, false otherwise.
-func (pm *PortManager) ReservePort(rng *rand.Rand, res Reservation, testPort PortTester) (reservedPort uint16, err tcpip.Error) {
+func (pm *PortManager) ReservePort(rng rand.RNG, res Reservation, testPort PortTester) (reservedPort uint16, err tcpip.Error) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 

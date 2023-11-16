@@ -679,16 +679,16 @@ func (e *endpoint) Connect(addr tcpip.FullAddress) tcpip.Error {
 
 		oldPortFlags := e.boundPortFlags
 
-		nextID, btd, err := e.registerWithStack(netProtos, nextID)
-		if err != nil {
-			return err
-		}
-
 		// Remove the old registration.
 		if e.localPort != 0 {
 			previousID.LocalPort = e.localPort
 			previousID.RemotePort = e.remotePort
 			e.stack.UnregisterTransportEndpoint(e.effectiveNetProtos, ProtocolNumber, previousID, e, oldPortFlags, e.boundBindToDevice)
+		}
+
+		nextID, btd, err := e.registerWithStack(netProtos, nextID)
+		if err != nil {
+			return err
 		}
 
 		e.localPort = nextID.LocalPort
@@ -773,7 +773,7 @@ func (e *endpoint) registerWithStack(netProtos []tcpip.NetworkProtocolNumber, id
 			BindToDevice: bindToDevice,
 			Dest:         tcpip.FullAddress{},
 		}
-		port, err := e.stack.ReservePort(e.stack.Rand(), portRes, nil /* testPort */)
+		port, err := e.stack.ReservePort(e.stack.SecureRNG(), portRes, nil /* testPort */)
 		if err != nil {
 			return id, bindToDevice, err
 		}

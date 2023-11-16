@@ -16,7 +16,6 @@ package tcp
 
 import (
 	"container/heap"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"math"
@@ -29,7 +28,6 @@ import (
 	"gvisor.dev/gvisor/pkg/sleep"
 	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
-	"gvisor.dev/gvisor/pkg/tcpip/hash/jenkins"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/ports"
 	"gvisor.dev/gvisor/pkg/tcpip/seqnum"
@@ -858,10 +856,12 @@ func newEndpoint(s *stack.Stack, protocol *protocol, netProto tcpip.NetworkProto
 			interval: DefaultKeepaliveInterval,
 			count:    DefaultKeepaliveCount,
 		},
-		uniqueID:      s.UniqueID(),
-		ipv4TTL:       tcpip.UseDefaultIPv4TTL,
-		ipv6HopLimit:  tcpip.UseDefaultIPv6HopLimit,
-		txHash:        s.Rand().Uint32(),
+		uniqueID:     s.UniqueID(),
+		ipv4TTL:      tcpip.UseDefaultIPv4TTL,
+		ipv6HopLimit: tcpip.UseDefaultIPv6HopLimit,
+		// txHash only determines which outgoing queue to use, so
+		// InsecureRNG is fine.
+		txHash:        s.InsecureRNG().Uint32(),
 		windowClamp:   DefaultReceiveBufferSize,
 		maxSynRetries: DefaultSynRetries,
 	}
@@ -2244,28 +2244,6 @@ func (e *endpoint) registerEndpoint(addr tcpip.FullAddress, netProto tcpip.Netwo
 		// endpoint would be trying to connect to itself).
 		sameAddr := e.TransportEndpointInfo.ID.LocalAddress == e.TransportEndpointInfo.ID.RemoteAddress
 
-		// Calculate a port offset based on the destination IP/port and
-		// src IP to ensure that for a given tuple (srcIP, destIP,
-		// destPort) the offset used as a starting point is the same to
-		// ensure that we can cycle through the port space effectively.
-		portBuf := make([]byte, 2)
-		binary.LittleEndian.PutUint16(portBuf, e.ID.RemotePort)
-
-		h := jenkins.Sum32(e.protocol.portOffsetSecret)
-		for _, s := range [][]byte{
-			e.ID.LocalAddress.AsSlice(),
-			e.ID.RemoteAddress.AsSlice(),
-			portBuf,
-		} {
-			// Per io.Writer.Write:
-			//
-			// Write must return a non-nil error if it returns n < len(p).
-			if _, err := h.Write(s); err != nil {
-				panic(err)
-			}
-		}
-		portOffset := h.Sum32()
-
 		var twReuse tcpip.TCPTimeWaitReuseOption
 		if err := e.stack.TransportProtocolOption(ProtocolNumber, &twReuse); err != nil {
 			panic(fmt.Sprintf("e.stack.TransportProtocolOption(%d, %#v) = %s", ProtocolNumber, &twReuse, err))
@@ -2282,7 +2260,7 @@ func (e *endpoint) registerEndpoint(addr tcpip.FullAddress, netProto tcpip.Netwo
 		}
 
 		bindToDevice := tcpip.NICID(e.ops.GetBindToDevice())
-		if _, err := e.stack.PickEphemeralPortStable(portOffset, func(p uint16) (bool, tcpip.Error) {
+		if _, err := e.stack.PickEphemeralPort(e.stack.SecureRNG(), func(p uint16) (bool, tcpip.Error) {
 			if sameAddr && p == e.TransportEndpointInfo.ID.RemotePort {
 				return false, nil
 			}
@@ -2295,7 +2273,7 @@ func (e *endpoint) registerEndpoint(addr tcpip.FullAddress, netProto tcpip.Netwo
 				BindToDevice: bindToDevice,
 				Dest:         addr,
 			}
-			if _, err := e.stack.ReservePort(e.stack.Rand(), portRes, nil /* testPort */); err != nil {
+			if _, err := e.stack.ReservePort(e.stack.SecureRNG(), portRes, nil /* testPort */); err != nil {
 				if _, ok := err.(*tcpip.ErrPortInUse); !ok || !reuse {
 					return false, nil
 				}
@@ -2342,7 +2320,7 @@ func (e *endpoint) registerEndpoint(addr tcpip.FullAddress, netProto tcpip.Netwo
 					BindToDevice: bindToDevice,
 					Dest:         addr,
 				}
-				if _, err := e.stack.ReservePort(e.stack.Rand(), portRes, nil /* testPort */); err != nil {
+				if _, err := e.stack.ReservePort(e.stack.SecureRNG(), portRes, nil /* testPort */); err != nil {
 					return false, nil
 				}
 			}
@@ -2778,7 +2756,7 @@ func (e *endpoint) bindLocked(addr tcpip.FullAddress) (err tcpip.Error) {
 		BindToDevice: bindToDevice,
 		Dest:         tcpip.FullAddress{},
 	}
-	port, err := e.stack.ReservePort(e.stack.Rand(), portRes, func(p uint16) (bool, tcpip.Error) {
+	port, err := e.stack.ReservePort(e.stack.SecureRNG(), portRes, func(p uint16) (bool, tcpip.Error) {
 		id := e.TransportEndpointInfo.ID
 		id.LocalPort = p
 		// CheckRegisterTransportEndpoint should only return an error if there is a
@@ -3324,4 +3302,8 @@ func (e *endpoint) computeTCPSendBufferSize() int64 {
 	}
 
 	return newSndBufSz
+}
+
+func (e *endpoint) GetAcceptConn() bool {
+	return EndpointState(e.State()) == StateListen
 }

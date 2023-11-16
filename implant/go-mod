@@ -22,7 +22,7 @@ require (
 	golang.org/x/sys v0.13.0
 	golang.zx2c4.com/wireguard v0.0.0-20220316235147-5aff28b14c24
 	google.golang.org/protobuf v1.31.0
-	gvisor.dev/gvisor v0.0.0-20231116200044-0a3bced47942
+	gvisor.dev/gvisor v0.0.0-20231116203655-c480f66679e6
 )
 
 require (

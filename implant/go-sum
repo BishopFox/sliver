@@ -132,5 +132,5 @@ gopkg.in/jcmturner/rpc.v1 v1.1.0/go.mod h1:YIdkC4XfD6GXbzje11McwsDuOlZQSb9W4vfLv
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
-gvisor.dev/gvisor v0.0.0-20231116200044-0a3bced47942 h1:/yXXEREA2p64sxGLhC0u+HwskoFUt35yHzv0/Ro19jQ=
-gvisor.dev/gvisor v0.0.0-20231116200044-0a3bced47942/go.mod h1:10sU+Uh5KKNv1+2x2A0Gvzt8FjD3ASIhorV3YsauXhk=
+gvisor.dev/gvisor v0.0.0-20231116203655-c480f66679e6 h1:QYF5D47yyyibiD9otaga9OZu9JK/epGfDfJckWn3TAI=
+gvisor.dev/gvisor v0.0.0-20231116203655-c480f66679e6/go.mod h1:10sU+Uh5KKNv1+2x2A0Gvzt8FjD3ASIhorV3YsauXhk=

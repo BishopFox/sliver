@@ -534,11 +534,11 @@ type AssignableAddressEndpoint interface {
 	// to its NetworkEndpoint.
 	IsAssigned(allowExpired bool) bool
 
-	// IncRef increments this endpoint's reference count.
+	// TryIncRef tries to increment this endpoint's reference count.
 	//
 	// Returns true if it was successfully incremented. If it returns false, then
 	// the endpoint is considered expired and should no longer be used.
-	IncRef() bool
+	TryIncRef() bool
 
 	// DecRef decrements this endpoint's reference count.
 	DecRef()
@@ -929,7 +929,7 @@ type MulticastRouteOutgoingInterface struct {
 	// ID corresponds to the outgoing NIC.
 	ID tcpip.NICID
 
-	// MinTTL represents the minumum TTL/HopLimit a multicast packet must have to
+	// MinTTL represents the minimum TTL/HopLimit a multicast packet must have to
 	// be sent through the outgoing interface.
 	//
 	// Note: a value of 0 allows all packets to be forwarded.
