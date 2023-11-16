@@ -49,7 +49,7 @@ RUN /go/src/github.com/bishopfox/sliver/go-tests.sh
 
 # STAGE: production
 ## Final dockerized form of Sliver
-FROM --platform=linux/amd64  golang:1.21.4 as production
+FROM --platform=linux/amd64 debian:bookworm-slim as production
 
 ### Copy compiled binary
 COPY --from=base /opt/sliver-server  /opt/sliver-server
@@ -63,4 +63,5 @@ RUN /opt/sliver-server unpack --force
 
 USER sliver
 WORKDIR /home/sliver/
+VOLUME [ "/home/sliver/.sliver" ]
 ENTRYPOINT [ "/opt/sliver-server" ]
