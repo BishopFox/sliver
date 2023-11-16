@@ -268,7 +268,7 @@ func Xlseek64(t *TLS, fd int32, offset types.Off_t, whence int32) types.Off_t {
 	}
 
 	if dmesgs {
-		dmesg("%v: ok", origin(1))
+		dmesg("%v: fd %d, offset %#0x, whence %d, ok", origin(1), fd, offset, whence)
 	}
 	return types.Off_t(n)
 }

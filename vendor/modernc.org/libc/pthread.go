@@ -34,7 +34,9 @@ var (
 
 // Thread local storage.
 type TLS struct {
-	errnop uintptr
+	errnop      uintptr
+	allocaStack [][]uintptr
+	allocas     []uintptr
 	pthreadData
 	stack stackHeader
 
@@ -59,6 +61,33 @@ func newTLS(detached bool) *TLS {
 	t.errnop = t.Alloc(int(unsafe.Sizeof(int32(0))))
 	*(*int32)(unsafe.Pointer(t.errnop)) = 0
 	return t
+}
+
+func (t *TLS) alloca(n size_t) (r uintptr) {
+	r = Xmalloc(t, n)
+	t.allocas = append(t.allocas, r)
+	return r
+}
+
+func (t *TLS) FreeAlloca() func() {
+	t.allocaStack = append(t.allocaStack, t.allocas)
+	t.allocas = nil
+	return func() {
+		for _, v := range t.allocas {
+			Xfree(t, v)
+		}
+		n := len(t.allocaStack)
+		t.allocas = t.allocaStack[n-1]
+		t.allocaStack = t.allocaStack[:n-1]
+	}
+}
+
+func Xalloca(tls *TLS, size size_t) uintptr {
+	return tls.alloca(size)
+}
+
+func X__builtin_alloca(tls *TLS, size size_t) uintptr {
+	return Xalloca(tls, size)
 }
 
 // Pthread specific part of a TLS.

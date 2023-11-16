@@ -440,7 +440,7 @@ func (r *rows) ColumnTypeScanType(index int) reflect.Type {
 	case sqlite3.SQLITE_TEXT:
 		return reflect.TypeOf("")
 	case sqlite3.SQLITE_BLOB:
-		return reflect.SliceOf(reflect.TypeOf([]byte{}))
+		return reflect.TypeOf([]byte(nil))
 	case sqlite3.SQLITE_NULL:
 		return reflect.TypeOf(nil)
 	default:
@@ -473,7 +473,6 @@ func (s *stmt) Close() (err error) {
 }
 
 // Exec executes a query that doesn't return rows, such as an INSERT or UPDATE.
-//
 //
 // Deprecated: Drivers should implement StmtExecContext instead (or
 // additionally).
@@ -582,6 +581,13 @@ func (s *stmt) query(ctx context.Context, args []driver.NamedValue) (r driver.Ro
 	}
 
 	var allocs []uintptr
+
+	defer func() {
+		if r == nil && err == nil {
+			r, err = newRows(s.c, pstmt, allocs, true)
+		}
+	}()
+
 	for psql := s.psql; *(*byte)(unsafe.Pointer(psql)) != 0 && atomic.LoadInt32(&done) == 0; {
 		if pstmt, err = s.c.prepareV2(&psql); err != nil {
 			return nil, err
@@ -850,7 +856,9 @@ func applyQueryParams(c *conn, query string) error {
 	return nil
 }
 
-// const void *sqlite3_column_blob(sqlite3_stmt*, int iCol);
+// C documentation
+//
+//	const void *sqlite3_column_blob(sqlite3_stmt*, int iCol);
 func (c *conn) columnBlob(pstmt uintptr, iCol int) (v []byte, err error) {
 	p := sqlite3.Xsqlite3_column_blob(c.tls, pstmt, int32(iCol))
 	len, err := c.columnBytes(pstmt, iCol)
@@ -867,13 +875,17 @@ func (c *conn) columnBlob(pstmt uintptr, iCol int) (v []byte, err error) {
 	return v, nil
 }
 
-// int sqlite3_column_bytes(sqlite3_stmt*, int iCol);
+// C documentation
+//
+//	int sqlite3_column_bytes(sqlite3_stmt*, int iCol);
 func (c *conn) columnBytes(pstmt uintptr, iCol int) (_ int, err error) {
 	v := sqlite3.Xsqlite3_column_bytes(c.tls, pstmt, int32(iCol))
 	return int(v), nil
 }
 
-// const unsigned char *sqlite3_column_text(sqlite3_stmt*, int iCol);
+// C documentation
+//
+//	const unsigned char *sqlite3_column_text(sqlite3_stmt*, int iCol);
 func (c *conn) columnText(pstmt uintptr, iCol int) (v string, err error) {
 	p := sqlite3.Xsqlite3_column_text(c.tls, pstmt, int32(iCol))
 	len, err := c.columnBytes(pstmt, iCol)
@@ -890,53 +902,71 @@ func (c *conn) columnText(pstmt uintptr, iCol int) (v string, err error) {
 	return string(b), nil
 }
 
-// double sqlite3_column_double(sqlite3_stmt*, int iCol);
+// C documentation
+//
+//	double sqlite3_column_double(sqlite3_stmt*, int iCol);
 func (c *conn) columnDouble(pstmt uintptr, iCol int) (v float64, err error) {
 	v = sqlite3.Xsqlite3_column_double(c.tls, pstmt, int32(iCol))
 	return v, nil
 }
 
-// sqlite3_int64 sqlite3_column_int64(sqlite3_stmt*, int iCol);
+// C documentation
+//
+//	sqlite3_int64 sqlite3_column_int64(sqlite3_stmt*, int iCol);
 func (c *conn) columnInt64(pstmt uintptr, iCol int) (v int64, err error) {
 	v = sqlite3.Xsqlite3_column_int64(c.tls, pstmt, int32(iCol))
 	return v, nil
 }
 
-// int sqlite3_column_type(sqlite3_stmt*, int iCol);
+// C documentation
+//
+//	int sqlite3_column_type(sqlite3_stmt*, int iCol);
 func (c *conn) columnType(pstmt uintptr, iCol int) (_ int, err error) {
 	v := sqlite3.Xsqlite3_column_type(c.tls, pstmt, int32(iCol))
 	return int(v), nil
 }
 
-// const char *sqlite3_column_decltype(sqlite3_stmt*,int);
+// C documentation
+//
+//	const char *sqlite3_column_decltype(sqlite3_stmt*,int);
 func (c *conn) columnDeclType(pstmt uintptr, iCol int) string {
 	return libc.GoString(sqlite3.Xsqlite3_column_decltype(c.tls, pstmt, int32(iCol)))
 }
 
-// const char *sqlite3_column_name(sqlite3_stmt*, int N);
+// C documentation
+//
+//	const char *sqlite3_column_name(sqlite3_stmt*, int N);
 func (c *conn) columnName(pstmt uintptr, n int) (string, error) {
 	p := sqlite3.Xsqlite3_column_name(c.tls, pstmt, int32(n))
 	return libc.GoString(p), nil
 }
 
-// int sqlite3_column_count(sqlite3_stmt *pStmt);
+// C documentation
+//
+//	int sqlite3_column_count(sqlite3_stmt *pStmt);
 func (c *conn) columnCount(pstmt uintptr) (_ int, err error) {
 	v := sqlite3.Xsqlite3_column_count(c.tls, pstmt)
 	return int(v), nil
 }
 
-// sqlite3_int64 sqlite3_last_insert_rowid(sqlite3*);
+// C documentation
+//
+//	sqlite3_int64 sqlite3_last_insert_rowid(sqlite3*);
 func (c *conn) lastInsertRowID() (v int64, _ error) {
 	return sqlite3.Xsqlite3_last_insert_rowid(c.tls, c.db), nil
 }
 
-// int sqlite3_changes(sqlite3*);
+// C documentation
+//
+//	int sqlite3_changes(sqlite3*);
 func (c *conn) changes() (int, error) {
 	v := sqlite3.Xsqlite3_changes(c.tls, c.db)
 	return int(v), nil
 }
 
-// int sqlite3_step(sqlite3_stmt*);
+// C documentation
+//
+//	int sqlite3_step(sqlite3_stmt*);
 func (c *conn) step(pstmt uintptr) (int, error) {
 	for {
 		switch rc := sqlite3.Xsqlite3_step(c.tls, pstmt); rc {
@@ -1090,7 +1120,9 @@ func (c *conn) bind(pstmt uintptr, n int, args []driver.NamedValue) (allocs []ui
 	return allocs, nil
 }
 
-// int sqlite3_bind_null(sqlite3_stmt*, int);
+// C documentation
+//
+//	int sqlite3_bind_null(sqlite3_stmt*, int);
 func (c *conn) bindNull(pstmt uintptr, idx1 int) (uintptr, error) {
 	if rc := sqlite3.Xsqlite3_bind_null(c.tls, pstmt, int32(idx1)); rc != sqlite3.SQLITE_OK {
 		return 0, c.errstr(rc)
@@ -1099,7 +1131,9 @@ func (c *conn) bindNull(pstmt uintptr, idx1 int) (uintptr, error) {
 	return 0, nil
 }
 
-// int sqlite3_bind_text(sqlite3_stmt*,int,const char*,int,void(*)(void*));
+// C documentation
+//
+//	int sqlite3_bind_text(sqlite3_stmt*,int,const char*,int,void(*)(void*));
 func (c *conn) bindText(pstmt uintptr, idx1 int, value string) (uintptr, error) {
 	p, err := libc.CString(value)
 	if err != nil {
@@ -1114,7 +1148,9 @@ func (c *conn) bindText(pstmt uintptr, idx1 int, value string) (uintptr, error) 
 	return p, nil
 }
 
-// int sqlite3_bind_blob(sqlite3_stmt*, int, const void*, int n, void(*)(void*));
+// C documentation
+//
+//	int sqlite3_bind_blob(sqlite3_stmt*, int, const void*, int n, void(*)(void*));
 func (c *conn) bindBlob(pstmt uintptr, idx1 int, value []byte) (uintptr, error) {
 	if value != nil && len(value) == 0 {
 		if rc := sqlite3.Xsqlite3_bind_zeroblob(c.tls, pstmt, int32(idx1), 0); rc != sqlite3.SQLITE_OK {
@@ -1138,7 +1174,9 @@ func (c *conn) bindBlob(pstmt uintptr, idx1 int, value []byte) (uintptr, error) 
 	return p, nil
 }
 
-// int sqlite3_bind_int(sqlite3_stmt*, int, int);
+// C documentation
+//
+//	int sqlite3_bind_int(sqlite3_stmt*, int, int);
 func (c *conn) bindInt(pstmt uintptr, idx1, value int) (err error) {
 	if rc := sqlite3.Xsqlite3_bind_int(c.tls, pstmt, int32(idx1), int32(value)); rc != sqlite3.SQLITE_OK {
 		return c.errstr(rc)
@@ -1147,7 +1185,9 @@ func (c *conn) bindInt(pstmt uintptr, idx1, value int) (err error) {
 	return nil
 }
 
-// int sqlite3_bind_double(sqlite3_stmt*, int, double);
+// C documentation
+//
+//	int sqlite3_bind_double(sqlite3_stmt*, int, double);
 func (c *conn) bindDouble(pstmt uintptr, idx1 int, value float64) (err error) {
 	if rc := sqlite3.Xsqlite3_bind_double(c.tls, pstmt, int32(idx1), value); rc != 0 {
 		return c.errstr(rc)
@@ -1156,7 +1196,9 @@ func (c *conn) bindDouble(pstmt uintptr, idx1 int, value float64) (err error) {
 	return nil
 }
 
-// int sqlite3_bind_int64(sqlite3_stmt*, int, sqlite3_int64);
+// C documentation
+//
+//	int sqlite3_bind_int64(sqlite3_stmt*, int, sqlite3_int64);
 func (c *conn) bindInt64(pstmt uintptr, idx1 int, value int64) (err error) {
 	if rc := sqlite3.Xsqlite3_bind_int64(c.tls, pstmt, int32(idx1), value); rc != sqlite3.SQLITE_OK {
 		return c.errstr(rc)
@@ -1165,19 +1207,25 @@ func (c *conn) bindInt64(pstmt uintptr, idx1 int, value int64) (err error) {
 	return nil
 }
 
-// const char *sqlite3_bind_parameter_name(sqlite3_stmt*, int);
+// C documentation
+//
+//	const char *sqlite3_bind_parameter_name(sqlite3_stmt*, int);
 func (c *conn) bindParameterName(pstmt uintptr, i int) (string, error) {
 	p := sqlite3.Xsqlite3_bind_parameter_name(c.tls, pstmt, int32(i))
 	return libc.GoString(p), nil
 }
 
-// int sqlite3_bind_parameter_count(sqlite3_stmt*);
+// C documentation
+//
+//	int sqlite3_bind_parameter_count(sqlite3_stmt*);
 func (c *conn) bindParameterCount(pstmt uintptr) (_ int, err error) {
 	r := sqlite3.Xsqlite3_bind_parameter_count(c.tls, pstmt)
 	return int(r), nil
 }
 
-// int sqlite3_finalize(sqlite3_stmt *pStmt);
+// C documentation
+//
+//	int sqlite3_finalize(sqlite3_stmt *pStmt);
 func (c *conn) finalize(pstmt uintptr) error {
 	if rc := sqlite3.Xsqlite3_finalize(c.tls, pstmt); rc != sqlite3.SQLITE_OK {
 		return c.errstr(rc)
@@ -1186,13 +1234,15 @@ func (c *conn) finalize(pstmt uintptr) error {
 	return nil
 }
 
-// int sqlite3_prepare_v2(
-//   sqlite3 *db,            /* Database handle */
-//   const char *zSql,       /* SQL statement, UTF-8 encoded */
-//   int nByte,              /* Maximum length of zSql in bytes. */
-//   sqlite3_stmt **ppStmt,  /* OUT: Statement handle */
-//   const char **pzTail     /* OUT: Pointer to unused portion of zSql */
-// );
+// C documentation
+//
+//	int sqlite3_prepare_v2(
+//	sqlite3 *db,            /* Database handle */
+//	const char *zSql,       /* SQL statement, UTF-8 encoded */
+//	int nByte,              /* Maximum length of zSql in bytes. */
+//	sqlite3_stmt **ppStmt,  /* OUT: Statement handle */
+//	const char **pzTail     /* OUT: Pointer to unused portion of zSql */
+//	);
 func (c *conn) prepareV2(zSQL *uintptr) (pstmt uintptr, err error) {
 	var ppstmt, pptail uintptr
 
@@ -1224,7 +1274,9 @@ func (c *conn) prepareV2(zSQL *uintptr) (pstmt uintptr, err error) {
 	}
 }
 
-// void sqlite3_interrupt(sqlite3*);
+// C documentation
+//
+//	void sqlite3_interrupt(sqlite3*);
 func (c *conn) interrupt(pdb uintptr) (err error) {
 	c.Lock() // Defend against race with .Close invoked by context handling.
 
@@ -1236,7 +1288,9 @@ func (c *conn) interrupt(pdb uintptr) (err error) {
 	return nil
 }
 
-// int sqlite3_extended_result_codes(sqlite3*, int onoff);
+// C documentation
+//
+//	int sqlite3_extended_result_codes(sqlite3*, int onoff);
 func (c *conn) extendedResultCodes(on bool) error {
 	if rc := sqlite3.Xsqlite3_extended_result_codes(c.tls, c.db, libc.Bool32(on)); rc != sqlite3.SQLITE_OK {
 		return c.errstr(rc)
@@ -1245,12 +1299,14 @@ func (c *conn) extendedResultCodes(on bool) error {
 	return nil
 }
 
-// int sqlite3_open_v2(
-//   const char *filename,   /* Database filename (UTF-8) */
-//   sqlite3 **ppDb,         /* OUT: SQLite db handle */
-//   int flags,              /* Flags */
-//   const char *zVfs        /* Name of VFS module to use */
-// );
+// C documentation
+//
+//	int sqlite3_open_v2(
+//	const char *filename,   /* Database filename (UTF-8) */
+//	sqlite3 **ppDb,         /* OUT: SQLite db handle */
+//	int flags,              /* Flags */
+//	const char *zVfs        /* Name of VFS module to use */
+//	);
 func (c *conn) openV2(name, vfsName string, flags int32) (uintptr, error) {
 	var p, s, vfs uintptr
 
@@ -1302,7 +1358,9 @@ func (c *conn) free(p uintptr) {
 	}
 }
 
-// const char *sqlite3_errstr(int);
+// C documentation
+//
+//	const char *sqlite3_errstr(int);
 func (c *conn) errstr(rc int32) error {
 	p := sqlite3.Xsqlite3_errstr(c.tls, rc)
 	str := libc.GoString(p)
@@ -1366,7 +1424,9 @@ func (c *conn) Close() (err error) {
 	return nil
 }
 
-// int sqlite3_close_v2(sqlite3*);
+// C documentation
+//
+//	int sqlite3_close_v2(sqlite3*);
 func (c *conn) closeV2(db uintptr) error {
 	if rc := sqlite3.Xsqlite3_close_v2(c.tls, db); rc != sqlite3.SQLITE_OK {
 		return c.errstr(rc)
@@ -1480,6 +1540,91 @@ func (c *conn) createFunctionInternal(fun *userDefinedFunction) error {
 	return nil
 }
 
+type collation struct {
+	zName uintptr
+	pApp  uintptr
+	enc   int32
+}
+
+// RegisterCollationUtf8 makes a Go function available as a collation named zName.
+// impl receives two UTF-8 strings: left and right.
+// The result needs to be:
+//
+// - 0 if left == right
+// - 1 if left < right
+// - +1 if left > right
+//
+// impl must always return the same result given the same inputs.
+// Additionally, it must have the following properties for all strings A, B and C:
+// - if A==B, then B==A
+// - if A==B and B==C, then A==C
+// - if A<B, then B>A
+// - if A<B and B<C, then A<C.
+//
+// The new collation will be available to all new connections opened after
+// executing RegisterCollationUtf8.
+func RegisterCollationUtf8(
+	zName string,
+	impl func(left, right string) int,
+) error {
+	return registerCollation(zName, impl, sqlite3.SQLITE_UTF8)
+}
+
+// MustRegisterCollationUtf8 is like RegisterCollationUtf8 but panics on error.
+func MustRegisterCollationUtf8(
+	zName string,
+	impl func(left, right string) int,
+) {
+	if err := RegisterCollationUtf8(zName, impl); err != nil {
+		panic(err)
+	}
+}
+
+func registerCollation(
+	zName string,
+	impl func(left, right string) int,
+	enc int32,
+) error {
+	if _, ok := d.collations[zName]; ok {
+		return fmt.Errorf("a collation %q is already registered", zName)
+	}
+
+	// dont free, collations registered on the driver live as long as the program
+	name, err := libc.CString(zName)
+	if err != nil {
+		return err
+	}
+
+	xCollations.mu.Lock()
+	id := xCollations.ids.next()
+	xCollations.m[id] = impl
+	xCollations.mu.Unlock()
+
+	d.collations[zName] = &collation{
+		zName: name,
+		pApp:  id,
+		enc:   enc,
+	}
+
+	return nil
+}
+
+func (c *conn) createCollationInternal(coll *collation) error {
+	rc := sqlite3.Xsqlite3_create_collation_v2(
+		c.tls,
+		c.db,
+		coll.zName,
+		coll.enc,
+		coll.pApp,
+		cFuncPointer(collationTrampoline),
+		0,
+	)
+	if rc != sqlite3.SQLITE_OK {
+		return c.errstr(rc)
+	}
+	return nil
+}
+
 // Execer is an optional interface that may be implemented by a Conn.
 //
 // If a Conn does not implement Execer, the sql package's DB.Exec will first
@@ -1559,17 +1704,162 @@ func (c *conn) query(ctx context.Context, query string, args []driver.NamedValue
 	return s.(*stmt).query(ctx, args)
 }
 
+// Serialize returns a serialization of the main database. For an ordinary on-disk
+// database file, the serialization is just a copy of the disk file. For an in-memory
+// database or a "TEMP" database, the serialization is the same sequence of bytes
+// which would be written to disk if that database where backed up to disk.
+func (c *conn) Serialize() (v []byte, err error) {
+	pLen := c.tls.Alloc(8)
+	defer c.tls.Free(8)
+
+	zSchema := sqlite3.Xsqlite3_db_name(c.tls, c.db, 0)
+	if zSchema == 0 {
+		return nil, fmt.Errorf("failed to get main db name")
+	}
+
+	pBuf := sqlite3.Xsqlite3_serialize(c.tls, c.db, zSchema, pLen, 0)
+	bufLen := *(*sqlite3.Sqlite3_int64)(unsafe.Pointer(pLen))
+	if pBuf != 0 {
+		defer sqlite3.Xsqlite3_free(c.tls, pBuf)
+	}
+	if bufLen <= 0 {
+		return nil, fmt.Errorf("invalid length returned: %d", bufLen)
+	} else if pBuf == 0 || bufLen == 0 {
+		return nil, nil
+	}
+
+	v = make([]byte, bufLen)
+	copy(v, (*libc.RawMem)(unsafe.Pointer(pBuf))[:bufLen:bufLen])
+	return v, nil
+}
+
+// Deserialize restore a database from the content returned by Serialize.
+func (c *conn) Deserialize(buf []byte) (err error) {
+	bufLen := len(buf)
+	pBuf := c.tls.Alloc(bufLen) // free will be done if it fails or on close, must not be freed here
+
+	copy((*libc.RawMem)(unsafe.Pointer(pBuf))[:bufLen:bufLen], buf)
+
+	zSchema := sqlite3.Xsqlite3_db_name(c.tls, c.db, 0)
+	if zSchema == 0 {
+		return fmt.Errorf("failed to get main db name")
+	}
+
+	rc := sqlite3.Xsqlite3_deserialize(c.tls, c.db, zSchema, pBuf, int64(bufLen), int64(bufLen), sqlite3.SQLITE_DESERIALIZE_RESIZEABLE|sqlite3.SQLITE_DESERIALIZE_FREEONCLOSE)
+	if rc != sqlite3.SQLITE_OK {
+		return c.errstr(rc)
+	}
+	return nil
+}
+
+// Backup object is used to manage progress and cleanup an online backup. It
+// is returned by NewBackup or NewRestore.
+type Backup struct {
+	srcConn *conn   // source database connection
+	dstConn *conn   // destination database connection
+	pBackup uintptr // sqlite3_backup object pointer
+}
+
+// NewBackup returns a Backup object that will create an online backup of
+// current database to the databased pointed by the passed URI.
+func (c *conn) NewBackup(dstUri string) (*Backup, error) {
+	dstConn, err := newConn(dstUri)
+	if err != nil {
+		return nil, err
+	}
+	backup, err := c.backup(dstConn, false)
+	if err != nil {
+		dstConn.Close()
+	}
+	return backup, err
+}
+
+// NewRestore returns a Backup object that will restore a backup to current
+// database from the databased pointed by the passed URI.
+func (c *conn) NewRestore(srcUri string) (*Backup, error) {
+	srcConn, err := newConn(srcUri)
+	if err != nil {
+		return nil, err
+	}
+	backup, err := c.backup(srcConn, true)
+	if err != nil {
+		srcConn.Close()
+	}
+	return backup, err
+}
+
+func (c *conn) backup(remoteConn *conn, restore bool) (_ *Backup, finalErr error) {
+	srcSchema := sqlite3.Xsqlite3_db_name(c.tls, c.db, 0)
+	if srcSchema == 0 {
+		return nil, fmt.Errorf("failed to get main source db name")
+	}
+
+	dstSchema := sqlite3.Xsqlite3_db_name(remoteConn.tls, remoteConn.db, 0)
+	if dstSchema == 0 {
+		return nil, fmt.Errorf("failed to get main destination db name")
+	}
+
+	var pBackup uintptr
+	if restore {
+		pBackup = sqlite3.Xsqlite3_backup_init(c.tls, c.db, srcSchema, remoteConn.db, dstSchema)
+	} else {
+		pBackup = sqlite3.Xsqlite3_backup_init(c.tls, remoteConn.db, dstSchema, c.db, srcSchema)
+	}
+	if pBackup <= 0 {
+		rc := sqlite3.Xsqlite3_errcode(c.tls, remoteConn.db)
+		return nil, c.errstr(rc)
+	}
+
+	return &Backup{srcConn: c, dstConn: remoteConn, pBackup: pBackup}, nil
+}
+
+// Step will copy up to n pages between the source and destination databases
+// specified by the backup object. If n is negative, all remaining source
+// pages are copied.
+// If it successfully copies n pages and there are still more pages to be
+// copied, then the function returns true with no error. If it successfully
+// finishes copying all pages from source to destination, then it returns
+// false with no error. If an error occurs while running, then an error is
+// returned.
+func (b *Backup) Step(n int32) (bool, error) {
+	rc := sqlite3.Xsqlite3_backup_step(b.srcConn.tls, b.pBackup, n)
+	if rc == sqlite3.SQLITE_OK {
+		return true, nil
+	} else if rc == sqlite3.SQLITE_DONE {
+		return false, nil
+	} else {
+		return false, b.srcConn.errstr(rc)
+	}
+}
+
+// Finish releases all resources associated with the Backup object. The Backup
+// object is invalid and may not be used following a call to Finish.
+func (b *Backup) Finish() error {
+	rc := sqlite3.Xsqlite3_backup_finish(b.srcConn.tls, b.pBackup)
+	b.dstConn.Close()
+	if rc == sqlite3.SQLITE_OK {
+		return nil
+	} else {
+		return b.srcConn.errstr(rc)
+	}
+}
+
 // Driver implements database/sql/driver.Driver.
 type Driver struct {
 	// user defined functions that are added to every new connection on Open
 	udfs map[string]*userDefinedFunction
+	// collations that are added to every new connection on Open
+	collations map[string]*collation
 }
 
-var d = &Driver{udfs: make(map[string]*userDefinedFunction)}
+var d = &Driver{
+	udfs:       make(map[string]*userDefinedFunction, 0),
+	collations: make(map[string]*collation, 0),
+}
 
 func newDriver() *Driver { return d }
 
-// Open returns a new connection to the database.  The name is a string in a
+// Open returns a new connection to the database. The name is a string in a
 // driver-specific format.
 //
 // Open may return a cached connection (one previously closed), but doing so is
@@ -1578,14 +1868,14 @@ func newDriver() *Driver { return d }
 //
 // The returned connection is only used by one goroutine at a time.
 //
-// If name contains a '?', what follows is treated as a query string. This
-// driver supports the following query parameters:
+// The name may be a filename, e.g., "/tmp/mydata.sqlite", or a URI, in which
+// case it may include a '?' followed by one or more query parameters.
+// For example, "file:///tmp/mydata.sqlite?_pragma=foreign_keys(1)&_time_format=sqlite".
+// The supported query parameters are:
 //
 // _pragma: Each value will be run as a "PRAGMA ..." statement (with the PRAGMA
-// keyword added for you). May be specified more than once. Example:
-// "_pragma=foreign_keys(1)" will enable foreign key enforcement. More
-// information on supported PRAGMAs is available from the SQLite documentation:
-// https://www.sqlite.org/pragma.html
+// keyword added for you). May be specified more than once, '&'-separated. For more
+// information on supported PRAGMAs see: https://www.sqlite.org/pragma.html
 //
 // _time_format: The name of a format to use when writing time values to the
 // database. Currently the only supported value is "sqlite", which corresponds
@@ -1594,9 +1884,7 @@ func newDriver() *Driver { return d }
 // the default String() format will be used.
 //
 // _txlock: The locking behavior to use when beginning a transaction. May be
-// "deferred", "immediate", or "exclusive" (case insensitive). The default is to
-// not specify one, which SQLite maps to "deferred". More information is
-// available at
+// "deferred" (the default), "immediate", or "exclusive" (case insensitive). See:
 // https://www.sqlite.org/lang_transaction.html#deferred_immediate_and_exclusive_transactions
 func (d *Driver) Open(name string) (conn driver.Conn, err error) {
 	if dmesgs {
@@ -1611,6 +1899,12 @@ func (d *Driver) Open(name string) (conn driver.Conn, err error) {
 
 	for _, udf := range d.udfs {
 		if err = c.createFunctionInternal(udf); err != nil {
+			c.Close()
+			return nil, err
+		}
+	}
+	for _, coll := range d.collations {
+		if err = c.createCollationInternal(coll); err != nil {
 			c.Close()
 			return nil, err
 		}
@@ -1900,6 +2194,14 @@ var (
 	}{
 		m: make(map[uintptr]AggregateFunction),
 	}
+
+	xCollations = struct {
+		mu  sync.RWMutex
+		m   map[uintptr]func(string, string) int
+		ids idGen
+	}{
+		m: make(map[uintptr]func(string, string) int),
+	}
 )
 
 type idGen struct {
@@ -2067,7 +2369,33 @@ func finalTrampoline(tls *libc.TLS, ctx uintptr) {
 	xAggregateContext.ids.reclaim(id)
 }
 
-// int sqlite3_limit(sqlite3*, int id, int newVal);
+func collationTrampoline(tls *libc.TLS, pApp uintptr, nLeft int32, zLeft uintptr, nRight int32, zRight uintptr) int32 {
+	xCollations.mu.RLock()
+	xCollation := xCollations.m[pApp]
+	xCollations.mu.RUnlock()
+
+	left := string(libc.GoBytes(zLeft, int(nLeft)))
+	right := string(libc.GoBytes(zRight, int(nRight)))
+
+	// res is of type int, which can be 64-bit wide
+	// Since we just need to know if the value is positive, negative, or zero, we can ensure it's -1, 0, +1
+	res := xCollation(left, right)
+	switch {
+	case res < 0:
+		return -1
+	case res == 0:
+		return 0
+	case res > 0:
+		return 1
+	default:
+		// Should never hit here, make the compiler happy
+		return 0
+	}
+}
+
+// C documentation
+//
+//	int sqlite3_limit(sqlite3*, int id, int newVal);
 func (c *conn) limit(id int, newVal int) int {
 	return int(sqlite3.Xsqlite3_limit(c.tls, c.db, int32(id), int32(newVal)))
 }

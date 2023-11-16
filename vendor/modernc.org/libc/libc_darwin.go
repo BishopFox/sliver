@@ -1526,33 +1526,6 @@ func fcntlCmdStr(cmd int32) string {
 // 	panic(todo(""))
 // }
 
-// ssize_t pread(int fd, void *buf, size_t count, off_t offset);
-func Xpread(t *TLS, fd int32, buf uintptr, count types.Size_t, offset types.Off_t) types.Ssize_t {
-	var n int
-	var err error
-	switch {
-	case count == 0:
-		n, err = unix.Pread(int(fd), nil, int64(offset))
-	default:
-		n, err = unix.Pread(int(fd), (*RawMem)(unsafe.Pointer(buf))[:count:count], int64(offset))
-		if dmesgs && err == nil {
-			dmesg("%v: fd %v, off %#x, count %#x, n %#x\n%s", origin(1), fd, offset, count, n, hex.Dump((*RawMem)(unsafe.Pointer(buf))[:n:n]))
-		}
-	}
-	if err != nil {
-		if dmesgs {
-			dmesg("%v: %v FAIL", origin(1), err)
-		}
-		t.setErrno(err)
-		return -1
-	}
-
-	if dmesgs {
-		dmesg("%v: ok", origin(1))
-	}
-	return types.Ssize_t(n)
-}
-
 // ssize_t pwrite(int fd, const void *buf, size_t count, off_t offset);
 func Xpwrite(t *TLS, fd int32, buf uintptr, count types.Size_t, offset types.Off_t) types.Ssize_t {
 	var n int
