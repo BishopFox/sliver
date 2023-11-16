@@ -850,13 +850,13 @@ func externalBuild(name string, config *clientpb.ImplantConfig, save string, con
 				if len(parts) != 2 {
 					continue
 				}
-				if parts[0] == externalImplantConfig.Config.ID {
+				if parts[0] == externalImplantConfig.Build.ID {
 					con.RemoveEventListener(listenerID)
 					return nil, fmt.Errorf("external build failed: %s", parts[1])
 				}
 
 			case consts.AcknowledgeBuildEvent:
-				if string(event.Data) == externalImplantConfig.Config.ID {
+				if string(event.Data) == externalImplantConfig.Build.ID {
 					msgF = "External build acknowledged by builder (template: %s) ... %s"
 				}
 
@@ -865,7 +865,7 @@ func externalBuild(name string, config *clientpb.ImplantConfig, save string, con
 				if len(parts) != 2 {
 					continue
 				}
-				if parts[0] == externalImplantConfig.Config.ID {
+				if parts[0] == externalImplantConfig.Build.ID {
 					con.RemoveEventListener(listenerID)
 					name = parts[1]
 					waiting = false

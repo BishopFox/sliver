@@ -88,7 +88,7 @@ service SliverRPC {
       returns (clientpb.ExternalImplantConfig);
   rpc GenerateExternalSaveBuild(clientpb.ExternalImplantBinary)
       returns (commonpb.Empty);
-  rpc GenerateExternalGetImplantConfig(clientpb.ImplantConfig)
+  rpc GenerateExternalGetBuildConfig(clientpb.ImplantBuild)
       returns (clientpb.ExternalImplantConfig);
   rpc GenerateStage(clientpb.GenerateStageReq)
       returns (clientpb.Generate);
