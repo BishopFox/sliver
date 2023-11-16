@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"gvisor.dev/gvisor/pkg/atomicbitops"
-	"gvisor.dev/gvisor/pkg/bufferv2"
+	"gvisor.dev/gvisor/pkg/buffer"
 	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
@@ -437,6 +437,28 @@ func (e *endpoint) NetworkProtocolNumber() tcpip.NetworkProtocolNumber {
 	return e.protocol.Number()
 }
 
+func (e *endpoint) generateID(srcAddr, dstAddr tcpip.Address, params stack.NetworkHeaderParams) uint32 {
+	// Get the time difference between the last time 'ids' was accessed and
+	// now. Update 'idTS' to the current time.
+	now := e.protocol.stack.Clock().NowMonotonic().Milliseconds()
+	oldTS := e.protocol.idTS.Load()
+	diff := now - oldTS
+	rng := e.protocol.stack.SecureRNG()
+	e.protocol.idTS.Store(now)
+
+	var counter uint32
+	if diff < 1 {
+		counter = rng.Uint32()
+	} else {
+		// Increment ID with a random number in the range [0, diff).
+		counter = uint32(rng.Int63n(diff))
+	}
+
+	// Calculate the hash value.
+	hash := hashRoute(srcAddr, dstAddr, params.Protocol, e.protocol.hashIV) % buckets
+	return e.protocol.ids[hash].Add(counter)
+}
+
 func (e *endpoint) addIPHeader(srcAddr, dstAddr tcpip.Address, pkt stack.PacketBufferPtr, params stack.NetworkHeaderParams, options header.IPv4OptionsSerializer) tcpip.Error {
 	hdrLen := header.IPv4MinimumSize
 	var optLen int
@@ -455,7 +477,7 @@ func (e *endpoint) addIPHeader(srcAddr, dstAddr tcpip.Address, pkt stack.PacketB
 	// RFC 6864 section 4.3 mandates uniqueness of ID values for non-atomic
 	// datagrams. Since the DF bit is never being set here, all datagrams
 	// are non-atomic and need an ID.
-	id := e.protocol.ids[hashRoute(srcAddr, dstAddr, params.Protocol, e.protocol.hashIV)%buckets].Add(1)
+	id := e.generateID(srcAddr, dstAddr, params)
 	ipH.Encode(&header.IPv4Fields{
 		TotalLength: uint16(length),
 		ID:          uint16(id),
@@ -628,7 +650,7 @@ func (e *endpoint) WriteHeaderIncludedPacket(r *stack.Route, pkt stack.PacketBuf
 		// non-atomic datagrams, so assign an ID to all such datagrams
 		// according to the definition given in RFC 6864 section 4.
 		if ipH.Flags()&header.IPv4FlagDontFragment == 0 || ipH.Flags()&header.IPv4FlagMoreFragments != 0 || ipH.FragmentOffset() > 0 {
-			ipH.SetID(uint16(e.protocol.ids[hashRoute(r.LocalAddress(), r.RemoteAddress(), 0 /* protocol */, e.protocol.hashIV)%buckets].Add(1)))
+			ipH.SetID(uint16(e.generateID(r.LocalAddress(), r.RemoteAddress(), stack.NetworkHeaderParams{})))
 		}
 	}
 
@@ -773,7 +795,7 @@ func (e *endpoint) forwardUnicastPacket(pkt stack.PacketBufferPtr) ip.Forwarding
 		return nil
 	}
 
-	r, err := stk.FindRoute(0, "", dstAddr, ProtocolNumber, false /* multicastLoop */)
+	r, err := stk.FindRoute(0, tcpip.Address{}, dstAddr, ProtocolNumber, false /* multicastLoop */)
 	switch err.(type) {
 	case nil:
 	// TODO(https://gvisor.dev/issues/8105): We should not observe ErrHostUnreachable from route
@@ -1514,6 +1536,8 @@ type protocol struct {
 
 	ids    []atomicbitops.Uint32
 	hashIV uint32
+	// idTS is the unix timestamp in milliseconds 'ids' was last accessed.
+	idTS atomicbitops.Int64
 
 	fragmentation *fragmentation.Fragmentation
 
@@ -1727,7 +1751,7 @@ func (p *protocol) forwardPendingMulticastPacket(pkt stack.PacketBufferPtr, inst
 }
 
 func (p *protocol) isUnicastAddress(addr tcpip.Address) bool {
-	if len(addr) != header.IPv4AddressSize {
+	if addr.BitLen() != header.IPv4AddressSizeBits {
 		return false
 	}
 
@@ -1761,7 +1785,7 @@ func (p *protocol) isSubnetLocalBroadcastAddress(addr tcpip.Address) bool {
 // returns the parsed IP header.
 //
 // Returns true if the IP header was successfully parsed.
-func (p *protocol) parseAndValidate(pkt stack.PacketBufferPtr) (*bufferv2.View, bool) {
+func (p *protocol) parseAndValidate(pkt stack.PacketBufferPtr) (*buffer.View, bool) {
 	transProtoNum, hasTransportHdr, ok := p.Parse(pkt)
 	if !ok {
 		return nil, false
@@ -1884,8 +1908,9 @@ func packetMustBeFragmented(pkt stack.PacketBufferPtr, networkMTU uint32) bool {
 // on a tcpip.Address (a string) without the need to convert it to a byte slice,
 // which would cause an allocation.
 func addressToUint32(addr tcpip.Address) uint32 {
-	_ = addr[3] // bounds check hint to compiler
-	return uint32(addr[0]) | uint32(addr[1])<<8 | uint32(addr[2])<<16 | uint32(addr[3])<<24
+	addrBytes := addr.As4()
+	_ = addrBytes[3] // bounds check hint to compiler
+	return uint32(addrBytes[0]) | uint32(addrBytes[1])<<8 | uint32(addrBytes[2])<<16 | uint32(addrBytes[3])<<24
 }
 
 // hashRoute calculates a hash value for the given source/destination pair using
@@ -2302,7 +2327,7 @@ func (e *endpoint) processIPOptions(pkt stack.PacketBufferPtr, opts header.IPv4O
 	// really forwarding packets as we may need to get two addresses, for rx and
 	// tx interfaces. We will also have to take usage into account.
 	localAddress := e.MainAddress().Address
-	if len(localAddress) == 0 {
+	if localAddress.BitLen() == 0 {
 		h := header.IPv4(pkt.NetworkHeader().Slice())
 		dstAddr := h.DestinationAddress()
 		if pkt.NetworkPacketInfo.LocalAddressBroadcast || header.IsV4MulticastAddress(dstAddr) {

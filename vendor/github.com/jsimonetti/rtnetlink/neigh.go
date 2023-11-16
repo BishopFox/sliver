@@ -191,7 +191,10 @@ func (a *NeighAttributes) decode(ad *netlink.AttributeDecoder) error {
 			}
 			a.Address = ad.Bytes()
 		case unix.NDA_LLADDR:
-			if len(ad.Bytes()) != 6 {
+			// Allow IEEE 802 MAC-48, EUI-48, EUI-64, or 20-octet
+			// IP over InfiniBand link-layer addresses
+			l := len(ad.Bytes())
+			if l != 6 && l != 8 && l != 20 {
 				return errInvalidNeighMessageAttr
 			}
 			a.LLAddress = ad.Bytes()

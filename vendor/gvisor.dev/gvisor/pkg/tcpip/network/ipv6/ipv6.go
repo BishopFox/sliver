@@ -16,21 +16,18 @@
 package ipv6
 
 import (
-	"encoding/binary"
 	"fmt"
-	"hash/fnv"
 	"math"
 	"reflect"
 	"sort"
 	"time"
 
 	"gvisor.dev/gvisor/pkg/atomicbitops"
-	"gvisor.dev/gvisor/pkg/bufferv2"
+	"gvisor.dev/gvisor/pkg/buffer"
 	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/header/parse"
-	"gvisor.dev/gvisor/pkg/tcpip/network/hash"
 	"gvisor.dev/gvisor/pkg/tcpip/network/internal/fragmentation"
 	"gvisor.dev/gvisor/pkg/tcpip/network/internal/ip"
 	"gvisor.dev/gvisor/pkg/tcpip/network/internal/multicast"
@@ -133,7 +130,7 @@ var policyTable = [...]struct {
 	// 2001::/32 (Teredo prefix as per RFC 4380 section 2.6).
 	{
 		subnet: tcpip.AddressWithPrefix{
-			Address:   "\x20\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+			Address:   tcpip.AddrFrom16([16]byte{0x20, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}),
 			PrefixLen: 32,
 		}.Subnet(),
 		label: 5,
@@ -141,7 +138,7 @@ var policyTable = [...]struct {
 	// 2002::/16 (6to4 prefix as per RFC 3056 section 2).
 	{
 		subnet: tcpip.AddressWithPrefix{
-			Address:   "\x20\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+			Address:   tcpip.AddrFrom16([16]byte{0x20, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}),
 			PrefixLen: 16,
 		}.Subnet(),
 		label: 2,
@@ -149,7 +146,7 @@ var policyTable = [...]struct {
 	// fc00::/7 (Unique local addresses as per RFC 4193 section 3.1).
 	{
 		subnet: tcpip.AddressWithPrefix{
-			Address:   "\xfc\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+			Address:   tcpip.AddrFrom16([16]byte{0xfc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}),
 			PrefixLen: 7,
 		}.Subnet(),
 		label: 13,
@@ -777,7 +774,7 @@ func (e *endpoint) handleFragments(r *stack.Route, networkMTU uint32, pkt stack.
 
 	pf := fragmentation.MakePacketFragmenter(pkt, fragmentPayloadLen, calculateFragmentReserve(pkt))
 	defer pf.Release()
-	id := e.protocol.ids[hashRoute(r, e.protocol.hashIV)%buckets].Add(1)
+	id := e.getFragmentID()
 
 	var n int
 	for {
@@ -999,7 +996,7 @@ func (e *endpoint) forwardUnicastPacket(pkt stack.PacketBufferPtr) ip.Forwarding
 		return &ip.ErrParameterProblem{}
 	}
 
-	r, err := stk.FindRoute(0, "", dstAddr, ProtocolNumber, false /* multicastLoop */)
+	r, err := stk.FindRoute(0, tcpip.Address{}, dstAddr, ProtocolNumber, false /* multicastLoop */)
 	switch err.(type) {
 	case nil:
 	// TODO(https://gvisor.dev/issues/8105): We should not observe ErrHostUnreachable from route
@@ -1465,7 +1462,7 @@ func (e *endpoint) processExtensionHeaders(h header.IPv6, pkt stack.PacketBuffer
 	if v != nil {
 		v.TrimFront(header.IPv6MinimumSize)
 	}
-	buf := bufferv2.MakeWithView(v)
+	buf := buffer.MakeWithView(v)
 	buf.Append(pkt.TransportHeader().View())
 	dataBuf := pkt.Data().ToBuffer()
 	buf.Merge(&dataBuf)
@@ -2096,7 +2093,7 @@ func (e *endpoint) acquireOutgoingPrimaryAddressRLocked(remoteAddr tcpip.Address
 		matchingPrefix uint8
 	}
 
-	if len(remoteAddr) == 0 {
+	if remoteAddr.BitLen() == 0 {
 		return e.mu.addressableEndpointState.AcquireOutgoingPrimaryAddress(remoteAddr, allowExpired)
 	}
 
@@ -2196,7 +2193,7 @@ func (e *endpoint) acquireOutgoingPrimaryAddressRLocked(remoteAddr tcpip.Address
 	// Return the most preferred address that can have its reference count
 	// incremented.
 	for _, c := range cs {
-		if c.addressEndpoint.IncRef() {
+		if c.addressEndpoint.TryIncRef() {
 			return c.addressEndpoint
 		}
 	}
@@ -2288,9 +2285,6 @@ type protocol struct {
 		multicastForwardingDisp stack.MulticastForwardingEventDispatcher
 	}
 
-	ids    []atomicbitops.Uint32
-	hashIV uint32
-
 	// defaultTTL is the current default TTL for the protocol. Only the
 	// uint8 portion of it is meaningful.
 	defaultTTL atomicbitops.Uint32
@@ -2341,7 +2335,7 @@ func (p *protocol) NewEndpoint(nic stack.NetworkInterface, dispatcher stack.Tran
 	const maxMulticastSolicit = 3
 	dadOptions := ip.DADOptions{
 		Clock:              p.stack.Clock(),
-		SecureRNG:          p.stack.SecureRNG(),
+		SecureRNG:          p.stack.SecureRNG().Reader,
 		NonceSize:          nonceSize,
 		ExtendDADTransmits: maxMulticastSolicit,
 		Protocol:           &e.mu.ndp,
@@ -2592,7 +2586,7 @@ func (*protocol) Wait() {}
 // for releasing the returned View.
 //
 // Returns true if the IP header was successfully parsed.
-func (p *protocol) parseAndValidate(pkt stack.PacketBufferPtr) (*bufferv2.View, bool) {
+func (p *protocol) parseAndValidate(pkt stack.PacketBufferPtr) (*buffer.View, bool) {
 	transProtoNum, hasTransportHdr, ok := p.Parse(pkt)
 	if !ok {
 		return nil, false
@@ -2749,21 +2743,10 @@ type Options struct {
 func NewProtocolWithOptions(opts Options) stack.NetworkProtocolFactory {
 	opts.NDPConfigs.validate()
 
-	ids := hash.RandN32(buckets)
-	hashIV := hash.RandN32(1)[0]
-
-	atomicIds := make([]atomicbitops.Uint32, len(ids))
-	for i := range ids {
-		atomicIds[i] = atomicbitops.FromUint32(ids[i])
-	}
-
 	return func(s *stack.Stack) stack.NetworkProtocol {
 		p := &protocol{
 			stack:   s,
 			options: opts,
-
-			ids:    atomicIds,
-			hashIV: hashIV,
 		}
 		p.fragmentation = fragmentation.NewFragmentation(header.IPv6FragmentExtHdrFragmentOffsetBytesPerUnit, fragmentation.HighFragThreshold, fragmentation.LowFragThreshold, ReassembleTimeout, s.Clock(), p)
 		p.mu.eps = make(map[tcpip.NICID]*endpoint)
@@ -2800,27 +2783,15 @@ func calculateFragmentReserve(pkt stack.PacketBufferPtr) int {
 	return pkt.AvailableHeaderBytes() + len(pkt.NetworkHeader().Slice()) + header.IPv6FragmentHeaderSize
 }
 
-// hashRoute calculates a hash value for the given route. It uses the source &
-// destination address and 32-bit number to generate the hash.
-func hashRoute(r *stack.Route, hashIV uint32) uint32 {
-	// The FNV-1a was chosen because it is a fast hashing algorithm, and
-	// cryptographic properties are not needed here.
-	h := fnv.New32a()
-	if _, err := h.Write([]byte(r.LocalAddress())); err != nil {
-		panic(fmt.Sprintf("Hash.Write: %s, but Hash' implementation of Write is not expected to ever return an error", err))
+// getFragmentID returns a random uint32 number (other than zero) to be used as
+// fragment ID in the IPv6 header.
+func (e *endpoint) getFragmentID() uint32 {
+	rng := e.protocol.stack.SecureRNG()
+	id := rng.Uint32()
+	for id == 0 {
+		id = rng.Uint32()
 	}
-
-	if _, err := h.Write([]byte(r.RemoteAddress())); err != nil {
-		panic(fmt.Sprintf("Hash.Write: %s, but Hash' implementation of Write is not expected to ever return an error", err))
-	}
-
-	s := make([]byte, 4)
-	binary.LittleEndian.PutUint32(s, hashIV)
-	if _, err := h.Write(s); err != nil {
-		panic(fmt.Sprintf("Hash.Write: %s, but Hash' implementation of Write is not expected ever to return an error", err))
-	}
-
-	return h.Sum32()
+	return id
 }
 
 func buildNextFragment(pf *fragmentation.PacketFragmenter, originalIPHeaders header.IPv6, transportProto tcpip.TransportProtocolNumber, id uint32) (stack.PacketBufferPtr, bool) {

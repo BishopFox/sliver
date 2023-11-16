@@ -2,14 +2,15 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build windows
 // +build windows
 
 // Package negotiate provides access to the Microsoft Negotiate SSP Package.
-//
 package negotiate
 
 import (
 	"errors"
+	"sync"
 	"syscall"
 	"time"
 	"unsafe"
@@ -20,15 +21,36 @@ import (
 
 // TODO: maybe (if possible) move all winapi related out of sspi and into sspi/internal/winapi
 
-// PackageInfo contains Negotiate SSP package description.
+// PackageInfo contains the Negotiate SSP package description.
+//
+// It's initialized best-effort during init. During early boot it may not
+// yet be loaded & available and thus this will be nil.
+//
+// Deprecated: use GetPackageInfo instead.
 var PackageInfo *sspi.PackageInfo
 
 func init() {
-	var err error
-	PackageInfo, err = sspi.QueryPackageInfo(sspi.NEGOSSP_NAME)
-	if err != nil {
-		panic("failed to fetch Negotiate package info: " + err.Error())
+	PackageInfo, _ = GetPackageInfo()
+}
+
+var (
+	pkgInfoMu sync.Mutex
+	pkgInfo   *sspi.PackageInfo
+)
+
+// GetPackageInfo returns the Negotiate SSP package description.
+func GetPackageInfo() (*sspi.PackageInfo, error) {
+	pkgInfoMu.Lock()
+	defer pkgInfoMu.Unlock()
+	if pkgInfo != nil {
+		return pkgInfo, nil
 	}
+	v, err := sspi.QueryPackageInfo(sspi.NEGOSSP_NAME)
+	if err != nil {
+		return nil, err
+	}
+	pkgInfo = v
+	return v, nil
 }
 
 func acquireCredentials(principalName string, creduse uint32, ai *sspi.SEC_WINNT_AUTH_IDENTITY) (*sspi.Credentials, error) {
@@ -107,7 +129,11 @@ func NewClientContextWithFlags(cred *sspi.Credentials, targetName string, flags 
 			tname = &p[0]
 		}
 	}
-	otoken := make([]byte, PackageInfo.MaxToken)
+	pkgInfo, err := GetPackageInfo()
+	if err != nil {
+		return nil, nil, err
+	}
+	otoken := make([]byte, pkgInfo.MaxToken)
 	c := sspi.NewClientContext(cred, flags)
 
 	authCompleted, n, err2 := common.UpdateContext(c, otoken, nil, tname)
@@ -144,7 +170,11 @@ func (c *ClientContext) Expiry() time.Time {
 // of authentication is complete. It also returns new token to be
 // sent to the server.
 func (c *ClientContext) Update(token []byte) (authCompleted bool, outputToken []byte, err error) {
-	otoken := make([]byte, PackageInfo.MaxToken)
+	pkgInfo, err := GetPackageInfo()
+	if err != nil {
+		return false, nil, err
+	}
+	otoken := make([]byte, pkgInfo.MaxToken)
 	authDone, n, err2 := common.UpdateContext(c.sctxt, otoken, token, c.targetName)
 	if err2 != nil {
 		return false, nil, err2
@@ -219,7 +249,11 @@ type ServerContext struct {
 // the client to start server Negotiate negotiation sequence.
 // It also returns new token to be sent to the client.
 func NewServerContext(cred *sspi.Credentials, token []byte) (sc *ServerContext, authDone bool, outputToken []byte, err error) {
-	otoken := make([]byte, PackageInfo.MaxToken)
+	pkgInfo, err := GetPackageInfo()
+	if err != nil {
+		return nil, false, nil, err
+	}
+	otoken := make([]byte, pkgInfo.MaxToken)
 	c := sspi.NewServerContext(cred, sspi.ASC_REQ_CONNECTION)
 	authDone, n, err2 := common.UpdateContext(c, otoken, token, nil)
 	if err2 != nil {
@@ -247,7 +281,11 @@ func (c *ServerContext) Expiry() time.Time {
 // of authentication is complete. It also returns new token to be
 // sent to the client.
 func (c *ServerContext) Update(token []byte) (authCompleted bool, outputToken []byte, err error) {
-	otoken := make([]byte, PackageInfo.MaxToken)
+	pkgInfo, err := GetPackageInfo()
+	if err != nil {
+		return false, nil, err
+	}
+	otoken := make([]byte, pkgInfo.MaxToken)
 	authDone, n, err2 := common.UpdateContext(c.sctxt, otoken, token, nil)
 	if err2 != nil {
 		return false, nil, err2

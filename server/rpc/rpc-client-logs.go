@@ -114,7 +114,7 @@ func (rpc *Server) ClientLog(stream rpcpb.SliverRPC_ClientLogServer) error {
 				return err
 			}
 		}
-		rpcClientLogs.Infof("Received %d bytes of client console log data for stream %s", len(fromClient.GetData()), streamName)
+		rpcClientLogs.Debugf("Received %d bytes of client console log data for stream %s", len(fromClient.GetData()), streamName)
 		streams[streamName].Write(fromClient.GetData())
 	}
 	return nil

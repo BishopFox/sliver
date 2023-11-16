@@ -17,12 +17,11 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"gvisor.dev/gvisor/pkg/bufferv2"
+	"gvisor.dev/gvisor/pkg/buffer"
 	"gvisor.dev/gvisor/pkg/refs"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/adapters/gonet"
@@ -150,10 +149,11 @@ type Impl struct {
 
 const nicID = 1
 
-// maxUDPPacketSize is the maximum size of a UDP packet we copy in startPacketCopy
-// when relaying UDP packets. We don't use the 'mtu' const in anticipation of
-// one day making the MTU more dynamic.
-const maxUDPPacketSize = 1500
+// maxUDPPacketSize is the maximum size of a UDP packet we copy in
+// startPacketCopy when relaying UDP packets. The user can configure
+// the tailscale MTU to anything up to this size so we can potentially
+// have a UDP packet as big as the MTU.
+const maxUDPPacketSize = tstun.MaxPacketSize
 
 // Create creates and populates a new Impl.
 func Create(logf logger.Logf, tundev *tstun.Wrapper, e wgengine.Engine, mc *magicsock.Conn, dialer *tsdial.Dialer, dns *dns.Manager, pm *proxymap.Mapper) (*Impl, error) {
@@ -184,7 +184,7 @@ func Create(logf logger.Logf, tundev *tstun.Wrapper, e wgengine.Engine, mc *magi
 	if tcpipErr != nil {
 		return nil, fmt.Errorf("could not enable TCP SACK: %v", tcpipErr)
 	}
-	linkEP := channel.New(512, tstun.DefaultMTU(), "")
+	linkEP := channel.New(512, uint32(tstun.DefaultTUNMTU()), "")
 	if tcpipProblem := ipstack.CreateNIC(nicID, linkEP); tcpipProblem != nil {
 		return nil, fmt.Errorf("could not create netstack NIC: %v", tcpipProblem)
 	}
@@ -196,8 +196,14 @@ func Create(logf logger.Logf, tundev *tstun.Wrapper, e wgengine.Engine, mc *magi
 	ipstack.SetPromiscuousMode(nicID, true)
 	// Add IPv4 and IPv6 default routes, so all incoming packets from the Tailscale side
 	// are handled by the one fake NIC we use.
-	ipv4Subnet, _ := tcpip.NewSubnet(tcpip.Address(strings.Repeat("\x00", 4)), tcpip.AddressMask(strings.Repeat("\x00", 4)))
-	ipv6Subnet, _ := tcpip.NewSubnet(tcpip.Address(strings.Repeat("\x00", 16)), tcpip.AddressMask(strings.Repeat("\x00", 16)))
+	ipv4Subnet, err := tcpip.NewSubnet(tcpip.AddrFromSlice(make([]byte, 4)), tcpip.MaskFromBytes(make([]byte, 4)))
+	if err != nil {
+		return nil, fmt.Errorf("could not create IPv4 subnet: %v", err)
+	}
+	ipv6Subnet, err := tcpip.NewSubnet(tcpip.AddrFromSlice(make([]byte, 16)), tcpip.MaskFromBytes(make([]byte, 16)))
+	if err != nil {
+		return nil, fmt.Errorf("could not create IPv6 subnet: %v", err)
+	}
 	ipstack.SetRouteTable([]tcpip.Route{
 		{
 			Destination: ipv4Subnet,
@@ -240,7 +246,7 @@ func (ns *Impl) Close() error {
 func (ns *Impl) wrapProtoHandler(h func(stack.TransportEndpointID, stack.PacketBufferPtr) bool) func(stack.TransportEndpointID, stack.PacketBufferPtr) bool {
 	return func(tei stack.TransportEndpointID, pb stack.PacketBufferPtr) bool {
 		addr := tei.LocalAddress
-		ip, ok := netip.AddrFromSlice(net.IP(addr))
+		ip, ok := netip.AddrFromSlice(addr.AsSlice())
 		if !ok {
 			ns.logf("netstack: could not parse local address for incoming connection")
 			return false
@@ -279,10 +285,7 @@ func (ns *Impl) addSubnetAddress(ip netip.Addr) {
 	// Only register address into netstack for first concurrent connection.
 	if needAdd {
 		pa := tcpip.ProtocolAddress{
-			AddressWithPrefix: tcpip.AddressWithPrefix{
-				Address:   tcpip.Address(ip.AsSlice()),
-				PrefixLen: int(ip.BitLen()),
-			},
+			AddressWithPrefix: tcpip.AddrFromSlice(ip.AsSlice()).WithPrefix(),
 		}
 		if ip.Is4() {
 			pa.Protocol = ipv4.ProtocolNumber
@@ -302,14 +305,14 @@ func (ns *Impl) removeSubnetAddress(ip netip.Addr) {
 	ns.connsOpenBySubnetIP[ip]--
 	// Only unregister address from netstack after last concurrent connection.
 	if ns.connsOpenBySubnetIP[ip] == 0 {
-		ns.ipstack.RemoveAddress(nicID, tcpip.Address(ip.AsSlice()))
+		ns.ipstack.RemoveAddress(nicID, tcpip.AddrFromSlice(ip.AsSlice()))
 		delete(ns.connsOpenBySubnetIP, ip)
 	}
 }
 
 func ipPrefixToAddressWithPrefix(ipp netip.Prefix) tcpip.AddressWithPrefix {
 	return tcpip.AddressWithPrefix{
-		Address:   tcpip.Address(ipp.Addr().AsSlice()),
+		Address:   tcpip.AddrFromSlice(ipp.Addr().AsSlice()),
 		PrefixLen: int(ipp.Bits()),
 	}
 }
@@ -330,7 +333,7 @@ func (ns *Impl) UpdateNetstackIPs(nm *netmap.NetworkMap) {
 		ns.atomicIsLocalIPFunc.Store(tsaddr.FalseContainsIPFunc())
 	}
 
-	oldIPs := make(map[tcpip.AddressWithPrefix]bool)
+	oldPfx := make(map[netip.Prefix]bool)
 	for _, protocolAddr := range ns.ipstack.AllAddresses()[nicID] {
 		ap := protocolAddr.AddressWithPrefix
 		ip := netaddrIPFromNetstackIP(ap.Address)
@@ -340,70 +343,77 @@ func (ns *Impl) UpdateNetstackIPs(nm *netmap.NetworkMap) {
 			// ours to delete.
 			continue
 		}
-		oldIPs[ap] = true
+		p := netip.PrefixFrom(ip, ap.PrefixLen)
+		oldPfx[p] = true
 	}
-	newIPs := make(map[tcpip.AddressWithPrefix]bool)
+	newPfx := make(map[netip.Prefix]bool)
 
-	isAddr := map[netip.Prefix]bool{}
 	if selfNode.Valid() {
 		for i := range selfNode.Addresses().LenIter() {
-			ipp := selfNode.Addresses().At(i)
-			isAddr[ipp] = true
-			newIPs[ipPrefixToAddressWithPrefix(ipp)] = true
+			p := selfNode.Addresses().At(i)
+			newPfx[p] = true
 		}
-		for i := range selfNode.AllowedIPs().LenIter() {
-			ipp := selfNode.AllowedIPs().At(i)
-			if !isAddr[ipp] && ns.ProcessSubnets {
-				newIPs[ipPrefixToAddressWithPrefix(ipp)] = true
+		if ns.ProcessSubnets {
+			for i := range selfNode.AllowedIPs().LenIter() {
+				p := selfNode.AllowedIPs().At(i)
+				newPfx[p] = true
 			}
 		}
 	}
 
-	ipsToBeAdded := make(map[tcpip.AddressWithPrefix]bool)
-	for ipp := range newIPs {
-		if !oldIPs[ipp] {
-			ipsToBeAdded[ipp] = true
+	pfxToAdd := make(map[netip.Prefix]bool)
+	for p := range newPfx {
+		if !oldPfx[p] {
+			pfxToAdd[p] = true
 		}
 	}
-	ipsToBeRemoved := make(map[tcpip.AddressWithPrefix]bool)
-	for ip := range oldIPs {
-		if !newIPs[ip] {
-			ipsToBeRemoved[ip] = true
+	pfxToRemove := make(map[netip.Prefix]bool)
+	for p := range oldPfx {
+		if !newPfx[p] {
+			pfxToRemove[p] = true
 		}
 	}
 	ns.mu.Lock()
 	for ip := range ns.connsOpenBySubnetIP {
-		ipp := tcpip.Address(ip.AsSlice()).WithPrefix()
-		delete(ipsToBeRemoved, ipp)
+		// TODO(maisem): this looks like a bug, remove or document. It seems as
+		// though we might end up either leaking the address on the netstack
+		// NIC, or where we do accounting for connsOpenBySubnetIP from 1 to 0,
+		// we might end up removing the address from the netstack NIC that was
+		// still being advertised.
+		delete(pfxToRemove, netip.PrefixFrom(ip, ip.BitLen()))
 	}
 	ns.mu.Unlock()
 
-	for ipp := range ipsToBeRemoved {
-		err := ns.ipstack.RemoveAddress(nicID, ipp.Address)
+	for p := range pfxToRemove {
+		err := ns.ipstack.RemoveAddress(nicID, tcpip.AddrFromSlice(p.Addr().AsSlice()))
 		if err != nil {
-			ns.logf("netstack: could not deregister IP %s: %v", ipp, err)
+			ns.logf("netstack: could not deregister IP %s: %v", p, err)
 		} else {
-			ns.logf("[v2] netstack: deregistered IP %s", ipp)
+			ns.logf("[v2] netstack: deregistered IP %s", p)
 		}
 	}
-	for ipp := range ipsToBeAdded {
-		pa := tcpip.ProtocolAddress{
-			AddressWithPrefix: ipp,
+	for p := range pfxToAdd {
+		if !p.IsValid() {
+			ns.logf("netstack: [unexpected] skipping invalid IP (%v/%v)", p.Addr(), p.Bits())
+			continue
 		}
-		if ipp.Address.To4() == "" {
-			pa.Protocol = ipv6.ProtocolNumber
+		tcpAddr := tcpip.ProtocolAddress{
+			AddressWithPrefix: ipPrefixToAddressWithPrefix(p),
+		}
+		if p.Addr().Is6() {
+			tcpAddr.Protocol = ipv6.ProtocolNumber
 		} else {
-			pa.Protocol = ipv4.ProtocolNumber
+			tcpAddr.Protocol = ipv4.ProtocolNumber
 		}
-		var err tcpip.Error
-		err = ns.ipstack.AddProtocolAddress(nicID, pa, stack.AddressProperties{
+		var tcpErr tcpip.Error // not error
+		tcpErr = ns.ipstack.AddProtocolAddress(nicID, tcpAddr, stack.AddressProperties{
 			PEB:        stack.CanBePrimaryEndpoint, // zero value default
 			ConfigType: stack.AddressConfigStatic,  // zero value default
 		})
-		if err != nil {
-			ns.logf("netstack: could not register IP %s: %v", ipp, err)
+		if tcpErr != nil {
+			ns.logf("netstack: could not register IP %s: %v", p, tcpErr)
 		} else {
-			ns.logf("[v2] netstack: registered IP %s", ipp)
+			ns.logf("[v2] netstack: registered IP %s", p)
 		}
 	}
 }
@@ -446,7 +456,7 @@ func (ns *Impl) handleLocalPackets(p *packet.Parsed, t *tstun.Wrapper) filter.Re
 	}
 
 	packetBuf := stack.NewPacketBuffer(stack.PacketBufferOptions{
-		Payload: bufferv2.MakeWithData(bytes.Clone(p.Buffer())),
+		Payload: buffer.MakeWithData(bytes.Clone(p.Buffer())),
 	})
 	ns.linkEP.InjectInbound(pn, packetBuf)
 	packetBuf.DecRef()
@@ -456,7 +466,7 @@ func (ns *Impl) handleLocalPackets(p *packet.Parsed, t *tstun.Wrapper) filter.Re
 func (ns *Impl) DialContextTCP(ctx context.Context, ipp netip.AddrPort) (*gonet.TCPConn, error) {
 	remoteAddress := tcpip.FullAddress{
 		NIC:  nicID,
-		Addr: tcpip.Address(ipp.Addr().AsSlice()),
+		Addr: tcpip.AddrFromSlice(ipp.Addr().AsSlice()),
 		Port: ipp.Port(),
 	}
 	var ipType tcpip.NetworkProtocolNumber
@@ -472,7 +482,7 @@ func (ns *Impl) DialContextTCP(ctx context.Context, ipp netip.AddrPort) (*gonet.
 func (ns *Impl) DialContextUDP(ctx context.Context, ipp netip.AddrPort) (*gonet.UDPConn, error) {
 	remoteAddress := &tcpip.FullAddress{
 		NIC:  nicID,
-		Addr: tcpip.Address(ipp.Addr().AsSlice()),
+		Addr: tcpip.AddrFromSlice(ipp.Addr().AsSlice()),
 		Port: ipp.Port(),
 	}
 	var ipType tcpip.NetworkProtocolNumber
@@ -738,7 +748,7 @@ func (ns *Impl) injectInbound(p *packet.Parsed, t *tstun.Wrapper) filter.Respons
 		ns.logf("[v2] packet in (from %v): % x", p.Src, p.Buffer())
 	}
 	packetBuf := stack.NewPacketBuffer(stack.PacketBufferOptions{
-		Payload: bufferv2.MakeWithData(bytes.Clone(p.Buffer())),
+		Payload: buffer.MakeWithData(bytes.Clone(p.Buffer())),
 	})
 	ns.linkEP.InjectInbound(pn, packetBuf)
 	packetBuf.DecRef()
@@ -806,13 +816,13 @@ func (ns *Impl) shouldHandlePing(p *packet.Parsed) (_ netip.Addr, ok bool) {
 }
 
 func netaddrIPFromNetstackIP(s tcpip.Address) netip.Addr {
-	switch len(s) {
+	switch s.Len() {
 	case 4:
+		s := s.As4()
 		return netaddr.IPv4(s[0], s[1], s[2], s[3])
 	case 16:
-		var a [16]byte
-		copy(a[:], s)
-		return netip.AddrFrom16(a).Unmap()
+		s := s.As16()
+		return netip.AddrFrom16(s).Unmap()
 	}
 	return netip.Addr{}
 }
@@ -1059,10 +1069,17 @@ func (ns *Impl) acceptUDP(r *udp.ForwarderRequest) {
 	go ns.forwardUDP(c, srcAddr, dstAddr)
 }
 
+// Buffer pool for forwarding UDP packets. Implementations are advised not to
+// exceed 512 bytes per DNS request due to fragmenting but in reality can and do
+// send much larger packets, so use the maximum possible UDP packet size.
+var udpBufPool = &sync.Pool{
+	New: func() any {
+		b := make([]byte, maxUDPPacketSize)
+		return &b
+	},
+}
+
 func (ns *Impl) handleMagicDNSUDP(srcAddr netip.AddrPort, c *gonet.UDPConn) {
-	// In practice, implementations are advised not to exceed 512 bytes
-	// due to fragmenting. Just to be sure, we bump all the way to the MTU.
-	var maxUDPReqSize = tstun.DefaultMTU()
 	// Packets are being generated by the local host, so there should be
 	// very, very little latency. 150ms was chosen as something of an upper
 	// bound on resource usage, while hopefully still being long enough for
@@ -1070,7 +1087,10 @@ func (ns *Impl) handleMagicDNSUDP(srcAddr netip.AddrPort, c *gonet.UDPConn) {
 	const readDeadline = 150 * time.Millisecond
 
 	defer c.Close()
-	q := make([]byte, maxUDPReqSize)
+
+	bufp := udpBufPool.Get().(*[]byte)
+	defer udpBufPool.Put(bufp)
+	q := *bufp
 
 	// libresolv from glibc is quite adamant that transmitting multiple DNS
 	// requests down the same UDP socket is valid. To support this, we read
@@ -1086,7 +1106,7 @@ func (ns *Impl) handleMagicDNSUDP(srcAddr netip.AddrPort, c *gonet.UDPConn) {
 			}
 			return
 		}
-		resp, err := ns.dns.Query(context.Background(), q[:n], srcAddr)
+		resp, err := ns.dns.Query(context.Background(), q[:n], "udp", srcAddr)
 		if err != nil {
 			ns.logf("dns udp query: %v", err)
 			return
@@ -1183,7 +1203,11 @@ func startPacketCopy(ctx context.Context, cancel context.CancelFunc, dst net.Pac
 	}
 	go func() {
 		defer cancel() // tear down the other direction's copy
-		pkt := make([]byte, maxUDPPacketSize)
+
+		bufp := udpBufPool.Get().(*[]byte)
+		defer udpBufPool.Put(bufp)
+		pkt := *bufp
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -1219,17 +1243,8 @@ func stringifyTEI(tei stack.TransportEndpointID) string {
 }
 
 func ipPortOfNetstackAddr(a tcpip.Address, port uint16) (ipp netip.AddrPort, ok bool) {
-	var a16 [16]byte
-	copy(a16[:], a)
-	switch len(a) {
-	case 4:
-		return netip.AddrPortFrom(
-			netip.AddrFrom4(*(*[4]byte)(a16[:4])).Unmap(),
-			port,
-		), true
-	case 16:
-		return netip.AddrPortFrom(netip.AddrFrom16(a16).Unmap(), port), true
-	default:
-		return ipp, false
+	if addr, ok := netip.AddrFromSlice(a.AsSlice()); ok {
+		return netip.AddrPortFrom(addr, port), true
 	}
+	return netip.AddrPort{}, false
 }

@@ -24,9 +24,19 @@ const (
 	System
 )
 
+// StorePermission defines the store permission to open the store with
+type StorePermission int
+
+const (
+	// ReadOnly is the store permission allows reading and using certificates
+	ReadOnly StorePermission = iota
+	// ReadWrite is the store permission that allows importing certificates
+	ReadWrite
+)
+
 // Open opens the system's certificate store.
-func Open(location StoreLocation) (Store, error) {
-	return openStore(location)
+func Open(location StoreLocation, permissions ...StorePermission) (Store, error) {
+	return openStore(location, permissions...)
 }
 
 // Store represents the system's certificate store.

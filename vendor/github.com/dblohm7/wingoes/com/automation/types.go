@@ -26,6 +26,9 @@ func NewBSTR(s string) BSTR {
 
 // NewBSTR creates a new BSTR from slice us, which contains UTF-16 code units.
 func NewBSTRFromUTF16(us []uint16) BSTR {
+	if len(us) == 0 {
+		return 0
+	}
 	return sysAllocStringLen(&us[0], uint32(len(us)))
 }
 
@@ -64,6 +67,9 @@ func (bs *BSTR) toUTF16Ptr() *uint16 {
 // ToUTF16 returns the contents of bs as C-style string pointer to UTF-16 code units.
 func (bs *BSTR) ToUTF16Ptr() *uint16 {
 	slc := bs.ToUTF16()
+	if len(slc) == 0 {
+		return nil
+	}
 	return &slc[0]
 }
 

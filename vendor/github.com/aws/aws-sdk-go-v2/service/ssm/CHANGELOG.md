@@ -1,3 +1,56 @@
+# v1.38.0 (2023-09-25)
+
+* **Feature**: This release updates the enum values for ResourceType in SSM DescribeInstanceInformation input and ConnectionStatus in GetConnectionStatus output.
+
+# v1.37.5 (2023-08-21)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.37.4 (2023-08-18)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.37.3 (2023-08-17)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.37.2 (2023-08-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.37.1 (2023-08-01)
+
+* No change notes available for this release.
+
+# v1.37.0 (2023-07-31)
+
+* **Feature**: Adds support for smithy-modeled endpoint resolution. A new rules-based endpoint resolution will be added to the SDK which will supercede and deprecate existing endpoint resolution. Specifically, EndpointResolver will be deprecated while BaseEndpoint and EndpointResolverV2 will take its place. For more information, please see the Endpoints section in our Developer Guide.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.36.9 (2023-07-28)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.36.8 (2023-07-13)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.36.7 (2023-06-27)
+
+* **Documentation**: Systems Manager doc-only update for June 2023.
+
+# v1.36.6 (2023-06-15)
+
+* No change notes available for this release.
+
+# v1.36.5 (2023-06-13)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.36.4 (2023-05-04)
+
+* No change notes available for this release.
+
 # v1.36.3 (2023-04-24)
 
 * **Dependency Update**: Updated to the latest SDK module versions

@@ -123,8 +123,7 @@ type userspaceEngine struct {
 	trimmedNodes        map[key.NodePublic]bool   // set of node keys of peers currently excluded from wireguard config
 	sentActivityAt      map[netip.Addr]*mono.Time // value is accessed atomically
 	destIPActivityFuncs map[netip.Addr]func()
-	statusBufioReader   *bufio.Reader // reusable for UAPI
-	lastStatusPollTime  mono.Time     // last time we polled the engine status
+	lastStatusPollTime  mono.Time // last time we polled the engine status
 
 	mu             sync.Mutex         // guards following; see lock order comment below
 	netMap         *netmap.NetworkMap // or nil
@@ -304,7 +303,7 @@ func NewUserspaceEngine(logf logger.Logf, conf Config) (_ Engine, reterr error) 
 	tunName, _ := conf.Tun.Name()
 	conf.Dialer.SetTUNName(tunName)
 	conf.Dialer.SetNetMon(e.netMon)
-	e.dns = dns.NewManager(logf, conf.DNS, e.netMon, conf.Dialer, fwdDNSLinkSelector{e, tunName})
+	e.dns = dns.NewManager(logf, conf.DNS, e.netMon, conf.Dialer, fwdDNSLinkSelector{e, tunName}, conf.ControlKnobs)
 
 	// TODO: there's probably a better place for this
 	sockstats.SetNetMon(e.netMon)

@@ -101,6 +101,11 @@ func (r *Route) Loop() PacketLooping {
 	return r.routeInfo.Loop
 }
 
+// OutgoingNIC returns the route's outgoing NIC.
+func (r *Route) OutgoingNIC() tcpip.NICID {
+	return r.outgoingNIC.id
+}
+
 // RouteInfo contains all of Route's exported fields.
 //
 // +stateify savable
@@ -136,7 +141,7 @@ func (r *Route) fieldsLocked() RouteInfo {
 //
 // Returns an empty route if validation fails.
 func constructAndValidateRoute(netProto tcpip.NetworkProtocolNumber, addressEndpoint AssignableAddressEndpoint, localAddressNIC, outgoingNIC *nic, gateway, localAddr, remoteAddr tcpip.Address, handleLocal, multicastLoop bool) *Route {
-	if len(localAddr) == 0 {
+	if localAddr.BitLen() == 0 {
 		localAddr = addressEndpoint.AddressWithPrefix().Address
 	}
 
@@ -146,7 +151,7 @@ func constructAndValidateRoute(netProto tcpip.NetworkProtocolNumber, addressEndp
 	}
 
 	// If no remote address is provided, use the local address.
-	if len(remoteAddr) == 0 {
+	if remoteAddr.BitLen() == 0 {
 		remoteAddr = localAddr
 	}
 
@@ -172,7 +177,7 @@ func makeRoute(netProto tcpip.NetworkProtocolNumber, gateway, localAddr, remoteA
 		panic(fmt.Sprintf("cannot create a route with NICs from different stacks"))
 	}
 
-	if len(localAddr) == 0 {
+	if localAddr.BitLen() == 0 {
 		localAddr = localAddressEndpoint.AddressWithPrefix().Address
 	}
 
@@ -182,7 +187,7 @@ func makeRoute(netProto tcpip.NetworkProtocolNumber, gateway, localAddr, remoteA
 	// link endpoint level. We can remove this check once loopback interfaces
 	// loop back packets at the network layer.
 	if !outgoingNIC.IsLoopback() {
-		if handleLocal && localAddr != "" && remoteAddr == localAddr {
+		if handleLocal && localAddr != (tcpip.Address{}) && remoteAddr == localAddr {
 			loop = PacketLoop
 		} else if multicastLoop && (header.IsV4MulticastAddress(remoteAddr) || header.IsV6MulticastAddress(remoteAddr)) {
 			loop |= PacketLoop
@@ -206,7 +211,7 @@ func makeRoute(netProto tcpip.NetworkProtocolNumber, gateway, localAddr, remoteA
 		}
 	}
 
-	if len(gateway) > 0 {
+	if gateway.BitLen() > 0 {
 		r.routeInfo.NextHop = gateway
 		return r
 	}
@@ -434,7 +439,7 @@ func (r *Route) setCachedNeighborEntry(entry *neighborEntry) {
 }
 
 func (r *Route) nextHop() tcpip.Address {
-	if len(r.NextHop()) == 0 {
+	if r.NextHop().BitLen() == 0 {
 		return r.RemoteAddress()
 	}
 	return r.NextHop()
@@ -537,7 +542,7 @@ func (r *Route) Acquire() {
 // +checklocksread:r.mu
 func (r *Route) acquireLocked() {
 	if ep := r.localAddressEndpoint; ep != nil {
-		if !ep.IncRef() {
+		if !ep.TryIncRef() {
 			panic(fmt.Sprintf("failed to increment reference count for local address endpoint = %s", r.LocalAddress()))
 		}
 	}

@@ -10,13 +10,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/netip"
 	"reflect"
 	"slices"
 	"strings"
 	"time"
 
-	"golang.org/x/exp/maps"
 	"tailscale.com/types/dnstype"
 	"tailscale.com/types/key"
 	"tailscale.com/types/opt"
@@ -24,6 +24,7 @@ import (
 	"tailscale.com/types/tkatype"
 	"tailscale.com/util/cmpx"
 	"tailscale.com/util/dnsname"
+	"tailscale.com/util/slicesx"
 )
 
 // CapabilityVersion represents the client's capability level. That
@@ -114,7 +115,12 @@ type CapabilityVersion int
 //   - 72: 2023-08-23: TS-2023-006 UPnP issue fixed; UPnP can now be used again
 //   - 73: 2023-09-01: Non-Windows clients expect to receive ClientVersion
 //   - 74: 2023-09-18: Client understands NodeCapMap
-const CurrentCapabilityVersion CapabilityVersion = 74
+//   - 75: 2023-09-12: Client understands NodeAttrDNSForwarderDisableTCPRetries
+//   - 76: 2023-09-20: Client understands ExitNodeDNSResolvers for IsWireGuardOnly nodes
+//   - 77: 2023-10-03: Client understands Peers[].SelfNodeV6MasqAddrForThisPeer
+//   - 78: 2023-10-05: can handle c2n Wake-on-LAN sending
+//   - 79: 2023-10-05: Client understands UrgentSecurityUpdate in ClientVersion
+const CurrentCapabilityVersion CapabilityVersion = 79
 
 type StableID string
 
@@ -266,9 +272,9 @@ type Node struct {
 	KeySignature tkatype.MarshaledSignature `json:",omitempty"`
 	Machine      key.MachinePublic
 	DiscoKey     key.DiscoPublic
-	Addresses    []netip.Prefix // IP addresses of this Node directly
-	AllowedIPs   []netip.Prefix // range of IP addresses to route to this node
-	Endpoints    []string       `json:",omitempty"` // IP+port (public via STUN, and local LANs)
+	Addresses    []netip.Prefix   // IP addresses of this Node directly
+	AllowedIPs   []netip.Prefix   // range of IP addresses to route to this node
+	Endpoints    []netip.AddrPort `json:",omitempty"` // IP+port (public via STUN, and local LANs)
 
 	// DERP is this node's home DERP region ID integer, but shoved into an
 	// IP:port string for legacy reasons. The IP address is always "127.3.3.40"
@@ -639,7 +645,7 @@ type Service struct {
 	//     * "peerapi6": peerapi is available on IPv6; Port is the
 	//        port number that the peerapi is running on the
 	//        node's Tailscale IPv6 address.
-	//     * "peerapi-dns": the local peerapi service supports
+	//     * "peerapi-dns-proxy": the local peerapi service supports
 	//        being a DNS proxy (when the node is an exit
 	//        node). For this service, the Port number is really
 	//        the version number of the service.
@@ -731,12 +737,14 @@ type Hostinfo struct {
 	GoVersion       string         `json:",omitempty"` // Go version binary was built with
 	RoutableIPs     []netip.Prefix `json:",omitempty"` // set of IP ranges this client can route
 	RequestTags     []string       `json:",omitempty"` // set of ACL tags this node wants to claim
+	WoLMACs         []string       `json:",omitempty"` // MAC address(es) to send Wake-on-LAN packets to wake this node (lowercase hex w/ colons)
 	Services        []Service      `json:",omitempty"` // services advertised by this machine
 	NetInfo         *NetInfo       `json:",omitempty"`
 	SSH_HostKeys    []string       `json:"sshHostKeys,omitempty"` // if advertised
 	Cloud           string         `json:",omitempty"`
 	Userspace       opt.Bool       `json:",omitempty"` // if the client is running in userspace (netstack) mode
 	UserspaceRouter opt.Bool       `json:",omitempty"` // if the client's subnet router is running in userspace (netstack) mode
+	AppConnector    opt.Bool       `json:",omitempty"` // if the client is running the app-connector service
 
 	// Location represents geographical location data about a
 	// Tailscale host. Location is optional and only set if
@@ -1094,6 +1102,17 @@ type RegisterRequest struct {
 	Timestamp     *time.Time    `json:",omitempty"` // creation time of request to prevent replay
 	DeviceCert    []byte        `json:",omitempty"` // X.509 certificate for client device
 	Signature     []byte        `json:",omitempty"` // as described by SignatureType
+
+	// Tailnet is an optional identifier specifying the name of the recommended or required
+	// network that the node should join. Its exact form should not be depended on; new
+	// forms are coming later. The identifier is generally a domain name (for an organization)
+	// or e-mail address (for a personal account on a shared e-mail provider). It is the same name
+	// used by the API, as described in /api.md#tailnet.
+	// If Tailnet begins with the prefix "required:" then the server should prevent logging in to a different
+	// network than the one specified. Otherwise, the server should recommend the specified network
+	// but still permit logging in to other networks.
+	// If empty, no recommendation is offered to the server and the login page should show all options.
+	Tailnet string `json:",omitempty"`
 }
 
 // RegisterResponse is returned by the server in response to a RegisterRequest.
@@ -1208,7 +1227,7 @@ type MapRequest struct {
 
 	// Endpoints are the client's magicsock UDP ip:port endpoints (IPv4 or IPv6).
 	// These can be ignored if Stream is true and Version >= 68.
-	Endpoints []string
+	Endpoints []netip.AddrPort `json:",omitempty"`
 	// EndpointTypes are the types of the corresponding endpoints in Endpoints.
 	EndpointTypes []EndpointType `json:",omitempty"`
 
@@ -1842,9 +1861,12 @@ type ClientVersion struct {
 	// LatestVersion is the latest version.Short ("1.34.2") version available
 	// for download for the client's platform and packaging type.
 	// It won't be populated if RunningLatest is true.
-	// The primary purpose of the LatestVersion value is to invalidate the client's
-	// cache update check value, if any. This primarily applies to Windows.
 	LatestVersion string `json:",omitempty"`
+
+	// UrgentSecurityUpdate is set when the client is missing an important
+	// security update. That update may be in LatestVersion or earlier.
+	// UrgentSecurityUpdate should not be set if RunningLatest is false.
+	UrgentSecurityUpdate bool `json:",omitempty"`
 
 	// Notify is whether the client should do an OS-specific notification about
 	// a new version being available. This should not be populated if
@@ -1937,10 +1959,10 @@ func (n *Node) Equal(n2 *Node) bool {
 		n.Machine == n2.Machine &&
 		n.DiscoKey == n2.DiscoKey &&
 		eqPtr(n.Online, n2.Online) &&
-		eqCIDRs(n.Addresses, n2.Addresses) &&
-		eqCIDRs(n.AllowedIPs, n2.AllowedIPs) &&
-		eqCIDRs(n.PrimaryRoutes, n2.PrimaryRoutes) &&
-		eqStrings(n.Endpoints, n2.Endpoints) &&
+		slicesx.EqualSameNil(n.Addresses, n2.Addresses) &&
+		slicesx.EqualSameNil(n.AllowedIPs, n2.AllowedIPs) &&
+		slicesx.EqualSameNil(n.PrimaryRoutes, n2.PrimaryRoutes) &&
+		slicesx.EqualSameNil(n.Endpoints, n2.Endpoints) &&
 		n.DERP == n2.DERP &&
 		n.Cap == n2.Cap &&
 		n.Hostinfo.Equal(n2.Hostinfo) &&
@@ -1952,7 +1974,7 @@ func (n *Node) Equal(n2 *Node) bool {
 		n.ComputedName == n2.ComputedName &&
 		n.computedHostIfDifferent == n2.computedHostIfDifferent &&
 		n.ComputedNameWithHost == n2.ComputedNameWithHost &&
-		eqStrings(n.Tags, n2.Tags) &&
+		slicesx.EqualSameNil(n.Tags, n2.Tags) &&
 		n.Expired == n2.Expired &&
 		eqPtr(n.SelfNodeV4MasqAddrForThisPeer, n2.SelfNodeV4MasqAddrForThisPeer) &&
 		eqPtr(n.SelfNodeV6MasqAddrForThisPeer, n2.SelfNodeV6MasqAddrForThisPeer) &&
@@ -1967,30 +1989,6 @@ func eqPtr[T comparable](a, b *T) bool {
 		return false
 	}
 	return *a == *b
-}
-
-func eqStrings(a, b []string) bool {
-	if len(a) != len(b) || ((a == nil) != (b == nil)) {
-		return false
-	}
-	for i, v := range a {
-		if v != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func eqCIDRs(a, b []netip.Prefix) bool {
-	if len(a) != len(b) || ((a == nil) != (b == nil)) {
-		return false
-	}
-	for i, v := range a {
-		if v != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 func eqTimePtr(a, b *time.Time) bool {
@@ -2043,6 +2041,7 @@ const (
 	CapabilityDataPlaneAuditLogs NodeCapability = "https://tailscale.com/cap/data-plane-audit-logs" // feature enabled
 	CapabilityDebug              NodeCapability = "https://tailscale.com/cap/debug"                 // exposes debug endpoints over the PeerAPI
 	CapabilityHTTPS              NodeCapability = "https"                                           // https cert provisioning enabled on tailnet
+	CapabilityPreviewWebClient   NodeCapability = "preview-webclient"                               // allows starting web client in tailscaled
 
 	// CapabilityBindToInterfaceByRoute changes how Darwin nodes create
 	// sockets (in the net/netns package). See that package for more
@@ -2124,6 +2123,10 @@ const (
 	// fixed port.
 	NodeAttrRandomizeClientPort NodeCapability = "randomize-client-port"
 
+	// NodeAttrSilentDisco makes the client suppress disco heartbeats to its
+	// peers.
+	NodeAttrSilentDisco NodeCapability = "silent-disco"
+
 	// NodeAttrOneCGNATEnable makes the client prefer one big CGNAT /10 route
 	// rather than a /32 per peer. At most one of this or
 	// NodeAttrOneCGNATDisable may be set; if neither are, it's automatic.
@@ -2137,6 +2140,10 @@ const (
 	// NodeAttrPeerMTUEnable makes the client do path MTU discovery to its
 	// peers. If it isn't set, it defaults to the client default.
 	NodeAttrPeerMTUEnable NodeCapability = "peer-mtu-enable"
+
+	// NodeAttrDNSForwarderDisableTCPRetries disables retrying truncated
+	// DNS queries over TCP if the response is truncated.
+	NodeAttrDNSForwarderDisableTCPRetries NodeCapability = "dns-forwarder-disable-tcp-retries"
 )
 
 // SetDNSRequest is a request to add a DNS record.
@@ -2450,6 +2457,24 @@ type QueryFeatureResponse struct {
 	ShouldWait bool `json:",omitempty"`
 }
 
+// WebClientAuthResponse is the response to a web client authentication request
+// sent to "/machine/webclient/action" or "/machine/webclient/wait".
+// See client/web for usage.
+type WebClientAuthResponse struct {
+	// ID is a unique identifier for the session auth request.
+	// It can be supplied to "/machine/webclient/wait" to pause until
+	// the session authentication has been completed.
+	ID string `json:",omitempty"`
+
+	// URL is the link for the user to visit to authenticate the session.
+	//
+	// When empty, there is no action for the user to take.
+	URL string `json:",omitempty"`
+
+	// Complete is true when the session authentication has been completed.
+	Complete bool `json:",omitempty"`
+}
+
 // OverTLSPublicKeyResponse is the JSON response to /key?v=<n>
 // over HTTPS (regular TLS) to the Tailscale control plane server,
 // where the 'v' argument is the client's current capability version
@@ -2533,7 +2558,7 @@ type PeerChange struct {
 
 	// Endpoints, if non-empty, means that NodeID's UDP Endpoints
 	// have changed to these.
-	Endpoints []string `json:",omitempty"`
+	Endpoints []netip.AddrPort `json:",omitempty"`
 
 	// Key, if non-nil, means that the NodeID's wireguard public key changed.
 	Key *key.NodePublic `json:",omitempty"`

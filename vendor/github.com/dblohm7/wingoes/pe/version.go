@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	errFixedFileInfoTooShort = errors.New("buffer smaller than VS_FIXEDFILEINFO")
 	errFixedFileInfoBadSig   = errors.New("bad VS_FIXEDFILEINFO signature")
+	errFixedFileInfoTooShort = errors.New("buffer smaller than VS_FIXEDFILEINFO")
 )
 
 // VersionNumber encapsulates a four-component version number that is stored

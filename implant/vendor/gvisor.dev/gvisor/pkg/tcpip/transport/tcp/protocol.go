@@ -185,8 +185,8 @@ func (p *protocol) tsOffset(src, dst tcpip.Address) tcp.TSOffset {
 	// Per hash.Hash.Writer:
 	//
 	// It never returns an error.
-	_, _ = h.Write([]byte(src))
-	_, _ = h.Write([]byte(dst))
+	_, _ = h.Write(src.AsSlice())
+	_, _ = h.Write(dst.AsSlice())
 	return tcp.NewTSOffset(h.Sum32())
 }
 
@@ -521,6 +521,7 @@ func NewProtocol(s *stack.Stack) stack.TransportProtocol {
 		},
 		congestionControl:          ccReno,
 		availableCongestionControl: []string{ccReno, ccCubic},
+		moderateReceiveBuffer:      true,
 		lingerTimeout:              DefaultTCPLingerTimeout,
 		timeWaitTimeout:            DefaultTCPTimeWaitTimeout,
 		timeWaitReuse:              tcpip.TCPTimeWaitReuseLoopbackOnly,
