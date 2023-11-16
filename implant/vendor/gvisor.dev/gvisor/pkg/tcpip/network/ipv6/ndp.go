@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"time"
 
-	"gvisor.dev/gvisor/pkg/bufferv2"
+	"gvisor.dev/gvisor/pkg/buffer"
 	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
@@ -1140,12 +1140,6 @@ func (ndp *ndpState) doSLAAC(prefix tcpip.Subnet, pl, vl time.Duration) {
 //
 // The IPv6 endpoint that ndp belongs to MUST be locked.
 func (ndp *ndpState) addAndAcquireSLAACAddr(addr tcpip.AddressWithPrefix, temporary bool, lifetimes stack.AddressLifetimes) stack.AddressEndpoint {
-	// Inform the integrator that we have a new SLAAC address.
-	ndpDisp := ndp.ep.protocol.options.NDPDisp
-	if ndpDisp == nil {
-		return nil
-	}
-
 	addressEndpoint, err := ndp.ep.addAndAcquirePermanentAddressLocked(addr, stack.AddressProperties{
 		PEB:        stack.FirstPrimaryEndpoint,
 		ConfigType: stack.AddressConfigSlaac,
@@ -1156,8 +1150,11 @@ func (ndp *ndpState) addAndAcquireSLAACAddr(addr tcpip.AddressWithPrefix, tempor
 		panic(fmt.Sprintf("ndp: error when adding SLAAC address %+v: %s", addr, err))
 	}
 
-	if disp := ndpDisp.OnAutoGenAddress(ndp.ep.nic.ID(), addr); disp != nil {
-		addressEndpoint.RegisterDispatcher(disp)
+	// Inform the integrator that we have a new SLAAC address.
+	if ndpDisp := ndp.ep.protocol.options.NDPDisp; ndpDisp != nil {
+		if disp := ndpDisp.OnAutoGenAddress(ndp.ep.nic.ID(), addr); disp != nil {
+			addressEndpoint.RegisterDispatcher(disp)
+		}
 	}
 
 	return addressEndpoint
@@ -1172,7 +1169,7 @@ func (ndp *ndpState) addAndAcquireSLAACAddr(addr tcpip.AddressWithPrefix, tempor
 // The IPv6 endpoint that ndp belongs to MUST be locked.
 func (ndp *ndpState) generateSLAACAddr(prefix tcpip.Subnet, state *slaacPrefixState) bool {
 	if addressEndpoint := state.stableAddr.addressEndpoint; addressEndpoint != nil {
-		panic(fmt.Sprintf("ndp: SLAAC prefix %s already has a permenant address %s", prefix, addressEndpoint.AddressWithPrefix()))
+		panic(fmt.Sprintf("ndp: SLAAC prefix %s already has a permanent address %s", prefix, addressEndpoint.AddressWithPrefix()))
 	}
 
 	// If we have already reached the maximum address generation attempts for the
@@ -1182,7 +1179,8 @@ func (ndp *ndpState) generateSLAACAddr(prefix tcpip.Subnet, state *slaacPrefixSt
 	}
 
 	var generatedAddr tcpip.AddressWithPrefix
-	addrBytes := []byte(prefix.ID())
+	prefixID := prefix.ID()
+	addrBytes := prefixID.AsSlice()
 
 	for i := 0; ; i++ {
 		// If we were unable to generate an address after the maximum SLAAC address
@@ -1224,7 +1222,7 @@ func (ndp *ndpState) generateSLAACAddr(prefix tcpip.Subnet, state *slaacPrefixSt
 		}
 
 		generatedAddr = tcpip.AddressWithPrefix{
-			Address:   tcpip.Address(addrBytes),
+			Address:   tcpip.AddrFrom16Slice(addrBytes),
 			PrefixLen: validPrefixLenForAutoGen,
 		}
 
@@ -1622,10 +1620,10 @@ func (ndp *ndpState) refreshSLAACPrefixLifetimes(prefix tcpip.Subnet, prefixStat
 	// have been regenerated, or we need to immediately regenerate an address
 	// due to an update in preferred lifetime.
 	//
-	// If each temporay address has already been regenerated, no new temporary
+	// If each temporary address has already been regenerated, no new temporary
 	// address is generated. To ensure continuation of temporary SLAAC addresses,
 	// we manually try to regenerate an address here.
-	if len(regenForAddr) != 0 || allAddressesRegenerated {
+	if regenForAddr.BitLen() != 0 || allAddressesRegenerated {
 		// Reset the generation attempts counter as we are starting the generation
 		// of a new address for the SLAAC prefix.
 		if state, ok := prefixState.tempAddrs[regenForAddr]; ndp.generateTempSLAACAddr(prefix, prefixState, true /* resetGenAttempts */) && ok {
@@ -1822,7 +1820,7 @@ func (ndp *ndpState) startSolicitingRouters() {
 	// 4861 section 6.3.7.
 	var delay time.Duration
 	if ndp.configs.MaxRtrSolicitationDelay > 0 {
-		delay = time.Duration(ndp.ep.protocol.stack.Rand().Int63n(int64(ndp.configs.MaxRtrSolicitationDelay)))
+		delay = time.Duration(ndp.ep.protocol.stack.InsecureRNG().Int63n(int64(ndp.configs.MaxRtrSolicitationDelay)))
 	}
 
 	// Protected by ndp.ep.mu.
@@ -1859,7 +1857,7 @@ func (ndp *ndpState) startSolicitingRouters() {
 				}
 			}
 			payloadSize := header.ICMPv6HeaderSize + header.NDPRSMinimumSize + optsSerializer.Length()
-			icmpView := bufferv2.NewView(payloadSize)
+			icmpView := buffer.NewView(payloadSize)
 			icmpView.Grow(payloadSize)
 			icmpData := header.ICMPv6(icmpView.AsSlice())
 			icmpData.SetType(header.ICMPv6RouterSolicit)
@@ -1873,7 +1871,7 @@ func (ndp *ndpState) startSolicitingRouters() {
 
 			pkt := stack.NewPacketBuffer(stack.PacketBufferOptions{
 				ReserveHeaderBytes: int(ndp.ep.MaxHeaderLength()),
-				Payload:            bufferv2.MakeWithView(icmpView),
+				Payload:            buffer.MakeWithView(icmpView),
 			})
 			defer pkt.DecRef()
 
@@ -1967,7 +1965,7 @@ func (ndp *ndpState) init(ep *endpoint, dadOptions ip.DADOptions) {
 	ndp.slaacPrefixes = make(map[tcpip.Subnet]slaacPrefixState)
 
 	header.InitialTempIID(ndp.temporaryIIDHistory[:], ndp.ep.protocol.options.TempIIDSeed, ndp.ep.nic.ID())
-	ndp.temporaryAddressDesyncFactor = time.Duration(ep.protocol.stack.Rand().Int63n(int64(MaxDesyncFactor)))
+	ndp.temporaryAddressDesyncFactor = time.Duration(ep.protocol.stack.InsecureRNG().Int63n(int64(MaxDesyncFactor)))
 }
 
 func (ndp *ndpState) SendDADMessage(addr tcpip.Address, nonce []byte) tcpip.Error {
@@ -1978,7 +1976,7 @@ func (ndp *ndpState) SendDADMessage(addr tcpip.Address, nonce []byte) tcpip.Erro
 }
 
 func (e *endpoint) sendNDPNS(srcAddr, dstAddr, targetAddr tcpip.Address, remoteLinkAddr tcpip.LinkAddress, opts header.NDPOptionsSerializer) tcpip.Error {
-	icmpView := bufferv2.NewView(header.ICMPv6NeighborSolicitMinimumSize + opts.Length())
+	icmpView := buffer.NewView(header.ICMPv6NeighborSolicitMinimumSize + opts.Length())
 	icmpView.Grow(header.ICMPv6NeighborSolicitMinimumSize + opts.Length())
 	icmp := header.ICMPv6(icmpView.AsSlice())
 	icmp.SetType(header.ICMPv6NeighborSolicit)
@@ -1993,7 +1991,7 @@ func (e *endpoint) sendNDPNS(srcAddr, dstAddr, targetAddr tcpip.Address, remoteL
 
 	pkt := stack.NewPacketBuffer(stack.PacketBufferOptions{
 		ReserveHeaderBytes: int(e.MaxHeaderLength()),
-		Payload:            bufferv2.MakeWithView(icmpView),
+		Payload:            buffer.MakeWithView(icmpView),
 	})
 	defer pkt.DecRef()
 
