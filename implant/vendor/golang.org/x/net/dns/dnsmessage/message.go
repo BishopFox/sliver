@@ -492,7 +492,7 @@ func (r *Resource) GoString() string {
 // A ResourceBody is a DNS resource record minus the header.
 type ResourceBody interface {
 	// pack packs a Resource except for its header.
-	pack(msg []byte, compression map[string]uint16, compressionOff int) ([]byte, error)
+	pack(msg []byte, compression map[string]int, compressionOff int) ([]byte, error)
 
 	// realType returns the actual type of the Resource. This is used to
 	// fill in the header Type field.
@@ -503,7 +503,7 @@ type ResourceBody interface {
 }
 
 // pack appends the wire format of the Resource to msg.
-func (r *Resource) pack(msg []byte, compression map[string]uint16, compressionOff int) ([]byte, error) {
+func (r *Resource) pack(msg []byte, compression map[string]int, compressionOff int) ([]byte, error) {
 	if r.Body == nil {
 		return msg, errNilResouceBody
 	}
@@ -1129,7 +1129,7 @@ func (m *Message) AppendPack(b []byte) ([]byte, error) {
 	// DNS messages can be a maximum of 512 bytes long. Without compression,
 	// many DNS response messages are over this limit, so enabling
 	// compression will help ensure compliance.
-	compression := map[string]uint16{}
+	compression := map[string]int{}
 
 	for i := range m.Questions {
 		var err error
@@ -1220,7 +1220,7 @@ type Builder struct {
 
 	// compression is a mapping from name suffixes to their starting index
 	// in msg.
-	compression map[string]uint16
+	compression map[string]int
 }
 
 // NewBuilder creates a new builder with compression disabled.
@@ -1257,7 +1257,7 @@ func NewBuilder(buf []byte, h Header) Builder {
 //
 // Compression should be enabled before any sections are added for best results.
 func (b *Builder) EnableCompression() {
-	b.compression = map[string]uint16{}
+	b.compression = map[string]int{}
 }
 
 func (b *Builder) startCheck(s section) error {
@@ -1673,7 +1673,7 @@ func (h *ResourceHeader) GoString() string {
 // pack appends the wire format of the ResourceHeader to oldMsg.
 //
 // lenOff is the offset in msg where the Length field was packed.
-func (h *ResourceHeader) pack(oldMsg []byte, compression map[string]uint16, compressionOff int) (msg []byte, lenOff int, err error) {
+func (h *ResourceHeader) pack(oldMsg []byte, compression map[string]int, compressionOff int) (msg []byte, lenOff int, err error) {
 	msg = oldMsg
 	if msg, err = h.Name.pack(msg, compression, compressionOff); err != nil {
 		return oldMsg, 0, &nestedError{"Name", err}
@@ -1901,7 +1901,7 @@ func unpackBytes(msg []byte, off int, field []byte) (int, error) {
 
 const nonEncodedNameMax = 254
 
-// A Name is a non-encoded and non-escaped domain name. It is used instead of strings to avoid
+// A Name is a non-encoded domain name. It is used instead of strings to avoid
 // allocations.
 type Name struct {
 	Data   [255]byte
@@ -1928,8 +1928,6 @@ func MustNewName(name string) Name {
 }
 
 // String implements fmt.Stringer.String.
-//
-// Note: characters inside the labels are not escaped in any way.
 func (n Name) String() string {
 	return string(n.Data[:n.Length])
 }
@@ -1946,7 +1944,7 @@ func (n *Name) GoString() string {
 //
 // The compression map will be updated with new domain suffixes. If compression
 // is nil, compression will not be used.
-func (n *Name) pack(msg []byte, compression map[string]uint16, compressionOff int) ([]byte, error) {
+func (n *Name) pack(msg []byte, compression map[string]int, compressionOff int) ([]byte, error) {
 	oldMsg := msg
 
 	if n.Length > nonEncodedNameMax {
@@ -2010,7 +2008,7 @@ func (n *Name) pack(msg []byte, compression map[string]uint16, compressionOff in
 					// multiple times (for next labels).
 					nameAsStr = string(n.Data[:n.Length])
 				}
-				compression[nameAsStr[i:]] = uint16(newPtr)
+				compression[nameAsStr[i:]] = newPtr
 			}
 		}
 	}
@@ -2150,7 +2148,7 @@ type Question struct {
 }
 
 // pack appends the wire format of the Question to msg.
-func (q *Question) pack(msg []byte, compression map[string]uint16, compressionOff int) ([]byte, error) {
+func (q *Question) pack(msg []byte, compression map[string]int, compressionOff int) ([]byte, error) {
 	msg, err := q.Name.pack(msg, compression, compressionOff)
 	if err != nil {
 		return msg, &nestedError{"Name", err}
@@ -2246,7 +2244,7 @@ func (r *CNAMEResource) realType() Type {
 }
 
 // pack appends the wire format of the CNAMEResource to msg.
-func (r *CNAMEResource) pack(msg []byte, compression map[string]uint16, compressionOff int) ([]byte, error) {
+func (r *CNAMEResource) pack(msg []byte, compression map[string]int, compressionOff int) ([]byte, error) {
 	return r.CNAME.pack(msg, compression, compressionOff)
 }
 
@@ -2274,7 +2272,7 @@ func (r *MXResource) realType() Type {
 }
 
 // pack appends the wire format of the MXResource to msg.
-func (r *MXResource) pack(msg []byte, compression map[string]uint16, compressionOff int) ([]byte, error) {
+func (r *MXResource) pack(msg []byte, compression map[string]int, compressionOff int) ([]byte, error) {
 	oldMsg := msg
 	msg = packUint16(msg, r.Pref)
 	msg, err := r.MX.pack(msg, compression, compressionOff)
@@ -2313,7 +2311,7 @@ func (r *NSResource) realType() Type {
 }
 
 // pack appends the wire format of the NSResource to msg.
-func (r *NSResource) pack(msg []byte, compression map[string]uint16, compressionOff int) ([]byte, error) {
+func (r *NSResource) pack(msg []byte, compression map[string]int, compressionOff int) ([]byte, error) {
 	return r.NS.pack(msg, compression, compressionOff)
 }
 
@@ -2340,7 +2338,7 @@ func (r *PTRResource) realType() Type {
 }
 
 // pack appends the wire format of the PTRResource to msg.
-func (r *PTRResource) pack(msg []byte, compression map[string]uint16, compressionOff int) ([]byte, error) {
+func (r *PTRResource) pack(msg []byte, compression map[string]int, compressionOff int) ([]byte, error) {
 	return r.PTR.pack(msg, compression, compressionOff)
 }
 
@@ -2377,7 +2375,7 @@ func (r *SOAResource) realType() Type {
 }
 
 // pack appends the wire format of the SOAResource to msg.
-func (r *SOAResource) pack(msg []byte, compression map[string]uint16, compressionOff int) ([]byte, error) {
+func (r *SOAResource) pack(msg []byte, compression map[string]int, compressionOff int) ([]byte, error) {
 	oldMsg := msg
 	msg, err := r.NS.pack(msg, compression, compressionOff)
 	if err != nil {
@@ -2449,7 +2447,7 @@ func (r *TXTResource) realType() Type {
 }
 
 // pack appends the wire format of the TXTResource to msg.
-func (r *TXTResource) pack(msg []byte, compression map[string]uint16, compressionOff int) ([]byte, error) {
+func (r *TXTResource) pack(msg []byte, compression map[string]int, compressionOff int) ([]byte, error) {
 	oldMsg := msg
 	for _, s := range r.TXT {
 		var err error
@@ -2505,7 +2503,7 @@ func (r *SRVResource) realType() Type {
 }
 
 // pack appends the wire format of the SRVResource to msg.
-func (r *SRVResource) pack(msg []byte, compression map[string]uint16, compressionOff int) ([]byte, error) {
+func (r *SRVResource) pack(msg []byte, compression map[string]int, compressionOff int) ([]byte, error) {
 	oldMsg := msg
 	msg = packUint16(msg, r.Priority)
 	msg = packUint16(msg, r.Weight)
@@ -2556,7 +2554,7 @@ func (r *AResource) realType() Type {
 }
 
 // pack appends the wire format of the AResource to msg.
-func (r *AResource) pack(msg []byte, compression map[string]uint16, compressionOff int) ([]byte, error) {
+func (r *AResource) pack(msg []byte, compression map[string]int, compressionOff int) ([]byte, error) {
 	return packBytes(msg, r.A[:]), nil
 }
 
@@ -2590,7 +2588,7 @@ func (r *AAAAResource) GoString() string {
 }
 
 // pack appends the wire format of the AAAAResource to msg.
-func (r *AAAAResource) pack(msg []byte, compression map[string]uint16, compressionOff int) ([]byte, error) {
+func (r *AAAAResource) pack(msg []byte, compression map[string]int, compressionOff int) ([]byte, error) {
 	return packBytes(msg, r.AAAA[:]), nil
 }
 
@@ -2630,7 +2628,7 @@ func (r *OPTResource) realType() Type {
 	return TypeOPT
 }
 
-func (r *OPTResource) pack(msg []byte, compression map[string]uint16, compressionOff int) ([]byte, error) {
+func (r *OPTResource) pack(msg []byte, compression map[string]int, compressionOff int) ([]byte, error) {
 	for _, opt := range r.Options {
 		msg = packUint16(msg, opt.Code)
 		l := uint16(len(opt.Data))
@@ -2688,7 +2686,7 @@ func (r *UnknownResource) realType() Type {
 }
 
 // pack appends the wire format of the UnknownResource to msg.
-func (r *UnknownResource) pack(msg []byte, compression map[string]uint16, compressionOff int) ([]byte, error) {
+func (r *UnknownResource) pack(msg []byte, compression map[string]int, compressionOff int) ([]byte, error) {
 	return packBytes(msg, r.Data[:]), nil
 }
 

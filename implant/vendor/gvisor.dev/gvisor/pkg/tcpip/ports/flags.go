@@ -23,7 +23,7 @@ type Flags struct {
 
 	// LoadBalanced indicates SO_REUSEPORT.
 	//
-	// LoadBalanced takes precedence over MostRecent.
+	// LoadBalanced takes precidence over MostRecent.
 	LoadBalanced bool
 
 	// TupleOnly represents TCP SO_REUSEADDR.

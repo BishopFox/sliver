@@ -480,9 +480,10 @@ func (a *AddressableEndpointState) acquirePrimaryAddressRLocked(remoteAddr tcpip
 				bestLen = stateLen
 			}
 		}
-		if best != nil && best.TryIncRef() {
-			return best
+		if best != nil {
+			best.IncRef()
 		}
+		return best
 	}
 
 	var deprecatedEndpoint *addressState
@@ -492,7 +493,7 @@ func (a *AddressableEndpointState) acquirePrimaryAddressRLocked(remoteAddr tcpip
 		}
 
 		if !ep.Deprecated() {
-			if ep.TryIncRef() {
+			if ep.IncRef() {
 				// ep is not deprecated, so return it immediately.
 				//
 				// If we kept track of a deprecated endpoint, decrement its reference
@@ -509,7 +510,7 @@ func (a *AddressableEndpointState) acquirePrimaryAddressRLocked(remoteAddr tcpip
 
 				return ep
 			}
-		} else if deprecatedEndpoint == nil && ep.TryIncRef() {
+		} else if deprecatedEndpoint == nil && ep.IncRef() {
 			// We prefer an endpoint that is not deprecated, but we keep track of
 			// ep in case a doesn't have any non-deprecated endpoints.
 			//
@@ -541,7 +542,7 @@ func (a *AddressableEndpointState) AcquireAssignedAddressOrMatching(localAddr tc
 				return nil
 			}
 
-			if !addrState.TryIncRef() {
+			if !addrState.IncRef() {
 				panic(fmt.Sprintf("failed to increase the reference count for address = %s", addrState.addr))
 			}
 
@@ -550,7 +551,7 @@ func (a *AddressableEndpointState) AcquireAssignedAddressOrMatching(localAddr tc
 
 		if f != nil {
 			for _, addrState := range a.endpoints {
-				if addrState.IsAssigned(allowTemp) && f(addrState) && addrState.TryIncRef() {
+				if addrState.IsAssigned(allowTemp) && f(addrState) && addrState.IncRef() {
 					return addrState
 				}
 			}
@@ -805,7 +806,7 @@ func (a *addressState) IsAssigned(allowExpired bool) bool {
 }
 
 // IncRef implements AddressEndpoint.
-func (a *addressState) TryIncRef() bool {
+func (a *addressState) IncRef() bool {
 	return a.refs.TryIncRef()
 }
 

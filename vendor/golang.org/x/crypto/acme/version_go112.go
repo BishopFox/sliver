@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 //go:build go1.12
+// +build go1.12
 
 package acme
 

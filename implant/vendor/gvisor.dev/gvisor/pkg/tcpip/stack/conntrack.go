@@ -725,7 +725,7 @@ type portOrIdentRange struct {
 //
 // Generally, only the first packet of a connection reaches this method; other
 // packets will be manipulated without needing to modify the connection.
-func (cn *conn) performNAT(pkt PacketBufferPtr, hook Hook, r *Route, portsOrIdents portOrIdentRange, natAddress tcpip.Address, dnat, changePort, changeAddress bool) {
+func (cn *conn) performNAT(pkt PacketBufferPtr, hook Hook, r *Route, portsOrIdents portOrIdentRange, natAddress tcpip.Address, dnat bool) {
 	lastPortOrIdent := func() uint16 {
 		lastPortOrIdent := uint32(portsOrIdents.start) + portsOrIdents.size - 1
 		if lastPortOrIdent > math.MaxUint16 {
@@ -762,14 +762,7 @@ func (cn *conn) performNAT(pkt PacketBufferPtr, hook Hook, r *Route, portsOrIden
 		return
 	}
 	*manip = manipPerformed
-	if changeAddress {
-		*address = natAddress
-	}
-
-	// Everything below here is port-fiddling.
-	if !changePort {
-		return
-	}
+	*address = natAddress
 
 	// Does the current port/ident fit in the range?
 	if portsOrIdents.start <= *portOrIdent && *portOrIdent <= lastPortOrIdent {

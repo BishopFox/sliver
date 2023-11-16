@@ -298,7 +298,7 @@ func (n *neighborCache) handleConfirmation(addr tcpip.Address, linkAddr tcpip.Li
 func (n *neighborCache) init(nic *nic, r LinkAddressResolver) {
 	*n = neighborCache{
 		nic:     nic,
-		state:   NewNUDState(nic.stack.nudConfigs, nic.stack.clock, nic.stack.insecureRNG),
+		state:   NewNUDState(nic.stack.nudConfigs, nic.stack.clock, nic.stack.randomGenerator),
 		linkRes: r,
 	}
 	n.mu.Lock()

@@ -17,7 +17,7 @@ type neighborEntryRWMutex struct {
 var neighborEntrylockNames []string
 
 // lockNameIndex is used as an index passed to NestedLock and NestedUnlock,
-// referring to an index within lockNames.
+// refering to an index within lockNames.
 // Values are specified using the "consts" field of go_template_instance.
 type neighborEntrylockNameIndex int
 

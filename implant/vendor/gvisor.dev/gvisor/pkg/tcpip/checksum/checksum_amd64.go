@@ -12,8 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sync
+//go:build amd64
+// +build amd64
 
-// MemoryFenceReads ensures that all preceding memory loads happen before
-// following memory loads.
-func MemoryFenceReads()
+package checksum
+
+// Note: odd indicates whether initial is a partial checksum over an odd number
+// of bytes.
+//
+// calculateChecksum is defined in assembly.
+func calculateChecksum(buf []byte, odd bool, initial uint16) (uint16, bool)

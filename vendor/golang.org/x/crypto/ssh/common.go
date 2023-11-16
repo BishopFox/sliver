@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strings"
 	"sync"
 
 	_ "crypto/sha1"
@@ -138,6 +139,8 @@ var supportedPubKeyAuthAlgos = []string{
 	KeyAlgoRSASHA256, KeyAlgoRSASHA512, KeyAlgoRSA,
 	KeyAlgoDSA,
 }
+
+var supportedPubKeyAuthAlgosList = strings.Join(supportedPubKeyAuthAlgos, ",")
 
 // unexpectedMessageError results when the SSH message that we received didn't
 // match what we wanted.

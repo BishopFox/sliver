@@ -16,7 +16,9 @@
 package ipv6
 
 import (
+	"encoding/binary"
 	"fmt"
+	"hash/fnv"
 	"math"
 	"reflect"
 	"sort"
@@ -28,6 +30,7 @@ import (
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/header/parse"
+	"gvisor.dev/gvisor/pkg/tcpip/network/hash"
 	"gvisor.dev/gvisor/pkg/tcpip/network/internal/fragmentation"
 	"gvisor.dev/gvisor/pkg/tcpip/network/internal/ip"
 	"gvisor.dev/gvisor/pkg/tcpip/network/internal/multicast"
@@ -774,7 +777,7 @@ func (e *endpoint) handleFragments(r *stack.Route, networkMTU uint32, pkt stack.
 
 	pf := fragmentation.MakePacketFragmenter(pkt, fragmentPayloadLen, calculateFragmentReserve(pkt))
 	defer pf.Release()
-	id := e.getFragmentID()
+	id := e.protocol.ids[hashRoute(r, e.protocol.hashIV)%buckets].Add(1)
 
 	var n int
 	for {
@@ -2193,7 +2196,7 @@ func (e *endpoint) acquireOutgoingPrimaryAddressRLocked(remoteAddr tcpip.Address
 	// Return the most preferred address that can have its reference count
 	// incremented.
 	for _, c := range cs {
-		if c.addressEndpoint.TryIncRef() {
+		if c.addressEndpoint.IncRef() {
 			return c.addressEndpoint
 		}
 	}
@@ -2285,6 +2288,9 @@ type protocol struct {
 		multicastForwardingDisp stack.MulticastForwardingEventDispatcher
 	}
 
+	ids    []atomicbitops.Uint32
+	hashIV uint32
+
 	// defaultTTL is the current default TTL for the protocol. Only the
 	// uint8 portion of it is meaningful.
 	defaultTTL atomicbitops.Uint32
@@ -2335,7 +2341,7 @@ func (p *protocol) NewEndpoint(nic stack.NetworkInterface, dispatcher stack.Tran
 	const maxMulticastSolicit = 3
 	dadOptions := ip.DADOptions{
 		Clock:              p.stack.Clock(),
-		SecureRNG:          p.stack.SecureRNG().Reader,
+		SecureRNG:          p.stack.SecureRNG(),
 		NonceSize:          nonceSize,
 		ExtendDADTransmits: maxMulticastSolicit,
 		Protocol:           &e.mu.ndp,
@@ -2743,10 +2749,21 @@ type Options struct {
 func NewProtocolWithOptions(opts Options) stack.NetworkProtocolFactory {
 	opts.NDPConfigs.validate()
 
+	ids := hash.RandN32(buckets)
+	hashIV := hash.RandN32(1)[0]
+
+	atomicIds := make([]atomicbitops.Uint32, len(ids))
+	for i := range ids {
+		atomicIds[i] = atomicbitops.FromUint32(ids[i])
+	}
+
 	return func(s *stack.Stack) stack.NetworkProtocol {
 		p := &protocol{
 			stack:   s,
 			options: opts,
+
+			ids:    atomicIds,
+			hashIV: hashIV,
 		}
 		p.fragmentation = fragmentation.NewFragmentation(header.IPv6FragmentExtHdrFragmentOffsetBytesPerUnit, fragmentation.HighFragThreshold, fragmentation.LowFragThreshold, ReassembleTimeout, s.Clock(), p)
 		p.mu.eps = make(map[tcpip.NICID]*endpoint)
@@ -2783,15 +2800,28 @@ func calculateFragmentReserve(pkt stack.PacketBufferPtr) int {
 	return pkt.AvailableHeaderBytes() + len(pkt.NetworkHeader().Slice()) + header.IPv6FragmentHeaderSize
 }
 
-// getFragmentID returns a random uint32 number (other than zero) to be used as
-// fragment ID in the IPv6 header.
-func (e *endpoint) getFragmentID() uint32 {
-	rng := e.protocol.stack.SecureRNG()
-	id := rng.Uint32()
-	for id == 0 {
-		id = rng.Uint32()
+// hashRoute calculates a hash value for the given route. It uses the source &
+// destination address and 32-bit number to generate the hash.
+func hashRoute(r *stack.Route, hashIV uint32) uint32 {
+	// The FNV-1a was chosen because it is a fast hashing algorithm, and
+	// cryptographic properties are not needed here.
+	h := fnv.New32a()
+	localAddr := r.LocalAddress()
+	if _, err := h.Write(localAddr.AsSlice()); err != nil {
+		panic(fmt.Sprintf("Hash.Write: %s, but Hash' implementation of Write is not expected to ever return an error", err))
 	}
-	return id
+	remoteAddr := r.RemoteAddress()
+	if _, err := h.Write(remoteAddr.AsSlice()); err != nil {
+		panic(fmt.Sprintf("Hash.Write: %s, but Hash' implementation of Write is not expected to ever return an error", err))
+	}
+
+	s := make([]byte, 4)
+	binary.LittleEndian.PutUint32(s, hashIV)
+	if _, err := h.Write(s); err != nil {
+		panic(fmt.Sprintf("Hash.Write: %s, but Hash' implementation of Write is not expected ever to return an error", err))
+	}
+
+	return h.Sum32()
 }
 
 func buildNextFragment(pf *fragmentation.PacketFragmenter, originalIPHeaders header.IPv6, transportProto tcpip.TransportProtocolNumber, id uint32) (stack.PacketBufferPtr, bool) {

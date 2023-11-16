@@ -101,11 +101,6 @@ func (r *Route) Loop() PacketLooping {
 	return r.routeInfo.Loop
 }
 
-// OutgoingNIC returns the route's outgoing NIC.
-func (r *Route) OutgoingNIC() tcpip.NICID {
-	return r.outgoingNIC.id
-}
-
 // RouteInfo contains all of Route's exported fields.
 //
 // +stateify savable
@@ -542,7 +537,7 @@ func (r *Route) Acquire() {
 // +checklocksread:r.mu
 func (r *Route) acquireLocked() {
 	if ep := r.localAddressEndpoint; ep != nil {
-		if !ep.TryIncRef() {
+		if !ep.IncRef() {
 			panic(fmt.Sprintf("failed to increment reference count for local address endpoint = %s", r.LocalAddress()))
 		}
 	}
