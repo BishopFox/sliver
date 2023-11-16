@@ -38,6 +38,7 @@ import (
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/sgn"
+	"github.com/bishopfox/sliver/util"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -65,23 +66,34 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
-	name := filepath.Base(req.Config.GetName())
+	name := filepath.Base(req.Name)
 	shellcode, arch, err := getSliverShellcode(name)
 	if err != nil {
-		name, config := generate.ImplantConfigFromProtobuf(req.Config)
-		if name == "" {
+		config := req.Config
+		if req.Name == "" {
 			name, err = codenames.GetCodename()
 			if err != nil {
 				return nil, err
 			}
+		} else if err := util.AllowedName(name); err != nil {
+			return nil, err
+		} else {
+			name = req.Name
 		}
 		config.Format = clientpb.OutputFormat_SHELLCODE
 		config.ObfuscateSymbols = true
-		err = generate.GenerateConfig(name, config, true)
+		build, err := generate.GenerateConfig(name, config)
 		if err != nil {
 			return nil, err
 		}
-		shellcodePath, err := generate.SliverShellcode(name, config, true)
+
+		// retrieve http c2 implant config
+		httpC2Config, err := db.LoadHTTPC2ConfigByName(req.Config.HTTPC2ConfigName)
+		if err != nil {
+			return nil, err
+		}
+
+		shellcodePath, err := generate.SliverShellcode(name, build, config, httpC2Config.ImplantConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -126,7 +138,8 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 // ExecuteAssembly - Execute a .NET assembly on the remote system in-memory (Windows only)
 func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAssemblyReq) (*sliverpb.ExecuteAssembly, error) {
 	var session *core.Session
-	var beacon *models.Beacon
+	var beacon *clientpb.Beacon
+	var dbBeacon *models.Beacon
 	var err error
 	if !req.Request.Async {
 		session = core.Sessions.Get(req.Request.SessionID)
@@ -134,11 +147,12 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 			return nil, ErrInvalidSessionID
 		}
 	} else {
-		beacon, err = db.BeaconByID(req.Request.BeaconID)
+		dbBeacon, err = db.BeaconByID(req.Request.BeaconID)
 		if err != nil {
 			tasksLog.Errorf("%s", err)
 			return nil, ErrDatabaseFailure
 		}
+		beacon = dbBeacon.ToProtobuf()
 		if beacon == nil {
 			return nil, ErrInvalidBeaconID
 		}
@@ -190,10 +204,11 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 // Sideload - Sideload a DLL on the remote system (Windows only)
 func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sliverpb.Sideload, error) {
 	var (
-		session *core.Session
-		beacon  *models.Beacon
-		err     error
-		arch    string
+		session  *core.Session
+		beacon   *clientpb.Beacon
+		dbBeacon *models.Beacon
+		err      error
+		arch     string
 	)
 	if !req.Request.Async {
 		session = core.Sessions.Get(req.Request.SessionID)
@@ -202,11 +217,12 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 		}
 		arch = session.Arch
 	} else {
-		beacon, err = db.BeaconByID(req.Request.BeaconID)
+		dbBeacon, err = db.BeaconByID(req.Request.BeaconID)
 		if err != nil {
 			msfLog.Errorf("%s", err)
 			return nil, ErrDatabaseFailure
 		}
+		beacon = dbBeacon.ToProtobuf()
 		if beacon == nil {
 			return nil, ErrInvalidBeaconID
 		}
@@ -239,7 +255,8 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 // SpawnDll - Spawn a DLL on the remote system (Windows only)
 func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq) (*sliverpb.SpawnDll, error) {
 	var session *core.Session
-	var beacon *models.Beacon
+	var beacon *clientpb.Beacon
+	var dbBeacon *models.Beacon
 	var err error
 	if !req.Request.Async {
 		session = core.Sessions.Get(req.Request.SessionID)
@@ -247,11 +264,12 @@ func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq
 			return nil, ErrInvalidSessionID
 		}
 	} else {
-		beacon, err = db.BeaconByID(req.Request.BeaconID)
+		dbBeacon, err = db.BeaconByID(req.Request.BeaconID)
 		if err != nil {
 			msfLog.Errorf("%s", err)
 			return nil, ErrDatabaseFailure
 		}
+		beacon = dbBeacon.ToProtobuf()
 		if beacon == nil {
 			return nil, ErrInvalidBeaconID
 		}
@@ -279,7 +297,7 @@ func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq
 	return resp, nil
 }
 
-func getOS(session *core.Session, beacon *models.Beacon) string {
+func getOS(session *core.Session, beacon *clientpb.Beacon) string {
 	if session != nil {
 		return session.OS
 	}
@@ -297,7 +315,12 @@ func getSliverShellcode(name string) ([]byte, string, error) {
 		return nil, "", err
 	}
 
-	switch build.ImplantConfig.Format {
+	config, err := db.ImplantConfigByID(build.ImplantConfigID)
+	if err != nil {
+		return nil, "", err
+	}
+
+	switch config.Format {
 
 	case clientpb.OutputFormat_SHELLCODE:
 		fileData, err := generate.ImplantFileFromBuild(build)
@@ -313,7 +336,7 @@ func getSliverShellcode(name string) ([]byte, string, error) {
 		if err != nil {
 			return []byte{}, "", err
 		}
-		data, err = generate.DonutShellcodeFromPE(fileData, build.ImplantConfig.GOARCH, false, "", "", "", false, false, false)
+		data, err = generate.DonutShellcodeFromPE(fileData, config.GOARCH, false, "", "", "", false, false, false)
 		if err != nil {
 			rpcLog.Errorf("DonutShellcodeFromPE error: %v\n", err)
 			return []byte{}, "", err
@@ -336,7 +359,7 @@ func getSliverShellcode(name string) ([]byte, string, error) {
 		err = fmt.Errorf("no existing shellcode found")
 	}
 
-	return data, build.ImplantConfig.GOARCH, err
+	return data, config.GOARCH, err
 }
 
 // ExportDirectory - stores the Export data

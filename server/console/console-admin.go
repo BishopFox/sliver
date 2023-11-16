@@ -33,8 +33,8 @@ import (
 	"github.com/spf13/cobra"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/certs"
-	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
@@ -176,50 +176,38 @@ func kickOperatorCmd(cmd *cobra.Command, _ []string) {
 	fmt.Printf(Info+"Operator %s has been kicked out.\n", operator)
 }
 
-func StartPersistentJobs(cfg *configs.ServerConfig) error {
-	if cfg.Jobs == nil {
-		return nil
-	}
-	for _, j := range cfg.Jobs.Multiplayer {
-		if j.Tailscale {
-			jobStartTsNetClientListener(j.Host, j.Port)
-		} else {
-			jobStartMtlsClientListener(j.Host, j.Port)
-		}
-	}
-	return nil
-}
-
 func startMultiplayerModeCmd(cmd *cobra.Command, _ []string) {
 	lhost, _ := cmd.Flags().GetString("lhost")
 	lport, _ := cmd.Flags().GetUint16("lport")
-	persistent, _ := cmd.Flags().GetBool("persistent")
 	tailscale, _ := cmd.Flags().GetBool("tailscale")
 
 	var err error
+	var jobID int
 	if tailscale {
 		_, err = jobStartTsNetClientListener(lhost, lport)
 	} else {
-		_, err = jobStartMtlsClientListener(lhost, lport)
+		jobID, err = JobStartClientListener(&clientpb.MultiplayerListenerReq{Host: lhost, Port: uint32(lport)})
 	}
 	if err == nil {
 		fmt.Printf(Info + "Multiplayer mode enabled!\n")
-		if persistent {
-			serverConfig := configs.GetServerConfig()
-			serverConfig.AddMultiplayerJob(&configs.MultiplayerJobConfig{
-				Host:      lhost,
-				Port:      lport,
-				Tailscale: tailscale,
-			})
-			serverConfig.Save()
+		multiConfig := &clientpb.MultiplayerListenerReq{Host: lhost, Port: uint32(lport)}
+		listenerJob := &clientpb.ListenerJob{
+			JobID:     uint32(jobID),
+			Type:      "multiplayer",
+			MultiConf: multiConfig,
 		}
+		err = db.SaveHTTPC2Listener(listenerJob)
+		if err != nil {
+			fmt.Printf(Warn+"Failed to save job %v\n", err)
+		}
+
 	} else {
 		fmt.Printf(Warn+"Failed to start job %v\n", err)
 	}
 }
 
-func jobStartMtlsClientListener(host string, port uint16) (int, error) {
-	_, ln, err := transport.StartMtlsClientListener(host, port)
+func JobStartClientListener(multiplayerListener *clientpb.MultiplayerListenerReq) (int, error) {
+	_, ln, err := transport.StartMtlsClientListener(multiplayerListener.Host, uint16(multiplayerListener.Port))
 	if err != nil {
 		return -1, err // If we fail to bind don't setup the Job
 	}
@@ -229,7 +217,7 @@ func jobStartMtlsClientListener(host string, port uint16) (int, error) {
 		Name:        "grpc/mtls",
 		Description: "client listener",
 		Protocol:    "tcp",
-		Port:        port,
+		Port:        uint16(multiplayerListener.Port),
 		JobCtrl:     make(chan bool),
 	}
 
@@ -260,7 +248,7 @@ func jobStartTsNetClientListener(host string, port uint16) (int, error) {
 		Name:        "grpc/tsnet",
 		Description: "client listener",
 		Protocol:    "tcp",
-		Port:        port,
+		Port:        uint16(port),
 		JobCtrl:     make(chan bool),
 	}
 

@@ -31,10 +31,9 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/server/codenames"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/bishopfox/sliver/util"
 )
 
 var (
@@ -99,6 +98,7 @@ func buildEvents(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) (
 
 // handleBuildEvent - Handle an individual build event
 func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, rpc rpcpb.SliverRPCClient) {
+
 	parts := strings.Split(string(event.Data), ":")
 	if len(parts) < 2 {
 		builderLog.Errorf("Invalid build event data '%s'", event.Data)
@@ -110,16 +110,16 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 		return
 	}
 
-	implantConfigID := parts[1]
-	builderLog.Infof("Build event for implant config id: %s", implantConfigID)
-	extConfig, err := rpc.GenerateExternalGetImplantConfig(context.Background(), &clientpb.ImplantConfig{
-		ID: implantConfigID,
+	implantBuildID := parts[1]
+	builderLog.Infof("Build event for implant build id: %s", implantBuildID)
+	extConfig, err := rpc.GenerateExternalGetBuildConfig(context.Background(), &clientpb.ImplantBuild{
+		ID: implantBuildID,
 	})
 	if err != nil {
-		builderLog.Errorf("Failed to get implant config: %s", err)
+		builderLog.Errorf("Failed to get build config: %s", err)
 		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
 			EventType: consts.ExternalBuildFailedEvent,
-			Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, err.Error())),
+			Data:      []byte(fmt.Sprintf("%s:%s", implantBuildID, err.Error())),
 		})
 		return
 	}
@@ -127,7 +127,7 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 		builderLog.Errorf("nil extConfig")
 		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
 			EventType: consts.ExternalBuildFailedEvent,
-			Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, "nil external config")),
+			Data:      []byte(fmt.Sprintf("%s:%s", implantBuildID, "nil external config")),
 		})
 		return
 	}
@@ -136,7 +136,7 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
 			EventType: consts.ExternalBuildFailedEvent,
 			Data: []byte(
-				fmt.Sprintf("%s:%s", implantConfigID, fmt.Sprintf("unsupported target %s:%s/%s", extConfig.Config.Format, extConfig.Config.GOOS, extConfig.Config.GOARCH)),
+				fmt.Sprintf("%s:%s", implantBuildID, fmt.Sprintf("unsupported target %s:%s/%s", extConfig.Config.Format, extConfig.Config.GOOS, extConfig.Config.GOARCH)),
 			),
 		})
 		return
@@ -145,32 +145,20 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 		builderLog.Warnf("Reject event, unsupported template '%s'", extConfig.Config.TemplateName)
 		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
 			EventType: consts.ExternalBuildFailedEvent,
-			Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, "Unsupported template")),
+			Data:      []byte(fmt.Sprintf("%s:%s", implantBuildID, "Unsupported template")),
 		})
 		return
 	}
 
-	if extConfig.Config.Name == "" {
-		extConfig.Config.Name, _ = codenames.GetCodename()
-	}
-	err = util.AllowedName(extConfig.Config.Name)
-	if err != nil {
-		builderLog.Errorf("Invalid implant name: %s", err)
-		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
-			EventType: consts.ExternalBuildFailedEvent,
-			Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, err.Error())),
-		})
-		return
-	}
-	_, extModel := generate.ImplantConfigFromProtobuf(extConfig.Config)
+	extModel := models.ImplantConfigFromProtobuf(extConfig.Config)
 
-	builderLog.Infof("Building %s for %s/%s (format: %s)", extConfig.Config.Name, extConfig.Config.GOOS, extConfig.Config.GOARCH, extConfig.Config.Format)
-	builderLog.Infof("    [c2] mtls:%t wg:%t http/s:%t dns:%t", extModel.MTLSc2Enabled, extModel.WGc2Enabled, extModel.HTTPc2Enabled, extModel.DNSc2Enabled)
-	builderLog.Infof("[pivots] tcp:%t named-pipe:%t", extModel.TCPPivotc2Enabled, extModel.NamePipec2Enabled)
+	builderLog.Infof("Building %s for %s/%s (format: %s)", extConfig.Build.Name, extConfig.Config.GOOS, extConfig.Config.GOARCH, extConfig.Config.Format)
+	builderLog.Infof("    [c2] mtls:%t wg:%t http/s:%t dns:%t", extModel.IncludeMTLS, extModel.IncludeWG, extModel.IncludeHTTP, extModel.IncludeDNS)
+	builderLog.Infof("[pivots] tcp:%t named-pipe:%t", extModel.IncludeTCP, extModel.IncludeNamePipe)
 
 	rpc.BuilderTrigger(context.Background(), &clientpb.Event{
 		EventType: consts.AcknowledgeBuildEvent,
-		Data:      []byte(implantConfigID),
+		Data:      []byte(implantBuildID),
 	})
 
 	var fPath string
@@ -178,16 +166,16 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
-		fPath, err = generate.SliverExecutable(extConfig.Config.Name, extModel, false)
+		fPath, err = generate.SliverExecutable(extConfig.Build.Name, extConfig.Build, extConfig.Config, extConfig.HTTPC2.ImplantConfig)
 	case clientpb.OutputFormat_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(extConfig.Config.Name, extModel, false)
+		fPath, err = generate.SliverSharedLibrary(extConfig.Build.Name, extConfig.Build, extConfig.Config, extConfig.HTTPC2.ImplantConfig)
 	case clientpb.OutputFormat_SHELLCODE:
-		fPath, err = generate.SliverShellcode(extConfig.Config.Name, extModel, false)
+		fPath, err = generate.SliverShellcode(extConfig.Build.Name, extConfig.Build, extConfig.Config, extConfig.HTTPC2.ImplantConfig)
 	default:
 		builderLog.Errorf("invalid output format: %s", extConfig.Config.Format)
 		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
 			EventType: consts.ExternalBuildFailedEvent,
-			Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, err.Error())),
+			Data:      []byte(fmt.Sprintf("%s:%s", implantBuildID, err.Error())),
 		})
 		return
 	}
@@ -195,7 +183,7 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 		builderLog.Errorf("Failed to generate sliver: %s", err)
 		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
 			EventType: consts.ExternalBuildFailedEvent,
-			Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, err.Error())),
+			Data:      []byte(fmt.Sprintf("%s:%s", implantBuildID, err.Error())),
 		})
 		return
 	}
@@ -206,20 +194,20 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 		builderLog.Errorf("Failed to read generated sliver: %s", err)
 		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
 			EventType: consts.ExternalBuildFailedEvent,
-			Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, err.Error())),
+			Data:      []byte(fmt.Sprintf("%s:%s", implantBuildID, err.Error())),
 		})
 		return
 	}
 
-	fileName := filepath.Base(extConfig.Config.Name)
+	fileName := filepath.Base(extConfig.Build.Name)
 	if extConfig.Config.GOOS == "windows" {
 		fileName += ".exe"
 	}
 
-	builderLog.Infof("Uploading '%s' to server ...", extConfig.Config.Name)
+	builderLog.Infof("Uploading '%s' to server ...", extConfig.Build.Name)
 	_, err = rpc.GenerateExternalSaveBuild(context.Background(), &clientpb.ExternalImplantBinary{
-		Name:            extConfig.Config.Name,
-		ImplantConfigID: extConfig.Config.ID,
+		Name:           extConfig.Build.Name,
+		ImplantBuildID: extConfig.Build.ID,
 		File: &commonpb.File{
 			Name: fileName,
 			Data: data,
@@ -229,13 +217,13 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 		builderLog.Errorf("Failed to save build: %s", err)
 		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
 			EventType: consts.ExternalBuildFailedEvent,
-			Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, err.Error())),
+			Data:      []byte(fmt.Sprintf("%s:%s", implantBuildID, err.Error())),
 		})
 		return
 	}
 	rpc.BuilderTrigger(context.Background(), &clientpb.Event{
 		EventType: consts.ExternalBuildCompletedEvent,
-		Data:      []byte(fmt.Sprintf("%s:%s", implantConfigID, extConfig.Config.Name)),
+		Data:      []byte(fmt.Sprintf("%s:%s", implantBuildID, extConfig.Build.Name)),
 	})
 	builderLog.Infof("All done, built and saved %s", fileName)
 }

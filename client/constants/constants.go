@@ -143,6 +143,8 @@ const (
 	SettingsStr        = "settings"
 	SearchStr          = "search"
 	TrafficEncodersStr = "traffic-encoders"
+	C2ProfileStr       = "c2profiles"
+	ImportC2ProfileStr = "import"
 
 	// Generic
 
@@ -180,6 +182,7 @@ const (
 	HttpsStr       = "https"
 	NamedPipeStr   = "named-pipe"
 	TCPListenerStr = "tcp"
+	UDPListenerStr = "udp"
 
 	MsfStr       = "msf"
 	MsfInjectStr = "msf-inject"
@@ -201,11 +204,15 @@ const (
 	MvStr       = "mv"
 	CpStr       = "cp"
 	RmStr       = "rm"
+	StageStr    = "stage"
 	MkdirStr    = "mkdir"
 	CdStr       = "cd"
 	PwdStr      = "pwd"
 	CatStr      = "cat"
 	DownloadStr = "download"
+	HeadStr     = "head"
+	TailStr     = "tail"
+	GrepStr     = "grep"
 	UploadStr   = "upload"
 	IfconfigStr = "ifconfig"
 	NetstatStr  = "netstat"
@@ -255,6 +262,7 @@ const (
 	WgSocksStr            = "wg-socks"
 	WgPortFwdStr          = "wg-portfwd"
 	MonitorStr            = "monitor"
+	MonitorConfigStr      = "config"
 	SSHStr                = "ssh"
 	DLLHijackStr          = "dllhijack"
 	InteractiveStr        = "interactive"
@@ -287,11 +295,12 @@ const (
 
 	BuildersStr = "builders"
 
-	CrackStr     = "crack"
-	StationsStr  = "stations"
-	WordlistsStr = "wordlists"
-	RulesStr     = "rules"
-	Hcstat2Str   = "hcstat2"
+	CrackStr         = "crack"
+	StationsStr      = "stations"
+	WordlistsStr     = "wordlists"
+	RulesStr         = "rules"
+	Hcstat2Str       = "hcstat2"
+	DefaultC2Profile = "default"
 )
 
 // Groups

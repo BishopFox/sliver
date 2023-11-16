@@ -260,8 +260,8 @@ func tcpChecksumValid(pkt []byte, iphLen uint8, isV6 bool) bool {
 		addrSize = 16
 	}
 	tcpTotalLen := uint16(len(pkt) - int(iphLen))
-	tcpCSumNoFold := pseudoHeaderChecksumNoFold(unix.IPPROTO_TCP, pkt[srcAddrAt:srcAddrAt+addrSize], pkt[srcAddrAt+addrSize:srcAddrAt+addrSize*2], tcpTotalLen)
-	return ^checksum(pkt[iphLen:], tcpCSumNoFold) == 0
+	tcpCSum := pseudoHeaderChecksum(unix.IPPROTO_TCP, pkt[srcAddrAt:srcAddrAt+addrSize], pkt[srcAddrAt+addrSize:srcAddrAt+addrSize*2], tcpTotalLen)
+	return ^checksum(pkt[iphLen:], tcpCSum) == 0
 }
 
 // coalesceResult represents the result of attempting to coalesce two TCP
@@ -532,7 +532,7 @@ func applyCoalesceAccounting(bufs [][]byte, offset int, table *tcpGROTable, isV6
 				srcAddrAt := offset + addrOffset
 				srcAddr := bufs[item.bufsIndex][srcAddrAt : srcAddrAt+addrLen]
 				dstAddr := bufs[item.bufsIndex][srcAddrAt+addrLen : srcAddrAt+addrLen*2]
-				psum := pseudoHeaderChecksumNoFold(unix.IPPROTO_TCP, srcAddr, dstAddr, uint16(len(pkt)-int(item.iphLen)))
+				psum := pseudoHeaderChecksum(unix.IPPROTO_TCP, srcAddr, dstAddr, uint16(len(pkt)-int(item.iphLen)))
 				binary.BigEndian.PutUint16(pkt[hdr.csumStart+hdr.csumOffset:], checksum([]byte{}, psum))
 			} else {
 				hdr := virtioNetHdr{}
@@ -643,8 +643,8 @@ func tcpTSO(in []byte, hdr virtioNetHdr, outBuffs [][]byte, sizes []int, outOffs
 		// TCP checksum
 		tcpHLen := int(hdr.hdrLen - hdr.csumStart)
 		tcpLenForPseudo := uint16(tcpHLen + segmentDataLen)
-		tcpCSumNoFold := pseudoHeaderChecksumNoFold(unix.IPPROTO_TCP, in[srcAddrOffset:srcAddrOffset+addrLen], in[srcAddrOffset+addrLen:srcAddrOffset+addrLen*2], tcpLenForPseudo)
-		tcpCSum := ^checksum(out[hdr.csumStart:totalLen], tcpCSumNoFold)
+		tcpCSum := pseudoHeaderChecksum(unix.IPPROTO_TCP, in[srcAddrOffset:srcAddrOffset+addrLen], in[srcAddrOffset+addrLen:srcAddrOffset+addrLen*2], tcpLenForPseudo)
+		tcpCSum = ^checksum(out[hdr.csumStart:totalLen], tcpCSum)
 		binary.BigEndian.PutUint16(out[hdr.csumStart+hdr.csumOffset:], tcpCSum)
 
 		nextSegmentDataAt += int(hdr.gsoSize)
@@ -658,6 +658,6 @@ func gsoNoneChecksum(in []byte, cSumStart, cSumOffset uint16) error {
 	// checksum we compute. This is typically the pseudo-header checksum.
 	initial := binary.BigEndian.Uint16(in[cSumAt:])
 	in[cSumAt], in[cSumAt+1] = 0, 0
-	binary.BigEndian.PutUint16(in[cSumAt:], ^checksum(in[cSumStart:], uint64(initial)))
+	binary.BigEndian.PutUint16(in[cSumAt:], ^checksum(in[cSumStart:], initial))
 	return nil
 }

@@ -71,13 +71,14 @@ var (
 		sliverpb.MsgReconfigureReq: reconfigureHandler,
 		sliverpb.MsgSSHCommandReq:  runSSHCommandHandler,
 		sliverpb.MsgProcessDumpReq: dumpHandler,
+		sliverpb.MsgGrepReq:        grepHandler,
 
 		// Wasm Extensions - Note that execution can be done via a tunnel handler
 		sliverpb.MsgRegisterWasmExtensionReq:   registerWasmExtensionHandler,
 		sliverpb.MsgDeregisterWasmExtensionReq: deregisterWasmExtensionHandler,
 		sliverpb.MsgListWasmExtensionsReq:      listWasmExtensionsHandler,
 
-		// {{if .Config.WGc2Enabled}}
+		// {{if .Config.IncludeWG}}
 		// Wireguard specific
 		sliverpb.MsgWGStartPortFwdReq:   wgStartPortfwdHandler,
 		sliverpb.MsgWGStopPortFwdReq:    wgStopPortfwdHandler,

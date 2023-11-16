@@ -25,6 +25,20 @@ service SliverRPC {
   // *** Sessions ***
   rpc GetSessions(commonpb.Empty) returns (clientpb.Sessions);
 
+  // ***Threat monitoring ***
+  rpc MonitorStart(commonpb.Empty) returns (commonpb.Response);
+  rpc MonitorStop(commonpb.Empty) returns (commonpb.Empty);
+  rpc MonitorListConfig(commonpb.Empty) returns (clientpb.MonitoringProviders);
+  rpc MonitorAddConfig(clientpb.MonitoringProvider) returns (commonpb.Response);
+  rpc MonitorDelConfig(clientpb.MonitoringProvider) returns (commonpb.Response);
+    
+  // *** Listeners ***
+  rpc StartMTLSListener(clientpb.MTLSListenerReq) returns (clientpb.ListenerJob);
+  rpc StartWGListener(clientpb.WGListenerReq) returns (clientpb.ListenerJob);
+  rpc StartDNSListener(clientpb.DNSListenerReq) returns (clientpb.ListenerJob);
+  rpc StartHTTPSListener(clientpb.HTTPListenerReq) returns (clientpb.ListenerJob);
+  rpc StartHTTPListener(clientpb.HTTPListenerReq) returns (clientpb.ListenerJob);
+  
   // *** Beacons ***
   rpc GetBeacons(commonpb.Empty) returns (clientpb.Beacons);
   rpc GetBeacon(clientpb.Beacon) returns (clientpb.Beacon);
@@ -33,28 +47,15 @@ service SliverRPC {
   rpc GetBeaconTaskContent(clientpb.BeaconTask) returns (clientpb.BeaconTask);
   rpc CancelBeaconTask(clientpb.BeaconTask) returns (clientpb.BeaconTask);
 
-  // ***Threat monitoring ***
-  rpc MonitorStart(commonpb.Empty) returns (commonpb.Response);
-  rpc MonitorStop(commonpb.Empty) returns (commonpb.Empty);
 
   // *** Jobs ***
   rpc GetJobs(commonpb.Empty) returns (clientpb.Jobs);
   rpc KillJob(clientpb.KillJobReq) returns (clientpb.KillJob);
+  rpc RestartJobs(clientpb.RestartJobReq) returns (commonpb.Empty);
 
-  // *** Listeners ***
-  rpc StartMTLSListener(clientpb.MTLSListenerReq)
-      returns (clientpb.MTLSListener);
-  rpc StartWGListener(clientpb.WGListenerReq) returns (clientpb.WGListener);
-  rpc StartDNSListener(clientpb.DNSListenerReq) returns (clientpb.DNSListener);
-  rpc StartHTTPSListener(clientpb.HTTPListenerReq)
-      returns (clientpb.HTTPListener);
-  rpc StartHTTPListener(clientpb.HTTPListenerReq)
-      returns (clientpb.HTTPListener);
 
   // *** Stager Listener ***
   rpc StartTCPStagerListener(clientpb.StagerListenerReq)
-      returns (clientpb.StagerListener);
-  rpc StartHTTPStagerListener(clientpb.StagerListenerReq)
       returns (clientpb.StagerListener);
 
   // *** Loot ***
@@ -87,8 +88,17 @@ service SliverRPC {
       returns (clientpb.ExternalImplantConfig);
   rpc GenerateExternalSaveBuild(clientpb.ExternalImplantBinary)
       returns (commonpb.Empty);
-  rpc GenerateExternalGetImplantConfig(clientpb.ImplantConfig)
+  rpc GenerateExternalGetBuildConfig(clientpb.ImplantBuild)
       returns (clientpb.ExternalImplantConfig);
+  rpc GenerateStage(clientpb.GenerateStageReq)
+      returns (clientpb.Generate);
+  rpc StageImplantBuild(clientpb.ImplantStageReq)
+      returns (commonpb.Empty);
+
+  // *** HTTP C2 Profiles ***
+  rpc GetHTTPC2Profiles(commonpb.Empty) returns (clientpb.HTTPC2Configs);
+  rpc GetHTTPC2ProfileByName(clientpb.C2ProfileReq) returns (clientpb.HTTPC2Config);
+  rpc SaveHTTPC2Profile(clientpb.HTTPC2ConfigReq) returns (commonpb.Empty);
 
   // *** Builders ***
   rpc BuilderRegister(clientpb.Builder) returns (stream clientpb.Event);
@@ -159,6 +169,7 @@ service SliverRPC {
   rpc Mkdir(sliverpb.MkdirReq) returns (sliverpb.Mkdir);
   rpc Download(sliverpb.DownloadReq) returns (sliverpb.Download);
   rpc Upload(sliverpb.UploadReq) returns (sliverpb.Upload);
+  rpc Grep(sliverpb.GrepReq) returns (sliverpb.Grep);
   rpc Chmod(sliverpb.ChmodReq) returns (sliverpb.Chmod);
   rpc Chown(sliverpb.ChownReq) returns (sliverpb.Chown);
   rpc Chtimes(sliverpb.ChtimesReq) returns (sliverpb.Chtimes);

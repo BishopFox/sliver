@@ -545,3 +545,33 @@ func appendRangePrefixes(dst []netip.Prefix, makePrefix prefixMaker, a, b uint12
 	dst = appendRangePrefixes(dst, makePrefix, b.bitsClearedFrom(common+1), b)
 	return dst
 }
+
+// CompareAddr returns -1 if a.Less(b), 1 if b.Less(0), else it
+// returns 0.
+func CompareAddr(a, b netip.Addr) int {
+	if a.Less(b) {
+		return -1
+	}
+	if b.Less(a) {
+		return 1
+	}
+	return 0
+}
+
+// ComparePrefix  -1 if a.Addr().Less(b), 1 if
+// b.Addr().Less(0), else if a and b have the same address, it
+// compares their prefix bit length, returning -1, 0, or 1.
+func ComparePrefix(a, b netip.Prefix) int {
+	aa, ba := a.Addr(), b.Addr()
+	if aa == ba {
+		ab, bb := a.Bits(), b.Bits()
+		if ab < bb {
+			return -1
+		}
+		if bb < ab {
+			return 1
+		}
+		return 0
+	}
+	return CompareAddr(a.Addr(), b.Addr())
+}

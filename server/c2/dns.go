@@ -513,14 +513,14 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 
 	var publicKeyDigest [32]byte
 	copy(publicKeyDigest[:], msg.Data[:32])
-	implantConfig, err := db.ImplantConfigByPublicKeyDigest(publicKeyDigest)
-	if err != nil || implantConfig == nil {
+	implantBuild, err := db.ImplantBuildByPublicKeyDigest(publicKeyDigest)
+	if err != nil || implantBuild == nil {
 		dnsLog.Errorf("[session init] error implant public key not found")
 		return s.refusedErrorResp(req)
 	}
 
 	serverKeyPair := cryptography.AgeServerKeyPair()
-	sessionInit, err := cryptography.AgeKeyExFromImplant(serverKeyPair.Private, implantConfig.PeerPrivateKey, msg.Data[32:])
+	sessionInit, err := cryptography.AgeKeyExFromImplant(serverKeyPair.Private, implantBuild.PeerPrivateKey, msg.Data[32:])
 	if err != nil {
 		dnsLog.Errorf("[session init] error decrypting session init data: %s", err)
 		return s.refusedErrorResp(req)
@@ -850,9 +850,9 @@ func (s *SliverDNSServer) handleCanary(req *dns.Msg) *dns.Msg {
 					EventType: consts.CanaryEvent,
 				})
 				canary.Triggered = true
-				canary.FirstTrigger = time.Now()
+				canary.FirstTriggered = time.Now().Format(time.RFC1123)
 			}
-			canary.LatestTrigger = time.Now()
+			canary.LatestTrigger = time.Now().Format(time.RFC1123)
 			canary.Count++
 			generate.UpdateCanary(canary)
 		}
