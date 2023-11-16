@@ -142,7 +142,7 @@ func (v NodeView) Machine() key.MachinePublic               { return v.ж.Machin
 func (v NodeView) DiscoKey() key.DiscoPublic                { return v.ж.DiscoKey }
 func (v NodeView) Addresses() views.Slice[netip.Prefix]     { return views.SliceOf(v.ж.Addresses) }
 func (v NodeView) AllowedIPs() views.Slice[netip.Prefix]    { return views.SliceOf(v.ж.AllowedIPs) }
-func (v NodeView) Endpoints() views.Slice[string]           { return views.SliceOf(v.ж.Endpoints) }
+func (v NodeView) Endpoints() views.Slice[netip.AddrPort]   { return views.SliceOf(v.ж.Endpoints) }
 func (v NodeView) DERP() string                             { return v.ж.DERP }
 func (v NodeView) Hostinfo() HostinfoView                   { return v.ж.Hostinfo }
 func (v NodeView) Created() time.Time                       { return v.ж.Created }
@@ -214,7 +214,7 @@ var _NodeViewNeedsRegeneration = Node(struct {
 	DiscoKey                      key.DiscoPublic
 	Addresses                     []netip.Prefix
 	AllowedIPs                    []netip.Prefix
-	Endpoints                     []string
+	Endpoints                     []netip.AddrPort
 	DERP                          string
 	Hostinfo                      HostinfoView
 	Created                       time.Time
@@ -310,12 +310,14 @@ func (v HostinfoView) GoArchVar() string                      { return v.ж.GoAr
 func (v HostinfoView) GoVersion() string                      { return v.ж.GoVersion }
 func (v HostinfoView) RoutableIPs() views.Slice[netip.Prefix] { return views.SliceOf(v.ж.RoutableIPs) }
 func (v HostinfoView) RequestTags() views.Slice[string]       { return views.SliceOf(v.ж.RequestTags) }
+func (v HostinfoView) WoLMACs() views.Slice[string]           { return views.SliceOf(v.ж.WoLMACs) }
 func (v HostinfoView) Services() views.Slice[Service]         { return views.SliceOf(v.ж.Services) }
 func (v HostinfoView) NetInfo() NetInfoView                   { return v.ж.NetInfo.View() }
 func (v HostinfoView) SSH_HostKeys() views.Slice[string]      { return views.SliceOf(v.ж.SSH_HostKeys) }
 func (v HostinfoView) Cloud() string                          { return v.ж.Cloud }
 func (v HostinfoView) Userspace() opt.Bool                    { return v.ж.Userspace }
 func (v HostinfoView) UserspaceRouter() opt.Bool              { return v.ж.UserspaceRouter }
+func (v HostinfoView) AppConnector() opt.Bool                 { return v.ж.AppConnector }
 func (v HostinfoView) Location() *Location {
 	if v.ж.Location == nil {
 		return nil
@@ -355,12 +357,14 @@ var _HostinfoViewNeedsRegeneration = Hostinfo(struct {
 	GoVersion       string
 	RoutableIPs     []netip.Prefix
 	RequestTags     []string
+	WoLMACs         []string
 	Services        []Service
 	NetInfo         *NetInfo
 	SSH_HostKeys    []string
 	Cloud           string
 	Userspace       opt.Bool
 	UserspaceRouter opt.Bool
+	AppConnector    opt.Bool
 	Location        *Location
 }{})
 
@@ -790,6 +794,7 @@ func (v RegisterRequestView) DeviceCert() views.ByteSlice[[]byte] {
 func (v RegisterRequestView) Signature() views.ByteSlice[[]byte] {
 	return views.ByteSliceOf(v.ж.Signature)
 }
+func (v RegisterRequestView) Tailnet() string { return v.ж.Tailnet }
 
 // A compilation failure here means this code must be regenerated, with the command at the top of this file.
 var _RegisterRequestViewNeedsRegeneration = RegisterRequest(struct {
@@ -808,6 +813,7 @@ var _RegisterRequestViewNeedsRegeneration = RegisterRequest(struct {
 	Timestamp        *time.Time
 	DeviceCert       []byte
 	Signature        []byte
+	Tailnet          string
 }{})
 
 // View returns a readonly view of DERPHomeParams.

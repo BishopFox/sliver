@@ -1,10 +1,13 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
-//go:generate go run update-dns-fallbacks.go
-
 // Package dnsfallback contains a DNS fallback mechanism
 // for starting up Tailscale when the system DNS is broken or otherwise unavailable.
+//
+// The data is backed by a JSON file `dns-fallback-servers.json` that is updated
+// by `update-dns-fallbacks.go`:
+//
+//	(cd net/dnsfallback; go run update-dns-fallbacks.go)
 package dnsfallback
 
 import (
@@ -23,7 +26,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go4.org/netipx"
 	"tailscale.com/atomicfile"
 	"tailscale.com/envknob"
 	"tailscale.com/net/dns/recursive"
@@ -37,14 +39,22 @@ import (
 	"tailscale.com/util/slicesx"
 )
 
-var disableRecursiveResolver = envknob.RegisterBool("TS_DNSFALLBACK_DISABLE_RECURSIVE_RESOLVER")
+var (
+	optRecursiveResolver     = envknob.RegisterOptBool("TS_DNSFALLBACK_RECURSIVE_RESOLVER")
+	disableRecursiveResolver = envknob.RegisterBool("TS_DNSFALLBACK_DISABLE_RECURSIVE_RESOLVER") // legacy pre-1.52 env knob name
+)
 
 // MakeLookupFunc creates a function that can be used to resolve hostnames
 // (e.g. as a LookupIPFallback from dnscache.Resolver).
 // The netMon parameter is optional; if non-nil it's used to do faster interface lookups.
 func MakeLookupFunc(logf logger.Logf, netMon *netmon.Monitor) func(ctx context.Context, host string) ([]netip.Addr, error) {
 	return func(ctx context.Context, host string) ([]netip.Addr, error) {
-		if disableRecursiveResolver() {
+		// If they've explicitly disabled the recursive resolver with the legacy
+		// TS_DNSFALLBACK_DISABLE_RECURSIVE_RESOLVER envknob or not set the
+		// newer TS_DNSFALLBACK_RECURSIVE_RESOLVER to true, then don't use the
+		// recursive resolver. (tailscale/corp#15261) In the future, we might
+		// change the default (the opt.Bool being unset) to mean enabled.
+		if disableRecursiveResolver() || !optRecursiveResolver().EqualBool(true) {
 			return lookup(ctx, host, logf, netMon)
 		}
 
@@ -77,11 +87,13 @@ func MakeLookupFunc(logf logger.Logf, netMon *netmon.Monitor) func(ctx context.C
 				metricRecursiveErrors.Add(1)
 				return
 			}
-			slices.SortFunc(addrs, netipx.CompareAddr)
+
+			compareAddr := func(a, b netip.Addr) int { return a.Compare(b) }
+			slices.SortFunc(addrs, compareAddr)
 
 			// Wait for a response from the main function
 			oldAddrs := <-addrsCh
-			slices.SortFunc(oldAddrs, netipx.CompareAddr)
+			slices.SortFunc(oldAddrs, compareAddr)
 
 			matches := slices.Equal(addrs, oldAddrs)
 

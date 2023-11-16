@@ -45,11 +45,11 @@ func checkIP6TablesExists() error {
 	return nil
 }
 
-// NewIPTablesRunner constructs a NetfilterRunner that programs iptables rules.
+// newIPTablesRunner constructs a NetfilterRunner that programs iptables rules.
 // If the underlying iptables library fails to initialize, that error is
 // returned. The runner probes for IPv6 support once at initialization time and
 // if not found, no IPv6 rules will be modified for the lifetime of the runner.
-func NewIPTablesRunner(logf logger.Logf) (*iptablesRunner, error) {
+func newIPTablesRunner(logf logger.Logf) (*iptablesRunner, error) {
 	ipt4, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
 	if err != nil {
 		return nil, err
@@ -79,12 +79,12 @@ func NewIPTablesRunner(logf logger.Logf) (*iptablesRunner, error) {
 	return &iptablesRunner{ipt4, ipt6, supportsV6, supportsV6NAT}, nil
 }
 
-// HasIPV6 returns true if the system supports IPv6.
+// HasIPV6 reports true if the system supports IPv6.
 func (i *iptablesRunner) HasIPV6() bool {
 	return i.v6Available
 }
 
-// HasIPV6NAT returns true if the system supports IPv6 NAT.
+// HasIPV6NAT reports true if the system supports IPv6 NAT.
 func (i *iptablesRunner) HasIPV6NAT() bool {
 	return i.v6NATAvailable
 }
@@ -254,6 +254,12 @@ func (i *iptablesRunner) addBase4(tunname string) error {
 		return fmt.Errorf("adding %v in v4/filter/ts-input: %w", args, err)
 	}
 
+	// Explicitly allow all other inbound traffic to the tun interface
+	args = []string{"-i", tunname, "-j", "ACCEPT"}
+	if err := i.ipt4.Append("filter", "ts-input", args...); err != nil {
+		return fmt.Errorf("adding %v in v4/filter/ts-input: %w", args, err)
+	}
+
 	// Forward all traffic from the Tailscale interface, and drop
 	// traffic to the tailscale interface by default. We use packet
 	// marks here so both filter/FORWARD and nat/POSTROUTING can match
@@ -285,13 +291,39 @@ func (i *iptablesRunner) addBase4(tunname string) error {
 	return nil
 }
 
+func (i *iptablesRunner) AddDNATRule(origDst, dst netip.Addr) error {
+	table := i.getIPTByAddr(dst)
+	return table.Insert("nat", "PREROUTING", 1, "--destination", origDst.String(), "-j", "DNAT", "--to-destination", dst.String())
+}
+
+func (i *iptablesRunner) AddSNATRuleForDst(src, dst netip.Addr) error {
+	table := i.getIPTByAddr(dst)
+	return table.Insert("nat", "POSTROUTING", 1, "--destination", dst.String(), "-j", "SNAT", "--to-source", src.String())
+}
+
+func (i *iptablesRunner) DNATNonTailscaleTraffic(tun string, dst netip.Addr) error {
+	table := i.getIPTByAddr(dst)
+	return table.Insert("nat", "PREROUTING", 1, "!", "-i", tun, "-j", "DNAT", "--to-destination", dst.String())
+}
+
+func (i *iptablesRunner) ClampMSSToPMTU(tun string, addr netip.Addr) error {
+	table := i.getIPTByAddr(addr)
+	return table.Append("mangle", "FORWARD", "-o", tun, "-p", "tcp", "--tcp-flags", "SYN,RST", "SYN", "-j", "TCPMSS", "--clamp-mss-to-pmtu")
+}
+
 // addBase6 adds some basic IPv4 processing rules to be
 // supplemented by later calls to other helpers.
 func (i *iptablesRunner) addBase6(tunname string) error {
 	// TODO: only allow traffic from Tailscale's ULA range to come
 	// from tailscale0.
 
-	args := []string{"-i", tunname, "-j", "MARK", "--set-mark", TailscaleSubnetRouteMark + "/" + TailscaleFwmarkMask}
+	// Explicitly allow all other inbound traffic to the tun interface
+	args := []string{"-i", tunname, "-j", "ACCEPT"}
+	if err := i.ipt6.Append("filter", "ts-input", args...); err != nil {
+		return fmt.Errorf("adding %v in v6/filter/ts-input: %w", args, err)
+	}
+
+	args = []string{"-i", tunname, "-j", "MARK", "--set-mark", TailscaleSubnetRouteMark + "/" + TailscaleFwmarkMask}
 	if err := i.ipt6.Append("filter", "ts-forward", args...); err != nil {
 		return fmt.Errorf("adding %v in v6/filter/ts-forward: %w", args, err)
 	}

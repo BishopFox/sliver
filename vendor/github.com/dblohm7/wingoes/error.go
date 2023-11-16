@@ -12,9 +12,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// HRESULT is equivalent to the HRESULT type in the Win32 SDK for C/C++.
-type HRESULT int32
-
 // Error represents various error codes that may be encountered when coding
 // against Windows APIs, including HRESULTs, windows.NTStatus, and windows.Errno.
 type Error HRESULT

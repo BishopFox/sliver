@@ -1,3 +1,85 @@
+# v1.18.42 (2023-09-22)
+
+* **Bug Fix**: Fixed a bug where merging `max_attempts` or `duration_seconds` fields across shared config files with invalid values would silently default them to 0.
+* **Bug Fix**: Move type assertion of config values out of the parsing stage, which resolves an issue where the contents of a profile would silently be dropped with certain numeric formats.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.41 (2023-09-20)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.40 (2023-09-18)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.39 (2023-09-05)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.38 (2023-08-31)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.37 (2023-08-23)
+
+* No change notes available for this release.
+
+# v1.18.36 (2023-08-21)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.35 (2023-08-18)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.34 (2023-08-17)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.33 (2023-08-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.32 (2023-08-01)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.31 (2023-07-31)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.30 (2023-07-28)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.29 (2023-07-25)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.28 (2023-07-13)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.27 (2023-06-15)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.26 (2023-06-13)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.25 (2023-05-09)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.24 (2023-05-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.18.23 (2023-05-04)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.18.22 (2023-04-24)
 
 * **Dependency Update**: Updated to the latest SDK module versions

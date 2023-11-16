@@ -34,6 +34,9 @@ const (
 	// MaxRTO is the maximum allowed value for the retransmit timeout.
 	MaxRTO = 120 * time.Second
 
+	// MinSRTT is the minimum allowed value for smoothed RTT.
+	MinSRTT = 1 * time.Millisecond
+
 	// InitialCwnd is the initial congestion window.
 	InitialCwnd = 10
 
@@ -382,6 +385,10 @@ func (s *sender) updateRTO(rtt time.Duration) {
 			s.rtt.TCPRTTState.RTTVar = time.Duration(rttVar * float64(time.Second))
 			s.rtt.TCPRTTState.SRTT = time.Duration(srtt * float64(time.Second))
 		}
+	}
+
+	if s.rtt.TCPRTTState.SRTT < MinSRTT {
+		s.rtt.TCPRTTState.SRTT = MinSRTT
 	}
 
 	s.RTO = s.rtt.TCPRTTState.SRTT + 4*s.rtt.TCPRTTState.RTTVar
@@ -792,6 +799,7 @@ func (s *sender) maybeSendSegment(seg *segment, limit int, end seqnum.Value) (se
 		segEnd = seg.sequenceNumber.Add(1)
 		// Update the state to reflect that we have now
 		// queued a FIN.
+		s.ep.updateConnDirectionState(connDirectionStateSndClosed)
 		switch s.ep.EndpointState() {
 		case StateCloseWait:
 			s.ep.setEndpointState(StateLastAck)

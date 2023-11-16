@@ -1,4 +1,4 @@
-// +build aix freebsd openbsd netbsd
+// +build aix freebsd openbsd netbsd dragonfly
 
 package interfaces
 

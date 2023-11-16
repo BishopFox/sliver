@@ -21,6 +21,8 @@ import (
 
 	"golang.org/x/crypto/poly1305"
 	xmaps "golang.org/x/exp/maps"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 	"tailscale.com/disco"
 	"tailscale.com/ipn/ipnstate"
 	"tailscale.com/net/stun"
@@ -29,10 +31,19 @@ import (
 	"tailscale.com/tstime/mono"
 	"tailscale.com/types/key"
 	"tailscale.com/types/logger"
-	"tailscale.com/types/views"
 	"tailscale.com/util/mak"
 	"tailscale.com/util/ringbuffer"
 )
+
+var mtuProbePingSizesV4 []int
+var mtuProbePingSizesV6 []int
+
+func init() {
+	for _, m := range tstun.WireMTUsToProbe {
+		mtuProbePingSizesV4 = append(mtuProbePingSizesV4, pktLenToPingSize(m, false))
+		mtuProbePingSizesV6 = append(mtuProbePingSizesV6, pktLenToPingSize(m, true))
+	}
+}
 
 // endpoint is a wireguard/conn.Endpoint. In wireguard-go and kernel WireGuard
 // there is only one endpoint for a peer, but in Tailscale we distribute a
@@ -66,7 +77,7 @@ type endpoint struct {
 	lastFullPing   mono.Time      // last time we pinged all disco or wireguard only endpoints
 	derpAddr       netip.AddrPort // fallback/bootstrap path, if non-zero (non-zero for well-behaved clients)
 
-	bestAddr           addrLatency // best non-DERP path; zero if none
+	bestAddr           addrQuality // best non-DERP path; zero if none
 	bestAddrAt         mono.Time   // time best address re-confirmed
 	trustBestAddrUntil mono.Time   // time when bestAddr expires
 	sentPing           map[stun.TxID]sentPing
@@ -94,8 +105,8 @@ type sentPing struct {
 	at      mono.Time
 	timer   *time.Timer // timeout timer
 	purpose discoPingPurpose
-	res     *ipnstate.PingResult       // nil unless CLI ping
-	cb      func(*ipnstate.PingResult) // nil unless CLI ping
+	size    int                    // size of the disco message
+	resCB   *pingResultAndCallback // or nil for internal use
 }
 
 // endpointState is some state and history for a specific endpoint of
@@ -208,7 +219,7 @@ func (de *endpoint) deleteEndpointLocked(why string, ep netip.AddrPort) {
 			What: "deleteEndpointLocked-bestAddr-" + why,
 			From: de.bestAddr,
 		})
-		de.bestAddr = addrLatency{}
+		de.bestAddr = addrQuality{}
 	}
 }
 
@@ -274,10 +285,12 @@ func (de *endpoint) DstToBytes() []byte  { return packIPPort(de.fakeWGAddr) }
 // addrForSendLocked returns the address(es) that should be used for
 // sending the next packet. Zero, one, or both of UDP address and DERP
 // addr may be non-zero. If the endpoint is WireGuard only and does not have
-// latency information, a bool is returned to indiciate that the
+// latency information, a bool is returned to indicate that the
 // WireGuard latency discovery pings should be sent.
 //
 // de.mu must be held.
+//
+// TODO(val): Rewrite the addrFor*Locked() variations to share code.
 func (de *endpoint) addrForSendLocked(now mono.Time) (udpAddr, derpAddr netip.AddrPort, sendWGPing bool) {
 	udpAddr = de.bestAddr.AddrPort
 
@@ -354,6 +367,41 @@ func (de *endpoint) addrForWireGuardSendLocked(now mono.Time) (udpAddr netip.Add
 	return udpAddr, needPing
 }
 
+// addrForPingSizeLocked returns the address(es) that should be used for sending
+// the next ping. It will only return addrs with a large enough path MTU to
+// permit a ping payload of size bytes to be delivered (DERP is always one such
+// addr as it is a TCP connection). If it returns a zero-value udpAddr, then we
+// should continue probing the MTU of all paths to this endpoint. Zero, one, or
+// both of the returned UDP address and DERP address may be non-zero.
+//
+// de.mu must be held.
+func (de *endpoint) addrForPingSizeLocked(now mono.Time, size int) (udpAddr, derpAddr netip.AddrPort) {
+	if size == 0 {
+		udpAddr, derpAddr, _ = de.addrForSendLocked(now)
+		return
+	}
+
+	udpAddr = de.bestAddr.AddrPort
+	pathMTU := de.bestAddr.wireMTU
+	requestedMTU := pingSizeToPktLen(size, udpAddr.Addr().Is6())
+	mtuOk := requestedMTU <= pathMTU
+
+	if udpAddr.IsValid() && mtuOk {
+		if !now.After(de.trustBestAddrUntil) {
+			return udpAddr, netip.AddrPort{}
+		}
+		// We had a bestAddr with large enough MTU but it expired, so
+		// send both to it and DERP.
+		return udpAddr, de.derpAddr
+	}
+
+	// The UDP address isn't valid or it doesn't have a path MTU big enough
+	// for the packet. Return a zero-value udpAddr to signal that we should
+	// keep probing the path MTU to all addresses for this endpoint, and a
+	// valid DERP addr to signal that we should also send via DERP.
+	return netip.AddrPort{}, de.derpAddr
+}
+
 // heartbeat is called every heartbeatInterval to keep the best UDP path alive,
 // or kick off discovery of other paths.
 func (de *endpoint) heartbeat() {
@@ -382,7 +430,7 @@ func (de *endpoint) heartbeat() {
 	udpAddr, _, _ := de.addrForSendLocked(now)
 	if udpAddr.IsValid() {
 		// We have a preferred path. Ping that every 2 seconds.
-		de.startDiscoPingLocked(udpAddr, now, pingHeartbeat, 0, nil, nil)
+		de.startDiscoPingLocked(udpAddr, now, pingHeartbeat, 0, nil)
 	}
 
 	if de.wantFullPingLocked(now) {
@@ -390,6 +438,13 @@ func (de *endpoint) heartbeat() {
 	}
 
 	de.heartBeatTimer = time.AfterFunc(heartbeatInterval, de.heartbeat)
+}
+
+// setHeartbeatDisabled sets heartbeatDisabled to the provided value.
+func (de *endpoint) setHeartbeatDisabled(v bool) {
+	de.mu.Lock()
+	defer de.mu.Unlock()
+	de.heartbeatDisabled = v
 }
 
 // wantFullPingLocked reports whether we should ping to all our peers looking for
@@ -422,9 +477,24 @@ func (de *endpoint) noteActiveLocked() {
 	}
 }
 
-// cliPing starts a ping for the "tailscale ping" command. res is value to call cb with,
-// already partially filled.
-func (de *endpoint) cliPing(res *ipnstate.PingResult, size int, cb func(*ipnstate.PingResult)) {
+// MaxDiscoPingSize is the largest useful ping message size that we
+// can send - the maximum packet size minus the IPv4 and UDP headers.
+var MaxDiscoPingSize = tstun.MaxPacketSize - 20 - 8
+
+type pingResultAndCallback struct {
+	taken atomic.Bool // first CompareAndSwamp from false to true takes ownership of res
+	res   *ipnstate.PingResult
+	cb    func(*ipnstate.PingResult)
+}
+
+func (p *pingResultAndCallback) reply() bool {
+	return p != nil && p.taken.CompareAndSwap(false, true)
+}
+
+// discoPing starts a disco-level ping for the "tailscale ping" command (or other
+// callers, such as c2n). res is value to call cb with, already partially
+// filled. cb must be called at most once. Once called, ownership of res passes to cb.
+func (de *endpoint) discoPing(res *ipnstate.PingResult, size int, cb func(*ipnstate.PingResult)) {
 	de.mu.Lock()
 	defer de.mu.Unlock()
 
@@ -433,22 +503,29 @@ func (de *endpoint) cliPing(res *ipnstate.PingResult, size int, cb func(*ipnstat
 		cb(res)
 		return
 	}
+	if size > MaxDiscoPingSize {
+		res.Err = errPingTooBig.Error()
+		cb(res)
+		return
+	}
+
+	resCB := &pingResultAndCallback{res: res, cb: cb}
 
 	now := mono.Now()
-	udpAddr, derpAddr, _ := de.addrForSendLocked(now)
+	udpAddr, derpAddr := de.addrForPingSizeLocked(now, size)
 
 	if derpAddr.IsValid() {
-		de.startDiscoPingLocked(derpAddr, now, pingCLI, size, res, cb)
+		de.startDiscoPingLocked(derpAddr, now, pingCLI, size, resCB)
 	}
 	if udpAddr.IsValid() && now.Before(de.trustBestAddrUntil) {
 		// Already have an active session, so just ping the address we're using.
 		// Otherwise "tailscale ping" results to a node on the local network
 		// can look like they're bouncing between, say 10.0.0.0/9 and the peer's
 		// IPv6 address, both 1ms away, and it's random who replies first.
-		de.startDiscoPingLocked(udpAddr, now, pingCLI, size, res, cb)
+		de.startDiscoPingLocked(udpAddr, now, pingCLI, size, resCB)
 	} else {
 		for ep := range de.endpointState {
-			de.startDiscoPingLocked(ep, now, pingCLI, size, res, cb)
+			de.startDiscoPingLocked(ep, now, pingCLI, size, resCB)
 		}
 	}
 	de.noteActiveLocked()
@@ -457,6 +534,7 @@ func (de *endpoint) cliPing(res *ipnstate.PingResult, size int, cb func(*ipnstat
 var (
 	errExpired     = errors.New("peer's node key has expired")
 	errNoUDPOrDERP = errors.New("no UDP or DERP addr")
+	errPingTooBig  = errors.New("ping size too big")
 )
 
 func (de *endpoint) send(buffs [][]byte) error {
@@ -558,19 +636,15 @@ const discoPingSize = len(disco.Magic) + key.DiscoPublicRawLen + disco.NonceLen 
 // is the desired disco message size, including all disco headers but excluding IP/UDP
 // headers.
 //
-// The caller (startPingLocked) should've already recorded the ping in
+// The caller (startDiscoPingLocked) should've already recorded the ping in
 // sentPing and set up the timer.
 //
 // The caller should use de.discoKey as the discoKey argument.
 // It is passed in so that sendDiscoPing doesn't need to lock de.mu.
 func (de *endpoint) sendDiscoPing(ep netip.AddrPort, discoKey key.DiscoPublic, txid stun.TxID, size int, logLevel discoLogLevel) {
-	padding := 0
-	if size > int(tstun.DefaultMTU()) {
-		size = int(tstun.DefaultMTU())
-	}
-	if size-discoPingSize > 0 {
-		padding = size - discoPingSize
-	}
+	size = min(size, MaxDiscoPingSize)
+	padding := max(size-discoPingSize, 0)
+
 	sent, _ := de.c.sendDiscoMessage(ep, de.publicKey, discoKey, &disco.Ping{
 		TxID:    [12]byte(txid),
 		NodeKey: de.c.publicKeyAtomic.Load(),
@@ -578,6 +652,12 @@ func (de *endpoint) sendDiscoPing(ep netip.AddrPort, discoKey key.DiscoPublic, t
 	}, logLevel)
 	if !sent {
 		de.forgetDiscoPing(txid)
+		return
+	}
+
+	if size != 0 {
+		metricSentDiscoPeerMTUProbes.Add(1)
+		metricSentDiscoPeerMTUProbeBytes.Add(int64(pingSizeToPktLen(size, ep.Addr().Is6())))
 	}
 }
 
@@ -599,10 +679,11 @@ const (
 	pingCLI
 )
 
-// startDiscoPingLocked sends a disco ping to ep in a separate
-// goroutine. res and cb are for returning the results of CLI pings,
-// otherwise they are nil.
-func (de *endpoint) startDiscoPingLocked(ep netip.AddrPort, now mono.Time, purpose discoPingPurpose, size int, res *ipnstate.PingResult, cb func(*ipnstate.PingResult)) {
+// startDiscoPingLocked sends a disco ping to ep in a separate goroutine. resCB,
+// if non-nil, means that a caller external to the magicsock package internals
+// is interested in the result (such as a CLI "tailscale ping" or a c2n ping
+// request, etc)
+func (de *endpoint) startDiscoPingLocked(ep netip.AddrPort, now mono.Time, purpose discoPingPurpose, size int, resCB *pingResultAndCallback) {
 	if runtime.GOOS == "js" {
 		return
 	}
@@ -621,21 +702,40 @@ func (de *endpoint) startDiscoPingLocked(ep netip.AddrPort, now mono.Time, purpo
 		st.lastPing = now
 	}
 
-	txid := stun.NewTxID()
-	de.sentPing[txid] = sentPing{
-		to:      ep,
-		at:      now,
-		timer:   time.AfterFunc(pingTimeoutDuration, func() { de.discoPingTimeout(txid) }),
-		purpose: purpose,
-		res:     res,
-		cb:      cb,
+	// If we are doing a discovery ping or a CLI ping with no specified size
+	// to a non DERP address, then probe the MTU. Otherwise just send the
+	// one specified ping.
+
+	// Default to sending a single ping of the specified size
+	sizes := []int{size}
+	if de.c.PeerMTUEnabled() {
+		isDerp := ep.Addr() == tailcfg.DerpMagicIPAddr
+		if !isDerp && ((purpose == pingDiscovery) || (purpose == pingCLI && size == 0)) {
+			de.c.dlogf("[v1] magicsock: starting MTU probe")
+			sizes = mtuProbePingSizesV4
+			if ep.Addr().Is6() {
+				sizes = mtuProbePingSizesV6
+			}
+		}
 	}
 
 	logLevel := discoLog
 	if purpose == pingHeartbeat {
 		logLevel = discoVerboseLog
 	}
-	go de.sendDiscoPing(ep, epDisco.key, txid, size, logLevel)
+	for _, s := range sizes {
+		txid := stun.NewTxID()
+		de.sentPing[txid] = sentPing{
+			to:      ep,
+			at:      now,
+			timer:   time.AfterFunc(pingTimeoutDuration, func() { de.discoPingTimeout(txid) }),
+			purpose: purpose,
+			resCB:   resCB,
+			size:    s,
+		}
+		go de.sendDiscoPing(ep, epDisco.key, txid, s, logLevel)
+	}
+
 }
 
 // sendDiscoPingsLocked starts pinging all of ep's endpoints.
@@ -661,7 +761,7 @@ func (de *endpoint) sendDiscoPingsLocked(now mono.Time, sendCallMeMaybe bool) {
 			de.c.dlogf("[v1] magicsock: disco: send, starting discovery for %v (%v)", de.publicKey.ShortString(), de.discoShort())
 		}
 
-		de.startDiscoPingLocked(ep, now, pingDiscovery, 0, nil, nil)
+		de.startDiscoPingLocked(ep, now, pingDiscovery, 0, nil)
 	}
 	derpAddr := de.derpAddr
 	if sentAny && sendCallMeMaybe && derpAddr.IsValid() {
@@ -806,19 +906,7 @@ func (de *endpoint) updateFromNode(n tailcfg.NodeView, heartbeatDisabled bool) {
 		de.derpAddr = newDerp
 	}
 
-	de.setEndpointsLocked(addrPortsFromStringsView{n.Endpoints()})
-}
-
-// addrPortsFromStringsView converts a view of AddrPort strings
-// to a view-like thing of netip.AddrPort.
-// TODO(bradfitz): change the type of tailcfg.Node.Endpoint.
-type addrPortsFromStringsView struct {
-	views.Slice[string]
-}
-
-func (a addrPortsFromStringsView) At(i int) netip.AddrPort {
-	ap, _ := netip.ParseAddrPort(a.Slice.At(i))
-	return ap // or the zero value on error
+	de.setEndpointsLocked(n.Endpoints())
 }
 
 func (de *endpoint) setEndpointsLocked(eps interface {
@@ -913,7 +1001,7 @@ func (de *endpoint) addCandidateEndpoint(ep netip.AddrPort, forRxPingTxID stun.T
 //
 // de.mu must be held.
 func (de *endpoint) clearBestAddrLocked() {
-	de.bestAddr = addrLatency{}
+	de.bestAddr = addrQuality{}
 	de.bestAddrAt = 0
 	de.trustBestAddrUntil = 0
 }
@@ -946,6 +1034,41 @@ func (de *endpoint) noteConnectivityChange() {
 	}
 }
 
+// pingSizeToPktLen calculates the minimum path MTU that would permit
+// a disco ping message of length size to reach its target at
+// addr. size is the length of the entire disco message including
+// disco headers. If size is zero, assume it is the safe wire MTU.
+func pingSizeToPktLen(size int, is6 bool) tstun.WireMTU {
+	if size == 0 {
+		return tstun.SafeWireMTU()
+	}
+	headerLen := ipv4.HeaderLen
+	if is6 {
+		headerLen = ipv6.HeaderLen
+	}
+	headerLen += 8 // UDP header length
+	return tstun.WireMTU(size + headerLen)
+}
+
+// pktLenToPingSize calculates the ping payload size that would
+// create a disco ping message whose on-the-wire length is exactly mtu
+// bytes long. If mtu is zero or less than the minimum ping size, then
+// no MTU probe is desired and return zero for an unpadded ping.
+func pktLenToPingSize(mtu tstun.WireMTU, is6 bool) int {
+	if mtu == 0 {
+		return 0
+	}
+	headerLen := ipv4.HeaderLen
+	if is6 {
+		headerLen = ipv6.HeaderLen
+	}
+	headerLen += 8 // UDP header length
+	if mtu < tstun.WireMTU(headerLen) {
+		return 0
+	}
+	return int(mtu) - headerLen
+}
+
 // handlePongConnLocked handles a Pong message (a reply to an earlier ping).
 // It should be called with the Conn.mu held.
 //
@@ -963,6 +1086,15 @@ func (de *endpoint) handlePongConnLocked(m *disco.Pong, di *discoInfo, src netip
 	}
 	knownTxID = true // for naked returns below
 	de.removeSentDiscoPingLocked(m.TxID, sp)
+
+	pktLen := int(pingSizeToPktLen(sp.size, sp.to.Addr().Is6()))
+	if sp.size != 0 {
+		m := getPeerMTUsProbedMetric(tstun.WireMTU(pktLen))
+		m.Add(1)
+		if metricMaxPeerMTUProbed.Value() < int64(pktLen) {
+			metricMaxPeerMTUProbed.Set(int64(pktLen))
+		}
+	}
 
 	now := mono.Now()
 	latency := now.Sub(sp.at)
@@ -985,7 +1117,7 @@ func (de *endpoint) handlePongConnLocked(m *disco.Pong, di *discoInfo, src netip
 	}
 
 	if sp.purpose != pingHeartbeat {
-		de.c.dlogf("[v1] magicsock: disco: %v<-%v (%v, %v)  got pong tx=%x latency=%v pong.src=%v%v", de.c.discoShort, de.discoShort(), de.publicKey.ShortString(), src, m.TxID[:6], latency.Round(time.Millisecond), m.Src, logger.ArgWriter(func(bw *bufio.Writer) {
+		de.c.dlogf("[v1] magicsock: disco: %v<-%v (%v, %v)  got pong tx=%x latency=%v pktlen=%v pong.src=%v%v", de.c.discoShort, de.discoShort(), de.publicKey.ShortString(), src, m.TxID[:6], latency.Round(time.Millisecond), pktLen, m.Src, logger.ArgWriter(func(bw *bufio.Writer) {
 			if sp.to != src {
 				fmt.Fprintf(bw, " ping.to=%v", sp.to)
 			}
@@ -993,19 +1125,19 @@ func (de *endpoint) handlePongConnLocked(m *disco.Pong, di *discoInfo, src netip
 	}
 
 	// Currently only CLI ping uses this callback.
-	if sp.cb != nil {
+	if sp.resCB.reply() {
 		if sp.purpose == pingCLI {
-			de.c.populateCLIPingResponseLocked(sp.res, latency, sp.to)
+			de.c.populateCLIPingResponseLocked(sp.resCB.res, latency, sp.to)
 		}
-		go sp.cb(sp.res)
+		go sp.resCB.cb(sp.resCB.res)
 	}
 
 	// Promote this pong response to our current best address if it's lower latency.
 	// TODO(bradfitz): decide how latency vs. preference order affects decision
 	if !isDerp {
-		thisPong := addrLatency{sp.to, latency}
+		thisPong := addrQuality{sp.to, latency, tstun.WireMTU(pingSizeToPktLen(sp.size, sp.to.Addr().Is6()))}
 		if betterAddr(thisPong, de.bestAddr) {
-			de.c.logf("magicsock: disco: node %v %v now using %v", de.publicKey.ShortString(), de.discoShort(), sp.to)
+			de.c.logf("magicsock: disco: node %v %v now using %v mtu=%v tx=%x", de.publicKey.ShortString(), de.discoShort(), sp.to, thisPong.wireMTU, m.TxID[:6])
 			de.debugUpdates.Add(EndpointChange{
 				When: time.Now(),
 				What: "handlePingLocked-bestAddr-update",
@@ -1029,19 +1161,28 @@ func (de *endpoint) handlePongConnLocked(m *disco.Pong, di *discoInfo, src netip
 	return
 }
 
-// addrLatency is an IPPort with an associated latency.
-type addrLatency struct {
+// addrQuality is an IPPort with an associated latency and path mtu.
+type addrQuality struct {
 	netip.AddrPort
 	latency time.Duration
+	wireMTU tstun.WireMTU
 }
 
-func (a addrLatency) String() string {
-	return a.AddrPort.String() + "@" + a.latency.String()
+func (a addrQuality) String() string {
+	return fmt.Sprintf("%v@%v+%v", a.AddrPort, a.latency, a.wireMTU)
 }
 
 // betterAddr reports whether a is a better addr to use than b.
-func betterAddr(a, b addrLatency) bool {
+func betterAddr(a, b addrQuality) bool {
 	if a.AddrPort == b.AddrPort {
+		if a.wireMTU > b.wireMTU {
+			// TODO(val): Think harder about the case of lower
+			// latency and smaller or unknown MTU, and higher
+			// latency but larger MTU. Probably in most cases the
+			// largest MTU will also be the lowest latency but we
+			// can't depend on that.
+			return true
+		}
 		return false
 	}
 	if !b.IsValid() {
@@ -1201,7 +1342,11 @@ func (de *endpoint) stopAndReset() {
 	defer de.mu.Unlock()
 
 	if closing := de.c.closing.Load(); !closing {
-		de.c.logf("[v1] magicsock: doing cleanup for discovery key %s", de.discoShort())
+		if de.isWireguardOnly {
+			de.c.logf("[v1] magicsock: doing cleanup for wireguard key %s", de.publicKey.ShortString())
+		} else {
+			de.c.logf("[v1] magicsock: doing cleanup for discovery key %s", de.discoShort())
+		}
 	}
 
 	de.debugUpdates.Add(EndpointChange{
@@ -1225,8 +1370,10 @@ func (de *endpoint) resetLocked() {
 	for _, es := range de.endpointState {
 		es.lastPing = 0
 	}
-	for txid, sp := range de.sentPing {
-		de.removeSentDiscoPingLocked(txid, sp)
+	if !de.isWireguardOnly {
+		for txid, sp := range de.sentPing {
+			de.removeSentDiscoPingLocked(txid, sp)
+		}
 	}
 }
 
