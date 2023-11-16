@@ -25,8 +25,8 @@ import (
 	"log"
 	"net"
 
+	"github.com/bishopfox/sliver/implant/sliver/netstack"
 	"github.com/things-go/go-socks5"
-	"golang.zx2c4.com/wireguard/tun/netstack"
 )
 
 var socksServerID = 0

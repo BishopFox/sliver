@@ -29,7 +29,7 @@ import (
 	"net"
 	"sync"
 
-	"golang.zx2c4.com/wireguard/tun/netstack"
+	"github.com/bishopfox/sliver/implant/sliver/netstack"
 )
 
 var tcpForwarderID = 0

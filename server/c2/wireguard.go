@@ -34,9 +34,9 @@ import (
 	"github.com/bishopfox/sliver/server/generate"
 	serverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/server/netstack"
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
-	"golang.zx2c4.com/wireguard/tun/netstack"
 	"google.golang.org/protobuf/proto"
 )
 
