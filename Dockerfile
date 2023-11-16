@@ -1,6 +1,6 @@
 # STAGE: base
 ## Compiles Sliver for use
-FROM golang:1.21.4 as base
+FROM --platform=linux/amd64 golang:1.21.4 as base
 
 ### Base packages
 RUN apt-get update --fix-missing && apt-get -y install \
@@ -20,7 +20,7 @@ RUN cp -vv sliver-server /opt/sliver-server
 # STAGE: test
 ## Run unit tests against the compiled instance
 ## Use `--target test` in the docker build command to run this stage
-FROM base as test
+FROM --platform=linux/amd64 base as test
 
 ### Install testing packages
 RUN apt-get update --fix-missing && apt-get -y install \
@@ -49,7 +49,7 @@ RUN /go/src/github.com/bishopfox/sliver/go-tests.sh
 
 # STAGE: production
 ## Final dockerized form of Sliver
-FROM golang:1.21.4 as production
+FROM --platform=linux/amd64  golang:1.21.4 as production
 
 ### Copy compiled binary
 COPY --from=base /opt/sliver-server  /opt/sliver-server
