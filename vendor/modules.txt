@@ -871,6 +871,7 @@ golang.zx2c4.com/wireguard/replay
 golang.zx2c4.com/wireguard/rwcancel
 golang.zx2c4.com/wireguard/tai64n
 golang.zx2c4.com/wireguard/tun
+golang.zx2c4.com/wireguard/tun/netstack
 # golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220208144051-fde48d68ee68
 ## explicit; go 1.13
 golang.zx2c4.com/wireguard/wgctrl/wgtypes

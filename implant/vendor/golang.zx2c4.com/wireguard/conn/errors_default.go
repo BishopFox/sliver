@@ -1,4 +1,4 @@
-//go:build !linux && !openbsd && !freebsd
+//go:build !linux
 
 /* SPDX-License-Identifier: MIT
  *
@@ -7,6 +7,6 @@
 
 package conn
 
-func (s *StdNetBind) SetMark(mark uint32) error {
-	return nil
+func errShouldDisableUDPGSO(err error) bool {
+	return false
 }
