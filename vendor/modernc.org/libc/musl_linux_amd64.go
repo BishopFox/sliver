@@ -460,6 +460,10 @@ func Xisprint(tls *TLS, c int32) int32 { /* isprint.c:4:5: */
 	return Bool32(uint32(c)-uint32(0x20) < uint32(0x5f))
 }
 
+func X__builtin_isprint(tls *TLS, c int32) int32 { /* isprint.c:4:5: */
+	return Bool32(uint32(c)-uint32(0x20) < uint32(0x5f))
+}
+
 func X__isprint_l(tls *TLS, c int32, l locale_t) int32 { /* isprint.c:9:5: */
 	return Xisprint(tls, c)
 }
