@@ -17,21 +17,6 @@ package c2
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-	------------------------------------------------------------------------
-
-	We've put a little effort to making the server at least not super easily fingerprintable,
-	though I'm guessing it's also still not super hard to do. The server must receive a valid
-	TOTP code before we start returning any non-error records. All requests must be formatted
-	as valid protobuf and contain a 24-bit "dns session ID" (16777216 possible values), and a
-	8 bit "message ID." The server only responds to non-TOTP queries with valid dns session IDs
-	16,777,216 can probably be bruteforced but it'll at least be slow.
-
-	DNS command and control outline:
-		1. Implant sends TOTP encoded message to DNS server, server checks validity
-		2. DNS server responds with the "DNS Session ID" which is just some random value
-		3. Requests with valid DNS session IDs enable the server to respond with CRC32 responses
-		4. Implant establishes encrypted session
-
 */
 import (
 	"log"
