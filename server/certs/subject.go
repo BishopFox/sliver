@@ -268,7 +268,7 @@ func randomPostalCode(country []string) []string {
 	// 1 in `n` will include a postal code
 	// From my cursory view of a few TLS certs it seems uncommon to include this
 	// in the distinguished name so right now it's set to 1/5
-	const postalProbability = 5
+	const postalProbability = 10
 
 	if len(country) == 0 {
 		return []string{}
@@ -367,6 +367,50 @@ var (
 		"limited",
 		"corporation",
 		"company",
+		"GmbH",
+		"AG",
+		"S.A.",
+		"B.V.",
+		"LLP",
+		"Pte Ltd",
+		"Sdn Bhd",
+		"KG",
+		"Limited",
+		"Partnership",
+		"Associates",
+		"Group",
+		"Holdings",
+		"Enterprises",
+		"Industries",
+		"Ventures",
+		"International",
+		"Systems",
+		"Technologies",
+		"Incorporated",
+		"Services",
+		"Solutions",
+		"Enterprises",
+		"Global",
+		"Trading",
+		"Manufacturing",
+		"Development",
+		"Management",
+		"Consulting",
+		"Logistics",
+		"Communications",
+		"Finance",
+		"Electronics",
+		"Pharmaceuticals",
+		"Automotive",
+		"Energy",
+		"Healthcare",
+		"Technology",
+		"Biotech",
+		"Media",
+		"Software",
+		"Hardware",
+		"Entertainment",
+		"Construction",
 	}
 )
 
