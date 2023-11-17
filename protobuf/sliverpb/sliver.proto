@@ -278,12 +278,16 @@ message UploadReq {
   bytes Data = 3;
   bool IsIOC = 4;
   string FileName = 5;
+  bool IsDirectory = 6;
+  bool Overwrite = 7;
 
   commonpb.Request Request = 9;
 }
 
 message Upload {
   string Path = 1;
+  int32 WrittenFiles = 2;
+  int32 UnwriteableFiles = 3;
 
   commonpb.Response Response = 9;
 }

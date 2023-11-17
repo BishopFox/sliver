@@ -1026,7 +1026,7 @@ func SliverCommands(con *client.SliverConsoleClient) console.Commands {
 
 		uploadCmd := &cobra.Command{
 			Use:   consts.UploadStr,
-			Short: "Upload a file",
+			Short: "Upload a file or directory",
 			Long:  help.GetHelpFor([]string{consts.UploadStr}),
 			Args:  cobra.RangeArgs(1, 2),
 			Run: func(cmd *cobra.Command, args []string) {
@@ -1037,6 +1037,9 @@ func SliverCommands(con *client.SliverConsoleClient) console.Commands {
 		sliver.AddCommand(uploadCmd)
 		Flags("", false, uploadCmd, func(f *pflag.FlagSet) {
 			f.BoolP("ioc", "i", false, "track uploaded file as an ioc")
+			f.BoolP("recurse", "r", false, "recursively upload a directory")
+			f.BoolP("overwrite", "o", false, "overwrite files that exist in the destination")
+			f.BoolP("preserve", "p", false, "preserve directory structure when uploading a directory")
 			f.Int64P("timeout", "t", defaultTimeout, "grpc timeout in seconds")
 		})
 		carapace.Gen(uploadCmd).PositionalCompletion(

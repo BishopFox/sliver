@@ -334,7 +334,31 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
 	[[.Bold]]About:[[.Normal]] Fetch the last number of bytes or lines from a remote file and display it to stdout.`
 
 	uploadHelp = `[[.Bold]]Command:[[.Normal]] upload [local src] <remote dst>
-[[.Bold]]About:[[.Normal]] Upload a file to the remote system.`
+[[.Bold]]About:[[.Normal]] Upload a file or directory to the remote system.
+[[.Bold]][[.Underline]]Paths[[.Normal]]
+You can preserve directory structures using the -p switch. Directories will be preserved as they are specified in the source path.
+For example, the command upload -p /home/me/docs /tmp will upload the files in /home/me/docs to /tmp/home/me/docs on the target.
+However, if you are in the local directory /home/me, and issue the command upload -p docs /tmp, the files in /home/me/docs will
+be uploaded to /tmp/docs on the target. This is equivalent to upload /home/me/docs /tmp/docs (notice the lack of the -p switch).
+[[.Bold]][[.Underline]]Filters[[.Normal]]
+Filters are a way to limit uploads to file names matching given criteria. Filters DO NOT apply to directory names.
+
+Filters are specified after the path.  A blank path will filter on names in the current directory.  For example:
+upload /etc/*.conf will upload all files from /etc whose names end in .conf. /etc/ is the path, *.conf is the filter.
+
+Uploads can be filtered using the following patterns:
+'*': Wildcard, matches any sequence of non-path separators (slashes)
+	Example: n*.txt will match all file names starting with n and ending with .txt
+
+'?': Single character wildcard, matches a single non-path separator (slashes)
+	Example: s?iver will match all file names starting with s followed by any non-separator character and ending with iver.
+
+'[{range}]': Match a range of characters.  Ranges are specified with '-'. This is usually combined with other patterns. Ranges can be negated with '^'.
+	Example: [a-c] will match the characters a, b, and c.  [a-c]* will match all file names that start with a, b, or c.
+		^[r-u] will match all characters except r, s, t, and u.
+
+If you need to match a special character (*, ?, '-', '[', ']', '\\'), place '\\' in front of it (example: \\?).
+On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
 
 	procdumpHelp = `[[.Bold]]Command:[[.Normal]] procdump [pid]
 [[.Bold]]About:[[.Normal]] Dumps the process memory given a process identifier (pid)`
