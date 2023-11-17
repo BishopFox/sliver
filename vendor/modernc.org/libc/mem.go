@@ -86,6 +86,18 @@ func Xfree(t *TLS, p uintptr) {
 	allocator.UintptrFree(p)
 }
 
+func Xmalloc_usable_size(tls *TLS, p uintptr) (r types.Size_t) {
+	if p == 0 {
+		return 0
+	}
+
+	allocMu.Lock()
+
+	defer allocMu.Unlock()
+
+	return types.Size_t(memory.UintptrUsableSize(p))
+}
+
 func UsableSize(p uintptr) types.Size_t {
 	allocMu.Lock()
 

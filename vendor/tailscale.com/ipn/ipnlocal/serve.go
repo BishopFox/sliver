@@ -23,16 +23,24 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"golang.org/x/net/http2"
 	"tailscale.com/ipn"
 	"tailscale.com/logtail/backoff"
 	"tailscale.com/net/netutil"
 	"tailscale.com/syncs"
 	"tailscale.com/tailcfg"
+	"tailscale.com/types/lazy"
 	"tailscale.com/types/logger"
 	"tailscale.com/util/mak"
 	"tailscale.com/version"
+)
+
+const (
+	contentTypeHeader   = "Content-Type"
+	grpcBaseContentType = "application/grpc"
 )
 
 // ErrETagMismatch signals that the given
@@ -48,16 +56,17 @@ type serveHTTPContext struct {
 	DestPort uint16
 }
 
-// serveListener is the state of host-level net.Listen for a specific (Tailscale IP, serve port)
+// localListener is the state of host-level net.Listen for a specific (Tailscale IP, port)
 // combination. If there are two TailscaleIPs (v4 and v6) and three ports being served,
 // then there will be six of these active and looping in their Run method.
 //
 // This is not used in userspace-networking mode.
 //
-// Most serve traffic is intercepted by netstack. This exists purely for connections
-// from the machine itself, as that goes via the kernel, so we need to be in the
-// kernel's listening/routing tables.
-type serveListener struct {
+// localListener is used by tailscale serve (TCP only) as well as the built-in web client.
+// Most serve traffic and peer traffic for the web client are intercepted by netstack.
+// This listener exists purely for connections from the machine itself, as that goes via the kernel,
+// so we need to be in the kernel's listening/routing tables.
+type localListener struct {
 	b      *LocalBackend
 	ap     netip.AddrPort
 	ctx    context.Context    // valid while listener is desired
@@ -65,24 +74,36 @@ type serveListener struct {
 	logf   logger.Logf
 	bo     *backoff.Backoff // for retrying failed Listen calls
 
+	handler       func(net.Conn) error            // handler for inbound connections
 	closeListener syncs.AtomicValue[func() error] // Listener's Close method, if any
 }
 
-func (b *LocalBackend) newServeListener(ctx context.Context, ap netip.AddrPort, logf logger.Logf) *serveListener {
+func (b *LocalBackend) newServeListener(ctx context.Context, ap netip.AddrPort, logf logger.Logf) *localListener {
 	ctx, cancel := context.WithCancel(ctx)
-	return &serveListener{
+	return &localListener{
 		b:      b,
 		ap:     ap,
 		ctx:    ctx,
 		cancel: cancel,
 		logf:   logf,
 
+		handler: func(conn net.Conn) error {
+			srcAddr := conn.RemoteAddr().(*net.TCPAddr).AddrPort()
+			handler := b.tcpHandlerForServe(ap.Port(), srcAddr)
+			if handler == nil {
+				b.logf("[unexpected] local-serve: no handler for %v to port %v", srcAddr, ap.Port())
+				conn.Close()
+				return nil
+			}
+			return handler(conn)
+		},
 		bo: backoff.NewBackoff("serve-listener", logf, 30*time.Second),
 	}
+
 }
 
 // Close cancels the context and closes the listener, if any.
-func (s *serveListener) Close() error {
+func (s *localListener) Close() error {
 	s.cancel()
 	if close, ok := s.closeListener.LoadOk(); ok {
 		s.closeListener.Store(nil)
@@ -91,10 +112,10 @@ func (s *serveListener) Close() error {
 	return nil
 }
 
-// Run starts a net.Listen for the serveListener's address and port.
+// Run starts a net.Listen for the localListener's address and port.
 // If unable to listen, it retries with exponential backoff.
 // Listen is retried until the context is canceled.
-func (s *serveListener) Run() {
+func (s *localListener) Run() {
 	for {
 		ip := s.ap.Addr()
 		ipStr := ip.String()
@@ -107,7 +128,7 @@ func (s *serveListener) Run() {
 			// a specific interface. Without this hook, the system
 			// chooses a default interface to bind to.
 			if err := initListenConfig(&lc, ip, s.b.prevIfState, s.b.dialer.TUNName()); err != nil {
-				s.logf("serve failed to init listen config %v, backing off: %v", s.ap, err)
+				s.logf("localListener failed to init listen config %v, backing off: %v", s.ap, err)
 				s.bo.BackOff(s.ctx, err)
 				continue
 			}
@@ -130,26 +151,26 @@ func (s *serveListener) Run() {
 		ln, err := lc.Listen(s.ctx, tcp4or6, net.JoinHostPort(ipStr, fmt.Sprint(s.ap.Port())))
 		if err != nil {
 			if s.shouldWarnAboutListenError(err) {
-				s.logf("serve failed to listen on %v, backing off: %v", s.ap, err)
+				s.logf("localListener failed to listen on %v, backing off: %v", s.ap, err)
 			}
 			s.bo.BackOff(s.ctx, err)
 			continue
 		}
 		s.closeListener.Store(ln.Close)
 
-		s.logf("serve listening on %v", s.ap)
-		err = s.handleServeListenersAccept(ln)
+		s.logf("listening on %v", s.ap)
+		err = s.handleListenersAccept(ln)
 		if s.ctx.Err() != nil {
 			// context canceled, we're done
 			return
 		}
 		if err != nil {
-			s.logf("serve listener accept error, retrying: %v", err)
+			s.logf("localListener accept error, retrying: %v", err)
 		}
 	}
 }
 
-func (s *serveListener) shouldWarnAboutListenError(err error) bool {
+func (s *localListener) shouldWarnAboutListenError(err error) bool {
 	if !s.b.sys.NetMon.Get().InterfaceState().HasIP(s.ap.Addr()) {
 		// Machine likely doesn't have IPv6 enabled (or the IP is still being
 		// assigned). No need to warn. Notably, WSL2 (Issue 6303).
@@ -160,22 +181,17 @@ func (s *serveListener) shouldWarnAboutListenError(err error) bool {
 	return true
 }
 
-// handleServeListenersAccept accepts connections for the Listener.
-// Calls incoming handler in a new goroutine for each accepted connection.
-func (s *serveListener) handleServeListenersAccept(ln net.Listener) error {
+// handleListenersAccept accepts connections for the Listener. It calls the
+// handler in a new goroutine for each accepted connection. This is used to
+// handle local "tailscale serve" and web client traffic originating from the
+// machine itself.
+func (s *localListener) handleListenersAccept(ln net.Listener) error {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			return err
 		}
-		srcAddr := conn.RemoteAddr().(*net.TCPAddr).AddrPort()
-		handler := s.b.tcpHandlerForServe(s.ap.Port(), srcAddr)
-		if handler == nil {
-			s.b.logf("serve RST for %v", srcAddr)
-			conn.Close()
-			continue
-		}
-		go handler(conn)
+		go s.handler(conn)
 	}
 }
 
@@ -236,6 +252,9 @@ func (b *LocalBackend) setServeConfigLocked(config *ipn.ServeConfig, etag string
 	if config.IsFunnelOn() && prefs.ShieldsUp() {
 		return errors.New("Unable to turn on Funnel while shields-up is enabled")
 	}
+	if b.isConfigLocked_Locked() {
+		return errors.New("can't reconfigure tailscaled when using a config file; config file is locked")
+	}
 
 	nm := b.netMap
 	if nm == nil {
@@ -247,16 +266,17 @@ func (b *LocalBackend) setServeConfigLocked(config *ipn.ServeConfig, etag string
 
 	// If etag is present, check that it has
 	// not changed from the last config.
+	prevConfig := b.serveConfig
 	if etag != "" {
 		// Note that we marshal b.serveConfig
 		// and not use b.lastServeConfJSON as that might
 		// be a Go nil value, which produces a different
 		// checksum from a JSON "null" value.
-		previousCfg, err := json.Marshal(b.serveConfig)
+		prevBytes, err := json.Marshal(prevConfig)
 		if err != nil {
 			return fmt.Errorf("error encoding previous config: %w", err)
 		}
-		sum := sha256.Sum256(previousCfg)
+		sum := sha256.Sum256(prevBytes)
 		previousEtag := hex.EncodeToString(sum[:])
 		if etag != previousEtag {
 			return ErrETagMismatch
@@ -279,6 +299,26 @@ func (b *LocalBackend) setServeConfigLocked(config *ipn.ServeConfig, etag string
 	}
 
 	b.setTCPPortsInterceptedFromNetmapAndPrefsLocked(b.pm.CurrentPrefs())
+
+	// clean up and close all previously open foreground sessions
+	// if the current ServeConfig has overwritten them.
+	if prevConfig.Valid() {
+		has := func(string) bool { return false }
+		if b.serveConfig.Valid() {
+			has = b.serveConfig.Foreground().Has
+		}
+		prevConfig.Foreground().Range(func(k string, v ipn.ServeConfigView) (cont bool) {
+			if !has(k) {
+				for _, sess := range b.notifyWatchers {
+					if sess.sessionID == k {
+						close(sess.ch)
+					}
+				}
+			}
+			return true
+		})
+	}
+
 	return nil
 }
 
@@ -304,32 +344,43 @@ func (b *LocalBackend) DeleteForegroundSession(sessionID string) error {
 	return b.setServeConfigLocked(sc, "")
 }
 
+// HandleIngressTCPConn handles a TCP connection initiated by the ingressPeer
+// proxied to the local node over the PeerAPI.
+// Target represents the destination HostPort of the conn.
+// srcAddr represents the source AddrPort and not that of the ingressPeer.
+// getConnOrReset is a callback to get the connection, or reset if the connection
+// is no longer available.
+// sendRST is a callback to send a TCP RST to the ingressPeer indicating that
+// the connection was not accepted.
 func (b *LocalBackend) HandleIngressTCPConn(ingressPeer tailcfg.NodeView, target ipn.HostPort, srcAddr netip.AddrPort, getConnOrReset func() (net.Conn, bool), sendRST func()) {
 	b.mu.Lock()
 	sc := b.serveConfig
 	b.mu.Unlock()
 
+	// TODO(maisem,bradfitz): make this not alloc for every conn.
+	logf := logger.WithPrefix(b.logf, "handleIngress: ")
+
 	if !sc.Valid() {
-		b.logf("localbackend: got ingress conn w/o serveConfig; rejecting")
+		logf("got ingress conn w/o serveConfig; rejecting")
 		sendRST()
 		return
 	}
 
 	if !sc.HasFunnelForTarget(target) {
-		b.logf("localbackend: got ingress conn for unconfigured %q; rejecting", target)
+		logf("got ingress conn for unconfigured %q; rejecting", target)
 		sendRST()
 		return
 	}
 
 	_, port, err := net.SplitHostPort(string(target))
 	if err != nil {
-		b.logf("localbackend: got ingress conn for bad target %q; rejecting", target)
+		logf("got ingress conn for bad target %q; rejecting", target)
 		sendRST()
 		return
 	}
 	port16, err := strconv.ParseUint(port, 10, 16)
 	if err != nil {
-		b.logf("localbackend: got ingress conn for bad target %q; rejecting", target)
+		logf("got ingress conn for bad target %q; rejecting", target)
 		sendRST()
 		return
 	}
@@ -339,7 +390,7 @@ func (b *LocalBackend) HandleIngressTCPConn(ingressPeer tailcfg.NodeView, target
 		if handler != nil {
 			c, ok := getConnOrReset()
 			if !ok {
-				b.logf("localbackend: getConn didn't complete from %v to port %v", srcAddr, dport)
+				logf("getConn didn't complete from %v to port %v", srcAddr, dport)
 				return
 			}
 			handler(c)
@@ -350,12 +401,13 @@ func (b *LocalBackend) HandleIngressTCPConn(ingressPeer tailcfg.NodeView, target
 	// extend serveHTTPContext or similar.
 	handler := b.tcpHandlerForServe(dport, srcAddr)
 	if handler == nil {
+		logf("[unexpected] no matching ingress serve handler for %v to port %v", srcAddr, dport)
 		sendRST()
 		return
 	}
 	c, ok := getConnOrReset()
 	if !ok {
-		b.logf("localbackend: getConn didn't complete from %v to port %v", srcAddr, dport)
+		logf("getConn didn't complete from %v to port %v", srcAddr, dport)
 		return
 	}
 	handler(c)
@@ -369,13 +421,11 @@ func (b *LocalBackend) tcpHandlerForServe(dport uint16, srcAddr netip.AddrPort) 
 	b.mu.Unlock()
 
 	if !sc.Valid() {
-		b.logf("[unexpected] localbackend: got TCP conn w/o serveConfig; from %v to port %v", srcAddr, dport)
 		return nil
 	}
 
 	tcph, ok := sc.FindTCP(dport)
 	if !ok {
-		b.logf("[unexpected] localbackend: got TCP conn without TCP config for port %v; from %v", dport, srcAddr)
 		return nil
 	}
 
@@ -419,7 +469,7 @@ func (b *LocalBackend) tcpHandlerForServe(dport uint16, srcAddr netip.AddrPort) 
 					GetCertificate: func(hi *tls.ClientHelloInfo) (*tls.Certificate, error) {
 						ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 						defer cancel()
-						pair, err := b.GetCertPEM(ctx, sni, false)
+						pair, err := b.GetCertPEM(ctx, sni)
 						if err != nil {
 							return nil, err
 						}
@@ -447,7 +497,6 @@ func (b *LocalBackend) tcpHandlerForServe(dport uint16, srcAddr netip.AddrPort) 
 		}
 	}
 
-	b.logf("closing TCP conn to port %v (from %v) with actionless TCPPortHandler", dport, srcAddr)
 	return nil
 }
 
@@ -503,23 +552,92 @@ func (b *LocalBackend) getServeHandler(r *http.Request) (_ ipn.HTTPHandlerView, 
 
 // proxyHandlerForBackend creates a new HTTP reverse proxy for a particular backend that
 // we serve requests for. `backend` is a HTTPHandler.Proxy string (url, hostport or just port).
-func (b *LocalBackend) proxyHandlerForBackend(backend string) (*httputil.ReverseProxy, error) {
+func (b *LocalBackend) proxyHandlerForBackend(backend string) (http.Handler, error) {
 	targetURL, insecure := expandProxyArg(backend)
 	u, err := url.Parse(targetURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid url %s: %w", targetURL, err)
 	}
-	rp := &httputil.ReverseProxy{
-		Rewrite: func(r *httputil.ProxyRequest) {
-			r.SetURL(u)
-			r.Out.Host = r.In.Host
-			addProxyForwardedHeaders(r)
-			b.addTailscaleIdentityHeaders(r)
-		},
-		Transport: &http.Transport{
-			DialContext: b.dialer.SystemDial,
+	p := &reverseProxy{
+		logf:     b.logf,
+		url:      u,
+		insecure: insecure,
+		backend:  backend,
+		lb:       b,
+	}
+	return p, nil
+}
+
+// reverseProxy is a proxy that forwards a request to a backend host
+// (preconfigured via ipn.ServeConfig). If the host is configured with
+// http+insecure prefix, connection between proxy and backend will be over
+// insecure TLS. If the backend host has a http prefix and the incoming request
+// has application/grpc content type header, the connection will be over h2c.
+// Otherwise standard Go http transport will be used.
+type reverseProxy struct {
+	logf logger.Logf
+	url  *url.URL
+	// insecure tracks whether the connection to an https backend should be
+	// insecure (i.e because we cannot verify its CA).
+	insecure      bool
+	backend       string
+	lb            *LocalBackend
+	httpTransport lazy.SyncValue[*http.Transport]  // transport for non-h2c backends
+	h2cTransport  lazy.SyncValue[*http2.Transport] // transport for h2c backends
+	// closed tracks whether proxy is closed/currently closing.
+	closed atomic.Bool
+}
+
+// close ensures that any open backend connections get closed.
+func (rp *reverseProxy) close() {
+	rp.closed.Store(true)
+	if h2cT := rp.h2cTransport.Get(func() *http2.Transport {
+		return nil
+	}); h2cT != nil {
+		h2cT.CloseIdleConnections()
+	}
+	if httpTransport := rp.httpTransport.Get(func() *http.Transport {
+		return nil
+	}); httpTransport != nil {
+		httpTransport.CloseIdleConnections()
+	}
+}
+
+func (rp *reverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if closed := rp.closed.Load(); closed {
+		rp.logf("received a request for a proxy that's being closed or has been closed")
+		http.Error(w, "proxy is closed", http.StatusServiceUnavailable)
+		return
+	}
+	p := &httputil.ReverseProxy{Rewrite: func(r *httputil.ProxyRequest) {
+		r.SetURL(rp.url)
+		r.Out.Host = r.In.Host
+		addProxyForwardedHeaders(r)
+		rp.lb.addTailscaleIdentityHeaders(r)
+	}}
+
+	// There is no way to autodetect h2c as per RFC 9113
+	// https://datatracker.ietf.org/doc/html/rfc9113#name-starting-http-2.
+	// However, we assume that http:// proxy prefix in combination with the
+	// protoccol being HTTP/2 is sufficient to detect h2c for our needs. Only use this for
+	// gRPC to fix a known problem of plaintext gRPC backends
+	if rp.shouldProxyViaH2C(r) {
+		rp.logf("received a proxy request for plaintext gRPC")
+		p.Transport = rp.getH2CTransport()
+	} else {
+		p.Transport = rp.getTransport()
+	}
+	p.ServeHTTP(w, r)
+}
+
+// getTransport returns the Transport used for regular (non-GRPC) requests
+// to the backend. The Transport gets created lazily, at most once.
+func (rp *reverseProxy) getTransport() *http.Transport {
+	return rp.httpTransport.Get(func() *http.Transport {
+		return &http.Transport{
+			DialContext: rp.lb.dialer.SystemDial,
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: insecure,
+				InsecureSkipVerify: rp.insecure,
 			},
 			// Values for the following parameters have been copied from http.DefaultTransport.
 			ForceAttemptHTTP2:     true,
@@ -527,9 +645,38 @@ func (b *LocalBackend) proxyHandlerForBackend(backend string) (*httputil.Reverse
 			IdleConnTimeout:       90 * time.Second,
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
-		},
-	}
-	return rp, nil
+		}
+	})
+}
+
+// getH2CTransport returns the Transport used for GRPC requests to the backend.
+// The Transport gets created lazily, at most once.
+func (rp *reverseProxy) getH2CTransport() *http2.Transport {
+	return rp.h2cTransport.Get(func() *http2.Transport {
+		return &http2.Transport{
+			AllowHTTP: true,
+			DialTLSContext: func(ctx context.Context, network string, addr string, _ *tls.Config) (net.Conn, error) {
+				return rp.lb.dialer.SystemDial(ctx, "tcp", rp.url.Host)
+			},
+		}
+	})
+}
+
+// This is not a generally reliable way how to determine whether a request is
+// for a h2c server, but sufficient for our particular use case.
+func (rp *reverseProxy) shouldProxyViaH2C(r *http.Request) bool {
+	contentType := r.Header.Get(contentTypeHeader)
+	return r.ProtoMajor == 2 && strings.HasPrefix(rp.backend, "http://") && isGRPCContentType(contentType)
+}
+
+// isGRPC accepts an HTTP request's content type header value and determines
+// whether this is gRPC content. grpc-go considers a value that equals
+// application/grpc or has a prefix of application/grpc+ or application/grpc; a
+// valid grpc content type header.
+// https://github.com/grpc/grpc-go/blob/v1.60.0-dev/internal/grpcutil/method.go#L41-L78
+func isGRPCContentType(contentType string) bool {
+	s, ok := strings.CutPrefix(contentType, grpcBaseContentType)
+	return ok && (len(s) == 0 || s[0] == '+' || s[0] == ';')
 }
 
 func addProxyForwardedHeaders(r *httputil.ProxyRequest) {
@@ -726,7 +873,7 @@ func (b *LocalBackend) getTLSServeCertForPort(port uint16) func(hi *tls.ClientHe
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		pair, err := b.GetCertPEM(ctx, hi.ServerName, false)
+		pair, err := b.GetCertPEM(ctx, hi.ServerName)
 		if err != nil {
 			return nil, err
 		}

@@ -18,7 +18,7 @@ var (
 
 // GenerateBeaconCmd - The main command used to generate implant binaries
 func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
-	config := parseCompileFlags(cmd, con)
+	name, config := parseCompileFlags(cmd, con)
 	if config == nil {
 		return
 	}
@@ -35,7 +35,7 @@ func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
 		compile(config, save, con)
 	} else {
-		externalBuild(config, save, con)
+		externalBuild(name, config, save, con)
 	}
 }
 

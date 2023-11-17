@@ -60,3 +60,19 @@ func (c *DNSCanary) ToProtobuf() *clientpb.DNSCanary {
 		Count:          c.Count,
 	}
 }
+
+// convert from protobuf
+func DNSCanaryFromProtobuf(m *clientpb.DNSCanary) DNSCanary {
+	uuid, _ := uuid.FromString(m.ID)
+	firstTrigger, _ := time.Parse(time.RFC1123, m.FirstTriggered)
+	latestTrigger, _ := time.Parse(time.RFC1123, m.LatestTrigger)
+	return DNSCanary{
+		ID:            uuid,
+		ImplantName:   m.ImplantName,
+		Domain:        m.Domain,
+		Triggered:     m.Triggered,
+		FirstTrigger:  firstTrigger,
+		LatestTrigger: latestTrigger,
+		Count:         m.Count,
+	}
+}

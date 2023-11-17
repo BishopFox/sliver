@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-.PHONY:	all clean cover cpu editor internalError later mem nuke todo edit
+.PHONY:	all clean cover cpu editor internalError later mem nuke todo edit build_all_targets
 
 grep=--include=*.go --include=*.l --include=*.y --include=*.yy
 ngrep='TODOOK\|parser\.go\|scanner\.go\|.*_string\.go'
@@ -34,6 +34,8 @@ edit:
 
 editor:
 	gofmt -l -s -w *.go
+
+build_all_targets:
 	GOOS=darwin GOARCH=amd64 go build
 	GOOS=darwin GOARCH=arm64 go build
 	GOOS=freebsd GOARCH=386 go build
@@ -45,6 +47,7 @@ editor:
 	GOOS=linux GOARCH=amd64 go build
 	GOOS=linux GOARCH=arm go build
 	GOOS=linux GOARCH=arm64 go build
+	GOOS=linux GOARCH=loong64 go build
 	GOOS=linux GOARCH=mips go build
 	GOOS=linux GOARCH=mips64le go build
 	GOOS=linux GOARCH=mipsle go build

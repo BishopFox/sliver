@@ -50,7 +50,7 @@ package dnsclient
 	fallback to Base32 if we detect problems.
 */
 
-// {{if .Config.DNSc2Enabled}}
+// {{if .Config.IncludeDNS}}
 
 import (
 	"crypto/rand"
@@ -1101,4 +1101,4 @@ func (s *SliverDNSClient) randomResolver() (DNSResolver, *ResolverMetadata) {
 	return resolver, s.metadata[resolver.Address()]
 }
 
-// {{end}} -DNSc2Enabled
+// {{end}} -IncludeDNS

@@ -18,7 +18,7 @@ package mtls
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// {{if .Config.MTLSc2Enabled}}
+// {{if .Config.IncludeMTLS}}
 
 import (
 	"bytes"
@@ -46,10 +46,10 @@ var (
 	PingInterval = 2 * time.Minute
 
 	// caCertPEM - PEM encoded CA certificate
-	caCertPEM = `{{.Config.MtlsCACert}}`
+	caCertPEM = `{{.Build.MtlsCACert}}`
 
-	keyPEM  = `{{.Config.MtlsKey}}`
-	certPEM = `{{.Config.MtlsCert}}`
+	keyPEM  = `{{.Build.MtlsKey}}`
+	certPEM = `{{.Build.MtlsCert}}`
 )
 
 // WriteEnvelope - Writes a message to the TLS socket using length prefix framing
@@ -186,4 +186,4 @@ func getTLSConfig() *tls.Config {
 	return tlsConfig
 }
 
-// {{end}} -MTLSc2Enabled
+// {{end}} -IncludeMTLS

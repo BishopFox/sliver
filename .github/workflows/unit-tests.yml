@@ -27,7 +27,7 @@ jobs:
           mingw-w64 binutils-mingw-w64 g++-mingw-w64 gcc-multilib
 
       - name: Check Out Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Git Fetch Tags
         run: git fetch --prune --unshallow --tags -f
@@ -58,7 +58,7 @@ jobs:
         run: brew install mingw-w64
 
       - name: Check Out Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Git Fetch Tags
         run: git fetch --prune --unshallow --tags -f
@@ -86,7 +86,7 @@ jobs:
           go-version: "^1.21"
 
       - name: Check Out Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Git Fetch Tags
         run: git fetch --prune --unshallow --tags -f

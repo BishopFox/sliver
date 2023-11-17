@@ -110,9 +110,10 @@ message BeaconTasks {
 }
 
 message ImplantC2 {
-  uint32 Priority = 1;
-  string URL = 2;
-  string Options = 3; // Protocol specific options
+  string ID = 1;
+  uint32 Priority = 2;
+  string URL = 3;
+  string Options = 4; // Protocol specific options
 }
 
 enum OutputFormat {
@@ -125,32 +126,28 @@ enum OutputFormat {
 
 message ImplantConfig {
   string ID = 1;
-  bool IsBeacon = 2;
-  int64 BeaconInterval = 3;
-  int64 BeaconJitter = 4;
+  repeated ImplantBuild ImplantBuilds = 2;
+  string ImplantProfileID = 3;
+  bool IsBeacon = 4;
+  int64 BeaconInterval = 5;
+  int64 BeaconJitter = 6;
 
-  string GOOS = 5;
-  string GOARCH = 6;
-  string Name = 7;
+  string GOOS = 7;
+  string GOARCH = 8;
 
-  bool Debug = 8;
-  bool Evasion = 9;
-  bool ObfuscateSymbols = 10;
-  string TemplateName = 11;
-  bool SGNEnabled = 12;
+  bool Debug = 10;
+  bool Evasion = 11;
+  bool ObfuscateSymbols = 12;
+  string TemplateName = 13;
+  bool SGNEnabled = 14;
 
-  string MtlsCACert = 20;
-  string MtlsCert = 21;
-  string MtlsKey = 22;
+  bool IncludeMTLS = 53;
+  bool IncludeHTTP = 16;
+  bool IncludeWG = 17;
+  bool IncludeDNS = 18;
+  bool IncludeNamePipe = 19;
+  bool IncludeTCP = 20;
 
-  string AgeServerPublicKey = 23;
-  string PeerPublicKey = 24;
-  string PeerPrivateKey = 25;
-  string PeerPublicKeySignature = 26;
-  string MinisignServerPublicKey = 27;
-
-  string WGImplantPrivKey = 30;
-  string WGServerPubKey = 31;
   string WGPeerTunIP = 32;
   uint32 WGKeyExchangePort = 33;
   uint32 WGTcpCommsPort = 34;
@@ -173,15 +170,15 @@ message ImplantConfig {
 
   OutputFormat Format = 100;
   bool IsSharedLib = 101;
-  string FileName = 102;
   bool IsService = 103;
   bool IsShellcode = 104;
   bool RunAtLoad = 105;
   string DebugFile = 106;
 
-  bool NetGoEnabled = 107;
-  bool TrafficEncodersEnabled = 108;
-  repeated string TrafficEncoders = 109;
+  string HTTPC2ConfigName = 150;
+  bool NetGoEnabled = 151;
+  bool TrafficEncodersEnabled = 152;
+  repeated string TrafficEncoders = 153;
 
   repeated commonpb.File Assets = 200;
 }
@@ -218,17 +215,53 @@ message TrafficEncoderTests {
 
 message ExternalImplantConfig {
   ImplantConfig Config = 1;
-  string OTPSecret = 2;
+  ImplantBuild Build = 2;
+  HTTPC2Config HTTPC2 = 3;
 }
 
 message ExternalImplantBinary {
   string Name = 1;
-  string ImplantConfigID = 2;
+  string ImplantBuildID = 2;
   commonpb.File File = 3;
 }
 
 // Configs of previously built implants
-message ImplantBuilds { map<string, ImplantConfig> Configs = 1; }
+message ImplantBuilds { 
+  map<string, ImplantConfig> Configs = 1; 
+  map<string, ResourceID> ResourceIDs = 2; 
+  map<string, bool> staged = 3;
+}
+
+message ImplantStageReq {
+  repeated string Build = 1;
+}
+
+message ImplantBuild {
+  string ID = 1;
+  string Name = 2;
+
+	string MD5    = 3;
+	string SHA1   = 4;
+	string SHA256 = 5;
+
+  bool Burned = 6;
+	uint64 ImplantID = 7;
+
+	string ImplantConfigID = 8;
+  string AgeServerPublicKey = 9;
+  string PeerPublicKey = 10;
+  string PeerPrivateKey = 11;
+  string PeerPublicKeySignature = 12;
+  string MinisignServerPublicKey = 13;
+  string PeerPublicKeyDigest = 14;
+
+  string WGImplantPrivKey = 15;
+  string WGServerPubKey = 16;
+  string MtlsCACert = 17;
+  string MtlsCert = 18;
+  string MtlsKey = 19;
+  bool Stage = 20;
+}
 
 message CompilerTarget {
   string GOOS = 1;   // The server's OS
@@ -255,12 +288,13 @@ message DeleteReq { string Name = 1; }
 
 // DNSCanary - Single canary and metadata
 message DNSCanary {
-  string ImplantName = 1;
-  string Domain = 2;
-  bool Triggered = 3;
-  string FirstTriggered = 4;
-  string LatestTrigger = 5;
-  uint32 Count = 6;
+  string ID = 1;
+  string ImplantName = 2;
+  string Domain = 3;
+  bool Triggered = 4;
+  string FirstTriggered = 5;
+  string LatestTrigger = 6;
+  uint32 Count = 7;
 }
 
 message Canaries { repeated DNSCanary Canaries = 1; }
@@ -269,8 +303,9 @@ message Canaries { repeated DNSCanary Canaries = 1; }
 message UniqueWGIP { string IP = 1; }
 
 message ImplantProfile {
-  string Name = 1;
-  ImplantConfig Config = 2;
+  string ID = 1;
+  string Name = 2;
+  ImplantConfig Config = 3;
 }
 
 message ImplantProfiles { repeated ImplantProfile Profiles = 1; }
@@ -294,20 +329,36 @@ message Jobs { repeated Job Active = 1; }
 
 message KillJobReq { uint32 ID = 1; }
 
+message RestartJobReq {
+  repeated uint32 JobIDs = 1;
+}
+
 message KillJob {
   uint32 ID = 1;
   bool Success = 2;
 }
 
 // [ Listeners ] ----------------------------------------
+message ListenerJob {
+  string ID = 1;
+  string Type = 2;
+  uint32 JobID = 3;
+  MTLSListenerReq MTLSConf = 4;
+  WGListenerReq WGConf = 5;
+  DNSListenerReq DNSConf = 6;
+  HTTPListenerReq HTTPConf = 7;
+  MultiplayerListenerReq MultiConf = 8;
+}
+
+message MultiplayerListenerReq {
+  string Host = 1;
+  uint32 Port = 2;
+}
 
 message MTLSListenerReq {
   string Host = 1;
   uint32 Port = 2;
-  bool Persistent = 3;
 }
-
-message MTLSListener { uint32 JobID = 1; }
 
 message WGListenerReq {
   string Host = 6;
@@ -315,21 +366,15 @@ message WGListenerReq {
   string TunIP = 2;
   uint32 NPort = 3;
   uint32 KeyPort = 4;
-  bool Persistent = 5;
 }
-
-message WGListener { uint32 JobID = 1; }
 
 message DNSListenerReq {
   repeated string Domains = 1;
   bool Canaries = 2;
   string Host = 3;
   uint32 Port = 4;
-  bool Persistent = 5;
-  bool EnforceOTP = 6;
+  bool EnforceOTP = 6; 
 }
-
-message DNSListener { uint32 JobID = 1; }
 
 message HTTPListenerReq {
   string Domain = 1;
@@ -340,7 +385,6 @@ message HTTPListenerReq {
   bytes Cert = 6;
   bytes Key = 7;
   bool ACME = 8;
-  bool Persistent = 9;
   bool EnforceOTP = 10;
   int64 LongPollTimeout = 11;
   int64 LongPollJitter = 12;
@@ -375,11 +419,10 @@ message TCPPivot {
   commonpb.Response Response = 9;
 }
 
-message HTTPListener { uint32 JobID = 1; }
-
-// [ Commands ] ----------------------------------------
-
-message Sessions { repeated Session Sessions = 1; }
+// [ commands ] ----------------------------------------
+message Sessions {
+  repeated Session Sessions = 1;
+}
 
 message RenameReq {
   string SessionID = 1;
@@ -387,7 +430,21 @@ message RenameReq {
   string Name = 3;
 }
 
-message GenerateReq { ImplantConfig Config = 1; }
+message GenerateReq { 
+  ImplantConfig Config = 1; 
+  string Name = 2;
+}
+
+message GenerateStageReq {
+  string Profile = 1;
+  string Name = 2;
+  string AESEncryptKey = 3;
+  string AESEncryptIv = 4;
+  string RC4EncryptKey = 5;
+  bool PrependSize = 6;
+  string CompressF = 7;
+  string Compress = 8;
+}
 
 message Generate { commonpb.File File = 1; }
 
@@ -448,6 +505,7 @@ message MsfStagerReq {
   StageProtocol Protocol = 6;
   repeated string BadChars = 7;
   string AdvOptions = 8;
+  string HTTPC2ConfigName = 9;
 }
 
 message MsfStager { commonpb.File File = 1; }
@@ -457,6 +515,7 @@ message MsfStager { commonpb.File File = 1; }
 message GetSystemReq {
   string HostingProcess = 1;
   ImplantConfig Config = 2;
+  string Name = 3;
 
   commonpb.Request Request = 9;
 }
@@ -467,6 +526,7 @@ message MigrateReq {
   uint32 Pid = 1;
   ImplantConfig Config = 2;
   ShellcodeEncoder Encoder = 3;
+  string Name = 4;
 
   commonpb.Request Request = 9;
 }
@@ -523,9 +583,11 @@ message Operator {
 
 // [ Websites ] ----------------------------------------
 message WebContent {
-  string Path = 1;
-  string ContentType = 2;
-  uint64 Size = 3 [ jstype = JS_STRING ];
+  string ID = 1;
+  string WebsiteID = 2;
+  string Path = 3;
+  string ContentType = 4;
+  uint64 Size = 5 [ jstype = JS_STRING ];
 
   bytes Content = 9;
 }
@@ -541,8 +603,9 @@ message WebsiteRemoveContent {
 }
 
 message Website {
-  string Name = 1;
-  map<string, WebContent> Contents = 2;
+  string ID = 1;
+  string Name = 2;
+  map<string, WebContent> Contents = 3;
 }
 
 message Websites { repeated Website Websites = 1; }
@@ -585,15 +648,16 @@ message IOC {
 message ExtensionData { string Output = 1; }
 
 message Host {
-  string Hostname = 1;
-  string HostUUID = 2;
-  string OSVersion = 3;
+  string ID = 1;
+  string Hostname = 2;
+  string HostUUID = 3;
+  string OSVersion = 4;
 
-  repeated IOC IOCs = 4;
-  map<string, ExtensionData> ExtensionData = 5;
+  repeated IOC IOCs = 5;
+  map<string, ExtensionData> ExtensionData = 6;
 
-  string Locale = 6;
-  int64 FirstContact = 7;
+  string Locale = 7;
+  int64 FirstContact = 8;
 }
 
 message AllHosts { repeated Host Hosts = 1; }
@@ -605,6 +669,7 @@ message DllHijackReq {
   bytes ReferenceDLL = 3;
   bytes TargetDLL = 4;
   string ProfileName = 5;
+  string Name = 6;
 
   commonpb.Request Request = 9;
 }
@@ -614,6 +679,7 @@ message DllHijack { commonpb.Response Response = 9; }
 message BackdoorReq {
   string FilePath = 1;
   string ProfileName = 2;
+  string Name = 3;
 
   commonpb.Request Request = 9;
 }
@@ -649,6 +715,7 @@ message ShellcodeEncoderMap { map<string, ShellcodeEncoder> Encoders = 1; }
 message ExternalGenerateReq {
   ImplantConfig Config = 1;
   string BuilderName = 2;
+  string Name = 3;
 }
 
 message Builders { repeated Builder Builders = 1; }
@@ -661,6 +728,99 @@ message Builder {
   repeated string Templates = 5;
   repeated CompilerTarget Targets = 6;
   repeated CrossCompiler CrossCompilers = 7;
+
+}
+
+// [ HTTP C2 ] ----------------------------------------
+message HTTPC2Configs { repeated HTTPC2Config configs = 1; }
+
+message C2ProfileReq {
+  string Name = 1;
+}
+
+message HTTPC2ConfigReq {
+  bool overwrite = 1;
+  HTTPC2Config C2Config = 2;
+}
+
+message HTTPC2Config {
+  string ID = 1;
+  int64 Created = 2;
+
+  string Name = 3;
+
+  HTTPC2ServerConfig ServerConfig = 4;
+  HTTPC2ImplantConfig ImplantConfig = 5;
+}
+
+message HTTPC2ServerConfig {
+  string ID = 1;
+
+  bool RandomVersionHeaders = 2;
+  repeated HTTPC2Header Headers = 3;
+  repeated HTTPC2Cookie Cookies = 4;
+}
+
+message HTTPC2ImplantConfig {
+  string ID = 1;
+
+  string UserAgent = 2;
+  int32 ChromeBaseVersion = 3;
+  string MacOSVersion = 4;
+  string NonceQueryArgChars = 5;
+  repeated HTTPC2URLParameter ExtraURLParameters = 6;
+  repeated HTTPC2Header Headers = 7;
+
+  int32 MaxFiles = 8;
+  int32 MinFiles = 9;
+  int32 MaxPaths = 10;
+  int32 MinPaths = 11;
+
+  string StagerFileExtension = 12;
+  string PollFileExtension = 13;
+  string StartSessionFileExtension = 14;
+  string SessionFileExtension = 15;
+  string CloseFileExtension = 16;
+
+  repeated HTTPC2PathSegment PathSegments = 17;
+}
+
+message HTTPC2Cookie {
+  string ID = 1;
+
+  string Name = 2;
+}
+
+message HTTPC2Header {
+  string ID = 1;
+
+  string Method = 2;
+  string Name = 3;
+  string Value = 4;
+  int32 Probability = 5;
+}
+
+message HTTPC2URLParameter {
+  string ID = 1;
+
+  string Method = 2;
+  string Name = 3;
+  string Value = 4;
+  int32 Probability = 5;
+}
+
+enum HTTPC2SegmentType {
+  POLL = 0;
+  SESSION = 1;
+  CLOSE = 2;
+}
+
+message HTTPC2PathSegment {
+  string ID = 1;
+
+  bool IsFile = 2;
+  HTTPC2SegmentType SegmentType = 3;
+  string Value = 4;
 }
 
 // [ Credentials ] ----------------------------------------
@@ -868,14 +1028,15 @@ message CrackTask {
 }
 
 message Crackstation {
-  string Name = 1;
-  string OperatorName = 2;
-  string GOOS = 3;   // The cracker's OS
-  string GOARCH = 4; // The cracker's Arch
-  string HashcatVersion = 5;
-  string HostUUID = 6;
-  string Version = 7;
-  map<int32, uint64> Benchmarks = 8;
+  string ID = 1;
+  string Name = 2;
+  string OperatorName = 3;
+  string GOOS = 4;   // The cracker's OS
+  string GOARCH = 5; // The cracker's Arch
+  string HashcatVersion = 6;
+  string HostUUID = 7;
+  string Version = 8;
+  map<int32, uint64> Benchmarks = 9;
 
   repeated CUDABackendInfo CUDA = 100;
   repeated MetalBackendInfo Metal = 101;
@@ -1118,4 +1279,24 @@ message CrackFileChunk {
   uint32 N = 3;
 
   bytes Data = 9;
+}
+
+// watchtower 
+message MonitoringProviders {
+  repeated MonitoringProvider providers = 1;
+}
+
+message MonitoringProvider {
+  string ID = 1;
+  string Type = 2;
+  string APIKey = 3;
+  string APIPassword = 4;
+}
+
+// resource IDs
+message ResourceID {
+  string ID = 1;
+  string Type = 2;
+  string Name = 3;
+  uint64 Value = 4;
 }

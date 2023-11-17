@@ -2,13 +2,14 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build linux || darwin || freebsd || netbsd || openbsd
-// +build linux darwin freebsd netbsd openbsd
+//go:build unix
+// +build unix
 
 package libc // import "modernc.org/libc"
 
 import (
 	"bufio"
+	"encoding/hex"
 	"io/ioutil"
 	"math"
 	"math/rand"
@@ -991,4 +992,31 @@ func Xctime_r(t *TLS, timep, buf uintptr) uintptr {
 	s := tm.Format(time.ANSIC) + "\n\x00"
 	copy((*RawMem)(unsafe.Pointer(buf))[:26:26], s)
 	return buf
+}
+
+// ssize_t pread(int fd, void *buf, size_t count, off_t offset);
+func Xpread(t *TLS, fd int32, buf uintptr, count types.Size_t, offset types.Off_t) types.Ssize_t {
+	var n int
+	var err error
+	switch {
+	case count == 0:
+		n, err = unix.Pread(int(fd), nil, int64(offset))
+	default:
+		n, err = unix.Pread(int(fd), (*RawMem)(unsafe.Pointer(buf))[:count:count], int64(offset))
+		if dmesgs && err == nil {
+			dmesg("%v: fd %v, off %#x, count %#x, n %#x\n%s", origin(1), fd, offset, count, n, hex.Dump((*RawMem)(unsafe.Pointer(buf))[:n:n]))
+		}
+	}
+	if err != nil {
+		if dmesgs {
+			dmesg("%v: %v FAIL", origin(1), err)
+		}
+		t.setErrno(err)
+		return -1
+	}
+
+	if dmesgs {
+		dmesg("%v: ok", origin(1))
+	}
+	return types.Ssize_t(n)
 }

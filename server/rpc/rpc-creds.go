@@ -116,7 +116,7 @@ func (rpc *Server) GetCredByID(ctx context.Context, req *clientpb.Credential) (*
 		credsRpcLog.Errorf("Failed to get credential: %s", err)
 		return nil, ErrCredNotFound
 	}
-	return dbCred.ToProtobuf(), nil
+	return dbCred, nil
 }
 
 func (rpc *Server) GetCredsByHashType(ctx context.Context, req *clientpb.Credential) (*clientpb.Credentials, error) {
@@ -127,7 +127,7 @@ func (rpc *Server) GetCredsByHashType(ctx context.Context, req *clientpb.Credent
 	}
 	credentials := []*clientpb.Credential{}
 	for _, dbCred := range dbCreds {
-		credentials = append(credentials, dbCred.ToProtobuf())
+		credentials = append(credentials, dbCred)
 	}
 	return &clientpb.Credentials{Credentials: credentials}, nil
 }
@@ -144,7 +144,7 @@ func (rpc *Server) GetPlaintextCredsByHashType(ctx context.Context, req *clientp
 	}
 	credentials := []*clientpb.Credential{}
 	for _, dbCred := range dbCreds {
-		credentials = append(credentials, dbCred.ToProtobuf())
+		credentials = append(credentials, dbCred)
 	}
 	return &clientpb.Credentials{Credentials: credentials}, nil
 }

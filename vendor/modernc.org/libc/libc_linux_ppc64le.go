@@ -485,3 +485,13 @@ func __syscall3(t *TLS, trap, p1, p2, p3 long) long {
 func __syscall4(t *TLS, trap, p1, p2, p3, p4 long) long {
 	return __syscall(unix.Syscall6(uintptr(trap), uintptr(p1), uintptr(p2), uintptr(p3), uintptr(p4), 0, 0))
 }
+
+// int setrlimit(int resource, const struct rlimit *rlim);
+func Xsetrlimit64(t *TLS, resource int32, rlim uintptr) int32 {
+	if _, _, err := unix.Syscall(unix.SYS_SETRLIMIT, uintptr(resource), uintptr(rlim), 0); err != 0 {
+		t.setErrno(err)
+		return -1
+	}
+
+	return 0
+}

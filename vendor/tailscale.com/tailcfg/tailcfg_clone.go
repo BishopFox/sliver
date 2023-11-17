@@ -97,7 +97,7 @@ var _NodeCloneNeedsRegeneration = Node(struct {
 	DiscoKey                      key.DiscoPublic
 	Addresses                     []netip.Prefix
 	AllowedIPs                    []netip.Prefix
-	Endpoints                     []string
+	Endpoints                     []netip.AddrPort
 	DERP                          string
 	Hostinfo                      HostinfoView
 	Created                       time.Time
@@ -131,6 +131,7 @@ func (src *Hostinfo) Clone() *Hostinfo {
 	*dst = *src
 	dst.RoutableIPs = append(src.RoutableIPs[:0:0], src.RoutableIPs...)
 	dst.RequestTags = append(src.RequestTags[:0:0], src.RequestTags...)
+	dst.WoLMACs = append(src.WoLMACs[:0:0], src.WoLMACs...)
 	dst.Services = append(src.Services[:0:0], src.Services...)
 	dst.NetInfo = src.NetInfo.Clone()
 	dst.SSH_HostKeys = append(src.SSH_HostKeys[:0:0], src.SSH_HostKeys...)
@@ -169,12 +170,14 @@ var _HostinfoCloneNeedsRegeneration = Hostinfo(struct {
 	GoVersion       string
 	RoutableIPs     []netip.Prefix
 	RequestTags     []string
+	WoLMACs         []string
 	Services        []Service
 	NetInfo         *NetInfo
 	SSH_HostKeys    []string
 	Cloud           string
 	Userspace       opt.Bool
 	UserspaceRouter opt.Bool
+	AppConnector    opt.Bool
 	Location        *Location
 }{})
 
@@ -360,6 +363,7 @@ var _RegisterRequestCloneNeedsRegeneration = RegisterRequest(struct {
 	Timestamp        *time.Time
 	DeviceCert       []byte
 	Signature        []byte
+	Tailnet          string
 }{})
 
 // Clone makes a deep copy of DERPHomeParams.

@@ -20,7 +20,6 @@ package rpc
 
 import (
 	"context"
-	"fmt"
 	"net"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -38,34 +37,6 @@ func (rpc *Server) StartTCPStagerListener(ctx context.Context, req *clientpb.Sta
 		return nil, err
 	}
 	return &clientpb.StagerListener{JobID: uint32(job.ID)}, nil
-}
-
-// StartHTTPStagerListener starts a HTTP(S) stager listener
-func (rpc *Server) StartHTTPStagerListener(ctx context.Context, req *clientpb.StagerListenerReq) (*clientpb.StagerListener, error) {
-	host := req.GetHost()
-	if !checkInterface(req.GetHost()) {
-		host = "0.0.0.0"
-	}
-	conf := &c2.HTTPServerConfig{
-		Addr:   fmt.Sprintf("%s:%d", host, req.Port),
-		LPort:  uint16(req.Port),
-		Domain: req.Host,
-		Secure: false,
-	}
-	if req.GetProtocol() == clientpb.StageProtocol_HTTPS {
-		conf.Secure = true
-		conf.Key = req.Key
-		conf.Cert = req.Cert
-		conf.ACME = req.ACME
-	}
-	job, err := c2.StartHTTPStagerListenerJob(conf, req.ProfileName, req.Data)
-	if err != nil {
-		return nil, err
-	}
-	if job == nil {
-		return nil, fmt.Errorf("job is nil")
-	}
-	return &clientpb.StagerListener{JobID: uint32(job.ID)}, err
 }
 
 // checkInterface verifies if an IP address

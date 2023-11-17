@@ -37,6 +37,11 @@ import (
 	"modernc.org/libc/uuid/uuid"
 )
 
+const (
+	// musl/src/internal/stdio_impl.h:16:#define F_EOF 16
+	m_F_EOF = 16
+)
+
 var (
 	in6_addr_any in.In6_addr
 	_            = X__ctype_b_loc
@@ -49,10 +54,13 @@ type (
 
 type file uintptr
 
-func (f file) fd() int32      { return (*stdio.FILE)(unsafe.Pointer(f)).F_fileno }
-func (f file) setFd(fd int32) { (*stdio.FILE)(unsafe.Pointer(f)).F_fileno = fd }
-func (f file) err() bool      { return (*stdio.FILE)(unsafe.Pointer(f)).F_flags2&stdio.X_IO_ERR_SEEN != 0 }
-func (f file) setErr()        { (*stdio.FILE)(unsafe.Pointer(f)).F_flags2 |= stdio.X_IO_ERR_SEEN }
+func (f file) fd() int32        { return (*stdio.FILE)(unsafe.Pointer(f)).F_fileno }
+func (f file) setFd(fd int32)   { (*stdio.FILE)(unsafe.Pointer(f)).F_fileno = fd }
+func (f file) err() bool        { return (*stdio.FILE)(unsafe.Pointer(f)).F_flags2&stdio.X_IO_ERR_SEEN != 0 }
+func (f file) setErr()          { (*stdio.FILE)(unsafe.Pointer(f)).F_flags2 |= stdio.X_IO_ERR_SEEN }
+func (f file) flags() int32     { return (*stdio.FILE)(unsafe.Pointer(f)).F_flags }
+func (f file) orFlags(n int32)  { (*stdio.FILE)(unsafe.Pointer(f)).F_flags |= n }
+func (f file) xorFlags(n int32) { (*stdio.FILE)(unsafe.Pointer(f)).F_flags ^= n }
 
 func (f file) close(t *TLS) int32 {
 	r := Xclose(t, f.fd())
@@ -637,16 +645,6 @@ func Xsetrlimit(t *TLS, resource int32, rlim uintptr) int32 {
 	return Xsetrlimit64(t, resource, rlim)
 }
 
-// int setrlimit(int resource, const struct rlimit *rlim);
-func Xsetrlimit64(t *TLS, resource int32, rlim uintptr) int32 {
-	if _, _, err := unix.Syscall(unix.SYS_SETRLIMIT, uintptr(resource), uintptr(rlim), 0); err != 0 {
-		t.setErrno(err)
-		return -1
-	}
-
-	return 0
-}
-
 // uid_t getuid(void);
 func Xgetuid(t *TLS) types.Uid_t {
 	return types.Uid_t(os.Getuid())
@@ -1075,6 +1073,9 @@ func Xfflush(t *TLS, stream uintptr) int32 {
 // size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
 func Xfread(t *TLS, ptr uintptr, size, nmemb types.Size_t, stream uintptr) types.Size_t {
 	m, _, err := unix.Syscall(unix.SYS_READ, uintptr(file(stream).fd()), ptr, uintptr(size*nmemb))
+	if m == 0 {
+		file(stream).orFlags(m_F_EOF)
+	}
 	if err != 0 {
 		file(stream).setErr()
 		return 0
@@ -1129,6 +1130,7 @@ func Xfseek(t *TLS, stream uintptr, offset long, whence int32) int32 {
 	// if dmesgs {
 	// 	dmesg("%v: fd %v, off %#x, whence %v: ok", origin(1), file(stream).fd(), offset, whenceStr(whence))
 	// }
+	file(stream).xorFlags(m_F_EOF)
 	return 0
 }
 
@@ -1433,6 +1435,7 @@ func Xfgetc(t *TLS, stream uintptr) int32 {
 		return int32(buf[0])
 	}
 
+	file(stream).orFlags(m_F_EOF)
 	return stdio.EOF
 }
 
@@ -1590,4 +1593,11 @@ func Xnanosleep(t *TLS, req, rem uintptr) int32 {
 	v := *(*ctime.Timespec)(unsafe.Pointer(req))
 	time.Sleep(time.Second*time.Duration(v.Ftv_sec) + time.Duration(v.Ftv_nsec))
 	return 0
+}
+
+func Xfeof(t *TLS, f uintptr) (r int32) {
+	X__lockfile(t, f)
+	r = BoolInt32(!!((*stdio.FILE)(unsafe.Pointer(f)).F_flags&Int32FromInt32(m_F_EOF) != 0))
+	X__unlockfile(t, f)
+	return r
 }

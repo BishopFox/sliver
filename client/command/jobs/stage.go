@@ -44,7 +44,6 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 	aesEncryptKey, _ := cmd.Flags().GetString("aes-encrypt-key")
 	aesEncryptIv, _ := cmd.Flags().GetString("aes-encrypt-iv")
 	rc4EncryptKey, _ := cmd.Flags().GetString("rc4-encrypt-key")
-	prependSize, _ := cmd.Flags().GetBool("prepend-size")
 	compressF, _ := cmd.Flags().GetString("compress")
 	compress := strings.ToLower(compressF)
 
@@ -142,54 +141,6 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 	}
 
 	switch stagingURL.Scheme {
-	case "http":
-		if prependSize {
-			stage2 = prependPayloadSize(stage2)
-		}
-		ctrl := make(chan bool)
-		con.SpinUntil("Starting HTTP staging listener...", ctrl)
-		stageListener, err := con.Rpc.StartHTTPStagerListener(context.Background(), &clientpb.StagerListenerReq{
-			Protocol: clientpb.StageProtocol_HTTP,
-			Data:     stage2,
-			Host:     stagingURL.Hostname(),
-			Port:     uint32(stagingPort),
-		})
-		ctrl <- true
-		<-ctrl
-		if err != nil {
-			con.PrintErrorf("Error starting HTTP staging listener: %s\n", err)
-			return
-		}
-		con.PrintInfof("Job %d (http) started\n", stageListener.GetJobID())
-	case "https":
-		letsEncrypt, _ := cmd.Flags().GetBool("lets-encrypt")
-		if prependSize {
-			stage2 = prependPayloadSize(stage2)
-		}
-		cert, key, err := getLocalCertificatePair(cmd)
-		if err != nil {
-			con.Println()
-			con.PrintErrorf("Failed to load local certificate %s\n", err)
-			return
-		}
-		ctrl := make(chan bool)
-		con.SpinUntil("Starting HTTPS staging listener...", ctrl)
-		stageListener, err := con.Rpc.StartHTTPStagerListener(context.Background(), &clientpb.StagerListenerReq{
-			Protocol: clientpb.StageProtocol_HTTPS,
-			Data:     stage2,
-			Host:     stagingURL.Hostname(),
-			Port:     uint32(stagingPort),
-			Cert:     cert,
-			Key:      key,
-			ACME:     letsEncrypt,
-		})
-		ctrl <- true
-		<-ctrl
-		if err != nil {
-			con.PrintErrorf("Error starting HTTPS staging listener: %v\n", err)
-			return
-		}
-		con.PrintInfof("Job %d (https) started\n", stageListener.GetJobID())
 	case "tcp":
 		// Always prepend payload size for TCP stagers
 		stage2 = prependPayloadSize(stage2)

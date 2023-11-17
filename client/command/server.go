@@ -31,6 +31,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/armory"
 	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/command/builders"
+	"github.com/bishopfox/sliver/client/command/c2profiles"
 	"github.com/bishopfox/sliver/client/command/crack"
 	"github.com/bishopfox/sliver/client/command/creds"
 	"github.com/bishopfox/sliver/client/command/exit"
@@ -53,6 +54,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/websites"
 	"github.com/bishopfox/sliver/client/command/wireguard"
 	client "github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/constants"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/licenses"
 )
@@ -270,7 +272,6 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 		Flags("mTLS listener", false, mtlsCmd, func(f *pflag.FlagSet) {
 			f.StringP("lhost", "L", "", "interface to bind server to")
 			f.Uint32P("lport", "l", generate.DefaultMTLSLPort, "tcp listen port")
-			f.BoolP("persistent", "p", false, "make persistent across restarts")
 		})
 		server.AddCommand(mtlsCmd)
 
@@ -288,7 +289,6 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			f.Uint32P("lport", "l", generate.DefaultWGLPort, "udp listen port")
 			f.Uint32P("nport", "n", generate.DefaultWGNPort, "virtual tun interface listen port")
 			f.Uint32P("key-port", "x", generate.DefaultWGKeyExPort, "virtual tun interface key exchange port")
-			f.BoolP("persistent", "p", false, "make persistent across restarts")
 		})
 		server.AddCommand(wgCmd)
 
@@ -307,7 +307,6 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			f.StringP("lhost", "L", "", "interface to bind server to")
 			f.Uint32P("lport", "l", generate.DefaultDNSLPort, "udp listen port")
 			f.BoolP("disable-otp", "D", false, "disable otp authentication")
-			f.BoolP("persistent", "p", false, "make persistent across restarts")
 		})
 		server.AddCommand(dnsCmd)
 
@@ -328,7 +327,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			f.BoolP("disable-otp", "D", false, "disable otp authentication")
 			f.StringP("long-poll-timeout", "T", "1s", "server-side long poll timeout")
 			f.StringP("long-poll-jitter", "J", "2s", "server-side long poll jitter")
-			f.BoolP("persistent", "p", false, "make persistent across restarts")
+			f.BoolP("staging", "s", false, "enable staging")
 		})
 		server.AddCommand(httpCmd)
 
@@ -349,13 +348,13 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			f.BoolP("disable-otp", "D", false, "disable otp authentication")
 			f.StringP("long-poll-timeout", "T", "1s", "server-side long poll timeout")
 			f.StringP("long-poll-jitter", "J", "2s", "server-side long poll jitter")
+			f.BoolP("enable-staging", "s", false, "enable staging")
 
 			f.StringP("cert", "c", "", "PEM encoded certificate file")
 			f.StringP("key", "k", "", "PEM encoded private key file")
 			f.BoolP("lets-encrypt", "e", false, "attempt to provision a let's encrypt certificate")
 			f.BoolP("disable-randomized-jarm", "E", false, "disable randomized jarm fingerprints")
 
-			f.BoolP("persistent", "p", false, "make persistent across restarts")
 		})
 		server.AddCommand(httpsCmd)
 
@@ -667,6 +666,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 
 			f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
 			f.StringP("save", "s", "", "directory/file to the binary to")
+			f.StringP("c2profile", "C", constants.DefaultC2Profile, "HTTP C2 profile to use")
 		})
 		FlagComps(generateCmd, func(comp *carapace.ActionMap) {
 			(*comp)["debug-file"] = carapace.ActionFiles()
@@ -675,6 +675,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			(*comp)["strategy"] = carapace.ActionValuesDescribed([]string{"r", "random", "rd", "random domain", "s", "sequential"}...).Tag("C2 strategy")
 			(*comp)["format"] = generate.FormatCompleter()
 			(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+			(*comp)["c2profile"] = generate.HTTPC2Completer(con)
 		})
 		server.AddCommand(generateCmd)
 
@@ -735,6 +736,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 
 			f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
 			f.StringP("save", "s", "", "directory/file to the binary to")
+			f.StringP("c2profile", "C", constants.DefaultC2Profile, "HTTP C2 profile to use")
 		})
 		FlagComps(generateBeaconCmd, func(comp *carapace.ActionMap) {
 			(*comp)["debug-file"] = carapace.ActionFiles()
@@ -743,6 +745,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			(*comp)["strategy"] = carapace.ActionValuesDescribed([]string{"r", "random", "rd", "random domain", "s", "sequential"}...).Tag("C2 strategy")
 			(*comp)["format"] = generate.FormatCompleter()
 			(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+			(*comp)["c2profile"] = generate.HTTPC2Completer(con)
 		})
 		generateCmd.AddCommand(generateBeaconCmd)
 
@@ -922,6 +925,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			f.StringP("limit-locale", "L", "", "limit execution to hosts that match this locale")
 
 			f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
+			f.StringP("c2profile", "C", constants.DefaultC2Profile, "HTTP C2 profile to use")
 		})
 		FlagComps(profilesNewCmd, func(comp *carapace.ActionMap) {
 			(*comp)["debug-file"] = carapace.ActionFiles()
@@ -930,6 +934,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			(*comp)["strategy"] = carapace.ActionValuesDescribed([]string{"r", "random", "rd", "random domain", "s", "sequential"}...).Tag("C2 strategy")
 			(*comp)["format"] = generate.FormatCompleter()
 			(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+			(*comp)["c2profile"] = generate.HTTPC2Completer(con)
 		})
 		carapace.Gen(profilesNewCmd).PositionalCompletion(carapace.ActionValues().Usage("name of the session profile (optional)"))
 		profilesCmd.AddCommand(profilesNewCmd)
@@ -992,6 +997,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			f.StringP("limit-locale", "L", "", "limit execution to hosts that match this locale")
 
 			f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
+			f.StringP("c2profile", "C", constants.DefaultC2Profile, "HTTP C2 profile to use")
 		})
 		FlagComps(profilesNewBeaconCmd, func(comp *carapace.ActionMap) {
 			(*comp)["debug-file"] = carapace.ActionFiles()
@@ -1000,6 +1006,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			(*comp)["strategy"] = carapace.ActionValuesDescribed([]string{"r", "random", "rd", "random domain", "s", "sequential"}...).Tag("C2 strategy")
 			(*comp)["format"] = generate.FormatCompleter()
 			(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+			(*comp)["c2profile"] = generate.HTTPC2Completer(con)
 		})
 		carapace.Gen(profilesNewBeaconCmd).PositionalCompletion(carapace.ActionValues().Usage("name of the beacon profile (optional)"))
 		profilesNewCmd.AddCommand(profilesNewBeaconCmd)
@@ -1015,6 +1022,26 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 		}
 		carapace.Gen(profilesRmCmd).PositionalCompletion(generate.ProfileNameCompleter(con))
 		profilesCmd.AddCommand(profilesRmCmd)
+
+		profilesStageCmd := &cobra.Command{
+			Use:   consts.StageStr,
+			Short: "Generate an encrypted and/or compressed implant",
+			Long:  help.GetHelpFor([]string{consts.ProfilesStr, consts.StageStr}),
+			Args:  cobra.ExactArgs(1),
+			Run: func(cmd *cobra.Command, args []string) {
+				generate.ProfilesStageCmd(cmd, con, args)
+			},
+		}
+		Flags("stage", false, profilesStageCmd, func(f *pflag.FlagSet) {
+			f.StringP("name", "n", "", "implant name")
+			f.String("aes-encrypt-key", "", "encrypt stage with AES encryption key")
+			f.String("aes-encrypt-iv", "", "encrypt stage with AES encryption iv")
+			f.String("rc4-encrypt-key", "", "encrypt stage with RC4 encryption key")
+			f.StringP("compress", "C", "", "compress the stage before encrypting (zlib, gzip, deflate9, none)")
+			f.BoolP("prepend-size", "P", false, "prepend the size of the stage to the payload (to use with MSF stagers)")
+		})
+		carapace.Gen(profilesStageCmd).PositionalCompletion(generate.ProfileNameCompleter(con))
+		profilesCmd.AddCommand(profilesStageCmd)
 
 		profilesInfoCmd := &cobra.Command{
 			Use:   consts.InfoStr,
@@ -1066,6 +1093,16 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 		}
 		carapace.Gen(implantsRmCmd).PositionalCompletion(generate.ImplantBuildNameCompleter(con))
 		implantBuildsCmd.AddCommand(implantsRmCmd)
+
+		implantStageCmd := &cobra.Command{
+			Use:   consts.StageStr,
+			Short: "Serve a previously generated implant",
+			Long:  help.GetHelpFor([]string{consts.ImplantBuildsStr, consts.StageStr}),
+			Run: func(cmd *cobra.Command, args []string) {
+				generate.ImplantsStageCmd(cmd, con, args)
+			},
+		}
+		implantBuildsCmd.AddCommand(implantStageCmd)
 
 		canariesCmd := &cobra.Command{
 			Use:   consts.CanariesStr,
@@ -1268,6 +1305,14 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 			Short:   "Monitor threat intel platforms for Sliver implants",
 			GroupID: consts.SliverHelpGroup,
 		}
+
+		configCmd := &cobra.Command{
+			Use:   consts.MonitorConfigStr,
+			Short: "Configure monitor API keys",
+			Run: func(cmd *cobra.Command, args []string) {
+				monitor.MonitorConfigCmd(cmd, con, args)
+			},
+		}
 		monitorCmd.AddCommand(&cobra.Command{
 			Use:   "start",
 			Short: "Start the monitoring loops",
@@ -1282,6 +1327,23 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 				monitor.MonitorStopCmd(cmd, con, args)
 			},
 		})
+		configCmd.AddCommand(&cobra.Command{
+			Use:   "add",
+			Short: "Add API key configuration",
+			Run: func(cmd *cobra.Command, args []string) {
+				monitor.MonitorAddConfigCmd(cmd, con, args)
+			},
+		})
+
+		configCmd.AddCommand(&cobra.Command{
+			Use:   "del",
+			Short: "Remove API key configuration",
+			Run: func(cmd *cobra.Command, args []string) {
+				monitor.MonitorDelConfigCmd(cmd, con, args)
+			},
+		})
+
+		monitorCmd.AddCommand(configCmd)
 		server.AddCommand(monitorCmd)
 
 		// [ Loot ] --------------------------------------------------------------
@@ -1789,6 +1851,40 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 				taskmanyCmd.AddCommand(taskmany.WrapCommand(c, con))
 			}
 		}
+
+		// [ HTTP C2 Profiles ] --------------------------------------------------------------
+
+		ImportC2ProfileCmd := &cobra.Command{
+			Use:   consts.ImportC2ProfileStr,
+			Short: "Import HTTP C2 profile",
+			Long:  help.GetHelpFor([]string{consts.ImportC2ProfileStr}),
+			Run: func(cmd *cobra.Command, args []string) {
+				c2profiles.ImportC2ProfileCmd(cmd, con, args)
+			},
+		}
+		Flags(consts.ImportC2ProfileStr, true, ImportC2ProfileCmd, func(f *pflag.FlagSet) {
+			f.StringP("name", "n", constants.DefaultC2Profile, "HTTP C2 Profile name")
+			f.StringP("file", "f", "", "Path to C2 configuration file to import")
+			f.BoolP("overwrite", "o", false, "Overwrite profile if it exists")
+		})
+
+		C2ProfileCmd := &cobra.Command{
+			Use:   consts.C2ProfileStr,
+			Short: "Display C2 profile details",
+			Long:  help.GetHelpFor([]string{consts.C2ProfileStr}),
+			Run: func(cmd *cobra.Command, args []string) {
+				c2profiles.C2ProfileCmd(cmd, con, args)
+			},
+		}
+		Flags(consts.C2ProfileStr, true, C2ProfileCmd, func(f *pflag.FlagSet) {
+			f.StringP("name", "n", constants.DefaultC2Profile, "HTTP C2 Profile to display")
+		})
+		FlagComps(C2ProfileCmd, func(comp *carapace.ActionMap) {
+			(*comp)["name"] = generate.HTTPC2Completer(con)
+		})
+		C2ProfileCmd.AddCommand(ImportC2ProfileCmd)
+		server.AddCommand(C2ProfileCmd)
+
 		// [ Post-command declaration setup]-----------------------------------------
 
 		// Everything below this line should preferably not be any command binding
