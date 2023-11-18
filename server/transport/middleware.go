@@ -191,7 +191,7 @@ func permissionsUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 			}
 		}
 		mtlsLog.Warnf("Permission denied for %s attempting to access %s", operator.Name, info.FullMethod)
-		return nil, status.Error(codes.PermissionDenied, "Permission denied")
+		return nil, status.Error(codes.PermissionDenied, "Token has insufficient permissions")
 	}
 }
 
@@ -215,7 +215,7 @@ func permissionsStreamServerInterceptor() grpc.StreamServerInterceptor {
 			}
 		}
 		mtlsLog.Warnf("Permission denied for %s attempting to access %s", operator.Name, info.FullMethod)
-		return status.Error(codes.PermissionDenied, "Permission denied")
+		return status.Error(codes.PermissionDenied, "Token has insufficient permissions")
 	}
 }
 
