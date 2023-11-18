@@ -89,3 +89,37 @@ RUN /opt/sliver-server unpack --force
 WORKDIR /home/sliver/
 VOLUME [ "/home/sliver/.sliver" ]
 ENTRYPOINT [ "/opt/sliver-server" ]
+
+
+# STAGE: production-slim (about 1Gb smaller)
+### Slim production image, i.e. without MSF and assoicated libraries
+### Still include GCC and MinGW for cross-platform generation
+FROM --platform=linux/amd64 debian:bookworm-slim as production-slim
+
+### Install production packages
+RUN apt-get update --fix-missing \
+    && apt-get -y upgrade \
+    && apt-get -y install \
+    build-essential mingw-w64 binutils-mingw-w64 g++-mingw-w64 gcc-multilib
+
+### Cleanup unneeded packages
+RUN apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+### Add sliver user
+RUN groupadd -g 999 sliver \
+    && useradd -r -u 999 -g sliver sliver \
+    && mkdir -p /home/sliver/ \
+    && chown -R sliver:sliver /home/sliver
+
+### Copy compiled binary
+COPY --from=base /opt/sliver-server  /opt/sliver-server
+
+### Unpack Sliver:
+USER sliver
+RUN /opt/sliver-server unpack --force 
+
+WORKDIR /home/sliver/
+VOLUME [ "/home/sliver/.sliver" ]
+ENTRYPOINT [ "/opt/sliver-server" ]
