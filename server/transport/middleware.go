@@ -133,7 +133,7 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	}
 	operator, err := db.OperatorByToken(token)
 	if err != nil || operator == nil {
-		mtlsLog.Errorf("Authentication failure: %s", err)
+		mtlsLog.Errorf("Authentication failure: %v", err)
 		return nil, status.Error(codes.Unauthenticated, "Authentication failure")
 	}
 	mtlsLog.Debugf("Valid token for %s", operator.Name)
