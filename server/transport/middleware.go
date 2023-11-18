@@ -144,11 +144,26 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 }
 
 var (
+	// Builder - Allowed methods
 	builderMethods = map[string]bool{
-		"/rpcpb.SliverRPC/Build": true,
+		"/rpcpb.SliverRPC/BuilderRegister": true,
+		"/rpcpb.SliverRPC/BuilderTrigger":  true,
+		"/rpcpb.SliverRPC/Builders":        true,
 	}
+	// Crackstation - Allowed methods
 	crackstationMethods = map[string]bool{
-		"/rpcpb.SliverRPC/Crackstation": true,
+		"/rpcpb.SliverRPC/CrackstationRegister":   true,
+		"/rpcpb.SliverRPC/CrackstationTrigger":    true,
+		"/rpcpb.SliverRPC/CrackstationBenchmark":  true,
+		"/rpcpb.SliverRPC/Crackstations":          true,
+		"/rpcpb.SliverRPC/CrackTaskByID":          true,
+		"/rpcpb.SliverRPC/CrackTaskUpdate":        true,
+		"/rpcpb.SliverRPC/CrackFilesList":         true,
+		"/rpcpb.SliverRPC/CrackFileCreate":        true,
+		"/rpcpb.SliverRPC/CrackFileChunkUpload":   true,
+		"/rpcpb.SliverRPC/CrackFileChunkDownload": true,
+		"/rpcpb.SliverRPC/CrackFileComplete":      true,
+		"/rpcpb.SliverRPC/CrackFileDelete":        true,
 	}
 )
 
