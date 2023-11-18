@@ -34,7 +34,7 @@ FROM --platform=linux/amd64 base as test
 RUN apt-get update --fix-missing \
     && apt-get -y upgrade \
     && apt-get -y install \
-    curl mingw-w64 binutils-mingw-w64 g++-mingw-w64 
+    curl gcc-multilib build-essential mingw-w64 binutils-mingw-w64 g++-mingw-w64 
 
 RUN /opt/sliver-server unpack --force 
 
