@@ -71,10 +71,10 @@ var daemonCmd = &cobra.Command{
 	},
 }
 
-func StartPersistentJobs(listenerJobs *[]clientpb.ListenerJob) error {
-	if len(*listenerJobs) > 0 {
+func StartPersistentJobs(listenerJobs []*clientpb.ListenerJob) error {
+	if len(listenerJobs) > 0 {
 		// StartPersistentJobs - Start persistent jobs
-		for _, j := range *listenerJobs {
+		for _, j := range listenerJobs {
 			listenerJob, err := db.ListenerByJobID(j.JobID)
 			if err != nil {
 				return err
@@ -117,7 +117,7 @@ func StartPersistentJobs(listenerJobs *[]clientpb.ListenerJob) error {
 				}
 				j.JobID = uint32(id)
 			}
-			db.UpdateHTTPC2Listener(&j)
+			db.UpdateHTTPC2Listener(j)
 		}
 	}
 

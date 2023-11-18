@@ -525,15 +525,15 @@ func ListenerByJobID(JobID uint32) (*clientpb.ListenerJob, error) {
 	return listenerJob.ToProtobuf(), err
 }
 
-func ListenerJobs() (*[]clientpb.ListenerJob, error) {
+func ListenerJobs() ([]*clientpb.ListenerJob, error) {
 	listenerJobs := []models.ListenerJob{}
 	err := Session().Where(&models.ListenerJob{}).Find(&listenerJobs).Error
-	pbListenerJobs := []clientpb.ListenerJob{}
+	pbListenerJobs := []*clientpb.ListenerJob{}
 	for _, listenerJob := range listenerJobs {
-		pbListenerJobs = append(pbListenerJobs, *listenerJob.ToProtobuf())
+		pbListenerJobs = append(pbListenerJobs, listenerJob.ToProtobuf())
 	}
 
-	return &pbListenerJobs, err
+	return pbListenerJobs, err
 }
 
 func DeleteListener(JobID uint32) error {

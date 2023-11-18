@@ -28,12 +28,15 @@ import (
 	"gorm.io/gorm"
 )
 
-// Operator - Colletions of content to serve from HTTP(S)
+// Operator - Collections of content to serve from HTTP(S)
 type Operator struct {
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	CreatedAt time.Time `gorm:"->;<-:create;"`
-	Name      string
-	Token     string `gorm:"uniqueIndex"`
+	ID                     uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	CreatedAt              time.Time `gorm:"->;<-:create;"`
+	Name                   string
+	Token                  string `gorm:"uniqueIndex"`   // NOTE: This is the SHA256 of the token
+	PermissionAll          bool   `gorm:"default:false"` // Access all gRPC APIs
+	PermissionBuilder      bool   `gorm:"default:false"` // Access Builder gRPC APIs
+	PermissionCrackstation bool   `gorm:"default:false"` // Access Crackstation gRPC APIs
 }
 
 // BeforeCreate - GORM hook

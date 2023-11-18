@@ -44,10 +44,11 @@ const (
 	forceFlagStr = "force"
 
 	// Operator flags
-	nameFlagStr  = "name"
-	lhostFlagStr = "lhost"
-	lportFlagStr = "lport"
-	saveFlagStr  = "save"
+	nameFlagStr        = "name"
+	lhostFlagStr       = "lhost"
+	lportFlagStr       = "lport"
+	saveFlagStr        = "save"
+	permissionsFlagStr = "permissions"
 
 	// Cert flags
 	caTypeFlagStr = "type"

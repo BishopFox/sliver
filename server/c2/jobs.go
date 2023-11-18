@@ -272,7 +272,7 @@ func listenAndServeTLS(srv *http.Server, certPEMBlock, keyPEMBlock []byte) error
 	}
 	config := &tls.Config{}
 	if srv.TLSConfig != nil {
-		*config = *srv.TLSConfig
+		config = srv.TLSConfig
 	}
 	if certs.TLSKeyLogger != nil {
 		config.KeyLogWriter = certs.TLSKeyLogger

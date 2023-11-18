@@ -29,6 +29,7 @@ import (
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
@@ -64,6 +65,7 @@ func initMiddleware(remoteAuth bool) []grpc.ServerOption {
 		return []grpc.ServerOption{
 			grpc.ChainUnaryInterceptor(
 				grpc_auth.UnaryServerInterceptor(tokenAuthFunc),
+				permissionsUnaryServerInterceptor(),
 				auditLogUnaryServerInterceptor(),
 				grpc_tags.UnaryServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
 				grpc_logrus.UnaryServerInterceptor(logrusEntry, logrusOpts...),
@@ -71,6 +73,7 @@ func initMiddleware(remoteAuth bool) []grpc.ServerOption {
 			),
 			grpc.ChainStreamInterceptor(
 				grpc_auth.StreamServerInterceptor(tokenAuthFunc),
+				permissionsStreamServerInterceptor(),
 				grpc_tags.StreamServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
 				grpc_logrus.StreamServerInterceptor(logrusEntry, logrusOpts...),
 				grpc_logrus.PayloadStreamServerInterceptor(logrusEntry, deciderStream),
@@ -123,9 +126,9 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	digest := sha256.Sum256([]byte(rawToken))
 	token := hex.EncodeToString(digest[:])
 	newCtx := context.WithValue(ctx, Transport, "mtls")
-	if name, ok := tokenCache.Load(token); ok {
+	if op, ok := tokenCache.Load(token); ok {
 		mtlsLog.Debugf("Token in cache!")
-		newCtx = context.WithValue(newCtx, Operator, name.(string))
+		newCtx = context.WithValue(newCtx, Operator, op.(*models.Operator))
 		return newCtx, nil
 	}
 	operator, err := db.OperatorByToken(token)
@@ -133,11 +136,81 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 		mtlsLog.Errorf("Authentication failure: %s", err)
 		return nil, status.Error(codes.Unauthenticated, "Authentication failure")
 	}
-	mtlsLog.Debugf("Valid user token for %s", operator.Name)
-	tokenCache.Store(token, operator.Name)
+	mtlsLog.Debugf("Valid token for %s", operator.Name)
+	tokenCache.Store(token, operator)
 
-	newCtx = context.WithValue(newCtx, Operator, operator.Name)
+	newCtx = context.WithValue(newCtx, Operator, operator)
 	return newCtx, nil
+}
+
+var (
+	// Builder - Allowed methods
+	builderMethods = map[string]bool{
+		"/rpcpb.SliverRPC/GetVersion":                     true,
+		"/rpcpb.SliverRPC/GenerateExternalGetBuildConfig": true,
+		"/rpcpb.SliverRPC/GenerateExternalSaveBuild":      true,
+		"/rpcpb.SliverRPC/BuilderRegister":                true,
+		"/rpcpb.SliverRPC/BuilderTrigger":                 true,
+		"/rpcpb.SliverRPC/Builders":                       true,
+	}
+	// Crackstation - Allowed methods
+	crackstationMethods = map[string]bool{
+		"/rpcpb.SliverRPC/GetVersion":             true,
+		"/rpcpb.SliverRPC/CrackstationRegister":   true,
+		"/rpcpb.SliverRPC/CrackstationTrigger":    true,
+		"/rpcpb.SliverRPC/CrackstationBenchmark":  true,
+		"/rpcpb.SliverRPC/Crackstations":          true,
+		"/rpcpb.SliverRPC/CrackTaskByID":          true,
+		"/rpcpb.SliverRPC/CrackTaskUpdate":        true,
+		"/rpcpb.SliverRPC/CrackFilesList":         true,
+		"/rpcpb.SliverRPC/CrackFileCreate":        true,
+		"/rpcpb.SliverRPC/CrackFileChunkUpload":   true,
+		"/rpcpb.SliverRPC/CrackFileChunkDownload": true,
+		"/rpcpb.SliverRPC/CrackFileComplete":      true,
+		"/rpcpb.SliverRPC/CrackFileDelete":        true,
+	}
+)
+
+func permissionsUnaryServerInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ interface{}, err error) {
+		operator := ctx.Value(Operator).(*models.Operator)
+		if operator.PermissionAll {
+			return handler(ctx, req)
+		}
+		if operator.PermissionBuilder {
+			if ok, _ := builderMethods[info.FullMethod]; ok {
+				return handler(ctx, req)
+			}
+		}
+		if operator.PermissionCrackstation {
+			if ok, _ := crackstationMethods[info.FullMethod]; ok {
+				return handler(ctx, req)
+			}
+		}
+		mtlsLog.Warnf("Permission denied for %s attempting to access %s", operator.Name, info.FullMethod)
+		return nil, status.Error(codes.PermissionDenied, "Permission denied")
+	}
+}
+
+func permissionsStreamServerInterceptor() grpc.StreamServerInterceptor {
+	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		operator := ss.Context().Value(Operator).(*models.Operator)
+		if operator.PermissionAll {
+			return handler(srv, ss)
+		}
+		if operator.PermissionBuilder {
+			if ok, _ := builderMethods[info.FullMethod]; ok {
+				return handler(srv, ss)
+			}
+		}
+		if operator.PermissionCrackstation {
+			if ok, _ := crackstationMethods[info.FullMethod]; ok {
+				return handler(srv, ss)
+			}
+		}
+		mtlsLog.Warnf("Permission denied for %s attempting to access %s", operator.Name, info.FullMethod)
+		return status.Error(codes.PermissionDenied, "Permission denied")
+	}
 }
 
 func deciderUnary(_ context.Context, _ string, _ interface{}) bool {
