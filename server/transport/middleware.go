@@ -146,12 +146,16 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 var (
 	// Builder - Allowed methods
 	builderMethods = map[string]bool{
-		"/rpcpb.SliverRPC/BuilderRegister": true,
-		"/rpcpb.SliverRPC/BuilderTrigger":  true,
-		"/rpcpb.SliverRPC/Builders":        true,
+		"/rpcpb.SliverRPC/GetVersion":                     true,
+		"/rpcpb.SliverRPC/GenerateExternalGetBuildConfig": true,
+		"/rpcpb.SliverRPC/GenerateExternalSaveBuild":      true,
+		"/rpcpb.SliverRPC/BuilderRegister":                true,
+		"/rpcpb.SliverRPC/BuilderTrigger":                 true,
+		"/rpcpb.SliverRPC/Builders":                       true,
 	}
 	// Crackstation - Allowed methods
 	crackstationMethods = map[string]bool{
+		"/rpcpb.SliverRPC/GetVersion":             true,
 		"/rpcpb.SliverRPC/CrackstationRegister":   true,
 		"/rpcpb.SliverRPC/CrackstationTrigger":    true,
 		"/rpcpb.SliverRPC/CrackstationBenchmark":  true,
