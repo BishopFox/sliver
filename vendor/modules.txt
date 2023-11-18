@@ -736,8 +736,8 @@ go4.org/mem
 # go4.org/netipx v0.0.0-20230824141953-6213f710f925
 ## explicit; go 1.18
 go4.org/netipx
-# golang.org/x/crypto v0.14.0
-## explicit; go 1.17
+# golang.org/x/crypto v0.15.0
+## explicit; go 1.18
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
 golang.org/x/crypto/argon2
