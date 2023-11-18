@@ -283,7 +283,7 @@ func PortInUse(newPort uint32) error {
 		return err
 	}
 	var port uint32
-	for _, job := range *listenerJobs {
+	for _, job := range listenerJobs {
 		listener, err := db.ListenerByJobID(job.JobID)
 		if err != nil {
 			return err

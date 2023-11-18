@@ -33,54 +33,63 @@ var operatorCmd = &cobra.Command{
 	Short: "Generate operator configuration files",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-
 		name, err := cmd.Flags().GetString(nameFlagStr)
 		if err != nil {
 			fmt.Printf("Failed to parse --%s flag %s", nameFlagStr, err)
-			os.Exit(1)
+			return
 		}
 		if name == "" {
 			fmt.Printf("Must specify --%s", nameFlagStr)
-			os.Exit(1)
+			return
 		}
 
 		lhost, err := cmd.Flags().GetString(lhostFlagStr)
 		if err != nil {
 			fmt.Printf("Failed to parse --%s flag %s", lhostFlagStr, err)
-			os.Exit(1)
+			return
 		}
 		if lhost == "" {
 			fmt.Printf("Must specify --%s", lhostFlagStr)
-			os.Exit(1)
+			return
 		}
 
 		lport, err := cmd.Flags().GetUint16(lportFlagStr)
 		if err != nil {
 			fmt.Printf("Failed to parse --%s flag %s", lportFlagStr, err)
-			os.Exit(1)
+			return
 		}
 
 		save, err := cmd.Flags().GetString(saveFlagStr)
 		if err != nil {
 			fmt.Printf("Failed to parse --%s flag %s", saveFlagStr, err)
-			os.Exit(1)
+			return
 		}
 		if save == "" {
 			save, _ = os.Getwd()
 		}
 
+		permissions, err := cmd.Flags().GetStringSlice(permissionsFlagStr)
+		if err != nil {
+			fmt.Printf("Failed to parse --%s flag %s", permissionsFlagStr, err)
+			return
+		}
+		if len(permissions) == 0 {
+			fmt.Printf("Must specify --%s", permissionsFlagStr)
+			return
+		}
+
 		certs.SetupCAs()
-		configJSON, err := console.NewOperatorConfig(name, lhost, lport)
+		configJSON, err := console.NewOperatorConfig(name, lhost, lport, permissions)
 		if err != nil {
 			fmt.Printf("Failed: %s\n", err)
-			os.Exit(1)
+			return
 		}
 
 		saveTo, _ := filepath.Abs(save)
 		fi, err := os.Stat(saveTo)
 		if !os.IsNotExist(err) && !fi.IsDir() {
 			fmt.Printf("File already exists: %s\n", err)
-			os.Exit(1)
+			return
 		}
 		if !os.IsNotExist(err) && fi.IsDir() {
 			filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(name), filepath.Base(lhost))
@@ -89,7 +98,7 @@ var operatorCmd = &cobra.Command{
 		err = os.WriteFile(saveTo, configJSON, 0600)
 		if err != nil {
 			fmt.Printf("Write failed: %s (%s)\n", saveTo, err)
-			os.Exit(1)
+			return
 		}
 	},
 }

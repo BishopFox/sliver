@@ -85,7 +85,7 @@ func serverOnlyCmds() (commands []*cobra.Command) {
 	newOperator := &cobra.Command{
 		Use:     consts.NewOperatorStr,
 		Short:   "Create a new operator config file",
-		Long:    help.GetHelpFor([]string{consts.NewOperatorStr}),
+		Long:    newOperatorLongHelp,
 		Run:     newOperatorCmd,
 		GroupID: consts.MultiplayerHelpGroup,
 	}
@@ -94,6 +94,7 @@ func serverOnlyCmds() (commands []*cobra.Command) {
 		f.Uint16P("lport", "p", 31337, "listen port")
 		f.StringP("save", "s", "", "directory/file in which to save config")
 		f.StringP("name", "n", "", "operator name")
+		f.StringSliceP("permissions", "P", []string{}, "grant permissions to the operator profile (all, builder, crackstation)")
 	})
 	command.FlagComps(newOperator, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionDirectories()
@@ -115,3 +116,23 @@ func serverOnlyCmds() (commands []*cobra.Command) {
 
 	return
 }
+
+const newOperatorLongHelp = `
+Create a new operator config file, operator configuration files allow
+remote machines to connect to the Sliver server. They are most commonly
+used for allowing remote operators to connect in "Multiplayer Mode."
+
+To generate a profile for a remote operator, you need to specify the
+the "all" permission to grant the profile access to all gRPC APIs:
+
+new-operator --name <operator name> --lhost <sliver server> --permissions all
+
+Operator profiles can also be used to allow remote machines to connect to
+the Sliver server for other purposes, such as a "Remote Builder" or a
+"Crackstation."
+
+You can restrict profiles' permissions by using the --permissions flag, for
+example, to create a profile that can only be used as a "Remote Builder":
+
+new-operator --name <operator name> --lhost <sliver server> --permissions builder
+`

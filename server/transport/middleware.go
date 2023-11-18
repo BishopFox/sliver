@@ -29,6 +29,7 @@ import (
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
@@ -123,9 +124,9 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	digest := sha256.Sum256([]byte(rawToken))
 	token := hex.EncodeToString(digest[:])
 	newCtx := context.WithValue(ctx, Transport, "mtls")
-	if name, ok := tokenCache.Load(token); ok {
+	if op, ok := tokenCache.Load(token); ok {
 		mtlsLog.Debugf("Token in cache!")
-		newCtx = context.WithValue(newCtx, Operator, name.(string))
+		newCtx = context.WithValue(newCtx, Operator, op.(*models.Operator))
 		return newCtx, nil
 	}
 	operator, err := db.OperatorByToken(token)
@@ -133,10 +134,10 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 		mtlsLog.Errorf("Authentication failure: %s", err)
 		return nil, status.Error(codes.Unauthenticated, "Authentication failure")
 	}
-	mtlsLog.Debugf("Valid user token for %s", operator.Name)
-	tokenCache.Store(token, operator.Name)
+	mtlsLog.Debugf("Valid token for %s", operator.Name)
+	tokenCache.Store(token, operator)
 
-	newCtx = context.WithValue(newCtx, Operator, operator.Name)
+	newCtx = context.WithValue(newCtx, Operator, operator)
 	return newCtx, nil
 }
 
