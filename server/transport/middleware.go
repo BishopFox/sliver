@@ -133,7 +133,7 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 	}
 	operator, err := db.OperatorByToken(token)
 	if err != nil || operator == nil {
-		mtlsLog.Errorf("Authentication failure: %s", err)
+		mtlsLog.Errorf("Authentication failure: %v", err)
 		return nil, status.Error(codes.Unauthenticated, "Authentication failure")
 	}
 	mtlsLog.Debugf("Valid token for %s", operator.Name)
@@ -174,6 +174,9 @@ var (
 func permissionsUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ interface{}, err error) {
 		operator := ctx.Value(Operator).(*models.Operator)
+		if operator == nil {
+			return nil, status.Error(codes.Unauthenticated, "Authentication failure")
+		}
 		if operator.PermissionAll {
 			return handler(ctx, req)
 		}
@@ -195,6 +198,9 @@ func permissionsUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 func permissionsStreamServerInterceptor() grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		operator := ss.Context().Value(Operator).(*models.Operator)
+		if operator == nil {
+			return status.Error(codes.Unauthenticated, "Authentication failure")
+		}
 		if operator.PermissionAll {
 			return handler(srv, ss)
 		}
