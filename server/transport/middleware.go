@@ -174,6 +174,9 @@ var (
 func permissionsUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ interface{}, err error) {
 		operator := ctx.Value(Operator).(*models.Operator)
+		if operator == nil {
+			return nil, status.Error(codes.Unauthenticated, "Authentication failure")
+		}
 		if operator.PermissionAll {
 			return handler(ctx, req)
 		}
@@ -195,6 +198,9 @@ func permissionsUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 func permissionsStreamServerInterceptor() grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		operator := ss.Context().Value(Operator).(*models.Operator)
+		if operator == nil {
+			return status.Error(codes.Unauthenticated, "Authentication failure")
+		}
 		if operator.PermissionAll {
 			return handler(srv, ss)
 		}
