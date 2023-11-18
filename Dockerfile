@@ -1,3 +1,12 @@
+#
+# For production:
+#   docker build --target production -t sliver .
+#   docker run -it --rm -v $HOME/.sliver:/home/sliver/.sliver sliver 
+#
+# For unit testing:
+#   docker build --target test .
+#
+
 # STAGE: base
 ## Compiles Sliver for use
 FROM --platform=linux/amd64 golang:1.21.4 as base
