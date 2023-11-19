@@ -54,14 +54,14 @@ const (
 	Operator
 )
 
-// initMiddleware - Initialize middleware logger
-func initMiddleware(remoteAuth bool) []grpc.ServerOption {
+// initMiddleware - Initialize middleware
+func initMiddleware(enableAuth bool) []grpc.ServerOption {
 	logrusEntry := log.NamedLogger("transport", "grpc")
 	logrusOpts := []grpc_logrus.Option{
 		grpc_logrus.WithLevels(codeToLevel),
 	}
 	grpc_logrus.ReplaceGrpcLogger(logrusEntry)
-	if remoteAuth {
+	if enableAuth {
 		return []grpc.ServerOption{
 			grpc.ChainUnaryInterceptor(
 				grpc_auth.UnaryServerInterceptor(tokenAuthFunc),
@@ -146,7 +146,8 @@ func tokenAuthFunc(ctx context.Context) (context.Context, error) {
 var (
 	// Builder - Allowed methods
 	builderMethods = map[string]bool{
-		"/rpcpb.SliverRPC/GetVersion":                     true,
+		"/rpcpb.SliverRPC/GetVersion": true,
+
 		"/rpcpb.SliverRPC/GenerateExternalGetBuildConfig": true,
 		"/rpcpb.SliverRPC/GenerateExternalSaveBuild":      true,
 		"/rpcpb.SliverRPC/BuilderRegister":                true,
@@ -155,7 +156,8 @@ var (
 	}
 	// Crackstation - Allowed methods
 	crackstationMethods = map[string]bool{
-		"/rpcpb.SliverRPC/GetVersion":             true,
+		"/rpcpb.SliverRPC/GetVersion": true,
+
 		"/rpcpb.SliverRPC/CrackstationRegister":   true,
 		"/rpcpb.SliverRPC/CrackstationTrigger":    true,
 		"/rpcpb.SliverRPC/CrackstationBenchmark":  true,
