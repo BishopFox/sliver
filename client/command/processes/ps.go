@@ -219,8 +219,8 @@ func findKnownSecurityProducts(ps *sliverpb.Ps) []string {
 		}
 	}
 	products := make([]string, 0, len(uniqProducts))
-	for name, color := range uniqProducts {
-		products = append(products, []string{color, name}...)
+	for name := range uniqProducts {
+		products = append(products, name)
 	}
 	return products
 }
