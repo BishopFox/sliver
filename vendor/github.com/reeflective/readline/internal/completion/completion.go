@@ -17,6 +17,9 @@ type Candidate struct {
 	// inserted immediately after the completion. This is used for slash-autoremoval in path
 	// completions, comma-separated completions, etc.
 	noSpace SuffixMatcher
+
+	displayLen int // Real length of the displayed candidate, that is not counting escaped sequences.
+	descLen    int
 }
 
 // Values is used internally to hold all completion candidates and their associated data.
@@ -29,6 +32,7 @@ type Values struct {
 	NoSort   map[string]bool
 	ListSep  map[string]string
 	Pad      map[string]bool
+	Escapes  map[string]bool
 
 	// Initially this will be set to the part of the current word
 	// from the beginning of the word up to the position of the cursor.
