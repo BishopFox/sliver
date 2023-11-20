@@ -506,7 +506,7 @@ github.com/mdlayher/socket
 # github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 ## explicit
 github.com/mgutz/ansi
-# github.com/miekg/dns v1.1.56
+# github.com/miekg/dns v1.1.57
 ## explicit; go 1.19
 github.com/miekg/dns
 # github.com/mitchellh/go-ps v1.0.0
