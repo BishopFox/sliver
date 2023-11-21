@@ -727,7 +727,7 @@ github.com/x448/float16
 # github.com/xlab/treeprint v1.2.0
 ## explicit; go 1.13
 github.com/xlab/treeprint
-# github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e
+# github.com/yiya1989/sshkrb5 v0.0.1
 ## explicit; go 1.14
 github.com/yiya1989/sshkrb5/krb5forssh
 # go4.org/mem v0.0.0-20220726221520-4f986261bf13
