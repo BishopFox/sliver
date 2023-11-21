@@ -108,7 +108,9 @@ func (k *Krb5InitiatorClient) InitSecContext(target string, token []byte, isGSSD
 		}
 
 		krb5Token, err := spnego.NewKRB5TokenAPREQ(k.client, tkt, sessionKey, GSSAPIFlags, APOptions)
-
+		if err != nil {
+			return nil, false, fmt.Errorf("error generating new kerberos 5 token: %w", err)
+		}
 		creds := k.client.Credentials
 		auth, err := types.NewAuthenticator(creds.Domain(), creds.CName())
 		if err != nil {
