@@ -351,8 +351,8 @@ github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca h1:tD797h1
 github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca/go.mod h1:jkLt41Ne2TD2xPuMdX/2O05Smhy8vMgG7O2TYvC0yOc=
 github.com/reeflective/console v0.1.6 h1:BhhvQU/m8QOpaIRzrXfwcbtkGQJX9jVR5qIqAy/Mcuw=
 github.com/reeflective/console v0.1.6/go.mod h1:7owTBE9k2lg2QpVw7g4DrK1HxEgr/5DQCmA3O2Znoek=
-github.com/reeflective/readline v1.0.10 h1:neAdbArjB1f5LZ2JBh/9TZ9ibFUrjjvBS8xuhLbx5do=
-github.com/reeflective/readline v1.0.10/go.mod h1:mcD0HxNVJVteVwDm9caXKg52nQACVyfh8EyuBmgVlzY=
+github.com/reeflective/readline v1.0.11 h1:4+aiebj7a89hTRJOMM98H+md1Kxu+v1XkfdCs0n6odQ=
+github.com/reeflective/readline v1.0.11/go.mod h1:mcD0HxNVJVteVwDm9caXKg52nQACVyfh8EyuBmgVlzY=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
 github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
