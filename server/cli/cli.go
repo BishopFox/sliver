@@ -79,6 +79,7 @@ func init() {
 	operatorCmd.Flags().StringP(lhostFlagStr, "l", "", "multiplayer listener host")
 	operatorCmd.Flags().Uint16P(lportFlagStr, "p", uint16(31337), "multiplayer listener port")
 	operatorCmd.Flags().StringP(saveFlagStr, "s", "", "save file to ...")
+	operatorCmd.Flags().StringP(saveFlagString, "P", "", "operator permissions")
 	rootCmd.AddCommand(operatorCmd)
 
 	// Certs
