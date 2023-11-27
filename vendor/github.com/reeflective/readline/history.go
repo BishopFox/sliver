@@ -573,7 +573,7 @@ func (rl *Shell) historySourcePrev() {
 	rl.History.Cycle(false)
 }
 
-// If a line is currently autoggested, make it the buffer.
+// If a line is currently auto-suggested, make it the buffer.
 func (rl *Shell) autosuggestAccept() {
 	suggested := rl.History.Suggest(rl.line)
 
@@ -585,7 +585,7 @@ func (rl *Shell) autosuggestAccept() {
 	rl.cursor.Set(len(suggested))
 }
 
-// If a line is currently autoggested, make it the buffer and execute it.
+// If a line is currently auto-suggested, make it the buffer and execute it.
 func (rl *Shell) autosuggestExecute() {
 	suggested := rl.History.Suggest(rl.line)
 
@@ -599,7 +599,7 @@ func (rl *Shell) autosuggestExecute() {
 	rl.acceptLine()
 }
 
-// Toggle line history autoggestions on/off.
+// Toggle line history autosuggestions on/off.
 func (rl *Shell) autosuggestToggle() {
 	if rl.Config.GetBool("history-autosuggest") {
 		rl.autosuggestDisable()
@@ -608,7 +608,7 @@ func (rl *Shell) autosuggestToggle() {
 	}
 }
 
-// Enable history line autoggestions.
+// Enable history line autosuggestions.
 // When enabled and if a line is suggested, forward-word commands, will
 // take the first word of the non-inserted part of this suggestion and
 // will insert it in the real input line.
@@ -618,7 +618,7 @@ func (rl *Shell) autosuggestEnable() {
 	rl.Config.Vars["history-autosuggest"] = true
 }
 
-// Disable history line autoggestions.
+// Disable history line autosuggestions.
 func (rl *Shell) autosuggestDisable() {
 	rl.History.SkipSave()
 	rl.Config.Vars["history-autosuggest"] = false
