@@ -5,6 +5,9 @@ import (
 	"errors"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/kballard/go-shellquote"
+	"mvdan.cc/sh/v3/syntax"
 )
 
 var (
@@ -20,6 +23,29 @@ var (
 	errUnterminatedDoubleQuote = errors.New("unterminated double-quoted string")
 	errUnterminatedEscape      = errors.New("unterminated backslash-escape")
 )
+
+// parse is in charge of removing all comments from the input line
+// before execution, and if successfully parsed, split into words.
+func (c *Console) parse(line string) (args []string, err error) {
+	lineReader := strings.NewReader(line)
+	parser := syntax.NewParser(syntax.KeepComments(false))
+
+	// Parse the shell string a syntax, removing all comments.
+	stmts, err := parser.Parse(lineReader, "")
+	if err != nil {
+		return nil, err
+	}
+
+	var parsedLine bytes.Buffer
+
+	err = syntax.NewPrinter().Print(&parsedLine, stmts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Split the line into shell words.
+	return shellquote.Split(parsedLine.String())
+}
 
 // acceptMultiline determines if the line just accepted is complete (in which case
 // we should execute it), or incomplete (in which case we must read in multiline).

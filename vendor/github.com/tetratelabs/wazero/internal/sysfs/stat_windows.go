@@ -4,7 +4,6 @@ package sysfs
 
 import (
 	"io/fs"
-	"path"
 	"syscall"
 
 	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
@@ -75,22 +74,6 @@ func statFile(f fs.File) (sys.Stat_t, experimentalsys.Errno) {
 		}
 	}
 	return defaultStatFile(f)
-}
-
-// inoFromFileInfo uses stat to get the inode information of the file.
-func inoFromFileInfo(dirPath string, info fs.FileInfo) (ino sys.Inode, errno experimentalsys.Errno) {
-	if dirPath == "" {
-		// This is a fs.File backed implementation which doesn't have access to
-		// the original file path.
-		return
-	}
-	// Ino is no not in Win32FileAttributeData
-	inoPath := path.Clean(path.Join(dirPath, info.Name()))
-	var st sys.Stat_t
-	if st, errno = lstat(inoPath); errno == 0 {
-		ino = st.Ino
-	}
-	return
 }
 
 func statHandle(h syscall.Handle) (sys.Stat_t, experimentalsys.Errno) {

@@ -10,6 +10,32 @@ import (
 type i32 interface{ ~int32 | ~uint32 }
 type i64 interface{ ~int64 | ~uint64 }
 
+type funcVI[T0 i32] func(context.Context, api.Module, T0)
+
+func (fn funcVI[T0]) Call(ctx context.Context, mod api.Module, stack []uint64) {
+	fn(ctx, mod, T0(stack[0]))
+}
+
+func ExportFuncVI[T0 i32](mod wazero.HostModuleBuilder, name string, fn func(context.Context, api.Module, T0)) {
+	mod.NewFunctionBuilder().
+		WithGoModuleFunction(funcVI[T0](fn),
+			[]api.ValueType{api.ValueTypeI32}, nil).
+		Export(name)
+}
+
+type funcVIII[T0, T1, T2 i32] func(context.Context, api.Module, T0, T1, T2)
+
+func (fn funcVIII[T0, T1, T2]) Call(ctx context.Context, mod api.Module, stack []uint64) {
+	fn(ctx, mod, T0(stack[0]), T1(stack[1]), T2(stack[2]))
+}
+
+func ExportFuncVIII[T0, T1, T2 i32](mod wazero.HostModuleBuilder, name string, fn func(context.Context, api.Module, T0, T1, T2)) {
+	mod.NewFunctionBuilder().
+		WithGoModuleFunction(funcVIII[T0, T1, T2](fn),
+			[]api.ValueType{api.ValueTypeI32, api.ValueTypeI32, api.ValueTypeI32}, nil).
+		Export(name)
+}
+
 type funcII[TR, T0 i32] func(context.Context, api.Module, T0) TR
 
 func (fn funcII[TR, T0]) Call(ctx context.Context, mod api.Module, stack []uint64) {

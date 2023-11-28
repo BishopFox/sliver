@@ -14,10 +14,9 @@
 //
 // [PRAGMA] statements can be specified using "_pragma":
 //
-//	sql.Open("sqlite3", "file:demo.db?_pragma=busy_timeout(10000)&_pragma=locking_mode(normal)")
+//	sql.Open("sqlite3", "file:demo.db?_pragma=busy_timeout(10000)")
 //
-// If no PRAGMAs are specified, a busy timeout of 1 minute
-// and normal locking mode are used.
+// If no PRAGMAs are specified, a busy timeout of 1 minute is set.
 //
 // Order matters:
 // busy timeout and locking mode should be the first PRAGMAs set, in that order.
@@ -53,9 +52,14 @@ func (sqlite) Open(name string) (_ driver.Conn, err error) {
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			c.Close()
+		}
+	}()
 
+	var pragmas bool
 	c.txBegin = "BEGIN"
-	var pragmas []string
 	if strings.HasPrefix(name, "file:") {
 		if _, after, ok := strings.Cut(name, "?"); ok {
 			query, _ := url.ParseQuery(after)
@@ -66,20 +70,15 @@ func (sqlite) Open(name string) (_ driver.Conn, err error) {
 			case "deferred", "immediate", "exclusive":
 				c.txBegin = "BEGIN " + s
 			default:
-				c.Close()
 				return nil, fmt.Errorf("sqlite3: invalid _txlock: %s", s)
 			}
 
-			pragmas = query["_pragma"]
+			pragmas = len(query["_pragma"]) > 0
 		}
 	}
-	if len(pragmas) == 0 {
-		err := c.Conn.Exec(`
-			PRAGMA busy_timeout=60000;
-			PRAGMA locking_mode=normal;
-		`)
+	if !pragmas {
+		err = c.Conn.Exec(`PRAGMA busy_timeout=60000`)
 		if err != nil {
-			c.Close()
 			return nil, err
 		}
 		c.reusable = true
@@ -90,7 +89,6 @@ func (sqlite) Open(name string) (_ driver.Conn, err error) {
 				PRAGMA_query_only;
 		`)
 		if err != nil {
-			c.Close()
 			return nil, err
 		}
 		if s.Step() {
@@ -99,7 +97,6 @@ func (sqlite) Open(name string) (_ driver.Conn, err error) {
 		}
 		err = s.Close()
 		if err != nil {
-			c.Close()
 			return nil, err
 		}
 	}
@@ -259,9 +256,7 @@ func (s *stmt) Query(args []driver.Value) (driver.Rows, error) {
 }
 
 func (s *stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
-	// Use QueryContext to setup bindings.
-	// No need to close rows: that simply resets the statement, exec does the same.
-	_, err := s.QueryContext(ctx, args)
+	err := s.setupBindings(ctx, args)
 	if err != nil {
 		return nil, err
 	}
@@ -275,9 +270,18 @@ func (s *stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (drive
 }
 
 func (s *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
-	err := s.Stmt.ClearBindings()
+	err := s.setupBindings(ctx, args)
 	if err != nil {
 		return nil, err
+	}
+
+	return &rows{ctx, s.Stmt, s.Conn}, nil
+}
+
+func (s *stmt) setupBindings(ctx context.Context, args []driver.NamedValue) error {
+	err := s.Stmt.ClearBindings()
+	if err != nil {
+		return err
 	}
 
 	var ids [3]int
@@ -318,11 +322,10 @@ func (s *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 			}
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
-
-	return &rows{ctx, s.Stmt, s.Conn}, nil
+	return nil
 }
 
 func (s *stmt) CheckNamedValue(arg *driver.NamedValue) error {

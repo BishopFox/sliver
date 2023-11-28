@@ -136,11 +136,12 @@ func (c *Console) Menu(name string) *Menu {
 // that belong to this new menu. If the menu is invalid, i.e that no commands
 // are bound to this menu name, the current menu is kept.
 func (c *Console) SwitchMenu(menu string) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	c.mutex.Lock()
+	target, found := c.menus[menu]
+	c.mutex.Unlock()
 
-	// Only switch if the target menu was found.
-	if target, found := c.menus[menu]; found && target != nil {
+	if found && target != nil {
+		// Only switch if the target menu was found.
 		current := c.activeMenu()
 		if current != nil && target == current {
 			return

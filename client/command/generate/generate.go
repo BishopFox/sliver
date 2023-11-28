@@ -182,7 +182,7 @@ func nameOfOutputFormat(value clientpb.OutputFormat) string {
 }
 
 // Shared function that extracts the compile flags from the grumble context.
-func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) *clientpb.ImplantConfig {
+func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *clientpb.ImplantConfig) {
 	var name string
 	if nameF, _ := cmd.Flags().GetString("name"); nameF != "" {
 		name = strings.ToLower(nameF)
@@ -783,7 +783,7 @@ func ParseTCPPivotc2(args string) ([]*clientpb.ImplantC2, error) {
 	return c2s, nil
 }
 
-func externalBuild(config *clientpb.ImplantConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
+func externalBuild(name string, config *clientpb.ImplantConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
 	potentialBuilders, err := findExternalBuilders(config, con)
 	if err != nil {
 		return nil, err

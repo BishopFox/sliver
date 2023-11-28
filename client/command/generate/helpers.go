@@ -15,7 +15,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
-// GetSliverBinary - Get the binary of an implant based on it's profile.
+// GetSliverBinary - Get the binary of an implant based on it's profile
 func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverClient) ([]byte, error) {
 	var data []byte
 
@@ -28,43 +28,14 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverClient
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		return data, con.UnwrapServerErr(err)
+		con.PrintErrorf("Error generating implant\n")
+		return data, err
 	}
-
-	implantName := buildImplantName(profile.GetConfig().GetFileName())
-	_, ok := builds.GetConfigs()[implantName]
-	if implantName == "" || !ok {
-		// no built implant found for profile, generate a new one
-		con.PrintInfof("No builds found for profile %s, generating a new one\n", profile.GetName())
-		ctrl := make(chan bool)
-		con.SpinUntil("Compiling, please wait ...", ctrl)
-
-		generated, err := con.Rpc.Generate(context.Background(), &clientpb.GenerateReq{
-			Config: profile.Config,
-		})
-		ctrl <- true
-		<-ctrl
-		if err != nil {
-			con.PrintErrorf("Error generating implant\n")
-			return data, con.UnwrapServerErr(err)
-		}
-		data = generated.GetFile().GetData()
-		profile.Config.FileName = generated.File.Name
-		_, err = con.Rpc.SaveImplantProfile(context.Background(), profile)
-		if err != nil {
-			con.PrintErrorf("Error updating implant profile\n")
-			return data, con.UnwrapServerErr(err)
-		}
-	} else {
-		// Found a build, reuse that one
-		con.PrintInfof("Sliver name for profile: %s\n", implantName)
-		regenerate, err := con.Rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
-			ImplantName: implantName,
-		})
-		if err != nil {
-			return data, con.UnwrapServerErr(err)
-		}
-		data = regenerate.GetFile().GetData()
+	data = generated.GetFile().GetData()
+	_, err = con.Rpc.SaveImplantProfile(context.Background(), profile)
+	if err != nil {
+		con.PrintErrorf("Error updating implant profile\n")
+		return data, err
 	}
 	return data, err
 }
@@ -185,11 +156,12 @@ func TrafficEncodersCompleter(con *console.SliverClient) carapace.Action {
 }
 
 // HTTPC2Completer - Completes the HTTP C2 PROFILES
-func HTTPC2Completer(con *console.SliverConsoleClient) carapace.Action {
-	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+func HTTPC2Completer(con *console.SliverClient) carapace.Action {
+	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		if msg, err := con.PreRunComplete(); err != nil {
 			return msg
 		}
+
 		grpcCtx, cancel := con.GrpcContext(nil)
 		defer cancel()
 		httpC2Profiles, err := con.Rpc.GetHTTPC2Profiles(grpcCtx, &commonpb.Empty{})

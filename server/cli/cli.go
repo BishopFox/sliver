@@ -32,9 +32,7 @@ import (
 	clientCommand "github.com/bishopfox/sliver/client/command"
 	consoleCmd "github.com/bishopfox/sliver/client/command/console"
 	client "github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/command"
-	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/transport"
 
@@ -138,16 +136,16 @@ func preRunServerS(teamserver *server.Server, con *client.SliverClient) clientCo
 		// But we don't start Sliver-specific C2 listeners unless
 		// we are being ran in daemon mode, or in the console.
 		// We don't always have access to a command, such when
-		if cmd != nil {
-			if (cmd.Name() == "daemon" && cmd.Parent().Name() == "teamserver") ||
-				cmd.Name() == "console" {
-				serverConfig := configs.GetServerConfig()
-				err := c2.StartPersistentJobs(serverConfig)
-				if err != nil {
-					con.PrintWarnf("Persistent jobs restart error: %s", err)
-				}
-			}
-		}
+		// if cmd != nil {
+		// 	if (cmd.Name() == "daemon" && cmd.Parent().Name() == "teamserver") ||
+		// 		cmd.Name() == "console" {
+		// 		serverConfig := configs.GetServerConfig()
+		// 		err := c2.StartPersistentJobs(serverConfig)
+		// 		if err != nil {
+		// 			con.PrintWarnf("Persistent jobs restart error: %s", err)
+		// 		}
+		// 	}
+		// }
 		// Let our in-memory teamclient be served.
 		return teamserver.Serve(con.Teamclient)
 	}

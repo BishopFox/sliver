@@ -129,12 +129,12 @@ func (rpc *Server) CancelBeaconTask(ctx context.Context, req *clientpb.BeaconTas
 
 	// Some client might be currently blocking for the canceled
 	// task result, so tell them about it so they can exit.
-	beacon, err := db.BeaconByID(task.BeaconID.String())
+	beacon, err := db.BeaconByID(task.BeaconID)
 	if err != nil {
-		return task.ToProtobuf(false), ErrInvalidBeaconID
+		return task, ErrInvalidBeaconID
 	}
 
-	eventData, _ := proto.Marshal(task.ToProtobuf(false))
+	eventData, _ := proto.Marshal(task)
 
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.BeaconTaskCanceledEvent,
@@ -142,6 +142,5 @@ func (rpc *Server) CancelBeaconTask(ctx context.Context, req *clientpb.BeaconTas
 		Beacon:    beacon,
 	})
 
-	return task.ToProtobuf(false), nil
+	return task, nil
 }
-

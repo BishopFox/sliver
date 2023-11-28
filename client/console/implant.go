@@ -108,7 +108,7 @@ func (con *SliverClient) GetActiveSessionConfig() *clientpb.ImplantConfig {
 		Priority: uint32(0),
 	})
 	config := &clientpb.ImplantConfig{
-		Name:    session.GetName(),
+		ID:      session.ID,
 		GOOS:    session.GetOS(),
 		GOARCH:  session.GetArch(),
 		Debug:   true,

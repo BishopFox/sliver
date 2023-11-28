@@ -120,3 +120,4 @@ func (h *teamserver) Listen(addr string) (ln net.Listener, err error) {
 // our core teamserver driver.
 func (h *teamserver) Close() error {
 	return nil
+}

@@ -212,6 +212,10 @@ check:
 # This makes sure the intepreter can be used. Most often the package that can
 # drift here is "platform" or "sysfs":
 #
+# Ensure we build on plan9. See #1578
+	@GOARCH=amd64 GOOS=plan9 go build ./...
+# Ensure we build on gojs. See #1526. TODO: add GOOS=wasi as well.
+	@GOARCH=wasm GOOS=js go build ./...
 # Ensure we build on windows:
 	@GOARCH=amd64 GOOS=windows go build ./...
 # Ensure we build on an arbitrary operating system:
