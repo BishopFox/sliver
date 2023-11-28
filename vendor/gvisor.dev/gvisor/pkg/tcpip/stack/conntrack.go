@@ -725,7 +725,7 @@ type portOrIdentRange struct {
 //
 // Generally, only the first packet of a connection reaches this method; other
 // packets will be manipulated without needing to modify the connection.
-func (cn *conn) performNAT(pkt PacketBufferPtr, hook Hook, r *Route, portsOrIdents portOrIdentRange, natAddress tcpip.Address, dnat bool) {
+func (cn *conn) performNAT(pkt PacketBufferPtr, hook Hook, r *Route, portsOrIdents portOrIdentRange, natAddress tcpip.Address, dnat, changePort, changeAddress bool) {
 	lastPortOrIdent := func() uint16 {
 		lastPortOrIdent := uint32(portsOrIdents.start) + portsOrIdents.size - 1
 		if lastPortOrIdent > math.MaxUint16 {
@@ -762,7 +762,14 @@ func (cn *conn) performNAT(pkt PacketBufferPtr, hook Hook, r *Route, portsOrIden
 		return
 	}
 	*manip = manipPerformed
-	*address = natAddress
+	if changeAddress {
+		*address = natAddress
+	}
+
+	// Everything below here is port-fiddling.
+	if !changePort {
+		return
+	}
 
 	// Does the current port/ident fit in the range?
 	if portsOrIdents.start <= *portOrIdent && *portOrIdent <= lastPortOrIdent {
@@ -981,8 +988,8 @@ func (ct *ConnTrack) bucket(id tupleID) int {
 
 func (ct *ConnTrack) bucketWithTableLength(id tupleID, tableLength int) int {
 	h := jenkins.Sum32(ct.seed)
-	h.Write([]byte(id.srcAddr))
-	h.Write([]byte(id.dstAddr))
+	h.Write(id.srcAddr.AsSlice())
+	h.Write(id.dstAddr.AsSlice())
 	shortBuf := make([]byte, 2)
 	binary.LittleEndian.PutUint16(shortBuf, id.srcPortOrEchoRequestIdent)
 	h.Write([]byte(shortBuf))
@@ -1119,14 +1126,14 @@ func (ct *ConnTrack) originalDst(epID TransportEndpointID, netProto tcpip.Networ
 	t := ct.connForTID(tid)
 	if t == nil {
 		// Not a tracked connection.
-		return "", 0, &tcpip.ErrNotConnected{}
+		return tcpip.Address{}, 0, &tcpip.ErrNotConnected{}
 	}
 
 	t.conn.mu.RLock()
 	defer t.conn.mu.RUnlock()
 	if t.conn.destinationManip == manipNotPerformed {
 		// Unmanipulated destination.
-		return "", 0, &tcpip.ErrInvalidOptionValue{}
+		return tcpip.Address{}, 0, &tcpip.ErrInvalidOptionValue{}
 	}
 
 	id := t.conn.original.tupleID

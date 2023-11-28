@@ -4,17 +4,22 @@ package ssm
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	internalauth "github.com/aws/aws-sdk-go-v2/internal/auth"
 	"github.com/aws/aws-sdk-go-v2/service/ssm/types"
+	smithyendpoints "github.com/aws/smithy-go/endpoints"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"time"
 )
 
 // Creates a new OpsItem. You must have permission in Identity and Access
-// Management (IAM) to create a new OpsItem. For more information, see Getting
-// started with OpsCenter (https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter-getting-started.html)
+// Management (IAM) to create a new OpsItem. For more information, see Set up
+// OpsCenter (https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter-setup.html)
 // in the Amazon Web Services Systems Manager User Guide. Operations engineers and
 // IT professionals use Amazon Web Services Systems Manager OpsCenter to view,
 // investigate, and remediate operational issues impacting the performance and
@@ -38,7 +43,9 @@ func (c *Client) CreateOpsItem(ctx context.Context, params *CreateOpsItemInput, 
 
 type CreateOpsItemInput struct {
 
-	// Information about the OpsItem.
+	// User-defined text that contains information about the OpsItem, in Markdown
+	// format. Provide enough information so that users viewing this OpsItem for the
+	// first time understand the issue.
 	//
 	// This member is required.
 	Description *string
@@ -57,8 +64,7 @@ type CreateOpsItemInput struct {
 
 	// The target Amazon Web Services account where you want to create an OpsItem. To
 	// make this call, your account must be configured to work with OpsItems across
-	// accounts. For more information, see Setting up OpsCenter to work with OpsItems
-	// across accounts (https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-OpsCenter-multiple-accounts.html)
+	// accounts. For more information, see Set up OpsCenter (https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter-setup.html)
 	// in the Amazon Web Services Systems Manager User Guide.
 	AccountId *string
 
@@ -92,7 +98,7 @@ type CreateOpsItemInput struct {
 	// specify a related resource in the request. Use the /aws/automations key in
 	// OperationalData to associate an Automation runbook with the OpsItem. To view
 	// Amazon Web Services CLI example commands that use these keys, see Creating
-	// OpsItems manually (https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter-creating-OpsItems.html#OpsCenter-manually-create-OpsItems)
+	// OpsItems manually (https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter-manually-create-OpsItems.html)
 	// in the Amazon Web Services Systems Manager User Guide.
 	OperationalData map[string]types.OpsItemDataValue
 
@@ -102,7 +108,7 @@ type CreateOpsItemInput struct {
 	//   OpsCenter.
 	//   - /aws/changerequest This type of OpsItem is used by Change Manager for
 	//   reviewing and approving or rejecting change requests.
-	//   - /aws/insights This type of OpsItem is used by OpsCenter for aggregating and
+	//   - /aws/insight This type of OpsItem is used by OpsCenter for aggregating and
 	//   reporting on duplicate OpsItems.
 	OpsItemType *string
 
@@ -125,14 +131,11 @@ type CreateOpsItemInput struct {
 	// Specify a severity to assign to an OpsItem.
 	Severity *string
 
-	// Optional metadata that you assign to a resource. You can restrict access to
-	// OpsItems by using an inline IAM policy that specifies tags. For more
-	// information, see Getting started with OpsCenter (https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter-getting-started.html#OpsCenter-getting-started-user-permissions)
-	// in the Amazon Web Services Systems Manager User Guide. Tags use a key-value
-	// pair. For example: Key=Department,Value=Finance To add tags to a new OpsItem, a
-	// user must have IAM permissions for both the ssm:CreateOpsItems operation and
-	// the ssm:AddTagsToResource operation. To add tags to an existing OpsItem, use
-	// the AddTagsToResource operation.
+	// Optional metadata that you assign to a resource. Tags use a key-value pair. For
+	// example: Key=Department,Value=Finance To add tags to a new OpsItem, a user must
+	// have IAM permissions for both the ssm:CreateOpsItems operation and the
+	// ssm:AddTagsToResource operation. To add tags to an existing OpsItem, use the
+	// AddTagsToResource operation.
 	Tags []types.Tag
 
 	noSmithyDocumentSerde
@@ -159,6 +162,9 @@ func (c *Client) addOperationCreateOpsItemMiddlewares(stack *middleware.Stack, o
 	}
 	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpCreateOpsItem{}, middleware.After)
 	if err != nil {
+		return err
+	}
+	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 		return err
 	}
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
@@ -188,13 +194,16 @@ func (c *Client) addOperationCreateOpsItemMiddlewares(stack *middleware.Stack, o
 	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
 		return err
 	}
-	if err = addClientUserAgent(stack); err != nil {
+	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
 	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addCreateOpsItemResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addOpCreateOpsItemValidationMiddleware(stack); err != nil {
@@ -215,6 +224,9 @@ func (c *Client) addOperationCreateOpsItemMiddlewares(stack *middleware.Stack, o
 	if err = addRequestResponseLogging(stack, options); err != nil {
 		return err
 	}
+	if err = addendpointDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -225,4 +237,127 @@ func newServiceMetadataMiddleware_opCreateOpsItem(region string) *awsmiddleware.
 		SigningName:   "ssm",
 		OperationName: "CreateOpsItem",
 	}
+}
+
+type opCreateOpsItemResolveEndpointMiddleware struct {
+	EndpointResolver EndpointResolverV2
+	BuiltInResolver  builtInParameterResolver
+}
+
+func (*opCreateOpsItemResolveEndpointMiddleware) ID() string {
+	return "ResolveEndpointV2"
+}
+
+func (m *opCreateOpsItemResolveEndpointMiddleware) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+) {
+	if awsmiddleware.GetRequiresLegacyEndpoints(ctx) {
+		return next.HandleSerialize(ctx, in)
+	}
+
+	req, ok := in.Request.(*smithyhttp.Request)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown transport type %T", in.Request)
+	}
+
+	if m.EndpointResolver == nil {
+		return out, metadata, fmt.Errorf("expected endpoint resolver to not be nil")
+	}
+
+	params := EndpointParameters{}
+
+	m.BuiltInResolver.ResolveBuiltIns(&params)
+
+	var resolvedEndpoint smithyendpoints.Endpoint
+	resolvedEndpoint, err = m.EndpointResolver.ResolveEndpoint(ctx, params)
+	if err != nil {
+		return out, metadata, fmt.Errorf("failed to resolve service endpoint, %w", err)
+	}
+
+	req.URL = &resolvedEndpoint.URI
+
+	for k := range resolvedEndpoint.Headers {
+		req.Header.Set(
+			k,
+			resolvedEndpoint.Headers.Get(k),
+		)
+	}
+
+	authSchemes, err := internalauth.GetAuthenticationSchemes(&resolvedEndpoint.Properties)
+	if err != nil {
+		var nfe *internalauth.NoAuthenticationSchemesFoundError
+		if errors.As(err, &nfe) {
+			// if no auth scheme is found, default to sigv4
+			signingName := "ssm"
+			signingRegion := m.BuiltInResolver.(*builtInResolver).Region
+			ctx = awsmiddleware.SetSigningName(ctx, signingName)
+			ctx = awsmiddleware.SetSigningRegion(ctx, signingRegion)
+
+		}
+		var ue *internalauth.UnSupportedAuthenticationSchemeSpecifiedError
+		if errors.As(err, &ue) {
+			return out, metadata, fmt.Errorf(
+				"This operation requests signer version(s) %v but the client only supports %v",
+				ue.UnsupportedSchemes,
+				internalauth.SupportedSchemes,
+			)
+		}
+	}
+
+	for _, authScheme := range authSchemes {
+		switch authScheme.(type) {
+		case *internalauth.AuthenticationSchemeV4:
+			v4Scheme, _ := authScheme.(*internalauth.AuthenticationSchemeV4)
+			var signingName, signingRegion string
+			if v4Scheme.SigningName == nil {
+				signingName = "ssm"
+			} else {
+				signingName = *v4Scheme.SigningName
+			}
+			if v4Scheme.SigningRegion == nil {
+				signingRegion = m.BuiltInResolver.(*builtInResolver).Region
+			} else {
+				signingRegion = *v4Scheme.SigningRegion
+			}
+			if v4Scheme.DisableDoubleEncoding != nil {
+				// The signer sets an equivalent value at client initialization time.
+				// Setting this context value will cause the signer to extract it
+				// and override the value set at client initialization time.
+				ctx = internalauth.SetDisableDoubleEncoding(ctx, *v4Scheme.DisableDoubleEncoding)
+			}
+			ctx = awsmiddleware.SetSigningName(ctx, signingName)
+			ctx = awsmiddleware.SetSigningRegion(ctx, signingRegion)
+			break
+		case *internalauth.AuthenticationSchemeV4A:
+			v4aScheme, _ := authScheme.(*internalauth.AuthenticationSchemeV4A)
+			if v4aScheme.SigningName == nil {
+				v4aScheme.SigningName = aws.String("ssm")
+			}
+			if v4aScheme.DisableDoubleEncoding != nil {
+				// The signer sets an equivalent value at client initialization time.
+				// Setting this context value will cause the signer to extract it
+				// and override the value set at client initialization time.
+				ctx = internalauth.SetDisableDoubleEncoding(ctx, *v4aScheme.DisableDoubleEncoding)
+			}
+			ctx = awsmiddleware.SetSigningName(ctx, *v4aScheme.SigningName)
+			ctx = awsmiddleware.SetSigningRegion(ctx, v4aScheme.SigningRegionSet[0])
+			break
+		case *internalauth.AuthenticationSchemeNone:
+			break
+		}
+	}
+
+	return next.HandleSerialize(ctx, in)
+}
+
+func addCreateOpsItemResolveEndpointMiddleware(stack *middleware.Stack, options Options) error {
+	return stack.Serialize.Insert(&opCreateOpsItemResolveEndpointMiddleware{
+		EndpointResolver: options.EndpointResolverV2,
+		BuiltInResolver: &builtInResolver{
+			Region:       options.Region,
+			UseDualStack: options.EndpointOptions.UseDualStackEndpoint,
+			UseFIPS:      options.EndpointOptions.UseFIPSEndpoint,
+			Endpoint:     options.BaseEndpoint,
+		},
+	}, "ResolveEndpoint", middleware.After)
 }

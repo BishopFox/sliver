@@ -18,8 +18,15 @@ import (
 // GetSliverBinary - Get the binary of an implant based on it's profile.
 func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverClient) ([]byte, error) {
 	var data []byte
-	// get implant builds
-	builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
+
+	ctrl := make(chan bool)
+	con.SpinUntil("Compiling, please wait ...", ctrl)
+
+	generated, err := con.Rpc.Generate(context.Background(), &clientpb.GenerateReq{
+		Config: profile.Config,
+	})
+	ctrl <- true
+	<-ctrl
 	if err != nil {
 		return data, con.UnwrapServerErr(err)
 	}
@@ -175,6 +182,27 @@ func TrafficEncodersCompleter(con *console.SliverClient) carapace.Action {
 		return carapace.ActionValuesDescribed(results...).Tag("traffic encoders").
 			Invoke(c).Filter(c.Args).ToA()
 	}).Cache(completers.CacheCompilerInfo)
+}
+
+// HTTPC2Completer - Completes the HTTP C2 PROFILES
+func HTTPC2Completer(con *console.SliverConsoleClient) carapace.Action {
+	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		if msg, err := con.PreRunComplete(); err != nil {
+			return msg
+		}
+		grpcCtx, cancel := con.GrpcContext(nil)
+		defer cancel()
+		httpC2Profiles, err := con.Rpc.GetHTTPC2Profiles(grpcCtx, &commonpb.Empty{})
+		if err != nil {
+			return carapace.ActionMessage("failed to fetch HTTP C2 profiles: %s", err.Error())
+		}
+
+		var results []string
+		for _, profile := range httpC2Profiles.Configs {
+			results = append(results, profile.Name)
+		}
+		return carapace.ActionValues(results...).Tag("HTTP C2 Profiles")
+	})
 }
 
 // MsfFormatCompleter completes MsfVenom stager formats.

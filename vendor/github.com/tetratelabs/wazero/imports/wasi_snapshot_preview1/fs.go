@@ -12,8 +12,10 @@ import (
 
 	"github.com/tetratelabs/wazero/api"
 	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
+	"github.com/tetratelabs/wazero/internal/fsapi"
 	socketapi "github.com/tetratelabs/wazero/internal/sock"
 	"github.com/tetratelabs/wazero/internal/sys"
+	"github.com/tetratelabs/wazero/internal/sysfs"
 	"github.com/tetratelabs/wazero/internal/wasip1"
 	"github.com/tetratelabs/wazero/internal/wasm"
 	sysapi "github.com/tetratelabs/wazero/sys"
@@ -413,7 +415,7 @@ func fdFilestatGetFunc(mod api.Module, fd int32, resultBuf uint32) experimentals
 	return writeFilestat(buf, &st, filetype)
 }
 
-func getExtendedWasiFiletype(file experimentalsys.File, fm fs.FileMode) (ftype uint8) {
+func getExtendedWasiFiletype(file fsapi.File, fm fs.FileMode) (ftype uint8) {
 	ftype = getWasiFiletype(fm)
 	if ftype == wasip1.FILETYPE_UNKNOWN {
 		if _, ok := file.(socketapi.TCPSock); ok {
@@ -501,55 +503,50 @@ func fdFilestatSetTimesFn(_ context.Context, mod api.Module, params []uint64) ex
 		return experimentalsys.EBADF
 	}
 
-	atim, mtim, errno := toTimes(sys.WalltimeNanos, atim, mtim, fstFlags)
+	times, errno := toTimes(atim, mtim, fstFlags)
 	if errno != 0 {
 		return errno
 	}
 
 	// Try to update the file timestamps by file-descriptor.
-	errno = f.File.Utimens(atim, mtim)
+	errno = f.File.Utimens(&times)
 
 	// Fall back to path based, despite it being less precise.
 	switch errno {
 	case experimentalsys.EPERM, experimentalsys.ENOSYS:
-		errno = f.FS.Utimens(f.Name, atim, mtim)
+		errno = f.FS.Utimens(f.Name, &times)
 	}
 
 	return errno
 }
 
-func toTimes(walltime func() int64, atim, mtim int64, fstFlags uint16) (int64, int64, experimentalsys.Errno) {
+func toTimes(atim, mtime int64, fstFlags uint16) (times [2]syscall.Timespec, errno experimentalsys.Errno) {
 	// times[0] == atim, times[1] == mtim
-
-	var nowTim int64
 
 	// coerce atim into a timespec
 	if set, now := fstFlags&wasip1.FstflagsAtim != 0, fstFlags&wasip1.FstflagsAtimNow != 0; set && now {
-		return 0, 0, experimentalsys.EINVAL
+		errno = experimentalsys.EINVAL
+		return
 	} else if set {
-		// atim is already correct
+		times[0] = syscall.NsecToTimespec(atim)
 	} else if now {
-		nowTim = walltime()
-		atim = nowTim
+		times[0].Nsec = sysfs.UTIME_NOW
 	} else {
-		atim = experimentalsys.UTIME_OMIT
+		times[0].Nsec = sysfs.UTIME_OMIT
 	}
 
 	// coerce mtim into a timespec
 	if set, now := fstFlags&wasip1.FstflagsMtim != 0, fstFlags&wasip1.FstflagsMtimNow != 0; set && now {
-		return 0, 0, experimentalsys.EINVAL
+		errno = experimentalsys.EINVAL
+		return
 	} else if set {
-		// mtim is already correct
+		times[1] = syscall.NsecToTimespec(mtime)
 	} else if now {
-		if nowTim != 0 {
-			mtim = nowTim
-		} else {
-			mtim = walltime()
-		}
+		times[1].Nsec = sysfs.UTIME_NOW
 	} else {
-		mtim = experimentalsys.UTIME_OMIT
+		times[1].Nsec = sysfs.UTIME_OMIT
 	}
-	return atim, mtim, 0
+	return
 }
 
 // fdPread is the WASI function named FdPreadName which reads from a file
@@ -748,11 +745,11 @@ var fdRead = newHostFunc(
 
 // preader tracks an offset across multiple reads.
 type preader struct {
-	f      experimentalsys.File
+	f      fsapi.File
 	offset int64
 }
 
-// Read implements the same function as documented on sys.File.
+// Read implements the same function as documented on fsapi.File.
 func (w *preader) Read(buf []byte) (n int, errno experimentalsys.Errno) {
 	if len(buf) == 0 {
 		return 0, 0 // less overhead on zero-length reads.
@@ -945,7 +942,7 @@ const largestDirent = int64(math.MaxUint32 - wasip1.DirentSize)
 //
 // `bufToWrite` is the amount of memory needed to write direntCount, which
 // includes up to wasip1.DirentSize of a last truncated entry.
-func maxDirents(dirents []experimentalsys.Dirent, bufLen uint32) (bufToWrite uint32, direntCount int, truncatedLen uint32) {
+func maxDirents(dirents []fsapi.Dirent, bufLen uint32) (bufToWrite uint32, direntCount int, truncatedLen uint32) {
 	lenRemaining := bufLen
 	for i := range dirents {
 		if lenRemaining == 0 {
@@ -994,7 +991,7 @@ func maxDirents(dirents []experimentalsys.Dirent, bufLen uint32) (bufToWrite uin
 // writeDirents writes the directory entries to the buffer, which is pre-sized
 // based on maxDirents.	truncatedEntryLen means the last is written without its
 // name.
-func writeDirents(buf []byte, dirents []experimentalsys.Dirent, d_next uint64, direntCount int, truncatedLen uint32) {
+func writeDirents(buf []byte, dirents []fsapi.Dirent, d_next uint64, direntCount int, truncatedLen uint32) {
 	pos := uint32(0)
 	skipNameI := -1
 
@@ -1236,11 +1233,11 @@ func fdWriteFn(_ context.Context, mod api.Module, params []uint64) experimentals
 
 // pwriter tracks an offset across multiple writes.
 type pwriter struct {
-	f      experimentalsys.File
+	f      fsapi.File
 	offset int64
 }
 
-// Write implements the same function as documented on sys.File.
+// Write implements the same function as documented on fsapi.File.
 func (w *pwriter) Write(buf []byte) (n int, errno experimentalsys.Errno) {
 	if len(buf) == 0 {
 		return 0, 0 // less overhead on zero-length writes.
@@ -1448,7 +1445,7 @@ func pathFilestatSetTimesFn(_ context.Context, mod api.Module, params []uint64) 
 	sys := mod.(*wasm.ModuleInstance).Sys
 	fsc := sys.FS()
 
-	atim, mtim, errno := toTimes(sys.WalltimeNanos, atim, mtim, fstFlags)
+	times, errno := toTimes(atim, mtim, fstFlags)
 	if errno != 0 {
 		return errno
 	}
@@ -1460,14 +1457,14 @@ func pathFilestatSetTimesFn(_ context.Context, mod api.Module, params []uint64) 
 
 	symlinkFollow := flags&wasip1.LOOKUP_SYMLINK_FOLLOW != 0
 	if symlinkFollow {
-		return preopen.Utimens(pathName, atim, mtim)
+		return preopen.Utimens(pathName, &times)
 	}
 	// Otherwise, we need to emulate don't follow by opening the file by path.
 	if f, errno := preopen.OpenFile(pathName, syscall.O_WRONLY, 0); errno != 0 {
 		return errno
 	} else {
 		defer f.Close()
-		return f.Utimens(atim, mtim)
+		return f.Utimens(&times)
 	}
 }
 
@@ -1598,7 +1595,7 @@ func pathOpenFn(_ context.Context, mod api.Module, params []uint64) experimental
 	}
 
 	fileOpenFlags := openFlags(dirflags, oflags, fdflags, rights)
-	isDir := fileOpenFlags&experimentalsys.O_DIRECTORY != 0
+	isDir := fileOpenFlags&fsapi.O_DIRECTORY != 0
 
 	if isDir && oflags&wasip1.O_CREAT != 0 {
 		return experimentalsys.EINVAL // use pathCreateDirectory!
@@ -1645,7 +1642,7 @@ func pathOpenFn(_ context.Context, mod api.Module, params []uint64) experimental
 //
 // See https://github.com/WebAssembly/wasi-libc/blob/659ff414560721b1660a19685110e484a081c3d4/libc-bottom-half/sources/at_fdcwd.c
 // See https://linux.die.net/man/2/openat
-func atPath(fsc *sys.FSContext, mem api.Memory, fd int32, p, pathLen uint32) (experimentalsys.FS, string, experimentalsys.Errno) {
+func atPath(fsc *sys.FSContext, mem api.Memory, fd int32, p, pathLen uint32) (fsapi.FS, string, experimentalsys.Errno) {
 	b, ok := mem.Read(p, pathLen)
 	if !ok {
 		return nil, "", experimentalsys.EFAULT
@@ -1699,15 +1696,15 @@ func preopenPath(fsc *sys.FSContext, fd int32) (string, experimentalsys.Errno) {
 	}
 }
 
-func openFlags(dirflags, oflags, fdflags uint16, rights uint32) (openFlags experimentalsys.Oflag) {
+func openFlags(dirflags, oflags, fdflags uint16, rights uint32) (openFlags fsapi.Oflag) {
 	if dirflags&wasip1.LOOKUP_SYMLINK_FOLLOW == 0 {
-		openFlags |= experimentalsys.O_NOFOLLOW
+		openFlags |= fsapi.O_NOFOLLOW
 	}
 	if oflags&wasip1.O_DIRECTORY != 0 {
-		openFlags |= experimentalsys.O_DIRECTORY
+		openFlags |= fsapi.O_DIRECTORY
 		return // Early return for directories as the rest of flags doesn't make sense for it.
 	} else if oflags&wasip1.O_EXCL != 0 {
-		openFlags |= experimentalsys.O_EXCL
+		openFlags |= fsapi.O_EXCL
 	}
 	// Because we don't implement rights, we partially rely on the open flags
 	// to determine the mode in which the file will be opened. This will create
@@ -1716,30 +1713,30 @@ func openFlags(dirflags, oflags, fdflags uint16, rights uint32) (openFlags exper
 	// which sets O_CREAT but does not give read or write permissions will
 	// successfully create a file when running with wazero, but might get a
 	// permission denied error on other runtimes.
-	defaultMode := experimentalsys.O_RDONLY
+	defaultMode := fsapi.O_RDONLY
 	if oflags&wasip1.O_TRUNC != 0 {
-		openFlags |= experimentalsys.O_TRUNC
-		defaultMode = experimentalsys.O_RDWR
+		openFlags |= fsapi.O_TRUNC
+		defaultMode = fsapi.O_RDWR
 	}
 	if oflags&wasip1.O_CREAT != 0 {
-		openFlags |= experimentalsys.O_CREAT
-		defaultMode = experimentalsys.O_RDWR
+		openFlags |= fsapi.O_CREAT
+		defaultMode = fsapi.O_RDWR
 	}
 	if fdflags&wasip1.FD_NONBLOCK != 0 {
-		openFlags |= experimentalsys.O_NONBLOCK
+		openFlags |= fsapi.O_NONBLOCK
 	}
 	if fdflags&wasip1.FD_APPEND != 0 {
-		openFlags |= experimentalsys.O_APPEND
-		defaultMode = experimentalsys.O_RDWR
+		openFlags |= fsapi.O_APPEND
+		defaultMode = fsapi.O_RDWR
 	}
 	if fdflags&wasip1.FD_DSYNC != 0 {
-		openFlags |= experimentalsys.O_DSYNC
+		openFlags |= fsapi.O_DSYNC
 	}
 	if fdflags&wasip1.FD_RSYNC != 0 {
-		openFlags |= experimentalsys.O_RSYNC
+		openFlags |= fsapi.O_RSYNC
 	}
 	if fdflags&wasip1.FD_SYNC != 0 {
-		openFlags |= experimentalsys.O_SYNC
+		openFlags |= fsapi.O_SYNC
 	}
 
 	// Since rights were discontinued in wasi, we only interpret RIGHT_FD_WRITE
@@ -1751,11 +1748,11 @@ func openFlags(dirflags, oflags, fdflags uint16, rights uint32) (openFlags exper
 	const rw = r | w
 	switch {
 	case (rights & rw) == rw:
-		openFlags |= experimentalsys.O_RDWR
+		openFlags |= fsapi.O_RDWR
 	case (rights & w) == w:
-		openFlags |= experimentalsys.O_WRONLY
+		openFlags |= fsapi.O_WRONLY
 	case (rights & r) == r:
-		openFlags |= experimentalsys.O_RDONLY
+		openFlags |= fsapi.O_RDONLY
 	default:
 		openFlags |= defaultMode
 	}

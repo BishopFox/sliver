@@ -124,10 +124,14 @@ func getProcessOwner(pid uint32) (owner string, err error) {
 	if err != nil {
 		return
 	}
+	defer syscall.CloseHandle(handle)
+	
 	var token syscall.Token
 	if err = syscall.OpenProcessToken(handle, syscall.TOKEN_QUERY, &token); err != nil {
 		return
 	}
+	defer token.Close()
+
 	tokenUser, err := getTokenOwner(token)
 	if err != nil {
 		return

@@ -86,7 +86,7 @@ func (m *Engine) loadBuiltinOptions() {
 	}
 }
 
-// loadBuiltinBinds adds additional command mappins that are not part
+// loadBuiltinBinds adds additional command mappings that are not part
 // of the standard C readline configuration: those binds therefore can
 // reference commands or keymaps only implemented/used in this library.
 func (m *Engine) loadBuiltinBinds() {

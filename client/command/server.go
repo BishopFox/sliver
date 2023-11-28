@@ -77,7 +77,6 @@ func ServerCommands(con *client.SliverClient, serverCmds SliverBinder) console.C
 				serverCmds,
 			)
 		}
-
 		// [ Bind commands ] --------------------------------------------------------
 
 		// Below are bounds all commands of the server menu, gathered by the group

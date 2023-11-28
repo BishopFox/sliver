@@ -2,14 +2,13 @@ package sysfs
 
 import (
 	"syscall"
-	_ "unsafe"
-
-	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
+	_ "unsafe" // for go:linkname
 )
 
 const (
 	_AT_FDCWD            = -0x2
 	_AT_SYMLINK_NOFOLLOW = 0x0020
+	_UTIME_NOW           = -1
 	_UTIME_OMIT          = -2
 )
 
@@ -17,25 +16,20 @@ const (
 //go:linkname utimensat syscall.utimensat
 func utimensat(dirfd int, path string, times *[2]syscall.Timespec, flags int) error
 
-func utimens(path string, atim, mtim int64) experimentalsys.Errno {
-	times := timesToTimespecs(atim, mtim)
-	if times == nil {
-		return 0
-	}
+func utimens(path string, times *[2]syscall.Timespec) error {
 	var flags int
-	return experimentalsys.UnwrapOSError(utimensat(_AT_FDCWD, path, times, flags))
+	return utimensat(_AT_FDCWD, path, times, flags)
 }
 
-func futimens(fd uintptr, atim, mtim int64) experimentalsys.Errno {
-	times := timesToTimespecs(atim, mtim)
-	if times == nil {
-		return 0
-	}
+func futimens(fd uintptr, times *[2]syscall.Timespec) error {
 	_p0 := timesToPtr(times)
 
 	// Warning: futimens only exists since High Sierra (10.13).
 	_, _, e1 := syscall_syscall6(libc_futimens_trampoline_addr, fd, uintptr(_p0), 0, 0, 0, 0)
-	return experimentalsys.UnwrapOSError(e1)
+	if e1 != 0 {
+		return e1
+	}
+	return nil
 }
 
 // libc_futimens_trampoline_addr is the address of the

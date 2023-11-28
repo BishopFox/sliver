@@ -26,8 +26,8 @@ import (
 type Shell struct {
 	// Core editor
 	line       *core.Line       // The input line buffer and its management methods.
-	cursor     *core.Cursor     // The cursor and its medhods.
-	selection  *core.Selection  // The selection managees various visual/pending selections.
+	cursor     *core.Cursor     // The cursor and its methods.
+	selection  *core.Selection  // The selection manages various visual/pending selections.
 	Iterations *core.Iterations // Digit arguments for repeating commands.
 	Buffers    *editor.Buffers  // buffers (Vim registers) and methods use/manage/query them.
 	Keys       *core.Keys       // Keys is in charge of reading and managing buffered user input.

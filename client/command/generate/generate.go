@@ -90,7 +90,7 @@ var (
 
 // GenerateCmd - The main command used to generate implant binaries.
 func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
-	config := parseCompileFlags(cmd, con)
+	name, config := parseCompileFlags(cmd, con)
 	if config == nil {
 		return
 	}
@@ -101,7 +101,7 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
 		compile(config, save, con)
 	} else {
-		_, err := externalBuild(config, save, con)
+		_, err := externalBuild(name, config, save, con)
 		if err != nil {
 			if err == ErrNoExternalBuilder {
 				con.PrintErrorf("There are no external builders currently connected to the server\n")
@@ -189,7 +189,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) *clientpb.
 
 		if err := util.AllowedName(name); err != nil {
 			con.PrintErrorf("%s\n", err)
-			return nil
+			return "", nil
 		}
 	}
 
@@ -199,7 +199,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) *clientpb.
 	mtlsC2, err := ParseMTLSc2(mtlsC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
-		return nil
+		return "", nil
 	}
 	c2s = append(c2s, mtlsC2...)
 
@@ -207,7 +207,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) *clientpb.
 	wgC2, err := ParseWGc2(wgC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
-		return nil
+		return "", nil
 	}
 	wgKeyExchangePort, _ := cmd.Flags().GetUint32("key-exchange")
 	wgTcpCommsPort, _ := cmd.Flags().GetUint32("tcp-comms")
@@ -218,7 +218,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) *clientpb.
 	httpC2, err := ParseHTTPc2(httpC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
-		return nil
+		return "", nil
 	}
 	c2s = append(c2s, httpC2...)
 
@@ -226,7 +226,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) *clientpb.
 	dnsC2, err := ParseDNSc2(dnsC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
-		return nil
+		return "", nil
 	}
 	c2s = append(c2s, dnsC2...)
 
@@ -234,7 +234,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) *clientpb.
 	namedPipeC2, err := ParseNamedPipec2(namedPipeC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
-		return nil
+		return "", nil
 	}
 	c2s = append(c2s, namedPipeC2...)
 
@@ -242,7 +242,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) *clientpb.
 	tcpPivotC2, err := ParseTCPPivotc2(tcpPivotC2F)
 	if err != nil {
 		con.PrintErrorf("%s\n", err.Error())
-		return nil
+		return "", nil
 	}
 	c2s = append(c2s, tcpPivotC2...)
 
@@ -256,7 +256,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) *clientpb.
 
 	if len(mtlsC2) == 0 && len(wgC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 && len(namedPipeC2) == 0 && len(tcpPivotC2) == 0 {
 		con.PrintErrorf("Must specify at least one of --mtls, --wg, --http, --dns, --named-pipe, or --tcp-pivot\n")
-		return nil
+		return "", nil
 	}
 
 	rawCanaries, _ := cmd.Flags().GetString("canary")
@@ -320,20 +320,20 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) *clientpb.
 	targetArch := strings.ToLower(targetArchF)
 	targetOS, targetArch = getTargets(targetOS, targetArch, con)
 	if targetOS == "" || targetArch == "" {
-		return nil
+		return "", nil
 	}
 	if configFormat == clientpb.OutputFormat_SHELLCODE && targetOS != "windows" {
 		con.PrintErrorf("Shellcode format is currently only supported on Windows\n")
-		return nil
+		return "", nil
 	}
 	if len(namedPipeC2) > 0 && targetOS != "windows" {
 		con.PrintErrorf("Named pipe pivoting can only be used in Windows.")
-		return nil
+		return "", nil
 	}
 
 	// Check to see if we can *probably* build the target binary
 	if !checkBuildTargetCompatibility(configFormat, targetOS, targetArch, con) {
-		return nil
+		return "", nil
 	}
 
 	var tunIP net.IP
@@ -342,7 +342,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) *clientpb.
 		tunIP = net.ParseIP(uniqueWGIP.IP)
 		if err != nil {
 			con.PrintErrorf("Failed to generate unique ip for wg peer tun interface")
-			return nil
+			return "", nil
 		}
 		con.PrintInfof("Generated unique ip for wg peer tun interface: %s\n", tunIP.String())
 	}
@@ -353,17 +353,21 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) *clientpb.
 	connectionStrategy, _ := cmd.Flags().GetString("strategy")
 	if connectionStrategy != "" && connectionStrategy != "s" && connectionStrategy != "r" && connectionStrategy != "rd" {
 		con.PrintErrorf("Invalid connection strategy: %s\n", connectionStrategy)
-		return nil
+		return "", nil
 	}
 
 	// Parse Traffic Encoder Args
 	httpC2Enabled := 0 < len(httpC2)
 	trafficEncodersEnabled, trafficEncoderAssets := parseTrafficEncoderArgs(cmd, httpC2Enabled, con)
 
+	c2Profile, _ := cmd.Flags().GetString("c2profile")
+	if c2Profile == "" {
+		c2Profile = consts.DefaultC2Profile
+	}
+
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
 		GOARCH:           targetArch,
-		Name:             name,
 		Debug:            debug,
 		Evasion:          evasion,
 		SGNEnabled:       sgnEnabled,
@@ -398,10 +402,11 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) *clientpb.
 		TrafficEncodersEnabled: trafficEncodersEnabled,
 		Assets:                 trafficEncoderAssets,
 
-		DebugFile: debugFile,
+		DebugFile:        debugFile,
+		HTTPC2ConfigName: c2Profile,
 	}
 
-	return config
+	return name, config
 }
 
 // parseTrafficEncoderArgs - parses the traffic encoder args and returns a bool indicating if traffic encoders are enabled.
@@ -818,6 +823,7 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 
 	con.PrintInfof("Creating external build ... ")
 	externalImplantConfig, err := con.Rpc.GenerateExternal(context.Background(), &clientpb.ExternalGenerateReq{
+		Name:        name,
 		Config:      config,
 		BuilderName: externalBuilder.Name,
 	})
@@ -827,7 +833,6 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 	}
 	con.Printf("done\n")
 
-	var name string
 	msgF := "Waiting for external builder to acknowledge build (template: %s) ... %s"
 	for waiting {
 		select {
@@ -845,13 +850,13 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 				if len(parts) != 2 {
 					continue
 				}
-				if parts[0] == externalImplantConfig.Config.ID {
+				if parts[0] == externalImplantConfig.Build.ID {
 					con.RemoveEventListener(listenerID)
 					return nil, fmt.Errorf("external build failed: %s", parts[1])
 				}
 
 			case consts.AcknowledgeBuildEvent:
-				if string(event.Data) == externalImplantConfig.Config.ID {
+				if string(event.Data) == externalImplantConfig.Build.ID {
 					msgF = "External build acknowledged by builder (template: %s) ... %s"
 				}
 
@@ -860,7 +865,7 @@ func externalBuild(config *clientpb.ImplantConfig, save string, con *console.Sli
 				if len(parts) != 2 {
 					continue
 				}
-				if parts[0] == externalImplantConfig.Config.ID {
+				if parts[0] == externalImplantConfig.Build.ID {
 					con.RemoveEventListener(listenerID)
 					name = parts[1]
 					waiting = false

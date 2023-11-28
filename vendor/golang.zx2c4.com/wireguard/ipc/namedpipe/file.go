@@ -4,7 +4,6 @@
 // license that can be found in the LICENSE file.
 
 //go:build windows
-// +build windows
 
 package namedpipe
 
@@ -54,7 +53,7 @@ type file struct {
 	handle        windows.Handle
 	wg            sync.WaitGroup
 	wgLock        sync.RWMutex
-	closing       uint32 // used as atomic boolean
+	closing       atomic.Bool
 	socket        bool
 	readDeadline  deadlineHandler
 	writeDeadline deadlineHandler
@@ -65,7 +64,7 @@ type deadlineHandler struct {
 	channel     timeoutChan
 	channelLock sync.RWMutex
 	timer       *time.Timer
-	timedout    uint32 // used as atomic boolean
+	timedout    atomic.Bool
 }
 
 // makeFile makes a new file from an existing file handle
@@ -89,7 +88,7 @@ func makeFile(h windows.Handle) (*file, error) {
 func (f *file) closeHandle() {
 	f.wgLock.Lock()
 	// Atomically set that we are closing, releasing the resources only once.
-	if atomic.SwapUint32(&f.closing, 1) == 0 {
+	if f.closing.Swap(true) == false {
 		f.wgLock.Unlock()
 		// cancel all IO and wait for it to complete
 		windows.CancelIoEx(f.handle, nil)
@@ -112,7 +111,7 @@ func (f *file) Close() error {
 // The caller must call f.wg.Done() when the IO is finished, prior to Close() returning.
 func (f *file) prepareIo() (*ioOperation, error) {
 	f.wgLock.RLock()
-	if atomic.LoadUint32(&f.closing) == 1 {
+	if f.closing.Load() {
 		f.wgLock.RUnlock()
 		return nil, os.ErrClosed
 	}
@@ -144,7 +143,7 @@ func (f *file) asyncIo(c *ioOperation, d *deadlineHandler, bytes uint32, err err
 		return int(bytes), err
 	}
 
-	if atomic.LoadUint32(&f.closing) == 1 {
+	if f.closing.Load() {
 		windows.CancelIoEx(f.handle, &c.o)
 	}
 
@@ -160,7 +159,7 @@ func (f *file) asyncIo(c *ioOperation, d *deadlineHandler, bytes uint32, err err
 	case r = <-c.ch:
 		err = r.err
 		if err == windows.ERROR_OPERATION_ABORTED {
-			if atomic.LoadUint32(&f.closing) == 1 {
+			if f.closing.Load() {
 				err = os.ErrClosed
 			}
 		} else if err != nil && f.socket {
@@ -192,7 +191,7 @@ func (f *file) Read(b []byte) (int, error) {
 	}
 	defer f.wg.Done()
 
-	if atomic.LoadUint32(&f.readDeadline.timedout) == 1 {
+	if f.readDeadline.timedout.Load() {
 		return 0, os.ErrDeadlineExceeded
 	}
 
@@ -219,7 +218,7 @@ func (f *file) Write(b []byte) (int, error) {
 	}
 	defer f.wg.Done()
 
-	if atomic.LoadUint32(&f.writeDeadline.timedout) == 1 {
+	if f.writeDeadline.timedout.Load() {
 		return 0, os.ErrDeadlineExceeded
 	}
 
@@ -256,7 +255,7 @@ func (d *deadlineHandler) set(deadline time.Time) error {
 		}
 		d.timer = nil
 	}
-	atomic.StoreUint32(&d.timedout, 0)
+	d.timedout.Store(false)
 
 	select {
 	case <-d.channel:
@@ -271,7 +270,7 @@ func (d *deadlineHandler) set(deadline time.Time) error {
 	}
 
 	timeoutIO := func() {
-		atomic.StoreUint32(&d.timedout, 1)
+		d.timedout.Store(true)
 		close(d.channel)
 	}
 

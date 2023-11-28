@@ -70,6 +70,7 @@ func PrintJobs(jobs map[uint32]*clientpb.Job, con *console.SliverClient) {
 		"Name",
 		"Protocol",
 		"Port",
+		"Domains",
 	})
 
 	var keys []int
@@ -85,6 +86,7 @@ func PrintJobs(jobs map[uint32]*clientpb.Job, con *console.SliverClient) {
 			job.Name,
 			job.Protocol,
 			fmt.Sprintf("%d", job.Port),
+			strings.Join(job.Domains, ","),
 		})
 	}
 	con.Printf("%s\n", tw.Render())

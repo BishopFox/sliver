@@ -1,15 +1,17 @@
+//go:build windows
+
 package sysfs
 
 import (
 	"io/fs"
 	"syscall"
 
-	"github.com/tetratelabs/wazero/experimental/sys"
+	"github.com/tetratelabs/wazero/internal/fsapi"
 )
 
-func setNonblock(fd uintptr, enable bool) sys.Errno {
+func setNonblock(fd uintptr, enable bool) error {
 	// We invoke the syscall, but this is currently no-op.
-	return sys.UnwrapOSError(syscall.SetNonblock(syscall.Handle(fd), enable))
+	return syscall.SetNonblock(syscall.Handle(fd), enable)
 }
 
 func isNonblock(f *osFile) bool {
@@ -19,5 +21,5 @@ func isNonblock(f *osFile) bool {
 	if errno == 0 {
 		isValid = st.Mode&fs.ModeNamedPipe != 0
 	}
-	return isValid && f.flag&sys.O_NONBLOCK == sys.O_NONBLOCK
+	return isValid && f.flag&fsapi.O_NONBLOCK == fsapi.O_NONBLOCK
 }

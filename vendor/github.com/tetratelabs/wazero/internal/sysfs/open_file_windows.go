@@ -8,11 +8,12 @@ import (
 	"unsafe"
 
 	"github.com/tetratelabs/wazero/experimental/sys"
+	"github.com/tetratelabs/wazero/internal/fsapi"
 	"github.com/tetratelabs/wazero/internal/platform"
 )
 
-func openFile(path string, oflag sys.Oflag, perm fs.FileMode) (*os.File, sys.Errno) {
-	isDir := oflag&sys.O_DIRECTORY > 0
+func openFile(path string, oflag fsapi.Oflag, perm fs.FileMode) (*os.File, sys.Errno) {
+	isDir := oflag&fsapi.O_DIRECTORY > 0
 	flag := toOsOpenFlag(oflag)
 
 	// TODO: document why we are opening twice
@@ -54,14 +55,14 @@ func openFile(path string, oflag sys.Oflag, perm fs.FileMode) (*os.File, sys.Err
 	return f, errno
 }
 
-const supportedSyscallOflag = sys.O_NONBLOCK
+const supportedSyscallOflag = fsapi.O_NONBLOCK
 
 // Map to synthetic values here https://github.com/golang/go/blob/go1.20/src/syscall/types_windows.go#L34-L48
-func withSyscallOflag(oflag sys.Oflag, flag int) int {
+func withSyscallOflag(oflag fsapi.Oflag, flag int) int {
 	// O_DIRECTORY not defined in windows
 	// O_DSYNC not defined in windows
 	// O_NOFOLLOW not defined in windows
-	if oflag&sys.O_NONBLOCK != 0 {
+	if oflag&fsapi.O_NONBLOCK != 0 {
 		flag |= syscall.O_NONBLOCK
 	}
 	// O_RSYNC not defined in windows

@@ -4,118 +4,53 @@
 
 // Package memory implements a memory allocator.
 //
-// Build status
+// # Build status
 //
 // available at https://modern-c.appspot.com/-/builder/?importpath=modernc.org%2fmemory
 //
-// Changelog
+// # Changelog
 //
 // 2017-10-03 Added alternative, unsafe.Pointer-based API.
 //
 // Package memory implements a memory allocator.
 //
-// Changelog
+// # Changelog
 //
 // 2017-10-03 Added alternative, unsafe.Pointer-based API.
 //
-// Benchmarks
+// # Benchmarks
 //
-// AMD Ryzen 9 3900X 12-Core Processor × 24
-//
-//  jnml@3900x:~/src/modernc.org/memory$ date ; go version ; go test -run @ -bench . -benchmem |& tee log
-//  Fri Nov 20 17:23:04 CET 2020
-//  go version go1.15.5 linux/amd64
-//  goos: linux
-//  goarch: amd64
-//  pkg: modernc.org/memory
-//  BenchmarkFree16-24             	141188362	         8.26 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkFree32-24             	100000000	        11.4 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkFree64-24             	67160647	        18.3 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkCalloc16-24           	60612698	        19.8 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkCalloc32-24           	47968105	        23.8 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkCalloc64-24           	40752181	        28.6 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkGoCalloc16-24         	66487354	        17.8 ns/op	      16 B/op	       1 allocs/op
-//  BenchmarkGoCalloc32-24         	56009206	        21.2 ns/op	      32 B/op	       1 allocs/op
-//  BenchmarkGoCalloc64-24         	52086571	        23.4 ns/op	      64 B/op	       1 allocs/op
-//  BenchmarkMalloc16-24           	113943390	        10.2 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkMalloc32-24           	113520471	        10.2 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkMalloc64-24           	108787056	        10.7 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrFree16-24      	146110286	         7.94 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrFree32-24      	93052707	        12.0 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrFree64-24      	69805262	        17.3 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrCalloc16-24    	85282725	        13.7 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrCalloc32-24    	66489789	        17.9 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrCalloc64-24    	53561092	        22.7 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrMalloc16-24    	222978858	         5.28 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrMalloc32-24    	210443384	         5.30 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrMalloc64-24    	213706227	         5.47 ns/op	       0 B/op	       0 allocs/op
-//  PASS
-//  ok  	modernc.org/memory	70.528s
-//  jnml@3900x:~/src/modernc.org/memory$
-//
-// Intel® Core™ i5-4670 CPU @ 3.40GHz × 4
-//
-//  ==== jnml@4670:~/src/modernc.org/memory> date ; go version ; go test -run @ -bench . -benchmem |& tee log
-//  Sat Dec  8 12:56:53 CET 2018
-//  go version go1.11.2 linux/amd64
-//  goos: linux
-//  goarch: amd64
-//  pkg: modernc.org/memory
-//  BenchmarkFree16-4            	100000000	        14.7 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkFree32-4            	100000000	        20.5 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkFree64-4            	50000000	        32.8 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkCalloc16-4          	50000000	        24.4 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkCalloc32-4          	50000000	        29.2 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkCalloc64-4          	50000000	        35.7 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkGoCalloc16-4        	50000000	        27.0 ns/op	      16 B/op	       1 allocs/op
-//  BenchmarkGoCalloc32-4        	50000000	        27.3 ns/op	      32 B/op	       1 allocs/op
-//  BenchmarkGoCalloc64-4        	30000000	        37.9 ns/op	      64 B/op	       1 allocs/op
-//  BenchmarkMalloc16-4          	100000000	        12.9 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkMalloc32-4          	100000000	        12.9 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkMalloc64-4          	100000000	        13.2 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrFree16-4     	100000000	        12.0 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrFree32-4     	100000000	        17.5 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrFree64-4     	50000000	        28.9 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrCalloc16-4   	100000000	        17.8 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrCalloc32-4   	100000000	        22.9 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrCalloc64-4   	50000000	        29.6 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrMalloc16-4   	200000000	         7.31 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrMalloc32-4   	200000000	         7.47 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrMalloc64-4   	200000000	         7.68 ns/op	       0 B/op	       0 allocs/op
-//  PASS
-//  ok  	modernc.org/memory	73.859s
-//  //
-// Intel® Xeon(R) CPU E5-1650 v2 @ 3.50GHz × 12
-//
-//  ==== jnml@e5-1650:~/src/modernc.org/memory> date ; go version ; go test -run @ -bench . -benchmem
-//  Fri Dec  7 14:18:50 CET 2018
-//  go version go1.11.2 linux/amd64
-//  goos: linux
-//  goarch: amd64
-//  pkg: modernc.org/memory
-//  BenchmarkFree16-12             	100000000	        16.7 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkFree32-12             	50000000	        25.0 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkFree64-12             	30000000	        39.7 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkCalloc16-12           	50000000	        26.3 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkCalloc32-12           	50000000	        33.4 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkCalloc64-12           	30000000	        38.3 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkGoCalloc16-12         	50000000	        26.6 ns/op	      16 B/op	       1 allocs/op
-//  BenchmarkGoCalloc32-12         	50000000	        26.8 ns/op	      32 B/op	       1 allocs/op
-//  BenchmarkGoCalloc64-12         	30000000	        35.1 ns/op	      64 B/op	       1 allocs/op
-//  BenchmarkMalloc16-12           	100000000	        13.5 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkMalloc32-12           	100000000	        13.4 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkMalloc64-12           	100000000	        14.1 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrFree16-12      	100000000	        14.4 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrFree32-12      	100000000	        21.7 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrFree64-12      	50000000	        36.7 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrCalloc16-12    	100000000	        20.4 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrCalloc32-12    	50000000	        27.1 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrCalloc64-12    	50000000	        33.4 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrMalloc16-12    	200000000	         8.02 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrMalloc32-12    	200000000	         8.28 ns/op	       0 B/op	       0 allocs/op
-//  BenchmarkUintptrMalloc64-12    	200000000	         8.29 ns/op	       0 B/op	       0 allocs/op
-//  PASS
-//  ok  	modernc.org/memory	80.896s
+//	jnml@3900x:~/src/modernc.org/memory$ date ; go version ; go test -run @ -bench . -benchmem |& tee log
+//	Mon Sep 25 16:02:02 CEST 2023
+//	go version go1.21.1 linux/amd64
+//	goos: linux
+//	goarch: amd64
+//	pkg: modernc.org/memory
+//	cpu: AMD Ryzen 9 3900X 12-Core Processor
+//	BenchmarkFree16-24             	123506772	         9.802 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkFree32-24             	73853230	        15.08 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkFree64-24             	43070334	        25.15 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkCalloc16-24           	59353304	        18.92 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkCalloc32-24           	39415004	        29.00 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkCalloc64-24           	35825725	        32.02 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkGoCalloc16-24         	38274313	        26.99 ns/op	      16 B/op	       1 allocs/op
+//	BenchmarkGoCalloc32-24         	44590477	        33.06 ns/op	      32 B/op	       1 allocs/op
+//	BenchmarkGoCalloc64-24         	44233016	        37.20 ns/op	      64 B/op	       1 allocs/op
+//	BenchmarkMalloc16-24           	145736911	         7.720 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkMalloc32-24           	128898334	         7.887 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkMalloc64-24           	149569483	         7.994 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkUintptrFree16-24      	117043012	         9.205 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkUintptrFree32-24      	77399617	        14.20 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkUintptrFree64-24      	48770785	        25.04 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkUintptrCalloc16-24    	79257636	        15.44 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkUintptrCalloc32-24    	49644562	        23.62 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkUintptrCalloc64-24    	39854710	        28.22 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkUintptrMalloc16-24    	252987727	         4.525 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkUintptrMalloc32-24    	241423840	         4.433 ns/op	       0 B/op	       0 allocs/op
+//	BenchmarkUintptrMalloc64-24    	256450324	         4.669 ns/op	       0 B/op	       0 allocs/op
+//	PASS
+//	ok  	modernc.org/memory	93.178s
+//	jnml@3900x:~/src/modernc.org/memory$
 package memory // import "modernc.org/memory"
 
 import (
@@ -370,7 +305,7 @@ func (a *Allocator) UintptrRealloc(p uintptr, size int) (r uintptr, err error) {
 	}
 
 	us := UintptrUsableSize(p)
-	if us > size {
+	if us >= size {
 		return p, nil
 	}
 

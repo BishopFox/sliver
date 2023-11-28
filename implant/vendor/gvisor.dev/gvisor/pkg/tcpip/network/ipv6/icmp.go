@@ -17,7 +17,7 @@ package ipv6
 import (
 	"fmt"
 
-	"gvisor.dev/gvisor/pkg/bufferv2"
+	"gvisor.dev/gvisor/pkg/buffer"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
@@ -540,6 +540,7 @@ func (e *endpoint) handleICMP(pkt stack.PacketBufferPtr, hasFragmentHeader bool,
 		//
 		na.SetSolicitedFlag(!unspecifiedSource)
 		na.SetOverrideFlag(true)
+		na.SetRouterFlag(e.Forwarding())
 		na.SetTargetAddress(targetAddr)
 		na.Options().Serialize(optsSerializer)
 		packet.SetChecksum(header.ICMPv6Checksum(header.ICMPv6ChecksumParams{
@@ -658,7 +659,7 @@ func (e *endpoint) handleICMP(pkt stack.PacketBufferPtr, hasFragmentHeader bool,
 		// source addresses in IPv6 packets.
 		localAddr := dstAddr
 		if header.IsV6MulticastAddress(dstAddr) {
-			localAddr = ""
+			localAddr = tcpip.Address{}
 		}
 
 		r, err := e.protocol.stack.FindRoute(e.nic.ID(), localAddr, srcAddr, ProtocolNumber, false /* multicastLoop */)
@@ -911,7 +912,7 @@ func (e *endpoint) LinkAddressRequest(targetAddr, localAddr tcpip.Address, remot
 		remoteLinkAddr = header.EthernetAddressFromMulticastIPv6Address(remoteAddr)
 	}
 
-	if len(localAddr) == 0 {
+	if localAddr.BitLen() == 0 {
 		// Find an address that we can use as our source address.
 		addressEndpoint := e.AcquireOutgoingPrimaryAddress(remoteAddr, false /* allowExpired */)
 		if addressEndpoint == nil {
@@ -1094,7 +1095,7 @@ func (p *protocol) returnError(reason icmpReason, pkt stack.PacketBufferPtr, del
 	// packets", as per RFC 4291 section 2.7.
 	localAddr := origIPHdrDst
 	if !deliveredLocally || isOrigDstMulticast {
-		localAddr = ""
+		localAddr = tcpip.Address{}
 	}
 	// Even if we were able to receive a packet from some remote, we may not have
 	// a route to it - the remote may be blocked via routing rules. We must always
@@ -1175,7 +1176,7 @@ func (p *protocol) returnError(reason icmpReason, pkt stack.PacketBufferPtr, del
 	if payloadLen > available {
 		payloadLen = available
 	}
-	payload := bufferv2.MakeWithView(network)
+	payload := buffer.MakeWithView(network)
 	payload.Append(transport)
 	dataBuf := pkt.Data().ToBuffer()
 	payload.Merge(&dataBuf)

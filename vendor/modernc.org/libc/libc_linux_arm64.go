@@ -437,3 +437,13 @@ func Xutime(t *TLS, filename, times uintptr) int32 {
 func Xalarm(t *TLS, seconds uint32) uint32 {
 	panic(todo(""))
 }
+
+// int setrlimit(int resource, const struct rlimit *rlim);
+func Xsetrlimit64(t *TLS, resource int32, rlim uintptr) int32 {
+	if _, _, err := unix.Syscall(unix.SYS_SETRLIMIT, uintptr(resource), uintptr(rlim), 0); err != 0 {
+		t.setErrno(err)
+		return -1
+	}
+
+	return 0
+}

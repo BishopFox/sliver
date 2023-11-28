@@ -18,25 +18,19 @@ package encoders
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import "io/fs"
-
-const (
-
-	// EncoderModulus - The modulus used to calculate the encoder ID from a C2 request nonce
-	// *** IMPORTANT *** ENCODER IDs MUST BE LESS THAN THE MODULUS
-	EncoderModulus = uint64(65537)
-	MaxN           = uint64(9999999)
-
-	// These were chosen at random other than the "No Encoder" ID (0)
-	Base32EncoderID  = uint64(65)
-	Base58EncoderID  = uint64(43)
-	Base64EncoderID  = uint64(131)
-	EnglishEncoderID = uint64(31)
-	GzipEncoderID    = uint64(49)
-	HexEncoderID     = uint64(92)
-	PNGEncoderID     = uint64(22)
-	NoEncoderID      = uint64(0)
+import (
+	"io/fs"
 )
+
+type EncodersList struct {
+	Base32EncoderID  uint64
+	Base58EncoderID  uint64
+	Base64EncoderID  uint64
+	EnglishEncoderID uint64
+	GzipEncoderID    uint64
+	HexEncoderID     uint64
+	PNGEncoderID     uint64
+}
 
 // Encoder - Can losslessly encode arbitrary binary data
 type Encoder interface {

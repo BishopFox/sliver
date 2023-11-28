@@ -54,8 +54,7 @@ func errorToErrno(err error) Errno {
 		case _ERROR_NEGATIVE_SEEK, _ERROR_INVALID_NAME:
 			return EINVAL
 		}
-		errno, _ := syscallToErrno(err)
-		return errno
+		return syscallToErrno(err)
 	default:
 		return EIO
 	}

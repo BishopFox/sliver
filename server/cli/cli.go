@@ -147,7 +147,6 @@ func preRunServerS(teamserver *server.Server, con *client.SliverClient) clientCo
 					con.PrintWarnf("Persistent jobs restart error: %s", err)
 				}
 			}
-
 		}
 		// Let our in-memory teamclient be served.
 		return teamserver.Serve(con.Teamclient)

@@ -251,6 +251,9 @@ message DownloadReq {
   int64 Start = 2;
   int64 Stop = 3;
   bool Recurse = 4;
+  int64 MaxBytes = 5;
+  int64 MaxLines = 6;
+  bool RestrictedToFile = 7;
 
   commonpb.Request Request = 9;
 }
@@ -275,12 +278,51 @@ message UploadReq {
   bytes Data = 3;
   bool IsIOC = 4;
   string FileName = 5;
+  bool IsDirectory = 6;
+  bool Overwrite = 7;
 
   commonpb.Request Request = 9;
 }
 
 message Upload {
   string Path = 1;
+  int32 WrittenFiles = 2;
+  int32 UnwriteableFiles = 3;
+
+  commonpb.Response Response = 9;
+}
+
+message GrepReq {
+  string SearchPattern = 1;
+  string Path = 2;
+  bool Recursive = 3;
+  int32 LinesBefore = 4;
+  int32 LinesAfter = 5;
+
+  commonpb.Request Request = 9;
+}
+
+message GrepLinePosition {
+  int32 Start = 1;
+  int32 End = 2;
+}
+
+message GrepResult {
+  int64 LineNumber = 1;
+  repeated GrepLinePosition Positions = 2;
+  string Line = 3;
+  repeated string LinesBefore = 4;
+  repeated string LinesAfter = 5;
+}
+
+message GrepResultsForFile {
+  repeated GrepResult FileResults = 1;
+  bool IsBinary = 2;
+}
+
+message Grep {
+  map<string, GrepResultsForFile> Results = 1;
+  string SearchPathAbsolute = 2;
 
   commonpb.Response Response = 9;
 }

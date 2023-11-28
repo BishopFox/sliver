@@ -37,7 +37,7 @@ func (c *Console) Start() error {
 
 		c.printed = false
 
-		if err := c.runAllE(c.PreReadlineHooks); err != nil {
+		if err := c.runPreReadHooks(); err != nil {
 			fmt.Printf("Pre-read error: %s\n", err.Error())
 			continue
 		}
@@ -83,31 +83,13 @@ func (c *Console) Start() error {
 		// the library user is responsible for setting
 		// the cobra behavior.
 		// If it's an interrupt, we take care of it.
-		if err := c.execute(menu, args, false); err != nil {
-			fmt.Println(err)
-		}
+		c.execute(menu, args, false)
 	}
 }
 
-// RunCommandArgs is a convenience function to run a command line in a given menu.
-// After running, the menu's commands are reset, and the prompts reloaded, therefore
-// mostly mimicking the behavior that is the one of the normal readline/run/readline
-// workflow.
-// Although state segregation is a priority for this library to be ensured as much
-// as possible, you should be cautious when using this function to run commands.
-func (m *Menu) RunCommandArgs(args []string) (err error) {
-	// The menu used and reset is the active menu.
-	// Prepare its output buffer for the command.
-	m.resetPreRun()
-
-	// Run the command and associated helpers.
-	return m.console.execute(m, args, !m.console.isExecuting)
-}
-
-// RunCommandLine is the equivalent of menu.RunCommandArgs(), but accepts
-// an unsplit command line to execute. This line is split and processed in
-// *sh-compliant form, identically to how lines are in normal console usage.
-func (m *Menu) RunCommandLine(line string) (err error) {
+// RunCommand is a convenience function to run a command in a given menu.
+// After running, the menu commands are reset, and the prompts reloaded.
+func (m *Menu) RunCommand(line string) (err error) {
 	if len(line) == 0 {
 		return
 	}
@@ -118,7 +100,14 @@ func (m *Menu) RunCommandLine(line string) (err error) {
 		return fmt.Errorf("line error: %w", err)
 	}
 
-	return m.RunCommandArgs(args)
+	// The menu used and reset is the active menu.
+	// Prepare its output buffer for the command.
+	m.resetPreRun()
+
+	// Run the command and associated helpers.
+	m.console.execute(m, args, !m.console.isExecuting)
+
+	return
 }
 
 // execute - The user has entered a command input line, the arguments have been processed:
@@ -145,14 +134,14 @@ func (c *Console) execute(menu *Menu, args []string, async bool) (err error) {
 
 	// Find the target command: if this command is filtered, don't run it.
 	target, _, _ := cmd.Find(args)
-
-	if err := menu.CheckIsAvailable(target); err != nil {
-		return err
+	if c.isFiltered(target) {
+		return
 	}
 
 	// Console-wide pre-run hooks, cannot.
-	if err = c.runAllE(c.PreCmdRunHooks); err != nil {
-		return fmt.Errorf("pre-run error: %s", err.Error())
+	if err = c.runPreRunHooks(); err != nil {
+		fmt.Printf("Pre-run error: %s\n", err.Error())
+		return
 	}
 
 	// Assign those arguments to our parser.
@@ -173,10 +162,7 @@ func (c *Console) execute(menu *Menu, args []string, async bool) (err error) {
 	// Wait for the command to finish, or for an OS signal to be caught.
 	select {
 	case <-ctx.Done():
-		if !errors.Is(ctx.Err(), context.Canceled) {
-			err = ctx.Err()
-		}
-
+		err = ctx.Err()
 	case signal := <-sigchan:
 		cancel(errors.New(signal.String()))
 		menu.handleInterrupt(errors.New(signal.String()))
@@ -195,13 +181,25 @@ func (c *Console) executeCommand(cmd *cobra.Command, cancel context.CancelCauseF
 	// And the post-run hooks in the same goroutine,
 	// because they should not be skipped even if
 	// the command is backgrounded by the user.
-	if err := c.runAllE(c.PostCmdRunHooks); err != nil {
+	if err := c.runPostRunHooks(); err != nil {
 		cancel(err)
 		return
 	}
 
 	// Command successfully executed, cancel the context.
 	cancel(nil)
+}
+
+// Generally, an empty command entered should just print a new prompt,
+// unlike for classic CLI usage when the program will print its usage string.
+// We simply remove any RunE from the root command, so that nothing is
+// printed/executed by default. Pre/Post runs are still used if any.
+func (c *Console) ensureNoRootRunner() {
+	if c.activeMenu().Command != nil {
+		c.activeMenu().RunE = func(cmd *cobra.Command, args []string) error {
+			return nil
+		}
+	}
 }
 
 func (c *Console) loadActiveHistories() {
@@ -212,8 +210,8 @@ func (c *Console) loadActiveHistories() {
 	}
 }
 
-func (c *Console) runAllE(hooks []func() error) error {
-	for _, hook := range hooks {
+func (c *Console) runPreReadHooks() error {
+	for _, hook := range c.PreReadlineHooks {
 		if err := hook(); err != nil {
 			return err
 		}
@@ -235,6 +233,26 @@ func (c *Console) runLineHooks(args []string) ([]string, error) {
 	}
 
 	return processed, nil
+}
+
+func (c *Console) runPreRunHooks() error {
+	for _, hook := range c.PreCmdRunHooks {
+		if err := hook(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Console) runPostRunHooks() error {
+	for _, hook := range c.PostCmdRunHooks {
+		if err := hook(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // monitorSignals - Monitor the signals that can be sent to the process

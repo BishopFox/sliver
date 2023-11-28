@@ -29,6 +29,7 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/gofrs/uuid"
 )
 
 var (
@@ -207,12 +208,23 @@ func trackIOC(req *sliverpb.UploadReq, resp *sliverpb.Upload) {
 	}
 
 	sum := sha256.Sum256(req.Data)
+	id, _ := uuid.FromString(host.ID)
 	ioc := &models.IOC{
-		HostID:   host.ID,
+		HostID:   id,
 		Path:     resp.Path,
 		FileHash: fmt.Sprintf("%x", sum),
 	}
 	if db.Session().Create(ioc).Error != nil {
 		fsLog.Error("Failed to create IOC")
 	}
+}
+
+// Grep - Search a file or directory for text matching a regex
+func (rpc *Server) Grep(ctx context.Context, req *sliverpb.GrepReq) (*sliverpb.Grep, error) {
+	resp := &sliverpb.Grep{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }

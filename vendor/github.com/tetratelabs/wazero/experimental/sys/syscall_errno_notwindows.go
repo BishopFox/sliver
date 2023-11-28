@@ -2,12 +2,15 @@
 
 package sys
 
+import "syscall"
+
 func errorToErrno(err error) Errno {
-	if errno, ok := err.(Errno); ok {
-		return errno
+	switch err := err.(type) {
+	case Errno:
+		return err
+	case syscall.Errno:
+		return syscallToErrno(err)
+	default:
+		return EIO
 	}
-	if errno, ok := syscallToErrno(err); ok {
-		return errno
-	}
-	return EIO
 }

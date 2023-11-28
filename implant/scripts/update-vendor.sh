@@ -30,6 +30,8 @@ trap 'cleanup $? $LINENO' ERR
 go run update-vendor.go "$tempDir"
 cd "$tempDir"
 # update vendor dir
+# go get gvisor.dev/gvisor/runsc@go
+go get golang.org/x/crypto@v0.13.0
 go mod tidy -compat=1.17
 go mod vendor
 

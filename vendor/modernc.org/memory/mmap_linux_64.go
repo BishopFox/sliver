@@ -2,9 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE-GO file.
 
-//go:build linux && (amd64 || arm64 || mips64 || mips64le || riscv64 || ppc64le)
+//go:build linux && (amd64 || arm64 || mips64 || mips64le || riscv64 || ppc64le || loong64)
 // +build linux
-// +build amd64 arm64 mips64 mips64le riscv64 ppc64le
+// +build amd64 arm64 mips64 mips64le riscv64 ppc64le loong64
 
 package memory
 

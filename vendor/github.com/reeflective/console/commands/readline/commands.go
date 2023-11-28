@@ -1,9 +1,8 @@
 package readline
 
 import (
-	"github.com/spf13/cobra"
-
 	"github.com/reeflective/readline"
+	"github.com/spf13/cobra"
 )
 
 // Commands returns a command named `readline`, with subcommands dedicated

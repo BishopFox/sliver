@@ -57,14 +57,16 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) *sl
 		beaconHandlerLog.Errorf("Database query error %s", err)
 		return nil
 	}
+	beaconUUID, _ := uuid.FromString(beaconReg.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		beacon = &models.Beacon{
-			ID: uuid.FromStringOrNil(beaconReg.ID),
+			ID: beaconUUID,
 		}
 	}
+	beaconRegUUID, _ := uuid.FromString(beaconReg.Register.Uuid)
 	beacon.Name = beaconReg.Register.Name
 	beacon.Hostname = beaconReg.Register.Hostname
-	beacon.UUID = uuid.FromStringOrNil(beaconReg.Register.Uuid)
+	beacon.UUID = beaconRegUUID
 	beacon.Username = beaconReg.Register.Username
 	beacon.UID = beaconReg.Register.Uid
 	beacon.GID = beaconReg.Register.Gid
@@ -163,7 +165,7 @@ func beaconTasksHandler(implantConn *core.ImplantConnection, data []byte) *slive
 		envelope.ID = pendingTask.EnvelopeID
 		tasks = append(tasks, envelope)
 		pendingTask.State = models.SENT
-		pendingTask.SentAt = time.Now()
+		pendingTask.SentAt = time.Now().Unix()
 		err = db.Session().Model(&models.BeaconTask{}).Where(&models.BeaconTask{
 			ID: pendingTask.ID,
 		}).Updates(pendingTask).Error
@@ -195,16 +197,17 @@ func beaconTaskResults(beaconID string, taskEnvelopes []*sliverpb.Envelope) *sli
 			continue
 		}
 		dbTask.State = models.COMPLETED
-		dbTask.CompletedAt = time.Now()
+		dbTask.CompletedAt = time.Now().Unix()
 		dbTask.Response = envelope.Data
+		id, _ := uuid.FromString(dbTask.ID)
 		err = db.Session().Model(&models.BeaconTask{}).Where(&models.BeaconTask{
-			ID: dbTask.ID,
+			ID: id,
 		}).Updates(dbTask).Error
 		if err != nil {
 			beaconHandlerLog.Errorf("Error updating db task: %s", err)
 			continue
 		}
-		eventData, _ := proto.Marshal(dbTask.ToProtobuf(false))
+		eventData, _ := proto.Marshal(dbTask)
 		core.EventBroker.Publish(core.Event{
 			EventType: consts.BeaconTaskResultEvent,
 			Data:      eventData,

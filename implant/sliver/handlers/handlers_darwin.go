@@ -21,8 +21,9 @@ package handlers
 import (
 	"os"
 	"os/user"
-	"syscall"
 	"strconv"
+	"syscall"
+
 	"github.com/bishopfox/sliver/implant/sliver/extension"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -49,6 +50,7 @@ var (
 		pb.MsgSetEnvReq:    setEnvHandler,
 		pb.MsgUnsetEnvReq:  unsetEnvHandler,
 		pb.MsgChtimesReq:   chtimesHandler,
+		pb.MsgGrepReq:      grepHandler,
 
 		pb.MsgScreenshotReq: screenshotHandler,
 		pb.MsgNetstatReq:    netstatHandler,
@@ -68,7 +70,7 @@ var (
 		pb.MsgDeregisterWasmExtensionReq: deregisterWasmExtensionHandler,
 		pb.MsgListWasmExtensionsReq:      listWasmExtensionsHandler,
 
-		// {{if .Config.WGc2Enabled}}
+		// {{if .Config.IncludeWG}}
 		// Wireguard specific
 		pb.MsgWGStartPortFwdReq:   wgStartPortfwdHandler,
 		pb.MsgWGStopPortFwdReq:    wgStopPortfwdHandler,
@@ -152,7 +154,7 @@ func listExtensionsHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func getUid(fileInfo os.FileInfo) (string) {
+func getUid(fileInfo os.FileInfo) string {
 	uid := int32(fileInfo.Sys().(*syscall.Stat_t).Uid)
 	uid_str := strconv.FormatUint(uint64(uid), 10)
 	usr, err := user.LookupId(uid_str)
@@ -162,7 +164,7 @@ func getUid(fileInfo os.FileInfo) (string) {
 	return usr.Name
 }
 
-func getGid(fileInfo os.FileInfo) (string) {
+func getGid(fileInfo os.FileInfo) string {
 	gid := int32(fileInfo.Sys().(*syscall.Stat_t).Gid)
 	gid_str := strconv.FormatUint(uint64(gid), 10)
 	grp, err := user.LookupGroupId(gid_str)

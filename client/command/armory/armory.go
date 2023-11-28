@@ -35,7 +35,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/server/cryptography/minisign"
+	"github.com/bishopfox/sliver/util/minisign"
 )
 
 const (

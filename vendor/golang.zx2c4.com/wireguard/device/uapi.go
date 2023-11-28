@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package device
@@ -16,7 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"golang.zx2c4.com/wireguard/ipc"
@@ -112,15 +111,15 @@ func (device *Device) IpcGetOperation(w io.Writer) error {
 					sendf("endpoint=%s", peer.endpoint.DstToString())
 				}
 
-				nano := atomic.LoadInt64(&peer.stats.lastHandshakeNano)
+				nano := peer.lastHandshakeNano.Load()
 				secs := nano / time.Second.Nanoseconds()
 				nano %= time.Second.Nanoseconds()
 
 				sendf("last_handshake_time_sec=%d", secs)
 				sendf("last_handshake_time_nsec=%d", nano)
-				sendf("tx_bytes=%d", atomic.LoadUint64(&peer.stats.txBytes))
-				sendf("rx_bytes=%d", atomic.LoadUint64(&peer.stats.rxBytes))
-				sendf("persistent_keepalive_interval=%d", atomic.LoadUint32(&peer.persistentKeepaliveInterval))
+				sendf("tx_bytes=%d", peer.txBytes.Load())
+				sendf("rx_bytes=%d", peer.rxBytes.Load())
+				sendf("persistent_keepalive_interval=%d", peer.persistentKeepaliveInterval.Load())
 
 				device.allowedips.EntriesForPeer(peer, func(prefix netip.Prefix) bool {
 					sendf("allowed_ip=%s", prefix.String())
@@ -358,7 +357,7 @@ func (device *Device) handlePeerLine(peer *ipcSetPeer, key, value string) error 
 			return ipcErrorf(ipc.IpcErrorInvalid, "failed to set persistent keepalive interval: %w", err)
 		}
 
-		old := atomic.SwapUint32(&peer.persistentKeepaliveInterval, uint32(secs))
+		old := peer.persistentKeepaliveInterval.Swap(uint32(secs))
 
 		// Send immediate keepalive if we're turning it on and before it wasn't on.
 		peer.pkaOn = old == 0 && secs != 0

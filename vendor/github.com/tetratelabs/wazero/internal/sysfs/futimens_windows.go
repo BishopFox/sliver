@@ -2,16 +2,24 @@ package sysfs
 
 import (
 	"syscall"
+	"time"
 
 	"github.com/tetratelabs/wazero/experimental/sys"
 	"github.com/tetratelabs/wazero/internal/platform"
 )
 
-func utimens(path string, atim, mtim int64) sys.Errno {
-	return chtimes(path, atim, mtim)
+// Define values even if not used except as sentinels.
+const (
+	_UTIME_NOW              = -1
+	_UTIME_OMIT             = -2
+	SupportsSymlinkNoFollow = false
+)
+
+func utimens(path string, times *[2]syscall.Timespec) error {
+	return utimensPortable(path, times)
 }
 
-func futimens(fd uintptr, atim, mtim int64) error {
+func futimens(fd uintptr, times *[2]syscall.Timespec) error {
 	// Before Go 1.20, ERROR_INVALID_HANDLE was returned for too many reasons.
 	// Kick out so that callers can use path-based operations instead.
 	if !platform.IsAtLeastGo120 {
@@ -19,9 +27,9 @@ func futimens(fd uintptr, atim, mtim int64) error {
 	}
 
 	// Per docs, zero isn't a valid timestamp as it cannot be differentiated
-	// from nil. In both cases, it is a marker like sys.UTIME_OMIT.
+	// from nil. In both cases, it is a marker like syscall.UTIME_OMIT.
 	// See https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-setfiletime
-	a, w := timespecToFiletime(atim, mtim)
+	a, w := timespecToFiletime(times)
 
 	if a == nil && w == nil {
 		return nil // both omitted, so nothing to change
@@ -34,16 +42,32 @@ func futimens(fd uintptr, atim, mtim int64) error {
 	return syscall.SetFileTime(h, nil, a, w)
 }
 
-func timespecToFiletime(atim, mtim int64) (a, w *syscall.Filetime) {
-	a = timespecToFileTime(atim)
-	w = timespecToFileTime(mtim)
+func timespecToFiletime(times *[2]syscall.Timespec) (a, w *syscall.Filetime) {
+	// Handle when both inputs are current system time.
+	if times == nil || times[0].Nsec == UTIME_NOW && times[1].Nsec == UTIME_NOW {
+		now := time.Now().UnixNano()
+		ft := syscall.NsecToFiletime(now)
+		return &ft, &ft
+	}
+
+	// Now, either one of the inputs is current time, or neither. This
+	// means we don't have a risk of re-reading the clock.
+	a = timespecToFileTime(times, 0)
+	w = timespecToFileTime(times, 1)
 	return
 }
 
-func timespecToFileTime(tim int64) *syscall.Filetime {
-	if tim == sys.UTIME_OMIT {
+func timespecToFileTime(times *[2]syscall.Timespec, i int) *syscall.Filetime {
+	if times[i].Nsec == UTIME_OMIT {
 		return nil
 	}
-	ft := syscall.NsecToFiletime(tim)
+
+	var nsec int64
+	if times[i].Nsec == UTIME_NOW {
+		nsec = time.Now().UnixNano()
+	} else {
+		nsec = syscall.TimespecToNsec(times[i])
+	}
+	ft := syscall.NsecToFiletime(nsec)
 	return &ft
 }

@@ -309,7 +309,7 @@ func (fs FeatureSet) HasFeature(feature Feature) bool {
 // a minimal /proc/cpuinfo, it is missing some fields like "microcode" that are
 // not always printed in Linux. The bogomips field is simply made up.
 func (fs FeatureSet) WriteCPUInfoTo(cpu uint, w io.Writer) {
-	// Avoid many redunant calls here, since this can occasionally appear
+	// Avoid many redundant calls here, since this can occasionally appear
 	// in the hot path. Read all basic information up front, see above.
 	ax, _, _, _ := fs.query(featureInfo)
 	ef, em, _, f, m, _ := signatureSplit(ax)
@@ -360,22 +360,23 @@ func (fs FeatureSet) Intel() bool {
 //
 // If xSaveInfo isn't supported, cpuid will not fault but will
 // return bogus values.
-var maxXsaveSize = native(In{Eax: uint32(xSaveInfo)}).Ecx
+var (
+	xsaveSize    = native(In{Eax: uint32(xSaveInfo)}).Ebx
+	maxXsaveSize = native(In{Eax: uint32(xSaveInfo)}).Ecx
+)
 
 // ExtendedStateSize returns the number of bytes needed to save the "extended
-// state" for this processor and the boundary it must be aligned to. Extended
-// state includes floating point registers, and other cpu state that's not
-// associated with the normal task context.
+// state" for the enabled features and the boundary it must be aligned to.
+// Extended state includes floating point registers, and other cpu state that's
+// not associated with the normal task context.
 //
-// Note: We can save some space here with an optimization where we use a
-// smaller chunk of memory depending on features that are actually enabled.
-// Currently we just use the largest possible size for simplicity (which is
-// about 2.5K worst case, with avx512).
+// Note: the return value matches the size of signal FP state frames.
+// Look at check_xstate_in_sigframe() in the kernel sources for more details.
 //
 //go:nosplit
 func (fs FeatureSet) ExtendedStateSize() (size, align uint) {
 	if fs.UseXsave() {
-		return uint(maxXsaveSize), 64
+		return uint(xsaveSize), 64
 	}
 
 	// If we don't support xsave, we fall back to fxsave, which requires

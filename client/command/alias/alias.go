@@ -21,7 +21,7 @@ package alias
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -116,7 +116,7 @@ func getInstalledManifests() map[string]*AliasManifest {
 	manifestPaths := assets.GetInstalledAliasManifests()
 	installedManifests := map[string]*AliasManifest{}
 	for _, manifestPath := range manifestPaths {
-		data, err := ioutil.ReadFile(manifestPath)
+		data, err := os.ReadFile(manifestPath)
 		if err != nil {
 			continue
 		}
