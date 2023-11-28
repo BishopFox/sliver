@@ -109,6 +109,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("long-poll-timeout", "T", "1s", "server-side long poll timeout")
 		f.StringP("long-poll-jitter", "J", "2s", "server-side long poll jitter")
 		f.BoolP("persistent", "p", false, "make persistent across restarts")
+		f.BoolP("staging", "s", false, "enable staging")
 	})
 
 	// HTTPS
@@ -129,6 +130,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("disable-otp", "D", false, "disable otp authentication")
 		f.StringP("long-poll-timeout", "T", "1s", "server-side long poll timeout")
 		f.StringP("long-poll-jitter", "J", "2s", "server-side long poll jitter")
+		f.BoolP("enable-staging", "s", false, "enable staging")
 
 		f.StringP("cert", "c", "", "PEM encoded certificate file")
 		f.StringP("key", "k", "", "PEM encoded private key file")

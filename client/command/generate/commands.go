@@ -223,6 +223,29 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	carapace.Gen(profilesRmCmd).PositionalCompletion(ProfileNameCompleter(con))
 	profilesCmd.AddCommand(profilesRmCmd)
 
+	profilesStageCmd := &cobra.Command{
+		Use:   consts.StageStr,
+		Short: "Generate an encrypted and/or compressed implant",
+		Long:  help.GetHelpFor([]string{consts.ProfilesStr, consts.StageStr}),
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ProfilesStageCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("stage", false, profilesStageCmd, func(f *pflag.FlagSet) {
+		f.StringP("name", "n", "", "implant name")
+		f.String("aes-encrypt-key", "", "encrypt stage with AES encryption key")
+		f.String("aes-encrypt-iv", "", "encrypt stage with AES encryption iv")
+		f.String("rc4-encrypt-key", "", "encrypt stage with RC4 encryption key")
+		f.StringP("compress", "C", "", "compress the stage before encrypting (zlib, gzip, deflate9, none)")
+		f.BoolP("prepend-size", "P", false, "prepend the size of the stage to the payload (to use with MSF stagers)")
+	})
+	completers.NewFlagCompsFor(profilesStageCmd, func(comp *carapace.ActionMap) {
+		(*comp)["compress"] = carapace.ActionValues("zlib", "gzip", "deflate9").Tag("compression algorithms")
+	})
+	carapace.Gen(profilesStageCmd).PositionalCompletion(ProfileNameCompleter(con))
+	profilesCmd.AddCommand(profilesStageCmd)
+
 	profilesInfoCmd := &cobra.Command{
 		Use:   consts.InfoStr,
 		Short: "Details about a profile",
@@ -274,6 +297,16 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	carapace.Gen(implantsRmCmd).PositionalCompletion(ImplantBuildNameCompleter(con))
 	implantBuildsCmd.AddCommand(implantsRmCmd)
+
+	implantStageCmd := &cobra.Command{
+		Use:   consts.StageStr,
+		Short: "Serve a previously generated implant",
+		Long:  help.GetHelpFor([]string{consts.ImplantBuildsStr, consts.StageStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			ImplantsStageCmd(cmd, con, args)
+		},
+	}
+	implantBuildsCmd.AddCommand(implantStageCmd)
 
 	canariesCmd := &cobra.Command{
 		Use:   consts.CanariesStr,
@@ -337,6 +370,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.StringP("limit-locale", "L", "", "limit execution to hosts that match this locale")
 
 		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
+		f.StringP("c2profile", "C", consts.DefaultC2Profile, "HTTP C2 profile to use")
 	})
 }
 
@@ -350,6 +384,7 @@ func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverClient) {
 		(*comp)["format"] = FormatCompleter()
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
 		(*comp)["traffic-encoders"] = TrafficEncodersCompleter(con).UniqueList(",")
+		(*comp)["c2profile"] = HTTPC2Completer(con)
 	})
 }
 
