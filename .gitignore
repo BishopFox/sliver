@@ -48,3 +48,4 @@ dist/
 
 # Flag to show that go-assets.sh has been run
 .downloaded_assets
+compose-dev.yml
