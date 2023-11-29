@@ -4,7 +4,7 @@ go 1.21.1
 
 toolchain go1.21.4
 
-replace github.com/rsteube/carapace v0.45.0 => github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca
+replace github.com/rsteube/carapace v0.45.0 => github.com/reeflective/carapace v0.25.2-0.20230816093630-a30f5184fa0d
 
 require (
 	filippo.io/age v1.1.1

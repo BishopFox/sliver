@@ -587,7 +587,7 @@ github.com/remyoudompheng/bigfft
 # github.com/rivo/uniseg v0.4.4
 ## explicit; go 1.18
 github.com/rivo/uniseg
-# github.com/rsteube/carapace v0.45.0 => github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca
+# github.com/rsteube/carapace v0.45.0 => github.com/reeflective/carapace v0.25.2-0.20230816093630-a30f5184fa0d
 ## explicit; go 1.15
 github.com/rsteube/carapace
 github.com/rsteube/carapace/internal/cache
