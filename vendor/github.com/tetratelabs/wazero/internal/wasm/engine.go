@@ -36,6 +36,9 @@ type Engine interface {
 
 // ModuleEngine implements function calls for a given module.
 type ModuleEngine interface {
+	// DoneInstantiation is called at the end of the instantiation of the module.
+	DoneInstantiation()
+
 	// NewFunction returns an api.Function for the given function pointed by the given Index.
 	NewFunction(index Index) api.Function
 
@@ -45,8 +48,11 @@ type ModuleEngine interface {
 	//	- `importedModuleEngine` is the ModuleEngine for the imported ModuleInstance.
 	ResolveImportedFunction(index, indexInImportedModule Index, importedModuleEngine ModuleEngine)
 
-	// LookupFunction returns the api.Function created from the function in the function table at the given offset.
-	LookupFunction(t *TableInstance, typeId FunctionTypeID, tableOffset Index) (api.Function, error)
+	// ResolveImportedMemory is called when this module imports a memory from another module.
+	ResolveImportedMemory(importedModuleEngine ModuleEngine)
+
+	// LookupFunction returns the FunctionModule and the Index of the function in the returned ModuleInstance at the given offset in the table.
+	LookupFunction(t *TableInstance, typeId FunctionTypeID, tableOffset Index) (*ModuleInstance, Index)
 
 	// FunctionInstanceReference returns Reference for the given Index for a FunctionInstance. The returned values are used by
 	// the initialization via ElementSegment.

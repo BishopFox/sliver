@@ -1,4 +1,4 @@
-//go:build !linux && (!darwin || sqlite3_bsd)
+//go:build !(linux || darwin) || sqlite3_flock || sqlite3_nosys
 
 package vfs
 
@@ -6,10 +6,6 @@ import (
 	"io"
 	"os"
 )
-
-func osSync(file *os.File, fullsync, dataonly bool) error {
-	return file.Sync()
-}
 
 func osAllocate(file *os.File, size int64) error {
 	off, err := file.Seek(0, io.SeekEnd)

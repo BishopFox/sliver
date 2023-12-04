@@ -15,7 +15,7 @@ type ZeroBlob int64
 //
 // It implements [io.ReadWriteSeeker] for incremental BLOB I/O.
 //
-// https://www.sqlite.org/c3ref/blob.html
+// https://sqlite.org/c3ref/blob.html
 type Blob struct {
 	c      *Conn
 	bytes  int64
@@ -27,7 +27,7 @@ var _ io.ReadWriteSeeker = &Blob{}
 
 // OpenBlob opens a BLOB for incremental I/O.
 //
-// https://www.sqlite.org/c3ref/blob_open.html
+// https://sqlite.org/c3ref/blob_open.html
 func (c *Conn) OpenBlob(db, table, column string, row int64, write bool) (*Blob, error) {
 	c.checkInterrupt()
 	defer c.arena.reset()
@@ -59,7 +59,7 @@ func (c *Conn) OpenBlob(db, table, column string, row int64, write bool) (*Blob,
 //
 // It is safe to close a nil, zero or closed Blob.
 //
-// https://www.sqlite.org/c3ref/blob_close.html
+// https://sqlite.org/c3ref/blob_close.html
 func (b *Blob) Close() error {
 	if b == nil || b.handle == 0 {
 		return nil
@@ -73,14 +73,14 @@ func (b *Blob) Close() error {
 
 // Size returns the size of the BLOB in bytes.
 //
-// https://www.sqlite.org/c3ref/blob_bytes.html
+// https://sqlite.org/c3ref/blob_bytes.html
 func (b *Blob) Size() int64 {
 	return b.bytes
 }
 
 // Read implements the [io.Reader] interface.
 //
-// https://www.sqlite.org/c3ref/blob_read.html
+// https://sqlite.org/c3ref/blob_read.html
 func (b *Blob) Read(p []byte) (n int, err error) {
 	if b.offset >= b.bytes {
 		return 0, io.EOF
@@ -92,8 +92,8 @@ func (b *Blob) Read(p []byte) (n int, err error) {
 		want = avail
 	}
 
-	defer b.c.arena.reset()
-	ptr := b.c.arena.new(uint64(want))
+	ptr := b.c.new(uint64(want))
+	defer b.c.free(ptr)
 
 	r := b.c.call(b.c.api.blobRead, uint64(b.handle),
 		uint64(ptr), uint64(want), uint64(b.offset))
@@ -112,14 +112,14 @@ func (b *Blob) Read(p []byte) (n int, err error) {
 
 // WriteTo implements the [io.WriterTo] interface.
 //
-// https://www.sqlite.org/c3ref/blob_read.html
+// https://sqlite.org/c3ref/blob_read.html
 func (b *Blob) WriteTo(w io.Writer) (n int64, err error) {
 	if b.offset >= b.bytes {
 		return 0, nil
 	}
 
+	want := int64(1024 * 1024)
 	avail := b.bytes - b.offset
-	want := int64(65536)
 	if want > avail {
 		want = avail
 	}
@@ -156,10 +156,10 @@ func (b *Blob) WriteTo(w io.Writer) (n int64, err error) {
 
 // Write implements the [io.Writer] interface.
 //
-// https://www.sqlite.org/c3ref/blob_write.html
+// https://sqlite.org/c3ref/blob_write.html
 func (b *Blob) Write(p []byte) (n int, err error) {
-	defer b.c.arena.reset()
-	ptr := b.c.arena.bytes(p)
+	ptr := b.c.newBytes(p)
+	defer b.c.free(ptr)
 
 	r := b.c.call(b.c.api.blobWrite, uint64(b.handle),
 		uint64(ptr), uint64(len(p)), uint64(b.offset))
@@ -173,10 +173,13 @@ func (b *Blob) Write(p []byte) (n int, err error) {
 
 // ReadFrom implements the [io.ReaderFrom] interface.
 //
-// https://www.sqlite.org/c3ref/blob_write.html
+// https://sqlite.org/c3ref/blob_write.html
 func (b *Blob) ReadFrom(r io.Reader) (n int64, err error) {
+	want := int64(1024 * 1024)
 	avail := b.bytes - b.offset
-	want := int64(65536)
+	if l, ok := r.(*io.LimitedReader); ok && want > l.N {
+		want = l.N
+	}
 	if want > avail {
 		want = avail
 	}
@@ -238,7 +241,7 @@ func (b *Blob) Seek(offset int64, whence int) (int64, error) {
 
 // Reopen moves a BLOB handle to a new row of the same database table.
 //
-// https://www.sqlite.org/c3ref/blob_reopen.html
+// https://sqlite.org/c3ref/blob_reopen.html
 func (b *Blob) Reopen(row int64) error {
 	err := b.c.error(b.c.call(b.c.api.blobReopen, uint64(b.handle), uint64(row)))
 	b.bytes = int64(b.c.call(b.c.api.blobBytes, uint64(b.handle)))

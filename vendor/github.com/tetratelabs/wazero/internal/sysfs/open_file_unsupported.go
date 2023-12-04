@@ -2,11 +2,13 @@
 
 package sysfs
 
-import "github.com/tetratelabs/wazero/internal/fsapi"
+import (
+	"github.com/tetratelabs/wazero/experimental/sys"
+)
 
-const supportedSyscallOflag = fsapi.Oflag(0)
+const supportedSyscallOflag = sys.Oflag(0)
 
-func withSyscallOflag(oflag fsapi.Oflag, flag int) int {
+func withSyscallOflag(oflag sys.Oflag, flag int) int {
 	// O_DIRECTORY not defined
 	// O_DSYNC not defined
 	// O_NOFOLLOW not defined

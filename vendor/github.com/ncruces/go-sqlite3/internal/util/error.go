@@ -23,6 +23,7 @@ const (
 	OffsetErr    = ErrorString("sqlite3: invalid offset")
 	TailErr      = ErrorString("sqlite3: multiple statements")
 	IsolationErr = ErrorString("sqlite3: unsupported isolation level")
+	ValueErr     = ErrorString("sqlite3: unsupported value")
 	NoVFSErr     = ErrorString("sqlite3: no such vfs: ")
 )
 

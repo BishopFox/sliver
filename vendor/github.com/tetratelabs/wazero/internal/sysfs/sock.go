@@ -5,7 +5,6 @@ import (
 	"os"
 
 	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
-	"github.com/tetratelabs/wazero/internal/fsapi"
 	socketapi "github.com/tetratelabs/wazero/internal/sock"
 	"github.com/tetratelabs/wazero/sys"
 )
@@ -18,10 +17,10 @@ func NewTCPListenerFile(tl *net.TCPListener) socketapi.TCPSock {
 // baseSockFile implements base behavior for all TCPSock, TCPConn files,
 // regardless the platform.
 type baseSockFile struct {
-	fsapi.UnimplementedFile
+	experimentalsys.UnimplementedFile
 }
 
-var _ fsapi.File = (*baseSockFile)(nil)
+var _ experimentalsys.File = (*baseSockFile)(nil)
 
 // IsDir implements the same method as documented on File.IsDir
 func (*baseSockFile) IsDir() (bool, experimentalsys.Errno) {

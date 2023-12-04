@@ -3,12 +3,12 @@ package vfs
 import "github.com/ncruces/go-sqlite3/internal/util"
 
 const (
-	_MAX_STRING          = 512 // Used for short strings: names, error messages…
+	_MAX_NAME            = 512 // Used for short strings: names, error messages…
 	_MAX_PATHNAME        = 512
 	_DEFAULT_SECTOR_SIZE = 4096
 )
 
-// https://www.sqlite.org/rescode.html
+// https://sqlite.org/rescode.html
 type _ErrorCode uint32
 
 func (e _ErrorCode) Error() string {
@@ -49,7 +49,7 @@ const (
 
 // OpenFlag is a flag for the [VFS] Open method.
 //
-// https://www.sqlite.org/c3ref/c_open_autoproxy.html
+// https://sqlite.org/c3ref/c_open_autoproxy.html
 type OpenFlag uint32
 
 const (
@@ -78,7 +78,7 @@ const (
 
 // AccessFlag is a flag for the [VFS] Access method.
 //
-// https://www.sqlite.org/c3ref/c_access_exists.html
+// https://sqlite.org/c3ref/c_access_exists.html
 type AccessFlag uint32
 
 const (
@@ -89,7 +89,7 @@ const (
 
 // SyncFlag is a flag for the [File] Sync method.
 //
-// https://www.sqlite.org/c3ref/c_sync_dataonly.html
+// https://sqlite.org/c3ref/c_sync_dataonly.html
 type SyncFlag uint32
 
 const (
@@ -100,7 +100,7 @@ const (
 
 // LockLevel is a value used with [File] Lock and Unlock methods.
 //
-// https://www.sqlite.org/c3ref/c_lock_exclusive.html
+// https://sqlite.org/c3ref/c_lock_exclusive.html
 type LockLevel uint32
 
 const (
@@ -146,7 +146,7 @@ const (
 
 // DeviceCharacteristic is a flag retuned by the [File] DeviceCharacteristics method.
 //
-// https://www.sqlite.org/c3ref/c_iocap_atomic.html
+// https://sqlite.org/c3ref/c_iocap_atomic.html
 type DeviceCharacteristic uint32
 
 const (
@@ -167,7 +167,7 @@ const (
 	IOCAP_BATCH_ATOMIC          DeviceCharacteristic = 0x00004000
 )
 
-// https://www.sqlite.org/c3ref/c_fcntl_begin_atomic_write.html
+// https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html
 type _FcntlOpcode uint32
 
 const (
