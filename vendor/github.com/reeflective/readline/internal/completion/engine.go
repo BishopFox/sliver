@@ -116,7 +116,7 @@ func (e *Engine) SkipDisplay() {
 func (e *Engine) Select(row, column int) {
 	grp := e.currentGroup()
 
-	if grp == nil || len(grp.values) == 0 {
+	if grp == nil || len(grp.rows) == 0 {
 		return
 	}
 

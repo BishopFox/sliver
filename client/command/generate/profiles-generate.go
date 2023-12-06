@@ -19,7 +19,6 @@ package generate
 */
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,14 +49,8 @@ func ProfilesGenerateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, a
 		if SGNDisabled, _ := cmd.Flags().GetBool("disable-sgn"); SGNDisabled {
 			profile.Config.SGNEnabled = !SGNDisabled
 		}
-		implantFile, err := compile(profile.Config, save, con)
+		_, err := compile(profile.Config, save, con)
 		if err != nil {
-			return
-		}
-		profile.Config.Name = buildImplantName(implantFile.Name)
-		_, err = con.Rpc.SaveImplantProfile(context.Background(), profile)
-		if err != nil {
-			con.PrintErrorf("could not update implant profile: %v\n", err)
 			return
 		}
 	} else {

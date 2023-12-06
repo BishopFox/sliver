@@ -2202,7 +2202,7 @@ type InstanceInformation struct {
 	// Elastic Compute Cloud (Amazon EC2) instances. To retrieve the IAM role for an
 	// EC2 instance, use the Amazon EC2 DescribeInstances operation. For information,
 	// see DescribeInstances (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstances.html)
-	// in the Amazon EC2 API Reference or describe-instances (https://docs.aws.amazon.com/cli/latest/ec2/describe-instances.html)
+	// in the Amazon EC2 API Reference or describe-instances (https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-instances.html)
 	// in the Amazon Web Services CLI Command Reference.
 	IamRole *string
 
@@ -2233,7 +2233,7 @@ type InstanceInformation struct {
 	// and Install SSM Agent for a hybrid environment (Windows) (https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-install-managed-win.html)
 	// . To retrieve the Name tag of an EC2 instance, use the Amazon EC2
 	// DescribeInstances operation. For information, see DescribeInstances (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstances.html)
-	// in the Amazon EC2 API Reference or describe-instances (https://docs.aws.amazon.com/cli/latest/ec2/describe-instances.html)
+	// in the Amazon EC2 API Reference or describe-instances (https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-instances.html)
 	// in the Amazon Web Services CLI Command Reference.
 	Name *string
 
@@ -3416,7 +3416,7 @@ type OpsItem struct {
 	// specify a related resource in the request. Use the /aws/automations key in
 	// OperationalData to associate an Automation runbook with the OpsItem. To view
 	// Amazon Web Services CLI example commands that use these keys, see Creating
-	// OpsItems manually (https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter-creating-OpsItems.html#OpsCenter-manually-create-OpsItems)
+	// OpsItems manually (https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter-manually-create-OpsItems.html)
 	// in the Amazon Web Services Systems Manager User Guide.
 	OperationalData map[string]OpsItemDataValue
 
@@ -3431,7 +3431,7 @@ type OpsItem struct {
 	//   OpsCenter.
 	//   - /aws/changerequest This type of OpsItem is used by Change Manager for
 	//   reviewing and approving or rejecting change requests.
-	//   - /aws/insights This type of OpsItem is used by OpsCenter for aggregating and
+	//   - /aws/insight This type of OpsItem is used by OpsCenter for aggregating and
 	//   reporting on duplicate OpsItems.
 	OpsItemType *string
 
@@ -3671,7 +3671,7 @@ type OpsItemSummary struct {
 	//   OpsCenter.
 	//   - /aws/changerequest This type of OpsItem is used by Change Manager for
 	//   reviewing and approving or rejecting change requests.
-	//   - /aws/insights This type of OpsItem is used by OpsCenter for aggregating and
+	//   - /aws/insight This type of OpsItem is used by OpsCenter for aggregating and
 	//   reporting on duplicate OpsItems.
 	OpsItemType *string
 

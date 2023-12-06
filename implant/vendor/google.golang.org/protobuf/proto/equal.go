@@ -31,8 +31,13 @@ import (
 //   - Maps are equal if they have the same set of keys and
 //     the corresponding value for each key is equal.
 //
-// If two messages marshal to the same bytes under deterministic serialization,
-// then Equal is guaranteed to report true.
+// An invalid message is not equal to a valid message.
+// An invalid message is only equal to another invalid message of the
+// same type. An invalid message often corresponds to a nil pointer
+// of the concrete message type. For example, (*pb.M)(nil) is not equal
+// to &pb.M{}.
+// If two valid messages marshal to the same bytes under deterministic
+// serialization, then Equal is guaranteed to report true.
 func Equal(x, y Message) bool {
 	if x == nil || y == nil {
 		return x == nil && y == nil

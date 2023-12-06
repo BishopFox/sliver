@@ -84,7 +84,7 @@ func (e *Engine) Refresh() {
 
 	// Get all positions required for the redisplay to come:
 	// prompt end (thus indentation), cursor positions, etc.
-	e.computeCoordinates()
+	e.computeCoordinates(true)
 
 	// Print the line, right prompt, hints and completions.
 	e.displayLine()
@@ -129,7 +129,7 @@ func (e *Engine) ResetHelpers() {
 func (e *Engine) AcceptLine() {
 	e.CursorToLineStart()
 
-	e.computeCoordinates()
+	e.computeCoordinates(false)
 
 	// Go back to the end of the non-suggested line.
 	term.MoveCursorBackwards(term.GetWidth())
@@ -197,7 +197,7 @@ func (e *Engine) cursorHintToLineStart() {
 	e.CursorToLineStart()
 }
 
-func (e *Engine) computeCoordinates() {
+func (e *Engine) computeCoordinates(suggested bool) {
 	// Get the new input line and auto-suggested one.
 	e.line, e.cursor = e.completer.Line()
 	if e.completer.IsInserting() {
@@ -222,7 +222,7 @@ func (e *Engine) computeCoordinates() {
 	e.cursorCol, e.cursorRow = core.CoordinatesCursor(e.cursor, e.startCols)
 
 	// Get the number of rows used by the line, and the end line X pos.
-	if e.opts.GetBool("history-autosuggest") {
+	if e.opts.GetBool("history-autosuggest") && suggested {
 		e.lineCol, e.lineRows = core.CoordinatesLine(&e.suggested, e.startCols)
 	} else {
 		e.lineCol, e.lineRows = core.CoordinatesLine(e.line, e.startCols)

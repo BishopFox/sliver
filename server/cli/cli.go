@@ -35,6 +35,7 @@ import (
 	"github.com/bishopfox/sliver/server/console"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/daemon"
+	"github.com/bishopfox/sliver/server/db"
 )
 
 const (
@@ -43,10 +44,11 @@ const (
 	forceFlagStr = "force"
 
 	// Operator flags
-	nameFlagStr  = "name"
-	lhostFlagStr = "lhost"
-	lportFlagStr = "lport"
-	saveFlagStr  = "save"
+	nameFlagStr        = "name"
+	lhostFlagStr       = "lhost"
+	lportFlagStr       = "lport"
+	saveFlagStr        = "save"
+	permissionsFlagStr = "permissions"
 
 	// Cert flags
 	caTypeFlagStr = "type"
@@ -125,10 +127,18 @@ var rootCmd = &cobra.Command{
 		certs.SetupWGKeys()
 		cryptography.AgeServerKeyPair()
 		cryptography.MinisignServerPrivateKey()
+		c2.SetupDefaultC2Profiles()
 
 		serverConfig := configs.GetServerConfig()
-		c2.StartPersistentJobs(serverConfig)
-		console.StartPersistentJobs(serverConfig)
+		listenerJobs, err := db.ListenerJobs()
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		err = StartPersistentJobs(listenerJobs)
+		if err != nil {
+			fmt.Println(err)
+		}
 		if serverConfig.DaemonMode {
 			daemon.Start(daemon.BlankHost, daemon.BlankPort)
 		} else {

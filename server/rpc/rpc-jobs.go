@@ -22,13 +22,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/c2"
-	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
 )
 
 const (
@@ -65,6 +65,26 @@ func (rpc *Server) GetJobs(ctx context.Context, _ *commonpb.Empty) (*clientpb.Jo
 	return jobs, nil
 }
 
+// Restart Jobs - Reload jobs
+func (rpc *Server) RestartJobs(ctx context.Context, restartJobReq *clientpb.RestartJobReq) (*commonpb.Empty, error) {
+	// reload jobs to include new profile
+	for _, jobID := range restartJobReq.JobIDs {
+		job := core.Jobs.Get(int(jobID))
+		listenerJob, err := db.ListenerByJobID(jobID)
+		if err != nil {
+			return &commonpb.Empty{}, err
+		}
+		job.JobCtrl <- true
+		job, err = c2.StartHTTPListenerJob(listenerJob.HTTPConf)
+		if err != nil {
+			return &commonpb.Empty{}, err
+		}
+		listenerJob.JobID = uint32(job.ID)
+		db.UpdateHTTPC2Listener(listenerJob)
+	}
+	return &commonpb.Empty{}, nil
+}
+
 // KillJob - Kill a server-side job
 func (rpc *Server) KillJob(ctx context.Context, kill *clientpb.KillJobReq) (*clientpb.KillJob, error) {
 	job := core.Jobs.Get(int(kill.ID))
@@ -74,8 +94,9 @@ func (rpc *Server) KillJob(ctx context.Context, kill *clientpb.KillJobReq) (*cli
 		job.JobCtrl <- true
 		killJob.ID = uint32(job.ID)
 		killJob.Success = true
-		if job.PersistentID != "" {
-			configs.GetServerConfig().RemoveJob(job.PersistentID)
+		err = db.DeleteListener(killJob.ID)
+		if err != nil {
+			return nil, err
 		}
 	} else {
 		killJob.Success = false
@@ -85,190 +106,206 @@ func (rpc *Server) KillJob(ctx context.Context, kill *clientpb.KillJobReq) (*cli
 }
 
 // StartMTLSListener - Start an MTLS listener
-func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSListenerReq) (*clientpb.MTLSListener, error) {
-
+func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSListenerReq) (*clientpb.ListenerJob, error) {
 	if 65535 <= req.Port {
 		return nil, ErrInvalidPort
 	}
-	listenPort := uint16(defaultMTLSPort)
-	if req.Port != 0 {
-		listenPort = uint16(req.Port)
+	if req.Port == 0 {
+		req.Port = defaultMTLSPort
 	}
 
-	job, err := c2.StartMTLSListenerJob(req.Host, listenPort)
+	err := PortInUse(req.Port)
 	if err != nil {
 		return nil, err
 	}
 
-	if req.Persistent {
-		cfg := &configs.MTLSJobConfig{
-			Host: req.Host,
-			Port: listenPort,
-		}
-		configs.GetServerConfig().AddMTLSJob(cfg)
-		job.PersistentID = cfg.JobID
+	job, err := c2.StartMTLSListenerJob(req)
+	if err != nil {
+		return nil, err
 	}
 
-	return &clientpb.MTLSListener{JobID: uint32(job.ID)}, nil
+	listenerJob := &clientpb.ListenerJob{
+		JobID:    uint32(job.ID),
+		Type:     constants.MtlsStr,
+		MTLSConf: req,
+	}
+	err = db.SaveHTTPC2Listener(listenerJob)
+	if err != nil {
+		return nil, err
+	}
+
+	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
 }
 
 // StartWGListener - Start a Wireguard listener
-func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListenerReq) (*clientpb.WGListener, error) {
+func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListenerReq) (*clientpb.ListenerJob, error) {
 
 	if 65535 <= req.Port || 65535 <= req.NPort || 65535 <= req.KeyPort {
 		return nil, ErrInvalidPort
 	}
-	listenPort := uint16(defaultWGPort)
-	if req.Port != 0 {
-		listenPort = uint16(req.Port)
+	if req.Port == 0 {
+		req.Port = defaultWGPort
 	}
 
-	nListenPort := uint16(defaultWGNPort)
-	if req.NPort != 0 {
-		nListenPort = uint16(req.NPort)
+	if req.NPort == 0 {
+		req.NPort = defaultWGNPort
 	}
 
-	keyExchangeListenPort := uint16(defaultWGKeyExPort)
-	if req.NPort != 0 {
-		keyExchangeListenPort = uint16(req.KeyPort)
+	if req.KeyPort == 0 {
+		req.KeyPort = defaultWGKeyExPort
 	}
 
-	job, err := c2.StartWGListenerJob(listenPort, nListenPort, keyExchangeListenPort)
+	err := PortInUse(req.Port)
 	if err != nil {
 		return nil, err
 	}
 
-	if req.Persistent {
-		cfg := &configs.WGJobConfig{
-			Port:    listenPort,
-			NPort:   nListenPort,
-			KeyPort: keyExchangeListenPort,
-		}
-		configs.GetServerConfig().AddWGJob(cfg)
-		job.PersistentID = cfg.JobID
+	err = PortInUse(req.NPort)
+	if err != nil {
+		return nil, err
 	}
 
-	return &clientpb.WGListener{JobID: uint32(job.ID)}, nil
+	err = PortInUse(req.KeyPort)
+	if err != nil {
+		return nil, err
+	}
+
+	job, err := c2.StartWGListenerJob(req)
+	if err != nil {
+		return nil, err
+	}
+
+	listenerJob := &clientpb.ListenerJob{
+		JobID:  uint32(job.ID),
+		Type:   constants.WGStr,
+		WGConf: req,
+	}
+	err = db.SaveHTTPC2Listener(listenerJob)
+	if err != nil {
+		return nil, err
+	}
+
+	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
 }
 
 // StartDNSListener - Start a DNS listener TODO: respect request's Host specification
-func (rpc *Server) StartDNSListener(ctx context.Context, req *clientpb.DNSListenerReq) (*clientpb.DNSListener, error) {
-	if 65535 <= req.Port {
-		return nil, ErrInvalidPort
-	}
-	listenPort := uint16(defaultDNSPort)
-	if req.Port != 0 {
-		listenPort = uint16(req.Port)
-	}
-
-	job, err := c2.StartDNSListenerJob(req.Host, listenPort, req.Domains, req.Canaries, req.EnforceOTP)
+func (rpc *Server) StartDNSListener(ctx context.Context, req *clientpb.DNSListenerReq) (*clientpb.ListenerJob, error) {
+	err := PortInUse(req.Port)
 	if err != nil {
 		return nil, err
 	}
 
-	if req.Persistent {
-		cfg := &configs.DNSJobConfig{
-			Domains:  req.Domains,
-			Host:     req.Host,
-			Port:     listenPort,
-			Canaries: req.Canaries,
-		}
-		configs.GetServerConfig().AddDNSJob(cfg)
-		job.PersistentID = cfg.JobID
+	job, err := c2.StartDNSListenerJob(req)
+	if err != nil {
+		return nil, err
 	}
 
-	return &clientpb.DNSListener{JobID: uint32(job.ID)}, nil
+	listenerJob := &clientpb.ListenerJob{
+		JobID:   uint32(job.ID),
+		Type:    constants.DnsStr,
+		DNSConf: req,
+	}
+	err = db.SaveHTTPC2Listener(listenerJob)
+	if err != nil {
+		return nil, err
+	}
+
+	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
 }
 
 // StartHTTPSListener - Start an HTTPS listener
-func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPListenerReq) (*clientpb.HTTPListener, error) {
-
+func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPListenerReq) (*clientpb.ListenerJob, error) {
 	if 65535 <= req.Port {
 		return nil, ErrInvalidPort
 	}
-	listenPort := uint16(defaultHTTPSPort)
-	if req.Port != 0 {
-		listenPort = uint16(req.Port)
+	if req.Port == 0 {
+		req.Port = defaultHTTPSPort
 	}
 
-	conf := &c2.HTTPServerConfig{
-		Addr:            fmt.Sprintf("%s:%d", req.Host, listenPort),
-		LPort:           listenPort,
-		Secure:          true,
-		Domain:          req.Domain,
-		Website:         req.Website,
-		Cert:            req.Cert,
-		Key:             req.Key,
-		ACME:            req.ACME,
-		LongPollTimeout: time.Duration(req.LongPollTimeout),
-		LongPollJitter:  time.Duration(req.LongPollJitter),
-		RandomizeJARM:   req.RandomizeJARM,
-	}
-	job, err := c2.StartHTTPListenerJob(conf)
+	err := PortInUse(req.Port)
 	if err != nil {
 		return nil, err
 	}
 
-	if req.Persistent {
-		cfg := &configs.HTTPJobConfig{
-			Domain:          req.Domain,
-			Host:            req.Host,
-			Port:            listenPort,
-			Secure:          true,
-			Website:         req.Website,
-			Cert:            req.Cert,
-			Key:             req.Key,
-			ACME:            req.ACME,
-			EnforceOTP:      req.EnforceOTP,
-			LongPollTimeout: req.LongPollTimeout,
-			LongPollJitter:  req.LongPollJitter,
-			RandomizeJARM:   req.RandomizeJARM,
-		}
-		configs.GetServerConfig().AddHTTPJob(cfg)
-		job.PersistentID = cfg.JobID
+	job, err := c2.StartHTTPListenerJob(req)
+	if err != nil {
+		return nil, err
 	}
 
-	return &clientpb.HTTPListener{JobID: uint32(job.ID)}, nil
+	listenerJob := &clientpb.ListenerJob{
+		JobID:    uint32(job.ID),
+		Type:     constants.HttpsStr,
+		HTTPConf: req,
+	}
+	err = db.SaveHTTPC2Listener(listenerJob)
+	if err != nil {
+		return nil, err
+	}
+
+	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
 }
 
 // StartHTTPListener - Start an HTTP listener
-func (rpc *Server) StartHTTPListener(ctx context.Context, req *clientpb.HTTPListenerReq) (*clientpb.HTTPListener, error) {
+func (rpc *Server) StartHTTPListener(ctx context.Context, req *clientpb.HTTPListenerReq) (*clientpb.ListenerJob, error) {
 	if 65535 <= req.Port {
 		return nil, ErrInvalidPort
 	}
-	listenPort := uint16(defaultHTTPPort)
-	if req.Port != 0 {
-		listenPort = uint16(req.Port)
+	if req.Port == 0 {
+		req.Port = defaultHTTPPort
 	}
 
-	conf := &c2.HTTPServerConfig{
-		Addr:            fmt.Sprintf("%s:%d", req.Host, listenPort),
-		LPort:           listenPort,
-		Domain:          req.Domain,
-		Website:         req.Website,
-		Secure:          false,
-		ACME:            false,
-		LongPollTimeout: time.Duration(req.LongPollTimeout),
-		LongPollJitter:  time.Duration(req.LongPollJitter),
-	}
-	job, err := c2.StartHTTPListenerJob(conf)
+	err := PortInUse(req.Port)
 	if err != nil {
 		return nil, err
 	}
 
-	if req.Persistent {
-		cfg := &configs.HTTPJobConfig{
-			Domain:          req.Domain,
-			Host:            req.Host,
-			Port:            listenPort,
-			Secure:          false,
-			Website:         req.Website,
-			LongPollTimeout: req.LongPollTimeout,
-			LongPollJitter:  req.LongPollJitter,
-		}
-		configs.GetServerConfig().AddHTTPJob(cfg)
-		job.PersistentID = cfg.JobID
+	job, err := c2.StartHTTPListenerJob(req)
+	if err != nil {
+		return nil, err
 	}
 
-	return &clientpb.HTTPListener{JobID: uint32(job.ID)}, nil
+	listenerJob := &clientpb.ListenerJob{
+		JobID:    uint32(job.ID),
+		Type:     constants.HttpStr,
+		HTTPConf: req,
+	}
+	err = db.SaveHTTPC2Listener(listenerJob)
+	if err != nil {
+		return nil, err
+	}
+
+	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
+}
+
+func PortInUse(newPort uint32) error {
+	listenerJobs, err := db.ListenerJobs()
+	if err != nil {
+		return err
+	}
+	var port uint32
+	for _, job := range listenerJobs {
+		listener, err := db.ListenerByJobID(job.JobID)
+		if err != nil {
+			return err
+		}
+		switch job.Type {
+		case "http":
+			port = listener.HTTPConf.Port
+		case "https":
+			port = listener.HTTPConf.Port
+		case "mtls":
+			port = listener.MTLSConf.Port
+		case "dns":
+			port = listener.DNSConf.Port
+		case "wg":
+			port = listener.WGConf.Port
+		case "multiplayer":
+			port = listener.MultiConf.Port
+		}
+
+		if port == newPort {
+			return errors.New(fmt.Sprintf("port %d is in use", port))
+		}
+	}
+	return nil
 }

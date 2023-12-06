@@ -160,7 +160,8 @@ func printGrep(grep *sliverpb.Grep, searchPattern string, searchPath string, cmd
 	currentDateTime := time.Now().Format("2006-01-02_150405")
 	if !cmd.Flags().Changed("lootName") {
 		// If the loot name has not been specified by the operator, generate one
-		lootName = fmt.Sprintf("grep from %s on %s (%s)", searchPath, con.GetActiveSessionConfig().Name, currentDateTime)
+		con.GetActiveSessionConfig()
+		lootName = fmt.Sprintf("grep from %s on %s (%s)", searchPath, con.GetActiveSessionConfig().ID, currentDateTime)
 	}
 	if grep.Response != nil && grep.Response.Err != "" {
 		con.PrintErrorf("%s\n", grep.Response.Err)
@@ -207,7 +208,7 @@ func printGrep(grep *sliverpb.Grep, searchPattern string, searchPath string, cmd
 		// Do not allow escape sequences in the output when looting
 		grepResultsForLoot, numberOfResults, binaryFilesMatched := printGrepResults(grep.Results, false, false)
 
-		lootFileName := fmt.Sprintf("grep_%s_%s.txt", con.GetActiveSessionConfig().Name, currentDateTime)
+		lootFileName := fmt.Sprintf("grep_%s_%s.txt", con.GetActiveSessionConfig().ID, currentDateTime)
 		flags := []string{}
 		if recursive, _ := cmd.Flags().GetBool("recursive"); recursive {
 			flags = append(flags, "recursive")

@@ -53,11 +53,11 @@ var knownSecurityTools = map[string][]string{
 	"MsMpEng.exe":                     {console.Red, "Windows Defender"},             // Windows Defender (Service Executable)
 	"NisSrv.exe":                      {console.Red, "Windows Defender"},             // Windows Defender (Network Realtime Inspection)
 	"SenseIR.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Live Response Session)
-	"SenseNdr.exe":                    {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Network Detection and Response)	
-	"SenseSC.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Screenshot Capture Module)	
-	"SenseCE.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Classification Engine Module)	
-	"SenseCM.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Configuration Management Module)	
-	"SenseSampleUploader.exe":         {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Sample Uploader Module)	
+	"SenseNdr.exe":                    {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Network Detection and Response)
+	"SenseSC.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Screenshot Capture Module)
+	"SenseCE.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Classification Engine Module)
+	"SenseCM.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Configuration Management Module)
+	"SenseSampleUploader.exe":         {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Sample Uploader Module)
 	"SenseCncProxy.exe":               {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Communication Module)
 	"MsSense.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Service Executable)
 	"CSFalconService.exe":             {console.Red, "CrowdStrike"},                  // Crowdstrike Falcon Service
@@ -212,11 +212,15 @@ func PrintPS(os string, ps *sliverpb.Ps, interactive bool, flags *pflag.FlagSet,
 }
 
 func findKnownSecurityProducts(ps *sliverpb.Ps) []string {
-	products := []string{}
+	uniqProducts := map[string]string{}
 	for _, proc := range ps.Processes {
 		if secTool, ok := knownSecurityTools[proc.Executable]; ok {
-			products = append(products, secTool[1])
+			uniqProducts[secTool[1]] = secTool[0]
 		}
+	}
+	products := make([]string, 0, len(uniqProducts))
+	for name := range uniqProducts {
+		products = append(products, name)
 	}
 	return products
 }

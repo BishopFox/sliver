@@ -7,6 +7,7 @@ package libc // import "modernc.org/libc"
 import (
 	"os"
 	"strings"
+	gotime "time"
 	"unicode"
 	"unsafe"
 
@@ -14,8 +15,14 @@ import (
 	"modernc.org/libc/errno"
 	"modernc.org/libc/fcntl"
 	"modernc.org/libc/signal"
+	"modernc.org/libc/stdio"
 	"modernc.org/libc/sys/types"
+	"modernc.org/libc/time"
 	"modernc.org/libc/wctype"
+)
+
+var (
+	startTime = gotime.Now() // For clock(3)
 )
 
 // int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
@@ -464,4 +471,189 @@ func Xiswspace(t *TLS, wc wctype.Wint_t) int32 {
 // int iswalnum(wint_t wc);
 func Xiswalnum(t *TLS, wc wctype.Wint_t) int32 {
 	return Bool32(unicode.IsLetter(rune(wc)) || unicode.IsNumber(rune(wc)))
+}
+
+// int setrlimit(int resource, const struct rlimit *rlim);
+func Xsetrlimit64(t *TLS, resource int32, rlim uintptr) int32 {
+	if _, _, err := unix.Syscall(unix.SYS_SETRLIMIT, uintptr(resource), uintptr(rlim), 0); err != 0 {
+		t.setErrno(err)
+		return -1
+	}
+
+	return 0
+}
+
+func AtomicLoadPInt8(addr uintptr) (val int8) {
+	return int8(a_load_8(addr))
+}
+
+func AtomicLoadPInt16(addr uintptr) (val int16) {
+	return int16(a_load_16(addr))
+}
+
+func AtomicLoadPUint8(addr uintptr) byte {
+	return byte(a_load_8(addr))
+}
+
+func AtomicLoadPUint16(addr uintptr) uint16 {
+	return uint16(a_load_16(addr))
+}
+
+func AtomicLoadNUint8(ptr uintptr, memorder int32) uint8 {
+	return byte(a_load_8(ptr))
+}
+
+var _table1 = [384]int32{
+	129: int32(1),
+	130: int32(2),
+	131: int32(3),
+	132: int32(4),
+	133: int32(5),
+	134: int32(6),
+	135: int32(7),
+	136: int32(8),
+	137: int32(9),
+	138: int32(10),
+	139: int32(11),
+	140: int32(12),
+	141: int32(13),
+	142: int32(14),
+	143: int32(15),
+	144: int32(16),
+	145: int32(17),
+	146: int32(18),
+	147: int32(19),
+	148: int32(20),
+	149: int32(21),
+	150: int32(22),
+	151: int32(23),
+	152: int32(24),
+	153: int32(25),
+	154: int32(26),
+	155: int32(27),
+	156: int32(28),
+	157: int32(29),
+	158: int32(30),
+	159: int32(31),
+	160: int32(32),
+	161: int32(33),
+	162: int32(34),
+	163: int32(35),
+	164: int32(36),
+	165: int32(37),
+	166: int32(38),
+	167: int32(39),
+	168: int32(40),
+	169: int32(41),
+	170: int32(42),
+	171: int32(43),
+	172: int32(44),
+	173: int32(45),
+	174: int32(46),
+	175: int32(47),
+	176: int32(48),
+	177: int32(49),
+	178: int32(50),
+	179: int32(51),
+	180: int32(52),
+	181: int32(53),
+	182: int32(54),
+	183: int32(55),
+	184: int32(56),
+	185: int32(57),
+	186: int32(58),
+	187: int32(59),
+	188: int32(60),
+	189: int32(61),
+	190: int32(62),
+	191: int32(63),
+	192: int32(64),
+	193: int32('a'),
+	194: int32('b'),
+	195: int32('c'),
+	196: int32('d'),
+	197: int32('e'),
+	198: int32('f'),
+	199: int32('g'),
+	200: int32('h'),
+	201: int32('i'),
+	202: int32('j'),
+	203: int32('k'),
+	204: int32('l'),
+	205: int32('m'),
+	206: int32('n'),
+	207: int32('o'),
+	208: int32('p'),
+	209: int32('q'),
+	210: int32('r'),
+	211: int32('s'),
+	212: int32('t'),
+	213: int32('u'),
+	214: int32('v'),
+	215: int32('w'),
+	216: int32('x'),
+	217: int32('y'),
+	218: int32('z'),
+	219: int32(91),
+	220: int32(92),
+	221: int32(93),
+	222: int32(94),
+	223: int32(95),
+	224: int32(96),
+	225: int32('a'),
+	226: int32('b'),
+	227: int32('c'),
+	228: int32('d'),
+	229: int32('e'),
+	230: int32('f'),
+	231: int32('g'),
+	232: int32('h'),
+	233: int32('i'),
+	234: int32('j'),
+	235: int32('k'),
+	236: int32('l'),
+	237: int32('m'),
+	238: int32('n'),
+	239: int32('o'),
+	240: int32('p'),
+	241: int32('q'),
+	242: int32('r'),
+	243: int32('s'),
+	244: int32('t'),
+	245: int32('u'),
+	246: int32('v'),
+	247: int32('w'),
+	248: int32('x'),
+	249: int32('y'),
+	250: int32('z'),
+	251: int32(123),
+	252: int32(124),
+	253: int32(125),
+	254: int32(126),
+	255: int32(127),
+}
+
+var _ptable1 = uintptr(unsafe.Pointer(&_table1)) + uintptr(128)*4
+
+func X__ctype_tolower_loc(tls *TLS) (r uintptr) {
+	return uintptr(unsafe.Pointer(&_ptable1))
+}
+
+type Tin6_addr = struct {
+	F__in6_union struct {
+		F__s6_addr16 [0][8]uint16
+		F__s6_addr32 [0][4]uint32
+		F__s6_addr   [16]uint8
+	}
+}
+
+var Xin6addr_any = Tin6_addr{}
+
+func Xrewinddir(tls *TLS, f uintptr) {
+	Xfseek(tls, f, 0, stdio.SEEK_SET)
+}
+
+// clock_t clock(void);
+func Xclock(t *TLS) time.Clock_t {
+	return time.Clock_t(gotime.Since(startTime) * gotime.Duration(time.CLOCKS_PER_SEC) / gotime.Second)
 }

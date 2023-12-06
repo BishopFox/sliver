@@ -679,6 +679,26 @@ func (lc *LocalClient) CheckIPForwarding(ctx context.Context) error {
 	return nil
 }
 
+// CheckUDPGROForwarding asks the local Tailscale daemon whether it looks like
+// the machine is optimally configured to forward UDP packets as a subnet router
+// or exit node.
+func (lc *LocalClient) CheckUDPGROForwarding(ctx context.Context) error {
+	body, err := lc.get200(ctx, "/localapi/v0/check-udp-gro-forwarding")
+	if err != nil {
+		return err
+	}
+	var jres struct {
+		Warning string
+	}
+	if err := json.Unmarshal(body, &jres); err != nil {
+		return fmt.Errorf("invalid JSON from check-udp-gro-forwarding: %w", err)
+	}
+	if jres.Warning != "" {
+		return errors.New(jres.Warning)
+	}
+	return nil
+}
+
 // CheckPrefs validates the provided preferences, without making any changes.
 //
 // The CLI uses this before a Start call to fail fast if the preferences won't
@@ -1242,6 +1262,22 @@ func (lc *LocalClient) ProfileStatus(ctx context.Context) (current ipn.LoginProf
 	}
 	all, err = decodeJSON[[]ipn.LoginProfile](body)
 	return current, all, err
+}
+
+// ReloadConfig reloads the config file, if possible.
+func (lc *LocalClient) ReloadConfig(ctx context.Context) (ok bool, err error) {
+	body, err := lc.send(ctx, "POST", "/localapi/v0/reload-config", 200, nil)
+	if err != nil {
+		return
+	}
+	res, err := decodeJSON[apitype.ReloadConfigResponse](body)
+	if err != nil {
+		return
+	}
+	if res.Err != "" {
+		return false, errors.New(res.Err)
+	}
+	return res.Reloaded, nil
 }
 
 // SwitchToEmptyProfile creates and switches to a new unnamed profile. The new

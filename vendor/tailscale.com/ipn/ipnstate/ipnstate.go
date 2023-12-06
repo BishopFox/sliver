@@ -22,6 +22,7 @@ import (
 	"tailscale.com/types/ptr"
 	"tailscale.com/types/views"
 	"tailscale.com/util/dnsname"
+	"tailscale.com/version"
 )
 
 //go:generate go run tailscale.com/cmd/cloner  -clonefunc=false -type=TKAFilteredPeer
@@ -297,6 +298,11 @@ type PeerStatus struct {
 // HasCap reports whether ps has the given capability.
 func (ps *PeerStatus) HasCap(cap tailcfg.NodeCapability) bool {
 	return ps.CapMap.Contains(cap) || slices.Contains(ps.Capabilities, cap)
+}
+
+// IsTagged reports whether ps is tagged.
+func (ps *PeerStatus) IsTagged() bool {
+	return ps.Tags != nil && ps.Tags.Len() > 0
 }
 
 // StatusBuilder is a request to construct a Status. A new StatusBuilder is
@@ -704,4 +710,26 @@ type DebugDERPRegionReport struct {
 	Info     []string
 	Warnings []string
 	Errors   []string
+}
+
+type SelfUpdateStatus string
+
+const (
+	UpdateFinished   SelfUpdateStatus = "UpdateFinished"
+	UpdateInProgress SelfUpdateStatus = "UpdateInProgress"
+	UpdateFailed     SelfUpdateStatus = "UpdateFailed"
+)
+
+type UpdateProgress struct {
+	Status  SelfUpdateStatus `json:"status,omitempty"`
+	Message string           `json:"message,omitempty"`
+	Version string           `json:"version,omitempty"`
+}
+
+func NewUpdateProgress(ps SelfUpdateStatus, msg string) UpdateProgress {
+	return UpdateProgress{
+		Status:  ps,
+		Message: msg,
+		Version: version.Short(),
+	}
 }

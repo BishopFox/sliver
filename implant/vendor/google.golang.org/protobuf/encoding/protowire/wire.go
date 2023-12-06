@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // Package protowire parses and formats the raw wire encoding.
-// See https://developers.google.com/protocol-buffers/docs/encoding.
+// See https://protobuf.dev/programming-guides/encoding.
 //
 // For marshaling and unmarshaling entire protobuf messages,
 // use the "google.golang.org/protobuf/proto" package instead.

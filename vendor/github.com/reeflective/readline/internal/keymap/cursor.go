@@ -1,6 +1,9 @@
 package keymap
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // CursorStyle is the style of the cursor
 // in a given input mode/submode.
@@ -46,18 +49,25 @@ var defaultCursors = map[Mode]CursorStyle{
 
 // PrintCursor prints the cursor for the given keymap mode,
 // either default value or the one specified in inputrc file.
+// TODO: I've been quite vicious here, I need to admit: the logic
+// is not made to use the default user cursor in insert-mode.
+// It didn't bother. And if that can help some getting to use
+// .inputrc, so be it.
 func (m *Engine) PrintCursor(keymap Mode) {
 	var cursor CursorStyle
 
 	// Check for a configured cursor in .inputrc file.
-	modeSet := m.config.GetString(string(keymap))
-	if modeSet != "" {
-		cursor = defaultCursors[Mode(modeSet)]
+	cursorOptname := fmt.Sprintf("cursor-%s", string(keymap))
+	modeSet := strings.TrimSpace(m.config.GetString(cursorOptname))
+
+	if _, valid := cursors[CursorStyle(modeSet)]; valid {
+		fmt.Print(cursors[CursorStyle(modeSet)])
+		return
 	}
 
-	// If the configured one was invalid, use default one.
-	if cursor == "" {
-		cursor = defaultCursors[keymap]
+	if cursor, valid := defaultCursors[keymap]; valid {
+		fmt.Print(cursors[cursor])
+		return
 	}
 
 	fmt.Print(cursors[cursor])

@@ -61,14 +61,9 @@ def docker_rm_all():
 
 
 def build():
-    status = exec_cmd("docker build -t sliver .")
+    status = exec_cmd("docker build --target test .")
     if status == 0:
-        print(
-            INFO
-            + "Build successful, start with %sdocker run -it sliver:latest%s"
-            % (BOLD, NORM)
-        )
-        print(INFO + "Remember you'll need to manually forward network ports")
+        print("\n\n" + INFO + "Build successful")
 
 
 def main(args):

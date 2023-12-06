@@ -1,4 +1,4 @@
-//go:build !linux || android
+//go:build !(linux && !android)
 
 /* SPDX-License-Identifier: MIT
  *
@@ -6,6 +6,20 @@
  */
 
 package conn
+
+import "net/netip"
+
+func (e *StdNetEndpoint) SrcIP() netip.Addr {
+	return netip.Addr{}
+}
+
+func (e *StdNetEndpoint) SrcIfidx() int32 {
+	return 0
+}
+
+func (e *StdNetEndpoint) SrcToString() string {
+	return ""
+}
 
 // TODO: macOS, FreeBSD and other BSDs likely do support the sticky sockets
 // ({get,set}srcControl feature set, but use alternatively named flags and need

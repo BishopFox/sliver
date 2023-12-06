@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
@@ -19,7 +19,7 @@ var (
 	watchtowerLog = log.NamedLogger("watchtower", "samples")
 )
 
-func update(implantBuild *models.ImplantBuild) {
+func update(implantBuild *clientpb.ImplantBuild) {
 	if watcher != nil && initialized {
 		watchtowerLog.Debugf("Monitoring implant %s (%s)", implantBuild.Name, implantBuild.MD5)
 		watcher.Add(implantBuild.Name, implantBuild.MD5)
@@ -31,7 +31,7 @@ func handleBurnedImplant(result *snitch.ScanResult) {
 	build, err := db.ImplantBuildByName(result.Sample.Name())
 	if build != nil && err == nil {
 		build.Burned = true
-		db.Session().Save(build)
+		db.SaveImplantBuild(build)
 	}
 	for _, session := range core.Sessions.All() {
 		// Won't work for sessions that have been renamed
@@ -50,7 +50,11 @@ func addExistingImplants() error {
 	if err != nil {
 		return err
 	}
-	for _, build := range builds {
+	for name, _ := range builds.Configs {
+		build, err := db.ImplantBuildByName(name)
+		if err != nil {
+			return err
+		}
 		if !build.Burned {
 			update(build)
 		}
@@ -58,20 +62,25 @@ func addExistingImplants() error {
 	return nil
 }
 
-func StartWatchTower(config *configs.ServerConfig) error {
+func StartWatchTower(configs *clientpb.MonitoringProviders) error {
 	var scanners []snitch.Scanner
 	if watcher != nil {
 		return errors.New("monitoring already started")
 	}
-	if config.Watchtower == nil {
-		return errors.New("no provider info")
+	if len(configs.Providers) == 0 {
+		return errors.New("missing provider credentials")
 	}
-	if config.Watchtower.VTApiKey != "" {
-		scanners = append(scanners, snitch.NewVTScanner(config.Watchtower.VTApiKey, snitch.VTMaxRequests, "Virus Total"))
+
+	for _, config := range configs.Providers {
+		if config.Type == "vt" {
+			scanners = append(scanners, snitch.NewVTScanner(config.APIKey, snitch.VTMaxRequests, "Virus Total"))
+		}
+		if config.Type == "xforce" {
+			scanners = append(scanners, snitch.NewXForceScanner(config.APIKey, config.APIPassword, snitch.XForceMaxRequests, "IBM X-Force"))
+		}
+
 	}
-	if config.Watchtower.XForceApiKey != "" && config.Watchtower.XForceApiPassword != "" {
-		scanners = append(scanners, snitch.NewXForceScanner(config.Watchtower.XForceApiKey, config.Watchtower.XForceApiPassword, snitch.XForceMaxRequests, "IBM X-Force"))
-	}
+
 	if len(scanners) == 0 {
 		return errors.New("missing provider credentials")
 	}
@@ -90,7 +99,7 @@ func StartWatchTower(config *configs.ServerConfig) error {
 	return nil
 }
 
-func AddImplantToWatchlist(implant *models.ImplantBuild) {
+func AddImplantToWatchlist(implant *clientpb.ImplantBuild) {
 	update(implant)
 }
 
@@ -100,4 +109,26 @@ func StopWatchTower() {
 	}
 	initialized = false
 	watcher = nil
+}
+
+func ListConfig() (*clientpb.MonitoringProviders, error) {
+	providers, err := db.WatchTowerConfigs()
+	res := clientpb.MonitoringProviders{}
+	for _, provider := range providers {
+		res.Providers = append(res.Providers, provider)
+	}
+	return &res, err
+}
+
+func AddConfig(m *clientpb.MonitoringProvider) error {
+
+	provider := models.MonitorFromProtobuf(m)
+	err := db.SaveWatchTowerConfig(provider.ToProtobuf())
+	return err
+}
+
+func DelConfig(m *clientpb.MonitoringProvider) error {
+	provider := models.MonitorFromProtobuf(m)
+	err := db.WatchTowerConfigDel(provider.ToProtobuf())
+	return err
 }

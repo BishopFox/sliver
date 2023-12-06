@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"gvisor.dev/gvisor/pkg/atomicbitops"
-	"gvisor.dev/gvisor/pkg/bufferv2"
+	"gvisor.dev/gvisor/pkg/buffer"
 	"gvisor.dev/gvisor/pkg/sleep"
 	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
@@ -75,6 +75,17 @@ const (
 	// SegOverheadFactor is used to multiply the value provided by the
 	// user on a SetSockOpt for setting the socket send/receive buffer sizes.
 	SegOverheadFactor = 2
+)
+
+type connDirectionState uint32
+
+// Connection direction states used for directionState checks in endpoint struct
+// to detect half-closed connection and deliver POLLRDHUP
+const (
+	connDirectionStateOpen      connDirectionState = 0
+	connDirectionStateRcvClosed connDirectionState = 1
+	connDirectionStateSndClosed connDirectionState = 2
+	connDirectionStateAll       connDirectionState = connDirectionStateOpen | connDirectionStateRcvClosed | connDirectionStateSndClosed
 )
 
 // connected returns true when s is one of the states representing an
@@ -398,6 +409,10 @@ type endpoint struct {
 	// state must be read/set using the EndpointState()/setEndpointState()
 	// methods.
 	state atomicbitops.Uint32 `state:".(EndpointState)"`
+
+	// connectionDirectionState holds current state of send and receive,
+	// accessed atomically
+	connectionDirectionState atomicbitops.Uint32
 
 	// origEndpointState is only used during a restore phase to save the
 	// endpoint state at restore time as the socket is moved to it's correct
@@ -940,6 +955,9 @@ func (e *endpoint) Readiness(mask waiter.EventMask) waiter.EventMask {
 			if e.sndQueueInfo.SndClosed || e.sndQueueInfo.SndBufUsed < sndBufSize {
 				result |= waiter.WritableEvents
 			}
+			if e.sndQueueInfo.SndClosed {
+				e.updateConnDirectionState(connDirectionStateSndClosed)
+			}
 			e.sndQueueInfo.sndQueueMu.Unlock()
 		}
 
@@ -949,8 +967,16 @@ func (e *endpoint) Readiness(mask waiter.EventMask) waiter.EventMask {
 			if e.RcvBufUsed > 0 || e.RcvClosed {
 				result |= waiter.ReadableEvents
 			}
+			if e.RcvClosed {
+				e.updateConnDirectionState(connDirectionStateRcvClosed)
+			}
 			e.rcvQueueMu.Unlock()
 		}
+	}
+
+	// Determine whether endpoint is half-closed with rcv shutdown
+	if e.connDirectionState() == connDirectionStateRcvClosed {
+		result |= waiter.EventRdHUp
 	}
 
 	return result
@@ -1527,7 +1553,7 @@ func (e *endpoint) isEndpointWritableLocked() (int, tcpip.Error) {
 // readFromPayloader reads a slice from the Payloader.
 // +checklocks:e.mu
 // +checklocks:e.sndQueueInfo.sndQueueMu
-func (e *endpoint) readFromPayloader(p tcpip.Payloader, opts tcpip.WriteOptions, avail int) (bufferv2.Buffer, tcpip.Error) {
+func (e *endpoint) readFromPayloader(p tcpip.Payloader, opts tcpip.WriteOptions, avail int) (buffer.Buffer, tcpip.Error) {
 	// We can release locks while copying data.
 	//
 	// This is not possible if atomic is set, because we can't allow the
@@ -1542,7 +1568,7 @@ func (e *endpoint) readFromPayloader(p tcpip.Payloader, opts tcpip.WriteOptions,
 	}
 
 	// Fetch data.
-	var payload bufferv2.Buffer
+	var payload buffer.Buffer
 	if l := p.Len(); l < avail {
 		avail = l
 	}
@@ -1551,7 +1577,7 @@ func (e *endpoint) readFromPayloader(p tcpip.Payloader, opts tcpip.WriteOptions,
 	}
 	if _, err := payload.WriteFromReader(p, int64(avail)); err != nil {
 		payload.Release()
-		return bufferv2.Buffer{}, &tcpip.ErrBadBuffer{}
+		return buffer.Buffer{}, &tcpip.ErrBadBuffer{}
 	}
 	return payload, nil
 }
@@ -1600,7 +1626,6 @@ func (e *endpoint) queueSegment(p tcpip.Payloader, opts tcpip.WriteOptions) (*se
 	size := int(buf.Size())
 	s := newOutgoingSegment(e.TransportEndpointInfo.ID, e.stack.Clock(), buf)
 	e.sndQueueInfo.SndBufUsed += size
-	s.IncRef()
 	e.snd.writeList.PushBack(s)
 
 	return s, size, nil
@@ -1618,9 +1643,6 @@ func (e *endpoint) Write(p tcpip.Payloader, opts tcpip.WriteOptions) (int64, tcp
 	// Return if either we didn't queue anything or if an error occurred while
 	// attempting to queue data.
 	nextSeg, n, err := e.queueSegment(p, opts)
-	if nextSeg != nil {
-		defer nextSeg.DecRef()
-	}
 	if n == 0 || err != nil {
 		return 0, err
 	}
@@ -2037,11 +2059,16 @@ func (e *endpoint) GetSockOptInt(opt tcpip.SockOptInt) (int, tcpip.Error) {
 		return v, nil
 
 	case tcpip.MaxSegOption:
-		// This is just stubbed out. Linux never returns the user_mss
-		// value as it either returns the defaultMSS or returns the
-		// actual current MSS. Netstack just returns the defaultMSS
-		// always for now.
+		// Linux only returns user_mss value if user_mss is set and the socket is
+		// unconnected. Otherwise Linux returns the actual current MSS. Netstack
+		// mimics the user_mss behavior, but otherwise just returns the defaultMSS
+		// for now.
 		v := header.TCPDefaultMSS
+		e.LockUser()
+		if state := e.EndpointState(); e.userMSS > 0 && (state.internal() || state == StateClose || state == StateListen) {
+			v = int(e.userMSS)
+		}
+		e.UnlockUser()
 		return v, nil
 
 	case tcpip.MTUDiscoverOption:
@@ -2226,8 +2253,8 @@ func (e *endpoint) registerEndpoint(addr tcpip.FullAddress, netProto tcpip.Netwo
 
 		h := jenkins.Sum32(e.protocol.portOffsetSecret)
 		for _, s := range [][]byte{
-			[]byte(e.ID.LocalAddress),
-			[]byte(e.ID.RemoteAddress),
+			e.ID.LocalAddress.AsSlice(),
+			e.ID.RemoteAddress.AsSlice(),
 			portBuf,
 		} {
 			// Per io.Writer.Write:
@@ -2425,6 +2452,9 @@ func (e *endpoint) connect(addr tcpip.FullAddress, handshake bool) tcpip.Error {
 	e.setEndpointState(StateConnecting)
 	if err := e.registerEndpoint(addr, netProto, r.NICID()); err != nil {
 		e.setEndpointState(oldState)
+		if _, ok := err.(*tcpip.ErrPortInUse); ok {
+			return &tcpip.ErrBadLocalAddress{}
+		}
 		return err
 	}
 
@@ -2510,7 +2540,13 @@ func (e *endpoint) shutdownLocked(flags tcpip.ShutdownFlags) tcpip.Error {
 			}
 			// Wake up any readers that maybe waiting for the stream to become
 			// readable.
-			e.waiterQueue.Notify(waiter.ReadableEvents)
+			events := waiter.ReadableEvents
+			if e.shutdownFlags&tcpip.ShutdownWrite == 0 {
+				// If ShutdownWrite is not set, write end won't close and
+				// we end up with a half-closed connection
+				events |= waiter.EventRdHUp
+			}
+			e.waiterQueue.Notify(events)
 		}
 
 		// Close for write.
@@ -2526,7 +2562,7 @@ func (e *endpoint) shutdownLocked(flags tcpip.ShutdownFlags) tcpip.Error {
 			}
 
 			// Queue fin segment.
-			s := newOutgoingSegment(e.TransportEndpointInfo.ID, e.stack.Clock(), bufferv2.Buffer{})
+			s := newOutgoingSegment(e.TransportEndpointInfo.ID, e.stack.Clock(), buffer.Buffer{})
 			e.snd.writeList.PushBack(s)
 			// Mark endpoint as closed.
 			e.sndQueueInfo.SndClosed = true
@@ -2568,14 +2604,14 @@ func (e *endpoint) shutdownLocked(flags tcpip.ShutdownFlags) tcpip.Error {
 // Listen puts the endpoint in "listen" mode, which allows it to accept
 // new connections.
 func (e *endpoint) Listen(backlog int) tcpip.Error {
-	err := e.listen(backlog)
-	if err != nil {
+	if err := e.listen(backlog); err != nil {
 		if !err.IgnoreStats() {
 			e.stack.Stats().TCP.FailedConnectionAttempts.Increment()
 			e.stats.FailedConnectionAttempts.Increment()
 		}
+		return err
 	}
-	return err
+	return nil
 }
 
 func (e *endpoint) listen(backlog int) tcpip.Error {
@@ -2598,6 +2634,7 @@ func (e *endpoint) listen(backlog int) tcpip.Error {
 		}
 
 		e.shutdownFlags = 0
+		e.updateConnDirectionState(connDirectionStateOpen)
 		e.rcvQueueMu.Lock()
 		e.RcvClosed = false
 		e.rcvQueueMu.Unlock()
@@ -2714,7 +2751,7 @@ func (e *endpoint) bindLocked(addr tcpip.FullAddress) (err tcpip.Error) {
 	// v6only set to false.
 	if netProto == header.IPv6ProtocolNumber {
 		stackHasV4 := e.stack.CheckNetworkProtocol(header.IPv4ProtocolNumber)
-		alsoBindToV4 := !e.ops.GetV6Only() && addr.Addr == "" && stackHasV4
+		alsoBindToV4 := !e.ops.GetV6Only() && addr.Addr == tcpip.Address{} && stackHasV4
 		if alsoBindToV4 {
 			netProtos = append(netProtos, header.IPv4ProtocolNumber)
 		}
@@ -2723,7 +2760,7 @@ func (e *endpoint) bindLocked(addr tcpip.FullAddress) (err tcpip.Error) {
 	var nic tcpip.NICID
 	// If an address is specified, we must ensure that it's one of our
 	// local addresses.
-	if len(addr.Addr) != 0 {
+	if addr.Addr.Len() != 0 {
 		nic = e.stack.CheckLocalAddress(addr.NIC, netProto, addr.Addr)
 		if nic == 0 {
 			return &tcpip.ErrBadLocalAddress{}
@@ -3018,6 +3055,16 @@ func (e *endpoint) maxReceiveBufferSize() int {
 		return MaxBufferSize
 	}
 	return rs.Max
+}
+
+// directionState returns the close state of send and receive part of the endpoint
+func (e *endpoint) connDirectionState() connDirectionState {
+	return connDirectionState(e.connectionDirectionState.Load())
+}
+
+// updateDirectionState updates the close state of send and receive part of the endpoint
+func (e *endpoint) updateConnDirectionState(state connDirectionState) connDirectionState {
+	return connDirectionState(e.connectionDirectionState.Swap(uint32(e.connDirectionState() | state)))
 }
 
 // rcvWndScaleForHandshake computes the receive window scale to offer to the

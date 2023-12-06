@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-.PHONY:	all bench build_all_targets clean cover cpu editor internalError later mem nuke todo edit devbench \
+.PHONY:	all bench build_all_targets clean cover cpu editor internalError later mem nuke todo edit work devbench \
 	darwin_amd64 \
 	darwin_arm64 \
 	linux_386 \
@@ -164,7 +164,7 @@ cpu: clean
 
 edit:
 	@touch log
-	@if [ -f "Session.vim" ]; then gvim -S & else gvim -p Makefile *.go & fi
+	@if [ -f "Session.vim" ]; then novim -S & else novim -p Makefile libc.go & fi
 
 editor:
 	# go generate 2>&1 | tee log
@@ -189,3 +189,11 @@ todo:
 	@grep -nr $(grep) BUG * | grep -v $(ngrep) || true
 	@grep -nr $(grep) [^[:alpha:]]println * | grep -v $(ngrep) || true
 	@grep -nir $(grep) 'work.*progress' || true
+
+work:
+	rm -f go.work*
+	go work init
+	go work use .
+	go work use ../ccgo/v4
+	go work use ../ccgo/v3
+	go work use ../cc/v4

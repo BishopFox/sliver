@@ -70,7 +70,7 @@ var (
 		pb.MsgDeregisterWasmExtensionReq: deregisterWasmExtensionHandler,
 		pb.MsgListWasmExtensionsReq:      listWasmExtensionsHandler,
 
-		// {{if .Config.WGc2Enabled}}
+		// {{if .Config.IncludeWG}}
 		// Wireguard specific
 		pb.MsgWGStartPortFwdReq:   wgStartPortfwdHandler,
 		pb.MsgWGStopPortFwdReq:    wgStopPortfwdHandler,

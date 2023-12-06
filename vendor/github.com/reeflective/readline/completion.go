@@ -174,7 +174,7 @@ func (rl *Shell) viRegistersComplete() {
 	rl.startMenuComplete(rl.Buffers.Complete)
 }
 
-// In a menu completion (wether a candidate is selected or not), start incremental-search
+// In a menu completion (whether a candidate is selected or not), start incremental-search
 // (fuzzy search) on the results. Search backward incrementally for a specified string.
 // The search is case-insensitive if the search string does not have uppercase letters
 // and no numeric argument was given. The string may begin with ‘^’ to anchor the search

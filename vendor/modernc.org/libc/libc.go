@@ -40,6 +40,10 @@ import (
 	"modernc.org/mathutil"
 )
 
+const (
+	ENOENT = errno.ENOENT
+)
+
 type (
 	// RawMem64 represents the biggest uint64 array the runtime can handle.
 	RawMem64 [unsafe.Sizeof(RawMem{}) / unsafe.Sizeof(uint64(0))]uint64
@@ -409,13 +413,6 @@ func X__builtin_object_size(t *TLS, p uintptr, typ int32) types.Size_t {
 
 var atomicLoadStore16 sync.Mutex
 
-func AtomicLoadNUint16(ptr uintptr, memorder int32) uint16 {
-	atomicLoadStore16.Lock()
-	r := *(*uint16)(unsafe.Pointer(ptr))
-	atomicLoadStore16.Unlock()
-	return r
-}
-
 func AtomicStoreNUint16(ptr uintptr, val uint16, memorder int32) {
 	atomicLoadStore16.Lock()
 	*(*uint16)(unsafe.Pointer(ptr)) = val
@@ -470,6 +467,10 @@ func Xvsprintf(t *TLS, str, format, va uintptr) int32 {
 // int vsnprintf(char *str, size_t size, const char *format, va_list ap);
 func Xvsnprintf(t *TLS, str uintptr, size types.Size_t, format, va uintptr) int32 {
 	return Xsnprintf(t, str, size, format, va)
+}
+
+func X__builtin_vsnprintf(t *TLS, str uintptr, size types.Size_t, format, va uintptr) int32 {
+	return Xvsnprintf(t, str, size, format, va)
 }
 
 // int obstack_vprintf (struct obstack *obstack, const char *template, va_list ap)
@@ -613,6 +614,7 @@ func Xlog(t *TLS, x float64) float64              { return math.Log(x) }
 func Xlog10(t *TLS, x float64) float64            { return math.Log10(x) }
 func Xlog2(t *TLS, x float64) float64             { return math.Log2(x) }
 func Xround(t *TLS, x float64) float64            { return math.Round(x) }
+func X__builtin_round(t *TLS, x float64) float64  { return math.Round(x) }
 func Xsin(t *TLS, x float64) float64              { return math.Sin(x) }
 func Xsinf(t *TLS, x float32) float32             { return float32(math.Sin(float64(x))) }
 func Xsinh(t *TLS, x float64) float64             { return math.Sinh(x) }
@@ -918,6 +920,7 @@ func Xputc(t *TLS, c int32, fp uintptr) int32 {
 
 // int atoi(const char *nptr);
 func Xatoi(t *TLS, nptr uintptr) int32 {
+
 	_, neg, _, n, _ := strToUint64(t, nptr, 10)
 	switch {
 	case neg:
@@ -1442,4 +1445,43 @@ func Xisascii(t *TLS, c int32) int32 {
 
 func X__builtin_isunordered(t *TLS, a, b float64) int32 {
 	return Bool32(math.IsNaN(a) || math.IsNaN(b))
+}
+
+func AtomicLoadNUint16(ptr uintptr, memorder int32) uint16 {
+	atomicLoadStore16.Lock()
+	r := *(*uint16)(unsafe.Pointer(ptr))
+	atomicLoadStore16.Unlock()
+	return r
+}
+
+func PreIncAtomicInt32P(p uintptr, d int32) int32 {
+	return atomic.AddInt32((*int32)(unsafe.Pointer(p)), d)
+}
+
+func PreIncAtomicInt64P(p uintptr, d int64) int64 {
+	return atomic.AddInt64((*int64)(unsafe.Pointer(p)), d)
+}
+
+func PreIncAtomicUint32P(p uintptr, d uint32) uint32 {
+	return atomic.AddUint32((*uint32)(unsafe.Pointer(p)), d)
+}
+
+func PreIncAtomicUint64P(p uintptr, d uint64) uint64 {
+	return atomic.AddUint64((*uint64)(unsafe.Pointer(p)), d)
+}
+
+func PreInrAtomicUintptrP(p uintptr, d uintptr) uintptr {
+	return atomic.AddUintptr((*uintptr)(unsafe.Pointer(p)), d)
+}
+
+func X__builtin_ffs(tls *TLS, i int32) (r int32) {
+	return Xffs(tls, i)
+}
+
+func Xffs(tls *TLS, i int32) (r int32) {
+	if i == 0 {
+		return 0
+	}
+
+	return int32(mbits.TrailingZeros32(uint32(i))) + 1
 }

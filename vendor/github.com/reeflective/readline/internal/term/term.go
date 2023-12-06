@@ -31,7 +31,7 @@ func GetWidth() (termWidth int) {
 	fd := int(stdoutTerm.Fd())
 	termWidth, _, err = GetSize(fd)
 
-	if err != nil {
+	if err != nil || termWidth == 0 {
 		termWidth = defaultTermWidth
 	}
 

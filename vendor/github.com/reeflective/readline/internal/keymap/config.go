@@ -12,11 +12,18 @@ import (
 
 // readline global options specific to this library.
 var readlineOptions = map[string]interface{}{
-	"autocomplete":        false,
-	"autopairs":           false,
+	// General edition
+	"autopairs": false,
+
+	// Completion
+	"autocomplete":               false,
+	"completion-list-separator":  "--",
+	"completion-selection-style": "\x1b[1;30m",
+
+	// Prompt & General UI
 	"transient-prompt":    false,
-	"history-autosuggest": false,
 	"usage-hint-always":   false,
+	"history-autosuggest": false,
 }
 
 // ReloadConfig parses all valid .inputrc configurations and immediately
@@ -79,7 +86,7 @@ func (m *Engine) loadBuiltinOptions() {
 	}
 }
 
-// loadBuiltinBinds adds additional command mappins that are not part
+// loadBuiltinBinds adds additional command mappings that are not part
 // of the standard C readline configuration: those binds therefore can
 // reference commands or keymaps only implemented/used in this library.
 func (m *Engine) loadBuiltinBinds() {
