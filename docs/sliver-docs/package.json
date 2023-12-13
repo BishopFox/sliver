@@ -9,19 +9,25 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@fontsource/fira-code": "^5.0.16",
+    "@fortawesome/free-solid-svg-icons": "^6.5.1",
+    "@fortawesome/react-fontawesome": "^0.2.0",
+    "@nextui-org/react": "^2.2.9",
+    "framer-motion": "^10.16.16",
+    "next": "14.0.4",
+    "next-themes": "^0.2.1",
     "react": "^18",
-    "react-dom": "^18",
-    "next": "14.0.4"
+    "react-dom": "^18"
   },
   "devDependencies": {
-    "typescript": "^5",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.0.1",
+    "eslint": "^8",
+    "eslint-config-next": "14.0.4",
     "postcss": "^8",
     "tailwindcss": "^3.3.0",
-    "eslint": "^8",
-    "eslint-config-next": "14.0.4"
+    "typescript": "^5"
   }
 }
