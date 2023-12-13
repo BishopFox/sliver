@@ -87,7 +87,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
-          path: ./out
+          path: ${{ github.workspace }}/docs/sliver-docs/out
 
   # Deployment job
   deploy:
