@@ -25,12 +25,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Build job
   build:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ${{ github.workspace }}/docs/sliver-docs
+    env:
+      working-directory: ${{ github.workspace }}/docs/sliver-docs
 
     steps:
       - name: Checkout
@@ -55,7 +56,7 @@ jobs:
           fi
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: "lts/*"
           cache: ${{ steps.detect-package-manager.outputs.manager }}
@@ -75,9 +76,11 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}-
 
       - name: Install dependencies
+        working-directory: ${{ env.working-directory}}
         run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
 
       - name: Build with Next.js
+        working-directory: ${{ env.working-directory}}
         run: ${{ steps.detect-package-manager.outputs.runner }} next build
 
       - name: Upload artifact
