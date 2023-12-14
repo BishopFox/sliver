@@ -9,8 +9,9 @@ const (
 
 	_UTF8 = 1
 
-	_MAX_STRING = 512 // Used for short strings: names, error messages…
-
+	_MAX_NAME            = 512 // Used for short strings: names, error messages…
+	_MAX_LENGTH          = 1e9
+	_MAX_SQL_LENGTH      = 1e9
 	_MAX_ALLOCATION_SIZE = 0x7ffffeff
 
 	ptrlen = 4
@@ -18,7 +19,7 @@ const (
 
 // ErrorCode is a result code that [Error.Code] might return.
 //
-// https://www.sqlite.org/rescode.html
+// https://sqlite.org/rescode.html
 type ErrorCode uint8
 
 const (
@@ -54,7 +55,7 @@ const (
 
 // ExtendedErrorCode is a result code that [Error.ExtendedCode] might return.
 //
-// https://www.sqlite.org/rescode.html
+// https://sqlite.org/rescode.html
 type (
 	ExtendedErrorCode uint16
 	xErrorCode        = ExtendedErrorCode
@@ -97,6 +98,7 @@ const (
 	IOERR_ROLLBACK_ATOMIC   ExtendedErrorCode = xErrorCode(IOERR) | (31 << 8)
 	IOERR_DATA              ExtendedErrorCode = xErrorCode(IOERR) | (32 << 8)
 	IOERR_CORRUPTFS         ExtendedErrorCode = xErrorCode(IOERR) | (33 << 8)
+	IOERR_IN_PAGE           ExtendedErrorCode = xErrorCode(IOERR) | (34 << 8)
 	LOCKED_SHAREDCACHE      ExtendedErrorCode = xErrorCode(LOCKED) | (1 << 8)
 	LOCKED_VTAB             ExtendedErrorCode = xErrorCode(LOCKED) | (2 << 8)
 	BUSY_RECOVERY           ExtendedErrorCode = xErrorCode(BUSY) | (1 << 8)
@@ -139,7 +141,7 @@ const (
 
 // OpenFlag is a flag for the [OpenFlags] function.
 //
-// https://www.sqlite.org/c3ref/c_open_autoproxy.html
+// https://sqlite.org/c3ref/c_open_autoproxy.html
 type OpenFlag uint32
 
 const (
@@ -158,7 +160,7 @@ const (
 
 // PrepareFlag is a flag that can be passed to [Conn.PrepareFlags].
 //
-// https://www.sqlite.org/c3ref/c_prepare_normalize.html
+// https://sqlite.org/c3ref/c_prepare_normalize.html
 type PrepareFlag uint32
 
 const (
@@ -167,9 +169,39 @@ const (
 	PREPARE_NO_VTAB    PrepareFlag = 0x04
 )
 
+// FunctionFlag is a flag that can be passed to
+// [Conn.CreateFunction] and [Conn.CreateWindowFunction].
+//
+// https://sqlite.org/c3ref/c_deterministic.html
+type FunctionFlag uint32
+
+const (
+	DETERMINISTIC FunctionFlag = 0x000000800
+	DIRECTONLY    FunctionFlag = 0x000080000
+	SUBTYPE       FunctionFlag = 0x000100000
+	INNOCUOUS     FunctionFlag = 0x000200000
+)
+
+// StmtStatus name counter values associated with the [Stmt.Status] method.
+//
+// https://sqlite.org/c3ref/c_stmtstatus_counter.html
+type StmtStatus uint32
+
+const (
+	STMTSTATUS_FULLSCAN_STEP StmtStatus = 1
+	STMTSTATUS_SORT          StmtStatus = 2
+	STMTSTATUS_AUTOINDEX     StmtStatus = 3
+	STMTSTATUS_VM_STEP       StmtStatus = 4
+	STMTSTATUS_REPREPARE     StmtStatus = 5
+	STMTSTATUS_RUN           StmtStatus = 6
+	STMTSTATUS_FILTER_MISS   StmtStatus = 7
+	STMTSTATUS_FILTER_HIT    StmtStatus = 8
+	STMTSTATUS_MEMUSED       StmtStatus = 99
+)
+
 // Datatype is a fundamental datatype of SQLite.
 //
-// https://www.sqlite.org/c3ref/c_blob.html
+// https://sqlite.org/c3ref/c_blob.html
 type Datatype uint32
 
 const (
@@ -182,18 +214,18 @@ const (
 
 // String implements the [fmt.Stringer] interface.
 func (t Datatype) String() string {
-	const name = "INTEGERFLOATTEXTBLOBNULL"
+	const name = "INTEGERFLOATEXTBLOBNULL"
 	switch t {
 	case INTEGER:
 		return name[0:7]
 	case FLOAT:
 		return name[7:12]
 	case TEXT:
-		return name[12:16]
+		return name[11:15]
 	case BLOB:
-		return name[16:20]
+		return name[15:19]
 	case NULL:
-		return name[20:24]
+		return name[19:23]
 	}
 	return strconv.FormatUint(uint64(t), 10)
 }

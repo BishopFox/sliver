@@ -1,11 +1,9 @@
-package fsapi
+package sys
 
 import (
 	"fmt"
 	"io/fs"
-	"time"
 
-	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
 	"github.com/tetratelabs/wazero/sys"
 )
 
@@ -22,7 +20,7 @@ type FileType = fs.FileMode
 //   - This extends `dirent` defined in POSIX with some fields defined by
 //     Linux. See https://man7.org/linux/man-pages/man3/readdir.3.html and
 //     https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/dirent.h.html
-//   - This has a subset of fields defined in Stat_t. Notably, there is no
+//   - This has a subset of fields defined in sys.Stat_t. Notably, there is no
 //     field corresponding to Stat_t.Dev because that value will be constant
 //     for all files in a directory. To get the Dev value, call File.Stat on
 //     the directory File.Readdir was called on.
@@ -59,51 +57,36 @@ func (DirFile) IsAppend() bool {
 }
 
 // SetAppend implements File.SetAppend
-func (DirFile) SetAppend(bool) experimentalsys.Errno {
-	return experimentalsys.EISDIR
-}
-
-// IsNonblock implements File.IsNonblock
-func (DirFile) IsNonblock() bool {
-	return false
-}
-
-// SetNonblock implements File.SetNonblock
-func (DirFile) SetNonblock(bool) experimentalsys.Errno {
-	return experimentalsys.EISDIR
+func (DirFile) SetAppend(bool) Errno {
+	return EISDIR
 }
 
 // IsDir implements File.IsDir
-func (DirFile) IsDir() (bool, experimentalsys.Errno) {
+func (DirFile) IsDir() (bool, Errno) {
 	return true, 0
 }
 
 // Read implements File.Read
-func (DirFile) Read([]byte) (int, experimentalsys.Errno) {
-	return 0, experimentalsys.EISDIR
+func (DirFile) Read([]byte) (int, Errno) {
+	return 0, EISDIR
 }
 
 // Pread implements File.Pread
-func (DirFile) Pread([]byte, int64) (int, experimentalsys.Errno) {
-	return 0, experimentalsys.EISDIR
-}
-
-// PollRead implements File.PollRead
-func (DirFile) PollRead(*time.Duration) (ready bool, errno experimentalsys.Errno) {
-	return false, experimentalsys.ENOSYS
+func (DirFile) Pread([]byte, int64) (int, Errno) {
+	return 0, EISDIR
 }
 
 // Write implements File.Write
-func (DirFile) Write([]byte) (int, experimentalsys.Errno) {
-	return 0, experimentalsys.EISDIR
+func (DirFile) Write([]byte) (int, Errno) {
+	return 0, EISDIR
 }
 
 // Pwrite implements File.Pwrite
-func (DirFile) Pwrite([]byte, int64) (int, experimentalsys.Errno) {
-	return 0, experimentalsys.EISDIR
+func (DirFile) Pwrite([]byte, int64) (int, Errno) {
+	return 0, EISDIR
 }
 
 // Truncate implements File.Truncate
-func (DirFile) Truncate(int64) experimentalsys.Errno {
-	return experimentalsys.EISDIR
+func (DirFile) Truncate(int64) Errno {
+	return EISDIR
 }
