@@ -33,6 +33,8 @@ import (
 	"github.com/bishopfox/sliver/server/command/version"
 )
 
+var permissionsFlagStr = "permissions"
+
 // TeamserverCommands is the equivalent of client/command.ServerCommands(), but for server-binary only ones.
 func TeamserverCommands(team *server.Server, con *console.SliverClient) command.SliverBinder {
 	return func(con *console.SliverClient) (cmds []*cobra.Command) {
@@ -40,6 +42,10 @@ func TeamserverCommands(team *server.Server, con *console.SliverClient) command.
 		teamclientCmds := commands.Generate(team, con.Teamclient)
 		teamclientCmds.GroupID = constants.GenericHelpGroup
 		cmds = append(cmds, teamclientCmds)
+
+		// Sliver-specific teamserver stuff
+		operatorCmd, _, _ := teamclientCmds.Find([]string{"teamserver", "user"})
+		operatorCmd.Flags().StringSliceP(permissionsFlagStr, "P", []string{}, "grant permissions to the operator profile (all, builder, crackstation)")
 
 		// Sliver-specific
 		cmds = append(cmds, version.Commands(con)...)
