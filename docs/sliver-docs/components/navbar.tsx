@@ -58,6 +58,28 @@ export default function TopNavbar(props: TopNavbarProps) {
             <FontAwesomeIcon fixedWidth icon={faHome} />
           </Button>
         </NavbarItem>
+
+        <NavbarItem isActive={router.pathname.startsWith("/tutorials")}>
+          <Button
+            variant="light"
+            color={router.pathname === "/tutorials" ? "primary" : "default"}
+            as={Link}
+            onPress={() => router.push("/tutorials")}
+          >
+            Tutorials
+          </Button>
+        </NavbarItem>
+
+        <NavbarItem isActive={router.pathname.startsWith("/docs")}>
+          <Button
+            variant="light"
+            color={router.pathname === "/docs" ? "primary" : "default"}
+            as={Link}
+            onPress={() => router.push("/docs")}
+          >
+            Docs
+          </Button>
+        </NavbarItem>
       </NavbarContent>
 
       <NavbarContent as="div" justify="end">
