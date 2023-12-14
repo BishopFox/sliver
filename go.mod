@@ -16,8 +16,8 @@ require (
 	github.com/Ne0nd0g/go-clr v1.0.3
 	github.com/alecthomas/chroma v0.10.0
 	github.com/cheggaaa/pb/v3 v3.1.2
-	github.com/chromedp/cdproto v0.0.0-20230220211738-2b1ec77315c9
-	github.com/chromedp/chromedp v0.9.1
+	github.com/chromedp/cdproto v0.0.0-20231011050154-1d073bb38998
+	github.com/chromedp/chromedp v0.9.3
 	github.com/fatih/color v1.15.0
 	github.com/glebarez/sqlite v1.10.0
 	github.com/gofrs/uuid v4.4.0+incompatible
@@ -106,7 +106,7 @@ require (
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
-	github.com/gobwas/ws v1.1.0 // indirect
+	github.com/gobwas/ws v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.1-0.20230522191255-76236955d466 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect

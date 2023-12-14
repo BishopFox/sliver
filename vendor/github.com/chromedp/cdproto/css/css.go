@@ -361,14 +361,17 @@ func GetMatchedStylesForNode(nodeID cdp.NodeID) *GetMatchedStylesForNodeParams {
 
 // GetMatchedStylesForNodeReturns return values.
 type GetMatchedStylesForNodeReturns struct {
-	InlineStyle             *Style                           `json:"inlineStyle,omitempty"`             // Inline style for the specified DOM node.
-	AttributesStyle         *Style                           `json:"attributesStyle,omitempty"`         // Attribute-defined element style (e.g. resulting from "width=20 height=100%").
-	MatchedCSSRules         []*RuleMatch                     `json:"matchedCSSRules,omitempty"`         // CSS rules matching this node, from all applicable stylesheets.
-	PseudoElements          []*PseudoElementMatches          `json:"pseudoElements,omitempty"`          // Pseudo style matches for this node.
-	Inherited               []*InheritedStyleEntry           `json:"inherited,omitempty"`               // A chain of inherited styles (from the immediate node parent up to the DOM tree root).
-	InheritedPseudoElements []*InheritedPseudoElementMatches `json:"inheritedPseudoElements,omitempty"` // A chain of inherited pseudo element styles (from the immediate node parent up to the DOM tree root).
-	CSSKeyframesRules       []*KeyframesRule                 `json:"cssKeyframesRules,omitempty"`       // A list of CSS keyframed animations matching this node.
-	ParentLayoutNodeID      cdp.NodeID                       `json:"parentLayoutNodeId,omitempty"`      // Id of the first parent element that does not have display: contents.
+	InlineStyle              *Style                           `json:"inlineStyle,omitempty"`              // Inline style for the specified DOM node.
+	AttributesStyle          *Style                           `json:"attributesStyle,omitempty"`          // Attribute-defined element style (e.g. resulting from "width=20 height=100%").
+	MatchedCSSRules          []*RuleMatch                     `json:"matchedCSSRules,omitempty"`          // CSS rules matching this node, from all applicable stylesheets.
+	PseudoElements           []*PseudoElementMatches          `json:"pseudoElements,omitempty"`           // Pseudo style matches for this node.
+	Inherited                []*InheritedStyleEntry           `json:"inherited,omitempty"`                // A chain of inherited styles (from the immediate node parent up to the DOM tree root).
+	InheritedPseudoElements  []*InheritedPseudoElementMatches `json:"inheritedPseudoElements,omitempty"`  // A chain of inherited pseudo element styles (from the immediate node parent up to the DOM tree root).
+	CSSKeyframesRules        []*KeyframesRule                 `json:"cssKeyframesRules,omitempty"`        // A list of CSS keyframed animations matching this node.
+	CSSPositionFallbackRules []*PositionFallbackRule          `json:"cssPositionFallbackRules,omitempty"` // A list of CSS position fallbacks matching this node.
+	CSSPropertyRules         []*PropertyRule                  `json:"cssPropertyRules,omitempty"`         // A list of CSS at-property rules matching this node.
+	CSSPropertyRegistrations []*PropertyRegistration          `json:"cssPropertyRegistrations,omitempty"` // A list of CSS property registrations matching this node.
+	ParentLayoutNodeID       cdp.NodeID                       `json:"parentLayoutNodeId,omitempty"`       // Id of the first parent element that does not have display: contents.
 }
 
 // Do executes CSS.getMatchedStylesForNode against the provided context.
@@ -382,16 +385,19 @@ type GetMatchedStylesForNodeReturns struct {
 //	inherited - A chain of inherited styles (from the immediate node parent up to the DOM tree root).
 //	inheritedPseudoElements - A chain of inherited pseudo element styles (from the immediate node parent up to the DOM tree root).
 //	cssKeyframesRules - A list of CSS keyframed animations matching this node.
+//	cssPositionFallbackRules - A list of CSS position fallbacks matching this node.
+//	cssPropertyRules - A list of CSS at-property rules matching this node.
+//	cssPropertyRegistrations - A list of CSS property registrations matching this node.
 //	parentLayoutNodeID - Id of the first parent element that does not have display: contents.
-func (p *GetMatchedStylesForNodeParams) Do(ctx context.Context) (inlineStyle *Style, attributesStyle *Style, matchedCSSRules []*RuleMatch, pseudoElements []*PseudoElementMatches, inherited []*InheritedStyleEntry, inheritedPseudoElements []*InheritedPseudoElementMatches, cssKeyframesRules []*KeyframesRule, parentLayoutNodeID cdp.NodeID, err error) {
+func (p *GetMatchedStylesForNodeParams) Do(ctx context.Context) (inlineStyle *Style, attributesStyle *Style, matchedCSSRules []*RuleMatch, pseudoElements []*PseudoElementMatches, inherited []*InheritedStyleEntry, inheritedPseudoElements []*InheritedPseudoElementMatches, cssKeyframesRules []*KeyframesRule, cssPositionFallbackRules []*PositionFallbackRule, cssPropertyRules []*PropertyRule, cssPropertyRegistrations []*PropertyRegistration, parentLayoutNodeID cdp.NodeID, err error) {
 	// execute
 	var res GetMatchedStylesForNodeReturns
 	err = cdp.Execute(ctx, CommandGetMatchedStylesForNode, p, &res)
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, 0, err
+		return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, err
 	}
 
-	return res.InlineStyle, res.AttributesStyle, res.MatchedCSSRules, res.PseudoElements, res.Inherited, res.InheritedPseudoElements, res.CSSKeyframesRules, res.ParentLayoutNodeID, nil
+	return res.InlineStyle, res.AttributesStyle, res.MatchedCSSRules, res.PseudoElements, res.Inherited, res.InheritedPseudoElements, res.CSSKeyframesRules, res.CSSPositionFallbackRules, res.CSSPropertyRules, res.CSSPropertyRegistrations, res.ParentLayoutNodeID, nil
 }
 
 // GetMediaQueriesParams returns all media queries parsed by the rendering
@@ -652,6 +658,52 @@ func SetEffectivePropertyValueForNode(nodeID cdp.NodeID, propertyName string, va
 // Do executes CSS.setEffectivePropertyValueForNode against the provided context.
 func (p *SetEffectivePropertyValueForNodeParams) Do(ctx context.Context) (err error) {
 	return cdp.Execute(ctx, CommandSetEffectivePropertyValueForNode, p, nil)
+}
+
+// SetPropertyRulePropertyNameParams modifies the property rule property
+// name.
+type SetPropertyRulePropertyNameParams struct {
+	StyleSheetID StyleSheetID `json:"styleSheetId"`
+	Range        *SourceRange `json:"range"`
+	PropertyName string       `json:"propertyName"`
+}
+
+// SetPropertyRulePropertyName modifies the property rule property name.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/CSS#method-setPropertyRulePropertyName
+//
+// parameters:
+//
+//	styleSheetID
+//	range
+//	propertyName
+func SetPropertyRulePropertyName(styleSheetID StyleSheetID, rangeVal *SourceRange, propertyName string) *SetPropertyRulePropertyNameParams {
+	return &SetPropertyRulePropertyNameParams{
+		StyleSheetID: styleSheetID,
+		Range:        rangeVal,
+		PropertyName: propertyName,
+	}
+}
+
+// SetPropertyRulePropertyNameReturns return values.
+type SetPropertyRulePropertyNameReturns struct {
+	PropertyName *Value `json:"propertyName,omitempty"` // The resulting key text after modification.
+}
+
+// Do executes CSS.setPropertyRulePropertyName against the provided context.
+//
+// returns:
+//
+//	propertyName - The resulting key text after modification.
+func (p *SetPropertyRulePropertyNameParams) Do(ctx context.Context) (propertyName *Value, err error) {
+	// execute
+	var res SetPropertyRulePropertyNameReturns
+	err = cdp.Execute(ctx, CommandSetPropertyRulePropertyName, p, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.PropertyName, nil
 }
 
 // SetKeyframeKeyParams modifies the keyframe rule key text.
@@ -1136,6 +1188,7 @@ const (
 	CommandTrackComputedStyleUpdates        = "CSS.trackComputedStyleUpdates"
 	CommandTakeComputedStyleUpdates         = "CSS.takeComputedStyleUpdates"
 	CommandSetEffectivePropertyValueForNode = "CSS.setEffectivePropertyValueForNode"
+	CommandSetPropertyRulePropertyName      = "CSS.setPropertyRulePropertyName"
 	CommandSetKeyframeKey                   = "CSS.setKeyframeKey"
 	CommandSetMediaText                     = "CSS.setMediaText"
 	CommandSetContainerQueryText            = "CSS.setContainerQueryText"

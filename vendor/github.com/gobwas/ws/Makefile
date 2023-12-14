@@ -24,7 +24,7 @@ test:
 	go test -coverprofile=ws.coverage .
 	go test -coverprofile=wsutil.coverage ./wsutil
 	go test -coverprofile=wsfalte.coverage ./wsflate
-	# No statemenets to cover in ./tests (there are only tests).
+	# No statements to cover in ./tests (there are only tests).
 	go test ./tests
 
 cover: bin/gocovmerge test autobahn

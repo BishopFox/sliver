@@ -12,6 +12,7 @@ import (
 type EventCacheStorageContentUpdated struct {
 	Origin     string `json:"origin"`     // Origin to update.
 	StorageKey string `json:"storageKey"` // Storage key to update.
+	BucketID   string `json:"bucketId"`   // Storage bucket to update.
 	CacheName  string `json:"cacheName"`  // Name of cache in origin.
 }
 
@@ -21,6 +22,7 @@ type EventCacheStorageContentUpdated struct {
 type EventCacheStorageListUpdated struct {
 	Origin     string `json:"origin"`     // Origin to update.
 	StorageKey string `json:"storageKey"` // Storage key to update.
+	BucketID   string `json:"bucketId"`   // Storage bucket to update.
 }
 
 // EventIndexedDBContentUpdated the origin's IndexedDB object store has been
@@ -30,6 +32,7 @@ type EventCacheStorageListUpdated struct {
 type EventIndexedDBContentUpdated struct {
 	Origin          string `json:"origin"`          // Origin to update.
 	StorageKey      string `json:"storageKey"`      // Storage key to update.
+	BucketID        string `json:"bucketId"`        // Storage bucket to update.
 	DatabaseName    string `json:"databaseName"`    // Database to update.
 	ObjectStoreName string `json:"objectStoreName"` // ObjectStore to update.
 }
@@ -41,6 +44,7 @@ type EventIndexedDBContentUpdated struct {
 type EventIndexedDBListUpdated struct {
 	Origin     string `json:"origin"`     // Origin to update.
 	StorageKey string `json:"storageKey"` // Storage key to update.
+	BucketID   string `json:"bucketId"`   // Storage bucket to update.
 }
 
 // EventInterestGroupAccessed one of the interest groups was accessed by the
@@ -64,4 +68,27 @@ type EventSharedStorageAccessed struct {
 	MainFrameID cdp.FrameID                `json:"mainFrameId"` // DevTools Frame Token for the primary frame tree's root.
 	OwnerOrigin string                     `json:"ownerOrigin"` // Serialized origin for the context that invoked the Shared Storage API.
 	Params      *SharedStorageAccessParams `json:"params"`      // The sub-parameters warapped by params are all optional and their presence/absence depends on type.
+}
+
+// EventStorageBucketCreatedOrUpdated [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#event-storageBucketCreatedOrUpdated
+type EventStorageBucketCreatedOrUpdated struct {
+	BucketInfo *BucketInfo `json:"bucketInfo"`
+}
+
+// EventStorageBucketDeleted [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#event-storageBucketDeleted
+type EventStorageBucketDeleted struct {
+	BucketID string `json:"bucketId"`
+}
+
+// EventAttributionReportingSourceRegistered tODO(crbug.com/1458532): Add
+// other Attribution Reporting events, e.g. trigger registration.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#event-attributionReportingSourceRegistered
+type EventAttributionReportingSourceRegistered struct {
+	Registration *AttributionReportingSourceRegistration      `json:"registration"`
+	Result       AttributionReportingSourceRegistrationResult `json:"result"`
 }
