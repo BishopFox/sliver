@@ -29,6 +29,7 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/gofrs/uuid"
 )
 
@@ -189,6 +190,18 @@ func (rpc *Server) MemfilesRm(ctx context.Context, req *sliverpb.MemfilesRmReq) 
 	return resp, nil
 }
 
+func hashUploadData(encoder string, data []byte) [32]byte {
+	if encoder == "gzip" {
+		decodedData, err := new(encoders.Gzip).Decode(data)
+		if err != nil {
+			return sha256.Sum256(nil)
+		}
+		return sha256.Sum256(decodedData)
+	} else {
+		return sha256.Sum256(data)
+	}
+}
+
 func trackIOC(req *sliverpb.UploadReq, resp *sliverpb.Upload) {
 	fsLog.Debugf("Adding IOC to database ...")
 	request := req.GetRequest()
@@ -207,8 +220,8 @@ func trackIOC(req *sliverpb.UploadReq, resp *sliverpb.Upload) {
 		return
 	}
 
-	sum := sha256.Sum256(req.Data)
-	id, _ := uuid.FromString(host.ID)
+	sum := hashUploadData(req.Encoder, req.Data)
+	id, _ := uuid.FromString(host.HostUUID)
 	ioc := &models.IOC{
 		HostID:   id,
 		Path:     resp.Path,

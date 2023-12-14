@@ -36,8 +36,8 @@ type Host struct {
 	OSVersion string // Verbose OS version
 	Locale    string // Detected language code
 
-	IOCs          []IOC
-	ExtensionData []ExtensionData
+	IOCs          []IOC           `gorm:"foreignKey:HostID;references:HostUUID"`
+	ExtensionData []ExtensionData `gorm:"foreignKey:HostID;references:HostUUID"`
 }
 
 // BeforeCreate - GORM hook
