@@ -102,7 +102,7 @@ func BeaconIDCompleter(con *console.SliverClient) carapace.Action {
 		}
 
 		return carapace.ActionValuesDescribed(results...).Tag("beacons").
-			Invoke(c).Filter(c.Args).ToA()
+			Invoke(c).Filter(c.Args...).ToA()
 	}
 
 	return carapace.ActionCallback(callback)

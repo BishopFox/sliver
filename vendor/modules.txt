@@ -547,11 +547,11 @@ github.com/pmezard/go-difflib/difflib
 # github.com/psanford/memfs v0.0.0-20230130182539-4dbf7e3e865e
 ## explicit; go 1.16
 github.com/psanford/memfs
-# github.com/reeflective/console v0.1.11
+# github.com/reeflective/console v0.1.14
 ## explicit; go 1.21
 github.com/reeflective/console
 github.com/reeflective/console/commands/readline
-# github.com/reeflective/readline v1.0.11
+# github.com/reeflective/readline v1.0.13
 ## explicit; go 1.21
 github.com/reeflective/readline
 github.com/reeflective/readline/inputrc
@@ -587,7 +587,7 @@ github.com/remyoudompheng/bigfft
 # github.com/rivo/uniseg v0.4.4
 ## explicit; go 1.18
 github.com/rivo/uniseg
-# github.com/rsteube/carapace v0.45.0 => github.com/reeflective/carapace v0.25.2-0.20230816093630-a30f5184fa0d
+# github.com/rsteube/carapace v0.46.3-0.20231214181515-27e49f3c3b69
 ## explicit; go 1.15
 github.com/rsteube/carapace
 github.com/rsteube/carapace/internal/cache
@@ -604,7 +604,6 @@ github.com/rsteube/carapace/internal/shell/elvish
 github.com/rsteube/carapace/internal/shell/export
 github.com/rsteube/carapace/internal/shell/fish
 github.com/rsteube/carapace/internal/shell/ion
-github.com/rsteube/carapace/internal/shell/library
 github.com/rsteube/carapace/internal/shell/nushell
 github.com/rsteube/carapace/internal/shell/oil
 github.com/rsteube/carapace/internal/shell/powershell
@@ -614,8 +613,12 @@ github.com/rsteube/carapace/internal/shell/xonsh
 github.com/rsteube/carapace/internal/shell/zsh
 github.com/rsteube/carapace/internal/uid
 github.com/rsteube/carapace/pkg/cache
+github.com/rsteube/carapace/pkg/match
 github.com/rsteube/carapace/pkg/ps
 github.com/rsteube/carapace/pkg/style
+github.com/rsteube/carapace/pkg/traverse
+github.com/rsteube/carapace/pkg/util
+github.com/rsteube/carapace/pkg/x
 github.com/rsteube/carapace/pkg/xdg
 github.com/rsteube/carapace/third_party/github.com/acarl005/stripansi
 github.com/rsteube/carapace/third_party/github.com/drone/envsubst
@@ -625,6 +628,9 @@ github.com/rsteube/carapace/third_party/github.com/elves/elvish/pkg/cli/lscolors
 github.com/rsteube/carapace/third_party/github.com/elves/elvish/pkg/ui
 github.com/rsteube/carapace/third_party/github.com/mitchellh/go-ps
 github.com/rsteube/carapace/third_party/golang.org/x/sys/execabs
+# github.com/rsteube/carapace-shlex v0.1.1
+## explicit; go 1.15
+github.com/rsteube/carapace-shlex
 # github.com/safchain/ethtool v0.3.0
 ## explicit; go 1.16
 github.com/safchain/ethtool
@@ -789,7 +795,7 @@ golang.org/x/crypto/scrypt
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
-# golang.org/x/exp v0.0.0-20231127185646-65229373498e
+# golang.org/x/exp v0.0.0-20231214170342-aacd6d4b4611
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/maps

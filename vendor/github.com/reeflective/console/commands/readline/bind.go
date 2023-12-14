@@ -85,8 +85,8 @@ Exporting binds:
 		}
 
 		var name string
-		var reeflective = "reeflective"
-		var buf = &cfgBuilder{buf: &strings.Builder{}}
+		reeflective := "reeflective"
+		buf := &cfgBuilder{buf: &strings.Builder{}}
 
 		// First prepare the branching strings for any
 		// needed conditionals (App, Lib, keymap, etc)

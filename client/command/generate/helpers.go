@@ -151,7 +151,7 @@ func TrafficEncodersCompleter(con *console.SliverClient) carapace.Action {
 		}
 
 		return carapace.ActionValuesDescribed(results...).Tag("traffic encoders").
-			Invoke(c).Filter(c.Args).ToA()
+			Invoke(c).Filter(c.Args...).ToA()
 	}).Cache(completers.CacheCompilerInfo)
 }
 

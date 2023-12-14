@@ -2,9 +2,8 @@ package fish
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/rsteube/carapace/internal/common"
+	"strings"
 )
 
 var sanitizer = strings.NewReplacer(

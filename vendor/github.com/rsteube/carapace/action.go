@@ -3,13 +3,18 @@ package carapace
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"runtime"
+	"strings"
 	"time"
 
+	shlex "github.com/rsteube/carapace-shlex"
 	"github.com/rsteube/carapace/internal/cache"
 	"github.com/rsteube/carapace/internal/common"
 	pkgcache "github.com/rsteube/carapace/pkg/cache"
+	"github.com/rsteube/carapace/pkg/match"
 	"github.com/rsteube/carapace/pkg/style"
+	pkgtraverse "github.com/rsteube/carapace/pkg/traverse"
 )
 
 // Action indicates how to complete a flag or positional argument.
@@ -52,6 +57,57 @@ func (a Action) Cache(timeout time.Duration, keys ...pkgcache.Key) Action {
 	return a
 }
 
+// Chdir changes the current working directory to the named directory for the duration of invocation.
+func (a Action) Chdir(dir string) Action {
+	return ActionCallback(func(c Context) Action {
+		abs, err := c.Abs(dir)
+		if err != nil {
+			return ActionMessage(err.Error())
+		}
+		if info, err := os.Stat(abs); err != nil {
+			return ActionMessage(err.Error())
+		} else if !info.IsDir() {
+			return ActionMessage("not a directory: %v", abs)
+		}
+		c.Dir = abs
+		return a.Invoke(c).ToA()
+	})
+}
+
+// ChdirF is like Chdir but uses a function.
+func (a Action) ChdirF(f func(tc pkgtraverse.Context) (string, error)) Action {
+	return ActionCallback(func(c Context) Action {
+		newDir, err := f(c)
+		if err != nil {
+			return ActionMessage(err.Error())
+		}
+		return a.Chdir(newDir)
+	})
+}
+
+// Filter filters given values.
+//
+//	carapace.ActionValues("A", "B", "C").Filter("B") // ["A", "C"]
+func (a Action) Filter(values ...string) Action {
+	return ActionCallback(func(c Context) Action {
+		return a.Invoke(c).Filter(values...).ToA()
+	})
+}
+
+// FilterArgs filters Context.Args.
+func (a Action) FilterArgs() Action {
+	return ActionCallback(func(c Context) Action {
+		return a.Filter(c.Args...)
+	})
+}
+
+// FilterArgs filters Context.Parts.
+func (a Action) FilterParts() Action {
+	return ActionCallback(func(c Context) Action {
+		return a.Filter(c.Parts...)
+	})
+}
+
 // Invoke executes the callback of an action if it exists (supports nesting).
 func (a Action) Invoke(c Context) InvokedAction {
 	if c.Args == nil {
@@ -72,6 +128,95 @@ func (a Action) Invoke(c Context) InvokedAction {
 	return InvokedAction{a}
 }
 
+// List wraps the Action in an ActionMultiParts with given divider.
+func (a Action) List(divider string) Action {
+	return ActionMultiParts(divider, func(c Context) Action {
+		return a.Invoke(c).ToA().NoSpace()
+	})
+}
+
+// MultiParts splits values of an Action by given dividers and completes each segment separately.
+func (a Action) MultiParts(dividers ...string) Action {
+	return ActionCallback(func(c Context) Action {
+		return a.Invoke(c).ToMultiPartsA(dividers...)
+	})
+}
+
+// MultiPartsP is like MultiParts but with placeholders.
+func (a Action) MultiPartsP(delimiter string, pattern string, f func(placeholder string, matches map[string]string) Action) Action {
+	return ActionCallback(func(c Context) Action {
+		invoked := a.Invoke(c)
+
+		return ActionMultiParts(delimiter, func(c Context) Action {
+			rPlaceholder := regexp.MustCompile(pattern)
+			matchedData := make(map[string]string)
+			matchedSegments := make(map[string]common.RawValue)
+			staticMatches := make(map[int]bool)
+
+		path:
+			for index, value := range invoked.rawValues {
+				segments := strings.Split(value.Value, delimiter)
+			segment:
+				for index, segment := range segments {
+					if index > len(c.Parts)-1 {
+						break segment
+					} else {
+						if segment != c.Parts[index] {
+							if !rPlaceholder.MatchString(segment) {
+								continue path // skip this path as it doesn't match and is not a placeholder
+							} else {
+								matchedData[segment] = c.Parts[index] // store entered data for placeholder (overwrite if duplicate)
+							}
+						} else {
+							staticMatches[index] = true // static segment matches so placeholders should be ignored for this index
+						}
+					}
+				}
+
+				if len(segments) < len(c.Parts)+1 {
+					continue path // skip path as it is shorter than what was entered (must be after staticMatches being set)
+				}
+
+				for key := range staticMatches {
+					if segments[key] != c.Parts[key] {
+						continue path // skip this path as it has a placeholder where a static segment was matched
+					}
+				}
+
+				// store segment as path matched so far and this is currently being completed
+				if len(segments) == (len(c.Parts) + 1) {
+					matchedSegments[segments[len(c.Parts)]] = invoked.rawValues[index]
+				} else {
+					matchedSegments[segments[len(c.Parts)]+delimiter] = common.RawValue{}
+				}
+			}
+
+			actions := make([]Action, 0, len(matchedSegments))
+			for key, value := range matchedSegments {
+				if trimmedKey := strings.TrimSuffix(key, delimiter); rPlaceholder.MatchString(trimmedKey) {
+					suffix := ""
+					if strings.HasSuffix(key, delimiter) {
+						suffix = delimiter
+					}
+					actions = append(actions, ActionCallback(func(c Context) Action {
+						invoked := f(trimmedKey, matchedData).Invoke(c).Suffix(suffix)
+						for index := range invoked.rawValues {
+							invoked.rawValues[index].Display += suffix
+						}
+						return invoked.ToA()
+					}))
+				} else {
+					actions = append(actions, ActionStyledValuesDescribed(key, value.Description, value.Style)) // TODO tag,..
+				}
+			}
+
+			a := Batch(actions...).ToA()
+			a.meta.Merge(invoked.meta)
+			return a
+		})
+	})
+}
+
 // NoSpace disables space suffix for given characters (or all if none are given).
 func (a Action) NoSpace(suffixes ...rune) Action {
 	return ActionCallback(func(c Context) Action {
@@ -83,20 +228,104 @@ func (a Action) NoSpace(suffixes ...rune) Action {
 	})
 }
 
-// Usage sets the usage.
-func (a Action) Usage(usage string, args ...interface{}) Action {
-	return a.UsageF(func() string {
-		return fmt.Sprintf(usage, args...)
+// Prefix adds a prefix to values (only the ones inserted, not the display values).
+//
+//	carapace.ActionValues("melon", "drop", "fall").Prefix("water")
+func (a Action) Prefix(prefix string) Action {
+	return ActionCallback(func(c Context) Action {
+		switch {
+		case match.HasPrefix(c.Value, prefix):
+			c.Value = match.TrimPrefix(c.Value, prefix)
+		case match.HasPrefix(prefix, c.Value):
+			c.Value = ""
+		default:
+			return ActionValues()
+		}
+		return a.Invoke(c).Prefix(prefix).ToA()
 	})
 }
 
-// Usage sets the usage using a function.
-func (a Action) UsageF(f func() string) Action {
+// Retain retains given values.
+//
+//	carapace.ActionValues("A", "B", "C").Retain("A", "C") // ["A", "C"]
+func (a Action) Retain(values ...string) Action {
 	return ActionCallback(func(c Context) Action {
-		if usage := f(); usage != "" {
-			a.meta.Usage = usage
+		return a.Invoke(c).Retain(values...).ToA()
+	})
+}
+
+// Shift shifts positional arguments left `n` times.
+func (a Action) Shift(n int) Action {
+	return ActionCallback(func(c Context) Action {
+		switch {
+		case n < 0:
+			return ActionMessage("invalid argument [ActionShift]: %v", n)
+		case len(c.Args) < n:
+			c.Args = []string{}
+		default:
+			c.Args = c.Args[n:]
 		}
-		return a
+		return a.Invoke(c).ToA()
+	})
+}
+
+// Split splits `Context.Value` lexicographically and replaces `Context.Args` with the tokens.
+func (a Action) Split() Action {
+	return a.split(false)
+}
+
+// SplitP is like Split but supports pipelines.
+func (a Action) SplitP() Action {
+	return a.split(true)
+}
+
+func (a Action) split(pipelines bool) Action {
+	return ActionCallback(func(c Context) Action {
+		tokens, err := shlex.Split(c.Value)
+		if err != nil {
+			return ActionMessage(err.Error())
+		}
+
+		var context Context
+		if pipelines {
+			tokens = tokens.CurrentPipeline()
+			context = NewContext(tokens.FilterRedirects().Words().Strings()...)
+		} else {
+			context = NewContext(tokens.Words().Strings()...)
+		}
+
+		originalValue := c.Value
+		prefix := originalValue[:tokens.Words().CurrentToken().Index]
+		c.Args = context.Args
+		c.Parts = []string{}
+		c.Value = context.Value
+
+		if pipelines { // support redirects
+			if len(tokens) > 1 && tokens[len(tokens)-2].WordbreakType.IsRedirect() {
+				LOG.Printf("completing files for redirect arg %#v", tokens.Words().CurrentToken().Value)
+				prefix = originalValue[:tokens.CurrentToken().Index]
+				c.Value = tokens.CurrentToken().Value
+				a = ActionFiles()
+			}
+		}
+
+		invoked := a.Invoke(c)
+		for index, value := range invoked.rawValues {
+			if !invoked.meta.Nospace.Matches(value.Value) || strings.Contains(value.Value, " ") { // TODO special characters
+				switch tokens.CurrentToken().State {
+				case shlex.QUOTING_ESCAPING_STATE:
+					invoked.rawValues[index].Value = fmt.Sprintf(`"%v"`, strings.ReplaceAll(value.Value, `"`, `\"`))
+				case shlex.QUOTING_STATE:
+					invoked.rawValues[index].Value = fmt.Sprintf(`'%v'`, strings.ReplaceAll(value.Value, `'`, `'"'"'`))
+				default:
+					invoked.rawValues[index].Value = strings.Replace(value.Value, ` `, `\ `, -1)
+				}
+			}
+			if !invoked.meta.Nospace.Matches(value.Value) {
+				invoked.rawValues[index].Value += " "
+			}
+		}
+		return invoked.Prefix(prefix).ToA().NoSpace()
 	})
 }
 
@@ -107,6 +336,20 @@ func (a Action) UsageF(f func() string) Action {
 func (a Action) Style(s string) Action {
 	return a.StyleF(func(_ string, _ style.Context) string {
 		return s
+	})
+}
+
+// Style sets the style using a function.
+//
+//	ActionValues("dir/", "test.txt").StyleF(style.ForPathExt)
+//	ActionValues("true", "false").StyleF(style.ForKeyword)
+func (a Action) StyleF(f func(s string, sc style.Context) string) Action {
+	return ActionCallback(func(c Context) Action {
+		invoked := a.Invoke(c)
+		for index, v := range invoked.rawValues {
+			invoked.rawValues[index].Style = f(v.Value, c)
+		}
+		return invoked.ToA()
 	})
 }
 
@@ -123,15 +366,21 @@ func (a Action) StyleR(s *string) Action {
 	})
 }
 
-// Style sets the style using a function.
+// Suffix adds a suffx to values (only the ones inserted, not the display values).
 //
-//	ActionValues("dir/", "test.txt").StyleF(style.ForPathExt)
-//	ActionValues("true", "false").StyleF(style.ForKeyword)
-func (a Action) StyleF(f func(s string, sc style.Context) string) Action {
+//	carapace.ActionValues("apple", "melon", "orange").Suffix("juice")
+func (a Action) Suffix(suffix string) Action {
+	return ActionCallback(func(c Context) Action {
+		return a.Invoke(c).Suffix(suffix).ToA()
+	})
+}
+
+// Suppress suppresses specific error messages using regular expressions.
+func (a Action) Suppress(expr ...string) Action {
 	return ActionCallback(func(c Context) Action {
 		invoked := a.Invoke(c)
-		for index, v := range invoked.rawValues {
-			invoked.rawValues[index].Style = f(v.Value, c)
+		if err := invoked.meta.Messages.Suppress(expr...); err != nil {
+			return ActionMessage(err.Error())
 		}
 		return invoked.ToA()
 	})
@@ -151,85 +400,13 @@ func (a Action) Tag(tag string) Action {
 //	ActionValues("192.168.1.1", "127.0.0.1").TagF(func(value string) string {
 //		return "interfaces"
 //	})
-func (a Action) TagF(f func(value string) string) Action {
+func (a Action) TagF(f func(s string) string) Action {
 	return ActionCallback(func(c Context) Action {
 		invoked := a.Invoke(c)
 		for index, v := range invoked.rawValues {
 			invoked.rawValues[index].Tag = f(v.Value)
 		}
 		return invoked.ToA()
-	})
-}
-
-// Chdir changes the current working directory to the named directory for the duration of invocation.
-func (a Action) Chdir(dir string) Action {
-	return ActionCallback(func(c Context) Action {
-		abs, err := c.Abs(dir)
-		if err != nil {
-			return ActionMessage(err.Error())
-		}
-		if info, err := os.Stat(abs); err != nil {
-			return ActionMessage(err.Error())
-		} else if !info.IsDir() {
-			return ActionMessage("not a directory: %v", abs)
-		}
-		c.Dir = abs
-		return a.Invoke(c).ToA()
-	})
-}
-
-// Suppress suppresses specific error messages using regular expressions.
-func (a Action) Suppress(expr ...string) Action {
-	return ActionCallback(func(c Context) Action {
-		invoked := a.Invoke(c)
-		if err := invoked.meta.Messages.Suppress(expr...); err != nil {
-			return ActionMessage(err.Error())
-		}
-		return invoked.ToA()
-	})
-}
-
-// MultiParts splits values of an Action by given dividers and completes each segment separately.
-func (a Action) MultiParts(dividers ...string) Action {
-	return ActionCallback(func(c Context) Action {
-		return a.Invoke(c).ToMultiPartsA(dividers...)
-	})
-}
-
-// List wraps the Action in an ActionMultiParts with given divider.
-func (a Action) List(divider string) Action {
-	return ActionMultiParts(divider, func(c Context) Action {
-		return a.Invoke(c).ToA().NoSpace()
-	})
-}
-
-// UniqueList wraps the Action in an ActionMultiParts with given divider.
-func (a Action) UniqueList(divider string) Action {
-	return ActionMultiParts(divider, func(c Context) Action {
-		noSpace := make([]rune, 0)
-		if runes := []rune(divider); len(runes) > 0 {
-			noSpace = append(noSpace, runes[len(runes)-1])
-		}
-		noSpace = append(noSpace, []rune(a.meta.Nospace.String())...)
-		return a.Invoke(c).Filter(c.Parts).ToA().NoSpace([]rune(noSpace)...)
-	})
-}
-
-// Prefix adds a prefix to values (only the ones inserted, not the display values).
-//
-//	carapace.ActionValues("melon", "drop", "fall").Prefix("water")
-func (a Action) Prefix(prefix string) Action {
-	return ActionCallback(func(c Context) Action {
-		return a.Invoke(c).Prefix(prefix).ToA()
-	})
-}
-
-// Suffix adds a suffx to values (only the ones inserted, not the display values).
-//
-//	carapace.ActionValues("apple", "melon", "orange").Suffix("juice")
-func (a Action) Suffix(suffix string) Action {
-	return ActionCallback(func(c Context) Action {
-		return a.Invoke(c).Suffix(suffix).ToA()
 	})
 }
 
@@ -255,5 +432,39 @@ func (a Action) Timeout(d time.Duration, alternative Action) Action {
 			return alternative
 		}
 		return result.ToA()
+	})
+}
+
+// UniqueList wraps the Action in an ActionMultiParts with given divider.
+func (a Action) UniqueList(divider string) Action {
+	return ActionMultiParts(divider, func(c Context) Action {
+		return a.FilterParts().NoSpace()
+	})
+}
+
+// UniqueListF is like UniqueList but uses a function to transform values before filtering.
+func (a Action) UniqueListF(divider string, f func(s string) string) Action {
+	return ActionMultiParts(divider, func(c Context) Action {
+		for i := range c.Parts {
+			c.Parts[i] = f(c.Parts[i])
+		}
+		return a.Filter(c.Parts...).NoSpace()
+	})
+}
+
+// Usage sets the usage.
+func (a Action) Usage(usage string, args ...interface{}) Action {
+	return a.UsageF(func() string {
+		return fmt.Sprintf(usage, args...)
+	})
+}
+
+// Usage sets the usage using a function.
+func (a Action) UsageF(f func() string) Action {
+	return ActionCallback(func(c Context) Action {
+		if usage := f(); usage != "" {
+			a.meta.Usage = usage
+		}
+		return a
 	})
 }

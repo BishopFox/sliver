@@ -81,7 +81,7 @@ func SocksIDCompleter(_ *console.SliverClient) carapace.Action {
 
 		comps := carapace.ActionValuesDescribed(results...).Tag("socks servers")
 
-		return comps.Invoke(c).Filter(c.Args).ToA()
+		return comps.Invoke(c).Filter(c.Args...).ToA()
 	}
 
 	return carapace.ActionCallback(callback)

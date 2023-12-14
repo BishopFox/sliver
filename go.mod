@@ -4,8 +4,6 @@ go 1.21.1
 
 toolchain go1.21.4
 
-replace github.com/rsteube/carapace v0.45.0 => github.com/reeflective/carapace v0.25.2-0.20230816093630-a30f5184fa0d
-
 require (
 	filippo.io/age v1.1.1
 	github.com/AlecAivazis/survey/v2 v2.3.7
@@ -35,10 +33,10 @@ require (
 	github.com/moloch--/asciicast v0.1.0
 	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
 	github.com/ncruces/go-sqlite3 v0.8.4
-	github.com/reeflective/console v0.1.11
-	github.com/reeflective/readline v1.0.11
+	github.com/reeflective/console v0.1.14
+	github.com/reeflective/readline v1.0.13
 	github.com/reeflective/team v0.1.1
-	github.com/rsteube/carapace v0.45.0
+	github.com/rsteube/carapace v0.46.3-0.20231214181515-27e49f3c3b69
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
@@ -48,7 +46,7 @@ require (
 	github.com/xlab/treeprint v1.2.0
 	github.com/yiya1989/sshkrb5 v0.0.1
 	golang.org/x/crypto v0.16.0
-	golang.org/x/exp v0.0.0-20231127185646-65229373498e
+	golang.org/x/exp v0.0.0-20231214170342-aacd6d4b4611
 	golang.org/x/net v0.19.0
 	golang.org/x/sys v0.15.0
 	golang.org/x/term v0.15.0
@@ -152,6 +150,7 @@ require (
 	github.com/psanford/memfs v0.0.0-20230130182539-4dbf7e3e865e // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
+	github.com/rsteube/carapace-shlex v0.1.1 // indirect
 	github.com/safchain/ethtool v0.3.0 // indirect
 	github.com/tailscale/certstore v0.1.1-0.20231020161753-77811a65f4ff // indirect
 	github.com/tailscale/go-winio v0.0.0-20231025203758-c4f33415bf55 // indirect

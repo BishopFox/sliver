@@ -10,8 +10,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/rsteube/carapace"
 	"github.com/rsteube/carapace/pkg/style"
+	completer "github.com/rsteube/carapace/pkg/x"
 	"github.com/rsteube/carapace/pkg/xdg"
 
 	"github.com/reeflective/readline"
@@ -26,15 +26,16 @@ func (c *Console) complete(line []rune, pos int) readline.Completions {
 
 	// Prepare arguments for the carapace completer
 	// (we currently need those two dummies for avoiding a panic).
-	args = append([]string{"examples", "_carapace"}, args...)
+	args = append([]string{c.name, "_carapace"}, args...)
 
 	// Call the completer with our current command context.
-	values, meta := carapace.Complete(menu.Command, args, c.completeCommands(menu))
+	completions, err := completer.Complete(menu.Command, args...)
 
-	// Tranfer all completion results to our readline shell completions.
-	raw := make([]readline.Completion, len(values))
+	// The completions are never nil: fill out our own object
+	// with everything it contains, regardless of errors.
+	raw := make([]readline.Completion, len(completions.Values))
 
-	for idx, val := range values {
+	for idx, val := range completions.Values.Decolor() {
 		raw[idx] = readline.Completion{
 			Value:       unescapeValue(prefixComp, prefixLine, val.Value),
 			Display:     val.Display,
@@ -42,21 +43,31 @@ func (c *Console) complete(line []rune, pos int) readline.Completions {
 			Style:       val.Style,
 			Tag:         val.Tag,
 		}
+
+		if !completions.Nospace.Matches(val.Value) {
+			raw[idx].Value = val.Value + " "
+		}
 	}
 
 	// Assign both completions and command/flags/args usage strings.
 	comps := readline.CompleteRaw(raw)
-	comps = comps.Usage(meta.Usage)
+	comps = comps.Usage(completions.Usage)
 	comps = c.justifyCommandComps(comps)
 
-	// Suffix matchers for the completions if any.
-	if meta.Nospace.String() != "" {
-		comps = comps.NoSpace([]rune(meta.Nospace.String())...)
+	// If any errors arose from the completion call itself.
+	if err != nil {
+		comps = readline.CompleteMessage("failed to load config: " + err.Error())
 	}
 
-	// Other status/error messages
-	for _, msg := range meta.Messages.Get() {
+	// Completion status/errors
+	for _, msg := range completions.Messages.Get() {
 		comps = comps.Merge(readline.CompleteMessage(msg))
+	}
+
+	// Suffix matchers for the completions if any.
+	suffixes, err := completions.Nospace.MarshalJSON()
+	if len(suffixes) > 0 && err == nil {
+		comps = comps.NoSpace([]rune(string(suffixes))...)
 	}
 
 	// If we have a quote/escape sequence unaccounted
@@ -64,22 +75,12 @@ func (c *Console) complete(line []rune, pos int) readline.Completions {
 	comps = comps.Prefix(prefixComp)
 	comps.PREFIX = prefixLine
 
+	// Finally, reset our command tree for the next call.
+	completer.ClearStorage()
+	menu.resetPreRun()
+	menu.hideFilteredCommands(menu.Command)
+
 	return comps
-}
-
-// Regenerate commands and apply any filters.
-func (c *Console) completeCommands(menu *Menu) func() {
-	commands := func() {
-		cmd := menu.Command
-		if menu.cmds != nil {
-			cmd = menu.cmds()
-		}
-
-		menu.resetPreRun()
-		menu.hideFilteredCommands(cmd)
-	}
-
-	return commands
 }
 
 func (c *Console) justifyCommandComps(comps readline.Completions) readline.Completions {

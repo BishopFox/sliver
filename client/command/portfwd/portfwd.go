@@ -95,7 +95,7 @@ func PortfwdIDCompleter(_ *console.SliverClient) carapace.Action {
 
 		comps := carapace.ActionValuesDescribed(results...).Tag("local port forwarders")
 
-		return comps.Invoke(c).Filter(c.Args).ToA()
+		return comps.Invoke(c).Filter(c.Args...).ToA()
 	}
 
 	return carapace.ActionCallback(callback)

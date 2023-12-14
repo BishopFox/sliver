@@ -49,7 +49,7 @@ func listVars(shell *readline.Shell, buf *cfgBuilder, cmd *cobra.Command) {
 		return
 	}
 
-	var variables = make([]string, len(shell.Config.Vars))
+	variables := make([]string, len(shell.Config.Vars))
 
 	for variable := range shell.Config.Vars {
 		variables = append(variables, variable)
@@ -191,7 +191,7 @@ func listBinds(shell *readline.Shell, buf *cfgBuilder, cmd *cobra.Command, keyma
 	}
 
 	// Get all the commands, used to sort the displays.
-	var commands = make([]string, len(shell.Keymap.Commands()))
+	commands := make([]string, len(shell.Keymap.Commands()))
 	for command := range shell.Keymap.Commands() {
 		commands = append(commands, command)
 	}
@@ -276,7 +276,7 @@ func listBindsRC(shell *readline.Shell, buf *cfgBuilder, cmd *cobra.Command, key
 	}
 
 	// Get all the commands, used to sort the displays.
-	var commands = make([]string, len(shell.Keymap.Commands()))
+	commands := make([]string, len(shell.Keymap.Commands()))
 	for command := range shell.Keymap.Commands() {
 		commands = append(commands, command)
 	}

@@ -81,10 +81,11 @@ func New(app string) *Console {
 		console.shell.History.Add(name, defaultMenu.histories[name])
 	}
 
-	// Command completion, syntax highlighting, multiline callbacks, etc.
+	// Syntax highlighting, multiline callbacks, etc.
 	console.shell.AcceptMultiline = console.acceptMultiline
 	console.shell.SyntaxHighlighter = console.highlightSyntax
 
+	// Completion
 	console.shell.Completer = console.complete
 	console.defaultStyleConfig()
 

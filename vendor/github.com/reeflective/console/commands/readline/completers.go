@@ -20,7 +20,6 @@ package readline
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
@@ -84,7 +83,7 @@ func completeBindSequences(sh *readline.Shell, cmd *cobra.Command) carapace.Acti
 		// Look for the current argument and check whether or not it's quoted.
 		// If yes, only include quotes at the end of the inserted value.
 		// If no quotes, include them in both.
-		if strings.HasPrefix(ctx.Value, "\"") || ctx.Value == "" {
+		if ctx.Value == "" {
 			completions = completions.Prefix("\"")
 		}
 

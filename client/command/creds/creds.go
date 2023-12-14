@@ -187,6 +187,6 @@ func CredsCredentialIDCompleter(con *console.SliverClient) carapace.Action {
 		}
 
 		return carapace.ActionValuesDescribed(results...).Tag("credentials").
-			Invoke(c).Filter(c.Args).ToA()
+			Invoke(c).Filter(c.Args...).ToA()
 	})
 }
