@@ -20,8 +20,6 @@ async function generateSiteMap() {
     return {docs: docs};
 }
 
-console.log('Generating docs...');
 generateSiteMap().then(async (sitemap) => {
-    console.log(sitemap);
     await fs.writeFile(`${workingDirectory}/public/docs.json`, JSON.stringify(sitemap));
 });

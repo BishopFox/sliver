@@ -1,3 +1,4 @@
+import CodeViewer, { CodeSchema } from "@/components/code";
 import { useQuery } from "@tanstack/react-query";
 import { NextPage } from "next";
 import React from "react";
@@ -12,7 +13,7 @@ type Docs = {
 };
 
 const DocsIndexPage: NextPage = () => {
-  const { data, isLoading } = useQuery({
+  const { data: docs, isLoading } = useQuery({
     queryKey: ["docs"],
     queryFn: async (): Promise<Docs> => {
       const res = await fetch("/docs.json");
@@ -20,31 +21,38 @@ const DocsIndexPage: NextPage = () => {
     },
   });
 
-  const docsMap = React.useMemo(() => {
-    if (!data) {
-      return null;
-    }
-    const docsMap = new Map<string, string>();
-    data.docs.forEach((doc) => {
-      docsMap.set(doc.name, doc.content);
-    });
-    return docsMap;
-  }, [data]);
+  const [markdown, setMarkdown] = React.useState(docs?.docs[0].content || "");
 
-  if (isLoading) {
+  React.useEffect(() => {
+    if (docs) {
+      setMarkdown(docs.docs[0].content);
+    }
+  }, [docs]);
+
+  if (isLoading || !docs) {
     return <div>Loading...</div>;
   }
 
   return (
-    <div>
-      <h1>Docs Index</h1>
-      <ul>
-        {data?.docs.map((doc) => (
-          <li key={doc.name}>
-            <a href={`/docs/${doc.name}`}>{doc.name}</a>
-          </li>
-        ))}
-      </ul>
+    <div className="grid grid-cols-12">
+      <div className="col-span-1"></div>
+      <div className="col-span-10">
+        <h1>Docs Index</h1>
+        <div>
+          <CodeViewer
+            className="min-h-[150px]"
+            script={
+              {
+                name: "",
+                script_type: "plaintext",
+                source_code: "asf",
+              } as CodeSchema
+            }
+          />
+        </div>
+        <div></div>
+      </div>
+      <div className="col-span-1"></div>
     </div>
   );
 };

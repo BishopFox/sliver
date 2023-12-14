@@ -21,8 +21,10 @@
     "lunr": "^2.3.9",
     "next": "14.0.4",
     "next-themes": "^0.2.1",
-    "react": "^18",
-    "react-dom": "^18"
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^20",

@@ -6,7 +6,7 @@ Sliver allows an operator to extend the local client console and its features by
 
 For example with Seatbelt, `seatbelt -group=system` will fail because the Sliver shell will attempt to interpret the `-group` flag as a named flag (i.e., arguments that appear in `--help`). To ensure this argument is parsed as a positional argument we need to tell the CLI that no more arguments are to be passed to the sliver command using `--`, so the correct syntax is `seatbelt -- -group=system`
 
-```
+```plaintext
 [server] sliver (ROUND_ATELIER) > seatbelt -group=system
 error: invalid flag: -group
 
