@@ -1,3 +1,4 @@
+import CodeViewer, { CodeSchema } from "@/components/code";
 import { Themes } from "@/util/themes";
 import {
   Card,
@@ -50,7 +51,7 @@ const DocsIndexPage: NextPage = () => {
 
   return (
     <div className="grid grid-cols-12">
-      <div className="col-span-2 mt-6 ml-4">
+      <div className="col-span-3 mt-4 ml-4">
         <div className="flex flex-row justify-center text-lg mb-2 gap-2">
           Topics
         </div>
@@ -77,7 +78,7 @@ const DocsIndexPage: NextPage = () => {
           </Listbox>
         </div>
       </div>
-      <div className="col-span-10">
+      <div className="col-span-9">
         <Card className="mt-8 ml-8 mr-8 mb-8">
           <CardHeader>
             <span className="text-3xl">{name}</span>
@@ -85,10 +86,60 @@ const DocsIndexPage: NextPage = () => {
           <Divider />
           <CardBody
             className={
-              theme === Themes.DARK ? "prose prose-invert" : "prose prose-slate"
+              theme === Themes.DARK
+                ? "prose prose-sm dark:prose-invert"
+                : "prose prose-sm prose-slate"
             }
           >
-            <Markdown remarkPlugins={[remarkGfm]}>{markdown}</Markdown>
+            <Markdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                pre(props): any {
+                  const { children, className, node, ...rest } = props;
+                  const childClass = (children as any)?.props?.className;
+                  if (
+                    childClass &&
+                    childClass.startsWith("language-") &&
+                    childClass !== "language-plaintext"
+                  ) {
+                    // @ts-ignore
+                    return <div {...rest}>{children}</div>;
+                  }
+                  return (
+                    <pre {...rest} className={className}>
+                      {children}
+                    </pre>
+                  );
+                },
+                code(props) {
+                  const { children, className, node, ...rest } = props;
+                  const langTag = /language-(\w+)/.exec(className || "");
+                  const lang = langTag ? langTag[1] : "plaintext";
+                  if (lang === "plaintext") {
+                    return (
+                      <code {...rest} className={className}>
+                        {children}
+                      </code>
+                    );
+                  }
+                  return (
+                    <CodeViewer
+                      className="min-h-[250px]"
+                      key={`${Math.random()}`}
+                      fontSize={11}
+                      script={
+                        {
+                          script_type: lang,
+                          source_code: (children as string) || "",
+                        } as CodeSchema
+                      }
+                    />
+                  );
+                },
+              }}
+            >
+              {markdown}
+            </Markdown>
           </CardBody>
         </Card>
       </div>
