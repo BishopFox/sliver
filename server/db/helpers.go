@@ -759,7 +759,7 @@ func HostByHostID(id uuid.UUID) (*clientpb.Host, error) {
 }
 
 // HostByHostUUID - Get host by the session's reported HostUUID
-func HostByHostUUID(id string) (*clientpb.Host, error) {
+func HostByHostUUID(id string) (*models.Host, error) {
 	if len(id) < 1 {
 		return nil, ErrRecordNotFound
 	}
@@ -774,7 +774,7 @@ func HostByHostUUID(id string) (*clientpb.Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	return host.ToProtobuf(), nil
+	return &host, nil
 }
 
 // IOCByID - Select an IOC by ID

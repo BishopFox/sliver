@@ -30,7 +30,6 @@ import (
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util/encoders"
-	"github.com/gofrs/uuid"
 )
 
 var (
@@ -221,9 +220,8 @@ func trackIOC(req *sliverpb.UploadReq, resp *sliverpb.Upload) {
 	}
 
 	sum := hashUploadData(req.Encoder, req.Data)
-	id, _ := uuid.FromString(host.HostUUID)
 	ioc := &models.IOC{
-		HostID:   id,
+		HostID:   host.HostUUID,
 		Path:     resp.Path,
 		FileHash: fmt.Sprintf("%x", sum),
 	}

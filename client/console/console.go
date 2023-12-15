@@ -689,6 +689,11 @@ func (s *ActiveTarget) IsSession() bool {
 	return s.session != nil
 }
 
+// IsBeacon - Is the current target a beacon?
+func (s *ActiveTarget) IsBeacon() bool {
+	return s.beacon != nil
+}
+
 // AddObserver - Observers to notify when the active session changes
 func (s *ActiveTarget) AddObserver(observer Observer) int {
 	s.observerID++
@@ -794,6 +799,17 @@ func (s *ActiveTarget) Background() {
 	if !s.con.IsCLI && s.con.App.ActiveMenu().Name() == consts.ImplantMenu {
 		s.con.App.SwitchMenu(consts.ServerMenu)
 	}
+}
+
+// GetHostUUID - Get the Host's UUID (ID in the database)
+func (s *ActiveTarget) GetHostUUID() string {
+	if s.IsSession() {
+		return s.session.UUID
+	} else if s.IsBeacon() {
+		return s.beacon.UUID
+	}
+
+	return ""
 }
 
 // Expose or hide commands if the active target does support them (or not).
