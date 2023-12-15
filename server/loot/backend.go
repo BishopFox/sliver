@@ -54,8 +54,7 @@ func (l *LocalBackend) Add(loot *clientpb.Loot) (*clientpb.Loot, error) {
 		lootLog.Warnf("Failed to find host %s for loot %s", loot.OriginHostUUID, loot.ID)
 		hostID = uuid.Nil
 	} else {
-		id, _ := uuid.FromString(host.ID)
-		hostID = id
+		hostID = host.HostUUID
 	}
 	dbLoot := &models.Loot{
 		Name:         loot.GetName(),

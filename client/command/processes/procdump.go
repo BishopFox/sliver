@@ -146,6 +146,6 @@ func LootProcessDump(dump *sliverpb.ProcessDump, lootName string, hostName strin
 		lootName = dumpFileName
 	}
 
-	lootMessage := loot.CreateLootMessage(dumpFileName, lootName, clientpb.FileType_BINARY, dump.GetData())
+	lootMessage := loot.CreateLootMessage(con.ActiveTarget.GetHostUUID(), dumpFileName, lootName, clientpb.FileType_BINARY, dump.GetData())
 	loot.SendLootMessage(lootMessage, con)
 }
