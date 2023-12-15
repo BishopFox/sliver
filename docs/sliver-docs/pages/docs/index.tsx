@@ -1,3 +1,4 @@
+import { Themes } from "@/util/themes";
 import {
   Card,
   CardBody,
@@ -8,6 +9,7 @@ import {
 } from "@nextui-org/react";
 import { useQuery } from "@tanstack/react-query";
 import { NextPage } from "next";
+import { useTheme } from "next-themes";
 import React from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -22,6 +24,8 @@ type Docs = {
 };
 
 const DocsIndexPage: NextPage = () => {
+  const { theme } = useTheme();
+
   const { data: docs, isLoading } = useQuery({
     queryKey: ["docs"],
     queryFn: async (): Promise<Docs> => {
@@ -48,7 +52,7 @@ const DocsIndexPage: NextPage = () => {
     <div className="grid grid-cols-12">
       <div className="col-span-2 mt-6 ml-4">
         <div className="flex flex-row justify-center text-lg mb-2 gap-2">
-          Sliver Docs
+          Topics
         </div>
         <div className="mt-2">
           <Listbox
@@ -74,12 +78,16 @@ const DocsIndexPage: NextPage = () => {
         </div>
       </div>
       <div className="col-span-10">
-        <Card className="mt-4 ml-4 mr-4 mb-4">
+        <Card className="mt-8 ml-8 mr-8 mb-8">
           <CardHeader>
             <span className="text-3xl">{name}</span>
           </CardHeader>
           <Divider />
-          <CardBody className="prose prose-slate">
+          <CardBody
+            className={
+              theme === Themes.DARK ? "prose prose-invert" : "prose prose-slate"
+            }
+          >
             <Markdown remarkPlugins={[remarkGfm]}>{markdown}</Markdown>
           </CardBody>
         </Card>
