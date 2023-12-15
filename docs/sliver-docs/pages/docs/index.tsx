@@ -1,3 +1,4 @@
+import CodeViewer, { CodeSchema } from "@/components/code";
 import { Themes } from "@/util/themes";
 import {
   Card,
@@ -85,10 +86,60 @@ const DocsIndexPage: NextPage = () => {
           <Divider />
           <CardBody
             className={
-              theme === Themes.DARK ? "prose prose-invert" : "prose prose-slate"
+              theme === Themes.DARK
+                ? "prose prose-sm dark:prose-invert"
+                : "prose prose-sm prose-slate"
             }
           >
-            <Markdown remarkPlugins={[remarkGfm]}>{markdown}</Markdown>
+            <Markdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                pre(props): any {
+                  const { children, className, node, ...rest } = props;
+                  const childClass = (children as any)?.props?.className;
+                  if (
+                    childClass &&
+                    childClass.startsWith("language-") &&
+                    childClass !== "language-plaintext"
+                  ) {
+                    // @ts-ignore
+                    return <div {...rest}>{children}</div>;
+                  }
+                  return (
+                    <pre {...rest} className={className}>
+                      {children}
+                    </pre>
+                  );
+                },
+                code(props) {
+                  const { children, className, node, ...rest } = props;
+                  const langTag = /language-(\w+)/.exec(className || "");
+                  const lang = langTag ? langTag[1] : "plaintext";
+                  if (lang === "plaintext") {
+                    return (
+                      <code {...rest} className={className}>
+                        {children}
+                      </code>
+                    );
+                  }
+                  return (
+                    <CodeViewer
+                      className="min-h-[250px]"
+                      key={`${Math.random()}`}
+                      fontSize={11}
+                      script={
+                        {
+                          script_type: lang,
+                          source_code: (children as string) || "",
+                        } as CodeSchema
+                      }
+                    />
+                  );
+                },
+              }}
+            >
+              {markdown}
+            </Markdown>
           </CardBody>
         </Card>
       </div>
