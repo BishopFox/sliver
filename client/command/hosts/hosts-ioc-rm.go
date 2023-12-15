@@ -26,7 +26,7 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 )
 
-// HostsIOCRmCmd - Remove a host from the database
+// HostsIOCRmCmd - Remove an IOC from the database
 func HostsIOCRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
 	host, err := SelectHost(con)
 	if err != nil {
@@ -43,5 +43,5 @@ func HostsIOCRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	con.PrintInfof("Removed host from database\n")
+	con.PrintInfof("Removed IOC from database\n")
 }
