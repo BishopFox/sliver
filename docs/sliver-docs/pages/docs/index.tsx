@@ -11,6 +11,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { NextPage } from "next";
 import { useTheme } from "next-themes";
+import Image from "next/image";
 import React from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -109,6 +110,21 @@ const DocsIndexPage: NextPage = () => {
                     <pre {...rest} className={className}>
                       {children}
                     </pre>
+                  );
+                },
+                img(props) {
+                  const { src, alt, ...rest } = props;
+                  console.log(props);
+                  return (
+                    // @ts-ignore
+                    <Image
+                      {...rest}
+                      src={src || ""}
+                      alt={alt || ""}
+                      width={500}
+                      height={500}
+                      className="w-full rounded-medium"
+                    />
                   );
                 },
                 code(props) {
