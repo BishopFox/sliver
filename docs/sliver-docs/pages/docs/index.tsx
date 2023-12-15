@@ -51,7 +51,7 @@ const DocsIndexPage: NextPage = () => {
 
   return (
     <div className="grid grid-cols-12">
-      <div className="col-span-2 mt-6 ml-4">
+      <div className="col-span-3 mt-4 ml-4">
         <div className="flex flex-row justify-center text-lg mb-2 gap-2">
           Topics
         </div>
@@ -78,7 +78,7 @@ const DocsIndexPage: NextPage = () => {
           </Listbox>
         </div>
       </div>
-      <div className="col-span-10">
+      <div className="col-span-9">
         <Card className="mt-8 ml-8 mr-8 mb-8">
           <CardHeader>
             <span className="text-3xl">{name}</span>
