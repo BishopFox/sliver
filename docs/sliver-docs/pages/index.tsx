@@ -1,7 +1,11 @@
 import AsciinemaPlayer from "@/components/asciinema";
+import { Themes } from "@/util/themes";
 import { Card, CardBody, CardHeader, Divider } from "@nextui-org/react";
+import { useTheme } from "next-themes";
 
 export default function Home() {
+  const { theme } = useTheme();
+
   return (
     <div className="grid grid-cols-12 mt-2">
       <div className="col-span-1"></div>
@@ -23,7 +27,13 @@ export default function Home() {
           </CardHeader>
           <Divider />
           <CardBody>
-            <p className="prose">
+            <p
+              className={
+                theme === Themes.DARK
+                  ? "prose prose-sm dark:prose-invert"
+                  : "prose prose-sm prose-slate"
+              }
+            >
               Sliver is a Command and Control (C2) system made for penetration
               testers, red teams, and blue teams. It generates implants that can
               run on virtually every architecture out there, and securely manage
