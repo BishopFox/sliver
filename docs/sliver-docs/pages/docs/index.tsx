@@ -51,6 +51,10 @@ const DocsIndexPage: NextPage = () => {
     if (docs && name !== "") {
       setMarkdown(docs?.docs.find((doc) => doc.name === name)?.content);
     }
+    if (docs && name === "" && docs.docs.length > 0) {
+      setName(docs.docs[0].name);
+      setMarkdown(docs.docs[0].content);
+    }
   }, [docs, name]);
 
   if (isLoading || !docs) {

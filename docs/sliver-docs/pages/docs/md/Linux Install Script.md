@@ -22,7 +22,7 @@ curl https://sliver.sh/install|sudo bash
 
 The following systemd configuration is used:
 
-```
+```ini
 [Unit]
 Description=Sliver
 After=network.target
