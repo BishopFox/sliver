@@ -1,5 +1,6 @@
+import { SliversIcon } from "@/components/icons/slivers";
 import { Themes } from "@/util/themes";
-import { faEye, faHome } from "@fortawesome/free-solid-svg-icons";
+import { faHome, faMoon, faSun } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   Button,
@@ -11,13 +12,17 @@ import {
 } from "@nextui-org/react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/router";
-import { SliversIcon } from "./icons/slivers";
+import React from "react";
 
 export type TopNavbarProps = {};
 
 export default function TopNavbar(props: TopNavbarProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const lightDarkModeIcon = React.useMemo(
+    () => (theme === Themes.DARK ? faSun : faMoon),
+    [theme]
+  );
 
   return (
     <Navbar
@@ -42,9 +47,9 @@ export default function TopNavbar(props: TopNavbarProps) {
     >
       <NavbarBrand>
         <SliversIcon />
-        <p className="hidden sm:block font-bold text-inherit">
+        <span className="hidden sm:block font-bold text-inherit">
           &nbsp; Sliver C2
-        </p>
+        </span>
       </NavbarBrand>
 
       <NavbarContent>
@@ -89,7 +94,7 @@ export default function TopNavbar(props: TopNavbarProps) {
             setTheme(theme === Themes.DARK ? Themes.LIGHT : Themes.DARK);
           }}
         >
-          <FontAwesomeIcon icon={faEye} />
+          <FontAwesomeIcon icon={lightDarkModeIcon} />
         </Button>
       </NavbarContent>
     </Navbar>
