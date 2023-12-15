@@ -2,8 +2,14 @@ import Navbar from "@/components/navbar";
 import "@/styles/globals.css";
 import { Themes } from "@/util/themes";
 import { NextUIProvider } from "@nextui-org/react";
+import {
+  HydrationBoundary,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
 import type { AppProps } from "next/app";
+import React from "react";
 
 export default function App({ Component, pageProps }: AppProps) {
   const { theme, setTheme } = useTheme();
@@ -16,11 +22,17 @@ export default function App({ Component, pageProps }: AppProps) {
     return Themes.DARK;
   }
 
+  const [queryClient] = React.useState(() => new QueryClient());
+
   return (
     <NextUIProvider>
       <NextThemesProvider attribute="class" defaultTheme={getThemeState()}>
-        <Navbar />
-        <Component {...pageProps} />
+        <QueryClientProvider client={queryClient}>
+          <HydrationBoundary state={pageProps.dehydratedState}>
+            <Navbar />
+            <Component {...pageProps} />
+          </HydrationBoundary>
+        </QueryClientProvider>
       </NextThemesProvider>
     </NextUIProvider>
   );
