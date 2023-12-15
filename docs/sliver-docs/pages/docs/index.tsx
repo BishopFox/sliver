@@ -1,4 +1,5 @@
 import CodeViewer, { CodeSchema } from "@/components/code";
+import { frags } from "@/util/frags";
 import { Themes } from "@/util/themes";
 import {
   Card,
@@ -36,15 +37,21 @@ const DocsIndexPage: NextPage = () => {
     },
   });
 
-  const [name, setName] = React.useState(docs?.docs[0].name || "");
-  const [markdown, setMarkdown] = React.useState(docs?.docs[0].content || "");
-
+  const [name, _setName] = React.useState(decodeURI(frags.get("name") || ""));
+  const setName = (name: string) => {
+    frags.set("name", name);
+    _setName(name);
+  };
+  const [markdown, setMarkdown] = React.useState(
+    name === ""
+      ? docs?.docs[0].content
+      : docs?.docs.find((doc) => doc.name === name)?.content || ""
+  );
   React.useEffect(() => {
-    if (docs) {
-      setName(docs.docs[0].name);
-      setMarkdown(docs.docs[0].content);
+    if (docs && name !== "") {
+      setMarkdown(docs?.docs.find((doc) => doc.name === name)?.content);
     }
-  }, [docs]);
+  }, [docs, name]);
 
   if (isLoading || !docs) {
     return <div>Loading...</div>;
