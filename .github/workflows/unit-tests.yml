@@ -3,6 +3,14 @@ on:
   pull_request:
     branches:
       - master
+    paths:
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
+      - "**/*.go"
+      - "**/*.c"
+      - "**/*.h"
+      - "**/*.sh"
     types:
       - opened
       - reopened
