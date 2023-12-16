@@ -33,8 +33,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// ExecuteAssemblyCmd - Execute a .NET assembly in-memory
-func ExecuteAssemblyCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ExecuteAssemblyCmd - Execute a .NET assembly in-memory.
+func ExecuteAssemblyCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -112,12 +112,12 @@ func ExecuteAssemblyCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return
 	}
 	hostName := getHostname(session, beacon)
 	if execAssembly.Response != nil && execAssembly.Response.Async {
-		con.AddBeaconCallback(execAssembly.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(execAssembly.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, execAssembly)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -126,13 +126,12 @@ func ExecuteAssemblyCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 
 			HandleExecuteAssemblyResponse(execAssembly, assemblyPath, hostName, cmd, con)
 		})
-		con.PrintAsyncResponse(execAssembly.Response)
 	} else {
 		HandleExecuteAssemblyResponse(execAssembly, assemblyPath, hostName, cmd, con)
 	}
 }
 
-func HandleExecuteAssemblyResponse(execAssembly *sliverpb.ExecuteAssembly, assemblyPath string, hostName string, cmd *cobra.Command, con *console.SliverConsoleClient) {
+func HandleExecuteAssemblyResponse(execAssembly *sliverpb.ExecuteAssembly, assemblyPath string, hostName string, cmd *cobra.Command, con *console.SliverClient) {
 	saveLoot, _ := cmd.Flags().GetBool("loot")
 	lootName, _ := cmd.Flags().GetString("name")
 

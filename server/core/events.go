@@ -24,11 +24,17 @@ import (
 
 const (
 	// Size is arbitrary, just want to avoid weird cases where we'd block on channel sends
-	eventBufSize = 5
+	//
+	// NOTE: Changed by me: when clients are one-time exec CLI commands, you don't know how
+	// fast they connect/disconnect from their RPC.Events() call.
+	// When the event channels are buffered, sooner or later the broker writes to a closed
+	// channel. Just make it one so that this does not happen.
+	eventBufSize = 0
 )
 
 // Event - An event is fired when there's a state change involving a
-//         session, job, or client.
+//
+//	session, job, or client.
 type Event struct {
 	Session *Session
 	Job     *Job
@@ -57,6 +63,7 @@ func (broker *eventBroker) Start() {
 		case <-broker.stop:
 			for sub := range subscribers {
 				close(sub)
+				delete(subscribers, sub)
 			}
 			return
 		case sub := <-broker.subscribe:
@@ -106,7 +113,5 @@ func newBroker() *eventBroker {
 	return broker
 }
 
-var (
-	// EventBroker - Distributes event messages
-	EventBroker = newBroker()
-)
+// EventBroker - Distributes event messages
+var EventBroker = newBroker()

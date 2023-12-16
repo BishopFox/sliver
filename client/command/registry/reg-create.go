@@ -20,24 +20,28 @@ package registry
 
 import (
 	"context"
+	"errors"
 	"strings"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// RegCreateKeyCmd - Create a new Windows registry key
-func RegCreateKeyCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// RegCreateKeyCmd - Create a new Windows registry key.
+func RegCreateKeyCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
-	targetOS := getOS(session, beacon)
+	targetOS, err := getOS(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
 	if targetOS != "windows" {
 		con.PrintErrorf("Registry operations can only target Windows\n")
 		return
@@ -78,12 +82,12 @@ func RegCreateKeyCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 		Request:  con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
 	if createKey.Response != nil && createKey.Response.Async {
-		con.AddBeaconCallback(createKey.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(createKey.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, createKey)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -91,14 +95,13 @@ func RegCreateKeyCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 			}
 			PrintCreateKey(createKey, finalPath, key, con)
 		})
-		con.PrintAsyncResponse(createKey.Response)
 	} else {
 		PrintCreateKey(createKey, finalPath, key, con)
 	}
 }
 
-// PrintCreateKey - Print the results of the create key command
-func PrintCreateKey(createKey *sliverpb.RegistryCreateKey, regPath string, key string, con *console.SliverConsoleClient) {
+// PrintCreateKey - Print the results of the create key command.
+func PrintCreateKey(createKey *sliverpb.RegistryCreateKey, regPath string, key string, con *console.SliverClient) {
 	if createKey.Response != nil && createKey.Response.Err != "" {
 		con.PrintErrorf("%s", createKey.Response.Err)
 		return
@@ -106,12 +109,13 @@ func PrintCreateKey(createKey *sliverpb.RegistryCreateKey, regPath string, key s
 	con.PrintInfof("Key created at %s\\%s", regPath, key)
 }
 
-func getOS(session *clientpb.Session, beacon *clientpb.Beacon) string {
+func getOS(session *clientpb.Session, beacon *clientpb.Beacon) (string, error) {
 	if session != nil {
-		return session.OS
+		return session.OS, nil
 	}
 	if beacon != nil {
-		return beacon.OS
+		return beacon.OS, nil
 	}
-	panic("no session or beacon")
+
+	return "", errors.New("no session or beacon")
 }

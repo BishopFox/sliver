@@ -327,7 +327,6 @@ func (g *group) longestValueDescribed(vals []Candidate) int {
 
 		if val.descLen > longestDesc {
 			longestDesc = val.descLen
-
 		}
 
 		if val.descLen > longestDesc {
@@ -344,7 +343,7 @@ func (g *group) longestValueDescribed(vals []Candidate) int {
 	}
 
 	// Always add one: there is at least one space between each column.
-	return longestVal + longestDesc + 1
+	return longestVal + longestDesc + 2
 }
 
 func (g *group) trimDisplay(comp Candidate, pad, col int) (candidate, padded string) {

@@ -5,12 +5,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/util"
-	"github.com/spf13/cobra"
 )
 
-func parseMemFS(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) (map[string][]byte, error) {
+func parseMemFS(cmd *cobra.Command, con *console.SliverClient, args []string) (map[string][]byte, error) {
 	memfs := make(map[string][]byte)
 
 	totalSize := 0

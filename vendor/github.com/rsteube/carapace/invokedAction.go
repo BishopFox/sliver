@@ -6,6 +6,7 @@ import (
 	"github.com/rsteube/carapace/internal/common"
 	"github.com/rsteube/carapace/internal/export"
 	_shell "github.com/rsteube/carapace/internal/shell"
+	"github.com/rsteube/carapace/pkg/match"
 )
 
 // InvokedAction is a logical alias for an Action whose (nested) callback was invoked.
@@ -17,11 +18,11 @@ func (a InvokedAction) export() export.Export {
 	return export.Export{Meta: a.meta, Values: a.rawValues}
 }
 
-// Filter filters given values (this should be done before any call to Prefix/Suffix as those alter the values being filtered)
+// Filter filters given values.
 //
 //	a := carapace.ActionValues("A", "B", "C").Invoke(c)
 //	b := a.Filter([]string{"B"}) // ["A", "C"]
-func (a InvokedAction) Filter(values []string) InvokedAction {
+func (a InvokedAction) Filter(values ...string) InvokedAction {
 	a.rawValues = a.rawValues.Filter(values...)
 	return a
 }
@@ -47,6 +48,15 @@ func (a InvokedAction) Prefix(prefix string) InvokedAction {
 	for index, val := range a.rawValues {
 		a.rawValues[index].Value = prefix + val.Value
 	}
+	return a
+}
+
+// Retain retains given values.
+//
+//	a := carapace.ActionValues("A", "B", "C").Invoke(c)
+//	b := a.Retain([]string{"A", "C"}) // ["A", "C"]
+func (a InvokedAction) Retain(values ...string) InvokedAction {
+	a.rawValues = a.rawValues.Retain(values...)
 	return a
 }
 
@@ -91,7 +101,7 @@ func (a InvokedAction) ToMultiPartsA(dividers ...string) Action {
 
 		uniqueVals := make(map[string]common.RawValue)
 		for _, val := range a.rawValues {
-			if strings.HasPrefix(val.Value, c.Value) {
+			if match.HasPrefix(val.Value, c.Value) {
 				if splitted := tokenize(val.Value, dividers...); len(splitted) >= len(splittedCV) {
 					v := strings.Join(splitted[:len(splittedCV)], "")
 					d := splitted[len(splittedCV)-1]

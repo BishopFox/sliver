@@ -30,7 +30,7 @@ import (
 )
 
 // ProfilesStageCmd - Generate an encrypted/compressed implant binary based on a profile
-func ProfilesStageCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ProfilesStageCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name, _ := cmd.Flags().GetString("name")
 	profileName := args[0]
 	aesEncryptKey, _ := cmd.Flags().GetString("aes-encrypt-key")

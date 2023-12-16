@@ -32,8 +32,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// SSHCmd - A built-in SSH client command for the remote system (doesn't shell out)
-func SSHCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// SSHCmd - A built-in SSH client command for the remote system (doesn't shell out).
+func SSHCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var (
 		privKey []byte
 		err     error
@@ -102,11 +102,11 @@ func SSHCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string)
 		Request:  con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if sshCmd.Response != nil && sshCmd.Response.Async {
-		con.AddBeaconCallback(sshCmd.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(sshCmd.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, sshCmd)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -114,14 +114,13 @@ func SSHCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string)
 			}
 			PrintSSHCmd(sshCmd, con)
 		})
-		con.PrintAsyncResponse(sshCmd.Response)
 	} else {
 		PrintSSHCmd(sshCmd, con)
 	}
 }
 
-// PrintSSHCmd - Print the ssh command response
-func PrintSSHCmd(sshCmd *sliverpb.SSHCommand, con *console.SliverConsoleClient) {
+// PrintSSHCmd - Print the ssh command response.
+func PrintSSHCmd(sshCmd *sliverpb.SSHCommand, con *console.SliverClient) {
 	if sshCmd.Response != nil && sshCmd.Response.Err != "" {
 		con.PrintErrorf("Error: %s\n", sshCmd.Response.Err)
 		if sshCmd.StdErr != "" {
@@ -139,7 +138,7 @@ func PrintSSHCmd(sshCmd *sliverpb.SSHCommand, con *console.SliverConsoleClient) 
 	}
 }
 
-func tryCredsFromLoot(con *console.SliverConsoleClient) (string, string, []byte) {
+func tryCredsFromLoot(con *console.SliverClient) (string, string, []byte) {
 	var (
 		username string
 		password string

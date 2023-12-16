@@ -28,8 +28,8 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 )
 
-// ArmorySearchCmd - Search for packages by name
-func ArmorySearchCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ArmorySearchCmd - Search for packages by name.
+func ArmorySearchCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	con.PrintInfof("Refreshing package cache ... ")
 	clientConfig := parseArmoryHTTPConfig(cmd)
 	refresh(clientConfig)

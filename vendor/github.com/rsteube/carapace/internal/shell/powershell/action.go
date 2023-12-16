@@ -45,12 +45,13 @@ func ActionRawValues(currentWord string, meta common.Meta, values common.RawValu
 	for _, val := range values {
 		if val.Value != "" { // must not be empty - any empty `''` parameter in CompletionResult causes an error
 			val.Value = sanitizer.Replace(val.Value)
+			nospace := meta.Nospace.Matches(val.Value)
 
 			if strings.ContainsAny(val.Value, ` {}()[]*$?\"|<>&(),;#`+"`") {
 				val.Value = fmt.Sprintf("'%v'", val.Value)
 			}
 
-			if !meta.Nospace.Matches(val.Value) {
+			if !nospace {
 				val.Value = val.Value + " "
 			}
 

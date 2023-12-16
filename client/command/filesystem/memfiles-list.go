@@ -34,8 +34,8 @@ import (
 	"github.com/bishopfox/sliver/util"
 )
 
-// MemfilesListCmd - List memfiles
-func MemfilesListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// MemfilesListCmd - List memfiles.
+func MemfilesListCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -45,11 +45,11 @@ func MemfilesListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if memfilesList.Response != nil && memfilesList.Response.Async {
-		con.AddBeaconCallback(memfilesList.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(memfilesList.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, memfilesList)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -57,14 +57,13 @@ func MemfilesListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 			}
 			PrintMemfiles(memfilesList, con)
 		})
-		con.PrintAsyncResponse(memfilesList.Response)
 	} else {
 		PrintMemfiles(memfilesList, con)
 	}
 }
 
-// PrintMemfiles - Display an sliverpb.Ls object
-func PrintMemfiles(ls *sliverpb.Ls, con *console.SliverConsoleClient) {
+// PrintMemfiles - Display an sliverpb.Ls object.
+func PrintMemfiles(ls *sliverpb.Ls, con *console.SliverClient) {
 	if ls.Response != nil && ls.Response.Err != "" {
 		con.PrintErrorf("%s\n", ls.Response.Err)
 		return

@@ -28,8 +28,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// DNSListenerCmd - Start a DNS lisenter
-func DNSListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// DNSListenerCmd - Start a DNS lisenter.
+func DNSListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	domainsF, _ := cmd.Flags().GetString("domains")
 	domains := strings.Split(domainsF, ",")
 	for index, domain := range domains {
@@ -53,7 +53,7 @@ func DNSListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 	})
 	con.Println()
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	} else {
 		con.PrintInfof("Successfully started job #%d\n", dns.JobID)
 	}

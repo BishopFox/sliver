@@ -29,7 +29,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func HeadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string, head bool) {
+func HeadCmd(cmd *cobra.Command, con *console.SliverClient, args []string, head bool) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -112,7 +112,7 @@ func HeadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string
 		return
 	}
 	if download.Response != nil && download.Response.Async {
-		con.AddBeaconCallback(download.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(download.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, download)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)

@@ -33,7 +33,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
-// ImplantBuildFilter - Filter implant builds
+// ImplantBuildFilter - Filter implant builds.
 type ImplantBuildFilter struct {
 	GOOS    string
 	GOARCH  string
@@ -43,11 +43,11 @@ type ImplantBuildFilter struct {
 	Debug   bool
 }
 
-// ImplantsCmd - Displays archived implant builds
-func ImplantsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ImplantsCmd - Displays archived implant builds.
+func ImplantsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	implantBuildFilters := ImplantBuildFilter{}
@@ -60,12 +60,13 @@ func ImplantsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 }
 
 // PrintImplantBuilds - Print the implant builds on the server
-func PrintImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFilter, con *console.SliverConsoleClient) {
+func PrintImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFilter, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"Name",
-		"Implant Type",
+		"Type",
 		"Template",
 		"OS/Arch",
 		"Format",
@@ -132,17 +133,21 @@ func PrintImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFilt
 	}
 
 	con.Println(tw.Render())
-	con.Println()
+	con.Println("\n")
 }
 
-// ImplantBuildNameCompleter - Completer for implant build names
-func ImplantBuildNameCompleter(con *console.SliverConsoleClient) carapace.Action {
+// ImplantBuildNameCompleter - Completer for implant build names.
+func ImplantBuildNameCompleter(con *console.SliverClient) carapace.Action {
 	comps := func(ctx carapace.Context) carapace.Action {
+		if msg, err := con.PreRunComplete(); err != nil {
+			return msg
+		}
+
 		var action carapace.Action
 
 		builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			return carapace.ActionMessage("failed to get implant builds: %s", err.Error())
+			return carapace.ActionMessage("failed to get implant builds: %s", con.UnwrapServerErr(err))
 		}
 
 		filters := &ImplantBuildFilter{}
@@ -205,8 +210,8 @@ func ImplantBuildNameCompleter(con *console.SliverConsoleClient) carapace.Action
 	return carapace.ActionCallback(comps)
 }
 
-// ImplantBuildByName - Get an implant build by name
-func ImplantBuildByName(name string, con *console.SliverConsoleClient) *clientpb.ImplantConfig {
+// ImplantBuildByName - Get an implant build by name.
+func ImplantBuildByName(name string, con *console.SliverClient) *clientpb.ImplantConfig {
 	builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		return nil

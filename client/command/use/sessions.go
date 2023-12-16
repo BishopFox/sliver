@@ -25,8 +25,8 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 )
 
-// UseSessionCmd - Change the active session
-func UseSessionCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// UseSessionCmd - Change the active session.
+func UseSessionCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, err := sessions.SelectSession(false, con)
 	if session != nil {
 		con.ActiveTarget.Set(session, nil)

@@ -27,8 +27,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// CloseSessionCmd - Close an interactive session but do not kill the remote process
-func CloseSessionCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CloseSessionCmd - Close an interactive session but do not kill the remote process.
+func CloseSessionCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	// Get the active session
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
@@ -41,7 +41,7 @@ func CloseSessionCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err.Error())
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 

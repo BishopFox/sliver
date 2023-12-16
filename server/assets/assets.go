@@ -43,9 +43,7 @@ const (
 	envVarName      = "SLIVER_ROOT_DIR"
 )
 
-var (
-	setupLog = log.NamedLogger("assets", "setup")
-)
+var setupLog = log.NamedLogger("assets", "setup")
 
 // GetRootAppDir - Get the Sliver app dir, default is: ~/.sliver/
 func GetRootAppDir() string {
@@ -59,7 +57,7 @@ func GetRootAppDir() string {
 	}
 
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, 0700)
+		err = os.MkdirAll(dir, 0o700)
 		if err != nil {
 			setupLog.Fatalf("Cannot write to sliver root dir %s", err)
 		}
@@ -71,7 +69,7 @@ func GetRootAppDir() string {
 func GetChunkDataDir() string {
 	chunkDir := filepath.Join(GetRootAppDir(), "crack", "chunks")
 	if _, err := os.Stat(chunkDir); os.IsNotExist(err) {
-		err = os.MkdirAll(chunkDir, 0700)
+		err = os.MkdirAll(chunkDir, 0o700)
 		if err != nil {
 			setupLog.Errorf("Failed to create chunk data directory: %s", err)
 			return ""
@@ -84,7 +82,7 @@ func GetChunkDataDir() string {
 func GetTrafficEncoderDir() string {
 	trafficDir := filepath.Join(GetRootAppDir(), "traffic-encoders")
 	if _, err := os.Stat(trafficDir); os.IsNotExist(err) {
-		os.MkdirAll(trafficDir, 0700)
+		os.MkdirAll(trafficDir, 0o700)
 	}
 	return trafficDir
 }

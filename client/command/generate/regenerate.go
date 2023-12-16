@@ -28,8 +28,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// RegenerateCmd - Download an archived implant build/binary
-func RegenerateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// RegenerateCmd - Download an archived implant build/binary.
+func RegenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	save, _ := cmd.Flags().GetString("save")
 	if save == "" {
 		save, _ = os.Getwd()
@@ -44,7 +44,7 @@ func RegenerateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 		ImplantName: name,
 	})
 	if err != nil {
-		con.PrintErrorf("Failed to regenerate implant %s\n", err)
+		con.PrintErrorf("Failed to regenerate implant %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if regenerate.File == nil {

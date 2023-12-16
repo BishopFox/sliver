@@ -39,7 +39,7 @@ import (
 )
 
 // C2ProfileCmd list available http profiles
-func C2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func C2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	profileName, _ := cmd.Flags().GetString("name")
 
 	if profileName == constants.DefaultC2Profile {
@@ -61,7 +61,7 @@ func C2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 	PrintC2Profiles(profile, con)
 }
 
-func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	protocols := []string{constants.HttpStr, constants.HttpsStr}
 	profileName, _ := cmd.Flags().GetString("name")
 	if profileName == "" {
@@ -248,7 +248,7 @@ func C2ConfigToProtobuf(profileName string, config *assets.HTTPC2Config) *client
 }
 
 // PrintImplantBuilds - Print the implant builds on the server
-func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverConsoleClient) {
+func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverClient) {
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))

@@ -21,6 +21,7 @@ package pivots
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
@@ -30,8 +31,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// PivotDetailsCmd - Display pivots for all sessions
-func PivotDetailsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// PivotDetailsCmd - Display pivots for all sessions.
+func PivotDetailsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -40,7 +41,7 @@ func PivotDetailsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if pivotListeners.Response != nil && pivotListeners.Response.Err != "" {
@@ -48,19 +49,24 @@ func PivotDetailsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 		return
 	}
 
-	id, _ := cmd.Flags().GetUint32("id")
-	if id == uint32(0) {
+	id, err := strconv.ParseUint(args[0], 10, 32)
+	if err != nil {
+		con.PrintErrorf("Failed to parse pivot ID: %s\n", err)
+		return
+	}
+
+	if id == 0 {
 		selectedListener, err := SelectPivotListener(pivotListeners.Listeners, con)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
-		id = selectedListener.ID
+		id = uint64(selectedListener.ID)
 	}
 
 	found := false
 	for _, listener := range pivotListeners.Listeners {
-		if listener.ID == id {
+		if listener.ID == uint32(id) {
 			PrintPivotListenerDetails(listener, con)
 			found = true
 		}
@@ -70,8 +76,8 @@ func PivotDetailsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 	}
 }
 
-// PrintPivotListenerDetails - Print details of a single pivot listener
-func PrintPivotListenerDetails(listener *sliverpb.PivotListener, con *console.SliverConsoleClient) {
+// PrintPivotListenerDetails - Print details of a single pivot listener.
+func PrintPivotListenerDetails(listener *sliverpb.PivotListener, con *console.SliverClient) {
 	con.Printf("\n")
 	con.Printf("               ID: %d\n", listener.ID)
 	con.Printf("         Protocol: %s\n", PivotTypeToString(listener.Type))
@@ -83,6 +89,7 @@ func PrintPivotListenerDetails(listener *sliverpb.PivotListener, con *console.Sl
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.SetTitle(fmt.Sprintf(console.Bold+"%s Pivots"+console.Normal, PivotTypeToString(listener.Type)))
 	tw.AppendSeparator()
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Remote Address",

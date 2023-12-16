@@ -30,8 +30,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// MigrateCmd - Windows only, inject an implant into another process
-func MigrateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// MigrateCmd - Windows only, inject an implant into another process.
+func MigrateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSession()
 	if session == nil {
 		return
@@ -50,7 +50,7 @@ func MigrateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 			Request: con.ActiveTarget.Request(cmd),
 		})
 		if err != nil {
-			con.PrintErrorf("Error: %v\n", err)
+			con.PrintErrorf("Error: %v\n", con.UnwrapServerErr(err))
 			return
 		}
 		procCtrl <- true
@@ -85,7 +85,7 @@ func MigrateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("Error: %v", err)
+		con.PrintErrorf("Error: %v", con.UnwrapServerErr(err))
 		return
 	}
 	if !migrate.Success {

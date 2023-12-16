@@ -21,16 +21,18 @@ package rpc
 import (
 	"context"
 
+	"google.golang.org/protobuf/proto"
+
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
 )
 
-var (
-	beaconRpcLog = log.NamedLogger("rpc", "beacons")
-)
+var beaconRpcLog = log.NamedLogger("rpc", "beacons")
 
 // GetBeacons - Get a list of beacons from the database
 func (rpc *Server) GetBeacons(ctx context.Context, req *commonpb.Empty) (*clientpb.Beacons, error) {
@@ -69,7 +71,8 @@ func (rpc *Server) RmBeacon(ctx context.Context, req *clientpb.Beacon) (*commonp
 	}
 
 	err = db.Session().Where(&models.BeaconTask{
-		BeaconID: beacon.ID},
+		BeaconID: beacon.ID,
+	},
 	).Delete(&models.BeaconTask{}).Error
 	if err != nil {
 		beaconRpcLog.Errorf("Database error: %s", err)
@@ -123,5 +126,21 @@ func (rpc *Server) CancelBeaconTask(ctx context.Context, req *clientpb.BeaconTas
 	if err != nil {
 		return nil, ErrInvalidBeaconTaskID
 	}
+
+	// Some client might be currently blocking for the canceled
+	// task result, so tell them about it so they can exit.
+	beacon, err := db.BeaconByID(task.BeaconID)
+	if err != nil {
+		return task, ErrInvalidBeaconID
+	}
+
+	eventData, _ := proto.Marshal(task)
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.BeaconTaskCanceledEvent,
+		Data:      eventData,
+		Beacon:    beacon,
+	})
+
 	return task, nil
 }

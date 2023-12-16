@@ -68,6 +68,19 @@ func (e *Error) Is(err error) bool {
 	return false
 }
 
+// As converts this error to an [ErrorCode] or [ExtendedErrorCode].
+func (e *Error) As(err any) bool {
+	switch c := err.(type) {
+	case *ErrorCode:
+		*c = e.Code()
+		return true
+	case *ExtendedErrorCode:
+		*c = e.ExtendedCode()
+		return true
+	}
+	return false
+}
+
 // Temporary returns true for [BUSY] errors.
 func (e *Error) Temporary() bool {
 	return e.Code() == BUSY
@@ -102,6 +115,15 @@ func (e ExtendedErrorCode) Error() string {
 func (e ExtendedErrorCode) Is(err error) bool {
 	c, ok := err.(ErrorCode)
 	return ok && c == ErrorCode(e)
+}
+
+// As converts this error to an [ErrorCode].
+func (e ExtendedErrorCode) As(err any) bool {
+	c, ok := err.(*ErrorCode)
+	if ok {
+		*c = ErrorCode(e)
+	}
+	return ok
 }
 
 // Temporary returns true for [BUSY] errors.

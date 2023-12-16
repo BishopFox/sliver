@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/rsteube/carapace/pkg/match"
 	"github.com/rsteube/carapace/pkg/style"
 )
 
@@ -82,6 +83,21 @@ func (r RawValues) Filter(values ...string) RawValues {
 	return filtered
 }
 
+// Retain retains given values.
+func (r RawValues) Retain(values ...string) RawValues {
+	toretain := make(map[string]bool)
+	for _, v := range values {
+		toretain[v] = true
+	}
+	filtered := make([]RawValue, 0)
+	for _, rawValue := range r {
+		if _, ok := toretain[rawValue.Value]; ok {
+			filtered = append(filtered, rawValue)
+		}
+	}
+	return filtered
+}
+
 // Decolor clears style for all values.
 func (r RawValues) Decolor() RawValues {
 	rawValues := make(RawValues, len(r))
@@ -96,7 +112,7 @@ func (r RawValues) Decolor() RawValues {
 func (r RawValues) FilterPrefix(prefix string) RawValues {
 	filtered := make(RawValues, 0)
 	for _, r := range r {
-		if strings.HasPrefix(r.Value, prefix) {
+		if match.HasPrefix(r.Value, prefix) {
 			filtered = append(filtered, r)
 		}
 	}
@@ -104,20 +120,18 @@ func (r RawValues) FilterPrefix(prefix string) RawValues {
 }
 
 func (r RawValues) EachTag(f func(tag string, values RawValues)) {
-	tags := make([]string, 0)
 	tagGroups := make(map[string]RawValues)
 	for _, val := range r {
 		if _, exists := tagGroups[val.Tag]; !exists {
 			tagGroups[val.Tag] = make(RawValues, 0)
-			tags = append(tags, val.Tag)
 		}
 		tagGroups[val.Tag] = append(tagGroups[val.Tag], val)
 	}
 
-	// tags := make([]string, 0)
-	// for tag := range tagGroups {
-	// 	tags = append(tags, tag)
-	// }
+	tags := make([]string, 0)
+	for tag := range tagGroups {
+		tags = append(tags, tag)
+	}
 	sort.Strings(tags)
 
 	for _, tag := range tags {

@@ -35,8 +35,8 @@ import (
 	"github.com/bishopfox/sliver/client/core"
 )
 
-// CursedChromeCmd - Execute a .NET assembly in-memory
-func CursedCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CursedChromeCmd - Execute a .NET assembly in-memory.
+func CursedCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	// Collect existing curses from core
 	cursedProcesses := [][]string{}
 	core.CursedProcesses.Range(func(key, value interface{}) bool {
@@ -55,6 +55,7 @@ func CursedCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 	if 0 < len(cursedProcesses) {
 		tw := table.NewWriter()
 		tw.SetStyle(settings.GetTableStyle(con))
+		settings.SetMaxTableSize(tw)
 		tw.AppendHeader(table.Row{
 			"Bind Port", "Session ID", "PID", "Platform", "Executable", "Debug URL",
 		})
@@ -71,8 +72,8 @@ func CursedCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 	}
 }
 
-// selectCursedProcess - Interactively select a cursed process from a list
-func selectCursedProcess(con *console.SliverConsoleClient) *core.CursedProcess {
+// selectCursedProcess - Interactively select a cursed process from a list.
+func selectCursedProcess(con *console.SliverClient) *core.CursedProcess {
 	cursedProcesses := []*core.CursedProcess{}
 	core.CursedProcesses.Range(func(key, value interface{}) bool {
 		cursedProcesses = append(cursedProcesses, value.(*core.CursedProcess))

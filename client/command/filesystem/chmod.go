@@ -20,17 +20,16 @@ package filesystem
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// ChmodCmd - Change the permissions of a file on the remote file system
-func ChmodCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ChmodCmd - Change the permissions of a file on the remote file system.
+func ChmodCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -59,11 +58,11 @@ func ChmodCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 		Recursive: recursive,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if chmod.Response != nil && chmod.Response.Async {
-		con.AddBeaconCallback(chmod.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(chmod.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, chmod)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -71,14 +70,13 @@ func ChmodCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 			}
 			PrintChmod(chmod, con)
 		})
-		con.PrintAsyncResponse(chmod.Response)
 	} else {
 		PrintChmod(chmod, con)
 	}
 }
 
-// PrintChmod - Print the chmod response
-func PrintChmod(chmod *sliverpb.Chmod, con *console.SliverConsoleClient) {
+// PrintChmod - Print the chmod response.
+func PrintChmod(chmod *sliverpb.Chmod, con *console.SliverClient) {
 	if chmod.Response != nil && chmod.Response.Err != "" {
 		con.PrintErrorf("%s\n", chmod.Response.Err)
 		return

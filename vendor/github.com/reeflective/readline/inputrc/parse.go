@@ -15,6 +15,13 @@ import (
 	"unicode/utf8"
 )
 
+const (
+	emacs           = "emacs"
+	hexValNum       = 10
+	metaSeqLength   = 6
+	setDirectiveLen = 4
+)
+
 // Parser is a inputrc parser.
 type Parser struct {
 	haltOnErr bool
@@ -32,48 +39,53 @@ type Parser struct {
 // New creates a new inputrc parser.
 func New(opts ...Option) *Parser {
 	// build parser state
-	p := &Parser{
+	parser := &Parser{
 		line: 1,
 	}
 	for _, o := range opts {
-		o(p)
+		o(parser)
 	}
-	return p
+
+	return parser
 }
 
 // Parse parses inputrc data from the reader, passing sets and binding keys to
 // h based on the configured options.
-func (p *Parser) Parse(r io.Reader, h Handler) error {
+func (p *Parser) Parse(stream io.Reader, handler Handler) error {
 	var err error
 	// reset parser state
-	p.keymap, p.line, p.conds, p.errs = "emacs", 1, append(p.conds[:0], true), p.errs[:0]
+	p.keymap, p.line, p.conds, p.errs = emacs, 1, append(p.conds[:0], true), p.errs[:0]
 	// scan file by lines
 	var line []rune
-	var i, end int
-	s := bufio.NewScanner(r)
-	for ; s.Scan(); p.line++ {
-		line = []rune(s.Text())
+	var pos, end int
+	scanner := bufio.NewScanner(stream)
+
+	for ; scanner.Scan(); p.line++ {
+		line = []rune(scanner.Text())
 		end = len(line)
-		if i = findNonSpace(line, 0, end); i == end {
+
+		if pos = findNonSpace(line, 0, end); pos == end {
 			continue
 		}
 		// skip blank/comment
-		switch line[i] {
+		switch line[pos] {
 		case 0, '\r', '\n', '#':
 			continue
 		}
 		// next
-		if err = p.next(h, line, i, end); err != nil {
+		if err = p.next(handler, line, pos, end); err != nil {
 			p.errs = append(p.errs, err)
 			if p.haltOnErr {
 				return err
 			}
 		}
 	}
-	if err = s.Err(); err != nil {
+
+	if err = scanner.Err(); err != nil {
 		p.errs = append(p.errs, err)
 		return err
 	}
+
 	return nil
 }
 
@@ -83,53 +95,60 @@ func (p *Parser) Errs() []error {
 }
 
 // next handles the next statement.
-func (p *Parser) next(h Handler, r []rune, i, end int) error {
-	a, b, tok, err := p.readNext(r, i, end)
+func (p *Parser) next(handler Handler, seq []rune, pos, end int) error {
+	directive, val, tok, err := p.readNext(seq, pos, end)
 	if err != nil {
 		return err
 	}
+
 	switch tok {
 	case tokenBind, tokenBindMacro:
-		return p.doBind(h, a, b, tok == tokenBindMacro)
+		return p.doBind(handler, directive, val, tok == tokenBindMacro)
 	case tokenSet:
-		return p.doSet(h, a, b)
+		return p.doSet(handler, directive, val)
 	case tokenConstruct:
-		return p.do(h, a, b)
+		return p.do(handler, directive, val)
 	}
+
 	return nil
 }
 
 // readNext reads the next statement.
-func (p *Parser) readNext(r []rune, i, end int) (string, string, token, error) {
-	i = findNonSpace(r, i, end)
+func (p *Parser) readNext(seq []rune, pos, end int) (string, string, token, error) {
+	pos = findNonSpace(seq, pos, end)
+
 	switch {
-	case r[i] == 's' && grab(r, i+1, end) == 'e' && grab(r, i+2, end) == 't' && unicode.IsSpace(grab(r, i+3, end)):
+	case seq[pos] == 's' && grab(seq, pos+1, end) == 'e' && grab(seq, pos+2, end) == 't' && unicode.IsSpace(grab(seq, pos+3, end)):
 		// read set
-		return p.readSymbols(r, i+4, end, tokenSet)
-	case r[i] == '$':
+		return p.readSymbols(seq, pos+setDirectiveLen, end, tokenSet, true)
+	case seq[pos] == '$':
 		// read construct
-		return p.readSymbols(r, i, end, tokenConstruct)
+		return p.readSymbols(seq, pos, end, tokenConstruct, false)
 	}
-	// read key seq
-	var seq string
-	if r[i] == '"' || r[i] == '\'' {
-		start, ok := i, false
-		if i, ok = findStringEnd(r, i, end); !ok {
+	// read key keySeq
+	var keySeq string
+
+	if seq[pos] == '"' || seq[pos] == '\'' {
+		var ok bool
+		start := pos
+
+		if pos, ok = findStringEnd(seq, pos, end); !ok {
 			return "", "", tokenNone, &ParseError{
 				Name: p.name,
 				Line: p.line,
-				Text: string(r[start:]),
+				Text: string(seq[start:]),
 				Err:  ErrBindMissingClosingQuote,
 			}
 		}
-		seq = unescapeRunes(r, start+1, i-1)
+
+		keySeq = unescapeRunes(seq, start+1, pos-1)
 	} else {
 		var err error
-		if seq, i, err = decodeKey(r, i, end); err != nil {
+		if keySeq, pos, err = decodeKey(seq, pos, end); err != nil {
 			return "", "", tokenNone, &ParseError{
 				Name: p.name,
 				Line: p.line,
-				Text: string(r),
+				Text: string(seq),
 				Err:  err,
 			}
 		}
@@ -139,44 +158,61 @@ func (p *Parser) readNext(r []rune, i, end int) (string, string, token, error) {
 	// does not bind a key) if a space follows the key declaration. made a
 	// decision to instead return an error if the : is missing in all cases.
 	// seek :
-	for ; i < end && r[i] != ':'; i++ {
+	for ; pos < end && seq[pos] != ':'; pos++ {
 	}
-	if i == end || r[i] != ':' {
+
+	if pos == end || seq[pos] != ':' {
 		return "", "", tokenNone, &ParseError{
 			Name: p.name,
 			Line: p.line,
-			Text: string(r),
+			Text: string(seq),
 			Err:  ErrMissingColon,
 		}
 	}
 	// seek non space
-	if i = findNonSpace(r, i+1, end); i == end || r[i] == '#' {
-		return seq, "", tokenNone, nil
+	if pos = findNonSpace(seq, pos+1, end); pos == end || seq[pos] == '#' {
+		return keySeq, "", tokenNone, nil
 	}
 	// seek
-	if r[i] == '"' || r[i] == '\'' {
-		start, ok := i, false
-		if i, ok = findStringEnd(r, i, end); !ok {
+	if seq[pos] == '"' || seq[pos] == '\'' {
+		var ok bool
+		start := pos
+
+		if pos, ok = findStringEnd(seq, pos, end); !ok {
 			return "", "", tokenNone, &ParseError{
 				Name: p.name,
 				Line: p.line,
-				Text: string(r[start:]),
+				Text: string(seq[start:]),
 				Err:  ErrMacroMissingClosingQuote,
 			}
 		}
-		return seq, unescapeRunes(r, start+1, i-1), tokenBindMacro, nil
+
+		return keySeq, unescapeRunes(seq, start+1, pos-1), tokenBindMacro, nil
 	}
-	return seq, string(r[i:findEnd(r, i, end)]), tokenBind, nil
+
+	return keySeq, string(seq[pos:findEnd(seq, pos, end)]), tokenBind, nil
 }
 
 // readSet reads the next two symbols.
-func (p *Parser) readSymbols(r []rune, i, end int, tok token) (string, string, token, error) {
-	start := findNonSpace(r, i, end)
-	i = findEnd(r, start, end)
-	a := string(r[start:i])
-	start = findNonSpace(r, i, end)
-	i = findEnd(r, start, end)
-	return a, string(r[start:i]), tok, nil
+func (p *Parser) readSymbols(seq []rune, pos, end int, tok token, allowStrings bool) (string, string, token, error) {
+	start := findNonSpace(seq, pos, end)
+	pos = findEnd(seq, start, end)
+	val := string(seq[start:pos])
+	start = findNonSpace(seq, pos, end)
+	var ok bool
+
+	if c := grab(seq, start, end); allowStrings || c == '"' || c == '\'' {
+		var epos int
+		if epos, ok = findStringEnd(seq, start, end); ok {
+			pos = epos
+		}
+	}
+
+	if !allowStrings || !ok {
+		pos = findEnd(seq, start, end)
+	}
+
+	return val, string(seq[start:pos]), tok, nil
 }
 
 // doBind handles a bind.
@@ -184,14 +220,16 @@ func (p *Parser) doBind(h Handler, sequence, action string, macro bool) error {
 	if !p.conds[len(p.conds)-1] {
 		return nil
 	}
+
 	return h.Bind(p.keymap, sequence, action, macro)
 }
 
 // doSet handles a set.
-func (p *Parser) doSet(h Handler, name, value string) error {
+func (p *Parser) doSet(handler Handler, name, value string) error {
 	if !p.conds[len(p.conds)-1] {
 		return nil
 	}
+
 	switch name {
 	case "keymap":
 		if p.strict {
@@ -209,8 +247,11 @@ func (p *Parser) doSet(h Handler, name, value string) error {
 				}
 			}
 		}
+
 		p.keymap = value
+
 		return nil
+
 	case "editing-mode":
 		switch value {
 		case "emacs", "vi":
@@ -222,55 +263,66 @@ func (p *Parser) doSet(h Handler, name, value string) error {
 				Err:  ErrInvalidEditingMode,
 			}
 		}
-		return h.Set(name, value)
+
+		return handler.Set(name, value)
 	}
-	if v := h.Get(name); v != nil {
+
+	if val := handler.Get(name); val != nil {
 		// defined in vars, so pass to set only as that type
-		var z interface{}
-		switch v.(type) {
+		var data interface{}
+		switch val.(type) {
 		case bool:
-			z = strings.ToLower(value) == "on" || value == "1"
+			data = strings.ToLower(value) == "on" || value == "1"
 		case string:
-			z = value
+			data = value
 		case int:
 			i, err := strconv.Atoi(value)
 			if err != nil {
 				return err
 			}
-			z = i
+
+			data = i
+
 		default:
-			panic(fmt.Sprintf("unsupported type %T", v))
+			panic(fmt.Sprintf("unsupported type %T", val))
 		}
-		return h.Set(name, z)
+
+		return handler.Set(name, data)
 	}
 	// not set, so try to convert to usable value
 	if i, err := strconv.Atoi(value); err == nil {
-		return h.Set(name, i)
+		return handler.Set(name, i)
 	}
+
 	switch strings.ToLower(value) {
 	case "off":
-		return h.Set(name, false)
+		return handler.Set(name, false)
 	case "on":
-		return h.Set(name, true)
+		return handler.Set(name, true)
 	}
-	return h.Set(name, value)
+
+	return handler.Set(name, value)
 }
 
 // do handles a construct.
-func (p *Parser) do(h Handler, a, b string) error {
-	switch a {
+func (p *Parser) do(handler Handler, keyword, val string) error {
+	switch keyword {
 	case "$if":
 		var eval bool
+
 		switch {
-		case strings.HasPrefix(b, "mode="):
-			eval = strings.TrimPrefix(b, "mode=") == p.mode
-		case strings.HasPrefix(b, "term="):
-			eval = strings.TrimPrefix(b, "term=") == p.term
+		case strings.HasPrefix(val, "mode="):
+			eval = strings.TrimPrefix(val, "mode=") == p.mode
+		case strings.HasPrefix(val, "term="):
+			eval = strings.TrimPrefix(val, "term=") == p.term
 		default:
-			eval = strings.ToLower(b) == p.app
+			eval = strings.ToLower(val) == p.app
 		}
+
 		p.conds = append(p.conds, eval)
+
 		return nil
+
 	case "$else":
 		if len(p.conds) == 1 {
 			return &ParseError{
@@ -280,8 +332,11 @@ func (p *Parser) do(h Handler, a, b string) error {
 				Err:  ErrElseWithoutMatchingIf,
 			}
 		}
+
 		p.conds[len(p.conds)-1] = !p.conds[len(p.conds)-1]
+
 		return nil
+
 	case "$endif":
 		if len(p.conds) == 1 {
 			return &ParseError{
@@ -291,34 +346,42 @@ func (p *Parser) do(h Handler, a, b string) error {
 				Err:  ErrEndifWithoutMatchingIf,
 			}
 		}
+
 		p.conds = p.conds[:len(p.conds)-1]
+
 		return nil
+
 	case "$include":
 		if !p.conds[len(p.conds)-1] {
 			return nil
 		}
-		path := expandIncludePath(b)
-		buf, err := h.ReadFile(path)
+
+		path := expandIncludePath(val)
+		buf, err := handler.ReadFile(path)
+
 		switch {
 		case err != nil && errors.Is(err, os.ErrNotExist):
 			return nil
 		case err != nil:
 			return err
 		}
-		return Parse(bytes.NewReader(buf), h, WithName(b), WithApp(p.app), WithTerm(p.term), WithMode(p.mode))
+
+		return Parse(bytes.NewReader(buf), handler, WithName(val), WithApp(p.app), WithTerm(p.term), WithMode(p.mode))
 	}
+
 	if !p.conds[len(p.conds)-1] {
 		return nil
 	}
 	// delegate unknown construct
-	if err := h.Do(a, b); err != nil {
+	if err := handler.Do(keyword, val); err != nil {
 		return &ParseError{
 			Name: p.name,
 			Line: p.line,
-			Text: a + " " + b,
+			Text: keyword + " " + val,
 			Err:  err,
 		}
 	}
+
 	return nil
 }
 
@@ -381,6 +444,7 @@ func (err *ParseError) Error() string {
 	if err.Name != "" {
 		s = " " + err.Name + ":"
 	}
+
 	return fmt.Sprintf("inputrc:%s line %d: %s: %v", s, err.Line, err.Text, err.Err)
 }
 
@@ -415,6 +479,7 @@ func (tok token) String() string {
 	case tokenConstruct:
 		return "construct"
 	}
+
 	return fmt.Sprintf("token(%d)", tok)
 }
 
@@ -431,22 +496,26 @@ func findEnd(r []rune, i, end int) int {
 	for c := grab(r, i+1, end); i < end && c != '#' && !unicode.IsSpace(c) && !unicode.IsControl(c); i++ {
 		c = grab(r, i+1, end)
 	}
+
 	return i
 }
 
 // findStringEnd finds end of the string, returning end if not found.
-func findStringEnd(r []rune, i, end int) (int, bool) {
-	quote, c := r[i], rune(0)
-	for i++; i < end; i++ {
-		switch c = r[i]; {
-		case c == '\\':
-			i++
+func findStringEnd(seq []rune, pos, end int) (int, bool) {
+	var char rune
+	quote := seq[pos]
+
+	for pos++; pos < end; pos++ {
+		switch char = seq[pos]; {
+		case char == '\\':
+			pos++
 			continue
-		case c == quote:
-			return i + 1, true
+		case char == quote:
+			return pos + 1, true
 		}
 	}
-	return i, false
+
+	return pos, false
 }
 
 // grab returns r[i] when i < end, 0 otherwise.
@@ -454,62 +523,70 @@ func grab(r []rune, i, end int) rune {
 	if i < end {
 		return r[i]
 	}
+
 	return 0
 }
 
 // decodeKey decodes named key sequence.
-func decodeKey(r []rune, i, end int) (string, int, error) {
+func decodeKey(seq []rune, pos, end int) (string, int, error) {
 	// seek end of sequence
-	start := i
-	for c := grab(r, i+1, end); i < end && c != ':' && c != '#' && !unicode.IsSpace(c) && !unicode.IsControl(c); i++ {
-		c = grab(r, i+1, end)
+	start := pos
+	for c := grab(seq, pos+1, end); pos < end && c != ':' && c != '#' && !unicode.IsSpace(c) && !unicode.IsControl(c); pos++ {
+		c = grab(seq, pos+1, end)
 	}
-	s := strings.ToLower(string(r[start:i]))
+
+	val := strings.ToLower(string(seq[start:pos]))
 	meta, control := false, false
-	for i := strings.Index(s, "-"); i != -1; i = strings.Index(s, "-") {
-		switch s[:i] {
+
+	for idx := strings.Index(val, "-"); idx != -1; idx = strings.Index(val, "-") {
+		switch val[:idx] {
 		case "control", "ctrl", "c":
 			control = true
 		case "meta", "m":
 			meta = true
 		default:
-			return "", i, ErrUnknownModifier
+			return "", idx, ErrUnknownModifier
 		}
-		s = s[i+1:]
+
+		val = val[idx+1:]
 	}
-	var c rune
-	switch s {
+
+	var char rune
+
+	switch val {
 	case "":
-		return "", i, nil
+		return "", pos, nil
 
 	case "delete", "del", "rubout":
-		c = Delete
+		char = Delete
 	case "escape", "esc":
-		c = Esc
+		char = Esc
 	case "newline", "linefeed", "lfd":
-		c = Newline
+		char = Newline
 	case "return", "ret":
-		c = Return
+		char = Return
 	case "tab":
-		c = Tab
+		char = Tab
 	case "space", "spc":
-		c = Space
+		char = Space
 	case "formfeed", "ffd":
-		c = Formfeed
+		char = Formfeed
 	case "vertical", "vrt":
-		c = Vertical
+		char = Vertical
 	default:
-		c, _ = utf8.DecodeRuneInString(s)
+		char, _ = utf8.DecodeRuneInString(val)
 	}
+
 	switch {
 	case control && meta:
-		return string([]rune{Esc, Encontrol(c)}), i, nil
+		return string([]rune{Esc, Encontrol(char)}), pos, nil
 	case control:
-		c = Encontrol(c)
+		char = Encontrol(char)
 	case meta:
-		c = Enmeta(c)
+		char = Enmeta(char)
 	}
-	return string(c), i, nil
+
+	return string(char), pos, nil
 }
 
 /*
@@ -540,87 +617,94 @@ func decodeRunes(r []rune, i, end int) string {
 
 // unescapeRunes decodes escaped string sequence.
 func unescapeRunes(r []rune, i, end int) string {
-	var s []rune
-	var c0, c1, c2, c3, c4, c5 rune
+	var seq []rune
+	var char0, char1, char2, char3, char4, char5 rune
+
 	for ; i < end; i++ {
-		if c0 = r[i]; c0 == '\\' {
-			c1, c2, c3, c4, c5 = grab(r, i+1, end), grab(r, i+2, end), grab(r, i+3, end), grab(r, i+4, end), grab(r, i+5, end)
+		if char0 = r[i]; char0 == '\\' {
+			char1, char2, char3, char4, char5 = grab(r, i+1, end), grab(r, i+2, end), grab(r, i+3, end), grab(r, i+4, end), grab(r, i+5, end)
+
 			switch {
-			case c1 == 'a': // \a alert (bell)
-				s = append(s, Alert)
+			case char1 == 'a': // \a alert (bell)
+				seq = append(seq, Alert)
 				i++
-			case c1 == 'b': // \b backspace
-				s = append(s, Backspace)
+			case char1 == 'b': // \b backspace
+				seq = append(seq, Backspace)
 				i++
-			case c1 == 'd': // \d delete
-				s = append(s, Delete)
+			case char1 == 'd': // \d delete
+				seq = append(seq, Delete)
 				i++
-			case c1 == 'e': // \e escape
-				s = append(s, Esc)
+			case char1 == 'e': // \e escape
+				seq = append(seq, Esc)
 				i++
-			case c1 == 'f': // \f form feed
-				s = append(s, Formfeed)
+			case char1 == 'f': // \f form feed
+				seq = append(seq, Formfeed)
 				i++
-			case c1 == 'n': // \n new line
-				s = append(s, Newline)
+			case char1 == 'n': // \n new line
+				seq = append(seq, Newline)
 				i++
-			case c1 == 'r': // \r carriage return
-				s = append(s, Return)
+			case char1 == 'r': // \r carriage return
+				seq = append(seq, Return)
 				i++
-			case c1 == 't': // \t tab
-				s = append(s, Tab)
+			case char1 == 't': // \t tab
+				seq = append(seq, Tab)
 				i++
-			case c1 == 'v': // \v vertical
-				s = append(s, Vertical)
+			case char1 == 'v': // \v vertical
+				seq = append(seq, Vertical)
 				i++
-			case c1 == '\\', c1 == '"', c1 == '\'': // \\ \" \' literal
-				s = append(s, c1)
+			case char1 == '\\', char1 == '"', char1 == '\'': // \\ \" \' literal
+				seq = append(seq, char1)
 				i++
-			case c1 == 'x' && hexDigit(c2) && hexDigit(c3): // \xHH hex
-				s = append(s, hexVal(c2)<<4|hexVal(c3))
+			case char1 == 'x' && hexDigit(char2) && hexDigit(char3): // \xHH hex
+				seq = append(seq, hexVal(char2)<<4|hexVal(char3))
 				i += 2
-			case c1 == 'x' && hexDigit(c2): // \xH hex
-				s = append(s, hexVal(c2))
+			case char1 == 'x' && hexDigit(char2): // \xH hex
+				seq = append(seq, hexVal(char2))
 				i++
-			case octDigit(c1) && octDigit(c2) && octDigit(c3): // \nnn octal
-				s = append(s, (c1-'0')<<6|(c2-'0')<<3|(c3-'0'))
+			case octDigit(char1) && octDigit(char2) && octDigit(char3): // \nnn octal
+				seq = append(seq, (char1-'0')<<6|(char2-'0')<<3|(char3-'0'))
 				i += 3
-			case octDigit(c1) && octDigit(c2): // \nn octal
-				s = append(s, (c1-'0')<<3|(c2-'0'))
+			case octDigit(char1) && octDigit(char2): // \nn octal
+				seq = append(seq, (char1-'0')<<3|(char2-'0'))
 				i += 2
-			case octDigit(c1): // \n octal
-				s = append(s, c1-'0')
+			case octDigit(char1): // \n octal
+				seq = append(seq, char1-'0')
 				i++
-			case ((c1 == 'C' && c4 == 'M') || (c1 == 'M' && c4 == 'C')) && c2 == '-' && c3 == '\\' && c5 == '-':
+			case ((char1 == 'C' && char4 == 'M') || (char1 == 'M' && char4 == 'C')) && char2 == '-' && char3 == '\\' && char5 == '-':
 				// \C-\M- or \M-\C- control meta prefix
-				if c6 := grab(r, i+6, end); c6 != 0 {
-					s = append(s, Esc, Encontrol(c6))
+				if c6 := grab(r, i+metaSeqLength, end); c6 != 0 {
+					seq = append(seq, Esc, Encontrol(c6))
 				}
+
 				i += 6
-			case c1 == 'C' && c2 == '-': // \C- control prefix
-				if c3 == '?' {
-					s = append(s, Delete)
+			case char1 == 'C' && char2 == '-': // \C- control prefix
+				if char3 == '?' {
+					seq = append(seq, Delete)
 				} else {
-					s = append(s, Encontrol(c3))
+					seq = append(seq, Encontrol(char3))
 				}
+
 				i += 3
-			case c1 == 'M' && c2 == '-': // \M- meta prefix
-				if c3 == 0 {
-					s = append(s, Esc)
+			case char1 == 'M' && char2 == '-': // \M- meta prefix
+				if char3 == 0 {
+					seq = append(seq, Esc)
 					i += 2
 				} else {
-					s = append(s, Enmeta(c3))
+					seq = append(seq, Enmeta(char3))
 					i += 3
 				}
 			default:
-				s = append(s, c1)
+				seq = append(seq, char1)
 				i++
 			}
+
 			continue
 		}
-		s = append(s, c0)
+
+		seq = append(seq, char0)
 	}
-	return string(s)
+
+	return string(seq)
 }
 
 // octDigit returns true when r is 0-7.
@@ -634,14 +718,15 @@ func hexDigit(c rune) bool {
 }
 
 // hexVal converts a rune to its hex value.
-func hexVal(c rune) rune {
+func hexVal(char rune) rune {
 	switch {
-	case 'a' <= c && c <= 'f':
-		return c - 'a' + 10
-	case 'A' <= c && c <= 'F':
-		return c - 'A' + 10
+	case 'a' <= char && char <= 'f':
+		return char - 'a' + hexValNum
+	case 'A' <= char && char <= 'F':
+		return char - 'A' + hexValNum
 	}
-	return c - '0'
+
+	return char - '0'
 }
 
 // expandIncludePath handles tilde home directory expansion in $include path directives.

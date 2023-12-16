@@ -25,13 +25,13 @@ import (
 )
 
 var (
-	// Reactions - Manages/tracks reactions
+	// Reactions - Manages/tracks reactions.
 	Reactions = &reactions{
 		reactionMap: map[string][]Reaction{},
 		mutex:       &sync.RWMutex{},
 	}
 
-	// ReactableEvents - A list of reactionable events
+	// ReactableEvents - A list of reactionable events.
 	ReactableEvents = []string{
 		consts.SessionOpenedEvent,
 		consts.SessionUpdateEvent,
@@ -58,7 +58,7 @@ type reactions struct {
 	reactionID  int
 }
 
-// Add - Add a reaction
+// Add - Add a reaction.
 func (r *reactions) Add(reaction Reaction) Reaction {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
@@ -73,7 +73,7 @@ func (r *reactions) Add(reaction Reaction) Reaction {
 }
 
 // Remove - Remove a reaction, yes we're using linear search but this isn't exactly
-// a performance critical piece of code and the map/slice is going to be very small
+// a performance critical piece of code and the map/slice is going to be very small.
 func (r *reactions) Remove(reactionID int) bool {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
@@ -88,7 +88,7 @@ func (r *reactions) Remove(reactionID int) bool {
 	return false
 }
 
-// On - Get all reactions of a specific type
+// On - Get all reactions of a specific type.
 func (r *reactions) On(eventType string) []Reaction {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
@@ -100,7 +100,7 @@ func (r *reactions) On(eventType string) []Reaction {
 	return []Reaction{}
 }
 
-// All - Get all reactions (returns a flat list with all event types)
+// All - Get all reactions (returns a flat list with all event types).
 func (r *reactions) All() []Reaction {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
@@ -111,7 +111,7 @@ func (r *reactions) All() []Reaction {
 	return reactions
 }
 
-// Reaction - Metadata about a portfwd listener
+// Reaction - Metadata about a portfwd listener.
 type Reaction struct {
 	ID        int      `json:"-"`
 	EventType string   `json:"event_type"`

@@ -21,9 +21,8 @@ package environment
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -31,8 +30,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// EnvSetCmd - Set a remote environment variable
-func EnvSetCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// EnvSetCmd - Set a remote environment variable.
+func EnvSetCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -53,11 +52,11 @@ func EnvSetCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if envInfo.Response != nil && envInfo.Response.Async {
-		con.AddBeaconCallback(envInfo.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(envInfo.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, envInfo)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -65,14 +64,13 @@ func EnvSetCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 			}
 			PrintSetEnvInfo(name, value, envInfo, con)
 		})
-		con.PrintAsyncResponse(envInfo.Response)
 	} else {
 		PrintSetEnvInfo(name, value, envInfo, con)
 	}
 }
 
-// PrintSetEnvInfo - Print the set environment info
-func PrintSetEnvInfo(name string, value string, envInfo *sliverpb.SetEnv, con *console.SliverConsoleClient) {
+// PrintSetEnvInfo - Print the set environment info.
+func PrintSetEnvInfo(name string, value string, envInfo *sliverpb.SetEnv, con *console.SliverClient) {
 	if envInfo.Response != nil && envInfo.Response.Err != "" {
 		con.PrintErrorf("%s\n", envInfo.Response.Err)
 		return

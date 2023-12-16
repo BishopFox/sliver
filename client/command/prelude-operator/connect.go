@@ -29,7 +29,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
-func ConnectCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ConnectCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	url := args[0]
 	aesKey, _ := cmd.Flags().GetString("aes-key")
 	agentRange, _ := cmd.Flags().GetString("range")
@@ -48,7 +48,7 @@ func ConnectCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 	if !skipExisting {
 		sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			con.PrintErrorf("Could not get session list: %s", err)
+			con.PrintErrorf("Could not get session list: %s", con.UnwrapServerErr(err))
 			return
 		}
 		if len(sessions.Sessions) > 0 {
@@ -65,14 +65,14 @@ func ConnectCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 		}
 		beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			con.PrintErrorf("Could not get beacon list: %s", err)
+			con.PrintErrorf("Could not get beacon list: %s", con.UnwrapServerErr(err))
 			return
 		}
 		if len(beacons.Beacons) > 0 {
 			con.PrintInfof("Adding existing beacons ...\n")
 			for _, beacon := range beacons.Beacons {
 				err = implantMapper.AddImplant(beacon, func(taskID string, cb func(task *clientpb.BeaconTask)) {
-					con.AddBeaconCallback(taskID, cb)
+					con.AddBeaconCallback(&commonpb.Response{TaskID: taskID}, cb)
 				})
 				if err != nil {
 					con.PrintErrorf("Could not add beacon %s to implant mapper: %s", beacon.Name, err)

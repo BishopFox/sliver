@@ -29,33 +29,33 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// ProfilesRmCmd - Delete an implant profile
-func ProfilesRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
-	var name string
-	if len(args) > 0 {
-		name = args[0]
-	}
-	// name := ctx.Args.String("name")
-	if name == "" {
-		con.PrintErrorf("No profile name specified\n")
-		return
-	}
-	profile := GetImplantProfileByName(name, con)
-	if profile == nil {
-		con.PrintErrorf("No profile found with name '%s'\n", name)
-		return
-	}
-	confirm := false
-	prompt := &survey.Confirm{Message: fmt.Sprintf("Remove '%s' profile?", name)}
-	survey.AskOne(prompt, &confirm)
-	if !confirm {
-		return
-	}
-	_, err := con.Rpc.DeleteImplantProfile(context.Background(), &clientpb.DeleteReq{
-		Name: name,
-	})
-	if err != nil {
-		con.PrintErrorf("Failed to delete profile %s\n", err)
-		return
+// ProfilesRmCmd - Delete an implant profile.
+func ProfilesRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	for _, name := range args {
+		if name == "" {
+			continue
+		}
+		if name == "" {
+			con.PrintErrorf("No profile name specified\n")
+			return
+		}
+		profile := GetImplantProfileByName(name, con)
+		if profile == nil {
+			con.PrintErrorf("No profile found with name '%s'\n", name)
+			return
+		}
+		confirm := false
+		prompt := &survey.Confirm{Message: fmt.Sprintf("Remove '%s' profile?", name)}
+		survey.AskOne(prompt, &confirm)
+		if !confirm {
+			return
+		}
+		_, err := con.Rpc.DeleteImplantProfile(context.Background(), &clientpb.DeleteReq{
+			Name: name,
+		})
+		if err != nil {
+			con.PrintErrorf("Failed to delete profile %s\n", con.UnwrapServerErr(err))
+			continue
+		}
 	}
 }

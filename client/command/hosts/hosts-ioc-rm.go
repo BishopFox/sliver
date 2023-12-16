@@ -27,7 +27,7 @@ import (
 )
 
 // HostsIOCRmCmd - Remove an IOC from the database
-func HostsIOCRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func HostsIOCRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	host, err := SelectHost(con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -40,7 +40,7 @@ func HostsIOCRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 	}
 	_, err = con.Rpc.HostIOCRm(context.Background(), ioc)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Removed IOC from database\n")

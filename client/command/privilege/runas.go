@@ -20,18 +20,18 @@ package privilege
 
 import (
 	"context"
-
-	"google.golang.org/protobuf/proto"
+	"errors"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// RunAsCmd - Run a command as another user on the remote system
-func RunAsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// RunAsCmd - Run a command as another user on the remote system.
+func RunAsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -66,13 +66,18 @@ func RunAsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 		NetOnly:     netonly,
 	})
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return
 	}
 
-	name := getName(session, beacon)
+	name, err := getName(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
+
 	if runAs.Response != nil && runAs.Response.Async {
-		con.AddBeaconCallback(runAs.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(runAs.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, runAs)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -80,14 +85,13 @@ func RunAsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 			}
 			PrintRunAs(runAs, process, arguments, name, con)
 		})
-		con.PrintAsyncResponse(runAs.Response)
 	} else {
 		PrintRunAs(runAs, process, arguments, name, con)
 	}
 }
 
-// PrintRunAs - Print the result of run as
-func PrintRunAs(runAs *sliverpb.RunAs, process string, args string, name string, con *console.SliverConsoleClient) {
+// PrintRunAs - Print the result of run as.
+func PrintRunAs(runAs *sliverpb.RunAs, process string, args string, name string, con *console.SliverClient) {
 	if runAs.Response != nil && runAs.Response.GetErr() != "" {
 		con.PrintErrorf("%s\n", runAs.Response.GetErr())
 		return
@@ -95,12 +99,13 @@ func PrintRunAs(runAs *sliverpb.RunAs, process string, args string, name string,
 	con.PrintInfof("Successfully ran %s %s on %s\n", process, args, name)
 }
 
-func getName(session *clientpb.Session, beacon *clientpb.Beacon) string {
+func getName(session *clientpb.Session, beacon *clientpb.Beacon) (string, error) {
 	if session != nil {
-		return session.Name
+		return session.Name, nil
 	}
 	if beacon != nil {
-		return beacon.Name
+		return beacon.Name, nil
 	}
-	panic("no session or beacon")
+
+	return "", errors.New("no session or beacon")
 }

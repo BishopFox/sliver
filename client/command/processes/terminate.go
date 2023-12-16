@@ -30,8 +30,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// TerminateCmd - Terminate a process on the remote system
-func TerminateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// TerminateCmd - Terminate a process on the remote system.
+func TerminateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		con.PrintErrorf("No active session or beacon\n")
@@ -52,12 +52,12 @@ func TerminateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 		Force:   force,
 	})
 	if err != nil {
-		con.PrintErrorf("Terminate failed: %s", err)
+		con.PrintErrorf("Terminate failed: %s", con.UnwrapServerErr(err))
 		return
 	}
 
 	if terminated.Response != nil && terminated.Response.Async {
-		con.AddBeaconCallback(terminated.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(terminated.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, terminated)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -65,14 +65,13 @@ func TerminateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 			}
 			PrintTerminate(terminated, con)
 		})
-		con.PrintAsyncResponse(terminated.Response)
 	} else {
 		PrintTerminate(terminated, con)
 	}
 }
 
-// PrintTerminate - Print the results of the terminate command
-func PrintTerminate(terminated *sliverpb.Terminate, con *console.SliverConsoleClient) {
+// PrintTerminate - Print the results of the terminate command.
+func PrintTerminate(terminated *sliverpb.Terminate, con *console.SliverClient) {
 	if terminated.Response != nil && terminated.Response.GetErr() != "" {
 		con.PrintErrorf("%s\n", terminated.Response.GetErr())
 	} else {

@@ -25,10 +25,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/spf13/cobra"
 )
 
 const (
@@ -37,8 +38,8 @@ const (
 	CSVFormat                  = "csv"       // username,hash\n
 )
 
-// CredsCmd - Add new credentials
-func CredsAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CredsCmd - Add new credentials.
+func CredsAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	collection, _ := cmd.Flags().GetString("collection")
 	username, _ := cmd.Flags().GetString("username")
 	plaintext, _ := cmd.Flags().GetString("plaintext")
@@ -65,19 +66,19 @@ func CredsAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 		},
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	PrintCreds(creds.Credentials, con)
 }
 
-// CredsCmd - Add new credentials
-func CredsAddHashFileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CredsCmd - Add new credentials.
+func CredsAddHashFileCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	collection, _ := cmd.Flags().GetString("collection")
 	filePath := args[0]
 	fileFormat, _ := cmd.Flags().GetString("file-format")
@@ -116,12 +117,12 @@ func CredsAddHashFileCmd(cmd *cobra.Command, con *console.SliverConsoleClient, a
 	con.PrintInfof("Adding %d credential(s) ...\n", len(creds.Credentials))
 	_, err = con.Rpc.CredsAdd(context.Background(), creds)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	creds, err = con.Rpc.Creds(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	PrintCreds(creds.Credentials, con)

@@ -27,8 +27,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// WGSocksStartCmd - Start a WireGuard reverse SOCKS proxy
-func WGSocksStartCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// WGSocksStartCmd - Start a WireGuard reverse SOCKS proxy.
+func WGSocksStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -45,7 +45,7 @@ func WGSocksStartCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("Error: %v", err)
+		con.PrintErrorf("Error: %v", con.UnwrapServerErr(err))
 		return
 	}
 

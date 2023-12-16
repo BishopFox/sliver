@@ -51,9 +51,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var (
-	rcpGenLog = log.NamedLogger("rpc", "generate")
-)
+var rcpGenLog = log.NamedLogger("rpc", "generate")
 
 // Generate - Generate a new implant
 func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.Generate, error) {
@@ -147,7 +145,6 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 
 // Regenerate - Regenerate a previously generated implant
 func (rpc *Server) Regenerate(ctx context.Context, req *clientpb.RegenerateReq) (*clientpb.Generate, error) {
-
 	build, err := db.ImplantBuildByName(req.ImplantName)
 	if err != nil {
 		rpcLog.Errorf("Failed to find implant %s: %s", req.ImplantName, err)
@@ -213,7 +210,6 @@ func (rpc *Server) Canaries(ctx context.Context, _ *commonpb.Empty) (*clientpb.C
 // GenerateUniqueIP - Wrapper around generate.GenerateUniqueIP
 func (rpc *Server) GenerateUniqueIP(ctx context.Context, _ *commonpb.Empty) (*clientpb.UniqueWGIP, error) {
 	uniqueIP, err := generate.GenerateUniqueIP()
-
 	if err != nil {
 		rpcLog.Infof("Failed to generate unique wg peer ip: %s\n", err)
 		return nil, err
@@ -492,7 +488,6 @@ func (rpc *Server) Builders(ctx context.Context, _ *commonpb.Empty) (*clientpb.B
 
 // BuilderTrigger - Trigger a builder event
 func (rpc *Server) BuilderTrigger(ctx context.Context, req *clientpb.Event) (*commonpb.Empty, error) {
-
 	switch req.EventType {
 
 	// Only allow certain event types to be triggered

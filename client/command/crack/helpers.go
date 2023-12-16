@@ -5,16 +5,21 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/rsteube/carapace"
+
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/rsteube/carapace"
 )
 
-func CrackHcstat2Completer(con *console.SliverConsoleClient) carapace.Action {
+func CrackHcstat2Completer(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		if msg, err := con.PreRunComplete(); err != nil {
+			return msg
+		}
+
 		hcstat2, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_MARKOV_HCSTAT2})
 		if err != nil {
-			return carapace.ActionMessage("failed to fetch crack files: %s", err.Error())
+			return carapace.ActionMessage("failed to fetch crack files: %s", con.UnwrapServerErr(err))
 		}
 
 		results := make([]string, 0)
@@ -33,11 +38,15 @@ func CrackHcstat2Completer(con *console.SliverConsoleClient) carapace.Action {
 	})
 }
 
-func CrackWordlistCompleter(con *console.SliverConsoleClient) carapace.Action {
+func CrackWordlistCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		if msg, err := con.PreRunComplete(); err != nil {
+			return msg
+		}
+
 		hcstat2, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_MARKOV_HCSTAT2})
 		if err != nil {
-			return carapace.ActionMessage("failed to fetch crack files: %s", err.Error())
+			return carapace.ActionMessage("failed to fetch crack files: %s", con.UnwrapServerErr(err))
 		}
 
 		results := make([]string, 0)
@@ -57,11 +66,15 @@ func CrackWordlistCompleter(con *console.SliverConsoleClient) carapace.Action {
 	})
 }
 
-func CrackRulesCompleter(con *console.SliverConsoleClient) carapace.Action {
+func CrackRulesCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		if msg, err := con.PreRunComplete(); err != nil {
+			return msg
+		}
+
 		hcstat2, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_MARKOV_HCSTAT2})
 		if err != nil {
-			return carapace.ActionMessage("failed to fetch crack files: %s", err.Error())
+			return carapace.ActionMessage("failed to fetch crack files: %s", con.UnwrapServerErr(err))
 		}
 
 		results := make([]string, 0)

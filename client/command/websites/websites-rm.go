@@ -27,8 +27,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// WebsiteRmCmd - Remove a website and all its static content
-func WebsiteRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// WebsiteRmCmd - Remove a website and all its static content.
+func WebsiteRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var name string
 	if len(args) > 0 {
 		name = args[0]
@@ -38,7 +38,7 @@ func WebsiteRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 		Name: name,
 	})
 	if err != nil {
-		con.PrintErrorf("Failed to remove website %s", err)
+		con.PrintErrorf("Failed to remove website %s", con.UnwrapServerErr(err))
 		return
 	}
 }

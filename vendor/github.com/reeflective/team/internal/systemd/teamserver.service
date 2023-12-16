@@ -1,0 +1,17 @@
+## [ {{.Application}} Systemd Service ]
+
+[Unit]
+Description={{.Description}}
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=3
+User={{.User}}
+ExecStart={{.Command}}
+
+[Install]
+WantedBy=multi-user.target
+

@@ -15,6 +15,7 @@ message Request {
 
   string BeaconID = 8;
   string SessionID = 9;
+  repeated string CmdLine = 10;
 }
   
 // Response - Common fields used in all gRPC responses. Note that the Err field

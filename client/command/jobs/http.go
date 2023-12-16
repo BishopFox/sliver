@@ -28,8 +28,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// HTTPListenerCmd - Start an HTTP listener
-func HTTPListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// HTTPListenerCmd - Start an HTTP listener.
+func HTTPListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	domain, _ := cmd.Flags().GetString("domain")
 	lhost, _ := cmd.Flags().GetString("lhost")
 	lport, _ := cmd.Flags().GetUint32("lport")
@@ -61,7 +61,7 @@ func HTTPListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 		LongPollJitter:  int64(longPollJitter),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	} else {
 		con.PrintInfof("Successfully started job #%d\n", http.JobID)
 	}

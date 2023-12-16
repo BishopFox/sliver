@@ -22,9 +22,8 @@ import (
 	"context"
 	"fmt"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -32,8 +31,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// MsfInjectCmd - Inject a metasploit payload into a remote process
-func MsfInjectCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// MsfInjectCmd - Inject a metasploit payload into a remote process.
+func MsfInjectCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -80,12 +79,12 @@ func MsfInjectCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
 	if msfTask.Response != nil && msfTask.Response.Async {
-		con.AddBeaconCallback(msfTask.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(msfTask.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, msfTask)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -93,14 +92,13 @@ func MsfInjectCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 			}
 			PrintMsfRemote(msfTask, con)
 		})
-		con.PrintAsyncResponse(msfTask.Response)
 	} else {
 		PrintMsfRemote(msfTask, con)
 	}
 }
 
-// PrintMsfRemote - Print the results of the remote injection attempt
-func PrintMsfRemote(msfRemote *sliverpb.Task, con *console.SliverConsoleClient) {
+// PrintMsfRemote - Print the results of the remote injection attempt.
+func PrintMsfRemote(msfRemote *sliverpb.Task, con *console.SliverClient) {
 	if msfRemote.Response == nil {
 		con.PrintErrorf("Empty response from msf payload injection task")
 		return

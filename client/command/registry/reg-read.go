@@ -23,9 +23,8 @@ import (
 	"fmt"
 	"strings"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -74,8 +73,8 @@ func getType(t string) (uint32, error) {
 	return res, nil
 }
 
-// RegReadCmd - Read a windows registry key: registry read --hostname aa.bc.local --hive HKCU "software\google\chrome\blbeacon\version"
-func RegReadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// RegReadCmd - Read a windows registry key: registry read --hostname aa.bc.local --hive HKCU "software\google\chrome\blbeacon\version".
+func RegReadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var (
 		finalPath string
 		key       string
@@ -84,7 +83,11 @@ func RegReadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 	if session == nil && beacon == nil {
 		return
 	}
-	targetOS := getOS(session, beacon)
+	targetOS, err := getOS(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
 	if targetOS != "windows" {
 		con.PrintErrorf("Registry operations can only target Windows\n")
 		return
@@ -126,12 +129,12 @@ func RegReadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 		Request:  con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
 	if regRead.Response != nil && regRead.Response.Async {
-		con.AddBeaconCallback(regRead.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(regRead.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, regRead)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -139,14 +142,13 @@ func RegReadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 			}
 			PrintRegRead(regRead, con)
 		})
-		con.PrintAsyncResponse(regRead.Response)
 	} else {
 		PrintRegRead(regRead, con)
 	}
 }
 
-// PrintRegRead - Print the results of the registry read command
-func PrintRegRead(regRead *sliverpb.RegistryRead, con *console.SliverConsoleClient) {
+// PrintRegRead - Print the results of the registry read command.
+func PrintRegRead(regRead *sliverpb.RegistryRead, con *console.SliverClient) {
 	if regRead.Response != nil && regRead.Response.Err != "" {
 		con.PrintErrorf("%s\n", regRead.Response.Err)
 		return

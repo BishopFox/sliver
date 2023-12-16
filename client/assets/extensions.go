@@ -25,16 +25,16 @@ import (
 )
 
 const (
-	// ExtensionsDirName - Directory storing the client side extensions
+	// ExtensionsDirName - Directory storing the client side extensions.
 	ExtensionsDirName = "extensions"
 )
 
-// GetExtensionsDir - Get the Sliver extension directory: ~/.sliver-client/extensions
+// GetExtensionsDir - Get the Sliver extension directory: ~/.sliver-client/extensions.
 func GetExtensionsDir() string {
 	rootDir, _ := filepath.Abs(GetRootAppDir())
 	dir := filepath.Join(rootDir, ExtensionsDirName)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, 0700)
+		err = os.MkdirAll(dir, 0o700)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -42,7 +42,7 @@ func GetExtensionsDir() string {
 	return dir
 }
 
-// GetInstalledExtensionManifests - Returns a list of installed extension manifests
+// GetInstalledExtensionManifests - Returns a list of installed extension manifests.
 func GetInstalledExtensionManifests() []string {
 	extDir := GetExtensionsDir()
 	extDirContent, err := os.ReadDir(extDir)

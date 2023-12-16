@@ -32,11 +32,11 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
-// BuildersCmd - List external builders
-func BuildersCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// BuildersCmd - List external builders.
+func BuildersCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	builders, err := con.Rpc.Builders(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return
 	}
 	if len(builders.Builders) == 0 {
@@ -46,9 +46,10 @@ func BuildersCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 	}
 }
 
-func PrintBuilders(externalBuilders []*clientpb.Builder, con *console.SliverConsoleClient) {
+func PrintBuilders(externalBuilders []*clientpb.Builder, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"Name", "Operator", "Templates", "Platform", "Compiler Targets",
 	})

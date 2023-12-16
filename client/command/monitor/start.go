@@ -27,11 +27,11 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
-// MonitorStartCmd - Start monitoring threat intel for implants
-func MonitorStartCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// MonitorStartCmd - Start monitoring threat intel for implants.
+func MonitorStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	resp, err := con.Rpc.MonitorStart(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if resp != nil && resp.Err != "" {

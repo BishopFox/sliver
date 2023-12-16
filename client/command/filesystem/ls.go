@@ -27,10 +27,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -38,8 +37,8 @@ import (
 	"github.com/bishopfox/sliver/util"
 )
 
-// LsCmd - List the contents of a remote directory
-func LsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// LsCmd - List the contents of a remote directory.
+func LsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -61,7 +60,7 @@ func LsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) 
 		return
 	}
 	if ls.Response != nil && ls.Response.Async {
-		con.AddBeaconCallback(ls.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(ls.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, ls)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -69,14 +68,13 @@ func LsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) 
 			}
 			PrintLs(ls, cmd.Flags(), con)
 		})
-		con.PrintAsyncResponse(ls.Response)
 	} else {
 		PrintLs(ls, cmd.Flags(), con)
 	}
 }
 
-// PrintLs - Display an sliverpb.Ls object
-func PrintLs(ls *sliverpb.Ls, flags *pflag.FlagSet, con *console.SliverConsoleClient) {
+// PrintLs - Display an sliverpb.Ls object.
+func PrintLs(ls *sliverpb.Ls, flags *pflag.FlagSet, con *console.SliverClient) {
 	if ls.Response != nil && ls.Response.Err != "" {
 		con.PrintErrorf("%s\n", ls.Response.Err)
 		return

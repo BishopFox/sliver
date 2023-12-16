@@ -25,7 +25,7 @@ import (
 	"github.com/bishopfox/sliver/client/prelude"
 )
 
-func OperatorCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func OperatorCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if prelude.ImplantMapper != nil {
 		con.PrintInfof("Connected to Operator at %s\n", prelude.ImplantMapper.GetConfig().OperatorURL)
 		return

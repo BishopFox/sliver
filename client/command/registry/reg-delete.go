@@ -22,22 +22,25 @@ import (
 	"context"
 	"strings"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// RegDeleteKeyCmd - Remove a Windows registry key
-func RegDeleteKeyCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// RegDeleteKeyCmd - Remove a Windows registry key.
+func RegDeleteKeyCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
-	targetOS := getOS(session, beacon)
+	targetOS, err := getOS(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
 	if targetOS != "windows" {
 		con.PrintErrorf("Registry operations can only target Windows\n")
 		return
@@ -78,12 +81,12 @@ func RegDeleteKeyCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 		Request:  con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
 	if deleteKey.Response != nil && deleteKey.Response.Async {
-		con.AddBeaconCallback(deleteKey.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(deleteKey.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, deleteKey)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -91,14 +94,13 @@ func RegDeleteKeyCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 			}
 			PrintDeleteKey(deleteKey, finalPath, key, con)
 		})
-		con.PrintAsyncResponse(deleteKey.Response)
 	} else {
 		PrintDeleteKey(deleteKey, finalPath, key, con)
 	}
 }
 
-// PrintDeleteKey - Print the results of the delete key command
-func PrintDeleteKey(deleteKey *sliverpb.RegistryDeleteKey, regPath string, key string, con *console.SliverConsoleClient) {
+// PrintDeleteKey - Print the results of the delete key command.
+func PrintDeleteKey(deleteKey *sliverpb.RegistryDeleteKey, regPath string, key string, con *console.SliverClient) {
 	if deleteKey.Response != nil && deleteKey.Response.Err != "" {
 		con.PrintErrorf("%s", deleteKey.Response.Err)
 		return

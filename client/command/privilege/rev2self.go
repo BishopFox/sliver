@@ -21,17 +21,16 @@ package privilege
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// RevToSelfCmd - Drop any impersonated tokens
-func RevToSelfCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// RevToSelfCmd - Drop any impersonated tokens.
+func RevToSelfCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -41,12 +40,12 @@ func RevToSelfCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
 	if revert.Response != nil && revert.Response.Async {
-		con.AddBeaconCallback(revert.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(revert.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, revert)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -54,14 +53,13 @@ func RevToSelfCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 			}
 			PrintRev2Self(revert, con)
 		})
-		con.PrintAsyncResponse(revert.Response)
 	} else {
 		PrintRev2Self(revert, con)
 	}
 }
 
-// PrintRev2Self - Print the result of revert to self
-func PrintRev2Self(revert *sliverpb.RevToSelf, con *console.SliverConsoleClient) {
+// PrintRev2Self - Print the result of revert to self.
+func PrintRev2Self(revert *sliverpb.RevToSelf, con *console.SliverClient) {
 	if revert.Response != nil && revert.Response.GetErr() != "" {
 		con.PrintErrorf("%s\n", revert.Response.GetErr())
 		return

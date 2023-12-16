@@ -21,17 +21,16 @@ package filesystem
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// PwdCmd - Print the remote working directory
-func PwdCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// PwdCmd - Print the remote working directory.
+func PwdCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -40,11 +39,11 @@ func PwdCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string)
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if pwd.Response != nil && pwd.Response.Async {
-		con.AddBeaconCallback(pwd.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(pwd.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, pwd)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -52,14 +51,13 @@ func PwdCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string)
 			}
 			PrintPwd(pwd, con)
 		})
-		con.PrintAsyncResponse(pwd.Response)
 	} else {
 		PrintPwd(pwd, con)
 	}
 }
 
-// PrintPwd - Print the remote working directory
-func PrintPwd(pwd *sliverpb.Pwd, con *console.SliverConsoleClient) {
+// PrintPwd - Print the remote working directory.
+func PrintPwd(pwd *sliverpb.Pwd, con *console.SliverClient) {
 	if pwd.Response != nil && pwd.Response.Err != "" {
 		con.PrintErrorf("%s\n", pwd.Response.Err)
 		return

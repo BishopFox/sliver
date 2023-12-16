@@ -32,8 +32,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
-// LootAddLocalCmd - Add a local file to the server as loot
-func LootAddLocalCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// LootAddLocalCmd - Add a local file to the server as loot.
+func LootAddLocalCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	localPath := args[0]
 	if _, err := os.Stat(localPath); os.IsNotExist(err) {
 		con.PrintErrorf("Path '%s' not found\n", localPath)
@@ -73,7 +73,7 @@ func LootAddLocalCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	}
 
 	con.PrintInfof("Successfully added loot to server (%s)\n", loot.ID)

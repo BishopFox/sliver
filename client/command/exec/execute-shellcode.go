@@ -26,10 +26,9 @@ import (
 	"log"
 	"os"
 
+	"github.com/spf13/cobra"
 	"golang.org/x/term"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
@@ -37,8 +36,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// ExecuteShellcodeCmd - Execute shellcode in-memory
-func ExecuteShellcodeCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ExecuteShellcodeCmd - Execute shellcode in-memory.
+func ExecuteShellcodeCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -83,7 +82,7 @@ func ExecuteShellcodeCmd(cmd *cobra.Command, con *console.SliverConsoleClient, a
 			Data:         shellcodeBin,
 		})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			return
 		}
 		oldSize := len(shellcodeBin)
@@ -109,12 +108,12 @@ func ExecuteShellcodeCmd(cmd *cobra.Command, con *console.SliverConsoleClient, a
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
 	if shellcodeTask.Response != nil && shellcodeTask.Response.Async {
-		con.AddBeaconCallback(shellcodeTask.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(shellcodeTask.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, shellcodeTask)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -122,14 +121,13 @@ func ExecuteShellcodeCmd(cmd *cobra.Command, con *console.SliverConsoleClient, a
 			}
 			PrintExecuteShellcode(shellcodeTask, con)
 		})
-		con.PrintAsyncResponse(shellcodeTask.Response)
 	} else {
 		PrintExecuteShellcode(shellcodeTask, con)
 	}
 }
 
-// PrintExecuteShellcode - Display result of shellcode execution
-func PrintExecuteShellcode(task *sliverpb.Task, con *console.SliverConsoleClient) {
+// PrintExecuteShellcode - Display result of shellcode execution.
+func PrintExecuteShellcode(task *sliverpb.Task, con *console.SliverClient) {
 	if task.Response.GetErr() != "" {
 		con.PrintErrorf("%s\n", task.Response.GetErr())
 	} else {
@@ -137,7 +135,7 @@ func PrintExecuteShellcode(task *sliverpb.Task, con *console.SliverConsoleClient
 	}
 }
 
-func executeInteractive(cmd *cobra.Command, hostProc string, shellcode []byte, rwxPages bool, con *console.SliverConsoleClient) {
+func executeInteractive(cmd *cobra.Command, hostProc string, shellcode []byte, rwxPages bool, con *console.SliverClient) {
 	// Check active session
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
@@ -153,7 +151,7 @@ func executeInteractive(cmd *cobra.Command, hostProc string, shellcode []byte, r
 		SessionID: session.ID,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
@@ -166,7 +164,7 @@ func executeInteractive(cmd *cobra.Command, hostProc string, shellcode []byte, r
 		TunnelID:  tunnel.ID,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	// Retrieve PID and start remote task
@@ -185,7 +183,7 @@ func executeInteractive(cmd *cobra.Command, hostProc string, shellcode []byte, r
 	<-ctrl
 
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 

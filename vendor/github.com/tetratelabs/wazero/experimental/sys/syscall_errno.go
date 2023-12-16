@@ -1,51 +1,57 @@
+//go:build !plan9
+
 package sys
 
 import "syscall"
 
-func syscallToErrno(errno syscall.Errno) Errno {
+func syscallToErrno(err error) (Errno, bool) {
+	errno, ok := err.(syscall.Errno)
+	if !ok {
+		return 0, false
+	}
 	switch errno {
 	case 0:
-		return 0
+		return 0, true
 	case syscall.EACCES:
-		return EACCES
+		return EACCES, true
 	case syscall.EAGAIN:
-		return EAGAIN
+		return EAGAIN, true
 	case syscall.EBADF:
-		return EBADF
+		return EBADF, true
 	case syscall.EEXIST:
-		return EEXIST
+		return EEXIST, true
 	case syscall.EFAULT:
-		return EFAULT
+		return EFAULT, true
 	case syscall.EINTR:
-		return EINTR
+		return EINTR, true
 	case syscall.EINVAL:
-		return EINVAL
+		return EINVAL, true
 	case syscall.EIO:
-		return EIO
+		return EIO, true
 	case syscall.EISDIR:
-		return EISDIR
+		return EISDIR, true
 	case syscall.ELOOP:
-		return ELOOP
+		return ELOOP, true
 	case syscall.ENAMETOOLONG:
-		return ENAMETOOLONG
+		return ENAMETOOLONG, true
 	case syscall.ENOENT:
-		return ENOENT
+		return ENOENT, true
 	case syscall.ENOSYS:
-		return ENOSYS
+		return ENOSYS, true
 	case syscall.ENOTDIR:
-		return ENOTDIR
+		return ENOTDIR, true
 	case syscall.ENOTEMPTY:
-		return ENOTEMPTY
+		return ENOTEMPTY, true
 	case syscall.ENOTSOCK:
-		return ENOTSOCK
+		return ENOTSOCK, true
 	case syscall.ENOTSUP:
-		return ENOTSUP
+		return ENOTSUP, true
 	case syscall.EPERM:
-		return EPERM
+		return EPERM, true
 	case syscall.EROFS:
-		return EROFS
+		return EROFS, true
 	default:
-		return EIO
+		return EIO, true
 	}
 }
 

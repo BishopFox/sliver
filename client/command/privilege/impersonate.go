@@ -21,17 +21,16 @@ package privilege
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// ImpersonateCmd - Windows only, impersonate a user token
-func ImpersonateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ImpersonateCmd - Windows only, impersonate a user token.
+func ImpersonateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -43,12 +42,12 @@ func ImpersonateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 		Username: username,
 	})
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return
 	}
 
 	if impersonate.Response != nil && impersonate.Response.Async {
-		con.AddBeaconCallback(impersonate.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(impersonate.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, impersonate)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -56,14 +55,13 @@ func ImpersonateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 			}
 			PrintImpersonate(impersonate, username, con)
 		})
-		con.PrintAsyncResponse(impersonate.Response)
 	} else {
 		PrintImpersonate(impersonate, username, con)
 	}
 }
 
-// PrintImpersonate - Print the results of the attempted impersonation
-func PrintImpersonate(impersonate *sliverpb.Impersonate, username string, con *console.SliverConsoleClient) {
+// PrintImpersonate - Print the results of the attempted impersonation.
+func PrintImpersonate(impersonate *sliverpb.Impersonate, username string, con *console.SliverClient) {
 	if impersonate.Response != nil && impersonate.Response.GetErr() != "" {
 		con.PrintErrorf("%s\n", impersonate.Response.GetErr())
 		return

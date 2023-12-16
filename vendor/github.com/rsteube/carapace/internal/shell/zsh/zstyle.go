@@ -29,6 +29,7 @@ func (z zstyles) valueSGR(val common.RawValue) string {
 		return style.SGR(style.Carapace.Value)
 	}
 	return style.SGR(style.Default)
+
 }
 
 func (z zstyles) Format() string {

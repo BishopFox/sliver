@@ -25,22 +25,25 @@ import (
 	"strconv"
 	"strings"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// RegWriteCmd - Write to a Windows registry key: registry write --hive HKCU --type dword "software\google\chrome\blbeacon\hello" 32
-func RegWriteCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// RegWriteCmd - Write to a Windows registry key: registry write --hive HKCU --type dword "software\google\chrome\blbeacon\hello" 32.
+func RegWriteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
-	targetOS := getOS(session, beacon)
+	targetOS, err := getOS(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
 	if targetOS != "windows" {
 		con.PrintErrorf("Registry operations can only target Windows\n")
 		return
@@ -140,12 +143,12 @@ func RegWriteCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 		ByteValue:   binaryValue,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
 	if regWrite.Response != nil && regWrite.Response.Async {
-		con.AddBeaconCallback(regWrite.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(regWrite.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, regWrite)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -153,14 +156,13 @@ func RegWriteCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 			}
 			PrintRegWrite(regWrite, con)
 		})
-		con.PrintAsyncResponse(regWrite.Response)
 	} else {
 		PrintRegWrite(regWrite, con)
 	}
 }
 
-// PrintRegWrite - Print the registry write operation
-func PrintRegWrite(regWrite *sliverpb.RegistryWrite, con *console.SliverConsoleClient) {
+// PrintRegWrite - Print the registry write operation.
+func PrintRegWrite(regWrite *sliverpb.RegistryWrite, con *console.SliverClient) {
 	if regWrite.Response != nil && regWrite.Response.Err != "" {
 		con.PrintErrorf("%s", regWrite.Response.Err)
 		return

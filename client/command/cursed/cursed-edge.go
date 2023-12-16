@@ -21,7 +21,6 @@ package cursed
 import (
 	"context"
 	"os"
-
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -35,8 +34,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// CursedChromeCmd - Execute a .NET assembly in-memory
-func CursedEdgeCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CursedChromeCmd - Execute a .NET assembly in-memory.
+func CursedEdgeCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -96,7 +95,7 @@ func CursedEdgeCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 	}
 }
 
-func avadaKedavraEdge(session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient, cargs []string) *core.CursedProcess {
+func avadaKedavraEdge(session *clientpb.Session, cmd *cobra.Command, con *console.SliverClient, cargs []string) *core.CursedProcess {
 	edgeProcess, err := getEdgeProcess(session, cmd, con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -122,7 +121,7 @@ func avadaKedavraEdge(session *clientpb.Session, cmd *cobra.Command, con *consol
 			Pid:     edgeProcess.GetPid(),
 		})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			return nil
 		}
 		if terminateResp.Response != nil && terminateResp.Response.Err != "" {
@@ -153,12 +152,12 @@ func isEdgeProcess(executable string) bool {
 	return false
 }
 
-func getEdgeProcess(session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient) (*commonpb.Process, error) {
+func getEdgeProcess(session *clientpb.Session, cmd *cobra.Command, con *console.SliverClient) (*commonpb.Process, error) {
 	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	for _, process := range ps.Processes {
 		if process.GetOwner() != session.GetUsername() {

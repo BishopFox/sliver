@@ -37,8 +37,8 @@ import (
 	"github.com/bishopfox/sliver/util/encoders"
 )
 
-// CatCmd - Display the contents of a remote file
-func CatCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CatCmd - Display the contents of a remote file.
+func CatCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -63,11 +63,11 @@ func CatCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string)
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if download.Response != nil && download.Response.Async {
-		con.AddBeaconCallback(download.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(download.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, download)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -75,14 +75,13 @@ func CatCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string)
 			}
 			PrintCat(download, cmd, con)
 		})
-		con.PrintAsyncResponse(download.Response)
 	} else {
 		PrintCat(download, cmd, con)
 	}
 }
 
-// PrintCat - Print the download to stdout
-func PrintCat(download *sliverpb.Download, cmd *cobra.Command, con *console.SliverConsoleClient) {
+// PrintCat - Print the download to stdout.
+func PrintCat(download *sliverpb.Download, cmd *cobra.Command, con *console.SliverClient) {
 	var (
 		lootDownload bool = true
 		err          error

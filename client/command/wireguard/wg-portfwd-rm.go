@@ -30,8 +30,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// WGPortFwdRmCmd - Remove a WireGuard port forward
-func WGPortFwdRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// WGPortFwdRmCmd - Remove a WireGuard port forward.
+func WGPortFwdRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -52,7 +52,7 @@ func WGPortFwdRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("Error: %v", err)
+		con.PrintErrorf("Error: %v", con.UnwrapServerErr(err))
 		return
 	}
 
@@ -66,16 +66,20 @@ func WGPortFwdRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 	}
 }
 
-// PortfwdIDCompleter completes IDs of WireGuard remote portforwarders
-func PortfwdIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+// PortfwdIDCompleter completes IDs of WireGuard remote portforwarders.
+func PortfwdIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
+		if msg, err := con.PreRunComplete(); err != nil {
+			return msg
+		}
+
 		results := make([]string, 0)
 
 		fwdList, err := con.Rpc.WGListForwarders(context.Background(), &sliverpb.WGTCPForwardersReq{
 			Request: con.ActiveTarget.Request(con.App.ActiveMenu().Root()),
 		})
 		if err != nil {
-			return carapace.ActionMessage("failed to get Wireguard port forwarders: %s", err.Error())
+			return carapace.ActionMessage("failed to get Wireguard port forwarders: %s", con.UnwrapServerErr(err))
 		}
 
 		for _, fwd := range fwdList.Forwarders {

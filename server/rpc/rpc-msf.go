@@ -36,9 +36,7 @@ import (
 	"github.com/bishopfox/sliver/server/msf"
 )
 
-var (
-	msfLog = log.NamedLogger("rpc", "msf")
-)
+var msfLog = log.NamedLogger("rpc", "msf")
 
 // Msf - Helper function to execute MSF payloads on the remote system
 func (rpc *Server) Msf(ctx context.Context, req *clientpb.MSFReq) (*sliverpb.Task, error) {
@@ -204,6 +202,11 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 	}
 	MSFStage.File.Name = name
 	return MSFStage, nil
+}
+
+// GetMetasploitCompiler - Get information about any Metasploit installation server-side.
+func (rpc *Server) GetMetasploitCompiler(ctx context.Context, _ *commonpb.Empty) (*clientpb.MetasploitCompiler, error) {
+	return msf.GetMsfCache(), nil
 }
 
 // Utility functions

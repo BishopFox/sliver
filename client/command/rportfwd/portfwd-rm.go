@@ -20,6 +20,7 @@ package rportfwd
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -27,26 +28,38 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant
-func StopRportFwdListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant.
+func StopRportFwdListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
 
-	listenerID, _ := cmd.Flags().GetUint32("id")
-	rportfwdListener, err := con.Rpc.StopRportFwdListener(context.Background(), &sliverpb.RportFwdStopListenerReq{
-		Request: con.ActiveTarget.Request(cmd),
-		ID:      listenerID,
-	})
-	if err != nil {
-		con.PrintWarnf("%s\n", err)
-		return
+	for _, arg := range args {
+		listenerID, err := strconv.ParseUint(arg, 10, 32)
+		if err != nil {
+			con.PrintErrorf("Failed to parse portfwd id: %s\n", err)
+		}
+
+		if listenerID < 1 {
+			con.PrintErrorf("Must specify a valid portfwd id\n")
+			return
+		}
+
+		rportfwdListener, err := con.Rpc.StopRportFwdListener(context.Background(), &sliverpb.RportFwdStopListenerReq{
+			Request: con.ActiveTarget.Request(cmd),
+			ID:      uint32(listenerID),
+		})
+		if err != nil {
+			con.PrintWarnf("%s\n", con.UnwrapServerErr(err))
+			return
+		}
+
+		printStoppedRportFwdListener(rportfwdListener, con)
 	}
-	printStoppedRportFwdListener(rportfwdListener, con)
 }
 
-func printStoppedRportFwdListener(rportfwdListener *sliverpb.RportFwdListener, con *console.SliverConsoleClient) {
+func printStoppedRportFwdListener(rportfwdListener *sliverpb.RportFwdListener, con *console.SliverClient) {
 	if rportfwdListener.Response != nil && rportfwdListener.Response.Err != "" {
 		con.PrintErrorf("%s", rportfwdListener.Response.Err)
 		return

@@ -28,12 +28,12 @@ const (
 	AliasesDirName = "aliases"
 )
 
-// GetAliasesDir - Returns the path to the config dir
+// GetAliasesDir - Returns the path to the config dir.
 func GetAliasesDir() string {
 	rootDir, _ := filepath.Abs(GetRootAppDir())
 	dir := filepath.Join(rootDir, AliasesDirName)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, 0700)
+		err = os.MkdirAll(dir, 0o700)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -41,7 +41,7 @@ func GetAliasesDir() string {
 	return dir
 }
 
-// GetInstalledAliasManifests - Returns a list of installed alias manifests
+// GetInstalledAliasManifests - Returns a list of installed alias manifests.
 func GetInstalledAliasManifests() []string {
 	aliasDir := GetAliasesDir()
 	aliasDirContent, err := os.ReadDir(aliasDir)

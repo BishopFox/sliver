@@ -21,9 +21,8 @@ package privilege
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -40,8 +39,8 @@ var logonTypes = map[string]uint32{
 	"LOGON_NEW_CREDENTIALS":   9,
 }
 
-// MakeTokenCmd - Windows only, create a token using "valid" credentails
-func MakeTokenCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// MakeTokenCmd - Windows only, create a token using "valid" credentials.
+func MakeTokenCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -75,12 +74,12 @@ func MakeTokenCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
 	if makeToken.Response != nil && makeToken.Response.Async {
-		con.AddBeaconCallback(makeToken.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(makeToken.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, makeToken)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -88,14 +87,13 @@ func MakeTokenCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 			}
 			PrintMakeToken(makeToken, domain, username, con)
 		})
-		con.PrintAsyncResponse(makeToken.Response)
 	} else {
 		PrintMakeToken(makeToken, domain, username, con)
 	}
 }
 
-// PrintMakeToken - Print the results of attempting to make a token
-func PrintMakeToken(makeToken *sliverpb.MakeToken, domain string, username string, con *console.SliverConsoleClient) {
+// PrintMakeToken - Print the results of attempting to make a token.
+func PrintMakeToken(makeToken *sliverpb.MakeToken, domain string, username string, con *console.SliverClient) {
 	if makeToken.Response != nil && makeToken.Response.GetErr() != "" {
 		con.PrintErrorf("%s\n", makeToken.Response.GetErr())
 		return

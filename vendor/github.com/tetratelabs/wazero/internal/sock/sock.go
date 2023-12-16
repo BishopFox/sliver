@@ -5,25 +5,24 @@ import (
 	"net"
 
 	"github.com/tetratelabs/wazero/experimental/sys"
-	"github.com/tetratelabs/wazero/internal/fsapi"
 )
 
 // TCPSock is a pseudo-file representing a TCP socket.
 type TCPSock interface {
-	fsapi.File
+	sys.File
 
 	Accept() (TCPConn, sys.Errno)
 }
 
 // TCPConn is a pseudo-file representing a TCP connection.
 type TCPConn interface {
-	fsapi.File
+	sys.File
 
 	// Recvfrom only supports the flag sysfs.MSG_PEEK
-	// TODO: document this like fsapi.File with known sys.Errno
+	// TODO: document this like sys.File with known sys.Errno
 	Recvfrom(p []byte, flags int) (n int, errno sys.Errno)
 
-	// TODO: document this like fsapi.File with known sys.Errno
+	// TODO: document this like sys.File with known sys.Errno
 	Shutdown(how int) sys.Errno
 }
 

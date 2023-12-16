@@ -27,8 +27,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// MTLSListenerCmd - Start an mTLS listener
-func MTLSListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// MTLSListenerCmd - Start an mTLS listener.
+func MTLSListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	lhost, _ := cmd.Flags().GetString("lhost")
 	lport, _ := cmd.Flags().GetUint32("lport")
 
@@ -39,7 +39,7 @@ func MTLSListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 	})
 	con.Println()
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	} else {
 		con.PrintInfof("Successfully started job #%d\n", mtls.JobID)
 	}

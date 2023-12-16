@@ -32,28 +32,29 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// TasksCmd - Manage beacon tasks
-func TasksCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// TasksCmd - Manage beacon tasks.
+func TasksCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	beacon := con.ActiveTarget.GetBeaconInteractive()
 	if beacon == nil {
 		return
 	}
 	beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	PrintBeaconTasks(beaconTasks.Tasks, cmd, con)
 }
 
-// PrintBeaconTasks - Print beacon tasks
-func PrintBeaconTasks(tasks []*clientpb.BeaconTask, cmd *cobra.Command, con *console.SliverConsoleClient) {
+// PrintBeaconTasks - Print beacon tasks.
+func PrintBeaconTasks(tasks []*clientpb.BeaconTask, cmd *cobra.Command, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"ID",
 		"State",
-		"Message Type",
+		"Command Line",
 		"Created",
 		"Sent",
 		"Completed",

@@ -15,7 +15,7 @@ type VFS interface {
 	FullPathname(name string) (string, error)
 }
 
-// VFSParams extends VFS to with the ability to handle URI parameters
+// VFSParams extends VFS with the ability to handle URI parameters
 // through the OpenParams method.
 //
 // https://www.sqlite.org/c3ref/uri_boolean.html

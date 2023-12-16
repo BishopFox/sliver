@@ -40,15 +40,15 @@ import (
 )
 
 var (
-	// ErrInvalidFileType - Invalid file type
+	// ErrInvalidFileType - Invalid file type.
 	ErrInvalidFileType = errors.New("invalid file type")
-	// ErrInvalidLootType - Invalid loot type
+	// ErrInvalidLootType - Invalid loot type.
 	ErrInvalidLootType = errors.New("invalid loot type")
-	// ErrNoLootFileData - No loot file data
+	// ErrNoLootFileData - No loot file data.
 	ErrNoLootFileData = errors.New("no loot file data")
 )
 
-// AddLootFile - Add a file as loot
+// AddLootFile - Add a file as loot.
 func AddLootFile(rpc rpcpb.SliverRPCClient, name string, fileName string, data []byte, isCredential bool) error {
 	if len(data) < 1 {
 		return ErrNoLootFileData
@@ -73,7 +73,7 @@ func AddLootFile(rpc rpcpb.SliverRPCClient, name string, fileName string, data [
 	return err
 }
 
-// SelectLoot - Interactive menu for the user to select a piece loot (all types)
+// SelectLoot - Interactive menu for the user to select a piece loot (all types).
 func SelectLoot(cmd *cobra.Command, rpc rpcpb.SliverRPCClient) (*clientpb.Loot, error) {
 	// Fetch data with optional filter
 	var allLoot *clientpb.AllLoot

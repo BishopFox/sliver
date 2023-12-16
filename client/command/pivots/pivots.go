@@ -29,8 +29,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// PivotsCmd - Display pivots for all sessions
-func PivotsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// PivotsCmd - Display pivots for all sessions.
+func PivotsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -39,7 +39,7 @@ func PivotsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if pivotListeners.Response != nil && pivotListeners.Response.Err != "" {
@@ -54,10 +54,11 @@ func PivotsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 	}
 }
 
-// PrintPivotListeners - Print a table of pivot listeners
-func PrintPivotListeners(pivotListeners []*sliverpb.PivotListener, con *console.SliverConsoleClient) {
+// PrintPivotListeners - Print a table of pivot listeners.
+func PrintPivotListeners(pivotListeners []*sliverpb.PivotListener, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Protocol",
@@ -75,7 +76,7 @@ func PrintPivotListeners(pivotListeners []*sliverpb.PivotListener, con *console.
 	con.Printf("%s\n", tw.Render())
 }
 
-// PivotTypeToString - Convert a pivot type to a human string
+// PivotTypeToString - Convert a pivot type to a human string.
 func PivotTypeToString(pivotType sliverpb.PivotType) string {
 	switch pivotType {
 	case sliverpb.PivotType_TCP:

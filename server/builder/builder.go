@@ -23,10 +23,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -36,9 +36,7 @@ import (
 	"github.com/bishopfox/sliver/server/log"
 )
 
-var (
-	builderLog = log.NamedLogger("builder", "sliver")
-)
+var builderLog = log.NamedLogger("builder", "sliver")
 
 type Config struct {
 	GOOSs   []string
@@ -47,26 +45,24 @@ type Config struct {
 }
 
 // StartBuilder - main entry point for the builder
-func StartBuilder(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) {
-
-	sigint := make(chan os.Signal, 1)
-	signal.Notify(sigint, os.Interrupt)
-
+func StartBuilder(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient, con *console.SliverClient) error {
 	builderLog.Infof("Attempting to register builder: %s", externalBuilder.Name)
+	con.PrintInfof("Attempting to register builder: %s", externalBuilder.Name)
+
 	events, err := buildEvents(externalBuilder, rpc)
 	if err != nil {
-		os.Exit(1)
+		builderLog.Errorf("Build events handler error: %s", err.Error())
+		return nil
 	}
 
 	// Wait for signal or builds
-	for {
-		select {
-		case <-sigint:
-			return
-		case event := <-events:
+	go func() {
+		for event := range events {
 			go handleBuildEvent(externalBuilder, event, rpc)
 		}
-	}
+	}()
+
+	return con.WaitSignal()
 }
 
 func buildEvents(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) (<-chan *clientpb.Event, error) {

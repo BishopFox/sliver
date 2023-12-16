@@ -37,24 +37,25 @@ import (
 	"github.com/bishopfox/sliver/util"
 )
 
-// LootCmd - The loot root command
-func LootCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// LootCmd - The loot root command.
+func LootCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	allLoot, err := con.Rpc.LootAll(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("Failed to fetch loot %s\n", err)
+		con.PrintErrorf("Failed to fetch loot %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	PrintAllFileLootTable(allLoot, con)
 }
 
-// PrintAllFileLootTable - Displays a table of all file loot
-func PrintAllFileLootTable(allLoot *clientpb.AllLoot, con *console.SliverConsoleClient) {
+// PrintAllFileLootTable - Displays a table of all file loot.
+func PrintAllFileLootTable(allLoot *clientpb.AllLoot, con *console.SliverClient) {
 	if allLoot == nil || len(allLoot.Loot) == 0 {
 		con.PrintInfof("No loot 🙁\n")
 		return
 	}
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Name",
@@ -76,8 +77,8 @@ func PrintAllFileLootTable(allLoot *clientpb.AllLoot, con *console.SliverConsole
 	con.Printf("%s\n", tw.Render())
 }
 
-// PrintLootFile - Display the contents of a piece of loot
-func PrintLootFile(loot *clientpb.Loot, con *console.SliverConsoleClient) {
+// PrintLootFile - Display the contents of a piece of loot.
+func PrintLootFile(loot *clientpb.Loot, con *console.SliverClient) {
 	if loot.File == nil {
 		return
 	}
@@ -95,7 +96,7 @@ func PrintLootFile(loot *clientpb.Loot, con *console.SliverConsoleClient) {
 	}
 }
 
-// Any loot with a "File" can be saved to disk
+// Any loot with a "File" can be saved to disk.
 func saveLootToDisk(cmd *cobra.Command, loot *clientpb.Loot) (string, error) {
 	if loot.File == nil {
 		return "", errors.New("loot does not contain a file")

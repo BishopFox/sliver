@@ -18,5 +18,6 @@ func ForLogLevel(s string, _ Context) string {
 		"crit":     Carapace.LogLevelCritical,
 		"critical": Carapace.LogLevelCritical,
 		"fatal":    Carapace.LogLevelFatal,
+		"panic":    Carapace.LogLevelFatal,
 	}[strings.ToLower(s)]
 }

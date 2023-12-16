@@ -29,8 +29,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
-// BeaconsPruneCmd - Prune stale beacons automatically
-func BeaconsPruneCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// BeaconsPruneCmd - Prune stale beacons automatically.
+func BeaconsPruneCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	duration, _ := cmd.Flags().GetString("duration")
 	pruneDuration, err := time.ParseDuration(duration)
 	if err != nil {
@@ -42,7 +42,7 @@ func BeaconsPruneCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 	defer cancel()
 	beacons, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	pruneBeacons := []*clientpb.Beacon{}
@@ -64,7 +64,7 @@ func BeaconsPruneCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 	for index, beacon := range pruneBeacons {
 		beacon, err := con.Rpc.GetBeacon(grpcCtx, &clientpb.Beacon{ID: beacon.ID})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			continue
 		}
 		con.Printf("\t%d. %s (%s)\n", (index + 1), beacon.Name, beacon.ID)
@@ -80,7 +80,7 @@ func BeaconsPruneCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 	for _, beacon := range pruneBeacons {
 		_, err := con.Rpc.RmBeacon(grpcCtx, &clientpb.Beacon{ID: beacon.ID})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			errCount++
 		}
 	}

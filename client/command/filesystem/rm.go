@@ -21,17 +21,16 @@ package filesystem
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// RmCmd - Remove a directory from the remote file system
-func RmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// RmCmd - Remove a directory from the remote file system.
+func RmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -55,11 +54,11 @@ func RmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) 
 		Force:     force,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if rm.Response != nil && rm.Response.Async {
-		con.AddBeaconCallback(rm.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(rm.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, rm)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -67,14 +66,13 @@ func RmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) 
 			}
 			PrintRm(rm, con)
 		})
-		con.PrintAsyncResponse(rm.Response)
 	} else {
 		PrintRm(rm, con)
 	}
 }
 
-// PrintRm - Print the rm response
-func PrintRm(rm *sliverpb.Rm, con *console.SliverConsoleClient) {
+// PrintRm - Print the rm response.
+func PrintRm(rm *sliverpb.Rm, con *console.SliverClient) {
 	if rm.Response != nil && rm.Response.Err != "" {
 		con.PrintErrorf("%s\n", rm.Response.Err)
 		return

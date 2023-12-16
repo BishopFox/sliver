@@ -26,16 +26,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	// AuditLogger - Single audit log
-	AuditLogger = newAuditLogger()
-)
+// AuditLogger - Single audit log.
+var AuditLogger = newAuditLogger()
 
 func newAuditLogger() *logrus.Logger {
 	auditLogger := logrus.New()
 	auditLogger.Formatter = &logrus.JSONFormatter{}
 	jsonFilePath := filepath.Join(GetLogDir(), "audit.json")
-	jsonFile, err := os.OpenFile(jsonFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	jsonFile, err := os.OpenFile(jsonFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open log file %v", err))
 	}

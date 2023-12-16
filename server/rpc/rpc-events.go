@@ -8,9 +8,7 @@ import (
 	"github.com/bishopfox/sliver/server/log"
 )
 
-var (
-	rpcEventsLog = log.NamedLogger("rpc", "events")
-)
+var rpcEventsLog = log.NamedLogger("rpc", "events")
 
 // Events - Stream events to client
 func (rpc *Server) Events(_ *commonpb.Empty, stream rpcpb.SliverRPC_EventsServer) error {
@@ -18,9 +16,10 @@ func (rpc *Server) Events(_ *commonpb.Empty, stream rpcpb.SliverRPC_EventsServer
 	client := core.NewClient(commonName)
 	core.Clients.Add(client)
 	events := core.EventBroker.Subscribe()
+	rpcEventsLog.Debugf("Client %d connected", client.ID)
 
 	defer func() {
-		rpcEventsLog.Infof("%d client disconnected", client.ID)
+		rpcEventsLog.Debugf("Client %d disconnected", client.ID)
 		core.EventBroker.Unsubscribe(events)
 		core.Clients.Remove(client.ID)
 	}()
@@ -40,6 +39,9 @@ func (rpc *Server) Events(_ *commonpb.Empty, stream rpcpb.SliverRPC_EventsServer
 			}
 			if event.Client != nil {
 				pbEvent.Client = event.Client.ToProtobuf()
+			}
+			if event.Beacon != nil {
+				pbEvent.Beacon = event.Beacon.ToProtobuf()
 			}
 			if event.Session != nil {
 				pbEvent.Session = event.Session.ToProtobuf()

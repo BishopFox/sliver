@@ -21,11 +21,10 @@ package exec
 import (
 	"context"
 	"fmt"
+	insecureRand "math/rand"
 	"os"
 	"strings"
 	"time"
-
-	insecureRand "math/rand"
 
 	"github.com/spf13/cobra"
 
@@ -39,7 +38,7 @@ import (
 )
 
 // PsExecCmd - psexec command implementation.
-func PsExecCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func PsExecCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -77,7 +76,7 @@ func PsExecCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 		con.SpinUntil(fmt.Sprintf("Generating sliver binary for %s\n", profile), generateCtrl)
 		profiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			con.PrintErrorf("Error: %s\n", err)
+			con.PrintErrorf("Error: %s\n", con.UnwrapServerErr(err))
 			return
 		}
 		generateCtrl <- true
@@ -118,7 +117,7 @@ func PsExecCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 	uploadCtrl <- true
 	<-uploadCtrl
 	if err != nil {
-		con.PrintErrorf("Error: %s\n", err)
+		con.PrintErrorf("Error: %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Uploaded service binary to %s\n", upload.GetPath())
@@ -144,7 +143,7 @@ func PsExecCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 	serviceCtrl <- true
 	<-serviceCtrl
 	if err != nil {
-		con.PrintErrorf("Error: %v\n", err)
+		con.PrintErrorf("Error: %v\n", con.UnwrapServerErr(err))
 		return
 	}
 	if start.Response != nil && start.Response.Err != "" {
@@ -164,7 +163,7 @@ func PsExecCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 	removeChan <- true
 	<-removeChan
 	if err != nil {
-		con.PrintErrorf("Error: %s\n", err)
+		con.PrintErrorf("Error: %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if removed.Response != nil && removed.Response.Err != "" {

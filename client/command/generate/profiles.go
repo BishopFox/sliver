@@ -35,8 +35,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
-// ProfilesCmd - Display implant profiles
-func ProfilesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ProfilesCmd - Display implant profiles.
+func ProfilesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	profiles := getImplantProfiles(con)
 	if profiles == nil {
 		return
@@ -49,10 +49,11 @@ func ProfilesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 	}
 }
 
-// PrintProfiles - Print the profiles
-func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverConsoleClient) {
+// PrintProfiles - Print the profiles.
+func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"Profile Name",
 		"Implant Type",
@@ -101,20 +102,20 @@ func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverConso
 	con.Printf("%s\n", tw.Render())
 }
 
-func getImplantProfiles(con *console.SliverConsoleClient) []*clientpb.ImplantProfile {
+func getImplantProfiles(con *console.SliverClient) []*clientpb.ImplantProfile {
 	pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return nil
 	}
 	return pbProfiles.Profiles
 }
 
-// GetImplantProfileByName - Get an implant profile by a specific name
-func GetImplantProfileByName(name string, con *console.SliverConsoleClient) *clientpb.ImplantProfile {
+// GetImplantProfileByName - Get an implant profile by a specific name.
+func GetImplantProfileByName(name string, con *console.SliverClient) *clientpb.ImplantProfile {
 	pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return nil
 	}
 	for _, profile := range pbProfiles.Profiles {
@@ -267,8 +268,8 @@ func populateProfileProperties(config *clientpb.ImplantConfig) map[string]string
 	return properties
 }
 
-// PrintProfileInfo - Print detailed information about a given profile
-func PrintProfileInfo(name string, con *console.SliverConsoleClient) {
+// PrintProfileInfo - Print detailed information about a given profile.
+func PrintProfileInfo(name string, con *console.SliverClient) {
 	profile := GetImplantProfileByName(name, con)
 	if profile == nil {
 		con.PrintErrorf("Could not find a profile with the name \"%s\"", name)
@@ -277,7 +278,7 @@ func PrintProfileInfo(name string, con *console.SliverConsoleClient) {
 
 	config := profile.Config
 	properties := populateProfileProperties(config)
-	//con.Printf("--- Details for profile %s ---\n", profile.Name)
+
 	tw := table.NewWriter()
 
 	// Implant Basics
@@ -424,14 +425,18 @@ func PrintProfileInfo(name string, con *console.SliverConsoleClient) {
 	}
 }
 
-// ProfileNameCompleter - Completer for implant build names
-func ProfileNameCompleter(con *console.SliverConsoleClient) carapace.Action {
+// ProfileNameCompleter - Completer for implant build names.
+func ProfileNameCompleter(con *console.SliverClient) carapace.Action {
 	comps := func(ctx carapace.Context) carapace.Action {
+		if msg, err := con.PreRunComplete(); err != nil {
+			return msg
+		}
+
 		var action carapace.Action
 
 		pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			return carapace.ActionMessage(fmt.Sprintf("No profiles, err: %s", err.Error()))
+			return carapace.ActionMessage(fmt.Sprintf("No profiles, err: %s", con.UnwrapServerErr(err)))
 		}
 
 		if len(pbProfiles.Profiles) == 0 {

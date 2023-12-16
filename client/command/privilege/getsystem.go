@@ -21,22 +21,25 @@ package privilege
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// GetSystemCmd - Windows only, attempt to get SYSTEM on the remote system
-func GetSystemCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// GetSystemCmd - Windows only, attempt to get SYSTEM on the remote system.
+func GetSystemCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
-	targetOS := getOS(session, beacon)
+	targetOS, err := getOS(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
 	if targetOS != "windows" {
 		con.PrintErrorf("Command only supported on Windows.\n")
 		return
@@ -55,12 +58,12 @@ func GetSystemCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
 	if getSystem.Response != nil && getSystem.Response.Async {
-		con.AddBeaconCallback(getSystem.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(getSystem.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, getSystem)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -68,14 +71,13 @@ func GetSystemCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 			}
 			PrintGetSystem(getSystem, con)
 		})
-		con.PrintAsyncResponse(getSystem.Response)
 	} else {
 		PrintGetSystem(getSystem, con)
 	}
 }
 
-// PrintGetSystem - Print the results of get system
-func PrintGetSystem(getsystemResp *sliverpb.GetSystem, con *console.SliverConsoleClient) {
+// PrintGetSystem - Print the results of get system.
+func PrintGetSystem(getsystemResp *sliverpb.GetSystem, con *console.SliverClient) {
 	if getsystemResp.Response != nil && getsystemResp.Response.GetErr() != "" {
 		con.PrintErrorf("%s\n", getsystemResp.GetResponse().GetErr())
 		return

@@ -32,19 +32,20 @@ import (
 	"github.com/bishopfox/sliver/client/core"
 )
 
-// SocksCmd - Display information about tunneled port forward(s)
-func SocksCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// SocksCmd - Display information about tunneled port forward(s).
+func SocksCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	socks := core.SocksProxies.List()
 	if len(socks) == 0 {
 		con.PrintInfof("No socks5 proxies\n")
 		return
 	}
-	sort.Slice(socks[:], func(i, j int) bool {
+	sort.Slice(socks, func(i, j int) bool {
 		return socks[i].ID < socks[j].ID
 	})
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Session ID",
@@ -59,9 +60,9 @@ func SocksCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 	con.Printf("%s\n", tw.Render())
 }
 
-// SocksIDCompleter completes IDs of remote of socks proxy servers
-func SocksIDCompleter(_ *console.SliverConsoleClient) carapace.Action {
-	callback := func(_ carapace.Context) carapace.Action {
+// SocksIDCompleter completes IDs of remote of socks proxy servers.
+func SocksIDCompleter(_ *console.SliverClient) carapace.Action {
+	callback := func(c carapace.Context) carapace.Action {
 		results := make([]string, 0)
 
 		socks := core.SocksProxies.List()
@@ -78,7 +79,9 @@ func SocksIDCompleter(_ *console.SliverConsoleClient) carapace.Action {
 			return carapace.ActionMessage("no Socks servers")
 		}
 
-		return carapace.ActionValuesDescribed(results...).Tag("socks servers")
+		comps := carapace.ActionValuesDescribed(results...).Tag("socks servers")
+
+		return comps.Invoke(c).Filter(c.Args...).ToA()
 	}
 
 	return carapace.ActionCallback(callback)

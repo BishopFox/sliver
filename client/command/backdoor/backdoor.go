@@ -27,8 +27,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// BackdoorCmd - Command to inject implant code into an existing binary
-func BackdoorCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// BackdoorCmd - Command to inject implant code into an existing binary.
+func BackdoorCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -56,7 +56,7 @@ func BackdoorCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 

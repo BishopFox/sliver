@@ -35,11 +35,11 @@ import (
 	"github.com/bishopfox/sliver/util"
 )
 
-// CrackWordlistsCmd - Manage GPU cracking stations
-func CrackWordlistsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CrackWordlistsCmd - Manage GPU cracking stations.
+func CrackWordlistsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	wordlists, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_WORDLIST})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if len(wordlists.Files) == 0 {
@@ -55,11 +55,11 @@ func CrackWordlistsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 	}
 }
 
-// CrackRulesCmd - Manage GPU cracking stations
-func CrackRulesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CrackRulesCmd - Manage GPU cracking stations.
+func CrackRulesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	rules, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_RULES})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if len(rules.Files) == 0 {
@@ -75,11 +75,11 @@ func CrackRulesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 	}
 }
 
-// CrackHcstat2Cmd - Manage GPU cracking stations
-func CrackHcstat2Cmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CrackHcstat2Cmd - Manage GPU cracking stations.
+func CrackHcstat2Cmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	hcstat2, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_MARKOV_HCSTAT2})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if len(hcstat2.Files) == 0 {
@@ -95,9 +95,10 @@ func CrackHcstat2Cmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 	}
 }
 
-func PrintCrackFiles(crackFiles *clientpb.CrackFiles, con *console.SliverConsoleClient) {
+func PrintCrackFiles(crackFiles *clientpb.CrackFiles, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{"Name", "Size"})
 	for _, file := range crackFiles.Files {
 		tw.AppendRow(table.Row{file.Name, util.ByteCountBinary(file.UncompressedSize)})
@@ -105,20 +106,23 @@ func PrintCrackFiles(crackFiles *clientpb.CrackFiles, con *console.SliverConsole
 	con.Printf("%s\n", tw.Render())
 }
 
-func PrintCrackFilesByType(crackFiles *clientpb.CrackFiles, con *console.SliverConsoleClient) {
+func PrintCrackFilesByType(crackFiles *clientpb.CrackFiles, con *console.SliverClient) {
 	wordlistTable := table.NewWriter()
 	wordlistTable.SetTitle(console.Bold + "Wordlists" + console.Normal)
 	wordlistTable.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(wordlistTable)
 	wordlistTable.AppendHeader(table.Row{"Name", "Size"})
 
 	rulesTable := table.NewWriter()
 	rulesTable.SetTitle(console.Bold + "Rules" + console.Normal)
 	rulesTable.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(rulesTable)
 	rulesTable.AppendHeader(table.Row{"Name", "Size"})
 
 	hcTable := table.NewWriter()
 	hcTable.SetTitle(console.Bold + "Markov Hcstat2" + console.Normal)
 	hcTable.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(hcTable)
 	hcTable.AppendHeader(table.Row{"Name", "Size"})
 
 	wordlists := 0
@@ -162,8 +166,8 @@ func PrintCrackFilesByType(crackFiles *clientpb.CrackFiles, con *console.SliverC
 	)
 }
 
-// CrackWordlistsAddCmd - Manage GPU cracking stations
-func CrackWordlistsAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CrackWordlistsAddCmd - Manage GPU cracking stations.
+func CrackWordlistsAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name, _ := cmd.Flags().GetString("name")
 
 	var localPath string
@@ -196,7 +200,7 @@ func CrackWordlistsAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, 
 		IsCompressed:     true,
 	})
 	if err != nil {
-		con.PrintErrorf("Failed to create file: %s\n", err)
+		con.PrintErrorf("Failed to create file: %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Adding new wordlist '%s' (uncompressed: %s)\n",
@@ -206,8 +210,8 @@ func CrackWordlistsAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, 
 	addCrackFile(wordlist, crackFile, con)
 }
 
-// CrackRulesAddCmd - add a rules file
-func CrackRulesAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CrackRulesAddCmd - add a rules file.
+func CrackRulesAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name, _ := cmd.Flags().GetString("name")
 
 	var localPath string
@@ -240,7 +244,7 @@ func CrackRulesAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 		IsCompressed:     true,
 	})
 	if err != nil {
-		con.PrintErrorf("Failed to create file: %s\n", err)
+		con.PrintErrorf("Failed to create file: %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Adding new rules file '%s' (uncompressed: %s)\n",
@@ -250,8 +254,8 @@ func CrackRulesAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 	addCrackFile(rules, crackFile, con)
 }
 
-// CrackHcstat2AddCmd - add a hcstat2 file
-func CrackHcstat2AddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CrackHcstat2AddCmd - add a hcstat2 file.
+func CrackHcstat2AddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name, _ := cmd.Flags().GetString("name")
 
 	var localPath string
@@ -284,7 +288,7 @@ func CrackHcstat2AddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 		IsCompressed:     true,
 	})
 	if err != nil {
-		con.PrintErrorf("Failed to create file: %s\n", err)
+		con.PrintErrorf("Failed to create file: %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Adding new markov hcstat2 file '%s' (uncompressed: %s)\n",
@@ -294,7 +298,7 @@ func CrackHcstat2AddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, ar
 	addCrackFile(hcstat2, crackFile, con)
 }
 
-func addCrackFile(localFile *os.File, crackFile *clientpb.CrackFile, con *console.SliverConsoleClient) {
+func addCrackFile(localFile *os.File, crackFile *clientpb.CrackFile, con *console.SliverClient) {
 	digest := sha256.New()
 	wordlistReader := io.TeeReader(localFile, digest)
 
@@ -321,7 +325,7 @@ func addCrackFile(localFile *os.File, crackFile *clientpb.CrackFile, con *consol
 		})
 		n++
 		if err != nil {
-			errors = append(errors, err)
+			errors = append(errors, con.UnwrapServerErr(err))
 			continue
 		}
 	}
@@ -341,7 +345,7 @@ func addCrackFile(localFile *os.File, crackFile *clientpb.CrackFile, con *consol
 		Sha2_256: hex.EncodeToString(digest.Sum(nil)),
 	})
 	if err != nil {
-		con.PrintErrorf("Failed to complete file upload: %s\n", err)
+		con.PrintErrorf("Failed to complete file upload: %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Upload completed (compressed: %s)\n", util.ByteCountBinary(total))
@@ -402,8 +406,8 @@ func readChunkAt(tmpFile *os.File, offset int64, chunkSize int64) ([]byte, error
 	return chunkBuf[:n], nil
 }
 
-// CrackWordlistsRmCmd - Manage GPU cracking stations
-func CrackWordlistsRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CrackWordlistsRmCmd - Manage GPU cracking stations.
+func CrackWordlistsRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var wordlistName string
 	if len(args) > 0 {
 		wordlistName = args[0]
@@ -414,7 +418,7 @@ func CrackWordlistsRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, a
 	}
 	wordlists, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_WORDLIST})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	found := false
@@ -423,7 +427,7 @@ func CrackWordlistsRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, a
 			found = true
 			_, err := con.Rpc.CrackFileDelete(context.Background(), wordlist)
 			if err != nil {
-				con.PrintErrorf("%s\n", err)
+				con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 				return
 			}
 			break
@@ -436,8 +440,8 @@ func CrackWordlistsRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, a
 	}
 }
 
-// CrackRulesRmCmd - Manage GPU cracking stations
-func CrackRulesRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CrackRulesRmCmd - Manage GPU cracking stations.
+func CrackRulesRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var rulesName string
 	if len(args) > 0 {
 		rulesName = args[0]
@@ -448,7 +452,7 @@ func CrackRulesRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 	}
 	rules, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_RULES})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	found := false
@@ -457,7 +461,7 @@ func CrackRulesRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 			found = true
 			_, err := con.Rpc.CrackFileDelete(context.Background(), rulesFile)
 			if err != nil {
-				con.PrintErrorf("%s\n", err)
+				con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 				return
 			}
 			break
@@ -470,8 +474,8 @@ func CrackRulesRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 	}
 }
 
-// CrackHcstat2RmCmd - remove a hcstat2 file
-func CrackHcstat2RmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CrackHcstat2RmCmd - remove a hcstat2 file.
+func CrackHcstat2RmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var hcstat2Name string
 	if len(args) > 0 {
 		hcstat2Name = args[0]
@@ -482,7 +486,7 @@ func CrackHcstat2RmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 	}
 	hcstat2s, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_MARKOV_HCSTAT2})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	found := false
@@ -491,7 +495,7 @@ func CrackHcstat2RmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 			found = true
 			_, err := con.Rpc.CrackFileDelete(context.Background(), hcstat2File)
 			if err != nil {
-				con.PrintErrorf("%s\n", err)
+				con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 				return
 			}
 			break

@@ -35,9 +35,7 @@ const (
 	serverConfigFileName = "server.json"
 )
 
-var (
-	serverConfigLog = log.NamedLogger("config", "server")
-)
+var serverConfigLog = log.NamedLogger("config", "server")
 
 // GetServerConfigPath - File path to config.json
 func GetServerConfigPath() string {
@@ -63,18 +61,10 @@ type DaemonConfig struct {
 
 // JobConfig - Restart Jobs on Load
 type JobConfig struct {
-	Multiplayer []*MultiplayerJobConfig `json:"multiplayer"`
-	MTLS        []*MTLSJobConfig        `json:"mtls,omitempty"`
-	WG          []*WGJobConfig          `json:"wg,omitempty"`
-	DNS         []*DNSJobConfig         `json:"dns,omitempty"`
-	HTTP        []*HTTPJobConfig        `json:"http,omitempty"`
-}
-
-type MultiplayerJobConfig struct {
-	Host      string `json:"host"`
-	Port      uint16 `json:"port"`
-	JobID     string `json:"job_id"`
-	Tailscale bool   `json:"tailscale"`
+	MTLS []*MTLSJobConfig `json:"mtls,omitempty"`
+	WG   []*WGJobConfig   `json:"wg,omitempty"`
+	DNS  []*DNSJobConfig  `json:"dns,omitempty"`
+	HTTP []*HTTPJobConfig `json:"http,omitempty"`
 }
 
 // MTLSJobConfig - Per-type job configs
@@ -141,7 +131,7 @@ func (c *ServerConfig) Save() error {
 	configDir := filepath.Dir(configPath)
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
 		serverConfigLog.Debugf("Creating config dir %s", configDir)
-		err := os.MkdirAll(configDir, 0700)
+		err := os.MkdirAll(configDir, 0o700)
 		if err != nil {
 			return err
 		}
@@ -151,7 +141,7 @@ func (c *ServerConfig) Save() error {
 		return err
 	}
 	serverConfigLog.Infof("Saving config to %s", configPath)
-	err = os.WriteFile(configPath, data, 0600)
+	err = os.WriteFile(configPath, data, 0o600)
 	if err != nil {
 		serverConfigLog.Errorf("Failed to write config %s", err)
 	}

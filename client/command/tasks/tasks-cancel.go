@@ -9,8 +9,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// TasksCancelCmd - Cancel a beacon task before it's sent to the implant
-func TasksCancelCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// TasksCancelCmd - Cancel a beacon task before it's sent to the implant.
+func TasksCancelCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	beacon := con.ActiveTarget.GetBeaconInteractive()
 	if beacon == nil {
 		return
@@ -25,7 +25,7 @@ func TasksCancelCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 	if idArg == "" {
 		beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			return
 		}
 		tasks := []*clientpb.BeaconTask{}
@@ -48,7 +48,7 @@ func TasksCancelCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 	} else {
 		task, err = con.Rpc.GetBeaconTaskContent(context.Background(), &clientpb.BeaconTask{ID: idArg})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			return
 		}
 	}
@@ -56,7 +56,7 @@ func TasksCancelCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 	if task != nil {
 		task, err := con.Rpc.CancelBeaconTask(context.Background(), task)
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			return
 		}
 		con.PrintInfof("Task %s canceled\n", task.ID)

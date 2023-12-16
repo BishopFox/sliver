@@ -100,7 +100,7 @@ var Carapace = carapace{
 	FlagOptArg:   Yellow,
 }
 
-// Highlight returns the style for given level (0..n).
+// Highlight returns the style for given level (0..n)
 func (c carapace) Highlight(level int) string {
 	switch level {
 	case 0:

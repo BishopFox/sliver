@@ -81,3 +81,8 @@ func peekNamedPipe(handle syscall.Handle) (uint32, syscall.Errno) {
 		0)                      // [out, optional] LPDWORD lpBytesLeftThisMessage
 	return totalBytesAvail, errno
 }
+
+func rmdir(path string) sys.Errno {
+	err := syscall.Rmdir(path)
+	return sys.UnwrapOSError(err)
+}

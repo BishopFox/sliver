@@ -40,8 +40,8 @@ const (
 	linux   = "linux"
 )
 
-// ShellCmd - Start an interactive shell on the remote system
-func ShellCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ShellCmd - Start an interactive shell on the remote system.
+func ShellCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -60,7 +60,7 @@ func ShellCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 	con.Println("Shell exited")
 }
 
-func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *console.SliverConsoleClient) {
+func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *console.SliverClient) {
 	con.Println()
 	con.PrintInfof("Wait approximately 10 seconds after exit, and press <enter> to continue\n")
 	con.PrintInfof("Opening shell tunnel (EOF to exit) ...\n\n")
@@ -77,7 +77,7 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 	})
 	defer cancelTunnel()
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	log.Printf("Created new tunnel with id: %d, binding to shell ...", rpcTunnel.TunnelID)
@@ -92,7 +92,7 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 		TunnelID:  tunnel.ID,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	//
@@ -103,7 +103,7 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 			SessionID: session.ID,
 		})
 		if err != nil {
-			con.PrintErrorf("RPC Error: %s\n", err)
+			con.PrintErrorf("RPC Error: %s\n", con.UnwrapServerErr(err))
 		}
 		return
 	}

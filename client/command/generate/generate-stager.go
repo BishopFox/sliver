@@ -33,8 +33,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// GenerateStagerCmd - Generate a stager using Metasploit
-func GenerateStagerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// GenerateStagerCmd - Generate a stager using Metasploit.
+func GenerateStagerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var stageProto clientpb.StageProtocol
 	lhost, _ := cmd.Flags().GetString("lhost")
 	if lhost == "" {
@@ -109,7 +109,7 @@ func GenerateStagerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 	<-ctrl
 
 	if err != nil {
-		con.PrintErrorf("Error: %v - Please make sure Metasploit framework >= v6.2 is installed and msfvenom/msfconsole are in your PATH", err)
+		con.PrintErrorf("Error: %v - Please make sure Metasploit framework >= v6.2 is installed and msfvenom/msfconsole are in your PATH", con.UnwrapServerErr(err))
 		return
 	}
 

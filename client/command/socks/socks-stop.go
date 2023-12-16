@@ -20,6 +20,7 @@ package socks
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -28,20 +29,28 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// SocksStopCmd - Remove an existing tunneled port forward
-func SocksStopCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
-	socksID, _ := cmd.Flags().GetUint64("id")
-	if socksID < 1 {
-		con.PrintErrorf("Must specify a valid socks5 id\n")
-		return
-	}
-	found := core.SocksProxies.Remove(socksID)
-	if !found {
-		con.PrintErrorf("No socks5 with id %d\n", socksID)
-	} else {
-		con.PrintInfof("Removed socks5\n")
-	}
+// SocksStopCmd - Remove an existing tunneled port forward.
+func SocksStopCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	for _, arg := range args {
+		socksID, err := strconv.ParseUint(arg, 10, 32)
+		if err != nil {
+			con.PrintErrorf("Failed to parse Socks ID: %s\n", err)
+		}
 
-	// close
-	con.Rpc.CloseSocks(context.Background(), &sliverpb.Socks{})
+		if socksID < 1 {
+			con.PrintErrorf("Must specify a valid socks5 ID\n")
+			return
+		}
+
+		found := core.SocksProxies.Remove(socksID)
+
+		if !found {
+			con.PrintErrorf("No socks5 with ID %d\n", socksID)
+		} else {
+			con.PrintInfof("Removed socks5\n")
+		}
+
+		// close
+		con.Rpc.CloseSocks(context.Background(), &sliverpb.Socks{})
+	}
 }

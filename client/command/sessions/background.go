@@ -6,8 +6,8 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 )
 
-// BackgroundCmd - Background the active session
-func BackgroundCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// BackgroundCmd - Background the active session.
+func BackgroundCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	con.ActiveTarget.Background()
 	con.PrintInfof("Background ...\n")
 }

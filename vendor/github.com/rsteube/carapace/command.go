@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/rsteube/carapace/internal/uid"
 	"github.com/rsteube/carapace/pkg/style"
 	"github.com/spf13/cobra"
 )
@@ -22,6 +21,7 @@ func addCompletionCommand(cmd *cobra.Command) {
 		Use:    "_carapace",
 		Hidden: true,
 		Run: func(cmd *cobra.Command, args []string) {
+			LOG.Print(strings.Repeat("-", 80))
 			LOG.Printf("%#v", os.Args)
 
 			if len(args) > 2 && strings.HasPrefix(args[2], "_") {
@@ -32,10 +32,16 @@ func addCompletionCommand(cmd *cobra.Command) {
 				panic("missing parent command") // this should never happen
 			}
 
-			if s, err := complete(cmd.Parent(), args); err != nil {
-				fmt.Fprintln(io.MultiWriter(cmd.OutOrStderr(), LOG.Writer()), err.Error())
+			parentCmd := cmd.Parent()
+			if parentCmd.Annotations[annotation_standalone] == "true" {
+				// TODO how to handle an explicit `_carapace` command?
+				parentCmd.RemoveCommand(cmd) // don't complete local `_carapace` in standalone mode
+			}
+
+			if s, err := complete(parentCmd, args); err != nil {
+				fmt.Fprintln(io.MultiWriter(parentCmd.OutOrStderr(), LOG.Writer()), err.Error())
 			} else {
-				fmt.Fprintln(io.MultiWriter(cmd.OutOrStdout(), LOG.Writer()), s)
+				fmt.Fprintln(io.MultiWriter(parentCmd.OutOrStdout(), LOG.Writer()), s)
 			}
 		},
 		FParseErrWhitelist: cobra.FParseErrWhitelist{
@@ -66,15 +72,9 @@ func addCompletionCommand(cmd *cobra.Command) {
 	)
 	Carapace{carapaceCmd}.PositionalAnyCompletion(
 		ActionCallback(func(c Context) Action {
-			args := []string{"_carapace", "export", ""}
-			args = append(args, c.Args[2:]...)
-			args = append(args, c.Value)
-			return ActionExecCommand(uid.Executable(), args...)(func(output []byte) Action {
-				if string(output) == "" {
-					return ActionValues()
-				}
-				return ActionImport(output)
-			})
+			cmd.RemoveCommand(carapaceCmd)
+			action, _ := traverse(cmd, append(c.Args[2:], c.Value))
+			return action
 		}),
 	)
 

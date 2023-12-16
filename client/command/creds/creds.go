@@ -33,11 +33,11 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
-// CredsCmd - Manage credentials
-func CredsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CredsCmd - Manage credentials.
+func CredsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if len(creds.Credentials) == 0 {
@@ -47,7 +47,7 @@ func CredsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 	PrintCreds(creds.Credentials, con)
 }
 
-func PrintCreds(creds []*clientpb.Credential, con *console.SliverConsoleClient) {
+func PrintCreds(creds []*clientpb.Credential, con *console.SliverClient) {
 	collections := make(map[string][]*clientpb.Credential)
 	for _, cred := range creds {
 		collections[cred.Collection] = append(collections[cred.Collection], cred)
@@ -58,9 +58,10 @@ func PrintCreds(creds []*clientpb.Credential, con *console.SliverConsoleClient) 
 	}
 }
 
-func printCollection(collection string, creds []*clientpb.Credential, con *console.SliverConsoleClient) {
+func printCollection(collection string, creds []*clientpb.Credential, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	if collection != "" {
 		tw.SetTitle(console.Bold + collection + console.Normal)
 	} else {
@@ -88,7 +89,7 @@ func printCollection(collection string, creds []*clientpb.Credential, con *conso
 }
 
 // CredsHashTypeCompleter completes hash types.
-func CredsHashTypeCompleter(con *console.SliverConsoleClient) carapace.Action {
+func CredsHashTypeCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		results := make([]string, 0)
 
@@ -101,8 +102,8 @@ func CredsHashTypeCompleter(con *console.SliverConsoleClient) carapace.Action {
 	})
 }
 
-// CredsHashFileFormatCompleter completes file formats for hash-files
-func CredsHashFileFormatCompleter(con *console.SliverConsoleClient) carapace.Action {
+// CredsHashFileFormatCompleter completes file formats for hash-files.
+func CredsHashFileFormatCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionValuesDescribed(
 		UserColonHashNewlineFormat, "One hash per line.",
 		HashNewlineFormat, "A file containing lines of 'username:hash' pairs.",
@@ -110,17 +111,21 @@ func CredsHashFileFormatCompleter(con *console.SliverConsoleClient) carapace.Act
 	).Tag("hash file formats")
 }
 
-// CredsCollectionCompleter completes existing creds collection names
-func CredsCollectionCompleter(con *console.SliverConsoleClient) carapace.Action {
+// CredsCollectionCompleter completes existing creds collection names.
+func CredsCollectionCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		if msg, err := con.PreRunComplete(); err != nil {
+			return msg
+		}
+
 		results := make([]string, 0)
 
 		creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			return carapace.ActionMessage("failed to fetch credentials: %s", err.Error())
+			return carapace.ActionMessage("failed to fetch credentials: %s", con.UnwrapServerErr(err))
 		}
 		if len(creds.Credentials) == 0 {
-			return carapace.Action{}
+			return carapace.ActionMessage("No credentials in database")
 		}
 
 		for _, cred := range creds.Credentials {
@@ -134,16 +139,20 @@ func CredsCollectionCompleter(con *console.SliverConsoleClient) carapace.Action 
 }
 
 // CredsCredentialIDCompleter completes credential IDs.
-func CredsCredentialIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+func CredsCredentialIDCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		if msg, err := con.PreRunComplete(); err != nil {
+			return msg
+		}
+
 		results := make([]string, 0)
 
 		creds, err := con.Rpc.Creds(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			return carapace.ActionMessage("failed to fetch credentials: %s", err.Error())
+			return carapace.ActionMessage("failed to fetch credentials: %s", con.UnwrapServerErr(err))
 		}
 		if len(creds.Credentials) == 0 {
-			return carapace.Action{}
+			return carapace.ActionMessage("No credentials in database")
 		}
 
 		for _, cred := range creds.Credentials {
@@ -177,6 +186,7 @@ func CredsCredentialIDCompleter(con *console.SliverConsoleClient) carapace.Actio
 
 		}
 
-		return carapace.ActionValuesDescribed(results...).Tag("credentials")
+		return carapace.ActionValuesDescribed(results...).Tag("credentials").
+			Invoke(c).Filter(c.Args...).ToA()
 	})
 }

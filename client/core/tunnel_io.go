@@ -26,7 +26,7 @@ import (
 	"sync"
 )
 
-// TunnelIO - Duplex data tunnel, compatible with both io.ReadWriter
+// TunnelIO - Duplex data tunnel, compatible with both io.ReadWriter.
 type TunnelIO struct {
 	ID        uint64
 	SessionID string
@@ -38,7 +38,7 @@ type TunnelIO struct {
 	mutex  *sync.RWMutex
 }
 
-// NewTunnelIO - Single entry point for creating instance of new TunnelIO
+// NewTunnelIO - Single entry point for creating instance of new TunnelIO.
 func NewTunnelIO(tunnelID uint64, sessionID string) *TunnelIO {
 	log.Printf("New tunnel!: %d", tunnelID)
 
@@ -52,7 +52,7 @@ func NewTunnelIO(tunnelID uint64, sessionID string) *TunnelIO {
 	}
 }
 
-// Write - Writer method for interface
+// Write - Writer method for interface.
 func (tun *TunnelIO) Write(data []byte) (int, error) {
 	if !tun.IsOpen() {
 		log.Printf("Warning: Write on closed tunnel %d", tun.ID)
@@ -71,7 +71,7 @@ func (tun *TunnelIO) Write(data []byte) (int, error) {
 	return n, nil
 }
 
-// Read - Reader method for interface
+// Read - Reader method for interface.
 func (tun *TunnelIO) Read(data []byte) (int, error) {
 	recvData, ok := <-tun.Recv
 	if !ok {
@@ -87,7 +87,7 @@ func (tun *TunnelIO) Read(data []byte) (int, error) {
 	return n, nil
 }
 
-// Close - Close tunnel IO operations
+// Close - Close tunnel IO operations.
 func (tun *TunnelIO) Close() error {
 	tun.mutex.Lock()
 	defer tun.mutex.Unlock()

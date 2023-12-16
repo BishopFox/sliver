@@ -32,24 +32,25 @@ import (
 	"github.com/bishopfox/sliver/client/core"
 )
 
-// PortfwdCmd - Display information about tunneled port forward(s)
-func PortfwdCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// PortfwdCmd - Display information about tunneled port forward(s).
+func PortfwdCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	PrintPortfwd(con)
 }
 
-// PrintPortfwd - Print the port forward(s)
-func PrintPortfwd(con *console.SliverConsoleClient) {
+// PrintPortfwd - Print the port forward(s).
+func PrintPortfwd(con *console.SliverClient) {
 	portfwds := core.Portfwds.List()
 	if len(portfwds) == 0 {
 		con.PrintInfof("No port forwards\n")
 		return
 	}
-	sort.Slice(portfwds[:], func(i, j int) bool {
+	sort.Slice(portfwds, func(i, j int) bool {
 		return portfwds[i].ID < portfwds[j].ID
 	})
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Session ID",
@@ -67,9 +68,9 @@ func PrintPortfwd(con *console.SliverConsoleClient) {
 	con.Printf("%s\n", tw.Render())
 }
 
-// PortfwdIDCompleter completes IDs of local portforwarders
-func PortfwdIDCompleter(_ *console.SliverConsoleClient) carapace.Action {
-	callback := func(_ carapace.Context) carapace.Action {
+// PortfwdIDCompleter completes IDs of local portforwarders.
+func PortfwdIDCompleter(_ *console.SliverClient) carapace.Action {
+	callback := func(c carapace.Context) carapace.Action {
 		results := make([]string, 0)
 
 		portfwds := core.Portfwds.List()
@@ -78,15 +79,23 @@ func PortfwdIDCompleter(_ *console.SliverConsoleClient) carapace.Action {
 		}
 
 		for _, fwd := range portfwds {
+
 			results = append(results, strconv.Itoa(int(fwd.ID)))
-			results = append(results, fmt.Sprintf("%s (%s)", fwd.BindAddr, fwd.SessionID))
+			results = append(results, fmt.Sprintf("%s (%s) %s -> %s",
+				fwd.BindAddr,
+				fwd.SessionID[:8],
+				fwd.BindAddr,
+				fwd.RemoteAddr,
+			))
 		}
 
 		if len(results) == 0 {
 			return carapace.ActionMessage("no local port forwarders")
 		}
 
-		return carapace.ActionValuesDescribed(results...).Tag("local port forwarders")
+		comps := carapace.ActionValuesDescribed(results...).Tag("local port forwarders")
+
+		return comps.Invoke(c).Filter(c.Args...).ToA()
 	}
 
 	return carapace.ActionCallback(callback)

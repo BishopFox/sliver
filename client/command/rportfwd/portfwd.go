@@ -33,8 +33,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant
-func RportFwdListenersCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant.
+func RportFwdListenersCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -44,13 +44,13 @@ func RportFwdListenersCmd(cmd *cobra.Command, con *console.SliverConsoleClient, 
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintWarnf("%s\n", err)
+		con.PrintWarnf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	PrintRportFwdListeners(rportfwdListeners, cmd.Flags(), con)
 }
 
-func PrintRportFwdListeners(rportfwdListeners *sliverpb.RportFwdListeners, flags *pflag.FlagSet, con *console.SliverConsoleClient) {
+func PrintRportFwdListeners(rportfwdListeners *sliverpb.RportFwdListeners, flags *pflag.FlagSet, con *console.SliverClient) {
 	if rportfwdListeners.Response != nil && rportfwdListeners.Response.Err != "" {
 		con.PrintErrorf("%s\n", rportfwdListeners.Response.Err)
 		return
@@ -63,6 +63,7 @@ func PrintRportFwdListeners(rportfwdListeners *sliverpb.RportFwdListeners, flags
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"ID",
 		"Remote Address",
@@ -78,9 +79,13 @@ func PrintRportFwdListeners(rportfwdListeners *sliverpb.RportFwdListeners, flags
 	con.Printf("%s\n", tw.Render())
 }
 
-// PortfwdIDCompleter completes IDs of remote portforwarders
-func PortfwdIDCompleter(con *console.SliverConsoleClient) carapace.Action {
-	callback := func(_ carapace.Context) carapace.Action {
+// PortfwdIDCompleter completes IDs of remote portforwarders.
+func PortfwdIDCompleter(con *console.SliverClient) carapace.Action {
+	callback := func(c carapace.Context) carapace.Action {
+		if msg, err := con.PreRunComplete(); err != nil {
+			return msg
+		}
+
 		results := make([]string, 0)
 
 		rportfwdListeners, err := con.Rpc.GetRportFwdListeners(context.Background(), &sliverpb.RportFwdListenersReq{
@@ -101,7 +106,9 @@ func PortfwdIDCompleter(con *console.SliverConsoleClient) carapace.Action {
 			return carapace.ActionMessage("no remote port forwarders")
 		}
 
-		return carapace.ActionValuesDescribed(results...).Tag("remote port forwarders")
+		comps := carapace.ActionValuesDescribed(results...).Tag("remote port forwarders")
+
+		return comps.Invoke(c).Filter(c.Args...).ToA()
 	}
 
 	return carapace.ActionCallback(callback)

@@ -20,14 +20,14 @@ package screenshot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
@@ -36,14 +36,18 @@ import (
 	"github.com/bishopfox/sliver/util"
 )
 
-// ScreenshotCmd - Take a screenshot of the remote system
-func ScreenshotCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ScreenshotCmd - Take a screenshot of the remote system.
+func ScreenshotCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
 
-	targetOS := getOS(session, beacon)
+	targetOS, err := getOS(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
 	if targetOS != "windows" && targetOS != "linux" {
 		con.PrintWarnf("Target platform may not support screenshots!\n")
 		return
@@ -53,7 +57,7 @@ func ScreenshotCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
@@ -61,9 +65,13 @@ func ScreenshotCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 	lootName, _ := cmd.Flags().GetString("name")
 	saveTo, _ := cmd.Flags().GetString("save")
 
-	hostname := getHostname(session, beacon)
+	hostname, err := getHostname(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
 	if screenshot.Response != nil && screenshot.Response.Async {
-		con.AddBeaconCallback(screenshot.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(screenshot.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, screenshot)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -81,7 +89,6 @@ func ScreenshotCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 				PrintScreenshot(screenshot, hostname, cmd, con)
 			}
 		})
-		con.PrintAsyncResponse(screenshot.Response)
 	} else {
 		if saveLoot {
 			if len(screenshot.Data) > 0 {
@@ -97,8 +104,8 @@ func ScreenshotCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 	}
 }
 
-// PrintScreenshot - Handle the screenshot command response
-func PrintScreenshot(screenshot *sliverpb.Screenshot, hostname string, cmd *cobra.Command, con *console.SliverConsoleClient) {
+// PrintScreenshot - Handle the screenshot command response.
+func PrintScreenshot(screenshot *sliverpb.Screenshot, hostname string, cmd *cobra.Command, con *console.SliverClient) {
 	timestamp := time.Now().Format("20060102150405")
 
 	saveTo, _ := cmd.Flags().GetString("save")
@@ -129,7 +136,7 @@ func PrintScreenshot(screenshot *sliverpb.Screenshot, hostname string, cmd *cobr
 	con.PrintInfof("Screenshot written to %s (%s)\n", saveToFile.Name(), util.ByteCountBinary(int64(n)))
 }
 
-func LootScreenshot(screenshot *sliverpb.Screenshot, lootName string, hostName string, con *console.SliverConsoleClient) {
+func LootScreenshot(screenshot *sliverpb.Screenshot, lootName string, hostName string, con *console.SliverClient) {
 	timeNow := time.Now().UTC()
 	screenshotFileName := fmt.Sprintf("screenshot_%s_%s.png", hostName, timeNow.Format("20060102150405"))
 
@@ -141,22 +148,23 @@ func LootScreenshot(screenshot *sliverpb.Screenshot, lootName string, hostName s
 	loot.SendLootMessage(lootMessage, con)
 }
 
-func getOS(session *clientpb.Session, beacon *clientpb.Beacon) string {
+func getOS(session *clientpb.Session, beacon *clientpb.Beacon) (string, error) {
 	if session != nil {
-		return session.OS
+		return session.OS, nil
 	}
 	if beacon != nil {
-		return beacon.OS
+		return beacon.OS, nil
 	}
-	panic("no session or beacon")
+
+	return "", errors.New("no session or beacon")
 }
 
-func getHostname(session *clientpb.Session, beacon *clientpb.Beacon) string {
+func getHostname(session *clientpb.Session, beacon *clientpb.Beacon) (string, error) {
 	if session != nil {
-		return session.Hostname
+		return session.Hostname, nil
 	}
 	if beacon != nil {
-		return beacon.Hostname
+		return beacon.Hostname, nil
 	}
-	panic("no session or beacon")
+	return "", errors.New("no session or beacon")
 }

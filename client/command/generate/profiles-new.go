@@ -26,8 +26,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// ProfilesNewCmd - Create a new implant profile
-func ProfilesNewCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ProfilesNewCmd - Create a new implant profile.
+func ProfilesNewCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var name string
 	if len(args) > 0 {
 		name = args[0]
@@ -43,14 +43,14 @@ func ProfilesNewCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 	}
 	resp, err := con.Rpc.SaveImplantProfile(context.Background(), profile)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	} else {
 		con.PrintInfof("Saved new implant profile %s\n", resp.Name)
 	}
 }
 
-// ProfilesNewBeaconCmd - Create a new beacon profile
-func ProfilesNewBeaconCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ProfilesNewBeaconCmd - Create a new beacon profile.
+func ProfilesNewBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var name string
 	if len(args) > 0 {
 		name = args[0]

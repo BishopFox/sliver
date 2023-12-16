@@ -34,21 +34,21 @@ import (
 )
 
 var (
-	// ErrNoBeacons - No sessions available
+	// ErrNoBeacons - No sessions available.
 	ErrNoBeacons = errors.New("no beacons")
-	// ErrNoSelection - No selection made
+	// ErrNoSelection - No selection made.
 	ErrNoSelection = errors.New("no selection")
-	// ErrBeaconNotFound
+	// ErrBeaconNotFound.
 	ErrBeaconNotFound = errors.New("no beacon found for this ID")
 )
 
-// SelectBeacon - Interactive menu for the user to select an session, optionally only display live sessions
-func SelectBeacon(con *console.SliverConsoleClient) (*clientpb.Beacon, error) {
+// SelectBeacon - Interactive menu for the user to select an session, optionally only display live sessions.
+func SelectBeacon(con *console.SliverClient) (*clientpb.Beacon, error) {
 	grpcCtx, cancel := con.GrpcContext(nil)
 	defer cancel()
 	beacons, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
 	if err != nil {
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	if len(beacons.Beacons) == 0 {
 		return nil, ErrNoBeacons
@@ -102,12 +102,12 @@ func SelectBeacon(con *console.SliverConsoleClient) (*clientpb.Beacon, error) {
 	return nil, ErrNoSelection
 }
 
-func GetBeacon(con *console.SliverConsoleClient, beaconID string) (*clientpb.Beacon, error) {
+func GetBeacon(con *console.SliverClient, beaconID string) (*clientpb.Beacon, error) {
 	grpcCtx, cancel := con.GrpcContext(nil)
 	defer cancel()
 	beacons, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
 	if err != nil {
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	if len(beacons.Beacons) == 0 {
 		return nil, ErrNoBeacons
@@ -120,12 +120,12 @@ func GetBeacon(con *console.SliverConsoleClient, beaconID string) (*clientpb.Bea
 	return nil, ErrBeaconNotFound
 }
 
-func GetBeacons(con *console.SliverConsoleClient) (*clientpb.Beacons, error) {
+func GetBeacons(con *console.SliverClient) (*clientpb.Beacons, error) {
 	grpcCtx, cancel := con.GrpcContext(nil)
 	defer cancel()
 	beacons, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
 	if err != nil {
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	if len(beacons.Beacons) == 0 {
 		return nil, ErrNoBeacons

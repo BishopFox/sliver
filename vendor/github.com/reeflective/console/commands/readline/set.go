@@ -3,12 +3,22 @@ package readline
 import (
 	"errors"
 	"strconv"
+	"strings"
 
-	"github.com/reeflective/readline"
 	"github.com/rsteube/carapace"
 	"github.com/rsteube/carapace/pkg/style"
 	"github.com/spf13/cobra"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
+
+	"github.com/reeflective/readline"
+	"github.com/reeflective/readline/inputrc"
 )
+
+// We here must assume that all bind changes during the lifetime
+// of the binary are all made by a single readline application.
+// This config only stores the vars/binds that have been changed.
+var cfgChanged = inputrc.NewConfig()
 
 // Set returns a command named `set`, for manipulating readline global options.
 func Set(shell *readline.Shell) *cobra.Command {
@@ -45,7 +55,11 @@ func Set(shell *readline.Shell) *cobra.Command {
 			}
 
 			// Set the option.
-			return shell.Config.Set(args[0], value)
+			if err = shell.Config.Set(args[0], value); err != nil {
+				return err
+			}
+
+			return cfgChanged.Set(args[0], value)
 		},
 	}
 
@@ -61,11 +75,20 @@ func Set(shell *readline.Shell) *cobra.Command {
 	}
 
 	argComp := func(c carapace.Context) carapace.Action {
-		val := c.Args[len(c.Args)-1]
+		val := strings.TrimSpace(c.Args[len(c.Args)-1])
 
 		option := shell.Config.Get(val)
 		if option == nil {
-			return carapace.ActionValues()
+			return carapace.ActionMessage("No var named %v", option)
+		}
+
+		switch val {
+		case "cursor-style":
+			return carapace.ActionValues("block", "beam", "underline", "blinking-block", "blinking-underline", "blinking-beam", "default")
+		case "editing-mode":
+			return carapace.ActionValues("vi", "emacs")
+		case "keymap":
+			return completeKeymaps(shell, cmd)
 		}
 
 		switch option.(type) {
@@ -73,8 +96,8 @@ func Set(shell *readline.Shell) *cobra.Command {
 			return carapace.ActionValues("on", "off", "true", "false").StyleF(style.ForKeyword)
 		case int:
 			return carapace.ActionValues().Usage("option value (int)")
-		default:
-			carapace.ActionValues().Usage("option value (string)")
+		case string:
+			return carapace.ActionValues().Usage("option value (string)")
 		}
 
 		return carapace.ActionValues().Usage("option value")
@@ -86,4 +109,60 @@ func Set(shell *readline.Shell) *cobra.Command {
 	)
 
 	return cmd
+}
+
+// Returns the subset of inputrc variables that are specific
+// to this library and application/binary.
+func filterAppLibVars(cfgVars map[string]interface{}) map[string]interface{} {
+	appVars := make(map[string]interface{})
+
+	defCfg := inputrc.DefaultVars()
+	defVars := maps.Keys(defCfg)
+
+	for name, val := range cfgVars {
+		if slices.Contains(defVars, name) {
+			continue
+		}
+
+		appVars[name] = val
+	}
+
+	return appVars
+}
+
+// Returns the subset of inputrc variables that are specific
+// to this library and application/binary.
+func filterLegacyVars(cfgVars map[string]interface{}) map[string]interface{} {
+	appVars := make(map[string]interface{})
+
+	defCfg := inputrc.DefaultVars()
+	defVars := maps.Keys(defCfg)
+
+	for name, val := range cfgVars {
+		if !slices.Contains(defVars, name) {
+			continue
+		}
+
+		appVars[name] = val
+	}
+
+	return appVars
+}
+
+// Filters out all configuration variables that have not been changed.
+func filterChangedVars(allVars map[string]interface{}) map[string]interface{} {
+	if allVars == nil {
+		return cfgChanged.Vars
+	}
+
+	appVars := make(map[string]interface{})
+	defVars := maps.Keys(appVars)
+
+	for name, val := range allVars {
+		if slices.Contains(defVars, name) {
+			appVars[name] = val
+		}
+	}
+
+	return appVars
 }

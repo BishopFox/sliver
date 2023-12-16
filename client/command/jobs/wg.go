@@ -27,8 +27,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// WGListenerCmd - Start a WireGuard listener
-func WGListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// WGListenerCmd - Start a WireGuard listener.
+func WGListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	lport, _ := cmd.Flags().GetUint32("lport")
 	nport, _ := cmd.Flags().GetUint32("nport")
 	keyExchangePort, _ := cmd.Flags().GetUint32("key-port")
@@ -40,7 +40,7 @@ func WGListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 		KeyPort: keyExchangePort,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	} else {
 		con.PrintInfof("Successfully started job #%d\n", wg.JobID)
 	}

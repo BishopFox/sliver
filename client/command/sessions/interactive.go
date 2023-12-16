@@ -31,8 +31,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// InteractiveCmd - Beacon only command to open an interactive session
-func InteractiveCmd(cmd *cobra.Command, con *console.SliverConsoleClient, _ []string) {
+// InteractiveCmd - Beacon only command to open an interactive session.
+func InteractiveCmd(cmd *cobra.Command, con *console.SliverClient, _ []string) {
 	beacon := con.ActiveTarget.GetBeaconInteractive()
 	if beacon == nil {
 		return
@@ -166,7 +166,7 @@ func InteractiveCmd(cmd *cobra.Command, con *console.SliverConsoleClient, _ []st
 
 	openSession, err = con.Rpc.OpenSession(context.Background(), openSession)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	}
 	if openSession.Response != nil && openSession.Response.Async {
 		con.PrintAsyncResponse(openSession.Response)

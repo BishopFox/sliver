@@ -11,8 +11,10 @@ import (
 
 	"github.com/rsteube/carapace/internal/common"
 	"github.com/rsteube/carapace/internal/config"
+	"github.com/rsteube/carapace/internal/env"
 	"github.com/rsteube/carapace/internal/export"
 	"github.com/rsteube/carapace/internal/man"
+	"github.com/rsteube/carapace/pkg/match"
 	"github.com/rsteube/carapace/pkg/style"
 	"github.com/rsteube/carapace/third_party/github.com/acarl005/stripansi"
 	"github.com/spf13/cobra"
@@ -24,7 +26,7 @@ func ActionCallback(callback CompletionCallback) Action {
 	return Action{callback: callback}
 }
 
-// ActionExecCommand invokes given command and transforms its output using given function on success or returns ActionMessage with the first line of stderr if available.
+// ActionExecCommand executes an external command.
 //
 //	carapace.ActionExecCommand("git", "remote")(func(output []byte) carapace.Action {
 //	  lines := strings.Split(string(output), "\n")
@@ -64,6 +66,7 @@ func ActionExecCommandE(name string, arg ...string) func(f func(output []byte, e
 			cmd := c.Command(name, arg...)
 			cmd.Stdout = &stdout
 			cmd.Stderr = &stderr
+			LOG.Printf("executing %#v", cmd.String())
 			if err := cmd.Run(); err != nil {
 				if exitErr, ok := err.(*exec.ExitError); ok {
 					exitErr.Stderr = stderr.Bytes() // seems this needs to be set manually due to stdout being collected?
@@ -204,32 +207,58 @@ func ActionMessage(msg string, args ...interface{}) Action {
 		if len(args) > 0 {
 			msg = fmt.Sprintf(msg, args...)
 		}
-		a := ActionValues().NoSpace()
+		a := ActionValues()
 		a.meta.Messages.Add(stripansi.Strip(msg))
 		return a
 	})
 }
 
-// ActionMultiParts completes multiple parts of words separately where each part is separated by some char (Context.Value is set to the currently completed part during invocation).
-func ActionMultiParts(divider string, callback func(c Context) Action) Action {
+// ActionMultiParts completes parts of an argument separated by sep.
+func ActionMultiParts(sep string, callback func(c Context) Action) Action {
+	return ActionMultiPartsN(sep, -1, callback)
+}
+
+// ActionMultiPartsN is like ActionMultiParts but limits the number of parts to `n`.
+func ActionMultiPartsN(sep string, n int, callback func(c Context) Action) Action {
 	return ActionCallback(func(c Context) Action {
-		index := strings.LastIndex(c.Value, string(divider))
+		switch n {
+		case 0:
+			return ActionMessage("invalid value for n [ActionValuesDescribed]: %v", n)
+		case 1:
+			return callback(c).Invoke(c).ToA()
+		}
+
+		splitted := strings.SplitN(c.Value, sep, n)
 		prefix := ""
-		if len(divider) == 0 {
-			prefix = c.Value
-			c.Value = ""
-		} else if index != -1 {
-			prefix = c.Value[0 : index+len(divider)]
-			c.Value = c.Value[index+len(divider):] // update Context.Value to only contain the currently completed part
+		c.Parts = []string{}
+
+		switch {
+		case len(sep) == 0:
+			switch {
+			case n < 0:
+				prefix = c.Value
+				c.Value = ""
+				c.Parts = splitted
+			default:
+				prefix = c.Value
+				if n-1 < len(prefix) {
+					prefix = c.Value[:n-1]
+					c.Value = c.Value[n-1:]
+				} else {
+					c.Value = ""
+				}
+				c.Parts = strings.Split(prefix, "")
+			}
+		default:
+			if len(splitted) > 1 {
+				c.Value = splitted[len(splitted)-1]
+				c.Parts = splitted[:len(splitted)-1]
+				prefix = strings.Join(c.Parts, sep) + sep
+			}
 		}
-		parts := strings.Split(prefix, string(divider))
-		if len(parts) > 0 && len(divider) > 0 {
-			parts = parts[0 : len(parts)-1]
-		}
-		c.Parts = parts
 
 		nospace := '*'
-		if runes := []rune(divider); len(runes) > 0 {
+		if runes := []rune(sep); len(runes) > 0 {
 			nospace = runes[len(runes)-1]
 		}
 		return callback(c).Invoke(c).Prefix(prefix).ToA().NoSpace(nospace)
@@ -266,7 +295,7 @@ func ActionStyleConfig() Action {
 			})
 		case 1:
 			return ActionMultiParts(",", func(c Context) Action {
-				return ActionStyles(c.Parts...).Invoke(c).Filter(c.Parts).ToA().NoSpace()
+				return ActionStyles(c.Parts...).Invoke(c).Filter(c.Parts...).ToA().NoSpace()
 			})
 		default:
 			return ActionValues()
@@ -388,7 +417,7 @@ func ActionStyles(styles ...string) Action {
 			style.Inverse, _s(style.Inverse),
 		))
 
-		return batch.ToA()
+		return batch.ToA().NoSpace('r')
 	}).Tag("styles")
 }
 
@@ -414,7 +443,7 @@ func actionDirectoryExecutables(dir string, prefix string, manDescriptions map[s
 		if files, err := os.ReadDir(dir); err == nil {
 			vals := make([]string, 0)
 			for _, f := range files {
-				if strings.HasPrefix(f.Name(), prefix) {
+				if match.HasPrefix(f.Name(), prefix) {
 					if info, err := f.Info(); err == nil && !f.IsDir() && isExecAny(info.Mode()) {
 						vals = append(vals, f.Name(), manDescriptions[f.Name()], style.ForPath(dir+"/"+f.Name(), c))
 					}
@@ -445,10 +474,62 @@ func ActionPositional(cmd *cobra.Command) Action {
 		c.Args = cmd.Flags().Args()
 		entry := storage.get(cmd)
 
-		a := entry.positionalAny
+		var a Action
+		if entry.positionalAny != nil {
+			a = *entry.positionalAny
+		}
+
 		if index := len(c.Args); index < len(entry.positional) {
 			a = entry.positional[len(c.Args)]
 		}
 		return a.Invoke(c).ToA()
+	})
+}
+
+// ActionCommands completes (sub)commands of given command.
+// `Context.Args` is used to traverse the command tree further down. Use `Action.Shift` to avoid this.
+//
+//	carapace.Gen(helpCmd).PositionalAnyCompletion(
+//		carapace.ActionCommands(rootCmd),
+//	)
+func ActionCommands(cmd *cobra.Command) Action {
+	return ActionCallback(func(c Context) Action {
+		if len(c.Args) > 0 {
+			for _, subCommand := range cmd.Commands() {
+				for _, name := range append(subCommand.Aliases, subCommand.Name()) {
+					if name == c.Args[0] { // cmd.Find is too lenient
+						return ActionCommands(subCommand).Shift(1)
+					}
+				}
+			}
+			return ActionMessage("unknown subcommand %#v for %#v", c.Args[0], cmd.Name())
+		}
+
+		batch := Batch()
+		for _, subcommand := range cmd.Commands() {
+			if (!subcommand.Hidden || env.Hidden()) && subcommand.Deprecated == "" {
+				group := common.Group{Cmd: subcommand}
+				batch = append(batch, ActionStyledValuesDescribed(subcommand.Name(), subcommand.Short, group.Style()).Tag(group.Tag()))
+				for _, alias := range subcommand.Aliases {
+					batch = append(batch, ActionStyledValuesDescribed(alias, subcommand.Short, group.Style()).Tag(group.Tag()))
+				}
+			}
+		}
+		return batch.ToA()
+	})
+}
+
+// ActionCora bridges given cobra completion function.
+func ActionCobra(f func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective)) Action {
+	return ActionCallback(func(c Context) Action {
+		switch {
+		case f == nil:
+			return ActionValues()
+		case c.cmd == nil: // ensure cmd is never nil even if context does not contain one
+			LOG.Print("cmd is nil [ActionCobra]")
+			c.cmd = &cobra.Command{Use: "_carapace_actioncobra", Hidden: true, Deprecated: "dummy command for ActionCobra"}
+		}
+		values, directive := f(c.cmd, c.cmd.Flags().Args(), c.Value)
+		return compDirective(directive).ToA(values...)
 	})
 }

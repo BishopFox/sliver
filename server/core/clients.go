@@ -23,6 +23,7 @@ import (
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"golang.org/x/exp/slices"
 )
 
 var (
@@ -72,7 +73,9 @@ func (cc *clients) ActiveOperators() []string {
 	defer cc.mutex.Unlock()
 	operators := []string{}
 	for _, client := range cc.active {
-		operators = append(operators, client.Operator.Name)
+		if !slices.Contains(operators, client.Operator.Name) {
+			operators = append(operators, client.Operator.Name)
+		}
 	}
 	return operators
 }

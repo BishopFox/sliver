@@ -29,8 +29,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// WGPortFwdListCmd - List WireGuard port forwards
-func WGPortFwdListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// WGPortFwdListCmd - List WireGuard port forwards.
+func WGPortFwdListCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -44,7 +44,7 @@ func WGPortFwdListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("Error: %v", err)
+		con.PrintErrorf("Error: %v", con.UnwrapServerErr(err))
 		return
 	}
 	if fwdList.Response != nil && fwdList.Response.Err != "" {
@@ -58,6 +58,7 @@ func WGPortFwdListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 		} else {
 			tw := table.NewWriter()
 			tw.SetStyle(settings.GetTableStyle(con))
+			settings.SetMaxTableSize(tw)
 			tw.AppendHeader(table.Row{
 				"ID",
 				"Name",

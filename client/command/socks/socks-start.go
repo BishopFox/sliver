@@ -25,16 +25,15 @@ import (
 	"net"
 	"time"
 
-	"gopkg.in/AlecAivazis/survey.v1"
-
 	"github.com/spf13/cobra"
+	"gopkg.in/AlecAivazis/survey.v1"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 )
 
-// SocksStartCmd - Add a new tunneled port forward
-func SocksStartCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// SocksStartCmd - Add a new tunneled port forward.
+func SocksStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -83,6 +82,8 @@ func SocksStartCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 	}(core.SocksProxies.Add(channelProxy).ChannelProxy)
 	con.PrintInfof("Started SOCKS5 %s %s %s %s\n", host, port, username, password)
 	con.PrintWarnf("In-band SOCKS proxies can be a little unstable depending on protocol\n")
+
+	con.WaitSignal()
 }
 
 func randomPassword() string {

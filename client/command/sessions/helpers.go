@@ -28,6 +28,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/rsteube/carapace"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -35,17 +36,17 @@ import (
 )
 
 var (
-	// ErrNoSessions - No sessions available
+	// ErrNoSessions - No sessions available.
 	ErrNoSessions = errors.New("no sessions")
-	// ErrNoSelection - No selection made
+	// ErrNoSelection - No selection made.
 	ErrNoSelection = errors.New("no selection")
 )
 
-// SelectSession - Interactive menu for the user to select an session, optionally only display live sessions
-func SelectSession(onlyAlive bool, con *console.SliverConsoleClient) (*clientpb.Session, error) {
+// SelectSession - Interactive menu for the user to select an session, optionally only display live sessions.
+func SelectSession(onlyAlive bool, con *console.SliverClient) (*clientpb.Session, error) {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		return nil, err
+		return nil, con.UnwrapServerErr(err)
 	}
 	if len(sessions.Sessions) == 0 {
 		return nil, ErrNoSessions
@@ -103,4 +104,31 @@ func SelectSession(onlyAlive bool, con *console.SliverConsoleClient) (*clientpb.
 		}
 	}
 	return nil, ErrNoSelection
+}
+
+// SessionIDCompleter completes session IDs.
+func SessionIDCompleter(con *console.SliverClient) carapace.Action {
+	callback := func(_ carapace.Context) carapace.Action {
+		if msg, err := con.PreRunComplete(); err != nil {
+			return msg
+		}
+
+		results := make([]string, 0)
+
+		sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
+		if err == nil {
+			for _, s := range sessions.Sessions {
+				link := fmt.Sprintf("[%s <- %s]", s.ActiveC2, s.RemoteAddress)
+				id := fmt.Sprintf("%s (%d)", s.Name, s.PID)
+				userHost := fmt.Sprintf("%s@%s", s.Username, s.Hostname)
+				desc := strings.Join([]string{id, userHost, link}, " ")
+
+				results = append(results, s.ID[:8])
+				results = append(results, desc)
+			}
+		}
+		return carapace.ActionValuesDescribed(results...).Tag("sessions")
+	}
+
+	return carapace.ActionCallback(callback)
 }

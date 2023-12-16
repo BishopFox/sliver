@@ -21,22 +21,25 @@ package registry
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// RegListSubKeysCmd - List sub registry keys
-func RegListSubKeysCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// RegListSubKeysCmd - List sub registry keys.
+func RegListSubKeysCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
-	targetOS := getOS(session, beacon)
+	targetOS, err := getOS(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
 	if targetOS != "windows" {
 		con.PrintErrorf("Registry operations can only target Windows\n")
 		return
@@ -53,12 +56,12 @@ func RegListSubKeysCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 		Request:  con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
 	if regList.Response != nil && regList.Response.Async {
-		con.AddBeaconCallback(regList.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(regList.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, regList)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -66,14 +69,13 @@ func RegListSubKeysCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 			}
 			PrintListSubKeys(regList, hive, regPath, con)
 		})
-		con.PrintAsyncResponse(regList.Response)
 	} else {
 		PrintListSubKeys(regList, hive, regPath, con)
 	}
 }
 
-// PrintListSubKeys - Print the list sub keys command result
-func PrintListSubKeys(regList *sliverpb.RegistrySubKeyList, hive string, regPath string, con *console.SliverConsoleClient) {
+// PrintListSubKeys - Print the list sub keys command result.
+func PrintListSubKeys(regList *sliverpb.RegistrySubKeyList, hive string, regPath string, con *console.SliverClient) {
 	if regList.Response != nil && regList.Response.Err != "" {
 		con.PrintErrorf("%s\n", regList.Response.Err)
 		return
@@ -86,8 +88,8 @@ func PrintListSubKeys(regList *sliverpb.RegistrySubKeyList, hive string, regPath
 	}
 }
 
-// RegListValuesCmd - List registry values
-func RegListValuesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// RegListValuesCmd - List registry values.
+func RegListValuesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -104,12 +106,12 @@ func RegListValuesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 		Request:  con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
 	if regList.Response != nil && regList.Response.Async {
-		con.AddBeaconCallback(regList.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(regList.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, regList)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -117,14 +119,13 @@ func RegListValuesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 			}
 			PrintListValues(regList, hive, regPath, con)
 		})
-		con.PrintAsyncResponse(regList.Response)
 	} else {
 		PrintListValues(regList, hive, regPath, con)
 	}
 }
 
-// PrintListValues - Print the registry list values
-func PrintListValues(regList *sliverpb.RegistryValuesList, hive string, regPath string, con *console.SliverConsoleClient) {
+// PrintListValues - Print the registry list values.
+func PrintListValues(regList *sliverpb.RegistryValuesList, hive string, regPath string, con *console.SliverClient) {
 	if regList.Response != nil && regList.Response.Err != "" {
 		con.PrintErrorf("%s\n", regList.Response.Err)
 		return

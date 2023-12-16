@@ -23,13 +23,15 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/version"
 )
 
 var cmdVersion = &cobra.Command{
-	Use:   "version",
-	Short: "Print version and exit",
-	Long:  ``,
+	Use:     "version",
+	Short:   "Print version and exit",
+	Long:    ``,
+	GroupID: constants.GenericHelpGroup,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("%s\n", version.FullVersion())
 	},

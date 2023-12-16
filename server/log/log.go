@@ -35,13 +35,13 @@ const (
 )
 
 var (
-	// RootLoggerName - Root logger name, contains all log data
+	// RootLoggerName - Root logger name, contains all log data.
 	RootLoggerName = "root"
-	// RootLogger - Root Logger
+	// RootLogger - Root Logger.
 	RootLogger = rootLogger()
 )
 
-// NamedLogger - Returns a logger wrapped with pkg/stream fields
+// NamedLogger - Returns a logger wrapped with pkg/stream fields.
 func NamedLogger(pkg, stream string) *logrus.Entry {
 	return RootLogger.WithFields(logrus.Fields{
 		"pkg":    pkg,
@@ -49,9 +49,8 @@ func NamedLogger(pkg, stream string) *logrus.Entry {
 	})
 }
 
-// GetRootAppDir - Get the Sliver app dir, default is: ~/.sliver/
+// GetRootAppDir - Get the Sliver app dir, default is: ~/.sliver/.
 func GetRootAppDir() string {
-
 	value := os.Getenv(envVarName)
 
 	var dir string
@@ -63,7 +62,7 @@ func GetRootAppDir() string {
 	}
 
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, 0700)
+		err = os.MkdirAll(dir, 0o700)
 		if err != nil {
 			panic("Cannot write to sliver root dir")
 		}
@@ -71,18 +70,18 @@ func GetRootAppDir() string {
 	return dir
 }
 
-// GetLogDir - Return the log dir
+// GetLogDir - Return the log dir.
 func GetLogDir() string {
 	rootDir := GetRootAppDir()
 	if _, err := os.Stat(rootDir); os.IsNotExist(err) {
-		err = os.MkdirAll(rootDir, 0700)
+		err = os.MkdirAll(rootDir, 0o700)
 		if err != nil {
 			panic(err)
 		}
 	}
 	logDir := path.Join(rootDir, "logs")
 	if _, err := os.Stat(logDir); os.IsNotExist(err) {
-		err = os.MkdirAll(logDir, 0700)
+		err = os.MkdirAll(logDir, 0o700)
 		if err != nil {
 			panic(err)
 		}
@@ -90,12 +89,12 @@ func GetLogDir() string {
 	return logDir
 }
 
-// RootLogger - Returns the root logger
+// RootLogger - Returns the root logger.
 func rootLogger() *logrus.Logger {
 	rootLogger := logrus.New()
 	rootLogger.Formatter = &logrus.JSONFormatter{}
 	jsonFilePath := filepath.Join(GetLogDir(), "sliver.json")
-	jsonFile, err := os.OpenFile(jsonFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	jsonFile, err := os.OpenFile(jsonFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open log file %v", err))
 	}
@@ -106,7 +105,7 @@ func rootLogger() *logrus.Logger {
 	return rootLogger
 }
 
-// RootLogger - Returns the root logger
+// RootLogger - Returns the root logger.
 func txtLogger() *logrus.Logger {
 	txtLogger := logrus.New()
 	txtLogger.Formatter = &logrus.TextFormatter{
@@ -114,7 +113,7 @@ func txtLogger() *logrus.Logger {
 		FullTimestamp: true,
 	}
 	txtFilePath := filepath.Join(GetLogDir(), "sliver.log")
-	txtFile, err := os.OpenFile(txtFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	txtFile, err := os.OpenFile(txtFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open log file %v", err))
 	}
@@ -123,13 +122,13 @@ func txtLogger() *logrus.Logger {
 	return txtLogger
 }
 
-// TxtHook - Hook in a textual version of the logs
+// TxtHook - Hook in a textual version of the logs.
 type TxtHook struct {
 	Name   string
 	logger *logrus.Logger
 }
 
-// NewTxtHook - returns a new txt hook
+// NewTxtHook - returns a new txt hook.
 func NewTxtHook(name string) *TxtHook {
 	hook := &TxtHook{
 		Name:   name,
@@ -138,7 +137,7 @@ func NewTxtHook(name string) *TxtHook {
 	return hook
 }
 
-// Fire - Implements the fire method of the Logrus hook
+// Fire - Implements the fire method of the Logrus hook.
 func (hook *TxtHook) Fire(entry *logrus.Entry) error {
 	if hook.logger == nil {
 		return errors.New("no txt logger")
@@ -172,12 +171,12 @@ func (hook *TxtHook) Fire(entry *logrus.Entry) error {
 	return nil
 }
 
-// Levels - Hook all levels
+// Levels - Hook all levels.
 func (hook *TxtHook) Levels() []logrus.Level {
 	return logrus.AllLevels
 }
 
-// RootLogger - Returns the root logger
+// RootLogger - Returns the root logger.
 func stdoutLogger() *logrus.Logger {
 	txtLogger := logrus.New()
 	txtLogger.Formatter = &logrus.TextFormatter{
@@ -189,13 +188,13 @@ func stdoutLogger() *logrus.Logger {
 	return txtLogger
 }
 
-// TxtHook - Hook in a textual version of the logs
+// TxtHook - Hook in a textual version of the logs.
 type StdoutHook struct {
 	Name   string
 	logger *logrus.Logger
 }
 
-// NewTxtHook - returns a new txt hook
+// NewTxtHook - returns a new txt hook.
 func NewStdoutHook(name string) *StdoutHook {
 	hook := &StdoutHook{
 		Name:   name,
@@ -204,7 +203,7 @@ func NewStdoutHook(name string) *StdoutHook {
 	return hook
 }
 
-// Fire - Implements the fire method of the Logrus hook
+// Fire - Implements the fire method of the Logrus hook.
 func (hook *StdoutHook) Fire(entry *logrus.Entry) error {
 	if hook.logger == nil {
 		return errors.New("no txt logger")
@@ -238,12 +237,12 @@ func (hook *StdoutHook) Fire(entry *logrus.Entry) error {
 	return nil
 }
 
-// Levels - Hook all levels
+// Levels - Hook all levels.
 func (hook *StdoutHook) Levels() []logrus.Level {
 	return logrus.AllLevels
 }
 
-// LevelFrom - returns level from int
+// LevelFrom - returns level from int.
 func LevelFrom(level int) logrus.Level {
 	switch level {
 	case 0:

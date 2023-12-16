@@ -13,8 +13,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
-// CanariesCmd - Display canaries from the database and their status
-func CanariesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CanariesCmd - Display canaries from the database and their status.
+func CanariesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	canaries, err := con.Rpc.Canaries(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("Failed to list canaries %s", err)
@@ -28,10 +28,11 @@ func CanariesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 	}
 }
 
-// PrintCanaries - Print the canaries tracked by the server
-func PrintCanaries(con *console.SliverConsoleClient, canaries []*clientpb.DNSCanary, burnedOnly bool) {
+// PrintCanaries - Print the canaries tracked by the server.
+func PrintCanaries(con *console.SliverClient, canaries []*clientpb.DNSCanary, burnedOnly bool) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{
 		"Sliver Name",
 		"Domain",

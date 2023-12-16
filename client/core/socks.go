@@ -34,7 +34,7 @@ import (
 )
 
 var (
-	// SocksProxies - Struct instance that holds all the portfwds
+	// SocksProxies - Struct instance that holds all the portfwds.
 	SocksProxies = socksProxy{
 		tcpProxies: map[uint64]*SocksProxy{},
 		mutex:      &sync.RWMutex{},
@@ -43,7 +43,7 @@ var (
 	SocksProxyID  = (uint64)(0)
 )
 
-// PortfwdMeta - Metadata about a portfwd listener
+// PortfwdMeta - Metadata about a portfwd listener.
 type SocksProxyMeta struct {
 	ID        uint64
 	SessionID string
@@ -78,13 +78,13 @@ func (tcp *TcpProxy) Stop() error {
 	return err
 }
 
-// SocksProxy - Tracks portfwd<->tcpproxy
+// SocksProxy - Tracks portfwd<->tcpproxy.
 type SocksProxy struct {
 	ID           uint64
 	ChannelProxy *TcpProxy
 }
 
-// GetMetadata - Get metadata about the portfwd
+// GetMetadata - Get metadata about the portfwd.
 func (p *SocksProxy) GetMetadata() *SocksProxyMeta {
 	return &SocksProxyMeta{
 		ID:        p.ID,
@@ -100,7 +100,7 @@ type socksProxy struct {
 	mutex      *sync.RWMutex
 }
 
-// Add - Add a TCP proxy instance
+// Add - Add a TCP proxy instance.
 func (f *socksProxy) Add(tcpProxy *TcpProxy) *SocksProxy {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
@@ -140,7 +140,7 @@ func (f *socksProxy) Start(tcpProxy *TcpProxy) error {
 					continue
 				}
 				log.Printf("[socks] agent to Server To (Client to User) Data Sequence %d , Data Size %d \n", FromImplantSequence, len(socksData.Data))
-				//fmt.Printf("recv data len %d \n", len(p.Data))
+
 				_, err := conn.Write(socksData.Data)
 				if err != nil {
 					log.Printf("Failed to write data to proxy connection, %s\n", err)
@@ -177,7 +177,7 @@ func (f *socksProxy) Start(tcpProxy *TcpProxy) error {
 	return nil
 }
 
-// Remove - Remove a TCP proxy instance
+// Remove - Remove a TCP proxy instance.
 func (f *socksProxy) Remove(socksId uint64) bool {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
@@ -190,7 +190,7 @@ func (f *socksProxy) Remove(socksId uint64) bool {
 	return false
 }
 
-// List - List all TCP proxy instances
+// List - List all TCP proxy instances.
 func (f *socksProxy) List() []*SocksProxyMeta {
 	f.mutex.RLock()
 	defer f.mutex.RUnlock()
@@ -210,11 +210,10 @@ const leakyBufSize = 4108 // data.len(2) + hmacsha1(10) + data(4096)
 var leakyBuf = leaky.NewLeakyBuf(2048, leakyBufSize)
 
 func connect(conn net.Conn, stream rpcpb.SliverRPC_SocksProxyClient, frame *sliverpb.SocksData) {
-
 	SocksConnPool.Store(frame.TunnelID, conn)
 
 	defer func() {
-		// It's neccessary to close and remove connection once we done with it
+		// It's necessary to close and remove connection once we done with it
 		c, ok := SocksConnPool.LoadAndDelete(frame.TunnelID)
 		if !ok {
 			return
@@ -233,7 +232,6 @@ func connect(conn net.Conn, stream rpcpb.SliverRPC_SocksProxyClient, frame *sliv
 	var ToImplantSequence uint64 = 0
 	for {
 		n, err := conn.Read(buff)
-
 		if err != nil {
 			log.Printf("[socks] (User to Client) failed to read data, %s ", err)
 			// Error basically means that the connection is closed(EOF) OR deadline exceeded

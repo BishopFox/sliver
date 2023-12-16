@@ -38,7 +38,6 @@ import (
 func SetupCAs() {
 	GenerateCertificateAuthority(MtlsImplantCA, "")
 	GenerateCertificateAuthority(MtlsServerCA, "")
-	GenerateCertificateAuthority(OperatorCA, "operators")
 	GenerateCertificateAuthority(HTTPSCA, "")
 }
 
@@ -46,7 +45,7 @@ func getCertDir() string {
 	rootDir := assets.GetRootAppDir()
 	certDir := filepath.Join(rootDir, "certs")
 	if _, err := os.Stat(certDir); os.IsNotExist(err) {
-		err := os.MkdirAll(certDir, 0700)
+		err := os.MkdirAll(certDir, 0o700)
 		if err != nil {
 			certsLog.Fatalf("Failed to create cert dir %s", err)
 		}
@@ -126,10 +125,9 @@ func GetCertificateAuthorityPEM(caType string) ([]byte, []byte, error) {
 // doesn't return an error because errors are fatal. If we can't generate CAs,
 // then we can't secure communication and we should die a horrible death.
 func SaveCertificateAuthority(caType string, cert []byte, key []byte) {
-
 	storageDir := getCertDir()
 	if _, err := os.Stat(storageDir); os.IsNotExist(err) {
-		os.MkdirAll(storageDir, 0700)
+		os.MkdirAll(storageDir, 0o700)
 	}
 
 	// CAs get written to the filesystem since we control the names and makes them
@@ -137,12 +135,12 @@ func SaveCertificateAuthority(caType string, cert []byte, key []byte) {
 	certFilePath := filepath.Join(storageDir, fmt.Sprintf("%s-ca-cert.pem", caType))
 	keyFilePath := filepath.Join(storageDir, fmt.Sprintf("%s-ca-key.pem", caType))
 
-	err := ioutil.WriteFile(certFilePath, cert, 0600)
+	err := ioutil.WriteFile(certFilePath, cert, 0o600)
 	if err != nil {
 		certsLog.Fatalf("Failed write certificate data to: %s", certFilePath)
 	}
 
-	err = ioutil.WriteFile(keyFilePath, key, 0600)
+	err = ioutil.WriteFile(keyFilePath, key, 0o600)
 	if err != nil {
 		certsLog.Fatalf("Failed write certificate data to: %s", keyFilePath)
 	}

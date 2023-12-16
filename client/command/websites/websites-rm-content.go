@@ -28,8 +28,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// WebsitesRmContent - Remove static content from a website
-func WebsitesRmContent(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// WebsitesRmContent - Remove static content from a website.
+func WebsitesRmContent(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name, _ := cmd.Flags().GetString("website")
 	webPath, _ := cmd.Flags().GetString("web-path")
 	recursive, _ := cmd.Flags().GetBool("recursive")
@@ -47,7 +47,7 @@ func WebsitesRmContent(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 		Name: name,
 	})
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return
 	}
 
@@ -66,7 +66,7 @@ func WebsitesRmContent(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 	}
 	web, err := con.Rpc.WebsiteRemoveContent(context.Background(), rmWebContent)
 	if err != nil {
-		con.PrintErrorf("Failed to remove content %s", err)
+		con.PrintErrorf("Failed to remove content %s", con.UnwrapServerErr(err))
 		return
 	}
 	PrintWebsite(web, con)

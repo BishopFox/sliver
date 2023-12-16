@@ -20,6 +20,7 @@ package privilege
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 
@@ -31,13 +32,18 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// GetPrivsCmd - Get the current process privileges (Windows only)
-func GetPrivsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// GetPrivsCmd - Get the current process privileges (Windows only).
+func GetPrivsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
-	targetOS := getOS(session, beacon)
+	targetOS, err := getOS(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
+
 	if targetOS != "windows" {
 		con.PrintErrorf("Command only supported on Windows.\n")
 		return
@@ -47,12 +53,17 @@ func GetPrivsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
-	pid := getPID(session, beacon)
+	pid, err := getPID(session, beacon)
+	if err != nil {
+		con.PrintErrorf("%s.\n", err)
+		return
+	}
+
 	if privs.Response != nil && privs.Response.Async {
-		con.AddBeaconCallback(privs.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(privs.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, privs)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -60,14 +71,13 @@ func GetPrivsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 			}
 			PrintGetPrivs(privs, pid, con)
 		})
-		con.PrintAsyncResponse(privs.Response)
 	} else {
 		PrintGetPrivs(privs, pid, con)
 	}
 }
 
-// PrintGetPrivs - Print the results of the get privs command
-func PrintGetPrivs(privs *sliverpb.GetPrivs, pid int32, con *console.SliverConsoleClient) {
+// PrintGetPrivs - Print the results of the get privs command.
+func PrintGetPrivs(privs *sliverpb.GetPrivs, pid int32, con *console.SliverClient) {
 	// Response is the Envelope (see RPC API), Err is part of it.
 	if privs.Response != nil && privs.Response.Err != "" {
 		con.PrintErrorf("NOTE: Information may be incomplete due to an error:\n")
@@ -126,22 +136,24 @@ func PrintGetPrivs(privs *sliverpb.GetPrivs, pid int32, con *console.SliverConso
 	}
 }
 
-func getOS(session *clientpb.Session, beacon *clientpb.Beacon) string {
+func getOS(session *clientpb.Session, beacon *clientpb.Beacon) (string, error) {
 	if session != nil {
-		return session.OS
+		return session.OS, nil
 	}
 	if beacon != nil {
-		return beacon.OS
+		return beacon.OS, nil
 	}
-	panic("no session or beacon")
+
+	return "", errors.New("no session or beacon")
 }
 
-func getPID(session *clientpb.Session, beacon *clientpb.Beacon) int32 {
+func getPID(session *clientpb.Session, beacon *clientpb.Beacon) (int32, error) {
 	if session != nil {
-		return session.PID
+		return session.PID, nil
 	}
 	if beacon != nil {
-		return beacon.PID
+		return beacon.PID, nil
 	}
-	panic("no session or beacon")
+
+	return -1, errors.New("no session or beacon")
 }

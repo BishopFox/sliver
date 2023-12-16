@@ -36,7 +36,7 @@ import (
 )
 
 var (
-	// Portfwds - Struct instance that holds all the portfwds
+	// Portfwds - Struct instance that holds all the portfwds.
 	Portfwds = portfwds{
 		forwards: map[int]*Portfwd{},
 		mutex:    &sync.RWMutex{},
@@ -45,7 +45,7 @@ var (
 	portfwdID = 0
 )
 
-// PortfwdMeta - Metadata about a portfwd listener
+// PortfwdMeta - Metadata about a portfwd listener.
 type PortfwdMeta struct {
 	ID         int
 	SessionID  string
@@ -53,14 +53,14 @@ type PortfwdMeta struct {
 	RemoteAddr string
 }
 
-// Portfwd - Tracks portfwd<->tcpproxy
+// Portfwd - Tracks portfwd<->tcpproxy.
 type Portfwd struct {
 	ID           int
 	TCPProxy     *tcpproxy.Proxy
 	ChannelProxy *ChannelProxy
 }
 
-// GetMetadata - Get metadata about the portfwd
+// GetMetadata - Get metadata about the portfwd.
 func (p *Portfwd) GetMetadata() *PortfwdMeta {
 	return &PortfwdMeta{
 		ID:         p.ID,
@@ -75,7 +75,7 @@ type portfwds struct {
 	mutex    *sync.RWMutex
 }
 
-// Add - Add a TCP proxy instance
+// Add - Add a TCP proxy instance.
 func (f *portfwds) Add(tcpProxy *tcpproxy.Proxy, channelProxy *ChannelProxy) *Portfwd {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
@@ -88,7 +88,7 @@ func (f *portfwds) Add(tcpProxy *tcpproxy.Proxy, channelProxy *ChannelProxy) *Po
 	return portfwd
 }
 
-// Remove - Remove a TCP proxy instance
+// Remove - Remove a TCP proxy instance.
 func (f *portfwds) Remove(portfwdID int) bool {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
@@ -100,7 +100,7 @@ func (f *portfwds) Remove(portfwdID int) bool {
 	return false
 }
 
-// List - List all TCP proxy instances
+// List - List all TCP proxy instances.
 func (f *portfwds) List() []*PortfwdMeta {
 	f.mutex.RLock()
 	defer f.mutex.RUnlock()
@@ -114,7 +114,7 @@ func (f *portfwds) List() []*PortfwdMeta {
 // ChannelProxy binds the Sliver Tunnel to a net.Conn object
 // one ChannelProxy per port bind.
 //
-// Implements the Target interface from tcpproxy pkg
+// Implements the Target interface from tcpproxy pkg.
 type ChannelProxy struct {
 	Rpc     rpcpb.SliverRPCClient
 	Session *clientpb.Session
@@ -125,7 +125,7 @@ type ChannelProxy struct {
 	DialTimeout     time.Duration
 }
 
-// HandleConn - Handle a TCP connection
+// HandleConn - Handle a TCP connection.
 func (p *ChannelProxy) HandleConn(conn net.Conn) {
 	log.Printf("[tcpproxy] Handling new connection")
 	ctx := context.Background()
@@ -158,7 +158,7 @@ func (p *ChannelProxy) HandleConn(conn net.Conn) {
 	}
 }
 
-// HostPort - Returns the host and port of the TCP proxy
+// HostPort - Returns the host and port of the TCP proxy.
 func (p *ChannelProxy) HostPort() (string, uint32) {
 	defaultPort := uint32(8080)
 	host, rawPort, err := net.SplitHostPort(p.RemoteAddr)
@@ -179,20 +179,19 @@ func (p *ChannelProxy) HostPort() (string, uint32) {
 	return host, port
 }
 
-// Port - Returns the TCP port of the proxy
+// Port - Returns the TCP port of the proxy.
 func (p *ChannelProxy) Port() uint32 {
 	_, port := p.HostPort()
 	return port
 }
 
-// Host - Returns the host (i.e., interface) of the TCP proxy
+// Host - Returns the host (i.e., interface) of the TCP proxy.
 func (p *ChannelProxy) Host() string {
 	host, _ := p.HostPort()
 	return host
 }
 
 func (p *ChannelProxy) dialImplant(ctx context.Context) (*TunnelIO, error) {
-
 	log.Printf("[tcpproxy] Dialing implant to create tunnel ...")
 
 	// Create an RPC tunnel, then start it before binding the shell to the newly created tunnel

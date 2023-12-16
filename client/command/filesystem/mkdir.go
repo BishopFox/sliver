@@ -21,17 +21,16 @@ package filesystem
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// MkdirCmd - Make a remote directory
-func MkdirCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// MkdirCmd - Make a remote directory.
+func MkdirCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -50,11 +49,11 @@ func MkdirCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 		Path:    filePath,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if mkdir.Response != nil && mkdir.Response.Async {
-		con.AddBeaconCallback(mkdir.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(mkdir.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, mkdir)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -62,14 +61,13 @@ func MkdirCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 			}
 			PrintMkdir(mkdir, con)
 		})
-		con.PrintAsyncResponse(mkdir.Response)
 	} else {
 		PrintMkdir(mkdir, con)
 	}
 }
 
-// PrintMkdir - Print make directory
-func PrintMkdir(mkdir *sliverpb.Mkdir, con *console.SliverConsoleClient) {
+// PrintMkdir - Print make directory.
+func PrintMkdir(mkdir *sliverpb.Mkdir, con *console.SliverClient) {
 	if mkdir.Response != nil && mkdir.Response.Err != "" {
 		con.PrintErrorf("%s\n", mkdir.Response.Err)
 		return

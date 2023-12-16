@@ -8,7 +8,7 @@ import (
 
 type namedDirectories map[string]string
 
-// NamedDirectories provides rudimentary named directory support as these aren't expanded by zsh in the `${words}` provided to the compdef function.
+// NamedDirectories provides rudimentary named directory support as these aren't expanded by zsh in the `${words}` provided to the compdef function
 var NamedDirectories = make(namedDirectories)
 
 func (nd *namedDirectories) match(s string) string {
@@ -18,12 +18,12 @@ func (nd *namedDirectories) match(s string) string {
 	return ""
 }
 
-// Matches checks if given string has a known named directory prefix.
+// Matches checks if given string has a known named directory prefix
 func (nd *namedDirectories) Matches(s string) bool {
 	return nd.match(s) != ""
 }
 
-// Replace replaces a known named directory prefix with the actual folder.
+// Replace replaces a known named directory prefix with the actual folder
 func (nd *namedDirectories) Replace(s string) string {
 	if match := nd.match(s); match != "" {
 		if !strings.HasSuffix(match, "/") {

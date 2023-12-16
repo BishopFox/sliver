@@ -36,7 +36,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// Stylizes known processes in the `ps` command
+// Stylizes known processes in the `ps` command.
 var knownSecurityTools = map[string][]string{
 	// Process Name -> [Color, Stylized Name]
 	"ccSvcHst.exe":                    {console.Red, "Symantec Endpoint Protection"}, // Symantec Endpoint Protection (SEP)
@@ -92,14 +92,10 @@ var knownSecurityTools = map[string][]string{
 	"eguiproxy.exe":                   {console.Red, "ESET Security"},                // ESET Internet Security
 	"ekrn.exe":                        {console.Red, "ESET Security"},                // ESET Internet Security
 	"efwd.exe":                        {console.Red, "ESET Security"},                // ESET Internet Security
-	"AmSvc.exe":                       {console.Red, "Cybereason ActiveProbe"},       // Cybereason ActiveProbe
-	"CrAmTray.exe":                    {console.Red, "Cybereason ActiveProbe"},       // Cybereason ActiveProbe
-	"CrsSvc.exe":                      {console.Red, "Cybereason ActiveProbe"},       // Cybereason ActiveProbe
-	"CybereasonAV.exe":                {console.Red, "Cybereason ActiveProbe"},       // Cybereason ActiveProbe
 }
 
-// PsCmd - List processes on the remote system
-func PsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// PsCmd - List processes on the remote system.
+func PsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -108,12 +104,12 @@ func PsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) 
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	os := getOS(session, beacon)
 	if ps.Response != nil && ps.Response.Async {
-		con.AddBeaconCallback(ps.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(ps.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, ps)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -126,7 +122,6 @@ func PsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) 
 				con.PrintWarnf("Security Product(s): %s\n", strings.Join(products, ", "))
 			}
 		})
-		con.PrintAsyncResponse(ps.Response)
 	} else {
 		PrintPS(os, ps, true, cmd.Flags(), con)
 		products := findKnownSecurityProducts(ps)
@@ -146,8 +141,8 @@ func getOS(session *clientpb.Session, beacon *clientpb.Beacon) string {
 	return ""
 }
 
-// PrintPS - Prints the process list
-func PrintPS(os string, ps *sliverpb.Ps, interactive bool, flags *pflag.FlagSet, con *console.SliverConsoleClient) {
+// PrintPS - Prints the process list.
+func PrintPS(os string, ps *sliverpb.Ps, interactive bool, flags *pflag.FlagSet, con *console.SliverClient) {
 	pidFilter, _ := flags.GetInt("pid")
 	exeFilter, _ := flags.GetString("exe")
 	ownerFilter, _ := flags.GetString("owner")
@@ -175,6 +170,7 @@ func PrintPS(os string, ps *sliverpb.Ps, interactive bool, flags *pflag.FlagSet,
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 
 	switch os {
 	case "windows":
@@ -225,8 +221,8 @@ func findKnownSecurityProducts(ps *sliverpb.Ps) []string {
 	return products
 }
 
-// procRow - Stylizes the process information
-func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console.SliverConsoleClient) table.Row {
+// procRow - Stylizes the process information.
+func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console.SliverClient) table.Row {
 	session, beacon := con.ActiveTarget.GetInteractive()
 
 	color := console.Normal
@@ -300,8 +296,8 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 	return row
 }
 
-// GetPIDByName - Get a PID by name from the active session
-func GetPIDByName(cmd *cobra.Command, name string, con *console.SliverConsoleClient) int {
+// GetPIDByName - Get a PID by name from the active session.
+func GetPIDByName(cmd *cobra.Command, name string, con *console.SliverClient) int {
 	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
 		Request: con.ActiveTarget.Request(cmd),
 	})
@@ -316,7 +312,7 @@ func GetPIDByName(cmd *cobra.Command, name string, con *console.SliverConsoleCli
 	return -1
 }
 
-// SortProcessesByPID - Sorts a list of processes by PID
+// SortProcessesByPID - Sorts a list of processes by PID.
 func SortProcessesByPID(ps []*commonpb.Process) []*commonpb.Process {
 	sort.Slice(ps, func(i, j int) bool {
 		return ps[i].Pid < ps[j].Pid

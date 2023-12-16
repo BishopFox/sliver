@@ -73,8 +73,19 @@ var (
 	UnavailableID    = PopulateID()
 )
 
-func SetupDefaultEncoders(name string) uint64 {
+// Setup is an init function to automatically setup default encoders.
+// Called in the root sliver server binary command pre-runners.
+func Setup() {
+	util.SetEnglishDictionary(assets.English())
+	TrafficEncoderFS = PassthroughEncoderFS{
+		rootDir: filepath.Join(assets.GetRootAppDir(), "traffic-encoders"),
+	}
+	loadTrafficEncodersFromFS(TrafficEncoderFS, func(msg string) {
+		trafficEncoderLog.Debugf("[traffic-encoder] %s", msg)
+	})
+}
 
+func SetupDefaultEncoders(name string) uint64 {
 	encoders, err := db.ResourceIDByType("encoder")
 	if err != nil {
 		encodersLog.Printf("Error:\n%s", err)
@@ -127,16 +138,6 @@ func GetRandomID() uint64 {
 	return uint64(id)
 }
 
-func init() {
-	util.SetEnglishDictionary(assets.English())
-	TrafficEncoderFS = PassthroughEncoderFS{
-		rootDir: filepath.Join(assets.GetRootAppDir(), "traffic-encoders"),
-	}
-	loadTrafficEncodersFromFS(TrafficEncoderFS, func(msg string) {
-		trafficEncoderLog.Debugf("[traffic-encoder] %s", msg)
-	})
-}
-
 // EncoderMap - A map of all available encoders (native and traffic/wasm)
 var EncoderMap = map[uint64]util.Encoder{
 	Base64EncoderID:  Base64,
@@ -166,7 +167,7 @@ func SaveTrafficEncoder(name string, wasmBin []byte) error {
 		return fmt.Errorf("invalid encoder name, must end with .wasm")
 	}
 	wasmFilePath := filepath.Join(assets.GetTrafficEncoderDir(), filepath.Base(name))
-	err := os.WriteFile(wasmFilePath, wasmBin, 0600)
+	err := os.WriteFile(wasmFilePath, wasmBin, 0o600)
 	if err != nil {
 		return err
 	}
@@ -203,7 +204,6 @@ func RemoveTrafficEncoder(name string) error {
 // loadTrafficEncodersFromFS - Loads the wasm traffic encoders from the filesystem, for the
 // server these will be loaded from: <app root>/traffic-encoders/*.wasm
 func loadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) error {
-
 	// Reset references pointing to traffic encoders
 	for _, encoder := range TrafficEncoderMap {
 		delete(EncoderMap, encoder.ID)

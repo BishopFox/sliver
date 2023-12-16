@@ -22,17 +22,16 @@ import (
 	"context"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// ReconfigCmd - Reconfigure metadata about a sessions
-func ReconfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ReconfigCmd - Reconfigure metadata about a sessions.
+func ReconfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -82,11 +81,11 @@ func ReconfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 		Request:           con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintWarnf("%s\n", err)
+		con.PrintWarnf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if reconfig.Response != nil && reconfig.Response.Async {
-		con.AddBeaconCallback(reconfig.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(reconfig.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, reconfig)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -94,7 +93,6 @@ func ReconfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 			}
 			con.PrintInfof("Reconfigured beacon\n")
 		})
-		con.PrintAsyncResponse(reconfig.Response)
 	} else {
 		con.PrintInfof("Reconfiguration complete\n")
 	}

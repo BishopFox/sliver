@@ -28,8 +28,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// WGPortFwdAddCmd - Add a new WireGuard port forward
-func WGPortFwdAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// WGPortFwdAddCmd - Add a new WireGuard port forward.
+func WGPortFwdAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -57,7 +57,7 @@ func WGPortFwdAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 		Request:       con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("Error: %v", err)
+		con.PrintErrorf("Error: %v", con.UnwrapServerErr(err))
 		return
 	}
 

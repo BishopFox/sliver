@@ -52,11 +52,11 @@ type wgQuickConfig struct {
 	AllowedSubnet   string
 }
 
-// WGConfigCmd - Generate a WireGuard client configuration
-func WGConfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// WGConfigCmd - Generate a WireGuard client configuration.
+func WGConfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	wgConfig, err := con.Rpc.GenerateWGClientConfig(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("Error: %s\n", err)
+		con.PrintErrorf("Error: %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	clientPrivKeyBytes, err := hex.DecodeString(wgConfig.ClientPrivateKey)

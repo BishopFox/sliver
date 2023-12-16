@@ -36,8 +36,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
-// SessionsCmd - Display/interact with sessions
-func SessionsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// SessionsCmd - Display/interact with sessions.
+func SessionsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	interact, _ := cmd.Flags().GetString("interact")
 	killFlag, _ := cmd.Flags().GetString("kill")
 	killAll, _ := cmd.Flags().GetBool("kill-all")
@@ -45,7 +45,7 @@ func SessionsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
@@ -90,6 +90,7 @@ func SessionsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 		if err != nil {
 			con.PrintErrorf("%s", err)
 		}
+		con.PrintInfof("Killed %s (%s)\n", session.Name, session.ID)
 		return
 	}
 
@@ -126,8 +127,8 @@ func SessionsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 	}
 }
 
-// PrintSessions - Print the current sessions
-func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterRegex *regexp.Regexp, con *console.SliverConsoleClient) {
+// PrintSessions - Print the current sessions.
+func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterRegex *regexp.Regexp, con *console.SliverClient) {
 	width, _, err := term.GetSize(0)
 	if err != nil {
 		width = 999
@@ -135,6 +136,7 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	wideTermWidth := con.Settings.SmallTermWidth < width
 
 	if wideTermWidth {
@@ -237,7 +239,7 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 	con.Printf("%s\n", tw.Render())
 }
 
-// ShortSessionID - Shorten the session ID
+// ShortSessionID - Shorten the session ID.
 func ShortSessionID(id string) string {
 	return strings.Split(id, "-")[0]
 }

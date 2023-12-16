@@ -26,8 +26,8 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 )
 
-// LootFetchCmd - Display the contents of or download a piece of loot
-func LootFetchCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// LootFetchCmd - Display the contents of or download a piece of loot.
+func LootFetchCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	loot, err := SelectLoot(cmd, con.Rpc)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -35,7 +35,7 @@ func LootFetchCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 	}
 	loot, err = con.Rpc.LootContent(context.Background(), loot)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	PrintLootFile(loot, con)

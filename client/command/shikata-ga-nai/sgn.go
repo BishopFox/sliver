@@ -30,8 +30,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
-// ShikataGaNaiCmd - Command wrapper for the Shikata Ga Nai shellcode encoder
-func ShikataGaNaiCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ShikataGaNaiCmd - Command wrapper for the Shikata Ga Nai shellcode encoder.
+func ShikataGaNaiCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	shellcodeFile := args[0]
 	rawShellcode, err := os.ReadFile(shellcodeFile)
 	if err != nil {
@@ -59,7 +59,7 @@ func ShikataGaNaiCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 		Request:      con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if shellcodeResp.Response != nil && shellcodeResp.Response.Err != "" {

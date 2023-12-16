@@ -10,7 +10,7 @@ var (
 	mutex    sync.RWMutex
 )
 
-// RTunnel - Duplex byte read/write
+// RTunnel - Duplex byte read/write.
 type RTunnel struct {
 	ID        uint64
 	SessionID string
@@ -62,7 +62,7 @@ func (c *RTunnel) IncWriteSequence() {
 	c.writeSequence += 1
 }
 
-// Close - close RTunnel reader and writer
+// Close - close RTunnel reader and writer.
 func (c *RTunnel) Close() {
 	for _, rc := range c.Readers {
 		if rc != nil {
@@ -72,14 +72,14 @@ func (c *RTunnel) Close() {
 	c.Writer.Close()
 }
 
-// Tunnel - Add tunnel to mapping
+// Tunnel - Add tunnel to mapping.
 func GetRTunnel(ID uint64) *RTunnel {
 	mutex.RLock()
 	defer mutex.RUnlock()
 	return Rtunnels[ID]
 }
 
-// AddTunnel - Add tunnel to mapping
+// AddTunnel - Add tunnel to mapping.
 func AddRTunnel(tun *RTunnel) {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -87,7 +87,7 @@ func AddRTunnel(tun *RTunnel) {
 	Rtunnels[tun.ID] = tun
 }
 
-// RemoveTunnel - Add tunnel to mapping
+// RemoveTunnel - Add tunnel to mapping.
 func RemoveRTunnel(ID uint64) {
 	mutex.Lock()
 	defer mutex.Unlock()

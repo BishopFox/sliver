@@ -21,16 +21,15 @@ package filesystem
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-func MvCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) (err error) {
+func MvCmd(cmd *cobra.Command, con *console.SliverClient, args []string) (err error) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -56,29 +55,28 @@ func MvCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) 
 		Dst:     dst,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 
 	mv.Src, mv.Dst = src, dst
 
 	if mv.Response != nil && mv.Response.Async {
-		con.AddBeaconCallback(mv.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(mv.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, mv)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
 		})
-		con.PrintAsyncResponse(mv.Response)
 	} else {
 		PrintMv(mv, con)
 	}
 	return
 }
 
-// PrintMv - Print the renamed file
-func PrintMv(mv *sliverpb.Mv, con *console.SliverConsoleClient) {
+// PrintMv - Print the renamed file.
+func PrintMv(mv *sliverpb.Mv, con *console.SliverClient) {
 	if mv.Response != nil && mv.Response.Err != "" {
 		con.PrintErrorf("%s\n", mv.Response.Err)
 		return

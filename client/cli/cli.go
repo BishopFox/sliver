@@ -19,79 +19,90 @@ package cli
 */
 
 import (
-	"fmt"
 	"log"
 	"os"
-	"path"
 
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/version"
+	"github.com/reeflective/team/client/commands"
+
+	"github.com/bishopfox/sliver/client/command"
+	"github.com/bishopfox/sliver/client/command/completers"
+	sliverConsole "github.com/bishopfox/sliver/client/command/console"
+	client "github.com/bishopfox/sliver/client/console"
 )
 
-const (
-	logFileName = "sliver-client.log"
-)
-
-var sliverServerVersion = fmt.Sprintf("v%s", version.FullVersion())
-
-// Initialize logging
-func initLogging(appDir string) *os.File {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	logFile, err := os.OpenFile(path.Join(appDir, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o600)
+// Execute - Run the sliver client binary.
+func Execute() {
+	// Create a client-only (remote TLS-transported connections)
+	// Sliver client, prepared with a working reeflective/teamclient.
+	// The teamclient automatically handles remote teamserver configuration
+	// prompting/loading and use, as well as other things.
+	con, err := client.NewSliverClient()
 	if err != nil {
-		panic(fmt.Sprintf("[!] Error opening file: %s", err))
+		log.Fatal(err)
 	}
-	log.SetOutput(logFile)
-	return logFile
-}
 
-func init() {
-	rootCmd.TraverseChildren = true
-
-	// Create the console client, without any RPC or commands bound to it yet.
-	// This created before anything so that multiple commands can make use of
-	// the same underlying command/run infrastructure.
-	con := console.NewConsole(false)
-
-	// Import
-	rootCmd.AddCommand(importCmd())
+	// Generate the entire Sliver framework command-line interface.
+	rootCmd := SliverCLI(con)
 
 	// Version
 	rootCmd.AddCommand(cmdVersion)
 
-	// Client console.
-	// All commands and RPC connection are generated WITHIN the command RunE():
-	// that means there should be no redundant command tree/RPC connections with
-	// other command trees below, such as the implant one.
-	rootCmd.AddCommand(consoleCmd(con))
+	// Run the sliver client binary.
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+// SliverCLI returns the entire command tree of the Sliver Framework as yielder functions.
+// The ready-to-execute command tree (root *cobra.Command) returned is correctly equipped
+// with all prerunners needed to connect to remote Sliver teamservers.
+// It will also register the appropriate teamclient management commands.
+func SliverCLI(con *client.SliverClient) (root *cobra.Command) {
+	teamclientCmds := func(con *client.SliverClient) []*cobra.Command {
+		return []*cobra.Command{
+			commands.Generate(con.Teamclient),
+		}
+	}
+
+	// Generate a single tree instance of server commands:
+	// These are used as the primary, one-exec-only CLI of Sliver, and will be equipped
+	// with a pre-runner ensuring the server and its teamclient are set up and connected.
+	server := command.ServerCommands(con, teamclientCmds)
+
+	root = server()            // The root has an empty command name...
+	root.Use = "sliver-client" // so adjust it, because needed by completion scripts.
+
+	// Bind the closed-loop console.
+	// The console shares the same setup/connection pre-runners as other commands,
+	// but the command yielders we pass as arguments don't: this is because we only
+	// need one connection for the entire lifetime of the console.
+	root.AddCommand(sliverConsole.Command(con, server))
 
 	// Implant.
 	// The implant command allows users to run commands on slivers from their
 	// system shell. It makes use of pre-runners for connecting to the server
 	// and binding sliver commands. These same pre-runners are also used for
 	// command completion/filtering purposes.
-	rootCmd.AddCommand(implantCmd(con))
+	root.AddCommand(implantCmd(con, command.SliverCommands(con)))
 
-	// No subcommand invoked means starting the console.
-	rootCmd.RunE, rootCmd.PostRunE = consoleRunnerCmd(con, true)
+	// Pre/post runners and completions.
+	command.BindPreRun(root, con.PreRunConnect)
+	command.BindPostRun(root, con.PostRunDisconnect)
 
-	// Completions
-	carapace.Gen(rootCmd)
-}
+	// Add a CLI-specific flag for allowing users to force a specific remote
+	// Sliver server configuration to be used, instead of prompting user to choose.
+	root.Flags().StringP("config", "c", "", "Force connecting to a specific Sliver server")
+	completers.NewFlagCompsFor(root, func(comp *carapace.ActionMap) {
+		(*comp)["config"] = carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+			return commands.ConfigsAppCompleter(con.Teamclient, "configs")
+		})
+	})
 
-var rootCmd = &cobra.Command{
-	Use:   "sliver-client",
-	Short: "",
-	Long:  ``,
-}
+	// Generate the root completion command.
+	carapace.Gen(root)
 
-// Execute - Execute root command
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	return root
 }

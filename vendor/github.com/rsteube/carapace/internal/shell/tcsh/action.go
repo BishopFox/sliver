@@ -87,6 +87,7 @@ func ActionRawValues(currentWord string, meta common.Meta, values common.RawValu
 		if valuePrefix := commonValuePrefix(values...); lastSegment != valuePrefix {
 			// replace values with common value prefix (`\001` is removed in snippet and compopt nospace will be set)
 			values = common.RawValuesFrom(commonValuePrefix(values...)) // TODO nospaceIndicator
+			//values = common.RawValuesFrom(commonValuePrefix(values...) + nospaceIndicator)
 		} else {
 			// prevent insertion of partial display values by prefixing one with space
 			values[0].Display = " " + values[0].Display

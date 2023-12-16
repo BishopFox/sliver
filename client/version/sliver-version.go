@@ -31,23 +31,23 @@ const (
 )
 
 var (
-	// Version - The semantic version in string form
+	// Version - The semantic version in string form.
 	Version string
 
-	// GoVersion - Go compiler version
+	// GoVersion - Go compiler version.
 	GoVersion string
 
-	// GitCommit - The commit id at compile time
+	// GitCommit - The commit id at compile time.
 	GitCommit string
 
-	// GitDirty - Was the commit dirty at compile time
+	// GitDirty - Was the commit dirty at compile time.
 	GitDirty string
 
-	// CompiledAt - When was this binary compiled
+	// CompiledAt - When was this binary compiled.
 	CompiledAt string
 )
 
-// SemanticVersion - Get the structured sematic version
+// SemanticVersion - Get the structured sematic version.
 func SemanticVersion() []int {
 	semVer := []int{}
 	version := Version
@@ -61,7 +61,7 @@ func SemanticVersion() []int {
 	return semVer
 }
 
-// Compiled - Get time this binary was compiled
+// Compiled - Get time this binary was compiled.
 func Compiled() (time.Time, error) {
 	compiled, err := strconv.ParseInt(CompiledAt, 10, 64)
 	if err != nil {
@@ -70,7 +70,7 @@ func Compiled() (time.Time, error) {
 	return time.Unix(compiled, 0), nil
 }
 
-// FullVersion - Full version string
+// FullVersion - Full version string.
 func FullVersion() string {
 	ver := fmt.Sprintf("%s", Version)
 	compiled, err := Compiled()

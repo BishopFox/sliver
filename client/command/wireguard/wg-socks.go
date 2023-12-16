@@ -31,8 +31,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// WGSocksListCmd - List WireGuard SOCKS proxies
-func WGSocksListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// WGSocksListCmd - List WireGuard SOCKS proxies.
+func WGSocksListCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -46,7 +46,7 @@ func WGSocksListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("Error: %v", err)
+		con.PrintErrorf("Error: %v", con.UnwrapServerErr(err))
 		return
 	}
 	if socksList.Response != nil && socksList.Response.Err != "" {
@@ -58,6 +58,7 @@ func WGSocksListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 		if 0 < len(socksList.Servers) {
 			tw := table.NewWriter()
 			tw.SetStyle(settings.GetTableStyle(con))
+			settings.SetMaxTableSize(tw)
 			tw.AppendHeader(table.Row{
 				"ID",
 				"Local Address",
@@ -74,15 +75,19 @@ func WGSocksListCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 }
 
 // SocksIDCompleter IDs of WireGuard socks servers.
-func SocksIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+func SocksIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
+		if msg, err := con.PreRunComplete(); err != nil {
+			return msg
+		}
+
 		results := make([]string, 0)
 
 		socksList, err := con.Rpc.WGListSocksServers(context.Background(), &sliverpb.WGSocksServersReq{
 			Request: con.ActiveTarget.Request(con.App.ActiveMenu().Root()),
 		})
 		if err != nil {
-			return carapace.ActionMessage("failed to get Wireguard Socks servers: %s", err.Error())
+			return carapace.ActionMessage("failed to get Wireguard Socks servers: %s", con.UnwrapServerErr(err))
 		}
 
 		for _, serv := range socksList.Servers {

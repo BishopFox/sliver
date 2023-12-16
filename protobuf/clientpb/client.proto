@@ -4,7 +4,7 @@ option go_package = "github.com/bishopfox/sliver/protobuf/clientpb";
 
 import "commonpb/common.proto";
 
-// [ Version ] ----------------------------------------
+// [ Teamclient ] -------------------------------------------
 
 message Version {
   int32 Major = 1;
@@ -19,10 +19,51 @@ message Version {
   string Arch = 8;
 }
 
-// [ Client Logs ] ----------------------------------------
+message Users { repeated User Users = 1; }
+
+message User {
+  string Name = 1;
+  bool Online = 2;
+  int64 LastSeen = 3;
+  int32 Clients = 4;
+}
+
+
+// [ Client Logs ] ------------------------------------------
 message ClientLogData {
   string Stream = 1;
   bytes Data = 2;
+}
+
+// [ History commands ] ----------------------------------------
+
+message ImplantCommand {
+  string Stream = 1;
+  string User = 2;
+  string ImplantID = 3;
+  string ImplantName = 4;
+  int64 ExecutedAt = 5;
+  string Block = 6;
+
+  commonpb.Request Request = 9;
+}
+
+message HistoryRequest {
+  bool UserOnly = 1;
+  int32 MaxLines = 2;         
+  string ImplantID = 3;      
+  string ImplantName = 4;
+        
+  commonpb.Request Request = 9;
+}
+
+// History - Command history content.
+message History {
+  int32 HistoryLen = 2;
+  bool UserOnly = 3;
+  repeated ImplantCommand Commands = 4;
+
+  commonpb.Response Response = 9;
 }
 
 // [ Core ] ----------------------------------------
@@ -102,6 +143,7 @@ message BeaconTask {
   bytes Request = 7;
   bytes Response = 8;
   string Description = 9;
+  repeated string CmdLine = 10;
 }
 
 message BeaconTasks {
@@ -282,6 +324,21 @@ message Compiler {
   repeated CompilerTarget Targets = 3;
   repeated CrossCompiler CrossCompilers = 4;
   repeated CompilerTarget UnsupportedTargets = 5;
+}
+
+message MetasploitModule {
+  string Name = 1;
+  string FullName = 2;
+  string Description = 3;
+  string Quality = 4;
+}
+
+message MetasploitCompiler {
+  string Version = 1;
+  repeated string Formats = 2;
+  repeated string Archs = 3;
+  repeated MetasploitModule Encoders = 4;
+  repeated MetasploitModule Payloads = 5;
 }
 
 message DeleteReq { string Name = 1; }
@@ -567,14 +624,13 @@ message Client {
 message Event {
   string EventType = 1;
   Session Session = 2;
-  Job Job = 3;
-  Client Client = 4;
-  bytes Data = 5;
+  Beacon Beacon = 3;
+  Job Job = 4;
+  Client Client = 5;
+  bytes Data = 6;
 
-  string Err = 6; // Can't trigger normal gRPC error
+  string Err = 7; // Can't trigger normal gRPC error
 }
-
-message Operators { repeated Operator Operators = 1; }
 
 message Operator {
   bool Online = 1;

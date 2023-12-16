@@ -1,8 +1,6 @@
 package console
 
 import (
-	"strings"
-
 	"github.com/spf13/cobra"
 )
 
@@ -74,39 +72,4 @@ next:
 	}
 
 	c.filters = updated
-}
-
-func (c *Console) isFiltered(cmd *cobra.Command) bool {
-	if cmd.Annotations == nil {
-		return false
-	}
-
-	// Get the filters on the command
-	filterStr := cmd.Annotations[CommandFilterKey]
-	filters := strings.Split(filterStr, ",")
-
-	for _, cmdFilter := range filters {
-		for _, filter := range c.filters {
-			if cmdFilter != "" && cmdFilter == filter {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-// hide commands that are filtered so that they are not
-// shown in the help strings or proposed as completions.
-func (c *Console) hideFilteredCommands() {
-	for _, cmd := range c.activeMenu().Commands() {
-		// Don't override commands if they are already hidden
-		if cmd.Hidden {
-			continue
-		}
-
-		if c.isFiltered(cmd) {
-			cmd.Hidden = true
-		}
-	}
 }

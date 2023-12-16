@@ -32,7 +32,7 @@ import (
 )
 
 // AliasesRemoveCmd - Locally load a alias into the Sliver shell.
-func AliasesRemoveCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func AliasesRemoveCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name := args[0]
 	// name := ctx.Args.String("name")
 	if name == "" {
@@ -54,8 +54,8 @@ func AliasesRemoveCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 	}
 }
 
-// RemoveAliasByCommandName - Remove an alias by command name
-func RemoveAliasByCommandName(commandName string, con *console.SliverConsoleClient) error {
+// RemoveAliasByCommandName - Remove an alias by command name.
+func RemoveAliasByCommandName(commandName string, con *console.SliverClient) error {
 	if commandName == "" {
 		return errors.New("command name is required")
 	}

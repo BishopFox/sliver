@@ -44,33 +44,6 @@ func ExportHostFunctions(env wazero.HostModuleBuilder) wazero.HostModuleBuilder 
 	return env
 }
 
-type vfsKey struct{}
-type vfsState struct {
-	files []File
-}
-
-// NewContext is an internal API users need not call directly.
-//
-// NewContext creates a new context to hold [api.Module] specific VFS data.
-// The context should be passed to any [api.Function] calls that might
-// generate VFS host callbacks.
-// The returned [io.Closer] should be closed after the [api.Module] is closed,
-// to release any associated resources.
-func NewContext(ctx context.Context) (context.Context, io.Closer) {
-	vfs := new(vfsState)
-	return context.WithValue(ctx, vfsKey{}, vfs), vfs
-}
-
-func (vfs *vfsState) Close() error {
-	for _, f := range vfs.files {
-		if f != nil {
-			f.Close()
-		}
-	}
-	vfs.files = nil
-	return nil
-}
-
 func vfsFind(ctx context.Context, mod api.Module, zVfsName uint32) uint32 {
 	name := util.ReadString(mod, zVfsName, _MAX_STRING)
 	if vfs := Find(name); vfs != nil && vfs != (vfsOS{}) {
@@ -183,6 +156,10 @@ func vfsOpen(ctx context.Context, mod api.Module, pVfs, zPath, pFile uint32, fla
 		file, flags, err = vfs.Open(path, flags)
 	}
 
+	if err != nil {
+		return vfsErrorCode(err, _CANTOPEN)
+	}
+
 	if file, ok := file.(FilePowersafeOverwrite); ok {
 		if !parsed {
 			params = vfsURIParameters(ctx, mod, zPath, flags)
@@ -192,14 +169,10 @@ func vfsOpen(ctx context.Context, mod api.Module, pVfs, zPath, pFile uint32, fla
 		}
 	}
 
-	if err != nil {
-		return vfsErrorCode(err, _CANTOPEN)
-	}
-
-	vfsFileRegister(ctx, mod, pFile, file)
 	if pOutFlags != 0 {
 		util.WriteUint32(mod, pOutFlags, uint32(flags))
 	}
+	vfsFileRegister(ctx, mod, pFile, file)
 	return _OK
 }
 
@@ -431,40 +404,22 @@ func vfsGet(mod api.Module, pVfs uint32) VFS {
 	panic(util.NoVFSErr + util.ErrorString(name))
 }
 
-func vfsFileNew(vfs *vfsState, file File) uint32 {
-	// Find an empty slot.
-	for id, f := range vfs.files {
-		if f == nil {
-			vfs.files[id] = file
-			return uint32(id)
-		}
-	}
-
-	// Add a new slot.
-	vfs.files = append(vfs.files, file)
-	return uint32(len(vfs.files) - 1)
-}
-
 func vfsFileRegister(ctx context.Context, mod api.Module, pFile uint32, file File) {
 	const fileHandleOffset = 4
-	id := vfsFileNew(ctx.Value(vfsKey{}).(*vfsState), file)
+	id := util.AddHandle(ctx, file)
 	util.WriteUint32(mod, pFile+fileHandleOffset, id)
 }
 
 func vfsFileGet(ctx context.Context, mod api.Module, pFile uint32) File {
 	const fileHandleOffset = 4
-	vfs := ctx.Value(vfsKey{}).(*vfsState)
 	id := util.ReadUint32(mod, pFile+fileHandleOffset)
-	return vfs.files[id]
+	return util.GetHandle(ctx, id).(File)
 }
 
 func vfsFileClose(ctx context.Context, mod api.Module, pFile uint32) error {
 	const fileHandleOffset = 4
-	vfs := ctx.Value(vfsKey{}).(*vfsState)
 	id := util.ReadUint32(mod, pFile+fileHandleOffset)
-	file := vfs.files[id]
-	vfs.files[id] = nil
-	return file.Close()
+	return util.DelHandle(ctx, id)
 }
 
 func vfsErrorCode(err error, def _ErrorCode) _ErrorCode {
@@ -476,10 +431,4 @@ func vfsErrorCode(err error, def _ErrorCode) _ErrorCode {
 		return _ErrorCode(v.Uint())
 	}
 	return def
-}
-
-func clear(b []byte) {
-	for i := range b {
-		b[i] = 0
-	}
 }

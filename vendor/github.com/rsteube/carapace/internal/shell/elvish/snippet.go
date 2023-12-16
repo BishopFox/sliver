@@ -18,7 +18,7 @@ func Snippet(cmd *cobra.Command) string {
 		if (not-eq $completion[Usage] "") {
 			edit:notify (styled "usage: " $completion[DescriptionStyle])$completion[Usage]
 		}
-		put $completion[Candidates] | all (one) | each {|c|
+		put $completion[Candidates] | all (one) | peach {|c|
 			if (eq $c[Description] "") {
 		    	edit:complex-candidate $c[Value] &display=(styled $c[Display] $c[Style]) &code-suffix=$c[CodeSuffix]
 			} else {

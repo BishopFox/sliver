@@ -189,3 +189,4 @@ for USER_DIR in "${USER_DIRS[@]}"; do
         chown -R "$USER":"$(id -gn "$USER")" "$USER_DIR/.sliver-client/"
     fi
 done
+

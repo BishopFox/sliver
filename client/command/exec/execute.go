@@ -23,9 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
@@ -33,8 +32,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// ExecuteCmd - Run a command on the remote system
-func ExecuteCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ExecuteCmd - Run a command on the remote system.
+func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -94,12 +93,12 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s", err)
+		con.PrintErrorf("%s", con.UnwrapServerErr(err))
 		return
 	}
 
 	if exec.Response != nil && exec.Response.Async {
-		con.AddBeaconCallback(exec.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(exec.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, exec)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -107,13 +106,12 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 			}
 			HandleExecuteResponse(exec, cmdPath, hostName, cmd, con)
 		})
-		con.PrintAsyncResponse(exec.Response)
 	} else {
 		HandleExecuteResponse(exec, cmdPath, hostName, cmd, con)
 	}
 }
 
-func HandleExecuteResponse(exec *sliverpb.Execute, cmdPath string, hostName string, cmd *cobra.Command, con *console.SliverConsoleClient) {
+func HandleExecuteResponse(exec *sliverpb.Execute, cmdPath string, hostName string, cmd *cobra.Command, con *console.SliverClient) {
 	var lootedOutput []byte
 	stdout, _ := cmd.Flags().GetString("stdout")
 	saveLoot, _ := cmd.Flags().GetBool("loot")
@@ -136,8 +134,8 @@ func HandleExecuteResponse(exec *sliverpb.Execute, cmdPath string, hostName stri
 	PrintExecute(exec, cmd, con)
 }
 
-// PrintExecute - Print the output of an executed command
-func PrintExecute(exec *sliverpb.Execute, cmd *cobra.Command, con *console.SliverConsoleClient) {
+// PrintExecute - Print the output of an executed command.
+func PrintExecute(exec *sliverpb.Execute, cmd *cobra.Command, con *console.SliverClient) {
 	ignoreStderr, _ := cmd.Flags().GetBool("ignore-stderr")
 	stdout, _ := cmd.Flags().GetString("stdout")
 	stderr, _ := cmd.Flags().GetString("stderr")
@@ -210,7 +208,7 @@ func combineCommandOutput(exec *sliverpb.Execute, combineStdOut bool, combineStd
 	return []byte(outputString)
 }
 
-func LootExecute(commandOutput []byte, lootName string, sliverCmdName string, cmdName string, hostName string, con *console.SliverConsoleClient) {
+func LootExecute(commandOutput []byte, lootName string, sliverCmdName string, cmdName string, hostName string, con *console.SliverClient) {
 	if len(commandOutput) == 0 {
 		con.PrintInfof("There was no output from execution, so there is nothing to loot.\n")
 		return
@@ -229,7 +227,7 @@ func LootExecute(commandOutput []byte, lootName string, sliverCmdName string, cm
 	loot.SendLootMessage(lootMessage, con)
 }
 
-func PrintExecutionOutput(executionOutput string, saveOutput bool, commandName string, hostName string, con *console.SliverConsoleClient) {
+func PrintExecutionOutput(executionOutput string, saveOutput bool, commandName string, hostName string, con *console.SliverClient) {
 	con.PrintInfof("Output:\n%s", executionOutput)
 
 	if saveOutput {
@@ -237,7 +235,7 @@ func PrintExecutionOutput(executionOutput string, saveOutput bool, commandName s
 	}
 }
 
-func SaveExecutionOutput(executionOutput string, commandName string, hostName string, con *console.SliverConsoleClient) {
+func SaveExecutionOutput(executionOutput string, commandName string, hostName string, con *console.SliverClient) {
 	var outFilePath *os.File
 	var err error
 
@@ -258,7 +256,7 @@ func SaveExecutionOutput(executionOutput string, commandName string, hostName st
 	}
 
 	if outFilePath != nil {
-		outFilePath.Write([]byte(executionOutput))
+		outFilePath.WriteString(executionOutput)
 		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
 	}
 }

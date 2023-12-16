@@ -24,17 +24,16 @@ import (
 	"os"
 	"strings"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// SpawnDllCmd - Spawn execution of a DLL on the remote system
-func SpawnDllCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// SpawnDllCmd - Spawn execution of a DLL on the remote system.
+func SpawnDllCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -62,7 +61,7 @@ func SpawnDllCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 		Kill:        !keepAlive,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	ctrl <- true
@@ -70,7 +69,7 @@ func SpawnDllCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 
 	hostName := getHostname(session, beacon)
 	if spawndll.Response != nil && spawndll.Response.Async {
-		con.AddBeaconCallback(spawndll.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(spawndll.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, spawndll)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -79,13 +78,12 @@ func SpawnDllCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 
 			HandleSpawnDLLResponse(spawndll, binPath, hostName, cmd, con)
 		})
-		con.PrintAsyncResponse(spawndll.Response)
 	} else {
 		HandleSpawnDLLResponse(spawndll, binPath, hostName, cmd, con)
 	}
 }
 
-func HandleSpawnDLLResponse(spawndll *sliverpb.SpawnDll, binPath string, hostName string, cmd *cobra.Command, con *console.SliverConsoleClient) {
+func HandleSpawnDLLResponse(spawndll *sliverpb.SpawnDll, binPath string, hostName string, cmd *cobra.Command, con *console.SliverClient) {
 	saveLoot, _ := cmd.Flags().GetBool("loot")
 	lootName, _ := cmd.Flags().GetString("name")
 

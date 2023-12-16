@@ -26,6 +26,5 @@ import (
 type DNSResolver interface {
 	Address() string
 	A(string) ([]byte, time.Duration, error)
-	AAAA(string) ([]byte, time.Duration, error)
 	TXT(string) ([]byte, time.Duration, error)
 }

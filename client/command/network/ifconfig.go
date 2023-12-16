@@ -35,8 +35,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// IfconfigCmd - Display network interfaces on the remote system
-func IfconfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// IfconfigCmd - Display network interfaces on the remote system.
+func IfconfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -45,12 +45,12 @@ func IfconfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	all, _ := cmd.Flags().GetBool("all")
 	if ifconfig.Response != nil && ifconfig.Response.Async {
-		con.AddBeaconCallback(ifconfig.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(ifconfig.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, ifconfig)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -58,14 +58,13 @@ func IfconfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 			}
 			PrintIfconfig(ifconfig, all, con)
 		})
-		con.PrintAsyncResponse(ifconfig.Response)
 	} else {
 		PrintIfconfig(ifconfig, all, con)
 	}
 }
 
-// PrintIfconfig - Print the ifconfig response
-func PrintIfconfig(ifconfig *sliverpb.Ifconfig, all bool, con *console.SliverConsoleClient) {
+// PrintIfconfig - Print the ifconfig response.
+func PrintIfconfig(ifconfig *sliverpb.Ifconfig, all bool, con *console.SliverClient) {
 	var err error
 	interfaces := ifconfig.NetInterfaces
 	sort.Slice(interfaces, func(i, j int) bool {
@@ -75,6 +74,7 @@ func PrintIfconfig(ifconfig *sliverpb.Ifconfig, all bool, con *console.SliverCon
 	for index, iface := range interfaces {
 		tw := table.NewWriter()
 		tw.SetStyle(settings.GetTableWithBordersStyle(con))
+		settings.SetMaxTableSize(tw)
 		tw.SetTitle(fmt.Sprintf(console.Bold+"%s"+console.Normal, iface.Name))
 		tw.SetColumnConfigs([]table.ColumnConfig{
 			{Name: "#", AutoMerge: true},

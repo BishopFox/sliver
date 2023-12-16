@@ -21,17 +21,16 @@ import (
 	"context"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// ChtimesCmd - Change the access and modified time of a file on the remote file system
-func ChtimesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ChtimesCmd - Change the access and modified time of a file on the remote file system.
+func ChtimesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -80,11 +79,11 @@ func ChtimesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 		MTime:   unixMtime,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if chtimes.Response != nil && chtimes.Response.Async {
-		con.AddBeaconCallback(chtimes.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(chtimes.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, chtimes)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -92,14 +91,13 @@ func ChtimesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 			}
 			PrintChtimes(chtimes, con)
 		})
-		con.PrintAsyncResponse(chtimes.Response)
 	} else {
 		PrintChtimes(chtimes, con)
 	}
 }
 
-// PrintChtimes - Print the Chtimes response
-func PrintChtimes(chtimes *sliverpb.Chtimes, con *console.SliverConsoleClient) {
+// PrintChtimes - Print the Chtimes response.
+func PrintChtimes(chtimes *sliverpb.Chtimes, con *console.SliverClient) {
 	if chtimes.Response != nil && chtimes.Response.Err != "" {
 		con.PrintErrorf("%s\n", chtimes.Response.Err)
 		return

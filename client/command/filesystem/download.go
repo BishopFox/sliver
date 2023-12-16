@@ -39,7 +39,7 @@ import (
 	"github.com/bishopfox/sliver/util/encoders"
 )
 
-func DownloadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func DownloadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -59,11 +59,11 @@ func DownloadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if download.Response != nil && download.Response.Async {
-		con.AddBeaconCallback(download.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(download.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, download)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -71,7 +71,6 @@ func DownloadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 			}
 			HandleDownloadResponse(download, cmd, args, con)
 		})
-		con.PrintAsyncResponse(download.Response)
 	} else {
 		HandleDownloadResponse(download, cmd, args, con)
 	}
@@ -105,7 +104,7 @@ func prettifyDownloadName(path string) string {
 	return filteredString
 }
 
-func HandleDownloadResponse(download *sliverpb.Download, cmd *cobra.Command, args []string, con *console.SliverConsoleClient) {
+func HandleDownloadResponse(download *sliverpb.Download, cmd *cobra.Command, args []string, con *console.SliverClient) {
 	var err error
 	if download.Response != nil && download.Response.Err != "" {
 		con.PrintErrorf("%s\n", download.Response.Err)

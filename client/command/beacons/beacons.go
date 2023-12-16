@@ -35,8 +35,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
-// BeaconsCmd - Display/interact with beacons
-func BeaconsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// BeaconsCmd - Display/interact with beacons.
+func BeaconsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	killFlag, _ := cmd.Flags().GetString("kill")
 	killAll, _ := cmd.Flags().GetBool("kill-all")
 
@@ -87,14 +87,15 @@ func BeaconsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 	defer cancel()
 	beacons, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
+
 	PrintBeacons(beacons.Beacons, filter, filterRegex, con)
 }
 
-// PrintBeacons - Display a list of beacons
-func PrintBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverConsoleClient) {
+// PrintBeacons - Display a list of beacons.
+func PrintBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverClient) {
 	if len(beacons) == 0 {
 		con.PrintInfof("No beacons 🙁\n")
 		return
@@ -103,7 +104,7 @@ func PrintBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp
 	con.Printf("%s\n", tw.Render())
 }
 
-func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverConsoleClient) table.Writer {
+func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverClient) table.Writer {
 	width, _, err := term.GetSize(0)
 	if err != nil {
 		width = 999
@@ -112,6 +113,7 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	wideTermWidth := con.Settings.SmallTermWidth < width
+	settings.SetMaxTableSize(tw)
 	if wideTermWidth {
 		tw.AppendHeader(table.Row{
 			"ID",

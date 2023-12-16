@@ -46,15 +46,15 @@ import (
 	"github.com/bishopfox/sliver/util"
 )
 
-// TasksFetchCmd - Manage beacon tasks
-func TasksFetchCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// TasksFetchCmd - Manage beacon tasks.
+func TasksFetchCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	beacon := con.ActiveTarget.GetBeaconInteractive()
 	if beacon == nil {
 		return
 	}
 	beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	tasks := beaconTasks.Tasks
@@ -97,7 +97,7 @@ func TasksFetchCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 	}
 	task, err = con.Rpc.GetBeaconTaskContent(context.Background(), &clientpb.BeaconTask{ID: task.ID})
 	if err != nil {
-		con.PrintErrorf("Failed to fetch task content: %s\n", err)
+		con.PrintErrorf("Failed to fetch task content: %s\n", con.UnwrapServerErr(err))
 		return
 	}
 	PrintTask(task, con)
@@ -123,8 +123,8 @@ func filterTasksByTaskType(taskType string, tasks []*clientpb.BeaconTask) []*cli
 	return filteredTasks
 }
 
-// PrintTask - Print the details of a beacon task
-func PrintTask(task *clientpb.BeaconTask, con *console.SliverConsoleClient) {
+// PrintTask - Print the details of a beacon task.
+func PrintTask(task *clientpb.BeaconTask, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableWithBordersStyle(con))
 	tw.AppendRow(table.Row{console.Bold + "Beacon Task" + console.Normal, task.ID})
@@ -170,8 +170,8 @@ func emojiState(state string) string {
 	}
 }
 
-// Decode and render message specific content
-func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleClient) {
+// Decode and render message specific content.
+func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 	reqEnvelope := &sliverpb.Envelope{}
 	proto.Unmarshal(task.Request, reqEnvelope)
 	switch reqEnvelope.Type {
@@ -507,7 +507,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		}
 		beacon, err := con.Rpc.GetBeacon(context.Background(), &clientpb.Beacon{ID: task.BeaconID})
 		if err != nil {
-			con.PrintErrorf("Failed to fetch beacon: %s\n", err)
+			con.PrintErrorf("Failed to fetch beacon: %s\n", con.UnwrapServerErr(err))
 			return
 		}
 		network.PrintNetstat(netstat, beacon.PID, beacon.ActiveC2, false, con)
@@ -524,7 +524,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		}
 		beacon, err := con.Rpc.GetBeacon(context.Background(), &clientpb.Beacon{ID: task.BeaconID})
 		if err != nil {
-			con.PrintErrorf("Failed to fetch beacon: %s\n", err)
+			con.PrintErrorf("Failed to fetch beacon: %s\n", con.UnwrapServerErr(err))
 			return
 		}
 		privilege.PrintGetPrivs(privs, beacon.PID, con)
@@ -591,7 +591,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		}
 		beacon, err := con.Rpc.GetBeacon(context.Background(), &clientpb.Beacon{ID: task.BeaconID})
 		if err != nil {
-			con.PrintErrorf("Failed to fetch beacon: %s\n", err)
+			con.PrintErrorf("Failed to fetch beacon: %s\n", con.UnwrapServerErr(err))
 			return
 		}
 		privilege.PrintRunAs(runAs, runAsReq.ProcessName, runAsReq.Args, beacon.Name, con)
@@ -617,7 +617,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 		}
 		beacon, err := con.Rpc.GetBeacon(context.Background(), &clientpb.Beacon{ID: task.BeaconID})
 		if err != nil {
-			con.PrintErrorf("Failed to get beacon: %s\n", err)
+			con.PrintErrorf("Failed to get beacon: %s\n", con.UnwrapServerErr(err))
 			return
 		}
 
@@ -742,7 +742,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 	}
 }
 
-func taskResponseDownload(download *sliverpb.Download, con *console.SliverConsoleClient) {
+func taskResponseDownload(download *sliverpb.Download, con *console.SliverClient) {
 	const (
 		dump   = "Dump Contents"
 		saveTo = "Save to File ..."
@@ -765,7 +765,7 @@ func taskResponseDownload(download *sliverpb.Download, con *console.SliverConsol
 	}
 }
 
-func promptSaveToFile(data []byte, con *console.SliverConsoleClient) {
+func promptSaveToFile(data []byte, con *console.SliverClient) {
 	saveTo := ""
 	saveToPrompt := &survey.Input{Message: "Save to: "}
 	err := survey.AskOne(saveToPrompt, &saveTo)

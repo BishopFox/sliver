@@ -41,7 +41,7 @@ func processFlags(searchPattern string, insensitive bool, exact bool) string {
 		return searchPattern
 	}
 
-	var processedSearchPattern = searchPattern
+	processedSearchPattern := searchPattern
 
 	flagsAtBeginning, _ := regexp.Compile(`^\(\?.*\)`)
 	flagsSpecifiedIndex := flagsAtBeginning.FindStringIndex(searchPattern)
@@ -62,7 +62,7 @@ func processFlags(searchPattern string, insensitive bool, exact bool) string {
 	flagsSpecifiedIndex = flagsAtBeginning.FindStringIndex(processedSearchPattern)
 
 	if exact {
-		var endIndexOfFlags = 0
+		endIndexOfFlags := 0
 
 		if flagsSpecifiedIndex != nil {
 			endIndexOfFlags = flagsSpecifiedIndex[1]
@@ -83,7 +83,7 @@ func processFlags(searchPattern string, insensitive bool, exact bool) string {
 	return processedSearchPattern
 }
 
-func GrepCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func GrepCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -136,7 +136,7 @@ func GrepCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string
 		return
 	}
 	if grep.Response != nil && grep.Response.Async {
-		con.AddBeaconCallback(grep.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(grep.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, grep)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -152,7 +152,7 @@ func GrepCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string
 }
 
 // printGrep - Print the results from the grep operation to stdout
-func printGrep(grep *sliverpb.Grep, searchPattern string, searchPath string, cmd *cobra.Command, con *console.SliverConsoleClient) {
+func printGrep(grep *sliverpb.Grep, searchPattern string, searchPath string, cmd *cobra.Command, con *console.SliverClient) {
 	saveLoot, _ := cmd.Flags().GetBool("loot")
 	lootName, _ := cmd.Flags().GetString("name")
 	colorize, _ := cmd.Flags().GetBool("colorize-output")
@@ -233,7 +233,6 @@ func printGrep(grep *sliverpb.Grep, searchPattern string, searchPath string, cmd
 		fileType := loot.ValidateLootFileType(userLootFileType, []byte(grepResultsString))
 		loot.LootText(grepResultsString, lootName, lootFileName, fileType, con)
 	}
-
 }
 
 // grepLineResult - Add color or formatting for results for console output
@@ -268,7 +267,7 @@ func grepLineResult(positions []*sliverpb.GrepLinePosition, line string, coloriz
 // printGrepResults - Take the results from the implant and put them together for output to the console or loot
 func printGrepResults(results map[string]*sliverpb.GrepResultsForFile, colorize bool, allowFormatting bool) ([]string, int, []string) {
 	var resultOutput []string
-	var numberOfResults = 0
+	numberOfResults := 0
 	binaryFilesMatched := []string{}
 
 	for fileName, result := range results {

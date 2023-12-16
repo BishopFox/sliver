@@ -34,8 +34,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// SelectPivotListener - Interactive menu to select a pivot listener
-func SelectPivotListener(listeners []*sliverpb.PivotListener, con *console.SliverConsoleClient) (*sliverpb.PivotListener, error) {
+// SelectPivotListener - Interactive menu to select a pivot listener.
+func SelectPivotListener(listeners []*sliverpb.PivotListener, con *console.SliverClient) (*sliverpb.PivotListener, error) {
 	// Render selection table
 	buf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
@@ -67,15 +67,19 @@ func SelectPivotListener(listeners []*sliverpb.PivotListener, con *console.Slive
 }
 
 // PivotIDCompleter completes pivot listeners' IDs.
-func PivotIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+func PivotIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
+		if msg, err := con.PreRunComplete(); err != nil {
+			return msg
+		}
+
 		results := make([]string, 0)
 
 		pivotListeners, err := con.Rpc.PivotSessionListeners(context.Background(), &sliverpb.PivotListenersReq{
 			Request: con.ActiveTarget.Request(con.App.ActiveMenu().Root()),
 		})
 		if err != nil {
-			return carapace.ActionMessage("failed to get remote pivots: %s", err.Error())
+			return carapace.ActionMessage("failed to get remote pivots: %s", con.UnwrapServerErr(err))
 		}
 
 		for _, listener := range pivotListeners.Listeners {

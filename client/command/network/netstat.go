@@ -33,8 +33,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// NetstatCmd - Display active network connections on the remote system
-func NetstatCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// NetstatCmd - Display active network connections on the remote system.
+func NetstatCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -59,11 +59,11 @@ func NetstatCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 		IP6:       ip6,
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	if netstat.Response != nil && netstat.Response.Async {
-		con.AddBeaconCallback(netstat.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(netstat.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, netstat)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -71,13 +71,12 @@ func NetstatCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 			}
 			PrintNetstat(netstat, implantPID, activeC2, numeric, con)
 		})
-		con.PrintAsyncResponse(netstat.Response)
 	} else {
 		PrintNetstat(netstat, implantPID, activeC2, numeric, con)
 	}
 }
 
-func PrintNetstat(netstat *sliverpb.Netstat, implantPID int32, activeC2 string, numeric bool, con *console.SliverConsoleClient) {
+func PrintNetstat(netstat *sliverpb.Netstat, implantPID int32, activeC2 string, numeric bool, con *console.SliverClient) {
 	lookup := func(skaddr *sliverpb.SockTabEntry_SockAddr) string {
 		addr := skaddr.Ip
 		names, err := net.LookupAddr(addr)
@@ -89,6 +88,7 @@ func PrintNetstat(netstat *sliverpb.Netstat, implantPID int32, activeC2 string, 
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
+	settings.SetMaxTableSize(tw)
 	tw.AppendHeader(table.Row{"Protocol", "Local Address", "Foreign Address", "State", "PID/Program name"})
 
 	for _, entry := range netstat.Entries {

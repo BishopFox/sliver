@@ -25,8 +25,8 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 )
 
-// UseBeaconCmd - Change the active beacon
-func UseBeaconCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// UseBeaconCmd - Change the active beacon.
+func UseBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	beacon, err := beacons.SelectBeacon(con)
 	if beacon != nil {
 		con.ActiveTarget.Set(nil, beacon)

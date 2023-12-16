@@ -8,19 +8,20 @@ import "clientpb/client.proto";
 
 service SliverRPC {
 
-  // *** Version ***
+  // *** Teamclient ***
   rpc GetVersion(commonpb.Empty) returns (clientpb.Version);
+  rpc GetUsers(commonpb.Empty) returns (clientpb.Users);
 
   // *** Client Logs ***
   rpc ClientLog(stream clientpb.ClientLogData) returns (commonpb.Empty);
-
-  // *** Operator Commands ***
-  rpc GetOperators(commonpb.Empty) returns (clientpb.Operators);
 
   // *** Generic ***
   rpc Kill(sliverpb.KillReq) returns (commonpb.Empty);
   rpc Reconfigure(sliverpb.ReconfigureReq) returns (sliverpb.Reconfigure);
   rpc Rename(clientpb.RenameReq) returns (commonpb.Empty);
+
+  rpc ImplantHistory(stream clientpb.ImplantCommand) returns (commonpb.Empty);
+  rpc GetImplantHistory(clientpb.HistoryRequest) returns (clientpb.History);
 
   // *** Sessions ***
   rpc GetSessions(commonpb.Empty) returns (clientpb.Sessions);
@@ -135,6 +136,7 @@ service SliverRPC {
   rpc MsfStage(clientpb.MsfStagerReq) returns (clientpb.MsfStager);
   rpc ShellcodeRDI(clientpb.ShellcodeRDIReq) returns (clientpb.ShellcodeRDI);
   rpc GetCompiler(commonpb.Empty) returns (clientpb.Compiler);
+  rpc GetMetasploitCompiler(commonpb.Empty) returns (clientpb.MetasploitCompiler);
   rpc ShellcodeEncoder(clientpb.ShellcodeEncodeReq)
       returns (clientpb.ShellcodeEncode);
   rpc ShellcodeEncoderMap(commonpb.Empty)

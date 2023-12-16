@@ -31,8 +31,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func MonitorConfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
-
+func MonitorConfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	resp, err := con.Rpc.MonitorListConfig(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -41,8 +40,7 @@ func MonitorConfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 	PrintWTConfig(resp, con)
 }
 
-func MonitorAddConfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
-
+func MonitorAddConfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	apiKey, _ := cmd.Flags().GetString("apiKey")
 	apiPassword, _ := cmd.Flags().GetString("apiPassword")
 	apiType, _ := cmd.Flags().GetString("type")
@@ -65,8 +63,7 @@ func MonitorAddConfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, a
 	con.PrintInfof("Added monitoring configuration\n")
 }
 
-func MonitorDelConfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
-
+func MonitorDelConfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	resp, err := con.Rpc.MonitorListConfig(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -88,7 +85,7 @@ func MonitorDelConfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, a
 }
 
 // PrintWTConfig - Print the current watchtower configuration
-func PrintWTConfig(configs *clientpb.MonitoringProviders, con *console.SliverConsoleClient) {
+func PrintWTConfig(configs *clientpb.MonitoringProviders, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 
@@ -114,7 +111,6 @@ func PrintWTConfig(configs *clientpb.MonitoringProviders, con *console.SliverCon
 }
 
 func selectWatchtowerConfig(configs *clientpb.MonitoringProviders) (*clientpb.MonitoringProvider, error) {
-
 	var options []string
 	for _, config := range configs.Providers {
 		options = append(options, config.Type)

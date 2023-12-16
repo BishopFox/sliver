@@ -29,16 +29,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bishopfox/sliver/util/encoders"
-
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/util"
+	"github.com/bishopfox/sliver/util/encoders"
 )
 
-// StageListenerCmd --url [tcp://ip:port | http://ip:port ] --profile name
-func StageListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// StageListenerCmd --url [tcp://ip:port | http://ip:port ] --profile name.
+func StageListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	profileName, _ := cmd.Flags().GetString("profile")
 	listenerURL, _ := cmd.Flags().GetString("url")
 	aesEncryptKey, _ := cmd.Flags().GetString("aes-encrypt-key")
@@ -155,7 +154,7 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 		ctrl <- true
 		<-ctrl
 		if err != nil {
-			con.PrintErrorf("Error starting TCP staging listener: %v\n", err)
+			con.PrintErrorf("Error starting TCP staging listener: %v\n", con.UnwrapServerErr(err))
 			return
 		}
 		con.PrintInfof("Job %d (tcp) started\n", stageListener.GetJobID())

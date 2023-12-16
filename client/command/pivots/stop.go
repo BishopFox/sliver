@@ -20,6 +20,7 @@ package pivots
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -27,20 +28,25 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// StopPivotListenerCmd - Start a TCP pivot listener on the remote system
-func StopPivotListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// StopPivotListenerCmd - Start a TCP pivot listener on the remote system.
+func StopPivotListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
 
-	id, _ := cmd.Flags().GetUint32("id")
-	if id == uint32(0) {
+	id, err := strconv.ParseUint(args[0], 10, 32)
+	if err != nil {
+		con.PrintErrorf("Failed to parse pivot ID: %s\n", err)
+		return
+	}
+
+	if id == 0 {
 		pivotListeners, err := con.Rpc.PivotSessionListeners(context.Background(), &sliverpb.PivotListenersReq{
 			Request: con.ActiveTarget.Request(cmd),
 		})
 		if err != nil {
-			con.PrintErrorf("%s\n", err)
+			con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 			return
 		}
 		if len(pivotListeners.Listeners) == 0 {
@@ -52,14 +58,14 @@ func StopPivotListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, 
 			con.PrintErrorf("%s\n", err)
 			return
 		}
-		id = selectedListener.ID
+		id = uint64(selectedListener.ID)
 	}
-	_, err := con.Rpc.PivotStopListener(context.Background(), &sliverpb.PivotStopListenerReq{
-		ID:      id,
+	_, err = con.Rpc.PivotStopListener(context.Background(), &sliverpb.PivotStopListenerReq{
+		ID:      uint32(id),
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 		return
 	}
 	con.PrintInfof("Stopped pivot listener\n")

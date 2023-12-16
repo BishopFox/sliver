@@ -20,6 +20,7 @@ package settings
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -30,6 +31,21 @@ import (
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 )
+
+// Those variables are very important to realine low-level code: all virtual terminal
+// escape sequences should always be sent and read through the raw terminal file, even
+// if people start using io.MultiWriters and os.Pipes involving basic IO.
+var (
+	stdoutTerm *os.File
+	stdinTerm  *os.File
+	stderrTerm *os.File
+)
+
+func init() {
+	stdoutTerm = os.Stdout
+	stdoutTerm = os.Stderr
+	stderrTerm = os.Stdin
+}
 
 var (
 	tableStyles = map[string]table.Style{
@@ -127,8 +143,8 @@ var (
 	}
 )
 
-// GetTableStyle - Get the current table style
-func GetTableStyle(con *console.SliverConsoleClient) table.Style {
+// GetTableStyle - Get the current table style.
+func GetTableStyle(con *console.SliverClient) table.Style {
 	if con.Settings == nil {
 		con.Settings, _ = assets.LoadSettings()
 	}
@@ -140,8 +156,8 @@ func GetTableStyle(con *console.SliverConsoleClient) table.Style {
 	return tableStyles[SliverDefault.Name]
 }
 
-// GetTableWithBordersStyle - Get the table style with borders
-func GetTableWithBordersStyle(con *console.SliverConsoleClient) table.Style {
+// GetTableWithBordersStyle - Get the table style with borders.
+func GetTableWithBordersStyle(con *console.SliverClient) table.Style {
 	if con.Settings == nil {
 		con.Settings, _ = assets.LoadSettings()
 	}
@@ -152,12 +168,23 @@ func GetTableWithBordersStyle(con *console.SliverConsoleClient) table.Style {
 	return value
 }
 
-// GetPageSize - Page size for tables
+// SetMaxTableSize automatically sets the maximum width of the table based on
+// the current terminal width: excess columns are wrapped by the table itself.
+func SetMaxTableSize(tb table.Writer) {
+	width, _, err := term.GetSize(int(stderrTerm.Fd()))
+	if err != nil {
+		width, _ = 80, 80
+	}
+
+	tb.SetAllowedRowLength(width)
+}
+
+// GetPageSize - Page size for tables.
 func GetPageSize() int {
 	return 10
 }
 
-// PagesOf - Return the pages of a table
+// PagesOf - Return the pages of a table.
 func PagesOf(renderedTable string) [][]string {
 	lines := strings.Split(renderedTable, "\n")
 	if len(lines) < 2 {
@@ -178,8 +205,8 @@ func PagesOf(renderedTable string) [][]string {
 	return pages
 }
 
-// PaginateTable - Render paginated table to console
-func PaginateTable(tw table.Writer, skipPages int, overflow bool, interactive bool, con *console.SliverConsoleClient) {
+// PaginateTable - Render paginated table to console.
+func PaginateTable(tw table.Writer, skipPages int, overflow bool, interactive bool, con *console.SliverClient) {
 	renderedTable := tw.Render()
 	lineCount := strings.Count(renderedTable, "\n")
 	if !overflow || con.Settings.AlwaysOverflow {

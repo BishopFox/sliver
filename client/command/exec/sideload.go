@@ -25,17 +25,16 @@ import (
 	"path/filepath"
 	"strings"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// SideloadCmd - Sideload a shared library on the remote system
-func SideloadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// SideloadCmd - Sideload a shared library on the remote system.
+func SideloadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -75,13 +74,13 @@ func SideloadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 	ctrl <- true
 	<-ctrl
 	if err != nil {
-		con.PrintErrorf("Error: %v", err)
+		con.PrintErrorf("Error: %v", con.UnwrapServerErr(err))
 		return
 	}
 
 	hostName := getHostname(session, beacon)
 	if sideload.Response != nil && sideload.Response.Async {
-		con.AddBeaconCallback(sideload.Response.TaskID, func(task *clientpb.BeaconTask) {
+		con.AddBeaconCallback(sideload.Response, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, sideload)
 			if err != nil {
 				con.PrintErrorf("Failed to decode response %s\n", err)
@@ -90,13 +89,12 @@ func SideloadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 
 			HandleSideloadResponse(sideload, binPath, hostName, cmd, con)
 		})
-		con.PrintAsyncResponse(sideload.Response)
 	} else {
 		HandleSideloadResponse(sideload, binPath, hostName, cmd, con)
 	}
 }
 
-func HandleSideloadResponse(sideload *sliverpb.Sideload, binPath string, hostName string, cmd *cobra.Command, con *console.SliverConsoleClient) {
+func HandleSideloadResponse(sideload *sliverpb.Sideload, binPath string, hostName string, cmd *cobra.Command, con *console.SliverClient) {
 	saveLoot, _ := cmd.Flags().GetBool("loot")
 	lootName, _ := cmd.Flags().GetString("name")
 

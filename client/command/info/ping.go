@@ -10,8 +10,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// PingCmd - Send a round trip C2 message to an implant (does not use ICMP)
-func PingCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// PingCmd - Send a round trip C2 message to an implant (does not use ICMP).
+func PingCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -24,7 +24,7 @@ func PingCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string
 		Request: con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("%s\n", con.UnwrapServerErr(err))
 	} else {
 		con.PrintInfof("Pong %d\n", pong.Nonce)
 	}
