@@ -1,5 +1,10 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# generated files
+public/sitemap.json
+public/docs.json
+
+# code editor files
 .vscode/
 
 # dependencies

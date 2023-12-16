@@ -123,6 +123,17 @@ func (con *SliverClient) GetActiveSessionConfig() *clientpb.ImplantConfig {
 	return config
 }
 
+// GetHostUUID - Get the Host's UUID (ID in the database)
+func (s *ActiveTarget) GetHostUUID() string {
+	if s.IsSession() {
+		return s.session.UUID
+	} else if s.IsBeacon() {
+		return s.beacon.UUID
+	}
+
+	return ""
+}
+
 // GetSessionInteractive - Get the active target(s).
 func (s *ActiveTarget) GetInteractive() (*clientpb.Session, *clientpb.Beacon) {
 	if s.session == nil && s.beacon == nil {
@@ -168,6 +179,11 @@ func (s *ActiveTarget) GetBeacon() *clientpb.Beacon {
 // IsSession - Is the current target a session?
 func (s *ActiveTarget) IsSession() bool {
 	return s.session != nil
+}
+
+// IsBeacon - Is the current target a beacon?
+func (s *ActiveTarget) IsBeacon() bool {
+	return s.beacon != nil
 }
 
 // AddObserver - Observers to notify when the active session changes.

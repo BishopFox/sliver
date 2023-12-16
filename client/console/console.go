@@ -343,3 +343,4 @@ func compCommandCalled(cmd *cobra.Command) bool {
 
 	return false
 }
+

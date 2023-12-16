@@ -107,6 +107,7 @@ func (i *IOC) ToProtobuf() *clientpb.IOC {
 	return &clientpb.IOC{
 		Path:     i.Path,
 		FileHash: i.FileHash,
+		ID:       i.ID.String(),
 	}
 }
 

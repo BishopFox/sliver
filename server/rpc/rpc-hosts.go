@@ -49,7 +49,7 @@ func (rpc *Server) Host(ctx context.Context, req *clientpb.Host) (*clientpb.Host
 	if err != nil {
 		return nil, err
 	}
-	return dbHost, nil
+	return dbHost.ToProtobuf(), nil
 }
 
 // HostRm - Remove a host from the database
@@ -58,7 +58,7 @@ func (rpc *Server) HostRm(ctx context.Context, req *clientpb.Host) (*commonpb.Em
 	if err != nil {
 		return nil, err
 	}
-	err = db.Session().Delete(dbHost).Error
+	err = db.Session().Delete(*dbHost).Error
 	if err != nil {
 		return nil, err
 	}

@@ -144,7 +144,7 @@ func LootScreenshot(screenshot *sliverpb.Screenshot, lootName string, hostName s
 		lootName = screenshotFileName
 	}
 
-	lootMessage := loot.CreateLootMessage(screenshotFileName, lootName, clientpb.FileType_BINARY, screenshot.GetData())
+	lootMessage := loot.CreateLootMessage(con.ActiveTarget.GetHostUUID(), screenshotFileName, lootName, clientpb.FileType_BINARY, screenshot.GetData())
 	loot.SendLootMessage(lootMessage, con)
 }
 
