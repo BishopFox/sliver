@@ -11,6 +11,7 @@ import {
   Input,
   Listbox,
   ListboxItem,
+  ScrollShadow,
 } from "@nextui-org/react";
 import { useQuery } from "@tanstack/react-query";
 import Fuse from "fuse.js";
@@ -84,7 +85,7 @@ const DocsIndexPage: NextPage = () => {
 
   return (
     <div className="grid grid-cols-12">
-      <div className="col-span-3 mt-4 ml-4">
+      <div className="col-span-3 mt-4 ml-4 h-screen sticky top-16">
         <div className="flex flex-row justify-center text-lg gap-2">
           <Input
             label="Filter"
@@ -97,26 +98,30 @@ const DocsIndexPage: NextPage = () => {
           />
         </div>
         <div className="mt-2">
-          <Listbox
-            aria-label="Toolbox Menu"
-            className="p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-medium"
-            itemClasses={{
-              base: "px-3 first:rounded-t-medium last:rounded-b-medium rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
-            }}
-          >
-            {visibleDocs.map((doc) => (
-              <ListboxItem
-                key={doc.name}
-                value={doc.name}
-                onClick={() => {
-                  setName(doc.name);
-                  setMarkdown(doc.content);
+          <ScrollShadow>
+            <div className="max-h-[80vh]">
+              <Listbox
+                aria-label="Toolbox Menu"
+                className="border p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-medium"
+                itemClasses={{
+                  base: "px-3 first:rounded-t-medium last:rounded-b-medium rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
                 }}
               >
-                {doc.name}
-              </ListboxItem>
-            ))}
-          </Listbox>
+                {visibleDocs.map((doc) => (
+                  <ListboxItem
+                    key={doc.name}
+                    value={doc.name}
+                    onClick={() => {
+                      setName(doc.name);
+                      setMarkdown(doc.content);
+                    }}
+                  >
+                    {doc.name}
+                  </ListboxItem>
+                ))}
+              </Listbox>
+            </div>
+          </ScrollShadow>
         </div>
       </div>
       <div className="col-span-9">
@@ -166,6 +171,8 @@ const DocsIndexPage: NextPage = () => {
                 },
 
                 pre(props) {
+                  // We need to look at the child nodes to avoid wrapping
+                  // a monaco code block in a <pre> tag
                   const { children, className, node, ...rest } = props;
                   const childClass = (children as any)?.props?.className;
                   if (
@@ -176,6 +183,7 @@ const DocsIndexPage: NextPage = () => {
                     // @ts-ignore
                     return <div {...rest}>{children}</div>;
                   }
+
                   return (
                     <pre {...rest} className={className}>
                       {children}
@@ -233,7 +241,6 @@ const DocsIndexPage: NextPage = () => {
           </CardBody>
         </Card>
       </div>
-      <div className="col-span-12 mt-2 mb-8"></div>
     </div>
   );
 };
