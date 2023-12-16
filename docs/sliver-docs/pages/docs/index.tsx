@@ -79,6 +79,14 @@ const DocsIndexPage: NextPage = () => {
     return docs?.docs || [];
   }, [docs, fuse, filterValue]);
 
+  const listboxClasses = React.useMemo(() => {
+    if (theme === Themes.DARK) {
+      return "p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-medium";
+    } else {
+      return "border p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-medium";
+    }
+  }, [theme]);
+
   if (isLoading || !docs) {
     return <div>Loading...</div>;
   }
@@ -102,7 +110,7 @@ const DocsIndexPage: NextPage = () => {
             <div className="max-h-[80vh]">
               <Listbox
                 aria-label="Toolbox Menu"
-                className="border p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-medium"
+                className={listboxClasses}
                 itemClasses={{
                   base: "px-3 first:rounded-t-medium last:rounded-b-medium rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
                 }}
