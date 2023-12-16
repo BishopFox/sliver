@@ -85,7 +85,7 @@ const DocsIndexPage: NextPage = () => {
   return (
     <div className="grid grid-cols-12">
       <div className="col-span-3 mt-4 ml-4">
-        <div className="flex flex-row justify-center text-lg mb-2 gap-2">
+        <div className="flex flex-row justify-center text-lg gap-2">
           <Input
             label="Filter"
             isClearable={true}
@@ -128,13 +128,43 @@ const DocsIndexPage: NextPage = () => {
           <CardBody
             className={
               theme === Themes.DARK
-                ? "prose prose-sm dark:prose-invert"
-                : "prose prose-sm prose-slate"
+                ? "prose dark:prose-invert"
+                : "prose prose-slate"
             }
           >
             <Markdown
               remarkPlugins={[remarkGfm]}
               components={{
+                a(props) {
+                  const { href, children, ...rest } = props;
+                  const url = new URL(href || "");
+                  if (url.protocol !== "http:" && url.protocol !== "https:") {
+                    return <></>;
+                  }
+                  if (url.host === "sliver.sh") {
+                    return (
+                      <a
+                        {...rest}
+                        href={url.toString()}
+                        className="text-primary hover:text-primary-dark"
+                      >
+                        {children}
+                      </a>
+                    );
+                  }
+                  return (
+                    <a
+                      {...rest}
+                      href={url.toString()}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                      className="text-primary hover:text-primary-dark"
+                    >
+                      {children}
+                    </a>
+                  );
+                },
+
                 pre(props) {
                   const { children, className, node, ...rest } = props;
                   const childClass = (children as any)?.props?.className;
@@ -172,11 +202,14 @@ const DocsIndexPage: NextPage = () => {
                   const { children, className, node, ...rest } = props;
                   const langTag = /language-(\w+)/.exec(className || "");
                   const lang = langTag ? langTag[1] : "plaintext";
+                  console.log(children);
                   if (lang === "plaintext") {
                     return (
-                      <code {...rest} className={className}>
-                        {children}
-                      </code>
+                      <span className="prose-sm">
+                        <code {...rest} className={className}>
+                          {children}
+                        </code>
+                      </span>
                     );
                   }
                   return (
@@ -200,6 +233,7 @@ const DocsIndexPage: NextPage = () => {
           </CardBody>
         </Card>
       </div>
+      <div className="col-span-12 mt-2 mb-8"></div>
     </div>
   );
 };

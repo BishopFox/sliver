@@ -1,5 +1,3 @@
-# Server Configuration
-
 ### General Server Configuration
 
 Starting in version 1.0.0 the Sliver server has a configuration file located the `configs` sub-directory of the [`SLIVER_ROOT_DIR`](https://github.com/BishopFox/sliver/wiki/Environment-Variables#assets), by default this will be `~/.sliver/configs/server.json`. If no configuration file exists, a default configuration will be generated and written to disk on startup. The default configuration is shown below:
