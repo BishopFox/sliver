@@ -151,7 +151,7 @@ Sliver - 3rd Party extensions:
 
 To write a new alias, one must either create a shared library or a .NET assembly, then write a manifest file compliant with the description above.
 
-As the alias support relies on Sliver side loading capabilities, please make sure to read the [Using 3rd party tools](/docs?name=Using-3rd-party-tools) section, to understand how shared libraries are loaded on all platforms.
+As the alias support relies on Sliver side loading capabilities, please make sure to read the [Using 3rd party tools](/docs?name=Third+Party+Tools) section, to understand how shared libraries are loaded on all platforms.
 
 ## Extensions
 
