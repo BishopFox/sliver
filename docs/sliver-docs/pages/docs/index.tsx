@@ -1,15 +1,19 @@
 import CodeViewer, { CodeSchema } from "@/components/code";
 import { frags } from "@/util/frags";
 import { Themes } from "@/util/themes";
+import { faSearch } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   Card,
   CardBody,
   CardHeader,
   Divider,
+  Input,
   Listbox,
   ListboxItem,
 } from "@nextui-org/react";
 import { useQuery } from "@tanstack/react-query";
+import Fuse from "fuse.js";
 import { NextPage } from "next";
 import { useTheme } from "next-themes";
 import Image from "next/image";
@@ -57,6 +61,23 @@ const DocsIndexPage: NextPage = () => {
     }
   }, [docs, name]);
 
+  const [filterValue, setFilterValue] = React.useState("");
+  const fuse = React.useMemo(() => {
+    return new Fuse(docs?.docs || [], {
+      keys: ["name"],
+      threshold: 0.3,
+    });
+  }, [docs]);
+
+  const visibleDocs = React.useMemo(() => {
+    if (filterValue) {
+      // Fuzzy match display names
+      const fuzzy = fuse.search(filterValue).map((r) => r.item);
+      return fuzzy;
+    }
+    return docs?.docs || [];
+  }, [docs, fuse, filterValue]);
+
   if (isLoading || !docs) {
     return <div>Loading...</div>;
   }
@@ -65,7 +86,14 @@ const DocsIndexPage: NextPage = () => {
     <div className="grid grid-cols-12">
       <div className="col-span-3 mt-4 ml-4">
         <div className="flex flex-row justify-center text-lg mb-2 gap-2">
-          Topics
+          <Input
+            label="Filter"
+            isClearable={true}
+            placeholder="Type to filter..."
+            startContent={<FontAwesomeIcon icon={faSearch} />}
+            value={filterValue}
+            onChange={(e) => setFilterValue(e.target.value)}
+          />
         </div>
         <div className="mt-2">
           <Listbox
@@ -75,7 +103,7 @@ const DocsIndexPage: NextPage = () => {
               base: "px-3 first:rounded-t-medium last:rounded-b-medium rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
             }}
           >
-            {docs.docs.map((doc) => (
+            {visibleDocs.map((doc) => (
               <ListboxItem
                 key={doc.name}
                 value={doc.name}
@@ -106,7 +134,7 @@ const DocsIndexPage: NextPage = () => {
             <Markdown
               remarkPlugins={[remarkGfm]}
               components={{
-                pre(props): any {
+                pre(props) {
                   const { children, className, node, ...rest } = props;
                   const childClass = (children as any)?.props?.className;
                   if (
@@ -123,9 +151,9 @@ const DocsIndexPage: NextPage = () => {
                     </pre>
                   );
                 },
+
                 img(props) {
                   const { src, alt, ...rest } = props;
-                  console.log(props);
                   return (
                     // @ts-ignore
                     <Image
@@ -138,6 +166,7 @@ const DocsIndexPage: NextPage = () => {
                     />
                   );
                 },
+
                 code(props) {
                   const { children, className, node, ...rest } = props;
                   const langTag = /language-(\w+)/.exec(className || "");
