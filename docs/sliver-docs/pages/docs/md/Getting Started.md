@@ -1,5 +1,3 @@
-**⚠️ NOTE:** This guide is intended for experienced red teamers, but we also have a [Beginner's Guide](/docs?name=Beginner's-Guide) for a more beginner friendly tutorial.
-
 ## Server Setup
 
 Download the latest server [release](https://github.com/BishopFox/sliver/releases) for your platform, and just run the binary. That's it, you're pretty much done.
@@ -244,9 +242,9 @@ sliver > generate --mtls foo.com,bar.com,baz.com --strategy r
 
 Most commands have a `--help` and support tab complete, you may also find the following wiki articles of interest:
 
-- [Armory](/docs?name=name=Armory)
-- [Stagers](/docs?name=name=Stagers)
-- [Community Guides](/docs?name=name=Community%20Guides)
-- [Port Forwarding](/docs?name=name=Port%20Forwarding)
-- [Reverse SOCKS](/docs?name=name=Reverse%20SOCKS)
-- [BOF/COFF Support](/docs?name=name=BOF%20and%20COFF%20Support)
+- [Armory](/docs?name=Armory)
+- [Stagers](/docs?name=Stagers)
+- [Community Guides](/docs?name=Community%20Guides)
+- [Port Forwarding](/docs?name=Port%20Forwarding)
+- [Reverse SOCKS](/docs?name=Reverse%20SOCKS)
+- [BOF/COFF Support](/docs?name=BOF%20and%20COFF%20Support)

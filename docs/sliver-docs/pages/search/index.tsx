@@ -34,7 +34,7 @@ const SearchPage: NextPage = (props: SearchPageProps) => {
         </div>
 
         {searchResults.map((doc) => (
-          <Card key={doc.name} className="mt-2">
+          <Card key={doc.name} className="mt-4">
             <CardBody>
               <div className="flex">
                 <span className="text-xl">{doc.name}</span>
@@ -52,7 +52,7 @@ const SearchPage: NextPage = (props: SearchPageProps) => {
                 </Button>
               </div>
 
-              <Divider className="mt-2" />
+              <Divider className="mt-1" />
 
               <div className="mt-2 overflow-hidden max-h-[200px]">
                 <MarkdownViewer markdown={doc.content} />

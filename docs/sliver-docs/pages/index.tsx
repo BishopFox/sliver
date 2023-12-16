@@ -1,4 +1,5 @@
 import AsciinemaPlayer from "@/components/asciinema";
+import { SliversIcon } from "@/components/icons/slivers";
 import { Themes } from "@/util/themes";
 import { Card, CardBody, CardHeader, Divider } from "@nextui-org/react";
 
@@ -29,15 +30,18 @@ export default function Home() {
       <div className="col-span-5 ml-2">
         <Card>
           <CardHeader>
-            <span className="text-2xl">Sliver Command &amp; Control</span>
+            <div className="flex items-center">
+              <SliversIcon className="mr-2" height={28} />
+              <span className="text-2xl">Sliver Command &amp; Control</span>
+            </div>
           </CardHeader>
           <Divider />
           <CardBody>
             <p
               className={
                 getThemeState() === Themes.DARK
-                  ? "prose prose-sm dark:prose-invert"
-                  : "prose prose-sm prose-slate"
+                  ? "prose dark:prose-invert"
+                  : "prose prose-slate"
               }
             >
               Sliver is a Command and Control (C2) system made for penetration

@@ -1,4 +1,4 @@
-## Sideloading features
+## Sideloading Features
 
 Sliver implants support three different ways of loading third party tools:
 
@@ -6,11 +6,11 @@ Sliver implants support three different ways of loading third party tools:
 - `sideload`
 - `spawndll`
 
-## Known limitations
+## Known Limitations
 
 Arguments passed to .NET assemblies and non-reflective PE extensions are limited to 256 characters. This is due to a limitation in the Donut loader Sliver is using. A workaround for .NET assemblies is to execute them in-process, using the `--in-process` flag, or a custom BOF extension like `inline-execute-assembly`. There is currently no workaround for non-reflective PE extension.
 
-## .NET assemblies loading
+## Loading .NET Assemblies
 
 This feature is only supported on Windows.
 
@@ -59,7 +59,7 @@ sliver (CONCRETE_STEEL) > execute-assembly -t 80 /tmp/Seatbelt.exe All
 ...
 ```
 
-## Shared libraries side loading
+## Shared Library Side Loading
 
 The `sideload` command allows to load and run code in-memory (Windows/Linux) or via dropping a temporary file to disk (MacOS). On Windows, the DLL will be converted to a shellcode via [sRDI](https://github.com/monoxgas/sRDI) and injected into a sacrificial process.
 
