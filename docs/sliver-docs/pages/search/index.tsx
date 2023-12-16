@@ -62,6 +62,8 @@ const SearchPage: NextPage = (props: SearchPageProps) => {
         ))}
       </div>
       <div className="col-span-1"></div>
+
+      <div className="col-span-12 mb-8"></div>
     </div>
   );
 };

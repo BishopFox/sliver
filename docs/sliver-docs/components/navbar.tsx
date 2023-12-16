@@ -1,3 +1,5 @@
+"use client";
+
 import { SliversIcon } from "@/components/icons/slivers";
 import { useSearchContext } from "@/util/search-context";
 import { Themes } from "@/util/themes";
@@ -17,6 +19,7 @@ import {
   NavbarBrand,
   NavbarContent,
   NavbarItem,
+  Tooltip,
 } from "@nextui-org/react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/router";
@@ -99,20 +102,22 @@ export default function TopNavbar(props: TopNavbarProps) {
       </NavbarContent>
 
       <NavbarContent as="div" justify="end">
-        <Input
-          size="sm"
-          placeholder="Search..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onClear={() => setQuery("")}
-          startContent={<FontAwesomeIcon icon={faSearch} />}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              router.push(`/search/`, { query: { search: query } });
-              setQuery("");
-            }
-          }}
-        />
+        <Tooltip content="Press enter to search" isOpen={query.length > 0}>
+          <Input
+            size="sm"
+            placeholder="Search..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onClear={() => setQuery("")}
+            startContent={<FontAwesomeIcon icon={faSearch} />}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                router.push(`/search/`, { query: { search: query } });
+                setQuery("");
+              }
+            }}
+          />
+        </Tooltip>
 
         <Button
           variant="ghost"
