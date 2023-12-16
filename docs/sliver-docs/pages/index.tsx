@@ -1,10 +1,16 @@
 import AsciinemaPlayer from "@/components/asciinema";
 import { Themes } from "@/util/themes";
 import { Card, CardBody, CardHeader, Divider } from "@nextui-org/react";
-import { useTheme } from "next-themes";
 
 export default function Home() {
-  const { theme } = useTheme();
+  function getThemeState(): Themes {
+    if (typeof window !== "undefined") {
+      const loadedTheme = localStorage.getItem("theme");
+      const currentTheme = loadedTheme ? (loadedTheme as Themes) : Themes.DARK;
+      return currentTheme;
+    }
+    return Themes.DARK;
+  }
 
   return (
     <div className="grid grid-cols-12 mt-2">
@@ -29,7 +35,7 @@ export default function Home() {
           <CardBody>
             <p
               className={
-                theme === Themes.DARK
+                getThemeState() === Themes.DARK
                   ? "prose prose-sm dark:prose-invert"
                   : "prose prose-sm prose-slate"
               }
