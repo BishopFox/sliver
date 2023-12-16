@@ -1,9 +1,16 @@
 import { SliversIcon } from "@/components/icons/slivers";
+import { useSearchContext } from "@/util/search-context";
 import { Themes } from "@/util/themes";
-import { faHome, faMoon, faSun } from "@fortawesome/free-solid-svg-icons";
+import {
+  faHome,
+  faMoon,
+  faSearch,
+  faSun,
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   Button,
+  Input,
   Link,
   Navbar,
   NavbarBrand,
@@ -18,11 +25,14 @@ export type TopNavbarProps = {};
 
 export default function TopNavbar(props: TopNavbarProps) {
   const router = useRouter();
+  const search = useSearchContext();
   const { theme, setTheme } = useTheme();
   const lightDarkModeIcon = React.useMemo(
     () => (theme === Themes.DARK ? faSun : faMoon),
     [theme]
   );
+
+  const [query, setQuery] = React.useState("");
 
   return (
     <Navbar
@@ -88,6 +98,21 @@ export default function TopNavbar(props: TopNavbarProps) {
       </NavbarContent>
 
       <NavbarContent as="div" justify="end">
+        <Input
+          size="sm"
+          placeholder="Search..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onClear={() => setQuery("")}
+          startContent={<FontAwesomeIcon icon={faSearch} />}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              router.push(`/search`, { query: { search: query } });
+              setQuery("");
+            }
+          }}
+        />
+
         <Button
           variant="light"
           onPress={() => {

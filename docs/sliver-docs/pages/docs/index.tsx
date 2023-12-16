@@ -1,4 +1,5 @@
-import CodeViewer, { CodeSchema } from "@/components/code";
+import MarkdownViewer from "@/components/markdown";
+import { Docs } from "@/util/docs";
 import { frags } from "@/util/frags";
 import { Themes } from "@/util/themes";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
@@ -17,19 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import Fuse from "fuse.js";
 import { NextPage } from "next";
 import { useTheme } from "next-themes";
-import Image from "next/image";
 import React from "react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-
-type Doc = {
-  name: string;
-  content: string;
-};
-
-type Docs = {
-  docs: Doc[];
-};
 
 const DocsIndexPage: NextPage = () => {
   const { theme } = useTheme();
@@ -93,13 +82,13 @@ const DocsIndexPage: NextPage = () => {
 
   return (
     <div className="grid grid-cols-12">
-      <div className="col-span-3 mt-4 ml-4 h-screen sticky top-16">
+      <div className="col-span-3 mt-4 ml-4 h-screen sticky top-20">
         <div className="flex flex-row justify-center text-lg gap-2">
           <Input
             label="Filter"
             isClearable={true}
             onClear={() => setFilterValue("")}
-            placeholder="Type to filter..."
+            placeholder="Type to Filter..."
             startContent={<FontAwesomeIcon icon={faSearch} />}
             value={filterValue}
             onChange={(e) => setFilterValue(e.target.value)}
@@ -138,114 +127,8 @@ const DocsIndexPage: NextPage = () => {
             <span className="text-3xl">{name}</span>
           </CardHeader>
           <Divider />
-          <CardBody
-            className={
-              theme === Themes.DARK
-                ? "prose dark:prose-invert"
-                : "prose prose-slate"
-            }
-          >
-            <Markdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                a(props) {
-                  const { href, children, ...rest } = props;
-                  const url = new URL(href || "");
-                  if (url.protocol !== "http:" && url.protocol !== "https:") {
-                    return <></>;
-                  }
-                  if (url.host === "sliver.sh") {
-                    return (
-                      <a
-                        {...rest}
-                        href={url.toString()}
-                        className="text-primary hover:text-primary-dark"
-                      >
-                        {children}
-                      </a>
-                    );
-                  }
-                  return (
-                    <a
-                      {...rest}
-                      href={url.toString()}
-                      rel="noopener noreferrer"
-                      target="_blank"
-                      className="text-primary hover:text-primary-dark"
-                    >
-                      {children}
-                    </a>
-                  );
-                },
-
-                pre(props) {
-                  // We need to look at the child nodes to avoid wrapping
-                  // a monaco code block in a <pre> tag
-                  const { children, className, node, ...rest } = props;
-                  const childClass = (children as any)?.props?.className;
-                  if (
-                    childClass &&
-                    childClass.startsWith("language-") &&
-                    childClass !== "language-plaintext"
-                  ) {
-                    // @ts-ignore
-                    return <div {...rest}>{children}</div>;
-                  }
-
-                  return (
-                    <pre {...rest} className={className}>
-                      {children}
-                    </pre>
-                  );
-                },
-
-                img(props) {
-                  const { src, alt, ...rest } = props;
-                  return (
-                    // @ts-ignore
-                    <Image
-                      {...rest}
-                      src={src || ""}
-                      alt={alt || ""}
-                      width={500}
-                      height={500}
-                      className="w-full rounded-medium"
-                    />
-                  );
-                },
-
-                code(props) {
-                  const { children, className, node, ...rest } = props;
-                  const langTag = /language-(\w+)/.exec(className || "");
-                  const lang = langTag ? langTag[1] : "plaintext";
-                  console.log(children);
-                  if (lang === "plaintext") {
-                    return (
-                      <span className="prose-sm">
-                        <code {...rest} className={className}>
-                          {children}
-                        </code>
-                      </span>
-                    );
-                  }
-                  return (
-                    <CodeViewer
-                      className="min-h-[250px]"
-                      key={`${Math.random()}`}
-                      fontSize={11}
-                      script={
-                        {
-                          script_type: lang,
-                          source_code: (children as string) || "",
-                        } as CodeSchema
-                      }
-                    />
-                  );
-                },
-              }}
-            >
-              {markdown}
-            </Markdown>
+          <CardBody>
+            <MarkdownViewer markdown={markdown || ""} />
           </CardBody>
         </Card>
       </div>
