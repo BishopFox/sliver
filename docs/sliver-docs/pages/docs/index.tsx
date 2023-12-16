@@ -89,6 +89,7 @@ const DocsIndexPage: NextPage = () => {
           <Input
             label="Filter"
             isClearable={true}
+            onClear={() => setFilterValue("")}
             placeholder="Type to filter..."
             startContent={<FontAwesomeIcon icon={faSearch} />}
             value={filterValue}
