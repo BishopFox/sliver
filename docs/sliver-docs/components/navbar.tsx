@@ -1,6 +1,7 @@
 import { SliversIcon } from "@/components/icons/slivers";
 import { useSearchContext } from "@/util/search-context";
 import { Themes } from "@/util/themes";
+import { faGithub } from "@fortawesome/free-brands-svg-icons";
 import {
   faHome,
   faMoon,
@@ -114,12 +115,21 @@ export default function TopNavbar(props: TopNavbarProps) {
         />
 
         <Button
-          variant="light"
+          variant="ghost"
           onPress={() => {
             setTheme(theme === Themes.DARK ? Themes.LIGHT : Themes.DARK);
           }}
         >
           <FontAwesomeIcon icon={lightDarkModeIcon} />
+        </Button>
+
+        <Button
+          variant="ghost"
+          onPress={() => {
+            window.open("https://github.com/BishopFox/sliver", "_blank");
+          }}
+        >
+          <FontAwesomeIcon icon={faGithub} />
         </Button>
       </NavbarContent>
     </Navbar>
