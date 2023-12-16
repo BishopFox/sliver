@@ -1,4 +1,4 @@
-# Sideloading features
+## Sideloading features
 
 Sliver implants support three different ways of loading third party tools:
 
@@ -120,7 +120,7 @@ sliver (CONCRETE_STEEL) > sideload -p /Applications/Safari.app/Contents/MacOS/Sa
 
 Please be aware that you need to specify the entrypoint to execute for Windows DLLs.
 
-## Loading reflective DLLs
+## Loading Reflective DLLs
 
 Loading reflective DLLs is just a special case of side loading DLLs. To make things easier, the `spawndll` command allows you to inject reflective DLLs and run them in a remote process.
 

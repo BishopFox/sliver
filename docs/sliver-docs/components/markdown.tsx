@@ -2,15 +2,19 @@ import CodeViewer, { CodeSchema } from "@/components/code";
 import { Themes } from "@/util/themes";
 import { useTheme } from "next-themes";
 import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/router";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 export type MarkdownProps = {
+  key?: string;
   markdown: string;
 };
 
 const MarkdownViewer = (props: MarkdownProps) => {
   const { theme } = useTheme();
+  const router = useRouter();
 
   return (
     <div
@@ -19,23 +23,41 @@ const MarkdownViewer = (props: MarkdownProps) => {
       }
     >
       <Markdown
+        key={props.key || `${Math.random()}`}
         remarkPlugins={[remarkGfm]}
         components={{
           a(props) {
             const { href, children, ...rest } = props;
+            if (href?.startsWith("/")) {
+              return (
+                // @ts-ignore
+                <a
+                  {...rest}
+                  href={href}
+                  className="text-primary hover:text-primary-dark"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push(href);
+                  }}
+                >
+                  {children}
+                </a>
+              );
+            }
             const url = new URL(href || "");
             if (url.protocol !== "http:" && url.protocol !== "https:") {
               return <></>;
             }
             if (url.host === "sliver.sh") {
               return (
-                <a
+                // @ts-ignore
+                <Link
                   {...rest}
                   href={url.toString()}
                   className="text-primary hover:text-primary-dark"
                 >
                   {children}
-                </a>
+                </Link>
               );
             }
             return (

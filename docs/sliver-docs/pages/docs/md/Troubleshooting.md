@@ -1,5 +1,3 @@
-## Server/Client Troubleshooting
-
 ### Server logs
 
 Server related logs are saved to: `~/.sliver/logs/`
@@ -9,7 +7,7 @@ Server related logs are saved to: `~/.sliver/logs/`
 - `sliver.json` JSON formatted log (includes timestamps)
 - `audit.json` a JSON formatted history of commands/activity
 
-The default log level for the server is `INFO` when troubleshooting it may be helpful to increase this to `DEBUG` (5), which can be done by editing the [server configuration file](https://github.com/BishopFox/sliver/wiki/Configuration-Files)
+The default log level for the server is `INFO` when troubleshooting it may be helpful to increase this to `DEBUG` (5), which can be done by editing the [server configuration file](/docs?name=Configuration-Files)
 
 ### Client logs
 

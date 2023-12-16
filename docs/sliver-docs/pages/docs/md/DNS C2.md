@@ -59,7 +59,7 @@ nameserver 8.8.8.8
 
 # Under the Hood
 
-**NOTE:** This describes the v1.5+ implementation of DNS C2. Also, I'm not going to cover the cryptographic key exchange, which you can read about [here](https://github.com/BishopFox/sliver/wiki/Transport-Encryption), this is just about how do we move bytes back and forth.
+**NOTE:** This describes the v1.5+ implementation of DNS C2. Also, I'm not going to cover the cryptographic key exchange, which you can read about [here](/docs?name=Transport-Encryption), this is just about how do we move bytes back and forth.
 
 ### Design Goals
 

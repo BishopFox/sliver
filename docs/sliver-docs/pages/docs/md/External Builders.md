@@ -24,7 +24,7 @@ External builders can also be used to create custom modifications to the implant
 
 #### Setup
 
-Any `sliver-server` binary can be started as a builder process using [operator configuration files from multiplayer-mode](https://github.com/BishopFox/sliver/wiki/Multiplayer-Mode) from the server you want to connect the builder to, for example:
+Any `sliver-server` binary can be started as a builder process using [operator configuration files from multiplayer-mode](/docs?name=Multi-player+Mode) from the server you want to connect the builder to, for example:
 
 ```
 ./sliver-server builder -c operator-multiplayer.cfg
@@ -86,7 +86,7 @@ You are welcome to customize the implant source code under the terms of Sliver's
 
 1. Fork the main Sliver Github repository
 1. Make modifications to the source code
-1. [Compile a Sliver server binary](https://github.com/BishopFox/sliver/wiki/Compile-From-Source)
+1. [Compile a Sliver server binary](/docs?name=Compile-From-Source)
 1. Connect the customized Sliver server binary to any other C2 server (including mainline servers) as an external builder
 1. Operators can generate the customized implant builds via the `generate --external-builder` flag
 1. Avoid making any changes to `/server` to make merging upstream easier if changes are introduced to the builder APIs

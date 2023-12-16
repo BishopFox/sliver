@@ -1,6 +1,5 @@
 import MarkdownViewer from "@/components/markdown";
 import { Docs } from "@/util/docs";
-import { frags } from "@/util/frags";
 import { Themes } from "@/util/themes";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -18,10 +17,13 @@ import { useQuery } from "@tanstack/react-query";
 import Fuse from "fuse.js";
 import { NextPage } from "next";
 import { useTheme } from "next-themes";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/router";
 import React from "react";
 
 const DocsIndexPage: NextPage = () => {
   const { theme } = useTheme();
+  const router = useRouter();
 
   const { data: docs, isLoading } = useQuery({
     queryKey: ["docs"],
@@ -31,11 +33,14 @@ const DocsIndexPage: NextPage = () => {
     },
   });
 
-  const [name, _setName] = React.useState(decodeURI(frags.get("name") || ""));
-  const setName = (name: string) => {
-    frags.set("name", name);
-    _setName(name);
-  };
+  const [name, setName] = React.useState("");
+  const urlName = useSearchParams().get("name");
+  React.useEffect(() => {
+    if (urlName) {
+      setName(urlName);
+    }
+  }, [urlName]);
+
   const [markdown, setMarkdown] = React.useState(
     name === ""
       ? docs?.docs[0].content
@@ -109,8 +114,7 @@ const DocsIndexPage: NextPage = () => {
                     key={doc.name}
                     value={doc.name}
                     onClick={() => {
-                      setName(doc.name);
-                      setMarkdown(doc.content);
+                      router.push(`/docs`, { query: { name: doc.name } });
                     }}
                   >
                     {doc.name}
@@ -128,7 +132,7 @@ const DocsIndexPage: NextPage = () => {
           </CardHeader>
           <Divider />
           <CardBody>
-            <MarkdownViewer markdown={markdown || ""} />
+            <MarkdownViewer key={name} markdown={markdown || ""} />
           </CardBody>
         </Card>
       </div>

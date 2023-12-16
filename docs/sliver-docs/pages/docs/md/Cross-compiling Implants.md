@@ -2,7 +2,7 @@
 
 Sliver can tell you which platforms it can likely target based on the server's platform and available cross-compilers by running the `generate info` command in the console.
 
-Sliver v1.5.30 and later also support [External Builders](https://github.com/BishopFox/sliver/wiki/External-Builders), which can be used to easily cross-compile implants.
+Sliver v1.5.30 and later also support [External Builders](/docs?name=External-Builders), which can be used to easily cross-compile implants.
 
 ## From Linux to MacOS/Windows
 
@@ -12,7 +12,7 @@ To compile Windows shared library and shellcode implants from Linux, install min
 sudo apt install mingw-w64
 ```
 
-To compile MacOS shared library implants from Linux, we recommend using https://github.com/tpoechtrager/osxcross by default Sliver will look in `/opt/osxcross` but you can override this via [environment variables](https://github.com/BishopFox/sliver/wiki/Environment-Variables). If you do not have a MacOS based machine you can use GitHub Actions' MacOS instances to build OSXCross.
+To compile MacOS shared library implants from Linux, we recommend using https://github.com/tpoechtrager/osxcross by default Sliver will look in `/opt/osxcross` but you can override this via [environment variables](/docs?name=Environment-Variables). If you do not have a MacOS based machine you can use GitHub Actions' MacOS instances to build OSXCross.
 
 **NOTE:** Sliver expects the root of the osxcross git repo to be located at `/opt/osxcross` and the actual binaries in `/opt/osxcross/target/bin`.
 
@@ -26,7 +26,7 @@ cd /opt/osxcross
 UNATTENDED=1 ./build.sh
 ```
 
-Sliver automatically looks in the default paths for these cross compilers, once installed simply use the `generate` command with the desired `--os` and `--arch`, check `~/.sliver/logs/sliver.log` for build errors. You can override any cross compiler location via the appropriate [environment variables](https://github.com/BishopFox/sliver/wiki/Environment-Variables).
+Sliver automatically looks in the default paths for these cross compilers, once installed simply use the `generate` command with the desired `--os` and `--arch`, check `~/.sliver/logs/sliver.log` for build errors. You can override any cross compiler location via the appropriate [environment variables](/docs?name=Environment-Variables).
 
 ## From MacOS to Linux/Windows
 
@@ -43,7 +43,7 @@ brew install FiloSottile/musl-cross/musl-cross
 brew install mingw-w64
 ```
 
-I'm not aware of any good options to target 32-bit Linux from MacOS. Sliver automatically looks in the default paths for these cross compilers, once installed simply use the `generate` command with the desired `--os` and `--arch`, check `~/.sliver/logs/sliver.log` for build errors. You can override any cross compiler location via the appropriate [environment variables](https://github.com/BishopFox/sliver/wiki/Environment-Variables).
+I'm not aware of any good options to target 32-bit Linux from MacOS. Sliver automatically looks in the default paths for these cross compilers, once installed simply use the `generate` command with the desired `--os` and `--arch`, check `~/.sliver/logs/sliver.log` for build errors. You can override any cross compiler location via the appropriate [environment variables](/docs?name=Environment-Variables).
 
 ## From Windows to MacOS/Linux
 

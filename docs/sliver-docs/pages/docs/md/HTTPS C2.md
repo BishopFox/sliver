@@ -67,7 +67,7 @@ The priority of retrieval is the following:
 
 #### NTLM/Kerberos Proxy Authentication
 
-You can use [advanced options](https://github.com/BishopFox/sliver/wiki/C2-Advanced-Options) to enable the use of the `wininet` HTTP library, which supports NTLM/Kerberos authentication (Windows only). Using this library tends to be a little less stable (we have to covert Go calls to native DLL calls) and is generally more susceptible to introspection by security products as these functions are well-known and easy to hook. However, if you need NTLM/Kerberos authentication you don't have much of a choice.
+You can use [advanced options](/docs?name=C2-Advanced-Options) to enable the use of the `wininet` HTTP library, which supports NTLM/Kerberos authentication (Windows only). Using this library tends to be a little less stable (we have to covert Go calls to native DLL calls) and is generally more susceptible to introspection by security products as these functions are well-known and easy to hook. However, if you need NTLM/Kerberos authentication you don't have much of a choice.
 
 ## Start the Listener
 
@@ -109,7 +109,7 @@ By default when using the `https` listener Sliver will simply generate a random 
 sliver > https --domain example.com --lets-encrypt
 ```
 
-This uses Let's Encrypt/ACME HTTP validation, so the server will need the ability to start a public listener and you'll need to have the DNS for your `--domain` pointed to the Sliver server. If you're having issues pulling a certificate be sure to [check the logs](https://github.com/BishopFox/sliver/wiki/Troubleshooting).
+This uses Let's Encrypt/ACME HTTP validation, so the server will need the ability to start a public listener and you'll need to have the DNS for your `--domain` pointed to the Sliver server. If you're having issues pulling a certificate be sure to [check the logs](/docs?name=Troubleshooting).
 
 You can also upload your own SSL/TLS certificate/key pairs:
 
@@ -166,7 +166,7 @@ This section covers the "under the hood" implementation details of Sliver's HTTP
 The primary goals of the existing HTTP C2 design are to:
 
 - **Reliable Connections** The implants foremost goal is to get a connection out of the network, regardless of the environment's configuration.
-- **Data Security** I won't cover this here, but [click here](https://github.com/BishopFox/sliver/wiki/Transport-Encryption) for details.
+- **Data Security** I won't cover this here, but [click here](/docs?name=Transport-Encryption) for details.
 - **Network Layer Evasion** C2 messages should be hard to detect from the network layer, this is done via "Procedural C2" as detailed below.
 
 ### Procedural HTTP C2
@@ -179,7 +179,7 @@ Each implant is also only embedded with a randomly generated subset of the serve
 
 The high level process to generate and send a standard session request is (note: this is all after the key exchange, which I'm skipping for now):
 
-1. Randomly generate the request path using built-in path segments. The path will have one of the following extensions, which indicate the type of request. This is distinct from a _message type_, the message type (i.e., the type of command) is in the encrypted so it cannot be determined without the [session key](https://github.com/BishopFox/sliver/wiki/Transport-Encryption). Everything in the path except for the extension is ignored by the server.
+1. Randomly generate the request path using built-in path segments. The path will have one of the following extensions, which indicate the type of request. This is distinct from a _message type_, the message type (i.e., the type of command) is in the encrypted so it cannot be determined without the [session key](/docs?name=Transport-Encryption). Everything in the path except for the extension is ignored by the server.
 
 In the default configuration:
 

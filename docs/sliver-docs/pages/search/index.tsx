@@ -44,14 +44,16 @@ const SearchPage: NextPage = (props: SearchPageProps) => {
                   color="secondary"
                   className="w-[150px]"
                   onPress={() => {
-                    router.push(`/docs#name=${doc.name}`);
+                    router.push(`/docs?name=${doc.name}`);
                   }}
                 >
                   Full Doc
                   <FontAwesomeIcon icon={faChevronCircleRight} />
                 </Button>
               </div>
+
               <Divider className="mt-2" />
+
               <div className="mt-2 overflow-hidden max-h-[200px]">
                 <MarkdownViewer markdown={doc.content} />
               </div>

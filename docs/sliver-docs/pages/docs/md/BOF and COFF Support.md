@@ -2,9 +2,9 @@ Sliver v1.5 and later support the loading and execution of BOFs and COFFs, gener
 
 ### BOF Extensions
 
-BOF support is provided via the [COFF Loader](https://github.com/sliverarmory/COFFLoader) extension, you'll need it installed to run pretty much any BOF. However, the COFF Loader will be installed automatically if you install a BOF extension from the [armory](https://github.com/BishopFox/sliver/wiki/Armory).
+BOF support is provided via the [COFF Loader](https://github.com/sliverarmory/COFFLoader) extension, you'll need it installed to run pretty much any BOF. However, the COFF Loader will be installed automatically if you install a BOF extension from the [armory](/docs?name=Armory).
 
-The easiest way to install a BOF extension, for example [`nanodump`](https://github.com/sliverarmory/nanodump), is using the [armory](https://github.com/BishopFox/sliver/wiki/Armory) package manager:
+The easiest way to install a BOF extension, for example [`nanodump`](https://github.com/sliverarmory/nanodump), is using the [armory](/docs?name=Armory) package manager:
 
 **IMPORTANT:** BOF Extensions are installed per-sliver client, they are not stored on the server. Thus extensions are not shared across operators, each operator must install the extension to use it.
 
@@ -114,6 +114,6 @@ Looking at the script we can see the BOF requires a single integer argument. The
 
 Once the manifest is defined load it into your client using `extensions load`, locally loaded extensions do not need to be cryptographically signed. The paths in the manifest should be relative to the manifest file, parent directories are not allowed.
 
-More details can be found on the [Aliases & Extensions](https://github.com/BishopFox/sliver/wiki/Aliases-&-Extensions) page.
+More details can be found on the [Aliases & Extensions](/docs?name=Aliases-&-Extensions) page.
 
 **IMPORTANT:** For BOF extensions to be properly detected by the Sliver client, the `path` must use the `.o` file extension.

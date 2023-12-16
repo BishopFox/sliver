@@ -1,20 +1,20 @@
-**⚠️ NOTE:** This guide is intended for experienced red teamers, but we also have a [Beginner's Guide](https://github.com/BishopFox/sliver/wiki/Beginner's-Guide) for a more beginner friendly tutorial.
+**⚠️ NOTE:** This guide is intended for experienced red teamers, but we also have a [Beginner's Guide](/docs?name=Beginner's-Guide) for a more beginner friendly tutorial.
 
 ## Server Setup
 
 Download the latest server [release](https://github.com/BishopFox/sliver/releases) for your platform, and just run the binary. That's it, you're pretty much done.
 
-Sliver is designed for a one server deployment per-operation. The server supports Linux, Windows, and MacOS however we strongly recommend running the server on a Linux host (or MacOS, well really anything that isn't Windows), as some features may be more difficult to get working on a Windows server. The Windows client should work just fine when accessing a Linux/MacOS server from Windows, if for some odd reason your operators want to actually use Windows you'll just need to setup [multiplayer mode](https://github.com/BishopFox/sliver/wiki/Multiplayer-Mode).
+Sliver is designed for a one server deployment per-operation. The server supports Linux, Windows, and MacOS however we strongly recommend running the server on a Linux host (or MacOS, well really anything that isn't Windows), as some features may be more difficult to get working on a Windows server. The Windows client should work just fine when accessing a Linux/MacOS server from Windows, if for some odd reason your operators want to actually use Windows you'll just need to setup [multiplayer mode](/docs?name=Multi-player+Mode).
 
 Obfuscated builds require `git` to be installed. Additionally, Sliver has two external dependencies for _optional_ features: MinGW and Metasploit. To enable DLL payloads (on a Linux server) you need to install MinGW. To enable some MSF integrations you'll need Metasploit installed on the server.
 
 #### System Requirements
 
-The Sliver server can run effectively on almost any system, however we recommend 8GB or more of RAM for compiling obfuscated implants as the obfuscator may consume large amounts of memory depending on compile-time options. You can leverage [external builders](https://github.com/BishopFox/sliver/wiki/External-Builders) in conjunction with low resource systems to work around hardware limitations of the server (e.g. a low powered VPS). Symbol obfuscation can also be disabled per-build, see `generate --help` in the Sliver console.
+The Sliver server can run effectively on almost any system, however we recommend 8GB or more of RAM for compiling obfuscated implants as the obfuscator may consume large amounts of memory depending on compile-time options. You can leverage [external builders](/docs?name=External-Builders) in conjunction with low resource systems to work around hardware limitations of the server (e.g. a low powered VPS). Symbol obfuscation can also be disabled per-build, see `generate --help` in the Sliver console.
 
 ### MinGW Setup (Optional, Recommended)
 
-In order to enable shellcode/staged/DLL payloads you'll need to install MinGW on the server (clients connecting to the server do not need it installed). By default Sliver will look in the usual places for MinGW binaries but you can override this using the [environment variables](https://github.com/BishopFox/sliver/wiki/Environment-Variables).
+In order to enable shellcode/staged/DLL payloads you'll need to install MinGW on the server (clients connecting to the server do not need it installed). By default Sliver will look in the usual places for MinGW binaries but you can override this using the [environment variables](/docs?name=Environment-Variables).
 
 #### Linux (Debian-based)
 
@@ -28,9 +28,9 @@ apt install git mingw-w64
 brew install git mingw-w64
 ```
 
-**Note:** On MacOS you may need to configure [environment variables](https://github.com/BishopFox/sliver/wiki/Environment-Variables) for MinGW.
+**Note:** On MacOS you may need to configure [environment variables](/docs?name=Environment-Variables) for MinGW.
 
-See [cross-compiling implants](https://github.com/BishopFox/sliver/wiki/Cross-Compiling-Implants) for more details.
+See [cross-compiling implants](/docs?name=Cross-Compiling-Implants) for more details.
 
 ### Metasploit Setup (Optional)
 
@@ -38,7 +38,7 @@ We strongly recommend using the [nightly framework installers](https://github.co
 
 ## Implants: Beacon vs. Session
 
-Sliver is generally designed as a stage 2 payload, and as such we've not yet endeavored to minimize the implant's file size. Depending on how many protocols you enable in your implant the file can get large, we strongly advise the use of [stagers](https://github.com/BishopFox/sliver/wiki/Stagers) for actual operations (at least in contexts where one may be concerned about file size). Such is the tradeoff for getting easy static compilation in Golang.
+Sliver is generally designed as a stage 2 payload, and as such we've not yet endeavored to minimize the implant's file size. Depending on how many protocols you enable in your implant the file can get large, we strongly advise the use of [stagers](/docs?name=Stagers) for actual operations (at least in contexts where one may be concerned about file size). Such is the tradeoff for getting easy static compilation in Golang.
 
 Sliver implants in v1.5 and later support two modes of operation: "beacon mode" and "session mode." Beacon mode implements an asynchronous communication style where the implant periodically checks in with the server retrieves tasks, executes them, and returns the results. In "session mode" the implant will create an interactive real time session using either a persistent connection or using long polling depending on the underlying C2 protocol.
 
@@ -111,8 +111,8 @@ sliver > regenerate --save /Users/moloch/Desktop NEW_GRAPE
 
 For addition details about each C2 please see:
 
-- [HTTP(S) C2](<https://github.com/BishopFox/sliver/wiki/HTTP(S)-C2>)
-- [DNS C2](https://github.com/BishopFox/sliver/wiki/DNS-C2)
+- [HTTP(S) C2](</docs?name=HTTP(S)-C2>)
+- [DNS C2](/docs?name=DNS-C2)
 
 ## Getting Shells
 
@@ -153,7 +153,7 @@ sliver (LONG_DRAMATURGE) > ls
 LONG_DRAMATURGE           6.3 MiB
 ```
 
-If you're having problems getting callbacks please see our [troubleshooting guide](https://github.com/BishopFox/sliver/wiki/Troubleshooting#implant-troubleshooting), (TL;DR add the `--debug` flag when generating an implant).
+If you're having problems getting callbacks please see our [troubleshooting guide](/docs?name=Troubleshooting#implant-troubleshooting), (TL;DR add the `--debug` flag when generating an implant).
 
 ### Interacting with Beacons
 
@@ -244,9 +244,9 @@ sliver > generate --mtls foo.com,bar.com,baz.com --strategy r
 
 Most commands have a `--help` and support tab complete, you may also find the following wiki articles of interest:
 
-- [Armory](https://sliver.sh/docs#name=Armory)
-- [Stagers](https://sliver.sh/docs#name=Stagers)
-- [Community Guides](https://sliver.sh/docs#name=Community%20Guides)
-- [Port Forwarding](https://sliver.sh/docs#name=Port%20Forwarding)
-- [Reverse SOCKS](https://sliver.sh/docs#name=Reverse%20SOCKS)
-- [BOF/COFF Support](https://sliver.sh/docs#name=BOF%20and%20COFF%20Support)
+- [Armory](/docs?name=name=Armory)
+- [Stagers](/docs?name=name=Stagers)
+- [Community Guides](/docs?name=name=Community%20Guides)
+- [Port Forwarding](/docs?name=name=Port%20Forwarding)
+- [Reverse SOCKS](/docs?name=name=Reverse%20SOCKS)
+- [BOF/COFF Support](/docs?name=name=BOF%20and%20COFF%20Support)
