@@ -32,9 +32,9 @@ apt install git mingw-w64
 brew install git mingw-w64
 ```
 
-**Note:** On MacOS you may need to configure [environment variables](/docs?name=Environment-Variables) for MinGW.
+**Note:** On MacOS you may need to configure [environment variables](/docs?name=Environment+Variables) for MinGW.
 
-See [cross-compiling implants](/docs?name=Cross-Compiling-Implants) for more details.
+See [cross-compiling implants](/docs?name=Cross-compiling+Implants) for more details.
 
 ### Metasploit Setup (Optional)
 
