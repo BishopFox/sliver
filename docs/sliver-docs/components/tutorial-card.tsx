@@ -42,20 +42,19 @@ export default function TutorialCard(props: TutorialCardCardProps) {
       </div>
 
       <CardFooter className="absolute bg-black/40 bottom-0 z-100 border-t-1 border-default-600 dark:border-default-100">
-        <div className="w-full flex items-center">
-          <div className="w-full">
-            <p
-              className={
-                props.italicDescription
-                  ? "text-xs text-white/70 italic"
-                  : "text-xs text-white/70"
-              }
-            >
-              {props.description}
-            </p>
-          </div>
+        <div className="flex w-full items-center">
+          <p
+            className={
+              props.italicDescription
+                ? "text-xs text-white/80 italic"
+                : "text-xs text-white/80"
+            }
+          >
+            {props.description}
+          </p>
+
           {props.showButton ? (
-            <div className="grid justify-items-end">
+            <div className="justify-items-end">
               <Button
                 variant="ghost"
                 color="warning"

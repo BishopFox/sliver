@@ -90,13 +90,12 @@ const DocsIndexPage: NextPage = () => {
       <div className="col-span-3 mt-4 ml-4 h-screen sticky top-20">
         <div className="flex flex-row justify-center text-lg gap-2">
           <Input
-            label="Filter"
-            isClearable={true}
-            onClear={() => setFilterValue("")}
-            placeholder="Type to Filter..."
+            placeholder="Filter..."
             startContent={<FontAwesomeIcon icon={faSearch} />}
             value={filterValue}
             onChange={(e) => setFilterValue(e.target.value)}
+            isClearable={true}
+            onClear={() => setFilterValue("")}
           />
         </div>
         <div className="mt-2">
