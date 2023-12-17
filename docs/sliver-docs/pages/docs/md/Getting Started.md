@@ -60,12 +60,8 @@ Generating implants is done using the `generate` command, you must specify at le
 
 #### Session Mode
 
-```
-[server] sliver > generate --mtls example.com --save /Users/moloch/Desktop
-
-[*] Generating new windows/amd64 Sliver binary
-[*] Build completed in 00:00:16
-[*] Sliver binary saved to: /Users/moloch/Desktop/NEW_GRAPE.exe
+```asciinema
+{"src": "/asciinema/sliver-generate-1.cast", "cols": "132"}
 ```
 
 #### Beacon Mode
