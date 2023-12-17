@@ -17,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import Fuse from "fuse.js";
 import { NextPage } from "next";
 import { useTheme } from "next-themes";
+import Head from "next/head";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/router";
 import React from "react";
@@ -74,6 +75,9 @@ const DocsIndexPage: NextPage = () => {
 
   return (
     <div className="grid grid-cols-12">
+      <Head>
+        <title>Sliver Docs: {name}</title>
+      </Head>
       <div className="col-span-3 mt-4 ml-4 h-screen sticky top-20">
         <div className="flex flex-row justify-center text-lg gap-2">
           <Input
