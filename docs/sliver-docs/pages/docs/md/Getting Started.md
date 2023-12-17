@@ -14,11 +14,11 @@ For a Linux server, you can also use the one liner installation `curl https://sl
 
 #### System Requirements
 
-The Sliver server can run effectively on almost any system, however we recommend 8GB or more of RAM for compiling obfuscated implants as the obfuscator may consume large amounts of memory depending on compile-time options. You can leverage [external builders](/docs?name=External-Builders) in conjunction with low resource systems to work around hardware limitations of the server (e.g. a low powered VPS). Symbol obfuscation can also be disabled per-build, see `generate --help` in the Sliver console.
+The Sliver server can run effectively on almost any system, however we recommend 8GB or more of RAM for compiling obfuscated implants as the obfuscator may consume large amounts of memory depending on compile-time options. You can leverage [external builders](/docs?name=External+Builders) in conjunction with low resource systems to work around hardware limitations of the server (e.g. a low powered VPS). Symbol obfuscation can also be disabled per-build, see `generate --help` in the Sliver console.
 
 ### MinGW Setup (Optional, Recommended)
 
-In order to enable shellcode/staged/DLL payloads you'll need to install MinGW on the server (clients connecting to the server do not need it installed). By default Sliver will look in the usual places for MinGW binaries but you can override this using the [environment variables](/docs?name=Environment-Variables).
+In order to enable shellcode/staged/DLL payloads you'll need to install MinGW on the server (clients connecting to the server do not need it installed). By default Sliver will look in the usual places for MinGW binaries but you can override this using the [environment variables](/docs?name=Environment+Variables).
 
 #### Linux (Debian-based)
 
@@ -157,7 +157,7 @@ sliver (LONG_DRAMATURGE) > ls
 LONG_DRAMATURGE           6.3 MiB
 ```
 
-If you're having problems getting callbacks please see our [troubleshooting guide](/docs?name=Troubleshooting#implant-troubleshooting), (TL;DR add the `--debug` flag when generating an implant).
+If you're having problems getting callbacks please see our [troubleshooting guide](/docs?name=Troubleshooting), (TL;DR add the `--debug` flag when generating an implant).
 
 ### Interacting with Beacons
 
