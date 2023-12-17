@@ -25,7 +25,7 @@ export default function Home() {
           src="/asciinema/intro.cast"
           rows="18"
           cols="75"
-          idleTimeLimit={20}
+          idleTimeLimit={60}
           preload={true}
           autoPlay={true}
           loop={true}
