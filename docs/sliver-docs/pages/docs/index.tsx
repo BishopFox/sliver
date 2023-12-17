@@ -100,7 +100,7 @@ const DocsIndexPage: NextPage = () => {
         </div>
         <div className="mt-2">
           <ScrollShadow>
-            <div className="max-h-[80vh]">
+            <div className="max-h-[70vh]">
               <Listbox
                 aria-label="Toolbox Menu"
                 className={listboxClasses}

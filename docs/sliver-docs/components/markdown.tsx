@@ -6,10 +6,18 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import AsciinemaPlayer from "./asciinema";
 
 export type MarkdownProps = {
   key?: string;
   markdown: string;
+};
+
+type MarkdownAsciiCast = {
+  src?: string;
+  rows?: string;
+  cols?: string;
+  idleTimeLimit?: number;
 };
 
 const MarkdownViewer = (props: MarkdownProps) => {
@@ -122,6 +130,31 @@ const MarkdownViewer = (props: MarkdownProps) => {
                 </span>
               );
             }
+
+            if (lang === "asciinema") {
+              const asciiCast: MarkdownAsciiCast = JSON.parse(
+                children as string
+              );
+              const src = asciiCast.src?.startsWith("/")
+                ? `${window.location.origin}${asciiCast.src}`
+                : asciiCast.src || "";
+              const srcUrl = new URL(src);
+              if (srcUrl.protocol !== "http:" && srcUrl.protocol !== "https:") {
+                return <></>;
+              }
+              return (
+                <AsciinemaPlayer
+                  src={srcUrl.toString()}
+                  rows={asciiCast.rows || "18"}
+                  cols={asciiCast.cols || "75"}
+                  idleTimeLimit={asciiCast.idleTimeLimit || 2}
+                  preload={true}
+                  autoPlay={true}
+                  loop={true}
+                />
+              );
+            }
+
             const sourceCode = (children as string) || "";
             const lines = sourceCode.split("\n").length;
             return (

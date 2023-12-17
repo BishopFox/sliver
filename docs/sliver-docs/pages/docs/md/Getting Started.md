@@ -6,6 +6,12 @@ Sliver is designed for a one server deployment per-operation. The server support
 
 Obfuscated builds require `git` to be installed. Additionally, Sliver has two external dependencies for _optional_ features: MinGW and Metasploit. To enable DLL payloads (on a Linux server) you need to install MinGW. To enable some MSF integrations you'll need Metasploit installed on the server.
 
+For a Linux server, you can also use the one liner installation `curl https://sliver.sh/install|sudo bash`
+
+```asciinema
+{"src": "/asciinema/install-1.cast", "cols": "132"}
+```
+
 #### System Requirements
 
 The Sliver server can run effectively on almost any system, however we recommend 8GB or more of RAM for compiling obfuscated implants as the obfuscator may consume large amounts of memory depending on compile-time options. You can leverage [external builders](/docs?name=External-Builders) in conjunction with low resource systems to work around hardware limitations of the server (e.g. a low powered VPS). Symbol obfuscation can also be disabled per-build, see `generate --help` in the Sliver console.
