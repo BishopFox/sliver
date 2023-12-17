@@ -12,7 +12,7 @@ Use the following steps to configure a domain for DNS C2 (and DNS Canaries), you
 **IMPORTANT:** Always use the FQDN when issuing DNS commands in the Sliver console (e.g., `1.example.com.` note the trailing `.`). DNS is a finicky protocol!
 
 The final configuration should look like for the domain `lil-peep.rip`:
-![DNS Configuration](https://i.imgur.com/hpOnGJp.png)
+![DNS Configuration](/images/dns-c2-1.png)
 
 **IMPORTANT:** Remember to disable Cloudflare's "cloud" when configuring these records, and to adjust the TTLs.
 
