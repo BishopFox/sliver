@@ -35,18 +35,12 @@ const DocsIndexPage: NextPage = () => {
 
   const params = useSearchParams();
   const [name, setName] = React.useState("");
-  const [markdown, setMarkdown] = React.useState(
-    name === ""
-      ? docs?.docs[0].content
-      : docs?.docs.find((doc) => doc.name === name)?.content || ""
-  );
+  const [markdown, setMarkdown] = React.useState("");
 
   React.useEffect(() => {
     const _name = params.get("name");
-    if (_name) {
-      setName(_name);
-      setMarkdown(docs?.docs.find((doc) => doc.name === _name)?.content);
-    }
+    setName(_name || "");
+    setMarkdown(docs?.docs.find((doc) => doc.name === _name)?.content || "");
   }, [params, docs]);
 
   const [filterValue, setFilterValue] = React.useState("");
@@ -121,18 +115,26 @@ const DocsIndexPage: NextPage = () => {
         </div>
       </div>
       <div className="col-span-9">
-        <Card className="mt-8 ml-8 mr-8 mb-8">
-          <CardHeader>
-            <span className="text-3xl">{name}</span>
-          </CardHeader>
-          <Divider />
-          <CardBody>
-            <MarkdownViewer
-              key={name || `${Math.random()}`}
-              markdown={markdown || ""}
-            />
-          </CardBody>
-        </Card>
+        {name !== "" ? (
+          <Card className="mt-8 ml-8 mr-8 mb-8">
+            <CardHeader>
+              <span className="text-3xl">{name}</span>
+            </CardHeader>
+            <Divider />
+            <CardBody>
+              <MarkdownViewer
+                key={name || `${Math.random()}`}
+                markdown={markdown || ""}
+              />
+            </CardBody>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-3">
+            <div className="col-span-1"></div>
+            <div className="col-span-1 mt-8 text-2xl">Select a Document</div>
+            <div className="col-span-1"></div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -18,7 +18,7 @@ To compile MacOS shared library implants from Linux, we recommend using https://
 
 An example deployment is shown below, you have to procure the `MacOSX11.1.sdk.tar.xz` yourself due to license restrictions (see the OSXCross GitHub for more details):
 
-````shell
+```shell
 sudo apt-get install -y git curl libssl-dev cmake liblzma-dev libxml2-dev patch clang zlib1g-dev
 git clone https://github.com/tpoechtrager/osxcross.git /opt/osxcross
 curl -o /opt/osxcross/tarballs/MacOSX11.1.sdk.tar.xz 'https://example.com/MacOSX11.1.sdk.tar.xz'
@@ -53,3 +53,4 @@ I'm not aware of any good options to target 32-bit Linux from MacOS. Sliver auto
 
 Good luck.
 ```
+````
