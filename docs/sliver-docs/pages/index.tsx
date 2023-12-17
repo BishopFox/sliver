@@ -59,7 +59,7 @@ export default function Home() {
               console interface, extensive functionality, and support for
               multiple operating systems as well as multiple CPU architectures,
               making it an indispensable tool for conducting comprehensive
-              offensive security assessments.
+              offensive security operations.
             </p>
           </CardBody>
         </Card>
