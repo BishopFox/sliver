@@ -1,5 +1,6 @@
 import AsciinemaPlayer from "@/components/asciinema";
 import { SliversIcon } from "@/components/icons/slivers";
+import TutorialCard from "@/components/tutorial-card";
 import { Themes } from "@/util/themes";
 import { Card, CardBody, CardHeader, Divider } from "@nextui-org/react";
 
@@ -58,11 +59,23 @@ export default function Home() {
       </div>
       <div className="col-span-1"></div>
 
-      {/* <div className="col-span-1"></div>
-      <div className="col-span-10 mt-2">
+      <div className="col-span-1"></div>
+      <div className="col-span-10 mt-8">
         <Divider />
       </div>
-      <div className="col-span-1"></div> */}
+      <div className="col-span-1"></div>
+
+      <div className="col-span-1"></div>
+      <div className="col-span-10 mt-8">
+        <div className="grid grid-cols-8">
+          <div className="col-span-2">
+            <TutorialCard name="foobar" description="baz" showButton={true} />
+          </div>
+        </div>
+      </div>
+      <div className="col-span-1"></div>
+
+      <div className="col-span-12 mb-8"></div>
     </div>
   );
 }
