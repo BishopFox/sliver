@@ -86,7 +86,10 @@ export default function Home() {
               showButton={true}
               buttonText="Read Docs"
               onPress={() => {
-                router.push("/docs?name=Getting%20Started");
+                router.push({
+                  pathname: "/docs",
+                  query: { name: "Getting Started" },
+                });
               }}
             />
           </div>

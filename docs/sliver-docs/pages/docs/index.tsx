@@ -33,28 +33,21 @@ const DocsIndexPage: NextPage = () => {
     },
   });
 
+  const params = useSearchParams();
   const [name, setName] = React.useState("");
-  const urlName = useSearchParams().get("name");
-  React.useEffect(() => {
-    if (urlName) {
-      setName(urlName);
-    }
-  }, [urlName]);
-
   const [markdown, setMarkdown] = React.useState(
     name === ""
       ? docs?.docs[0].content
       : docs?.docs.find((doc) => doc.name === name)?.content || ""
   );
+
   React.useEffect(() => {
-    if (docs && name !== "") {
-      setMarkdown(docs?.docs.find((doc) => doc.name === name)?.content);
+    const _name = params.get("name");
+    if (_name) {
+      setName(_name);
+      setMarkdown(docs?.docs.find((doc) => doc.name === _name)?.content);
     }
-    if (docs && name === "" && docs.docs.length > 0) {
-      setName(docs.docs[0].name);
-      setMarkdown(docs.docs[0].content);
-    }
-  }, [docs, name]);
+  }, [params, docs]);
 
   const [filterValue, setFilterValue] = React.useState("");
   const fuse = React.useMemo(() => {
@@ -113,7 +106,8 @@ const DocsIndexPage: NextPage = () => {
                     key={doc.name}
                     value={doc.name}
                     onClick={() => {
-                      router.push(`/docs`, { query: { name: doc.name } });
+                      setName(doc.name);
+                      setMarkdown(doc.content);
                     }}
                   >
                     {doc.name}
@@ -131,7 +125,10 @@ const DocsIndexPage: NextPage = () => {
           </CardHeader>
           <Divider />
           <CardBody>
-            <MarkdownViewer key={name} markdown={markdown || ""} />
+            <MarkdownViewer
+              key={name || `${Math.random()}`}
+              markdown={markdown || ""}
+            />
           </CardBody>
         </Card>
       </div>

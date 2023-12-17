@@ -112,7 +112,7 @@ export default function TopNavbar(props: TopNavbarProps) {
             startContent={<FontAwesomeIcon icon={faSearch} />}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                router.push(`/search/`, { query: { search: query } });
+                router.push({ pathname: `/search/`, query: { search: query } });
                 setQuery("");
               }
             }}
