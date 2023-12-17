@@ -1,15 +1,23 @@
 import { Button, Card, CardFooter, CardHeader } from "@nextui-org/react";
 import AsciinemaPlayer from "./asciinema";
 
+import { faChevronRight } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import styles from "./TutorialCard.module.css";
 
 export type TutorialCardCardProps = {
   name: string;
   description: string;
 
+  asciiCast: string;
+  rows?: string;
+  cols?: string;
+  idleTimeLimit?: number;
+
   italicDescription?: boolean;
   onPress?: () => void;
   showButton?: boolean;
+  buttonText?: string;
 };
 
 export default function TutorialCard(props: TutorialCardCardProps) {
@@ -23,10 +31,10 @@ export default function TutorialCard(props: TutorialCardCardProps) {
 
       <div className={styles["hide-control-bar"]}>
         <AsciinemaPlayer
-          src="/asciinema/intro.cast"
-          rows="18"
-          cols="75"
-          idleTimeLimit={20}
+          src={props.asciiCast}
+          rows={props.rows ? props.rows : "18"}
+          cols={props.cols ? props.cols : "75"}
+          idleTimeLimit={props.idleTimeLimit ? props.idleTimeLimit : 2}
           preload={true}
           autoPlay={true}
           loop={true}
@@ -47,14 +55,15 @@ export default function TutorialCard(props: TutorialCardCardProps) {
             </p>
           </div>
           {props.showButton ? (
-            <div className="w-full grid justify-items-end">
+            <div className="grid justify-items-end">
               <Button
                 variant="ghost"
                 color="warning"
                 size="sm"
                 onPress={props.onPress}
               >
-                &nbsp;&nbsp;Help&nbsp;&nbsp;
+                {props.buttonText ? props.buttonText : "Read Tutorial"}{" "}
+                <FontAwesomeIcon icon={faChevronRight} />
               </Button>
             </div>
           ) : (

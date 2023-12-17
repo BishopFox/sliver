@@ -3,8 +3,11 @@ import { SliversIcon } from "@/components/icons/slivers";
 import TutorialCard from "@/components/tutorial-card";
 import { Themes } from "@/util/themes";
 import { Card, CardBody, CardHeader, Divider } from "@nextui-org/react";
+import { useRouter } from "next/router";
 
 export default function Home() {
+  const router = useRouter();
+
   function getThemeState(): Themes {
     if (typeof window !== "undefined") {
       const loadedTheme = localStorage.getItem("theme");
@@ -69,7 +72,19 @@ export default function Home() {
       <div className="col-span-10 mt-8">
         <div className="grid grid-cols-8">
           <div className="col-span-2">
-            <TutorialCard name="foobar" description="baz" showButton={true} />
+            <TutorialCard
+              name="Getting Started"
+              description="A quick start guide to get you up and running with Sliver."
+              asciiCast="/asciinema/install-1.cast"
+              cols="133"
+              rows="32"
+              idleTimeLimit={4}
+              showButton={true}
+              buttonText="Read Docs"
+              onPress={() => {
+                router.push("/docs?name=Getting%20Started");
+              }}
+            />
           </div>
         </div>
       </div>
