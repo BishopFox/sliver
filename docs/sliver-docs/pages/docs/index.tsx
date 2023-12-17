@@ -106,8 +106,10 @@ const DocsIndexPage: NextPage = () => {
                     key={doc.name}
                     value={doc.name}
                     onClick={() => {
-                      setName(doc.name);
-                      setMarkdown(doc.content);
+                      router.push({
+                        pathname: "/docs",
+                        query: { name: doc.name },
+                      });
                     }}
                   >
                     {doc.name}
