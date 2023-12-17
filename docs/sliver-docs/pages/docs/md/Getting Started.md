@@ -109,8 +109,8 @@ sliver > regenerate --save /Users/moloch/Desktop NEW_GRAPE
 
 For addition details about each C2 please see:
 
-- [HTTP(S) C2](</docs?name=HTTP(S)-C2>)
-- [DNS C2](/docs?name=DNS-C2)
+- [HTTP(S) C2](/docs?name=HTTPS+C2)
+- [DNS C2](/docs?name=DNS+C2)
 
 ## Getting Shells
 
