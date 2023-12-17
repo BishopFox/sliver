@@ -48,14 +48,18 @@ export default function Home() {
                   : "prose prose-slate"
               }
             >
-              Sliver is a Command and Control (C2) system made for penetration
-              testers, red teams, and blue teams. It generates implants that can
-              run on virtually every architecture out there, and securely manage
-              these connections through a central server. Sliver supports
-              multiple callback protocols including DNS, Mutual TLS (mTLS),
-              WireGuard, and HTTP(S) to make egress simple, even when those
-              pesky blue teams block your domains. You can even have multiple
-              operators (players) simultaneously commanding your sliver army.
+              Sliver is a powerful command and control (C2) framework designed
+              to provide advanced capabilities for covertly managing and
+              controlling remote systems. With Sliver, security professionals,
+              red teams, and penetration testers can easily establish a secure
+              and reliable communication channel over Mutual TLS, HTTP(S), DNS,
+              or Wireguard with target machines, enabling them to execute
+              commands, gather information, and perform various
+              post-exploitation activities. The framework offers a user-friendly
+              console interface, extensive functionality, and support for
+              multiple operating systems as well as multiple CPU architectures,
+              making it an indispensable tool for conducting comprehensive
+              offensive security assessments.
             </p>
           </CardBody>
         </Card>
