@@ -78,7 +78,7 @@ export default function Home() {
               asciiCast="/asciinema/install-1.cast"
               cols="133"
               rows="32"
-              idleTimeLimit={4}
+              idleTimeLimit={1}
               showButton={true}
               buttonText="Read Docs"
               onPress={() => {
