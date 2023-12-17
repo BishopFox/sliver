@@ -1,8 +1,6 @@
-## Server Setup
-
 Download the latest server [release](https://github.com/BishopFox/sliver/releases) for your platform, and just run the binary. That's it, you're pretty much done.
 
-Sliver is designed for a one server deployment per-operation. The server supports Linux, Windows, and MacOS however we strongly recommend running the server on a Linux host (or MacOS, well really anything that isn't Windows), as some features may be more difficult to get working on a Windows server. The Windows client should work just fine when accessing a Linux/MacOS server from Windows, if for some odd reason your operators want to actually use Windows you'll just need to setup [multiplayer mode](/docs?name=Multi-player+Mode).
+Sliver is designed for a one server deployment per-operation. The server supports Linux, Windows, and MacOS however we strongly recommend running the server on a Linux host (or MacOS, well really anything that isn't Windows), as some features may be more difficult to get working on a Windows server. The Windows client should work just fine when accessing a Linux/MacOS server from Windows, so if for some odd reason your operators actually want to use Windows you can still accommodate them using [multiplayer mode](/docs?name=Multi-player+Mode).
 
 Obfuscated builds require `git` to be installed. Additionally, Sliver has two external dependencies for _optional_ features: MinGW and Metasploit. To enable DLL payloads (on a Linux server) you need to install MinGW. To enable some MSF integrations you'll need Metasploit installed on the server.
 
@@ -10,6 +8,12 @@ For a Linux server, you can also use the one liner installation `curl https://sl
 
 ```asciinema
 {"src": "/asciinema/install-1.cast", "cols": "132"}
+```
+
+If you install Sliver via the one liner, you can server service is running using `systemctl status sliver`, note that the Sliver service is not configured to start automatically on boot by default (i.e., if you reboot the server you'll need to start the service again using `systemctrl start sliver`):
+
+```asciinema
+{"src": "/asciinema/service-status-1.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}
 ```
 
 #### System Requirements
