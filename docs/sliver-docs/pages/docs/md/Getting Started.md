@@ -66,13 +66,8 @@ Generating implants is done using the `generate` command, you must specify at le
 
 #### Beacon Mode
 
-```
-[server] sliver > generate beacon --mtls example.com --save /Users/moloch/Desktop
-
-[*] Generating new windows/amd64 beacon implant binary (1m0s)
-[*] Symbol obfuscation is enabled
-[*] Build completed in 00:00:27
-[*] Implant saved to /Users/moloch/Desktop/FINE_SENTENCE.exe
+```asciinema
+{"src": "/asciinema/sliver-generate-2.cast", "cols": "132"}
 ```
 
 Sliver implants are cross-platform, you can change the compiler target with the `--os` flag. Sliver accepts any Golang GOOS and GOARCH as arguments `--os` and `--arch`, we officially only support Windows, MacOS, and Linux, but you can at least attempt to compile for any other [valid Golang GOOS/GOARCH](https://gist.github.com/asukakenji/f15ba7e588ac42795f421b48b8aede63) combination. The `generate info` command will also estimate what compiler targets can be used based on the server's host operating system and available cross-compilers.
