@@ -3,6 +3,14 @@ on:
   pull_request:
     branches:
       - master
+    paths:
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
+      - "**/*.go"
+      - "**/*.c"
+      - "**/*.h"
+      - "**/*.sh"
     types:
       - opened
       - reopened
@@ -16,7 +24,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Go 1.21
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: "^1.21"
 
@@ -50,7 +58,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Go 1.21
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: "^1.21"
 
@@ -81,7 +89,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Go 1.21
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: "^1.21"
 
