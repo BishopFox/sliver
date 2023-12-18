@@ -59,16 +59,20 @@ func setup() *models.ImplantConfig {
 	digest.Write([]byte(peerAgeKeyPair.Public))
 	publicKeyDigest := hex.EncodeToString(digest.Sum(nil))
 
-	implantConfig := &models.ImplantConfig{
+	implantBuild := &models.ImplantBuild{
 		PeerPublicKey:       peerAgeKeyPair.Public,
 		PeerPublicKeyDigest: publicKeyDigest,
 		PeerPrivateKey:      peerAgeKeyPair.Private,
 
 		AgeServerPublicKey: serverAgeKeyPair.Public,
 	}
-	err = db.Session().Create(implantConfig).Error
+	err = db.Session().Create(implantBuild).Error
 	if err != nil {
 		panic(err)
+	}
+
+	implantConfig := &models.ImplantConfig{
+		ImplantBuilds: []models.ImplantBuild{*implantBuild},
 	}
 	return implantConfig
 }

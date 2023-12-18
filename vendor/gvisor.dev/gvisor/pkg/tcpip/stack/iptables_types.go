@@ -103,6 +103,14 @@ type IPTables struct {
 	modified bool
 }
 
+// Modified returns whether iptables has been modified. It is inherently racy
+// and intended for use only in tests.
+func (it *IPTables) Modified() bool {
+	it.mu.Lock()
+	defer it.mu.Unlock()
+	return it.modified
+}
+
 // VisitTargets traverses all the targets of all tables and replaces each with
 // transform(target).
 func (it *IPTables) VisitTargets(transform func(Target) Target) {
@@ -235,6 +243,26 @@ type IPHeaderFilter struct {
 	OutputInterfaceInvert bool
 }
 
+// EmptyFilter4 returns an initialized IPv4 header filter.
+func EmptyFilter4() IPHeaderFilter {
+	return IPHeaderFilter{
+		Dst:     tcpip.AddrFrom4([4]byte{}),
+		DstMask: tcpip.AddrFrom4([4]byte{}),
+		Src:     tcpip.AddrFrom4([4]byte{}),
+		SrcMask: tcpip.AddrFrom4([4]byte{}),
+	}
+}
+
+// EmptyFilter6 returns an initialized IPv6 header filter.
+func EmptyFilter6() IPHeaderFilter {
+	return IPHeaderFilter{
+		Dst:     tcpip.AddrFrom16([16]byte{}),
+		DstMask: tcpip.AddrFrom16([16]byte{}),
+		Src:     tcpip.AddrFrom16([16]byte{}),
+		SrcMask: tcpip.AddrFrom16([16]byte{}),
+	}
+}
+
 // match returns whether pkt matches the filter.
 //
 // Preconditions: pkt.NetworkHeader is set and is at least of the minimal IPv4
@@ -316,10 +344,10 @@ func matchIfName(nicName string, ifName string, invert bool) bool {
 // NetworkProtocol returns the protocol (IPv4 or IPv6) on to which the header
 // applies.
 func (fl IPHeaderFilter) NetworkProtocol() tcpip.NetworkProtocolNumber {
-	switch len(fl.Src) {
-	case header.IPv4AddressSize:
+	switch fl.Src.BitLen() {
+	case header.IPv4AddressSizeBits:
 		return header.IPv4ProtocolNumber
-	case header.IPv6AddressSize:
+	case header.IPv6AddressSizeBits:
 		return header.IPv6ProtocolNumber
 	}
 	panic(fmt.Sprintf("invalid address in IPHeaderFilter: %s", fl.Src))
@@ -328,8 +356,11 @@ func (fl IPHeaderFilter) NetworkProtocol() tcpip.NetworkProtocolNumber {
 // filterAddress returns whether addr matches the filter.
 func filterAddress(addr, mask, filterAddr tcpip.Address, invert bool) bool {
 	matches := true
-	for i := range filterAddr {
-		if addr[i]&mask[i] != filterAddr[i] {
+	addrBytes := addr.AsSlice()
+	maskBytes := mask.AsSlice()
+	filterBytes := filterAddr.AsSlice()
+	for i := range filterAddr.AsSlice() {
+		if addrBytes[i]&maskBytes[i] != filterBytes[i] {
 			matches = false
 			break
 		}

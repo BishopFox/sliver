@@ -124,8 +124,8 @@ type BeaconTask struct {
 	BeaconID    uuid.UUID `gorm:"type:uuid;"`
 	CreatedAt   time.Time `gorm:"->;<-:create;"`
 	State       string
-	SentAt      time.Time
-	CompletedAt time.Time
+	SentAt      int64
+	CompletedAt int64
 	Description string
 	Request     []byte // *sliverpb.Envelope
 	Response    []byte // *sliverpb.Envelope
@@ -152,10 +152,10 @@ func (b *BeaconTask) ToProtobuf(content bool) *clientpb.BeaconTask {
 	task := &clientpb.BeaconTask{
 		ID:          b.ID.String(),
 		BeaconID:    b.BeaconID.String(),
-		CreatedAt:   int64(b.CreatedAt.UTC().Unix()),
+		CreatedAt:   b.CreatedAt.Unix(),
 		State:       b.State,
-		SentAt:      int64(b.SentAt.UTC().Unix()),
-		CompletedAt: int64(b.CompletedAt.UTC().Unix()),
+		SentAt:      b.SentAt,
+		CompletedAt: b.CompletedAt,
 		Description: b.Description,
 	}
 	if content {

@@ -30,7 +30,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/codenames"
-	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
@@ -168,10 +167,10 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 		payload = "meterpreter/reverse_tcp"
 	case clientpb.StageProtocol_HTTP:
 		payload = "custom/reverse_winhttp"
-		uri = generateCallbackURI()
+		uri = generateCallbackURI(req.HTTPC2ConfigName)
 	case clientpb.StageProtocol_HTTPS:
 		payload = "custom/reverse_winhttps"
-		uri = generateCallbackURI()
+		uri = generateCallbackURI(req.HTTPC2ConfigName)
 	default:
 		return MSFStage, errors.New("protocol not supported")
 	}
@@ -208,15 +207,26 @@ func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*c
 }
 
 // Utility functions
-func generateCallbackURI() string {
-	currentHTTPC2Config := configs.GetHTTPC2Config()
-	segments := currentHTTPC2Config.ImplantConfig.StagerPaths
-	fileNames := []string{}
-	for _, fileName := range currentHTTPC2Config.ImplantConfig.StagerFiles {
-		fileNames = append(fileNames, fileName+"."+currentHTTPC2Config.ImplantConfig.StagerFileExt)
+func generateCallbackURI(httpC2ConfigName string) string {
+	httpC2Config, err := db.LoadHTTPC2ConfigByName(httpC2ConfigName)
+	if err != nil {
+		return ""
+	}
+	segments := httpC2Config.ImplantConfig.PathSegments
+	StageFiles := []string{}
+	StagePaths := []string{}
+
+	for _, segment := range segments {
+		if segment.SegmentType == 3 {
+			if segment.IsFile {
+				StageFiles = append(StageFiles, segment.Value)
+			} else {
+				StagePaths = append(StagePaths, segment.Value)
+			}
+		}
 	}
 
-	return path.Join(randomPath(segments, fileNames)...)
+	return path.Join(randomPath(StagePaths, StageFiles)...)
 }
 
 func randomPath(segments []string, filenames []string) []string {

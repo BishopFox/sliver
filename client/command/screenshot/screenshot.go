@@ -21,7 +21,6 @@ package screenshot
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -107,7 +106,7 @@ func PrintScreenshot(screenshot *sliverpb.Screenshot, hostname string, cmd *cobr
 	var err error
 	if saveTo == "" {
 		tmpFileName := filepath.Base(fmt.Sprintf("screenshot_%s_%s_*.png", filepath.Base(hostname), timestamp))
-		saveToFile, err = ioutil.TempFile("", tmpFileName)
+		saveToFile, err = os.CreateTemp("", tmpFileName)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
@@ -138,7 +137,7 @@ func LootScreenshot(screenshot *sliverpb.Screenshot, lootName string, hostName s
 		lootName = screenshotFileName
 	}
 
-	lootMessage := loot.CreateLootMessage(screenshotFileName, lootName, clientpb.FileType_BINARY, screenshot.GetData())
+	lootMessage := loot.CreateLootMessage(con.ActiveTarget.GetHostUUID(), screenshotFileName, lootName, clientpb.FileType_BINARY, screenshot.GetData())
 	loot.SendLootMessage(lootMessage, con)
 }
 

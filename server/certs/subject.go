@@ -25,6 +25,8 @@ import (
 	"strings"
 
 	"github.com/bishopfox/sliver/server/codenames"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var (
@@ -267,8 +269,8 @@ func randomSubject(commonName string) *pkix.Name {
 func randomPostalCode(country []string) []string {
 	// 1 in `n` will include a postal code
 	// From my cursory view of a few TLS certs it seems uncommon to include this
-	// in the distinguished name so right now it's set to 1/5
-	const postalProbability = 5
+	// in the distinguished name so right now it's set to 1/20
+	const postalProbability = 20
 
 	if len(country) == 0 {
 		return []string{}
@@ -367,6 +369,50 @@ var (
 		"limited",
 		"corporation",
 		"company",
+		"GmbH",
+		"AG",
+		"S.A.",
+		"B.V.",
+		"LLP",
+		"Pte Ltd",
+		"Sdn Bhd",
+		"KG",
+		"Limited",
+		"Partnership",
+		"Associates",
+		"Group",
+		"Holdings",
+		"Enterprises",
+		"Industries",
+		"Ventures",
+		"International",
+		"Systems",
+		"Technologies",
+		"Incorporated",
+		"Services",
+		"Solutions",
+		"Enterprises",
+		"Global",
+		"Trading",
+		"Manufacturing",
+		"Development",
+		"Management",
+		"Consulting",
+		"Logistics",
+		"Communications",
+		"Finance",
+		"Electronics",
+		"Pharmaceuticals",
+		"Automotive",
+		"Energy",
+		"Healthcare",
+		"Technology",
+		"Biotech",
+		"Media",
+		"Software",
+		"Hardware",
+		"Entertainment",
+		"Construction",
 	}
 )
 
@@ -374,6 +420,14 @@ func randomOrganization() []string {
 	adjective, _ := codenames.RandomAdjective()
 	noun, _ := codenames.RandomNoun()
 	suffix := orgSuffixes[insecureRand.Intn(len(orgSuffixes))]
+
+	// Not exactly sure this even matters much, but hey its fun to add more randomness
+	caseTitles := []cases.Caser{
+		cases.Title(language.English),
+		cases.Title(language.AmericanEnglish),
+		cases.Title(language.BritishEnglish),
+	}
+	caseTitle := caseTitles[insecureRand.Intn(len(caseTitles))]
 
 	var orgName string
 	switch insecureRand.Intn(8) {
@@ -384,13 +438,13 @@ func randomOrganization() []string {
 	case 2:
 		orgName = strings.TrimSpace(fmt.Sprintf("%s, %s", noun, suffix))
 	case 3:
-		orgName = strings.TrimSpace(strings.Title(fmt.Sprintf("%s %s, %s", adjective, noun, suffix)))
+		orgName = strings.TrimSpace(caseTitle.String(fmt.Sprintf("%s %s, %s", adjective, noun, suffix)))
 	case 4:
-		orgName = strings.TrimSpace(strings.Title(fmt.Sprintf("%s %s", adjective, noun)))
+		orgName = strings.TrimSpace(caseTitle.String(fmt.Sprintf("%s %s", adjective, noun)))
 	case 5:
 		orgName = strings.TrimSpace(strings.ToLower(fmt.Sprintf("%s %s", adjective, noun)))
 	case 6:
-		orgName = strings.TrimSpace(strings.Title(fmt.Sprintf("%s", noun)))
+		orgName = strings.TrimSpace(caseTitle.String(fmt.Sprintf("%s", noun)))
 	case 7:
 		noun2, _ := codenames.RandomNoun()
 		orgName = strings.TrimSpace(strings.ToLower(fmt.Sprintf("%s-%s", noun, noun2)))

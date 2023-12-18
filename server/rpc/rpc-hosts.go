@@ -38,7 +38,7 @@ func (rpc *Server) Hosts(ctx context.Context, _ *commonpb.Empty) (*clientpb.AllH
 	}
 	hosts := []*clientpb.Host{}
 	for _, dbHost := range dbHosts {
-		hosts = append(hosts, dbHost.ToProtobuf())
+		hosts = append(hosts, dbHost)
 	}
 	return &clientpb.AllHosts{Hosts: hosts}, nil
 }
@@ -58,7 +58,7 @@ func (rpc *Server) HostRm(ctx context.Context, req *clientpb.Host) (*commonpb.Em
 	if err != nil {
 		return nil, err
 	}
-	err = db.Session().Delete(dbHost).Error
+	err = db.Session().Delete(*dbHost).Error
 	if err != nil {
 		return nil, err
 	}

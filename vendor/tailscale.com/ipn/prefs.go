@@ -23,6 +23,7 @@ import (
 	"tailscale.com/tailcfg"
 	"tailscale.com/types/persist"
 	"tailscale.com/types/preftype"
+	"tailscale.com/types/views"
 	"tailscale.com/util/dnsname"
 )
 
@@ -111,6 +112,11 @@ type Prefs struct {
 	// policies as configured by the Tailnet's admin(s).
 	RunSSH bool
 
+	// RunWebClient bool is whether this node should run a web client,
+	// permitting access to peers according to the
+	// policies as configured by the Tailnet's admin(s).
+	RunWebClient bool
+
 	// WantRunning indicates whether networking should be active on
 	// this node.
 	WantRunning bool
@@ -195,12 +201,43 @@ type Prefs struct {
 	// and CLI.
 	ProfileName string `json:",omitempty"`
 
+	// AutoUpdate sets the auto-update preferences for the node agent. See
+	// AutoUpdatePrefs docs for more details.
+	AutoUpdate AutoUpdatePrefs
+
+	// AppConnector sets the app connector preferences for the node agent. See
+	// AppConnectorPrefs docs for more details.
+	AppConnector AppConnectorPrefs
+
+	// PostureChecking enables the collection of information used for device
+	// posture checks.
+	PostureChecking bool
+
 	// The Persist field is named 'Config' in the file for backward
 	// compatibility with earlier versions.
 	// TODO(apenwarr): We should move this out of here, it's not a pref.
 	//  We can maybe do that once we're sure which module should persist
 	//  it (backend or frontend?)
 	Persist *persist.Persist `json:"Config"`
+}
+
+// AutoUpdatePrefs are the auto update settings for the node agent.
+type AutoUpdatePrefs struct {
+	// Check specifies whether background checks for updates are enabled. When
+	// enabled, tailscaled will periodically check for available updates and
+	// notify the user about them.
+	Check bool
+	// Apply specifies whether background auto-updates are enabled. When
+	// enabled, tailscaled will apply available updates in the background.
+	// Check must also be set when Apply is set.
+	Apply bool
+}
+
+// AppConnectorPrefs are the app connector settings for the node agent.
+type AppConnectorPrefs struct {
+	// Advertise specifies whether the app connector subsystem is advertising
+	// this node as a connector.
+	Advertise bool
 }
 
 // MaskedPrefs is a Prefs with an associated bitmask of which fields are set.
@@ -215,6 +252,7 @@ type MaskedPrefs struct {
 	ExitNodeAllowLANAccessSet bool `json:",omitempty"`
 	CorpDNSSet                bool `json:",omitempty"`
 	RunSSHSet                 bool `json:",omitempty"`
+	RunWebClientSet           bool `json:",omitempty"`
 	WantRunningSet            bool `json:",omitempty"`
 	LoggedOutSet              bool `json:",omitempty"`
 	ShieldsUpSet              bool `json:",omitempty"`
@@ -228,6 +266,9 @@ type MaskedPrefs struct {
 	NetfilterModeSet          bool `json:",omitempty"`
 	OperatorUserSet           bool `json:",omitempty"`
 	ProfileNameSet            bool `json:",omitempty"`
+	AutoUpdateSet             bool `json:",omitempty"`
+	AppConnectorSet           bool `json:",omitempty"`
+	PostureCheckingSet        bool `json:",omitempty"`
 }
 
 // ApplyEdits mutates p, assigning fields from m.Prefs for each MaskedPrefs
@@ -283,6 +324,12 @@ func (m *MaskedPrefs) Pretty() string {
 			if v.Type().Elem().Kind() == reflect.String {
 				return "%s=%q"
 			}
+		case reflect.Struct:
+			return "%s=%+v"
+		case reflect.Pointer:
+			if v.Type().Elem().Kind() == reflect.Struct {
+				return "%s=%+v"
+			}
 		}
 		return "%s=%v"
 	}
@@ -320,6 +367,9 @@ func (p *Prefs) pretty(goos string) string {
 	fmt.Fprintf(&sb, "dns=%v want=%v ", p.CorpDNS, p.WantRunning)
 	if p.RunSSH {
 		sb.WriteString("ssh=true ")
+	}
+	if p.RunWebClient {
+		sb.WriteString("webclient=true ")
 	}
 	if p.LoggedOut {
 		sb.WriteString("loggedout=true ")
@@ -359,6 +409,8 @@ func (p *Prefs) pretty(goos string) string {
 	if p.OperatorUser != "" {
 		fmt.Fprintf(&sb, "op=%q ", p.OperatorUser)
 	}
+	sb.WriteString(p.AutoUpdate.Pretty())
+	sb.WriteString(p.AppConnector.Pretty())
 	if p.Persist != nil {
 		sb.WriteString(p.Persist.Pretty())
 	} else {
@@ -401,6 +453,7 @@ func (p *Prefs) Equals(p2 *Prefs) bool {
 		p.ExitNodeAllowLANAccess == p2.ExitNodeAllowLANAccess &&
 		p.CorpDNS == p2.CorpDNS &&
 		p.RunSSH == p2.RunSSH &&
+		p.RunWebClient == p2.RunWebClient &&
 		p.WantRunning == p2.WantRunning &&
 		p.LoggedOut == p2.LoggedOut &&
 		p.NotepadURLs == p2.NotepadURLs &&
@@ -413,7 +466,27 @@ func (p *Prefs) Equals(p2 *Prefs) bool {
 		compareIPNets(p.AdvertiseRoutes, p2.AdvertiseRoutes) &&
 		compareStrings(p.AdvertiseTags, p2.AdvertiseTags) &&
 		p.Persist.Equals(p2.Persist) &&
-		p.ProfileName == p2.ProfileName
+		p.ProfileName == p2.ProfileName &&
+		p.AutoUpdate == p2.AutoUpdate &&
+		p.AppConnector == p2.AppConnector &&
+		p.PostureChecking == p2.PostureChecking
+}
+
+func (au AutoUpdatePrefs) Pretty() string {
+	if au.Apply {
+		return "update=on "
+	}
+	if au.Check {
+		return "update=check "
+	}
+	return "update=off "
+}
+
+func (ap AppConnectorPrefs) Pretty() string {
+	if ap.Advertise {
+		return "appconnector=advertise "
+	}
+	return ""
 }
 
 func compareIPNets(a, b []netip.Prefix) bool {
@@ -458,6 +531,10 @@ func NewPrefs() *Prefs {
 		CorpDNS:          true,
 		WantRunning:      false,
 		NetfilterMode:    preftype.NetfilterOn,
+		AutoUpdate: AutoUpdatePrefs{
+			Check: true,
+			Apply: false,
+		},
 	}
 }
 
@@ -506,7 +583,7 @@ func (p *Prefs) AdvertisesExitNode() bool {
 	if p == nil {
 		return false
 	}
-	return tsaddr.ContainsExitRoutes(p.AdvertiseRoutes)
+	return tsaddr.ContainsExitRoutes(views.SliceOf(p.AdvertiseRoutes))
 }
 
 // SetAdvertiseExitNode mutates p (if non-nil) to add or remove the two
@@ -645,24 +722,29 @@ func (p *Prefs) ShouldSSHBeRunning() bool {
 	return p.WantRunning && p.RunSSH
 }
 
+// ShouldWebClientBeRunning reports whether the web client server should be running based on
+// the prefs.
+func (p PrefsView) ShouldWebClientBeRunning() bool {
+	return p.Valid() && p.ж.ShouldWebClientBeRunning()
+}
+
+// ShouldWebClientBeRunning reports whether the web client server should be running based on
+// the prefs.
+func (p *Prefs) ShouldWebClientBeRunning() bool {
+	return p.WantRunning && p.RunWebClient
+}
+
 // PrefsFromBytes deserializes Prefs from a JSON blob.
 func PrefsFromBytes(b []byte) (*Prefs, error) {
 	p := NewPrefs()
 	if len(b) == 0 {
 		return p, nil
 	}
-	persist := &persist.Persist{}
-	err := json.Unmarshal(b, persist)
-	if err == nil && (persist.Provider != "" || persist.LoginName != "") {
-		// old-style relaynode config; import it
-		p.Persist = persist
-	} else {
-		err = json.Unmarshal(b, &p)
-		if err != nil {
-			log.Printf("Prefs parse: %v: %v\n", err, b)
-		}
+
+	if err := json.Unmarshal(b, p); err != nil {
+		return nil, err
 	}
-	return p, err
+	return p, nil
 }
 
 var jsonEscapedZero = []byte(`\u0000`)
@@ -721,6 +803,14 @@ type LoginProfile struct {
 	// Name is the user-visible name of this profile.
 	// It is filled in from the UserProfile.LoginName field.
 	Name string
+
+	// TailnetMagicDNSName is filled with the MagicDNS suffix for this
+	// profile's node (even if MagicDNS isn't necessarily in use).
+	// It will neither start nor end with a period.
+	//
+	// TailnetMagicDNSName is only filled from 2023-09-09 forward,
+	// and will only get backfilled when a profile is the current profile.
+	TailnetMagicDNSName string
 
 	// Key is the StateKey under which the profile is stored.
 	// It is assigned once at profile creation time and never changes.

@@ -1,8 +1,6 @@
-
 <div align="center">
   <br> <h1> Readline </h1>
 </div>
-
 
 <!-- Badges -->
 <p align="center">
@@ -39,13 +37,13 @@
 
 This library is a modern, pure Go `readline` shell implementation, with full `.inputrc` and legacy
 readline command/option support, and extended with various commands, options and tools commonly
-found in modern shells. Its architecture and completion system is heavily inspired from Z-Shell.   
+found in modern shells. Its architecture and completion system is heavily inspired from Z-Shell.
 It is used, between others, to power the [console](https://github.com/reeflective/console) library.
-
 
 ## Features
 
-### Core 
+### Core
+
 - Pure Go, almost-only standard library
 - Cross-platform (Linux / MacOS / Windows)
 - Full `.inputrc` support (all commands/options)
@@ -57,23 +55,26 @@ It is used, between others, to power the [console](https://github.com/reeflectiv
 - Support for an [arbitrary number of history sources](https://github.com/reeflective/readline/wiki/History-Sources)
 
 ### Emacs / Standard
+
 - Native Emacs commands
-- Emacs-style [macro engine](https://github.com/reeflective/readline/wiki/Macros#emacs) (not working accross multiple calls)
+- Emacs-style [macro engine](https://github.com/reeflective/readline/wiki/Macros#emacs) (not working across multiple calls)
 - Keywords [switching](https://github.com/reeflective/readline/wiki/Keymaps-&-Commands#modifying-text) (operators, booleans, hex/binary/digit) with iterations
 - Command/mode cursor status indicator
 - Complete undo/redo history
 - Command status/arg/iterations hint display
 
 ### Vim
+
 - Near-native Vim mode
 - Vim [text objects](https://github.com/reeflective/readline/wiki/Keymaps-&-Commands#text-objects) (code blocks, words/blank/shellwords)
-- Extended surround select/change/add fonctionality, with highlighting
+- Extended surround select/change/add functionality, with highlighting
 - Vim Visual/Operator pending mode & cursor styles indications
 - Vim Insert and Replace (once/many)
 - All Vim registers, with completion support
 - [Vim-style](https://github.com/reeflective/readline/wiki/Macros#vim) macro recording (`q<a>`) and invocation (`@<a>`)
 
 ### Interface
+
 - Support for PS1/PS2/RPROMPT/transient/tooltip [prompts](https://github.com/reeflective/readline/wiki/Prompts) (compatible with [oh-my-posh](https://github.com/JanDeDobbeleer/oh-my-posh))
 - Extended completion system, [keymap-based and configurable](https://github.com/reeflective/readline/wiki/Keymaps-&-Commands#completion), easy to populate & use
 - Multiple completion display styles, with color support.
@@ -82,14 +83,12 @@ It is used, between others, to power the [console](https://github.com/reeflectiv
 - Optional asynchronous autocomplete
 - Builtin & programmable [syntax highlighting](https://github.com/reeflective/readline/wiki/Syntax-Highlighting)
 
-
 ## Documentation
 
-Readline is used by the [console library](https://github.com/reeflective/console) and its [example binary](https://github.com/reeflective/console/tree/main/example). To get a grasp of the 
+Readline is used by the [console library](https://github.com/reeflective/console) and its [example binary](https://github.com/reeflective/console/tree/main/example). To get a grasp of the
 functionality provided by readline and its default configuration, install and start the binary.
 
 The documentation is available on the [repository wiki](https://github.com/reeflective/readline/wiki), for both users and developers.
-
 
 ## Showcases
 
@@ -164,7 +163,6 @@ The documentation is available on the [repository wiki](https://github.com/reefl
 <img src="https://github.com/reeflective/readline/blob/assets/vim-macros.gif"/>
 </details>
 
-
 ## Status
 
 This library is now in a release status, as it has underwent several major rewrites and is now considered mostly
@@ -172,11 +170,11 @@ feature-complete, with a solid testing suite to ensure safe and smooth operation
 New releases will be regularly pushed when bugs are found and corrected.
 
 Additionally:
-- Key dispatch/flushing, meta-key enable, etc might still contain some bugs/wrong behavior: 
+
+- Key dispatch/flushing, meta-key enable, etc might still contain some bugs/wrong behavior:
   30 years of legacy support for 3000 different terminal emulators cannot be done right by me alone.
 - Please open a PR or an issue if you face any bug, and it will be promptly resolved.
 - Don't hesitate proposing a new feature or a PR if you deem it to be useful to most users.
-
 
 ## Credits
 

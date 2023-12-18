@@ -37,7 +37,7 @@ var (
 type macStore int
 
 // openStore is a function for opening a macStore.
-func openStore(location StoreLocation) (macStore, error) {
+func openStore(_ StoreLocation, _ ...StorePermission) (macStore, error) {
 	return macStore(0), nil
 }
 
@@ -308,21 +308,6 @@ func (i *macIdentity) getAlgo(opts crypto.SignerOpts) (algo C.SecKeyAlgorithm, e
 		return
 	}
 
-	if _, ok := opts.(*rsa.PSSOptions); ok {
-		switch hash {
-		case crypto.SHA256:
-			algo = C.kSecKeyAlgorithmRSASignatureDigestPSSSHA256
-		case crypto.SHA384:
-			algo = C.kSecKeyAlgorithmRSASignatureDigestPSSSHA384
-		case crypto.SHA512:
-			algo = C.kSecKeyAlgorithmRSASignatureDigestPSSSHA512
-		default:
-			err = ErrUnsupportedHash
-		}
-
-		return
-	}
-
 	switch crt.PublicKey.(type) {
 	case *ecdsa.PublicKey:
 		switch hash {
@@ -336,6 +321,21 @@ func (i *macIdentity) getAlgo(opts crypto.SignerOpts) (algo C.SecKeyAlgorithm, e
 			err = ErrUnsupportedHash
 		}
 	case *rsa.PublicKey:
+		if _, ok := opts.(*rsa.PSSOptions); ok {
+			switch hash {
+			case crypto.SHA256:
+				algo = C.kSecKeyAlgorithmRSASignatureDigestPSSSHA256
+			case crypto.SHA384:
+				algo = C.kSecKeyAlgorithmRSASignatureDigestPSSSHA384
+			case crypto.SHA512:
+				algo = C.kSecKeyAlgorithmRSASignatureDigestPSSSHA512
+			default:
+				err = ErrUnsupportedHash
+			}
+
+			return
+		}
+
 		switch hash {
 		case crypto.SHA256:
 			algo = C.kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256

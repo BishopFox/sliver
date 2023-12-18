@@ -974,9 +974,65 @@ func SliverCommands(con *client.SliverConsoleClient) console.Commands {
 			carapace.ActionValues().Usage("remote path / file to search in"),
 		)
 
+		headCmd := &cobra.Command{
+			Use:   consts.HeadStr,
+			Short: "Grab the first number of bytes or lines from a file",
+			Long:  help.GetHelpFor([]string{consts.HeadStr}),
+			Args:  cobra.ExactArgs(1),
+			Run: func(cmd *cobra.Command, args []string) {
+				/*
+					The last argument tells head if the user requested the head or tail of the file
+					True means head, false means tail
+				*/
+				filesystem.HeadCmd(cmd, con, args, true)
+			},
+			GroupID: consts.FilesystemHelpGroup,
+		}
+		sliver.AddCommand(headCmd)
+		Flags("", false, headCmd, func(f *pflag.FlagSet) {
+			f.BoolP("colorize-output", "c", false, "colorize output")
+			f.BoolP("hex", "x", false, "display as a hex dump")
+			f.BoolP("loot", "X", false, "save output as loot")
+			f.StringP("name", "n", "", "name to assign loot (optional)")
+			f.StringP("type", "T", "", "force a specific loot type (file/cred) if looting (optional)")
+			f.StringP("file-type", "F", "", "force a specific file type (binary/text) if looting (optional)")
+			f.Int64P("timeout", "t", defaultTimeout, "grpc timeout in seconds")
+			f.Int64P("bytes", "b", 0, "Grab the first number of bytes from the file")
+			f.Int64P("lines", "l", 0, "Grab the first number of lines from the file")
+		})
+		carapace.Gen(headCmd).PositionalCompletion(carapace.ActionValues().Usage("path to the file to print"))
+
+		tailCmd := &cobra.Command{
+			Use:   consts.TailStr,
+			Short: "Grab the last number of bytes or lines from a file",
+			Long:  help.GetHelpFor([]string{consts.TailStr}),
+			Args:  cobra.ExactArgs(1),
+			Run: func(cmd *cobra.Command, args []string) {
+				/*
+					The last argument tells head if the user requested the head or tail of the file
+					True means head, false means tail
+				*/
+				filesystem.HeadCmd(cmd, con, args, false)
+			},
+			GroupID: consts.FilesystemHelpGroup,
+		}
+		sliver.AddCommand(tailCmd)
+		Flags("", false, tailCmd, func(f *pflag.FlagSet) {
+			f.BoolP("colorize-output", "c", false, "colorize output")
+			f.BoolP("hex", "x", false, "display as a hex dump")
+			f.BoolP("loot", "X", false, "save output as loot")
+			f.StringP("name", "n", "", "name to assign loot (optional)")
+			f.StringP("type", "T", "", "force a specific loot type (file/cred) if looting (optional)")
+			f.StringP("file-type", "F", "", "force a specific file type (binary/text) if looting (optional)")
+			f.Int64P("timeout", "t", defaultTimeout, "grpc timeout in seconds")
+			f.Int64P("bytes", "b", 0, "Grab the last number of bytes from the file")
+			f.Int64P("lines", "l", 0, "Grab the last number of lines from the file")
+		})
+		carapace.Gen(tailCmd).PositionalCompletion(carapace.ActionValues().Usage("path to the file to print"))
+
 		uploadCmd := &cobra.Command{
 			Use:   consts.UploadStr,
-			Short: "Upload a file",
+			Short: "Upload a file or directory",
 			Long:  help.GetHelpFor([]string{consts.UploadStr}),
 			Args:  cobra.RangeArgs(1, 2),
 			Run: func(cmd *cobra.Command, args []string) {
@@ -987,6 +1043,9 @@ func SliverCommands(con *client.SliverConsoleClient) console.Commands {
 		sliver.AddCommand(uploadCmd)
 		Flags("", false, uploadCmd, func(f *pflag.FlagSet) {
 			f.BoolP("ioc", "i", false, "track uploaded file as an ioc")
+			f.BoolP("recurse", "r", false, "recursively upload a directory")
+			f.BoolP("overwrite", "o", false, "overwrite files that exist in the destination")
+			f.BoolP("preserve", "p", false, "preserve directory structure when uploading a directory")
 			f.Int64P("timeout", "t", defaultTimeout, "grpc timeout in seconds")
 		})
 		carapace.Gen(uploadCmd).PositionalCompletion(

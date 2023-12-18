@@ -3,7 +3,6 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"gorm.io/gorm"
@@ -78,23 +77,16 @@ func (m Migrator) HasColumn(value interface{}, name string) bool {
 
 func (m Migrator) AlterColumn(value interface{}, name string) error {
 	return m.RunWithoutForeignKey(func() error {
-		return m.recreateTable(value, nil, func(rawDDL string, stmt *gorm.Statement) (sql string, sqlArgs []interface{}, err error) {
+		return m.recreateTable(value, nil, func(ddl *ddl, stmt *gorm.Statement) (*ddl, []interface{}, error) {
 			if field := stmt.Schema.LookUpField(name); field != nil {
-				// lookup field from table definition, ddl might looks like `'name' int,` or `'name' int)`
-				reg, err := regexp.Compile("(`|'|\"| )" + field.DBName + "(`|'|\"| ) .*?(,|\\)\\s*$)")
-				if err != nil {
-					return "", nil, err
+				if ddl.alterColumn(field.DBName, fmt.Sprintf("`%s` ?", field.DBName)) {
+					return nil, nil, fmt.Errorf("field `%s` not found in origin ddl, ddl= '%s'", name, ddl.compile())
 				}
 
-				createSQL := reg.ReplaceAllString(rawDDL, fmt.Sprintf("`%v` ?$3", field.DBName))
-
-				if createSQL == rawDDL {
-					return "", nil, fmt.Errorf("failed to look up field %v from DDL %v", field.DBName, rawDDL)
-				}
-
-				return createSQL, []interface{}{m.FullDataTypeOf(field)}, nil
+				return ddl, []interface{}{m.FullDataTypeOf(field)}, nil
 			}
-			return "", nil, fmt.Errorf("failed to alter field with name %v", name)
+
+			return nil, nil, fmt.Errorf("failed to alter field with name `%s`", name)
 		})
 	})
 }
@@ -149,19 +141,13 @@ func (m Migrator) ColumnTypes(value interface{}) ([]gorm.ColumnType, error) {
 }
 
 func (m Migrator) DropColumn(value interface{}, name string) error {
-	return m.recreateTable(value, nil, func(rawDDL string, stmt *gorm.Statement) (sql string, sqlArgs []interface{}, err error) {
+	return m.recreateTable(value, nil, func(ddl *ddl, stmt *gorm.Statement) (*ddl, []interface{}, error) {
 		if field := stmt.Schema.LookUpField(name); field != nil {
 			name = field.DBName
 		}
 
-		reg, err := regexp.Compile("(`|'|\"| |\\[)" + name + "(`|'|\"| |\\]) .*?,")
-		if err != nil {
-			return "", nil, err
-		}
-
-		createSQL := reg.ReplaceAllString(rawDDL, "")
-
-		return createSQL, nil, nil
+		ddl.removeColumn(name)
+		return ddl, nil, nil
 	})
 }
 
@@ -170,7 +156,7 @@ func (m Migrator) CreateConstraint(value interface{}, name string) error {
 		constraint, chk, table := m.GuessConstraintAndTable(stmt, name)
 
 		return m.recreateTable(value, &table,
-			func(rawDDL string, stmt *gorm.Statement) (sql string, sqlArgs []interface{}, err error) {
+			func(ddl *ddl, stmt *gorm.Statement) (*ddl, []interface{}, error) {
 				var (
 					constraintName   string
 					constraintSql    string
@@ -185,17 +171,11 @@ func (m Migrator) CreateConstraint(value interface{}, name string) error {
 					constraintSql = "CONSTRAINT ? CHECK (?)"
 					constraintValues = []interface{}{clause.Column{Name: chk.Name}, clause.Expr{SQL: chk.Constraint}}
 				} else {
-					return "", nil, nil
+					return nil, nil, nil
 				}
 
-				createDDL, err := parseDDL(rawDDL)
-				if err != nil {
-					return "", nil, err
-				}
-				createDDL.addConstraint(constraintName, constraintSql)
-				createSQL := createDDL.compile()
-
-				return createSQL, constraintValues, nil
+				ddl.addConstraint(constraintName, constraintSql)
+				return ddl, constraintValues, nil
 			})
 	})
 }
@@ -210,15 +190,9 @@ func (m Migrator) DropConstraint(value interface{}, name string) error {
 		}
 
 		return m.recreateTable(value, &table,
-			func(rawDDL string, stmt *gorm.Statement) (sql string, sqlArgs []interface{}, err error) {
-				createDDL, err := parseDDL(rawDDL)
-				if err != nil {
-					return "", nil, err
-				}
-				createDDL.removeConstraint(name)
-				createSQL := createDDL.compile()
-
-				return createSQL, nil, nil
+			func(ddl *ddl, stmt *gorm.Statement) (*ddl, []interface{}, error) {
+				ddl.removeConstraint(name)
+				return ddl, nil, nil
 			})
 	})
 }
@@ -271,28 +245,29 @@ func (m Migrator) BuildIndexOptions(opts []schema.IndexOption, stmt *gorm.Statem
 
 func (m Migrator) CreateIndex(value interface{}, name string) error {
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		if idx := stmt.Schema.LookIndex(name); idx != nil {
-			opts := m.BuildIndexOptions(idx.Fields, stmt)
-			values := []interface{}{clause.Column{Name: idx.Name}, clause.Table{Name: stmt.Table}, opts}
+		if stmt.Schema != nil {
+			if idx := stmt.Schema.LookIndex(name); idx != nil {
+				opts := m.BuildIndexOptions(idx.Fields, stmt)
+				values := []interface{}{clause.Column{Name: idx.Name}, clause.Table{Name: stmt.Table}, opts}
 
-			createIndexSQL := "CREATE "
-			if idx.Class != "" {
-				createIndexSQL += idx.Class + " "
+				createIndexSQL := "CREATE "
+				if idx.Class != "" {
+					createIndexSQL += idx.Class + " "
+				}
+				createIndexSQL += "INDEX ?"
+
+				if idx.Type != "" {
+					createIndexSQL += " USING " + idx.Type
+				}
+				createIndexSQL += " ON ??"
+
+				if idx.Where != "" {
+					createIndexSQL += " WHERE " + idx.Where
+				}
+
+				return m.DB.Exec(createIndexSQL, values...).Error
 			}
-			createIndexSQL += "INDEX ?"
-
-			if idx.Type != "" {
-				createIndexSQL += " USING " + idx.Type
-			}
-			createIndexSQL += " ON ??"
-
-			if idx.Where != "" {
-				createIndexSQL += " WHERE " + idx.Where
-			}
-
-			return m.DB.Exec(createIndexSQL, values...).Error
 		}
-
 		return fmt.Errorf("failed to create index with name %v", name)
 	})
 }
@@ -300,8 +275,10 @@ func (m Migrator) CreateIndex(value interface{}, name string) error {
 func (m Migrator) HasIndex(value interface{}, name string) bool {
 	var count int
 	m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		if idx := stmt.Schema.LookIndex(name); idx != nil {
-			name = idx.Name
+		if stmt.Schema != nil {
+			if idx := stmt.Schema.LookIndex(name); idx != nil {
+				name = idx.Name
+			}
 		}
 
 		if name != "" {
@@ -319,6 +296,9 @@ func (m Migrator) RenameIndex(value interface{}, oldName, newName string) error 
 		var sql string
 		m.DB.Raw("SELECT sql FROM sqlite_master WHERE type = ? AND tbl_name = ? AND name = ?", "index", stmt.Table, oldName).Row().Scan(&sql)
 		if sql != "" {
+			if err := m.DropIndex(value, oldName); err != nil {
+				return err
+			}
 			return m.DB.Exec(strings.Replace(sql, oldName, newName, 1)).Error
 		}
 		return fmt.Errorf("failed to find index with name %v", oldName)
@@ -327,8 +307,10 @@ func (m Migrator) RenameIndex(value interface{}, oldName, newName string) error 
 
 func (m Migrator) DropIndex(value interface{}, name string) error {
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		if idx := stmt.Schema.LookIndex(name); idx != nil {
-			name = idx.Name
+		if stmt.Schema != nil {
+			if idx := stmt.Schema.LookIndex(name); idx != nil {
+				name = idx.Name
+			}
 		}
 
 		return m.DB.Exec("DROP INDEX ?", clause.Column{Name: name}).Error
@@ -367,8 +349,10 @@ func (m Migrator) getRawDDL(table string) (string, error) {
 	return createSQL, nil
 }
 
-func (m Migrator) recreateTable(value interface{}, tablePtr *string,
-	getCreateSQL func(rawDDL string, stmt *gorm.Statement) (sql string, sqlArgs []interface{}, err error)) error {
+func (m Migrator) recreateTable(
+	value interface{}, tablePtr *string,
+	getCreateSQL func(ddl *ddl, stmt *gorm.Statement) (sql *ddl, sqlArgs []interface{}, err error),
+) error {
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		table := stmt.Table
 		if tablePtr != nil {
@@ -380,27 +364,26 @@ func (m Migrator) recreateTable(value interface{}, tablePtr *string,
 			return err
 		}
 
-		newTableName := table + "__temp"
-
-		createSQL, sqlArgs, err := getCreateSQL(rawDDL, stmt)
+		originDDL, err := parseDDL(rawDDL)
 		if err != nil {
 			return err
 		}
-		if createSQL == "" {
+
+		createDDL, sqlArgs, err := getCreateSQL(originDDL.clone(), stmt)
+		if err != nil {
+			return err
+		}
+		if createDDL == nil {
 			return nil
 		}
 
-		tableReg, err := regexp.Compile(" ('|`|\"| )" + table + "('|`|\"| ) ")
-		if err != nil {
+		newTableName := table + "__temp"
+		if err := createDDL.renameTable(newTableName, table); err != nil {
 			return err
 		}
-		createSQL = tableReg.ReplaceAllString(createSQL, fmt.Sprintf(" `%v` ", newTableName))
 
-		createDDL, err := parseDDL(createSQL)
-		if err != nil {
-			return err
-		}
 		columns := createDDL.getColumns()
+		createSQL := createDDL.compile()
 
 		return m.DB.Transaction(func(tx *gorm.DB) error {
 			if err := tx.Exec(createSQL, sqlArgs...).Error; err != nil {

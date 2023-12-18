@@ -3,6 +3,8 @@ package color
 import (
 	"os"
 	"regexp"
+	"strconv"
+	"strings"
 )
 
 // Base text effects.
@@ -82,6 +84,44 @@ func Fmt(color string) string {
 	return SGRStart + color + SGREnd
 }
 
+// Trim accepts a string including arbitrary escaped sequences at arbitrary
+// index positions, and returns the first 'n' printable characters in this
+// string, including all escape codes found between and immediately around
+// those characters (including surrounding 1st and 80th ones).
+func Trim(input string, maxPrintableLength int) string {
+	if len(input) < maxPrintableLength {
+		return input
+	}
+
+	// Find all escape sequences in the input
+	escapeIndices := re.FindAllStringIndex(input, -1)
+
+	// Iterate over escape sequences to find the
+	// last escape index within maxPrintableLength
+	for _, indices := range escapeIndices {
+		if indices[0] <= maxPrintableLength {
+			maxPrintableLength += indices[1] - indices[0]
+		} else {
+			break
+		}
+	}
+
+	// Determine the end index for limiting printable content
+	return input[:maxPrintableLength]
+}
+
+// UnquoteRC removes the `\e` escape used in readline .inputrc
+// configuration values and replaces it with the printable escape.
+func UnquoteRC(color string) string {
+	color = strings.ReplaceAll(color, `\e`, "\x1b")
+
+	if unquoted, err := strconv.Unquote(color); err == nil {
+		return unquoted
+	}
+
+	return color
+}
+
 // HasEffects returns true if colors and effects are supported
 // on the current terminal.
 func HasEffects() bool {
@@ -159,14 +199,3 @@ var re = regexp.MustCompile(ansi)
 func Strip(str string) string {
 	return re.ReplaceAllString(str, "")
 }
-
-// wrong: reapplies fg/bg escapes regardless of the string passed.
-// Users should be in charge of applying any effect as they wish.
-// func SGR(color string, fg bool) string {
-// 	if fg {
-// 		return SGRStart + FgColorStart + color + SGREnd
-// 		// return SGRStart + color + SGREnd
-// 	}
-//
-// 	return SGRStart + BgColorStart + color + SGREnd
-// }

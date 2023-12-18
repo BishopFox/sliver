@@ -18,10 +18,10 @@ package forwarder
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// {{if .Config.WGc2Enabled}}
+// {{if .Config.IncludeWG}}
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 
@@ -61,7 +61,7 @@ func (s *WGSocksServer) LocalAddr() string {
 func (s *WGSocksServer) Start() error {
 	var err error
 	server := socks5.NewServer(
-		socks5.WithLogger(socks5.NewLogger(log.New(ioutil.Discard, "", log.LstdFlags))),
+		socks5.WithLogger(socks5.NewLogger(log.New(io.Discard, "", log.LstdFlags))),
 	)
 	select {
 	case <-s.done:

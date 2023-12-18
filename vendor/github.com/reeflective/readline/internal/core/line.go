@@ -23,7 +23,7 @@ type Tokenizer func(cursorPos int) (split []string, index int, newPos int)
 type Line []rune
 
 // Set replaces the line contents altogether with a new slice of characters.
-// If no charaters are passed, the line is thus made empty.
+// If no characters are passed, the line is thus made empty.
 func (l *Line) Set(chars ...rune) {
 	*l = chars
 }
@@ -33,7 +33,7 @@ func (l *Line) Set(chars ...rune) {
 // length of the line, nothing is inserted.
 func (l *Line) Insert(pos int, chars ...rune) {
 	for {
-		// I don't really understand why `0` is creaping in at the
+		// I don't really understand why `0` is creeping in at the
 		// end of the array but it only happens with unicode characters.
 		if len(chars) > 1 && chars[len(chars)-1] == 0 {
 			chars = chars[:len(chars)-1]

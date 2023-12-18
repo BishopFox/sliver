@@ -21,7 +21,6 @@ package processes
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -112,7 +111,7 @@ func PrintProcessDump(dump *sliverpb.ProcessDump, saveTo string, hostname string
 	var saveToFile *os.File
 	if saveTo == "" {
 		tmpFileName := filepath.Base(fmt.Sprintf("procdump_%s_%d_*", hostname, pid))
-		saveToFile, err = ioutil.TempFile("", tmpFileName)
+		saveToFile, err = os.CreateTemp("", tmpFileName)
 		if err != nil {
 			con.PrintErrorf("Error creating temporary file: %s\n", err)
 			return
@@ -147,6 +146,6 @@ func LootProcessDump(dump *sliverpb.ProcessDump, lootName string, hostName strin
 		lootName = dumpFileName
 	}
 
-	lootMessage := loot.CreateLootMessage(dumpFileName, lootName, clientpb.FileType_BINARY, dump.GetData())
+	lootMessage := loot.CreateLootMessage(con.ActiveTarget.GetHostUUID(), dumpFileName, lootName, clientpb.FileType_BINARY, dump.GetData())
 	loot.SendLootMessage(lootMessage, con)
 }

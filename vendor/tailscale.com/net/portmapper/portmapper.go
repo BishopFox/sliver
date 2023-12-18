@@ -18,12 +18,14 @@ import (
 	"time"
 
 	"go4.org/mem"
+	"tailscale.com/control/controlknobs"
 	"tailscale.com/net/interfaces"
 	"tailscale.com/net/netaddr"
 	"tailscale.com/net/neterror"
 	"tailscale.com/net/netmon"
 	"tailscale.com/net/netns"
 	"tailscale.com/net/sockstats"
+	"tailscale.com/syncs"
 	"tailscale.com/types/logger"
 	"tailscale.com/types/nettype"
 	"tailscale.com/util/clientmetric"
@@ -35,6 +37,11 @@ type DebugKnobs struct {
 	// VerboseLogs tells the Client to print additional debug information
 	// to its logger.
 	VerboseLogs bool
+
+	// LogHTTP tells the Client to print the raw HTTP logs (from UPnP) to
+	// its logger. This is useful when debugging buggy UPnP
+	// implementations.
+	LogHTTP bool
 
 	// Disable* disables a specific service from mapping.
 	DisableUPnP bool
@@ -61,6 +68,7 @@ const trustServiceStillAvailableDuration = 10 * time.Minute
 type Client struct {
 	logf         logger.Logf
 	netMon       *netmon.Monitor // optional; nil means interfaces will be looked up on-demand
+	controlKnobs *controlknobs.Knobs
 	ipAndGateway func() (gw, ip netip.Addr, ok bool)
 	onChange     func() // or nil
 	debug        DebugKnobs
@@ -161,15 +169,19 @@ func (m *pmpMapping) Release(ctx context.Context) {
 // The debug argument allows configuring the behaviour of the portmapper for
 // debugging; if nil, a sensible set of defaults will be used.
 //
-// The optional onChange argument specifies a func to run in a new
-// goroutine whenever the port mapping status has changed. If nil,
-// it doesn't make a callback.
-func NewClient(logf logger.Logf, netMon *netmon.Monitor, debug *DebugKnobs, onChange func()) *Client {
+// The controlKnobs, if non-nil, specifies the control knobs from the control
+// plane that might disable portmapping.
+//
+// The optional onChange argument specifies a func to run in a new goroutine
+// whenever the port mapping status has changed. If nil, it doesn't make a
+// callback.
+func NewClient(logf logger.Logf, netMon *netmon.Monitor, debug *DebugKnobs, controlKnobs *controlknobs.Knobs, onChange func()) *Client {
 	ret := &Client{
 		logf:         logf,
 		netMon:       netMon,
 		ipAndGateway: interfaces.LikelyHomeRouterIP,
 		onChange:     onChange,
+		controlKnobs: controlKnobs,
 	}
 	if debug != nil {
 		ret.debug = *debug
@@ -1013,3 +1025,24 @@ var (
 	// we received a UPnP response with a new meta.
 	metricUPnPUpdatedMeta = clientmetric.NewCounter("portmap_upnp_updated_meta")
 )
+
+// UPnP error metric that's keyed by code; lazily registered on first read
+var (
+	metricUPnPErrorsByCode syncs.Map[int, *clientmetric.Metric]
+)
+
+func getUPnPErrorsMetric(code int) *clientmetric.Metric {
+	mm, _ := metricUPnPErrorsByCode.LoadOrInit(code, func() *clientmetric.Metric {
+		// Metric names cannot contain a hyphen, so we handle negative
+		// numbers by prefixing the name with a "minus_".
+		var codeStr string
+		if code < 0 {
+			codeStr = fmt.Sprintf("portmap_upnp_errors_with_code_minus_%d", -code)
+		} else {
+			codeStr = fmt.Sprintf("portmap_upnp_errors_with_code_%d", code)
+		}
+
+		return clientmetric.NewCounter(codeStr)
+	})
+	return mm
+}

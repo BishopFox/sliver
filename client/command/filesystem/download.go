@@ -51,9 +51,10 @@ func DownloadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("Downloading %s ...", remotePath), ctrl)
 	download, err := con.Rpc.Download(context.Background(), &sliverpb.DownloadReq{
-		Request: con.ActiveTarget.Request(cmd),
-		Path:    remotePath,
-		Recurse: recurse,
+		Request:          con.ActiveTarget.Request(cmd),
+		Path:             remotePath,
+		Recurse:          recurse,
+		RestrictedToFile: false,
 	})
 	ctrl <- true
 	<-ctrl
@@ -119,7 +120,12 @@ func HandleDownloadResponse(download *sliverpb.Download, cmd *cobra.Command, arg
 	}
 
 	remotePath := args[0]
-	localPath := args[1]
+	var localPath string
+	if len(args) == 1 {
+		localPath = "."
+	} else {
+		localPath = args[1]
+	}
 	saveLoot, _ := cmd.Flags().GetBool("loot")
 
 	if download.ReadFiles == 0 {

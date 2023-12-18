@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package channel provides the implemention of channel-based data-link layer
+// Package channel provides the implementation of channel-based data-link layer
 // endpoints. Such endpoints allow injection of inbound packets and store
 // outbound packets in a channel.
 package channel
@@ -63,7 +63,7 @@ func (q *queue) Read() stack.PacketBufferPtr {
 	case p := <-q.c:
 		return p
 	default:
-		return stack.PacketBufferPtr{}
+		return nil
 	}
 }
 
@@ -72,7 +72,7 @@ func (q *queue) ReadContext(ctx context.Context) stack.PacketBufferPtr {
 	case pkt := <-q.c:
 		return pkt
 	case <-ctx.Done():
-		return stack.PacketBufferPtr{}
+		return nil
 	}
 }
 
@@ -288,3 +288,6 @@ func (*Endpoint) ARPHardwareType() header.ARPHardwareType {
 
 // AddHeader implements stack.LinkEndpoint.AddHeader.
 func (*Endpoint) AddHeader(stack.PacketBufferPtr) {}
+
+// ParseHeader implements stack.LinkEndpoint.ParseHeader.
+func (*Endpoint) ParseHeader(stack.PacketBufferPtr) bool { return true }

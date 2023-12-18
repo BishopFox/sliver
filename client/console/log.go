@@ -163,7 +163,7 @@ func (con *SliverConsoleClient) Println(args ...any) {
 	logger := slog.New(con.jsonHandler)
 	format := strings.Repeat("%s", len(args))
 	logger.Info(fmt.Sprintf(format, args))
-	con.printf(format, args...)
+	con.printf(format+"\n", args...)
 }
 
 // PrintInfof prints an info message immediately below the last line of output.

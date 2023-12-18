@@ -41,14 +41,6 @@
   };
 
   outputs = { self, nixpkgs, flake-utils, flake-compat }: let
-    # Grab a helper func out of the Nix language libraries. Annoyingly
-    # these are only accessible through legacyPackages right now,
-    # which forces us to indirect through a platform-specific
-    # path. The x86_64-linux in here doesn't really matter, since all
-    # we're grabbing is a pure Nix string manipulation function that
-    # doesn't build any software.
-    fileContents = nixpkgs.legacyPackages.x86_64-linux.lib.fileContents;
-
     # tailscaleRev is the git commit at which this flake was imported,
     # or the empty string when building from a local checkout of the
     # tailscale repo.
@@ -70,21 +62,33 @@
     # So really, this flake is for tailscale devs to dogfood with, if
     # you're an end user you should be prepared for this flake to not
     # build periodically.
-    tailscale = pkgs: pkgs.buildGo120Module rec {
+    tailscale = pkgs: pkgs.buildGo121Module rec {
       name = "tailscale";
 
       src = ./.;
-      vendorSha256 = fileContents ./go.mod.sri;
-      nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.makeWrapper pkgs.git ];
+      vendorSha256 = pkgs.lib.fileContents ./go.mod.sri;
+      nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.makeWrapper ];
       ldflags = ["-X tailscale.com/version.GitCommit=${tailscaleRev}"];
       CGO_ENABLED = 0;
       subPackages = [ "cmd/tailscale" "cmd/tailscaled" ];
       doCheck = false;
+
+      # NOTE: We strip the ${PORT} and $FLAGS because they are unset in the
+      # environment and cause issues (specifically the unset PORT). At some
+      # point, there should be a NixOS module that allows configuration of these
+      # things, but for now, we hardcode the default of port 41641 (taken from
+      # ./cmd/tailscaled/tailscaled.defaults).
       postInstall = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
         wrapProgram $out/bin/tailscaled --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.iproute2 pkgs.iptables pkgs.getent pkgs.shadow ]}
         wrapProgram $out/bin/tailscale --suffix PATH : ${pkgs.lib.makeBinPath [ pkgs.procps ]}
 
-        sed -i -e "s#/usr/sbin#$out/bin#" -e "/^EnvironmentFile/d" ./cmd/tailscaled/tailscaled.service
+        sed -i \
+          -e "s#/usr/sbin#$out/bin#" \
+          -e "/^EnvironmentFile/d" \
+          -e 's/''${PORT}/41641/' \
+          -e 's/$FLAGS//' \
+          ./cmd/tailscaled/tailscaled.service
+
         install -D -m0444 -t $out/lib/systemd/system ./cmd/tailscaled/tailscaled.service
       '';
     };
@@ -97,6 +101,7 @@
       ts = tailscale pkgs;
     in {
       packages = {
+        default = ts;
         tailscale = ts;
       };
       devShell = pkgs.mkShell {
@@ -107,7 +112,7 @@
           gotools
           graphviz
           perl
-          go_1_20
+          go_1_21
           yarn
         ];
       };
@@ -115,4 +120,4 @@
   in
     flake-utils.lib.eachDefaultSystem (system: flakeForSystem nixpkgs system);
 }
-# nix-direnv cache busting line: sha256-fgCrmtJs1svFz0Xn7iwLNrbBNlcO6V0yqGPMY0+V1VQ=
+# nix-direnv cache busting line: sha256-/kuu7DKPklMZOvYqJpsOp3TeDG9KDEET4U0G+sq+4qY=

@@ -1,6 +1,8 @@
 module github.com/bishopfox/sliver
 
-go 1.20
+go 1.21.1
+
+toolchain go1.21.4
 
 require (
 	filippo.io/age v1.1.1
@@ -15,12 +17,10 @@ require (
 	github.com/tetratelabs/wazero v1.2.0
 	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
 	github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e
-	golang.org/x/crypto v0.4.0
-	golang.org/x/net v0.5.0
-	golang.org/x/sys v0.4.0
-	golang.zx2c4.com/wireguard v0.0.0-20220316235147-5aff28b14c24
-	google.golang.org/protobuf v1.28.2-0.20230118093459-a9481185b34d
-	gvisor.dev/gvisor v0.0.0-20230504175454-7b0a1988a28f
+	golang.org/x/crypto v0.13.0
+	golang.org/x/sys v0.14.0
+	golang.zx2c4.com/wireguard v0.0.0-20231022001213-2e0774f246fb
+	google.golang.org/protobuf v1.31.0
 )
 
 require (
@@ -31,20 +31,22 @@ require (
 	github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
-	github.com/google/btree v1.0.1 // indirect
+	github.com/google/btree v1.1.2 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/jcmturner/gofork v1.0.0 // indirect
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/mod v0.7.0 // indirect
-	golang.org/x/text v0.6.0 // indirect
-	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
-	golang.org/x/tools v0.5.0 // indirect
-	golang.zx2c4.com/wintun v0.0.0-20211104114900-415007cec224 // indirect
+	golang.org/x/mod v0.13.0 // indirect
+	golang.org/x/net v0.15.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/time v0.3.0 // indirect
+	golang.org/x/tools v0.13.0 // indirect
+	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	gopkg.in/jcmturner/aescts.v1 v1.0.1 // indirect
 	gopkg.in/jcmturner/dnsutils.v1 v1.0.1 // indirect
 	gopkg.in/jcmturner/goidentity.v3 v3.0.0 // indirect
 	gopkg.in/jcmturner/gokrb5.v7 v7.5.0 // indirect
 	gopkg.in/jcmturner/rpc.v1 v1.1.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gvisor.dev/gvisor v0.0.0-20230927004350-cbd86285d259 // indirect
 )

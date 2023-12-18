@@ -31,11 +31,11 @@ type ImplantConnection struct {
 	ID               string
 	Send             chan *sliverpb.Envelope
 	RespMutex        *sync.RWMutex
-	LastMessageMutex *sync.RWMutex
 	Resp             map[int64]chan *sliverpb.Envelope
 	Transport        string
 	RemoteAddress    string
 	LastMessage      time.Time
+	LastMessageMutex *sync.RWMutex
 	Cleanup          func()
 }
 

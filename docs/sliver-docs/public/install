@@ -1,0 +1,191 @@
+#!/bin/bash
+set -e
+
+SLIVER_GPG_KEY_ID="4449039C"
+
+if [[ "$EUID" -ne 0 ]];then
+    echo "Please run as root"
+    exit
+fi
+
+# Determine OS type
+# Debian-based OS (Debian, Ubuntu, etc)
+if command -v apt-get &> /dev/null; then
+    echo "Installing dependencies using apt..."
+    DEBIAN_FRONTEND=noninteractive apt-get install -yqq \
+        gpg curl build-essential git \
+        mingw-w64 binutils-mingw-w64 g++-mingw-w64
+    	INSTALLER=(apt-get install -yqq)
+elif command -v yum &> /dev/null; then # Redhat-based OS (Fedora, CentOS, RHEL)
+    echo "Installing dependencies using yum..."
+    yum -y install gnupg curl gcc gcc-c++ make mingw64-gcc git
+	INSTALLER=(yum -y)
+elif command -v pacman &>/dev/null; then # Arch-based (Manjaro, Garuda, Blackarch)
+	echo "Installing dependencies using pacman..."
+	pacman -S mingw-w64-gcc mingw-w64-binutils mingw-w64-headers
+    INSTALLER=(pacman -S)
+else
+    echo "Unsupported OS, exiting"
+    exit
+fi
+
+# Verify if necessary tools are installed
+for cmd in curl awk gpg; do
+    if ! command -v "$cmd" &> /dev/null; then		
+        echo "$cmd could not be found, installing..."
+		${INSTALLER[@]} "$cmd"
+    fi
+done
+
+cd /root || exit
+echo "Running from $(pwd)"
+
+echo "Importing GPG key..."
+gpg --import <<EOF
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+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
+=lxj2
+-----END PGP PUBLIC KEY BLOCK-----
+EOF
+
+# Download and Unpack Sliver Server
+echo "Fetching latest Sliver release URLs..."
+ARTIFACTS=$(curl -s "https://api.github.com/repos/BishopFox/sliver/releases/latest" | awk -F '"' '/browser_download_url/{print $4}')
+SLIVER_SERVER="sliver-server_linux"
+SLIVER_CLIENT="sliver-client_linux"
+
+for URL in $ARTIFACTS
+do
+    if [[ "$URL" == *"$SLIVER_SERVER"* ]]; then
+        echo "Downloading $URL"
+        curl --silent -L "$URL" --output "$(basename "$URL")"
+    fi
+    if [[ "$URL" == *"$SLIVER_CLIENT"* ]]; then
+        echo "Downloading $URL"
+        curl --silent -L "$URL" --output "$(basename "$URL")"
+    fi
+done
+
+# Signature verification
+echo "Verifying signatures ..."
+gpg --default-key "$SLIVER_GPG_KEY_ID" --verify "/root/$SLIVER_SERVER.sig" "/root/$SLIVER_SERVER"
+gpg --default-key "$SLIVER_GPG_KEY_ID" --verify "/root/$SLIVER_CLIENT.sig" "/root/$SLIVER_CLIENT"
+
+if test -f "/root/$SLIVER_SERVER"; then
+    echo "Moving the Sliver server executable to /root/sliver-server..."
+    mv "/root/$SLIVER_SERVER" /root/sliver-server
+
+    echo "Setting permissions for the Sliver server executable..."
+    chmod 755 /root/sliver-server
+
+    echo "Unpacking the Sliver server..."
+    /root/sliver-server unpack --force
+else
+    exit 3
+fi
+
+if test -f "/root/$SLIVER_CLIENT"; then
+    echo "Setting permissions for the Sliver client executable..."
+    chmod 755 "/root/$SLIVER_CLIENT"
+
+    echo "Copying the Sliver client executable to /usr/local/bin/sliver-client..."
+    cp -vv "/root/$SLIVER_CLIENT" /usr/local/bin/sliver-client
+
+    echo "Creating a symbolic link for sliver-client at /usr/local/bin/sliver..."
+    ln -sf /usr/local/bin/sliver-client /usr/local/bin/sliver
+
+    echo "Setting permissions for the symbolic link /usr/local/bin/sliver..."
+    chmod 755 /usr/local/bin/sliver
+else
+    exit 3
+fi
+
+# systemd
+echo "Configuring systemd service ..."
+cat > /etc/systemd/system/sliver.service <<-EOF
+[Unit]
+Description=Sliver
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=3
+User=root
+ExecStart=/root/sliver-server daemon
+
+[Install]
+WantedBy=multi-user.target
+EOF
+chown root:root /etc/systemd/system/sliver.service
+chmod 600 /etc/systemd/system/sliver.service
+echo "Starting the Sliver service..."
+systemctl start sliver # Start the service now
+
+# Generate local configs
+echo "Generating local configs ..."
+
+# Generate local configs
+echo "Generating operator configs ..."
+mkdir -p /root/.sliver-client/configs
+/root/sliver-server operator --name root --lhost localhost --save /root/.sliver-client/configs
+chown -R root:root /root/.sliver-client/
+
+USER_DIRS=(/home/*)
+for USER_DIR in "${USER_DIRS[@]}"; do
+    USER=$(basename "$USER_DIR")
+    if id -u "$USER" >/dev/null 2>&1; then
+        echo "Generating operator configs for user $USER..."
+        mkdir -p "$USER_DIR/.sliver-client/configs"
+        /root/sliver-server operator --name "$USER" --lhost localhost --save "$USER_DIR/.sliver-client/configs"
+        chown -R "$USER":"$(id -gn "$USER")" "$USER_DIR/.sliver-client/"
+    fi
+done

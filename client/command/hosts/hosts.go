@@ -42,6 +42,8 @@ import (
 var (
 	// ErrNoHosts - No hosts in database
 	ErrNoHosts = errors.New("no hosts")
+	// ErrNoIOCs - No IOCs in database
+	ErrNoIOCs = errors.New("no IOCs in database for selected host")
 	// ErrNoSelection - No selection made
 	ErrNoSelection = errors.New("no selection")
 )
