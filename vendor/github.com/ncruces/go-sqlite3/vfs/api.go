@@ -7,7 +7,7 @@ import "net/url"
 //
 // Use sqlite3.ErrorCode or sqlite3.ExtendedErrorCode to return specific error codes to SQLite.
 //
-// https://www.sqlite.org/c3ref/vfs.html
+// https://sqlite.org/c3ref/vfs.html
 type VFS interface {
 	Open(name string, flags OpenFlag) (File, OpenFlag, error)
 	Delete(name string, syncDir bool) error
@@ -15,10 +15,10 @@ type VFS interface {
 	FullPathname(name string) (string, error)
 }
 
-// VFSParams extends VFS to with the ability to handle URI parameters
+// VFSParams extends VFS with the ability to handle URI parameters
 // through the OpenParams method.
 //
-// https://www.sqlite.org/c3ref/uri_boolean.html
+// https://sqlite.org/c3ref/uri_boolean.html
 type VFSParams interface {
 	VFS
 	OpenParams(name string, flags OpenFlag, params url.Values) (File, OpenFlag, error)
@@ -29,7 +29,7 @@ type VFSParams interface {
 // Use sqlite3.ErrorCode or sqlite3.ExtendedErrorCode to return specific error codes to SQLite.
 // In particular, sqlite3.BUSY is necessary to correctly implement lock methods.
 //
-// https://www.sqlite.org/c3ref/io_methods.html
+// https://sqlite.org/c3ref/io_methods.html
 type File interface {
 	Close() error
 	ReadAt(p []byte, off int64) (n int, err error)
@@ -47,7 +47,7 @@ type File interface {
 // FileLockState extends File to implement the
 // SQLITE_FCNTL_LOCKSTATE file control opcode.
 //
-// https://www.sqlite.org/c3ref/c_fcntl_begin_atomic_write.html
+// https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html#sqlitefcntllockstate
 type FileLockState interface {
 	File
 	LockState() LockLevel
@@ -56,7 +56,7 @@ type FileLockState interface {
 // FileSizeHint extends File to implement the
 // SQLITE_FCNTL_SIZE_HINT file control opcode.
 //
-// https://www.sqlite.org/c3ref/c_fcntl_begin_atomic_write.html
+// https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html#sqlitefcntlsizehint
 type FileSizeHint interface {
 	File
 	SizeHint(size int64) error
@@ -65,16 +65,25 @@ type FileSizeHint interface {
 // FileHasMoved extends File to implement the
 // SQLITE_FCNTL_HAS_MOVED file control opcode.
 //
-// https://www.sqlite.org/c3ref/c_fcntl_begin_atomic_write.html
+// https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html#sqlitefcntlhasmoved
 type FileHasMoved interface {
 	File
 	HasMoved() (bool, error)
 }
 
+// FileOverwrite extends File to implement the
+// SQLITE_FCNTL_OVERWRITE file control opcode.
+//
+// https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html#sqlitefcntloverwrite
+type FileOverwrite interface {
+	File
+	Overwrite() error
+}
+
 // FilePowersafeOverwrite extends File to implement the
 // SQLITE_FCNTL_POWERSAFE_OVERWRITE file control opcode.
 //
-// https://www.sqlite.org/c3ref/c_fcntl_begin_atomic_write.html
+// https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html#sqlitefcntlpowersafeoverwrite
 type FilePowersafeOverwrite interface {
 	File
 	PowersafeOverwrite() bool
@@ -84,7 +93,7 @@ type FilePowersafeOverwrite interface {
 // FilePowersafeOverwrite extends File to implement the
 // SQLITE_FCNTL_COMMIT_PHASETWO file control opcode.
 //
-// https://www.sqlite.org/c3ref/c_fcntl_begin_atomic_write.html
+// https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html#sqlitefcntlcommitphasetwo
 type FileCommitPhaseTwo interface {
 	File
 	CommitPhaseTwo() error
@@ -94,7 +103,7 @@ type FileCommitPhaseTwo interface {
 // SQLITE_FCNTL_BEGIN_ATOMIC_WRITE, SQLITE_FCNTL_COMMIT_ATOMIC_WRITE
 // and SQLITE_FCNTL_ROLLBACK_ATOMIC_WRITE file control opcodes.
 //
-// https://www.sqlite.org/c3ref/c_fcntl_begin_atomic_write.html
+// https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html#sqlitefcntlbeginatomicwrite
 type FileBatchAtomicWrite interface {
 	File
 	BeginAtomicWrite() error

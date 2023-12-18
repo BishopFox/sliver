@@ -1,4 +1,4 @@
-//go:build unix || darwin || linux
+//go:build unix
 
 package sysfs
 
@@ -12,6 +12,11 @@ const (
 	nonBlockingFileReadSupported  = true
 	nonBlockingFileWriteSupported = true
 )
+
+func rmdir(path string) sys.Errno {
+	err := syscall.Rmdir(path)
+	return sys.UnwrapOSError(err)
+}
 
 // readFd exposes syscall.Read.
 func readFd(fd uintptr, buf []byte) (int, sys.Errno) {

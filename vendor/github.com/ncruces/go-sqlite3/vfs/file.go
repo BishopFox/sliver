@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"syscall"
-	"time"
 )
 
 type vfsOS struct{}
@@ -124,11 +123,10 @@ func (vfsOS) OpenParams(name string, flags OpenFlag, params url.Values) (File, O
 
 type vfsFile struct {
 	*os.File
-	lockTimeout time.Duration
-	lock        LockLevel
-	psow        bool
-	syncDir     bool
-	readOnly    bool
+	lock     LockLevel
+	psow     bool
+	syncDir  bool
+	readOnly bool
 }
 
 var (

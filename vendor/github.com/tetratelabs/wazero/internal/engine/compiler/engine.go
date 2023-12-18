@@ -48,6 +48,10 @@ type (
 		// as the underlying memory region is accessed by assembly directly by using
 		// codesElement0Address.
 		functions []function
+
+		// Keep a reference to the compiled module to prevent the GC from reclaiming
+		// it while the code may still be needed.
+		module *compiledModule
 	}
 
 	// callEngine holds context per moduleEngine.Call, and shared across all the
@@ -130,11 +134,13 @@ type (
 		// initialFn is the initial function for this call engine.
 		initialFn *function
 
+		// Keep a reference to the compiled module to prevent the GC from reclaiming
+		// it while the code may still be needed.
+		module *compiledModule
+
 		// stackIterator provides a way to iterate over the stack for Listeners.
 		// It is setup and valid only during a call to a Listener hook.
 		stackIterator stackIterator
-
-		ensureTermination bool
 	}
 
 	// moduleContext holds the per-function call specific module information.
@@ -264,10 +270,25 @@ type (
 	}
 
 	compiledModule struct {
-		executable        asm.CodeSegment
-		functions         []compiledFunction
-		source            *wasm.Module
+		// The data that need to be accessed by compiledFunction.parent are
+		// separated in an embedded field because we use finalizers to manage
+		// the lifecycle of compiledModule instances and having cyclic pointers
+		// prevents the Go runtime from calling them, which results in memory
+		// leaks since the memory mapped code segments cannot be released.
+		//
+		// The indirection guarantees that the finalizer set on compiledModule
+		// instances can run when all references are gone, and the Go GC can
+		// manage to reclaim the compiledCode when all compiledFunction objects
+		// referencing it have been freed.
+		*compiledCode
+		functions []compiledFunction
+
 		ensureTermination bool
+	}
+
+	compiledCode struct {
+		source     *wasm.Module
+		executable asm.CodeSegment
 	}
 
 	// compiledFunction corresponds to a function in a module (not instantiated one). This holds the machine code
@@ -282,7 +303,7 @@ type (
 		index           wasm.Index
 		goFunc          interface{}
 		listener        experimental.FunctionListener
-		parent          *compiledModule
+		parent          *compiledCode
 		sourceOffsetMap sourceOffsetMap
 	}
 
@@ -355,13 +376,13 @@ const (
 	functionSize                     = 40
 
 	// Offsets for wasm.ModuleInstance.
-	moduleInstanceGlobalsOffset          = 32
-	moduleInstanceMemoryOffset           = 56
-	moduleInstanceTablesOffset           = 64
-	moduleInstanceEngineOffset           = 88
-	moduleInstanceTypeIDsOffset          = 104
-	moduleInstanceDataInstancesOffset    = 128
-	moduleInstanceElementInstancesOffset = 152
+	moduleInstanceGlobalsOffset          = 24
+	moduleInstanceMemoryOffset           = 48
+	moduleInstanceTablesOffset           = 56
+	moduleInstanceEngineOffset           = 80
+	moduleInstanceTypeIDsOffset          = 96
+	moduleInstanceDataInstancesOffset    = 120
+	moduleInstanceElementInstancesOffset = 144
 
 	// Offsets for wasm.TableInstance.
 	tableInstanceTableOffset    = 0
@@ -496,13 +517,6 @@ func (e *engine) Close() (err error) {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 	// Releasing the references to compiled codes including the memory-mapped machine codes.
-
-	for i := range e.codes {
-		for j := range e.codes[i].functions {
-			e.codes[i].functions[j].parent = nil
-		}
-	}
-
 	e.codes = nil
 	return
 }
@@ -523,9 +537,11 @@ func (e *engine) CompileModule(_ context.Context, module *wasm.Module, listeners
 	var withGoFunc bool
 	localFuncs, importedFuncs := len(module.FunctionSection), module.ImportFunctionCount
 	cm := &compiledModule{
+		compiledCode: &compiledCode{
+			source: module,
+		},
 		functions:         make([]compiledFunction, localFuncs),
 		ensureTermination: ensureTermination,
-		source:            module,
 	}
 
 	if localFuncs == 0 {
@@ -559,7 +575,7 @@ func (e *engine) CompileModule(_ context.Context, module *wasm.Module, listeners
 		funcIndex := wasm.Index(i)
 		compiledFn := &cm.functions[i]
 		compiledFn.executableOffset = executable.Size()
-		compiledFn.parent = cm
+		compiledFn.parent = cm.compiledCode
 		compiledFn.index = importedFuncs + funcIndex
 		if i < ln {
 			compiledFn.listener = listeners[i]
@@ -628,6 +644,8 @@ func (e *engine) NewModuleEngine(module *wasm.Module, instance *wasm.ModuleInsta
 			parent:             c,
 		}
 	}
+
+	me.module = cm
 	return me, nil
 }
 
@@ -638,10 +656,16 @@ func (e *moduleEngine) ResolveImportedFunction(index, indexInImportedModule wasm
 	e.functions[index] = imported.functions[indexInImportedModule]
 }
 
+// ResolveImportedMemory implements wasm.ModuleEngine.
+func (e *moduleEngine) ResolveImportedMemory(wasm.ModuleEngine) {}
+
 // FunctionInstanceReference implements the same method as documented on wasm.ModuleEngine.
 func (e *moduleEngine) FunctionInstanceReference(funcIndex wasm.Index) wasm.Reference {
 	return uintptr(unsafe.Pointer(&e.functions[funcIndex]))
 }
+
+// DoneInstantiation implements wasm.ModuleEngine.
+func (e *moduleEngine) DoneInstantiation() {}
 
 // NewFunction implements wasm.ModuleEngine.
 func (e *moduleEngine) NewFunction(index wasm.Index) api.Function {
@@ -657,24 +681,20 @@ func (e *moduleEngine) newFunction(f *function) api.Function {
 }
 
 // LookupFunction implements the same method as documented on wasm.ModuleEngine.
-func (e *moduleEngine) LookupFunction(t *wasm.TableInstance, typeId wasm.FunctionTypeID, tableOffset wasm.Index) (f api.Function, err error) {
+func (e *moduleEngine) LookupFunction(t *wasm.TableInstance, typeId wasm.FunctionTypeID, tableOffset wasm.Index) (*wasm.ModuleInstance, wasm.Index) {
 	if tableOffset >= uint32(len(t.References)) || t.Type != wasm.RefTypeFuncref {
-		err = wasmruntime.ErrRuntimeInvalidTableAccess
-		return
+		panic(wasmruntime.ErrRuntimeInvalidTableAccess)
 	}
 	rawPtr := t.References[tableOffset]
 	if rawPtr == 0 {
-		err = wasmruntime.ErrRuntimeInvalidTableAccess
-		return
+		panic(wasmruntime.ErrRuntimeInvalidTableAccess)
 	}
 
 	tf := functionFromUintptr(rawPtr)
 	if tf.typeID != typeId {
-		err = wasmruntime.ErrRuntimeIndirectCallTypeMismatch
-		return
+		panic(wasmruntime.ErrRuntimeIndirectCallTypeMismatch)
 	}
-	f = e.newFunction(tf)
-	return
+	return tf.moduleInstance, tf.parent.index
 }
 
 // functionFromUintptr resurrects the original *function from the given uintptr
@@ -720,7 +740,7 @@ func (ce *callEngine) CallWithStack(ctx context.Context, stack []uint64) error {
 
 func (ce *callEngine) call(ctx context.Context, params, results []uint64) (_ []uint64, err error) {
 	m := ce.initialFn.moduleInstance
-	if ce.ensureTermination {
+	if ce.module.ensureTermination {
 		select {
 		case <-ctx.Done():
 			// If the provided context is already done, close the call context
@@ -741,12 +761,14 @@ func (ce *callEngine) call(ctx context.Context, params, results []uint64) (_ []u
 			// If the module closed during the call, and the call didn't err for another reason, set an ExitError.
 			err = m.FailIfClosed()
 		}
+		// Ensure that the compiled module will never be GC'd before this method returns.
+		runtime.KeepAlive(ce.module)
 	}()
 
 	ft := ce.initialFn.funcType
 	ce.initializeStack(ft, params)
 
-	if ce.ensureTermination {
+	if ce.module.ensureTermination {
 		done := m.CloseModuleOnCanceledOrTimeout(ctx)
 		defer done()
 	}
@@ -946,24 +968,24 @@ func newEngine(enabledFeatures api.CoreFeatures, fileCache filecache.Cache) *eng
 //
 // By declaring these values as `var`, slices created via `make([]..., var)`
 // will never be allocated on stack [1]. This means accessing these slices via
-// raw pointers is safe: As of version 1.18, Go's garbage collector never relocates
+// raw pointers is safe: As of version 1.21, Go's garbage collector never relocates
 // heap-allocated objects (aka no compaction of memory [2]).
 //
 // On Go upgrades, re-validate heap-allocation via `go build -gcflags='-m' ./internal/engine/compiler/...`.
 //
-//	[1] https://github.com/golang/go/blob/68ecdc2c70544c303aa923139a5f16caf107d955/src/cmd/compile/internal/escape/utils.go#L206-L208
-//	[2] https://github.com/golang/go/blob/68ecdc2c70544c303aa923139a5f16caf107d955/src/runtime/mgc.go#L9
+//	[1] https://github.com/golang/go/blob/c19c4c566c63818dfd059b352e52c4710eecf14d/src/cmd/compile/internal/escape/utils.go#L213-L215
+//	[2] https://github.com/golang/go/blob/c19c4c566c63818dfd059b352e52c4710eecf14d/src/runtime/mgc.go#L9
 //	[3] https://mayurwadekar2.medium.com/escape-analysis-in-golang-ee40a1c064c1
 //	[4] https://medium.com/@yulang.chu/go-stack-or-heap-2-slices-which-keep-in-stack-have-limitation-of-size-b3f3adfd6190
 var initialStackSize uint64 = 512
 
 func (e *moduleEngine) newCallEngine(stackSize uint64, fn *function) *callEngine {
 	ce := &callEngine{
-		stack:             make([]uint64, stackSize),
-		archContext:       newArchContext(),
-		initialFn:         fn,
-		moduleContext:     moduleContext{fn: fn},
-		ensureTermination: fn.parent.parent.ensureTermination,
+		stack:         make([]uint64, stackSize),
+		archContext:   newArchContext(),
+		initialFn:     fn,
+		moduleContext: moduleContext{fn: fn},
+		module:        e.module,
 	}
 
 	stackHeader := (*reflect.SliceHeader)(unsafe.Pointer(&ce.stack))
