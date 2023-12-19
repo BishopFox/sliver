@@ -92,13 +92,14 @@ func PerformDownload(remotePath string, fileName string, cmd *cobra.Command, con
 	return download, nil
 }
 
-func CreateLootMessage(fileName string, lootName string, lootFileType clientpb.FileType, data []byte) *clientpb.Loot {
+func CreateLootMessage(hostUUID string, fileName string, lootName string, lootFileType clientpb.FileType, data []byte) *clientpb.Loot {
 	if lootName == "" {
 		lootName = fileName
 	}
 	lootMessage := &clientpb.Loot{
-		Name:     lootName,
-		FileType: lootFileType,
+		Name:           lootName,
+		OriginHostUUID: hostUUID,
+		FileType:       lootFileType,
 		File: &commonpb.File{
 			Name: fileName,
 			Data: data,
@@ -141,7 +142,7 @@ func LootDownload(download *sliverpb.Download, lootName string, fileType clientp
 	if !download.IsDir {
 		// filepath.Base does not deal with backslashes correctly in Windows paths, so we have to standardize the path to forward slashes
 		downloadPath := strings.ReplaceAll(download.Path, "\\", "/")
-		lootMessage := CreateLootMessage(filepath.Base(downloadPath), lootName, fileType, download.Data)
+		lootMessage := CreateLootMessage(con.ActiveTarget.GetHostUUID(), filepath.Base(downloadPath), lootName, fileType, download.Data)
 		SendLootMessage(lootMessage, con)
 	} else {
 		// We have to decompress the gzip file first
@@ -190,7 +191,7 @@ func LootDownload(download *sliverpb.Download, lootName string, fileType clientp
 			*/
 			fileData, err := io.ReadAll(tarReader)
 			if err == nil {
-				lootMessage := CreateLootMessage(filepath.Base(entryHeader.Name), lootName, fileType, fileData)
+				lootMessage := CreateLootMessage(con.ActiveTarget.GetHostUUID(), filepath.Base(entryHeader.Name), lootName, fileType, fileData)
 				SendLootMessage(lootMessage, con)
 			}
 		}
@@ -198,7 +199,7 @@ func LootDownload(download *sliverpb.Download, lootName string, fileType clientp
 }
 
 func LootText(text string, lootName string, lootFileName string, fileType clientpb.FileType, con *console.SliverConsoleClient) {
-	lootMessage := CreateLootMessage(lootFileName, lootName, fileType, []byte(text))
+	lootMessage := CreateLootMessage(con.ActiveTarget.GetHostUUID(), lootFileName, lootName, fileType, []byte(text))
 	SendLootMessage(lootMessage, con)
 }
 

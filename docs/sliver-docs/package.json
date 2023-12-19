@@ -15,14 +15,21 @@
     "@fortawesome/react-fontawesome": "^0.2.0",
     "@monaco-editor/react": "^4.6.0",
     "@nextui-org/react": "^2.2.9",
+    "@tanstack/react-query": "^5.13.4",
     "asciinema-player": "^3.6.3",
     "framer-motion": "^10.16.16",
+    "fuse.js": "^7.0.0",
+    "lunr": "^2.3.9",
     "next": "14.0.4",
     "next-themes": "^0.2.1",
-    "react": "^18",
-    "react-dom": "^18"
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0"
   },
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.10",
+    "@types/lunr": "^2.3.7",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

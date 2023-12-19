@@ -10,12 +10,12 @@ fi
 
 # Determine OS type
 # Debian-based OS (Debian, Ubuntu, etc)
-if command -v apt &> /dev/null; then
+if command -v apt-get &> /dev/null; then
     echo "Installing dependencies using apt..."
-    DEBIAN_FRONTEND=noninteractive apt install -yqq \
+    DEBIAN_FRONTEND=noninteractive apt-get install -yqq \
         gpg curl build-essential git \
         mingw-w64 binutils-mingw-w64 g++-mingw-w64
-    	INSTALLER=(apt install -yqq)
+    	INSTALLER=(apt-get install -yqq)
 elif command -v yum &> /dev/null; then # Redhat-based OS (Fedora, CentOS, RHEL)
     echo "Installing dependencies using yum..."
     yum -y install gnupg curl gcc gcc-c++ make mingw64-gcc git

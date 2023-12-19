@@ -62,6 +62,10 @@ func hostIOCsTable(host *clientpb.Host, con *console.SliverConsoleClient) string
 }
 
 func SelectHostIOC(host *clientpb.Host, con *console.SliverConsoleClient) (*clientpb.IOC, error) {
+	if len(host.IOCs) == 0 {
+		return nil, ErrNoIOCs
+	}
+
 	// Sort the keys because maps have a randomized order, these keys must be ordered for the selection
 	// to work properly since we rely on the index of the user's selection to find the session in the map
 	var keys []string
