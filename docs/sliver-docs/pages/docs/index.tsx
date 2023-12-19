@@ -135,7 +135,12 @@ const DocsIndexPage: NextPage = () => {
         ) : (
           <div className="grid grid-cols-3">
             <div className="col-span-1"></div>
-            <div className="col-span-1 mt-8 text-2xl">Select a Document</div>
+            <div className="col-span-1 mt-8 text-2xl text-center">
+              Welcome to the Sliver Wiki!
+              <div className="text-xl text-gray-500">
+                Please select a document
+              </div>
+            </div>
             <div className="col-span-1"></div>
           </div>
         )}
