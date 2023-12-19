@@ -96,11 +96,13 @@ func installPackageByName(name string, clientConfig ArmoryHTTPConfig, con *conso
 			}
 		}
 	}
-	for _, ext := range extensions {
-		if ext.CommandName == name || name == "all" {
-			installExtension(ext, clientConfig, con)
-			if name != "all" {
-				return nil
+	for _, extm := range extensions {
+		for _, ext := range extm.ExtCommand {
+			if ext.CommandName == name || name == "all" {
+				installExtension(ext.Manifest, clientConfig, con)
+				if name != "all" {
+					return nil
+				}
 			}
 		}
 	}
@@ -186,24 +188,26 @@ func installAliasPackageByName(name string, clientConfig ArmoryHTTPConfig, con *
 	return nil
 }
 
-func installExtension(ext *extensions.ExtensionManifest, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) {
+func installExtension(extm *extensions.ExtensionManifest, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) {
 	deps := make(map[string]struct{})
-	resolveExtensionPackageDependencies(ext.CommandName, deps, clientConfig, con)
-	sliverMenu := con.App.Menu(constants.ImplantMenu)
-	for dep := range deps {
-		if extensions.CmdExists(dep, sliverMenu.Command) {
-			continue // Dependency is already installed
+	for _, ext := range extm.ExtCommand {
+		resolveExtensionPackageDependencies(ext.CommandName, deps, clientConfig, con)
+		sliverMenu := con.App.Menu(constants.ImplantMenu).Root()
+		for dep := range deps {
+			if extensions.CmdExists(dep, sliverMenu) {
+				continue // Dependency is already installed
+			}
+			err := installExtensionPackageByName(dep, clientConfig, con)
+			if err != nil {
+				con.PrintErrorf("Failed to install extension dependency '%s': %s", dep, err)
+				return
+			}
 		}
-		err := installExtensionPackageByName(dep, clientConfig, con)
+		err := installExtensionPackageByName(ext.CommandName, clientConfig, con)
 		if err != nil {
-			con.PrintErrorf("Failed to install extension dependency '%s': %s", dep, err)
+			con.PrintErrorf("Failed to install extension '%s': %s", ext.CommandName, err)
 			return
 		}
-	}
-	err := installExtensionPackageByName(ext.CommandName, clientConfig, con)
-	if err != nil {
-		con.PrintErrorf("Failed to install extension '%s': %s", ext.CommandName, err)
-		return
 	}
 }
 
@@ -222,24 +226,25 @@ func resolveExtensionPackageDependencies(name string, deps map[string]struct{}, 
 	if entry == nil {
 		return
 	}
+	for _, multiExt := range entry.Extension.ExtCommand {
+		if multiExt.DependsOn == "" {
+			continue // Avoid adding empty dependency
+		}
 
-	if entry.Extension.DependsOn == "" {
-		return // Avoid adding empty dependency
+		if multiExt.DependsOn == name {
+			continue // Avoid infinite loop of something that depends on itself
+		}
+		// We also need to look out for circular dependencies, so if we've already
+		// seen this dependency, we stop resolving
+		if _, ok := deps[multiExt.DependsOn]; ok {
+			continue // Already resolved
+		}
+		if maxDepDepth < len(deps) {
+			continue
+		}
+		deps[multiExt.DependsOn] = struct{}{}
+		resolveExtensionPackageDependencies(multiExt.DependsOn, deps, clientConfig, con)
 	}
-
-	if entry.Extension.DependsOn == name {
-		return // Avoid infinite loop of something that depends on itself
-	}
-	// We also need to look out for circular dependencies, so if we've already
-	// seen this dependency, we stop resolving
-	if _, ok := deps[entry.Extension.DependsOn]; ok {
-		return // Already resolved
-	}
-	if maxDepDepth < len(deps) {
-		return
-	}
-	deps[entry.Extension.DependsOn] = struct{}{}
-	resolveExtensionPackageDependencies(entry.Extension.DependsOn, deps, clientConfig, con)
 }
 
 func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) error {
@@ -297,20 +302,7 @@ func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, c
 
 	con.Printf(console.Clearln + "\r") // Clear download message
 
-	installPath := extensions.InstallFromFilePath(tmpFile.Name(), true, con)
-	if installPath == nil {
-		return errors.New("failed to install extension")
-	}
-	extCmd, err := extensions.LoadExtensionManifest(filepath.Join(*installPath, extensions.ManifestFileName))
-	if err != nil {
-		return err
-	}
+	extensions.InstallFromDir(tmpFile.Name(), con, true)
 
-	sliverMenu := con.App.Menu(constants.ImplantMenu)
-	//
-	// if extensions.CmdExists(extCmd.Name, sliverMenu.Command) {
-	// 	con.App.Commands().Remove(extCmd.Name)
-	// }
-	extensions.ExtensionRegisterCommand(extCmd, sliverMenu.Command, con)
 	return nil
 }
