@@ -34,6 +34,7 @@ import (
 	"syscall"
 
 	"github.com/bishopfox/sliver/implant/sliver/extension"
+	"github.com/bishopfox/sliver/implant/sliver/mount"
 	"github.com/bishopfox/sliver/implant/sliver/priv"
 	"github.com/bishopfox/sliver/implant/sliver/procdump"
 	"github.com/bishopfox/sliver/implant/sliver/registry"
@@ -86,6 +87,7 @@ var (
 		sliverpb.MsgRegistryDeleteKeyReq:   regDeleteKeyHandler,
 		sliverpb.MsgRegistrySubKeysListReq: regSubKeysListHandler,
 		sliverpb.MsgRegistryListValuesReq:  regValuesListHandler,
+		sliverpb.MsgMountReq:               mountHandler,
 
 		// Generic
 		sliverpb.MsgPing:           pingHandler,
@@ -733,6 +735,28 @@ func getPrivsHandler(data []byte, resp RPCResponse) {
 	}
 
 	data, err = proto.Marshal(getPrivsResp)
+	resp(data, err)
+}
+
+func mountHandler(data []byte, resp RPCResponse) {
+	mountReq := &sliverpb.MountReq{}
+
+	err := proto.Unmarshal(data, mountReq)
+	if err != nil {
+		return
+	}
+
+	mountData, err := mount.GetMountInformation()
+	mountResp := &sliverpb.Mount{
+		Info:     mountData,
+		Response: &commonpb.Response{},
+	}
+
+	if err != nil {
+		mountResp.Response.Err = err.Error()
+	}
+
+	data, err = proto.Marshal(mountResp)
 	resp(data, err)
 }
 

@@ -219,6 +219,7 @@ const (
 	ChmodStr    = "chmod"
 	ChownStr    = "chown"
 	ChtimesStr  = "chtimes"
+	MountStr    = "mount"
 
 	MemfilesStr = "memfiles"
 

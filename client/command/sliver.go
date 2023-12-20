@@ -1084,6 +1084,20 @@ func SliverCommands(con *client.SliverConsoleClient) console.Commands {
 
 		carapace.Gen(memfilesRmCmd).PositionalCompletion(carapace.ActionValues().Usage("memfile file descriptor"))
 
+		mountCmd := &cobra.Command{
+			Use:   consts.MountStr,
+			Short: "Get information on mounted filesystems",
+			Long:  help.GetHelpFor([]string{consts.MountStr}),
+			Run: func(cmd *cobra.Command, args []string) {
+				filesystem.MountCmd(cmd, con, args)
+			},
+			GroupID: consts.FilesystemHelpGroup,
+		}
+		Flags("", false, mountCmd, func(f *pflag.FlagSet) {
+			f.Int64P("timeout", "t", defaultTimeout, "grpc timeout in seconds")
+		})
+		sliver.AddCommand(mountCmd)
+
 		// [ Network ] ---------------------------------------------
 
 		ifconfigCmd := &cobra.Command{
