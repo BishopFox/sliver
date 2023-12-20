@@ -129,3 +129,13 @@ func ExtensionsCommandNameCompleter(con *console.SliverConsoleClient) carapace.A
 		return carapace.ActionValuesDescribed(results...).Tag("extension commands")
 	})
 }
+
+func ManifestCompleter() carapace.Action {
+	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		results := []string{}
+		for k := range loadedManifests {
+			results = append(results, k)
+		}
+		return carapace.ActionValues(results...).Tag("extensions")
+	})
+}

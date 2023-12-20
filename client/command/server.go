@@ -162,22 +162,27 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 		}
 		server.AddCommand(extCmd)
 
-		extLoadCmd := &cobra.Command{
-			Use:   consts.LoadStr + " [EXT]",
-			Short: "Load a command EXT",
-			Long:  help.GetHelpFor([]string{consts.ExtensionsStr, consts.LoadStr}),
-			Args:  cobra.ExactArgs(1),
-			Run: func(cmd *cobra.Command, args []string) {
-				extensions.ExtensionLoadCmd(cmd, con, args)
-			},
-		}
-		carapace.Gen(extLoadCmd).PositionalCompletion(
-			carapace.ActionDirectories().Tag("ext directory").Usage("path to the ext directory"))
-		extCmd.AddCommand(extLoadCmd)
+
+		/*
+			 parking 'load' for now - the difference between 'load' and 'install' is that 'load' should not move binaries and manifests to the client install dir.
+			 Maybe we can revisit this if it's required - but the usecase I can think of is when developing extensions, and that will also occasionally require a manifest update
+			// extLoadCmd := &cobra.Command{
+			// 	Use:   consts.LoadStr + " [EXT]",
+			// 	Short: "Load a command EXT",
+			// 	Long:  help.GetHelpFor([]string{consts.ExtensionsStr, consts.LoadStr}),
+			// 	Args:  cobra.ExactArgs(1),
+			// 	Run: func(cmd *cobra.Command, args []string) {
+			// 		extensions.ExtensionLoadCmd(cmd, con, args)
+			// 	},
+			// }
+			// carapace.Gen(extLoadCmd).PositionalCompletion(
+			// 	carapace.ActionDirectories().Tag("ext directory").Usage("path to the ext directory"))
+			// extCmd.AddCommand(extLoadCmd)
+		*/
 
 		extInstallCmd := &cobra.Command{
-			Use:   consts.InstallStr + " [EXT]",
-			Short: "Install a command ext",
+			Use:   consts.InstallStr + " [filepath]",
+			Short: "Install an extension from a local directory/file.",
 			Long:  help.GetHelpFor([]string{consts.ExtensionsStr, consts.InstallStr}),
 			Args:  cobra.ExactArgs(1),
 			Run: func(cmd *cobra.Command, args []string) {
@@ -188,16 +193,15 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 		extCmd.AddCommand(extInstallCmd)
 
 		extendo := &cobra.Command{
-			Use:   consts.RmStr + " [EXT]",
-			Short: "Remove an ext",
+			Use:   consts.RmStr + " [Name]",
+			Short: "Remove extension. Will remove all commands associated with the installed extension. Does not unload the extension from implants that have already loaded it, but removes the command from the client.",
 			Long:  help.GetHelpFor([]string{consts.RmStr}),
 			Args:  cobra.ExactArgs(1),
 			Run: func(cmd *cobra.Command, args []string) {
-				//alias.AliasesRemoveCmd(cmd, con, args)
 				extensions.ExtensionsRemoveCmd(cmd, con, args)
 			},
 		}
-		carapace.Gen(extendo).PositionalCompletion(carapace.ActionFiles().Tag("ext I guess?"))
+		carapace.Gen(extendo).PositionalCompletion(extensions.ManifestCompleter())
 		extCmd.AddCommand(extendo)
 
 		// [ Armory ] ---------------------------------------------
