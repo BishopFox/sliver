@@ -349,6 +349,9 @@ const (
 	MsgStartServiceByNameReq
 
 	MsgRegistryReadHiveReq
+
+	// MsgMountReq - Request filesystem mounts
+	MsgMountReq
 )
 
 // Constants to replace enums
@@ -594,6 +597,9 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *GrepReq:
 		return MsgGrepReq
+
+	case *MountReq:
+		return MsgMountReq
 
 	case *MemfilesListReq:
 		return MsgMemfilesListReq
