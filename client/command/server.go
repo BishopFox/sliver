@@ -162,6 +162,7 @@ func ServerCommands(con *client.SliverConsoleClient, serverCmds func() []*cobra.
 		}
 		server.AddCommand(extCmd)
 
+
 		/*
 			 parking 'load' for now - the difference between 'load' and 'install' is that 'load' should not move binaries and manifests to the client install dir.
 			 Maybe we can revisit this if it's required - but the usecase I can think of is when developing extensions, and that will also occasionally require a manifest update

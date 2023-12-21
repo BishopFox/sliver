@@ -176,6 +176,7 @@ func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 	loadedManifests[manifest.Name] = manifest
 
 	return manifest, nil
+
 }
 
 func convertOldManifest(old *ExtensionManifest_) *ExtensionManifest {
@@ -487,8 +488,17 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 		entryPoint = loadedExtensions[extName].Entrypoint // should exist at this point
 	} else {
 		// Regular DLL
-		extArgs := strings.Join(args, " ")
-		extensionArgs = []byte(extArgs)
+		// extArgs := strings.Join(args, " ")
+		//legacy case - single string arg
+		if len(ext.Arguments) == 1 && ext.Arguments[0].Type == "string" {
+			extensionArgs = []byte(strings.Join(args, " "))
+		} else {
+			extensionArgs, err = getExtArgs(cmd, args, binPath, ext)
+			if err != nil {
+				con.PrintErrorf("ext args error: %s\n", err)
+				return
+			}
+		}
 		extName = ext.CommandName
 		entryPoint = ext.Entrypoint
 	}
@@ -540,12 +550,8 @@ func PrintExtOutput(extName string, commandName string, callExtension *sliverpb.
 	}
 }
 
-func getBOFArgs(cmd *cobra.Command, args []string, binPath string, ext *ExtCommand) ([]byte, error) {
-	var extensionArgs []byte
-	binData, err := os.ReadFile(binPath)
-	if err != nil {
-		return nil, err
-	}
+func getExtArgs(cmd *cobra.Command, args []string, binPath string, ext *ExtCommand) ([]byte, error) {
+	var err error
 	argsBuffer := core.BOFArgsBuffer{
 		Buffer: new(bytes.Buffer),
 	}
@@ -622,6 +628,17 @@ func getBOFArgs(cmd *cobra.Command, args []string, binPath string, ext *ExtComma
 	if err != nil {
 		return nil, err
 	}
+
+	return parsedArgs, nil
+}
+
+func getBOFArgs(cmd *cobra.Command, args []string, binPath string, ext *ExtCommand) ([]byte, error) {
+	var extensionArgs []byte
+	binData, err := os.ReadFile(binPath)
+	if err != nil {
+		return nil, err
+	}
+
 	// Now build the extension's argument buffer
 	extensionArgsBuffer := core.BOFArgsBuffer{
 		Buffer: new(bytes.Buffer),
@@ -631,6 +648,10 @@ func getBOFArgs(cmd *cobra.Command, args []string, binPath string, ext *ExtComma
 		return nil, err
 	}
 	err = extensionArgsBuffer.AddData(binData)
+	if err != nil {
+		return nil, err
+	}
+	parsedArgs, err := getExtArgs(cmd, args, binPath, ext)
 	if err != nil {
 		return nil, err
 	}
