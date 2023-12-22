@@ -349,9 +349,11 @@ type ImplantC2 struct {
 
 // BeforeCreate - GORM hook
 func (c2 *ImplantC2) BeforeCreate(tx *gorm.DB) (err error) {
-	c2.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
+	if c2.ID == uuid.Nil {
+		c2.ID, err = uuid.NewV4()
+		if err != nil {
+			return err
+		}
 	}
 	c2.CreatedAt = time.Now()
 	return nil
