@@ -47,6 +47,7 @@ func MountCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	os := getOS(session, beacon)
 	if mount.Response != nil && mount.Response.Async {
 		con.AddBeaconCallback(mount.Response.TaskID, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, mount)
@@ -54,12 +55,21 @@ func MountCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			PrintMount(mount, con)
+			PrintMount(os, mount, con)
 		})
 		con.PrintAsyncResponse(mount.Response)
 	} else {
-		PrintMount(mount, con)
+		PrintMount(os, mount, con)
 	}
+}
+
+func getOS(session *clientpb.Session, beacon *clientpb.Beacon) string {
+	if session != nil {
+		return session.OS
+	} else if beacon != nil {
+		return beacon.OS
+	}
+	return ""
 }
 
 func reduceSpaceMetric(numberOfBytes float64) string {
@@ -81,7 +91,7 @@ func reduceSpaceMetric(numberOfBytes float64) string {
 }
 
 // PrintMount - Print a table containing information on mounted filesystems
-func PrintMount(mount *sliverpb.Mount, con *console.SliverConsoleClient) {
+func PrintMount(os string, mount *sliverpb.Mount, con *console.SliverConsoleClient) {
 	if mount.Response != nil && mount.Response.Err != "" {
 		con.PrintErrorf("%s\n", mount.Response.Err)
 		return
@@ -89,19 +99,51 @@ func PrintMount(mount *sliverpb.Mount, con *console.SliverConsoleClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 
-	tw.AppendHeader(table.Row{"Volume", "Volume Type", "Mount Point", "Label", "Filesystem", "Used Space", "Free Space", "Total Space"})
+	switch os {
+	case "windows":
+		tw.AppendHeader(table.Row{"Volume", "Volume Type", "Mount Point", "Label", "Filesystem", "Used Space", "Free Space", "Total Space"})
+	case "darwin":
+		fallthrough
+	case "linux":
+		fallthrough
+	default:
+		tw.AppendHeader(table.Row{"Source", "Mount Point", "Mount Root", "Filesystem Type", "Options", "Total Space"})
+	}
 
 	for _, mountPoint := range mount.Info {
-		tw.AppendRow(table.Row{mountPoint.VolumeName,
-			mountPoint.VolumeType,
-			mountPoint.MountPoint,
-			mountPoint.Label,
-			mountPoint.FileSystem,
-			reduceSpaceMetric(float64(mountPoint.UsedSpace)),
-			reduceSpaceMetric(float64(mountPoint.FreeSpace)),
-			reduceSpaceMetric(float64(mountPoint.TotalSpace)),
-		})
+		row := mountRow(os, mountPoint)
+		tw.AppendRow(row)
 	}
 
 	settings.PaginateTable(tw, 0, false, false, con)
+}
+
+func mountRow(os string, mountInfo *sliverpb.MountInfo) table.Row {
+	var row table.Row
+
+	switch os {
+	case "windows":
+		row = table.Row{mountInfo.VolumeName,
+			mountInfo.VolumeType,
+			mountInfo.MountPoint,
+			mountInfo.Label,
+			mountInfo.FileSystem,
+			reduceSpaceMetric(float64(mountInfo.UsedSpace)),
+			reduceSpaceMetric(float64(mountInfo.FreeSpace)),
+			reduceSpaceMetric(float64(mountInfo.TotalSpace)),
+		}
+	case "darwin":
+		fallthrough
+	case "linux":
+		fallthrough
+	default:
+		row = table.Row{mountInfo.VolumeName,
+			mountInfo.MountPoint,
+			mountInfo.Label,
+			mountInfo.VolumeType,
+			mountInfo.MountOptions,
+			reduceSpaceMetric(float64(mountInfo.TotalSpace)),
+		}
+	}
+	return row
 }

