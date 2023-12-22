@@ -603,6 +603,7 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *MemfilesListReq:
 		return MsgMemfilesListReq
+
 	case *MemfilesAddReq:
 		return MsgMemfilesAddReq
 	case *MemfilesAdd:

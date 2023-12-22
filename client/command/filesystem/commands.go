@@ -230,6 +230,19 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 	carapace.Gen(memfilesRmCmd).PositionalCompletion(carapace.ActionValues().Usage("memfile file descriptor"))
 
+	mountCmd := &cobra.Command{
+		Use:   consts.MountStr,
+		Short: "Get information on mounted filesystems",
+		Long:  help.GetHelpFor([]string{consts.MountStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			MountCmd(cmd, con, args)
+		},
+		GroupID: consts.FilesystemHelpGroup,
+	}
+	flags.Bind("", false, mountCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+
 	grepCmd := &cobra.Command{
 		Use:   consts.GrepStr,
 		Short: "Search for strings that match a regex within a file or directory",
@@ -324,6 +337,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		downloadCmd,
 		uploadCmd,
 		memfilesCmd,
+		mountCmd,
 		grepCmd,
 		headCmd,
 		tailCmd,
