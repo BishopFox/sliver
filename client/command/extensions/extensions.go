@@ -66,25 +66,27 @@ func PrintExtensions(con *console.SliverConsoleClient) {
 
 	installedManifests := getInstalledManifests()
 	for _, extension := range loadedExtensions {
+		//for _, extension := range extensionm.ExtCommand {
 		installed := ""
-		if _, ok := installedManifests[extension.CommandName]; ok {
+		if _, ok := installedManifests[extension.Manifest.Name]; ok {
 			installed = "✅"
 		}
 		tw.AppendRow(table.Row{
-			extension.Name,
+			extension.Manifest.Name,
 			extension.CommandName,
 			strings.Join(extensionPlatforms(extension), ",\n"),
-			extension.Version,
+			extension.Manifest.Version,
 			installed,
-			extension.ExtensionAuthor,
-			extension.OriginalAuthor,
-			extension.RepoURL,
+			extension.Manifest.ExtensionAuthor,
+			extension.Manifest.OriginalAuthor,
+			extension.Manifest.RepoURL,
 		})
+		//}
 	}
 	con.Println(tw.Render())
 }
 
-func extensionPlatforms(extension *ExtensionManifest) []string {
+func extensionPlatforms(extension *ExtCommand) []string {
 	platforms := map[string]string{}
 	for _, entry := range extension.Files {
 		platforms[fmt.Sprintf("%s/%s", entry.OS, entry.Arch)] = ""
@@ -109,7 +111,7 @@ func getInstalledManifests() map[string]*ExtensionManifest {
 		if err != nil {
 			continue
 		}
-		installedManifests[manifest.CommandName] = manifest
+		installedManifests[manifest.Name] = manifest
 	}
 	return installedManifests
 }
@@ -117,13 +119,23 @@ func getInstalledManifests() map[string]*ExtensionManifest {
 // ExtensionsCommandNameCompleter - Completer for installed extensions command names
 func ExtensionsCommandNameCompleter(con *console.SliverConsoleClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
-		installedManifests := getInstalledManifests()
+		//installedManifests := getInstalledManifests()
 		results := []string{}
-		for _, manifest := range installedManifests {
+		for _, manifest := range loadedExtensions {
 			results = append(results, manifest.CommandName)
 			results = append(results, manifest.Help)
 		}
 
 		return carapace.ActionValuesDescribed(results...).Tag("extension commands")
+	})
+}
+
+func ManifestCompleter() carapace.Action {
+	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		results := []string{}
+		for k := range loadedManifests {
+			results = append(results, k)
+		}
+		return carapace.ActionValues(results...).Tag("extensions")
 	})
 }

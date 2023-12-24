@@ -55,9 +55,11 @@ func ArmorySearchCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 		}
 	}
 	matchedExts := []*extensions.ExtensionManifest{}
-	for _, ext := range exts {
-		if nameExpr.MatchString(ext.CommandName) {
-			matchedExts = append(matchedExts, ext)
+	for _, extm := range exts {
+		for _, ext := range extm.ExtCommand {
+			if nameExpr.MatchString(ext.CommandName) {
+				matchedExts = append(matchedExts, extm)
+			}
 		}
 	}
 	if len(matchedAliases) == 0 && len(matchedExts) == 0 {
