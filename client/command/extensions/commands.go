@@ -11,59 +11,53 @@ import (
 
 // Commands returns the “ command and its subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
-	extensionCmd := &cobra.Command{
-		Use:     consts.ExtensionsStr,
-		Short:   "Manage extensions",
-		Long:    help.GetHelpFor([]string{consts.ExtensionsStr}),
-		GroupID: consts.ExecutionHelpGroup,
-		Run: func(cmd *cobra.Command, _ []string) {
+	extCmd := &cobra.Command{
+		Use:   consts.ExtensionsStr,
+		Short: "List current exts",
+		Long:  help.GetHelpFor([]string{consts.ExtensionsStr}),
+		Run: func(cmd *cobra.Command, args []string) {
 			ExtensionsCmd(cmd, con)
 		},
+		GroupID: consts.GenericHelpGroup,
 	}
 
-	extensionCmd.AddCommand(&cobra.Command{
-		Use:   consts.ListStr,
-		Short: "List extensions loaded in the current session or beacon",
-		Long:  help.GetHelpFor([]string{consts.ExtensionsStr, consts.ListStr}),
-		Run: func(cmd *cobra.Command, args []string) {
-			ExtensionsListCmd(cmd, con, args)
-		},
-	})
-
-	extensionLoadCmd := &cobra.Command{
-		Use:   consts.LoadStr,
-		Short: "Temporarily load an extension from a local directory",
+	extLoadCmd := &cobra.Command{
+		Use:   consts.LoadStr + " [EXT]",
+		Short: "Load a command EXT",
 		Long:  help.GetHelpFor([]string{consts.ExtensionsStr, consts.LoadStr}),
+		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ExtensionLoadCmd(cmd, con, args)
 		},
 	}
-	extensionCmd.AddCommand(extensionLoadCmd)
-	carapace.Gen(extensionLoadCmd).PositionalCompletion(carapace.ActionDirectories().Usage("path to the extension directory"))
+	carapace.Gen(extLoadCmd).PositionalCompletion(
+		carapace.ActionDirectories().Tag("ext directory").Usage("path to the ext directory"))
+	extCmd.AddCommand(extLoadCmd)
 
-	extensionInstallCmd := &cobra.Command{
-		Use:   consts.InstallStr,
-		Short: "Install an extension from a local directory or .tar.gz file",
+	extInstallCmd := &cobra.Command{
+		Use:   consts.InstallStr + " [EXT]",
+		Short: "Install a command ext",
 		Long:  help.GetHelpFor([]string{consts.ExtensionsStr, consts.InstallStr}),
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ExtensionsInstallCmd(cmd, con, args)
 		},
 	}
-	extensionCmd.AddCommand(extensionInstallCmd)
-	carapace.Gen(extensionInstallCmd).PositionalCompletion(carapace.ActionFiles().Usage("path to the extension .tar.gz or directory"))
+	carapace.Gen(extInstallCmd).PositionalCompletion(carapace.ActionFiles().Tag("ext file").Usage("path to the extension .tar.gz or directory"))
+	extCmd.AddCommand(extInstallCmd)
 
-	extensionRmCmd := &cobra.Command{
-		Use:   consts.RmStr,
-		Short: "Remove an installed extension",
+	extendo := &cobra.Command{
+		Use:   consts.RmStr + " [EXT]",
+		Short: "Remove an ext",
+		Long:  help.GetHelpFor([]string{consts.RmStr}),
 		Args:  cobra.ExactArgs(1),
-		Long:  help.GetHelpFor([]string{consts.ExtensionsStr, consts.RmStr}),
 		Run: func(cmd *cobra.Command, args []string) {
+			// alias.AliasesRemoveCmd(cmd, con, args)
 			ExtensionsRemoveCmd(cmd, con, args)
 		},
 	}
-	extensionCmd.AddCommand(extensionRmCmd)
-	carapace.Gen(extensionRmCmd).PositionalCompletion(ExtensionsCommandNameCompleter(con).Usage("the command name of the extension to remove"))
+	carapace.Gen(extendo).PositionalCompletion(ExtensionsCommandNameCompleter(con).Usage("the command name of the extension to remove"))
+	extCmd.AddCommand(extendo)
 
-	return []*cobra.Command{extensionCmd}
+	return []*cobra.Command{extCmd}
 }
