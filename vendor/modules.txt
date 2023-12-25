@@ -547,7 +547,7 @@ github.com/pmezard/go-difflib/difflib
 # github.com/psanford/memfs v0.0.0-20230130182539-4dbf7e3e865e
 ## explicit; go 1.16
 github.com/psanford/memfs
-# github.com/reeflective/console v0.1.14
+# github.com/reeflective/console v0.1.15
 ## explicit; go 1.21
 github.com/reeflective/console
 github.com/reeflective/console/commands/readline
@@ -587,7 +587,7 @@ github.com/remyoudompheng/bigfft
 # github.com/rivo/uniseg v0.4.4
 ## explicit; go 1.18
 github.com/rivo/uniseg
-# github.com/rsteube/carapace v0.47.4
+# github.com/rsteube/carapace v0.47.5
 ## explicit; go 1.15
 github.com/rsteube/carapace
 github.com/rsteube/carapace/internal/cache
@@ -763,7 +763,7 @@ go4.org/mem
 # go4.org/netipx v0.0.0-20230824141953-6213f710f925
 ## explicit; go 1.18
 go4.org/netipx
-# golang.org/x/crypto v0.16.0
+# golang.org/x/crypto v0.17.0
 ## explicit; go 1.18
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
@@ -795,7 +795,7 @@ golang.org/x/crypto/scrypt
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
-# golang.org/x/exp v0.0.0-20231214170342-aacd6d4b4611
+# golang.org/x/exp v0.0.0-20231219180239-dc181d75b848
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/maps

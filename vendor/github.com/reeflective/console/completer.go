@@ -10,6 +10,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/rsteube/carapace"
 	"github.com/rsteube/carapace/pkg/style"
 	completer "github.com/rsteube/carapace/pkg/x"
 	"github.com/rsteube/carapace/pkg/xdg"
@@ -19,6 +20,10 @@ import (
 
 func (c *Console) complete(line []rune, pos int) readline.Completions {
 	menu := c.activeMenu()
+
+	// Ensure the carapace library is called so that the function
+	// completer.Complete() variable is correctly initialized before use.
+	carapace.Gen(menu.Command)
 
 	// Split the line as shell words, only using
 	// what the right buffer (up to the cursor)
