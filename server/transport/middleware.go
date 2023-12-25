@@ -38,6 +38,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 )
 
 // bufferingOptions returns a list of server options with max send/receive
@@ -133,10 +134,12 @@ func (ts *teamserver) initAuthMiddleware() ([]grpc.ServerOption, error) {
 	if ts.conn == nil {
 		// All remote connections are users who need authentication.
 		requestOpts = append(requestOpts,
+			// ts.permissionsUnaryServerInterceptor(),
 			grpc_auth.UnaryServerInterceptor(ts.tokenAuthFunc),
 		)
 
 		streamOpts = append(streamOpts,
+			// ts.permissionsStreamServerInterceptor(),
 			grpc_auth.StreamServerInterceptor(ts.tokenAuthFunc),
 		)
 	} else {
@@ -193,6 +196,88 @@ func (ts *teamserver) tokenAuthFunc(ctx context.Context) (context.Context, error
 	newCtx = context.WithValue(newCtx, Operator, user)
 
 	return newCtx, nil
+}
+
+var (
+	// Builder - Allowed methods
+	builderMethods = map[string]bool{
+		"/rpcpb.SliverRPC/GetVersion": true,
+
+		"/rpcpb.SliverRPC/GenerateExternalGetBuildConfig": true,
+		"/rpcpb.SliverRPC/GenerateExternalSaveBuild":      true,
+		"/rpcpb.SliverRPC/BuilderRegister":                true,
+		"/rpcpb.SliverRPC/BuilderTrigger":                 true,
+		"/rpcpb.SliverRPC/Builders":                       true,
+	}
+	// Crackstation - Allowed methods
+	crackstationMethods = map[string]bool{
+		"/rpcpb.SliverRPC/GetVersion": true,
+
+		"/rpcpb.SliverRPC/CrackstationRegister":   true,
+		"/rpcpb.SliverRPC/CrackstationTrigger":    true,
+		"/rpcpb.SliverRPC/CrackstationBenchmark":  true,
+		"/rpcpb.SliverRPC/Crackstations":          true,
+		"/rpcpb.SliverRPC/CrackTaskByID":          true,
+		"/rpcpb.SliverRPC/CrackTaskUpdate":        true,
+		"/rpcpb.SliverRPC/CrackFilesList":         true,
+		"/rpcpb.SliverRPC/CrackFileCreate":        true,
+		"/rpcpb.SliverRPC/CrackFileChunkUpload":   true,
+		"/rpcpb.SliverRPC/CrackFileChunkDownload": true,
+		"/rpcpb.SliverRPC/CrackFileComplete":      true,
+		"/rpcpb.SliverRPC/CrackFileDelete":        true,
+	}
+)
+
+func (ts *teamserver) permissionsUnaryServerInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ interface{}, err error) {
+		log := ts.NamedLogger("transport", "middleware")
+
+		operator := ctx.Value(Operator).(*models.Operator)
+		if operator == nil {
+			return nil, status.Error(codes.Unauthenticated, "Authentication failure")
+		}
+		if operator.PermissionAll {
+			return handler(ctx, req)
+		}
+		if operator.PermissionBuilder {
+			if ok, _ := builderMethods[info.FullMethod]; ok {
+				return handler(ctx, req)
+			}
+		}
+		if operator.PermissionCrackstation {
+			if ok, _ := crackstationMethods[info.FullMethod]; ok {
+				return handler(ctx, req)
+			}
+		}
+		log.Warnf("Permission denied for %s attempting to access %s", operator.Name, info.FullMethod)
+		return nil, status.Error(codes.PermissionDenied, "Token has insufficient permissions")
+	}
+}
+
+func (ts *teamserver) permissionsStreamServerInterceptor() grpc.StreamServerInterceptor {
+	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		log := ts.NamedLogger("transport", "middleware")
+
+		operator := ss.Context().Value(Operator).(*models.Operator)
+		if operator == nil {
+			return status.Error(codes.Unauthenticated, "Authentication failure")
+		}
+		if operator.PermissionAll {
+			return handler(srv, ss)
+		}
+		if operator.PermissionBuilder {
+			if ok, _ := builderMethods[info.FullMethod]; ok {
+				return handler(srv, ss)
+			}
+		}
+		if operator.PermissionCrackstation {
+			if ok, _ := crackstationMethods[info.FullMethod]; ok {
+				return handler(srv, ss)
+			}
+		}
+		log.Warnf("Permission denied for %s attempting to access %s", operator.Name, info.FullMethod)
+		return status.Error(codes.PermissionDenied, "Token has insufficient permissions")
+	}
 }
 
 type auditUnaryLogMsg struct {
