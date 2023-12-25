@@ -192,9 +192,9 @@ func installExtension(extm *extensions.ExtensionManifest, clientConfig ArmoryHTT
 	deps := make(map[string]struct{})
 	for _, ext := range extm.ExtCommand {
 		resolveExtensionPackageDependencies(ext.CommandName, deps, clientConfig, con)
-		sliverMenu := con.App.Menu(constants.ImplantMenu)
+		sliverMenu := con.App.Menu(constants.ImplantMenu).Root()
 		for dep := range deps {
-			if extensions.CmdExists(dep, sliverMenu.Command) {
+			if extensions.CmdExists(dep, sliverMenu) {
 				continue // Dependency is already installed
 			}
 			err := installExtensionPackageByName(dep, clientConfig, con)
