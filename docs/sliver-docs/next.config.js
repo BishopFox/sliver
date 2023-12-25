@@ -5,6 +5,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  experimental: {
+    scrollRestoration: true,
+  },
   webpack: (config, { isServer }) => {
     if (isServer) {
       require('./prebuild/generate-docs');

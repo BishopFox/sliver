@@ -1,5 +1,5 @@
-import CodeViewer, { CodeSchema } from "@/components/code";
-import { frags } from "@/util/frags";
+import MarkdownViewer from "@/components/markdown";
+import { Docs } from "@/util/docs";
 import { Themes } from "@/util/themes";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -11,27 +11,20 @@ import {
   Input,
   Listbox,
   ListboxItem,
+  ScrollShadow,
 } from "@nextui-org/react";
 import { useQuery } from "@tanstack/react-query";
 import Fuse from "fuse.js";
 import { NextPage } from "next";
 import { useTheme } from "next-themes";
-import Image from "next/image";
+import Head from "next/head";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/router";
 import React from "react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-
-type Doc = {
-  name: string;
-  content: string;
-};
-
-type Docs = {
-  docs: Doc[];
-};
 
 const DocsIndexPage: NextPage = () => {
   const { theme } = useTheme();
+  const router = useRouter();
 
   const { data: docs, isLoading } = useQuery({
     queryKey: ["docs"],
@@ -41,25 +34,15 @@ const DocsIndexPage: NextPage = () => {
     },
   });
 
-  const [name, _setName] = React.useState(decodeURI(frags.get("name") || ""));
-  const setName = (name: string) => {
-    frags.set("name", name);
-    _setName(name);
-  };
-  const [markdown, setMarkdown] = React.useState(
-    name === ""
-      ? docs?.docs[0].content
-      : docs?.docs.find((doc) => doc.name === name)?.content || ""
-  );
+  const params = useSearchParams();
+  const [name, setName] = React.useState("");
+  const [markdown, setMarkdown] = React.useState("");
+
   React.useEffect(() => {
-    if (docs && name !== "") {
-      setMarkdown(docs?.docs.find((doc) => doc.name === name)?.content);
-    }
-    if (docs && name === "" && docs.docs.length > 0) {
-      setName(docs.docs[0].name);
-      setMarkdown(docs.docs[0].content);
-    }
-  }, [docs, name]);
+    const _name = params.get("name");
+    setName(_name || "");
+    setMarkdown(docs?.docs.find((doc) => doc.name === _name)?.content || "");
+  }, [params, docs]);
 
   const [filterValue, setFilterValue] = React.useState("");
   const fuse = React.useMemo(() => {
@@ -78,127 +61,89 @@ const DocsIndexPage: NextPage = () => {
     return docs?.docs || [];
   }, [docs, fuse, filterValue]);
 
+  const listboxClasses = React.useMemo(() => {
+    if (theme === Themes.DARK) {
+      return "p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-medium";
+    } else {
+      return "border p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-medium";
+    }
+  }, [theme]);
+
   if (isLoading || !docs) {
     return <div>Loading...</div>;
   }
 
   return (
     <div className="grid grid-cols-12">
-      <div className="col-span-3 mt-4 ml-4">
-        <div className="flex flex-row justify-center text-lg mb-2 gap-2">
+      <Head>
+        <title>Sliver Docs: {name}</title>
+      </Head>
+      <div className="col-span-3 mt-4 ml-4 h-screen sticky top-20">
+        <div className="flex flex-row justify-center text-lg gap-2">
           <Input
-            label="Filter"
-            isClearable={true}
-            onClear={() => setFilterValue("")}
-            placeholder="Type to filter..."
+            placeholder="Filter..."
             startContent={<FontAwesomeIcon icon={faSearch} />}
             value={filterValue}
             onChange={(e) => setFilterValue(e.target.value)}
+            isClearable={true}
+            onClear={() => setFilterValue("")}
           />
         </div>
         <div className="mt-2">
-          <Listbox
-            aria-label="Toolbox Menu"
-            className="p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-medium"
-            itemClasses={{
-              base: "px-3 first:rounded-t-medium last:rounded-b-medium rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
-            }}
-          >
-            {visibleDocs.map((doc) => (
-              <ListboxItem
-                key={doc.name}
-                value={doc.name}
-                onClick={() => {
-                  setName(doc.name);
-                  setMarkdown(doc.content);
+          <ScrollShadow>
+            <div className="max-h-[70vh]">
+              <Listbox
+                aria-label="Toolbox Menu"
+                className={listboxClasses}
+                itemClasses={{
+                  base: "px-3 first:rounded-t-medium last:rounded-b-medium rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
                 }}
               >
-                {doc.name}
-              </ListboxItem>
-            ))}
-          </Listbox>
+                {visibleDocs.map((doc) => (
+                  <ListboxItem
+                    key={doc.name}
+                    value={doc.name}
+                    onClick={() => {
+                      router.push({
+                        pathname: "/docs",
+                        query: { name: doc.name },
+                      });
+                    }}
+                  >
+                    {doc.name}
+                  </ListboxItem>
+                ))}
+              </Listbox>
+            </div>
+          </ScrollShadow>
         </div>
       </div>
       <div className="col-span-9">
-        <Card className="mt-8 ml-8 mr-8 mb-8">
-          <CardHeader>
-            <span className="text-3xl">{name}</span>
-          </CardHeader>
-          <Divider />
-          <CardBody
-            className={
-              theme === Themes.DARK
-                ? "prose prose-sm dark:prose-invert"
-                : "prose prose-sm prose-slate"
-            }
-          >
-            <Markdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                pre(props) {
-                  const { children, className, node, ...rest } = props;
-                  const childClass = (children as any)?.props?.className;
-                  if (
-                    childClass &&
-                    childClass.startsWith("language-") &&
-                    childClass !== "language-plaintext"
-                  ) {
-                    // @ts-ignore
-                    return <div {...rest}>{children}</div>;
-                  }
-                  return (
-                    <pre {...rest} className={className}>
-                      {children}
-                    </pre>
-                  );
-                },
-
-                img(props) {
-                  const { src, alt, ...rest } = props;
-                  return (
-                    // @ts-ignore
-                    <Image
-                      {...rest}
-                      src={src || ""}
-                      alt={alt || ""}
-                      width={500}
-                      height={500}
-                      className="w-full rounded-medium"
-                    />
-                  );
-                },
-
-                code(props) {
-                  const { children, className, node, ...rest } = props;
-                  const langTag = /language-(\w+)/.exec(className || "");
-                  const lang = langTag ? langTag[1] : "plaintext";
-                  if (lang === "plaintext") {
-                    return (
-                      <code {...rest} className={className}>
-                        {children}
-                      </code>
-                    );
-                  }
-                  return (
-                    <CodeViewer
-                      className="min-h-[250px]"
-                      key={`${Math.random()}`}
-                      fontSize={11}
-                      script={
-                        {
-                          script_type: lang,
-                          source_code: (children as string) || "",
-                        } as CodeSchema
-                      }
-                    />
-                  );
-                },
-              }}
-            >
-              {markdown}
-            </Markdown>
-          </CardBody>
-        </Card>
+        {name !== "" ? (
+          <Card className="mt-8 ml-8 mr-8 mb-8">
+            <CardHeader>
+              <span className="text-3xl">{name}</span>
+            </CardHeader>
+            <Divider />
+            <CardBody>
+              <MarkdownViewer
+                key={name || `${Math.random()}`}
+                markdown={markdown || ""}
+              />
+            </CardBody>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-3">
+            <div className="col-span-1"></div>
+            <div className="col-span-1 mt-8 text-2xl text-center">
+              Welcome to the Sliver Wiki!
+              <div className="text-xl text-gray-500">
+                Please select a document
+              </div>
+            </div>
+            <div className="col-span-1"></div>
+          </div>
+        )}
       </div>
     </div>
   );

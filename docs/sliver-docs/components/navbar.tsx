@@ -1,14 +1,25 @@
+"use client";
+
 import { SliversIcon } from "@/components/icons/slivers";
+import { useSearchContext } from "@/util/search-context";
 import { Themes } from "@/util/themes";
-import { faHome, faMoon, faSun } from "@fortawesome/free-solid-svg-icons";
+import { faGithub } from "@fortawesome/free-brands-svg-icons";
+import {
+  faHome,
+  faMoon,
+  faSearch,
+  faSun,
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   Button,
+  Input,
   Link,
   Navbar,
   NavbarBrand,
   NavbarContent,
   NavbarItem,
+  Tooltip,
 } from "@nextui-org/react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/router";
@@ -18,11 +29,14 @@ export type TopNavbarProps = {};
 
 export default function TopNavbar(props: TopNavbarProps) {
   const router = useRouter();
+  const search = useSearchContext();
   const { theme, setTheme } = useTheme();
   const lightDarkModeIcon = React.useMemo(
     () => (theme === Themes.DARK ? faSun : faMoon),
     [theme]
   );
+
+  const [query, setQuery] = React.useState("");
 
   return (
     <Navbar
@@ -88,13 +102,39 @@ export default function TopNavbar(props: TopNavbarProps) {
       </NavbarContent>
 
       <NavbarContent as="div" justify="end">
+        <Tooltip content="Press enter to search" isOpen={query.length > 0}>
+          <Input
+            size="sm"
+            placeholder="Search..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onClear={() => setQuery("")}
+            startContent={<FontAwesomeIcon icon={faSearch} />}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                router.push({ pathname: `/search/`, query: { search: query } });
+                setQuery("");
+              }
+            }}
+          />
+        </Tooltip>
+
         <Button
-          variant="light"
+          variant="ghost"
           onPress={() => {
             setTheme(theme === Themes.DARK ? Themes.LIGHT : Themes.DARK);
           }}
         >
           <FontAwesomeIcon icon={lightDarkModeIcon} />
+        </Button>
+
+        <Button
+          variant="ghost"
+          onPress={() => {
+            window.open("https://github.com/BishopFox/sliver", "_blank");
+          }}
+        >
+          <FontAwesomeIcon icon={faGithub} />
         </Button>
       </NavbarContent>
     </Navbar>
