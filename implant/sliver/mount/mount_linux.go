@@ -30,8 +30,8 @@ func GetMountInformation() ([]*sliverpb.MountInfo, error) {
 		mountRoot := fields[3]
 		mountPoint := fields[4]
 		mountOptions := fields[5]
-		mountType := fields[7]
-		mountSource := fields[8]
+		mountType := fields[len(fields)-3]
+		mountSource := fields[len(fields)-2]
 
 		// Get mount information using statfs
 		var stat syscall.Statfs_t
