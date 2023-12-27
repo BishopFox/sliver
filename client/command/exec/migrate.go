@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -87,6 +88,15 @@ func MigrateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 	if err != nil {
 		con.PrintErrorf("Error: %v", err)
 		return
+	}
+	if migrate.Response != nil && migrate.Response.Async {
+		con.AddBeaconCallback(migrate.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, migrate)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+			}
+		})
+		con.PrintAsyncResponse(migrate.Response)
 	}
 	if !migrate.Success {
 		con.PrintErrorf("%s\n", migrate.GetResponse().GetErr())

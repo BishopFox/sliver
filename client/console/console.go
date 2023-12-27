@@ -565,6 +565,37 @@ func (con *SliverConsoleClient) GetActiveSessionConfig() *clientpb.ImplantConfig
 	return config
 }
 
+func (con *SliverConsoleClient) GetActiveBeaconConfig() *clientpb.ImplantConfig {
+	beacon := con.ActiveTarget.GetBeacon()
+	if beacon == nil {
+		return nil
+	}
+
+	c2s := []*clientpb.ImplantC2{}
+	c2s = append(c2s, &clientpb.ImplantC2{
+		URL:      beacon.ActiveC2,
+		Priority: uint32(0),
+	})
+
+	config := &clientpb.ImplantConfig{
+		ID:                  beacon.ID,
+		GOOS:                beacon.OS,
+		GOARCH:              beacon.Arch,
+		Debug:               true,
+		IsBeacon:            true,
+		BeaconInterval:      beacon.Interval,
+		BeaconJitter:        beacon.Jitter,
+		Evasion:             beacon.Evasion,
+		MaxConnectionErrors: uint32(1000),
+		ReconnectInterval:   int64(60),
+		Format:              clientpb.OutputFormat_SHELLCODE,
+		IsSharedLib:         true,
+		C2:                  c2s,
+	}
+
+	return config
+}
+
 // exitConsole prompts the user for confirmation to exit the console.
 func (c *SliverConsoleClient) exitConsole(_ *console.Console) {
 	reader := bufio.NewReader(os.Stdin)
