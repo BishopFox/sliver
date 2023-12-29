@@ -387,8 +387,8 @@ Shellcode files should be binary encoded, you can generate Sliver shellcode file
 	generate --format shellcode
 `
 
-	migrateHelp = `[[.Bold]]Command:[[.Normal]] migrate <pid>
-[[.Bold]]About:[[.Normal]] (Windows Only) Migrates into the process designated by <pid>.`
+	migrateHelp = `[[.Bold]]Command:[[.Normal]] migrate <flags>
+[[.Bold]]About:[[.Normal]] (Windows Only) Migrates into the process designated by <flags>.`
 
 	websitesHelp = `[[.Bold]]Command:[[.Normal]] websites <options> <operation>
 [[.Bold]]About:[[.Normal]] Add content to HTTP(S) C2 websites to make them look more legit.
