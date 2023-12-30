@@ -28,6 +28,22 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverConsol
 		return data, err
 	}
 	data = generated.GetFile().GetData()
+
+	if profile.Config.Format == clientpb.OutputFormat_SHELLCODE && profile.Config.SGNEnabled {
+		encodeResp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
+			Encoder:      clientpb.ShellcodeEncoder_SHIKATA_GA_NAI,
+			Architecture: profile.Config.GOARCH,
+			Iterations:   1,
+			BadChars:     []byte{},
+			Data:         data,
+		})
+		if err != nil {
+			con.PrintErrorf("Error encoding shellcode")
+			return nil, err
+		}
+		data = encodeResp.Data
+	}
+
 	_, err = con.Rpc.SaveImplantProfile(context.Background(), profile)
 	if err != nil {
 		con.PrintErrorf("Error updating implant profile\n")
