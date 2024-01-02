@@ -1,4 +1,4 @@
-//go:build Linux
+//go:build linux
 
 package extension
 
