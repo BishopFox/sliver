@@ -145,7 +145,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	cmd.Dir = cwd
 	cmd.Env = []string{
 		fmt.Sprintf("CC=%s", config.CC),
-		fmt.Sprintf("CGO_ENABLED=%s", config.CGO),
+		fmt.Sprintf("CGO_ENABLED=%s", "1"), //config.CGO),
 		fmt.Sprintf("GOOS=%s", config.GOOS),
 		fmt.Sprintf("GOARCH=%s", config.GOARCH),
 		fmt.Sprintf("GOPATH=%s", config.ProjectDir),

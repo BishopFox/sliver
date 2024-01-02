@@ -1,3 +1,5 @@
+//go:build darwin
+
 package extension
 
 /*
@@ -19,33 +21,25 @@ package extension
 */
 
 import (
-	"bytes"
-	"runtime"
-	"sync"
-	"unsafe"
-
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
+	"os"
+	"sync"
+	"unsafe"
 
-	"github.com/Binject/universal"
+	"github.com/ebitengine/purego"
 )
 
 type DarwinExtension struct {
 	id          string
 	data        []byte
-	module      *universal.Library
+	module      uintptr
 	arch        string
 	serverStore bool
 	init        string
+	onFinish    func([]byte)
 	sync.Mutex
-}
-
-type extensionArguments struct {
-	inDataSize  uintptr
-	inDataBuff  uintptr
-	outDataSize uintptr
-	outDataBuff uintptr
 }
 
 func NewDarwinExtension(data []byte, id string, arch string, init string) *DarwinExtension {
@@ -66,65 +60,65 @@ func (d *DarwinExtension) GetArch() string {
 }
 
 func (d *DarwinExtension) Load() error {
-	var err error
 	d.Lock()
 	defer d.Unlock()
-	loader, err := universal.NewLoader()
+
+	extTmpFile, err := createTempFile(d.data)
 	if err != nil {
 		return err
 	}
-	d.module, err = loader.LoadLibrary(d.id, &d.data)
+	defer cleanupTempFile(extTmpFile)
+	d.module, err = purego.Dlopen(extTmpFile, purego.RTLD_NOW|purego.RTLD_GLOBAL)
 	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("couldn't purego.dlopen(): %v\n", err)
+		// {{end}}
 		return err
 	}
+
+	// if err := purego.Dlerror(); err != "" {
+	// 	return errors.New(err)
+	// }
+
 	if d.init != "" {
-		if _, errInit := d.module.Call(d.init); errInit != nil {
-			return errInit
-		}
+		var initFunc func()
+		purego.RegisterLibFunc(&initFunc, d.module, d.init)
+		initFunc()
 	}
+
 	return nil
 }
 
 func (d *DarwinExtension) Call(export string, arguments []byte, onFinish func([]byte)) error {
-	// We currently have 2 issues with Darwin extensions:
-	// - cppgo (used by universal) fucks up when calling a function with more than 1 argument
-	// - we don't have Go callback support for the loaded extension,
-	// so we have to wait for the call to finish to get the results
-	// To circumvent these issues, we pass the extensionArguments structure
-	// as the only argument to the call, so we can pass args in and extract
-	// the result at the same time.
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-	extArgs := extensionArguments{}
-	if len(arguments) > 0 {
-		extArgs.inDataBuff = uintptr(unsafe.Pointer(&arguments[0]))
-		extArgs.inDataSize = uintptr(uint64(len(arguments)))
-	}
-	// {{if .Config.Debug}}
-	log.Printf("Calling %s, arg size: %d\n", export, extArgs.inDataSize)
-	// {{end}}
 	d.Lock()
 	defer d.Unlock()
-	_, err := d.module.Call(export, uintptr(unsafe.Pointer(&extArgs)))
-	if err != nil {
-		return err
-	}
-	// {{if .Config.Debug}}
-	log.Printf("%s done!\n", export)
-	// {{end}}
-	outData := new(bytes.Buffer)
-	outDataSize := int(extArgs.outDataSize)
-	// {{if .Config.Debug}}
-	log.Printf("Out data size: %d\n", outDataSize)
-	// {{end}}
-	for i := 0; i < outDataSize; i++ {
-		b := (*byte)(unsafe.Pointer(uintptr(i) + extArgs.outDataBuff))
-		outData.WriteByte(*b)
-	}
-	// We currently don't have a way to trigger a callback
-	// in the loaded code for Darwin.
-	if outData.Len() > 0 {
-		onFinish(outData.Bytes())
-	}
+	d.onFinish = onFinish
+	outCallback := purego.NewCallback(d.extensionCallback)
+	var exportFunc func([]byte, uint64, uintptr) uint32
+	purego.RegisterLibFunc(&exportFunc, d.module, export)
+	exportFunc(arguments, uint64(len(arguments)), outCallback)
 	return nil
+}
+
+func (d *DarwinExtension) extensionCallback(data uintptr, length uintptr) {
+	outDataSize := int(length)
+	outBytes := unsafe.Slice((*byte)(unsafe.Pointer(data)), outDataSize)
+	d.onFinish(outBytes)
+}
+
+func createTempFile(data []byte) (string, error) {
+	tmpFile, err := os.CreateTemp("", "")
+	if err != nil {
+		return "", err
+	}
+	defer tmpFile.Close()
+	_, err = tmpFile.Write(data)
+	if err != nil {
+		return "", err
+	}
+	return tmpFile.Name(), nil
+}
+
+func cleanupTempFile(path string) error {
+	return os.Remove(path)
 }

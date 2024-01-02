@@ -4,14 +4,6 @@ filippo.io/age
 filippo.io/age/internal/bech32
 filippo.io/age/internal/format
 filippo.io/age/internal/stream
-# github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2
-## explicit; go 1.15
-github.com/Binject/debug/elf
-github.com/Binject/debug/macho
-github.com/Binject/debug/pe
-# github.com/Binject/universal v0.0.0-20210304094126-daefaa886313
-## explicit; go 1.16
-github.com/Binject/universal
 # github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc
 ## explicit
 github.com/BurntSushi/xgb
@@ -24,15 +16,15 @@ github.com/Microsoft/go-winio/pkg/guid
 # github.com/Ne0nd0g/go-clr v1.0.3
 ## explicit; go 1.13
 github.com/Ne0nd0g/go-clr
-# github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0
-## explicit; go 1.16
-github.com/awgh/cppgo/asmcall/cdecl
-# github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4
-## explicit
-github.com/awgh/rawreader
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
+# github.com/ebitengine/purego v0.5.1
+## explicit; go 1.18
+github.com/ebitengine/purego
+github.com/ebitengine/purego/internal/cgo
+github.com/ebitengine/purego/internal/fakecgo
+github.com/ebitengine/purego/internal/strings
 # github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5
 ## explicit
 github.com/gen2brain/shm
@@ -198,7 +190,6 @@ golang.zx2c4.com/wireguard/replay
 golang.zx2c4.com/wireguard/rwcancel
 golang.zx2c4.com/wireguard/tai64n
 golang.zx2c4.com/wireguard/tun
-golang.zx2c4.com/wireguard/tun/netstack
 # google.golang.org/protobuf v1.31.0
 ## explicit; go 1.11
 google.golang.org/protobuf/encoding/prototext
