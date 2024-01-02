@@ -325,7 +325,7 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	// Compile go code
 	appDir := assets.GetRootAppDir()
-	cgo := "1"
+	cgo := "0"
 	if config.IsSharedLib {
 		cgo = "1"
 	}
