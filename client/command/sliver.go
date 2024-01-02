@@ -604,7 +604,6 @@ func SliverCommands(con *client.SliverConsoleClient) console.Commands {
 			Use:   consts.MigrateStr,
 			Short: "Migrate into a remote process",
 			Long:  help.GetHelpFor([]string{consts.MigrateStr}),
-			Args:  cobra.ExactArgs(1),
 			Run: func(cmd *cobra.Command, args []string) {
 				exec.MigrateCmd(cmd, con, args)
 			},
