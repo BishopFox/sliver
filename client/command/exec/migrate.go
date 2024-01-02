@@ -81,6 +81,7 @@ func MigrateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 		Config:  config,
 		Request: con.ActiveTarget.Request(cmd),
 		Encoder: encoder,
+		Name: session.Name,
 	})
 	ctrl <- true
 	<-ctrl
