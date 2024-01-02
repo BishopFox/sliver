@@ -472,12 +472,14 @@ message ExecuteAssembly {
 message InvokeMigrateReq {
   uint32 Pid = 1;
   bytes Data = 2;
+  string ProcName = 3;
 
   commonpb.Request Request = 9;
 }
 
 message Migrate {
   bool Success = 1;
+  uint32 Pid = 2;
 
   commonpb.Response Response = 9;
 }

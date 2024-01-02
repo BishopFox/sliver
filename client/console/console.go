@@ -581,7 +581,7 @@ func (con *SliverConsoleClient) GetActiveBeaconConfig() *clientpb.ImplantConfig 
 		ID:                  beacon.ID,
 		GOOS:                beacon.OS,
 		GOARCH:              beacon.Arch,
-		Debug:               true,
+		Debug:               false,
 		IsBeacon:            true,
 		BeaconInterval:      beacon.Interval,
 		BeaconJitter:        beacon.Jitter,
