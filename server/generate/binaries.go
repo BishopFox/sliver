@@ -329,16 +329,9 @@ func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientp
 	if config.IsSharedLib {
 		cgo = "1"
 	}
-	// buildLog.Debugf("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
-	// cc, cxx := findCrossCompilers(config.GOOS, config.GOARCH)
-	// if cc == "" {
-	// 	return "", fmt.Errorf("CC '%s/%s' not found", config.GOOS, config.GOARCH)
-	// }
 
 	goConfig := &gogo.GoConfig{
-		CGO: cgo,
-		// CC:         cc,
-		// CXX:        cxx,
+		CGO:        cgo,
 		GOOS:       config.GOOS,
 		GOARCH:     config.GOARCH,
 		GOROOT:     gogo.GetGoRootDir(appDir),
