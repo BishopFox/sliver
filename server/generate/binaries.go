@@ -325,13 +325,20 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	// Compile go code
 	appDir := assets.GetRootAppDir()
-	cgo := "0"
+	cgo := "1"
 	if config.IsSharedLib {
 		cgo = "1"
+	}
+	buildLog.Debugf("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
+	cc, cxx := findCrossCompilers(config.GOOS, config.GOARCH)
+	if cc == "" {
+		return "", fmt.Errorf("CC '%s/%s' not found", config.GOOS, config.GOARCH)
 	}
 
 	goConfig := &gogo.GoConfig{
 		CGO:        cgo,
+		CC:         cc,
+		CXX:        cxx,
 		GOOS:       config.GOOS,
 		GOARCH:     config.GOARCH,
 		GOROOT:     gogo.GetGoRootDir(appDir),
