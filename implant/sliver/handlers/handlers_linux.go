@@ -463,7 +463,7 @@ func registerExtensionHandler(data []byte, resp RPCResponse) {
 		return
 	}
 
-	ext := extension.NewDarwinExtension(registerReq.Data, registerReq.Name, registerReq.OS, registerReq.Init)
+	ext := extension.NewLinuxExtension(registerReq.Data, registerReq.Name, registerReq.OS, registerReq.Init)
 	extension.Add(ext)
 	err = ext.Load()
 	registerResp := &pb.RegisterExtension{
