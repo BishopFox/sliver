@@ -336,9 +336,9 @@ func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientp
 	// }
 
 	goConfig := &gogo.GoConfig{
-		CGO:        cgo,
-		CC:         cc,
-		CXX:        cxx,
+		CGO: cgo,
+		// CC:         cc,
+		// CXX:        cxx,
 		GOOS:       config.GOOS,
 		GOARCH:     config.GOARCH,
 		GOROOT:     gogo.GetGoRootDir(appDir),
