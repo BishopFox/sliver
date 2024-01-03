@@ -27,14 +27,13 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/spf13/cobra"
 )
 
-// GenerateStagerCmd - Generate a stager using Metasploit
-func GenerateStagerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// GenerateStagerCmd - Generate a stager using Metasploit.
+func GenerateStagerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var stageProto clientpb.StageProtocol
 	lhost, _ := cmd.Flags().GetString("lhost")
 	if lhost == "" {

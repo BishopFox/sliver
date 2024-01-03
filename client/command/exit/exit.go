@@ -25,12 +25,13 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/spf13/cobra"
 )
 
-// ExitCmd - Exit the console
-func ExitCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ExitCmd - Exit the console.
+func ExitCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	fmt.Println("Exiting...")
 	if con.IsServer {
 		sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
@@ -52,4 +53,16 @@ func ExitCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string
 		}
 	}
 	os.Exit(0)
+}
+
+// Commands returns the `exit` command.
+func Command(con *console.SliverClient) []*cobra.Command {
+	return []*cobra.Command{{
+		Use:   "exit",
+		Short: "Exit the program",
+		Run: func(cmd *cobra.Command, args []string) {
+			ExitCmd(cmd, con, args)
+		},
+		GroupID: constants.GenericHelpGroup,
+	}}
 }

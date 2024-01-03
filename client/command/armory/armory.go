@@ -105,7 +105,7 @@ var (
 )
 
 // ArmoryCmd - The main armory command
-func ArmoryCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	armoriesConfig := assets.GetArmoriesConfig()
 	con.PrintInfof("Fetching %d armory index(es) ... ", len(armoriesConfig))
 	clientConfig := parseArmoryHTTPConfig(cmd)
@@ -242,7 +242,7 @@ func AliasExtensionOrBundleCompleter() carapace.Action {
 }
 
 // PrintArmoryPackages - Prints the armory packages
-func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.ExtensionManifest, con *console.SliverConsoleClient) {
+func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.ExtensionManifest, con *console.SliverClient) {
 	width, _, err := term.GetSize(0)
 	if err != nil {
 		width = 1
@@ -335,7 +335,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 }
 
 // PrintArmoryBundles - Prints the armory bundles
-func PrintArmoryBundles(bundles []*ArmoryBundle, con *console.SliverConsoleClient) {
+func PrintArmoryBundles(bundles []*ArmoryBundle, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.SetTitle(console.Bold + "Bundles" + console.Normal)

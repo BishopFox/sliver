@@ -34,7 +34,7 @@ import (
 )
 
 // NetstatCmd - Display active network connections on the remote system
-func NetstatCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func NetstatCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -77,7 +77,7 @@ func NetstatCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 	}
 }
 
-func PrintNetstat(netstat *sliverpb.Netstat, implantPID int32, activeC2 string, numeric bool, con *console.SliverConsoleClient) {
+func PrintNetstat(netstat *sliverpb.Netstat, implantPID int32, activeC2 string, numeric bool, con *console.SliverClient) {
 	lookup := func(skaddr *sliverpb.SockTabEntry_SockAddr) string {
 		addr := skaddr.Ip
 		names, err := net.LookupAddr(addr)

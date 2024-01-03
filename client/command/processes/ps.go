@@ -99,7 +99,7 @@ var knownSecurityTools = map[string][]string{
 }
 
 // PsCmd - List processes on the remote system
-func PsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func PsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -147,7 +147,7 @@ func getOS(session *clientpb.Session, beacon *clientpb.Beacon) string {
 }
 
 // PrintPS - Prints the process list
-func PrintPS(os string, ps *sliverpb.Ps, interactive bool, flags *pflag.FlagSet, con *console.SliverConsoleClient) {
+func PrintPS(os string, ps *sliverpb.Ps, interactive bool, flags *pflag.FlagSet, con *console.SliverClient) {
 	pidFilter, _ := flags.GetInt("pid")
 	exeFilter, _ := flags.GetString("exe")
 	ownerFilter, _ := flags.GetString("owner")
@@ -226,7 +226,7 @@ func findKnownSecurityProducts(ps *sliverpb.Ps) []string {
 }
 
 // procRow - Stylizes the process information
-func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console.SliverConsoleClient) table.Row {
+func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console.SliverClient) table.Row {
 	session, beacon := con.ActiveTarget.GetInteractive()
 
 	color := console.Normal
@@ -301,7 +301,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 }
 
 // GetPIDByName - Get a PID by name from the active session
-func GetPIDByName(cmd *cobra.Command, name string, con *console.SliverConsoleClient) int {
+func GetPIDByName(cmd *cobra.Command, name string, con *console.SliverClient) int {
 	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
 		Request: con.ActiveTarget.Request(cmd),
 	})

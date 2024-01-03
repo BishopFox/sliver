@@ -36,7 +36,7 @@ import (
 )
 
 // BeaconsCmd - Display/interact with beacons
-func BeaconsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func BeaconsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	killFlag, _ := cmd.Flags().GetString("kill")
 	killAll, _ := cmd.Flags().GetBool("kill-all")
 
@@ -94,7 +94,7 @@ func BeaconsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 }
 
 // PrintBeacons - Display a list of beacons
-func PrintBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverConsoleClient) {
+func PrintBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverClient) {
 	if len(beacons) == 0 {
 		con.PrintInfof("No beacons 🙁\n")
 		return
@@ -103,7 +103,7 @@ func PrintBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp
 	con.Printf("%s\n", tw.Render())
 }
 
-func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverConsoleClient) table.Writer {
+func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverClient) table.Writer {
 	width, _, err := term.GetSize(0)
 	if err != nil {
 		width = 999

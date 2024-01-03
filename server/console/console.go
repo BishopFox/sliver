@@ -73,8 +73,8 @@ func serverOnlyCmds() (commands []*cobra.Command) {
 		Run:     startMultiplayerModeCmd,
 		GroupID: consts.MultiplayerHelpGroup,
 	}
-	command.Flags("multiplayer", false, startMultiplayer, func(f *pflag.FlagSet) {
-		f.StringP("lhost", "L", "", "hostname to bind server to")
+	command.Bind("multiplayer", false, startMultiplayer, func(f *pflag.FlagSet) {
+		f.StringP("lhost", "L", "", "interface to bind server to")
 		f.Uint16P("lport", "l", 31337, "tcp listen port")
 		f.BoolP("tailscale", "T", false, "only expose multiplayer interface over Tailscale (requires TS_AUTHKEY)")
 		f.BoolP("persistent", "p", false, "make persistent across restarts")
@@ -89,14 +89,14 @@ func serverOnlyCmds() (commands []*cobra.Command) {
 		Run:     newOperatorCmd,
 		GroupID: consts.MultiplayerHelpGroup,
 	}
-	command.Flags("operator", false, newOperator, func(f *pflag.FlagSet) {
+	command.Bind("operator", false, newOperator, func(f *pflag.FlagSet) {
 		f.StringP("lhost", "l", "", "listen host")
 		f.Uint16P("lport", "p", 31337, "listen port")
 		f.StringP("save", "s", "", "directory/file in which to save config")
 		f.StringP("name", "n", "", "operator name")
 		f.StringSliceP("permissions", "P", []string{}, "grant permissions to the operator profile (all, builder, crackstation)")
 	})
-	command.FlagComps(newOperator, func(comp *carapace.ActionMap) {
+	command.BindFlagCompletions(newOperator, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionDirectories()
 	})
 	commands = append(commands, newOperator)
@@ -109,7 +109,7 @@ func serverOnlyCmds() (commands []*cobra.Command) {
 		GroupID: consts.MultiplayerHelpGroup,
 	}
 
-	command.Flags("operator", false, kickOperator, func(f *pflag.FlagSet) {
+	command.Bind("operator", false, kickOperator, func(f *pflag.FlagSet) {
 		f.StringP("name", "n", "", "operator name")
 	})
 	commands = append(commands, kickOperator)

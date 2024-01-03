@@ -23,16 +23,15 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
 )
 
 var portNumberOnlyRegexp = regexp.MustCompile("^[0-9]+$")
 
-// StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant
-func StartRportFwdListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant.
+func StartRportFwdListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -66,7 +65,7 @@ func StartRportFwdListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClie
 	printStartedRportFwdListener(rportfwdListener, con)
 }
 
-func printStartedRportFwdListener(rportfwdListener *sliverpb.RportFwdListener, con *console.SliverConsoleClient) {
+func printStartedRportFwdListener(rportfwdListener *sliverpb.RportFwdListener, con *console.SliverClient) {
 	if rportfwdListener.Response != nil && rportfwdListener.Response.Err != "" {
 		con.PrintErrorf("%s", rportfwdListener.Response.Err)
 		return

@@ -25,17 +25,16 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/tcpproxy"
+	"github.com/spf13/cobra"
 )
 
 var portNumberOnlyRegexp = regexp.MustCompile("^[0-9]+$")
 
-// PortfwdAddCmd - Add a new tunneled port forward
-func PortfwdAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// PortfwdAddCmd - Add a new tunneled port forward.
+func PortfwdAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

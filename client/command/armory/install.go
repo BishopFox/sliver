@@ -39,7 +39,7 @@ import (
 var ErrPackageNotFound = errors.New("package not found")
 
 // ArmoryInstallCmd - The armory install command
-func ArmoryInstallCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ArmoryInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name := args[0]
 	// name := ctx.Args.String("name")
 	if name == "" {
@@ -77,7 +77,7 @@ func ArmoryInstallCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 	con.PrintErrorf("No package or bundle named '%s' was found", name)
 }
 
-func installBundle(bundle *ArmoryBundle, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) {
+func installBundle(bundle *ArmoryBundle, clientConfig ArmoryHTTPConfig, con *console.SliverClient) {
 	for _, pkgName := range bundle.Packages {
 		err := installPackageByName(pkgName, clientConfig, con)
 		if err != nil {
@@ -86,7 +86,7 @@ func installBundle(bundle *ArmoryBundle, clientConfig ArmoryHTTPConfig, con *con
 	}
 }
 
-func installPackageByName(name string, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) error {
+func installPackageByName(name string, clientConfig ArmoryHTTPConfig, con *console.SliverClient) error {
 	aliases, extensions := packagesInCache()
 	for _, alias := range aliases {
 		if alias.CommandName == name || name == "all" {
@@ -114,7 +114,7 @@ func installPackageByName(name string, clientConfig ArmoryHTTPConfig, con *conso
 	return ErrPackageNotFound
 }
 
-func installAlias(alias *alias.AliasManifest, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) {
+func installAlias(alias *alias.AliasManifest, clientConfig ArmoryHTTPConfig, con *console.SliverClient) {
 	err := installAliasPackageByName(alias.CommandName, clientConfig, con)
 	if err != nil {
 		con.PrintErrorf("Failed to install alias '%s': %s", alias.CommandName, err)
@@ -122,7 +122,7 @@ func installAlias(alias *alias.AliasManifest, clientConfig ArmoryHTTPConfig, con
 	}
 }
 
-func installAliasPackageByName(name string, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) error {
+func installAliasPackageByName(name string, clientConfig ArmoryHTTPConfig, con *console.SliverClient) error {
 	var entry *pkgCacheEntry
 	pkgCache.Range(func(key, value interface{}) bool {
 		cacheEntry := value.(pkgCacheEntry)
@@ -188,7 +188,7 @@ func installAliasPackageByName(name string, clientConfig ArmoryHTTPConfig, con *
 	return nil
 }
 
-func installExtension(extm *extensions.ExtensionManifest, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) {
+func installExtension(extm *extensions.ExtensionManifest, clientConfig ArmoryHTTPConfig, con *console.SliverClient) {
 	deps := make(map[string]struct{})
 	for _, ext := range extm.ExtCommand {
 		resolveExtensionPackageDependencies(ext.CommandName, deps, clientConfig, con)
@@ -213,7 +213,7 @@ func installExtension(extm *extensions.ExtensionManifest, clientConfig ArmoryHTT
 
 const maxDepDepth = 10 // Arbitrary recursive limit for dependencies
 
-func resolveExtensionPackageDependencies(name string, deps map[string]struct{}, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) {
+func resolveExtensionPackageDependencies(name string, deps map[string]struct{}, clientConfig ArmoryHTTPConfig, con *console.SliverClient) {
 	var entry *pkgCacheEntry
 	pkgCache.Range(func(key, value interface{}) bool {
 		cacheEntry := value.(pkgCacheEntry)
@@ -247,7 +247,7 @@ func resolveExtensionPackageDependencies(name string, deps map[string]struct{}, 
 	}
 }
 
-func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) error {
+func installExtensionPackageByName(name string, clientConfig ArmoryHTTPConfig, con *console.SliverClient) error {
 	var entry *pkgCacheEntry
 	pkgCache.Range(func(key, value interface{}) bool {
 		cacheEntry := value.(pkgCacheEntry)

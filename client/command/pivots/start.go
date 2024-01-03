@@ -22,14 +22,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
 )
 
-// StartTCPListenerCmd - Start a TCP pivot listener on the remote system
-func StartTCPListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// StartTCPListenerCmd - Start a TCP pivot listener on the remote system.
+func StartTCPListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -52,8 +51,8 @@ func StartTCPListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, a
 	con.PrintInfof("Started tcp pivot listener %s with id %d\n", listener.BindAddress, listener.ID)
 }
 
-// StartNamedPipeListenerCmd - Start a TCP pivot listener on the remote system
-func StartNamedPipeListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// StartNamedPipeListenerCmd - Start a TCP pivot listener on the remote system.
+func StartNamedPipeListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

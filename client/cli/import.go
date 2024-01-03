@@ -22,10 +22,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bishopfox/sliver/client/assets"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
-
-	"github.com/bishopfox/sliver/client/assets"
 )
 
 func importCmd() *cobra.Command {
