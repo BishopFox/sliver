@@ -198,7 +198,7 @@ func LootDownload(download *sliverpb.Download, lootName string, fileType clientp
 	}
 }
 
-func LootText(text string, lootName string, lootFileName string, fileType clientpb.FileType, con *console.SliverConsoleClient) {
+func LootText(text string, lootName string, lootFileName string, fileType clientpb.FileType, con *console.SliverClient) {
 	lootMessage := CreateLootMessage(con.ActiveTarget.GetHostUUID(), lootFileName, lootName, fileType, []byte(text))
 	SendLootMessage(lootMessage, con)
 }

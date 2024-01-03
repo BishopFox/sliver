@@ -81,7 +81,7 @@ func RemoveExtensionByCommandName(commandName string, con *console.SliverClient)
 }
 
 // RemoveExtensionByManifestName - remove by the named manifest, returns true if manifest was removed, false if no manifest with that name was found
-func RemoveExtensionByManifestName(manifestName string, con *console.SliverConsoleClient) (bool, error) {
+func RemoveExtensionByManifestName(manifestName string, con *console.SliverClient) (bool, error) {
 	if manifestName == "" {
 		return false, errors.New("command name is required")
 	}
