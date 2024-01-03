@@ -121,6 +121,8 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 			"Remote Address",
 			"Hostname",
 			"Username",
+			"Process (PID)",
+			"Integrity",
 			"Operating System",
 			"Locale",
 			"Last Check-in",
@@ -145,6 +147,9 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 		if activeBeacon != nil && activeBeacon.ID == beacon.ID {
 			color = console.Green
 		}
+		if beacon.Integrity == "" {
+			beacon.Integrity = "-"
+		}
 
 		// We need a slice of strings so we can apply filters
 		var rowEntries []string
@@ -158,6 +163,8 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.RemoteAddress),
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Hostname),
 				fmt.Sprintf(color+"%s"+console.Normal, strings.TrimPrefix(beacon.Username, beacon.Hostname+"\\")),
+				fmt.Sprintf(color+"%s (%d)"+console.Normal, beacon.Filename, beacon.PID),
+				fmt.Sprintf(color+"%s"+console.Normal, beacon.Integrity),
 				fmt.Sprintf(color+"%s/%s"+console.Normal, beacon.OS, beacon.Arch),
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Locale),
 				con.FormatDateDelta(time.Unix(beacon.LastCheckin, 0), wideTermWidth, false),

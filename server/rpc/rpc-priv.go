@@ -151,10 +151,26 @@ func (rpc *Server) MakeToken(ctx context.Context, req *sliverpb.MakeTokenReq) (*
 
 // GetPrivs - gRPC interface to get privilege information from the current process
 func (rpc *Server) GetPrivs(ctx context.Context, req *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error) {
+	sessionID := req.Request.SessionID
+
 	resp := &sliverpb.GetPrivs{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
 	}
+
+	/*
+		Update integrity information for a session
+		beacons will have to be updated by the client after the information is received from the implant
+	*/
+	if !req.Request.Async {
+		session := core.Sessions.Get(sessionID)
+		if session == nil {
+			return nil, ErrInvalidSessionID
+		}
+		session.Integrity = resp.ProcessIntegrity
+		core.Sessions.UpdateSession(session)
+	}
+
 	return resp, nil
 }
