@@ -112,22 +112,45 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	wideTermWidth := con.Settings.SmallTermWidth < width
+	windowsBeaconInList := false
+	for _, beacon := range beacons {
+		if beacon.OS == "windows" {
+			windowsBeaconInList = true
+		}
+	}
 	if wideTermWidth {
-		tw.AppendHeader(table.Row{
-			"ID",
-			"Name",
-			"Tasks",
-			"Transport",
-			"Remote Address",
-			"Hostname",
-			"Username",
-			"Process (PID)",
-			"Integrity",
-			"Operating System",
-			"Locale",
-			"Last Check-in",
-			"Next Check-in",
-		})
+		if windowsBeaconInList {
+			tw.AppendHeader(table.Row{
+				"ID",
+				"Name",
+				"Tasks",
+				"Transport",
+				"Remote Address",
+				"Hostname",
+				"Username",
+				"Process (PID)",
+				"Integrity",
+				"Operating System",
+				"Locale",
+				"Last Check-in",
+				"Next Check-in",
+			})
+		} else {
+			tw.AppendHeader(table.Row{
+				"ID",
+				"Name",
+				"Tasks",
+				"Transport",
+				"Remote Address",
+				"Hostname",
+				"Username",
+				"Process (PID)",
+				"Operating System",
+				"Locale",
+				"Last Check-in",
+				"Next Check-in",
+			})
+		}
 	} else {
 		tw.AppendHeader(table.Row{
 			"ID",
@@ -164,12 +187,18 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Hostname),
 				fmt.Sprintf(color+"%s"+console.Normal, strings.TrimPrefix(beacon.Username, beacon.Hostname+"\\")),
 				fmt.Sprintf(color+"%s (%d)"+console.Normal, beacon.Filename, beacon.PID),
-				fmt.Sprintf(color+"%s"+console.Normal, beacon.Integrity),
+			}
+
+			if windowsBeaconInList {
+				rowEntries = append(rowEntries, fmt.Sprintf(color+"%s"+console.Normal, beacon.Integrity))
+			}
+
+			rowEntries = append(rowEntries, []string{
 				fmt.Sprintf(color+"%s/%s"+console.Normal, beacon.OS, beacon.Arch),
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Locale),
 				con.FormatDateDelta(time.Unix(beacon.LastCheckin, 0), wideTermWidth, false),
 				con.FormatDateDelta(time.Unix(beacon.NextCheckin, 0), wideTermWidth, true),
-			}
+			}...)
 		} else {
 			rowEntries = []string{
 				fmt.Sprintf(color+"%s"+console.Normal, strings.Split(beacon.ID, "-")[0]),
