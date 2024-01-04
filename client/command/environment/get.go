@@ -31,7 +31,7 @@ import (
 )
 
 // EnvGetCmd - Get a remote environment variable
-func EnvGetCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func EnvGetCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -66,7 +66,7 @@ func EnvGetCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 }
 
 // PrintGetEnvInfo - Print the results of the env get command
-func PrintGetEnvInfo(envInfo *sliverpb.EnvInfo, con *console.SliverConsoleClient) {
+func PrintGetEnvInfo(envInfo *sliverpb.EnvInfo, con *console.SliverClient) {
 	if envInfo.Response != nil && envInfo.Response.Err != "" {
 		con.PrintErrorf("%s\n", envInfo.Response.Err)
 		return

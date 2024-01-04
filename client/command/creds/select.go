@@ -9,14 +9,13 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
-// SelectCredential - Interactive menu for the user to select a credentials from the database
-func SelectCredential(plaintext bool, hashType clientpb.HashType, con *console.SliverConsoleClient) (*clientpb.Credential, error) {
+// SelectCredential - Interactive menu for the user to select a credentials from the database.
+func SelectCredential(plaintext bool, hashType clientpb.HashType, con *console.SliverClient) (*clientpb.Credential, error) {
 	var creds *clientpb.Credentials
 	var err error
 	if hashType == clientpb.HashType_INVALID {

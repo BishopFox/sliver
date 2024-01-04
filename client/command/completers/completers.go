@@ -55,3 +55,32 @@ func ClientInterfacesCompleter() carapace.Action {
 		return carapace.ActionValues(results...).Tag("client interfaces").NoSpace(':')
 	})
 }
+
+// LocalProxyCompleter gives URL completion to all flags/arguments that accept a client proxy address.
+func LocalProxyCompleter() carapace.Action {
+	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+		prefix := ""
+
+		hostPort := carapace.ActionMultiParts(":", func(c carapace.Context) carapace.Action {
+			switch len(c.Parts) {
+			case 0:
+				return ClientInterfacesCompleter()
+			case 1:
+				return carapace.ActionMessage("server port")
+			default:
+				return carapace.ActionValues()
+			}
+		})
+
+		return carapace.ActionMultiParts("://", func(c carapace.Context) carapace.Action {
+			switch len(c.Parts) {
+			case 0:
+				return carapace.ActionValues("http", "https").Tag("proxy protocols").Suffix("://")
+			case 1:
+				return hostPort
+			default:
+				return carapace.ActionValues()
+			}
+		}).Invoke(c).Prefix(prefix).ToA()
+	})
+}

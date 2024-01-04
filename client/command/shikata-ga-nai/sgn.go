@@ -31,7 +31,7 @@ import (
 )
 
 // ShikataGaNaiCmd - Command wrapper for the Shikata Ga Nai shellcode encoder
-func ShikataGaNaiCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ShikataGaNaiCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	shellcodeFile := args[0]
 	rawShellcode, err := os.ReadFile(shellcodeFile)
 	if err != nil {

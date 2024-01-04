@@ -30,7 +30,7 @@ import (
 )
 
 // MigrateCmd - Windows only, inject an implant into another process
-func MigrateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func MigrateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return

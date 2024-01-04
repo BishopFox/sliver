@@ -26,14 +26,13 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/spf13/cobra"
 )
 
-// ReactionUnsetCmd - Unset a reaction upon an event
-func ReactionUnsetCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ReactionUnsetCmd - Unset a reaction upon an event.
+func ReactionUnsetCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	reactionID, _ := cmd.Flags().GetInt("id")
 	if reactionID == 0 {
 		reaction, err := selectReaction(con)
@@ -53,7 +52,7 @@ func ReactionUnsetCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 	con.Println()
 }
 
-func selectReaction(con *console.SliverConsoleClient) (*core.Reaction, error) {
+func selectReaction(con *console.SliverClient) (*core.Reaction, error) {
 	outputBuf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 	allReactions := core.Reactions.All()

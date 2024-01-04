@@ -21,14 +21,13 @@ package backdoor
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/spf13/cobra"
 )
 
-// BackdoorCmd - Command to inject implant code into an existing binary
-func BackdoorCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// BackdoorCmd - Command to inject implant code into an existing binary.
+func BackdoorCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
