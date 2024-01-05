@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/Binject/debug/pe"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -98,6 +99,10 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 			name = req.Name
 		}
 		config.Format = clientpb.OutputFormat_SHELLCODE
+		// Tweak some of the config parameters
+		config.IsShellcode = true
+		config.IsSharedLib = false
+		config.TemplateName = "sliver"
 		config.ObfuscateSymbols = true
 		build, err := generate.GenerateConfig(name, config)
 		if err != nil {
@@ -115,6 +120,24 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 			return nil, err
 		}
 		shellcode, _ = os.ReadFile(shellcodePath)
+		// Save the implant config in the database so that the server recognizes it when it tries to connect
+		config.ID = ""
+		savedConfig, err := db.SaveImplantConfig(config)
+		if err != nil {
+			return nil, err
+		}
+		build.ImplantConfigID = savedConfig.ID
+
+		/* Save the build in the database so that the server recognizes it when it tries to connect
+		   This build will have the same name as the implant it is being spawned from, so
+		   we need to create a unique name for the database
+		*/
+		build.Name = fmt.Sprintf("%s_%d", build.Name, time.Now().Unix())
+		_, err = db.SaveImplantBuild(build)
+		if err != nil {
+			return nil, err
+		}
+
 	}
 
 	if len(shellcode) < 1 {
