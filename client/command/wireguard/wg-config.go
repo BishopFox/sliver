@@ -28,10 +28,9 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/spf13/cobra"
 )
 
 var wgQuickTemplate = `[Interface]
@@ -52,8 +51,8 @@ type wgQuickConfig struct {
 	AllowedSubnet   string
 }
 
-// WGConfigCmd - Generate a WireGuard client configuration
-func WGConfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// WGConfigCmd - Generate a WireGuard client configuration.
+func WGConfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	wgConfig, err := con.Rpc.GenerateWGClientConfig(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("Error: %s\n", err)

@@ -26,7 +26,7 @@ import (
 )
 
 // UseBeaconCmd - Change the active beacon
-func UseBeaconCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func UseBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	beacon, err := beacons.SelectBeacon(con)
 	if beacon != nil {
 		con.ActiveTarget.Set(nil, beacon)

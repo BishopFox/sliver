@@ -83,6 +83,7 @@ var (
 		"dw":            true,
 		"dword":         true,
 		"exe":           true,
+		"exe-service":   true,
 		"hex":           true,
 		"java":          true,
 		"js_be":         true,

@@ -27,16 +27,15 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
 )
 
-// CursedChromeCmd - Execute a .NET assembly in-memory
-func CursedCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CursedChromeCmd - Execute a .NET assembly in-memory.
+func CursedCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	// Collect existing curses from core
 	cursedProcesses := [][]string{}
 	core.CursedProcesses.Range(func(key, value interface{}) bool {
@@ -71,8 +70,8 @@ func CursedCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 	}
 }
 
-// selectCursedProcess - Interactively select a cursed process from a list
-func selectCursedProcess(con *console.SliverConsoleClient) *core.CursedProcess {
+// selectCursedProcess - Interactively select a cursed process from a list.
+func selectCursedProcess(con *console.SliverClient) *core.CursedProcess {
 	cursedProcesses := []*core.CursedProcess{}
 	core.CursedProcesses.Range(func(key, value interface{}) bool {
 		cursedProcesses = append(cursedProcesses, value.(*core.CursedProcess))

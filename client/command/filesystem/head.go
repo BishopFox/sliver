@@ -29,7 +29,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func HeadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string, head bool) {
+func HeadCmd(cmd *cobra.Command, con *console.SliverClient, args []string, head bool) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return

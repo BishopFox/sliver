@@ -23,16 +23,15 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
 )
 
-// InteractiveCmd - Beacon only command to open an interactive session
-func InteractiveCmd(cmd *cobra.Command, con *console.SliverConsoleClient, _ []string) {
+// InteractiveCmd - Beacon only command to open an interactive session.
+func InteractiveCmd(cmd *cobra.Command, con *console.SliverClient, _ []string) {
 	beacon := con.ActiveTarget.GetBeaconInteractive()
 	if beacon == nil {
 		return

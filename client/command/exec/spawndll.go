@@ -24,17 +24,15 @@ import (
 	"os"
 	"strings"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// SpawnDllCmd - Spawn execution of a DLL on the remote system
-func SpawnDllCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// SpawnDllCmd - Spawn execution of a DLL on the remote system.
+func SpawnDllCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -85,7 +83,7 @@ func SpawnDllCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 	}
 }
 
-func HandleSpawnDLLResponse(spawndll *sliverpb.SpawnDll, binPath string, hostName string, cmd *cobra.Command, con *console.SliverConsoleClient) {
+func HandleSpawnDLLResponse(spawndll *sliverpb.SpawnDll, binPath string, hostName string, cmd *cobra.Command, con *console.SliverClient) {
 	saveLoot, _ := cmd.Flags().GetBool("loot")
 	lootName, _ := cmd.Flags().GetString("name")
 

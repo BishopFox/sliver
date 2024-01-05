@@ -25,19 +25,17 @@ import (
 	"path/filepath"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// ScreenshotCmd - Take a screenshot of the remote system
-func ScreenshotCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ScreenshotCmd - Take a screenshot of the remote system.
+func ScreenshotCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -97,8 +95,8 @@ func ScreenshotCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []
 	}
 }
 
-// PrintScreenshot - Handle the screenshot command response
-func PrintScreenshot(screenshot *sliverpb.Screenshot, hostname string, cmd *cobra.Command, con *console.SliverConsoleClient) {
+// PrintScreenshot - Handle the screenshot command response.
+func PrintScreenshot(screenshot *sliverpb.Screenshot, hostname string, cmd *cobra.Command, con *console.SliverClient) {
 	timestamp := time.Now().Format("20060102150405")
 
 	saveTo, _ := cmd.Flags().GetString("save")
@@ -129,7 +127,7 @@ func PrintScreenshot(screenshot *sliverpb.Screenshot, hostname string, cmd *cobr
 	con.PrintInfof("Screenshot written to %s (%s)\n", saveToFile.Name(), util.ByteCountBinary(int64(n)))
 }
 
-func LootScreenshot(screenshot *sliverpb.Screenshot, lootName string, hostName string, con *console.SliverConsoleClient) {
+func LootScreenshot(screenshot *sliverpb.Screenshot, lootName string, hostName string, con *console.SliverClient) {
 	timeNow := time.Now().UTC()
 	screenshotFileName := fmt.Sprintf("screenshot_%s_%s.png", hostName, timeNow.Format("20060102150405"))
 

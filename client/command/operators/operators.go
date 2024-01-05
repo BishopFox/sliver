@@ -21,18 +21,16 @@ package operators
 import (
 	"context"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
 )
 
-// OperatorsCmd - Display operators and current online status
-func OperatorsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// OperatorsCmd - Display operators and current online status.
+func OperatorsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	operators, err := con.Rpc.GetOperators(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -43,7 +41,7 @@ func OperatorsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 	}
 }
 
-func displayOperators(operators []*clientpb.Operator, con *console.SliverConsoleClient) {
+func displayOperators(operators []*clientpb.Operator, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{

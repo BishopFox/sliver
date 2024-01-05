@@ -24,18 +24,17 @@ import (
 	"os"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/command/settings"
+	"github.com/bishopfox/sliver/client/console"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
-
-	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/client/command/settings"
-	"github.com/bishopfox/sliver/client/console"
 )
 
-// ExtensionsCmd - List information about installed extensions
-func ExtensionsCmd(cmd *cobra.Command, con *console.SliverConsoleClient) {
+// ExtensionsCmd - List information about installed extensions.
+func ExtensionsCmd(cmd *cobra.Command, con *console.SliverClient) {
 	if 0 < len(getInstalledManifests()) {
 		PrintExtensions(con)
 	} else {
@@ -43,8 +42,8 @@ func ExtensionsCmd(cmd *cobra.Command, con *console.SliverConsoleClient) {
 	}
 }
 
-// PrintExtensions - Print a list of loaded extensions
-func PrintExtensions(con *console.SliverConsoleClient) {
+// PrintExtensions - Print a list of loaded extensions.
+func PrintExtensions(con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
@@ -116,8 +115,8 @@ func getInstalledManifests() map[string]*ExtensionManifest {
 	return installedManifests
 }
 
-// ExtensionsCommandNameCompleter - Completer for installed extensions command names
-func ExtensionsCommandNameCompleter(con *console.SliverConsoleClient) carapace.Action {
+// ExtensionsCommandNameCompleter - Completer for installed extensions command names.
+func ExtensionsCommandNameCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		//installedManifests := getInstalledManifests()
 		results := []string{}

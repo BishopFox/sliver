@@ -28,7 +28,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/bishopfox/sliver/client/command/creds"
 	consts "github.com/bishopfox/sliver/client/constants"
 )
 
@@ -1248,14 +1247,17 @@ Sliver uses the same hash identifiers as Hashcat (use the #):
 28200 | Exodus Desktop Wallet (scrypt)                             | Cryptocurrency Wallet
 `
 
-	credsAddFileHelp = fmt.Sprintf(`[[.Bold]]Command:[[.Normal]] creds add file
+	hashNewlineFormat          = "hash"
+	userColonHashNewlineFormat = "user:hash"
+	csvFormat                  = "csv"
+	credsAddFileHelp           = fmt.Sprintf(`[[.Bold]]Command:[[.Normal]] creds add file
 [[.Bold]]About:[[.Normal]] Add a file containing credentials to the database.
 
 [[.Bold]]File Formats:[[.Normal]]
 % 10s - One hash per line.
 % 10s - A file containing lines of 'username:hash' pairs.
 % 10s - A CSV file containing 'username,hash' pairs (additional columns ignored).
-`, creds.HashNewlineFormat, creds.UserColonHashNewlineFormat, creds.CSVFormat)
+`, hashNewlineFormat, userColonHashNewlineFormat, csvFormat)
 
 	c2ProfilesHelp = `[[.Bold]]Command:[[.Normal]] c2profile
 [[.Bold]]About:[[.Normal]] Display details of HTTP C2 profiles loaded into Sliver.

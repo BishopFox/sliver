@@ -22,15 +22,14 @@ import (
 	"strconv"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
 )
 
-// SettingsCmd - The client settings command
-func SettingsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// SettingsCmd - The client settings command.
+func SettingsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
 		con.Settings, err = assets.LoadSettings()
@@ -53,8 +52,8 @@ func SettingsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 	con.Printf("%s\n", tw.Render())
 }
 
-// SettingsAlwaysOverflow - Toggle always overflow
-func SettingsAlwaysOverflow(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// SettingsAlwaysOverflow - Toggle always overflow.
+func SettingsAlwaysOverflow(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
 		con.Settings, err = assets.LoadSettings()
@@ -67,8 +66,8 @@ func SettingsAlwaysOverflow(cmd *cobra.Command, con *console.SliverConsoleClient
 	con.PrintInfof("Always overflow = %v\n", con.Settings.AlwaysOverflow)
 }
 
-// SettingsConsoleLogs - Toggle console logs
-func SettingsConsoleLogs(cmd *cobra.Command, con *console.SliverConsoleClient) {
+// SettingsConsoleLogs - Toggle console logs.
+func SettingsConsoleLogs(cmd *cobra.Command, con *console.SliverClient) {
 	var err error
 	if con.Settings == nil {
 		con.Settings, err = assets.LoadSettings()
@@ -81,8 +80,8 @@ func SettingsConsoleLogs(cmd *cobra.Command, con *console.SliverConsoleClient) {
 	con.PrintInfof("Console Logs = %v\n", con.Settings.ConsoleLogs)
 }
 
-// SettingsSmallTerm - Modify small terminal width value
-func SettingsSmallTerm(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// SettingsSmallTerm - Modify small terminal width value.
+func SettingsSmallTerm(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
 		con.Settings, err = assets.LoadSettings()
@@ -111,8 +110,8 @@ func SettingsSmallTerm(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 	con.PrintInfof("Small terminal width set to %d\n", con.Settings.SmallTermWidth)
 }
 
-// SettingsTablesCmd - The client settings command
-func SettingsTablesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// SettingsTablesCmd - The client settings command.
+func SettingsTablesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
 		con.Settings, err = assets.LoadSettings()
@@ -143,8 +142,8 @@ func SettingsTablesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, arg
 	}
 }
 
-// SettingsSaveCmd - The client settings command
-func SettingsSaveCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// SettingsSaveCmd - The client settings command.
+func SettingsSaveCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
 		con.Settings, err = assets.LoadSettings()
@@ -161,8 +160,8 @@ func SettingsSaveCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 	}
 }
 
-// SettingsAlwaysOverflow - Toggle always overflow
-func SettingsUserConnect(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// SettingsAlwaysOverflow - Toggle always overflow.
+func SettingsUserConnect(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
 		con.Settings, err = assets.LoadSettings()

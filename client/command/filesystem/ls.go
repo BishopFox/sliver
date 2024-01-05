@@ -27,19 +27,17 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"google.golang.org/protobuf/proto"
 )
 
-// LsCmd - List the contents of a remote directory
-func LsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// LsCmd - List the contents of a remote directory.
+func LsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -75,8 +73,8 @@ func LsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) 
 	}
 }
 
-// PrintLs - Display an sliverpb.Ls object
-func PrintLs(ls *sliverpb.Ls, flags *pflag.FlagSet, con *console.SliverConsoleClient) {
+// PrintLs - Display an sliverpb.Ls object.
+func PrintLs(ls *sliverpb.Ls, flags *pflag.FlagSet, con *console.SliverClient) {
 	if ls.Response != nil && ls.Response.Err != "" {
 		con.PrintErrorf("%s\n", ls.Response.Err)
 		return
