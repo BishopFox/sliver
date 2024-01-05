@@ -74,6 +74,7 @@ type Session struct {
 	PeerID            int64
 	Locale            string
 	FirstContact      int64
+	Integrity         string
 }
 
 // LastCheckin - Get the last time a session message was received
@@ -140,6 +141,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		PeerID:            s.PeerID,
 		Locale:            s.Locale,
 		FirstContact:      s.FirstContact,
+		Integrity:         s.Integrity,
 	}
 }
 
@@ -249,6 +251,7 @@ func NewSession(implantConn *ImplantConnection) *Session {
 		ID:           nextSessionID(),
 		Connection:   implantConn,
 		FirstContact: time.Now().Unix(),
+		Integrity:    "-",
 	}
 }
 
