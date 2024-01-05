@@ -21,13 +21,12 @@ package hosts
 import (
 	"context"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/spf13/cobra"
 )
 
-// HostsRmCmd - Remove a host from the database
-func HostsRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// HostsRmCmd - Remove a host from the database.
+func HostsRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	host, err := SelectHost(con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

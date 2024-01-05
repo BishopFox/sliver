@@ -21,15 +21,14 @@ package sessions
 import (
 	"context"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/kill"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/spf13/cobra"
 )
 
-// SessionsPruneCmd - Forcefully kill stale sessions
-func SessionsPruneCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// SessionsPruneCmd - Forcefully kill stale sessions.
+func SessionsPruneCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

@@ -27,7 +27,7 @@ import (
 )
 
 // LootFetchCmd - Display the contents of or download a piece of loot
-func LootFetchCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func LootFetchCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	loot, err := SelectLoot(cmd, con.Rpc)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

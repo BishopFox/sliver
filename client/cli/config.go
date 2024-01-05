@@ -23,7 +23,6 @@ import (
 	"sort"
 
 	"github.com/bishopfox/sliver/client/assets"
-
 	"gopkg.in/AlecAivazis/survey.v1"
 )
 

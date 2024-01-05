@@ -36,7 +36,7 @@ import (
 )
 
 // IfconfigCmd - Display network interfaces on the remote system
-func IfconfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func IfconfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -65,7 +65,7 @@ func IfconfigCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 }
 
 // PrintIfconfig - Print the ifconfig response
-func PrintIfconfig(ifconfig *sliverpb.Ifconfig, all bool, con *console.SliverConsoleClient) {
+func PrintIfconfig(ifconfig *sliverpb.Ifconfig, all bool, con *console.SliverClient) {
 	var err error
 	interfaces := ifconfig.NetInterfaces
 	sort.Slice(interfaces, func(i, j int) bool {

@@ -28,6 +28,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	outputFile   = "file"
+	outputStdout = "stdout"
+)
+
 var operatorCmd = &cobra.Command{
 	Use:   "operator",
 	Short: "Generate operator configuration files",
@@ -68,6 +73,12 @@ var operatorCmd = &cobra.Command{
 			save, _ = os.Getwd()
 		}
 
+		output, err := cmd.Flags().GetString(outputFlagStr)
+		if err != nil {
+			fmt.Printf("Failed to parse --%s flag %s", outputFlagStr, err)
+			return
+		}
+
 		permissions, err := cmd.Flags().GetStringSlice(permissionsFlagStr)
 		if err != nil {
 			fmt.Printf("Failed to parse --%s flag %s", permissionsFlagStr, err)
@@ -85,20 +96,25 @@ var operatorCmd = &cobra.Command{
 			return
 		}
 
-		saveTo, _ := filepath.Abs(save)
-		fi, err := os.Stat(saveTo)
-		if !os.IsNotExist(err) && !fi.IsDir() {
-			fmt.Printf("File already exists: %s\n", err)
-			return
-		}
-		if !os.IsNotExist(err) && fi.IsDir() {
-			filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(name), filepath.Base(lhost))
-			saveTo = filepath.Join(saveTo, filename)
-		}
-		err = os.WriteFile(saveTo, configJSON, 0600)
-		if err != nil {
-			fmt.Printf("Write failed: %s (%s)\n", saveTo, err)
-			return
+		switch output {
+		case outputFile:
+			saveTo, _ := filepath.Abs(save)
+			fi, err := os.Stat(saveTo)
+			if !os.IsNotExist(err) && !fi.IsDir() {
+				fmt.Printf("File already exists: %s\n", err)
+				return
+			}
+			if !os.IsNotExist(err) && fi.IsDir() {
+				filename := fmt.Sprintf("%s_%s.cfg", filepath.Base(name), filepath.Base(lhost))
+				saveTo = filepath.Join(saveTo, filename)
+			}
+			err = os.WriteFile(saveTo, configJSON, 0600)
+			if err != nil {
+				fmt.Printf("Write failed: %s (%s)\n", saveTo, err)
+				return
+			}
+		case outputStdout:
+			fmt.Println(string(configJSON))
 		}
 	},
 }

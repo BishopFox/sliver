@@ -21,14 +21,13 @@ package rportfwd
 import (
 	"context"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
 )
 
-// StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant
-func StopRportFwdListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant.
+func StopRportFwdListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -46,7 +45,7 @@ func StopRportFwdListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClien
 	printStoppedRportFwdListener(rportfwdListener, con)
 }
 
-func printStoppedRportFwdListener(rportfwdListener *sliverpb.RportFwdListener, con *console.SliverConsoleClient) {
+func printStoppedRportFwdListener(rportfwdListener *sliverpb.RportFwdListener, con *console.SliverClient) {
 	if rportfwdListener.Response != nil && rportfwdListener.Response.Err != "" {
 		con.PrintErrorf("%s", rportfwdListener.Response.Err)
 		return

@@ -31,7 +31,7 @@ import (
 )
 
 // ArmoryUpdateCmd - Update all installed extensions/aliases
-func ArmoryUpdateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ArmoryUpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	con.PrintInfof("Refreshing package cache ... ")
 	clientConfig := parseArmoryHTTPConfig(cmd)
 	refresh(clientConfig)
@@ -66,7 +66,7 @@ func ArmoryUpdateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 	}
 }
 
-func checkForAliasUpdates(clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) []string {
+func checkForAliasUpdates(clientConfig ArmoryHTTPConfig, con *console.SliverClient) []string {
 	cachedAliases, _ := packagesInCache()
 	results := []string{}
 	for _, aliasManifestPath := range assets.GetInstalledAliasManifests() {
@@ -89,7 +89,7 @@ func checkForAliasUpdates(clientConfig ArmoryHTTPConfig, con *console.SliverCons
 	return results
 }
 
-func checkForExtensionUpdates(clientConfig ArmoryHTTPConfig, con *console.SliverConsoleClient) []string {
+func checkForExtensionUpdates(clientConfig ArmoryHTTPConfig, con *console.SliverClient) []string {
 	_, cachedExtensions := packagesInCache()
 	results := []string{}
 	for _, extManifestPath := range assets.GetInstalledExtensionManifests() {
@@ -104,10 +104,11 @@ func checkForExtensionUpdates(clientConfig ArmoryHTTPConfig, con *console.Sliver
 		for _, latestExt := range cachedExtensions {
 			// Right now we don't try to enforce any kind of versioning, it is assumed if the version from
 			// the armory differs at all from the local version, the extension is out of date.
-			if latestExt.CommandName == localManifest.CommandName && latestExt.Version != localManifest.Version {
-				results = append(results, localManifest.CommandName)
+			if latestExt.Name == localManifest.Name && latestExt.Version != localManifest.Version {
+				results = append(results, localManifest.Name)
 			}
 		}
 	}
+
 	return results
 }

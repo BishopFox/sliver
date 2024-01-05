@@ -32,13 +32,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gofrs/uuid"
-	"github.com/reeflective/console"
-	"github.com/reeflective/readline"
-	"github.com/spf13/cobra"
-	"golang.org/x/exp/slog"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
@@ -48,6 +41,12 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/gofrs/uuid"
+	"github.com/reeflective/console"
+	"github.com/reeflective/readline"
+	"github.com/spf13/cobra"
+	"golang.org/x/exp/slog"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -55,7 +54,7 @@ const (
 )
 
 const (
-	// ANSI Colors
+	// ANSI Colors.
 	Normal    = "\033[0m"
 	Black     = "\033[30m"
 	Red       = "\033[31m"
@@ -71,25 +70,25 @@ const (
 	DownN     = "\033[%dB"
 	Underline = "\033[4m"
 
-	// Info - Display colorful information
+	// Info - Display colorful information.
 	Info = Bold + Cyan + "[*] " + Normal
-	// Warn - Warn a user
+	// Warn - Warn a user.
 	Warn = Bold + Red + "[!] " + Normal
-	// Debug - Display debug information
+	// Debug - Display debug information.
 	Debug = Bold + Purple + "[-] " + Normal
-	// Woot - Display success
+	// Woot - Display success.
 	Woot = Bold + Green + "[$] " + Normal
-	// Success - Diplay success
+	// Success - Diplay success.
 	Success = Bold + Green + "[+] " + Normal
 )
 
-// Observer - A function to call when the sessions changes
+// Observer - A function to call when the sessions changes.
 type (
 	Observer           func(*clientpb.Session, *clientpb.Beacon)
 	BeaconTaskCallback func(*clientpb.BeaconTask)
 )
 
-type SliverConsoleClient struct {
+type SliverClient struct {
 	App                      *console.Console
 	Rpc                      rpcpb.SliverRPCClient
 	ActiveTarget             *ActiveTarget
@@ -107,11 +106,11 @@ type SliverConsoleClient struct {
 // NewConsole creates the sliver client (and console), creating menus and prompts.
 // The returned console does neither have commands nor a working RPC connection yet,
 // thus has not started monitoring any server events, or started the application.
-func NewConsole(isServer bool) *SliverConsoleClient {
+func NewConsole(isServer bool) *SliverClient {
 	assets.Setup(false, false)
 	settings, _ := assets.LoadSettings()
 
-	con := &SliverConsoleClient{
+	con := &SliverClient{
 		App: console.New("sliver"),
 		ActiveTarget: &ActiveTarget{
 			observers:  map[int]Observer{},
@@ -161,7 +160,7 @@ func NewConsole(isServer bool) *SliverConsoleClient {
 // Init requires a working RPC connection to the sliver server, and 2 different sets of commands.
 // If run is true, the console application is started, making this call blocking. Otherwise, commands and
 // RPC connection are bound to the console (making the console ready to run), but the console does not start.
-func StartClient(con *SliverConsoleClient, rpc rpcpb.SliverRPCClient, serverCmds, sliverCmds console.Commands, run bool) error {
+func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, serverCmds, sliverCmds console.Commands, run bool) error {
 	con.Rpc = rpc
 	con.IsCLI = !run
 
@@ -215,7 +214,7 @@ func StartClient(con *SliverConsoleClient, rpc rpcpb.SliverRPCClient, serverCmds
 	return nil
 }
 
-func (con *SliverConsoleClient) startEventLoop() {
+func (con *SliverClient) startEventLoop() {
 	eventStream, err := con.Rpc.Events(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
@@ -331,23 +330,23 @@ func (con *SliverConsoleClient) startEventLoop() {
 	}
 }
 
-// CreateEventListener - creates a new event listener and returns its ID
-func (con *SliverConsoleClient) CreateEventListener() (string, <-chan *clientpb.Event) {
+// CreateEventListener - creates a new event listener and returns its ID.
+func (con *SliverClient) CreateEventListener() (string, <-chan *clientpb.Event) {
 	listener := make(chan *clientpb.Event, 100)
 	listenerID, _ := uuid.NewV4()
 	con.EventListeners.Store(listenerID.String(), listener)
 	return listenerID.String(), listener
 }
 
-// RemoveEventListener - removes an event listener given its id
-func (con *SliverConsoleClient) RemoveEventListener(listenerID string) {
+// RemoveEventListener - removes an event listener given its id.
+func (con *SliverClient) RemoveEventListener(listenerID string) {
 	value, ok := con.EventListeners.LoadAndDelete(listenerID)
 	if ok {
 		close(value.(chan *clientpb.Event))
 	}
 }
 
-func (con *SliverConsoleClient) triggerEventListeners(event *clientpb.Event) {
+func (con *SliverClient) triggerEventListeners(event *clientpb.Event) {
 	con.EventListeners.Range(func(key, value interface{}) bool {
 		listener := value.(chan *clientpb.Event)
 		listener <- event // Do not block while sending the event to the listener
@@ -355,7 +354,7 @@ func (con *SliverConsoleClient) triggerEventListeners(event *clientpb.Event) {
 	})
 }
 
-func (con *SliverConsoleClient) triggerReactions(event *clientpb.Event) {
+func (con *SliverClient) triggerReactions(event *clientpb.Event) {
 	reactions := core.Reactions.On(event.EventType)
 	if len(reactions) == 0 {
 		return
@@ -391,8 +390,8 @@ func (con *SliverConsoleClient) triggerReactions(event *clientpb.Event) {
 	}
 }
 
-// triggerBeaconTaskCallback - Triggers the callback for a beacon task
-func (con *SliverConsoleClient) triggerBeaconTaskCallback(data []byte) {
+// triggerBeaconTaskCallback - Triggers the callback for a beacon task.
+func (con *SliverClient) triggerBeaconTaskCallback(data []byte) {
 	task := &clientpb.BeaconTask{}
 	err := proto.Unmarshal(data, task)
 	if err != nil {
@@ -411,7 +410,7 @@ func (con *SliverConsoleClient) triggerBeaconTaskCallback(data []byte) {
 	if callback, ok := con.BeaconTaskCallbacks[task.ID]; ok {
 		if con.Settings.BeaconAutoResults {
 			if beacon != nil {
-				con.PrintEventSuccessf("%s completed task %s", beacon.Name, strings.Split(task.ID, "-")[0])
+				con.PrintSuccessf("%s completed task %s", beacon.Name, strings.Split(task.ID, "-")[0])
 			}
 			task_content, err := con.Rpc.GetBeaconTaskContent(ctx, &clientpb.BeaconTask{
 				ID: task.ID,
@@ -422,19 +421,18 @@ func (con *SliverConsoleClient) triggerBeaconTaskCallback(data []byte) {
 			} else {
 				con.PrintErrorf("Could not get beacon task content: %s", err)
 			}
-			con.Println()
 		}
 		delete(con.BeaconTaskCallbacks, task.ID)
 	}
 }
 
-func (con *SliverConsoleClient) AddBeaconCallback(taskID string, callback BeaconTaskCallback) {
+func (con *SliverClient) AddBeaconCallback(taskID string, callback BeaconTaskCallback) {
 	con.BeaconTaskCallbacksMutex.Lock()
 	defer con.BeaconTaskCallbacksMutex.Unlock()
 	con.BeaconTaskCallbacks[taskID] = callback
 }
 
-func (con *SliverConsoleClient) GetPrompt() string {
+func (con *SliverClient) GetPrompt() string {
 	prompt := Underline + "sliver" + Normal
 	if con.IsServer {
 		prompt = Bold + "[server] " + Normal + Underline + "sliver" + Normal
@@ -448,7 +446,7 @@ func (con *SliverConsoleClient) GetPrompt() string {
 	return Clearln + prompt
 }
 
-func (con *SliverConsoleClient) PrintLogo() {
+func (con *SliverClient) PrintLogo() {
 	serverVer, err := con.Rpc.GetVersion(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		panic(err.Error())
@@ -473,7 +471,7 @@ func (con *SliverConsoleClient) PrintLogo() {
 	con.CheckLastUpdate()
 }
 
-func (con *SliverConsoleClient) CheckLastUpdate() {
+func (con *SliverClient) CheckLastUpdate() {
 	now := time.Now()
 	lastUpdate := getLastUpdateCheck()
 	compiledAt, err := version.Compiled()
@@ -507,7 +505,7 @@ func getLastUpdateCheck() *time.Time {
 	return &lastUpdate
 }
 
-func (con *SliverConsoleClient) GetSession(arg string) *clientpb.Session {
+func (con *SliverClient) GetSession(arg string) *clientpb.Session {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintWarnf("%s", err)
@@ -521,8 +519,8 @@ func (con *SliverConsoleClient) GetSession(arg string) *clientpb.Session {
 	return nil
 }
 
-// GetSessionsByName - Return all sessions for an Implant by name
-func (con *SliverConsoleClient) GetSessionsByName(name string) []*clientpb.Session {
+// GetSessionsByName - Return all sessions for an Implant by name.
+func (con *SliverClient) GetSessionsByName(name string) []*clientpb.Session {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
@@ -538,8 +536,8 @@ func (con *SliverConsoleClient) GetSessionsByName(name string) []*clientpb.Sessi
 }
 
 // GetActiveSessionConfig - Get the active sessions's config
-// TODO: Switch to query config based on ConfigID
-func (con *SliverConsoleClient) GetActiveSessionConfig() *clientpb.ImplantConfig {
+// TODO: Switch to query config based on ConfigID.
+func (con *SliverClient) GetActiveSessionConfig() *clientpb.ImplantConfig {
 	session := con.ActiveTarget.GetSession()
 	if session == nil {
 		return nil
@@ -562,11 +560,75 @@ func (con *SliverConsoleClient) GetActiveSessionConfig() *clientpb.ImplantConfig
 		IsSharedLib:         true,
 		C2:                  c2s,
 	}
+	/* If this config will be used to build an implant,
+	we need to make sure to include the correct transport
+	for the build */
+	switch session.Transport {
+	case "mtls":
+		config.IncludeMTLS = true
+	case "http(s)":
+		config.IncludeHTTP = true
+	case "dns":
+		config.IncludeDNS = true
+	case "wg":
+		config.IncludeWG = true
+	case "namedpipe":
+		config.IncludeNamePipe = true
+	case "tcppivot":
+		config.IncludeTCP = true
+	}
+	return config
+}
+
+func (con *SliverClient) GetActiveBeaconConfig() *clientpb.ImplantConfig {
+	beacon := con.ActiveTarget.GetBeacon()
+	if beacon == nil {
+		return nil
+	}
+
+	c2s := []*clientpb.ImplantC2{}
+	c2s = append(c2s, &clientpb.ImplantC2{
+		URL:      beacon.ActiveC2,
+		Priority: uint32(0),
+	})
+
+	config := &clientpb.ImplantConfig{
+		ID:                  beacon.ID,
+		GOOS:                beacon.OS,
+		GOARCH:              beacon.Arch,
+		Debug:               false,
+		IsBeacon:            true,
+		BeaconInterval:      beacon.Interval,
+		BeaconJitter:        beacon.Jitter,
+		Evasion:             beacon.Evasion,
+		MaxConnectionErrors: uint32(1000),
+		ReconnectInterval:   int64(60),
+		Format:              clientpb.OutputFormat_SHELLCODE,
+		IsSharedLib:         true,
+		C2:                  c2s,
+	}
+	/* If this config will be used to build an implant,
+	we need to make sure to include the correct transport
+	for the build */
+	switch beacon.Transport {
+	case "mtls":
+		config.IncludeMTLS = true
+	case "http":
+		config.IncludeHTTP = true
+	case "dns":
+		config.IncludeDNS = true
+	case "wg":
+		config.IncludeWG = true
+	case "namedpipe":
+		config.IncludeNamePipe = true
+	case "tcppivot":
+		config.IncludeTCP = true
+	}
 	return config
 }
 
 // exitConsole prompts the user for confirmation to exit the console.
-func (c *SliverConsoleClient) exitConsole(_ *console.Console) {
+func (c *SliverClient) exitConsole(_ *console.Console) {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("Confirm exit (Y/y, Ctrl-C): ")
 	text, _ := reader.ReadString('\n')
@@ -578,18 +640,18 @@ func (c *SliverConsoleClient) exitConsole(_ *console.Console) {
 }
 
 // exitImplantMenu uses the background command to detach from the implant menu.
-func (c *SliverConsoleClient) exitImplantMenu(_ *console.Console) {
+func (c *SliverClient) exitImplantMenu(_ *console.Console) {
 	root := c.App.Menu(consts.ImplantMenu).Command
 	root.SetArgs([]string{"background"})
 	root.Execute()
 }
 
-func (con *SliverConsoleClient) SpinUntil(message string, ctrl chan bool) {
+func (con *SliverClient) SpinUntil(message string, ctrl chan bool) {
 	go spin.Until(os.Stdout, message, ctrl)
 }
 
-// FormatDateDelta - Generate formatted date string of the time delta between then and now
-func (con *SliverConsoleClient) FormatDateDelta(t time.Time, includeDate bool, color bool) string {
+// FormatDateDelta - Generate formatted date string of the time delta between then and now.
+func (con *SliverClient) FormatDateDelta(t time.Time, includeDate bool, color bool) string {
 	nextTime := t.Format(time.UnixDate)
 
 	var interval string
@@ -616,8 +678,8 @@ func (con *SliverConsoleClient) FormatDateDelta(t time.Time, includeDate bool, c
 	return interval
 }
 
-// GrpcContext - Generate a context for a GRPC request, if no grumble context or an invalid flag is provided 60 seconds is used instead
-func (con *SliverConsoleClient) GrpcContext(cmd *cobra.Command) (context.Context, context.CancelFunc) {
+// GrpcContext - Generate a context for a GRPC request, if no grumble context or an invalid flag is provided 60 seconds is used instead.
+func (con *SliverClient) GrpcContext(cmd *cobra.Command) (context.Context, context.CancelFunc) {
 	if cmd == nil {
 		return context.WithTimeout(context.Background(), 60*time.Second)
 	}
@@ -639,10 +701,10 @@ type ActiveTarget struct {
 	beacon     *clientpb.Beacon
 	observers  map[int]Observer
 	observerID int
-	con        *SliverConsoleClient
+	con        *SliverClient
 }
 
-// GetSessionInteractive - Get the active target(s)
+// GetSessionInteractive - Get the active target(s).
 func (s *ActiveTarget) GetInteractive() (*clientpb.Session, *clientpb.Beacon) {
 	if s.session == nil && s.beacon == nil {
 		fmt.Printf(Warn + "Please select a session or beacon via `use`\n")
@@ -651,12 +713,12 @@ func (s *ActiveTarget) GetInteractive() (*clientpb.Session, *clientpb.Beacon) {
 	return s.session, s.beacon
 }
 
-// GetSessionInteractive - Get the active target(s)
+// GetSessionInteractive - Get the active target(s).
 func (s *ActiveTarget) Get() (*clientpb.Session, *clientpb.Beacon) {
 	return s.session, s.beacon
 }
 
-// GetSessionInteractive - GetSessionInteractive the active session
+// GetSessionInteractive - GetSessionInteractive the active session.
 func (s *ActiveTarget) GetSessionInteractive() *clientpb.Session {
 	if s.session == nil {
 		fmt.Printf(Warn + "Please select a session via `use`\n")
@@ -665,12 +727,12 @@ func (s *ActiveTarget) GetSessionInteractive() *clientpb.Session {
 	return s.session
 }
 
-// GetSession - Same as GetSession() but doesn't print a warning
+// GetSession - Same as GetSession() but doesn't print a warning.
 func (s *ActiveTarget) GetSession() *clientpb.Session {
 	return s.session
 }
 
-// GetBeaconInteractive - Get beacon interactive the active session
+// GetBeaconInteractive - Get beacon interactive the active session.
 func (s *ActiveTarget) GetBeaconInteractive() *clientpb.Beacon {
 	if s.beacon == nil {
 		fmt.Printf(Warn + "Please select a beacon via `use`\n")
@@ -679,7 +741,7 @@ func (s *ActiveTarget) GetBeaconInteractive() *clientpb.Beacon {
 	return s.beacon
 }
 
-// GetBeacon - Same as GetBeacon() but doesn't print a warning
+// GetBeacon - Same as GetBeacon() but doesn't print a warning.
 func (s *ActiveTarget) GetBeacon() *clientpb.Beacon {
 	return s.beacon
 }
@@ -731,7 +793,7 @@ func (s *ActiveTarget) Request(cmd *cobra.Command) *commonpb.Request {
 	return req
 }
 
-// Set - Change the active session
+// Set - Change the active session.
 func (s *ActiveTarget) Set(session *clientpb.Session, beacon *clientpb.Beacon) {
 	if session != nil && beacon != nil {
 		s.con.PrintErrorf("cannot set both an active beacon and an active session")
@@ -785,7 +847,7 @@ func (s *ActiveTarget) Set(session *clientpb.Session, beacon *clientpb.Beacon) {
 	}
 }
 
-// Background - Background the active session
+// Background - Background the active session.
 func (s *ActiveTarget) Background() {
 	defer s.con.App.ShowCommands()
 
@@ -814,7 +876,7 @@ func (s *ActiveTarget) GetHostUUID() string {
 
 // Expose or hide commands if the active target does support them (or not).
 // Ex; hide Windows commands on Linux implants, Wireguard tools on HTTP C2, etc.
-func (con *SliverConsoleClient) ExposeCommands() {
+func (con *SliverClient) ExposeCommands() {
 	con.App.ShowCommands()
 
 	if con.ActiveTarget.session == nil && con.ActiveTarget.beacon == nil {

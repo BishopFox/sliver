@@ -21,17 +21,15 @@ import (
 	"context"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// ChtimesCmd - Change the access and modified time of a file on the remote file system
-func ChtimesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ChtimesCmd - Change the access and modified time of a file on the remote file system.
+func ChtimesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -98,8 +96,8 @@ func ChtimesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 	}
 }
 
-// PrintChtimes - Print the Chtimes response
-func PrintChtimes(chtimes *sliverpb.Chtimes, con *console.SliverConsoleClient) {
+// PrintChtimes - Print the Chtimes response.
+func PrintChtimes(chtimes *sliverpb.Chtimes, con *console.SliverClient) {
 	if chtimes.Response != nil && chtimes.Response.Err != "" {
 		con.PrintErrorf("%s\n", chtimes.Response.Err)
 		return

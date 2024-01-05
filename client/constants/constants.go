@@ -18,105 +18,105 @@ package constants
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// Meta
+// Meta.
 const (
-	// KeepAliveStr - Keep alive constant
+	// KeepAliveStr - Keep alive constant.
 	KeepAliveStr = "keepalive"
 )
 
 const (
-	// LastUpdateCheckFileName - Last update check file name
+	// LastUpdateCheckFileName - Last update check file name.
 	LastUpdateCheckFileName = "last_update_check"
 )
 
-// Console
+// Console.
 const (
 	ImplantMenu = "implant"
 	ServerMenu  = ""
 )
 
-// Events
+// Events.
 const (
-	// UpdateStr - "update"
+	// UpdateStr - "update".
 	UpdateStr = "update"
-	// VersionStr - "version"
+	// VersionStr - "version".
 	VersionStr = "version"
 
-	// EventStr - "event"
+	// EventStr - "event".
 	EventStr = "event"
 
-	// ServersStr - "server-error"
+	// ServersStr - "server-error".
 	ServerErrorStr = "server-error"
 
-	// ConnectedEvent - Sliver Connected
+	// ConnectedEvent - Sliver Connected.
 	SessionOpenedEvent = "session-connected"
-	// DisconnectedEvent - Sliver disconnected
+	// DisconnectedEvent - Sliver disconnected.
 	SessionClosedEvent = "session-disconnected"
-	// UpdateEvent - Sliver updated
+	// UpdateEvent - Sliver updated.
 	SessionUpdateEvent = "session-updated"
 
-	// JoinedEvent - Player joined the game
+	// JoinedEvent - Player joined the game.
 	JoinedEvent = "client-joined"
-	// LeftEvent - Player left the game
+	// LeftEvent - Player left the game.
 	LeftEvent = "client-left"
 
-	// CanaryEvent - A DNS canary was triggered
+	// CanaryEvent - A DNS canary was triggered.
 	CanaryEvent = "canary"
 
-	// WatchtowerEvent - An implant hash has been identified on a threat intel platform
+	// WatchtowerEvent - An implant hash has been identified on a threat intel platform.
 	WatchtowerEvent = "watchtower"
 
-	// StartedEvent - Job was started
+	// StartedEvent - Job was started.
 	JobStartedEvent = "job-started"
-	// StoppedEvent - Job was stopped
+	// StoppedEvent - Job was stopped.
 	JobStoppedEvent = "job-stopped"
 
-	// BuildEvent - Fires on change to builds
+	// BuildEvent - Fires on change to builds.
 	BuildEvent = "build"
 
-	// BuildCompletedEvent - Fires when a build completes
+	// BuildCompletedEvent - Fires when a build completes.
 	BuildCompletedEvent = "build-completed"
 
-	// ProfileEvent - Fires whenever there's a change to profiles
+	// ProfileEvent - Fires whenever there's a change to profiles.
 	ProfileEvent = "profile"
 
-	// WebsiteEvent - Fires whenever there's a change to websites
+	// WebsiteEvent - Fires whenever there's a change to websites.
 	WebsiteEvent = "website"
 
-	// LootAdded
+	// LootAdded.
 	LootAddedEvent = "loot-added"
 
-	// LootRemoved
+	// LootRemoved.
 	LootRemovedEvent = "loot-removed"
 
-	// BeaconRegisteredEvent - First connection from a new beacon
+	// BeaconRegisteredEvent - First connection from a new beacon.
 	BeaconRegisteredEvent = "beacon-registered"
 
-	// BeaconTaskResult - Beacon task completed with a result
+	// BeaconTaskResult - Beacon task completed with a result.
 	BeaconTaskResultEvent = "beacon-taskresult"
 
-	// ExternalBuildEvent
+	// ExternalBuildEvent.
 	ExternalBuildEvent          = "external-build"
 	AcknowledgeBuildEvent       = "external-acknowledge"
 	ExternalBuildFailedEvent    = "external-build-failed"
 	ExternalBuildCompletedEvent = "external-build-completed"
 
-	// TrafficEncoder Events
+	// TrafficEncoder Events.
 	TrafficEncoderTestProgressEvent = "traffic-encoder-test-progress"
 
-	// Crackstation Events
+	// Crackstation Events.
 	CrackstationConnected    = "crackstation-connected"
 	CrackstationDisconnected = "crackstation-disconnected"
 
-	// Crack Events - Events consumed by crackstations
+	// Crack Events - Events consumed by crackstations.
 	CrackBenchmark   = "crack-benchmark"
 	CrackStatusEvent = "crack-status"
 
-	// WireGuardNewPeer - New Wireguard peer added
+	// WireGuardNewPeer - New Wireguard peer added.
 	WireGuardNewPeer = "wireguard-newpeer"
 )
 
-// Commands
+// Commands.
 const (
 	OperatorsStr       = "operators"
 	NewOperatorStr     = "new-operator"
@@ -146,9 +146,9 @@ const (
 	C2ProfileStr       = "c2profiles"
 	ImportC2ProfileStr = "import"
 
-	// Generic
+	// Generic.
 
-	// NewStr - "new"
+	// NewStr - "new".
 	NewStr     = "new"
 	AddStr     = "add"
 	StartStr   = "start"
@@ -303,16 +303,16 @@ const (
 	DefaultC2Profile = "default"
 )
 
-// Groups
+// Groups.
 const (
-	// Server commands =====================
+	// Server commands =====================.
 	GenericHelpGroup  = "Generic"
 	NetworkHelpGroup  = "Network"
 	PayloadsHelpGroup = "Payload"
 	DataHelpGroup     = "Data"
 	SliverHelpGroup   = "Sliver"
 
-	// Sliver commands =====================
+	// Sliver commands =====================.
 	SliverCoreHelpGroup = "Core"
 	InfoHelpGroup       = "Info"
 	FilesystemHelpGroup = "Filesystem"
@@ -323,16 +323,23 @@ const (
 	AliasHelpGroup     = "Sliver - 3rd Party macros"
 	ExtensionHelpGroup = "Sliver - 3rd Party extensions"
 
-	// Useless
+	// Useless.
 	SliverWinHelpGroup   = "Sliver - Windows"
 	MultiplayerHelpGroup = "Multiplayer"
 )
 
 // Command types / filters (per OS/type/C2/etc)
-// Should not be changed: extension.json artifact file (architecture/OS) rely on some of the values below,
+// Should not be changed: extension.json artifact file (architecture/OS) rely on some of the values below,.
 const (
 	SessionCmdsFilter   = "session"
 	BeaconCmdsFilter    = "beacon"
 	WindowsCmdsFilter   = "windows"
 	WireguardCmdsFilter = "wireguard"
+)
+
+// Creds (needed here to avoid recursive imports).
+const (
+	UserColonHashNewlineFormat = "user:hash" // username:hash\n
+	HashNewlineFormat          = "hash"      // hash\n
+	CSVFormat                  = "csv"       // username,hash\n
 )

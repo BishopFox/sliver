@@ -22,14 +22,13 @@ import (
 	"context"
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/spf13/cobra"
 )
 
-// WebsitesRmContent - Remove static content from a website
-func WebsitesRmContent(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// WebsitesRmContent - Remove static content from a website.
+func WebsitesRmContent(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name, _ := cmd.Flags().GetString("website")
 	webPath, _ := cmd.Flags().GetString("web-path")
 	recursive, _ := cmd.Flags().GetBool("recursive")

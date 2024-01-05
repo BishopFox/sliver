@@ -53,6 +53,7 @@ type Beacon struct {
 	ActiveC2          string
 	ProxyURL          string
 	Locale            string
+	Integrity         string
 
 	ImplantBuildID uuid.UUID `gorm:"type:uuid;"`
 
@@ -66,6 +67,7 @@ type Beacon struct {
 // BeforeCreate - GORM hook
 func (b *Beacon) BeforeCreate(tx *gorm.DB) (err error) {
 	b.CreatedAt = time.Now()
+	b.Integrity = "-"
 	return nil
 }
 
@@ -94,6 +96,7 @@ func (b *Beacon) ToProtobuf() *clientpb.Beacon {
 		NextCheckin:       b.NextCheckin,
 		Locale:            b.Locale,
 		FirstContact:      b.CreatedAt.Unix(),
+		Integrity:         b.Integrity,
 	}
 }
 

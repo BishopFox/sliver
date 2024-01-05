@@ -21,15 +21,14 @@ package reconfig
 import (
 	"context"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/util"
+	"github.com/spf13/cobra"
 )
 
-// RecnameCmd - Reconfigure metadata about a sessions
-func RenameCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// RecnameCmd - Reconfigure metadata about a sessions.
+func RenameCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return

@@ -23,28 +23,27 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/rsteube/carapace"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 )
 
-// PortfwdCmd - Display information about tunneled port forward(s)
-func PortfwdCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// PortfwdCmd - Display information about tunneled port forward(s).
+func PortfwdCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	PrintPortfwd(con)
 }
 
-// PrintPortfwd - Print the port forward(s)
-func PrintPortfwd(con *console.SliverConsoleClient) {
+// PrintPortfwd - Print the port forward(s).
+func PrintPortfwd(con *console.SliverClient) {
 	portfwds := core.Portfwds.List()
 	if len(portfwds) == 0 {
 		con.PrintInfof("No port forwards\n")
 		return
 	}
-	sort.Slice(portfwds[:], func(i, j int) bool {
+	sort.Slice(portfwds, func(i, j int) bool {
 		return portfwds[i].ID < portfwds[j].ID
 	})
 
@@ -67,8 +66,8 @@ func PrintPortfwd(con *console.SliverConsoleClient) {
 	con.Printf("%s\n", tw.Render())
 }
 
-// PortfwdIDCompleter completes IDs of local portforwarders
-func PortfwdIDCompleter(_ *console.SliverConsoleClient) carapace.Action {
+// PortfwdIDCompleter completes IDs of local portforwarders.
+func PortfwdIDCompleter(_ *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
 		results := make([]string, 0)
 

@@ -20,17 +20,15 @@ package filesystem
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// ChownCmd - Change the owner of a file on the remote file system
-func ChownCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ChownCmd - Change the owner of a file on the remote file system.
+func ChownCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -85,8 +83,8 @@ func ChownCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 	}
 }
 
-// PrintChown - Print the chown response
-func PrintChown(chown *sliverpb.Chown, con *console.SliverConsoleClient) {
+// PrintChown - Print the chown response.
+func PrintChown(chown *sliverpb.Chown, con *console.SliverClient) {
 	if chown.Response != nil && chown.Response.Err != "" {
 		con.PrintErrorf("%s\n", chown.Response.Err)
 		return

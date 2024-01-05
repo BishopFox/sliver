@@ -36,7 +36,7 @@ import (
 )
 
 // BeaconsCmd - Display/interact with beacons
-func BeaconsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func BeaconsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	killFlag, _ := cmd.Flags().GetString("kill")
 	killAll, _ := cmd.Flags().GetBool("kill-all")
 
@@ -94,7 +94,7 @@ func BeaconsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 }
 
 // PrintBeacons - Display a list of beacons
-func PrintBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverConsoleClient) {
+func PrintBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverClient) {
 	if len(beacons) == 0 {
 		con.PrintInfof("No beacons 🙁\n")
 		return
@@ -103,7 +103,7 @@ func PrintBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp
 	con.Printf("%s\n", tw.Render())
 }
 
-func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverConsoleClient) table.Writer {
+func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverClient) table.Writer {
 	width, _, err := term.GetSize(0)
 	if err != nil {
 		width = 999
@@ -112,20 +112,45 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	wideTermWidth := con.Settings.SmallTermWidth < width
+	windowsBeaconInList := false
+	for _, beacon := range beacons {
+		if beacon.OS == "windows" {
+			windowsBeaconInList = true
+		}
+	}
 	if wideTermWidth {
-		tw.AppendHeader(table.Row{
-			"ID",
-			"Name",
-			"Tasks",
-			"Transport",
-			"Remote Address",
-			"Hostname",
-			"Username",
-			"Operating System",
-			"Locale",
-			"Last Check-in",
-			"Next Check-in",
-		})
+		if windowsBeaconInList {
+			tw.AppendHeader(table.Row{
+				"ID",
+				"Name",
+				"Tasks",
+				"Transport",
+				"Remote Address",
+				"Hostname",
+				"Username",
+				"Process (PID)",
+				"Integrity",
+				"Operating System",
+				"Locale",
+				"Last Check-in",
+				"Next Check-in",
+			})
+		} else {
+			tw.AppendHeader(table.Row{
+				"ID",
+				"Name",
+				"Tasks",
+				"Transport",
+				"Remote Address",
+				"Hostname",
+				"Username",
+				"Process (PID)",
+				"Operating System",
+				"Locale",
+				"Last Check-in",
+				"Next Check-in",
+			})
+		}
 	} else {
 		tw.AppendHeader(table.Row{
 			"ID",
@@ -145,6 +170,9 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 		if activeBeacon != nil && activeBeacon.ID == beacon.ID {
 			color = console.Green
 		}
+		if beacon.Integrity == "" {
+			beacon.Integrity = "-"
+		}
 
 		// We need a slice of strings so we can apply filters
 		var rowEntries []string
@@ -158,11 +186,19 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.RemoteAddress),
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Hostname),
 				fmt.Sprintf(color+"%s"+console.Normal, strings.TrimPrefix(beacon.Username, beacon.Hostname+"\\")),
+				fmt.Sprintf(color+"%s (%d)"+console.Normal, beacon.Filename, beacon.PID),
+			}
+
+			if windowsBeaconInList {
+				rowEntries = append(rowEntries, fmt.Sprintf(color+"%s"+console.Normal, beacon.Integrity))
+			}
+
+			rowEntries = append(rowEntries, []string{
 				fmt.Sprintf(color+"%s/%s"+console.Normal, beacon.OS, beacon.Arch),
 				fmt.Sprintf(color+"%s"+console.Normal, beacon.Locale),
 				con.FormatDateDelta(time.Unix(beacon.LastCheckin, 0), wideTermWidth, false),
 				con.FormatDateDelta(time.Unix(beacon.NextCheckin, 0), wideTermWidth, true),
-			}
+			}...)
 		} else {
 			rowEntries = []string{
 				fmt.Sprintf(color+"%s"+console.Normal, strings.Split(beacon.ID, "-")[0]),

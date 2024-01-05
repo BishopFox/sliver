@@ -125,3 +125,18 @@ func (rpc *Server) CancelBeaconTask(ctx context.Context, req *clientpb.BeaconTas
 	}
 	return task, nil
 }
+
+// UpdateBeaconIntegrityInformation - Update process integrity information for a beacon
+func (rpc *Server) UpdateBeaconIntegrityInformation(ctx context.Context, req *clientpb.BeaconIntegrity) (*commonpb.Empty, error) {
+	resp := &commonpb.Empty{}
+	beacon, err := db.BeaconByID(req.BeaconID)
+	if err != nil || beacon == nil {
+		return resp, ErrInvalidBeaconID
+	}
+	beacon.Integrity = req.Integrity
+	err = db.Session().Save(beacon).Error
+	if err != nil {
+		return resp, err
+	}
+	return resp, nil
+}

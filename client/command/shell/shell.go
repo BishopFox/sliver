@@ -25,13 +25,12 @@ import (
 	"log"
 	"os"
 
-	"github.com/spf13/cobra"
-	"golang.org/x/term"
-
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 const (
@@ -40,8 +39,8 @@ const (
 	linux   = "linux"
 )
 
-// ShellCmd - Start an interactive shell on the remote system
-func ShellCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ShellCmd - Start an interactive shell on the remote system.
+func ShellCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -60,7 +59,7 @@ func ShellCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 	con.Println("Shell exited")
 }
 
-func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *console.SliverConsoleClient) {
+func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *console.SliverClient) {
 	con.Println()
 	con.PrintInfof("Wait approximately 10 seconds after exit, and press <enter> to continue\n")
 	con.PrintInfof("Opening shell tunnel (EOF to exit) ...\n\n")

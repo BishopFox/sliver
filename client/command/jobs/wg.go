@@ -21,14 +21,13 @@ package jobs
 import (
 	"context"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/spf13/cobra"
 )
 
-// WGListenerCmd - Start a WireGuard listener
-func WGListenerCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// WGListenerCmd - Start a WireGuard listener.
+func WGListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	lport, _ := cmd.Flags().GetUint32("lport")
 	nport, _ := cmd.Flags().GetUint32("nport")
 	keyExchangePort, _ := cmd.Flags().GetUint32("key-port")

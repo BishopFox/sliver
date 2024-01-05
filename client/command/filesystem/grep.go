@@ -83,7 +83,7 @@ func processFlags(searchPattern string, insensitive bool, exact bool) string {
 	return processedSearchPattern
 }
 
-func GrepCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func GrepCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -152,7 +152,7 @@ func GrepCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string
 }
 
 // printGrep - Print the results from the grep operation to stdout
-func printGrep(grep *sliverpb.Grep, searchPattern string, searchPath string, cmd *cobra.Command, con *console.SliverConsoleClient) {
+func printGrep(grep *sliverpb.Grep, searchPattern string, searchPath string, cmd *cobra.Command, con *console.SliverClient) {
 	saveLoot, _ := cmd.Flags().GetBool("loot")
 	lootName, _ := cmd.Flags().GetString("name")
 	colorize, _ := cmd.Flags().GetBool("colorize-output")

@@ -54,6 +54,7 @@ message Session {
   int64 PeerID = 25;
   string Locale = 26;
   int64 FirstContact = 27;
+  string Integrity = 28;
 }
 
 message Beacon {
@@ -88,6 +89,8 @@ message Beacon {
 
   string Locale = 28;
   int64 FirstContact = 29;
+
+  string Integrity = 30;
 }
 
 message Beacons { repeated Beacon Beacons = 2; }
@@ -107,6 +110,11 @@ message BeaconTask {
 message BeaconTasks {
   string BeaconID = 1;
   repeated BeaconTask Tasks = 2;
+}
+
+message BeaconIntegrity {
+  string BeaconID = 1;
+  string Integrity = 2;
 }
 
 message ImplantC2 {
@@ -527,6 +535,7 @@ message MigrateReq {
   ImplantConfig Config = 2;
   ShellcodeEncoder Encoder = 3;
   string Name = 4;
+  string ProcName = 5;
 
   commonpb.Request Request = 9;
 }
