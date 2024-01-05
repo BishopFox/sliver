@@ -26,6 +26,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -47,7 +48,7 @@ type Config struct {
 }
 
 // StartBuilder - main entry point for the builder
-func StartBuilder(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) {
+func StartBuilder(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient, mutex *sync.Mutex) {
 
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt)
@@ -64,7 +65,7 @@ func StartBuilder(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) 
 		case <-sigint:
 			return
 		case event := <-events:
-			go handleBuildEvent(externalBuilder, event, rpc)
+			go handleBuildEvent(externalBuilder, event, rpc, mutex)
 		}
 	}
 }
@@ -97,7 +98,7 @@ func buildEvents(externalBuilder *clientpb.Builder, rpc rpcpb.SliverRPCClient) (
 }
 
 // handleBuildEvent - Handle an individual build event
-func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, rpc rpcpb.SliverRPCClient) {
+func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, rpc rpcpb.SliverRPCClient, mutex *sync.Mutex) {
 
 	parts := strings.Split(string(event.Data), ":")
 	if len(parts) < 2 {
@@ -166,11 +167,17 @@ func handleBuildEvent(externalBuilder *clientpb.Builder, event *clientpb.Event, 
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
+		mutex.Lock()
 		fPath, err = generate.SliverExecutable(extConfig.Build.Name, extConfig.Build, extConfig.Config, extConfig.HTTPC2.ImplantConfig)
+		mutex.Unlock()
 	case clientpb.OutputFormat_SHARED_LIB:
+		mutex.Lock()
 		fPath, err = generate.SliverSharedLibrary(extConfig.Build.Name, extConfig.Build, extConfig.Config, extConfig.HTTPC2.ImplantConfig)
+		mutex.Unlock()
 	case clientpb.OutputFormat_SHELLCODE:
+		mutex.Lock()
 		fPath, err = generate.SliverShellcode(extConfig.Build.Name, extConfig.Build, extConfig.Config, extConfig.HTTPC2.ImplantConfig)
+		mutex.Unlock()
 	default:
 		builderLog.Errorf("invalid output format: %s", extConfig.Config.Format)
 		rpc.BuilderTrigger(context.Background(), &clientpb.Event{
