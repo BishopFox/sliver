@@ -48,6 +48,7 @@ const (
 	lhostFlagStr       = "lhost"
 	lportFlagStr       = "lport"
 	saveFlagStr        = "save"
+	outputFlagStr      = "output"
 	permissionsFlagStr = "permissions"
 
 	// Cert flags
@@ -79,6 +80,7 @@ func init() {
 	operatorCmd.Flags().StringP(lhostFlagStr, "l", "", "multiplayer listener host")
 	operatorCmd.Flags().Uint16P(lportFlagStr, "p", uint16(31337), "multiplayer listener port")
 	operatorCmd.Flags().StringP(saveFlagStr, "s", "", "save file to ...")
+	operatorCmd.Flags().StringP(outputFlagStr, "o", "file", "output format (file, stdout)")
 	operatorCmd.Flags().StringSliceP(permissionsFlagStr, "P", []string{}, "grant permissions to the operator profile (all, builder, crackstation)")
 	rootCmd.AddCommand(operatorCmd)
 

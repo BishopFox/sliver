@@ -3,14 +3,13 @@ package tasks
 import (
 	"context"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/spf13/cobra"
 )
 
-// TasksCancelCmd - Cancel a beacon task before it's sent to the implant
-func TasksCancelCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// TasksCancelCmd - Cancel a beacon task before it's sent to the implant.
+func TasksCancelCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	beacon := con.ActiveTarget.GetBeaconInteractive()
 	if beacon == nil {
 		return

@@ -21,19 +21,18 @@ package exec
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
 // MigrateCmd - Windows only, inject an implant into another process
-func MigrateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
-	session := con.ActiveTarget.GetSession()
-	if session == nil {
+func MigrateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	session, beacon := con.ActiveTarget.GetInteractive()
+	if session == nil && beacon == nil {
 		return
 	}
 
@@ -43,44 +42,37 @@ func MigrateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 		con.PrintErrorf("Error: Must specify either a PID or process name\n")
 		return
 	}
-	if procName != "" {
-		procCtrl := make(chan bool)
-		con.SpinUntil(fmt.Sprintf("Searching for %s ...", procName), procCtrl)
-		proc, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
-			Request: con.ActiveTarget.Request(cmd),
-		})
-		if err != nil {
-			con.PrintErrorf("Error: %v\n", err)
-			return
-		}
-		procCtrl <- true
-		<-procCtrl
-		for _, p := range proc.GetProcesses() {
-			if strings.EqualFold(p.Executable, procName) {
-				pid = uint32(p.Pid)
-				break
-			}
-		}
-		if pid == 0 {
-			con.PrintErrorf("Error: Could not find process %s\n", procName)
-			return
-		}
-		con.PrintInfof("Process name specified, overriding PID with %d\n", pid)
+
+	var config *clientpb.ImplantConfig
+	var implantName string
+
+	if session != nil {
+		config = con.GetActiveSessionConfig()
+		implantName = session.Name
+	} else {
+		config = con.GetActiveBeaconConfig()
+		implantName = beacon.Name
 	}
-	config := con.GetActiveSessionConfig()
+
 	encoder := clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
 	if disableSgn, _ := cmd.Flags().GetBool("disable-sgn"); disableSgn {
 		encoder = clientpb.ShellcodeEncoder_NONE
 	}
 
 	ctrl := make(chan bool)
-	con.SpinUntil(fmt.Sprintf("Migrating into %d ...", pid), ctrl)
+	if pid != 0 {
+		con.SpinUntil(fmt.Sprintf("Migrating into %d ...", pid), ctrl)
+	} else {
+		con.SpinUntil(fmt.Sprintf("Migrating into %s...", procName), ctrl)
+	}
 
 	migrate, err := con.Rpc.Migrate(context.Background(), &clientpb.MigrateReq{
-		Pid:     pid,
-		Config:  config,
-		Request: con.ActiveTarget.Request(cmd),
-		Encoder: encoder,
+		Pid:      pid,
+		Config:   config,
+		Request:  con.ActiveTarget.Request(cmd),
+		Encoder:  encoder,
+		Name:     implantName,
+		ProcName: procName,
 	})
 	ctrl <- true
 	<-ctrl
@@ -88,9 +80,32 @@ func MigrateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 		con.PrintErrorf("Error: %v", err)
 		return
 	}
-	if !migrate.Success {
-		con.PrintErrorf("%s\n", migrate.GetResponse().GetErr())
-		return
+	if migrate.Response != nil && migrate.Response.Async {
+		con.AddBeaconCallback(migrate.Response.TaskID, func(task *clientpb.BeaconTask) {
+			err = proto.Unmarshal(task.Response, migrate)
+			if err != nil {
+				con.PrintErrorf("Failed to decode response %s\n", err)
+			}
+			if !migrate.Success {
+				if migrate.GetResponse().GetErr() != "" {
+					con.PrintErrorf("%s\n", migrate.GetResponse().GetErr())
+				} else {
+					con.PrintErrorf("Could not migrate into a new process. Check the PID or name.")
+				}
+				return
+			}
+			con.PrintInfof("Successfully migrated to %d\n", migrate.Pid)
+		})
+		con.PrintAsyncResponse(migrate.Response)
+	} else {
+		if !migrate.Success {
+			if migrate.GetResponse().GetErr() != "" {
+				con.PrintErrorf("%s\n", migrate.GetResponse().GetErr())
+			} else {
+				con.PrintErrorf("Could not migrate into a new process. Check the PID or name.")
+			}
+			return
+		}
+		con.PrintInfof("Successfully migrated to %d\n", migrate.Pid)
 	}
-	con.PrintInfof("Successfully migrated to %d\n", pid)
 }

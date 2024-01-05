@@ -4,15 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rsteube/carapace"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/rsteube/carapace"
 )
 
-// GetSliverBinary - Get the binary of an implant based on it's profile
-func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverConsoleClient) ([]byte, error) {
+// GetSliverBinary - Get the binary of an implant based on it's profile.
+func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverClient) ([]byte, error) {
 	var data []byte
 
 	ctrl := make(chan bool)
@@ -28,6 +27,22 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverConsol
 		return data, err
 	}
 	data = generated.GetFile().GetData()
+
+	if profile.Config.Format == clientpb.OutputFormat_SHELLCODE && profile.Config.SGNEnabled {
+		encodeResp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
+			Encoder:      clientpb.ShellcodeEncoder_SHIKATA_GA_NAI,
+			Architecture: profile.Config.GOARCH,
+			Iterations:   1,
+			BadChars:     []byte{},
+			Data:         data,
+		})
+		if err != nil {
+			con.PrintErrorf("Error encoding shellcode")
+			return nil, err
+		}
+		data = encodeResp.Data
+	}
+
 	_, err = con.Rpc.SaveImplantProfile(context.Background(), profile)
 	if err != nil {
 		con.PrintErrorf("Error updating implant profile\n")
@@ -37,7 +52,7 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverConsol
 }
 
 // FormatCompleter completes builds' architectures.
-func ArchCompleter(con *console.SliverConsoleClient) carapace.Action {
+func ArchCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		compiler, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
 		if err != nil {
@@ -70,8 +85,8 @@ func ArchCompleter(con *console.SliverConsoleClient) carapace.Action {
 	})
 }
 
-// FormatCompleter completes build operating systems
-func OSCompleter(con *console.SliverConsoleClient) carapace.Action {
+// FormatCompleter completes build operating systems.
+func OSCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		compiler, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
 		if err != nil {
@@ -104,7 +119,7 @@ func OSCompleter(con *console.SliverConsoleClient) carapace.Action {
 	})
 }
 
-// FormatCompleter completes build formats
+// FormatCompleter completes build formats.
 func FormatCompleter() carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		return carapace.ActionValues([]string{
@@ -114,7 +129,7 @@ func FormatCompleter() carapace.Action {
 }
 
 // HTTPC2Completer - Completes the HTTP C2 PROFILES
-func HTTPC2Completer(con *console.SliverConsoleClient) carapace.Action {
+func HTTPC2Completer(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		grpcCtx, cancel := con.GrpcContext(nil)
 		defer cancel()
@@ -131,8 +146,8 @@ func HTTPC2Completer(con *console.SliverConsoleClient) carapace.Action {
 	})
 }
 
-// TrafficEncoderCompleter - Completes the names of traffic encoders
-func TrafficEncodersCompleter(con *console.SliverConsoleClient) carapace.Action {
+// TrafficEncoderCompleter - Completes the names of traffic encoders.
+func TrafficEncodersCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		grpcCtx, cancel := con.GrpcContext(nil)
 		defer cancel()

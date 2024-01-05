@@ -249,8 +249,10 @@ func (p *Prompt) formatLastPrompt(prompt string) string {
 	begin := regexp.MustCompile(`\\1`)
 	end := regexp.MustCompile(`\\2`)
 
+	// Remove delimiters, and replace quoted escape sequences
 	status = begin.ReplaceAllString(status, "")
 	status = end.ReplaceAllString(status, "")
+	status = strings.ReplaceAll(status, "\\e", "\x1b")
 
 	return status + prompt
 }

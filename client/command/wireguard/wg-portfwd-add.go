@@ -22,14 +22,13 @@ import (
 	"context"
 	"net"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
 )
 
-// WGPortFwdAddCmd - Add a new WireGuard port forward
-func WGPortFwdAddCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// WGPortFwdAddCmd - Add a new WireGuard port forward.
+func WGPortFwdAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

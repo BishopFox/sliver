@@ -21,17 +21,15 @@ package filesystem
 import (
 	"context"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
-// PwdCmd - Print the remote working directory
-func PwdCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// PwdCmd - Print the remote working directory.
+func PwdCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -58,8 +56,8 @@ func PwdCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string)
 	}
 }
 
-// PrintPwd - Print the remote working directory
-func PrintPwd(pwd *sliverpb.Pwd, con *console.SliverConsoleClient) {
+// PrintPwd - Print the remote working directory.
+func PrintPwd(pwd *sliverpb.Pwd, con *console.SliverClient) {
 	if pwd.Response != nil && pwd.Response.Err != "" {
 		con.PrintErrorf("%s\n", pwd.Response.Err)
 		return

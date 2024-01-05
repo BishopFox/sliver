@@ -23,17 +23,16 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/spf13/cobra"
 )
 
-// ErrNonReactableEvent - Event does not exist or is not supported by reactions
+// ErrNonReactableEvent - Event does not exist or is not supported by reactions.
 var ErrNonReactableEvent = errors.New("non-reactable event type")
 
-// ReactionSetCmd - Set a reaction upon an event
-func ReactionSetCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ReactionSetCmd - Set a reaction upon an event.
+func ReactionSetCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	eventType, err := getEventType(cmd, con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -63,7 +62,7 @@ func ReactionSetCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args [
 	con.PrintInfof("Set reaction to %s (id: %d)\n", eventType, reaction.ID)
 }
 
-func getEventType(cmd *cobra.Command, con *console.SliverConsoleClient) (string, error) {
+func getEventType(cmd *cobra.Command, con *console.SliverClient) (string, error) {
 	rawEventType, _ := cmd.Flags().GetString("event")
 	if rawEventType == "" {
 		return selectEventType(con)
@@ -77,7 +76,7 @@ func getEventType(cmd *cobra.Command, con *console.SliverConsoleClient) (string,
 	}
 }
 
-func selectEventType(con *console.SliverConsoleClient) (string, error) {
+func selectEventType(con *console.SliverClient) (string, error) {
 	prompt := &survey.Select{
 		Message: "Select an event:",
 		Options: core.ReactableEvents,

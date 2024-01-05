@@ -38,7 +38,7 @@ import (
 )
 
 // LootCmd - The loot root command
-func LootCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func LootCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	allLoot, err := con.Rpc.LootAll(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("Failed to fetch loot %s\n", err)
@@ -48,7 +48,7 @@ func LootCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string
 }
 
 // PrintAllFileLootTable - Displays a table of all file loot
-func PrintAllFileLootTable(allLoot *clientpb.AllLoot, con *console.SliverConsoleClient) {
+func PrintAllFileLootTable(allLoot *clientpb.AllLoot, con *console.SliverClient) {
 	if allLoot == nil || len(allLoot.Loot) == 0 {
 		con.PrintInfof("No loot 🙁\n")
 		return
@@ -77,7 +77,7 @@ func PrintAllFileLootTable(allLoot *clientpb.AllLoot, con *console.SliverConsole
 }
 
 // PrintLootFile - Display the contents of a piece of loot
-func PrintLootFile(loot *clientpb.Loot, con *console.SliverConsoleClient) {
+func PrintLootFile(loot *clientpb.Loot, con *console.SliverClient) {
 	if loot.File == nil {
 		return
 	}

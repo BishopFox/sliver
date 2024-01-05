@@ -33,7 +33,7 @@ import (
 )
 
 // CrackCmd - GPU password cracking interface
-func CrackCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CrackCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if !AreCrackersOnline(con) {
 		PrintNoCrackstations(con)
 	} else {
@@ -58,7 +58,7 @@ func CrackCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []strin
 }
 
 // CrackStationsCmd - Manage GPU cracking stations
-func CrackStationsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func CrackStationsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	crackers, err := con.Rpc.Crackstations(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -71,11 +71,11 @@ func CrackStationsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args
 	}
 }
 
-func PrintNoCrackstations(con *console.SliverConsoleClient) {
+func PrintNoCrackstations(con *console.SliverClient) {
 	con.PrintInfof("No crackstations connected to server\n")
 }
 
-func AreCrackersOnline(con *console.SliverConsoleClient) bool {
+func AreCrackersOnline(con *console.SliverClient) bool {
 	crackers, err := con.Rpc.Crackstations(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		return false
@@ -83,7 +83,7 @@ func AreCrackersOnline(con *console.SliverConsoleClient) bool {
 	return len(crackers.Crackstations) > 0
 }
 
-func PrintCrackers(crackers []*clientpb.Crackstation, con *console.SliverConsoleClient) {
+func PrintCrackers(crackers []*clientpb.Crackstation, con *console.SliverClient) {
 	sort.Slice(crackers, func(i, j int) bool {
 		return crackers[i].Name < crackers[j].Name
 	})
@@ -96,7 +96,7 @@ func PrintCrackers(crackers []*clientpb.Crackstation, con *console.SliverConsole
 	}
 }
 
-func printCracker(cracker *clientpb.Crackstation, index int, con *console.SliverConsoleClient) {
+func printCracker(cracker *clientpb.Crackstation, index int, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.SetTitle(console.Bold + console.Orange + fmt.Sprintf(">>> Crackstation %02d - %s (%s)", index+1, cracker.Name, cracker.OperatorName) + console.Normal + "\n")
@@ -135,7 +135,7 @@ func printCracker(cracker *clientpb.Crackstation, index int, con *console.Sliver
 	printBenchmarks(cracker, con)
 }
 
-func printBenchmarks(cracker *clientpb.Crackstation, con *console.SliverConsoleClient) {
+func printBenchmarks(cracker *clientpb.Crackstation, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.SetTitle(console.Bold + "Benchmarks" + console.Normal)
