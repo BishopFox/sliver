@@ -56,6 +56,7 @@ type SliverRPCClient interface {
 	GetBeaconTasks(ctx context.Context, in *clientpb.Beacon, opts ...grpc.CallOption) (*clientpb.BeaconTasks, error)
 	GetBeaconTaskContent(ctx context.Context, in *clientpb.BeaconTask, opts ...grpc.CallOption) (*clientpb.BeaconTask, error)
 	CancelBeaconTask(ctx context.Context, in *clientpb.BeaconTask, opts ...grpc.CallOption) (*clientpb.BeaconTask, error)
+	UpdateBeaconIntegrityInformation(ctx context.Context, in *clientpb.BeaconIntegrity, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	// *** Jobs ***
 	GetJobs(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Jobs, error)
 	KillJob(ctx context.Context, in *clientpb.KillJobReq, opts ...grpc.CallOption) (*clientpb.KillJob, error)
@@ -465,6 +466,15 @@ func (c *sliverRPCClient) GetBeaconTaskContent(ctx context.Context, in *clientpb
 func (c *sliverRPCClient) CancelBeaconTask(ctx context.Context, in *clientpb.BeaconTask, opts ...grpc.CallOption) (*clientpb.BeaconTask, error) {
 	out := new(clientpb.BeaconTask)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/CancelBeaconTask", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) UpdateBeaconIntegrityInformation(ctx context.Context, in *clientpb.BeaconIntegrity, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/UpdateBeaconIntegrityInformation", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1987,6 +1997,7 @@ type SliverRPCServer interface {
 	GetBeaconTasks(context.Context, *clientpb.Beacon) (*clientpb.BeaconTasks, error)
 	GetBeaconTaskContent(context.Context, *clientpb.BeaconTask) (*clientpb.BeaconTask, error)
 	CancelBeaconTask(context.Context, *clientpb.BeaconTask) (*clientpb.BeaconTask, error)
+	UpdateBeaconIntegrityInformation(context.Context, *clientpb.BeaconIntegrity) (*commonpb.Empty, error)
 	// *** Jobs ***
 	GetJobs(context.Context, *commonpb.Empty) (*clientpb.Jobs, error)
 	KillJob(context.Context, *clientpb.KillJobReq) (*clientpb.KillJob, error)
@@ -2235,6 +2246,9 @@ func (UnimplementedSliverRPCServer) GetBeaconTaskContent(context.Context, *clien
 }
 func (UnimplementedSliverRPCServer) CancelBeaconTask(context.Context, *clientpb.BeaconTask) (*clientpb.BeaconTask, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelBeaconTask not implemented")
+}
+func (UnimplementedSliverRPCServer) UpdateBeaconIntegrityInformation(context.Context, *clientpb.BeaconIntegrity) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateBeaconIntegrityInformation not implemented")
 }
 func (UnimplementedSliverRPCServer) GetJobs(context.Context, *commonpb.Empty) (*clientpb.Jobs, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetJobs not implemented")
@@ -3123,6 +3137,24 @@ func _SliverRPC_CancelBeaconTask_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).CancelBeaconTask(ctx, req.(*clientpb.BeaconTask))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_UpdateBeaconIntegrityInformation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.BeaconIntegrity)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).UpdateBeaconIntegrityInformation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/UpdateBeaconIntegrityInformation",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).UpdateBeaconIntegrityInformation(ctx, req.(*clientpb.BeaconIntegrity))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -5982,6 +6014,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CancelBeaconTask",
 			Handler:    _SliverRPC_CancelBeaconTask_Handler,
+		},
+		{
+			MethodName: "UpdateBeaconIntegrityInformation",
+			Handler:    _SliverRPC_UpdateBeaconIntegrityInformation_Handler,
 		},
 		{
 			MethodName: "GetJobs",

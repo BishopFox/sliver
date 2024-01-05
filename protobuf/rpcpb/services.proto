@@ -46,6 +46,7 @@ service SliverRPC {
   rpc GetBeaconTasks(clientpb.Beacon) returns (clientpb.BeaconTasks);
   rpc GetBeaconTaskContent(clientpb.BeaconTask) returns (clientpb.BeaconTask);
   rpc CancelBeaconTask(clientpb.BeaconTask) returns (clientpb.BeaconTask);
+  rpc UpdateBeaconIntegrityInformation(clientpb.BeaconIntegrity) returns (commonpb.Empty);
 
 
   // *** Jobs ***

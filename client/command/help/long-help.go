@@ -124,7 +124,7 @@ var (
 	[[.Bold]]About:[[.Normal]] Manage jobs/listeners.`
 
 	sessionsHelp = `[[.Bold]]Command:[[.Normal]] sessions <options>
-[[.Bold]]About:[[.Normal]] List Sliver sessions, and optionally interact or kill a session.`
+[[.Bold]]About:[[.Normal]] List Sliver sessions, and optionally interact or kill a session. Process integrity information is only available on Windows and is updated each time the getprivs command is executed.`
 
 	backgroundHelp = `[[.Bold]]Command:[[.Normal]] background
 [[.Bold]]About:[[.Normal]] Background the active Sliver.`
