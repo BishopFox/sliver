@@ -28,21 +28,20 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
 var (
-	// ErrNoSessions - No sessions available
+	// ErrNoSessions - No sessions available.
 	ErrNoSessions = errors.New("no sessions")
-	// ErrNoSelection - No selection made
+	// ErrNoSelection - No selection made.
 	ErrNoSelection = errors.New("no selection")
 )
 
-// SelectSession - Interactive menu for the user to select an session, optionally only display live sessions
-func SelectSession(onlyAlive bool, con *console.SliverConsoleClient) (*clientpb.Session, error) {
+// SelectSession - Interactive menu for the user to select an session, optionally only display live sessions.
+func SelectSession(onlyAlive bool, con *console.SliverClient) (*clientpb.Session, error) {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		return nil, err

@@ -31,7 +31,7 @@ jobs:
         run: make servers
 
       - name: Server Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: servers
           path: ./sliver-server_*
@@ -57,7 +57,7 @@ jobs:
         run: make clients
 
       - name: Client Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: clients
           path: ./sliver-client_*
@@ -72,7 +72,7 @@ jobs:
 
     steps:
       - run: mkdir -p ./builds
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           path: ./builds
 

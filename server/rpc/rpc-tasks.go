@@ -42,7 +42,6 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -62,10 +61,28 @@ func (rpc *Server) Task(ctx context.Context, req *sliverpb.TaskReq) (*sliverpb.T
 // Migrate - Migrate to a new process on the remote system (Windows only)
 func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliverpb.Migrate, error) {
 	var shellcode []byte
-	session := core.Sessions.Get(req.Request.SessionID)
-	if session == nil {
-		return nil, ErrInvalidSessionID
+	var session *core.Session
+	var beacon *clientpb.Beacon
+	var dbBeacon *models.Beacon
+	var err error
+
+	if !req.Request.Async { // is this a session?
+		session = core.Sessions.Get(req.Request.SessionID)
+		if session == nil {
+			return nil, ErrInvalidSessionID
+		}
+	} else { // then it must be a beacon
+		dbBeacon, err = db.BeaconByID(req.Request.BeaconID)
+		if err != nil {
+			tasksLog.Errorf("%s", err)
+			return nil, ErrDatabaseFailure
+		}
+		beacon = dbBeacon.ToProtobuf()
+		if beacon == nil {
+			return nil, ErrInvalidBeaconID
+		}
 	}
+
 	name := filepath.Base(req.Name)
 	shellcode, arch, err := getSliverShellcode(name)
 	if err != nil {
@@ -114,24 +131,20 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 
 	}
 
-	reqData, err := proto.Marshal(&sliverpb.InvokeMigrateReq{
-		Request: req.Request,
-		Data:    shellcode,
-		Pid:     req.Pid,
-	})
+	migrateReq := &sliverpb.InvokeMigrateReq{
+		Request:  req.Request,
+		Data:     shellcode,
+		Pid:      req.Pid,
+		ProcName: req.ProcName,
+	}
+
+	resp := &sliverpb.Migrate{Response: &commonpb.Response{}}
+	err = rpc.GenericHandler(migrateReq, resp)
+
 	if err != nil {
 		return nil, err
 	}
-	timeout := rpc.getTimeout(req)
-	respData, err := session.Request(sliverpb.MsgInvokeMigrateReq, timeout, reqData)
-	if err != nil {
-		return nil, err
-	}
-	resp := &sliverpb.Migrate{}
-	err = proto.Unmarshal(respData, resp)
-	if err != nil {
-		return nil, err
-	}
+
 	return resp, nil
 }
 

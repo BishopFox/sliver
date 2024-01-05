@@ -21,9 +21,8 @@ package cli
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/version"
+	"github.com/spf13/cobra"
 )
 
 var cmdVersion = &cobra.Command{

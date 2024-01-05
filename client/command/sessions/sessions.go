@@ -25,19 +25,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/spf13/cobra"
-	"golang.org/x/term"
-
 	"github.com/bishopfox/sliver/client/command/kill"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
-// SessionsCmd - Display/interact with sessions
-func SessionsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// SessionsCmd - Display/interact with sessions.
+func SessionsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	interact, _ := cmd.Flags().GetString("interact")
 	killFlag, _ := cmd.Flags().GetString("kill")
 	killAll, _ := cmd.Flags().GetBool("kill-all")
@@ -126,8 +125,8 @@ func SessionsCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 	}
 }
 
-// PrintSessions - Print the current sessions
-func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterRegex *regexp.Regexp, con *console.SliverConsoleClient) {
+// PrintSessions - Print the current sessions.
+func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterRegex *regexp.Regexp, con *console.SliverClient) {
 	width, _, err := term.GetSize(0)
 	if err != nil {
 		width = 999
@@ -237,7 +236,7 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 	con.Printf("%s\n", tw.Render())
 }
 
-// ShortSessionID - Shorten the session ID
+// ShortSessionID - Shorten the session ID.
 func ShortSessionID(id string) string {
 	return strings.Split(id, "-")[0]
 }

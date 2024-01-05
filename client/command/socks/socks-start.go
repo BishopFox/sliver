@@ -25,16 +25,14 @@ import (
 	"net"
 	"time"
 
-	"gopkg.in/AlecAivazis/survey.v1"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/spf13/cobra"
+	"gopkg.in/AlecAivazis/survey.v1"
 )
 
-// SocksStartCmd - Add a new tunneled port forward
-func SocksStartCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// SocksStartCmd - Add a new tunneled port forward.
+func SocksStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

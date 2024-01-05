@@ -527,6 +527,7 @@ message MigrateReq {
   ImplantConfig Config = 2;
   ShellcodeEncoder Encoder = 3;
   string Name = 4;
+  string ProcName = 5;
 
   commonpb.Request Request = 9;
 }

@@ -29,8 +29,6 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/overlord"
@@ -38,6 +36,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -51,8 +50,8 @@ var (
 	cursedChromePermissionsAlt = []string{overlord.AllHTTP, overlord.AllHTTPS, overlord.WebRequest, overlord.WebRequestBlocking}
 )
 
-// CursedChromeCmd - Execute a .NET assembly in-memory
-func CursedChromeCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// CursedChromeCmd - Execute a .NET assembly in-memory.
+func CursedChromeCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -112,7 +111,7 @@ func CursedChromeCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args 
 	}
 }
 
-func avadaKedavraChrome(session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient, cargs []string) *core.CursedProcess {
+func avadaKedavraChrome(session *clientpb.Session, cmd *cobra.Command, con *console.SliverClient, cargs []string) *core.CursedProcess {
 	chromeProcess, err := getChromeProcess(session, cmd, con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -154,7 +153,7 @@ func avadaKedavraChrome(session *clientpb.Session, cmd *cobra.Command, con *cons
 	return curse
 }
 
-func startCursedChromeProcess(isEdge bool, session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient, cargs []string) (*core.CursedProcess, error) {
+func startCursedChromeProcess(isEdge bool, session *clientpb.Session, cmd *cobra.Command, con *console.SliverClient, cargs []string) (*core.CursedProcess, error) {
 	name := "Chrome"
 	if isEdge {
 		name = "Edge"
@@ -254,7 +253,7 @@ func startCursedChromeProcess(isEdge bool, session *clientpb.Session, cmd *cobra
 	return curse, nil
 }
 
-func findChromeUserDataDir(isEdge bool, session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient) (string, error) {
+func findChromeUserDataDir(isEdge bool, session *clientpb.Session, cmd *cobra.Command, con *console.SliverClient) (string, error) {
 	userDataFlag, _ := cmd.Flags().GetString("user-data")
 	if userDataFlag != "" {
 		return userDataFlag, nil
@@ -307,7 +306,7 @@ func findChromeUserDataDir(isEdge bool, session *clientpb.Session, cmd *cobra.Co
 	}
 }
 
-func findChromeExecutablePath(isEdge bool, session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient) (string, error) {
+func findChromeExecutablePath(isEdge bool, session *clientpb.Session, cmd *cobra.Command, con *console.SliverClient) (string, error) {
 	exeFlag, _ := cmd.Flags().GetString("exe")
 	if exeFlag != "" {
 		return exeFlag, nil
@@ -417,7 +416,7 @@ func isChromeProcess(executable string) bool {
 	return false
 }
 
-func getChromeProcess(session *clientpb.Session, cmd *cobra.Command, con *console.SliverConsoleClient) (*commonpb.Process, error) {
+func getChromeProcess(session *clientpb.Session, cmd *cobra.Command, con *console.SliverClient) (*commonpb.Process, error) {
 	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
 		Request: con.ActiveTarget.Request(cmd),
 	})

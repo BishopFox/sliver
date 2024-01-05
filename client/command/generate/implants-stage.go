@@ -12,7 +12,7 @@ import (
 )
 
 // ImplantsStageCmd - Serve a previously generated build
-func ImplantsStageCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ImplantsStageCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		con.PrintErrorf("Unable to load implant builds '%s'\n", err)

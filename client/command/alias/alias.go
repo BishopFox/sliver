@@ -27,15 +27,14 @@ import (
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
-
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 )
 
-// AliasesCmd - The alias command
-func AliasesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) error {
+// AliasesCmd - The alias command.
+func AliasesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) error {
 	if 0 < len(loadedAliases) {
 		PrintAliases(con)
 	} else {
@@ -45,8 +44,8 @@ func AliasesCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []str
 	return nil
 }
 
-// PrintAliases - Print a list of loaded aliases
-func PrintAliases(con *console.SliverConsoleClient) {
+// PrintAliases - Print a list of loaded aliases.
+func PrintAliases(con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
@@ -88,8 +87,8 @@ func PrintAliases(con *console.SliverConsoleClient) {
 	con.Println(tw.Render())
 }
 
-// AliasCommandNameCompleter - Completer for installed extensions command names
-func AliasCommandNameCompleter(prefix string, args []string, con *console.SliverConsoleClient) []string {
+// AliasCommandNameCompleter - Completer for installed extensions command names.
+func AliasCommandNameCompleter(prefix string, args []string, con *console.SliverClient) []string {
 	results := []string{}
 	for name := range loadedAliases {
 		if strings.HasPrefix(name, prefix) {
@@ -129,7 +128,7 @@ func getInstalledManifests() map[string]*AliasManifest {
 	return installedManifests
 }
 
-// AliasCommandNameCompleter - Completer for installed extensions command names
+// AliasCommandNameCompleter - Completer for installed extensions command names.
 func AliasCompleter() carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		results := []string{}

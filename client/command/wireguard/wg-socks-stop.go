@@ -22,14 +22,13 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/spf13/cobra"
 )
 
-// WGSocksStopCmd - Stop a WireGuard SOCKS proxy
-func WGSocksStopCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// WGSocksStopCmd - Stop a WireGuard SOCKS proxy.
+func WGSocksStopCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSession()
 	if session == nil {
 		return

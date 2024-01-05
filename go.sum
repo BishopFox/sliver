@@ -356,6 +356,8 @@ github.com/reeflective/console v0.1.6 h1:BhhvQU/m8QOpaIRzrXfwcbtkGQJX9jVR5qIqAy/
 github.com/reeflective/console v0.1.6/go.mod h1:7owTBE9k2lg2QpVw7g4DrK1HxEgr/5DQCmA3O2Znoek=
 github.com/reeflective/readline v1.0.11 h1:4+aiebj7a89hTRJOMM98H+md1Kxu+v1XkfdCs0n6odQ=
 github.com/reeflective/readline v1.0.11/go.mod h1:mcD0HxNVJVteVwDm9caXKg52nQACVyfh8EyuBmgVlzY=
+github.com/reeflective/readline v1.0.13 h1:TeJmYw9B7VRPZWfNExr9QHxL1m0iSicyqBSQIRn39Ss=
+github.com/reeflective/readline v1.0.13/go.mod h1:3iOe/qyb2jEy0KqLrNlb/CojBVqxga9ACqz/VU22H6A=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
 github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=

@@ -25,15 +25,14 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/util"
+	"github.com/spf13/cobra"
 )
 
-// ExtensionsInstallCmd - Install an extension
-func ExtensionsInstallCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ExtensionsInstallCmd - Install an extension.
+func ExtensionsInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	extLocalPath := args[0]
 
 	_, err := os.Stat(extLocalPath)
@@ -45,7 +44,7 @@ func ExtensionsInstallCmd(cmd *cobra.Command, con *console.SliverConsoleClient, 
 }
 
 // Install an extension from a directory
-func InstallFromDir(extLocalPath string, con *console.SliverConsoleClient, isGz bool) {
+func InstallFromDir(extLocalPath string, con *console.SliverClient, isGz bool) {
 	var manifestData []byte
 	var err error
 
@@ -120,7 +119,7 @@ func InstallFromDir(extLocalPath string, con *console.SliverConsoleClient, isGz 
 	}
 }
 
-func installArtifact(extGzFilePath string, installPath string, artifactPath string, con *console.SliverConsoleClient) error {
+func installArtifact(extGzFilePath string, installPath string, artifactPath string, con *console.SliverClient) error {
 	data, err := util.ReadFileFromTarGz(extGzFilePath, "."+filepath.ToSlash(artifactPath))
 	if err != nil {
 		return err

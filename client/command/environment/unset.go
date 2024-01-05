@@ -31,7 +31,7 @@ import (
 )
 
 // EnvUnsetCmd - Unset a remote environment variable
-func EnvUnsetCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func EnvUnsetCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -67,7 +67,7 @@ func EnvUnsetCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []st
 }
 
 // PrintUnsetEnvInfo - Print the set environment info
-func PrintUnsetEnvInfo(name string, envInfo *sliverpb.UnsetEnv, con *console.SliverConsoleClient) {
+func PrintUnsetEnvInfo(name string, envInfo *sliverpb.UnsetEnv, con *console.SliverClient) {
 	if envInfo.Response != nil && envInfo.Response.Err != "" {
 		con.PrintErrorf("%s\n", envInfo.Response.Err)
 		return
