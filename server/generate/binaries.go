@@ -220,6 +220,11 @@ func SliverShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
 	dest += ".bin"
 
+	// if the destination already exists, delete it
+	if _, err := os.Stat(dest); err == nil {
+		os.Remove(dest)
+	}
+
 	tags := []string{}
 	if config.NetGoEnabled {
 		tags = append(tags, "netgo")
