@@ -15,6 +15,7 @@ func (c CursorStyle) String() string {
 	if !found {
 		return string(cursorUserDefault)
 	}
+
 	return cursor
 }
 
@@ -49,10 +50,6 @@ var defaultCursors = map[Mode]CursorStyle{
 
 // PrintCursor prints the cursor for the given keymap mode,
 // either default value or the one specified in inputrc file.
-// TODO: I've been quite vicious here, I need to admit: the logic
-// is not made to use the default user cursor in insert-mode.
-// It didn't bother. And if that can help some getting to use
-// .inputrc, so be it.
 func (m *Engine) PrintCursor(keymap Mode) {
 	var cursor CursorStyle
 
@@ -65,8 +62,8 @@ func (m *Engine) PrintCursor(keymap Mode) {
 		return
 	}
 
-	if cursor, valid := defaultCursors[keymap]; valid {
-		fmt.Print(cursors[cursor])
+	if defaultCur, valid := defaultCursors[keymap]; valid {
+		fmt.Print(cursors[defaultCur])
 		return
 	}
 

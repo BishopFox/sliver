@@ -26,7 +26,7 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 )
 
-func LootRmCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func LootRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	loot, err := SelectLoot(cmd, con.Rpc)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

@@ -31,7 +31,7 @@ import (
 )
 
 // RevToSelfCmd - Drop any impersonated tokens
-func RevToSelfCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func RevToSelfCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
@@ -61,7 +61,7 @@ func RevToSelfCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []s
 }
 
 // PrintRev2Self - Print the result of revert to self
-func PrintRev2Self(revert *sliverpb.RevToSelf, con *console.SliverConsoleClient) {
+func PrintRev2Self(revert *sliverpb.RevToSelf, con *console.SliverClient) {
 	if revert.Response != nil && revert.Response.GetErr() != "" {
 		con.PrintErrorf("%s\n", revert.Response.GetErr())
 		return

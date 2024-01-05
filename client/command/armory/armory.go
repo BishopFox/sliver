@@ -105,7 +105,7 @@ var (
 )
 
 // ArmoryCmd - The main armory command
-func ArmoryCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func ArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	armoriesConfig := assets.GetArmoriesConfig()
 	con.PrintInfof("Fetching %d armory index(es) ... ", len(armoriesConfig))
 	clientConfig := parseArmoryHTTPConfig(cmd)
@@ -141,7 +141,7 @@ func ArmoryCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 				if cacheEntry.Pkg.IsAlias {
 					aliases = append(aliases, cacheEntry.Alias)
 				} else {
-					exts = append(exts, cacheEntry.Extension)
+					exts = append(exts, cacheEntry.Extension) //todo: check this isn't a bug
 				}
 			}
 			return true
@@ -183,7 +183,7 @@ func packagesInCache() ([]*alias.AliasManifest, []*extensions.ExtensionManifest)
 			if cacheEntry.Pkg.IsAlias {
 				aliases = append(aliases, cacheEntry.Alias)
 			} else {
-				exts = append(exts, cacheEntry.Extension)
+				exts = append(exts, cacheEntry.Extension) //todo: check this isn't a bug
 			}
 		}
 		return true
@@ -217,9 +217,11 @@ func AliasExtensionOrBundleCompleter() carapace.Action {
 		aliasesComps := carapace.ActionValuesDescribed(results...).Tag("aliases").Invoke(ctx)
 		results = make([]string, 0)
 
-		for _, extensionPkg := range exts {
-			results = append(results, extensionPkg.CommandName)
-			results = append(results, extensionPkg.Help)
+		for _, extension := range exts {
+			for _, extensionPkg := range extension.ExtCommand {
+				results = append(results, extensionPkg.CommandName)
+				results = append(results, extensionPkg.Help)
+			}
 		}
 		extentionComps := carapace.ActionValuesDescribed(results...).Tag("extensions").Invoke(ctx)
 		results = make([]string, 0)
@@ -240,7 +242,7 @@ func AliasExtensionOrBundleCompleter() carapace.Action {
 }
 
 // PrintArmoryPackages - Prints the armory packages
-func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.ExtensionManifest, con *console.SliverConsoleClient) {
+func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.ExtensionManifest, con *console.SliverClient) {
 	width, _, err := term.GetSize(0)
 	if err != nil {
 		width = 1
@@ -291,14 +293,16 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 			URL:         aliasPkg.RepoURL,
 		})
 	}
-	for _, extension := range exts {
-		entries = append(entries, pkgInfo{
-			CommandName: extension.CommandName,
-			Version:     extension.Version,
-			Type:        "Extension",
-			Help:        extension.Help,
-			URL:         extension.RepoURL,
-		})
+	for _, extm := range exts {
+		for _, extension := range extm.ExtCommand {
+			entries = append(entries, pkgInfo{
+				CommandName: extension.CommandName,
+				Version:     extension.Manifest.Version,
+				Type:        "Extension",
+				Help:        extension.Help,
+				URL:         extension.Manifest.RepoURL,
+			})
+		}
 	}
 
 	sliverMenu := con.App.Menu("implant")
@@ -331,7 +335,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 }
 
 // PrintArmoryBundles - Prints the armory bundles
-func PrintArmoryBundles(bundles []*ArmoryBundle, con *console.SliverConsoleClient) {
+func PrintArmoryBundles(bundles []*ArmoryBundle, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.SetTitle(console.Bold + "Bundles" + console.Normal)

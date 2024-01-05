@@ -23,12 +23,11 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/console"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
 	"golang.org/x/term"
-
-	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/client/console"
 )
 
 var (
@@ -127,8 +126,8 @@ var (
 	}
 )
 
-// GetTableStyle - Get the current table style
-func GetTableStyle(con *console.SliverConsoleClient) table.Style {
+// GetTableStyle - Get the current table style.
+func GetTableStyle(con *console.SliverClient) table.Style {
 	if con.Settings == nil {
 		con.Settings, _ = assets.LoadSettings()
 	}
@@ -140,8 +139,8 @@ func GetTableStyle(con *console.SliverConsoleClient) table.Style {
 	return tableStyles[SliverDefault.Name]
 }
 
-// GetTableWithBordersStyle - Get the table style with borders
-func GetTableWithBordersStyle(con *console.SliverConsoleClient) table.Style {
+// GetTableWithBordersStyle - Get the table style with borders.
+func GetTableWithBordersStyle(con *console.SliverClient) table.Style {
 	if con.Settings == nil {
 		con.Settings, _ = assets.LoadSettings()
 	}
@@ -152,12 +151,12 @@ func GetTableWithBordersStyle(con *console.SliverConsoleClient) table.Style {
 	return value
 }
 
-// GetPageSize - Page size for tables
+// GetPageSize - Page size for tables.
 func GetPageSize() int {
 	return 10
 }
 
-// PagesOf - Return the pages of a table
+// PagesOf - Return the pages of a table.
 func PagesOf(renderedTable string) [][]string {
 	lines := strings.Split(renderedTable, "\n")
 	if len(lines) < 2 {
@@ -178,8 +177,8 @@ func PagesOf(renderedTable string) [][]string {
 	return pages
 }
 
-// PaginateTable - Render paginated table to console
-func PaginateTable(tw table.Writer, skipPages int, overflow bool, interactive bool, con *console.SliverConsoleClient) {
+// PaginateTable - Render paginated table to console.
+func PaginateTable(tw table.Writer, skipPages int, overflow bool, interactive bool, con *console.SliverClient) {
 	renderedTable := tw.Render()
 	lineCount := strings.Count(renderedTable, "\n")
 	if !overflow || con.Settings.AlwaysOverflow {

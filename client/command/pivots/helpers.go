@@ -28,14 +28,13 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/rsteube/carapace"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/rsteube/carapace"
 )
 
-// SelectPivotListener - Interactive menu to select a pivot listener
-func SelectPivotListener(listeners []*sliverpb.PivotListener, con *console.SliverConsoleClient) (*sliverpb.PivotListener, error) {
+// SelectPivotListener - Interactive menu to select a pivot listener.
+func SelectPivotListener(listeners []*sliverpb.PivotListener, con *console.SliverClient) (*sliverpb.PivotListener, error) {
 	// Render selection table
 	buf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
@@ -67,7 +66,7 @@ func SelectPivotListener(listeners []*sliverpb.PivotListener, con *console.Slive
 }
 
 // PivotIDCompleter completes pivot listeners' IDs.
-func PivotIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+func PivotIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
 		results := make([]string, 0)
 

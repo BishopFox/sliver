@@ -25,11 +25,6 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
 	"github.com/bishopfox/sliver/client/command/extensions"
@@ -44,10 +39,14 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"google.golang.org/protobuf/proto"
 )
 
-// TasksFetchCmd - Manage beacon tasks
-func TasksFetchCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// TasksFetchCmd - Manage beacon tasks.
+func TasksFetchCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	beacon := con.ActiveTarget.GetBeaconInteractive()
 	if beacon == nil {
 		return
@@ -123,8 +122,8 @@ func filterTasksByTaskType(taskType string, tasks []*clientpb.BeaconTask) []*cli
 	return filteredTasks
 }
 
-// PrintTask - Print the details of a beacon task
-func PrintTask(task *clientpb.BeaconTask, con *console.SliverConsoleClient) {
+// PrintTask - Print the details of a beacon task.
+func PrintTask(task *clientpb.BeaconTask, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableWithBordersStyle(con))
 	tw.AppendRow(table.Row{console.Bold + "Beacon Task" + console.Normal, task.ID})
@@ -170,8 +169,8 @@ func emojiState(state string) string {
 	}
 }
 
-// Decode and render message specific content
-func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleClient) {
+// Decode and render message specific content.
+func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 	reqEnvelope := &sliverpb.Envelope{}
 	proto.Unmarshal(task.Request, reqEnvelope)
 	switch reqEnvelope.Type {
@@ -742,7 +741,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverConsoleCli
 	}
 }
 
-func taskResponseDownload(download *sliverpb.Download, con *console.SliverConsoleClient) {
+func taskResponseDownload(download *sliverpb.Download, con *console.SliverClient) {
 	const (
 		dump   = "Dump Contents"
 		saveTo = "Save to File ..."
@@ -765,7 +764,7 @@ func taskResponseDownload(download *sliverpb.Download, con *console.SliverConsol
 	}
 }
 
-func promptSaveToFile(data []byte, con *console.SliverConsoleClient) {
+func promptSaveToFile(data []byte, con *console.SliverClient) {
 	saveTo := ""
 	saveToPrompt := &survey.Input{Message: "Save to: "}
 	err := survey.AskOne(saveToPrompt, &saveTo)

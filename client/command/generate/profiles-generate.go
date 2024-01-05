@@ -23,13 +23,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/spf13/cobra"
 )
 
-// ProfilesGenerateCmd - Generate an implant binary based on a profile
-func ProfilesGenerateCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// ProfilesGenerateCmd - Generate an implant binary based on a profile.
+func ProfilesGenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var name string
 	if len(args) > 0 {
 		name = args[0]

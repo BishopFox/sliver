@@ -23,18 +23,17 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/bishopfox/sliver/client/command/settings"
+	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
-	"github.com/bishopfox/sliver/client/command/settings"
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant
-func RportFwdListenersCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+// StartRportFwdListenerCmd - Start listener for reverse port forwarding on implant.
+func RportFwdListenersCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
@@ -50,7 +49,7 @@ func RportFwdListenersCmd(cmd *cobra.Command, con *console.SliverConsoleClient, 
 	PrintRportFwdListeners(rportfwdListeners, cmd.Flags(), con)
 }
 
-func PrintRportFwdListeners(rportfwdListeners *sliverpb.RportFwdListeners, flags *pflag.FlagSet, con *console.SliverConsoleClient) {
+func PrintRportFwdListeners(rportfwdListeners *sliverpb.RportFwdListeners, flags *pflag.FlagSet, con *console.SliverClient) {
 	if rportfwdListeners.Response != nil && rportfwdListeners.Response.Err != "" {
 		con.PrintErrorf("%s\n", rportfwdListeners.Response.Err)
 		return
@@ -78,8 +77,8 @@ func PrintRportFwdListeners(rportfwdListeners *sliverpb.RportFwdListeners, flags
 	con.Printf("%s\n", tw.Render())
 }
 
-// PortfwdIDCompleter completes IDs of remote portforwarders
-func PortfwdIDCompleter(con *console.SliverConsoleClient) carapace.Action {
+// PortfwdIDCompleter completes IDs of remote portforwarders.
+func PortfwdIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
 		results := make([]string, 0)
 

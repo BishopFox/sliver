@@ -30,15 +30,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/spf13/cobra"
-
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/implant/sliver/handlers/matcher"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
 )
 
 func determineDirPathFilter(targetPath string) (string, string) {
@@ -266,7 +264,7 @@ func tarDirectory(sourcePath string, pathAsSpecified string, sourceFilter string
 }
 
 // UploadCmd - Upload a file to the remote system
-func UploadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func UploadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	readFiles := 0
 	unreadableFiles := 0
 	var isDirectory bool
@@ -423,8 +421,8 @@ func UploadCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []stri
 	}
 }
 
-// PrintUpload - Print the result of the upload command
-func PrintUpload(upload *sliverpb.Upload, con *console.SliverConsoleClient) {
+// PrintUpload - Print the result of the upload command.
+func PrintUpload(upload *sliverpb.Upload, con *console.SliverClient) {
 	if upload.Response != nil && upload.Response.Err != "" {
 		con.PrintErrorf("%s\n", upload.Response.Err)
 		return

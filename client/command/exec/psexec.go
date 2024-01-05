@@ -21,13 +21,10 @@ package exec
 import (
 	"context"
 	"fmt"
+	insecureRand "math/rand"
 	"os"
 	"strings"
 	"time"
-
-	insecureRand "math/rand"
-
-	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -36,10 +33,11 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
+	"github.com/spf13/cobra"
 )
 
 // PsExecCmd - psexec command implementation.
-func PsExecCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func PsExecCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return

@@ -30,7 +30,7 @@ import (
 )
 
 // BeaconsPruneCmd - Prune stale beacons automatically
-func BeaconsPruneCmd(cmd *cobra.Command, con *console.SliverConsoleClient, args []string) {
+func BeaconsPruneCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	duration, _ := cmd.Flags().GetString("duration")
 	pruneDuration, err := time.ParseDuration(duration)
 	if err != nil {
