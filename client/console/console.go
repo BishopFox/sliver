@@ -560,6 +560,23 @@ func (con *SliverClient) GetActiveSessionConfig() *clientpb.ImplantConfig {
 		IsSharedLib:         true,
 		C2:                  c2s,
 	}
+	/* If this config will be used to build an implant,
+	we need to make sure to include the correct transport
+	for the build */
+	switch session.Transport {
+	case "mtls":
+		config.IncludeMTLS = true
+	case "http(s)":
+		config.IncludeHTTP = true
+	case "dns":
+		config.IncludeDNS = true
+	case "wg":
+		config.IncludeWG = true
+	case "namedpipe":
+		config.IncludeNamePipe = true
+	case "tcppivot":
+		config.IncludeTCP = true
+	}
 	return config
 }
 
@@ -590,7 +607,23 @@ func (con *SliverClient) GetActiveBeaconConfig() *clientpb.ImplantConfig {
 		IsSharedLib:         true,
 		C2:                  c2s,
 	}
-
+	/* If this config will be used to build an implant,
+	we need to make sure to include the correct transport
+	for the build */
+	switch beacon.Transport {
+	case "mtls":
+		config.IncludeMTLS = true
+	case "http":
+		config.IncludeHTTP = true
+	case "dns":
+		config.IncludeDNS = true
+	case "wg":
+		config.IncludeWG = true
+	case "namedpipe":
+		config.IncludeNamePipe = true
+	case "tcppivot":
+		config.IncludeTCP = true
+	}
 	return config
 }
 
