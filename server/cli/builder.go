@@ -21,17 +21,21 @@ package cli
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strings"
 	"sync"
+	"syscall"
 
 	clientAssets "github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/builder"
+	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/spf13/cobra"
@@ -65,6 +69,8 @@ func initBuilderCmd() *cobra.Command {
 	return builderCmd
 }
 
+var builders []*builder.Builder
+
 var builderCmd = &cobra.Command{
 	Use:   "builder",
 	Short: "Start the process as an external builder",
@@ -81,7 +87,7 @@ var builderCmd = &cobra.Command{
 			builderLog.Errorf("Failed to parse --%s flag %s\n", operatorConfigDirFlagStr, err)
 			return
 		}
-		if configDir == "" && configDir == "" {
+		if configPath == "" && configDir == "" {
 			builderLog.Errorf("Missing --%s or --%s flags\n", operatorConfigFlagStr, operatorConfigDirFlagStr)
 			return
 		}
@@ -110,38 +116,86 @@ var builderCmd = &cobra.Command{
 			}
 		}()
 
-		// We're passing a mutex to each builder to prevent concurrent builds.
-		// Concurrent build should be fine in theory, but may cause resource
-		// exhaustion on the server.
-		// For single builders, this should have no impact.
-		mutex := &sync.Mutex{}
-		// Single builder
-		if configPath != "" {
-			startBuilder(cmd, configPath, mutex)
-		} else if configDir != "" {
-			// Multiple builders
-			builderLog.Infof("Reading config dir: %s", configDir)
-			err := filepath.Walk(configDir, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					builderLog.Errorf("Failed to walk config dir: %s", err)
-					return err
+		// setup assets
+		assets.Setup(true, false)
+		// setup default profiles for HTTP C2
+		c2.SetupDefaultC2Profiles()
+		config := configPath
+		multipleBuilders := (configPath == "" && configDir != "")
+		if multipleBuilders {
+			config = configDir
+		}
+		startBuilders(cmd, config, multipleBuilders)
+		// Handle SIGHUP to reload builders
+		sigHup := make(chan os.Signal, 1)
+		signal.Notify(sigHup, syscall.SIGHUP)
+		// Handle interupt to stop all builders and exit
+		sigInt := make(chan os.Signal, 1)
+		signal.Notify(sigInt, os.Interrupt)
+		for {
+			select {
+			case <-sigHup:
+				builderLog.Info("Received SIGHUP, reloading builders")
+				reloadBuilders(cmd, config, multipleBuilders)
+			case <-sigInt:
+				builderLog.Info("Received SIGINT, stopping all builders")
+				for _, builderInst := range builders {
+					builderInst.Stop()
 				}
-				if info.IsDir() {
-					return nil
-				}
-				builderLog.Infof("Starting builder with config file: %s", path)
-				go startBuilder(cmd, path, mutex)
-				return nil
-			})
-			if err != nil {
-				builderLog.Errorf("Failed to walk config dir: %s", err)
 				return
 			}
 		}
 	},
 }
 
-func startBuilder(cmd *cobra.Command, configPath string, mutex *sync.Mutex) {
+// Start all builders if multpile is true or a single builder otherwise.
+func startBuilders(cmd *cobra.Command, config string, multpile bool) {
+	// We're passing a mutex to each builder to prevent concurrent builds.
+	// Concurrent build should be fine in theory, but may cause resource
+	// exhaustion on the server.
+	// For single builders, this should have no impact.
+	mutex := &sync.Mutex{}
+	// Single builder
+	if !multpile {
+		singleBuilder := createBuilder(cmd, config, mutex)
+		// Start single builder (blocking call)
+		singleBuilder.Start()
+	} else {
+		// Multiple builders
+		builderLog.Infof("Reading config dir: %s", config)
+		err := filepath.Walk(config, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				builderLog.Errorf("Failed to walk config dir: %s", err)
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			builderLog.Infof("Starting builder with config file: %s", path)
+			builderInst := createBuilder(cmd, path, mutex)
+			builders = append(builders, builderInst)
+			go func() {
+				builderInst.Start()
+			}()
+			return nil
+		})
+		if err != nil {
+			builderLog.Errorf("Failed to walk config dir: %s", err)
+			return
+		}
+	}
+}
+
+func reloadBuilders(cmd *cobra.Command, config string, multiple bool) {
+	builderLog.Infof("Reloading builders")
+	for _, builderInst := range builders {
+		builderInst.Stop()
+	}
+	builders = nil
+	startBuilders(cmd, config, multiple)
+}
+
+func createBuilder(cmd *cobra.Command, configPath string, mutex *sync.Mutex) *builder.Builder {
 	externalBuilder := parseBuilderConfigFlags(cmd)
 	externalBuilder.Templates = []string{"sliver"}
 
@@ -168,8 +222,8 @@ func startBuilder(cmd *cobra.Command, configPath string, mutex *sync.Mutex) {
 		builderLog.Errorf("Failed to connect to server: %s", err)
 		os.Exit(-2)
 	}
-	defer ln.Close()
-	builder.StartBuilder(externalBuilder, rpc, mutex)
+
+	return builder.NewBuilder(externalBuilder, mutex, rpc, ln)
 }
 
 func parseBuilderConfigFlags(cmd *cobra.Command) *clientpb.Builder {
