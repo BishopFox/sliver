@@ -61,7 +61,6 @@ func Start(host string, port uint16, tailscale bool) {
 		_, ln, err = transport.StartTsNetClientListener(host, port)
 	} else {
 		_, ln, err = transport.StartMtlsClientListener(host, port)
-
 	}
 	if err != nil {
 		fmt.Printf("[!] Failed to start daemon %s", err)
