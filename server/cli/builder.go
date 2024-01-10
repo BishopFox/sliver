@@ -157,7 +157,11 @@ func startBuilders(cmd *cobra.Command, config string, multpile bool) {
 	mutex := &sync.Mutex{}
 	// Single builder
 	if !multpile {
-		singleBuilder := createBuilder(cmd, config, mutex)
+		singleBuilder, err := createBuilder(cmd, config, mutex)
+		if err != nil {
+			builderLog.Errorf("Failed to create builder: %s", err)
+			os.Exit(-1)
+		}
 		// Start single builder (blocking call)
 		singleBuilder.Start()
 	} else {
@@ -171,10 +175,14 @@ func startBuilders(cmd *cobra.Command, config string, multpile bool) {
 			if info.IsDir() {
 				return nil
 			}
-			builderLog.Infof("Starting builder with config file: %s", path)
-			builderInst := createBuilder(cmd, path, mutex)
-			builders = append(builders, builderInst)
 			go func() {
+				builderLog.Infof("Starting builder with config file: %s", path)
+				builderInst, err := createBuilder(cmd, path, mutex)
+				if err != nil {
+					builderLog.Errorf("Failed to create builder: %s", err)
+					return
+				}
+				builders = append(builders, builderInst)
 				builderInst.Start()
 			}()
 			return nil
@@ -195,7 +203,7 @@ func reloadBuilders(cmd *cobra.Command, config string, multiple bool) {
 	startBuilders(cmd, config, multiple)
 }
 
-func createBuilder(cmd *cobra.Command, configPath string, mutex *sync.Mutex) *builder.Builder {
+func createBuilder(cmd *cobra.Command, configPath string, mutex *sync.Mutex) (*builder.Builder, error) {
 	externalBuilder := parseBuilderConfigFlags(cmd)
 	externalBuilder.Templates = []string{"sliver"}
 
@@ -203,7 +211,7 @@ func createBuilder(cmd *cobra.Command, configPath string, mutex *sync.Mutex) *bu
 	config, err := clientAssets.ReadConfig(configPath)
 	if err != nil {
 		builderLog.Fatalf("Invalid config file: %s", err)
-		os.Exit(-1)
+		return nil, err
 	}
 	if externalBuilder.Name == "" {
 		builderLog.Infof("No builder name was specified, attempting to use hostname")
@@ -219,11 +227,11 @@ func createBuilder(cmd *cobra.Command, configPath string, mutex *sync.Mutex) *bu
 	builderLog.Infof("Connecting to %s@%s:%d ...", config.Operator, config.LHost, config.LPort)
 	rpc, ln, err := transport.MTLSConnect(config)
 	if err != nil {
-		builderLog.Errorf("Failed to connect to server: %s", err)
-		os.Exit(-2)
+		builderLog.Errorf("Failed to connect to server %s@%s:%d: %s", config.Operator, config.LHost, config.LPort, err)
+		return nil, err
 	}
 
-	return builder.NewBuilder(externalBuilder, mutex, rpc, ln)
+	return builder.NewBuilder(externalBuilder, mutex, rpc, ln), nil
 }
 
 func parseBuilderConfigFlags(cmd *cobra.Command) *clientpb.Builder {
