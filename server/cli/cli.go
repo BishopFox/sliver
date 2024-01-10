@@ -145,7 +145,7 @@ var rootCmd = &cobra.Command{
 			fmt.Println(err)
 		}
 		if serverConfig.DaemonMode {
-			daemon.Start(daemon.BlankHost, daemon.BlankPort)
+			daemon.Start(daemon.BlankHost, daemon.BlankPort, serverConfig.DaemonConfig.Tailscale)
 		} else {
 			os.Args = os.Args[:1] // Hide cli from grumble console
 			console.Start()
