@@ -111,7 +111,7 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 
 	n, err = r.frame.Read(p)
 	if err != nil && err != io.EOF {
-		return
+		return n, err
 	}
 	if err == nil && r.raw.N != 0 {
 		return n, nil
@@ -137,7 +137,7 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 		err = io.EOF
 	}
 
-	return
+	return n, err
 }
 
 // Discard discards current message unread bytes.
@@ -215,7 +215,7 @@ func (r *Reader) NextFrame() (hdr ws.Header, err error) {
 				// Ensure that src is empty.
 				_, err = io.Copy(ioutil.Discard, &r.raw)
 			}
-			return
+			return hdr, err
 		}
 	} else {
 		r.opCode = hdr.OpCode
@@ -240,7 +240,7 @@ func (r *Reader) NextFrame() (hdr ws.Header, err error) {
 		r.State = r.State.Set(ws.StateFragmented)
 	}
 
-	return
+	return hdr, err
 }
 
 func (r *Reader) fragmented() bool {

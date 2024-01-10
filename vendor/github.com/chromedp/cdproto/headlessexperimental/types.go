@@ -15,7 +15,7 @@ import (
 // See: https://chromedevtools.github.io/devtools-protocol/tot/HeadlessExperimental#type-ScreenshotParams
 type ScreenshotParams struct {
 	Format           ScreenshotParamsFormat `json:"format,omitempty"`           // Image compression format (defaults to png).
-	Quality          int64                  `json:"quality,omitempty"`          // Compression quality from range [0..100] (jpeg only).
+	Quality          int64                  `json:"quality,omitempty"`          // Compression quality from range [0..100] (jpeg and webp only).
 	OptimizeForSpeed bool                   `json:"optimizeForSpeed,omitempty"` // Optimize image encoding for speed, not for resulting size (defaults to false)
 }
 

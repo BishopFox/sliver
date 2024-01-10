@@ -44,6 +44,7 @@ const (
 	TypeCacheStorage   Type = "cache_storage"
 	TypeInterestGroups Type = "interest_groups"
 	TypeSharedStorage  Type = "shared_storage"
+	TypeStorageBuckets Type = "storage_buckets"
 	TypeAll            Type = "all"
 	TypeOther          Type = "other"
 )
@@ -84,6 +85,8 @@ func (t *Type) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = TypeInterestGroups
 	case TypeSharedStorage:
 		*t = TypeSharedStorage
+	case TypeStorageBuckets:
+		*t = TypeStorageBuckets
 	case TypeAll:
 		*t = TypeAll
 	case TypeOther:
@@ -128,12 +131,15 @@ func (t InterestGroupAccessType) String() string {
 
 // InterestGroupAccessType values.
 const (
-	InterestGroupAccessTypeJoin   InterestGroupAccessType = "join"
-	InterestGroupAccessTypeLeave  InterestGroupAccessType = "leave"
-	InterestGroupAccessTypeUpdate InterestGroupAccessType = "update"
-	InterestGroupAccessTypeLoaded InterestGroupAccessType = "loaded"
-	InterestGroupAccessTypeBid    InterestGroupAccessType = "bid"
-	InterestGroupAccessTypeWin    InterestGroupAccessType = "win"
+	InterestGroupAccessTypeJoin             InterestGroupAccessType = "join"
+	InterestGroupAccessTypeLeave            InterestGroupAccessType = "leave"
+	InterestGroupAccessTypeUpdate           InterestGroupAccessType = "update"
+	InterestGroupAccessTypeLoaded           InterestGroupAccessType = "loaded"
+	InterestGroupAccessTypeBid              InterestGroupAccessType = "bid"
+	InterestGroupAccessTypeWin              InterestGroupAccessType = "win"
+	InterestGroupAccessTypeAdditionalBid    InterestGroupAccessType = "additionalBid"
+	InterestGroupAccessTypeAdditionalBidWin InterestGroupAccessType = "additionalBidWin"
+	InterestGroupAccessTypeClear            InterestGroupAccessType = "clear"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -162,6 +168,12 @@ func (t *InterestGroupAccessType) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = InterestGroupAccessTypeBid
 	case InterestGroupAccessTypeWin:
 		*t = InterestGroupAccessTypeWin
+	case InterestGroupAccessTypeAdditionalBid:
+		*t = InterestGroupAccessTypeAdditionalBid
+	case InterestGroupAccessTypeAdditionalBidWin:
+		*t = InterestGroupAccessTypeAdditionalBidWin
+	case InterestGroupAccessTypeClear:
+		*t = InterestGroupAccessTypeClear
 
 	default:
 		in.AddError(fmt.Errorf("unknown InterestGroupAccessType value: %v", v))
@@ -177,7 +189,7 @@ func (t *InterestGroupAccessType) UnmarshalJSON(buf []byte) error {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#type-InterestGroupAd
 type InterestGroupAd struct {
-	RenderURL string `json:"renderUrl"`
+	RenderURL string `json:"renderURL"`
 	Metadata  string `json:"metadata,omitempty"`
 }
 
@@ -189,10 +201,10 @@ type InterestGroupDetails struct {
 	Name                      string              `json:"name"`
 	ExpirationTime            *cdp.TimeSinceEpoch `json:"expirationTime"`
 	JoiningOrigin             string              `json:"joiningOrigin"`
-	BiddingURL                string              `json:"biddingUrl,omitempty"`
-	BiddingWasmHelperURL      string              `json:"biddingWasmHelperUrl,omitempty"`
-	UpdateURL                 string              `json:"updateUrl,omitempty"`
-	TrustedBiddingSignalsURL  string              `json:"trustedBiddingSignalsUrl,omitempty"`
+	BiddingLogicURL           string              `json:"biddingLogicURL,omitempty"`
+	BiddingWasmHelperURL      string              `json:"biddingWasmHelperURL,omitempty"`
+	UpdateURL                 string              `json:"updateURL,omitempty"`
+	TrustedBiddingSignalsURL  string              `json:"trustedBiddingSignalsURL,omitempty"`
 	TrustedBiddingSignalsKeys []string            `json:"trustedBiddingSignalsKeys"`
 	UserBiddingSignals        string              `json:"userBiddingSignals,omitempty"`
 	Ads                       []*InterestGroupAd  `json:"ads"`
@@ -334,4 +346,262 @@ type SharedStorageAccessParams struct {
 	Key              string                          `json:"key,omitempty"`              // Key for a specific entry in an origin's shared storage. Present only for SharedStorageAccessType.documentSet, SharedStorageAccessType.documentAppend, SharedStorageAccessType.documentDelete, SharedStorageAccessType.workletSet, SharedStorageAccessType.workletAppend, SharedStorageAccessType.workletDelete, and SharedStorageAccessType.workletGet.
 	Value            string                          `json:"value,omitempty"`            // Value for a specific entry in an origin's shared storage. Present only for SharedStorageAccessType.documentSet, SharedStorageAccessType.documentAppend, SharedStorageAccessType.workletSet, and SharedStorageAccessType.workletAppend.
 	IgnoreIfPresent  bool                            `json:"ignoreIfPresent,omitempty"`  // Whether or not to set an entry for a key if that key is already present. Present only for SharedStorageAccessType.documentSet and SharedStorageAccessType.workletSet.
+}
+
+// BucketsDurability [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#type-StorageBucketsDurability
+type BucketsDurability string
+
+// String returns the BucketsDurability as string value.
+func (t BucketsDurability) String() string {
+	return string(t)
+}
+
+// BucketsDurability values.
+const (
+	BucketsDurabilityRelaxed BucketsDurability = "relaxed"
+	BucketsDurabilityStrict  BucketsDurability = "strict"
+)
+
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t BucketsDurability) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
+
+// MarshalJSON satisfies json.Marshaler.
+func (t BucketsDurability) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *BucketsDurability) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch BucketsDurability(v) {
+	case BucketsDurabilityRelaxed:
+		*t = BucketsDurabilityRelaxed
+	case BucketsDurabilityStrict:
+		*t = BucketsDurabilityStrict
+
+	default:
+		in.AddError(fmt.Errorf("unknown BucketsDurability value: %v", v))
+	}
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *BucketsDurability) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
+}
+
+// Bucket [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#type-StorageBucket
+type Bucket struct {
+	StorageKey SerializedStorageKey `json:"storageKey"`
+	Name       string               `json:"name,omitempty"` // If not specified, it is the default bucket of the storageKey.
+}
+
+// BucketInfo [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#type-StorageBucketInfo
+type BucketInfo struct {
+	Bucket     *Bucket             `json:"bucket"`
+	ID         string              `json:"id"`
+	Expiration *cdp.TimeSinceEpoch `json:"expiration"`
+	Quota      float64             `json:"quota"` // Storage quota (bytes).
+	Persistent bool                `json:"persistent"`
+	Durability BucketsDurability   `json:"durability"`
+}
+
+// AttributionReportingSourceType [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#type-AttributionReportingSourceType
+type AttributionReportingSourceType string
+
+// String returns the AttributionReportingSourceType as string value.
+func (t AttributionReportingSourceType) String() string {
+	return string(t)
+}
+
+// AttributionReportingSourceType values.
+const (
+	AttributionReportingSourceTypeNavigation AttributionReportingSourceType = "navigation"
+	AttributionReportingSourceTypeEvent      AttributionReportingSourceType = "event"
+)
+
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t AttributionReportingSourceType) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
+
+// MarshalJSON satisfies json.Marshaler.
+func (t AttributionReportingSourceType) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *AttributionReportingSourceType) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch AttributionReportingSourceType(v) {
+	case AttributionReportingSourceTypeNavigation:
+		*t = AttributionReportingSourceTypeNavigation
+	case AttributionReportingSourceTypeEvent:
+		*t = AttributionReportingSourceTypeEvent
+
+	default:
+		in.AddError(fmt.Errorf("unknown AttributionReportingSourceType value: %v", v))
+	}
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *AttributionReportingSourceType) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
+}
+
+// UnsignedInt64asBase10 [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#type-UnsignedInt64AsBase10
+type UnsignedInt64asBase10 string
+
+// String returns the UnsignedInt64asBase10 as string value.
+func (t UnsignedInt64asBase10) String() string {
+	return string(t)
+}
+
+// UnsignedInt128asBase16 [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#type-UnsignedInt128AsBase16
+type UnsignedInt128asBase16 string
+
+// String returns the UnsignedInt128asBase16 as string value.
+func (t UnsignedInt128asBase16) String() string {
+	return string(t)
+}
+
+// SignedInt64asBase10 [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#type-SignedInt64AsBase10
+type SignedInt64asBase10 string
+
+// String returns the SignedInt64asBase10 as string value.
+func (t SignedInt64asBase10) String() string {
+	return string(t)
+}
+
+// AttributionReportingFilterDataEntry [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#type-AttributionReportingFilterDataEntry
+type AttributionReportingFilterDataEntry struct {
+	Key    string   `json:"key"`
+	Values []string `json:"values"`
+}
+
+// AttributionReportingAggregationKeysEntry [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#type-AttributionReportingAggregationKeysEntry
+type AttributionReportingAggregationKeysEntry struct {
+	Key   string                 `json:"key"`
+	Value UnsignedInt128asBase16 `json:"value"`
+}
+
+// AttributionReportingEventReportWindows [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#type-AttributionReportingEventReportWindows
+type AttributionReportingEventReportWindows struct {
+	Start int64   `json:"start"` // duration in seconds
+	Ends  []int64 `json:"ends"`  // duration in seconds
+}
+
+// AttributionReportingSourceRegistration [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#type-AttributionReportingSourceRegistration
+type AttributionReportingSourceRegistration struct {
+	Time                     *cdp.TimeSinceEpoch                         `json:"time"`
+	Expiry                   int64                                       `json:"expiry"` // duration in seconds
+	EventReportWindows       *AttributionReportingEventReportWindows     `json:"eventReportWindows"`
+	AggregatableReportWindow int64                                       `json:"aggregatableReportWindow"` // duration in seconds
+	Type                     AttributionReportingSourceType              `json:"type"`
+	SourceOrigin             string                                      `json:"sourceOrigin"`
+	ReportingOrigin          string                                      `json:"reportingOrigin"`
+	DestinationSites         []string                                    `json:"destinationSites"`
+	EventID                  UnsignedInt64asBase10                       `json:"eventId"`
+	Priority                 SignedInt64asBase10                         `json:"priority"`
+	FilterData               []*AttributionReportingFilterDataEntry      `json:"filterData"`
+	AggregationKeys          []*AttributionReportingAggregationKeysEntry `json:"aggregationKeys"`
+	DebugKey                 UnsignedInt64asBase10                       `json:"debugKey,omitempty"`
+}
+
+// AttributionReportingSourceRegistrationResult [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#type-AttributionReportingSourceRegistrationResult
+type AttributionReportingSourceRegistrationResult string
+
+// String returns the AttributionReportingSourceRegistrationResult as string value.
+func (t AttributionReportingSourceRegistrationResult) String() string {
+	return string(t)
+}
+
+// AttributionReportingSourceRegistrationResult values.
+const (
+	AttributionReportingSourceRegistrationResultSuccess                               AttributionReportingSourceRegistrationResult = "success"
+	AttributionReportingSourceRegistrationResultInternalError                         AttributionReportingSourceRegistrationResult = "internalError"
+	AttributionReportingSourceRegistrationResultInsufficientSourceCapacity            AttributionReportingSourceRegistrationResult = "insufficientSourceCapacity"
+	AttributionReportingSourceRegistrationResultInsufficientUniqueDestinationCapacity AttributionReportingSourceRegistrationResult = "insufficientUniqueDestinationCapacity"
+	AttributionReportingSourceRegistrationResultExcessiveReportingOrigins             AttributionReportingSourceRegistrationResult = "excessiveReportingOrigins"
+	AttributionReportingSourceRegistrationResultProhibitedByBrowserPolicy             AttributionReportingSourceRegistrationResult = "prohibitedByBrowserPolicy"
+	AttributionReportingSourceRegistrationResultSuccessNoised                         AttributionReportingSourceRegistrationResult = "successNoised"
+	AttributionReportingSourceRegistrationResultDestinationReportingLimitReached      AttributionReportingSourceRegistrationResult = "destinationReportingLimitReached"
+	AttributionReportingSourceRegistrationResultDestinationGlobalLimitReached         AttributionReportingSourceRegistrationResult = "destinationGlobalLimitReached"
+	AttributionReportingSourceRegistrationResultDestinationBothLimitsReached          AttributionReportingSourceRegistrationResult = "destinationBothLimitsReached"
+	AttributionReportingSourceRegistrationResultReportingOriginsPerSiteLimitReached   AttributionReportingSourceRegistrationResult = "reportingOriginsPerSiteLimitReached"
+	AttributionReportingSourceRegistrationResultExceedsMaxChannelCapacity             AttributionReportingSourceRegistrationResult = "exceedsMaxChannelCapacity"
+)
+
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t AttributionReportingSourceRegistrationResult) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
+
+// MarshalJSON satisfies json.Marshaler.
+func (t AttributionReportingSourceRegistrationResult) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *AttributionReportingSourceRegistrationResult) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch AttributionReportingSourceRegistrationResult(v) {
+	case AttributionReportingSourceRegistrationResultSuccess:
+		*t = AttributionReportingSourceRegistrationResultSuccess
+	case AttributionReportingSourceRegistrationResultInternalError:
+		*t = AttributionReportingSourceRegistrationResultInternalError
+	case AttributionReportingSourceRegistrationResultInsufficientSourceCapacity:
+		*t = AttributionReportingSourceRegistrationResultInsufficientSourceCapacity
+	case AttributionReportingSourceRegistrationResultInsufficientUniqueDestinationCapacity:
+		*t = AttributionReportingSourceRegistrationResultInsufficientUniqueDestinationCapacity
+	case AttributionReportingSourceRegistrationResultExcessiveReportingOrigins:
+		*t = AttributionReportingSourceRegistrationResultExcessiveReportingOrigins
+	case AttributionReportingSourceRegistrationResultProhibitedByBrowserPolicy:
+		*t = AttributionReportingSourceRegistrationResultProhibitedByBrowserPolicy
+	case AttributionReportingSourceRegistrationResultSuccessNoised:
+		*t = AttributionReportingSourceRegistrationResultSuccessNoised
+	case AttributionReportingSourceRegistrationResultDestinationReportingLimitReached:
+		*t = AttributionReportingSourceRegistrationResultDestinationReportingLimitReached
+	case AttributionReportingSourceRegistrationResultDestinationGlobalLimitReached:
+		*t = AttributionReportingSourceRegistrationResultDestinationGlobalLimitReached
+	case AttributionReportingSourceRegistrationResultDestinationBothLimitsReached:
+		*t = AttributionReportingSourceRegistrationResultDestinationBothLimitsReached
+	case AttributionReportingSourceRegistrationResultReportingOriginsPerSiteLimitReached:
+		*t = AttributionReportingSourceRegistrationResultReportingOriginsPerSiteLimitReached
+	case AttributionReportingSourceRegistrationResultExceedsMaxChannelCapacity:
+		*t = AttributionReportingSourceRegistrationResultExceedsMaxChannelCapacity
+
+	default:
+		in.AddError(fmt.Errorf("unknown AttributionReportingSourceRegistrationResult value: %v", v))
+	}
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *AttributionReportingSourceRegistrationResult) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }

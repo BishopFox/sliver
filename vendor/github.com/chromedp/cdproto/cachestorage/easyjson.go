@@ -4,6 +4,7 @@ package cachestorage
 
 import (
 	json "encoding/json"
+	storage "github.com/chromedp/cdproto/storage"
 	easyjson "github.com/mailru/easyjson"
 	jlexer "github.com/mailru/easyjson/jlexer"
 	jwriter "github.com/mailru/easyjson/jwriter"
@@ -556,6 +557,16 @@ func easyjsonC5a4559bDecodeGithubComChromedpCdprotoCachestorage5(in *jlexer.Lexe
 			out.SecurityOrigin = string(in.String())
 		case "storageKey":
 			out.StorageKey = string(in.String())
+		case "storageBucket":
+			if in.IsNull() {
+				in.Skip()
+				out.StorageBucket = nil
+			} else {
+				if out.StorageBucket == nil {
+					out.StorageBucket = new(storage.Bucket)
+				}
+				(*out.StorageBucket).UnmarshalEasyJSON(in)
+			}
 		default:
 			in.SkipRecursive()
 		}
@@ -585,6 +596,16 @@ func easyjsonC5a4559bEncodeGithubComChromedpCdprotoCachestorage5(out *jwriter.Wr
 			out.RawString(prefix)
 		}
 		out.String(string(in.StorageKey))
+	}
+	if in.StorageBucket != nil {
+		const prefix string = ",\"storageBucket\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		(*in.StorageBucket).MarshalEasyJSON(out)
 	}
 	out.RawByte('}')
 }
@@ -1118,6 +1139,16 @@ func easyjsonC5a4559bDecodeGithubComChromedpCdprotoCachestorage11(in *jlexer.Lex
 			out.SecurityOrigin = string(in.String())
 		case "storageKey":
 			out.StorageKey = string(in.String())
+		case "storageBucket":
+			if in.IsNull() {
+				in.Skip()
+				out.StorageBucket = nil
+			} else {
+				if out.StorageBucket == nil {
+					out.StorageBucket = new(storage.Bucket)
+				}
+				(*out.StorageBucket).UnmarshalEasyJSON(in)
+			}
 		case "cacheName":
 			out.CacheName = string(in.String())
 		default:
@@ -1148,6 +1179,11 @@ func easyjsonC5a4559bEncodeGithubComChromedpCdprotoCachestorage11(out *jwriter.W
 		const prefix string = ",\"storageKey\":"
 		out.RawString(prefix)
 		out.String(string(in.StorageKey))
+	}
+	if in.StorageBucket != nil {
+		const prefix string = ",\"storageBucket\":"
+		out.RawString(prefix)
+		(*in.StorageBucket).MarshalEasyJSON(out)
 	}
 	{
 		const prefix string = ",\"cacheName\":"

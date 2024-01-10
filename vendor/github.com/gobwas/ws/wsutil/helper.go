@@ -64,14 +64,14 @@ func ReadMessage(r io.Reader, s ws.State, m []Message) ([]Message, error) {
 
 // ReadClientMessage reads next message from r, considering that caller
 // represents server side.
-// It is a shortcut for ReadMessage(r, ws.StateServerSide, m)
+// It is a shortcut for ReadMessage(r, ws.StateServerSide, m).
 func ReadClientMessage(r io.Reader, m []Message) ([]Message, error) {
 	return ReadMessage(r, ws.StateServerSide, m)
 }
 
 // ReadServerMessage reads next message from r, considering that caller
 // represents client side.
-// It is a shortcut for ReadMessage(r, ws.StateClientSide, m)
+// It is a shortcut for ReadMessage(r, ws.StateClientSide, m).
 func ReadServerMessage(r io.Reader, m []Message) ([]Message, error) {
 	return ReadMessage(r, ws.StateClientSide, m)
 }
