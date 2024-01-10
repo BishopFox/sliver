@@ -35,14 +35,16 @@ where
 `
 
 var typeAliasMap = map[string][]string{
-	"int2":     {"smallint"},
-	"int4":     {"integer"},
-	"int8":     {"bigint"},
-	"smallint": {"int2"},
-	"integer":  {"int4"},
-	"bigint":   {"int8"},
-	"decimal":  {"numeric"},
-	"numeric":  {"decimal"},
+	"int2":                     {"smallint"},
+	"int4":                     {"integer"},
+	"int8":                     {"bigint"},
+	"smallint":                 {"int2"},
+	"integer":                  {"int4"},
+	"bigint":                   {"int8"},
+	"decimal":                  {"numeric"},
+	"numeric":                  {"decimal"},
+	"timestamptz":              {"timestamp with time zone"},
+	"timestamp with time zone": {"timestamptz"},
 }
 
 type Migrator struct {
@@ -160,7 +162,8 @@ func (m Migrator) CreateTable(values ...interface{}) (err error) {
 	for _, value := range m.ReorderModels(values, false) {
 		if err = m.RunWithValue(value, func(stmt *gorm.Statement) error {
 			if stmt.Schema != nil {
-				for _, field := range stmt.Schema.FieldsByDBName {
+				for _, fieldName := range stmt.Schema.DBNames {
+					field := stmt.Schema.FieldsByDBName[fieldName]
 					if field.Comment != "" {
 						if err := m.DB.Exec(
 							"COMMENT ON COLUMN ?.? IS ?",
@@ -326,8 +329,7 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 							return err
 						}
 					} else {
-						if err := m.DB.Exec("ALTER TABLE ? ALTER COLUMN ? TYPE ?"+m.genUsingExpression(fileType.SQL, fieldColumnType.DatabaseTypeName()),
-							m.CurrentTable(stmt), clause.Column{Name: field.DBName}, fileType, clause.Column{Name: field.DBName}, fileType).Error; err != nil {
+						if err := m.modifyColumn(stmt, field, fileType, fieldColumnType); err != nil {
 							return err
 						}
 					}
@@ -387,14 +389,27 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 	return nil
 }
 
-func (m Migrator) genUsingExpression(targetType, sourceType string) string {
-	if targetType == "boolean" {
-		switch sourceType {
+func (m Migrator) modifyColumn(stmt *gorm.Statement, field *schema.Field, targetType clause.Expr, existingColumn *migrator.ColumnType) error {
+	alterSQL := "ALTER TABLE ? ALTER COLUMN ? TYPE ? USING ?::?"
+	isUncastableDefaultValue := false
+
+	if targetType.SQL == "boolean" {
+		switch existingColumn.DatabaseTypeName() {
 		case "int2", "int8", "numeric":
-			return " USING ?::INT::?"
+			alterSQL = "ALTER TABLE ? ALTER COLUMN ? TYPE ? USING ?::int::?"
+		}
+		isUncastableDefaultValue = true
+	}
+
+	if dv, _ := existingColumn.DefaultValue(); dv != "" && isUncastableDefaultValue {
+		if err := m.DB.Exec("ALTER TABLE ? ALTER COLUMN ? DROP DEFAULT", m.CurrentTable(stmt), clause.Column{Name: field.DBName}).Error; err != nil {
+			return err
 		}
 	}
-	return " USING ?::?"
+	if err := m.DB.Exec(alterSQL, m.CurrentTable(stmt), clause.Column{Name: field.DBName}, targetType, clause.Column{Name: field.DBName}, targetType).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func (m Migrator) HasConstraint(value interface{}, name string) bool {
@@ -463,7 +478,7 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 			}
 
 			if column.DefaultValueValue.Valid {
-				column.DefaultValueValue.String = regexp.MustCompile(`'?(.*)\b'?:+[\w\s]+$`).ReplaceAllString(column.DefaultValueValue.String, "$1")
+				column.DefaultValueValue.String = parseDefaultValueValue(column.DefaultValueValue.String)
 			}
 
 			if datetimePrecision.Valid {
@@ -497,7 +512,7 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 
 		// check primary, unique field
 		{
-			columnTypeRows, err := m.DB.Raw("SELECT constraint_name FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = ? AND c.table_schema = ? AND c.table_name = ? AND constraint_type = ?", currentDatabase, currentSchema, table, "UNIQUE").Rows()
+			columnTypeRows, err := m.DB.Raw("SELECT constraint_name FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_catalog, table_name, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = ? AND c.table_schema = ? AND c.table_name = ? AND constraint_type = ?", currentDatabase, currentSchema, table, "UNIQUE").Rows()
 			if err != nil {
 				return err
 			}
@@ -509,7 +524,7 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 			}
 			columnTypeRows.Close()
 
-			columnTypeRows, err = m.DB.Raw("SELECT c.column_name, constraint_name, constraint_type FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = ? AND c.table_schema = ? AND c.table_name = ?", currentDatabase, currentSchema, table).Rows()
+			columnTypeRows, err = m.DB.Raw("SELECT c.column_name, constraint_name, constraint_type FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_catalog, table_name, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = ? AND c.table_schema = ? AND c.table_name = ?", currentDatabase, currentSchema, table).Rows()
 			if err != nil {
 				return err
 			}
@@ -768,4 +783,9 @@ func (m Migrator) RenameColumn(dst interface{}, oldName, field string) error {
 
 	m.resetPreparedStmts()
 	return nil
+}
+
+func parseDefaultValueValue(defaultValue string) string {
+	value := regexp.MustCompile(`^(.*?)(?:::.*)?$`).ReplaceAllString(defaultValue, "$1")
+	return strings.Trim(value, "'")
 }
