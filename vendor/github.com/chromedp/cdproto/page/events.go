@@ -143,37 +143,6 @@ type EventBackForwardCacheNotUsed struct {
 	NotRestoredExplanationsTree *BackForwardCacheNotRestoredExplanationTree `json:"notRestoredExplanationsTree,omitempty"` // Tree structure of reasons why the page could not be cached for each frame.
 }
 
-// EventPrerenderAttemptCompleted fired when a prerender attempt is
-// completed.
-//
-// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#event-prerenderAttemptCompleted
-type EventPrerenderAttemptCompleted struct {
-	InitiatingFrameID   cdp.FrameID          `json:"initiatingFrameId"` // The frame id of the frame initiating prerendering.
-	PrerenderingURL     string               `json:"prerenderingUrl"`
-	FinalStatus         PrerenderFinalStatus `json:"finalStatus"`
-	DisallowedAPIMethod string               `json:"disallowedApiMethod,omitempty"` // This is used to give users more information about the name of the API call that is incompatible with prerender and has caused the cancellation of the attempt
-}
-
-// EventPrefetchStatusUpdated tODO(crbug/1384419): Create a dedicated domain
-// for preloading. Fired when a prefetch attempt is updated.
-//
-// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#event-prefetchStatusUpdated
-type EventPrefetchStatusUpdated struct {
-	InitiatingFrameID cdp.FrameID      `json:"initiatingFrameId"` // The frame id of the frame initiating prefetch.
-	PrefetchURL       string           `json:"prefetchUrl"`
-	Status            PreloadingStatus `json:"status"`
-}
-
-// EventPrerenderStatusUpdated tODO(crbug/1384419): Create a dedicated domain
-// for preloading. Fired when a prerender attempt is updated.
-//
-// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#event-prerenderStatusUpdated
-type EventPrerenderStatusUpdated struct {
-	InitiatingFrameID cdp.FrameID      `json:"initiatingFrameId"` // The frame id of the frame initiating prerender.
-	PrerenderingURL   string           `json:"prerenderingUrl"`
-	Status            PreloadingStatus `json:"status"`
-}
-
 // EventLoadEventFired [no description].
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#event-loadEventFired

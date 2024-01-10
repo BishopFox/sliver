@@ -45,10 +45,9 @@ type EventLoadingFailed struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Network#event-loadingFinished
 type EventLoadingFinished struct {
-	RequestID                RequestID          `json:"requestId"`                          // Request identifier.
-	Timestamp                *cdp.MonotonicTime `json:"timestamp"`                          // Timestamp.
-	EncodedDataLength        float64            `json:"encodedDataLength"`                  // Total number of bytes received for this request.
-	ShouldReportCorbBlocking bool               `json:"shouldReportCorbBlocking,omitempty"` // Set when 1) response was blocked by Cross-Origin Read Blocking and also 2) this needs to be reported to the DevTools console.
+	RequestID         RequestID          `json:"requestId"`         // Request identifier.
+	Timestamp         *cdp.MonotonicTime `json:"timestamp"`         // Timestamp.
+	EncodedDataLength float64            `json:"encodedDataLength"` // Total number of bytes received for this request.
 }
 
 // EventRequestServedFromCache fired if request ended up loading from cache.
