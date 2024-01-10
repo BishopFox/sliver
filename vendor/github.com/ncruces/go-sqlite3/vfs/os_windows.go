@@ -1,3 +1,5 @@
+//go:build !sqlite3_nosys
+
 package vfs
 
 import (
@@ -25,40 +27,9 @@ func osOpenFile(name string, flag int, perm fs.FileMode) (*os.File, error) {
 	return os.NewFile(uintptr(r), name), nil
 }
 
-func osAccess(path string, flags AccessFlag) error {
-	fi, err := os.Stat(path)
-	if err != nil {
-		return err
-	}
-	if flags == ACCESS_EXISTS {
-		return nil
-	}
-
-	var want fs.FileMode = windows.S_IRUSR
-	if flags == ACCESS_READWRITE {
-		want |= windows.S_IWUSR
-	}
-	if fi.IsDir() {
-		want |= windows.S_IXUSR
-	}
-	if fi.Mode()&want != want {
-		return fs.ErrPermission
-	}
-	return nil
-}
-
-func osSetMode(file *os.File, modeof string) error {
-	fi, err := os.Stat(modeof)
-	if err != nil {
-		return err
-	}
-	file.Chmod(fi.Mode())
-	return nil
-}
-
-func osGetSharedLock(file *os.File, timeout time.Duration) _ErrorCode {
+func osGetSharedLock(file *os.File) _ErrorCode {
 	// Acquire the PENDING lock temporarily before acquiring a new SHARED lock.
-	rc := osReadLock(file, _PENDING_BYTE, 1, timeout)
+	rc := osReadLock(file, _PENDING_BYTE, 1, 0)
 
 	if rc == _OK {
 		// Acquire the SHARED lock.
@@ -70,16 +41,22 @@ func osGetSharedLock(file *os.File, timeout time.Duration) _ErrorCode {
 	return rc
 }
 
-func osGetExclusiveLock(file *os.File, timeout time.Duration) _ErrorCode {
-	if timeout == 0 {
-		timeout = time.Millisecond
-	}
+func osGetReservedLock(file *os.File) _ErrorCode {
+	// Acquire the RESERVED lock.
+	return osWriteLock(file, _RESERVED_BYTE, 1, 0)
+}
 
+func osGetPendingLock(file *os.File) _ErrorCode {
+	// Acquire the PENDING lock.
+	return osWriteLock(file, _PENDING_BYTE, 1, 0)
+}
+
+func osGetExclusiveLock(file *os.File) _ErrorCode {
 	// Release the SHARED lock.
 	osUnlock(file, _SHARED_FIRST, _SHARED_SIZE)
 
 	// Acquire the EXCLUSIVE lock.
-	rc := osWriteLock(file, _SHARED_FIRST, _SHARED_SIZE, timeout)
+	rc := osWriteLock(file, _SHARED_FIRST, _SHARED_SIZE, time.Millisecond)
 
 	if rc != _OK {
 		// Reacquire the SHARED lock.
@@ -125,6 +102,11 @@ func osReleaseLock(file *os.File, state LockLevel) _ErrorCode {
 	return _OK
 }
 
+func osCheckReservedLock(file *os.File) (bool, _ErrorCode) {
+	// Test the RESERVED lock.
+	return osCheckLock(file, _RESERVED_BYTE, 1)
+}
+
 func osUnlock(file *os.File, start, len uint32) _ErrorCode {
 	err := windows.UnlockFileEx(windows.Handle(file.Fd()),
 		0, len, 0, &windows.Overlapped{Offset: start})
@@ -138,6 +120,7 @@ func osUnlock(file *os.File, start, len uint32) _ErrorCode {
 }
 
 func osLock(file *os.File, flags, start, len uint32, timeout time.Duration, def _ErrorCode) _ErrorCode {
+	before := time.Now()
 	var err error
 	for {
 		err = windows.LockFileEx(windows.Handle(file.Fd()), flags,
@@ -145,11 +128,16 @@ func osLock(file *os.File, flags, start, len uint32, timeout time.Duration, def 
 		if errno, _ := err.(windows.Errno); errno != windows.ERROR_LOCK_VIOLATION {
 			break
 		}
-		if timeout < time.Millisecond {
+		if timeout <= 0 || timeout < time.Since(before) {
 			break
 		}
-		timeout -= time.Millisecond
+		if err := windows.TimeBeginPeriod(1); err != nil {
+			break
+		}
 		time.Sleep(time.Millisecond)
+		if err := windows.TimeEndPeriod(1); err != nil {
+			break
+		}
 	}
 	return osLockErrorCode(err, def)
 }

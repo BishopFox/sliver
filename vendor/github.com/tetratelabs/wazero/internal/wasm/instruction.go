@@ -35,7 +35,6 @@ const (
 	//
 	// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#-hrefsyntax-instr-controlmathsfbrl
 	OpcodeBr Opcode = 0x0c
-	// ^^ TODO: Add a diagram to help explain br l means that branch into AFTER l for non-loop labels
 
 	OpcodeBrIf         Opcode = 0x0d
 	OpcodeBrTable      Opcode = 0x0e

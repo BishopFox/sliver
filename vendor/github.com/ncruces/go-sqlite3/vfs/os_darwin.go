@@ -1,4 +1,4 @@
-//go:build !sqlite3_bsd
+//go:build !sqlite3_flock && !sqlite3_nosys
 
 package vfs
 
@@ -39,12 +39,11 @@ func osAllocate(file *os.File, size int64) error {
 		return nil
 	}
 
-	// https://stackoverflow.com/a/11497568/867786
 	store := unix.Fstore_t{
-		Flags:   unix.F_ALLOCATECONTIG,
+		Flags:   unix.F_ALLOCATEALL | unix.F_ALLOCATECONTIG,
 		Posmode: unix.F_PEOFPOSMODE,
 		Offset:  0,
-		Length:  size,
+		Length:  size - off,
 	}
 
 	// Try to get a continuous chunk of disk space.

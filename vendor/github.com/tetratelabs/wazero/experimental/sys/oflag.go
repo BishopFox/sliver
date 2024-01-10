@@ -1,4 +1,4 @@
-package fsapi
+package sys
 
 // Oflag are flags used for FS.OpenFile. Values, including zero, should not be
 // interpreted numerically. Instead, use by constants prefixed with 'O_' with
