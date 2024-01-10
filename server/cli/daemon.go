@@ -39,6 +39,12 @@ var daemonCmd = &cobra.Command{
 			return
 		}
 
+		tailscale, err := cmd.Flags().GetBool(tailscaleFlagStr)
+		if err != nil {
+			fmt.Printf("Failed to parse --%s flag %s\n", tailscaleFlagStr, err)
+			return
+		}
+
 		appDir := assets.GetRootAppDir()
 		logFile := initConsoleLogging(appDir)
 		defer logFile.Close()
@@ -67,7 +73,7 @@ var daemonCmd = &cobra.Command{
 			fmt.Println(err)
 		}
 
-		daemon.Start(lhost, uint16(lport))
+		daemon.Start(lhost, uint16(lport), tailscale)
 	},
 }
 

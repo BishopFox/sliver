@@ -50,6 +50,7 @@ const (
 	saveFlagStr        = "save"
 	outputFlagStr      = "output"
 	permissionsFlagStr = "permissions"
+	tailscaleFlagStr   = "tailscale"
 
 	// Cert flags
 	caTypeFlagStr = "type"
@@ -97,6 +98,7 @@ func init() {
 	daemonCmd.Flags().StringP(lhostFlagStr, "l", daemon.BlankHost, "multiplayer listener host")
 	daemonCmd.Flags().Uint16P(lportFlagStr, "p", daemon.BlankPort, "multiplayer listener port")
 	daemonCmd.Flags().BoolP(forceFlagStr, "f", false, "force unpack and overwrite static assets")
+	daemonCmd.Flags().BoolP(tailscaleFlagStr, "t", false, "enable tailscale")
 	rootCmd.AddCommand(daemonCmd)
 
 	// Builder
