@@ -57,8 +57,9 @@ type LogConfig struct {
 
 // DaemonConfig - Configure daemon mode
 type DaemonConfig struct {
-	Host string `json:"host"`
-	Port int    `json:"port"`
+	Host      string `json:"host"`
+	Port      int    `json:"port"`
+	Tailscale bool   `json:"tailscale"`
 }
 
 // JobConfig - Restart Jobs on Load
