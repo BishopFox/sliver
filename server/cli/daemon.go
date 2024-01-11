@@ -58,6 +58,7 @@ var daemonCmd = &cobra.Command{
 		}()
 
 		assets.Setup(force, false)
+		c2.SetupDefaultC2Profiles()
 		certs.SetupCAs()
 		certs.SetupWGKeys()
 		cryptography.AgeServerKeyPair()
