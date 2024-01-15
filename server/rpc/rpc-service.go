@@ -36,7 +36,7 @@ func (rpc *Server) StartService(ctx context.Context, req *sliverpb.StartServiceR
 	return resp, nil
 }
 
-func (rpc *Server) StartExistingService(ctx context.Context, req *sliverpb.StartExistingServiceReq) (*sliverpb.ServiceInfo, error) {
+func (rpc *Server) StartServiceByName(ctx context.Context, req *sliverpb.StartServiceByNameReq) (*sliverpb.ServiceInfo, error) {
 	resp := &sliverpb.ServiceInfo{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {

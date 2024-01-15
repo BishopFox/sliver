@@ -116,18 +116,12 @@ func RemoveService(hostname string, serviceName string) error {
 */
 
 func connectToServiceManager(hostname string, permissions uint32) (*mgr.Mgr, error) {
-	var connectHost *uint16
-
-	if hostname == "localhost" {
-		/*
-			According to Win32 API docs, if the machine name passed to OpenSCManager
-			is NULL or empty, a connection will be opened to the local machine
-			https://learn.microsoft.com/en-us/windows/win32/api/winsvc/nf-winsvc-openscmanagera
-		*/
-		connectHost = nil
-	} else {
-		connectHost = windows.StringToUTF16Ptr(hostname)
-	}
+	/*
+		According to Win32 API docs, if the machine name passed to OpenSCManager
+		is NULL or empty, a connection will be opened to the local machine
+		https://learn.microsoft.com/en-us/windows/win32/api/winsvc/nf-winsvc-openscmanagera
+	*/
+	connectHost := windows.StringToUTF16Ptr(hostname)
 	handle, err := windows.OpenSCManager(connectHost, nil, permissions)
 	if err != nil {
 		return nil, err
@@ -148,18 +142,11 @@ func buildServiceDetail(serviceName string, config mgr.Config) *sliverpb.Service
 
 	detail.DisplayName = config.DisplayName
 	detail.Description = config.Description
-	switch config.StartType {
-	case mgr.StartManual:
-		detail.StartupType = "Manual"
-	case mgr.StartAutomatic:
-		detail.StartupType = "Automatic"
-	case mgr.StartDisabled:
-		detail.StartupType = "Disabled"
-	}
+	detail.StartupType = config.StartType
 	detail.BinPath = config.BinaryPathName
 	detail.Account = config.ServiceStartName
 	// Will hopefully be filled in later
-	detail.Status = "Unknown"
+	detail.Status = 0
 
 	return detail
 }
@@ -197,22 +184,7 @@ func ListServices(hostName string) ([]*sliverpb.ServiceDetails, error) {
 			servicesList = append(servicesList, serviceInfo)
 			continue
 		}
-		switch serviceStatus.State {
-		case svc.Stopped:
-			serviceInfo.Status = "Stopped"
-		case svc.StartPending:
-			serviceInfo.Status = "Start Pending"
-		case svc.StopPending:
-			serviceInfo.Status = "Stop Pending"
-		case svc.Running:
-			serviceInfo.Status = "Running"
-		case svc.ContinuePending:
-			serviceInfo.Status = "Continue Pending"
-		case svc.PausePending:
-			serviceInfo.Status = "Pause Pending"
-		case svc.Paused:
-			serviceInfo.Status = "Paused"
-		}
+		serviceInfo.Status = uint32(serviceStatus.State)
 		servicesList = append(servicesList, serviceInfo)
 	}
 
@@ -242,32 +214,15 @@ func GetServiceDetail(hostName string, serviceName string) (*sliverpb.ServiceDet
 	serviceDetail := buildServiceDetail(serviceName, serviceConfig)
 	serviceStatus, err := serviceHandle.Query()
 	if err != nil {
-		serviceDetail.Status = fmt.Sprintf("Unknown (could not retrieve: %s)", err.Error())
+		serviceDetail.Status = 0
 		// Even though we encountered an error, it was not fatal (we still got some information about the service)
-		return serviceDetail, nil
+		return serviceDetail, fmt.Errorf("Unknown (could not retrieve: %s)", err.Error())
 	}
-
-	switch serviceStatus.State {
-	case svc.Stopped:
-		serviceDetail.Status = "Stopped"
-	case svc.StartPending:
-		serviceDetail.Status = "Start Pending"
-	case svc.StopPending:
-		serviceDetail.Status = "Stop Pending"
-	case svc.Running:
-		serviceDetail.Status = "Running"
-	case svc.ContinuePending:
-		serviceDetail.Status = "Continue Pending"
-	case svc.PausePending:
-		serviceDetail.Status = "Pause Pending"
-	case svc.Paused:
-		serviceDetail.Status = "Paused"
-	}
-
+	serviceDetail.Status = uint32(serviceStatus.State)
 	return serviceDetail, nil
 }
 
-func StartExistingService(hostName string, serviceName string) error {
+func StartServiceByName(hostName string, serviceName string) error {
 	manager, err := connectToServiceManager(hostName, ConnectServiceManagerPermissions)
 	if err != nil {
 		return err

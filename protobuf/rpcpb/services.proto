@@ -197,7 +197,7 @@ service SliverRPC {
       returns (sliverpb.CurrentTokenOwner);
   rpc Services(sliverpb.ServicesReq) returns (sliverpb.Services);
   rpc ServiceDetail(sliverpb.ServiceDetailReq) returns (sliverpb.ServiceDetail);
-  rpc StartExistingService(sliverpb.StartExistingServiceReq) returns (sliverpb.ServiceInfo);
+  rpc StartServiceByName(sliverpb.StartServiceByNameReq) returns (sliverpb.ServiceInfo);
 
   // *** Pivots ***
   rpc PivotStartListener(sliverpb.PivotStartListenerReq)

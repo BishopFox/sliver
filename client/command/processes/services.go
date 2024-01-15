@@ -15,6 +15,21 @@ import (
 	"golang.org/x/term"
 )
 
+const (
+	serviceStopped         = 1
+	serviceStartPending    = 2
+	serviceStopPending     = 3
+	serviceRunning         = 4
+	serviceContinuePending = 5
+	servicePausePending    = 6
+	servicePaused          = 7
+	serviceBootStart       = 0
+	serviceSystemStart     = 1
+	serviceAutoStart       = 2
+	serviceDemandStart     = 3
+	serviceDisabled        = 4
+)
+
 func ServicesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -181,7 +196,7 @@ func ServiceStartCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		return
 	}
 
-	startService, err := con.Rpc.StartExistingService(context.Background(), &sliverpb.StartExistingServiceReq{
+	startService, err := con.Rpc.StartServiceByName(context.Background(), &sliverpb.StartServiceByNameReq{
 		ServiceInfo: &sliverpb.ServiceInfoReq{Hostname: hostname, ServiceName: serviceName},
 		Request:     con.ActiveTarget.Request(cmd),
 	})
@@ -220,6 +235,44 @@ func ServiceStartCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 			}
 			con.PrintSuccessf("%s on %s started successfully", serviceName, displayName)
 		}
+	}
+}
+
+func translateServiceStatus(status uint32) string {
+	switch status {
+	case serviceStopped:
+		return "Stopped"
+	case serviceStartPending:
+		return "Start Pending"
+	case serviceStopPending:
+		return "Stop Pending"
+	case serviceRunning:
+		return "Running"
+	case serviceContinuePending:
+		return "Continue Pending"
+	case servicePausePending:
+		return "Pause Pending"
+	case servicePaused:
+		return "Paused"
+	default:
+		return fmt.Sprintf("Unknown (status type: %d)", status)
+	}
+}
+
+func translateServiceStartup(startup uint32) string {
+	switch startup {
+	case serviceBootStart:
+		return "Device (System Loader; Boot)"
+	case serviceSystemStart:
+		return "Device (IOInitSystem; System)"
+	case serviceAutoStart:
+		return "Automatic"
+	case serviceDemandStart:
+		return "Manual"
+	case serviceDisabled:
+		return "Disabled"
+	default:
+		return fmt.Sprintf("Unknown (Type %d)", startup)
 	}
 }
 
@@ -263,13 +316,15 @@ func PrintServices(serviceInfo *sliverpb.Services, con *console.SliverClient) {
 	})
 
 	for _, service := range serviceInfo.Details {
+		status := translateServiceStatus(service.Status)
 		var row table.Row
 		if wideTermWidth {
+			startupType := translateServiceStartup(service.StartupType)
 			row = table.Row{
 				service.Name,
 				service.DisplayName,
-				service.Status,
-				service.StartupType,
+				status,
+				startupType,
 				service.BinPath,
 				service.Account,
 			}
@@ -277,7 +332,7 @@ func PrintServices(serviceInfo *sliverpb.Services, con *console.SliverClient) {
 			row = table.Row{
 				service.Name,
 				service.DisplayName,
-				service.Status,
+				status,
 			}
 		}
 		tw.AppendRow(row)
@@ -310,6 +365,10 @@ func PrintServiceDetail(serviceDetail *sliverpb.ServiceDetail, con *console.Sliv
 	con.Println("Description: ", detail.Description)
 	con.Println("Account the service runs under: ", detail.Account)
 	con.Println("Binary Path: ", detail.BinPath)
-	con.Println("Startup type: ", detail.StartupType)
-	con.Println("Status: ", detail.Status)
+	con.Println("Startup type: ", translateServiceStartup(detail.StartupType))
+	if serviceDetail.Message != "" {
+		con.Println("Status: ", serviceDetail.Message)
+	} else {
+		con.Println("Status: ", translateServiceStatus(detail.Status))
+	}
 }

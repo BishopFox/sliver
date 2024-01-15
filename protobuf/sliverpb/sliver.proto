@@ -1305,8 +1305,8 @@ message ServiceDetails {
   string Name = 1;
   string DisplayName = 2;
   string Description = 3;
-  string Status = 4;
-  string StartupType = 5;
+  uint32 Status = 4;
+  uint32 StartupType = 5;
   string BinPath = 6;
   string Account = 7;
 }
@@ -1320,11 +1320,12 @@ message Services {
 
 message ServiceDetail {
   ServiceDetails Detail = 1;
+  string Message = 2;
 
   commonpb.Response Response = 9;
 }
 
-message StartExistingServiceReq {
+message StartServiceByNameReq {
   ServiceInfoReq ServiceInfo = 1;
 
   commonpb.Request Request = 9;

