@@ -71,7 +71,7 @@ type ColumnConfig struct {
 }
 
 func (c ColumnConfig) getWidthMaxEnforcer() WidthEnforcer {
-	if c.WidthMax == 0 {
+	if c.WidthMax <= 0 {
 		return widthEnforcerNone
 	}
 	if c.WidthMaxEnforcer != nil {

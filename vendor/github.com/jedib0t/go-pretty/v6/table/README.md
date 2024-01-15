@@ -21,6 +21,7 @@ Pretty-print tables into ASCII/Unicode strings.
   - Mirror output to an `io.Writer` (ex. `os.StdOut`) (`SetOutputMirror`)
   - Sort by one or more Columns (`SortBy`)
   - Suppress/hide columns with no content (`SuppressEmptyColumns`) 
+  - Suppress trailing spaces in the last column (`SupressTrailingSpaces`) 
   - Customizable Cell rendering per Column (`ColumnConfig.Transformer*`)
   - Hide any columns that you don't want displayed (`ColumnConfig.Hidden`)
   - Reset Headers/Rows/Footers at will to reuse the same Table Writer (`Reset*`)
