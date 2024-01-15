@@ -94,6 +94,7 @@ var (
 		consts.SSHStr:                       sshHelp,
 		consts.DLLHijackStr:                 dllHijackHelp,
 		consts.GetPrivsStr:                  getPrivsHelp,
+		consts.ServicesStr:                  servicesHelp,
 
 		// Loot
 		consts.LootStr: lootHelp,
@@ -1293,6 +1294,11 @@ Searches can be filtered using the following patterns:
 
 If you need to match a special character (*, ?, '-', '[', ']', '\\'), place '\\' in front of it (example: \\?).
 On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
+
+	servicesHelp = `[[.Bold]]Command:[[.Normal]] services [-H <hostname>]
+[[.Bold]]About:[[.Normal]] Get information about services and control them (start, stop).
+	
+To get information about services, you need to be an authenticated user on the system or domain. To control services, you need administrator or higher privileges.`
 )
 
 const (

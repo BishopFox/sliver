@@ -88,6 +88,9 @@ var (
 		sliverpb.MsgRegistryDeleteKeyReq:   regDeleteKeyHandler,
 		sliverpb.MsgRegistrySubKeysListReq: regSubKeysListHandler,
 		sliverpb.MsgRegistryListValuesReq:  regValuesListHandler,
+		sliverpb.MsgServicesReq:            servicesListHandler,
+		sliverpb.MsgServiceDetailReq:       serviceDetailHandler,
+		sliverpb.MsgStartServiceByNameReq:  startServiceByNameHandler,
 
 		// Generic
 		sliverpb.MsgPing:           pingHandler,
@@ -595,6 +598,25 @@ func stopService(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
+func startServiceByNameHandler(data []byte, resp RPCResponse) {
+	startServiceReq := &sliverpb.StartServiceByNameReq{}
+	err := proto.Unmarshal(data, startServiceReq)
+	if err != nil {
+		return
+	}
+
+	err = service.StartServiceByName(startServiceReq.ServiceInfo.Hostname, startServiceReq.ServiceInfo.ServiceName)
+	svcInfo := &sliverpb.ServiceInfo{}
+	if err != nil {
+		svcInfo.Response = &commonpb.Response{
+			Err: err.Error(),
+		}
+	}
+
+	data, err = proto.Marshal(svcInfo)
+	resp(data, err)
+}
+
 func removeService(data []byte, resp RPCResponse) {
 	removeServiceReq := &sliverpb.RemoveServiceReq{}
 	err := proto.Unmarshal(data, removeServiceReq)
@@ -775,6 +797,55 @@ func getPrivsHandler(data []byte, resp RPCResponse) {
 	}
 
 	data, err = proto.Marshal(getPrivsResp)
+	resp(data, err)
+}
+
+func servicesListHandler(data []byte, resp RPCResponse) {
+	servicesReq := &sliverpb.ServicesReq{}
+	err := proto.Unmarshal(data, servicesReq)
+	if err != nil {
+		return
+	}
+
+	serviceInfo, err := service.ListServices(servicesReq.Hostname)
+	/*
+		Errors from listing the services are not fatal. The client can
+		display a message to the user about the issue
+		We still want other errors like timeouts to be handled in the
+		normal way.
+	*/
+	servicesResp := &sliverpb.Services{
+		Details:  serviceInfo,
+		Error:    err.Error(),
+		Response: &commonpb.Response{},
+	}
+
+	data, err = proto.Marshal(servicesResp)
+	resp(data, err)
+}
+
+func serviceDetailHandler(data []byte, resp RPCResponse) {
+	serviceDetailReq := &sliverpb.ServiceDetailReq{}
+	err := proto.Unmarshal(data, serviceDetailReq)
+	if err != nil {
+		return
+	}
+
+	serviceDetail, err := service.GetServiceDetail(serviceDetailReq.ServiceInfo.Hostname, serviceDetailReq.ServiceInfo.ServiceName)
+	serviceDetailResp := &sliverpb.ServiceDetail{
+		Detail:   serviceDetail,
+		Response: &commonpb.Response{},
+	}
+	if err != nil {
+		if serviceDetail != nil {
+			// Then we had a non-fatal error
+			serviceDetailResp.Message = err.Error()
+		} else {
+			serviceDetailResp.Response.Err = err.Error()
+		}
+	}
+
+	data, err = proto.Marshal(serviceDetailResp)
 	resp(data, err)
 }
 
