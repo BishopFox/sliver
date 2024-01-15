@@ -90,7 +90,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	serviceInfoCmd := &cobra.Command{
 		Use:   consts.ServicesInfoStr,
 		Short: "Get detailed information about a single service",
-		Long:  help.GetHelpFor([]string{consts.ServicesStr + "_" + consts.ServicesInfoStr}),
+		Long:  help.GetHelpFor([]string{consts.ServicesStr}),
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ServiceInfoCmd(cmd, con, args)
@@ -105,7 +105,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	serviceStopCmd := &cobra.Command{
 		Use:   consts.ServicesStopStr,
 		Short: "Stop a service on the local machine or a remote machine",
-		Long:  help.GetHelpFor([]string{consts.ServicesStr + "_" + consts.ServicesStopStr}),
+		Long:  help.GetHelpFor([]string{consts.ServicesStr}),
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ServiceStopCmd(cmd, con, args)
@@ -120,7 +120,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	serviceStartCmd := &cobra.Command{
 		Use:   consts.ServicesStartStr,
 		Short: "Start a service on the local machine or a remote machine",
-		Long:  help.GetHelpFor([]string{consts.ServicesStr + "_" + consts.ServicesStartStr}),
+		Long:  help.GetHelpFor([]string{consts.ServicesStr}),
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ServiceStartCmd(cmd, con, args)
