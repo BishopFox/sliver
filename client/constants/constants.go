@@ -187,10 +187,14 @@ const (
 	MsfStr       = "msf"
 	MsfInjectStr = "msf-inject"
 
-	PsStr        = "ps"
-	PingStr      = "ping"
-	KillStr      = "kill"
-	TerminateStr = "terminate"
+	PsStr            = "ps"
+	PingStr          = "ping"
+	KillStr          = "kill"
+	TerminateStr     = "terminate"
+	ServicesStr      = "services"
+	ServicesInfoStr  = "info"
+	ServicesStopStr  = "stop"
+	ServicesStartStr = "start"
 
 	GetPIDStr = "getpid"
 	GetUIDStr = "getuid"
