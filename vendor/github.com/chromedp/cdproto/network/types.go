@@ -450,6 +450,7 @@ type ResourceTiming struct {
 	SendEnd                  float64 `json:"sendEnd"`                  // Finished sending request.
 	PushStart                float64 `json:"pushStart"`                // Time the server started pushing request.
 	PushEnd                  float64 `json:"pushEnd"`                  // Time the server finished pushing request.
+	ReceiveHeadersStart      float64 `json:"receiveHeadersStart"`      // Started receiving response headers.
 	ReceiveHeadersEnd        float64 `json:"receiveHeadersEnd"`        // Finished receiving response headers.
 }
 
@@ -705,36 +706,40 @@ func (t CorsError) String() string {
 
 // CorsError values.
 const (
-	CorsErrorDisallowedByMode                     CorsError = "DisallowedByMode"
-	CorsErrorInvalidResponse                      CorsError = "InvalidResponse"
-	CorsErrorWildcardOriginNotAllowed             CorsError = "WildcardOriginNotAllowed"
-	CorsErrorMissingAllowOriginHeader             CorsError = "MissingAllowOriginHeader"
-	CorsErrorMultipleAllowOriginValues            CorsError = "MultipleAllowOriginValues"
-	CorsErrorInvalidAllowOriginValue              CorsError = "InvalidAllowOriginValue"
-	CorsErrorAllowOriginMismatch                  CorsError = "AllowOriginMismatch"
-	CorsErrorInvalidAllowCredentials              CorsError = "InvalidAllowCredentials"
-	CorsErrorCorsDisabledScheme                   CorsError = "CorsDisabledScheme"
-	CorsErrorPreflightInvalidStatus               CorsError = "PreflightInvalidStatus"
-	CorsErrorPreflightDisallowedRedirect          CorsError = "PreflightDisallowedRedirect"
-	CorsErrorPreflightWildcardOriginNotAllowed    CorsError = "PreflightWildcardOriginNotAllowed"
-	CorsErrorPreflightMissingAllowOriginHeader    CorsError = "PreflightMissingAllowOriginHeader"
-	CorsErrorPreflightMultipleAllowOriginValues   CorsError = "PreflightMultipleAllowOriginValues"
-	CorsErrorPreflightInvalidAllowOriginValue     CorsError = "PreflightInvalidAllowOriginValue"
-	CorsErrorPreflightAllowOriginMismatch         CorsError = "PreflightAllowOriginMismatch"
-	CorsErrorPreflightInvalidAllowCredentials     CorsError = "PreflightInvalidAllowCredentials"
-	CorsErrorPreflightMissingAllowExternal        CorsError = "PreflightMissingAllowExternal"
-	CorsErrorPreflightInvalidAllowExternal        CorsError = "PreflightInvalidAllowExternal"
-	CorsErrorPreflightMissingAllowPrivateNetwork  CorsError = "PreflightMissingAllowPrivateNetwork"
-	CorsErrorPreflightInvalidAllowPrivateNetwork  CorsError = "PreflightInvalidAllowPrivateNetwork"
-	CorsErrorInvalidAllowMethodsPreflightResponse CorsError = "InvalidAllowMethodsPreflightResponse"
-	CorsErrorInvalidAllowHeadersPreflightResponse CorsError = "InvalidAllowHeadersPreflightResponse"
-	CorsErrorMethodDisallowedByPreflightResponse  CorsError = "MethodDisallowedByPreflightResponse"
-	CorsErrorHeaderDisallowedByPreflightResponse  CorsError = "HeaderDisallowedByPreflightResponse"
-	CorsErrorRedirectContainsCredentials          CorsError = "RedirectContainsCredentials"
-	CorsErrorInsecurePrivateNetwork               CorsError = "InsecurePrivateNetwork"
-	CorsErrorInvalidPrivateNetworkAccess          CorsError = "InvalidPrivateNetworkAccess"
-	CorsErrorUnexpectedPrivateNetworkAccess       CorsError = "UnexpectedPrivateNetworkAccess"
-	CorsErrorNoCorsRedirectModeNotFollow          CorsError = "NoCorsRedirectModeNotFollow"
+	CorsErrorDisallowedByMode                          CorsError = "DisallowedByMode"
+	CorsErrorInvalidResponse                           CorsError = "InvalidResponse"
+	CorsErrorWildcardOriginNotAllowed                  CorsError = "WildcardOriginNotAllowed"
+	CorsErrorMissingAllowOriginHeader                  CorsError = "MissingAllowOriginHeader"
+	CorsErrorMultipleAllowOriginValues                 CorsError = "MultipleAllowOriginValues"
+	CorsErrorInvalidAllowOriginValue                   CorsError = "InvalidAllowOriginValue"
+	CorsErrorAllowOriginMismatch                       CorsError = "AllowOriginMismatch"
+	CorsErrorInvalidAllowCredentials                   CorsError = "InvalidAllowCredentials"
+	CorsErrorCorsDisabledScheme                        CorsError = "CorsDisabledScheme"
+	CorsErrorPreflightInvalidStatus                    CorsError = "PreflightInvalidStatus"
+	CorsErrorPreflightDisallowedRedirect               CorsError = "PreflightDisallowedRedirect"
+	CorsErrorPreflightWildcardOriginNotAllowed         CorsError = "PreflightWildcardOriginNotAllowed"
+	CorsErrorPreflightMissingAllowOriginHeader         CorsError = "PreflightMissingAllowOriginHeader"
+	CorsErrorPreflightMultipleAllowOriginValues        CorsError = "PreflightMultipleAllowOriginValues"
+	CorsErrorPreflightInvalidAllowOriginValue          CorsError = "PreflightInvalidAllowOriginValue"
+	CorsErrorPreflightAllowOriginMismatch              CorsError = "PreflightAllowOriginMismatch"
+	CorsErrorPreflightInvalidAllowCredentials          CorsError = "PreflightInvalidAllowCredentials"
+	CorsErrorPreflightMissingAllowExternal             CorsError = "PreflightMissingAllowExternal"
+	CorsErrorPreflightInvalidAllowExternal             CorsError = "PreflightInvalidAllowExternal"
+	CorsErrorPreflightMissingAllowPrivateNetwork       CorsError = "PreflightMissingAllowPrivateNetwork"
+	CorsErrorPreflightInvalidAllowPrivateNetwork       CorsError = "PreflightInvalidAllowPrivateNetwork"
+	CorsErrorInvalidAllowMethodsPreflightResponse      CorsError = "InvalidAllowMethodsPreflightResponse"
+	CorsErrorInvalidAllowHeadersPreflightResponse      CorsError = "InvalidAllowHeadersPreflightResponse"
+	CorsErrorMethodDisallowedByPreflightResponse       CorsError = "MethodDisallowedByPreflightResponse"
+	CorsErrorHeaderDisallowedByPreflightResponse       CorsError = "HeaderDisallowedByPreflightResponse"
+	CorsErrorRedirectContainsCredentials               CorsError = "RedirectContainsCredentials"
+	CorsErrorInsecurePrivateNetwork                    CorsError = "InsecurePrivateNetwork"
+	CorsErrorInvalidPrivateNetworkAccess               CorsError = "InvalidPrivateNetworkAccess"
+	CorsErrorUnexpectedPrivateNetworkAccess            CorsError = "UnexpectedPrivateNetworkAccess"
+	CorsErrorNoCorsRedirectModeNotFollow               CorsError = "NoCorsRedirectModeNotFollow"
+	CorsErrorPreflightMissingPrivateNetworkAccessID    CorsError = "PreflightMissingPrivateNetworkAccessId"
+	CorsErrorPreflightMissingPrivateNetworkAccessName  CorsError = "PreflightMissingPrivateNetworkAccessName"
+	CorsErrorPrivateNetworkAccessPermissionUnavailable CorsError = "PrivateNetworkAccessPermissionUnavailable"
+	CorsErrorPrivateNetworkAccessPermissionDenied      CorsError = "PrivateNetworkAccessPermissionDenied"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -811,6 +816,14 @@ func (t *CorsError) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = CorsErrorUnexpectedPrivateNetworkAccess
 	case CorsErrorNoCorsRedirectModeNotFollow:
 		*t = CorsErrorNoCorsRedirectModeNotFollow
+	case CorsErrorPreflightMissingPrivateNetworkAccessID:
+		*t = CorsErrorPreflightMissingPrivateNetworkAccessID
+	case CorsErrorPreflightMissingPrivateNetworkAccessName:
+		*t = CorsErrorPreflightMissingPrivateNetworkAccessName
+	case CorsErrorPrivateNetworkAccessPermissionUnavailable:
+		*t = CorsErrorPrivateNetworkAccessPermissionUnavailable
+	case CorsErrorPrivateNetworkAccessPermissionDenied:
+		*t = CorsErrorPrivateNetworkAccessPermissionDenied
 
 	default:
 		in.AddError(fmt.Errorf("unknown CorsError value: %v", v))
@@ -1024,7 +1037,7 @@ type Response struct {
 	EncodedDataLength           float64                     `json:"encodedDataLength"`                     // Total number of bytes received for this request so far.
 	Timing                      *ResourceTiming             `json:"timing,omitempty"`                      // Timing information for the given request.
 	ServiceWorkerResponseSource ServiceWorkerResponseSource `json:"serviceWorkerResponseSource,omitempty"` // Response source of response from ServiceWorker.
-	ResponseTime                *cdp.TimeSinceEpoch         `json:"responseTime,omitempty"`                // The time at which the returned response was generated.
+	ResponseTime                *cdp.TimeSinceEpochMilli    `json:"responseTime,omitempty"`                // The time at which the returned response was generated.
 	CacheStorageCacheName       string                      `json:"cacheStorageCacheName,omitempty"`       // Cache Storage Cache Name.
 	Protocol                    string                      `json:"protocol,omitempty"`                    // Protocol used to fetch this request.
 	AlternateProtocolUsage      AlternateProtocolUsage      `json:"alternateProtocolUsage,omitempty"`      // The reason why Chrome uses a specific transport protocol for HTTP semantics.
@@ -1124,6 +1137,7 @@ const (
 	SetCookieBlockedReasonSameSiteUnspecifiedTreatedAsLax          SetCookieBlockedReason = "SameSiteUnspecifiedTreatedAsLax"
 	SetCookieBlockedReasonSameSiteNoneInsecure                     SetCookieBlockedReason = "SameSiteNoneInsecure"
 	SetCookieBlockedReasonUserPreferences                          SetCookieBlockedReason = "UserPreferences"
+	SetCookieBlockedReasonThirdPartyPhaseout                       SetCookieBlockedReason = "ThirdPartyPhaseout"
 	SetCookieBlockedReasonThirdPartyBlockedInFirstPartySet         SetCookieBlockedReason = "ThirdPartyBlockedInFirstPartySet"
 	SetCookieBlockedReasonSyntaxError                              SetCookieBlockedReason = "SyntaxError"
 	SetCookieBlockedReasonSchemeNotSupported                       SetCookieBlockedReason = "SchemeNotSupported"
@@ -1137,6 +1151,8 @@ const (
 	SetCookieBlockedReasonSamePartyFromCrossPartyContext           SetCookieBlockedReason = "SamePartyFromCrossPartyContext"
 	SetCookieBlockedReasonSamePartyConflictsWithOtherAttributes    SetCookieBlockedReason = "SamePartyConflictsWithOtherAttributes"
 	SetCookieBlockedReasonNameValuePairExceedsMaxSize              SetCookieBlockedReason = "NameValuePairExceedsMaxSize"
+	SetCookieBlockedReasonDisallowedCharacter                      SetCookieBlockedReason = "DisallowedCharacter"
+	SetCookieBlockedReasonNoCookieContent                          SetCookieBlockedReason = "NoCookieContent"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -1165,6 +1181,8 @@ func (t *SetCookieBlockedReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = SetCookieBlockedReasonSameSiteNoneInsecure
 	case SetCookieBlockedReasonUserPreferences:
 		*t = SetCookieBlockedReasonUserPreferences
+	case SetCookieBlockedReasonThirdPartyPhaseout:
+		*t = SetCookieBlockedReasonThirdPartyPhaseout
 	case SetCookieBlockedReasonThirdPartyBlockedInFirstPartySet:
 		*t = SetCookieBlockedReasonThirdPartyBlockedInFirstPartySet
 	case SetCookieBlockedReasonSyntaxError:
@@ -1191,6 +1209,10 @@ func (t *SetCookieBlockedReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = SetCookieBlockedReasonSamePartyConflictsWithOtherAttributes
 	case SetCookieBlockedReasonNameValuePairExceedsMaxSize:
 		*t = SetCookieBlockedReasonNameValuePairExceedsMaxSize
+	case SetCookieBlockedReasonDisallowedCharacter:
+		*t = SetCookieBlockedReasonDisallowedCharacter
+	case SetCookieBlockedReasonNoCookieContent:
+		*t = SetCookieBlockedReasonNoCookieContent
 
 	default:
 		in.AddError(fmt.Errorf("unknown SetCookieBlockedReason value: %v", v))
@@ -1223,6 +1245,7 @@ const (
 	CookieBlockedReasonSameSiteUnspecifiedTreatedAsLax          CookieBlockedReason = "SameSiteUnspecifiedTreatedAsLax"
 	CookieBlockedReasonSameSiteNoneInsecure                     CookieBlockedReason = "SameSiteNoneInsecure"
 	CookieBlockedReasonUserPreferences                          CookieBlockedReason = "UserPreferences"
+	CookieBlockedReasonThirdPartyPhaseout                       CookieBlockedReason = "ThirdPartyPhaseout"
 	CookieBlockedReasonThirdPartyBlockedInFirstPartySet         CookieBlockedReason = "ThirdPartyBlockedInFirstPartySet"
 	CookieBlockedReasonUnknownError                             CookieBlockedReason = "UnknownError"
 	CookieBlockedReasonSchemefulSameSiteStrict                  CookieBlockedReason = "SchemefulSameSiteStrict"
@@ -1262,6 +1285,8 @@ func (t *CookieBlockedReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = CookieBlockedReasonSameSiteNoneInsecure
 	case CookieBlockedReasonUserPreferences:
 		*t = CookieBlockedReasonUserPreferences
+	case CookieBlockedReasonThirdPartyPhaseout:
+		*t = CookieBlockedReasonThirdPartyPhaseout
 	case CookieBlockedReasonThirdPartyBlockedInFirstPartySet:
 		*t = CookieBlockedReasonThirdPartyBlockedInFirstPartySet
 	case CookieBlockedReasonUnknownError:
@@ -1426,7 +1451,7 @@ type SignedExchangeHeader struct {
 	ResponseCode    int64                      `json:"responseCode"`    // Signed exchange response code.
 	ResponseHeaders Headers                    `json:"responseHeaders"` // Signed exchange response headers.
 	Signatures      []*SignedExchangeSignature `json:"signatures"`      // Signed exchange response signature.
-	HeaderIntegrity string                     `json:"headerIntegrity"` // Signed exchange header integrity hash in the form of "sha256-<base64-hash-value>".
+	HeaderIntegrity string                     `json:"headerIntegrity"` // Signed exchange header integrity hash in the form of sha256-<base64-hash-value>.
 }
 
 // SignedExchangeErrorField field type for a signed exchange related error.
@@ -1520,6 +1545,7 @@ const (
 	ContentEncodingDeflate ContentEncoding = "deflate"
 	ContentEncodingGzip    ContentEncoding = "gzip"
 	ContentEncodingBr      ContentEncoding = "br"
+	ContentEncodingZstd    ContentEncoding = "zstd"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -1542,6 +1568,8 @@ func (t *ContentEncoding) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = ContentEncodingGzip
 	case ContentEncodingBr:
 		*t = ContentEncodingBr
+	case ContentEncodingZstd:
+		*t = ContentEncodingZstd
 
 	default:
 		in.AddError(fmt.Errorf("unknown ContentEncoding value: %v", v))
@@ -1799,12 +1827,67 @@ type CrossOriginEmbedderPolicyStatus struct {
 	ReportOnlyReportingEndpoint string                         `json:"reportOnlyReportingEndpoint,omitempty"`
 }
 
+// ContentSecurityPolicySource [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Network#type-ContentSecurityPolicySource
+type ContentSecurityPolicySource string
+
+// String returns the ContentSecurityPolicySource as string value.
+func (t ContentSecurityPolicySource) String() string {
+	return string(t)
+}
+
+// ContentSecurityPolicySource values.
+const (
+	ContentSecurityPolicySourceHTTP ContentSecurityPolicySource = "HTTP"
+	ContentSecurityPolicySourceMeta ContentSecurityPolicySource = "Meta"
+)
+
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t ContentSecurityPolicySource) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
+
+// MarshalJSON satisfies json.Marshaler.
+func (t ContentSecurityPolicySource) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *ContentSecurityPolicySource) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch ContentSecurityPolicySource(v) {
+	case ContentSecurityPolicySourceHTTP:
+		*t = ContentSecurityPolicySourceHTTP
+	case ContentSecurityPolicySourceMeta:
+		*t = ContentSecurityPolicySourceMeta
+
+	default:
+		in.AddError(fmt.Errorf("unknown ContentSecurityPolicySource value: %v", v))
+	}
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *ContentSecurityPolicySource) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
+}
+
+// ContentSecurityPolicyStatus [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Network#type-ContentSecurityPolicyStatus
+type ContentSecurityPolicyStatus struct {
+	EffectiveDirectives string                      `json:"effectiveDirectives"`
+	IsEnforced          bool                        `json:"isEnforced"`
+	Source              ContentSecurityPolicySource `json:"source"`
+}
+
 // SecurityIsolationStatus [no description].
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Network#type-SecurityIsolationStatus
 type SecurityIsolationStatus struct {
 	Coop *CrossOriginOpenerPolicyStatus   `json:"coop,omitempty"`
 	Coep *CrossOriginEmbedderPolicyStatus `json:"coep,omitempty"`
+	Csp  []*ContentSecurityPolicyStatus   `json:"csp,omitempty"`
 }
 
 // ReportStatus the status of a Reporting API report.
@@ -2194,6 +2277,7 @@ func (t TrustTokenOperationDoneStatus) String() string {
 const (
 	TrustTokenOperationDoneStatusOk                 TrustTokenOperationDoneStatus = "Ok"
 	TrustTokenOperationDoneStatusInvalidArgument    TrustTokenOperationDoneStatus = "InvalidArgument"
+	TrustTokenOperationDoneStatusMissingIssuerKeys  TrustTokenOperationDoneStatus = "MissingIssuerKeys"
 	TrustTokenOperationDoneStatusFailedPrecondition TrustTokenOperationDoneStatus = "FailedPrecondition"
 	TrustTokenOperationDoneStatusResourceExhausted  TrustTokenOperationDoneStatus = "ResourceExhausted"
 	TrustTokenOperationDoneStatusAlreadyExists      TrustTokenOperationDoneStatus = "AlreadyExists"
@@ -2223,6 +2307,8 @@ func (t *TrustTokenOperationDoneStatus) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = TrustTokenOperationDoneStatusOk
 	case TrustTokenOperationDoneStatusInvalidArgument:
 		*t = TrustTokenOperationDoneStatusInvalidArgument
+	case TrustTokenOperationDoneStatusMissingIssuerKeys:
+		*t = TrustTokenOperationDoneStatusMissingIssuerKeys
 	case TrustTokenOperationDoneStatusFailedPrecondition:
 		*t = TrustTokenOperationDoneStatusFailedPrecondition
 	case TrustTokenOperationDoneStatusResourceExhausted:

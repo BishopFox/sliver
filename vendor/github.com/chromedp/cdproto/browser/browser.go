@@ -579,23 +579,51 @@ func (p *ExecuteBrowserCommandParams) Do(ctx context.Context) (err error) {
 	return cdp.Execute(ctx, CommandExecuteBrowserCommand, p, nil)
 }
 
+// AddPrivacySandboxEnrollmentOverrideParams allows a site to use privacy
+// sandbox features that require enrollment without the site actually being
+// enrolled. Only supported on page targets.
+type AddPrivacySandboxEnrollmentOverrideParams struct {
+	URL string `json:"url"`
+}
+
+// AddPrivacySandboxEnrollmentOverride allows a site to use privacy sandbox
+// features that require enrollment without the site actually being enrolled.
+// Only supported on page targets.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Browser#method-addPrivacySandboxEnrollmentOverride
+//
+// parameters:
+//
+//	url
+func AddPrivacySandboxEnrollmentOverride(url string) *AddPrivacySandboxEnrollmentOverrideParams {
+	return &AddPrivacySandboxEnrollmentOverrideParams{
+		URL: url,
+	}
+}
+
+// Do executes Browser.addPrivacySandboxEnrollmentOverride against the provided context.
+func (p *AddPrivacySandboxEnrollmentOverrideParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandAddPrivacySandboxEnrollmentOverride, p, nil)
+}
+
 // Command names.
 const (
-	CommandSetPermission         = "Browser.setPermission"
-	CommandGrantPermissions      = "Browser.grantPermissions"
-	CommandResetPermissions      = "Browser.resetPermissions"
-	CommandSetDownloadBehavior   = "Browser.setDownloadBehavior"
-	CommandCancelDownload        = "Browser.cancelDownload"
-	CommandClose                 = "Browser.close"
-	CommandCrash                 = "Browser.crash"
-	CommandCrashGpuProcess       = "Browser.crashGpuProcess"
-	CommandGetVersion            = "Browser.getVersion"
-	CommandGetBrowserCommandLine = "Browser.getBrowserCommandLine"
-	CommandGetHistograms         = "Browser.getHistograms"
-	CommandGetHistogram          = "Browser.getHistogram"
-	CommandGetWindowBounds       = "Browser.getWindowBounds"
-	CommandGetWindowForTarget    = "Browser.getWindowForTarget"
-	CommandSetWindowBounds       = "Browser.setWindowBounds"
-	CommandSetDockTile           = "Browser.setDockTile"
-	CommandExecuteBrowserCommand = "Browser.executeBrowserCommand"
+	CommandSetPermission                       = "Browser.setPermission"
+	CommandGrantPermissions                    = "Browser.grantPermissions"
+	CommandResetPermissions                    = "Browser.resetPermissions"
+	CommandSetDownloadBehavior                 = "Browser.setDownloadBehavior"
+	CommandCancelDownload                      = "Browser.cancelDownload"
+	CommandClose                               = "Browser.close"
+	CommandCrash                               = "Browser.crash"
+	CommandCrashGpuProcess                     = "Browser.crashGpuProcess"
+	CommandGetVersion                          = "Browser.getVersion"
+	CommandGetBrowserCommandLine               = "Browser.getBrowserCommandLine"
+	CommandGetHistograms                       = "Browser.getHistograms"
+	CommandGetHistogram                        = "Browser.getHistogram"
+	CommandGetWindowBounds                     = "Browser.getWindowBounds"
+	CommandGetWindowForTarget                  = "Browser.getWindowForTarget"
+	CommandSetWindowBounds                     = "Browser.setWindowBounds"
+	CommandSetDockTile                         = "Browser.setDockTile"
+	CommandExecuteBrowserCommand               = "Browser.executeBrowserCommand"
+	CommandAddPrivacySandboxEnrollmentOverride = "Browser.addPrivacySandboxEnrollmentOverride"
 )

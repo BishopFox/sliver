@@ -1288,3 +1288,45 @@ message ExecWasmExtension {
 
   commonpb.Response Response = 9;
 }
+
+message ServicesReq {
+  string Hostname = 1;
+
+  commonpb.Request Request = 9;
+}
+
+message ServiceDetailReq {
+  ServiceInfoReq ServiceInfo = 1;
+
+  commonpb.Request Request = 9;
+}
+
+message ServiceDetails {
+  string Name = 1;
+  string DisplayName = 2;
+  string Description = 3;
+  uint32 Status = 4;
+  uint32 StartupType = 5;
+  string BinPath = 6;
+  string Account = 7;
+}
+
+message Services {
+  repeated ServiceDetails Details = 1;
+  string Error = 2;
+
+  commonpb.Response Response = 9;
+}
+
+message ServiceDetail {
+  ServiceDetails Detail = 1;
+  string Message = 2;
+
+  commonpb.Response Response = 9;
+}
+
+message StartServiceByNameReq {
+  ServiceInfoReq ServiceInfo = 1;
+
+  commonpb.Request Request = 9;
+}

@@ -50,7 +50,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("loot", "X", false, "save output as loot")
 		f.StringP("loot-name", "N", "", "name to assign when adding the memory dump to the loot store (optional)")
 
-		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		f.Int32P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 	flags.BindFlagCompletions(procdumpCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles()
@@ -72,5 +72,65 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 	carapace.Gen(terminateCmd).PositionalCompletion(carapace.ActionValues().Usage("process ID"))
 
-	return []*cobra.Command{psCmd, procdumpCmd, terminateCmd}
+	servicesCmd := &cobra.Command{
+		Use:   consts.ServicesStr,
+		Short: "Service operations",
+		Long:  help.GetHelpFor([]string{consts.ServicesStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			ServicesCmd(cmd, con, args)
+		},
+		GroupID:     consts.ProcessHelpGroup,
+		Annotations: flags.RestrictTargets(consts.WindowsCmdsFilter),
+	}
+	flags.Bind("", false, servicesCmd, func(f *pflag.FlagSet) {
+		f.StringP("host", "H", "localhost", "Hostname to retrieve service information from")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+
+	serviceInfoCmd := &cobra.Command{
+		Use:   consts.ServicesInfoStr,
+		Short: "Get detailed information about a single service",
+		Long:  help.GetHelpFor([]string{consts.ServicesStr}),
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ServiceInfoCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("", false, serviceInfoCmd, func(f *pflag.FlagSet) {
+		f.StringP("host", "H", "localhost", "Hostname to retrieve service information from")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	servicesCmd.AddCommand(serviceInfoCmd)
+
+	serviceStopCmd := &cobra.Command{
+		Use:   consts.ServicesStopStr,
+		Short: "Stop a service on the local machine or a remote machine",
+		Long:  help.GetHelpFor([]string{consts.ServicesStr}),
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ServiceStopCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("", false, serviceStopCmd, func(f *pflag.FlagSet) {
+		f.StringP("host", "H", "localhost", "Hostname to stop service on")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	servicesCmd.AddCommand(serviceStopCmd)
+
+	serviceStartCmd := &cobra.Command{
+		Use:   consts.ServicesStartStr,
+		Short: "Start a service on the local machine or a remote machine",
+		Long:  help.GetHelpFor([]string{consts.ServicesStr}),
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ServiceStartCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("", false, serviceStartCmd, func(f *pflag.FlagSet) {
+		f.StringP("host", "H", "localhost", "Hostname to start service on")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	servicesCmd.AddCommand(serviceStartCmd)
+
+	return []*cobra.Command{psCmd, procdumpCmd, terminateCmd, servicesCmd}
 }

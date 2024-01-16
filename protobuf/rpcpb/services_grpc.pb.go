@@ -174,6 +174,9 @@ type SliverRPCClient interface {
 	SpawnDll(ctx context.Context, in *sliverpb.InvokeSpawnDllReq, opts ...grpc.CallOption) (*sliverpb.SpawnDll, error)
 	Screenshot(ctx context.Context, in *sliverpb.ScreenshotReq, opts ...grpc.CallOption) (*sliverpb.Screenshot, error)
 	CurrentTokenOwner(ctx context.Context, in *sliverpb.CurrentTokenOwnerReq, opts ...grpc.CallOption) (*sliverpb.CurrentTokenOwner, error)
+	Services(ctx context.Context, in *sliverpb.ServicesReq, opts ...grpc.CallOption) (*sliverpb.Services, error)
+	ServiceDetail(ctx context.Context, in *sliverpb.ServiceDetailReq, opts ...grpc.CallOption) (*sliverpb.ServiceDetail, error)
+	StartServiceByName(ctx context.Context, in *sliverpb.StartServiceByNameReq, opts ...grpc.CallOption) (*sliverpb.ServiceInfo, error)
 	// *** Pivots ***
 	PivotStartListener(ctx context.Context, in *sliverpb.PivotStartListenerReq, opts ...grpc.CallOption) (*sliverpb.PivotListener, error)
 	PivotStopListener(ctx context.Context, in *sliverpb.PivotStopListenerReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
@@ -1472,6 +1475,33 @@ func (c *sliverRPCClient) CurrentTokenOwner(ctx context.Context, in *sliverpb.Cu
 	return out, nil
 }
 
+func (c *sliverRPCClient) Services(ctx context.Context, in *sliverpb.ServicesReq, opts ...grpc.CallOption) (*sliverpb.Services, error) {
+	out := new(sliverpb.Services)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Services", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) ServiceDetail(ctx context.Context, in *sliverpb.ServiceDetailReq, opts ...grpc.CallOption) (*sliverpb.ServiceDetail, error) {
+	out := new(sliverpb.ServiceDetail)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/ServiceDetail", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) StartServiceByName(ctx context.Context, in *sliverpb.StartServiceByNameReq, opts ...grpc.CallOption) (*sliverpb.ServiceInfo, error) {
+	out := new(sliverpb.ServiceInfo)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/StartServiceByName", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) PivotStartListener(ctx context.Context, in *sliverpb.PivotStartListenerReq, opts ...grpc.CallOption) (*sliverpb.PivotListener, error) {
 	out := new(sliverpb.PivotListener)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/PivotStartListener", in, out, opts...)
@@ -2115,6 +2145,9 @@ type SliverRPCServer interface {
 	SpawnDll(context.Context, *sliverpb.InvokeSpawnDllReq) (*sliverpb.SpawnDll, error)
 	Screenshot(context.Context, *sliverpb.ScreenshotReq) (*sliverpb.Screenshot, error)
 	CurrentTokenOwner(context.Context, *sliverpb.CurrentTokenOwnerReq) (*sliverpb.CurrentTokenOwner, error)
+	Services(context.Context, *sliverpb.ServicesReq) (*sliverpb.Services, error)
+	ServiceDetail(context.Context, *sliverpb.ServiceDetailReq) (*sliverpb.ServiceDetail, error)
+	StartServiceByName(context.Context, *sliverpb.StartServiceByNameReq) (*sliverpb.ServiceInfo, error)
 	// *** Pivots ***
 	PivotStartListener(context.Context, *sliverpb.PivotStartListenerReq) (*sliverpb.PivotListener, error)
 	PivotStopListener(context.Context, *sliverpb.PivotStopListenerReq) (*commonpb.Empty, error)
@@ -2564,6 +2597,15 @@ func (UnimplementedSliverRPCServer) Screenshot(context.Context, *sliverpb.Screen
 }
 func (UnimplementedSliverRPCServer) CurrentTokenOwner(context.Context, *sliverpb.CurrentTokenOwnerReq) (*sliverpb.CurrentTokenOwner, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CurrentTokenOwner not implemented")
+}
+func (UnimplementedSliverRPCServer) Services(context.Context, *sliverpb.ServicesReq) (*sliverpb.Services, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Services not implemented")
+}
+func (UnimplementedSliverRPCServer) ServiceDetail(context.Context, *sliverpb.ServiceDetailReq) (*sliverpb.ServiceDetail, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ServiceDetail not implemented")
+}
+func (UnimplementedSliverRPCServer) StartServiceByName(context.Context, *sliverpb.StartServiceByNameReq) (*sliverpb.ServiceInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartServiceByName not implemented")
 }
 func (UnimplementedSliverRPCServer) PivotStartListener(context.Context, *sliverpb.PivotStartListenerReq) (*sliverpb.PivotListener, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PivotStartListener not implemented")
@@ -5055,6 +5097,60 @@ func _SliverRPC_CurrentTokenOwner_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_Services_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.ServicesReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).Services(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/Services",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).Services(ctx, req.(*sliverpb.ServicesReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_ServiceDetail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.ServiceDetailReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).ServiceDetail(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/ServiceDetail",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).ServiceDetail(ctx, req.(*sliverpb.ServiceDetailReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_StartServiceByName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.StartServiceByNameReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).StartServiceByName(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/StartServiceByName",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).StartServiceByName(ctx, req.(*sliverpb.StartServiceByNameReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_PivotStartListener_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.PivotStartListenerReq)
 	if err := dec(in); err != nil {
@@ -6430,6 +6526,18 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CurrentTokenOwner",
 			Handler:    _SliverRPC_CurrentTokenOwner_Handler,
+		},
+		{
+			MethodName: "Services",
+			Handler:    _SliverRPC_Services_Handler,
+		},
+		{
+			MethodName: "ServiceDetail",
+			Handler:    _SliverRPC_ServiceDetail_Handler,
+		},
+		{
+			MethodName: "StartServiceByName",
+			Handler:    _SliverRPC_StartServiceByName_Handler,
 		},
 		{
 			MethodName: "PivotStartListener",

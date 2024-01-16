@@ -790,6 +790,40 @@ func (t *MonotonicTime) UnmarshalJSON(buf []byte) error {
 	return easyjson.Unmarshal(buf, t)
 }
 
+// TimeSinceEpochMilli special timestamp type for Response's responseTime
+// field.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Network#type-TimeSinceEpochMilli
+type TimeSinceEpochMilli time.Time
+
+// Time returns the TimeSinceEpochMilli as time.Time value.
+func (t TimeSinceEpochMilli) Time() time.Time {
+	return time.Time(t)
+}
+
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t TimeSinceEpochMilli) MarshalEasyJSON(out *jwriter.Writer) {
+	v := float64(time.Time(t).UnixNano() / int64(time.Millisecond))
+
+	out.Buffer.EnsureSpace(20)
+	out.Buffer.Buf = strconv.AppendFloat(out.Buffer.Buf, v, 'f', -1, 64)
+}
+
+// MarshalJSON satisfies json.Marshaler.
+func (t TimeSinceEpochMilli) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *TimeSinceEpochMilli) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	*t = TimeSinceEpochMilli(time.Unix(0, int64(in.Float64()*float64(time.Millisecond))))
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *TimeSinceEpochMilli) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
+}
+
 // FrameID unique frame identifier.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-FrameId

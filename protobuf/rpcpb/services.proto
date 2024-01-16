@@ -195,6 +195,9 @@ service SliverRPC {
   rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);
   rpc CurrentTokenOwner(sliverpb.CurrentTokenOwnerReq)
       returns (sliverpb.CurrentTokenOwner);
+  rpc Services(sliverpb.ServicesReq) returns (sliverpb.Services);
+  rpc ServiceDetail(sliverpb.ServiceDetailReq) returns (sliverpb.ServiceDetail);
+  rpc StartServiceByName(sliverpb.StartServiceByNameReq) returns (sliverpb.ServiceInfo);
 
   // *** Pivots ***
   rpc PivotStartListener(sliverpb.PivotStartListenerReq)

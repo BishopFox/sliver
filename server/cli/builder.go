@@ -21,15 +21,21 @@ package cli
 import (
 	"fmt"
 	"os"
+	"os/signal"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strings"
+	"sync"
+	"syscall"
 
 	clientAssets "github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/builder"
+	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/spf13/cobra"
@@ -43,15 +49,17 @@ const (
 	enableTargetFlagStr  = "enable-target"
 	disableTargetFlagStr = "disable-target"
 
-	operatorConfigFlagStr = "config"
-	quietFlagStr          = "quiet"
-	logLevelFlagStr       = "log-level"
+	operatorConfigFlagStr    = "config"
+	operatorConfigDirFlagStr = "config-dir"
+	quietFlagStr             = "quiet"
+	logLevelFlagStr          = "log-level"
 )
 
 func initBuilderCmd() *cobra.Command {
 	builderCmd.Flags().StringP(nameFlagStr, "n", "", "Name of the builder (blank = hostname)")
 	builderCmd.Flags().IntP(logLevelFlagStr, "L", 4, "Logging level: 1/fatal, 2/error, 3/warn, 4/info, 5/debug, 6/trace")
 	builderCmd.Flags().StringP(operatorConfigFlagStr, "c", "", "operator config file path")
+	builderCmd.Flags().StringP(operatorConfigDirFlagStr, "d", "", "operator config directory path")
 	builderCmd.Flags().BoolP(quietFlagStr, "q", false, "do not write any content to stdout")
 
 	// Artifact configuration options
@@ -60,6 +68,8 @@ func initBuilderCmd() *cobra.Command {
 
 	return builderCmd
 }
+
+var builders []*builder.Builder
 
 var builderCmd = &cobra.Command{
 	Use:   "builder",
@@ -71,8 +81,14 @@ var builderCmd = &cobra.Command{
 			builderLog.Errorf("Failed to parse --%s flag %s\n", operatorConfigFlagStr, err)
 			return
 		}
-		if configPath == "" {
-			builderLog.Errorf("Missing --%s flag\n", operatorConfigFlagStr)
+
+		configDir, err := cmd.Flags().GetString(operatorConfigDirFlagStr)
+		if err != nil {
+			builderLog.Errorf("Failed to parse --%s flag %s\n", operatorConfigDirFlagStr, err)
+			return
+		}
+		if configPath == "" && configDir == "" {
+			builderLog.Errorf("Missing --%s or --%s flags\n", operatorConfigFlagStr, operatorConfigDirFlagStr)
 			return
 		}
 
@@ -100,35 +116,122 @@ var builderCmd = &cobra.Command{
 			}
 		}()
 
-		externalBuilder := parseBuilderConfigFlags(cmd)
-		externalBuilder.Templates = []string{"sliver"}
-
-		// load the client configuration from the filesystem
-		config, err := clientAssets.ReadConfig(configPath)
-		if err != nil {
-			builderLog.Fatalf("Invalid config file: %s", err)
-			os.Exit(-1)
+		// setup assets
+		assets.Setup(true, false)
+		// setup default profiles for HTTP C2
+		c2.SetupDefaultC2Profiles()
+		config := configPath
+		multipleBuilders := (configPath == "" && configDir != "")
+		if multipleBuilders {
+			config = configDir
 		}
-		if externalBuilder.Name == "" {
-			builderLog.Infof("No builder name was specified, attempting to use hostname")
-			externalBuilder.Name, err = os.Hostname()
-			if err != nil {
-				builderLog.Errorf("Failed to get hostname: %s", err)
-				externalBuilder.Name = fmt.Sprintf("%s's %s builder", config.Operator, runtime.GOOS)
+		startBuilders(cmd, config, multipleBuilders)
+		// Handle SIGHUP to reload builders
+		sigHup := make(chan os.Signal, 1)
+		signal.Notify(sigHup, syscall.SIGHUP)
+		// Handle interupt to stop all builders and exit
+		sigInt := make(chan os.Signal, 1)
+		signal.Notify(sigInt, os.Interrupt)
+		for {
+			select {
+			case <-sigHup:
+				builderLog.Info("Received SIGHUP, reloading builders")
+				reloadBuilders(cmd, config, multipleBuilders)
+			case <-sigInt:
+				builderLog.Info("Received SIGINT, stopping all builders")
+				for _, builderInst := range builders {
+					builderInst.Stop()
+				}
+				return
 			}
 		}
-		builderLog.Infof("Hello my name is: %s", externalBuilder.Name)
-
-		// connect to the server
-		builderLog.Infof("Connecting to %s@%s:%d ...", config.Operator, config.LHost, config.LPort)
-		rpc, ln, err := transport.MTLSConnect(config)
-		if err != nil {
-			builderLog.Errorf("Failed to connect to server: %s", err)
-			os.Exit(-2)
-		}
-		defer ln.Close()
-		builder.StartBuilder(externalBuilder, rpc)
 	},
+}
+
+// Start all builders if multpile is true or a single builder otherwise.
+func startBuilders(cmd *cobra.Command, config string, multpile bool) {
+	// We're passing a mutex to each builder to prevent concurrent builds.
+	// Concurrent build should be fine in theory, but may cause resource
+	// exhaustion on the server.
+	// For single builders, this should have no impact.
+	mutex := &sync.Mutex{}
+	// Single builder
+	if !multpile {
+		singleBuilder, err := createBuilder(cmd, config, mutex)
+		if err != nil {
+			builderLog.Errorf("Failed to create builder: %s", err)
+			os.Exit(-1)
+		}
+		// Start single builder (blocking call)
+		singleBuilder.Start()
+	} else {
+		// Multiple builders
+		builderLog.Infof("Reading config dir: %s", config)
+		err := filepath.Walk(config, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				builderLog.Errorf("Failed to walk config dir: %s", err)
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			go func() {
+				builderLog.Infof("Starting builder with config file: %s", path)
+				builderInst, err := createBuilder(cmd, path, mutex)
+				if err != nil {
+					builderLog.Errorf("Failed to create builder: %s", err)
+					return
+				}
+				builders = append(builders, builderInst)
+				builderInst.Start()
+			}()
+			return nil
+		})
+		if err != nil {
+			builderLog.Errorf("Failed to walk config dir: %s", err)
+			return
+		}
+	}
+}
+
+func reloadBuilders(cmd *cobra.Command, config string, multiple bool) {
+	builderLog.Infof("Reloading builders")
+	for _, builderInst := range builders {
+		builderInst.Stop()
+	}
+	builders = nil
+	startBuilders(cmd, config, multiple)
+}
+
+func createBuilder(cmd *cobra.Command, configPath string, mutex *sync.Mutex) (*builder.Builder, error) {
+	externalBuilder := parseBuilderConfigFlags(cmd)
+	externalBuilder.Templates = []string{"sliver"}
+
+	// load the client configuration from the filesystem
+	config, err := clientAssets.ReadConfig(configPath)
+	if err != nil {
+		builderLog.Fatalf("Invalid config file: %s", err)
+		return nil, err
+	}
+	if externalBuilder.Name == "" {
+		builderLog.Infof("No builder name was specified, attempting to use hostname")
+		externalBuilder.Name, err = os.Hostname()
+		if err != nil {
+			builderLog.Errorf("Failed to get hostname: %s", err)
+			externalBuilder.Name = fmt.Sprintf("%s's %s builder", config.Operator, runtime.GOOS)
+		}
+	}
+	builderLog.Infof("Hello my name is: %s", externalBuilder.Name)
+
+	// connect to the server
+	builderLog.Infof("Connecting to %s@%s:%d ...", config.Operator, config.LHost, config.LPort)
+	rpc, ln, err := transport.MTLSConnect(config)
+	if err != nil {
+		builderLog.Errorf("Failed to connect to server %s@%s:%d: %s", config.Operator, config.LHost, config.LPort, err)
+		return nil, err
+	}
+
+	return builder.NewBuilder(externalBuilder, mutex, rpc, ln), nil
 }
 
 func parseBuilderConfigFlags(cmd *cobra.Command) *clientpb.Builder {
