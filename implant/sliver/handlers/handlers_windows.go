@@ -764,7 +764,7 @@ func regReadHiveHandler(data []byte, resp RPCResponse) {
 	hiveResp := &sliverpb.RegistryReadHive{
 		Response: &commonpb.Response{},
 	}
-	hiveData, err := registry.ReadHive(hiveReq.Hostname, hiveReq.RootHive, hiveReq.RequestedHive)
+	hiveData, err := registry.ReadHive(hiveReq.RootHive, hiveReq.RequestedHive)
 	if err != nil {
 		hiveResp.Response.Err = err.Error()
 	}

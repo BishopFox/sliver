@@ -778,7 +778,6 @@ message RegistryValuesList {
 message RegistryReadHiveReq {
   string RootHive = 1;
   string RequestedHive = 2;
-  string Hostname = 4;
   commonpb.Request Request = 9;
 }
 

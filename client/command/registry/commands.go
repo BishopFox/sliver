@@ -51,7 +51,6 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	flags.Bind("", false, registryReadHiveCmd, func(f *pflag.FlagSet) {
 		f.StringP("hive", "H", "HKLM", "root registry hive")
-		f.StringP("hostname", "o", "", "remote host to read hive from")
 		f.StringP("save", "s", "", "location to store data, required if not looting")
 		f.BoolP("loot", "X", false, "save output as loot (loot is saved without formatting)")
 		f.StringP("name", "n", "", "name to assign loot (optional)")

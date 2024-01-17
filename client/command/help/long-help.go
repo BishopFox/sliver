@@ -592,6 +592,7 @@ Supported root hives are:
 	- HKEY_USERS (HKU)
 	- HKEY_CLASSES_ROOT (HKCR)
 The root hive must be specified using its abbreviation, such as HKLM, and not its full name.
+This command will only run against the local machine.
 	`
 
 	pivotsHelp = `[[.Bold]]Command:[[.Normal]] pivots

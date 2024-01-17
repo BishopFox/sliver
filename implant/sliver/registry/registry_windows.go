@@ -200,7 +200,7 @@ func generateTempFileName() string {
 }
 
 // ReadHive dumps the content of a registry hive into a single binary blob
-func ReadHive(hostname string, requestedRootHive string, requestedHive string) ([]byte, error) {
+func ReadHive(requestedRootHive string, requestedHive string) ([]byte, error) {
 	// In order to dump a hive, we need the SeBackupPrivilege privilege
 	err := priv.SePrivEnable("SeBackupPrivilege")
 	if err != nil {
@@ -238,7 +238,7 @@ func ReadHive(hostname string, requestedRootHive string, requestedHive string) (
 		return nil, err
 	}
 
-	hiveHandle, err := openKey(hostname, requestedRootHive, requestedHive, registry.READ)
+	hiveHandle, err := openKey("", requestedRootHive, requestedHive, registry.READ)
 
 	if err != nil {
 		// {{if .Config.Debug}}

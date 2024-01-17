@@ -203,7 +203,6 @@ func RegReadHiveCommand(cmd *cobra.Command, con *console.SliverClient, args []st
 		return
 	}
 
-	hostname, _ := cmd.Flags().GetString("hostname")
 	rootHive, _ := cmd.Flags().GetString("hive")
 	rootHive = strings.ToUpper(rootHive)
 	if err := checkHive(rootHive); err != nil {
@@ -244,12 +243,7 @@ func RegReadHiveCommand(cmd *cobra.Command, con *console.SliverClient, args []st
 		} else {
 			requestedHiveForFileName := strings.ReplaceAll(requestedHive, "/", "_")
 			requestedHiveForFileName = strings.ReplaceAll(requestedHiveForFileName, "\\", "_")
-
-			if hostname == "" {
-				lootFileName = fmt.Sprintf("%s_%s_%s", implantName, rootHive, requestedHiveForFileName)
-			} else {
-				lootFileName = fmt.Sprintf("%s_%s_%s", hostname, rootHive, requestedHiveForFileName)
-			}
+			lootFileName = fmt.Sprintf("%s_%s_%s", implantName, rootHive, requestedHiveForFileName)
 		}
 	}
 
@@ -260,7 +254,6 @@ func RegReadHiveCommand(cmd *cobra.Command, con *console.SliverClient, args []st
 	hiveDump, err := con.Rpc.RegistryReadHive(context.Background(), &sliverpb.RegistryReadHiveReq{
 		RootHive:      rootHive,
 		RequestedHive: requestedHive,
-		Hostname:      hostname,
 		Request:       con.ActiveTarget.Request(cmd),
 	})
 
