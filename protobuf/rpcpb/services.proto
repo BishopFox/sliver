@@ -226,6 +226,7 @@ service SliverRPC {
       returns (sliverpb.RegistrySubKeyList);
   rpc RegistryListValues(sliverpb.RegistryListValuesReq)
       returns (sliverpb.RegistryValuesList);
+  rpc RegistryReadHive(sliverpb.RegistryReadHiveReq) returns (sliverpb.RegistryReadHive);
   rpc RunSSHCommand(sliverpb.SSHCommandReq) returns (sliverpb.SSHCommand);
   rpc HijackDLL(clientpb.DllHijackReq) returns (clientpb.DllHijack);
   rpc GetPrivs(sliverpb.GetPrivsReq) returns (sliverpb.GetPrivs);

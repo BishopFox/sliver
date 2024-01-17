@@ -261,6 +261,7 @@ const (
 	RegistryListValuesStr = "list-values"
 	RegistryCreateKeyStr  = "create"
 	RegistryDeleteKeyStr  = "delete"
+	RegistryReadHiveStr   = "hive"
 	PivotsStr             = "pivots"
 	WgConfigStr           = "wg-config"
 	WgSocksStr            = "wg-socks"

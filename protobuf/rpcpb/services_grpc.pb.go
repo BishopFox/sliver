@@ -196,6 +196,7 @@ type SliverRPCClient interface {
 	RegistryDeleteKey(ctx context.Context, in *sliverpb.RegistryDeleteKeyReq, opts ...grpc.CallOption) (*sliverpb.RegistryDeleteKey, error)
 	RegistryListSubKeys(ctx context.Context, in *sliverpb.RegistrySubKeyListReq, opts ...grpc.CallOption) (*sliverpb.RegistrySubKeyList, error)
 	RegistryListValues(ctx context.Context, in *sliverpb.RegistryListValuesReq, opts ...grpc.CallOption) (*sliverpb.RegistryValuesList, error)
+	RegistryReadHive(ctx context.Context, in *sliverpb.RegistryReadHiveReq, opts ...grpc.CallOption) (*sliverpb.RegistryReadHive, error)
 	RunSSHCommand(ctx context.Context, in *sliverpb.SSHCommandReq, opts ...grpc.CallOption) (*sliverpb.SSHCommand, error)
 	HijackDLL(ctx context.Context, in *clientpb.DllHijackReq, opts ...grpc.CallOption) (*clientpb.DllHijack, error)
 	GetPrivs(ctx context.Context, in *sliverpb.GetPrivsReq, opts ...grpc.CallOption) (*sliverpb.GetPrivs, error)
@@ -1664,6 +1665,15 @@ func (c *sliverRPCClient) RegistryListValues(ctx context.Context, in *sliverpb.R
 	return out, nil
 }
 
+func (c *sliverRPCClient) RegistryReadHive(ctx context.Context, in *sliverpb.RegistryReadHiveReq, opts ...grpc.CallOption) (*sliverpb.RegistryReadHive, error) {
+	out := new(sliverpb.RegistryReadHive)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/RegistryReadHive", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) RunSSHCommand(ctx context.Context, in *sliverpb.SSHCommandReq, opts ...grpc.CallOption) (*sliverpb.SSHCommand, error) {
 	out := new(sliverpb.SSHCommand)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/RunSSHCommand", in, out, opts...)
@@ -2167,6 +2177,7 @@ type SliverRPCServer interface {
 	RegistryDeleteKey(context.Context, *sliverpb.RegistryDeleteKeyReq) (*sliverpb.RegistryDeleteKey, error)
 	RegistryListSubKeys(context.Context, *sliverpb.RegistrySubKeyListReq) (*sliverpb.RegistrySubKeyList, error)
 	RegistryListValues(context.Context, *sliverpb.RegistryListValuesReq) (*sliverpb.RegistryValuesList, error)
+	RegistryReadHive(context.Context, *sliverpb.RegistryReadHiveReq) (*sliverpb.RegistryReadHive, error)
 	RunSSHCommand(context.Context, *sliverpb.SSHCommandReq) (*sliverpb.SSHCommand, error)
 	HijackDLL(context.Context, *clientpb.DllHijackReq) (*clientpb.DllHijack, error)
 	GetPrivs(context.Context, *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error)
@@ -2660,6 +2671,9 @@ func (UnimplementedSliverRPCServer) RegistryListSubKeys(context.Context, *sliver
 }
 func (UnimplementedSliverRPCServer) RegistryListValues(context.Context, *sliverpb.RegistryListValuesReq) (*sliverpb.RegistryValuesList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegistryListValues not implemented")
+}
+func (UnimplementedSliverRPCServer) RegistryReadHive(context.Context, *sliverpb.RegistryReadHiveReq) (*sliverpb.RegistryReadHive, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegistryReadHive not implemented")
 }
 func (UnimplementedSliverRPCServer) RunSSHCommand(context.Context, *sliverpb.SSHCommandReq) (*sliverpb.SSHCommand, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunSSHCommand not implemented")
@@ -5475,6 +5489,24 @@ func _SliverRPC_RegistryListValues_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_RegistryReadHive_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.RegistryReadHiveReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).RegistryReadHive(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/RegistryReadHive",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).RegistryReadHive(ctx, req.(*sliverpb.RegistryReadHiveReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_RunSSHCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.SSHCommandReq)
 	if err := dec(in); err != nil {
@@ -6610,6 +6642,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegistryListValues",
 			Handler:    _SliverRPC_RegistryListValues_Handler,
+		},
+		{
+			MethodName: "RegistryReadHive",
+			Handler:    _SliverRPC_RegistryReadHive_Handler,
 		},
 		{
 			MethodName: "RunSSHCommand",
