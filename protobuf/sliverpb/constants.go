@@ -347,6 +347,8 @@ const (
 	MsgServicesReq
 	MsgServiceDetailReq
 	MsgStartServiceByNameReq
+
+	MsgRegistryReadHiveReq
 )
 
 // Constants to replace enums
@@ -621,6 +623,9 @@ func MsgNumber(request proto.Message) uint32 {
 
 	case *StartServiceByNameReq:
 		return MsgStartServiceByNameReq
+
+	case *RegistryReadHiveReq:
+		return MsgRegistryReadHiveReq
 	}
 	return uint32(0)
 }

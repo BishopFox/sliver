@@ -79,22 +79,23 @@ var (
 		consts.BackdoorStr:         backdoorHelp,
 		consts.SpawnDllStr:         spawnDllHelp,
 
-		consts.WebsitesStr:                  websitesHelp,
-		consts.ScreenshotStr:                screenshotHelp,
-		consts.MakeTokenStr:                 makeTokenHelp,
-		consts.EnvStr:                       getEnvHelp,
-		consts.EnvStr + sep + consts.SetStr: setEnvHelp,
-		consts.RegistryWriteStr:             regWriteHelp,
-		consts.RegistryReadStr:              regReadHelp,
-		consts.RegistryCreateKeyStr:         regCreateKeyHelp,
-		consts.RegistryDeleteKeyStr:         regDeleteKeyHelp,
-		consts.PivotsStr:                    pivotsHelp,
-		consts.WgPortFwdStr:                 wgPortFwdHelp,
-		consts.WgSocksStr:                   wgSocksHelp,
-		consts.SSHStr:                       sshHelp,
-		consts.DLLHijackStr:                 dllHijackHelp,
-		consts.GetPrivsStr:                  getPrivsHelp,
-		consts.ServicesStr:                  servicesHelp,
+		consts.WebsitesStr:                                  websitesHelp,
+		consts.ScreenshotStr:                                screenshotHelp,
+		consts.MakeTokenStr:                                 makeTokenHelp,
+		consts.EnvStr:                                       getEnvHelp,
+		consts.EnvStr + sep + consts.SetStr:                 setEnvHelp,
+		consts.RegistryWriteStr:                             regWriteHelp,
+		consts.RegistryReadStr:                              regReadHelp,
+		consts.RegistryCreateKeyStr:                         regCreateKeyHelp,
+		consts.RegistryDeleteKeyStr:                         regDeleteKeyHelp,
+		consts.RegistryReadStr + consts.RegistryReadHiveStr: regReadHiveHelp,
+		consts.PivotsStr:                                    pivotsHelp,
+		consts.WgPortFwdStr:                                 wgPortFwdHelp,
+		consts.WgSocksStr:                                   wgSocksHelp,
+		consts.SSHStr:                                       sshHelp,
+		consts.DLLHijackStr:                                 dllHijackHelp,
+		consts.GetPrivsStr:                                  getPrivsHelp,
+		consts.ServicesStr:                                  servicesHelp,
 
 		// Loot
 		consts.LootStr: lootHelp,
@@ -572,6 +573,26 @@ When using the binary type, you must either:
 	regDeleteKeyHelp = `[[.Bold]]Command:[[.Normal]] registry delete PATH [name]
 [[.Bold]]About:[[.Normal]] Remove a value from the windows registry
 [[.Bold]]Example:[[.Normal]] registry delete --hive HKLM "software\\google\\chrome\\BLBeacon\\version"
+	`
+
+	regReadHiveHelp = `[[.Bold]]Command:[[.Normal]] registry read hive [name]
+[[.Bold]]About:[[.Normal]] Read the contents of a registry hive into a binary file
+[[.Bold]]Example:[[.Normal]] registry read hive --hive HKLM --save SAM.save SAM
+This command reads the data from a specified registry hive into a binary file, suitable for use with tools like secretsdump.
+The specified hive must be relative to a root hive (such as HKLM or HKCU). For example, if you want to read the SAM hive, the
+root hive is HKLM, and the specified hive is SAM.
+This command requires that the process has or can get the SeBackupPrivilege privilege. If you want to dump the SAM, SECURITY, and
+SYSTEM hives, your process must be running with High integrity (i.e. running as SYSTEM).
+
+Supported root hives are:
+	- HKEY_LOCAL_MACHINE (HKLM, default)
+	- HKEY_CURRENT_USER (HKCU)
+	- HKEY_CURRENT_CONFIG (HKCC)
+	- HKEY_PERFORMANCE_DATA (HKPD)
+	- HKEY_USERS (HKU)
+	- HKEY_CLASSES_ROOT (HKCR)
+The root hive must be specified using its abbreviation, such as HKLM, and not its full name.
+This command will only run against the local machine.
 	`
 
 	pivotsHelp = `[[.Bold]]Command:[[.Normal]] pivots
