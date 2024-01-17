@@ -84,3 +84,13 @@ func (rpc *Server) RegistryListValues(ctx context.Context, req *sliverpb.Registr
 	}
 	return resp, nil
 }
+
+// RegistryDumpHive - gRPC interface to dump a specific registry hive as a binary file
+func (rpc *Server) RegistryReadHive(ctx context.Context, req *sliverpb.RegistryReadHiveReq) (*sliverpb.RegistryReadHive, error) {
+	resp := &sliverpb.RegistryReadHive{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
