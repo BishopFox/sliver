@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -200,12 +201,6 @@ func generateTempFileName() string {
 
 // ReadHive dumps the content of a registry hive into a single binary blob
 func ReadHive(hostname string, requestedRootHive string, requestedHive string) ([]byte, error) {
-	// A quick sanity check on the requested root hive
-	/*rootHive, found := hives[requestedRootHive]
-	if !found {
-		return nil, fmt.Errorf("could not find root hive %s", requestedRootHive)
-	}*/
-
 	// In order to dump a hive, we need the SeBackupPrivilege privilege
 	err := priv.SePrivEnable("SeBackupPrivilege")
 	if err != nil {
@@ -222,7 +217,22 @@ func ReadHive(hostname string, requestedRootHive string, requestedHive string) (
 		buffer. So we will output the result of the system call, read the
 		resulting file into memory, then delete the file.
 	*/
-	tempFileName := fmt.Sprintf("%s\\%s", os.TempDir(), generateTempFileName())
+
+	/*
+		We have to make sure the file we ask RegSaveKeyW to output does not exist
+		because if it does, the call will fail.
+		Keep generating and checking file names until we find one that does not exist.
+	*/
+	var tempFileName string
+	for {
+		tempFileName = fmt.Sprintf("%s\\%s", os.TempDir(), generateTempFileName())
+		if _, err := os.Stat(tempFileName); errors.Is(err, os.ErrNotExist) {
+			// {{if .Config.Debug}}
+			log.Printf("Going to output hive data to %s", tempFileName)
+			// {{end}}
+			break
+		}
+	}
 	tempFileNamePtr, err := windows.UTF16PtrFromString(tempFileName)
 	if err != nil {
 		return nil, err
