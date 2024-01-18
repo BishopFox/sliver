@@ -67,6 +67,7 @@ var (
 	procLogonUserW                        = modadvapi32.NewProc("LogonUserW")
 	procLookupPrivilegeDisplayNameW       = modadvapi32.NewProc("LookupPrivilegeDisplayNameW")
 	procLookupPrivilegeNameW              = modadvapi32.NewProc("LookupPrivilegeNameW")
+	procRegSaveKeyW                       = modadvapi32.NewProc("RegSaveKeyW")
 	procCreateProcessW                    = modkernel32.NewProc("CreateProcessW")
 	procCreateRemoteThread                = modkernel32.NewProc("CreateRemoteThread")
 	procCreateThread                      = modkernel32.NewProc("CreateThread")
@@ -276,6 +277,14 @@ func LookupPrivilegeNameW(systemName string, luid *uint64, buffer *uint16, size 
 func _LookupPrivilegeNameW(systemName *uint16, luid *uint64, buffer *uint16, size *uint32) (err error) {
 	r1, _, e1 := syscall.Syscall6(procLookupPrivilegeNameW.Addr(), 4, uintptr(unsafe.Pointer(systemName)), uintptr(unsafe.Pointer(luid)), uintptr(unsafe.Pointer(buffer)), uintptr(unsafe.Pointer(size)), 0, 0)
 	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func RegSaveKeyW(hKey windows.Handle, lpFile *uint16, lpSecurityAttributes *windows.SecurityAttributes) (err error) {
+	r1, _, e1 := syscall.Syscall(procRegSaveKeyW.Addr(), 3, uintptr(hKey), uintptr(unsafe.Pointer(lpFile)), uintptr(unsafe.Pointer(lpSecurityAttributes)))
+	if r1 != 0 {
 		err = errnoErr(e1)
 	}
 	return

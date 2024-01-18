@@ -775,6 +775,19 @@ message RegistryValuesList {
   commonpb.Response Response = 9;
 }
 
+message RegistryReadHiveReq {
+  string RootHive = 1;
+  string RequestedHive = 2;
+  commonpb.Request Request = 9;
+}
+
+message RegistryReadHive {
+  bytes Data = 1;
+  string Encoder = 2;
+
+  commonpb.Response Response = 9;
+}
+
 // Tunnel - Tunnel related messages
 message Tunnel {
   uint64 TunnelID = 8 [jstype = JS_STRING];

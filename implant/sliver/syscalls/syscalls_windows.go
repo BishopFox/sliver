@@ -46,3 +46,4 @@ package syscalls
 //sys LookupPrivilegeDisplayNameW(systemName string, privilegeName *uint16, buffer *uint16, size *uint32, languageId *uint32) (err error) = advapi32.LookupPrivilegeDisplayNameW
 
 //sys Module32FirstW(hSnapshot windows.Handle, lpme *MODULEENTRY32W) (err error) = kernel32.Module32FirstW
+//sys RegSaveKeyW(hKey windows.Handle, lpFile *uint16, lpSecurityAttributes *windows.SecurityAttributes) (err error) = advapi32.RegSaveKeyW
