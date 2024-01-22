@@ -11,10 +11,11 @@ import (
 	"time"
 
 	"github.com/tetratelabs/wazero/api"
+	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
 	"github.com/tetratelabs/wazero/internal/engine/compiler"
 	"github.com/tetratelabs/wazero/internal/engine/interpreter"
+	"github.com/tetratelabs/wazero/internal/engine/wazevo"
 	"github.com/tetratelabs/wazero/internal/filecache"
-	"github.com/tetratelabs/wazero/internal/fsapi"
 	"github.com/tetratelabs/wazero/internal/internalapi"
 	"github.com/tetratelabs/wazero/internal/platform"
 	internalsock "github.com/tetratelabs/wazero/internal/sock"
@@ -188,6 +189,11 @@ type runtimeConfig struct {
 	cache                 CompilationCache
 	storeCustomSections   bool
 	ensureTermination     bool
+}
+
+// EnableOptimizingCompiler implements experimental/opt/enabler.EnableOptimizingCompiler.
+func (c *runtimeConfig) EnableOptimizingCompiler() {
+	c.newEngine = wazevo.NewEngine
 }
 
 // engineLessConfig helps avoid copy/pasting the wrong defaults.
@@ -846,7 +852,7 @@ func (c *moduleConfig) toSysContext() (sysCtx *internalsys.Context, err error) {
 		environ = append(environ, result)
 	}
 
-	var fs []fsapi.FS
+	var fs []experimentalsys.FS
 	var guestPaths []string
 	if f, ok := c.fsConfig.(*fsConfig); ok {
 		fs, guestPaths = f.preopens()

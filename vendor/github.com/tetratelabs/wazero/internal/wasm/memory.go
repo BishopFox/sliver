@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"reflect"
-	"sync"
 	"unsafe"
 
 	"github.com/tetratelabs/wazero/api"
@@ -37,8 +36,6 @@ type MemoryInstance struct {
 
 	Buffer        []byte
 	Min, Cap, Max uint32
-	// mux is used to prevent overlapping calls to Grow.
-	mux sync.RWMutex
 	// definition is known at compile time.
 	definition api.MemoryDefinition
 }
@@ -180,10 +177,6 @@ func MemoryPagesToBytesNum(pages uint32) (bytesNum uint64) {
 
 // Grow implements the same method as documented on api.Memory.
 func (m *MemoryInstance) Grow(delta uint32) (result uint32, ok bool) {
-	// We take write-lock here as the following might result in a new slice
-	m.mux.Lock()
-	defer m.mux.Unlock()
-
 	currentPages := memoryBytesNumToPages(uint64(len(m.Buffer)))
 	if delta == 0 {
 		return currentPages, true

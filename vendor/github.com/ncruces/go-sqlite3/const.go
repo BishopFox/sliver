@@ -9,16 +9,18 @@ const (
 
 	_UTF8 = 1
 
-	_MAX_STRING = 512 // Used for short strings: names, error messages…
-
+	_MAX_NAME            = 1e6 // Self-imposed limit for most NUL terminated strings.
+	_MAX_LENGTH          = 1e9
+	_MAX_SQL_LENGTH      = 1e9
 	_MAX_ALLOCATION_SIZE = 0x7ffffeff
+	_MAX_FUNCTION_ARG    = 100
 
 	ptrlen = 4
 )
 
 // ErrorCode is a result code that [Error.Code] might return.
 //
-// https://www.sqlite.org/rescode.html
+// https://sqlite.org/rescode.html
 type ErrorCode uint8
 
 const (
@@ -54,7 +56,7 @@ const (
 
 // ExtendedErrorCode is a result code that [Error.ExtendedCode] might return.
 //
-// https://www.sqlite.org/rescode.html
+// https://sqlite.org/rescode.html
 type (
 	ExtendedErrorCode uint16
 	xErrorCode        = ExtendedErrorCode
@@ -97,6 +99,7 @@ const (
 	IOERR_ROLLBACK_ATOMIC   ExtendedErrorCode = xErrorCode(IOERR) | (31 << 8)
 	IOERR_DATA              ExtendedErrorCode = xErrorCode(IOERR) | (32 << 8)
 	IOERR_CORRUPTFS         ExtendedErrorCode = xErrorCode(IOERR) | (33 << 8)
+	IOERR_IN_PAGE           ExtendedErrorCode = xErrorCode(IOERR) | (34 << 8)
 	LOCKED_SHAREDCACHE      ExtendedErrorCode = xErrorCode(LOCKED) | (1 << 8)
 	LOCKED_VTAB             ExtendedErrorCode = xErrorCode(LOCKED) | (2 << 8)
 	BUSY_RECOVERY           ExtendedErrorCode = xErrorCode(BUSY) | (1 << 8)
@@ -139,7 +142,7 @@ const (
 
 // OpenFlag is a flag for the [OpenFlags] function.
 //
-// https://www.sqlite.org/c3ref/c_open_autoproxy.html
+// https://sqlite.org/c3ref/c_open_autoproxy.html
 type OpenFlag uint32
 
 const (
@@ -158,7 +161,7 @@ const (
 
 // PrepareFlag is a flag that can be passed to [Conn.PrepareFlags].
 //
-// https://www.sqlite.org/c3ref/c_prepare_normalize.html
+// https://sqlite.org/c3ref/c_prepare_normalize.html
 type PrepareFlag uint32
 
 const (
@@ -167,9 +170,68 @@ const (
 	PREPARE_NO_VTAB    PrepareFlag = 0x04
 )
 
+// FunctionFlag is a flag that can be passed to
+// [Conn.CreateFunction] and [Conn.CreateWindowFunction].
+//
+// https://sqlite.org/c3ref/c_deterministic.html
+type FunctionFlag uint32
+
+const (
+	DETERMINISTIC  FunctionFlag = 0x000000800
+	DIRECTONLY     FunctionFlag = 0x000080000
+	SUBTYPE        FunctionFlag = 0x000100000
+	INNOCUOUS      FunctionFlag = 0x000200000
+	RESULT_SUBTYPE FunctionFlag = 0x001000000
+)
+
+// StmtStatus name counter values associated with the [Stmt.Status] method.
+//
+// https://sqlite.org/c3ref/c_stmtstatus_counter.html
+type StmtStatus uint32
+
+const (
+	STMTSTATUS_FULLSCAN_STEP StmtStatus = 1
+	STMTSTATUS_SORT          StmtStatus = 2
+	STMTSTATUS_AUTOINDEX     StmtStatus = 3
+	STMTSTATUS_VM_STEP       StmtStatus = 4
+	STMTSTATUS_REPREPARE     StmtStatus = 5
+	STMTSTATUS_RUN           StmtStatus = 6
+	STMTSTATUS_FILTER_MISS   StmtStatus = 7
+	STMTSTATUS_FILTER_HIT    StmtStatus = 8
+	STMTSTATUS_MEMUSED       StmtStatus = 99
+)
+
+// DBConfig are the available database connection configuration options.
+//
+// https://sqlite.org/c3ref/c_dbconfig_defensive.html
+type DBConfig uint32
+
+const (
+	// DBCONFIG_MAINDBNAME         DBConfig = 1000
+	// DBCONFIG_LOOKASIDE          DBConfig = 1001
+	DBCONFIG_ENABLE_FKEY           DBConfig = 1002
+	DBCONFIG_ENABLE_TRIGGER        DBConfig = 1003
+	DBCONFIG_ENABLE_FTS3_TOKENIZER DBConfig = 1004
+	DBCONFIG_ENABLE_LOAD_EXTENSION DBConfig = 1005
+	DBCONFIG_NO_CKPT_ON_CLOSE      DBConfig = 1006
+	DBCONFIG_ENABLE_QPSG           DBConfig = 1007
+	DBCONFIG_TRIGGER_EQP           DBConfig = 1008
+	DBCONFIG_RESET_DATABASE        DBConfig = 1009
+	DBCONFIG_DEFENSIVE             DBConfig = 1010
+	DBCONFIG_WRITABLE_SCHEMA       DBConfig = 1011
+	DBCONFIG_LEGACY_ALTER_TABLE    DBConfig = 1012
+	DBCONFIG_DQS_DML               DBConfig = 1013
+	DBCONFIG_DQS_DDL               DBConfig = 1014
+	DBCONFIG_ENABLE_VIEW           DBConfig = 1015
+	DBCONFIG_LEGACY_FILE_FORMAT    DBConfig = 1016
+	DBCONFIG_TRUSTED_SCHEMA        DBConfig = 1017
+	DBCONFIG_STMT_SCANSTATUS       DBConfig = 1018
+	DBCONFIG_REVERSE_SCANORDER     DBConfig = 1019
+)
+
 // Datatype is a fundamental datatype of SQLite.
 //
-// https://www.sqlite.org/c3ref/c_blob.html
+// https://sqlite.org/c3ref/c_blob.html
 type Datatype uint32
 
 const (
@@ -182,18 +244,18 @@ const (
 
 // String implements the [fmt.Stringer] interface.
 func (t Datatype) String() string {
-	const name = "INTEGERFLOATTEXTBLOBNULL"
+	const name = "INTEGERFLOATEXTBLOBNULL"
 	switch t {
 	case INTEGER:
 		return name[0:7]
 	case FLOAT:
 		return name[7:12]
 	case TEXT:
-		return name[12:16]
+		return name[11:15]
 	case BLOB:
-		return name[16:20]
+		return name[15:19]
 	case NULL:
-		return name[20:24]
+		return name[19:23]
 	}
 	return strconv.FormatUint(uint64(t), 10)
 }
