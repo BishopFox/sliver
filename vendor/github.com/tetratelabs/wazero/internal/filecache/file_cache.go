@@ -69,12 +69,28 @@ func (fc *fileCache) Add(key Key, content io.Reader) (err error) {
 	fc.mux.Lock()
 	defer fc.mux.Unlock()
 
-	file, err := os.Create(fc.path(key))
+	// Use rename for an atomic write
+	path := fc.path(key)
+	file, err := os.Create(path + ".tmp")
 	if err != nil {
 		return
 	}
+	defer func() {
+		if err != nil {
+			_ = os.Remove(file.Name())
+		}
+	}()
 	defer file.Close()
-	_, err = io.Copy(file, content)
+	if _, err = io.Copy(file, content); err != nil {
+		return
+	}
+	if err = file.Sync(); err != nil {
+		return
+	}
+	if err = file.Close(); err != nil {
+		return
+	}
+	err = os.Rename(file.Name(), path)
 	return
 }
 

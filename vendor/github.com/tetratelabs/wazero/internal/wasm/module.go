@@ -3,6 +3,7 @@ package wasm
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental"
 	"github.com/tetratelabs/wazero/internal/ieee754"
 	"github.com/tetratelabs/wazero/internal/leb128"
 	"github.com/tetratelabs/wazero/internal/wasmdebug"
@@ -198,13 +200,20 @@ const (
 
 // AssignModuleID calculates a sha256 checksum on `wasm` and other args, and set Module.ID to the result.
 // See the doc on Module.ID on what it's used for.
-func (m *Module) AssignModuleID(wasm []byte, withListener, withEnsureTermination bool) {
+func (m *Module) AssignModuleID(wasm []byte, listeners []experimental.FunctionListener, withEnsureTermination bool) {
 	h := sha256.New()
 	h.Write(wasm)
-	// Use the pre-allocated space on m.ID to append the booleans to sha256 hash.
-	m.ID[0] = boolToByte(withListener)
-	m.ID[1] = boolToByte(withEnsureTermination)
-	h.Write(m.ID[:2])
+	// Use the pre-allocated space backed by m.ID below.
+
+	// Write the existence of listeners to the checksum per function.
+	for i, l := range listeners {
+		binary.LittleEndian.PutUint32(m.ID[:], uint32(i))
+		m.ID[4] = boolToByte(l != nil)
+		h.Write(m.ID[:5])
+	}
+	// Write the flag of ensureTermination to the checksum.
+	m.ID[0] = boolToByte(withEnsureTermination)
+	h.Write(m.ID[:1])
 	// Get checksum by passing the slice underlying m.ID.
 	h.Sum(m.ID[:0])
 }
@@ -602,9 +611,16 @@ func (m *Module) validateDataCountSection() (err error) {
 
 func (m *ModuleInstance) buildGlobals(module *Module, funcRefResolver func(funcIndex Index) Reference) {
 	importedGlobals := m.Globals[:module.ImportGlobalCount]
+
+	me := m.Engine
+	engineOwnGlobal := me.OwnsGlobals()
 	for i := Index(0); i < Index(len(module.GlobalSection)); i++ {
 		gs := &module.GlobalSection[i]
 		g := &GlobalInstance{}
+		if engineOwnGlobal {
+			g.Me = me
+			g.Index = i + module.ImportGlobalCount
+		}
 		m.Globals[i+module.ImportGlobalCount] = g
 		g.Type = gs.Type
 		g.initialize(importedGlobals, &gs.Init, funcRefResolver)

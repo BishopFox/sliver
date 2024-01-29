@@ -6,6 +6,7 @@ import (
 
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/experimental/sys"
+	"github.com/tetratelabs/wazero/internal/fsapi"
 	internalsys "github.com/tetratelabs/wazero/internal/sys"
 	"github.com/tetratelabs/wazero/internal/wasip1"
 	"github.com/tetratelabs/wazero/internal/wasm"
@@ -46,7 +47,6 @@ type event struct {
 	eventType byte
 	userData  []byte
 	errno     wasip1.Errno
-	outOffset uint32
 }
 
 func pollOneoffFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
@@ -90,16 +90,16 @@ func pollOneoffFn(_ context.Context, mod api.Module, params []uint64) sys.Errno 
 	var blockingStdinSubs []*event
 	// The timeout is initialized at max Duration, the loop will find the minimum.
 	var timeout time.Duration = 1<<63 - 1
-	// Count of all the clock subscribers that have been already written back to outBuf.
-	clockEvents := uint32(0)
-	// Count of all the non-clock subscribers that have been already written back to outBuf.
-	readySubs := uint32(0)
+	// Count of all the subscriptions that have been already written back to outBuf.
+	// nevents*32 returns at all times the offset where the next event should be written:
+	// this way we ensure that there are no gaps between records.
+	nevents := uint32(0)
 
 	// Layout is subscription_u: Union
 	// https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#subscription_u
 	for i := uint32(0); i < nsubscriptions; i++ {
 		inOffset := i * 48
-		outOffset := i * 32
+		outOffset := nevents * 32
 
 		eventType := inBuf[inOffset+8] // +8 past userdata
 		// +8 past userdata +8 contents_offset
@@ -110,12 +110,10 @@ func pollOneoffFn(_ context.Context, mod api.Module, params []uint64) sys.Errno 
 			eventType: eventType,
 			userData:  userData,
 			errno:     wasip1.ErrnoSuccess,
-			outOffset: outOffset,
 		}
 
 		switch eventType {
 		case wasip1.EventTypeClock: // handle later
-			clockEvents++
 			newTimeout, err := processClockEvent(argBuf)
 			if err != 0 {
 				return err
@@ -125,7 +123,8 @@ func pollOneoffFn(_ context.Context, mod api.Module, params []uint64) sys.Errno 
 				timeout = newTimeout
 			}
 			// Ack the clock event to the outBuf.
-			writeEvent(outBuf, evt)
+			writeEvent(outBuf[outOffset:], evt)
+			nevents++
 		case wasip1.EventTypeFdRead:
 			fd := int32(le.Uint32(argBuf))
 			if fd < 0 {
@@ -133,16 +132,15 @@ func pollOneoffFn(_ context.Context, mod api.Module, params []uint64) sys.Errno 
 			}
 			if file, ok := fsc.LookupFile(fd); !ok {
 				evt.errno = wasip1.ErrnoBadf
-				writeEvent(outBuf, evt)
-				readySubs++
-				continue
-			} else if fd == internalsys.FdStdin && !file.File.IsNonblock() {
-				// if the fd is Stdin, and it is in non-blocking mode,
+				writeEvent(outBuf[outOffset:], evt)
+				nevents++
+			} else if fd != internalsys.FdStdin && file.File.IsNonblock() {
+				writeEvent(outBuf[outOffset:], evt)
+				nevents++
+			} else {
+				// if the fd is Stdin, and it is in blocking mode,
 				// do not ack yet, append to a slice for delayed evaluation.
 				blockingStdinSubs = append(blockingStdinSubs, evt)
-			} else {
-				writeEvent(outBuf, evt)
-				readySubs++
 			}
 		case wasip1.EventTypeFdWrite:
 			fd := int32(le.Uint32(argBuf))
@@ -154,47 +152,46 @@ func pollOneoffFn(_ context.Context, mod api.Module, params []uint64) sys.Errno 
 			} else {
 				evt.errno = wasip1.ErrnoBadf
 			}
-			readySubs++
-			writeEvent(outBuf, evt)
+			nevents++
+			writeEvent(outBuf[outOffset:], evt)
 		default:
 			return sys.EINVAL
 		}
 	}
 
-	// If there are subscribers with data ready, we have already written them to outBuf,
-	// and we don't need to wait for the timeout: clear it.
-	if readySubs != 0 {
-		timeout = 0
+	sysCtx := mod.(*wasm.ModuleInstance).Sys
+	if nevents == nsubscriptions {
+		// We already wrote back all the results. We already wrote this number
+		// earlier to offset `resultNevents`.
+		// We only need to observe the timeout (nonzero if there are clock subscriptions)
+		// and return.
+		if timeout > 0 {
+			sysCtx.Nanosleep(int64(timeout))
+		}
+		return 0
 	}
 
 	// If there are blocking stdin subscribers, check for data with given timeout.
-	if len(blockingStdinSubs) > 0 {
-		stdin, ok := fsc.LookupFile(internalsys.FdStdin)
-		if !ok {
-			return sys.EBADF
+	stdin, ok := fsc.LookupFile(internalsys.FdStdin)
+	if !ok {
+		return sys.EBADF
+	}
+	// Wait for the timeout to expire, or for some data to become available on Stdin.
+
+	if stdinReady, errno := stdin.File.Poll(fsapi.POLLIN, int32(timeout.Milliseconds())); errno != 0 {
+		return errno
+	} else if stdinReady {
+		// stdin has data ready to for reading, write back all the events
+		for i := range blockingStdinSubs {
+			evt := blockingStdinSubs[i]
+			evt.errno = 0
+			writeEvent(outBuf[nevents*32:], evt)
+			nevents++
 		}
-		// Wait for the timeout to expire, or for some data to become available on Stdin.
-		stdinReady, errno := stdin.File.PollRead(&timeout)
-		if errno != 0 {
-			return errno
-		}
-		if stdinReady {
-			// stdin has data ready to for reading, write back all the events
-			for i := range blockingStdinSubs {
-				readySubs++
-				evt := blockingStdinSubs[i]
-				evt.errno = 0
-				writeEvent(outBuf, evt)
-			}
-		}
-	} else {
-		// No subscribers, just wait for the given timeout.
-		sysCtx := mod.(*wasm.ModuleInstance).Sys
-		sysCtx.Nanosleep(int64(timeout))
 	}
 
-	if readySubs != nsubscriptions {
-		if !mod.Memory().WriteUint32Le(resultNevents, readySubs+clockEvents) {
+	if nevents != nsubscriptions {
+		if !mod.Memory().WriteUint32Le(resultNevents, nevents) {
 			return sys.EFAULT
 		}
 	}
@@ -234,9 +231,9 @@ func processClockEvent(inBuf []byte) (time.Duration, sys.Errno) {
 // writeEvent writes the event corresponding to the processed subscription.
 // https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#-event-struct
 func writeEvent(outBuf []byte, evt *event) {
-	copy(outBuf[evt.outOffset:], evt.userData) // userdata
-	outBuf[evt.outOffset+8] = byte(evt.errno)  // uint16, but safe as < 255
-	outBuf[evt.outOffset+9] = 0
-	le.PutUint32(outBuf[evt.outOffset+10:], uint32(evt.eventType))
+	copy(outBuf, evt.userData)  // userdata
+	outBuf[8] = byte(evt.errno) // uint16, but safe as < 255
+	outBuf[9] = 0
+	le.PutUint32(outBuf[10:], uint32(evt.eventType))
 	// TODO: When FD events are supported, write outOffset+16
 }

@@ -23,7 +23,6 @@ func ExportHostFunctions(env wazero.HostModuleBuilder) wazero.HostModuleBuilder 
 	util.ExportFuncIIJ(env, "go_localtime", vfsLocaltime)
 	util.ExportFuncIIII(env, "go_randomness", vfsRandomness)
 	util.ExportFuncIII(env, "go_sleep", vfsSleep)
-	util.ExportFuncIII(env, "go_current_time", vfsCurrentTime)
 	util.ExportFuncIII(env, "go_current_time_64", vfsCurrentTime64)
 	util.ExportFuncIIIII(env, "go_full_pathname", vfsFullPathname)
 	util.ExportFuncIIII(env, "go_delete", vfsDelete)
@@ -44,35 +43,8 @@ func ExportHostFunctions(env wazero.HostModuleBuilder) wazero.HostModuleBuilder 
 	return env
 }
 
-type vfsKey struct{}
-type vfsState struct {
-	files []File
-}
-
-// NewContext is an internal API users need not call directly.
-//
-// NewContext creates a new context to hold [api.Module] specific VFS data.
-// The context should be passed to any [api.Function] calls that might
-// generate VFS host callbacks.
-// The returned [io.Closer] should be closed after the [api.Module] is closed,
-// to release any associated resources.
-func NewContext(ctx context.Context) (context.Context, io.Closer) {
-	vfs := new(vfsState)
-	return context.WithValue(ctx, vfsKey{}, vfs), vfs
-}
-
-func (vfs *vfsState) Close() error {
-	for _, f := range vfs.files {
-		if f != nil {
-			f.Close()
-		}
-	}
-	vfs.files = nil
-	return nil
-}
-
 func vfsFind(ctx context.Context, mod api.Module, zVfsName uint32) uint32 {
-	name := util.ReadString(mod, zVfsName, _MAX_STRING)
+	name := util.ReadString(mod, zVfsName, _MAX_NAME)
 	if vfs := Find(name); vfs != nil && vfs != (vfsOS{}) {
 		return 1
 	}
@@ -108,12 +80,6 @@ func vfsRandomness(ctx context.Context, mod api.Module, pVfs, nByte, zByte uint3
 
 func vfsSleep(ctx context.Context, mod api.Module, pVfs, nMicro uint32) _ErrorCode {
 	time.Sleep(time.Duration(nMicro) * time.Microsecond)
-	return _OK
-}
-
-func vfsCurrentTime(ctx context.Context, mod api.Module, pVfs, prNow uint32) _ErrorCode {
-	day := julianday.Float(time.Now())
-	util.WriteFloat64(mod, prNow, day)
 	return _OK
 }
 
@@ -183,6 +149,10 @@ func vfsOpen(ctx context.Context, mod api.Module, pVfs, zPath, pFile uint32, fla
 		file, flags, err = vfs.Open(path, flags)
 	}
 
+	if err != nil {
+		return vfsErrorCode(err, _CANTOPEN)
+	}
+
 	if file, ok := file.(FilePowersafeOverwrite); ok {
 		if !parsed {
 			params = vfsURIParameters(ctx, mod, zPath, flags)
@@ -192,14 +162,10 @@ func vfsOpen(ctx context.Context, mod api.Module, pVfs, zPath, pFile uint32, fla
 		}
 	}
 
-	if err != nil {
-		return vfsErrorCode(err, _CANTOPEN)
-	}
-
-	vfsFileRegister(ctx, mod, pFile, file)
 	if pOutFlags != 0 {
 		util.WriteUint32(mod, pOutFlags, uint32(flags))
 	}
+	vfsFileRegister(ctx, mod, pFile, file)
 	return _OK
 }
 
@@ -291,14 +257,6 @@ func vfsFileControl(ctx context.Context, mod api.Module, pFile uint32, op _Fcntl
 			return _OK
 		}
 
-	case _FCNTL_LOCK_TIMEOUT:
-		if file, ok := file.(*vfsFile); ok {
-			millis := file.lockTimeout.Milliseconds()
-			file.lockTimeout = time.Duration(util.ReadUint32(mod, pArg)) * time.Millisecond
-			util.WriteUint32(mod, pArg, uint32(millis))
-			return _OK
-		}
-
 	case _FCNTL_POWERSAFE_OVERWRITE:
 		if file, ok := file.(FilePowersafeOverwrite); ok {
 			switch util.ReadUint32(mod, pArg) {
@@ -336,6 +294,12 @@ func vfsFileControl(ctx context.Context, mod api.Module, pFile uint32, op _Fcntl
 			return vfsErrorCode(err, _IOERR_FSTAT)
 		}
 
+	case _FCNTL_OVERWRITE:
+		if file, ok := file.(FileOverwrite); ok {
+			err := file.Overwrite()
+			return vfsErrorCode(err, _IOERR)
+		}
+
 	case _FCNTL_COMMIT_PHASETWO:
 		if file, ok := file.(FileCommitPhaseTwo); ok {
 			err := file.CommitPhaseTwo()
@@ -360,10 +324,8 @@ func vfsFileControl(ctx context.Context, mod api.Module, pFile uint32, op _Fcntl
 	}
 
 	// Consider also implementing these opcodes (in use by SQLite):
-	//  _FCNTL_PDB
 	//  _FCNTL_BUSYHANDLER
 	//  _FCNTL_CHUNK_SIZE
-	//  _FCNTL_OVERWRITE
 	//  _FCNTL_PRAGMA
 	//  _FCNTL_SYNC
 	return _NOTFOUND
@@ -402,7 +364,7 @@ func vfsURIParameters(ctx context.Context, mod api.Module, zPath uint32, flags O
 		if stack[0] == 0 {
 			return params
 		}
-		key := util.ReadString(mod, uint32(stack[0]), _MAX_STRING)
+		key := util.ReadString(mod, uint32(stack[0]), _MAX_NAME)
 		if params.Has(key) {
 			continue
 		}
@@ -415,7 +377,7 @@ func vfsURIParameters(ctx context.Context, mod api.Module, zPath uint32, flags O
 		if params == nil {
 			params = url.Values{}
 		}
-		params.Set(key, util.ReadString(mod, uint32(stack[0]), _MAX_STRING))
+		params.Set(key, util.ReadString(mod, uint32(stack[0]), _MAX_NAME))
 	}
 }
 
@@ -423,7 +385,7 @@ func vfsGet(mod api.Module, pVfs uint32) VFS {
 	var name string
 	if pVfs != 0 {
 		const zNameOffset = 16
-		name = util.ReadString(mod, util.ReadUint32(mod, pVfs+zNameOffset), _MAX_STRING)
+		name = util.ReadString(mod, util.ReadUint32(mod, pVfs+zNameOffset), _MAX_NAME)
 	}
 	if vfs := Find(name); vfs != nil {
 		return vfs
@@ -431,40 +393,22 @@ func vfsGet(mod api.Module, pVfs uint32) VFS {
 	panic(util.NoVFSErr + util.ErrorString(name))
 }
 
-func vfsFileNew(vfs *vfsState, file File) uint32 {
-	// Find an empty slot.
-	for id, f := range vfs.files {
-		if f == nil {
-			vfs.files[id] = file
-			return uint32(id)
-		}
-	}
-
-	// Add a new slot.
-	vfs.files = append(vfs.files, file)
-	return uint32(len(vfs.files) - 1)
-}
-
 func vfsFileRegister(ctx context.Context, mod api.Module, pFile uint32, file File) {
 	const fileHandleOffset = 4
-	id := vfsFileNew(ctx.Value(vfsKey{}).(*vfsState), file)
+	id := util.AddHandle(ctx, file)
 	util.WriteUint32(mod, pFile+fileHandleOffset, id)
 }
 
 func vfsFileGet(ctx context.Context, mod api.Module, pFile uint32) File {
 	const fileHandleOffset = 4
-	vfs := ctx.Value(vfsKey{}).(*vfsState)
 	id := util.ReadUint32(mod, pFile+fileHandleOffset)
-	return vfs.files[id]
+	return util.GetHandle(ctx, id).(File)
 }
 
 func vfsFileClose(ctx context.Context, mod api.Module, pFile uint32) error {
 	const fileHandleOffset = 4
-	vfs := ctx.Value(vfsKey{}).(*vfsState)
 	id := util.ReadUint32(mod, pFile+fileHandleOffset)
-	file := vfs.files[id]
-	vfs.files[id] = nil
-	return file.Close()
+	return util.DelHandle(ctx, id)
 }
 
 func vfsErrorCode(err error, def _ErrorCode) _ErrorCode {
@@ -476,10 +420,4 @@ func vfsErrorCode(err error, def _ErrorCode) _ErrorCode {
 		return _ErrorCode(v.Uint())
 	}
 	return def
-}
-
-func clear(b []byte) {
-	for i := range b {
-		b[i] = 0
-	}
 }
