@@ -505,7 +505,35 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 	dnsLog.Debugf("[session init] with dns session id %d", msg.ID&sessionIDBitMask)
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
-	if len(msg.Data) <= 32 {
+	dnsLog.Debugf("[session init] msg id: %d, size: %d", msg.ID, msg.Size)
+	pending := dnsSession.IncomingPendingEnvelope(msg.ID, msg.Size)
+	complete := pending.Insert(msg)
+	if !complete {
+		resp := new(dns.Msg)
+		resp.SetReply(req)
+		resp.Authoritative = true
+		respBuf := []byte{}
+		for _, q := range req.Question {
+			switch q.Qtype {
+			case dns.TypeTXT:
+				txts := []string{}
+				txt := &dns.TXT{
+					Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: s.TTL},
+					Txt: txts,
+				}
+				resp.Answer = append(resp.Answer, txt)
+			}
+		}
+		return resp
+	}
+
+	data, err := pending.Reassemble()
+	if err != nil {
+		dnsLog.Errorf("[session init] failed to reassemble message %d: %s", msg.ID, err)
+		return s.refusedErrorResp(req)
+	}
+
+	if len(data) <= 32 {
 		dnsLog.Warnf("[session init] invalid msg data length")
 		return s.refusedErrorResp(req)
 	}
@@ -515,20 +543,20 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 	}
 
 	var publicKeyDigest [32]byte
-	copy(publicKeyDigest[:], msg.Data[:32])
+	copy(publicKeyDigest[:], data[:32])
 	implantConfig, err := db.ImplantConfigByECCPublicKeyDigest(publicKeyDigest)
 	if err != nil || implantConfig == nil {
 		dnsLog.Errorf("[session init] error implant public key not found")
 		return s.refusedErrorResp(req)
 	}
 
-	dnsLog.Infof("[session init] init data sent: %d bytes", len(msg.Data))
+	dnsLog.Infof("[session init] init data sent: %d bytes", len(data))
 
 	serverKeyPair := cryptography.ECCServerKeyPair()
 	sessionInit, err := cryptography.AgeKeyExFromImplant(
 		serverKeyPair.Private,
 		implantConfig.ECCPrivateKey,
-		msg.Data[32:],
+		data[32:],
 	)
 	if err != nil {
 		dnsLog.Errorf("[session init] error decrypting session init data: %s", err)
