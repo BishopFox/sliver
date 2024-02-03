@@ -160,7 +160,7 @@ Type=simple
 Restart=on-failure
 RestartSec=3
 User=root
-ExecStart=/root/sliver-server daemon
+ExecStart=runuser -l root -c "/root/sliver-server daemon"
 
 [Install]
 WantedBy=multi-user.target
