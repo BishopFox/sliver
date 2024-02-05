@@ -3,7 +3,6 @@ package wasm
 import (
 	"fmt"
 	"math"
-	"sync"
 
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/internal/leb128"
@@ -126,20 +125,12 @@ type TableInstance struct {
 
 	// Type is either RefTypeFuncref or RefTypeExternRef.
 	Type RefType
-
-	// mux is used to prevent overlapping calls to Grow.
-	mux sync.RWMutex
 }
 
 // ElementInstance represents an element instance in a module.
 //
 // See https://www.w3.org/TR/2022/WD-wasm-core-2-20220419/exec/runtime.html#element-instances
-type ElementInstance struct {
-	// References holds references whose type is either RefTypeFuncref or RefTypeExternref (unsupported).
-	References []Reference
-	// Type is the RefType of the references in this instance's References.
-	Type RefType
-}
+type ElementInstance = []Reference
 
 // Reference is the runtime representation of RefType which is either RefTypeFuncref or RefTypeExternref.
 type Reference = uintptr
@@ -314,10 +305,6 @@ func (m *Module) verifyImportGlobalI32(sectionID SectionID, sectionIdx Index, id
 //
 // https://www.w3.org/TR/2022/WD-wasm-core-2-20220419/exec/instructions.html#xref-syntax-instructions-syntax-instr-table-mathsf-table-grow-x
 func (t *TableInstance) Grow(delta uint32, initialRef Reference) (currentLen uint32) {
-	// We take write-lock here as the following might result in a new slice
-	t.mux.Lock()
-	defer t.mux.Unlock()
-
 	currentLen = uint32(len(t.References))
 	if delta == 0 {
 		return

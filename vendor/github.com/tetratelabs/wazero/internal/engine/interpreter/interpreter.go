@@ -87,6 +87,14 @@ type moduleEngine struct {
 	parentEngine *engine
 }
 
+// GetGlobalValue implements the same method as documented on wasm.ModuleEngine.
+func (e *moduleEngine) GetGlobalValue(wasm.Index) (lo, hi uint64) {
+	panic("BUG: GetGlobalValue should never be called on interpreter mode")
+}
+
+// OwnsGlobals implements the same method as documented on wasm.ModuleEngine.
+func (e *moduleEngine) OwnsGlobals() bool { return false }
+
 // callEngine holds context per moduleEngine.Call, and shared across all the
 // function calls originating from the same moduleEngine.Call execution.
 //
@@ -271,14 +279,6 @@ func (si *stackIterator) ProgramCounter() experimental.ProgramCounter {
 	return experimental.ProgramCounter(si.pc)
 }
 
-// Parameters implements the same method as documented on
-// experimental.StackIterator.
-func (si *stackIterator) Parameters() []uint64 {
-	paramsCount := si.fn.funcType.ParamNumInUint64
-	top := len(si.stack)
-	return si.stack[top-paramsCount:]
-}
-
 // internalFunction implements experimental.InternalFunction.
 type internalFunction struct{ *function }
 
@@ -442,6 +442,12 @@ func (e *moduleEngine) ResolveImportedFunction(index, indexInImportedModule wasm
 	e.functions[index] = imported.functions[indexInImportedModule]
 }
 
+// ResolveImportedMemory implements wasm.ModuleEngine.
+func (e *moduleEngine) ResolveImportedMemory(wasm.ModuleEngine) {}
+
+// DoneInstantiation implements wasm.ModuleEngine.
+func (e *moduleEngine) DoneInstantiation() {}
+
 // FunctionInstanceReference implements the same method as documented on wasm.ModuleEngine.
 func (e *moduleEngine) FunctionInstanceReference(funcIndex wasm.Index) wasm.Reference {
 	return uintptr(unsafe.Pointer(&e.functions[funcIndex]))
@@ -456,25 +462,20 @@ func (e *moduleEngine) NewFunction(index wasm.Index) (ce api.Function) {
 }
 
 // LookupFunction implements the same method as documented on wasm.ModuleEngine.
-func (e *moduleEngine) LookupFunction(t *wasm.TableInstance, typeId wasm.FunctionTypeID, tableOffset wasm.Index) (f api.Function, err error) {
+func (e *moduleEngine) LookupFunction(t *wasm.TableInstance, typeId wasm.FunctionTypeID, tableOffset wasm.Index) (*wasm.ModuleInstance, wasm.Index) {
 	if tableOffset >= uint32(len(t.References)) {
-		err = wasmruntime.ErrRuntimeInvalidTableAccess
-		return
+		panic(wasmruntime.ErrRuntimeInvalidTableAccess)
 	}
 	rawPtr := t.References[tableOffset]
 	if rawPtr == 0 {
-		err = wasmruntime.ErrRuntimeInvalidTableAccess
-		return
+		panic(wasmruntime.ErrRuntimeInvalidTableAccess)
 	}
 
 	tf := functionFromUintptr(rawPtr)
 	if tf.typeID != typeId {
-		err = wasmruntime.ErrRuntimeIndirectCallTypeMismatch
-		return
+		panic(wasmruntime.ErrRuntimeIndirectCallTypeMismatch)
 	}
-
-	f = e.newCallEngine(tf)
-	return
+	return tf.moduleInstance, tf.parent.index
 }
 
 // Definition implements the same method as documented on api.Function.
@@ -1660,15 +1661,15 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 			inElementOffset := ce.popValue()
 			inTableOffset := ce.popValue()
 			table := tables[op.U2]
-			if inElementOffset+copySize > uint64(len(elementInstance.References)) ||
+			if inElementOffset+copySize > uint64(len(elementInstance)) ||
 				inTableOffset+copySize > uint64(len(table.References)) {
 				panic(wasmruntime.ErrRuntimeInvalidTableAccess)
 			} else if copySize != 0 {
-				copy(table.References[inTableOffset:inTableOffset+copySize], elementInstance.References[inElementOffset:])
+				copy(table.References[inTableOffset:inTableOffset+copySize], elementInstance[inElementOffset:])
 			}
 			frame.pc++
 		case wazeroir.OperationKindElemDrop:
-			elementInstances[op.U1].References = nil
+			elementInstances[op.U1] = nil
 			frame.pc++
 		case wazeroir.OperationKindTableCopy:
 			srcTable, dstTable := tables[op.U1].References, tables[op.U2].References
@@ -4103,17 +4104,16 @@ func (ce *callEngine) callNativeFuncWithListener(ctx context.Context, m *wasm.Mo
 	def, typ := f.definition(), f.funcType
 
 	ce.stackIterator.reset(ce.stack, ce.frames, f)
-	fnl.Before(ctx, m, def, ce.peekValues(len(typ.Params)), &ce.stackIterator)
+	fnl.Before(ctx, m, def, ce.peekValues(typ.ParamNumInUint64), &ce.stackIterator)
 	ce.stackIterator.clear()
 	ce.callNativeFunc(ctx, m, f)
-	fnl.After(ctx, m, def, ce.peekValues(len(typ.Results)))
+	fnl.After(ctx, m, def, ce.peekValues(typ.ResultNumInUint64))
 	return ctx
 }
 
 // popMemoryOffset takes a memory offset off the stack for use in load and store instructions.
 // As the top of stack value is 64-bit, this ensures it is in range before returning it.
 func (ce *callEngine) popMemoryOffset(op *wazeroir.UnionOperation) uint32 {
-	// TODO: Document what 'us' is and why we expect to look at value 1.
 	offset := op.U2 + ce.popValue()
 	if offset > math.MaxUint32 {
 		panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
