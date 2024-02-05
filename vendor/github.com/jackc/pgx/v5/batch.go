@@ -21,13 +21,10 @@ type batchItemFunc func(br BatchResults) error
 // Query sets fn to be called when the response to qq is received.
 func (qq *QueuedQuery) Query(fn func(rows Rows) error) {
 	qq.fn = func(br BatchResults) error {
-		rows, err := br.Query()
-		if err != nil {
-			return err
-		}
+		rows, _ := br.Query()
 		defer rows.Close()
 
-		err = fn(rows)
+		err := fn(rows)
 		if err != nil {
 			return err
 		}
@@ -142,7 +139,10 @@ func (br *batchResults) Exec() (pgconn.CommandTag, error) {
 	}
 
 	commandTag, err := br.mrr.ResultReader().Close()
-	br.err = err
+	if err != nil {
+		br.err = err
+		br.mrr.Close()
+	}
 
 	if br.conn.batchTracer != nil {
 		br.conn.batchTracer.TraceBatchQuery(br.ctx, br.conn, TraceBatchQueryData{
@@ -228,7 +228,7 @@ func (br *batchResults) Close() error {
 	for br.err == nil && !br.closed && br.b != nil && br.qqIdx < len(br.b.queuedQueries) {
 		if br.b.queuedQueries[br.qqIdx].fn != nil {
 			err := br.b.queuedQueries[br.qqIdx].fn(br)
-			if err != nil && br.err == nil {
+			if err != nil {
 				br.err = err
 			}
 		} else {
@@ -290,7 +290,7 @@ func (br *pipelineBatchResults) Exec() (pgconn.CommandTag, error) {
 	results, err := br.pipeline.GetResults()
 	if err != nil {
 		br.err = err
-		return pgconn.CommandTag{}, err
+		return pgconn.CommandTag{}, br.err
 	}
 	var commandTag pgconn.CommandTag
 	switch results := results.(type) {
@@ -309,7 +309,7 @@ func (br *pipelineBatchResults) Exec() (pgconn.CommandTag, error) {
 		})
 	}
 
-	return commandTag, err
+	return commandTag, br.err
 }
 
 // Query reads the results from the next query in the batch as if the query has been sent with Query.
@@ -384,24 +384,20 @@ func (br *pipelineBatchResults) Close() error {
 		}
 	}()
 
-	if br.err != nil {
-		return br.err
-	}
-
-	if br.lastRows != nil && br.lastRows.err != nil {
+	if br.err == nil && br.lastRows != nil && br.lastRows.err != nil {
 		br.err = br.lastRows.err
 		return br.err
 	}
 
 	if br.closed {
-		return nil
+		return br.err
 	}
 
 	// Read and run fn for all remaining items
 	for br.err == nil && !br.closed && br.b != nil && br.qqIdx < len(br.b.queuedQueries) {
 		if br.b.queuedQueries[br.qqIdx].fn != nil {
 			err := br.b.queuedQueries[br.qqIdx].fn(br)
-			if err != nil && br.err == nil {
+			if err != nil {
 				br.err = err
 			}
 		} else {
