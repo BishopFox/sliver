@@ -43,12 +43,8 @@ func (t *Table) analyzeAndStringifyColumn(colIdx int, col interface{}, hint rend
 	} else {
 		colStr = fmt.Sprint(col)
 	}
-	if strings.Contains(colStr, "\t") {
-		colStr = strings.Replace(colStr, "\t", "    ", -1)
-	}
-	if strings.Contains(colStr, "\r") {
-		colStr = strings.Replace(colStr, "\r", "", -1)
-	}
+	colStr = strings.ReplaceAll(colStr, "\t", "    ")
+	colStr = text.ProcessCRLF(colStr)
 	return fmt.Sprintf("%s%s", t.style.Format.Direction.Modifier(), colStr)
 }
 
