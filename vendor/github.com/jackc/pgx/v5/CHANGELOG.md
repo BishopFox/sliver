@@ -1,3 +1,52 @@
+# 5.4.3 (August 5, 2023)
+
+* Fix: QCharArrayOID was defined with the wrong OID (Christoph Engelbert)
+* Fix: connect_timeout for sslmode=allow|prefer (smaher-edb)
+* Fix: pgxpool: background health check cannot overflow pool
+* Fix: Check for nil in defer when sending batch (recover properly from panic)
+* Fix: json scan of non-string pointer to pointer
+* Fix: zeronull.Timestamptz should use pgtype.Timestamptz
+* Fix: NewConnsCount was not correctly counting connections created by Acquire directly. (James Hartig)
+* RowTo(AddrOf)StructByPos ignores fields with "-" db tag
+* Optimization: improve text format numeric parsing (horpto)
+
+# 5.4.2 (July 11, 2023)
+
+* Fix: RowScanner errors are fatal to Rows
+* Fix: Enable failover efforts when pg_hba.conf disallows non-ssl connections (Brandon Kauffman)
+* Hstore text codec internal improvements (Evan Jones)
+* Fix: Stop timers for background reader when not in use. Fixes memory leak when closing connections (Adrian-Stefan Mares)
+* Fix: Stop background reader as soon as possible.
+* Add PgConn.SyncConn(). This combined with the above fix makes it safe to directly use the underlying net.Conn.
+
+# 5.4.1 (June 18, 2023)
+
+* Fix: concurrency bug with pgtypeDefaultMap and simple protocol (Lev Zakharov)
+* Add TxOptions.BeginQuery to allow overriding the default BEGIN query
+
+# 5.4.0 (June 14, 2023)
+
+* Replace platform specific syscalls for non-blocking IO with more traditional goroutines and deadlines. This returns to the v4 approach with some additional improvements and fixes. This restores the ability to use a pgx.Conn over an ssh.Conn as well as other non-TCP or Unix socket connections. In addition, it is a significantly simpler implementation that is less likely to have cross platform issues.
+* Optimization: The default type registrations are now shared among all connections. This saves about 100KB of memory per connection. `pgtype.Type` and `pgtype.Codec` values are now required to be immutable after registration. This was already necessary in most cases but wasn't documented until now. (Lev Zakharov)
+* Fix: Ensure pgxpool.Pool.QueryRow.Scan releases connection on panic
+* CancelRequest: don't try to read the reply (Nicola Murino)
+* Fix: correctly handle bool type aliases (Wichert Akkerman)
+* Fix: pgconn.CancelRequest: Fix unix sockets: don't use RemoteAddr()
+* Fix: pgx.Conn memory leak with prepared statement caching (Evan Jones)
+* Add BeforeClose to pgxpool.Pool (Evan Cordell)
+* Fix: various hstore fixes and optimizations (Evan Jones)
+* Fix: RowToStructByPos with embedded unexported struct
+* Support different bool string representations (Lev Zakharov)
+* Fix: error when using BatchResults.Exec on a select that returns an error after some rows.
+* Fix: pipelineBatchResults.Exec() not returning error from ResultReader
+* Fix: pipeline batch results not closing pipeline when error occurs while reading directly from results instead of using
+    a callback.
+* Fix: scanning a table type into a struct
+* Fix: scan array of record to pointer to slice of struct
+* Fix: handle null for json (Cemre Mengu)
+* Batch Query callback is called even when there is an error
+* Add RowTo(AddrOf)StructByNameLax (Audi P. Risa P)
+
 # 5.3.1 (February 27, 2023)
 
 * Fix: Support v4 and v5 stdlib in same program (Tomáš Procházka)
