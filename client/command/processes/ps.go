@@ -46,6 +46,10 @@ var knownSecurityTools = map[string][]string{
 	"RepUx.exe":                       {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
 	"RepWSC.exe":                      {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
 	"scanhost.exe":                    {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
+	"elastic-agent.exe":               {console.Red, "Elastic Agent"},                // Elastic Agent
+	"elastic-endpoint.exe":            {console.Red, "Elastic Agent"},                // Elastic Agent
+	"filebeat.exe":                    {console.Red, "Elastic Agent"},                // Elastic Agent - log shipper
+	"metricbeat.exe":                  {console.Red, "Elastic Agent"},                // Elastic Agent - metric shipper
 	"smartscreen.exe":                 {console.Red, "Windows Smart Screen"},         // Windows Defender Smart Screen
 	"MpCmdRun.exe":                    {console.Red, "Windows Defender"},             // Windows Defender Command-line
 	"MonitoringHost.exe":              {console.Red, "Windows Defender"},             // Microsoft Monitoring Agent
