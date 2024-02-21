@@ -487,16 +487,10 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		entryPoint = loadedExtensions[extName].Entrypoint // should exist at this point
 	} else {
 		// Regular DLL
-		// extArgs := strings.Join(args, " ")
-		//legacy case - single string arg
-		if len(ext.Arguments) == 1 && ext.Arguments[0].Type == "string" {
-			extensionArgs = []byte(strings.Join(args, " "))
-		} else {
-			extensionArgs, err = getExtArgs(cmd, args, binPath, ext)
-			if err != nil {
-				con.PrintErrorf("ext args error: %s\n", err)
-				return
-			}
+		extensionArgs, err = getExtArgs(cmd, args, binPath, ext)
+		if err != nil {
+			con.PrintErrorf("ext args error: %s\n", err)
+			return
 		}
 		extName = ext.CommandName
 		entryPoint = ext.Entrypoint
@@ -557,6 +551,12 @@ func getExtArgs(cmd *cobra.Command, args []string, binPath string, ext *ExtComma
 
 	// Parse BOF arguments from grumble
 	missingRequiredArgs := make([]string, 0)
+
+	// If we have an extension that expects a single string, but more than one has been parsed, combine them
+	if len(ext.Arguments) == 1 && strings.Contains(ext.Arguments[0].Type, "string") {
+		// The loop below will only read the first element of args because ext.Arguments is 1
+		args[0] = strings.Join(args, " ")
+	}
 
 	for _, arg := range ext.Arguments {
 		// If we don't have any positional words left to consume,
