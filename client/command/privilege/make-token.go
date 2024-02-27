@@ -58,7 +58,7 @@ func MakeTokenCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	}
 
 	if username == "" || password == "" {
-		con.PrintErrorf("Pou must provide a username and password\n")
+		con.PrintErrorf("You must provide a username and password\n")
 		return
 	}
 
