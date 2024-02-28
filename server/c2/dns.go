@@ -512,7 +512,7 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 		resp := new(dns.Msg)
 		resp.SetReply(req)
 		resp.Authoritative = true
-		respBuf := []byte{}
+		// respBuf := []byte{}
 		for _, q := range req.Question {
 			switch q.Qtype {
 			case dns.TypeTXT:
