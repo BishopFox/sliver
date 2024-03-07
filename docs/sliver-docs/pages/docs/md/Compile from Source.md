@@ -4,7 +4,7 @@ You'll want to compile from a MacOS or Linux machine, compiling from native Wind
 
 From scratch without Docker, requirements for compiling:
 
-- Go v1.20 or later, though we recommend Go v1.21
+- Go v1.21 or later, though we recommend Go v1.22. When compiling v1.5.x use Go v1.20.7
 - `make`, `sed`, `tar`, `curl`, `zip`, `cut` commands; most of these are installed by default but you may need to install `make`, `curl`, and `zip` depending on your distribution. On MacOS you may need to install XCode and accompanying cli tools.
 
 **IMPORTANT:** The Sliver Makefile requires version information from the git repository, so you must `git clone` the repository. Using GitHub's "download zip" feature may omit the `.git` directory and result in broken builds.

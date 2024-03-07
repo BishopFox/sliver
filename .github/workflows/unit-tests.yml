@@ -23,10 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - name: Go 1.21
+      - name: Go 1.22
         uses: actions/setup-go@v5
         with:
-          go-version: "^1.21"
+          go-version: "^1.22"
 
       - name: OS Packages
         run: |
@@ -57,10 +57,10 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 90
     steps:
-      - name: Go 1.21
+      - name: Go 1.22
         uses: actions/setup-go@v5
         with:
-          go-version: "^1.21"
+          go-version: "^1.22"
 
       - name: Mingw
         run: brew install mingw-w64
@@ -88,10 +88,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - name: Go 1.21
+      - name: Go 1.22
         uses: actions/setup-go@v5
         with:
-          go-version: "^1.21"
+          go-version: "^1.22"
 
       - name: Check Out Code
         uses: actions/checkout@v4
