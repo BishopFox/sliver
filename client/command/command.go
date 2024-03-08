@@ -28,8 +28,6 @@ import (
 	"github.com/spf13/pflag"
 )
 
-const defaultTimeout = 60
-
 // Bind is a convenience function to bind flags to a given command.
 // name - The name of the flag set (can be empty).
 // cmd  - The command to which the flags should be bound.
@@ -111,7 +109,7 @@ func makeBind(cmd *cobra.Command, con *client.SliverClient) func(group string, c
 //
 // @group - Name of the group under which the command should be shown. Preferably use a string in the constants package.
 // @ cmds - A list of functions returning a list of root commands to bind. See any package's `commands.go` file and function.
-type commandBinder func(group string, cmds ...func(con *client.SliverClient) []*cobra.Command)
+// type commandBinder func(group string, cmds ...func(con *client.SliverClient) []*cobra.Command)
 
 // [ Core ]
 // [ Sessions ]

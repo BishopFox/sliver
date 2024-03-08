@@ -36,7 +36,6 @@ import (
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/command/monitor"
 	"github.com/bishopfox/sliver/client/command/operators"
-	operator "github.com/bishopfox/sliver/client/command/prelude-operator"
 	"github.com/bishopfox/sliver/client/command/reaction"
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -91,7 +90,6 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 			armory.Commands,
 			update.Commands,
 			operators.Commands,
-			operator.Commands,
 			creds.Commands,
 			crack.Commands,
 		)
