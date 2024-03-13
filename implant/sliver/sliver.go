@@ -598,6 +598,7 @@ func sessionMainLoop(connection *transports.Connection) error {
 	rportfwdHandlers := handlers.GetRportFwdHandlers()
 
 	for envelope := range connection.Recv {
+		envelope := envelope
 		if _, ok := specialHandlers[envelope.Type]; ok {
 			// {{if .Config.Debug}}
 			log.Printf("[recv] specialHandler %d", envelope.Type)
