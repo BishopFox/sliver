@@ -239,3 +239,13 @@ func (rpc *Server) Grep(ctx context.Context, req *sliverpb.GrepReq) (*sliverpb.G
 	}
 	return resp, nil
 }
+
+// Mount - Get information on mounted filesystems
+func (rpc *Server) Mount(ctx context.Context, req *sliverpb.MountReq) (*sliverpb.Mount, error) {
+	resp := &sliverpb.Mount{Response: &commonpb.Response{}}
+	err := rpc.GenericHandler(req, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
