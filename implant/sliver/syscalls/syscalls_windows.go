@@ -20,7 +20,7 @@ package syscalls
 //sys CreateThread(lpThreadAttributes *windows.SecurityAttributes, dwStackSize uint32, lpStartAddress uintptr, lpParameter uintptr, dwCreationFlags uint32, lpThreadId *uint32)(threadHandle windows.Handle, err error) = kernel32.CreateThread
 //sys GetExitCodeThread(hTread windows.Handle, lpExitCode *uint32) (err error) = kernel32.GetExitCodeThread
 
-//sys MiniDumpWriteDump(hProcess windows.Handle, pid uint32, hFile uintptr, dumpType uint32, exceptionParam uintptr, userStreamParam uintptr, callbackParam uintptr) (err error) = DbgHelp.MiniDumpWriteDump
+//sys MiniDumpWriteDump(hProcess windows.Handle, pid uint32, hFile uintptr, dumpType uint32, exceptionParam uintptr, userStreamParam uintptr, callbackParam uintptr) (err error) = DbgCore.MiniDumpWriteDump
 //sys ImpersonateLoggedOnUser(hToken windows.Token) (err error) = advapi32.ImpersonateLoggedOnUser
 //sys LogonUser(lpszUsername *uint16, lpszDomain *uint16, lpszPassword *uint16, dwLogonType uint32, dwLogonProvider uint32, phToken *windows.Token) (err error) = advapi32.LogonUserW
 
