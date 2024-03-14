@@ -78,6 +78,7 @@ var (
 		consts.PsExecStr:           psExecHelp,
 		consts.BackdoorStr:         backdoorHelp,
 		consts.SpawnDllStr:         spawnDllHelp,
+		consts.MountStr:            mountHelp,
 
 		consts.WebsitesStr:                                  websitesHelp,
 		consts.ScreenshotStr:                                screenshotHelp,
@@ -379,6 +380,9 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
 	executeAssemblyHelp = `[[.Bold]]Command:[[.Normal]] execute-assembly [local path to assembly] [arguments]
 [[.Bold]]About:[[.Normal]] (Windows Only) Executes the .NET assembly in a child process.
 `
+
+	mountHelp = `[[.Bold]]Command:[[.Normal]] mount
+[[.Bold]]About:[[.Normal]] Displays information about mounted drives on the system, including mount point, space metrics, and filesystem.`
 
 	executeShellcodeHelp = `[[.Bold]]Command:[[.Normal]] execute-shellcode [local path to raw shellcode]
 [[.Bold]]About:[[.Normal]] Executes the given shellcode in the implant's process.
