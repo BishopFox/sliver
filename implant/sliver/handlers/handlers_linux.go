@@ -58,7 +58,7 @@ var (
 		sliverpb.MsgMvReq:        mvHandler,
 		sliverpb.MsgCpReq:        cpHandler,
 		sliverpb.MsgTaskReq:      taskHandler,
-		sliverpb.MsgIfconfigReq:  ifconfigHandler,
+		sliverpb.MsgIfconfigReq:  ifconfigLinuxHandler,
 		sliverpb.MsgExecuteReq:   executeHandler,
 		sliverpb.MsgEnvReq:       getEnvHandler,
 		sliverpb.MsgSetEnvReq:    setEnvHandler,
