@@ -34,6 +34,17 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
+// Drive mappings for Windows
+var driveTypeMap = map[string]string{
+	"0": "Unknown",
+	"1": "Root Path invalid (no volume mounted for path)",
+	"2": "Removable",
+	"3": "Fixed disk",
+	"4": "Remote / network drive",
+	"5": "CD-ROM",
+	"6": "RAM disk",
+}
+
 // MountCmd - Print information about mounted filesystems
 func MountCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
@@ -123,8 +134,13 @@ func mountRow(os string, mountInfo *sliverpb.MountInfo) table.Row {
 
 	switch os {
 	case "windows":
+		// Translate VolumeType
+		volType, ok := driveTypeMap[mountInfo.VolumeType]
+		if !ok {
+			volType = driveTypeMap["0"]
+		}
 		row = table.Row{mountInfo.VolumeName,
-			mountInfo.VolumeType,
+			volType,
 			mountInfo.MountPoint,
 			mountInfo.Label,
 			mountInfo.FileSystem,

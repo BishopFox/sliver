@@ -24,6 +24,7 @@ package mount
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode/utf16"
 	"unsafe"
@@ -43,16 +44,6 @@ const (
 
 type UniversalNameInfo struct {
 	UniversalName [remoteNameMaxLength]uint16
-}
-
-var driveTypeMap = map[uint32]string{
-	0: "Unknown",
-	1: "Root Path invalid (no volume mounted for path)",
-	2: "Removable",
-	3: "Fixed disk",
-	4: "Remote / network drive",
-	5: "CD-ROM",
-	6: "RAM disk",
 }
 
 func findAllVolumes() ([]string, error) {
@@ -144,13 +135,11 @@ func getDriveType(driveSpec string) string {
 	if err != nil {
 		return ""
 	}
-	driveTypeValue := windows.GetDriveType(driveUTF16)
 
-	if driveType, ok := driveTypeMap[driveTypeValue]; ok {
-		return driveType
-	} else {
-		return driveTypeMap[0]
-	}
+	// Convert type to string (client will handle translation)
+	driveTypeValue := strconv.FormatUint(uint64(windows.GetDriveType(driveUTF16)), 10)
+
+	return driveTypeValue
 }
 
 func getUniversalName(driveSpec string) (string, error) {
@@ -261,7 +250,10 @@ func GetMountInformation() ([]*sliverpb.MountInfo, error) {
 		var mountData sliverpb.MountInfo
 		mountData.MountPoint = drive
 		mountData.VolumeType = getDriveType(drive)
-		if mountData.VolumeType == driveTypeMap[4] {
+
+		// Drive type of 4 is "Remote"
+		// As per https://cs.opensource.google/go/x/sys/+/refs/tags/v0.18.0:windows/syscall_windows.go;l=33
+		if mountData.VolumeType == "4" {
 			// Then this is a network drive, so let's figure out the UNC path
 			networkPath, err := getUniversalName(drive)
 			if err != nil {
