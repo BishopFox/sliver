@@ -158,6 +158,7 @@ type SliverRPCClient interface {
 	MemfilesList(ctx context.Context, in *sliverpb.MemfilesListReq, opts ...grpc.CallOption) (*sliverpb.Ls, error)
 	MemfilesAdd(ctx context.Context, in *sliverpb.MemfilesAddReq, opts ...grpc.CallOption) (*sliverpb.MemfilesAdd, error)
 	MemfilesRm(ctx context.Context, in *sliverpb.MemfilesRmReq, opts ...grpc.CallOption) (*sliverpb.MemfilesRm, error)
+	Mount(ctx context.Context, in *sliverpb.MountReq, opts ...grpc.CallOption) (*sliverpb.Mount, error)
 	ProcessDump(ctx context.Context, in *sliverpb.ProcessDumpReq, opts ...grpc.CallOption) (*sliverpb.ProcessDump, error)
 	RunAs(ctx context.Context, in *sliverpb.RunAsReq, opts ...grpc.CallOption) (*sliverpb.RunAs, error)
 	Impersonate(ctx context.Context, in *sliverpb.ImpersonateReq, opts ...grpc.CallOption) (*sliverpb.Impersonate, error)
@@ -1332,6 +1333,15 @@ func (c *sliverRPCClient) MemfilesRm(ctx context.Context, in *sliverpb.MemfilesR
 	return out, nil
 }
 
+func (c *sliverRPCClient) Mount(ctx context.Context, in *sliverpb.MountReq, opts ...grpc.CallOption) (*sliverpb.Mount, error) {
+	out := new(sliverpb.Mount)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Mount", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) ProcessDump(ctx context.Context, in *sliverpb.ProcessDumpReq, opts ...grpc.CallOption) (*sliverpb.ProcessDump, error) {
 	out := new(sliverpb.ProcessDump)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/ProcessDump", in, out, opts...)
@@ -2139,6 +2149,7 @@ type SliverRPCServer interface {
 	MemfilesList(context.Context, *sliverpb.MemfilesListReq) (*sliverpb.Ls, error)
 	MemfilesAdd(context.Context, *sliverpb.MemfilesAddReq) (*sliverpb.MemfilesAdd, error)
 	MemfilesRm(context.Context, *sliverpb.MemfilesRmReq) (*sliverpb.MemfilesRm, error)
+	Mount(context.Context, *sliverpb.MountReq) (*sliverpb.Mount, error)
 	ProcessDump(context.Context, *sliverpb.ProcessDumpReq) (*sliverpb.ProcessDump, error)
 	RunAs(context.Context, *sliverpb.RunAsReq) (*sliverpb.RunAs, error)
 	Impersonate(context.Context, *sliverpb.ImpersonateReq) (*sliverpb.Impersonate, error)
@@ -2560,6 +2571,9 @@ func (UnimplementedSliverRPCServer) MemfilesAdd(context.Context, *sliverpb.Memfi
 }
 func (UnimplementedSliverRPCServer) MemfilesRm(context.Context, *sliverpb.MemfilesRmReq) (*sliverpb.MemfilesRm, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MemfilesRm not implemented")
+}
+func (UnimplementedSliverRPCServer) Mount(context.Context, *sliverpb.MountReq) (*sliverpb.Mount, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Mount not implemented")
 }
 func (UnimplementedSliverRPCServer) ProcessDump(context.Context, *sliverpb.ProcessDumpReq) (*sliverpb.ProcessDump, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ProcessDump not implemented")
@@ -4823,6 +4837,24 @@ func _SliverRPC_MemfilesRm_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_Mount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.MountReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).Mount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/Mount",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).Mount(ctx, req.(*sliverpb.MountReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_ProcessDump_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.ProcessDumpReq)
 	if err := dec(in); err != nil {
@@ -6494,6 +6526,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MemfilesRm",
 			Handler:    _SliverRPC_MemfilesRm_Handler,
+		},
+		{
+			MethodName: "Mount",
+			Handler:    _SliverRPC_Mount_Handler,
 		},
 		{
 			MethodName: "ProcessDump",
