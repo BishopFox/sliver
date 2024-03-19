@@ -1,4 +1,4 @@
-//go:build freebsd || openbsd || netbsd || dragonfly || (darwin && sqlite3_bsd)
+//go:build (freebsd || openbsd || netbsd || dragonfly || sqlite3_flock) && !sqlite3_nosys
 
 package vfs
 
@@ -19,28 +19,17 @@ func osUnlock(file *os.File, start, len int64) _ErrorCode {
 	return _OK
 }
 
-func osLock(file *os.File, how int, timeout time.Duration, def _ErrorCode) _ErrorCode {
-	var err error
-	for {
-		err = unix.Flock(int(file.Fd()), how)
-		if errno, _ := err.(unix.Errno); errno != unix.EAGAIN {
-			break
-		}
-		if timeout < time.Millisecond {
-			break
-		}
-		timeout -= time.Millisecond
-		time.Sleep(time.Millisecond)
-	}
+func osLock(file *os.File, how int, def _ErrorCode) _ErrorCode {
+	err := unix.Flock(int(file.Fd()), how)
 	return osLockErrorCode(err, def)
 }
 
-func osReadLock(file *os.File, start, len int64, timeout time.Duration) _ErrorCode {
-	return osLock(file, unix.LOCK_SH|unix.LOCK_NB, timeout, _IOERR_RDLOCK)
+func osReadLock(file *os.File, _ /*start*/, _ /*len*/ int64, _ /*timeout*/ time.Duration) _ErrorCode {
+	return osLock(file, unix.LOCK_SH|unix.LOCK_NB, _IOERR_RDLOCK)
 }
 
-func osWriteLock(file *os.File, start, len int64, timeout time.Duration) _ErrorCode {
-	return osLock(file, unix.LOCK_EX|unix.LOCK_NB, timeout, _IOERR_LOCK)
+func osWriteLock(file *os.File, _ /*start*/, _ /*len*/ int64, _ /*timeout*/ time.Duration) _ErrorCode {
+	return osLock(file, unix.LOCK_EX|unix.LOCK_NB, _IOERR_LOCK)
 }
 
 func osCheckLock(file *os.File, start, len int64) (bool, _ErrorCode) {

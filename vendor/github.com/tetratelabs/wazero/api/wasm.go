@@ -374,6 +374,7 @@ type Function interface {
 	// Call is not goroutine-safe, therefore it is recommended to create
 	// another Function if you want to invoke the same function concurrently.
 	// On the other hand, sequential invocations of Call is allowed.
+	// However, this should not be called multiple times until the previous Call returns.
 	//
 	// To safely encode/decode params/results expressed as uint64, users are encouraged to
 	// use api.EncodeXXX or DecodeXXX functions. See the docs on api.ValueType.

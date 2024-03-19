@@ -12,6 +12,20 @@ const (
 	mmapProtARM64 = syscall.PROT_READ | syscall.PROT_WRITE
 )
 
+const MmapSupported = true
+
+func mmapMemory(size int) ([]byte, error) {
+	return syscall.Mmap(
+		-1,
+		0,
+		size,
+		syscall.PROT_READ|syscall.PROT_WRITE,
+		// Anonymous as this is not an actual file, but a memory,
+		// Private as this is in-process memory region.
+		syscall.MAP_ANON|syscall.MAP_PRIVATE,
+	)
+}
+
 func munmapCodeSegment(code []byte) error {
 	return syscall.Munmap(code)
 }
