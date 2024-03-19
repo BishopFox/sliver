@@ -226,8 +226,10 @@ github.com/jackc/pgpassfile v1.0.0 h1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsI
 github.com/jackc/pgpassfile v1.0.0/go.mod h1:CEx0iS5ambNFdcRtxPj5JhEz+xB6uRky5eyVu/W2HEg=
 github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a h1:bbPeKD0xmW/Y25WS6cokEszi5g+S0QxI/d45PkRi7Nk=
 github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a/go.mod h1:5TJZWKEWniPve33vlWYSoGYefn3gLQRzjfDlhSJ9ZKM=
-github.com/jackc/pgx/v5 v5.3.1 h1:Fcr8QJ1ZeLi5zsPZqQeUZhNhxfkkKBOgJuYkJHoBOtU=
-github.com/jackc/pgx/v5 v5.3.1/go.mod h1:t3JDKnCBlYIc0ewLF0Q7B8MXmoIaBOZj/ic7iHozM/8=
+github.com/jackc/pgx/v5 v5.5.4 h1:Xp2aQS8uXButQdnCMWNmvx6UysWQQC+u1EoizjguY+8=
+github.com/jackc/pgx/v5 v5.5.4/go.mod h1:ez9gk+OAat140fv9ErkZDYFWmXLfV+++K0uAOiwgm1A=
+github.com/jackc/puddle/v2 v2.2.1 h1:RhxXJtFG022u4ibrCSMSiu5aOq1i77R3OHKNJj77OAk=
+github.com/jackc/puddle/v2 v2.2.1/go.mod h1:vriiEXHvEE654aYKXXjOvZM39qJ0q+azkZFrfEOc3H4=
 github.com/jcmturner/gofork v1.0.0 h1:J7uCkflzTEhUZ64xqKnkDxq3kzc96ajM1Gli5ktUem8=
 github.com/jcmturner/gofork v1.0.0/go.mod h1:MK8+TM0La+2rjBD4jE12Kj1pCCxK7d2LK/UM3ncEo0o=
 github.com/jedib0t/go-pretty/v6 v6.4.6 h1:v6aG9h6Uby3IusSSEjHaZNXpHFhzqMmjXcPq1Rjl9Jw=
@@ -352,8 +354,6 @@ github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca h1:tD797h1
 github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca/go.mod h1:jkLt41Ne2TD2xPuMdX/2O05Smhy8vMgG7O2TYvC0yOc=
 github.com/reeflective/console v0.1.6 h1:BhhvQU/m8QOpaIRzrXfwcbtkGQJX9jVR5qIqAy/Mcuw=
 github.com/reeflective/console v0.1.6/go.mod h1:7owTBE9k2lg2QpVw7g4DrK1HxEgr/5DQCmA3O2Znoek=
-github.com/reeflective/readline v1.0.11 h1:4+aiebj7a89hTRJOMM98H+md1Kxu+v1XkfdCs0n6odQ=
-github.com/reeflective/readline v1.0.11/go.mod h1:mcD0HxNVJVteVwDm9caXKg52nQACVyfh8EyuBmgVlzY=
 github.com/reeflective/readline v1.0.13 h1:TeJmYw9B7VRPZWfNExr9QHxL1m0iSicyqBSQIRn39Ss=
 github.com/reeflective/readline v1.0.13/go.mod h1:3iOe/qyb2jEy0KqLrNlb/CojBVqxga9ACqz/VU22H6A=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=

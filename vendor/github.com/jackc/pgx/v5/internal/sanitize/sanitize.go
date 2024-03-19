@@ -35,6 +35,11 @@ func (q *Query) Sanitize(args ...any) (string, error) {
 			str = part
 		case int:
 			argIdx := part - 1
+
+			if argIdx < 0 {
+				return "", fmt.Errorf("first sql argument must be > 0")
+			}
+
 			if argIdx >= len(args) {
 				return "", fmt.Errorf("insufficient arguments")
 			}
@@ -58,6 +63,10 @@ func (q *Query) Sanitize(args ...any) (string, error) {
 				return "", fmt.Errorf("invalid arg type: %T", arg)
 			}
 			argUse[argIdx] = true
+
+			// Prevent SQL injection via Line Comment Creation
+			// https://github.com/jackc/pgx/security/advisories/GHSA-m7wr-2xf7-cm9p
+			str = "(" + str + ")"
 		default:
 			return "", fmt.Errorf("invalid Part type: %T", part)
 		}
