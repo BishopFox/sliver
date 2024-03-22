@@ -7,17 +7,17 @@ details.
 
 Establishing a Connection
 
-The primary way of establishing a connection is with `pgx.Connect`.
+The primary way of establishing a connection is with [pgx.Connect]:
 
     conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
 
 The database connection string can be in URL or DSN format. Both PostgreSQL settings and pgx settings can be specified
-here. In addition, a config struct can be created by `ParseConfig` and modified before establishing the connection with
-`ConnectConfig` to configure settings such as tracing that cannot be configured with a connection string.
+here. In addition, a config struct can be created by [ParseConfig] and modified before establishing the connection with
+[ConnectConfig] to configure settings such as tracing that cannot be configured with a connection string.
 
 Connection Pool
 
-`*pgx.Conn` represents a single connection to the database and is not concurrency safe. Use package
+[*pgx.Conn] represents a single connection to the database and is not concurrency safe. Use package
 github.com/jackc/pgx/v5/pgxpool for a concurrency safe connection pool.
 
 Query Interface
@@ -187,7 +187,7 @@ implemented on top of pgconn. The Conn.PgConn() method can be used to access thi
 
 PgBouncer
 
-By default pgx automatically uses prepared statements. Prepared statements are incompaptible with PgBouncer. This can be
+By default pgx automatically uses prepared statements. Prepared statements are incompatible with PgBouncer. This can be
 disabled by setting a different QueryExecMode in ConnConfig.DefaultQueryExecMode.
 */
 package pgx
