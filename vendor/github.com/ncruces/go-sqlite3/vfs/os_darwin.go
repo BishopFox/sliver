@@ -1,4 +1,4 @@
-//go:build !sqlite3_bsd
+//go:build !sqlite3_flock && !sqlite3_nosys
 
 package vfs
 
@@ -23,7 +23,7 @@ type flocktimeout_t struct {
 	timeout unix.Timespec
 }
 
-func osSync(file *os.File, fullsync, dataonly bool) error {
+func osSync(file *os.File, fullsync, _ /*dataonly*/ bool) error {
 	if fullsync {
 		return file.Sync()
 	}
@@ -39,12 +39,11 @@ func osAllocate(file *os.File, size int64) error {
 		return nil
 	}
 
-	// https://stackoverflow.com/a/11497568/867786
 	store := unix.Fstore_t{
-		Flags:   unix.F_ALLOCATECONTIG,
+		Flags:   unix.F_ALLOCATEALL | unix.F_ALLOCATECONTIG,
 		Posmode: unix.F_PEOFPOSMODE,
 		Offset:  0,
-		Length:  size,
+		Length:  size - off,
 	}
 
 	// Try to get a continuous chunk of disk space.
@@ -76,9 +75,12 @@ func osLock(file *os.File, typ int16, start, len int64, timeout time.Duration, d
 		Len:   len,
 	}}
 	var err error
-	if timeout == 0 {
+	switch {
+	case timeout == 0:
 		err = unix.FcntlFlock(file.Fd(), _F_OFD_SETLK, &lock.fl)
-	} else {
+	case timeout < 0:
+		err = unix.FcntlFlock(file.Fd(), _F_OFD_SETLKW, &lock.fl)
+	default:
 		lock.timeout = unix.NsecToTimespec(int64(timeout / time.Nanosecond))
 		err = unix.FcntlFlock(file.Fd(), _F_OFD_SETLKWTIMEOUT, &lock.fl)
 	}

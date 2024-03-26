@@ -233,6 +233,26 @@ var (
 		in:  []UnsignedType{UnsignedTypeF64},
 		out: []UnsignedType{UnsignedTypeV128},
 	}
+	signature_I32I64_I64 = &signature{
+		in:  []UnsignedType{UnsignedTypeI32, UnsignedTypeI64},
+		out: []UnsignedType{UnsignedTypeI64},
+	}
+	signature_I32I32I64_I32 = &signature{
+		in:  []UnsignedType{UnsignedTypeI32, UnsignedTypeI32, UnsignedTypeI64},
+		out: []UnsignedType{UnsignedTypeI32},
+	}
+	signature_I32I64I64_I32 = &signature{
+		in:  []UnsignedType{UnsignedTypeI32, UnsignedTypeI64, UnsignedTypeI64},
+		out: []UnsignedType{UnsignedTypeI32},
+	}
+	signature_I32I32I32_I32 = &signature{
+		in:  []UnsignedType{UnsignedTypeI32, UnsignedTypeI32, UnsignedTypeI32},
+		out: []UnsignedType{UnsignedTypeI32},
+	}
+	signature_I32I64I64_I64 = &signature{
+		in:  []UnsignedType{UnsignedTypeI32, UnsignedTypeI64, UnsignedTypeI64},
+		out: []UnsignedType{UnsignedTypeI64},
+	}
 )
 
 // wasmOpcodeSignature returns the signature of given Wasm opcode.
@@ -585,6 +605,40 @@ func (c *Compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature
 			return signature_V128V128_V128, nil
 		default:
 			return nil, fmt.Errorf("unsupported vector instruction in wazeroir: %s", wasm.VectorInstructionName(vecOp))
+		}
+	case wasm.OpcodeAtomicPrefix:
+		switch atomicOp := c.body[c.pc+1]; atomicOp {
+		case wasm.OpcodeAtomicMemoryNotify:
+			return signature_I32I32_I32, nil
+		case wasm.OpcodeAtomicMemoryWait32:
+			return signature_I32I32I64_I32, nil
+		case wasm.OpcodeAtomicMemoryWait64:
+			return signature_I32I64I64_I32, nil
+		case wasm.OpcodeAtomicFence:
+			return signature_None_None, nil
+		case wasm.OpcodeAtomicI32Load, wasm.OpcodeAtomicI32Load8U, wasm.OpcodeAtomicI32Load16U:
+			return signature_I32_I32, nil
+		case wasm.OpcodeAtomicI64Load, wasm.OpcodeAtomicI64Load8U, wasm.OpcodeAtomicI64Load16U, wasm.OpcodeAtomicI64Load32U:
+			return signature_I32_I64, nil
+		case wasm.OpcodeAtomicI32Store, wasm.OpcodeAtomicI32Store8, wasm.OpcodeAtomicI32Store16:
+			return signature_I32I32_None, nil
+		case wasm.OpcodeAtomicI64Store, wasm.OpcodeAtomicI64Store8, wasm.OpcodeAtomicI64Store16, wasm.OpcodeAtomicI64Store32:
+			return signature_I32I64_None, nil
+		case wasm.OpcodeAtomicI32RmwAdd, wasm.OpcodeAtomicI32RmwSub, wasm.OpcodeAtomicI32RmwAnd, wasm.OpcodeAtomicI32RmwOr, wasm.OpcodeAtomicI32RmwXor, wasm.OpcodeAtomicI32RmwXchg,
+			wasm.OpcodeAtomicI32Rmw8AddU, wasm.OpcodeAtomicI32Rmw8SubU, wasm.OpcodeAtomicI32Rmw8AndU, wasm.OpcodeAtomicI32Rmw8OrU, wasm.OpcodeAtomicI32Rmw8XorU, wasm.OpcodeAtomicI32Rmw8XchgU,
+			wasm.OpcodeAtomicI32Rmw16AddU, wasm.OpcodeAtomicI32Rmw16SubU, wasm.OpcodeAtomicI32Rmw16AndU, wasm.OpcodeAtomicI32Rmw16OrU, wasm.OpcodeAtomicI32Rmw16XorU, wasm.OpcodeAtomicI32Rmw16XchgU:
+			return signature_I32I32_I32, nil
+		case wasm.OpcodeAtomicI64RmwAdd, wasm.OpcodeAtomicI64RmwSub, wasm.OpcodeAtomicI64RmwAnd, wasm.OpcodeAtomicI64RmwOr, wasm.OpcodeAtomicI64RmwXor, wasm.OpcodeAtomicI64RmwXchg,
+			wasm.OpcodeAtomicI64Rmw8AddU, wasm.OpcodeAtomicI64Rmw8SubU, wasm.OpcodeAtomicI64Rmw8AndU, wasm.OpcodeAtomicI64Rmw8OrU, wasm.OpcodeAtomicI64Rmw8XorU, wasm.OpcodeAtomicI64Rmw8XchgU,
+			wasm.OpcodeAtomicI64Rmw16AddU, wasm.OpcodeAtomicI64Rmw16SubU, wasm.OpcodeAtomicI64Rmw16AndU, wasm.OpcodeAtomicI64Rmw16OrU, wasm.OpcodeAtomicI64Rmw16XorU, wasm.OpcodeAtomicI64Rmw16XchgU,
+			wasm.OpcodeAtomicI64Rmw32AddU, wasm.OpcodeAtomicI64Rmw32SubU, wasm.OpcodeAtomicI64Rmw32AndU, wasm.OpcodeAtomicI64Rmw32OrU, wasm.OpcodeAtomicI64Rmw32XorU, wasm.OpcodeAtomicI64Rmw32XchgU:
+			return signature_I32I64_I64, nil
+		case wasm.OpcodeAtomicI32RmwCmpxchg, wasm.OpcodeAtomicI32Rmw8CmpxchgU, wasm.OpcodeAtomicI32Rmw16CmpxchgU:
+			return signature_I32I32I32_I32, nil
+		case wasm.OpcodeAtomicI64RmwCmpxchg, wasm.OpcodeAtomicI64Rmw8CmpxchgU, wasm.OpcodeAtomicI64Rmw16CmpxchgU, wasm.OpcodeAtomicI64Rmw32CmpxchgU:
+			return signature_I32I64I64_I64, nil
+		default:
+			return nil, fmt.Errorf("unsupported atomic instruction in wazeroir: %s", wasm.AtomicInstructionName(atomicOp))
 		}
 	default:
 		return nil, fmt.Errorf("unsupported instruction in wazeroir: 0x%x", op)

@@ -213,6 +213,18 @@ func (c *Compiler) resetUnreachable() {
 	c.unreachableState.on = false
 }
 
+// MemoryType is the type of memory in a compiled module.
+type MemoryType byte
+
+const (
+	// MemoryTypeNone indicates there is no memory.
+	MemoryTypeNone MemoryType = iota
+	// MemoryTypeStandard indicates there is a non-shared memory.
+	MemoryTypeStandard
+	// MemoryTypeShared indicates there is a shared memory.
+	MemoryTypeShared
+)
+
 type CompilationResult struct {
 	// Operations holds wazeroir operations compiled from Wasm instructions in a Wasm function.
 	Operations []UnionOperation
@@ -246,8 +258,8 @@ type CompilationResult struct {
 	Functions []wasm.Index
 	// Types holds all the types in the module from which this function is compiled.
 	Types []wasm.FunctionType
-	// HasMemory is true if the module from which this function is compiled has memory declaration.
-	HasMemory bool
+	// Memory indicates the type of memory of the module.
+	Memory MemoryType
 	// HasTable is true if the module from which this function is compiled has table declaration.
 	HasTable bool
 	// HasDataInstances is true if the module has data instances which might be used by memory.init or data.drop instructions.
@@ -264,8 +276,18 @@ func NewCompiler(enabledFeatures api.CoreFeatures, callFrameStackSizeInUint64 in
 		return nil, err
 	}
 
-	hasMemory, hasTable, hasDataInstances, hasElementInstances := mem != nil, len(tables) > 0,
+	hasTable, hasDataInstances, hasElementInstances := len(tables) > 0,
 		len(module.DataSection) > 0, len(module.ElementSection) > 0
+
+	var mt MemoryType
+	switch {
+	case mem == nil:
+		mt = MemoryTypeNone
+	case mem.IsShared:
+		mt = MemoryTypeShared
+	default:
+		mt = MemoryTypeStandard
+	}
 
 	types := module.TypeSection
 
@@ -278,7 +300,7 @@ func NewCompiler(enabledFeatures api.CoreFeatures, callFrameStackSizeInUint64 in
 			Globals:             globals,
 			Functions:           functions,
 			Types:               types,
-			HasMemory:           hasMemory,
+			Memory:              mt,
 			HasTable:            hasTable,
 			HasDataInstances:    hasDataInstances,
 			HasElementInstances: hasElementInstances,
@@ -377,6 +399,8 @@ func (c *Compiler) handleInstruction() error {
 		var instName string
 		if op == wasm.OpcodeVecPrefix {
 			instName = wasm.VectorInstructionName(c.body[c.pc+1])
+		} else if op == wasm.OpcodeAtomicPrefix {
+			instName = wasm.AtomicInstructionName(c.body[c.pc+1])
 		} else if op == wasm.OpcodeMiscPrefix {
 			instName = wasm.MiscInstructionName(c.body[c.pc+1])
 		} else {
@@ -2847,6 +2871,548 @@ operatorSwitch:
 			)
 		default:
 			return fmt.Errorf("unsupported vector instruction in wazeroir: %s", wasm.VectorInstructionName(vecOp))
+		}
+	case wasm.OpcodeAtomicPrefix:
+		c.pc++
+		atomicOp := c.body[c.pc]
+		switch atomicOp {
+		case wasm.OpcodeAtomicMemoryWait32:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicMemoryWait32Name)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicMemoryWait(UnsignedTypeI32, imm),
+			)
+		case wasm.OpcodeAtomicMemoryWait64:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicMemoryWait64Name)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicMemoryWait(UnsignedTypeI64, imm),
+			)
+		case wasm.OpcodeAtomicMemoryNotify:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicMemoryNotifyName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicMemoryNotify(imm),
+			)
+		case wasm.OpcodeAtomicFence:
+			// Skip immediate value
+			c.pc++
+			_ = c.body[c.pc]
+			c.emit(
+				NewOperationAtomicFence(),
+			)
+		case wasm.OpcodeAtomicI32Load:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32LoadName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicLoad(UnsignedTypeI32, imm),
+			)
+		case wasm.OpcodeAtomicI64Load:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64LoadName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicLoad(UnsignedTypeI64, imm),
+			)
+		case wasm.OpcodeAtomicI32Load8U:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Load8UName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicLoad8(UnsignedTypeI32, imm),
+			)
+		case wasm.OpcodeAtomicI32Load16U:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Load16UName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicLoad16(UnsignedTypeI32, imm),
+			)
+		case wasm.OpcodeAtomicI64Load8U:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Load8UName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicLoad8(UnsignedTypeI64, imm),
+			)
+		case wasm.OpcodeAtomicI64Load16U:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Load16UName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicLoad16(UnsignedTypeI64, imm),
+			)
+		case wasm.OpcodeAtomicI64Load32U:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Load32UName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicLoad(UnsignedTypeI32, imm),
+			)
+		case wasm.OpcodeAtomicI32Store:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32StoreName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicStore(UnsignedTypeI32, imm),
+			)
+		case wasm.OpcodeAtomicI32Store8:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Store8Name)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicStore8(UnsignedTypeI32, imm),
+			)
+		case wasm.OpcodeAtomicI32Store16:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Store16Name)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicStore16(UnsignedTypeI32, imm),
+			)
+		case wasm.OpcodeAtomicI64Store:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64StoreName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicStore(UnsignedTypeI64, imm),
+			)
+		case wasm.OpcodeAtomicI64Store8:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Store8Name)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicStore8(UnsignedTypeI64, imm),
+			)
+		case wasm.OpcodeAtomicI64Store16:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Store16Name)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicStore16(UnsignedTypeI64, imm),
+			)
+		case wasm.OpcodeAtomicI64Store32:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Store32Name)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicStore(UnsignedTypeI32, imm),
+			)
+		case wasm.OpcodeAtomicI32RmwAdd:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32RmwAddName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI32, imm, AtomicArithmeticOpAdd),
+			)
+		case wasm.OpcodeAtomicI64RmwAdd:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64RmwAddName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI64, imm, AtomicArithmeticOpAdd),
+			)
+		case wasm.OpcodeAtomicI32Rmw8AddU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Rmw8AddUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW8(UnsignedTypeI32, imm, AtomicArithmeticOpAdd),
+			)
+		case wasm.OpcodeAtomicI64Rmw8AddU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw8AddUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW8(UnsignedTypeI64, imm, AtomicArithmeticOpAdd),
+			)
+		case wasm.OpcodeAtomicI32Rmw16AddU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Rmw16AddUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW16(UnsignedTypeI32, imm, AtomicArithmeticOpAdd),
+			)
+		case wasm.OpcodeAtomicI64Rmw16AddU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw16AddUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW16(UnsignedTypeI64, imm, AtomicArithmeticOpAdd),
+			)
+		case wasm.OpcodeAtomicI64Rmw32AddU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw32AddUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI32, imm, AtomicArithmeticOpAdd),
+			)
+		case wasm.OpcodeAtomicI32RmwSub:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32RmwSubName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI32, imm, AtomicArithmeticOpSub),
+			)
+		case wasm.OpcodeAtomicI64RmwSub:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64RmwSubName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI64, imm, AtomicArithmeticOpSub),
+			)
+		case wasm.OpcodeAtomicI32Rmw8SubU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Rmw8SubUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW8(UnsignedTypeI32, imm, AtomicArithmeticOpSub),
+			)
+		case wasm.OpcodeAtomicI64Rmw8SubU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw8SubUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW8(UnsignedTypeI64, imm, AtomicArithmeticOpSub),
+			)
+		case wasm.OpcodeAtomicI32Rmw16SubU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Rmw16SubUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW16(UnsignedTypeI32, imm, AtomicArithmeticOpSub),
+			)
+		case wasm.OpcodeAtomicI64Rmw16SubU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw16SubUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW16(UnsignedTypeI64, imm, AtomicArithmeticOpSub),
+			)
+		case wasm.OpcodeAtomicI64Rmw32SubU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw32SubUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI32, imm, AtomicArithmeticOpSub),
+			)
+		case wasm.OpcodeAtomicI32RmwAnd:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32RmwAndName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI32, imm, AtomicArithmeticOpAnd),
+			)
+		case wasm.OpcodeAtomicI64RmwAnd:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64RmwAndName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI64, imm, AtomicArithmeticOpAnd),
+			)
+		case wasm.OpcodeAtomicI32Rmw8AndU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Rmw8AndUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW8(UnsignedTypeI32, imm, AtomicArithmeticOpAnd),
+			)
+		case wasm.OpcodeAtomicI64Rmw8AndU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw8AndUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW8(UnsignedTypeI64, imm, AtomicArithmeticOpAnd),
+			)
+		case wasm.OpcodeAtomicI32Rmw16AndU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Rmw16AndUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW16(UnsignedTypeI32, imm, AtomicArithmeticOpAnd),
+			)
+		case wasm.OpcodeAtomicI64Rmw16AndU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw16AndUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW16(UnsignedTypeI64, imm, AtomicArithmeticOpAnd),
+			)
+		case wasm.OpcodeAtomicI64Rmw32AndU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw32AndUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI32, imm, AtomicArithmeticOpAnd),
+			)
+		case wasm.OpcodeAtomicI32RmwOr:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32RmwOrName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI32, imm, AtomicArithmeticOpOr),
+			)
+		case wasm.OpcodeAtomicI64RmwOr:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64RmwOrName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI64, imm, AtomicArithmeticOpOr),
+			)
+		case wasm.OpcodeAtomicI32Rmw8OrU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Rmw8OrUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW8(UnsignedTypeI32, imm, AtomicArithmeticOpOr),
+			)
+		case wasm.OpcodeAtomicI64Rmw8OrU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw8OrUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW8(UnsignedTypeI64, imm, AtomicArithmeticOpOr),
+			)
+		case wasm.OpcodeAtomicI32Rmw16OrU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Rmw16OrUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW16(UnsignedTypeI32, imm, AtomicArithmeticOpOr),
+			)
+		case wasm.OpcodeAtomicI64Rmw16OrU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw16OrUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW16(UnsignedTypeI64, imm, AtomicArithmeticOpOr),
+			)
+		case wasm.OpcodeAtomicI64Rmw32OrU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw32OrUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI32, imm, AtomicArithmeticOpOr),
+			)
+		case wasm.OpcodeAtomicI32RmwXor:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32RmwXorName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI32, imm, AtomicArithmeticOpXor),
+			)
+		case wasm.OpcodeAtomicI64RmwXor:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64RmwXorName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI64, imm, AtomicArithmeticOpXor),
+			)
+		case wasm.OpcodeAtomicI32Rmw8XorU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Rmw8XorUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW8(UnsignedTypeI32, imm, AtomicArithmeticOpXor),
+			)
+		case wasm.OpcodeAtomicI64Rmw8XorU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw8XorUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW8(UnsignedTypeI64, imm, AtomicArithmeticOpXor),
+			)
+		case wasm.OpcodeAtomicI32Rmw16XorU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Rmw16XorUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW16(UnsignedTypeI32, imm, AtomicArithmeticOpXor),
+			)
+		case wasm.OpcodeAtomicI64Rmw16XorU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw16XorUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW16(UnsignedTypeI64, imm, AtomicArithmeticOpXor),
+			)
+		case wasm.OpcodeAtomicI64Rmw32XorU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw32XorUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI32, imm, AtomicArithmeticOpXor),
+			)
+		case wasm.OpcodeAtomicI32RmwXchg:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32RmwXchgName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI32, imm, AtomicArithmeticOpNop),
+			)
+		case wasm.OpcodeAtomicI64RmwXchg:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64RmwXchgName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI64, imm, AtomicArithmeticOpNop),
+			)
+		case wasm.OpcodeAtomicI32Rmw8XchgU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Rmw8XchgUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW8(UnsignedTypeI32, imm, AtomicArithmeticOpNop),
+			)
+		case wasm.OpcodeAtomicI64Rmw8XchgU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw8XchgUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW8(UnsignedTypeI64, imm, AtomicArithmeticOpNop),
+			)
+		case wasm.OpcodeAtomicI32Rmw16XchgU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Rmw16XchgUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW16(UnsignedTypeI32, imm, AtomicArithmeticOpNop),
+			)
+		case wasm.OpcodeAtomicI64Rmw16XchgU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw16XchgUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW16(UnsignedTypeI64, imm, AtomicArithmeticOpNop),
+			)
+		case wasm.OpcodeAtomicI64Rmw32XchgU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw32XchgUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW(UnsignedTypeI32, imm, AtomicArithmeticOpNop),
+			)
+		case wasm.OpcodeAtomicI32RmwCmpxchg:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32RmwCmpxchgName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMWCmpxchg(UnsignedTypeI32, imm),
+			)
+		case wasm.OpcodeAtomicI64RmwCmpxchg:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64RmwCmpxchgName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMWCmpxchg(UnsignedTypeI64, imm),
+			)
+		case wasm.OpcodeAtomicI32Rmw8CmpxchgU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Rmw8CmpxchgUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW8Cmpxchg(UnsignedTypeI32, imm),
+			)
+		case wasm.OpcodeAtomicI64Rmw8CmpxchgU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw8CmpxchgUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW8Cmpxchg(UnsignedTypeI64, imm),
+			)
+		case wasm.OpcodeAtomicI32Rmw16CmpxchgU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI32Rmw16CmpxchgUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW16Cmpxchg(UnsignedTypeI32, imm),
+			)
+		case wasm.OpcodeAtomicI64Rmw16CmpxchgU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw16CmpxchgUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMW16Cmpxchg(UnsignedTypeI64, imm),
+			)
+		case wasm.OpcodeAtomicI64Rmw32CmpxchgU:
+			imm, err := c.readMemoryArg(wasm.OpcodeAtomicI64Rmw32CmpxchgUName)
+			if err != nil {
+				return err
+			}
+			c.emit(
+				NewOperationAtomicRMWCmpxchg(UnsignedTypeI32, imm),
+			)
+		default:
+			return fmt.Errorf("unsupported atomic instruction in wazeroir: %s", wasm.AtomicInstructionName(atomicOp))
 		}
 	default:
 		return fmt.Errorf("unsupported instruction in wazeroir: 0x%x", op)

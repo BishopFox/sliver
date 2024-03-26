@@ -5,17 +5,8 @@
 package platform
 
 import (
-	"regexp"
 	"runtime"
 )
-
-// IsAtLeastGo120 checks features added in 1.20. We can remove this when Go
-// 1.22 is out.
-var IsAtLeastGo120 = isAtLeastGo120(runtime.Version())
-
-func isAtLeastGo120(version string) bool {
-	return regexp.MustCompile("go1.[2-9][0-9][^0-9]").MatchString(version)
-}
 
 // archRequirementsVerified is set by platform-specific init to true if the platform is supported
 var archRequirementsVerified bool
@@ -43,6 +34,16 @@ func MmapCodeSegment(size int) ([]byte, error) {
 	} else {
 		return mmapCodeSegmentARM64(size)
 	}
+}
+
+// MmapMemory allocates a buffer of the given size using mmap. A large size can be allocated at once
+// without raising process memory usage, and physical pages will be allocated on access after calls to
+// Grow.
+func MmapMemory(size int) ([]byte, error) {
+	if size == 0 {
+		panic("BUG: MmapMemory with zero length")
+	}
+	return mmapMemory(size)
 }
 
 // RemapCodeSegment reallocates the memory mapping of an existing code segment

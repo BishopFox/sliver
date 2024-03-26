@@ -9,7 +9,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"syscall"
-	"time"
+
+	"github.com/ncruces/go-sqlite3/util/osutil"
 )
 
 type vfsOS struct{}
@@ -92,7 +93,7 @@ func (vfsOS) OpenParams(name string, flags OpenFlag, params url.Values) (File, O
 	if name == "" {
 		f, err = os.CreateTemp("", "*.db")
 	} else {
-		f, err = osOpenFile(name, oflags, 0666)
+		f, err = osutil.OpenFile(name, oflags, 0666)
 	}
 	if err != nil {
 		if errors.Is(err, syscall.EISDIR) {
@@ -124,11 +125,11 @@ func (vfsOS) OpenParams(name string, flags OpenFlag, params url.Values) (File, O
 
 type vfsFile struct {
 	*os.File
-	lockTimeout time.Duration
-	lock        LockLevel
-	psow        bool
-	syncDir     bool
-	readOnly    bool
+	lock     LockLevel
+	readOnly bool
+	keepWAL  bool
+	syncDir  bool
+	psow     bool
 }
 
 var (
@@ -136,6 +137,7 @@ var (
 	_ FileLockState          = &vfsFile{}
 	_ FileHasMoved           = &vfsFile{}
 	_ FileSizeHint           = &vfsFile{}
+	_ FilePersistentWAL      = &vfsFile{}
 	_ FilePowersafeOverwrite = &vfsFile{}
 )
 
@@ -198,4 +200,6 @@ func (f *vfsFile) HasMoved() (bool, error) {
 
 func (f *vfsFile) LockState() LockLevel            { return f.lock }
 func (f *vfsFile) PowersafeOverwrite() bool        { return f.psow }
+func (f *vfsFile) PersistentWAL() bool             { return f.keepWAL }
 func (f *vfsFile) SetPowersafeOverwrite(psow bool) { f.psow = psow }
+func (f *vfsFile) SetPersistentWAL(keepWAL bool)   { f.keepWAL = keepWAL }

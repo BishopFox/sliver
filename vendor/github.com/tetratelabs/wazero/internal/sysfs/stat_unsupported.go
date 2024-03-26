@@ -5,7 +5,6 @@ package sysfs
 import (
 	"io/fs"
 	"os"
-	"syscall"
 
 	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
 	"github.com/tetratelabs/wazero/sys"
@@ -38,11 +37,4 @@ func stat(path string) (sys.Stat_t, experimentalsys.Errno) {
 
 func statFile(f fs.File) (sys.Stat_t, experimentalsys.Errno) {
 	return defaultStatFile(f)
-}
-
-func inoFromFileInfo(_ string, info fs.FileInfo) (sys.Inode, experimentalsys.Errno) {
-	if st, ok := info.Sys().(*syscall.Stat_t); ok {
-		return st.Ino, 0
-	}
-	return 0, 0
 }

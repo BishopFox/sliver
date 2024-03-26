@@ -15,12 +15,12 @@ import (
 // See the documentation for the [TimeFormatDefault] constant
 // for formats recognized by SQLite.
 //
-// https://www.sqlite.org/lang_datefunc.html
+// https://sqlite.org/lang_datefunc.html
 type TimeFormat string
 
 // TimeFormats recognized by SQLite to encode/decode time values.
 //
-// https://www.sqlite.org/lang_datefunc.html
+// https://sqlite.org/lang_datefunc.html#time_values
 const (
 	TimeFormatDefault TimeFormat = "" // time.RFC3339Nano
 
@@ -83,9 +83,9 @@ const (
 // a float64 for [TimeFormatJulianDay] and [TimeFormatUnixFrac],
 // or an int64 for the other numeric formats.
 //
-// https://www.sqlite.org/lang_datefunc.html
+// https://sqlite.org/lang_datefunc.html
 //
-// [collating sequence]: https://www.sqlite.org/datatype3.html#collating_sequences
+// [collating sequence]: https://sqlite.org/datatype3.html#collating_sequences
 func (f TimeFormat) Encode(t time.Time) any {
 	switch f {
 	// Numeric formats
@@ -136,7 +136,7 @@ func (f TimeFormat) Encode(t time.Time) any {
 // Unix timestamps before 1980 and after 9999 may be misinterpreted as julian day numbers,
 // or have the wrong time unit.
 //
-// https://www.sqlite.org/lang_datefunc.html
+// https://sqlite.org/lang_datefunc.html
 func (f TimeFormat) Decode(v any) (time.Time, error) {
 	switch f {
 	// Numeric formats
@@ -164,9 +164,9 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		case float64:
 			sec, frac := math.Modf(v)
 			nsec := math.Floor(frac * 1e9)
-			return time.Unix(int64(sec), int64(nsec)), nil
+			return time.Unix(int64(sec), int64(nsec)).UTC(), nil
 		case int64:
-			return time.Unix(v, 0), nil
+			return time.Unix(v, 0).UTC(), nil
 		default:
 			return time.Time{}, util.TimeErr
 		}
@@ -181,9 +181,9 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		}
 		switch v := v.(type) {
 		case float64:
-			return time.UnixMilli(int64(math.Floor(v))), nil
+			return time.UnixMilli(int64(math.Floor(v))).UTC(), nil
 		case int64:
-			return time.UnixMilli(int64(v)), nil
+			return time.UnixMilli(int64(v)).UTC(), nil
 		default:
 			return time.Time{}, util.TimeErr
 		}
@@ -198,9 +198,9 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		}
 		switch v := v.(type) {
 		case float64:
-			return time.UnixMicro(int64(math.Floor(v))), nil
+			return time.UnixMicro(int64(math.Floor(v))).UTC(), nil
 		case int64:
-			return time.UnixMicro(int64(v)), nil
+			return time.UnixMicro(int64(v)).UTC(), nil
 		default:
 			return time.Time{}, util.TimeErr
 		}
@@ -215,9 +215,9 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		}
 		switch v := v.(type) {
 		case float64:
-			return time.Unix(0, int64(math.Floor(v))), nil
+			return time.Unix(0, int64(math.Floor(v))).UTC(), nil
 		case int64:
-			return time.Unix(0, int64(v)), nil
+			return time.Unix(0, int64(v)).UTC(), nil
 		default:
 			return time.Time{}, util.TimeErr
 		}
@@ -238,24 +238,14 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 			}
 
 			dates := []TimeFormat{
-				TimeFormat6TZ, TimeFormat6, TimeFormat3TZ, TimeFormat3,
-				TimeFormat5TZ, TimeFormat5, TimeFormat2TZ, TimeFormat2,
-				TimeFormat1,
+				TimeFormat9, TimeFormat8,
+				TimeFormat6, TimeFormat5,
+				TimeFormat3, TimeFormat2, TimeFormat1,
 			}
 			for _, f := range dates {
-				t, err := time.Parse(string(f), s)
+				t, err := f.Decode(s)
 				if err == nil {
 					return t, nil
-				}
-			}
-
-			times := []TimeFormat{
-				TimeFormat9TZ, TimeFormat9, TimeFormat8TZ, TimeFormat8,
-			}
-			for _, f := range times {
-				t, err := time.Parse(string(f), s)
-				if err == nil {
-					return t.AddDate(2000, 0, 0), nil
 				}
 			}
 		}
@@ -314,7 +304,10 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 			return time.Time{}, util.TimeErr
 		}
 		t, err := f.parseRelaxed(s)
-		return t.AddDate(2000, 0, 0), err
+		if err != nil {
+			return time.Time{}, err
+		}
+		return t.AddDate(2000, 0, 0), nil
 
 	default:
 		s, ok := v.(string)
@@ -337,4 +330,25 @@ func (f TimeFormat) parseRelaxed(s string) (time.Time, error) {
 		return time.Parse(fs, s)
 	}
 	return t, nil
+}
+
+// Scanner returns a [database/sql.Scanner] that can be used as an argument to
+// [database/sql.Row.Scan] and similar methods to
+// decode a time value into dest using this format.
+func (f TimeFormat) Scanner(dest *time.Time) interface{ Scan(any) error } {
+	return timeScanner{dest, f}
+}
+
+type timeScanner struct {
+	*time.Time
+	TimeFormat
+}
+
+func (s timeScanner) Scan(src any) error {
+	var ok bool
+	var err error
+	if *s.Time, ok = src.(time.Time); !ok {
+		*s.Time, err = s.Decode(src)
+	}
+	return err
 }

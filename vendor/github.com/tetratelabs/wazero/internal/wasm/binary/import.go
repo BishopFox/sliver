@@ -39,7 +39,7 @@ func decodeImport(
 	case wasm.ExternTypeTable:
 		err = decodeTable(r, enabledFeatures, &ret.DescTable)
 	case wasm.ExternTypeMemory:
-		ret.DescMem, err = decodeMemory(r, memorySizer, memoryLimitPages)
+		ret.DescMem, err = decodeMemory(r, enabledFeatures, memorySizer, memoryLimitPages)
 	case wasm.ExternTypeGlobal:
 		ret.DescGlobal, err = decodeGlobalType(r)
 	default:

@@ -39,3 +39,7 @@ zig-cache/
 zig-out/
 
 .DS_Store
+
+# Ignore compiled stdlib test cases.
+/internal/integration_test/stdlibs/testdata
+/internal/integration_test/libsodium/testdata

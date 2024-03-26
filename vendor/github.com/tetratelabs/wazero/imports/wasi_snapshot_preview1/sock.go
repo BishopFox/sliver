@@ -2,7 +2,6 @@ package wasi_snapshot_preview1
 
 import (
 	"context"
-	"syscall"
 
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/experimental/sys"
@@ -175,11 +174,11 @@ func sockShutdownFn(_ context.Context, mod api.Module, params []uint64) sys.Errn
 
 	switch how {
 	case wasip1.SD_RD | wasip1.SD_WR:
-		sysHow = syscall.SHUT_RD | syscall.SHUT_WR
+		sysHow = socketapi.SHUT_RD | socketapi.SHUT_WR
 	case wasip1.SD_RD:
-		sysHow = syscall.SHUT_RD
+		sysHow = socketapi.SHUT_RD
 	case wasip1.SD_WR:
-		sysHow = syscall.SHUT_WR
+		sysHow = socketapi.SHUT_WR
 	default:
 		return sys.EINVAL
 	}

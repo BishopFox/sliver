@@ -47,7 +47,7 @@ func Float(t time.Time) float64 {
 	return float64(day) + float64(nsec)/nsec_per_day
 }
 
-// Float returns the Julian date for t as a string.
+// Format returns the Julian date for t as a string.
 //
 // This has nanosecond precision.
 func Format(t time.Time) string {
@@ -87,7 +87,7 @@ func FloatTime(date float64) time.Time {
 	return Time(int64(day), int64(nsec))
 }
 
-// Parse parses a formatted Julian date and returns the time value it represents.
+// Parse parses a formatted Julian date and returns the UTC Time it represents.
 //
 // This has nanosecond precision.
 func Parse(s string) (time.Time, error) {

@@ -35,6 +35,7 @@ const (
 	ENOENT
 	ENOSYS
 	ENOTDIR
+	ERANGE
 	ENOTEMPTY
 	ENOTSOCK
 	ENOTSUP
@@ -79,6 +80,8 @@ func (e Errno) Error() string {
 		return "functionality not supported"
 	case ENOTDIR:
 		return "not a directory or a symbolic link to a directory"
+	case ERANGE:
+		return "result too large"
 	case ENOTEMPTY:
 		return "directory not empty"
 	case ENOTSOCK:

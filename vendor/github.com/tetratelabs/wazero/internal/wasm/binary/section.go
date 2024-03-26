@@ -105,6 +105,7 @@ func decodeTableSection(r *bytes.Reader, enabledFeatures api.CoreFeatures) ([]wa
 
 func decodeMemorySection(
 	r *bytes.Reader,
+	enabledFeatures api.CoreFeatures,
 	memorySizer memorySizer,
 	memoryLimitPages uint32,
 ) (*wasm.Memory, error) {
@@ -119,7 +120,7 @@ func decodeMemorySection(
 		return nil, nil
 	}
 
-	return decodeMemory(r, memorySizer, memoryLimitPages)
+	return decodeMemory(r, enabledFeatures, memorySizer, memoryLimitPages)
 }
 
 func decodeGlobalSection(r *bytes.Reader, enabledFeatures api.CoreFeatures) ([]wasm.Global, error) {

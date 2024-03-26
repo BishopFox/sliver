@@ -72,7 +72,7 @@ func NewHostModule(
 	// compilation of host modules is not costly as it's merely small trampolines vs the real-world native Wasm binary.
 	// TODO: refactor engines so that we can properly cache compiled machine codes for host modules.
 	m.AssignModuleID([]byte(fmt.Sprintf("@@@@@@@@%p", m)), // @@@@@@@@ = any 8 bytes different from Wasm header.
-		false, false)
+		nil, false)
 	return
 }
 

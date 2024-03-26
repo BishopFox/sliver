@@ -1,7 +1,6 @@
 package util
 
 import (
-	"fmt"
 	"runtime"
 	"strconv"
 )
@@ -15,14 +14,14 @@ const (
 	OOMErr       = ErrorString("sqlite3: out of memory")
 	RangeErr     = ErrorString("sqlite3: index out of range")
 	NoNulErr     = ErrorString("sqlite3: missing NUL terminator")
-	NoGlobalErr  = ErrorString("sqlite3: could not find global: ")
-	NoFuncErr    = ErrorString("sqlite3: could not find function: ")
-	BinaryErr    = ErrorString("sqlite3: no SQLite binary embed/set/loaded")
+	NoBinaryErr  = ErrorString("sqlite3: no SQLite binary embed/set/loaded")
+	BadBinaryErr = ErrorString("sqlite3: invalid SQLite binary embed/set/loaded")
 	TimeErr      = ErrorString("sqlite3: invalid time value")
 	WhenceErr    = ErrorString("sqlite3: invalid whence")
 	OffsetErr    = ErrorString("sqlite3: invalid offset")
 	TailErr      = ErrorString("sqlite3: multiple statements")
 	IsolationErr = ErrorString("sqlite3: unsupported isolation level")
+	ValueErr     = ErrorString("sqlite3: unsupported value")
 	NoVFSErr     = ErrorString("sqlite3: no such vfs: ")
 )
 
@@ -32,14 +31,6 @@ func AssertErr() ErrorString {
 		msg += " (" + file + ":" + strconv.Itoa(line) + ")"
 	}
 	return ErrorString(msg)
-}
-
-func Finalizer[T any](skip int) func(*T) {
-	msg := fmt.Sprintf("sqlite3: %T not closed", new(T))
-	if _, file, line, ok := runtime.Caller(skip + 1); ok && skip >= 0 {
-		msg += " (" + file + ":" + strconv.Itoa(line) + ")"
-	}
-	return func(*T) { panic(ErrorString(msg)) }
 }
 
 func ErrorCodeString(rc uint32) string {

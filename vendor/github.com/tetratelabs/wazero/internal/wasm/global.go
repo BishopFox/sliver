@@ -18,7 +18,8 @@ func (g constantGlobal) Type() api.ValueType {
 
 // Get implements api.Global.
 func (g constantGlobal) Get() uint64 {
-	return g.g.Val
+	ret, _ := g.g.Value()
+	return ret
 }
 
 // String implements api.Global.
@@ -39,7 +40,8 @@ func (g mutableGlobal) Type() api.ValueType {
 
 // Get implements api.Global.
 func (g mutableGlobal) Get() uint64 {
-	return g.g.Val
+	ret, _ := g.g.Value()
+	return ret
 }
 
 // String implements api.Global.
@@ -49,8 +51,5 @@ func (g mutableGlobal) String() string {
 
 // Set implements the same method as documented on api.MutableGlobal.
 func (g mutableGlobal) Set(v uint64) {
-	g.g.Val = v
+	g.g.SetValue(v, 0)
 }
-
-// compile-time check to ensure mutableGlobal is a api.Global.
-var _ api.Global = mutableGlobal{}

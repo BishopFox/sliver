@@ -23,7 +23,8 @@ func decodeTable(r *bytes.Reader, enabledFeatures api.CoreFeatures, ret *wasm.Ta
 		}
 	}
 
-	ret.Min, ret.Max, err = decodeLimitsType(r)
+	var shared bool
+	ret.Min, ret.Max, shared, err = decodeLimitsType(r)
 	if err != nil {
 		return fmt.Errorf("read limits: %v", err)
 	}
@@ -34,6 +35,9 @@ func decodeTable(r *bytes.Reader, enabledFeatures api.CoreFeatures, ret *wasm.Ta
 		if *ret.Max < ret.Min {
 			return fmt.Errorf("table size minimum must not be greater than maximum")
 		}
+	}
+	if shared {
+		return fmt.Errorf("tables cannot be marked as shared")
 	}
 	return
 }

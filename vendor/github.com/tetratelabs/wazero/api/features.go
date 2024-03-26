@@ -143,6 +143,8 @@ const (
 	// Note: The instruction list is too long to enumerate in godoc.
 	// See https://github.com/WebAssembly/spec/blob/wg-2.0.draft1/proposals/simd/SIMD.md
 	CoreFeatureSIMD
+
+	// Update experimental/features.go when adding elements here.
 )
 
 // SetEnabled enables or disables the feature or group of features.

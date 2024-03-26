@@ -29,8 +29,10 @@ func main() {
 		}
 	case "sock":
 		// TODO: undefined: net.FileListener
+		// See https://github.com/tinygo-org/tinygo/pull/2748
 	case "nonblock":
 		// TODO: undefined: syscall.SetNonblock
+		// See https://github.com/tinygo-org/tinygo/issues/3840
 	}
 }
 

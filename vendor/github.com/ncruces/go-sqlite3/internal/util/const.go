@@ -72,6 +72,7 @@ const (
 	IOERR_ROLLBACK_ATOMIC   = IOERR | (31 << 8)
 	IOERR_DATA              = IOERR | (32 << 8)
 	IOERR_CORRUPTFS         = IOERR | (33 << 8)
+	IOERR_IN_PAGE           = IOERR | (34 << 8)
 	LOCKED_SHAREDCACHE      = LOCKED | (1 << 8)
 	LOCKED_VTAB             = LOCKED | (2 << 8)
 	BUSY_RECOVERY           = BUSY | (1 << 8)
