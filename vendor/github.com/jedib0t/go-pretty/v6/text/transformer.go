@@ -37,9 +37,9 @@ var (
 type Transformer func(val interface{}) string
 
 // NewNumberTransformer returns a number Transformer that:
-//   * transforms the number as directed by 'format' (ex.: %.2f)
-//   * colors negative values Red
-//   * colors positive values Green
+//   - transforms the number as directed by 'format' (ex.: %.2f)
+//   - colors negative values Red
+//   - colors positive values Green
 func NewNumberTransformer(format string) Transformer {
 	return func(val interface{}) string {
 		if valStr := transformInt(format, val); valStr != "" {
@@ -79,7 +79,7 @@ func transformInt(format string, val interface{}) string {
 		return transform(int64(number))
 	}
 	if number, ok := val.(int64); ok {
-		return transform(int64(number))
+		return transform(number)
 	}
 	return ""
 }
@@ -105,7 +105,7 @@ func transformUint(format string, val interface{}) string {
 		return transform(uint64(number))
 	}
 	if number, ok := val.(uint64); ok {
-		return transform(uint64(number))
+		return transform(number)
 	}
 	return ""
 }
@@ -125,7 +125,7 @@ func transformFloat(format string, val interface{}) string {
 		return transform(float64(number))
 	}
 	if number, ok := val.(float64); ok {
-		return transform(float64(number))
+		return transform(number)
 	}
 	return ""
 }
@@ -137,7 +137,7 @@ func NewJSONTransformer(prefix string, indent string) Transformer {
 		if valStr, ok := val.(string); ok {
 			var b bytes.Buffer
 			if err := json.Indent(&b, []byte(strings.TrimSpace(valStr)), prefix, indent); err == nil {
-				return string(b.Bytes())
+				return b.String()
 			}
 		} else if b, err := json.MarshalIndent(val, prefix, indent); err == nil {
 			return string(b)

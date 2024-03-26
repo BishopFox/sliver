@@ -21,7 +21,7 @@ func AutoIndexColumnID(colIdx int) string {
 type WidthEnforcer func(col string, maxLen int) string
 
 // widthEnforcerNone returns the input string as is without any modifications.
-func widthEnforcerNone(col string, maxLen int) string {
+func widthEnforcerNone(col string, _ int) string {
 	return col
 }
 

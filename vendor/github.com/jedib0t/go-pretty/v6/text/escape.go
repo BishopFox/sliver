@@ -47,5 +47,4 @@ func (e *escSeq) InspectRune(r rune) {
 		}
 		e.content.WriteRune(r)
 	}
-	return
 }
