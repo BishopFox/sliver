@@ -4,7 +4,7 @@ import (
 	"io"
 )
 
-// Writer declares the interfaces that can be used to setup and render a table.
+// Writer declares the interfaces that can be used to set up and render a table.
 type Writer interface {
 	AppendFooter(row Row, configs ...RowConfig)
 	AppendHeader(row Row, configs ...RowConfig)
@@ -16,6 +16,7 @@ type Writer interface {
 	RenderCSV() string
 	RenderHTML() string
 	RenderMarkdown() string
+	RenderTSV() string
 	ResetFooters()
 	ResetHeaders()
 	ResetRows()
@@ -32,6 +33,7 @@ type Writer interface {
 	SortBy(sortBy []SortBy)
 	Style() *Style
 	SuppressEmptyColumns()
+	SuppressTrailingSpaces()
 
 	// deprecated; in favor of Style().HTML.CSSClass
 	SetHTMLCSSClass(cssClass string)
