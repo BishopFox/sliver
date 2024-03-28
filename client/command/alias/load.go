@@ -92,7 +92,8 @@ type AliasManifest struct {
 	IsReflective bool         `json:"is_reflective"`
 	IsAssembly   bool         `json:"is_assembly"`
 
-	RootPath string `json:"-"`
+	RootPath   string `json:"-"`
+	ArmoryName string `json:"-"`
 }
 
 func (ec *AliasManifest) getDefaultProcess(targetOS string) (proc string, err error) {
