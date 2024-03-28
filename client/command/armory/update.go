@@ -38,11 +38,17 @@ func ArmoryUpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	con.Printf(console.Clearln + "\r")
 
 	// Aliases
-	aliasUpdates := checkForAliasUpdates(clientConfig, con)
+	aliasUpdates := checkForAliasUpdates()
 	if 0 < len(aliasUpdates) {
 		con.PrintInfof("%d alias(es) out of date: %s\n", len(aliasUpdates), strings.Join(aliasUpdates, ", "))
 		for _, aliasName := range aliasUpdates {
-			err := installAliasPackageByName(aliasName, clientConfig, con)
+			update, err := getPackageForCommand(aliasName)
+			if err != nil {
+				con.PrintErrorf("Could not get update package for alias %s: %s\n", aliasName, err)
+				// Keep going because other packages might not encounter errors
+				continue
+			}
+			err = installAliasPackageByName(update, clientConfig, con)
 			if err != nil {
 				con.PrintErrorf("Failed to update %s: %s\n", aliasName, err)
 			}
@@ -52,11 +58,16 @@ func ArmoryUpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 
 	// Extensions
-	extUpdates := checkForExtensionUpdates(clientConfig, con)
+	extUpdates := checkForExtensionUpdates()
 	if 0 < len(extUpdates) {
 		con.PrintInfof("%d extension(s) out of date: %s\n", len(extUpdates), strings.Join(extUpdates, ", "))
 		for _, extName := range extUpdates {
-			err := installExtensionPackageByName(extName, clientConfig, con)
+			update, err := getPackageForCommand(extName)
+			if err != nil {
+				con.PrintErrorf("Could not get update package for extension %s: %s\n", extName, err)
+				continue
+			}
+			err = installExtensionPackageByName(update, clientConfig, con)
 			if err != nil {
 				con.PrintErrorf("Failed to update %s: %s\n", extName, err)
 			}
@@ -66,8 +77,8 @@ func ArmoryUpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 }
 
-func checkForAliasUpdates(clientConfig ArmoryHTTPConfig, con *console.SliverClient) []string {
-	cachedAliases, _ := packagesInCache()
+func checkForAliasUpdates() []string {
+	cachedAliases, _ := packageManifestsInCache()
 	results := []string{}
 	for _, aliasManifestPath := range assets.GetInstalledAliasManifests() {
 		data, err := os.ReadFile(aliasManifestPath)
@@ -82,15 +93,15 @@ func checkForAliasUpdates(clientConfig ArmoryHTTPConfig, con *console.SliverClie
 			// Right now we don't try to enforce any kind of versioning, it is assumed if the version from
 			// the armory differs at all from the local version, the extension is out of date.
 			if latestAlias.CommandName == localManifest.CommandName && latestAlias.Version != localManifest.Version {
-				results = append(results, localManifest.CommandName)
+				results = append(results, latestAlias.CommandName)
 			}
 		}
 	}
 	return results
 }
 
-func checkForExtensionUpdates(clientConfig ArmoryHTTPConfig, con *console.SliverClient) []string {
-	_, cachedExtensions := packagesInCache()
+func checkForExtensionUpdates() []string {
+	_, cachedExtensions := packageManifestsInCache()
 	results := []string{}
 	for _, extManifestPath := range assets.GetInstalledExtensionManifests() {
 		data, err := os.ReadFile(extManifestPath)

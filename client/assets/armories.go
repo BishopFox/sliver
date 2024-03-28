@@ -28,6 +28,7 @@ import (
 
 const (
 	armoryConfigFileName = "armories.json"
+	DefaultArmoryName    = "Default"
 )
 
 var (
@@ -36,9 +37,11 @@ var (
 	// DefaultArmoryRepoURL - The default repo url for the armory
 	DefaultArmoryRepoURL string
 
-	defaultArmoryConfig = &ArmoryConfig{
+	DefaultArmoryConfig = &ArmoryConfig{
 		PublicKey: DefaultArmoryPublicKey,
 		RepoURL:   DefaultArmoryRepoURL,
+		Name:      DefaultArmoryName,
+		Enabled:   true,
 	}
 )
 
@@ -48,29 +51,65 @@ type ArmoryConfig struct {
 	RepoURL          string `json:"repo_url"`
 	Authorization    string `json:"authorization"`
 	AuthorizationCmd string `json:"authorization_cmd"`
+	Name             string `json:"name"`
+	Enabled          bool   `json:"enabled"`
+}
+
+func RefreshArmoryAuthorization(armories []*ArmoryConfig) {
+	for _, armoryConfig := range armories {
+		if armoryConfig.AuthorizationCmd != "" {
+			armoryConfig.Authorization = executeAuthorizationCmd(armoryConfig)
+		}
+	}
 }
 
 // GetArmoriesConfig - The parsed armory config file
 func GetArmoriesConfig() []*ArmoryConfig {
 	armoryConfigPath := filepath.Join(GetRootAppDir(), armoryConfigFileName)
 	if _, err := os.Stat(armoryConfigPath); os.IsNotExist(err) {
-		return []*ArmoryConfig{defaultArmoryConfig}
+		return []*ArmoryConfig{DefaultArmoryConfig}
 	}
 	data, err := os.ReadFile(armoryConfigPath)
 	if err != nil {
-		return []*ArmoryConfig{defaultArmoryConfig}
+		return []*ArmoryConfig{DefaultArmoryConfig}
 	}
+	var armoryConfigsFromFile []*ArmoryConfig
 	var armoryConfigs []*ArmoryConfig
 	err = json.Unmarshal(data, &armoryConfigs)
 	if err != nil {
-		return []*ArmoryConfig{defaultArmoryConfig}
+		return []*ArmoryConfig{DefaultArmoryConfig}
 	}
-	for _, armoryConfig := range armoryConfigs {
-		if armoryConfig.AuthorizationCmd != "" {
-			armoryConfig.Authorization = executeAuthorizationCmd(armoryConfig)
+
+	// Force the default armory to be the last
+	defaultArmorySpecified := false
+
+	for _, config := range armoryConfigsFromFile {
+		if config.Name == DefaultArmoryName {
+			defaultArmorySpecified = true
+			continue
+		} else {
+			armoryConfigs = append(armoryConfigs, config)
 		}
 	}
-	return append(armoryConfigs, defaultArmoryConfig)
+	if defaultArmorySpecified {
+		armoryConfigs = append(armoryConfigs, DefaultArmoryConfig)
+	}
+	RefreshArmoryAuthorization(armoryConfigs)
+
+	return armoryConfigs
+}
+
+func SaveArmoriesConfig(armories []*ArmoryConfig) error {
+	configData, err := json.Marshal(armories)
+	if err != nil {
+		return err
+	}
+	armoryConfigPath := filepath.Join(GetRootAppDir(), armoryConfigFileName)
+	err = os.WriteFile(armoryConfigPath, configData, 0640)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func executeAuthorizationCmd(armoryConfig *ArmoryConfig) string {
