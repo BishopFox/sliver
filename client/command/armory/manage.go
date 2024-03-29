@@ -381,9 +381,9 @@ func AddArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	configs := getCurrentArmoryConfiguration()
 	err = assets.SaveArmoriesConfig(configs)
 	if err != nil {
-		con.PrintErrorf("could not save armory configuration: %s\n", err)
+		con.PrintErrorf("Could not save armory configuration: %s\n", err)
 	} else {
-		con.PrintSuccessf("armory configuration saved\n")
+		con.PrintSuccessf("Armory configuration saved\n")
 	}
 	con.PrintSuccessf("Added armory %s\n", name)
 }
@@ -618,6 +618,8 @@ func ModifyArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 
 func RefreshArmories(cmd *cobra.Command, con *console.SliverClient) {
 	clientConfig := parseArmoryHTTPConfig(cmd)
+	// Since this being called from the refresh command, force the refresh
+	clientConfig.IgnoreCache = true
 	con.PrintInfof("Refreshing armory information...\n")
 	refresh(clientConfig)
 	con.PrintSuccessf("Done\n")

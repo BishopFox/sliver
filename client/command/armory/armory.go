@@ -130,9 +130,9 @@ var (
 func ArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	armoriesConfig := getCurrentArmoryConfiguration()
 	if len(armoriesConfig) == 1 {
-		con.Printf("Fetching armory index ... ")
+		con.Printf("Reading armory index ... ")
 	} else {
-		con.PrintInfof("Fetching %d armory indexes ... ", len(armoriesConfig))
+		con.PrintInfof("Reading %d armory indexes ... ", len(armoriesConfig))
 	}
 	clientConfig := parseArmoryHTTPConfig(cmd)
 	indexes := fetchIndexes(clientConfig)
@@ -157,7 +157,7 @@ func ArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 	for _, index := range indexes {
 		errorCount := 0
-		con.PrintInfof("Fetching package information from armory %s ... ", index.ArmoryConfig.Name)
+		con.PrintInfof("Reading package information for armory %s ... ", index.ArmoryConfig.Name)
 		fetchPackageSignatures(index, clientConfig)
 		pkgCache.Range(func(key, value interface{}) bool {
 			cacheEntry, ok := value.(pkgCacheEntry)
@@ -302,6 +302,21 @@ func packageCacheLookupByCmdAndArmory(commandName string, armoryPublicKey string
 		if cacheEntry.ArmoryConfig.PublicKey == armoryPublicKey && cacheEntry.Pkg.CommandName == commandName {
 			result = &cacheEntry
 			return false
+		}
+		return true
+	})
+
+	return result
+}
+
+// Returns the package hashes in the cache for a given armory
+func packageHashLookupByArmory(armoryPublicKey string) []string {
+	result := []string{}
+
+	pkgCache.Range(func(key, value interface{}) bool {
+		cacheEntry := value.(pkgCacheEntry)
+		if cacheEntry.ArmoryConfig.PublicKey == armoryPublicKey {
+			result = append(result, cacheEntry.ID)
 		}
 		return true
 	})
@@ -598,6 +613,48 @@ func fetchIndex(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig
 	}
 }
 
+func calculateHashesForIndex(index ArmoryIndex) []string {
+	result := []string{}
+
+	for _, pkg := range index.Aliases {
+		result = append(result, calculatePackageHash(pkg))
+	}
+
+	for _, pkg := range index.Extensions {
+		result = append(result, calculatePackageHash(pkg))
+	}
+
+	return result
+}
+
+func makePackageCacheConsistent(index ArmoryIndex) {
+	packagesToRemove := []string{}
+
+	// Get the packages for the armory out of the cache
+	cacheHashesForArmory := packageHashLookupByArmory(index.ArmoryConfig.PublicKey)
+	indexHashesForArmory := calculateHashesForIndex(index)
+
+	if len(cacheHashesForArmory) > len(indexHashesForArmory) {
+		// Then there are packages in the cache that do not exist in the armory
+		if len(indexHashesForArmory) == 0 {
+			packagesToRemove = cacheHashesForArmory
+		} else {
+			for _, packageHash := range indexHashesForArmory {
+				if !slices.Contains(cacheHashesForArmory, packageHash) {
+					packagesToRemove = append(packagesToRemove, packageHash)
+				}
+			}
+		}
+	}
+	// The remaining case of there being packages in the armory that do not exist in the cache
+	// will have to be solved with fetchPackageSignatures, and that function calls this one
+	// after fetching signatures and storing them in the cache, so that case should not apply
+
+	for _, packageHash := range packagesToRemove {
+		pkgCache.Delete(packageHash)
+	}
+}
+
 func fetchPackageSignatures(index ArmoryIndex, clientConfig ArmoryHTTPConfig) {
 	wg := &sync.WaitGroup{}
 	for _, armoryPkg := range index.Extensions {
@@ -611,6 +668,9 @@ func fetchPackageSignatures(index ArmoryIndex, clientConfig ArmoryHTTPConfig) {
 		go fetchPackageSignature(wg, index.ArmoryConfig, armoryPkg, clientConfig)
 	}
 	wg.Wait()
+
+	// If packages were deleted from the index, make sure the cache is consistent
+	makePackageCacheConsistent(index)
 }
 
 func fetchPackageSignature(wg *sync.WaitGroup, armoryConfig *assets.ArmoryConfig, armoryPkg *ArmoryPackage, clientConfig ArmoryHTTPConfig) {
@@ -665,21 +725,21 @@ func fetchPackageSignature(wg *sync.WaitGroup, armoryConfig *assets.ArmoryConfig
 	if armoryPkg != nil {
 		pkgCacheEntry.Pkg = *armoryPkg
 	}
-	if err == nil {
-		manifestData, err := base64.StdEncoding.DecodeString(sig.TrustedComment)
-		if err != nil {
-			pkgCacheEntry.LastErr = fmt.Errorf("failed to b64 decode trusted comment: %s", err)
-			return
-		}
-		if armoryPkg.IsAlias {
-			pkgCacheEntry.Alias, err = alias.ParseAliasManifest(manifestData)
-			pkgCacheEntry.Alias.ArmoryName = armoryConfig.Name
-		} else {
-			pkgCacheEntry.Extension, err = extensions.ParseExtensionManifest(manifestData)
-			pkgCacheEntry.Extension.ArmoryName = armoryConfig.Name
-		}
-		if err != nil {
-			pkgCacheEntry.LastErr = fmt.Errorf("failed to parse trusted manifest in pkg signature: %s", err)
-		}
+
+	manifestData, err := base64.StdEncoding.DecodeString(sig.TrustedComment)
+	if err != nil {
+		pkgCacheEntry.LastErr = fmt.Errorf("failed to b64 decode trusted comment: %s", err)
+		return
 	}
+	if armoryPkg.IsAlias {
+		pkgCacheEntry.Alias, err = alias.ParseAliasManifest(manifestData)
+		pkgCacheEntry.Alias.ArmoryName = armoryConfig.Name
+	} else {
+		pkgCacheEntry.Extension, err = extensions.ParseExtensionManifest(manifestData)
+		pkgCacheEntry.Extension.ArmoryName = armoryConfig.Name
+	}
+	if err != nil {
+		pkgCacheEntry.LastErr = fmt.Errorf("failed to parse trusted manifest in pkg signature: %s", err)
+	}
+
 }
