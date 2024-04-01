@@ -75,7 +75,7 @@ func GetArmoriesConfig() []*ArmoryConfig {
 	}
 	var armoryConfigsFromFile []*ArmoryConfig
 	var armoryConfigs []*ArmoryConfig
-	err = json.Unmarshal(data, &armoryConfigs)
+	err = json.Unmarshal(data, &armoryConfigsFromFile)
 	if err != nil {
 		return []*ArmoryConfig{DefaultArmoryConfig}
 	}
