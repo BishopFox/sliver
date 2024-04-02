@@ -14,7 +14,7 @@ import (
 // Commands returns the “ command and its subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 
-	ImportC2ProfileCmd := &cobra.Command{
+	importC2ProfileCmd := &cobra.Command{
 		Use:   consts.ImportC2ProfileStr,
 		Short: "Import HTTP C2 profile",
 		Long:  help.GetHelpFor([]string{consts.ImportC2ProfileStr}),
@@ -22,10 +22,24 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 			ImportC2ProfileCmd(cmd, con, args)
 		},
 	}
-	flags.Bind(consts.ImportC2ProfileStr, false, ImportC2ProfileCmd, func(f *pflag.FlagSet) {
+	flags.Bind(consts.ImportC2ProfileStr, false, importC2ProfileCmd, func(f *pflag.FlagSet) {
 		f.StringP("name", "n", consts.DefaultC2Profile, "HTTP C2 Profile name")
 		f.StringP("file", "f", "", "Path to C2 configuration file to import")
 		f.BoolP("overwrite", "o", false, "Overwrite profile if it exists")
+	})
+
+	exportC2ProfileCmd := &cobra.Command{
+		Use:   consts.ExportC2ProfileStr,
+		Short: "Export HTTP C2 profile",
+		Long:  help.GetHelpFor([]string{consts.ExportC2ProfileStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			ExportC2ProfileCmd(cmd, con, args)
+		},
+	}
+	flags.Bind(consts.ExportC2ProfileStr, false, exportC2ProfileCmd, func(f *pflag.FlagSet) {
+		f.StringP("file", "f", "", "Path to file to export C2 configuration to")
+		f.StringP("name", "n", consts.DefaultC2Profile, "HTTP C2 Profile name")
+
 	})
 
 	C2ProfileCmd := &cobra.Command{
@@ -44,7 +58,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.BindFlagCompletions(C2ProfileCmd, func(comp *carapace.ActionMap) {
 		(*comp)["name"] = generate.HTTPC2Completer(con)
 	})
-	C2ProfileCmd.AddCommand(ImportC2ProfileCmd)
+	C2ProfileCmd.AddCommand(importC2ProfileCmd)
+	C2ProfileCmd.AddCommand(exportC2ProfileCmd)
 
 	return []*cobra.Command{
 		C2ProfileCmd,
