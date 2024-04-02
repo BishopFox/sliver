@@ -35,11 +35,13 @@ import (
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/minisign"
 )
 
 // ErrPackageNotFound - The package was not found
 var ErrPackageNotFound = errors.New("package not found")
+var ErrPackageAlreadyInstalled = errors.New("package is already installed")
 
 const (
 	doNotInstallOption      = "Do not install this package"
@@ -48,12 +50,23 @@ const (
 
 // ArmoryInstallCmd - The armory install command
 func ArmoryInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	var promptToOverwrite bool
 	name := args[0]
-	// name := ctx.Args.String("name")
 	if name == "" {
 		con.PrintErrorf("A package or bundle name is required")
 		return
 	}
+	forceInstallation, err := cmd.Flags().GetBool("force")
+	if err != nil {
+		con.PrintErrorf("Could not parse %q flag: %s\n", "force", err)
+		return
+	}
+	if forceInstallation {
+		promptToOverwrite = false
+	} else {
+		promptToOverwrite = true
+	}
+
 	clientConfig := parseArmoryHTTPConfig(cmd)
 	refresh(clientConfig)
 	if name == "all" {
@@ -77,28 +90,70 @@ func ArmoryInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		if !confirm {
 			return
 		}
+		promptToOverwrite = false
 	}
-	err := installPackageByName(name, clientConfig, con)
+	err = installPackageByName(name, forceInstallation, promptToOverwrite, clientConfig, con)
 	if err == nil {
 		return
 	}
-	if err == ErrPackageNotFound {
+	if errors.Is(err, ErrPackageNotFound) {
 		bundles := bundlesInCache()
 		for _, bundle := range bundles {
 			if bundle.Name == name {
-				installBundle(bundle, clientConfig, con)
+				installBundle(bundle, forceInstallation, clientConfig, con)
 				return
 			}
 		}
+		// If we have made it here, then there was not a bundle or package that matched the provided name
+		con.PrintErrorf("No package or bundle named %q was found\n", name)
+	} else if errors.Is(err, ErrPackageAlreadyInstalled) {
+		con.PrintErrorf("Package %q is already installed - use the force option to overwrite it\n", name)
+	} else {
+		con.PrintErrorf("Could not install package: %s\n", err)
 	}
-	con.PrintErrorf("No package or bundle named '%s' was found", name)
+
 }
 
-func installBundle(bundle *ArmoryBundle, clientConfig ArmoryHTTPConfig, con *console.SliverClient) {
-	for _, pkgName := range bundle.Packages {
-		err := installPackageByName(pkgName, clientConfig, con)
+func installBundle(bundle *ArmoryBundle, forceInstallation bool, clientConfig ArmoryHTTPConfig, con *console.SliverClient) {
+	installList := []string{}
+	pendingPackages := make(map[string]string)
+
+	for _, bundlePkgName := range bundle.Packages {
+		packageInstallList, err := buildInstallList(bundlePkgName, forceInstallation, pendingPackages)
 		if err != nil {
-			con.PrintErrorf("Failed to install '%s': %s", pkgName, err)
+			if errors.Is(err, ErrPackageAlreadyInstalled) {
+				con.PrintInfof("Package %s is already installed. Skipping...\n", bundlePkgName)
+				continue
+			} else {
+				con.PrintErrorf("Error for package %s: %s\n", bundlePkgName, err)
+				return
+			}
+		}
+		for _, pkgID := range packageInstallList {
+			if !slices.Contains(installList, pkgID) {
+				installList = append(installList, pkgID)
+			}
+		}
+	}
+
+	for _, packageID := range installList {
+		packageEntry := packageCacheLookupByID(packageID)
+		if packageEntry == nil {
+			con.PrintErrorf("The package cache is out of date. Please run armory refresh and try again.\n")
+			return
+		}
+		if packageEntry.Pkg.IsAlias {
+			err := installAliasPackage(packageEntry, false, clientConfig, con)
+			if err != nil {
+				con.PrintErrorf("Failed to install alias '%s': %s", packageEntry.Alias.CommandName, err)
+				return
+			}
+		} else {
+			err := installExtensionPackage(packageEntry, false, clientConfig, con)
+			if err != nil {
+				con.PrintErrorf("Failed to install extension '%s': %s", packageEntry.Extension.Name, err)
+				return
+			}
 		}
 	}
 }
@@ -186,7 +241,7 @@ func getCommandsInCache() []string {
 	return commandNames
 }
 
-func getPackagesWithCommandName(name string) []*pkgCacheEntry {
+func getPackagesWithCommandName(name, minimumVersion string) []*pkgCacheEntry {
 	packages := []*pkgCacheEntry{}
 
 	pkgCache.Range(func(key, value interface{}) bool {
@@ -194,13 +249,17 @@ func getPackagesWithCommandName(name string) []*pkgCacheEntry {
 		if cacheEntry.LastErr == nil {
 			if cacheEntry.Pkg.IsAlias {
 				if cacheEntry.Alias.CommandName == name {
-					packages = append(packages, &cacheEntry)
+					if minimumVersion == "" || (minimumVersion != "" && cacheEntry.Alias.Version >= minimumVersion) {
+						packages = append(packages, &cacheEntry)
+					}
 				}
 			} else {
 				for _, command := range cacheEntry.Extension.ExtCommand {
 					if command.CommandName == name {
-						packages = append(packages, &cacheEntry)
-						break
+						if minimumVersion == "" || (minimumVersion != "" && cacheEntry.Extension.Version >= minimumVersion) {
+							packages = append(packages, &cacheEntry)
+							break
+						}
 					}
 				}
 			}
@@ -211,17 +270,9 @@ func getPackagesWithCommandName(name string) []*pkgCacheEntry {
 	return packages
 }
 
-func keys[K comparable, V any](m map[K]V) []K {
-	keys := make([]K, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
 func getPackageIDFromUser(name string, options map[string]string) string {
 	selectedPackageKey := ""
-	optionKeys := keys(options)
+	optionKeys := util.Keys(options)
 	slices.Sort(optionKeys)
 	// Add a cancel option
 	optionKeys = append(optionKeys, doNotInstallOption)
@@ -236,8 +287,8 @@ func getPackageIDFromUser(name string, options map[string]string) string {
 	return selectedPackageID
 }
 
-func getPackageForCommand(name string) (*pkgCacheEntry, error) {
-	packagesWithCommand := getPackagesWithCommandName(name)
+func getPackageForCommand(name, minimumVersion string) (*pkgCacheEntry, error) {
+	packagesWithCommand := getPackagesWithCommandName(name, minimumVersion)
 
 	if len(packagesWithCommand) > 1 {
 		// Build an option map for the user to choose from (option -> pkgID)
@@ -245,10 +296,16 @@ func getPackageForCommand(name string) (*pkgCacheEntry, error) {
 		for _, packageEntry := range packagesWithCommand {
 			var optionName string
 			if packageEntry.Pkg.IsAlias {
-				optionName = fmt.Sprintf("Alias %s from armory %s (%s)", name, packageEntry.ArmoryConfig.Name, packageEntry.Pkg.RepoURL)
+				optionName = fmt.Sprintf("Alias %s %s from armory %s (%s)",
+					name,
+					packageEntry.Alias.Version,
+					packageEntry.ArmoryConfig.Name,
+					packageEntry.Pkg.RepoURL,
+				)
 			} else {
-				optionName = fmt.Sprintf("Extension %s from armory %s with command %s (%s)",
+				optionName = fmt.Sprintf("Extension %s %s from armory %s with command %s (%s)",
 					packageEntry.Pkg.Name,
+					packageEntry.Extension.Version,
 					packageEntry.ArmoryConfig.Name,
 					name,
 					packageEntry.Pkg.RepoURL,
@@ -271,8 +328,9 @@ func getPackageForCommand(name string) (*pkgCacheEntry, error) {
 	return nil, ErrPackageNotFound
 }
 
-func buildInstallList(name string) ([]*pkgCacheEntry, error) {
-	packageInstallList := []*pkgCacheEntry{}
+func buildInstallList(name string, forceInstallation bool, pendingPackages map[string]string) ([]string, error) {
+	packageInstallList := []string{}
+	installedPackages := getInstalledPackageNames()
 
 	/*
 		Gather information about what we are working with
@@ -280,38 +338,85 @@ func buildInstallList(name string) ([]*pkgCacheEntry, error) {
 		Find all conflicts within aliases for a given name (or all names), same thing with extensions
 		Then if there are aliases and extensions with a given name, make sure to note that for when we ask the user what to do
 	*/
-	if name != "all" {
-		packageEntry, err := getPackageForCommand(name)
+	var requestedPackageList []string
+	if name == "all" {
+		requestedPackageList = []string{}
+		allCommands := getCommandsInCache()
+		for _, cmdName := range allCommands {
+			if !slices.Contains(installedPackages, cmdName) || forceInstallation {
+				// Check to see if there is a package pending with that name
+				if _, ok := pendingPackages[cmdName]; !ok {
+					requestedPackageList = append(requestedPackageList, cmdName)
+				}
+			}
+		}
+	} else {
+		if !slices.Contains(installedPackages, name) || forceInstallation {
+			// Check to see if there is a package pending with that name
+			if _, ok := pendingPackages[name]; !ok {
+				requestedPackageList = []string{name}
+			}
+		} else {
+			return nil, ErrPackageAlreadyInstalled
+		}
+	}
+
+	for _, packageName := range requestedPackageList {
+		if _, ok := pendingPackages[packageName]; ok {
+			// We are already going to install a package with this name, so do not try to resolve it
+			continue
+		}
+		packageEntry, err := getPackageForCommand(packageName, "")
 		if err != nil {
 			return nil, err
 		}
-		packageInstallList = append(packageInstallList, packageEntry)
-	} else {
-		// Get a list of all command names and resolve conflicts as we find them
-		commandNames := getCommandsInCache()
-		for _, cmdName := range commandNames {
-			packageEntry, err := getPackageForCommand(cmdName)
+		if !slices.Contains(packageInstallList, packageEntry.ID) {
+			packageInstallList = append(packageInstallList, packageEntry.ID)
+			pendingPackages[packageName] = packageEntry.ID
+		}
+
+		if !packageEntry.Pkg.IsAlias {
+			dependencies := make(map[string]*pkgCacheEntry)
+			err = resolveExtensionPackageDependencies(packageEntry, dependencies, pendingPackages)
 			if err != nil {
 				return nil, err
 			}
-			packageInstallList = append(packageInstallList, packageEntry)
+			for pkgName, packageEntry := range dependencies {
+				if !slices.Contains(packageInstallList, packageEntry.ID) {
+					packageInstallList = append(packageInstallList, packageEntry.ID)
+				}
+				if _, ok := pendingPackages[pkgName]; !ok {
+					pendingPackages[pkgName] = packageEntry.ID
+				}
+			}
 		}
 	}
 
 	return packageInstallList, nil
 }
 
-func installPackageByName(name string, clientConfig ArmoryHTTPConfig, con *console.SliverClient) error {
-	packageInstallList, err := buildInstallList(name)
+func installPackageByName(name string, forceInstallation, promptToOverwrite bool, clientConfig ArmoryHTTPConfig, con *console.SliverClient) error {
+	pendingPackages := make(map[string]string)
+	packageInstallList, err := buildInstallList(name, forceInstallation, pendingPackages)
 	if err != nil {
 		return err
 	}
 	if len(packageInstallList) > 0 {
-		for _, entry := range packageInstallList {
+		for _, packageID := range packageInstallList {
+			entry := packageCacheLookupByID(packageID)
+			if entry == nil {
+				return errors.New("cache inconsistency error - please refresh the cache and try again")
+			}
 			if entry.Pkg.IsAlias {
-				installAlias(entry, clientConfig, con)
+				err := installAliasPackage(entry, promptToOverwrite, clientConfig, con)
+				if err != nil {
+					return fmt.Errorf("failed to install alias '%s': %s", entry.Alias.CommandName, err)
+				}
 			} else {
-				installExtension(entry, clientConfig, con)
+				err := installExtensionPackage(entry, promptToOverwrite, clientConfig, con)
+				if err != nil {
+					return fmt.Errorf("failed to install extension '%s': %s", entry.Extension.Name, err)
+				}
 			}
 		}
 	} else {
@@ -326,15 +431,7 @@ func installPackageByName(name string, clientConfig ArmoryHTTPConfig, con *conso
 	return nil
 }
 
-func installAlias(alias *pkgCacheEntry, clientConfig ArmoryHTTPConfig, con *console.SliverClient) {
-	err := installAliasPackageByName(alias, clientConfig, con)
-	if err != nil {
-		con.PrintErrorf("Failed to install alias '%s': %s", alias.Pkg.CommandName, err)
-		return
-	}
-}
-
-func installAliasPackageByName(entry *pkgCacheEntry, clientConfig ArmoryHTTPConfig, con *console.SliverClient) error {
+func installAliasPackage(entry *pkgCacheEntry, promptToOverwrite bool, clientConfig ArmoryHTTPConfig, con *console.SliverClient) error {
 	if entry == nil {
 		return errors.New("package not found")
 	}
@@ -380,7 +477,7 @@ func installAliasPackageByName(entry *pkgCacheEntry, clientConfig ArmoryHTTPConf
 
 	con.Printf(console.Clearln + "\r") // Clear the line
 
-	installPath := alias.InstallFromFile(tmpFile.Name(), entry.Alias.CommandName, true, con)
+	installPath := alias.InstallFromFile(tmpFile.Name(), entry.Alias.CommandName, promptToOverwrite, con)
 	if installPath == nil {
 		return errors.New("failed to install alias")
 	}
@@ -394,72 +491,9 @@ func installAliasPackageByName(entry *pkgCacheEntry, clientConfig ArmoryHTTPConf
 	return nil
 }
 
-func installExtension(extPkg *pkgCacheEntry, clientConfig ArmoryHTTPConfig, con *console.SliverClient) {
-	if extPkg == nil {
-		con.PrintErrorf("requested extension does not have a valid package entry")
-		return
-	}
-	if extPkg.Pkg.IsAlias {
-		con.PrintErrorf("%s is not an extension", extPkg.Pkg.Name)
-		return
-	}
-	// Name -> package ID
-	deps := make(map[string]string)
-	// Resolve dependencies
-	var entry *pkgCacheEntry = extPkg
-	var err error
-	installedExtensions := getInstalledPackageNames()
-
-	for _, ext := range extPkg.Extension.ExtCommand {
-		if ext.CommandName != entry.Pkg.CommandName {
-			// Then we need to get the package for this command
-			entry, err = getPackageForCommand(ext.CommandName)
-			if err != nil {
-				con.PrintErrorf("Could not get package information for command %s: %s", ext.CommandName, err)
-				return
-			}
-		}
-		err = resolveExtensionPackageDependencies(entry, deps, clientConfig, con)
-		if err != nil {
-			con.PrintErrorf("Could not resolve dependencies for %s: %s\n", extPkg.Extension.Name, err)
-			return
-		}
-
-		for dep, depKey := range deps {
-			value, ok := pkgCache.Load(depKey)
-			if !ok {
-				con.PrintErrorf("Could not satisfy dependency %s for %s. Please refresh the armory information and try again.", dep, ext.CommandName)
-				return
-			}
-			extensionPackage := value.(pkgCacheEntry)
-			if extensionPackage.Extension == nil {
-				continue
-			}
-
-			if slices.Contains(installedExtensions, dep) {
-				continue // Dependency is already installed
-			}
-
-			err := installExtensionPackageByName(&extensionPackage, clientConfig, con)
-			if err != nil {
-				con.PrintErrorf("Failed to install extension dependency '%s': %s", dep, err)
-				return
-			}
-			installedExtensions = append(installedExtensions, dep)
-		}
-	}
-
-	// Now that depedencies are resolved, install the package
-	err = installExtensionPackageByName(extPkg, clientConfig, con)
-	if err != nil {
-		con.PrintErrorf("Failed to install extension '%s': %s", extPkg.Extension.Name, err)
-		return
-	}
-}
-
 const maxDepDepth = 10 // Arbitrary recursive limit for dependencies
 
-func resolveExtensionPackageDependencies(pkg *pkgCacheEntry, deps map[string]string, clientConfig ArmoryHTTPConfig, con *console.SliverClient) error {
+func resolveExtensionPackageDependencies(pkg *pkgCacheEntry, deps map[string]*pkgCacheEntry, pendingPackages map[string]string) error {
 	for _, multiExt := range pkg.Extension.ExtCommand {
 		if multiExt.DependsOn == "" {
 			continue // Avoid adding empty dependency
@@ -473,16 +507,20 @@ func resolveExtensionPackageDependencies(pkg *pkgCacheEntry, deps map[string]str
 		if _, ok := deps[multiExt.DependsOn]; ok {
 			continue // Already resolved
 		}
+		// Check to make sure we are not already going to install a package with this name
+		if _, ok := pendingPackages[multiExt.DependsOn]; ok {
+			continue
+		}
 		if maxDepDepth < len(deps) {
 			continue
 		}
 		// Figure out what package we need for the dependency
-		dependencyEntry, err := getPackageForCommand(multiExt.DependsOn)
+		dependencyEntry, err := getPackageForCommand(multiExt.DependsOn, "")
 		if err != nil {
 			return fmt.Errorf("could not resolve dependency %s for %s: %s", multiExt.DependsOn, pkg.Extension.Name, err)
 		}
-		deps[multiExt.DependsOn] = dependencyEntry.ID
-		err = resolveExtensionPackageDependencies(dependencyEntry, deps, clientConfig, con)
+		deps[multiExt.DependsOn] = dependencyEntry
+		err = resolveExtensionPackageDependencies(dependencyEntry, deps, pendingPackages)
 		if err != nil {
 			return err
 		}
@@ -490,7 +528,7 @@ func resolveExtensionPackageDependencies(pkg *pkgCacheEntry, deps map[string]str
 	return nil
 }
 
-func installExtensionPackageByName(entry *pkgCacheEntry, clientConfig ArmoryHTTPConfig, con *console.SliverClient) error {
+func installExtensionPackage(entry *pkgCacheEntry, promptToOverwrite bool, clientConfig ArmoryHTTPConfig, con *console.SliverClient) error {
 	if entry == nil {
 		return errors.New("package not found")
 	}
@@ -536,7 +574,7 @@ func installExtensionPackageByName(entry *pkgCacheEntry, clientConfig ArmoryHTTP
 
 	con.Printf(console.Clearln + "\r") // Clear download message
 
-	extensions.InstallFromDir(tmpFile.Name(), con, true)
+	extensions.InstallFromDir(tmpFile.Name(), promptToOverwrite, con, true)
 
 	return nil
 }

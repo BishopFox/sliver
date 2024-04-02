@@ -40,11 +40,11 @@ func ExtensionsInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []
 		con.PrintErrorf("Extension path '%s' does not exist", extLocalPath)
 		return
 	}
-	InstallFromDir(extLocalPath, con, strings.HasSuffix(extLocalPath, ".tar.gz"))
+	InstallFromDir(extLocalPath, true, con, strings.HasSuffix(extLocalPath, ".tar.gz"))
 }
 
 // Install an extension from a directory
-func InstallFromDir(extLocalPath string, con *console.SliverClient, isGz bool) {
+func InstallFromDir(extLocalPath string, promptToOverwrite bool, con *console.SliverClient, isGz bool) {
 	var manifestData []byte
 	var err error
 
@@ -67,12 +67,14 @@ func InstallFromDir(extLocalPath string, con *console.SliverClient, isGz bool) {
 	//create repo path
 	minstallPath := filepath.Join(assets.GetExtensionsDir(), filepath.Base(manifestF.Name))
 	if _, err := os.Stat(minstallPath); !os.IsNotExist(err) {
-		con.PrintInfof("Extension '%s' already exists", manifestF.Name)
-		confirm := false
-		prompt := &survey.Confirm{Message: "Overwrite current install?"}
-		survey.AskOne(prompt, &confirm)
-		if !confirm {
-			return
+		if promptToOverwrite {
+			con.PrintInfof("Extension '%s' already exists", manifestF.Name)
+			confirm := false
+			prompt := &survey.Confirm{Message: "Overwrite current install?"}
+			survey.AskOne(prompt, &confirm)
+			if !confirm {
+				return
+			}
 		}
 		forceRemoveAll(minstallPath)
 	}
@@ -94,7 +96,7 @@ func InstallFromDir(extLocalPath string, con *console.SliverClient, isGz bool) {
 		for _, manifestFile := range manifest.Files {
 			if manifestFile.Path != "" {
 				if isGz {
-					err = installArtifact(extLocalPath, installPath, manifestFile.Path, con)
+					err = installArtifact(extLocalPath, installPath, manifestFile.Path)
 				} else {
 					src := filepath.Join(extLocalPath, util.ResolvePath(manifestFile.Path))
 					dst := filepath.Join(installPath, util.ResolvePath(manifestFile.Path))
@@ -106,7 +108,7 @@ func InstallFromDir(extLocalPath string, con *console.SliverClient, isGz bool) {
 					}
 					err = util.CopyFile(src, dst)
 					if err != nil {
-						err = fmt.Errorf("error copying file '%s' -> '%s': %s\n", src, dst, err)
+						err = fmt.Errorf("error copying file '%s' -> '%s': %s", src, dst, err)
 					}
 				}
 				if err != nil {
@@ -119,7 +121,7 @@ func InstallFromDir(extLocalPath string, con *console.SliverClient, isGz bool) {
 	}
 }
 
-func installArtifact(extGzFilePath string, installPath string, artifactPath string, con *console.SliverClient) error {
+func installArtifact(extGzFilePath string, installPath string, artifactPath string) error {
 	data, err := util.ReadFileFromTarGz(extGzFilePath, "."+filepath.ToSlash(artifactPath))
 	if err != nil {
 		return err
