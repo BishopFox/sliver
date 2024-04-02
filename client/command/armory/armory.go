@@ -204,6 +204,7 @@ func ArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 }
 
 func refresh(clientConfig ArmoryHTTPConfig) {
+	getCurrentArmoryConfiguration()
 	indexes := fetchIndexes(clientConfig)
 	for _, index := range indexes {
 		fetchPackageSignatures(index, clientConfig)
@@ -252,7 +253,11 @@ func armoryLookupByName(name string) *assets.ArmoryConfig {
 	var result *assets.ArmoryConfig
 
 	indexCache.Range(func(key, value interface{}) bool {
-		indexEntry := value.(indexCacheEntry)
+		indexEntry, ok := value.(indexCacheEntry)
+		if !ok {
+			// Keep going
+			return true
+		}
 		if indexEntry.ArmoryConfig.Name == name {
 			result = indexEntry.ArmoryConfig
 			return false
@@ -268,7 +273,11 @@ func packageCacheLookupByName(name string) []*pkgCacheEntry {
 	var result []*pkgCacheEntry = make([]*pkgCacheEntry, 0)
 
 	pkgCache.Range(func(key, value interface{}) bool {
-		cacheEntry := value.(pkgCacheEntry)
+		cacheEntry, ok := value.(pkgCacheEntry)
+		if !ok {
+			// Keep going
+			return true
+		}
 		if cacheEntry.Pkg.Name == name {
 			result = append(result, &cacheEntry)
 		}
@@ -283,7 +292,11 @@ func packageCacheLookupByCmd(commandName string) []*pkgCacheEntry {
 	var result []*pkgCacheEntry = make([]*pkgCacheEntry, 0)
 
 	pkgCache.Range(func(key, value interface{}) bool {
-		cacheEntry := value.(pkgCacheEntry)
+		cacheEntry, ok := value.(pkgCacheEntry)
+		if !ok {
+			// Keep going
+			return true
+		}
 		if cacheEntry.Pkg.CommandName == commandName {
 			result = append(result, &cacheEntry)
 		}
@@ -298,9 +311,14 @@ func packageCacheLookupByCmdAndArmory(commandName string, armoryPublicKey string
 	var result *pkgCacheEntry
 
 	pkgCache.Range(func(key, value interface{}) bool {
-		cacheEntry := value.(pkgCacheEntry)
+		cacheEntry, ok := value.(pkgCacheEntry)
+		if !ok {
+			// Keep going
+			return true
+		}
 		if cacheEntry.ArmoryConfig.PublicKey == armoryPublicKey && cacheEntry.Pkg.CommandName == commandName {
 			result = &cacheEntry
+			// Stop iterating
 			return false
 		}
 		return true
@@ -314,7 +332,11 @@ func packageHashLookupByArmory(armoryPublicKey string) []string {
 	result := []string{}
 
 	pkgCache.Range(func(key, value interface{}) bool {
-		cacheEntry := value.(pkgCacheEntry)
+		cacheEntry, ok := value.(pkgCacheEntry)
+		if !ok {
+			// Keep going
+			return true
+		}
 		if cacheEntry.ArmoryConfig.PublicKey == armoryPublicKey {
 			result = append(result, cacheEntry.ID)
 		}
@@ -322,6 +344,28 @@ func packageHashLookupByArmory(armoryPublicKey string) []string {
 	})
 
 	return result
+}
+
+func packageCacheLookupByID(packageID string) *pkgCacheEntry {
+	var packageEntry *pkgCacheEntry
+
+	pkgCache.Range(func(key, value interface{}) bool {
+		cacheEntry, ok := value.(pkgCacheEntry)
+		if !ok {
+			// Keep going
+			return true
+		}
+		if cacheEntry.LastErr == nil {
+			if cacheEntry.ID == packageID {
+				packageEntry = &cacheEntry
+				// Stop iterating
+				return false
+			}
+		}
+		return true
+	})
+
+	return packageEntry
 }
 
 func bundlesInCache() []*ArmoryBundle {

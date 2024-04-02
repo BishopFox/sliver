@@ -42,6 +42,9 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 			ArmoryInstallCmd(cmd, con, args)
 		},
 	}
+	flags.Bind("", false, armoryInstallCmd, func(f *pflag.FlagSet) {
+		f.BoolP("force", "f", false, "force installation of package, overwriting the package if it exists")
+	})
 	armoryCmd.AddCommand(armoryInstallCmd)
 	flags.NewCompletions(armoryInstallCmd).PositionalCompletion(
 		AliasExtensionOrBundleCompleter().Usage("name of the extension or alias to install"),
