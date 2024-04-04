@@ -591,11 +591,14 @@ func parseArmoryHTTPConfig(cmd *cobra.Command) ArmoryHTTPConfig {
 // errors are still in the cache objects however and can be checked
 func fetchIndexes(clientConfig ArmoryHTTPConfig) []ArmoryIndex {
 	wg := &sync.WaitGroup{}
+	// Try to get a max of 10 indexes at a time
+	currentRequests := make(chan struct{}, 10)
 	currentArmories.Range(func(key, value interface{}) bool {
 		armoryEntry := value.(assets.ArmoryConfig)
 		if armoryEntry.Enabled {
 			wg.Add(1)
-			go fetchIndex(&armoryEntry, clientConfig, wg)
+			currentRequests <- struct{}{}
+			go fetchIndex(&armoryEntry, currentRequests, clientConfig, wg)
 		}
 		return true
 	})
@@ -611,8 +614,11 @@ func fetchIndexes(clientConfig ArmoryHTTPConfig) []ArmoryIndex {
 	return indexes
 }
 
-func fetchIndex(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig, wg *sync.WaitGroup) {
+func fetchIndex(armoryConfig *assets.ArmoryConfig, requestChannel chan struct{}, clientConfig ArmoryHTTPConfig, wg *sync.WaitGroup) {
 	defer wg.Done()
+	defer func() {
+		<-requestChannel
+	}()
 	cacheEntry, ok := indexCache.Load(armoryConfig.PublicKey)
 	if ok {
 		cached := cacheEntry.(indexCacheEntry)
@@ -701,15 +707,20 @@ func makePackageCacheConsistent(index ArmoryIndex) {
 
 func fetchPackageSignatures(index ArmoryIndex, clientConfig ArmoryHTTPConfig) {
 	wg := &sync.WaitGroup{}
+	// Be kind to armories and limit concurrent requests to 10
+	// This is an arbritrary number and we may have to tweak it if it causes problems
+	currentRequests := make(chan struct{}, 10)
 	for _, armoryPkg := range index.Extensions {
 		wg.Add(1)
+		currentRequests <- struct{}{}
 		armoryPkg.IsAlias = false
-		go fetchPackageSignature(wg, index.ArmoryConfig, armoryPkg, clientConfig)
+		go fetchPackageSignature(wg, currentRequests, index.ArmoryConfig, armoryPkg, clientConfig)
 	}
 	for _, armoryPkg := range index.Aliases {
 		wg.Add(1)
+		currentRequests <- struct{}{}
 		armoryPkg.IsAlias = true
-		go fetchPackageSignature(wg, index.ArmoryConfig, armoryPkg, clientConfig)
+		go fetchPackageSignature(wg, currentRequests, index.ArmoryConfig, armoryPkg, clientConfig)
 	}
 	wg.Wait()
 
@@ -717,8 +728,11 @@ func fetchPackageSignatures(index ArmoryIndex, clientConfig ArmoryHTTPConfig) {
 	makePackageCacheConsistent(index)
 }
 
-func fetchPackageSignature(wg *sync.WaitGroup, armoryConfig *assets.ArmoryConfig, armoryPkg *ArmoryPackage, clientConfig ArmoryHTTPConfig) {
+func fetchPackageSignature(wg *sync.WaitGroup, requestChannel chan struct{}, armoryConfig *assets.ArmoryConfig, armoryPkg *ArmoryPackage, clientConfig ArmoryHTTPConfig) {
 	defer wg.Done()
+	defer func() {
+		<-requestChannel
+	}()
 	cacheEntry, ok := pkgCache.Load(armoryPkg.ID)
 	if ok {
 		cached := cacheEntry.(pkgCacheEntry)
