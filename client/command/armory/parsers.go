@@ -506,6 +506,9 @@ func downloadRequest(clientConfig ArmoryHTTPConfig, reqURL string, armoryConfig 
 	if err != nil {
 		return nil, err
 	}
+	if resp == nil {
+		return nil, fmt.Errorf("invalid response when downloading %s, try again later", reqURL)
+	}
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusFound {
 		return nil, fmt.Errorf("error downloading asset: http %d", resp.StatusCode)
 	}

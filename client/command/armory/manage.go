@@ -253,8 +253,11 @@ func ArmoryInfoCommand(cmd *cobra.Command, con *console.SliverClient, args []str
 
 func verifyArmory(armoryInfo *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig) error {
 	wg := &sync.WaitGroup{}
+	// Only making one request, so we can limit ourselves to one concurrent request
+	requestChannel := make(chan struct{}, 1)
 	wg.Add(1)
-	go fetchIndex(armoryInfo, clientConfig, wg)
+	requestChannel <- struct{}{}
+	go fetchIndex(armoryInfo, requestChannel, clientConfig, wg)
 	wg.Wait()
 
 	result, ok := indexCache.Load(armoryInfo.PublicKey)
