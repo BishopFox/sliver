@@ -2,6 +2,8 @@ package armory
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -623,7 +625,24 @@ func RefreshArmories(cmd *cobra.Command, con *console.SliverClient) {
 	clientConfig := parseArmoryHTTPConfig(cmd)
 	// Since this being called from the refresh command, force the refresh
 	clientConfig.IgnoreCache = true
-	con.PrintInfof("Refreshing armory information...\n")
+	clearAllCaches()
+	armoriesInitialized = false
+	con.PrintInfof("Refreshing armory information...")
 	refresh(clientConfig)
-	con.PrintSuccessf("Done\n")
+	con.PrintSuccessf("Refreshed armory information\n")
+}
+
+func ResetArmoryConfig(cmd *cobra.Command, con *console.SliverClient) {
+	armoryConfigPath := filepath.Join(assets.GetRootAppDir(), assets.ArmoryConfigFileName)
+	con.PrintInfof("Removing armory configuration file %s...", armoryConfigPath)
+	err := os.Remove(armoryConfigPath)
+	if err != nil {
+		con.PrintErrorf("Could not delete armory configuration file %s: %s", armoryConfigPath, err)
+		return
+	}
+	con.PrintSuccessf("Removed armory configuration file %s\n", armoryConfigPath)
+
+	// Force a refresh
+	RefreshArmories(cmd, con)
+	con.PrintSuccessf("Successfully reset armory configuration\n")
 }
