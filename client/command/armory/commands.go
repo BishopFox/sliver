@@ -100,6 +100,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("pubkey", "k", "", "The public key for the armory (required)")
 		f.StringP("auth", "a", "", "Authorization details / credentials for the armory")
 		f.StringP("authcmd", "x", "", "Local command to run for authorization to the armory")
+		f.BoolP("no-save", "n", false, "Do not save this armory configuration to disk")
 	})
 	armoryAddCmd.MarkFlagRequired("url")
 	armoryAddCmd.MarkFlagRequired("pubkey")
@@ -175,7 +176,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("url", "u", "", "new URL for the armory")
 		f.StringP("auth", "a", "", "new authorization details / credentials for the armory")
 		f.StringP("authcmd", "x", "", "new local command to run for authorization to the armory")
-		f.BoolP("save", "s", false, "save new armory to armory configuration file")
+		f.BoolP("no-save", "n", false, "do not save armory configuration to armory configuration file")
 	})
 	carapace.Gen(armoryModifyCmd).PositionalCompletion(
 		carapace.ActionValues().Usage("name of the armory"),
