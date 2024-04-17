@@ -295,7 +295,7 @@ func getUpdatesFromUser(con *console.SliverClient, updateKeys []UpdateIdentifier
 	}
 
 	updateResponse = strings.ToLower(updateResponse)
-	updateResponse = strings.Trim(updateResponse, " ")
+	updateResponse = strings.Replace(updateResponse, " ", "", -1)
 	if updateResponse == "n" || updateResponse == "none" {
 		return
 	}
@@ -326,6 +326,10 @@ func getUpdatesFromUser(con *console.SliverClient, updateKeys []UpdateIdentifier
 			end -= 1
 			if start < 0 {
 				start = 0
+			}
+			if start > end {
+				selectionError = fmt.Errorf("%s is not a valid range", selection)
+				return
 			}
 			if end >= len(updateKeys) {
 				end = len(updateKeys) - 1
