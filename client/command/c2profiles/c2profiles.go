@@ -123,6 +123,169 @@ func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 	}
 }
 
+func ExportC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+
+	filepath, _ := cmd.Flags().GetString("file")
+	if filepath == "" {
+		con.PrintErrorf("Missing file path\n")
+		return
+	}
+
+	profileName, _ := cmd.Flags().GetString("name")
+	if profileName == "" {
+		con.PrintErrorf("Invalid c2 profile name\n")
+		return
+	}
+
+	if profileName == constants.DefaultC2Profile {
+		httpC2Profiles, err := con.Rpc.GetHTTPC2Profiles(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			con.PrintErrorf("failed to fetch HTTP C2 profiles: %s", err.Error())
+			return
+		}
+		if len(httpC2Profiles.Configs) != 1 {
+			profileName = selectC2Profile(httpC2Profiles.Configs)
+		}
+	}
+
+	profile, err := con.Rpc.GetHTTPC2ProfileByName(context.Background(), &clientpb.C2ProfileReq{Name: profileName})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	jsonProfile, err := C2ConfigToJSON(profileName, profile)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	err = os.WriteFile(filepath, jsonProfile, 0644)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	con.Println(profileName, "C2 profile exported to ", filepath)
+}
+
+// convert protobuf to json
+func C2ConfigToJSON(profileName string, profile *clientpb.HTTPC2Config) ([]byte, error) {
+	implantConfig := assets.HTTPC2ImplantConfig{
+		UserAgent:           profile.ImplantConfig.UserAgent,
+		ChromeBaseVersion:   int(profile.ImplantConfig.ChromeBaseVersion),
+		MacOSVersion:        profile.ImplantConfig.MacOSVersion,
+		NonceQueryArgChars:  profile.ImplantConfig.NonceQueryArgChars,
+		MaxFiles:            int(profile.ImplantConfig.MaxFiles),
+		MinFiles:            int(profile.ImplantConfig.MinFiles),
+		MaxPaths:            int(profile.ImplantConfig.MaxPaths),
+		MinPaths:            int(profile.ImplantConfig.MinFiles),
+		StagerFileExt:       profile.ImplantConfig.StagerFileExtension,
+		PollFileExt:         profile.ImplantConfig.PollFileExtension,
+		StartSessionFileExt: profile.ImplantConfig.StartSessionFileExtension,
+		SessionFileExt:      profile.ImplantConfig.SessionFileExtension,
+		CloseFileExt:        profile.ImplantConfig.CloseFileExtension,
+	}
+
+	var headers []assets.NameValueProbability
+	for _, header := range profile.ImplantConfig.Headers {
+		headers = append(headers, assets.NameValueProbability{
+			Name:        header.Name,
+			Value:       header.Value,
+			Probability: int(header.Probability),
+		})
+	}
+	implantConfig.Headers = headers
+
+	var urlParameters []assets.NameValueProbability
+	for _, urlParameter := range profile.ImplantConfig.ExtraURLParameters {
+		urlParameters = append(urlParameters, assets.NameValueProbability{
+			Name:        urlParameter.Name,
+			Value:       urlParameter.Value,
+			Probability: int(urlParameter.Probability),
+		})
+	}
+	implantConfig.URLParameters = urlParameters
+
+	var (
+		stagerFiles  []string
+		pollFiles    []string
+		sessionFiles []string
+		closeFiles   []string
+		stagerPaths  []string
+		pollPaths    []string
+		sessionPaths []string
+		closePaths   []string
+	)
+
+	for _, pathSegment := range profile.ImplantConfig.PathSegments {
+		if pathSegment.IsFile {
+			switch pathSegment.SegmentType {
+			case 0:
+				pollFiles = append(pollFiles, pathSegment.Value)
+			case 1:
+				sessionFiles = append(sessionFiles, pathSegment.Value)
+			case 2:
+				closeFiles = append(closeFiles, pathSegment.Value)
+			case 3:
+				stagerFiles = append(stagerFiles, pathSegment.Value)
+			}
+		} else {
+			switch pathSegment.SegmentType {
+			case 0:
+				pollPaths = append(pollPaths, pathSegment.Value)
+			case 1:
+				sessionPaths = append(sessionPaths, pathSegment.Value)
+			case 2:
+				closePaths = append(closePaths, pathSegment.Value)
+			case 3:
+				stagerPaths = append(stagerPaths, pathSegment.Value)
+			}
+		}
+	}
+
+	implantConfig.PollFiles = pollFiles
+	implantConfig.SessionFiles = sessionFiles
+	implantConfig.CloseFiles = closeFiles
+	implantConfig.StagerFiles = stagerFiles
+	implantConfig.PollPaths = pollPaths
+	implantConfig.SessionPaths = sessionPaths
+	implantConfig.ClosePaths = closePaths
+	implantConfig.StagerPaths = stagerPaths
+
+	var serverHeaders []assets.NameValueProbability
+	for _, header := range profile.ServerConfig.Headers {
+		serverHeaders = append(serverHeaders, assets.NameValueProbability{
+			Name:        header.Name,
+			Value:       header.Value,
+			Probability: int(header.Probability),
+		})
+	}
+
+	var serverCookies []string
+	for _, cookie := range profile.ServerConfig.Cookies {
+		serverCookies = append(serverCookies, cookie.Name)
+	}
+
+	serverConfig := assets.HTTPC2ServerConfig{
+		RandomVersionHeaders: profile.ServerConfig.RandomVersionHeaders,
+		Headers:              serverHeaders,
+		Cookies:              serverCookies,
+	}
+
+	config := assets.HTTPC2Config{
+		ImplantConfig: implantConfig,
+		ServerConfig:  serverConfig,
+	}
+
+	jsonConfig, err := json.Marshal(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonConfig, nil
+}
+
 // convert json to protobuf
 func C2ConfigToProtobuf(profileName string, config *assets.HTTPC2Config) *clientpb.HTTPC2Config {
 
