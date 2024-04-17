@@ -327,6 +327,28 @@ message Grep {
   commonpb.Response Response = 9;
 }
 
+message MountReq {
+  commonpb.Request Request = 9;
+}
+
+message MountInfo {
+  string VolumeName = 1;
+  string VolumeType = 2;
+  string MountPoint = 3;
+  string Label = 4;
+  string FileSystem = 5;
+  uint64 UsedSpace = 6;
+  uint64 FreeSpace = 7;
+  uint64 TotalSpace = 8;
+  string MountOptions = 9;
+}
+
+message Mount {
+  repeated MountInfo Info = 1;
+
+  commonpb.Response Response = 9;
+}
+
 message ProcessDumpReq {
   int32 Pid = 1;
   int32 Timeout = 2;
@@ -339,6 +361,7 @@ message ProcessDump {
 
   commonpb.Response Response = 9;
 }
+
 
 message RunAsReq {
   string Username = 1;

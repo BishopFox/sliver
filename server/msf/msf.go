@@ -222,10 +222,10 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 func venomCmd(args []string) ([]byte, error) {
 	msfLog.Printf("%s %v", venomBin, args)
 	cmd := exec.Command(venomBin, args...)
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	err := cmd.Run()
 	msfLog.Println(cmd.String())
 	if err != nil {
@@ -240,10 +240,10 @@ func venomCmd(args []string) ([]byte, error) {
 // consoleCmd - Execute a msfvenom command
 func consoleCmd(args []string) ([]byte, error) {
 	cmd := exec.Command(consoleBin, args...)
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	err := cmd.Run()
 	if err != nil {
 		msfLog.Printf("--- stdout ---\n%s\n", stdout.String())

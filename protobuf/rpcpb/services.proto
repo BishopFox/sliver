@@ -177,6 +177,7 @@ service SliverRPC {
   rpc MemfilesList(sliverpb.MemfilesListReq) returns (sliverpb.Ls);
   rpc MemfilesAdd(sliverpb.MemfilesAddReq) returns (sliverpb.MemfilesAdd);
   rpc MemfilesRm(sliverpb.MemfilesRmReq) returns (sliverpb.MemfilesRm);
+  rpc Mount(sliverpb.MountReq) returns (sliverpb.Mount);
   rpc ProcessDump(sliverpb.ProcessDumpReq) returns (sliverpb.ProcessDump);
   rpc RunAs(sliverpb.RunAsReq) returns (sliverpb.RunAs);
   rpc Impersonate(sliverpb.ImpersonateReq) returns (sliverpb.Impersonate);

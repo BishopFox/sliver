@@ -25,6 +25,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/armory"
 	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/command/builders"
+	"github.com/bishopfox/sliver/client/command/c2profiles"
 	"github.com/bishopfox/sliver/client/command/crack"
 	"github.com/bishopfox/sliver/client/command/creds"
 	"github.com/bishopfox/sliver/client/command/exit"
@@ -36,7 +37,6 @@ import (
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/command/monitor"
 	"github.com/bishopfox/sliver/client/command/operators"
-	operator "github.com/bishopfox/sliver/client/command/prelude-operator"
 	"github.com/bishopfox/sliver/client/command/reaction"
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -91,7 +91,6 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 			armory.Commands,
 			update.Commands,
 			operators.Commands,
-			operator.Commands,
 			creds.Commands,
 			crack.Commands,
 		)
@@ -101,6 +100,7 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 			jobs.Commands,
 			websites.Commands,
 			wireguard.Commands,
+			c2profiles.Commands,
 		)
 
 		// Payloads

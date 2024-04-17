@@ -35,6 +35,7 @@ import (
 	"syscall"
 
 	"github.com/bishopfox/sliver/implant/sliver/extension"
+	"github.com/bishopfox/sliver/implant/sliver/mount"
 	"github.com/bishopfox/sliver/implant/sliver/priv"
 	"github.com/bishopfox/sliver/implant/sliver/procdump"
 	"github.com/bishopfox/sliver/implant/sliver/ps"
@@ -92,6 +93,7 @@ var (
 		sliverpb.MsgServicesReq:            servicesListHandler,
 		sliverpb.MsgServiceDetailReq:       serviceDetailHandler,
 		sliverpb.MsgStartServiceByNameReq:  startServiceByNameHandler,
+		sliverpb.MsgMountReq:               mountHandler,
 
 		// Generic
 		sliverpb.MsgPing:           pingHandler,
@@ -869,6 +871,27 @@ func serviceDetailHandler(data []byte, resp RPCResponse) {
 	}
 
 	data, err = proto.Marshal(serviceDetailResp)
+	resp(data, err)
+}
+
+func mountHandler(data []byte, resp RPCResponse) {
+	mountReq := &sliverpb.MountReq{}
+
+	err := proto.Unmarshal(data, mountReq)
+	if err != nil {
+		return
+	}
+	mountData, err := mount.GetMountInformation()
+	mountResp := &sliverpb.Mount{
+		Info:     mountData,
+		Response: &commonpb.Response{},
+	}
+
+	if err != nil {
+		mountResp.Response.Err = err.Error()
+	}
+
+	data, err = proto.Marshal(mountResp)
 	resp(data, err)
 }
 

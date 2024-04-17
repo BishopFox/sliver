@@ -145,6 +145,7 @@ const (
 	TrafficEncodersStr = "traffic-encoders"
 	C2ProfileStr       = "c2profiles"
 	ImportC2ProfileStr = "import"
+	ExportC2ProfileStr = "export"
 
 	// Generic.
 
@@ -223,6 +224,7 @@ const (
 	ChmodStr    = "chmod"
 	ChownStr    = "chown"
 	ChtimesStr  = "chtimes"
+	MountStr    = "mount"
 
 	MemfilesStr = "memfiles"
 
