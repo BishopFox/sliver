@@ -9,15 +9,16 @@ import (
 )
 
 // Render renders the Table in a human-readable "pretty" format. Example:
-//  ┌─────┬────────────┬───────────┬────────┬─────────────────────────────┐
-//  │   # │ FIRST NAME │ LAST NAME │ SALARY │                             │
-//  ├─────┼────────────┼───────────┼────────┼─────────────────────────────┤
-//  │   1 │ Arya       │ Stark     │   3000 │                             │
-//  │  20 │ Jon        │ Snow      │   2000 │ You know nothing, Jon Snow! │
-//  │ 300 │ Tyrion     │ Lannister │   5000 │                             │
-//  ├─────┼────────────┼───────────┼────────┼─────────────────────────────┤
-//  │     │            │ TOTAL     │  10000 │                             │
-//  └─────┴────────────┴───────────┴────────┴─────────────────────────────┘
+//
+//	┌─────┬────────────┬───────────┬────────┬─────────────────────────────┐
+//	│   # │ FIRST NAME │ LAST NAME │ SALARY │                             │
+//	├─────┼────────────┼───────────┼────────┼─────────────────────────────┤
+//	│   1 │ Arya       │ Stark     │   3000 │                             │
+//	│  20 │ Jon        │ Snow      │   2000 │ You know nothing, Jon Snow! │
+//	│ 300 │ Tyrion     │ Lannister │   5000 │                             │
+//	├─────┼────────────┼───────────┼────────┼─────────────────────────────┤
+//	│     │            │ TOTAL     │  10000 │                             │
+//	└─────┴────────────┴───────────┴────────┴─────────────────────────────┘
 func (t *Table) Render() string {
 	t.initForRender()
 
@@ -206,11 +207,12 @@ func (t *Table) renderLine(out *strings.Builder, row rowStr, hint renderHint) {
 	if outLine != out {
 		t.renderLineMergeOutputs(out, outLine)
 	}
+	t.firstRowOfPage = false
 
 	// if a page size has been set, and said number of lines has already
 	// been rendered, and the header is not being rendered right now, render
 	// the header all over again with a spacing line
-	if hint.isRegularRow() {
+	if hint.isRegularNonSeparatorRow() {
 		t.numLinesRendered++
 		if t.pageSize > 0 && t.numLinesRendered%t.pageSize == 0 && !hint.isLastLineOfLastRow() {
 			t.renderRowsFooter(out)
@@ -218,6 +220,7 @@ func (t *Table) renderLine(out *strings.Builder, row rowStr, hint renderHint) {
 			out.WriteString(t.style.Box.PageSeparator)
 			t.renderRowsBorderTop(out)
 			t.renderRowsHeader(out)
+			t.firstRowOfPage = true
 		}
 	}
 }
@@ -312,8 +315,7 @@ func (t *Table) renderRows(out *strings.Builder, rows []rowStr, hint renderHint)
 		hint.rowNumber = rowIdx + 1
 		t.renderRow(out, row, hint)
 
-		if (t.style.Options.SeparateRows && rowIdx < len(rows)-1) || // last row before footer
-			(t.separators[rowIdx] && rowIdx != len(rows)-1) { // manually added separator not after last row
+		if t.shouldSeparateRows(rowIdx, len(rows)) {
 			hint.isFirstRow = false
 			t.renderRowSeparator(out, hint)
 		}
@@ -322,17 +324,33 @@ func (t *Table) renderRows(out *strings.Builder, rows []rowStr, hint renderHint)
 
 func (t *Table) renderRowsBorderBottom(out *strings.Builder) {
 	if len(t.rowsFooter) > 0 {
-		t.renderRowSeparator(out, renderHint{isBorderBottom: true, isFooterRow: true, rowNumber: len(t.rowsFooter)})
+		t.renderRowSeparator(out, renderHint{
+			isBorderBottom: true,
+			isFooterRow:    true,
+			rowNumber:      len(t.rowsFooter),
+		})
 	} else {
-		t.renderRowSeparator(out, renderHint{isBorderBottom: true, isFooterRow: false, rowNumber: len(t.rows)})
+		t.renderRowSeparator(out, renderHint{
+			isBorderBottom: true,
+			isFooterRow:    false,
+			rowNumber:      len(t.rows),
+		})
 	}
 }
 
 func (t *Table) renderRowsBorderTop(out *strings.Builder) {
 	if len(t.rowsHeader) > 0 || t.autoIndex {
-		t.renderRowSeparator(out, renderHint{isBorderTop: true, isHeaderRow: true, rowNumber: 0})
+		t.renderRowSeparator(out, renderHint{
+			isBorderTop: true,
+			isHeaderRow: true,
+			rowNumber:   0,
+		})
 	} else {
-		t.renderRowSeparator(out, renderHint{isBorderTop: true, isHeaderRow: false, rowNumber: 0})
+		t.renderRowSeparator(out, renderHint{
+			isBorderTop: true,
+			isHeaderRow: false,
+			rowNumber:   0,
+		})
 	}
 }
 

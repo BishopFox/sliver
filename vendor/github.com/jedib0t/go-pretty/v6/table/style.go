@@ -675,14 +675,12 @@ type FormatOptions struct {
 	Row       text.Format    // (data) row(s) text format
 }
 
-var (
-	// FormatOptionsDefault defines sensible formatting options.
-	FormatOptionsDefault = FormatOptions{
-		Footer: text.FormatUpper,
-		Header: text.FormatUpper,
-		Row:    text.FormatDefault,
-	}
-)
+// FormatOptionsDefault defines sensible formatting options.
+var FormatOptionsDefault = FormatOptions{
+	Footer: text.FormatUpper,
+	Header: text.FormatUpper,
+	Row:    text.FormatDefault,
+}
 
 // HTMLOptions defines the global options to control HTML rendering.
 type HTMLOptions struct {
@@ -692,15 +690,13 @@ type HTMLOptions struct {
 	Newline     string // string to replace "\n" characters with
 }
 
-var (
-	// DefaultHTMLOptions defines sensible HTML rendering defaults.
-	DefaultHTMLOptions = HTMLOptions{
-		CSSClass:    DefaultHTMLCSSClass,
-		EmptyColumn: "&nbsp;",
-		EscapeText:  true,
-		Newline:     "<br/>",
-	}
-)
+// DefaultHTMLOptions defines sensible HTML rendering defaults.
+var DefaultHTMLOptions = HTMLOptions{
+	CSSClass:    DefaultHTMLCSSClass,
+	EmptyColumn: "&nbsp;",
+	EscapeText:  true,
+	Newline:     "<br/>",
+}
 
 // Options defines the global options that determine how the Table is
 // rendered.
