@@ -192,5 +192,15 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	armoryCmd.AddCommand(armoryRefreshCmd)
 
+	armoryResetCmd := &cobra.Command{
+		Use:   consts.ResetStr,
+		Short: "Reset armory configuration",
+		Long:  help.GetHelpFor([]string{consts.ArmoryStr, consts.ResetStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			ResetArmoryConfig(cmd, con)
+		},
+	}
+	armoryCmd.AddCommand(armoryResetCmd)
+
 	return []*cobra.Command{armoryCmd}
 }

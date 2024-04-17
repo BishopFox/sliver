@@ -801,3 +801,18 @@ func fetchPackageSignature(wg *sync.WaitGroup, requestChannel chan struct{}, arm
 	}
 
 }
+
+func clearAllCaches() {
+	currentArmories.Range(func(key, value any) bool {
+		currentArmories.Delete(key)
+		return true
+	})
+	indexCache.Range(func(key, value any) bool {
+		indexCache.Delete(key)
+		return true
+	})
+	pkgCache.Range(func(key, value any) bool {
+		pkgCache.Delete(key)
+		return true
+	})
+}

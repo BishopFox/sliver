@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	armoryConfigFileName = "armories.json"
+	ArmoryConfigFileName = "armories.json"
 	DefaultArmoryName    = "Default"
 )
 
@@ -65,7 +65,7 @@ func RefreshArmoryAuthorization(armories []*ArmoryConfig) {
 
 // GetArmoriesConfig - The parsed armory config file
 func GetArmoriesConfig() []*ArmoryConfig {
-	armoryConfigPath := filepath.Join(GetRootAppDir(), armoryConfigFileName)
+	armoryConfigPath := filepath.Join(GetRootAppDir(), ArmoryConfigFileName)
 	if _, err := os.Stat(armoryConfigPath); os.IsNotExist(err) {
 		return []*ArmoryConfig{DefaultArmoryConfig}
 	}
@@ -104,7 +104,7 @@ func SaveArmoriesConfig(armories []*ArmoryConfig) error {
 	if err != nil {
 		return err
 	}
-	armoryConfigPath := filepath.Join(GetRootAppDir(), armoryConfigFileName)
+	armoryConfigPath := filepath.Join(GetRootAppDir(), ArmoryConfigFileName)
 	err = os.WriteFile(armoryConfigPath, configData, 0640)
 	if err != nil {
 		return err
