@@ -353,6 +353,7 @@ func AddArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	pubKey, _ := cmd.Flags().GetString("pubkey")
 	auth, _ := cmd.Flags().GetString("auth")
 	authCmd, _ := cmd.Flags().GetString("authcmd")
+	noSave, _ := cmd.Flags().GetBool("no-save")
 
 	name := args[0]
 
@@ -383,12 +384,14 @@ func AddArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 		return
 	}
 	currentArmories.Store(armoryConfig.PublicKey, armoryConfig)
-	configs := getCurrentArmoryConfiguration()
-	err = assets.SaveArmoriesConfig(configs)
-	if err != nil {
-		con.PrintErrorf("Could not save armory configuration: %s\n", err)
-	} else {
-		con.PrintSuccessf("Armory configuration saved\n")
+	if !noSave {
+		configs := getCurrentArmoryConfiguration()
+		err = assets.SaveArmoriesConfig(configs)
+		if err != nil {
+			con.PrintErrorf("Could not save armory configuration: %s\n", err)
+		} else {
+			con.PrintSuccessf("Armory configuration saved\n")
+		}
 	}
 	con.PrintSuccessf("Added armory %s\n", name)
 }
@@ -614,7 +617,9 @@ func ModifyArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		}
 	}
 	currentArmories.Store(armoryConfig.PublicKey, armoryConfig)
-	SaveArmories(con)
+	if !cmd.Flags().Changed("no-save") {
+		SaveArmories(con)
+	}
 	// Force a refresh
 	con.PrintInfof("Refreshing armory information...\n")
 	refresh(clientConfig)
