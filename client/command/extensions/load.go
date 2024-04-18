@@ -21,6 +21,8 @@ package extensions
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -372,6 +374,17 @@ func loadExtension(goos string, goarch string, checkCache bool, ext *ExtCommand,
 				depLoaded = true
 			}
 		}
+		//check if the file suffixes are the same (should only be relevant to the same extension package), and don't load the file if it's already there
+		extN := loadedExtensions[cmd.Name()]
+		if extN != nil {
+			//confirm we haven't already loaded the file
+			for _, extf := range extN.Files {
+				if strings.HasSuffix(binPath, extf.Path) {
+					//file already exists, no need to load it
+					return nil
+				}
+			}
+		}
 		if extN, ok := loadedExtensions[cmd.Name()]; ok && extN.CommandName == extName {
 			return nil
 		}
@@ -398,8 +411,11 @@ func loadExtension(goos string, goarch string, checkCache bool, ext *ExtCommand,
 }
 
 func registerExtension(goos string, ext *ExtCommand, binData []byte, cmd *cobra.Command, con *console.SliverClient) error {
+	//set extension name to a hash of the data to avoid loading more than one instance
+	bd := sha256.Sum256(binData)
+	name := hex.EncodeToString(bd[:])
 	registerResp, err := con.Rpc.RegisterExtension(context.Background(), &sliverpb.RegisterExtensionReq{
-		Name: ext.CommandName,
+		Name: name,
 		Data: binData,
 		OS:   goos,
 		//Init:    ext.Init, ?
@@ -499,8 +515,14 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	ctrl := make(chan bool)
 	msg := fmt.Sprintf("Executing %s ...", cmd.Name())
 	con.SpinUntil(msg, ctrl)
+	extdata, err := os.ReadFile(binPath)
+	if err != nil {
+		con.PrintErrorf("ext read file error: %s\n", err)
+	}
+	bd := sha256.Sum256(extdata)
+	name := hex.EncodeToString(bd[:])
 	callExtResp, err := con.Rpc.CallExtension(context.Background(), &sliverpb.CallExtensionReq{
-		Name:    extName,
+		Name:    name,
 		Export:  entryPoint,
 		Args:    extensionArgs,
 		Request: con.ActiveTarget.Request(cmd),
