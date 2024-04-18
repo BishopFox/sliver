@@ -86,6 +86,7 @@ type ExtensionManifest struct {
 
 	RootPath   string `json:"-"`
 	ArmoryName string `json:"-"`
+	ArmoryPK   string `json:"-"`
 }
 
 type ExtCommand struct {

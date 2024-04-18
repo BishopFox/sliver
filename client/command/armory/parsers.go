@@ -134,6 +134,7 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 	}
 	for _, alias := range armoryIndex.Aliases {
 		alias.ArmoryName = armoryIndex.ArmoryConfig.Name
+		alias.ArmoryPK = armoryIndex.ArmoryConfig.PublicKey
 		if cached := packageCacheLookupByCmdAndArmory(alias.CommandName, armoryIndex.ArmoryConfig.PublicKey); cached != nil {
 			// A package with this name is in the cache, so we will remove it here so that the latest version is added
 			// when the index is parsed
@@ -143,6 +144,7 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 	}
 	for _, extension := range armoryIndex.Extensions {
 		extension.ArmoryName = armoryIndex.ArmoryConfig.Name
+		extension.ArmoryPK = armoryIndex.ArmoryConfig.PublicKey
 		if cached := packageCacheLookupByCmdAndArmory(extension.CommandName, armoryIndex.ArmoryConfig.PublicKey); cached != nil {
 			// A package with this name is in the cache, so we will remove it here so that the latest version is added
 			// when the index is parsed
@@ -303,10 +305,12 @@ func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig 
 	}
 	for _, alias := range armoryIndex.Aliases {
 		alias.ArmoryName = armoryIndex.ArmoryConfig.Name
+		alias.ArmoryPK = armoryIndex.ArmoryConfig.PublicKey
 		alias.ID = calculatePackageHash(alias)
 	}
 	for _, extension := range armoryIndex.Extensions {
 		extension.ArmoryName = armoryIndex.ArmoryConfig.Name
+		extension.ArmoryPK = armoryIndex.ArmoryConfig.PublicKey
 		extension.ID = calculatePackageHash(extension)
 	}
 	return armoryIndex, nil

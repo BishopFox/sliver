@@ -44,6 +44,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	flags.Bind("", false, armoryInstallCmd, func(f *pflag.FlagSet) {
 		f.BoolP("force", "f", false, "force installation of package, overwriting the package if it exists")
+		f.StringP("armory", "a", "", "name of armory to install package from")
 	})
 	armoryCmd.AddCommand(armoryInstallCmd)
 	flags.NewCompletions(armoryInstallCmd).PositionalCompletion(
@@ -58,6 +59,9 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 			ArmoryUpdateCmd(cmd, con, args)
 		},
 	}
+	flags.Bind("", false, armoryUpdateCmd, func(f *pflag.FlagSet) {
+		f.StringP("armory", "a", "", "name of armory to get updates from")
+	})
 	armoryCmd.AddCommand(armoryUpdateCmd)
 
 	armorySearchCmd := &cobra.Command{

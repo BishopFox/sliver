@@ -94,6 +94,7 @@ type AliasManifest struct {
 
 	RootPath   string `json:"-"`
 	ArmoryName string `json:"-"`
+	ArmoryPK   string `json:"-"`
 }
 
 func (ec *AliasManifest) getDefaultProcess(targetOS string) (proc string, err error) {

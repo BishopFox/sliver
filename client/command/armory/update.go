@@ -57,16 +57,31 @@ type UpdateIdentifier struct {
 
 // ArmoryUpdateCmd - Update all installed extensions/aliases
 func ArmoryUpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	var selectedUpdates []UpdateIdentifier
+	var err error
+
 	con.PrintInfof("Refreshing package cache ... ")
 	clientConfig := parseArmoryHTTPConfig(cmd)
 	refresh(clientConfig)
 	con.Printf(console.Clearln + "\r")
 
+	armoryName, err := cmd.Flags().GetString("armory")
+	if err != nil {
+		con.PrintErrorf("Could not parse %q flag: %s\n", "armory", err)
+		return
+	}
+
+	// Find PK for the armory name
+	armoryPK := getArmoryPublicKey(armoryName)
+
+	// If the armory with the name is not found, print a warning
+	if cmd.Flags().Changed("armory") && armoryPK == "" {
+		con.PrintWarnf("Could not find a configured armory named %q - searching all configured armories\n\n", armoryName)
+	}
+
 	// Check packages for updates
-	var selectedUpdates []UpdateIdentifier
-	var err error
-	aliasUpdates := checkForAliasUpdates()
-	extUpdates := checkForExtensionUpdates()
+	aliasUpdates := checkForAliasUpdates(armoryPK)
+	extUpdates := checkForExtensionUpdates(armoryPK)
 
 	// Display a table of results
 	if len(aliasUpdates) > 0 || len(extUpdates) > 0 {
@@ -92,7 +107,7 @@ func ArmoryUpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 			if !ok {
 				continue
 			}
-			updatedPackage, err := getPackageForCommand(update.Name, aliasVersionInfo.NewVersion)
+			updatedPackage, err := getPackageForCommand(update.Name, armoryPK, aliasVersionInfo.NewVersion)
 			if err != nil {
 				con.PrintErrorf("Could not get update package for alias %s: %s\n", update.Name, err)
 				// Keep going because other packages might not encounter errors
@@ -107,7 +122,7 @@ func ArmoryUpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 			if !ok {
 				continue
 			}
-			updatedPackage, err := getPackageForCommand(update.Name, extVersionInfo.NewVersion)
+			updatedPackage, err := getPackageForCommand(update.Name, armoryPK, extVersionInfo.NewVersion)
 			if err != nil {
 				con.PrintErrorf("Could not get update package for extension %s: %s\n", update.Name, err)
 				continue
@@ -122,7 +137,7 @@ func ArmoryUpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 }
 
-func checkForAliasUpdates() map[string]VersionInformation {
+func checkForAliasUpdates(armoryPK string) map[string]VersionInformation {
 	cachedAliases, _ := packageManifestsInCache()
 	results := make(map[string]VersionInformation)
 	for _, aliasManifestPath := range assets.GetInstalledAliasManifests() {
@@ -143,10 +158,12 @@ func checkForAliasUpdates() map[string]VersionInformation {
 				if a package is newer.
 			*/
 			if latestAlias.CommandName == localManifest.CommandName && latestAlias.Version > localManifest.Version {
-				results[localManifest.CommandName] = VersionInformation{
-					OldVersion: localManifest.Version,
-					NewVersion: latestAlias.Version,
-					ArmoryName: latestAlias.ArmoryName,
+				if latestAlias.ArmoryPK == armoryPK || armoryPK == "" {
+					results[localManifest.CommandName] = VersionInformation{
+						OldVersion: localManifest.Version,
+						NewVersion: latestAlias.Version,
+						ArmoryName: latestAlias.ArmoryName,
+					}
 				}
 			}
 		}
@@ -154,7 +171,7 @@ func checkForAliasUpdates() map[string]VersionInformation {
 	return results
 }
 
-func checkForExtensionUpdates() map[string]VersionInformation {
+func checkForExtensionUpdates(armoryPK string) map[string]VersionInformation {
 	_, cachedExtensions := packageManifestsInCache()
 	// Return a map of extension name to minimum version to install
 	results := make(map[string]VersionInformation)
@@ -176,10 +193,12 @@ func checkForExtensionUpdates() map[string]VersionInformation {
 				if a package is newer.
 			*/
 			if latestExt.Name == localManifest.Name && latestExt.Version > localManifest.Version {
-				results[localManifest.Name] = VersionInformation{
-					OldVersion: localManifest.Version,
-					NewVersion: latestExt.Version,
-					ArmoryName: latestExt.ArmoryName,
+				if latestExt.ArmoryPK == armoryPK || armoryPK == "" {
+					results[localManifest.Name] = VersionInformation{
+						OldVersion: localManifest.Version,
+						NewVersion: latestExt.Version,
+						ArmoryName: latestExt.ArmoryName,
+					}
 				}
 			}
 		}
