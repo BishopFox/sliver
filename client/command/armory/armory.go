@@ -64,7 +64,8 @@ type ArmoryPackage struct {
 
 		This ID will be a hash calculated from properties of the package.
 	*/
-	ID string `json:"-"`
+	ID       string `json:"-"`
+	ArmoryPK string `json:"-"`
 }
 
 // ArmoryBundle - A list of packages
@@ -792,9 +793,11 @@ func fetchPackageSignature(wg *sync.WaitGroup, requestChannel chan struct{}, arm
 	if armoryPkg.IsAlias {
 		pkgCacheEntry.Alias, err = alias.ParseAliasManifest(manifestData)
 		pkgCacheEntry.Alias.ArmoryName = armoryConfig.Name
+		pkgCacheEntry.Alias.ArmoryPK = armoryConfig.PublicKey
 	} else {
 		pkgCacheEntry.Extension, err = extensions.ParseExtensionManifest(manifestData)
 		pkgCacheEntry.Extension.ArmoryName = armoryConfig.Name
+		pkgCacheEntry.Extension.ArmoryPK = armoryConfig.PublicKey
 	}
 	if err != nil {
 		pkgCacheEntry.LastErr = fmt.Errorf("failed to parse trusted manifest in pkg signature: %s", err)
@@ -815,4 +818,19 @@ func clearAllCaches() {
 		pkgCache.Delete(key)
 		return true
 	})
+}
+
+func getArmoryPublicKey(armoryName string) string {
+	// Find PK for the armory name
+	armoryPK := ""
+	currentArmories.Range(func(key, value any) bool {
+		armoryEntry := value.(assets.ArmoryConfig)
+		if armoryEntry.Name == armoryName {
+			armoryPK = armoryEntry.PublicKey
+			return false
+		}
+		return true
+	})
+
+	return armoryPK
 }

@@ -67,6 +67,20 @@ func ArmoryInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		promptToOverwrite = true
 	}
 
+	armoryName, err := cmd.Flags().GetString("armory")
+	if err != nil {
+		con.PrintErrorf("Could not parse %q flag: %s\n", "armory", err)
+		return
+	}
+
+	// Find PK for the armory name
+	armoryPK := getArmoryPublicKey(armoryName)
+
+	// If the armory with the name is not found, print a warning
+	if cmd.Flags().Changed("armory") && armoryPK == "" {
+		con.PrintWarnf("Could not find a configured armory named %q - searching all configured armories\n\n", armoryName)
+	}
+
 	clientConfig := parseArmoryHTTPConfig(cmd)
 	refresh(clientConfig)
 	if name == "all" {
@@ -92,7 +106,7 @@ func ArmoryInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		}
 		promptToOverwrite = false
 	}
-	err = installPackageByName(name, forceInstallation, promptToOverwrite, clientConfig, con)
+	err = installPackageByName(name, armoryPK, forceInstallation, promptToOverwrite, clientConfig, con)
 	if err == nil {
 		return
 	}
@@ -100,12 +114,16 @@ func ArmoryInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		bundles := bundlesInCache()
 		for _, bundle := range bundles {
 			if bundle.Name == name {
-				installBundle(bundle, forceInstallation, clientConfig, con)
+				installBundle(bundle, armoryPK, forceInstallation, clientConfig, con)
 				return
 			}
 		}
 		// If we have made it here, then there was not a bundle or package that matched the provided name
-		con.PrintErrorf("No package or bundle named %q was found\n", name)
+		if armoryPK == "" {
+			con.PrintErrorf("No package or bundle named %q was found\n", name)
+		} else {
+			con.PrintErrorf("No package or bundle named %q was found in armory %s\n", name, armoryName)
+		}
 	} else if errors.Is(err, ErrPackageAlreadyInstalled) {
 		con.PrintErrorf("Package %q is already installed - use the force option to overwrite it\n", name)
 	} else {
@@ -114,12 +132,12 @@ func ArmoryInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 
 }
 
-func installBundle(bundle *ArmoryBundle, forceInstallation bool, clientConfig ArmoryHTTPConfig, con *console.SliverClient) {
+func installBundle(bundle *ArmoryBundle, armoryPK string, forceInstallation bool, clientConfig ArmoryHTTPConfig, con *console.SliverClient) {
 	installList := []string{}
 	pendingPackages := make(map[string]string)
 
 	for _, bundlePkgName := range bundle.Packages {
-		packageInstallList, err := buildInstallList(bundlePkgName, forceInstallation, pendingPackages)
+		packageInstallList, err := buildInstallList(bundlePkgName, armoryPK, forceInstallation, pendingPackages)
 		if err != nil {
 			if errors.Is(err, ErrPackageAlreadyInstalled) {
 				con.PrintInfof("Package %s is already installed. Skipping...\n", bundlePkgName)
@@ -208,9 +226,6 @@ func getInstalledPackageNames() []string {
 				}
 			}
 		}
-		/*if !slices.Contains(packageNames, extension.Name) {
-			packageNames = append(packageNames, extension.Name)
-		}*/
 	}
 
 	return packageNames
@@ -241,7 +256,7 @@ func getCommandsInCache() []string {
 	return commandNames
 }
 
-func getPackagesWithCommandName(name, minimumVersion string) []*pkgCacheEntry {
+func getPackagesWithCommandName(name, armoryPK, minimumVersion string) []*pkgCacheEntry {
 	packages := []*pkgCacheEntry{}
 
 	pkgCache.Range(func(key, value interface{}) bool {
@@ -250,14 +265,18 @@ func getPackagesWithCommandName(name, minimumVersion string) []*pkgCacheEntry {
 			if cacheEntry.Pkg.IsAlias {
 				if cacheEntry.Alias.CommandName == name {
 					if minimumVersion == "" || (minimumVersion != "" && cacheEntry.Alias.Version >= minimumVersion) {
-						packages = append(packages, &cacheEntry)
+						if armoryPK == "" || (armoryPK != "" && cacheEntry.ArmoryConfig.PublicKey == armoryPK) {
+							packages = append(packages, &cacheEntry)
+						}
 					}
 				}
 			} else {
 				for _, command := range cacheEntry.Extension.ExtCommand {
 					if command.CommandName == name {
 						if minimumVersion == "" || (minimumVersion != "" && cacheEntry.Extension.Version >= minimumVersion) {
-							packages = append(packages, &cacheEntry)
+							if armoryPK == "" || (armoryPK != "" && cacheEntry.ArmoryConfig.PublicKey == armoryPK) {
+								packages = append(packages, &cacheEntry)
+							}
 							break
 						}
 					}
@@ -287,8 +306,8 @@ func getPackageIDFromUser(name string, options map[string]string) string {
 	return selectedPackageID
 }
 
-func getPackageForCommand(name, minimumVersion string) (*pkgCacheEntry, error) {
-	packagesWithCommand := getPackagesWithCommandName(name, minimumVersion)
+func getPackageForCommand(name, armoryPK, minimumVersion string) (*pkgCacheEntry, error) {
+	packagesWithCommand := getPackagesWithCommandName(name, armoryPK, minimumVersion)
 
 	if len(packagesWithCommand) > 1 {
 		// Build an option map for the user to choose from (option -> pkgID)
@@ -328,7 +347,7 @@ func getPackageForCommand(name, minimumVersion string) (*pkgCacheEntry, error) {
 	return nil, ErrPackageNotFound
 }
 
-func buildInstallList(name string, forceInstallation bool, pendingPackages map[string]string) ([]string, error) {
+func buildInstallList(name, armoryPK string, forceInstallation bool, pendingPackages map[string]string) ([]string, error) {
 	packageInstallList := []string{}
 	installedPackages := getInstalledPackageNames()
 
@@ -366,7 +385,7 @@ func buildInstallList(name string, forceInstallation bool, pendingPackages map[s
 			// We are already going to install a package with this name, so do not try to resolve it
 			continue
 		}
-		packageEntry, err := getPackageForCommand(packageName, "")
+		packageEntry, err := getPackageForCommand(packageName, armoryPK, "")
 		if err != nil {
 			return nil, err
 		}
@@ -395,9 +414,9 @@ func buildInstallList(name string, forceInstallation bool, pendingPackages map[s
 	return packageInstallList, nil
 }
 
-func installPackageByName(name string, forceInstallation, promptToOverwrite bool, clientConfig ArmoryHTTPConfig, con *console.SliverClient) error {
+func installPackageByName(name, armoryPK string, forceInstallation, promptToOverwrite bool, clientConfig ArmoryHTTPConfig, con *console.SliverClient) error {
 	pendingPackages := make(map[string]string)
-	packageInstallList, err := buildInstallList(name, forceInstallation, pendingPackages)
+	packageInstallList, err := buildInstallList(name, armoryPK, forceInstallation, pendingPackages)
 	if err != nil {
 		return err
 	}
@@ -405,7 +424,7 @@ func installPackageByName(name string, forceInstallation, promptToOverwrite bool
 		for _, packageID := range packageInstallList {
 			entry := packageCacheLookupByID(packageID)
 			if entry == nil {
-				return errors.New("cache inconsistency error - please refresh the cache and try again")
+				return errors.New("cache consistency error - please refresh the cache and try again")
 			}
 			if entry.Pkg.IsAlias {
 				err := installAliasPackage(entry, promptToOverwrite, clientConfig, con)
@@ -515,7 +534,7 @@ func resolveExtensionPackageDependencies(pkg *pkgCacheEntry, deps map[string]*pk
 			continue
 		}
 		// Figure out what package we need for the dependency
-		dependencyEntry, err := getPackageForCommand(multiExt.DependsOn, "")
+		dependencyEntry, err := getPackageForCommand(multiExt.DependsOn, "", "")
 		if err != nil {
 			return fmt.Errorf("could not resolve dependency %s for %s: %s", multiExt.DependsOn, pkg.Extension.Name, err)
 		}
