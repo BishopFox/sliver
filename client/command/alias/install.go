@@ -36,11 +36,11 @@ func AliasesInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 	aliasLocalPath := args[0]
 	fi, err := os.Stat(aliasLocalPath)
 	if os.IsNotExist(err) {
-		con.PrintErrorf("Extension path '%s' does not exist", aliasLocalPath)
+		con.PrintErrorf("Alias path '%s' does not exist", aliasLocalPath)
 		return
 	}
 	if !fi.IsDir() {
-		InstallFromFile(aliasLocalPath, false, con)
+		InstallFromFile(aliasLocalPath, "", false, con)
 	} else {
 		installFromDir(aliasLocalPath, con)
 	}
@@ -100,7 +100,7 @@ func installFromDir(aliasLocalPath string, con *console.SliverClient) {
 }
 
 // Install an extension from a .tar.gz file.
-func InstallFromFile(aliasGzFilePath string, autoOverwrite bool, con *console.SliverClient) *string {
+func InstallFromFile(aliasGzFilePath string, aliasName string, promptToOverwrite bool, con *console.SliverClient) *string {
 	manifestData, err := util.ReadFileFromTarGz(aliasGzFilePath, fmt.Sprintf("./%s", ManifestFileName))
 	if err != nil {
 		con.PrintErrorf("Failed to read %s from '%s': %s\n", ManifestFileName, aliasGzFilePath, err)
@@ -108,12 +108,18 @@ func InstallFromFile(aliasGzFilePath string, autoOverwrite bool, con *console.Sl
 	}
 	manifest, err := ParseAliasManifest(manifestData)
 	if err != nil {
-		con.PrintErrorf("Failed to parse %s: %s\n", ManifestFileName, err)
+		errorMsg := ""
+		if aliasName != "" {
+			errorMsg = fmt.Sprintf("Error processing manifest for alias %s - failed to parse %s: %s\n", aliasName, ManifestFileName, err)
+		} else {
+			errorMsg = fmt.Sprintf("Failed to parse %s: %s\n", ManifestFileName, err)
+		}
+		con.PrintErrorf(errorMsg)
 		return nil
 	}
 	installPath := filepath.Join(assets.GetAliasesDir(), filepath.Base(manifest.CommandName))
 	if _, err := os.Stat(installPath); !os.IsNotExist(err) {
-		if !autoOverwrite {
+		if promptToOverwrite {
 			con.PrintInfof("Alias '%s' already exists\n", manifest.CommandName)
 			confirm := false
 			prompt := &survey.Confirm{Message: "Overwrite current install?"}
@@ -139,7 +145,7 @@ func InstallFromFile(aliasGzFilePath string, autoOverwrite bool, con *console.Sl
 	}
 	for _, aliasFile := range manifest.Files {
 		if aliasFile.Path != "" {
-			err := installArtifact(aliasGzFilePath, installPath, aliasFile.Path, con)
+			err := installArtifact(aliasGzFilePath, installPath, aliasFile.Path)
 			if err != nil {
 				con.PrintErrorf("Failed to install file: %s\n", err)
 				forceRemoveAll(installPath)
@@ -151,7 +157,7 @@ func InstallFromFile(aliasGzFilePath string, autoOverwrite bool, con *console.Sl
 	return &installPath
 }
 
-func installArtifact(aliasGzFilePath string, installPath, artifactPath string, con *console.SliverClient) error {
+func installArtifact(aliasGzFilePath string, installPath, artifactPath string) error {
 	data, err := util.ReadFileFromTarGz(aliasGzFilePath, fmt.Sprintf("./%s", strings.TrimPrefix(artifactPath, string(os.PathSeparator))))
 	if err != nil {
 		return err
