@@ -47,7 +47,7 @@ func ArmorySearchCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		return
 	}
 
-	aliases, exts := packagesInCache()
+	aliases, exts := packageManifestsInCache()
 	matchedAliases := []*alias.AliasManifest{}
 	for _, a := range aliases {
 		if nameExpr.MatchString(a.CommandName) {

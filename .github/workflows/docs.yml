@@ -63,7 +63,7 @@ jobs:
           node-version: "lts/*"
 
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
 
       - name: Restore cache
         uses: actions/cache@v3

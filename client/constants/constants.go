@@ -145,6 +145,7 @@ const (
 	TrafficEncodersStr = "traffic-encoders"
 	C2ProfileStr       = "c2profiles"
 	ImportC2ProfileStr = "import"
+	ExportC2ProfileStr = "export"
 
 	// Generic.
 
@@ -161,6 +162,11 @@ const (
 	TablesStr  = "tables"
 	DetailsStr = "details"
 	GraphStr   = "graph"
+	EnableStr  = "enable"
+	DisableStr = "disable"
+	ModifyStr  = "modify"
+	RefreshStr = "refresh"
+	ResetStr   = "reset"
 
 	LootStr       = "loot"
 	LootLocalStr  = "local"
