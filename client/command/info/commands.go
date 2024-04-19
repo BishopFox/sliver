@@ -97,5 +97,18 @@ func SliverCommands(con *console.SliverClient) []*cobra.Command {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 
-	return []*cobra.Command{pingCmd, getPIDCmd, getUIDCmd, getGIDCmd, whoamiCmd}
+	infoCmd := &cobra.Command{
+		Use:   consts.InfoStr,
+		Short: "Get session info",
+		Long:  help.GetHelpFor([]string{consts.InfoStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			InfoCmd(cmd, con, args)
+		},
+		GroupID: consts.InfoHelpGroup,
+	}
+	flags.Bind("use", false, infoCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+
+	return []*cobra.Command{pingCmd, getPIDCmd, getUIDCmd, getGIDCmd, whoamiCmd, infoCmd}
 }
