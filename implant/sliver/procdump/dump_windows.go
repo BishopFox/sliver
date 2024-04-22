@@ -20,7 +20,8 @@ package procdump
 
 import (
 	"fmt"
-	"runtime"
+	"sort"
+	"sync"
 
 	//{{if .Config.Debug}}
 	"log"
@@ -76,26 +77,34 @@ type WindowsDump struct {
 }
 
 type outDump struct {
-	chunks []dumpChunk
-}
-
-type dumpChunk struct {
-	data  []byte
-	start uint64
+	chunks sync.Map
 }
 
 func (o *outDump) reassemble() []byte {
-	var lastChunk dumpChunk
-	// Find chunk that has the highest offset
-	for _, chunk := range o.chunks {
-		if chunk.start > lastChunk.start {
-			lastChunk = chunk
-		}
+	keys := make([]uint64, 0)
+	o.chunks.Range(func(k, v interface{}) bool {
+		keys = append(keys, k.(uint64))
+		return true
+	})
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	lastChunckOffset := keys[len(keys)-1]
+	lastChunk, ok := o.chunks.Load(lastChunckOffset)
+	if !ok {
+		// {{if .Config.Debug}}
+		log.Println("lastChunk not found")
+		// {{end}}
+		return nil
 	}
-	output := make([]byte, lastChunk.start+uint64(len(lastChunk.data)))
-	// Reassemble
-	for _, chunk := range o.chunks {
-		copy(output[chunk.start:], chunk.data)
+	output := make([]byte, lastChunckOffset+uint64(len(lastChunk.([]byte))))
+	for _, k := range keys {
+		chunk, ok := o.chunks.Load(k)
+		if !ok {
+			// {{if .Config.Debug}}
+			log.Printf("chunk %d not found\n", k)
+			// {{end}}
+			return nil
+		}
+		copy(output[k:], chunk.([]byte))
 	}
 	return output
 }
@@ -112,13 +121,7 @@ func dumpProcess(pid int32) (ProcessDump, error) {
 	}
 
 	hProc, err := windows.OpenProcess(syscalls.PROCESS_DUP_HANDLE, false, uint32(pid))
-	currentProcHandle, err := windows.GetCurrentProcess()
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Println("GetCurrentProcess failed")
-		// {{end}}
-		return res, err
-	}
+	currentProcHandle := windows.CurrentProcess()
 	err = windows.DuplicateHandle(hProc, currentProcHandle, currentProcHandle, &lpTargetHandle, 0, false, syscalls.DUPLICATE_SAME_ACCESS)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -150,7 +153,7 @@ func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
 	// {{end}}
 
 	outData := outDump{
-		chunks: make([]dumpChunk, 0),
+		chunks: sync.Map{},
 	}
 
 	callbackInfo := MiniDumpCallbackInformation{
@@ -171,7 +174,13 @@ func minidump(pid uint32, proc windows.Handle) (ProcessDump, error) {
 	if err != nil {
 		return dump, err
 	}
+	// {{if .Config.Debug}}
+	log.Println("Dump completed, reassembling...")
+	// {{end}}
 	dump.data = outData.reassemble()
+	// {{if .Config.Debug}}
+	log.Println("Reassembly done!")
+	// {{end}}
 	return dump, nil
 }
 
@@ -261,14 +270,9 @@ func minidumpCallback(callbackParam uintptr, callbackInputPtr uintptr, callbackO
 		outData := (*outDump)(unsafe.Pointer(callbackParam))
 		liveSliceSize := int(callbackInput.Io.BufferBytes)
 		liveSlice := unsafe.Slice((*byte)(unsafe.Pointer(callbackInput.Io.Buffer)), liveSliceSize)
-		// deep copy
-		newChunk := dumpChunk{
-			data:  make([]byte, liveSliceSize),
-			start: callbackInput.Io.Offset,
-		}
-		copy(newChunk.data, liveSlice)
-		outData.chunks = append(outData.chunks, newChunk)
-		runtime.KeepAlive(outData)
+		newChunk := make([]byte, liveSliceSize)
+		copy(newChunk, liveSlice)
+		outData.chunks.Store(callbackInput.Io.Offset, newChunk)
 	case IoFinishCallback:
 		callbackOutput.Status = S_OK
 	default:
