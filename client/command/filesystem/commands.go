@@ -188,6 +188,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("", false, uploadCmd, func(f *pflag.FlagSet) {
 		f.BoolP("ioc", "i", false, "track uploaded file as an ioc")
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		f.BoolP("overwrite", "o", false, "overwrite file if it exists")
 	})
 	carapace.Gen(uploadCmd).PositionalCompletion(
 		carapace.ActionFiles().Usage("local path to the file to upload"),
