@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"sync"
 
 	//{{if .Config.Debug}}
@@ -58,7 +59,7 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 }
 
 // Sideload - Side load a library and return its output
-func Sideload(procName string, procArgs []string, _ uint32, data []byte, args string, kill bool) (string, error) {
+func Sideload(procName string, procArgs []string, _ uint32, data []byte, args []string, kill bool) (string, error) {
 	var (
 		stdOut bytes.Buffer
 		stdErr bytes.Buffer
@@ -72,7 +73,7 @@ func Sideload(procName string, procArgs []string, _ uint32, data []byte, args st
 	}
 	env := os.Environ()
 	newEnv := []string{
-		fmt.Sprintf("LD_PARAMS=%s", args),
+		fmt.Sprintf("LD_PARAMS=%s", strings.Join(args, " ")),
 		fmt.Sprintf("DYLD_INSERT_LIBRARIES=%s", fdPath),
 	}
 	env = append(env, newEnv...)

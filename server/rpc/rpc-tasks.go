@@ -198,7 +198,7 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 		req.Assembly,
 		req.IsDLL,
 		req.Arch,
-		req.Arguments,
+		strings.Join(req.Arguments, " "),
 		req.Method,
 		req.ClassName,
 		req.AppDomain,
@@ -214,7 +214,7 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 		invokeInProcExecAssembly := &sliverpb.InvokeInProcExecuteAssemblyReq{
 			Data:       req.Assembly,
 			Runtime:    req.Runtime,
-			Arguments:  strings.Split(req.Arguments, " "),
+			Arguments:  req.Arguments,
 			AmsiBypass: req.AmsiBypass,
 			EtwBypass:  req.EtwBypass,
 			Request:    req.Request,
@@ -266,7 +266,7 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 	}
 
 	if getOS(session, beacon) == "windows" {
-		shellcode, err := generate.DonutShellcodeFromPE(req.Data, arch, false, req.Args, "", req.EntryPoint, req.IsDLL, req.IsUnicode, false)
+		shellcode, err := generate.DonutShellcodeFromPE(req.Data, arch, false, strings.Join(req.Args, " "), "", req.EntryPoint, req.IsDLL, req.IsUnicode, false)
 		if err != nil {
 			tasksLog.Errorf("Sideload failed: %s", err)
 			return nil, err

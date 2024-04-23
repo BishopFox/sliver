@@ -451,7 +451,7 @@ message Task {
 
 message ExecuteAssemblyReq {
   bytes Assembly = 1;
-  string Arguments = 2;
+  repeated string Arguments = 2;
   string Process = 3;
   bool IsDLL = 4;
   string Arch = 5;
@@ -543,7 +543,7 @@ message Execute {
 message SideloadReq {
   bytes Data = 1;
   string ProcessName = 2;
-  string Args = 3;
+  repeated string Args = 3;
   string EntryPoint = 4;
   bool Kill = 5;
   bool isDLL = 6;
@@ -563,7 +563,7 @@ message Sideload {
 message InvokeSpawnDllReq {
   bytes Data = 1;
   string ProcessName = 2;
-  string Args = 3;
+  repeated string Args = 3;
   string EntryPoint = 4;
   bool Kill = 5;
   uint32 PPid = 10;
@@ -576,7 +576,7 @@ message SpawnDllReq {
   bytes Data = 1;
   string ProcessName = 2;
   uint32 Offset = 3;
-  string Args = 4;
+  repeated string Args = 4;
   bool Kill = 5;
   uint32 PPid = 10;
   repeated string ProcessArgs = 11;
