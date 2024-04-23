@@ -292,9 +292,8 @@ const (
 
 	LicensesStr = "licenses"
 
-	GetPrivsStr        = "getprivs"
-	PreludeOperatorStr = "prelude-operator"
-	ConnectStr         = "connect"
+	GetPrivsStr = "getprivs"
+	ConnectStr  = "connect"
 
 	ShikataGaNai = "shikata-ga-nai"
 
