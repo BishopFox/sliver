@@ -162,6 +162,11 @@ const (
 	TablesStr  = "tables"
 	DetailsStr = "details"
 	GraphStr   = "graph"
+	EnableStr  = "enable"
+	DisableStr = "disable"
+	ModifyStr  = "modify"
+	RefreshStr = "refresh"
+	ResetStr   = "reset"
 
 	LootStr       = "loot"
 	LootLocalStr  = "local"
