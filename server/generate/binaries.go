@@ -482,7 +482,7 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 		sliverCode := template.New("sliver")
 		sliverCode, err = sliverCode.Funcs(template.FuncMap{
 			"GenerateUserAgent": func() string {
-				return "" // renerateUserAgent(config.GOOS, config.GOARCH)
+				return pbC2Implant.UserAgent
 			},
 		}).Parse(sliverGoCode)
 		if err != nil {
