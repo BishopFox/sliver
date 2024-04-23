@@ -35,7 +35,6 @@ import (
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
-	"github.com/bishopfox/sliver/client/prelude"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -268,14 +267,6 @@ func (con *SliverClient) startEventLoop() {
 			con.PrintEventInfof("Session %s %s - %s (%s) - %s/%s - %v",
 				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 
-			// Prelude Operator
-			if prelude.ImplantMapper != nil {
-				err = prelude.ImplantMapper.AddImplant(session, nil)
-				if err != nil {
-					con.PrintErrorf("Could not add session to Operator: %s", err)
-				}
-			}
-
 		case consts.SessionUpdateEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
@@ -295,13 +286,6 @@ func (con *SliverClient) startEventLoop() {
 				con.ActiveTarget.Set(nil, nil)
 				con.PrintErrorf("Active session disconnected")
 			}
-			if prelude.ImplantMapper != nil {
-				err = prelude.ImplantMapper.RemoveImplant(session)
-				if err != nil {
-					con.PrintErrorf("Could not remove session from Operator: %s", err)
-				}
-				con.PrintInfof("Removed session %s from Operator", session.Name)
-			}
 
 		case consts.BeaconRegisteredEvent:
 			beacon := &clientpb.Beacon{}
@@ -310,16 +294,6 @@ func (con *SliverClient) startEventLoop() {
 			shortID := strings.Split(beacon.ID, "-")[0]
 			con.PrintEventInfof("Beacon %s %s - %s (%s) - %s/%s - %v",
 				shortID, beacon.Name, beacon.RemoteAddress, beacon.Hostname, beacon.OS, beacon.Arch, currentTime)
-
-			// Prelude Operator
-			if prelude.ImplantMapper != nil {
-				err = prelude.ImplantMapper.AddImplant(beacon, func(taskID string, cb func(*clientpb.BeaconTask)) {
-					con.AddBeaconCallback(taskID, cb)
-				})
-				if err != nil {
-					con.PrintErrorf("Could not add beacon to Operator: %s", err)
-				}
-			}
 
 		case consts.BeaconTaskResultEvent:
 			con.triggerBeaconTaskCallback(event.Data)
