@@ -7,7 +7,7 @@ Pretty-print tables into ASCII/Unicode strings.
   - Add Header(s) and Footer(s) (`AppendHeader`/`AppendFooter`)
   - Add a Separator manually after any Row (`AppendSeparator`)
   - Auto Index Rows (1, 2, 3 ...) and Columns (A, B, C, ...) (`SetAutoIndex`)
-  - Auto Merge
+  - Auto Merge (_not supported in CSV/HTML/Markdown/TSV modes_)
     - Cells in a Row (`RowConfig.AutoMerge`)
     - Columns (`ColumnConfig.AutoMerge`)
   - Limit the length of
@@ -21,6 +21,7 @@ Pretty-print tables into ASCII/Unicode strings.
   - Mirror output to an `io.Writer` (ex. `os.StdOut`) (`SetOutputMirror`)
   - Sort by one or more Columns (`SortBy`)
   - Suppress/hide columns with no content (`SuppressEmptyColumns`) 
+  - Suppress trailing spaces in the last column (`SupressTrailingSpaces`) 
   - Customizable Cell rendering per Column (`ColumnConfig.Transformer*`)
   - Hide any columns that you don't want displayed (`ColumnConfig.Hidden`)
   - Reset Headers/Rows/Footers at will to reuse the same Table Writer (`Reset*`)
@@ -36,6 +37,7 @@ Pretty-print tables into ASCII/Unicode strings.
     - CSV
     - HTML Table (with custom CSS Class)
     - Markdown Table
+    - TSV
 
 ```
 +---------------------------------------------------------------------+
@@ -205,7 +207,7 @@ it specifically for each row/column using `RowConfig` or `ColumnConfig`.
 
     t := table.NewWriter()
     t.AppendHeader(table.Row{"Node IP", "Pods", "Namespace", "Container", "RCE", "RCE"}, rowConfigAutoMerge)
-    t.AppendHeader(table.Row{"", "", "", "", "EXE", "RUN"})
+    t.AppendHeader(table.Row{"Node IP", "Pods", "Namespace", "Container", "EXE", "RUN"})
     t.AppendRow(table.Row{"1.1.1.1", "Pod 1A", "NS 1A", "C 1", "Y", "Y"}, rowConfigAutoMerge)
     t.AppendRow(table.Row{"1.1.1.1", "Pod 1A", "NS 1A", "C 2", "Y", "N"}, rowConfigAutoMerge)
     t.AppendRow(table.Row{"1.1.1.1", "Pod 1A", "NS 1B", "C 3", "N", "N"}, rowConfigAutoMerge)
@@ -223,7 +225,6 @@ it specifically for each row/column using `RowConfig` or `ColumnConfig`.
         {Number: 5, Align: text.AlignCenter, AlignFooter: text.AlignCenter, AlignHeader: text.AlignCenter},
         {Number: 6, Align: text.AlignCenter, AlignFooter: text.AlignCenter, AlignHeader: text.AlignCenter},
     })
-    t.SetOutputMirror(os.Stdout)
     t.SetStyle(table.StyleLight)
     t.Style().Options.SeparateRows = true
     fmt.Println(t.Render())

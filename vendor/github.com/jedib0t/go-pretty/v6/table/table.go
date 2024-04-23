@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode"
 
 	"github.com/jedib0t/go-pretty/v6/text"
 )
@@ -32,13 +33,13 @@ func (row rowStr) areEqual(colIdx1 int, colIdx2 int) bool {
 	return colIdx1 >= 0 && colIdx2 < len(row) && row[colIdx1] == row[colIdx2]
 }
 
-// Table helps print a 2-dimensional array in a human readable pretty-table.
+// Table helps print a 2-dimensional array in a human-readable pretty-table.
 type Table struct {
 	// allowedRowLength is the max allowed length for a row (or line of output)
 	allowedRowLength int
 	// enable automatic indexing of the rows and columns like a spreadsheet?
 	autoIndex bool
-	// autoIndexVIndexMaxLength denotes the length in chars for the last rownum
+	// autoIndexVIndexMaxLength denotes the length in chars for the last row
 	autoIndexVIndexMaxLength int
 	// caption stores the text to be rendered just below the table; and doesn't
 	// get used when rendered as a CSV
@@ -50,6 +51,8 @@ type Table struct {
 	// columnConfigMap stores the custom-configuration by column
 	// number and is generated before rendering
 	columnConfigMap map[int]ColumnConfig
+	// firstRowOfPage tells if the renderer is on the first row of a page?
+	firstRowOfPage bool
 	// htmlCSSClass stores the HTML CSS Class to use on the <table> node
 	htmlCSSClass string
 	// indexColumn stores the number of the column considered as the "index"
@@ -106,6 +109,8 @@ type Table struct {
 	// suppressEmptyColumns hides columns which have no content on all regular
 	// rows
 	suppressEmptyColumns bool
+	// supressTrailingSpaces removes all trailing spaces from the end of the last column
+	supressTrailingSpaces bool
 	// title contains the text to appear above the table
 	title string
 }
@@ -164,14 +169,15 @@ func (t *Table) AppendRows(rows []Row, config ...RowConfig) {
 // append is a separator, it will not be rendered in addition to the usual table
 // separator.
 //
-//******************************************************************************
+// ******************************************************************************
 // Please note the following caveats:
-// 1. SetPageSize(): this may end up creating consecutive separator rows near
-//    the end of a page or at the beginning of a page
-// 2. SortBy(): since SortBy could inherently alter the ordering of rows, the
-//    separators may not appear after the row it was originally intended to
-//    follow
-//******************************************************************************
+//  1. SetPageSize(): this may end up creating consecutive separator rows near
+//     the end of a page or at the beginning of a page
+//  2. SortBy(): since SortBy could inherently alter the ordering of rows, the
+//     separators may not appear after the row it was originally intended to
+//     follow
+//
+// ******************************************************************************
 func (t *Table) AppendSeparator() {
 	if t.separators == nil {
 		t.separators = make(map[int]bool)
@@ -228,7 +234,7 @@ func (t *Table) SetColumnConfigs(configs []ColumnConfig) {
 	t.columnConfigs = configs
 }
 
-// SetHTMLCSSClass sets the the HTML CSS Class to use on the <table> node
+// SetHTMLCSSClass sets the HTML CSS Class to use on the <table> node
 // when rendering the Table in HTML format.
 //
 // Deprecated: in favor of Style().HTML.CSSClass
@@ -294,6 +300,11 @@ func (t *Table) Style() *Style {
 // regular rows.
 func (t *Table) SuppressEmptyColumns() {
 	t.suppressEmptyColumns = true
+}
+
+// SuppressTrailingSpaces removes all trailing spaces from the output.
+func (t *Table) SuppressTrailingSpaces() {
+	t.supressTrailingSpaces = true
 }
 
 func (t *Table) getAlign(colIdx int, hint renderHint) text.Align {
@@ -388,7 +399,7 @@ func (t *Table) getBorderRight(hint renderHint) string {
 
 func (t *Table) getColumnColors(colIdx int, hint renderHint) text.Colors {
 	if hint.isBorderOrSeparator() {
-		if colors := t.getColumnColorsForBorderOrSeparator(colIdx, hint); colors != nil {
+		if colors := t.getColumnColorsForBorderOrSeparator(hint); colors != nil {
 			return colors
 		}
 	}
@@ -410,7 +421,7 @@ func (t *Table) getColumnColors(colIdx int, hint renderHint) text.Colors {
 	return nil
 }
 
-func (t *Table) getColumnColorsForBorderOrSeparator(colIdx int, hint renderHint) text.Colors {
+func (t *Table) getColumnColorsForBorderOrSeparator(hint renderHint) text.Colors {
 	if t.style.Options.DoNotColorBordersAndSeparators {
 		return text.Colors{} // not nil to force caller to paint with no colors
 	}
@@ -439,12 +450,9 @@ func (t *Table) getColumnSeparator(row rowStr, colIdx int, hint renderHint) stri
 				separator = t.style.Box.BottomSeparator
 			}
 		} else {
-			separator = t.getColumnSeparatorNonBorder(
-				t.shouldMergeCellsHorizontallyAbove(row, colIdx, hint),
-				t.shouldMergeCellsHorizontallyBelow(row, colIdx, hint),
-				colIdx,
-				hint,
-			)
+			sm1 := t.shouldMergeCellsHorizontallyAbove(row, colIdx, hint)
+			sm2 := t.shouldMergeCellsHorizontallyBelow(row, colIdx, hint)
+			separator = t.getColumnSeparatorNonBorder(sm1, sm2, colIdx, hint)
 		}
 	}
 	return separator
@@ -681,6 +689,13 @@ func (t *Table) isIndexColumn(colIdx int, hint renderHint) bool {
 
 func (t *Table) render(out *strings.Builder) string {
 	outStr := out.String()
+	if t.supressTrailingSpaces {
+		var trimmed []string
+		for _, line := range strings.Split(outStr, "\n") {
+			trimmed = append(trimmed, strings.TrimRightFunc(line, unicode.IsSpace))
+		}
+		outStr = strings.Join(trimmed, "\n")
+	}
 	if t.outputMirror != nil && len(outStr) > 0 {
 		_, _ = t.outputMirror.Write([]byte(outStr))
 		_, _ = t.outputMirror.Write([]byte("\n"))
@@ -721,7 +736,10 @@ func (t *Table) shouldMergeCellsHorizontallyBelow(row rowStr, colIdx int, hint r
 
 	var rowConfig RowConfig
 	if hint.isSeparatorRow {
-		if hint.isHeaderRow && hint.rowNumber == 0 {
+		if hint.isRegularRow() {
+			rowConfig = t.getRowConfig(renderHint{rowNumber: hint.rowNumber + 1})
+			row = t.getRow(hint.rowNumber, renderHint{})
+		} else if hint.isHeaderRow && hint.rowNumber == 0 {
 			rowConfig = t.getRowConfig(renderHint{isHeaderRow: true, rowNumber: 1})
 			row = t.getRow(0, hint)
 		} else if hint.isHeaderRow && hint.isLastRow {
@@ -733,9 +751,6 @@ func (t *Table) shouldMergeCellsHorizontallyBelow(row rowStr, colIdx int, hint r
 		} else if hint.isFooterRow && hint.rowNumber >= 0 {
 			rowConfig = t.getRowConfig(renderHint{isFooterRow: true, rowNumber: 1})
 			row = t.getRow(hint.rowNumber, renderHint{isFooterRow: true})
-		} else if hint.isRegularRow() {
-			rowConfig = t.getRowConfig(renderHint{rowNumber: hint.rowNumber + 1})
-			row = t.getRow(hint.rowNumber, renderHint{})
 		}
 	}
 
@@ -746,22 +761,41 @@ func (t *Table) shouldMergeCellsHorizontallyBelow(row rowStr, colIdx int, hint r
 }
 
 func (t *Table) shouldMergeCellsVertically(colIdx int, hint renderHint) bool {
-	if t.columnConfigMap[colIdx].AutoMerge && colIdx < t.numColumns {
+	if !t.firstRowOfPage && t.columnConfigMap[colIdx].AutoMerge && colIdx < t.numColumns {
 		if hint.isSeparatorRow {
 			rowPrev := t.getRow(hint.rowNumber-1, hint)
 			rowNext := t.getRow(hint.rowNumber, hint)
 			if colIdx < len(rowPrev) && colIdx < len(rowNext) {
-				return rowPrev[colIdx] == rowNext[colIdx] || "" == rowNext[colIdx]
+				return rowPrev[colIdx] == rowNext[colIdx]
 			}
 		} else {
 			rowPrev := t.getRow(hint.rowNumber-2, hint)
 			rowCurr := t.getRow(hint.rowNumber-1, hint)
 			if colIdx < len(rowPrev) && colIdx < len(rowCurr) {
-				return rowPrev[colIdx] == rowCurr[colIdx] || "" == rowCurr[colIdx]
+				return rowPrev[colIdx] == rowCurr[colIdx]
 			}
 		}
 	}
 	return false
+}
+
+func (t *Table) shouldSeparateRows(rowIdx int, numRows int) bool {
+	// not asked to separate rows and no manually added separator
+	if !t.style.Options.SeparateRows && !t.separators[rowIdx] {
+		return false
+	}
+
+	pageSize := numRows
+	if t.pageSize > 0 {
+		pageSize = t.pageSize
+	}
+	if rowIdx%pageSize == pageSize-1 { // last row of page
+		return false
+	}
+	if rowIdx == numRows-1 { // last row of table
+		return false
+	}
+	return true
 }
 
 func (t *Table) wrapRow(row rowStr) (int, rowStr) {
