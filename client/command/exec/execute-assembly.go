@@ -95,7 +95,7 @@ func ExecuteAssemblyCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 		Request:     con.ActiveTarget.Request(cmd),
 		IsDLL:       isDLL,
 		Process:     process,
-		Arguments:   assemblyArgsStr,
+		Arguments:   assemblyArgs,
 		Assembly:    assemblyBytes,
 		Arch:        arch,
 		Method:      method,
