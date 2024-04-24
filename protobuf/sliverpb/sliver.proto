@@ -647,20 +647,6 @@ message UnsetEnv {
   commonpb.Response Response = 9;
 }
 
-// DNS Specific messages
-message DNSSessionInit {
-  bytes Key = 1;
-}
-
-message DNSPoll {
-  repeated DNSBlockHeader blocks = 1;
-}
-
-message DNSBlockHeader {
-  string ID = 1;
-  uint32 Size = 2;
-}
-
 // HTTP Sepecific message
 message HTTPSessionInit {
   bytes Key = 1;
