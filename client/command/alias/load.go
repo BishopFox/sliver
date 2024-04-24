@@ -269,20 +269,20 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 		return
 	}
 	// args := ctx.Args.StringList("arguments")
-	var extArgs string
+	var extArgsStr string
 	if len(aliasManifest.DefaultArgs) != 0 && len(args) == 0 {
-		extArgs = aliasManifest.DefaultArgs
+		extArgsStr = aliasManifest.DefaultArgs
 	} else {
-		extArgs = strings.Join(args, " ")
+		extArgsStr = strings.Join(args, " ")
 	}
 
-	extArgs = strings.TrimSpace(extArgs)
+	extArgsStr = strings.TrimSpace(extArgsStr)
 	entryPoint := aliasManifest.Entrypoint
 	processArgsStr, _ := cmd.Flags().GetString("process-arguments")
 	// Special case for payloads with pass to Donut (.NET assemblies and sideloaded payloads):
 	// The Donut loader has a hard limit of 256 characters for the command line arguments, so
 	// we're alerting the user that the arguments will be truncated.
-	if len(extArgs) > 256 && (aliasManifest.IsAssembly || !aliasManifest.IsReflective) {
+	if len(extArgsStr) > 256 && (aliasManifest.IsAssembly || !aliasManifest.IsReflective) {
 		msgStr := ""
 		// The --in-process flag only exists for .NET assemblies (aliasManifest.IsAssembly == true).
 		// Groupping the two conditions together could crash the client since ctx.Flags.Type panics
@@ -354,13 +354,13 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 
 		// Execute Assembly
 		ctrl := make(chan bool)
-		msg := fmt.Sprintf("Executing %s %s ...", cmd.Name(), extArgs)
+		msg := fmt.Sprintf("Executing %s %s ...", cmd.Name(), extArgsStr)
 		con.SpinUntil(msg, ctrl)
 		executeAssemblyResp, err := con.Rpc.ExecuteAssembly(context.Background(), &sliverpb.ExecuteAssemblyReq{
 			Request:     con.ActiveTarget.Request(cmd),
 			IsDLL:       isDLL,
 			Process:     processName,
-			Arguments:   extArgs,
+			Arguments:   args,
 			Assembly:    binData,
 			Arch:        arch,
 			Method:      method,
@@ -400,11 +400,11 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 
 		// Spawn DLL
 		ctrl := make(chan bool)
-		msg := fmt.Sprintf("Executing %s %s ...", cmd.Name(), extArgs)
+		msg := fmt.Sprintf("Executing %s %s ...", cmd.Name(), extArgsStr)
 		con.SpinUntil(msg, ctrl)
 		spawnDllResp, err := con.Rpc.SpawnDll(context.Background(), &sliverpb.InvokeSpawnDllReq{
 			Request:     con.ActiveTarget.Request(cmd),
-			Args:        strings.Trim(extArgs, " "),
+			Args:        args,
 			Data:        binData,
 			ProcessName: processName,
 			EntryPoint:  aliasManifest.Entrypoint,
@@ -439,11 +439,11 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 
 		// Sideload
 		ctrl := make(chan bool)
-		msg := fmt.Sprintf("Executing %s %s ...", cmd.Name(), extArgs)
+		msg := fmt.Sprintf("Executing %s %s ...", cmd.Name(), extArgsStr)
 		con.SpinUntil(msg, ctrl)
 		sideloadResp, err := con.Rpc.Sideload(context.Background(), &sliverpb.SideloadReq{
 			Request:     con.ActiveTarget.Request(cmd),
-			Args:        extArgs,
+			Args:        args,
 			Data:        binData,
 			EntryPoint:  entryPoint,
 			ProcessName: processName,

@@ -39,8 +39,16 @@ func SideloadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 
+	if len(args) < 1 {
+		cmd.Usage()
+		return
+	}
+
 	binPath := args[0]
-	binArgs := strings.Join(args[1:], " ")
+	var binArgs []string
+	if len(args) > 1 {
+		binArgs = args[1:]
+	}
 
 	entryPoint, _ := cmd.Flags().GetString("entry-point")
 	processName, _ := cmd.Flags().GetString("process")
@@ -57,7 +65,7 @@ func SideloadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	processArgs := strings.Split(processArgsStr, " ")
 	isDLL := (filepath.Ext(binPath) == ".dll")
 	ctrl := make(chan bool)
-	con.SpinUntil(fmt.Sprintf("Sideloading %s ...", binPath), ctrl)
+	con.SpinUntil(fmt.Sprintf("Sideloading %s %v...", binPath, binArgs), ctrl)
 	sideload, err := con.Rpc.Sideload(context.Background(), &sliverpb.SideloadReq{
 		Request:     con.ActiveTarget.Request(cmd),
 		Args:        binArgs,

@@ -5752,7 +5752,8 @@ func (x *MsfStager) GetFile() *commonpb.File {
 }
 
 // GetSystemReq - Client request to the server which is translated into
-//                InvokeSystemReq when sending to the implant.
+//
+//	InvokeSystemReq when sending to the implant.
 type GetSystemReq struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -5825,7 +5826,8 @@ func (x *GetSystemReq) GetRequest() *commonpb.Request {
 }
 
 // MigrateReq - Client request to the server which is translated into
-//              InvokeMigrateReq when sending to the implant.
+//
+//	InvokeMigrateReq when sending to the implant.
 type MigrateReq struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
