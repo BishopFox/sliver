@@ -72,11 +72,8 @@ func (b *Builder) Start() {
 		os.Exit(1)
 	}
 
-	for {
-		select {
-		case event := <-events:
-			go b.handleBuildEvent(event)
-		}
+	for event := range events {
+		go b.handleBuildEvent(event)
 	}
 }
 
@@ -212,7 +209,7 @@ func (b *Builder) handleBuildEvent(event *clientpb.Event) {
 		builderLog.Errorf("invalid output format: %s", extConfig.Config.Format)
 		b.rpc.BuilderTrigger(context.Background(), &clientpb.Event{
 			EventType: consts.ExternalBuildFailedEvent,
-			Data:      []byte(fmt.Sprintf("%s:%s", implantBuildID, err.Error())),
+			Data:      []byte(fmt.Sprintf("%s:%s", implantBuildID, err)),
 		})
 		return
 	}
