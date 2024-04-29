@@ -1015,12 +1015,6 @@ func checkBuildTargetCompatibility(format clientpb.OutputFormat, targetOS string
 		}
 	}
 
-	if runtime.GOOS != "linux" && targetOS == "linux" {
-		if !hasCC(targetOS, targetArch, compilers.CrossCompilers) {
-			return warnMissingCrossCompiler(format, targetOS, targetArch, con)
-		}
-	}
-
 	return true
 }
 

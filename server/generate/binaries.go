@@ -754,8 +754,6 @@ func findCrossCompilers(targetGOOS string, targetGOARCH string) (string, string)
 			"linux/386":     "x86-linux-musl",
 			"linux/arm64":   "aarch64-linux-musl",
 			"linux/ppc64":   "powerpc64le-linux-musl",
-			"linux/riscv64": "riscv64-linux-musl",
-			"linux/mips":    "mips64-linux-musl",
 		}[fmt.Sprintf("%s/%s", targetGOOS, targetGOARCH)]
 
 		zigDir := assets.GetZigDir()
