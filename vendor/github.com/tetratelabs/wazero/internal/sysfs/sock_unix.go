@@ -1,4 +1,4 @@
-//go:build linux || darwin
+//go:build (linux || darwin) && !tinygo
 
 package sysfs
 
@@ -7,149 +7,43 @@ import (
 	"syscall"
 
 	"github.com/tetratelabs/wazero/experimental/sys"
+	"github.com/tetratelabs/wazero/internal/fsapi"
 	socketapi "github.com/tetratelabs/wazero/internal/sock"
 )
 
 // MSG_PEEK is the constant syscall.MSG_PEEK
 const MSG_PEEK = syscall.MSG_PEEK
 
-// newTCPListenerFile is a constructor for a socketapi.TCPSock.
-//
-// Note: the implementation of socketapi.TCPSock goes straight
-// to the syscall layer, bypassing most of the Go library.
-// For an alternative approach, consider winTcpListenerFile
-// where most APIs are implemented with regular Go std-lib calls.
 func newTCPListenerFile(tl *net.TCPListener) socketapi.TCPSock {
-	conn, err := tl.File()
-	if err != nil {
-		panic(err)
-	}
-	fd := conn.Fd()
-	// We need to duplicate this file handle, or the lifecycle will be tied
-	// to the TCPListener. We rely on the TCPListener only to set up
-	// the connection correctly and parse/resolve the TCP Address
-	// (notice we actually rely on the listener in the Windows implementation).
-	sysfd, err := syscall.Dup(int(fd))
-	if err != nil {
-		panic(err)
-	}
-	return &tcpListenerFile{fd: uintptr(sysfd), addr: tl.Addr().(*net.TCPAddr)}
+	return newDefaultTCPListenerFile(tl)
 }
 
-var _ socketapi.TCPSock = (*tcpListenerFile)(nil)
-
-type tcpListenerFile struct {
-	baseSockFile
-
-	fd   uintptr
-	addr *net.TCPAddr
+func _pollSock(conn syscall.Conn, flag fsapi.Pflag, timeoutMillis int32) (bool, sys.Errno) {
+	n, errno := syscallConnControl(conn, func(fd uintptr) (int, sys.Errno) {
+		if ready, errno := poll(fd, fsapi.POLLIN, 0); !ready || errno != 0 {
+			return -1, errno
+		} else {
+			return 0, errno
+		}
+	})
+	return n >= 0, errno
 }
 
-// Accept implements the same method as documented on socketapi.TCPSock
-func (f *tcpListenerFile) Accept() (socketapi.TCPConn, sys.Errno) {
-	nfd, _, err := syscall.Accept(int(f.fd))
-	errno := sys.UnwrapOSError(err)
-	if errno != 0 {
-		return nil, errno
-	}
-	return &tcpConnFile{fd: uintptr(nfd)}, 0
+func setNonblockSocket(fd uintptr, enabled bool) sys.Errno {
+	return sys.UnwrapOSError(setNonblock(fd, enabled))
 }
 
-// SetNonblock implements the same method as documented on fsapi.File
-func (f *tcpListenerFile) SetNonblock(enabled bool) sys.Errno {
-	return sys.UnwrapOSError(setNonblock(f.fd, enabled))
+func readSocket(fd uintptr, buf []byte) (int, sys.Errno) {
+	n, err := syscall.Read(int(fd), buf)
+	return n, sys.UnwrapOSError(err)
 }
 
-// Close implements the same method as documented on fsapi.File
-func (f *tcpListenerFile) Close() sys.Errno {
-	return sys.UnwrapOSError(syscall.Close(int(f.fd)))
+func writeSocket(fd uintptr, buf []byte) (int, sys.Errno) {
+	n, err := syscall.Write(int(fd), buf)
+	return n, sys.UnwrapOSError(err)
 }
 
-// Addr is exposed for testing.
-func (f *tcpListenerFile) Addr() *net.TCPAddr {
-	return f.addr
-}
-
-var _ socketapi.TCPConn = (*tcpConnFile)(nil)
-
-type tcpConnFile struct {
-	baseSockFile
-
-	fd uintptr
-
-	// closed is true when closed was called. This ensures proper sys.EBADF
-	closed bool
-}
-
-func newTcpConn(tc *net.TCPConn) socketapi.TCPConn {
-	f, err := tc.File()
-	if err != nil {
-		panic(err)
-	}
-	return &tcpConnFile{fd: f.Fd()}
-}
-
-// SetNonblock implements the same method as documented on fsapi.File
-func (f *tcpConnFile) SetNonblock(enabled bool) (errno sys.Errno) {
-	return sys.UnwrapOSError(setNonblock(f.fd, enabled))
-}
-
-// Read implements the same method as documented on fsapi.File
-func (f *tcpConnFile) Read(buf []byte) (n int, errno sys.Errno) {
-	n, err := syscall.Read(int(f.fd), buf)
-	if err != nil {
-		// Defer validation overhead until we've already had an error.
-		errno = sys.UnwrapOSError(err)
-		errno = fileError(f, f.closed, errno)
-	}
-	return n, errno
-}
-
-// Write implements the same method as documented on fsapi.File
-func (f *tcpConnFile) Write(buf []byte) (n int, errno sys.Errno) {
-	n, err := syscall.Write(int(f.fd), buf)
-	if err != nil {
-		// Defer validation overhead until we've already had an error.
-		errno = sys.UnwrapOSError(err)
-		errno = fileError(f, f.closed, errno)
-	}
-	return n, errno
-}
-
-// Recvfrom implements the same method as documented on socketapi.TCPConn
-func (f *tcpConnFile) Recvfrom(p []byte, flags int) (n int, errno sys.Errno) {
-	if flags != MSG_PEEK {
-		errno = sys.EINVAL
-		return
-	}
-	n, _, recvfromErr := syscall.Recvfrom(int(f.fd), p, MSG_PEEK)
-	errno = sys.UnwrapOSError(recvfromErr)
-	return n, errno
-}
-
-// Shutdown implements the same method as documented on fsapi.Conn
-func (f *tcpConnFile) Shutdown(how int) sys.Errno {
-	var err error
-	switch how {
-	case syscall.SHUT_RD, syscall.SHUT_WR:
-		err = syscall.Shutdown(int(f.fd), how)
-	case syscall.SHUT_RDWR:
-		return f.close()
-	default:
-		return sys.EINVAL
-	}
-	return sys.UnwrapOSError(err)
-}
-
-// Close implements the same method as documented on fsapi.File
-func (f *tcpConnFile) Close() sys.Errno {
-	return f.close()
-}
-
-func (f *tcpConnFile) close() sys.Errno {
-	if f.closed {
-		return 0
-	}
-	f.closed = true
-	return sys.UnwrapOSError(syscall.Shutdown(int(f.fd), syscall.SHUT_RDWR))
+func recvfrom(fd uintptr, buf []byte, flags int32) (n int, errno sys.Errno) {
+	n, _, err := syscall.Recvfrom(int(fd), buf, int(flags))
+	return n, sys.UnwrapOSError(err)
 }

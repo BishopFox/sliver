@@ -171,6 +171,11 @@ void main_nonblock(char* fpath) {
   ssize_t newLen = 0;
   while (newLen == 0) {
     newLen = read(fd, buf, sizeof(buf));
+    // If an empty string is read, newLen might be 1,
+    // causing the loop to terminate.
+    if (strlen(buf) == 0) {
+      newLen = 0;
+    }
     if (errno == EAGAIN || newLen == 0) {
       printf(".");
       nanosleep(&tim , &tim2) ;

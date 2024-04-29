@@ -2,7 +2,6 @@ package platform
 
 import (
 	"fmt"
-	"reflect"
 	"syscall"
 	"unsafe"
 )
@@ -21,6 +20,8 @@ const (
 	windows_PAGE_EXECUTE_READ      uintptr = 0x00000020
 	windows_PAGE_EXECUTE_READWRITE uintptr = 0x00000040
 )
+
+const MmapSupported = true
 
 func munmapCodeSegment(code []byte) error {
 	return freeMemory(code)
@@ -63,12 +64,7 @@ func mmapCodeSegmentAMD64(size int) ([]byte, error) {
 		return nil, err
 	}
 
-	var mem []byte
-	sh := (*reflect.SliceHeader)(unsafe.Pointer(&mem))
-	sh.Data = p
-	sh.Len = size
-	sh.Cap = size
-	return mem, err
+	return unsafe.Slice((*byte)(unsafe.Pointer(p)), size), nil
 }
 
 func mmapCodeSegmentARM64(size int) ([]byte, error) {
@@ -77,12 +73,7 @@ func mmapCodeSegmentARM64(size int) ([]byte, error) {
 		return nil, err
 	}
 
-	var mem []byte
-	sh := (*reflect.SliceHeader)(unsafe.Pointer(&mem))
-	sh.Data = p
-	sh.Len = size
-	sh.Cap = size
-	return mem, nil
+	return unsafe.Slice((*byte)(unsafe.Pointer(p)), size), nil
 }
 
 var old = uint32(windows_PAGE_READWRITE)

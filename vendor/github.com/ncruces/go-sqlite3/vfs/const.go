@@ -3,12 +3,12 @@ package vfs
 import "github.com/ncruces/go-sqlite3/internal/util"
 
 const (
-	_MAX_STRING          = 512 // Used for short strings: names, error messages…
-	_MAX_PATHNAME        = 512
+	_MAX_NAME            = 1e6 // Self-imposed limit for most NUL terminated strings.
+	_MAX_PATHNAME        = 1024
 	_DEFAULT_SECTOR_SIZE = 4096
 )
 
-// https://www.sqlite.org/rescode.html
+// https://sqlite.org/rescode.html
 type _ErrorCode uint32
 
 func (e _ErrorCode) Error() string {
@@ -37,6 +37,10 @@ const (
 	_IOERR_CHECKRESERVEDLOCK _ErrorCode = util.IOERR_CHECKRESERVEDLOCK
 	_IOERR_LOCK              _ErrorCode = util.IOERR_LOCK
 	_IOERR_CLOSE             _ErrorCode = util.IOERR_CLOSE
+	_IOERR_SHMOPEN           _ErrorCode = util.IOERR_SHMOPEN
+	_IOERR_SHMSIZE           _ErrorCode = util.IOERR_SHMSIZE
+	_IOERR_SHMLOCK           _ErrorCode = util.IOERR_SHMLOCK
+	_IOERR_SHMMAP            _ErrorCode = util.IOERR_SHMMAP
 	_IOERR_SEEK              _ErrorCode = util.IOERR_SEEK
 	_IOERR_DELETE_NOENT      _ErrorCode = util.IOERR_DELETE_NOENT
 	_IOERR_BEGIN_ATOMIC      _ErrorCode = util.IOERR_BEGIN_ATOMIC
@@ -44,12 +48,13 @@ const (
 	_IOERR_ROLLBACK_ATOMIC   _ErrorCode = util.IOERR_ROLLBACK_ATOMIC
 	_CANTOPEN_FULLPATH       _ErrorCode = util.CANTOPEN_FULLPATH
 	_CANTOPEN_ISDIR          _ErrorCode = util.CANTOPEN_ISDIR
+	_READONLY_CANTINIT       _ErrorCode = util.READONLY_CANTINIT
 	_OK_SYMLINK              _ErrorCode = util.OK_SYMLINK
 )
 
 // OpenFlag is a flag for the [VFS] Open method.
 //
-// https://www.sqlite.org/c3ref/c_open_autoproxy.html
+// https://sqlite.org/c3ref/c_open_autoproxy.html
 type OpenFlag uint32
 
 const (
@@ -78,7 +83,7 @@ const (
 
 // AccessFlag is a flag for the [VFS] Access method.
 //
-// https://www.sqlite.org/c3ref/c_access_exists.html
+// https://sqlite.org/c3ref/c_access_exists.html
 type AccessFlag uint32
 
 const (
@@ -89,7 +94,7 @@ const (
 
 // SyncFlag is a flag for the [File] Sync method.
 //
-// https://www.sqlite.org/c3ref/c_sync_dataonly.html
+// https://sqlite.org/c3ref/c_sync_dataonly.html
 type SyncFlag uint32
 
 const (
@@ -100,7 +105,7 @@ const (
 
 // LockLevel is a value used with [File] Lock and Unlock methods.
 //
-// https://www.sqlite.org/c3ref/c_lock_exclusive.html
+// https://sqlite.org/c3ref/c_lock_exclusive.html
 type LockLevel uint32
 
 const (
@@ -146,7 +151,7 @@ const (
 
 // DeviceCharacteristic is a flag retuned by the [File] DeviceCharacteristics method.
 //
-// https://www.sqlite.org/c3ref/c_iocap_atomic.html
+// https://sqlite.org/c3ref/c_iocap_atomic.html
 type DeviceCharacteristic uint32
 
 const (
@@ -167,7 +172,7 @@ const (
 	IOCAP_BATCH_ATOMIC          DeviceCharacteristic = 0x00004000
 )
 
-// https://www.sqlite.org/c3ref/c_fcntl_begin_atomic_write.html
+// https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html
 type _FcntlOpcode uint32
 
 const (
@@ -212,4 +217,14 @@ const (
 	_FCNTL_EXTERNAL_READER       _FcntlOpcode = 40
 	_FCNTL_CKSM_FILE             _FcntlOpcode = 41
 	_FCNTL_RESET_CACHE           _FcntlOpcode = 42
+)
+
+// https://sqlite.org/c3ref/c_shm_exclusive.html
+type _ShmFlag uint32
+
+const (
+	_SHM_UNLOCK    _ShmFlag = 1
+	_SHM_LOCK      _ShmFlag = 2
+	_SHM_SHARED    _ShmFlag = 4
+	_SHM_EXCLUSIVE _ShmFlag = 8
 )

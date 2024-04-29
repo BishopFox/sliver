@@ -83,24 +83,30 @@ const (
 	// MaximumFunctionIndex. Therefore, it is safe to use 1 << 31 to represent the null
 	// reference in Element segments.
 	ElementInitNullReference Index = 1 << 31
-	// ElementInitImportedGlobalFunctionReference represents an init item which is resolved via an imported global constexpr.
+	// elementInitImportedGlobalReferenceType represents an init item which is resolved via an imported global constexpr.
 	// The actual function reference stored at Global is only known at instantiation-time, so we set this flag
 	// to items of ElementSegment.Init at binary decoding, and unwrap this flag at instantiation to resolve the value.
 	//
 	// This might collide the init element resolved via ref.func instruction which is resolved with the func index at decoding,
 	// but in practice, that is not allowed in wazero thanks to our limit MaximumFunctionIndex. Thus, it is safe to set this flag
 	// in init element to indicate as such.
-	ElementInitImportedGlobalFunctionReference Index = 1 << 30
+	elementInitImportedGlobalReferenceType Index = 1 << 30
 )
 
 // unwrapElementInitGlobalReference takes an item of the init vector of an ElementSegment,
 // and returns the Global index if it is supposed to get generated from a global.
 // ok is true if the given init item is as such.
 func unwrapElementInitGlobalReference(init Index) (_ Index, ok bool) {
-	if init&ElementInitImportedGlobalFunctionReference == ElementInitImportedGlobalFunctionReference {
-		return init &^ ElementInitImportedGlobalFunctionReference, true
+	if init&elementInitImportedGlobalReferenceType == elementInitImportedGlobalReferenceType {
+		return init &^ elementInitImportedGlobalReferenceType, true
 	}
 	return init, false
+}
+
+// WrapGlobalIndexAsElementInit wraps the given index as an init item which is resolved via an imported global value.
+// See the comments on elementInitImportedGlobalReferenceType for more details.
+func WrapGlobalIndexAsElementInit(init Index) Index {
+	return init | elementInitImportedGlobalReferenceType
 }
 
 // IsActive returns true if the element segment is "active" mode which requires the runtime to initialize table
@@ -127,19 +133,21 @@ type TableInstance struct {
 	// Type is either RefTypeFuncref or RefTypeExternRef.
 	Type RefType
 
-	// mux is used to prevent overlapping calls to Grow.
-	mux sync.RWMutex
+	// The following is only used when the table is exported.
+
+	// involvingModuleInstances is a set of module instances which are involved in the table instance.
+	// This is critical for safety purpose because once a table is imported, it can hold any reference to
+	// any function in the owner and importing module instances. Therefore, these module instance,
+	// transitively the compiled modules, must be alive as long as the table instance is alive.
+	involvingModuleInstances []*ModuleInstance
+	// involvingModuleInstancesMutex is a mutex to protect involvingModuleInstances.
+	involvingModuleInstancesMutex sync.RWMutex
 }
 
 // ElementInstance represents an element instance in a module.
 //
 // See https://www.w3.org/TR/2022/WD-wasm-core-2-20220419/exec/runtime.html#element-instances
-type ElementInstance struct {
-	// References holds references whose type is either RefTypeFuncref or RefTypeExternref (unsupported).
-	References []Reference
-	// Type is the RefType of the references in this instance's References.
-	Type RefType
-}
+type ElementInstance = []Reference
 
 // Reference is the runtime representation of RefType which is either RefTypeFuncref or RefTypeExternref.
 type Reference = uintptr
@@ -164,27 +172,22 @@ func (m *Module) validateTable(enabledFeatures api.CoreFeatures, tables []Table,
 		idx := Index(i)
 		initCount := uint32(len(elem.Init))
 
-		if elem.Type == RefTypeFuncref {
-			// Any offset applied is to the element, not the function index: validate here if the funcidx is sound.
-			for ei, init := range elem.Init {
-				if init == ElementInitNullReference {
-					continue
-				}
-				index, ok := unwrapElementInitGlobalReference(init)
-				if ok {
-					if index >= globalsCount {
-						return fmt.Errorf("%s[%d].init[%d] globalidx %d out of range", SectionIDName(SectionIDElement), idx, ei, index)
-					}
-				} else {
-					if index >= funcCount {
-						return fmt.Errorf("%s[%d].init[%d] funcidx %d out of range", SectionIDName(SectionIDElement), idx, ei, index)
-					}
-				}
+		// Any offset applied is to the element, not the function index: validate here if the funcidx is sound.
+		for ei, init := range elem.Init {
+			if init == ElementInitNullReference {
+				continue
 			}
-		} else {
-			for j, elem := range elem.Init {
-				if elem != ElementInitNullReference {
-					return fmt.Errorf("%s[%d].init[%d] must be ref.null but was %v", SectionIDName(SectionIDElement), idx, j, elem)
+			index, ok := unwrapElementInitGlobalReference(init)
+			if ok {
+				if index >= globalsCount {
+					return fmt.Errorf("%s[%d].init[%d] global index %d out of range", SectionIDName(SectionIDElement), idx, ei, index)
+				}
+			} else {
+				if elem.Type == RefTypeExternref {
+					return fmt.Errorf("%s[%d].init[%d] must be ref.null but was %d", SectionIDName(SectionIDElement), idx, ei, init)
+				}
+				if index >= funcCount {
+					return fmt.Errorf("%s[%d].init[%d] func index %d out of range", SectionIDName(SectionIDElement), idx, ei, index)
 				}
 			}
 		}
@@ -314,10 +317,6 @@ func (m *Module) verifyImportGlobalI32(sectionID SectionID, sectionIdx Index, id
 //
 // https://www.w3.org/TR/2022/WD-wasm-core-2-20220419/exec/instructions.html#xref-syntax-instructions-syntax-instr-table-mathsf-table-grow-x
 func (t *TableInstance) Grow(delta uint32, initialRef Reference) (currentLen uint32) {
-	// We take write-lock here as the following might result in a new slice
-	t.mux.Lock()
-	defer t.mux.Unlock()
-
 	currentLen = uint32(len(t.References))
 	if delta == 0 {
 		return

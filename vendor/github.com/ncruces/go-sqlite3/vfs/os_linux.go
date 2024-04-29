@@ -1,3 +1,5 @@
+//go:build !sqlite3_nosys
+
 package vfs
 
 import (
@@ -6,15 +8,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func osSync(file *os.File, fullsync, dataonly bool) error {
-	if dataonly {
-		_, _, err := unix.Syscall(unix.SYS_FDATASYNC, file.Fd(), 0, 0)
-		if err != 0 {
-			return err
-		}
-		return nil
-	}
-	return file.Sync()
+func osSync(file *os.File, _ /*fullsync*/, _ /*dataonly*/ bool) error {
+	// SQLite trusts Linux's fdatasync for all fsync's.
+	return unix.Fdatasync(int(file.Fd()))
 }
 
 func osAllocate(file *os.File, size int64) error {

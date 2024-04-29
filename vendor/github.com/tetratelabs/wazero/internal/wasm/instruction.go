@@ -35,7 +35,6 @@ const (
 	//
 	// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#-hrefsyntax-instr-controlmathsfbrl
 	OpcodeBr Opcode = 0x0c
-	// ^^ TODO: Add a diagram to help explain br l means that branch into AFTER l for non-loop labels
 
 	OpcodeBrIf         Opcode = 0x0d
 	OpcodeBrTable      Opcode = 0x0e
@@ -281,6 +280,10 @@ const (
 	// OpcodeVecPrefix is the prefix of all vector isntructions introduced in
 	// CoreFeatureSIMD.
 	OpcodeVecPrefix Opcode = 0xfd
+
+	// OpcodeAtomicPrefix is the prefix of all atomic instructions introduced in
+	// CoreFeatureThreads.
+	OpcodeAtomicPrefix Opcode = 0xfe
 )
 
 // OpcodeMisc represents opcodes of the miscellaneous operations.
@@ -623,6 +626,157 @@ const (
 	OpcodeVecF64x2PromoteLowF32x4Zero OpcodeVec = 0x5f
 )
 
+// OpcodeAtomic represents an opcode of atomic instructions which has
+// multi-byte encoding and is prefixed by OpcodeAtomicPrefix.
+//
+// These opcodes are toggled with CoreFeaturesThreads.
+type OpcodeAtomic = byte
+
+const (
+	// OpcodeAtomicMemoryNotify represents the instruction memory.atomic.notify.
+	OpcodeAtomicMemoryNotify OpcodeAtomic = 0x00
+	// OpcodeAtomicMemoryWait32 represents the instruction memory.atomic.wait32.
+	OpcodeAtomicMemoryWait32 OpcodeAtomic = 0x01
+	// OpcodeAtomicMemoryWait64 represents the instruction memory.atomic.wait64.
+	OpcodeAtomicMemoryWait64 OpcodeAtomic = 0x02
+	// OpcodeAtomicFence represents the instruction atomic.fence.
+	OpcodeAtomicFence OpcodeAtomic = 0x03
+
+	// OpcodeAtomicI32Load represents the instruction i32.atomic.load.
+	OpcodeAtomicI32Load OpcodeAtomic = 0x10
+	// OpcodeAtomicI64Load represents the instruction i64.atomic.load.
+	OpcodeAtomicI64Load OpcodeAtomic = 0x11
+	// OpcodeAtomicI32Load8U represents the instruction i32.atomic.load8_u.
+	OpcodeAtomicI32Load8U OpcodeAtomic = 0x12
+	// OpcodeAtomicI32Load16U represents the instruction i32.atomic.load16_u.
+	OpcodeAtomicI32Load16U OpcodeAtomic = 0x13
+	// OpcodeAtomicI64Load8U represents the instruction i64.atomic.load8_u.
+	OpcodeAtomicI64Load8U OpcodeAtomic = 0x14
+	// OpcodeAtomicI64Load16U represents the instruction i64.atomic.load16_u.
+	OpcodeAtomicI64Load16U OpcodeAtomic = 0x15
+	// OpcodeAtomicI64Load32U represents the instruction i64.atomic.load32_u.
+	OpcodeAtomicI64Load32U OpcodeAtomic = 0x16
+	// OpcodeAtomicI32Store represents the instruction i32.atomic.store.
+	OpcodeAtomicI32Store OpcodeAtomic = 0x17
+	// OpcodeAtomicI64Store represents the instruction i64.atomic.store.
+	OpcodeAtomicI64Store OpcodeAtomic = 0x18
+	// OpcodeAtomicI32Store8 represents the instruction i32.atomic.store8.
+	OpcodeAtomicI32Store8 OpcodeAtomic = 0x19
+	// OpcodeAtomicI32Store16 represents the instruction i32.atomic.store16.
+	OpcodeAtomicI32Store16 OpcodeAtomic = 0x1a
+	// OpcodeAtomicI64Store8 represents the instruction i64.atomic.store8.
+	OpcodeAtomicI64Store8 OpcodeAtomic = 0x1b
+	// OpcodeAtomicI64Store16 represents the instruction i64.atomic.store16.
+	OpcodeAtomicI64Store16 OpcodeAtomic = 0x1c
+	// OpcodeAtomicI64Store32 represents the instruction i64.atomic.store32.
+	OpcodeAtomicI64Store32 OpcodeAtomic = 0x1d
+
+	// OpcodeAtomicI32RmwAdd represents the instruction i32.atomic.rmw.add.
+	OpcodeAtomicI32RmwAdd OpcodeAtomic = 0x1e
+	// OpcodeAtomicI64RmwAdd represents the instruction i64.atomic.rmw.add.
+	OpcodeAtomicI64RmwAdd OpcodeAtomic = 0x1f
+	// OpcodeAtomicI32Rmw8AddU represents the instruction i32.atomic.rmw8.add_u.
+	OpcodeAtomicI32Rmw8AddU OpcodeAtomic = 0x20
+	// OpcodeAtomicI32Rmw16AddU represents the instruction i32.atomic.rmw16.add_u.
+	OpcodeAtomicI32Rmw16AddU OpcodeAtomic = 0x21
+	// OpcodeAtomicI64Rmw8AddU represents the instruction i64.atomic.rmw8.add_u.
+	OpcodeAtomicI64Rmw8AddU OpcodeAtomic = 0x22
+	// OpcodeAtomicI64Rmw16AddU represents the instruction i64.atomic.rmw16.add_u.
+	OpcodeAtomicI64Rmw16AddU OpcodeAtomic = 0x23
+	// OpcodeAtomicI64Rmw32AddU represents the instruction i64.atomic.rmw32.add_u.
+	OpcodeAtomicI64Rmw32AddU OpcodeAtomic = 0x24
+
+	// OpcodeAtomicI32RmwSub represents the instruction i32.atomic.rmw.sub.
+	OpcodeAtomicI32RmwSub OpcodeAtomic = 0x25
+	// OpcodeAtomicI64RmwSub represents the instruction i64.atomic.rmw.sub.
+	OpcodeAtomicI64RmwSub OpcodeAtomic = 0x26
+	// OpcodeAtomicI32Rmw8SubU represents the instruction i32.atomic.rmw8.sub_u.
+	OpcodeAtomicI32Rmw8SubU OpcodeAtomic = 0x27
+	// OpcodeAtomicI32Rmw16SubU represents the instruction i32.atomic.rmw16.sub_u.
+	OpcodeAtomicI32Rmw16SubU OpcodeAtomic = 0x28
+	// OpcodeAtomicI64Rmw8SubU represents the instruction i64.atomic.rmw8.sub_u.
+	OpcodeAtomicI64Rmw8SubU OpcodeAtomic = 0x29
+	// OpcodeAtomicI64Rmw16SubU represents the instruction i64.atomic.rmw16.sub_u.
+	OpcodeAtomicI64Rmw16SubU OpcodeAtomic = 0x2a
+	// OpcodeAtomicI64Rmw32SubU represents the instruction i64.atomic.rmw32.sub_u.
+	OpcodeAtomicI64Rmw32SubU OpcodeAtomic = 0x2b
+
+	// OpcodeAtomicI32RmwAnd represents the instruction i32.atomic.rmw.and.
+	OpcodeAtomicI32RmwAnd OpcodeAtomic = 0x2c
+	// OpcodeAtomicI64RmwAnd represents the instruction i64.atomic.rmw.and.
+	OpcodeAtomicI64RmwAnd OpcodeAtomic = 0x2d
+	// OpcodeAtomicI32Rmw8AndU represents the instruction i32.atomic.rmw8.and_u.
+	OpcodeAtomicI32Rmw8AndU OpcodeAtomic = 0x2e
+	// OpcodeAtomicI32Rmw16AndU represents the instruction i32.atomic.rmw16.and_u.
+	OpcodeAtomicI32Rmw16AndU OpcodeAtomic = 0x2f
+	// OpcodeAtomicI64Rmw8AndU represents the instruction i64.atomic.rmw8.and_u.
+	OpcodeAtomicI64Rmw8AndU OpcodeAtomic = 0x30
+	// OpcodeAtomicI64Rmw16AndU represents the instruction i64.atomic.rmw16.and_u.
+	OpcodeAtomicI64Rmw16AndU OpcodeAtomic = 0x31
+	// OpcodeAtomicI64Rmw32AndU represents the instruction i64.atomic.rmw32.and_u.
+	OpcodeAtomicI64Rmw32AndU OpcodeAtomic = 0x32
+
+	// OpcodeAtomicI32RmwOr represents the instruction i32.atomic.rmw.or.
+	OpcodeAtomicI32RmwOr OpcodeAtomic = 0x33
+	// OpcodeAtomicI64RmwOr represents the instruction i64.atomic.rmw.or.
+	OpcodeAtomicI64RmwOr OpcodeAtomic = 0x34
+	// OpcodeAtomicI32Rmw8OrU represents the instruction i32.atomic.rmw8.or_u.
+	OpcodeAtomicI32Rmw8OrU OpcodeAtomic = 0x35
+	// OpcodeAtomicI32Rmw16OrU represents the instruction i32.atomic.rmw16.or_u.
+	OpcodeAtomicI32Rmw16OrU OpcodeAtomic = 0x36
+	// OpcodeAtomicI64Rmw8OrU represents the instruction i64.atomic.rmw8.or_u.
+	OpcodeAtomicI64Rmw8OrU OpcodeAtomic = 0x37
+	// OpcodeAtomicI64Rmw16OrU represents the instruction i64.atomic.rmw16.or_u.
+	OpcodeAtomicI64Rmw16OrU OpcodeAtomic = 0x38
+	// OpcodeAtomicI64Rmw32OrU represents the instruction i64.atomic.rmw32.or_u.
+	OpcodeAtomicI64Rmw32OrU OpcodeAtomic = 0x39
+
+	// OpcodeAtomicI32RmwXor represents the instruction i32.atomic.rmw.xor.
+	OpcodeAtomicI32RmwXor OpcodeAtomic = 0x3a
+	// OpcodeAtomicI64RmwXor represents the instruction i64.atomic.rmw.xor.
+	OpcodeAtomicI64RmwXor OpcodeAtomic = 0x3b
+	// OpcodeAtomicI32Rmw8XorU represents the instruction i32.atomic.rmw8.xor_u.
+	OpcodeAtomicI32Rmw8XorU OpcodeAtomic = 0x3c
+	// OpcodeAtomicI32Rmw16XorU represents the instruction i32.atomic.rmw16.xor_u.
+	OpcodeAtomicI32Rmw16XorU OpcodeAtomic = 0x3d
+	// OpcodeAtomicI64Rmw8XorU represents the instruction i64.atomic.rmw8.xor_u.
+	OpcodeAtomicI64Rmw8XorU OpcodeAtomic = 0x3e
+	// OpcodeAtomicI64Rmw16XorU represents the instruction i64.atomic.rmw16.xor_u.
+	OpcodeAtomicI64Rmw16XorU OpcodeAtomic = 0x3f
+	// OpcodeAtomicI64Rmw32XorU represents the instruction i64.atomic.rmw32.xor_u.
+	OpcodeAtomicI64Rmw32XorU OpcodeAtomic = 0x40
+
+	// OpcodeAtomicI32RmwXchg represents the instruction i32.atomic.rmw.xchg.
+	OpcodeAtomicI32RmwXchg OpcodeAtomic = 0x41
+	// OpcodeAtomicI64RmwXchg represents the instruction i64.atomic.rmw.xchg.
+	OpcodeAtomicI64RmwXchg OpcodeAtomic = 0x42
+	// OpcodeAtomicI32Rmw8XchgU represents the instruction i32.atomic.rmw8.xchg_u.
+	OpcodeAtomicI32Rmw8XchgU OpcodeAtomic = 0x43
+	// OpcodeAtomicI32Rmw16XchgU represents the instruction i32.atomic.rmw16.xchg_u.
+	OpcodeAtomicI32Rmw16XchgU OpcodeAtomic = 0x44
+	// OpcodeAtomicI64Rmw8XchgU represents the instruction i64.atomic.rmw8.xchg_u.
+	OpcodeAtomicI64Rmw8XchgU OpcodeAtomic = 0x45
+	// OpcodeAtomicI64Rmw16XchgU represents the instruction i64.atomic.rmw16.xchg_u.
+	OpcodeAtomicI64Rmw16XchgU OpcodeAtomic = 0x46
+	// OpcodeAtomicI64Rmw32XchgU represents the instruction i64.atomic.rmw32.xchg_u.
+	OpcodeAtomicI64Rmw32XchgU OpcodeAtomic = 0x47
+
+	// OpcodeAtomicI32RmwCmpxchg represents the instruction i32.atomic.rmw.cmpxchg.
+	OpcodeAtomicI32RmwCmpxchg OpcodeAtomic = 0x48
+	// OpcodeAtomicI64RmwCmpxchg represents the instruction i64.atomic.rmw.cmpxchg.
+	OpcodeAtomicI64RmwCmpxchg OpcodeAtomic = 0x49
+	// OpcodeAtomicI32Rmw8CmpxchgU represents the instruction i32.atomic.rmw8.cmpxchg_u.
+	OpcodeAtomicI32Rmw8CmpxchgU OpcodeAtomic = 0x4a
+	// OpcodeAtomicI32Rmw16CmpxchgU represents the instruction i32.atomic.rmw16.cmpxchg_u.
+	OpcodeAtomicI32Rmw16CmpxchgU OpcodeAtomic = 0x4b
+	// OpcodeAtomicI64Rmw8CmpxchgU represents the instruction i64.atomic.rmw8.cmpxchg_u.
+	OpcodeAtomicI64Rmw8CmpxchgU OpcodeAtomic = 0x4c
+	// OpcodeAtomicI64Rmw16CmpxchgU represents the instruction i64.atomic.rmw16.cmpxchg_u.
+	OpcodeAtomicI64Rmw16CmpxchgU OpcodeAtomic = 0x4d
+	// OpcodeAtomicI64Rmw32CmpxchgU represents the instruction i64.atomic.rmw32.cmpxchg_u.
+	OpcodeAtomicI64Rmw32CmpxchgU OpcodeAtomic = 0x4e
+)
+
 const (
 	OpcodeUnreachableName       = "unreachable"
 	OpcodeNopName               = "nop"
@@ -813,8 +967,9 @@ const (
 	OpcodeI64Extend16SName = "i64.extend16_s"
 	OpcodeI64Extend32SName = "i64.extend32_s"
 
-	OpcodeMiscPrefixName = "misc_prefix"
-	OpcodeVecPrefixName  = "vector_prefix"
+	OpcodeMiscPrefixName   = "misc_prefix"
+	OpcodeVecPrefixName    = "vector_prefix"
+	OpcodeAtomicPrefixName = "atomic_prefix"
 )
 
 var instructionNames = [256]string{
@@ -1547,4 +1702,165 @@ var vectorInstructionName = map[OpcodeVec]string{
 // VectorInstructionName returns the instruction name corresponding to the vector Opcode.
 func VectorInstructionName(oc OpcodeVec) (ret string) {
 	return vectorInstructionName[oc]
+}
+
+const (
+	OpcodeAtomicMemoryNotifyName = "memory.atomic.notify"
+	OpcodeAtomicMemoryWait32Name = "memory.atomic.wait32"
+	OpcodeAtomicMemoryWait64Name = "memory.atomic.wait64"
+	OpcodeAtomicFenceName        = "atomic.fence"
+
+	OpcodeAtomicI32LoadName    = "i32.atomic.load"
+	OpcodeAtomicI64LoadName    = "i64.atomic.load"
+	OpcodeAtomicI32Load8UName  = "i32.atomic.load8_u"
+	OpcodeAtomicI32Load16UName = "i32.atomic.load16_u"
+	OpcodeAtomicI64Load8UName  = "i64.atomic.load8_u"
+	OpcodeAtomicI64Load16UName = "i64.atomic.load16_u"
+	OpcodeAtomicI64Load32UName = "i64.atomic.load32_u"
+	OpcodeAtomicI32StoreName   = "i32.atomic.store"
+	OpcodeAtomicI64StoreName   = "i64.atomic.store"
+	OpcodeAtomicI32Store8Name  = "i32.atomic.store8"
+	OpcodeAtomicI32Store16Name = "i32.atomic.store16"
+	OpcodeAtomicI64Store8Name  = "i64.atomic.store8"
+	OpcodeAtomicI64Store16Name = "i64.atomic.store16"
+	OpcodeAtomicI64Store32Name = "i64.atomic.store32"
+
+	OpcodeAtomicI32RmwAddName    = "i32.atomic.rmw.add"
+	OpcodeAtomicI64RmwAddName    = "i64.atomic.rmw.add"
+	OpcodeAtomicI32Rmw8AddUName  = "i32.atomic.rmw8.add_u"
+	OpcodeAtomicI32Rmw16AddUName = "i32.atomic.rmw16.add_u"
+	OpcodeAtomicI64Rmw8AddUName  = "i64.atomic.rmw8.add_u"
+	OpcodeAtomicI64Rmw16AddUName = "i64.atomic.rmw16.add_u"
+	OpcodeAtomicI64Rmw32AddUName = "i64.atomic.rmw32.add_u"
+
+	OpcodeAtomicI32RmwSubName    = "i32.atomic.rmw.sub"
+	OpcodeAtomicI64RmwSubName    = "i64.atomic.rmw.sub"
+	OpcodeAtomicI32Rmw8SubUName  = "i32.atomic.rmw8.sub_u"
+	OpcodeAtomicI32Rmw16SubUName = "i32.atomic.rmw16.sub_u"
+	OpcodeAtomicI64Rmw8SubUName  = "i64.atomic.rmw8.sub_u"
+	OpcodeAtomicI64Rmw16SubUName = "i64.atomic.rmw16.sub_u"
+	OpcodeAtomicI64Rmw32SubUName = "i64.atomic.rmw32.sub_u"
+
+	OpcodeAtomicI32RmwAndName    = "i32.atomic.rmw.and"
+	OpcodeAtomicI64RmwAndName    = "i64.atomic.rmw.and"
+	OpcodeAtomicI32Rmw8AndUName  = "i32.atomic.rmw8.and_u"
+	OpcodeAtomicI32Rmw16AndUName = "i32.atomic.rmw16.and_u"
+	OpcodeAtomicI64Rmw8AndUName  = "i64.atomic.rmw8.and_u"
+	OpcodeAtomicI64Rmw16AndUName = "i64.atomic.rmw16.and_u"
+	OpcodeAtomicI64Rmw32AndUName = "i64.atomic.rmw32.and_u"
+
+	OpcodeAtomicI32RmwOrName    = "i32.atomic.rmw.or"
+	OpcodeAtomicI64RmwOrName    = "i64.atomic.rmw.or"
+	OpcodeAtomicI32Rmw8OrUName  = "i32.atomic.rmw8.or_u"
+	OpcodeAtomicI32Rmw16OrUName = "i32.atomic.rmw16.or_u"
+	OpcodeAtomicI64Rmw8OrUName  = "i64.atomic.rmw8.or_u"
+	OpcodeAtomicI64Rmw16OrUName = "i64.atomic.rmw16.or_u"
+	OpcodeAtomicI64Rmw32OrUName = "i64.atomic.rmw32.or_u"
+
+	OpcodeAtomicI32RmwXorName    = "i32.atomic.rmw.xor"
+	OpcodeAtomicI64RmwXorName    = "i64.atomic.rmw.xor"
+	OpcodeAtomicI32Rmw8XorUName  = "i32.atomic.rmw8.xor_u"
+	OpcodeAtomicI32Rmw16XorUName = "i32.atomic.rmw16.xor_u"
+	OpcodeAtomicI64Rmw8XorUName  = "i64.atomic.rmw8.xor_u"
+	OpcodeAtomicI64Rmw16XorUName = "i64.atomic.rmw16.xor_u"
+	OpcodeAtomicI64Rmw32XorUName = "i64.atomic.rmw32.xor_u"
+
+	OpcodeAtomicI32RmwXchgName    = "i32.atomic.rmw.xchg"
+	OpcodeAtomicI64RmwXchgName    = "i64.atomic.rmw.xchg"
+	OpcodeAtomicI32Rmw8XchgUName  = "i32.atomic.rmw8.xchg_u"
+	OpcodeAtomicI32Rmw16XchgUName = "i32.atomic.rmw16.xchg_u"
+	OpcodeAtomicI64Rmw8XchgUName  = "i64.atomic.rmw8.xchg_u"
+	OpcodeAtomicI64Rmw16XchgUName = "i64.atomic.rmw16.xchg_u"
+	OpcodeAtomicI64Rmw32XchgUName = "i64.atomic.rmw32.xchg_u"
+
+	OpcodeAtomicI32RmwCmpxchgName    = "i32.atomic.rmw.cmpxchg"
+	OpcodeAtomicI64RmwCmpxchgName    = "i64.atomic.rmw.cmpxchg"
+	OpcodeAtomicI32Rmw8CmpxchgUName  = "i32.atomic.rmw8.cmpxchg_u"
+	OpcodeAtomicI32Rmw16CmpxchgUName = "i32.atomic.rmw16.cmpxchg_u"
+	OpcodeAtomicI64Rmw8CmpxchgUName  = "i64.atomic.rmw8.cmpxchg_u"
+	OpcodeAtomicI64Rmw16CmpxchgUName = "i64.atomic.rmw16.cmpxchg_u"
+	OpcodeAtomicI64Rmw32CmpxchgUName = "i64.atomic.rmw32.cmpxchg_u"
+)
+
+var atomicInstructionName = map[OpcodeAtomic]string{
+	OpcodeAtomicMemoryNotify: OpcodeAtomicMemoryNotifyName,
+	OpcodeAtomicMemoryWait32: OpcodeAtomicMemoryWait32Name,
+	OpcodeAtomicMemoryWait64: OpcodeAtomicMemoryWait64Name,
+	OpcodeAtomicFence:        OpcodeAtomicFenceName,
+
+	OpcodeAtomicI32Load:    OpcodeAtomicI32LoadName,
+	OpcodeAtomicI64Load:    OpcodeAtomicI64LoadName,
+	OpcodeAtomicI32Load8U:  OpcodeAtomicI32Load8UName,
+	OpcodeAtomicI32Load16U: OpcodeAtomicI32Load16UName,
+	OpcodeAtomicI64Load8U:  OpcodeAtomicI64Load8UName,
+	OpcodeAtomicI64Load16U: OpcodeAtomicI64Load16UName,
+	OpcodeAtomicI64Load32U: OpcodeAtomicI64Load32UName,
+	OpcodeAtomicI32Store:   OpcodeAtomicI32StoreName,
+	OpcodeAtomicI64Store:   OpcodeAtomicI64StoreName,
+	OpcodeAtomicI32Store8:  OpcodeAtomicI32Store8Name,
+	OpcodeAtomicI32Store16: OpcodeAtomicI32Store16Name,
+	OpcodeAtomicI64Store8:  OpcodeAtomicI64Store8Name,
+	OpcodeAtomicI64Store16: OpcodeAtomicI64Store16Name,
+	OpcodeAtomicI64Store32: OpcodeAtomicI64Store32Name,
+
+	OpcodeAtomicI32RmwAdd:    OpcodeAtomicI32RmwAddName,
+	OpcodeAtomicI64RmwAdd:    OpcodeAtomicI64RmwAddName,
+	OpcodeAtomicI32Rmw8AddU:  OpcodeAtomicI32Rmw8AddUName,
+	OpcodeAtomicI32Rmw16AddU: OpcodeAtomicI32Rmw16AddUName,
+	OpcodeAtomicI64Rmw8AddU:  OpcodeAtomicI64Rmw8AddUName,
+	OpcodeAtomicI64Rmw16AddU: OpcodeAtomicI64Rmw16AddUName,
+	OpcodeAtomicI64Rmw32AddU: OpcodeAtomicI64Rmw32AddUName,
+
+	OpcodeAtomicI32RmwSub:    OpcodeAtomicI32RmwSubName,
+	OpcodeAtomicI64RmwSub:    OpcodeAtomicI64RmwSubName,
+	OpcodeAtomicI32Rmw8SubU:  OpcodeAtomicI32Rmw8SubUName,
+	OpcodeAtomicI32Rmw16SubU: OpcodeAtomicI32Rmw16SubUName,
+	OpcodeAtomicI64Rmw8SubU:  OpcodeAtomicI64Rmw8SubUName,
+	OpcodeAtomicI64Rmw16SubU: OpcodeAtomicI64Rmw16SubUName,
+	OpcodeAtomicI64Rmw32SubU: OpcodeAtomicI64Rmw32SubUName,
+
+	OpcodeAtomicI32RmwAnd:    OpcodeAtomicI32RmwAndName,
+	OpcodeAtomicI64RmwAnd:    OpcodeAtomicI64RmwAndName,
+	OpcodeAtomicI32Rmw8AndU:  OpcodeAtomicI32Rmw8AndUName,
+	OpcodeAtomicI32Rmw16AndU: OpcodeAtomicI32Rmw16AndUName,
+	OpcodeAtomicI64Rmw8AndU:  OpcodeAtomicI64Rmw8AndUName,
+	OpcodeAtomicI64Rmw16AndU: OpcodeAtomicI64Rmw16AndUName,
+	OpcodeAtomicI64Rmw32AndU: OpcodeAtomicI64Rmw32AndUName,
+
+	OpcodeAtomicI32RmwOr:    OpcodeAtomicI32RmwOrName,
+	OpcodeAtomicI64RmwOr:    OpcodeAtomicI64RmwOrName,
+	OpcodeAtomicI32Rmw8OrU:  OpcodeAtomicI32Rmw8OrUName,
+	OpcodeAtomicI32Rmw16OrU: OpcodeAtomicI32Rmw16OrUName,
+	OpcodeAtomicI64Rmw8OrU:  OpcodeAtomicI64Rmw8OrUName,
+	OpcodeAtomicI64Rmw16OrU: OpcodeAtomicI64Rmw16OrUName,
+	OpcodeAtomicI64Rmw32OrU: OpcodeAtomicI64Rmw32OrUName,
+
+	OpcodeAtomicI32RmwXor:    OpcodeAtomicI32RmwXorName,
+	OpcodeAtomicI64RmwXor:    OpcodeAtomicI64RmwXorName,
+	OpcodeAtomicI32Rmw8XorU:  OpcodeAtomicI32Rmw8XorUName,
+	OpcodeAtomicI32Rmw16XorU: OpcodeAtomicI32Rmw16XorUName,
+	OpcodeAtomicI64Rmw8XorU:  OpcodeAtomicI64Rmw8XorUName,
+	OpcodeAtomicI64Rmw16XorU: OpcodeAtomicI64Rmw16XorUName,
+	OpcodeAtomicI64Rmw32XorU: OpcodeAtomicI64Rmw32XorUName,
+
+	OpcodeAtomicI32RmwXchg:    OpcodeAtomicI32RmwXchgName,
+	OpcodeAtomicI64RmwXchg:    OpcodeAtomicI64RmwXchgName,
+	OpcodeAtomicI32Rmw8XchgU:  OpcodeAtomicI32Rmw8XchgUName,
+	OpcodeAtomicI32Rmw16XchgU: OpcodeAtomicI32Rmw16XchgUName,
+	OpcodeAtomicI64Rmw8XchgU:  OpcodeAtomicI64Rmw8XchgUName,
+	OpcodeAtomicI64Rmw16XchgU: OpcodeAtomicI64Rmw16XchgUName,
+	OpcodeAtomicI64Rmw32XchgU: OpcodeAtomicI64Rmw32XchgUName,
+
+	OpcodeAtomicI32RmwCmpxchg:    OpcodeAtomicI32RmwCmpxchgName,
+	OpcodeAtomicI64RmwCmpxchg:    OpcodeAtomicI64RmwCmpxchgName,
+	OpcodeAtomicI32Rmw8CmpxchgU:  OpcodeAtomicI32Rmw8CmpxchgUName,
+	OpcodeAtomicI32Rmw16CmpxchgU: OpcodeAtomicI32Rmw16CmpxchgUName,
+	OpcodeAtomicI64Rmw8CmpxchgU:  OpcodeAtomicI64Rmw8CmpxchgUName,
+	OpcodeAtomicI64Rmw16CmpxchgU: OpcodeAtomicI64Rmw16CmpxchgUName,
+	OpcodeAtomicI64Rmw32CmpxchgU: OpcodeAtomicI64Rmw32CmpxchgUName,
+}
+
+// AtomicInstructionName returns the instruction name corresponding to the atomic Opcode.
+func AtomicInstructionName(oc OpcodeAtomic) (ret string) {
+	return atomicInstructionName[oc]
 }

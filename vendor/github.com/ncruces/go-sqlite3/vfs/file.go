@@ -1,6 +1,7 @@
 package vfs
 
 import (
+	"context"
 	"errors"
 	"io"
 	"io/fs"
@@ -9,7 +10,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"syscall"
-	"time"
+
+	"github.com/ncruces/go-sqlite3/util/osutil"
+	"github.com/tetratelabs/wazero/api"
 )
 
 type vfsOS struct{}
@@ -92,7 +95,7 @@ func (vfsOS) OpenParams(name string, flags OpenFlag, params url.Values) (File, O
 	if name == "" {
 		f, err = os.CreateTemp("", "*.db")
 	} else {
-		f, err = osOpenFile(name, oflags, 0666)
+		f, err = osutil.OpenFile(name, oflags, 0666)
 	}
 	if err != nil {
 		if errors.Is(err, syscall.EISDIR) {
@@ -124,11 +127,12 @@ func (vfsOS) OpenParams(name string, flags OpenFlag, params url.Values) (File, O
 
 type vfsFile struct {
 	*os.File
-	lockTimeout time.Duration
-	lock        LockLevel
-	psow        bool
-	syncDir     bool
-	readOnly    bool
+	shm      vfsShm
+	lock     LockLevel
+	readOnly bool
+	keepWAL  bool
+	syncDir  bool
+	psow     bool
 }
 
 var (
@@ -136,8 +140,14 @@ var (
 	_ FileLockState          = &vfsFile{}
 	_ FileHasMoved           = &vfsFile{}
 	_ FileSizeHint           = &vfsFile{}
+	_ FilePersistentWAL      = &vfsFile{}
 	_ FilePowersafeOverwrite = &vfsFile{}
 )
+
+func (f *vfsFile) Close() error {
+	f.shm.Close()
+	return f.File.Close()
+}
 
 func (f *vfsFile) Sync(flags SyncFlag) error {
 	dataonly := (flags & SYNC_DATAONLY) != 0
@@ -171,10 +181,14 @@ func (*vfsFile) SectorSize() int {
 }
 
 func (f *vfsFile) DeviceCharacteristics() DeviceCharacteristic {
-	if f.psow {
-		return IOCAP_POWERSAFE_OVERWRITE
+	var res DeviceCharacteristic
+	if osBatchAtomic(f.File) {
+		res |= IOCAP_BATCH_ATOMIC
 	}
-	return 0
+	if f.psow {
+		res |= IOCAP_POWERSAFE_OVERWRITE
+	}
+	return res
 }
 
 func (f *vfsFile) SizeHint(size int64) error {
@@ -198,4 +212,12 @@ func (f *vfsFile) HasMoved() (bool, error) {
 
 func (f *vfsFile) LockState() LockLevel            { return f.lock }
 func (f *vfsFile) PowersafeOverwrite() bool        { return f.psow }
+func (f *vfsFile) PersistentWAL() bool             { return f.keepWAL }
 func (f *vfsFile) SetPowersafeOverwrite(psow bool) { f.psow = psow }
+func (f *vfsFile) SetPersistentWAL(keepWAL bool)   { f.keepWAL = keepWAL }
+
+type fileShm interface {
+	shmMap(context.Context, api.Module, int32, int32, bool) (uint32, error)
+	shmLock(int32, int32, _ShmFlag) error
+	shmUnmap(bool)
+}

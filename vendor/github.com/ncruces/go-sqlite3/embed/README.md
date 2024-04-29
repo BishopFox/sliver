@@ -1,16 +1,18 @@
-# Embeddable WASM build of SQLite
+# Embeddable Wasm build of SQLite
 
-This folder includes an embeddable WASM build of SQLite 3.42.0 for use with
+This folder includes an embeddable Wasm build of SQLite 3.45.3 for use with
 [`github.com/ncruces/go-sqlite3`](https://pkg.go.dev/github.com/ncruces/go-sqlite3).
 
 The following optional features are compiled in:
-- [math functions](https://www.sqlite.org/lang_mathfunc.html)
-- [FTS3/4](https://www.sqlite.org/fts3.html)/[5](https://www.sqlite.org/fts5.html)
-- [JSON](https://www.sqlite.org/json1.html)
-- [R*Tree](https://www.sqlite.org/rtree.html)
-- [GeoPoly](https://www.sqlite.org/geopoly.html)
+- [math functions](https://sqlite.org/lang_mathfunc.html)
+- [FTS5](https://sqlite.org/fts5.html)
+- [JSON](https://sqlite.org/json1.html)
+- [R*Tree](https://sqlite.org/rtree.html)
+- [GeoPoly](https://sqlite.org/geopoly.html)
+- [soundex](https://sqlite.org/lang_corefunc.html#soundex)
 - [base64](https://github.com/sqlite/sqlite/blob/master/ext/misc/base64.c)
 - [decimal](https://github.com/sqlite/sqlite/blob/master/ext/misc/decimal.c)
+- [ieee754](https://github.com/sqlite/sqlite/blob/master/ext/misc/ieee754.c)
 - [regexp](https://github.com/sqlite/sqlite/blob/master/ext/misc/regexp.c)
 - [series](https://github.com/sqlite/sqlite/blob/master/ext/misc/series.c)
 - [uint](https://github.com/sqlite/sqlite/blob/master/ext/misc/uint.c)
