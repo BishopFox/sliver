@@ -51,17 +51,6 @@ import (
 var (
 	buildLog = log.NamedLogger("generate", "build")
 
-	// // RUNTIME GOOS -> TARGET GOOS -> TARGET ARCH
-	// defaultCCPaths = map[string]map[string]map[string]string{
-	// 	"linux": {
-	// 		"darwin": {
-	// 			// OSX Cross - https://github.com/tpoechtrager/osxcross
-	// 			"amd64": "/opt/osxcross/target/bin/o64-clang",
-	// 			"arm64": "/opt/osxcross/target/bin/aarch64-apple-darwin20.2-clang",
-	// 		},
-	// 	},
-	// }
-
 	// SupportedCompilerTargets - Supported compiler targets
 	SupportedCompilerTargets = map[string]bool{
 		"darwin/amd64":  true,

@@ -31,8 +31,7 @@ jobs:
       - name: OS Packages
         run: |
           sudo apt-get update --fix-missing && sudo apt-get -y install \
-          git build-essential zlib1g zlib1g-dev wget zip unzip \
-          mingw-w64 binutils-mingw-w64 g++-mingw-w64 gcc-multilib
+          git build-essential zlib1g zlib1g-dev wget zip unzip
 
       - name: Check Out Code
         uses: actions/checkout@v4
@@ -75,9 +74,6 @@ jobs:
         run: make macos-amd64
 
       - name: Test MacOS (amd64)
-        env:
-          SLIVER_CC_32: /usr/local/bin/i686-w64-mingw32-gcc
-          SLIVER_CC_64: /usr/local/bin/x86_64-w64-mingw32-gcc
         run: ./sliver-server unpack --force && ./go-tests.sh
 
       - name: Make MacOS (arm64)
