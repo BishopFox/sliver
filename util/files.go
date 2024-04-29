@@ -73,6 +73,12 @@ func ByteCountBinary(b int64) string {
 func UntarSkipTopLevel(dst string, r io.Reader) error {
 	tr := tar.NewReader(r)
 	topLevel, _ := tr.Next()
+	if topLevel == nil {
+		return fmt.Errorf("no files found in tar")
+	}
+	if topLevel.Typeflag != tar.TypeDir {
+		return fmt.Errorf("expected top level to be a directory, got %v", topLevel.Typeflag)
+	}
 	for {
 		header, err := tr.Next()
 
