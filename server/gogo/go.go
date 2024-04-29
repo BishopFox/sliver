@@ -31,10 +31,6 @@ import (
 
 const (
 	goDirName = "go"
-
-	kb = 1024
-	mb = 1024 * kb
-	gb = 1024 * mb
 )
 
 var (
@@ -155,6 +151,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("HTTP_PROXY=%s", config.HTTPPROXY),
 		fmt.Sprintf("HTTPS_PROXY=%s", config.HTTPSPROXY),
 		fmt.Sprintf("PATH=%s:%s", filepath.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
+		fmt.Sprintf("HOME=%s", getHomeDir()),
 	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
