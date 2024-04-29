@@ -22,7 +22,7 @@ func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 		return
 	}
 	config.IsBeacon = true
-	err := parseBeaconFlags(cmd, con, config)
+	err := parseBeaconFlags(cmd, config)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -38,7 +38,7 @@ func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 	}
 }
 
-func parseBeaconFlags(cmd *cobra.Command, con *console.SliverClient, config *clientpb.ImplantConfig) error {
+func parseBeaconFlags(cmd *cobra.Command, config *clientpb.ImplantConfig) error {
 	days, _ := cmd.Flags().GetInt64("days")
 	hours, _ := cmd.Flags().GetInt64("hours")
 	minutes, _ := cmd.Flags().GetInt64("minutes")

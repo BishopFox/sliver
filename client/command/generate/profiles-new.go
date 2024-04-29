@@ -64,7 +64,7 @@ func ProfilesNewBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []
 		return
 	}
 	config.IsBeacon = true
-	err := parseBeaconFlags(cmd, con, config)
+	err := parseBeaconFlags(cmd, config)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return

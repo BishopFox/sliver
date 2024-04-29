@@ -19,8 +19,10 @@ package assets
 */
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"crypto/rand"
 	"embed"
 	"encoding/hex"
 	"fmt"
@@ -39,6 +41,11 @@ import (
 
 	protobufs "github.com/bishopfox/sliver/protobuf"
 	"github.com/bishopfox/sliver/util"
+	"github.com/ulikunitz/xz"
+)
+
+const (
+	zigDirName = "zig"
 )
 
 var (
@@ -120,6 +127,63 @@ func pseudoRandStringRunes(n int) string {
 		b[i] = letterRunes[insecureRand.Intn(len(letterRunes))]
 	}
 	return string(b)
+}
+
+func setupZig(appDir string) error {
+	setupLog.Infof("Unpacking to '%s'", appDir)
+	zigRootPath := filepath.Join(appDir, zigDirName)
+	setupLog.Infof("zig path = %s", zigRootPath)
+	if _, err := os.Stat(zigRootPath); !os.IsNotExist(err) {
+		setupLog.Info("Removing old zig root directory")
+		os.Chmod(zigRootPath, 0700)
+		err = util.ChmodR(zigRootPath, 0600, 0700) // Make sure everything is writable before we try to rm
+		if err != nil {
+			setupLog.Warnf("Failed to modify file system permissions of old zig root directory %s", err)
+		}
+		err = os.RemoveAll(zigRootPath)
+		if err != nil {
+			setupLog.Warnf("Failed to cleanup old zig root directory %s", err)
+		}
+	}
+	os.MkdirAll(zigRootPath, 0700)
+
+	// extract xz archive
+	if runtime.GOOS != "windows" {
+		// Everything except windows
+		zigXzFSPath := path.Join("fs", runtime.GOOS, runtime.GOARCH, "zig.tar.xz")
+		zigXzBuf, err := assetsFs.ReadFile(zigXzFSPath)
+		if err != nil {
+			setupLog.Errorf("static asset not found: %s", zigXzFSPath)
+			return err
+		}
+		xzReader, err := xz.NewReader(bytes.NewReader(zigXzBuf))
+		if err != nil {
+			setupLog.Errorf("NewReader error %s", err)
+			return err
+		}
+		// Extract tar archive
+		setupLog.Infof("Unpacking zig.tar.xz to %s", zigRootPath)
+		return untarSkipTopLevel(zigRootPath, xzReader)
+	} else {
+		// Windows only, since it's an awful operating system
+		zigZipFSPath := path.Join("fs", runtime.GOOS, runtime.GOARCH, "zig.zip")
+		zigZipBuf, err := assetsFs.ReadFile(zigZipFSPath)
+		if err != nil {
+			setupLog.Errorf("static asset not found: %s", zigZipFSPath)
+			return err
+		}
+		reader, err := zip.NewReader(bytes.NewReader(zigZipBuf), int64(len(zigZipBuf)))
+		if err != nil {
+			setupLog.Errorf("zip.NewReader error %s", err)
+			return err
+		}
+		err = unzipSkipTopLevel(zigRootPath, reader)
+		if err != nil {
+			setupLog.Infof("Failed to unzip file %s -> %s", zigZipFSPath, zigRootPath)
+			return err
+		}
+		return nil
+	}
 }
 
 // SetupGo - Unzip Go compiler assets
@@ -205,7 +269,7 @@ func setupSGN(appDir string) error {
 }
 
 // SetupGoPath - Extracts dependencies to goPathSrc
-func SetupGoPath(goPathSrc string) error {
+func SetupGoPath(goPathSrc string, includeDNS bool) error {
 
 	// GOPATH setup
 	if _, err := os.Stat(goPathSrc); os.IsNotExist(err) {
@@ -243,15 +307,17 @@ func SetupGoPath(goPathSrc string) error {
 	os.WriteFile(filepath.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0600)
 
 	// DNS PB
-	dnspbSrc, err := protobufs.FS.ReadFile("dnspb/dns.pb.go")
-	if err != nil {
-		setupLog.Info("Static asset not found: dns.pb.go")
-		return err
+	if includeDNS {
+		dnspbSrc, err := protobufs.FS.ReadFile("dnspb/dns.pb.go")
+		if err != nil {
+			setupLog.Info("Static asset not found: dns.pb.go")
+			return err
+		}
+		dnspbSrc = xorPBRawBytes(dnspbSrc)
+		dnspbDir := filepath.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "dnspb")
+		os.MkdirAll(dnspbDir, 0700)
+		os.WriteFile(filepath.Join(dnspbDir, "dns.pb.go"), dnspbSrc, 0600)
 	}
-	dnspbSrc = xorPBRawBytes(dnspbSrc)
-	dnspbDir := filepath.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "dnspb")
-	os.MkdirAll(dnspbDir, 0700)
-	os.WriteFile(filepath.Join(dnspbDir, "dns.pb.go"), dnspbSrc, 0600)
 	return nil
 }
 
@@ -277,6 +343,108 @@ func stripSliverpb(src []byte) []byte {
 	return out
 }
 
+// UntarSkipTopLevel - Untar a tar file, skipping the top level directory
+func untarSkipTopLevel(dst string, r io.Reader) error {
+	tr := tar.NewReader(r)
+	topLevel, _ := tr.Next()
+	if topLevel == nil {
+		return fmt.Errorf("no files found in tar")
+	}
+	if topLevel.Typeflag != tar.TypeDir {
+		return fmt.Errorf("expected top level to be a directory, got %v", topLevel.Typeflag)
+	}
+	for {
+		header, err := tr.Next()
+
+		switch {
+
+		// if no more files are found return
+		case err == io.EOF:
+			return nil
+
+		// return any other error
+		case err != nil:
+			return err
+
+		// if the header is nil, just skip it (not sure how this happens)
+		case header == nil:
+			continue
+		}
+
+		// the target location where the dir/file should be created
+		target := filepath.Join(dst, strings.TrimPrefix(header.Name, topLevel.Name))
+
+		// the following switch could also be done using fi.Mode(), not sure if there
+		// a benefit of using one vs. the other.
+		// fi := header.FileInfo()
+
+		// check the file type
+		switch header.Typeflag {
+
+		// if its a dir and it doesn't exist create it
+		case tar.TypeDir:
+			if _, err := os.Stat(target); err != nil {
+				if err := os.MkdirAll(target, 0700); err != nil {
+					return err
+				}
+			}
+
+		// if it's a file create it
+		case tar.TypeReg:
+			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
+			if err != nil {
+				return err
+			}
+
+			// copy over contents
+			if _, err := io.Copy(f, tr); err != nil {
+				return err
+			}
+
+			// manually close here after each file operation; defering would cause each file close
+			// to wait until all operations have completed.
+			f.Close()
+		}
+	}
+}
+
+// UnzipSkipTopLevel - Unzip a zip file, skipping the top level directory
+func unzipSkipTopLevel(dst string, z *zip.Reader) error {
+	topLevel := ""
+	for index, file := range z.File {
+		if index == 0 {
+			topLevel = file.Name
+			continue
+		}
+		rc, err := file.Open()
+		if err != nil {
+			return err
+		}
+		defer rc.Close()
+		fPath := filepath.Join(dst, strings.TrimPrefix(file.Name, topLevel))
+		if file.FileInfo().IsDir() {
+			err = os.MkdirAll(fPath, 0700)
+			if err != nil {
+				return err
+			}
+		} else {
+			if err = os.MkdirAll(filepath.Dir(fPath), 0700); err != nil {
+				return err
+			}
+			outFile, err := os.OpenFile(fPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(outFile, rc)
+			outFile.Close()
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func xorPBRawBytes(src []byte) []byte {
 	var (
 		fileAst                   *ast.File
@@ -293,7 +461,7 @@ func xorPBRawBytes(src []byte) []byte {
 	}
 	var xorKey [8]byte
 	// generate random xor key
-	if _, err := insecureRand.Read(xorKey[:]); err != nil {
+	if _, err := rand.Read(xorKey[:]); err != nil {
 		// Panic because this is mandatory for the agent to work
 		panic(err)
 	}

@@ -4,7 +4,6 @@ import (
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/constants"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
@@ -332,7 +331,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.Int64P("reconnect", "j", DefaultReconnect, "attempt to reconnect every n second(s)")
 		f.Int64P("poll-timeout", "P", DefaultPollTimeout, "long poll request timeout")
 		f.Uint32P("max-errors", "k", DefaultMaxErrors, "max number of connection errors")
-		f.StringP("c2profile", "C", constants.DefaultC2Profile, "HTTP C2 profile to use")
+		f.StringP("c2profile", "C", consts.DefaultC2Profile, "HTTP C2 profile to use")
 
 		// Limits
 		f.StringP("limit-datetime", "w", "", "limit execution to before datetime")

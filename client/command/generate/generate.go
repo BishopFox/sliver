@@ -1009,19 +1009,7 @@ func checkBuildTargetCompatibility(format clientpb.OutputFormat, targetOS string
 		return true
 	}
 
-	if runtime.GOOS != "windows" && targetOS == "windows" {
-		if !hasCC(targetOS, targetArch, compilers.CrossCompilers) {
-			return warnMissingCrossCompiler(format, targetOS, targetArch, con)
-		}
-	}
-
 	if runtime.GOOS != "darwin" && targetOS == "darwin" {
-		if !hasCC(targetOS, targetArch, compilers.CrossCompilers) {
-			return warnMissingCrossCompiler(format, targetOS, targetArch, con)
-		}
-	}
-
-	if runtime.GOOS != "linux" && targetOS == "linux" {
 		if !hasCC(targetOS, targetArch, compilers.CrossCompilers) {
 			return warnMissingCrossCompiler(format, targetOS, targetArch, con)
 		}
@@ -1042,12 +1030,8 @@ func hasCC(targetOS string, targetArch string, crossCompilers []*clientpb.CrossC
 func warnMissingCrossCompiler(format clientpb.OutputFormat, targetOS string, targetArch string, con *console.SliverClient) bool {
 	con.PrintWarnf("Missing cross-compiler for %s on %s/%s\n", nameOfOutputFormat(format), targetOS, targetArch)
 	switch targetOS {
-	case "windows":
-		con.PrintWarnf("The server cannot find an installation of mingw")
 	case "darwin":
 		con.PrintWarnf("The server cannot find an installation of osxcross")
-	case "linux":
-		con.PrintWarnf("The server cannot find an installation of musl-cross")
 	}
 	con.PrintWarnf("For more information please read %s\n", crossCompilerInfoURL)
 
@@ -1083,7 +1067,7 @@ func findExternalBuilders(config *clientpb.ImplantConfig, con *console.SliverCli
 	return validBuilders, nil
 }
 
-func selectExternalBuilder(builders []*clientpb.Builder, con *console.SliverClient) (*clientpb.Builder, error) {
+func selectExternalBuilder(builders []*clientpb.Builder, _ *console.SliverClient) (*clientpb.Builder, error) {
 	choices := []string{}
 	for _, builder := range builders {
 		choices = append(choices, builder.Name)
