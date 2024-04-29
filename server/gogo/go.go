@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/log"
 )
 
@@ -107,7 +108,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
 		fmt.Sprintf("HTTP_PROXY=%s", config.HTTPPROXY),
 		fmt.Sprintf("HTTPS_PROXY=%s", config.HTTPSPROXY),
-		fmt.Sprintf("PATH=%s:%s", filepath.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
+		fmt.Sprintf("PATH=%s:%s:%s", filepath.Join(config.GOROOT, "bin"), assets.GetZigDir(), os.Getenv("PATH")),
 		fmt.Sprintf("GOGARBLE=%s", config.GOGARBLE),
 		fmt.Sprintf("HOME=%s", getHomeDir()),
 	}
@@ -150,7 +151,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
 		fmt.Sprintf("HTTP_PROXY=%s", config.HTTPPROXY),
 		fmt.Sprintf("HTTPS_PROXY=%s", config.HTTPSPROXY),
-		fmt.Sprintf("PATH=%s:%s", filepath.Join(config.GOROOT, "bin"), os.Getenv("PATH")),
+		fmt.Sprintf("PATH=%s:%s:%s", filepath.Join(config.GOROOT, "bin"), assets.GetZigDir(), os.Getenv("PATH")),
 		fmt.Sprintf("HOME=%s", getHomeDir()),
 	}
 	var stdout bytes.Buffer

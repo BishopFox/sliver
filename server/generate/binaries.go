@@ -51,30 +51,16 @@ import (
 var (
 	buildLog = log.NamedLogger("generate", "build")
 
-	// RUNTIME GOOS -> TARGET GOOS -> TARGET ARCH
-	defaultCCPaths = map[string]map[string]map[string]string{
-		"linux": {
-			"windows": {
-				"386":   "/usr/bin/i686-w64-mingw32-gcc",
-				"amd64": "/usr/bin/x86_64-w64-mingw32-gcc",
-			},
-			"darwin": {
-				// OSX Cross - https://github.com/tpoechtrager/osxcross
-				"amd64": "/opt/osxcross/target/bin/o64-clang",
-				"arm64": "/opt/osxcross/target/bin/aarch64-apple-darwin20.2-clang",
-			},
-		},
-		"darwin": {
-			"windows": {
-				"386":   "/opt/homebrew/bin/i686-w64-mingw32-gcc",
-				"amd64": "/opt/homebrew/bin/x86_64-w64-mingw32-gcc",
-			},
-			"linux": {
-				// brew install FiloSottile/musl-cross/musl-cross
-				"amd64": "/opt/homebrew/bin/x86_64-linux-musl-gcc",
-			},
-		},
-	}
+	// // RUNTIME GOOS -> TARGET GOOS -> TARGET ARCH
+	// defaultCCPaths = map[string]map[string]map[string]string{
+	// 	"linux": {
+	// 		"darwin": {
+	// 			// OSX Cross - https://github.com/tpoechtrager/osxcross
+	// 			"amd64": "/opt/osxcross/target/bin/o64-clang",
+	// 			"arm64": "/opt/osxcross/target/bin/aarch64-apple-darwin20.2-clang",
+	// 		},
+	// 	},
+	// }
 
 	// SupportedCompilerTargets - Supported compiler targets
 	SupportedCompilerTargets = map[string]bool{
@@ -82,6 +68,7 @@ var (
 		"darwin/arm64":  true,
 		"linux/386":     true,
 		"linux/amd64":   true,
+		"linux/arm64":   true,
 		"windows/386":   true,
 		"windows/amd64": true,
 	}
@@ -221,45 +208,22 @@ func SliverShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 
 // SliverSharedLibrary - Generates a sliver shared library (DLL/dylib/so) binary
 func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
-	// Compile go code
+	appDir := assets.GetRootAppDir()
+
 	var cc string
 	var cxx string
-
-	appDir := assets.GetRootAppDir()
-	// Don't use a cross-compiler if the target bin is built on the same platform
-	// as the sliver-server.
 	if runtime.GOOS != config.GOOS {
 		buildLog.Debugf("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
 		cc, cxx = findCrossCompilers(config.GOOS, config.GOARCH)
-		if cc == "" {
-			return "", fmt.Errorf("CC '%s/%s' not found", config.GOOS, config.GOARCH)
-		}
-		if cxx == "" {
-			buildLog.Warnf("CXX '%s/%s' not found", config.GOOS, config.GOARCH)
-		}
 	}
 
-	target := map[string]string{
-		"windows/amd64": "x86_64-windows",
-		"windows/386":   "i686-windows",
-
-		"linux/amd64":   "x86_64-linux-musl",
-		"linux/386":     "i686-linux-musl",
-		"linux/arm64":   "aarch64-linux-musl",
-		"linux/ppc64":   "powerpc64le-linux-musl",
-		"linux/riscv64": "riscv64-linux-musl",
-
-		"darwin/arm64": "aarch64-macos",
-		"darwin/amd64": "x86_64-macos",
-	}[fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)]
-
-	extraFlags := ""
-	zig := fmt.Sprintf("%s cc %s -target %s", filepath.Join(appDir, "zig", "zig"), extraFlags, target)
+	buildLog.Infof(" CC: %s", cc)
+	buildLog.Infof("CXX: %s", cxx)
 
 	goConfig := &gogo.GoConfig{
 		CGO: "1",
-		CC:  zig,
-		CXX: zig,
+		CC:  cc,
+		CXX: cxx,
 
 		GOOS:       config.GOOS,
 		GOARCH:     config.GOARCH,
@@ -283,7 +247,6 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 		dest += ".dll"
 	}
 	if goConfig.GOOS == DARWIN {
-		config.NetGoEnabled = true
 		dest += ".dylib"
 	}
 	if goConfig.GOOS == LINUX {
@@ -315,39 +278,22 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 
 // SliverExecutable - Generates a sliver executable binary
 func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
-	// Compile go code
 	appDir := assets.GetRootAppDir()
-	cgo := "0"
-	if config.IsSharedLib {
-		cgo = "1"
-	}
 
-	target := map[string]string{
-		"windows/amd64": "x86_64-windows",
-		"windows/386":   "i686-windows",
-
-		"linux/amd64":   "x86_64-linux-musl",
-		"linux/386":     "i686-linux-musl",
-		"linux/arm64":   "aarch64-linux-musl",
-		"linux/ppc64":   "powerpc64le-linux-musl",
-		"linux/riscv64": "riscv64-linux-musl",
-
-		"darwin/arm64": "aarch64-macos",
-		"darwin/amd64": "x86_64-macos",
-	}[fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)]
-
-	// frameworks := ""
-	// if config.GOOS == "darwin" {
-	// 	frameworks = "--sysroot $(xcrun --show-sdk-path)"
+	// var cc string
+	// var cxx string
+	// cgo := "0"
+	// if runtime.GOOS != config.GOOS {
+	// 	buildLog.Debugf("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
+	// 	cc, cxx = findCrossCompilers(config.GOOS, config.GOARCH)
+	// 	cgo = "1"
 	// }
-	extraFlags := ""
-	zig := fmt.Sprintf("%s cc %s -target %s", filepath.Join(appDir, "zig", "zig"), extraFlags, target)
+
+	// buildLog.Infof(" CC: %s", cc)
+	// buildLog.Infof("CXX: %s", cxx)
 
 	goConfig := &gogo.GoConfig{
-		CC:  zig,
-		CXX: zig,
-
-		CGO:        cgo,
+		CGO:        "0",
 		GOOS:       config.GOOS,
 		GOARCH:     config.GOARCH,
 		GOROOT:     gogo.GetGoRootDir(appDir),
@@ -765,22 +711,77 @@ func getCrossCompilersFromEnv(targetGoos string, targetGoarch string) (string, s
 	return cc, cxx
 }
 
-func findCrossCompilers(targetGoos string, targetGoarch string) (string, string) {
-	var found bool
+func findCrossCompilers(targetGOOS string, targetGOARCH string) (string, string) {
 
-	// Get CC and CXX from ENV
-	cc, cxx := getCrossCompilersFromEnv(targetGoos, targetGoarch)
+	// Get CC and CXX from ENV -- First Priority
+	cc, cxx := getCrossCompilersFromEnv(targetGOOS, targetGOARCH)
+	if cc != "" && cxx != "" {
+		buildLog.Debugf("CC and CXX found in ENV: cc=%s, cxx=%s", cc, cxx)
+		return cc, cxx
+	}
 
-	// If no CC is set in ENV then look for default path(s), we need a CC
-	// but don't always need a CXX so we only WARN on a missing CXX
-	if cc == "" {
-		buildLog.Debugf("CC not found in ENV, using default paths")
-		if _, ok := defaultCCPaths[runtime.GOOS]; ok {
-			if cc, found = defaultCCPaths[runtime.GOOS][targetGoos][targetGoarch]; !found {
-				buildLog.Debugf("No default for %s/%s from %s", targetGoos, targetGoarch, runtime.GOOS)
+	// Server config file -- Second Priority
+	serverConfig := configs.GetServerConfig()
+	if serverConfig != nil {
+		if cc == "" {
+			if value, ok := serverConfig.CC[fmt.Sprintf("%s/%s", targetGOOS, targetGOARCH)]; ok {
+				cc = value
+			} else {
+				buildLog.Debugf("CC for %s/%s not found in ENV or server config", targetGOOS, targetGOARCH)
 			}
-		} else {
-			buildLog.Debugf("No default paths for %s runtime", runtime.GOOS)
+		}
+		if cxx == "" {
+			if value, ok := serverConfig.CXX[fmt.Sprintf("%s/%s", targetGOOS, targetGOARCH)]; ok {
+				cxx = value
+			} else {
+				buildLog.Debugf("CXX for %s/%s not found in ENV or server config", targetGOOS, targetGOARCH)
+			}
+		}
+		if cc != "" && cxx != "" {
+			buildLog.Debugf("CC and CXX found in ENV/server config: cc=%s, cxx=%s", cc, cxx)
+			return cc, cxx
+		}
+	}
+
+	// Defaults -- Tertiary Priority
+	// Darwin/zig doesn't work :( maybe it will in the future though
+	if targetGOOS != DARWIN && (cc == "" || cxx == "") {
+		zigTarget := map[string]string{
+			"windows/amd64": "x86_64-windows",
+			"windows/386":   "i686-windows",
+			"linux/amd64":   "x86_64-linux-musl",
+			"linux/386":     "i686-linux-musl",
+			"linux/arm64":   "aarch64-linux-musl",
+			"linux/ppc64":   "powerpc64le-linux-musl",
+			"linux/riscv64": "riscv64-linux-musl",
+		}[fmt.Sprintf("%s/%s", targetGOOS, targetGOARCH)]
+
+		zigDir := assets.GetZigDir()
+		if cc == "" {
+			buildLog.Debugf("Using default zig cc for %s/%s", targetGOOS, targetGOARCH)
+			cc = fmt.Sprintf("%s cc -target %s", filepath.Join(zigDir, "zig"), zigTarget)
+
+		}
+		if cxx == "" {
+			buildLog.Debugf("Using default zig cxx for %s/%s", targetGOOS, targetGOARCH)
+			cxx = fmt.Sprintf("%s c++ -target %s", filepath.Join(zigDir, "zig"), zigTarget)
+		}
+	}
+	// Try to use OSXCross for cross-compiling to Darwin
+	if targetGOOS == DARWIN && runtime.GOOS != DARWIN {
+		if targetGOARCH == "amd64" && cc == "" {
+			buildLog.Debugf("Using default osxcross cc/cxx for %s/%s", targetGOOS, targetGOARCH)
+			cc = "/opt/osxcross/target/bin/o64-clang"
+			if cxx == "" {
+				cxx = cc
+			}
+		}
+		if targetGOARCH == "arm64" && cc == "" {
+			buildLog.Debugf("Using default osxcross cc/cxx for %s/%s", targetGOOS, targetGOARCH)
+			cc = "/opt/osxcross/target/bin/aarch64-apple-darwin20.2-clang"
+			if cxx == "" {
+				cxx = cc
+			}
 		}
 	}
 
@@ -790,13 +791,11 @@ func findCrossCompilers(targetGoos string, targetGoarch string) (string, string)
 			buildLog.Warnf("CC path '%s' does not exist", cc)
 		}
 	}
-	buildLog.Debugf(" CC = '%s'", cc)
 	if cxx != "" {
 		if _, err := os.Stat(cxx); os.IsNotExist(err) {
 			buildLog.Warnf("CXX path '%s' does not exist", cxx)
 		}
 	}
-	buildLog.Debugf("CXX = '%s'", cxx)
 	return cc, cxx
 }
 

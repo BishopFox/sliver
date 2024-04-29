@@ -67,6 +67,16 @@ func GetRootAppDir() string {
 	return dir
 }
 
+// GetZigDir
+func GetZigDir() string {
+	zigDir, err := filepath.Abs(filepath.Join(GetRootAppDir(), zigDirName))
+	if err != nil {
+		setupLog.Errorf("Failed to get Zig directory: %s", err)
+		return filepath.Join(GetRootAppDir(), zigDirName)
+	}
+	return zigDir
+}
+
 // GetChunkDataDir - Get the Sliver chunk data dir, default is: ~/.sliver/crack/chunks/
 func GetChunkDataDir() string {
 	chunkDir := filepath.Join(GetRootAppDir(), "crack", "chunks")

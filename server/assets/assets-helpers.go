@@ -43,7 +43,7 @@ import (
 )
 
 const (
-	ZigDirName = "zig"
+	zigDirName = "zig"
 )
 
 var (
@@ -129,7 +129,7 @@ func pseudoRandStringRunes(n int) string {
 
 func setupZig(appDir string) error {
 	setupLog.Infof("Unpacking to '%s'", appDir)
-	zigRootPath := filepath.Join(appDir, ZigDirName)
+	zigRootPath := filepath.Join(appDir, zigDirName)
 	setupLog.Infof("zig path = %s", zigRootPath)
 	if _, err := os.Stat(zigRootPath); !os.IsNotExist(err) {
 		setupLog.Info("Removing old zig root directory")
