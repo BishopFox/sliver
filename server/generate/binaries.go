@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"io/fs"
 	insecureRand "math/rand"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -139,40 +138,6 @@ const (
 	SliverPlatformCXX32EnvVar = "SLIVER_%s_CXX_32"
 )
 
-func copyC2List(src []*clientpb.ImplantC2) []models.ImplantC2 {
-	c2s := []models.ImplantC2{}
-	for _, srcC2 := range src {
-		c2URL, err := url.Parse(srcC2.URL)
-		if err != nil {
-			buildLog.Warnf("Failed to parse c2 url %v", err)
-			continue
-		}
-		c2s = append(c2s, models.ImplantC2{
-			Priority: srcC2.Priority,
-			URL:      c2URL.String(),
-			Options:  srcC2.Options,
-		})
-	}
-	return c2s
-}
-
-func isC2Enabled(schemes []string, c2s []models.ImplantC2) bool {
-	for _, c2 := range c2s {
-		c2URL, err := url.Parse(c2.URL)
-		if err != nil {
-			buildLog.Warnf("Failed to parse c2 url %v", err)
-			continue
-		}
-		for _, scheme := range schemes {
-			if scheme == c2URL.Scheme {
-				return true
-			}
-		}
-	}
-	buildLog.Debugf("No %v URLs found in %v", schemes, c2s)
-	return false
-}
-
 // GetSliversDir - Get the binary directory
 func GetSliversDir() string {
 	appDir := assets.GetRootAppDir()
@@ -269,11 +234,32 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 		if cc == "" {
 			return "", fmt.Errorf("CC '%s/%s' not found", config.GOOS, config.GOARCH)
 		}
+		if cxx == "" {
+			buildLog.Warnf("CXX '%s/%s' not found", config.GOOS, config.GOARCH)
+		}
 	}
+
+	target := map[string]string{
+		"windows/amd64": "x86_64-windows",
+		"windows/386":   "i686-windows",
+
+		"linux/amd64":   "x86_64-linux-musl",
+		"linux/386":     "i686-linux-musl",
+		"linux/arm64":   "aarch64-linux-musl",
+		"linux/ppc64":   "powerpc64le-linux-musl",
+		"linux/riscv64": "riscv64-linux-musl",
+
+		"darwin/arm64": "aarch64-macos",
+		"darwin/amd64": "x86_64-macos",
+	}[fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)]
+
+	extraFlags := ""
+	zig := fmt.Sprintf("%s cc %s -target %s", filepath.Join(appDir, "zig", "zig"), extraFlags, target)
+
 	goConfig := &gogo.GoConfig{
 		CGO: "1",
-		CC:  cc,
-		CXX: cxx,
+		CC:  zig,
+		CXX: zig,
 
 		GOOS:       config.GOOS,
 		GOARCH:     config.GOARCH,
@@ -335,7 +321,31 @@ func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientp
 		cgo = "1"
 	}
 
+	target := map[string]string{
+		"windows/amd64": "x86_64-windows",
+		"windows/386":   "i686-windows",
+
+		"linux/amd64":   "x86_64-linux-musl",
+		"linux/386":     "i686-linux-musl",
+		"linux/arm64":   "aarch64-linux-musl",
+		"linux/ppc64":   "powerpc64le-linux-musl",
+		"linux/riscv64": "riscv64-linux-musl",
+
+		"darwin/arm64": "aarch64-macos",
+		"darwin/amd64": "x86_64-macos",
+	}[fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)]
+
+	// frameworks := ""
+	// if config.GOOS == "darwin" {
+	// 	frameworks = "--sysroot $(xcrun --show-sdk-path)"
+	// }
+	extraFlags := ""
+	zig := fmt.Sprintf("%s cc %s -target %s", filepath.Join(appDir, "zig", "zig"), extraFlags, target)
+
 	goConfig := &gogo.GoConfig{
+		CC:  zig,
+		CXX: zig,
+
 		CGO:        cgo,
 		GOOS:       config.GOOS,
 		GOARCH:     config.GOARCH,
@@ -996,7 +1006,7 @@ const (
 // this is currently set to '*' (all packages) however in the past we've had
 // to carve out specific packages, so we left this here just in case we need
 // it in the future.
-func goGarble(config *clientpb.ImplantConfig) string {
+func goGarble(_ *clientpb.ImplantConfig) string {
 	// for _, c2 := range config.C2 {
 	// 	uri, err := url.Parse(c2.URL)
 	// 	if err != nil {
