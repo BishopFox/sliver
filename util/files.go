@@ -21,7 +21,6 @@ package util
 import (
 	"archive/tar"
 	"bytes"
-	"strings"
 
 	"fmt"
 	"io"
@@ -67,71 +66,6 @@ func ByteCountBinary(b int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
-}
-
-// UntarSkipTopLevel - Untar a tar file, skipping the top level directory
-func UntarSkipTopLevel(dst string, r io.Reader) error {
-	tr := tar.NewReader(r)
-	topLevel, _ := tr.Next()
-	if topLevel == nil {
-		return fmt.Errorf("no files found in tar")
-	}
-	if topLevel.Typeflag != tar.TypeDir {
-		return fmt.Errorf("expected top level to be a directory, got %v", topLevel.Typeflag)
-	}
-	for {
-		header, err := tr.Next()
-
-		switch {
-
-		// if no more files are found return
-		case err == io.EOF:
-			return nil
-
-		// return any other error
-		case err != nil:
-			return err
-
-		// if the header is nil, just skip it (not sure how this happens)
-		case header == nil:
-			continue
-		}
-
-		// the target location where the dir/file should be created
-		target := filepath.Join(dst, strings.TrimPrefix(header.Name, topLevel.Name))
-
-		// the following switch could also be done using fi.Mode(), not sure if there
-		// a benefit of using one vs. the other.
-		// fi := header.FileInfo()
-
-		// check the file type
-		switch header.Typeflag {
-
-		// if its a dir and it doesn't exist create it
-		case tar.TypeDir:
-			if _, err := os.Stat(target); err != nil {
-				if err := os.MkdirAll(target, 0700); err != nil {
-					return err
-				}
-			}
-
-		// if it's a file create it
-		case tar.TypeReg:
-			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
-			if err != nil {
-				return err
-			}
-
-			// copy over contents
-			if _, err := io.Copy(f, tr); err != nil {
-				return err
-			}
-
-			// manually close here after each file operation; defering would cause each file close
-			// to wait until all operations have completed.
-			f.Close()
-		}
-	}
 }
 
 // ReadFileFromTarGz - Read a file from a tar.gz file in-memory

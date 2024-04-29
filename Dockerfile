@@ -34,7 +34,7 @@ FROM --platform=linux/amd64 base as test
 RUN apt-get update --fix-missing \
     && apt-get -y upgrade \
     && apt-get -y install \
-    curl gcc-multilib build-essential mingw-w64 binutils-mingw-w64 g++-mingw-w64 
+    curl
 
 RUN /opt/sliver-server unpack --force 
 
@@ -56,8 +56,7 @@ RUN apt-get update --fix-missing \
     postgresql-contrib postgresql-client libpq-dev \
     curl libapr1 libaprutil1 libsvn1 \
     libpcap-dev libsqlite3-dev libgmp3-dev \
-    mingw-w64 binutils-mingw-w64 g++-mingw-w64 \
-    nasm gcc-multilib
+    nasm
 
 ### Install MSF for stager generation
 RUN curl https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb > msfinstall \

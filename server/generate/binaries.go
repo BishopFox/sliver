@@ -212,7 +212,7 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 
 	var cc string
 	var cxx string
-	if runtime.GOOS != config.GOOS {
+	if runtime.GOOS != config.GOOS || runtime.GOARCH != config.GOARCH {
 		buildLog.Debugf("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
 		cc, cxx = findCrossCompilers(config.GOOS, config.GOARCH)
 	}
@@ -363,8 +363,8 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 
 	// srcDir - ~/.sliver/slivers/<os>/<arch>/<name>/src
 	srcDir := filepath.Join(projectGoPathDir, "src")
-	assets.SetupGoPath(srcDir)             // Extract GOPATH dependency files
-	err := util.ChmodR(srcDir, 0600, 0700) // Ensures src code files are writable
+	assets.SetupGoPath(srcDir, config.IncludeDNS) // Extract GOPATH dependency files
+	err := util.ChmodR(srcDir, 0600, 0700)        // Ensures src code files are writable
 	if err != nil {
 		buildLog.Errorf("fs perms: %v", err)
 		return "", err
