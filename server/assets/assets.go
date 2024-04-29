@@ -121,6 +121,10 @@ under certain conditions; type 'licenses' for details.`)
 			fmt.Printf("\n\nUnpacking assets ...\n")
 		}
 		setupGo(appDir)
+		err := setupZig(appDir)
+		if err != nil {
+			setupLog.Errorf("Failed to setup Zig: %s", err)
+		}
 		setupCodenames(appDir)
 		saveAssetVersion(appDir)
 		unpackDefaultTrafficEncoders(force)

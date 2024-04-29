@@ -283,6 +283,7 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 		dest += ".dll"
 	}
 	if goConfig.GOOS == DARWIN {
+		config.NetGoEnabled = true
 		dest += ".dylib"
 	}
 	if goConfig.GOOS == LINUX {
@@ -588,7 +589,7 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 }
 
 // renderTrafficEncoderAssets - Copies and compresses any enabled WASM traffic encoders
-func renderTrafficEncoderAssets(build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, sliverPkgDir string) {
+func renderTrafficEncoderAssets(_ *clientpb.ImplantBuild, config *clientpb.ImplantConfig, sliverPkgDir string) {
 	buildLog.Infof("Rendering traffic encoder assets ...")
 	encoderAssetsPath := filepath.Join(sliverPkgDir, "implant", "sliver", "encoders", "assets")
 	for _, asset := range config.Assets {
@@ -613,7 +614,7 @@ func renderTrafficEncoderAssets(build *clientpb.ImplantBuild, config *clientpb.I
 }
 
 // renderNativeEncoderAssets - Render native encoder assets such as the english dictionary file
-func renderNativeEncoderAssets(build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, sliverPkgDir string) {
+func renderNativeEncoderAssets(_ *clientpb.ImplantBuild, _ *clientpb.ImplantConfig, sliverPkgDir string) {
 	buildLog.Infof("Rendering native encoder assets ...")
 	encoderAssetsPath := filepath.Join(sliverPkgDir, "implant", "sliver", "encoders", "assets")
 
@@ -672,46 +673,6 @@ func renderImplantEnglish() []string {
 		}
 	}
 	return implantDictionary
-}
-
-func renderChromeUserAgent(implantConfig *clientpb.HTTPC2ImplantConfig, goos string, goarch string) string {
-	if implantConfig.UserAgent == "" {
-		switch goos {
-		case "windows":
-			switch goarch {
-			case "amd64":
-				return fmt.Sprintf("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", renderChromeVer(implantConfig))
-			}
-
-		case "linux":
-			switch goarch {
-			case "amd64":
-				return fmt.Sprintf("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", renderChromeVer(implantConfig))
-			}
-
-		case "darwin":
-			switch goarch {
-			case "arm64":
-				fallthrough // https://source.chromium.org/chromium/chromium/src/+/master:third_party/blink/renderer/core/frame/navigator_id.cc;l=76
-			case "amd64":
-				return fmt.Sprintf("Mozilla/5.0 (Macintosh; Intel Mac OS X %s) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", renderMacOSVer(implantConfig), renderChromeVer(implantConfig))
-			}
-
-		}
-	} else {
-		return implantConfig.UserAgent
-	}
-
-	// Default is a generic Windows/Chrome
-	return fmt.Sprintf("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", renderChromeVer(implantConfig))
-}
-
-func renderChromeVer(implantConfig *clientpb.HTTPC2ImplantConfig) string {
-	return ""
-}
-
-func renderMacOSVer(implantConfig *clientpb.HTTPC2ImplantConfig) string {
-	return ""
 }
 
 // GenerateConfig - Generate the keys/etc for the implant

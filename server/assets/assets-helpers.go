@@ -39,6 +39,11 @@ import (
 
 	protobufs "github.com/bishopfox/sliver/protobuf"
 	"github.com/bishopfox/sliver/util"
+	"github.com/ulikunitz/xz"
+)
+
+const (
+	ZigDirName = "zig"
 )
 
 var (
@@ -120,6 +125,42 @@ func pseudoRandStringRunes(n int) string {
 		b[i] = letterRunes[insecureRand.Intn(len(letterRunes))]
 	}
 	return string(b)
+}
+
+func setupZig(appDir string) error {
+	setupLog.Infof("Unpacking to '%s'", appDir)
+	zigRootPath := filepath.Join(appDir, ZigDirName)
+	setupLog.Infof("zig path = %s", zigRootPath)
+	if _, err := os.Stat(zigRootPath); !os.IsNotExist(err) {
+		setupLog.Info("Removing old zig root directory")
+		os.Chmod(zigRootPath, 0700)
+		err = util.ChmodR(zigRootPath, 0600, 0700) // Make sure everything is writable before we try to rm
+		if err != nil {
+			setupLog.Warnf("Failed to modify file system permissions of old zig root directory %s", err)
+		}
+		err = os.RemoveAll(zigRootPath)
+		if err != nil {
+			setupLog.Warnf("Failed to cleanup old zig root directory %s", err)
+		}
+	}
+	os.MkdirAll(zigRootPath, 0700)
+
+	// extract xz archive
+	zigXzFSPath := path.Join("fs", runtime.GOOS, runtime.GOARCH, "zig.tar.xz")
+	zigXzBuf, err := assetsFs.ReadFile(zigXzFSPath)
+	if err != nil {
+		setupLog.Errorf("static asset not found: %s", zigXzFSPath)
+		return err
+	}
+	xzReader, err := xz.NewReader(bytes.NewReader(zigXzBuf))
+	if err != nil {
+		setupLog.Errorf("NewReader error %s", err)
+		return err
+	}
+
+	// Extract tar archive
+	setupLog.Infof("Unpacking zig.tar.xz to %s", zigRootPath)
+	return util.UntarSkipTopLevel(zigRootPath, xzReader)
 }
 
 // SetupGo - Unzip Go compiler assets

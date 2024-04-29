@@ -42,6 +42,9 @@ func SaveImplantProfile(pbProfile *clientpb.ImplantProfile) (*clientpb.ImplantPr
 			Name:          profile.Name,
 			ImplantConfig: profile.ImplantConfig,
 		}).Error
+		if err != nil {
+			return nil, err
+		}
 		dbProfile, err = db.ImplantProfileByName(profile.Name)
 		if err != nil {
 			return nil, err

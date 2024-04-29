@@ -722,6 +722,12 @@ github.com/things-go/go-socks5/statute
 ## explicit; go 1.16
 github.com/u-root/uio/rand
 github.com/u-root/uio/uio
+# github.com/ulikunitz/xz v0.5.11
+## explicit; go 1.12
+github.com/ulikunitz/xz
+github.com/ulikunitz/xz/internal/hash
+github.com/ulikunitz/xz/internal/xlog
+github.com/ulikunitz/xz/lzma
 # github.com/vishvananda/netlink v1.2.1-beta.2
 ## explicit; go 1.12
 github.com/vishvananda/netlink/nl

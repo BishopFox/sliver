@@ -22,6 +22,7 @@ set -e
 
 GO_VER="1.22.2"
 GARBLE_VER="1.22.2"
+ZIG_VER="0.12.0"
 SGN_VER="0.0.3"
 
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt SECURITY.md CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
@@ -147,6 +148,21 @@ mkdir -p $OUTPUT_DIR/windows/amd64
 cp -vv windows-go.zip $OUTPUT_DIR/windows/amd64/go.zip
 rm -rf ./go
 rm -f windows-go.zip go$GO_VER.windows-amd64.zip
+
+echo "-----------------------------------------------------------------"
+echo " Zig"
+echo "-----------------------------------------------------------------"
+echo "curl -L --fail --output $OUTPUT_DIR/darwin/amd64/zig https://ziglang.org/download/$ZIG_VER/zig-macos-x86_64-$ZIG_VER.tar.xz"
+curl -L --fail --output $OUTPUT_DIR/darwin/amd64/zig.tar.xz https://ziglang.org/download/$ZIG_VER/zig-macos-x86_64-$ZIG_VER.tar.xz                                                
+echo "curl -L --fail --output $OUTPUT_DIR/darwin/arm64/zig https://ziglang.org/download/$ZIG_VER/zig-macos-aarch64-$ZIG_VER.tar.xz"
+curl -L --fail --output $OUTPUT_DIR/darwin/arm64/zig.tar.xz https://ziglang.org/download/$ZIG_VER/zig-macos-aarch64-$ZIG_VER.tar.xz
+echo "curl -L --fail --output $OUTPUT_DIR/linux/amd64/zig https://ziglang.org/download/$ZIG_VER/zig-linux-x86_64-$ZIG_VER.tar.xz"
+curl -L --fail --output $OUTPUT_DIR/linux/amd64/zig.tar.xz https://ziglang.org/download/$ZIG_VER/zig-linux-x86_64-$ZIG_VER.tar.xz
+echo "curl -L --fail --output $OUTPUT_DIR/linux/arm64/zig https://ziglang.org/download/$ZIG_VER/zig-linux-aarch64-$ZIG_VER.tar.xz"
+curl -L --fail --output $OUTPUT_DIR/linux/arm64/zig.tar.xz https://ziglang.org/download/$ZIG_VER/zig-linux-aarch64-$ZIG_VER.tar.xz
+echo "curl -L --fail --output $OUTPUT_DIR/windows/amd64/zig https://ziglang.org/download/$ZIG_VER/zig-windows-x86_64-$ZIG_VER.zip"
+curl -L --fail --output $OUTPUT_DIR/windows/amd64/zig.tar.xz https://ziglang.org/download/$ZIG_VER/zig-windows-x86_64-$ZIG_VER.zip
+
 
 echo "-----------------------------------------------------------------"
 echo " Garble"
