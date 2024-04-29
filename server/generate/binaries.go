@@ -747,13 +747,15 @@ func findCrossCompilers(targetGOOS string, targetGOARCH string) (string, string)
 	// Darwin/zig doesn't work :( maybe it will in the future though
 	if targetGOOS != DARWIN && (cc == "" || cxx == "") {
 		zigTarget := map[string]string{
-			"windows/amd64": "x86_64-windows",
-			"windows/386":   "i686-windows",
+			"windows/amd64": "x86_64-windows-gnu",
+			"windows/arm64": "aarch64-windows-gnu",
+			"windows/386":   "x86-windows-gnu",
 			"linux/amd64":   "x86_64-linux-musl",
-			"linux/386":     "i686-linux-musl",
+			"linux/386":     "x86-linux-musl",
 			"linux/arm64":   "aarch64-linux-musl",
 			"linux/ppc64":   "powerpc64le-linux-musl",
 			"linux/riscv64": "riscv64-linux-musl",
+			"linux/mips":    "mips64-linux-musl",
 		}[fmt.Sprintf("%s/%s", targetGOOS, targetGOARCH)]
 
 		zigDir := assets.GetZigDir()
@@ -785,17 +787,6 @@ func findCrossCompilers(targetGOOS string, targetGOARCH string) (string, string)
 		}
 	}
 
-	// Check to see if CC and CXX exist
-	if cc != "" {
-		if _, err := os.Stat(cc); os.IsNotExist(err) {
-			buildLog.Warnf("CC path '%s' does not exist", cc)
-		}
-	}
-	if cxx != "" {
-		if _, err := os.Stat(cxx); os.IsNotExist(err) {
-			buildLog.Warnf("CXX path '%s' does not exist", cxx)
-		}
-	}
 	return cc, cxx
 }
 
