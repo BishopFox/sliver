@@ -20,8 +20,8 @@ set -e
 
 # Creates the static go asset archives
 
-GO_VER="1.22.1"
-GARBLE_VER="1.22.1"
+GO_VER="1.22.2"
+GARBLE_VER="1.22.2"
 SGN_VER="0.0.3"
 
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt SECURITY.md CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
