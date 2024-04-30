@@ -1,6 +1,7 @@
+//go:build !unix && !windows
+
 /*
- *
- * Copyright 2018 gRPC authors.
+ * Copyright 2023 gRPC authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,22 +17,13 @@
  *
  */
 
-package channelz
+package internal
 
 import (
-	"syscall"
+	"net"
 )
 
-// GetSocketOption gets the socket option info of the conn.
-func GetSocketOption(socket any) *SocketOptionData {
-	c, ok := socket.(syscall.Conn)
-	if !ok {
-		return nil
-	}
-	data := &SocketOptionData{}
-	if rawConn, err := c.SyscallConn(); err == nil {
-		rawConn.Control(data.Getsockopt)
-		return data
-	}
-	return nil
+// NetDialerWithTCPKeepalive returns a vanilla net.Dialer on non-unix platforms.
+func NetDialerWithTCPKeepalive() *net.Dialer {
+	return &net.Dialer{}
 }
