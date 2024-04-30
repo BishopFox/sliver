@@ -331,6 +331,9 @@ const (
 	CommandEmulationSetEmulatedMedia                       = emulation.CommandSetEmulatedMedia
 	CommandEmulationSetEmulatedVisionDeficiency            = emulation.CommandSetEmulatedVisionDeficiency
 	CommandEmulationSetGeolocationOverride                 = emulation.CommandSetGeolocationOverride
+	CommandEmulationGetOverriddenSensorInformation         = emulation.CommandGetOverriddenSensorInformation
+	CommandEmulationSetSensorOverrideEnabled               = emulation.CommandSetSensorOverrideEnabled
+	CommandEmulationSetSensorOverrideReadings              = emulation.CommandSetSensorOverrideReadings
 	CommandEmulationSetIdleOverride                        = emulation.CommandSetIdleOverride
 	CommandEmulationClearIdleOverride                      = emulation.CommandClearIdleOverride
 	CommandEmulationSetPageScaleFactor                     = emulation.CommandSetPageScaleFactor
@@ -350,10 +353,12 @@ const (
 	CommandFedCmEnable                                     = fedcm.CommandEnable
 	CommandFedCmDisable                                    = fedcm.CommandDisable
 	CommandFedCmSelectAccount                              = fedcm.CommandSelectAccount
-	CommandFedCmConfirmIdpLogin                            = fedcm.CommandConfirmIdpLogin
+	CommandFedCmClickDialogButton                          = fedcm.CommandClickDialogButton
+	CommandFedCmOpenURL                                    = fedcm.CommandOpenURL
 	CommandFedCmDismissDialog                              = fedcm.CommandDismissDialog
 	CommandFedCmResetCooldown                              = fedcm.CommandResetCooldown
 	EventFedCmDialogShown                                  = "FedCm.dialogShown"
+	EventFedCmDialogClosed                                 = "FedCm.dialogClosed"
 	CommandFetchDisable                                    = fetch.CommandDisable
 	CommandFetchEnable                                     = fetch.CommandEnable
 	CommandFetchFailRequest                                = fetch.CommandFailRequest
@@ -471,6 +476,7 @@ const (
 	CommandNetworkSetCookies                               = network.CommandSetCookies
 	CommandNetworkSetExtraHTTPHeaders                      = network.CommandSetExtraHTTPHeaders
 	CommandNetworkSetAttachDebugStack                      = network.CommandSetAttachDebugStack
+	CommandNetworkStreamResourceContent                    = network.CommandStreamResourceContent
 	CommandNetworkGetSecurityIsolationStatus               = network.CommandGetSecurityIsolationStatus
 	CommandNetworkEnableReportingAPI                       = network.CommandEnableReportingAPI
 	CommandNetworkLoadNetworkResource                      = network.CommandLoadNetworkResource
@@ -529,6 +535,7 @@ const (
 	CommandOverlaySetShowViewportSizeOnResize              = overlay.CommandSetShowViewportSizeOnResize
 	CommandOverlaySetShowHinge                             = overlay.CommandSetShowHinge
 	CommandOverlaySetShowIsolatedElements                  = overlay.CommandSetShowIsolatedElements
+	CommandOverlaySetShowWindowControlsOverlay             = overlay.CommandSetShowWindowControlsOverlay
 	EventOverlayInspectNodeRequested                       = "Overlay.inspectNodeRequested"
 	EventOverlayNodeHighlightRequested                     = "Overlay.nodeHighlightRequested"
 	EventOverlayScreenshotRequested                        = "Overlay.screenshotRequested"
@@ -699,6 +706,7 @@ const (
 	CommandStorageClearTrustTokens                         = storage.CommandClearTrustTokens
 	CommandStorageGetInterestGroupDetails                  = storage.CommandGetInterestGroupDetails
 	CommandStorageSetInterestGroupTracking                 = storage.CommandSetInterestGroupTracking
+	CommandStorageSetInterestGroupAuctionTracking          = storage.CommandSetInterestGroupAuctionTracking
 	CommandStorageGetSharedStorageMetadata                 = storage.CommandGetSharedStorageMetadata
 	CommandStorageGetSharedStorageEntries                  = storage.CommandGetSharedStorageEntries
 	CommandStorageSetSharedStorageEntry                    = storage.CommandSetSharedStorageEntry
@@ -716,10 +724,13 @@ const (
 	EventStorageIndexedDBContentUpdated                    = "Storage.indexedDBContentUpdated"
 	EventStorageIndexedDBListUpdated                       = "Storage.indexedDBListUpdated"
 	EventStorageInterestGroupAccessed                      = "Storage.interestGroupAccessed"
+	EventStorageInterestGroupAuctionEventOccurred          = "Storage.interestGroupAuctionEventOccurred"
+	EventStorageInterestGroupAuctionNetworkRequestCreated  = "Storage.interestGroupAuctionNetworkRequestCreated"
 	EventStorageSharedStorageAccessed                      = "Storage.sharedStorageAccessed"
 	EventStorageStorageBucketCreatedOrUpdated              = "Storage.storageBucketCreatedOrUpdated"
 	EventStorageStorageBucketDeleted                       = "Storage.storageBucketDeleted"
 	EventStorageAttributionReportingSourceRegistered       = "Storage.attributionReportingSourceRegistered"
+	EventStorageAttributionReportingTriggerRegistered      = "Storage.attributionReportingTriggerRegistered"
 	CommandSystemInfoGetInfo                               = systeminfo.CommandGetInfo
 	CommandSystemInfoGetFeatureState                       = systeminfo.CommandGetFeatureState
 	CommandSystemInfoGetProcessInfo                        = systeminfo.CommandGetProcessInfo
@@ -1572,6 +1583,15 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 	case CommandEmulationSetGeolocationOverride:
 		return emptyVal, nil
 
+	case CommandEmulationGetOverriddenSensorInformation:
+		v = new(emulation.GetOverriddenSensorInformationReturns)
+
+	case CommandEmulationSetSensorOverrideEnabled:
+		return emptyVal, nil
+
+	case CommandEmulationSetSensorOverrideReadings:
+		return emptyVal, nil
+
 	case CommandEmulationSetIdleOverride:
 		return emptyVal, nil
 
@@ -1629,7 +1649,10 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 	case CommandFedCmSelectAccount:
 		return emptyVal, nil
 
-	case CommandFedCmConfirmIdpLogin:
+	case CommandFedCmClickDialogButton:
+		return emptyVal, nil
+
+	case CommandFedCmOpenURL:
 		return emptyVal, nil
 
 	case CommandFedCmDismissDialog:
@@ -1640,6 +1663,9 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 
 	case EventFedCmDialogShown:
 		v = new(fedcm.EventDialogShown)
+
+	case EventFedCmDialogClosed:
+		v = new(fedcm.EventDialogClosed)
 
 	case CommandFetchDisable:
 		return emptyVal, nil
@@ -1992,6 +2018,9 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 	case CommandNetworkSetAttachDebugStack:
 		return emptyVal, nil
 
+	case CommandNetworkStreamResourceContent:
+		v = new(network.StreamResourceContentReturns)
+
 	case CommandNetworkGetSecurityIsolationStatus:
 		v = new(network.GetSecurityIsolationStatusReturns)
 
@@ -2164,6 +2193,9 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 		return emptyVal, nil
 
 	case CommandOverlaySetShowIsolatedElements:
+		return emptyVal, nil
+
+	case CommandOverlaySetShowWindowControlsOverlay:
 		return emptyVal, nil
 
 	case EventOverlayInspectNodeRequested:
@@ -2676,6 +2708,9 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 	case CommandStorageSetInterestGroupTracking:
 		return emptyVal, nil
 
+	case CommandStorageSetInterestGroupAuctionTracking:
+		return emptyVal, nil
+
 	case CommandStorageGetSharedStorageMetadata:
 		v = new(storage.GetSharedStorageMetadataReturns)
 
@@ -2727,6 +2762,12 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 	case EventStorageInterestGroupAccessed:
 		v = new(storage.EventInterestGroupAccessed)
 
+	case EventStorageInterestGroupAuctionEventOccurred:
+		v = new(storage.EventInterestGroupAuctionEventOccurred)
+
+	case EventStorageInterestGroupAuctionNetworkRequestCreated:
+		v = new(storage.EventInterestGroupAuctionNetworkRequestCreated)
+
 	case EventStorageSharedStorageAccessed:
 		v = new(storage.EventSharedStorageAccessed)
 
@@ -2738,6 +2779,9 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 
 	case EventStorageAttributionReportingSourceRegistered:
 		v = new(storage.EventAttributionReportingSourceRegistered)
+
+	case EventStorageAttributionReportingTriggerRegistered:
+		v = new(storage.EventAttributionReportingTriggerRegistered)
 
 	case CommandSystemInfoGetInfo:
 		v = new(systeminfo.GetInfoReturns)

@@ -12,3 +12,11 @@ type EventDialogShown struct {
 	Title      string     `json:"title"` // These exist primarily so that the caller can verify the RP context was used appropriately.
 	Subtitle   string     `json:"subtitle,omitempty"`
 }
+
+// EventDialogClosed triggered when a dialog is closed, either by user
+// action, JS abort, or a command below.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/FedCm#event-dialogClosed
+type EventDialogClosed struct {
+	DialogID string `json:"dialogId"`
+}

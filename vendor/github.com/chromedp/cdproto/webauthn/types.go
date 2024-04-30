@@ -179,6 +179,8 @@ type VirtualAuthenticatorOptions struct {
 	HasPrf                      bool                   `json:"hasPrf,omitempty"`                      // If set to true, the authenticator will support the prf extension. https://w3c.github.io/webauthn/#prf-extension Defaults to false.
 	AutomaticPresenceSimulation bool                   `json:"automaticPresenceSimulation,omitempty"` // If set to true, tests of user presence will succeed immediately. Otherwise, they will not be resolved. Defaults to true.
 	IsUserVerified              bool                   `json:"isUserVerified,omitempty"`              // Sets whether User Verification succeeds or fails for an authenticator. Defaults to false.
+	DefaultBackupEligibility    bool                   `json:"defaultBackupEligibility,omitempty"`    // Credentials created by this authenticator will have the backup eligibility (BE) flag set to this value. Defaults to false. https://w3c.github.io/webauthn/#sctn-credential-backup
+	DefaultBackupState          bool                   `json:"defaultBackupState,omitempty"`          // Credentials created by this authenticator will have the backup state (BS) flag set to this value. Defaults to false. https://w3c.github.io/webauthn/#sctn-credential-backup
 }
 
 // Credential [no description].

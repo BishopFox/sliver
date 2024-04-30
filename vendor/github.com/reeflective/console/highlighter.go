@@ -71,7 +71,8 @@ func (c *Console) highlightCommand(done, args []string, _ *cobra.Command) ([]str
 
 	// Highlight the root command when found, or any of its aliases.
 	for _, cmd := range c.activeMenu().Commands() {
-		cmdFound := cmd.Use == strings.TrimSpace(args[0])
+		// Change 1: Highlight based on first arg in usage rather than the entire usage itself
+		cmdFound := strings.Split(cmd.Use, " ")[0] == strings.TrimSpace(args[0])
 
 		for _, alias := range cmd.Aliases {
 			if alias == strings.TrimSpace(args[0]) {

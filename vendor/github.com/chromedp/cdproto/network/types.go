@@ -1017,6 +1017,13 @@ func (t *AlternateProtocolUsage) UnmarshalJSON(buf []byte) error {
 	return easyjson.Unmarshal(buf, t)
 }
 
+// ServiceWorkerRouterInfo [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Network#type-ServiceWorkerRouterInfo
+type ServiceWorkerRouterInfo struct {
+	RuleIDMatched int64 `json:"ruleIdMatched"`
+}
+
 // Response HTTP response data.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Network#type-Response
@@ -1026,6 +1033,7 @@ type Response struct {
 	StatusText                  string                      `json:"statusText"`                            // HTTP response status text.
 	Headers                     Headers                     `json:"headers"`                               // HTTP response headers.
 	MimeType                    string                      `json:"mimeType"`                              // Resource mimeType as determined by the browser.
+	Charset                     string                      `json:"charset"`                               // Resource charset as determined by the browser (if applicable).
 	RequestHeaders              Headers                     `json:"requestHeaders,omitempty"`              // Refined HTTP request headers that were actually transmitted over the network.
 	ConnectionReused            bool                        `json:"connectionReused"`                      // Specifies whether physical connection was actually reused for this request.
 	ConnectionID                float64                     `json:"connectionId"`                          // Physical connection id that was actually used for this request.
@@ -1034,6 +1042,7 @@ type Response struct {
 	FromDiskCache               bool                        `json:"fromDiskCache,omitempty"`               // Specifies that the request was served from the disk cache.
 	FromServiceWorker           bool                        `json:"fromServiceWorker,omitempty"`           // Specifies that the request was served from the ServiceWorker.
 	FromPrefetchCache           bool                        `json:"fromPrefetchCache,omitempty"`           // Specifies that the request was served from the prefetch cache.
+	ServiceWorkerRouterInfo     *ServiceWorkerRouterInfo    `json:"serviceWorkerRouterInfo,omitempty"`     // Information about how Service Worker Static Router was used.
 	EncodedDataLength           float64                     `json:"encodedDataLength"`                     // Total number of bytes received for this request so far.
 	Timing                      *ResourceTiming             `json:"timing,omitempty"`                      // Timing information for the given request.
 	ServiceWorkerResponseSource ServiceWorkerResponseSource `json:"serviceWorkerResponseSource,omitempty"` // Response source of response from ServiceWorker.
@@ -1111,7 +1120,6 @@ type Cookie struct {
 	Session            bool               `json:"session"`                      // True in case of session cookie.
 	SameSite           CookieSameSite     `json:"sameSite,omitempty"`           // Cookie SameSite type.
 	Priority           CookiePriority     `json:"priority"`                     // Cookie Priority
-	SameParty          bool               `json:"sameParty"`                    // True if cookie is SameParty.
 	SourceScheme       CookieSourceScheme `json:"sourceScheme"`                 // Cookie source scheme type.
 	SourcePort         int64              `json:"sourcePort"`                   // Cookie source port. Valid values are {-1, [1, 65535]}, -1 indicates an unspecified port. An unspecified port value allows protocol clients to emulate legacy cookie scope for the port. This is a temporary ability and it will be removed in the future.
 	PartitionKey       string             `json:"partitionKey,omitempty"`       // Cookie partition key. The site of the top-level URL the browser was visiting at the start of the request to the endpoint that set the cookie.
@@ -1312,6 +1320,73 @@ func (t *CookieBlockedReason) UnmarshalJSON(buf []byte) error {
 	return easyjson.Unmarshal(buf, t)
 }
 
+// CookieExemptionReason types of reasons why a cookie should have been
+// blocked by 3PCD but is exempted for the request.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Network#type-CookieExemptionReason
+type CookieExemptionReason string
+
+// String returns the CookieExemptionReason as string value.
+func (t CookieExemptionReason) String() string {
+	return string(t)
+}
+
+// CookieExemptionReason values.
+const (
+	CookieExemptionReasonNone                  CookieExemptionReason = "None"
+	CookieExemptionReasonUserSetting           CookieExemptionReason = "UserSetting"
+	CookieExemptionReasonTPCDMetadata          CookieExemptionReason = "TPCDMetadata"
+	CookieExemptionReasonTPCDDeprecationTrial  CookieExemptionReason = "TPCDDeprecationTrial"
+	CookieExemptionReasonTPCDHeuristics        CookieExemptionReason = "TPCDHeuristics"
+	CookieExemptionReasonEnterprisePolicy      CookieExemptionReason = "EnterprisePolicy"
+	CookieExemptionReasonStorageAccess         CookieExemptionReason = "StorageAccess"
+	CookieExemptionReasonTopLevelStorageAccess CookieExemptionReason = "TopLevelStorageAccess"
+	CookieExemptionReasonBrowserHeuristics     CookieExemptionReason = "BrowserHeuristics"
+)
+
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t CookieExemptionReason) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
+
+// MarshalJSON satisfies json.Marshaler.
+func (t CookieExemptionReason) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *CookieExemptionReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch CookieExemptionReason(v) {
+	case CookieExemptionReasonNone:
+		*t = CookieExemptionReasonNone
+	case CookieExemptionReasonUserSetting:
+		*t = CookieExemptionReasonUserSetting
+	case CookieExemptionReasonTPCDMetadata:
+		*t = CookieExemptionReasonTPCDMetadata
+	case CookieExemptionReasonTPCDDeprecationTrial:
+		*t = CookieExemptionReasonTPCDDeprecationTrial
+	case CookieExemptionReasonTPCDHeuristics:
+		*t = CookieExemptionReasonTPCDHeuristics
+	case CookieExemptionReasonEnterprisePolicy:
+		*t = CookieExemptionReasonEnterprisePolicy
+	case CookieExemptionReasonStorageAccess:
+		*t = CookieExemptionReasonStorageAccess
+	case CookieExemptionReasonTopLevelStorageAccess:
+		*t = CookieExemptionReasonTopLevelStorageAccess
+	case CookieExemptionReasonBrowserHeuristics:
+		*t = CookieExemptionReasonBrowserHeuristics
+
+	default:
+		in.AddError(fmt.Errorf("unknown CookieExemptionReason value: %v", v))
+	}
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *CookieExemptionReason) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
+}
+
 // BlockedSetCookieWithReason a cookie which was not stored from a response
 // with the corresponding reason.
 //
@@ -1322,13 +1397,25 @@ type BlockedSetCookieWithReason struct {
 	Cookie         *Cookie                  `json:"cookie,omitempty"` // The cookie object which represents the cookie which was not stored. It is optional because sometimes complete cookie information is not available, such as in the case of parsing errors.
 }
 
-// BlockedCookieWithReason a cookie with was not sent with a request with the
-// corresponding reason.
+// ExemptedSetCookieWithReason a cookie should have been blocked by 3PCD but
+// is exempted and stored from a response with the corresponding reason. A
+// cookie could only have at most one exemption reason.
 //
-// See: https://chromedevtools.github.io/devtools-protocol/tot/Network#type-BlockedCookieWithReason
-type BlockedCookieWithReason struct {
-	BlockedReasons []CookieBlockedReason `json:"blockedReasons"` // The reason(s) the cookie was blocked.
-	Cookie         *Cookie               `json:"cookie"`         // The cookie object representing the cookie which was not sent.
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Network#type-ExemptedSetCookieWithReason
+type ExemptedSetCookieWithReason struct {
+	ExemptionReason CookieExemptionReason `json:"exemptionReason"` // The reason the cookie was exempted.
+	Cookie          *Cookie               `json:"cookie"`          // The cookie object representing the cookie.
+}
+
+// AssociatedCookie a cookie associated with the request which may or may not
+// be sent with it. Includes the cookies itself and reasons for blocking or
+// exemption.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Network#type-AssociatedCookie
+type AssociatedCookie struct {
+	Cookie          *Cookie               `json:"cookie"`                    // The cookie object representing the cookie which was not sent.
+	BlockedReasons  []CookieBlockedReason `json:"blockedReasons"`            // The reason(s) the cookie was blocked. If empty means the cookie is included.
+	ExemptionReason CookieExemptionReason `json:"exemptionReason,omitempty"` // The reason the cookie should have been blocked by 3PCD but is exempted. A cookie could only have at most one exemption reason.
 }
 
 // CookieParam cookie parameter object.

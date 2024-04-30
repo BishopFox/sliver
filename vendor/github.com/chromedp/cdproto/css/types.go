@@ -385,9 +385,10 @@ type LayerData struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/CSS#type-PlatformFontUsage
 type PlatformFontUsage struct {
-	FamilyName   string  `json:"familyName"`   // Font's family name reported by platform.
-	IsCustomFont bool    `json:"isCustomFont"` // Indicates if the font was downloaded or resolved locally.
-	GlyphCount   float64 `json:"glyphCount"`   // Amount of glyphs that were rendered with this font.
+	FamilyName     string  `json:"familyName"`     // Font's family name reported by platform.
+	PostScriptName string  `json:"postScriptName"` // Font's PostScript name reported by platform.
+	IsCustomFont   bool    `json:"isCustomFont"`   // Indicates if the font was downloaded or resolved locally.
+	GlyphCount     float64 `json:"glyphCount"`     // Amount of glyphs that were rendered with this font.
 }
 
 // FontVariationAxis information about font variation axes for variable
@@ -454,6 +455,16 @@ type PropertyRegistration struct {
 	InitialValue *Value `json:"initialValue,omitempty"`
 	Inherits     bool   `json:"inherits"`
 	Syntax       string `json:"syntax"`
+}
+
+// FontPaletteValuesRule CSS font-palette-values rule representation.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/CSS#type-CSSFontPaletteValuesRule
+type FontPaletteValuesRule struct {
+	StyleSheetID    StyleSheetID     `json:"styleSheetId,omitempty"` // The css style sheet identifier (absent for user agent stylesheet and user-specified stylesheet rules) this rule came from.
+	Origin          StyleSheetOrigin `json:"origin"`                 // Parent stylesheet's origin.
+	FontPaletteName *Value           `json:"fontPaletteName"`        // Associated font palette name.
+	Style           *Style           `json:"style"`                  // Associated style declaration.
 }
 
 // PropertyRule CSS property at-rule representation.

@@ -219,6 +219,7 @@ type SetDeviceMetricsOverrideParams struct {
 	ScreenOrientation  *ScreenOrientation `json:"screenOrientation,omitempty"`  // Screen orientation override.
 	Viewport           *page.Viewport     `json:"viewport,omitempty"`           // If set, the visible area of the page will be overridden to this viewport. This viewport change is not observed by the page, e.g. viewport-relative elements do not change positions.
 	DisplayFeature     *DisplayFeature    `json:"displayFeature,omitempty"`     // If set, the display feature of a multi-segment screen. If not set, multi-segment support is turned-off.
+	DevicePosture      *DevicePosture     `json:"devicePosture,omitempty"`      // If set, the posture of a foldable device. If not set the posture is set to continuous.
 }
 
 // SetDeviceMetricsOverride overrides the values of device screen dimensions
@@ -302,6 +303,13 @@ func (p SetDeviceMetricsOverrideParams) WithViewport(viewport *page.Viewport) *S
 // If not set, multi-segment support is turned-off.
 func (p SetDeviceMetricsOverrideParams) WithDisplayFeature(displayFeature *DisplayFeature) *SetDeviceMetricsOverrideParams {
 	p.DisplayFeature = displayFeature
+	return &p
+}
+
+// WithDevicePosture if set, the posture of a foldable device. If not set the
+// posture is set to continuous.
+func (p SetDeviceMetricsOverrideParams) WithDevicePosture(devicePosture *DevicePosture) *SetDeviceMetricsOverrideParams {
+	p.DevicePosture = devicePosture
 	return &p
 }
 
@@ -483,6 +491,114 @@ func (p SetGeolocationOverrideParams) WithAccuracy(accuracy float64) *SetGeoloca
 // Do executes Emulation.setGeolocationOverride against the provided context.
 func (p *SetGeolocationOverrideParams) Do(ctx context.Context) (err error) {
 	return cdp.Execute(ctx, CommandSetGeolocationOverride, p, nil)
+}
+
+// GetOverriddenSensorInformationParams [no description].
+type GetOverriddenSensorInformationParams struct {
+	Type SensorType `json:"type"`
+}
+
+// GetOverriddenSensorInformation [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Emulation#method-getOverriddenSensorInformation
+//
+// parameters:
+//
+//	type
+func GetOverriddenSensorInformation(typeVal SensorType) *GetOverriddenSensorInformationParams {
+	return &GetOverriddenSensorInformationParams{
+		Type: typeVal,
+	}
+}
+
+// GetOverriddenSensorInformationReturns return values.
+type GetOverriddenSensorInformationReturns struct {
+	RequestedSamplingFrequency float64 `json:"requestedSamplingFrequency,omitempty"`
+}
+
+// Do executes Emulation.getOverriddenSensorInformation against the provided context.
+//
+// returns:
+//
+//	requestedSamplingFrequency
+func (p *GetOverriddenSensorInformationParams) Do(ctx context.Context) (requestedSamplingFrequency float64, err error) {
+	// execute
+	var res GetOverriddenSensorInformationReturns
+	err = cdp.Execute(ctx, CommandGetOverriddenSensorInformation, p, &res)
+	if err != nil {
+		return 0, err
+	}
+
+	return res.RequestedSamplingFrequency, nil
+}
+
+// SetSensorOverrideEnabledParams overrides a platform sensor of a given
+// type. If |enabled| is true, calls to Sensor.start() will use a virtual sensor
+// as backend rather than fetching data from a real hardware sensor. Otherwise,
+// existing virtual sensor-backend Sensor objects will fire an error event and
+// new calls to Sensor.start() will attempt to use a real sensor instead.
+type SetSensorOverrideEnabledParams struct {
+	Enabled  bool            `json:"enabled"`
+	Type     SensorType      `json:"type"`
+	Metadata *SensorMetadata `json:"metadata,omitempty"`
+}
+
+// SetSensorOverrideEnabled overrides a platform sensor of a given type. If
+// |enabled| is true, calls to Sensor.start() will use a virtual sensor as
+// backend rather than fetching data from a real hardware sensor. Otherwise,
+// existing virtual sensor-backend Sensor objects will fire an error event and
+// new calls to Sensor.start() will attempt to use a real sensor instead.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Emulation#method-setSensorOverrideEnabled
+//
+// parameters:
+//
+//	enabled
+//	type
+func SetSensorOverrideEnabled(enabled bool, typeVal SensorType) *SetSensorOverrideEnabledParams {
+	return &SetSensorOverrideEnabledParams{
+		Enabled: enabled,
+		Type:    typeVal,
+	}
+}
+
+// WithMetadata [no description].
+func (p SetSensorOverrideEnabledParams) WithMetadata(metadata *SensorMetadata) *SetSensorOverrideEnabledParams {
+	p.Metadata = metadata
+	return &p
+}
+
+// Do executes Emulation.setSensorOverrideEnabled against the provided context.
+func (p *SetSensorOverrideEnabledParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandSetSensorOverrideEnabled, p, nil)
+}
+
+// SetSensorOverrideReadingsParams updates the sensor readings reported by a
+// sensor type previously overridden by setSensorOverrideEnabled.
+type SetSensorOverrideReadingsParams struct {
+	Type    SensorType     `json:"type"`
+	Reading *SensorReading `json:"reading"`
+}
+
+// SetSensorOverrideReadings updates the sensor readings reported by a sensor
+// type previously overridden by setSensorOverrideEnabled.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Emulation#method-setSensorOverrideReadings
+//
+// parameters:
+//
+//	type
+//	reading
+func SetSensorOverrideReadings(typeVal SensorType, reading *SensorReading) *SetSensorOverrideReadingsParams {
+	return &SetSensorOverrideReadingsParams{
+		Type:    typeVal,
+		Reading: reading,
+	}
+}
+
+// Do executes Emulation.setSensorOverrideReadings against the provided context.
+func (p *SetSensorOverrideReadingsParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandSetSensorOverrideReadings, p, nil)
 }
 
 // SetIdleOverrideParams overrides the Idle state.
@@ -775,7 +891,7 @@ func (p *SetHardwareConcurrencyOverrideParams) Do(ctx context.Context) (err erro
 // string.
 type SetUserAgentOverrideParams struct {
 	UserAgent         string             `json:"userAgent"`                   // User agent to use.
-	AcceptLanguage    string             `json:"acceptLanguage,omitempty"`    // Browser langugage to emulate.
+	AcceptLanguage    string             `json:"acceptLanguage,omitempty"`    // Browser language to emulate.
 	Platform          string             `json:"platform,omitempty"`          // The platform navigator.platform should return.
 	UserAgentMetadata *UserAgentMetadata `json:"userAgentMetadata,omitempty"` // To be sent in Sec-CH-UA-* headers and returned in navigator.userAgentData
 }
@@ -793,7 +909,7 @@ func SetUserAgentOverride(userAgent string) *SetUserAgentOverrideParams {
 	}
 }
 
-// WithAcceptLanguage browser langugage to emulate.
+// WithAcceptLanguage browser language to emulate.
 func (p SetUserAgentOverrideParams) WithAcceptLanguage(acceptLanguage string) *SetUserAgentOverrideParams {
 	p.AcceptLanguage = acceptLanguage
 	return &p
@@ -857,6 +973,9 @@ const (
 	CommandSetEmulatedMedia                  = "Emulation.setEmulatedMedia"
 	CommandSetEmulatedVisionDeficiency       = "Emulation.setEmulatedVisionDeficiency"
 	CommandSetGeolocationOverride            = "Emulation.setGeolocationOverride"
+	CommandGetOverriddenSensorInformation    = "Emulation.getOverriddenSensorInformation"
+	CommandSetSensorOverrideEnabled          = "Emulation.setSensorOverrideEnabled"
+	CommandSetSensorOverrideReadings         = "Emulation.setSensorOverrideReadings"
 	CommandSetIdleOverride                   = "Emulation.setIdleOverride"
 	CommandClearIdleOverride                 = "Emulation.clearIdleOverride"
 	CommandSetPageScaleFactor                = "Emulation.setPageScaleFactor"

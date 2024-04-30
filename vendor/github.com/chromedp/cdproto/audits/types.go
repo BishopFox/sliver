@@ -117,17 +117,18 @@ func (t CookieWarningReason) String() string {
 
 // CookieWarningReason values.
 const (
-	CookieWarningReasonWarnSameSiteUnspecifiedCrossSiteContext CookieWarningReason = "WarnSameSiteUnspecifiedCrossSiteContext"
-	CookieWarningReasonWarnSameSiteNoneInsecure                CookieWarningReason = "WarnSameSiteNoneInsecure"
-	CookieWarningReasonWarnSameSiteUnspecifiedLaxAllowUnsafe   CookieWarningReason = "WarnSameSiteUnspecifiedLaxAllowUnsafe"
-	CookieWarningReasonWarnSameSiteStrictLaxDowngradeStrict    CookieWarningReason = "WarnSameSiteStrictLaxDowngradeStrict"
-	CookieWarningReasonWarnSameSiteStrictCrossDowngradeStrict  CookieWarningReason = "WarnSameSiteStrictCrossDowngradeStrict"
-	CookieWarningReasonWarnSameSiteStrictCrossDowngradeLax     CookieWarningReason = "WarnSameSiteStrictCrossDowngradeLax"
-	CookieWarningReasonWarnSameSiteLaxCrossDowngradeStrict     CookieWarningReason = "WarnSameSiteLaxCrossDowngradeStrict"
-	CookieWarningReasonWarnSameSiteLaxCrossDowngradeLax        CookieWarningReason = "WarnSameSiteLaxCrossDowngradeLax"
-	CookieWarningReasonWarnAttributeValueExceedsMaxSize        CookieWarningReason = "WarnAttributeValueExceedsMaxSize"
-	CookieWarningReasonWarnDomainNonASCII                      CookieWarningReason = "WarnDomainNonASCII"
-	CookieWarningReasonWarnThirdPartyPhaseout                  CookieWarningReason = "WarnThirdPartyPhaseout"
+	CookieWarningReasonWarnSameSiteUnspecifiedCrossSiteContext        CookieWarningReason = "WarnSameSiteUnspecifiedCrossSiteContext"
+	CookieWarningReasonWarnSameSiteNoneInsecure                       CookieWarningReason = "WarnSameSiteNoneInsecure"
+	CookieWarningReasonWarnSameSiteUnspecifiedLaxAllowUnsafe          CookieWarningReason = "WarnSameSiteUnspecifiedLaxAllowUnsafe"
+	CookieWarningReasonWarnSameSiteStrictLaxDowngradeStrict           CookieWarningReason = "WarnSameSiteStrictLaxDowngradeStrict"
+	CookieWarningReasonWarnSameSiteStrictCrossDowngradeStrict         CookieWarningReason = "WarnSameSiteStrictCrossDowngradeStrict"
+	CookieWarningReasonWarnSameSiteStrictCrossDowngradeLax            CookieWarningReason = "WarnSameSiteStrictCrossDowngradeLax"
+	CookieWarningReasonWarnSameSiteLaxCrossDowngradeStrict            CookieWarningReason = "WarnSameSiteLaxCrossDowngradeStrict"
+	CookieWarningReasonWarnSameSiteLaxCrossDowngradeLax               CookieWarningReason = "WarnSameSiteLaxCrossDowngradeLax"
+	CookieWarningReasonWarnAttributeValueExceedsMaxSize               CookieWarningReason = "WarnAttributeValueExceedsMaxSize"
+	CookieWarningReasonWarnDomainNonASCII                             CookieWarningReason = "WarnDomainNonASCII"
+	CookieWarningReasonWarnThirdPartyPhaseout                         CookieWarningReason = "WarnThirdPartyPhaseout"
+	CookieWarningReasonWarnCrossSiteRedirectDowngradeChangesInclusion CookieWarningReason = "WarnCrossSiteRedirectDowngradeChangesInclusion"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -166,6 +167,8 @@ func (t *CookieWarningReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = CookieWarningReasonWarnDomainNonASCII
 	case CookieWarningReasonWarnThirdPartyPhaseout:
 		*t = CookieWarningReasonWarnThirdPartyPhaseout
+	case CookieWarningReasonWarnCrossSiteRedirectDowngradeChangesInclusion:
+		*t = CookieWarningReasonWarnCrossSiteRedirectDowngradeChangesInclusion
 
 	default:
 		in.AddError(fmt.Errorf("unknown CookieWarningReason value: %v", v))
@@ -298,33 +301,35 @@ func (t MixedContentResourceType) String() string {
 
 // MixedContentResourceType values.
 const (
-	MixedContentResourceTypeAttributionSrc MixedContentResourceType = "AttributionSrc"
-	MixedContentResourceTypeAudio          MixedContentResourceType = "Audio"
-	MixedContentResourceTypeBeacon         MixedContentResourceType = "Beacon"
-	MixedContentResourceTypeCSPReport      MixedContentResourceType = "CSPReport"
-	MixedContentResourceTypeDownload       MixedContentResourceType = "Download"
-	MixedContentResourceTypeEventSource    MixedContentResourceType = "EventSource"
-	MixedContentResourceTypeFavicon        MixedContentResourceType = "Favicon"
-	MixedContentResourceTypeFont           MixedContentResourceType = "Font"
-	MixedContentResourceTypeForm           MixedContentResourceType = "Form"
-	MixedContentResourceTypeFrame          MixedContentResourceType = "Frame"
-	MixedContentResourceTypeImage          MixedContentResourceType = "Image"
-	MixedContentResourceTypeImport         MixedContentResourceType = "Import"
-	MixedContentResourceTypeManifest       MixedContentResourceType = "Manifest"
-	MixedContentResourceTypePing           MixedContentResourceType = "Ping"
-	MixedContentResourceTypePluginData     MixedContentResourceType = "PluginData"
-	MixedContentResourceTypePluginResource MixedContentResourceType = "PluginResource"
-	MixedContentResourceTypePrefetch       MixedContentResourceType = "Prefetch"
-	MixedContentResourceTypeResource       MixedContentResourceType = "Resource"
-	MixedContentResourceTypeScript         MixedContentResourceType = "Script"
-	MixedContentResourceTypeServiceWorker  MixedContentResourceType = "ServiceWorker"
-	MixedContentResourceTypeSharedWorker   MixedContentResourceType = "SharedWorker"
-	MixedContentResourceTypeStylesheet     MixedContentResourceType = "Stylesheet"
-	MixedContentResourceTypeTrack          MixedContentResourceType = "Track"
-	MixedContentResourceTypeVideo          MixedContentResourceType = "Video"
-	MixedContentResourceTypeWorker         MixedContentResourceType = "Worker"
-	MixedContentResourceTypeXMLHTTPRequest MixedContentResourceType = "XMLHttpRequest"
-	MixedContentResourceTypeXSLT           MixedContentResourceType = "XSLT"
+	MixedContentResourceTypeAttributionSrc   MixedContentResourceType = "AttributionSrc"
+	MixedContentResourceTypeAudio            MixedContentResourceType = "Audio"
+	MixedContentResourceTypeBeacon           MixedContentResourceType = "Beacon"
+	MixedContentResourceTypeCSPReport        MixedContentResourceType = "CSPReport"
+	MixedContentResourceTypeDownload         MixedContentResourceType = "Download"
+	MixedContentResourceTypeEventSource      MixedContentResourceType = "EventSource"
+	MixedContentResourceTypeFavicon          MixedContentResourceType = "Favicon"
+	MixedContentResourceTypeFont             MixedContentResourceType = "Font"
+	MixedContentResourceTypeForm             MixedContentResourceType = "Form"
+	MixedContentResourceTypeFrame            MixedContentResourceType = "Frame"
+	MixedContentResourceTypeImage            MixedContentResourceType = "Image"
+	MixedContentResourceTypeImport           MixedContentResourceType = "Import"
+	MixedContentResourceTypeJSON             MixedContentResourceType = "JSON"
+	MixedContentResourceTypeManifest         MixedContentResourceType = "Manifest"
+	MixedContentResourceTypePing             MixedContentResourceType = "Ping"
+	MixedContentResourceTypePluginData       MixedContentResourceType = "PluginData"
+	MixedContentResourceTypePluginResource   MixedContentResourceType = "PluginResource"
+	MixedContentResourceTypePrefetch         MixedContentResourceType = "Prefetch"
+	MixedContentResourceTypeResource         MixedContentResourceType = "Resource"
+	MixedContentResourceTypeScript           MixedContentResourceType = "Script"
+	MixedContentResourceTypeServiceWorker    MixedContentResourceType = "ServiceWorker"
+	MixedContentResourceTypeSharedWorker     MixedContentResourceType = "SharedWorker"
+	MixedContentResourceTypeSpeculationRules MixedContentResourceType = "SpeculationRules"
+	MixedContentResourceTypeStylesheet       MixedContentResourceType = "Stylesheet"
+	MixedContentResourceTypeTrack            MixedContentResourceType = "Track"
+	MixedContentResourceTypeVideo            MixedContentResourceType = "Video"
+	MixedContentResourceTypeWorker           MixedContentResourceType = "Worker"
+	MixedContentResourceTypeXMLHTTPRequest   MixedContentResourceType = "XMLHttpRequest"
+	MixedContentResourceTypeXSLT             MixedContentResourceType = "XSLT"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -365,6 +370,8 @@ func (t *MixedContentResourceType) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = MixedContentResourceTypeImage
 	case MixedContentResourceTypeImport:
 		*t = MixedContentResourceTypeImport
+	case MixedContentResourceTypeJSON:
+		*t = MixedContentResourceTypeJSON
 	case MixedContentResourceTypeManifest:
 		*t = MixedContentResourceTypeManifest
 	case MixedContentResourceTypePing:
@@ -383,6 +390,8 @@ func (t *MixedContentResourceType) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = MixedContentResourceTypeServiceWorker
 	case MixedContentResourceTypeSharedWorker:
 		*t = MixedContentResourceTypeSharedWorker
+	case MixedContentResourceTypeSpeculationRules:
+		*t = MixedContentResourceTypeSpeculationRules
 	case MixedContentResourceTypeStylesheet:
 		*t = MixedContentResourceTypeStylesheet
 	case MixedContentResourceTypeTrack:
@@ -968,6 +977,17 @@ type BounceTrackingIssueDetails struct {
 	TrackingSites []string `json:"trackingSites"`
 }
 
+// CookieDeprecationMetadataIssueDetails this issue warns about third-party
+// sites that are accessing cookies on the current page, and have been permitted
+// due to having a global metadata grant. Note that in this context 'site' means
+// eTLD+1. For example, if the URL https://example.test:80/web_page was
+// accessing cookies, the site reported would be example.test.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Audits#type-CookieDeprecationMetadataIssueDetails
+type CookieDeprecationMetadataIssueDetails struct {
+	AllowedSites []string `json:"allowedSites"`
+}
+
 // ClientHintIssueReason [no description].
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Audits#type-ClientHintIssueReason
@@ -1064,6 +1084,8 @@ const (
 	FederatedAuthRequestIssueReasonIDTokenHTTPNotFound              FederatedAuthRequestIssueReason = "IdTokenHttpNotFound"
 	FederatedAuthRequestIssueReasonIDTokenNoResponse                FederatedAuthRequestIssueReason = "IdTokenNoResponse"
 	FederatedAuthRequestIssueReasonIDTokenInvalidResponse           FederatedAuthRequestIssueReason = "IdTokenInvalidResponse"
+	FederatedAuthRequestIssueReasonIDTokenIdpErrorResponse          FederatedAuthRequestIssueReason = "IdTokenIdpErrorResponse"
+	FederatedAuthRequestIssueReasonIDTokenCrossSiteIdpErrorResponse FederatedAuthRequestIssueReason = "IdTokenCrossSiteIdpErrorResponse"
 	FederatedAuthRequestIssueReasonIDTokenInvalidRequest            FederatedAuthRequestIssueReason = "IdTokenInvalidRequest"
 	FederatedAuthRequestIssueReasonIDTokenInvalidContentType        FederatedAuthRequestIssueReason = "IdTokenInvalidContentType"
 	FederatedAuthRequestIssueReasonErrorIDToken                     FederatedAuthRequestIssueReason = "ErrorIdToken"
@@ -1144,6 +1166,10 @@ func (t *FederatedAuthRequestIssueReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = FederatedAuthRequestIssueReasonIDTokenNoResponse
 	case FederatedAuthRequestIssueReasonIDTokenInvalidResponse:
 		*t = FederatedAuthRequestIssueReasonIDTokenInvalidResponse
+	case FederatedAuthRequestIssueReasonIDTokenIdpErrorResponse:
+		*t = FederatedAuthRequestIssueReasonIDTokenIdpErrorResponse
+	case FederatedAuthRequestIssueReasonIDTokenCrossSiteIdpErrorResponse:
+		*t = FederatedAuthRequestIssueReasonIDTokenCrossSiteIdpErrorResponse
 	case FederatedAuthRequestIssueReasonIDTokenInvalidRequest:
 		*t = FederatedAuthRequestIssueReasonIDTokenInvalidRequest
 	case FederatedAuthRequestIssueReasonIDTokenInvalidContentType:
@@ -1412,6 +1438,7 @@ const (
 	InspectorIssueCodeClientHintIssue                   InspectorIssueCode = "ClientHintIssue"
 	InspectorIssueCodeFederatedAuthRequestIssue         InspectorIssueCode = "FederatedAuthRequestIssue"
 	InspectorIssueCodeBounceTrackingIssue               InspectorIssueCode = "BounceTrackingIssue"
+	InspectorIssueCodeCookieDeprecationMetadataIssue    InspectorIssueCode = "CookieDeprecationMetadataIssue"
 	InspectorIssueCodeStylesheetLoadingIssue            InspectorIssueCode = "StylesheetLoadingIssue"
 	InspectorIssueCodeFederatedAuthUserInfoRequestIssue InspectorIssueCode = "FederatedAuthUserInfoRequestIssue"
 	InspectorIssueCodePropertyRuleIssue                 InspectorIssueCode = "PropertyRuleIssue"
@@ -1463,6 +1490,8 @@ func (t *InspectorIssueCode) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = InspectorIssueCodeFederatedAuthRequestIssue
 	case InspectorIssueCodeBounceTrackingIssue:
 		*t = InspectorIssueCodeBounceTrackingIssue
+	case InspectorIssueCodeCookieDeprecationMetadataIssue:
+		*t = InspectorIssueCodeCookieDeprecationMetadataIssue
 	case InspectorIssueCodeStylesheetLoadingIssue:
 		*t = InspectorIssueCodeStylesheetLoadingIssue
 	case InspectorIssueCodeFederatedAuthUserInfoRequestIssue:
@@ -1501,6 +1530,7 @@ type InspectorIssueDetails struct {
 	ClientHintIssueDetails                   *ClientHintIssueDetails                   `json:"clientHintIssueDetails,omitempty"`
 	FederatedAuthRequestIssueDetails         *FederatedAuthRequestIssueDetails         `json:"federatedAuthRequestIssueDetails,omitempty"`
 	BounceTrackingIssueDetails               *BounceTrackingIssueDetails               `json:"bounceTrackingIssueDetails,omitempty"`
+	CookieDeprecationMetadataIssueDetails    *CookieDeprecationMetadataIssueDetails    `json:"cookieDeprecationMetadataIssueDetails,omitempty"`
 	StylesheetLoadingIssueDetails            *StylesheetLoadingIssueDetails            `json:"stylesheetLoadingIssueDetails,omitempty"`
 	PropertyRuleIssueDetails                 *PropertyRuleIssueDetails                 `json:"propertyRuleIssueDetails,omitempty"`
 	FederatedAuthUserInfoRequestIssueDetails *FederatedAuthUserInfoRequestIssueDetails `json:"federatedAuthUserInfoRequestIssueDetails,omitempty"`

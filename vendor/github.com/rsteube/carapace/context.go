@@ -6,13 +6,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"unicode"
 
-	"github.com/rsteube/carapace/internal/common"
 	"github.com/rsteube/carapace/internal/env"
 	"github.com/rsteube/carapace/internal/shell/zsh"
+	"github.com/rsteube/carapace/pkg/util"
 	"github.com/rsteube/carapace/third_party/github.com/drone/envsubst"
 	"github.com/rsteube/carapace/third_party/golang.org/x/sys/execabs"
+	"github.com/spf13/cobra"
 )
 
 // Context provides information during completion.
@@ -29,6 +29,7 @@ type Context struct {
 	Dir string
 
 	mockedReplies map[string]string
+	cmd           *cobra.Command // needed for ActionCobra
 }
 
 // NewContext creates a new context for given arguments.
@@ -47,11 +48,8 @@ func NewContext(args ...string) Context {
 		context.Dir = wd
 	}
 
-	isGoRun := func() bool { return strings.HasPrefix(os.Args[0], os.TempDir()+"/go-build") }
-	if sandbox := env.Sandbox(); sandbox != "" && isGoRun() {
-		var m common.Mock
-		_ = json.Unmarshal([]byte(sandbox), &m)
-		context.Dir = m.Dir
+	if m, err := env.Sandbox(); err == nil {
+		context.Dir = m.WorkDir()
 		context.mockedReplies = m.Replies
 	}
 	return context
@@ -115,51 +113,16 @@ func expandHome(s string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		home = filepath.ToSlash(home)
 		s = strings.Replace(s, "~/", home+"/", 1)
 	}
 	return s, nil
 }
 
-func isWindowsVolume(path string) bool {
-	if len(path) <= 1 {
-		return false
-	}
-
-	// We need at least two characters,
-	// of which the first must be a letter
-	// and the second as colon.
-	if unicode.IsLetter(rune(path[0])) && path[1] == ':' {
-		return true
-	}
-
-	return false
-}
-
-// windowsDisplayTrimmed returns a trimmed display folder and true if
-// the context value is a Windows volume (absolute path), or nothing and false.
-func windowsDisplayTrimmed(abs, cValue, displayFolder string) (string, bool) {
-	if !isWindowsVolume(cValue) {
-		return displayFolder, false
-	}
-
-	// volume name such as C: => displayFolder then becomes C:.
-	if !strings.HasSuffix(abs, ".") {
-		displayFolder = strings.TrimSuffix(displayFolder, ".")
-	}
-
-	// If the context value is C:/, the display folder is still C:,
-	// so we only add a trailing slash when the context value is C:
-	// or if it's C:/Us (eg. longer than the volume root with slash).
-	if len(cValue) == 2 || (len(displayFolder) > 3) && !strings.HasSuffix(displayFolder, "/") {
-		displayFolder = displayFolder + "/"
-	}
-
-	return displayFolder, true
-}
-
 // Abs returns an absolute representation of path.
 func (c Context) Abs(path string) (string, error) {
-	if !strings.HasPrefix(path, "/") && !strings.HasPrefix(path, "~") && !isWindowsVolume(path) { // path is relative
+	path = filepath.ToSlash(path)
+	if !strings.HasPrefix(path, "/") && !strings.HasPrefix(path, "~") && !util.HasVolumePrefix(path) { // path is relative
 		switch c.Dir {
 		case "":
 			path = "./" + path
@@ -173,10 +136,14 @@ func (c Context) Abs(path string) (string, error) {
 		return "", err
 	}
 
+	if len(path) == 2 && util.HasVolumePrefix(path) {
+		path += "/" // prevent `C:` -> `C:./current/working/directory`
+	}
 	result, err := filepath.Abs(path)
 	if err != nil {
 		return "", err
 	}
+	result = filepath.ToSlash(result)
 
 	if strings.HasSuffix(path, "/") && !strings.HasSuffix(result, "/") {
 		result += "/"

@@ -6,33 +6,33 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rsteube/carapace/internal/common"
+	"github.com/rsteube/carapace/internal/env"
 	"github.com/rsteube/carapace/internal/pflagfork"
 	"github.com/rsteube/carapace/pkg/style"
+	"github.com/rsteube/carapace/pkg/util"
 	"github.com/spf13/cobra"
 )
 
 func actionPath(fileSuffixes []string, dirOnly bool) Action {
 	return ActionCallback(func(c Context) Action {
+		if len(c.Value) == 2 && util.HasVolumePrefix(c.Value) {
+			// TODO should be fixed in Abs or wherever this is happening
+			return ActionValues(c.Value + "/") // prevent `C:` -> `C:.`
+		}
+
 		abs, err := c.Abs(c.Value)
 		if err != nil {
 			return ActionMessage(err.Error())
 		}
 
-		displayFolder := filepath.Dir(c.Value)
-
-		// Always try to trim/adapt for absolute Windows paths (starting with C:).
-		// On all other platforms, adapt as usual
-		displayFolder, trimmed := windowsDisplayTrimmed(abs, c.Value, displayFolder)
-		if !trimmed {
-			if displayFolder == "." {
-				displayFolder = ""
-			} else if !strings.HasSuffix(displayFolder, "/") {
-				displayFolder = displayFolder + "/"
-			}
+		displayFolder := filepath.ToSlash(filepath.Dir(c.Value))
+		if displayFolder == "." {
+			displayFolder = ""
+		} else if !strings.HasSuffix(displayFolder, "/") {
+			displayFolder = displayFolder + "/"
 		}
 
-		actualFolder := filepath.Dir(abs)
+		actualFolder := filepath.ToSlash(filepath.Dir(abs))
 		files, err := ioutil.ReadDir(actualFolder)
 		if err != nil {
 			return ActionMessage(err.Error())
@@ -54,18 +54,14 @@ func actionPath(fileSuffixes []string, dirOnly bool) Action {
 			}
 
 			if resolvedFile.IsDir() {
-				// Use forward slahes regardless of the OS, since even Powershell understands them.
-				slashed := filepath.ToSlash(displayFolder + file.Name() + "/")
-				vals = append(vals, slashed, style.ForPath(filepath.Clean(actualFolder+"/"+file.Name()+"/"), c))
+				vals = append(vals, displayFolder+file.Name()+"/", style.ForPath(filepath.Clean(actualFolder+"/"+file.Name()+"/"), c))
 			} else if !dirOnly {
 				if len(fileSuffixes) == 0 {
 					fileSuffixes = []string{""}
 				}
 				for _, suffix := range fileSuffixes {
 					if strings.HasSuffix(file.Name(), suffix) {
-						// Use forward slahes regardless of the OS, since even Powershell understands them.
-						slashed := filepath.ToSlash(displayFolder + file.Name())
-						vals = append(vals, slashed, style.ForPath(filepath.Clean(actualFolder+"/"+file.Name()), c))
+						vals = append(vals, displayFolder+file.Name(), style.ForPath(filepath.Clean(actualFolder+"/"+file.Name()), c))
 						break
 					}
 				}
@@ -75,7 +71,7 @@ func actionPath(fileSuffixes []string, dirOnly bool) Action {
 			return ActionStyledValues(vals...).Invoke(Context{}).Prefix("./").ToA()
 		}
 		return ActionStyledValues(vals...)
-	}).Tag("files").NoSpace('/')
+	})
 }
 
 func actionFlags(cmd *cobra.Command) Action {
@@ -86,11 +82,12 @@ func actionFlags(cmd *cobra.Command) Action {
 		flagSet := pflagfork.FlagSet{FlagSet: cmd.Flags()}
 		isShorthandSeries := flagSet.IsShorthandSeries(c.Value)
 
-		needsMultipart := false
-
+		nospace := make([]rune, 0)
 		vals := make([]string, 0)
 		flagSet.VisitAll(func(f *pflagfork.Flag) {
 			switch {
+			case f.Hidden && !env.Hidden():
+				return // skip hidden flags
 			case f.Deprecated != "":
 				return // skip deprecated flags
 			case f.Changed && !f.IsRepeatable():
@@ -107,6 +104,9 @@ func actionFlags(cmd *cobra.Command) Action {
 						}
 					}
 					vals = append(vals, f.Shorthand, f.Usage, f.Style())
+					if f.IsOptarg() {
+						nospace = append(nospace, []rune(f.Shorthand)[0])
+					}
 				}
 			} else {
 				switch f.Mode() {
@@ -119,42 +119,17 @@ func actionFlags(cmd *cobra.Command) Action {
 				if f.Shorthand != "" && f.ShorthandDeprecated == "" {
 					vals = append(vals, "-"+f.Shorthand, f.Usage, f.Style())
 				}
-
-				if strings.Contains(f.Name, ".") {
-					needsMultipart = true
-				}
 			}
 		})
 
 		if isShorthandSeries {
-			return ActionStyledValuesDescribed(vals...).Prefix(c.Value).NoSpace('*')
-		}
-
-		action := ActionStyledValuesDescribed(vals...)
-
-		// multiparts completion for flags grouped with `.`
-		if needsMultipart {
-			action = action.MultiParts(".")
-		}
-
-		return action
-	}).Tag("flags")
-}
-
-func actionSubcommands(cmd *cobra.Command) Action {
-	return ActionCallback(func(c Context) Action {
-		batch := Batch()
-		for _, subcommand := range cmd.Commands() {
-			if !subcommand.Hidden && subcommand.Deprecated == "" {
-				group := common.Group{Cmd: subcommand}
-				batch = append(batch, ActionStyledValuesDescribed(subcommand.Name(), subcommand.Short, group.Style()).Tag(group.Tag()))
-				for _, alias := range subcommand.Aliases {
-					batch = append(batch, ActionStyledValuesDescribed(alias, subcommand.Short, group.Style()).Tag(group.Tag()))
-				}
+			if len(nospace) > 0 {
+				return ActionStyledValuesDescribed(vals...).Prefix(c.Value).NoSpace(nospace...)
 			}
+			return ActionStyledValuesDescribed(vals...).Prefix(c.Value)
 		}
-		return batch.ToA()
-	})
+		return ActionStyledValuesDescribed(vals...).MultiParts(".") // multiparts completion for flags grouped with `.`
+	}).Tag("flags")
 }
 
 func initHelpCompletion(cmd *cobra.Command) {
@@ -170,12 +145,6 @@ func initHelpCompletion(cmd *cobra.Command) {
 	}
 
 	Gen(helpCmd).PositionalAnyCompletion(
-		ActionCallback(func(c Context) Action {
-			lastCmd, _, err := cmd.Find(c.Args)
-			if err != nil {
-				return ActionMessage(err.Error())
-			}
-			return actionSubcommands(lastCmd)
-		}),
+		ActionCommands(cmd),
 	)
 }

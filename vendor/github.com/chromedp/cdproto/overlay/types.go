@@ -254,6 +254,15 @@ type HingeConfig struct {
 	OutlineColor *cdp.RGBA `json:"outlineColor,omitempty"` // The content box highlight outline color (default: transparent).
 }
 
+// WindowControlsOverlayConfig configuration for Window Controls Overlay.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Overlay#type-WindowControlsOverlayConfig
+type WindowControlsOverlayConfig struct {
+	ShowCSS          bool   `json:"showCSS"`          // Whether the title bar CSS should be shown when emulating the Window Controls Overlay.
+	SelectedPlatform string `json:"selectedPlatform"` // Seleted platforms to show the overlay.
+	ThemeColor       string `json:"themeColor"`       // The theme color defined in app manifest.
+}
+
 // ContainerQueryHighlightConfig [no description].
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Overlay#type-ContainerQueryHighlightConfig

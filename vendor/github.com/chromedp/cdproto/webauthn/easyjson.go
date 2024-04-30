@@ -58,6 +58,10 @@ func easyjsonC5a4559bDecodeGithubComChromedpCdprotoWebauthn(in *jlexer.Lexer, ou
 			out.AutomaticPresenceSimulation = bool(in.Bool())
 		case "isUserVerified":
 			out.IsUserVerified = bool(in.Bool())
+		case "defaultBackupEligibility":
+			out.DefaultBackupEligibility = bool(in.Bool())
+		case "defaultBackupState":
+			out.DefaultBackupState = bool(in.Bool())
 		default:
 			in.SkipRecursive()
 		}
@@ -126,6 +130,16 @@ func easyjsonC5a4559bEncodeGithubComChromedpCdprotoWebauthn(out *jwriter.Writer,
 		const prefix string = ",\"isUserVerified\":"
 		out.RawString(prefix)
 		out.Bool(bool(in.IsUserVerified))
+	}
+	if in.DefaultBackupEligibility {
+		const prefix string = ",\"defaultBackupEligibility\":"
+		out.RawString(prefix)
+		out.Bool(bool(in.DefaultBackupEligibility))
+	}
+	if in.DefaultBackupState {
+		const prefix string = ",\"defaultBackupState\":"
+		out.RawString(prefix)
+		out.Bool(bool(in.DefaultBackupState))
 	}
 	out.RawByte('}')
 }

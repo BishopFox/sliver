@@ -43,6 +43,7 @@ const (
 	PermissionsPolicyFeatureBluetooth                    PermissionsPolicyFeature = "bluetooth"
 	PermissionsPolicyFeatureBrowsingTopics               PermissionsPolicyFeature = "browsing-topics"
 	PermissionsPolicyFeatureCamera                       PermissionsPolicyFeature = "camera"
+	PermissionsPolicyFeatureCapturedSurfaceControl       PermissionsPolicyFeature = "captured-surface-control"
 	PermissionsPolicyFeatureChDpr                        PermissionsPolicyFeature = "ch-dpr"
 	PermissionsPolicyFeatureChDeviceMemory               PermissionsPolicyFeature = "ch-device-memory"
 	PermissionsPolicyFeatureChDownlink                   PermissionsPolicyFeature = "ch-downlink"
@@ -98,6 +99,7 @@ const (
 	PermissionsPolicyFeaturePrivateAggregation           PermissionsPolicyFeature = "private-aggregation"
 	PermissionsPolicyFeaturePrivateStateTokenIssuance    PermissionsPolicyFeature = "private-state-token-issuance"
 	PermissionsPolicyFeaturePrivateStateTokenRedemption  PermissionsPolicyFeature = "private-state-token-redemption"
+	PermissionsPolicyFeaturePublickeyCredentialsCreate   PermissionsPolicyFeature = "publickey-credentials-create"
 	PermissionsPolicyFeaturePublickeyCredentialsGet      PermissionsPolicyFeature = "publickey-credentials-get"
 	PermissionsPolicyFeatureRunAdAuction                 PermissionsPolicyFeature = "run-ad-auction"
 	PermissionsPolicyFeatureScreenWakeLock               PermissionsPolicyFeature = "screen-wake-lock"
@@ -107,10 +109,13 @@ const (
 	PermissionsPolicyFeatureSharedStorageSelectURL       PermissionsPolicyFeature = "shared-storage-select-url"
 	PermissionsPolicyFeatureSmartCard                    PermissionsPolicyFeature = "smart-card"
 	PermissionsPolicyFeatureStorageAccess                PermissionsPolicyFeature = "storage-access"
+	PermissionsPolicyFeatureSubApps                      PermissionsPolicyFeature = "sub-apps"
 	PermissionsPolicyFeatureSyncXhr                      PermissionsPolicyFeature = "sync-xhr"
 	PermissionsPolicyFeatureUnload                       PermissionsPolicyFeature = "unload"
 	PermissionsPolicyFeatureUsb                          PermissionsPolicyFeature = "usb"
+	PermissionsPolicyFeatureUsbUnrestricted              PermissionsPolicyFeature = "usb-unrestricted"
 	PermissionsPolicyFeatureVerticalScroll               PermissionsPolicyFeature = "vertical-scroll"
+	PermissionsPolicyFeatureWebPrinting                  PermissionsPolicyFeature = "web-printing"
 	PermissionsPolicyFeatureWebShare                     PermissionsPolicyFeature = "web-share"
 	PermissionsPolicyFeatureWindowManagement             PermissionsPolicyFeature = "window-management"
 	PermissionsPolicyFeatureWindowPlacement              PermissionsPolicyFeature = "window-placement"
@@ -145,6 +150,8 @@ func (t *PermissionsPolicyFeature) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyFeatureBrowsingTopics
 	case PermissionsPolicyFeatureCamera:
 		*t = PermissionsPolicyFeatureCamera
+	case PermissionsPolicyFeatureCapturedSurfaceControl:
+		*t = PermissionsPolicyFeatureCapturedSurfaceControl
 	case PermissionsPolicyFeatureChDpr:
 		*t = PermissionsPolicyFeatureChDpr
 	case PermissionsPolicyFeatureChDeviceMemory:
@@ -255,6 +262,8 @@ func (t *PermissionsPolicyFeature) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyFeaturePrivateStateTokenIssuance
 	case PermissionsPolicyFeaturePrivateStateTokenRedemption:
 		*t = PermissionsPolicyFeaturePrivateStateTokenRedemption
+	case PermissionsPolicyFeaturePublickeyCredentialsCreate:
+		*t = PermissionsPolicyFeaturePublickeyCredentialsCreate
 	case PermissionsPolicyFeaturePublickeyCredentialsGet:
 		*t = PermissionsPolicyFeaturePublickeyCredentialsGet
 	case PermissionsPolicyFeatureRunAdAuction:
@@ -273,14 +282,20 @@ func (t *PermissionsPolicyFeature) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyFeatureSmartCard
 	case PermissionsPolicyFeatureStorageAccess:
 		*t = PermissionsPolicyFeatureStorageAccess
+	case PermissionsPolicyFeatureSubApps:
+		*t = PermissionsPolicyFeatureSubApps
 	case PermissionsPolicyFeatureSyncXhr:
 		*t = PermissionsPolicyFeatureSyncXhr
 	case PermissionsPolicyFeatureUnload:
 		*t = PermissionsPolicyFeatureUnload
 	case PermissionsPolicyFeatureUsb:
 		*t = PermissionsPolicyFeatureUsb
+	case PermissionsPolicyFeatureUsbUnrestricted:
+		*t = PermissionsPolicyFeatureUsbUnrestricted
 	case PermissionsPolicyFeatureVerticalScroll:
 		*t = PermissionsPolicyFeatureVerticalScroll
+	case PermissionsPolicyFeatureWebPrinting:
+		*t = PermissionsPolicyFeatureWebPrinting
 	case PermissionsPolicyFeatureWebShare:
 		*t = PermissionsPolicyFeatureWebShare
 	case PermissionsPolicyFeatureWindowManagement:
@@ -1059,6 +1074,9 @@ const (
 	BackForwardCacheNotRestoredReasonWebRTCSticky                                             BackForwardCacheNotRestoredReason = "WebRTCSticky"
 	BackForwardCacheNotRestoredReasonWebTransportSticky                                       BackForwardCacheNotRestoredReason = "WebTransportSticky"
 	BackForwardCacheNotRestoredReasonWebSocketSticky                                          BackForwardCacheNotRestoredReason = "WebSocketSticky"
+	BackForwardCacheNotRestoredReasonSmartCard                                                BackForwardCacheNotRestoredReason = "SmartCard"
+	BackForwardCacheNotRestoredReasonLiveMediaStreamTrack                                     BackForwardCacheNotRestoredReason = "LiveMediaStreamTrack"
+	BackForwardCacheNotRestoredReasonUnloadHandler                                            BackForwardCacheNotRestoredReason = "UnloadHandler"
 	BackForwardCacheNotRestoredReasonContentSecurityHandler                                   BackForwardCacheNotRestoredReason = "ContentSecurityHandler"
 	BackForwardCacheNotRestoredReasonContentWebAuthenticationAPI                              BackForwardCacheNotRestoredReason = "ContentWebAuthenticationAPI"
 	BackForwardCacheNotRestoredReasonContentFileChooser                                       BackForwardCacheNotRestoredReason = "ContentFileChooser"
@@ -1306,6 +1324,12 @@ func (t *BackForwardCacheNotRestoredReason) UnmarshalEasyJSON(in *jlexer.Lexer) 
 		*t = BackForwardCacheNotRestoredReasonWebTransportSticky
 	case BackForwardCacheNotRestoredReasonWebSocketSticky:
 		*t = BackForwardCacheNotRestoredReasonWebSocketSticky
+	case BackForwardCacheNotRestoredReasonSmartCard:
+		*t = BackForwardCacheNotRestoredReasonSmartCard
+	case BackForwardCacheNotRestoredReasonLiveMediaStreamTrack:
+		*t = BackForwardCacheNotRestoredReasonLiveMediaStreamTrack
+	case BackForwardCacheNotRestoredReasonUnloadHandler:
+		*t = BackForwardCacheNotRestoredReasonUnloadHandler
 	case BackForwardCacheNotRestoredReasonContentSecurityHandler:
 		*t = BackForwardCacheNotRestoredReasonContentSecurityHandler
 	case BackForwardCacheNotRestoredReasonContentWebAuthenticationAPI:
@@ -1416,6 +1440,16 @@ func (t *BackForwardCacheNotRestoredReasonType) UnmarshalJSON(buf []byte) error 
 	return easyjson.Unmarshal(buf, t)
 }
 
+// BackForwardCacheBlockingDetails [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-BackForwardCacheBlockingDetails
+type BackForwardCacheBlockingDetails struct {
+	URL          string `json:"url,omitempty"`      // Url of the file where blockage happened. Optional because of tests.
+	Function     string `json:"function,omitempty"` // Function name where blockage happened. Optional because of anonymous functions and tests.
+	LineNumber   int64  `json:"lineNumber"`         // Line number in the script (0-based).
+	ColumnNumber int64  `json:"columnNumber"`       // Column number in the script (0-based).
+}
+
 // BackForwardCacheNotRestoredExplanation [no description].
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-BackForwardCacheNotRestoredExplanation
@@ -1423,6 +1457,7 @@ type BackForwardCacheNotRestoredExplanation struct {
 	Type    BackForwardCacheNotRestoredReasonType `json:"type"`              // Type of the reason
 	Reason  BackForwardCacheNotRestoredReason     `json:"reason"`            // Not restored reason
 	Context string                                `json:"context,omitempty"` // Context associated with the reason. The meaning of this context is dependent on the reason: - EmbedderExtensionSentMessageToCachedFrame: the extension ID.
+	Details []*BackForwardCacheBlockingDetails    `json:"details,omitempty"`
 }
 
 // BackForwardCacheNotRestoredExplanationTree [no description].

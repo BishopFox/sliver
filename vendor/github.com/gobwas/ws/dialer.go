@@ -87,6 +87,13 @@ type Dialer struct {
 	// land.
 	Header HandshakeHeader
 
+	// Host is an optional string that could be used to specify the host during
+	// HTTP upgrade request by setting 'Host' header.
+	//
+	// Default value is an empty string, which results in setting 'Host' header
+	// equal to the URL hostname given to Dialer.Dial().
+	Host string
+
 	// OnStatusError is the callback that will be called after receiving non
 	// "101 Continue" HTTP response status. It receives an io.Reader object
 	// representing server response bytes. That is, it gives ability to parse
@@ -310,7 +317,7 @@ func (d Dialer) Upgrade(conn io.ReadWriter, u *url.URL) (br *bufio.Reader, hs Ha
 	nonce := make([]byte, nonceSize)
 	initNonce(nonce)
 
-	httpWriteUpgradeRequest(bw, u, nonce, d.Protocols, d.Extensions, d.Header)
+	httpWriteUpgradeRequest(bw, u, nonce, d.Protocols, d.Extensions, d.Header, d.Host)
 	if err := bw.Flush(); err != nil {
 		return br, hs, err
 	}

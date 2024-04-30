@@ -41,6 +41,10 @@ type Config struct {
 	DontSupportForShareClause     bool
 	DontSupportNullAsDefaultValue bool
 	DontSupportRenameColumnUnique bool
+	// As of MySQL 8.0.19, ALTER TABLE permits more general (and SQL standard) syntax
+	// for dropping and altering existing constraints of any type.
+	// see https://dev.mysql.com/doc/refman/8.0/en/alter-table.html
+	DontSupportDropConstraint bool
 }
 
 type Dialector struct {
@@ -136,14 +140,17 @@ func (dialector Dialector) Initialize(db *gorm.DB) (err error) {
 			dialector.Config.DontSupportRenameIndex = true
 			dialector.Config.DontSupportRenameColumn = true
 			dialector.Config.DontSupportForShareClause = true
+			dialector.Config.DontSupportDropConstraint = true
 		} else if strings.HasPrefix(dialector.ServerVersion, "5.7.") {
 			dialector.Config.DontSupportRenameColumn = true
 			dialector.Config.DontSupportForShareClause = true
+			dialector.Config.DontSupportDropConstraint = true
 		} else if strings.HasPrefix(dialector.ServerVersion, "5.") {
 			dialector.Config.DisableDatetimePrecision = true
 			dialector.Config.DontSupportRenameIndex = true
 			dialector.Config.DontSupportRenameColumn = true
 			dialector.Config.DontSupportForShareClause = true
+			dialector.Config.DontSupportDropConstraint = true
 		}
 
 		if strings.Contains(dialector.ServerVersion, "TiDB") {
@@ -160,8 +167,6 @@ func (dialector Dialector) Initialize(db *gorm.DB) (err error) {
 	}
 
 	if !dialector.Config.DisableWithReturning && withReturning {
-		callbackConfig.LastInsertIDReversed = true
-
 		if !utils.Contains(callbackConfig.CreateClauses, "RETURNING") {
 			callbackConfig.CreateClauses = append(callbackConfig.CreateClauses, "RETURNING")
 		}
@@ -405,7 +410,7 @@ func (dialector Dialector) getSchemaStringType(field *schema.Field) string {
 }
 
 func (dialector Dialector) getSchemaTimeType(field *schema.Field) string {
-	if !dialector.DisableDatetimePrecision && field.Precision == 0 {
+	if !dialector.DisableDatetimePrecision && field.Precision == 0 && field.TagSettings["PRECISION"] == "" {
 		field.Precision = *dialector.DefaultDatetimePrecision
 	}
 

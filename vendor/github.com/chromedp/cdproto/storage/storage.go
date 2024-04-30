@@ -627,6 +627,33 @@ func (p *SetInterestGroupTrackingParams) Do(ctx context.Context) (err error) {
 	return cdp.Execute(ctx, CommandSetInterestGroupTracking, p, nil)
 }
 
+// SetInterestGroupAuctionTrackingParams enables/Disables issuing of
+// interestGroupAuctionEventOccurred and
+// interestGroupAuctionNetworkRequestCreated.
+type SetInterestGroupAuctionTrackingParams struct {
+	Enable bool `json:"enable"`
+}
+
+// SetInterestGroupAuctionTracking enables/Disables issuing of
+// interestGroupAuctionEventOccurred and
+// interestGroupAuctionNetworkRequestCreated.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#method-setInterestGroupAuctionTracking
+//
+// parameters:
+//
+//	enable
+func SetInterestGroupAuctionTracking(enable bool) *SetInterestGroupAuctionTrackingParams {
+	return &SetInterestGroupAuctionTrackingParams{
+		Enable: enable,
+	}
+}
+
+// Do executes Storage.setInterestGroupAuctionTracking against the provided context.
+func (p *SetInterestGroupAuctionTrackingParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandSetInterestGroupAuctionTracking, p, nil)
+}
+
 // GetSharedStorageMetadataParams gets metadata for an origin's shared
 // storage.
 type GetSharedStorageMetadataParams struct {
@@ -1006,6 +1033,7 @@ const (
 	CommandClearTrustTokens                        = "Storage.clearTrustTokens"
 	CommandGetInterestGroupDetails                 = "Storage.getInterestGroupDetails"
 	CommandSetInterestGroupTracking                = "Storage.setInterestGroupTracking"
+	CommandSetInterestGroupAuctionTracking         = "Storage.setInterestGroupAuctionTracking"
 	CommandGetSharedStorageMetadata                = "Storage.getSharedStorageMetadata"
 	CommandGetSharedStorageEntries                 = "Storage.getSharedStorageEntries"
 	CommandSetSharedStorageEntry                   = "Storage.setSharedStorageEntry"

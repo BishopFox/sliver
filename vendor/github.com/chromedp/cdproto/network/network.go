@@ -92,16 +92,17 @@ func (p *ClearBrowserCookiesParams) Do(ctx context.Context) (err error) {
 }
 
 // DeleteCookiesParams deletes browser cookies with matching name and url or
-// domain/path pair.
+// domain/path/partitionKey pair.
 type DeleteCookiesParams struct {
-	Name   string `json:"name"`             // Name of the cookies to remove.
-	URL    string `json:"url,omitempty"`    // If specified, deletes all the cookies with the given name where domain and path match provided URL.
-	Domain string `json:"domain,omitempty"` // If specified, deletes only cookies with the exact domain.
-	Path   string `json:"path,omitempty"`   // If specified, deletes only cookies with the exact path.
+	Name         string `json:"name"`                   // Name of the cookies to remove.
+	URL          string `json:"url,omitempty"`          // If specified, deletes all the cookies with the given name where domain and path match provided URL.
+	Domain       string `json:"domain,omitempty"`       // If specified, deletes only cookies with the exact domain.
+	Path         string `json:"path,omitempty"`         // If specified, deletes only cookies with the exact path.
+	PartitionKey string `json:"partitionKey,omitempty"` // If specified, deletes only cookies with the the given name and partitionKey where domain matches provided URL.
 }
 
 // DeleteCookies deletes browser cookies with matching name and url or
-// domain/path pair.
+// domain/path/partitionKey pair.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Network#method-deleteCookies
 //
@@ -130,6 +131,13 @@ func (p DeleteCookiesParams) WithDomain(domain string) *DeleteCookiesParams {
 // WithPath if specified, deletes only cookies with the exact path.
 func (p DeleteCookiesParams) WithPath(path string) *DeleteCookiesParams {
 	p.Path = path
+	return &p
+}
+
+// WithPartitionKey if specified, deletes only cookies with the the given
+// name and partitionKey where domain matches provided URL.
+func (p DeleteCookiesParams) WithPartitionKey(partitionKey string) *DeleteCookiesParams {
+	p.PartitionKey = partitionKey
 	return &p
 }
 
@@ -864,6 +872,55 @@ func (p *SetAttachDebugStackParams) Do(ctx context.Context) (err error) {
 	return cdp.Execute(ctx, CommandSetAttachDebugStack, p, nil)
 }
 
+// StreamResourceContentParams enables streaming of the response for the
+// given requestId. If enabled, the dataReceived event contains the data that
+// was received during streaming.
+type StreamResourceContentParams struct {
+	RequestID RequestID `json:"requestId"` // Identifier of the request to stream.
+}
+
+// StreamResourceContent enables streaming of the response for the given
+// requestId. If enabled, the dataReceived event contains the data that was
+// received during streaming.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Network#method-streamResourceContent
+//
+// parameters:
+//
+//	requestID - Identifier of the request to stream.
+func StreamResourceContent(requestID RequestID) *StreamResourceContentParams {
+	return &StreamResourceContentParams{
+		RequestID: requestID,
+	}
+}
+
+// StreamResourceContentReturns return values.
+type StreamResourceContentReturns struct {
+	BufferedData string `json:"bufferedData,omitempty"` // Data that has been buffered until streaming is enabled.
+}
+
+// Do executes Network.streamResourceContent against the provided context.
+//
+// returns:
+//
+//	bufferedData - Data that has been buffered until streaming is enabled.
+func (p *StreamResourceContentParams) Do(ctx context.Context) (bufferedData []byte, err error) {
+	// execute
+	var res StreamResourceContentReturns
+	err = cdp.Execute(ctx, CommandStreamResourceContent, p, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	// decode
+	var dec []byte
+	dec, err = base64.StdEncoding.DecodeString(res.BufferedData)
+	if err != nil {
+		return nil, err
+	}
+	return dec, nil
+}
+
 // GetSecurityIsolationStatusParams returns information about the COEP/COOP
 // isolation status.
 type GetSecurityIsolationStatusParams struct {
@@ -1010,6 +1067,7 @@ const (
 	CommandSetCookies                              = "Network.setCookies"
 	CommandSetExtraHTTPHeaders                     = "Network.setExtraHTTPHeaders"
 	CommandSetAttachDebugStack                     = "Network.setAttachDebugStack"
+	CommandStreamResourceContent                   = "Network.streamResourceContent"
 	CommandGetSecurityIsolationStatus              = "Network.getSecurityIsolationStatus"
 	CommandEnableReportingAPI                      = "Network.enableReportingApi"
 	CommandLoadNetworkResource                     = "Network.loadNetworkResource"

@@ -47,6 +47,103 @@ func (m Migrator) FullDataTypeOf(field *schema.Field) clause.Expr {
 	return expr
 }
 
+// MigrateColumnUnique migrate column's UNIQUE constraint.
+// In MySQL, ColumnType's Unique is affected by UniqueIndex, so we have to take care of the UniqueIndex.
+func (m Migrator) MigrateColumnUnique(value interface{}, field *schema.Field, columnType gorm.ColumnType) error {
+	unique, ok := columnType.Unique()
+	if !ok || field.PrimaryKey {
+		return nil // skip primary key
+	}
+
+	queryTx, execTx := m.GetQueryAndExecTx()
+	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
+		// We're currently only receiving boolean values on `Unique` tag,
+		// so the UniqueConstraint name is fixed
+		constraint := m.DB.NamingStrategy.UniqueName(stmt.Table, field.DBName)
+		if unique {
+			// Clean up redundant unique indexes
+			indexes, _ := queryTx.Migrator().GetIndexes(value)
+			for _, index := range indexes {
+				if uni, ok := index.Unique(); !ok || !uni {
+					continue
+				}
+				if columns := index.Columns(); len(columns) != 1 || columns[0] != field.DBName {
+					continue
+				}
+				if name := index.Name(); name == constraint || name == field.UniqueIndex {
+					continue
+				}
+				if err := execTx.Migrator().DropIndex(value, index.Name()); err != nil {
+					return err
+				}
+			}
+
+			hasConstraint := queryTx.Migrator().HasConstraint(value, constraint)
+			switch {
+			case field.Unique && !hasConstraint:
+				if field.Unique {
+					if err := execTx.Migrator().CreateConstraint(value, constraint); err != nil {
+						return err
+					}
+				}
+			// field isn't Unique but ColumnType's Unique is reported by UniqueConstraint.
+			case !field.Unique && hasConstraint:
+				if err := execTx.Migrator().DropConstraint(value, constraint); err != nil {
+					return err
+				}
+				if field.UniqueIndex != "" {
+					if err := execTx.Migrator().CreateIndex(value, field.UniqueIndex); err != nil {
+						return err
+					}
+				}
+			}
+
+			if field.UniqueIndex != "" && !queryTx.Migrator().HasIndex(value, field.UniqueIndex) {
+				if err := execTx.Migrator().CreateIndex(value, field.UniqueIndex); err != nil {
+					return err
+				}
+			}
+		} else {
+			if field.Unique {
+				if err := execTx.Migrator().CreateConstraint(value, constraint); err != nil {
+					return err
+				}
+			}
+			if field.UniqueIndex != "" {
+				if err := execTx.Migrator().CreateIndex(value, field.UniqueIndex); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+}
+
+func (m Migrator) AddColumn(value interface{}, name string) error {
+	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
+		// avoid using the same name field
+		f := stmt.Schema.LookUpField(name)
+		if f == nil {
+			return fmt.Errorf("failed to look up field with name: %s", name)
+		}
+
+		if !f.IgnoreMigration {
+			fieldType := m.FullDataTypeOf(f)
+			columnName := clause.Column{Name: f.DBName}
+			values := []interface{}{m.CurrentTable(stmt), columnName, fieldType}
+			var alterSql strings.Builder
+			alterSql.WriteString("ALTER TABLE ? ADD ? ?")
+			if f.PrimaryKey || strings.Contains(strings.ToLower(fieldType.SQL), "auto_increment") {
+				alterSql.WriteString(", ADD PRIMARY KEY (?)")
+				values = append(values, columnName)
+			}
+			return m.DB.Exec(alterSql.String(), values...).Error
+		}
+
+		return nil
+	})
+}
+
 func (m Migrator) AlterColumn(value interface{}, field string) error {
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		if stmt.Schema != nil {
@@ -83,12 +180,12 @@ func (m Migrator) TiDBVersion() (isTiDB bool, major, minor, patch int, err error
 	}
 
 	if minor, err = strconv.Atoi(realVersionArray[1]); err != nil {
-		err = fmt.Errorf("failed to parse the version of TiDB, the minor version is: %s", realVersionArray[0])
+		err = fmt.Errorf("failed to parse the version of TiDB, the minor version is: %s", realVersionArray[1])
 		return
 	}
 
 	if patch, err = strconv.Atoi(realVersionArray[2]); err != nil {
-		err = fmt.Errorf("failed to parse the version of TiDB, the patch version is: %s", realVersionArray[0])
+		err = fmt.Errorf("failed to parse the version of TiDB, the patch version is: %s", realVersionArray[2])
 		return
 	}
 
@@ -124,6 +221,29 @@ func (m Migrator) RenameColumn(value interface{}, oldName, newName string) error
 		}
 
 		return fmt.Errorf("failed to look up field with name: %s", newName)
+	})
+}
+
+func (m Migrator) DropConstraint(value interface{}, name string) error {
+	if !m.Dialector.Config.DontSupportDropConstraint {
+		return m.Migrator.DropConstraint(value, name)
+	}
+
+	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
+		constraint, table := m.GuessConstraintInterfaceAndTable(stmt, name)
+		if constraint != nil {
+			name = constraint.GetName()
+			switch constraint.(type) {
+			case *schema.Constraint:
+				return m.DB.Exec("ALTER TABLE ? DROP FOREIGN KEY ?", clause.Table{Name: table}, clause.Column{Name: name}).Error
+			case *schema.CheckConstraint:
+				return m.DB.Exec("ALTER TABLE ? DROP CHECK ?", clause.Table{Name: table}, clause.Column{Name: name}).Error
+			}
+		}
+		if m.HasIndex(value, name) {
+			return m.DB.Exec("ALTER TABLE ? DROP INDEX ?", clause.Table{Name: table}, clause.Column{Name: name}).Error
+		}
+		return nil
 	})
 }
 
@@ -181,22 +301,6 @@ func (m Migrator) DropTable(values ...interface{}) error {
 			}
 		}
 		return tx.Exec("SET FOREIGN_KEY_CHECKS = 1;").Error
-	})
-}
-
-func (m Migrator) DropConstraint(value interface{}, name string) error {
-	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		constraint, chk, table := m.GuessConstraintAndTable(stmt, name)
-		if chk != nil {
-			return m.DB.Exec("ALTER TABLE ? DROP CHECK ?", clause.Table{Name: stmt.Table}, clause.Column{Name: chk.Name}).Error
-		}
-		if constraint != nil {
-			name = constraint.Name
-		}
-
-		return m.DB.Exec(
-			"ALTER TABLE ? DROP FOREIGN KEY ?", clause.Table{Name: table}, clause.Column{Name: name},
-		).Error
 	})
 }
 
@@ -268,7 +372,13 @@ func (m Migrator) ColumnTypes(value interface{}) ([]gorm.ColumnType, error) {
 				column.AutoIncrementValue = sql.NullBool{Bool: true, Valid: true}
 			}
 
-			column.DefaultValueValue.String = strings.Trim(column.DefaultValueValue.String, "'")
+			// only trim paired single-quotes
+			s := column.DefaultValueValue.String
+			for (len(s) >= 3 && s[0] == '\'' && s[len(s)-1] == '\'' && s[len(s)-2] != '\\') ||
+				(len(s) == 2 && s == "''") {
+				s = s[1 : len(s)-1]
+			}
+			column.DefaultValueValue.String = s
 			if m.Dialector.DontSupportNullAsDefaultValue {
 				// rewrite mariadb default value like other version
 				if column.DefaultValueValue.Valid && column.DefaultValueValue.String == "NULL" {
