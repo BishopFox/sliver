@@ -4,15 +4,15 @@ go 1.22.0
 
 toolchain go1.22.2
 
-replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.25.2-0.20230602202234-e8d757e458ca
+replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.46.3-0.20231214181515-27e49f3c3b69
 
 require (
 	filippo.io/age v1.1.1
 	github.com/AlecAivazis/survey/v2 v2.3.7
-	github.com/Binject/binjection v0.0.0-20200705191933-da1a50d7013d
-	github.com/Binject/debug v0.0.0-20210312092933-6277045c2fdf
-	github.com/Binject/go-donut v0.0.0-20210701074227-67a31e2d883e
-	github.com/Binject/universal v0.0.0-20210304094126-daefaa886313
+	github.com/Binject/binjection v0.0.0-20210701074423-605d46e35deb
+	github.com/Binject/debug v0.0.0-20230508195519-26db73212a7a
+	github.com/Binject/go-donut v0.0.0-20220908180326-fcdcc35d591c
+	github.com/Binject/universal v0.0.0-20220519011857-bea739e758c0
 	github.com/Ne0nd0g/go-clr v1.0.3
 	github.com/alecthomas/chroma v0.10.0
 	github.com/cheggaaa/pb/v3 v3.1.2
