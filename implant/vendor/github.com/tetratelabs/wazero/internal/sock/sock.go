@@ -3,26 +3,27 @@ package sock
 import (
 	"fmt"
 	"net"
-	"syscall"
 
-	"github.com/tetratelabs/wazero/internal/fsapi"
+	"github.com/tetratelabs/wazero/experimental/sys"
 )
 
 // TCPSock is a pseudo-file representing a TCP socket.
 type TCPSock interface {
-	fsapi.File
+	sys.File
 
-	Accept() (TCPConn, syscall.Errno)
+	Accept() (TCPConn, sys.Errno)
 }
 
 // TCPConn is a pseudo-file representing a TCP connection.
 type TCPConn interface {
-	fsapi.File
+	sys.File
 
 	// Recvfrom only supports the flag sysfs.MSG_PEEK
-	Recvfrom(p []byte, flags int) (n int, errno syscall.Errno)
+	// TODO: document this like sys.File with known sys.Errno
+	Recvfrom(p []byte, flags int) (n int, errno sys.Errno)
 
-	Shutdown(how int) syscall.Errno
+	// TODO: document this like sys.File with known sys.Errno
+	Shutdown(how int) sys.Errno
 }
 
 // ConfigKey is a context.Context Value key. Its associated value should be a Config.

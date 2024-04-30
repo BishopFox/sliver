@@ -6,11 +6,12 @@ import (
 
 // MethodRequest is the negotiation method request packet
 // The SOCKS handshake method request is formed as follows:
-// 	+-----+----------+---------------+
-// 	| VER | NMETHODS |    METHODS    |
-// 	+-----+----------+---------------+
-// 	|  1  |     1    | X'00' - X'FF' |
-// 	+-----+----------+---------------+
+//
+// +-----+----------+---------------+
+// | VER | NMETHODS |    METHODS    |
+// +-----+----------+---------------+
+// |  1  |     1    | X'00' - X'FF' |
+// +-----+----------+---------------+
 type MethodRequest struct {
 	Ver      byte
 	NMethods byte
@@ -55,11 +56,12 @@ func (sf MethodRequest) Bytes() []byte {
 
 // MethodReply is the negotiation method reply packet
 // The SOCKS handshake method response is formed as follows:
-// 	+-----+--------+
-// 	| VER | METHOD |
-// 	+-----+--------+
-// 	|  1  |     1  |
-// 	+-----+--------+
+//
+//	+-----+--------+
+//	| VER | METHOD |
+//	+-----+--------+
+//	|  1  |     1  |
+//	+-----+--------+
 type MethodReply struct {
 	Ver    byte
 	Method byte

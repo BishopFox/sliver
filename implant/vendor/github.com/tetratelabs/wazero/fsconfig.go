@@ -3,7 +3,8 @@ package wazero
 import (
 	"io/fs"
 
-	"github.com/tetratelabs/wazero/internal/fsapi"
+	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
+	"github.com/tetratelabs/wazero/internal/sys"
 	"github.com/tetratelabs/wazero/internal/sysfs"
 )
 
@@ -30,8 +31,7 @@ import (
 //
 // More notes on `guestPath`
 //   - Go compiled with runtime.GOOS=js do not pay attention to this value.
-//     Hence, you need to normalize the filesystem with NewRootFS to ensure
-//     paths requested resolve as expected.
+//     It only works with root mounts ("").
 //   - Working directories are typically tracked in wasm, though possible some
 //     relative paths are requested. For example, TinyGo may attempt to resolve
 //     a path "../.." in unit tests.
@@ -84,7 +84,7 @@ type FSConfig interface {
 	//
 	// # os.DirFS
 	//
-	// This configuration optimizes for WASI compatability which is sometimes
+	// This configuration optimizes for WASI compatibility which is sometimes
 	// at odds with the behavior of os.DirFS. Hence, this will not behave
 	// exactly the same as os.DirFS. See /RATIONALE.md for more.
 	WithDirMount(dir, guestPath string) FSConfig
@@ -118,12 +118,24 @@ type FSConfig interface {
 	// advise using WithDirMount instead. There will be behavior differences
 	// between os.DirFS and WithDirMount, as the latter biases towards what's
 	// expected from WASI implementations.
+	//
+	// # Custom fs.FileInfo
+	//
+	// The underlying implementation supports data not usually in fs.FileInfo
+	// when `info.Sys` returns *sys.Stat_t. For example, a custom fs.FS can use
+	// this approach to generate or mask sys.Inode data. Such a filesystem
+	// needs to decorate any functions that can return fs.FileInfo:
+	//
+	//   - `Stat` as defined on `fs.File` (always)
+	//   - `Readdir` as defined on `os.File` (if defined)
+	//
+	// See sys.NewStat_t for examples.
 	WithFSMount(fs fs.FS, guestPath string) FSConfig
 }
 
 type fsConfig struct {
 	// fs are the currently configured filesystems.
-	fs []fsapi.FS
+	fs []experimentalsys.FS
 	// guestPaths are the user-supplied names of the filesystems, retained for
 	// error messages and fmt.Stringer.
 	guestPaths []string
@@ -140,7 +152,7 @@ func NewFSConfig() FSConfig {
 // clone makes a deep copy of this module config.
 func (c *fsConfig) clone() *fsConfig {
 	ret := *c // copy except slice and maps which share a ref
-	ret.fs = make([]fsapi.FS, 0, len(c.fs))
+	ret.fs = make([]experimentalsys.FS, 0, len(c.fs))
 	ret.fs = append(ret.fs, c.fs...)
 	ret.guestPaths = make([]string, 0, len(c.guestPaths))
 	ret.guestPaths = append(ret.guestPaths, c.guestPaths...)
@@ -153,26 +165,34 @@ func (c *fsConfig) clone() *fsConfig {
 
 // WithDirMount implements FSConfig.WithDirMount
 func (c *fsConfig) WithDirMount(dir, guestPath string) FSConfig {
-	return c.withMount(sysfs.NewDirFS(dir), guestPath)
+	return c.WithSysFSMount(sysfs.DirFS(dir), guestPath)
 }
 
 // WithReadOnlyDirMount implements FSConfig.WithReadOnlyDirMount
 func (c *fsConfig) WithReadOnlyDirMount(dir, guestPath string) FSConfig {
-	return c.withMount(sysfs.NewReadFS(sysfs.NewDirFS(dir)), guestPath)
+	return c.WithSysFSMount(&sysfs.ReadFS{FS: sysfs.DirFS(dir)}, guestPath)
 }
 
 // WithFSMount implements FSConfig.WithFSMount
 func (c *fsConfig) WithFSMount(fs fs.FS, guestPath string) FSConfig {
-	return c.withMount(sysfs.Adapt(fs), guestPath)
+	var adapted experimentalsys.FS
+	if fs != nil {
+		adapted = &sysfs.AdaptFS{FS: fs}
+	}
+	return c.WithSysFSMount(adapted, guestPath)
 }
 
-func (c *fsConfig) withMount(fs fsapi.FS, guestPath string) FSConfig {
-	cleaned := sysfs.StripPrefixesAndTrailingSlash(guestPath)
+// WithSysFSMount implements sysfs.FSConfig
+func (c *fsConfig) WithSysFSMount(fs experimentalsys.FS, guestPath string) FSConfig {
+	if _, ok := fs.(experimentalsys.UnimplementedFS); ok {
+		return c // don't add fake paths.
+	}
+	cleaned := sys.StripPrefixesAndTrailingSlash(guestPath)
 	ret := c.clone()
 	if i, ok := ret.guestPathToFS[cleaned]; ok {
 		ret.fs[i] = fs
 		ret.guestPaths[i] = guestPath
-	} else {
+	} else if fs != nil {
 		ret.guestPathToFS[cleaned] = len(ret.fs)
 		ret.fs = append(ret.fs, fs)
 		ret.guestPaths = append(ret.guestPaths, guestPath)
@@ -180,6 +200,16 @@ func (c *fsConfig) withMount(fs fsapi.FS, guestPath string) FSConfig {
 	return ret
 }
 
-func (c *fsConfig) toFS() (fsapi.FS, error) {
-	return sysfs.NewRootFS(c.fs, c.guestPaths)
+// preopens returns the possible nil index-correlated preopened filesystems
+// with guest paths.
+func (c *fsConfig) preopens() ([]experimentalsys.FS, []string) {
+	preopenCount := len(c.fs)
+	if preopenCount == 0 {
+		return nil, nil
+	}
+	fs := make([]experimentalsys.FS, len(c.fs))
+	copy(fs, c.fs)
+	guestPaths := make([]string, len(c.guestPaths))
+	copy(guestPaths, c.guestPaths)
+	return fs, guestPaths
 }

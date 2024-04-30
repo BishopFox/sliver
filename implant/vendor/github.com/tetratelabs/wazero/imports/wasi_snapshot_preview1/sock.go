@@ -2,9 +2,9 @@ package wasi_snapshot_preview1
 
 import (
 	"context"
-	"syscall"
 
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental/sys"
 	socketapi "github.com/tetratelabs/wazero/internal/sock"
 	"github.com/tetratelabs/wazero/internal/sysfs"
 	"github.com/tetratelabs/wazero/internal/wasip1"
@@ -23,7 +23,7 @@ var sockAccept = newHostFunc(
 	"fd", "flags", "result.fd",
 )
 
-func sockAcceptFn(_ context.Context, mod api.Module, params []uint64) (errno syscall.Errno) {
+func sockAcceptFn(_ context.Context, mod api.Module, params []uint64) (errno sys.Errno) {
 	mem := mod.Memory()
 	fsc := mod.(*wasm.ModuleInstance).Sys.FS()
 
@@ -50,7 +50,7 @@ var sockRecv = newHostFunc(
 	"fd", "ri_data", "ri_data_len", "ri_flags", "result.ro_datalen", "result.ro_flags",
 )
 
-func sockRecvFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
+func sockRecvFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
 	mem := mod.Memory()
 	fsc := mod.(*wasm.ModuleInstance).Sys.FS()
 
@@ -63,13 +63,13 @@ func sockRecvFn(_ context.Context, mod api.Module, params []uint64) syscall.Errn
 
 	var conn socketapi.TCPConn
 	if e, ok := fsc.LookupFile(fd); !ok {
-		return syscall.EBADF // Not open
+		return sys.EBADF // Not open
 	} else if conn, ok = e.File.(socketapi.TCPConn); !ok {
-		return syscall.EBADF // Not a conn
+		return sys.EBADF // Not a conn
 	}
 
 	if riFlags & ^(wasip1.RI_RECV_PEEK|wasip1.RI_RECV_WAITALL) != 0 {
-		return syscall.ENOTSUP
+		return sys.ENOTSUP
 	}
 
 	if riFlags&wasip1.RI_RECV_PEEK != 0 {
@@ -78,16 +78,16 @@ func sockRecvFn(_ context.Context, mod api.Module, params []uint64) syscall.Errn
 		// This means that the first `uint32` is a `buf *uint8`.
 		firstIovecBufAddr, ok := mem.ReadUint32Le(riData)
 		if !ok {
-			return syscall.EINVAL
+			return sys.EINVAL
 		}
 		// Read bufLen
 		firstIovecBufLen, ok := mem.ReadUint32Le(riData + 4)
 		if !ok {
-			return syscall.EINVAL
+			return sys.EINVAL
 		}
 		firstIovecBuf, ok := mem.Read(firstIovecBufAddr, firstIovecBufLen)
 		if !ok {
-			return syscall.EINVAL
+			return sys.EINVAL
 		}
 		n, err := conn.Recvfrom(firstIovecBuf, sysfs.MSG_PEEK)
 		if err != 0 {
@@ -122,7 +122,7 @@ var sockSend = newHostFunc(
 	"fd", "si_data", "si_data_len", "si_flags", "result.so_datalen",
 )
 
-func sockSendFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
+func sockSendFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
 	mem := mod.Memory()
 	fsc := mod.(*wasm.ModuleInstance).Sys.FS()
 
@@ -133,14 +133,14 @@ func sockSendFn(_ context.Context, mod api.Module, params []uint64) syscall.Errn
 	resultSoDatalen := uint32(params[4])
 
 	if siFlags != 0 {
-		return syscall.ENOTSUP
+		return sys.ENOTSUP
 	}
 
 	var conn socketapi.TCPConn
 	if e, ok := fsc.LookupFile(fd); !ok {
-		return syscall.EBADF // Not open
+		return sys.EBADF // Not open
 	} else if conn, ok = e.File.(socketapi.TCPConn); !ok {
-		return syscall.EBADF // Not a conn
+		return sys.EBADF // Not a conn
 	}
 
 	bufSize, errno := writev(mem, siData, siDataCount, conn.Write)
@@ -157,7 +157,7 @@ func sockSendFn(_ context.Context, mod api.Module, params []uint64) syscall.Errn
 // See: https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md#-sock_shutdownfd-fd-how-sdflags---errno
 var sockShutdown = newHostFunc(wasip1.SockShutdownName, sockShutdownFn, []wasm.ValueType{i32, i32}, "fd", "how")
 
-func sockShutdownFn(_ context.Context, mod api.Module, params []uint64) syscall.Errno {
+func sockShutdownFn(_ context.Context, mod api.Module, params []uint64) sys.Errno {
 	fsc := mod.(*wasm.ModuleInstance).Sys.FS()
 
 	fd := int32(params[0])
@@ -165,23 +165,24 @@ func sockShutdownFn(_ context.Context, mod api.Module, params []uint64) syscall.
 
 	var conn socketapi.TCPConn
 	if e, ok := fsc.LookupFile(fd); !ok {
-		return syscall.EBADF // Not open
+		return sys.EBADF // Not open
 	} else if conn, ok = e.File.(socketapi.TCPConn); !ok {
-		return syscall.EBADF // Not a conn
+		return sys.EBADF // Not a conn
 	}
 
 	sysHow := 0
 
 	switch how {
 	case wasip1.SD_RD | wasip1.SD_WR:
-		sysHow = syscall.SHUT_RD | syscall.SHUT_WR
+		sysHow = socketapi.SHUT_RD | socketapi.SHUT_WR
 	case wasip1.SD_RD:
-		sysHow = syscall.SHUT_RD
+		sysHow = socketapi.SHUT_RD
 	case wasip1.SD_WR:
-		sysHow = syscall.SHUT_WR
+		sysHow = socketapi.SHUT_WR
 	default:
-		return syscall.EINVAL
+		return sys.EINVAL
 	}
 
+	// TODO: Map this instead of relying on syscall symbols.
 	return conn.Shutdown(sysHow)
 }

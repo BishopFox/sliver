@@ -3,6 +3,7 @@ package wasm
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental"
 	"github.com/tetratelabs/wazero/internal/ieee754"
 	"github.com/tetratelabs/wazero/internal/leb128"
 	"github.com/tetratelabs/wazero/internal/wasmdebug"
@@ -183,6 +185,9 @@ type Module struct {
 	// as described in https://yurydelendik.github.io/webassembly-dwarf/, though it is not specified in the Wasm
 	// specification: https://github.com/WebAssembly/debugging/issues/1
 	DWARFLines *wasmdebug.DWARFLines
+
+	// NonStaticLocals collects the local indexes that will change its value through either local.get or local.tee.
+	NonStaticLocals []map[Index]struct{}
 }
 
 // ModuleID represents sha256 hash value uniquely assigned to Module.
@@ -198,13 +203,20 @@ const (
 
 // AssignModuleID calculates a sha256 checksum on `wasm` and other args, and set Module.ID to the result.
 // See the doc on Module.ID on what it's used for.
-func (m *Module) AssignModuleID(wasm []byte, withListener, withEnsureTermination bool) {
+func (m *Module) AssignModuleID(wasm []byte, listeners []experimental.FunctionListener, withEnsureTermination bool) {
 	h := sha256.New()
 	h.Write(wasm)
-	// Use the pre-allocated space on m.ID to append the booleans to sha256 hash.
-	m.ID[0] = boolToByte(withListener)
-	m.ID[1] = boolToByte(withEnsureTermination)
-	h.Write(m.ID[:2])
+	// Use the pre-allocated space backed by m.ID below.
+
+	// Write the existence of listeners to the checksum per function.
+	for i, l := range listeners {
+		binary.LittleEndian.PutUint32(m.ID[:], uint32(i))
+		m.ID[4] = boolToByte(l != nil)
+		h.Write(m.ID[:5])
+	}
+	// Write the flag of ensureTermination to the checksum.
+	m.ID[0] = boolToByte(withEnsureTermination)
+	h.Write(m.ID[:1])
 	// Get checksum by passing the slice underlying m.ID.
 	h.Sum(m.ID[:0])
 }
@@ -354,6 +366,8 @@ func (m *Module) validateFunctions(enabledFeatures api.CoreFeatures, functions [
 	br := bytes.NewReader(nil)
 	// Also, we reuse the stacks across multiple function validations to reduce allocations.
 	vs := &stacks{}
+	// Non-static locals are gathered during validation and used in the down-stream compilation.
+	m.NonStaticLocals = make([]map[Index]struct{}, len(m.FunctionSection))
 	for idx, typeIndex := range m.FunctionSection {
 		if typeIndex >= typeCount {
 			return fmt.Errorf("invalid %s: type section index %d out of range", m.funcDesc(SectionIDFunction, Index(idx)), typeIndex)
@@ -602,9 +616,16 @@ func (m *Module) validateDataCountSection() (err error) {
 
 func (m *ModuleInstance) buildGlobals(module *Module, funcRefResolver func(funcIndex Index) Reference) {
 	importedGlobals := m.Globals[:module.ImportGlobalCount]
+
+	me := m.Engine
+	engineOwnGlobal := me.OwnsGlobals()
 	for i := Index(0); i < Index(len(module.GlobalSection)); i++ {
 		gs := &module.GlobalSection[i]
 		g := &GlobalInstance{}
+		if engineOwnGlobal {
+			g.Me = me
+			g.Index = i + module.ImportGlobalCount
+		}
 		m.Globals[i+module.ImportGlobalCount] = g
 		g.Type = gs.Type
 		g.initialize(importedGlobals, &gs.Init, funcRefResolver)
@@ -631,10 +652,10 @@ func paramNames(localNames IndirectNameMap, funcIdx uint32, paramLen int) []stri
 	return nil
 }
 
-func (m *ModuleInstance) buildMemory(module *Module) {
+func (m *ModuleInstance) buildMemory(module *Module, allocator experimental.MemoryAllocator) {
 	memSec := module.MemorySection
 	if memSec != nil {
-		m.MemoryInstance = NewMemoryInstance(memSec)
+		m.MemoryInstance = NewMemoryInstance(memSec, allocator)
 		m.MemoryInstance.definition = &module.MemoryDefinitionSection[0]
 	}
 }
@@ -750,6 +771,8 @@ type Memory struct {
 	Min, Cap, Max uint32
 	// IsMaxEncoded true if the Max is encoded in the original binary.
 	IsMaxEncoded bool
+	// IsShared true if the memory is shared for access from multiple agents.
+	IsShared bool
 }
 
 // Validate ensures values assigned to Min, Cap and Max are within valid thresholds.

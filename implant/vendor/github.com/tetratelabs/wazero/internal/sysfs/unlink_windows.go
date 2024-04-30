@@ -1,26 +1,24 @@
-//go:build windows
-
 package sysfs
 
 import (
 	"os"
 	"syscall"
 
-	"github.com/tetratelabs/wazero/internal/platform"
+	"github.com/tetratelabs/wazero/experimental/sys"
 )
 
-func Unlink(name string) syscall.Errno {
+func unlink(name string) sys.Errno {
 	err := syscall.Unlink(name)
 	if err == nil {
 		return 0
 	}
-	errno := platform.UnwrapOSError(err)
-	if errno == syscall.EBADF {
+	errno := sys.UnwrapOSError(err)
+	if errno == sys.EBADF {
 		lstat, errLstat := os.Lstat(name)
 		if errLstat == nil && lstat.Mode()&os.ModeSymlink != 0 {
-			errno = platform.UnwrapOSError(os.Remove(name))
+			errno = sys.UnwrapOSError(os.Remove(name))
 		} else {
-			errno = syscall.EISDIR
+			errno = sys.EISDIR
 		}
 	}
 	return errno

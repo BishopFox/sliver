@@ -41,7 +41,7 @@ const (
 	RIGHT_PATH_CREATE_DIRECTORY
 
 	// RIGHT_PATH_CREATE_FILE when RIGHT_PATH_OPEN is set, the right to invoke
-	// path_open with O_CREATE.
+	// path_open with O_CREAT.
 	RIGHT_PATH_CREATE_FILE
 
 	// RIGHT_PATH_LINK_SOURCE is the right to invoke path_link with the file

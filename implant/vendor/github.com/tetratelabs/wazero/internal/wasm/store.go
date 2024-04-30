@@ -5,8 +5,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental"
+	"github.com/tetratelabs/wazero/internal/expctxkeys"
 	"github.com/tetratelabs/wazero/internal/internalapi"
 	"github.com/tetratelabs/wazero/internal/leb128"
 	internalsys "github.com/tetratelabs/wazero/internal/sys"
@@ -70,17 +73,6 @@ type (
 	ModuleInstance struct {
 		internalapi.WazeroOnlyType
 
-		// Closed is used both to guard moduleEngine.CloseWithExitCode and to store the exit code.
-		//
-		// The update value is closedType + exitCode << 32. This ensures an exit code of zero isn't mistaken for never closed.
-		//
-		// Note: Exclusively reading and updating this with atomics guarantees cross-goroutine observations.
-		// See /RATIONALE.md
-		//
-		// TODO: Retype this to atomic.Unit64 when Go 1.18 is no longer supported. Until then, keep Closed at the top of
-		// this struct. See PR #1299 for an implementation and discussion.
-		Closed uint64
-
 		ModuleName     string
 		Exports        map[string]*Export
 		Globals        []*GlobalInstance
@@ -104,8 +96,7 @@ type (
 		// or external objects (unimplemented).
 		ElementInstances []ElementInstance
 
-		// Sys is exposed for use in special imports such as WASI, assemblyscript
-		// and gojs.
+		// Sys is exposed for use in special imports such as WASI, assemblyscript.
 		//
 		// # Notes
 		//
@@ -114,6 +105,14 @@ type (
 		//	  parameter) because we haven't thought through capabilities based
 		//	  security implications.
 		Sys *internalsys.Context
+
+		// Closed is used both to guard moduleEngine.CloseWithExitCode and to store the exit code.
+		//
+		// The update value is closedType + exitCode << 32. This ensures an exit code of zero isn't mistaken for never closed.
+		//
+		// Note: Exclusively reading and updating this with atomics guarantees cross-goroutine observations.
+		// See /RATIONALE.md
+		Closed atomic.Uint64
 
 		// CodeCloser is non-nil when the code should be closed after this module.
 		CodeCloser api.Closer
@@ -124,6 +123,9 @@ type (
 		prev, next *ModuleInstance
 		// Source is a pointer to the Module from which this ModuleInstance derives.
 		Source *Module
+
+		// CloseNotifier is an experimental hook called once on close.
+		CloseNotifier experimental.CloseNotifier
 	}
 
 	// DataInstance holds bytes corresponding to the data segment in a module.
@@ -136,10 +138,16 @@ type (
 	GlobalInstance struct {
 		Type GlobalType
 		// Val holds a 64-bit representation of the actual value.
+		// If me is non-nil, the value will not be updated and the current value is stored in the module engine.
 		Val uint64
 		// ValHi is only used for vector type globals, and holds the higher bits of the vector.
+		// If me is non-nil, the value will not be updated and the current value is stored in the module engine.
 		ValHi uint64
-		// ^^ TODO: this should be guarded with atomics when mutable
+		// Me is the module engine that owns this global instance.
+		// The .Val and .ValHi fields are only valid when me is nil.
+		// If me is non-nil, the value is stored in the module engine.
+		Me    ModuleEngine
+		Index Index
 	}
 
 	// FunctionTypeID is a uniquely assigned integer for a function type.
@@ -152,23 +160,33 @@ type (
 const maximumFunctionTypes = 1 << 27
 
 // GetFunctionTypeID is used by emscripten.
-func (m *ModuleInstance) GetFunctionTypeID(t *FunctionType) (FunctionTypeID, error) {
-	return m.s.GetFunctionTypeID(t)
+func (m *ModuleInstance) GetFunctionTypeID(t *FunctionType) FunctionTypeID {
+	id, err := m.s.GetFunctionTypeID(t)
+	if err != nil {
+		// This is not recoverable in practice since the only error GetFunctionTypeID returns is
+		// when there's too many function types in the store.
+		panic(err)
+	}
+	return id
 }
 
 func (m *ModuleInstance) buildElementInstances(elements []ElementSegment) {
-	m.ElementInstances = make([]ElementInstance, len(elements))
+	m.ElementInstances = make([][]Reference, len(elements))
 	for i, elm := range elements {
 		if elm.Type == RefTypeFuncref && elm.Mode == ElementModePassive {
 			// Only passive elements can be access as element instances.
 			// See https://www.w3.org/TR/2022/WD-wasm-core-2-20220419/syntax/modules.html#element-segments
 			inits := elm.Init
-			elemInst := &m.ElementInstances[i]
-			elemInst.References = make([]Reference, len(inits))
-			elemInst.Type = RefTypeFuncref
+			inst := make([]Reference, len(inits))
+			m.ElementInstances[i] = inst
 			for j, idx := range inits {
-				if idx != ElementInitNullReference {
-					elemInst.References[j] = m.Engine.FunctionInstanceReference(idx)
+				if index, ok := unwrapElementInitGlobalReference(idx); ok {
+					global := m.Globals[index]
+					inst[j] = Reference(global.Val)
+				} else {
+					if idx != ElementInitNullReference {
+						inst[j] = m.Engine.FunctionInstanceReference(idx)
+					}
 				}
 			}
 		}
@@ -345,9 +363,20 @@ func (s *Store) instantiate(
 		return nil, err
 	}
 
+	var allocator experimental.MemoryAllocator
+	if ctx != nil {
+		allocator, _ = ctx.Value(expctxkeys.MemoryAllocatorKey{}).(experimental.MemoryAllocator)
+	}
+
 	m.buildGlobals(module, m.Engine.FunctionInstanceReference)
-	m.buildMemory(module)
+	m.buildMemory(module, allocator)
 	m.Exports = module.Exports
+	for _, exp := range m.Exports {
+		if exp.Type == ExternTypeTable {
+			t := m.Tables[exp.Index]
+			t.involvingModuleInstances = append(t.involvingModuleInstances, m)
+		}
+	}
 
 	// As of reference types proposal, data segment validation must happen after instantiation,
 	// and the side effect must persist even if there's out of bounds error after instantiation.
@@ -367,6 +396,8 @@ func (s *Store) instantiate(
 	}
 
 	m.applyElements(module.ElementSection)
+
+	m.Engine.DoneInstantiation()
 
 	// Execute the start function.
 	if module.StartSection != nil {
@@ -433,6 +464,12 @@ func (m *ModuleInstance) resolveImports(module *Module) (err error) {
 					}
 				}
 				m.Tables[i.IndexPerType] = importedTable
+				importedTable.involvingModuleInstancesMutex.Lock()
+				if len(importedTable.involvingModuleInstances) == 0 {
+					panic("BUG: involvingModuleInstances must not be nil when it's imported")
+				}
+				importedTable.involvingModuleInstances = append(importedTable.involvingModuleInstances, m)
+				importedTable.involvingModuleInstancesMutex.Unlock()
 			case ExternTypeMemory:
 				expected := i.DescMem
 				importedMemory := importedModule.MemoryInstance
@@ -447,6 +484,7 @@ func (m *ModuleInstance) resolveImports(module *Module) (err error) {
 					return
 				}
 				m.MemoryInstance = importedMemory
+				m.Engine.ResolveImportedMemory(importedModule.Engine)
 			case ExternTypeGlobal:
 				expected := i.DescGlobal
 				importedGlobal := importedModule.Globals[imported.Index]
@@ -560,6 +598,21 @@ func (g *GlobalInstance) String() string {
 		return fmt.Sprintf("global(%f)", api.DecodeF64(g.Val))
 	default:
 		panic(fmt.Errorf("BUG: unknown value type %X", g.Type.ValType))
+	}
+}
+
+func (g *GlobalInstance) Value() (uint64, uint64) {
+	if g.Me != nil {
+		return g.Me.GetGlobalValue(g.Index)
+	}
+	return g.Val, g.ValHi
+}
+
+func (g *GlobalInstance) SetValue(lo, hi uint64) {
+	if g.Me != nil {
+		g.Me.SetGlobalValue(g.Index, lo, hi)
+	} else {
+		g.Val, g.ValHi = lo, hi
 	}
 }
 
