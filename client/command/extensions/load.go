@@ -215,7 +215,9 @@ func ParseExtensionManifest(data []byte) (*ExtensionManifest, error) {
 	err := json.Unmarshal(data, &extManifest)
 	if err != nil || len(extManifest.ExtCommand) == 0 { //extensions must have at least one command to be sensible
 		//maybe it's an old manifest
-		log.Println(err)
+		if err != nil {
+			log.Printf("extension load error: %s", err)
+		}
 		oldmanifest := &ExtensionManifest_{}
 		err := json.Unmarshal(data, &oldmanifest)
 		if err != nil {
