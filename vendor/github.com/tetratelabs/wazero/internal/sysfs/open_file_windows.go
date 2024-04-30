@@ -8,12 +8,10 @@ import (
 	"unsafe"
 
 	"github.com/tetratelabs/wazero/experimental/sys"
-	"github.com/tetratelabs/wazero/internal/fsapi"
-	"github.com/tetratelabs/wazero/internal/platform"
 )
 
-func openFile(path string, oflag fsapi.Oflag, perm fs.FileMode) (*os.File, sys.Errno) {
-	isDir := oflag&fsapi.O_DIRECTORY > 0
+func openFile(path string, oflag sys.Oflag, perm fs.FileMode) (*os.File, sys.Errno) {
+	isDir := oflag&sys.O_DIRECTORY > 0
 	flag := toOsOpenFlag(oflag)
 
 	// TODO: document why we are opening twice
@@ -55,14 +53,14 @@ func openFile(path string, oflag fsapi.Oflag, perm fs.FileMode) (*os.File, sys.E
 	return f, errno
 }
 
-const supportedSyscallOflag = fsapi.O_NONBLOCK
+const supportedSyscallOflag = sys.O_NONBLOCK
 
 // Map to synthetic values here https://github.com/golang/go/blob/go1.20/src/syscall/types_windows.go#L34-L48
-func withSyscallOflag(oflag fsapi.Oflag, flag int) int {
+func withSyscallOflag(oflag sys.Oflag, flag int) int {
 	// O_DIRECTORY not defined in windows
 	// O_DSYNC not defined in windows
 	// O_NOFOLLOW not defined in windows
-	if oflag&fsapi.O_NONBLOCK != 0 {
+	if oflag&sys.O_NONBLOCK != 0 {
 		flag |= syscall.O_NONBLOCK
 	}
 	// O_RSYNC not defined in windows
@@ -151,13 +149,11 @@ func open(path string, mode int, perm uint32) (fd syscall.Handle, err error) {
 		}
 	}
 
-	if platform.IsAtLeastGo120 {
-		// This shouldn't be included before 1.20 to have consistent behavior.
-		// https://github.com/golang/go/commit/0f0aa5d8a6a0253627d58b3aa083b24a1091933f
-		if createmode == syscall.OPEN_EXISTING && access == syscall.GENERIC_READ {
-			// Necessary for opening directory handles.
-			attrs |= syscall.FILE_FLAG_BACKUP_SEMANTICS
-		}
+	// This shouldn't be included before 1.20 to have consistent behavior.
+	// https://github.com/golang/go/commit/0f0aa5d8a6a0253627d58b3aa083b24a1091933f
+	if createmode == syscall.OPEN_EXISTING && access == syscall.GENERIC_READ {
+		// Necessary for opening directory handles.
+		attrs |= syscall.FILE_FLAG_BACKUP_SEMANTICS
 	}
 
 	h, e := syscall.CreateFile(pathp, access, sharemode, sa, createmode, attrs, 0)

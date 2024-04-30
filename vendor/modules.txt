@@ -691,21 +691,24 @@ github.com/tailscale/wireguard-go/tun
 # github.com/tcnksm/go-httpstat v0.2.0
 ## explicit
 github.com/tcnksm/go-httpstat
-# github.com/tetratelabs/wazero v1.3.1
-## explicit; go 1.18
+# github.com/tetratelabs/wazero v1.7.1
+## explicit; go 1.20
 github.com/tetratelabs/wazero
 github.com/tetratelabs/wazero/api
 github.com/tetratelabs/wazero/experimental
 github.com/tetratelabs/wazero/experimental/sys
 github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1
-github.com/tetratelabs/wazero/internal/asm
-github.com/tetratelabs/wazero/internal/asm/amd64
-github.com/tetratelabs/wazero/internal/asm/arm64
-github.com/tetratelabs/wazero/internal/bitpack
-github.com/tetratelabs/wazero/internal/close
 github.com/tetratelabs/wazero/internal/descriptor
-github.com/tetratelabs/wazero/internal/engine/compiler
 github.com/tetratelabs/wazero/internal/engine/interpreter
+github.com/tetratelabs/wazero/internal/engine/wazevo
+github.com/tetratelabs/wazero/internal/engine/wazevo/backend
+github.com/tetratelabs/wazero/internal/engine/wazevo/backend/isa/amd64
+github.com/tetratelabs/wazero/internal/engine/wazevo/backend/isa/arm64
+github.com/tetratelabs/wazero/internal/engine/wazevo/backend/regalloc
+github.com/tetratelabs/wazero/internal/engine/wazevo/frontend
+github.com/tetratelabs/wazero/internal/engine/wazevo/ssa
+github.com/tetratelabs/wazero/internal/engine/wazevo/wazevoapi
+github.com/tetratelabs/wazero/internal/expctxkeys
 github.com/tetratelabs/wazero/internal/filecache
 github.com/tetratelabs/wazero/internal/fsapi
 github.com/tetratelabs/wazero/internal/ieee754

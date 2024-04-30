@@ -1,4 +1,4 @@
-//go:build darwin || linux || freebsd
+//go:build (darwin || linux || freebsd) && !tinygo
 
 package platform
 

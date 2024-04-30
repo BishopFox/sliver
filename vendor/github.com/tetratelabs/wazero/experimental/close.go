@@ -3,7 +3,7 @@ package experimental
 import (
 	"context"
 
-	"github.com/tetratelabs/wazero/internal/close"
+	"github.com/tetratelabs/wazero/internal/expctxkeys"
 )
 
 // CloseNotifier is a notification hook, invoked when a module is closed.
@@ -57,7 +57,7 @@ func (f CloseNotifyFunc) CloseNotify(ctx context.Context, exitCode uint32) {
 // context.Context.
 func WithCloseNotifier(ctx context.Context, notifier CloseNotifier) context.Context {
 	if notifier != nil {
-		return context.WithValue(ctx, close.NotifierKey{}, notifier)
+		return context.WithValue(ctx, expctxkeys.CloseNotifierKey{}, notifier)
 	}
 	return ctx
 }

@@ -1,29 +1,9 @@
+//go:build amd64 && !tinygo
+
 package platform
-
-const (
-	// CpuFeatureSSE3 is the flag to query CpuFeatureFlags.Has for SSEv3 capabilities
-	CpuFeatureSSE3 = uint64(1)
-	// CpuFeatureSSE4_1 is the flag to query CpuFeatureFlags.Has for SSEv4.1 capabilities
-	CpuFeatureSSE4_1 = uint64(1) << 19
-	// CpuFeatureSSE4_2 is the flag to query CpuFeatureFlags.Has for SSEv4.2 capabilities
-	CpuFeatureSSE4_2 = uint64(1) << 20
-)
-
-const (
-	// CpuExtraFeatureABM is the flag to query CpuFeatureFlags.HasExtra for Advanced Bit Manipulation capabilities (e.g. LZCNT)
-	CpuExtraFeatureABM = uint64(1) << 5
-)
 
 // CpuFeatures exposes the capabilities for this CPU, queried via the Has, HasExtra methods
 var CpuFeatures CpuFeatureFlags = loadCpuFeatureFlags()
-
-// CpuFeatureFlags exposes methods for querying CPU capabilities
-type CpuFeatureFlags interface {
-	// Has returns true when the specified flag (represented as uint64) is supported
-	Has(cpuFeature uint64) bool
-	// HasExtra returns true when the specified extraFlag (represented as uint64) is supported
-	HasExtra(cpuFeature uint64) bool
-}
 
 // cpuFeatureFlags implements CpuFeatureFlags interface
 type cpuFeatureFlags struct {
@@ -69,11 +49,11 @@ func loadCpuFeatureFlags() CpuFeatureFlags {
 }
 
 // Has implements the same method on the CpuFeatureFlags interface
-func (f *cpuFeatureFlags) Has(cpuFeature uint64) bool {
-	return (f.flags & cpuFeature) != 0
+func (f *cpuFeatureFlags) Has(cpuFeature CpuFeature) bool {
+	return (f.flags & uint64(cpuFeature)) != 0
 }
 
 // HasExtra implements the same method on the CpuFeatureFlags interface
-func (f *cpuFeatureFlags) HasExtra(cpuFeature uint64) bool {
-	return (f.extraFlags & cpuFeature) != 0
+func (f *cpuFeatureFlags) HasExtra(cpuFeature CpuFeature) bool {
+	return (f.extraFlags & uint64(cpuFeature)) != 0
 }

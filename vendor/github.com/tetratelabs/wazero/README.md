@@ -41,8 +41,6 @@ during `Runtime.CompileModule`. This means your WebAssembly functions execute
 natively at runtime. Compiler is faster than Interpreter, often by order of
 magnitude (10x) or more. This is done without host-specific dependencies.
 
-If interested, check out the [RATIONALE.md][8] and help us optimize further!
-
 ### Conformance
 
 Both runtimes pass WebAssembly Core [1.0][7] and [2.0][14] specification tests
@@ -55,7 +53,7 @@ on supported platforms:
 
 ## Support Policy
 
-The below support policy focuses on compatability concerns of those embedding
+The below support policy focuses on compatibility concerns of those embedding
 wazero into their Go applications.
 
 ### wazero
@@ -123,7 +121,6 @@ wazero is a registered trademark of Tetrate.io, Inc. in the United States and/or
 [5]: https://github.com/WebAssembly/WASI
 [6]: https://pkg.go.dev/golang.org/x/sys/unix
 [7]: https://github.com/WebAssembly/spec/tree/wg-1.0/test/core
-[8]: internal/engine/compiler/RATIONALE.md
 [9]: https://github.com/tetratelabs/wazero/issues/506
 [10]: https://go.dev/doc/devel/release
 [11]: https://github.com/actions/virtual-environments
