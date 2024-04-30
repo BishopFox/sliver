@@ -91,8 +91,6 @@ ENTRYPOINT [ "/opt/sliver-server" ]
 
 
 # STAGE: production-slim (about 1Gb smaller)
-### Slim production image, i.e. without MSF and assoicated libraries
-### Still include GCC and MinGW for cross-platform generation
 FROM debian:bookworm-slim as production-slim
 
 ### Install production packages
