@@ -141,13 +141,13 @@ func (e *ExtCommand) getFileForTarget(targetOS string, targetArch string) (strin
 func ExtensionLoadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	dirPath := args[0]
 	// dirPath := ctx.Args.String("dir-path")
-	manyfest, err := LoadExtensionManifest(filepath.Join(dirPath, ManifestFileName))
+	manifest, err := LoadExtensionManifest(filepath.Join(dirPath, ManifestFileName))
 	if err != nil {
 		return
 	}
 	// do not add if the command already exists
 	sliverMenu := con.App.Menu("implant")
-	for _, extCmd := range manyfest.ExtCommand {
+	for _, extCmd := range manifest.ExtCommand {
 		if CmdExists(extCmd.CommandName, sliverMenu.Command) {
 			con.PrintErrorf("%s command already exists\n", extCmd.CommandName)
 			confirm := false
@@ -184,7 +184,7 @@ func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 
 func convertOldManifest(old *ExtensionManifest_) *ExtensionManifest {
 	ret := &ExtensionManifest{
-		Name:            old.CommandName, //treating old commandname as the manifest name to avoid weird chars mostly
+		Name:            old.CommandName, //treating old command name as the manifest name to avoid weird chars mostly
 		Version:         old.Version,
 		ExtensionAuthor: old.ExtensionAuthor,
 		OriginalAuthor:  old.OriginalAuthor,
@@ -414,7 +414,7 @@ func loadExtension(goos string, goarch string, checkCache bool, ext *ExtCommand,
 	return nil
 }
 
-func registerExtension(goos string, ext *ExtCommand, binData []byte, cmd *cobra.Command, con *console.SliverClient) error {
+func registerExtension(goos string, _ *ExtCommand, binData []byte, cmd *cobra.Command, con *console.SliverClient) error {
 	//set extension name to a hash of the data to avoid loading more than one instance
 	bd := sha256.Sum256(binData)
 	name := hex.EncodeToString(bd[:])
@@ -569,7 +569,7 @@ func PrintExtOutput(extName string, commandName string, callExtension *sliverpb.
 	}
 }
 
-func getExtArgs(cmd *cobra.Command, args []string, binPath string, ext *ExtCommand) ([]byte, error) {
+func getExtArgs(_ *cobra.Command, args []string, _ string, ext *ExtCommand) ([]byte, error) {
 	var err error
 	argsBuffer := core.BOFArgsBuffer{
 		Buffer: new(bytes.Buffer),

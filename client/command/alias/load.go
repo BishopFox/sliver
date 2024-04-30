@@ -105,7 +105,7 @@ func (ec *AliasManifest) getDefaultProcess(targetOS string) (proc string, err er
 	return
 }
 
-func (a *AliasManifest) getFileForTarget(cmdName string, targetOS string, targetArch string) (string, error) {
+func (a *AliasManifest) getFileForTarget(_ string, targetOS string, targetArch string) (string, error) {
 	filePath := ""
 	for _, extFile := range a.Files {
 		if targetOS == extFile.OS && targetArch == extFile.Arch {
