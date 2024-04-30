@@ -369,7 +369,7 @@ github.com/google/nftables/binaryutil
 github.com/google/nftables/expr
 github.com/google/nftables/internal/parseexprfunc
 github.com/google/nftables/xt
-# github.com/google/uuid v1.5.0
+# github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
 # github.com/gorilla/csrf v1.7.2
@@ -393,6 +393,11 @@ github.com/grpc-ecosystem/go-grpc-middleware/util/metautils
 # github.com/hashicorp/go-uuid v1.0.2
 ## explicit
 github.com/hashicorp/go-uuid
+# github.com/hashicorp/golang-lru/v2 v2.0.7
+## explicit; go 1.18
+github.com/hashicorp/golang-lru/v2
+github.com/hashicorp/golang-lru/v2/internal
+github.com/hashicorp/golang-lru/v2/simplelru
 # github.com/hdevalence/ed25519consensus v0.2.0
 ## explicit; go 1.19
 github.com/hdevalence/ed25519consensus
@@ -506,8 +511,8 @@ github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.15
 ## explicit; go 1.9
 github.com/mattn/go-runewidth
-# github.com/mattn/go-sqlite3 v1.14.18
-## explicit; go 1.16
+# github.com/mattn/go-sqlite3 v1.14.22
+## explicit; go 1.19
 github.com/mattn/go-sqlite3
 # github.com/mdlayher/genetlink v1.3.2
 ## explicit; go 1.18
@@ -545,6 +550,9 @@ github.com/ncruces/go-sqlite3/driver
 github.com/ncruces/go-sqlite3/embed
 github.com/ncruces/go-sqlite3/internal/util
 github.com/ncruces/go-sqlite3/vfs
+# github.com/ncruces/go-strftime v0.1.9
+## explicit; go 1.17
+github.com/ncruces/go-strftime
 # github.com/ncruces/julianday v0.1.5
 ## explicit; go 1.17
 github.com/ncruces/julianday
@@ -1114,16 +1122,10 @@ gvisor.dev/gvisor/pkg/tcpip/transport/tcp
 gvisor.dev/gvisor/pkg/tcpip/transport/tcpconntrack
 gvisor.dev/gvisor/pkg/tcpip/transport/udp
 gvisor.dev/gvisor/pkg/waiter
-# lukechampine.com/uint128 v1.2.0
-## explicit; go 1.12
-lukechampine.com/uint128
-# modernc.org/cc/v3 v3.40.0
-## explicit; go 1.17
-modernc.org/cc/v3
-# modernc.org/ccgo/v3 v3.16.13
-## explicit; go 1.17
-modernc.org/ccgo/v3/lib
-# modernc.org/libc v1.29.0
+# modernc.org/gc/v3 v3.0.0-20240107210532-573471604cb6
+## explicit; go 1.20
+modernc.org/gc/v3
+# modernc.org/libc v1.49.3
 ## explicit; go 1.20
 modernc.org/libc
 modernc.org/libc/errno
@@ -1154,20 +1156,17 @@ modernc.org/libc/wctype
 # modernc.org/mathutil v1.6.0
 ## explicit; go 1.18
 modernc.org/mathutil
-# modernc.org/memory v1.7.2
+# modernc.org/memory v1.8.0
 ## explicit; go 1.18
 modernc.org/memory
-# modernc.org/opt v0.1.3
-## explicit; go 1.13
-modernc.org/opt
-# modernc.org/sqlite v1.27.0
-## explicit; go 1.19
+# modernc.org/sqlite v1.29.8
+## explicit; go 1.20
 modernc.org/sqlite
 modernc.org/sqlite/lib
-# modernc.org/strutil v1.1.3
+# modernc.org/strutil v1.2.0
 ## explicit; go 1.18
 modernc.org/strutil
-# modernc.org/token v1.0.1
+# modernc.org/token v1.1.0
 ## explicit
 modernc.org/token
 # nhooyr.io/websocket v1.8.10

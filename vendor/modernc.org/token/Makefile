@@ -24,8 +24,10 @@ cpu: clean
 	go test -run @ -bench . -cpuprofile cpu.out
 	go tool pprof -lines *.test cpu.out
 
+
 edit:
-	gvim -p Makefile *.go
+	@touch log
+	@if [ -f "Session.vim" ]; then gvim -S & else gvim -p Makefile *.go & fi
 
 editor:
 	gofmt -l -s -w *.go
