@@ -36,7 +36,7 @@ type EventLoadingFailed struct {
 	RequestID       RequestID          `json:"requestId"`                 // Request identifier.
 	Timestamp       *cdp.MonotonicTime `json:"timestamp"`                 // Timestamp.
 	Type            ResourceType       `json:"type"`                      // Resource type.
-	ErrorText       string             `json:"errorText"`                 // User friendly error message.
+	ErrorText       string             `json:"errorText"`                 // Error message. List of network errors: https://cs.chromium.org/chromium/src/net/base/net_error_list.h
 	Canceled        bool               `json:"canceled,omitempty"`        // True if loading was canceled.
 	BlockedReason   BlockedReason      `json:"blockedReason,omitempty"`   // The reason why loading was blocked, if any.
 	CorsErrorStatus *CorsErrorStatus   `json:"corsErrorStatus,omitempty"` // The reason why loading was blocked by CORS, if any.
@@ -231,8 +231,19 @@ type EventResponseReceivedExtraInfo struct {
 	StatusCode               int64                          `json:"statusCode"`                         // The status code of the response. This is useful in cases the request failed and no responseReceived event is triggered, which is the case for, e.g., CORS errors. This is also the correct status code for cached requests, where the status in responseReceived is a 200 and this will be 304.
 	HeadersText              string                         `json:"headersText,omitempty"`              // Raw response header text as it was received over the wire. The raw text may not always be available, such as in the case of HTTP/2 or QUIC.
 	CookiePartitionKey       string                         `json:"cookiePartitionKey,omitempty"`       // The cookie partition key that will be used to store partitioned cookies set in this response. Only sent when partitioned cookies are enabled.
-	CookiePartitionKeyOpaque bool                           `json:"cookiePartitionKeyOpaque,omitempty"` // True if partitioned cookies are enabled, but the partition key is not serializeable to string.
+	CookiePartitionKeyOpaque bool                           `json:"cookiePartitionKeyOpaque,omitempty"` // True if partitioned cookies are enabled, but the partition key is not serializable to string.
 	ExemptedCookies          []*ExemptedSetCookieWithReason `json:"exemptedCookies,omitempty"`          // A list of cookies which should have been blocked by 3PCD but are exempted and stored from the response with the corresponding reason.
+}
+
+// EventResponseReceivedEarlyHints fired when 103 Early Hints headers is
+// received in addition to the common response. Not every responseReceived event
+// will have an responseReceivedEarlyHints fired. Only one
+// responseReceivedEarlyHints may be fired for eached responseReceived event.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Network#event-responseReceivedEarlyHints
+type EventResponseReceivedEarlyHints struct {
+	RequestID RequestID `json:"requestId"` // Request identifier. Used to match this information to another responseReceived event.
+	Headers   Headers   `json:"headers"`   // Raw response headers as they were received over the wire.
 }
 
 // EventTrustTokenOperationDone fired exactly once for each Trust Token

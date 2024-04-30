@@ -94,7 +94,7 @@ func (t *VirtualTimePolicy) UnmarshalJSON(buf []byte) error {
 	return easyjson.Unmarshal(buf, t)
 }
 
-// UserAgentBrandVersion used to specify User Agent Cient Hints to emulate.
+// UserAgentBrandVersion used to specify User Agent Client Hints to emulate.
 // See https://wicg.github.io/ua-client-hints.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Emulation#type-UserAgentBrandVersion
@@ -103,7 +103,7 @@ type UserAgentBrandVersion struct {
 	Version string `json:"version"`
 }
 
-// UserAgentMetadata used to specify User Agent Cient Hints to emulate. See
+// UserAgentMetadata used to specify User Agent Client Hints to emulate. See
 // https://wicg.github.io/ua-client-hints Missing optional values will be filled
 // in by the target with what it would normally use.
 //

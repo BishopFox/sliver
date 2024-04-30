@@ -189,9 +189,11 @@ type VirtualAuthenticatorOptions struct {
 type Credential struct {
 	CredentialID         string `json:"credentialId"`
 	IsResidentCredential bool   `json:"isResidentCredential"`
-	RpID                 string `json:"rpId,omitempty"`       // Relying Party ID the credential is scoped to. Must be set when adding a credential.
-	PrivateKey           string `json:"privateKey"`           // The ECDSA P-256 private key in PKCS#8 format.
-	UserHandle           string `json:"userHandle,omitempty"` // An opaque byte sequence with a maximum size of 64 bytes mapping the credential to a specific user.
-	SignCount            int64  `json:"signCount"`            // Signature counter. This is incremented by one for each successful assertion. See https://w3c.github.io/webauthn/#signature-counter
-	LargeBlob            string `json:"largeBlob,omitempty"`  // The large blob associated with the credential. See https://w3c.github.io/webauthn/#sctn-large-blob-extension
+	RpID                 string `json:"rpId,omitempty"`              // Relying Party ID the credential is scoped to. Must be set when adding a credential.
+	PrivateKey           string `json:"privateKey"`                  // The ECDSA P-256 private key in PKCS#8 format.
+	UserHandle           string `json:"userHandle,omitempty"`        // An opaque byte sequence with a maximum size of 64 bytes mapping the credential to a specific user.
+	SignCount            int64  `json:"signCount"`                   // Signature counter. This is incremented by one for each successful assertion. See https://w3c.github.io/webauthn/#signature-counter
+	LargeBlob            string `json:"largeBlob,omitempty"`         // The large blob associated with the credential. See https://w3c.github.io/webauthn/#sctn-large-blob-extension
+	BackupEligibility    bool   `json:"backupEligibility,omitempty"` // Assertions returned by this credential will have the backup eligibility (BE) flag set to this value. Defaults to the authenticator's defaultBackupEligibility value.
+	BackupState          bool   `json:"backupState,omitempty"`       // Assertions returned by this credential will have the backup state (BS) flag set to this value. Defaults to the authenticator's defaultBackupState value.
 }

@@ -17,7 +17,7 @@ import (
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Overlay#type-SourceOrderConfig
 type SourceOrderConfig struct {
-	ParentOutlineColor *cdp.RGBA `json:"parentOutlineColor"` // the color to outline the givent element in.
+	ParentOutlineColor *cdp.RGBA `json:"parentOutlineColor"` // the color to outline the given element in.
 	ChildOutlineColor  *cdp.RGBA `json:"childOutlineColor"`  // the color to outline the child elements in.
 }
 
@@ -259,7 +259,7 @@ type HingeConfig struct {
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Overlay#type-WindowControlsOverlayConfig
 type WindowControlsOverlayConfig struct {
 	ShowCSS          bool   `json:"showCSS"`          // Whether the title bar CSS should be shown when emulating the Window Controls Overlay.
-	SelectedPlatform string `json:"selectedPlatform"` // Seleted platforms to show the overlay.
+	SelectedPlatform string `json:"selectedPlatform"` // Selected platforms to show the overlay.
 	ThemeColor       string `json:"themeColor"`       // The theme color defined in app manifest.
 }
 

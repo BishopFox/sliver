@@ -207,7 +207,7 @@ github.com/bits-and-blooms/bitset
 ## explicit; go 1.17
 github.com/cheggaaa/pb/v3
 github.com/cheggaaa/pb/v3/termutil
-# github.com/chromedp/cdproto v0.0.0-20240202021202-6d0b6a386732
+# github.com/chromedp/cdproto v0.0.0-20240426225625-909263490071
 ## explicit; go 1.19
 github.com/chromedp/cdproto
 github.com/chromedp/cdproto/accessibility
@@ -230,6 +230,7 @@ github.com/chromedp/cdproto/domsnapshot
 github.com/chromedp/cdproto/domstorage
 github.com/chromedp/cdproto/emulation
 github.com/chromedp/cdproto/eventbreakpoints
+github.com/chromedp/cdproto/extensions
 github.com/chromedp/cdproto/fedcm
 github.com/chromedp/cdproto/fetch
 github.com/chromedp/cdproto/headlessexperimental
@@ -249,6 +250,7 @@ github.com/chromedp/cdproto/performance
 github.com/chromedp/cdproto/performancetimeline
 github.com/chromedp/cdproto/preload
 github.com/chromedp/cdproto/profiler
+github.com/chromedp/cdproto/pwa
 github.com/chromedp/cdproto/runtime
 github.com/chromedp/cdproto/security
 github.com/chromedp/cdproto/serviceworker
@@ -738,7 +740,7 @@ github.com/tetratelabs/wazero/sys
 # github.com/thedevsaddam/gojsonq/v2 v2.5.2
 ## explicit; go 1.13
 github.com/thedevsaddam/gojsonq/v2
-# github.com/things-go/go-socks5 v0.0.3
+# github.com/things-go/go-socks5 v0.0.5
 ## explicit; go 1.18
 github.com/things-go/go-socks5
 github.com/things-go/go-socks5/bufferpool
@@ -747,7 +749,7 @@ github.com/things-go/go-socks5/statute
 ## explicit; go 1.16
 github.com/u-root/uio/rand
 github.com/u-root/uio/uio
-# github.com/ulikunitz/xz v0.5.11
+# github.com/ulikunitz/xz v0.5.12
 ## explicit; go 1.12
 github.com/ulikunitz/xz
 github.com/ulikunitz/xz/internal/hash
@@ -899,7 +901,7 @@ golang.org/x/tools/internal/versions
 # golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2
 ## explicit; go 1.17
 golang.zx2c4.com/wintun
-# golang.zx2c4.com/wireguard v0.0.0-20231022001213-2e0774f246fb
+# golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
 ## explicit; go 1.20
 golang.zx2c4.com/wireguard/conn
 golang.zx2c4.com/wireguard/conn/winrio
@@ -911,8 +913,8 @@ golang.zx2c4.com/wireguard/replay
 golang.zx2c4.com/wireguard/rwcancel
 golang.zx2c4.com/wireguard/tai64n
 golang.zx2c4.com/wireguard/tun
-# golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220208144051-fde48d68ee68
-## explicit; go 1.13
+# golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
+## explicit; go 1.20
 golang.zx2c4.com/wireguard/wgctrl/wgtypes
 # golang.zx2c4.com/wireguard/windows v0.5.3
 ## explicit; go 1.18

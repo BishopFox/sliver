@@ -32,6 +32,7 @@ import (
 	"github.com/chromedp/cdproto/domstorage"
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/eventbreakpoints"
+	"github.com/chromedp/cdproto/extensions"
 	"github.com/chromedp/cdproto/fedcm"
 	"github.com/chromedp/cdproto/fetch"
 	"github.com/chromedp/cdproto/headlessexperimental"
@@ -51,6 +52,7 @@ import (
 	"github.com/chromedp/cdproto/performancetimeline"
 	"github.com/chromedp/cdproto/preload"
 	"github.com/chromedp/cdproto/profiler"
+	"github.com/chromedp/cdproto/pwa"
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/cdproto/security"
 	"github.com/chromedp/cdproto/serviceworker"
@@ -103,6 +105,7 @@ const (
 	EventAnimationAnimationCanceled                        = "Animation.animationCanceled"
 	EventAnimationAnimationCreated                         = "Animation.animationCreated"
 	EventAnimationAnimationStarted                         = "Animation.animationStarted"
+	EventAnimationAnimationUpdated                         = "Animation.animationUpdated"
 	CommandAuditsGetEncodedResponse                        = audits.CommandGetEncodedResponse
 	CommandAuditsDisable                                   = audits.CommandDisable
 	CommandAuditsEnable                                    = audits.CommandEnable
@@ -154,6 +157,7 @@ const (
 	CommandCSSGetPlatformFontsForNode                      = css.CommandGetPlatformFontsForNode
 	CommandCSSGetStyleSheetText                            = css.CommandGetStyleSheetText
 	CommandCSSGetLayersForNode                             = css.CommandGetLayersForNode
+	CommandCSSGetLocationForSelector                       = css.CommandGetLocationForSelector
 	CommandCSSTrackComputedStyleUpdates                    = css.CommandTrackComputedStyleUpdates
 	CommandCSSTakeComputedStyleUpdates                     = css.CommandTakeComputedStyleUpdates
 	CommandCSSSetEffectivePropertyValueForNode             = css.CommandSetEffectivePropertyValueForNode
@@ -213,6 +217,7 @@ const (
 	CommandDOMQuerySelector                                = dom.CommandQuerySelector
 	CommandDOMQuerySelectorAll                             = dom.CommandQuerySelectorAll
 	CommandDOMGetTopLayerElements                          = dom.CommandGetTopLayerElements
+	CommandDOMGetElementByRelation                         = dom.CommandGetElementByRelation
 	CommandDOMRedo                                         = dom.CommandRedo
 	CommandDOMRemoveAttribute                              = dom.CommandRemoveAttribute
 	CommandDOMRemoveNode                                   = dom.CommandRemoveNode
@@ -316,7 +321,6 @@ const (
 	EventDeviceAccessDeviceRequestPrompted                 = "DeviceAccess.deviceRequestPrompted"
 	CommandDeviceOrientationClearDeviceOrientationOverride = deviceorientation.CommandClearDeviceOrientationOverride
 	CommandDeviceOrientationSetDeviceOrientationOverride   = deviceorientation.CommandSetDeviceOrientationOverride
-	CommandEmulationCanEmulate                             = emulation.CommandCanEmulate
 	CommandEmulationClearDeviceMetricsOverride             = emulation.CommandClearDeviceMetricsOverride
 	CommandEmulationClearGeolocationOverride               = emulation.CommandClearGeolocationOverride
 	CommandEmulationResetPageScaleFactor                   = emulation.CommandResetPageScaleFactor
@@ -325,6 +329,8 @@ const (
 	CommandEmulationSetCPUThrottlingRate                   = emulation.CommandSetCPUThrottlingRate
 	CommandEmulationSetDefaultBackgroundColorOverride      = emulation.CommandSetDefaultBackgroundColorOverride
 	CommandEmulationSetDeviceMetricsOverride               = emulation.CommandSetDeviceMetricsOverride
+	CommandEmulationSetDevicePostureOverride               = emulation.CommandSetDevicePostureOverride
+	CommandEmulationClearDevicePostureOverride             = emulation.CommandClearDevicePostureOverride
 	CommandEmulationSetScrollbarsHidden                    = emulation.CommandSetScrollbarsHidden
 	CommandEmulationSetDocumentCookieDisabled              = emulation.CommandSetDocumentCookieDisabled
 	CommandEmulationSetEmitTouchEventsForMouse             = emulation.CommandSetEmitTouchEventsForMouse
@@ -350,6 +356,7 @@ const (
 	CommandEventBreakpointsSetInstrumentationBreakpoint    = eventbreakpoints.CommandSetInstrumentationBreakpoint
 	CommandEventBreakpointsRemoveInstrumentationBreakpoint = eventbreakpoints.CommandRemoveInstrumentationBreakpoint
 	CommandEventBreakpointsDisable                         = eventbreakpoints.CommandDisable
+	CommandExtensionsLoadUnpacked                          = extensions.CommandLoadUnpacked
 	CommandFedCmEnable                                     = fedcm.CommandEnable
 	CommandFedCmDisable                                    = fedcm.CommandDisable
 	CommandFedCmSelectAccount                              = fedcm.CommandSelectAccount
@@ -501,6 +508,7 @@ const (
 	EventNetworkWebTransportClosed                         = "Network.webTransportClosed"
 	EventNetworkRequestWillBeSentExtraInfo                 = "Network.requestWillBeSentExtraInfo"
 	EventNetworkResponseReceivedExtraInfo                  = "Network.responseReceivedExtraInfo"
+	EventNetworkResponseReceivedEarlyHints                 = "Network.responseReceivedEarlyHints"
 	EventNetworkTrustTokenOperationDone                    = "Network.trustTokenOperationDone"
 	EventNetworkSubresourceWebBundleMetadataReceived       = "Network.subresourceWebBundleMetadataReceived"
 	EventNetworkSubresourceWebBundleMetadataError          = "Network.subresourceWebBundleMetadataError"
@@ -540,6 +548,7 @@ const (
 	EventOverlayNodeHighlightRequested                     = "Overlay.nodeHighlightRequested"
 	EventOverlayScreenshotRequested                        = "Overlay.screenshotRequested"
 	EventOverlayInspectModeCanceled                        = "Overlay.inspectModeCanceled"
+	CommandPWAGetOsAppState                                = pwa.CommandGetOsAppState
 	CommandPageAddScriptToEvaluateOnNewDocument            = page.CommandAddScriptToEvaluateOnNewDocument
 	CommandPageBringToFront                                = page.CommandBringToFront
 	CommandPageCaptureScreenshot                           = page.CommandCaptureScreenshot
@@ -719,6 +728,8 @@ const (
 	CommandStorageRunBounceTrackingMitigations             = storage.CommandRunBounceTrackingMitigations
 	CommandStorageSetAttributionReportingLocalTestingMode  = storage.CommandSetAttributionReportingLocalTestingMode
 	CommandStorageSetAttributionReportingTracking          = storage.CommandSetAttributionReportingTracking
+	CommandStorageSendPendingAttributionReports            = storage.CommandSendPendingAttributionReports
+	CommandStorageGetRelatedWebsiteSets                    = storage.CommandGetRelatedWebsiteSets
 	EventStorageCacheStorageContentUpdated                 = "Storage.cacheStorageContentUpdated"
 	EventStorageCacheStorageListUpdated                    = "Storage.cacheStorageListUpdated"
 	EventStorageIndexedDBContentUpdated                    = "Storage.indexedDBContentUpdated"
@@ -796,6 +807,7 @@ const (
 	CommandWebAuthnClearCredentials                        = webauthn.CommandClearCredentials
 	CommandWebAuthnSetUserVerified                         = webauthn.CommandSetUserVerified
 	CommandWebAuthnSetAutomaticPresenceSimulation          = webauthn.CommandSetAutomaticPresenceSimulation
+	CommandWebAuthnSetCredentialProperties                 = webauthn.CommandSetCredentialProperties
 	EventWebAuthnCredentialAdded                           = "WebAuthn.credentialAdded"
 	EventWebAuthnCredentialAsserted                        = "WebAuthn.credentialAsserted"
 )
@@ -898,6 +910,9 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 
 	case EventAnimationAnimationStarted:
 		v = new(animation.EventAnimationStarted)
+
+	case EventAnimationAnimationUpdated:
+		v = new(animation.EventAnimationUpdated)
 
 	case CommandAuditsGetEncodedResponse:
 		v = new(audits.GetEncodedResponseReturns)
@@ -1051,6 +1066,9 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 
 	case CommandCSSGetLayersForNode:
 		v = new(css.GetLayersForNodeReturns)
+
+	case CommandCSSGetLocationForSelector:
+		v = new(css.GetLocationForSelectorReturns)
 
 	case CommandCSSTrackComputedStyleUpdates:
 		return emptyVal, nil
@@ -1228,6 +1246,9 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 
 	case CommandDOMGetTopLayerElements:
 		v = new(dom.GetTopLayerElementsReturns)
+
+	case CommandDOMGetElementByRelation:
+		v = new(dom.GetElementByRelationReturns)
 
 	case CommandDOMRedo:
 		return emptyVal, nil
@@ -1538,9 +1559,6 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 	case CommandDeviceOrientationSetDeviceOrientationOverride:
 		return emptyVal, nil
 
-	case CommandEmulationCanEmulate:
-		v = new(emulation.CanEmulateReturns)
-
 	case CommandEmulationClearDeviceMetricsOverride:
 		return emptyVal, nil
 
@@ -1563,6 +1581,12 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 		return emptyVal, nil
 
 	case CommandEmulationSetDeviceMetricsOverride:
+		return emptyVal, nil
+
+	case CommandEmulationSetDevicePostureOverride:
+		return emptyVal, nil
+
+	case CommandEmulationClearDevicePostureOverride:
 		return emptyVal, nil
 
 	case CommandEmulationSetScrollbarsHidden:
@@ -1639,6 +1663,9 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 
 	case CommandEventBreakpointsDisable:
 		return emptyVal, nil
+
+	case CommandExtensionsLoadUnpacked:
+		v = new(extensions.LoadUnpackedReturns)
 
 	case CommandFedCmEnable:
 		return emptyVal, nil
@@ -2093,6 +2120,9 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 	case EventNetworkResponseReceivedExtraInfo:
 		v = new(network.EventResponseReceivedExtraInfo)
 
+	case EventNetworkResponseReceivedEarlyHints:
+		v = new(network.EventResponseReceivedEarlyHints)
+
 	case EventNetworkTrustTokenOperationDone:
 		v = new(network.EventTrustTokenOperationDone)
 
@@ -2209,6 +2239,9 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 
 	case EventOverlayInspectModeCanceled:
 		v = new(overlay.EventInspectModeCanceled)
+
+	case CommandPWAGetOsAppState:
+		v = new(pwa.GetOsAppStateReturns)
 
 	case CommandPageAddScriptToEvaluateOnNewDocument:
 		v = new(page.AddScriptToEvaluateOnNewDocumentReturns)
@@ -2747,6 +2780,12 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 	case CommandStorageSetAttributionReportingTracking:
 		return emptyVal, nil
 
+	case CommandStorageSendPendingAttributionReports:
+		v = new(storage.SendPendingAttributionReportsReturns)
+
+	case CommandStorageGetRelatedWebsiteSets:
+		v = new(storage.GetRelatedWebsiteSetsReturns)
+
 	case EventStorageCacheStorageContentUpdated:
 		v = new(storage.EventCacheStorageContentUpdated)
 
@@ -2976,6 +3015,9 @@ func UnmarshalMessage(msg *Message) (interface{}, error) {
 		return emptyVal, nil
 
 	case CommandWebAuthnSetAutomaticPresenceSimulation:
+		return emptyVal, nil
+
+	case CommandWebAuthnSetCredentialProperties:
 		return emptyVal, nil
 
 	case EventWebAuthnCredentialAdded:

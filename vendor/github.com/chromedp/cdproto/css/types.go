@@ -143,7 +143,7 @@ type SelectorList struct {
 type StyleSheetHeader struct {
 	StyleSheetID  StyleSheetID      `json:"styleSheetId"`            // The stylesheet identifier.
 	FrameID       cdp.FrameID       `json:"frameId"`                 // Owner frame identifier.
-	SourceURL     string            `json:"sourceURL"`               // Stylesheet resource URL. Empty if this is a constructed stylesheet created using new CSSStyleSheet() (but non-empty if this is a constructed sylesheet imported as a CSS module script).
+	SourceURL     string            `json:"sourceURL"`               // Stylesheet resource URL. Empty if this is a constructed stylesheet created using new CSSStyleSheet() (but non-empty if this is a constructed stylesheet imported as a CSS module script).
 	SourceMapURL  string            `json:"sourceMapURL,omitempty"`  // URL of source map associated with the stylesheet (if any).
 	Origin        StyleSheetOrigin  `json:"origin"`                  // Stylesheet origin.
 	Title         string            `json:"title"`                   // Stylesheet title.
@@ -430,12 +430,14 @@ type TryRule struct {
 	Style        *Style           `json:"style"`                  // Associated style declaration.
 }
 
-// PositionFallbackRule CSS position-fallback rule representation.
+// PositionTryRule CSS @position-try rule representation.
 //
-// See: https://chromedevtools.github.io/devtools-protocol/tot/CSS#type-CSSPositionFallbackRule
-type PositionFallbackRule struct {
-	Name     *Value     `json:"name"`
-	TryRules []*TryRule `json:"tryRules"` // List of keyframes.
+// See: https://chromedevtools.github.io/devtools-protocol/tot/CSS#type-CSSPositionTryRule
+type PositionTryRule struct {
+	Name         *Value           `json:"name"`                   // The prelude dashed-ident name
+	StyleSheetID StyleSheetID     `json:"styleSheetId,omitempty"` // The css style sheet identifier (absent for user agent stylesheet and user-specified stylesheet rules) this rule came from.
+	Origin       StyleSheetOrigin `json:"origin"`                 // Parent stylesheet's origin.
+	Style        *Style           `json:"style"`                  // Associated style declaration.
 }
 
 // KeyframesRule CSS keyframes rule representation.

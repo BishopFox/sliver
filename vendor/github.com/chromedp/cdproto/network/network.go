@@ -165,11 +165,14 @@ func (p *DisableParams) Do(ctx context.Context) (err error) {
 
 // EmulateNetworkConditionsParams activates emulation of network conditions.
 type EmulateNetworkConditionsParams struct {
-	Offline            bool           `json:"offline"`                  // True to emulate internet disconnection.
-	Latency            float64        `json:"latency"`                  // Minimum latency from request sent to response headers received (ms).
-	DownloadThroughput float64        `json:"downloadThroughput"`       // Maximal aggregated download throughput (bytes/sec). -1 disables download throttling.
-	UploadThroughput   float64        `json:"uploadThroughput"`         // Maximal aggregated upload throughput (bytes/sec).  -1 disables upload throttling.
-	ConnectionType     ConnectionType `json:"connectionType,omitempty"` // Connection type if known.
+	Offline            bool           `json:"offline"`                     // True to emulate internet disconnection.
+	Latency            float64        `json:"latency"`                     // Minimum latency from request sent to response headers received (ms).
+	DownloadThroughput float64        `json:"downloadThroughput"`          // Maximal aggregated download throughput (bytes/sec). -1 disables download throttling.
+	UploadThroughput   float64        `json:"uploadThroughput"`            // Maximal aggregated upload throughput (bytes/sec).  -1 disables upload throttling.
+	ConnectionType     ConnectionType `json:"connectionType,omitempty"`    // Connection type if known.
+	PacketLoss         float64        `json:"packetLoss,omitempty"`        // WebRTC packet loss (percent, 0-100). 0 disables packet loss emulation, 100 drops all the packets.
+	PacketQueueLength  int64          `json:"packetQueueLength,omitempty"` // WebRTC packet queue length (packet). 0 removes any queue length limitations.
+	PacketReordering   bool           `json:"packetReordering,omitempty"`  // WebRTC packetReordering feature.
 }
 
 // EmulateNetworkConditions activates emulation of network conditions.
@@ -194,6 +197,26 @@ func EmulateNetworkConditions(offline bool, latency float64, downloadThroughput 
 // WithConnectionType connection type if known.
 func (p EmulateNetworkConditionsParams) WithConnectionType(connectionType ConnectionType) *EmulateNetworkConditionsParams {
 	p.ConnectionType = connectionType
+	return &p
+}
+
+// WithPacketLoss webRTC packet loss (percent, 0-100). 0 disables packet loss
+// emulation, 100 drops all the packets.
+func (p EmulateNetworkConditionsParams) WithPacketLoss(packetLoss float64) *EmulateNetworkConditionsParams {
+	p.PacketLoss = packetLoss
+	return &p
+}
+
+// WithPacketQueueLength webRTC packet queue length (packet). 0 removes any
+// queue length limitations.
+func (p EmulateNetworkConditionsParams) WithPacketQueueLength(packetQueueLength int64) *EmulateNetworkConditionsParams {
+	p.PacketQueueLength = packetQueueLength
+	return &p
+}
+
+// WithPacketReordering webRTC packetReordering feature.
+func (p EmulateNetworkConditionsParams) WithPacketReordering(packetReordering bool) *EmulateNetworkConditionsParams {
+	p.PacketReordering = packetReordering
 	return &p
 }
 

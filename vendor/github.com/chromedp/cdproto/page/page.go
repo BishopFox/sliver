@@ -315,22 +315,39 @@ func (p *EnableParams) Do(ctx context.Context) (err error) {
 	return cdp.Execute(ctx, CommandEnable, nil, nil)
 }
 
-// GetAppManifestParams [no description].
-type GetAppManifestParams struct{}
+// GetAppManifestParams gets the processed manifest for this current
+// document. This API always waits for the manifest to be loaded. If manifestId
+// is provided, and it does not match the manifest of the current document, this
+// API errors out. If there is not a loaded page, this API errors out
+// immediately.
+type GetAppManifestParams struct {
+	ManifestID string `json:"manifestId,omitempty"`
+}
 
-// GetAppManifest [no description].
+// GetAppManifest gets the processed manifest for this current document. This
+// API always waits for the manifest to be loaded. If manifestId is provided,
+// and it does not match the manifest of the current document, this API errors
+// out. If there is not a loaded page, this API errors out immediately.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#method-getAppManifest
+//
+// parameters:
 func GetAppManifest() *GetAppManifestParams {
 	return &GetAppManifestParams{}
 }
 
+// WithManifestID [no description].
+func (p GetAppManifestParams) WithManifestID(manifestID string) *GetAppManifestParams {
+	p.ManifestID = manifestID
+	return &p
+}
+
 // GetAppManifestReturns return values.
 type GetAppManifestReturns struct {
-	URL    string                       `json:"url,omitempty"` // Manifest location.
-	Errors []*AppManifestError          `json:"errors,omitempty"`
-	Data   string                       `json:"data,omitempty"`   // Manifest content.
-	Parsed *AppManifestParsedProperties `json:"parsed,omitempty"` // Parsed manifest properties
+	URL      string              `json:"url,omitempty"` // Manifest location.
+	Errors   []*AppManifestError `json:"errors,omitempty"`
+	Data     string              `json:"data,omitempty"` // Manifest content.
+	Manifest *WebAppManifest     `json:"manifest,omitempty"`
 }
 
 // Do executes Page.getAppManifest against the provided context.
@@ -340,16 +357,16 @@ type GetAppManifestReturns struct {
 //	url - Manifest location.
 //	errors
 //	data - Manifest content.
-//	parsed - Parsed manifest properties
-func (p *GetAppManifestParams) Do(ctx context.Context) (url string, errors []*AppManifestError, data string, parsed *AppManifestParsedProperties, err error) {
+//	manifest
+func (p *GetAppManifestParams) Do(ctx context.Context) (url string, errors []*AppManifestError, data string, manifest *WebAppManifest, err error) {
 	// execute
 	var res GetAppManifestReturns
-	err = cdp.Execute(ctx, CommandGetAppManifest, nil, &res)
+	err = cdp.Execute(ctx, CommandGetAppManifest, p, &res)
 	if err != nil {
 		return "", nil, "", nil, err
 	}
 
-	return res.URL, res.Errors, res.Data, res.Parsed, nil
+	return res.URL, res.Errors, res.Data, res.Manifest, nil
 }
 
 // GetInstallabilityErrorsParams [no description].
@@ -1488,7 +1505,7 @@ func (p *StopScreencastParams) Do(ctx context.Context) (err error) {
 }
 
 // ProduceCompilationCacheParams requests backend to produce compilation
-// cache for the specified scripts. scripts are appeneded to the list of scripts
+// cache for the specified scripts. scripts are appended to the list of scripts
 // for which the cache would be produced. The list may be reset during page
 // navigation. When script with a matching URL is encountered, the cache is
 // optionally produced upon backend discretion, based on internal heuristics.
@@ -1498,7 +1515,7 @@ type ProduceCompilationCacheParams struct {
 }
 
 // ProduceCompilationCache requests backend to produce compilation cache for
-// the specified scripts. scripts are appeneded to the list of scripts for which
+// the specified scripts. scripts are appended to the list of scripts for which
 // the cache would be produced. The list may be reset during page navigation.
 // When script with a matching URL is encountered, the cache is optionally
 // produced upon backend discretion, based on internal heuristics. See also:

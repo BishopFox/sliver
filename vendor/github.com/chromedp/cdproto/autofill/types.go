@@ -54,7 +54,7 @@ type Address struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Autofill#type-AddressUI
 type AddressUI struct {
-	AddressFields []*AddressFields `json:"addressFields"` // A two dimension array containing the repesentation of values from an address profile.
+	AddressFields []*AddressFields `json:"addressFields"` // A two dimension array containing the representation of values from an address profile.
 }
 
 // FillingStrategy specified whether a filled field was done so by using the
@@ -113,5 +113,6 @@ type FilledField struct {
 	Value           string            `json:"value"`           // the field value
 	AutofillType    string            `json:"autofillType"`    // The actual field type, e.g FAMILY_NAME
 	FillingStrategy FillingStrategy   `json:"fillingStrategy"` // The filling strategy
+	FrameID         cdp.FrameID       `json:"frameId"`         // The frame the field belongs to
 	FieldID         cdp.BackendNodeID `json:"fieldId"`         // The form field's DOM node
 }

@@ -180,6 +180,8 @@ const (
 	PseudoTypeGrammarError            PseudoType = "grammar-error"
 	PseudoTypeHighlight               PseudoType = "highlight"
 	PseudoTypeFirstLineInherited      PseudoType = "first-line-inherited"
+	PseudoTypeScrollMarker            PseudoType = "scroll-marker"
+	PseudoTypeScrollMarkers           PseudoType = "scroll-markers"
 	PseudoTypeScrollbar               PseudoType = "scrollbar"
 	PseudoTypeScrollbarThumb          PseudoType = "scrollbar-thumb"
 	PseudoTypeScrollbarButton         PseudoType = "scrollbar-button"
@@ -233,6 +235,10 @@ func (t *PseudoType) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PseudoTypeHighlight
 	case PseudoTypeFirstLineInherited:
 		*t = PseudoTypeFirstLineInherited
+	case PseudoTypeScrollMarker:
+		*t = PseudoTypeScrollMarker
+	case PseudoTypeScrollMarkers:
+		*t = PseudoTypeScrollMarkers
 	case PseudoTypeScrollbar:
 		*t = PseudoTypeScrollbar
 	case PseudoTypeScrollbarThumb:

@@ -15,37 +15,6 @@ import (
 	"github.com/chromedp/cdproto/page"
 )
 
-// CanEmulateParams tells whether emulation is supported.
-type CanEmulateParams struct{}
-
-// CanEmulate tells whether emulation is supported.
-//
-// See: https://chromedevtools.github.io/devtools-protocol/tot/Emulation#method-canEmulate
-func CanEmulate() *CanEmulateParams {
-	return &CanEmulateParams{}
-}
-
-// CanEmulateReturns return values.
-type CanEmulateReturns struct {
-	Result bool `json:"result,omitempty"` // True if emulation is supported.
-}
-
-// Do executes Emulation.canEmulate against the provided context.
-//
-// returns:
-//
-//	result - True if emulation is supported.
-func (p *CanEmulateParams) Do(ctx context.Context) (result bool, err error) {
-	// execute
-	var res CanEmulateReturns
-	err = cdp.Execute(ctx, CommandCanEmulate, nil, &res)
-	if err != nil {
-		return false, err
-	}
-
-	return res.Result, nil
-}
-
 // ClearDeviceMetricsOverrideParams clears the overridden device metrics.
 type ClearDeviceMetricsOverrideParams struct{}
 
@@ -219,7 +188,6 @@ type SetDeviceMetricsOverrideParams struct {
 	ScreenOrientation  *ScreenOrientation `json:"screenOrientation,omitempty"`  // Screen orientation override.
 	Viewport           *page.Viewport     `json:"viewport,omitempty"`           // If set, the visible area of the page will be overridden to this viewport. This viewport change is not observed by the page, e.g. viewport-relative elements do not change positions.
 	DisplayFeature     *DisplayFeature    `json:"displayFeature,omitempty"`     // If set, the display feature of a multi-segment screen. If not set, multi-segment support is turned-off.
-	DevicePosture      *DevicePosture     `json:"devicePosture,omitempty"`      // If set, the posture of a foldable device. If not set the posture is set to continuous.
 }
 
 // SetDeviceMetricsOverride overrides the values of device screen dimensions
@@ -306,16 +274,57 @@ func (p SetDeviceMetricsOverrideParams) WithDisplayFeature(displayFeature *Displ
 	return &p
 }
 
-// WithDevicePosture if set, the posture of a foldable device. If not set the
-// posture is set to continuous.
-func (p SetDeviceMetricsOverrideParams) WithDevicePosture(devicePosture *DevicePosture) *SetDeviceMetricsOverrideParams {
-	p.DevicePosture = devicePosture
-	return &p
-}
-
 // Do executes Emulation.setDeviceMetricsOverride against the provided context.
 func (p *SetDeviceMetricsOverrideParams) Do(ctx context.Context) (err error) {
 	return cdp.Execute(ctx, CommandSetDeviceMetricsOverride, p, nil)
+}
+
+// SetDevicePostureOverrideParams start reporting the given posture value to
+// the Device Posture API. This override can also be set in
+// setDeviceMetricsOverride().
+type SetDevicePostureOverrideParams struct {
+	Posture *DevicePosture `json:"posture"`
+}
+
+// SetDevicePostureOverride start reporting the given posture value to the
+// Device Posture API. This override can also be set in
+// setDeviceMetricsOverride().
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Emulation#method-setDevicePostureOverride
+//
+// parameters:
+//
+//	posture
+func SetDevicePostureOverride(posture *DevicePosture) *SetDevicePostureOverrideParams {
+	return &SetDevicePostureOverrideParams{
+		Posture: posture,
+	}
+}
+
+// Do executes Emulation.setDevicePostureOverride against the provided context.
+func (p *SetDevicePostureOverrideParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandSetDevicePostureOverride, p, nil)
+}
+
+// ClearDevicePostureOverrideParams clears a device posture override set with
+// either setDeviceMetricsOverride() or setDevicePostureOverride() and starts
+// using posture information from the platform again. Does nothing if no
+// override is set.
+type ClearDevicePostureOverrideParams struct{}
+
+// ClearDevicePostureOverride clears a device posture override set with
+// either setDeviceMetricsOverride() or setDevicePostureOverride() and starts
+// using posture information from the platform again. Does nothing if no
+// override is set.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Emulation#method-clearDevicePostureOverride
+func ClearDevicePostureOverride() *ClearDevicePostureOverrideParams {
+	return &ClearDevicePostureOverrideParams{}
+}
+
+// Do executes Emulation.clearDevicePostureOverride against the provided context.
+func (p *ClearDevicePostureOverrideParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandClearDevicePostureOverride, nil, nil)
 }
 
 // SetScrollbarsHiddenParams [no description].
@@ -819,7 +828,7 @@ func (p *SetLocaleOverrideParams) Do(ctx context.Context) (err error) {
 // SetTimezoneOverrideParams overrides default host system timezone with the
 // specified one.
 type SetTimezoneOverrideParams struct {
-	TimezoneID string `json:"timezoneId"` // The timezone identifier. If empty, disables the override and restores default host system timezone.
+	TimezoneID string `json:"timezoneId"` // The timezone identifier. List of supported timezones: https://source.chromium.org/chromium/chromium/deps/icu.git/+/faee8bc70570192d82d2978a71e2a615788597d1:source/data/misc/metaZones.txt If empty, disables the override and restores default host system timezone.
 }
 
 // SetTimezoneOverride overrides default host system timezone with the
@@ -829,7 +838,7 @@ type SetTimezoneOverrideParams struct {
 //
 // parameters:
 //
-//	timezoneID - The timezone identifier. If empty, disables the override and restores default host system timezone.
+//	timezoneID - The timezone identifier. List of supported timezones: https://source.chromium.org/chromium/chromium/deps/icu.git/+/faee8bc70570192d82d2978a71e2a615788597d1:source/data/misc/metaZones.txt If empty, disables the override and restores default host system timezone.
 func SetTimezoneOverride(timezoneID string) *SetTimezoneOverrideParams {
 	return &SetTimezoneOverrideParams{
 		TimezoneID: timezoneID,
@@ -888,7 +897,7 @@ func (p *SetHardwareConcurrencyOverrideParams) Do(ctx context.Context) (err erro
 }
 
 // SetUserAgentOverrideParams allows overriding user agent with the given
-// string.
+// string. userAgentMetadata must be set for Client Hint headers to be sent.
 type SetUserAgentOverrideParams struct {
 	UserAgent         string             `json:"userAgent"`                   // User agent to use.
 	AcceptLanguage    string             `json:"acceptLanguage,omitempty"`    // Browser language to emulate.
@@ -897,6 +906,7 @@ type SetUserAgentOverrideParams struct {
 }
 
 // SetUserAgentOverride allows overriding user agent with the given string.
+// userAgentMetadata must be set for Client Hint headers to be sent.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Emulation#method-setUserAgentOverride
 //
@@ -958,7 +968,6 @@ func (p *SetAutomationOverrideParams) Do(ctx context.Context) (err error) {
 
 // Command names.
 const (
-	CommandCanEmulate                        = "Emulation.canEmulate"
 	CommandClearDeviceMetricsOverride        = "Emulation.clearDeviceMetricsOverride"
 	CommandClearGeolocationOverride          = "Emulation.clearGeolocationOverride"
 	CommandResetPageScaleFactor              = "Emulation.resetPageScaleFactor"
@@ -967,6 +976,8 @@ const (
 	CommandSetCPUThrottlingRate              = "Emulation.setCPUThrottlingRate"
 	CommandSetDefaultBackgroundColorOverride = "Emulation.setDefaultBackgroundColorOverride"
 	CommandSetDeviceMetricsOverride          = "Emulation.setDeviceMetricsOverride"
+	CommandSetDevicePostureOverride          = "Emulation.setDevicePostureOverride"
+	CommandClearDevicePostureOverride        = "Emulation.clearDevicePostureOverride"
 	CommandSetScrollbarsHidden               = "Emulation.setScrollbarsHidden"
 	CommandSetDocumentCookieDisabled         = "Emulation.setDocumentCookieDisabled"
 	CommandSetEmitTouchEventsForMouse        = "Emulation.setEmitTouchEventsForMouse"

@@ -97,7 +97,7 @@ type EventSharedStorageAccessed struct {
 	Type        SharedStorageAccessType    `json:"type"`        // Enum value indicating the Shared Storage API method invoked.
 	MainFrameID cdp.FrameID                `json:"mainFrameId"` // DevTools Frame Token for the primary frame tree's root.
 	OwnerOrigin string                     `json:"ownerOrigin"` // Serialized origin for the context that invoked the Shared Storage API.
-	Params      *SharedStorageAccessParams `json:"params"`      // The sub-parameters warapped by params are all optional and their presence/absence depends on type.
+	Params      *SharedStorageAccessParams `json:"params"`      // The sub-parameters wrapped by params are all optional and their presence/absence depends on type.
 }
 
 // EventStorageBucketCreatedOrUpdated [no description].

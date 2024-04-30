@@ -523,15 +523,14 @@ type Request struct {
 	URLFragment      string                    `json:"urlFragment,omitempty"`      // Fragment of the requested URL starting with hash, if present.
 	Method           string                    `json:"method"`                     // HTTP request method.
 	Headers          Headers                   `json:"headers"`                    // HTTP request headers.
-	PostData         string                    `json:"postData,omitempty"`         // HTTP POST request data.
 	HasPostData      bool                      `json:"hasPostData,omitempty"`      // True when the request has POST data. Note that postData might still be omitted when this flag is true when the data is too long.
-	PostDataEntries  []*PostDataEntry          `json:"postDataEntries,omitempty"`  // Request body elements. This will be converted from base64 to binary
+	PostDataEntries  []*PostDataEntry          `json:"postDataEntries,omitempty"`  // Request body elements (post data broken into individual entries).
 	MixedContentType security.MixedContentType `json:"mixedContentType,omitempty"` // The mixed content type of the request.
 	InitialPriority  ResourcePriority          `json:"initialPriority"`            // Priority of the resource request at the time request is sent.
 	ReferrerPolicy   ReferrerPolicy            `json:"referrerPolicy"`             // The referrer policy of the request, as defined in https://www.w3.org/TR/referrer-policy/
 	IsLinkPreload    bool                      `json:"isLinkPreload,omitempty"`    // Whether is loaded via link preload.
 	TrustTokenParams *TrustTokenParams         `json:"trustTokenParams,omitempty"` // Set for requests when the TrustToken API is used. Contains the parameters passed by the developer (e.g. via "fetch") as understood by the backend.
-	IsSameSite       bool                      `json:"isSameSite,omitempty"`       // True if this resource request is considered to be the 'same site' as the request correspondinfg to the main frame.
+	IsSameSite       bool                      `json:"isSameSite,omitempty"`       // True if this resource request is considered to be the 'same site' as the request corresponding to the main frame.
 }
 
 // SignedCertificateTimestamp details of a signed certificate timestamp
@@ -1017,11 +1016,63 @@ func (t *AlternateProtocolUsage) UnmarshalJSON(buf []byte) error {
 	return easyjson.Unmarshal(buf, t)
 }
 
+// ServiceWorkerRouterSource source of service worker router.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Network#type-ServiceWorkerRouterSource
+type ServiceWorkerRouterSource string
+
+// String returns the ServiceWorkerRouterSource as string value.
+func (t ServiceWorkerRouterSource) String() string {
+	return string(t)
+}
+
+// ServiceWorkerRouterSource values.
+const (
+	ServiceWorkerRouterSourceNetwork                    ServiceWorkerRouterSource = "network"
+	ServiceWorkerRouterSourceCache                      ServiceWorkerRouterSource = "cache"
+	ServiceWorkerRouterSourceFetchEvent                 ServiceWorkerRouterSource = "fetch-event"
+	ServiceWorkerRouterSourceRaceNetworkAndFetchHandler ServiceWorkerRouterSource = "race-network-and-fetch-handler"
+)
+
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t ServiceWorkerRouterSource) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
+
+// MarshalJSON satisfies json.Marshaler.
+func (t ServiceWorkerRouterSource) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *ServiceWorkerRouterSource) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch ServiceWorkerRouterSource(v) {
+	case ServiceWorkerRouterSourceNetwork:
+		*t = ServiceWorkerRouterSourceNetwork
+	case ServiceWorkerRouterSourceCache:
+		*t = ServiceWorkerRouterSourceCache
+	case ServiceWorkerRouterSourceFetchEvent:
+		*t = ServiceWorkerRouterSourceFetchEvent
+	case ServiceWorkerRouterSourceRaceNetworkAndFetchHandler:
+		*t = ServiceWorkerRouterSourceRaceNetworkAndFetchHandler
+
+	default:
+		in.AddError(fmt.Errorf("unknown ServiceWorkerRouterSource value: %v", v))
+	}
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *ServiceWorkerRouterSource) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
+}
+
 // ServiceWorkerRouterInfo [no description].
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Network#type-ServiceWorkerRouterInfo
 type ServiceWorkerRouterInfo struct {
-	RuleIDMatched int64 `json:"ruleIdMatched"`
+	RuleIDMatched     int64                     `json:"ruleIdMatched"`
+	MatchedSourceType ServiceWorkerRouterSource `json:"matchedSourceType"`
 }
 
 // Response HTTP response data.
@@ -1042,6 +1093,7 @@ type Response struct {
 	FromDiskCache               bool                        `json:"fromDiskCache,omitempty"`               // Specifies that the request was served from the disk cache.
 	FromServiceWorker           bool                        `json:"fromServiceWorker,omitempty"`           // Specifies that the request was served from the ServiceWorker.
 	FromPrefetchCache           bool                        `json:"fromPrefetchCache,omitempty"`           // Specifies that the request was served from the prefetch cache.
+	FromEarlyHints              bool                        `json:"fromEarlyHints,omitempty"`              // Specifies that the request was served from the prefetch cache.
 	ServiceWorkerRouterInfo     *ServiceWorkerRouterInfo    `json:"serviceWorkerRouterInfo,omitempty"`     // Information about how Service Worker Static Router was used.
 	EncodedDataLength           float64                     `json:"encodedDataLength"`                     // Total number of bytes received for this request so far.
 	Timing                      *ResourceTiming             `json:"timing,omitempty"`                      // Timing information for the given request.
@@ -1341,7 +1393,7 @@ const (
 	CookieExemptionReasonEnterprisePolicy      CookieExemptionReason = "EnterprisePolicy"
 	CookieExemptionReasonStorageAccess         CookieExemptionReason = "StorageAccess"
 	CookieExemptionReasonTopLevelStorageAccess CookieExemptionReason = "TopLevelStorageAccess"
-	CookieExemptionReasonBrowserHeuristics     CookieExemptionReason = "BrowserHeuristics"
+	CookieExemptionReasonCorsOptIn             CookieExemptionReason = "CorsOptIn"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -1374,8 +1426,8 @@ func (t *CookieExemptionReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = CookieExemptionReasonStorageAccess
 	case CookieExemptionReasonTopLevelStorageAccess:
 		*t = CookieExemptionReasonTopLevelStorageAccess
-	case CookieExemptionReasonBrowserHeuristics:
-		*t = CookieExemptionReasonBrowserHeuristics
+	case CookieExemptionReasonCorsOptIn:
+		*t = CookieExemptionReasonCorsOptIn
 
 	default:
 		in.AddError(fmt.Errorf("unknown CookieExemptionReason value: %v", v))
@@ -1404,6 +1456,7 @@ type BlockedSetCookieWithReason struct {
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Network#type-ExemptedSetCookieWithReason
 type ExemptedSetCookieWithReason struct {
 	ExemptionReason CookieExemptionReason `json:"exemptionReason"` // The reason the cookie was exempted.
+	CookieLine      string                `json:"cookieLine"`      // The string representing this individual cookie as it would appear in the header.
 	Cookie          *Cookie               `json:"cookie"`          // The cookie object representing the cookie.
 }
 
@@ -1614,7 +1667,7 @@ type SignedExchangeInfo struct {
 	OuterResponse   *Response              `json:"outerResponse"`             // The outer response of signed HTTP exchange which was received from network.
 	Header          *SignedExchangeHeader  `json:"header,omitempty"`          // Information about the signed exchange header.
 	SecurityDetails *SecurityDetails       `json:"securityDetails,omitempty"` // Security details for the signed exchange header.
-	Errors          []*SignedExchangeError `json:"errors,omitempty"`          // Errors occurred while handling the signed exchagne.
+	Errors          []*SignedExchangeError `json:"errors,omitempty"`          // Errors occurred while handling the signed exchange.
 }
 
 // ContentEncoding list of content encodings supported by the backend.

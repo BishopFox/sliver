@@ -59,7 +59,7 @@ const (
 	PermissionsPolicyFeatureChUaPlatform                 PermissionsPolicyFeature = "ch-ua-platform"
 	PermissionsPolicyFeatureChUaModel                    PermissionsPolicyFeature = "ch-ua-model"
 	PermissionsPolicyFeatureChUaMobile                   PermissionsPolicyFeature = "ch-ua-mobile"
-	PermissionsPolicyFeatureChUaFormFactor               PermissionsPolicyFeature = "ch-ua-form-factor"
+	PermissionsPolicyFeatureChUaFormFactors              PermissionsPolicyFeature = "ch-ua-form-factors"
 	PermissionsPolicyFeatureChUaFullVersion              PermissionsPolicyFeature = "ch-ua-full-version"
 	PermissionsPolicyFeatureChUaFullVersionList          PermissionsPolicyFeature = "ch-ua-full-version-list"
 	PermissionsPolicyFeatureChUaPlatformVersion          PermissionsPolicyFeature = "ch-ua-platform-version"
@@ -108,6 +108,7 @@ const (
 	PermissionsPolicyFeatureSharedStorage                PermissionsPolicyFeature = "shared-storage"
 	PermissionsPolicyFeatureSharedStorageSelectURL       PermissionsPolicyFeature = "shared-storage-select-url"
 	PermissionsPolicyFeatureSmartCard                    PermissionsPolicyFeature = "smart-card"
+	PermissionsPolicyFeatureSpeakerSelection             PermissionsPolicyFeature = "speaker-selection"
 	PermissionsPolicyFeatureStorageAccess                PermissionsPolicyFeature = "storage-access"
 	PermissionsPolicyFeatureSubApps                      PermissionsPolicyFeature = "sub-apps"
 	PermissionsPolicyFeatureSyncXhr                      PermissionsPolicyFeature = "sync-xhr"
@@ -182,8 +183,8 @@ func (t *PermissionsPolicyFeature) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyFeatureChUaModel
 	case PermissionsPolicyFeatureChUaMobile:
 		*t = PermissionsPolicyFeatureChUaMobile
-	case PermissionsPolicyFeatureChUaFormFactor:
-		*t = PermissionsPolicyFeatureChUaFormFactor
+	case PermissionsPolicyFeatureChUaFormFactors:
+		*t = PermissionsPolicyFeatureChUaFormFactors
 	case PermissionsPolicyFeatureChUaFullVersion:
 		*t = PermissionsPolicyFeatureChUaFullVersion
 	case PermissionsPolicyFeatureChUaFullVersionList:
@@ -280,6 +281,8 @@ func (t *PermissionsPolicyFeature) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyFeatureSharedStorageSelectURL
 	case PermissionsPolicyFeatureSmartCard:
 		*t = PermissionsPolicyFeatureSmartCard
+	case PermissionsPolicyFeatureSpeakerSelection:
+		*t = PermissionsPolicyFeatureSpeakerSelection
 	case PermissionsPolicyFeatureStorageAccess:
 		*t = PermissionsPolicyFeatureStorageAccess
 	case PermissionsPolicyFeatureSubApps:
@@ -583,7 +586,7 @@ func (t *DialogType) UnmarshalJSON(buf []byte) error {
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-AppManifestError
 type AppManifestError struct {
 	Message  string `json:"message"`  // Error message.
-	Critical int64  `json:"critical"` // If criticial, this is a non-recoverable parse error.
+	Critical int64  `json:"critical"` // If critical, this is a non-recoverable parse error.
 	Line     int64  `json:"line"`     // Error line.
 	Column   int64  `json:"column"`   // Error column.
 }
@@ -861,7 +864,125 @@ type CompilationCacheParams struct {
 	Eager bool   `json:"eager,omitempty"` // A hint to the backend whether eager compilation is recommended. (the actual compilation mode used is upon backend discretion).
 }
 
-// AutoResponseMode enum of possible auto-response for permissions / prompt
+// FileFilter [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-FileFilter
+type FileFilter struct {
+	Name    string   `json:"name,omitempty"`
+	Accepts []string `json:"accepts,omitempty"`
+}
+
+// FileHandler [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-FileHandler
+type FileHandler struct {
+	Action     string           `json:"action"`
+	Name       string           `json:"name"`
+	Icons      []*ImageResource `json:"icons,omitempty"`
+	Accepts    []*FileFilter    `json:"accepts,omitempty"` // Mimic a map, name is the key, accepts is the value.
+	LaunchType string           `json:"launchType"`        // Won't repeat the enums, using string for easy comparison. Same as the other enums below.
+}
+
+// ImageResource the image definition used in both icon and screenshot.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-ImageResource
+type ImageResource struct {
+	URL   string `json:"url"` // The src field in the definition, but changing to url in favor of consistency.
+	Sizes string `json:"sizes,omitempty"`
+	Type  string `json:"type,omitempty"`
+}
+
+// LaunchHandler [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-LaunchHandler
+type LaunchHandler struct {
+	ClientMode string `json:"clientMode"`
+}
+
+// ProtocolHandler [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-ProtocolHandler
+type ProtocolHandler struct {
+	Protocol string `json:"protocol"`
+	URL      string `json:"url"`
+}
+
+// RelatedApplication [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-RelatedApplication
+type RelatedApplication struct {
+	ID  string `json:"id,omitempty"`
+	URL string `json:"url"`
+}
+
+// ScopeExtension [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-ScopeExtension
+type ScopeExtension struct {
+	Origin            string `json:"origin"` // Instead of using tuple, this field always returns the serialized string for easy understanding and comparison.
+	HasOriginWildcard bool   `json:"hasOriginWildcard"`
+}
+
+// Screenshot [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-Screenshot
+type Screenshot struct {
+	Image      *ImageResource `json:"image"`
+	FormFactor string         `json:"formFactor"`
+	Label      string         `json:"label,omitempty"`
+}
+
+// ShareTarget [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-ShareTarget
+type ShareTarget struct {
+	Action  string        `json:"action"`
+	Method  string        `json:"method"`
+	Enctype string        `json:"enctype"`
+	Title   string        `json:"title,omitempty"` // Embed the ShareTargetParams
+	Text    string        `json:"text,omitempty"`
+	URL     string        `json:"url,omitempty"`
+	Files   []*FileFilter `json:"files,omitempty"`
+}
+
+// Shortcut [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-Shortcut
+type Shortcut struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
+}
+
+// WebAppManifest [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-WebAppManifest
+type WebAppManifest struct {
+	BackgroundColor           string                `json:"backgroundColor,omitempty"`
+	Description               string                `json:"description,omitempty"` // The extra description provided by the manifest.
+	Dir                       string                `json:"dir,omitempty"`
+	Display                   string                `json:"display,omitempty"`
+	DisplayOverrides          []string              `json:"displayOverrides,omitempty"` // The overrided display mode controlled by the user.
+	FileHandlers              []*FileHandler        `json:"fileHandlers,omitempty"`     // The handlers to open files.
+	Icons                     []*ImageResource      `json:"icons,omitempty"`
+	ID                        string                `json:"id,omitempty"`
+	Lang                      string                `json:"lang,omitempty"`
+	LaunchHandler             *LaunchHandler        `json:"launchHandler,omitempty"` // TODO(crbug.com/1231886): This field is non-standard and part of a Chrome experiment. See: https://github.com/WICG/web-app-launch/blob/main/launch_handler.md
+	Name                      string                `json:"name,omitempty"`
+	Orientation               string                `json:"orientation,omitempty"`
+	PreferRelatedApplications bool                  `json:"preferRelatedApplications,omitempty"`
+	ProtocolHandlers          []*ProtocolHandler    `json:"protocolHandlers,omitempty"` // The handlers to open protocols.
+	RelatedApplications       []*RelatedApplication `json:"relatedApplications,omitempty"`
+	Scope                     string                `json:"scope,omitempty"`
+	ScopeExtensions           []*ScopeExtension     `json:"scopeExtensions,omitempty"` // Non-standard, see https://github.com/WICG/manifest-incubations/blob/gh-pages/scope_extensions-explainer.md
+	Screenshots               []*Screenshot         `json:"screenshots,omitempty"`     // The screenshots used by chromium.
+	ShareTarget               *ShareTarget          `json:"shareTarget,omitempty"`
+	ShortName                 string                `json:"shortName,omitempty"`
+	Shortcuts                 []*Shortcut           `json:"shortcuts,omitempty"`
+	StartURL                  string                `json:"startUrl,omitempty"`
+	ThemeColor                string                `json:"themeColor,omitempty"`
+}
+
+// AutoResponseMode enum of possible auto-response for permission / prompt
 // dialogs.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-AutoResponseMode
@@ -1027,6 +1148,7 @@ const (
 	BackForwardCacheNotRestoredReasonCookieDisabled                                           BackForwardCacheNotRestoredReason = "CookieDisabled"
 	BackForwardCacheNotRestoredReasonHTTPAuthRequired                                         BackForwardCacheNotRestoredReason = "HTTPAuthRequired"
 	BackForwardCacheNotRestoredReasonCookieFlushed                                            BackForwardCacheNotRestoredReason = "CookieFlushed"
+	BackForwardCacheNotRestoredReasonBroadcastChannelOnMessage                                BackForwardCacheNotRestoredReason = "BroadcastChannelOnMessage"
 	BackForwardCacheNotRestoredReasonWebSocket                                                BackForwardCacheNotRestoredReason = "WebSocket"
 	BackForwardCacheNotRestoredReasonWebTransport                                             BackForwardCacheNotRestoredReason = "WebTransport"
 	BackForwardCacheNotRestoredReasonWebRTC                                                   BackForwardCacheNotRestoredReason = "WebRTC"
@@ -1036,7 +1158,6 @@ const (
 	BackForwardCacheNotRestoredReasonSubresourceHasCacheControlNoCache                        BackForwardCacheNotRestoredReason = "SubresourceHasCacheControlNoCache"
 	BackForwardCacheNotRestoredReasonContainsPlugins                                          BackForwardCacheNotRestoredReason = "ContainsPlugins"
 	BackForwardCacheNotRestoredReasonDocumentLoaded                                           BackForwardCacheNotRestoredReason = "DocumentLoaded"
-	BackForwardCacheNotRestoredReasonDedicatedWorkerOrWorklet                                 BackForwardCacheNotRestoredReason = "DedicatedWorkerOrWorklet"
 	BackForwardCacheNotRestoredReasonOutstandingNetworkRequestOthers                          BackForwardCacheNotRestoredReason = "OutstandingNetworkRequestOthers"
 	BackForwardCacheNotRestoredReasonRequestedMIDIPermission                                  BackForwardCacheNotRestoredReason = "RequestedMIDIPermission"
 	BackForwardCacheNotRestoredReasonRequestedAudioCapturePermission                          BackForwardCacheNotRestoredReason = "RequestedAudioCapturePermission"
@@ -1077,6 +1198,7 @@ const (
 	BackForwardCacheNotRestoredReasonSmartCard                                                BackForwardCacheNotRestoredReason = "SmartCard"
 	BackForwardCacheNotRestoredReasonLiveMediaStreamTrack                                     BackForwardCacheNotRestoredReason = "LiveMediaStreamTrack"
 	BackForwardCacheNotRestoredReasonUnloadHandler                                            BackForwardCacheNotRestoredReason = "UnloadHandler"
+	BackForwardCacheNotRestoredReasonParserAborted                                            BackForwardCacheNotRestoredReason = "ParserAborted"
 	BackForwardCacheNotRestoredReasonContentSecurityHandler                                   BackForwardCacheNotRestoredReason = "ContentSecurityHandler"
 	BackForwardCacheNotRestoredReasonContentWebAuthenticationAPI                              BackForwardCacheNotRestoredReason = "ContentWebAuthenticationAPI"
 	BackForwardCacheNotRestoredReasonContentFileChooser                                       BackForwardCacheNotRestoredReason = "ContentFileChooser"
@@ -1102,6 +1224,7 @@ const (
 	BackForwardCacheNotRestoredReasonEmbedderExtensionMessaging                               BackForwardCacheNotRestoredReason = "EmbedderExtensionMessaging"
 	BackForwardCacheNotRestoredReasonEmbedderExtensionMessagingForOpenPort                    BackForwardCacheNotRestoredReason = "EmbedderExtensionMessagingForOpenPort"
 	BackForwardCacheNotRestoredReasonEmbedderExtensionSentMessageToCachedFrame                BackForwardCacheNotRestoredReason = "EmbedderExtensionSentMessageToCachedFrame"
+	BackForwardCacheNotRestoredReasonRequestedByWebViewClient                                 BackForwardCacheNotRestoredReason = "RequestedByWebViewClient"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -1230,6 +1353,8 @@ func (t *BackForwardCacheNotRestoredReason) UnmarshalEasyJSON(in *jlexer.Lexer) 
 		*t = BackForwardCacheNotRestoredReasonHTTPAuthRequired
 	case BackForwardCacheNotRestoredReasonCookieFlushed:
 		*t = BackForwardCacheNotRestoredReasonCookieFlushed
+	case BackForwardCacheNotRestoredReasonBroadcastChannelOnMessage:
+		*t = BackForwardCacheNotRestoredReasonBroadcastChannelOnMessage
 	case BackForwardCacheNotRestoredReasonWebSocket:
 		*t = BackForwardCacheNotRestoredReasonWebSocket
 	case BackForwardCacheNotRestoredReasonWebTransport:
@@ -1248,8 +1373,6 @@ func (t *BackForwardCacheNotRestoredReason) UnmarshalEasyJSON(in *jlexer.Lexer) 
 		*t = BackForwardCacheNotRestoredReasonContainsPlugins
 	case BackForwardCacheNotRestoredReasonDocumentLoaded:
 		*t = BackForwardCacheNotRestoredReasonDocumentLoaded
-	case BackForwardCacheNotRestoredReasonDedicatedWorkerOrWorklet:
-		*t = BackForwardCacheNotRestoredReasonDedicatedWorkerOrWorklet
 	case BackForwardCacheNotRestoredReasonOutstandingNetworkRequestOthers:
 		*t = BackForwardCacheNotRestoredReasonOutstandingNetworkRequestOthers
 	case BackForwardCacheNotRestoredReasonRequestedMIDIPermission:
@@ -1330,6 +1453,8 @@ func (t *BackForwardCacheNotRestoredReason) UnmarshalEasyJSON(in *jlexer.Lexer) 
 		*t = BackForwardCacheNotRestoredReasonLiveMediaStreamTrack
 	case BackForwardCacheNotRestoredReasonUnloadHandler:
 		*t = BackForwardCacheNotRestoredReasonUnloadHandler
+	case BackForwardCacheNotRestoredReasonParserAborted:
+		*t = BackForwardCacheNotRestoredReasonParserAborted
 	case BackForwardCacheNotRestoredReasonContentSecurityHandler:
 		*t = BackForwardCacheNotRestoredReasonContentSecurityHandler
 	case BackForwardCacheNotRestoredReasonContentWebAuthenticationAPI:
@@ -1380,6 +1505,8 @@ func (t *BackForwardCacheNotRestoredReason) UnmarshalEasyJSON(in *jlexer.Lexer) 
 		*t = BackForwardCacheNotRestoredReasonEmbedderExtensionMessagingForOpenPort
 	case BackForwardCacheNotRestoredReasonEmbedderExtensionSentMessageToCachedFrame:
 		*t = BackForwardCacheNotRestoredReasonEmbedderExtensionSentMessageToCachedFrame
+	case BackForwardCacheNotRestoredReasonRequestedByWebViewClient:
+		*t = BackForwardCacheNotRestoredReasonRequestedByWebViewClient
 
 	default:
 		in.AddError(fmt.Errorf("unknown BackForwardCacheNotRestoredReason value: %v", v))
