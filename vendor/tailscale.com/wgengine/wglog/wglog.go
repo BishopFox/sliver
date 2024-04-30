@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/tailscale/wireguard-go/device"
+	"tailscale.com/envknob"
 	"tailscale.com/syncs"
 	"tailscale.com/types/key"
 	"tailscale.com/types/logger"
@@ -52,6 +53,13 @@ func NewLogger(logf logger.Logf) *Logger {
 			// See https://github.com/tailscale/tailscale/issues/1388.
 			return
 		}
+		if strings.Contains(format, "Adding allowedip") {
+			// Drop. See https://github.com/tailscale/corp/issues/17532.
+			// AppConnectors (as one example) may have many subnet routes, and
+			// the messaging related to these is not specific enough to be
+			// useful.
+			return
+		}
 		replace := ret.replace.Load()
 		if replace == nil {
 			// No replacements specified; log as originally planned.
@@ -79,6 +87,9 @@ func NewLogger(logf logger.Logf) *Logger {
 			newargs[i] = tsStr
 		}
 		logf(format, newargs...)
+	}
+	if envknob.Bool("TS_DEBUG_RAW_WGLOG") {
+		wrapper = logf
 	}
 	ret.DeviceLogger = &device.Logger{
 		Verbosef: logger.WithPrefix(wrapper, prefix+"[v2] "),

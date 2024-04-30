@@ -12,6 +12,7 @@ import (
 
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/experimental"
+	"github.com/tetratelabs/wazero/internal/expctxkeys"
 	"github.com/tetratelabs/wazero/internal/filecache"
 	"github.com/tetratelabs/wazero/internal/internalapi"
 	"github.com/tetratelabs/wazero/internal/moremath"
@@ -86,6 +87,19 @@ type moduleEngine struct {
 	// parentEngine holds *engine from which this module engine is created from.
 	parentEngine *engine
 }
+
+// GetGlobalValue implements the same method as documented on wasm.ModuleEngine.
+func (e *moduleEngine) GetGlobalValue(wasm.Index) (lo, hi uint64) {
+	panic("BUG: GetGlobalValue should never be called on interpreter mode")
+}
+
+// SetGlobalValue implements the same method as documented on wasm.ModuleEngine.
+func (e *moduleEngine) SetGlobalValue(idx wasm.Index, lo, hi uint64) {
+	panic("BUG: SetGlobalValue should never be called on interpreter mode")
+}
+
+// OwnsGlobals implements the same method as documented on wasm.ModuleEngine.
+func (e *moduleEngine) OwnsGlobals() bool { return false }
 
 // callEngine holds context per moduleEngine.Call, and shared across all the
 // function calls originating from the same moduleEngine.Call execution.
@@ -216,6 +230,53 @@ func functionFromUintptr(ptr uintptr) *function {
 	return *(**function)(unsafe.Pointer(wrapped))
 }
 
+type snapshot struct {
+	stack  []uint64
+	frames []*callFrame
+	pc     uint64
+
+	ret []uint64
+
+	ce *callEngine
+}
+
+// Snapshot implements the same method as documented on experimental.Snapshotter.
+func (ce *callEngine) Snapshot() experimental.Snapshot {
+	stack := make([]uint64, len(ce.stack))
+	copy(stack, ce.stack)
+
+	frames := make([]*callFrame, len(ce.frames))
+	copy(frames, ce.frames)
+
+	return &snapshot{
+		stack:  stack,
+		frames: frames,
+		ce:     ce,
+	}
+}
+
+// Restore implements the same method as documented on experimental.Snapshot.
+func (s *snapshot) Restore(ret []uint64) {
+	s.ret = ret
+	panic(s)
+}
+
+func (s *snapshot) doRestore() {
+	ce := s.ce
+
+	ce.stack = s.stack
+	ce.frames = s.frames
+	ce.frames[len(ce.frames)-1].pc = s.pc
+
+	copy(ce.stack[len(ce.stack)-len(s.ret):], s.ret)
+}
+
+// Error implements the same method on error.
+func (s *snapshot) Error() string {
+	return "unhandled snapshot restore, this generally indicates restore was called from a different " +
+		"exported function invocation than snapshot"
+}
+
 // stackIterator implements experimental.StackIterator.
 type stackIterator struct {
 	stack   []uint64
@@ -269,14 +330,6 @@ func (si *stackIterator) Function() experimental.InternalFunction {
 // experimental.StackIterator.
 func (si *stackIterator) ProgramCounter() experimental.ProgramCounter {
 	return experimental.ProgramCounter(si.pc)
-}
-
-// Parameters implements the same method as documented on
-// experimental.StackIterator.
-func (si *stackIterator) Parameters() []uint64 {
-	paramsCount := si.fn.funcType.ParamNumInUint64
-	top := len(si.stack)
-	return si.stack[top-paramsCount:]
 }
 
 // internalFunction implements experimental.InternalFunction.
@@ -442,6 +495,12 @@ func (e *moduleEngine) ResolveImportedFunction(index, indexInImportedModule wasm
 	e.functions[index] = imported.functions[indexInImportedModule]
 }
 
+// ResolveImportedMemory implements wasm.ModuleEngine.
+func (e *moduleEngine) ResolveImportedMemory(wasm.ModuleEngine) {}
+
+// DoneInstantiation implements wasm.ModuleEngine.
+func (e *moduleEngine) DoneInstantiation() {}
+
 // FunctionInstanceReference implements the same method as documented on wasm.ModuleEngine.
 func (e *moduleEngine) FunctionInstanceReference(funcIndex wasm.Index) wasm.Reference {
 	return uintptr(unsafe.Pointer(&e.functions[funcIndex]))
@@ -456,25 +515,20 @@ func (e *moduleEngine) NewFunction(index wasm.Index) (ce api.Function) {
 }
 
 // LookupFunction implements the same method as documented on wasm.ModuleEngine.
-func (e *moduleEngine) LookupFunction(t *wasm.TableInstance, typeId wasm.FunctionTypeID, tableOffset wasm.Index) (f api.Function, err error) {
+func (e *moduleEngine) LookupFunction(t *wasm.TableInstance, typeId wasm.FunctionTypeID, tableOffset wasm.Index) (*wasm.ModuleInstance, wasm.Index) {
 	if tableOffset >= uint32(len(t.References)) {
-		err = wasmruntime.ErrRuntimeInvalidTableAccess
-		return
+		panic(wasmruntime.ErrRuntimeInvalidTableAccess)
 	}
 	rawPtr := t.References[tableOffset]
 	if rawPtr == 0 {
-		err = wasmruntime.ErrRuntimeInvalidTableAccess
-		return
+		panic(wasmruntime.ErrRuntimeInvalidTableAccess)
 	}
 
 	tf := functionFromUintptr(rawPtr)
 	if tf.typeID != typeId {
-		err = wasmruntime.ErrRuntimeIndirectCallTypeMismatch
-		return
+		panic(wasmruntime.ErrRuntimeIndirectCallTypeMismatch)
 	}
-
-	f = e.newCallEngine(tf)
-	return
+	return tf.moduleInstance, tf.parent.index
 }
 
 // Definition implements the same method as documented on api.Function.
@@ -517,6 +571,10 @@ func (ce *callEngine) call(ctx context.Context, params, results []uint64) (_ []u
 			return nil, m.FailIfClosed()
 		default:
 		}
+	}
+
+	if ctx.Value(expctxkeys.EnableSnapshotterKey{}) != nil {
+		ctx = context.WithValue(ctx, expctxkeys.SnapshotterKey{}, ce)
 	}
 
 	defer func() {
@@ -562,10 +620,19 @@ type functionListenerInvocation struct {
 // with the call frame stack traces. Also, reset the state of callEngine
 // so that it can be used for the subsequent calls.
 func (ce *callEngine) recoverOnCall(ctx context.Context, m *wasm.ModuleInstance, v interface{}) (err error) {
+	if s, ok := v.(*snapshot); ok {
+		// A snapshot that wasn't handled was created by a different call engine possibly from a nested wasm invocation,
+		// let it propagate up to be handled by the caller.
+		panic(s)
+	}
+
 	builder := wasmdebug.NewErrorBuilder()
 	frameCount := len(ce.frames)
 	functionListeners := make([]functionListenerInvocation, 0, 16)
 
+	if frameCount > wasmdebug.MaxFrames {
+		frameCount = wasmdebug.MaxFrames
+	}
 	for i := 0; i < frameCount; i++ {
 		frame := ce.popFrame()
 		f := frame.f
@@ -676,7 +743,23 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 			ce.drop(op.Us[v+1])
 			frame.pc = op.Us[v]
 		case wazeroir.OperationKindCall:
-			ce.callFunction(ctx, f.moduleInstance, &functions[op.U1])
+			func() {
+				if ctx.Value(expctxkeys.EnableSnapshotterKey{}) != nil {
+					defer func() {
+						if r := recover(); r != nil {
+							if s, ok := r.(*snapshot); ok && s.ce == ce {
+								s.doRestore()
+								frame = ce.frames[len(ce.frames)-1]
+								body = frame.f.parent.body
+								bodyLen = uint64(len(body))
+							} else {
+								panic(r)
+							}
+						}
+					}()
+				}
+				ce.callFunction(ctx, f.moduleInstance, &functions[op.U1])
+			}()
 			frame.pc++
 		case wazeroir.OperationKindCallIndirect:
 			offset := ce.popValue()
@@ -844,7 +927,7 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 			}
 			frame.pc++
 		case wazeroir.OperationKindMemorySize:
-			ce.pushValue(uint64(memoryInst.PageSize()))
+			ce.pushValue(uint64(memoryInst.Pages()))
 			frame.pc++
 		case wazeroir.OperationKindMemoryGrow:
 			n := ce.popValue()
@@ -1660,15 +1743,15 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 			inElementOffset := ce.popValue()
 			inTableOffset := ce.popValue()
 			table := tables[op.U2]
-			if inElementOffset+copySize > uint64(len(elementInstance.References)) ||
+			if inElementOffset+copySize > uint64(len(elementInstance)) ||
 				inTableOffset+copySize > uint64(len(table.References)) {
 				panic(wasmruntime.ErrRuntimeInvalidTableAccess)
 			} else if copySize != 0 {
-				copy(table.References[inTableOffset:inTableOffset+copySize], elementInstance.References[inElementOffset:])
+				copy(table.References[inTableOffset:inTableOffset+copySize], elementInstance[inElementOffset:])
 			}
 			frame.pc++
 		case wazeroir.OperationKindElemDrop:
-			elementInstances[op.U1].References = nil
+			elementInstances[op.U1] = nil
 			frame.pc++
 		case wazeroir.OperationKindTableCopy:
 			srcTable, dstTable := tables[op.U1].References, tables[op.U2].References
@@ -2004,10 +2087,15 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 		case wazeroir.OperationKindV128Store:
 			hi, lo := ce.popValue(), ce.popValue()
 			offset := ce.popMemoryOffset(op)
-			if ok := memoryInst.WriteUint64Le(offset, lo); !ok {
+			// Write the upper bytes first to trigger an early error if the memory access is out of bounds.
+			// Otherwise, the lower bytes might be written to memory, but the upper bytes might not.
+			if uint64(offset)+8 > math.MaxUint32 {
 				panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
 			}
 			if ok := memoryInst.WriteUint64Le(offset+8, hi); !ok {
+				panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+			}
+			if ok := memoryInst.WriteUint64Le(offset, lo); !ok {
 				panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
 			}
 			frame.pc++
@@ -3896,6 +3984,361 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 			ce.pushValue(retLo)
 			ce.pushValue(retHi)
 			frame.pc++
+		case wazeroir.OperationKindAtomicMemoryWait:
+			timeout := int64(ce.popValue())
+			exp := ce.popValue()
+			offset := ce.popMemoryOffset(op)
+			// Runtime instead of validation error because the spec intends to allow binaries to include
+			// such instructions as long as they are not executed.
+			if !memoryInst.Shared {
+				panic(wasmruntime.ErrRuntimeExpectedSharedMemory)
+			}
+
+			switch wazeroir.UnsignedType(op.B1) {
+			case wazeroir.UnsignedTypeI32:
+				if offset%4 != 0 {
+					panic(wasmruntime.ErrRuntimeUnalignedAtomic)
+				}
+				if int(offset) > len(memoryInst.Buffer)-4 {
+					panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+				}
+				ce.pushValue(memoryInst.Wait32(offset, uint32(exp), timeout, func(mem *wasm.MemoryInstance, offset uint32) uint32 {
+					mem.Mux.Lock()
+					defer mem.Mux.Unlock()
+					value, _ := mem.ReadUint32Le(offset)
+					return value
+				}))
+			case wazeroir.UnsignedTypeI64:
+				if offset%8 != 0 {
+					panic(wasmruntime.ErrRuntimeUnalignedAtomic)
+				}
+				if int(offset) > len(memoryInst.Buffer)-8 {
+					panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+				}
+				ce.pushValue(memoryInst.Wait64(offset, exp, timeout, func(mem *wasm.MemoryInstance, offset uint32) uint64 {
+					mem.Mux.Lock()
+					defer mem.Mux.Unlock()
+					value, _ := mem.ReadUint64Le(offset)
+					return value
+				}))
+			}
+			frame.pc++
+		case wazeroir.OperationKindAtomicMemoryNotify:
+			count := ce.popValue()
+			offset := ce.popMemoryOffset(op)
+			if offset%4 != 0 {
+				panic(wasmruntime.ErrRuntimeUnalignedAtomic)
+			}
+			// Just a bounds check
+			if offset >= memoryInst.Size() {
+				panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+			}
+			res := memoryInst.Notify(offset, uint32(count))
+			ce.pushValue(uint64(res))
+			frame.pc++
+		case wazeroir.OperationKindAtomicFence:
+			// Memory not required for fence only
+			if memoryInst != nil {
+				// An empty critical section can be used as a synchronization primitive, which is what
+				// fence is. Probably, there are no spectests or defined behavior to confirm this yet.
+				memoryInst.Mux.Lock()
+				memoryInst.Mux.Unlock() //nolint:staticcheck
+			}
+			frame.pc++
+		case wazeroir.OperationKindAtomicLoad:
+			offset := ce.popMemoryOffset(op)
+			switch wazeroir.UnsignedType(op.B1) {
+			case wazeroir.UnsignedTypeI32:
+				if offset%4 != 0 {
+					panic(wasmruntime.ErrRuntimeUnalignedAtomic)
+				}
+				memoryInst.Mux.Lock()
+				val, ok := memoryInst.ReadUint32Le(offset)
+				memoryInst.Mux.Unlock()
+				if !ok {
+					panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+				}
+				ce.pushValue(uint64(val))
+			case wazeroir.UnsignedTypeI64:
+				if offset%8 != 0 {
+					panic(wasmruntime.ErrRuntimeUnalignedAtomic)
+				}
+				memoryInst.Mux.Lock()
+				val, ok := memoryInst.ReadUint64Le(offset)
+				memoryInst.Mux.Unlock()
+				if !ok {
+					panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+				}
+				ce.pushValue(val)
+			}
+			frame.pc++
+		case wazeroir.OperationKindAtomicLoad8:
+			offset := ce.popMemoryOffset(op)
+			memoryInst.Mux.Lock()
+			val, ok := memoryInst.ReadByte(offset)
+			memoryInst.Mux.Unlock()
+			if !ok {
+				panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+			}
+			ce.pushValue(uint64(val))
+			frame.pc++
+		case wazeroir.OperationKindAtomicLoad16:
+			offset := ce.popMemoryOffset(op)
+			if offset%2 != 0 {
+				panic(wasmruntime.ErrRuntimeUnalignedAtomic)
+			}
+			memoryInst.Mux.Lock()
+			val, ok := memoryInst.ReadUint16Le(offset)
+			memoryInst.Mux.Unlock()
+			if !ok {
+				panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+			}
+			ce.pushValue(uint64(val))
+			frame.pc++
+		case wazeroir.OperationKindAtomicStore:
+			val := ce.popValue()
+			offset := ce.popMemoryOffset(op)
+			switch wazeroir.UnsignedType(op.B1) {
+			case wazeroir.UnsignedTypeI32:
+				if offset%4 != 0 {
+					panic(wasmruntime.ErrRuntimeUnalignedAtomic)
+				}
+				memoryInst.Mux.Lock()
+				ok := memoryInst.WriteUint32Le(offset, uint32(val))
+				memoryInst.Mux.Unlock()
+				if !ok {
+					panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+				}
+			case wazeroir.UnsignedTypeI64:
+				if offset%8 != 0 {
+					panic(wasmruntime.ErrRuntimeUnalignedAtomic)
+				}
+				memoryInst.Mux.Lock()
+				ok := memoryInst.WriteUint64Le(offset, val)
+				memoryInst.Mux.Unlock()
+				if !ok {
+					panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+				}
+			}
+			frame.pc++
+		case wazeroir.OperationKindAtomicStore8:
+			val := byte(ce.popValue())
+			offset := ce.popMemoryOffset(op)
+			memoryInst.Mux.Lock()
+			ok := memoryInst.WriteByte(offset, val)
+			memoryInst.Mux.Unlock()
+			if !ok {
+				panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+			}
+			frame.pc++
+		case wazeroir.OperationKindAtomicStore16:
+			val := uint16(ce.popValue())
+			offset := ce.popMemoryOffset(op)
+			if offset%2 != 0 {
+				panic(wasmruntime.ErrRuntimeUnalignedAtomic)
+			}
+			memoryInst.Mux.Lock()
+			ok := memoryInst.WriteUint16Le(offset, val)
+			memoryInst.Mux.Unlock()
+			if !ok {
+				panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+			}
+			frame.pc++
+		case wazeroir.OperationKindAtomicRMW:
+			val := ce.popValue()
+			offset := ce.popMemoryOffset(op)
+			switch wazeroir.UnsignedType(op.B1) {
+			case wazeroir.UnsignedTypeI32:
+				if offset%4 != 0 {
+					panic(wasmruntime.ErrRuntimeUnalignedAtomic)
+				}
+				memoryInst.Mux.Lock()
+				old, ok := memoryInst.ReadUint32Le(offset)
+				if !ok {
+					memoryInst.Mux.Unlock()
+					panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+				}
+				var newVal uint32
+				switch wazeroir.AtomicArithmeticOp(op.B2) {
+				case wazeroir.AtomicArithmeticOpAdd:
+					newVal = old + uint32(val)
+				case wazeroir.AtomicArithmeticOpSub:
+					newVal = old - uint32(val)
+				case wazeroir.AtomicArithmeticOpAnd:
+					newVal = old & uint32(val)
+				case wazeroir.AtomicArithmeticOpOr:
+					newVal = old | uint32(val)
+				case wazeroir.AtomicArithmeticOpXor:
+					newVal = old ^ uint32(val)
+				case wazeroir.AtomicArithmeticOpNop:
+					newVal = uint32(val)
+				}
+				memoryInst.WriteUint32Le(offset, newVal)
+				memoryInst.Mux.Unlock()
+				ce.pushValue(uint64(old))
+			case wazeroir.UnsignedTypeI64:
+				if offset%8 != 0 {
+					panic(wasmruntime.ErrRuntimeUnalignedAtomic)
+				}
+				memoryInst.Mux.Lock()
+				old, ok := memoryInst.ReadUint64Le(offset)
+				if !ok {
+					memoryInst.Mux.Unlock()
+					panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+				}
+				var newVal uint64
+				switch wazeroir.AtomicArithmeticOp(op.B2) {
+				case wazeroir.AtomicArithmeticOpAdd:
+					newVal = old + val
+				case wazeroir.AtomicArithmeticOpSub:
+					newVal = old - val
+				case wazeroir.AtomicArithmeticOpAnd:
+					newVal = old & val
+				case wazeroir.AtomicArithmeticOpOr:
+					newVal = old | val
+				case wazeroir.AtomicArithmeticOpXor:
+					newVal = old ^ val
+				case wazeroir.AtomicArithmeticOpNop:
+					newVal = val
+				}
+				memoryInst.WriteUint64Le(offset, newVal)
+				memoryInst.Mux.Unlock()
+				ce.pushValue(old)
+			}
+			frame.pc++
+		case wazeroir.OperationKindAtomicRMW8:
+			val := ce.popValue()
+			offset := ce.popMemoryOffset(op)
+			memoryInst.Mux.Lock()
+			old, ok := memoryInst.ReadByte(offset)
+			if !ok {
+				memoryInst.Mux.Unlock()
+				panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+			}
+			arg := byte(val)
+			var newVal byte
+			switch wazeroir.AtomicArithmeticOp(op.B2) {
+			case wazeroir.AtomicArithmeticOpAdd:
+				newVal = old + arg
+			case wazeroir.AtomicArithmeticOpSub:
+				newVal = old - arg
+			case wazeroir.AtomicArithmeticOpAnd:
+				newVal = old & arg
+			case wazeroir.AtomicArithmeticOpOr:
+				newVal = old | arg
+			case wazeroir.AtomicArithmeticOpXor:
+				newVal = old ^ arg
+			case wazeroir.AtomicArithmeticOpNop:
+				newVal = arg
+			}
+			memoryInst.WriteByte(offset, newVal)
+			memoryInst.Mux.Unlock()
+			ce.pushValue(uint64(old))
+			frame.pc++
+		case wazeroir.OperationKindAtomicRMW16:
+			val := ce.popValue()
+			offset := ce.popMemoryOffset(op)
+			if offset%2 != 0 {
+				panic(wasmruntime.ErrRuntimeUnalignedAtomic)
+			}
+			memoryInst.Mux.Lock()
+			old, ok := memoryInst.ReadUint16Le(offset)
+			if !ok {
+				memoryInst.Mux.Unlock()
+				panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+			}
+			arg := uint16(val)
+			var newVal uint16
+			switch wazeroir.AtomicArithmeticOp(op.B2) {
+			case wazeroir.AtomicArithmeticOpAdd:
+				newVal = old + arg
+			case wazeroir.AtomicArithmeticOpSub:
+				newVal = old - arg
+			case wazeroir.AtomicArithmeticOpAnd:
+				newVal = old & arg
+			case wazeroir.AtomicArithmeticOpOr:
+				newVal = old | arg
+			case wazeroir.AtomicArithmeticOpXor:
+				newVal = old ^ arg
+			case wazeroir.AtomicArithmeticOpNop:
+				newVal = arg
+			}
+			memoryInst.WriteUint16Le(offset, newVal)
+			memoryInst.Mux.Unlock()
+			ce.pushValue(uint64(old))
+			frame.pc++
+		case wazeroir.OperationKindAtomicRMWCmpxchg:
+			rep := ce.popValue()
+			exp := ce.popValue()
+			offset := ce.popMemoryOffset(op)
+			switch wazeroir.UnsignedType(op.B1) {
+			case wazeroir.UnsignedTypeI32:
+				if offset%4 != 0 {
+					panic(wasmruntime.ErrRuntimeUnalignedAtomic)
+				}
+				memoryInst.Mux.Lock()
+				old, ok := memoryInst.ReadUint32Le(offset)
+				if !ok {
+					memoryInst.Mux.Unlock()
+					panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+				}
+				if old == uint32(exp) {
+					memoryInst.WriteUint32Le(offset, uint32(rep))
+				}
+				memoryInst.Mux.Unlock()
+				ce.pushValue(uint64(old))
+			case wazeroir.UnsignedTypeI64:
+				if offset%8 != 0 {
+					panic(wasmruntime.ErrRuntimeUnalignedAtomic)
+				}
+				memoryInst.Mux.Lock()
+				old, ok := memoryInst.ReadUint64Le(offset)
+				if !ok {
+					memoryInst.Mux.Unlock()
+					panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+				}
+				if old == exp {
+					memoryInst.WriteUint64Le(offset, rep)
+				}
+				memoryInst.Mux.Unlock()
+				ce.pushValue(old)
+			}
+			frame.pc++
+		case wazeroir.OperationKindAtomicRMW8Cmpxchg:
+			rep := byte(ce.popValue())
+			exp := byte(ce.popValue())
+			offset := ce.popMemoryOffset(op)
+			memoryInst.Mux.Lock()
+			old, ok := memoryInst.ReadByte(offset)
+			if !ok {
+				memoryInst.Mux.Unlock()
+				panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+			}
+			if old == exp {
+				memoryInst.WriteByte(offset, rep)
+			}
+			memoryInst.Mux.Unlock()
+			ce.pushValue(uint64(old))
+			frame.pc++
+		case wazeroir.OperationKindAtomicRMW16Cmpxchg:
+			rep := uint16(ce.popValue())
+			exp := uint16(ce.popValue())
+			offset := ce.popMemoryOffset(op)
+			if offset%2 != 0 {
+				panic(wasmruntime.ErrRuntimeUnalignedAtomic)
+			}
+			memoryInst.Mux.Lock()
+			old, ok := memoryInst.ReadUint16Le(offset)
+			if !ok {
+				memoryInst.Mux.Unlock()
+				panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)
+			}
+			if old == exp {
+				memoryInst.WriteUint16Le(offset, rep)
+			}
+			memoryInst.Mux.Unlock()
+			ce.pushValue(uint64(old))
+			frame.pc++
 		default:
 			frame.pc++
 		}
@@ -4103,17 +4546,16 @@ func (ce *callEngine) callNativeFuncWithListener(ctx context.Context, m *wasm.Mo
 	def, typ := f.definition(), f.funcType
 
 	ce.stackIterator.reset(ce.stack, ce.frames, f)
-	fnl.Before(ctx, m, def, ce.peekValues(len(typ.Params)), &ce.stackIterator)
+	fnl.Before(ctx, m, def, ce.peekValues(typ.ParamNumInUint64), &ce.stackIterator)
 	ce.stackIterator.clear()
 	ce.callNativeFunc(ctx, m, f)
-	fnl.After(ctx, m, def, ce.peekValues(len(typ.Results)))
+	fnl.After(ctx, m, def, ce.peekValues(typ.ResultNumInUint64))
 	return ctx
 }
 
 // popMemoryOffset takes a memory offset off the stack for use in load and store instructions.
 // As the top of stack value is 64-bit, this ensures it is in range before returning it.
 func (ce *callEngine) popMemoryOffset(op *wazeroir.UnionOperation) uint32 {
-	// TODO: Document what 'us' is and why we expect to look at value 1.
 	offset := op.U2 + ce.popValue()
 	if offset > math.MaxUint32 {
 		panic(wasmruntime.ErrRuntimeOutOfBoundsMemoryAccess)

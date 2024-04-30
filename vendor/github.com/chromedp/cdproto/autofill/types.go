@@ -5,6 +5,7 @@ package autofill
 import (
 	"fmt"
 
+	"github.com/chromedp/cdproto/cdp"
 	"github.com/mailru/easyjson"
 	"github.com/mailru/easyjson/jlexer"
 	"github.com/mailru/easyjson/jwriter"
@@ -53,7 +54,7 @@ type Address struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Autofill#type-AddressUI
 type AddressUI struct {
-	AddressFields []*AddressFields `json:"addressFields"` // A two dimension array containing the repesentation of values from an address profile.
+	AddressFields []*AddressFields `json:"addressFields"` // A two dimension array containing the representation of values from an address profile.
 }
 
 // FillingStrategy specified whether a filled field was done so by using the
@@ -106,10 +107,12 @@ func (t *FillingStrategy) UnmarshalJSON(buf []byte) error {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Autofill#type-FilledField
 type FilledField struct {
-	HTMLType        string          `json:"htmlType"`        // The type of the field, e.g text, password etc.
-	ID              string          `json:"id"`              // the html id
-	Name            string          `json:"name"`            // the html name
-	Value           string          `json:"value"`           // the field value
-	AutofillType    string          `json:"autofillType"`    // The actual field type, e.g FAMILY_NAME
-	FillingStrategy FillingStrategy `json:"fillingStrategy"` // The filling strategy
+	HTMLType        string            `json:"htmlType"`        // The type of the field, e.g text, password etc.
+	ID              string            `json:"id"`              // the html id
+	Name            string            `json:"name"`            // the html name
+	Value           string            `json:"value"`           // the field value
+	AutofillType    string            `json:"autofillType"`    // The actual field type, e.g FAMILY_NAME
+	FillingStrategy FillingStrategy   `json:"fillingStrategy"` // The filling strategy
+	FrameID         cdp.FrameID       `json:"frameId"`         // The frame the field belongs to
+	FieldID         cdp.BackendNodeID `json:"fieldId"`         // The form field's DOM node
 }

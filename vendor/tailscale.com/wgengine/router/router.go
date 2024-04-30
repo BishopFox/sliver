@@ -27,6 +27,14 @@ type Router interface {
 	// implementation should handle gracefully.
 	Set(*Config) error
 
+	// UpdateMagicsockPort tells the OS network stack what port magicsock
+	// is currently listening on, so it can be threaded through firewalls
+	// and such. This is distinct from Set() since magicsock may rebind
+	// ports independently from the Config changing.
+	//
+	// network should be either "udp4" or "udp6".
+	UpdateMagicsockPort(port uint16, network string) error
+
 	// Close closes the router.
 	Close() error
 }
@@ -41,11 +49,11 @@ func New(logf logger.Logf, tundev tun.Device, netMon *netmon.Monitor) (Router, e
 	return newUserspaceRouter(logf, tundev, netMon)
 }
 
-// Cleanup restores the system network configuration to its original state
+// CleanUp restores the system network configuration to its original state
 // in case the Tailscale daemon terminated without closing the router.
 // No other state needs to be instantiated before this runs.
-func Cleanup(logf logger.Logf, interfaceName string) {
-	cleanup(logf, interfaceName)
+func CleanUp(logf logger.Logf, interfaceName string) {
+	cleanUp(logf, interfaceName)
 }
 
 // Config is the subset of Tailscale configuration that is relevant to
@@ -72,10 +80,16 @@ type Config struct {
 	// callback. If zero, the MTU is unchanged.
 	NewMTU int
 
+	// SubnetRoutes is the list of subnets that this node is
+	// advertising to other Tailscale nodes.
+	// As of 2023-10-11, this field is only used for network
+	// flow logging and is otherwise ignored.
+	SubnetRoutes []netip.Prefix
+
 	// Linux-only things below, ignored on other platforms.
-	SubnetRoutes     []netip.Prefix         // subnets being advertised to other Tailscale nodes
 	SNATSubnetRoutes bool                   // SNAT traffic to local subnets
 	NetfilterMode    preftype.NetfilterMode // how much to manage netfilter rules
+	NetfilterKind    string                 // what kind of netfilter to use (nftables, iptables)
 }
 
 func (a *Config) Equal(b *Config) bool {

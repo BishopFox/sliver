@@ -73,7 +73,7 @@ func WithBindIP(ip net.IP) Option {
 }
 
 // WithLogger can be used to provide a custom log target.
-// Defaults to ioutil.Discard.
+// Defaults to io.Discard.
 func WithLogger(l Logger) Option {
 	return func(s *Server) {
 		s.logger = l

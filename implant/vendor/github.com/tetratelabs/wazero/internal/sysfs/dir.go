@@ -2,23 +2,21 @@ package sysfs
 
 import (
 	"io"
-	"syscall"
 
-	"github.com/tetratelabs/wazero/internal/fsapi"
-	"github.com/tetratelabs/wazero/internal/platform"
+	"github.com/tetratelabs/wazero/experimental/sys"
 )
 
-func adjustReaddirErr(f fsapi.File, isClosed bool, err error) syscall.Errno {
+func adjustReaddirErr(f sys.File, isClosed bool, err error) sys.Errno {
 	if err == io.EOF {
 		return 0 // e.g. Readdir on darwin returns io.EOF, but linux doesn't.
-	} else if errno := platform.UnwrapOSError(err); errno != 0 {
+	} else if errno := sys.UnwrapOSError(err); errno != 0 {
 		errno = dirError(f, isClosed, errno)
-		// Ignore errors when the file was closed or removed.
+		// Comply with errors allowed on sys.File Readdir
 		switch errno {
-		case syscall.EIO, syscall.EBADF: // closed while open
-			return 0
-		case syscall.ENOENT: // Linux error when removed while open
-			return 0
+		case sys.EINVAL: // os.File Readdir can return this
+			return sys.EBADF
+		case sys.ENOTDIR: // dirError can return this
+			return sys.EBADF
 		}
 		return errno
 	}

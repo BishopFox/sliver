@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/gaissmai/bart"
 	"github.com/tailscale/wireguard-go/device"
 	"github.com/tailscale/wireguard-go/tun"
 	"go4.org/mem"
@@ -27,7 +28,6 @@ import (
 	"tailscale.com/net/packet"
 	"tailscale.com/net/packet/checksum"
 	"tailscale.com/net/tsaddr"
-	"tailscale.com/net/tstun/table"
 	"tailscale.com/syncs"
 	"tailscale.com/tstime/mono"
 	"tailscale.com/types/ipproto"
@@ -99,8 +99,9 @@ type Wrapper struct {
 	lastActivityAtomic mono.Time // time of last send or receive
 
 	destIPActivity syncs.AtomicValue[map[netip.Addr]func()]
-	destMACAtomic  syncs.AtomicValue[[6]byte]
-	discoKey       syncs.AtomicValue[key.DiscoPublic]
+	//lint:ignore U1000 used in tap_linux.go
+	destMACAtomic syncs.AtomicValue[[6]byte]
+	discoKey      syncs.AtomicValue[key.DiscoPublic]
 
 	// timeNow, if non-nil, will be used to obtain the current time.
 	timeNow func() time.Time
@@ -159,8 +160,8 @@ type Wrapper struct {
 	// PreFilterPacketInboundFromWireGuard is the inbound filter function that runs before the main filter
 	// and therefore sees the packets that may be later dropped by it.
 	PreFilterPacketInboundFromWireGuard FilterFunc
-	// PostFilterPacketInboundFromWireGaurd is the inbound filter function that runs after the main filter.
-	PostFilterPacketInboundFromWireGaurd FilterFunc
+	// PostFilterPacketInboundFromWireGuard is the inbound filter function that runs after the main filter.
+	PostFilterPacketInboundFromWireGuard FilterFunc
 	// PreFilterPacketOutboundToWireGuardNetstackIntercept is a filter function that runs before the main filter
 	// for packets from the local system. This filter is populated by netstack to hook
 	// packets that should be handled by netstack. If set, this filter runs before
@@ -202,7 +203,7 @@ type Wrapper struct {
 type tunInjectedRead struct {
 	// Only one of packet or data should be set, and are read in that order of
 	// precedence.
-	packet stack.PacketBufferPtr
+	packet *stack.PacketBuffer
 	data   []byte
 }
 
@@ -610,15 +611,13 @@ type natFamilyConfig struct {
 	// peers will use to connect to this node.
 	listenAddrs views.Map[netip.Addr, struct{}] // masqAddr -> struct{}
 
-	// dstMasqAddrs is map of dst addresses to their respective MasqueradeAsIP
-	// addresses. The MasqueradeAsIP address is the address that should be used
-	// as the source address for packets to dst.
-	dstMasqAddrs views.Map[key.NodePublic, netip.Addr] // dst -> masqAddr
+	// dstMasqAddrs is the routing table used to map a given dst IP to the
+	// respective MasqueradeAsIP address. The MasqueradeAsIP address is the
+	// address that should be used as the source address for packets to dst.
+	dstMasqAddrs *bart.Table[netip.Addr]
 
-	// dstAddrToPeerKeyMapper is the routing table used to map a given dst IP to
-	// the peer key responsible for that IP.
-	// It only contains peers that require a MasqueradeAsIP address.
-	dstAddrToPeerKeyMapper *table.RoutingTable
+	// masqAddrCounts is a count of peers by MasqueradeAsIP.
+	masqAddrCounts map[netip.Addr]int
 }
 
 func (c *natFamilyConfig) String() string {
@@ -639,15 +638,10 @@ func (c *natFamilyConfig) String() string {
 		i++
 		return true
 	})
-	count := map[netip.Addr]int{}
-	c.dstMasqAddrs.Range(func(_ key.NodePublic, v netip.Addr) bool {
-		count[v]++
-		return true
-	})
 
 	i = 0
 	b.WriteString("], dstMasqAddrs: [")
-	for k, v := range count {
+	for k, v := range c.masqAddrCounts {
 		if i > 0 {
 			b.WriteString(", ")
 		}
@@ -681,14 +675,11 @@ func (c *natFamilyConfig) selectSrcIP(oldSrc, dst netip.Addr) netip.Addr {
 	if oldSrc != c.nativeAddr {
 		return oldSrc
 	}
-	p, ok := c.dstAddrToPeerKeyMapper.Lookup(dst)
+	eip, ok := c.dstMasqAddrs.Get(dst)
 	if !ok {
 		return oldSrc
 	}
-	if eip, ok := c.dstMasqAddrs.GetOk(p); ok {
-		return eip
-	}
-	return oldSrc
+	return eip
 }
 
 // natConfigFromWGConfig generates a natFamilyConfig from nm,
@@ -711,9 +702,9 @@ func natConfigFromWGConfig(wcfg *wgcfg.Config, addrFam ipproto.Version) *natFami
 	}
 
 	var (
-		rt           table.RoutingTableBuilder
-		dstMasqAddrs map[key.NodePublic]netip.Addr
-		listenAddrs  set.Set[netip.Addr]
+		rt             bart.Table[netip.Addr]
+		masqAddrCounts = map[netip.Addr]int{}
+		listenAddrs    set.Set[netip.Addr]
 	)
 
 	// When using an exit node that requires masquerading, we need to
@@ -746,17 +737,20 @@ func natConfigFromWGConfig(wcfg *wgcfg.Config, addrFam ipproto.Version) *natFami
 		} else {
 			continue
 		}
-		rt.InsertOrReplace(p.PublicKey, p.AllowedIPs...)
-		mak.Set(&dstMasqAddrs, p.PublicKey, addrToUse)
+
+		masqAddrCounts[addrToUse]++
+		for _, ip := range p.AllowedIPs {
+			rt.Insert(ip, addrToUse)
+		}
 	}
-	if len(listenAddrs) == 0 && len(dstMasqAddrs) == 0 {
+	if len(listenAddrs) == 0 && len(masqAddrCounts) == 0 {
 		return nil
 	}
 	return &natFamilyConfig{
-		nativeAddr:             nativeAddr,
-		listenAddrs:            views.MapOf(listenAddrs),
-		dstMasqAddrs:           views.MapOf(dstMasqAddrs),
-		dstAddrToPeerKeyMapper: rt.Build(),
+		nativeAddr:     nativeAddr,
+		listenAddrs:    views.MapOf(listenAddrs),
+		dstMasqAddrs:   &rt,
+		masqAddrCounts: masqAddrCounts,
 	}
 }
 
@@ -1046,8 +1040,8 @@ func (t *Wrapper) filterPacketInboundFromWireGuard(p *packet.Parsed, captHook ca
 		return filter.Drop
 	}
 
-	if t.PostFilterPacketInboundFromWireGaurd != nil {
-		if res := t.PostFilterPacketInboundFromWireGaurd(p, t); res.IsDrop() {
+	if t.PostFilterPacketInboundFromWireGuard != nil {
+		if res := t.PostFilterPacketInboundFromWireGuard(p, t); res.IsDrop() {
 			return res
 		}
 	}
@@ -1112,7 +1106,7 @@ func (t *Wrapper) SetFilter(filt *filter.Filter) {
 //
 // This path is typically used to deliver synthesized packets to the
 // host networking stack.
-func (t *Wrapper) InjectInboundPacketBuffer(pkt stack.PacketBufferPtr) error {
+func (t *Wrapper) InjectInboundPacketBuffer(pkt *stack.PacketBuffer) error {
 	buf := make([]byte, PacketStartOffset+pkt.Size())
 
 	n := copy(buf[PacketStartOffset:], pkt.NetworkHeader().Slice())
@@ -1220,7 +1214,7 @@ func (t *Wrapper) InjectOutbound(pkt []byte) error {
 // InjectOutboundPacketBuffer logically behaves as InjectOutbound. It takes ownership of one
 // reference count on the packet, and the packet may be mutated. The packet refcount will be
 // decremented after the injected buffer has been read.
-func (t *Wrapper) InjectOutboundPacketBuffer(pkt stack.PacketBufferPtr) error {
+func (t *Wrapper) InjectOutboundPacketBuffer(pkt *stack.PacketBuffer) error {
 	size := pkt.Size()
 	if size > MaxPacketSize {
 		pkt.DecRef()

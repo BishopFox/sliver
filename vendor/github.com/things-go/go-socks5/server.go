@@ -44,8 +44,11 @@ type Server struct {
 	// logger can be used to provide a custom log target.
 	// Defaults to io.Discard.
 	logger Logger
-	// Optional function for dialing out
+	// Optional function for dialing out.
+	// The callback set by dialWithRequest will be called first.
 	dial func(ctx context.Context, network, addr string) (net.Conn, error)
+	// Optional function for dialing out with the access of request detail.
+	dialWithRequest func(ctx context.Context, network, addr string, request *Request) (net.Conn, error)
 	// buffer pool
 	bufferPool bufferpool.BufPool
 	// goroutine pool
@@ -64,9 +67,6 @@ func NewServer(opts ...Option) *Server {
 		resolver:    DNSResolver{},
 		rules:       NewPermitAll(),
 		logger:      NewLogger(log.New(io.Discard, "socks5: ", log.LstdFlags)),
-		dial: func(ctx context.Context, net_, addr string) (net.Conn, error) {
-			return net.Dial(net_, addr)
-		},
 	}
 
 	for _, opt := range opts {

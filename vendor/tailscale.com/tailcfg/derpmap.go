@@ -3,7 +3,12 @@
 
 package tailcfg
 
-import "sort"
+import (
+	"net/netip"
+	"sort"
+
+	"tailscale.com/types/key"
+)
 
 // DERPMap describes the set of DERP packet relay servers that are available.
 type DERPMap struct {
@@ -86,6 +91,10 @@ type DERPRegion struct {
 	// RegionName is a long English name for the region: "New York City",
 	// "San Francisco", "Singapore", "Frankfurt", etc.
 	RegionName string
+
+	// Latitude, Longitude are optional geographical coordinates of the DERP region's city, in degrees.
+	Latitude  float64 `json:",omitempty"`
+	Longitude float64 `json:",omitempty"`
 
 	// Avoid is whether the client should avoid picking this as its home
 	// region. The region should only be used if a peer is there.
@@ -176,3 +185,17 @@ type DERPNode struct {
 
 // DotInvalid is a fake DNS TLD used in tests for an invalid hostname.
 const DotInvalid = ".invalid"
+
+// DERPAdmitClientRequest is the JSON request body of a POST to derper's
+// --verify-client-url admission controller URL.
+type DERPAdmitClientRequest struct {
+	NodePublic key.NodePublic // key to query for admission
+	Source     netip.Addr     // derp client's IP address
+}
+
+// DERPAdmitClientResponse is the response to a DERPAdmitClientRequest.
+type DERPAdmitClientResponse struct {
+	Allow bool // whether to permit client
+
+	// TODO(bradfitz,maisem): bandwidth limits, etc?
+}

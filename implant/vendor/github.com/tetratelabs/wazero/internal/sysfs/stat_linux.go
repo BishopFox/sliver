@@ -8,56 +8,33 @@ package sysfs
 import (
 	"io/fs"
 	"os"
-	"syscall"
 
-	"github.com/tetratelabs/wazero/internal/fsapi"
-	"github.com/tetratelabs/wazero/internal/platform"
+	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
+	"github.com/tetratelabs/wazero/sys"
 )
 
-func lstat(path string) (fsapi.Stat_t, syscall.Errno) {
-	if t, err := os.Lstat(path); err != nil {
-		return fsapi.Stat_t{}, platform.UnwrapOSError(err)
+// dirNlinkIncludesDot is true because even though os.File filters out dot
+// entries, the underlying syscall.Stat includes them.
+//
+// Note: this is only used in tests
+const dirNlinkIncludesDot = true
+
+func lstat(path string) (sys.Stat_t, experimentalsys.Errno) {
+	if info, err := os.Lstat(path); err != nil {
+		return sys.Stat_t{}, experimentalsys.UnwrapOSError(err)
 	} else {
-		return statFromFileInfo(t), 0
+		return sys.NewStat_t(info), 0
 	}
 }
 
-func stat(path string) (fsapi.Stat_t, syscall.Errno) {
-	if t, err := os.Stat(path); err != nil {
-		return fsapi.Stat_t{}, platform.UnwrapOSError(err)
+func stat(path string) (sys.Stat_t, experimentalsys.Errno) {
+	if info, err := os.Stat(path); err != nil {
+		return sys.Stat_t{}, experimentalsys.UnwrapOSError(err)
 	} else {
-		return statFromFileInfo(t), 0
+		return sys.NewStat_t(info), 0
 	}
 }
 
-func statFile(f *os.File) (fsapi.Stat_t, syscall.Errno) {
+func statFile(f fs.File) (sys.Stat_t, experimentalsys.Errno) {
 	return defaultStatFile(f)
-}
-
-func inoFromFileInfo(_ string, t fs.FileInfo) (ino uint64, err syscall.Errno) {
-	if d, ok := t.Sys().(*syscall.Stat_t); ok {
-		ino = d.Ino
-	}
-	return
-}
-
-func statFromFileInfo(t fs.FileInfo) fsapi.Stat_t {
-	if d, ok := t.Sys().(*syscall.Stat_t); ok {
-		st := fsapi.Stat_t{}
-		st.Dev = uint64(d.Dev)
-		st.Ino = uint64(d.Ino)
-		st.Uid = d.Uid
-		st.Gid = d.Gid
-		st.Mode = t.Mode()
-		st.Nlink = uint64(d.Nlink)
-		st.Size = d.Size
-		atime := d.Atim
-		st.Atim = atime.Sec*1e9 + atime.Nsec
-		mtime := d.Mtim
-		st.Mtim = mtime.Sec*1e9 + mtime.Nsec
-		ctime := d.Ctim
-		st.Ctim = ctime.Sec*1e9 + ctime.Nsec
-		return st
-	}
-	return StatFromDefaultFileInfo(t)
 }

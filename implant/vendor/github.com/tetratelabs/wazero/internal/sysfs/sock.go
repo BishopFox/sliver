@@ -3,51 +3,67 @@ package sysfs
 import (
 	"net"
 	"os"
-	"syscall"
 
+	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
 	"github.com/tetratelabs/wazero/internal/fsapi"
-	"github.com/tetratelabs/wazero/internal/platform"
 	socketapi "github.com/tetratelabs/wazero/internal/sock"
+	"github.com/tetratelabs/wazero/sys"
 )
 
+// NewTCPListenerFile creates a socketapi.TCPSock for a given *net.TCPListener.
 func NewTCPListenerFile(tl *net.TCPListener) socketapi.TCPSock {
-	return &tcpListenerFile{tl: tl}
+	return newTCPListenerFile(tl)
 }
 
-var _ socketapi.TCPSock = (*tcpListenerFile)(nil)
-
-type tcpListenerFile struct {
-	fsapi.UnimplementedFile
-
-	tl *net.TCPListener
+// baseSockFile implements base behavior for all TCPSock, TCPConn files,
+// regardless the platform.
+type baseSockFile struct {
+	experimentalsys.UnimplementedFile
 }
 
-// Accept implements the same method as documented on socketapi.TCPSock
-func (f *tcpListenerFile) Accept() (socketapi.TCPConn, syscall.Errno) {
-	conn, err := f.tl.Accept()
-	if err != nil {
-		return nil, platform.UnwrapOSError(err)
-	}
-	return &tcpConnFile{tc: conn.(*net.TCPConn)}, 0
-}
+var _ experimentalsys.File = (*baseSockFile)(nil)
 
 // IsDir implements the same method as documented on File.IsDir
-func (*tcpListenerFile) IsDir() (bool, syscall.Errno) {
+func (*baseSockFile) IsDir() (bool, experimentalsys.Errno) {
 	// We need to override this method because WASI-libc prestats the FD
 	// and the default impl returns ENOSYS otherwise.
 	return false, 0
 }
 
 // Stat implements the same method as documented on File.Stat
-func (f *tcpListenerFile) Stat() (fs fsapi.Stat_t, errno syscall.Errno) {
+func (f *baseSockFile) Stat() (fs sys.Stat_t, errno experimentalsys.Errno) {
 	// The mode is not really important, but it should be neither a regular file nor a directory.
 	fs.Mode = os.ModeIrregular
 	return
 }
 
-// Close implements the same method as documented on fsapi.File
-func (f *tcpListenerFile) Close() syscall.Errno {
-	return platform.UnwrapOSError(f.tl.Close())
+var _ socketapi.TCPSock = (*tcpListenerFile)(nil)
+
+type tcpListenerFile struct {
+	baseSockFile
+
+	tl       *net.TCPListener
+	closed   bool
+	nonblock bool
+}
+
+// newTCPListenerFile is a constructor for a socketapi.TCPSock.
+//
+// The current strategy is to wrap a net.TCPListener
+// and invoking raw syscalls using syscallConnControl:
+// this internal calls RawConn.Control(func(fd)), making sure
+// that the underlying file descriptor is valid throughout
+// the duration of the syscall.
+func newDefaultTCPListenerFile(tl *net.TCPListener) socketapi.TCPSock {
+	return &tcpListenerFile{tl: tl}
+}
+
+// Close implements the same method as documented on experimentalsys.File
+func (f *tcpListenerFile) Close() experimentalsys.Errno {
+	if !f.closed {
+		return experimentalsys.UnwrapOSError(f.tl.Close())
+	}
+	return 0
 }
 
 // Addr is exposed for testing.
@@ -55,100 +71,117 @@ func (f *tcpListenerFile) Addr() *net.TCPAddr {
 	return f.tl.Addr().(*net.TCPAddr)
 }
 
+// IsNonblock implements the same method as documented on fsapi.File
+func (f *tcpListenerFile) IsNonblock() bool {
+	return f.nonblock
+}
+
+// Poll implements the same method as documented on fsapi.File
+func (f *tcpListenerFile) Poll(flag fsapi.Pflag, timeoutMillis int32) (ready bool, errno experimentalsys.Errno) {
+	return false, experimentalsys.ENOSYS
+}
+
 var _ socketapi.TCPConn = (*tcpConnFile)(nil)
 
 type tcpConnFile struct {
-	fsapi.UnimplementedFile
+	baseSockFile
 
 	tc *net.TCPConn
 
-	// closed is true when closed was called. This ensures proper syscall.EBADF
+	// nonblock is true when the underlying connection is flagged as non-blocking.
+	// This ensures that reads and writes return experimentalsys.EAGAIN without blocking the caller.
+	nonblock bool
+	// closed is true when closed was called. This ensures proper experimentalsys.EBADF
 	closed bool
 }
 
-// IsDir implements the same method as documented on File.IsDir
-func (*tcpConnFile) IsDir() (bool, syscall.Errno) {
-	// We need to override this method because WASI-libc prestats the FD
-	// and the default impl returns ENOSYS otherwise.
-	return false, 0
+func newTcpConn(tc *net.TCPConn) socketapi.TCPConn {
+	return &tcpConnFile{tc: tc}
 }
 
-// Stat implements the same method as documented on File.Stat
-func (f *tcpConnFile) Stat() (fs fsapi.Stat_t, errno syscall.Errno) {
-	// The mode is not really important, but it should be neither a regular file nor a directory.
-	fs.Mode = os.ModeIrregular
-	return
-}
-
-// SetNonblock implements the same method as documented on fsapi.File
-func (f *tcpConnFile) SetNonblock(enabled bool) (errno syscall.Errno) {
-	syscallConn, err := f.tc.SyscallConn()
-	if err != nil {
-		return platform.UnwrapOSError(err)
+// Read implements the same method as documented on experimentalsys.File
+func (f *tcpConnFile) Read(buf []byte) (n int, errno experimentalsys.Errno) {
+	if len(buf) == 0 {
+		return 0, 0 // Short-circuit 0-len reads.
 	}
-
-	// Prioritize the error from setNonblock over Control
-	if controlErr := syscallConn.Control(func(fd uintptr) {
-		errno = platform.UnwrapOSError(setNonblock(fd, enabled))
-	}); errno == 0 {
-		errno = platform.UnwrapOSError(controlErr)
+	if nonBlockingFileReadSupported && f.IsNonblock() {
+		n, errno = syscallConnControl(f.tc, func(fd uintptr) (int, experimentalsys.Errno) {
+			n, err := readSocket(fd, buf)
+			errno = experimentalsys.UnwrapOSError(err)
+			errno = fileError(f, f.closed, errno)
+			return n, errno
+		})
+	} else {
+		n, errno = read(f.tc, buf)
 	}
-	return
-}
-
-// Read implements the same method as documented on fsapi.File
-func (f *tcpConnFile) Read(buf []byte) (n int, errno syscall.Errno) {
-	if n, errno = read(f.tc, buf); errno != 0 {
+	if errno != 0 {
 		// Defer validation overhead until we've already had an error.
 		errno = fileError(f, f.closed, errno)
 	}
 	return
 }
 
-// Write implements the same method as documented on fsapi.File
-func (f *tcpConnFile) Write(buf []byte) (n int, errno syscall.Errno) {
-	if n, errno = write(f.tc, buf); errno != 0 {
-		// Defer validation overhead until we've alwritey had an error.
+// Write implements the same method as documented on experimentalsys.File
+func (f *tcpConnFile) Write(buf []byte) (n int, errno experimentalsys.Errno) {
+	if nonBlockingFileWriteSupported && f.IsNonblock() {
+		return syscallConnControl(f.tc, func(fd uintptr) (int, experimentalsys.Errno) {
+			n, err := writeSocket(fd, buf)
+			errno = experimentalsys.UnwrapOSError(err)
+			errno = fileError(f, f.closed, errno)
+			return n, errno
+		})
+	} else {
+		n, errno = write(f.tc, buf)
+	}
+	if errno != 0 {
+		// Defer validation overhead until we've already had an error.
 		errno = fileError(f, f.closed, errno)
 	}
 	return
 }
 
 // Recvfrom implements the same method as documented on socketapi.TCPConn
-func (f *tcpConnFile) Recvfrom(p []byte, flags int) (n int, errno syscall.Errno) {
+func (f *tcpConnFile) Recvfrom(p []byte, flags int) (n int, errno experimentalsys.Errno) {
 	if flags != MSG_PEEK {
-		errno = syscall.EINVAL
+		errno = experimentalsys.EINVAL
 		return
 	}
-	return recvfromPeek(f.tc, p)
+	return syscallConnControl(f.tc, func(fd uintptr) (int, experimentalsys.Errno) {
+		n, err := recvfrom(fd, p, MSG_PEEK)
+		errno = experimentalsys.UnwrapOSError(err)
+		errno = fileError(f, f.closed, errno)
+		return n, errno
+	})
 }
 
-// Shutdown implements the same method as documented on fsapi.Conn
-func (f *tcpConnFile) Shutdown(how int) syscall.Errno {
-	// FIXME: can userland shutdown listeners?
-	var err error
-	switch how {
-	case syscall.SHUT_RD:
-		err = f.tc.CloseRead()
-	case syscall.SHUT_WR:
-		err = f.tc.CloseWrite()
-	case syscall.SHUT_RDWR:
-		return f.close()
-	default:
-		return syscall.EINVAL
-	}
-	return platform.UnwrapOSError(err)
-}
-
-// Close implements the same method as documented on fsapi.File
-func (f *tcpConnFile) Close() syscall.Errno {
+// Close implements the same method as documented on experimentalsys.File
+func (f *tcpConnFile) Close() experimentalsys.Errno {
 	return f.close()
 }
 
-func (f *tcpConnFile) close() syscall.Errno {
+func (f *tcpConnFile) close() experimentalsys.Errno {
 	if f.closed {
 		return 0
 	}
 	f.closed = true
-	return f.Shutdown(syscall.SHUT_RDWR)
+	return f.Shutdown(socketapi.SHUT_RDWR)
+}
+
+// SetNonblock implements the same method as documented on fsapi.File
+func (f *tcpConnFile) SetNonblock(enabled bool) (errno experimentalsys.Errno) {
+	f.nonblock = enabled
+	_, errno = syscallConnControl(f.tc, func(fd uintptr) (int, experimentalsys.Errno) {
+		return 0, experimentalsys.UnwrapOSError(setNonblockSocket(fd, enabled))
+	})
+	return
+}
+
+// IsNonblock implements the same method as documented on fsapi.File
+func (f *tcpConnFile) IsNonblock() bool {
+	return f.nonblock
+}
+
+// Poll implements the same method as documented on fsapi.File
+func (f *tcpConnFile) Poll(flag fsapi.Pflag, timeoutMillis int32) (ready bool, errno experimentalsys.Errno) {
+	return false, experimentalsys.ENOSYS
 }

@@ -390,6 +390,48 @@ func (p *SetAutomaticPresenceSimulationParams) Do(ctx context.Context) (err erro
 	return cdp.Execute(ctx, CommandSetAutomaticPresenceSimulation, p, nil)
 }
 
+// SetCredentialPropertiesParams allows setting credential properties.
+// https://w3c.github.io/webauthn/#sctn-automation-set-credential-properties.
+type SetCredentialPropertiesParams struct {
+	AuthenticatorID   AuthenticatorID `json:"authenticatorId"`
+	CredentialID      string          `json:"credentialId"`
+	BackupEligibility bool            `json:"backupEligibility,omitempty"`
+	BackupState       bool            `json:"backupState,omitempty"`
+}
+
+// SetCredentialProperties allows setting credential properties.
+// https://w3c.github.io/webauthn/#sctn-automation-set-credential-properties.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/WebAuthn#method-setCredentialProperties
+//
+// parameters:
+//
+//	authenticatorID
+//	credentialID
+func SetCredentialProperties(authenticatorID AuthenticatorID, credentialID string) *SetCredentialPropertiesParams {
+	return &SetCredentialPropertiesParams{
+		AuthenticatorID: authenticatorID,
+		CredentialID:    credentialID,
+	}
+}
+
+// WithBackupEligibility [no description].
+func (p SetCredentialPropertiesParams) WithBackupEligibility(backupEligibility bool) *SetCredentialPropertiesParams {
+	p.BackupEligibility = backupEligibility
+	return &p
+}
+
+// WithBackupState [no description].
+func (p SetCredentialPropertiesParams) WithBackupState(backupState bool) *SetCredentialPropertiesParams {
+	p.BackupState = backupState
+	return &p
+}
+
+// Do executes WebAuthn.setCredentialProperties against the provided context.
+func (p *SetCredentialPropertiesParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandSetCredentialProperties, p, nil)
+}
+
 // Command names.
 const (
 	CommandEnable                         = "WebAuthn.enable"
@@ -404,4 +446,5 @@ const (
 	CommandClearCredentials               = "WebAuthn.clearCredentials"
 	CommandSetUserVerified                = "WebAuthn.setUserVerified"
 	CommandSetAutomaticPresenceSimulation = "WebAuthn.setAutomaticPresenceSimulation"
+	CommandSetCredentialProperties        = "WebAuthn.setCredentialProperties"
 )

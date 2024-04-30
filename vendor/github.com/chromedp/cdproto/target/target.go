@@ -145,7 +145,7 @@ func (p *CloseTargetParams) Do(ctx context.Context) (err error) {
 
 // ExposeDevToolsProtocolParams inject object to the target's main frame that
 // provides a communication channel with browser target. Injected object will be
-// available as window[bindingName]. The object has the follwing API: -
+// available as window[bindingName]. The object has the following API: -
 // binding.send(json) - a method to send messages over the remote debugging
 // protocol - binding.onmessage = json => handleMessage(json) - a callback that
 // will be called for the protocol notifications and command responses.
@@ -156,7 +156,7 @@ type ExposeDevToolsProtocolParams struct {
 
 // ExposeDevToolsProtocol inject object to the target's main frame that
 // provides a communication channel with browser target. Injected object will be
-// available as window[bindingName]. The object has the follwing API: -
+// available as window[bindingName]. The object has the following API: -
 // binding.send(json) - a method to send messages over the remote debugging
 // protocol - binding.onmessage = json => handleMessage(json) - a callback that
 // will be called for the protocol notifications and command responses.

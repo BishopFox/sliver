@@ -57,7 +57,7 @@ func (c Carapace) PositionalCompletion(action ...Action) {
 
 // PositionalAnyCompletion defines completion for any positional arguments not already defined.
 func (c Carapace) PositionalAnyCompletion(action Action) {
-	storage.get(c.cmd).positionalAny = action
+	storage.get(c.cmd).positionalAny = &action
 }
 
 // DashCompletion defines completion for positional arguments after dash (`--`) using a list of Actions.
@@ -67,12 +67,16 @@ func (c Carapace) DashCompletion(action ...Action) {
 
 // DashAnyCompletion defines completion for any positional arguments after dash (`--`) not already defined.
 func (c Carapace) DashAnyCompletion(action Action) {
-	storage.get(c.cmd).dashAny = action
+	storage.get(c.cmd).dashAny = &action
 }
 
 // FlagCompletion defines completion for flags using a map consisting of name and Action.
 func (c Carapace) FlagCompletion(actions ActionMap) {
-	if e := storage.get(c.cmd); e.flag == nil {
+	e := storage.get(c.cmd)
+	e.flagMutex.Lock()
+	defer e.flagMutex.Unlock()
+
+	if e.flag == nil {
 		e.flag = actions
 	} else {
 		for name, action := range actions {
@@ -81,18 +85,30 @@ func (c Carapace) FlagCompletion(actions ActionMap) {
 	}
 }
 
+const annotation_standalone = "carapace_standalone"
+
 // Standalone prevents cobra defaults interfering with standalone mode (e.g. implicit help command).
 func (c Carapace) Standalone() {
 	c.cmd.CompletionOptions = cobra.CompletionOptions{
 		DisableDefaultCmd: true,
 	}
-	// TODO probably needs to be done for each subcommand
-	// TODO still needed?
-	if c.cmd.Flag("help") != nil {
-		c.cmd.Flags().Bool("help", false, "skip")
-		c.cmd.Flag("help").Hidden = true
+
+	if c.cmd.Annotations == nil {
+		c.cmd.Annotations = make(map[string]string)
 	}
-	c.cmd.SetHelpCommand(&cobra.Command{Hidden: true})
+	c.cmd.Annotations[annotation_standalone] = "true"
+
+	c.PreRun(func(cmd *cobra.Command, args []string) {
+		if f := cmd.Flag("help"); f == nil {
+			cmd.Flags().Bool("help", false, "")
+			cmd.Flag("help").Hidden = true
+		} else if f.Annotations != nil {
+			if _, ok := f.Annotations[cobra.FlagSetByCobraAnnotation]; ok {
+				cmd.Flag("help").Hidden = true
+			}
+		}
+	})
+	c.cmd.SetHelpCommand(&cobra.Command{Use: "_carapace_help", Hidden: true, Deprecated: "fake help command to prevent default"})
 }
 
 // Snippet creates completion script for given shell.

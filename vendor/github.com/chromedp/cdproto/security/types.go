@@ -143,7 +143,7 @@ type CertificateSecurityState struct {
 	ValidFrom                   *cdp.TimeSinceEpoch `json:"validFrom"`                         // Certificate valid from date.
 	ValidTo                     *cdp.TimeSinceEpoch `json:"validTo"`                           // Certificate valid to (expiration) date
 	CertificateNetworkError     string              `json:"certificateNetworkError,omitempty"` // The highest priority network error code, if the certificate has an error.
-	CertificateHasWeakSignature bool                `json:"certificateHasWeakSignature"`       // True if the certificate uses a weak signature aglorithm.
+	CertificateHasWeakSignature bool                `json:"certificateHasWeakSignature"`       // True if the certificate uses a weak signature algorithm.
 	CertificateHasSha1signature bool                `json:"certificateHasSha1Signature"`       // True if the certificate has a SHA1 signature in the chain.
 	ModernSSL                   bool                `json:"modernSSL"`                         // True if modern SSL
 	ObsoleteSslProtocol         bool                `json:"obsoleteSslProtocol"`               // True if the connection is using an obsolete SSL protocol.

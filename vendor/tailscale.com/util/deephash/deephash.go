@@ -17,7 +17,50 @@
 //
 // WARNING: This package, like most of the tailscale.com Go module,
 // should be considered Tailscale-internal; we make no API promises.
+//
+// # Cycle detection
+//
+// This package correctly handles cycles in the value graph,
+// but in a way that is potentially pathological in some situations.
+//
+// The algorithm for cycle detection operates by
+// pushing a pointer onto a stack whenever deephash is visiting a pointer and
+// popping the pointer from the stack after deephash is leaving the pointer.
+// Before visiting a new pointer, deephash checks whether it has already been
+// visited on the pointer stack. If so, it hashes the index of the pointer
+// on the stack and avoids visiting the pointer.
+//
+// This algorithm is guaranteed to detect cycles, but may expand pointers
+// more often than a potential alternate algorithm that remembers all pointers
+// ever visited in a map. The current algorithm uses O(D) memory, where D
+// is the maximum depth of the recursion, while the alternate algorithm
+// would use O(P) memory where P is all pointers ever seen, which can be a lot,
+// and most of which may have nothing to do with cycles.
+// Also, the alternate algorithm has to deal with challenges of producing
+// deterministic results when pointers are visited in non-deterministic ways
+// such as when iterating through a Go map. The stack-based algorithm avoids
+// this challenge since the stack is always deterministic regardless of
+// non-deterministic iteration order of Go maps.
+//
+// To concretely see how this algorithm can be pathological,
+// consider the following data structure:
+//
+//	var big *Item = ... // some large data structure that is slow to hash
+//	var manyBig []*Item
+//	for i := 0; i < 1000; i++ {
+//		manyBig = append(manyBig, &big)
+//	}
+//	deephash.Hash(manyBig)
+//
+// Here, the manyBig data structure is not even cyclic.
+// We have the same big *Item being stored multiple times in a []*Item.
+// When deephash hashes []*Item, it hashes each individual *Item
+// not realizing that it had just done the computation earlier.
+// To avoid the pathological situation, Item should implement [SelfHasher] and
+// memoize attempts to hash itself.
 package deephash
+
+// TODO: Add option to teach deephash to memoize the Hash result of particular types?
 
 import (
 	"crypto/sha256"
@@ -60,6 +103,70 @@ import (
 //	  With a sufficiently strong hash, this value is theoretically "parsable"
 //	  by looking up the hash in a magical map that returns the set of entries
 //	  for that given hash.
+
+// SelfHasher is implemented by types that can compute their own hash
+// by writing values through the provided [Hasher] parameter.
+// Implementations must not leak the provided [Hasher].
+//
+// If the implementation of SelfHasher recursively calls [deephash.Hash],
+// then infinite recursion is quite likely to occur.
+// To avoid this, use a type definition to drop methods before calling [deephash.Hash]:
+//
+//	func (v *MyType) Hash(h deephash.Hasher) {
+//		v.hashMu.Lock()
+//		defer v.hashMu.Unlock()
+//		if v.dirtyHash {
+//			type MyTypeWithoutMethods MyType // type define MyType to drop Hash method
+//			v.dirtyHash = false              // clear out dirty bit to avoid hashing over it
+//			v.hashSum = deephash.Sum{}       // clear out hashSum to avoid hashing over it
+//			v.hashSum = deephash.Hash((*MyTypeWithoutMethods)(v))
+//		}
+//		h.HashSum(v.hashSum)
+//	}
+//
+// In the above example, we acquire a lock since it is possible that deephash
+// is called in a concurrent manner, which implies that MyType.Hash may also
+// be called in a concurrent manner. Whether this lock is necessary is
+// application-dependent and left as an exercise to the reader.
+// Also, the example assumes that dirtyHash is set elsewhere by application
+// logic whenever a mutation is made to MyType that would alter the hash.
+type SelfHasher interface {
+	Hash(Hasher)
+}
+
+// Hasher is a value passed to [SelfHasher.Hash] that allow implementations
+// to hash themselves in a structured manner.
+type Hasher struct{ h *hashx.Block512 }
+
+// HashBytes hashes a sequence of bytes b.
+// The length of b is not explicitly hashed.
+func (h Hasher) HashBytes(b []byte) { h.h.HashBytes(b) }
+
+// HashString hashes the string data of s
+// The length of s is not explicitly hashed.
+func (h Hasher) HashString(s string) { h.h.HashString(s) }
+
+// HashUint8 hashes a uint8.
+func (h Hasher) HashUint8(n uint8) { h.h.HashUint8(n) }
+
+// HashUint16 hashes a uint16.
+func (h Hasher) HashUint16(n uint16) { h.h.HashUint16(n) }
+
+// HashUint32 hashes a uint32.
+func (h Hasher) HashUint32(n uint32) { h.h.HashUint32(n) }
+
+// HashUint64 hashes a uint64.
+func (h Hasher) HashUint64(n uint64) { h.h.HashUint64(n) }
+
+// HashSum hashes a [Sum].
+func (h Hasher) HashSum(s Sum) {
+	// NOTE: Avoid calling h.HashBytes since it escapes b,
+	// which would force s to be heap allocated.
+	h.h.HashUint64(binary.LittleEndian.Uint64(s.sum[0:8]))
+	h.h.HashUint64(binary.LittleEndian.Uint64(s.sum[8:16]))
+	h.h.HashUint64(binary.LittleEndian.Uint64(s.sum[16:24]))
+	h.h.HashUint64(binary.LittleEndian.Uint64(s.sum[24:32]))
+}
 
 // hasher is reusable state for hashing a value.
 // Get one via hasherPool.
@@ -141,7 +248,7 @@ func Hash[T any](v *T) Sum {
 	// Always treat the Hash input as if it were an interface by including
 	// a hash of the type. This ensures that hashing of two different types
 	// but with the same value structure produces different hashes.
-	t := reflect.TypeOf(v).Elem()
+	t := reflect.TypeFor[T]()
 	h.hashType(t)
 	if v == nil {
 		h.HashUint8(0) // indicates nil
@@ -193,8 +300,7 @@ func ExcludeFields[T any](fields ...string) Option {
 }
 
 func newFieldFilter[T any](include bool, fields []string) Option {
-	var zero T
-	t := reflect.TypeOf(&zero).Elem()
+	t := reflect.TypeFor[T]()
 	fieldSet := set.Set[string]{}
 	for _, f := range fields {
 		if _, ok := t.FieldByName(f); !ok {
@@ -214,12 +320,11 @@ func newFieldFilter[T any](include bool, fields []string) Option {
 // be removed in the future, along with documentation about their precedence
 // when combined.
 func HasherForType[T any](opts ...Option) func(*T) Sum {
-	var v *T
 	seedOnce.Do(initSeed)
 	if len(opts) > 1 {
 		panic("HasherForType only accepts one optional argument") // for now
 	}
-	t := reflect.TypeOf(v).Elem()
+	t := reflect.TypeFor[T]()
 	var hash typeHasherFunc
 	for _, o := range opts {
 		switch o := o.(type) {
@@ -292,6 +397,14 @@ func makeTypeHasher(t reflect.Type) typeHasherFunc {
 		return hashAddr
 	}
 
+	// Types that implement their own hashing.
+	if t.Kind() != reflect.Pointer && t.Kind() != reflect.Interface {
+		// A method can be implemented on either the value receiver or pointer receiver.
+		if t.Implements(selfHasherType) || reflect.PointerTo(t).Implements(selfHasherType) {
+			return makeSelfHasher(t)
+		}
+	}
+
 	// Types that can have their memory representation directly hashed.
 	if typeIsMemHashable(t) {
 		return makeMemHasher(t.Size())
@@ -347,6 +460,12 @@ func hashAddr(h *hasher, p pointer) {
 		h.HashUint64(binary.LittleEndian.Uint64(b[:8]))
 		h.HashUint64(binary.LittleEndian.Uint64(b[8:]))
 		h.HashString(z)
+	}
+}
+
+func makeSelfHasher(t reflect.Type) typeHasherFunc {
+	return func(h *hasher, p pointer) {
+		p.asValue(t).Interface().(SelfHasher).Hash(Hasher{&h.Block512})
 	}
 }
 

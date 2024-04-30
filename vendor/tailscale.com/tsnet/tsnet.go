@@ -46,7 +46,6 @@ import (
 	"tailscale.com/net/proxymux"
 	"tailscale.com/net/socks5"
 	"tailscale.com/net/tsdial"
-	"tailscale.com/smallzstd"
 	"tailscale.com/tsd"
 	"tailscale.com/types/logger"
 	"tailscale.com/types/logid"
@@ -107,6 +106,10 @@ type Server struct {
 	// ControlURL optionally specifies the coordination server URL.
 	// If empty, the Tailscale default is used.
 	ControlURL string
+
+	// RunWebClient, if true, runs a client for managing this node over
+	// its Tailscale interface on port 5252.
+	RunWebClient bool
 
 	// Port is the UDP port to listen on for WireGuard and peer-to-peer
 	// traffic. If zero, a port is automatically selected. Leave this
@@ -424,7 +427,7 @@ func (s *Server) TailscaleIPs() (ip4, ip6 netip.Addr) {
 		return
 	}
 	addrs := nm.GetAddresses()
-	for i := range addrs.LenIter() {
+	for i := range addrs.Len() {
 		addr := addrs.At(i)
 		ip := addr.Addr()
 		if ip.Is6() {
@@ -526,7 +529,8 @@ func (s *Server) start() (reterr error) {
 	closePool.add(s.dialer)
 	sys.Set(eng)
 
-	ns, err := netstack.Create(logf, sys.Tun.Get(), eng, sys.MagicSock.Get(), s.dialer, sys.DNSManager.Get(), sys.ProxyMapper())
+	// TODO(oxtoacart): do we need to support Taildrive on tsnet, and if so, how?
+	ns, err := netstack.Create(logf, sys.Tun.Get(), eng, sys.MagicSock.Get(), s.dialer, sys.DNSManager.Get(), sys.ProxyMapper(), nil)
 	if err != nil {
 		return fmt.Errorf("netstack.Create: %w", err)
 	}
@@ -542,7 +546,13 @@ func (s *Server) start() (reterr error) {
 		return ok
 	}
 	s.dialer.NetstackDialTCP = func(ctx context.Context, dst netip.AddrPort) (net.Conn, error) {
-		return ns.DialContextTCP(ctx, dst)
+		// Note: don't just return ns.DialContextTCP or we'll
+		// return an interface containing a nil pointer.
+		tcpConn, err := ns.DialContextTCP(ctx, dst)
+		if err != nil {
+			return nil, err
+		}
+		return tcpConn, nil
 	}
 
 	if s.Store == nil {
@@ -575,6 +585,7 @@ func (s *Server) start() (reterr error) {
 	prefs.Hostname = s.hostname
 	prefs.WantRunning = true
 	prefs.ControlURL = s.ControlURL
+	prefs.RunWebClient = s.RunWebClient
 	authKey := s.getAuthKey()
 	err = lb.Start(ipn.Options{
 		UpdatePrefs: prefs,
@@ -603,6 +614,7 @@ func (s *Server) start() (reterr error) {
 	s.localAPIListener = lal
 	s.localClient = &tailscale.LocalClient{Dial: lal.Dial}
 	s.localAPIServer = &http.Server{Handler: lah}
+	s.lb.ConfigureWebClient(s.localClient)
 	go func() {
 		if err := s.localAPIServer.Serve(lal); err != nil {
 			logf("localapi serve error: %v", err)
@@ -638,17 +650,11 @@ func (s *Server) startLogger(closePool *closeOnErrorPool) error {
 	}
 	closePool.add(s.logbuffer)
 	c := logtail.Config{
-		Collection: lpc.Collection,
-		PrivateID:  lpc.PrivateID,
-		Stderr:     io.Discard, // log everything to Buffer
-		Buffer:     s.logbuffer,
-		NewZstdEncoder: func() logtail.Encoder {
-			w, err := smallzstd.NewEncoder(nil)
-			if err != nil {
-				panic(err)
-			}
-			return w
-		},
+		Collection:   lpc.Collection,
+		PrivateID:    lpc.PrivateID,
+		Stderr:       io.Discard, // log everything to Buffer
+		Buffer:       s.logbuffer,
+		CompressLogs: true,
 		HTTPC:        &http.Client{Transport: logpolicy.NewLogtailTransport(logtail.DefaultHost, s.netMon, s.logf)},
 		MetricsDelta: clientmetric.EncodeLogTailMetricsDelta,
 	}
@@ -1114,6 +1120,35 @@ func (s *Server) listen(network, addr string, lnOn listenOn) (net.Listener, erro
 	}
 	s.mu.Unlock()
 	return ln, nil
+}
+
+// CapturePcap can be called by the application code compiled with tsnet to save a pcap
+// of packets which the netstack within tsnet sees. This is expected to be useful during
+// debugging, probably not useful for production.
+//
+// Packets will be written to the pcap until the process exits. The pcap needs a Lua dissector
+// to be installed in WireShark in order to decode properly: wgengine/capture/ts-dissector.lua
+// in this repository.
+// https://tailscale.com/kb/1023/troubleshooting/#can-i-examine-network-traffic-inside-the-encrypted-tunnel
+func (s *Server) CapturePcap(ctx context.Context, pcapFile string) error {
+	stream, err := s.localClient.StreamDebugCapture(ctx)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.OpenFile(pcapFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		stream.Close()
+		return err
+	}
+
+	go func(stream io.ReadCloser, f *os.File) {
+		defer stream.Close()
+		defer f.Close()
+		_, _ = io.Copy(f, stream)
+	}(stream, f)
+
+	return nil
 }
 
 type listenKey struct {

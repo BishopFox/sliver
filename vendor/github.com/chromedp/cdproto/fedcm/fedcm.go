@@ -82,29 +82,59 @@ func (p *SelectAccountParams) Do(ctx context.Context) (err error) {
 	return cdp.Execute(ctx, CommandSelectAccount, p, nil)
 }
 
-// ConfirmIdpLoginParams only valid if the dialog type is ConfirmIdpLogin.
-// Acts as if the user had clicked the continue button.
-type ConfirmIdpLoginParams struct {
-	DialogID string `json:"dialogId"`
+// ClickDialogButtonParams [no description].
+type ClickDialogButtonParams struct {
+	DialogID     string       `json:"dialogId"`
+	DialogButton DialogButton `json:"dialogButton"`
 }
 
-// ConfirmIdpLogin only valid if the dialog type is ConfirmIdpLogin. Acts as
-// if the user had clicked the continue button.
+// ClickDialogButton [no description].
 //
-// See: https://chromedevtools.github.io/devtools-protocol/tot/FedCm#method-confirmIdpLogin
+// See: https://chromedevtools.github.io/devtools-protocol/tot/FedCm#method-clickDialogButton
 //
 // parameters:
 //
 //	dialogID
-func ConfirmIdpLogin(dialogID string) *ConfirmIdpLoginParams {
-	return &ConfirmIdpLoginParams{
-		DialogID: dialogID,
+//	dialogButton
+func ClickDialogButton(dialogID string, dialogButton DialogButton) *ClickDialogButtonParams {
+	return &ClickDialogButtonParams{
+		DialogID:     dialogID,
+		DialogButton: dialogButton,
 	}
 }
 
-// Do executes FedCm.confirmIdpLogin against the provided context.
-func (p *ConfirmIdpLoginParams) Do(ctx context.Context) (err error) {
-	return cdp.Execute(ctx, CommandConfirmIdpLogin, p, nil)
+// Do executes FedCm.clickDialogButton against the provided context.
+func (p *ClickDialogButtonParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandClickDialogButton, p, nil)
+}
+
+// OpenURLParams [no description].
+type OpenURLParams struct {
+	DialogID       string         `json:"dialogId"`
+	AccountIndex   int64          `json:"accountIndex"`
+	AccountURLType AccountURLType `json:"accountUrlType"`
+}
+
+// OpenURL [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/FedCm#method-openUrl
+//
+// parameters:
+//
+//	dialogID
+//	accountIndex
+//	accountURLType
+func OpenURL(dialogID string, accountIndex int64, accountURLType AccountURLType) *OpenURLParams {
+	return &OpenURLParams{
+		DialogID:       dialogID,
+		AccountIndex:   accountIndex,
+		AccountURLType: accountURLType,
+	}
+}
+
+// Do executes FedCm.openUrl against the provided context.
+func (p *OpenURLParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandOpenURL, p, nil)
 }
 
 // DismissDialogParams [no description].
@@ -156,10 +186,11 @@ func (p *ResetCooldownParams) Do(ctx context.Context) (err error) {
 
 // Command names.
 const (
-	CommandEnable          = "FedCm.enable"
-	CommandDisable         = "FedCm.disable"
-	CommandSelectAccount   = "FedCm.selectAccount"
-	CommandConfirmIdpLogin = "FedCm.confirmIdpLogin"
-	CommandDismissDialog   = "FedCm.dismissDialog"
-	CommandResetCooldown   = "FedCm.resetCooldown"
+	CommandEnable            = "FedCm.enable"
+	CommandDisable           = "FedCm.disable"
+	CommandSelectAccount     = "FedCm.selectAccount"
+	CommandClickDialogButton = "FedCm.clickDialogButton"
+	CommandOpenURL           = "FedCm.openUrl"
+	CommandDismissDialog     = "FedCm.dismissDialog"
+	CommandResetCooldown     = "FedCm.resetCooldown"
 )

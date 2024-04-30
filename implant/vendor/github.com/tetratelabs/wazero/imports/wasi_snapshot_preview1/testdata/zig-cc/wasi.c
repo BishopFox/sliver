@@ -162,6 +162,30 @@ void main_sock() {
   }
 }
 
+void main_nonblock(char* fpath) {
+  struct timespec tim, tim2;
+  tim.tv_sec = 0;
+  tim.tv_nsec = 100 * 1000000; // 100 msec
+  int fd = open(fpath, O_RDONLY | O_NONBLOCK);
+  char buf[32];
+  ssize_t newLen = 0;
+  while (newLen == 0) {
+    newLen = read(fd, buf, sizeof(buf));
+    // If an empty string is read, newLen might be 1,
+    // causing the loop to terminate.
+    if (strlen(buf) == 0) {
+      newLen = 0;
+    }
+    if (errno == EAGAIN || newLen == 0) {
+      printf(".");
+      nanosleep(&tim , &tim2) ;
+      continue;
+    }
+  }
+  printf("\n%s\n", buf);
+  close(fd);
+}
+
 int main(int argc, char** argv) {
   if (strcmp(argv[1],"ls")==0) {
     bool repeat = false;
@@ -193,6 +217,8 @@ int main(int argc, char** argv) {
     main_open_wronly();
   } else if (strcmp(argv[1],"sock")==0) {
     main_sock();
+  } else if (strcmp(argv[1],"nonblock")==0) {
+    main_nonblock(argv[2]);
   } else {
     fprintf(stderr, "unknown command: %s\n", argv[1]);
     return 1;

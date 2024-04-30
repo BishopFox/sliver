@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build !(linux && (amd64 || loong64))
+
 package libc // import "modernc.org/libc"
 
 import (
@@ -170,6 +172,10 @@ func removeObject(t uintptr) {
 }
 
 func (t *TLS) setErrno(err interface{}) {
+	if t == nil {
+		panic("nil TLS")
+	}
+
 	if memgrind {
 		if atomic.SwapInt32(&t.reentryGuard, 1) != 0 {
 			panic(todo("concurrent use of TLS instance %p", t))
@@ -564,6 +570,19 @@ func VaUintptr(app *uintptr) uintptr {
 	ap += 8
 	*(*uintptr)(unsafe.Pointer(app)) = ap
 	return v
+}
+
+func getVaList(va uintptr) []string {
+	r := []string{}
+
+	for p := va; ; p += 8 {
+		st := *(*uintptr)(unsafe.Pointer(p))
+		if st == 0 {
+			return r
+		}
+		r = append(r, GoString(st))
+	}
+	return r
 }
 
 func roundup(n, to uintptr) uintptr {

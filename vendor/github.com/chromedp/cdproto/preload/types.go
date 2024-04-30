@@ -513,7 +513,8 @@ const (
 	PrefetchStatusPrefetchFailedNetError                                      PrefetchStatus = "PrefetchFailedNetError"
 	PrefetchStatusPrefetchFailedNon2xX                                        PrefetchStatus = "PrefetchFailedNon2XX"
 	PrefetchStatusPrefetchFailedPerPageLimitExceeded                          PrefetchStatus = "PrefetchFailedPerPageLimitExceeded"
-	PrefetchStatusPrefetchEvicted                                             PrefetchStatus = "PrefetchEvicted"
+	PrefetchStatusPrefetchEvictedAfterCandidateRemoved                        PrefetchStatus = "PrefetchEvictedAfterCandidateRemoved"
+	PrefetchStatusPrefetchEvictedForNewerPrefetch                             PrefetchStatus = "PrefetchEvictedForNewerPrefetch"
 	PrefetchStatusPrefetchHeldback                                            PrefetchStatus = "PrefetchHeldback"
 	PrefetchStatusPrefetchIneligibleRetryAfter                                PrefetchStatus = "PrefetchIneligibleRetryAfter"
 	PrefetchStatusPrefetchIsPrivacyDecoy                                      PrefetchStatus = "PrefetchIsPrivacyDecoy"
@@ -566,8 +567,10 @@ func (t *PrefetchStatus) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PrefetchStatusPrefetchFailedNon2xX
 	case PrefetchStatusPrefetchFailedPerPageLimitExceeded:
 		*t = PrefetchStatusPrefetchFailedPerPageLimitExceeded
-	case PrefetchStatusPrefetchEvicted:
-		*t = PrefetchStatusPrefetchEvicted
+	case PrefetchStatusPrefetchEvictedAfterCandidateRemoved:
+		*t = PrefetchStatusPrefetchEvictedAfterCandidateRemoved
+	case PrefetchStatusPrefetchEvictedForNewerPrefetch:
+		*t = PrefetchStatusPrefetchEvictedForNewerPrefetch
 	case PrefetchStatusPrefetchHeldback:
 		*t = PrefetchStatusPrefetchHeldback
 	case PrefetchStatusPrefetchIneligibleRetryAfter:
@@ -621,4 +624,14 @@ func (t *PrefetchStatus) UnmarshalEasyJSON(in *jlexer.Lexer) {
 // UnmarshalJSON satisfies json.Unmarshaler.
 func (t *PrefetchStatus) UnmarshalJSON(buf []byte) error {
 	return easyjson.Unmarshal(buf, t)
+}
+
+// PrerenderMismatchedHeaders information of headers to be displayed when the
+// header mismatch occurred.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Preload#type-PrerenderMismatchedHeaders
+type PrerenderMismatchedHeaders struct {
+	HeaderName      string `json:"headerName"`
+	InitialValue    string `json:"initialValue,omitempty"`
+	ActivationValue string `json:"activationValue,omitempty"`
 }

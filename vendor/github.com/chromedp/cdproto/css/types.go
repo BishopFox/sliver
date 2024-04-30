@@ -143,7 +143,7 @@ type SelectorList struct {
 type StyleSheetHeader struct {
 	StyleSheetID  StyleSheetID      `json:"styleSheetId"`            // The stylesheet identifier.
 	FrameID       cdp.FrameID       `json:"frameId"`                 // Owner frame identifier.
-	SourceURL     string            `json:"sourceURL"`               // Stylesheet resource URL. Empty if this is a constructed stylesheet created using new CSSStyleSheet() (but non-empty if this is a constructed sylesheet imported as a CSS module script).
+	SourceURL     string            `json:"sourceURL"`               // Stylesheet resource URL. Empty if this is a constructed stylesheet created using new CSSStyleSheet() (but non-empty if this is a constructed stylesheet imported as a CSS module script).
 	SourceMapURL  string            `json:"sourceMapURL,omitempty"`  // URL of source map associated with the stylesheet (if any).
 	Origin        StyleSheetOrigin  `json:"origin"`                  // Stylesheet origin.
 	Title         string            `json:"title"`                   // Stylesheet title.
@@ -385,9 +385,10 @@ type LayerData struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/CSS#type-PlatformFontUsage
 type PlatformFontUsage struct {
-	FamilyName   string  `json:"familyName"`   // Font's family name reported by platform.
-	IsCustomFont bool    `json:"isCustomFont"` // Indicates if the font was downloaded or resolved locally.
-	GlyphCount   float64 `json:"glyphCount"`   // Amount of glyphs that were rendered with this font.
+	FamilyName     string  `json:"familyName"`     // Font's family name reported by platform.
+	PostScriptName string  `json:"postScriptName"` // Font's PostScript name reported by platform.
+	IsCustomFont   bool    `json:"isCustomFont"`   // Indicates if the font was downloaded or resolved locally.
+	GlyphCount     float64 `json:"glyphCount"`     // Amount of glyphs that were rendered with this font.
 }
 
 // FontVariationAxis information about font variation axes for variable
@@ -429,12 +430,14 @@ type TryRule struct {
 	Style        *Style           `json:"style"`                  // Associated style declaration.
 }
 
-// PositionFallbackRule CSS position-fallback rule representation.
+// PositionTryRule CSS @position-try rule representation.
 //
-// See: https://chromedevtools.github.io/devtools-protocol/tot/CSS#type-CSSPositionFallbackRule
-type PositionFallbackRule struct {
-	Name     *Value     `json:"name"`
-	TryRules []*TryRule `json:"tryRules"` // List of keyframes.
+// See: https://chromedevtools.github.io/devtools-protocol/tot/CSS#type-CSSPositionTryRule
+type PositionTryRule struct {
+	Name         *Value           `json:"name"`                   // The prelude dashed-ident name
+	StyleSheetID StyleSheetID     `json:"styleSheetId,omitempty"` // The css style sheet identifier (absent for user agent stylesheet and user-specified stylesheet rules) this rule came from.
+	Origin       StyleSheetOrigin `json:"origin"`                 // Parent stylesheet's origin.
+	Style        *Style           `json:"style"`                  // Associated style declaration.
 }
 
 // KeyframesRule CSS keyframes rule representation.
@@ -454,6 +457,16 @@ type PropertyRegistration struct {
 	InitialValue *Value `json:"initialValue,omitempty"`
 	Inherits     bool   `json:"inherits"`
 	Syntax       string `json:"syntax"`
+}
+
+// FontPaletteValuesRule CSS font-palette-values rule representation.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/CSS#type-CSSFontPaletteValuesRule
+type FontPaletteValuesRule struct {
+	StyleSheetID    StyleSheetID     `json:"styleSheetId,omitempty"` // The css style sheet identifier (absent for user agent stylesheet and user-specified stylesheet rules) this rule came from.
+	Origin          StyleSheetOrigin `json:"origin"`                 // Parent stylesheet's origin.
+	FontPaletteName *Value           `json:"fontPaletteName"`        // Associated font palette name.
+	Style           *Style           `json:"style"`                  // Associated style declaration.
 }
 
 // PropertyRule CSS property at-rule representation.

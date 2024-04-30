@@ -16,13 +16,15 @@
 package tcp
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
+	"fmt"
 	"runtime"
 	"strings"
 	"time"
 
 	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
-	"gvisor.dev/gvisor/pkg/tcpip/hash/jenkins"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/header/parse"
 	"gvisor.dev/gvisor/pkg/tcpip/internal/tcp"
@@ -107,9 +109,8 @@ type protocol struct {
 	dispatcher                 dispatcher
 
 	// The following secrets are initialized once and stay unchanged after.
-	seqnumSecret     uint32
-	portOffsetSecret uint32
-	tsOffsetSecret   uint32
+	seqnumSecret   [16]byte
+	tsOffsetSecret [16]byte
 }
 
 // Number returns the tcp protocol number.
@@ -144,7 +145,7 @@ func (*protocol) ParsePorts(v []byte) (src, dst uint16, err tcpip.Error) {
 // to a specific processing queue. Each queue is serviced by its own processor
 // goroutine which is responsible for dequeuing and doing full TCP dispatch of
 // the packet.
-func (p *protocol) QueuePacket(ep stack.TransportEndpoint, id stack.TransportEndpointID, pkt stack.PacketBufferPtr) {
+func (p *protocol) QueuePacket(ep stack.TransportEndpoint, id stack.TransportEndpointID, pkt *stack.PacketBuffer) {
 	p.dispatcher.queuePacket(ep, id, p.stack.Clock(), pkt)
 }
 
@@ -155,7 +156,7 @@ func (p *protocol) QueuePacket(ep stack.TransportEndpoint, id stack.TransportEnd
 // a reset is sent in response to any incoming segment except another reset. In
 // particular, SYNs addressed to a non-existent connection are rejected by this
 // means."
-func (p *protocol) HandleUnknownDestinationPacket(id stack.TransportEndpointID, pkt stack.PacketBufferPtr) stack.UnknownDestinationPacketDisposition {
+func (p *protocol) HandleUnknownDestinationPacket(id stack.TransportEndpointID, pkt *stack.PacketBuffer) stack.UnknownDestinationPacketDisposition {
 	s, err := newIncomingSegment(id, p.stack.Clock(), pkt)
 	if err != nil {
 		return stack.UnknownDestinationPacketMalformed
@@ -178,16 +179,15 @@ func (p *protocol) tsOffset(src, dst tcpip.Address) tcp.TSOffset {
 	//
 	// See https://tools.ietf.org/html/rfc7323#section-5.4 for details on
 	// why this is required.
-	//
-	// TODO(https://gvisor.dev/issues/6473): This is not really secure as
-	// it does not use the recommended algorithm linked above.
-	h := jenkins.Sum32(p.tsOffsetSecret)
+	h := sha256.New()
+
 	// Per hash.Hash.Writer:
 	//
 	// It never returns an error.
+	_, _ = h.Write(p.tsOffsetSecret[:])
 	_, _ = h.Write(src.AsSlice())
 	_, _ = h.Write(dst.AsSlice())
-	return tcp.NewTSOffset(h.Sum32())
+	return tcp.NewTSOffset(binary.LittleEndian.Uint32(h.Sum(nil)[:4]))
 }
 
 // replyWithReset replies to the given segment with a reset segment.
@@ -501,13 +501,21 @@ func (p *protocol) Resume() {
 }
 
 // Parse implements stack.TransportProtocol.Parse.
-func (*protocol) Parse(pkt stack.PacketBufferPtr) bool {
+func (*protocol) Parse(pkt *stack.PacketBuffer) bool {
 	return parse.TCP(pkt)
 }
 
 // NewProtocol returns a TCP transport protocol.
 func NewProtocol(s *stack.Stack) stack.TransportProtocol {
 	rng := s.SecureRNG()
+	var seqnumSecret [16]byte
+	var tsOffsetSecret [16]byte
+	if n, err := rng.Reader.Read(seqnumSecret[:]); err != nil || n != len(seqnumSecret) {
+		panic(fmt.Sprintf("Read() failed: %v", err))
+	}
+	if n, err := rng.Reader.Read(tsOffsetSecret[:]); err != nil || n != len(tsOffsetSecret) {
+		panic(fmt.Sprintf("Read() failed: %v", err))
+	}
 	p := protocol{
 		stack: s,
 		sendBufferSize: tcpip.TCPSendBufferSizeRangeOption{
@@ -531,9 +539,8 @@ func NewProtocol(s *stack.Stack) stack.TransportProtocol {
 		maxRTO:                     MaxRTO,
 		maxRetries:                 MaxRetries,
 		recovery:                   tcpip.TCPRACKLossDetection,
-		seqnumSecret:               rng.Uint32(),
-		portOffsetSecret:           rng.Uint32(),
-		tsOffsetSecret:             rng.Uint32(),
+		seqnumSecret:               seqnumSecret,
+		tsOffsetSecret:             tsOffsetSecret,
 	}
 	p.dispatcher.init(s.InsecureRNG(), runtime.GOMAXPROCS(0))
 	return &p

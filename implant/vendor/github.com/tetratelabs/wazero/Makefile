@@ -1,10 +1,10 @@
 
 gofumpt       := mvdan.cc/gofumpt@v0.5.0
 gosimports    := github.com/rinchsan/gosimports/cmd/gosimports@v0.3.8
-golangci_lint := github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2
+golangci_lint := github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
 asmfmt        := github.com/klauspost/asmfmt/cmd/asmfmt@v1.3.2
 # sync this with netlify.toml!
-hugo          := github.com/gohugoio/hugo@v0.112.5
+hugo          := github.com/gohugoio/hugo@v0.115.2
 
 # Make 3.81 doesn't support '**' globbing: Set explicitly instead of recursion.
 all_sources   := $(wildcard *.go */*.go */*/*.go */*/*/*.go */*/*/*.go */*/*/*/*.go)
@@ -23,7 +23,6 @@ go_test_options ?= -timeout 300s
 ensureCompilerFastest := -ldflags '-X github.com/tetratelabs/wazero/internal/integration_test/vs.ensureCompilerFastest=true'
 .PHONY: bench
 bench:
-	@go test -run=NONE -benchmem -bench=. ./internal/engine/compiler/...
 	@go build ./internal/integration_test/bench/...
 	@# Don't use -test.benchmem as it isn't accurate when comparing against CGO libs
 	@for d in vs/time vs/wasmedge vs/wasmtime ; do \
@@ -39,7 +38,7 @@ build.bench:
 
 .PHONY: test.examples
 test.examples:
-	@go test $(go_test_options) ./examples/... ./imports/assemblyscript/example/... ./imports/emscripten/... ./experimental/gojs/example/... ./imports/wasi_snapshot_preview1/example/...
+	@go test $(go_test_options) ./examples/... ./imports/assemblyscript/example/... ./imports/emscripten/... ./imports/wasi_snapshot_preview1/example/...
 
 .PHONY: build.examples.as
 build.examples.as:
@@ -53,16 +52,17 @@ build.examples.as:
 build.examples.zig: examples/allocation/zig/testdata/greet.wasm imports/wasi_snapshot_preview1/example/testdata/zig/cat.wasm imports/wasi_snapshot_preview1/testdata/zig/wasi.wasm
 	@cd internal/testing/dwarftestdata/testdata/zig; zig build; mv zig-out/*/main.wasm ./ # Need DWARF custom sections.
 
-tinygo_sources := examples/basic/testdata/add.go examples/allocation/tinygo/testdata/greet.go examples/cli/testdata/cli.go imports/wasi_snapshot_preview1/example/testdata/tinygo/cat.go
+tinygo_sources := examples/basic/testdata/add.go examples/allocation/tinygo/testdata/greet.go examples/cli/testdata/cli.go imports/wasi_snapshot_preview1/example/testdata/tinygo/cat.go imports/wasi_snapshot_preview1/testdata/tinygo/wasi.go cmd/wazero/testdata/cat/cat.go
 .PHONY: build.examples.tinygo
 build.examples.tinygo: $(tinygo_sources)
 	@for f in $^; do \
 	    tinygo build -o $$(echo $$f | sed -e 's/\.go/\.wasm/') -scheduler=none --no-debug --target=wasi $$f; \
 	done
+	@mv cmd/wazero/testdata/cat/cat.wasm cmd/wazero/testdata/cat/cat-tinygo.wasm
 
 # We use zig to build C as it is easy to install and embeds a copy of zig-cc.
 # Note: Don't use "-Oz" as that breaks our wasi sock example.
-c_sources := imports/wasi_snapshot_preview1/example/testdata/zig-cc/cat.c imports/wasi_snapshot_preview1/testdata/zig-cc/wasi.c
+c_sources := imports/wasi_snapshot_preview1/example/testdata/zig-cc/cat.c imports/wasi_snapshot_preview1/testdata/zig-cc/wasi.c internal/testing/dwarftestdata/testdata/zig-cc/main.c
 .PHONY: build.examples.zig-cc
 build.examples.zig-cc: $(c_sources)
 	@for f in $^; do \
@@ -119,8 +119,13 @@ spectest_v1_testdata_dir := $(spectest_v1_dir)/testdata
 spec_version_v1 := wg-1.0
 spectest_v2_dir := $(spectest_base_dir)/v2
 spectest_v2_testdata_dir := $(spectest_v2_dir)/testdata
-# Latest draft state as of May 23, 2023.
-spec_version_v2 := 2e8912e88a3118a46b90e8ccb659e24b4e8f3c23
+# Latest draft state as of March 12, 2024.
+spec_version_v2 := 1c5e5d178bd75c79b7a12881c529098beaee2a05
+spectest_threads_dir := $(spectest_base_dir)/threads
+spectest_threads_testdata_dir := $(spectest_threads_dir)/testdata
+# From https://github.com/WebAssembly/threads/tree/upstream-rebuild which has not been merged to main yet.
+# It will likely be renamed to main in the future - https://github.com/WebAssembly/threads/issues/216.
+spec_version_threads := 3635ca51a17e57e106988846c5b0e0cc48ac04fc
 
 .PHONY: build.spectest
 build.spectest:
@@ -162,13 +167,25 @@ build.spectest.v2: # Note: SIMD cases are placed in the "simd" subdirectory.
 	@cd $(spectest_v2_testdata_dir) \
 		&& curl -sSL 'https://api.github.com/repos/WebAssembly/spec/contents/test/core/simd?ref=$(spec_version_v2)' | jq -r '.[]| .download_url' | grep -E ".wast" | xargs -Iurl curl -sJL url -O
 	@cd $(spectest_v2_testdata_dir) && for f in `find . -name '*.wast'`; do \
-		wast2json --debug-names --no-check $$f; \
+		wast2json --debug-names --no-check $$f || true; \
+	done # Ignore the error here as some tests (e.g. comments.wast right now) are not supported by wast2json yet.
+
+# Note: We currently cannot build the "threads" subdirectory that spawns threads due to missing support in wast2json.
+# https://github.com/WebAssembly/wabt/issues/2348#issuecomment-1878003959
+.PHONY: build.spectest.threads
+build.spectest.threads:
+	@mkdir -p $(spectest_threads_testdata_dir)
+	@cd $(spectest_threads_testdata_dir) \
+		&& curl -sSL 'https://api.github.com/repos/WebAssembly/threads/contents/test/core?ref=$(spec_version_threads)' | jq -r '.[]| .download_url' | grep -E "atomic.wast" | xargs -Iurl curl -sJL url -O
+	@cd $(spectest_threads_testdata_dir) && for f in `find . -name '*.wast'`; do \
+		wast2json --enable-threads --debug-names $$f; \
 	done
 
 .PHONY: test
 test:
 	@go test $(go_test_options) $$(go list ./... | grep -vE '$(spectest_v1_dir)|$(spectest_v2_dir)')
 	@cd internal/version/testdata && go test $(go_test_options) ./...
+	@cd internal/integration_test/fuzz/wazerolib && CGO_ENABLED=0 WASM_BINARY_PATH=testdata/test.wasm go test ./...
 
 .PHONY: coverage
 # replace spaces with commas
@@ -212,6 +229,14 @@ check:
 # This makes sure the intepreter can be used. Most often the package that can
 # drift here is "platform" or "sysfs":
 #
+# Ensure we build on plan9. See #1578
+	@GOARCH=amd64 GOOS=plan9 go build ./...
+# Ensure we build on gojs. See #1526.
+	@GOARCH=wasm GOOS=js go build ./...
+# Ensure we build on wasip1. See #1526.
+	@GOARCH=wasm GOOS=wasip1 go build ./...
+# Ensure we build on aix. See #1723
+	@GOARCH=ppc64 GOOS=aix go build ./...
 # Ensure we build on windows:
 	@GOARCH=amd64 GOOS=windows go build ./...
 # Ensure we build on an arbitrary operating system:
@@ -247,12 +272,21 @@ clean: ## Ensure a clean build
 	@rm -rf dist build coverage.txt
 	@go clean -testcache
 
+fuzz_default_flags := --no-trace-compares --sanitizer=none -- -rss_limit_mb=8192
+
 fuzz_timeout_seconds ?= 10
 .PHONY: fuzz
 fuzz:
-	@cd internal/integration_test/fuzz && cargo fuzz run basic -- -max_total_time=$(fuzz_timeout_seconds)
-	@cd internal/integration_test/fuzz && cargo fuzz run memory_no_diff -- -max_total_time=$(fuzz_timeout_seconds)
-	@cd internal/integration_test/fuzz && cargo fuzz run validation -- -max_total_time=$(fuzz_timeout_seconds)
+	@cd internal/integration_test/fuzz && cargo test
+	@cd internal/integration_test/fuzz && cargo fuzz run logging_no_diff $(fuzz_default_flags) -max_total_time=$(fuzz_timeout_seconds)
+	@cd internal/integration_test/fuzz && cargo fuzz run no_diff $(fuzz_default_flags) -max_total_time=$(fuzz_timeout_seconds)
+	@cd internal/integration_test/fuzz && cargo fuzz run memory_no_diff $(fuzz_default_flags) -max_total_time=$(fuzz_timeout_seconds)
+	@cd internal/integration_test/fuzz && cargo fuzz run validation $(fuzz_default_flags) -max_total_time=$(fuzz_timeout_seconds)
+
+libsodium:
+	cd ./internal/integration_test/libsodium/testdata && \
+		curl -s "https://api.github.com/repos/jedisct1/webassembly-benchmarks/contents/2022-12/wasm?ref=7e86d68e99e60130899fbe3b3ab6e9dce9187a7c" \
+		| jq -r '.[] | .download_url' | xargs -n 1 curl -LO
 
 #### CLI release related ####
 

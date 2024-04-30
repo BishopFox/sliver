@@ -214,7 +214,7 @@ func (p *InsertTextParams) Do(ctx context.Context) (err error) {
 }
 
 // ImeSetCompositionParams this method sets the current candidate text for
-// ime. Use imeCommitComposition to commit the final text. Use imeSetComposition
+// IME. Use imeCommitComposition to commit the final text. Use imeSetComposition
 // with empty string as text to cancel composition.
 type ImeSetCompositionParams struct {
 	Text             string `json:"text"`                       // The text to insert
@@ -224,7 +224,7 @@ type ImeSetCompositionParams struct {
 	ReplacementEnd   int64  `json:"replacementEnd,omitempty"`   // replacement end
 }
 
-// ImeSetComposition this method sets the current candidate text for ime. Use
+// ImeSetComposition this method sets the current candidate text for IME. Use
 // imeCommitComposition to commit the final text. Use imeSetComposition with
 // empty string as text to cancel composition.
 //

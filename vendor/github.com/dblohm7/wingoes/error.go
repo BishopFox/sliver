@@ -79,6 +79,10 @@ func (hr HRESULT) Failed() bool {
 	return hr < 0
 }
 
+func (hr HRESULT) String() string {
+	return fmt.Sprintf("0x%08X", uint32(hr))
+}
+
 func (hr HRESULT) isNT() bool {
 	return (hr & (hrCustomerBit | hrFacilityNTBit)) == hrFacilityNTBit
 }
@@ -305,4 +309,21 @@ func (e Error) Error() string {
 	for ; lenExclNul > 0 && (buf[lenExclNul-1] == '\n' || buf[lenExclNul-1] == '\r'); lenExclNul-- {
 	}
 	return windows.UTF16ToString(buf[:lenExclNul])
+}
+
+// Unwrap permits extraction of underlying windows.NTStatus or windows.Errno
+// errors that are encoded within e.
+func (e Error) Unwrap() error {
+	// Order is important! We need earlier checks to exclude certain things that
+	// would otherwise be (in this case) false positives in later checks!
+	switch {
+	case e.IsOK():
+		return nil
+	case e.IsAvailableAsNTStatus():
+		return e.AsNTStatus()
+	case e.IsAvailableAsErrno():
+		return e.AsErrno()
+	default:
+		return nil
+	}
 }

@@ -1,5 +1,5 @@
 set -e
-for tag in none dmesg libc.membrk libc.memgrind
+for tag in none libc.dmesg libc.membrk libc.memgrind libc.strace
 do
 	echo "-tags=$tag"
 	echo "GOOS=darwin GOARCH=amd64"
@@ -32,6 +32,9 @@ do
 	echo "GOOS=linux GOARCH=loong64"
 	GOOS=linux GOARCH=loong64 go build -tags=$tag -v ./...
 	GOOS=linux GOARCH=loong64 go test -tags=$tag -c -o /dev/null
+	echo "GOOS=linux GOARCH=mips64le"
+	GOOS=linux GOARCH=mips64le go build -tags=$tag -v ./...
+	GOOS=linux GOARCH=mips64le go test -tags=$tag -c -o /dev/null
 	echo "GOOS=linux GOARCH=ppc64le"
 	GOOS=linux GOARCH=ppc64le go build -tags=$tag -v ./...
 	GOOS=linux GOARCH=ppc64le go test -tags=$tag -c -o /dev/null

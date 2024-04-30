@@ -3,19 +3,29 @@
 package sysfs
 
 import (
-	"io/fs"
-	"os"
 	"syscall"
 
-	"github.com/tetratelabs/wazero/internal/fsapi"
-	"github.com/tetratelabs/wazero/internal/platform"
+	"github.com/tetratelabs/wazero/experimental/sys"
 )
 
-func newOsFile(openPath string, openFlag int, openPerm fs.FileMode, f *os.File) fsapi.File {
-	return newDefaultOsFile(openPath, openFlag, openPerm, f)
-}
+const supportedSyscallOflag = sys.O_DIRECTORY | sys.O_DSYNC | sys.O_NOFOLLOW | sys.O_NONBLOCK | sys.O_RSYNC
 
-func openFile(path string, flag int, perm fs.FileMode) (*os.File, syscall.Errno) {
-	f, err := os.OpenFile(path, flag, perm)
-	return f, platform.UnwrapOSError(err)
+func withSyscallOflag(oflag sys.Oflag, flag int) int {
+	if oflag&sys.O_DIRECTORY != 0 {
+		// See https://github.com/illumos/illumos-gate/blob/edd580643f2cf1434e252cd7779e83182ea84945/usr/src/uts/common/sys/fcntl.h#L90
+		flag |= 0x1000000
+	}
+	if oflag&sys.O_DSYNC != 0 {
+		flag |= syscall.O_DSYNC
+	}
+	if oflag&sys.O_NOFOLLOW != 0 {
+		flag |= syscall.O_NOFOLLOW
+	}
+	if oflag&sys.O_NONBLOCK != 0 {
+		flag |= syscall.O_NONBLOCK
+	}
+	if oflag&sys.O_RSYNC != 0 {
+		flag |= syscall.O_RSYNC
+	}
+	return flag
 }

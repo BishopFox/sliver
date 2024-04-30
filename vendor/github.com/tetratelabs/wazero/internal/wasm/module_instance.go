@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync/atomic"
 
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/sys"
@@ -12,7 +11,7 @@ import (
 
 // FailIfClosed returns a sys.ExitError if CloseWithExitCode was called.
 func (m *ModuleInstance) FailIfClosed() (err error) {
-	if closed := atomic.LoadUint64(&m.Closed); closed != 0 {
+	if closed := m.Closed.Load(); closed != 0 {
 		switch closed & exitCodeFlagMask {
 		case exitCodeFlagResourceClosed:
 		case exitCodeFlagResourceNotClosed:
@@ -108,7 +107,7 @@ func (m *ModuleInstance) CloseWithExitCode(ctx context.Context, exitCode uint32)
 
 // IsClosed implements the same method as documented on api.Module.
 func (m *ModuleInstance) IsClosed() bool {
-	return atomic.LoadUint64(&m.Closed) != 0
+	return m.Closed.Load() != 0
 }
 
 func (m *ModuleInstance) closeWithExitCodeWithoutClosingResource(exitCode uint32) (err error) {
@@ -140,33 +139,36 @@ const (
 
 func (m *ModuleInstance) setExitCode(exitCode uint32, flag exitCodeFlag) bool {
 	closed := flag | uint64(exitCode)<<32 // Store exitCode as high-order bits.
-	return atomic.CompareAndSwapUint64(&m.Closed, 0, closed)
+	return m.Closed.CompareAndSwap(0, closed)
 }
 
 // ensureResourcesClosed ensures that resources assigned to ModuleInstance is released.
 // Only one call will happen per module, due to external atomic guards on Closed.
 func (m *ModuleInstance) ensureResourcesClosed(ctx context.Context) (err error) {
 	if closeNotifier := m.CloseNotifier; closeNotifier != nil { // experimental
-		closed := atomic.LoadUint64(&m.Closed)
-		closeNotifier.CloseNotify(ctx, uint32(closed>>32))
+		closeNotifier.CloseNotify(ctx, uint32(m.Closed.Load()>>32))
 		m.CloseNotifier = nil
 	}
 
 	if sysCtx := m.Sys; sysCtx != nil { // nil if from HostModuleBuilder
-		if err = sysCtx.FS().Close(); err != nil {
-			return err
-		}
+		err = sysCtx.FS().Close()
 		m.Sys = nil
 	}
 
-	if m.CodeCloser == nil {
-		return
+	if mem := m.MemoryInstance; mem != nil {
+		if mem.expBuffer != nil {
+			mem.expBuffer.Free()
+			mem.expBuffer = nil
+		}
 	}
-	if e := m.CodeCloser.Close(ctx); e != nil && err == nil {
-		err = e
+
+	if m.CodeCloser != nil {
+		if e := m.CodeCloser.Close(ctx); err == nil {
+			err = e
+		}
+		m.CodeCloser = nil
 	}
-	m.CodeCloser = nil
-	return
+	return err
 }
 
 // Memory implements the same method as documented on api.Module.

@@ -2,8 +2,10 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build !libc.membrk && libc.memgrind
-// +build !libc.membrk,libc.memgrind
+//go:build !libc.membrk && libc.memgrind && !(linux && (amd64 || loong64))
+// +build !libc.membrk
+// +build libc.memgrind
+// +build !linux !amd64,!loong64
 
 // This is a debug-only version of the memory handling functions. When a
 // program is built with -tags=libc.memgrind the functions MemAuditStart and
@@ -74,6 +76,9 @@ func pc2origin(pc uintptr) string {
 
 // void *malloc(size_t size);
 func Xmalloc(t *TLS, size types.Size_t) uintptr {
+	if __ccgo_strace {
+		trc("t=%v size=%v, (%v:)", t, size, origin(2))
+	}
 	if size == 0 {
 		return 0
 	}
@@ -83,9 +88,9 @@ func Xmalloc(t *TLS, size types.Size_t) uintptr {
 	defer allocMu.Unlock()
 
 	p, err := allocator.UintptrCalloc(int(size))
-	if dmesgs {
-		dmesg("%v: %v -> %#x, %v", origin(1), size, p, err)
-	}
+	// 	if dmesgs {
+	// 		dmesg("%v: %v -> %#x, %v", origin(1), size, p, err)
+	// 	}
 	if err != nil {
 		t.setErrno(errno.ENOMEM)
 		return 0
@@ -110,6 +115,9 @@ func Xmalloc(t *TLS, size types.Size_t) uintptr {
 
 // void *calloc(size_t nmemb, size_t size);
 func Xcalloc(t *TLS, n, size types.Size_t) uintptr {
+	if __ccgo_strace {
+		trc("t=%v size=%v, (%v:)", t, size, origin(2))
+	}
 	rq := int(n * size)
 	if rq == 0 {
 		return 0
@@ -120,9 +128,9 @@ func Xcalloc(t *TLS, n, size types.Size_t) uintptr {
 	defer allocMu.Unlock()
 
 	p, err := allocator.UintptrCalloc(int(n * size))
-	if dmesgs {
-		dmesg("%v: %v -> %#x, %v", origin(1), n*size, p, err)
-	}
+	// 	if dmesgs {
+	// 		dmesg("%v: %v -> %#x, %v", origin(1), n*size, p, err)
+	// 	}
 	if err != nil {
 		t.setErrno(errno.ENOMEM)
 		return 0
@@ -147,6 +155,9 @@ func Xcalloc(t *TLS, n, size types.Size_t) uintptr {
 
 // void *realloc(void *ptr, size_t size);
 func Xrealloc(t *TLS, ptr uintptr, size types.Size_t) uintptr {
+	if __ccgo_strace {
+		trc("t=%v ptr=%v size=%v, (%v:)", t, ptr, size, origin(2))
+	}
 	allocMu.Lock()
 
 	defer allocMu.Unlock()
@@ -176,9 +187,9 @@ func Xrealloc(t *TLS, ptr uintptr, size types.Size_t) uintptr {
 	}
 
 	p, err := allocator.UintptrRealloc(ptr, int(size))
-	if dmesgs {
-		dmesg("%v: %#x, %v -> %#x, %v", origin(1), ptr, size, p, err)
-	}
+	// 	if dmesgs {
+	// 		dmesg("%v: %#x, %v -> %#x, %v", origin(1), ptr, size, p, err)
+	// 	}
 	if err != nil {
 		t.setErrno(errno.ENOMEM)
 		return 0
@@ -198,13 +209,16 @@ func Xrealloc(t *TLS, ptr uintptr, size types.Size_t) uintptr {
 
 // void free(void *ptr);
 func Xfree(t *TLS, p uintptr) {
+	if __ccgo_strace {
+		trc("t=%v p=%v, (%v:)", t, p, origin(2))
+	}
 	if p == 0 {
 		return
 	}
 
-	if dmesgs {
-		dmesg("%v: %#x", origin(1), p)
-	}
+	// 	if dmesgs {
+	// 		dmesg("%v: %#x", origin(1), p)
+	// 	}
 
 	allocMu.Lock()
 

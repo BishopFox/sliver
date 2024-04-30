@@ -50,10 +50,11 @@ type EventPrefetchStatusUpdated struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Preload#event-prerenderStatusUpdated
 type EventPrerenderStatusUpdated struct {
-	Key                     *IngAttemptKey       `json:"key"`
-	Status                  IngStatus            `json:"status"`
-	PrerenderStatus         PrerenderFinalStatus `json:"prerenderStatus,omitempty"`
-	DisallowedMojoInterface string               `json:"disallowedMojoInterface,omitempty"` // This is used to give users more information about the name of Mojo interface that is incompatible with prerender and has caused the cancellation of the attempt.
+	Key                     *IngAttemptKey                `json:"key"`
+	Status                  IngStatus                     `json:"status"`
+	PrerenderStatus         PrerenderFinalStatus          `json:"prerenderStatus,omitempty"`
+	DisallowedMojoInterface string                        `json:"disallowedMojoInterface,omitempty"` // This is used to give users more information about the name of Mojo interface that is incompatible with prerender and has caused the cancellation of the attempt.
+	MismatchedHeaders       []*PrerenderMismatchedHeaders `json:"mismatchedHeaders,omitempty"`
 }
 
 // EventPreloadingAttemptSourcesUpdated send a list of sources for all

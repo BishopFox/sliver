@@ -83,14 +83,3 @@ func main() {
 
 This project is under MIT License. See the [LICENSE](LICENSE) file for the full license text.
 
-## Donation
-
-if package help you a lot,you can support us by:
-
-**Alipay**
-
-![alipay](https://github.com/thinkgos/thinkgos/blob/master/asserts/alipay.jpg)
-
-**WeChat Pay**
-
-![wxpay](https://github.com/thinkgos/thinkgos/blob/master/asserts/wxpay.jpg)

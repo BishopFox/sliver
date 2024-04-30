@@ -92,16 +92,17 @@ func (p *ClearBrowserCookiesParams) Do(ctx context.Context) (err error) {
 }
 
 // DeleteCookiesParams deletes browser cookies with matching name and url or
-// domain/path pair.
+// domain/path/partitionKey pair.
 type DeleteCookiesParams struct {
-	Name   string `json:"name"`             // Name of the cookies to remove.
-	URL    string `json:"url,omitempty"`    // If specified, deletes all the cookies with the given name where domain and path match provided URL.
-	Domain string `json:"domain,omitempty"` // If specified, deletes only cookies with the exact domain.
-	Path   string `json:"path,omitempty"`   // If specified, deletes only cookies with the exact path.
+	Name         string `json:"name"`                   // Name of the cookies to remove.
+	URL          string `json:"url,omitempty"`          // If specified, deletes all the cookies with the given name where domain and path match provided URL.
+	Domain       string `json:"domain,omitempty"`       // If specified, deletes only cookies with the exact domain.
+	Path         string `json:"path,omitempty"`         // If specified, deletes only cookies with the exact path.
+	PartitionKey string `json:"partitionKey,omitempty"` // If specified, deletes only cookies with the the given name and partitionKey where domain matches provided URL.
 }
 
 // DeleteCookies deletes browser cookies with matching name and url or
-// domain/path pair.
+// domain/path/partitionKey pair.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Network#method-deleteCookies
 //
@@ -133,6 +134,13 @@ func (p DeleteCookiesParams) WithPath(path string) *DeleteCookiesParams {
 	return &p
 }
 
+// WithPartitionKey if specified, deletes only cookies with the the given
+// name and partitionKey where domain matches provided URL.
+func (p DeleteCookiesParams) WithPartitionKey(partitionKey string) *DeleteCookiesParams {
+	p.PartitionKey = partitionKey
+	return &p
+}
+
 // Do executes Network.deleteCookies against the provided context.
 func (p *DeleteCookiesParams) Do(ctx context.Context) (err error) {
 	return cdp.Execute(ctx, CommandDeleteCookies, p, nil)
@@ -157,11 +165,14 @@ func (p *DisableParams) Do(ctx context.Context) (err error) {
 
 // EmulateNetworkConditionsParams activates emulation of network conditions.
 type EmulateNetworkConditionsParams struct {
-	Offline            bool           `json:"offline"`                  // True to emulate internet disconnection.
-	Latency            float64        `json:"latency"`                  // Minimum latency from request sent to response headers received (ms).
-	DownloadThroughput float64        `json:"downloadThroughput"`       // Maximal aggregated download throughput (bytes/sec). -1 disables download throttling.
-	UploadThroughput   float64        `json:"uploadThroughput"`         // Maximal aggregated upload throughput (bytes/sec).  -1 disables upload throttling.
-	ConnectionType     ConnectionType `json:"connectionType,omitempty"` // Connection type if known.
+	Offline            bool           `json:"offline"`                     // True to emulate internet disconnection.
+	Latency            float64        `json:"latency"`                     // Minimum latency from request sent to response headers received (ms).
+	DownloadThroughput float64        `json:"downloadThroughput"`          // Maximal aggregated download throughput (bytes/sec). -1 disables download throttling.
+	UploadThroughput   float64        `json:"uploadThroughput"`            // Maximal aggregated upload throughput (bytes/sec).  -1 disables upload throttling.
+	ConnectionType     ConnectionType `json:"connectionType,omitempty"`    // Connection type if known.
+	PacketLoss         float64        `json:"packetLoss,omitempty"`        // WebRTC packet loss (percent, 0-100). 0 disables packet loss emulation, 100 drops all the packets.
+	PacketQueueLength  int64          `json:"packetQueueLength,omitempty"` // WebRTC packet queue length (packet). 0 removes any queue length limitations.
+	PacketReordering   bool           `json:"packetReordering,omitempty"`  // WebRTC packetReordering feature.
 }
 
 // EmulateNetworkConditions activates emulation of network conditions.
@@ -186,6 +197,26 @@ func EmulateNetworkConditions(offline bool, latency float64, downloadThroughput 
 // WithConnectionType connection type if known.
 func (p EmulateNetworkConditionsParams) WithConnectionType(connectionType ConnectionType) *EmulateNetworkConditionsParams {
 	p.ConnectionType = connectionType
+	return &p
+}
+
+// WithPacketLoss webRTC packet loss (percent, 0-100). 0 disables packet loss
+// emulation, 100 drops all the packets.
+func (p EmulateNetworkConditionsParams) WithPacketLoss(packetLoss float64) *EmulateNetworkConditionsParams {
+	p.PacketLoss = packetLoss
+	return &p
+}
+
+// WithPacketQueueLength webRTC packet queue length (packet). 0 removes any
+// queue length limitations.
+func (p EmulateNetworkConditionsParams) WithPacketQueueLength(packetQueueLength int64) *EmulateNetworkConditionsParams {
+	p.PacketQueueLength = packetQueueLength
+	return &p
+}
+
+// WithPacketReordering webRTC packetReordering feature.
+func (p EmulateNetworkConditionsParams) WithPacketReordering(packetReordering bool) *EmulateNetworkConditionsParams {
+	p.PacketReordering = packetReordering
 	return &p
 }
 
@@ -864,6 +895,55 @@ func (p *SetAttachDebugStackParams) Do(ctx context.Context) (err error) {
 	return cdp.Execute(ctx, CommandSetAttachDebugStack, p, nil)
 }
 
+// StreamResourceContentParams enables streaming of the response for the
+// given requestId. If enabled, the dataReceived event contains the data that
+// was received during streaming.
+type StreamResourceContentParams struct {
+	RequestID RequestID `json:"requestId"` // Identifier of the request to stream.
+}
+
+// StreamResourceContent enables streaming of the response for the given
+// requestId. If enabled, the dataReceived event contains the data that was
+// received during streaming.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Network#method-streamResourceContent
+//
+// parameters:
+//
+//	requestID - Identifier of the request to stream.
+func StreamResourceContent(requestID RequestID) *StreamResourceContentParams {
+	return &StreamResourceContentParams{
+		RequestID: requestID,
+	}
+}
+
+// StreamResourceContentReturns return values.
+type StreamResourceContentReturns struct {
+	BufferedData string `json:"bufferedData,omitempty"` // Data that has been buffered until streaming is enabled.
+}
+
+// Do executes Network.streamResourceContent against the provided context.
+//
+// returns:
+//
+//	bufferedData - Data that has been buffered until streaming is enabled.
+func (p *StreamResourceContentParams) Do(ctx context.Context) (bufferedData []byte, err error) {
+	// execute
+	var res StreamResourceContentReturns
+	err = cdp.Execute(ctx, CommandStreamResourceContent, p, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	// decode
+	var dec []byte
+	dec, err = base64.StdEncoding.DecodeString(res.BufferedData)
+	if err != nil {
+		return nil, err
+	}
+	return dec, nil
+}
+
 // GetSecurityIsolationStatusParams returns information about the COEP/COOP
 // isolation status.
 type GetSecurityIsolationStatusParams struct {
@@ -1010,6 +1090,7 @@ const (
 	CommandSetCookies                              = "Network.setCookies"
 	CommandSetExtraHTTPHeaders                     = "Network.setExtraHTTPHeaders"
 	CommandSetAttachDebugStack                     = "Network.setAttachDebugStack"
+	CommandStreamResourceContent                   = "Network.streamResourceContent"
 	CommandGetSecurityIsolationStatus              = "Network.getSecurityIsolationStatus"
 	CommandEnableReportingAPI                      = "Network.enableReportingApi"
 	CommandLoadNetworkResource                     = "Network.loadNetworkResource"

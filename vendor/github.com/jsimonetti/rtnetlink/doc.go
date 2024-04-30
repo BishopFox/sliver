@@ -17,9 +17,9 @@
 // netlink traffic inside the kernel. Be aware that this might be overwhelming on a system
 // with a lot of netlink traffic.
 //
-//  # modprobe nlmon
-//  # ip link add type nlmon
-//  # ip link set nlmon0 up
+//	# modprobe nlmon
+//	# ip link add type nlmon
+//	# ip link set nlmon0 up
 //
 // At this point use wireshark or tcpdump on the nlmon0 interface to view all netlink traffic.
 //

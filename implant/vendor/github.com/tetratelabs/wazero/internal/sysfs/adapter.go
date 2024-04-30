@@ -4,64 +4,91 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
-	"syscall"
 
-	"github.com/tetratelabs/wazero/internal/fsapi"
+	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
+	"github.com/tetratelabs/wazero/sys"
 )
 
-// Adapt adapts the input to api.FS unless it is already one. Use NewDirFS instead
-// of os.DirFS as it handles interop issues such as windows support.
-//
-// Note: This performs no flag verification on OpenFile. fsapi.FS cannot read
-// flags as there is no parameter to pass them through with. Moreover, fsapi.FS
-// documentation does not require the file to be present. In summary, we can't
-// enforce flag behavior.
-func Adapt(fs fs.FS) fsapi.FS {
-	if fs == nil {
-		return fsapi.UnimplementedFS{}
-	}
-	if sys, ok := fs.(fsapi.FS); ok {
-		return sys
-	}
-	return &adapter{fs: fs}
-}
-
-type adapter struct {
-	fsapi.UnimplementedFS
-	fs fs.FS
+type AdaptFS struct {
+	FS fs.FS
 }
 
 // String implements fmt.Stringer
-func (a *adapter) String() string {
-	return fmt.Sprintf("%v", a.fs)
+func (a *AdaptFS) String() string {
+	return fmt.Sprintf("%v", a.FS)
 }
 
-// OpenFile implements the same method as documented on api.FS
-func (a *adapter) OpenFile(path string, flag int, perm fs.FileMode) (fsapi.File, syscall.Errno) {
-	return OpenFSFile(a.fs, cleanPath(path), flag, perm)
+// OpenFile implements the same method as documented on sys.FS
+func (a *AdaptFS) OpenFile(path string, flag experimentalsys.Oflag, perm fs.FileMode) (experimentalsys.File, experimentalsys.Errno) {
+	return OpenFSFile(a.FS, cleanPath(path), flag, perm)
 }
 
-// Stat implements the same method as documented on api.FS
-func (a *adapter) Stat(path string) (fsapi.Stat_t, syscall.Errno) {
-	f, errno := a.OpenFile(path, syscall.O_RDONLY, 0)
+// Lstat implements the same method as documented on sys.FS
+func (a *AdaptFS) Lstat(path string) (sys.Stat_t, experimentalsys.Errno) {
+	// At this time, we make the assumption sys.FS instances do not support
+	// symbolic links, therefore Lstat is the same as Stat. This is obviously
+	// not true, but until FS.FS has a solid story for how to handle symlinks,
+	// we are better off not making a decision that would be difficult to
+	// revert later on.
+	//
+	// For further discussions on the topic, see:
+	// https://github.com/golang/go/issues/49580
+	return a.Stat(path)
+}
+
+// Stat implements the same method as documented on sys.FS
+func (a *AdaptFS) Stat(path string) (sys.Stat_t, experimentalsys.Errno) {
+	f, errno := a.OpenFile(path, experimentalsys.O_RDONLY, 0)
 	if errno != 0 {
-		return fsapi.Stat_t{}, errno
+		return sys.Stat_t{}, errno
 	}
 	defer f.Close()
 	return f.Stat()
 }
 
-// Lstat implements the same method as documented on api.FS
-func (a *adapter) Lstat(path string) (fsapi.Stat_t, syscall.Errno) {
-	// At this time, we make the assumption that api.FS instances do not support
-	// symbolic links, therefore Lstat is the same as Stat. This is obviously
-	// not true but until api.FS has a solid story for how to handle symlinks we
-	// are better off not making a decision that would be difficult to revert
-	// later on.
-	//
-	// For further discussions on the topic, see:
-	// https://github.com/golang/go/issues/49580
-	return a.Stat(path)
+// Readlink implements the same method as documented on sys.FS
+func (a *AdaptFS) Readlink(string) (string, experimentalsys.Errno) {
+	return "", experimentalsys.ENOSYS
+}
+
+// Mkdir implements the same method as documented on sys.FS
+func (a *AdaptFS) Mkdir(string, fs.FileMode) experimentalsys.Errno {
+	return experimentalsys.ENOSYS
+}
+
+// Chmod implements the same method as documented on sys.FS
+func (a *AdaptFS) Chmod(string, fs.FileMode) experimentalsys.Errno {
+	return experimentalsys.ENOSYS
+}
+
+// Rename implements the same method as documented on sys.FS
+func (a *AdaptFS) Rename(string, string) experimentalsys.Errno {
+	return experimentalsys.ENOSYS
+}
+
+// Rmdir implements the same method as documented on sys.FS
+func (a *AdaptFS) Rmdir(string) experimentalsys.Errno {
+	return experimentalsys.ENOSYS
+}
+
+// Link implements the same method as documented on sys.FS
+func (a *AdaptFS) Link(string, string) experimentalsys.Errno {
+	return experimentalsys.ENOSYS
+}
+
+// Symlink implements the same method as documented on sys.FS
+func (a *AdaptFS) Symlink(string, string) experimentalsys.Errno {
+	return experimentalsys.ENOSYS
+}
+
+// Unlink implements the same method as documented on sys.FS
+func (a *AdaptFS) Unlink(string) experimentalsys.Errno {
+	return experimentalsys.ENOSYS
+}
+
+// Utimens implements the same method as documented on sys.FS
+func (a *AdaptFS) Utimens(string, int64, int64) experimentalsys.Errno {
+	return experimentalsys.ENOSYS
 }
 
 func cleanPath(name string) string {

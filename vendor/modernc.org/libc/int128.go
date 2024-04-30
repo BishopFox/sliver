@@ -49,7 +49,7 @@ func Int128FromFloat32(n float32) Int128 { return Int128(mathutil.NewInt128FromF
 func Int128FromFloat64(n float64) Int128 { return Int128(mathutil.NewInt128FromFloat64(n)) }
 func Int128FromInt16(n int16) Int128     { return Int128(mathutil.NewInt128FromInt64(int64(n))) }
 func Int128FromInt32(n int32) Int128     { return Int128(mathutil.NewInt128FromInt64(int64(n))) }
-func Int128FromInt64(n int64) Int128     { return Int128(mathutil.NewInt128FromInt64(int64(n))) }
+func Int128FromInt64(n int64) Int128     { return Int128(mathutil.NewInt128FromInt64(n)) }
 func Int128FromInt8(n int8) Int128       { return Int128(mathutil.NewInt128FromInt64(int64(n))) }
 func Int128FromUint16(n uint16) Int128   { return Int128(mathutil.NewInt128FromInt64(int64(n))) }
 func Int128FromUint32(n uint32) Int128   { return Int128(mathutil.NewInt128FromInt64(int64(n))) }
@@ -65,7 +65,7 @@ func (n Int128) And(v Int128) Int128  { return Int128{n.Lo & v.Lo, n.Hi & v.Hi} 
 func (n Int128) Cmp(y Int128) int     { return mathutil.Int128(n).Cmp(mathutil.Int128(y)) }
 func (n Int128) Int16() int16         { return int16(n.Lo) }
 func (n Int128) Int32() int32         { return int32(n.Lo) }
-func (n Int128) Int64() int64         { return int64(n.Lo) }
+func (n Int128) Int64() int64         { return n.Lo }
 func (n Int128) Int8() int8           { return int8(n.Lo) }
 func (n Int128) Or(v Int128) Int128   { return Int128{n.Lo | v.Lo, n.Hi | v.Hi} }
 func (n Int128) Uint128() (r Uint128) { return Uint128{uint64(n.Lo), uint64(n.Hi)} }
@@ -316,16 +316,16 @@ func (n Uint128) add64(m uint64) Uint128 {
 
 func (n Uint128) Float32() float32 {
 	if n.Hi == 0 {
-		return float32(uint64(n.Lo))
+		return float32(n.Lo)
 	}
 
-	return float32(n.Hi)*(1<<64) + float32(uint64(n.Lo))
+	return float32(n.Hi)*(1<<64) + float32(n.Lo)
 }
 
 func (n Uint128) Float64() float64 {
 	if n.Hi == 0 {
-		return float64(uint64(n.Lo))
+		return float64(n.Lo)
 	}
 
-	return float64(n.Hi)*(1<<64) + float64(uint64(n.Lo))
+	return float64(n.Hi)*(1<<64) + float64(n.Lo)
 }

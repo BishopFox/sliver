@@ -1,125 +1,125 @@
 package sys
 
 import (
-	"io/fs"
-	"os"
-	"syscall"
-
+	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
 	"github.com/tetratelabs/wazero/internal/fsapi"
+	"github.com/tetratelabs/wazero/sys"
 )
 
-// compile-time check to ensure lazyDir implements internalapi.File.
-var _ fsapi.File = (*lazyDir)(nil)
+// compile-time check to ensure lazyDir implements sys.File.
+var _ experimentalsys.File = (*lazyDir)(nil)
 
 type lazyDir struct {
-	fsapi.DirFile
+	experimentalsys.DirFile
 
-	fs fsapi.FS
-	f  fsapi.File
+	fs experimentalsys.FS
+	f  experimentalsys.File
 }
 
-// Ino implements the same method as documented on internalapi.File
-func (r *lazyDir) Ino() (uint64, syscall.Errno) {
-	if f, ok := r.file(); !ok {
-		return 0, syscall.EBADF
+// Dev implements the same method as documented on sys.File
+func (d *lazyDir) Dev() (uint64, experimentalsys.Errno) {
+	if f, ok := d.file(); !ok {
+		return 0, experimentalsys.EBADF
+	} else {
+		return f.Dev()
+	}
+}
+
+// Ino implements the same method as documented on sys.File
+func (d *lazyDir) Ino() (sys.Inode, experimentalsys.Errno) {
+	if f, ok := d.file(); !ok {
+		return 0, experimentalsys.EBADF
 	} else {
 		return f.Ino()
 	}
 }
 
-// IsAppend implements the same method as documented on internalapi.File
-func (r *lazyDir) IsAppend() bool {
+// IsDir implements the same method as documented on sys.File
+func (d *lazyDir) IsDir() (bool, experimentalsys.Errno) {
+	// Note: we don't return a constant because we don't know if this is really
+	// backed by a dir, until the first call.
+	if f, ok := d.file(); !ok {
+		return false, experimentalsys.EBADF
+	} else {
+		return f.IsDir()
+	}
+}
+
+// IsAppend implements the same method as documented on sys.File
+func (d *lazyDir) IsAppend() bool {
 	return false
 }
 
-// SetAppend implements the same method as documented on internalapi.File
-func (r *lazyDir) SetAppend(bool) syscall.Errno {
-	return syscall.EISDIR
+// SetAppend implements the same method as documented on sys.File
+func (d *lazyDir) SetAppend(bool) experimentalsys.Errno {
+	return experimentalsys.EISDIR
 }
 
-// Seek implements the same method as documented on internalapi.File
-func (r *lazyDir) Seek(offset int64, whence int) (newOffset int64, errno syscall.Errno) {
-	if f, ok := r.file(); !ok {
-		return 0, syscall.EBADF
+// Seek implements the same method as documented on sys.File
+func (d *lazyDir) Seek(offset int64, whence int) (newOffset int64, errno experimentalsys.Errno) {
+	if f, ok := d.file(); !ok {
+		return 0, experimentalsys.EBADF
 	} else {
 		return f.Seek(offset, whence)
 	}
 }
 
-// Stat implements the same method as documented on internalapi.File
-func (r *lazyDir) Stat() (fsapi.Stat_t, syscall.Errno) {
-	if f, ok := r.file(); !ok {
-		return fsapi.Stat_t{}, syscall.EBADF
+// Stat implements the same method as documented on sys.File
+func (d *lazyDir) Stat() (sys.Stat_t, experimentalsys.Errno) {
+	if f, ok := d.file(); !ok {
+		return sys.Stat_t{}, experimentalsys.EBADF
 	} else {
 		return f.Stat()
 	}
 }
 
-// Readdir implements the same method as documented on internalapi.File
-func (r *lazyDir) Readdir(n int) (dirents []fsapi.Dirent, errno syscall.Errno) {
-	if f, ok := r.file(); !ok {
-		return nil, syscall.EBADF
+// Readdir implements the same method as documented on sys.File
+func (d *lazyDir) Readdir(n int) (dirents []experimentalsys.Dirent, errno experimentalsys.Errno) {
+	if f, ok := d.file(); !ok {
+		return nil, experimentalsys.EBADF
 	} else {
 		return f.Readdir(n)
 	}
 }
 
-// Sync implements the same method as documented on internalapi.File
-func (r *lazyDir) Sync() syscall.Errno {
-	if f, ok := r.file(); !ok {
-		return syscall.EBADF
+// Sync implements the same method as documented on sys.File
+func (d *lazyDir) Sync() experimentalsys.Errno {
+	if f, ok := d.file(); !ok {
+		return experimentalsys.EBADF
 	} else {
 		return f.Sync()
 	}
 }
 
-// Datasync implements the same method as documented on internalapi.File
-func (r *lazyDir) Datasync() syscall.Errno {
-	if f, ok := r.file(); !ok {
-		return syscall.EBADF
+// Datasync implements the same method as documented on sys.File
+func (d *lazyDir) Datasync() experimentalsys.Errno {
+	if f, ok := d.file(); !ok {
+		return experimentalsys.EBADF
 	} else {
 		return f.Datasync()
 	}
 }
 
-// Chmod implements the same method as documented on internalapi.File
-func (r *lazyDir) Chmod(mode fs.FileMode) syscall.Errno {
-	if f, ok := r.file(); !ok {
-		return syscall.EBADF
+// Utimens implements the same method as documented on sys.File
+func (d *lazyDir) Utimens(atim, mtim int64) experimentalsys.Errno {
+	if f, ok := d.file(); !ok {
+		return experimentalsys.EBADF
 	} else {
-		return f.Chmod(mode)
-	}
-}
-
-// Chown implements the same method as documented on internalapi.File
-func (r *lazyDir) Chown(uid, gid int) syscall.Errno {
-	if f, ok := r.file(); !ok {
-		return syscall.EBADF
-	} else {
-		return f.Chown(uid, gid)
-	}
-}
-
-// Utimens implements the same method as documented on internalapi.File
-func (r *lazyDir) Utimens(times *[2]syscall.Timespec) syscall.Errno {
-	if f, ok := r.file(); !ok {
-		return syscall.EBADF
-	} else {
-		return f.Utimens(times)
+		return f.Utimens(atim, mtim)
 	}
 }
 
 // file returns the underlying file or false if it doesn't exist.
-func (r *lazyDir) file() (fsapi.File, bool) {
-	if f := r.f; r.f != nil {
+func (d *lazyDir) file() (experimentalsys.File, bool) {
+	if f := d.f; d.f != nil {
 		return f, true
 	}
-	var errno syscall.Errno
-	r.f, errno = r.fs.OpenFile(".", os.O_RDONLY, 0)
+	var errno experimentalsys.Errno
+	d.f, errno = d.fs.OpenFile(".", experimentalsys.O_RDONLY, 0)
 	switch errno {
 	case 0:
-		return r.f, true
-	case syscall.ENOENT:
+		return d.f, true
+	case experimentalsys.ENOENT:
 		return nil, false
 	default:
 		panic(errno) // unexpected
@@ -127,10 +127,25 @@ func (r *lazyDir) file() (fsapi.File, bool) {
 }
 
 // Close implements fs.File
-func (r *lazyDir) Close() syscall.Errno {
-	f := r.f
+func (d *lazyDir) Close() experimentalsys.Errno {
+	f := d.f
 	if f == nil {
 		return 0 // never opened
 	}
 	return f.Close()
+}
+
+// IsNonblock implements the same method as documented on fsapi.File
+func (d *lazyDir) IsNonblock() bool {
+	return false
+}
+
+// SetNonblock implements the same method as documented on fsapi.File
+func (d *lazyDir) SetNonblock(bool) experimentalsys.Errno {
+	return experimentalsys.EISDIR
+}
+
+// Poll implements the same method as documented on fsapi.File
+func (d *lazyDir) Poll(fsapi.Pflag, int32) (ready bool, errno experimentalsys.Errno) {
+	return false, experimentalsys.ENOSYS
 }

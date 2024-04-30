@@ -69,7 +69,7 @@ func main() {
 	)
 
 	// Create SOCKS5 proxy on localhost port 8000
-	if err := server.ListenAndServe("tcp", ":10800"); err != nil {
+	if err := server.ListenAndServe("tcp", ":8000"); err != nil {
 		panic(err)
 	}
 }
@@ -83,14 +83,3 @@ func main() {
 
 This project is under MIT License. See the [LICENSE](LICENSE) file for the full license text.
 
-## Donation
-
-if package help you a lot,you can support us by:
-
-**Alipay**
-
-![alipay](https://github.com/thinkgos/thinkgos/blob/master/asserts/alipay.jpg)
-
-**WeChat Pay**
-
-![wxpay](https://github.com/thinkgos/thinkgos/blob/master/asserts/wxpay.jpg)

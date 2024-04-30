@@ -15,6 +15,7 @@ var _ atomic.Value
 var _ unsafe.Pointer
 
 const (
+	CLOCKS_PER_SEC            = 1000000
 	CLOCK_BOOTTIME            = 7
 	CLOCK_BOOTTIME_ALARM      = 9
 	CLOCK_MONOTONIC           = 1

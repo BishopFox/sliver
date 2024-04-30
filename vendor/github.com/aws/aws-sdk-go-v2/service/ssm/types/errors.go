@@ -2292,6 +2292,32 @@ func (e *OpsItemAlreadyExistsException) ErrorCode() string {
 }
 func (e *OpsItemAlreadyExistsException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
+// The specified OpsItem is in the process of being deleted.
+type OpsItemConflictException struct {
+	Message *string
+
+	ErrorCodeOverride *string
+
+	noSmithyDocumentSerde
+}
+
+func (e *OpsItemConflictException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *OpsItemConflictException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *OpsItemConflictException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "OpsItemConflictException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *OpsItemConflictException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
+
 // A specified parameter argument isn't valid. Verify the available arguments and
 // try again.
 type OpsItemInvalidParameterException struct {

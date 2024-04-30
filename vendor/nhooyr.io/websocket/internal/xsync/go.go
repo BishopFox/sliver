@@ -2,6 +2,7 @@ package xsync
 
 import (
 	"fmt"
+	"runtime/debug"
 )
 
 // Go allows running a function in another goroutine
@@ -13,7 +14,7 @@ func Go(fn func() error) <-chan error {
 			r := recover()
 			if r != nil {
 				select {
-				case errs <- fmt.Errorf("panic in go fn: %v", r):
+				case errs <- fmt.Errorf("panic in go fn: %v, %s", r, debug.Stack()):
 				default:
 				}
 			}

@@ -7,7 +7,7 @@ import (
 
 	"github.com/tetratelabs/wazero/api"
 	experimentalapi "github.com/tetratelabs/wazero/experimental"
-	internalclose "github.com/tetratelabs/wazero/internal/close"
+	"github.com/tetratelabs/wazero/internal/expctxkeys"
 	internalsock "github.com/tetratelabs/wazero/internal/sock"
 	internalsys "github.com/tetratelabs/wazero/internal/sys"
 	"github.com/tetratelabs/wazero/internal/wasm"
@@ -159,7 +159,6 @@ func NewRuntimeWithConfig(ctx context.Context, rConfig RuntimeConfig) Runtime {
 		engine = config.newEngine(ctx, config.enabledFeatures, nil)
 	}
 	store := wasm.NewStore(config.enabledFeatures, engine)
-	zero := uint64(0)
 	return &runtime{
 		cache:                 cacheImpl,
 		store:                 store,
@@ -168,7 +167,6 @@ func NewRuntimeWithConfig(ctx context.Context, rConfig RuntimeConfig) Runtime {
 		memoryCapacityFromMax: config.memoryCapacityFromMax,
 		dwarfDisabled:         config.dwarfDisabled,
 		storeCustomSections:   config.storeCustomSections,
-		closed:                &zero,
 		ensureTermination:     config.ensureTermination,
 	}
 }
@@ -189,7 +187,7 @@ type runtime struct {
 	//
 	// Note: Exclusively reading and updating this with atomics guarantees cross-goroutine observations.
 	// See /RATIONALE.md
-	closed *uint64
+	closed atomic.Uint64
 
 	ensureTermination bool
 }
@@ -235,7 +233,7 @@ func (r *runtime) CompileModule(ctx context.Context, binary []byte) (CompiledMod
 	if err != nil {
 		return nil, err
 	}
-	internal.AssignModuleID(binary, len(listeners) > 0, r.ensureTermination)
+	internal.AssignModuleID(binary, listeners, r.ensureTermination)
 	if err = r.store.Engine.CompileModule(ctx, internal, listeners, r.ensureTermination); err != nil {
 		return nil, err
 	}
@@ -244,7 +242,7 @@ func (r *runtime) CompileModule(ctx context.Context, binary []byte) (CompiledMod
 
 func buildFunctionListeners(ctx context.Context, internal *wasm.Module) ([]experimentalapi.FunctionListener, error) {
 	// Test to see if internal code are using an experimental feature.
-	fnlf := ctx.Value(experimentalapi.FunctionListenerFactoryKey{})
+	fnlf := ctx.Value(expctxkeys.FunctionListenerFactoryKey{})
 	if fnlf == nil {
 		return nil, nil
 	}
@@ -259,7 +257,7 @@ func buildFunctionListeners(ctx context.Context, internal *wasm.Module) ([]exper
 
 // failIfClosed returns an error if CloseWithExitCode was called implicitly (by Close) or explicitly.
 func (r *runtime) failIfClosed() error {
-	if closed := atomic.LoadUint64(r.closed); closed != 0 {
+	if closed := r.closed.Load(); closed != 0 {
 		return fmt.Errorf("runtime closed with exit_code(%d)", uint32(closed>>32))
 	}
 	return nil
@@ -320,7 +318,7 @@ func (r *runtime) InstantiateModule(
 		return
 	}
 
-	if closeNotifier, ok := ctx.Value(internalclose.NotifierKey{}).(internalclose.Notifier); ok {
+	if closeNotifier, ok := ctx.Value(expctxkeys.CloseNotifierKey{}).(experimentalapi.CloseNotifier); ok {
 		mod.(*wasm.ModuleInstance).CloseNotifier = closeNotifier
 	}
 
@@ -362,7 +360,7 @@ func (r *runtime) Close(ctx context.Context) error {
 // Note: it also marks the internal `closed` field
 func (r *runtime) CloseWithExitCode(ctx context.Context, exitCode uint32) error {
 	closed := uint64(1) + uint64(exitCode)<<32 // Store exitCode as high-order bits.
-	if !atomic.CompareAndSwapUint64(r.closed, 0, closed) {
+	if !r.closed.CompareAndSwap(0, closed) {
 		return nil
 	}
 	err := r.store.CloseWithExitCode(ctx, exitCode)

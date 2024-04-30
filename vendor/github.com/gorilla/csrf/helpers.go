@@ -51,18 +51,17 @@ func UnsafeSkipCheck(r *http.Request) *http.Request {
 //
 // Example:
 //
-//      // The following tag in our form.tmpl template:
-//      {{ .csrfField }}
+//	// The following tag in our form.tmpl template:
+//	{{ .csrfField }}
 //
-//      // ... becomes:
-//      <input type="hidden" name="gorilla.csrf.Token" value="<token>">
-//
+//	// ... becomes:
+//	<input type="hidden" name="gorilla.csrf.Token" value="<token>">
 func TemplateField(r *http.Request) template.HTML {
 	if name, err := contextGet(r, formKey); err == nil {
 		fragment := fmt.Sprintf(`<input type="hidden" name="%s" value="%s">`,
 			name, Token(r))
 
-		return template.HTML(fragment)
+		return template.HTML(fragment) // #nosec G203
 	}
 
 	return template.HTML("")
@@ -75,7 +74,7 @@ func TemplateField(r *http.Request) template.HTML {
 // token and returning them together as a 64-byte slice. This effectively
 // randomises the token on a per-request basis without breaking multiple browser
 // tabs/windows.
-func mask(realToken []byte, r *http.Request) string {
+func mask(realToken []byte, _ *http.Request) string {
 	otp, err := generateRandomBytes(tokenLength)
 	if err != nil {
 		return ""
