@@ -255,6 +255,7 @@ const (
 	AutomationExecutionStatusChangeCalendarOverrideRejected AutomationExecutionStatus = "ChangeCalendarOverrideRejected"
 	AutomationExecutionStatusCompletedWithSuccess           AutomationExecutionStatus = "CompletedWithSuccess"
 	AutomationExecutionStatusCompletedWithFailure           AutomationExecutionStatus = "CompletedWithFailure"
+	AutomationExecutionStatusExited                         AutomationExecutionStatus = "Exited"
 )
 
 // Values returns all known values for AutomationExecutionStatus. Note that this
@@ -280,6 +281,7 @@ func (AutomationExecutionStatus) Values() []AutomationExecutionStatus {
 		"ChangeCalendarOverrideRejected",
 		"CompletedWithSuccess",
 		"CompletedWithFailure",
+		"Exited",
 	}
 }
 
@@ -1963,12 +1965,15 @@ type StepExecutionFilterKey string
 
 // Enum values for StepExecutionFilterKey
 const (
-	StepExecutionFilterKeyStartTimeBefore     StepExecutionFilterKey = "StartTimeBefore"
-	StepExecutionFilterKeyStartTimeAfter      StepExecutionFilterKey = "StartTimeAfter"
-	StepExecutionFilterKeyStepExecutionStatus StepExecutionFilterKey = "StepExecutionStatus"
-	StepExecutionFilterKeyStepExecutionId     StepExecutionFilterKey = "StepExecutionId"
-	StepExecutionFilterKeyStepName            StepExecutionFilterKey = "StepName"
-	StepExecutionFilterKeyAction              StepExecutionFilterKey = "Action"
+	StepExecutionFilterKeyStartTimeBefore         StepExecutionFilterKey = "StartTimeBefore"
+	StepExecutionFilterKeyStartTimeAfter          StepExecutionFilterKey = "StartTimeAfter"
+	StepExecutionFilterKeyStepExecutionStatus     StepExecutionFilterKey = "StepExecutionStatus"
+	StepExecutionFilterKeyStepExecutionId         StepExecutionFilterKey = "StepExecutionId"
+	StepExecutionFilterKeyStepName                StepExecutionFilterKey = "StepName"
+	StepExecutionFilterKeyAction                  StepExecutionFilterKey = "Action"
+	StepExecutionFilterKeyParentStepExecutionId   StepExecutionFilterKey = "ParentStepExecutionId"
+	StepExecutionFilterKeyParentStepIteration     StepExecutionFilterKey = "ParentStepIteration"
+	StepExecutionFilterKeyParentStepIteratorValue StepExecutionFilterKey = "ParentStepIteratorValue"
 )
 
 // Values returns all known values for StepExecutionFilterKey. Note that this can
@@ -1982,6 +1987,9 @@ func (StepExecutionFilterKey) Values() []StepExecutionFilterKey {
 		"StepExecutionId",
 		"StepName",
 		"Action",
+		"ParentStepExecutionId",
+		"ParentStepIteration",
+		"ParentStepIteratorValue",
 	}
 }
 

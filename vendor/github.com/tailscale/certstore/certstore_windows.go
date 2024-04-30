@@ -31,7 +31,7 @@ var (
 	//	windows.CRYPT_ACQUIRE_ALLOW_NCRYPT_KEY_FLAG  — Prefer CryptoAPI.
 	//	windows.CRYPT_ACQUIRE_PREFER_NCRYPT_KEY_FLAG — Prefer CNG.
 	//	windows.CRYPT_ACQUIRE_ONLY_NCRYPT_KEY_FLAG   — Only use CNG.
-	winAPIFlag uint32 = windows.CRYPT_ACQUIRE_ALLOW_NCRYPT_KEY_FLAG
+	winAPIFlag uint32 = windows.CRYPT_ACQUIRE_PREFER_NCRYPT_KEY_FLAG
 )
 
 // winStore is a wrapper around a certStoreHandle.
@@ -363,7 +363,7 @@ type bCryptPSSPaddingInfo struct {
 func (wpk *winPrivateKey) cngSignHash(opts crypto.SignerOpts, digest []byte) ([]byte, error) {
 	hash := opts.HashFunc()
 	if len(digest) != hash.Size() {
-		return nil, errors.New("bad digest for hash")
+		return nil, errors.New("cngSignHash: bad digest for hash")
 	}
 
 	var (
@@ -388,7 +388,7 @@ func (wpk *winPrivateKey) cngSignHash(opts crypto.SignerOpts, digest []byte) ([]
 		case crypto.SHA512:
 			alg = BCRYPT_SHA512_ALGORITHM
 		default:
-			return nil, ErrUnsupportedHash
+			return nil, fmt.Errorf("cngSignHash: converting from Go algorithm: %w", ErrUnsupportedHash)
 		}
 
 		algName, err := windows.UTF16PtrFromString(alg)
@@ -418,19 +418,19 @@ func (wpk *winPrivateKey) cngSignHash(opts crypto.SignerOpts, digest []byte) ([]
 
 	// get signature length
 	if err := nCryptSignHash(wpk.cngHandle, padPtr, digestPtr, digestLen, nil, 0, &sigLen, flags); err != nil {
-		return nil, fmt.Errorf("failed to get signature length: %w", err)
+		return nil, fmt.Errorf("cngSignHash: failed to get signature length: %w", err)
 	}
 
 	// get signature
 	sig := make([]byte, sigLen)
 	if err := nCryptSignHash(wpk.cngHandle, padPtr, digestPtr, digestLen, unsafe.SliceData(sig), sigLen, &sigLen, flags); err != nil {
-		return nil, fmt.Errorf("failed to sign digest: %w", err)
+		return nil, fmt.Errorf("cngSignHash: failed to sign digest: %w", err)
 	}
 
 	// CNG returns a raw ECDSA signature, but we wan't ASN.1 DER encoding.
 	if _, isEC := wpk.publicKey.(*ecdsa.PublicKey); isEC {
 		if len(sig)%2 != 0 {
-			return nil, errors.New("bad ecdsa signature from CNG")
+			return nil, errors.New("cngSignHash: bad ecdsa signature from CNG")
 		}
 
 		type ecdsaSignature struct {
@@ -442,7 +442,7 @@ func (wpk *winPrivateKey) cngSignHash(opts crypto.SignerOpts, digest []byte) ([]
 
 		encoded, err := asn1.Marshal(ecdsaSignature{r, s})
 		if err != nil {
-			return nil, fmt.Errorf("failed to ASN.1 encode EC signature: %w", err)
+			return nil, fmt.Errorf("cngSignHash: failed to ASN.1 encode EC signature: %w", err)
 		}
 
 		return encoded, nil
@@ -454,12 +454,12 @@ func (wpk *winPrivateKey) cngSignHash(opts crypto.SignerOpts, digest []byte) ([]
 // capiSignHash signs a digest using the CryptoAPI APIs.
 func (wpk *winPrivateKey) capiSignHash(opts crypto.SignerOpts, digest []byte) ([]byte, error) {
 	if _, ok := opts.(*rsa.PSSOptions); ok {
-		return nil, ErrUnsupportedHash
+		return nil, fmt.Errorf("capiSignHash: CAPI does not support PSS padding, %w", ErrUnsupportedHash)
 	}
 
 	hash := opts.HashFunc()
 	if len(digest) != hash.Size() {
-		return nil, errors.New("bad digest for hash")
+		return nil, errors.New("capiSignHash: bad digest for hash")
 	}
 
 	// Figure out which CryptoAPI hash algorithm we're using.
@@ -473,7 +473,7 @@ func (wpk *winPrivateKey) capiSignHash(opts crypto.SignerOpts, digest []byte) ([
 	case crypto.SHA512:
 		hash_alg = CALG_SHA_512
 	default:
-		return nil, ErrUnsupportedHash
+		return nil, fmt.Errorf("capiSignHash: converting from Go algorithm: %w", ErrUnsupportedHash)
 	}
 
 	// Instantiate a CryptoAPI hash object.
@@ -481,9 +481,9 @@ func (wpk *winPrivateKey) capiSignHash(opts crypto.SignerOpts, digest []byte) ([
 
 	if err := cryptCreateHash(wpk.capiProv, hash_alg, 0, 0, &chash); err != nil {
 		if errors.Is(err, syscall.Errno(windows.NTE_BAD_ALGID)) {
-			return nil, ErrUnsupportedHash
+			err = ErrUnsupportedHash
 		}
-		return nil, err
+		return nil, fmt.Errorf("capiSignHash: cryptCreateHash: %w", err)
 	}
 	defer cryptDestroyHash(chash)
 
@@ -494,30 +494,30 @@ func (wpk *winPrivateKey) capiSignHash(opts crypto.SignerOpts, digest []byte) ([
 	)
 
 	if err := cryptGetHashParam(chash, HP_HASHSIZE, unsafe.Pointer(&hashSize), &hashSizeLen, 0); err != nil {
-		return nil, fmt.Errorf("failed to get hash size: %w", err)
+		return nil, fmt.Errorf("capiSignHash: failed to get hash size: %w", err)
 	}
 
 	if hash.Size() != int(hashSize) {
-		return nil, errors.New("invalid CryptoAPI hash")
+		return nil, errors.New("capiSignHash: invalid CryptoAPI hash")
 	}
 
 	// Put our digest into the hash object.
 	if err := cryptSetHashParam(chash, HP_HASHVAL, unsafe.Pointer(unsafe.SliceData(digest)), 0); err != nil {
-		return nil, fmt.Errorf("failed to set hash digest: %w", err)
+		return nil, fmt.Errorf("capiSignHash: failed to set hash digest: %w", err)
 	}
 
 	// Get signature length.
 	var sigLen uint32
 
 	if err := cryptSignHash(chash, wpk.keySpec, nil, 0, nil, &sigLen); err != nil {
-		return nil, fmt.Errorf("failed to get signature length: %w", err)
+		return nil, fmt.Errorf("capiSignHash: failed to get signature length: %w", err)
 	}
 
 	// Get signature
 	sig := make([]byte, int(sigLen))
 
 	if err := cryptSignHash(chash, wpk.keySpec, nil, 0, unsafe.SliceData(sig), &sigLen); err != nil {
-		return nil, fmt.Errorf("failed to sign digest: %w", err)
+		return nil, fmt.Errorf("capiSignHash: failed to sign digest: %w", err)
 	}
 
 	// Signature is little endian, but we want big endian. Reverse it.

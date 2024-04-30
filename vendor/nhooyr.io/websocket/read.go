@@ -1,3 +1,4 @@
+//go:build !js
 // +build !js
 
 package websocket
@@ -8,15 +9,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"net"
 	"strings"
 	"time"
 
 	"nhooyr.io/websocket/internal/errd"
+	"nhooyr.io/websocket/internal/util"
 	"nhooyr.io/websocket/internal/xsync"
 )
 
-// Reader reads from the connection until until there is a WebSocket
+// Reader reads from the connection until there is a WebSocket
 // data message to be read. It will handle ping, pong and close frames as appropriate.
 //
 // It returns the type of the message and an io.Reader to read it.
@@ -26,6 +28,11 @@ import (
 // Call CloseRead if you do not expect any data messages from the peer.
 //
 // Only one Reader may be open at a time.
+//
+// If you need a separate timeout on the Reader call and the Read itself,
+// use time.AfterFunc to cancel the context passed in.
+// See https://github.com/nhooyr/websocket/issues/87#issue-451703332
+// Most users should not need this.
 func (c *Conn) Reader(ctx context.Context) (MessageType, io.Reader, error) {
 	return c.reader(ctx)
 }
@@ -38,7 +45,7 @@ func (c *Conn) Read(ctx context.Context) (MessageType, []byte, error) {
 		return 0, nil, err
 	}
 
-	b, err := ioutil.ReadAll(r)
+	b, err := io.ReadAll(r)
 	return typ, b, err
 }
 
@@ -55,10 +62,16 @@ func (c *Conn) Read(ctx context.Context) (MessageType, []byte, error) {
 // frames are responded to. This means c.Ping and c.Close will still work as expected.
 func (c *Conn) CloseRead(ctx context.Context) context.Context {
 	ctx, cancel := context.WithCancel(ctx)
+
+	c.wg.Add(1)
 	go func() {
+		defer c.CloseNow()
+		defer c.wg.Done()
 		defer cancel()
-		c.Reader(ctx)
-		c.Close(StatusPolicyViolation, "unexpected data message")
+		_, _, err := c.Reader(ctx)
+		if err == nil {
+			c.Close(StatusPolicyViolation, "unexpected data message")
+		}
 	}()
 	return ctx
 }
@@ -69,10 +82,16 @@ func (c *Conn) CloseRead(ctx context.Context) context.Context {
 // By default, the connection has a message read limit of 32768 bytes.
 //
 // When the limit is hit, the connection will be closed with StatusMessageTooBig.
+//
+// Set to -1 to disable.
 func (c *Conn) SetReadLimit(n int64) {
-	// We add read one more byte than the limit in case
-	// there is a fin frame that needs to be read.
-	c.msgReader.limitReader.limit.Store(n + 1)
+	if n >= 0 {
+		// We read one more byte than the limit in case
+		// there is a fin frame that needs to be read.
+		n++
+	}
+
+	c.msgReader.limitReader.limit.Store(n)
 }
 
 const defaultReadLimit = 32768
@@ -90,13 +109,20 @@ func newMsgReader(c *Conn) *msgReader {
 
 func (mr *msgReader) resetFlate() {
 	if mr.flateContextTakeover() {
+		if mr.dict == nil {
+			mr.dict = &slidingWindow{}
+		}
 		mr.dict.init(32768)
 	}
 	if mr.flateBufio == nil {
 		mr.flateBufio = getBufioReader(mr.readFunc)
 	}
 
-	mr.flateReader = getFlateReader(mr.flateBufio, mr.dict.buf)
+	if mr.flateContextTakeover() {
+		mr.flateReader = getFlateReader(mr.flateBufio, mr.dict.buf)
+	} else {
+		mr.flateReader = getFlateReader(mr.flateBufio, nil)
+	}
 	mr.limitReader.r = mr.flateReader
 	mr.flateTail.Reset(deflateMessageTail)
 }
@@ -111,7 +137,10 @@ func (mr *msgReader) putFlateReader() {
 func (mr *msgReader) close() {
 	mr.c.readMu.forceLock()
 	mr.putFlateReader()
-	mr.dict.close()
+	if mr.dict != nil {
+		mr.dict.close()
+		mr.dict = nil
+	}
 	if mr.flateBufio != nil {
 		putBufioReader(mr.flateBufio)
 	}
@@ -181,7 +210,7 @@ func (c *Conn) readLoop(ctx context.Context) (header, error) {
 func (c *Conn) readFrameHeader(ctx context.Context) (header, error) {
 	select {
 	case <-c.closed:
-		return header{}, c.closeErr
+		return header{}, net.ErrClosed
 	case c.readTimeout <- ctx:
 	}
 
@@ -189,7 +218,7 @@ func (c *Conn) readFrameHeader(ctx context.Context) (header, error) {
 	if err != nil {
 		select {
 		case <-c.closed:
-			return header{}, c.closeErr
+			return header{}, net.ErrClosed
 		case <-ctx.Done():
 			return header{}, ctx.Err()
 		default:
@@ -200,7 +229,7 @@ func (c *Conn) readFrameHeader(ctx context.Context) (header, error) {
 
 	select {
 	case <-c.closed:
-		return header{}, c.closeErr
+		return header{}, net.ErrClosed
 	case c.readTimeout <- context.Background():
 	}
 
@@ -210,7 +239,7 @@ func (c *Conn) readFrameHeader(ctx context.Context) (header, error) {
 func (c *Conn) readFramePayload(ctx context.Context, p []byte) (int, error) {
 	select {
 	case <-c.closed:
-		return 0, c.closeErr
+		return 0, net.ErrClosed
 	case c.readTimeout <- ctx:
 	}
 
@@ -218,7 +247,7 @@ func (c *Conn) readFramePayload(ctx context.Context, p []byte) (int, error) {
 	if err != nil {
 		select {
 		case <-c.closed:
-			return n, c.closeErr
+			return n, net.ErrClosed
 		case <-ctx.Done():
 			return n, ctx.Err()
 		default:
@@ -230,7 +259,7 @@ func (c *Conn) readFramePayload(ctx context.Context, p []byte) (int, error) {
 
 	select {
 	case <-c.closed:
-		return n, c.closeErr
+		return n, net.ErrClosed
 	case c.readTimeout <- context.Background():
 	}
 
@@ -337,14 +366,14 @@ type msgReader struct {
 	flateBufio  *bufio.Reader
 	flateTail   strings.Reader
 	limitReader *limitReader
-	dict        slidingWindow
+	dict        *slidingWindow
 
 	fin           bool
 	payloadLength int64
 	maskKey       uint32
 
-	// readerFunc(mr.Read) to avoid continuous allocations.
-	readFunc readerFunc
+	// util.ReaderFunc(mr.Read) to avoid continuous allocations.
+	readFunc util.ReaderFunc
 }
 
 func (mr *msgReader) reset(ctx context.Context, h header) {
@@ -453,7 +482,11 @@ func (lr *limitReader) reset(r io.Reader) {
 }
 
 func (lr *limitReader) Read(p []byte) (int, error) {
-	if lr.n <= 0 {
+	if lr.n < 0 {
+		return lr.r.Read(p)
+	}
+
+	if lr.n == 0 {
 		err := fmt.Errorf("read limited at %v bytes", lr.limit.Load())
 		lr.c.writeError(StatusMessageTooBig, err)
 		return 0, err
@@ -464,11 +497,8 @@ func (lr *limitReader) Read(p []byte) (int, error) {
 	}
 	n, err := lr.r.Read(p)
 	lr.n -= int64(n)
+	if lr.n < 0 {
+		lr.n = 0
+	}
 	return n, err
-}
-
-type readerFunc func(p []byte) (int, error)
-
-func (f readerFunc) Read(p []byte) (int, error) {
-	return f(p)
 }

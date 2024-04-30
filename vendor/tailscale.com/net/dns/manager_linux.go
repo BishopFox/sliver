@@ -60,7 +60,7 @@ func NewOSConfigurator(logf logger.Logf, interfaceName string) (ret OSConfigurat
 	case "debian-resolvconf":
 		return newDebianResolvconfManager(logf)
 	case "openresolv":
-		return newOpenresolvManager()
+		return newOpenresolvManager(logf)
 	default:
 		logf("[unexpected] detected unknown DNS mode %q, using direct manager as last resort", mode)
 		return newDirectManagerOnFS(logf, env.fs), nil
@@ -69,13 +69,12 @@ func NewOSConfigurator(logf logger.Logf, interfaceName string) (ret OSConfigurat
 
 // newOSConfigEnv are the funcs newOSConfigurator needs, pulled out for testing.
 type newOSConfigEnv struct {
-	fs                        wholeFileFS
-	dbusPing                  func(string, string) error
-	dbusReadString            func(string, string, string, string) (string, error)
-	nmIsUsingResolved         func() error
-	nmVersionBetween          func(v1, v2 string) (safe bool, err error)
-	resolvconfStyle           func() string
-	isResolvconfDebianVersion func() bool
+	fs                wholeFileFS
+	dbusPing          func(string, string) error
+	dbusReadString    func(string, string, string, string) (string, error)
+	nmIsUsingResolved func() error
+	nmVersionBetween  func(v1, v2 string) (safe bool, err error)
+	resolvconfStyle   func() string
 }
 
 func dnsMode(logf logger.Logf, env newOSConfigEnv) (ret string, err error) {

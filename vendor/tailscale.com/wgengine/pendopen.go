@@ -108,16 +108,16 @@ func (e *userspaceEngine) trackOpenPostFilterOut(pp *packet.Parsed, t *tstun.Wra
 		}
 	}
 
-	timer := time.AfterFunc(tcpTimeoutBeforeDebug, func() {
-		e.onOpenTimeout(flow)
-	})
-
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if _, dup := e.pendOpen[flow]; dup {
 		// Duplicates are expected when the OS retransmits. Ignore.
 		return
 	}
+
+	timer := time.AfterFunc(tcpTimeoutBeforeDebug, func() {
+		e.onOpenTimeout(flow)
+	})
 	mak.Set(&e.pendOpen, flow, &pendingOpenFlow{timer: timer})
 
 	return filter.Accept
@@ -160,7 +160,7 @@ func (e *userspaceEngine) onOpenTimeout(flow flowtrack.Tuple) {
 	ps, found := e.getPeerStatusLite(n.Key())
 	if !found {
 		onlyZeroRoute := true // whether peerForIP returned n only because its /0 route matched
-		for i := range n.AllowedIPs().LenIter() {
+		for i := range n.AllowedIPs().Len() {
 			r := n.AllowedIPs().At(i)
 			if r.Bits() != 0 && r.Contains(flow.Dst.Addr()) {
 				onlyZeroRoute = false

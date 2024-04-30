@@ -461,11 +461,7 @@ func (device *Device) BindSetMark(mark uint32) error {
 	// clear cached source addresses
 	device.peers.RLock()
 	for _, peer := range device.peers.keyMap {
-		peer.Lock()
-		defer peer.Unlock()
-		if peer.endpoint != nil {
-			peer.endpoint.ClearSrc()
-		}
+		peer.markEndpointSrcForClearing()
 	}
 	device.peers.RUnlock()
 
@@ -515,11 +511,7 @@ func (device *Device) BindUpdate() error {
 	// clear cached source addresses
 	device.peers.RLock()
 	for _, peer := range device.peers.keyMap {
-		peer.Lock()
-		defer peer.Unlock()
-		if peer.endpoint != nil {
-			peer.endpoint.ClearSrc()
-		}
+		peer.markEndpointSrcForClearing()
 	}
 	device.peers.RUnlock()
 

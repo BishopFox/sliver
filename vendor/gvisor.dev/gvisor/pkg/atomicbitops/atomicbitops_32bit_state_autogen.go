@@ -6,6 +6,8 @@
 package atomicbitops
 
 import (
+	"context"
+
 	"gvisor.dev/gvisor/pkg/state"
 )
 
@@ -27,10 +29,10 @@ func (i *Int32) StateSave(stateSinkObject state.Sink) {
 	stateSinkObject.Save(0, &i.value)
 }
 
-func (i *Int32) afterLoad() {}
+func (i *Int32) afterLoad(context.Context) {}
 
 // +checklocksignore
-func (i *Int32) StateLoad(stateSourceObject state.Source) {
+func (i *Int32) StateLoad(ctx context.Context, stateSourceObject state.Source) {
 	stateSourceObject.Load(0, &i.value)
 }
 
@@ -52,14 +54,40 @@ func (u *Uint32) StateSave(stateSinkObject state.Sink) {
 	stateSinkObject.Save(0, &u.value)
 }
 
-func (u *Uint32) afterLoad() {}
+func (u *Uint32) afterLoad(context.Context) {}
 
 // +checklocksignore
-func (u *Uint32) StateLoad(stateSourceObject state.Source) {
+func (u *Uint32) StateLoad(ctx context.Context, stateSourceObject state.Source) {
 	stateSourceObject.Load(0, &u.value)
+}
+
+func (b *Bool) StateTypeName() string {
+	return "pkg/atomicbitops.Bool"
+}
+
+func (b *Bool) StateFields() []string {
+	return []string{
+		"Uint32",
+	}
+}
+
+func (b *Bool) beforeSave() {}
+
+// +checklocksignore
+func (b *Bool) StateSave(stateSinkObject state.Sink) {
+	b.beforeSave()
+	stateSinkObject.Save(0, &b.Uint32)
+}
+
+func (b *Bool) afterLoad(context.Context) {}
+
+// +checklocksignore
+func (b *Bool) StateLoad(ctx context.Context, stateSourceObject state.Source) {
+	stateSourceObject.Load(0, &b.Uint32)
 }
 
 func init() {
 	state.Register((*Int32)(nil))
 	state.Register((*Uint32)(nil))
+	state.Register((*Bool)(nil))
 }

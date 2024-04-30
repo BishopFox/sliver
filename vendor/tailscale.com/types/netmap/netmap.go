@@ -5,6 +5,7 @@
 package netmap
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"net/netip"
@@ -16,7 +17,7 @@ import (
 	"tailscale.com/tka"
 	"tailscale.com/types/key"
 	"tailscale.com/types/views"
-	"tailscale.com/util/cmpx"
+	"tailscale.com/util/set"
 	"tailscale.com/wgengine/filter"
 )
 
@@ -26,6 +27,7 @@ import (
 // alias parts of previous NetworkMap values.
 type NetworkMap struct {
 	SelfNode   tailcfg.NodeView
+	AllCaps    set.Set[tailcfg.NodeCapability] // set version of SelfNode.Capabilities + SelfNode.CapMap
 	NodeKey    key.NodePublic
 	PrivateKey key.NodePrivate
 	Expiry     time.Time
@@ -75,6 +77,9 @@ type NetworkMap struct {
 	DomainAuditLogID string
 
 	UserProfiles map[tailcfg.UserID]tailcfg.UserProfile
+
+	// MaxKeyDuration describes the MaxKeyDuration setting for the tailnet.
+	MaxKeyDuration time.Duration
 }
 
 // User returns nm.SelfNode.User if nm.SelfNode is non-nil, otherwise it returns
@@ -117,6 +122,11 @@ func (nm *NetworkMap) GetMachineStatus() tailcfg.MachineStatus {
 	return tailcfg.MachineUnauthorized
 }
 
+// HasCap reports whether nm is non-nil and nm.AllCaps contains c.
+func (nm *NetworkMap) HasCap(c tailcfg.NodeCapability) bool {
+	return nm != nil && nm.AllCaps.Contains(c)
+}
+
 // PeerByTailscaleIP returns a peer's Node based on its Tailscale IP.
 //
 // If nm is nil or no peer is found, ok is false.
@@ -146,7 +156,7 @@ func (nm *NetworkMap) PeerIndexByNodeID(nodeID tailcfg.NodeID) int {
 		return -1
 	}
 	idx, ok := sort.Find(len(nm.Peers), func(i int) int {
-		return cmpx.Compare(nodeID, nm.Peers[i].ID())
+		return cmp.Compare(nodeID, nm.Peers[i].ID())
 	})
 	if !ok {
 		return -1
@@ -175,6 +185,16 @@ func (nm *NetworkMap) MagicDNSSuffix() string {
 		return ""
 	}
 	return MagicDNSSuffixOfNodeName(nm.Name)
+}
+
+// DomainName returns the name of the NetworkMap's
+// current tailnet. If the map is nil, it returns
+// an empty string.
+func (nm *NetworkMap) DomainName() string {
+	if nm == nil {
+		return ""
+	}
+	return nm.Domain
 }
 
 // SelfCapabilities returns SelfNode.Capabilities if nm and nm.SelfNode are

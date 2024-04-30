@@ -405,6 +405,9 @@ func (f *forwarder) getKnownDoHClientForProvider(urlBase string) (c *http.Client
 		Transport: &http.Transport{
 			ForceAttemptHTTP2: true,
 			IdleConnTimeout:   dohTransportTimeout,
+			// On mobile platforms TCP KeepAlive is disabled in the dialer,
+			// ensure that we timeout if the connection appears to be hung.
+			ResponseHeaderTimeout: 10 * time.Second,
 			DialContext: func(ctx context.Context, netw, addr string) (net.Conn, error) {
 				if !strings.HasPrefix(netw, "tcp") {
 					return nil, fmt.Errorf("unexpected network %q", netw)
@@ -460,6 +463,10 @@ func (f *forwarder) sendDoH(ctx context.Context, urlBase string, c *http.Client,
 var (
 	verboseDNSForward = envknob.RegisterBool("TS_DEBUG_DNS_FORWARD_SEND")
 	skipTCPRetry      = envknob.RegisterBool("TS_DNS_FORWARD_SKIP_TCP_RETRY")
+
+	// For correlating log messages in the send() function; only used when
+	// verboseDNSForward() is true.
+	forwarderCount atomic.Uint64
 )
 
 // send sends packet to dst. It is best effort.
@@ -467,9 +474,10 @@ var (
 // send expects the reply to have the same txid as txidOut.
 func (f *forwarder) send(ctx context.Context, fq *forwardQuery, rr resolverAndDelay) (ret []byte, err error) {
 	if verboseDNSForward() {
-		f.logf("forwarder.send(%q) ...", rr.name.Addr)
+		id := forwarderCount.Add(1)
+		f.logf("forwarder.send(%q) [%d] ...", rr.name.Addr, id)
 		defer func() {
-			f.logf("forwarder.send(%q) = %v, %v", rr.name.Addr, len(ret), err)
+			f.logf("forwarder.send(%q) [%d] = %v, %v", rr.name.Addr, id, len(ret), err)
 		}()
 	}
 	if strings.HasPrefix(rr.name.Addr, "http://") {

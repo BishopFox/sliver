@@ -15,6 +15,7 @@
 package tcp
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -23,7 +24,6 @@ import (
 	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/checksum"
-	"gvisor.dev/gvisor/pkg/tcpip/hash/jenkins"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/seqnum"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
@@ -115,15 +115,14 @@ type handshake struct {
 	retransmitTimer *backoffTimer `state:"nosave"`
 }
 
-// maybeFailTimerHandler takes a handler function for a timer that may fail and
-// returns a function that will invoke the provided handler with the endpoint
-// mutex held. In addition the returned function will perform any cleanup that
-// maybe required if the timer handler returns an error and in case of no errors
-// will notify the processor if there are pending segments that need to be
-// processed.
-
+// timerHandler takes a handler function for a timer and returns a function that
+// will invoke the provided handler with the endpoint mutex held. In addition
+// the returned function will perform any cleanup that may be required if the
+// timer handler returns an error. In the case of no errors it will notify the
+// processor if there are pending segments that need to be processed.
+//
 // NOTE: e.mu is held for the duration of the call to f().
-func maybeFailTimerHandler(e *endpoint, f func() tcpip.Error) func() {
+func timerHandler(e *endpoint, f func() tcpip.Error) func() {
 	return func() {
 		e.mu.Lock()
 		if err := f(); err != nil {
@@ -154,27 +153,6 @@ func maybeFailTimerHandler(e *endpoint, f func() tcpip.Error) func() {
 	}
 }
 
-// timerHandler takes a handler function for a timer that never results in a
-// connection being aborted and returns a function that will invoke the provided
-// handler with the endpoint mutex held. In addition the returned function will
-// notify the processor if there are pending segments that need to be processed
-// once the handler function completes.
-//
-// NOTE: e.mu is held for the duration of the call to f()
-func timerHandler(e *endpoint, f func()) func() {
-	return func() {
-		e.mu.Lock()
-		f()
-		processor := e.protocol.dispatcher.selectProcessor(e.ID)
-		e.mu.Unlock()
-		// notify processor if there are pending segments to be
-		// processed.
-		if !e.segmentQueue.empty() {
-			processor.queueEndpoint(e)
-		}
-	}
-}
-
 // +checklocks:e.mu
 // +checklocksacquire:h.ep.mu
 func (e *endpoint) newHandshake() (h *handshake) {
@@ -190,7 +168,7 @@ func (e *endpoint) newHandshake() (h *handshake) {
 	e.h = h
 	// By the time handshake is created, e.ID is already initialized.
 	e.TSOffset = e.protocol.tsOffset(e.ID.LocalAddress, e.ID.RemoteAddress)
-	timer, err := newBackoffTimer(h.ep.stack.Clock(), InitialRTO, MaxRTO, maybeFailTimerHandler(e, h.retransmitHandlerLocked))
+	timer, err := newBackoffTimer(h.ep.stack.Clock(), InitialRTO, MaxRTO, timerHandler(e, h.retransmitHandlerLocked))
 	if err != nil {
 		panic(fmt.Sprintf("newBackOffTimer(_, %s, %s, _) failed: %s", InitialRTO, MaxRTO, err))
 	}
@@ -235,11 +213,13 @@ func (h *handshake) resetState() {
 
 // generateSecureISN generates a secure Initial Sequence number based on the
 // recommendation here https://tools.ietf.org/html/rfc6528#page-3.
-func generateSecureISN(id stack.TransportEndpointID, clock tcpip.Clock, seed uint32) seqnum.Value {
-	isnHasher := jenkins.Sum32(seed)
+func generateSecureISN(id stack.TransportEndpointID, clock tcpip.Clock, seed [16]byte) seqnum.Value {
+	isnHasher := sha256.New()
+
 	// Per hash.Hash.Writer:
 	//
 	// It never returns an error.
+	_, _ = isnHasher.Write(seed[:])
 	_, _ = isnHasher.Write(id.LocalAddress.AsSlice())
 	_, _ = isnHasher.Write(id.RemoteAddress.AsSlice())
 	portBuf := make([]byte, 2)
@@ -257,7 +237,8 @@ func generateSecureISN(id stack.TransportEndpointID, clock tcpip.Clock, seed uin
 	//
 	// Which sort of guarantees that we won't reuse the ISN for a new
 	// connection for the same tuple for at least 274s.
-	isn := isnHasher.Sum32() + uint32(clock.NowMonotonic().Sub(tcpip.MonotonicTime{}).Nanoseconds()>>6)
+	hash := binary.LittleEndian.Uint32(isnHasher.Sum(nil)[:4])
+	isn := hash + uint32(clock.NowMonotonic().Sub(tcpip.MonotonicTime{}).Nanoseconds()>>6)
 	return seqnum.Value(isn)
 }
 
@@ -287,19 +268,9 @@ func (h *handshake) resetToSynRcvd(iss seqnum.Value, irs seqnum.Value, opts head
 }
 
 // checkAck checks if the ACK number, if present, of a segment received during
-// a TCP 3-way handshake is valid. If it's not, a RST segment is sent back in
-// response.
+// a TCP 3-way handshake is valid.
 func (h *handshake) checkAck(s *segment) bool {
-	if s.flags.Contains(header.TCPFlagAck) && s.ackNumber != h.iss+1 {
-		// RFC 793, page 72 (https://datatracker.ietf.org/doc/html/rfc793#page-72):
-		//   If the segment acknowledgment is not acceptable, form a reset segment,
-		//        <SEQ=SEG.ACK><CTL=RST>
-		//   and send it.
-		h.ep.sendEmptyRaw(header.TCPFlagRst, s.ackNumber, 0, 0)
-		return false
-	}
-
-	return true
+	return !(s.flags.Contains(header.TCPFlagAck) && s.ackNumber != h.iss+1)
 }
 
 // synSentState handles a segment received when the TCP 3-way handshake is in
@@ -321,6 +292,11 @@ func (h *handshake) synSentState(s *segment) tcpip.Error {
 	}
 
 	if !h.checkAck(s) {
+		// RFC 793, page 72 (https://datatracker.ietf.org/doc/html/rfc793#page-72):
+		//   If the segment acknowledgment is not acceptable, form a reset segment,
+		//        <SEQ=SEG.ACK><CTL=RST>
+		//   and send it.
+		h.ep.sendEmptyRaw(header.TCPFlagRst, s.ackNumber, 0, 0)
 		return nil
 	}
 
@@ -402,8 +378,30 @@ func (h *handshake) synRcvdState(s *segment) tcpip.Error {
 		return nil
 	}
 
-	if !h.checkAck(s) {
-		return nil
+	// It's possible that s is an ACK of a SYN cookie. This can happen if:
+	//
+	//   - We receive a SYN while under load and issue a SYN/ACK with
+	//     cookie S.
+	//   - We receive a retransmitted SYN while space exists in the SYN
+	//     queue, and issue a SYN/ACK with seqnum S'.
+	//   - We receive the ACK based on S.
+	//
+	// If we receive a SYN cookie ACK, just use the cookie seqnum.
+	if !h.checkAck(s) && h.listenEP != nil {
+		iss := s.ackNumber - 1
+		data, ok := h.listenEP.listenCtx.isCookieValid(s.id, iss, s.sequenceNumber-1)
+		if !ok || int(data) >= len(mssTable) {
+			// This isn't a valid cookie.
+			// RFC 793, page 72 (https://datatracker.ietf.org/doc/html/rfc793#page-72):
+			//   If the segment acknowledgment is not acceptable, form a reset segment,
+			//        <SEQ=SEG.ACK><CTL=RST>
+			//   and send it.
+			h.ep.sendEmptyRaw(header.TCPFlagRst, s.ackNumber, 0, 0)
+			return nil
+		}
+		// This is a cookie that snuck its way in after we stopped using them.
+		h.mss = mssTable[data]
+		h.iss = iss
 	}
 
 	// RFC 793, Section 3.9, page 69, states that in the SYN-RCVD state, a
@@ -811,7 +809,7 @@ func (e *endpoint) sendSynTCP(r *stack.Route, tf tcpFields, opts header.TCPSynOp
 }
 
 // This method takes ownership of pkt.
-func (e *endpoint) sendTCP(r *stack.Route, tf tcpFields, pkt stack.PacketBufferPtr, gso stack.GSO) tcpip.Error {
+func (e *endpoint) sendTCP(r *stack.Route, tf tcpFields, pkt *stack.PacketBuffer, gso stack.GSO) tcpip.Error {
 	tf.txHash = e.txHash
 	if err := sendTCP(r, tf, pkt, gso, e.owner); err != nil {
 		e.stats.SendErrors.SegmentSendToNetworkFailed.Increment()
@@ -821,7 +819,7 @@ func (e *endpoint) sendTCP(r *stack.Route, tf tcpFields, pkt stack.PacketBufferP
 	return nil
 }
 
-func buildTCPHdr(r *stack.Route, tf tcpFields, pkt stack.PacketBufferPtr, gso stack.GSO) {
+func buildTCPHdr(r *stack.Route, tf tcpFields, pkt *stack.PacketBuffer, gso stack.GSO) {
 	optLen := len(tf.opts)
 	tcp := header.TCP(pkt.TransportHeader().Push(header.TCPMinimumSize + optLen))
 	pkt.TransportProtocolNumber = header.TCPProtocolNumber
@@ -850,7 +848,7 @@ func buildTCPHdr(r *stack.Route, tf tcpFields, pkt stack.PacketBufferPtr, gso st
 	}
 }
 
-func sendTCPBatch(r *stack.Route, tf tcpFields, pkt stack.PacketBufferPtr, gso stack.GSO, owner tcpip.PacketOwner) tcpip.Error {
+func sendTCPBatch(r *stack.Route, tf tcpFields, pkt *stack.PacketBuffer, gso stack.GSO, owner tcpip.PacketOwner) tcpip.Error {
 	optLen := len(tf.opts)
 	if tf.rcvWnd > math.MaxUint16 {
 		tf.rcvWnd = math.MaxUint16
@@ -901,7 +899,7 @@ func sendTCPBatch(r *stack.Route, tf tcpFields, pkt stack.PacketBufferPtr, gso s
 // sendTCP sends a TCP segment with the provided options via the provided
 // network endpoint and under the provided identity. This method takes
 // ownership of pkt.
-func sendTCP(r *stack.Route, tf tcpFields, pkt stack.PacketBufferPtr, gso stack.GSO, owner tcpip.PacketOwner) tcpip.Error {
+func sendTCP(r *stack.Route, tf tcpFields, pkt *stack.PacketBuffer, gso stack.GSO, owner tcpip.PacketOwner) tcpip.Error {
 	if tf.rcvWnd > math.MaxUint16 {
 		tf.rcvWnd = math.MaxUint16
 	}
@@ -974,7 +972,7 @@ func (e *endpoint) sendEmptyRaw(flags header.TCPFlags, seq, ack seqnum.Value, rc
 
 // sendRaw sends a TCP segment to the endpoint's peer. This method takes
 // ownership of pkt. pkt must not have any headers set.
-func (e *endpoint) sendRaw(pkt stack.PacketBufferPtr, flags header.TCPFlags, seq, ack seqnum.Value, rcvWnd seqnum.Size) tcpip.Error {
+func (e *endpoint) sendRaw(pkt *stack.PacketBuffer, flags header.TCPFlags, seq, ack seqnum.Value, rcvWnd seqnum.Size) tcpip.Error {
 	var sackBlocks []header.SACKBlock
 	if e.EndpointState() == StateEstablished && e.rcv.pendingRcvdSegments.Len() > 0 && (flags&header.TCPFlagAck != 0) {
 		sackBlocks = e.sack.Blocks[:e.sack.NumBlocks]
@@ -1295,7 +1293,7 @@ func (e *endpoint) keepaliveTimerExpired() tcpip.Error {
 	userTimeout := e.userTimeout
 
 	e.keepalive.Lock()
-	if !e.SocketOptions().GetKeepAlive() || e.keepalive.timer.isZero() || !e.keepalive.timer.checkExpiration() {
+	if !e.SocketOptions().GetKeepAlive() || e.keepalive.timer.isUninitialized() || !e.keepalive.timer.checkExpiration() {
 		e.keepalive.Unlock()
 		return nil
 	}
@@ -1328,7 +1326,7 @@ func (e *endpoint) keepaliveTimerExpired() tcpip.Error {
 func (e *endpoint) resetKeepaliveTimer(receivedData bool) {
 	e.keepalive.Lock()
 	defer e.keepalive.Unlock()
-	if e.keepalive.timer.isZero() {
+	if e.keepalive.timer.isUninitialized() {
 		if state := e.EndpointState(); !state.closed() {
 			panic(fmt.Sprintf("Unexpected state when the keepalive time is cleaned up, got %s, want %s or %s", state, StateClose, StateError))
 		}

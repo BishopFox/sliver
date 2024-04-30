@@ -436,7 +436,7 @@ func calculatePaddingSize(packetSize, mtu int) int {
 	return paddedSize - lastUnit
 }
 
-/* Encrypts the elems in the queue
+/* Encrypts the elements in the queue
  * and marks them for sequential consumption (by releasing the mutex)
  *
  * Obs. One instance per core
@@ -495,7 +495,7 @@ func (peer *Peer) RoutineSequentialSender(maxBatchSize int) {
 			return
 		}
 		if !peer.isRunning.Load() {
-			// peer has been stopped; return re-usable elemsContainer to the shared pool.
+			// peer has been stopped; return re-usable elems to the shared pool.
 			// This is an optimization only. It is possible for the peer to be stopped
 			// immediately after this check, in which case, elem will get processed.
 			// The timers and SendBuffers code are resilient to a few stragglers.

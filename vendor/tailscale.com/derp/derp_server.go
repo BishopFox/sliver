@@ -7,6 +7,7 @@ package derp
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	crand "crypto/rand"
@@ -40,6 +41,7 @@ import (
 	"tailscale.com/envknob"
 	"tailscale.com/metrics"
 	"tailscale.com/syncs"
+	"tailscale.com/tailcfg"
 	"tailscale.com/tstime"
 	"tailscale.com/tstime/rate"
 	"tailscale.com/types/key"
@@ -144,9 +146,13 @@ type Server struct {
 	avgQueueDuration             *uint64          // In milliseconds; accessed atomically
 	tcpRtt                       metrics.LabelMap // histogram
 
-	// verifyClients only accepts client connections to the DERP server if the clientKey is a
-	// known peer in the network, as specified by a running tailscaled's client's LocalAPI.
-	verifyClients bool
+	// verifyClientsLocalTailscaled only accepts client connections to the DERP
+	// server if the clientKey is a known peer in the network, as specified by a
+	// running tailscaled's client's LocalAPI.
+	verifyClientsLocalTailscaled bool
+
+	verifyClientsURL         string
+	verifyClientsURLFailOpen bool
 
 	mu       sync.Mutex
 	closed   bool
@@ -353,7 +359,20 @@ func (s *Server) SetMeshKey(v string) {
 //
 // It must be called before serving begins.
 func (s *Server) SetVerifyClient(v bool) {
-	s.verifyClients = v
+	s.verifyClientsLocalTailscaled = v
+}
+
+// SetVerifyClientURL sets the admission controller URL to use for verifying clients.
+// If empty, all clients are accepted (unless restricted by SetVerifyClient checking
+// against tailscaled).
+func (s *Server) SetVerifyClientURL(v string) {
+	s.verifyClientsURL = v
+}
+
+// SetVerifyClientURLFailOpen sets whether to allow clients to connect if the
+// admission controller URL is unreachable.
+func (s *Server) SetVerifyClientURLFailOpen(v bool) {
+	s.verifyClientsURLFailOpen = v
 }
 
 // HasMeshKey reports whether the server is configured with a mesh key.
@@ -691,7 +710,9 @@ func (s *Server) accept(ctx context.Context, nc Conn, brw *bufio.ReadWriter, rem
 	if err != nil {
 		return fmt.Errorf("receive client key: %v", err)
 	}
-	if err := s.verifyClient(clientKey, clientInfo); err != nil {
+
+	clientAP, _ := netip.ParseAddrPort(remoteAddr)
+	if err := s.verifyClient(ctx, clientKey, clientInfo, clientAP.Addr()); err != nil {
 		return fmt.Errorf("client %x rejected: %v", clientKey, err)
 	}
 
@@ -712,7 +733,6 @@ func (s *Server) accept(ctx context.Context, nc Conn, brw *bufio.ReadWriter, rem
 		bw:             bw,
 		logf:           logger.WithPrefix(s.logf, fmt.Sprintf("derp client %v%s: ", remoteAddr, clientKey.ShortString())),
 		done:           ctx.Done(),
-		remoteAddr:     remoteAddr,
 		remoteIPPort:   remoteIPPort,
 		connectedAt:    s.clock.Now(),
 		sendQueue:      make(chan pkt, perClientSendQueueDepth),
@@ -752,12 +772,6 @@ func (s *Server) debugLogf(format string, v ...any) {
 		s.logf(format, v...)
 	}
 }
-
-// for testing
-var (
-	timeSleep = time.Sleep
-	timeNow   = time.Now
-)
 
 // run serves the client until there's an error.
 // If the client hangs up or the server is closed, run returns nil, otherwise run returns an error.
@@ -1123,21 +1137,60 @@ func (c *sclient) requestMeshUpdate() {
 	}
 }
 
-func (s *Server) verifyClient(clientKey key.NodePublic, info *clientInfo) error {
-	if !s.verifyClients {
-		return nil
+// verifyClient checks whether the client is allowed to connect to the derper,
+// depending on how & whether the server's been configured to verify.
+func (s *Server) verifyClient(ctx context.Context, clientKey key.NodePublic, info *clientInfo, clientIP netip.Addr) error {
+	// tailscaled-based verification:
+	if s.verifyClientsLocalTailscaled {
+		status, err := tailscale.Status(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to query local tailscaled status: %w", err)
+		}
+		if clientKey == status.Self.PublicKey {
+			return nil
+		}
+		if _, exists := status.Peer[clientKey]; !exists {
+			return fmt.Errorf("client %v not in set of peers", clientKey)
+		}
 	}
-	status, err := tailscale.Status(context.TODO())
-	if err != nil {
-		return fmt.Errorf("failed to query local tailscaled status: %w", err)
+
+	// admission controller-based verification:
+	if s.verifyClientsURL != "" {
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		jreq, err := json.Marshal(&tailcfg.DERPAdmitClientRequest{
+			NodePublic: clientKey,
+			Source:     clientIP,
+		})
+		if err != nil {
+			return err
+		}
+		req, err := http.NewRequestWithContext(ctx, "POST", s.verifyClientsURL, bytes.NewReader(jreq))
+		if err != nil {
+			return err
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			if s.verifyClientsURLFailOpen {
+				s.logf("admission controller unreachable; allowing client %v", clientKey)
+				return nil
+			}
+			return err
+		}
+		defer res.Body.Close()
+		if res.StatusCode != 200 {
+			return fmt.Errorf("admission controller: %v", res.Status)
+		}
+		var jres tailcfg.DERPAdmitClientResponse
+		if err := json.NewDecoder(io.LimitReader(res.Body, 4<<10)).Decode(&jres); err != nil {
+			return err
+		}
+		if !jres.Allow {
+			return fmt.Errorf("admission controller: %v/%v not allowed", clientKey, clientIP)
+		}
+		// TODO(bradfitz): add policy for configurable bandwidth rate per client?
 	}
-	if clientKey == status.Self.PublicKey {
-		return nil
-	}
-	if _, exists := status.Peer[clientKey]; !exists {
-		return fmt.Errorf("client %v not in set of peers", clientKey)
-	}
-	// TODO(bradfitz): add policy for configurable bandwidth rate per client?
 	return nil
 }
 
@@ -1323,7 +1376,6 @@ type sclient struct {
 	info           clientInfo
 	logf           logger.Logf
 	done           <-chan struct{}  // closed when connection closes
-	remoteAddr     string           // usually ip:port from net.Conn.RemoteAddr().String()
 	remoteIPPort   netip.AddrPort   // zero if remoteAddr is not ip:port.
 	sendQueue      chan pkt         // packets queued to this client; never closed
 	discoSendQueue chan pkt         // important packets queued to this client; never closed
@@ -1360,16 +1412,13 @@ type sclient struct {
 // peerConnState represents whether a peer is connected to the server
 // or not.
 type peerConnState struct {
+	ipPort  netip.AddrPort // if present, the peer's IP:port
 	peer    key.NodePublic
 	present bool
-	ipPort  netip.AddrPort // if present, the peer's IP:port
 }
 
 // pkt is a request to write a data frame to an sclient.
 type pkt struct {
-	// src is the who's the sender of the packet.
-	src key.NodePublic
-
 	// enqueuedAt is when a packet was put onto a queue before it was sent,
 	// and is used for reporting metrics on the duration of packets in the queue.
 	enqueuedAt time.Time
@@ -1377,6 +1426,9 @@ type pkt struct {
 	// bs is the data packet bytes.
 	// The memory is owned by pkt.
 	bs []byte
+
+	// src is the who's the sender of the packet.
+	src key.NodePublic
 }
 
 // peerGoneMsg is a request to write a peerGone frame to an sclient
@@ -1578,6 +1630,17 @@ func (c *sclient) sendPeerPresent(peer key.NodePublic, ipPort netip.AddrPort) er
 func (c *sclient) sendMeshUpdates() error {
 	c.s.mu.Lock()
 	defer c.s.mu.Unlock()
+
+	// allow all happened-before mesh update request goroutines to complete, if
+	// we don't finish the task we'll queue another below.
+drainUpdates:
+	for {
+		select {
+		case <-c.meshUpdate:
+		default:
+			break drainUpdates
+		}
+	}
 
 	writes := 0
 	for _, pcs := range c.peerStateChange {

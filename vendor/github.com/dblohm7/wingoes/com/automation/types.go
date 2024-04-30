@@ -29,11 +29,14 @@ func NewBSTRFromUTF16(us []uint16) BSTR {
 	if len(us) == 0 {
 		return 0
 	}
-	return sysAllocStringLen(&us[0], uint32(len(us)))
+	return sysAllocStringLen(unsafe.SliceData(us), uint32(len(us)))
 }
 
 // NewBSTR creates a new BSTR from up, a C-style string pointer to UTF-16 code units.
 func NewBSTRFromUTF16Ptr(up *uint16) BSTR {
+	if up == nil {
+		return 0
+	}
 	return sysAllocString(up)
 }
 
@@ -66,11 +69,7 @@ func (bs *BSTR) toUTF16Ptr() *uint16 {
 
 // ToUTF16 returns the contents of bs as C-style string pointer to UTF-16 code units.
 func (bs *BSTR) ToUTF16Ptr() *uint16 {
-	slc := bs.ToUTF16()
-	if len(slc) == 0 {
-		return nil
-	}
-	return &slc[0]
+	return unsafe.SliceData(bs.ToUTF16())
 }
 
 // Clone creates a clone of bs whose lifetime becomes independent of the original.
@@ -86,7 +85,9 @@ func (bs *BSTR) IsNil() bool {
 
 // Close frees bs.
 func (bs *BSTR) Close() error {
-	sysFreeString(*bs)
-	*bs = 0
+	if *bs != 0 {
+		sysFreeString(*bs)
+		*bs = 0
+	}
 	return nil
 }

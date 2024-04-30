@@ -21,10 +21,12 @@ import (
 	"tailscale.com/net/netknob"
 	"tailscale.com/net/netmon"
 	"tailscale.com/net/netns"
+	"tailscale.com/net/tsaddr"
 	"tailscale.com/types/logger"
 	"tailscale.com/types/netmap"
 	"tailscale.com/util/clientmetric"
 	"tailscale.com/util/mak"
+	"tailscale.com/version"
 )
 
 // Dialer dials out of tailscaled, while taking care of details while
@@ -196,18 +198,6 @@ func (d *Dialer) closeSysConn(id int) {
 	go c.Close() // ignore the error
 }
 
-func (d *Dialer) interfaceIndexLocked(ifName string) (index int, ok bool) {
-	if d.netMon == nil {
-		return 0, false
-	}
-	st := d.netMon.InterfaceState()
-	iface, ok := st.Interface[ifName]
-	if !ok {
-		return 0, false
-	}
-	return iface.Index, true
-}
-
 // peerDialControlFunc is non-nil on platforms that require a way to
 // bind to dial out to other peers.
 var peerDialControlFunc func(*Dialer) func(network, address string, c syscall.RawConn) error
@@ -349,6 +339,14 @@ func (d *Dialer) UserDial(ctx context.Context, network, addr string) (net.Conn, 
 		}
 		return d.NetstackDialTCP(ctx, ipp)
 	}
+	// Workaround for macOS for now: dial Tailscale IPs with peer dialer.
+	// TODO(bradfitz): fix dialing subnet routers, public IPs via exit nodes,
+	// etc. This is a temporary partial for macOS. We need to plumb ART tables &
+	// prefs & host routing table updates around in more places. We just don't
+	// know from the limited context here how to dial properly.
+	if version.IsMacGUIVariant() && tsaddr.IsTailscaleIP(ipp.Addr()) {
+		return d.getPeerDialer().DialContext(ctx, network, ipp.String())
+	}
 	// TODO(bradfitz): netns, etc
 	var stdDialer net.Dialer
 	return stdDialer.DialContext(ctx, network, ipp.String())
@@ -377,14 +375,14 @@ func (d *Dialer) dialPeerAPI(ctx context.Context, network, addr string) (net.Con
 	return d.getPeerDialer().DialContext(ctx, network, addr)
 }
 
-// getPeerDialer returns the *net.Dialer to use to dial peers to use
-// PeerAPI.
+// getPeerDialer returns the *net.Dialer to use to dial peers (e.g. for peerapi,
+// or "tailscale nc")
 //
 // This is not used in netstack mode.
 //
 // The primary function of this is to work on macOS & iOS's in the
-// Network/System Extension so it can mark the dialer as staying
-// within the network namespace/sandbox.
+// Network/System Extension so it can mark the dialer as staying within the
+// network namespace/sandbox.
 func (d *Dialer) getPeerDialer() *net.Dialer {
 	d.peerDialerOnce.Do(func() {
 		d.peerDialer = &net.Dialer{

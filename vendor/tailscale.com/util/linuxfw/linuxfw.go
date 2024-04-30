@@ -8,7 +8,6 @@
 package linuxfw
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -131,7 +130,7 @@ func errCode(err error) int {
 // missing.  It does not check that IPv6 is currently functional or
 // that there's a global address, just that the system would support
 // IPv6 if it were on an IPv6 network.
-func checkIPv6(logf logger.Logf) error {
+func CheckIPv6(logf logger.Logf) error {
 	_, err := os.Stat("/proc/sys/net/ipv6")
 	if os.IsNotExist(err) {
 		return err
@@ -168,28 +167,6 @@ func checkIPv6(logf logger.Logf) error {
 	}
 
 	return nil
-}
-
-// checkSupportsV6NAT returns whether the system has a "nat" table in the
-// IPv6 netfilter stack.
-//
-// The nat table was added after the initial release of ipv6
-// netfilter, so some older distros ship a kernel that can't NAT IPv6
-// traffic.
-func checkSupportsV6NAT() bool {
-	bs, err := os.ReadFile("/proc/net/ip6_tables_names")
-	if err != nil {
-		// Can't read the file. Assume SNAT works.
-		return true
-	}
-	if bytes.Contains(bs, []byte("nat\n")) {
-		return true
-	}
-	// In nftables mode, that proc file will be empty. Try another thing:
-	if exec.Command("modprobe", "ip6table_nat").Run() == nil {
-		return true
-	}
-	return false
 }
 
 func CheckIPRuleSupportsV6(logf logger.Logf) error {

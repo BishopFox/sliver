@@ -11,7 +11,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"slices"
 	"strings"
 )
 
@@ -37,10 +36,10 @@ func (cs Checksum) String() string {
 	return hex.EncodeToString(cs.cs[:])
 }
 func (cs Checksum) AppendText(b []byte) ([]byte, error) {
-	return hexAppendEncode(b, cs.cs[:]), nil
+	return hex.AppendEncode(b, cs.cs[:]), nil
 }
 func (cs Checksum) MarshalText() ([]byte, error) {
-	return hexAppendEncode(nil, cs.cs[:]), nil
+	return hex.AppendEncode(nil, cs.cs[:]), nil
 }
 func (cs *Checksum) UnmarshalText(b []byte) error {
 	if len(b) != 2*len(cs.cs) {
@@ -50,22 +49,11 @@ func (cs *Checksum) UnmarshalText(b []byte) error {
 	return err
 }
 
-// TODO(https://go.dev/issue/53693): Use hex.AppendEncode instead.
-func hexAppendEncode(dst, src []byte) []byte {
-	n := hex.EncodedLen(len(src))
-	dst = slices.Grow(dst, n)
-	hex.Encode(dst[len(dst):][:n], src)
-	return dst[:len(dst)+n]
-}
-
 // PartialFiles returns a list of partial files in [Handler.Dir]
 // that were sent (or is actively being sent) by the provided id.
 func (m *Manager) PartialFiles(id ClientID) (ret []string, err error) {
 	if m == nil || m.opts.Dir == "" {
 		return nil, ErrNoTaildrop
-	}
-	if m.opts.DirectFileMode && m.opts.AvoidFinalRename {
-		return nil, nil // resuming is not supported for users that peek at our file structure
 	}
 
 	suffix := id.partialSuffix()
@@ -90,9 +78,6 @@ func (m *Manager) HashPartialFile(id ClientID, baseName string) (next func() (Bl
 	}
 	noopNext := func() (BlockChecksum, error) { return BlockChecksum{}, io.EOF }
 	noopClose := func() error { return nil }
-	if m.opts.DirectFileMode && m.opts.AvoidFinalRename {
-		return noopNext, noopClose, nil // resuming is not supported for users that peek at our file structure
-	}
 
 	dstFile, err := joinDir(m.opts.Dir, baseName)
 	if err != nil {

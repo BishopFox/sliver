@@ -4,18 +4,19 @@
 package web
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
+	"net/url"
+	"slices"
+	"strings"
 	"time"
 
 	"tailscale.com/client/tailscale/apitype"
+	"tailscale.com/ipn/ipnstate"
 	"tailscale.com/tailcfg"
 )
 
@@ -104,58 +105,54 @@ var (
 //
 // The WhoIsResponse is always populated, with a non-nil Node and UserProfile,
 // unless getTailscaleBrowserSession reports errNotUsingTailscale.
-func (s *Server) getSession(r *http.Request) (*browserSession, *apitype.WhoIsResponse, error) {
+func (s *Server) getSession(r *http.Request) (*browserSession, *apitype.WhoIsResponse, *ipnstate.Status, error) {
 	whoIs, whoIsErr := s.lc.WhoIs(r.Context(), r.RemoteAddr)
 	status, statusErr := s.lc.StatusWithoutPeers(r.Context())
 	switch {
 	case whoIsErr != nil:
-		return nil, nil, errNotUsingTailscale
+		return nil, nil, status, errNotUsingTailscale
 	case statusErr != nil:
-		return nil, whoIs, statusErr
+		return nil, whoIs, nil, statusErr
 	case status.Self == nil:
-		return nil, whoIs, errors.New("missing self node in tailscale status")
+		return nil, whoIs, status, errors.New("missing self node in tailscale status")
 	case whoIs.Node.IsTagged() && whoIs.Node.StableID == status.Self.ID:
-		return nil, whoIs, errTaggedLocalSource
+		return nil, whoIs, status, errTaggedLocalSource
 	case whoIs.Node.IsTagged():
-		return nil, whoIs, errTaggedRemoteSource
+		return nil, whoIs, status, errTaggedRemoteSource
 	case !status.Self.IsTagged() && status.Self.UserID != whoIs.UserProfile.ID:
-		return nil, whoIs, errNotOwner
+		return nil, whoIs, status, errNotOwner
 	}
 	srcNode := whoIs.Node.ID
 	srcUser := whoIs.UserProfile.ID
 
 	cookie, err := r.Cookie(sessionCookieName)
 	if errors.Is(err, http.ErrNoCookie) {
-		return nil, whoIs, errNoSession
+		return nil, whoIs, status, errNoSession
 	} else if err != nil {
-		return nil, whoIs, err
+		return nil, whoIs, status, err
 	}
 	v, ok := s.browserSessions.Load(cookie.Value)
 	if !ok {
-		return nil, whoIs, errNoSession
+		return nil, whoIs, status, errNoSession
 	}
 	session := v.(*browserSession)
 	if session.SrcNode != srcNode || session.SrcUser != srcUser {
 		// In this case the browser cookie is associated with another tailscale node.
 		// Maybe the source browser's machine was logged out and then back in as a different node.
 		// Return errNoSession because there is no session for this user.
-		return nil, whoIs, errNoSession
+		return nil, whoIs, status, errNoSession
 	} else if session.isExpired(s.timeNow()) {
 		// Session expired, remove from session map and return errNoSession.
 		s.browserSessions.Delete(session.ID)
-		return nil, whoIs, errNoSession
+		return nil, whoIs, status, errNoSession
 	}
-	return session, whoIs, nil
+	return session, whoIs, status, nil
 }
 
 // newSession creates a new session associated with the given source user/node,
 // and stores it back to the session cache. Creating of a new session includes
 // generating a new auth URL from the control server.
 func (s *Server) newSession(ctx context.Context, src *apitype.WhoIsResponse) (*browserSession, error) {
-	d, err := s.getOrAwaitAuth(ctx, "", src.Node.ID)
-	if err != nil {
-		return nil, err
-	}
 	sid, err := s.newSessionID()
 	if err != nil {
 		return nil, err
@@ -164,12 +161,42 @@ func (s *Server) newSession(ctx context.Context, src *apitype.WhoIsResponse) (*b
 		ID:      sid,
 		SrcNode: src.Node.ID,
 		SrcUser: src.UserProfile.ID,
-		AuthID:  d.ID,
-		AuthURL: d.URL,
 		Created: s.timeNow(),
 	}
+
+	if s.controlSupportsCheckMode(ctx) {
+		// control supports check mode, so get a new auth URL and return.
+		a, err := s.newAuthURL(ctx, src.Node.ID)
+		if err != nil {
+			return nil, err
+		}
+		session.AuthID = a.ID
+		session.AuthURL = a.URL
+	} else {
+		// control does not support check mode, so there is no additional auth we can do.
+		session.Authenticated = true
+	}
+
 	s.browserSessions.Store(sid, session)
 	return session, nil
+}
+
+// controlSupportsCheckMode returns whether the current control server supports web client check mode, to verify a user's identity.
+// We assume that only "tailscale.com" control servers support check mode.
+// This allows the web client to be used with non-standard control servers.
+// If an error occurs getting the control URL, this method returns true to fail closed.
+//
+// TODO(juanfont/headscale#1623): adjust or remove this when headscale supports check mode.
+func (s *Server) controlSupportsCheckMode(ctx context.Context) bool {
+	prefs, err := s.lc.GetPrefs(ctx)
+	if err != nil {
+		return true
+	}
+	controlURL, err := url.Parse(prefs.ControlURLOrDefault())
+	if err != nil {
+		return true
+	}
+	return strings.HasSuffix(controlURL.Host, ".tailscale.com")
 }
 
 // awaitUserAuth blocks until the given session auth has been completed
@@ -179,7 +206,7 @@ func (s *Server) awaitUserAuth(ctx context.Context, session *browserSession) err
 	if session.isAuthorized(s.timeNow()) {
 		return nil // already authorized
 	}
-	d, err := s.getOrAwaitAuth(ctx, session.AuthID, session.SrcNode)
+	a, err := s.waitAuthURL(ctx, session.AuthID, session.SrcNode)
 	if err != nil {
 		// Clean up the session. Doing this on any error from control
 		// server to avoid the user getting stuck with a bad session
@@ -187,50 +214,11 @@ func (s *Server) awaitUserAuth(ctx context.Context, session *browserSession) err
 		s.browserSessions.Delete(session.ID)
 		return err
 	}
-	if d.Complete {
-		session.Authenticated = d.Complete
+	if a.Complete {
+		session.Authenticated = a.Complete
 		s.browserSessions.Store(session.ID, session)
 	}
 	return nil
-}
-
-// getOrAwaitAuth connects to the control server for user auth,
-// with the following behavior:
-//
-//  1. If authID is provided empty, a new auth URL is created on the control
-//     server and reported back here, which can then be used to redirect the
-//     user on the frontend.
-//  2. If authID is provided non-empty, the connection to control blocks until
-//     the user has completed authenticating the associated auth URL,
-//     or until ctx is canceled.
-func (s *Server) getOrAwaitAuth(ctx context.Context, authID string, src tailcfg.NodeID) (*tailcfg.WebClientAuthResponse, error) {
-	type data struct {
-		ID  string
-		Src tailcfg.NodeID
-	}
-	var b bytes.Buffer
-	if err := json.NewEncoder(&b).Encode(data{ID: authID, Src: src}); err != nil {
-		return nil, err
-	}
-	url := "http://" + apitype.LocalAPIHost + "/localapi/v0/debug-web-client"
-	req, err := http.NewRequestWithContext(ctx, "POST", url, &b)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := s.lc.DoLocalRequest(req)
-	if err != nil {
-		return nil, err
-	}
-	body, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed request: %s", body)
-	}
-	var authResp *tailcfg.WebClientAuthResponse
-	if err := json.Unmarshal(body, &authResp); err != nil {
-		return nil, err
-	}
-	return authResp, nil
 }
 
 func (s *Server) newSessionID() (string, error) {
@@ -245,4 +233,107 @@ func (s *Server) newSessionID() (string, error) {
 		}
 	}
 	return "", errors.New("too many collisions generating new session; please refresh page")
+}
+
+// peerCapabilities holds information about what a source
+// peer is allowed to edit via the web UI.
+//
+// map value is true if the peer can edit the given feature.
+// Only capFeatures included in validCaps will be included.
+type peerCapabilities map[capFeature]bool
+
+// canEdit is true if the peerCapabilities grant edit access
+// to the given feature.
+func (p peerCapabilities) canEdit(feature capFeature) bool {
+	if p == nil {
+		return false
+	}
+	if p[capFeatureAll] {
+		return true
+	}
+	return p[feature]
+}
+
+// isEmpty is true if p is either nil or has no capabilities
+// with value true.
+func (p peerCapabilities) isEmpty() bool {
+	if p == nil {
+		return true
+	}
+	for _, v := range p {
+		if v == true {
+			return false
+		}
+	}
+	return true
+}
+
+type capFeature string
+
+const (
+	// The following values should not be edited.
+	// New caps can be added, but existing ones should not be changed,
+	// as these exact values are used by users in tailnet policy files.
+	//
+	// IMPORTANT: When adding a new cap, also update validCaps slice below.
+
+	capFeatureAll       capFeature = "*"         // grants peer management of all features
+	capFeatureSSH       capFeature = "ssh"       // grants peer SSH server management
+	capFeatureSubnets   capFeature = "subnets"   // grants peer subnet routes management
+	capFeatureExitNodes capFeature = "exitnodes" // grants peer ability to advertise-as and use exit nodes
+	capFeatureAccount   capFeature = "account"   // grants peer ability to turn on auto updates and log out of node
+)
+
+// validCaps contains the list of valid capabilities used in the web client.
+// Any capabilities included in a peer's grants that do not fall into this
+// list will be ignored.
+var validCaps []capFeature = []capFeature{
+	capFeatureAll,
+	capFeatureSSH,
+	capFeatureSubnets,
+	capFeatureExitNodes,
+	capFeatureAccount,
+}
+
+type capRule struct {
+	CanEdit []string `json:"canEdit,omitempty"` // list of features peer is allowed to edit
+}
+
+// toPeerCapabilities parses out the web ui capabilities from the
+// given whois response.
+func toPeerCapabilities(status *ipnstate.Status, whois *apitype.WhoIsResponse) (peerCapabilities, error) {
+	if whois == nil || status == nil {
+		return peerCapabilities{}, nil
+	}
+	if whois.Node.IsTagged() {
+		// We don't allow management *from* tagged nodes, so ignore caps.
+		// The web client auth flow relies on having a true user identity
+		// that can be verified through login.
+		return peerCapabilities{}, nil
+	}
+
+	if !status.Self.IsTagged() {
+		// User owned nodes are only ever manageable by the owner.
+		if status.Self.UserID != whois.UserProfile.ID {
+			return peerCapabilities{}, nil
+		} else {
+			return peerCapabilities{capFeatureAll: true}, nil // owner can edit all features
+		}
+	}
+
+	// For tagged nodes, we actually look at the granted capabilities.
+	caps := peerCapabilities{}
+	rules, err := tailcfg.UnmarshalCapJSON[capRule](whois.CapMap, tailcfg.PeerCapabilityWebUI)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal capability: %v", err)
+	}
+	for _, c := range rules {
+		for _, f := range c.CanEdit {
+			cap := capFeature(strings.ToLower(f))
+			if slices.Contains(validCaps, cap) {
+				caps[cap] = true
+			}
+		}
+	}
+	return caps, nil
 }

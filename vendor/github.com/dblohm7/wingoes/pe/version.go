@@ -64,13 +64,13 @@ func NewVersionInfo(filepath string) (*VersionInfo, error) {
 	}
 
 	buf := make([]byte, bufSize)
-	if err := windows.GetFileVersionInfo(filepath, 0, bufSize, unsafe.Pointer(&buf[0])); err != nil {
+	if err := windows.GetFileVersionInfo(filepath, 0, bufSize, unsafe.Pointer(unsafe.SliceData(buf))); err != nil {
 		return nil, err
 	}
 
 	var fixed *windows.VS_FIXEDFILEINFO
 	var fixedLen uint32
-	if err := windows.VerQueryValue(unsafe.Pointer(&buf[0]), `\`, unsafe.Pointer(&fixed), &fixedLen); err != nil {
+	if err := windows.VerQueryValue(unsafe.Pointer(unsafe.SliceData(buf)), `\`, unsafe.Pointer(&fixed), &fixedLen); err != nil {
 		return nil, err
 	}
 	if fixedLen < uint32(unsafe.Sizeof(windows.VS_FIXEDFILEINFO{})) {
@@ -118,7 +118,7 @@ func (vi *VersionInfo) maybeLoadTranslationIDs() {
 	var ids *langAndCodePage
 	var idsNumBytes uint32
 	if err := windows.VerQueryValue(
-		unsafe.Pointer(&vi.buf[0]),
+		unsafe.Pointer(unsafe.SliceData(vi.buf)),
 		`\VarFileInfo\Translation`,
 		unsafe.Pointer(&ids),
 		&idsNumBytes,
@@ -137,7 +137,7 @@ func (vi *VersionInfo) queryWithLangAndCodePage(key string, lcp langAndCodePage)
 
 	var value *uint16
 	var valueLen uint32
-	if err := windows.VerQueryValue(unsafe.Pointer(&vi.buf[0]), fq, unsafe.Pointer(&value), &valueLen); err != nil {
+	if err := windows.VerQueryValue(unsafe.Pointer(unsafe.SliceData(vi.buf)), fq, unsafe.Pointer(&value), &valueLen); err != nil {
 		return "", err
 	}
 

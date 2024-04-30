@@ -42,14 +42,13 @@ import (
 	"tailscale.com/net/tshttpproxy"
 	"tailscale.com/paths"
 	"tailscale.com/safesocket"
-	"tailscale.com/smallzstd"
 	"tailscale.com/types/logger"
 	"tailscale.com/types/logid"
 	"tailscale.com/util/clientmetric"
 	"tailscale.com/util/must"
 	"tailscale.com/util/racebuild"
+	"tailscale.com/util/syspolicy"
 	"tailscale.com/util/testenv"
-	"tailscale.com/util/winutil"
 	"tailscale.com/version"
 	"tailscale.com/version/distro"
 )
@@ -61,14 +60,8 @@ var getLogTargetOnce struct {
 
 func getLogTarget() string {
 	getLogTargetOnce.Do(func() {
-		if val, ok := os.LookupEnv("TS_LOG_TARGET"); ok {
-			getLogTargetOnce.v = val
-		} else {
-			if runtime.GOOS == "windows" {
-				logTarget, _ := winutil.GetRegString("LogTarget")
-				getLogTargetOnce.v = logTarget
-			}
-		}
+		envTarget, _ := os.LookupEnv("TS_LOG_TARGET")
+		getLogTargetOnce.v, _ = syspolicy.GetString(syspolicy.LogTarget, envTarget)
 	})
 
 	return getLogTargetOnce.v
@@ -557,17 +550,11 @@ func NewWithConfigPath(collection, dir, cmdName string, netMon *netmon.Monitor, 
 	}
 
 	conf := logtail.Config{
-		Collection: newc.Collection,
-		PrivateID:  newc.PrivateID,
-		Stderr:     logWriter{console},
-		NewZstdEncoder: func() logtail.Encoder {
-			w, err := smallzstd.NewEncoder(nil)
-			if err != nil {
-				panic(err)
-			}
-			return w
-		},
-		HTTPC: &http.Client{Transport: NewLogtailTransport(logtail.DefaultHost, netMon, logf)},
+		Collection:   newc.Collection,
+		PrivateID:    newc.PrivateID,
+		Stderr:       logWriter{console},
+		CompressLogs: true,
+		HTTPC:        &http.Client{Transport: NewLogtailTransport(logtail.DefaultHost, netMon, logf)},
 	}
 	if collection == logtail.CollectionNode {
 		conf.MetricsDelta = clientmetric.EncodeLogTailMetricsDelta
@@ -714,7 +701,7 @@ func dialContext(ctx context.Context, netw, addr string, netMon *netmon.Monitor,
 	}
 
 	if version.IsWindowsGUI() && strings.HasPrefix(netw, "tcp") {
-		if c, err := safesocket.Connect(safesocket.DefaultConnectionStrategy("")); err == nil {
+		if c, err := safesocket.Connect(""); err == nil {
 			fmt.Fprintf(c, "CONNECT %s HTTP/1.0\r\n\r\n", addr)
 			br := bufio.NewReader(c)
 			res, err := http.ReadResponse(br, nil)
@@ -774,6 +761,11 @@ func NewLogtailTransport(host string, netMon *netmon.Monitor, logf logger.Logf) 
 		logf = log.Printf
 	}
 	tr.DialContext = MakeDialFunc(netMon, logf)
+
+	// We're uploading logs ideally infrequently, with specific timing that will
+	// change over time. Try to keep the connection open, to avoid repeatedly
+	// paying the cost of TLS setup.
+	tr.IdleConnTimeout = time.Hour
 
 	// We're contacting exactly 1 hostname, so the default's 100
 	// max idle conns is very high for our needs. Even 2 is
