@@ -371,38 +371,40 @@ func loadExtension(goos string, goarch string, checkCache bool, ext *ExtCommand,
 		}
 		extensionList = extList.Names
 	}
-	depLoaded := false
+	//extensionList contains all *implant* loaded extensions. Is a sha256 sum of the relevant file.
+
+	//get the file hash to compare against implant extensions later
+	toberunfilepath, err := ext.getFileForTarget(goos, goarch)
+	if err != nil {
+		return err
+	}
+	//we need to check the dependent if it's a bof
+	if ext.DependsOn != "" {
+		toberunfilepath, err = loadedExtensions[ext.DependsOn].getFileForTarget(goos, goarch)
+		if err != nil {
+			return err
+		}
+	}
+
+	//todo, maybe cache these values somewhere
+	depdata, err := os.ReadFile(toberunfilepath)
+	if err != nil {
+		return err
+	}
+	bd := sha256.Sum256(depdata)
+	toberunhash := hex.EncodeToString(bd[:])
+
 	for _, extName := range extensionList {
-		if !depLoaded {
-			if extN, ok := loadedExtensions[cmd.Name()]; ok && extName == extN.DependsOn {
-				depLoaded = true
-			}
-		}
-		//check if the file suffixes are the same (should only be relevant to the same extension package), and don't load the file if it's already there
-		extN := loadedExtensions[cmd.Name()]
-		if extN != nil {
-			//confirm we haven't already loaded the file
-			for _, extf := range extN.Files {
-				if strings.HasSuffix(binPath, extf.Path) {
-					//file already exists, no need to load it
-					return nil
-				}
-			}
-		}
-		if extN, ok := loadedExtensions[cmd.Name()]; ok && extN.CommandName == extName {
+		//check if extension we are trying to run (ext.CommandName or ext.DependsOn, for bofs) is already loaded
+		if extName == toberunhash {
+			//exists on the other side, exit early
 			return nil
 		}
 	}
 	// Extension not found, let's load it
-	if filepath.Ext(binPath) == ".o" {
-		// BOFs are not loaded by the DLL loader, but we make sure the loader itself is loaded
-		// Auto load the coff loader if we have it
-		if !depLoaded {
-			if errLoad := loadDep(goos, goarch, ext.DependsOn, cmd, con); errLoad != nil {
-				return errLoad
-			}
-		}
-		return nil
+	// BOFs are not loaded by the DLL loader, but we need to load the loader (more load more good)
+	if ext.DependsOn != "" {
+		return loadDep(goos, goarch, ext.DependsOn, cmd, con)
 	}
 	binData, err := os.ReadFile(binPath)
 	if err != nil {
@@ -414,17 +416,45 @@ func loadExtension(goos string, goarch string, checkCache bool, ext *ExtCommand,
 	return nil
 }
 
-func registerExtension(goos string, _ *ExtCommand, binData []byte, cmd *cobra.Command, con *console.SliverClient) error {
+func registerExtension(goos string, ext *ExtCommand, binData []byte, cmd *cobra.Command, con *console.SliverClient) error {
 	//set extension name to a hash of the data to avoid loading more than one instance
 	bd := sha256.Sum256(binData)
 	name := hex.EncodeToString(bd[:])
+	sess, beac := con.ActiveTarget.GetInteractive()
+	ctrl := make(chan bool)
+	//first time run of an extension will require some waiting depending on the size
+	if sess != nil {
+		msg := fmt.Sprintf("Sending %s to implant ...", ext.CommandName)
+		con.SpinUntil(msg, ctrl)
+	}
+	//don't block if we are in beacon mode
+	if beac != nil && sess == nil {
+		go func() {
+			registerResp, err := con.Rpc.RegisterExtension(context.Background(), &sliverpb.RegisterExtensionReq{
+				Name: name,
+				Data: binData,
+				OS:   goos,
+				//Init:    ext.Init, ?
+				Request: con.ActiveTarget.Request(cmd),
+			})
+			if err != nil {
+				con.PrintErrorf("Error registering extension: %s\n", err)
+			}
+			if registerResp.Response != nil && registerResp.Response.Err != "" {
+				con.PrintErrorf("Error registering extension: %s\n", errors.New(registerResp.Response.Err))
+			}
+		}()
+		return nil
+	}
+	//session mode (hopefully)
 	registerResp, err := con.Rpc.RegisterExtension(context.Background(), &sliverpb.RegisterExtensionReq{
-		Name: name,
-		Data: binData,
-		OS:   goos,
-		//Init:    ext.Init, ?
+		Name:    name,
+		Data:    binData,
+		OS:      goos,
 		Request: con.ActiveTarget.Request(cmd),
 	})
+	ctrl <- true
+	<-ctrl
 	if err != nil {
 		return err
 	}
@@ -525,6 +555,20 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 	bd := sha256.Sum256(extdata)
 	name := hex.EncodeToString(bd[:])
+	if isBOF {
+		//if we are using a bof, we are actually calling the coffloader extension - so get the file from dep ref and use that shasum
+		dep, err := loadedExtensions[ext.DependsOn].getFileForTarget(goos, goarch)
+		if err != nil {
+			con.PrintErrorf("Dep error: %s\n", err.Error())
+			return
+		}
+		depdata, err := os.ReadFile(dep)
+		if err != nil {
+			con.PrintErrorf("dep read file error: %s\n", err)
+		}
+		bd = sha256.Sum256(depdata)
+		name = hex.EncodeToString(bd[:])
+	}
 	callExtResp, err := con.Rpc.CallExtension(context.Background(), &sliverpb.CallExtensionReq{
 		Name:    name,
 		Export:  entryPoint,
