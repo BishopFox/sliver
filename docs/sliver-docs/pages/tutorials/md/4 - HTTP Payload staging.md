@@ -2,34 +2,35 @@
 
 When using Sliver during a live engagement, you’re going to need to use custom stagers, which are essentially a first binary or commandline that will retrieve and/or load Sliver into memory on your target system. Sliver can generate shellcode for your stager to execute by using the `profiles` command.
 
-For this exercise we will create a new beacon profile for linux, stage it and use a bash script to download and execute 
+For this exercise we will create a new beacon profile and prepare to stage it.
 
-```
-[server] sliver > profiles new -b **%%LINUX_IPADDRESS%%** --format shellcode --skip-symbols --debug profile1
-
-[*] Saved new implant profile profile1
+```asciinema
+{"src": "/asciinema/create_profile.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}
 ```
 
-The profile should now be available when listing them using `profiles` command.
-
+If you look at the generated implant, you'll notice the `ID` field has been populated. When downloading your payload from the staging server your URL needs to be in the form of:
 ```
-[server] sliver > profiles
-
- Profile Name   Implant Type   Platform        Command & Control       Debug   Format       Obfuscation   Limitations 
-============== ============== =============== ======================= ======= ============ ============= =============
- profile1       session        windows/amd64   [1] https://10.0.0.4   true    EXECUTABLE   disabled
+https://sliver-ip/whatever.stager_file_ext?x=yourID
 ```
 
-A stage listener linked to the profile can now be created that will host your executable.
+There is a lot of flexibility in the form of this URL, the conditions for successfull staging are:
+* The file extension needs to match the c2 profile's stager_file_ext
+* There has to be a one character http url parameter
+* The digits found in the ID need to match an implant ID, if your implant ID is 1234, abcd1234, 12beu34 are all valid values
 
+To expose a payload externally you need to use the `implants stage` command and specifically select the implant to be exposed.
+
+```asciinema
+{"src": "/asciinema/stage_implant.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}
 ```
-[server] sliver > stage-listener --url http://**%%LINUX_IPADDRESS%%**:7200 --profile profile1
 
-[*] No builds found for profile profile1, generating a new one
-[*] Job 1 (http) started
+At this point we can try retrieving our implant, the ID is 19778.
+
+```asciinema
+{"src": "/asciinema/implant_curl.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}
 ```
 
-Once thats done the stage listener will host the second stage payload on the URL when specifying a file with extension `.woff` . For example, by reaching out to: [http://localhost:7200/test.woff](http://localhost:7200/test.woff) you will see that it downloads the second stage payload.
+
 
 ## Metasploit
 
