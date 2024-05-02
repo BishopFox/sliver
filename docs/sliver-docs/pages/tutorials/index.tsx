@@ -76,7 +76,7 @@ const TutorialsIndexPage: NextPage = () => {
   return (
     <div className="grid grid-cols-12">
       <Head>
-        <title>Sliver Tutorials: {name}</title>
+        <title>Sliver Tutorial: {name}</title>
       </Head>
       <div className="col-span-3 mt-4 ml-4 h-screen sticky top-20">
         <div className="flex flex-row justify-center text-lg gap-2">
@@ -138,7 +138,7 @@ const TutorialsIndexPage: NextPage = () => {
             <div className="col-span-1 mt-8 text-2xl text-center">
               Welcome to the Sliver Tutorials!
               <div className="text-xl text-gray-500">
-                Please select a tutorial
+                Please select a chapter
               </div>
             </div>
             <div className="col-span-1"></div>

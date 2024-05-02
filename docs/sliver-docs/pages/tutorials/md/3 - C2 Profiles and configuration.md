@@ -1,12 +1,10 @@
-# Advanced web traffic configuration
-
 When generating implants sliver uses a C2Profile configuration, which will be use to generate the effective network configuration of the implant. For example if configured to use /admin and /demo as callback urls, it might use one, the other or both allowing two implants using the same configuration to still seem slightly different from a network traffic perspective.
 
 C2 profile configurations can be seen using the `c2profile` command, which also allows import and export features.
 
 The full list of possible configuration option can be found in the references section below, but for now lets instead customise the existing configuration.
 
-Lets imagine we’re trying to breach a customer known for using ruby-on-rails. By default sliver will use:
+Lets imagine we’re trying to breach a customer we've noticed uses ruby-on-rails for their applications. By default sliver will use the following extensions:
 
 - `.woff` for staging
 - `.js` for poll requests
@@ -14,38 +12,103 @@ Lets imagine we’re trying to breach a customer known for using ruby-on-rails. 
 - `.png` for close session
 - `.php` for session messages
 
-Let’s go ahead and update the session messages and staging with something more realistic and remove all references to woff or php.
+We will need to update the session messages and staging with something more realistic and place all references to `woff` or `php` with something less suspicious like `css`, `rb` or `erb`.
 
-```bash
-"session_file_ext": ".css",
-"stager_file_ext": ".ico",
+We will also use a list of common Urls and filenames for Ruby on Rails like `https://github.com/danielmiessler/SecLists/blob/master/DiscoveryWeb-Content/ror.txt` for the `*_files` and `*_paths` variables. You could also reuse Urls discovered while enumerating your target's external perimeter in a similar way.
+
+We will split the urls using a script like the example below, and then update the files and paths variables in our configuration file.
+
+```python
+import json
+import math
+import sys
+import random
+
+
+def updateProfile(c2ProfileName, urls, cookieName):
+    data = open(urls).readlines()
+    c2Profile = open(c2ProfileName, "r").read()
+    jsonC2Profile = json.loads(c2Profile)
+
+    paths, filenames, extensions = [], [], []
+    for line in data:
+        line = line.strip()
+        if "." in line:
+            extensions.append(line.split(".")[-1])
+
+        if "/" in line:
+            segments = line.split("/")
+            paths.extend(segments[:-1])
+            filenames.append(segments[-1].split(".")[0])
+
+    extensions = list(set(extensions))
+    if "" in extensions:
+        extensions.remove("")
+    random.shuffle(extensions)
+
+    filenames = list(set(filenames))
+    if "" in filenames:
+        filenames.remove("")
+
+    paths = list(set(paths))
+    if "" in paths:
+        paths.remove("")
+
+    if len(extensions) < 5:
+        print(f'Got {len(extensions)} extensions, need at least 5.')
+        exit(0)
+
+    if len(paths) < 5:
+        print(f'Got {len(paths)} paths need at least 5.')
+        exit(0)
+
+    if len(filenames) < 5:
+        print(f'Got {len(filenames)} paths need at least 5.')
+        exit(0)
+
+    exts = ['poll_file_ext','stager_file_ext', 'start_session_file_ext', 'session_file_ext', 'close_file_ext' ]
+    for ext in exts:
+        jsonC2Profile["implant_config"][ext] = extensions[0]
+        extensions.pop(0)
+
+    pathTypes = ['poll_paths','stager_paths', 'session_paths', 'close_paths' ]
+    for x, pathType in enumerate(pathTypes):
+        jsonC2Profile["implant_config"][pathType] =  paths[math.floor(x*(len(paths)/len(pathTypes))):math.floor((x+1)*(len(paths)/len(pathTypes)))]
+
+    fileTypes = ['poll_files','stager_files', 'session_files', 'close_files']
+    for x, fileType in enumerate(fileTypes):
+        jsonC2Profile["implant_config"][fileType] = filenames[math.floor(x*(len(filenames)/len(fileTypes))):math.floor((x+1)*(len(filenames)/len(fileTypes)))]
+
+    jsonC2Profile["server_config"]["cookies"] = [cookieName]
+    c2Profile = open(c2ProfileName, "w")
+    c2Profile.write(json.dumps(jsonC2Profile))
+    print("C2 Profile updated !")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 4:
+        print("Usage: updateProfile.py myC2Profile myurls.txt cookieName")
+        exit(0)
+
+    updateProfile(sys.argv[1], sys.argv[2], sys.argv[3])
+```
+The example below demonstrates how to change and import a profile.
+
+```asciinema
+{"src": "/asciinema/custom_c2profile.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}
 ```
 
-TODO pull urls for ror, maybe from seclists ? 
+At this point we can generate a new implant using our new profile.
 
-The next step is to restart the http listener and generate our new implant.
-
-```bash
-TODO
-asciinema export c2profile, updating extensions and paths
+```asciinema
+{"src": "/asciinema/implant_custom_c2profile.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}
 ```
 
-TODO
-asciinema import custom c2profile, restart job and spin new beacon
+If we review the debug logs of our implant we can see that the connections now use our new profile.
 
-If you now look at the debug output you’ll notice we no longer have .php urls.
-
-```bash
-2023/04/25 15:27:41 httpclient.go:672: [http] segments = [oauth2 v1 authenticate auth], filename = index, ext = css
-2023/04/25 15:27:41 httpclient.go:482: [http] POST -> http://localhost/oauth2/v1/authenticate/auth/index.css?p=711x58387 (2228 bytes)
-2023/04/25 15:27:41 httpclient.go:488: [http] POST request completed
-2023/04/25 15:27:42 httpclient.go:287: Cancelling poll context
-2023/04/25 15:27:42 httpclient.go:672: [http] segments = [assets], filename = jquery, ext = js
-2023/04/25 15:27:42 httpclient.go:406: [http] GET -> http://localhost/assets/jquery.js?r=72074674
-2023/04/25 15:27:42 sliver.go:198: [recv] sysHandler 12
-2023/04/25 15:27:42 session.go:189: [http] send envelope ...
-2023/04/25 15:27:42 httpclient.go:672: [http] segments = [oauth v1 oauth2], filename = admin, ext = css
-2023/04/25 15:27:42 httpclient.go:482: [http] POST -> http://localhost/oauth/v1/oauth2/admin.css?j=56685386 (93 bytes)
+```asciinema
+{"src": "/asciinema/implant_debug_logs.cast", "cols": "132", "rows": "28", "idleTimeLimit": 8}
 ```
 
 Ideally during engagements your recon phase should inform your C2 infrastructure, reusing similar hosting providers, technologies and communication protocols can help your implant fly under the radar. 
+

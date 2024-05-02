@@ -1,6 +1,7 @@
 import Navbar from "@/components/navbar";
 import "@/styles/globals.css";
 import { Docs } from "@/util/docs";
+import { Tutorials } from "@/util/tutorials";
 import { SearchContext, SearchCtx } from "@/util/search-context";
 import { Themes } from "@/util/themes";
 import { faExternalLink } from "@fortawesome/free-solid-svg-icons";
@@ -39,6 +40,16 @@ export default function App({ Component, pageProps }: AppProps) {
       const docs: Docs = await res.json();
       search.addDocs(docs);
       return docs;
+    },
+  });
+
+  queryClient.prefetchQuery({
+    queryKey: ["tutorials"],
+    queryFn: async (): Promise<Tutorials> => {
+      const res = await fetch("/tutorials.json");
+      const tutorials: Tutorials = await res.json();
+      search.addTutorials(tutorials);
+      return tutorials;
     },
   });
 

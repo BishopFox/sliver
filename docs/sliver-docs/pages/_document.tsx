@@ -17,7 +17,6 @@ class MyDocument extends Document {
     return (
       <Html lang="en">
         <Head>
-          <title>Sliver Docs</title>
           <meta httpEquiv="Content-Security-Policy" content={CSP} />
         </Head>
         <body>
