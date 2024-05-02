@@ -30,6 +30,11 @@ At this point we can try retrieving our implant, the ID is 19778.
 {"src": "/asciinema/implant_curl.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}
 ```
 
+Sliver staging also supports encoding or encrypting our payloads before exposing them extenrally using the `profile stage` command, the implant configuration remains the same but you are now able to stage different versions of it simultaneously.
+
+```asciinema
+{"src": "/asciinema/stage_compress_encrypt.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}
+```
 
 
 ## Metasploit
