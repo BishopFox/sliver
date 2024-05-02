@@ -99,6 +99,7 @@ type ExtCommand struct {
 	Arguments   []*extensionArgument `json:"arguments"`
 	Entrypoint  string               `json:"entrypoint"`
 	DependsOn   string               `json:"depends_on"`
+	Init        string               `json:"init"`
 
 	Manifest *ExtensionManifest
 }
@@ -380,18 +381,28 @@ func loadExtension(goos string, goarch string, checkCache bool, ext *ExtCommand,
 	}
 	//we need to check the dependent if it's a bof
 	if ext.DependsOn != "" {
-		toberunfilepath, err = loadedExtensions[ext.DependsOn].getFileForTarget(goos, goarch)
-		if err != nil {
-			return err
+		//verify extension is in loaded list
+		if extension, found := loadedExtensions[ext.DependsOn]; found {
+			toberunfilepath, err = extension.getFileForTarget(goos, goarch)
+			if err != nil {
+				return err
+			}
+		} else {
+			// handle error
+			return fmt.Errorf("attempted to load non-existing extension: %s", ext.DependsOn)
 		}
 	}
 
 	//todo, maybe cache these values somewhere
-	depdata, err := os.ReadFile(toberunfilepath)
+	toberunfiledata, err := os.ReadFile(toberunfilepath)
 	if err != nil {
 		return err
 	}
-	bd := sha256.Sum256(depdata)
+	if len(toberunfiledata) == 0 {
+		//read an empty file, bail out
+		return errors.New("read empty extension file content")
+	}
+	bd := sha256.Sum256(toberunfiledata)
 	toberunhash := hex.EncodeToString(bd[:])
 
 	for _, extName := range extensionList {
@@ -431,10 +442,10 @@ func registerExtension(goos string, ext *ExtCommand, binData []byte, cmd *cobra.
 	if beac != nil && sess == nil {
 		go func() {
 			registerResp, err := con.Rpc.RegisterExtension(context.Background(), &sliverpb.RegisterExtensionReq{
-				Name: name,
-				Data: binData,
-				OS:   goos,
-				//Init:    ext.Init, ?
+				Name:    name,
+				Data:    binData,
+				OS:      goos,
+				Init:    ext.Init,
 				Request: con.ActiveTarget.Request(cmd),
 			})
 			if err != nil {
@@ -557,17 +568,30 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	name := hex.EncodeToString(bd[:])
 	if isBOF {
 		//if we are using a bof, we are actually calling the coffloader extension - so get the file from dep ref and use that shasum
-		dep, err := loadedExtensions[ext.DependsOn].getFileForTarget(goos, goarch)
-		if err != nil {
-			con.PrintErrorf("Dep error: %s\n", err.Error())
+
+		if extension, found := loadedExtensions[ext.DependsOn]; found {
+			dep, err := extension.getFileForTarget(goos, goarch)
+			if err != nil {
+				con.PrintErrorf("could not get file for extension %s", ext.DependsOn)
+				return
+			}
+			depdata, err := os.ReadFile(dep)
+			if err != nil {
+				con.PrintErrorf("dep read file error: %s\n", err)
+				return
+			}
+			if len(depdata) == 0 {
+				con.PrintErrorf("read empty file: %s\n", dep)
+				return
+			}
+			bd = sha256.Sum256(depdata)
+			name = hex.EncodeToString(bd[:])
+		} else {
+			// handle error
+			con.PrintErrorf("attempted to load non-existing extension: %s", ext.DependsOn)
 			return
 		}
-		depdata, err := os.ReadFile(dep)
-		if err != nil {
-			con.PrintErrorf("dep read file error: %s\n", err)
-		}
-		bd = sha256.Sum256(depdata)
-		name = hex.EncodeToString(bd[:])
+
 	}
 	callExtResp, err := con.Rpc.CallExtension(context.Background(), &sliverpb.CallExtensionReq{
 		Name:    name,
