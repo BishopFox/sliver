@@ -579,7 +579,7 @@ func getExtArgs(_ *cobra.Command, args []string, _ string, ext *ExtCommand) ([]b
 	missingRequiredArgs := make([]string, 0)
 
 	// If we have an extension that expects a single string, but more than one has been parsed, combine them
-	if len(ext.Arguments) == 1 && strings.Contains(ext.Arguments[0].Type, "string") {
+	if len(ext.Arguments) == 1 && strings.Contains(ext.Arguments[0].Type, "string") && len(args) > 0 {
 		// The loop below will only read the first element of args because ext.Arguments is 1
 		args[0] = strings.Join(args, " ")
 	}
