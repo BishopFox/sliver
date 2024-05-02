@@ -42,7 +42,7 @@ export default function TutorialCard(props: TutorialCardCardProps) {
       </div>
 
       <CardFooter className="absolute bg-black/40 bottom-0 z-100 border-t-1 border-default-600 dark:border-default-100">
-        <div className="flex w-full items-center">
+        <div className="flex flex-row w-full items-center">
           <p
             className={
               props.italicDescription
@@ -54,17 +54,16 @@ export default function TutorialCard(props: TutorialCardCardProps) {
           </p>
 
           {props.showButton ? (
-            <div className="justify-items-end">
-              <Button
-                variant="ghost"
-                color="warning"
-                size="sm"
-                onPress={props.onPress}
-              >
-                {props.buttonText ? props.buttonText : "Read Tutorial"}{" "}
-                <FontAwesomeIcon icon={faChevronRight} />
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              color="warning"
+              size="sm"
+              onPress={props.onPress}
+              className="ml-auto"
+            >
+              {props.buttonText ? props.buttonText : "Read Tutorial"}{" "}
+              <FontAwesomeIcon icon={faChevronRight} />
+            </Button>
           ) : (
             <></>
           )}
