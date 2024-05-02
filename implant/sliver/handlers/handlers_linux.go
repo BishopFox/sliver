@@ -31,8 +31,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/bishopfox/sliver/implant/sliver/procdump"
 	"github.com/bishopfox/sliver/implant/sliver/mount"
+	"github.com/bishopfox/sliver/implant/sliver/procdump"
 	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -190,7 +190,7 @@ func memfilesListHandler(_ []byte, resp RPCResponse) {
 
 	pid := os.Getpid()
 	path := fmt.Sprintf("/proc/%d/fd/", pid)
-	dir, files, err := getDirList(path)
+	dir, rootDirEntry, files, err := getDirList(path)
 
 	// Convert directory listing to protobuf
 	timezone, offset := time.Now().Zone()
@@ -201,6 +201,19 @@ func memfilesListHandler(_ []byte, resp RPCResponse) {
 		dirList.Exists = false
 	}
 	dirList.Files = []*sliverpb.FileInfo{}
+	rootDirInfo, err := rootDirEntry.Info()
+	if err == nil {
+		// We should not get an error because we created the DirEntry object from the FileInfo object
+		dirList.Files = append(dirList.Files, &sliverpb.FileInfo{
+			Name:    ".", // Cannot use the name from the FileInfo / DirEntry because that is the name of the directory
+			Size:    rootDirInfo.Size(),
+			ModTime: rootDirInfo.ModTime().Unix(),
+			Mode:    rootDirInfo.Mode().String(),
+			Uid:     getUid(rootDirInfo),
+			Gid:     getGid(rootDirInfo),
+			IsDir:   rootDirInfo.IsDir(),
+		})
+	}
 
 	for _, dirEntry := range files {
 		//log.Printf("File: %s\n", dirEntry.Name())
