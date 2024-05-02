@@ -155,7 +155,7 @@ func dirListHandler(data []byte, resp RPCResponse) {
 
 	path, filter := determineDirPathFilter(targetPath)
 
-	dir, files, err := getDirList(path)
+	dir, rootDirEntry, files, err := getDirList(path)
 
 	// Convert directory listing to protobuf
 	timezone, offset := time.Now().Zone()
@@ -166,6 +166,19 @@ func dirListHandler(data []byte, resp RPCResponse) {
 		dirList.Exists = false
 	}
 	dirList.Files = []*sliverpb.FileInfo{}
+	rootDirInfo, err := rootDirEntry.Info()
+	if err == nil && filter == "" {
+		// We should not get an error because we created the DirEntry object from the FileInfo object
+		dirList.Files = append(dirList.Files, &sliverpb.FileInfo{
+			Name:    ".", // Cannot use the name from the FileInfo / DirEntry because that is the name of the directory
+			Size:    rootDirInfo.Size(),
+			ModTime: rootDirInfo.ModTime().Unix(),
+			Mode:    rootDirInfo.Mode().String(),
+			Uid:     getUid(rootDirInfo),
+			Gid:     getGid(rootDirInfo),
+			IsDir:   rootDirInfo.IsDir(),
+		})
+	}
 
 	var match bool = false
 	var linkPath string = ""
@@ -226,19 +239,30 @@ func dirListHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func getDirList(target string) (string, []fs.DirEntry, error) {
+func getDirList(target string) (string, fs.DirEntry, []fs.DirEntry, error) {
 	dir, err := filepath.Abs(target)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("dir list failed to construct path %s", err)
 		// {{end}}
-		return "", nil, err
+		return "", nil, nil, err
 	}
-	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+	if rootInfo, err := os.Stat(dir); !os.IsNotExist(err) {
+		/*
+			We could place the entry for the directory itself
+			at the beginning of the returned slice of DirEntry
+			objects, but then it is not clear if that is the
+			root directory or a directory / file in the root
+			directory with the same name as the root directory.
+
+			Using WalkDir is not great here because you cannot
+			tell it to not be recursive, so we will be wasting
+			cycles telling it to skip directories and files
+		*/
 		files, err := os.ReadDir(dir)
-		return dir, files, err
+		return dir, fs.FileInfoToDirEntry(rootInfo), files, err
 	}
-	return dir, []fs.DirEntry{}, errors.New("directory does not exist")
+	return dir, nil, []fs.DirEntry{}, errors.New("directory does not exist")
 }
 
 func rmHandler(data []byte, resp RPCResponse) {
