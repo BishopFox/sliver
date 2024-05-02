@@ -184,6 +184,28 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	profilesCmd.AddCommand(profilesNewCmd)
 
+	profilesStageCmd := &cobra.Command{
+		Use:   consts.StageStr,
+		Short: "Generate implant from a profile and encode or encrypt it",
+		Args:  cobra.ExactArgs(1),
+		Long:  help.GetHelpFor([]string{consts.ProfilesStr, consts.StageStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			ProfilesStageCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("profiles", false, profilesStageCmd, func(f *pflag.FlagSet) {
+		f.StringP("save", "s", "", "directory/file to the binary to")
+		f.StringP("name", "n", "", "Implant name")
+		f.StringP("aesEncryptKey", "k", "", "AES Encryption Key")
+		f.StringP("aesEncryptIv", "i", "", "AES Encryption IV")
+		f.StringP("rc4EncryptKey", "r", "", "RC4 encryption key")
+		f.BoolP("prepend", "p", false, "Prepend stage size")
+		f.StringP("compress", "c", "", "Compress stage (zlib, gzip, deflate9 or deflate)")
+	})
+
+	carapace.Gen(profilesStageCmd).PositionalCompletion(ProfileNameCompleter(con))
+	profilesCmd.AddCommand(profilesStageCmd)
+
 	// Session flags and completions.
 	coreImplantFlags("session", profilesNewCmd)
 	compileImplantFlags("session", profilesNewCmd)
