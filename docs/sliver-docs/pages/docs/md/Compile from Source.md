@@ -40,6 +40,8 @@ From the project root directory run:
 docker build --target production -t sliver .
 ```
 
+#### Compiling Sliver on Kali Linux
+
 ```asciinema
 {"src": "/asciinema/sliver-docker-production.cast", "cols": "132"}
 ```

@@ -18,9 +18,8 @@ export default function Home() {
   }
 
   return (
-    <div className="grid grid-cols-12 mt-2">
-      <div className="col-span-1"></div>
-      <div className="col-span-5 mr-2">
+    <div className="grid grid-cols-12 mt-2 gap-2 ml-12 mr-12">
+      <div className="col-span-6">
         <AsciinemaPlayer
           src="/asciinema/intro.cast"
           rows="18"
@@ -31,7 +30,7 @@ export default function Home() {
           loop={true}
         />
       </div>
-      <div className="col-span-5 ml-2">
+      <div className="col-span-6 ml-2">
         <Card>
           <CardHeader>
             <div className="flex items-center">
@@ -64,21 +63,17 @@ export default function Home() {
           </CardBody>
         </Card>
       </div>
-      <div className="col-span-1"></div>
 
-      <div className="col-span-1"></div>
-      <div className="col-span-10 mt-8">
+      <div className="col-span-12 mt-8">
         <Divider />
       </div>
-      <div className="col-span-1"></div>
 
-      <div className="col-span-1"></div>
-      <div className="col-span-10 mt-8">
-        <div className="grid grid-cols-8">
-          <div className="col-span-2">
+      <div className="col-span-12 mt-8">
+        <div className="grid grid-cols-9 gap-2">
+          <div className="col-span-3">
             <TutorialCard
               name="Getting Started"
-              description="A quick start guide to get you up and running with Sliver."
+              description="A quick start guide to get you up and running"
               asciiCast="/asciinema/install-1.cast"
               cols="133"
               rows="32"
@@ -93,9 +88,27 @@ export default function Home() {
               }}
             />
           </div>
+
+          <div className="col-span-3">
+            <TutorialCard
+              name="Compile From Source"
+              description="How to compile Sliver from source"
+              asciiCast="/asciinema/compile-from-source.cast"
+              cols="133"
+              rows="32"
+              idleTimeLimit={1}
+              showButton={true}
+              buttonText="Read Docs"
+              onPress={() => {
+                router.push({
+                  pathname: "/docs",
+                  query: { name: "Compile from Source" },
+                });
+              }}
+            />
+          </div>
         </div>
       </div>
-      <div className="col-span-1"></div>
 
       <div className="col-span-12 mb-8"></div>
     </div>
