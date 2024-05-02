@@ -436,20 +436,74 @@ func SaveHTTPC2Config(httpC2Config *clientpb.HTTPC2Config) error {
 func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2Config) error {
 	clientID, _ := uuid.FromString(oldConf.ImplantConfig.ID)
 	c2Config := models.HTTPC2ConfigFromProtobuf(newConf)
-	err := Session().Where(&models.ImplantConfig{
-		ID: clientID,
-	}).Updates(c2Config.ImplantConfig)
-	if err != nil {
+
+	err := Session().Where(&models.HttpC2PathSegment{
+		HttpC2ImplantConfigID: clientID,
+	}).Delete(&models.HttpC2PathSegment{})
+	if err.Error != nil {
 		return err.Error
 	}
 
-	serverID, _ := uuid.FromString(oldConf.ImplantConfig.ID)
+	err = Session().Where(&models.ImplantConfig{
+		ID: clientID,
+	}).Updates(c2Config.ImplantConfig)
+	if err.Error != nil {
+		return err.Error
+	}
+
+	for _, segment := range c2Config.ImplantConfig.PathSegments {
+		segment.HttpC2ImplantConfigID = clientID
+		err = Session().Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).Create(&segment)
+		if err.Error != nil {
+			return err.Error
+		}
+	}
+
+	serverID, _ := uuid.FromString(oldConf.ServerConfig.ID)
+
+	err = Session().Where(&models.HttpC2Cookie{
+		HttpC2ServerConfigID: serverID,
+	}).Delete(&models.HttpC2Cookie{})
+	if err.Error != nil {
+		return err.Error
+	}
+
+	err = Session().Where(&models.HttpC2Header{
+		HttpC2ServerConfigID: serverID,
+	}).Delete(&models.HttpC2Header{})
+	if err.Error != nil {
+		return err.Error
+	}
+
 	err = Session().Where(&models.HttpC2ServerConfig{
 		ID: serverID,
 	}).Updates(c2Config.ServerConfig)
-	if err != nil {
+	if err.Error != nil {
 		return err.Error
 	}
+
+	for _, cookie := range c2Config.ServerConfig.Cookies {
+		cookie.HttpC2ServerConfigID = serverID
+		err = Session().Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).Create(&cookie)
+		if err.Error != nil {
+			return err.Error
+		}
+	}
+
+	for _, header := range c2Config.ServerConfig.Headers {
+		header.HttpC2ServerConfigID = serverID
+		err = Session().Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).Create(&header)
+		if err.Error != nil {
+			return err.Error
+		}
+	}
+
 	return nil
 }
 
