@@ -188,14 +188,21 @@ func (s *Status) Peers() []key.NodePublic {
 }
 
 type PeerStatusLite struct {
-	// TxBytes/RxBytes is the total number of bytes transmitted to/received from this peer.
-	TxBytes, RxBytes int64
-	// LastHandshake is the last time a handshake succeeded with this peer.
-	// (Or we got key confirmation via the first data message,
-	// which is approximately the same thing.)
-	LastHandshake time.Time
 	// NodeKey is this peer's public node key.
 	NodeKey key.NodePublic
+
+	// TxBytes/RxBytes are the total number of bytes transmitted to/received
+	// from this peer.
+	TxBytes, RxBytes int64
+
+	// LastHandshake is the last time a handshake succeeded with this peer. (Or
+	// we got key confirmation via the first data message, which is
+	// approximately the same thing.)
+	//
+	// The time.Time zero value means that no handshake has succeeded, at least
+	// since this peer was last known to WireGuard. (Tailscale removes peers
+	// from the wireguard peer that are idle.)
+	LastHandshake time.Time
 }
 
 // PeerStatus describes a peer node and its current state.
@@ -216,6 +223,8 @@ type PeerStatus struct {
 
 	// TailscaleIPs are the IP addresses assigned to the node.
 	TailscaleIPs []netip.Addr
+	// AllowedIPs are IP addresses allowed to route to this node.
+	AllowedIPs *views.Slice[netip.Prefix] `json:",omitempty"`
 
 	// Tags are the list of ACL tags applied to this node.
 	// See tailscale.com/tailcfg#Node.Tags for more information.
@@ -257,6 +266,10 @@ type PeerStatus struct {
 	//    "https://tailscale.com/cap/is-admin"
 	//    "https://tailscale.com/cap/file-sharing"
 	//    "funnel"
+	//
+	// Deprecated: use CapMap instead. See https://github.com/tailscale/tailscale/issues/11508
+	// Every value is Capabilities is also a key in CapMap, even if it
+	// has no values in that map.
 	Capabilities []tailcfg.NodeCapability `json:",omitempty"`
 
 	// CapMap is a map of capabilities to their values.
@@ -297,7 +310,7 @@ type PeerStatus struct {
 
 // HasCap reports whether ps has the given capability.
 func (ps *PeerStatus) HasCap(cap tailcfg.NodeCapability) bool {
-	return ps.CapMap.Contains(cap) || slices.Contains(ps.Capabilities, cap)
+	return ps.CapMap.Contains(cap)
 }
 
 // IsTagged reports whether ps is tagged.
@@ -414,6 +427,9 @@ func (sb *StatusBuilder) AddPeer(peer key.NodePublic, st *PeerStatus) {
 	if v := st.PrimaryRoutes; v != nil && !v.IsNil() {
 		e.PrimaryRoutes = v
 	}
+	if v := st.AllowedIPs; v != nil && !v.IsNil() {
+		e.AllowedIPs = v
+	}
 	if v := st.Tags; v != nil && !v.IsNil() {
 		e.Tags = v
 	}
@@ -479,6 +495,12 @@ func (sb *StatusBuilder) AddPeer(peer key.NodePublic, st *PeerStatus) {
 	}
 	if t := st.KeyExpiry; t != nil {
 		e.KeyExpiry = ptr.To(*t)
+	}
+	if v := st.CapMap; v != nil {
+		e.CapMap = v
+	}
+	if v := st.Capabilities; v != nil {
+		e.Capabilities = v
 	}
 	e.Location = st.Location
 }

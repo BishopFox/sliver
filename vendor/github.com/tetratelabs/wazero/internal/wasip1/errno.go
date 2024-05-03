@@ -296,6 +296,8 @@ func ToErrno(errno sys.Errno) Errno {
 		return ErrnoNosys
 	case sys.ENOTDIR:
 		return ErrnoNotdir
+	case sys.ERANGE:
+		return ErrnoRange
 	case sys.ENOTEMPTY:
 		return ErrnoNotempty
 	case sys.ENOTSOCK:

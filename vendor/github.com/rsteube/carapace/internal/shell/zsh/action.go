@@ -13,7 +13,7 @@ var sanitizer = strings.NewReplacer(
 	"\t", ``,
 )
 
-// TODO verify these are correct/complete (copied from bash).
+// TODO verify these are correct/complete (copied from bash)
 var quoter = strings.NewReplacer(
 	`\`, `\\`,
 	`&`, `\&`,
@@ -45,8 +45,9 @@ func quoteValue(s string) string {
 	return quoter.Replace(s)
 }
 
-// ActionRawValues formats values for zsh.
+// ActionRawValues formats values for zsh
 func ActionRawValues(currentWord string, meta common.Meta, values common.RawValues) string {
+
 	tagGroup := make([]string, 0)
 	values.EachTag(func(tag string, values common.RawValues) {
 		vals := make([]string, len(values))

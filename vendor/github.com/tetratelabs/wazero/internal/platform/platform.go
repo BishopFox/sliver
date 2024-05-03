@@ -5,17 +5,8 @@
 package platform
 
 import (
-	"regexp"
 	"runtime"
 )
-
-// IsAtLeastGo120 checks features added in 1.20. We can remove this when Go
-// 1.22 is out.
-var IsAtLeastGo120 = isAtLeastGo120(runtime.Version())
-
-func isAtLeastGo120(version string) bool {
-	return regexp.MustCompile("go1.[2-9][0-9][^0-9]").MatchString(version)
-}
 
 // archRequirementsVerified is set by platform-specific init to true if the platform is supported
 var archRequirementsVerified bool

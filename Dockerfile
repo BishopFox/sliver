@@ -9,7 +9,7 @@
 
 # STAGE: base
 ## Compiles Sliver for use
-FROM --platform=linux/amd64 golang:1.22.1 as base
+FROM golang:1.22.2 as base
 
 ### Base packages
 RUN apt-get update --fix-missing && apt-get -y install \
@@ -29,12 +29,12 @@ RUN cp -vv sliver-server /opt/sliver-server
 # STAGE: test
 ## Run unit tests against the compiled instance
 ## Use `--target test` in the docker build command to run this stage
-FROM --platform=linux/amd64 base as test
+FROM base as test
 
 RUN apt-get update --fix-missing \
     && apt-get -y upgrade \
     && apt-get -y install \
-    curl gcc-multilib build-essential mingw-w64 binutils-mingw-w64 g++-mingw-w64 
+    curl
 
 RUN /opt/sliver-server unpack --force 
 
@@ -43,7 +43,7 @@ RUN /go/src/github.com/bishopfox/sliver/go-tests.sh
 
 # STAGE: production
 ## Final dockerized form of Sliver
-FROM --platform=linux/amd64 debian:bookworm-slim as production
+FROM debian:bookworm-slim as production
 
 ### Install production packages
 RUN apt-get update --fix-missing \
@@ -56,8 +56,7 @@ RUN apt-get update --fix-missing \
     postgresql-contrib postgresql-client libpq-dev \
     curl libapr1 libaprutil1 libsvn1 \
     libpcap-dev libsqlite3-dev libgmp3-dev \
-    mingw-w64 binutils-mingw-w64 g++-mingw-w64 \
-    nasm gcc-multilib
+    nasm
 
 ### Install MSF for stager generation
 RUN curl https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb > msfinstall \
@@ -92,15 +91,11 @@ ENTRYPOINT [ "/opt/sliver-server" ]
 
 
 # STAGE: production-slim (about 1Gb smaller)
-### Slim production image, i.e. without MSF and assoicated libraries
-### Still include GCC and MinGW for cross-platform generation
-FROM --platform=linux/amd64 debian:bookworm-slim as production-slim
+FROM debian:bookworm-slim as production-slim
 
 ### Install production packages
 RUN apt-get update --fix-missing \
-    && apt-get -y upgrade \
-    && apt-get -y install \
-    build-essential mingw-w64 binutils-mingw-w64 g++-mingw-w64 gcc-multilib
+    && apt-get -y upgrade
 
 ### Cleanup unneeded packages
 RUN apt-get autoremove -y \

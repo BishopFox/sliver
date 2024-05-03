@@ -90,7 +90,7 @@ is also available in the [wiki](https://github.com/reeflective/console/wiki):
 ![console](https://github.com/reeflective/console/blob/assets/console.gif)
 
 
-## Status
+## Status 
 
 The library is in a pre-release candidate status:
 - Although quite simple and small, it has not been tested heavily.
@@ -100,3 +100,13 @@ The library is in a pre-release candidate status:
 Please open a PR or an issue if you wish to bring enhancements to it. 
 Other contributions, as well as bug fixes and reviews are also welcome.
 
+
+## Possible Improvements
+
+The following is a currently moving list of possible enhancements to be made in order to reach `v1.0`:
+- [ ] Ensure to the best extent possible a thread-safe access to the command API.
+- [ ] Clearer integration/alignment of the various I/O references between readline and commands.
+- [ ] Clearer and sane model for asynchronous control/cancel of commands.
+- [ ] Allow users to run the console command trees in one-exec style, with identical behavior.
+- [ ] Test suite for most important or risky code paths.
+- [ ] Set of helper functions for application-related directories.

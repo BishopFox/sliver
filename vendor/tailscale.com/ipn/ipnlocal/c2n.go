@@ -5,7 +5,9 @@ package ipnlocal
 
 import (
 	"bytes"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -23,6 +26,7 @@ import (
 	"github.com/kortschak/wol"
 	"tailscale.com/clientupdate"
 	"tailscale.com/envknob"
+	"tailscale.com/ipn"
 	"tailscale.com/net/sockstats"
 	"tailscale.com/posture"
 	"tailscale.com/tailcfg"
@@ -45,8 +49,16 @@ var c2nHandlers = map[methodAndPath]c2nHandler{
 	req("/debug/metrics"):           handleC2NDebugMetrics,
 	req("/debug/component-logging"): handleC2NDebugComponentLogging,
 	req("/debug/logheap"):           handleC2NDebugLogHeap,
-	req("POST /logtail/flush"):      handleC2NLogtailFlush,
-	req("POST /sockstats"):          handleC2NSockStats,
+
+	// PPROF - We only expose a subset of typical pprof endpoints for security.
+	req("/debug/pprof/heap"):   handleC2NPprof,
+	req("/debug/pprof/allocs"): handleC2NPprof,
+
+	req("POST /logtail/flush"): handleC2NLogtailFlush,
+	req("POST /sockstats"):     handleC2NSockStats,
+
+	// Check TLS certificate status.
+	req("GET /tls-cert-status"): handleC2NTLSCertStatus,
 
 	// SSH
 	req("/ssh/usernames"): handleC2NSSHUsernames,
@@ -63,6 +75,9 @@ var c2nHandlers = map[methodAndPath]c2nHandler{
 
 	// App Connectors.
 	req("GET /appconnector/routes"): handleC2NAppConnectorDomainRoutesGet,
+
+	// Linux netfilter.
+	req("POST /netfilter-kind"): handleC2NSetNetfilterKind,
 }
 
 type c2nHandler func(*LocalBackend, http.ResponseWriter, *http.Request)
@@ -169,6 +184,19 @@ func handleC2NDebugLogHeap(b *LocalBackend, w http.ResponseWriter, r *http.Reque
 	c2nLogHeap(w, r)
 }
 
+var c2nPprof func(http.ResponseWriter, *http.Request, string) // non-nil on most platforms (c2n_pprof.go)
+
+func handleC2NPprof(b *LocalBackend, w http.ResponseWriter, r *http.Request) {
+	if c2nPprof == nil {
+		// Not implemented on platforms trying to optimize for binary size or
+		// reduced memory usage.
+		http.Error(w, "not implemented", http.StatusNotImplemented)
+		return
+	}
+	_, profile := path.Split(r.URL.Path)
+	c2nPprof(w, r, profile)
+}
+
 func handleC2NSSHUsernames(b *LocalBackend, w http.ResponseWriter, r *http.Request) {
 	var req tailcfg.C2NSSHUsernamesRequest
 	if r.Method == "POST" {
@@ -214,6 +242,32 @@ func handleC2NAppConnectorDomainRoutesGet(b *LocalBackend, w http.ResponseWriter
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
+}
+
+func handleC2NSetNetfilterKind(b *LocalBackend, w http.ResponseWriter, r *http.Request) {
+	b.logf("c2n: POST /netfilter-kind received")
+
+	if version.OS() != "linux" {
+		http.Error(w, "netfilter kind only settable on linux", http.StatusNotImplemented)
+	}
+
+	kind := r.FormValue("kind")
+	b.logf("c2n: switching netfilter to %s", kind)
+
+	_, err := b.EditPrefs(&ipn.MaskedPrefs{
+		NetfilterKindSet: true,
+		Prefs: ipn.Prefs{
+			NetfilterKind: kind,
+		},
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b.authReconfig()
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func handleC2NUpdateGet(b *LocalBackend, w http.ResponseWriter, r *http.Request) {
@@ -342,10 +396,9 @@ func (b *LocalBackend) newC2NUpdateResponse() tailcfg.C2NUpdateResponse {
 	// Note that we create the Updater solely to check for errors; we do not
 	// invoke it here. For this purpose, it is ok to pass it a zero Arguments.
 	prefs := b.Prefs().AutoUpdate()
-	_, err := clientupdate.NewUpdater(clientupdate.Arguments{ForAutoUpdate: true})
 	return tailcfg.C2NUpdateResponse{
-		Enabled:   envknob.AllowsRemoteUpdate() || prefs.Apply,
-		Supported: err == nil,
+		Enabled:   envknob.AllowsRemoteUpdate() || prefs.Apply.EqualBool(true),
+		Supported: clientupdate.CanAutoUpdate(),
 	}
 }
 
@@ -389,12 +442,17 @@ func findCmdTailscale() (string, error) {
 		if self == "/usr/local/sbin/tailscaled" || self == "/usr/local/bin/tailscaled" {
 			ts = "/usr/local/bin/tailscale"
 		}
-		if distro.Get() == distro.QNAP {
+		switch distro.Get() {
+		case distro.QNAP:
 			// The volume under /share/ where qpkg are installed is not
 			// predictable. But the rest of the path is.
 			ok, err := filepath.Match("/share/*/.qpkg/Tailscale/tailscaled", self)
 			if err == nil && ok {
 				ts = filepath.Join(filepath.Dir(self), "tailscale")
+			}
+		case distro.Unraid:
+			if self == "/usr/local/emhttp/plugins/tailscale/bin/tailscaled" {
+				ts = "/usr/local/emhttp/plugins/tailscale/bin/tailscale"
 			}
 		}
 	case "windows":
@@ -478,4 +536,55 @@ func handleC2NWoL(b *LocalBackend, w http.ResponseWriter, r *http.Request) {
 	}
 	sort.Strings(res.SentTo)
 	writeJSON(w, &res)
+}
+
+// handleC2NTLSCertStatus returns info about the last TLS certificate issued for the
+// provided domain. This can be called by the controlplane to clean up DNS TXT
+// records when they're no longer needed by LetsEncrypt.
+//
+// It does not kick off a cert fetch or async refresh. It only reports anything
+// that's already sitting on disk, and only reports metadata about the public
+// cert (stuff that'd be the in CT logs anyway).
+func handleC2NTLSCertStatus(b *LocalBackend, w http.ResponseWriter, r *http.Request) {
+	cs, err := b.getCertStore()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	domain := r.FormValue("domain")
+	if domain == "" {
+		http.Error(w, "no 'domain'", http.StatusBadRequest)
+		return
+	}
+
+	ret := &tailcfg.C2NTLSCertInfo{}
+	pair, err := getCertPEMCached(cs, domain, b.clock.Now())
+	ret.Valid = err == nil
+	if err != nil {
+		ret.Error = err.Error()
+		if errors.Is(err, errCertExpired) {
+			ret.Expired = true
+		} else if errors.Is(err, ipn.ErrStateNotExist) {
+			ret.Missing = true
+			ret.Error = "no certificate"
+		}
+	} else {
+		block, _ := pem.Decode(pair.CertPEM)
+		if block == nil {
+			ret.Error = "invalid PEM"
+			ret.Valid = false
+		} else {
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				ret.Error = fmt.Sprintf("invalid certificate: %v", err)
+				ret.Valid = false
+			} else {
+				ret.NotBefore = cert.NotBefore.UTC().Format(time.RFC3339)
+				ret.NotAfter = cert.NotAfter.UTC().Format(time.RFC3339)
+			}
+		}
+	}
+
+	writeJSON(w, ret)
 }

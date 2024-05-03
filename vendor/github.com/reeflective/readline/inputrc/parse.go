@@ -620,6 +620,10 @@ func unescapeRunes(r []rune, i, end int) string {
 	var seq []rune
 	var char0, char1, char2, char3, char4, char5 rune
 
+	if len(r) == 1 {
+		return string(r)
+	}
+
 	for ; i < end; i++ {
 		if char0 = r[i]; char0 == '\\' {
 			char1, char2, char3, char4, char5 = grab(r, i+1, end), grab(r, i+2, end), grab(r, i+3, end), grab(r, i+4, end), grab(r, i+5, end)

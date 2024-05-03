@@ -38,7 +38,7 @@ type OptionalHeader interface {
 	GetLoaderFlags() uint32
 	GetDataDirectory() []DataDirectoryEntry
 
-	SizeOf() uint16 // Size of the underlying struct
+	SizeOf() uint16 // Size of the underlying struct, in bytes
 }
 
 type optionalHeader32 dpe.OptionalHeader32

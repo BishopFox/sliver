@@ -1,16 +1,16 @@
-//go:build !windows
+//go:build !windows && !plan9 && !tinygo
 
 package sysfs
 
 import (
 	"syscall"
 
-	"github.com/tetratelabs/wazero/internal/platform"
+	"github.com/tetratelabs/wazero/experimental/sys"
 )
 
-func Rename(from, to string) syscall.Errno {
+func rename(from, to string) sys.Errno {
 	if from == to {
 		return 0
 	}
-	return platform.UnwrapOSError(syscall.Rename(from, to))
+	return sys.UnwrapOSError(syscall.Rename(from, to))
 }

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"net/netip"
 
+	"tailscale.com/drive"
 	"tailscale.com/tailcfg"
 	"tailscale.com/types/persist"
 	"tailscale.com/types/preftype"
@@ -68,6 +69,7 @@ func (v PrefsView) RouteAll() bool                     { return v.ж.RouteAll }
 func (v PrefsView) AllowSingleHosts() bool             { return v.ж.AllowSingleHosts }
 func (v PrefsView) ExitNodeID() tailcfg.StableNodeID   { return v.ж.ExitNodeID }
 func (v PrefsView) ExitNodeIP() netip.Addr             { return v.ж.ExitNodeIP }
+func (v PrefsView) InternalExitNodePrior() string      { return v.ж.InternalExitNodePrior }
 func (v PrefsView) ExitNodeAllowLANAccess() bool       { return v.ж.ExitNodeAllowLANAccess }
 func (v PrefsView) CorpDNS() bool                      { return v.ж.CorpDNS }
 func (v PrefsView) RunSSH() bool                       { return v.ж.RunSSH }
@@ -90,7 +92,11 @@ func (v PrefsView) ProfileName() string                   { return v.ж.ProfileN
 func (v PrefsView) AutoUpdate() AutoUpdatePrefs           { return v.ж.AutoUpdate }
 func (v PrefsView) AppConnector() AppConnectorPrefs       { return v.ж.AppConnector }
 func (v PrefsView) PostureChecking() bool                 { return v.ж.PostureChecking }
-func (v PrefsView) Persist() persist.PersistView          { return v.ж.Persist.View() }
+func (v PrefsView) NetfilterKind() string                 { return v.ж.NetfilterKind }
+func (v PrefsView) DriveShares() views.SliceView[*drive.Share, drive.ShareView] {
+	return views.SliceOfViews[*drive.Share, drive.ShareView](v.ж.DriveShares)
+}
+func (v PrefsView) Persist() persist.PersistView { return v.ж.Persist.View() }
 
 // A compilation failure here means this code must be regenerated, with the command at the top of this file.
 var _PrefsViewNeedsRegeneration = Prefs(struct {
@@ -99,6 +105,7 @@ var _PrefsViewNeedsRegeneration = Prefs(struct {
 	AllowSingleHosts       bool
 	ExitNodeID             tailcfg.StableNodeID
 	ExitNodeIP             netip.Addr
+	InternalExitNodePrior  string
 	ExitNodeAllowLANAccess bool
 	CorpDNS                bool
 	RunSSH                 bool
@@ -119,6 +126,8 @@ var _PrefsViewNeedsRegeneration = Prefs(struct {
 	AutoUpdate             AutoUpdatePrefs
 	AppConnector           AppConnectorPrefs
 	PostureChecking        bool
+	NetfilterKind          string
+	DriveShares            []*drive.Share
 	Persist                *persist.Persist
 }{})
 

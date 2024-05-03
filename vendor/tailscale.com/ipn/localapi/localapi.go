@@ -13,12 +13,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
+	"mime"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/netip"
 	"net/url"
+	"os"
 	"os/exec"
+	"path"
 	"runtime"
 	"slices"
 	"strconv"
@@ -26,8 +31,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"tailscale.com/client/tailscale/apitype"
 	"tailscale.com/clientupdate"
+	"tailscale.com/drive"
 	"tailscale.com/envknob"
 	"tailscale.com/health"
 	"tailscale.com/hostinfo"
@@ -54,6 +61,7 @@ import (
 	"tailscale.com/util/mak"
 	"tailscale.com/util/osdiag"
 	"tailscale.com/util/osuser"
+	"tailscale.com/util/progresstracking"
 	"tailscale.com/util/rands"
 	"tailscale.com/version"
 	"tailscale.com/wgengine/magicsock"
@@ -75,60 +83,64 @@ var handler = map[string]localAPIHandler{
 	// without a trailing slash:
 	"bugreport":                   (*Handler).serveBugReport,
 	"check-ip-forwarding":         (*Handler).serveCheckIPForwarding,
-	"check-udp-gro-forwarding":    (*Handler).serveCheckUDPGROForwarding,
 	"check-prefs":                 (*Handler).serveCheckPrefs,
+	"check-udp-gro-forwarding":    (*Handler).serveCheckUDPGROForwarding,
 	"component-debug-logging":     (*Handler).serveComponentDebugLogging,
 	"debug":                       (*Handler).serveDebug,
+	"debug-capture":               (*Handler).serveDebugCapture,
 	"debug-derp-region":           (*Handler).serveDebugDERPRegion,
+	"debug-dial-types":            (*Handler).serveDebugDialTypes,
+	"debug-log":                   (*Handler).serveDebugLog,
 	"debug-packet-filter-matches": (*Handler).serveDebugPacketFilterMatches,
 	"debug-packet-filter-rules":   (*Handler).serveDebugPacketFilterRules,
-	"debug-portmap":               (*Handler).serveDebugPortmap,
 	"debug-peer-endpoint-changes": (*Handler).serveDebugPeerEndpointChanges,
-	"debug-capture":               (*Handler).serveDebugCapture,
-	"debug-log":                   (*Handler).serveDebugLog,
-	"debug-web-client":            (*Handler).serveDebugWebClient,
+	"debug-portmap":               (*Handler).serveDebugPortmap,
 	"derpmap":                     (*Handler).serveDERPMap,
 	"dev-set-state-store":         (*Handler).serveDevSetStateStore,
-	"set-push-device-token":       (*Handler).serveSetPushDeviceToken,
-	"handle-push-message":         (*Handler).serveHandlePushMessage,
 	"dial":                        (*Handler).serveDial,
+	"drive/fileserver-address":    (*Handler).serveDriveServerAddr,
+	"drive/shares":                (*Handler).serveShares,
 	"file-targets":                (*Handler).serveFileTargets,
 	"goroutines":                  (*Handler).serveGoroutines,
+	"handle-push-message":         (*Handler).serveHandlePushMessage,
 	"id-token":                    (*Handler).serveIDToken,
 	"login-interactive":           (*Handler).serveLoginInteractive,
 	"logout":                      (*Handler).serveLogout,
 	"logtap":                      (*Handler).serveLogTap,
 	"metrics":                     (*Handler).serveMetrics,
 	"ping":                        (*Handler).servePing,
-	"prefs":                       (*Handler).servePrefs,
 	"pprof":                       (*Handler).servePprof,
+	"prefs":                       (*Handler).servePrefs,
+	"query-feature":               (*Handler).serveQueryFeature,
 	"reload-config":               (*Handler).reloadConfig,
 	"reset-auth":                  (*Handler).serveResetAuth,
 	"serve-config":                (*Handler).serveServeConfig,
 	"set-dns":                     (*Handler).serveSetDNS,
 	"set-expiry-sooner":           (*Handler).serveSetExpirySooner,
+	"set-gui-visible":             (*Handler).serveSetGUIVisible,
+	"set-push-device-token":       (*Handler).serveSetPushDeviceToken,
+	"set-use-exit-node-enabled":   (*Handler).serveSetUseExitNodeEnabled,
 	"start":                       (*Handler).serveStart,
 	"status":                      (*Handler).serveStatus,
+	"tka/affected-sigs":           (*Handler).serveTKAAffectedSigs,
+	"tka/cosign-recovery-aum":     (*Handler).serveTKACosignRecoveryAUM,
+	"tka/disable":                 (*Handler).serveTKADisable,
+	"tka/force-local-disable":     (*Handler).serveTKALocalDisable,
+	"tka/generate-recovery-aum":   (*Handler).serveTKAGenerateRecoveryAUM,
 	"tka/init":                    (*Handler).serveTKAInit,
 	"tka/log":                     (*Handler).serveTKALog,
 	"tka/modify":                  (*Handler).serveTKAModify,
 	"tka/sign":                    (*Handler).serveTKASign,
 	"tka/status":                  (*Handler).serveTKAStatus,
-	"tka/disable":                 (*Handler).serveTKADisable,
-	"tka/force-local-disable":     (*Handler).serveTKALocalDisable,
-	"tka/affected-sigs":           (*Handler).serveTKAAffectedSigs,
-	"tka/wrap-preauth-key":        (*Handler).serveTKAWrapPreauthKey,
-	"tka/verify-deeplink":         (*Handler).serveTKAVerifySigningDeeplink,
-	"tka/generate-recovery-aum":   (*Handler).serveTKAGenerateRecoveryAUM,
-	"tka/cosign-recovery-aum":     (*Handler).serveTKACosignRecoveryAUM,
 	"tka/submit-recovery-aum":     (*Handler).serveTKASubmitRecoveryAUM,
-	"upload-client-metrics":       (*Handler).serveUploadClientMetrics,
-	"watch-ipn-bus":               (*Handler).serveWatchIPNBus,
-	"whois":                       (*Handler).serveWhoIs,
-	"query-feature":               (*Handler).serveQueryFeature,
+	"tka/verify-deeplink":         (*Handler).serveTKAVerifySigningDeeplink,
+	"tka/wrap-preauth-key":        (*Handler).serveTKAWrapPreauthKey,
 	"update/check":                (*Handler).serveUpdateCheck,
 	"update/install":              (*Handler).serveUpdateInstall,
 	"update/progress":             (*Handler).serveUpdateProgress,
+	"upload-client-metrics":       (*Handler).serveUploadClientMetrics,
+	"watch-ipn-bus":               (*Handler).serveWatchIPNBus,
+	"whois":                       (*Handler).serveWhoIs,
 }
 
 var (
@@ -564,6 +576,10 @@ func (h *Handler) serveDebug(w http.ResponseWriter, r *http.Request) {
 	}
 	var err error
 	switch action {
+	case "derp-set-homeless":
+		h.b.MagicConn().SetHomeless(true)
+	case "derp-unset-homeless":
+		h.b.MagicConn().SetHomeless(false)
 	case "rebind":
 		err = h.b.DebugRebind()
 	case "restun":
@@ -589,6 +605,8 @@ func (h *Handler) serveDebug(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		h.b.DebugNotify(n)
+	case "notify-last-netmap":
+		h.b.DebugNotifyLastNetMap()
 	case "break-tcp-conns":
 		err = h.b.DebugBreakTCPConns()
 	case "break-derp-conns":
@@ -837,6 +855,76 @@ func (h *Handler) serveComponentDebugLogging(w http.ResponseWriter, r *http.Requ
 	json.NewEncoder(w).Encode(res)
 }
 
+func (h *Handler) serveDebugDialTypes(w http.ResponseWriter, r *http.Request) {
+	if !h.PermitWrite {
+		http.Error(w, "debug-dial-types access denied", http.StatusForbidden)
+		return
+	}
+	if r.Method != httpm.POST {
+		http.Error(w, "only POST allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ip := r.FormValue("ip")
+	port := r.FormValue("port")
+	network := r.FormValue("network")
+
+	addr := ip + ":" + port
+	if _, err := netip.ParseAddrPort(addr); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "invalid address %q: %v", addr, err)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	var bareDialer net.Dialer
+
+	dialer := h.b.Dialer()
+
+	var peerDialer net.Dialer
+	peerDialer.Control = dialer.PeerDialControlFunc()
+
+	// Kick off a dial with each available dialer in parallel.
+	dialers := []struct {
+		name string
+		dial func(context.Context, string, string) (net.Conn, error)
+	}{
+		{"SystemDial", dialer.SystemDial},
+		{"UserDial", dialer.UserDial},
+		{"PeerDial", peerDialer.DialContext},
+		{"BareDial", bareDialer.DialContext},
+	}
+	type result struct {
+		name string
+		conn net.Conn
+		err  error
+	}
+	results := make(chan result, len(dialers))
+
+	var wg sync.WaitGroup
+	for _, dialer := range dialers {
+		dialer := dialer // loop capture
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			conn, err := dialer.dial(ctx, network, addr)
+			results <- result{dialer.name, conn, err}
+		}()
+	}
+
+	wg.Wait()
+	for i := 0; i < len(dialers); i++ {
+		res := <-results
+		fmt.Fprintf(w, "[%s] connected=%v err=%v\n", res.name, res.conn != nil, res.err)
+		if res.conn != nil {
+			res.conn.Close()
+		}
+	}
+}
+
 // servePprofFunc is the implementation of Handler.servePprof, after auth,
 // for platforms where we want to link it in.
 var servePprofFunc func(http.ResponseWriter, *http.Request)
@@ -1033,7 +1121,7 @@ func (h *Handler) connIsLocalAdmin() bool {
 		if err != nil {
 			return false
 		}
-		// Short timeout just in case sudo hands for some reason.
+		// Short timeout just in case sudo hangs for some reason.
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 		if err := exec.CommandContext(ctx, "sudo", "--other-user="+u.Name, "--list", "tailscale").Run(); err != nil {
@@ -1043,6 +1131,34 @@ func (h *Handler) connIsLocalAdmin() bool {
 
 	default:
 		return false
+	}
+}
+
+func (h *Handler) getUsername() (string, error) {
+	if h.ConnIdentity == nil {
+		h.logf("[unexpected] missing ConnIdentity in LocalAPI Handler")
+		return "", errors.New("missing ConnIdentity")
+	}
+	switch runtime.GOOS {
+	case "windows":
+		tok, err := h.ConnIdentity.WindowsToken()
+		if err != nil {
+			return "", fmt.Errorf("get windows token: %w", err)
+		}
+		defer tok.Close()
+		return tok.Username()
+	case "darwin", "linux":
+		uid, ok := h.ConnIdentity.Creds().UserID()
+		if !ok {
+			return "", errors.New("missing user ID")
+		}
+		u, err := osuser.LookupByUID(uid)
+		if err != nil {
+			return "", fmt.Errorf("lookup user: %w", err)
+		}
+		return u.Username, nil
+	default:
+		return "", errors.New("unsupported OS")
 	}
 }
 
@@ -1182,13 +1298,11 @@ func (h *Handler) serveWatchIPNBus(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	ctx := r.Context()
+	enc := json.NewEncoder(w)
 	h.b.WatchNotifications(ctx, mask, f.Flush, func(roNotify *ipn.Notify) (keepGoing bool) {
-		js, err := json.Marshal(roNotify)
+		err := enc.Encode(roNotify)
 		if err != nil {
-			h.logf("json.Marshal: %v", err)
-			return false
-		}
-		if _, err := fmt.Fprintf(w, "%s\n", js); err != nil {
+			h.logf("json.Encode: %v", err)
 			return false
 		}
 		f.Flush()
@@ -1421,9 +1535,16 @@ func (h *Handler) serveFileTargets(w http.ResponseWriter, r *http.Request) {
 // The Windows client currently (2021-11-30) uses the peerapi (/v0/put/)
 // directly, as the Windows GUI always runs in tun mode anyway.
 //
+// In addition to single file PUTs, this endpoint accepts multipart file
+// POSTS encoded as multipart/form-data.The first part should be an
+// application/json file that contains a manifest consisting of a JSON array of
+// OutgoingFiles which wecan use for tracking progress even before reading the
+// file parts.
+//
 // URL format:
 //
 //   - PUT /localapi/v0/file-put/:stableID/:escaped-filename
+//   - POST /localapi/v0/file-put/:stableID
 func (h *Handler) serveFilePut(w http.ResponseWriter, r *http.Request) {
 	metricFilePutCalls.Add(1)
 
@@ -1431,10 +1552,12 @@ func (h *Handler) serveFilePut(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "file access denied", http.StatusForbidden)
 		return
 	}
-	if r.Method != "PUT" {
+
+	if r.Method != "PUT" && r.Method != "POST" {
 		http.Error(w, "want PUT to put file", http.StatusBadRequest)
 		return
 	}
+
 	fts, err := h.b.FileTargets()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -1446,16 +1569,22 @@ func (h *Handler) serveFilePut(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "misconfigured", http.StatusInternalServerError)
 		return
 	}
-	stableIDStr, filenameEscaped, ok := strings.Cut(upath, "/")
-	if !ok {
-		http.Error(w, "bogus URL", http.StatusBadRequest)
-		return
+	var peerIDStr, filenameEscaped string
+	if r.Method == "PUT" {
+		ok := false
+		peerIDStr, filenameEscaped, ok = strings.Cut(upath, "/")
+		if !ok {
+			http.Error(w, "bogus URL", http.StatusBadRequest)
+			return
+		}
+	} else {
+		peerIDStr = upath
 	}
-	stableID := tailcfg.StableNodeID(stableIDStr)
+	peerID := tailcfg.StableNodeID(peerIDStr)
 
 	var ft *apitype.FileTarget
 	for _, x := range fts {
-		if x.Node.StableID == stableID {
+		if x.Node.StableID == peerID {
 			ft = x
 			break
 		}
@@ -1470,20 +1599,175 @@ func (h *Handler) serveFilePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Periodically report progress of outgoing files.
+	outgoingFiles := make(map[string]*ipn.OutgoingFile)
+	t := time.NewTicker(1 * time.Second)
+	progressUpdates := make(chan ipn.OutgoingFile)
+	defer close(progressUpdates)
+
+	go func() {
+		defer t.Stop()
+		defer h.b.UpdateOutgoingFiles(outgoingFiles)
+		for {
+			select {
+			case u, ok := <-progressUpdates:
+				if !ok {
+					return
+				}
+				outgoingFiles[u.ID] = &u
+			case <-t.C:
+				h.b.UpdateOutgoingFiles(outgoingFiles)
+			}
+		}
+	}()
+
+	switch r.Method {
+	case "PUT":
+		file := ipn.OutgoingFile{
+			ID:           uuid.Must(uuid.NewRandom()).String(),
+			PeerID:       peerID,
+			Name:         filenameEscaped,
+			DeclaredSize: r.ContentLength,
+		}
+		h.singleFilePut(r.Context(), progressUpdates, w, r.Body, dstURL, file)
+	case "POST":
+		h.multiFilePost(progressUpdates, w, r, peerID, dstURL)
+	default:
+		http.Error(w, "want PUT to put file", http.StatusBadRequest)
+		return
+	}
+}
+
+func (h *Handler) multiFilePost(progressUpdates chan (ipn.OutgoingFile), w http.ResponseWriter, r *http.Request, peerID tailcfg.StableNodeID, dstURL *url.URL) {
+	_, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil {
+		http.Error(w, fmt.Sprintf("invalid Content-Type for multipart POST: %s", err), http.StatusBadRequest)
+		return
+	}
+
+	ww := &multiFilePostResponseWriter{}
+	defer func() {
+		if err := ww.Flush(w); err != nil {
+			h.logf("error: multiFilePostResponseWriter.Flush(): %s", err)
+		}
+	}()
+
+	outgoingFilesByName := make(map[string]ipn.OutgoingFile)
+	first := true
+	mr := multipart.NewReader(r.Body, params["boundary"])
+	for {
+		part, err := mr.NextPart()
+		if err == io.EOF {
+			// No more parts.
+			return
+		} else if err != nil {
+			http.Error(ww, fmt.Sprintf("failed to decode multipart/form-data: %s", err), http.StatusBadRequest)
+			return
+		}
+
+		if first {
+			first = false
+			if part.Header.Get("Content-Type") != "application/json" {
+				http.Error(ww, "first MIME part must be a JSON map of filename -> size", http.StatusBadRequest)
+				return
+			}
+
+			var manifest []ipn.OutgoingFile
+			err := json.NewDecoder(part).Decode(&manifest)
+			if err != nil {
+				http.Error(ww, fmt.Sprintf("invalid manifest: %s", err), http.StatusBadRequest)
+				return
+			}
+
+			for _, file := range manifest {
+				outgoingFilesByName[file.Name] = file
+				progressUpdates <- file
+			}
+
+			continue
+		}
+
+		if !h.singleFilePut(r.Context(), progressUpdates, ww, part, dstURL, outgoingFilesByName[part.FileName()]) {
+			return
+		}
+
+		if ww.statusCode >= 400 {
+			// put failed, stop immediately
+			h.logf("error: singleFilePut: failed with status %d", ww.statusCode)
+			return
+		}
+	}
+}
+
+// multiFilePostResponseWriter is a buffering http.ResponseWriter that can be
+// reused across multiple singleFilePut calls and then flushed to the client
+// when all files have been PUT.
+type multiFilePostResponseWriter struct {
+	header     http.Header
+	statusCode int
+	body       *bytes.Buffer
+}
+
+func (ww *multiFilePostResponseWriter) Header() http.Header {
+	if ww.header == nil {
+		ww.header = make(http.Header)
+	}
+	return ww.header
+}
+
+func (ww *multiFilePostResponseWriter) WriteHeader(statusCode int) {
+	ww.statusCode = statusCode
+}
+
+func (ww *multiFilePostResponseWriter) Write(p []byte) (int, error) {
+	if ww.body == nil {
+		ww.body = bytes.NewBuffer(nil)
+	}
+	return ww.body.Write(p)
+}
+
+func (ww *multiFilePostResponseWriter) Flush(w http.ResponseWriter) error {
+	maps.Copy(w.Header(), ww.Header())
+	w.WriteHeader(ww.statusCode)
+	_, err := io.Copy(w, ww.body)
+	return err
+}
+
+func (h *Handler) singleFilePut(
+	ctx context.Context,
+	progressUpdates chan (ipn.OutgoingFile),
+	w http.ResponseWriter,
+	body io.Reader,
+	dstURL *url.URL,
+	outgoingFile ipn.OutgoingFile,
+) bool {
+	outgoingFile.Started = time.Now()
+	body = progresstracking.NewReader(body, 1*time.Second, func(n int, err error) {
+		outgoingFile.Sent = int64(n)
+		progressUpdates <- outgoingFile
+	})
+
+	fail := func() {
+		outgoingFile.Finished = true
+		outgoingFile.Succeeded = false
+		progressUpdates <- outgoingFile
+	}
+
 	// Before we PUT a file we check to see if there are any existing partial file and if so,
 	// we resume the upload from where we left off by sending the remaining file instead of
 	// the full file.
 	var offset int64
 	var resumeDuration time.Duration
-	remainingBody := io.Reader(r.Body)
+	remainingBody := io.Reader(body)
 	client := &http.Client{
 		Transport: h.b.Dialer().PeerAPITransport(),
 		Timeout:   10 * time.Second,
 	}
-	req, err := http.NewRequestWithContext(r.Context(), "GET", dstURL.String()+"/v0/put/"+filenameEscaped, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", dstURL.String()+"/v0/put/"+outgoingFile.Name, nil)
 	if err != nil {
 		http.Error(w, "bogus peer URL", http.StatusInternalServerError)
-		return
+		fail()
+		return false
 	}
 	switch resp, err := client.Do(req); {
 	case err != nil:
@@ -1495,7 +1779,7 @@ func (h *Handler) serveFilePut(w http.ResponseWriter, r *http.Request) {
 	default:
 		resumeStart := time.Now()
 		dec := json.NewDecoder(resp.Body)
-		offset, remainingBody, err = taildrop.ResumeReader(r.Body, func() (out taildrop.BlockChecksum, err error) {
+		offset, remainingBody, err = taildrop.ResumeReader(body, func() (out taildrop.BlockChecksum, err error) {
 			err = dec.Decode(&out)
 			return out, err
 		})
@@ -1505,12 +1789,13 @@ func (h *Handler) serveFilePut(w http.ResponseWriter, r *http.Request) {
 		resumeDuration = time.Since(resumeStart).Round(time.Millisecond)
 	}
 
-	outReq, err := http.NewRequestWithContext(r.Context(), "PUT", "http://peer/v0/put/"+filenameEscaped, remainingBody)
+	outReq, err := http.NewRequestWithContext(ctx, "PUT", "http://peer/v0/put/"+outgoingFile.Name, remainingBody)
 	if err != nil {
 		http.Error(w, "bogus outreq", http.StatusInternalServerError)
-		return
+		fail()
+		return false
 	}
-	outReq.ContentLength = r.ContentLength
+	outReq.ContentLength = outgoingFile.DeclaredSize
 	if offset > 0 {
 		h.logf("resuming put at offset %d after %v", offset, resumeDuration)
 		rangeHdr, _ := httphdr.FormatRange([]httphdr.Range{{Start: offset, Length: 0}})
@@ -1523,6 +1808,12 @@ func (h *Handler) serveFilePut(w http.ResponseWriter, r *http.Request) {
 	rp := httputil.NewSingleHostReverseProxy(dstURL)
 	rp.Transport = h.b.Dialer().PeerAPITransport()
 	rp.ServeHTTP(w, outReq)
+
+	outgoingFile.Finished = true
+	outgoingFile.Succeeded = true
+	progressUpdates <- outgoingFile
+
+	return true
 }
 
 func (h *Handler) serveSetDNS(w http.ResponseWriter, r *http.Request) {
@@ -1797,6 +2088,53 @@ func (h *Handler) serveTKAStatus(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
+func (h *Handler) serveSetGUIVisible(w http.ResponseWriter, r *http.Request) {
+	if r.Method != httpm.POST {
+		http.Error(w, "use POST", http.StatusMethodNotAllowed)
+		return
+	}
+
+	type setGUIVisibleRequest struct {
+		IsVisible bool   // whether the Tailscale client UI is now presented to the user
+		SessionID string // the last SessionID sent to the client in ipn.Notify.SessionID
+	}
+	var req setGUIVisibleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	// TODO(bradfitz): use `req.IsVisible == true` to flush netmap
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) serveSetUseExitNodeEnabled(w http.ResponseWriter, r *http.Request) {
+	if r.Method != httpm.POST {
+		http.Error(w, "use POST", http.StatusMethodNotAllowed)
+		return
+	}
+	if !h.PermitWrite {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
+	v, err := strconv.ParseBool(r.URL.Query().Get("enabled"))
+	if err != nil {
+		http.Error(w, "invalid 'enabled' parameter", http.StatusBadRequest)
+		return
+	}
+	prefs, err := h.b.SetUseExitNodeEnabled(v)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	e := json.NewEncoder(w)
+	e.SetIndent("", "\t")
+	e.Encode(prefs)
+}
+
 func (h *Handler) serveTKASign(w http.ResponseWriter, r *http.Request) {
 	if !h.PermitWrite {
 		http.Error(w, "lock sign access denied", http.StatusForbidden)
@@ -1917,7 +2255,7 @@ func (h *Handler) serveTKAWrapPreauthKey(w http.ResponseWriter, r *http.Request)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(wrappedKey))
 }
 
@@ -1971,7 +2309,7 @@ func (h *Handler) serveTKADisable(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "network-lock disable failed: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) serveTKALocalDisable(w http.ResponseWriter, r *http.Request) {
@@ -1995,7 +2333,7 @@ func (h *Handler) serveTKALocalDisable(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "network-lock local disable failed: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) serveTKALog(w http.ResponseWriter, r *http.Request) {
@@ -2296,65 +2634,6 @@ func (h *Handler) serveQueryFeature(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// serveDebugWebClient is for use by the web client to communicate with
-// the control server for browser auth sessions.
-//
-// This is an unsupported localapi endpoint and restricted to flagged
-// domains on the control side. TODO(tailscale/#14335): Rename this handler.
-func (h *Handler) serveDebugWebClient(w http.ResponseWriter, r *http.Request) {
-	if !h.PermitWrite {
-		http.Error(w, "access denied", http.StatusForbidden)
-		return
-	}
-	if r.Method != "POST" {
-		http.Error(w, "POST required", http.StatusMethodNotAllowed)
-		return
-	}
-
-	type reqData struct {
-		ID  string
-		Src tailcfg.NodeID
-	}
-	var data reqData
-	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		http.Error(w, "invalid JSON body", 400)
-		return
-	}
-	nm := h.b.NetMap()
-	if nm == nil || !nm.SelfNode.Valid() {
-		http.Error(w, "[unexpected] no self node", 400)
-		return
-	}
-	dst := nm.SelfNode.ID()
-
-	var noiseURL string
-	if data.ID != "" {
-		noiseURL = fmt.Sprintf("https://unused/machine/webclient/wait/%d/to/%d/%s", data.Src, dst, data.ID)
-	} else {
-		noiseURL = fmt.Sprintf("https://unused/machine/webclient/init/%d/to/%d", data.Src, dst)
-	}
-
-	req, err := http.NewRequestWithContext(r.Context(), "POST", noiseURL, nil)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	resp, err := h.b.DoNoiseRequest(req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	body, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		http.Error(w, string(body), resp.StatusCode)
-		return
-	}
-	w.Write(body)
-	w.Header().Set("Content-Type", "application/json")
-}
-
 func defBool(a string, def bool) bool {
 	if a == "" {
 		return def
@@ -2376,7 +2655,7 @@ func (h *Handler) serveDebugCapture(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 	w.(http.Flusher).Flush()
 	h.b.StreamDebugCapture(r.Context(), w)
 }
@@ -2434,17 +2713,9 @@ func (h *Handler) serveUpdateCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := clientupdate.NewUpdater(clientupdate.Arguments{
-		ForAutoUpdate: true,
-	})
-
-	if err != nil {
+	if !clientupdate.CanAutoUpdate() {
 		// if we don't support auto-update, just say that we're up to date
-		if errors.Is(err, errors.ErrUnsupported) {
-			json.NewEncoder(w).Encode(tailcfg.ClientVersion{RunningLatest: true})
-		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+		json.NewEncoder(w).Encode(tailcfg.ClientVersion{RunningLatest: true})
 		return
 	}
 
@@ -2489,6 +2760,124 @@ func (h *Handler) serveUpdateProgress(w http.ResponseWriter, r *http.Request) {
 	ups := h.b.GetSelfUpdateProgress()
 
 	json.NewEncoder(w).Encode(ups)
+}
+
+// serveDriveServerAddr handles updates of the Taildrive file server address.
+func (h *Handler) serveDriveServerAddr(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "PUT" {
+		http.Error(w, "only PUT allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	b, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	h.b.DriveSetServerAddr(string(b))
+	w.WriteHeader(http.StatusCreated)
+}
+
+// serveShares handles the management of Taildrive shares.
+//
+// PUT - adds or updates an existing share
+// DELETE - removes a share
+// GET - gets a list of all shares, sorted by name
+// POST - renames an existing share
+func (h *Handler) serveShares(w http.ResponseWriter, r *http.Request) {
+	if !h.b.DriveSharingEnabled() {
+		http.Error(w, `taildrive sharing not enabled, please add the attribute "drive:share" to this node in your ACLs' "nodeAttrs" section`, http.StatusForbidden)
+		return
+	}
+	switch r.Method {
+	case "PUT":
+		var share drive.Share
+		err := json.NewDecoder(r.Body).Decode(&share)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		share.Path = path.Clean(share.Path)
+		fi, err := os.Stat(share.Path)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if !fi.IsDir() {
+			http.Error(w, "not a directory", http.StatusBadRequest)
+			return
+		}
+		if drive.AllowShareAs() {
+			// share as the connected user
+			username, err := h.getUsername()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			share.As = username
+		}
+		err = h.b.DriveSetShare(&share)
+		if err != nil {
+			if errors.Is(err, drive.ErrInvalidShareName) {
+				http.Error(w, "invalid share name", http.StatusBadRequest)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+	case "DELETE":
+		b, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		err = h.b.DriveRemoveShare(string(b))
+		if err != nil {
+			if os.IsNotExist(err) {
+				http.Error(w, "share not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	case "POST":
+		var names [2]string
+		err := json.NewDecoder(r.Body).Decode(&names)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		err = h.b.DriveRenameShare(names[0], names[1])
+		if err != nil {
+			if os.IsNotExist(err) {
+				http.Error(w, "share not found", http.StatusNotFound)
+				return
+			}
+			if os.IsExist(err) {
+				http.Error(w, "share name already used", http.StatusBadRequest)
+				return
+			}
+			if errors.Is(err, drive.ErrInvalidShareName) {
+				http.Error(w, "invalid share name", http.StatusBadRequest)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	case "GET":
+		shares := h.b.DriveGetShares()
+		err := json.NewEncoder(w).Encode(shares)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	default:
+		http.Error(w, "unsupported method", http.StatusMethodNotAllowed)
+	}
 }
 
 var (

@@ -106,6 +106,51 @@ func (t *LogicalAxes) UnmarshalJSON(buf []byte) error {
 	return easyjson.Unmarshal(buf, t)
 }
 
+// ScrollOrientation physical scroll orientation.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/DOM#type-ScrollOrientation
+type ScrollOrientation string
+
+// String returns the ScrollOrientation as string value.
+func (t ScrollOrientation) String() string {
+	return string(t)
+}
+
+// ScrollOrientation values.
+const (
+	ScrollOrientationHorizontal ScrollOrientation = "horizontal"
+	ScrollOrientationVertical   ScrollOrientation = "vertical"
+)
+
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t ScrollOrientation) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
+
+// MarshalJSON satisfies json.Marshaler.
+func (t ScrollOrientation) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *ScrollOrientation) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch ScrollOrientation(v) {
+	case ScrollOrientationHorizontal:
+		*t = ScrollOrientationHorizontal
+	case ScrollOrientationVertical:
+		*t = ScrollOrientationVertical
+
+	default:
+		in.AddError(fmt.Errorf("unknown ScrollOrientation value: %v", v))
+	}
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *ScrollOrientation) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
+}
+
 // Quad an array of quad vertices, x immediately followed by y for each
 // point, points clock-wise.
 //
@@ -195,5 +240,47 @@ func (t *EnableIncludeWhitespace) UnmarshalEasyJSON(in *jlexer.Lexer) {
 
 // UnmarshalJSON satisfies json.Unmarshaler.
 func (t *EnableIncludeWhitespace) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
+}
+
+// GetElementByRelationRelation type of relation to get.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/DOM#method-getElementByRelation
+type GetElementByRelationRelation string
+
+// String returns the GetElementByRelationRelation as string value.
+func (t GetElementByRelationRelation) String() string {
+	return string(t)
+}
+
+// GetElementByRelationRelation values.
+const (
+	GetElementByRelationRelationPopoverTarget GetElementByRelationRelation = "PopoverTarget"
+)
+
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t GetElementByRelationRelation) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
+
+// MarshalJSON satisfies json.Marshaler.
+func (t GetElementByRelationRelation) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *GetElementByRelationRelation) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch GetElementByRelationRelation(v) {
+	case GetElementByRelationRelationPopoverTarget:
+		*t = GetElementByRelationRelationPopoverTarget
+
+	default:
+		in.AddError(fmt.Errorf("unknown GetElementByRelationRelation value: %v", v))
+	}
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *GetElementByRelationRelation) UnmarshalJSON(buf []byte) error {
 	return easyjson.Unmarshal(buf, t)
 }

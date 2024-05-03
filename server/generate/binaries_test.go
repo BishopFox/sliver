@@ -20,7 +20,6 @@ package generate
 
 import (
 	"fmt"
-	"runtime"
 	"testing"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -36,14 +35,18 @@ func TestSliverExecutableWindows(t *testing.T) {
 
 	// Wireguard C2
 	wireguardExe(t, "windows", "amd64", false, false)
+	wireguardExe(t, "windows", "arm64", false, false)
 	wireguardExe(t, "windows", "386", false, false)
 	wireguardExe(t, "windows", "amd64", false, true)
+	wireguardExe(t, "windows", "arm64", false, true)
 	wireguardExe(t, "windows", "386", false, true)
 
 	// Wireguard beacon
 	wireguardExe(t, "windows", "amd64", true, false)
+	wireguardExe(t, "windows", "arm64", true, false)
 	wireguardExe(t, "windows", "386", true, false)
 	wireguardExe(t, "windows", "amd64", true, true)
+	wireguardExe(t, "windows", "arm64", true, true)
 	wireguardExe(t, "windows", "386", true, true)
 
 	// mTLS C2
@@ -82,12 +85,16 @@ func TestSliverExecutableWindows(t *testing.T) {
 	// Multiple C2s
 	multiExe(t, "windows", "amd64", false, true)
 	multiExe(t, "windows", "amd64", false, false)
+	multiExe(t, "windows", "arm64", false, true)
+	multiExe(t, "windows", "arm64", false, false)
 	multiExe(t, "windows", "386", false, false)
 	multiExe(t, "windows", "386", false, false)
 
 	// Multiple Beacons
 	multiExe(t, "windows", "amd64", true, true)
 	multiExe(t, "windows", "amd64", true, false)
+	multiExe(t, "windows", "arm64", true, true)
+	multiExe(t, "windows", "arm64", true, false)
 	multiExe(t, "windows", "386", true, false)
 	multiExe(t, "windows", "386", true, false)
 
@@ -97,50 +104,77 @@ func TestSliverExecutableWindows(t *testing.T) {
 }
 
 func TestSliverSharedLibWindows(t *testing.T) {
+	// amd64
 	multiLibrary(t, "windows", "amd64", true)
 	multiLibrary(t, "windows", "amd64", false)
+
+	// arm64
+	multiLibrary(t, "windows", "arm64", true)
+	multiLibrary(t, "windows", "arm64", false)
+
+	// 386
 	multiLibrary(t, "windows", "386", true)
 	multiLibrary(t, "windows", "386", false)
 }
 
 func TestSliverExecutableLinux(t *testing.T) {
+	// amd64
 	multiExe(t, "linux", "amd64", false, true)
 	multiExe(t, "linux", "amd64", false, false)
-
 	multiExe(t, "linux", "amd64", true, true)
 	multiExe(t, "linux", "amd64", true, false)
-
 	tcpPivotExe(t, "linux", "amd64", false)
+
+	// arm64
+	multiExe(t, "linux", "arm64", false, true)
+	multiExe(t, "linux", "arm64", false, false)
+	multiExe(t, "linux", "arm64", true, true)
+	multiExe(t, "linux", "arm64", true, false)
+	tcpPivotExe(t, "linux", "arm64", false)
+
+	// 386
+	multiExe(t, "linux", "386", false, true)
+	multiExe(t, "linux", "386", false, false)
+	multiExe(t, "linux", "386", true, true)
+	multiExe(t, "linux", "386", true, false)
+	tcpPivotExe(t, "linux", "386", false)
 }
 
 func TestSliverSharedLibraryLinux(t *testing.T) {
-	if runtime.GOOS == "linux" {
-		multiLibrary(t, "linux", "amd64", true)
-		multiLibrary(t, "linux", "amd64", false)
-		multiLibrary(t, "linux", "386", true)
-		multiLibrary(t, "linux", "386", false)
-	}
+	// amd64
+	multiLibrary(t, "linux", "amd64", true)
+	multiLibrary(t, "linux", "amd64", false)
+
+	// arm64
+	multiLibrary(t, "linux", "arm64", true)
+	multiLibrary(t, "linux", "arm64", false)
+
+	// 386
+	multiLibrary(t, "linux", "386", true)
+	multiLibrary(t, "linux", "386", false)
 }
 
 func TestSliverExecutableDarwin(t *testing.T) {
+	// amd64
 	multiExe(t, "darwin", "amd64", false, true)
 	multiExe(t, "darwin", "amd64", false, false)
 	multiExe(t, "darwin", "amd64", true, true)
 	multiExe(t, "darwin", "amd64", true, false)
-
 	tcpPivotExe(t, "darwin", "amd64", false)
+
+	// arm64
+	multiExe(t, "darwin", "arm64", false, true)
+	multiExe(t, "darwin", "arm64", false, false)
+	multiExe(t, "darwin", "arm64", true, true)
+	multiExe(t, "darwin", "arm64", true, false)
+	tcpPivotExe(t, "darwin", "arm64", false)
 }
 
 func TestSliverDefaultBuild(t *testing.T) {
-	mtlsExe(t, "linux", "arm", false, true)
-	mtlsExe(t, "linux", "arm", false, false)
 	httpExe(t, "freebsd", "amd64", false, false)
 	httpExe(t, "freebsd", "amd64", false, true)
 	dnsExe(t, "plan9", "amd64", false, false)
 	dnsExe(t, "plan9", "amd64", false, true)
-
-	mtlsExe(t, "linux", "arm", true, true)
-	mtlsExe(t, "linux", "arm", true, false)
 	httpExe(t, "freebsd", "amd64", true, false)
 	httpExe(t, "freebsd", "amd64", true, true)
 	dnsExe(t, "plan9", "amd64", true, false)
@@ -148,10 +182,11 @@ func TestSliverDefaultBuild(t *testing.T) {
 }
 
 func TestSymbolObfuscation(t *testing.T) {
-
 	// Supported platforms
 	symbolObfuscation(t, "windows", "amd64")
+	symbolObfuscation(t, "windows", "arm64")
 	symbolObfuscation(t, "linux", "amd64")
+	symbolObfuscation(t, "linux", "arm64")
 	symbolObfuscation(t, "linux", "386")
 	symbolObfuscation(t, "darwin", "amd64")
 	symbolObfuscation(t, "darwin", "arm64")

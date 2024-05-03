@@ -6,7 +6,7 @@ import (
 	"io"
 	"math"
 	"net"
-	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -28,30 +28,64 @@ import (
 //
 // Close will close the *websocket.Conn with StatusNormalClosure.
 //
-// When a deadline is hit, the connection will be closed. This is
-// different from most net.Conn implementations where only the
-// reading/writing goroutines are interrupted but the connection is kept alive.
+// When a deadline is hit and there is an active read or write goroutine, the
+// connection will be closed. This is different from most net.Conn implementations
+// where only the reading/writing goroutines are interrupted but the connection
+// is kept alive.
 //
-// The Addr methods will return a mock net.Addr that returns "websocket" for Network
-// and "websocket/unknown-addr" for String.
+// The Addr methods will return the real addresses for connections obtained
+// from websocket.Accept. But for connections obtained from websocket.Dial, a mock net.Addr
+// will be returned that gives "websocket" for Network() and "websocket/unknown-addr" for
+// String(). This is because websocket.Dial only exposes a io.ReadWriteCloser instead of the
+// full net.Conn to us.
+//
+// When running as WASM, the Addr methods will always return the mock address described above.
 //
 // A received StatusNormalClosure or StatusGoingAway close frame will be translated to
 // io.EOF when reading.
+//
+// Furthermore, the ReadLimit is set to -1 to disable it.
 func NetConn(ctx context.Context, c *Conn, msgType MessageType) net.Conn {
+	c.SetReadLimit(-1)
+
 	nc := &netConn{
 		c:       c,
 		msgType: msgType,
+		readMu:  newMu(c),
+		writeMu: newMu(c),
 	}
 
-	var cancel context.CancelFunc
-	nc.writeContext, cancel = context.WithCancel(ctx)
-	nc.writeTimer = time.AfterFunc(math.MaxInt64, cancel)
+	nc.writeCtx, nc.writeCancel = context.WithCancel(ctx)
+	nc.readCtx, nc.readCancel = context.WithCancel(ctx)
+
+	nc.writeTimer = time.AfterFunc(math.MaxInt64, func() {
+		if !nc.writeMu.tryLock() {
+			// If the lock cannot be acquired, then there is an
+			// active write goroutine and so we should cancel the context.
+			nc.writeCancel()
+			return
+		}
+		defer nc.writeMu.unlock()
+
+		// Prevents future writes from writing until the deadline is reset.
+		atomic.StoreInt64(&nc.writeExpired, 1)
+	})
 	if !nc.writeTimer.Stop() {
 		<-nc.writeTimer.C
 	}
 
-	nc.readContext, cancel = context.WithCancel(ctx)
-	nc.readTimer = time.AfterFunc(math.MaxInt64, cancel)
+	nc.readTimer = time.AfterFunc(math.MaxInt64, func() {
+		if !nc.readMu.tryLock() {
+			// If the lock cannot be acquired, then there is an
+			// active read goroutine and so we should cancel the context.
+			nc.readCancel()
+			return
+		}
+		defer nc.readMu.unlock()
+
+		// Prevents future reads from reading until the deadline is reset.
+		atomic.StoreInt64(&nc.readExpired, 1)
+	})
 	if !nc.readTimer.Stop() {
 		<-nc.readTimer.C
 	}
@@ -64,59 +98,91 @@ type netConn struct {
 	msgType MessageType
 
 	writeTimer   *time.Timer
-	writeContext context.Context
+	writeMu      *mu
+	writeExpired int64
+	writeCtx     context.Context
+	writeCancel  context.CancelFunc
 
 	readTimer   *time.Timer
-	readContext context.Context
-
-	readMu sync.Mutex
-	eofed  bool
-	reader io.Reader
+	readMu      *mu
+	readExpired int64
+	readCtx     context.Context
+	readCancel  context.CancelFunc
+	readEOFed   bool
+	reader      io.Reader
 }
 
 var _ net.Conn = &netConn{}
 
-func (c *netConn) Close() error {
-	return c.c.Close(StatusNormalClosure, "")
+func (nc *netConn) Close() error {
+	nc.writeTimer.Stop()
+	nc.writeCancel()
+	nc.readTimer.Stop()
+	nc.readCancel()
+	return nc.c.Close(StatusNormalClosure, "")
 }
 
-func (c *netConn) Write(p []byte) (int, error) {
-	err := c.c.Write(c.writeContext, c.msgType, p)
+func (nc *netConn) Write(p []byte) (int, error) {
+	nc.writeMu.forceLock()
+	defer nc.writeMu.unlock()
+
+	if atomic.LoadInt64(&nc.writeExpired) == 1 {
+		return 0, fmt.Errorf("failed to write: %w", context.DeadlineExceeded)
+	}
+
+	err := nc.c.Write(nc.writeCtx, nc.msgType, p)
 	if err != nil {
 		return 0, err
 	}
 	return len(p), nil
 }
 
-func (c *netConn) Read(p []byte) (int, error) {
-	c.readMu.Lock()
-	defer c.readMu.Unlock()
+func (nc *netConn) Read(p []byte) (int, error) {
+	nc.readMu.forceLock()
+	defer nc.readMu.unlock()
 
-	if c.eofed {
+	for {
+		n, err := nc.read(p)
+		if err != nil {
+			return n, err
+		}
+		if n == 0 {
+			continue
+		}
+		return n, nil
+	}
+}
+
+func (nc *netConn) read(p []byte) (int, error) {
+	if atomic.LoadInt64(&nc.readExpired) == 1 {
+		return 0, fmt.Errorf("failed to read: %w", context.DeadlineExceeded)
+	}
+
+	if nc.readEOFed {
 		return 0, io.EOF
 	}
 
-	if c.reader == nil {
-		typ, r, err := c.c.Reader(c.readContext)
+	if nc.reader == nil {
+		typ, r, err := nc.c.Reader(nc.readCtx)
 		if err != nil {
 			switch CloseStatus(err) {
 			case StatusNormalClosure, StatusGoingAway:
-				c.eofed = true
+				nc.readEOFed = true
 				return 0, io.EOF
 			}
 			return 0, err
 		}
-		if typ != c.msgType {
-			err := fmt.Errorf("unexpected frame type read (expected %v): %v", c.msgType, typ)
-			c.c.Close(StatusUnsupportedData, err.Error())
+		if typ != nc.msgType {
+			err := fmt.Errorf("unexpected frame type read (expected %v): %v", nc.msgType, typ)
+			nc.c.Close(StatusUnsupportedData, err.Error())
 			return 0, err
 		}
-		c.reader = r
+		nc.reader = r
 	}
 
-	n, err := c.reader.Read(p)
+	n, err := nc.reader.Read(p)
 	if err == io.EOF {
-		c.reader = nil
+		nc.reader = nil
 		err = nil
 	}
 	return n, err
@@ -133,34 +199,36 @@ func (a websocketAddr) String() string {
 	return "websocket/unknown-addr"
 }
 
-func (c *netConn) RemoteAddr() net.Addr {
-	return websocketAddr{}
-}
-
-func (c *netConn) LocalAddr() net.Addr {
-	return websocketAddr{}
-}
-
-func (c *netConn) SetDeadline(t time.Time) error {
-	c.SetWriteDeadline(t)
-	c.SetReadDeadline(t)
+func (nc *netConn) SetDeadline(t time.Time) error {
+	nc.SetWriteDeadline(t)
+	nc.SetReadDeadline(t)
 	return nil
 }
 
-func (c *netConn) SetWriteDeadline(t time.Time) error {
+func (nc *netConn) SetWriteDeadline(t time.Time) error {
+	atomic.StoreInt64(&nc.writeExpired, 0)
 	if t.IsZero() {
-		c.writeTimer.Stop()
+		nc.writeTimer.Stop()
 	} else {
-		c.writeTimer.Reset(t.Sub(time.Now()))
+		dur := time.Until(t)
+		if dur <= 0 {
+			dur = 1
+		}
+		nc.writeTimer.Reset(dur)
 	}
 	return nil
 }
 
-func (c *netConn) SetReadDeadline(t time.Time) error {
+func (nc *netConn) SetReadDeadline(t time.Time) error {
+	atomic.StoreInt64(&nc.readExpired, 0)
 	if t.IsZero() {
-		c.readTimer.Stop()
+		nc.readTimer.Stop()
 	} else {
-		c.readTimer.Reset(t.Sub(time.Now()))
+		dur := time.Until(t)
+		if dur <= 0 {
+			dur = 1
+		}
+		nc.readTimer.Reset(dur)
 	}
 	return nil
 }

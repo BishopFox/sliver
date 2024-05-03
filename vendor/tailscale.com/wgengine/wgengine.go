@@ -11,11 +11,13 @@ import (
 	"tailscale.com/ipn/ipnstate"
 	"tailscale.com/net/dns"
 	"tailscale.com/tailcfg"
+	"tailscale.com/types/key"
 	"tailscale.com/types/netmap"
 	"tailscale.com/wgengine/capture"
 	"tailscale.com/wgengine/filter"
 	"tailscale.com/wgengine/router"
 	"tailscale.com/wgengine/wgcfg"
+	"tailscale.com/wgengine/wgint"
 )
 
 // Status is the Engine status.
@@ -84,15 +86,20 @@ type Engine interface {
 	// away, sent to the callback registered via SetStatusCallback.
 	RequestStatus()
 
+	// PeerByKey returns the WireGuard status of the provided peer.
+	// If the peer is not found, ok is false.
+	PeerByKey(key.NodePublic) (_ wgint.Peer, ok bool)
+
 	// Close shuts down this wireguard instance, remove any routes
 	// it added, etc. To bring it up again later, you'll need a
 	// new Engine.
 	Close()
 
-	// Wait waits until the Engine's Close method is called or the
-	// engine aborts with an error. You don't have to call this.
-	// TODO: return an error?
-	Wait()
+	// Done returns a channel that is closed when the Engine's
+	// Close method is called, the engine aborts with an error,
+	// or it shuts down due to the closure of the underlying device.
+	// You don't have to call this.
+	Done() <-chan struct{}
 
 	// SetNetworkMap informs the engine of the latest network map
 	// from the server. The network map's DERPMap field should be

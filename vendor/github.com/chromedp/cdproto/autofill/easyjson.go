@@ -250,6 +250,10 @@ func easyjsonC5a4559bDecodeGithubComChromedpCdprotoAutofill2(in *jlexer.Lexer, o
 			out.AutofillType = string(in.String())
 		case "fillingStrategy":
 			(out.FillingStrategy).UnmarshalEasyJSON(in)
+		case "frameId":
+			(out.FrameID).UnmarshalEasyJSON(in)
+		case "fieldId":
+			(out.FieldID).UnmarshalEasyJSON(in)
 		default:
 			in.SkipRecursive()
 		}
@@ -293,6 +297,16 @@ func easyjsonC5a4559bEncodeGithubComChromedpCdprotoAutofill2(out *jwriter.Writer
 		const prefix string = ",\"fillingStrategy\":"
 		out.RawString(prefix)
 		(in.FillingStrategy).MarshalEasyJSON(out)
+	}
+	{
+		const prefix string = ",\"frameId\":"
+		out.RawString(prefix)
+		out.String(string(in.FrameID))
+	}
+	{
+		const prefix string = ",\"fieldId\":"
+		out.RawString(prefix)
+		out.Int64(int64(in.FieldID))
 	}
 	out.RawByte('}')
 }

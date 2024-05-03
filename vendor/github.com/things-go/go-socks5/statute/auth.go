@@ -39,6 +39,8 @@ func NewUserPassRequest(ver byte, user, pass []byte) UserPassRequest {
 }
 
 // ParseUserPassRequest parse user's password request.
+//
+//nolint:nakedret
 func ParseUserPassRequest(r io.Reader) (nup UserPassRequest, err error) {
 	tmp := []byte{0, 0}
 

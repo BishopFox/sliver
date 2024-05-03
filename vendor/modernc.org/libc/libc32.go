@@ -36,6 +36,10 @@ func newBits(n int) (r bits)  { return make(bits, (n+31)>>5) }
 func (b bits) has(n int) bool { return b != nil && b[n>>5]&(1<<uint(n&31)) != 0 }
 func (b bits) set(n int)      { b[n>>5] |= 1 << uint(n&31) }
 
+func Xstrchrnul(tls *TLS, s uintptr, c int32) (r uintptr) {
+	return x___strchrnul(tls, s, c)
+}
+
 func x___strchrnul(tls *TLS, s uintptr, c int32) (r uintptr) {
 	var k types.Size_t
 	var w uintptr

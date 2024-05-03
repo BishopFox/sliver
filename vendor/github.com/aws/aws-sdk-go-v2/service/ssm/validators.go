@@ -350,6 +350,26 @@ func (m *validateOpDeleteMaintenanceWindow) HandleInitialize(ctx context.Context
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDeleteOpsItem struct {
+}
+
+func (*validateOpDeleteOpsItem) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDeleteOpsItem) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DeleteOpsItemInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDeleteOpsItemInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDeleteOpsMetadata struct {
 }
 
@@ -2538,6 +2558,10 @@ func addOpDeleteMaintenanceWindowValidationMiddleware(stack *middleware.Stack) e
 	return stack.Initialize.Add(&validateOpDeleteMaintenanceWindow{}, middleware.After)
 }
 
+func addOpDeleteOpsItemValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDeleteOpsItem{}, middleware.After)
+}
+
 func addOpDeleteOpsMetadataValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeleteOpsMetadata{}, middleware.After)
 }
@@ -4685,6 +4709,9 @@ func validateOpCreateMaintenanceWindowInput(v *CreateMaintenanceWindowInput) err
 	if v.Schedule == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("Schedule"))
 	}
+	if v.Duration == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Duration"))
+	}
 	if v.Tags != nil {
 		if err := validateTagList(v.Tags); err != nil {
 			invalidParams.AddNested("Tags", err.(smithy.InvalidParamsError))
@@ -4860,6 +4887,21 @@ func validateOpDeleteMaintenanceWindowInput(v *DeleteMaintenanceWindowInput) err
 	invalidParams := smithy.InvalidParamsError{Context: "DeleteMaintenanceWindowInput"}
 	if v.WindowId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("WindowId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpDeleteOpsItemInput(v *DeleteOpsItemInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DeleteOpsItemInput"}
+	if v.OpsItemId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("OpsItemId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

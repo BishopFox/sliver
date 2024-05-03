@@ -415,6 +415,36 @@ func (o OperationKind) String() (ret string) {
 		ret = "V128ITruncSatFromF"
 	case OperationKindBuiltinFunctionCheckExitCode:
 		ret = "BuiltinFunctionCheckExitCode"
+	case OperationKindAtomicMemoryWait:
+		ret = "OperationKindAtomicMemoryWait"
+	case OperationKindAtomicMemoryNotify:
+		ret = "OperationKindAtomicMemoryNotify"
+	case OperationKindAtomicFence:
+		ret = "OperationKindAtomicFence"
+	case OperationKindAtomicLoad:
+		ret = "OperationKindAtomicLoad"
+	case OperationKindAtomicLoad8:
+		ret = "OperationKindAtomicLoad8"
+	case OperationKindAtomicLoad16:
+		ret = "OperationKindAtomicLoad16"
+	case OperationKindAtomicStore:
+		ret = "OperationKindAtomicStore"
+	case OperationKindAtomicStore8:
+		ret = "OperationKindAtomicStore8"
+	case OperationKindAtomicStore16:
+		ret = "OperationKindAtomicStore16"
+	case OperationKindAtomicRMW:
+		ret = "OperationKindAtomicRMW"
+	case OperationKindAtomicRMW8:
+		ret = "OperationKindAtomicRMW8"
+	case OperationKindAtomicRMW16:
+		ret = "OperationKindAtomicRMW16"
+	case OperationKindAtomicRMWCmpxchg:
+		ret = "OperationKindAtomicRMWCmpxchg"
+	case OperationKindAtomicRMW8Cmpxchg:
+		ret = "OperationKindAtomicRMW8Cmpxchg"
+	case OperationKindAtomicRMW16Cmpxchg:
+		ret = "OperationKindAtomicRMW16Cmpxchg"
 	default:
 		panic(fmt.Errorf("unknown operation %d", o))
 	}
@@ -704,6 +734,39 @@ const (
 
 	// OperationKindBuiltinFunctionCheckExitCode is the Kind for NewOperationBuiltinFunctionCheckExitCode.
 	OperationKindBuiltinFunctionCheckExitCode
+
+	// OperationKindAtomicMemoryWait is the kind for NewOperationAtomicMemoryWait.
+	OperationKindAtomicMemoryWait
+	// OperationKindAtomicMemoryNotify is the kind for NewOperationAtomicMemoryNotify.
+	OperationKindAtomicMemoryNotify
+	// OperationKindAtomicFence is the kind for NewOperationAtomicFence.
+	OperationKindAtomicFence
+	// OperationKindAtomicLoad is the kind for NewOperationAtomicLoad.
+	OperationKindAtomicLoad
+	// OperationKindAtomicLoad8 is the kind for NewOperationAtomicLoad8.
+	OperationKindAtomicLoad8
+	// OperationKindAtomicLoad16 is the kind for NewOperationAtomicLoad16.
+	OperationKindAtomicLoad16
+	// OperationKindAtomicStore is the kind for NewOperationAtomicStore.
+	OperationKindAtomicStore
+	// OperationKindAtomicStore8 is the kind for NewOperationAtomicStore8.
+	OperationKindAtomicStore8
+	// OperationKindAtomicStore16 is the kind for NewOperationAtomicStore16.
+	OperationKindAtomicStore16
+
+	// OperationKindAtomicRMW is the kind for NewOperationAtomicRMW.
+	OperationKindAtomicRMW
+	// OperationKindAtomicRMW8 is the kind for NewOperationAtomicRMW8.
+	OperationKindAtomicRMW8
+	// OperationKindAtomicRMW16 is the kind for NewOperationAtomicRMW16.
+	OperationKindAtomicRMW16
+
+	// OperationKindAtomicRMWCmpxchg is the kind for NewOperationAtomicRMWCmpxchg.
+	OperationKindAtomicRMWCmpxchg
+	// OperationKindAtomicRMW8Cmpxchg is the kind for NewOperationAtomicRMW8Cmpxchg.
+	OperationKindAtomicRMW8Cmpxchg
+	// OperationKindAtomicRMW16Cmpxchg is the kind for NewOperationAtomicRMW16Cmpxchg.
+	OperationKindAtomicRMW16Cmpxchg
 
 	// operationKindEnd is always placed at the bottom of this iota definition to be used in the test.
 	operationKindEnd
@@ -1016,6 +1079,23 @@ func (o UnionOperation) String() string {
 		} else {
 			return fmt.Sprintf("%s.%sU", o.Kind, shapeName(o.B1))
 		}
+
+	case OperationKindAtomicMemoryWait,
+		OperationKindAtomicMemoryNotify,
+		OperationKindAtomicFence,
+		OperationKindAtomicLoad,
+		OperationKindAtomicLoad8,
+		OperationKindAtomicLoad16,
+		OperationKindAtomicStore,
+		OperationKindAtomicStore8,
+		OperationKindAtomicStore16,
+		OperationKindAtomicRMW,
+		OperationKindAtomicRMW8,
+		OperationKindAtomicRMW16,
+		OperationKindAtomicRMWCmpxchg,
+		OperationKindAtomicRMW8Cmpxchg,
+		OperationKindAtomicRMW16Cmpxchg:
+		return o.Kind.String()
 
 	default:
 		panic(fmt.Sprintf("TODO: %v", o.Kind))
@@ -2564,4 +2644,169 @@ func NewOperationV128Narrow(originShape Shape, signed bool) UnionOperation {
 // either ShapeF32x4, or ShapeF64x2.
 func NewOperationV128ITruncSatFromF(originShape Shape, signed bool) UnionOperation {
 	return UnionOperation{Kind: OperationKindV128ITruncSatFromF, B1: originShape, B3: signed}
+}
+
+// AtomicArithmeticOp is the type for the operation kind of atomic arithmetic operations.
+type AtomicArithmeticOp byte
+
+const (
+	// AtomicArithmeticOpAdd is the kind for an add operation.
+	AtomicArithmeticOpAdd AtomicArithmeticOp = iota
+	// AtomicArithmeticOpSub is the kind for a sub operation.
+	AtomicArithmeticOpSub
+	// AtomicArithmeticOpAnd is the kind for a bitwise and operation.
+	AtomicArithmeticOpAnd
+	// AtomicArithmeticOpOr is the kind for a bitwise or operation.
+	AtomicArithmeticOpOr
+	// AtomicArithmeticOpXor is the kind for a bitwise xor operation.
+	AtomicArithmeticOpXor
+	// AtomicArithmeticOpNop is the kind for a nop operation.
+	AtomicArithmeticOpNop
+)
+
+// NewOperationAtomicMemoryWait is a constructor for UnionOperation with OperationKindAtomicMemoryWait.
+//
+// This corresponds to
+//
+//	wasm.OpcodeAtomicWait32Name wasm.OpcodeAtomicWait64Name
+func NewOperationAtomicMemoryWait(unsignedType UnsignedType, arg MemoryArg) UnionOperation {
+	return UnionOperation{Kind: OperationKindAtomicMemoryWait, B1: byte(unsignedType), U1: uint64(arg.Alignment), U2: uint64(arg.Offset)}
+}
+
+// NewOperationAtomicMemoryNotify is a constructor for UnionOperation with OperationKindAtomicMemoryNotify.
+//
+// This corresponds to
+//
+//	wasm.OpcodeAtomicNotifyName
+func NewOperationAtomicMemoryNotify(arg MemoryArg) UnionOperation {
+	return UnionOperation{Kind: OperationKindAtomicMemoryNotify, U1: uint64(arg.Alignment), U2: uint64(arg.Offset)}
+}
+
+// NewOperationAtomicFence is a constructor for UnionOperation with OperationKindAtomicFence.
+//
+// This corresponds to
+//
+//	wasm.OpcodeAtomicFenceName
+func NewOperationAtomicFence() UnionOperation {
+	return UnionOperation{Kind: OperationKindAtomicFence}
+}
+
+// NewOperationAtomicLoad is a constructor for UnionOperation with OperationKindAtomicLoad.
+//
+// This corresponds to
+//
+//	wasm.OpcodeAtomicI32LoadName wasm.OpcodeAtomicI64LoadName
+func NewOperationAtomicLoad(unsignedType UnsignedType, arg MemoryArg) UnionOperation {
+	return UnionOperation{Kind: OperationKindAtomicLoad, B1: byte(unsignedType), U1: uint64(arg.Alignment), U2: uint64(arg.Offset)}
+}
+
+// NewOperationAtomicLoad8 is a constructor for UnionOperation with OperationKindAtomicLoad8.
+//
+// This corresponds to
+//
+//	wasm.OpcodeAtomicI32Load8UName wasm.OpcodeAtomicI64Load8UName
+func NewOperationAtomicLoad8(unsignedType UnsignedType, arg MemoryArg) UnionOperation {
+	return UnionOperation{Kind: OperationKindAtomicLoad8, B1: byte(unsignedType), U1: uint64(arg.Alignment), U2: uint64(arg.Offset)}
+}
+
+// NewOperationAtomicLoad16 is a constructor for UnionOperation with OperationKindAtomicLoad16.
+//
+// This corresponds to
+//
+//	wasm.OpcodeAtomicI32Load16UName wasm.OpcodeAtomicI64Load16UName
+func NewOperationAtomicLoad16(unsignedType UnsignedType, arg MemoryArg) UnionOperation {
+	return UnionOperation{Kind: OperationKindAtomicLoad16, B1: byte(unsignedType), U1: uint64(arg.Alignment), U2: uint64(arg.Offset)}
+}
+
+// NewOperationAtomicStore is a constructor for UnionOperation with OperationKindAtomicStore.
+//
+// This corresponds to
+//
+//	wasm.OpcodeAtomicI32StoreName wasm.OpcodeAtomicI64StoreName
+func NewOperationAtomicStore(unsignedType UnsignedType, arg MemoryArg) UnionOperation {
+	return UnionOperation{Kind: OperationKindAtomicStore, B1: byte(unsignedType), U1: uint64(arg.Alignment), U2: uint64(arg.Offset)}
+}
+
+// NewOperationAtomicStore8 is a constructor for UnionOperation with OperationKindAtomicStore8.
+//
+// This corresponds to
+//
+//	wasm.OpcodeAtomicI32Store8UName wasm.OpcodeAtomicI64Store8UName
+func NewOperationAtomicStore8(unsignedType UnsignedType, arg MemoryArg) UnionOperation {
+	return UnionOperation{Kind: OperationKindAtomicStore8, B1: byte(unsignedType), U1: uint64(arg.Alignment), U2: uint64(arg.Offset)}
+}
+
+// NewOperationAtomicStore16 is a constructor for UnionOperation with OperationKindAtomicStore16.
+//
+// This corresponds to
+//
+//	wasm.OpcodeAtomicI32Store16UName wasm.OpcodeAtomicI64Store16UName
+func NewOperationAtomicStore16(unsignedType UnsignedType, arg MemoryArg) UnionOperation {
+	return UnionOperation{Kind: OperationKindAtomicStore16, B1: byte(unsignedType), U1: uint64(arg.Alignment), U2: uint64(arg.Offset)}
+}
+
+// NewOperationAtomicRMW is a constructor for UnionOperation with OperationKindAtomicRMW.
+//
+// This corresponds to
+//
+//	wasm.OpcodeAtomicI32RMWAddName wasm.OpcodeAtomicI64RmwAddName
+//	wasm.OpcodeAtomicI32RMWSubName wasm.OpcodeAtomicI64RmwSubName
+//	wasm.OpcodeAtomicI32RMWAndName wasm.OpcodeAtomicI64RmwAndName
+//	wasm.OpcodeAtomicI32RMWOrName wasm.OpcodeAtomicI64RmwOrName
+//	wasm.OpcodeAtomicI32RMWXorName wasm.OpcodeAtomicI64RmwXorName
+func NewOperationAtomicRMW(unsignedType UnsignedType, arg MemoryArg, op AtomicArithmeticOp) UnionOperation {
+	return UnionOperation{Kind: OperationKindAtomicRMW, B1: byte(unsignedType), B2: byte(op), U1: uint64(arg.Alignment), U2: uint64(arg.Offset)}
+}
+
+// NewOperationAtomicRMW8 is a constructor for UnionOperation with OperationKindAtomicRMW8.
+//
+// This corresponds to
+//
+//	wasm.OpcodeAtomicI32RMW8AddUName wasm.OpcodeAtomicI64Rmw8AddUName
+//	wasm.OpcodeAtomicI32RMW8SubUName wasm.OpcodeAtomicI64Rmw8SubUName
+//	wasm.OpcodeAtomicI32RMW8AndUName wasm.OpcodeAtomicI64Rmw8AndUName
+//	wasm.OpcodeAtomicI32RMW8OrUName wasm.OpcodeAtomicI64Rmw8OrUName
+//	wasm.OpcodeAtomicI32RMW8XorUName wasm.OpcodeAtomicI64Rmw8XorUName
+func NewOperationAtomicRMW8(unsignedType UnsignedType, arg MemoryArg, op AtomicArithmeticOp) UnionOperation {
+	return UnionOperation{Kind: OperationKindAtomicRMW8, B1: byte(unsignedType), B2: byte(op), U1: uint64(arg.Alignment), U2: uint64(arg.Offset)}
+}
+
+// NewOperationAtomicRMW16 is a constructor for UnionOperation with OperationKindAtomicRMW16.
+//
+// This corresponds to
+//
+//	wasm.OpcodeAtomicI32RMW16AddUName wasm.OpcodeAtomicI64Rmw16AddUName
+//	wasm.OpcodeAtomicI32RMW16SubUName wasm.OpcodeAtomicI64Rmw16SubUName
+//	wasm.OpcodeAtomicI32RMW16AndUName wasm.OpcodeAtomicI64Rmw16AndUName
+//	wasm.OpcodeAtomicI32RMW16OrUName wasm.OpcodeAtomicI64Rmw16OrUName
+//	wasm.OpcodeAtomicI32RMW16XorUName wasm.OpcodeAtomicI64Rmw16XorUName
+func NewOperationAtomicRMW16(unsignedType UnsignedType, arg MemoryArg, op AtomicArithmeticOp) UnionOperation {
+	return UnionOperation{Kind: OperationKindAtomicRMW16, B1: byte(unsignedType), B2: byte(op), U1: uint64(arg.Alignment), U2: uint64(arg.Offset)}
+}
+
+// NewOperationAtomicRMWCmpxchg is a constructor for UnionOperation with OperationKindAtomicRMWCmpxchg.
+//
+// This corresponds to
+//
+//	wasm.OpcodeAtomicI32RMWCmpxchgName wasm.OpcodeAtomicI64RmwCmpxchgName
+func NewOperationAtomicRMWCmpxchg(unsignedType UnsignedType, arg MemoryArg) UnionOperation {
+	return UnionOperation{Kind: OperationKindAtomicRMWCmpxchg, B1: byte(unsignedType), U1: uint64(arg.Alignment), U2: uint64(arg.Offset)}
+}
+
+// NewOperationAtomicRMW8Cmpxchg is a constructor for UnionOperation with OperationKindAtomicRMW8Cmpxchg.
+//
+// This corresponds to
+//
+//	wasm.OpcodeAtomicI32RMW8CmpxchgUName wasm.OpcodeAtomicI64Rmw8CmpxchgUName
+func NewOperationAtomicRMW8Cmpxchg(unsignedType UnsignedType, arg MemoryArg) UnionOperation {
+	return UnionOperation{Kind: OperationKindAtomicRMW8Cmpxchg, B1: byte(unsignedType), U1: uint64(arg.Alignment), U2: uint64(arg.Offset)}
+}
+
+// NewOperationAtomicRMW16Cmpxchg is a constructor for UnionOperation with OperationKindAtomicRMW16Cmpxchg.
+//
+// This corresponds to
+//
+//	wasm.OpcodeAtomicI32RMW16CmpxchgUName wasm.OpcodeAtomicI64Rmw16CmpxchgUName
+func NewOperationAtomicRMW16Cmpxchg(unsignedType UnsignedType, arg MemoryArg) UnionOperation {
+	return UnionOperation{Kind: OperationKindAtomicRMW16Cmpxchg, B1: byte(unsignedType), U1: uint64(arg.Alignment), U2: uint64(arg.Offset)}
 }

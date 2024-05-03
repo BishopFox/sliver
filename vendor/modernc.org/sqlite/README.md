@@ -16,7 +16,7 @@ allowing one of the maintainers to work on it also in office hours.
 
 ## Documentation
 
-[godoc.org/modernc.org/sqlite](http://godoc.org/modernc.org/sqlite)
+[pkg.go.dev/modernc.org/sqlite](https://pkg.go.dev/modernc.org/sqlite)
 
 ## Builders
 
@@ -74,3 +74,8 @@ RAM. Shown are the best of 3 runs.
             TOTAL.......................................................    5.525s                  TOTAL.......................................................    4.637s
 
 This particular test executes 16.1% faster in the C version.
+
+## Troubleshooting
+
+* Q: **How can I write to a database concurrently without getting the `database is locked` error (or `SQLITE_BUSY`)?**
+     * A: You can't. The C sqlite implementation does not allow concurrent writes, and this libary does not modify that behaviour. You can, however, use [DB.SetMaxOpenConns(1)](https://pkg.go.dev/database/sql#DB.SetMaxOpenConns) so that only 1 connection is ever used by the `DB`, allowing concurrent access to DB without making the writes concurrent. More information on issues [#65](https://gitlab.com/cznic/sqlite/-/issues/65) and [#106](https://gitlab.com/cznic/sqlite/-/issues/106).

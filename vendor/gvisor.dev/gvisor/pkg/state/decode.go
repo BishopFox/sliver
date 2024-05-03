@@ -385,7 +385,7 @@ func (ds *decodeState) decodeStruct(ods *objectDecodeState, obj reflect.Value, e
 	if sl, ok := obj.Addr().Interface().(SaverLoader); ok {
 		// Note: may be a registered empty struct which does not
 		// implement the saver/loader interfaces.
-		sl.StateLoad(Source{internal: od})
+		sl.StateLoad(ds.ctx, Source{internal: od})
 	}
 }
 
@@ -691,7 +691,7 @@ func (ds *decodeState) Load(obj reflect.Value) {
 			}
 		}
 	}); err != nil {
-		Failf("error executing callbacks for %#v: %w", ods.obj.Interface(), err)
+		Failf("error executing callbacks: %w\nfor object %#v", err, ods.obj.Interface())
 	}
 
 	// Check if we have any remaining dependency cycles. If there are any

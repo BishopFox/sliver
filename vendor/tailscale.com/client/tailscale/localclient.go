@@ -7,6 +7,7 @@ package tailscale
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -27,6 +28,7 @@ import (
 
 	"go4.org/mem"
 	"tailscale.com/client/tailscale/apitype"
+	"tailscale.com/drive"
 	"tailscale.com/envknob"
 	"tailscale.com/ipn"
 	"tailscale.com/ipn/ipnstate"
@@ -37,7 +39,6 @@ import (
 	"tailscale.com/tka"
 	"tailscale.com/types/key"
 	"tailscale.com/types/tkatype"
-	"tailscale.com/util/cmpx"
 )
 
 // defaultLocalClient is the default LocalClient when using the legacy
@@ -102,8 +103,7 @@ func (lc *LocalClient) defaultDialer(ctx context.Context, network, addr string) 
 			return d.DialContext(ctx, "tcp", "127.0.0.1:"+strconv.Itoa(port))
 		}
 	}
-	s := safesocket.DefaultConnectionStrategy(lc.socket())
-	return safesocket.Connect(s)
+	return safesocket.Connect(lc.socket())
 }
 
 // DoLocalRequest makes an HTTP request to the local machine's Tailscale daemon.
@@ -480,7 +480,7 @@ func (lc *LocalClient) DebugPortmap(ctx context.Context, opts *DebugPortmapOpts)
 		opts = &DebugPortmapOpts{}
 	}
 
-	vals.Set("duration", cmpx.Or(opts.Duration, 5*time.Second).String())
+	vals.Set("duration", cmp.Or(opts.Duration, 5*time.Second).String())
 	vals.Set("type", opts.Type)
 	vals.Set("log_http", strconv.FormatBool(opts.LogHTTP))
 
@@ -1332,6 +1332,15 @@ func (lc *LocalClient) DebugDERPRegion(ctx context.Context, regionIDOrCode strin
 	return decodeJSON[*ipnstate.DebugDERPRegionReport](body)
 }
 
+// DebugPacketFilterRules returns the packet filter rules for the current device.
+func (lc *LocalClient) DebugPacketFilterRules(ctx context.Context) ([]tailcfg.FilterRule, error) {
+	body, err := lc.send(ctx, "POST", "/localapi/v0/debug-packet-filter-rules", 200, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error %w: %s", err, body)
+	}
+	return decodeJSON[[]tailcfg.FilterRule](body)
+}
+
 // DebugSetExpireIn marks the current node key to expire in d.
 //
 // This is meant primarily for debug and testing.
@@ -1392,6 +1401,81 @@ func (lc *LocalClient) WatchIPNBus(ctx context.Context, mask ipn.NotifyWatchOpt)
 		httpRes: res,
 		dec:     dec,
 	}, nil
+}
+
+// CheckUpdate returns a tailcfg.ClientVersion indicating whether or not an update is available
+// to be installed via the LocalAPI. In case the LocalAPI can't install updates, it returns a
+// ClientVersion that says that we are up to date.
+func (lc *LocalClient) CheckUpdate(ctx context.Context) (*tailcfg.ClientVersion, error) {
+	body, err := lc.get200(ctx, "/localapi/v0/update/check")
+	if err != nil {
+		return nil, err
+	}
+	cv, err := decodeJSON[tailcfg.ClientVersion](body)
+	if err != nil {
+		return nil, err
+	}
+	return &cv, nil
+}
+
+// SetUseExitNode toggles the use of an exit node on or off.
+// To turn it on, there must have been a previously used exit node.
+// The most previously used one is reused.
+// This is a convenience method for GUIs. To select an actual one, update the prefs.
+func (lc *LocalClient) SetUseExitNode(ctx context.Context, on bool) error {
+	_, err := lc.send(ctx, "POST", "/localapi/v0/set-use-exit-node-enabled?enabled="+strconv.FormatBool(on), http.StatusOK, nil)
+	return err
+}
+
+// DriveSetServerAddr instructs Taildrive to use the server at addr to access
+// the filesystem. This is used on platforms like Windows and MacOS to let
+// Taildrive know to use the file server running in the GUI app.
+func (lc *LocalClient) DriveSetServerAddr(ctx context.Context, addr string) error {
+	_, err := lc.send(ctx, "PUT", "/localapi/v0/drive/fileserver-address", http.StatusCreated, strings.NewReader(addr))
+	return err
+}
+
+// DriveShareSet adds or updates the given share in the list of shares that
+// Taildrive will serve to remote nodes. If a share with the same name already
+// exists, the existing share is replaced/updated.
+func (lc *LocalClient) DriveShareSet(ctx context.Context, share *drive.Share) error {
+	_, err := lc.send(ctx, "PUT", "/localapi/v0/drive/shares", http.StatusCreated, jsonBody(share))
+	return err
+}
+
+// DriveShareRemove removes the share with the given name from the list of
+// shares that Taildrive will serve to remote nodes.
+func (lc *LocalClient) DriveShareRemove(ctx context.Context, name string) error {
+	_, err := lc.send(
+		ctx,
+		"DELETE",
+		"/localapi/v0/drive/shares",
+		http.StatusNoContent,
+		strings.NewReader(name))
+	return err
+}
+
+// DriveShareRename renames the share from old to new name.
+func (lc *LocalClient) DriveShareRename(ctx context.Context, oldName, newName string) error {
+	_, err := lc.send(
+		ctx,
+		"POST",
+		"/localapi/v0/drive/shares",
+		http.StatusNoContent,
+		jsonBody([2]string{oldName, newName}))
+	return err
+}
+
+// DriveShareList returns the list of shares that drive is currently serving
+// to remote nodes.
+func (lc *LocalClient) DriveShareList(ctx context.Context) ([]*drive.Share, error) {
+	result, err := lc.get200(ctx, "/localapi/v0/drive/shares")
+	if err != nil {
+		return nil, err
+	}
+	var shares []*drive.Share
+	err = json.Unmarshal(result, &shares)
+	return shares, err
 }
 
 // IPNBusWatcher is an active subscription (watch) of the local tailscaled IPN bus.

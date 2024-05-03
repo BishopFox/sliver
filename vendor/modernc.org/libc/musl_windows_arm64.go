@@ -230,6 +230,9 @@ type __locale_struct = struct{ cat [6]uintptr } /* alltypes.h:351:9 */
 type locale_t = uintptr /* alltypes.h:351:32 */
 
 func Xisalnum(tls *TLS, c int32) int32 { /* isalnum.c:3:5: */
+	if __ccgo_strace {
+		trc("tls=%v c=%v, (%v:)", tls, c, origin(2))
+	}
 	return Bool32(func() int32 {
 		if 0 != 0 {
 			return Xisalpha(tls, c)
@@ -244,50 +247,79 @@ func Xisalnum(tls *TLS, c int32) int32 { /* isalnum.c:3:5: */
 }
 
 func X__isalnum_l(tls *TLS, c int32, l locale_t) int32 { /* isalnum.c:8:5: */
+	if __ccgo_strace {
+		trc("tls=%v c=%v l=%v, (%v:)", tls, c, l, origin(2))
+	}
 	return Xisalnum(tls, c)
 }
 
 func Xisalpha(tls *TLS, c int32) int32 { /* isalpha.c:4:5: */
+	if __ccgo_strace {
+		trc("tls=%v c=%v, (%v:)", tls, c, origin(2))
+	}
 	return Bool32(uint32(c)|uint32(32)-uint32('a') < uint32(26))
 }
 
 func X__isalpha_l(tls *TLS, c int32, l locale_t) int32 { /* isalpha.c:9:5: */
+	if __ccgo_strace {
+		trc("tls=%v c=%v l=%v, (%v:)", tls, c, l, origin(2))
+	}
 	return Xisalpha(tls, c)
 }
 
 func Xisdigit(tls *TLS, c int32) int32 { /* isdigit.c:4:5: */
+	if __ccgo_strace {
+		trc("tls=%v c=%v, (%v:)", tls, c, origin(2))
+	}
 	return Bool32(uint32(c)-uint32('0') < uint32(10))
 }
 
 func X__isdigit_l(tls *TLS, c int32, l locale_t) int32 { /* isdigit.c:9:5: */
+	if __ccgo_strace {
+		trc("tls=%v c=%v l=%v, (%v:)", tls, c, l, origin(2))
+	}
 	return Xisdigit(tls, c)
 }
 
-func Xislower(tls *TLS, c int32) int32 { /* islower.c:4:5: */
-	return Bool32(uint32(c)-uint32('a') < uint32(26))
-}
-
 func X__islower_l(tls *TLS, c int32, l locale_t) int32 { /* islower.c:9:5: */
+	if __ccgo_strace {
+		trc("tls=%v c=%v l=%v, (%v:)", tls, c, l, origin(2))
+	}
 	return Xislower(tls, c)
 }
 
 func Xisprint(tls *TLS, c int32) int32 { /* isprint.c:4:5: */
+	if __ccgo_strace {
+		trc("tls=%v c=%v, (%v:)", tls, c, origin(2))
+	}
 	return Bool32(uint32(c)-uint32(0x20) < uint32(0x5f))
 }
 
 func X__isprint_l(tls *TLS, c int32, l locale_t) int32 { /* isprint.c:9:5: */
+	if __ccgo_strace {
+		trc("tls=%v c=%v l=%v, (%v:)", tls, c, l, origin(2))
+	}
 	return Xisprint(tls, c)
 }
 
 func Xisspace(tls *TLS, c int32) int32 { /* isspace.c:4:5: */
+	if __ccgo_strace {
+		trc("tls=%v c=%v, (%v:)", tls, c, origin(2))
+	}
 	return Bool32(c == ' ' || uint32(c)-uint32('\t') < uint32(5))
 }
 
 func X__isspace_l(tls *TLS, c int32, l locale_t) int32 { /* isspace.c:9:5: */
+	if __ccgo_strace {
+		trc("tls=%v c=%v l=%v, (%v:)", tls, c, l, origin(2))
+	}
 	return Xisspace(tls, c)
 }
 
 func Xisxdigit(tls *TLS, c int32) int32 { /* isxdigit.c:3:5: */
+	if __ccgo_strace {
+		trc("tls=%v c=%v, (%v:)", tls, c, origin(2))
+	}
 	return Bool32(func() int32 {
 		if 0 != 0 {
 			return Xisdigit(tls, c)
@@ -297,6 +329,9 @@ func Xisxdigit(tls *TLS, c int32) int32 { /* isxdigit.c:3:5: */
 }
 
 func X__isxdigit_l(tls *TLS, c int32, l locale_t) int32 { /* isxdigit.c:8:5: */
+	if __ccgo_strace {
+		trc("tls=%v c=%v l=%v, (%v:)", tls, c, l, origin(2))
+	}
 	return Xisxdigit(tls, c)
 }
 
@@ -328,6 +363,9 @@ type gid_t = uint32 /* alltypes.h:258:18 */
 type useconds_t = uint32 /* alltypes.h:268:18 */
 
 func X__putenv(tls *TLS, s uintptr, l size_t, r uintptr) int32 { /* putenv.c:8:5: */
+	if __ccgo_strace {
+		trc("tls=%v s=%v l=%v r=%v, (%v:)", tls, s, l, r, origin(2))
+	}
 	var i size_t
 	var newenv uintptr
 	var tmp uintptr
@@ -408,6 +446,9 @@ oom:
 var _soldenv uintptr /* putenv.c:22:14: */
 
 func Xputenv(tls *TLS, s uintptr) int32 { /* putenv.c:43:5: */
+	if __ccgo_strace {
+		trc("tls=%v s=%v, (%v:)", tls, s, origin(2))
+	}
 	var l size_t = size_t((int64(X__strchrnul(tls, s, '=')) - int64(s)) / 1)
 	if !(l != 0) || !(int32(*(*int8)(unsafe.Pointer(s + uintptr(l)))) != 0) {
 		return Xunsetenv(tls, s)
@@ -416,6 +457,9 @@ func Xputenv(tls *TLS, s uintptr) int32 { /* putenv.c:43:5: */
 }
 
 func X__env_rm_add(tls *TLS, old uintptr, new uintptr) { /* setenv.c:5:6: */
+	if __ccgo_strace {
+		trc("tls=%v old=%v new=%v, (%v:)", tls, old, new, origin(2))
+	}
 	//TODO for (size_t i=0; i < env_alloced_n; i++)
 	var i size_t = uint64(0)
 	for ; i < _senv_alloced_n; i++ {
@@ -442,6 +486,9 @@ var _senv_alloced uintptr  /* setenv.c:7:14: */
 var _senv_alloced_n size_t /* setenv.c:8:16: */
 
 func Xsetenv(tls *TLS, var1 uintptr, value uintptr, overwrite int32) int32 { /* setenv.c:26:5: */
+	if __ccgo_strace {
+		trc("tls=%v var1=%v value=%v overwrite=%v, (%v:)", tls, var1, value, overwrite, origin(2))
+	}
 	var s uintptr
 	var l1 size_t
 	var l2 size_t
@@ -466,6 +513,9 @@ func Xsetenv(tls *TLS, var1 uintptr, value uintptr, overwrite int32) int32 { /* 
 }
 
 func Xunsetenv(tls *TLS, name uintptr) int32 { /* unsetenv.c:9:5: */
+	if __ccgo_strace {
+		trc("tls=%v name=%v, (%v:)", tls, name, origin(2))
+	}
 	var l size_t = size_t((int64(X__strchrnul(tls, name, '=')) - int64(name)) / 1)
 	if !(l != 0) || *(*int8)(unsafe.Pointer(name + uintptr(l))) != 0 {
 		*(*int32)(unsafe.Pointer(X___errno_location(tls))) = 22
@@ -1023,6 +1073,9 @@ func __pthread_self(tls *TLS) uintptr { /* pthread_arch.h:1:30: */
 }
 
 func Xwcrtomb(tls *TLS, s uintptr, wc wchar_t, st uintptr) size_t { /* wcrtomb.c:6:8: */
+	if __ccgo_strace {
+		trc("tls=%v s=%v wc=%v st=%v, (%v:)", tls, s, wc, st, origin(2))
+	}
 	if !(s != 0) {
 		return uint64(1)
 	}
@@ -1062,6 +1115,9 @@ func Xwcrtomb(tls *TLS, s uintptr, wc wchar_t, st uintptr) size_t { /* wcrtomb.c
 }
 
 func Xwcsrtombs(tls *TLS, s uintptr, ws uintptr, n size_t, st uintptr) size_t { /* wcsrtombs.c:3:8: */
+	if __ccgo_strace {
+		trc("tls=%v s=%v ws=%v n=%v st=%v, (%v:)", tls, s, ws, n, st, origin(2))
+	}
 	bp := tls.Alloc(4)
 	defer tls.Free(4)
 
@@ -1132,6 +1188,9 @@ func Xwcsrtombs(tls *TLS, s uintptr, ws uintptr, n size_t, st uintptr) size_t { 
 }
 
 func Xwcstombs(tls *TLS, s uintptr, ws uintptr, n size_t) size_t { /* wcstombs.c:4:8: */
+	if __ccgo_strace {
+		trc("tls=%v s=%v ws=%v n=%v, (%v:)", tls, s, ws, n, origin(2))
+	}
 	bp := tls.Alloc(8)
 	defer tls.Free(8)
 	*(*uintptr)(unsafe.Pointer(bp)) = ws
@@ -1141,6 +1200,9 @@ func Xwcstombs(tls *TLS, s uintptr, ws uintptr, n size_t) size_t { /* wcstombs.c
 }
 
 func Xbsearch(tls *TLS, key uintptr, base uintptr, nel size_t, width size_t, cmp uintptr) uintptr { /* bsearch.c:3:6: */
+	if __ccgo_strace {
+		trc("tls=%v key=%v base=%v nel=%v width=%v cmp=%v, (%v:)", tls, key, base, nel, width, cmp, origin(2))
+	}
 	var try uintptr
 	var sign int32
 	for nel > uint64(0) {
@@ -1170,6 +1232,9 @@ func Xbsearch(tls *TLS, key uintptr, base uintptr, nel size_t, width size_t, cmp
 // from SUS and have nothing to do with the host system.
 
 func X__strchrnul(tls *TLS, s uintptr, c int32) uintptr { /* strchrnul.c:10:6: */
+	if __ccgo_strace {
+		trc("tls=%v s=%v c=%v, (%v:)", tls, s, c, origin(2))
+	}
 	c = int32(uint8(c))
 	if !(c != 0) {
 		return s + uintptr(Xstrlen(tls, s))
@@ -1190,6 +1255,9 @@ func X__strchrnul(tls *TLS, s uintptr, c int32) uintptr { /* strchrnul.c:10:6: *
 }
 
 func Xstrdup(tls *TLS, s uintptr) uintptr { /* strdup.c:4:6: */
+	if __ccgo_strace {
+		trc("tls=%v s=%v, (%v:)", tls, s, origin(2))
+	}
 	var l size_t = Xstrlen(tls, s)
 	var d uintptr = Xmalloc(tls, l+uint64(1))
 	if !(d != 0) {

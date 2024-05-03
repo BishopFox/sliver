@@ -9,11 +9,12 @@ import (
 
 // Request represents the SOCKS5 request, it contains everything that is not payload
 // The SOCKS5 request is formed as follows:
-//	+-----+-----+-------+------+----------+----------+
-//	| VER | CMD |  RSV  | ATYP | DST.ADDR | DST.PORT |
-//	+-----+-----+-------+------+----------+----------+
-//	|  1  |  1  | X'00' |  1   | Variable |    2     |
-//	+-----+-----+-------+------+----------+----------+
+//
+// +-----+-----+-------+------+----------+----------+
+// | VER | CMD |  RSV  | ATYP | DST.ADDR | DST.PORT |
+// +-----+-----+-------+------+----------+----------+
+// |  1  |  1  | X'00' |  1   | Variable |    2     |
+// +-----+-----+-------+------+----------+----------+
 type Request struct {
 	// Version of socks protocol for message
 	Version byte
@@ -103,6 +104,7 @@ func (h Request) Bytes() (b []byte) {
 
 // Reply represents the SOCKS5 reply, it contains everything that is not payload
 // The SOCKS5 reply is formed as follows:
+//
 //	+-----+-----+-------+------+----------+-----------+
 //	| VER | REP |  RSV  | ATYP | BND.ADDR | BND].PORT |
 //	+-----+-----+-------+------+----------+-----------+

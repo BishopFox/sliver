@@ -20,7 +20,6 @@ package configs
 
 import (
 	"errors"
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -82,34 +81,6 @@ func coerceFileExt(value string) string {
 	return value
 }
 
-func coerceFiles(values []string, ext string) []string {
-	values = uniqueFileName(values)
-	coerced := []string{}
-	for _, value := range values {
-		if strings.HasSuffix(value, fmt.Sprintf(".%s", ext)) {
-			value = strings.TrimSuffix(value, fmt.Sprintf(".%s", ext))
-		}
-		coerced = append(coerced, value)
-	}
-	return coerced
-}
-
-func uniqueFileName(strSlice []string) []string {
-	allKeys := make(map[string]bool)
-	list := []string{}
-	for _, item := range strSlice {
-		item = fileNameExp.ReplaceAllString(item, "")
-		if len(item) < 1 {
-			continue
-		}
-		if _, value := allKeys[item]; !value {
-			allKeys[item] = true
-			list = append(list, item)
-		}
-	}
-	return list
-}
-
 func checkServerConfig(config *clientpb.HTTPC2ServerConfig) error {
 	if len(config.Cookies) < 1 {
 		return ErrMissingCookies
@@ -165,7 +136,7 @@ func checkImplantConfig(config *clientpb.HTTPC2ImplantConfig) error {
 		Do not allow backticks in user agents because that breaks compilation of the
 		implant.
 	*/
-	if strings.Index(config.UserAgent, "`") != -1 {
+	if strings.Contains(config.UserAgent, "`") {
 		// Blank out the user agent so that a default one will be filled in later
 		config.UserAgent = ""
 		return ErrUserAgentIllegalCharacters

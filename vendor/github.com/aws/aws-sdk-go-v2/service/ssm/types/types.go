@@ -49,10 +49,10 @@ type Activation struct {
 
 	// The maximum number of managed nodes that can be registered using this
 	// activation.
-	RegistrationLimit int32
+	RegistrationLimit *int32
 
 	// The number of managed nodes already registered with this activation.
-	RegistrationsCount int32
+	RegistrationsCount *int32
 
 	// Tags assigned to the activation.
 	Tags []Tag
@@ -737,6 +737,9 @@ type AutomationExecution struct {
 	// The CloudWatch alarm that was invoked by the automation.
 	TriggeredAlarms []AlarmStateInformation
 
+	// Variables defined for the automation.
+	Variables map[string][]string
+
 	noSmithyDocumentSerde
 }
 
@@ -1056,7 +1059,7 @@ type Command struct {
 	Targets []Target
 
 	// The TimeoutSeconds value specified for a command.
-	TimeoutSeconds int32
+	TimeoutSeconds *int32
 
 	// The CloudWatch alarm that was invoked by the command.
 	TriggeredAlarms []AlarmStateInformation
@@ -2922,7 +2925,7 @@ type MaintenanceWindowIdentity struct {
 	Description *string
 
 	// The duration of the maintenance window in hours.
-	Duration int32
+	Duration *int32
 
 	// Indicates whether the maintenance window is enabled.
 	Enabled bool
@@ -3964,6 +3967,27 @@ type ParameterStringFilter struct {
 	noSmithyDocumentSerde
 }
 
+// A detailed status of the parent step.
+type ParentStepDetails struct {
+
+	// The name of the automation action.
+	Action *string
+
+	// The current repetition of the loop represented by an integer.
+	Iteration *int32
+
+	// The current value of the specified iterator in the loop.
+	IteratorValue *string
+
+	// The unique ID of a step execution.
+	StepExecutionId *string
+
+	// The name of the step.
+	StepName *string
+
+	noSmithyDocumentSerde
+}
+
 // Represents metadata about a patch.
 type Patch struct {
 
@@ -4909,6 +4933,9 @@ type StepExecution struct {
 	// A user-specified list of parameters to override when running a step.
 	OverriddenParameters map[string][]string
 
+	// Information about the parent step.
+	ParentStepDetails *ParentStepDetails
+
 	// A message associated with the response code for an execution.
 	Response *string
 
@@ -4949,9 +4976,7 @@ type StepExecution struct {
 // A filter to limit the amount of step execution information returned by the call.
 type StepExecutionFilter struct {
 
-	// One or more keys to limit the results. Valid filter keys include the following:
-	// StepName, Action, StepExecutionId, StepExecutionStatus, StartTimeBefore,
-	// StartTimeAfter.
+	// One or more keys to limit the results.
 	//
 	// This member is required.
 	Key StepExecutionFilterKey

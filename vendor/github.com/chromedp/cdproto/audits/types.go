@@ -117,17 +117,18 @@ func (t CookieWarningReason) String() string {
 
 // CookieWarningReason values.
 const (
-	CookieWarningReasonWarnSameSiteUnspecifiedCrossSiteContext CookieWarningReason = "WarnSameSiteUnspecifiedCrossSiteContext"
-	CookieWarningReasonWarnSameSiteNoneInsecure                CookieWarningReason = "WarnSameSiteNoneInsecure"
-	CookieWarningReasonWarnSameSiteUnspecifiedLaxAllowUnsafe   CookieWarningReason = "WarnSameSiteUnspecifiedLaxAllowUnsafe"
-	CookieWarningReasonWarnSameSiteStrictLaxDowngradeStrict    CookieWarningReason = "WarnSameSiteStrictLaxDowngradeStrict"
-	CookieWarningReasonWarnSameSiteStrictCrossDowngradeStrict  CookieWarningReason = "WarnSameSiteStrictCrossDowngradeStrict"
-	CookieWarningReasonWarnSameSiteStrictCrossDowngradeLax     CookieWarningReason = "WarnSameSiteStrictCrossDowngradeLax"
-	CookieWarningReasonWarnSameSiteLaxCrossDowngradeStrict     CookieWarningReason = "WarnSameSiteLaxCrossDowngradeStrict"
-	CookieWarningReasonWarnSameSiteLaxCrossDowngradeLax        CookieWarningReason = "WarnSameSiteLaxCrossDowngradeLax"
-	CookieWarningReasonWarnAttributeValueExceedsMaxSize        CookieWarningReason = "WarnAttributeValueExceedsMaxSize"
-	CookieWarningReasonWarnDomainNonASCII                      CookieWarningReason = "WarnDomainNonASCII"
-	CookieWarningReasonWarnThirdPartyPhaseout                  CookieWarningReason = "WarnThirdPartyPhaseout"
+	CookieWarningReasonWarnSameSiteUnspecifiedCrossSiteContext        CookieWarningReason = "WarnSameSiteUnspecifiedCrossSiteContext"
+	CookieWarningReasonWarnSameSiteNoneInsecure                       CookieWarningReason = "WarnSameSiteNoneInsecure"
+	CookieWarningReasonWarnSameSiteUnspecifiedLaxAllowUnsafe          CookieWarningReason = "WarnSameSiteUnspecifiedLaxAllowUnsafe"
+	CookieWarningReasonWarnSameSiteStrictLaxDowngradeStrict           CookieWarningReason = "WarnSameSiteStrictLaxDowngradeStrict"
+	CookieWarningReasonWarnSameSiteStrictCrossDowngradeStrict         CookieWarningReason = "WarnSameSiteStrictCrossDowngradeStrict"
+	CookieWarningReasonWarnSameSiteStrictCrossDowngradeLax            CookieWarningReason = "WarnSameSiteStrictCrossDowngradeLax"
+	CookieWarningReasonWarnSameSiteLaxCrossDowngradeStrict            CookieWarningReason = "WarnSameSiteLaxCrossDowngradeStrict"
+	CookieWarningReasonWarnSameSiteLaxCrossDowngradeLax               CookieWarningReason = "WarnSameSiteLaxCrossDowngradeLax"
+	CookieWarningReasonWarnAttributeValueExceedsMaxSize               CookieWarningReason = "WarnAttributeValueExceedsMaxSize"
+	CookieWarningReasonWarnDomainNonASCII                             CookieWarningReason = "WarnDomainNonASCII"
+	CookieWarningReasonWarnThirdPartyPhaseout                         CookieWarningReason = "WarnThirdPartyPhaseout"
+	CookieWarningReasonWarnCrossSiteRedirectDowngradeChangesInclusion CookieWarningReason = "WarnCrossSiteRedirectDowngradeChangesInclusion"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -166,6 +167,8 @@ func (t *CookieWarningReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = CookieWarningReasonWarnDomainNonASCII
 	case CookieWarningReasonWarnThirdPartyPhaseout:
 		*t = CookieWarningReasonWarnThirdPartyPhaseout
+	case CookieWarningReasonWarnCrossSiteRedirectDowngradeChangesInclusion:
+		*t = CookieWarningReasonWarnCrossSiteRedirectDowngradeChangesInclusion
 
 	default:
 		in.AddError(fmt.Errorf("unknown CookieWarningReason value: %v", v))
@@ -298,33 +301,35 @@ func (t MixedContentResourceType) String() string {
 
 // MixedContentResourceType values.
 const (
-	MixedContentResourceTypeAttributionSrc MixedContentResourceType = "AttributionSrc"
-	MixedContentResourceTypeAudio          MixedContentResourceType = "Audio"
-	MixedContentResourceTypeBeacon         MixedContentResourceType = "Beacon"
-	MixedContentResourceTypeCSPReport      MixedContentResourceType = "CSPReport"
-	MixedContentResourceTypeDownload       MixedContentResourceType = "Download"
-	MixedContentResourceTypeEventSource    MixedContentResourceType = "EventSource"
-	MixedContentResourceTypeFavicon        MixedContentResourceType = "Favicon"
-	MixedContentResourceTypeFont           MixedContentResourceType = "Font"
-	MixedContentResourceTypeForm           MixedContentResourceType = "Form"
-	MixedContentResourceTypeFrame          MixedContentResourceType = "Frame"
-	MixedContentResourceTypeImage          MixedContentResourceType = "Image"
-	MixedContentResourceTypeImport         MixedContentResourceType = "Import"
-	MixedContentResourceTypeManifest       MixedContentResourceType = "Manifest"
-	MixedContentResourceTypePing           MixedContentResourceType = "Ping"
-	MixedContentResourceTypePluginData     MixedContentResourceType = "PluginData"
-	MixedContentResourceTypePluginResource MixedContentResourceType = "PluginResource"
-	MixedContentResourceTypePrefetch       MixedContentResourceType = "Prefetch"
-	MixedContentResourceTypeResource       MixedContentResourceType = "Resource"
-	MixedContentResourceTypeScript         MixedContentResourceType = "Script"
-	MixedContentResourceTypeServiceWorker  MixedContentResourceType = "ServiceWorker"
-	MixedContentResourceTypeSharedWorker   MixedContentResourceType = "SharedWorker"
-	MixedContentResourceTypeStylesheet     MixedContentResourceType = "Stylesheet"
-	MixedContentResourceTypeTrack          MixedContentResourceType = "Track"
-	MixedContentResourceTypeVideo          MixedContentResourceType = "Video"
-	MixedContentResourceTypeWorker         MixedContentResourceType = "Worker"
-	MixedContentResourceTypeXMLHTTPRequest MixedContentResourceType = "XMLHttpRequest"
-	MixedContentResourceTypeXSLT           MixedContentResourceType = "XSLT"
+	MixedContentResourceTypeAttributionSrc   MixedContentResourceType = "AttributionSrc"
+	MixedContentResourceTypeAudio            MixedContentResourceType = "Audio"
+	MixedContentResourceTypeBeacon           MixedContentResourceType = "Beacon"
+	MixedContentResourceTypeCSPReport        MixedContentResourceType = "CSPReport"
+	MixedContentResourceTypeDownload         MixedContentResourceType = "Download"
+	MixedContentResourceTypeEventSource      MixedContentResourceType = "EventSource"
+	MixedContentResourceTypeFavicon          MixedContentResourceType = "Favicon"
+	MixedContentResourceTypeFont             MixedContentResourceType = "Font"
+	MixedContentResourceTypeForm             MixedContentResourceType = "Form"
+	MixedContentResourceTypeFrame            MixedContentResourceType = "Frame"
+	MixedContentResourceTypeImage            MixedContentResourceType = "Image"
+	MixedContentResourceTypeImport           MixedContentResourceType = "Import"
+	MixedContentResourceTypeJSON             MixedContentResourceType = "JSON"
+	MixedContentResourceTypeManifest         MixedContentResourceType = "Manifest"
+	MixedContentResourceTypePing             MixedContentResourceType = "Ping"
+	MixedContentResourceTypePluginData       MixedContentResourceType = "PluginData"
+	MixedContentResourceTypePluginResource   MixedContentResourceType = "PluginResource"
+	MixedContentResourceTypePrefetch         MixedContentResourceType = "Prefetch"
+	MixedContentResourceTypeResource         MixedContentResourceType = "Resource"
+	MixedContentResourceTypeScript           MixedContentResourceType = "Script"
+	MixedContentResourceTypeServiceWorker    MixedContentResourceType = "ServiceWorker"
+	MixedContentResourceTypeSharedWorker     MixedContentResourceType = "SharedWorker"
+	MixedContentResourceTypeSpeculationRules MixedContentResourceType = "SpeculationRules"
+	MixedContentResourceTypeStylesheet       MixedContentResourceType = "Stylesheet"
+	MixedContentResourceTypeTrack            MixedContentResourceType = "Track"
+	MixedContentResourceTypeVideo            MixedContentResourceType = "Video"
+	MixedContentResourceTypeWorker           MixedContentResourceType = "Worker"
+	MixedContentResourceTypeXMLHTTPRequest   MixedContentResourceType = "XMLHttpRequest"
+	MixedContentResourceTypeXSLT             MixedContentResourceType = "XSLT"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -365,6 +370,8 @@ func (t *MixedContentResourceType) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = MixedContentResourceTypeImage
 	case MixedContentResourceTypeImport:
 		*t = MixedContentResourceTypeImport
+	case MixedContentResourceTypeJSON:
+		*t = MixedContentResourceTypeJSON
 	case MixedContentResourceTypeManifest:
 		*t = MixedContentResourceTypeManifest
 	case MixedContentResourceTypePing:
@@ -383,6 +390,8 @@ func (t *MixedContentResourceType) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = MixedContentResourceTypeServiceWorker
 	case MixedContentResourceTypeSharedWorker:
 		*t = MixedContentResourceTypeSharedWorker
+	case MixedContentResourceTypeSpeculationRules:
+		*t = MixedContentResourceTypeSpeculationRules
 	case MixedContentResourceTypeStylesheet:
 		*t = MixedContentResourceTypeStylesheet
 	case MixedContentResourceTypeTrack:
@@ -777,6 +786,11 @@ const (
 	AttributionReportingIssueTypeWebAndOsHeaders                                      AttributionReportingIssueType = "WebAndOsHeaders"
 	AttributionReportingIssueTypeNoWebOrOsSupport                                     AttributionReportingIssueType = "NoWebOrOsSupport"
 	AttributionReportingIssueTypeNavigationRegistrationWithoutTransientUserActivation AttributionReportingIssueType = "NavigationRegistrationWithoutTransientUserActivation"
+	AttributionReportingIssueTypeInvalidInfoHeader                                    AttributionReportingIssueType = "InvalidInfoHeader"
+	AttributionReportingIssueTypeNoRegisterSourceHeader                               AttributionReportingIssueType = "NoRegisterSourceHeader"
+	AttributionReportingIssueTypeNoRegisterTriggerHeader                              AttributionReportingIssueType = "NoRegisterTriggerHeader"
+	AttributionReportingIssueTypeNoRegisterOsSourceHeader                             AttributionReportingIssueType = "NoRegisterOsSourceHeader"
+	AttributionReportingIssueTypeNoRegisterOsTriggerHeader                            AttributionReportingIssueType = "NoRegisterOsTriggerHeader"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -823,6 +837,16 @@ func (t *AttributionReportingIssueType) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = AttributionReportingIssueTypeNoWebOrOsSupport
 	case AttributionReportingIssueTypeNavigationRegistrationWithoutTransientUserActivation:
 		*t = AttributionReportingIssueTypeNavigationRegistrationWithoutTransientUserActivation
+	case AttributionReportingIssueTypeInvalidInfoHeader:
+		*t = AttributionReportingIssueTypeInvalidInfoHeader
+	case AttributionReportingIssueTypeNoRegisterSourceHeader:
+		*t = AttributionReportingIssueTypeNoRegisterSourceHeader
+	case AttributionReportingIssueTypeNoRegisterTriggerHeader:
+		*t = AttributionReportingIssueTypeNoRegisterTriggerHeader
+	case AttributionReportingIssueTypeNoRegisterOsSourceHeader:
+		*t = AttributionReportingIssueTypeNoRegisterOsSourceHeader
+	case AttributionReportingIssueTypeNoRegisterOsTriggerHeader:
+		*t = AttributionReportingIssueTypeNoRegisterOsTriggerHeader
 
 	default:
 		in.AddError(fmt.Errorf("unknown AttributionReportingIssueType value: %v", v))
@@ -831,6 +855,114 @@ func (t *AttributionReportingIssueType) UnmarshalEasyJSON(in *jlexer.Lexer) {
 
 // UnmarshalJSON satisfies json.Unmarshaler.
 func (t *AttributionReportingIssueType) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
+}
+
+// SharedDictionaryError [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Audits#type-SharedDictionaryError
+type SharedDictionaryError string
+
+// String returns the SharedDictionaryError as string value.
+func (t SharedDictionaryError) String() string {
+	return string(t)
+}
+
+// SharedDictionaryError values.
+const (
+	SharedDictionaryErrorUseErrorCrossOriginNoCorsRequest          SharedDictionaryError = "UseErrorCrossOriginNoCorsRequest"
+	SharedDictionaryErrorUseErrorDictionaryLoadFailure             SharedDictionaryError = "UseErrorDictionaryLoadFailure"
+	SharedDictionaryErrorUseErrorMatchingDictionaryNotUsed         SharedDictionaryError = "UseErrorMatchingDictionaryNotUsed"
+	SharedDictionaryErrorUseErrorUnexpectedContentDictionaryHeader SharedDictionaryError = "UseErrorUnexpectedContentDictionaryHeader"
+	SharedDictionaryErrorWriteErrorCossOriginNoCorsRequest         SharedDictionaryError = "WriteErrorCossOriginNoCorsRequest"
+	SharedDictionaryErrorWriteErrorDisallowedBySettings            SharedDictionaryError = "WriteErrorDisallowedBySettings"
+	SharedDictionaryErrorWriteErrorExpiredResponse                 SharedDictionaryError = "WriteErrorExpiredResponse"
+	SharedDictionaryErrorWriteErrorFeatureDisabled                 SharedDictionaryError = "WriteErrorFeatureDisabled"
+	SharedDictionaryErrorWriteErrorInsufficientResources           SharedDictionaryError = "WriteErrorInsufficientResources"
+	SharedDictionaryErrorWriteErrorInvalidMatchField               SharedDictionaryError = "WriteErrorInvalidMatchField"
+	SharedDictionaryErrorWriteErrorInvalidStructuredHeader         SharedDictionaryError = "WriteErrorInvalidStructuredHeader"
+	SharedDictionaryErrorWriteErrorNavigationRequest               SharedDictionaryError = "WriteErrorNavigationRequest"
+	SharedDictionaryErrorWriteErrorNoMatchField                    SharedDictionaryError = "WriteErrorNoMatchField"
+	SharedDictionaryErrorWriteErrorNonListMatchDestField           SharedDictionaryError = "WriteErrorNonListMatchDestField"
+	SharedDictionaryErrorWriteErrorNonSecureContext                SharedDictionaryError = "WriteErrorNonSecureContext"
+	SharedDictionaryErrorWriteErrorNonStringIDField                SharedDictionaryError = "WriteErrorNonStringIdField"
+	SharedDictionaryErrorWriteErrorNonStringInMatchDestList        SharedDictionaryError = "WriteErrorNonStringInMatchDestList"
+	SharedDictionaryErrorWriteErrorNonStringMatchField             SharedDictionaryError = "WriteErrorNonStringMatchField"
+	SharedDictionaryErrorWriteErrorNonTokenTypeField               SharedDictionaryError = "WriteErrorNonTokenTypeField"
+	SharedDictionaryErrorWriteErrorRequestAborted                  SharedDictionaryError = "WriteErrorRequestAborted"
+	SharedDictionaryErrorWriteErrorShuttingDown                    SharedDictionaryError = "WriteErrorShuttingDown"
+	SharedDictionaryErrorWriteErrorTooLongIDField                  SharedDictionaryError = "WriteErrorTooLongIdField"
+	SharedDictionaryErrorWriteErrorUnsupportedType                 SharedDictionaryError = "WriteErrorUnsupportedType"
+)
+
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t SharedDictionaryError) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
+
+// MarshalJSON satisfies json.Marshaler.
+func (t SharedDictionaryError) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *SharedDictionaryError) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch SharedDictionaryError(v) {
+	case SharedDictionaryErrorUseErrorCrossOriginNoCorsRequest:
+		*t = SharedDictionaryErrorUseErrorCrossOriginNoCorsRequest
+	case SharedDictionaryErrorUseErrorDictionaryLoadFailure:
+		*t = SharedDictionaryErrorUseErrorDictionaryLoadFailure
+	case SharedDictionaryErrorUseErrorMatchingDictionaryNotUsed:
+		*t = SharedDictionaryErrorUseErrorMatchingDictionaryNotUsed
+	case SharedDictionaryErrorUseErrorUnexpectedContentDictionaryHeader:
+		*t = SharedDictionaryErrorUseErrorUnexpectedContentDictionaryHeader
+	case SharedDictionaryErrorWriteErrorCossOriginNoCorsRequest:
+		*t = SharedDictionaryErrorWriteErrorCossOriginNoCorsRequest
+	case SharedDictionaryErrorWriteErrorDisallowedBySettings:
+		*t = SharedDictionaryErrorWriteErrorDisallowedBySettings
+	case SharedDictionaryErrorWriteErrorExpiredResponse:
+		*t = SharedDictionaryErrorWriteErrorExpiredResponse
+	case SharedDictionaryErrorWriteErrorFeatureDisabled:
+		*t = SharedDictionaryErrorWriteErrorFeatureDisabled
+	case SharedDictionaryErrorWriteErrorInsufficientResources:
+		*t = SharedDictionaryErrorWriteErrorInsufficientResources
+	case SharedDictionaryErrorWriteErrorInvalidMatchField:
+		*t = SharedDictionaryErrorWriteErrorInvalidMatchField
+	case SharedDictionaryErrorWriteErrorInvalidStructuredHeader:
+		*t = SharedDictionaryErrorWriteErrorInvalidStructuredHeader
+	case SharedDictionaryErrorWriteErrorNavigationRequest:
+		*t = SharedDictionaryErrorWriteErrorNavigationRequest
+	case SharedDictionaryErrorWriteErrorNoMatchField:
+		*t = SharedDictionaryErrorWriteErrorNoMatchField
+	case SharedDictionaryErrorWriteErrorNonListMatchDestField:
+		*t = SharedDictionaryErrorWriteErrorNonListMatchDestField
+	case SharedDictionaryErrorWriteErrorNonSecureContext:
+		*t = SharedDictionaryErrorWriteErrorNonSecureContext
+	case SharedDictionaryErrorWriteErrorNonStringIDField:
+		*t = SharedDictionaryErrorWriteErrorNonStringIDField
+	case SharedDictionaryErrorWriteErrorNonStringInMatchDestList:
+		*t = SharedDictionaryErrorWriteErrorNonStringInMatchDestList
+	case SharedDictionaryErrorWriteErrorNonStringMatchField:
+		*t = SharedDictionaryErrorWriteErrorNonStringMatchField
+	case SharedDictionaryErrorWriteErrorNonTokenTypeField:
+		*t = SharedDictionaryErrorWriteErrorNonTokenTypeField
+	case SharedDictionaryErrorWriteErrorRequestAborted:
+		*t = SharedDictionaryErrorWriteErrorRequestAborted
+	case SharedDictionaryErrorWriteErrorShuttingDown:
+		*t = SharedDictionaryErrorWriteErrorShuttingDown
+	case SharedDictionaryErrorWriteErrorTooLongIDField:
+		*t = SharedDictionaryErrorWriteErrorTooLongIDField
+	case SharedDictionaryErrorWriteErrorUnsupportedType:
+		*t = SharedDictionaryErrorWriteErrorUnsupportedType
+
+	default:
+		in.AddError(fmt.Errorf("unknown SharedDictionaryError value: %v", v))
+	}
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *SharedDictionaryError) UnmarshalJSON(buf []byte) error {
 	return easyjson.Unmarshal(buf, t)
 }
 
@@ -856,6 +988,14 @@ type QuirksModeIssueDetails struct {
 	URL                 string            `json:"url"`
 	FrameID             cdp.FrameID       `json:"frameId"`
 	LoaderID            cdp.LoaderID      `json:"loaderId"`
+}
+
+// SharedDictionaryIssueDetails [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Audits#type-SharedDictionaryIssueDetails
+type SharedDictionaryIssueDetails struct {
+	SharedDictionaryError SharedDictionaryError `json:"sharedDictionaryError"`
+	Request               *AffectedRequest      `json:"request"`
 }
 
 // GenericIssueErrorType [no description].
@@ -968,6 +1108,17 @@ type BounceTrackingIssueDetails struct {
 	TrackingSites []string `json:"trackingSites"`
 }
 
+// CookieDeprecationMetadataIssueDetails this issue warns about third-party
+// sites that are accessing cookies on the current page, and have been permitted
+// due to having a global metadata grant. Note that in this context 'site' means
+// eTLD+1. For example, if the URL https://example.test:80/web_page was
+// accessing cookies, the site reported would be example.test.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Audits#type-CookieDeprecationMetadataIssueDetails
+type CookieDeprecationMetadataIssueDetails struct {
+	AllowedSites []string `json:"allowedSites"`
+}
+
 // ClientHintIssueReason [no description].
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Audits#type-ClientHintIssueReason
@@ -1064,6 +1215,8 @@ const (
 	FederatedAuthRequestIssueReasonIDTokenHTTPNotFound              FederatedAuthRequestIssueReason = "IdTokenHttpNotFound"
 	FederatedAuthRequestIssueReasonIDTokenNoResponse                FederatedAuthRequestIssueReason = "IdTokenNoResponse"
 	FederatedAuthRequestIssueReasonIDTokenInvalidResponse           FederatedAuthRequestIssueReason = "IdTokenInvalidResponse"
+	FederatedAuthRequestIssueReasonIDTokenIdpErrorResponse          FederatedAuthRequestIssueReason = "IdTokenIdpErrorResponse"
+	FederatedAuthRequestIssueReasonIDTokenCrossSiteIdpErrorResponse FederatedAuthRequestIssueReason = "IdTokenCrossSiteIdpErrorResponse"
 	FederatedAuthRequestIssueReasonIDTokenInvalidRequest            FederatedAuthRequestIssueReason = "IdTokenInvalidRequest"
 	FederatedAuthRequestIssueReasonIDTokenInvalidContentType        FederatedAuthRequestIssueReason = "IdTokenInvalidContentType"
 	FederatedAuthRequestIssueReasonErrorIDToken                     FederatedAuthRequestIssueReason = "ErrorIdToken"
@@ -1072,6 +1225,8 @@ const (
 	FederatedAuthRequestIssueReasonSilentMediationFailure           FederatedAuthRequestIssueReason = "SilentMediationFailure"
 	FederatedAuthRequestIssueReasonThirdPartyCookiesBlocked         FederatedAuthRequestIssueReason = "ThirdPartyCookiesBlocked"
 	FederatedAuthRequestIssueReasonNotSignedInWithIdp               FederatedAuthRequestIssueReason = "NotSignedInWithIdp"
+	FederatedAuthRequestIssueReasonMissingTransientUserActivation   FederatedAuthRequestIssueReason = "MissingTransientUserActivation"
+	FederatedAuthRequestIssueReasonReplacedByButtonMode             FederatedAuthRequestIssueReason = "ReplacedByButtonMode"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -1144,6 +1299,10 @@ func (t *FederatedAuthRequestIssueReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = FederatedAuthRequestIssueReasonIDTokenNoResponse
 	case FederatedAuthRequestIssueReasonIDTokenInvalidResponse:
 		*t = FederatedAuthRequestIssueReasonIDTokenInvalidResponse
+	case FederatedAuthRequestIssueReasonIDTokenIdpErrorResponse:
+		*t = FederatedAuthRequestIssueReasonIDTokenIdpErrorResponse
+	case FederatedAuthRequestIssueReasonIDTokenCrossSiteIdpErrorResponse:
+		*t = FederatedAuthRequestIssueReasonIDTokenCrossSiteIdpErrorResponse
 	case FederatedAuthRequestIssueReasonIDTokenInvalidRequest:
 		*t = FederatedAuthRequestIssueReasonIDTokenInvalidRequest
 	case FederatedAuthRequestIssueReasonIDTokenInvalidContentType:
@@ -1160,6 +1319,10 @@ func (t *FederatedAuthRequestIssueReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = FederatedAuthRequestIssueReasonThirdPartyCookiesBlocked
 	case FederatedAuthRequestIssueReasonNotSignedInWithIdp:
 		*t = FederatedAuthRequestIssueReasonNotSignedInWithIdp
+	case FederatedAuthRequestIssueReasonMissingTransientUserActivation:
+		*t = FederatedAuthRequestIssueReasonMissingTransientUserActivation
+	case FederatedAuthRequestIssueReasonReplacedByButtonMode:
+		*t = FederatedAuthRequestIssueReasonReplacedByButtonMode
 
 	default:
 		in.AddError(fmt.Errorf("unknown FederatedAuthRequestIssueReason value: %v", v))
@@ -1412,9 +1575,11 @@ const (
 	InspectorIssueCodeClientHintIssue                   InspectorIssueCode = "ClientHintIssue"
 	InspectorIssueCodeFederatedAuthRequestIssue         InspectorIssueCode = "FederatedAuthRequestIssue"
 	InspectorIssueCodeBounceTrackingIssue               InspectorIssueCode = "BounceTrackingIssue"
+	InspectorIssueCodeCookieDeprecationMetadataIssue    InspectorIssueCode = "CookieDeprecationMetadataIssue"
 	InspectorIssueCodeStylesheetLoadingIssue            InspectorIssueCode = "StylesheetLoadingIssue"
 	InspectorIssueCodeFederatedAuthUserInfoRequestIssue InspectorIssueCode = "FederatedAuthUserInfoRequestIssue"
 	InspectorIssueCodePropertyRuleIssue                 InspectorIssueCode = "PropertyRuleIssue"
+	InspectorIssueCodeSharedDictionaryIssue             InspectorIssueCode = "SharedDictionaryIssue"
 )
 
 // MarshalEasyJSON satisfies easyjson.Marshaler.
@@ -1463,12 +1628,16 @@ func (t *InspectorIssueCode) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = InspectorIssueCodeFederatedAuthRequestIssue
 	case InspectorIssueCodeBounceTrackingIssue:
 		*t = InspectorIssueCodeBounceTrackingIssue
+	case InspectorIssueCodeCookieDeprecationMetadataIssue:
+		*t = InspectorIssueCodeCookieDeprecationMetadataIssue
 	case InspectorIssueCodeStylesheetLoadingIssue:
 		*t = InspectorIssueCodeStylesheetLoadingIssue
 	case InspectorIssueCodeFederatedAuthUserInfoRequestIssue:
 		*t = InspectorIssueCodeFederatedAuthUserInfoRequestIssue
 	case InspectorIssueCodePropertyRuleIssue:
 		*t = InspectorIssueCodePropertyRuleIssue
+	case InspectorIssueCodeSharedDictionaryIssue:
+		*t = InspectorIssueCodeSharedDictionaryIssue
 
 	default:
 		in.AddError(fmt.Errorf("unknown InspectorIssueCode value: %v", v))
@@ -1501,9 +1670,11 @@ type InspectorIssueDetails struct {
 	ClientHintIssueDetails                   *ClientHintIssueDetails                   `json:"clientHintIssueDetails,omitempty"`
 	FederatedAuthRequestIssueDetails         *FederatedAuthRequestIssueDetails         `json:"federatedAuthRequestIssueDetails,omitempty"`
 	BounceTrackingIssueDetails               *BounceTrackingIssueDetails               `json:"bounceTrackingIssueDetails,omitempty"`
+	CookieDeprecationMetadataIssueDetails    *CookieDeprecationMetadataIssueDetails    `json:"cookieDeprecationMetadataIssueDetails,omitempty"`
 	StylesheetLoadingIssueDetails            *StylesheetLoadingIssueDetails            `json:"stylesheetLoadingIssueDetails,omitempty"`
 	PropertyRuleIssueDetails                 *PropertyRuleIssueDetails                 `json:"propertyRuleIssueDetails,omitempty"`
 	FederatedAuthUserInfoRequestIssueDetails *FederatedAuthUserInfoRequestIssueDetails `json:"federatedAuthUserInfoRequestIssueDetails,omitempty"`
+	SharedDictionaryIssueDetails             *SharedDictionaryIssueDetails             `json:"sharedDictionaryIssueDetails,omitempty"`
 }
 
 // IssueID a unique id for a DevTools inspector issue. Allows other entities

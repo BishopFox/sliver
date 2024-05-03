@@ -9,16 +9,14 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/netip"
 	"os"
 	"os/user"
 	"runtime"
 	"strconv"
 
-	"inet.af/peercred"
+	"github.com/tailscale/peercred"
 	"tailscale.com/envknob"
 	"tailscale.com/ipn"
-	"tailscale.com/net/netstat"
 	"tailscale.com/safesocket"
 	"tailscale.com/types/logger"
 	"tailscale.com/util/clientmetric"
@@ -48,6 +46,8 @@ type WindowsToken interface {
 	// IsElevated reports whether the receiver is currently executing as an
 	// elevated administrative user.
 	IsElevated() bool
+	// IsLocalSystem reports whether the receiver is the built-in SYSTEM user.
+	IsLocalSystem() bool
 	// UserDir returns the special directory identified by folderID as associated
 	// with the receiver. folderID must be one of the KNOWNFOLDERID values from
 	// the x/sys/windows package, serialized as a stringified GUID.
@@ -206,13 +206,4 @@ func isLocalAdmin(uid string) (bool, error) {
 		return false, fmt.Errorf("no system admin group found")
 	}
 	return groupmember.IsMemberOfGroup(adminGroup, u.Username)
-}
-
-func peerPid(entries []netstat.Entry, la, ra netip.AddrPort) int {
-	for _, e := range entries {
-		if e.Local == ra && e.Remote == la {
-			return e.Pid
-		}
-	}
-	return 0
 }

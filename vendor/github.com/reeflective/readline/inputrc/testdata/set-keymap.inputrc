@@ -1,5 +1,0 @@
-haltOnErr: true
-strict: false
-####----####
-set keymap foo
-####----####

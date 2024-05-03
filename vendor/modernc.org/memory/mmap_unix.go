@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE-MMAP-GO file.
 
-//go:build darwin || dragonfly || freebsd || linux || openbsd || (solaris && !illumos) || netbsd
-// +build darwin dragonfly freebsd linux openbsd solaris,!illumos netbsd
+//go:build darwin || dragonfly || freebsd || linux || (solaris && !illumos) || netbsd
+// +build darwin dragonfly freebsd linux solaris,!illumos netbsd
 
 // Modifications (c) 2017 The Memory Authors.
 
@@ -33,6 +33,7 @@ func unmap(addr uintptr, size int) error {
 // pageSize aligned.
 func mmap(size int) (uintptr, int, error) {
 	size = roundup(size, osPageSize)
+
 	// The actual mmap syscall varies by architecture. mmapSyscall provides same
 	// functionality as the unexported funtion syscall.mmap and is declared in
 	// mmap_*_*.go and mmap_fallback.go. To add support for a new architecture,

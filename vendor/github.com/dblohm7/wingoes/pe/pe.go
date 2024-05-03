@@ -32,18 +32,36 @@ const (
 )
 
 var (
-	ErrBadLength       = errors.New("effective length did not match expected length")
-	ErrBadCodeView     = errors.New("invalid CodeView debug info")
+	// ErrBadLength is returned when the actual length of a data field in the
+	// binary is shorter than the expected length of that field.
+	ErrBadLength = errors.New("effective length did not match expected length")
+	// ErrBadCodeView is returned by (*PEHeaders).ExtractCodeViewInfo if the data
+	// at the requested address does not appear to contain valid CodeView information.
+	ErrBadCodeView = errors.New("invalid CodeView debug info")
+	// ErrIndexOutOfRange is returned by (*PEHeaders).DataDirectoryEntry if the
+	// specified index is greater than the maximum allowable index.
 	ErrIndexOutOfRange = errors.New("index out of range")
 	// ErrInvalidBinary is returned whenever the headers do not parse as expected,
 	// or reference locations outside the bounds of the PE file or module.
 	// The headers might be corrupt, malicious, or have been tampered with.
-	ErrInvalidBinary       = errors.New("invalid PE binary")
-	ErrNotCodeView         = errors.New("debug info is not CodeView")
-	ErrNotPresent          = errors.New("not present in this PE image")
-	ErrResolvingFileRVA    = errors.New("could not resolve file RVA")
+	ErrInvalidBinary = errors.New("invalid PE binary")
+	// ErrBadCodeView is returned by (*PEHeaders).ExtractCodeViewInfo if the data
+	// at the requested address contains a non-CodeView debug info format.
+	ErrNotCodeView = errors.New("debug info is not CodeView")
+	// ErrIndexOutOfRange is returned by (*PEHeaders).DataDirectoryEntry if the
+	// corresponding entry is not populated in the PE image.
+	ErrNotPresent = errors.New("not present in this PE image")
+	// ErrResolvingFileRVA is returned when the result of arithmetic on a relative
+	// virtual address did not resolve to a valid RVA.
+	ErrResolvingFileRVA = errors.New("could not resolve file RVA")
+	// ErrUnavailableInModule is returned when requesting data from the binary
+	// that is not mapped into memory when loaded. The information must be
+	// loaded from a file-based PEHeaders.
 	ErrUnavailableInModule = errors.New("this information is unavailable from loaded modules; the PE file itself must be examined")
-	ErrUnsupportedMachine  = errors.New("unsupported machine")
+	// ErrUnsupportedMachine is returned if the binary's CPU architecture is
+	// unsupported. This package currently implements support for x86, amd64,
+	// and arm64.
+	ErrUnsupportedMachine = errors.New("unsupported machine")
 )
 
 // FileHeader is the PE/COFF IMAGE_FILE_HEADER structure.
@@ -461,8 +479,8 @@ const (
 // currently return the DataDirectoryEntry itself, however it will return more
 // sophisticated information for the following values of idx:
 //
-// IMAGE_DIRECTORY_ENTRY_SECURITY returns []AuthenticodeCert
-// IMAGE_DIRECTORY_ENTRY_DEBUG returns []IMAGE_DEBUG_DIRECTORY
+// * IMAGE_DIRECTORY_ENTRY_SECURITY returns []AuthenticodeCert
+// * IMAGE_DIRECTORY_ENTRY_DEBUG returns []IMAGE_DEBUG_DIRECTORY
 //
 // Note that other idx values _will_ be modified in the future to support more
 // sophisticated return values, so be careful to structure your type assertions
@@ -546,21 +564,44 @@ func alignUp[V constraints.Integer](v V, powerOfTwo uint8) V {
 	return v + ((-v) & (V(powerOfTwo) - 1))
 }
 
+// IMAGE_DEBUG_TYPE is an enumeration for indicating the type of debug
+// information referenced by a particular [IMAGE_DEBUG_DIRECTORY].
+type IMAGE_DEBUG_TYPE uint32
+
+const (
+	IMAGE_DEBUG_TYPE_UNKNOWN               IMAGE_DEBUG_TYPE = 0
+	IMAGE_DEBUG_TYPE_COFF                  IMAGE_DEBUG_TYPE = 1
+	IMAGE_DEBUG_TYPE_CODEVIEW              IMAGE_DEBUG_TYPE = 2
+	IMAGE_DEBUG_TYPE_FPO                   IMAGE_DEBUG_TYPE = 3
+	IMAGE_DEBUG_TYPE_MISC                  IMAGE_DEBUG_TYPE = 4
+	IMAGE_DEBUG_TYPE_EXCEPTION             IMAGE_DEBUG_TYPE = 5
+	IMAGE_DEBUG_TYPE_FIXUP                 IMAGE_DEBUG_TYPE = 6
+	IMAGE_DEBUG_TYPE_OMAP_TO_SRC           IMAGE_DEBUG_TYPE = 7
+	IMAGE_DEBUG_TYPE_OMAP_FROM_SRC         IMAGE_DEBUG_TYPE = 8
+	IMAGE_DEBUG_TYPE_BORLAND               IMAGE_DEBUG_TYPE = 9
+	IMAGE_DEBUG_TYPE_RESERVED10            IMAGE_DEBUG_TYPE = 10
+	IMAGE_DEBUG_TYPE_BBT                   IMAGE_DEBUG_TYPE = IMAGE_DEBUG_TYPE_RESERVED10
+	IMAGE_DEBUG_TYPE_CLSID                 IMAGE_DEBUG_TYPE = 11
+	IMAGE_DEBUG_TYPE_VC_FEATURE            IMAGE_DEBUG_TYPE = 12
+	IMAGE_DEBUG_TYPE_POGO                  IMAGE_DEBUG_TYPE = 13
+	IMAGE_DEBUG_TYPE_ILTCG                 IMAGE_DEBUG_TYPE = 14
+	IMAGE_DEBUG_TYPE_MPX                   IMAGE_DEBUG_TYPE = 15
+	IMAGE_DEBUG_TYPE_REPRO                 IMAGE_DEBUG_TYPE = 16
+	IMAGE_DEBUG_TYPE_SPGO                  IMAGE_DEBUG_TYPE = 18
+	IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS IMAGE_DEBUG_TYPE = 20
+)
+
 // IMAGE_DEBUG_DIRECTORY describes debug information embedded in the binary.
 type IMAGE_DEBUG_DIRECTORY struct {
 	Characteristics  uint32
 	TimeDateStamp    uint32
 	MajorVersion     uint16
 	MinorVersion     uint16
-	Type             uint32 // an IMAGE_DEBUG_TYPE constant
+	Type             IMAGE_DEBUG_TYPE
 	SizeOfData       uint32
 	AddressOfRawData uint32
 	PointerToRawData uint32
 }
-
-// IMAGE_DEBUG_TYPE_CODEVIEW identifies the current IMAGE_DEBUG_DIRECTORY as
-// pointing to CodeView debug information.
-const IMAGE_DEBUG_TYPE_CODEVIEW = 2
 
 func (nfo *PEHeaders) extractDebugInfo(dde DataDirectoryEntry) (any, error) {
 	rva := resolveRVA(nfo, dde.VirtualAddress)
@@ -614,7 +655,8 @@ func (u *IMAGE_DEBUG_INFO_CODEVIEW_UNPACKED) unpack(r *bufio.Reader) error {
 		return err
 	}
 
-	pdbBytes := make([]byte, 0, 16)
+	var storage [16]byte
+	pdbBytes := storage[:0]
 	for b, err := r.ReadByte(); err == nil && b != 0; b, err = r.ReadByte() {
 		pdbBytes = append(pdbBytes, b)
 	}

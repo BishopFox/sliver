@@ -150,6 +150,10 @@ type Module interface {
 	Memory() Memory
 
 	// ExportedFunction returns a function exported from this module or nil if it wasn't.
+	//
+	// Note: The default wazero.ModuleConfig attempts to invoke `_start`, which
+	// in rare cases can close the module. When in doubt, check IsClosed prior
+	// to invoking a function export after instantiation.
 	ExportedFunction(name string) Function
 
 	// ExportedFunctionDefinitions returns all the exported function
@@ -189,6 +193,21 @@ type Module interface {
 
 	// Closer closes this module by delegating to CloseWithExitCode with an exit code of zero.
 	Closer
+
+	// IsClosed returns true if the module is closed, so no longer usable.
+	//
+	// This can happen for the following reasons:
+	//   - Closer was called directly.
+	//   - A guest function called Closer indirectly, such as `_start` calling
+	//     `proc_exit`, which internally closed the module.
+	//   - wazero.RuntimeConfig `WithCloseOnContextDone` was enabled and a
+	//     context completion closed the module.
+	//
+	// Where any of the above are possible, check this value before calling an
+	// ExportedFunction, even if you didn't formerly receive a sys.ExitError.
+	// sys.ExitError is only returned on non-zero code, something that closes
+	// the module successfully will not result it one.
+	IsClosed() bool
 
 	internalapi.WazeroOnly
 }
@@ -355,6 +374,7 @@ type Function interface {
 	// Call is not goroutine-safe, therefore it is recommended to create
 	// another Function if you want to invoke the same function concurrently.
 	// On the other hand, sequential invocations of Call is allowed.
+	// However, this should not be called multiple times until the previous Call returns.
 	//
 	// To safely encode/decode params/results expressed as uint64, users are encouraged to
 	// use api.EncodeXXX or DecodeXXX functions. See the docs on api.ValueType.
@@ -539,8 +559,14 @@ type Memory interface {
 	// Definition is metadata about this memory from its defining module.
 	Definition() MemoryDefinition
 
-	// Size returns the size in bytes available. e.g. If the underlying memory
-	// has 1 page: 65536
+	// Size returns the memory size in bytes available.
+	// e.g. If the underlying memory has 1 page: 65536
+	//
+	// # Notes
+	//
+	//   - This overflows (returns zero) if the memory has the maximum 65536 pages.
+	// 	   As a workaround until wazero v2 to fix the return type, use Grow(0) to obtain the current pages and
+	//     multiply by 65536.
 	//
 	// See https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#-hrefsyntax-instr-memorymathsfmemorysize%E2%91%A0
 	Size() uint32
@@ -552,7 +578,7 @@ type Memory interface {
 	// # Notes
 	//
 	//   - This is the same as the "memory.grow" instruction defined in the
-	//	  WebAssembly Core Specification, except returns false instead of -1.
+	//	   WebAssembly Core Specification, except returns false instead of -1.
 	//   - When this returns true, any shared views via Read must be refreshed.
 	//
 	// See MemorySizer Read and https://www.w3.org/TR/2019/REC-wasm-core-1-20191205/#grow-mem

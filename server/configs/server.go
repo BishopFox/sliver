@@ -19,12 +19,9 @@ package configs
 */
 
 import (
-	"encoding/hex"
 	"encoding/json"
-	insecureRand "math/rand"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/log"
@@ -134,6 +131,10 @@ type ServerConfig struct {
 	Logs         *LogConfig        `json:"logs"`
 	Watchtower   *WatchTowerConfig `json:"watch_tower"`
 	GoProxy      string            `json:"go_proxy"`
+
+	// 'GOOS/GOARCH' -> CC path
+	CC  map[string]string `json:"cc"`
+	CXX map[string]string `json:"cxx"`
 }
 
 // Save - Save config file to disk
@@ -205,12 +206,7 @@ func getDefaultServerConfig() *ServerConfig {
 			GRPCUnaryPayloads:  false,
 			GRPCStreamPayloads: false,
 		},
+		CC:  map[string]string{},
+		CXX: map[string]string{},
 	}
-}
-
-func getRandomID() string {
-	seededRand := insecureRand.New(insecureRand.NewSource(time.Now().UnixNano()))
-	buf := make([]byte, 32)
-	seededRand.Read(buf)
-	return hex.EncodeToString(buf)
 }

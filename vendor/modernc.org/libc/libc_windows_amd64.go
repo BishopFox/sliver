@@ -15,6 +15,9 @@ import (
 
 // int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
 func Xsigaction(t *TLS, signum int32, act, oldact uintptr) int32 {
+	if __ccgo_strace {
+		trc("t=%v signum=%v oldact=%v, (%v:)", t, signum, oldact, origin(2))
+	}
 	panic(todo(""))
 	// 	musl/arch/x86_64/ksigaction.h
 	//
@@ -60,6 +63,9 @@ func Xsigaction(t *TLS, signum int32, act, oldact uintptr) int32 {
 
 // int fcntl(int fd, int cmd, ... /* arg */ );
 func Xfcntl64(t *TLS, fd, cmd int32, args uintptr) int32 {
+	if __ccgo_strace {
+		trc("t=%v cmd=%v args=%v, (%v:)", t, cmd, args, origin(2))
+	}
 	panic(todo(""))
 	// var arg uintptr
 	// if args != 0 {
@@ -82,6 +88,9 @@ func Xfcntl64(t *TLS, fd, cmd int32, args uintptr) int32 {
 
 // int lstat(const char *pathname, struct stat *statbuf);
 func Xlstat64(t *TLS, pathname, statbuf uintptr) int32 {
+	if __ccgo_strace {
+		trc("t=%v statbuf=%v, (%v:)", t, statbuf, origin(2))
+	}
 	panic(todo(""))
 	// if _, _, err := unix.Syscall(unix.SYS_LSTAT, pathname, statbuf, 0); err != 0 {
 	// 	if dmesgs {
@@ -99,6 +108,9 @@ func Xlstat64(t *TLS, pathname, statbuf uintptr) int32 {
 
 // int stat(const char *pathname, struct stat *statbuf);
 func Xstat64(t *TLS, pathname, statbuf uintptr) int32 {
+	if __ccgo_strace {
+		trc("t=%v statbuf=%v, (%v:)", t, statbuf, origin(2))
+	}
 	panic(todo(""))
 	// if _, _, err := unix.Syscall(unix.SYS_STAT, pathname, statbuf, 0); err != 0 {
 	// 	if dmesgs {
@@ -116,6 +128,9 @@ func Xstat64(t *TLS, pathname, statbuf uintptr) int32 {
 
 // int fstat(int fd, struct stat *statbuf);
 func Xfstat64(t *TLS, fd int32, statbuf uintptr) int32 {
+	if __ccgo_strace {
+		trc("t=%v fd=%v statbuf=%v, (%v:)", t, fd, statbuf, origin(2))
+	}
 	panic(todo(""))
 	// if _, _, err := unix.Syscall(unix.SYS_FSTAT, uintptr(fd), statbuf, 0); err != 0 {
 	// 	if dmesgs {
@@ -132,11 +147,17 @@ func Xfstat64(t *TLS, fd int32, statbuf uintptr) int32 {
 }
 
 func Xmmap(t *TLS, addr uintptr, length types.Size_t, prot, flags, fd int32, offset types.Off_t) uintptr {
+	if __ccgo_strace {
+		trc("t=%v addr=%v length=%v fd=%v offset=%v, (%v:)", t, addr, length, fd, offset, origin(2))
+	}
 	return Xmmap64(t, addr, length, prot, flags, fd, offset)
 }
 
 // void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
 func Xmmap64(t *TLS, addr uintptr, length types.Size_t, prot, flags, fd int32, offset types.Off_t) uintptr {
+	if __ccgo_strace {
+		trc("t=%v addr=%v length=%v fd=%v offset=%v, (%v:)", t, addr, length, fd, offset, origin(2))
+	}
 	panic(todo(""))
 	// data, _, err := unix.Syscall6(unix.SYS_MMAP, addr, uintptr(length), uintptr(prot), uintptr(flags), uintptr(fd), uintptr(offset))
 	// if err != 0 {
@@ -155,6 +176,9 @@ func Xmmap64(t *TLS, addr uintptr, length types.Size_t, prot, flags, fd int32, o
 
 // void *mremap(void *old_address, size_t old_size, size_t new_size, int flags, ... /* void *new_address */);
 func Xmremap(t *TLS, old_address uintptr, old_size, new_size types.Size_t, flags int32, args uintptr) uintptr {
+	if __ccgo_strace {
+		trc("t=%v old_address=%v new_size=%v flags=%v args=%v, (%v:)", t, old_address, new_size, flags, args, origin(2))
+	}
 	panic(todo(""))
 	// var arg uintptr
 	// if args != 0 {
@@ -177,6 +201,9 @@ func Xmremap(t *TLS, old_address uintptr, old_size, new_size types.Size_t, flags
 
 // int ftruncate(int fd, off_t length);
 func Xftruncate64(t *TLS, fd int32, length types.Off_t) int32 {
+	if __ccgo_strace {
+		trc("t=%v fd=%v length=%v, (%v:)", t, fd, length, origin(2))
+	}
 	panic(todo(""))
 	// if _, _, err := unix.Syscall(unix.SYS_FTRUNCATE, uintptr(fd), uintptr(length), 0); err != 0 {
 	// 	if dmesgs {
@@ -194,6 +221,9 @@ func Xftruncate64(t *TLS, fd int32, length types.Off_t) int32 {
 
 // off64_t lseek64(int fd, off64_t offset, int whence);
 func Xlseek64(t *TLS, fd int32, offset types.Off_t, whence int32) types.Off_t {
+	if __ccgo_strace {
+		trc("t=%v fd=%v offset=%v whence=%v, (%v:)", t, fd, offset, whence, origin(2))
+	}
 
 	f, ok := fdToFile(fd)
 	if !ok {
@@ -218,6 +248,9 @@ func Xlseek64(t *TLS, fd int32, offset types.Off_t, whence int32) types.Off_t {
 
 // int utime(const char *filename, const struct utimbuf *times);
 func Xutime(t *TLS, filename, times uintptr) int32 {
+	if __ccgo_strace {
+		trc("t=%v times=%v, (%v:)", t, times, origin(2))
+	}
 	panic(todo(""))
 	// if _, _, err := unix.Syscall(unix.SYS_UTIME, filename, times, 0); err != 0 {
 	// 	t.setErrno(err)
@@ -229,6 +262,9 @@ func Xutime(t *TLS, filename, times uintptr) int32 {
 
 // unsigned int alarm(unsigned int seconds);
 func Xalarm(t *TLS, seconds uint32) uint32 {
+	if __ccgo_strace {
+		trc("t=%v seconds=%v, (%v:)", t, seconds, origin(2))
+	}
 	panic(todo(""))
 	// n, _, err := unix.Syscall(unix.SYS_ALARM, uintptr(seconds), 0, 0)
 	// if err != 0 {
@@ -240,6 +276,9 @@ func Xalarm(t *TLS, seconds uint32) uint32 {
 
 // time_t time(time_t *tloc);
 func Xtime(t *TLS, tloc uintptr) types.Time_t {
+	if __ccgo_strace {
+		trc("t=%v tloc=%v, (%v:)", t, tloc, origin(2))
+	}
 	panic(todo(""))
 	// n, _, err := unix.Syscall(unix.SYS_TIME, tloc, 0, 0)
 	// if err != 0 {
@@ -255,6 +294,9 @@ func Xtime(t *TLS, tloc uintptr) types.Time_t {
 
 // int getrlimit(int resource, struct rlimit *rlim);
 func Xgetrlimit64(t *TLS, resource int32, rlim uintptr) int32 {
+	if __ccgo_strace {
+		trc("t=%v resource=%v rlim=%v, (%v:)", t, resource, rlim, origin(2))
+	}
 	panic(todo(""))
 	// if _, _, err := unix.Syscall(unix.SYS_GETRLIMIT, uintptr(resource), uintptr(rlim), 0); err != 0 {
 	// 	t.setErrno(err)
@@ -266,6 +308,9 @@ func Xgetrlimit64(t *TLS, resource int32, rlim uintptr) int32 {
 
 // int mkdir(const char *path, mode_t mode);
 func Xmkdir(t *TLS, path uintptr, mode types.Mode_t) int32 {
+	if __ccgo_strace {
+		trc("t=%v path=%v mode=%v, (%v:)", t, path, mode, origin(2))
+	}
 	panic(todo(""))
 	// if _, _, err := unix.Syscall(unix.SYS_MKDIR, path, uintptr(mode), 0); err != 0 {
 	// 	t.setErrno(err)
@@ -280,6 +325,9 @@ func Xmkdir(t *TLS, path uintptr, mode types.Mode_t) int32 {
 
 // int symlink(const char *target, const char *linkpath);
 func Xsymlink(t *TLS, target, linkpath uintptr) int32 {
+	if __ccgo_strace {
+		trc("t=%v linkpath=%v, (%v:)", t, linkpath, origin(2))
+	}
 	panic(todo(""))
 	// if _, _, err := unix.Syscall(unix.SYS_SYMLINK, target, linkpath, 0); err != 0 {
 	// 	t.setErrno(err)
@@ -294,6 +342,9 @@ func Xsymlink(t *TLS, target, linkpath uintptr) int32 {
 
 // int utimes(const char *filename, const struct timeval times[2]);
 func Xutimes(t *TLS, filename, times uintptr) int32 {
+	if __ccgo_strace {
+		trc("t=%v times=%v, (%v:)", t, times, origin(2))
+	}
 	panic(todo(""))
 	// if _, _, err := unix.Syscall(unix.SYS_UTIMES, filename, times, 0); err != 0 {
 	// 	t.setErrno(err)
@@ -308,6 +359,9 @@ func Xutimes(t *TLS, filename, times uintptr) int32 {
 
 // int unlink(const char *pathname);
 func Xunlink(t *TLS, pathname uintptr) int32 {
+	if __ccgo_strace {
+		trc("t=%v pathname=%v, (%v:)", t, pathname, origin(2))
+	}
 
 	err := syscall.DeleteFile((*uint16)(unsafe.Pointer(pathname)))
 	if err != nil {
@@ -322,25 +376,11 @@ func Xunlink(t *TLS, pathname uintptr) int32 {
 	return 0
 }
 
-// int access(const char *pathname, int mode);
-func Xaccess(t *TLS, pathname uintptr, mode int32) int32 {
-	panic(todo(""))
-	// if _, _, err := unix.Syscall(unix.SYS_ACCESS, pathname, uintptr(mode), 0); err != 0 {
-	// 	if dmesgs {
-	// 		dmesg("%v: %q: %v", origin(1), GoString(pathname), err)
-	// 	}
-	// 	t.setErrno(err)
-	// 	return -1
-	// }
-
-	// if dmesgs {
-	// 	dmesg("%v: %q %#o: ok", origin(1), GoString(pathname), mode)
-	// }
-	// return 0
-}
-
 // int rmdir(const char *pathname);
 func Xrmdir(t *TLS, pathname uintptr) int32 {
+	if __ccgo_strace {
+		trc("t=%v pathname=%v, (%v:)", t, pathname, origin(2))
+	}
 	panic(todo(""))
 	// if _, _, err := unix.Syscall(unix.SYS_RMDIR, pathname, 0, 0); err != 0 {
 	// 	t.setErrno(err)
@@ -355,6 +395,9 @@ func Xrmdir(t *TLS, pathname uintptr) int32 {
 
 // int mknod(const char *pathname, mode_t mode, dev_t dev);
 func Xmknod(t *TLS, pathname uintptr, mode types.Mode_t, dev types.Dev_t) int32 {
+	if __ccgo_strace {
+		trc("t=%v pathname=%v mode=%v dev=%v, (%v:)", t, pathname, mode, dev, origin(2))
+	}
 	panic(todo(""))
 	// if _, _, err := unix.Syscall(unix.SYS_MKNOD, pathname, uintptr(mode), uintptr(dev)); err != 0 {
 	// 	t.setErrno(err)
@@ -377,6 +420,9 @@ func Xmknod(t *TLS, pathname uintptr, mode types.Mode_t, dev types.Dev_t) int32 
 
 // int link(const char *oldpath, const char *newpath);
 func Xlink(t *TLS, oldpath, newpath uintptr) int32 {
+	if __ccgo_strace {
+		trc("t=%v newpath=%v, (%v:)", t, newpath, origin(2))
+	}
 	panic(todo(""))
 	// if _, _, err := unix.Syscall(unix.SYS_LINK, oldpath, newpath, 0); err != 0 {
 	// 	t.setErrno(err)
@@ -388,6 +434,9 @@ func Xlink(t *TLS, oldpath, newpath uintptr) int32 {
 
 // int pipe(int pipefd[2]);
 func Xpipe(t *TLS, pipefd uintptr) int32 {
+	if __ccgo_strace {
+		trc("t=%v pipefd=%v, (%v:)", t, pipefd, origin(2))
+	}
 	panic(todo(""))
 	// if _, _, err := unix.Syscall(unix.SYS_PIPE, pipefd, 0, 0); err != 0 {
 	// 	t.setErrno(err)
@@ -399,6 +448,9 @@ func Xpipe(t *TLS, pipefd uintptr) int32 {
 
 // int dup2(int oldfd, int newfd);
 func Xdup2(t *TLS, oldfd, newfd int32) int32 {
+	if __ccgo_strace {
+		trc("t=%v newfd=%v, (%v:)", t, newfd, origin(2))
+	}
 	panic(todo(""))
 	// n, _, err := unix.Syscall(unix.SYS_DUP2, uintptr(oldfd), uintptr(newfd), 0)
 	// if err != 0 {
@@ -411,6 +463,9 @@ func Xdup2(t *TLS, oldfd, newfd int32) int32 {
 
 // ssize_t readlink(const char *restrict path, char *restrict buf, size_t bufsize);
 func Xreadlink(t *TLS, path, buf uintptr, bufsize types.Size_t) types.Ssize_t {
+	if __ccgo_strace {
+		trc("t=%v buf=%v bufsize=%v, (%v:)", t, buf, bufsize, origin(2))
+	}
 	panic(todo(""))
 	// n, _, err := unix.Syscall(unix.SYS_READLINK, path, buf, uintptr(bufsize))
 	// if err != 0 {
@@ -423,6 +478,9 @@ func Xreadlink(t *TLS, path, buf uintptr, bufsize types.Size_t) types.Ssize_t {
 
 // FILE *fopen64(const char *pathname, const char *mode);
 func Xfopen64(t *TLS, pathname, mode uintptr) uintptr {
+	if __ccgo_strace {
+		trc("t=%v mode=%v, (%v:)", t, mode, origin(2))
+	}
 
 	m := strings.ReplaceAll(GoString(mode), "b", "")
 	var flags int
@@ -459,42 +517,72 @@ func Xfopen64(t *TLS, pathname, mode uintptr) uintptr {
 }
 
 func Xrecv(t *TLS, sockfd uint64, buf uintptr, len, flags int32) int32 {
+	if __ccgo_strace {
+		trc("t=%v sockfd=%v buf=%v flags=%v, (%v:)", t, sockfd, buf, flags, origin(2))
+	}
 	panic(todo(""))
 }
 
 func Xsend(t *TLS, sockfd uint64, buf uintptr, len, flags int32) int32 {
+	if __ccgo_strace {
+		trc("t=%v sockfd=%v buf=%v flags=%v, (%v:)", t, sockfd, buf, flags, origin(2))
+	}
 	panic(todo(""))
 }
 
 func Xshutdown(t *TLS, sockfd uint64, how int32) int32 {
+	if __ccgo_strace {
+		trc("t=%v sockfd=%v how=%v, (%v:)", t, sockfd, how, origin(2))
+	}
 	panic(todo(""))
 }
 
 func Xgetpeername(t *TLS, sockfd uint64, addr uintptr, addrlen uintptr) int32 {
+	if __ccgo_strace {
+		trc("t=%v sockfd=%v addr=%v addrlen=%v, (%v:)", t, sockfd, addr, addrlen, origin(2))
+	}
 	panic(todo(""))
 }
 
 func Xgetsockname(t *TLS, sockfd uint64, addr, addrlen uintptr) int32 {
+	if __ccgo_strace {
+		trc("t=%v sockfd=%v addrlen=%v, (%v:)", t, sockfd, addrlen, origin(2))
+	}
 	panic(todo(""))
 }
 
 func Xsocket(t *TLS, domain, type1, protocol int32) uint64 {
+	if __ccgo_strace {
+		trc("t=%v protocol=%v, (%v:)", t, protocol, origin(2))
+	}
 	panic(todo(""))
 }
 
 func Xbind(t *TLS, sockfd uint64, addr uintptr, addrlen int32) int32 {
+	if __ccgo_strace {
+		trc("t=%v sockfd=%v addr=%v addrlen=%v, (%v:)", t, sockfd, addr, addrlen, origin(2))
+	}
 	panic(todo(""))
 }
 
 func Xconnect(t *TLS, sockfd uint64, addr uintptr, addrlen int32) int32 {
+	if __ccgo_strace {
+		trc("t=%v sockfd=%v addr=%v addrlen=%v, (%v:)", t, sockfd, addr, addrlen, origin(2))
+	}
 	panic(todo(""))
 }
 
 func Xlisten(t *TLS, sockfd uint64, backlog int32) int32 {
+	if __ccgo_strace {
+		trc("t=%v sockfd=%v backlog=%v, (%v:)", t, sockfd, backlog, origin(2))
+	}
 	panic(todo(""))
 }
 
 func Xaccept(t *TLS, sockfd uint64, addr uintptr, addrlen uintptr) uint64 {
+	if __ccgo_strace {
+		trc("t=%v sockfd=%v addr=%v addrlen=%v, (%v:)", t, sockfd, addr, addrlen, origin(2))
+	}
 	panic(todo(""))
 }
 
@@ -512,4 +600,30 @@ func XDefWindowProcW(t *TLS, _ ...interface{}) int64 {
 
 func XSendMessageTimeoutW(t *TLS, _ ...interface{}) int64 {
 	panic(todo(""))
+}
+
+func Xstrspn(tls *TLS, s uintptr, c uintptr) size_t { /* strspn.c:6:8: */
+	if __ccgo_strace {
+		trc("tls=%v s=%v c=%v, (%v:)", tls, s, c, origin(2))
+	}
+	bp := tls.Alloc(32)
+	defer tls.Free(32)
+
+	var a uintptr = s
+	*(*[4]size_t)(unsafe.Pointer(bp /* byteset */)) = [4]size_t{0: uint64(0)}
+
+	if !(int32(*(*int8)(unsafe.Pointer(c))) != 0) {
+		return uint64(0)
+	}
+	if !(int32(*(*int8)(unsafe.Pointer(c + 1))) != 0) {
+		for ; int32(*(*int8)(unsafe.Pointer(s))) == int32(*(*int8)(unsafe.Pointer(c))); s++ {
+		}
+		return size_t((int64(s) - int64(a)) / 1)
+	}
+
+	for ; *(*int8)(unsafe.Pointer(c)) != 0 && AssignOrPtrUint64(bp+uintptr(size_t(*(*uint8)(unsafe.Pointer(c)))/(uint64(8)*uint64(unsafe.Sizeof(size_t(0)))))*8, size_t(uint64(1))<<(size_t(*(*uint8)(unsafe.Pointer(c)))%(uint64(8)*uint64(unsafe.Sizeof(size_t(0)))))) != 0; c++ {
+	}
+	for ; *(*int8)(unsafe.Pointer(s)) != 0 && *(*size_t)(unsafe.Pointer(bp + uintptr(size_t(*(*uint8)(unsafe.Pointer(s)))/(uint64(8)*uint64(unsafe.Sizeof(size_t(0)))))*8))&(size_t(uint64(1))<<(size_t(*(*uint8)(unsafe.Pointer(s)))%(uint64(8)*uint64(unsafe.Sizeof(size_t(0)))))) != 0; s++ {
+	}
+	return size_t((int64(s) - int64(a)) / 1)
 }

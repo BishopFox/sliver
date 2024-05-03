@@ -163,10 +163,10 @@ func (l *LinkService) Get(index uint32) (LinkMessage, error) {
 // ref: https://lwn.net/Articles/236919/
 // We explicitly use RTM_NEWLINK to set link attributes instead of
 // RTM_SETLINK because:
-// - using RTM_SETLINK is actually an old rtnetlink API, not supporting most
-//   attributes common today
-// - using RTM_NEWLINK is the prefered way to create AND update links
-// - RTM_NEWLINK is backward compatible to RTM_SETLINK
+//   - using RTM_SETLINK is actually an old rtnetlink API, not supporting most
+//     attributes common today
+//   - using RTM_NEWLINK is the prefered way to create AND update links
+//   - RTM_NEWLINK is backward compatible to RTM_SETLINK
 func (l *LinkService) Set(req *LinkMessage) error {
 	flags := netlink.Request | netlink.Acknowledge
 	_, err := l.c.Execute(req, unix.RTM_NEWLINK, flags)

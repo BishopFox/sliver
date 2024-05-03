@@ -6,22 +6,22 @@ toolchain go1.21.4
 
 require (
 	filippo.io/age v1.1.1
-	github.com/Binject/universal v0.0.0-20210304094126-daefaa886313
+	github.com/Binject/universal v0.0.0-20220519011857-bea739e758c0
 	github.com/Ne0nd0g/go-clr v1.0.3
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/lesnuages/go-winio v0.4.19
 	github.com/miekg/dns v1.1.50
-	github.com/moloch--/memmod v0.0.0-20211120144554-8b37cc654945
-	github.com/stretchr/testify v1.7.0
-	github.com/tetratelabs/wazero v1.2.0
-	github.com/things-go/go-socks5 v0.0.3-0.20210722055343-24af464efe43
+	github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e
+	github.com/stretchr/testify v1.8.4
+	github.com/tetratelabs/wazero v1.7.1
+	github.com/things-go/go-socks5 v0.0.4
 	github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e
 	golang.org/x/crypto v0.13.0
 	golang.org/x/net v0.15.0
-	golang.org/x/sys v0.14.0
-	golang.zx2c4.com/wireguard v0.0.0-20231022001213-2e0774f246fb
-	google.golang.org/protobuf v1.31.0
+	golang.org/x/sys v0.19.0
+	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
+	google.golang.org/protobuf v1.32.0
 	gvisor.dev/gvisor v0.0.0-20230927004350-cbd86285d259
 )
 
@@ -38,9 +38,9 @@ require (
 	github.com/jcmturner/gofork v1.0.0 // indirect
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/mod v0.13.0 // indirect
+	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
-	golang.org/x/time v0.3.0 // indirect
+	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.13.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	gopkg.in/jcmturner/aescts.v1 v1.0.1 // indirect

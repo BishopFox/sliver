@@ -1104,7 +1104,7 @@ func GetsockoptString(fd, level, opt int) (string, error) {
 		return "", err
 	}
 
-	return string(buf[:vallen-1]), nil
+	return ByteSliceToString(buf[:vallen]), nil
 }
 
 func Recvmsg(fd int, p, oob []byte, flags int) (n, oobn int, recvflags int, from Sockaddr, err error) {
@@ -1518,6 +1518,14 @@ func (m *mmapper) Munmap(data []byte) (err error) {
 	}
 	delete(m.active, p)
 	return nil
+}
+
+func Mmap(fd int, offset int64, length int, prot int, flags int) (data []byte, err error) {
+        return mapper.Mmap(fd, offset, length, prot, flags)
+}
+
+func Munmap(b []byte) (err error) {
+        return mapper.Munmap(b)
 }
 
 func Read(fd int, p []byte) (n int, err error) {

@@ -102,7 +102,7 @@ func (abi *ISequentialStreamABI) Read(p []byte) (int, error) {
 	rc, _, _ := syscall.SyscallN(
 		method,
 		uintptr(unsafe.Pointer(abi)),
-		uintptr(unsafe.Pointer(&p[0])),
+		uintptr(unsafe.Pointer(unsafe.SliceData(p))),
 		uintptr(uint32(len(p))),
 		uintptr(unsafe.Pointer(&cbRead)),
 	)
@@ -133,7 +133,7 @@ func (abi *ISequentialStreamABI) Write(p []byte) (int, error) {
 	rc, _, _ := syscall.SyscallN(
 		method,
 		uintptr(unsafe.Pointer(abi)),
-		uintptr(unsafe.Pointer(&w[0])),
+		uintptr(unsafe.Pointer(unsafe.SliceData(w))),
 		uintptr(uint32(len(w))),
 		uintptr(unsafe.Pointer(&cbWritten)),
 	)
@@ -509,7 +509,7 @@ func newMemoryStreamInternal(initialBytes []byte, forceLegacy bool) (result Stre
 	var base *byte
 	var length uint32
 	if l := uint32(len(initialBytes)); l > 0 {
-		base = &initialBytes[0]
+		base = unsafe.SliceData(initialBytes)
 		length = l
 	}
 

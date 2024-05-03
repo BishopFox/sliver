@@ -2,7 +2,8 @@ package wasip1
 
 import (
 	"fmt"
-	"syscall"
+
+	"github.com/tetratelabs/wazero/experimental/sys"
 )
 
 // Errno is neither uint16 nor an alias for parity with wasm.ValueType.
@@ -263,47 +264,49 @@ var errnoToString = [...]string{
 // Note: Coercion isn't centralized in sys.FSContext because ABI use different
 // error codes. For example, wasi-filesystem and GOOS=js don't map to these
 // Errno.
-func ToErrno(errno syscall.Errno) Errno {
+func ToErrno(errno sys.Errno) Errno {
 	switch errno {
 	case 0:
 		return ErrnoSuccess
-	case syscall.EACCES:
+	case sys.EACCES:
 		return ErrnoAcces
-	case syscall.EAGAIN:
+	case sys.EAGAIN:
 		return ErrnoAgain
-	case syscall.EBADF:
+	case sys.EBADF:
 		return ErrnoBadf
-	case syscall.EEXIST:
+	case sys.EEXIST:
 		return ErrnoExist
-	case syscall.EFAULT:
+	case sys.EFAULT:
 		return ErrnoFault
-	case syscall.EINTR:
+	case sys.EINTR:
 		return ErrnoIntr
-	case syscall.EINVAL:
+	case sys.EINVAL:
 		return ErrnoInval
-	case syscall.EIO:
+	case sys.EIO:
 		return ErrnoIo
-	case syscall.EISDIR:
+	case sys.EISDIR:
 		return ErrnoIsdir
-	case syscall.ELOOP:
+	case sys.ELOOP:
 		return ErrnoLoop
-	case syscall.ENAMETOOLONG:
+	case sys.ENAMETOOLONG:
 		return ErrnoNametoolong
-	case syscall.ENOENT:
+	case sys.ENOENT:
 		return ErrnoNoent
-	case syscall.ENOSYS:
+	case sys.ENOSYS:
 		return ErrnoNosys
-	case syscall.ENOTDIR:
+	case sys.ENOTDIR:
 		return ErrnoNotdir
-	case syscall.ENOTEMPTY:
+	case sys.ERANGE:
+		return ErrnoRange
+	case sys.ENOTEMPTY:
 		return ErrnoNotempty
-	case syscall.ENOTSOCK:
+	case sys.ENOTSOCK:
 		return ErrnoNotsock
-	case syscall.ENOTSUP:
+	case sys.ENOTSUP:
 		return ErrnoNotsup
-	case syscall.EPERM:
+	case sys.EPERM:
 		return ErrnoPerm
-	case syscall.EROFS:
+	case sys.EROFS:
 		return ErrnoRofs
 	default:
 		return ErrnoIo

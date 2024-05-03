@@ -13,18 +13,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// IID is a GUID that represents an interface ID.
-type IID windows.GUID
-
-// CLSID is a GUID that represents a class ID.
-type CLSID windows.GUID
-
-// AppID is a GUID that represents an application ID.
-type AppID windows.GUID
-
-// ServiceID is a GUID that represents a service ID.
-type ServiceID windows.GUID
-
 type coMTAUsageCookie windows.Handle
 
 type coCLSCTX uint32
@@ -158,9 +146,5 @@ func (s *COMAllocatedString) UTF16() []uint16 {
 
 // UTF16Ptr returns a pointer to a NUL-terminated copy of the UTF-16 string.
 func (s *COMAllocatedString) UTF16Ptr() *uint16 {
-	if slc := s.UTF16(); slc != nil {
-		return &slc[0]
-	}
-
-	return nil
+	return unsafe.SliceData(s.UTF16())
 }

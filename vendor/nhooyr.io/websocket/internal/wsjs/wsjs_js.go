@@ -1,3 +1,4 @@
+//go:build js
 // +build js
 
 // Package wsjs implements typed access to the browser javascript WebSocket API.
@@ -118,8 +119,6 @@ func (c WebSocket) OnMessage(fn func(m MessageEvent)) (remove func()) {
 			Data: data,
 		}
 		fn(me)
-
-		return
 	})
 }
 

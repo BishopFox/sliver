@@ -257,9 +257,11 @@ func Scan(rows Rows, db *DB, mode ScanMode) {
 								continue
 							}
 						}
-						values[idx] = &sql.RawBytes{}
+						var val interface{}
+						values[idx] = &val
 					} else {
-						values[idx] = &sql.RawBytes{}
+						var val interface{}
+						values[idx] = &val
 					}
 				}
 			}
@@ -274,12 +276,16 @@ func Scan(rows Rows, db *DB, mode ScanMode) {
 
 			if !update || reflectValue.Len() == 0 {
 				update = false
-				// if the slice cap is externally initialized, the externally initialized slice is directly used here
-				if reflectValue.Cap() == 0 {
-					db.Statement.ReflectValue.Set(reflect.MakeSlice(reflectValue.Type(), 0, 20))
-				} else if !isArrayKind {
-					reflectValue.SetLen(0)
-					db.Statement.ReflectValue.Set(reflectValue)
+				if isArrayKind {
+					db.Statement.ReflectValue.Set(reflect.Zero(reflectValue.Type()))
+				} else {
+					// if the slice cap is externally initialized, the externally initialized slice is directly used here
+					if reflectValue.Cap() == 0 {
+						db.Statement.ReflectValue.Set(reflect.MakeSlice(reflectValue.Type(), 0, 20))
+					} else {
+						reflectValue.SetLen(0)
+						db.Statement.ReflectValue.Set(reflectValue)
+					}
 				}
 			}
 

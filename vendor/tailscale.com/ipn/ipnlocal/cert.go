@@ -41,6 +41,7 @@ import (
 	"tailscale.com/ipn/store"
 	"tailscale.com/ipn/store/mem"
 	"tailscale.com/types/logger"
+	"tailscale.com/util/testenv"
 	"tailscale.com/version"
 	"tailscale.com/version/distro"
 )
@@ -236,6 +237,8 @@ type certStore interface {
 
 var errCertExpired = errors.New("cert expired")
 
+var testX509Roots *x509.CertPool // set non-nil by tests
+
 func (b *LocalBackend) getCertStore() (certStore, error) {
 	switch b.store.(type) {
 	case *store.FileStore:
@@ -252,7 +255,10 @@ func (b *LocalBackend) getCertStore() (certStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	return certFileStore{dir: dir}, nil
+	if testX509Roots != nil && !testenv.InTest() {
+		panic("use of test hook outside of tests")
+	}
+	return certFileStore{dir: dir, testRoots: testX509Roots}, nil
 }
 
 // certFileStore implements certStore by storing the cert & key files in the named directory.
@@ -588,7 +594,7 @@ func acmeKey(cs certStore) (crypto.Signer, error) {
 			return nil, errors.New("acme/autocert: invalid account key found in cache")
 		}
 		return parsePrivateKey(priv.Bytes)
-	} else if err != nil && !errors.Is(err, ipn.ErrStateNotExist) {
+	} else if !errors.Is(err, ipn.ErrStateNotExist) {
 		return nil, err
 	}
 
@@ -682,23 +688,8 @@ func checkCertDomain(st *ipnstate.Status, domain string) error {
 			return nil
 		}
 	}
-	// Transitional way while server doesn't yet populate CertDomains: also permit the client
-	// attempting Self.DNSName.
-	okay := st.CertDomains[:len(st.CertDomains):len(st.CertDomains)]
-	if st.Self != nil {
-		if v := strings.Trim(st.Self.DNSName, "."); v != "" {
-			if v == domain {
-				return nil
-			}
-			okay = append(okay, v)
-		}
-	}
-	switch len(okay) {
-	case 0:
+	if len(st.CertDomains) == 0 {
 		return errors.New("your Tailscale account does not support getting TLS certs")
-	case 1:
-		return fmt.Errorf("invalid domain %q; only %q is permitted", domain, okay[0])
-	default:
-		return fmt.Errorf("invalid domain %q; must be one of %q", domain, okay)
 	}
+	return fmt.Errorf("invalid domain %q; must be one of %q", domain, st.CertDomains)
 }

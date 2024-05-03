@@ -108,6 +108,7 @@ var (
 		// Profiles
 		consts.ProfilesStr + sep + consts.NewStr:      newProfileHelp,
 		consts.ProfilesStr + sep + consts.GenerateStr: generateProfileHelp,
+		consts.ProfilesStr + sep + consts.StageStr:    generateProfileStageHelp,
 
 		// Reactions
 		consts.ReactionStr:                         reactionHelp,
@@ -248,6 +249,9 @@ settings. Generated implants will still have per-binary certificates/obfuscation
 
 	generateProfileHelp = `[[.Bold]]Command:[[.Normal]] generate [name] <options>
 [[.Bold]]About:[[.Normal]] Generate an implant from a saved profile (see 'profiles new --help').`
+
+	generateProfileStageHelp = `[[.Bold]]Command:[[.Normal]] stage [name] <options>
+	[[.Bold]]About:[[.Normal]] Generate and encrypt or encode an implant from a saved profile (see 'profiles stage --help').`
 
 	msfHelp = `[[.Bold]]Command:[[.Normal]] msf [--lhost] <options>
 [[.Bold]]About:[[.Normal]] Execute a metasploit payload in the current process.`

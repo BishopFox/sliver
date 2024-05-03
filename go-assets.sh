@@ -20,8 +20,9 @@ set -e
 
 # Creates the static go asset archives
 
-GO_VER="1.22.1"
-GARBLE_VER="1.22.1"
+GO_VER="1.22.2"
+GARBLE_VER="1.22.2"
+ZIG_VER="0.12.0"
 SGN_VER="0.0.3"
 
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt SECURITY.md CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
@@ -149,9 +150,24 @@ rm -rf ./go
 rm -f windows-go.zip go$GO_VER.windows-amd64.zip
 
 echo "-----------------------------------------------------------------"
+echo " Zig"
+echo "-----------------------------------------------------------------"
+echo "curl -L --fail --output $OUTPUT_DIR/darwin/amd64/zig https://ziglang.org/download/$ZIG_VER/zig-macos-x86_64-$ZIG_VER.tar.xz"
+curl -L --fail --output $OUTPUT_DIR/darwin/amd64/zig.tar.xz https://ziglang.org/download/$ZIG_VER/zig-macos-x86_64-$ZIG_VER.tar.xz                                                
+echo "curl -L --fail --output $OUTPUT_DIR/darwin/arm64/zig https://ziglang.org/download/$ZIG_VER/zig-macos-aarch64-$ZIG_VER.tar.xz"
+curl -L --fail --output $OUTPUT_DIR/darwin/arm64/zig.tar.xz https://ziglang.org/download/$ZIG_VER/zig-macos-aarch64-$ZIG_VER.tar.xz
+echo "curl -L --fail --output $OUTPUT_DIR/linux/amd64/zig https://ziglang.org/download/$ZIG_VER/zig-linux-x86_64-$ZIG_VER.tar.xz"
+curl -L --fail --output $OUTPUT_DIR/linux/amd64/zig.tar.xz https://ziglang.org/download/$ZIG_VER/zig-linux-x86_64-$ZIG_VER.tar.xz
+echo "curl -L --fail --output $OUTPUT_DIR/linux/arm64/zig https://ziglang.org/download/$ZIG_VER/zig-linux-aarch64-$ZIG_VER.tar.xz"
+curl -L --fail --output $OUTPUT_DIR/linux/arm64/zig.tar.xz https://ziglang.org/download/$ZIG_VER/zig-linux-aarch64-$ZIG_VER.tar.xz
+# Of course Windows has to be different, because it's awful (zip file instead of a tarball)
+echo "curl -L --fail --output $OUTPUT_DIR/windows/amd64/zig.zip https://ziglang.org/download/$ZIG_VER/zig-windows-x86_64-$ZIG_VER.zip"
+curl -L --fail --output $OUTPUT_DIR/windows/amd64/zig.zip https://ziglang.org/download/$ZIG_VER/zig-windows-x86_64-$ZIG_VER.zip
+
+
+echo "-----------------------------------------------------------------"
 echo " Garble"
 echo "-----------------------------------------------------------------"
-
 echo "curl -L --fail --output $OUTPUT_DIR/linux/amd64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux"
 curl -L --fail --output $OUTPUT_DIR/linux/amd64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux
 echo "curl -L --fail --output $OUTPUT_DIR/linux/arm64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux-arm64"
@@ -167,28 +183,23 @@ curl -L --fail --output $OUTPUT_DIR/darwin/arm64/garble https://github.com/moloc
 echo "-----------------------------------------------------------------"
 echo " Shikata ga nai (ノ ゜Д゜)ノ ︵ 仕方がない"
 echo "-----------------------------------------------------------------"
-
 # Linux (amd64)
 echo "curl -L --fail --output $OUTPUT_DIR/linux/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_linux-amd64.zip"
 curl -L --fail --output $OUTPUT_DIR/linux/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_linux-amd64.zip
-
 # Linux (arm64)
 echo "curl -L --fail --output $OUTPUT_DIR/linux/arm64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_linux-arm64.zip"
 curl -L --fail --output $OUTPUT_DIR/linux/arm64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_linux-arm64.zip
-
 # Windows (amd64)
 echo "curl -L --fail --output $OUTPUT_DIR/windows/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_windows-amd64.zip"
 curl -L --fail --output $OUTPUT_DIR/windows/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_windows-amd64.zip
-
 # MacOS (amd64)
 echo "curl -L --fail --output $OUTPUT_DIR/darwin/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_macos-amd64.zip"
 curl -L --fail --output $OUTPUT_DIR/darwin/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_macos-amd64.zip
-
 # MacOS (arm64)
 echo "curl -L --fail --output $OUTPUT_DIR/darwin/arm64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_macos-arm64.zip"
 curl -L --fail --output $OUTPUT_DIR/darwin/arm64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_macos-arm64.zip
 
-# end
+# --- Cleanup ---
 echo -e "clean up: $WORK_DIR"
 rm -rf $WORK_DIR
 echo -e "\n[*] All done\n"

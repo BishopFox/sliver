@@ -39,6 +39,9 @@ func ByteSliceOf[T ~[]byte](x T) ByteSlice[T] {
 	return ByteSlice[T]{x}
 }
 
+// MapKey returns a unique key for a slice, based on its address and length.
+func (v ByteSlice[T]) MapKey() SliceMapKey[byte] { return mapKey(v.ж) }
+
 // Len returns the length of the slice.
 func (v ByteSlice[T]) Len() int {
 	return len(v.ж)
@@ -73,11 +76,6 @@ func (v ByteSlice[T]) AsSlice() T {
 func (v ByteSlice[T]) AppendTo(dst T) T {
 	return append(dst, v.ж...)
 }
-
-// LenIter returns a slice the same length as the v.Len().
-// The caller can then range over it to get the valid indexes.
-// It does not allocate.
-func (v ByteSlice[T]) LenIter() []struct{} { return make([]struct{}, len(v.ж)) }
 
 // At returns the byte at index `i` of the slice.
 func (v ByteSlice[T]) At(i int) byte { return v.ж[i] }
@@ -151,11 +149,6 @@ func (v SliceView[T, V]) IsNil() bool { return v.ж == nil }
 // Len returns the length of the slice.
 func (v SliceView[T, V]) Len() int { return len(v.ж) }
 
-// LenIter returns a slice the same length as the v.Len().
-// The caller can then range over it to get the valid indexes.
-// It does not allocate.
-func (v SliceView[T, V]) LenIter() []struct{} { return make([]struct{}, len(v.ж)) }
-
 // At returns a View of the element at index `i` of the slice.
 func (v SliceView[T, V]) At(i int) V { return v.ж[i].View() }
 
@@ -167,6 +160,22 @@ func (v SliceView[T, V]) SliceTo(i int) SliceView[T, V] { return SliceView[T, V]
 
 // Slice returns v[i:j]
 func (v SliceView[T, V]) Slice(i, j int) SliceView[T, V] { return SliceView[T, V]{v.ж[i:j]} }
+
+// SliceMapKey represents a comparable unique key for a slice, based on its
+// address and length. It can be used to key maps by slices but should only be
+// used when the underlying slice is immutable.
+//
+// Empty and nil slices have different keys.
+type SliceMapKey[T any] struct {
+	// t is the address of the first element, or nil if the slice is nil or
+	// empty.
+	t *T
+	// n is the length of the slice, or -1 if the slice is nil.
+	n int
+}
+
+// MapKey returns a unique key for a slice, based on its address and length.
+func (v SliceView[T, V]) MapKey() SliceMapKey[T] { return mapKey(v.ж) }
 
 // AppendTo appends the underlying slice values to dst.
 func (v SliceView[T, V]) AppendTo(dst []V) []V {
@@ -190,6 +199,20 @@ type Slice[T any] struct {
 	ж []T
 }
 
+// MapKey returns a unique key for a slice, based on its address and length.
+func (v Slice[T]) MapKey() SliceMapKey[T] { return mapKey(v.ж) }
+
+// mapKey returns a unique key for a slice, based on its address and length.
+func mapKey[T any](x []T) SliceMapKey[T] {
+	if x == nil {
+		return SliceMapKey[T]{nil, -1}
+	}
+	if len(x) == 0 {
+		return SliceMapKey[T]{nil, 0}
+	}
+	return SliceMapKey[T]{&x[0], len(x)}
+}
+
 // SliceOf returns a Slice for the provided slice for immutable values.
 // It is the caller's responsibility to make sure V is immutable.
 func SliceOf[T any](x []T) Slice[T] {
@@ -211,11 +234,6 @@ func (v Slice[T]) IsNil() bool { return v.ж == nil }
 
 // Len returns the length of the slice.
 func (v Slice[T]) Len() int { return len(v.ж) }
-
-// LenIter returns a slice the same length as the v.Len().
-// The caller can then range over it to get the valid indexes.
-// It does not allocate.
-func (v Slice[T]) LenIter() []struct{} { return make([]struct{}, len(v.ж)) }
 
 // At returns the element at index `i` of the slice.
 func (v Slice[T]) At(i int) T { return v.ж[i] }
@@ -256,8 +274,8 @@ func (v Slice[T]) IndexFunc(f func(T) bool) int {
 //
 // As it runs in O(n) time, use with care.
 func (v Slice[T]) ContainsFunc(f func(T) bool) bool {
-	for i := 0; i < v.Len(); i++ {
-		if f(v.At(i)) {
+	for _, x := range v.ж {
+		if f(x) {
 			return true
 		}
 	}
@@ -268,8 +286,8 @@ func (v Slice[T]) ContainsFunc(f func(T) bool) bool {
 //
 // As it runs in O(n) time, use with care.
 func SliceContains[T comparable](v Slice[T], e T) bool {
-	for i := 0; i < v.Len(); i++ {
-		if v.At(i) == e {
+	for _, x := range v.ж {
+		if x == e {
 			return true
 		}
 	}
@@ -278,8 +296,8 @@ func SliceContains[T comparable](v Slice[T], e T) bool {
 
 // SliceContainsFunc reports whether f reports true for any element in v.
 func SliceContainsFunc[T any](v Slice[T], f func(T) bool) bool {
-	for i := 0; i < v.Len(); i++ {
-		if f(v.At(i)) {
+	for _, x := range v.ж {
+		if f(x) {
 			return true
 		}
 	}

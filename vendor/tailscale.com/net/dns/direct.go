@@ -16,12 +16,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
-	"tailscale.com/health"
 	"tailscale.com/net/dns/resolvconffile"
+	"tailscale.com/net/tsaddr"
 	"tailscale.com/types/logger"
 	"tailscale.com/util/dnsname"
 	"tailscale.com/version/distro"
@@ -50,6 +51,8 @@ func readResolv(r io.Reader) (OSConfig, error) {
 // resolvOwner returns the apparent owner of the resolv.conf
 // configuration in bs - one of "resolvconf", "systemd-resolved" or
 // "NetworkManager", or "" if no known owner was found.
+//
+//lint:ignore U1000 used in linux and freebsd code
 func resolvOwner(bs []byte) string {
 	likely := ""
 	b := bytes.NewBuffer(bs)
@@ -130,11 +133,13 @@ type directManager struct {
 	ctx      context.Context    // valid until Close
 	ctxClose context.CancelFunc // closes ctx
 
-	mu               sync.Mutex
-	wantResolvConf   []byte // if non-nil, what we expect /etc/resolv.conf to contain
+	mu             sync.Mutex
+	wantResolvConf []byte // if non-nil, what we expect /etc/resolv.conf to contain
+	//lint:ignore U1000 used in direct_linux.go
 	lastWarnContents []byte // last resolv.conf contents that we warned about
 }
 
+//lint:ignore U1000 used in manager_{freebsd,openbsd}.go
 func newDirectManager(logf logger.Logf) *directManager {
 	return newDirectManagerOnFS(logf, directFS{})
 }
@@ -288,52 +293,6 @@ func (m *directManager) setWant(want []byte) {
 	m.wantResolvConf = want
 }
 
-var warnTrample = health.NewWarnable()
-
-// checkForFileTrample checks whether /etc/resolv.conf has been trampled
-// by another program on the system. (e.g. a DHCP client)
-func (m *directManager) checkForFileTrample() {
-	m.mu.Lock()
-	want := m.wantResolvConf
-	lastWarn := m.lastWarnContents
-	m.mu.Unlock()
-
-	if want == nil {
-		return
-	}
-
-	cur, err := m.fs.ReadFile(resolvConf)
-	if err != nil {
-		m.logf("trample: read error: %v", err)
-		return
-	}
-	if bytes.Equal(cur, want) {
-		warnTrample.Set(nil)
-		if lastWarn != nil {
-			m.mu.Lock()
-			m.lastWarnContents = nil
-			m.mu.Unlock()
-			m.logf("trample: resolv.conf again matches expected content")
-		}
-		return
-	}
-	if bytes.Equal(cur, lastWarn) {
-		// We already logged about this, so not worth doing it again.
-		return
-	}
-
-	m.mu.Lock()
-	m.lastWarnContents = cur
-	m.mu.Unlock()
-
-	show := cur
-	if len(show) > 1024 {
-		show = show[:1024]
-	}
-	m.logf("trample: resolv.conf changed from what we expected. did some other program interfere? current contents: %q", show)
-	warnTrample.Set(errors.New("Linux DNS config not ideal. /etc/resolv.conf overwritten. See https://tailscale.com/s/dns-fight"))
-}
-
 func (m *directManager) SetDNS(config OSConfig) (err error) {
 	defer func() {
 		if err != nil && errors.Is(err, fs.ErrPermission) && runtime.GOOS == "linux" &&
@@ -414,10 +373,38 @@ func (m *directManager) GetBaseConfig() (OSConfig, error) {
 		fileToRead = backupConf
 	}
 
-	return m.readResolvFile(fileToRead)
+	oscfg, err := m.readResolvFile(fileToRead)
+	if err != nil {
+		return OSConfig{}, err
+	}
+
+	// On some systems, the backup configuration file is actually a
+	// symbolic link to something owned by another DNS service (commonly,
+	// resolved). Thus, it can be updated out from underneath us to contain
+	// the Tailscale service IP, which results in an infinite loop of us
+	// trying to send traffic to resolved, which sends back to us, and so
+	// on. To solve this, drop the Tailscale service IP from the base
+	// configuration; we do this in all situations since there's
+	// essentially no world where we want to forward to ourselves.
+	//
+	// See: https://github.com/tailscale/tailscale/issues/7816
+	var removed bool
+	oscfg.Nameservers = slices.DeleteFunc(oscfg.Nameservers, func(ip netip.Addr) bool {
+		if ip == tsaddr.TailscaleServiceIP() || ip == tsaddr.TailscaleServiceIPv6() {
+			removed = true
+			return true
+		}
+		return false
+	})
+	if removed {
+		m.logf("[v1] dropped Tailscale IP from base config that was a symlink")
+	}
+	return oscfg, nil
 }
 
 func (m *directManager) Close() error {
+	m.ctxClose()
+
 	// We used to keep a file for the tailscale config and symlinked
 	// to it, but then we stopped because /etc/resolv.conf being a
 	// symlink to surprising places breaks snaps and other sandboxing

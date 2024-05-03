@@ -20,7 +20,9 @@ import (
 
 	"context"
 
+	"go4.org/mem"
 	"tailscale.com/envknob"
+	"tailscale.com/util/ctxkey"
 )
 
 // Logf is the basic Tailscale logger type: a printf-like func.
@@ -28,12 +30,15 @@ import (
 // Logf functions must be safe for concurrent use.
 type Logf func(format string, args ...any)
 
+// LogfKey stores and loads [Logf] values within a [context.Context].
+var LogfKey = ctxkey.New("", Logf(log.Printf))
+
 // A Context is a context.Context that should contain a custom log function, obtainable from FromContext.
 // If no log function is present, FromContext will return log.Printf.
 // To construct a Context, use Add
+//
+// Deprecated: Do not use.
 type Context context.Context
-
-type logfKey struct{}
 
 // jenc is a json.Encode + bytes.Buffer pair wired up to be reused in a pool.
 type jenc struct {
@@ -79,17 +84,17 @@ func (logf Logf) JSON(level int, recType string, v any) {
 }
 
 // FromContext extracts a log function from ctx.
+//
+// Deprecated: Use [LogfKey.Value] instead.
 func FromContext(ctx Context) Logf {
-	v := ctx.Value(logfKey{})
-	if v == nil {
-		return log.Printf
-	}
-	return v.(Logf)
+	return LogfKey.Value(ctx)
 }
 
 // Ctx constructs a Context from ctx with fn as its custom log function.
+//
+// Deprecated: Use [LogfKey.WithValue] instead.
 func Ctx(ctx context.Context, fn Logf) Context {
-	return context.WithValue(ctx, logfKey{}, fn)
+	return LogfKey.WithValue(ctx, fn)
 }
 
 // WithPrefix wraps f, prefixing each format with the provided prefix.
@@ -388,4 +393,26 @@ func TestLogger(tb TBLogger) Logf {
 		tb.Helper()
 		tb.Logf("    ... "+format, args...)
 	}
+}
+
+// HTTPServerLogFilter is an io.Writer that can be used as the
+// net/http.Server.ErrorLog logger, and will filter out noisy, low-signal
+// messages that clutter up logs.
+type HTTPServerLogFilter struct {
+	Inner Logf
+}
+
+func (lf HTTPServerLogFilter) Write(p []byte) (int, error) {
+	b := mem.B(p)
+	if mem.HasSuffix(b, mem.S(": EOF\n")) ||
+		mem.HasSuffix(b, mem.S(": i/o timeout\n")) ||
+		mem.HasSuffix(b, mem.S(": read: connection reset by peer\n")) ||
+		mem.HasSuffix(b, mem.S(": remote error: tls: bad certificate\n")) ||
+		mem.HasSuffix(b, mem.S(": tls: first record does not look like a TLS handshake\n")) {
+		// Skip this log message, but say that we processed it
+		return len(p), nil
+	}
+
+	lf.Inner("%s", p)
+	return len(p), nil
 }

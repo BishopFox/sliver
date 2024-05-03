@@ -9,6 +9,7 @@ import (
 	"maps"
 	"net/netip"
 
+	"tailscale.com/drive"
 	"tailscale.com/tailcfg"
 	"tailscale.com/types/persist"
 	"tailscale.com/types/preftype"
@@ -24,6 +25,12 @@ func (src *Prefs) Clone() *Prefs {
 	*dst = *src
 	dst.AdvertiseTags = append(src.AdvertiseTags[:0:0], src.AdvertiseTags...)
 	dst.AdvertiseRoutes = append(src.AdvertiseRoutes[:0:0], src.AdvertiseRoutes...)
+	if src.DriveShares != nil {
+		dst.DriveShares = make([]*drive.Share, len(src.DriveShares))
+		for i := range dst.DriveShares {
+			dst.DriveShares[i] = src.DriveShares[i].Clone()
+		}
+	}
 	dst.Persist = src.Persist.Clone()
 	return dst
 }
@@ -35,6 +42,7 @@ var _PrefsCloneNeedsRegeneration = Prefs(struct {
 	AllowSingleHosts       bool
 	ExitNodeID             tailcfg.StableNodeID
 	ExitNodeIP             netip.Addr
+	InternalExitNodePrior  string
 	ExitNodeAllowLANAccess bool
 	CorpDNS                bool
 	RunSSH                 bool
@@ -55,6 +63,8 @@ var _PrefsCloneNeedsRegeneration = Prefs(struct {
 	AutoUpdate             AutoUpdatePrefs
 	AppConnector           AppConnectorPrefs
 	PostureChecking        bool
+	NetfilterKind          string
+	DriveShares            []*drive.Share
 	Persist                *persist.Persist
 }{})
 

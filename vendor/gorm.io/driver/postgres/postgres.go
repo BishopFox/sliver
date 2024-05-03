@@ -3,11 +3,11 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
-	"github.com/jackc/pgx/v5"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
@@ -24,10 +24,16 @@ type Dialector struct {
 type Config struct {
 	DriverName           string
 	DSN                  string
+	WithoutQuotingCheck  bool
 	PreferSimpleProtocol bool
 	WithoutReturning     bool
 	Conn                 gorm.ConnPool
 }
+
+var (
+	timeZoneMatcher         = regexp.MustCompile("(time_zone|TimeZone)=(.*?)($|&| )")
+	defaultIdentifierLength = 63 //maximum identifier length for postgres
+)
 
 func Open(dsn string) gorm.Dialector {
 	return &Dialector{&Config{DSN: dsn}}
@@ -41,12 +47,33 @@ func (dialector Dialector) Name() string {
 	return "postgres"
 }
 
-var timeZoneMatcher = regexp.MustCompile("(time_zone|TimeZone)=(.*?)($|&| )")
+func (dialector Dialector) Apply(config *gorm.Config) error {
+	if config.NamingStrategy == nil {
+		config.NamingStrategy = schema.NamingStrategy{
+			IdentifierMaxLength: defaultIdentifierLength,
+		}
+		return nil
+	}
+
+	switch v := config.NamingStrategy.(type) {
+	case *schema.NamingStrategy:
+		if v.IdentifierMaxLength <= 0 {
+			v.IdentifierMaxLength = defaultIdentifierLength
+		}
+	case schema.NamingStrategy:
+		if v.IdentifierMaxLength <= 0 {
+			v.IdentifierMaxLength = defaultIdentifierLength
+			config.NamingStrategy = v
+		}
+	}
+
+	return nil
+}
 
 func (dialector Dialector) Initialize(db *gorm.DB) (err error) {
 	callbackConfig := &callbacks.Config{
 		CreateClauses: []string{"INSERT", "VALUES", "ON CONFLICT"},
-		UpdateClauses: []string{"UPDATE", "SET", "WHERE"},
+		UpdateClauses: []string{"UPDATE", "SET", "FROM", "WHERE"},
 		DeleteClauses: []string{"DELETE", "FROM", "WHERE"},
 	}
 	// register callbacks
@@ -94,10 +121,23 @@ func (dialector Dialector) DefaultValueOf(field *schema.Field) clause.Expression
 
 func (dialector Dialector) BindVarTo(writer clause.Writer, stmt *gorm.Statement, v interface{}) {
 	writer.WriteByte('$')
-	writer.WriteString(strconv.Itoa(len(stmt.Vars)))
+	index := 0
+	varLen := len(stmt.Vars)
+	if varLen > 0 {
+		switch stmt.Vars[0].(type) {
+		case pgx.QueryExecMode:
+			index++
+		}
+	}
+	writer.WriteString(strconv.Itoa(varLen - index))
 }
 
 func (dialector Dialector) QuoteTo(writer clause.Writer, str string) {
+	if dialector.WithoutQuotingCheck {
+		writer.WriteString(str)
+		return
+	}
+
 	var (
 		underQuoted, selfQuoted bool
 		continuousBacktick      int8
