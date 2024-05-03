@@ -57,7 +57,7 @@ var (
 
 	defaultHostProc = map[string]string{
 		"windows": windowsDefaultHostProc,
-		"linux":   windowsDefaultHostProc,
+		"linux":   linuxDefaultHostProc,
 		"darwin":  macosDefaultHostProc,
 	}
 )
