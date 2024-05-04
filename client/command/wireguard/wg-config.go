@@ -88,7 +88,7 @@ func WGConfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 	save, _ := cmd.Flags().GetString("save")
 	if save == "" {
-		con.PrintInfof("New client config:")
+		con.PrintInfof("New client config:\n")
 		con.Println(output.String())
 	} else {
 		if !strings.HasSuffix(save, ".conf") {
