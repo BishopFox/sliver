@@ -7,6 +7,7 @@ import { useRouter } from "next/router";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import AsciinemaPlayer from "./asciinema";
+import Youtube from "./youtube";
 
 export type MarkdownProps = {
   key?: string;
@@ -129,6 +130,11 @@ const MarkdownViewer = (props: MarkdownProps) => {
                   </code>
                 </span>
               );
+            }
+
+            if (lang === "youtube") {
+              const embedId = (children as string) || "";
+              return <Youtube embedId={embedId.trim()} />;
             }
 
             if (lang === "asciinema") {

@@ -7,10 +7,10 @@
 ### Videos
 
 - https://youtu.be/3R6WKUgN0K4?t=456
-- https://www.youtube.com/watch?v=QO_1UMaiWHk
-- https://www.youtube.com/watch?v=izMMmOaLn9g
-- https://www.youtube.com/watch?v=qIbrozlf2wM
-- https://www.youtube.com/watch?v=CKfjLnEMfvI
+- https://youtu.be/watch?v=QO_1UMaiWHk
+- https://youtu.be/watch?v=izMMmOaLn9g
+- https://youtu.be/watch?v=qIbrozlf2wM
+- https://youtu.be/watch?v=CKfjLnEMfvI
 
 ### Blogs
 
