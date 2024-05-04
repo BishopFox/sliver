@@ -195,7 +195,7 @@ func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 }
 
 // getServerTLSConfig - Generate the TLS configuration, we do now allow the end user
-// to specify any TLS paramters, we choose sensible defaults instead
+// to specify any TLS parameters, we choose sensible defaults instead
 func getServerTLSConfig(host string) *tls.Config {
 
 	mtlsCACert, _, err := certs.GetCertificateAuthority(certs.MtlsImplantCA)

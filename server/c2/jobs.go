@@ -29,7 +29,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bishopfox/sliver/client/constants"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/certs"
@@ -52,9 +51,9 @@ func StartMTLSListenerJob(mtlsListener *clientpb.MTLSListenerReq) (*core.Job, er
 
 	job := &core.Job{
 		ID:          core.NextJobID(),
-		Name:        constants.MtlsStr,
+		Name:        consts.MtlsStr,
 		Description: fmt.Sprintf("mutual tls listener %s", bind),
-		Protocol:    constants.TCPListenerStr,
+		Protocol:    consts.TCPListenerStr,
 		Port:        uint16(mtlsListener.Port),
 		JobCtrl:     make(chan bool),
 	}
@@ -79,9 +78,9 @@ func StartWGListenerJob(wgListener *clientpb.WGListenerReq) (*core.Job, error) {
 
 	job := &core.Job{
 		ID:          core.NextJobID(),
-		Name:        constants.WGStr,
+		Name:        consts.WGStr,
 		Description: fmt.Sprintf("wg listener port: %d", wgListener.Port),
-		Protocol:    constants.UDPListenerStr,
+		Protocol:    consts.UDPListenerStr,
 		Port:        uint16(wgListener.Port),
 		JobCtrl:     make(chan bool),
 	}
@@ -132,9 +131,9 @@ func StartDNSListenerJob(dnsListener *clientpb.DNSListenerReq) (*core.Job, error
 	description := fmt.Sprintf("%s (canaries %v)", strings.Join(dnsListener.Domains, " "), dnsListener.Canaries)
 	job := &core.Job{
 		ID:          core.NextJobID(),
-		Name:        constants.DnsStr,
+		Name:        consts.DnsStr,
 		Description: description,
-		Protocol:    constants.UDPListenerStr,
+		Protocol:    consts.UDPListenerStr,
 		Port:        uint16(dnsListener.Port),
 		JobCtrl:     make(chan bool),
 		Domains:     dnsListener.Domains,
@@ -175,16 +174,16 @@ func StartHTTPListenerJob(req *clientpb.HTTPListenerReq) (*core.Job, error) {
 	if err != nil {
 		return nil, err
 	}
-	name := constants.HttpStr
+	name := consts.HttpStr
 	if req.Secure {
-		name = constants.HttpsStr
+		name = consts.HttpsStr
 	}
 
 	job := &core.Job{
 		ID:          core.NextJobID(),
 		Name:        name,
 		Description: fmt.Sprintf("%s for domain %s", name, req.Domain),
-		Protocol:    constants.TCPListenerStr,
+		Protocol:    consts.TCPListenerStr,
 		Port:        uint16(req.Port),
 		JobCtrl:     make(chan bool),
 		Domains:     []string{req.Domain},

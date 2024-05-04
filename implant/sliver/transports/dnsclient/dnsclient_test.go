@@ -75,28 +75,28 @@ func TestSplitBufferBase58(t *testing.T) {
 	t.Logf("Testing with client1")
 	client1 := NewDNSClient(parent1, opts)
 	testData := randomData(2048)
-	clientSplitBuffer(t, client1, encoders.Base58{}, testData)
+	clientSplitBuffer(t, client1, DNSBase58Encoder{}, testData)
 
 	t.Logf("Testing with client2")
 	client2 := NewDNSClient(parent2, opts)
 	testData2 := randomData(2048)
-	clientSplitBuffer(t, client2, encoders.Base58{}, testData2)
+	clientSplitBuffer(t, client2, DNSBase58Encoder{}, testData2)
 
 	t.Logf("Testing with client3")
 	client3 := NewDNSClient(parent3, opts)
 	testData3 := randomData(2048)
-	clientSplitBuffer(t, client3, encoders.Base58{}, testData3)
+	clientSplitBuffer(t, client3, DNSBase58Encoder{}, testData3)
 
 	t.Logf("Testing with client max")
 	clientMax := NewDNSClient(parentMax, opts)
 	testDataMax := randomData(2048)
-	clientSplitBuffer(t, clientMax, encoders.Base58{}, testDataMax)
+	clientSplitBuffer(t, clientMax, DNSBase58Encoder{}, testDataMax)
 
 	t.Logf("Testing all clients with randomly sized data")
 	for _, client := range []*SliverDNSClient{client1, client2, client3} {
 		for count := 0; count < 10; count++ {
 			testData := randomDataRandomSize(2 * 1024 * 1024)
-			clientSplitBuffer(t, client, encoders.Base58{}, testData)
+			clientSplitBuffer(t, client, DNSBase58Encoder{}, testData)
 		}
 	}
 }
@@ -106,28 +106,28 @@ func TestSplitBufferBase32(t *testing.T) {
 	t.Logf("Testing with client1")
 	client1 := NewDNSClient(parent1, opts)
 	testData := randomData(2048)
-	clientSplitBuffer(t, client1, encoders.Base32{}, testData)
+	clientSplitBuffer(t, client1, DNSBase32Encoder{}, testData)
 
 	t.Logf("Testing with client2")
 	client2 := NewDNSClient(parent2, opts)
 	testData2 := randomData(2048)
-	clientSplitBuffer(t, client2, encoders.Base32{}, testData2)
+	clientSplitBuffer(t, client2, DNSBase32Encoder{}, testData2)
 
 	t.Logf("Testing with client3")
 	client3 := NewDNSClient(parent3, opts)
 	testData3 := randomData(2048)
-	clientSplitBuffer(t, client3, encoders.Base32{}, testData3)
+	clientSplitBuffer(t, client3, DNSBase32Encoder{}, testData3)
 
 	t.Logf("Testing with client max")
 	clientMax := NewDNSClient(parentMax, opts)
 	testDataMax := randomData(2048)
-	clientSplitBuffer(t, clientMax, encoders.Base32{}, testDataMax)
+	clientSplitBuffer(t, clientMax, DNSBase32Encoder{}, testDataMax)
 
 	t.Logf("Testing all clients with randomly sized data")
 	for _, client := range []*SliverDNSClient{client1, client2, client3} {
 		for count := 0; count < 10; count++ {
 			testData := randomDataRandomSize(2 * 1024 * 1024)
-			clientSplitBuffer(t, client, encoders.Base32{}, testData)
+			clientSplitBuffer(t, client, DNSBase32Encoder{}, testData)
 		}
 	}
 }
@@ -186,41 +186,41 @@ func TestSubdataSpace(t *testing.T) {
 
 	// 1.example.com. (14 chars parent, 240 chars subdata)
 	// Grand Total: 254 chars
-	//       parent |  subdata with '.'    | subdata without '.'
-	// 254 -   15   -  [64 - 64 - 64 - 47] = 63 + 63 + 63 + 46 (235)
+	//       parent |  subdata with '.'        | subdata without '.'
+	// 254 -   15   -  [64 - 64 - 64 - 47] - 1 = 63 + 63 + 63 + 46 (234)
 	// expected value is thus 235 (max chars without '.'), rounded down if applicable
 	client1 := NewDNSClient(parent1, opts)
-	if client1.subdataSpace != 235 {
+	if client1.subdataSpace != 234 {
 		t.Fatalf("Unexpected subdata space for parent %s: %d", parent1, client1.subdataSpace)
 	}
 
 	// .something-longer.example.com. (30 chars parent, 224 chars subdata)
 	// Grand Total: 254 chars
-	//       parent |  subdata with '.'    | subdata without '.'
-	// 254 -   30   -  [64 - 64 - 64 - 32] = 63 + 63 + 63 + 31 (220)
+	//       parent |  subdata with '.'         | subdata without '.'
+	// 254 -   30   -  [64 - 64 - 64 - 32] - 1  = 63 + 63 + 63 + 31 (219)
 	// expected value is thus 235 (max chars without '.'), rounded down if applicable
 	client2 := NewDNSClient(parent2, opts)
-	if client2.subdataSpace != 220 {
+	if client2.subdataSpace != 219 {
 		t.Fatalf("Unexpected subdata space for parent %s: %d", parent2, client2.subdataSpace)
 	}
 
 	// .something-even-longer.example.computer. (40 chars parent, 214 chars subdata)
 	// Grand Total: 254 chars
-	//       parent |  subdata with '.'    | subdata without '.'
-	// 254 -   40   -  [64 - 64 - 64 - 22] = 63 + 63 + 63 + 21 (210)
+	//       parent |  subdata with '.'         | subdata without '.'
+	// 254 -   40   -  [64 - 64 - 64 - 22] - 1  = 63 + 63 + 63 + 21 (209)
 	// expected value is thus 235 (max chars without '.'), rounded down if applicable
 	client3 := NewDNSClient(parent3, opts)
-	if client3.subdataSpace != 210 {
+	if client3.subdataSpace != 209 {
 		t.Fatalf("Unexpected subdata space for parent %s: %d", parent3, client3.subdataSpace)
 	}
 
 	// "maxParent" (154 chars parent, 100 chars subdata)
 	// Grand Total: 254 chars
-	//       parent  |  subdata with '.'    | subdata without '.'
-	// 254 -   154   -  [64 - 36]           = 63 + 35 (98)
+	//       parent  |  subdata with '.'       | subdata without '.'
+	// 254 -   154   -  [64 - 36]         - 1  = 63 + 35 (97)
 	// expected value is thus 98 (max chars without '.'), rounded down if applicable
 	clientMax := NewDNSClient(parentMax, opts)
-	if clientMax.subdataSpace != 98 {
+	if clientMax.subdataSpace != 97 {
 		t.Fatalf("Unexpected subdata space for parent %s: %d", parentMax, clientMax.subdataSpace)
 	}
 }

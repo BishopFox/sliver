@@ -103,7 +103,7 @@ func TestPendingEnvelopes(t *testing.T) {
 	}
 }
 
-func reassemble(t *testing.T, parent string, size int, encoder encoders.Encoder) {
+func reassemble(t *testing.T, _ string, size int, encoder encoders.Encoder) {
 	client := dnsclient.NewDNSClient(example1, opts)
 	dnsMsgs, original := randomDNSMsgs(t, example1, size, encoder, client)
 	dnsSession := DNSSession{
@@ -162,14 +162,80 @@ func TestIsC2Domain(t *testing.T) {
 	}
 }
 
-func TestDetermineLikelyEncoders(t *testing.T) {
-	listener := StartDNSListener("", uint16(9999), c2Domains, false, true)
-	sample := randomDataRandomSize(2048)
-	encodedSample, _ := encoders.Base58{}.Encode(sample)
-	b58Sample := string(encodedSample)
-	likelyEncoders := listener.determineLikelyEncoders(b58Sample)
-	_, err := likelyEncoders[0].Decode([]byte(b58Sample))
-	if err != nil {
-		t.Error("DetermineLikelyEncoders failed to decode sample")
+func TestDetermineEncoder1(t *testing.T) {
+	encoder := determineEncoder("a"[0])
+
+	// check which encoder type the encoder is
+	if encoder == nil {
+		t.Fatal("Expected encoder to not be nil")
+	}
+
+	// check if the encoder is the correct type
+	if _, ok := encoder.(encoders.Base32); !ok {
+		t.Fatalf("Expected encoder to be of type Base32 got %T", encoder)
+	}
+}
+
+func TestDetermineEncoder2(t *testing.T) {
+	encoder := determineEncoder("b"[0])
+
+	// check which encoder type the encoder is
+	if encoder == nil {
+		t.Fatal("Expected encoder to not be nil")
+	}
+
+	// check if the encoder is the correct type
+	if _, ok := encoder.(encoders.Base58); !ok {
+		t.Fatalf("Expected encoder to be of type Base58 got %T", encoder)
+	}
+}
+
+func TestDetermineEncoder3(t *testing.T) {
+	encoder := determineEncoder("1"[0])
+
+	// check which encoder type the encoder is
+	if encoder == nil {
+		t.Fatal("Expected encoder to not be nil")
+	}
+
+	// check if the encoder is the correct type
+	if _, ok := encoder.(encoders.Base32); !ok {
+		t.Fatalf("Expected encoder to be of type Base32 got %T", encoder)
+	}
+}
+
+func TestDetermineEncoder4(t *testing.T) {
+	alpha := "abcdefghijklmnopqrstuvwxyz"
+	for i := 0; i < 100; i++ {
+		index := insecureRand.Intn(len(alpha))
+		if index&1 == 1 {
+			index = index - 1
+		}
+		encoder := determineEncoder(alpha[index])
+
+		// check if the encoder is the correct type
+		if _, ok := encoder.(encoders.Base32); !ok {
+			t.Fatalf("Expected encoder to be of type Base32 got %T", encoder)
+		}
+	}
+}
+
+func TestDetermineEncoder5(t *testing.T) {
+	alpha := "abcdefghijklmnopqrstuvwxyz"
+	for i := 0; i < 100; i++ {
+		index := insecureRand.Intn(len(alpha))
+		if index&1 != 1 {
+			index = index + 1
+			if len(alpha) <= index {
+				index = index - 2
+			}
+		}
+
+		encoder := determineEncoder(alpha[index])
+
+		// check if the encoder is the correct type
+		if _, ok := encoder.(encoders.Base58); !ok {
+			t.Fatalf("Expected encoder to be of type Base58 got %T", encoder)
+		}
 	}
 }

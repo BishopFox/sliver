@@ -19,12 +19,12 @@ package c2
 
 	------------------------------------------------------------------------
 
-	We've put a little effort to making the server at least not super easily fingerprintable,
+	We've put a little effort to making the server at least not super easily finger printable,
 	though I'm guessing it's also still not super hard to do. The server must receive a valid
 	TOTP code before we start returning any non-error records. All requests must be formatted
 	as valid protobuf and contain a 24-bit "dns session ID" (16777216 possible values), and a
 	8 bit "message ID." The server only responds to non-TOTP queries with valid dns session IDs
-	16,777,216 can probably be bruteforced but it'll at least be slow.
+	16,777,216 can probably be brute-forced but it'll at least be slow.
 
 	DNS command and control outline:
 		1. Implant sends TOTP encoded message to DNS server, server checks validity
@@ -45,7 +45,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/dnspb"
@@ -387,7 +386,7 @@ func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 
 	// TOTP Handler can be called without dns session ID
 	if msg.Type == dnspb.DNSMessageType_TOTP {
-		return s.handleHello(domain, msg, req)
+		return s.handleHello(msg, req)
 	}
 
 	// All other handlers require a valid dns session ID
@@ -402,15 +401,15 @@ func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 	case dnspb.DNSMessageType_NOP:
 		return s.handleNOP(domain, msg, checksum, req)
 	case dnspb.DNSMessageType_INIT:
-		return s.handleDNSSessionInit(domain, msg, checksum, req)
+		return s.handleDNSSessionInit(msg, req)
 	case dnspb.DNSMessageType_POLL:
-		return s.handlePoll(domain, msg, checksum, req)
+		return s.handlePoll(msg, req)
 	case dnspb.DNSMessageType_DATA_FROM_IMPLANT:
-		return s.handleDataFromImplant(domain, msg, checksum, req)
+		return s.handleDataFromImplant(msg, checksum, req)
 	case dnspb.DNSMessageType_DATA_TO_IMPLANT:
-		return s.handleDataToImplant(domain, msg, checksum, req)
+		return s.handleDataToImplant(msg, req)
 	case dnspb.DNSMessageType_CLEAR:
-		return s.handleClear(domain, msg, checksum, req)
+		return s.handleClear(msg, checksum, req)
 	}
 	return nil
 }
@@ -420,31 +419,36 @@ func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 // of the plaintext data (that would be very bad).
 func (s *SliverDNSServer) decodeSubdata(subdomain string) (*dnspb.DNSMessage, uint32, error) {
 	subdata := strings.Join(strings.Split(subdomain, "."), "")
-	dnsLog.Debugf("subdata = %s", subdata)
-	encoders := s.determineLikelyEncoders(subdata)
-	for _, encoder := range encoders {
-		data, err := encoder.Decode([]byte(subdata))
-		if err == nil {
-			msg := &dnspb.DNSMessage{}
-			err = proto.Unmarshal(data, msg)
-			if err == nil {
-				return msg, crc32.ChecksumIEEE(data), nil
-			}
-		}
-		dnsLog.Debugf("failed to decode subdata with %#v (%s)", encoder, err)
+	if len(subdata) < 2 {
+		return nil, 0, ErrInvalidMsg
 	}
+	dnsLog.Debugf("subdata = %s", subdata)
+	encoder := determineEncoder(subdata[0])
+	data, err := encoder.Decode([]byte(subdata[1:]))
+	if err == nil {
+		msg := &dnspb.DNSMessage{}
+		err = proto.Unmarshal(data, msg)
+		if err == nil {
+			return msg, crc32.ChecksumIEEE(data), nil
+		}
+	}
+	dnsLog.Debugf("failed to decode subdata with %#v (%s)", encoder, err)
+
 	return nil, 0, ErrInvalidMsg
 }
 
 // Returns the most likely -> least likely encoders, if decoding fails fallback to
 // the next encoder until we run out of options.
-func (s *SliverDNSServer) determineLikelyEncoders(subdata string) []encoders.Encoder {
-	for _, char := range subdata {
-		if unicode.IsUpper(char) {
-			return []encoders.Encoder{encoders.Base58{}, encoders.Base32{}}
-		}
+func determineEncoder(firstChar byte) encoders.Encoder {
+	index := strings.Index("abcdefghijklmnopqrstuvwxyz", strings.ToLower(string(firstChar)))
+	if index == -1 {
+		return encoders.Base32{}
 	}
-	return []encoders.Encoder{encoders.Base32{}, encoders.Base58{}}
+	// if the index is odd, use base58, otherwise use base32
+	if index&1 == 1 {
+		return encoders.Base58{}
+	}
+	return encoders.Base32{}
 }
 
 func (s *SliverDNSServer) nameErrorResp(req *dns.Msg) *dns.Msg {
@@ -464,7 +468,7 @@ func (s *SliverDNSServer) refusedErrorResp(req *dns.Msg) *dns.Msg {
 // ---------------------------
 // DNS Message Handlers
 // ---------------------------
-func (s *SliverDNSServer) handleHello(domain string, msg *dnspb.DNSMessage, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handleHello(msg *dnspb.DNSMessage, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[dns] totp request: %v", msg)
 
 	dnsSessionID := dnsSessionID()
@@ -498,7 +502,7 @@ func (s *SliverDNSServer) handleHello(domain string, msg *dnspb.DNSMessage, req 
 	return resp
 }
 
-func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handleDNSSessionInit(msg *dnspb.DNSMessage, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[session init] with dns session id %d", msg.ID&sessionIDBitMask)
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
@@ -591,7 +595,7 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 	return resp
 }
 
-func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handlePoll(msg *dnspb.DNSMessage, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[poll] with dns session id %d", msg.ID&sessionIDBitMask)
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
@@ -621,7 +625,7 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 		}
 	}
 
-	respData := []byte{}
+	var respData []byte
 	dnsLog.Debugf("[poll] manifest %d (%d bytes)", msgID, msgLen)
 	respData, _ = proto.Marshal(&dnspb.DNSMessage{
 		Type: dnspb.DNSMessageType_MANIFEST,
@@ -672,7 +676,7 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 	return resp
 }
 
-func (s *SliverDNSServer) handleDataFromImplant(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handleDataFromImplant(msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[from implant] dns session id %d", msg.ID&sessionIDBitMask)
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
@@ -702,7 +706,7 @@ func (s *SliverDNSServer) handleDataFromImplant(domain string, msg *dnspb.DNSMes
 	return resp
 }
 
-func (s *SliverDNSServer) handleDataToImplant(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handleDataToImplant(msg *dnspb.DNSMessage, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[to implant] dns session id %d", msg.ID&sessionIDBitMask)
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
@@ -761,7 +765,7 @@ func (s *SliverDNSServer) handleDataToImplant(domain string, msg *dnspb.DNSMessa
 	return resp
 }
 
-func (s *SliverDNSServer) handleClear(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handleClear(msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[clear] dns session id %d", msg.ID&sessionIDBitMask)
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
@@ -802,7 +806,7 @@ func (s *SliverDNSServer) handleClear(domain string, msg *dnspb.DNSMessage, chec
 	return resp
 }
 
-func (s *SliverDNSServer) handleNOP(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handleNOP(_ string, _ *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[nop] request checksum: %d", checksum)
 	resp := new(dns.Msg)
 	resp.SetReply(req)

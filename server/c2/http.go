@@ -525,7 +525,6 @@ func (s *SliverHTTPC2) mainHandler(resp http.ResponseWriter, req *http.Request) 
 	// redirect to default page
 	httpLog.Debugf("No pattern matches for request uri")
 	s.defaultHandler(resp, req)
-	return
 }
 
 func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request) {
