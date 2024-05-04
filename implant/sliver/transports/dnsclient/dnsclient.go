@@ -591,7 +591,7 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	log.Printf("[dns] clear msg domain: %v", domain)
 	// {{end}}
 
-	respData, _, err = resolver.A(domain)
+	_, _, err = resolver.A(domain)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[dns] clear msg error: %s", err)
