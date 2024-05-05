@@ -169,5 +169,5 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["compress"] = carapace.ActionValues([]string{"zlib", "gzip", "deflate9", "none"}...).Tag("compression formats")
 	})
 
-	return []*cobra.Command{jobsCmd, mtlsCmd, wgCmd, httpCmd, httpsCmd, stageCmd}
+	return []*cobra.Command{jobsCmd, mtlsCmd, wgCmd, dnsCmd, httpCmd, httpsCmd, stageCmd}
 }
