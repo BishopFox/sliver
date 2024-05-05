@@ -86,7 +86,6 @@ func StartDNSListener(bindIface string, lport uint16, domains []string, canaries
 		messages:     &sync.Map{}, // In progress message streams
 		TTL:          0,
 		MaxTXTLength: defaultMaxTXTLength,
-		EnforceOTP:   enforceOTP,
 	}
 	dnsLog.Infof("Starting DNS listener for %v (canaries: %v) ...", domains, canaries)
 	dns.HandleFunc(".", func(writer dns.ResponseWriter, req *dns.Msg) {
@@ -316,7 +315,6 @@ type SliverDNSServer struct {
 	messages     *sync.Map
 	TTL          uint32
 	MaxTXTLength int
-	EnforceOTP   bool
 }
 
 // Shutdown - Shutdown the DNS server
