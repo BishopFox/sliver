@@ -440,7 +440,7 @@ github.com/jackc/puddle/v2/internal/genstack
 ## explicit
 github.com/jcmturner/gofork/encoding/asn1
 github.com/jcmturner/gofork/x/crypto/pbkdf2
-# github.com/jedib0t/go-pretty/v6 v6.5.8
+# github.com/jedib0t/go-pretty/v6 v6.5.9
 ## explicit; go 1.17
 github.com/jedib0t/go-pretty/v6/table
 github.com/jedib0t/go-pretty/v6/text
